@@ -90,8 +90,7 @@ find_neighbour(const unsigned char *address, struct interface *ifp)
 
     neigh = malloc(sizeof(struct neighbour));
     if(neigh == NULL) {
-        flog_err(BABEL_ERR_MEMORY, "malloc(neighbour): %s",
-		  safe_strerror(errno));
+        flog_err_sys(BABEL_ERR_MEMORY, "malloc(neighbour)");
         return NULL;
     }
 

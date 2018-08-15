@@ -745,7 +745,7 @@ flushbuf(struct interface *ifp)
                             babel_ifp->sendbuf, babel_ifp->buffered,
                             (struct sockaddr*)&sin6, sizeof(sin6));
             if(rc < 0)
-                flog_err(BABEL_ERR_PACKET, "send: %s", safe_strerror(errno));
+                flog_err_sys(BABEL_ERR_PACKET, "send");
         } else {
             flog_err(BABEL_ERR_PACKET,
 		      "Warning: bucket full, dropping packet to %s.",
@@ -870,8 +870,7 @@ start_unicast_message(struct neighbour *neigh, int type, int len)
     if(!unicast_buffer)
         unicast_buffer = malloc(UNICAST_BUFSIZE);
     if(!unicast_buffer) {
-        flog_err(BABEL_ERR_MEMORY, "malloc(unicast_buffer): %s",
-		  safe_strerror(errno));
+        flog_err_sys(BABEL_ERR_MEMORY, "malloc(unicast_buffer)");
         return -1;
     }
 
@@ -1007,8 +1006,7 @@ flush_unicast(int dofree)
                         unicast_buffer, unicast_buffered,
                         (struct sockaddr*)&sin6, sizeof(sin6));
         if(rc < 0)
-            flog_err(BABEL_ERR_PACKET, "send(unicast): %s",
-		      safe_strerror(errno));
+            flog_err_sys(BABEL_ERR_PACKET, "send(unicast)");
     } else {
         flog_err(BABEL_ERR_PACKET,
 		  "Warning: bucket full, dropping unicast packet to %s if %s.",
@@ -1318,8 +1316,7 @@ buffer_update(struct interface *ifp,
     again:
         babel_ifp->buffered_updates = malloc(n *sizeof(struct buffered_update));
         if(babel_ifp->buffered_updates == NULL) {
-            flog_err(BABEL_ERR_MEMORY, "malloc(buffered_updates): %s",
-		      safe_strerror(errno));
+            flog_err_sys(BABEL_ERR_MEMORY, "malloc(buffered_updates)");
             if(n > 4) {
                 /* Try again with a tiny buffer. */
                 n = 4;

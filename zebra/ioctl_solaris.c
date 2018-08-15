@@ -62,8 +62,8 @@ int if_ioctl(unsigned long request, caddr_t buffer)
 
 		sock = socket(AF_INET, SOCK_DGRAM, 0);
 		if (sock < 0) {
-			zlog_err("Cannot create UDP socket: %s",
-				 safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "Cannot create UDP socket");
 			exit(1);
 		}
 
@@ -92,8 +92,8 @@ int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 
 		sock = socket(AF_INET6, SOCK_DGRAM, 0);
 		if (sock < 0) {
-			zlog_err("Cannot create IPv6 datagram socket: %s",
-				 safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "Cannot create IPv6 datagram socket");
 			exit(1);
 		}
 

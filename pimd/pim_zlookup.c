@@ -103,8 +103,9 @@ static void zclient_lookup_failed(struct zclient *zlookup)
 {
 	if (zlookup->sock >= 0) {
 		if (close(zlookup->sock)) {
-			zlog_warn("%s: closing fd=%d: errno=%d %s", __func__,
-				  zlookup->sock, errno, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "%s: closing fd=%d", __func__,
+				      zlookup->sock);
 		}
 		zlookup->sock = -1;
 	}

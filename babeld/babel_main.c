@@ -224,8 +224,7 @@ babel_init_random(void)
 
     rc = read_random_bytes(&seed, sizeof(seed));
     if(rc < 0) {
-        flog_err_sys(LIB_ERR_SYSTEM_CALL, "read(random): %s",
-		  safe_strerror(errno));
+        flog_err_sys(LIB_ERR_SYSTEM_CALL, "read(random)");
         seed = 42;
     }
 
@@ -245,14 +244,13 @@ babel_replace_by_null(int fd)
 
     fd_null = open("/dev/null", O_RDONLY);
     if(fd_null < 0) {
-        flog_err_sys(LIB_ERR_SYSTEM_CALL, "open(null): %s", safe_strerror(errno));
+        flog_err_sys(LIB_ERR_SYSTEM_CALL, "open(null)");
         exit(1);
     }
 
     rc = dup2(fd_null, fd);
     if(rc < 0) {
-        flog_err_sys(LIB_ERR_SYSTEM_CALL, "dup2(null, 0): %s",
-		  safe_strerror(errno));
+        flog_err_sys(LIB_ERR_SYSTEM_CALL, "dup2(null, 0)");
         exit(1);
     }
 
@@ -271,12 +269,10 @@ babel_load_state_file(void)
 
     fd = open(state_file, O_RDONLY);
     if(fd < 0 && errno != ENOENT)
-        flog_err_sys(LIB_ERR_SYSTEM_CALL, "open(babel-state: %s)",
-		  safe_strerror(errno));
+        flog_err_sys(LIB_ERR_SYSTEM_CALL, "open(babel-state)");
     rc = unlink(state_file);
     if(fd >= 0 && rc < 0) {
-        flog_err_sys(LIB_ERR_SYSTEM_CALL, "unlink(babel-state): %s",
-		  safe_strerror(errno));
+        flog_err_sys(LIB_ERR_SYSTEM_CALL, "unlink(babel-state)");
         /* If we couldn't unlink it, it's probably stale. */
         goto fini;
     }
@@ -287,8 +283,7 @@ babel_load_state_file(void)
         long t;
         rc = read(fd, buf, 99);
         if(rc < 0) {
-            flog_err_sys(LIB_ERR_SYSTEM_CALL, "read(babel-state): %s",
-		      safe_strerror(errno));
+            flog_err_sys(LIB_ERR_SYSTEM_CALL, "read(babel-state)");
         } else {
             buf[rc] = '\0';
             rc = sscanf(buf, "%99s %d %ld\n", buf2, &s, &t);
@@ -352,8 +347,7 @@ babel_save_state_file(void)
     debugf(BABEL_DEBUG_COMMON, "Save state file.");
     fd = open(state_file, O_WRONLY | O_TRUNC | O_CREAT, 0644);
     if(fd < 0) {
-        flog_err_sys(LIB_ERR_SYSTEM_CALL, "creat(babel-state): %s",
-		  safe_strerror(errno));
+        flog_err_sys(LIB_ERR_SYSTEM_CALL, "creat(babel-state)");
         unlink(state_file);
     } else {
         struct timeval realnow;
@@ -368,8 +362,7 @@ babel_save_state_file(void)
         } else {
             rc = write(fd, buf, rc);
             if(rc < 0) {
-                flog_err(BABEL_ERR_CONFIG, "write(babel-state): %s",
-			  safe_strerror(errno));
+                flog_err_sys(BABEL_ERR_CONFIG, "write(babel-state)");
                 unlink(state_file);
             }
             fsync(fd);

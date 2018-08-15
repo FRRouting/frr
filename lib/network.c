@@ -78,13 +78,13 @@ int set_nonblocking(int fd)
 	   should
 	   never be negative. */
 	if ((flags = fcntl(fd, F_GETFL)) < 0) {
-		zlog_warn("fcntl(F_GETFL) failed for fd %d: %s", fd,
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "fcntl(F_GETFL) failed for fd %d", fd);
 		return -1;
 	}
 	if (fcntl(fd, F_SETFL, (flags | O_NONBLOCK)) < 0) {
-		zlog_warn("fcntl failed setting fd %d non-blocking: %s", fd,
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "fcntl failed setting fd %d non-blocking", fd);
 		return -1;
 	}
 	return 0;

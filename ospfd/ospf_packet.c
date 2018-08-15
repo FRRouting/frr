@@ -596,11 +596,12 @@ static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 		sockopt_iphdrincl_swab_systoh(iph);
 
 		if (ret < 0)
-			zlog_warn(
-				"*** ospf_write_frags: sendmsg failed to %s,"
-				" id %d, off %d, len %d, mtu %u failed with %s",
-				inet_ntoa(iph->ip_dst), iph->ip_id, iph->ip_off,
-				iph->ip_len, mtu, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "*** ospf_write_frags: sendmsg failed to %s,"
+				      " id %d, off %d, len %d, mtu %u failed with %s",
+				      inet_ntoa(iph->ip_dst), iph->ip_id,
+				      iph->ip_off,
+				      iph->ip_len, mtu, safe_strerror(errno));
 
 		if (IS_DEBUG_OSPF_PACKET(type - 1, SEND)) {
 			zlog_debug(
@@ -799,12 +800,13 @@ static int ospf_write(struct thread *thread)
 				iph.ip_len, oi->ifp->name, oi->ifp->mtu);
 
 		if (ret < 0)
-			zlog_warn(
-				"*** sendmsg in ospf_write failed to %s, "
-				"id %d, off %d, len %d, interface %s, mtu %u: %s",
-				inet_ntoa(iph.ip_dst), iph.ip_id, iph.ip_off,
-				iph.ip_len, oi->ifp->name, oi->ifp->mtu,
-				safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "*** sendmsg in ospf_write failed to %s, "
+				      "id %d, off %d, len %d, interface %s, mtu %u: %s",
+				      inet_ntoa(iph.ip_dst), iph.ip_id,
+				      iph.ip_off,
+				      iph.ip_len, oi->ifp->name, oi->ifp->mtu,
+				      safe_strerror(errno));
 
 		/* Show debug sending packet. */
 		if (IS_DEBUG_OSPF_PACKET(type - 1, SEND)) {
@@ -2270,7 +2272,7 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 
 	ret = stream_recvmsg(ibuf, fd, &msgh, 0, OSPF_MAX_PACKET_SIZE + 1);
 	if (ret < 0) {
-		zlog_warn("stream_recvmsg failed: %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "stream_recvmsg failed");
 		return NULL;
 	}
 	if ((unsigned int)ret < sizeof(iph)) /* ret must be > 0 now */

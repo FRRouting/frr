@@ -418,8 +418,7 @@ install_route(struct babel_route *route)
                       metric_to_kernel(route_metric(route)), NULL, 0, 0);
     if(rc < 0) {
         int save = errno;
-        flog_err(BABEL_ERR_ROUTE, "kernel_route(ADD): %s",
-		  safe_strerror(errno));
+        flog_err_sys(BABEL_ERR_ROUTE, "kernel_route(ADD)");
         if(save != EEXIST)
             return;
     }
@@ -441,8 +440,7 @@ uninstall_route(struct babel_route *route)
                       route->neigh->ifp->ifindex,
                       metric_to_kernel(route_metric(route)), NULL, 0, 0);
     if(rc < 0)
-        flog_err(BABEL_ERR_ROUTE, "kernel_route(FLUSH): %s",
-		  safe_strerror(errno));
+        flog_err_sys(BABEL_ERR_ROUTE, "kernel_route(FLUSH)");
 
     route->installed = 0;
 }
@@ -474,8 +472,7 @@ switch_routes(struct babel_route *old, struct babel_route *new)
                       new->nexthop, new->neigh->ifp->ifindex,
                       metric_to_kernel(route_metric(new)));
     if(rc < 0) {
-        flog_err(BABEL_ERR_ROUTE, "kernel_route(MODIFY): %s",
-		  safe_strerror(errno));
+        flog_err_sys(BABEL_ERR_ROUTE, "kernel_route(MODIFY)");
         return;
     }
 
@@ -503,8 +500,7 @@ change_route_metric(struct babel_route *route,
                           route->nexthop, route->neigh->ifp->ifindex,
                           new);
         if(rc < 0) {
-            flog_err(BABEL_ERR_ROUTE, "kernel_route(MODIFY metric): %s",
-		      safe_strerror(errno));
+            flog_err_sys(BABEL_ERR_ROUTE, "kernel_route(MODIFY metric)");
             return;
         }
     }

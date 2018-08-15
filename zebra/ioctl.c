@@ -58,8 +58,8 @@ int if_ioctl(unsigned long request, caddr_t buffer)
 	frr_elevate_privs(&zserv_privs) {
 		sock = socket(AF_INET, SOCK_DGRAM, 0);
 		if (sock < 0) {
-			zlog_err("Cannot create UDP socket: %s",
-				 safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "Cannot create UDP socket");
 			exit(1);
 		}
 		if ((ret = ioctl(sock, request, buffer)) < 0)
@@ -84,8 +84,8 @@ int vrf_if_ioctl(unsigned long request, caddr_t buffer, vrf_id_t vrf_id)
 	frr_elevate_privs(&zserv_privs) {
 		sock = vrf_socket(AF_INET, SOCK_DGRAM, 0, vrf_id, NULL);
 		if (sock < 0) {
-			zlog_err("Cannot create UDP socket: %s",
-				 safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "Cannot create UDP socket");
 			exit(1);
 		}
 		ret = vrf_ioctl(vrf_id, sock, request, buffer);
@@ -111,8 +111,8 @@ static int if_ioctl_ipv6(unsigned long request, caddr_t buffer)
 	frr_elevate_privs(&zserv_privs) {
 		sock = socket(AF_INET6, SOCK_DGRAM, 0);
 		if (sock < 0) {
-			zlog_err("Cannot create IPv6 datagram socket: %s",
-				 safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "Cannot create IPv6 datagram socket");
 			exit(1);
 		}
 
@@ -397,8 +397,7 @@ void if_get_flags(struct interface *ifp)
 	ret = vrf_if_ioctl(SIOCGIFFLAGS, (caddr_t)&ifreq, ifp->vrf_id);
 	if (ret < 0) {
 		flog_err_sys(LIB_ERR_SYSTEM_CALL,
-			     "vrf_if_ioctl(SIOCGIFFLAGS) failed: %s",
-			     safe_strerror(errno));
+			     "vrf_if_ioctl(SIOCGIFFLAGS) failed");
 		return;
 	}
 #ifdef HAVE_BSD_LINK_DETECT /* Detect BSD link-state at start-up */
@@ -416,8 +415,7 @@ void if_get_flags(struct interface *ifp)
 		/* Seems not all interfaces implement this ioctl */
 		if (if_ioctl(SIOCGIFMEDIA, (caddr_t)&ifmr) < 0)
 			flog_err_sys(LIB_ERR_SYSTEM_CALL,
-				     "if_ioctl(SIOCGIFMEDIA) failed: %s",
-				     safe_strerror(errno));
+				     "if_ioctl(SIOCGIFMEDIA) failed");
 		else if (ifmr.ifm_status & IFM_AVALID) /* Link state is valid */
 		{
 			if (ifmr.ifm_status & IFM_ACTIVE)

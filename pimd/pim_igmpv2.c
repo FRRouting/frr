@@ -89,10 +89,9 @@ void igmp_v2_send_query(struct igmp_group *group, int fd, const char *ifname,
 		pim_inet4_dump("<group?>", group_addr, group_str,
 			       sizeof(group_str));
 		if (sent < 0) {
-			zlog_warn(
-				"Send IGMPv2 QUERY failed due to %s on %s: group=%s msg_size=%zd: errno=%d: %s",
-				dst_str, ifname, group_str, msg_size, errno,
-				safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Send IGMPv2 QUERY failed due to %s on %s: group=%s msg_size=%zd",
+				      dst_str, ifname, group_str, msg_size);
 		} else {
 			zlog_warn(
 				"Send IGMPv2 QUERY failed due to %s on %s: group=%s msg_size=%zd: sent=%zd",

@@ -164,8 +164,7 @@ static int netlink_recvbuf(struct nlsock *nl, uint32_t newsize)
 	ret = getsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &oldsize, &oldlen);
 	if (ret < 0) {
 		flog_err_sys(LIB_ERR_SOCKET,
-			     "Can't get %s receive buffer size: %s", nl->name,
-			     safe_strerror(errno));
+			     "Can't get %s receive buffer size", nl->name);
 		return -1;
 	}
 
@@ -180,16 +179,14 @@ static int netlink_recvbuf(struct nlsock *nl, uint32_t newsize)
 				 &nl_rcvbufsize, sizeof(nl_rcvbufsize));
 	if (ret < 0) {
 		flog_err_sys(LIB_ERR_SOCKET,
-			     "Can't set %s receive buffer size: %s", nl->name,
-			     safe_strerror(errno));
+			     "Can't set %s receive buffer size", nl->name);
 		return -1;
 	}
 
 	ret = getsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &newsize, &newlen);
 	if (ret < 0) {
 		flog_err_sys(LIB_ERR_SOCKET,
-			     "Can't get %s receive buffer size: %s", nl->name,
-			     safe_strerror(errno));
+			     "Can't get %s receive buffer size", nl->name);
 		return -1;
 	}
 
@@ -210,8 +207,8 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	frr_elevate_privs(&zserv_privs) {
 		sock = ns_socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE, ns_id);
 		if (sock < 0) {
-			zlog_err("Can't open %s socket: %s", nl->name,
-				 safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "Can't open %s socket", nl->name);
 			return -1;
 		}
 
@@ -224,8 +221,9 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	}
 
 	if (ret < 0) {
-		zlog_err("Can't bind %s socket to group 0x%x: %s", nl->name,
-			 snl.nl_groups, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			     "Can't bind %s socket to group 0x%x", nl->name,
+			     snl.nl_groups);
 		close(sock);
 		return -1;
 	}
@@ -234,8 +232,8 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	namelen = sizeof snl;
 	ret = getsockname(sock, (struct sockaddr *)&snl, (socklen_t *)&namelen);
 	if (ret < 0 || namelen != sizeof snl) {
-		flog_err_sys(LIB_ERR_SOCKET, "Can't get %s socket name: %s",
-			     nl->name, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "Can't get %s socket name",
+			     nl->name);
 		close(sock);
 		return -1;
 	}
@@ -453,8 +451,8 @@ static void netlink_install_filter(int sock, __u32 pid)
 
 	if (setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &prog, sizeof(prog))
 	    < 0)
-		zlog_warn("Can't install socket filter: %s\n",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+		              "Can't install socket filter");
 }
 
 void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta,
@@ -696,9 +694,8 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 				continue;
 			if (errno == EWOULDBLOCK || errno == EAGAIN)
 				break;
-			flog_err(ZEBRA_ERR_RECVMSG_OVERRUN,
-				  "%s recvmsg overrun: %s", nl->name,
-				  safe_strerror(errno));
+			flog_err_sys(ZEBRA_ERR_RECVMSG_OVERRUN,
+				     "%s recvmsg overrun", nl->name);
 			/*
 			 *  In this case we are screwed.
 			 *  There is no good way to
@@ -957,8 +954,8 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	}
 
 	if (status < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "netlink_talk sendmsg() error: %s",
-			     safe_strerror(save_errno));
+		errno = save_errno;
+		flog_err_sys(LIB_ERR_SOCKET, "netlink_talk sendmsg() error");
 		return -1;
 	}
 
@@ -1000,8 +997,8 @@ int netlink_request(struct nlsock *nl, struct nlmsghdr *n)
 	}
 
 	if (ret < 0) {
-		zlog_err("%s sendto failed: %s", nl->name,
-			 safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL, "%s sendto failed",
+			     nl->name);
 		return -1;
 	}
 
@@ -1075,12 +1072,12 @@ void kernel_init(struct zebra_ns *zns)
 
 	/* Register kernel socket. */
 	if (fcntl(zns->netlink.sock, F_SETFL, O_NONBLOCK) < 0)
-		flog_err_sys(LIB_ERR_SOCKET, "Can't set %s socket flags: %s",
-			     zns->netlink.name, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "Can't set %s socket flags",
+			     zns->netlink.name);
 
 	if (fcntl(zns->netlink_cmd.sock, F_SETFL, O_NONBLOCK) < 0)
-		zlog_err("Can't set %s socket error: %s(%d)",
-			 zns->netlink_cmd.name, safe_strerror(errno), errno);
+		flog_err_sys(LIB_ERR_SYSTEM_CALL, "Can't set %s socket error",
+			     zns->netlink_cmd.name);
 
 	/* Set receive buffer size if it's set from command line */
 	if (nl_rcvbufsize)

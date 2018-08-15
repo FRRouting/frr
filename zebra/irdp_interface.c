@@ -133,10 +133,10 @@ static int if_group(struct interface *ifp, int sock, uint32_t group,
 	ret = setsockopt(sock, IPPROTO_IP, add_leave, (char *)&m,
 			 sizeof(struct ip_mreq));
 	if (ret < 0)
-		zlog_warn("IRDP: %s can't setsockopt %s: %s",
-			  add_leave == IP_ADD_MEMBERSHIP ? "join group"
-							 : "leave group",
-			  inet_2a(group, b1), safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "IRDP: %s can't setsockopt %s",
+			      add_leave == IP_ADD_MEMBERSHIP ? "join group" : "leave group",
+			      inet_2a(group, b1));
 
 	return ret;
 }

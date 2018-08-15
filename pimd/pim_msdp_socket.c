@@ -43,9 +43,7 @@ static void pim_msdp_update_sock_send_buffer_size(int fd)
 	socklen_t optlen = sizeof(optval);
 
 	if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &optval, &optlen) < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
-			     "getsockopt of SO_SNDBUF failed %s\n",
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "getsockopt of SO_SNDBUF failed");
 		return;
 	}
 
@@ -53,8 +51,7 @@ static void pim_msdp_update_sock_send_buffer_size(int fd)
 		if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size))
 		    < 0) {
 			flog_err_sys(LIB_ERR_SOCKET,
-				     "Couldn't increase send buffer: %s\n",
-				     safe_strerror(errno));
+				     "Couldn't increase send buffer");
 		}
 	}
 }
@@ -85,8 +82,7 @@ static int pim_msdp_sock_accept(struct thread *thread)
 	/* accept client connection. */
 	msdp_sock = sockunion_accept(accept_sock, &su);
 	if (msdp_sock < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "pim_msdp_sock_accept failed (%s)",
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "pim_msdp_sock_accept failed");
 		return -1;
 	}
 
@@ -141,8 +137,7 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "socket: %s",
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "socket");
 		return sock;
 	}
 
@@ -169,8 +164,8 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 		}
 		if (pim_socket_bind(sock, ifp)) {
 			flog_err_sys(LIB_ERR_SOCKET,
-				     "%s: Unable to bind to socket: %s",
-				     __PRETTY_FUNCTION__, safe_strerror(errno));
+				     "%s: Unable to bind to socket",
+				     __PRETTY_FUNCTION__);
 			close(sock);
 			return -1;
 		}
@@ -183,16 +178,15 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 
 	if (rc < 0) {
 		flog_err_sys(LIB_ERR_SOCKET,
-			     "pim_msdp_socket bind to port %d: %s",
-			     ntohs(sin.sin_port), safe_strerror(errno));
+			     "pim_msdp_socket bind to port %d",
+			     ntohs(sin.sin_port));
 		close(sock);
 		return rc;
 	}
 
 	rc = listen(sock, 3 /* backlog */);
 	if (rc < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "pim_msdp_socket listen: %s",
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "pim_msdp_socket listen");
 		close(sock);
 		return rc;
 	}
@@ -232,9 +226,7 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 	/* Make socket for the peer. */
 	mp->fd = sockunion_socket(&mp->su_peer);
 	if (mp->fd < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
-			     "pim_msdp_socket socket failure: %s",
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "pim_msdp_socket socket failure");
 		return -1;
 	}
 
@@ -249,8 +241,8 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 		}
 		if (pim_socket_bind(mp->fd, ifp)) {
 			flog_err_sys(LIB_ERR_SOCKET,
-				     "%s: Unable to bind to socket: %s",
-				     __PRETTY_FUNCTION__, safe_strerror(errno));
+				     "%s: Unable to bind to socket",
+				     __PRETTY_FUNCTION__);
 			close(mp->fd);
 			mp->fd = -1;
 			return -1;
@@ -268,8 +260,7 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 	rc = sockunion_bind(mp->fd, &mp->su_local, 0, &mp->su_local);
 	if (rc < 0) {
 		flog_err_sys(LIB_ERR_SOCKET,
-			     "pim_msdp_socket connect bind failure: %s",
-			     safe_strerror(errno));
+			     "pim_msdp_socket connect bind failure");
 		close(mp->fd);
 		mp->fd = -1;
 		return rc;

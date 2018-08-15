@@ -374,10 +374,7 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 
 	ret = sendmsg(sock, &msg, 0);
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
-			     "%s(%u): Tx RA failed, socket %u error %d (%s)",
-			     ifp->name, ifp->ifindex, sock, errno,
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "%s(%u): Tx RA failed, socket %u error", ifp->name, ifp->ifindex, sock);
 	} else
 		zif->ra_sent++;
 }
@@ -614,8 +611,8 @@ static int rtadv_read(struct thread *thread)
 				&hoplimit);
 
 	if (len < 0) {
-		zlog_warn("RA/RS recv failed, socket %u error %s", sock,
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "RA/RS recv failed, socket %u error", sock);
 		return len;
 	}
 
@@ -1757,15 +1754,16 @@ static int if_join_all_router(int sock, struct interface *ifp)
 	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_JOIN_GROUP, (char *)&mreq,
 			 sizeof mreq);
 	if (ret < 0)
-		zlog_warn("%s(%u): Failed to join group, socket %u error %s",
-			  ifp->name, ifp->ifindex, sock, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s(%u): Failed to join group, socket %u error",
+			      ifp->name, ifp->ifindex, sock);
 
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug(
-			"%s(%u): Join All-Routers multicast group, socket %u",
-			ifp->name, ifp->ifindex, sock);
+if (IS_ZEBRA_DEBUG_EVENT)
+	zlog_debug(
+		   "%s(%u): Join All-Routers multicast group, socket %u",
+		       ifp->name, ifp->ifindex, sock);
 
-	return 0;
+return 0;
 }
 
 static int if_leave_all_router(int sock, struct interface *ifp)
@@ -1781,15 +1779,16 @@ static int if_leave_all_router(int sock, struct interface *ifp)
 	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_LEAVE_GROUP, (char *)&mreq,
 			 sizeof mreq);
 	if (ret < 0)
-		zlog_warn("%s(%u): Failed to leave group, socket %u error %s",
-			  ifp->name, ifp->ifindex, sock, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s(%u): Failed to leave group, socket %u error",
+			      ifp->name, ifp->ifindex, sock);
 
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug(
-			"%s(%u): Leave All-Routers multicast group, socket %u",
-			ifp->name, ifp->ifindex, sock);
+if (IS_ZEBRA_DEBUG_EVENT)
+	zlog_debug(
+		   "%s(%u): Leave All-Routers multicast group, socket %u",
+		       ifp->name, ifp->ifindex, sock);
 
-	return 0;
+return 0;
 }
 
 #else

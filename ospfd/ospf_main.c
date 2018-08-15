@@ -213,8 +213,7 @@ int main(int argc, char **argv)
 	   ospf',
 	   when quagga(ospfd) is restarted */
 	if (!ospf_get_instance(instance)) {
-		flog_err(OSPF_ERR_INIT_FAIL, "OSPF instance init failed: %s",
-			  strerror(errno));
+		flog_err_sys(OSPF_ERR_INIT_FAIL, "OSPF instance init failed");
 		exit(1);
 	}
 

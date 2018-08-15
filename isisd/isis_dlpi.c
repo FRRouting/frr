@@ -514,8 +514,8 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 	retv = getmsg(circuit->fd, &ctlbuf, &databuf, &flags);
 
 	if (retv < 0) {
-		zlog_warn("isis_recv_pdu_bcast: getmsg failed: %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "isis_recv_pdu_bcast: getmsg failed");
 		return ISIS_WARNING;
 	}
 
@@ -599,8 +599,9 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 	rv = dlpisend(circuit->fd, dur, sizeof(*dur) + dur->dl_dest_addr_length,
 		      sock_buff, buflen, 0);
 	if (rv < 0) {
-		zlog_warn("IS-IS dlpi: could not transmit packet on %s: %s",
-			  circuit->interface->name, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "IS-IS dlpi: could not transmit packet on %s",
+			      circuit->interface->name);
 		if (ERRNO_IO_RETRY(errno))
 			return ISIS_WARNING;
 		return ISIS_ERROR;

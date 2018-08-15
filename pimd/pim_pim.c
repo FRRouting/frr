@@ -100,10 +100,9 @@ static void sock_close(struct interface *ifp)
 	 * If the fd is already deleted no need to do anything here
 	 */
 	if (pim_ifp->pim_sock_fd > 0 && close(pim_ifp->pim_sock_fd)) {
-		zlog_warn(
-			"Failure closing PIM socket fd=%d on interface %s: errno=%d: %s",
-			pim_ifp->pim_sock_fd, ifp->name, errno,
-			safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Failure closing PIM socket fd=%d on interface %s",
+			      pim_ifp->pim_sock_fd, ifp->name);
 	}
 
 	pim_ifp->pim_sock_fd = -1;
@@ -503,10 +502,10 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 			if (PIM_DEBUG_PIM_PACKETS) {
 				pim_inet4_dump("<dst?>", ip->ip_dst, dst_str,
 					       sizeof(dst_str));
-				zlog_warn(
-					"%s: sendto() failure to %s: fd=%d msg_size=%zd: errno=%d: %s",
-					__PRETTY_FUNCTION__, dst_str, fd, len,
-					errno, safe_strerror(errno));
+				flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+					      "%s: sendto() failure to %s: fd=%d msg_size=%zd",
+					      __PRETTY_FUNCTION__, dst_str,
+					      fd, len);
 			}
 			return -1;
 			break;

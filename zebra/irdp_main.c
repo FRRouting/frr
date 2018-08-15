@@ -97,16 +97,16 @@ int irdp_sock_init(void)
 	i = 1;
 	ret = setsockopt(sock, IPPROTO_IP, IP_TTL, (void *)&i, sizeof(i));
 	if (ret < 0) {
-		zlog_warn("IRDP: can't do irdp sockopt %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "IRDP: can't do irdp sockopt");
 		close(sock);
 		return ret;
 	};
 
 	ret = setsockopt_ifindex(AF_INET, sock, 1);
 	if (ret < 0) {
-		zlog_warn("IRDP: can't do irdp sockopt %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "IRDP: can't do irdp sockopt");
 		close(sock);
 		return ret;
 	};

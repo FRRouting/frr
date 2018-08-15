@@ -288,9 +288,8 @@ zebra_privs_current_t zprivs_state_caps(void)
 		if (cap_get_flag(zprivs_state.caps,
 				 zprivs_state.syscaps_p->caps[i], CAP_EFFECTIVE,
 				 &val)) {
-			zlog_warn(
-				"zprivs_state_caps: could not cap_get_flag, %s",
-				safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "zprivs_state_caps: could not cap_get_flag");
 			return ZPRIVS_UNKNOWN;
 		}
 		if (val == CAP_SET)
@@ -706,8 +705,8 @@ struct zebra_privs_t *_zprivs_raise(struct zebra_privs_t *privs,
 
 	errno = 0;
 	if (privs->change(ZPRIVS_RAISE)) {
-		zlog_err("%s: Failed to raise privileges (%s)",
-			 funcname, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			     "%s: Failed to raise privileges", funcname);
 	}
 	errno = save_errno;
 	privs->raised_in_funcname = funcname;
@@ -723,8 +722,9 @@ void _zprivs_lower(struct zebra_privs_t **privs)
 
 	errno = 0;
 	if ((*privs)->change(ZPRIVS_LOWER)) {
-		zlog_err("%s: Failed to lower privileges (%s)",
-			 (*privs)->raised_in_funcname, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			     "%s: Failed to lower privileges",
+			     (*privs)->raised_in_funcname);
 	}
 	errno = save_errno;
 	(*privs)->raised_in_funcname = NULL;

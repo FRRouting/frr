@@ -83,9 +83,8 @@ static int relay_response_back(void)
 	ret = zclient_read_header(src, zclient->sock, &size, &marker, &version,
 				  &vrf_id, &resp_cmd);
 	if (ret < 0 && errno != EAGAIN) {
-		flog_err(ZEBRA_ERR_LM_RESPONSE,
-			  "Error reading Label Manager response: %s",
-			  strerror(errno));
+		flog_err_sys(ZEBRA_ERR_LM_RESPONSE,
+			     "Error reading Label Manager response");
 		return -1;
 	}
 	zlog_debug("Label Manager response received, %d bytes", size);
@@ -119,9 +118,9 @@ static int relay_response_back(void)
 	/* send response back */
 	ret = writen(zserv->sock, dst->data, stream_get_endp(dst));
 	if (ret <= 0) {
-		flog_err(ZEBRA_ERR_LM_RELAY_FAILED,
-			  "Error relaying LM response to %s instance %u: %s",
-			  proto_str, instance, strerror(errno));
+		flog_err_sys(ZEBRA_ERR_LM_RELAY_FAILED,
+			     "Error relaying LM response to %s instance %u",
+			     proto_str, instance);
 		return -1;
 	}
 	zlog_debug("Relayed LM response (%d bytes) to %s instance %u", ret,
@@ -239,9 +238,9 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
 	/* Send request to external label manager */
 	ret = writen(zclient->sock, dst->data, stream_get_endp(dst));
 	if (ret <= 0) {
-		flog_err(ZEBRA_ERR_LM_RELAY_FAILED,
-			  "Error relaying LM request from %s instance %u: %s",
-			  proto_str, instance, strerror(errno));
+		flog_err_sys(ZEBRA_ERR_LM_RELAY_FAILED,
+			     "Error relaying LM request from %s instance %u",
+			     proto_str, instance);
 		reply_error(cmd, zserv, vrf_id);
 		return -1;
 	}

@@ -446,12 +446,12 @@ int eigrp_write(struct thread *thread)
 	}
 
 	if (ret < 0)
-		zlog_warn(
-			"*** sendmsg in eigrp_write failed to %s, "
-			"id %d, off %d, len %d, interface %s, mtu %u: %s",
-			inet_ntoa(iph.ip_dst), iph.ip_id, iph.ip_off,
-			iph.ip_len, ei->ifp->name, ei->ifp->mtu,
-			safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "*** sendmsg in eigrp_write failed to %s, "
+			      "id %d, off %d, len %d, interface %s, mtu %u: %s",
+			      inet_ntoa(iph.ip_dst), iph.ip_id, iph.ip_off,
+			      iph.ip_len, ei->ifp->name, ei->ifp->mtu,
+			      safe_strerror(errno));
 
 	/* Now delete packet from queue. */
 	eigrp_packet_delete(ei);
@@ -726,7 +726,7 @@ static struct stream *eigrp_recv_packet(int fd, struct interface **ifp,
 
 	ret = stream_recvmsg(ibuf, fd, &msgh, 0, (EIGRP_PACKET_MAX_LEN + 1));
 	if (ret < 0) {
-		zlog_warn("stream_recvmsg failed: %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "stream_recvmsg failed");
 		return NULL;
 	}
 	if ((unsigned int)ret < sizeof(*iph)) /* ret must be > 0 now */
