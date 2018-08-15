@@ -24,6 +24,78 @@
 #include "bgp_errors.h"
 
 /* clang-format off */
+static struct log_ref ferr_bgp_warn[] = {
+	{
+		.code = BGP_WARN_ASPATH_FEWER_HOPS,
+		.title = "BGP AS-path conversion has failed",
+		.description = "BGP has attempted to convert a AS2 to AS4 path and has failed",
+		.suggestion = "Open an Issue with all relevant log files and restart FRR"
+	},
+	{
+		.code = BGP_WARN_DEFUNCT_SNPA_LEN,
+		.title = "BGP has received a value in a reserved field",
+		.description = "BGP has received a non-zero value in a reserved field that was used for SNPA-length at one point in time",
+		.suggestion = "BGP has peered with either a router that is attempting to send SNPA data or it has received a corrupted packet.  If we are peering with a SNPA aware router(unlikely) upgrade that router, else open an Issue after gathering relevant log files",
+	},
+	{
+		.code = BGP_WARN_MISSING_ATTRIBUTE,
+		.title = "BGP has received an update with missing a missing attribute",
+		.description = "BGP received update packets must have some minimum attribute information within them",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_ATTRIBUTE_TOO_SMALL,
+		.title = "BGP udate packet with attribute data that is too small",
+		.description = "BGP has received an update packet that is too small to parse a given attribute.  This typically means that something has gone wrong between us and the remote peer",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_EXT_ATTRIBUTE_TOO_SMALL,
+		.title = "BGP udate packet with extended attribute data that is too small",
+		.description = "BGP has received an update packet that is too small to parse a given extended attribute.  This typically means that something has gone wrong between us and the remote peer",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_ATTRIBUTE_REPEATED,
+		.title = "BGP update packet received with a repeated attribute",
+		.description = "BGP has received an update packet with a attribute that is repeated more than one time for a particular route.  This typically means that something has gone wrong between us and the remote peer",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_ATTRIBUTE_TOO_LARGE,
+		.title = "BGP udate packet with attribute data that is too large",
+		.description = "BGP has received an update packet that has too much data in a particular attribute.  This typically means that something has gone wrong between us and the remote peer",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_ATTRIBUTE_PARSE_ERROR,
+		.title = "BGP update packet with attribute data has a parse error, specific to the attribute",
+		.description = "BGP has received an update packet with an attribute that when parsed does not make sense in some manner",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_ATTRIBUTE_PARSE_WITHDRAW,
+		.title = "BGP update packet with a broken optional attribute has caused a withdraw of associated routes",
+		.description = "BGP has received a update packet with optional attributes that did not parse correctly, instead of resetting the peer, withdraw associated routes and note that this has happened",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_ATTRIBUTE_FETCH_ERROR,
+		.title = "BGP update packet with a broken length",
+		.description = "BGP has received a update packet with an attribute that has an incorrect length",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_ATTRIBUTES_MISMATCH,
+		.title = "BGP update packet with a length different than attribute data length",
+		.description = "BGP has received a update packet with attributes that when parsed do not correctly add up to packet data length",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = END_FERR,
+	}
+};
+
 static struct log_ref ferr_bgp_err[] = {
 	{
 		.code = BGP_ERR_ATTR_FLAG,
@@ -302,5 +374,6 @@ static struct log_ref ferr_bgp_err[] = {
 
 void bgp_error_init(void)
 {
+	log_ref_add(ferr_bgp_warn);
 	log_ref_add(ferr_bgp_err);
 }
