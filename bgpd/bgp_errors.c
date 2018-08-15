@@ -92,6 +92,12 @@ static struct log_ref ferr_bgp_warn[] = {
 		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
 	},
 	{
+		.code = BGP_WARN_DUMP,
+		.title = "BGP MRT dump subsystem has encountered an issue",
+		.description = "BGP has found that the attempted write of MRT data to a dump file has failed",
+		.suggestion = "Ensure BGP has permissions to write the specified file",
+	},
+	{
 		.code = END_FERR,
 	}
 };

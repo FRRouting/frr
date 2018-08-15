@@ -83,6 +83,7 @@ enum bgp_log_refs {
 	BGP_WARN_ATTRIBUTE_PARSE_WITHDRAW,
 	BGP_WARN_ATTRIBUTE_FETCH_ERROR,
 	BGP_WARN_ATTRIBUTES_MISMATCH,
+	BGP_WARN_DUMP,
 };
 
 extern void bgp_error_init(void);
