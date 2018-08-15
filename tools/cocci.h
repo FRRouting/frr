@@ -27,3 +27,14 @@
 		struct type *le_next;  /* next element */                      \
 		struct type **le_prev; /* address of previous next element */  \
 	}
+
+#define __attribute__(x)
+#define PRINTF_ATTRIBUTE(x,y)
+#define _Atomic
+
+#define frr_elevate_privs(x) while (x)
+
+#define RB_ENTRY(x) struct rb_entry
+#define QOBJ_FIELDS int dummy;
+
+#define RB_FOREACH(a, b, c) for (;;)
