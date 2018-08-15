@@ -126,13 +126,7 @@ include staticd/subdir.am
 include bfdd/subdir.am
 
 include vtysh/subdir.am
-
-SUBDIRS = . \
-         tests
-
-DIST_SUBDIRS = . \
-	  tests \
-	  # end
+include tests/subdir.am
 
 if PKGSRC
 rcdir=@pkgsrcrcdir@

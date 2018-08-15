@@ -2008,7 +2008,6 @@ AC_MSG_RESULT($ac_cv_htonl_works)
 AC_CONFIG_FILES([Makefile],[sed -e 's/^#AUTODERP# //' -i Makefile])
 
 AC_CONFIG_FILES([
-	  tests/Makefile
 	  redhat/frr.spec
 	  solaris/Makefile
 	  debianpkg/changelog
