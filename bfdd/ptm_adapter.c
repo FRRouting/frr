@@ -276,7 +276,7 @@ static void _ptm_msg_read_address(struct stream *msg, struct sockaddr_any *sa)
 		return;
 
 	default:
-		log_warning("%s: invalid family: %d", __func__, family);
+		log_warning("ptm-read-address: invalid family: %d", family);
 		break;
 	}
 
@@ -331,7 +331,7 @@ static int _ptm_msg_read(struct stream *msg, int command,
 
 	*pc = pc_new(pid);
 	if (*pc == NULL) {
-		log_debug("%s: failed to allocate memory", __func__);
+		log_debug("ptm-read: failed to allocate memory");
 		return -1;
 	}
 
@@ -372,8 +372,8 @@ static int _ptm_msg_read(struct stream *msg, int command,
 		 * structure, otherwise fail.
 		 */
 		STREAM_GETC(msg, ifnamelen);
-		if (ifnamelen > sizeof(bpc->bpc_localif)) {
-			log_error("%s: interface name is too big", __func__);
+		if (ifnamelen >= sizeof(bpc->bpc_localif)) {
+			log_error("ptm-read: interface name is too big");
 			return -1;
 		}
 
@@ -388,8 +388,7 @@ static int _ptm_msg_read(struct stream *msg, int command,
 	if (bpc->bpc_local.sa_sin.sin_family != 0
 	    && (bpc->bpc_local.sa_sin.sin_family
 		!= bpc->bpc_peer.sa_sin.sin_family)) {
-		log_warning("%s: peer family doesn't match local type",
-			    __func__);
+		log_warning("ptm-read: peer family doesn't match local type");
 		return -1;
 	}
 
@@ -417,7 +416,7 @@ static void bfdd_dest_register(struct stream *msg)
 	if (bs == NULL) {
 		bs = ptm_bfd_sess_new(&bpc);
 		if (bs == NULL) {
-			log_debug("%s: failed to create BFD session", __func__);
+			log_debug("ptm-add-dest: failed to create BFD session");
 			return;
 		}
 	} else {
@@ -430,7 +429,7 @@ static void bfdd_dest_register(struct stream *msg)
 	/* Create client peer notification register. */
 	pcn = pcn_new(pc, bs);
 	if (pcn == NULL) {
-		log_error("%s: failed to registrate notifications", __func__);
+		log_error("ptm-add-dest: failed to registrate notifications");
 		return;
 	}
 
@@ -453,7 +452,7 @@ static void bfdd_dest_deregister(struct stream *msg)
 	/* Find or start new BFD session. */
 	bs = bs_peer_find(&bpc);
 	if (bs == NULL) {
-		log_debug("%s: failed to create BFD session", __func__);
+		log_debug("ptm-del-dest: failed to find BFD session");
 		return;
 	}
 
@@ -476,14 +475,14 @@ static void bfdd_client_register(struct stream *msg)
 
 	pc = pc_new(pid);
 	if (pc == NULL) {
-		log_error("%s: failed to register client: %u", __func__, pid);
+		log_error("ptm-add-client: failed to register client: %u", pid);
 		return;
 	}
 
 	return;
 
 stream_failure:
-	log_error("%s: failed to register client", __func__);
+	log_error("ptm-add-client: failed to register client");
 }
 
 /*
@@ -500,7 +499,7 @@ static void bfdd_client_deregister(struct stream *msg)
 
 	pc = pc_lookup(pid);
 	if (pc == NULL) {
-		log_debug("%s: failed to find client: %u", __func__, pid);
+		log_debug("ptm-del-client: failed to find client: %u", pid);
 		return;
 	}
 
@@ -509,7 +508,7 @@ static void bfdd_client_deregister(struct stream *msg)
 	return;
 
 stream_failure:
-	log_error("%s: failed to deregister client", __func__);
+	log_error("ptm-del-client: failed to deregister client");
 }
 
 static int bfdd_replay(int cmd, struct zclient *zc, uint16_t len, vrf_id_t vid)
@@ -535,14 +534,14 @@ static int bfdd_replay(int cmd, struct zclient *zc, uint16_t len, vrf_id_t vid)
 		break;
 
 	default:
-		log_debug("%s: invalid message type %u", __func__, rcmd);
+		log_debug("ptm-replay: invalid message type %u", rcmd);
 		return -1;
 	}
 
 	return 0;
 
 stream_failure:
-	log_error("%s: failed to find command", __func__);
+	log_error("ptm-replay: failed to find command");
 	return -1;
 }
 
