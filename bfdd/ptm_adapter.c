@@ -286,7 +286,7 @@ static int _ptm_msg_read(struct stream *msg, int command,
 			 struct bfd_peer_cfg *bpc, struct ptm_client **pc)
 {
 	uint32_t pid;
-	uint8_t ttl;
+	uint8_t ttl __attribute__((unused));
 	uint8_t ifnamelen;
 
 	/*
@@ -360,12 +360,6 @@ static int _ptm_msg_read(struct stream *msg, int command,
 		/* Read multihop source address and TTL. */
 		_ptm_msg_read_address(msg, &bpc->bpc_local);
 		STREAM_GETC(msg, ttl);
-
-		/*
-		 * TODO: use TTL for something. The line below removes
-		 * an unused variable compiler warning.
-		 */
-		ttl = ttl;
 	} else {
 		/* If target is IPv6, then we must obtain local address. */
 		if (bpc->bpc_ipv4 == false)
