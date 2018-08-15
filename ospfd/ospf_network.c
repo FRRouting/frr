@@ -53,10 +53,9 @@ int ospf_if_add_allspfrouters(struct ospf *top, struct prefix *p,
 	if (ret < 0)
 		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
 			      "can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
-			      "ifindex %u, AllSPFRouters): %s; perhaps a kernel limit "
+			      "ifindex %u, AllSPFRouters); perhaps a kernel limit "
 			      "on # of multicast group memberships has been exceeded?",
-			      top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			      safe_strerror(errno));
+			      top->fd, inet_ntoa(p->u.prefix4), ifindex);
 	else {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
@@ -78,9 +77,8 @@ int ospf_if_drop_allspfrouters(struct ospf *top, struct prefix *p,
 	if (ret < 0)
 		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
 			      "can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, "
-			      "ifindex %u, AllSPFRouters): %s",
-			      top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			      safe_strerror(errno));
+			      "ifindex %u, AllSPFRouters)",
+			      top->fd, inet_ntoa(p->u.prefix4), ifindex);
 	else {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
@@ -103,10 +101,9 @@ int ospf_if_add_alldrouters(struct ospf *top, struct prefix *p,
 	if (ret < 0)
 		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
 			      "can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
-			      "ifindex %u, AllDRouters): %s; perhaps a kernel limit "
+			      "ifindex %u, AllDRouters); perhaps a kernel limit "
 			      "on # of multicast group memberships has been exceeded?",
-			      top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			      safe_strerror(errno));
+			      top->fd, inet_ntoa(p->u.prefix4), ifindex);
 	else
 		zlog_debug(
 			"interface %s [%u] join AllDRouters Multicast group.",
@@ -126,9 +123,8 @@ int ospf_if_drop_alldrouters(struct ospf *top, struct prefix *p,
 	if (ret < 0)
 		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
 			      "can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, "
-			      "ifindex %u, AllDRouters): %s",
-			      top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			      safe_strerror(errno));
+			      "ifindex %u, AllDRouters)",
+			      top->fd, inet_ntoa(p->u.prefix4), ifindex);
 	else
 		zlog_debug(
 			"interface %s [%u] leave AllDRouters Multicast group.",
@@ -166,9 +162,8 @@ int ospf_if_ipmulticast(struct ospf *top, struct prefix *p, ifindex_t ifindex)
 	if (ret < 0)
 		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
 			      "can't setsockopt IP_MULTICAST_IF(fd %d, addr %s, "
-			      "ifindex %u): %s",
-			      top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			      safe_strerror(errno));
+			      "ifindex %u)",
+			      top->fd, inet_ntoa(p->u.prefix4), ifindex);
 #endif
 
 	return ret;

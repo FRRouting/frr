@@ -259,8 +259,7 @@ babel_get_myid(void)
 
     rc = read_random_bytes(myid, 8);
     if(rc < 0) {
-        flog_err_sys(BABEL_ERR_CONFIG, "read(random): %s (cannot assign an ID)",
-		  safe_strerror(errno));
+        flog_err_sys(BABEL_ERR_CONFIG, "read(random) (cannot assign an ID)");
         exit(1);
     }
     /* Clear group and global bits */

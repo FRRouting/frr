@@ -78,19 +78,14 @@ int irdp_timer_interval = IRDP_DEFAULT_INTERVAL;
 int irdp_sock_init(void)
 {
 	int ret, i;
-	int save_errno;
 	int sock;
 
 	frr_elevate_privs(&zserv_privs) {
-
 		sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-		save_errno = errno;
-
 	}
 
 	if (sock < 0) {
-		zlog_warn("IRDP: can't create irdp socket %s",
-			  safe_strerror(save_errno));
+		flog_warn_sys(LIB_ERR_SOCKET, "IRDP: can't create irdp socket");
 		return sock;
 	};
 

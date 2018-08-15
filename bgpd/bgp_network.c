@@ -83,9 +83,12 @@ static int bgp_md5_set_socket(int socket, union sockunion *su,
 	en = errno;
 #endif /* HAVE_TCP_MD5SIG */
 
-	if (ret < 0)
-		zlog_warn("can't set TCP_MD5SIG option on socket %d: %s",
-			  socket, safe_strerror(en));
+	if (ret < 0) {
+		errno = en;
+		flog_warn_sys(LIB_ERR_SOCKET,
+			      "can't set TCP_MD5SIG option on socket %d",
+			      socket);
+	}
 
 	return ret;
 }
@@ -221,10 +224,9 @@ static int bgp_get_instance_for_inc_conn(int sock, struct bgp **bgp_inst)
 	rc = getsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, name, &name_len);
 	if (rc != 0) {
 #if defined(HAVE_CUMULUS)
-		flog_err(
-			LIB_ERR_SOCKET,
-			"[Error] BGP SO_BINDTODEVICE get failed (%s), sock %d",
-			safe_strerror(errno), sock);
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "[Error] BGP SO_BINDTODEVICE get failed on sock %d",
+			     sock);
 		return -1;
 #endif
 	}
@@ -706,8 +708,7 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 				      bgp->vrf_id);
 	}
 	if (ret != 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "getaddrinfo: %s",
-			     gai_strerror(ret));
+		flog_err_gai(LIB_ERR_SOCKET, ret, "getaddrinfo");
 		return -1;
 	}
 

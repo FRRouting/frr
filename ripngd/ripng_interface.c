@@ -95,8 +95,8 @@ static int ripng_multicast_join(struct interface *ifp)
 		}
 
 		if (ret < 0)
-			zlog_warn("can't setsockopt IPV6_JOIN_GROUP: %s",
-				  safe_strerror(save_errno));
+			flog_warn_sys(LIB_ERR_SOCKET,
+				      "can't setsockopt IPV6_JOIN_GROUP");
 
 		if (IS_RIPNG_DEBUG_EVENT)
 			zlog_debug(
