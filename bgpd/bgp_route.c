@@ -358,8 +358,6 @@ static void bgp_pcount_adjust(struct bgp_node *rn, struct bgp_info *ri)
 				"%s: Asked to decrement 0 prefix count for peer %s",
 				__func__, ri->peer->host);
 			zlog_backtrace(LOG_WARNING);
-			zlog_warn("%s: Please report to Quagga bugzilla",
-				  __func__);
 		}
 	} else if (BGP_INFO_COUNTABLE(ri)
 		   && !CHECK_FLAG(ri->flags, BGP_INFO_COUNTED)) {
