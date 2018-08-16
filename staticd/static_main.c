@@ -30,6 +30,7 @@
 #include "libfrr.h"
 #include "vrf.h"
 #include "nexthop.h"
+#include "filter.h"
 
 #include "static_vrf.h"
 #include "static_vty.h"
@@ -135,6 +136,7 @@ int main(int argc, char **argv, char **envp)
 
 	master = frr_init();
 
+	access_list_init();
 	static_vrf_init();
 
 	static_zebra_init();
