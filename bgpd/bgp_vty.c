@@ -803,7 +803,7 @@ DEFUN_HIDDEN (no_bgp_multiple_instance,
 
 	vty_out(vty, "This config option is deprecated, and is scheduled for removal.\n");
 	vty_out(vty, "if you are using this please let the developers know\n");
-	zlog_warn("Deprecated option: `bgp multiple-instance` being used");
+	zlog_info("Deprecated option: `bgp multiple-instance` being used");
 	ret = bgp_option_unset(BGP_OPT_MULTIPLE_INSTANCE);
 	if (ret < 0) {
 		vty_out(vty, "%% There are more than two BGP instances\n");
@@ -828,7 +828,7 @@ DEFUN_HIDDEN (bgp_config_type,
 	if (argv_find(argv, argc, "cisco", &idx)) {
 		vty_out(vty, "This config option is deprecated, and is scheduled for removal.\n");
 		vty_out(vty, "if you are using this please let the developers know!\n");
-		zlog_warn("Deprecated option: `bgp config-type cisco` being used");
+		zlog_info("Deprecated option: `bgp config-type cisco` being used");
 		bgp_option_set(BGP_OPT_CONFIG_CISCO);
 	} else
 		bgp_option_unset(BGP_OPT_CONFIG_CISCO);

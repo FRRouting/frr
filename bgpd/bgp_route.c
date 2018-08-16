@@ -494,16 +494,18 @@ static int bgp_info_cmp(struct bgp *bgp, struct bgp_info *new,
 			}
 
 			if (newattr->sticky && !existattr->sticky) {
-				zlog_warn(
-					"%s: %s wins over %s due to sticky MAC flag",
-					pfx_buf, new_buf, exist_buf);
+				if (debug)
+					zlog_debug(
+						"%s: %s wins over %s due to sticky MAC flag",
+						pfx_buf, new_buf, exist_buf);
 				return 1;
 			}
 
 			if (!newattr->sticky && existattr->sticky) {
-				zlog_warn(
-					"%s: %s loses to %s due to sticky MAC flag",
-					pfx_buf, new_buf, exist_buf);
+				if (debug)
+					zlog_debug(
+						"%s: %s loses to %s due to sticky MAC flag",
+						pfx_buf, new_buf, exist_buf);
 				return 0;
 			}
 		}
