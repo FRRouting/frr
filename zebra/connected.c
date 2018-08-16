@@ -40,6 +40,7 @@
 #include "zebra/rtadv.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/debug.h"
+#include "zebra/zebra_errors.h"
 
 /* communicate the withdrawal of a connected address */
 static void connected_withdraw(struct connected *ifc)
@@ -236,7 +237,8 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 #endif
 		break;
 	default:
-		zlog_warn("Received unknown AFI: %s", afi2str(afi));
+		flog_warn(ZEBRA_ERR_CONNECTED_AFI_UNKNOWN,
+			  "Received unknown AFI: %s", afi2str(afi));
 		return;
 		break;
 	}
@@ -309,7 +311,8 @@ void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
 		/* validate the destination address */
 		if (CONNECTED_PEER(ifc)) {
 			if (IPV4_ADDR_SAME(addr, broad))
-				zlog_warn(
+				flog_warn(
+					ZEBRA_ERR_IFACE_SAME_LOCAL_AS_PEER,
 					"warning: interface %s has same local and peer "
 					"address %s, routing protocols may malfunction",
 					ifp->name, inet_ntoa(*addr));
@@ -320,7 +323,8 @@ void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
 				struct in_addr bcalc;
 				bcalc.s_addr = ipv4_broadcast_addr(addr->s_addr,
 								   prefixlen);
-				zlog_warn(
+				flog_warn(
+					ZEBRA_ERR_BCAST_ADDR_MISMATCH,
 					"warning: interface %s broadcast addr %s/%d != "
 					"calculated %s, routing protocols may malfunction",
 					ifp->name,
@@ -334,7 +338,7 @@ void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
 
 	} else {
 		if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER)) {
-			zlog_warn(
+			zlog_debug(
 				"warning: %s called for interface %s "
 				"with peer flag set, but no peer address supplied",
 				__func__, ifp->name);
@@ -343,7 +347,7 @@ void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
 
 		/* no broadcast or destination address was supplied */
 		if ((prefixlen == IPV4_MAX_PREFIXLEN) && if_is_pointopoint(ifp))
-			zlog_warn(
+			zlog_debug(
 				"warning: PtP interface %s with addr %s/%d needs a "
 				"peer address",
 				ifp->name, inet_ntoa(*addr), prefixlen);
@@ -527,8 +531,9 @@ void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 		ifc->destination = (struct prefix *)p;
 	} else {
 		if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER)) {
-			zlog_warn("warning: %s called for interface %s with peer flag set, but no peer address supplied",
-				  __func__, ifp->name);
+			zlog_debug(
+				"warning: %s called for interface %s with peer flag set, but no peer address supplied",
+				__func__, ifp->name);
 			UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
 		}
 	}

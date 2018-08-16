@@ -181,7 +181,7 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 		adata = calloc(1, CMSG_SPACE(sizeof(struct in6_pktinfo)));
 
 		if (adata == NULL) {
-			zlog_warn(
+			zlog_debug(
 				"rtadv_send_packet: can't malloc control data");
 			exit(-1);
 		}
@@ -468,12 +468,12 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	inet_ntop(AF_INET6, &addr->sin6_addr, addr_str, INET6_ADDRSTRLEN);
 
 	if (len < sizeof(struct nd_router_advert)) {
-		zlog_warn("%s(%u): Rx RA with invalid length %d from %s",
-			  ifp->name, ifp->ifindex, len, addr_str);
+		zlog_debug("%s(%u): Rx RA with invalid length %d from %s",
+			   ifp->name, ifp->ifindex, len, addr_str);
 		return;
 	}
 	if (!IN6_IS_ADDR_LINKLOCAL(&addr->sin6_addr)) {
-		zlog_warn(
+		zlog_debug(
 			"%s(%u): Rx RA with non-linklocal source address from %s",
 			ifp->name, ifp->ifindex, addr_str);
 		return;
@@ -483,21 +483,24 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 
 	if ((radvert->nd_ra_curhoplimit && zif->rtadv.AdvCurHopLimit)
 	    && (radvert->nd_ra_curhoplimit != zif->rtadv.AdvCurHopLimit)) {
-		zlog_warn(
+		flog_warn(
+			ZEBRA_ERR_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvCurHopLimit doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
 	}
 
 	if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)
 	    && !zif->rtadv.AdvManagedFlag) {
-		zlog_warn(
+		flog_warn(
+			ZEBRA_ERR_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvManagedFlag doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
 	}
 
 	if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_OTHER)
 	    && !zif->rtadv.AdvOtherConfigFlag) {
-		zlog_warn(
+		flog_warn(
+			ZEBRA_ERR_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvOtherConfigFlag doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
 	}
@@ -505,7 +508,8 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	if ((radvert->nd_ra_reachable && zif->rtadv.AdvReachableTime)
 	    && (ntohl(radvert->nd_ra_reachable)
 		!= zif->rtadv.AdvReachableTime)) {
-		zlog_warn(
+		flog_warn(
+			ZEBRA_ERR_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvReachableTime doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
 	}
@@ -513,7 +517,8 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	if ((radvert->nd_ra_retransmit && zif->rtadv.AdvRetransTimer)
 	    && (ntohl(radvert->nd_ra_retransmit)
 		!= (unsigned int)zif->rtadv.AdvRetransTimer)) {
-		zlog_warn(
+		flog_warn(
+			ZEBRA_ERR_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvRetransTimer doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
 	}
@@ -543,7 +548,8 @@ static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 	/* Interface search. */
 	ifp = if_lookup_by_index_per_ns(zns, ifindex);
 	if (ifp == NULL) {
-		zlog_warn("RA/RS received on unknown IF %u from %s", ifindex,
+		flog_warn(ZEBRA_ERR_UNKNOWN_INTERFACE,
+			  "RA/RS received on unknown IF %u from %s", ifindex,
 			  addr_str);
 		return;
 	}
@@ -563,8 +569,8 @@ static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 
 	/* ICMP message length check. */
 	if (len < sizeof(struct icmp6_hdr)) {
-		zlog_warn("%s(%u): Rx RA with Invalid ICMPV6 packet length %d",
-			  ifp->name, ifp->ifindex, len);
+		zlog_debug("%s(%u): Rx RA with Invalid ICMPV6 packet length %d",
+			   ifp->name, ifp->ifindex, len);
 		return;
 	}
 
@@ -573,15 +579,15 @@ static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 	/* ICMP message type check. */
 	if (icmph->icmp6_type != ND_ROUTER_SOLICIT
 	    && icmph->icmp6_type != ND_ROUTER_ADVERT) {
-		zlog_warn("%s(%u): Rx RA - Unwanted ICMPV6 message type %d",
-			  ifp->name, ifp->ifindex, icmph->icmp6_type);
+		zlog_debug("%s(%u): Rx RA - Unwanted ICMPV6 message type %d",
+			   ifp->name, ifp->ifindex, icmph->icmp6_type);
 		return;
 	}
 
 	/* Hoplimit check. */
 	if (hoplimit >= 0 && hoplimit != 255) {
-		zlog_warn("%s(%u): Rx RA - Invalid hoplimit %d", ifp->name,
-			  ifp->ifindex, hoplimit);
+		zlog_debug("%s(%u): Rx RA - Invalid hoplimit %d", ifp->name,
+			   ifp->ifindex, hoplimit);
 		return;
 	}
 
@@ -614,8 +620,9 @@ static int rtadv_read(struct thread *thread)
 				&hoplimit);
 
 	if (len < 0) {
-		zlog_warn("RA/RS recv failed, socket %u error %s", sock,
-			  safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "RA/RS recv failed, socket %u error %s", sock,
+			     safe_strerror(errno));
 		return len;
 	}
 
@@ -822,15 +829,17 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 	/* Locate interface and check VRF match. */
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT), ifindex);
 	if (!ifp) {
-		zlog_warn("%u: IF %u RA %s client %s - interface unknown",
+		flog_warn(ZEBRA_ERR_UNKNOWN_INTERFACE,
+			  "%u: IF %u RA %s client %s - interface unknown",
 			  zvrf_id(zvrf), ifindex, enable ? "enable" : "disable",
 			  zebra_route_string(client->proto));
 		return;
 	}
 	if (ifp->vrf_id != zvrf_id(zvrf)) {
-		zlog_warn("%u: IF %u RA %s client %s - VRF mismatch, IF VRF %u",
-			  zvrf_id(zvrf), ifindex, enable ? "enable" : "disable",
-			  zebra_route_string(client->proto), ifp->vrf_id);
+		zlog_debug(
+			"%u: IF %u RA %s client %s - VRF mismatch, IF VRF %u",
+			zvrf_id(zvrf), ifindex, enable ? "enable" : "disable",
+			zebra_route_string(client->proto), ifp->vrf_id);
 		return;
 	}
 
@@ -1757,8 +1766,10 @@ static int if_join_all_router(int sock, struct interface *ifp)
 	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_JOIN_GROUP, (char *)&mreq,
 			 sizeof mreq);
 	if (ret < 0)
-		zlog_warn("%s(%u): Failed to join group, socket %u error %s",
-			  ifp->name, ifp->ifindex, sock, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "%s(%u): Failed to join group, socket %u error %s",
+			     ifp->name, ifp->ifindex, sock,
+			     safe_strerror(errno));
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
@@ -1781,8 +1792,10 @@ static int if_leave_all_router(int sock, struct interface *ifp)
 	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_LEAVE_GROUP, (char *)&mreq,
 			 sizeof mreq);
 	if (ret < 0)
-		zlog_warn("%s(%u): Failed to leave group, socket %u error %s",
-			  ifp->name, ifp->ifindex, sock, safe_strerror(errno));
+		flog_err_sys(
+			LIB_ERR_SOCKET,
+			"%s(%u): Failed to leave group, socket %u error %s",
+			ifp->name, ifp->ifindex, sock, safe_strerror(errno));
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(

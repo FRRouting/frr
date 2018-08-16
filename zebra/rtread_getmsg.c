@@ -118,8 +118,8 @@ void route_read(struct zebra_ns *zns)
 	int flags, dev, retval, process;
 
 	if ((dev = open(_PATH_GETMSG_ROUTE, O_RDWR)) == -1) {
-		zlog_warn("can't open %s: %s", _PATH_GETMSG_ROUTE,
-			  safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL, "can't open %s: %s",
+			     _PATH_GETMSG_ROUTE, safe_strerror(errno));
 		return;
 	}
 
@@ -140,7 +140,8 @@ void route_read(struct zebra_ns *zns)
 	flags = 0;
 
 	if (putmsg(dev, &msgdata, NULL, flags) == -1) {
-		zlog_warn("putmsg failed: %s", safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "putmsg failed: %s",
+			     safe_strerror(errno));
 		goto exit;
 	}
 
@@ -152,8 +153,9 @@ void route_read(struct zebra_ns *zns)
 		retval = getmsg(dev, &msgdata, NULL, &flags);
 
 		if (retval == -1) {
-			zlog_warn("getmsg(ctl) failed: %s",
-				  safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "getmsg(ctl) failed: %s",
+				     safe_strerror(errno));
 			goto exit;
 		}
 
@@ -166,10 +168,10 @@ void route_read(struct zebra_ns *zns)
 
 		if ((size_t)msgdata.len >= sizeof(struct T_error_ack)
 		    && TLIerr->PRIM_type == T_ERROR_ACK) {
-			zlog_warn("getmsg(ctl) returned T_ERROR_ACK: %s",
-				  safe_strerror((TLIerr->TLI_error == TSYSERR)
-							? TLIerr->UNIX_error
-							: EPROTO));
+			zlog_debug("getmsg(ctl) returned T_ERROR_ACK: %s",
+				   safe_strerror((TLIerr->TLI_error == TSYSERR)
+							 ? TLIerr->UNIX_error
+							 : EPROTO));
 			break;
 		}
 
@@ -181,7 +183,7 @@ void route_read(struct zebra_ns *zns)
 		    || TLIack->PRIM_type != T_OPTMGMT_ACK
 		    || TLIack->MGMT_flags != T_SUCCESS) {
 			errno = ENOMSG;
-			zlog_warn("getmsg(ctl) returned bizarreness");
+			zlog_debug("getmsg(ctl) returned bizarreness");
 			break;
 		}
 
@@ -210,20 +212,21 @@ void route_read(struct zebra_ns *zns)
 			retval = getmsg(dev, NULL, &msgdata, &flags);
 
 			if (retval == -1) {
-				zlog_warn("getmsg(data) failed: %s",
-					  safe_strerror(errno));
+				flog_err_sys(LIB_ERR_SYSTEM_CALL,
+					     "getmsg(data) failed: %s",
+					     safe_strerror(errno));
 				goto exit;
 			}
 
 			if (!(retval == 0 || retval == MOREDATA)) {
-				zlog_warn("getmsg(data) returned %d", retval);
+				zlog_debug("getmsg(data) returned %d", retval);
 				goto exit;
 			}
 
 			if (process) {
 				if (msgdata.len % sizeof(mib2_ipRouteEntry_t)
 				    != 0) {
-					zlog_warn(
+					zlog_debug(
 						"getmsg(data) returned "
 						"msgdata.len = %d (%% sizeof (mib2_ipRouteEntry_t) != 0)",
 						msgdata.len);

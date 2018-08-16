@@ -89,24 +89,25 @@ int irdp_sock_init(void)
 	}
 
 	if (sock < 0) {
-		zlog_warn("IRDP: can't create irdp socket %s",
-			  safe_strerror(save_errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "IRDP: can't create irdp socket %s",
+			     safe_strerror(save_errno));
 		return sock;
 	};
 
 	i = 1;
 	ret = setsockopt(sock, IPPROTO_IP, IP_TTL, (void *)&i, sizeof(i));
 	if (ret < 0) {
-		zlog_warn("IRDP: can't do irdp sockopt %s",
-			  safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "IRDP: can't do irdp sockopt %s",
+			     safe_strerror(errno));
 		close(sock);
 		return ret;
 	};
 
 	ret = setsockopt_ifindex(AF_INET, sock, 1);
 	if (ret < 0) {
-		zlog_warn("IRDP: can't do irdp sockopt %s",
-			  safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "IRDP: can't do irdp sockopt %s",
+			     safe_strerror(errno));
 		close(sock);
 		return ret;
 	};

@@ -453,8 +453,9 @@ static void netlink_install_filter(int sock, __u32 pid)
 
 	if (setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &prog, sizeof(prog))
 	    < 0)
-		zlog_warn("Can't install socket filter: %s\n",
-			  safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "Can't install socket filter: %s\n",
+			     safe_strerror(errno));
 }
 
 void netlink_parse_rtattr(struct rtattr **tb, int max, struct rtattr *rta,
@@ -641,8 +642,8 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h)
 			 * but noticing it for later.
 			 */
 			err_nlh = &err->msg;
-			zlog_warn("%s: Received %d extended Ack",
-				  __PRETTY_FUNCTION__, err_nlh->nlmsg_type);
+			zlog_debug("%s: Received %d extended Ack",
+				   __PRETTY_FUNCTION__, err_nlh->nlmsg_type);
 		}
 	}
 
@@ -652,7 +653,8 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h)
 		if (is_err)
 			zlog_err("Extended Error: %s", msg);
 		else
-			zlog_warn("Extended Warning: %s", msg);
+			flog_warn(ZEBRA_ERR_NETLINK_EXTENDED_WARNING,
+				  "Extended Warning: %s", msg);
 	}
 }
 
@@ -890,7 +892,8 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 
 			error = (*filter)(h, zns->ns_id, startup);
 			if (error < 0) {
-				zlog_warn("%s filter function error", nl->name);
+				zlog_debug("%s filter function error",
+					   nl->name);
 				ret = error;
 			}
 		}

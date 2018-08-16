@@ -52,7 +52,8 @@ void ifstat_update_sysctl(void)
 
 	/* Query buffer size. */
 	if (sysctl(mib, MIBSIZ, NULL, &bufsiz, NULL, 0) < 0) {
-		zlog_warn("sysctl() error by %s", safe_strerror(errno));
+		flog_warn(ZEBRA_ERR_SYSCTL_FAILED, "sysctl() error by %s",
+			  safe_strerror(errno));
 		return;
 	}
 
@@ -61,7 +62,8 @@ void ifstat_update_sysctl(void)
 
 	/* Fetch interface informations into allocated buffer. */
 	if (sysctl(mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) {
-		zlog_warn("sysctl error by %s", safe_strerror(errno));
+		flog_warn(ZEBRA_ERR_SYSCTL_FAILED, "sysctl error by %s",
+			  safe_strerror(errno));
 		XFREE(MTYPE_TMP, ref);
 		return;
 	}
@@ -95,13 +97,15 @@ void interface_list(struct zebra_ns *zns)
 		NET_RT_IFLIST, 0};
 
 	if (zns->ns_id != NS_DEFAULT) {
-		zlog_warn("interface_list: ignore NS %u", zns->ns_id);
+		zlog_debug("interface_list: ignore NS %u", zns->ns_id);
 		return;
 	}
 
 	/* Query buffer size. */
 	if (sysctl(mib, MIBSIZ, NULL, &bufsiz, NULL, 0) < 0) {
-		zlog_warn("sysctl() error by %s", safe_strerror(errno));
+		flog_err_sys(ZEBRA_ERR_IFLIST_FAILED,
+			     "Could not enumerate interfaces: %s",
+			     safe_strerror(errno));
 		return;
 	}
 
@@ -110,7 +114,9 @@ void interface_list(struct zebra_ns *zns)
 
 	/* Fetch interface informations into allocated buffer. */
 	if (sysctl(mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) {
-		zlog_warn("sysctl error by %s", safe_strerror(errno));
+		flog_err_sys(ZEBRA_ERR_IFLIST_FAILED,
+			     "Could not enumerate interfaces: %s",
+			     safe_strerror(errno));
 		return;
 	}
 

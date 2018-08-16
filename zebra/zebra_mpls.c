@@ -1728,7 +1728,8 @@ void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum dp_results res)
 	case DP_INSTALL_FAILURE:
 		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 		clear_nhlfe_installed(lsp);
-		zlog_warn("LSP Install Failure: %u", lsp->ile.in_label);
+		flog_warn(ZEBRA_ERR_LSP_INSTALL_FAILURE,
+			  "LSP Install Failure: %u", lsp->ile.in_label);
 		break;
 	case DP_INSTALL_SUCCESS:
 		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
@@ -1746,7 +1747,8 @@ void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum dp_results res)
 		clear_nhlfe_installed(lsp);
 		break;
 	case DP_DELETE_FAILURE:
-		zlog_warn("LSP Deletion Failure: %u", lsp->ile.in_label);
+		flog_warn(ZEBRA_ERR_LSP_DELETE_FAILURE,
+			  "LSP Deletion Failure: %u", lsp->ile.in_label);
 		break;
 	}
 }
@@ -2945,7 +2947,8 @@ void zebra_mpls_init(void)
 	mpls_enabled = 0;
 
 	if (mpls_kernel_init() < 0) {
-		zlog_warn("Disabling MPLS support (no kernel support)");
+		flog_warn(ZEBRA_ERR_MPLS_SUPPORT_DISABLED,
+			  "Disabling MPLS support (no kernel support)");
 		return;
 	}
 

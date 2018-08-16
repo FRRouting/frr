@@ -41,12 +41,14 @@
 #include "log.h"
 #include "zclient.h"
 #include "thread.h"
+#include "lib_errors.h"
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
 #include "zebra/redistribute.h"
 #include "zebra/irdp.h"
+#include "zebra/zebra_errors.h"
 #include <netinet/ip_icmp.h>
 #include "if.h"
 #include "sockunion.h"
@@ -124,7 +126,8 @@ static int if_group(struct interface *ifp, int sock, uint32_t group,
 	p = irdp_get_prefix(ifp);
 
 	if (!p) {
-		zlog_warn("IRDP: can't get address for %s", ifp->name);
+		flog_warn(ZEBRA_ERR_NO_IFACE_ADDR,
+			  "IRDP: can't get address for %s", ifp->name);
 		return 1;
 	}
 
@@ -133,10 +136,10 @@ static int if_group(struct interface *ifp, int sock, uint32_t group,
 	ret = setsockopt(sock, IPPROTO_IP, add_leave, (char *)&m,
 			 sizeof(struct ip_mreq));
 	if (ret < 0)
-		zlog_warn("IRDP: %s can't setsockopt %s: %s",
-			  add_leave == IP_ADD_MEMBERSHIP ? "join group"
-							 : "leave group",
-			  inet_2a(group, b1), safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "IRDP: %s can't setsockopt %s: %s",
+			     add_leave == IP_ADD_MEMBERSHIP ? "join group"
+							    : "leave group",
+			     inet_2a(group, b1), safe_strerror(errno));
 
 	return ret;
 }
@@ -215,14 +218,14 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 
 	irdp->started = true;
 	if (irdp->flags & IF_ACTIVE) {
-		zlog_warn("IRDP: Interface is already active %s", ifp->name);
+		zlog_debug("IRDP: Interface is already active %s", ifp->name);
 		return;
 	}
 	if ((irdp_sock < 0) && ((irdp_sock = irdp_sock_init()) < 0)) {
-		zlog_warn(
-			"IRDP: Cannot activate interface %s (cannot create "
-			"IRDP socket)",
-			ifp->name);
+		flog_warn(ZEBRA_ERR_IRDP_CANNOT_ACTIVATE_IFACE,
+			  "IRDP: Cannot activate interface %s (cannot create "
+			  "IRDP socket)",
+			  ifp->name);
 		return;
 	}
 	irdp->flags |= IF_ACTIVE;
@@ -233,7 +236,8 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 	if_add_update(ifp);
 
 	if (!(ifp->flags & IFF_UP)) {
-		zlog_warn("IRDP: Interface is down %s", ifp->name);
+		flog_warn(ZEBRA_ERR_IRDP_IFACE_DOWN,
+			  "IRDP: Interface is down %s", ifp->name);
 	}
 
 	/* Shall we cancel if_start if if_add_group fails? */
@@ -242,7 +246,8 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 		if_add_group(ifp);
 
 		if (!(ifp->flags & (IFF_MULTICAST | IFF_ALLMULTI))) {
-			zlog_warn("IRDP: Interface not multicast enabled %s",
+			flog_warn(ZEBRA_ERR_IRDP_IFACE_MCAST_DISABLED,
+				  "IRDP: Interface not multicast enabled %s",
 				  ifp->name);
 		}
 	}
@@ -290,12 +295,12 @@ static void irdp_if_stop(struct interface *ifp)
 	struct irdp_interface *irdp = zi->irdp;
 
 	if (irdp == NULL) {
-		zlog_warn("Interface %s structure is NULL", ifp->name);
+		zlog_debug("Interface %s structure is NULL", ifp->name);
 		return;
 	}
 
 	if (!(irdp->flags & IF_ACTIVE)) {
-		zlog_warn("Interface is not active %s", ifp->name);
+		zlog_debug("Interface is not active %s", ifp->name);
 		return;
 	}
 
@@ -319,7 +324,7 @@ static void irdp_if_shutdown(struct interface *ifp)
 		return;
 
 	if (irdp->flags & IF_SHUTDOWN) {
-		zlog_warn("IRDP: Interface is already shutdown %s", ifp->name);
+		zlog_debug("IRDP: Interface is already shutdown %s", ifp->name);
 		return;
 	}
 
@@ -341,7 +346,7 @@ static void irdp_if_no_shutdown(struct interface *ifp)
 		return;
 
 	if (!(irdp->flags & IF_SHUTDOWN)) {
-		zlog_warn("IRDP: Interface is not shutdown %s", ifp->name);
+		zlog_debug("IRDP: Interface is not shutdown %s", ifp->name);
 		return;
 	}
 

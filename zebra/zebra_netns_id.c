@@ -269,7 +269,7 @@ ns_id_t zebra_ns_id_get(const char *netnspath)
 			close(sock);
 			close(fd);
 			if (errno == ENOTSUP) {
-				zlog_warn("NEWNSID locally generated");
+				zlog_debug("NEWNSID locally generated");
 				return zebra_ns_id_get_fallback(netnspath);
 			}
 			return NS_UNKNOWN;
@@ -337,7 +337,8 @@ static void zebra_ns_create_netns_directory(void)
 	/* S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH */
 	if (mkdir(NS_RUN_DIR, 0755)) {
 		if (errno != EEXIST) {
-			zlog_warn("NS check: failed to access %s", NS_RUN_DIR);
+			flog_warn(ZEBRA_ERR_NAMESPACE_DIR_INACCESSIBLE,
+				  "NS check: failed to access %s", NS_RUN_DIR);
 			return;
 		}
 	}

@@ -464,8 +464,8 @@ void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
 		hash_release(zns->rules_hash, lookup);
 		XFREE(MTYPE_TMP, lookup);
 	} else
-		zlog_warn("%s: Rule being deleted we know nothing about",
-			  __PRETTY_FUNCTION__);
+		zlog_debug("%s: Rule being deleted we know nothing about",
+			   __PRETTY_FUNCTION__);
 }
 
 static void zebra_pbr_cleanup_rules(struct hash_backet *b, void *data)
@@ -581,8 +581,9 @@ void zebra_pbr_destroy_ipset(struct zebra_ns *zns,
 		hash_release(zns->ipset_hash, lookup);
 		XFREE(MTYPE_TMP, lookup);
 	} else
-		zlog_warn("%s: IPSet Entry being deleted we know nothing about",
-			  __PRETTY_FUNCTION__);
+		zlog_debug(
+			"%s: IPSet Entry being deleted we know nothing about",
+			__PRETTY_FUNCTION__);
 }
 
 struct pbr_ipset_name_lookup {
@@ -665,8 +666,8 @@ void zebra_pbr_del_ipset_entry(struct zebra_ns *zns,
 		hash_release(zns->ipset_entry_hash, lookup);
 		XFREE(MTYPE_TMP, lookup);
 	} else
-		zlog_warn("%s: IPSet being deleted we know nothing about",
-			  __PRETTY_FUNCTION__);
+		zlog_debug("%s: IPSet being deleted we know nothing about",
+			   __PRETTY_FUNCTION__);
 }
 
 static void *pbr_iptable_alloc_intern(void *arg)
@@ -716,8 +717,8 @@ void zebra_pbr_del_iptable(struct zebra_ns *zns,
 		}
 		XFREE(MTYPE_TMP, lookup);
 	} else
-		zlog_warn("%s: IPTable being deleted we know nothing about",
-			  __PRETTY_FUNCTION__);
+		zlog_debug("%s: IPTable being deleted we know nothing about",
+			   __PRETTY_FUNCTION__);
 }
 
 /*

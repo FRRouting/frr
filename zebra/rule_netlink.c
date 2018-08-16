@@ -40,6 +40,7 @@
 #include "zebra/kernel_netlink.h"
 #include "zebra/rule_netlink.h"
 #include "zebra/zebra_pbr.h"
+#include "zebra/zebra_errors.h"
 
 /* definitions */
 
@@ -205,7 +206,8 @@ int netlink_rule_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	frh = NLMSG_DATA(h);
 	if (frh->family != AF_INET && frh->family != AF_INET6) {
-		zlog_warn(
+		flog_warn(
+			ZEBRA_ERR_NETLINK_INVALID_AF,
 			"Invalid address family: %u received from kernel rule change: %u",
 			frh->family, h->nlmsg_type);
 		return 0;

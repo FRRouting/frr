@@ -52,6 +52,7 @@
 #include "thread.h"
 #include "vty.h"
 #include "zclient.h"
+#include "lib_errors.h"
 
 #include "zebra_memory.h"
 #include "zebra/interface.h"
@@ -122,7 +123,8 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 
 	/* check icmp checksum */
 	if (in_cksum(icmp, datalen) != icmp->checksum) {
-		zlog_warn(
+		flog_warn(
+			ZEBRA_ERR_IRDP_BAD_CHECKSUM,
 			"IRDP: RX ICMP packet from %s. Bad checksum, silently ignored",
 			inet_ntoa(src));
 		return;
@@ -134,10 +136,10 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 		return;
 
 	if (icmp->code != 0) {
-		zlog_warn(
-			"IRDP: RX packet type %d from %s. Bad ICMP type code,"
-			" silently ignored",
-			icmp->type, inet_ntoa(src));
+		flog_warn(ZEBRA_ERR_IRDP_BAD_TYPE_CODE,
+			  "IRDP: RX packet type %d from %s. Bad ICMP type code,"
+			  " silently ignored",
+			  icmp->type, inet_ntoa(src));
 		return;
 	}
 
@@ -145,16 +147,15 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	      && (irdp->flags & IF_BROADCAST))
 	    || (ntohl(ip->ip_dst.s_addr) == INADDR_ALLRTRS_GROUP
 		&& !(irdp->flags & IF_BROADCAST))) {
-		zlog_warn(
-			"IRDP: RX illegal from %s to %s while %s operates in %s\n",
+		flog_warn(
+			ZEBRA_ERR_IRDP_BAD_RX_FLAGS,
+			"IRDP: RX illegal from %s to %s while %s operates in %s; Please correct settings\n",
 			inet_ntoa(src),
 			ntohl(ip->ip_dst.s_addr) == INADDR_ALLRTRS_GROUP
 				? "multicast"
 				: inet_ntoa(ip->ip_dst),
 			ifp->name,
 			irdp->flags & IF_BROADCAST ? "broadcast" : "multicast");
-
-		zlog_warn("IRDP: Please correct settings\n");
 		return;
 	}
 
@@ -172,7 +173,8 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 		break;
 
 	default:
-		zlog_warn(
+		flog_warn(
+			ZEBRA_ERR_IRDP_BAD_TYPE,
 			"IRDP: RX type %d from %s. Bad ICMP type, silently ignored",
 			icmp->type, inet_ntoa(src));
 	}
@@ -198,16 +200,18 @@ static int irdp_recvmsg(int sock, uint8_t *buf, int size, int *ifindex)
 
 	ret = recvmsg(sock, &msg, 0);
 	if (ret < 0) {
-		zlog_warn("IRDP: recvmsg: read error %s", safe_strerror(errno));
+		flog_warn(LIB_ERR_SOCKET, "IRDP: recvmsg: read error %s",
+			  safe_strerror(errno));
 		return ret;
 	}
 
 	if (msg.msg_flags & MSG_TRUNC) {
-		zlog_warn("IRDP: recvmsg: truncated message");
+		flog_warn(LIB_ERR_SOCKET, "IRDP: recvmsg: truncated message");
 		return ret;
 	}
 	if (msg.msg_flags & MSG_CTRUNC) {
-		zlog_warn("IRDP: recvmsg: truncated control message");
+		flog_warn(LIB_ERR_SOCKET,
+			  "IRDP: recvmsg: truncated control message");
 		return ret;
 	}
 
@@ -232,7 +236,7 @@ int irdp_read_raw(struct thread *r)
 	ret = irdp_recvmsg(irdp_sock, (uint8_t *)buf, IRDP_RX_BUF, &ifindex);
 
 	if (ret < 0)
-		zlog_warn("IRDP: RX Error length = %d", ret);
+		flog_warn(LIB_ERR_SOCKET, "IRDP: RX Error length = %d", ret);
 
 	ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
 	if (!ifp)
@@ -311,7 +315,7 @@ void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
 	if (setsockopt(irdp_sock, IPPROTO_IP, IP_HDRINCL, (char *)&on,
 		       sizeof(on))
 	    < 0)
-		zlog_warn("sendto %s", safe_strerror(errno));
+		zlog_debug("sendto %s", safe_strerror(errno));
 
 
 	if (dst == INADDR_BROADCAST) {
@@ -319,7 +323,7 @@ void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
 		if (setsockopt(irdp_sock, SOL_SOCKET, SO_BROADCAST, (char *)&on,
 			       sizeof(on))
 		    < 0)
-			zlog_warn("sendto %s", safe_strerror(errno));
+			zlog_debug("sendto %s", safe_strerror(errno));
 	}
 
 	if (dst != INADDR_BROADCAST)
@@ -351,7 +355,7 @@ void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
 	sockopt_iphdrincl_swab_htosys(ip);
 
 	if (sendmsg(irdp_sock, msg, 0) < 0) {
-		zlog_warn("sendto %s", safe_strerror(errno));
+		zlog_debug("sendto %s", safe_strerror(errno));
 	}
 	/*   printf("TX on %s idx %d\n", ifp->name, ifp->ifindex); */
 }

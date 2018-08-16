@@ -110,6 +110,12 @@ static struct log_ref ferr_zebra_err[] = {
 		.suggestion = "Check all configuration parameters for correctness.",
 	},
 	{
+		.code = ZEBRA_ERR_DP_DELETE_FAIL,
+		.title = "Dataplane deletion failure",
+		.description = "Deletion of routes from underlying dataplane failed.",
+		.suggestion = "Check all configuration parameters for correctness.",
+	},
+	{
 		.code = ZEBRA_ERR_TABLE_LOOKUP_FAILED,
 		.title = "Zebra table lookup failed",
 		.description = "Zebra attempted to look up a table for a particular address family and subsequent address family, but didn't find anything.",
@@ -264,6 +270,429 @@ static struct log_ref ferr_zebra_err[] = {
 		.title = "Adding VNI failed",
 		.description = "Zebra attempted to add a VNI hash to an interface and failed",
 		.suggestion = "Notify a developer.",
+	},
+	{
+		.code = ZEBRA_ERR_NS_NOTIFY_READ,
+		.title = "Zebra failed to read namespace inotify information",
+		.description = "Zebra received an event from inotify, but failed to read what it was.",
+		.suggestion = "Notify a developer.",
+	},
+	/* Warnings */
+	{
+		.code = ZEBRA_WARNING_LM_PROTO_MISMATCH,
+		.title =
+			"Zebra label manager received malformed label request",
+		.description =
+			"Zebra's label manager received a label request from a client whose protocol type does not match the protocol field received in the message.",
+		.suggestion =
+			"This is a bug. Please report it.",
+	},
+	{
+		.code = ZEBRA_ERR_LSP_INSTALL_FAILURE,
+		.title =
+			"Zebra failed to install LSP into the kernel",
+		.description =
+			"Zebra made an attempt to install a label switched path, but the kernel indicated that the installation was not successful.",
+		.suggestion =
+			"Wait for Zebra to reattempt installation.",
+	},
+	{
+		.code = ZEBRA_ERR_LSP_DELETE_FAILURE,
+		.title =
+			"Zebra failed to remove LSP from the kernel",
+		.description =
+			"Zebra made an attempt to remove a label switched path, but the kernel indicated that the deletion was not successful.",
+		.suggestion =
+			"Wait for Zebra to reattempt deletion.",
+	},
+	{
+		.code = ZEBRA_ERR_MPLS_SUPPORT_DISABLED,
+		.title =
+			"Zebra will not run with MPLS support",
+		.description =
+			"Zebra noticed that the running kernel does not support MPLS, so it disabled MPLS support.",
+		.suggestion =
+			"If you want MPLS support, upgrade the kernel to a version that provides MPLS support.",
+	},
+	{
+		.code = ZEBRA_ERR_SYSCTL_FAILED,
+		.title = "A call to sysctl() failed",
+		.description =
+			"sysctl() returned a nonzero exit code, indicating an error.",
+		.suggestion =
+			"The log message should contain further details on the specific error that occurred; investigate the reported error.",
+	},
+	{
+		.code = ZEBRA_ERR_NS_VRF_CREATION_FAILED,
+		.title =
+			"Zebra failed to create namespace VRF",
+		.description =
+			"Zebra failed to create namespace VRF",
+		.suggestion = "",
+	},
+	{
+		.code = ZEBRA_ERR_NS_DELETION_FAILED_NO_VRF,
+		.title =
+			"Zebra attempted to delete nonexistent namespace",
+		.description =
+			"Zebra attempted to delete a particular namespace, but no VRF associated with that namespace could be found to delete.",
+		.suggestion = "Please report this bug.",
+	},
+	{
+		.code = ZEBRA_ERR_IFLIST_FAILED,
+		.title =
+			"Zebra interface listing failed",
+		.description =
+			"Zebra encountered an error attempting to query sysctl for a list of interfaces on the system.",
+		.suggestion =
+			"Check that Zebra is running with the appropriate permissions. If it is, please report this as a bug.",
+	},
+	{
+		.code = ZEBRA_ERR_IRDP_BAD_CHECKSUM,
+		.title =
+			"Zebra received ICMP packet with invalid checksum",
+		.description =
+			"Zebra received an ICMP packet with a bad checksum and has silently ignored it.",
+		.suggestion =
+			"If the problem continues to occur, investigate the source of the bad ICMP packets.",
+	},
+	{
+		.code = ZEBRA_ERR_IRDP_BAD_TYPE_CODE,
+		.title =
+			"Zebra received ICMP packet with bad type code",
+		.description =
+			"Zebra received an ICMP packet with a bad code for the message type and has silently ignored it.",
+		.suggestion =
+			"If the problem continues to occur, investigate the source of the bad ICMP packets.",
+	},
+	{
+		.code = ZEBRA_ERR_IRDP_BAD_RX_FLAGS,
+		.title =
+			"Zebra received IRDP packet while operating in wrong mode",
+		.description =
+			"Zebra received a multicast IRDP packet while operating in unicast mode, or vice versa.",
+		.suggestion =
+			"If you wish to receive the messages, change your IRDP settings accordingly.",
+	},
+	{
+		.code = ZEBRA_ERR_IRDP_BAD_TYPE,
+		.title =
+			"Zebra received IRDP packet with bad type",
+		.description =
+			"THIS IS BULLSHIT REMOVE ME",
+		.suggestion = "asdf",
+	},
+	{
+		.code = ZEBRA_ERR_RNH_NO_TABLE,
+		.title =
+			"Zebra could not find table for next hop",
+		.description =
+			"Zebra attempted to add a next hop but could not find the appropriate table to install it in.",
+		.suggestion = "Please report this bug.",
+	},
+	{
+		.code = ZEBRA_ERR_FPM_FORMAT_UNKNOWN,
+		.title =
+			"Unknown message format for Zebra's FPM module",
+		.description =
+			"Zebra's FPM module takes an argument which specifies the message format to use, but the format was either not provided or was not a valid format. The FPM interface will be disabled.",
+		.suggestion =
+			"Provide or correct the module argument to provide a valid format. See documentation for further information.",
+	},
+	{
+		.code = ZEBRA_ERR_CLIENT_IO_ERROR,
+		.title =
+			"Zebra client connection failed",
+		.description =
+			"A Zebra client encountered an I/O error and is shutting down. This can occur under normal circumstances, such as when FRR is restarting or shutting down; it can also happen if the daemon crashed. Usually this warning can be ignored.",
+		.suggestion =
+			"Ignore this warning, it is mostly informational.",
+	},
+	{
+		.code = ZEBRA_ERR_CLIENT_WRITE_FAILED,
+		.title =
+			"Zebra failed to send message to client",
+		.description =
+			"Zebra attempted to send a message to one of its clients, but the write operation failed. The connection will be closed.",
+		.suggestion =
+			"Ignore this warning, it is mostly informational.",
+	},
+	{
+		.code = ZEBRA_ERR_NETLINK_INVALID_AF,
+		.title =
+			"Zebra received Netlink message with invalid family",
+		.description =
+			"Zebra received a Netlink message with an invalid address family.",
+		.suggestion =
+			"Inspect the logged address family and submit it with a bug report.",
+	},
+	{
+		.code = ZEBRA_ERR_REMOVE_ADDR_UNKNOWN_SUBNET,
+		.title =
+			"Zebra tried to remove address from unknown subnet",
+		.description =
+			"Zebra attempted to remove an address from an unknown subnet.",
+		.suggestion =
+			"This is a bug, please report it.",
+	},
+	{
+		.code = ZEBRA_ERR_REMOVE_UNREGISTERED_ADDR,
+		.title =
+			"Zebra tried to remove unregistered address",
+		.description =
+			"Zebra attempted to remove an address from a subnet it was not registered on.",
+		.suggestion =
+			"This is a bug, please report it.",
+	},
+	{
+		.code = ZEBRA_ERR_PTM_NOT_READY,
+		.title =
+			"Interface is up but PTM check has not completed",
+		.description =
+			"Zebra noticed that an interface came up and attempted to perform its usual setup procedures, but the PTM check failed and the operation was aborted.",
+		.suggestion =
+			"If the problem persists, ensure that the interface is actually up and that PTM is functioning properly.",
+	},
+	{
+		.code = ZEBRA_ERR_UNSUPPORTED_V4_SRCDEST,
+		.title =
+			"Kernel rejected sourcedest route",
+		.description =
+			"Zebra attempted to install a sourcedest route into the kernel, but the kernel did not acknowledge its installation. The route is unsupported.",
+		.suggestion =
+			"Check configuration values for correctness",
+	},
+	{
+		.code = ZEBRA_ERR_UNKNOWN_INTERFACE,
+		.title =
+			"Zebra encountered an unknown interface specifier",
+		.description =
+			"Zebra was asked to look up an interface with a given name or index, but could not find the interface corresponding to the given name or index.",
+		.suggestion =
+			"Check configuration values for correctness.",
+	},
+	{
+		.code = ZEBRA_ERR_VRF_NOT_FOUND,
+		.title =
+			"Zebra could not find the specified VRF",
+		.description =
+			"Zebra tried to look up a VRF, either by name or ID, and could not find it. This could be due to internal inconsistency (a bug) or a configuration error.",
+		.suggestion =
+			"Check configuration values for correctness. If values are correct, please file a bug report.",
+	},
+	{
+		.code = ZEBRA_ERR_MORE_NH_THAN_MULTIPATH,
+		.title =
+			"More nexthops were provided than the configured multipath limit",
+		.description =
+			"A route with multiple nexthops was given, but the number of nexthops exceeded the configured multipath limit.",
+		.suggestion =
+			"Reduce the number of nexthops, or increase the multipath limit.",
+	},
+	{
+		.code = ZEBRA_ERR_NEXTHOP_CREATION_FAILED,
+		.title =
+			"Zebra failed to create one or more nexthops",
+		.description =
+			"While attempting to create nexthops for a route installation operation, Zebra found that it was unable to create one or more of the given nexthops.",
+		.suggestion =
+			"Check configuration values for correctness. If they are correct, report this as a bug.",
+	},
+	{
+		.code = ZEBRA_ERR_RX_SRCDEST_WRONG_AFI,
+		.title =
+			"Zebra received sourcedest route install without IPv6 address family",
+		.description =
+			"Zebra received a message from a client requesting a sourcedest route installation, but the address family was not set to IPv6. Only IPv6 is supported for sourcedest routing.",
+		.suggestion =
+			"This is a bug; please report it.",
+	},
+	{
+		.code = ZEBRA_ERR_PSEUDOWIRE_EXISTS,
+		.title =
+			"Zebra received an installation / creation request for a pseudowire that already exists",
+		.description =
+			"Zebra received an installation or creation request for a pseudowire that already exists, so the installation / creation has been skipped.",
+		.suggestion =
+			"This message is informational.",
+	},
+	{
+		.code = ZEBRA_ERR_PSEUDOWIRE_NONEXISTENT,
+		.title =
+			"Zebra received an uninstallation / deletion request for a pseudowire that already exists",
+		.description =
+			"Zebra received an uninstallation / deletion request for a pseudowire that doesn't exist, so the uninstallation / deletion has been skipped.",
+		.suggestion =
+			"This message is informational.",
+	},
+	{
+		.code = ZEBRA_ERR_PSEUDOWIRE_UNINSTALL_NOT_FOUND,
+		.title =
+			"Zebra received uninstall request for a pseudowire that doesn't exist",
+		.description =
+			"Zebra received an uninstall request for a pseudowire that doesn't exist, so the uninstallation has been skipped.",
+		.suggestion =
+			"This message is informational.",
+	},
+	{
+		.code = ZEBRA_ERR_NO_IFACE_ADDR,
+		.title = "No address on interface",
+		.description =
+			"Zebra attempted to retrieve a connected address for an interface, but the interface had no connected addresses.",
+		.suggestion =
+			"This warning is situational; it is usually informative but can indicate a misconfiguration.",
+	},
+	{
+		.code = ZEBRA_ERR_IFACE_ADDR_ADD_FAILED,
+		.title =
+			"Zebra failed to add address to interface",
+		.description =
+			"Zebra attempted to add an address to an interface but was unsuccessful.",
+		.suggestion =
+			"Check configuration values for correctness.",
+	},
+	{
+		.code = ZEBRA_ERR_IRDP_CANNOT_ACTIVATE_IFACE,
+		.title =
+			"Zebra could not enable IRDP on interface",
+		.description =
+			"Zebra attempted to enable IRDP on an interface, but could not create the IRDP socket. The system may be out of socket resources, or privilege elevation may have failed.",
+		.suggestion =
+			"Verify that Zebra has the appropriate privileges and that the system has sufficient socket resources.",
+	},
+	{
+		.code = ZEBRA_ERR_IRDP_IFACE_DOWN,
+		.title =
+			"Zebra attempted to enable IRDP on an interface, but the interface was down",
+		.description = "Zebra attempted to enable IRDP on an interface, but the interface was down.",
+		.suggestion =
+			"Bring up the interface that IRDP is desired on.",
+	},
+	{
+		.code = ZEBRA_ERR_IRDP_IFACE_MCAST_DISABLED,
+		.title =
+			"Zebra cannot enable IRDP on interface because multicast is disabled",
+		.description =
+			"Zebra attempted to enable IRDP on an interface, but multicast functionality was not enabled on the interface.",
+		.suggestion =
+			"Enable multicast on the interface.",
+	},
+	{
+		.code = ZEBRA_ERR_NETLINK_EXTENDED_WARNING,
+		.title =
+			"Zebra received warning message from Netlink",
+		.description =
+			"Zebra received a warning message from Netlink",
+		.suggestion =
+			"This message is informational. See the Netlink error message for details.",
+	},
+	{
+		.code = ZEBRA_ERR_NAMESPACE_DIR_INACCESSIBLE,
+		.title =
+			"Zebra could not access /var/run/netns",
+		.description =
+			"Zebra tried to verify that the run directory for Linux network namespaces existed, but this test failed.",
+		.suggestion =
+			"Ensure that Zebra has the proper privileges to access this directory.",
+	},
+	{
+		.code = ZEBRA_ERR_CONNECTED_AFI_UNKNOWN,
+		.title =
+			"Zebra received unknown address family on interface",
+		.description =
+			"Zebra received a notification of a connected prefix on an interface but did not recognize the address family as IPv4 or IPv6",
+		.suggestion =
+			"This message is informational.",
+	},
+	{
+		.code = ZEBRA_ERR_IFACE_SAME_LOCAL_AS_PEER,
+		.title =
+			"Zebra route has same destination address as local interface",
+		.description =
+			"Zebra noticed that a route on an interface has the same destination address as an address on the interface itself, which may cause issues with routing protocols.",
+		.suggestion =
+			"Investigate the source of the route to determine why the destination and interface addresses are the same.",
+	},
+	{
+		.code = ZEBRA_ERR_BCAST_ADDR_MISMATCH,
+		.title =
+			"Zebra broadcast address sanity check failed",
+		.description =
+			"Zebra computed the broadcast address for a connected prefix based on the netmask and found that it did not match the broadcast address it received for the prefix on that interface",
+		.suggestion =
+			"Investigate the source of the broadcast address to determine why it does not match the computed address.",
+	},
+	{
+		.code = ZEBRA_ERR_REDISTRIBUTE_UNKNOWN_AF,
+		.title =
+			"Zebra encountered unknown address family during redistribution",
+		.description =
+			"During a redistribution operation Zebra encountered an unknown address family.",
+		.suggestion =
+			"This warning can be ignored; the redistribution operation will skip the unknown address family.",
+	},
+	{
+		.code = ZEBRA_ERR_ADVERTISING_UNUSABLE_ADDR,
+		.title =
+			"Zebra advertising unusable interface address",
+		.description =
+			"Zebra is advertising an address on an interface that is not yet fully installed on the interface.",
+		.suggestion =
+			"This message is informational. The address should show up on the interface shortly after advertisement.",
+	},
+	{
+		.code = ZEBRA_ERR_RA_PARAM_MISMATCH,
+		.title =
+			"Zebra received route advertisement with parameter mismatch",
+		.description =
+			"Zebra received a router advertisement, but one of the non-critical parameters (AdvCurHopLimit, AdvManagedFlag, AdvOtherConfigFlag, AdvReachableTime or AdvRetransTimer) does not match Zebra's local settings.",
+		.suggestion =
+			"This message is informational; the route advertisement will be processed as normal. If issues arise due to the parameter mismatch, check Zebra's router advertisement configuration.",
+	},
+	{
+		.code = ZEBRA_ERR_RTM_VERSION_MISMATCH,
+		.title =
+			"Zebra received kernel message with uknown version",
+		.description =
+			"Zebra received a message from the kernel with a message version that does not match Zebra's internal version. Depending on version compatibility, this may cause issues sending and receiving messages to the kernel.",
+		.suggestion =
+			"If issues arise, check if there is a version of FRR available for your kernel version.",
+	},
+	{
+		.code = ZEBRA_ERR_RTM_NO_GATEWAY,
+		.title =
+			"Zebra could not determine proper gateway for kernel route",
+		.description =
+			"Zebra attempted to install a route into the kernel, but noticed it had no gateway and no interface with a gateway could be located.",
+		.suggestion =
+			"Check configuration values for correctness.",
+	},
+	{
+		.code = ZEBRA_ERR_MAX_LABELS_PUSH,
+		.title =
+			"Zebra exceeded maximum LSP labels for a single rtmsg",
+		.description =
+			"Zebra attempted to push more than one label into the kernel; the maximum on OpenBSD is 1 label.",
+		.suggestion =
+			"This message is informational.",
+	},
+	{
+		.code = ZEBRA_ERR_STICKY_MAC_ALREADY_LEARNT,
+		.title =
+			"EVPN MAC already learnt as remote sticky MAC",
+		.description =
+			"Zebra tried to handle a local MAC addition but noticed that it had already learnt the MAC from a remote peer.",
+		.suggestion =
+			"Check configuration values for correctness.",
+	},
+	{
+		.code = ZEBRA_ERR_UNSUPPORTED_V6_SRCDEST,
+		.title =
+			"Kernel does not support IPv6 sourcedest routes",
+		.description =
+			"Zebra attempted to install a sourcedest route into the kernel, but IPv6 sourcedest routes are not supported on the current kernel.",
+		.suggestion =
+			"Do not use v6 sourcedest routes, or upgrade your kernel.",
 	},
 	{
 		.code = END_FERR,
