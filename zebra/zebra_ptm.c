@@ -1559,7 +1559,7 @@ void zebra_ptm_if_init(struct zebra_if *zifp __attribute__((__unused__)))
 
 int zebra_ptm_get_enable_state(void)
 {
-	return 1;
+	return 0;
 }
 
 void zebra_ptm_show_status(struct vty *vty __attribute__((__unused__)),
