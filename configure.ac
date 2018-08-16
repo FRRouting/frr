@@ -382,7 +382,7 @@ AC_ARG_ENABLE(bgp-vnc,
 AC_ARG_WITH(rfp-path,
   AS_HELP_STRING([--with-rfp-path[=DIR]],[path to replaced stub RFP used with BGP VNC]))
 AC_ARG_ENABLE(snmp,
-  AS_HELP_STRING([--enable-snmp=ARG], [enable SNMP support (smux or agentx)]))
+  AS_HELP_STRING([--enable-snmp], [enable SNMP support for agentx]))
 AC_ARG_ENABLE(zeromq,
   AS_HELP_STRING([--enable-zeromq], [enable ZeroMQ handler (libfrrzmq)]))
 AC_ARG_WITH(libpam,
@@ -1496,14 +1496,13 @@ int main(void);
      yes)
       SNMP_METHOD=agentx
       ;;
-     smux|agentx)
+     agentx)
       SNMP_METHOD="${enable_snmp}"
       ;;
      *)
-      AC_MSG_ERROR([--enable-snmp given with an unknown method (${enable_snmp}). Use smux or agentx])
+      AC_MSG_ERROR([--enable-snmp given with an unknown method (${enable_snmp}). Use yes or agentx])
       ;;
    esac
-   AH_TEMPLATE([SNMP_SMUX], [Use SNMP SMUX to interface with snmpd])
    AH_TEMPLATE([SNMP_AGENTX], [Use SNMP AgentX to interface with snmpd])
    AC_DEFINE_UNQUOTED(AS_TR_CPP(SNMP_${SNMP_METHOD}),,SNMP method to interface with snmpd)
 fi
