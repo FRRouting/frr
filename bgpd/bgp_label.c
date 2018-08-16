@@ -187,11 +187,12 @@ static int bgp_nlri_get_labels(struct peer *peer, uint8_t *pnt, uint8_t plen,
 	/* If we RX multiple labels we will end up keeping only the last
 	 * one. We do not yet support a label stack greater than 1. */
 	if (label_depth > 1)
-		zlog_warn("%s rcvd UPDATE with label stack %d deep", peer->host,
+		zlog_info("%s rcvd UPDATE with label stack %d deep", peer->host,
 			  label_depth);
 
 	if (!(bgp_is_withdraw_label(label) || label_bos(label)))
-		zlog_warn(
+		flog_warn(
+			BGP_WARN_INVALID_LABEL_STACK,
 			"%s rcvd UPDATE with invalid label stack - no bottom of stack",
 			peer->host);
 

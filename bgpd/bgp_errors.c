@@ -146,6 +146,12 @@ static struct log_ref ferr_bgp_warn[] = {
 		.suggestion = "Gather logging and open an Issue",
 	},
 	{
+		.code = BGP_WARN_INVALID_LABEL_STACK,
+		.title = "BGP has received a label stack in a NLRI that does not have the BOS marked",
+		.description = "BGP when it receives a NLRI with a label stack should have the BOS marked, this received packet does not have this",
+		.suggestion = "Gather log information from here and remote peer and open an Issue",
+	},
+	{
 		.code = END_FERR,
 	}
 };
