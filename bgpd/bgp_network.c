@@ -95,15 +95,9 @@ static int bgp_md5_set_connect(int socket, union sockunion *su,
 	int ret = -1;
 
 #if HAVE_DECL_TCP_MD5SIG
-	if (bgpd_privs.change(ZPRIVS_RAISE)) {
-		zlog_err("%s: could not raise privs", __func__);
-		return ret;
+	frr_elevate_privs(&bgpd_privs) {
+		ret = bgp_md5_set_socket(socket, su, password);
 	}
-
-	ret = bgp_md5_set_socket(socket, su, password);
-
-	if (bgpd_privs.change(ZPRIVS_LOWER))
-		zlog_err("%s: could not lower privs", __func__);
 #endif /* HAVE_TCP_MD5SIG */
 
 	return ret;
@@ -115,25 +109,18 @@ static int bgp_md5_set_password(struct peer *peer, const char *password)
 	int ret = 0;
 	struct bgp_listener *listener;
 
-	if (bgpd_privs.change(ZPRIVS_RAISE)) {
-		zlog_err("%s: could not raise privs", __func__);
-		return -1;
-	}
-
+	frr_elevate_privs(&bgpd_privs) {
 	/* Set or unset the password on the listen socket(s). Outbound
-	 * connections
-	 * are taken care of in bgp_connect() below.
+	 * connections are taken care of in bgp_connect() below.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener))
-		if (listener->su.sa.sa_family == peer->su.sa.sa_family) {
-			ret = bgp_md5_set_socket(listener->fd, &peer->su,
-						 password);
-			break;
-		}
-
-	if (bgpd_privs.change(ZPRIVS_LOWER))
-		zlog_err("%s: could not lower privs", __func__);
-
+		for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener))
+			if (listener->su.sa.sa_family
+			    == peer->su.sa.sa_family) {
+				ret = bgp_md5_set_socket(listener->fd,
+							 &peer->su, password);
+				break;
+			}
+	}
 	return ret;
 }
 
@@ -543,13 +530,11 @@ int bgp_connect(struct peer *peer)
 		zlog_debug("Peer address not learnt: Returning from connect");
 		return 0;
 	}
-	if (bgpd_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
+	frr_elevate_privs(&bgpd_privs) {
 	/* Make socket for the peer. */
-	peer->fd = vrf_sockunion_socket(&peer->su, peer->bgp->vrf_id,
-					bgp_get_bound_name(peer));
-	if (bgpd_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+		peer->fd = vrf_sockunion_socket(&peer->su, peer->bgp->vrf_id,
+						bgp_get_bound_name(peer));
+	}
 	if (peer->fd < 0)
 		return -1;
 
@@ -568,14 +553,14 @@ int bgp_connect(struct peer *peer)
 			  peer->host, safe_strerror(errno));
 
 #ifdef IPTOS_PREC_INTERNETCONTROL
-	if (bgpd_privs.change(ZPRIVS_RAISE))
-		zlog_err("%s: could not raise privs", __func__);
-	if (sockunion_family(&peer->su) == AF_INET)
-		setsockopt_ipv4_tos(peer->fd, IPTOS_PREC_INTERNETCONTROL);
-	else if (sockunion_family(&peer->su) == AF_INET6)
-		setsockopt_ipv6_tclass(peer->fd, IPTOS_PREC_INTERNETCONTROL);
-	if (bgpd_privs.change(ZPRIVS_LOWER))
-		zlog_err("%s: could not lower privs", __func__);
+	frr_elevate_privs(&bgpd_privs) {
+		if (sockunion_family(&peer->su) == AF_INET)
+			setsockopt_ipv4_tos(peer->fd,
+					    IPTOS_PREC_INTERNETCONTROL);
+		else if (sockunion_family(&peer->su) == AF_INET6)
+			setsockopt_ipv6_tclass(peer->fd,
+					       IPTOS_PREC_INTERNETCONTROL);
+	}
 #endif
 
 	if (peer->password)
@@ -642,22 +627,21 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 	sockopt_reuseaddr(sock);
 	sockopt_reuseport(sock);
 
-	if (bgpd_privs.change(ZPRIVS_RAISE))
-		zlog_err("%s: could not raise privs", __func__);
+	frr_elevate_privs(&bgpd_privs) {
 
 #ifdef IPTOS_PREC_INTERNETCONTROL
-	if (sa->sa_family == AF_INET)
-		setsockopt_ipv4_tos(sock, IPTOS_PREC_INTERNETCONTROL);
-	else if (sa->sa_family == AF_INET6)
-		setsockopt_ipv6_tclass(sock, IPTOS_PREC_INTERNETCONTROL);
+		if (sa->sa_family == AF_INET)
+			setsockopt_ipv4_tos(sock, IPTOS_PREC_INTERNETCONTROL);
+		else if (sa->sa_family == AF_INET6)
+			setsockopt_ipv6_tclass(sock,
+					       IPTOS_PREC_INTERNETCONTROL);
 #endif
 
-	sockopt_v6only(sa->sa_family, sock);
+		sockopt_v6only(sa->sa_family, sock);
 
-	ret = bind(sock, sa, salen);
-	en = errno;
-	if (bgpd_privs.change(ZPRIVS_LOWER))
-		zlog_err("%s: could not lower privs", __func__);
+		ret = bind(sock, sa, salen);
+		en = errno;
+	}
 
 	if (ret < 0) {
 		zlog_err("bind: %s", safe_strerror(en));
@@ -702,12 +686,10 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 	snprintf(port_str, sizeof(port_str), "%d", port);
 	port_str[sizeof(port_str) - 1] = '\0';
 
-	if (bgpd_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
-	ret = vrf_getaddrinfo(address, port_str, &req, &ainfo_save,
-			      bgp->vrf_id);
-	if (bgpd_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+	frr_elevate_privs(&bgpd_privs) {
+		ret = vrf_getaddrinfo(address, port_str, &req, &ainfo_save,
+				      bgp->vrf_id);
+	}
 	if (ret != 0) {
 		zlog_err("getaddrinfo: %s", gai_strerror(ret));
 		return -1;
@@ -720,14 +702,14 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 		if (ainfo->ai_family != AF_INET && ainfo->ai_family != AF_INET6)
 			continue;
 
-		if (bgpd_privs.change(ZPRIVS_RAISE))
-			zlog_err("Can't raise privileges");
-		sock = vrf_socket(ainfo->ai_family, ainfo->ai_socktype,
-				  ainfo->ai_protocol, bgp->vrf_id,
-				  (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ?
-				   bgp->name : NULL));
-		if (bgpd_privs.change(ZPRIVS_LOWER))
-			zlog_err("Can't lower privileges");
+		frr_elevate_privs(&bgpd_privs) {
+			sock = vrf_socket(ainfo->ai_family,
+					  ainfo->ai_socktype,
+					  ainfo->ai_protocol, bgp->vrf_id,
+					  (bgp->inst_type
+					   == BGP_INSTANCE_TYPE_VRF
+					   ? bgp->name : NULL));
+		}
 		if (sock < 0) {
 			zlog_err("socket: %s", safe_strerror(errno));
 			continue;

@@ -758,16 +758,10 @@ DEFUN_NOSH (vrf_netns,
 	if (!pathname)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (vrf_daemon_privs &&
-	    vrf_daemon_privs->change(ZPRIVS_RAISE))
-		zlog_err("%s: Can't raise privileges", __func__);
-
-	ret = vrf_netns_handler_create(vty, vrf, pathname,
-				       NS_UNKNOWN, NS_UNKNOWN);
-
-	if (vrf_daemon_privs &&
-	    vrf_daemon_privs->change(ZPRIVS_LOWER))
-		zlog_err("%s: Can't lower privileges", __func__);
+	frr_elevate_privs(vrf_daemon_privs) {
+		ret = vrf_netns_handler_create(vty, vrf, pathname,
+					       NS_UNKNOWN, NS_UNKNOWN);
+	}
 	return ret;
 }
 

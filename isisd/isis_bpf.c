@@ -186,30 +186,25 @@ int isis_sock_init(struct isis_circuit *circuit)
 {
 	int retval = ISIS_OK;
 
-	if (isisd_privs.change(ZPRIVS_RAISE))
-		zlog_err("%s: could not raise privs, %s", __func__,
-			 safe_strerror(errno));
+	frr_elevate_privs(&isisd_privs) {
 
-	retval = open_bpf_dev(circuit);
+		retval = open_bpf_dev(circuit);
 
-	if (retval != ISIS_OK) {
-		zlog_warn("%s: could not initialize the socket", __func__);
-		goto end;
+		if (retval != ISIS_OK) {
+			zlog_warn("%s: could not initialize the socket",
+				  __func__);
+			break;
+		}
+
+		if (if_is_broadcast(circuit->interface)) {
+			circuit->tx = isis_send_pdu_bcast;
+			circuit->rx = isis_recv_pdu_bcast;
+		} else {
+			zlog_warn("isis_sock_init(): unknown circuit type");
+			retval = ISIS_WARNING;
+			break;
+		}
 	}
-
-	if (if_is_broadcast(circuit->interface)) {
-		circuit->tx = isis_send_pdu_bcast;
-		circuit->rx = isis_recv_pdu_bcast;
-	} else {
-		zlog_warn("isis_sock_init(): unknown circuit type");
-		retval = ISIS_WARNING;
-		goto end;
-	}
-
-end:
-	if (isisd_privs.change(ZPRIVS_LOWER))
-		zlog_err("%s: could not lower privs, %s", __func__,
-			 safe_strerror(errno));
 
 	return retval;
 }

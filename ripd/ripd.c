@@ -1354,26 +1354,19 @@ static int rip_create_socket(void)
 	setsockopt_ipv4_tos(sock, IPTOS_PREC_INTERNETCONTROL);
 #endif
 
-	if (ripd_privs.change(ZPRIVS_RAISE))
-		zlog_err("rip_create_socket: could not raise privs");
-	setsockopt_so_recvbuf(sock, RIP_UDP_RCV_BUF);
-	if ((ret = bind(sock, (struct sockaddr *)&addr, sizeof(addr))) < 0)
+	frr_elevate_privs(&ripd_privs) {
+		setsockopt_so_recvbuf(sock, RIP_UDP_RCV_BUF);
+		if ((ret = bind(sock, (struct sockaddr *)&addr, sizeof(addr)))
+		    < 0) {
+			zlog_err("%s: Can't bind socket %d to %s port %d: %s",
+				 __func__, sock, inet_ntoa(addr.sin_addr),
+				 (int)ntohs(addr.sin_port),
+				 safe_strerror(errno));
 
-	{
-		int save_errno = errno;
-		if (ripd_privs.change(ZPRIVS_LOWER))
-			zlog_err("rip_create_socket: could not lower privs");
-
-		zlog_err("%s: Can't bind socket %d to %s port %d: %s", __func__,
-			 sock, inet_ntoa(addr.sin_addr),
-			 (int)ntohs(addr.sin_port), safe_strerror(save_errno));
-
-		close(sock);
-		return ret;
+			close(sock);
+			return ret;
+		}
 	}
-
-	if (ripd_privs.change(ZPRIVS_LOWER))
-		zlog_err("rip_create_socket: could not lower privs");
 
 	return sock;
 }

@@ -624,19 +624,15 @@ static int rtadv_read(struct thread *thread)
 
 static int rtadv_make_socket(ns_id_t ns_id)
 {
-	int sock;
+	int sock = -1;
 	int ret = 0;
 	struct icmp6_filter filter;
 
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("rtadv_make_socket: could not raise privs, %s",
-			 safe_strerror(errno));
+	frr_elevate_privs(&zserv_privs) {
 
-	sock = ns_socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6, ns_id);
+		sock = ns_socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6, ns_id);
 
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("rtadv_make_socket: could not lower privs, %s",
-			 safe_strerror(errno));
+	}
 
 	if (sock < 0) {
 		return -1;

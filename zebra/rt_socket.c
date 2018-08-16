@@ -400,17 +400,15 @@ enum dp_req_result kernel_route_rib(struct route_node *rn,
 		return DP_REQUEST_FAILURE;
 	}
 
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
+	frr_elevate_privs(&zserv_privs) {
 
-	if (old)
-		route |= kernel_rtm(RTM_DELETE, p, old);
+		if (old)
+			route |= kernel_rtm(RTM_DELETE, p, old);
 
-	if (new)
-		route |= kernel_rtm(RTM_ADD, p, new);
+		if (new)
+			route |= kernel_rtm(RTM_ADD, p, new);
 
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+	}
 
 	if (new) {
 		kernel_route_rib_pass_fail(
