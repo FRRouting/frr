@@ -158,6 +158,30 @@ static struct log_ref ferr_bgp_warn[] = {
 		.suggestion = "Gather log data, open an Issue and restart FRR"
 	},
 	{
+		.code = BGP_WARN_CAPABILITY_INVALID_LENGTH,
+		.title = "BGP has received a capability with an invalid length",
+		.description = "BGP has received a capability from it's peer who's size is wrong",
+		.suggestion = "Gather log files from here and from peer and open an Issue",
+	},
+	{
+		.code = BGP_WARN_CAPABILITY_INVALID_DATA,
+		.title = "BGP has received capability data with invalid information",
+		.description = "BGP has noticed that during processing of capability information that data was wrong",
+		.suggestion = "Gather log files from here and from peer and open an Issue",
+	},
+	{
+		.code = BGP_WARN_CAPABILITY_VENDOR,
+		.title = "BGP has recieved capability data specific to a particular vendor",
+		.description = "BGP has received a capability that is vendor specific and as such we have no knowledge of how to use this capability in FRR",
+		.suggestion = "On peer turn off this feature"
+	},
+	{
+		.code = BGP_WARN_CAPABILITY_UNKNOWN,
+		.title = "BGP has received capability data for a unknown capability",
+		.description = "BGP has received a capability that it does not know how to decode.  This may be due to a new feature that has not been coded into FRR or it may be a bug in the remote peer",
+		.suggestion = "Gather log files from here and from peer and open an Issue",
+	},
+	{
 		.code = END_FERR,
 	}
 };
