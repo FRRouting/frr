@@ -56,6 +56,8 @@ void pim_rp_list_hash_clean(void *data)
 	hash_clean(pnc->upstream_hash, NULL);
 	hash_free(pnc->upstream_hash);
 	pnc->upstream_hash = NULL;
+	if (pnc->nexthop)
+		nexthops_free(pnc->nexthop);
 
 	XFREE(MTYPE_PIM_NEXTHOP_CACHE, pnc);
 }
