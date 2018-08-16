@@ -182,6 +182,12 @@ static struct log_ref ferr_bgp_warn[] = {
 		.suggestion = "Gather log files from here and from peer and open an Issue",
 	},
 	{
+		.code = BGP_WARN_INVALID_NEXTHOP_LENGTH,
+		.title = "BGP is attempting to write an invalid nexthop length value",
+		.description = "BGP is in the process of building NLRI information for a peer and has discovered an inconsistent internal state",
+		.suggestion = "Gather log files and open an Issue, restart FRR",
+	},
+	{
 		.code = END_FERR,
 	}
 };
