@@ -128,6 +128,24 @@ static struct log_ref ferr_bgp_warn[] = {
 		.suggestion = "Please collect log files and open Issue",
 	},
 	{
+		.code = BGP_WARN_EVPN_PMSI_PRESENT,
+		.title = "BGP Received a EVPN NLRI with PMSI included",
+		.description = "BGP has received a type-3 NLRI with PMSI information.  At this time FRR is not capable of properly handling this NLRI type",
+		.suggestion = "Setup peer to not send this type of data to FRR"
+	},
+	{
+		.code = BGP_WARN_EVPN_VPN_VNI,
+		.title = "BGP has received a local macip and cannot properly handle it",
+		.description = "BGP has received a local macip from zebra and has no way to properly handle the macip because the vni is not setup properly",
+		.suggestion = "Ensure proper setup of BGP EVPN",
+	},
+	{
+		.code = BGP_WARN_EVPN_ESI,
+		.title = "BGP has received a local ESI for deletion",
+		.description = "BGP has received a local ESI for deletion but when attempting to find the stored data internally was unable to find the information for deletion",
+		.suggestion = "Gather logging and open an Issue",
+	},
+	{
 		.code = END_FERR,
 	}
 };
