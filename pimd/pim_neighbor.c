@@ -25,6 +25,7 @@
 #include "if.h"
 #include "vty.h"
 #include "plist.h"
+#include "lib_errors.h"
 
 #include "pimd.h"
 #include "pim_neighbor.h"
@@ -799,7 +800,8 @@ void pim_neighbor_update(struct pim_neighbor *neigh,
 
 	if (neigh->prefix_list == addr_list) {
 		if (addr_list) {
-			zlog_err(
+			flog_err(
+				LIB_ERR_DEVELOPMENT,
 				"%s: internal error: trying to replace same prefix list=%p",
 				__PRETTY_FUNCTION__, (void *)addr_list);
 		}

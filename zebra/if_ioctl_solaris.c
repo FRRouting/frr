@@ -34,6 +34,7 @@
 #include "privs.h"
 #include "vrf.h"
 #include "vty.h"
+#include "lib_errors.h"
 
 #include "zebra/interface.h"
 #include "zebra/ioctl_solaris.h"
@@ -58,29 +59,26 @@ static int interface_list_ioctl(int af)
 	size_t needed, lastneeded = 0;
 	char *buf = NULL;
 
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
+	frr_elevate_privs(&zserv_privs) {
+		sock = socket(af, SOCK_DGRAM, 0);
+	}
 
-	sock = socket(af, SOCK_DGRAM, 0);
 	if (sock < 0) {
 		zlog_warn("Can't make %s socket stream: %s",
 			  (af == AF_INET ? "AF_INET" : "AF_INET6"),
 			  safe_strerror(errno));
-
-		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_err("Can't lower privileges");
-
 		return -1;
 	}
 
-calculate_lifc_len: /* must hold privileges to enter here */
-	lifn.lifn_family = af;
-	lifn.lifn_flags = LIFC_NOXMIT; /* we want NOXMIT interfaces too */
-	ret = ioctl(sock, SIOCGLIFNUM, &lifn);
-	save_errno = errno;
+calculate_lifc_len:
+	frr_elevate_privs(&zserv_privs) {
+		lifn.lifn_family = af;
+		lifn.lifn_flags = LIFC_NOXMIT;
+		/* we want NOXMIT interfaces too */
+		ret = ioctl(sock, SIOCGLIFNUM, &lifn);
+		save_errno = errno;
 
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+	}
 
 	if (ret < 0) {
 		zlog_warn("interface_list_ioctl: SIOCGLIFNUM failed %s",
@@ -109,26 +107,17 @@ calculate_lifc_len: /* must hold privileges to enter here */
 	lifconf.lifc_len = needed;
 	lifconf.lifc_buf = buf;
 
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
-
-	ret = ioctl(sock, SIOCGLIFCONF, &lifconf);
+	frr_elevate_privs(&zserv_privs) {
+		ret = ioctl(sock, SIOCGLIFCONF, &lifconf);
+	}
 
 	if (ret < 0) {
 		if (errno == EINVAL)
-			goto calculate_lifc_len; /* deliberately hold privileges
-						    */
+			goto calculate_lifc_len;
 
 		zlog_warn("SIOCGLIFCONF: %s", safe_strerror(errno));
-
-		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_err("Can't lower privileges");
-
 		goto end;
 	}
-
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
 
 	/* Allocate interface. */
 	lifreq = lifconf.lifc_req;

@@ -47,6 +47,7 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_memory.h"
+#include "zebra/zebra_errors.h"
 
 static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 		       struct route_node *rn);
@@ -857,8 +858,9 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		stream_put(s, &rn->p.u.prefix6, IPV6_MAX_BYTELEN);
 		break;
 	default:
-		zlog_err("%s: Unknown family (%d) notification attempted\n",
-			 __FUNCTION__, rn->p.family);
+		flog_err(ZEBRA_ERR_RNH_UNKNOWN_FAMILY,
+			  "%s: Unknown family (%d) notification attempted\n",
+			  __FUNCTION__, rn->p.family);
 		break;
 	}
 	if (re) {

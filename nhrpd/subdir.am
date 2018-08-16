@@ -13,6 +13,7 @@ nhrpd_nhrpd_SOURCES = \
 	nhrpd/netlink_arp.c \
 	nhrpd/netlink_gre.c \
 	nhrpd/nhrp_cache.c \
+	nhrpd/nhrp_errors.c \
 	nhrpd/nhrp_event.c \
 	nhrpd/nhrp_interface.c \
 	nhrpd/nhrp_main.c \
@@ -34,6 +35,7 @@ noinst_HEADERS += \
 	nhrpd/debug.h \
 	nhrpd/list.h \
 	nhrpd/netlink.h \
+	nhrpd/nhrp_errors.h \
 	nhrpd/nhrp_protocol.h \
 	nhrpd/nhrpd.h \
 	nhrpd/os.h \

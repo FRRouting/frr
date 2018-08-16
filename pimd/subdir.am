@@ -15,6 +15,7 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_bfd.c \
 	pimd/pim_br.c \
 	pimd/pim_cmd.c \
+	pimd/pim_errors.c \
 	pimd/pim_hello.c \
 	pimd/pim_iface.c \
 	pimd/pim_ifchannel.c \
@@ -64,6 +65,7 @@ noinst_HEADERS += \
 	pimd/pim_bfd.h \
 	pimd/pim_br.h \
 	pimd/pim_cmd.h \
+	pimd/pim_errors.h \
 	pimd/pim_hello.h \
 	pimd/pim_iface.h \
 	pimd/pim_ifchannel.h \

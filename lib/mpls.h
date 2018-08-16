@@ -22,6 +22,7 @@
 #ifndef _QUAGGA_MPLS_H
 #define _QUAGGA_MPLS_H
 
+#include <zebra.h>
 #include <arpa/inet.h>
 
 #ifdef MPLS_LABEL_MAX

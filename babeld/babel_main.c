@@ -33,6 +33,7 @@ THE SOFTWARE.
 #include "vty.h"
 #include "memory.h"
 #include "libfrr.h"
+#include "lib_errors.h"
 
 #include "babel_main.h"
 #include "babeld.h"
@@ -45,6 +46,7 @@ THE SOFTWARE.
 #include "message.h"
 #include "resend.h"
 #include "babel_zebra.h"
+#include "babel_errors.h"
 
 static void babel_fail(void);
 static void babel_init_random(void);
@@ -151,7 +153,7 @@ main(int argc, char **argv)
 
     frr_preinit (&babeld_di, argc, argv);
     frr_opt_add ("", longopts, "");
-  
+
     babel_init_random();
 
     /* set the Babel's default link-local multicast address and Babel's port */
@@ -181,9 +183,7 @@ main(int argc, char **argv)
     master = frr_init ();
 
     /* Library inits. */
-    zprivs_init (&babeld_privs);
-    cmd_init (1);
-    vty_init (master);
+    babel_error_init();
 
     resend_delay = BABEL_DEFAULT_RESEND_DELAY;
     change_smoothing_half_life(BABEL_DEFAULT_SMOOTHING_HALF_LIFE);
@@ -225,7 +225,8 @@ babel_init_random(void)
 
     rc = read_random_bytes(&seed, sizeof(seed));
     if(rc < 0) {
-        zlog_err("read(random): %s", safe_strerror(errno));
+        flog_err_sys(LIB_ERR_SYSTEM_CALL, "read(random): %s",
+		  safe_strerror(errno));
         seed = 42;
     }
 
@@ -245,13 +246,14 @@ babel_replace_by_null(int fd)
 
     fd_null = open("/dev/null", O_RDONLY);
     if(fd_null < 0) {
-        zlog_err("open(null): %s", safe_strerror(errno));
+        flog_err_sys(LIB_ERR_SYSTEM_CALL, "open(null): %s", safe_strerror(errno));
         exit(1);
     }
 
     rc = dup2(fd_null, fd);
     if(rc < 0) {
-        zlog_err("dup2(null, 0): %s", safe_strerror(errno));
+        flog_err_sys(LIB_ERR_SYSTEM_CALL, "dup2(null, 0): %s",
+		  safe_strerror(errno));
         exit(1);
     }
 
@@ -270,10 +272,12 @@ babel_load_state_file(void)
 
     fd = open(state_file, O_RDONLY);
     if(fd < 0 && errno != ENOENT)
-        zlog_err("open(babel-state: %s)", safe_strerror(errno));
+        flog_err_sys(LIB_ERR_SYSTEM_CALL, "open(babel-state: %s)",
+		  safe_strerror(errno));
     rc = unlink(state_file);
     if(fd >= 0 && rc < 0) {
-        zlog_err("unlink(babel-state): %s", safe_strerror(errno));
+        flog_err_sys(LIB_ERR_SYSTEM_CALL, "unlink(babel-state): %s",
+		  safe_strerror(errno));
         /* If we couldn't unlink it, it's probably stale. */
         goto fini;
     }
@@ -284,7 +288,8 @@ babel_load_state_file(void)
         long t;
         rc = read(fd, buf, 99);
         if(rc < 0) {
-            zlog_err("read(babel-state): %s", safe_strerror(errno));
+            flog_err_sys(LIB_ERR_SYSTEM_CALL, "read(babel-state): %s",
+		      safe_strerror(errno));
         } else {
             buf[rc] = '\0';
             rc = sscanf(buf, "%99s %d %ld\n", buf2, &s, &t);
@@ -292,7 +297,7 @@ babel_load_state_file(void)
                 unsigned char sid[8];
                 rc = parse_eui64(buf2, sid);
                 if(rc < 0) {
-                    zlog_err("Couldn't parse babel-state.");
+                    flog_err(BABEL_ERR_CONFIG, "Couldn't parse babel-state.");
                 } else {
                     struct timeval realnow;
                     debugf(BABEL_DEBUG_COMMON,
@@ -302,12 +307,13 @@ babel_load_state_file(void)
                     if(memcmp(sid, myid, 8) == 0)
                         myseqno = seqno_plus(s, 1);
                     else
-                        zlog_err("ID mismatch in babel-state. id=%s; old=%s",
+                        flog_err(BABEL_ERR_CONFIG,
+				 "ID mismatch in babel-state. id=%s; old=%s",
                                  format_eui64(myid),
                                  format_eui64(sid));
                 }
             } else {
-                zlog_err("Couldn't parse babel-state.");
+                flog_err(BABEL_ERR_CONFIG, "Couldn't parse babel-state.");
             }
         }
         goto fini;
@@ -347,7 +353,8 @@ babel_save_state_file(void)
     debugf(BABEL_DEBUG_COMMON, "Save state file.");
     fd = open(state_file, O_WRONLY | O_TRUNC | O_CREAT, 0644);
     if(fd < 0) {
-        zlog_err("creat(babel-state): %s", safe_strerror(errno));
+        flog_err_sys(LIB_ERR_SYSTEM_CALL, "creat(babel-state): %s",
+		  safe_strerror(errno));
         unlink(state_file);
     } else {
         struct timeval realnow;
@@ -357,12 +364,13 @@ babel_save_state_file(void)
                       format_eui64(myid), (int)myseqno,
                       (long)realnow.tv_sec);
         if(rc < 0 || rc >= 100) {
-            zlog_err("write(babel-state): overflow.");
+            flog_err(BABEL_ERR_CONFIG, "write(babel-state): overflow.");
             unlink(state_file);
         } else {
             rc = write(fd, buf, rc);
             if(rc < 0) {
-                zlog_err("write(babel-state): %s", safe_strerror(errno));
+                flog_err(BABEL_ERR_CONFIG, "write(babel-state): %s",
+			  safe_strerror(errno));
                 unlink(state_file);
             }
             fsync(fd);

@@ -25,6 +25,7 @@
 #include "sockunion.h"
 #include "sockopt.h"
 #include "privs.h"
+#include "lib_errors.h"
 
 #include "libospf.h"
 #include "ospf6_proto.h"
@@ -75,18 +76,14 @@ static void ospf6_set_checksum(void)
 /* Make ospf6d's server socket. */
 int ospf6_serv_sock(void)
 {
-	if (ospf6d_privs.change(ZPRIVS_RAISE))
-		zlog_err("ospf6_serv_sock: could not raise privs");
+	frr_elevate_privs(&ospf6d_privs) {
 
-	ospf6_sock = socket(AF_INET6, SOCK_RAW, IPPROTO_OSPFIGP);
-	if (ospf6_sock < 0) {
-		zlog_warn("Network: can't create OSPF6 socket.");
-		if (ospf6d_privs.change(ZPRIVS_LOWER))
-			zlog_err("ospf_sock_init: could not lower privs");
-		return -1;
+		ospf6_sock = socket(AF_INET6, SOCK_RAW, IPPROTO_OSPFIGP);
+		if (ospf6_sock < 0) {
+			zlog_warn("Network: can't create OSPF6 socket.");
+			return -1;
+		}
 	}
-	if (ospf6d_privs.change(ZPRIVS_LOWER))
-		zlog_err("ospf_sock_init: could not lower privs");
 
 /* set socket options */
 #if 1
@@ -120,8 +117,10 @@ int ospf6_sso(ifindex_t ifindex, struct in6_addr *group, int option)
 	ret = setsockopt(ospf6_sock, IPPROTO_IPV6, option, &mreq6,
 			 sizeof(mreq6));
 	if (ret < 0) {
-		zlog_err("Network: setsockopt (%d) on ifindex %d failed: %s",
-			 option, ifindex, safe_strerror(errno));
+		flog_err_sys(
+			LIB_ERR_SOCKET,
+			"Network: setsockopt (%d) on ifindex %d failed: %s",
+			option, ifindex, safe_strerror(errno));
 		return ret;
 	}
 

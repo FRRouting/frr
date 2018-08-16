@@ -33,6 +33,7 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
@@ -150,7 +151,8 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 		psize = PSIZE(prefixlen);
 
 		if (prefixlen < VPN_PREFIXLEN_MIN_BYTES * 8) {
-			zlog_err(
+			flog_err(
+				BGP_ERR_UPDATE_RCV,
 				"%s [Error] Update packet error / VPN (prefix length %d less than VPN min length)",
 				peer->host, prefixlen);
 			return -1;
@@ -158,7 +160,8 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 
 		/* sanity check against packet data */
 		if ((pnt + psize) > lim) {
-			zlog_err(
+			flog_err(
+				BGP_ERR_UPDATE_RCV,
 				"%s [Error] Update packet error / VPN (prefix length %d exceeds packet size %u)",
 				peer->host, prefixlen, (uint)(lim - pnt));
 			return -1;
@@ -166,7 +169,8 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 
 		/* sanity check against storage for the IP address portion */
 		if ((psize - VPN_PREFIXLEN_MIN_BYTES) > (ssize_t)sizeof(p.u)) {
-			zlog_err(
+			flog_err(
+				BGP_ERR_UPDATE_RCV,
 				"%s [Error] Update packet error / VPN (psize %d exceeds storage size %zu)",
 				peer->host,
 				prefixlen - VPN_PREFIXLEN_MIN_BYTES * 8,
@@ -176,7 +180,8 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 
 		/* Sanity check against max bitlen of the address family */
 		if ((psize - VPN_PREFIXLEN_MIN_BYTES) > prefix_blen(&p)) {
-			zlog_err(
+			flog_err(
+				BGP_ERR_UPDATE_RCV,
 				"%s [Error] Update packet error / VPN (psize %d exceeds family (%u) max byte len %u)",
 				peer->host,
 				prefixlen - VPN_PREFIXLEN_MIN_BYTES * 8,
@@ -213,7 +218,8 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 #endif
 
 		default:
-			zlog_err("Unknown RD type %d", type);
+			flog_err(BGP_ERR_UPDATE_RCV, "Unknown RD type %d",
+				  type);
 			break; /* just report */
 		}
 
@@ -235,7 +241,8 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 	}
 	/* Packet length consistency check. */
 	if (pnt != lim) {
-		zlog_err(
+		flog_err(
+			BGP_ERR_UPDATE_RCV,
 			"%s [Error] Update packet error / VPN (%zu data remaining after parsing)",
 			peer->host, lim - pnt);
 		return -1;
@@ -359,8 +366,10 @@ int vpn_leak_label_callback(
 			return 0;
 		}
 		/* Shouldn't happen: different label allocation */
-		zlog_err("%s: %s had label %u but got new assignment %u",
-			__func__, vp->bgp->name_pretty, vp->tovpn_label, label);
+		flog_err(BGP_ERR_LABEL,
+			  "%s: %s had label %u but got new assignment %u",
+			  __func__, vp->bgp->name_pretty, vp->tovpn_label,
+			  label);
 		/* use new one */
 	}
 

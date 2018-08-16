@@ -35,6 +35,7 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
+#include "zebra/zebra_errors.h"
 
 #include "fpm/fpm.h"
 #include "zebra_fpm_private.h"
@@ -1517,7 +1518,9 @@ static inline void zfpm_init_message_format(const char *format)
 
 	if (!strcmp("netlink", format)) {
 		if (!have_netlink) {
-			zlog_err("FPM netlink message format is not available");
+			flog_err(
+				ZEBRA_ERR_NETLINK_NOT_AVAILABLE,
+				"FPM netlink message format is not available");
 			return;
 		}
 		zfpm_g->message_format = ZFPM_MSG_FORMAT_NETLINK;
@@ -1526,7 +1529,8 @@ static inline void zfpm_init_message_format(const char *format)
 
 	if (!strcmp("protobuf", format)) {
 		if (!have_protobuf) {
-			zlog_err(
+			flog_err(
+				ZEBRA_ERR_PROTOBUF_NOT_AVAILABLE,
 				"FPM protobuf message format is not available");
 			return;
 		}

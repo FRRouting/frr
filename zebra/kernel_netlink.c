@@ -41,6 +41,7 @@
 #include "nexthop.h"
 #include "vrf.h"
 #include "mpls.h"
+#include "lib_errors.h"
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
@@ -51,6 +52,7 @@
 #include "zebra/rt_netlink.h"
 #include "zebra/if_netlink.h"
 #include "zebra/rule_netlink.h"
+#include "zebra/zebra_errors.h"
 
 #ifndef SO_RCVBUFFORCE
 #define SO_RCVBUFFORCE  (33)
@@ -147,9 +149,8 @@ int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	 * received some other message in an unexpected
 	 * way.
 	 */
-	zlog_err("%s: ignoring message type 0x%04x(%s) NS %u",
-		 __PRETTY_FUNCTION__, h->nlmsg_type,
-		 nl_msg_type_to_str(h->nlmsg_type), ns_id);
+	zlog_debug("%s: ignoring message type 0x%04x(%s) NS %u", __func__,
+		   h->nlmsg_type, nl_msg_type_to_str(h->nlmsg_type), ns_id);
 	return 0;
 }
 
@@ -162,31 +163,33 @@ static int netlink_recvbuf(struct nlsock *nl, uint32_t newsize)
 
 	ret = getsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &oldsize, &oldlen);
 	if (ret < 0) {
-		zlog_err("Can't get %s receive buffer size: %s", nl->name,
-			 safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "Can't get %s receive buffer size: %s", nl->name,
+			     safe_strerror(errno));
 		return -1;
 	}
 
 	/* Try force option (linux >= 2.6.14) and fall back to normal set */
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("routing_socket: Can't raise privileges");
-	ret = setsockopt(nl->sock, SOL_SOCKET, SO_RCVBUFFORCE, &nl_rcvbufsize,
-			 sizeof(nl_rcvbufsize));
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("routing_socket: Can't lower privileges");
+	frr_elevate_privs(&zserv_privs) {
+		ret = setsockopt(nl->sock, SOL_SOCKET, SO_RCVBUFFORCE,
+				 &nl_rcvbufsize,
+				 sizeof(nl_rcvbufsize));
+	}
 	if (ret < 0)
 		ret = setsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF,
 				 &nl_rcvbufsize, sizeof(nl_rcvbufsize));
 	if (ret < 0) {
-		zlog_err("Can't set %s receive buffer size: %s", nl->name,
-			 safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "Can't set %s receive buffer size: %s", nl->name,
+			     safe_strerror(errno));
 		return -1;
 	}
 
 	ret = getsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &newsize, &newlen);
 	if (ret < 0) {
-		zlog_err("Can't get %s receive buffer size: %s", nl->name,
-			 safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "Can't get %s receive buffer size: %s", nl->name,
+			     safe_strerror(errno));
 		return -1;
 	}
 
@@ -203,33 +206,26 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	struct sockaddr_nl snl;
 	int sock;
 	int namelen;
-	int save_errno;
 
-	if (zserv_privs.change(ZPRIVS_RAISE)) {
-		zlog_err("Can't raise privileges");
-		return -1;
+	frr_elevate_privs(&zserv_privs) {
+		sock = ns_socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE, ns_id);
+		if (sock < 0) {
+			zlog_err("Can't open %s socket: %s", nl->name,
+				 safe_strerror(errno));
+			return -1;
+		}
+
+		memset(&snl, 0, sizeof snl);
+		snl.nl_family = AF_NETLINK;
+		snl.nl_groups = groups;
+
+		/* Bind the socket to the netlink structure for anything. */
+		ret = bind(sock, (struct sockaddr *)&snl, sizeof snl);
 	}
-
-	sock = ns_socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE, ns_id);
-	if (sock < 0) {
-		zlog_err("Can't open %s socket: %s", nl->name,
-			 safe_strerror(errno));
-		return -1;
-	}
-
-	memset(&snl, 0, sizeof snl);
-	snl.nl_family = AF_NETLINK;
-	snl.nl_groups = groups;
-
-	/* Bind the socket to the netlink structure for anything. */
-	ret = bind(sock, (struct sockaddr *)&snl, sizeof snl);
-	save_errno = errno;
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
 
 	if (ret < 0) {
 		zlog_err("Can't bind %s socket to group 0x%x: %s", nl->name,
-			 snl.nl_groups, safe_strerror(save_errno));
+			 snl.nl_groups, safe_strerror(errno));
 		close(sock);
 		return -1;
 	}
@@ -238,8 +234,8 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	namelen = sizeof snl;
 	ret = getsockname(sock, (struct sockaddr *)&snl, (socklen_t *)&namelen);
 	if (ret < 0 || namelen != sizeof snl) {
-		zlog_err("Can't get %s socket name: %s", nl->name,
-			 safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "Can't get %s socket name: %s",
+			     nl->name, safe_strerror(errno));
 		close(sock);
 		return -1;
 	}
@@ -290,9 +286,10 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		 * this message type or not ask for
 		 * it to be sent up to us
 		 */
-		zlog_err("Unknown netlink nlmsg_type %s(%d) vrf %u\n",
-			 nl_msg_type_to_str(h->nlmsg_type), h->nlmsg_type,
-			 ns_id);
+		flog_err(ZEBRA_ERR_UNKNOWN_NLMSG,
+			  "Unknown netlink nlmsg_type %s(%d) vrf %u\n",
+			  nl_msg_type_to_str(h->nlmsg_type), h->nlmsg_type,
+			  ns_id);
 		break;
 	}
 	return 0;
@@ -335,15 +332,15 @@ static void netlink_write_incoming(const char *buf, const unsigned int size,
 	char fname[MAXPATHLEN];
 	FILE *f;
 
-	zserv_privs.change(ZPRIVS_RAISE);
 	snprintf(fname, MAXPATHLEN, "%s/%s_%u", DAEMON_VTY_DIR, "netlink",
 		 counter);
-	f = fopen(fname, "w");
+	frr_elevate_privs(&zserv_privs) {
+		f = fopen(fname, "w");
+	}
 	if (f) {
 		fwrite(buf, 1, size, f);
 		fclose(f);
 	}
-	zserv_privs.change(ZPRIVS_LOWER);
 }
 
 /**
@@ -358,8 +355,9 @@ static long netlink_read_file(char *buf, const char *fname)
 	FILE *f;
 	long file_bytes = -1;
 
-	zserv_privs.change(ZPRIVS_RAISE);
-	f = fopen(fname, "r");
+	frr_elevate_privs(&zserv_privs) {
+		f = fopen(fname, "r");
+	}
 	if (f) {
 		fseek(f, 0, SEEK_END);
 		file_bytes = ftell(f);
@@ -367,7 +365,6 @@ static long netlink_read_file(char *buf, const char *fname)
 		fread(buf, NL_RCV_PKT_BUF_SIZE, 1, f);
 		fclose(f);
 	}
-	zserv_privs.change(ZPRIVS_LOWER);
 	return file_bytes;
 }
 
@@ -699,8 +696,9 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 				continue;
 			if (errno == EWOULDBLOCK || errno == EAGAIN)
 				break;
-			zlog_err("%s recvmsg overrun: %s", nl->name,
-				 safe_strerror(errno));
+			flog_err(ZEBRA_ERR_RECVMSG_OVERRUN,
+				  "%s recvmsg overrun: %s", nl->name,
+				  safe_strerror(errno));
 			/*
 			 *  In this case we are screwed.
 			 *  There is no good way to
@@ -711,13 +709,14 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 		}
 
 		if (status == 0) {
-			zlog_err("%s EOF", nl->name);
+			flog_err_sys(LIB_ERR_SOCKET, "%s EOF", nl->name);
 			return -1;
 		}
 
 		if (msg.msg_namelen != sizeof snl) {
-			zlog_err("%s sender address length error: length %d",
-				 nl->name, msg.msg_namelen);
+			flog_err(ZEBRA_ERR_NETLINK_LENGTH_ERROR,
+				  "%s sender address length error: length %d",
+				  nl->name, msg.msg_namelen);
 			return -1;
 		}
 
@@ -788,6 +787,15 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 					continue;
 				}
 
+				if (h->nlmsg_len
+				    < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
+					flog_err(
+						ZEBRA_ERR_NETLINK_LENGTH_ERROR,
+						"%s error: message truncated",
+						nl->name);
+					return -1;
+				}
+
 				/* Deal with errors that occur because of races
 				 * in link handling */
 				if (nl == &zns->netlink_cmd
@@ -836,7 +844,8 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 							err->msg.nlmsg_seq,
 							err->msg.nlmsg_pid);
 				} else
-					zlog_err(
+					flog_err(
+						ZEBRA_ERR_UNEXPECTED_MESSAGE,
 						"%s error: %s, type=%s(%u), seq=%u, pid=%u",
 						nl->name,
 						safe_strerror(-errnum),
@@ -862,27 +871,28 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 			 * other actors besides the kernel
 			 */
 			if (snl.nl_pid != 0) {
-				zlog_err("Ignoring message from pid %u",
-					 snl.nl_pid);
+				zlog_debug("Ignoring message from pid %u",
+					   snl.nl_pid);
 				continue;
 			}
 
 			error = (*filter)(h, zns->ns_id, startup);
 			if (error < 0) {
-				zlog_err("%s filter function error", nl->name);
-				zlog_backtrace(LOG_ERR);
+				zlog_warn("%s filter function error", nl->name);
 				ret = error;
 			}
 		}
 
 		/* After error care. */
 		if (msg.msg_flags & MSG_TRUNC) {
-			zlog_err("%s error: message truncated", nl->name);
+			flog_err(ZEBRA_ERR_NETLINK_LENGTH_ERROR,
+				  "%s error: message truncated", nl->name);
 			continue;
 		}
 		if (status) {
-			zlog_err("%s error: data remnant size %d", nl->name,
-				 status);
+			flog_err(ZEBRA_ERR_NETLINK_LENGTH_ERROR,
+				  "%s error: data remnant size %d", nl->name,
+				  status);
 			return -1;
 		}
 	}
@@ -906,11 +916,11 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 		 struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns,
 		 int startup)
 {
-	int status;
+	int status = 0;
 	struct sockaddr_nl snl;
 	struct iovec iov;
 	struct msghdr msg;
-	int save_errno;
+	int save_errno = 0;
 
 	memset(&snl, 0, sizeof snl);
 	memset(&iov, 0, sizeof iov);
@@ -936,12 +946,10 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 			n->nlmsg_flags);
 
 	/* Send message to netlink interface. */
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
-	status = sendmsg(nl->sock, &msg, 0);
-	save_errno = errno;
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+	frr_elevate_privs(&zserv_privs) {
+		status = sendmsg(nl->sock, &msg, 0);
+		save_errno = errno;
+	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND) {
 		zlog_debug("%s: >> netlink message dump [sent]", __func__);
@@ -949,8 +957,8 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	}
 
 	if (status < 0) {
-		zlog_err("netlink_talk sendmsg() error: %s",
-			 safe_strerror(save_errno));
+		flog_err_sys(LIB_ERR_SOCKET, "netlink_talk sendmsg() error: %s",
+			     safe_strerror(save_errno));
 		return -1;
 	}
 
@@ -969,11 +977,11 @@ int netlink_request(struct nlsock *nl, struct nlmsghdr *n)
 {
 	int ret;
 	struct sockaddr_nl snl;
-	int save_errno;
 
 	/* Check netlink socket. */
 	if (nl->sock < 0) {
-		zlog_err("%s socket isn't active.", nl->name);
+		flog_err_sys(LIB_ERR_SOCKET, "%s socket isn't active.",
+			     nl->name);
 		return -1;
 	}
 
@@ -986,21 +994,14 @@ int netlink_request(struct nlsock *nl, struct nlmsghdr *n)
 	snl.nl_family = AF_NETLINK;
 
 	/* Raise capabilities and send message, then lower capabilities. */
-	if (zserv_privs.change(ZPRIVS_RAISE)) {
-		zlog_err("Can't raise privileges");
-		return -1;
+	frr_elevate_privs(&zserv_privs) {
+		ret = sendto(nl->sock, (void *)n, n->nlmsg_len, 0,
+			     (struct sockaddr *)&snl, sizeof snl);
 	}
-
-	ret = sendto(nl->sock, (void *)n, n->nlmsg_len, 0,
-		     (struct sockaddr *)&snl, sizeof snl);
-	save_errno = errno;
-
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
 
 	if (ret < 0) {
 		zlog_err("%s sendto failed: %s", nl->name,
-			 safe_strerror(save_errno));
+			 safe_strerror(errno));
 		return -1;
 	}
 
@@ -1074,8 +1075,8 @@ void kernel_init(struct zebra_ns *zns)
 
 	/* Register kernel socket. */
 	if (fcntl(zns->netlink.sock, F_SETFL, O_NONBLOCK) < 0)
-		zlog_err("Can't set %s socket error: %s(%d)",
-			 zns->netlink.name, safe_strerror(errno), errno);
+		flog_err_sys(LIB_ERR_SOCKET, "Can't set %s socket flags: %s",
+			     zns->netlink.name, safe_strerror(errno));
 
 	if (fcntl(zns->netlink_cmd.sock, F_SETFL, O_NONBLOCK) < 0)
 		zlog_err("Can't set %s socket error: %s(%d)",

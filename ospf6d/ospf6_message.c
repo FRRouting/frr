@@ -26,6 +26,7 @@
 #include "command.h"
 #include "thread.h"
 #include "linklist.h"
+#include "lib_errors.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -1558,7 +1559,8 @@ int ospf6_receive(struct thread *thread)
 	/* receive message */
 	len = ospf6_recvmsg(&src, &dst, &ifindex, iovector);
 	if (len > iobuflen) {
-		zlog_err("Excess message read");
+		flog_err(LIB_ERR_DEVELOPMENT,
+			  "Excess message read");
 		return 0;
 	}
 
@@ -1706,7 +1708,7 @@ static void ospf6_send(struct in6_addr *src, struct in6_addr *dst,
 	/* send message */
 	len = ospf6_sendmsg(src, dst, &oi->interface->ifindex, iovector);
 	if (len != ntohs(oh->length))
-		zlog_err("Could not send entire message");
+		flog_err(LIB_ERR_DEVELOPMENT, "Could not send entire message");
 }
 
 static uint32_t ospf6_packet_max(struct ospf6_interface *oi)

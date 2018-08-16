@@ -32,6 +32,7 @@
 #include "lib/command.h"
 #include "lib/stream.h"
 #include "lib/ringbuf.h"
+#include "lib/lib_errors.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
@@ -3933,7 +3934,8 @@ void *rfapi_rfp_init_group_config_ptr_vty(void *rfp_start_val,
 							    size);
 		break;
 	default:
-		zlog_err("%s: Unknown group type=%d", __func__, type);
+		flog_err(LIB_ERR_DEVELOPMENT, "%s: Unknown group type=%d",
+			  __func__, type);
 		/* should never happen */
 		assert("Unknown type" == NULL);
 		break;
@@ -4047,7 +4049,8 @@ void *rfapi_rfp_get_group_config_ptr_name(
 							 criteria, search_cb);
 		break;
 	default:
-		zlog_err("%s: Unknown group type=%d", __func__, type);
+		flog_err(LIB_ERR_DEVELOPMENT, "%s: Unknown group type=%d",
+			  __func__, type);
 		/* should never happen */
 		assert("Unknown type" == NULL);
 		break;

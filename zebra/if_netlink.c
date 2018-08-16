@@ -52,6 +52,7 @@
 #include "vrf.h"
 #include "vrf_int.h"
 #include "mpls.h"
+#include "lib_errors.h"
 
 #include "vty.h"
 #include "zebra/zserv.h"
@@ -79,9 +80,9 @@ static void set_ifindex(struct interface *ifp, ifindex_t ifi_index,
 	if (((oifp = if_lookup_by_index_per_ns(zns, ifi_index)) != NULL)
 	    && (oifp != ifp)) {
 		if (ifi_index == IFINDEX_INTERNAL)
-			zlog_err(
-				"Netlink is setting interface %s ifindex to reserved "
-				"internal value %u",
+			flog_err(
+				LIB_ERR_INTERFACE,
+				"Netlink is setting interface %s ifindex to reserved internal value %u",
 				ifp->name, ifi_index);
 		else {
 			if (IS_ZEBRA_DEBUG_KERNEL)
@@ -89,9 +90,9 @@ static void set_ifindex(struct interface *ifp, ifindex_t ifi_index,
 					"interface index %d was renamed from %s to %s",
 					ifi_index, oifp->name, ifp->name);
 			if (if_is_up(oifp))
-				zlog_err(
-					"interface rename detected on up interface: index %d "
-					"was renamed from %s to %s, results are uncertain!",
+				flog_err(
+					LIB_ERR_INTERFACE,
+					"interface rename detected on up interface: index %d was renamed from %s to %s, results are uncertain!",
 					ifi_index, oifp->name, ifp->name);
 			if_delete_update(oifp);
 		}
@@ -309,8 +310,8 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 		vrf = vrf_get((vrf_id_t)ifi->ifi_index,
 			      name); // It would create vrf
 		if (!vrf) {
-			zlog_err("VRF %s id %u not created", name,
-				 ifi->ifi_index);
+			flog_err(LIB_ERR_INTERFACE, "VRF %s id %u not created",
+				  name, ifi->ifi_index);
 			return;
 		}
 
@@ -331,8 +332,9 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 
 		/* Enable the created VRF. */
 		if (!vrf_enable(vrf)) {
-			zlog_err("Failed to enable VRF %s id %u", name,
-				 ifi->ifi_index);
+			flog_err(LIB_ERR_INTERFACE,
+				  "Failed to enable VRF %s id %u", name,
+				  ifi->ifi_index);
 			return;
 		}
 
@@ -373,20 +375,20 @@ static int get_iflink_speed(struct interface *interface)
 	ifdata.ifr_data = (caddr_t)&ecmd;
 
 	/* use ioctl to get IP address of an interface */
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
-	sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP, interface->vrf_id,
-			NULL);
-	if (sd < 0) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("Failure to read interface %s speed: %d %s",
-				   ifname, errno, safe_strerror(errno));
-		return 0;
-	}
+	frr_elevate_privs(&zserv_privs) {
+		sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP,
+				interface->vrf_id,
+				NULL);
+		if (sd < 0) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("Failure to read interface %s speed: %d %s",
+					   ifname, errno, safe_strerror(errno));
+			return 0;
+		}
 	/* Get the current link state for the interface */
-	rc = vrf_ioctl(interface->vrf_id, sd, SIOCETHTOOL, (char *)&ifdata);
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+		rc = vrf_ioctl(interface->vrf_id, sd, SIOCETHTOOL,
+			       (char *)&ifdata);
+	}
 	if (rc < 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
@@ -915,7 +917,8 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	ifp = if_lookup_by_index_per_ns(zns, ifa->ifa_index);
 	if (ifp == NULL) {
-		zlog_err(
+		flog_err(
+			LIB_ERR_INTERFACE,
 			"netlink_interface_addr can't find interface by index %d",
 			ifa->ifa_index);
 		return -1;

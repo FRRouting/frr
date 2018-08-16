@@ -113,10 +113,9 @@ int main(int argc, char **argv)
 	((test_privs.current_state() == ZPRIVS_RAISED) ? "Raised" : "Lowered")
 
 	printf("%s\n", PRIV_STATE());
-	test_privs.change(ZPRIVS_RAISE);
-
-	printf("%s\n", PRIV_STATE());
-	test_privs.change(ZPRIVS_LOWER);
+	frr_elevate_privs(&test_privs) {
+		printf("%s\n", PRIV_STATE());
+	}
 
 	printf("%s\n", PRIV_STATE());
 	zprivs_get_ids(&ids);
@@ -126,10 +125,9 @@ int main(int argc, char **argv)
 
 	/* but these should continue to work... */
 	printf("%s\n", PRIV_STATE());
-	test_privs.change(ZPRIVS_RAISE);
-
-	printf("%s\n", PRIV_STATE());
-	test_privs.change(ZPRIVS_LOWER);
+	frr_elevate_privs(&test_privs) {
+		printf("%s\n", PRIV_STATE());
+	}
 
 	printf("%s\n", PRIV_STATE());
 	zprivs_get_ids(&ids);

@@ -42,6 +42,7 @@
 #include "filter.h"
 #include "qobj.h"
 #include "libfrr.h"
+#include "lib_errors.h"
 
 static void		 ldpd_shutdown(void);
 static pid_t		 start_child(enum ldpd_process, char *, int, int);
@@ -483,8 +484,9 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 
 	nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
 	if (nullfd == -1) {
-		zlog_err("%s: failed to open /dev/null: %s", __func__,
-			 safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			     "%s: failed to open /dev/null: %s", __func__,
+			     safe_strerror(errno));
 	} else {
 		dup2(nullfd, 0);
 		dup2(nullfd, 1);

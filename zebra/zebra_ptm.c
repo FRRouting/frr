@@ -19,25 +19,29 @@
  */
 
 #include <zebra.h>
+
 #include <sys/un.h> /* for sockaddr_un */
 #include <net/if.h>
-#include "vty.h"
-#include "zebra/zserv.h"
-#include "zebra/interface.h"
-#include "zebra/debug.h"
-#include "zebra/zebra_ptm.h"
-#include "if.h"
-#include "command.h"
-#include "stream.h"
-#include "ptm_lib.h"
-#include "network.h"
-#include "buffer.h"
-#include "zebra/zebra_ptm_redistribute.h"
+
 #include "bfd.h"
-#include "vrf.h"
+#include "buffer.h"
+#include "command.h"
+#include "if.h"
+#include "network.h"
+#include "ptm_lib.h"
 #include "rib.h"
-#include "zebra_vrf.h"
+#include "stream.h"
 #include "version.h"
+#include "vrf.h"
+#include "vty.h"
+
+#include "zebra/debug.h"
+#include "zebra/interface.h"
+#include "zebra/zebra_errors.h"
+#include "zebra/zebra_ptm.h"
+#include "zebra/zebra_ptm_redistribute.h"
+#include "zebra/zserv.h"
+#include "zebra_vrf.h"
 
 /*
  * Choose the BFD implementation that we'll use.
@@ -500,15 +504,17 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 			dest_str, src_str);
 
 	if (str2prefix(dest_str, &dest_prefix) == 0) {
-		zlog_err("%s: Peer addr %s not found", __func__, dest_str);
+		flog_err(ZEBRA_ERR_PREFIX_PARSE_ERROR,
+			  "%s: Peer addr %s not found", __func__, dest_str);
 		return -1;
 	}
 
 	memset(&src_prefix, 0, sizeof(struct prefix));
 	if (strcmp(ZEBRA_PTM_INVALID_SRC_IP, src_str)) {
 		if (str2prefix(src_str, &src_prefix) == 0) {
-			zlog_err("%s: Local addr %s not found", __func__,
-				 src_str);
+			flog_err(ZEBRA_ERR_PREFIX_PARSE_ERROR,
+				  "%s: Local addr %s not found", __func__,
+				  src_str);
 			return -1;
 		}
 	}
@@ -602,8 +608,8 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
 		ifp = if_lookup_by_name_all_vrf(port_str);
 
 		if (!ifp) {
-			zlog_err("%s: %s not found in interface list", __func__,
-				 port_str);
+			zlog_warn("%s: %s not found in interface list",
+				  __func__, port_str);
 			return -1;
 		}
 	}
@@ -1026,8 +1032,8 @@ int zebra_ptm_bfd_client_deregister(struct zserv *client)
 		return 0;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_err("bfd_client_deregister msg for client %s",
-			 zebra_route_string(proto));
+		zlog_warn("bfd_client_deregister msg for client %s",
+			  zebra_route_string(proto));
 
 	if (ptm_cb.ptm_sock == -1) {
 		ptm_cb.t_timer = NULL;

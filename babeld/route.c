@@ -34,13 +34,14 @@ THE SOFTWARE.
 #include "xroute.h"
 #include "message.h"
 #include "resend.h"
+#include "babel_errors.h"
 
 static void consider_route(struct babel_route *route);
 
 struct babel_route **routes = NULL;
 static int route_slots = 0, max_route_slots = 0;
 int kernel_metric = 0;
-int diversity_kind = DIVERSITY_NONE;
+enum babel_diversity diversity_kind = DIVERSITY_NONE;
 int diversity_factor = BABEL_DEFAULT_DIVERSITY_FACTOR;
 int keep_unfeasible = 0;
 
@@ -398,15 +399,16 @@ install_route(struct babel_route *route)
         return;
 
     if(!route_feasible(route))
-        zlog_err("WARNING: installing unfeasible route "
-                 "(this shouldn't happen).");
+        flog_err(BABEL_ERR_ROUTE, "WARNING: installing unfeasible route "
+                  "(this shouldn't happen).");
 
     i = find_route_slot(route->src->prefix, route->src->plen, NULL);
     assert(i >= 0 && i < route_slots);
 
     if(routes[i] != route && routes[i]->installed) {
-        zlog_err("WARNING: attempting to install duplicate route "
-                 "(this shouldn't happen).");
+        flog_err(BABEL_ERR_ROUTE,
+		  "WARNING: attempting to install duplicate route "
+                  "(this shouldn't happen).");
         return;
     }
 
@@ -416,7 +418,8 @@ install_route(struct babel_route *route)
                       metric_to_kernel(route_metric(route)), NULL, 0, 0);
     if(rc < 0) {
         int save = errno;
-        zlog_err("kernel_route(ADD): %s", safe_strerror(errno));
+        flog_err(BABEL_ERR_ROUTE, "kernel_route(ADD): %s",
+		  safe_strerror(errno));
         if(save != EEXIST)
             return;
     }
@@ -438,7 +441,8 @@ uninstall_route(struct babel_route *route)
                       route->neigh->ifp->ifindex,
                       metric_to_kernel(route_metric(route)), NULL, 0, 0);
     if(rc < 0)
-        zlog_err("kernel_route(FLUSH): %s", safe_strerror(errno));
+        flog_err(BABEL_ERR_ROUTE, "kernel_route(FLUSH): %s",
+		  safe_strerror(errno));
 
     route->installed = 0;
 }
@@ -461,8 +465,8 @@ switch_routes(struct babel_route *old, struct babel_route *new)
         return;
 
     if(!route_feasible(new))
-        zlog_err("WARNING: switching to unfeasible route "
-                 "(this shouldn't happen).");
+        flog_err(BABEL_ERR_ROUTE, "WARNING: switching to unfeasible route "
+                  "(this shouldn't happen).");
 
     rc = kernel_route(ROUTE_MODIFY, old->src->prefix, old->src->plen,
                       old->nexthop, old->neigh->ifp->ifindex,
@@ -470,7 +474,8 @@ switch_routes(struct babel_route *old, struct babel_route *new)
                       new->nexthop, new->neigh->ifp->ifindex,
                       metric_to_kernel(route_metric(new)));
     if(rc < 0) {
-        zlog_err("kernel_route(MODIFY): %s", safe_strerror(errno));
+        flog_err(BABEL_ERR_ROUTE, "kernel_route(MODIFY): %s",
+		  safe_strerror(errno));
         return;
     }
 
@@ -498,7 +503,8 @@ change_route_metric(struct babel_route *route,
                           route->nexthop, route->neigh->ifp->ifindex,
                           new);
         if(rc < 0) {
-            zlog_err("kernel_route(MODIFY metric): %s", safe_strerror(errno));
+            flog_err(BABEL_ERR_ROUTE, "kernel_route(MODIFY metric): %s",
+		      safe_strerror(errno));
             return;
         }
     }
@@ -581,10 +587,9 @@ route_interferes(struct babel_route *route, struct interface *ifp)
             }
         }
         return 0;
-    default:
-        zlog_err("Unknown kind of diversity.");
-        return 1;
     }
+
+    return 1;
 }
 
 int
@@ -793,7 +798,7 @@ update_route(const unsigned char *router_id,
         return NULL;
 
     if(martian_prefix(prefix, plen)) {
-        zlog_err("Rejecting martian route to %s through %s.",
+        flog_err(BABEL_ERR_ROUTE, "Rejecting martian route to %s through %s.",
                  format_prefix(prefix, plen), format_address(nexthop));
         return NULL;
     }
@@ -901,7 +906,7 @@ update_route(const unsigned char *router_id,
         route->next = NULL;
         new_route = insert_route(route);
         if(new_route == NULL) {
-            zlog_err("Couldn't insert route.");
+            flog_err(BABEL_ERR_ROUTE, "Couldn't insert route.");
             free(route);
             return NULL;
         }

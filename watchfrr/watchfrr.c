@@ -27,6 +27,7 @@
 #include "command.h"
 #include "memory_vty.h"
 #include "libfrr.h"
+#include "lib_errors.h"
 
 #include <getopt.h>
 #include <sys/un.h>
@@ -35,6 +36,7 @@
 #include <systemd.h>
 
 #include "watchfrr.h"
+#include "watchfrr_errors.h"
 
 #ifndef MIN
 #define MIN(X,Y) (((X) <= (Y)) ? (X) : (Y))
@@ -247,8 +249,9 @@ static pid_t run_background(char *shell_cmd)
 
 	switch (child = fork()) {
 	case -1:
-		zlog_err("fork failed, cannot run command [%s]: %s", shell_cmd,
-			 safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			     "fork failed, cannot run command [%s]: %s",
+			     shell_cmd, safe_strerror(errno));
 		return -1;
 	case 0:
 		/* Child process. */
@@ -262,14 +265,16 @@ static pid_t run_background(char *shell_cmd)
 			char dashc[] = "-c";
 			char *const argv[4] = {shell, dashc, shell_cmd, NULL};
 			execv("/bin/sh", argv);
-			zlog_err("execv(/bin/sh -c '%s') failed: %s", shell_cmd,
-				 safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "execv(/bin/sh -c '%s') failed: %s",
+				     shell_cmd, safe_strerror(errno));
 			_exit(127);
 		}
 	default:
 		/* Parent process: we will reap the child later. */
-		zlog_err("Forked background command [pid %d]: %s", (int)child,
-			 shell_cmd);
+		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			     "Forked background command [pid %d]: %s",
+			     (int)child, shell_cmd);
 		return child;
 	}
 }
@@ -326,7 +331,8 @@ static void sigchild(void)
 
 	switch (child = waitpid(-1, &status, WNOHANG)) {
 	case -1:
-		zlog_err("waitpid failed: %s", safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL, "waitpid failed: %s",
+			     safe_strerror(errno));
 		return;
 	case 0:
 		zlog_warn("SIGCHLD received, but waitpid did not reap a child");
@@ -349,7 +355,8 @@ static void sigchild(void)
 		 * completed. */
 		gettimeofday(&restart->time, NULL);
 	} else {
-		zlog_err(
+		flog_err_sys(
+			LIB_ERR_SYSTEM_CALL,
 			"waitpid returned status for an unknown child process %d",
 			(int)child);
 		name = "(unknown)";
@@ -370,8 +377,10 @@ static void sigchild(void)
 			zlog_debug("%s %s process %d exited normally", what,
 				   name, (int)child);
 	} else
-		zlog_err("cannot interpret %s %s process %d wait status 0x%x",
-			 what, name, (int)child, status);
+		flog_err_sys(
+			LIB_ERR_SYSTEM_CALL,
+			"cannot interpret %s %s process %d wait status 0x%x",
+			what, name, (int)child, status);
 	phase_check();
 }
 
@@ -481,8 +490,9 @@ static int wakeup_init(struct thread *t_wakeup)
 	dmn->t_wakeup = NULL;
 	if (try_connect(dmn) < 0) {
 		SET_WAKEUP_DOWN(dmn);
-		zlog_err("%s state -> down : initial connection attempt failed",
-			 dmn->name);
+		flog_err(WATCHFRR_ERR_CONNECTION,
+			  "%s state -> down : initial connection attempt failed",
+			  dmn->name);
 		dmn->state = DAEMON_DOWN;
 	}
 	return 0;
@@ -491,7 +501,8 @@ static int wakeup_init(struct thread *t_wakeup)
 static void daemon_down(struct daemon *dmn, const char *why)
 {
 	if (IS_UP(dmn) || (dmn->state == DAEMON_INIT))
-		zlog_err("%s state -> down : %s", dmn->name, why);
+		flog_err(WATCHFRR_ERR_CONNECTION,
+			  "%s state -> down : %s", dmn->name, why);
 	else if (gs.loglevel > LOG_DEBUG)
 		zlog_debug("%s still down : %s", dmn->name, why);
 	if (IS_UP(dmn))
@@ -684,21 +695,23 @@ static int try_connect(struct daemon *dmn)
 	   of creating a socket. */
 	if (access(addr.sun_path, W_OK) < 0) {
 		if (errno != ENOENT)
-			zlog_err("%s: access to socket %s denied: %s",
-				 dmn->name, addr.sun_path,
-				 safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "%s: access to socket %s denied: %s",
+				     dmn->name, addr.sun_path,
+				     safe_strerror(errno));
 		return -1;
 	}
 
 	if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-		zlog_err("%s(%s): cannot make socket: %s", __func__,
-			 addr.sun_path, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "%s(%s): cannot make socket: %s",
+			     __func__, addr.sun_path, safe_strerror(errno));
 		return -1;
 	}
 
 	if (set_nonblocking(sock) < 0 || set_cloexec(sock) < 0) {
-		zlog_err("%s(%s): set_nonblocking/cloexec(%d) failed", __func__,
-			 addr.sun_path, sock);
+		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			     "%s(%s): set_nonblocking/cloexec(%d) failed",
+			     __func__, addr.sun_path, sock);
 		close(sock);
 		return -1;
 	}
@@ -735,8 +748,9 @@ static int try_connect(struct daemon *dmn)
 static int phase_hanging(struct thread *t_hanging)
 {
 	gs.t_phase_hanging = NULL;
-	zlog_err("Phase [%s] hanging for %ld seconds, aborting phased restart",
-		 phase_str[gs.phase], PHASE_TIMEOUT);
+	flog_err(WATCHFRR_ERR_CONNECTION,
+		  "Phase [%s] hanging for %ld seconds, aborting phased restart",
+		  phase_str[gs.phase], PHASE_TIMEOUT);
 	gs.phase = PHASE_NONE;
 	return 0;
 }
@@ -850,10 +864,10 @@ static int wakeup_unresponsive(struct thread *t_wakeup)
 
 	dmn->t_wakeup = NULL;
 	if (dmn->state != DAEMON_UNRESPONSIVE)
-		zlog_err(
-			"%s: no longer unresponsive (now %s), "
-			"wakeup should have been cancelled!",
-			dmn->name, state_str[dmn->state]);
+		flog_err(WATCHFRR_ERR_CONNECTION,
+			  "%s: no longer unresponsive (now %s), "
+			  "wakeup should have been cancelled!",
+			  dmn->name, state_str[dmn->state]);
 	else {
 		SET_WAKEUP_UNRESPONSIVE(dmn);
 		try_restart(dmn);
@@ -867,10 +881,10 @@ static int wakeup_no_answer(struct thread *t_wakeup)
 
 	dmn->t_wakeup = NULL;
 	dmn->state = DAEMON_UNRESPONSIVE;
-	zlog_err(
-		"%s state -> unresponsive : no response yet to ping "
-		"sent %ld seconds ago",
-		dmn->name, gs.timeout);
+	flog_err(WATCHFRR_ERR_CONNECTION,
+		  "%s state -> unresponsive : no response yet to ping "
+		  "sent %ld seconds ago",
+		  dmn->name, gs.timeout);
 	SET_WAKEUP_UNRESPONSIVE(dmn);
 	try_restart(dmn);
 	return 0;
@@ -1149,6 +1163,7 @@ int main(int argc, char **argv)
 	gs.restart.interval = gs.min_restart_interval;
 
 	master = frr_init();
+	watchfrr_error_init();
 
 	zlog_set_level(ZLOG_DEST_MONITOR, ZLOG_DISABLED);
 	if (watchfrr_di.daemon_mode) {

@@ -37,6 +37,7 @@
 #include "libfrr.h"
 
 #include "ripd/ripd.h"
+#include "ripd/rip_errors.h"
 
 /* ripd options. */
 #if CONFDATE > 20190521
@@ -167,6 +168,7 @@ int main(int argc, char **argv)
 	master = frr_init();
 
 	/* Library initialization. */
+	rip_error_init();
 	keychain_init();
 	vrf_init(NULL, NULL, NULL, NULL);
 

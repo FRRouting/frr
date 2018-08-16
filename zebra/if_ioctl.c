@@ -33,6 +33,7 @@
 #include "log.h"
 #include "vrf.h"
 #include "vty.h"
+#include "lib_errors.h"
 
 #include "zebra/interface.h"
 #include "zebra/rib.h"
@@ -175,13 +176,15 @@ static int if_getaddrs(void)
 
 	ret = getifaddrs(&ifap);
 	if (ret != 0) {
-		zlog_err("getifaddrs(): %s", safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL, "getifaddrs(): %s",
+			     safe_strerror(errno));
 		return -1;
 	}
 
 	for (ifapfree = ifap; ifap; ifap = ifap->ifa_next) {
 		if (ifap->ifa_addr == NULL) {
-			zlog_err(
+			flog_err(
+				LIB_ERR_INTERFACE,
 				"%s: nonsensical ifaddr with NULL ifa_addr, ifname %s",
 				__func__,
 				(ifap->ifa_name ? ifap->ifa_name : "(null)"));
@@ -190,8 +193,9 @@ static int if_getaddrs(void)
 
 		ifp = if_lookup_by_name(ifap->ifa_name, VRF_DEFAULT);
 		if (ifp == NULL) {
-			zlog_err("if_getaddrs(): Can't lookup interface %s\n",
-				 ifap->ifa_name);
+			flog_err(LIB_ERR_INTERFACE,
+				  "if_getaddrs(): Can't lookup interface %s\n",
+				  ifap->ifa_name);
 			continue;
 		}
 

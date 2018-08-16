@@ -404,8 +404,8 @@ yyerror (CMD_YYLTYPE *loc, struct parser_ctx *ctx, char const *msg)
   char spacing[256];
   int lineno = 0;
 
-  zlog_err ("%s: FATAL parse error: %s", __func__, msg);
-  zlog_err ("%s: %d:%d-%d of this command definition:", __func__, loc->first_line, loc->first_column, loc->last_column);
+  zlog_notice ("%s: FATAL parse error: %s", __func__, msg);
+  zlog_notice ("%s: %d:%d-%d of this command definition:", __func__, loc->first_line, loc->first_column, loc->last_column);
 
   line = tmpstr;
   do {
@@ -414,7 +414,7 @@ yyerror (CMD_YYLTYPE *loc, struct parser_ctx *ctx, char const *msg)
     if (eol)
       *eol++ = '\0';
 
-    zlog_err ("%s: | %s", __func__, line);
+    zlog_notice ("%s: | %s", __func__, line);
     if (lineno == loc->first_line && lineno == loc->last_line
         && loc->first_column < (int)sizeof(spacing) - 1
         && loc->last_column < (int)sizeof(spacing) - 1) {
@@ -426,7 +426,7 @@ yyerror (CMD_YYLTYPE *loc, struct parser_ctx *ctx, char const *msg)
       memset(spacing, ' ', loc->first_column - 1);
       memset(spacing + loc->first_column - 1, '^', len);
       spacing[loc->first_column - 1 + len] = '\0';
-      zlog_err ("%s: | %s", __func__, spacing);
+      zlog_notice ("%s: | %s", __func__, spacing);
     }
   } while ((line = eol));
   free(tmpstr);

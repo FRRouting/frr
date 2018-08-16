@@ -57,6 +57,7 @@
 #include "isisd/isis_events.h"
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
+#include "isisd/isis_errors.h"
 
 DEFINE_QOBJ_TYPE(isis_circuit)
 
@@ -566,7 +567,8 @@ int isis_circuit_up(struct isis_circuit *circuit)
 		return ISIS_OK;
 
 	if (circuit->area->lsp_mtu > isis_circuit_pdu_size(circuit)) {
-		zlog_err(
+		flog_err(
+			ISIS_ERR_CONFIG,
 			"Interface MTU %zu on %s is too low to support area lsp mtu %u!",
 			isis_circuit_pdu_size(circuit),
 			circuit->interface->name, circuit->area->lsp_mtu);
@@ -577,7 +579,9 @@ int isis_circuit_up(struct isis_circuit *circuit)
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 		circuit->circuit_id = isis_circuit_id_gen(isis, circuit->interface);
 		if (!circuit->circuit_id) {
-			zlog_err("There are already 255 broadcast circuits active!");
+			flog_err(
+				ISIS_ERR_CONFIG,
+				"There are already 255 broadcast circuits active!");
 			return ISIS_ERROR;
 		}
 

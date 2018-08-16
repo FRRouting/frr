@@ -35,6 +35,7 @@
 
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_debug.h"	// for bgp_debug_neighbor_events, bgp_type_str
+#include "bgpd/bgp_errors.h"	// for expanded error reference information
 #include "bgpd/bgp_fsm.h"	// for BGP_EVENT_ADD, bgp_event
 #include "bgpd/bgp_packet.h"	// for bgp_notify_send_with_data, bgp_notify...
 #include "bgpd/bgpd.h"		// for peer, BGP_MARKER_SIZE, bgp_master, bm
@@ -401,8 +402,9 @@ static uint16_t bgp_read(struct peer *peer)
 		SET_FLAG(status, BGP_IO_TRANS_ERR);
 		/* Fatal error; tear down session */
 	} else if (nbytes < 0) {
-		zlog_err("%s [Error] bgp_read_packet error: %s", peer->host,
-			 safe_strerror(errno));
+		flog_err(BGP_ERR_UPDATE_RCV,
+			  "%s [Error] bgp_read_packet error: %s", peer->host,
+			  safe_strerror(errno));
 
 		if (peer->status == Established) {
 			if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {

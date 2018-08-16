@@ -23,6 +23,7 @@
 
 #include "linklist.h"
 #include "vector.h"
+#include "lib_errors.h"
 #include "vty.h"
 #include "command.h"
 #include "vrf.h"

@@ -21,12 +21,11 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include <zebra.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 
-#include "zebra.h"
-#include "zserv.h"
 #include "lib/log.h"
 #include "lib/memory.h"
 #include "lib/mpls.h"
@@ -35,7 +34,9 @@
 #include "lib/zclient.h"
 #include "lib/libfrr.h"
 
-#include "label_manager.h"
+#include "zebra/zserv.h"
+#include "zebra/label_manager.h"
+#include "zebra/zebra_errors.h"
 
 #define CONNECTION_DELAY 5
 
@@ -82,8 +83,9 @@ static int relay_response_back(void)
 	ret = zclient_read_header(src, zclient->sock, &size, &marker, &version,
 				  &vrf_id, &resp_cmd);
 	if (ret < 0 && errno != EAGAIN) {
-		zlog_err("Error reading Label Manager response: %s",
-			 strerror(errno));
+		flog_err(ZEBRA_ERR_LM_RESPONSE,
+			  "Error reading Label Manager response: %s",
+			  strerror(errno));
 		return -1;
 	}
 	zlog_debug("Label Manager response received, %d bytes", size);
@@ -101,7 +103,8 @@ static int relay_response_back(void)
 	/* lookup the client to relay the msg to */
 	zserv = zserv_find_client(proto, instance);
 	if (!zserv) {
-		zlog_err(
+		flog_err(
+			ZEBRA_ERR_LM_NO_SUCH_CLIENT,
 			"Error relaying LM response: can't find client %s, instance %u",
 			proto_str, instance);
 		return -1;
@@ -116,8 +119,9 @@ static int relay_response_back(void)
 	/* send response back */
 	ret = writen(zserv->sock, dst->data, stream_get_endp(dst));
 	if (ret <= 0) {
-		zlog_err("Error relaying LM response to %s instance %u: %s",
-			 proto_str, instance, strerror(errno));
+		flog_err(ZEBRA_ERR_LM_RELAY_FAILED,
+			  "Error relaying LM response to %s instance %u: %s",
+			  proto_str, instance, strerror(errno));
 		return -1;
 	}
 	zlog_debug("Relayed LM response (%d bytes) to %s instance %u", ret,
@@ -183,7 +187,8 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
 	unsigned short instance;
 
 	if (zclient->sock < 0) {
-		zlog_err("Unable to relay LM request: no socket");
+		flog_err(ZEBRA_ERR_LM_NO_SOCKET,
+			  "Unable to relay LM request: no socket");
 		reply_error(cmd, zserv, vrf_id);
 		return -1;
 	}
@@ -211,8 +216,9 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
 
 	/* check & set client instance if unset */
 	if (zserv->instance && zserv->instance != instance) {
-		zlog_err("Client instance(%u) != msg instance(%u)",
-			 zserv->instance, instance);
+		flog_err(ZEBRA_ERR_LM_BAD_INSTANCE,
+			  "Client instance(%u) != msg instance(%u)",
+			  zserv->instance, instance);
 		return -1;
 	}
 
@@ -233,8 +239,9 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
 	/* Send request to external label manager */
 	ret = writen(zclient->sock, dst->data, stream_get_endp(dst));
 	if (ret <= 0) {
-		zlog_err("Error relaying LM request from %s instance %u: %s",
-			 proto_str, instance, strerror(errno));
+		flog_err(ZEBRA_ERR_LM_RELAY_FAILED,
+			  "Error relaying LM request from %s instance %u: %s",
+			  proto_str, instance, strerror(errno));
 		reply_error(cmd, zserv, vrf_id);
 		return -1;
 	}
@@ -262,7 +269,8 @@ static int lm_zclient_connect(struct thread *t)
 		return 0;
 
 	if (zclient_socket_connect(zclient) < 0) {
-		zlog_err("Error connecting synchronous zclient!");
+		flog_err(ZEBRA_ERR_LM_CLIENT_CONNECTION_FAILED,
+			  "Error connecting synchronous zclient!");
 		thread_add_timer(zebrad.master, lm_zclient_connect, zclient,
 				 CONNECTION_DELAY, &zclient->t_connect);
 		return -1;
@@ -393,8 +401,9 @@ struct label_manager_chunk *assign_label_chunk(uint8_t proto,
 				     ->end
 			     + 1;
 	if (lmc->start > MPLS_LABEL_UNRESERVED_MAX - size + 1) {
-		zlog_err("Reached max labels. Start: %u, size: %u", lmc->start,
-			 size);
+		flog_err(ZEBRA_ERR_LM_EXHAUSTED_LABELS,
+			  "Reached max labels. Start: %u, size: %u", lmc->start,
+			  size);
 		XFREE(MTYPE_LM_CHUNK, lmc);
 		return NULL;
 	}
@@ -432,7 +441,8 @@ int release_label_chunk(uint8_t proto, unsigned short instance, uint32_t start,
 		if (lmc->end != end)
 			continue;
 		if (lmc->proto != proto || lmc->instance != instance) {
-			zlog_err("%s: Daemon mismatch!!", __func__);
+			flog_err(ZEBRA_ERR_LM_DAEMON_MISMATCH,
+				  "%s: Daemon mismatch!!", __func__);
 			continue;
 		}
 		lmc->proto = NO_PROTO;
@@ -442,7 +452,8 @@ int release_label_chunk(uint8_t proto, unsigned short instance, uint32_t start,
 		break;
 	}
 	if (ret != 0)
-		zlog_err("%s: Label chunk not released!!", __func__);
+		flog_err(ZEBRA_ERR_LM_UNRELEASED_CHUNK,
+			  "%s: Label chunk not released!!", __func__);
 
 	return ret;
 }

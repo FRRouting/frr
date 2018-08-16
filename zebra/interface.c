@@ -22,6 +22,7 @@
 #include <zebra.h>
 
 #include "if.h"
+#include "lib_errors.h"
 #include "vty.h"
 #include "sockunion.h"
 #include "prefix.h"
@@ -718,7 +719,8 @@ void if_delete_update(struct interface *ifp)
 	struct zebra_if *zif;
 
 	if (if_is_up(ifp)) {
-		zlog_err(
+		flog_err(
+			LIB_ERR_INTERFACE,
 			"interface %s vrf %u index %d is still up while being deleted.",
 			ifp->name, ifp->vrf_id, ifp->ifindex);
 		return;

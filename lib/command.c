@@ -45,6 +45,7 @@
 #include "libfrr.h"
 #include "jhash.h"
 #include "hook.h"
+#include "lib_errors.h"
 
 DEFINE_MTYPE(LIB, HOST, "Host config")
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item")
@@ -2416,7 +2417,8 @@ static int set_log_file(struct vty *vty, const char *fname, int loglevel)
 		cwd[MAXPATHLEN] = '\0';
 
 		if (getcwd(cwd, MAXPATHLEN) == NULL) {
-			zlog_err("config_log_file: Unable to alloc mem!");
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "config_log_file: Unable to alloc mem!");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 

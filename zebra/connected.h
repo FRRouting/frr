@@ -22,6 +22,12 @@
 #ifndef _ZEBRA_CONNECTED_H
 #define _ZEBRA_CONNECTED_H
 
+#include <zebra.h>
+#include <stdint.h>
+
+#include "lib/if.h"
+#include "lib/prefix.h"
+
 extern struct connected *connected_check(struct interface *ifp,
 					 union prefixconstptr p);
 extern struct connected *connected_check_ptp(struct interface *ifp,

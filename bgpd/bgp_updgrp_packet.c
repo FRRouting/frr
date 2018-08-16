@@ -46,6 +46,7 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_packet.h"
@@ -786,7 +787,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			 * NLRI then
 			 * return */
 			if (space_remaining < space_needed) {
-				zlog_err(
+				flog_err(
+					BGP_ERR_UPDGRP_ATTR_LEN,
 					"u%" PRIu64 ":s%" PRIu64
 					" attributes too long, cannot send UPDATE",
 					subgrp->update_group->id, subgrp->id);

@@ -25,6 +25,8 @@
 #include <limits.h>
 #include <errno.h>
 
+#include "vty.h"
+
 /* return type when this error indication stuff is used.
  *
  * guaranteed to have boolean evaluation to "false" when OK, "true" when error
@@ -93,6 +95,66 @@ struct ferr {
 	char pathname[PATH_MAX];
 };
 
+/* Numeric ranges assigned to daemons for use as error codes. */
+#define BABEL_FERR_START    0x01000001
+#define BABEL_FRRR_END      0x01FFFFFF
+#define BGP_FERR_START      0x02000001
+#define BGP_FERR_END        0x02FFFFFF
+#define EIGRP_FERR_START    0x03000001
+#define EIGRP_FERR_END      0x03FFFFFF
+#define ISIS_FERR_START     0x04000001
+#define ISIS_FERR_END       0x04FFFFFF
+#define LDP_FERR_START      0x05000001
+#define LDP_FERR_END        0x05FFFFFF
+#define LIB_FERR_START      0x06000001
+#define LIB_FERR_END        0x06FFFFFF
+#define NHRP_FERR_START     0x07000001
+#define NHRP_FERR_END       0x07FFFFFF
+#define OSPF_FERR_START     0x08000001
+#define OSPF_FERR_END       0x08FFFFFF
+#define OSPFV3_FERR_START   0x09000001
+#define OSPFV3_FERR_END     0x09FFFFFF
+#define PBR_FERR_START      0x0A000001
+#define PBR_FERR_END        0x0AFFFFFF
+#define PIM_FERR_START      0x0B000001
+#define PIM_FERR_STOP       0x0BFFFFFF
+#define RIP_FERR_START      0x0C000001
+#define RIP_FERR_STOP       0x0CFFFFFF
+#define RIPNG_FERR_START    0x0D000001
+#define RIPNG_FERR_STOP     0x0DFFFFFF
+#define SHARP_FERR_START    0x0E000001
+#define SHARP_FERR_END      0x0EFFFFFF
+#define VTYSH_FERR_START    0x0F000001
+#define VTYSH_FRR_END       0x0FFFFFFF
+#define WATCHFRR_FERR_START 0x10000001
+#define WATCHFRR_FERR_END   0x10FFFFFF
+#define ZEBRA_FERR_START    0xF1000001
+#define ZEBRA_FERR_END      0xF1FFFFFF
+#define END_FERR            0xFFFFFFFF
+
+struct log_ref {
+	/* Unique error code displayed to end user as a reference. -1 means
+	 * this is an uncoded error that does not have reference material. */
+	uint32_t code;
+	/* Ultra brief title */
+	const char *title;
+	/* Brief description of error */
+	const char *description;
+	/* Remedial suggestion */
+	const char *suggestion;
+};
+
+void log_ref_add(struct log_ref *ref);
+struct log_ref *log_ref_get(uint32_t code);
+void log_ref_display(struct vty *vty, uint32_t code, bool json);
+
+/*
+ * This function should be called by the
+ * code in libfrr.c
+ */
+void log_ref_init(void);
+void log_ref_fini(void);
+
 /* get error details.
  *
  * NB: errval/ferr_r does NOT carry the full error information.  It's only
@@ -101,8 +163,10 @@ struct ferr {
  */
 const struct ferr *ferr_get_last(ferr_r errval);
 
-/* can optionally be called at strategic locations.
- * always returns 0. */
+/*
+ * Can optionally be called at strategic locations.
+ * Always returns 0.
+ */
 ferr_r ferr_clear(void);
 
 /* do NOT call these functions directly.  only for macro use! */

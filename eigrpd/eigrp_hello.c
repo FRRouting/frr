@@ -54,6 +54,7 @@
 #include "eigrpd/eigrp_vty.h"
 #include "eigrpd/eigrp_dump.h"
 #include "eigrpd/eigrp_macros.h"
+#include "eigrpd/eigrp_errors.h"
 
 /* Packet Type String. */
 static const struct message eigrp_general_tlv_type_str[] = {
@@ -420,8 +421,9 @@ void eigrp_sw_version_initialize(void)
 	ret = sscanf(ver_string, "%" SCNu32 ".%" SCNu32, &FRR_MAJOR,
 		     &FRR_MINOR);
 	if (ret != 2)
-		zlog_err("Did not Properly parse %s, please fix VERSION string",
-			 VERSION);
+		flog_err(EIGRP_ERR_PACKET,
+			  "Did not Properly parse %s, please fix VERSION string",
+			  VERSION);
 }
 
 /**

@@ -38,6 +38,7 @@
 #include "jhash.h"
 #include "skiplist.h"
 #include "srcdest_table.h"
+#include "lib_errors.h"
 
 #include "isis_constants.h"
 #include "isis_common.h"
@@ -437,7 +438,7 @@ static void isis_vertex_id_init(struct isis_vertex *vertex, union isis_N *n,
 	} else if (VTYPE_IP(vtype)) {
 		memcpy(&vertex->N.ip, &n->ip, sizeof(n->ip));
 	} else {
-		zlog_err("WTF!");
+		flog_err(LIB_ERR_DEVELOPMENT, "Unknown Vertex Type");
 	}
 }
 

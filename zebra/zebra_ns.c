@@ -26,6 +26,7 @@
 #include "lib/logicalrouter.h"
 #include "lib/prefix.h"
 #include "lib/memory.h"
+#include "lib/lib_errors.h"
 
 #include "rtadv.h"
 #include "zebra_ns.h"
@@ -314,11 +315,9 @@ int zebra_ns_init(void)
 
 	dzns = zebra_ns_alloc();
 
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
-	ns_id = zebra_ns_id_get_default();
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+	frr_elevate_privs(&zserv_privs) {
+		ns_id = zebra_ns_id_get_default();
+	}
 	ns_id_external = ns_map_nsid_with_external(ns_id, true);
 	ns_init_management(ns_id_external, ns_id);
 

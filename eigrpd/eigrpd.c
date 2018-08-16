@@ -43,6 +43,7 @@
 #include "sockopt.h"
 #include "keychain.h"
 #include "libfrr.h"
+#include "lib_errors.h"
 
 #include "eigrpd/eigrp_structs.h"
 #include "eigrpd/eigrpd.h"
@@ -161,21 +162,16 @@ static struct eigrp *eigrp_new(const char *AS)
 	eigrp->networks = eigrp_topology_new();
 
 	if ((eigrp_socket = eigrp_sock_init()) < 0) {
-		zlog_err(
-			"eigrp_new: fatal error: eigrp_sock_init was unable to open "
-			"a socket");
+		flog_err_sys(
+			LIB_ERR_SOCKET,
+			"eigrp_new: fatal error: eigrp_sock_init was unable to open a socket");
 		exit(1);
 	}
 
 	eigrp->fd = eigrp_socket;
 	eigrp->maxsndbuflen = getsockopt_so_sendbuf(eigrp->fd);
 
-	if ((eigrp->ibuf = stream_new(EIGRP_PACKET_MAX_LEN + 1)) == NULL) {
-		zlog_err(
-			"eigrp_new: fatal error: stream_new (%u) failed allocating ibuf",
-			EIGRP_PACKET_MAX_LEN + 1);
-		exit(1);
-	}
+	eigrp->ibuf = stream_new(EIGRP_PACKET_MAX_LEN + 1);
 
 	eigrp->t_read = NULL;
 	thread_add_read(master, eigrp_read, eigrp, eigrp->fd, &eigrp->t_read);

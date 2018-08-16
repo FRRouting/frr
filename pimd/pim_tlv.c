@@ -767,12 +767,6 @@ int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
 		{
 			struct prefix *p;
 			p = prefix_new();
-			if (!p) {
-				zlog_err("%s %s: failure: prefix_new()",
-					 __FILE__, __PRETTY_FUNCTION__);
-				FREE_ADDR_LIST(*hello_option_addr_list);
-				return -3;
-			}
 			prefix_copy(p, &tmp);
 			listnode_add(*hello_option_addr_list, p);
 		}

@@ -1,7 +1,13 @@
 /*
  *
- * Copyright (C) 2000  Robert Olsson.
- * Swedish University of Agricultural Sciences
+ * Copyright (C) 1997, 2000
+ * Portions:
+ *   Swedish University of Agricultural Sciences
+ *   Robert Olsson
+ *   Kunihiro Ishiguro
+ *
+ * Thanks to Jens Laas at Swedish University of Agricultural Sciences
+ * for reviewing and tests.
  *
  * This file is part of GNU Zebra.
  *
@@ -19,19 +25,6 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-
-/*
- * This work includes work with the following copywrite:
- *
- * Copyright (C) 1997, 2000 Kunihiro Ishiguro
- *
- */
-
-/*
- * Thanks to Jens Låås at Swedish University of Agricultural Sciences
- * for reviewing and tests.
- */
-
 
 #include <zebra.h>
 

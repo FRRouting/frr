@@ -696,6 +696,41 @@ static int getgrouplist(const char *user, gid_t group, gid_t *groups,
 }
 #endif /* HAVE_GETGROUPLIST */
 
+struct zebra_privs_t *_zprivs_raise(struct zebra_privs_t *privs,
+				    const char *funcname)
+{
+	int save_errno = errno;
+
+	if (!privs)
+		return NULL;
+
+	errno = 0;
+	if (privs->change(ZPRIVS_RAISE)) {
+		zlog_err("%s: Failed to raise privileges (%s)",
+			 funcname, safe_strerror(errno));
+	}
+	errno = save_errno;
+	privs->raised_in_funcname = funcname;
+	return privs;
+}
+
+void _zprivs_lower(struct zebra_privs_t **privs)
+{
+	int save_errno = errno;
+
+	if (!*privs)
+		return;
+
+	errno = 0;
+	if ((*privs)->change(ZPRIVS_LOWER)) {
+		zlog_err("%s: Failed to lower privileges (%s)",
+			 (*privs)->raised_in_funcname, safe_strerror(errno));
+	}
+	errno = save_errno;
+	(*privs)->raised_in_funcname = NULL;
+	*privs = NULL;
+}
+
 void zprivs_preinit(struct zebra_privs_t *zprivs)
 {
 	struct passwd *pwentry = NULL;
