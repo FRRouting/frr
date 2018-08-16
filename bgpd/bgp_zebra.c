@@ -1016,7 +1016,7 @@ static int bgp_zebra_tm_connect(struct thread *t)
 		ret = tm_table_manager_connect(zclient);
 	}
 	if (ret < 0) {
-		zlog_warn("Error connecting to table manager!");
+		zlog_info("Error connecting to table manager!");
 		bgp_tm_status_connected = false;
 	} else {
 		if (!bgp_tm_status_connected)

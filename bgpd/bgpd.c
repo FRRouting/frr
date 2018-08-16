@@ -4094,7 +4094,7 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 			if (flag & PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS) {
 				if (!bgp_flag_check(
 					    bgp, BGP_FLAG_DETERMINISTIC_MED)) {
-					zlog_warn(
+					zlog_info(
 						"%s: enabling bgp deterministic-med, this is required"
 						" for addpath-tx-bestpath-per-AS",
 						peer->host);
