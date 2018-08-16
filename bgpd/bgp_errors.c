@@ -152,6 +152,12 @@ static struct log_ref ferr_bgp_warn[] = {
 		.suggestion = "Gather log information from here and remote peer and open an Issue",
 	},
 	{
+		.code = BGP_WARN_ZEBRA_SEND,
+		.title = "BGP has attempted to send data to zebra and has failed to do so",
+		.description = "BGP has attempted to send data to zebra but has been unable to do so",
+		.suggestion = "Gather log data, open an Issue and restart FRR"
+	},
+	{
 		.code = END_FERR,
 	}
 };

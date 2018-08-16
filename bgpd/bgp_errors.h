@@ -93,6 +93,7 @@ enum bgp_log_refs {
 	BGP_WARN_EVPN_VPN_VNI,
 	BGP_WARN_EVPN_ESI,
 	BGP_WARN_INVALID_LABEL_STACK,
+	BGP_WARN_ZEBRA_SEND,
 };
 
 extern void bgp_error_init(void);
