@@ -116,6 +116,18 @@ static struct log_ref ferr_bgp_warn[] = {
 		.suggestion = "Determine the source of the capability and remove the capability from what is sent",
 	},
 	{
+		.code = BGP_WARN_NO_TCP_MD5,
+		.title = "Unable to set TCP MD5 option on socket",
+		.description = "BGP attempted to setup TCP MD5 configuration on the socket as per configuration but was unable to",
+		.suggestion = "Please collect log files and open Issue",
+	},
+	{
+		.code = BGP_WARN_NO_SOCKOPT_MARK,
+		.title = "Unable to set socket MARK option",
+		.description = "BGP attempted to set the SO_MARK option for a socket and was unable to do so",
+		.suggestion = "Please collect log files and open Issue",
+	},
+	{
 		.code = END_FERR,
 	}
 };
