@@ -38,7 +38,7 @@ may also be specified (:ref:`common-invocation-options`).
 .. option:: --bfdctl <unix-socket>
 
    Set the BFD daemon control socket location. If using a non-default
-   socket location.
+   socket location::
 
       /usr/lib/frr/bfdd --bfdctl /tmp/bfdd.sock
 
@@ -160,6 +160,8 @@ Peer Configurations
 BGP BFD Configuration
 ---------------------
 
+The following commands are available inside the BGP configuration node.
+
 .. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd
 
@@ -172,6 +174,66 @@ BGP BFD Configuration
 .. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd
 
    Removes any notification registration for this neighbor.
+
+
+.. _bfd-ospf-peer-config:
+
+OSPF BFD Configuration
+---------------------
+
+The following commands are available inside the interface configuration node.
+
+.. index:: ip ospf bfd
+.. clicmd:: ip ospf bfd
+
+   Listen for BFD events on peers created on the interface. Every time
+   a new neighbor is found a BFD peer is created to monitor the link
+   status for fast convergence.
+
+.. index:: no ip ospf bfd
+.. clicmd:: no ip ospf bfd
+
+   Removes any notification registration for this interface peers.
+
+
+.. _bfd-ospf6-peer-config:
+
+OSPF6 BFD Configuration
+-----------------------
+
+The following commands are available inside the interface configuration node.
+
+.. index:: ipv6 ospf6 bfd
+.. clicmd:: ipv6 ospf6 bfd
+
+   Listen for BFD events on peers created on the interface. Every time
+   a new neighbor is found a BFD peer is created to monitor the link
+   status for fast convergence.
+
+.. index:: no ipv6 ospf6 bfd
+.. clicmd:: no ipv6 ospf6 bfd
+
+   Removes any notification registration for this interface peers.
+
+
+.. _bfd-pim-peer-config:
+
+PIM BFD Configuration
+---------------------
+
+The following commands are available inside the interface configuration node.
+
+.. index:: ip pim bfd
+.. clicmd:: ip pim bfd
+
+   Listen for BFD events on peers created on the interface. Every time
+   a new neighbor is found a BFD peer is created to monitor the link
+   status for fast convergence.
+
+.. index:: no ip pim bfd
+.. clicmd:: no ip pim bfd
+
+   Removes any notification registration for this interface peers.
 
 
 .. _bfd-configuration:
@@ -300,3 +362,44 @@ You can inspect the current BFD peer status with the following commands:
                            Receive interval: 300ms
                            Transmission interval: 300ms
                            Echo transmission interval: 50ms
+
+   frr# show bfd peer 192.168.0.1 json
+{"multihop":false,"peer":"192.168.0.1","id":1,"remote-id":1,"status":"up","uptime":161,"diagnostic":"ok","remote-diagnostic":"ok","receive-interval":300,"transmit-interval":300,"echo-interval":50,"remote-receive-interval":300,"remote-transmit-interval":300,"remote-echo-interval":50}
+
+
+You can also inspect peer session counters with the following commands:
+
+::
+
+   frr# show bfd peers counters
+   BFD Peers:
+        peer 192.168.2.1 interface r2-eth2
+                Control packet input: 28 packets
+                Control packet output: 28 packets
+                Echo packet input: 0 packets
+                Echo packet output: 0 packets
+                Session up events: 1
+                Session down events: 0
+                Zebra notifications: 2
+
+        peer 192.168.0.1
+                Control packet input: 54 packets
+                Control packet output: 103 packets
+                Echo packet input: 965 packets
+                Echo packet output: 966 packets
+                Session up events: 1
+                Session down events: 0
+                Zebra notifications: 4
+
+   frr# show bfd peer 192.168.0.1 counters
+        peer 192.168.0.1
+                Control packet input: 126 packets
+                Control packet output: 247 packets
+                Echo packet input: 2409 packets
+                Echo packet output: 2410 packets
+                Session up events: 1
+                Session down events: 0
+                Zebra notifications: 4
+
+   frr# show bfd peer 192.168.0.1 counters json
+{"multihop":false,"peer":"192.168.0.1","control-packet-input":348,"control-packet-output":685,"echo-packet-input":6815,"echo-packet-output":6816,"session-up":1,"session-down":0,"zebra-notifications":4}

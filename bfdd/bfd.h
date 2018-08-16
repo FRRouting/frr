@@ -186,6 +186,9 @@ struct bfd_session_stats {
 	uint64_t tx_ctrl_pkt;
 	uint64_t rx_echo_pkt;
 	uint64_t tx_echo_pkt;
+	uint64_t session_up;
+	uint64_t session_down;
+	uint64_t znotification;
 };
 
 struct bfd_session_vxlan_info {
