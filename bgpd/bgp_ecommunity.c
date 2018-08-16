@@ -739,6 +739,13 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				else
 					len = sprintf(str_buf + str_pnt,
 						      "MM:%u", seqnum);
+			} else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_ND) {
+				uint8_t flags = *++pnt;
+
+				if (flags
+				    & ECOMMUNITY_EVPN_SUBTYPE_ND_ROUTER_FLAG)
+					len = sprintf(str_buf + str_pnt,
+						      "ND:Router Flag");
 			} else
 				unk_ecom = 1;
 		} else if (type == ECOMMUNITY_ENCODE_REDIRECT_IP_NH) {
