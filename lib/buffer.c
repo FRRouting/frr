@@ -274,19 +274,12 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 	if (!b->head)
 		return BUFFER_EMPTY;
 
-	if (height < 1) {
-		zlog_warn(
-			"%s called with non-positive window height %d, forcing to 1",
-			__func__, height);
+	if (height < 1)
 		height = 1;
-	} else if (height >= 2)
+	else if (height >= 2)
 		height--;
-	if (width < 1) {
-		zlog_warn(
-			"%s called with non-positive window width %d, forcing to 1",
-			__func__, width);
+	if (width < 1)
 		width = 1;
-	}
 
 	/* For erase and more data add two to b's buffer_data count.*/
 	if (b->head->next == NULL) {
@@ -334,11 +327,6 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 		{
 			iov_alloc *= 2;
 			if (iov != small_iov) {
-				zlog_warn(
-					"%s: growing iov array to %d; "
-					"width %d, height %d, size %lu",
-					__func__, iov_alloc, width, height,
-					(unsigned long)b->size);
 				iov = XREALLOC(MTYPE_TMP, iov,
 					       iov_alloc * sizeof(*iov));
 			} else {
