@@ -1322,6 +1322,7 @@ dnl disable doc check
 if test "${enable_doc}" = "no";then
   DOC=""
 else
+  AC_CHECK_PROGS([SPHINXBUILD], [sphinx-build sphinx-build3 sphinx-build2], [no])
   DOC="doc"
 fi
 
@@ -2075,3 +2076,8 @@ zebra protobuf enabled  : ${have_protobuf:-no}
 
 The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory."
+
+if test "${enable_doc}" != "no";then
+  AS_IF([test "x$SPHINXBUILD" = xno],
+     AC_MSG_WARN(sphinx-build is missing but required to build documentation))
+fi
