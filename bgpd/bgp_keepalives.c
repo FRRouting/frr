@@ -239,10 +239,10 @@ void bgp_keepalives_on(struct peer *peer)
 	/* placeholder bucket data to use for fast key lookups */
 	static struct pkat holder = {0};
 
-	if (!peerhash_mtx) {
-		zlog_warn("%s: call bgp_keepalives_init() first", __func__);
-		return;
-	}
+	/*
+	 * We need to ensure that bgp_keepalives_init was called first
+	 */
+	assert(peerhash_mtx);
 
 	pthread_mutex_lock(peerhash_mtx);
 	{
@@ -269,10 +269,10 @@ void bgp_keepalives_off(struct peer *peer)
 	/* placeholder bucket data to use for fast key lookups */
 	static struct pkat holder = {0};
 
-	if (!peerhash_mtx) {
-		zlog_warn("%s: call bgp_keepalives_init() first", __func__);
-		return;
-	}
+	/*
+	 * We need to ensure that bgp_keepalives_init was called first
+	 */
+	assert(peerhash_mtx);
 
 	pthread_mutex_lock(peerhash_mtx);
 	{
