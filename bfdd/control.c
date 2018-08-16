@@ -514,7 +514,7 @@ skip_header:
 	if (bcb->bcb_left > 0)
 		goto schedule_next_read;
 
-	switch (bcm.bcm_type) {
+	switch (bcb->bcb_bcm->bcm_type) {
 	case BMT_REQUEST_ADD:
 		control_handle_request_add(bcs, bcb->bcb_bcm);
 		break;
@@ -533,8 +533,8 @@ skip_header:
 
 	default:
 		log_debug("%s: unhandled message type: %d", __func__,
-			  bcm.bcm_type);
-		control_response(bcs, bcm.bcm_id, BCM_RESPONSE_ERROR,
+			  bcb->bcb_bcm->bcm_type);
+		control_response(bcs, bcb->bcb_bcm->bcm_id, BCM_RESPONSE_ERROR,
 				 "invalid message type");
 		break;
 	}
