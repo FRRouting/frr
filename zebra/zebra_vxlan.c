@@ -281,8 +281,6 @@ static void zvni_find_neigh_addr_width(struct hash_backet *backet, void *ctxt)
 	int width;
 
 	n = (zebra_neigh_t *)backet->data;
-	if (!n)
-		return;
 
 	ipaddr2str(&n->ip, buf, sizeof(buf)), width = strlen(buf);
 	if (width > wctx->addr_width)
@@ -356,8 +354,6 @@ static void zvni_print_neigh_hash(struct hash_backet *backet, void *ctxt)
 	vty = wctx->vty;
 	json_vni = wctx->json;
 	n = (zebra_neigh_t *)backet->data;
-	if (!n)
-		return;
 
 	if (json_vni)
 		json_row = json_object_new_object();
@@ -436,11 +432,7 @@ static void zvni_print_neigh_hash_all_vni(struct hash_backet *backet,
 	json = (json_object *)args[1];
 
 	zvni = (zebra_vni_t *)backet->data;
-	if (!zvni) {
-		if (json)
-			vty_out(vty, "{}\n");
-		return;
-	}
+
 	num_neigh = hashcount(zvni->neigh_table);
 	if (json == NULL) {
 		vty_out(vty,
@@ -629,8 +621,6 @@ static void zvni_print_mac_hash(struct hash_backet *backet, void *ctxt)
 	vty = wctx->vty;
 	json_mac_hdr = wctx->json;
 	mac = (zebra_mac_t *)backet->data;
-	if (!mac)
-		return;
 
 	prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1));
 
@@ -736,11 +726,6 @@ static void zvni_print_mac_hash_all_vni(struct hash_backet *backet, void *ctxt)
 	json = (struct json_object *)wctx->json;
 
 	zvni = (zebra_vni_t *)backet->data;
-	if (!zvni) {
-		if (json)
-			vty_out(vty, "{}\n");
-		return;
-	}
 	wctx->zvni = zvni;
 
 	/*We are iterating over a new VNI, set the count to 0*/
@@ -795,8 +780,6 @@ static void zl3vni_print_nh_hash(struct hash_backet *backet, void *ctx)
 	if (json_vni)
 		json_nh = json_object_new_object();
 	n = (zebra_neigh_t *)backet->data;
-	if (!n)
-		return;
 
 	if (!json_vni) {
 		vty_out(vty, "%-15s %-17s\n",
@@ -829,11 +812,6 @@ static void zl3vni_print_nh_hash_all_vni(struct hash_backet *backet,
 	json = (struct json_object *)args[1];
 
 	zl3vni = (zebra_l3vni_t *)backet->data;
-	if (!zl3vni) {
-		if (json)
-			vty_out(vty, "{}\n");
-		return;
-	}
 
 	num_nh = hashcount(zl3vni->nh_table);
 	if (!num_nh)
@@ -873,11 +851,6 @@ static void zl3vni_print_rmac_hash_all_vni(struct hash_backet *backet,
 	json = (struct json_object *)args[1];
 
 	zl3vni = (zebra_l3vni_t *)backet->data;
-	if (!zl3vni) {
-		if (json)
-			vty_out(vty, "{}\n");
-		return;
-	}
 
 	num_rmacs = hashcount(zl3vni->rmac_table);
 	if (!num_rmacs)
@@ -921,8 +894,6 @@ static void zl3vni_print_rmac_hash(struct hash_backet *backet, void *ctx)
 	if (json)
 		json_rmac = json_object_new_object();
 	zrmac = (zebra_mac_t *)backet->data;
-	if (!zrmac)
-		return;
 
 	if (!json) {
 		vty_out(vty, "%-17s %-21s\n",
@@ -1099,8 +1070,6 @@ static void zl3vni_print_hash(struct hash_backet *backet, void *ctx[])
 	json = (json_object *)ctx[1];
 
 	zl3vni = (zebra_l3vni_t *)backet->data;
-	if (!zl3vni)
-		return;
 
 	if (!json) {
 		vty_out(vty, "%-10u %-4s %-21s %-8lu %-8lu %-15s %-37s\n",
@@ -1148,8 +1117,6 @@ static void zvni_print_hash(struct hash_backet *backet, void *ctxt[])
 	json = ctxt[1];
 
 	zvni = (zebra_vni_t *)backet->data;
-	if (!zvni)
-		return;
 
 	zvtep = zvni->vteps;
 	while (zvtep) {
@@ -1652,8 +1619,6 @@ static void zvni_install_neigh_hash(struct hash_backet *backet, void *ctxt)
 	struct neigh_walk_ctx *wctx = ctxt;
 
 	n = (zebra_neigh_t *)backet->data;
-	if (!n)
-		return;
 
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
 		zvni_neigh_install(wctx->zvni, n);
@@ -1920,8 +1885,6 @@ static void zvni_gw_macip_del_for_vni_hash(struct hash_backet *backet,
 
 	/* Add primary SVI MAC*/
 	zvni = (zebra_vni_t *)backet->data;
-	if (!zvni)
-		return;
 
 	ifp = zvni->vxlan_if;
 	if (!ifp)
@@ -1961,8 +1924,6 @@ static void zvni_gw_macip_add_for_vni_hash(struct hash_backet *backet,
 	struct interface *ifp = NULL;
 
 	zvni = (zebra_vni_t *)backet->data;
-	if (!zvni)
-		return;
 
 	ifp = zvni->vxlan_if;
 	if (!ifp)
@@ -2625,8 +2586,6 @@ static void zvni_install_mac_hash(struct hash_backet *backet, void *ctxt)
 	struct mac_walk_ctx *wctx = ctxt;
 
 	mac = (zebra_mac_t *)backet->data;
-	if (!mac)
-		return;
 
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
 		zvni_mac_install(wctx->zvni, mac);
@@ -3070,8 +3029,6 @@ static void zvni_cleanup_all(struct hash_backet *backet, void *arg)
 	struct zebra_vrf *zvrf = (struct zebra_vrf *)arg;
 
 	zvni = (zebra_vni_t *)backet->data;
-	if (!zvni)
-		return;
 
 	/* remove from l3-vni list */
 	if (zvrf->l3vni)
@@ -3096,8 +3053,6 @@ static void zl3vni_cleanup_all(struct hash_backet *backet, void *args)
 	zebra_l3vni_t *zl3vni = NULL;
 
 	zl3vni = (zebra_l3vni_t *)backet->data;
-	if (!zl3vni)
-		return;
 
 	zebra_vxlan_process_l3vni_oper_down(zl3vni);
 }

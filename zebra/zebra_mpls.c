@@ -2446,7 +2446,7 @@ void mpls_ldp_lsp_uninstall_all(struct hash_backet *backet, void *ctxt)
 	struct hash *lsp_table;
 
 	lsp = (zebra_lsp_t *)backet->data;
-	if (!lsp || !lsp->nhlfe_list)
+	if (!lsp->nhlfe_list)
 		return;
 
 	lsp_table = ctxt;

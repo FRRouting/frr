@@ -1538,10 +1538,6 @@ static void ospf_sr_nhlfe_update(struct hash_backet *backet, void *args)
 	struct sr_nhlfe old;
 	int rc;
 
-	/* Sanity Check */
-	if (srn == NULL)
-		return;
-
 	if (IS_DEBUG_OSPF_SR)
 		zlog_debug("  |-  Update Prefix for SR Node %s",
 			   inet_ntoa(srn->adv_router));
