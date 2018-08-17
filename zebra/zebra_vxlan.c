@@ -5173,7 +5173,8 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
 	uint8_t sticky = 0;
-	u_char remote_gw = 0;
+	uint8_t remote_gw = 0;
+	uint8_t router_flag = 0;
 	uint8_t flags = 0;
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
@@ -5216,6 +5217,7 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 		STREAM_GETC(s, flags);
 		sticky = CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
 		remote_gw = CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
+		router_flag = CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
 		l++;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
@@ -5347,6 +5349,8 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 		 */
 		n = zvni_neigh_lookup(zvni, &ip);
 		if (!n || !CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)
+		    || ((CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG) ? 1 : 0)
+			!= router_flag)
 		    || (memcmp(&n->emac, &macaddr, sizeof(macaddr)) != 0)
 		    || !IPV4_ADDR_SAME(&n->r_vtep_ip, &vtep_ip))
 			update_neigh = 1;
@@ -5387,6 +5391,8 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 			/* Set router flag (R-bit) to this Neighbor entry */
 			if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG))
 				SET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
+			else
+				UNSET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
 
 			/* Install the entry. */
 			zvni_neigh_install(zvni, n);
