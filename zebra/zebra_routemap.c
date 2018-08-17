@@ -1281,11 +1281,101 @@ static struct route_map_rule_cmd route_set_src_cmd = {
 	"src", route_set_src, route_set_src_compile, route_set_src_free,
 };
 
+/* The function checks if the changed routemap specified by parameter rmap
+ * matches the configured protocol routemaps in proto_rm table. If there is
+ * a match then rib_update_table() to process the routes.
+ */
+static void zebra_rib_table_rm_update(const char *rmap)
+{
+	int i = 0;
+	struct route_table *table;
+	char *rmap_name;
+	char afi_ip = 0;
+	char afi_ipv6 = 0;
+
+	for (i = 0; i <= ZEBRA_ROUTE_MAX; i++) {
+	/* Check for ip routemap table */
+		rmap_name = proto_rm[AFI_IP][i];
+		if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
+			if (IS_ZEBRA_DEBUG_EVENT)
+				zlog_debug("%s : AFI_IP rmap %s, route type %s",
+				__func__, rmap, zebra_route_string(i));
+			/* There is single rib table for all protocols */
+			if (afi_ip == 0) {
+				table = zebra_vrf_table(AFI_IP, SAFI_UNICAST,
+						VRF_DEFAULT);
+				if (table) {
+					afi_ip = 1;
+					rib_update_table(table,
+						RIB_UPDATE_RMAP_CHANGE);
+				}
+			}
+		}
+
+		/* Check for ipv6 routemap table */
+		rmap_name = proto_rm[AFI_IP6][i];
+		if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
+			if (IS_ZEBRA_DEBUG_EVENT)
+				zlog_debug("%s : AFI_IP6 rmap %s,route type %s",
+				__func__, rmap, zebra_route_string(i));
+			if (afi_ipv6 == 0) {
+				table = zebra_vrf_table(AFI_IP6, SAFI_UNICAST,
+						VRF_DEFAULT);
+				if (table) {
+					afi_ipv6 = 1;
+					rib_update_table(table,
+						RIB_UPDATE_RMAP_CHANGE);
+				}
+			}
+		}
+	}
+}
+
+/* The function checks if the changed routemap specified by parameter rmap
+ * matches the configured protocol routemaps in nht_rm table. If there is
+ * a match then zebra_evaluate_rnh() to process the nexthops.
+ */
+static void zebra_nht_rm_update(const char *rmap)
+{
+	int i = 0;
+	char *rmap_name;
+	char afi_ip = 0;
+	char afi_ipv6 = 0;
+
+	for (i = 0; i <= ZEBRA_ROUTE_MAX; i++) {
+		rmap_name = nht_rm[AFI_IP][i];
+		if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
+			if (IS_ZEBRA_DEBUG_EVENT)
+				zlog_debug("%s : AFI_IP rmap %s route type %s",
+					__func__, rmap, zebra_route_string(i));
+			if (afi_ip == 0) {
+				afi_ip = 1;
+				zebra_evaluate_rnh(0, AF_INET, 1,
+					RNH_NEXTHOP_TYPE, NULL);
+			}
+		}
+		rmap_name = nht_rm[AFI_IP6][i];
+		if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
+			if (IS_ZEBRA_DEBUG_EVENT)
+				zlog_debug("%s : AFI_IP6 rmap %s route type %s",
+					__func__, rmap, zebra_route_string(i));
+			if (afi_ipv6 == 0) {
+				afi_ipv6 = 1;
+				zebra_evaluate_rnh(0, AF_INET6, 1,
+					RNH_NEXTHOP_TYPE, NULL);
+			}
+		}
+	}
+}
+
 static void zebra_route_map_process_update_cb(char *rmap_name)
 {
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("Event handler for route-map: %s",
 			   rmap_name);
+	zebra_import_table_rm_update(rmap_name);
+	zebra_rib_table_rm_update(rmap_name);
+	zebra_nht_rm_update(rmap_name);
 }
 
 static int zebra_route_map_update_timer(struct thread *thread)
@@ -1307,11 +1397,6 @@ static int zebra_route_map_update_timer(struct thread *thread)
 	 * 1) VRF Aware <sigh>
 	 * 2) Route-map aware
 	 */
-	zebra_import_table_rm_update();
-	rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
-	zebra_evaluate_rnh(0, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
-	zebra_evaluate_rnh(0, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
-
 	return (0);
 }
 

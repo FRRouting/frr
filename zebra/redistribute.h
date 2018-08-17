@@ -71,6 +71,5 @@ extern int is_zebra_import_table_enabled(afi_t, uint32_t table_id);
 
 extern int zebra_import_table_config(struct vty *);
 
-extern void zebra_import_table_rm_update(void);
-
+extern void zebra_import_table_rm_update(const char *rmap);
 #endif /* _ZEBRA_REDISTRIBUTE_H */
