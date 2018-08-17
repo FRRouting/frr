@@ -151,6 +151,12 @@ static inline int vpn_leak_from_vpn_active(struct bgp *bgp_vrf, afi_t afi,
 		return 0;
 	}
 
+	if (bgp_vrf->vrf_id == VRF_UNKNOWN) {
+		if (pmsg)
+			*pmsg = "destination bgp instance vrf is VRF_UNKNOWN";
+		return 0;
+	}
+
 	/* Is vrf configured to import from vpn? */
 	if (!CHECK_FLAG(bgp_vrf->af_flags[afi][SAFI_UNICAST],
 			BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)
