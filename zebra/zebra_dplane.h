@@ -159,6 +159,7 @@ route_tag_t dplane_ctx_get_old_tag(const dplane_ctx_h ctx);
 uint16_t dplane_ctx_get_instance(const dplane_ctx_h ctx);
 uint16_t dplane_ctx_get_old_instance(const dplane_ctx_h ctx);
 uint32_t dplane_ctx_get_metric(const dplane_ctx_h ctx);
+uint32_t dplane_ctx_get_old_metric(const dplane_ctx_h ctx);
 uint32_t dplane_ctx_get_mtu(const dplane_ctx_h ctx);
 uint32_t dplane_ctx_get_nh_mtu(const dplane_ctx_h ctx);
 uint8_t dplane_ctx_get_distance(const dplane_ctx_h ctx);
@@ -166,6 +167,7 @@ uint8_t dplane_ctx_get_old_distance(const dplane_ctx_h ctx);
 
 const struct nexthop_group *dplane_ctx_get_ng(const dplane_ctx_h ctx);
 const struct zebra_dplane_info *dplane_ctx_get_ns(const dplane_ctx_h ctx);
+const struct nexthop_group *dplane_ctx_get_old_ng(const dplane_ctx_h ctx);
 
 /*
  * Enqueue route change operations for the dataplane.

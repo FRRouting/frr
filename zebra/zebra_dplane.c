@@ -90,6 +90,7 @@ struct zebra_dplane_ctx_s {
 	route_tag_t zd_tag;
 	route_tag_t zd_old_tag;
 	uint32_t zd_metric;
+	uint32_t zd_old_metric;
 	uint16_t zd_instance;
 	uint16_t zd_old_instance;
 
@@ -104,6 +105,9 @@ struct zebra_dplane_ctx_s {
 
 	/* Nexthops */
 	struct nexthop_group zd_ng;
+
+	/* "Previous" nexthops, used only in route update case without netlink */
+	struct nexthop_group zd_old_ng;
 
 	/* TODO -- use fixed array of nexthops, to avoid mallocs? */
 
@@ -210,6 +214,10 @@ static void dplane_ctx_free(dplane_ctx_h *pctx)
 		if ((*pctx)->zd_ng.nexthop) {
 			/* This deals with recursive nexthops too */
 			nexthops_free((*pctx)->zd_ng.nexthop);
+		}
+
+		if ((*pctx)->zd_old_ng.nexthop) {
+			nexthops_free((*pctx)->zd_old_ng.nexthop);
 		}
 
 		/* Clear validation value */
@@ -406,6 +414,13 @@ uint32_t dplane_ctx_get_metric(const dplane_ctx_h ctx)
 	return ctx->zd_metric;
 }
 
+uint32_t dplane_ctx_get_old_metric(const dplane_ctx_h ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->zd_old_metric;
+}
+
 uint32_t dplane_ctx_get_mtu(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -439,6 +454,13 @@ const struct nexthop_group *dplane_ctx_get_ng(const dplane_ctx_h ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return &(ctx->zd_ng);
+}
+
+const struct nexthop_group *dplane_ctx_get_old_ng(const dplane_ctx_h ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->zd_old_ng);
 }
 
 const struct zebra_dplane_info *dplane_ctx_get_ns(const dplane_ctx_h ctx)
@@ -488,6 +510,7 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 	ctx->zd_table_id = re->table;
 
 	ctx->zd_metric = re->metric;
+	ctx->zd_old_metric = re->metric;
 	ctx->zd_vrf_id = re->vrf_id;
 	ctx->zd_mtu = re->mtu;
 	ctx->zd_nexthop_mtu = re->nexthop_mtu;
@@ -616,6 +639,13 @@ dplane_route_update_internal(struct route_node *rn,
 			ctx->zd_old_type = old_re->type;
 			ctx->zd_old_instance = old_re->instance;
 			ctx->zd_old_distance = old_re->distance;
+			ctx->zd_old_metric = old_re->metric;
+
+#ifndef HAVE_NETLINK
+			/* Capture previous re's nexthops too for bsd, sigh */
+			copy_nexthops(&(ctx->zd_old_ng.nexthop),
+				      old_re->ng.nexthop, NULL);
+#endif	/* !HAVE_NETLINK */
 		}
 
 		/* Enqueue context for processing */

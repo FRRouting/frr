@@ -91,7 +91,7 @@ static int kernel_rtm_add_labels(struct mpls_label_stack *nh_label,
 
 /* Interface between zebra message and rtm message. */
 static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
-			   struct route_entry *re)
+			   const struct nexthop_group *ng, uint32_t metric)
 
 {
 	struct sockaddr_in *mask = NULL;
@@ -126,7 +126,7 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
 	/* Make gateway. */
-	for (ALL_NEXTHOPS(re->ng, nexthop)) {
+	for (ALL_NEXTHOPS_PTR(ng, nexthop)) {
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			continue;
 
@@ -139,8 +139,7 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 		 * other than ADD and DELETE?
 		 */
 		if ((cmd == RTM_ADD && NEXTHOP_IS_ACTIVE(nexthop->flags))
-		    || (cmd == RTM_DELETE
-			&& CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))) {
+		    || (cmd == RTM_DELETE)) {
 			if (nexthop->type == NEXTHOP_TYPE_IPV4
 			    || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
 				sin_gate.sin_addr = nexthop->gate.ipv4;
@@ -181,14 +180,13 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 					  (union sockunion *)mask,
 					  gate ? (union sockunion *)&sin_gate
 					       : NULL,
-					  smplsp, ifindex, bh_type, re->metric);
+					  smplsp, ifindex, bh_type, metric);
 
 			if (IS_ZEBRA_DEBUG_RIB) {
 				if (!gate) {
 					zlog_debug(
-						"%s: %s: attention! gate not found for re %p",
-						__func__, prefix_buf, re);
-					route_entry_dump(p, NULL, re);
+						"%s: %s: attention! gate not found for re",
+						__func__, prefix_buf);
 				} else
 					inet_ntop(AF_INET, &sin_gate.sin_addr,
 						  gate_buf, INET_ADDRSTRLEN);
@@ -247,8 +245,9 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 	/* If there was no useful nexthop, then complain. */
 	if (nexthop_num == 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: No useful nexthops were found in RIB entry %p",
-				   __func__, re);
+			zlog_debug("%s: No useful nexthops were found in RIB prefix %s",
+				   __func__, prefix2str(p, prefix_buf,
+							sizeof(prefix_buf)));
 		return 1;
 	}
 
@@ -281,7 +280,7 @@ static int sin6_masklen(struct in6_addr mask)
 
 /* Interface between zebra message and rtm message. */
 static int kernel_rtm_ipv6(int cmd, const struct prefix *p,
-			   struct route_entry *re)
+			   const struct nexthop_group *ng, uint32_t metric)
 {
 	struct sockaddr_in6 *mask;
 	struct sockaddr_in6 sin_dest, sin_mask, sin_gate;
@@ -312,7 +311,7 @@ static int kernel_rtm_ipv6(int cmd, const struct prefix *p,
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
 	/* Make gateway. */
-	for (ALL_NEXTHOPS(re->ng, nexthop)) {
+	for (ALL_NEXTHOPS_PTR(ng, nexthop)) {
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			continue;
 
@@ -367,7 +366,7 @@ static int kernel_rtm_ipv6(int cmd, const struct prefix *p,
 		error = rtm_write(cmd, (union sockunion *)&sin_dest,
 				  (union sockunion *)mask,
 				  gate ? (union sockunion *)&sin_gate : NULL,
-				  smplsp, ifindex, bh_type, re->metric);
+				  smplsp, ifindex, bh_type, metric);
 		(void)error;
 
 		nexthop_num++;
@@ -383,15 +382,63 @@ static int kernel_rtm_ipv6(int cmd, const struct prefix *p,
 	return 0; /*XXX*/
 }
 
-static int kernel_rtm(int cmd, const struct prefix *p, struct route_entry *re)
+static int kernel_rtm(int cmd, const struct prefix *p,
+		      const struct nexthop_group *ng, uint32_t metric)
 {
 	switch (PREFIX_FAMILY(p)) {
 	case AF_INET:
-		return kernel_rtm_ipv4(cmd, p, re);
+		return kernel_rtm_ipv4(cmd, p, ng, metric);
 	case AF_INET6:
-		return kernel_rtm_ipv6(cmd, p, re);
+		return kernel_rtm_ipv6(cmd, p, ng, metric);
 	}
 	return 0;
+}
+
+/*
+ * Update or delete a prefix from the kernel,
+ * using info from a dataplane context struct.
+ */
+enum zebra_dplane_result kernel_route_update(dplane_ctx_h ctx)
+{
+	enum zebra_dplane_result res = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	if (dplane_ctx_get_src(ctx) != NULL) {
+		zlog_err("route add: IPv6 sourcedest routes unsupported!");
+		res = ZEBRA_DPLANE_REQUEST_FAILURE;
+		goto done;
+	}
+
+	if (zserv_privs.change(ZPRIVS_RAISE))
+		zlog_err("Can't raise privileges");
+
+	if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE)
+		kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
+			   dplane_ctx_get_ng(ctx), dplane_ctx_get_metric(ctx));
+	else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_INSTALL)
+		kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
+			   dplane_ctx_get_ng(ctx), dplane_ctx_get_metric(ctx));
+	else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE) {
+		/*
+		 * Must do delete and add separately - no update available
+		 */
+		kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
+			   dplane_ctx_get_old_ng(ctx),
+			   dplane_ctx_get_old_metric(ctx));
+
+		kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
+			   dplane_ctx_get_ng(ctx), dplane_ctx_get_metric(ctx));
+	} else {
+		zlog_err("Invalid routing socket update op %u",
+			 dplane_ctx_get_op(ctx));
+		res = ZEBRA_DPLANE_REQUEST_FAILURE;
+	}
+
+	if (zserv_privs.change(ZPRIVS_LOWER))
+		zlog_err("Can't lower privileges");
+
+done:
+
+	return res;
 }
 
 enum zebra_dplane_result kernel_route_rib(struct route_node *rn,
@@ -409,13 +456,11 @@ enum zebra_dplane_result kernel_route_rib(struct route_node *rn,
 	}
 
 	frr_elevate_privs(&zserv_privs) {
-
 		if (old)
-			route |= kernel_rtm(RTM_DELETE, p, old);
-
+			route |= kernel_rtm(RTM_DELETE, p,
+					    &old->ng, old->metric);
 		if (new)
-			route |= kernel_rtm(RTM_ADD, p, new);
-
+			route |= kernel_rtm(RTM_ADD, p, &new->ng, new->metric);
 	}
 
 	if (new) {
@@ -431,11 +476,6 @@ enum zebra_dplane_result kernel_route_rib(struct route_node *rn,
 	}
 
 	return ZEBRA_DPLANE_REQUEST_SUCCESS;
-}
-
-enum zebra_dplane_result kernel_route_update(dplane_ctx_h ctx)
-{
-	return ZEBRA_DPLANE_REQUEST_FAILURE;
 }
 
 int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
