@@ -1745,7 +1745,8 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE &&
 	    (is_evpn_prefix_ipaddr_v4(p) ||
 	     !IN6_IS_ADDR_LINKLOCAL(&p->prefix.macip_addr.ip.ipaddr_v6)) &&
-	    CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS))
+	    CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS) &&
+	    bgpevpn_get_l3vni(vpn))
 		add_l3_ecomm = 1;
 
 	/* Set up extended community. */
@@ -1997,7 +1998,8 @@ static int update_all_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	/* Add L3 VNI RTs and RMAC for non IPv6 link-local attributes if
 	 * using L3 VNI for type-2 routes also.
 	 */
-	if (CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS))
+	if (CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS) &&
+	    bgpevpn_get_l3vni(vpn))
 		add_l3_ecomm = 1;
 
 	build_evpn_route_extcomm(vpn, &attr, add_l3_ecomm);
