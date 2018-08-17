@@ -182,6 +182,17 @@ enum zebra_dplane_result dplane_route_update(struct route_node *rn,
 enum zebra_dplane_result dplane_route_delete(struct route_node *rn,
 					     struct route_entry *re);
 
+/*
+ * Vty/cli apis
+ */
+int dplane_show_helper(struct vty *vty, bool detailed);
+int dplane_show_provs_helper(struct vty *vty, bool detailed);
+
+
+/*
+ * Dataplane providers: modules that consume dataplane events.
+ */
+
 /* Support string name for a dataplane provider */
 #define DPLANE_PROVIDER_NAMELEN 64
 
@@ -224,8 +235,15 @@ typedef int (*dplane_results_fp)(const dplane_ctx_h ctx);
 int dplane_results_register(dplane_results_fp fp);
 
 /*
- * Initialize the dataplane modules at zebra startup.
+ * Initialize the dataplane modules at zebra startup. This is currently called
+ * by the rib module.
  */
 void zebra_dplane_init(void);
+
+/* Finalize/cleanup api, called quite late during zebra shutdown.
+ * Zebra expects to try to clean up all vrfs and all routes during
+ * shutdown, so the dplane must be available until very late.
+ */
+void zebra_dplane_finish(void);
 
 #endif	/* _ZEBRA_DPLANE_H */

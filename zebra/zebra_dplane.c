@@ -17,11 +17,13 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include "lib/zebra.h"
 #include "lib/libfrr.h"
-#include "lib/memory.h"
+#include "lib/debug.h"
+#include "lib/frratomic.h"
 #include "lib/frr_pthread.h"
+#include "lib/memory.h"
 #include "lib/queue.h"
+#include "lib/zebra.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_dplane.h"
@@ -135,6 +137,9 @@ struct zebra_dplane_provider_s {
 
 	dplane_provider_fini_fp dp_fini;
 
+	_Atomic uint64_t dp_in_counter;
+	_Atomic uint64_t dp_error_counter;
+
 	/* Embedded list linkage */
 	TAILQ_ENTRY(zebra_dplane_provider_s) dp_q_providers;
 
@@ -150,14 +155,21 @@ static struct zebra_dplane_globals_s {
 	/* Results callback registered by zebra 'core' */
 	dplane_results_fp dg_results_cb;
 
+	/* Sentinel for shutdown */
+	volatile bool dg_run;
+
 	/* Route-update context queue inbound to the dataplane */
 	TAILQ_HEAD(zdg_ctx_q, zebra_dplane_ctx_s) dg_route_ctx_q;
 
 	/* Ordered list of providers */
 	TAILQ_HEAD(zdg_prov_q, zebra_dplane_provider_s) dg_providers_q;
 
-	/* Counter used to assign ids to providers */
+	/* Counter used to assign internal ids to providers */
 	uint32_t dg_provider_id;
+
+	_Atomic uint64_t dg_routes_in;
+	_Atomic uint32_t dg_routes_queued;
+	_Atomic uint64_t dg_route_errors;
 
 	/* Event-delivery context 'master' for the dplane */
 	struct thread_master *dg_master;
@@ -653,10 +665,19 @@ dplane_route_update_internal(struct route_node *rn,
 	}
 
 done:
-	if (ret == AOK)
+	/* Update counters */
+	atomic_fetch_add_explicit(&zdplane_g.dg_routes_in, 1,
+				  memory_order_relaxed);
+
+	if (ret == AOK) {
+		atomic_fetch_add_explicit(&zdplane_g.dg_routes_queued, 1,
+					  memory_order_relaxed);
 		result = ZEBRA_DPLANE_REQUEST_QUEUED;
-	else if (ctx)
+	} else if (ctx) {
+		atomic_fetch_add_explicit(&zdplane_g.dg_route_errors, 1,
+					  memory_order_relaxed);
 		dplane_ctx_free(&ctx);
+	}
 
 	return result;
 }
@@ -724,12 +745,18 @@ static int dplane_route_process(struct thread *event)
 	dplane_ctx_h ctx;
 
 	while (1) {
+		/* Check for shutdown */
+		if (!zdplane_g.dg_run)
+			break;
+
 		/* TODO -- limit number of updates per cycle? */
 		ctx = dplane_route_dequeue();
 		if (ctx == NULL)
 			break;
 
-		/* TODO -- support series of providers */
+		/* Update counter */
+		atomic_fetch_sub_explicit(&zdplane_g.dg_routes_queued, 1,
+					  memory_order_relaxed);
 
 		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
 			char dest_str[PREFIX_STRLEN];
@@ -737,13 +764,19 @@ static int dplane_route_process(struct thread *event)
 			prefix2str(dplane_ctx_get_dest(ctx),
 				   dest_str, sizeof(dest_str));
 
-			zlog_debug("%u:%s Dplane update ctx %p op %s",
+			zlog_debug("%u:%s Dplane route update ctx %p op %s",
 				   dplane_ctx_get_vrf(ctx), dest_str,
 				   ctx, dplane_op2str(dplane_ctx_get_op(ctx)));
 		}
 
+		/* TODO -- support series of providers */
+
 		/* Initially, just doing kernel-facing update here */
 		res = kernel_route_update(ctx);
+
+		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			atomic_fetch_add_explicit(&zdplane_g.dg_route_errors, 1,
+						  memory_order_relaxed);
 
 		ctx->zd_status = res;
 
@@ -754,6 +787,38 @@ static int dplane_route_process(struct thread *event)
 	}
 
 	return 0;
+}
+
+/*
+ * Handler for 'show dplane'
+ */
+int dplane_show_helper(struct vty *vty, bool detailed)
+{
+	uint64_t queued, errs, incoming;
+
+	incoming = atomic_load_explicit(&zdplane_g.dg_routes_in,
+					memory_order_relaxed);
+	queued = atomic_load_explicit(&zdplane_g.dg_routes_queued,
+				      memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_g.dg_route_errors,
+				    memory_order_relaxed);
+
+	vty_out(vty, "Route updates:            %"PRIu64"\n", incoming);
+	vty_out(vty, "Route update errors:      %"PRIu64"\n", errs);
+	vty_out(vty, "Route update queue depth: %"PRIu64"\n", queued);
+
+	return CMD_SUCCESS;
+}
+
+/*
+ * Handler for 'show dplane providers'
+ */
+int dplane_show_provs_helper(struct vty *vty, bool detailed)
+{
+	vty_out(vty, "Zebra dataplane providers:%s\n",
+		(detailed ? " (detailed)" : ""));
+
+	return CMD_SUCCESS;
 }
 
 /*
@@ -839,6 +904,8 @@ static void zebra_dplane_init_internal(struct zebra_t *zebra)
 
 	/* TODO -- register default kernel 'provider' during init */
 
+	zdplane_g.dg_run = true;
+
 	/* TODO -- start dataplane pthread. We're using the zebra
 	 * core/main thread temporarily
 	 */
@@ -846,13 +913,26 @@ static void zebra_dplane_init_internal(struct zebra_t *zebra)
 }
 
 /*
- * Shutdown, de-init hook callback. This runs pretty early during shutdown.
+ * Shutdown, de-init api. This runs pretty late during shutdown,
+ * because zebra tries to free/remove/uninstall all routes during shutdown.
+ * NB: This runs in the main zebra thread context.
  */
-static int zebra_dplane_fini(void)
+void zebra_dplane_finish(void)
 {
-	/* TODO -- stop thread, clean queues */
+	/* Wait until all pending updates are processed */
 
-	return 0;
+	/* Stop dplane thread, if it's running */
+
+	zdplane_g.dg_run = false;
+
+	THREAD_OFF(zdplane_g.dg_t_update);
+
+	/* Notify provider(s) of shutdown */
+
+	/* Clean-up provider objects */
+
+	/* Clean queue(s) */
+
 }
 
 /*
@@ -862,6 +942,8 @@ void zebra_dplane_init(void)
 {
 	zebra_dplane_init_internal(&zebrad);
 
-	/* Register for shutdown/de-init */
-	hook_register(frr_early_fini, zebra_dplane_fini);
+	/* Finalize/cleanup code is called quite late during zebra shutdown;
+	 * zebra expects to try to clean up all vrfs and all routes during
+	 * shutdown, so the dplane must be available until very late.
+	 */
 }

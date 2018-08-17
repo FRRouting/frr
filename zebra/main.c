@@ -171,6 +171,8 @@ static void sigint(void)
 	route_map_finish();
 
 	list_delete(&zebrad.client_list);
+	zebra_dplane_finish();
+
 	work_queue_free_and_null(&zebrad.ribq);
 	meta_queue_free(zebrad.mq);
 
