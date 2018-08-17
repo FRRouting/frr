@@ -11101,7 +11101,7 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 		      afi_safi_print(afi, safi));
 		else {
 			vty_out(vty,
-		   "This VRF is importing %s routes from the following VRFs:\nafi_safi_print(afi, safi));
+		   "This VRF is importing %s routes from the following VRFs:\n",
 		    afi_safi_print(afi, safi));
 
 			for (ALL_LIST_ELEMENTS_RO(
