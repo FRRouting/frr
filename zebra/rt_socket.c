@@ -182,7 +182,7 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 					       : NULL,
 					  smplsp, ifindex, bh_type, metric);
 
-			if (IS_ZEBRA_DEBUG_RIB) {
+			if (IS_ZEBRA_DEBUG_KERNEL) {
 				if (!gate) {
 					zlog_debug(
 						"%s: %s: attention! gate not found for re",
@@ -197,10 +197,15 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 			 * did its work. */
 			case ZEBRA_ERR_NOERROR:
 				nexthop_num++;
-				if (IS_ZEBRA_DEBUG_RIB)
+				if (IS_ZEBRA_DEBUG_KERNEL)
 					zlog_debug(
 						"%s: %s: successfully did NH %s",
 						__func__, prefix_buf, gate_buf);
+
+				if (cmd == RTM_ADD)
+					SET_FLAG(nexthop->flags,
+						 NEXTHOP_FLAG_FIB);
+
 				break;
 
 			/* The only valid case for this error is kernel's
@@ -216,14 +221,8 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 						"%s: rtm_write() returned %d for command %d",
 						__func__, error, cmd);
 				continue;
-				break;
 
-			/* Given that our NEXTHOP_FLAG_FIB matches real kernel
-			 * FIB, it isn't
-			 * normal to get any other messages in ANY case.
-			 */
-			case ZEBRA_ERR_RTNOEXIST:
-			case ZEBRA_ERR_RTUNREACH:
+			/* Note any unexpected status returns */
 			default:
 				flog_err(
 					EC_LIB_SYSTEM_CALL,
@@ -236,7 +235,7 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 				break;
 			}
 		} /* if (cmd and flags make sense) */
-		else if (IS_ZEBRA_DEBUG_RIB)
+		else if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: odd command %s for flags %d", __func__,
 				   lookup_msg(rtm_type_str, cmd, NULL),
 				   nexthop->flags);
@@ -367,7 +366,10 @@ static int kernel_rtm_ipv6(int cmd, const struct prefix *p,
 				  (union sockunion *)mask,
 				  gate ? (union sockunion *)&sin_gate : NULL,
 				  smplsp, ifindex, bh_type, metric);
-		(void)error;
+
+		/* Update installed nexthop info on success */
+		if ((cmd == RTM_ADD) && (error == ZEBRA_ERR_NOERROR))
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 
 		nexthop_num++;
 	}
@@ -408,33 +410,34 @@ enum zebra_dplane_result kernel_route_update(dplane_ctx_h ctx)
 		goto done;
 	}
 
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
+	frr_elevate_privs(ZPRIVS_RAISE) {
 
-	if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE)
-		kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
-			   dplane_ctx_get_ng(ctx), dplane_ctx_get_metric(ctx));
-	else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_INSTALL)
-		kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
-			   dplane_ctx_get_ng(ctx), dplane_ctx_get_metric(ctx));
-	else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE) {
-		/*
-		 * Must do delete and add separately - no update available
-		 */
-		kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
-			   dplane_ctx_get_old_ng(ctx),
-			   dplane_ctx_get_old_metric(ctx));
+		if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE)
+			kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
+				   dplane_ctx_get_ng(ctx),
+				   dplane_ctx_get_metric(ctx));
+		else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_INSTALL)
+			kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
+				   dplane_ctx_get_ng(ctx),
+				   dplane_ctx_get_metric(ctx));
+		else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE) {
+			/* Must do delete and add separately -
+			 * no update available
+			 */
+			kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
+				   dplane_ctx_get_old_ng(ctx),
+				   dplane_ctx_get_old_metric(ctx));
 
-		kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
-			   dplane_ctx_get_ng(ctx), dplane_ctx_get_metric(ctx));
-	} else {
-		zlog_err("Invalid routing socket update op %u",
-			 dplane_ctx_get_op(ctx));
-		res = ZEBRA_DPLANE_REQUEST_FAILURE;
-	}
-
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
+			kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
+				   dplane_ctx_get_ng(ctx),
+				   dplane_ctx_get_metric(ctx));
+		} else {
+			zlog_err("Invalid routing socket update op %s (%u)",
+				 dplane_op2str(dplane_ctx_get_op(ctx)),
+				 dplane_ctx_get_op(ctx));
+			res = ZEBRA_DPLANE_REQUEST_FAILURE;
+		}
+	} /* Elevated privs */
 
 done:
 

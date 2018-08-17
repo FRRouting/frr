@@ -134,6 +134,7 @@ void dplane_ctx_dequeue(struct dplane_ctx_q_s *q, dplane_ctx_h *ctxp);
  * Accessors for information from the context object
  */
 enum zebra_dplane_result dplane_ctx_get_status(const dplane_ctx_h ctx);
+const char *dplane_res2str(enum zebra_dplane_result res);
 
 enum dplane_op_e dplane_ctx_get_op(const dplane_ctx_h ctx);
 const char *dplane_op2str(enum dplane_op_e op);

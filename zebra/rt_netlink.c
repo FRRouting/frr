@@ -1965,6 +1965,7 @@ static int netlink_route_multipath_ctx(int cmd, dplane_ctx_h ctx)
 						setsrc = 1;
 					}
 				}
+				continue;
 			}
 
 			if ((cmd == RTM_NEWROUTE
@@ -2205,6 +2206,7 @@ enum zebra_dplane_result kernel_route_update(dplane_ctx_h ctx)
 {
 	int cmd, ret;
 	const struct prefix *p = dplane_ctx_get_dest(ctx);
+	struct nexthop *nexthop;
 
 	if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE) {
 		cmd = RTM_DELROUTE;
@@ -2237,6 +2239,25 @@ enum zebra_dplane_result kernel_route_update(dplane_ctx_h ctx)
 	}
 
 	ret = netlink_route_multipath_ctx(cmd, ctx);
+	if ((cmd == RTM_NEWROUTE) && (ret == 0)) {
+		/* Update installed nexthops to signal which have been
+		 * installed.
+		 */
+		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+				continue;
+
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
+				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+
+				/* If we're only allowed a single nh, don't
+				 * continue.
+				 */
+				if (multipath_num == 1)
+					break;
+			}
+		}
+	}
 
 	return (ret == 0 ?
 		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);

@@ -530,6 +530,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, int family,
 	struct route_table *route_table;
 	struct route_node *rn;
 	struct route_entry *re;
+	struct nexthop *nexthop;
 
 	*prn = NULL;
 
@@ -562,12 +563,26 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, int family,
 			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 				continue;
 
+			/* Just being SELECTED isn't quite enough - must
+			 * have an installed nexthop to be useful.
+			 */
+			for (nexthop = re->ng.nexthop; nexthop;
+			     nexthop = nexthop->next)
+				if ((CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)
+				     || CHECK_FLAG(nexthop->flags,
+						   NEXTHOP_FLAG_RECURSIVE))
+				    && CHECK_FLAG(nexthop->flags,
+						  NEXTHOP_FLAG_ACTIVE))
+					break;
+
+			if (nexthop == NULL)
+				continue;
+
 			if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)) {
 				if ((re->type == ZEBRA_ROUTE_CONNECT)
 				    || (re->type == ZEBRA_ROUTE_STATIC))
 					break;
 				if (re->type == ZEBRA_ROUTE_NHRP) {
-					struct nexthop *nexthop;
 
 					for (nexthop = re->ng.nexthop; nexthop;
 					     nexthop = nexthop->next)

@@ -1951,7 +1951,7 @@ static void rib_process_after(dplane_ctx_h ctx)
 	struct route_node *rn = NULL;
 	struct route_entry *re = NULL, *old_re = NULL, *rib;
 	bool is_update = false;
-	struct nexthop *nexthop;
+	struct nexthop *nexthop, *ctx_nexthop;
 	char dest_str[PREFIX_STRLEN] = "";
 	enum dplane_op_e op;
 	enum zebra_dplane_result status;
@@ -2000,9 +2000,9 @@ static void rib_process_after(dplane_ctx_h ctx)
 	status = dplane_ctx_get_status(ctx);
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
-		zlog_debug("%u:%s Processing dplane ctx %p, op %s result %d",
+		zlog_debug("%u:%s Processing dplane ctx %p, op %s result %s",
 			   dplane_ctx_get_vrf(ctx), dest_str, ctx,
-			   dplane_op2str(op), status);
+			   dplane_op2str(op), dplane_res2str(status));
 	}
 
 	if (op == DPLANE_OP_ROUTE_DELETE) {
@@ -2090,19 +2090,34 @@ static void rib_process_after(dplane_ctx_h ctx)
 	}
 
 	if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
-		/* Set nexthop FIB flags */
-		for (ALL_NEXTHOPS(re->ng, nexthop)) {
+		/* Update zebra nexthop FIB flag for each
+		 * nexthop that was installed.
+		 */
+		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), ctx_nexthop)) {
+
+			for (ALL_NEXTHOPS(re->ng, nexthop)) {
+				if (nexthop_same(ctx_nexthop, nexthop))
+					break;
+			}
+
+			if (nexthop == NULL)
+				continue;
+
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 				continue;
 
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+			if (CHECK_FLAG(ctx_nexthop->flags,
+				       NEXTHOP_FLAG_FIB))
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 			else
 				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		}
 
-		if (zvrf)
+		if (zvrf) {
 			zvrf->installs++;
+			/* Set flag for nexthop tracking processing */
+			zvrf->flags |= ZEBRA_VRF_RIB_SCHEDULED;
+		}
 
 		/* Redistribute */
 		/* TODO -- still calling the redist api using the route_entries,
@@ -2179,9 +2194,9 @@ static unsigned int process_subq(struct list *subq, uint8_t qindex)
 }
 
 /*
- * All meta queues have been processed. Trigger next-hop evaluation.
+ * Perform next-hop tracking processing after RIB updates.
  */
-static void meta_queue_process_complete(struct work_queue *dummy)
+static void do_nht_processing(void)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
@@ -2195,6 +2210,10 @@ static void meta_queue_process_complete(struct work_queue *dummy)
 		zvrf = vrf->info;
 		if (zvrf == NULL || !(zvrf->flags & ZEBRA_VRF_RIB_SCHEDULED))
 			continue;
+
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHT)
+			zlog_debug("NHT processing check for zvrf %s",
+				   zvrf_name(zvrf));
 
 		zvrf->flags &= ~ZEBRA_VRF_RIB_SCHEDULED;
 		zebra_evaluate_rnh(zvrf, AF_INET, 0, RNH_NEXTHOP_TYPE, NULL);
@@ -2215,6 +2234,14 @@ static void meta_queue_process_complete(struct work_queue *dummy)
 		zebra_mpls_lsp_schedule(zvrf);
 		mpls_unmark_lsps_for_processing(zvrf);
 	}
+}
+
+/*
+ * All meta queues have been processed. Trigger next-hop evaluation.
+ */
+static void meta_queue_process_complete(struct work_queue *dummy)
+{
+	do_nht_processing();
 }
 
 /* Dispatch the meta queue by picking, processing and unlocking the next RN from
@@ -3299,6 +3326,9 @@ static int rib_process_dplane_results(struct thread *thread)
 			break;
 
 	} while (1);
+
+	/* Check for nexthop tracking processing after finishing with results */
+	do_nht_processing();
 
 	return 0;
 }

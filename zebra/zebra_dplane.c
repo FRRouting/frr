@@ -308,6 +308,25 @@ const char *dplane_op2str(enum dplane_op_e op)
 	return ret;
 }
 
+const char *dplane_res2str(enum zebra_dplane_result res)
+{
+	const char *ret = "<Unknown>";
+
+	switch (res) {
+	case ZEBRA_DPLANE_REQUEST_FAILURE:
+		ret = "FAILURE";
+		break;
+	case ZEBRA_DPLANE_REQUEST_QUEUED:
+		ret = "QUEUED";
+		break;
+	case ZEBRA_DPLANE_REQUEST_SUCCESS:
+		ret = "SUCCESS";
+		break;
+	};
+
+	return ret;
+}
+
 const struct prefix *dplane_ctx_get_dest(const dplane_ctx_h ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -500,6 +519,7 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 	const struct prefix *p, *src_p;
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf;
+	struct nexthop *nexthop;
 
 	if (!ctx || !rn || !re)
 		goto done;
@@ -557,6 +577,11 @@ static int dplane_ctx_route_init(dplane_ctx_h ctx,
 	copy_nexthops(&(ctx->zd_ng.nexthop), re->ng.nexthop, NULL);
 
 	/* TODO -- maybe use array of nexthops to avoid allocs? */
+
+	/* Ensure that the dplane's nexthop flag is clear. */
+	for (ALL_NEXTHOPS(ctx->zd_ng, nexthop)) {
+		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+	}
 
 	/* Trying out the sequence number idea, so we can try to detect
 	 * when a result is stale.
@@ -654,7 +679,9 @@ dplane_route_update_internal(struct route_node *rn,
 			ctx->zd_old_metric = old_re->metric;
 
 #ifndef HAVE_NETLINK
-			/* Capture previous re's nexthops too for bsd, sigh */
+			/* For bsd, capture previous re's nexthops too, sigh.
+			 * We'll need these to do per-nexthop deletes.
+			 */
 			copy_nexthops(&(ctx->zd_old_ng.nexthop),
 				      old_re->ng.nexthop, NULL);
 #endif	/* !HAVE_NETLINK */
