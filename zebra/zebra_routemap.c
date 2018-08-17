@@ -1033,13 +1033,13 @@ static struct route_map_rule_cmd route_match_ip_address_cmd = {
 /* `match ip address prefix-list PREFIX_LIST' */
 
 static route_map_result_t
-route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
-				   route_map_object_t type, void *object)
+route_match_address_prefix_list(void *rule, const struct prefix *prefix,
+			route_map_object_t type, void *object, afi_t afi)
 {
 	struct prefix_list *plist;
 
 	if (type == RMAP_ZEBRA) {
-		plist = prefix_list_lookup(AFI_IP, (char *)rule);
+		plist = prefix_list_lookup(afi, (char *)rule);
 		if (plist == NULL)
 			return RMAP_NOMATCH;
 
@@ -1050,21 +1050,41 @@ route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
 	return RMAP_NOMATCH;
 }
 
-static void *route_match_ip_address_prefix_list_compile(const char *arg)
+static route_map_result_t
+route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
+				   route_map_object_t type, void *object)
+{
+	return (route_match_address_prefix_list(rule, prefix, type, object,
+						AFI_IP));
+}
+
+static void *route_match_address_prefix_list_compile(const char *arg)
 {
 	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
-static void route_match_ip_address_prefix_list_free(void *rule)
+static void route_match_address_prefix_list_free(void *rule)
 {
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
 static struct route_map_rule_cmd route_match_ip_address_prefix_list_cmd = {
 	"ip address prefix-list", route_match_ip_address_prefix_list,
-	route_match_ip_address_prefix_list_compile,
-	route_match_ip_address_prefix_list_free};
+	route_match_address_prefix_list_compile,
+	route_match_address_prefix_list_free};
 
+static route_map_result_t
+route_match_ipv6_address_prefix_list(void *rule, const struct prefix *prefix,
+					route_map_object_t type, void *object)
+{
+	return (route_match_address_prefix_list(rule, prefix, type, object,
+						AFI_IP6));
+}
+
+static struct route_map_rule_cmd route_match_ipv6_address_prefix_list_cmd = {
+	"ipv6 address prefix-list", route_match_ipv6_address_prefix_list,
+	route_match_address_prefix_list_compile,
+	route_match_address_prefix_list_free};
 
 /* `match ip address prefix-len PREFIXLEN' */
 
@@ -1640,12 +1660,19 @@ void zebra_route_map_init()
 	route_map_match_tag_hook(generic_match_add);
 	route_map_no_match_tag_hook(generic_match_delete);
 
+	route_map_match_ipv6_address_hook(generic_match_add);
+	route_map_no_match_ipv6_address_hook(generic_match_delete);
+
+	route_map_match_ipv6_address_prefix_list_hook(generic_match_add);
+	route_map_no_match_ipv6_address_prefix_list_hook(generic_match_delete);
+
 	route_map_install_match(&route_match_tag_cmd);
 	route_map_install_match(&route_match_interface_cmd);
 	route_map_install_match(&route_match_ip_next_hop_cmd);
 	route_map_install_match(&route_match_ip_next_hop_prefix_list_cmd);
 	route_map_install_match(&route_match_ip_address_cmd);
 	route_map_install_match(&route_match_ip_address_prefix_list_cmd);
+	route_map_install_match(&route_match_ipv6_address_prefix_list_cmd);
 	route_map_install_match(&route_match_ip_address_prefix_len_cmd);
 	route_map_install_match(&route_match_ipv6_address_prefix_len_cmd);
 	route_map_install_match(&route_match_ip_nexthop_prefix_len_cmd);
