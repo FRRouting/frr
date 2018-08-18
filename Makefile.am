@@ -1,10 +1,15 @@
 ## Process this file with automake to produce Makefile.in.
 
 AUTOMAKE_OPTIONS = subdir-objects 1.12
-include common.am
+ACLOCAL_AMFLAGS = -I m4
 
-AM_CPPFLAGS += -I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
-	      -I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib
+AM_CFLAGS = \
+	@ASAN_FLAGS@ @TSAN_FLAGS@ @MSAN_FLAGS@ \
+	$(WERROR)
+AM_CPPFLAGS = \
+	@ASAN_FLAGS@ @TSAN_FLAGS@ @MSAN_FLAGS@ \
+	-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
+	-I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE)
 LIBCAP = @LIBCAP@
 
@@ -194,8 +199,6 @@ EXTRA_DIST += \
 	watchfrr/Makefile \
 	zebra/Makefile \
 	# end
-
-ACLOCAL_AMFLAGS = -I m4
 
 noinst_HEADERS += defaults.h
 
