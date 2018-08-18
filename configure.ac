@@ -1988,6 +1988,7 @@ AC_CONFIG_FILES([Makefile
 	  bgpd/rfp-example/rfptest/Makefile
 	  bgpd/rfp-example/librfp/Makefile
 	  redhat/frr.spec
+	  solaris/Makefile
 	  debianpkg/changelog
 	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml
@@ -2002,8 +2003,6 @@ if test "${enable_bgp_vnc}" != "no"; then
       AC_CONFIG_FILES([${with_rfp_path}/rfptest/Makefile ${with_rfp_path}/librfp/Makefile])
    fi
 fi
-
-AC_CONFIG_FILES([solaris/Makefile])
 
 AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
 

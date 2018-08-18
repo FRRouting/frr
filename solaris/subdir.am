@@ -1,0 +1,53 @@
+#
+# solaris
+#
+
+.PHONY: solaris/all
+if SOLARIS
+all: solaris/all
+solaris/all:
+	@make -s -C solaris all
+endif
+
+CLEANFILES += \
+	solaris/frr.xml \
+	solaris/frr.init \
+	solaris/pkginfo.tmpl \
+	solaris/prototype.daemons \
+	solaris/prototype.dev \
+	solaris/prototype.doc \
+	solaris/prototype.libs \
+	solaris/prototype.smf \
+	solaris/pkginfo.daemons.tmpl \
+	solaris/pkginfo.dev.tmpl \
+	solaris/pkginfo.doc.tmpl \
+	solaris/pkginfo.libs.tmpl \
+	solaris/pkginfo.smf.tmpl \
+	solaris/depend.daemons \
+	solaris/depend.dev \
+	solaris/depend.doc \
+	solaris/depend.libs \
+	solaris/depend.smf \
+	# end
+
+EXTRA_DIST += \
+	solaris/frr.xml.in \
+	solaris/frr.init.in \
+	solaris/pkginfo.tmpl.in \
+	solaris/prototype.daemons.in \
+	solaris/prototype.dev.in \
+	solaris/prototype.doc.in \
+	solaris/prototype.libs.in \
+	solaris/prototype.smf.in \
+	solaris/pkginfo.daemons.tmpl.in \
+	solaris/pkginfo.dev.tmpl.in \
+	solaris/pkginfo.doc.tmpl.in \
+	solaris/pkginfo.libs.tmpl.in \
+	solaris/pkginfo.smf.tmpl.in \
+	solaris/depend.daemons.in \
+	solaris/depend.dev.in \
+	solaris/depend.doc.in \
+	solaris/depend.libs.in \
+	solaris/depend.smf.in \
+	solaris/README.txt \
+	# end
