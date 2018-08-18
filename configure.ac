@@ -348,7 +348,7 @@ AC_ARG_ENABLE(vtysh,
 AC_ARG_ENABLE(doc,
   AS_HELP_STRING([--disable-doc], [do not build docs]))
 AC_ARG_ENABLE(doc-html,
-  AS_HELP_STRING([--disable-doc-html], [do not build HTML docs]))
+  AS_HELP_STRING([--enable-doc-html], [build HTML docs]))
 AC_ARG_ENABLE(zebra,
   AS_HELP_STRING([--disable-zebra], [do not build zebra daemon]))
 AC_ARG_ENABLE(bgpd,
@@ -1341,7 +1341,7 @@ FRR_INCLUDES
 dnl disable doc check
 AC_CHECK_PROGS([SPHINXBUILD], [sphinx-build sphinx-build3 sphinx-build2], [no])
 AM_CONDITIONAL(DOC, test "${enable_doc}" != "no")
-AM_CONDITIONAL(DOC_HTML, test "${enable_doc_html}" != "no")
+AM_CONDITIONAL(DOC_HTML, test "${enable_doc_html}" = "yes")
 
 dnl --------------------
 dnl Daemon disable check
