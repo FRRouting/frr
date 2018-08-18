@@ -132,25 +132,29 @@ dnl - specifically, options to control warnings
 
 AC_USE_SYSTEM_EXTENSIONS
 AC_DEFUN([AC_C_FLAG], [{
+    m4_pushdef([cachename],[m4_translit([frr_cv_$1],[ =-],[___])])
+    AC_CACHE_CHECK([[whether $CC supports $1]], cachename, [
 	AC_LANG_PUSH(C)
 	ac_c_flag_save="$CFLAGS"
 	CFLAGS="$CFLAGS $1"
-	AC_MSG_CHECKING([[whether $CC supports $1]])
 	AC_COMPILE_IFELSE(
 		[AC_LANG_PROGRAM([[]])],
 		[
-			AC_MSG_RESULT([yes])
-			m4_if([$3], [], [], [
-				CFLAGS="$ac_c_flag_save"
-				$3
-			])
+			cachename=yes
 		], [
-			CFLAGS="$ac_c_flag_save"
-			AC_MSG_RESULT([no])
-			$2
+			cachename=no
 		])
+	CFLAGS="$ac_c_flag_save"
 	AC_LANG_POP(C)
-	}])
+    ])
+    if test "${cachename}" = yes; then
+	m4_if([$3], [], [CFLAGS="$CFLAGS $1"], [$3])
+    else
+	:
+	$2
+    fi
+    m4_popdef([cachename])
+}])
 
 AC_DEFUN([AC_LINK_IFELSE_FLAGS], [{
 	AC_LANG_PUSH(C)
@@ -1516,8 +1520,8 @@ AC_SEARCH_LIBS(dlopen, [dl dld], [], [
 
 AC_CHECK_HEADERS([link.h])
 
-AC_MSG_CHECKING([for dlinfo(RTLD_DI_ORIGIN)])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+AC_CACHE_CHECK([for dlinfo(RTLD_DI_ORIGIN)], [frr_cv_rtld_di_origin], [
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <stdlib.h>
 #ifdef HAVE_LINK_H
 #include <link.h>
@@ -1527,14 +1531,17 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   char origin[1];
   dlinfo (NULL, RTLD_DI_ORIGIN, &origin);
 ]])], [
-  AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_DLINFO_ORIGIN, 1, [Have dlinfo RTLD_DI_ORIGIN])
-], [
-  AC_MSG_RESULT(no)
+    frr_cv_rtld_di_origin=yes
+  ], [
+    frr_cv_rtld_di_origin=no
+  ])
 ])
+if test "$frr_cv_rtld_di_origin" = yes; then
+  AC_DEFINE(HAVE_DLINFO_ORIGIN, 1, [Have dlinfo RTLD_DI_ORIGIN])
+fi
 
-AC_MSG_CHECKING([for dlinfo(RTLD_DI_LINKMAP)])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+AC_CACHE_CHECK([for dlinfo(RTLD_DI_LINKMAP)], [frr_cv_rtld_di_linkmap], [
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <stdlib.h>
 #ifdef HAVE_LINK_H
 #include <link.h>
@@ -1544,12 +1551,14 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   struct link_map *lm = NULL;
   dlinfo (NULL, RTLD_DI_LINKMAP, &lm);
 ]])], [
-  AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_DLINFO_LINKMAP, 1, [Have dlinfo RTLD_DI_LINKMAP])
-], [
-  AC_MSG_RESULT(no)
+    frr_cv_rtld_di_linkmap=yes
+  ], [
+    frr_cv_rtld_di_linkmap=no
+  ])
 ])
-
+if test "$frr_cv_rtld_di_linkmap" = yes; then
+  AC_DEFINE(HAVE_DLINFO_LINKMAP, 1, [Have dlinfo RTLD_DI_LINKMAP])
+fi
 
 AM_CONDITIONAL(SNMP, test "x$SNMP_METHOD" = "xagentx")
 
@@ -1806,8 +1815,8 @@ dnl mallinfo, e.g. such as Umem on Solaris.
 dnl -----------------------------------------
 AC_CHECK_HEADERS([malloc.h malloc/malloc.h],,, [FRR_INCLUDES])
 
-AC_MSG_CHECKING(whether mallinfo is available)
-AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES [
+AC_CACHE_CHECK([whether mallinfo is available], [frr_cv_mallinfo], [
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES [
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
 #endif
@@ -1817,11 +1826,14 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES [
 ]], [[
 struct mallinfo ac_x; ac_x = mallinfo ();
 ]])], [
-  AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_MALLINFO,,mallinfo)
-], [
-  AC_MSG_RESULT(no)
+    frr_cv_mallinfo=yes
+  ], [
+    frr_cv_mallinfo=no
+  ])
 ])
+if test "$frr_cv_mallinfo" = yes; then
+  AC_DEFINE(HAVE_MALLINFO,,mallinfo)
+fi
 
 AC_MSG_CHECKING(whether malloc_usable_size is available)
 AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES [
