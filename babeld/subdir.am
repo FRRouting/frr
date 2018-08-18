@@ -6,6 +6,11 @@ if BABELD
 noinst_LIBRARIES += babeld/libbabel.a
 sbin_PROGRAMS += babeld/babeld
 dist_examples_DATA += babeld/babeld.conf.sample
+vtysh_scan += \
+	$(top_srcdir)/babeld/babel_interface.c \
+	$(top_srcdir)/babeld/babel_zebra.c \
+	$(top_srcdir)/babeld/babeld.c \
+	# end
 endif
 
 babeld_libbabel_a_SOURCES = \

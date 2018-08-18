@@ -11,12 +11,40 @@ dist_examples_DATA += \
 	bgpd/bgpd.conf.sample2 \
 	bgpd/bgpd.conf.vnc.sample \
 	# end
+vtysh_scan += \
+	$(top_srcdir)/bgpd/bgp_bfd.c \
+	$(top_srcdir)/bgpd/bgp_debug.c \
+	$(top_srcdir)/bgpd/bgp_dump.c \
+	$(top_srcdir)/bgpd/bgp_evpn_vty.c \
+	$(top_srcdir)/bgpd/bgp_filter.c \
+	$(top_srcdir)/bgpd/bgp_mplsvpn.c \
+	$(top_srcdir)/bgpd/bgp_nexthop.c \
+	$(top_srcdir)/bgpd/bgp_route.c \
+	$(top_srcdir)/bgpd/bgp_routemap.c \
+	$(top_srcdir)/bgpd/bgp_vty.c \
+	$(top_srcdir)/bgpd/bgp_flowspec_vty.c \
+	# end
+
+# can be loaded as DSO - always include for vtysh
+if RPKI
+vtysh_scan += $(top_srcdir)/bgpd/bgp_rpki.c
+endif
+
+if ENABLE_BGP_VNC
+vtysh_scan += \
+	$(top_srcdir)/bgpd/rfapi/bgp_rfapi_cfg.c \
+	$(top_srcdir)/bgpd/rfapi/rfapi.c \
+	$(top_srcdir)/bgpd/rfapi/rfapi_vty.c \
+	$(top_srcdir)/bgpd/rfapi/vnc_debug.c \
+	# end
+endif
 if SNMP
 module_LTLIBRARIES += bgpd/bgpd_snmp.la
 endif
 if RPKI
 module_LTLIBRARIES += bgpd/bgpd_rpki.la
 endif
+rstman8_DATA += $(MANBUILD)/bgpd.8
 endif
 
 bgpd_libbgp_a_SOURCES = \

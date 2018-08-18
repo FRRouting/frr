@@ -6,6 +6,14 @@ if ISISD
 noinst_LIBRARIES += isisd/libisis.a
 sbin_PROGRAMS += isisd/isisd
 dist_examples_DATA += isisd/isisd.conf.sample
+vtysh_scan += \
+	$(top_srcdir)/isisd/isis_redist.c \
+	$(top_srcdir)/isisd/isis_spf.c \
+	$(top_srcdir)/isisd/isis_te.c \
+	$(top_srcdir)/isisd/isis_vty.c \
+	$(top_srcdir)/isisd/isisd.c \
+	# end
+rstman8_DATA += $(MANBUILD)/isisd.8
 endif
 
 isisd_libisis_a_SOURCES = \
