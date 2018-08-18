@@ -1257,9 +1257,7 @@ struct cmd_node link_params_node = {
 	LINK_PARAMS_NODE, "%s(config-link-params)# ",
 };
 
-#if defined(HAVE_RPKI)
 static struct cmd_node rpki_node = {RPKI_NODE, "%s(config-rpki)# ", 1};
-#endif
 
 #if HAVE_BFDD > 0
 static struct cmd_node bfd_node = {
@@ -1429,7 +1427,6 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6_labeled_unicast,
 	return CMD_SUCCESS;
 }
 
-#if defined(HAVE_RPKI)
 DEFUNSH(VTYSH_BGPD,
 	rpki,
 	rpki_cmd,
@@ -1439,8 +1436,6 @@ DEFUNSH(VTYSH_BGPD,
 	vty->node = RPKI_NODE;
 	return CMD_SUCCESS;
 }
-
-#endif
 
 DEFUNSH(VTYSH_BGPD, address_family_evpn, address_family_evpn_cmd,
 	"address-family <l2vpn evpn>",
@@ -1884,7 +1879,6 @@ DEFUNSH(VTYSH_BGPD, exit_vnc_config, exit_vnc_config_cmd, "exit-vnc",
 
 }
 
-#if defined(HAVE_RPKI)
 DEFUNSH(VTYSH_BGPD, rpki_exit, rpki_exit_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
 {
@@ -1897,7 +1891,6 @@ DEFUNSH(VTYSH_BGPD, rpki_quit, rpki_quit_cmd, "quit",
 {
 	return rpki_exit(self, vty, argc, argv);
 }
-#endif /* HAVE_RPKI */
 
 DEFUNSH(VTYSH_PIMD|VTYSH_ZEBRA, exit_vrf_config, exit_vrf_config_cmd, "exit-vrf",
 	"Exit from VRF configuration mode\n")
@@ -3525,9 +3518,7 @@ void vtysh_init_vty(void)
 	install_node(&isis_node, NULL);
 	install_node(&openfabric_node, NULL);
 	install_node(&vty_node, NULL);
-#if defined(HAVE_RPKI)
 	install_node(&rpki_node, NULL);
-#endif
 #if HAVE_BFDD > 0
 	install_node(&bfd_node, NULL);
 	install_node(&bfd_peer_node, NULL);
@@ -3766,12 +3757,10 @@ void vtysh_init_vty(void)
 	install_element(BGP_FLOWSPECV4_NODE, &exit_address_family_cmd);
 	install_element(BGP_FLOWSPECV6_NODE, &exit_address_family_cmd);
 
-#if defined(HAVE_RPKI)
 	install_element(CONFIG_NODE, &rpki_cmd);
 	install_element(RPKI_NODE, &rpki_exit_cmd);
 	install_element(RPKI_NODE, &rpki_quit_cmd);
 	install_element(RPKI_NODE, &vtysh_end_all_cmd);
-#endif
 
 	/* EVPN commands */
 	install_element(BGP_EVPN_NODE, &bgp_evpn_vni_cmd);

@@ -26,9 +26,7 @@ vtysh_scan += \
 	# end
 
 # can be loaded as DSO - always include for vtysh
-if RPKI
 vtysh_scan += $(top_srcdir)/bgpd/bgp_rpki.c
-endif
 
 if ENABLE_BGP_VNC
 vtysh_scan += \
