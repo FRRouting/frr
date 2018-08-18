@@ -164,10 +164,35 @@ EXTRA_DIST += \
 	snapcraft/helpers \
 	snapcraft/snap \
 	\
+	babeld/Makefile \
+	bgpd/Makefile \
+	bgpd/rfp-example/librfp/Makefile \
+	bgpd/rfp-example/rfptest/Makefile \
 	doc/Makefile \
 	doc/developer/Makefile \
 	doc/manpages/Makefile \
 	doc/user/Makefile \
+	eigrpd/Makefile \
+	fpm/Makefile \
+	isisd/Makefile \
+	ldpd/Makefile \
+	lib/Makefile \
+	nhrpd/Makefile \
+	ospf6d/Makefile \
+	ospfclient/Makefile \
+	ospfd/Makefile \
+	pbrd/Makefile \
+	pimd/Makefile \
+	ports/Makefile \
+	qpb/Makefile \
+	ripd/Makefile \
+	ripngd/Makefile \
+	staticd/Makefile \
+	tests/Makefile \
+	tools/Makefile \
+	vtysh/Makefile \
+	watchfrr/Makefile \
+	zebra/Makefile \
 	# end
 
 ACLOCAL_AMFLAGS = -I m4
