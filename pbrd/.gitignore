@@ -1,15 +1,1 @@
-!Makefile
-Makefile.in
-libpbr.a
 pbrd
-tags
-TAGS
-.deps
-*.o
-*.lo
-*.la
-*.libs
-.arch-inventory
-.arch-ids
-*~
-*.loT
