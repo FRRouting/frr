@@ -148,7 +148,7 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 
 		if (BGP_DEBUG(flowspec, FLOWSPEC)) {
 			char return_string[BGP_FLOWSPEC_NLRI_STRING_MAX];
-			char local_string[BGP_FLOWSPEC_NLRI_STRING_MAX * 2];
+			char local_string[BGP_FLOWSPEC_NLRI_STRING_MAX*2+16];
 			char ec_string[BGP_FLOWSPEC_NLRI_STRING_MAX];
 			char *s = NULL;
 
