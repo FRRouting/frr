@@ -1960,8 +1960,7 @@ dnl Enable RPKI and add librtr to libs
 dnl ------------------------------------
 if test "${enable_rpki}" = "yes"; then
   PKG_CHECK_MODULES(RTRLIB,[rtrlib >= 0.5.0],
-      [AC_DEFINE(HAVE_RPKI,1,Enable RPKI prefix validation for BGP)
-      RPKI=true],
+      [RPKI=true],
       [RPKI=false
       AC_MSG_ERROR([rtrlib was not found on your system or is too old.])]
   )
