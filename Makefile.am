@@ -88,6 +88,7 @@ pkginclude_HEADERS =
 nodist_pkginclude_HEADERS =
 dist_examples_DATA =
 man_MANS =
+vtysh_scan =
 
 ## libtool, the self-made GNU scourge
 ## ... this should fix relinking

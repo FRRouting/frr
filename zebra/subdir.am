@@ -5,6 +5,22 @@
 if ZEBRA
 sbin_PROGRAMS += zebra/zebra
 dist_examples_DATA += zebra/zebra.conf.sample
+vtysh_scan += \
+	$(top_srcdir)/zebra/debug.c \
+	$(top_srcdir)/zebra/interface.c \
+	$(top_srcdir)/zebra/router-id.c \
+	$(top_srcdir)/zebra/rtadv.c \
+	$(top_srcdir)/zebra/zebra_mpls_vty.c \
+	$(top_srcdir)/zebra/zebra_ptm.c \
+	$(top_srcdir)/zebra/zebra_pw.c \
+	$(top_srcdir)/zebra/zebra_routemap.c \
+	$(top_srcdir)/zebra/zebra_vty.c \
+	$(top_srcdir)/zebra/zserv.c \
+	# end
+
+# can be loaded as DSO - always include for vtysh
+vtysh_scan += $(top_srcdir)/zebra/irdp_interface.c
+vtysh_scan += $(top_srcdir)/zebra/zebra_fpm.c
 
 if IRDP
 module_LTLIBRARIES += zebra/zebra_irdp.la
@@ -16,6 +32,7 @@ if FPM
 module_LTLIBRARIES += zebra/zebra_fpm.la
 endif
 
+rstman8_DATA += $(MANBUILD)/zebra.8
 ## endif ZEBRA
 endif
 
