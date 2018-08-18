@@ -188,8 +188,24 @@ static void bgp_info_extra_free(struct bgp_info_extra **extra)
 	if (e->parent) {
 		struct bgp_info *bi = (struct bgp_info *)e->parent;
 
-		if (bi->net)
-			bi->net = bgp_unlock_node((struct bgp_node *)bi->net);
+		if (bi->net) {
+			/* FIXME: since multiple e may have the same e->parent
+			 * and e->parent->net is holding a refcount for each
+			 * of them, we need to do some fudging here.
+			 *
+			 * WARNING: if bi->net->lock drops to 0, bi may be
+			 * freed as well (because bi->net was holding the
+			 * last reference to bi) => write after free!
+			 */
+			unsigned refcount;
+
+			bi = bgp_info_lock(bi);
+			refcount = bi->net->lock - 1;
+			bgp_unlock_node((struct bgp_node *)bi->net);
+			if (!refcount)
+				bi->net = NULL;
+			bgp_info_unlock(bi);
+		}
 		bgp_info_unlock(e->parent);
 		e->parent = NULL;
 	}
