@@ -23,3 +23,39 @@ CLEANFILES += \
 endif
 
 EXTRA_DIST += qpb/qpb.proto
+
+if HAVE_PROTOBUF
+
+# Uncomment to use an non-system version of libprotobuf-c.
+#
+# Q_PROTOBUF_C_CLIENT_INCLUDES = -I$(top_srcdir)/third-party/protobuf-c/src
+# Q_PROTOBUF_C_CLIENT_LDOPTS = $(top_builddir)/third-party/protobuf-c/src/libprotobuf-c.la
+
+Q_PROTOBUF_C_CLIENT_INCLUDES=
+Q_PROTOBUF_C_CLIENT_LDOPTS=-lprotobuf-c
+
+Q_PROTOC=protoc
+Q_PROTOC_C=protoc-c
+
+# Rules
+.proto.pb.h:
+	$(Q_PROTOC) -I$(top_srcdir) --cpp_out=$(top_srcdir) $(top_srcdir)/$^
+
+AM_V_PROTOC_C = $(am__v_PROTOC_C_$(V))
+am__v_PROTOC_C_ = $(am__v_PROTOC_C_$(AM_DEFAULT_VERBOSITY))
+am__v_PROTOC_C_0 = @echo "  PROTOC_C" $@;
+am__v_PROTOC_C_1 =
+
+.proto.pb-c.c:
+	$(AM_V_PROTOC_C)$(Q_PROTOC_C) -I$(top_srcdir) --c_out=$(top_srcdir) $(top_srcdir)/$^
+.pb-c.c.pb-c.h:
+	@/bin/true
+
+#
+# Information about how to link to various libraries.
+#
+Q_FRR_PB_CLIENT_LDOPTS = $(top_srcdir)/qpb/libfrr_pb.la $(Q_PROTOBUF_C_CLIENT_LDOPTS)
+
+Q_FPM_PB_CLIENT_LDOPTS = $(top_srcdir)/fpm/libfrrfpm_pb.la $(Q_FRR_PB_CLIENT_LDOPTS)
+
+endif  # HAVE_PROTOBUF
