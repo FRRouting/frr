@@ -48,6 +48,7 @@ include qpb/subdir.am
 include fpm/subdir.am
 include tools/subdir.am
 include debianpkg/subdir.am
+include solaris/subdir.am
 
 include ripd/subdir.am
 include ripngd/subdir.am
@@ -68,11 +69,11 @@ include bfdd/subdir.am
 SUBDIRS = . @LIBRFP@ @RFPTEST@ \
 	 @BGPD@ \
 	 @VTYSH@ \
-         @SOLARIS@ tests
+         tests
 
 DIST_SUBDIRS = . bgpd \
 	  vtysh tests \
-	  solaris bgpd/rfp-example/librfp \
+	  bgpd/rfp-example/librfp \
 	  bgpd/rfp-example/rfptest \
 	  # end
 
