@@ -1,10 +1,2 @@
 zebra.spec
 frr.spec
-Makefile
-Makefile.in
-.nfs*
-.arch-inventory
-.arch-ids
-*~
-*.loT
-
