@@ -2061,7 +2061,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 	}
 
 	/* Before we program this in BGP, we need to check if MAC is locally
-	 * learnt as well
+	 * learnt. If not, force neighbor to be inactive.
 	 */
 	if (!CHECK_FLAG(zmac->flags, ZEBRA_MAC_LOCAL)) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
@@ -2071,6 +2071,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 				prefix_mac2str(macaddr, buf, sizeof(buf)),
 				zvni->vni);
 
+		ZEBRA_NEIGH_SET_INACTIVE(n);
 		return 0;
 	}
 
