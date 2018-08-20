@@ -61,6 +61,7 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_te.h"
 #include "ospfd/ospf_vty.h"
+#include "ospfd/ospf_errors.h"
 
 /*
  * Global variable to manage Opaque-LSA/MPLS-TE on this node.
@@ -102,8 +103,8 @@ int ospf_mpls_te_init(void)
 		ospf_mpls_te_lsa_refresh, NULL, /* ospf_mpls_te_new_lsa_hook */
 		NULL /* ospf_mpls_te_del_lsa_hook */);
 	if (rc != 0) {
-		zlog_warn(
-			"ospf_mpls_te_init: Failed to register Traffic Engineering functions");
+		flog_warn(OSPF_WARN_OPAQUE_REGISTRATION,
+			  "ospf_mpls_te_init: Failed to register Traffic Engineering functions");
 		return rc;
 	}
 
@@ -139,8 +140,8 @@ static int ospf_mpls_te_register(enum inter_as_mode mode)
 					  ospf_mpls_te_lsa_refresh, NULL, NULL);
 
 	if (rc != 0) {
-		zlog_warn(
-			"ospf_router_info_init: Failed to register Inter-AS functions");
+		flog_warn(OSPF_WARN_OPAQUE_REGISTRATION,
+			  "ospf_router_info_init: Failed to register Inter-AS functions");
 		return rc;
 	}
 

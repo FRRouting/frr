@@ -57,6 +57,7 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_sr.h"
 #include "ospfd/ospf_ri.h"
+#include "ospfd/ospf_errors.h"
 
 /* Store Router Information PCE TLV and SubTLV in network byte order. */
 struct ospf_pce_info {
@@ -185,8 +186,8 @@ static int ospf_router_info_register(uint8_t scope)
 		NULL); /* del_lsa_hook */
 
 	if (rc != 0) {
-		zlog_warn(
-			"ospf_router_info_init: Failed to register functions");
+		flog_warn(OSPF_WARN_OPAQUE_REGISTRATION,
+			  "ospf_router_info_init: Failed to register functions");
 		return rc;
 	}
 

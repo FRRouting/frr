@@ -62,6 +62,7 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_sr.h"
 #include "ospfd/ospf_ext.h"
+#include "ospfd/ospf_errors.h"
 
 /* Following structure are internal use only. */
 
@@ -136,7 +137,8 @@ int ospf_ext_init(void)
 		NULL);			     /* del_lsa_hook */
 
 	if (rc != 0) {
-		zlog_warn("EXT (%s): Failed to register Extended Link LSA",
+		flog_warn(OSPF_WARN_OPAQUE_REGISTRATION,
+			  "EXT (%s): Failed to register Extended Link LSA",
 			  __func__);
 		return rc;
 	}
@@ -157,7 +159,8 @@ int ospf_ext_init(void)
 		ospf_ext_pref_lsa_update,    /* new_lsa_hook */
 		NULL);			     /* del_lsa_hook */
 	if (rc != 0) {
-		zlog_warn("EXT (%s): Failed to register Extended Prefix LSA",
+		flog_warn(OSPF_WARN_OPAQUE_REGISTRATION,
+			  "EXT (%s): Failed to register Extended Prefix LSA",
 			  __func__);
 		return rc;
 	}

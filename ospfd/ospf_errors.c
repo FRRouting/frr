@@ -62,6 +62,12 @@ static struct log_ref ferr_ospf_warn[] = {
 		.suggestion = "Gather log data and open an Issue",
 	},
 	{
+		.code = OSPF_WARN_OPAQUE_REGISTRATION,
+		.title = "OSPF has failed to properly register Opaque Handler",
+		.description = "During initialization OSPF has detected a failure to install an opaque handler",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
 		.code = END_FERR,
 	}
 };

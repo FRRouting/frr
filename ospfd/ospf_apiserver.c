@@ -54,6 +54,7 @@
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_zebra.h"
+#include "ospfd/ospf_errors.h"
 
 #include "ospfd/ospf_api.h"
 #include "ospfd/ospf_apiserver.h"
@@ -152,8 +153,8 @@ int ospf_apiserver_init(void)
 		NULL,		  /* ospf_apiserver_lsa_refresher */
 		ospf_apiserver_lsa_update, ospf_apiserver_lsa_delete);
 	if (rc != 0) {
-		zlog_warn(
-			"ospf_apiserver_init: Failed to register opaque type [0/0]");
+		flog_warn(OSPF_WARN_OPAQUE_REGISTRATION,
+			  "ospf_apiserver_init: Failed to register opaque type [0/0]");
 	}
 
 	rc = 0;
@@ -867,7 +868,8 @@ int ospf_apiserver_register_opaque_type(struct ospf_apiserver *apiserv,
 		NULL /* ospf_apiserver_lsa_delete */);
 
 	if (rc != 0) {
-		zlog_warn("Failed to register opaque type [%d/%d]", lsa_type,
+		flog_warn(OSPF_WARN_OPAQUE_REGISTRATION,
+			  "Failed to register opaque type [%d/%d]", lsa_type,
 			  opaque_type);
 		return OSPF_API_OPAQUETYPEINUSE;
 	}
