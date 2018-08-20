@@ -38,6 +38,7 @@ enum lib_log_refs {
 	LIB_ERR_DEVELOPMENT,
 	LIB_ERR_ZMQ,
 	LIB_ERR_UNAVAILABLE,
+	LIB_WARN_SNMP,
 };
 
 extern void lib_error_init(void);

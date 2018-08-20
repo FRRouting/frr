@@ -21,6 +21,18 @@
 #include "lib_errors.h"
 
 /* clang-format off */
+static struct log_ref ferr_lib_warn[] = {
+	{
+		.code = LIB_WARN_SNMP,
+		.title = "SNMP has discovered a warning",
+		.description = "The SNMP AgentX library has returned a warning that we should report to the end user",
+		.suggestion = "Gather Log data and open an Issue.",
+	},
+	{
+		.code = END_FERR,
+	},
+};
+
 static struct log_ref ferr_lib_err[] = {
 	{
 		.code = LIB_ERR_PRIVILEGES,
@@ -114,5 +126,6 @@ static struct log_ref ferr_lib_err[] = {
 
 void lib_error_init(void)
 {
+	log_ref_add(ferr_lib_warn);
 	log_ref_add(ferr_lib_err);
 }

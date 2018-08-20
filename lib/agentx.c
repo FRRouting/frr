@@ -158,7 +158,8 @@ static int agentx_log_callback(int major, int minor, void *serverarg,
 			  "snmp[err]: %s", msg ? msg : slm->msg);
 		break;
 	case LOG_WARNING:
-		zlog_warn("snmp[warning]: %s", msg ? msg : slm->msg);
+		flog_warn(LIB_WARN_SNMP,
+			  "snmp[warning]: %s", msg ? msg : slm->msg);
 		break;
 	case LOG_NOTICE:
 		zlog_notice("snmp[notice]: %s", msg ? msg : slm->msg);
