@@ -296,47 +296,59 @@ static void zvni_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json)
 	struct vty *vty;
 	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
+	const char *type_str;
+	const char *state_str;
+	bool flags_present = false;
 
 	ipaddr2str(&n->ip, buf2, sizeof(buf2));
 	prefix_mac2str(&n->emac, buf1, sizeof(buf1));
+	type_str = CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL) ?
+						"local" : "remote";
+	state_str = IS_ZEBRA_NEIGH_ACTIVE(n) ? "active" : "inactive";
 	vty = (struct vty *)ctxt;
 	if (json == NULL) {
 		vty_out(vty, "IP: %s\n",
 			ipaddr2str(&n->ip, buf2, sizeof(buf2)));
-		vty_out(vty, " MAC: %s",
+		vty_out(vty, " Type: %s\n", type_str);
+		vty_out(vty, " State: %s\n", state_str);
+		vty_out(vty, " MAC: %s\n",
 			prefix_mac2str(&n->emac, buf1, sizeof(buf1)));
 	} else {
 		json_object_string_add(json, "ip", buf2);
+		json_object_string_add(json, "type", type_str);
+		json_object_string_add(json, "state", state_str);
 		json_object_string_add(json, "mac", buf1);
 	}
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
 		if (json == NULL) {
-			vty_out(vty, " Remote VTEP: %s",
+			vty_out(vty, " Remote VTEP: %s\n",
 				inet_ntoa(n->r_vtep_ip));
 		} else
 			json_object_string_add(json, "remoteVtep",
 					       inet_ntoa(n->r_vtep_ip));
 	}
-	if (!json) {
-		vty_out(vty, "\n");
-		vty_out(vty, " State: %s",
-			IS_ZEBRA_NEIGH_ACTIVE(n) ? "Active"
-						 : "Inactive");
-	}
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DEF_GW)) {
-		if (!json)
-			vty_out(vty, " Default-gateway");
-		else
+		if (!json) {
+			vty_out(vty, " Flags: Default-gateway");
+			flags_present = true;
+		} else
 			json_object_boolean_true_add(json, "defaultGateway");
 	}
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG)) {
-		if (!json)
-			vty_out(vty, " Router");
+		if (!json) {
+			vty_out(vty,
+				flags_present ? " ,Router" : " Flags: Router");
+			flags_present = true;
+		}
 	}
 	if (json == NULL) {
-		vty_out(vty, " Local Seq: %u Remote Seq: %u",
+		if (flags_present)
+			vty_out(vty, "\n");
+		vty_out(vty, " Local Seq: %u Remote Seq: %u\n",
 			n->loc_seq, n->rem_seq);
-		vty_out(vty, "\n");
+	} else {
+		json_object_int_add(json, "localSequence", n->loc_seq);
+		json_object_int_add(json, "remoteSequence", n->rem_seq);
 	}
 }
 
@@ -351,6 +363,7 @@ static void zvni_print_neigh_hash(struct hash_backet *backet, void *ctxt)
 	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 	struct neigh_walk_ctx *wctx = ctxt;
+	const char *state_str;
 
 	vty = wctx->vty;
 	json_vni = wctx->json;
@@ -361,55 +374,58 @@ static void zvni_print_neigh_hash(struct hash_backet *backet, void *ctxt)
 
 	prefix_mac2str(&n->emac, buf1, sizeof(buf1));
 	ipaddr2str(&n->ip, buf2, sizeof(buf2));
-	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)
-	    && !(wctx->flags & SHOW_REMOTE_NEIGH_FROM_VTEP)) {
+	state_str = IS_ZEBRA_NEIGH_ACTIVE(n) ? "active" : "inactive";
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
+		if (wctx->flags & SHOW_REMOTE_NEIGH_FROM_VTEP)
+			return;
+
 		if (json_vni == NULL) {
-			vty_out(vty, "%*s %-6s %-17s\n", -wctx->addr_width,
-				buf2, "local", buf1);
+			vty_out(vty, "%*s %-6s %-8s %-17s\n",
+				-wctx->addr_width, buf2, "local",
+				state_str, buf1);
 		} else {
 			json_object_string_add(json_row, "type", "local");
+			json_object_string_add(json_row, "state", state_str);
 			json_object_string_add(json_row, "mac", buf1);
+			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DEF_GW))
+				json_object_boolean_true_add(
+						json_row, "defaultGateway");
+			json_object_int_add(json_row, "localSequence",
+					    n->loc_seq);
+			json_object_int_add(json_row, "remoteSequence",
+					    n->rem_seq);
 		}
 		wctx->count++;
-	} else {
-		if (wctx->flags & SHOW_REMOTE_NEIGH_FROM_VTEP) {
-			if (IPV4_ADDR_SAME(&n->r_vtep_ip, &wctx->r_vtep_ip)) {
-				if (json_vni == NULL) {
-					if (wctx->count == 0)
-						vty_out(vty,
-							"%*s %-6s %-17s %-21s\n",
-							-wctx->addr_width,
-							"Neighbor", "Type",
-							"MAC", "Remote VTEP");
-					vty_out(vty, "%*s %-6s %-17s %-21s\n",
-						-wctx->addr_width, buf2,
-						"remote", buf1,
-						inet_ntoa(n->r_vtep_ip));
-				} else {
-					json_object_string_add(json_row, "type",
-							       "remote");
-					json_object_string_add(json_row, "mac",
-							       buf1);
-					json_object_string_add(
-						json_row, "remoteVtep",
-						inet_ntoa(n->r_vtep_ip));
-				}
-				wctx->count++;
-			}
+	} else if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
+		if ((wctx->flags & SHOW_REMOTE_NEIGH_FROM_VTEP) &&
+		    !IPV4_ADDR_SAME(&n->r_vtep_ip, &wctx->r_vtep_ip))
+			return;
+
+		if (json_vni == NULL) {
+			if ((wctx->flags & SHOW_REMOTE_NEIGH_FROM_VTEP) &&
+			    (wctx->count == 0))
+				vty_out(vty,
+					"%*s %-6s %-8s %-17s %-21s\n",
+					-wctx->addr_width, "Neighbor", "Type",
+					"State", "MAC", "Remote VTEP");
+			vty_out(vty, "%*s %-6s %-8s %-17s %-21s\n",
+				-wctx->addr_width, buf2, "remote", state_str,
+				buf1, inet_ntoa(n->r_vtep_ip));
 		} else {
-			if (json_vni == NULL) {
-				vty_out(vty, "%*s %-6s %-17s %-21s\n",
-					-wctx->addr_width, buf2, "remote", buf1,
-					inet_ntoa(n->r_vtep_ip));
-			} else {
-				json_object_string_add(json_row, "type",
-						       "remote");
-				json_object_string_add(json_row, "mac", buf1);
-				json_object_string_add(json_row, "remoteVtep",
-						       inet_ntoa(n->r_vtep_ip));
-			}
-			wctx->count++;
+			json_object_string_add(json_row, "type", "remote");
+			json_object_string_add(json_row, "state", state_str);
+			json_object_string_add(json_row, "mac", buf1);
+			json_object_string_add(json_row, "remoteVtep",
+					       inet_ntoa(n->r_vtep_ip));
+			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DEF_GW))
+				json_object_boolean_true_add(json_row,
+							     "defaultGateway");
+			json_object_int_add(json_row, "localSequence",
+					    n->loc_seq);
+			json_object_int_add(json_row, "remoteSequence",
+					    n->rem_seq);
 		}
+		wctx->count++;
 	}
 
 	if (json_vni)
@@ -462,8 +478,9 @@ static void zvni_print_neigh_hash_all_vni(struct hash_backet *backet,
 	hash_iterate(zvni->neigh_table, zvni_find_neigh_addr_width, &wctx);
 
 	if (json == NULL) {
-		vty_out(vty, "%*s %-6s %-17s %-21s\n", -wctx.addr_width, "IP",
-			"Type", "MAC", "Remote VTEP");
+		vty_out(vty, "%*s %-6s %-8s %-17s %-21s\n",
+			-wctx.addr_width, "IP", "Type",
+			"State", "MAC", "Remote VTEP");
 	}
 	hash_iterate(zvni->neigh_table, zvni_print_neigh_hash, &wctx);
 
@@ -523,8 +540,6 @@ static void zl3vni_print_rmac(zebra_mac_t *zrmac, struct vty *vty,
 		vty_out(vty, " Remote VTEP: %s\n",
 			inet_ntoa(zrmac->fwd_info.r_vtep_ip));
 		vty_out(vty, " Refcount: %d\n", rb_host_count(&zrmac->host_rb));
-		vty_out(vty, " Local Seq: %u Remote Seq: %u\n",
-			zrmac->loc_seq, zrmac->rem_seq);
 		vty_out(vty, "  Prefixes:\n");
 		RB_FOREACH (hle, host_rb_tree_entry, &zrmac->host_rb)
 			vty_out(vty, "    %s\n",
@@ -538,6 +553,8 @@ static void zl3vni_print_rmac(zebra_mac_t *zrmac, struct vty *vty,
 				       inet_ntoa(zrmac->fwd_info.r_vtep_ip));
 		json_object_int_add(json, "refCount",
 				    rb_host_count(&zrmac->host_rb));
+		json_object_int_add(json, "localSequence", zrmac->loc_seq);
+		json_object_int_add(json, "remoteSequence", zrmac->rem_seq);
 		RB_FOREACH (hle, host_rb_tree_entry, &zrmac->host_rb)
 			json_object_array_add(
 				json_hosts,
@@ -631,12 +648,14 @@ static void zvni_print_mac_hash(struct hash_backet *backet, void *ctxt)
 	if (json_mac_hdr)
 		json_mac = json_object_new_object();
 
-	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)
-	    && !(wctx->flags & SHOW_REMOTE_MAC_FROM_VTEP)) {
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
 		struct zebra_ns *zns;
 		ifindex_t ifindex;
 		struct interface *ifp;
 		vlanid_t vid;
+
+		if (wctx->flags & SHOW_REMOTE_MAC_FROM_VTEP)
+			return;
 
 		zns = zebra_ns_lookup(NS_DEFAULT);
 		ifindex = mac->fwd_info.local.ifindex;
@@ -657,59 +676,46 @@ static void zvni_print_mac_hash(struct hash_backet *backet, void *ctxt)
 			else
 				json_object_int_add(json_mac, "vlan", vid);
 		}
-		if (json_mac_hdr == NULL)
+		if (json_mac_hdr == NULL) {
 			vty_out(vty, "\n");
-		else
-			json_object_object_add(json_mac_hdr, buf1, json_mac);
-		wctx->count++;
-	} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
-		if (wctx->flags & SHOW_REMOTE_MAC_FROM_VTEP) {
-			if (IPV4_ADDR_SAME(&mac->fwd_info.r_vtep_ip,
-					   &wctx->r_vtep_ip)) {
-				if (wctx->count == 0) {
-					if (json_mac_hdr == NULL) {
-						vty_out(vty, "\nVNI %u\n\n",
-							wctx->zvni->vni);
-						vty_out(vty,
-							"%-17s %-6s %-21s %-5s\n",
-							"MAC", "Type",
-							"Intf/Remote VTEP",
-							"VLAN");
-					}
-				}
-				if (json_mac_hdr == NULL)
-					vty_out(vty, "%-17s %-6s %-21s\n", buf1,
-						"remote",
-						inet_ntoa(mac->fwd_info
-								  .r_vtep_ip));
-				else {
-					json_object_string_add(json_mac, "type",
-							       "remote");
-					json_object_string_add(
-						json_mac, "remoteVtep",
-						inet_ntoa(mac->fwd_info
-								  .r_vtep_ip));
-					json_object_object_add(json_mac_hdr,
-							       buf1, json_mac);
-				}
-				wctx->count++;
-			}
 		} else {
-			if (json_mac_hdr == NULL)
-				vty_out(vty, "%-17s %-6s %-21s\n", buf1,
-					"remote",
-					inet_ntoa(mac->fwd_info.r_vtep_ip));
-			else {
-				json_object_string_add(json_mac, "type",
-						       "remote");
-				json_object_string_add(
-					json_mac, "remoteVtep",
-					inet_ntoa(mac->fwd_info.r_vtep_ip));
-				json_object_object_add(json_mac_hdr, buf1,
-						       json_mac);
-			}
-			wctx->count++;
+			json_object_int_add(json_mac, "localSequence",
+					    mac->loc_seq);
+			json_object_int_add(json_mac, "remoteSequence",
+					    mac->rem_seq);
+			json_object_object_add(json_mac_hdr, buf1, json_mac);
 		}
+
+		wctx->count++;
+
+	} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
+
+		if ((wctx->flags & SHOW_REMOTE_MAC_FROM_VTEP) &&
+		    !IPV4_ADDR_SAME(&mac->fwd_info.r_vtep_ip,
+				    &wctx->r_vtep_ip))
+			return;
+
+		if (json_mac_hdr == NULL) {
+			if ((wctx->flags & SHOW_REMOTE_MAC_FROM_VTEP) &&
+			    (wctx->count == 0)) {
+				vty_out(vty, "\nVNI %u\n\n", wctx->zvni->vni);
+				vty_out(vty, "%-17s %-6s %-21s %-5s\n", "MAC",
+					"Type", "Intf/Remote VTEP", "VLAN");
+			}
+			vty_out(vty, "%-17s %-6s %-21s\n", buf1, "remote",
+				inet_ntoa(mac->fwd_info.r_vtep_ip));
+		} else {
+			json_object_string_add(json_mac, "type", "remote");
+			json_object_string_add(json_mac, "remoteVtep",
+					inet_ntoa(mac->fwd_info.r_vtep_ip));
+			json_object_object_add(json_mac_hdr, buf1, json_mac);
+			json_object_int_add(json_mac, "localSequence",
+					    mac->loc_seq);
+			json_object_int_add(json_mac, "remoteSequence",
+					    mac->rem_seq);
+		}
+
+		wctx->count++;
 	}
 }
 
@@ -1794,6 +1800,7 @@ static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
 	/* Set "local" forwarding info. */
 	SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
 	SET_FLAG(n->flags, ZEBRA_NEIGH_DEF_GW);
+	ZEBRA_NEIGH_SET_ACTIVE(n);
 	/* Set Router flag (R-bit) */
 	if (ip->ipa_type == IPADDR_V6)
 		SET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
@@ -4806,8 +4813,9 @@ void zebra_vxlan_print_neigh_vni(struct vty *vty, struct zebra_vrf *zvrf,
 		vty_out(vty,
 			"Number of ARPs (local and remote) known for this VNI: %u\n",
 			num_neigh);
-		vty_out(vty, "%*s %-6s %-17s %-21s\n", -wctx.addr_width, "IP",
-			"Type", "MAC", "Remote VTEP");
+		vty_out(vty, "%*s %-6s %-8s %-17s %-21s\n",
+			-wctx.addr_width, "IP", "Type",
+			"State", "MAC", "Remote VTEP");
 	} else
 		json_object_int_add(json, "numArpNd", num_neigh);
 
