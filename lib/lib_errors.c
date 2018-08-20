@@ -35,6 +35,12 @@ static struct log_ref ferr_lib_warn[] = {
 		.suggestion = "Gather log data and open an Issue, restart FRR",
 	},
 	{
+		.code = LIB_WARN_LINUX_NS,
+		.title = "The Linux namespace subsystem has encountered a parsing error",
+		.description = "During system startup an invalid parameter for the namesapce was give to FRR",
+		.suggestion = "Gather log data and open an Issue. restart FRR",
+	},
+	{
 		.code = END_FERR,
 	},
 };

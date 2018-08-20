@@ -441,8 +441,8 @@ char *ns_netns_pathname(struct vty *vty, const char *name)
 				pathname,
 				safe_strerror(errno));
 		else
-			zlog_warn("Invalid pathname for %s: %s",
-				  pathname,
+			flog_warn(LIB_WARN_LINUX_NS,
+				  "Invalid pathname for %s: %s", pathname,
 				  safe_strerror(errno));
 		return NULL;
 	}
@@ -452,7 +452,8 @@ char *ns_netns_pathname(struct vty *vty, const char *name)
 			vty_out(vty, "NS name (%s) invalid: too long (>%d)\n",
 				check_base, NS_NAMSIZ - 1);
 		else
-			zlog_warn("NS name (%s) invalid: too long (>%d)",
+			flog_warn(LIB_WARN_LINUX_NS,
+				  "NS name (%s) invalid: too long (>%d)",
 				  check_base, NS_NAMSIZ - 1);
 		return NULL;
 	}
