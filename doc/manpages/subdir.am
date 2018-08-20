@@ -9,6 +9,7 @@ man_RSTFILES = \
 	doc/manpages/defines.rst \
 	doc/manpages/eigrpd.rst \
 	doc/manpages/epilogue.rst \
+	doc/manpages/fabricd.rst \
 	doc/manpages/frr.rst \
 	doc/manpages/index.rst \
 	doc/manpages/isisd.rst \

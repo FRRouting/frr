@@ -10,6 +10,7 @@
    bgpd
    eigrpd
    isisd
+   fabricd
    ldpd
    nhrpd
    ospf6d
