@@ -330,6 +330,8 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 						zlog_debug(
 							"Requesting the same, remove it, next neighbor");
 					if (req == on->last_ls_req) {
+						/* sanity check refcount */
+						assert(req->lock >= 2);
 						ospf6_lsa_unlock(req);
 						on->last_ls_req = NULL;
 					}
