@@ -233,10 +233,6 @@ static int ospf_sr_start(struct ospf *ospf)
 	srn = hash_get(OspfSR.neighbors, (void *)&(ospf->router_id),
 		       (void *)sr_node_new);
 
-	/* Sanity Check */
-	if (srn == NULL)
-		return rc;
-
 	/* Complete & Store self SR Node */
 	srn->srgb.range_size = OspfSR.srgb.range_size;
 	srn->srgb.lower_bound = OspfSR.srgb.lower_bound;
@@ -1702,10 +1698,7 @@ DEFUN(ospf_sr_enable,
 
 	/* Start Segment Routing */
 	OspfSR.enabled = true;
-	if (!ospf_sr_start(ospf)) {
-		zlog_warn("SR: Unable to start Segment Routing. Abort!");
-		return CMD_WARNING;
-	}
+	ospf_sr_start(ospf);
 
 	/* Set Router Information SR parameters */
 	if (IS_DEBUG_OSPF_EVENT)
@@ -1990,7 +1983,7 @@ DEFUN (sr_prefix_sid,
 		 * update of this Extended Prefix
 		 */
 		listnode_add(OspfSR.self->ext_prefix, new);
-		zlog_warn(
+		zlog_info(
 			"Interface for prefix %s/%u not found. Deferred LSA "
 			"flooding",
 			inet_ntoa(p.u.prefix4), p.prefixlen);

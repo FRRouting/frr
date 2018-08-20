@@ -742,10 +742,8 @@ static struct ospf_lsa *ospf_router_info_lsa_new()
 	uint16_t length;
 
 	/* Create a stream for LSA. */
-	if ((s = stream_new(OSPF_MAX_LSA_SIZE)) == NULL) {
-		zlog_warn("ospf_router_info_lsa_new: stream_new() ?");
-		return NULL;
-	}
+	s = stream_new(OSPF_MAX_LSA_SIZE);
+
 	lsah = (struct lsa_header *)STREAM_DATA(s);
 
 	options = OSPF_OPTION_E;  /* Enable AS external as we flood RI with

@@ -2522,15 +2522,8 @@ void ospf_discard_from_db(struct ospf *ospf, struct ospf_lsdb *lsdb,
 {
 	struct ospf_lsa *old;
 
-	if (!lsdb) {
-		zlog_warn("%s: Called with NULL lsdb!", __func__);
-		if (!lsa)
-			zlog_warn("%s: and NULL LSA!", __func__);
-		else
-			zlog_warn("LSA[Type%d:%s]: not associated with LSDB!",
-				  lsa->data->type, inet_ntoa(lsa->data->id));
+	if (!lsdb)
 		return;
-	}
 
 	old = ospf_lsdb_lookup(lsdb, lsa);
 

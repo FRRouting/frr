@@ -308,12 +308,8 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 			 new->lsa_refresh_interval, &new->t_lsa_refresher);
 	new->lsa_refresher_started = monotime(NULL);
 
-	if ((new->ibuf = stream_new(OSPF_MAX_PACKET_SIZE + 1)) == NULL) {
-		zlog_err(
-			"ospf_new: fatal error: stream_new(%u) failed allocating ibuf",
-			OSPF_MAX_PACKET_SIZE + 1);
-		exit(1);
-	}
+	new->ibuf = stream_new(OSPF_MAX_PACKET_SIZE + 1);
+
 	new->t_read = NULL;
 	new->oi_write_q = list_new();
 	new->write_oi_count = OSPF_WRITE_INTERFACE_COUNT_DEFAULT;

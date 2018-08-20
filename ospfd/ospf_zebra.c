@@ -152,10 +152,6 @@ static int ospf_interface_delete(int command, struct zclient *zclient,
 	if (ifp == NULL)
 		return 0;
 
-	if (if_is_up(ifp))
-		zlog_warn("Zebra: got delete of %s, but interface is still up",
-			  ifp->name);
-
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug(
 			"Zebra: interface delete %s vrf %s[%u] index %d flags %llx metric %d mtu %d",

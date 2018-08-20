@@ -1146,10 +1146,7 @@ static struct ospf_lsa *ospf_mpls_te_lsa_new(struct ospf *ospf,
 	uint16_t length;
 
 	/* Create a stream for LSA. */
-	if ((s = stream_new(OSPF_MAX_LSA_SIZE)) == NULL) {
-		zlog_warn("ospf_mpls_te_lsa_new: stream_new() ?");
-		return NULL;
-	}
+	s = stream_new(OSPF_MAX_LSA_SIZE);
 	lsah = (struct lsa_header *)STREAM_DATA(s);
 
 	options = OSPF_OPTION_O; /* Don't forget this :-) */
@@ -1286,7 +1283,7 @@ static int ospf_mpls_te_lsa_originate_area(void *arg)
 		if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
 			if (CHECK_FLAG(lp->flags, LPFLG_LSA_FORCED_REFRESH)) {
 				UNSET_FLAG(lp->flags, LPFLG_LSA_FORCED_REFRESH);
-				zlog_warn(
+				zlog_info(
 					"OSPF MPLS-TE (ospf_mpls_te_lsa_originate_area): Refresh instead of Originate");
 				ospf_mpls_te_lsa_schedule(lp, REFRESH_THIS_LSA);
 			}
@@ -1294,7 +1291,7 @@ static int ospf_mpls_te_lsa_originate_area(void *arg)
 		}
 
 		if (!is_mandated_params_set(lp)) {
-			zlog_warn(
+			zlog_info(
 				"ospf_mpls_te_lsa_originate_area: Link(%s) lacks some mandated MPLS-TE parameters.",
 				lp->ifp ? lp->ifp->name : "?");
 			continue;

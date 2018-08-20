@@ -538,8 +538,6 @@ static int ospf_ext_link_new_if(struct interface *ifp)
 	int rc = -1;
 
 	if (lookup_ext_by_ifp(ifp) != NULL) {
-		zlog_warn("EXT (%s): interface %s is already in use", __func__,
-			  ifp ? ifp->name : "-");
 		rc = 0; /* Do nothing here. */
 		return rc;
 	}
@@ -929,10 +927,6 @@ static struct ospf_lsa *ospf_ext_pref_lsa_new(struct ospf_area *area,
 
 	/* Create a stream for LSA. */
 	s = stream_new(OSPF_MAX_LSA_SIZE);
-	if (s == NULL) {
-		zlog_warn("EXT (%s): stream_new() error", __func__);
-		return NULL;
-	}
 
 	/* Prepare LSA Header */
 	lsah = (struct lsa_header *)STREAM_DATA(s);
@@ -1007,10 +1001,6 @@ static struct ospf_lsa *ospf_ext_link_lsa_new(struct ospf_area *area,
 
 	/* Create a stream for LSA. */
 	s = stream_new(OSPF_MAX_LSA_SIZE);
-	if (s == NULL) {
-		zlog_warn("EXT (%s): stream_new() error", __func__);
-		return NULL;
-	}
 	lsah = (struct lsa_header *)STREAM_DATA(s);
 
 	options = OSPF_OPTION_O;	  /* Don't forget this :-) */

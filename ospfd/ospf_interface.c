@@ -1033,7 +1033,7 @@ static int ospf_vl_set_params(struct ospf_vl_data *vl_data, struct vertex *v)
 		 * there should be due to the ospf_spf_has_link() check
 		 * in SPF. Lets warn and try pick a link anyway.
 		 */
-		zlog_warn("ospf_vl_set_params: No backlink for %s!",
+		zlog_info("ospf_vl_set_params: No backlink for %s!",
 			  vl_data->vl_oi->ifp->name);
 		for (i = 0; i < ntohs(rl->links); i++) {
 			switch (rl->link[i].type) {
