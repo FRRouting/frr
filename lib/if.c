@@ -1141,7 +1141,7 @@ const char *if_link_type_str(enum zebra_link_type llt)
 		llts(ZEBRA_LLT_IEEE802154, "IEEE 802.15.4");
 		llts(ZEBRA_LLT_IEEE802154_PHY, "IEEE 802.15.4 Phy");
 	default:
-		zlog_warn("Unknown value %d", llt);
+		flog_err(LIB_ERR_DEVELOPMENT, "Unknown value %d", llt);
 		return "Unknown type!";
 #undef llts
 	}
