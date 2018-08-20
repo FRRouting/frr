@@ -50,7 +50,7 @@ static struct log_ref ferr_lib_err[] = {
 		.code = LIB_ERR_SOCKET,
 		.title = "Socket Error",
 		.description = "When attempting to access a socket a system error has occured and we were unable to properly complete the request",
-		.suggestion = "Ensure that there are sufficient system resources available and ensure that the frr user has sufficient permisions to work",
+		.suggestion = "Ensure that there are sufficient system resources available and ensure that the frr user has sufficient permisions to work.  If necessary open an Issue",
 	},
 	{
 		.code = LIB_ERR_ZAPI_MISSMATCH,
