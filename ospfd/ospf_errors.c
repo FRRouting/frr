@@ -23,6 +23,18 @@
 #include "lib/ferr.h"
 #include "ospf_errors.h"
 
+static struct log_ref ferr_ospf_warn[] = {
+	{
+		.code = OSPF_WARN_SET_METRIC_PLUS,
+		.title = "OSPF does not support `set metric +rtt/-rtt`",
+		.description = "This implementation of OSPF does not currently support `set metric +rtt/-rtt`",
+		.suggestion = "Do not use this particular set command for an ospf route-map",
+	},
+	{
+		.code = END_FERR,
+	}
+};
+
 static struct log_ref ferr_ospf_err[] = {
 	{
 		.code = OSPF_ERR_PKT_PROCESS,
@@ -72,7 +84,6 @@ static struct log_ref ferr_ospf_err[] = {
 		.description = "OSPF Segment Routing invalid Algorithm",
 		.suggestion = "Most likely a bug. If the problem persists, report the problem for troubleshooting"
 	},
-
 	{
 		.code = END_FERR,
 	}
@@ -80,5 +91,6 @@ static struct log_ref ferr_ospf_err[] = {
 
 void ospf_error_init(void)
 {
+	log_ref_add(ferr_ospf_warn);
 	log_ref_add(ferr_ospf_err);
 }

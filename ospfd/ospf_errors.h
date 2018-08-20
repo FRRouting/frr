@@ -32,6 +32,7 @@ enum ospf_log_refs {
 	OSPF_ERR_SR_NODE_CREATE,
 	OSPF_ERR_SR_INVALID_LSA_ID,
 	OSPF_ERR_SR_INVALID_ALGORITHM,
+	OSPF_WARN_SET_METRIC_PLUS,
 };
 
 extern void ospf_error_init(void);
