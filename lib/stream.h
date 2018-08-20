@@ -247,6 +247,9 @@ extern void stream_reset(struct stream *);
 extern int stream_flush(struct stream *, int);
 extern int stream_empty(struct stream *); /* is the stream empty? */
 
+/* Cleanup stream internal data structures at end of program */
+extern void stream_init_last(void);
+
 /* deprecated */
 extern uint8_t *stream_pnt(struct stream *);
 
