@@ -53,6 +53,12 @@ static struct log_ref ferr_lib_warn[] = {
 		.suggestion = "Re-work the Route-Map in question to not have so many route-map statements, or recompile FRR with a higher limit",
 	},
 	{
+		.code = LIB_WARN_BACKUP_CONFIG,
+		.title = "Unable to open configuration file",
+		.description = "The config subsystem attempted to read in it's configuration file which failed, so we are falling back to the backup config file to see if it is available",
+		.suggestion = "Create configuration file",
+	},
+	{
 		.code = END_FERR,
 	},
 };

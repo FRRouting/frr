@@ -43,6 +43,7 @@ enum lib_log_refs {
 	LIB_WARN_LINUX_NS,
 	LIB_WARN_SLOW_THREAD,
 	LIB_WARN_RMAP_RECURSION_LIMIT,
+	LIB_WARN_BACKUP_CONFIG,
 };
 
 extern void lib_error_init(void);
