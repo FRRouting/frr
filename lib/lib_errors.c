@@ -62,7 +62,7 @@ static struct log_ref ferr_lib_err[] = {
 		.code = LIB_ERR_ZAPI_ENCODE,
 		.title = "ZAPI Error",
 		.description = "The ZAPI subsystem has detected an encoding issue, between zebra and a client protocol",
-		.suggestion = "Restart FRR"
+		.suggestion = "Gather data and open an Issue, also Restart FRR"
 	},
 	{
 		.code = LIB_ERR_ZAPI_SOCKET,
