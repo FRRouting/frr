@@ -23,12 +23,31 @@
 #include "lib/ferr.h"
 #include "ospf_errors.h"
 
+/* clang-format off */
 static struct log_ref ferr_ospf_warn[] = {
 	{
 		.code = OSPF_WARN_SET_METRIC_PLUS,
 		.title = "OSPF does not support `set metric +rtt/-rtt`",
 		.description = "This implementation of OSPF does not currently support `set metric +rtt/-rtt`",
 		.suggestion = "Do not use this particular set command for an ospf route-map",
+	},
+	{
+		.code = OSPF_WARN_MD5,
+		.title = "OSPF has noticed a MD5 issue",
+		.description = "Something has gone wrong with the calculation of the MD5 data",
+		.suggestion = "Ensure your key is correct, gather log data from this side as well as peer and open an Issue",
+	},
+	{
+		.code = OSPF_WARN_PACKET,
+		.title = "OSPF has detected packet information missmatch",
+		.description = "OSPF has detected that packet information received is incorrect",
+		.suggestion = "Ensure interface configuration is correct, gather log files from here and the peer and open an Issue",
+	},
+	{
+		.code = OSPF_WARN_LARGE_LSA,
+		.title = "OSPF has determined that a LSA packet will be too large",
+		.description = "OSPF has received data that is causing it to recalculate how large packets should be and has discovered that the packet size needed would be too large and we will need to fragment packets",
+		.suggestion = "Further divide up your network with areas",
 	},
 	{
 		.code = END_FERR,

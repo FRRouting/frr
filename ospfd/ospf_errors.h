@@ -33,6 +33,9 @@ enum ospf_log_refs {
 	OSPF_ERR_SR_INVALID_LSA_ID,
 	OSPF_ERR_SR_INVALID_ALGORITHM,
 	OSPF_WARN_SET_METRIC_PLUS,
+	OSPF_WARN_MD5,
+	OSPF_WARN_PACKET,
+	OSPF_WARN_LARGE_LSA,
 };
 
 extern void ospf_error_init(void);
