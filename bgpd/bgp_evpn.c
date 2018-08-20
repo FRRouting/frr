@@ -1564,7 +1564,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 				   afi_t afi, safi_t safi, struct bgp_node *rn,
 				   struct attr *attr, int add,
-				   struct bgp_info **ri, u_char flags,
+				   struct bgp_info **ri, uint8_t flags,
 				   uint32_t seq)
 {
 	struct bgp_info *tmp_ri;
@@ -1996,7 +1996,8 @@ static int update_all_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 		 * using L3 VNI for type-2 routes also.
 		 */
 		if ((is_evpn_prefix_ipaddr_v4(evp) ||
-		     !IN6_IS_ADDR_LINKLOCAL(&evp->prefix.macip_addr.ip.ipaddr_v6)) &&
+		     !IN6_IS_ADDR_LINKLOCAL(
+			&evp->prefix.macip_addr.ip.ipaddr_v6)) &&
 		    CHECK_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS) &&
 		    bgpevpn_get_l3vni(vpn))
 			add_l3_ecomm = 1;

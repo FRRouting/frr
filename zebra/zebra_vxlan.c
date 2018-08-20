@@ -2065,8 +2065,9 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 				   ETH_ALEN) != 0) {
 				old_zmac = zvni_mac_lookup(zvni, &n->emac);
 				if (old_zmac) {
-					old_mac_seq = CHECK_FLAG(old_zmac->flags,
-							 ZEBRA_MAC_REMOTE) ?
+					old_mac_seq = CHECK_FLAG(
+							old_zmac->flags,
+							ZEBRA_MAC_REMOTE) ?
 							old_zmac->rem_seq :
 							old_zmac->loc_seq;
 					neigh_mac_change = upd_mac_seq = true;
@@ -2129,8 +2130,8 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 						zmac->flags, zmac->loc_seq))
 			return -1;
 		zvni_process_neigh_on_local_mac_change(zvni, zmac, 1);
- 		return 0;
- 	}
+		return 0;
+	}
 
 	ZEBRA_NEIGH_SET_ACTIVE(n);
 	n->loc_seq = zmac->loc_seq;
@@ -4004,9 +4005,9 @@ static int zebra_vxlan_readd_remote_rmac(zebra_l3vni_t *zl3vni,
 /* Process a remote MACIP add from BGP. */
 static void process_remote_macip_add(vni_t vni,
 				     struct ethaddr *macaddr,
-				     u_short ipa_len,
+				     uint16_t ipa_len,
 				     struct ipaddr *ipaddr,
-				     u_char flags,
+				     uint8_t flags,
 				     uint32_t seq,
 				     struct in_addr vtep_ip)
 {
@@ -4020,7 +4021,7 @@ static void process_remote_macip_add(vni_t vni,
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
 	uint32_t tmp_seq;
-	u_char sticky = 0;
+	uint8_t sticky = 0;
 	u_char remote_gw = 0;
 
 	/* Locate VNI hash entry - expected to exist. */
@@ -4269,7 +4270,7 @@ static void process_remote_macip_add(vni_t vni,
 /* Process a remote MACIP delete from BGP. */
 static void process_remote_macip_del(vni_t vni,
 				     struct ethaddr *macaddr,
-				     u_short ipa_len,
+				     uint16_t ipa_len,
 				     struct ipaddr *ipaddr,
 				     struct in_addr vtep_ip)
 {
@@ -4695,7 +4696,6 @@ void zebra_vxlan_print_nh_all_l3vni(struct vty *vty, uint8_t use_json)
 					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
-	return;
 }
 
 /*
@@ -4754,6 +4754,7 @@ void zebra_vxlan_print_vrf_vni(struct vty *vty, struct zebra_vrf *zvrf,
 			zl3vni_rmac2str(zl3vni, buf, sizeof(buf)));
 	} else {
 		json_object *json_vrf = NULL;
+
 		json_vrf = json_object_new_object();
 		json_object_string_add(json_vrf, "vrf", zvrf_name(zvrf));
 		json_object_int_add(json_vrf, "vni", zl3vni->vni);
@@ -5408,7 +5409,7 @@ void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS)
 	struct ethaddr macaddr;
 	struct ipaddr ip;
 	struct in_addr vtep_ip;
-	unsigned short l = 0, ipa_len;
+	uint16_t l = 0, ipa_len;
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
 
@@ -5467,7 +5468,7 @@ void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS)
 	struct ethaddr macaddr;
 	struct ipaddr ip;
 	struct in_addr vtep_ip;
-	unsigned short l = 0, ipa_len;
+	uint16_t l = 0, ipa_len;
 	uint8_t flags = 0;
 	uint32_t seq;
 	char buf[ETHER_ADDR_STRLEN];
