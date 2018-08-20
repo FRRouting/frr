@@ -68,6 +68,12 @@ static struct log_ref ferr_ospf_warn[] = {
 		.suggestion = "Gather log data and open an Issue",
 	},
 	{
+		.code = OSPF_WARN_TE_UNEXPECTED,
+		.title = "OSPF has received TE information that it was not expecting",
+		.description = "OSPF has received TE information that it was not expecting during normal processing of data",
+		.suggestion = "Gthat log data from this machine and it's peer and open an Issue",
+	},
+	{
 		.code = END_FERR,
 	}
 };
