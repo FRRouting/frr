@@ -33,6 +33,7 @@
 #include "network.h"
 #include "jhash.h"
 #include "frratomic.h"
+#include "lib_errors.h"
 
 DEFINE_MTYPE_STATIC(LIB, THREAD, "Thread")
 DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master")
@@ -1480,7 +1481,8 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 			}
 
 			/* else die */
-			zlog_warn("poll() error: %s", safe_strerror(errno));
+			flog_err(LIB_ERR_SYSTEM_CALL, "poll() error: %s",
+				 safe_strerror(errno));
 			pthread_mutex_unlock(&m->mtx);
 			fetch = NULL;
 			break;
@@ -1617,7 +1619,8 @@ void thread_call(struct thread *thread)
 		 * Whinge about it now, so we're aware this is yet another task
 		 * to fix.
 		 */
-		zlog_warn(
+		flog_warn(
+			LIB_WARN_SLOW_THREAD,
 			"SLOW THREAD: task %s (%lx) ran for %lums (cpu time %lums)",
 			thread->funcname, (unsigned long)thread->func,
 			realtime / 1000, cputime / 1000);

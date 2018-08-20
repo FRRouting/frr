@@ -41,6 +41,12 @@ static struct log_ref ferr_lib_warn[] = {
 		.suggestion = "Gather log data and open an Issue. restart FRR",
 	},
 	{
+		.code = LIB_WARN_SLOW_THREAD,
+		.title = "The Event subsystem has detected a slow process",
+		.description = "The Event subsystem has detected a slow process, this typically indicates that FRR is having trouble completing work in a timely manner.  This can be either a misconfiguration, bug, or some combination therof.",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
 		.code = END_FERR,
 	},
 };

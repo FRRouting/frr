@@ -41,6 +41,7 @@ enum lib_log_refs {
 	LIB_WARN_SNMP,
 	LIB_WARN_STREAM,
 	LIB_WARN_LINUX_NS,
+	LIB_WARN_SLOW_THREAD,
 };
 
 extern void lib_error_init(void);
