@@ -18,16 +18,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef __NHRP_ERRORS_H__
-#define __NHRP_ERRORS_H__
 
-#include "lib/ferr.h"
 
-enum nhrp_log_refs {
-	NHRP_ERR_SWAN = NHRP_FERR_START,
-	NHRP_ERR_RESOLVER,
-};
+#include "ferr.h"
 
-extern void nhrp_error_init(void);
-
-#endif
+DECLARE_LOGCAT(NHRP_ERR_SWAN)
+DECLARE_LOGCAT(NHRP_ERR_RESOLVER)

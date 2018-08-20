@@ -2289,6 +2289,59 @@ DEFUN (config_logmsg,
 	return CMD_SUCCESS;
 }
 
+static void vty_print_fcat(struct vty *vty, struct log_cat *lc)
+{
+	if (!lc) {
+		vty_out(vty, "\tNo further information available.\n");
+		return;
+	}
+	for (; lc && lc != &_lc_ROOT; lc = lc->parent) {
+		vty_out(vty, "    Category: %s [%s]\n", lc->title, lc->name);
+		if (lc->description)
+			vty_out(vty, "%s\n\n", lc->description);
+		if (lc->suggestion)
+			vty_out(vty, "%s\n\n", lc->suggestion);
+	}
+}
+
+DEFUN (show_refcode,
+       show_refcode_cmd,
+       "show reference-code WORD",
+       SHOW_STR
+       "Show log message reference code\n"
+       "Reference code\n")
+{
+	const char *refcode = argv[2]->arg;
+	struct log_ref *lr = NULL, * const * lrp;
+	struct log_ref_block *lrb;
+
+	for (lrb = log_ref_blocks; lrb; lrb = lrb->next) {
+		for (lrp = lrb->start; lrp < lrb->stop; lrp++) {
+			if (!*lrp)
+				continue;
+			if (strcmp((*lrp)->prefix, refcode))
+				continue;
+
+			if (!lr) {
+				lr = *lrp;
+				vty_out(vty, "[%s]: \"%s\"\n\tPriority: %s\n",
+					lr->prefix, lr->fmtstring,
+					zlog_priority[LOG_REF_PRIORITY(lr->priority)]);
+				if (lr->priority & LOG_REF_ERRNO_VALID)
+					vty_out(vty, "\terrno is valid for this message.\n");
+				vty_print_fcat(vty, lr->category);
+			}
+			vty_out(vty, "    %s() %s:%d: %zu\n",
+				(*lrp)->func, (*lrp)->file, (*lrp)->line,
+				(*lrp)->count);
+		}
+	}
+	if (!lr)
+		vty_out(vty, "reference code %s not found.\n", refcode);
+	vty_out(vty, "\n");
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_logging,
        show_logging_cmd,
        "show logging",
@@ -2837,6 +2890,7 @@ void cmd_init(int terminal)
 		install_element(VIEW_NODE, &config_terminal_length_cmd);
 		install_element(VIEW_NODE, &config_terminal_no_length_cmd);
 		install_element(VIEW_NODE, &show_logging_cmd);
+		install_element(VIEW_NODE, &show_refcode_cmd);
 		install_element(VIEW_NODE, &show_commandtree_cmd);
 		install_element(VIEW_NODE, &echo_cmd);
 		install_element(VIEW_NODE, &autocomplete_cmd);

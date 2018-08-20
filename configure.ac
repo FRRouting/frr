@@ -120,6 +120,34 @@ CFLAGS="$orig_cflags"
 AC_PROG_CC_C99
 dnl NB: see C11 below
 
+case "$host_os" in
+  sunos* | solaris2*)
+    AC_PATH_TOOL([GLD], [gld])
+
+    LD="$GLD"
+    LD_ALTEXEC="$GLD"
+
+    # Yes.  Solaris.  Where even using GNU tools involves a magic rain dance
+    # and a copious amount of sacrificial goats.
+    #
+    # GNU gcc uses Solaris LD for some stupid reason, and that doesn't
+    # support section start/end symbols.  Use GNU LD, you say?  Well...
+    # GNU gcc doesn't expect that and passes "-M" instead of "-Map" because
+    # that's what Solaris LD uses!  Surely there would be an option to
+    # change that? ... Nope.  Let's sed the spec file.  And for extra bonus,
+    # libtool doesn't allow us to pass "-specs" directly, so we have to
+    # get another goat to sacrifice to the libtool gods to get this in...
+    # but only for linking!  Because ignoring a linker option on compiling is
+    # too much to expect of libtool...  (Ran out of goats for *that* one.)
+
+    if $CC -dumpspecs | sed -e 's%-M %-Map %g' > "cc-specs"; then
+      LIBTOOLDSOFLAGS="-XCClinker -specs -XCClinker `pwd`/cc-specs"
+    fi
+    ;;
+esac
+AC_SUBST(LIBTOOLDSOFLAGS)
+AC_SUBST(LD_ALTEXEC)
+
 AC_PROG_EGREP
 PKG_PROG_PKG_CONFIG
 

@@ -194,8 +194,8 @@ static int zebra_ns_notify_read(struct thread *t)
 		zebrad.master, zebra_ns_notify_read, NULL, fd_monitor, NULL);
 	len = read(fd_monitor, buf, sizeof(buf));
 	if (len < 0) {
-		zlog_warn("NS notify read: failed to read (%s)",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "NS notify read: failed to read");
 		return 0;
 	}
 	for (event = (struct inotify_event *)buf; (char *)event < &buf[len];
@@ -271,13 +271,13 @@ void zebra_ns_notify_init(void)
 	zebra_netns_notify_current = NULL;
 	fd_monitor = inotify_init();
 	if (fd_monitor < 0) {
-		zlog_warn("NS notify init: failed to initialize inotify (%s)",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "NS notify init: failed to initialize inotify");
 	}
 	if (inotify_add_watch(fd_monitor, NS_RUN_DIR,
 			      IN_CREATE | IN_DELETE) < 0) {
-		zlog_warn("NS notify watch: failed to add watch (%s)",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "NS notify watch: failed to add watch");
 	}
 	zebra_netns_notify_current = thread_add_read(
 		zebrad.master, zebra_ns_notify_read, NULL, fd_monitor, NULL);

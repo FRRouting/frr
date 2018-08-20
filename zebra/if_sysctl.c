@@ -52,7 +52,7 @@ void ifstat_update_sysctl(void)
 
 	/* Query buffer size. */
 	if (sysctl(mib, MIBSIZ, NULL, &bufsiz, NULL, 0) < 0) {
-		zlog_warn("sysctl() error by %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "sysctl() error by");
 		return;
 	}
 
@@ -61,7 +61,7 @@ void ifstat_update_sysctl(void)
 
 	/* Fetch interface informations into allocated buffer. */
 	if (sysctl(mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) {
-		zlog_warn("sysctl error by %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "sysctl error by");
 		XFREE(MTYPE_TMP, ref);
 		return;
 	}
@@ -101,7 +101,7 @@ void interface_list(struct zebra_ns *zns)
 
 	/* Query buffer size. */
 	if (sysctl(mib, MIBSIZ, NULL, &bufsiz, NULL, 0) < 0) {
-		zlog_warn("sysctl() error by %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "sysctl() error by");
 		return;
 	}
 
@@ -110,7 +110,7 @@ void interface_list(struct zebra_ns *zns)
 
 	/* Fetch interface informations into allocated buffer. */
 	if (sysctl(mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) {
-		zlog_warn("sysctl error by %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "sysctl error by");
 		return;
 	}
 

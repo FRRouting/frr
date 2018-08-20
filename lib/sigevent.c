@@ -329,10 +329,9 @@ static void trap_default_signals(void)
 				}
 				if (sigaction(sigmap[i].sigs[j], &act, NULL)
 				    < 0)
-					zlog_warn(
-						"Unable to set signal handler for signal %d: %s",
-						sigmap[i].sigs[j],
-						safe_strerror(errno));
+					flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+						      "Unable to set signal handler for signal %d",
+						      sigmap[i].sigs[j]);
 			}
 		}
 	}

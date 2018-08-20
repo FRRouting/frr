@@ -220,8 +220,7 @@ static int ns_enable_internal(struct ns *ns, void (*func)(ns_id_t, void *))
 
 		if (!ns_is_enabled(ns)) {
 			flog_err_sys(LIB_ERR_SYSTEM_CALL,
-				     "Can not enable NS %u: %s!", ns->ns_id,
-				     safe_strerror(errno));
+				     "Can not enable NS %u!", ns->ns_id);
 			return 0;
 		}
 
@@ -441,9 +440,8 @@ char *ns_netns_pathname(struct vty *vty, const char *name)
 				pathname,
 				safe_strerror(errno));
 		else
-			zlog_warn("Invalid pathname for %s: %s",
-				  pathname,
-				  safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Invalid pathname for %s", pathname);
 		return NULL;
 	}
 	check_base = basename(pathname);
@@ -472,9 +470,7 @@ void ns_init(void)
 	if (have_netns_enabled < 0) {
 		ns_default_ns_fd = open(NS_DEFAULT_NAME, O_RDONLY);
 		if (ns_default_ns_fd == -1)
-			flog_err(LIB_ERR_NS,
-				  "NS initialization failure %d(%s)", errno,
-				  safe_strerror(errno));
+			flog_err_sys(LIB_ERR_NS, "NS initialization failure");
 	} else {
 		ns_default_ns_fd = -1;
 		default_ns = NULL;

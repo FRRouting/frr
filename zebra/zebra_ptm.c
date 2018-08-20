@@ -180,8 +180,8 @@ static int zebra_ptm_flush_messages(struct thread *thread)
 
 	switch (buffer_flush_available(ptm_cb.wb, ptm_cb.ptm_sock)) {
 	case BUFFER_ERROR:
-		zlog_warn("%s ptm socket error: %s", __func__,
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "%s ptm socket error",
+			      __func__);
 		close(ptm_cb.ptm_sock);
 		ptm_cb.ptm_sock = -1;
 		zebra_ptm_reset_status(0);
@@ -206,8 +206,8 @@ static int zebra_ptm_send_message(char *data, int size)
 	errno = 0;
 	switch (buffer_write(ptm_cb.wb, ptm_cb.ptm_sock, data, size)) {
 	case BUFFER_ERROR:
-		zlog_warn("%s ptm socket error: %s", __func__,
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "%s ptm socket error",
+			      __func__);
 		close(ptm_cb.ptm_sock);
 		ptm_cb.ptm_sock = -1;
 		zebra_ptm_reset_status(0);
@@ -647,8 +647,8 @@ int zebra_ptm_sock_read(struct thread *thread)
 
 	if (((rc == 0) && !errno)
 	    || (errno && (errno != EWOULDBLOCK) && (errno != EAGAIN))) {
-		zlog_warn("%s routing socket error: %s(%d) bytes %d",
-			  __func__, safe_strerror(errno), errno, rc);
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "%s routing socket error: bytes %d",
+			      __func__, rc);
 
 		close(ptm_cb.ptm_sock);
 		ptm_cb.ptm_sock = -1;

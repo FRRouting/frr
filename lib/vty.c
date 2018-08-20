@@ -272,8 +272,7 @@ done:
 }
 
 static int vty_log_out(struct vty *vty, const char *level,
-		       const char *proto_str, const char *format,
-		       struct timestamp_control *ctl, va_list va)
+		       struct timestamp_control *ctl, const char *text)
 {
 	int ret;
 	int len;
@@ -291,15 +290,11 @@ static int vty_log_out(struct vty *vty, const char *level,
 	buf[len] = '\0';
 
 	if (level)
-		ret = snprintf(buf + len, sizeof(buf) - len, "%s: %s: ", level,
-			       proto_str);
+		ret = snprintf(buf + len, sizeof(buf) - len, "%s: %s", level,
+			       text);
 	else
-		ret = snprintf(buf + len, sizeof(buf) - len, "%s: ", proto_str);
-	if ((ret < 0) || ((size_t)(len += ret) >= sizeof(buf)))
-		return -1;
-
-	if (((ret = vsnprintf(buf + len, sizeof(buf) - len, format, va)) < 0)
-	    || ((size_t)((len += ret) + 2) > sizeof(buf)))
+		ret = snprintf(buf + len, sizeof(buf) - len, "%s", text);
+	if ((ret < 0) || ((size_t)(len += ret) >= sizeof(buf) - 2))
 		return -1;
 
 	buf[len++] = '\r';
@@ -314,8 +309,9 @@ static int vty_log_out(struct vty *vty, const char *level,
 		/* Fatal I/O error. */
 		vty->monitor =
 			0; /* disable monitoring to avoid infinite recursion */
-		zlog_warn("%s: write failed to vty client fd %d, closing: %s",
-			  __func__, vty->fd, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s: write failed to vty client fd %d, closing",
+			      __func__, vty->fd);
 		buffer_reset(vty->obuf);
 		buffer_reset(vty->lbuf);
 		/* cannot call vty_close, because a parent routine may still try
@@ -1446,9 +1442,9 @@ static int vty_read(struct thread *thread)
 			}
 			vty->monitor = 0; /* disable monitoring to avoid
 					     infinite recursion */
-			zlog_warn(
-				"%s: read error on vty client fd %d, closing: %s",
-				__func__, vty->fd, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "%s: read error on vty client fd %d, closing",
+				      __func__, vty->fd);
 			buffer_reset(vty->obuf);
 			buffer_reset(vty->lbuf);
 		}
@@ -1900,7 +1896,7 @@ static int vty_accept(struct thread *thread)
 	/* We can handle IPv4 or IPv6 socket. */
 	vty_sock = sockunion_accept(accept_sock, &su);
 	if (vty_sock < 0) {
-		zlog_warn("can't accept vty socket : %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "can't accept vty socket ");
 		return -1;
 	}
 	set_nonblocking(vty_sock);
@@ -1973,8 +1969,7 @@ static void vty_serv_sock_addrinfo(const char *hostname, unsigned short port)
 	ret = getaddrinfo(hostname, port_str, &req, &ainfo);
 
 	if (ret != 0) {
-		flog_err_sys(LIB_ERR_SYSTEM_CALL, "getaddrinfo failed: %s",
-			     gai_strerror(ret));
+		flog_err_gai(LIB_ERR_SYSTEM_CALL, ret, "getaddrinfo failed");
 		exit(1);
 	}
 
@@ -2035,8 +2030,7 @@ static void vty_serv_un(const char *path)
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock < 0) {
 		flog_err_sys(LIB_ERR_SOCKET,
-			     "Cannot create unix stream socket: %s",
-			     safe_strerror(errno));
+			     "Cannot create unix stream socket");
 		return;
 	}
 
@@ -2054,16 +2048,14 @@ static void vty_serv_un(const char *path)
 
 	ret = bind(sock, (struct sockaddr *)&serv, len);
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "Cannot bind path %s: %s", path,
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "Cannot bind path %s", path);
 		close(sock); /* Avoid sd leak. */
 		return;
 	}
 
 	ret = listen(sock, 5);
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "listen(fd %d) failed: %s", sock,
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "listen(fd %d) failed", sock);
 		close(sock); /* Avoid sd leak. */
 		return;
 	}
@@ -2079,8 +2071,7 @@ static void vty_serv_un(const char *path)
 		/* set group of socket */
 		if (chown(path, -1, ids.gid_vty)) {
 			flog_err_sys(LIB_ERR_SYSTEM_CALL,
-				     "vty_serv_un: could chown socket, %s",
-				     safe_strerror(errno));
+				     "vty_serv_un: could chown socket");
 		}
 	}
 
@@ -2108,15 +2099,15 @@ static int vtysh_accept(struct thread *thread)
 		      (socklen_t *)&client_len);
 
 	if (sock < 0) {
-		zlog_warn("can't accept vty socket : %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "can't accept vty socket ");
 		return -1;
 	}
 
 	if (set_nonblocking(sock) < 0) {
-		zlog_warn(
-			"vtysh_accept: could not set vty socket %d to non-blocking,"
-			" %s, closing",
-			sock, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "vtysh_accept: could not set vty socket %d to non-blocking,"
+			      " closing",
+			      sock);
 		close(sock);
 		return -1;
 	}
@@ -2181,9 +2172,9 @@ static int vtysh_read(struct thread *thread)
 			}
 			vty->monitor = 0; /* disable monitoring to avoid
 					     infinite recursion */
-			zlog_warn(
-				"%s: read failed on vtysh client fd %d, closing: %s",
-				__func__, sock, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "%s: read failed on vtysh client fd %d, closing",
+				      __func__, sock);
 		}
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
@@ -2502,8 +2493,9 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 		confp = fopen(fullpath, "r");
 
 		if (confp == NULL) {
-			zlog_warn("%s: failed to open configuration file %s: %s, checking backup",
-				 __func__, fullpath, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "%s: failed to open configuration file %s, checking backup",
+				      __func__, fullpath);
 
 			confp = vty_use_backup_config(fullpath);
 			if (confp)
@@ -2548,9 +2540,9 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 #endif /* VTYSH */
 		confp = fopen(config_default_dir, "r");
 		if (confp == NULL) {
-			zlog_warn("%s: failed to open configuration file %s: %s, checking backup",
-				  __func__, config_default_dir,
-				  safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "%s: failed to open configuration file %s, checking backup",
+				      __func__, config_default_dir);
 
 			confp = vty_use_backup_config(config_default_dir);
 			if (confp) {
@@ -2582,8 +2574,8 @@ tmp_free_and_out:
 }
 
 /* Small utility function which output log to the VTY. */
-void vty_log(const char *level, const char *proto_str, const char *format,
-	     struct timestamp_control *ctl, va_list va)
+void vty_log(const char *level, struct timestamp_control *ctl,
+	     const char *text)
 {
 	unsigned int i;
 	struct vty *vty;
@@ -2593,13 +2585,8 @@ void vty_log(const char *level, const char *proto_str, const char *format,
 
 	for (i = 0; i < vector_active(vtyvec); i++)
 		if ((vty = vector_slot(vtyvec, i)) != NULL)
-			if (vty->monitor) {
-				va_list ac;
-				va_copy(ac, va);
-				vty_log_out(vty, level, proto_str, format, ctl,
-					    ac);
-				va_end(ac);
-			}
+			if (vty->monitor)
+				vty_log_out(vty, level, ctl, text);
 }
 
 /* Async-signal-safe version of vty_log for fixed strings. */
@@ -3074,13 +3061,13 @@ static void vty_save_cwd(void)
 		 */
 		if (!chdir(SYSCONFDIR)) {
 			flog_err_sys(LIB_ERR_SYSTEM_CALL,
-				     "Failure to chdir to %s, errno: %d",
-				     SYSCONFDIR, errno);
+				     "Failure to chdir to %s, errno",
+				     SYSCONFDIR);
 			exit(-1);
 		}
 		if (getcwd(cwd, MAXPATHLEN) == NULL) {
 			flog_err_sys(LIB_ERR_SYSTEM_CALL,
-				     "Failure to getcwd, errno: %d", errno);
+				     "Failure to getcwd, errno");
 			exit(-1);
 		}
 	}

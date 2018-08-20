@@ -247,8 +247,7 @@ extern void vty_time_print(struct vty *, int);
 extern void vty_serv_sock(const char *, unsigned short, const char *);
 extern void vty_close(struct vty *);
 extern char *vty_get_cwd(void);
-extern void vty_log(const char *level, const char *proto, const char *fmt,
-		    struct timestamp_control *, va_list);
+extern void vty_log(const char *level, struct timestamp_control *, const char *);
 extern int vty_config_lock(struct vty *);
 extern int vty_config_unlock(struct vty *);
 extern void vty_config_lockless(void);

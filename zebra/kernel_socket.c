@@ -1250,8 +1250,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 		if (errno == ESRCH)
 			return ZEBRA_ERR_RTNOEXIST;
 
-		zlog_warn("%s: write : %s (%d)", __func__, safe_strerror(errno),
-			  errno);
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "%s: write ", __func__);
 		return ZEBRA_ERR_KERNEL;
 	}
 	return ZEBRA_ERR_NOERROR;
@@ -1333,8 +1332,8 @@ static int kernel_read(struct thread *thread)
 
 	if (nbytes <= 0) {
 		if (nbytes < 0 && errno != EWOULDBLOCK && errno != EAGAIN)
-			zlog_warn("routing socket error: %s",
-				  safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "routing socket error");
 		return 0;
 	}
 

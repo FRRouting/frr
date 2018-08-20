@@ -250,24 +250,24 @@ static pid_t run_background(char *shell_cmd)
 	switch (child = fork()) {
 	case -1:
 		flog_err_sys(LIB_ERR_SYSTEM_CALL,
-			     "fork failed, cannot run command [%s]: %s",
-			     shell_cmd, safe_strerror(errno));
+			     "fork failed, cannot run command [%s]",
+			     shell_cmd);
 		return -1;
 	case 0:
 		/* Child process. */
 		/* Use separate process group so child processes can be killed
 		 * easily. */
 		if (setpgid(0, 0) < 0)
-			zlog_warn("warning: setpgid(0,0) failed: %s",
-				  safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "warning: setpgid(0,0) failed");
 		{
 			char shell[] = "sh";
 			char dashc[] = "-c";
 			char *const argv[4] = {shell, dashc, shell_cmd, NULL};
 			execv("/bin/sh", argv);
 			flog_err_sys(LIB_ERR_SYSTEM_CALL,
-				     "execv(/bin/sh -c '%s') failed: %s",
-				     shell_cmd, safe_strerror(errno));
+				     "execv(/bin/sh -c '%s') failed",
+				     shell_cmd);
 			_exit(127);
 		}
 	default:
@@ -331,8 +331,7 @@ static void sigchild(void)
 
 	switch (child = waitpid(-1, &status, WNOHANG)) {
 	case -1:
-		flog_err_sys(LIB_ERR_SYSTEM_CALL, "waitpid failed: %s",
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SYSTEM_CALL, "waitpid failed");
 		return;
 	case 0:
 		zlog_warn("SIGCHLD received, but waitpid did not reap a child");
@@ -638,8 +637,9 @@ static int check_connect(struct thread *t_write)
 	dmn->t_write = NULL;
 	if (getsockopt(dmn->fd, SOL_SOCKET, SO_ERROR, (char *)&sockerr, &reslen)
 	    < 0) {
-		zlog_warn("%s: check_connect: getsockopt failed: %s", dmn->name,
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "%s: check_connect: getsockopt failed",
+			      dmn->name);
 		daemon_down(dmn,
 			    "getsockopt failed checking connection success");
 		return 0;
@@ -696,15 +696,14 @@ static int try_connect(struct daemon *dmn)
 	if (access(addr.sun_path, W_OK) < 0) {
 		if (errno != ENOENT)
 			flog_err_sys(LIB_ERR_SYSTEM_CALL,
-				     "%s: access to socket %s denied: %s",
-				     dmn->name, addr.sun_path,
-				     safe_strerror(errno));
+				     "%s: access to socket %s denied",
+				     dmn->name, addr.sun_path);
 		return -1;
 	}
 
 	if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "%s(%s): cannot make socket: %s",
-			     __func__, addr.sun_path, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "%s(%s): cannot make socket",
+			     __func__, addr.sun_path);
 		return -1;
 	}
 
@@ -1163,7 +1162,6 @@ int main(int argc, char **argv)
 	gs.restart.interval = gs.min_restart_interval;
 
 	master = frr_init();
-	watchfrr_error_init();
 
 	zlog_set_level(ZLOG_DEST_MONITOR, ZLOG_DISABLED);
 	if (watchfrr_di.daemon_mode) {

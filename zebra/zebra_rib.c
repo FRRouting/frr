@@ -95,17 +95,16 @@ static const struct {
 /* RPF lookup behaviour */
 static enum multicast_mode ipv4_multicast_mode = MCAST_NO_CONFIG;
 
-
-static void __attribute__((format(printf, 5, 6)))
-_rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn,
-	    int priority, const char *msgfmt, ...)
+static void __attribute__((format(printf, 4, 5)))
+_rnode_zlog(struct log_ref *ref, vrf_id_t vrf_id, struct route_node *rn,
+	    const char *msgfmt, ...)
 {
 	char buf[SRCDEST2STR_BUFFER + sizeof(" (MRIB)")];
 	char msgbuf[512];
 	va_list ap;
 
 	va_start(ap, msgfmt);
-	vsnprintf(msgbuf, sizeof(msgbuf), msgfmt, ap);
+	vsnprintf(msgbuf, sizeof(msgbuf), ref->fmtstring, ap);
 	va_end(ap);
 
 	if (rn) {
@@ -118,13 +117,17 @@ _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn,
 		snprintf(buf, sizeof(buf), "{(route_node *) NULL}");
 	}
 
-	zlog(priority, "%s: %d:%s: %s", _func, vrf_id, buf, msgbuf);
+	zlog_ref(ref, 0, "%s: %d:%s: %s", ref->func, vrf_id, buf, msgbuf);
 }
 
-#define rnode_debug(node, vrf_id, ...)                                         \
-	_rnode_zlog(__func__, vrf_id, node, LOG_DEBUG, __VA_ARGS__)
-#define rnode_info(node, ...)                                                  \
-	_rnode_zlog(__func__, vrf_id, node, LOG_INFO, __VA_ARGS__)
+#define rnode_debug(node, vrf_id, msg, ...) do {                               \
+		_zlog_makeref(NULL, LOG_DEBUG, msg);                           \
+		_rnode_zlog(&log_ref, vrf_id, node, msg, ## __VA_ARGS__);      \
+	} while (0)
+#define rnode_info(node, vrf_id, msg, ...) do {                                \
+		_zlog_makeref(NULL, LOG_INFO, msg);                            \
+		_rnode_zlog(&log_ref, vrf_id, node, msg, ## __VA_ARGS__);      \
+	} while (0)
 
 uint8_t route_distance(int type)
 {

@@ -109,21 +109,14 @@ int main(int argc, char **argv)
 #include "log.h"
 #include "zassert.h"
 
-#define ZLOG_FUNC(FUNCNAME)                                                    \
-	void FUNCNAME(const char *format, ...)                                 \
-	{                                                                      \
-		va_list args;                                                  \
-		va_start(args, format);                                        \
-		vfprintf(stderr, format, args);                                \
-		fputs("\n", stderr);                                           \
-		va_end(args);                                                  \
-	}
-
-ZLOG_FUNC(zlog_err)
-ZLOG_FUNC(zlog_warn)
-ZLOG_FUNC(zlog_info)
-ZLOG_FUNC(zlog_notice)
-ZLOG_FUNC(zlog_debug)
+void zlog_ref(struct log_ref *ref, int ret, const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	vfprintf(stderr, format, args);
+	fputs("\n", stderr);
+	va_end(args);
+}
 
 void _zlog_assert_failed(const char *assertion, const char *file,
 			 unsigned int line, const char *function)

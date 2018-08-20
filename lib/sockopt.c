@@ -63,8 +63,7 @@ int getsockopt_so_sendbuf(const int sock)
 			     &optlen);
 	if (ret < 0) {
 		flog_err_sys(LIB_ERR_SYSTEM_CALL,
-			     "fd %d: can't getsockopt SO_SNDBUF: %d (%s)", sock,
-			     errno, safe_strerror(errno));
+			     "fd %d: can't getsockopt SO_SNDBUF", sock);
 		return ret;
 	}
 	return optval;
@@ -92,13 +91,13 @@ int setsockopt_ipv6_pktinfo(int sock, int val)
 	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &val,
 			 sizeof(val));
 	if (ret < 0)
-		zlog_warn("can't setsockopt IPV6_RECVPKTINFO : %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "can't setsockopt IPV6_RECVPKTINFO ");
 #else  /*RFC2292*/
 	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_PKTINFO, &val, sizeof(val));
 	if (ret < 0)
-		zlog_warn("can't setsockopt IPV6_PKTINFO : %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "can't setsockopt IPV6_PKTINFO ");
 #endif /* INIA_IPV6 */
 	return ret;
 }
@@ -188,8 +187,9 @@ int setsockopt_ipv6_tclass(int sock, int tclass)
 	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_TCLASS, &tclass,
 			 sizeof(tclass));
 	if (ret < 0)
-		zlog_warn("Can't set IPV6_TCLASS option for fd %d to %#x: %s",
-			  sock, tclass, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Can't set IPV6_TCLASS option for fd %d to %#x",
+			      sock, tclass);
 #endif
 	return ret;
 }
@@ -403,13 +403,15 @@ static int setsockopt_ipv4_ifindex(int sock, ifindex_t val)
 #if defined(IP_PKTINFO)
 	if ((ret = setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &val, sizeof(val)))
 	    < 0)
-		zlog_warn("Can't set IP_PKTINFO option for fd %d to %d: %s",
-			  sock, val, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Can't set IP_PKTINFO option for fd %d to %d",
+			      sock, val);
 #elif defined(IP_RECVIF)
 	if ((ret = setsockopt(sock, IPPROTO_IP, IP_RECVIF, &val, sizeof(val)))
 	    < 0)
-		zlog_warn("Can't set IP_RECVIF option for fd %d to %d: %s",
-			  sock, val, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Can't set IP_RECVIF option for fd %d to %d",
+			      sock, val);
 #else
 #warning "Neither IP_PKTINFO nor IP_RECVIF is available."
 #warning "Will not be able to receive link info."
@@ -427,8 +429,9 @@ int setsockopt_ipv4_tos(int sock, int tos)
 
 	ret = setsockopt(sock, IPPROTO_IP, IP_TOS, &tos, sizeof(tos));
 	if (ret < 0)
-		zlog_warn("Can't set IP_TOS option for fd %d to %#x: %s", sock,
-			  tos, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Can't set IP_TOS option for fd %d to %#x",
+			      sock, tos);
 	return ret;
 }
 
@@ -672,10 +675,9 @@ int sockopt_tcp_signature(int sock, union sockunion *su, const char *password)
 		if (ENOENT == errno)
 			ret = 0;
 		else
-			flog_err_sys(
-				LIB_ERR_SYSTEM_CALL,
-				"sockopt_tcp_signature: setsockopt(%d): %s",
-				sock, safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "sockopt_tcp_signature: setsockopt(%d)",
+				     sock);
 	}
 	return ret;
 #else  /* HAVE_TCP_MD5SIG */

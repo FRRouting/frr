@@ -18,15 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef __WATCHFRR_ERRORS_H__
-#define __WATCHFRR_ERRORS_H__
 
-#include "lib/ferr.h"
 
-enum watchfrr_log_refs {
-	WATCHFRR_ERR_CONNECTION = WATCHFRR_FERR_START,
-};
+#include "ferr.h"
 
-extern void watchfrr_error_init(void);
-
-#endif
+DECLARE_LOGCAT(WATCHFRR_ERR_CONNECTION)

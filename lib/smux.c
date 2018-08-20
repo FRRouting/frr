@@ -831,8 +831,8 @@ static int smux_read(struct thread *t)
 	len = recv(sock, buf, SMUXMAXPKTSIZE, 0);
 
 	if (len < 0) {
-		zlog_warn("Can't read all SMUX packet: %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Can't read all SMUX packet");
 		close(sock);
 		smux_sock = -1;
 		smux_event(SMUX_CONNECT, 0);
@@ -1129,8 +1129,8 @@ static int smux_connect(struct thread *t)
 	/* Send OPEN PDU. */
 	ret = smux_open(smux_sock);
 	if (ret < 0) {
-		zlog_warn("SMUX open message send failed: %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "SMUX open message send failed");
 		close(smux_sock);
 		smux_sock = -1;
 		if (++fail < SMUX_MAX_FAILURE)
@@ -1141,8 +1141,8 @@ static int smux_connect(struct thread *t)
 	/* Send any outstanding register PDUs. */
 	ret = smux_register(smux_sock);
 	if (ret < 0) {
-		zlog_warn("SMUX register message send failed: %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "SMUX register message send failed");
 		close(smux_sock);
 		smux_sock = -1;
 		if (++fail < SMUX_MAX_FAILURE)

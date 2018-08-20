@@ -95,8 +95,8 @@ static int ripng_multicast_join(struct interface *ifp)
 		}
 
 		if (ret < 0)
-			zlog_warn("can't setsockopt IPV6_JOIN_GROUP: %s",
-				  safe_strerror(save_errno));
+			flog_warn_sys(LIB_ERR_SOCKET,
+				      "can't setsockopt IPV6_JOIN_GROUP");
 
 		if (IS_RIPNG_DEBUG_EVENT)
 			zlog_debug(
@@ -123,8 +123,8 @@ static int ripng_multicast_leave(struct interface *ifp)
 		ret = setsockopt(ripng->sock, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
 				 (char *)&mreq, sizeof(mreq));
 		if (ret < 0)
-			zlog_warn("can't setsockopt IPV6_LEAVE_GROUP: %s\n",
-				  safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "can't setsockopt IPV6_LEAVE_GROUP");
 
 		if (IS_RIPNG_DEBUG_EVENT)
 			zlog_debug(

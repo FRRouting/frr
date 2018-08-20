@@ -18,16 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef __RIP_ERRORS_H__
-#define __RIP_ERRORS_H__
 
-#include "lib/ferr.h"
 
-enum rip_log_refs {
-	RIP_ERR_PACKET = RIP_FERR_START,
-	RIP_ERR_CONFIG,
-};
+#include "ferr.h"
 
-extern void rip_error_init(void);
-
-#endif
+DECLARE_LOGCAT(RIP_ERR_PACKET)

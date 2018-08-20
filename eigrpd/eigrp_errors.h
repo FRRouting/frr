@@ -18,16 +18,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef __EIGRP_ERRORS_H__
-#define __EIGRP_ERRORS_H__
 
-#include "lib/ferr.h"
 
-enum eigrp_log_refs {
-	EIGRP_ERR_PACKET = EIGRP_FERR_START,
-	EIGRP_ERR_CONFIG,
-};
+#include "ferr.h"
 
-extern void eigrp_error_init(void);
-
-#endif
+DECLARE_LOGCAT(EIGRP_ERR_PACKET)
+DECLARE_LOGCAT(EIGRP_ERR_CONFIG)

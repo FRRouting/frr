@@ -18,16 +18,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef __ISIS_ERRORS_H__
-#define __ISIS_ERRORS_H__
 
-#include "lib/ferr.h"
 
-enum isis_log_refs {
-	ISIS_ERR_PACKET = ISIS_FERR_START,
-	ISIS_ERR_CONFIG,
-};
+#include "ferr.h"
 
-extern void isis_error_init(void);
-
-#endif
+DECLARE_LOGCAT(ISIS_ERR_PACKET)
+DECLARE_LOGCAT(ISIS_ERR_CONFIG)

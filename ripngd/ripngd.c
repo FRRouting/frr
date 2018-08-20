@@ -128,8 +128,8 @@ static int ripng_make_socket(void)
 	frr_elevate_privs(&ripngd_privs) {
 		ret = bind(sock, (struct sockaddr *)&ripaddr, sizeof(ripaddr));
 		if (ret < 0) {
-			zlog_err("Can't bind ripng socket: %s.",
-				 safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				     "Can't bind ripng socket");
 			goto error;
 		}
 	}
@@ -200,13 +200,11 @@ int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 	if (ret < 0) {
 		if (to)
 			flog_err_sys(LIB_ERR_SOCKET,
-				     "RIPng send fail on %s to %s: %s",
-				     ifp->name, inet6_ntoa(to->sin6_addr),
-				     safe_strerror(errno));
+				     "RIPng send fail on %s to %s", ifp->name,
+				     inet6_ntoa(to->sin6_addr));
 		else
-			flog_err_sys(LIB_ERR_SOCKET,
-				     "RIPng send fail on %s: %s", ifp->name,
-				     safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SOCKET, "RIPng send fail on %s",
+				     ifp->name);
 	}
 
 	return ret;
@@ -1300,7 +1298,7 @@ static int ripng_read(struct thread *thread)
 				STREAM_SIZE(ripng->ibuf), &from, &ifindex,
 				&hoplimit);
 	if (len < 0) {
-		zlog_warn("RIPng recvfrom failed: %s.", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "RIPng recvfrom failed");
 		return len;
 	}
 

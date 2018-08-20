@@ -23,21 +23,7 @@
 #include "lib/ferr.h"
 #include "watchfrr_errors.h"
 
-/* clang-format off */
-static struct log_ref ferr_watchfrr_err[] = {
-	{
-		.code = WATCHFRR_ERR_CONNECTION,
-		.title = "WATCHFRR Connection Error",
-		.description = "WATCHFRR has detected a connectivity issue with one of the FRR daemons",
-		.suggestion = "Ensure that FRR is still running and if not please open an Issue"
-	},
-	{
-		.code = END_FERR,
-	}
-};
-/* clang-format on */
-
-void watchfrr_error_init(void)
-{
-	log_ref_add(ferr_watchfrr_err);
-}
+DEFINE_LOGCAT(WATCHFRR_ERR_CONNECTION, ROOT, "WATCHFRR Connection Error",
+	.description = "WATCHFRR has detected a connectivity issue with one of the FRR daemons",
+	.suggestion = "Ensure that FRR is still running and if not please open an Issue",
+)

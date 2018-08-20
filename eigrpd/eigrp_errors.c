@@ -23,27 +23,11 @@
 #include "lib/ferr.h"
 #include "eigrp_errors.h"
 
-/* clang-format off */
-static struct log_ref ferr_eigrp_err[] = {
-	{
-		.code = EIGRP_ERR_PACKET,
-		.title = "EIGRP Packet Error",
-		.description = "EIGRP has a packet that does not correctly decode or encode",
-		.suggestion = "Gather log files from both sides of the neighbor relationship and open an issue"
-	},
-	{
-		.code = EIGRP_ERR_CONFIG,
-		.title = "EIGRP Configuration Error",
-		.description = "EIGRP has detected a configuration error",
-		.suggestion = "Correct the configuration issue, if it still persists open an Issue"
-	},
-	{
-		.code = END_FERR,
-	}
-};
-/* clang-format on */
-
-void eigrp_error_init(void)
-{
-	log_ref_add(ferr_eigrp_err);
-}
+DEFINE_LOGCAT(EIGRP_ERR_PACKET, ROOT, "EIGRP Packet Error",
+	.description = "EIGRP has a packet that does not correctly decode or encode",
+	.suggestion = "Gather log files from both sides of the neighbor relationship and open an issue",
+)
+DEFINE_LOGCAT(EIGRP_ERR_CONFIG, ROOT, "EIGRP Configuration Error",
+	.description = "EIGRP has detected a configuration error",
+	.suggestion = "Correct the configuration issue, if it still persists open an Issue",
+)

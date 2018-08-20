@@ -109,7 +109,6 @@ int main(int argc, char **argv, char **envp)
 	/*
 	 * Initializations
 	 */
-	pim_error_init();
 	pim_vrf_init();
 	access_list_init();
 	prefix_list_init();

@@ -8,6 +8,9 @@ AM_CPPFLAGS += -I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE)
 LIBCAP = @LIBCAP@
 
+## libtool, the self-made GNU scourge, PART TWO.  With extra Solaris involved.
+CCLD = $(CC) $(LIBTOOLDSOFLAGS)
+
 EXTRA_DIST =
 BUILT_SOURCES =
 CLEANFILES =

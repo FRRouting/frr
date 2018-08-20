@@ -22,10 +22,103 @@
  ***********************************************************/
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <limits.h>
 #include <errno.h>
+#include "module.h"
 
-#include "vty.h"
+struct log_cat {
+	struct log_cat *parent;
+
+	const char *name;
+	const char *title;
+	const char *description;
+	const char *suggestion;
+};
+
+#define DECLARE_LOGCAT(name)                                                   \
+	extern struct log_cat _lc_##name;
+
+#define DEFINE_LOGCAT_ATTR(cname, attr, cparent, ctitle, ...)                  \
+	attr struct log_cat _lc_##cname                                        \
+		__attribute__((section(".data.logcats"))) = {                  \
+			.name = #cname,                                        \
+			.parent = &_lc_ ## cparent,                            \
+			.title = ctitle, ## __VA_ARGS__                        \
+	};                                                                     \
+
+#define DEFINE_LOGCAT(name, parent, title, ...)                                \
+	DEFINE_LOGCAT_ATTR(name, , parent, title,## __VA_ARGS__)
+#define DEFINE_LOGCAT_STATIC(name, parent, title, ...)                         \
+	DEFINE_LOGCAT_ATTR(name, static, parent, title,## __VA_ARGS__)
+
+#define _lc_NOPARENT NULL
+
+extern struct log_cat _lc_ROOT;
+DECLARE_LOGCAT(OK)
+DECLARE_LOGCAT(CODE_BUG)
+DECLARE_LOGCAT(CONFIG_INVALID)
+DECLARE_LOGCAT(CONFIG_REALITY)
+DECLARE_LOGCAT(RESOURCE)
+DECLARE_LOGCAT(SYSTEM)
+DECLARE_LOGCAT(LIBRARY)
+DECLARE_LOGCAT(NET_INVALID_INPUT)
+DECLARE_LOGCAT(SYS_INVALID_INPUT)
+
+DECLARE_LOGCAT(LIB_ERR_SYSTEM_CALL)
+
+#define LOG_REF_PRIORITY(p)		((p) & 0xf)
+#define LOG_REF_ERRNO_VALID		(1 << 4)
+#define LOG_REF_GAI_ERROR_VALID		(1 << 5)
+
+struct log_ref {
+	/* message core properties */
+	const char *fmtstring;
+	/* priority value in the lower 4 bits, remainder for flags */
+	uint32_t priority;
+
+	/* code location */
+	int line;
+	const char *file;
+	const char *func;
+
+	struct log_cat *category;
+	size_t count;
+
+	uint32_t unique_id;
+	/* base32(crockford) of unique ID */
+	char prefix[8];
+};
+
+struct log_ref_block {
+	struct log_ref_block *next;
+	struct log_ref * const * start;
+	struct log_ref * const * stop;
+};
+
+extern struct log_ref_block *log_ref_blocks, **log_ref_block_last;
+extern void log_ref_block_add(struct log_ref_block *block);
+
+extern struct log_ref * const __start_logref_array DSO_LOCAL;
+extern struct log_ref * const __stop_logref_array DSO_LOCAL;
+
+#define LOG_REF_INIT() \
+	static struct log_ref _dummy_log_ref \
+				__attribute((section(".data.logrefs"))) = { \
+			.file = __FILE__, .line = __LINE__, .func = "dummy", \
+			.fmtstring = "dummy", .category = &_lc_ROOT, \
+	} ; \
+	static struct log_ref * const _dummy_log_ref_p __attribute__((used, \
+				section("logref_array"))) = &_dummy_log_ref; \
+	static void __attribute__((used, _CONSTRUCTOR(1100))) \
+			_log_ref_init(void) { \
+		static struct log_ref_block _log_ref_block = { \
+			.start = &__start_logref_array, \
+			.stop = &__stop_logref_array, \
+		}; \
+		log_ref_block_add(&_log_ref_block); \
+	}
+
 
 /* return type when this error indication stuff is used.
  *
@@ -37,55 +130,9 @@
  */
 typedef int ferr_r;
 
-/* rough category of error indication */
-enum ferr_kind {
-	/* no error */
-	FERR_OK = 0,
-
-	/* something isn't the way it's supposed to be.
-	 * (things that might otherwise be asserts, really)
-	 */
-	FERR_CODE_BUG,
-
-	/* user-supplied parameters don't make sense or is inconsistent
-	 * if you can express a rule for it (e.g. "holdtime > 2 * keepalive"),
-	 * it's this category.
-	 */
-	FERR_CONFIG_INVALID,
-
-	/* user-supplied parameters don't line up with reality
-	 * (IP address or interface not available, etc.)
-	 * NB: these are really TODOs where the code needs to be fixed to
-	 * respond to future changes!
-	 */
-	FERR_CONFIG_REALITY,
-
-	/* out of some system resource (probably memory)
-	 * aka "you didn't spend enough money error" */
-	FERR_RESOURCE,
-
-	/* system error (permission denied, etc.) */
-	FERR_SYSTEM,
-
-	/* error return from some external library
-	 * (FERR_SYSTEM and FERR_LIBRARY are not strongly distinct) */
-	FERR_LIBRARY,
-};
-
 struct ferr {
 	/* code location */
-	const char *file;
-	const char *func;
-	int line;
-
-	enum ferr_kind kind;
-
-	/* unique_id is calculated as a checksum of source filename and error
-	 * message format (*before* calling vsnprintf).  Line number and
-	 * function name are not used; this keeps the number reasonably static
-	 * across changes.
-	 */
-	uint32_t unique_id;
+	struct log_ref *ref;
 
 	char message[384];
 
@@ -94,66 +141,6 @@ struct ferr {
 	/* valid if pathname[0] != '\0' */
 	char pathname[PATH_MAX];
 };
-
-/* Numeric ranges assigned to daemons for use as error codes. */
-#define BABEL_FERR_START    0x01000001
-#define BABEL_FRRR_END      0x01FFFFFF
-#define BGP_FERR_START      0x02000001
-#define BGP_FERR_END        0x02FFFFFF
-#define EIGRP_FERR_START    0x03000001
-#define EIGRP_FERR_END      0x03FFFFFF
-#define ISIS_FERR_START     0x04000001
-#define ISIS_FERR_END       0x04FFFFFF
-#define LDP_FERR_START      0x05000001
-#define LDP_FERR_END        0x05FFFFFF
-#define LIB_FERR_START      0x06000001
-#define LIB_FERR_END        0x06FFFFFF
-#define NHRP_FERR_START     0x07000001
-#define NHRP_FERR_END       0x07FFFFFF
-#define OSPF_FERR_START     0x08000001
-#define OSPF_FERR_END       0x08FFFFFF
-#define OSPFV3_FERR_START   0x09000001
-#define OSPFV3_FERR_END     0x09FFFFFF
-#define PBR_FERR_START      0x0A000001
-#define PBR_FERR_END        0x0AFFFFFF
-#define PIM_FERR_START      0x0B000001
-#define PIM_FERR_STOP       0x0BFFFFFF
-#define RIP_FERR_START      0x0C000001
-#define RIP_FERR_STOP       0x0CFFFFFF
-#define RIPNG_FERR_START    0x0D000001
-#define RIPNG_FERR_STOP     0x0DFFFFFF
-#define SHARP_FERR_START    0x0E000001
-#define SHARP_FERR_END      0x0EFFFFFF
-#define VTYSH_FERR_START    0x0F000001
-#define VTYSH_FRR_END       0x0FFFFFFF
-#define WATCHFRR_FERR_START 0x10000001
-#define WATCHFRR_FERR_END   0x10FFFFFF
-#define ZEBRA_FERR_START    0xF1000001
-#define ZEBRA_FERR_END      0xF1FFFFFF
-#define END_FERR            0xFFFFFFFF
-
-struct log_ref {
-	/* Unique error code displayed to end user as a reference. -1 means
-	 * this is an uncoded error that does not have reference material. */
-	uint32_t code;
-	/* Ultra brief title */
-	const char *title;
-	/* Brief description of error */
-	const char *description;
-	/* Remedial suggestion */
-	const char *suggestion;
-};
-
-void log_ref_add(struct log_ref *ref);
-struct log_ref *log_ref_get(uint32_t code);
-void log_ref_display(struct vty *vty, uint32_t code, bool json);
-
-/*
- * This function should be called by the
- * code in libfrr.c
- */
-void log_ref_init(void);
-void log_ref_fini(void);
 
 /* get error details.
  *
@@ -170,11 +157,9 @@ const struct ferr *ferr_get_last(ferr_r errval);
 ferr_r ferr_clear(void);
 
 /* do NOT call these functions directly.  only for macro use! */
-ferr_r ferr_set_internal(const char *file, int line, const char *func,
-			 enum ferr_kind kind, const char *text, ...);
-ferr_r ferr_set_internal_ext(const char *file, int line, const char *func,
-			     enum ferr_kind kind, const char *pathname,
-			     int errno_val, const char *text, ...);
+ferr_r ferr_set_internal(struct log_ref *ref, ...);
+ferr_r ferr_set_internal_ext(struct log_ref *ref, const char *pathname,
+			     int errno_val, ...);
 
 #define ferr_ok() 0
 
@@ -185,34 +170,43 @@ ferr_r ferr_set_internal_ext(const char *file, int line, const char *func,
  *
  * Don't put a \n at the end of the error message.
  */
-#define ferr_code_bug(...)                                                     \
-	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_CODE_BUG,         \
-			  __VA_ARGS__)
-#define ferr_cfg_invalid(...)                                                  \
-	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_CONFIG_INVALID,   \
-			  __VA_ARGS__)
-#define ferr_cfg_reality(...)                                                  \
-	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_CONFIG_REALITY,   \
-			  __VA_ARGS__)
-#define ferr_cfg_resource(...)                                                 \
-	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_RESOURCE,         \
-			  __VA_ARGS__)
-#define ferr_system(...)                                                       \
-	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_SYSTEM,           \
-			  __VA_ARGS__)
-#define ferr_library(...)                                                      \
-	ferr_set_internal(__FILE__, __LINE__, __func__, FERR_LIBRARY,          \
-			  __VA_ARGS__)
+#define ferr_code_bug(msg, ...) ({                                             \
+		_zlog_makeref(&_lc_CODE_BUG, LOG_ERR, msg);                    \
+		ferr_set_internal(&log_ref, ##__VA_ARGS__);                    \
+	})
+#define ferr_cfg_invalid(msg, ...) ({                                          \
+		_zlog_makeref(&_lc_CONFIG_INVALID, LOG_ERR, msg);              \
+		ferr_set_internal(&log_ref, ##__VA_ARGS__);                    \
+	})
+#define ferr_cfg_reality(msg, ...) ({                                          \
+		_zlog_makeref(&_lc_CONFIG_REALITY, LOG_ERR, msg);              \
+		ferr_set_internal(&log_ref, ##__VA_ARGS__);                    \
+	})
+#define ferr_cfg_resource(msg, ...) ({                                         \
+		_zlog_makeref(&_lc_RESOURCE, LOG_ERR, msg);                    \
+		ferr_set_internal(&log_ref, ##__VA_ARGS__);                    \
+	})
+#define ferr_system(msg, ...) ({                                               \
+		_zlog_makeref(&_lc_SYSTEM, LOG_ERR, msg);                      \
+		ferr_set_internal(&log_ref, ##__VA_ARGS__);                    \
+	})
+#define ferr_library(msg, ...) ({                                              \
+		_zlog_makeref(&_lc_LIBRARY, LOG_ERR, msg);                     \
+		ferr_set_internal(&log_ref, ##__VA_ARGS__);                    \
+	})
 
 /* extended information variants */
-#define ferr_system_errno(...)                                                 \
-	ferr_set_internal_ext(__FILE__, __LINE__, __func__, FERR_SYSTEM, NULL, \
-			      errno, __VA_ARGS__)
-#define ferr_system_path_errno(path, ...)                                      \
-	ferr_set_internal_ext(__FILE__, __LINE__, __func__, FERR_SYSTEM, path, \
-			      errno, __VA_ARGS__)
+#define ferr_system_errno(msg, ...) ({                                         \
+		_zlog_makeref(&_lc_SYSTEM, LOG_ERR, msg);                      \
+		ferr_set_internal_ext(&log_ref, NULL, errno, ##__VA_ARGS__);   \
+	})
+#define ferr_system_path_errno(msg, ...) ({                                    \
+		_zlog_makeref(&_lc_SYSTEM, LOG_ERR, msg);                      \
+		ferr_set_internal_ext(&log_ref, path, errno, ##__VA_ARGS__);   \
+	})
 
-#include "vty.h"
+struct vty;
+
 /* print error message to vty;  $ERR is replaced by the error's message */
 void vty_print_error(struct vty *vty, ferr_r err, const char *msg, ...);
 

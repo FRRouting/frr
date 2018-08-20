@@ -496,9 +496,8 @@ static void if_addr_wakeup(struct interface *ifp)
 
 				ret = if_set_prefix(ifp, ifc);
 				if (ret < 0) {
-					zlog_warn(
-						"Can't set interface's address: %s",
-						safe_strerror(errno));
+					flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+						      "Can't set interface's address");
 					continue;
 				}
 
@@ -518,9 +517,8 @@ static void if_addr_wakeup(struct interface *ifp)
 
 				ret = if_prefix_add_ipv6(ifp, ifc);
 				if (ret < 0) {
-					zlog_warn(
-						"Can't set interface's address: %s",
-						safe_strerror(errno));
+					flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+						      "Can't set interface's address");
 					continue;
 				}
 

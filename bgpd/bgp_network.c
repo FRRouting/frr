@@ -83,9 +83,12 @@ static int bgp_md5_set_socket(int socket, union sockunion *su,
 	en = errno;
 #endif /* HAVE_TCP_MD5SIG */
 
-	if (ret < 0)
-		zlog_warn("can't set TCP_MD5SIG option on socket %d: %s",
-			  socket, safe_strerror(en));
+	if (ret < 0) {
+		errno = en;
+		flog_warn_sys(LIB_ERR_SOCKET,
+			      "can't set TCP_MD5SIG option on socket %d",
+			      socket);
+	}
 
 	return ret;
 }
@@ -221,10 +224,9 @@ static int bgp_get_instance_for_inc_conn(int sock, struct bgp **bgp_inst)
 	rc = getsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, name, &name_len);
 	if (rc != 0) {
 #if defined(HAVE_CUMULUS)
-		flog_err(
-			LIB_ERR_SOCKET,
-			"[Error] BGP SO_BINDTODEVICE get failed (%s), sock %d",
-			safe_strerror(errno), sock);
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "[Error] BGP SO_BINDTODEVICE get failed on sock %d",
+			     sock);
 		return -1;
 #endif
 	}
@@ -292,8 +294,7 @@ static int bgp_accept(struct thread *thread)
 	bgp_sock = sockunion_accept(accept_sock, &su);
 	if (bgp_sock < 0) {
 		flog_err_sys(LIB_ERR_SOCKET,
-			     "[Error] BGP socket accept failed (%s)",
-			     safe_strerror(errno));
+			     "[Error] BGP socket accept failed");
 		return -1;
 	}
 	set_nonblocking(bgp_sock);
@@ -561,8 +562,9 @@ int bgp_connect(struct peer *peer)
 	sockopt_reuseaddr(peer->fd);
 	sockopt_reuseport(peer->fd);
 	if (sockopt_mark_default(peer->fd, DATAPLANE_MARK, &bgpd_privs) < 0)
-		zlog_warn("Unable to set mark on FD for peer %s, err=%s",
-			  peer->host, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Unable to set mark on FD for peer %s",
+			      peer->host);
 
 #ifdef IPTOS_PREC_INTERNETCONTROL
 	frr_elevate_privs(&bgpd_privs) {
@@ -657,14 +659,14 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 	}
 
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "bind: %s", safe_strerror(en));
+		errno = en;
+		flog_err_sys(LIB_ERR_SOCKET, "bind");
 		return ret;
 	}
 
 	ret = listen(sock, SOMAXCONN);
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "listen: %s",
-			     safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "listen");
 		return ret;
 	}
 
@@ -705,8 +707,7 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 				      bgp->vrf_id);
 	}
 	if (ret != 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "getaddrinfo: %s",
-			     gai_strerror(ret));
+		flog_err_gai(LIB_ERR_SOCKET, ret, "getaddrinfo");
 		return -1;
 	}
 
@@ -726,8 +727,7 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 					   ? bgp->name : NULL));
 		}
 		if (sock < 0) {
-			flog_err_sys(LIB_ERR_SOCKET, "socket: %s",
-				     safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SOCKET, "socket");
 			continue;
 		}
 

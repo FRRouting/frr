@@ -111,8 +111,8 @@ static int isis_multicast_join(int fd, int registerto, int if_num)
 #endif /* EXTREME_DEBUG */
 	if (setsockopt(fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq,
 		       sizeof(struct packet_mreq))) {
-		zlog_warn("isis_multicast_join(): setsockopt(): %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "isis_multicast_join(): setsockopt()");
 		return ISIS_WARNING;
 	}
 
@@ -126,14 +126,14 @@ static int open_packet_socket(struct isis_circuit *circuit)
 
 	fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL));
 	if (fd < 0) {
-		zlog_warn("open_packet_socket(): socket() failed %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "open_packet_socket(): socket() failed");
 		return ISIS_WARNING;
 	}
 
 	if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf))) {
-		zlog_warn("open_packet_socket(): SO_ATTACH_FILTER failed: %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "open_packet_socket(): SO_ATTACH_FILTER failed");
 	}
 
 	/*
@@ -146,8 +146,8 @@ static int open_packet_socket(struct isis_circuit *circuit)
 
 	if (bind(fd, (struct sockaddr *)(&s_addr), sizeof(struct sockaddr_ll))
 	    < 0) {
-		zlog_warn("open_packet_socket(): bind() failed: %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "open_packet_socket(): bind() failed");
 		close(fd);
 		return ISIS_WARNING;
 	}
@@ -237,11 +237,11 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 	if ((bytesread < 0)
 	    || (s_addr.sll_ifindex != (int)circuit->interface->ifindex)) {
 		if (bytesread < 0) {
-			zlog_warn(
-				"isis_recv_packet_bcast(): ifname %s, fd %d, "
-				"bytesread %d, recvfrom(): %s",
-				circuit->interface->name, circuit->fd,
-				bytesread, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "isis_recv_packet_bcast(): ifname %s, fd %d, "
+				      "bytesread %d, recvfrom(): %s",
+				      circuit->interface->name, circuit->fd,
+				      bytesread, safe_strerror(errno));
 		}
 		if (s_addr.sll_ifindex != (int)circuit->interface->ifindex) {
 			zlog_warn(
@@ -377,8 +377,9 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 	iov[1].iov_len = stream_get_endp(circuit->snd_stream);
 
 	if (sendmsg(circuit->fd, &msg, 0) < 0) {
-		zlog_warn("IS-IS pfpacket: could not transmit packet on %s: %s",
-			  circuit->interface->name, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "IS-IS pfpacket: could not transmit packet on %s",
+			      circuit->interface->name);
 		if (ERRNO_IO_RETRY(errno))
 			return ISIS_WARNING;
 		return ISIS_ERROR;
@@ -408,8 +409,9 @@ int isis_send_pdu_p2p(struct isis_circuit *circuit, int level)
 		    stream_get_endp(circuit->snd_stream), 0,
 		    (struct sockaddr *)&sa, sizeof(struct sockaddr_ll));
 	if (rv < 0) {
-		zlog_warn("IS-IS pfpacket: could not transmit packet on %s: %s",
-			  circuit->interface->name, safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "IS-IS pfpacket: could not transmit packet on %s",
+			      circuit->interface->name);
 		if (ERRNO_IO_RETRY(errno))
 			return ISIS_WARNING;
 		return ISIS_ERROR;

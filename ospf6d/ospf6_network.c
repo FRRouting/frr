@@ -43,8 +43,8 @@ static void ospf6_reset_mcastloop(void)
 	if (setsockopt(ospf6_sock, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &off,
 		       sizeof(unsigned int))
 	    < 0)
-		zlog_warn("Network: reset IPV6_MULTICAST_LOOP failed: %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+		              "Network: reset IPV6_MULTICAST_LOOP failed");
 }
 
 static void ospf6_set_pktinfo(void)
@@ -66,8 +66,8 @@ static void ospf6_set_checksum(void)
 	if (setsockopt(ospf6_sock, IPPROTO_IPV6, IPV6_CHECKSUM, &offset,
 		       sizeof(offset))
 	    < 0)
-		zlog_warn("Network: set IPV6_CHECKSUM failed: %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Network: set IPV6_CHECKSUM failed");
 #else
 	zlog_warn("Network: Don't set IPV6_CHECKSUM");
 #endif /* DISABLE_IPV6_CHECKSUM */
@@ -117,10 +117,9 @@ int ospf6_sso(ifindex_t ifindex, struct in6_addr *group, int option)
 	ret = setsockopt(ospf6_sock, IPPROTO_IPV6, option, &mreq6,
 			 sizeof(mreq6));
 	if (ret < 0) {
-		flog_err_sys(
-			LIB_ERR_SOCKET,
-			"Network: setsockopt (%d) on ifindex %d failed: %s",
-			option, ifindex, safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "Network: setsockopt (%d) on ifindex %d failed",
+			     option, ifindex);
 		return ret;
 	}
 
@@ -199,8 +198,8 @@ int ospf6_sendmsg(struct in6_addr *src, struct in6_addr *dst,
 
 	retval = sendmsg(ospf6_sock, &smsghdr, 0);
 	if (retval != iov_totallen(message))
-		zlog_warn("sendmsg failed: ifindex: %d: %s (%d)", *ifindex,
-			  safe_strerror(errno), errno);
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "sendmsg failed: ifindex: %d", *ifindex);
 
 	return retval;
 }
@@ -236,7 +235,7 @@ int ospf6_recvmsg(struct in6_addr *src, struct in6_addr *dst,
 
 	retval = recvmsg(ospf6_sock, &rmsghdr, 0);
 	if (retval < 0)
-		zlog_warn("recvmsg failed: %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "recvmsg failed");
 	else if (retval == iov_totallen(message))
 		zlog_warn("recvmsg read full buffer size: %d", retval);
 

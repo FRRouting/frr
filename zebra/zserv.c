@@ -740,8 +740,8 @@ static int zserv_accept(struct thread *thread)
 	client_sock = accept(accept_sock, (struct sockaddr *)&client, &len);
 
 	if (client_sock < 0) {
-		zlog_warn("Can't accept zebra socket: %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Can't accept zebra socket");
 		return -1;
 	}
 
@@ -771,8 +771,8 @@ void zserv_start(char *path)
 	/* Make UNIX domain socket. */
 	zebrad.sock = socket(sa.ss_family, SOCK_STREAM, 0);
 	if (zebrad.sock < 0) {
-		zlog_warn("Can't create zserv socket: %s",
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Can't create zserv socket");
 		zlog_warn(
 			"zebra can't provide full functionality due to above error");
 		return;
@@ -796,8 +796,8 @@ void zserv_start(char *path)
 		ret = bind(zebrad.sock, (struct sockaddr *)&sa, sa_len);
 	}
 	if (ret < 0) {
-		zlog_warn("Can't bind zserv socket on %s: %s", path,
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Can't bind zserv socket on %s", path);
 		zlog_warn(
 			"zebra can't provide full functionality due to above error");
 		close(zebrad.sock);
@@ -807,8 +807,8 @@ void zserv_start(char *path)
 
 	ret = listen(zebrad.sock, 5);
 	if (ret < 0) {
-		zlog_warn("Can't listen to zserv socket %s: %s", path,
-			  safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "Can't listen to zserv socket %s", path);
 		zlog_warn(
 			"zebra can't provide full functionality due to above error");
 		close(zebrad.sock);

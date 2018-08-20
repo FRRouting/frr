@@ -23,27 +23,11 @@
 #include "lib/ferr.h"
 #include "nhrp_errors.h"
 
-/* clang-format off */
-static struct log_ref ferr_nhrp_err[] = {
-	{
-		.code = NHRP_ERR_SWAN,
-		.title = "NHRP Strong Swan Error",
-		.description = "NHRP has detected a error with the Strongswan code",
-		.suggestion = "Ensure that StrongSwan is configured correctly.  Restart StrongSwan and FRR"
-	},
-	{
-		.code = NHRP_ERR_RESOLVER,
-		.title = "NHRP DNS Resolution",
-		.description = "NHRP has detected an error in an attempt to resolve a hostname",
-		.suggestion = "Ensure that DNS is working properly and the hostname is configured in dns.  If you are still seeing this error, open an issue"
-	},
-	{
-		.code = END_FERR,
-	}
-};
-/* clang-format on */
-
-void nhrp_error_init(void)
-{
-	log_ref_add(ferr_nhrp_err);
-}
+DEFINE_LOGCAT(NHRP_ERR_SWAN, ROOT, "NHRP Strong Swan Error",
+	.description = "NHRP has detected a error with the Strongswan code",
+	.suggestion = "Ensure that StrongSwan is configured correctly.  Restart StrongSwan and FRR",
+)
+DEFINE_LOGCAT(NHRP_ERR_RESOLVER, ROOT, "NHRP DNS Resolution",
+	.description = "NHRP has detected an error in an attempt to resolve a hostname",
+	.suggestion = "Ensure that DNS is working properly and the hostname is configured in dns.  If you are still seeing this error, open an issue",
+)

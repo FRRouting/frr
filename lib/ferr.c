@@ -19,18 +19,63 @@
 #include <string.h>
 #include <pthread.h>
 #include <signal.h>
-#include <inttypes.h>
 
 #include "ferr.h"
 #include "vty.h"
 #include "jhash.h"
 #include "memory.h"
-#include "hash.h"
-#include "command.h"
-#include "json.h"
-#include "linklist.h"
 
 DEFINE_MTYPE_STATIC(LIB, ERRINFO, "error information")
+
+struct log_cat _lc_ROOT __attribute__((section(".data.logcats"))) = {
+	.name = "ROOT"
+};
+
+DEFINE_LOGCAT(OK,                ROOT, "No error")
+DEFINE_LOGCAT(CODE_BUG,          ROOT, "Code bug / internal inconsistency")
+DEFINE_LOGCAT(CONFIG_INVALID,    ROOT, "Invalid configuration")
+DEFINE_LOGCAT(CONFIG_REALITY,    ROOT, "Configuration mismatch against operational state")
+DEFINE_LOGCAT(RESOURCE,          ROOT, "Out of resource/memory")
+DEFINE_LOGCAT(SYSTEM,            ROOT, "System error")
+DEFINE_LOGCAT(LIBRARY,           ROOT, "External library error")
+DEFINE_LOGCAT(NET_INVALID_INPUT, ROOT, "Invalid input from network")
+DEFINE_LOGCAT(SYS_INVALID_INPUT, ROOT, "Invalid local/system input")
+
+struct log_ref_block *log_ref_blocks = NULL;
+struct log_ref_block **log_ref_block_last = &log_ref_blocks;
+
+void log_ref_block_add(struct log_ref_block *block)
+{
+	struct log_ref * const *lrp;
+	static const char _lrid[] = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+	*log_ref_block_last = block;
+	log_ref_block_last = &block->next;
+
+	for (lrp = block->start; lrp < block->stop; lrp++) {
+		struct log_ref *lr = *lrp;
+		char *p;
+		uint32_t id;
+
+		if (!lr)
+			continue;
+
+		id = jhash(lr->fmtstring, strlen(lr->fmtstring),
+			 jhash(lr->file, strlen(lr->file), 0xd4ed0298));
+		lr->unique_id = id;
+
+		p = lr->prefix + 8;
+		*--p = '\0';
+		*--p = _lrid[id & 0x1f]; id >>= 5;
+		*--p = _lrid[id & 0x1f]; id >>= 5;
+		*--p = _lrid[id & 0x1f]; id >>= 5;
+		*--p = _lrid[id & 0x1f]; id >>= 5;
+		*--p = _lrid[id & 0x1f]; id >>= 5;
+		*--p = _lrid[id & 0x1f]; id >>= 5;
+		*--p = _lrid[(id & 0x3) | 0x10 |
+			((__builtin_popcount(lr->unique_id) << 2) & 0x0c)];
+	}
+}
 
 /*
  * Thread-specific key for temporary storage of allocated ferr.
@@ -54,164 +99,10 @@ static void err_key_fini(void)
 	pthread_key_delete(errkey);
 }
 
-/*
- * Global shared hash table holding reference text for all defined errors.
- */
-pthread_mutex_t refs_mtx = PTHREAD_MUTEX_INITIALIZER;
-struct hash *refs;
-
-static int ferr_hash_cmp(const void *a, const void *b)
-{
-	const struct log_ref *f_a = a;
-	const struct log_ref *f_b = b;
-
-	return f_a->code == f_b->code;
-}
-
-static inline unsigned int ferr_hash_key(void *a)
-{
-	struct log_ref *f = a;
-
-	return f->code;
-}
-
-void log_ref_add(struct log_ref *ref)
-{
-	uint32_t i = 0;
-
-	pthread_mutex_lock(&refs_mtx);
-	{
-		while (ref[i].code != END_FERR) {
-			hash_get(refs, &ref[i], hash_alloc_intern);
-			i++;
-		}
-	}
-	pthread_mutex_unlock(&refs_mtx);
-}
-
-struct log_ref *log_ref_get(uint32_t code)
-{
-	struct log_ref holder;
-	struct log_ref *ref;
-
-	holder.code = code;
-	pthread_mutex_lock(&refs_mtx);
-	{
-		ref = hash_lookup(refs, &holder);
-	}
-	pthread_mutex_unlock(&refs_mtx);
-
-	return ref;
-}
-
-void log_ref_display(struct vty *vty, uint32_t code, bool json)
-{
-	struct log_ref *ref;
-	struct json_object *top, *obj;
-	struct list *errlist;
-	struct listnode *ln;
-
-	if (json)
-		top = json_object_new_object();
-
-	pthread_mutex_lock(&refs_mtx);
-	{
-		errlist = code ? list_new() : hash_to_list(refs);
-	}
-	pthread_mutex_unlock(&refs_mtx);
-
-	if (code) {
-		ref = log_ref_get(code);
-		if (!ref) {
-			vty_out(vty, "Code %"PRIu32" - Unknown\n", code);
-			return;
-		}
-		listnode_add(errlist, ref);
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(errlist, ln, ref)) {
-		if (json) {
-			char key[11];
-
-			snprintf(key, sizeof(key), "%"PRIu32, ref->code);
-			obj = json_object_new_object();
-			json_object_string_add(obj, "title", ref->title);
-			json_object_string_add(obj, "description",
-					       ref->description);
-			json_object_string_add(obj, "suggestion",
-					       ref->suggestion);
-			json_object_object_add(top, key, obj);
-		} else {
-			char pbuf[256];
-			char ubuf[256];
-
-			snprintf(pbuf, sizeof(pbuf), "\nError %"PRIu32" - %s",
-				 code, ref->title);
-			memset(ubuf, '=', strlen(pbuf));
-			ubuf[sizeof(ubuf) - 1] = '\0';
-
-			vty_out(vty, "%s\n%s\n", pbuf, ubuf);
-			vty_out(vty, "Description:\n%s\n\n", ref->description);
-			vty_out(vty, "Recommendation:\n%s\n", ref->suggestion);
-		}
-	}
-
-	if (json) {
-		const char *str = json_object_to_json_string_ext(
-			top, JSON_C_TO_STRING_PRETTY);
-		vty_out(vty, "%s\n", str);
-		json_object_free(top);
-	}
-
-	list_delete_and_null(&errlist);
-}
-
-DEFUN_NOSH(show_error_code,
-	   show_error_code_cmd,
-	   "show error <(1-4294967296)|all> [json]",
-	   SHOW_STR
-	   "Information on errors\n"
-	   "Error code to get info about\n"
-	   "Information on all errors\n"
-	   JSON_STR)
-{
-	bool json = strmatch(argv[argc-1]->text, "json");
-	uint32_t arg = 0;
-
-	if (!strmatch(argv[2]->text, "all"))
-		arg = strtoul(argv[2]->arg, NULL, 10);
-
-	log_ref_display(vty, arg, json);
-	return CMD_SUCCESS;
-}
-
-void log_ref_init(void)
-{
-	pthread_mutex_lock(&refs_mtx);
-	{
-		refs = hash_create(ferr_hash_key, ferr_hash_cmp,
-				   "Error Reference Texts");
-	}
-	pthread_mutex_unlock(&refs_mtx);
-
-	install_element(VIEW_NODE, &show_error_code_cmd);
-}
-
-void log_ref_fini(void)
-{
-	pthread_mutex_lock(&refs_mtx);
-	{
-		hash_clean(refs, NULL);
-		hash_free(refs);
-		refs = NULL;
-	}
-	pthread_mutex_unlock(&refs_mtx);
-}
-
 const struct ferr *ferr_get_last(ferr_r errval)
 {
 	struct ferr *last_error = pthread_getspecific(errkey);
-	if (!last_error || last_error->kind == 0)
+	if (!last_error || !last_error->ref)
 		return NULL;
 	return last_error;
 }
@@ -220,12 +111,11 @@ ferr_r ferr_clear(void)
 {
 	struct ferr *last_error = pthread_getspecific(errkey);
 	if (last_error)
-		last_error->kind = 0;
+		last_error->ref = NULL;
 	return ferr_ok();
 }
 
-static ferr_r ferr_set_va(const char *file, int line, const char *func,
-			  enum ferr_kind kind, const char *pathname,
+static ferr_r ferr_set_va(struct log_ref *ref, const char *pathname,
 			  int errno_val, const char *text, va_list va)
 {
 	struct ferr *error = pthread_getspecific(errkey);
@@ -236,13 +126,7 @@ static ferr_r ferr_set_va(const char *file, int line, const char *func,
 		pthread_setspecific(errkey, error);
 	}
 
-	error->file = file;
-	error->line = line;
-	error->func = func;
-	error->kind = kind;
-
-	error->unique_id = jhash(text, strlen(text),
-				 jhash(file, strlen(file), 0xd4ed0298));
+	error->ref = ref;
 
 	error->errno_val = errno_val;
 	if (pathname)
@@ -255,25 +139,23 @@ static ferr_r ferr_set_va(const char *file, int line, const char *func,
 	return -1;
 }
 
-ferr_r ferr_set_internal(const char *file, int line, const char *func,
-			 enum ferr_kind kind, const char *text, ...)
+ferr_r ferr_set_internal(struct log_ref *ref, ...)
 {
 	ferr_r rv;
 	va_list va;
-	va_start(va, text);
-	rv = ferr_set_va(file, line, func, kind, NULL, 0, text, va);
+	va_start(va, ref);
+	rv = ferr_set_va(ref, NULL, 0, ref->fmtstring, va);
 	va_end(va);
 	return rv;
 }
 
-ferr_r ferr_set_internal_ext(const char *file, int line, const char *func,
-			     enum ferr_kind kind, const char *pathname,
-			     int errno_val, const char *text, ...)
+ferr_r ferr_set_internal_ext(struct log_ref *ref, const char *pathname,
+			     int errno_val, ...)
 {
 	ferr_r rv;
 	va_list va;
-	va_start(va, text);
-	rv = ferr_set_va(file, line, func, kind, pathname, errno_val, text, va);
+	va_start(va, errno_val);
+	rv = ferr_set_va(ref, pathname, errno_val, ref->fmtstring, va);
 	va_end(va);
 	return rv;
 }

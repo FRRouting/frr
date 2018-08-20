@@ -198,7 +198,8 @@ static int irdp_recvmsg(int sock, uint8_t *buf, int size, int *ifindex)
 
 	ret = recvmsg(sock, &msg, 0);
 	if (ret < 0) {
-		zlog_warn("IRDP: recvmsg: read error %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+			      "IRDP: recvmsg: read error");
 		return ret;
 	}
 
@@ -311,7 +312,7 @@ void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
 	if (setsockopt(irdp_sock, IPPROTO_IP, IP_HDRINCL, (char *)&on,
 		       sizeof(on))
 	    < 0)
-		zlog_warn("sendto %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "sendto");
 
 
 	if (dst == INADDR_BROADCAST) {
@@ -319,7 +320,7 @@ void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
 		if (setsockopt(irdp_sock, SOL_SOCKET, SO_BROADCAST, (char *)&on,
 			       sizeof(on))
 		    < 0)
-			zlog_warn("sendto %s", safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL, "sendto");
 	}
 
 	if (dst != INADDR_BROADCAST)
@@ -351,7 +352,7 @@ void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
 	sockopt_iphdrincl_swab_htosys(ip);
 
 	if (sendmsg(irdp_sock, msg, 0) < 0) {
-		zlog_warn("sendto %s", safe_strerror(errno));
+		flog_warn_sys(LIB_ERR_SYSTEM_CALL, "sendto");
 	}
 	/*   printf("TX on %s idx %d\n", ifp->name, ifp->ifindex); */
 }

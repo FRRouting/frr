@@ -18,16 +18,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef __PIM_ERRORS_H__
-#define __PIM_ERRORS_H__
 
-#include "lib/ferr.h"
 
-enum pim_log_refs {
-	PIM_ERR_MSDP_PACKET = PIM_FERR_START,
-	PIM_ERR_CONFIG,
-};
+#include "ferr.h"
 
-extern void pim_error_init(void);
-
-#endif
+DECLARE_LOGCAT(PIM_ERR_MSDP_PACKET)
+DECLARE_LOGCAT(PIM_ERR_CONFIG)

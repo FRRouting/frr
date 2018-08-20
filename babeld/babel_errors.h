@@ -18,18 +18,11 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef __BABEL_ERRORS_H__
-#define __BABEL_ERRORS_H__
 
-#include "lib/ferr.h"
 
-enum babel_log_refs {
-	BABEL_ERR_MEMORY = BABEL_FERR_START,
-	BABEL_ERR_PACKET,
-	BABEL_ERR_CONFIG,
-	BABEL_ERR_ROUTE,
-};
+#include "ferr.h"
 
-extern void babel_error_init(void);
-
-#endif
+DECLARE_LOGCAT(BABEL_ERR_MEMORY)
+DECLARE_LOGCAT(BABEL_ERR_PACKET)
+DECLARE_LOGCAT(BABEL_ERR_CONFIG)
+DECLARE_LOGCAT(BABEL_ERR_ROUTE)

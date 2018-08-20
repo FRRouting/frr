@@ -23,39 +23,19 @@
 #include "lib/ferr.h"
 #include "babel_errors.h"
 
-/* clang-format off */
-static struct log_ref ferr_babel_err[] = {
-	{
-		.code = BABEL_ERR_MEMORY,
-		.title = "BABEL Memory Errors",
-		.description = "Babel has failed to allocate memory, the system is about to run out of memory",
-		.suggestion = "Find the process that is causing memory shortages, remediate that process and restart FRR"
-	},
-	{
-		.code = BABEL_ERR_PACKET,
-		.title = "BABEL Packet Error",
-		.description = "Babel has detected a packet encode/decode problem",
-		.suggestion = "Collect relevant log files and file an Issue"
-	},
-	{
-		.code = BABEL_ERR_CONFIG,
-		.title = "BABEL Configuration Error",
-		.description = "Babel has detected a configuration error of some sort",
-		.suggestion = "Ensure that the configuration is correct"
-	},
-	{
-		.code = BABEL_ERR_ROUTE,
-		.title = "BABEL Route Error",
-		.description = "Babel has detected a routing error and has an inconsistent state",
-		.suggestion = "Gather data for filing an Issue and then restart FRR"
-	},
-	{
-		.code = END_FERR,
-	}
-};
-/* clang-format on */
-
-void babel_error_init(void)
-{
-	log_ref_add(ferr_babel_err);
-}
+DEFINE_LOGCAT(BABEL_ERR_MEMORY, ROOT, "BABEL Memory Errors",
+	.description = "Babel has failed to allocate memory, the system is about to run out of memory",
+	.suggestion = "Find the process that is causing memory shortages, remediate that process and restart FRR",
+)
+DEFINE_LOGCAT(BABEL_ERR_PACKET, ROOT, "BABEL Packet Error",
+	.description = "Babel has detected a packet encode/decode problem",
+	.suggestion = "Collect relevant log files and file an Issue",
+)
+DEFINE_LOGCAT(BABEL_ERR_CONFIG, ROOT, "BABEL Configuration Error",
+	.description = "Babel has detected a configuration error of some sort",
+	.suggestion = "Ensure that the configuration is correct",
+)
+DEFINE_LOGCAT(BABEL_ERR_ROUTE, ROOT, "BABEL Route Error",
+	.description = "Babel has detected a routing error and has an inconsistent state",
+	.suggestion = "Gather data for filing an Issue and then restart FRR",
+)

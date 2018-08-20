@@ -267,11 +267,10 @@ static uint32_t query_arrival_time(void)
 	struct timeval tv;
 	uint32_t qat;
 
-	char m_qat[] = "Query arrival time lookup failed: errno=%d: %s";
-
 	if (gettimeofday(&tv, NULL) < 0) {
 		if (PIM_DEBUG_MTRACE)
-			zlog_warn(m_qat, errno, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Query arrival time lookup failed");
 		return 0;
 	}
 	/* not sure second offset correct, as I get different value */
@@ -354,13 +353,11 @@ static int mtrace_send_packet(struct interface *ifp,
 			       sizeof(group_str));
 		if (sent < 0) {
 			if (PIM_DEBUG_MTRACE)
-				zlog_warn(
-					"Send mtrace request failed for %s on"
-					"%s: group=%s msg_size=%zd: errno=%d: "
-					" %s",
-					dst_str, ifp->name, group_str,
-					mtrace_buf_len, errno,
-					safe_strerror(errno));
+				flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+					      "Send mtrace request failed for %s on"
+					      "%s: group=%s msg_size=%zd",
+					      dst_str, ifp->name, group_str,
+					      mtrace_buf_len);
 		} else {
 			if (PIM_DEBUG_MTRACE)
 				zlog_warn(
@@ -446,10 +443,10 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 
 	if (sent < 0) {
 		if (PIM_DEBUG_MTRACE)
-			zlog_warn(
-				"Failed to forward mtrace packet:"
-				" sendto errno=%d, %s",
-				errno, safe_strerror(errno));
+			flog_warn_sys(LIB_ERR_SYSTEM_CALL,
+				      "Failed to forward mtrace packet:"
+				      " sendto errno=%d",
+				      errno);
 		return -1;
 	}
 
