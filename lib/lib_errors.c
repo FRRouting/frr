@@ -29,6 +29,12 @@ static struct log_ref ferr_lib_warn[] = {
 		.suggestion = "Gather Log data and open an Issue.",
 	},
 	{
+		.code = LIB_WARN_STREAM,
+		.title = "The stream subsystem has encountered an error",
+		.description = "During sanity checking stream.c has detected an error in the data associated with a particular stream",
+		.suggestion = "Gather log data and open an Issue, restart FRR",
+	},
+	{
 		.code = END_FERR,
 	},
 };
