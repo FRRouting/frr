@@ -624,7 +624,8 @@ int vrf_handler_create(struct vty *vty, const char *vrfname,
 				"%% VRF name %s invalid: length exceeds %d bytes\n",
 				vrfname, VRF_NAMSIZ);
 		else
-			zlog_warn(
+			flog_warn(
+				LIB_WARN_VRF_LENGTH,
 				"%% VRF name %s invalid: length exceeds %d bytes\n",
 				vrfname, VRF_NAMSIZ);
 		return CMD_WARNING_CONFIG_FAILED;
@@ -653,7 +654,7 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 				"VRF %u is already configured with VRF %s\n",
 				vrf->vrf_id, vrf->name);
 		else
-			zlog_warn("VRF %u is already configured with VRF %s\n",
+			zlog_info("VRF %u is already configured with VRF %s\n",
 				  vrf->vrf_id, vrf->name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -665,9 +666,9 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 					"VRF %u already configured with NETNS %s\n",
 					vrf->vrf_id, ns->name);
 			else
-				zlog_warn(
-					"VRF %u already configured with NETNS %s",
-					vrf->vrf_id, ns->name);
+				zlog_info(
+					  "VRF %u already configured with NETNS %s",
+					  vrf->vrf_id, ns->name);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
@@ -683,7 +684,7 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 				" with VRF %u(%s)\n",
 				ns->name, vrf2->vrf_id, vrf2->name);
 		else
-			zlog_warn("NS %s is already configured with VRF %u(%s)",
+			zlog_info("NS %s is already configured with VRF %u(%s)",
 				  ns->name, vrf2->vrf_id, vrf2->name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -699,7 +700,7 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 			vty_out(vty, "Can not associate NS %u with NETNS %s\n",
 				ns->ns_id, ns->name);
 		else
-			zlog_warn("Can not associate NS %u with NETNS %s",
+			zlog_info("Can not associate NS %u with NETNS %s",
 				  ns->ns_id, ns->name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}

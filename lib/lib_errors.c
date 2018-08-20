@@ -59,6 +59,12 @@ static struct log_ref ferr_lib_warn[] = {
 		.suggestion = "Create configuration file",
 	},
 	{
+		.code = LIB_WARN_VRF_LENGTH,
+		.title = "The VRF subsystem has encountered a parsing error",
+		.description = "The VRF subsystem, during initialization, has found a parsing error with input it has received",
+		.suggestion = "Check the length of the vrf name and adjust accordingly",
+	},
+	{
 		.code = END_FERR,
 	},
 };

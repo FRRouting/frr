@@ -44,6 +44,7 @@ enum lib_log_refs {
 	LIB_WARN_SLOW_THREAD,
 	LIB_WARN_RMAP_RECURSION_LIMIT,
 	LIB_WARN_BACKUP_CONFIG,
+	LIB_WARN_VRF_LENGTH,
 };
 
 extern void lib_error_init(void);
