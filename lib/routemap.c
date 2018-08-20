@@ -30,6 +30,7 @@
 #include "log.h"
 #include "hash.h"
 #include "libfrr.h"
+#include "lib_errors.h"
 
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP, "Route map")
 DEFINE_MTYPE(LIB, ROUTE_MAP_NAME, "Route map name")
@@ -1445,7 +1446,8 @@ route_map_result_t route_map_apply(struct route_map *map,
 	struct route_map_rule *set;
 
 	if (recursion > RMAP_RECURSION_LIMIT) {
-		zlog_warn(
+		flog_warn(
+			LIB_WARN_RMAP_RECURSION_LIMIT,
 			"route-map recursion limit (%d) reached, discarding route",
 			RMAP_RECURSION_LIMIT);
 		recursion = 0;

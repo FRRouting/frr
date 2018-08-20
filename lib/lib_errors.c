@@ -47,6 +47,12 @@ static struct log_ref ferr_lib_warn[] = {
 		.suggestion = "Gather log data and open an Issue",
 	},
 	{
+		.code = LIB_WARN_RMAP_RECURSION_LIMIT,
+		.title = "Reached the Route-Map Recursion Limit",
+		.description = "The Route-Map subsystem has detected a route-map depth of RMAP_RECURSION_LIMIT and has stopped processing",
+		.suggestion = "Re-work the Route-Map in question to not have so many route-map statements, or recompile FRR with a higher limit",
+	},
+	{
 		.code = END_FERR,
 	},
 };
