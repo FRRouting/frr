@@ -3187,14 +3187,15 @@ int bgp_delete(struct bgp *bgp)
 				.import_redirect_rtlist);
 		bgp->vpn_policy[afi].import_redirect_rtlist = NULL;
 	}
-	/* Remove visibility via the master list - there may however still be
-	 * routes to be processed still referencing the struct bgp.
-	 */
-	listnode_delete(bm->bgp, bgp);
 
 	/* Deregister from Zebra, if needed */
 	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
 		bgp_zebra_instance_deregister(bgp);
+
+	/* Remove visibility via the master list - there may however still be
+	 * routes to be processed still referencing the struct bgp.
+	 */
+	listnode_delete(bm->bgp, bgp);
 
 	/* Free interfaces in this instance. */
 	bgp_if_finish(bgp);
