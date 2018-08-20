@@ -50,6 +50,18 @@ static struct log_ref ferr_ospf_warn[] = {
 		.suggestion = "Further divide up your network with areas",
 	},
 	{
+		.code = OSPF_WARN_LSA_UNEXPECTED,
+		.title = "OSPF has received a LSA-type that it was not expecting",
+		.description = "OSPF has received a LSA-type that it was not expecting during processing",
+		.suggestion = "Gather log data from this machine and it's peer and open an Issue",
+	},
+	{
+		.code = OSPF_WARN_LSA,
+		.title = "OSPF has discovered inconsistent internal state for a LSA",
+		.description = "During handling of a LSA, OSPF has discovered that the LSA's internal state is inconsistent",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
 		.code = END_FERR,
 	}
 };
@@ -107,6 +119,7 @@ static struct log_ref ferr_ospf_err[] = {
 		.code = END_FERR,
 	}
 };
+/* clang-format on */
 
 void ospf_error_init(void)
 {

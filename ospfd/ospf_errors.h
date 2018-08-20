@@ -36,6 +36,8 @@ enum ospf_log_refs {
 	OSPF_WARN_MD5,
 	OSPF_WARN_PACKET,
 	OSPF_WARN_LARGE_LSA,
+	OSPF_WARN_LSA_UNEXPECTED,
+	OSPF_WARN_LSA,
 };
 
 extern void ospf_error_init(void);
