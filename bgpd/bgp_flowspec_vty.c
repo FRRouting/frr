@@ -335,7 +335,7 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 			struct listnode *node;
 			struct bgp_pbr_match_entry *bpme;
 			struct bgp_pbr_match *bpm;
-			int unit = 0;
+			bool list_began = false;
 			struct list *list_bpm;
 
 			list_bpm = list_new();
@@ -347,17 +347,17 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 				if (listnode_lookup(list_bpm, bpm))
 					continue;
 				listnode_add(list_bpm, bpm);
-				if (unit == 0)
+				if (!list_began) {
 					vty_out(vty, " (");
-				else
+					list_began = true;
+				} else
 					vty_out(vty, ", ");
 				vty_out(vty, "%s", bpm->ipset_name);
-				unit++;
 			}
-			if (unit)
+			if (list_began)
 				vty_out(vty, ")");
 			vty_out(vty, "\n");
-			list_delete_all_node(list_bpm);
+			list_delete_and_null(&list_bpm);
 		} else
 			vty_out(vty, "\tnot installed in PBR\n");
 	}
