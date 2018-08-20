@@ -10,7 +10,6 @@
 WANT_LDP ?= 1
 WANT_PIM ?= 1
 WANT_OSPFAPI ?= 1
-WANT_TCP_ZEBRA ?= 0
 WANT_BGP_VNC ?= 1
 WANT_CUMULUS_MODE ?= 0
 WANT_MULTIPATH ?= 1
@@ -65,12 +64,6 @@ else
   USE_OSPFAPI=--enable-ospfapi=no
 endif
 
-ifeq ($(WANT_TCP_ZEBRA),1)
-  USE_TCP_ZEBRA=--enable-tcp-zebra
-else
-  USE_TCP_ZEBRA=--disable-tcp-zebra
-endif
-
 ifeq ($(WANT_BGP_VNC), 1)
   USE_BGP_VNC=--enable-bgp-vnc=yes
 else
@@ -123,7 +116,6 @@ override_dh_auto_configure:
 		$(USE_OSPFAPI) \
 		$(USE_MULTIPATH) \
 		$(USE_LDP) \
-		$(USE_TCP_ZEBRA) \
 		--enable-fpm \
 		$(USE_FRR_USER) $(USE_FRR_GROUP) \
 		$(USE_FRR_VTY_GROUP) \
