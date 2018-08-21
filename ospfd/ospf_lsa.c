@@ -167,6 +167,16 @@ struct ospf_lsa *ospf_lsa_new()
 	return new;
 }
 
+struct ospf_lsa *ospf_lsa_new_and_data(size_t size)
+{
+	struct ospf_lsa *new;
+
+	new = ospf_lsa_new();
+	new->data = ospf_lsa_data_new(size);
+
+	return new;
+}
+
 /* Duplicate OSPF LSA. */
 struct ospf_lsa *ospf_lsa_dup(struct ospf_lsa *lsa)
 {
@@ -781,17 +791,13 @@ static struct ospf_lsa *ospf_router_lsa_new(struct ospf_area *area)
 	lsah->length = htons(length);
 
 	/* Now, create OSPF LSA instance. */
-	if ((new = ospf_lsa_new()) == NULL) {
-		zlog_err("%s: Unable to create new lsa", __func__);
-		return NULL;
-	}
+	new = ospf_lsa_new_and_data(length);
 
 	new->area = area;
 	SET_FLAG(new->flags, OSPF_LSA_SELF | OSPF_LSA_SELF_CHECKED);
 	new->vrf_id = area->ospf->vrf_id;
 
 	/* Copy LSA data to store, discard stream. */
-	new->data = ospf_lsa_data_new(length);
 	memcpy(new->data, lsah, length);
 	stream_free(s);
 
@@ -997,17 +1003,13 @@ static struct ospf_lsa *ospf_network_lsa_new(struct ospf_interface *oi)
 	lsah->length = htons(length);
 
 	/* Create OSPF LSA instance. */
-	if ((new = ospf_lsa_new()) == NULL) {
-		zlog_err("%s: ospf_lsa_new returned NULL", __func__);
-		return NULL;
-	}
+	new = ospf_lsa_new_and_data(length);
 
 	new->area = oi->area;
 	SET_FLAG(new->flags, OSPF_LSA_SELF | OSPF_LSA_SELF_CHECKED);
 	new->vrf_id = oi->ospf->vrf_id;
 
 	/* Copy LSA to store. */
-	new->data = ospf_lsa_data_new(length);
 	memcpy(new->data, lsah, length);
 	stream_free(s);
 
@@ -1181,13 +1183,12 @@ static struct ospf_lsa *ospf_summary_lsa_new(struct ospf_area *area,
 	lsah->length = htons(length);
 
 	/* Create OSPF LSA instance. */
-	new = ospf_lsa_new();
+	new = ospf_lsa_new_and_data(length);
 	new->area = area;
 	SET_FLAG(new->flags, OSPF_LSA_SELF | OSPF_LSA_SELF_CHECKED);
 	new->vrf_id = area->ospf->vrf_id;
 
 	/* Copy LSA to store. */
-	new->data = ospf_lsa_data_new(length);
 	memcpy(new->data, lsah, length);
 	stream_free(s);
 
@@ -1323,13 +1324,12 @@ static struct ospf_lsa *ospf_summary_asbr_lsa_new(struct ospf_area *area,
 	lsah->length = htons(length);
 
 	/* Create OSPF LSA instance. */
-	new = ospf_lsa_new();
+	new = ospf_lsa_new_and_data(length);
 	new->area = area;
 	SET_FLAG(new->flags, OSPF_LSA_SELF | OSPF_LSA_SELF_CHECKED);
 	new->vrf_id = area->ospf->vrf_id;
 
 	/* Copy LSA to store. */
-	new->data = ospf_lsa_data_new(length);
 	memcpy(new->data, lsah, length);
 	stream_free(s);
 
@@ -1629,14 +1629,13 @@ static struct ospf_lsa *ospf_external_lsa_new(struct ospf *ospf,
 	lsah->length = htons(length);
 
 	/* Now, create OSPF LSA instance. */
-	new = ospf_lsa_new();
+	new = ospf_lsa_new_and_data(length);
 	new->area = NULL;
 	SET_FLAG(new->flags,
 		 OSPF_LSA_SELF | OSPF_LSA_APPROVED | OSPF_LSA_SELF_CHECKED);
 	new->vrf_id = ospf->vrf_id;
 
 	/* Copy LSA data to store, discard stream. */
-	new->data = ospf_lsa_data_new(length);
 	memcpy(new->data, lsah, length);
 	stream_free(s);
 

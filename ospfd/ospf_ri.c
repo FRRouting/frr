@@ -775,18 +775,7 @@ static struct ospf_lsa *ospf_router_info_lsa_new()
 	lsah->length = htons(length);
 
 	/* Now, create an OSPF LSA instance. */
-	if ((new = ospf_lsa_new()) == NULL) {
-		zlog_warn("ospf_router_info_lsa_new: ospf_lsa_new() ?");
-		stream_free(s);
-		return NULL;
-	}
-	if ((new->data = ospf_lsa_data_new(length)) == NULL) {
-		zlog_warn("ospf_router_info_lsa_new: ospf_lsa_data_new() ?");
-		ospf_lsa_unlock(&new);
-		new = NULL;
-		stream_free(s);
-		return new;
-	}
+	new = ospf_lsa_new_and_data(length);
 
 	new->area = OspfRI.area; /* Area must be null if the Opaque type is AS
 				    scope, fulfill otherwise */
