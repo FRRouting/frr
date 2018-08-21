@@ -16,5 +16,5 @@ noinst_HEADERS += \
 
 bgpd_rfp_example_rfptest_rfptest_LDADD = \
 	lib/libfrr.la \
-	bgpd/rfp-example/librfp/librfp.a \
+	$(RFPLDADD) \
 	# end
