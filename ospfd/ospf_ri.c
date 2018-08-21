@@ -876,7 +876,8 @@ static int ospf_router_info_lsa_originate(void *arg)
 		}
 	} else {
 		if (!is_mandated_params_set(OspfRI))
-			zlog_warn(
+			flog_warn(
+				OSPF_WARN_LSA,
 				"ospf_router_info_lsa_originate: lacks mandated ROUTER INFORMATION parameters");
 
 		/* Ok, let's try to originate an LSA */
@@ -907,7 +908,8 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 
 	/* Verify that the Router Information ID is supported */
 	if (GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr)) != 0) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_LSA,
 			"ospf_router_info_lsa_refresh: Unsupported Router Information ID");
 		return NULL;
 	}
@@ -977,7 +979,8 @@ static void ospf_router_info_lsa_schedule(enum lsa_opcode opcode)
 
 	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	if ((OspfRI.scope == OSPF_OPAQUE_AREA_LSA) && (OspfRI.area == NULL)) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_LSA,
 			"ospf_router_info_lsa_schedule(): Router Info is Area scope flooding but area is not set");
 		OspfRI.area = ospf_area_lookup_by_area_id(top, OspfRI.area_id);
 	}
@@ -1007,10 +1010,6 @@ static void ospf_router_info_lsa_schedule(enum lsa_opcode opcode)
 		UNSET_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED);
 		ospf_opaque_lsa_flush_schedule(&lsa);
 		break;
-	default:
-		zlog_warn("ospf_router_info_lsa_schedule: Unknown opcode (%u)",
-			  opcode);
-		break;
 	}
 
 	return;
@@ -1022,7 +1021,8 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
 
 	/* Sanity Check */
 	if (lsa == NULL) {
-		zlog_warn("OSPF-RI (%s): Abort! LSA is NULL", __func__);
+		flog_warn(OSPF_WARN_LSA, "OSPF-RI (%s): Abort! LSA is NULL",
+			  __func__);
 		return -1;
 	}
 
@@ -1444,7 +1444,10 @@ DEFUN (router_info,
 
 	/* First start to register Router Information callbacks */
 	if ((ospf_router_info_register(scope)) != 0) {
-		zlog_warn(
+		vty_out(vty,
+			"%% Unable to register Router Information callbacks.");
+		flog_err(
+			OSPF_ERR_INIT_FAIL,
 			"Unable to register Router Information callbacks. Abort!");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
