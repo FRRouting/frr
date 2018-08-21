@@ -73,26 +73,6 @@ void ospf_external_route_remove(struct ospf *ospf, struct prefix_ipv4 *p)
 		  p->prefixlen);
 }
 
-/* Lookup external route. */
-struct ospf_route *ospf_external_route_lookup(struct ospf *ospf,
-					      struct prefix_ipv4 *p)
-{
-	struct route_node *rn;
-
-	rn = route_node_lookup(ospf->old_external_route, (struct prefix *)p);
-	if (rn) {
-		route_unlock_node(rn);
-		if (rn->info)
-			return rn->info;
-	}
-
-	zlog_warn("Route[%s/%d]: lookup, no such prefix", inet_ntoa(p->prefix),
-		  p->prefixlen);
-
-	return NULL;
-}
-
-
 /* Add an External info for AS-external-LSA. */
 struct external_info *ospf_external_info_new(uint8_t type,
 					     unsigned short instance)
