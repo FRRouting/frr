@@ -92,6 +92,12 @@ static struct log_ref ferr_ospf_warn[] = {
 		.suggestion = "Gather data from this machine and it's peer and open an Issue",
 	},
 	{
+		.code = OSPF_WARN_LSA_MISSING,
+		.title = "OSPF attempted to look up a LSA and it was not found",
+		.description = "During processing of new LSA information, we attempted to look up an old LSA and it was not found",
+		.suggestion = "Gather data from this machine and open an Issue",
+	},
+	{
 		.code = END_FERR,
 	}
 };

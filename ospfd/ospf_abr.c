@@ -49,6 +49,7 @@
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_dump.h"
+#include "ospfd/ospf_errors.h"
 
 static struct ospf_area_range *ospf_area_range_new(struct prefix_ipv4 *p)
 {
@@ -742,7 +743,8 @@ void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
 
 				prefix2str((struct prefix *)p, buf,
 					   sizeof(buf));
-				zlog_warn("%s: Could not refresh %s to %s",
+				flog_warn(OSPF_WARN_LSA_MISSING,
+					  "%s: Could not refresh %s to %s",
 					  __func__, buf,
 					  inet_ntoa(area->area_id));
 				return;
@@ -764,7 +766,8 @@ void ospf_abr_announce_network_to_area(struct prefix_ipv4 *p, uint32_t cost,
 			char buf[PREFIX2STR_BUFFER];
 
 			prefix2str((struct prefix *)p, buf, sizeof(buf));
-			zlog_warn("%s: Could not originate %s to %s", __func__,
+			flog_warn(OSPF_WARN_LSA_MISSING,
+				  "%s: Could not originate %s to %s", __func__,
 				  buf, inet_ntoa(area->area_id));
 			return;
 		}
@@ -1132,7 +1135,8 @@ static void ospf_abr_announce_rtr_to_area(struct prefix_ipv4 *p, uint32_t cost,
 			char buf[PREFIX2STR_BUFFER];
 
 			prefix2str((struct prefix *)p, buf, sizeof(buf));
-			zlog_warn("%s: Could not refresh/originate %s to %s",
+			flog_warn(OSPF_WARN_LSA_MISSING,
+				  "%s: Could not refresh/originate %s to %s",
 				  __func__, buf, inet_ntoa(area->area_id));
 			return;
 		}
