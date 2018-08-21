@@ -119,6 +119,10 @@ def setup_module(mod):
 
     # Initialize all routers.
     tgen.start_router()
+    for router in router_list.values():
+        if router.has_version('<', '4.0'):
+            tgen.set_error('unsupported version')
+
 
 def teardown_module(mod):
     "Teardown the pytest environment"
@@ -137,27 +141,12 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 # Shared test function to validate expected output.
-def compare_show_ip_ospf_vrf(rname, expected):
-    """
-    Calls 'show ip ospf vrf [rname]-cust1 route' for router `rname` and compare the obtained
-    result with the expected output.
-    """
-    tgen = get_topogen()
-    if tgen.gears[rname].has_version('<', '4.0') == True:
-        return
-    current = tgen.gears[rname].vtysh_cmd('show ip ospf vrf {0}-cust1 route'.format(rname))
-    return topotest.difflines(current, expected,
-                              title1="Current output",
-                              title2="Expected output")
-
 def compare_show_ip_route_vrf(rname, expected):
     """
     Calls 'show ip ospf vrf [rname]-cust1 route' for router `rname` and compare the obtained
     result with the expected output.
     """
     tgen = get_topogen()
-    if tgen.gears[rname].has_version('<', '4.0') == True:
-        return
     vrf_name = '{0}-cust1'.format(rname)
     current = topotest.ip4_route_zebra(tgen.gears[rname], vrf_name)
     ret = topotest.difflines(current, expected,
@@ -169,66 +158,61 @@ def test_ospf_convergence():
     "Test OSPF daemon convergence"
     tgen = get_topogen()
 
-    for rname, router in tgen.routers().iteritems():
-        if tgen.gears[rname].has_version('<', '4.0') == True:
-            return
-
     if tgen.routers_have_failure():
         pytest.skip('skipped because of router(s) failure')
-    #comment out
-    #tgen.mininet_cli()
-    for rnum in range(1, 4):
-        router = 'r{}'.format(rnum)
 
-        logger.info('Waiting for router "%s" convergence', router)
+    for rname, router in tgen.routers().iteritems():
+        logger.info('Waiting for router "%s" convergence', rname)
 
         # Load expected results from the command
-        reffile = os.path.join(CWD, '{}/ospfroute.txt'.format(router))
+        reffile = os.path.join(CWD, '{}/ospfroute.txt'.format(rname))
         expected = open(reffile).read()
 
         # Run test function until we get an result. Wait at most 60 seconds.
-        test_func = partial(compare_show_ip_ospf_vrf, router, expected)
+        test_func = partial(topotest.router_output_cmp,
+                            router,
+                            'show ip ospf vrf {0}-cust1 route'.format(rname),
+                            expected)
         result, diff = topotest.run_and_expect(test_func, '',
-                                               count=25, wait=3)
-        assert result, 'OSPF did not converge on {}:\n{}'.format(router, diff)
+                                               count=160, wait=0.5)
+        assertmsg = 'OSPF did not converge on {}:\n{}'.format(rname, diff)
+        assert result, assertmsg
+
 
 def test_ospf_kernel_route():
     "Test OSPF kernel route installation"
     tgen = get_topogen()
-    for rname, router in tgen.routers().iteritems():
-        if tgen.gears[rname].has_version('<', '4.0') == True:
-            return
+
     if tgen.routers_have_failure():
         pytest.skip('skipped because of router(s) failure')
 
     rlist = tgen.routers().values()
     for router in rlist:
         logger.info('Checking OSPF IPv4 kernel routes in "%s"', router.name)
-        str='{0}-cust1'.format(router.name)
         reffile = os.path.join(CWD, '{}/zebraroute.txt'.format(router.name))
         expected = open(reffile).read()
         # Run test function until we get an result. Wait at most 60 seconds.
         test_func = partial(compare_show_ip_route_vrf, router.name, expected)
         result, diff = topotest.run_and_expect(test_func, '',
-                                               count=25, wait=3)
-        assert result, 'OSPF IPv4 route mismatch in router "{}"'.format(router.name, diff)
+                                               count=140, wait=0.5)
+        assertmsg = 'OSPF IPv4 route mismatch in router "{}": {}'.format(
+            router.name, diff)
+        assert result, assertmsg
+
 
 def test_ospf_json():
     "Test 'show ip ospf json' output for coherency."
     tgen = get_topogen()
-    for rname, router in tgen.routers().iteritems():
-        if tgen.gears[rname].has_version('<', '4.0') == True:
-            return
+
     if tgen.routers_have_failure():
         pytest.skip('skipped because of router(s) failure')
-    #tgen.mininet_cli()
-    for rnum in range(1, 4):
-        router = tgen.gears['r{}'.format(rnum)]
+
+    for rname, router in tgen.routers().iteritems():
         logger.info('Comparing router "%s" "show ip ospf vrf %s-cust1 json" output', router.name, router.name)
         expected = {
                 '{}-cust1'.format(router.name) : {
                     'vrfName': '{}-cust1'.format(router.name),
-                    'routerId': '10.0.255.{}'.format(rnum),
+                    'routerId': '10.0.255.{}'.format(rname[1:]),
                     'tosRoutesOnly': True,
                     'rfc2328Conform': True,
                     'spfScheduleDelayMsecs': 0,
@@ -261,13 +245,20 @@ def test_ospf_json():
                 'nbrFullAdjacentCounter': 2,
             }
 
-        output = router.vtysh_cmd('show ip ospf vrf {0}-cust1 json'.format(router.name), isjson=True)
-        result = topotest.json_cmp(output, expected)
-        assert result is None, '"{}" JSON output mismatches the expected result'.format(router.name)
+        test_func = partial(topotest.router_json_cmp,
+                            router,
+                            'show ip ospf vrf {0}-cust1 json'.format(rname),
+                            expected)
+        _, diff = topotest.run_and_expect(test_func, None,
+                                          count=10, wait=0.5)
+        assertmsg = '"{}" JSON output mismatches'.format(rname)
+        assert diff is None, assertmsg
+
 
 def test_ospf_link_down():
     "Test OSPF convergence after a link goes down"
     tgen = get_topogen()
+
     if tgen.routers_have_failure():
         pytest.skip('skipped because of router(s) failure')
 
@@ -276,25 +267,27 @@ def test_ospf_link_down():
     topotest.interface_set_status(router3, 'r3-eth0', ifaceaction=False, vrf_name='r3-cust1')
 
     # Expect convergence on all routers
-    for rnum in range(1, 4):
-        router = 'r{}'.format(rnum)
-        logger.info('Waiting for router "%s" convergence after link failure', router)
+    for rname, router in tgen.routers().iteritems():
+        logger.info('Waiting for router "%s" convergence after link failure', rname)
         # Load expected results from the command
-        reffile = os.path.join(CWD, '{}/ospfroute_down.txt'.format(router))
+        reffile = os.path.join(CWD, '{}/ospfroute_down.txt'.format(rname))
         expected = open(reffile).read()
 
         # Run test function until we get an result. Wait at most 60 seconds.
-        test_func = partial(compare_show_ip_ospf_vrf, router, expected)
+        test_func = partial(topotest.router_output_cmp,
+                            router,
+                            'show ip ospf vrf {0}-cust1 route'.format(rname),
+                            expected)
         result, diff = topotest.run_and_expect(test_func, '',
-                                               count=25, wait=3)
-        assert result, 'OSPF did not converge on {}:\n{}'.format(router, diff)
+                                               count=140, wait=0.5)
+        assertmsg = 'OSPF did not converge on {}:\n{}'.format(rname, diff)
+        assert result, assertmsg
+
 
 def test_ospf_link_down_kernel_route():
     "Test OSPF kernel route installation"
     tgen = get_topogen()
-    for rname, router in tgen.routers().iteritems():
-        if tgen.gears[rname].has_version('<', '4.0') == True:
-            return
+
     if tgen.routers_have_failure():
         pytest.skip('skipped because of router(s) failure')
 
@@ -308,8 +301,11 @@ def test_ospf_link_down_kernel_route():
         # Run test function until we get an result. Wait at most 60 seconds.
         test_func = partial(compare_show_ip_route_vrf, router.name, expected)
         result, diff = topotest.run_and_expect(test_func, '',
-                                               count=25, wait=3)
-        assert result, 'OSPF IPv4 route mismatch in router "{}" after link down'.format(router.name, diff)
+                                               count=140, wait=0.5)
+        assertmsg = 'OSPF IPv4 route mismatch in router "{}" after link down: {}'.format(
+            router.name, diff)
+        assert result, assertmsg
+
 
 def test_memory_leak():
     "Run the memory leak test and report results."

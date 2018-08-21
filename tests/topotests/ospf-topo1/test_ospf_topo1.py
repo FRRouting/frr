@@ -334,7 +334,7 @@ def test_ospf_link_down():
         test_func = partial(
             topotest.router_output_cmp, rnode, 'show ip ospf route', expected)
         result, diff = topotest.run_and_expect(test_func, '',
-                                               count=160, wait=0.5)
+                                               count=140, wait=0.5)
         assert result, 'OSPF did not converge on {}:\n{}'.format(router, diff)
 
 def test_ospf_link_down_kernel_route():
