@@ -235,6 +235,7 @@ extern int ospf_check_nbr_status(struct ospf *);
 
 /* Prototype for LSA primitive. */
 extern struct ospf_lsa *ospf_lsa_new(void);
+extern struct ospf_lsa *ospf_lsa_new_and_data(size_t size);
 extern struct ospf_lsa *ospf_lsa_dup(struct ospf_lsa *);
 extern void ospf_lsa_free(struct ospf_lsa *);
 extern struct ospf_lsa *ospf_lsa_lock(struct ospf_lsa *);
