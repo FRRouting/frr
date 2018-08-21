@@ -1353,20 +1353,17 @@ static int rip_create_socket(struct rip *rip_param)
 	addr.sin_port = htons(RIP_PORT_DEFAULT);
 
 	/* Make datagram socket. */
-	if (ripd_privs.change(ZPRIVS_RAISE))
-		zlog_err("%s: could not raise privs", __func__);
-	sock = vrf_socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP,
-			  rip_param->vrf_id,
-			  rip_param->name);
-	if (sock < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
-			     safe_strerror(errno));
-		rip_param->sock = -1;
-		return -1;
+	frr_elevate_privs(&ripd_privs) {
+		sock = vrf_socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP,
+				  rip_param->vrf_id,
+				  rip_param->name);
+		if (sock < 0) {
+			flog_err_sys(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
+				     safe_strerror(errno));
+			rip_param->sock = -1;
+			return -1;
+		}
 	}
-	if (ripd_privs.change(ZPRIVS_LOWER))
-		zlog_err("%s: could not lower privs", __func__);
-
 	sockopt_broadcast(sock);
 	sockopt_reuseaddr(sock);
 	sockopt_reuseport(sock);
@@ -2966,19 +2963,10 @@ static int rip_vrf_enable(struct vrf *vrf)
 				old_vrf_id);
 
 		if (old_vrf_id != rip->vrf_id) {
-			if (ripd_privs.change(ZPRIVS_RAISE)) {
-				zlog_err(
-					"rip_sock_init: could not raise privs, %s",
-					safe_strerror(errno));
+			frr_elevate_privs(&ripd_privs) {
+				/* start zebra redist to us for new vrf */
+				rip_zebra_vrf_register(rip);
 			}
-			/* start zebra redist to us for new vrf */
-			rip_zebra_vrf_register(rip);
-			if (ripd_privs.change(ZPRIVS_LOWER)) {
-				zlog_err(
-					"ospf_sock_init: could not lower privs, %s",
-					safe_strerror(errno));
-			}
-
 			ret = rip_create_socket(rip);
 			if (ret < 0 || rip->sock <= 0)
 				return 0;
