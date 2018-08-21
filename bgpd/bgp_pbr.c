@@ -1680,7 +1680,7 @@ static void bgp_pbr_dump_entry(struct bgp_pbr_filter *bpf, bool add)
 			 ? "!" : "",
 			 bpf->dscp->val);
 	}
-	zlog_info("BGP: %s FS PBR from %s to %s, %s %s",
+	zlog_debug("BGP: %s FS PBR from %s to %s, %s %s",
 		  add ? "adding" : "removing",
 		  bpf->src == NULL ? "<all>" :
 		  prefix2str(bpf->src, bufsrc, sizeof(bufsrc)),
