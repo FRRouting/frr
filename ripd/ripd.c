@@ -65,9 +65,10 @@ long rip_global_route_changes = 0;
 long rip_global_queries = 0;
 
 /* Prototypes. */
-static void rip_event(enum rip_event, int);
-static void rip_output_process(struct connected *, struct sockaddr_in *, int,
-			       uint8_t);
+static void rip_event(struct rip *rip, enum rip_event, int sock);
+static void rip_output_process(struct rip *rip, struct connected *ifc,
+			       struct sockaddr_in *to, int route_type,
+			       uint8_t version);
 static int rip_triggered_update(struct thread *);
 static int rip_update_jitter(unsigned long);
 
@@ -153,7 +154,7 @@ struct rip_info *rip_ecmp_add(struct rip_info *rinfo_new)
 	struct route_node *rp = rinfo_new->rp;
 	struct rip_info *rinfo = NULL;
 	struct list *list = NULL;
-	struct rip *rip = rip_global;
+	struct rip *rip = rip_lookup_by_vrfid(rinfo_new->vrf_id);
 
 	if (rp->info == NULL)
 		rp->info = list_new();
@@ -178,7 +179,7 @@ struct rip_info *rip_ecmp_add(struct rip_info *rinfo_new)
 	SET_FLAG(rinfo->flags, RIP_RTF_CHANGED);
 
 	/* Signal the output process to trigger an update (see section 2.5). */
-	rip_event(RIP_TRIGGERED_UPDATE, 0);
+	rip_event(rip, RIP_TRIGGERED_UPDATE, 0);
 
 	return rinfo;
 }
@@ -192,6 +193,7 @@ struct rip_info *rip_ecmp_replace(struct rip_info *rinfo_new)
 	struct list *list = (struct list *)rp->info;
 	struct rip_info *rinfo = NULL, *tmp_rinfo = NULL;
 	struct listnode *node = NULL, *nextnode = NULL;
+	struct rip *rip = rip_lookup_by_vrfid(rinfo_new->vrf_id);
 
 	if (list == NULL || listcount(list) == 0)
 		return rip_ecmp_add(rinfo_new);
@@ -227,7 +229,7 @@ struct rip_info *rip_ecmp_replace(struct rip_info *rinfo_new)
 	SET_FLAG(rinfo->flags, RIP_RTF_CHANGED);
 
 	/* Signal the output process to trigger an update (see section 2.5). */
-	rip_event(RIP_TRIGGERED_UPDATE, 0);
+	rip_event(rip, RIP_TRIGGERED_UPDATE, 0);
 
 	return rinfo;
 }
@@ -242,7 +244,7 @@ struct rip_info *rip_ecmp_delete(struct rip_info *rinfo)
 {
 	struct route_node *rp = rinfo->rp;
 	struct list *list = (struct list *)rp->info;
-	struct rip *rip = rip_global;
+	struct rip *rip = rip_lookup_by_vrfid(rinfo->vrf_id);
 
 	RIP_TIMER_OFF(rinfo->t_timeout);
 
@@ -278,7 +280,7 @@ struct rip_info *rip_ecmp_delete(struct rip_info *rinfo)
 	SET_FLAG(rinfo->flags, RIP_RTF_CHANGED);
 
 	/* Signal the output process to trigger an update (see section 2.5). */
-	rip_event(RIP_TRIGGERED_UPDATE, 0);
+	rip_event(rip, RIP_TRIGGERED_UPDATE, 0);
 
 	return rinfo;
 }
@@ -292,7 +294,7 @@ static int rip_timeout(struct thread *t)
 
 static void rip_timeout_update(struct rip_info *rinfo)
 {
-	struct rip *rip = rip_global;
+	struct rip *rip = rip_lookup_by_vrfid(rinfo->vrf_id);
 
 	if (rinfo->metric != RIP_METRIC_INFINITY) {
 		RIP_TIMER_OFF(rinfo->t_timeout);
@@ -411,7 +413,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 	unsigned char old_dist, new_dist;
 	struct list *list = NULL;
 	struct listnode *node = NULL;
-	struct rip *rip = rip_global;
+	struct rip *rip = rip_lookup_by_vrfid(ifp->vrf_id);
 
 	/* Make prefix structure. */
 	memset(&p, 0, sizeof(struct prefix_ipv4));
@@ -486,7 +488,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 		nexthop = &rte->nexthop;
 
 	/* Check if nexthop address is myself, then do nothing. */
-	if (rip_nexthop_check(nexthop, rip_global->vrf_id) < 0) {
+	if (rip_nexthop_check(nexthop, rip->vrf_id) < 0) {
 		if (IS_RIP_DEBUG_PACKET)
 			zlog_debug("Nexthop address %s is myself",
 				   inet_ntoa(*nexthop));
@@ -501,7 +503,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 	newinfo.nh.type = NEXTHOP_TYPE_IPV4;
 	newinfo.metric = rte->metric;
 	newinfo.tag = ntohs(rte->tag);
-	newinfo.distance = rip_distance_apply(&newinfo);
+	newinfo.distance = rip_distance_apply(rip, &newinfo);
 
 	new_dist = newinfo.distance ? newinfo.distance
 				    : ZEBRA_RIP_DISTANCE_DEFAULT;
@@ -666,7 +668,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 					 * first entry. */
 					rinfo = listgetdata(listhead(list));
 					SET_FLAG(rinfo->flags, RIP_RTF_CHANGED);
-					rip_event(RIP_TRIGGERED_UPDATE, 0);
+					rip_event(rip, RIP_TRIGGERED_UPDATE, 0);
 				}
 			}
 		} else /* same & no change */
@@ -1091,7 +1093,8 @@ static void rip_auth_md5_set(struct stream *s, struct rip_interface *ri,
 }
 
 /* RIP routing information. */
-static void rip_response_process(struct rip_packet *packet, int size,
+static void rip_response_process(struct rip *rip,
+				 struct rip_packet *packet, int size,
 				 struct sockaddr_in *from,
 				 struct connected *ifc)
 {
@@ -1100,7 +1103,6 @@ static void rip_response_process(struct rip_packet *packet, int size,
 	struct prefix_ipv4 ifaddr;
 	struct prefix_ipv4 ifaddrclass;
 	int subnetted;
-	struct rip *rip = rip_global;
 
 	memset(&ifaddr, 0, sizeof(ifaddr));
 	/* We don't know yet. */
@@ -1396,12 +1398,11 @@ static int rip_create_socket(struct rip *rip_param)
  * by connected argument. NULL to argument denotes destination should be
  * should be RIP multicast group
  */
-static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
-			   struct connected *ifc)
+static int rip_send_packet(struct rip *rip, uint8_t *buf, int size,
+			   struct sockaddr_in *to, struct connected *ifc)
 {
 	int ret;
 	struct sockaddr_in sin;
-	struct rip *rip = rip_global;
 
 	assert(ifc != NULL);
 
@@ -1476,7 +1477,8 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 }
 
 /* Add redistributed route to RIP table. */
-void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
+void rip_redistribute_add(struct rip *rip,
+			  int type, int sub_type, struct prefix_ipv4 *p,
 			  struct nexthop *nh, unsigned int metric,
 			  unsigned char distance, route_tag_t tag)
 {
@@ -1484,7 +1486,6 @@ void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
 	struct route_node *rp = NULL;
 	struct rip_info *rinfo = NULL, newinfo;
 	struct list *list = NULL;
-	struct rip *rip = rip_global;
 
 	/* Redistribute route  */
 	ret = rip_destination_check(p->prefix);
@@ -1536,17 +1537,17 @@ void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
 			   inet_ntoa(p->prefix), p->prefixlen);
 	}
 
-	rip_event(RIP_TRIGGERED_UPDATE, 0);
+	rip_event(rip, RIP_TRIGGERED_UPDATE, 0);
 }
 
 /* Delete redistributed route from RIP table. */
-void rip_redistribute_delete(int type, int sub_type, struct prefix_ipv4 *p,
+void rip_redistribute_delete(struct rip *rip,
+			     int type, int sub_type, struct prefix_ipv4 *p,
 			     ifindex_t ifindex)
 {
 	int ret;
 	struct route_node *rp;
 	struct rip_info *rinfo;
-	struct rip *rip = rip_global;
 
 	ret = rip_destination_check(p->prefix);
 	if (!ret)
@@ -1578,7 +1579,7 @@ void rip_redistribute_delete(int type, int sub_type, struct prefix_ipv4 *p,
 						ifindex2ifname(ifindex,
 							       rip->vrf_id));
 
-				rip_event(RIP_TRIGGERED_UPDATE, 0);
+				rip_event(rip, RIP_TRIGGERED_UPDATE, 0);
 			}
 		}
 		route_unlock_node(rp);
@@ -1586,7 +1587,8 @@ void rip_redistribute_delete(int type, int sub_type, struct prefix_ipv4 *p,
 }
 
 /* Response to request called from rip_read ().*/
-static void rip_request_process(struct rip_packet *packet, int size,
+static void rip_request_process(struct rip *rip,
+				struct rip_packet *packet, int size,
 				struct sockaddr_in *from, struct connected *ifc)
 {
 	caddr_t lim;
@@ -1595,7 +1597,6 @@ static void rip_request_process(struct rip_packet *packet, int size,
 	struct route_node *rp;
 	struct rip_info *rinfo;
 	struct rip_interface *ri;
-	struct rip *rip = rip_global;
 
 	/* Does not reponse to the requests on the loopback interfaces */
 	if (if_is_loopback(ifc->ifp))
@@ -1628,7 +1629,8 @@ static void rip_request_process(struct rip_packet *packet, int size,
 	if (lim == ((caddr_t)(rte + 1)) && ntohs(rte->family) == 0
 	    && ntohl(rte->metric) == RIP_METRIC_INFINITY) {
 		/* All route with split horizon */
-		rip_output_process(ifc, from, rip_all_route, packet->version);
+		rip_output_process(rip, ifc, from, rip_all_route,
+				   packet->version);
 	} else {
 		if (ntohs(rte->family) != AF_INET)
 			return;
@@ -1659,7 +1661,8 @@ static void rip_request_process(struct rip_packet *packet, int size,
 		}
 		packet->command = RIP_RESPONSE;
 
-		(void)rip_send_packet((uint8_t *)packet, size, from, ifc);
+		(void)rip_send_packet(rip, (uint8_t *)packet,
+				      size, from, ifc);
 	}
 	rip_global_queries++;
 }
@@ -1723,10 +1726,14 @@ int rip_read_new(struct thread *t)
 	char buf[RIP_PACKET_MAXSIZ];
 	struct sockaddr_in from;
 	ifindex_t ifindex;
+	struct rip *rip;
+
+	/* first of all get rip context */
+	rip = THREAD_ARG(thread);
 
 	/* Fetch socket then register myself. */
 	sock = THREAD_FD(t);
-	rip_event(RIP_READ, sock);
+	rip_event(rip, RIP_READ, sock);
 
 	/* Read RIP packet. */
 	ret = rip_recvmsg(sock, buf, RIP_PACKET_MAXSIZ, &from, (int *)&ifindex);
@@ -1755,14 +1762,17 @@ static int rip_read(struct thread *t)
 	struct connected *ifc;
 	struct rip_interface *ri;
 	struct prefix p;
-	struct rip *rip = rip_global;
+	struct rip *rip;
+
+	/* first of all get rip context */
+	rip = THREAD_ARG(t);
 
 	/* Fetch socket then register myself. */
 	sock = THREAD_FD(t);
 	rip->t_read = NULL;
 
 	/* Add myself to tne next event */
-	rip_event(RIP_READ, sock);
+	rip_event(rip, RIP_READ, sock);
 
 	/* RIPd manages only IPv4. */
 	memset(&from, 0, sizeof(struct sockaddr_in));
@@ -1776,7 +1786,7 @@ static int rip_read(struct thread *t)
 	}
 
 	/* Check is this packet comming from myself? */
-	if (if_check_address(from.sin_addr, rip_global->vrf_id)) {
+	if (if_check_address(from.sin_addr, rip->vrf_id)) {
 		if (IS_RIP_DEBUG_PACKET)
 			zlog_debug("ignore packet comes from myself");
 		return -1;
@@ -1865,7 +1875,7 @@ static int rip_read(struct thread *t)
 
 	/* Is RIP running or is this RIP neighbor ?*/
 	ri = ifp->info;
-	if (!ri->running && !rip_neighbor_lookup(&from)) {
+	if (!ri->running && !rip_neighbor_lookup(rip, &from)) {
 		if (IS_RIP_DEBUG_EVENT)
 			zlog_debug("RIP is not enabled on interface %s.",
 				   ifp->name);
@@ -1998,11 +2008,11 @@ static int rip_read(struct thread *t)
 	/* Process each command. */
 	switch (packet->command) {
 	case RIP_RESPONSE:
-		rip_response_process(packet, len, &from, ifc);
+		rip_response_process(rip, packet, len, &from, ifc);
 		break;
 	case RIP_REQUEST:
 	case RIP_POLL:
-		rip_request_process(packet, len, &from, ifc);
+		rip_request_process(rip, packet, len, &from, ifc);
 		break;
 	case RIP_TRACEON:
 	case RIP_TRACEOFF:
@@ -2055,8 +2065,9 @@ static int rip_write_rte(int num, struct stream *s, struct prefix_ipv4 *p,
 }
 
 /* Send update to the ifp or spcified neighbor. */
-void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
-			int route_type, uint8_t version)
+static void rip_output_process(struct rip *rip, struct connected *ifc,
+			       struct sockaddr_in *to, int route_type,
+			       uint8_t version)
 {
 	int ret;
 	struct stream *s;
@@ -2076,7 +2087,6 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 	int subnetted = 0;
 	struct list *list = NULL;
 	struct listnode *listnode = NULL;
-	struct rip *rip = rip_global;
 	struct rip_redist *red;
 
 	/* Logging output event. */
@@ -2389,7 +2399,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 					rip_auth_md5_set(s, ri, doff, auth_str,
 							 RIP_AUTH_SIMPLE_SIZE);
 
-				ret = rip_send_packet(STREAM_DATA(s),
+				ret = rip_send_packet(rip, STREAM_DATA(s),
 						      stream_get_endp(s), to,
 						      ifc);
 
@@ -2409,8 +2419,8 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			rip_auth_md5_set(s, ri, doff, auth_str,
 					 RIP_AUTH_SIMPLE_SIZE);
 
-		ret = rip_send_packet(STREAM_DATA(s), stream_get_endp(s), to,
-				      ifc);
+		ret = rip_send_packet(rip, STREAM_DATA(s), stream_get_endp(s),
+				      to, ifc);
 
 		if (ret >= 0 && IS_RIP_DEBUG_SEND)
 			rip_packet_dump((struct rip_packet *)STREAM_DATA(s),
@@ -2423,8 +2433,8 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 }
 
 /* Send RIP packet to the interface. */
-static void rip_update_interface(struct connected *ifc, uint8_t version,
-				 int route_type)
+static void rip_update_interface(struct rip *rip, struct connected *ifc,
+				 uint8_t version, int route_type)
 {
 	struct interface *ifp = ifc->ifp;
 	struct rip_interface *ri = ifp->info;
@@ -2435,7 +2445,7 @@ static void rip_update_interface(struct connected *ifc, uint8_t version,
 		if (IS_RIP_DEBUG_EVENT)
 			zlog_debug("multicast announce on %s ", ifp->name);
 
-		rip_output_process(ifc, NULL, route_type, version);
+		rip_output_process(rip, ifc, NULL, route_type, version);
 		return;
 	}
 
@@ -2465,13 +2475,14 @@ static void rip_update_interface(struct connected *ifc, uint8_t version,
 							       : "broadcast",
 					   inet_ntoa(to.sin_addr), ifp->name);
 
-			rip_output_process(ifc, &to, route_type, version);
+			rip_output_process(rip, ifc, &to, route_type, version);
 		}
 	}
 }
 
 /* Update send to all interface and neighbor. */
-static void rip_update_process(int route_type)
+static void rip_update_process(struct rip *rip,
+			       int route_type)
 {
 	struct vrf *vrf;
 	struct listnode *ifnode, *ifnnode;
@@ -2481,7 +2492,6 @@ static void rip_update_process(int route_type)
 	struct route_node *rp;
 	struct sockaddr_in to;
 	struct prefix *p;
-	struct rip *rip = rip_global;
 
 	if (!rip)
 		return;
@@ -2522,12 +2532,12 @@ static void rip_update_process(int route_type)
 					       connected)) {
 				if (connected->address->family == AF_INET) {
 					if (vsend & RIPv1)
-						rip_update_interface(
+						rip_update_interface(rip,
 							connected, RIPv1,
 							route_type);
 					if ((vsend & RIPv2)
 					    && if_is_multicast(ifp))
-						rip_update_interface(
+						rip_update_interface(rip,
 							connected, RIPv2,
 							route_type);
 				}
@@ -2555,15 +2565,18 @@ static void rip_update_process(int route_type)
 			to.sin_port = htons(RIP_PORT_DEFAULT);
 
 			/* RIP version is rip's configuration. */
-			rip_output_process(connected, &to, route_type,
-					   rip->version_send);
+			rip_output_process(rip, connected, &to,
+					   route_type, rip->version_send);
 		}
 }
 
 /* RIP's periodical timer. */
 static int rip_update(struct thread *t)
 {
-	struct rip *rip = rip_global;
+	struct rip *rip;
+
+	/* first of all get rip context */
+	rip = THREAD_ARG(t);
 
 	/* Clear timer pointer. */
 	rip->t_update = NULL;
@@ -2572,7 +2585,7 @@ static int rip_update(struct thread *t)
 		zlog_debug("update timer fire!");
 
 	/* Process update output. */
-	rip_update_process(rip_all_route);
+	rip_update_process(rip, rip_all_route);
 
 	/* Triggered updates may be suppressed if a regular update is due by
 	   the time the triggered update would be sent. */
@@ -2580,19 +2593,18 @@ static int rip_update(struct thread *t)
 	rip->trigger = 0;
 
 	/* Register myself. */
-	rip_event(RIP_UPDATE_EVENT, 0);
+	rip_event(rip, RIP_UPDATE_EVENT, 0);
 
 	return 0;
 }
 
 /* Walk down the RIP routing table then clear changed flag. */
-static void rip_clear_changed_flag(void)
+static void rip_clear_changed_flag(struct rip *rip)
 {
 	struct route_node *rp;
 	struct rip_info *rinfo = NULL;
 	struct list *list = NULL;
 	struct listnode *listnode = NULL;
-	struct rip *rip = rip_global;
 
 	for (rp = route_top(rip->table); rp; rp = route_next(rp))
 		if ((list = rp->info) != NULL)
@@ -2607,8 +2619,11 @@ static void rip_clear_changed_flag(void)
 /* Triggered update interval timer. */
 static int rip_triggered_interval(struct thread *t)
 {
+	struct rip *rip;
 	int rip_triggered_update(struct thread *);
-	struct rip *rip = rip_global;
+
+	/* first of all get rip context */
+	rip = THREAD_ARG(t);
 
 	rip->t_triggered_interval = NULL;
 
@@ -2623,7 +2638,10 @@ static int rip_triggered_interval(struct thread *t)
 static int rip_triggered_update(struct thread *t)
 {
 	int interval;
-	struct rip *rip = rip_global;
+	struct rip *rip;
+
+	/* first of all get rip context */
+	rip = THREAD_ARG(t);
 
 	/* Clear thred pointer. */
 	rip->t_triggered_update = NULL;
@@ -2638,11 +2656,11 @@ static int rip_triggered_update(struct thread *t)
 
 	/* Split Horizon processing is done when generating triggered
 	   updates as well as normal updates (see section 2.6). */
-	rip_update_process(rip_changed_route);
+	rip_update_process(rip, rip_changed_route);
 
 	/* Once all of the triggered updates have been generated, the route
 	   change flags should be cleared. */
-	rip_clear_changed_flag();
+	rip_clear_changed_flag(rip);
 
 	/* After a triggered update is sent, a timer should be set for a
 	 random interval between 1 and 5 seconds.  If other changes that
@@ -2651,7 +2669,7 @@ static int rip_triggered_update(struct thread *t)
 	interval = (random() % 5) + 1;
 
 	rip->t_triggered_interval = NULL;
-	thread_add_timer(master, rip_triggered_interval, NULL, interval,
+	thread_add_timer(master, rip_triggered_interval, rip, interval,
 			 &rip->t_triggered_interval);
 
 	return 0;
@@ -2693,7 +2711,7 @@ void rip_redistribute_withdraw(int type, struct rip *rip)
 							rip->vrf_id));
 				}
 
-				rip_event(RIP_TRIGGERED_UPDATE, 0);
+				rip_event(rip, RIP_TRIGGERED_UPDATE, 0);
 			}
 		}
 }
@@ -2743,8 +2761,8 @@ static int rip_create(char *vrfname)
 		return ret;
 
 	/* Create read and timer thread. */
-	rip_event(RIP_READ, rip->sock);
-	rip_event(RIP_UPDATE_EVENT, 1);
+	rip_event(rip, RIP_READ, rip->sock);
+	rip_event(rip, RIP_UPDATE_EVENT, 1);
 
 	return 0;
 }
@@ -2756,6 +2774,11 @@ int rip_request_send(struct sockaddr_in *to, struct interface *ifp,
 	struct rte *rte;
 	struct rip_packet rip_packet;
 	struct listnode *node, *nnode;
+	struct rip *rip;
+
+	if (!ifp)
+		return -1;
+	rip = rip_lookup_by_vrfid(ifp->vrf_id);
 
 	memset(&rip_packet, 0, sizeof(rip_packet));
 
@@ -2770,8 +2793,8 @@ int rip_request_send(struct sockaddr_in *to, struct interface *ifp,
 		 * interface does not support multicast.  Caller loops
 		 * over each connected address for this case.
 		 */
-		if (rip_send_packet((uint8_t *)&rip_packet, sizeof(rip_packet),
-				    to, connected)
+		if (rip_send_packet(rip, (uint8_t *)&rip_packet,
+				    sizeof(rip_packet), to, connected)
 		    != sizeof(rip_packet))
 			return -1;
 		else
@@ -2787,8 +2810,8 @@ int rip_request_send(struct sockaddr_in *to, struct interface *ifp,
 		if (p->family != AF_INET)
 			continue;
 
-		if (rip_send_packet((uint8_t *)&rip_packet, sizeof(rip_packet),
-				    to, connected)
+		if (rip_send_packet(rip, (uint8_t *)&rip_packet,
+				    sizeof(rip_packet), to, connected)
 		    != sizeof(rip_packet))
 			return -1;
 	}
@@ -2829,6 +2852,18 @@ static struct rip *rip_lookup_by_name(const char *vrf_name)
 	return NULL;
 }
 
+struct rip *rip_lookup_by_vrfid(const vrf_id_t vrf_id)
+{
+	struct vrf *vrf;
+
+	if (vrf_id == VRF_UNKNOWN)
+		return NULL;
+	vrf =  vrf_lookup_by_id(vrf_id);
+	if (!vrf)
+		return NULL;
+	return rip_lookup_by_name(vrf->name);
+}
+
 static struct rip *rip_cmd_lookup_rip(struct vty *vty,
 				      struct cmd_token *argv[],
 				      const int argc, int create)
@@ -2860,10 +2895,9 @@ static struct rip *rip_cmd_lookup_rip(struct vty *vty,
 	return rip_global;
 }
 
-void rip_event(enum rip_event event, int sock)
+void rip_event(struct rip *rip, enum rip_event event, int sock)
 {
 	int jitter = 0;
-	struct rip *rip = rip_global;
 
 	switch (event) {
 	case RIP_READ:
@@ -2881,7 +2915,7 @@ void rip_event(enum rip_event event, int sock)
 		if (rip->t_triggered_interval)
 			rip->trigger = 1;
 		else
-			thread_add_event(master, rip_triggered_update, NULL, 0,
+			thread_add_event(master, rip_triggered_update, rip, 0,
 					 &rip->t_triggered_update);
 		break;
 	default:
@@ -2971,8 +3005,8 @@ static int rip_vrf_enable(struct vrf *vrf)
 			if (ret < 0 || rip->sock <= 0)
 				return 0;
 			/* Create read and timer thread. */
-			rip_event(RIP_READ, rip->sock);
-			rip_event(RIP_UPDATE_EVENT, 1);
+			rip_event(rip, RIP_READ, rip->sock);
+			rip_event(rip, RIP_UPDATE_EVENT, 1);
 
 			rip_redistribute_update(rip);
 			rip_start_network_emission(rip);
@@ -3135,7 +3169,7 @@ DEFUN (rip_route,
 
 	node->info = (void *)1;
 
-	rip_redistribute_add(ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, &nh, 0, 0,
+	rip_redistribute_add(rip, ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, &nh, 0, 0,
 			     0);
 
 	return CMD_SUCCESS;
@@ -3170,7 +3204,8 @@ DEFUN (no_rip_route,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	rip_redistribute_delete(ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0);
+	rip_redistribute_delete(rip, ZEBRA_ROUTE_RIP,
+				RIP_ROUTE_STATIC, &p, 0);
 	route_unlock_node(node);
 
 	node->info = NULL;
@@ -3278,7 +3313,7 @@ DEFUN (rip_timers,
 	rip->garbage_time = garbage;
 
 	/* Reset update timer thread. */
-	rip_event(RIP_UPDATE_EVENT, 0);
+	rip_event(rip, RIP_UPDATE_EVENT, 0);
 
 	return CMD_SUCCESS;
 }
@@ -3301,7 +3336,7 @@ DEFUN (no_rip_timers,
 	rip->garbage_time = RIP_GARBAGE_TIMER_DEFAULT;
 
 	/* Reset update timer thread. */
-	rip_event(RIP_UPDATE_EVENT, 0);
+	rip_event(rip, RIP_UPDATE_EVENT, 0);
 
 	return CMD_SUCCESS;
 }
@@ -3417,13 +3452,12 @@ static void rip_distance_reset(void)
 }
 
 /* Apply RIP information to distance method. */
-uint8_t rip_distance_apply(struct rip_info *rinfo)
+uint8_t rip_distance_apply(struct rip *rip, struct rip_info *rinfo)
 {
 	struct route_node *rn;
 	struct prefix_ipv4 p;
 	struct rip_distance *rdistance;
 	struct access_list *alist;
-	struct rip *rip = rip_global;
 
 	if (!rip)
 		return 0;
@@ -3612,7 +3646,7 @@ static void rip_ecmp_disable(struct rip *rip)
 			SET_FLAG(rinfo->flags, RIP_RTF_CHANGED);
 
 			/* Signal the output process to trigger an update. */
-			rip_event(RIP_TRIGGERED_UPDATE, 0);
+			rip_event(rip, RIP_TRIGGERED_UPDATE, 0);
 		}
 }
 
@@ -4269,10 +4303,10 @@ void rip_if_rmap_update_interface(struct interface *ifp)
 		rip_if_rmap_update(if_rmap);
 }
 
-static void rip_routemap_update_redistribute(void)
+static void rip_routemap_update_redistribute(vrf_id_t vrf_id)
 {
 	int i;
-	struct rip *rip = rip_global;
+	struct rip *rip = rip_lookup_by_vrfid(vrf_id);
 	struct rip_redist *red;
 
 	if (rip) {
@@ -4294,7 +4328,7 @@ static void rip_routemap_update_vrf(struct vrf *vrf)
 	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_if_rmap_update_interface(ifp);
 
-	rip_routemap_update_redistribute();
+	rip_routemap_update_redistribute(vrf->vrf_id);
 }
 
 static void rip_routemap_update(const char *notused)

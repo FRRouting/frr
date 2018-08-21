@@ -126,8 +126,9 @@ static int rip_zebra_read_route(int command, struct zclient *zclient,
 {
 	struct zapi_route api;
 	struct nexthop nh;
+	struct rip *rip = rip_lookup_by_vrfid(vrf_id);
 
-	if (!rip_global)
+	if (!rip)
 		return 0;
 
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
@@ -140,11 +141,11 @@ static int rip_zebra_read_route(int command, struct zclient *zclient,
 
 	/* Then fetch IPv4 prefixes. */
 	if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
-		rip_redistribute_add(api.type, RIP_ROUTE_REDISTRIBUTE,
+		rip_redistribute_add(rip, api.type, RIP_ROUTE_REDISTRIBUTE,
 				     (struct prefix_ipv4 *)&api.prefix, &nh,
 				     api.metric, api.distance, api.tag);
 	else if (command == ZEBRA_REDISTRIBUTE_ROUTE_DEL)
-		rip_redistribute_delete(api.type, RIP_ROUTE_REDISTRIBUTE,
+		rip_redistribute_delete(rip, api.type, RIP_ROUTE_REDISTRIBUTE,
 					(struct prefix_ipv4 *)&api.prefix,
 					nh.ifindex);
 
@@ -459,7 +460,8 @@ DEFUN (rip_default_information_originate,
 {
 	struct prefix_ipv4 p;
 	struct nexthop nh;
-	struct rip *rip = rip_global;
+
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	if (!rip->default_information) {
 		memset(&p, 0, sizeof(struct prefix_ipv4));
@@ -470,7 +472,8 @@ DEFUN (rip_default_information_originate,
 
 		rip->default_information = 1;
 
-		rip_redistribute_add(ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT, &p,
+		rip_redistribute_add(rip, ZEBRA_ROUTE_RIP,
+				      RIP_ROUTE_DEFAULT, &p,
 				     &nh, 0, 0, 0);
 	}
 
@@ -485,7 +488,8 @@ DEFUN (no_rip_default_information_originate,
        "Distribute a default route\n")
 {
 	struct prefix_ipv4 p;
-	struct rip *rip = rip_global;
+
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
 
 	if (rip->default_information) {
 		memset(&p, 0, sizeof(struct prefix_ipv4));
@@ -493,8 +497,8 @@ DEFUN (no_rip_default_information_originate,
 
 		rip->default_information = 0;
 
-		rip_redistribute_delete(ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT, &p,
-					0);
+		rip_redistribute_delete(rip, ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT,
+					 &p, 0);
 	}
 
 	return CMD_SUCCESS;

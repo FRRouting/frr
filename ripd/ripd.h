@@ -400,13 +400,16 @@ extern int if_check_address(struct in_addr addr, vrf_id_t vrf_id);
 
 extern int rip_request_send(struct sockaddr_in *, struct interface *, uint8_t,
 			    struct connected *);
-extern int rip_neighbor_lookup(struct sockaddr_in *);
+extern int rip_neighbor_lookup(struct rip *rip, struct sockaddr_in *addr);
 
 extern int rip_redistribute_check(int type, struct rip *rip);
-extern void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
+extern void rip_redistribute_add(struct rip *rip,
+				 int type, int sub_type, struct prefix_ipv4 *p,
 				 struct nexthop *nh, unsigned int metric,
 				 unsigned char distance, route_tag_t tag);
-extern void rip_redistribute_delete(int, int, struct prefix_ipv4 *, ifindex_t);
+extern void rip_redistribute_delete(struct rip *rip,
+				    int type, int sub_type, struct prefix_ipv4 *p,
+				    ifindex_t ifindex);
 extern void rip_redistribute_withdraw(int type, struct rip *rip);
 extern void rip_zebra_ipv4_add(struct route_node *rn, vrf_id_t vrf_id);
 extern void rip_zebra_ipv4_delete(struct route_node *rn, vrf_id_t vrf_id);
@@ -433,7 +436,7 @@ extern int rip_offset_list_apply_out(struct prefix_ipv4 *, struct interface *,
 extern void rip_offset_clean(void);
 
 extern void rip_info_free(struct rip_info *);
-extern uint8_t rip_distance_apply(struct rip_info *);
+extern uint8_t rip_distance_apply(struct rip *rip, struct rip_info *rinfo);
 extern void rip_redistribute_clean(vrf_id_t vrf_id);
 extern struct rip_redist *rip_redist_lookup(struct rip *rip, uint8_t type);
 extern int rip_routemap_unset(struct rip_redist *red, const char *name);
@@ -447,6 +450,8 @@ extern struct rip_info *rip_ecmp_delete(struct rip_info *);
 
 extern void rip_zebra_vrf_register(struct rip *rip);
 extern void rip_zebra_vrf_deregister(struct rip *rip);
+
+extern struct rip *rip_lookup_by_vrfid(const vrf_id_t vrf_id);
 
 /* There is only one rip strucutre. */
 extern struct rip *rip_global;

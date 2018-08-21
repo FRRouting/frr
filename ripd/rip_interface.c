@@ -194,6 +194,7 @@ static void rip_request_interface_send(struct interface *ifp, uint8_t version)
 static void rip_request_interface(struct interface *ifp)
 {
 	struct rip_interface *ri;
+	struct rip *rip;
 
 	/* In default ripd doesn't send RIP_REQUEST to the loopback interface.
 	 */
@@ -204,15 +205,18 @@ static void rip_request_interface(struct interface *ifp)
 	if (!if_is_operative(ifp))
 		return;
 
+	rip = rip_lookup_by_vrfid(ifp->vrf_id);
+	if (!rip)
+		return;
+
 	/* Fetch RIP interface information. */
 	ri = ifp->info;
-
 
 	/* If there is no version configuration in the interface,
 	   use rip's version setting. */
 	{
 		int vsend = ((ri->ri_send == RI_RIP_UNSPEC) ?
-			     rip_global->version_send
+			     rip->version_send
 			     : ri->ri_send);
 		if (vsend & RIPv1)
 			rip_request_interface_send(ifp, RIPv1);
@@ -332,15 +336,6 @@ static int rip_if_ipv4_address_check(struct interface *ifp)
 	return count;
 }
 
-static struct rip *rip_lookup_by_vrfid(vrf_id_t vrf_id)
-{
-	if (vrf_id == VRF_UNKNOWN)
-		return NULL;
-	if (rip_global && rip_global->vrf_id == vrf_id)
-		return rip_global;
-	return NULL;
-}
-
 /* Does this address belongs to me ? */
 int if_check_address(struct in_addr addr, vrf_id_t vrf_id)
 {
@@ -380,10 +375,7 @@ int rip_interface_down(int command, struct zclient *zclient,
 	   iflist. */
 	ifp = zebra_interface_state_read(s, vrf_id);
 
-	if (ifp == NULL)
-		return 0;
-
-	if (!rip)
+	if (ifp == NULL || rip == NULL)
 		return 0;
 
 	rip_if_down(ifp);
@@ -408,10 +400,7 @@ int rip_interface_up(int command, struct zclient *zclient, zebra_size_t length,
 	   iflist. */
 	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
 
-	if (ifp == NULL)
-		return 0;
-
-	if (!rip)
+	if (ifp == NULL || rip == NULL)
 		return 0;
 
 	if (IS_RIP_DEBUG_ZEBRA)
@@ -586,9 +575,10 @@ int rip_if_down(struct interface *ifp)
 	struct rip_interface *ri = NULL;
 	struct list *list = NULL;
 	struct listnode *listnode = NULL, *nextnode = NULL;
+	struct rip *rip = rip_lookup_by_vrfid(ifp->vrf_id);
 
-	if (rip_global) {
-		for (rp = route_top(rip_global->table); rp; rp = route_next(rp))
+	if (rip) {
+		for (rp = route_top(rip->table); rp; rp = route_next(rp))
 			if ((list = rp->info) != NULL)
 				for (ALL_LIST_ELEMENTS(list, listnode, nextnode,
 						       rinfo))
@@ -602,7 +592,7 @@ int rip_if_down(struct interface *ifp)
 				zlog_debug("turn off %s", ifp->name);
 
 			/* Leave from multicast group. */
-			rip_multicast_leave(ifp, rip_global->sock);
+			rip_multicast_leave(ifp, rip->sock);
 
 			ri->running = 0;
 		}
@@ -624,13 +614,13 @@ void rip_if_down_all()
 		rip_if_down(ifp);
 }
 
-static void rip_apply_address_add(struct connected *ifc)
+static void rip_apply_address_add(struct rip *rip, struct connected *ifc)
 {
 	struct prefix_ipv4 address;
 	struct nexthop nh;
 	struct prefix *p;
 
-	if (!rip_global)
+	if (!rip)
 		return;
 
 	if (!if_is_up(ifc->ifp))
@@ -653,8 +643,9 @@ static void rip_apply_address_add(struct connected *ifc)
 	   or  Check if this address's prefix is RIP enabled */
 	if ((rip_enable_if_lookup(ifc->ifp->name) >= 0)
 	    || (rip_enable_network_lookup2(ifc) >= 0))
-		rip_redistribute_add(ZEBRA_ROUTE_CONNECT, RIP_ROUTE_INTERFACE,
-				     &address, &nh, 0, 0, 0);
+		rip_redistribute_add(rip, ZEBRA_ROUTE_CONNECT,
+				     RIP_ROUTE_INTERFACE, &address,
+				     &nh, 0, 0, 0);
 }
 
 int rip_interface_address_add(int command, struct zclient *zclient,
@@ -682,7 +673,7 @@ int rip_interface_address_add(int command, struct zclient *zclient,
 
 		rip_enable_apply(ifc->ifp);
 		/* Check if this prefix needs to be redistributed */
-		rip_apply_address_add(ifc);
+		rip_apply_address_add(rip, ifc);
 
 		hook_call(rip_ifaddr_add, ifc);
 	}
@@ -690,12 +681,12 @@ int rip_interface_address_add(int command, struct zclient *zclient,
 	return 0;
 }
 
-static void rip_apply_address_del(struct connected *ifc)
+static void rip_apply_address_del(struct rip *rip, struct connected *ifc)
 {
 	struct prefix_ipv4 address;
 	struct prefix *p;
 
-	if (!rip_global)
+	if (!rip)
 		return;
 
 	if (!if_is_up(ifc->ifp))
@@ -709,7 +700,8 @@ static void rip_apply_address_del(struct connected *ifc)
 	address.prefixlen = p->prefixlen;
 	apply_mask_ipv4(&address);
 
-	rip_redistribute_delete(ZEBRA_ROUTE_CONNECT, RIP_ROUTE_INTERFACE,
+	rip_redistribute_delete(rip, ZEBRA_ROUTE_CONNECT,
+				RIP_ROUTE_INTERFACE,
 				&address, ifc->ifp->ifindex);
 }
 
@@ -718,6 +710,10 @@ int rip_interface_address_delete(int command, struct zclient *zclient,
 {
 	struct connected *ifc;
 	struct prefix *p;
+	struct rip *rip = rip_lookup_by_vrfid(vrf_id);
+
+	if (!rip)
+		return 0;
 
 	ifc = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_DELETE,
 					   zclient->ibuf, vrf_id);
@@ -733,7 +729,7 @@ int rip_interface_address_delete(int command, struct zclient *zclient,
 			hook_call(rip_ifaddr_del, ifc);
 
 			/* Chech wether this prefix needs to be removed */
-			rip_apply_address_del(ifc);
+			rip_apply_address_del(rip, ifc);
 		}
 
 		connected_free(ifc);
@@ -897,15 +893,18 @@ static int rip_interface_wakeup(struct thread *t)
 {
 	struct interface *ifp;
 	struct rip_interface *ri;
+	struct rip *rip;
 
 	/* Get interface. */
 	ifp = THREAD_ARG(t);
+
+	rip = rip_lookup_by_vrfid(ifp->vrf_id);
 
 	ri = ifp->info;
 	ri->t_wakeup = NULL;
 
 	/* Join to multicast group. */
-	if (rip_multicast_join(ifp, rip_global->sock) < 0) {
+	if (rip_multicast_join(ifp, rip->sock) < 0) {
 		flog_err_sys(LIB_ERR_SOCKET,
 			     "multicast join failed, interface %s not running",
 			     ifp->name);
@@ -927,9 +926,11 @@ static void rip_connect_set(struct interface *ifp, int set)
 	struct connected *connected;
 	struct prefix_ipv4 address;
 	struct nexthop nh;
+	struct rip *rip = rip_lookup_by_vrfid(ifp->vrf_id);
 
 	memset(&nh, 0, sizeof(nh));
-
+	if (!rip)
+		return;
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, connected)) {
 		struct prefix *p;
 		p = connected->address;
@@ -949,16 +950,16 @@ static void rip_connect_set(struct interface *ifp, int set)
 			 * "network IF_OR_PREF" one */
 			if ((rip_enable_if_lookup(connected->ifp->name) >= 0)
 			    || (rip_enable_network_lookup2(connected) >= 0))
-				rip_redistribute_add(ZEBRA_ROUTE_CONNECT,
+				rip_redistribute_add(rip, ZEBRA_ROUTE_CONNECT,
 						     RIP_ROUTE_INTERFACE,
 						     &address, &nh, 0, 0, 0);
 		} else {
-			rip_redistribute_delete(ZEBRA_ROUTE_CONNECT,
+			rip_redistribute_delete(rip, ZEBRA_ROUTE_CONNECT,
 						RIP_ROUTE_INTERFACE, &address,
 						connected->ifp->ifindex);
 			if (rip_redistribute_check(ZEBRA_ROUTE_CONNECT,
-						   rip_global))
-				rip_redistribute_add(ZEBRA_ROUTE_CONNECT,
+						   rip))
+				rip_redistribute_add(rip, ZEBRA_ROUTE_CONNECT,
 						     RIP_ROUTE_REDISTRIBUTE,
 						     &address, &nh, 0, 0, 0);
 		}
@@ -1034,7 +1035,8 @@ static void rip_enable_apply_all(struct rip *rip)
 		rip_enable_apply(ifp);
 }
 
-int rip_neighbor_lookup(struct sockaddr_in *from)
+int rip_neighbor_lookup(struct rip *rip,
+			struct sockaddr_in *from)
 {
 	struct prefix_ipv4 p;
 	struct route_node *node;
@@ -1044,7 +1046,7 @@ int rip_neighbor_lookup(struct sockaddr_in *from)
 	p.prefix = from->sin_addr;
 	p.prefixlen = IPV4_MAX_BITLEN;
 
-	node = route_node_lookup(rip_global->neighbor, (struct prefix *)&p);
+	node = route_node_lookup(rip->neighbor, (struct prefix *)&p);
 	if (node) {
 		route_unlock_node(node);
 		return 1;
@@ -1053,27 +1055,27 @@ int rip_neighbor_lookup(struct sockaddr_in *from)
 }
 
 /* Add new RIP neighbor to the neighbor tree. */
-static int rip_neighbor_add(struct prefix_ipv4 *p)
+static int rip_neighbor_add(struct rip *rip, struct prefix_ipv4 *p)
 {
 	struct route_node *node;
 
-	node = route_node_get(rip_global->neighbor, (struct prefix *)p);
+	node = route_node_get(rip->neighbor, (struct prefix *)p);
 
 	if (node->info)
 		return -1;
 
-	node->info = rip_global->neighbor;
+	node->info = rip->neighbor;
 
 	return 0;
 }
 
 /* Delete RIP neighbor from the neighbor tree. */
-static int rip_neighbor_delete(struct prefix_ipv4 *p)
+static int rip_neighbor_delete(struct rip *rip, struct prefix_ipv4 *p)
 {
 	struct route_node *node;
 
 	/* Lock for look up. */
-	node = route_node_lookup(rip_global->neighbor, (struct prefix *)p);
+	node = route_node_lookup(rip->neighbor, (struct prefix *)p);
 	if (!node)
 		return -1;
 
@@ -1269,6 +1271,8 @@ DEFUN (rip_neighbor,
 	int ret;
 	struct prefix_ipv4 p;
 
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	ret = str2prefix_ipv4(argv[idx_ipv4]->arg, &p);
 
 	if (ret <= 0) {
@@ -1276,7 +1280,7 @@ DEFUN (rip_neighbor,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	rip_neighbor_add(&p);
+	rip_neighbor_add(rip, &p);
 
 	return CMD_SUCCESS;
 }
@@ -1293,6 +1297,8 @@ DEFUN (no_rip_neighbor,
 	int ret;
 	struct prefix_ipv4 p;
 
+	VTY_DECLVAR_INSTANCE_CONTEXT(rip, rip);
+
 	ret = str2prefix_ipv4(argv[idx_ipv4]->arg, &p);
 
 	if (ret <= 0) {
@@ -1300,7 +1306,7 @@ DEFUN (no_rip_neighbor,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	rip_neighbor_delete(&p);
+	rip_neighbor_delete(rip, &p);
 
 	return CMD_SUCCESS;
 }
