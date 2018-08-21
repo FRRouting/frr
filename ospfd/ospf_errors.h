@@ -44,6 +44,8 @@ enum ospf_log_refs {
 	OSPF_WARN_LSA_NULL,
 	OSPF_WARN_EXT_LSA_UNEXPECTED,
 	OSPF_WARN_LSA_MISSING,
+	OSPF_WARN_PTP_NEIGHBOR,
+	OSPF_WARN_LSA_SIZE,
 };
 
 extern void ospf_error_init(void);

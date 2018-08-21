@@ -98,6 +98,18 @@ static struct log_ref ferr_ospf_warn[] = {
 		.suggestion = "Gather data from this machine and open an Issue",
 	},
 	{
+		.code = OSPF_WARN_PTP_NEIGHBOR,
+		.title = "OSPF has detected more than 1 neighbor on a P2P interface",
+		.description = "If you configure a ospf interface as P2P we should not detect more than one neighbor on the interface",
+		.suggestion = "Fix your config",
+	},
+	{
+		.code = OSPF_WARN_LSA_SIZE,
+		.title = "OSPF has detected an invalid LSA size",
+		.description = "OSPF has detected a state where we are attempting to grow a LSA but the LSA has reached it's maximum size",
+		.suggestion = "Gather data and open an Issue",
+	},
+	{
 		.code = END_FERR,
 	}
 };
