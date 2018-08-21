@@ -80,6 +80,18 @@ static struct log_ref ferr_ospf_warn[] = {
 		.suggestion = "Gather log data from this machine and open an Issue",
 	},
 	{
+		.code = OSPF_WARN_LSA_NULL,
+		.title = "OSPF has received a NULL lsa pointer",
+		.description = "When processing a LSA update we have found and noticed an internal error where we are passing around a NULL pointer",
+		.suggestion = "Gather data from this machine and it's peer and open an Issue",
+	},
+	{
+		.code = OSPF_WARN_EXT_LSA_UNEXPECTED,
+		.title = "OSPF has received EXT information that leaves it in an unexpected state",
+		.description = "While processing EXT LSA information, OSPF has noticed that the internal state of OSPF has gotten inconsistent",
+		.suggestion = "Gather data from this machine and it's peer and open an Issue",
+	},
+	{
 		.code = END_FERR,
 	}
 };
@@ -128,7 +140,7 @@ static struct log_ref ferr_ospf_err[] = {
 		.suggestion = "Restart OSPF instance, If the problem persists, report the problem for troubleshooting"
 	},
 	{
-		.code = OSPF_ERR_SR_INVALID_ALGORITHM,
+		.code = OSPF_ERR_INVALID_ALGORITHM,
 		.title = "OSPF SR Invalid Algorithm",
 		.description = "OSPF Segment Routing invalid Algorithm",
 		.suggestion = "Most likely a bug. If the problem persists, report the problem for troubleshooting"
