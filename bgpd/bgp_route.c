@@ -198,8 +198,7 @@ static void bgp_info_extra_free(struct bgp_info_extra **extra)
 		bgp_unlock(e->bgp_orig);
 
 	if ((*extra)->bgp_fs_pbr)
-		list_delete_all_node((*extra)->bgp_fs_pbr);
-	(*extra)->bgp_fs_pbr = NULL;
+		list_delete_and_null(&((*extra)->bgp_fs_pbr));
 	XFREE(MTYPE_BGP_ROUTE_EXTRA, *extra);
 
 	*extra = NULL;
