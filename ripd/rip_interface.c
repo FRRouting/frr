@@ -225,39 +225,6 @@ static void rip_request_interface(struct interface *ifp)
 	}
 }
 
-#if 0
-/* Send RIP request to the neighbor. */
-static void
-rip_request_neighbor (struct in_addr addr)
-{
-  struct sockaddr_in to;
-
-  memset (&to, 0, sizeof (struct sockaddr_in));
-  to.sin_port = htons (RIP_PORT_DEFAULT);
-  to.sin_addr = addr;
-
-  rip_request_send (&to, NULL, rip->version_send, NULL);
-}
-
-/* Request routes at all interfaces. */
-static void
-rip_request_neighbor_all (void)
-{
-  struct route_node *rp;
-
-  if (! rip)
-    return;
-
-  if (IS_RIP_DEBUG_EVENT)
-    zlog_debug ("request to the all neighbor");
-
-  /* Send request to all neighbor. */
-  for (rp = route_top (rip->neighbor); rp; rp = route_next (rp))
-    if (rp->info)
-      rip_request_neighbor (rp->p.u.prefix4);
-}
-#endif
-
 /* Multicast packet receive socket. */
 static int rip_multicast_join(struct interface *ifp, int sock)
 {
