@@ -868,11 +868,16 @@ int zlog_rotate(void)
 		save_errno = errno;
 		umask(oldumask);
 		if (zl->fp == NULL) {
+
+			pthread_mutex_unlock(&loglock);
+
 			flog_err_sys(
 				LIB_ERR_SYSTEM_CALL,
 				"Log rotate failed: cannot open file %s for append: %s",
 				zl->filename, safe_strerror(save_errno));
 			ret = -1;
+
+			pthread_mutex_lock(&loglock);
 		} else {
 			logfile_fd = fileno(zl->fp);
 			zl->maxlvl[ZLOG_DEST_FILE] = level;
