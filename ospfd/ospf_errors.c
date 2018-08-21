@@ -71,7 +71,13 @@ static struct log_ref ferr_ospf_warn[] = {
 		.code = OSPF_WARN_TE_UNEXPECTED,
 		.title = "OSPF has received TE information that it was not expecting",
 		.description = "OSPF has received TE information that it was not expecting during normal processing of data",
-		.suggestion = "Gthat log data from this machine and it's peer and open an Issue",
+		.suggestion = "Gather log data from this machine and it's peer and open an Issue",
+	},
+	{
+		.code = OSPF_WARN_LSA_INSTALL_FAILURE,
+		.title = "OSPF was unable to save the LSA into it's database",
+		.description = "During processing of a new lsa and attempting to save the lsa into the OSPF database, this process failed.",
+		.suggestion = "Gather log data from this machine and open an Issue",
 	},
 	{
 		.code = END_FERR,

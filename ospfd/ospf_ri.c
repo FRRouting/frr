@@ -826,7 +826,8 @@ static int ospf_router_info_lsa_originate1(void *arg)
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_LSA_INSTALL_FAILURE,
 			"ospf_router_info_lsa_originate1: ospf_lsa_install() ?");
 		ospf_lsa_unlock(&new);
 		return rc;
@@ -927,7 +928,8 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 	/* Given "lsa" will be freed in the next function. */
 	top = ospf_lookup_by_vrf_id(lsa->vrf_id);
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
-		zlog_warn("ospf_router_info_lsa_refresh: ospf_lsa_install() ?");
+		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
+			  "ospf_router_info_lsa_refresh: ospf_lsa_install() ?");
 		ospf_lsa_unlock(&new);
 		return new;
 	}

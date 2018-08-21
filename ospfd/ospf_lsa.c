@@ -50,7 +50,7 @@
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_abr.h"
-
+#include "ospfd/ospf_errors.h"
 
 uint32_t get_metric(uint8_t *metric)
 {
@@ -1817,12 +1817,11 @@ struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *ospf,
 	}
 
 	if ((new = ospf_lsa_install(ospf, NULL, new)) == NULL) {
-		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug(
-				"ospf_lsa_translated_nssa_originate(): "
-				"Could not install LSA "
-				"id %s",
-				inet_ntoa(type7->data->id));
+		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
+			  "ospf_lsa_translated_nssa_originate(): "
+			  "Could not install LSA "
+			  "id %s",
+			  inet_ntoa(type7->data->id));
 		return NULL;
 	}
 
@@ -1918,11 +1917,10 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 	}
 
 	if (!(new = ospf_lsa_install(ospf, NULL, new))) {
-		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug(
-				"ospf_translated_nssa_refresh(): Could not install "
-				"translated LSA, Id %s",
-				inet_ntoa(type7->data->id));
+		flog_warn(
+			OSPF_WARN_LSA_INSTALL_FAILURE,
+			"ospf_translated_nssa_refresh(): Could not install translated LSA, Id %s",
+			inet_ntoa(type7->data->id));
 		return NULL;
 	}
 

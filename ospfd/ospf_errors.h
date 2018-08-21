@@ -40,6 +40,7 @@ enum ospf_log_refs {
 	OSPF_WARN_LSA,
 	OSPF_WARN_OPAQUE_REGISTRATION,
 	OSPF_WARN_TE_UNEXPECTED,
+	OSPF_WARN_LSA_INSTALL_FAILURE,
 };
 
 extern void ospf_error_init(void);

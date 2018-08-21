@@ -1223,7 +1223,7 @@ static int ospf_mpls_te_lsa_originate1(struct ospf_area *area,
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(area->ospf, NULL /*oi*/, new) == NULL) {
-		flog_warn(OSPF_WARN_TE_UNEXPECTED,
+		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
 			  "ospf_mpls_te_lsa_originate1: ospf_lsa_install() ?");
 		ospf_lsa_unlock(&new);
 		return rc;
@@ -1325,7 +1325,7 @@ static int ospf_mpls_te_lsa_originate2(struct ospf *top,
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
-		flog_warn(OSPF_WARN_LSA_UNEXPECTED,
+		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
 			  "ospf_mpls_te_lsa_originate2: ospf_lsa_install() ?");
 		ospf_lsa_unlock(&new);
 		return rc;
@@ -1467,7 +1467,7 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 		top = area->ospf;
 
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
-		flog_warn(OSPF_WARN_TE_UNEXPECTED,
+		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
 			  "ospf_mpls_te_lsa_refresh: ospf_lsa_install() ?");
 		ospf_lsa_unlock(&new);
 		return NULL;

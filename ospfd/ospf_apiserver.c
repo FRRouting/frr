@@ -1664,7 +1664,8 @@ int ospf_apiserver_originate1(struct ospf_lsa *lsa)
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(ospf, lsa->oi, lsa) == NULL) {
-		zlog_warn("ospf_apiserver_originate1: ospf_lsa_install failed");
+		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
+			  "ospf_apiserver_originate1: ospf_lsa_install failed");
 		return -1;
 	}
 
@@ -1775,7 +1776,8 @@ struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa)
 
 	/* Install LSA into LSDB. */
 	if (ospf_lsa_install(ospf, new->oi, new) == NULL) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_LSA_INSTALL_FAILURE,
 			"ospf_apiserver_lsa_refresher: ospf_lsa_install failed");
 		ospf_lsa_unlock(&new);
 		goto out;

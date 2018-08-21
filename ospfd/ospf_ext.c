@@ -1068,7 +1068,8 @@ static int ospf_ext_pref_lsa_originate1(struct ospf_area *area,
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(area->ospf, NULL /*oi */, new) == NULL) {
-		zlog_warn("EXT (%s): ospf_lsa_install() error", __func__);
+		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
+			  "EXT (%s): ospf_lsa_install() error", __func__);
 		ospf_lsa_unlock(&new);
 		return rc;
 	}
@@ -1120,7 +1121,8 @@ static int ospf_ext_link_lsa_originate1(struct ospf_area *area,
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(area->ospf, NULL /*oi */, new) == NULL) {
-		zlog_warn("EXT (%s): ospf_lsa_install() error", __func__);
+		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
+			  "EXT (%s): ospf_lsa_install() error", __func__);
 		ospf_lsa_unlock(&new);
 		return rc;
 	}
@@ -1338,7 +1340,8 @@ static struct ospf_lsa *ospf_ext_pref_lsa_refresh(struct ospf_lsa *lsa)
 		top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
-		zlog_warn("EXT (%s): ospf_lsa_install() error", __func__);
+		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
+			  "EXT (%s): ospf_lsa_install() error", __func__);
 		ospf_lsa_unlock(&new);
 		return NULL;
 	}
@@ -1410,7 +1413,8 @@ static struct ospf_lsa *ospf_ext_link_lsa_refresh(struct ospf_lsa *lsa)
 	/* Install this LSA into LSDB. */
 	/* Given "lsa" will be freed in the next function */
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
-		zlog_warn("EXT (%s): Error installing new LSA", __func__);
+		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
+			  "EXT (%s): Error installing new LSA", __func__);
 		ospf_lsa_unlock(&new);
 		return NULL;
 	}
