@@ -31,7 +31,7 @@ Commands defined by this snap
 - `frr.readme`:
 	Returns this document `cat README_usage.md`
 - `frr.set`:
-	Allows to enable `FPM` module. See FPM section below
+	Allows to enable `FPM` and/or disable RPKIi module. See Module section below
 
 and for debugging defined at this time (May get removed later - do not 
 depend on them). These are mainly intended to debug the Snap
@@ -100,19 +100,30 @@ are named `eth0`, `eth1` and `eth2`, then the additional lines in
 These settings require either a reboot or a manual configuration with
 `sysctl` as well.
 
-FPM Module
+Modules
 ----------
-The `frr.set` allows to turn FPM module on or off.
+The `frr.set` allows to turn FPM module ond the RPKI module on or off.
 
     frr.set fpm {disable|protobuf|netlink}
     
-    Disables FPM or enables FPM with selected mode
+    Disables FPM or enables FPM with selected mode (default: disabled)
 
 By default, the FPM module is disabled, but installed with netlink and
 protobuf support. To enable the FPM module, use the `frr.set fpm protobuf`
 or `frr.set fpm netlink` command. The command will only enable the mode
 for the next restart of zebra. Please reboot or restart zebra after
 changing the mode to become effective.
+
+    frr.set rpki {enable|disable}
+   
+    Disables or enables BGP RPKI (default: enabled)
+
+By default, the RPKI module is enabled. To disable the RPKI module
+use the `frr.set rpki disable` command. The command will only enable
+the module after the next restart of the bgp daemon. Please reboot or 
+restart bgpd after changing the mode to become effective.
+(Normally, there is no need to disable the module as it has no effect
+if there are no RPKI configurations in BGP)
 
 FAQ
 ---
