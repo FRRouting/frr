@@ -164,6 +164,12 @@ static struct log_ref ferr_ospf_err[] = {
 		.suggestion = "Most likely a bug. If the problem persists, report the problem for troubleshooting"
 	},
 	{
+		.code = OSPF_ERR_FSM_INVALID_STATE,
+		.title = "OSPF FSM invalid state detected",
+		.description = "OSPF has attempted to change states when it should not be able to",
+		.suggestion = "Gather log files and open an issue",
+	},
+	{
 		.code = END_FERR,
 	}
 };
