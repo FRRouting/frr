@@ -201,8 +201,7 @@ static int ospf_router_info_unregister()
 
 	if ((OspfRI.scope != OSPF_OPAQUE_AS_LSA)
 	    && (OspfRI.scope != OSPF_OPAQUE_AREA_LSA)) {
-		zlog_warn(
-			"Unable to unregister Router Info functions: Wrong scope!");
+		assert("Unable to unregister Router Info functions: Wrong scope!" == NULL);
 		return -1;
 	}
 
@@ -813,11 +812,7 @@ static int ospf_router_info_lsa_originate1(void *arg)
 	}
 
 	/* Create new Opaque-LSA/ROUTER INFORMATION instance. */
-	if ((new = ospf_router_info_lsa_new()) == NULL) {
-		zlog_warn(
-			"ospf_router_info_lsa_originate1: ospf_router_info_lsa_new() ?");
-		return rc;
-	}
+	new = ospf_router_info_lsa_new();
 	new->vrf_id = vrf_id;
 
 	/* Get ospf info */
@@ -924,11 +919,7 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 	}
 
 	/* Create new Opaque-LSA/ROUTER INFORMATION instance. */
-	if ((new = ospf_router_info_lsa_new()) == NULL) {
-		zlog_warn(
-			"ospf_router_info_lsa_refresh: ospf_router_info_lsa_new() ?");
-		return NULL;
-	}
+	new = ospf_router_info_lsa_new();
 	new->data->ls_seqnum = lsa_seqnum_increment(lsa);
 	new->vrf_id = lsa->vrf_id;
 
