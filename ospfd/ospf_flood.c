@@ -810,8 +810,7 @@ struct ospf_lsa *ospf_ls_request_new(struct lsa_header *lsah)
 {
 	struct ospf_lsa *new;
 
-	new = ospf_lsa_new();
-	new->data = ospf_lsa_data_new(OSPF_LSA_HEADER_SIZE);
+	new = ospf_lsa_new_and_data(OSPF_LSA_HEADER_SIZE);
 	memcpy(new->data, lsah, OSPF_LSA_HEADER_SIZE);
 
 	return new;

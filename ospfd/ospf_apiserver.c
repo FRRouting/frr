@@ -1425,19 +1425,7 @@ struct ospf_lsa *ospf_apiserver_opaque_lsa_new(struct ospf_area *area,
 	newlsa->length = htons(length);
 
 	/* Create OSPF LSA. */
-	if ((new = ospf_lsa_new()) == NULL) {
-		zlog_warn("ospf_apiserver_opaque_lsa_new: ospf_lsa_new() ?");
-		stream_free(s);
-		return NULL;
-	}
-
-	if ((new->data = ospf_lsa_data_new(length)) == NULL) {
-		zlog_warn(
-			"ospf_apiserver_opaque_lsa_new: ospf_lsa_data_new() ?");
-		ospf_lsa_unlock(&new);
-		stream_free(s);
-		return NULL;
-	}
+	new = ospf_lsa_new_and_data(length);
 
 	new->area = area;
 	new->oi = oi;

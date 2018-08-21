@@ -977,20 +977,7 @@ static struct ospf_lsa *ospf_ext_pref_lsa_new(struct ospf_area *area,
 	lsah->length = htons(length);
 
 	/* Now, create an OSPF LSA instance. */
-	new = ospf_lsa_new();
-	if (new == NULL) {
-		zlog_warn("EXT (%s): ospf_lsa_new() error", __func__);
-		stream_free(s);
-		return NULL;
-	}
-	new->data = ospf_lsa_data_new(length);
-	if (new->data == NULL) {
-		zlog_warn("EXT (%s): ospf_lsa_data_new() error", __func__);
-		ospf_lsa_unlock(&new);
-		new = NULL;
-		stream_free(s);
-		return NULL;
-	}
+	new = ospf_lsa_new_and_data(length);
 
 	/* Segment Routing belongs only to default VRF */
 	new->vrf_id = VRF_DEFAULT;
@@ -1056,20 +1043,7 @@ static struct ospf_lsa *ospf_ext_link_lsa_new(struct ospf_area *area,
 	lsah->length = htons(length);
 
 	/* Now, create an OSPF LSA instance. */
-	new = ospf_lsa_new();
-	if (new == NULL) {
-		zlog_warn("EXT (%s): ospf_lsa_new() error", __func__);
-		stream_free(s);
-		return NULL;
-	}
-	new->data = ospf_lsa_data_new(length);
-	if (new->data == NULL) {
-		zlog_warn("EXT (%s): ospf_lsa_data_new() error", __func__);
-		ospf_lsa_unlock(&new);
-		new = NULL;
-		stream_free(s);
-		return NULL;
-	}
+	new = ospf_lsa_new_and_data(length);
 
 	/* Segment Routing belongs only to default VRF */
 	new->vrf_id = VRF_DEFAULT;

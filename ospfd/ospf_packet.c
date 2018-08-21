@@ -1742,7 +1742,7 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 		}
 
 		/* Create OSPF LSA instance. */
-		lsa = ospf_lsa_new();
+		lsa = ospf_lsa_new_and_data(length);
 
 		lsa->vrf_id = oi->ospf->vrf_id;
 		/* We may wish to put some error checking if type NSSA comes in
@@ -1761,7 +1761,6 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 			break;
 		}
 
-		lsa->data = ospf_lsa_data_new(length);
 		memcpy(lsa->data, lsah, length);
 
 		if (IS_DEBUG_OSPF_EVENT)
