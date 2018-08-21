@@ -146,7 +146,7 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 			char ubuf[256];
 
 			snprintf(pbuf, sizeof(pbuf), "\nError %"PRIu32" - %s",
-				 code, ref->title);
+				 ref->code, ref->title);
 			memset(ubuf, '=', strlen(pbuf));
 			ubuf[sizeof(ubuf) - 1] = '\0';
 
