@@ -1943,7 +1943,9 @@ AC_CACHE_VAL(ac_cv_htonl_works,
 )
 AC_MSG_RESULT($ac_cv_htonl_works)
 
-AC_CONFIG_FILES([Makefile
+AC_CONFIG_FILES([Makefile],[sed -e 's/^#AUTODERP# //' -i Makefile])
+
+AC_CONFIG_FILES([
 	  bgpd/Makefile
 	  vtysh/Makefile
 	  doc/Makefile tests/Makefile
