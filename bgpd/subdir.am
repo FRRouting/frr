@@ -192,11 +192,9 @@ bgpd_bgpd_CFLAGS = -Irfapi -I@top_srcdir@/$(RFPINC)
 
 bgpd_bgp_btoa_SOURCES += bgpd/rfapi/rfapi_descriptor_rfp_utils.c
 bgpd_bgp_btoa_CFLAGS = -Irfapi -I@top_srcdir@/$(RFPINC)
-
-RFPLDADD = bgpd/rfp-example/librfp/librfp.a
-else
-RFPLDADD =
 endif
+
+# RFPLDADD is set in bgpd/rfp-example/librfp/subdir.am
 bgpd_bgpd_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la @LIBCAP@ @LIBM@
 bgpd_bgp_btoa_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la @LIBCAP@ @LIBM@
 

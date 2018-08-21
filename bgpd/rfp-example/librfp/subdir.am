@@ -4,6 +4,7 @@
 
 if ENABLE_BGP_VNC
 noinst_LIBRARIES += bgpd/rfp-example/librfp/librfp.a
+RFPLDADD = bgpd/rfp-example/librfp/librfp.a
 endif
 
 bgpd_rfp_example_librfp_librfp_a_SOURCES = \
