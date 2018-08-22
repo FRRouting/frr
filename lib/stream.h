@@ -98,14 +98,15 @@
 struct stream {
 	struct stream *next;
 
-	/* Remainder is ***private*** to stream
+	/*
+	 * Remainder is ***private*** to stream
 	 * direct access is frowned upon!
 	 * Use the appropriate functions/macros
 	 */
-	size_t getp;	 /* next get position */
-	size_t endp;	 /* last valid data position */
-	size_t size;	 /* size of data segment */
-	unsigned char *data; /* data pointer */
+	size_t getp;	       /* next get position */
+	size_t endp;	       /* last valid data position */
+	size_t size;	       /* size of data segment */
+	unsigned char data[0]; /* data pointer */
 };
 
 /* First in first out queue structure. */

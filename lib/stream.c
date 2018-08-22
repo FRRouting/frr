@@ -28,9 +28,9 @@
 #include "network.h"
 #include "prefix.h"
 #include "log.h"
+#include "lib_errors.h"
 
 DEFINE_MTYPE_STATIC(LIB, STREAM, "Stream")
-DEFINE_MTYPE_STATIC(LIB, STREAM_DATA, "Stream data")
 DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
 
 /* Tests whether a position is valid */
@@ -100,9 +100,7 @@ struct stream *stream_new(size_t size)
 
 	assert(size > 0);
 
-	s = XMALLOC(MTYPE_STREAM, sizeof(struct stream));
-
-	s->data = XMALLOC(MTYPE_STREAM_DATA, size);
+	s = XMALLOC(MTYPE_STREAM, sizeof(struct stream) + size);
 
 	s->getp = s->endp = 0;
 	s->next = NULL;
@@ -116,7 +114,6 @@ void stream_free(struct stream *s)
 	if (!s)
 		return;
 
-	XFREE(MTYPE_STREAM_DATA, s->data);
 	XFREE(MTYPE_STREAM, s);
 }
 
@@ -168,30 +165,31 @@ struct stream *stream_dupcat(struct stream *s1, struct stream *s2,
 
 size_t stream_resize_inplace(struct stream **sptr, size_t newsize)
 {
-	return stream_resize_orig(*sptr, newsize);
+	struct stream *orig = *sptr;
+
+	STREAM_VERIFY_SANE(orig);
+
+	orig = XREALLOC(MTYPE_STREAM, orig, sizeof(struct stream) + newsize);
+
+	orig->size = newsize;
+
+	if (orig->endp > orig->size)
+		orig->endp = orig->size;
+	if (orig->getp > orig->endp)
+		orig->getp = orig->endp;
+
+	STREAM_VERIFY_SANE(orig);
+
+	*sptr = orig;
+	return orig->size;
 }
 
-size_t stream_resize_orig(struct stream *s, size_t newsize)
+size_t __attribute__((deprecated))stream_resize_orig(struct stream *s,
+						     size_t newsize)
 {
-	uint8_t *newdata;
-	STREAM_VERIFY_SANE(s);
+	assert("stream_resize: Switch code to use stream_resize_inplace" == NULL);
 
-	newdata = XREALLOC(MTYPE_STREAM_DATA, s->data, newsize);
-
-	if (newdata == NULL)
-		return s->size;
-
-	s->data = newdata;
-	s->size = newsize;
-
-	if (s->endp > s->size)
-		s->endp = s->size;
-	if (s->getp > s->endp)
-		s->getp = s->endp;
-
-	STREAM_VERIFY_SANE(s);
-
-	return s->size;
+	return stream_resize_inplace(&s, newsize);
 }
 
 size_t stream_get_getp(struct stream *s)
