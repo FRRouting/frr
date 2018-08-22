@@ -682,10 +682,8 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 	return CMD_SUCCESS;
 }
 
-int vrf_is_mapped_on_netns(vrf_id_t vrf_id)
+int vrf_is_mapped_on_netns(struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
-
 	if (!vrf || vrf->data.l.netns_name[0] == '\0')
 		return 0;
 	if (vrf->vrf_id == VRF_DEFAULT)
@@ -887,7 +885,7 @@ int vrf_bind(vrf_id_t vrf_id, int fd, char *name)
 
 	if (fd < 0 || name == NULL)
 		return fd;
-	if (vrf_is_mapped_on_netns(vrf_id))
+	if (vrf_is_mapped_on_netns(vrf_lookup_by_id(vrf_id)))
 		return fd;
 #ifdef SO_BINDTODEVICE
 	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, name, strlen(name)+1);

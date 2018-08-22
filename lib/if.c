@@ -393,7 +393,8 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id, int vty)
 	 * this should not be considered as an update
 	 * then create the new interface
 	 */
-	if (ifp->vrf_id != vrf_id && vrf_is_mapped_on_netns(vrf_id))
+	if (ifp->vrf_id != vrf_id && vrf_is_mapped_on_netns(
+					vrf_lookup_by_id(vrf_id)))
 		return if_create(name, vrf_id);
 	/* If it came from the kernel
 	 * or by way of zclient, believe it and update

@@ -237,7 +237,7 @@ extern vrf_id_t vrf_get_default_id(void);
 #define VRF_DEFAULT vrf_get_default_id()
 
 /* VRF is mapped on netns or not ? */
-int vrf_is_mapped_on_netns(vrf_id_t vrf_id);
+int vrf_is_mapped_on_netns(struct vrf *vrf);
 
 /* VRF switch from NETNS */
 extern int vrf_switch_to_netns(vrf_id_t vrf_id);

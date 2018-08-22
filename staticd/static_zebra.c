@@ -273,9 +273,10 @@ extern void static_zebra_route_add(struct route_node *rn,
 		SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
 		api.tag = si_changed->tag;
 	}
-	api.tableid = si_changed->table_id;
-
-	zlog_debug("Distance sent down: %d %d", si_changed->distance, install);
+	if (si_changed->table_id != 0) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
+		api.tableid = si_changed->table_id;
+	}
 	for (/*loaded above*/; si; si = si->next) {
 		api_nh = &api.nexthops[nh_num];
 		if (si->nh_vrf_id == VRF_UNKNOWN)
