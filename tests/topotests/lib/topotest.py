@@ -788,7 +788,7 @@ class Router(Node):
                     self.hasmpls = True
             if self.hasmpls != True:
                 return "LDP/MPLS Tests need mpls kernel modules"
-            self.cmd('echo 100000 > /proc/sys/net/mpls/platform_labels')
+        self.cmd('echo 100000 > /proc/sys/net/mpls/platform_labels')
 
         if self.daemons['eigrpd'] == 1:
             eigrpd_path = os.path.join(self.daemondir, 'eigrpd')
