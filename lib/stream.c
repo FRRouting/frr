@@ -166,7 +166,12 @@ struct stream *stream_dupcat(struct stream *s1, struct stream *s2,
 	return new;
 }
 
-size_t stream_resize(struct stream *s, size_t newsize)
+size_t stream_resize_inplace(struct stream **sptr, size_t newsize)
+{
+	return stream_resize_orig(*sptr, newsize);
+}
+
+size_t stream_resize_orig(struct stream *s, size_t newsize)
 {
 	uint8_t *newdata;
 	STREAM_VERIFY_SANE(s);
