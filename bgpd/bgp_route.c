@@ -8202,7 +8202,6 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			vty_out(vty, " \"routeDistinguishers\" : {");
 			++*json_header_depth;
 		}
-		json_paths = json_object_new_object();
 	}
 
 	if (use_json && rd) {
@@ -8429,8 +8428,6 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 		*total_cum = total_count;
 	}
 	if (use_json) {
-		if (json_paths)
-			json_object_free(json_paths);
 		if (rd) {
 			vty_out(vty, " }%s ", (is_last ? "" : ","));
 		}
