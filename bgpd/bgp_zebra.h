@@ -51,7 +51,8 @@ extern struct bgp_redist *bgp_redist_lookup(struct bgp *, afi_t, uint8_t,
 					    unsigned short);
 extern struct bgp_redist *bgp_redist_add(struct bgp *, afi_t, uint8_t,
 					 unsigned short);
-extern int bgp_redistribute_set(struct bgp *, afi_t, int, unsigned short);
+extern int bgp_redistribute_set(struct bgp *, afi_t, int, unsigned short,
+				bool changed);
 extern int bgp_redistribute_resend(struct bgp *, afi_t, int, unsigned short);
 extern int bgp_redistribute_rmap_set(struct bgp_redist *, const char *);
 extern int bgp_redistribute_metric_set(struct bgp *, struct bgp_redist *, afi_t,
