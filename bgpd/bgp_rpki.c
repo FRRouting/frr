@@ -1210,10 +1210,10 @@ DEFUN_NOSH (rpki_exit,
 	    "exit",
 	    "Exit rpki configuration and restart rpki session\n")
 {
-	int ret = reset(false);
+	reset(false);
 
 	vty->node = CONFIG_NODE;
-	return ret == SUCCESS ? CMD_SUCCESS : CMD_WARNING;
+	return CMD_SUCCESS;
 }
 
 DEFUN_NOSH (rpki_quit,
