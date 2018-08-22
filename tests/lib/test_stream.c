@@ -57,7 +57,7 @@ int main(void)
 
 	print_stream(s);
 
-	stream_resize(s, stream_get_endp(s));
+	stream_resize_inplace(&s, stream_get_endp(s));
 
 	print_stream(s);
 

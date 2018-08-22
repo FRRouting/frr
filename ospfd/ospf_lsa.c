@@ -416,7 +416,7 @@ static uint16_t ospf_link_cost(struct ospf_interface *oi)
 }
 
 /* Set a link information. */
-static char link_info_set(struct stream *s, struct in_addr id,
+static char link_info_set(struct stream **s, struct in_addr id,
 			  struct in_addr data, uint8_t type, uint8_t tos,
 			  uint16_t cost)
 {
@@ -425,11 +425,11 @@ static char link_info_set(struct stream *s, struct in_addr id,
 	 * more.
 	 * we try accomodate those here.
 	 */
-	if (STREAM_WRITEABLE(s) < OSPF_ROUTER_LSA_LINK_SIZE) {
+	if (STREAM_WRITEABLE(*s) < OSPF_ROUTER_LSA_LINK_SIZE) {
 		size_t ret = OSPF_MAX_LSA_SIZE;
 
 		/* Can we enlarge the stream still? */
-		if (STREAM_SIZE(s) == OSPF_MAX_LSA_SIZE) {
+		if (STREAM_SIZE(*s) == OSPF_MAX_LSA_SIZE) {
 			/* we futz the size here for simplicity, really we need
 			 * to account
 			 * for just:
@@ -441,30 +441,31 @@ static char link_info_set(struct stream *s, struct in_addr id,
 			 *
 			 * Simpler just to subtract OSPF_MAX_LSA_SIZE though.
 			 */
-			ret = stream_resize(
+			ret = stream_resize_inplace(
 				s, OSPF_MAX_PACKET_SIZE - OSPF_MAX_LSA_SIZE);
 		}
 
 		if (ret == OSPF_MAX_LSA_SIZE) {
 			zlog_warn(
 				"%s: Out of space in LSA stream, left %zd, size %zd",
-				__func__, STREAM_WRITEABLE(s), STREAM_SIZE(s));
+				__func__, STREAM_WRITEABLE(*s),
+				STREAM_SIZE(*s));
 			return 0;
 		}
 	}
 
 	/* TOS based routing is not supported. */
-	stream_put_ipv4(s, id.s_addr);   /* Link ID. */
-	stream_put_ipv4(s, data.s_addr); /* Link Data. */
-	stream_putc(s, type);		 /* Link Type. */
-	stream_putc(s, tos);		 /* TOS = 0. */
-	stream_putw(s, cost);		 /* Link Cost. */
+	stream_put_ipv4(*s, id.s_addr);   /* Link ID. */
+	stream_put_ipv4(*s, data.s_addr); /* Link Data. */
+	stream_putc(*s, type);		  /* Link Type. */
+	stream_putc(*s, tos);		  /* TOS = 0. */
+	stream_putw(*s, cost);		  /* Link Cost. */
 
 	return 1;
 }
 
 /* Describe Point-to-Point link (Section 12.4.1.1). */
-static int lsa_link_ptop_set(struct stream *s, struct ospf_interface *oi)
+static int lsa_link_ptop_set(struct stream **s, struct ospf_interface *oi)
 {
 	int links = 0;
 	struct ospf_neighbor *nbr;
@@ -510,7 +511,7 @@ static int lsa_link_ptop_set(struct stream *s, struct ospf_interface *oi)
 }
 
 /* Describe Broadcast Link. */
-static int lsa_link_broadcast_set(struct stream *s, struct ospf_interface *oi)
+static int lsa_link_broadcast_set(struct stream **s, struct ospf_interface *oi)
 {
 	struct ospf_neighbor *dr;
 	struct in_addr id, mask;
@@ -556,7 +557,7 @@ static int lsa_link_broadcast_set(struct stream *s, struct ospf_interface *oi)
 	}
 }
 
-static int lsa_link_loopback_set(struct stream *s, struct ospf_interface *oi)
+static int lsa_link_loopback_set(struct stream **s, struct ospf_interface *oi)
 {
 	struct in_addr id, mask;
 
@@ -570,7 +571,8 @@ static int lsa_link_loopback_set(struct stream *s, struct ospf_interface *oi)
 }
 
 /* Describe Virtual Link. */
-static int lsa_link_virtuallink_set(struct stream *s, struct ospf_interface *oi)
+static int lsa_link_virtuallink_set(struct stream **s,
+				    struct ospf_interface *oi)
 {
 	struct ospf_neighbor *nbr;
 	uint16_t cost = ospf_link_cost(oi);
@@ -593,7 +595,7 @@ static int lsa_link_virtuallink_set(struct stream *s, struct ospf_interface *oi)
 12.4.1.4.*/
 /* from "edward rrr" <edward_rrr@hotmail.com>
    http://marc.theaimsgroup.com/?l=zebra&m=100739222210507&w=2 */
-static int lsa_link_ptomp_set(struct stream *s, struct ospf_interface *oi)
+static int lsa_link_ptomp_set(struct stream **s, struct ospf_interface *oi)
 {
 	int links = 0;
 	struct route_node *rn;
@@ -634,7 +636,7 @@ static int lsa_link_ptomp_set(struct stream *s, struct ospf_interface *oi)
 }
 
 /* Set router-LSA link information. */
-static int router_lsa_link_set(struct stream *s, struct ospf_area *area)
+static int router_lsa_link_set(struct stream **s, struct ospf_area *area)
 {
 	struct listnode *node;
 	struct ospf_interface *oi;
@@ -677,28 +679,28 @@ static int router_lsa_link_set(struct stream *s, struct ospf_area *area)
 }
 
 /* Set router-LSA body. */
-static void ospf_router_lsa_body_set(struct stream *s, struct ospf_area *area)
+static void ospf_router_lsa_body_set(struct stream **s, struct ospf_area *area)
 {
 	unsigned long putp;
 	uint16_t cnt;
 
 	/* Set flags. */
-	stream_putc(s, router_lsa_flags(area));
+	stream_putc(*s, router_lsa_flags(area));
 
 	/* Set Zero fields. */
-	stream_putc(s, 0);
+	stream_putc(*s, 0);
 
 	/* Keep pointer to # links. */
-	putp = stream_get_endp(s);
+	putp = stream_get_endp(*s);
 
 	/* Forward word */
-	stream_putw(s, 0);
+	stream_putw(*s, 0);
 
 	/* Set all link information. */
 	cnt = router_lsa_link_set(s, area);
 
 	/* Set # of links here. */
-	stream_putw_at(s, putp, cnt);
+	stream_putw_at(*s, putp, cnt);
 }
 
 static int ospf_stub_router_timer(struct thread *t)
@@ -783,7 +785,7 @@ static struct ospf_lsa *ospf_router_lsa_new(struct ospf_area *area)
 		       OSPF_ROUTER_LSA, ospf->router_id, ospf->router_id);
 
 	/* Set router-LSA body fields. */
-	ospf_router_lsa_body_set(s, area);
+	ospf_router_lsa_body_set(&s, area);
 
 	/* Set length. */
 	length = stream_get_endp(s);
