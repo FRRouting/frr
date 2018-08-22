@@ -503,4 +503,5 @@ extern struct evpnes *bgp_evpn_lookup_es(struct bgp *bgp, esi_t *esi);
 extern struct evpnes *bgp_evpn_es_new(struct bgp *bgp, esi_t *esi,
 				      struct ipaddr *originator_ip);
 extern void bgp_evpn_es_free(struct bgp *bgp, struct evpnes *es);
+extern bool bgp_evpn_lookup_l3vni_l2vni_table(vni_t vni);
 #endif /* _BGP_EVPN_PRIVATE_H */
