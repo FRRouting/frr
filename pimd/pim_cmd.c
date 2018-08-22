@@ -323,8 +323,8 @@ static void pim_show_assert_winner_metric_helper(struct vty *vty,
 	char addr_str[INET_ADDRSTRLEN];
 	struct pim_assert_metric *am;
 	struct in_addr ifaddr;
-	char pref_str[5];
-	char metr_str[7];
+	char pref_str[16];
+	char metr_str[16];
 
 	ifaddr = pim_ifp->primary_address;
 
