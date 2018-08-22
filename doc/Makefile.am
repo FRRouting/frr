@@ -193,6 +193,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	developer/index.rst \
 	developer/ldpd-basic-test-setup.md \
 	developer/library.rst \
+	developer/logging.rst \
 	developer/Makefile.in \
 	developer/maintainer-release-build.rst \
 	developer/memtypes.rst \
