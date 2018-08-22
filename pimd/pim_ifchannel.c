@@ -174,7 +174,16 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	   ifchannel list is empty before deleting upstream_del
 	   ref count will take care of it.
 	*/
-	pim_upstream_del(pim_ifp->pim, ch->upstream, __PRETTY_FUNCTION__);
+	if (ch->upstream->ref_count > 0)
+		pim_upstream_del(pim_ifp->pim, ch->upstream,
+			__PRETTY_FUNCTION__);
+
+	else
+		zlog_warn("%s: Avoiding deletion of upstream with ref_count %d "
+			"from ifchannel(%s): %s", __PRETTY_FUNCTION__,
+			ch->upstream->ref_count, ch->interface->name,
+			ch->sg_str);
+
 	ch->upstream = NULL;
 
 	THREAD_OFF(ch->t_ifjoin_expiry_timer);
