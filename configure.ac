@@ -531,6 +531,46 @@ AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
 #
 # Python for clippy
 #
+
+AC_DEFUN([FRR_PYTHON_CHECK_WORKING], [
+  AC_MSG_CHECKING([whether we found a working Python version])
+  AC_LINK_IFELSE_FLAGS([$PYTHON_CFLAGS], [$PYTHON_LIBS], [AC_LANG_PROGRAM([
+#include <Python.h>
+#if PY_VERSION_HEX < 0x02070000
+#error python too old
+#endif
+int main(void);
+],
+[
+{
+  Py_Initialize();
+  return 0;
+}
+])], [
+    # some python installs are missing the zlib dependency...
+    PYTHON_LIBS="${PYTHON_LIBS} -lz"
+    AC_LINK_IFELSE_FLAGS([$PYTHON_CFLAGS], [$PYTHON_LIBS], [AC_LANG_PROGRAM([
+#include <Python.h>
+#if PY_VERSION_HEX < 0x02070000
+#error python too old
+#endif
+int main(void);
+],
+[
+{
+  Py_Initialize();
+  return 0;
+}
+])], [
+      m4_if([$1], [], [
+        PYTHONCONFIG=""
+        unset PYTHON_LIBS
+        unset PYTHON_CFLAGS
+      ], [$1])
+    ])
+  ])
+])
+
 AS_IF([test "$host" = "$build"], [
   PYTHONCONFIG=""
 
@@ -538,60 +578,40 @@ AS_IF([test "$host" = "$build"], [
   # 1.  try python3, but respect the user's preference on which minor ver
   # 2.  try python, which might be py3 or py2 again on the user's preference
   # 3.  try python2 (can really only be 2.7 but eh)
-  # 4.  try 3.5 > 3.4 > 3.3 > 3.2 > 2.7 through pkg-config (no user pref)
+  # 4.  try 3.6 > 3.5 > 3.4 > 3.3 > 3.2 > 2.7 through pkg-config (no user pref)
   #
   # (AX_PYTHON_DEVEL has no clue about py3 vs py2)
   # (AX_PYTHON does not do what we need)
 
-  AC_CHECK_TOOLS([PYTHONCONFIG], [python3-config python-config python2-config])
+  AC_CHECK_TOOLS([PYTHONCONFIG], [ \
+	python3-config \
+	python-config \
+	python2-config \
+	python3.6-config \
+	python3.5-config \
+	python3.4-config \
+	python3.3-config \
+	python3.2-config \
+	python2.7-config ])
   if test -n "$PYTHONCONFIG"; then
     PYTHON_CFLAGS="`\"${PYTHONCONFIG}\" --includes`"
-    PYTHON_LIBS="`\"${PYTHONCONFIG}\" --libs`"
+    PYTHON_LIBS="`\"${PYTHONCONFIG}\" --ldflags`"
 
-    AC_MSG_CHECKING([whether we found a working Python version])
-    AC_LINK_IFELSE_FLAGS([$PYTHON_CFLAGS], [$PYTHON_LIBS], [AC_LANG_PROGRAM([
-#include <Python.h>
-#if PY_VERSION_HEX < 0x02070000
-#error python too old
-#endif
-int main(void);
-],
-[
-{
-  Py_Initialize();
-  return 0;
-}
-])], [
-      PYTHONCONFIG=""
-      unset PYTHON_LIBS
-      unset PYTHON_CFLAGS
-    ])
+    FRR_PYTHON_CHECK_WORKING([])
   fi
 
   if test -z "$PYTHONCONFIG"; then
-    PKG_CHECK_MODULES([PYTHON], python-3.5, [], [
-      PKG_CHECK_MODULES([PYTHON], python-3.4, [], [
-        PKG_CHECK_MODULES([PYTHON], python-3.3, [], [
-          PKG_CHECK_MODULES([PYTHON], python-3.2, [], [
-            PKG_CHECK_MODULES([PYTHON], python-2.7, [], [
-              AC_MSG_FAILURE([could not find python-config or pkg-config python, please install Python development files from libpython-dev or similar])
-              ])])])])])
+    PKG_CHECK_MODULES([PYTHON], python-3.6, [], [
+      PKG_CHECK_MODULES([PYTHON], python-3.5, [], [
+        PKG_CHECK_MODULES([PYTHON], python-3.4, [], [
+          PKG_CHECK_MODULES([PYTHON], python-3.3, [], [
+            PKG_CHECK_MODULES([PYTHON], python-3.2, [], [
+              PKG_CHECK_MODULES([PYTHON], python-2.7, [], [
+                AC_MSG_FAILURE([could not find python-config or pkg-config python, please install Python development files from libpython-dev or similar])
+                ])])])])])])
 
 
-    AC_MSG_CHECKING([whether we found a working Python version])
-    AC_LINK_IFELSE_FLAGS([$PYTHON_CFLAGS], [$PYTHON_LIBS], [AC_LANG_PROGRAM([
-#include <Python.h>
-#if PY_VERSION_HEX < 0x02070000
-#error python too old
-#endif
-int main(void);
-],
-[
-{
-  Py_Initialize();
-  return 0;
-}
-])], [
+    FRR_PYTHON_CHECK_WORKING([
       AC_MSG_FAILURE([could not find python-config or pkg-config python, please install Python development files from libpython-dev or similar])
     ])
   fi
