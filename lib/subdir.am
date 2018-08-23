@@ -150,7 +150,6 @@ pkginclude_HEADERS += \
 	lib/sha256.h \
 	lib/sigevent.h \
 	lib/skiplist.h \
-	lib/smux.h \
 	lib/sockopt.h \
 	lib/sockunion.h \
 	lib/spf_backoff.h \
@@ -199,7 +198,6 @@ lib_libfrrsnmp_la_LDFLAGS = -version-info 0:0:0
 lib_libfrrsnmp_la_LIBADD = lib/libfrr.la $(SNMP_LIBS)
 lib_libfrrsnmp_la_SOURCES = \
 	lib/agentx.c \
-	lib/smux.c \
 	lib/snmp.c \
 	# end
 
