@@ -68,7 +68,7 @@ static inline int rnh_resolve_via_default(int family)
 }
 
 extern struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid,
-				 rnh_type_t type);
+				 rnh_type_t type, bool *exists);
 extern struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid,
 				    rnh_type_t type);
 extern void zebra_free_rnh(struct rnh *rnh);

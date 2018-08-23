@@ -103,7 +103,8 @@ char *rnh_str(struct rnh *rnh, char *buf, int size)
 	return buf;
 }
 
-struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type)
+struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type,
+			  bool *exists)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -119,6 +120,7 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type)
 		prefix2str(p, buf, sizeof(buf));
 		zlog_warn("%u: Add RNH %s type %d - table not found", vrfid,
 			  buf, type);
+		exists = false;
 		return NULL;
 	}
 
@@ -136,7 +138,9 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type)
 		route_lock_node(rn);
 		rn->info = rnh;
 		rnh->node = rn;
-	}
+		*exists = false;
+	} else
+		*exists = true;
 
 	route_unlock_node(rn);
 	return (rn->info);
@@ -190,6 +194,14 @@ void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type)
 	route_unlock_node(rn);
 }
 
+/*
+ * This code will send to the registering client
+ * the looked up rnh.
+ * For a rnh that was created, there is no data
+ * so it will send an empty nexthop group
+ * If rnh exists then we know it has been evaluated
+ * and as such it will have a resolved rnh.
+ */
 void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 			  rnh_type_t type, vrf_id_t vrf_id)
 {
@@ -201,8 +213,7 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 	}
 	if (!listnode_lookup(rnh->client_list, client)) {
 		listnode_add(rnh->client_list, client);
-		send_client(rnh, client, type,
-			    vrf_id); // Pending: check if its needed
+		send_client(rnh, client, type, vrf_id);
 	}
 }
 
@@ -247,9 +258,10 @@ void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
 {
 	struct prefix nh;
 	struct rnh *rnh;
+	bool exists;
 
 	addr2hostprefix(pw->af, &pw->nexthop, &nh);
-	rnh = zebra_add_rnh(&nh, vrf_id, RNH_NEXTHOP_TYPE);
+	rnh = zebra_add_rnh(&nh, vrf_id, RNH_NEXTHOP_TYPE, &exists);
 	if (rnh && !listnode_lookup(rnh->zebra_pseudowire_list, pw)) {
 		listnode_add(rnh->zebra_pseudowire_list, pw);
 		pw->rnh = rnh;
