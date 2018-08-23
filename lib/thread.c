@@ -36,6 +36,7 @@
 
 DEFINE_MTYPE_STATIC(LIB, THREAD, "Thread")
 DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master")
+DEFINE_MTYPE_STATIC(LIB, THREAD_POLL, "Thread Poll Info")
 DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats")
 
 #if defined(__APPLE__)
@@ -423,19 +424,11 @@ struct thread_master *thread_master_create(const char *name)
 	/* Initialize I/O task data structures */
 	getrlimit(RLIMIT_NOFILE, &limit);
 	rv->fd_limit = (int)limit.rlim_cur;
-	rv->read =
-		XCALLOC(MTYPE_THREAD, sizeof(struct thread *) * rv->fd_limit);
-	if (rv->read == NULL) {
-		XFREE(MTYPE_THREAD_MASTER, rv);
-		return NULL;
-	}
-	rv->write =
-		XCALLOC(MTYPE_THREAD, sizeof(struct thread *) * rv->fd_limit);
-	if (rv->write == NULL) {
-		XFREE(MTYPE_THREAD, rv->read);
-		XFREE(MTYPE_THREAD_MASTER, rv);
-		return NULL;
-	}
+	rv->read = XCALLOC(MTYPE_THREAD_POLL,
+			   sizeof(struct thread *) * rv->fd_limit);
+
+	rv->write = XCALLOC(MTYPE_THREAD_POLL,
+			    sizeof(struct thread *) * rv->fd_limit);
 
 	rv->cpu_record = hash_create_size(
 		8, (unsigned int (*)(void *))cpu_record_hash_key,
@@ -580,7 +573,7 @@ static void thread_array_free(struct thread_master *m,
 			m->alloc--;
 		}
 	}
-	XFREE(MTYPE_THREAD, thread_array);
+	XFREE(MTYPE_THREAD_POLL, thread_array);
 }
 
 static void thread_queue_free(struct thread_master *m, struct pqueue *queue)
