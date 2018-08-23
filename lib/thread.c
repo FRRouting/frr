@@ -532,17 +532,23 @@ static struct thread *thread_trim_head(struct thread_list *list)
 	return NULL;
 }
 
+#define THREAD_UNUSED_DEPTH 10
+
 /* Move thread to unuse list. */
 static void thread_add_unuse(struct thread_master *m, struct thread *thread)
 {
 	assert(m != NULL && thread != NULL);
 	assert(thread->next == NULL);
 	assert(thread->prev == NULL);
-	thread->ref = NULL;
 
-	thread->type = THREAD_UNUSED;
 	thread->hist->total_active--;
-	thread_list_add(&m->unuse, thread);
+	memset(thread, 0, sizeof(struct thread));
+	thread->type = THREAD_UNUSED;
+
+	if (m->unuse.count < THREAD_UNUSED_DEPTH)
+		thread_list_add(&m->unuse, thread);
+	else
+		XFREE(MTYPE_THREAD, thread);
 }
 
 /* Free all unused thread. */
@@ -1175,17 +1181,19 @@ void thread_cancel_event(struct thread_master *master, void *arg)
  */
 void thread_cancel(struct thread *thread)
 {
-	assert(thread->master->owner == pthread_self());
+	struct thread_master *master = thread->master;
 
-	pthread_mutex_lock(&thread->master->mtx);
+	assert(master->owner == pthread_self());
+
+	pthread_mutex_lock(&master->mtx);
 	{
 		struct cancel_req *cr =
 			XCALLOC(MTYPE_TMP, sizeof(struct cancel_req));
 		cr->thread = thread;
-		listnode_add(thread->master->cancel_req, cr);
-		do_thread_cancel(thread->master);
+		listnode_add(master->cancel_req, cr);
+		do_thread_cancel(master);
 	}
-	pthread_mutex_unlock(&thread->master->mtx);
+	pthread_mutex_unlock(&master->mtx);
 }
 
 /**
