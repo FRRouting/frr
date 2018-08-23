@@ -180,6 +180,9 @@ static void bgp_info_extra_free(struct bgp_info_extra **extra)
 
 		(*extra)->damp_info = NULL;
 
+		if ((*extra)->bgp_fs_pbr)
+			list_delete_and_null(&((*extra)->bgp_fs_pbr));
+
 		XFREE(MTYPE_BGP_ROUTE_EXTRA, *extra);
 
 		*extra = NULL;
@@ -8894,17 +8897,11 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 			bgp_unlock_node(rm);
 		}
 	} else if (safi == SAFI_FLOWSPEC) {
-		rn = bgp_flowspec_get_match_per_ip(afi, rib,
-						   &match, prefix_check);
-		if (rn != NULL) {
-			route_vty_out_flowspec(vty, &rn->p,
-					       rn->info, use_json ?
-					       NLRI_STRING_FORMAT_JSON :
-					       NLRI_STRING_FORMAT_LARGE,
-					       json_paths);
-			display++;
-			bgp_unlock_node(rn);
-		}
+		display = bgp_flowspec_display_match_per_ip(afi, rib,
+					   &match, prefix_check,
+					   vty,
+					   use_json,
+					   json_paths);
 	} else {
 		header = 1;
 

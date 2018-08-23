@@ -147,7 +147,7 @@ struct bgp_info_extra {
 	 */
 	struct prefix nexthop_orig;
 	/* presence of FS pbr entry */
-	void *bgp_fs_pbr;
+	struct list *bgp_fs_pbr;
 };
 
 struct bgp_info {
