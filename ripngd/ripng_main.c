@@ -138,7 +138,11 @@ int main(int argc, char **argv)
 	frr_preinit(&ripngd_di, argc, argv);
 
 	frr_opt_add("" DEPRECATED_OPTIONS, longopts, "");
-
+	/* Guard to prevent a second instance of this daemon */
+	if (frr_guard_daemon() == FAILURE) {
+		zlog_err("There is already a RIPNGD Process running, hence not allowing a second instance");
+		exit(1);
+	}
 	while (1) {
 		int opt;
 

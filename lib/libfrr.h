@@ -35,6 +35,12 @@
 #define FRR_NO_CFG_PID_DRY		(1 << 3)
 #define FRR_NO_ZCLIENT		(1 << 4)
 
+
+enum frr_ret {
+SUCCESS = 0,
+FAILURE = 1
+};
+
 struct frr_daemon_info {
 	unsigned flags;
 
@@ -101,7 +107,7 @@ extern struct thread_master *frr_init(void);
 
 DECLARE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 extern void frr_config_fork(void);
-
+extern int frr_guard_daemon(void);
 extern void frr_vty_serv(void);
 
 /* note: contains call to frr_vty_serv() */

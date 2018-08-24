@@ -166,7 +166,11 @@ int main(int argc, char **argv, char **envp)
 
 	frr_preinit(&isisd_di, argc, argv);
 	frr_opt_add("", longopts, "");
-
+	/* Guard to prevent a second instance of this daemon*/
+	if (frr_guard_daemon() == FAILURE) {
+		zlog_err("There is already a LDPD Process running, hence not allowing a second instance");
+		exit(1);
+	}
 	/* Command line argument treatment. */
 	while (1) {
 		opt = frr_getopt(argc, argv, NULL);

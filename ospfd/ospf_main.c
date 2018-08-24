@@ -145,7 +145,11 @@ int main(int argc, char **argv)
 	frr_opt_add("n:a", longopts,
 		    "  -n, --instance     Set the instance id\n"
 		    "  -a, --apiserver    Enable OSPF apiserver\n");
-
+	/* Guard to prevent a second instance of this daemon*/
+	if (frr_guard_daemon() == FAILURE) {
+		zlog_err("There is already a OSPFD Process running, hence not allowing a second instance");
+		exit(1);
+	}
 	while (1) {
 		int opt;
 
