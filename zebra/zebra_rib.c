@@ -1501,17 +1501,37 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 
 	/* filter route selection in following order:
 	 * - connected beats other types
+	 * - if both connected, loopback or vrf wins
 	 * - lower distance beats higher
 	 * - lower metric beats higher for equal distance
 	 * - last, hence oldest, route wins tie break.
 	 */
 
-	/* Connected routes. Pick the last connected
+	/* Connected routes. Check to see if either are a vrf
+	 * or loopback interface.  If not, pick the last connected
 	 * route of the set of lowest metric connected routes.
 	 */
 	if (alternate->type == ZEBRA_ROUTE_CONNECT) {
-		if (current->type != ZEBRA_ROUTE_CONNECT
-		    || alternate->metric <= current->metric)
+		if (current->type != ZEBRA_ROUTE_CONNECT)
+			return alternate;
+
+		/* both are connected.  are either loop or vrf? */
+		struct nexthop *nexthop = NULL;
+
+		for (ALL_NEXTHOPS(alternate->ng, nexthop)) {
+			if (if_is_loopback_or_vrf(if_lookup_by_index(
+				    nexthop->ifindex, alternate->vrf_id)))
+				return alternate;
+		}
+
+		for (ALL_NEXTHOPS(current->ng, nexthop)) {
+			if (if_is_loopback_or_vrf(if_lookup_by_index(
+				    nexthop->ifindex, current->vrf_id)))
+				return current;
+		}
+
+		/* Neither are loop or vrf so pick best metric  */
+		if (alternate->metric <= current->metric)
 			return alternate;
 
 		return current;
