@@ -249,9 +249,10 @@ static int zclient_flush_data(struct thread *thread)
 		return -1;
 	switch (buffer_flush_available(zclient->wb, zclient->sock)) {
 	case BUFFER_ERROR:
-		flog_err(LIB_ERR_ZAPI_SOCKET,
-			 "%s: buffer_flush_available failed on zclient fd %d, closing",
-			 __func__, zclient->sock);
+		flog_err(
+			LIB_ERR_ZAPI_SOCKET,
+			"%s: buffer_flush_available failed on zclient fd %d, closing",
+			__func__, zclient->sock);
 		return zclient_failed(zclient);
 		break;
 	case BUFFER_PENDING:
@@ -576,9 +577,8 @@ int zclient_start(struct zclient *zclient)
 	}
 
 	if (set_nonblocking(zclient->sock) < 0)
-		flog_err(LIB_ERR_ZAPI_SOCKET,
-			 "%s: set_nonblocking(%d) failed", __func__,
-			 zclient->sock);
+		flog_err(LIB_ERR_ZAPI_SOCKET, "%s: set_nonblocking(%d) failed",
+			 __func__, zclient->sock);
 
 	/* Clear fail count. */
 	zclient->fail = 0;
@@ -773,9 +773,10 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 			char buf[PREFIX2STR_BUFFER];
 
 			prefix2str(&api->prefix, buf, sizeof(buf));
-			flog_err(LIB_ERR_ZAPI_ENCODE,
-				 "%s: prefix %s: can't encode %u nexthops (maximum is %u)",
-				 __func__, buf, api->nexthop_num, MULTIPATH_NUM);
+			flog_err(
+				LIB_ERR_ZAPI_ENCODE,
+				"%s: prefix %s: can't encode %u nexthops (maximum is %u)",
+				__func__, buf, api->nexthop_num, MULTIPATH_NUM);
 			return -1;
 		}
 
@@ -884,17 +885,19 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	switch (api->prefix.family) {
 	case AF_INET:
 		if (api->prefix.prefixlen > IPV4_MAX_PREFIXLEN) {
-			flog_err(LIB_ERR_ZAPI_ENCODE,
-				 "%s: V4 prefixlen is %d which should not be more than 32",
-				 __PRETTY_FUNCTION__, api->prefix.prefixlen);
+			flog_err(
+				LIB_ERR_ZAPI_ENCODE,
+				"%s: V4 prefixlen is %d which should not be more than 32",
+				__PRETTY_FUNCTION__, api->prefix.prefixlen);
 			return -1;
 		}
 		break;
 	case AF_INET6:
 		if (api->prefix.prefixlen > IPV6_MAX_PREFIXLEN) {
-			flog_err(LIB_ERR_ZAPI_ENCODE,
-				 "%s: v6 prefixlen is %d which should not be more than 128",
-				 __PRETTY_FUNCTION__, api->prefix.prefixlen);
+			flog_err(
+				LIB_ERR_ZAPI_ENCODE,
+				"%s: v6 prefixlen is %d which should not be more than 128",
+				__PRETTY_FUNCTION__, api->prefix.prefixlen);
 			return -1;
 		}
 		break;
@@ -910,9 +913,10 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 		api->src_prefix.family = AF_INET6;
 		STREAM_GETC(s, api->src_prefix.prefixlen);
 		if (api->src_prefix.prefixlen > IPV6_MAX_PREFIXLEN) {
-			flog_err(LIB_ERR_ZAPI_ENCODE,
-				 "%s: SRC Prefix prefixlen received: %d is too large",
-				 __PRETTY_FUNCTION__, api->src_prefix.prefixlen);
+			flog_err(
+				LIB_ERR_ZAPI_ENCODE,
+				"%s: SRC Prefix prefixlen received: %d is too large",
+				__PRETTY_FUNCTION__, api->src_prefix.prefixlen);
 			return -1;
 		}
 		STREAM_GET(&api->src_prefix.prefix, s,
@@ -920,9 +924,10 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 
 		if (api->prefix.family != AF_INET6
 		    || api->src_prefix.prefixlen == 0) {
-			flog_err(LIB_ERR_ZAPI_ENCODE,
-				 "%s: SRC prefix specified in some manner that makes no sense",
-				 __PRETTY_FUNCTION__);
+			flog_err(
+				LIB_ERR_ZAPI_ENCODE,
+				"%s: SRC prefix specified in some manner that makes no sense",
+				__PRETTY_FUNCTION__);
 			return -1;
 		}
 	}
@@ -972,9 +977,10 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 				STREAM_GETC(s, api_nh->label_num);
 
 				if (api_nh->label_num > MPLS_MAX_LABELS) {
-					flog_err(LIB_ERR_ZAPI_ENCODE,
-						 "%s: invalid number of MPLS labels (%u)",
-						 __func__, api_nh->label_num);
+					flog_err(
+						LIB_ERR_ZAPI_ENCODE,
+						"%s: invalid number of MPLS labels (%u)",
+						__func__, api_nh->label_num);
 					return -1;
 				}
 
@@ -1666,11 +1672,12 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 				/* carp interfaces on OpenBSD with 0.0.0.0/0 as
 				 * "peer" */
 				char buf[PREFIX_STRLEN];
-				flog_err(LIB_ERR_ZAPI_ENCODE,
-					 "warning: interface %s address %s with peer flag set, but no peer address!",
-					 ifp->name,
-					 prefix2str(ifc->address, buf,
-						    sizeof buf));
+				flog_err(
+					LIB_ERR_ZAPI_ENCODE,
+					"warning: interface %s address %s with peer flag set, but no peer address!",
+					ifp->name,
+					prefix2str(ifc->address, buf,
+						   sizeof buf));
 				UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
 			}
 		}
@@ -1723,8 +1730,8 @@ zebra_interface_nbr_address_read(int type, struct stream *s, vrf_id_t vrf_id)
 		flog_err(LIB_ERR_ZAPI_ENCODE,
 			 "INTERFACE_NBR_%s: Cannot find IF %u in VRF %d",
 			 (type == ZEBRA_INTERFACE_NBR_ADDRESS_ADD) ? "ADD"
-			 : "DELETE",
-			  ifindex, vrf_id);
+								   : "DELETE",
+			 ifindex, vrf_id);
 		return NULL;
 	}
 
@@ -2407,10 +2414,11 @@ static int zclient_read(struct thread *thread)
 	/* Length check. */
 	if (length > STREAM_SIZE(zclient->ibuf)) {
 		struct stream *ns;
-		flog_err(LIB_ERR_ZAPI_ENCODE,
-			 "%s: message size %u exceeds buffer size %lu, expanding...",
-			 __func__, length,
-			 (unsigned long)STREAM_SIZE(zclient->ibuf));
+		flog_err(
+			LIB_ERR_ZAPI_ENCODE,
+			"%s: message size %u exceeds buffer size %lu, expanding...",
+			__func__, length,
+			(unsigned long)STREAM_SIZE(zclient->ibuf));
 		ns = stream_new(length);
 		stream_copy(ns, zclient->ibuf);
 		stream_free(zclient->ibuf);

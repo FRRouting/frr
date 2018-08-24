@@ -271,8 +271,8 @@ void ospf_nbr_add_self(struct ospf_interface *oi, struct in_addr router_id)
 		/* There is already pseudo neighbor. */
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				   "router_id %s already present in neighbor table. node refcount %u",
-				   inet_ntoa(router_id), rn->lock);
+				"router_id %s already present in neighbor table. node refcount %u",
+				inet_ntoa(router_id), rn->lock);
 		route_unlock_node(rn);
 	} else
 		rn->info = oi->nbr_self;

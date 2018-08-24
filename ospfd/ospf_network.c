@@ -51,12 +51,13 @@ int ospf_if_add_allspfrouters(struct ospf *top, struct prefix *p,
 					p->u.prefix4, htonl(OSPF_ALLSPFROUTERS),
 					ifindex);
 	if (ret < 0)
-		flog_err(LIB_ERR_SOCKET,
-			 "can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
-			 "ifindex %u, AllSPFRouters): %s; perhaps a kernel limit "
-			 "on # of multicast group memberships has been exceeded?",
-			 top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			 safe_strerror(errno));
+		flog_err(
+			LIB_ERR_SOCKET,
+			"can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
+			"ifindex %u, AllSPFRouters): %s; perhaps a kernel limit "
+			"on # of multicast group memberships has been exceeded?",
+			top->fd, inet_ntoa(p->u.prefix4), ifindex,
+			safe_strerror(errno));
 	else {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
@@ -101,12 +102,13 @@ int ospf_if_add_alldrouters(struct ospf *top, struct prefix *p,
 					p->u.prefix4, htonl(OSPF_ALLDROUTERS),
 					ifindex);
 	if (ret < 0)
-		flog_err(LIB_ERR_SOCKET,
-			 "can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
-			 "ifindex %u, AllDRouters): %s; perhaps a kernel limit "
-			 "on # of multicast group memberships has been exceeded?",
-			 top->fd, inet_ntoa(p->u.prefix4), ifindex,
-			 safe_strerror(errno));
+		flog_err(
+			LIB_ERR_SOCKET,
+			"can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
+			"ifindex %u, AllDRouters): %s; perhaps a kernel limit "
+			"on # of multicast group memberships has been exceeded?",
+			top->fd, inet_ntoa(p->u.prefix4), ifindex,
+			safe_strerror(errno));
 	else
 		zlog_debug(
 			"interface %s [%u] join AllDRouters Multicast group.",

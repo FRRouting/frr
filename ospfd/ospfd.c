@@ -324,9 +324,10 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 	new->fd = -1;
 	if ((ospf_sock_init(new)) < 0) {
 		if (new->vrf_id != VRF_UNKNOWN)
-			flog_err(LIB_ERR_SOCKET,
-				 "%s: ospf_sock_init is unable to open a socket",
-				 __func__);
+			flog_err(
+				LIB_ERR_SOCKET,
+				"%s: ospf_sock_init is unable to open a socket",
+				__func__);
 		return new;
 	}
 	thread_add_read(master, ospf_read, new, new->fd, &new->t_read);

@@ -140,8 +140,7 @@ int sockunion_socket(const union sockunion *su)
 	sock = socket(su->sa.sa_family, SOCK_STREAM, 0);
 	if (sock < 0) {
 		char buf[SU_ADDRSTRLEN];
-		flog_err(LIB_ERR_SOCKET,
-			 "Can't make socket for %s : %s",
+		flog_err(LIB_ERR_SOCKET, "Can't make socket for %s : %s",
 			 sockunion_log(su, buf, SU_ADDRSTRLEN),
 			 safe_strerror(errno));
 		return -1;
@@ -275,8 +274,7 @@ int sockunion_bind(int sock, union sockunion *su, unsigned short port,
 	ret = bind(sock, (struct sockaddr *)su, size);
 	if (ret < 0) {
 		char buf[SU_ADDRSTRLEN];
-		flog_err(LIB_ERR_SOCKET,
-			 "can't bind socket for %s : %s",
+		flog_err(LIB_ERR_SOCKET, "can't bind socket for %s : %s",
 			 sockunion_log(su, buf, SU_ADDRSTRLEN),
 			 safe_strerror(errno));
 	}
@@ -332,7 +330,7 @@ int sockopt_ttl(int family, int sock, int ttl)
 		if (ret < 0) {
 			flog_err(LIB_ERR_SOCKET,
 				 "can't set sockopt IP_TTL %d to socket %d",
-				  ttl, sock);
+				 ttl, sock);
 			return -1;
 		}
 		return 0;
@@ -342,9 +340,10 @@ int sockopt_ttl(int family, int sock, int ttl)
 		ret = setsockopt(sock, IPPROTO_IPV6, IPV6_UNICAST_HOPS,
 				 (void *)&ttl, sizeof(int));
 		if (ret < 0) {
-			flog_err(LIB_ERR_SOCKET,
-				 "can't set sockopt IPV6_UNICAST_HOPS %d to socket %d",
-				 ttl, sock);
+			flog_err(
+				LIB_ERR_SOCKET,
+				"can't set sockopt IPV6_UNICAST_HOPS %d to socket %d",
+				ttl, sock);
 			return -1;
 		}
 		return 0;
@@ -389,9 +388,10 @@ int sockopt_minttl(int family, int sock, int minttl)
 		int ret = setsockopt(sock, IPPROTO_IP, IP_MINTTL, &minttl,
 				     sizeof(minttl));
 		if (ret < 0)
-			flog_err(LIB_ERR_SOCKET,
-				 "can't set sockopt IP_MINTTL to %d on socket %d: %s",
-				 minttl, sock, safe_strerror(errno));
+			flog_err(
+				LIB_ERR_SOCKET,
+				"can't set sockopt IP_MINTTL to %d on socket %d: %s",
+				minttl, sock, safe_strerror(errno));
 		return ret;
 	}
 #endif /* IP_MINTTL */
@@ -400,9 +400,10 @@ int sockopt_minttl(int family, int sock, int minttl)
 		int ret = setsockopt(sock, IPPROTO_IPV6, IPV6_MINHOPCOUNT,
 				     &minttl, sizeof(minttl));
 		if (ret < 0)
-			flog_err(LIB_ERR_SOCKET,
-				 "can't set sockopt IPV6_MINHOPCOUNT to %d on socket %d: %s",
-				 minttl, sock, safe_strerror(errno));
+			flog_err(
+				LIB_ERR_SOCKET,
+				"can't set sockopt IPV6_MINHOPCOUNT to %d on socket %d: %s",
+				minttl, sock, safe_strerror(errno));
 		return ret;
 	}
 #endif

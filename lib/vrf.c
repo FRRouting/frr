@@ -667,8 +667,8 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 					vrf->vrf_id, ns->name);
 			else
 				zlog_info(
-					  "VRF %u already configured with NETNS %s",
-					  vrf->vrf_id, ns->name);
+					"VRF %u already configured with NETNS %s",
+					vrf->vrf_id, ns->name);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}

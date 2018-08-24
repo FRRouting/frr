@@ -186,8 +186,9 @@ static int ospf_router_info_register(uint8_t scope)
 		NULL); /* del_lsa_hook */
 
 	if (rc != 0) {
-		flog_warn(OSPF_WARN_OPAQUE_REGISTRATION,
-			  "ospf_router_info_init: Failed to register functions");
+		flog_warn(
+			OSPF_WARN_OPAQUE_REGISTRATION,
+			"ospf_router_info_init: Failed to register functions");
 		return rc;
 	}
 
@@ -201,7 +202,8 @@ static int ospf_router_info_unregister()
 
 	if ((OspfRI.scope != OSPF_OPAQUE_AS_LSA)
 	    && (OspfRI.scope != OSPF_OPAQUE_AREA_LSA)) {
-		assert("Unable to unregister Router Info functions: Wrong scope!" == NULL);
+		assert("Unable to unregister Router Info functions: Wrong scope!"
+		       == NULL);
 		return -1;
 	}
 

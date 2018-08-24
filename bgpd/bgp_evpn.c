@@ -3683,10 +3683,11 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 	if (attr &&
 	    (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL))) {
 		if (attr->pmsi_tnl_type != PMSI_TNLTYPE_INGR_REPL) {
-			flog_warn(BGP_WARN_EVPN_PMSI_PRESENT,
-				  "%u:%s - Rx EVPN Type-3 NLRI with unsupported PTA %d",
-				  peer->bgp->vrf_id, peer->host,
-				  attr->pmsi_tnl_type);
+			flog_warn(
+				BGP_WARN_EVPN_PMSI_PRESENT,
+				"%u:%s - Rx EVPN Type-3 NLRI with unsupported PTA %d",
+				peer->bgp->vrf_id, peer->host,
+				attr->pmsi_tnl_type);
 		}
 	}
 
@@ -5401,9 +5402,10 @@ int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn) {
 		if (bgp_debug_zebra(NULL))
-			flog_warn(BGP_WARN_EVPN_VPN_VNI,
-				  "%u: VNI hash entry for VNI %u not found at DEL",
-				  bgp->vrf_id, vni);
+			flog_warn(
+				BGP_WARN_EVPN_VPN_VNI,
+				"%u: VNI hash entry for VNI %u not found at DEL",
+				bgp->vrf_id, vni);
 		return 0;
 	}
 

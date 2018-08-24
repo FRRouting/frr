@@ -427,9 +427,10 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 				break;
 			default:
 				/* TODO: handle IPv6 nexthops */
-				flog_warn(BGP_WARN_INVALID_NEXTHOP_LENGTH,
-					  "%s: %s: invalid MP nexthop length (AFI IP): %u",
-					  __func__, peer->host, nhlen);
+				flog_warn(
+					BGP_WARN_INVALID_NEXTHOP_LENGTH,
+					"%s: %s: invalid MP nexthop length (AFI IP): %u",
+					__func__, peer->host, nhlen);
 				stream_free(s);
 				return NULL;
 			}
@@ -532,9 +533,10 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 				break;
 			default:
 				/* TODO: handle IPv4 nexthops */
-				flog_warn(BGP_WARN_INVALID_NEXTHOP_LENGTH,
-					  "%s: %s: invalid MP nexthop length (AFI IP6): %u",
-					  __func__, peer->host, nhlen);
+				flog_warn(
+					BGP_WARN_INVALID_NEXTHOP_LENGTH,
+					"%s: %s: invalid MP nexthop length (AFI IP6): %u",
+					__func__, peer->host, nhlen);
 				stream_free(s);
 				return NULL;
 			}

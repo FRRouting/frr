@@ -760,8 +760,8 @@ static int ospf_ext_link_lsa_update(struct ospf_lsa *lsa)
 {
 	/* Sanity Check */
 	if (lsa == NULL) {
-		flog_warn(OSPF_WARN_LSA_NULL,
-			  "EXT (%s): Abort! LSA is NULL", __func__);
+		flog_warn(OSPF_WARN_LSA_NULL, "EXT (%s): Abort! LSA is NULL",
+			  __func__);
 		return -1;
 	}
 
@@ -794,8 +794,8 @@ static int ospf_ext_pref_lsa_update(struct ospf_lsa *lsa)
 
 	/* Sanity Check */
 	if (lsa == NULL) {
-		flog_warn(OSPF_WARN_LSA_NULL,
-			  "EXT (%s): Abort! LSA is NULL", __func__);
+		flog_warn(OSPF_WARN_LSA_NULL, "EXT (%s): Abort! LSA is NULL",
+			  __func__);
 		return -1;
 	}
 
@@ -1190,8 +1190,9 @@ static int ospf_ext_pref_lsa_originate(void *arg)
 		if (CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ENGAGED)) {
 			if (CHECK_FLAG(exti->flags,
 				       EXT_LPFLG_LSA_FORCED_REFRESH)) {
-				flog_warn(OSPF_WARN_EXT_LSA_UNEXPECTED,
-					  "EXT (%s): Refresh instead of Originate",
+				flog_warn(
+					OSPF_WARN_EXT_LSA_UNEXPECTED,
+					"EXT (%s): Refresh instead of Originate",
 					__func__);
 				UNSET_FLAG(exti->flags,
 					   EXT_LPFLG_LSA_FORCED_REFRESH);
@@ -1247,9 +1248,10 @@ static int ospf_ext_link_lsa_originate(void *arg)
 		if (CHECK_FLAG(exti->flags, EXT_LPFLG_LSA_ENGAGED)) {
 			if (CHECK_FLAG(exti->flags,
 				       EXT_LPFLG_LSA_FORCED_REFRESH)) {
-				flog_warn(OSPF_WARN_EXT_LSA_UNEXPECTED,
-					  "EXT (%s): Refresh instead of Originate",
-					  __func__);
+				flog_warn(
+					OSPF_WARN_EXT_LSA_UNEXPECTED,
+					"EXT (%s): Refresh instead of Originate",
+					__func__);
 				UNSET_FLAG(exti->flags,
 					   EXT_LPFLG_LSA_FORCED_REFRESH);
 				ospf_ext_link_lsa_schedule(exti,
@@ -1467,9 +1469,10 @@ static void ospf_ext_pref_lsa_schedule(struct ext_itf *exti,
 
 	/* Set LSA header information */
 	if (exti->area == NULL) {
-		flog_warn(OSPF_WARN_EXT_LSA_UNEXPECTED,
-			  "EXT (%s): Flooding is Area scope but area is not yet set",
-			  __func__);
+		flog_warn(
+			OSPF_WARN_EXT_LSA_UNEXPECTED,
+			"EXT (%s): Flooding is Area scope but area is not yet set",
+			__func__);
 		if (OspfEXT.area == NULL) {
 			top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 			OspfEXT.area = ospf_area_lookup_by_area_id(
@@ -1527,9 +1530,10 @@ static void ospf_ext_link_lsa_schedule(struct ext_itf *exti,
 
 	/* Set LSA header information */
 	if (exti->area == NULL) {
-		flog_warn(OSPF_WARN_EXT_LSA_UNEXPECTED,
-			  "EXT (%s): Flooding is Area scope but area is not yet set",
-			  __func__);
+		flog_warn(
+			OSPF_WARN_EXT_LSA_UNEXPECTED,
+			"EXT (%s): Flooding is Area scope but area is not yet set",
+			__func__);
 		if (OspfEXT.area == NULL) {
 			top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 			OspfEXT.area = ospf_area_lookup_by_area_id(

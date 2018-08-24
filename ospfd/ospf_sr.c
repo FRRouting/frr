@@ -818,8 +818,8 @@ static struct sr_prefix *get_ext_prefix_sid(struct tlv_header *tlvh)
 			psid = (struct ext_subtlv_prefix_sid *)sub_tlvh;
 			if (psid->algorithm != SR_ALGORITHM_SPF) {
 				flog_err(OSPF_ERR_INVALID_ALGORITHM,
-					  "SR (%s): Unsupported Algorithm",
-					  __func__);
+					 "SR (%s): Unsupported Algorithm",
+					 __func__);
 				XFREE(MTYPE_OSPF_SR_PARAMS, srp);
 				return NULL;
 			}

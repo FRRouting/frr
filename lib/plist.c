@@ -933,8 +933,9 @@ static int vty_prefix_list_install(struct vty *vty, afi_t afi, const char *name,
 		vty_out(vty,
 			"%% Prefix-list %s prefix changed from %s to %s to match length\n",
 			name, buf, buf_tmp);
-		zlog_info("Prefix-list %s prefix changed from %s to %s to match length",
-			  name, buf, buf_tmp);
+		zlog_info(
+			"Prefix-list %s prefix changed from %s to %s to match length",
+			name, buf, buf_tmp);
 		p = p_tmp;
 	}
 

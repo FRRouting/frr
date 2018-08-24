@@ -136,11 +136,11 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 			inet_ntop(AF_INET, (void *)&nexthop.s_addr, inetbuf,
 				  INET6_BUFSIZ);
 			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			    zlog_debug(
-				       "Redistribute[%s][%d][%u]: %s/%d discarding old info with NH %s.",
-				       ospf_redist_string(type), instance,
-				       ospf->vrf_id, inet_ntoa(p.prefix), p.prefixlen,
-				       inetbuf);
+				zlog_debug(
+					"Redistribute[%s][%d][%u]: %s/%d discarding old info with NH %s.",
+					ospf_redist_string(type), instance,
+					ospf->vrf_id, inet_ntoa(p.prefix),
+					p.prefixlen, inetbuf);
 			XFREE(MTYPE_OSPF_EXTERNAL_INFO, rn->info);
 			rn->info = NULL;
 		}

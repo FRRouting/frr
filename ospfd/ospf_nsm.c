@@ -796,15 +796,16 @@ int ospf_nsm_event(struct thread *thread)
 			 * not
 			 * try set next_state.
 			 */
-			flog_err(OSPF_ERR_FSM_INVALID_STATE,
-				 "NSM[%s:%s]: %s (%s): "
-				 "Warning: action tried to change next_state to %s",
-				 IF_NAME(nbr->oi), inet_ntoa(nbr->router_id),
-				 lookup_msg(ospf_nsm_state_msg, nbr->state,
-					    NULL),
-				 ospf_nsm_event_str[event],
-				 lookup_msg(ospf_nsm_state_msg, func_state,
-					    NULL));
+			flog_err(
+				OSPF_ERR_FSM_INVALID_STATE,
+				"NSM[%s:%s]: %s (%s): "
+				"Warning: action tried to change next_state to %s",
+				IF_NAME(nbr->oi), inet_ntoa(nbr->router_id),
+				lookup_msg(ospf_nsm_state_msg, nbr->state,
+					   NULL),
+				ospf_nsm_event_str[event],
+				lookup_msg(ospf_nsm_state_msg, func_state,
+					   NULL));
 		}
 	}
 

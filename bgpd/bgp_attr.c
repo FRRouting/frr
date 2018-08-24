@@ -1760,9 +1760,10 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	{
 		uint8_t val;
 		if ((val = stream_getc(s)))
-			flog_warn(BGP_WARN_DEFUNCT_SNPA_LEN,
-				  "%s sent non-zero value, %u, for defunct SNPA-length field",
-				  peer->host, val);
+			flog_warn(
+				BGP_WARN_DEFUNCT_SNPA_LEN,
+				"%s sent non-zero value, %u, for defunct SNPA-length field",
+				peer->host, val);
 	}
 
 	/* must have nrli_len, what is left of the attribute */
@@ -2378,11 +2379,12 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 		/* Check remaining length check.*/
 		if (endp - BGP_INPUT_PNT(peer) < BGP_ATTR_MIN_LEN) {
 			/* XXX warning: long int format, int arg (arg 5) */
-			flog_warn(BGP_WARN_ATTRIBUTE_TOO_SMALL,
-				  "%s: error BGP attribute length %lu is smaller than min len",
-				  peer->host,
-				  (unsigned long)(endp
-						  - stream_pnt(BGP_INPUT(peer))));
+			flog_warn(
+				BGP_WARN_ATTRIBUTE_TOO_SMALL,
+				"%s: error BGP attribute length %lu is smaller than min len",
+				peer->host,
+				(unsigned long)(endp
+						- stream_pnt(BGP_INPUT(peer))));
 
 			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
@@ -2400,11 +2402,12 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 		/* Check whether Extended-Length applies and is in bounds */
 		if (CHECK_FLAG(flag, BGP_ATTR_FLAG_EXTLEN)
 		    && ((endp - startp) < (BGP_ATTR_MIN_LEN + 1))) {
-			flog_warn(BGP_WARN_EXT_ATTRIBUTE_TOO_SMALL,
-				  "%s: Extended length set, but just %lu bytes of attr header",
-				  peer->host,
-				  (unsigned long)(endp
-						  - stream_pnt(BGP_INPUT(peer))));
+			flog_warn(
+				BGP_WARN_EXT_ATTRIBUTE_TOO_SMALL,
+				"%s: Extended length set, but just %lu bytes of attr header",
+				peer->host,
+				(unsigned long)(endp
+						- stream_pnt(BGP_INPUT(peer))));
 
 			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
@@ -2422,9 +2425,10 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 		   List. */
 
 		if (CHECK_BITMAP(seen, type)) {
-			flog_warn(BGP_WARN_ATTRIBUTE_REPEATED,
-				  "%s: error BGP attribute type %d appears twice in a message",
-				  peer->host, type);
+			flog_warn(
+				BGP_WARN_ATTRIBUTE_REPEATED,
+				"%s: error BGP attribute type %d appears twice in a message",
+				peer->host, type);
 
 			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_MAL_ATTR);
@@ -2440,10 +2444,11 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 		attr_endp = BGP_INPUT_PNT(peer) + length;
 
 		if (attr_endp > endp) {
-			flog_warn(BGP_WARN_ATTRIBUTE_TOO_LARGE,
-				  "%s: BGP type %d length %d is too large, attribute total length is %d.  attr_endp is %p.  endp is %p",
-				  peer->host, type, length, size, attr_endp,
-				  endp);
+			flog_warn(
+				BGP_WARN_ATTRIBUTE_TOO_LARGE,
+				"%s: BGP type %d length %d is too large, attribute total length is %d.  attr_endp is %p.  endp is %p",
+				peer->host, type, length, size, attr_endp,
+				endp);
 			/*
 			 * RFC 4271 6.3
 			 * If any recognized attribute has an Attribute
@@ -2607,7 +2612,8 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 		}
 		if (ret == BGP_ATTR_PARSE_WITHDRAW) {
 
-			flog_warn(BGP_WARN_ATTRIBUTE_PARSE_WITHDRAW,
+			flog_warn(
+				BGP_WARN_ATTRIBUTE_PARSE_WITHDRAW,
 				"%s: Attribute %s, parse error - treating as withdrawal",
 				peer->host, lookup_msg(attr_str, type, NULL));
 			if (as4_path)
