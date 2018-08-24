@@ -111,10 +111,11 @@ static int ospf_interface_add(int command, struct zclient *zclient,
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug(
-			"Zebra: interface add %s vrf %s[%u] index %d flags %llx metric %d mtu %d",
+			"Zebra: interface add %s vrf %s[%u] index %d flags %llx metric %d mtu %d speed %u",
 			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
 			ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
+			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu,
+			ifp->speed);
 
 	assert(ifp->info);
 
@@ -127,6 +128,8 @@ static int ospf_interface_add(int command, struct zclient *zclient,
 	ospf = ospf_lookup_by_vrf_id(vrf_id);
 	if (!ospf)
 		return 0;
+
+	ospf_if_recalculate_output_cost(ifp);
 
 	ospf_if_update(ospf, ifp);
 
@@ -448,14 +451,17 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 		count++;
 
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
-			char buf[2][PREFIX2STR_BUFFER];
+			char buf[2][INET_ADDRSTRLEN];
+			struct interface *ifp;
+
+			ifp = if_lookup_by_index(path->ifindex, ospf->vrf_id);
 
 			zlog_debug(
-				"Zebra: Route add %s nexthop %s, ifindex=%d",
+				"Zebra: Route add %s nexthop %s, ifindex=%d %s",
 				prefix2str(p, buf[0], sizeof(buf[0])),
 			        inet_ntop(AF_INET, &path->nexthop,
 					  buf[1], sizeof(buf[1])),
-				path->ifindex);
+				path->ifindex, ifp ? ifp->name : " ");
 		}
 	}
 	api.nexthop_num = count;
