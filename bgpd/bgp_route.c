@@ -8581,9 +8581,19 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	int count = 0;
 	int best = 0;
 	int suppress = 0;
+	int accept_own = 0;
+	int route_filter_translated_v4 = 0;
+	int route_filter_v4 = 0;
+	int route_filter_translated_v6 = 0;
+	int route_filter_v6 = 0;
+	int llgr_stale = 0;
+	int no_llgr = 0;
+	int accept_own_nexthop = 0;
+	int blackhole = 0;
 	int no_export = 0;
 	int no_advertise = 0;
 	int local_as = 0;
+	int no_peer = 0;
 	int first = 1;
 	int has_valid_label = 0;
 	mpls_label_t label = 0;
@@ -8660,12 +8670,41 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 		} else
 			vty_out(vty, ", no best path");
 
-		if (no_advertise)
-			vty_out(vty, ", not advertised to any peer");
+		if (accept_own)
+			vty_out(vty,
+			", accept own local route exported and imported in different VRF");
+		else if (route_filter_translated_v4)
+			vty_out(vty,
+			", mark translated RTs for VPNv4 route filtering");
+		else if (route_filter_v4)
+			vty_out(vty,
+			", attach RT as-is for VPNv4 route filtering");
+		else if (route_filter_translated_v6)
+			vty_out(vty,
+			", mark translated RTs for VPNv6 route filtering");
+		else if (route_filter_v6)
+			vty_out(vty,
+			", attach RT as-is for VPNv6 route filtering");
+		else if (llgr_stale)
+			vty_out(vty,
+			", mark routes to be retained for a longer time. Requeres support for Long-lived BGP Graceful Restart");
+		else if (no_llgr)
+			vty_out(vty,
+			", mark routes to not be treated according to Long-lived BGP Graceful Restart operations");
+		else if (accept_own_nexthop)
+			vty_out(vty,
+			", accept local nexthop");
+		else if (blackhole)
+			vty_out(vty, ", inform peer to blackhole prefix");
 		else if (no_export)
 			vty_out(vty, ", not advertised to EBGP peer");
+		else if (no_advertise)
+			vty_out(vty, ", not advertised to any peer");
 		else if (local_as)
 			vty_out(vty, ", not advertised outside local AS");
+		else if (no_peer)
+			vty_out(vty,
+			", inform EBGP peer not to advertise to their EBGP peers");
 
 		if (suppress)
 			vty_out(vty,
@@ -9026,6 +9065,10 @@ DEFUN (show_ip_bgp,
            |prefix-list WORD\
            |filter-list WORD\
            |statistics\
+           |community <AA:NN|local-AS|no-advertise|no-export|graceful-shutdown\
+           no-peer|blackhole|llgr-stale|no-llgr|accept-own|accept-own-nexthop\
+           route-filter-v6|route-filter-v4|route-filter-translated-v6|\
+           route-filter-translated-v4> [exact-match]\
            |community-list <(1-500)|WORD> [exact-match]\
            |A.B.C.D/M longer-prefixes\
            |X:X::X:X/M longer-prefixes\
@@ -9045,6 +9088,23 @@ DEFUN (show_ip_bgp,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n"
        "BGP RIB advertisement statistics\n"
+       "Display routes matching the communities\n"
+       COMMUNITY_AANN_STR
+       "Do not send outside local AS (well-known community)\n"
+       "Do not advertise to any peer (well-known community)\n"
+       "Do not export to next AS (well-known community)\n"
+       "Graceful shutdown (well-known community)\n"
+       "Do not export to any peer (well-known community)\n"
+       "Inform EBGP peers to blackhole traffic to prefix (well-known community)\n"
+       "Staled Long-lived Graceful Restart VPN route (well-known community)\n"
+       "Removed because Long-lived Graceful Restart was not enabled for VPN route (well-known community)\n"
+       "Should accept local VPN route if exported and imported into different VRF (well-known community)\n"
+       "Should accept VPN route with local nexthop (well-known community)\n"
+       "RT VPNv6 route filtering (well-known community)\n"
+       "RT VPNv4 route filtering (well-known community)\n"
+       "RT translated VPNv6 route filtering (well-known community)\n"
+       "RT translated VPNv4 route filtering (well-known community)\n"
+       "Exact match of the communities\n"
        "Display routes matching the community-list\n"
        "community-list number\n"
        "community-list name\n"
