@@ -7345,7 +7345,7 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 }
 
 /* clang-format off */
-#if CONFDATE > 20180517
+#if CONFDATE > 20190517
 CPP_NOTICE("bgpd: remove 'bgp enforce-first-as' config migration from bgp_config_write")
 #endif
 /* clang-format on */

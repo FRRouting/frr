@@ -2019,7 +2019,7 @@ DEFUN (no_bgp_fast_external_failover,
 }
 
 /* "bgp enforce-first-as" configuration. */
-#if CONFDATE > 20180517
+#if CONFDATE > 20190517
 CPP_NOTICE("bgpd: remove deprecated '[no] bgp enforce-first-as' commands")
 #endif
 
