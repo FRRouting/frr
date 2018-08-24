@@ -28,9 +28,11 @@
 #include "if.h"
 #include "vrf.h"
 #include "vty.h"
+#include "lib_errors.h"
 
 #include "zebra/rib.h"
 #include "zebra/rt.h"
+#include "zebra/zebra_errors.h"
 
 /* Thank you, Solaris, for polluting application symbol namespace. */
 #undef hook_register

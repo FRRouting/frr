@@ -43,6 +43,7 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_errors.h"
 
 #define ZEBRA_PTM_SUPPORT
 

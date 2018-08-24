@@ -25,7 +25,6 @@
 
 #include "log.h"
 #include "privs.h"
-#include "lib_errors.h"
 
 #include "zebra/ipforward.h"
 

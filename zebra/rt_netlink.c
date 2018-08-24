@@ -64,6 +64,7 @@
 #include "zebra/rt_netlink.h"
 #include "zebra/zebra_mroute.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_errors.h"
 
 #ifndef AF_MPLS
 #define AF_MPLS 28

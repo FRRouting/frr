@@ -38,6 +38,7 @@
 #include "zebra/interface.h"
 #include "zebra/rib.h"
 #include "zebra/rt.h"
+#include "zebra/zebra_errors.h"
 
 #include <ifaddrs.h>
 

@@ -37,6 +37,7 @@
 #include "zebra/rt.h"
 #include "zebra/interface.h"
 #include "zebra/ioctl_solaris.h"
+#include "zebra/zebra_errors.h"
 
 extern struct zebra_privs_t zserv_privs;
 

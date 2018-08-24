@@ -34,6 +34,7 @@
 #include "version.h"
 #include "vrf.h"
 #include "vty.h"
+#include "lib_errors.h"
 
 #include "zebra/debug.h"
 #include "zebra/interface.h"

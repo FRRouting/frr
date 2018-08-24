@@ -26,7 +26,6 @@
 #include "lib/logicalrouter.h"
 #include "lib/prefix.h"
 #include "lib/memory.h"
-#include "lib/lib_errors.h"
 
 #include "rtadv.h"
 #include "zebra_ns.h"

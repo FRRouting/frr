@@ -26,6 +26,7 @@
 #include "zebra/rt.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/debug.h"
+#include "zebra/zebra_errors.h"
 
 #include "privs.h"
 #include "prefix.h"

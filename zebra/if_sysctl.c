@@ -37,6 +37,7 @@
 #include "zebra/rt.h"
 #include "zebra/kernel_socket.h"
 #include "zebra/rib.h"
+#include "zebra/zebra_errors.h"
 
 void ifstat_update_sysctl(void)
 {

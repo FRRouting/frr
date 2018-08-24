@@ -59,6 +59,7 @@
 #include "zebra/zserv.h"
 #include "zebra/redistribute.h"
 #include "zebra/irdp.h"
+#include "zebra/zebra_errors.h"
 #include <netinet/ip_icmp.h>
 
 #include "checksum.h"

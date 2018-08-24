@@ -39,6 +39,7 @@
 #include "zebra/interface.h"
 #include "zebra/ioctl_solaris.h"
 #include "zebra/rib.h"
+#include "zebra/zebra_errors.h"
 
 static int if_get_addr(struct interface *, struct sockaddr *, const char *);
 static void interface_info_ioctl(struct interface *);

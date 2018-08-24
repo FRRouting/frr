@@ -62,6 +62,7 @@
 #include "zebra/zebra_pbr.h"
 #include "zebra/table_manager.h"
 #include "zebra/zapi_msg.h"
+#include "zebra/zebra_errors.h"
 
 /* Encoding helpers -------------------------------------------------------- */
 

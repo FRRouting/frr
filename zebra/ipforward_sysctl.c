@@ -43,7 +43,7 @@ int ipforward(void)
 
 	len = sizeof ipforwarding;
 	if (sysctl(mib, MIB_SIZ, &ipforwarding, &len, 0, 0) < 0) {
-		flog_err_sys(LIB_ERR_SYSCALL, "Can't get ipforwarding value");
+		flog_err_sys(LIB_ERR_SYSTEM_CALL, "Can't get ipforwarding value");
 		return -1;
 	}
 	return ipforwarding;
@@ -57,7 +57,7 @@ int ipforward_on(void)
 	len = sizeof ipforwarding;
 	frr_elevate_privs(&zserv_privs) {
 		if (sysctl(mib, MIB_SIZ, NULL, NULL, &ipforwarding, len) < 0) {
-			flog_err_sys(LIB_ERR_SYSCALL,
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
 				     "Can't set ipforwarding on");
 			return -1;
 		}
@@ -73,7 +73,7 @@ int ipforward_off(void)
 	len = sizeof ipforwarding;
 	frr_elevate_privs(&zserv_privs) {
 		if (sysctl(mib, MIB_SIZ, NULL, NULL, &ipforwarding, len) < 0) {
-			flog_err_sys(LIB_ERR_SYSCALL,
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
 				     "Can't set ipforwarding on");
 			return -1;
 		}
@@ -98,7 +98,7 @@ int ipforward_ipv6(void)
 	len = sizeof ip6forwarding;
 	frr_elevate_privs(&zserv_privs) {
 		if (sysctl(mib_ipv6, MIB_SIZ, &ip6forwarding, &len, 0, 0) < 0) {
-			flog_err_sys(_LIB_ERR_SYSCALL,
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
 				     "can't get ip6forwarding value");
 			return -1;
 		}
@@ -115,7 +115,7 @@ int ipforward_ipv6_on(void)
 	frr_elevate_privs(&zserv_privs) {
 		if (sysctl(mib_ipv6, MIB_SIZ, NULL, NULL, &ip6forwarding, len)
 		    < 0) {
-			flog_err_sys(LIB_ERR_SYSCALL,
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
 				     "can't get ip6forwarding value");
 			return -1;
 		}
@@ -132,7 +132,7 @@ int ipforward_ipv6_off(void)
 	frr_elevate_privs(&zserv_privs) {
 		if (sysctl(mib_ipv6, MIB_SIZ, NULL, NULL, &ip6forwarding, len)
 		    < 0) {
-			flog_err_sys(LIB_ERR_SYSCALL,
+			flog_err_sys(LIB_ERR_SYSTEM_CALL,
 				     "can't get ip6forwarding value");
 			return -1;
 		}

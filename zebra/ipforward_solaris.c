@@ -29,6 +29,7 @@
 
 #include "privs.h"
 #include "zebra/ipforward.h"
+#include "zebra/zebra_errors.h"
 
 /*
 ** Solaris should define IP_DEV_NAME in <inet/ip.h>, but we'll save

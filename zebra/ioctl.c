@@ -33,6 +33,7 @@
 #include "zebra/rib.h"
 #include "zebra/rt.h"
 #include "zebra/interface.h"
+#include "zebra/zebra_errors.h"
 
 #ifndef SUNOS_5
 

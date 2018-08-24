@@ -61,6 +61,7 @@
 #include "zebra/zapi_msg.h"       /* for zserv_handle_commands */
 #include "zebra/zebra_vrf.h"      /* for zebra_vrf_lookup_by_id, zvrf */
 #include "zebra/zserv.h"          /* for zserv */
+#include "zebra/zebra_errors.h"   /* for error messages */
 /* clang-format on */
 
 /* privileges */
