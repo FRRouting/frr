@@ -676,11 +676,11 @@ int zclient_send_rnh(struct zclient *zclient, int command, struct prefix *p,
  * "xdr_encode"-like interface that allows daemon (client) to send
  * a message to zebra server for a route that needs to be
  * added/deleted to the kernel. Info about the route is specified
- * by the caller in a struct zapi_ipv4. zapi_ipv4_read() then writes
+ * by the caller in a struct zapi_route. zapi_route_encode() then writes
  * the info down the zclient socket using the stream_* functions.
  *
  * The corresponding read ("xdr_decode") function on the server
- * side is zread_ipv4_add()/zread_ipv4_delete().
+ * side is zapi_route_decode().
  *
  *  0 1 2 3 4 5 6 7 8 9 A B C D E F 0 1 2 3 4 5 6 7 8 9 A B C D E F
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -707,20 +707,15 @@ int zclient_send_rnh(struct zclient *zclient, int command, struct prefix *p,
  * is set to 1 and a nexthop of type NEXTHOP_TYPE_BLACKHOLE is the sole
  * nexthop.
  *
- * The original struct zapi_ipv4, zapi_ipv4_route() and zread_ipv4_*()
- * infrastructure was built around the traditional (32-bit "gate OR
- * ifindex") nexthop data unit. A special encoding can be used to feed
- * onlink (64-bit "gate AND ifindex") nexthops into zapi_ipv4_route()
- * using the same zapi_ipv4 structure. This is done by setting zapi_ipv4
- * fields as follows:
+ * The original struct zapi_route_*() infrastructure was built around
+ * the traditional (32-bit "gate OR ifindex") nexthop data unit.
+ * A special encoding can be used to feed onlink (64-bit "gate AND ifindex")
+ * nexthops into zapi_route_encode() using the same zapi_route structure.
+ * This is done by setting zapi_route fields as follows:
  *  - .message |= ZAPI_MESSAGE_NEXTHOP | ZAPI_MESSAGE_ONLINK
  *  - .nexthop_num == .ifindex_num
  *  - .nexthop and .ifindex are filled with gate and ifindex parts of
  *    each compound nexthop, both in the same order
- *
- * zapi_ipv4_route() will produce two nexthop data units for each such
- * interleaved 64-bit nexthop. On the zserv side of the socket it will be
- * mapped to a singlle NEXTHOP_TYPE_IPV4_IFINDEX_OL RIB nexthop structure.
  *
  * If ZAPI_MESSAGE_DISTANCE is set, the distance value is written as a 1
  * byte value.
@@ -734,226 +729,6 @@ int zclient_send_rnh(struct zclient *zclient, int command, struct prefix *p,
  *
  * XXX: No attention paid to alignment.
  */
-int zapi_ipv4_route(uint8_t cmd, struct zclient *zclient, struct prefix_ipv4 *p,
-		    struct zapi_ipv4 *api)
-{
-	int i;
-	int psize;
-	struct stream *s;
-
-	/* Reset stream. */
-	s = zclient->obuf;
-	stream_reset(s);
-
-	/* Some checks for labeled-unicast. The current expectation is that each
-	 * nexthop is accompanied by a label in the case of labeled-unicast.
-	 */
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_LABEL)
-	    && CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
-		/* We expect prefixes installed with labels and the number to
-		 * match
-		 * the number of nexthops.
-		 */
-		assert(api->label_num == api->nexthop_num);
-	}
-
-	zclient_create_header(s, cmd, api->vrf_id);
-
-	/* Put type and nexthop. */
-	stream_putc(s, api->type);
-	stream_putw(s, api->instance);
-	stream_putl(s, api->flags);
-	stream_putc(s, api->message);
-	stream_putw(s, api->safi);
-
-	/* Put prefix information. */
-	psize = PSIZE(p->prefixlen);
-	stream_putc(s, p->prefixlen);
-	stream_write(s, (uint8_t *)&p->prefix, psize);
-
-	/* Nexthop, ifindex, distance and metric information. */
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
-		stream_putc(s, api->nexthop_num + api->ifindex_num);
-
-		for (i = 0; i < api->nexthop_num; i++) {
-			stream_putc(s, NEXTHOP_TYPE_IPV4);
-			stream_put_in_addr(s, api->nexthop[i]);
-			/* For labeled-unicast, each nexthop is followed by
-			 * label. */
-			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_LABEL))
-				stream_putl(s, api->label[i]);
-		}
-		for (i = 0; i < api->ifindex_num; i++) {
-			stream_putc(s, NEXTHOP_TYPE_IFINDEX);
-			stream_putl(s, api->ifindex[i]);
-		}
-	}
-
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_DISTANCE))
-		stream_putc(s, api->distance);
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_METRIC))
-		stream_putl(s, api->metric);
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TAG))
-		stream_putl(s, api->tag);
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_MTU))
-		stream_putl(s, api->mtu);
-
-	/* Put length at the first point of the stream. */
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	return zclient_send_message(zclient);
-}
-
-int zapi_ipv4_route_ipv6_nexthop(uint8_t cmd, struct zclient *zclient,
-				 struct prefix_ipv4 *p, struct zapi_ipv6 *api)
-{
-	int i;
-	int psize;
-	struct stream *s;
-
-	/* Reset stream. */
-	s = zclient->obuf;
-	stream_reset(s);
-
-	/* Some checks for labeled-unicast. The current expectation is that each
-	 * nexthop is accompanied by a label in the case of labeled-unicast.
-	 */
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_LABEL)
-	    && CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
-		/* We expect prefixes installed with labels and the number to
-		 * match
-		 * the number of nexthops.
-		 */
-		assert(api->label_num == api->nexthop_num);
-	}
-
-	zclient_create_header(s, cmd, api->vrf_id);
-
-	/* Put type and nexthop. */
-	stream_putc(s, api->type);
-	stream_putw(s, api->instance);
-	stream_putl(s, api->flags);
-	stream_putc(s, api->message);
-	stream_putw(s, api->safi);
-
-	/* Put prefix information. */
-	psize = PSIZE(p->prefixlen);
-	stream_putc(s, p->prefixlen);
-	stream_write(s, (uint8_t *)&p->prefix, psize);
-
-	/* Nexthop, ifindex, distance and metric information. */
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
-		stream_putc(s, api->nexthop_num + api->ifindex_num);
-
-		for (i = 0; i < api->nexthop_num; i++) {
-			stream_putc(s, NEXTHOP_TYPE_IPV6);
-			stream_write(s, (uint8_t *)api->nexthop[i], 16);
-			/* For labeled-unicast, each nexthop is followed by
-			 * label. */
-			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_LABEL))
-				stream_putl(s, api->label[i]);
-		}
-		for (i = 0; i < api->ifindex_num; i++) {
-			stream_putc(s, NEXTHOP_TYPE_IFINDEX);
-			stream_putl(s, api->ifindex[i]);
-		}
-	}
-
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_DISTANCE))
-		stream_putc(s, api->distance);
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_METRIC))
-		stream_putl(s, api->metric);
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TAG))
-		stream_putl(s, api->tag);
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_MTU))
-		stream_putl(s, api->mtu);
-
-	/* Put length at the first point of the stream. */
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	return zclient_send_message(zclient);
-}
-
-int zapi_ipv6_route(uint8_t cmd, struct zclient *zclient, struct prefix_ipv6 *p,
-		    struct prefix_ipv6 *src_p, struct zapi_ipv6 *api)
-{
-	int i;
-	int psize;
-	struct stream *s;
-
-	/* either we have !SRCPFX && src_p == NULL, or SRCPFX && src_p != NULL
-	 */
-	assert(!(api->message & ZAPI_MESSAGE_SRCPFX) == !src_p);
-
-	/* Reset stream. */
-	s = zclient->obuf;
-	stream_reset(s);
-
-	/* Some checks for labeled-unicast. The current expectation is that each
-	 * nexthop is accompanied by a label in the case of labeled-unicast.
-	 */
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_LABEL)
-	    && CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
-		/* We expect prefixes installed with labels and the number to
-		 * match
-		 * the number of nexthops.
-		 */
-		assert(api->label_num == api->nexthop_num);
-	}
-
-	zclient_create_header(s, cmd, api->vrf_id);
-
-	/* Put type and nexthop. */
-	stream_putc(s, api->type);
-	stream_putw(s, api->instance);
-	stream_putl(s, api->flags);
-	stream_putc(s, api->message);
-	stream_putw(s, api->safi);
-
-	/* Put prefix information. */
-	psize = PSIZE(p->prefixlen);
-	stream_putc(s, p->prefixlen);
-	stream_write(s, (uint8_t *)&p->prefix, psize);
-
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_SRCPFX)) {
-		psize = PSIZE(src_p->prefixlen);
-		stream_putc(s, src_p->prefixlen);
-		stream_write(s, (uint8_t *)&src_p->prefix, psize);
-	}
-
-	/* Nexthop, ifindex, distance and metric information. */
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
-		stream_putc(s, api->nexthop_num + api->ifindex_num);
-
-		for (i = 0; i < api->nexthop_num; i++) {
-			stream_putc(s, NEXTHOP_TYPE_IPV6);
-			stream_write(s, (uint8_t *)api->nexthop[i], 16);
-			/* For labeled-unicast, each nexthop is followed by
-			 * label. */
-			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_LABEL))
-				stream_putl(s, api->label[i]);
-		}
-		for (i = 0; i < api->ifindex_num; i++) {
-			stream_putc(s, NEXTHOP_TYPE_IFINDEX);
-			stream_putl(s, api->ifindex[i]);
-		}
-	}
-
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_DISTANCE))
-		stream_putc(s, api->distance);
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_METRIC))
-		stream_putl(s, api->metric);
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TAG))
-		stream_putl(s, api->tag);
-	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_MTU))
-		stream_putl(s, api->mtu);
-
-	/* Put length at the first point of the stream. */
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	return zclient_send_message(zclient);
-}
-
 int zclient_route_send(uint8_t cmd, struct zclient *zclient,
 		       struct zapi_route *api)
 {
