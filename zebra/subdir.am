@@ -146,8 +146,3 @@ EXTRA_DIST += \
 	zebra/GNOME-SMI \
 	zebra/GNOME-PRODUCT-ZEBRA-MIB \
 	# end
-
-# -- unmaintained --
-# noinst_PROGRAMS += zebra/client
-# zebra_client_SOURCES = zebra/client_main.c
-# zebra_client_LDADD = lib/libfrr.la

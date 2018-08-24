@@ -73,10 +73,6 @@ typedef enum {
 	ZEBRA_ROUTE_ADD,
 	ZEBRA_ROUTE_DELETE,
 	ZEBRA_ROUTE_NOTIFY_OWNER,
-	ZEBRA_IPV4_ROUTE_ADD,
-	ZEBRA_IPV4_ROUTE_DELETE,
-	ZEBRA_IPV6_ROUTE_ADD,
-	ZEBRA_IPV6_ROUTE_DELETE,
 	ZEBRA_REDISTRIBUTE_ADD,
 	ZEBRA_REDISTRIBUTE_DELETE,
 	ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
@@ -286,7 +282,7 @@ struct zclient {
  */
 #define ZAPI_MESSAGE_TABLEID  0x80
 
-#define ZSERV_VERSION 5
+#define ZSERV_VERSION 6
 /* Zserv protocol message header */
 struct zmsghdr {
 	uint16_t length;
@@ -351,37 +347,6 @@ struct zapi_route {
 	vrf_id_t vrf_id;
 
 	uint32_t tableid;
-};
-
-/* Zebra IPv4 route message API. */
-struct zapi_ipv4 {
-	uint8_t type;
-	unsigned short instance;
-
-	uint32_t flags;
-
-	uint8_t message;
-
-	safi_t safi;
-
-	uint8_t nexthop_num;
-	struct in_addr **nexthop;
-
-	uint8_t ifindex_num;
-	ifindex_t *ifindex;
-
-	uint8_t label_num;
-	unsigned int *label;
-
-	uint8_t distance;
-
-	uint32_t metric;
-
-	route_tag_t tag;
-
-	uint32_t mtu;
-
-	vrf_id_t vrf_id;
 };
 
 struct zapi_pw {
@@ -600,15 +565,6 @@ extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
 extern void zebra_interface_if_set_value(struct stream *, struct interface *);
 extern void zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 
-/* clang-format off */
-#if CONFDATE > 20180823
-CPP_NOTICE("zapi_ipv4_route, zapi_ipv6_route, zapi_ipv4_route_ipv6_nexthop as well as the zapi_ipv4 and zapi_ipv6 data structures should be removed now");
-#endif
-/* clang-format on */
-
-extern int zapi_ipv4_route(uint8_t, struct zclient *, struct prefix_ipv4 *,
-			   struct zapi_ipv4 *) __attribute__((deprecated));
-
 extern struct interface *zebra_interface_link_params_read(struct stream *);
 extern size_t zebra_interface_link_params_write(struct stream *,
 						struct interface *);
@@ -635,45 +591,6 @@ extern void zebra_read_pw_status_update(int command, struct zclient *zclient,
 					zebra_size_t length, vrf_id_t vrf_id,
 					struct zapi_pw_status *pw);
 
-/* IPv6 prefix add and delete function prototype. */
-
-struct zapi_ipv6 {
-	uint8_t type;
-	unsigned short instance;
-
-	uint32_t flags;
-
-	uint8_t message;
-
-	safi_t safi;
-
-	uint8_t nexthop_num;
-	struct in6_addr **nexthop;
-
-	uint8_t ifindex_num;
-	ifindex_t *ifindex;
-
-	uint8_t label_num;
-	unsigned int *label;
-
-	uint8_t distance;
-
-	uint32_t metric;
-
-	route_tag_t tag;
-
-	uint32_t mtu;
-
-	vrf_id_t vrf_id;
-};
-
-extern int zapi_ipv6_route(uint8_t cmd, struct zclient *zclient,
-			   struct prefix_ipv6 *p, struct prefix_ipv6 *src_p,
-			   struct zapi_ipv6 *api) __attribute__((deprecated));
-extern int zapi_ipv4_route_ipv6_nexthop(uint8_t, struct zclient *,
-					struct prefix_ipv4 *,
-					struct zapi_ipv6 *)
-	__attribute__((deprecated));
 extern int zclient_route_send(uint8_t, struct zclient *, struct zapi_route *);
 extern int zclient_send_rnh(struct zclient *zclient, int command,
 			    struct prefix *p, bool exact_match,
