@@ -5,12 +5,12 @@ Overview
 ********
 
 `FRR`_ is a routing software package that provides TCP/IP based routing
-services with routing protocols support such as RIPv1, RIPv2, RIPng, OSPFv2,
-OSPFv3, IS-IS, BGP-4, and BGP-4+ (:ref:`supported-rfcs`). FRR also supports
+services with routing protocols support such as BGP, RIP, OSPF, IS-IS and more
+(see :ref:`supported-protocols`). FRR also supports
 special BGP Route Reflector and Route Server behavior.  In addition to
 traditional IPv4 routing protocols, FRR also supports IPv6 routing protocols.
-With SNMP daemon which supports SMUX and AgentX protocol, FRR provides routing
-protocol MIBs (:ref:`snmp-support`).
+With an SNMP daemon that supports the AgentX protocol, FRR provides routing
+protocol MIB read-only access (:ref:`snmp-support`).
 
 FRR uses an advanced software architecture to provide you with a high quality,
 multi server routing engine. FRR has an interactive user interface for each
