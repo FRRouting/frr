@@ -425,7 +425,15 @@ def ip4_route_zebra(node, vrf_name=None):
     else:
         tmp = node.vtysh_cmd('show ip route vrf {0}'.format(vrf_name))
     output = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", tmp)
-    return output
+
+    lines = output.splitlines()
+    header_found = False
+    while lines and (not strip(lines[0])
+                        or not header_found):
+        if '> - selected route' in lines[0]:
+            header_found = True
+        lines = lines[1:]
+    return '\n'.join(lines)
 
 def ip4_route(node):
     """
