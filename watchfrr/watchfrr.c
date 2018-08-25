@@ -314,6 +314,9 @@ static int restart_kill(struct thread *t_kill)
 static struct restart_info *find_child(pid_t child)
 {
 	struct daemon *dmn;
+	if (gs.restart.pid == child)
+		return &gs.restart;
+
 	for (dmn = gs.daemons; dmn; dmn = dmn->next) {
 		if (dmn->restart.pid == child)
 			return &dmn->restart;
