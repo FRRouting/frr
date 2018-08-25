@@ -154,12 +154,8 @@ override_dh_auto_install:
 	mkdir -p debian/tmp/etc/frr/
 	perl -pi -e 's#^!log file #!log file /var/log/frr/#' debian/tmp/usr/share/doc/frr/examples/*sample*
 
-	# installing the Frr specific SNMP MIB
-ifeq ($(WANT_SNMP), 1)
-	install -D -m 644 ./zebra/GNOME-PRODUCT-ZEBRA-MIB debian/tmp/usr/share/snmp/mibs/GNOME-PRODUCT-ZEBRA-MIB
-else
+	# leftover from previously shipping SMUX client OID MIB
 	mkdir -p debian/tmp/usr/share/snmp/mibs
-endif
 
 	# cleaning .la files
 	sed -i "/dependency_libs/ s/'.*'/''/" debian/tmp/usr/lib/*.la
