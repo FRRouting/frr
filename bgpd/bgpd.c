@@ -2777,6 +2777,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		bgp->route[afi][safi] = bgp_table_init(bgp, afi, safi);
 		bgp->aggregate[afi][safi] = bgp_table_init(bgp, afi, safi);
 		bgp->rib[afi][safi] = bgp_table_init(bgp, afi, safi);
+		bgp->addpath_tx_max[afi][safi] = BGP_ADDPATH_TX_MAX_DEFAULT;
 
 		/* Enable maximum-paths */
 		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_EBGP,
@@ -7309,6 +7310,11 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 	}
 
 	bgp_config_write_maxpaths(vty, bgp, afi, safi);
+
+	if (bgp->addpath_tx_max[afi][safi] != BGP_ADDPATH_TX_MAX_DEFAULT)
+		vty_out(vty, "  addpath-tx-max %d\n",
+			bgp->addpath_tx_max[afi][safi]);
+
 	bgp_config_write_table_map(vty, bgp, afi, safi);
 
 	if (safi == SAFI_EVPN)

@@ -289,6 +289,10 @@ struct bgp {
 	as_t *confed_peers;
 	int confed_peers_cnt;
 
+	/* addpath-tx-max */
+	int addpath_tx_max[AFI_MAX][SAFI_MAX];
+#define BGP_ADDPATH_TX_MAX_DEFAULT 6
+
 	struct thread
 		*t_startup; /* start-up timer on only once at the beginning */
 

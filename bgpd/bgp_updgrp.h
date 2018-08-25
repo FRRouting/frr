@@ -469,7 +469,7 @@ extern int update_group_clear_update_dbg(struct update_group *updgrp,
 extern void update_bgp_group_free(struct bgp *bgp);
 extern int bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi);
 extern int bgp_addpath_tx_path(struct peer *peer, afi_t afi, safi_t safi,
-			       struct bgp_info *ri);
+			       struct prefix *p, struct bgp_info *ri);
 
 /*
  * Inline functions

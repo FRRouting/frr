@@ -1444,7 +1444,7 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 	 * addpath
 	 * feature that requires us to advertise it */
 	if (!CHECK_FLAG(ri->flags, BGP_INFO_SELECTED)) {
-		if (!bgp_addpath_tx_path(peer, afi, safi, ri)) {
+		if (!bgp_addpath_tx_path(peer, afi, safi, p, ri)) {
 			return 0;
 		}
 	}
