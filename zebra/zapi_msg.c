@@ -1022,6 +1022,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 	unsigned short l = 0;
 	uint8_t flags = 0;
 	uint16_t type = cmd2type[hdr->command];
+	bool exist;
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
@@ -1064,7 +1065,10 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
-		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), type);
+		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), type, &exist);
+		if (!rnh)
+			return;
+
 		if (type == RNH_NEXTHOP_TYPE) {
 			if (flags
 			    && !CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
@@ -1084,7 +1088,9 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 
 		zebra_add_rnh_client(rnh, client, type, zvrf_id(zvrf));
 		/* Anything not AF_INET/INET6 has been filtered out above */
-		zebra_evaluate_rnh(zvrf_id(zvrf), p.family, 1, type, &p);
+		if (!exist)
+			zebra_evaluate_rnh(zvrf_id(zvrf), p.family, 1, type,
+					   &p);
 	}
 
 stream_failure:
