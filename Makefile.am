@@ -10,6 +10,20 @@ VERSION_TYPE := $(shell if echo $(VERSION) | grep -q '^[0-9\.]*$$'; then echo RE
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE) -DVERSION_TYPE_$(VERSION_TYPE)
 LIBCAP = @LIBCAP@
 
+# these two targets are provided to easily grab autoconf/Makefile variables
+# you can use either:
+#   eval `make VARFD=3 shvar-CFLAGS 3>&1 1>&2`
+#   CFLAGS="`make VARFD=3 var-CFLAGS 3>&1 1>&2`"
+# where the former can be used to set several variables at once.  Note the
+# fd redirections -- this is to prevent garbage from make rebuilding other
+# targets from causing issues.
+.PHONY: shvar-% var-%
+VARFD ?= 1
+shvar-%:
+	@echo "$*=\"$($*)\"" >&$(VARFD)
+var-%:
+	@echo "$($*)" >&$(VARFD)
+
 # overwriting these vars breaks cross-compilation.  let's be helpful and warn.
 #
 # note: "#AUTODERP# " will be removed from Makefile by configure.  These are
