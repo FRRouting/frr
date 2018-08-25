@@ -141,8 +141,3 @@ if DEV_BUILD
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_dt.c
 endif
 endif
-
-EXTRA_DIST += \
-	zebra/GNOME-SMI \
-	zebra/GNOME-PRODUCT-ZEBRA-MIB \
-	# end

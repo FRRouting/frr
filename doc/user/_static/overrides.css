@@ -6,3 +6,50 @@ div.body {
 pre {
     background-color: #e2e2e2;
 }
+
+/* styling for the protocols vs. OS table in overview.rst */
+/* first, general bits */
+div.body td.mark {
+    text-align: center;
+    border-left: 1px solid #ccc;
+}
+table.mark th {
+    text-align: center;
+}
+table.mark td {
+    vertical-align: middle;
+}
+table.mark td[colspan="7"] {
+    text-align: center;
+    padding-top: 8pt;
+    padding-bottom: 2pt;
+}
+table.mark cite {
+    font-weight: bold;
+}
+
+/* individual Y/N/... cells */
+td.mark {
+    width: 4.5em;
+}
+td.mark span {
+    display: block;
+    padding: 3px 1px;
+    border: 1px dotted #666;
+    width: 36pt;
+    margin:auto;
+}
+span.mark-y   { background-color: #77ffaa; }
+span.mark-geq { background-color: #aaff77; }
+span.mark-cp  { background-color: #ffbb55; }
+span.mark-n   { background-color: #ff8877; }
+span.mark-dag { background-color: #ffee99; font-size: 8pt; padding:0px 1px; border-top:0px; }
+
+/* for the legend below */
+li span.mark {
+    display: inline-block;
+    padding: 3px 1px;
+    border: 1px dotted #666;
+    width: 36pt;
+    text-align: center;
+}
