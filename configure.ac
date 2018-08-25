@@ -418,8 +418,6 @@ AC_ARG_ENABLE(rusage,
   AS_HELP_STRING([--disable-rusage], [disable using getrusage]))
 AC_ARG_ENABLE(gcc_ultra_verbose,
   AS_HELP_STRING([--enable-gcc-ultra-verbose], [enable ultra verbose GCC warnings]))
-AC_ARG_ENABLE(linux24_tcp_md5,
-  AS_HELP_STRING([--enable-linux24-tcp-md5], [enable support for old, Linux-2.4 RFC2385 patch]))
 AC_ARG_ENABLE(backtrace,
   AS_HELP_STRING([--disable-backtrace,], [disable crash backtraces (default autodetect)]))
 AC_ARG_ENABLE(time-check,
@@ -643,10 +641,6 @@ AM_CONDITIONAL([HAVE_PROTOBUF], [test "x$have_protobuf" = "xyes"])
 #
 # End of logic for protobuf support.
 #
-
-if test "${enable_linux24_tcp_md5}" = "yes"; then
-  AC_DEFINE(HAVE_TCP_MD5_LINUX24,,Old Linux 2.4 TCP MD5 Signature Patch)
-fi
 
 AC_MSG_CHECKING(if zebra should be configurable to send Route Advertisements)
 if test "${enable_rtadv}" != "no"; then
