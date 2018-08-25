@@ -42,6 +42,7 @@
 #include "isisd/isis_constants.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_network.h"
+#include "isisd/isis_pdu.h"
 
 #include "privs.h"
 
