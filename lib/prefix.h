@@ -153,6 +153,7 @@ struct prefix {
 	uint8_t family;
 	uint8_t prefixlen;
 	union {
+		int addpath_tx_count[AFI_MAX][SAFI_MAX];
 		uint8_t prefix;
 		struct in_addr prefix4;
 		struct in6_addr prefix6;

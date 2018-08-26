@@ -1178,6 +1178,41 @@ DEFUN (no_bgp_confederation_peers,
 	return CMD_SUCCESS;
 }
 
+static int bgp_addpath_tx_max_config_vty(struct vty *vty, int addpath_tx_max)
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	afi_t afi;
+	safi_t safi;
+	struct peer *peer;
+	struct listnode *node, *nnode;
+
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
+
+	if (addpath_tx_max) {
+		if (addpath_tx_max < 2
+		    || addpath_tx_max > BGP_ADDPATH_TX_MAX_DEFAULT) {
+			vty_out(vty,
+				"%% addpath-tx-max specified: %d is out of range.",
+				addpath_tx_max);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		bgp->addpath_tx_max[afi][safi] = addpath_tx_max;
+	} else {
+		bgp->addpath_tx_max[afi][safi] = BGP_ADDPATH_TX_MAX_DEFAULT;
+	}
+
+	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
+			peer->last_reset = PEER_DOWN_RID_CHANGE;
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
 /**
  * Central routine for maximum-paths configuration.
  * @peer_type: BGP_PEER_EBGP or BGP_PEER_IBGP
@@ -1542,6 +1577,43 @@ DEFUN (no_bgp_coalesce_time,
 	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 	return CMD_SUCCESS;
 }
+
+/* addpath-tx-max configuration */
+DEFUN(bgp_addpath_tx_max, bgp_addpath_tx_max_cmd,
+      "addpath-tx-max " CMD_RANGE_STR(2, BGP_ADDPATH_TX_MAX_DEFAULT),
+      "Set the number of additional paths\n"
+      "Number of paths\n")
+{
+	int idx_number = 1;
+	int addpath_tx_max = BGP_ADDPATH_TX_MAX_DEFAULT;
+	int addpath_tx_max_specified = atoi(argv[idx_number]->arg);
+
+	if (addpath_tx_max_specified)
+		addpath_tx_max = addpath_tx_max_specified;
+
+	return bgp_addpath_tx_max_config_vty(vty, addpath_tx_max);
+}
+
+ALIAS_HIDDEN(bgp_addpath_tx_max, bgp_addpath_tx_max_hidden_cmd,
+	       "addpath-tx-max " CMD_RANGE_STR(2, BGP_ADDPATH_TX_MAX_DEFAULT),
+	       "Set the number of additional paths\n"
+	       "Number of paths\n")
+
+DEFUN(no_bgp_addpath_tx_max, no_bgp_addpath_tx_max_cmd,
+      "no addpath-tx-max [" CMD_RANGE_STR(2, BGP_ADDPATH_TX_MAX_DEFAULT) "]",
+      NO_STR
+      "Set the number of additional paths\n"
+      "Number of paths\n")
+{
+	return bgp_addpath_tx_max_config_vty(vty, 0);
+}
+
+ALIAS_HIDDEN(no_bgp_addpath_tx_max, no_bgp_addpath_tx_max_hidden_cmd,
+	       "no maximum-paths [" CMD_RANGE_STR(2,
+						BGP_ADDPATH_TX_MAX_DEFAULT) "]",
+	       NO_STR
+	       "Set the number of additional paths\n"
+	       "Number of paths\n")
 
 /* Maximum-paths configuration */
 DEFUN (bgp_maxpaths,
@@ -12523,6 +12595,16 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6L_NODE, &bgp_maxpaths_ibgp_cmd);
 	install_element(BGP_IPV6L_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
 	install_element(BGP_IPV6L_NODE, &no_bgp_maxpaths_ibgp_cmd);
+
+	/* addpath-tx-max commands. */
+	install_element(BGP_NODE, &bgp_addpath_tx_max_hidden_cmd);
+	install_element(BGP_NODE, &no_bgp_addpath_tx_max_hidden_cmd);
+	install_element(BGP_IPV4_NODE, &bgp_addpath_tx_max_cmd);
+	install_element(BGP_IPV4_NODE, &no_bgp_addpath_tx_max_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_addpath_tx_max_cmd);
+	install_element(BGP_IPV6_NODE, &no_bgp_addpath_tx_max_cmd);
+	install_element(BGP_IPV6L_NODE, &bgp_addpath_tx_max_cmd);
+	install_element(BGP_IPV6L_NODE, &no_bgp_addpath_tx_max_cmd);
 
 	/* "timers bgp" commands. */
 	install_element(BGP_NODE, &bgp_timers_cmd);

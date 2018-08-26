@@ -596,7 +596,15 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 
 			if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED)
 			    || (addpath_capable
-				&& bgp_addpath_tx_path(peer, afi, safi, ri))) {
+				&& bgp_addpath_tx_path(peer, afi, safi, &rn->p, ri))) {
+				/* Increase counter if this is a path we should
+				 * advertise due to a configured addpath-tx
+				 * knob */
+				rn->p.u.addpath_tx_count[afi][safi]++;
+				zlog_debug(
+					"%s: addpath-tx paths count for prefix %p %s is %d",
+					__PRETTY_FUNCTION__, &rn->p, peer->host,
+					rn->p.u.addpath_tx_count[afi][safi]);
 				if (subgroup_announce_check(rn, ri, subgrp,
 							    &rn->p, &attr))
 					bgp_adj_out_set_subgroup(rn, subgrp,
@@ -606,6 +614,12 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 						rn, subgrp, 1,
 						ri->addpath_tx_id);
 			}
+
+	/* Reset addpath_tx_count per AFI/SAFI to avoid unexpected increases
+	 * during route refreshes */
+	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
+		for (ri = rn->info; ri; ri = ri->next)
+			rn->p.u.addpath_tx_count[afi][safi] = 0;
 
 	/*
 	 * We walked through the whole table -- make sure our version number
