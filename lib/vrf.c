@@ -342,91 +342,103 @@ void *vrf_info_lookup(vrf_id_t vrf_id)
 }
 
 /*
- * VRF bit-map
+ * VRF hash for storing set or not.
  */
-
-#define VRF_BITMAP_NUM_OF_GROUPS            1024
-#define VRF_BITMAP_NUM_OF_BITS_IN_GROUP (UINT32_MAX / VRF_BITMAP_NUM_OF_GROUPS)
-#define VRF_BITMAP_NUM_OF_BYTES_IN_GROUP                                       \
-	(VRF_BITMAP_NUM_OF_BITS_IN_GROUP / CHAR_BIT + 1) /* +1 for ensure */
-
-#define VRF_BITMAP_GROUP(_id) ((_id) / VRF_BITMAP_NUM_OF_BITS_IN_GROUP)
-#define VRF_BITMAP_BIT_OFFSET(_id) ((_id) % VRF_BITMAP_NUM_OF_BITS_IN_GROUP)
-
-#define VRF_BITMAP_INDEX_IN_GROUP(_bit_offset) ((_bit_offset) / CHAR_BIT)
-#define VRF_BITMAP_FLAG(_bit_offset)                                           \
-	(((uint8_t)1) << ((_bit_offset) % CHAR_BIT))
-
-struct vrf_bitmap {
-	uint8_t *groups[VRF_BITMAP_NUM_OF_GROUPS];
+struct vrf_bit_set {
+	vrf_id_t vrf_id;
+	bool set;
 };
+
+static unsigned int vrf_hash_bitmap_key(void *data)
+{
+	struct vrf_bit_set *bit = data;
+
+	return bit->vrf_id;
+}
+
+static int vrf_hash_bitmap_cmp(const void *a, const void *b)
+{
+	const struct vrf_bit_set *bit1 = a;
+	const struct vrf_bit_set *bit2 = b;
+
+	return bit1->vrf_id == bit2->vrf_id;
+}
+
+static void *vrf_hash_bitmap_alloc(void *data)
+{
+	struct vrf_bit_set *copy = data;
+	struct vrf_bit_set *bit;
+
+	bit = XMALLOC(MTYPE_VRF_BITMAP, sizeof(*bit));
+	bit->vrf_id = copy->vrf_id;
+
+	return bit;
+}
+
+static void vrf_hash_bitmap_free(void *data)
+{
+	struct vrf_bit_set *bit = data;
+
+	XFREE(MTYPE_VRF_BITMAP, bit);
+}
 
 vrf_bitmap_t vrf_bitmap_init(void)
 {
-	return (vrf_bitmap_t)XCALLOC(MTYPE_VRF_BITMAP,
-				     sizeof(struct vrf_bitmap));
+	return hash_create_size(32, vrf_hash_bitmap_key, vrf_hash_bitmap_cmp,
+				"VRF BIT HASH");
 }
 
 void vrf_bitmap_free(vrf_bitmap_t bmap)
 {
-	struct vrf_bitmap *bm = (struct vrf_bitmap *)bmap;
-	int i;
+	struct hash *vrf_hash = bmap;
 
-	if (bmap == VRF_BITMAP_NULL)
+	if (vrf_hash == NULL)
 		return;
 
-	for (i = 0; i < VRF_BITMAP_NUM_OF_GROUPS; i++)
-		if (bm->groups[i])
-			XFREE(MTYPE_VRF_BITMAP, bm->groups[i]);
-
-	XFREE(MTYPE_VRF_BITMAP, bm);
+	hash_clean(vrf_hash, vrf_hash_bitmap_free);
+	hash_free(vrf_hash);
 }
 
 void vrf_bitmap_set(vrf_bitmap_t bmap, vrf_id_t vrf_id)
 {
-	struct vrf_bitmap *bm = (struct vrf_bitmap *)bmap;
-	uint8_t group = VRF_BITMAP_GROUP(vrf_id);
-	uint8_t offset = VRF_BITMAP_BIT_OFFSET(vrf_id);
+	struct vrf_bit_set lookup = { .vrf_id = vrf_id };
+	struct hash *vrf_hash = bmap;
+	struct vrf_bit_set *bit;
 
-	if (bmap == VRF_BITMAP_NULL || vrf_id == VRF_UNKNOWN)
+	if (vrf_hash == NULL || vrf_id == VRF_UNKNOWN)
 		return;
 
-	if (bm->groups[group] == NULL)
-		bm->groups[group] = XCALLOC(MTYPE_VRF_BITMAP,
-					    VRF_BITMAP_NUM_OF_BYTES_IN_GROUP);
-
-	SET_FLAG(bm->groups[group][VRF_BITMAP_INDEX_IN_GROUP(offset)],
-		 VRF_BITMAP_FLAG(offset));
+	bit = hash_get(vrf_hash, &lookup, vrf_hash_bitmap_alloc);
+	bit->set = true;
 }
 
 void vrf_bitmap_unset(vrf_bitmap_t bmap, vrf_id_t vrf_id)
 {
-	struct vrf_bitmap *bm = (struct vrf_bitmap *)bmap;
-	uint8_t group = VRF_BITMAP_GROUP(vrf_id);
-	uint8_t offset = VRF_BITMAP_BIT_OFFSET(vrf_id);
+	struct vrf_bit_set lookup = { .vrf_id = vrf_id };
+	struct hash *vrf_hash = bmap;
+	struct vrf_bit_set *bit;
 
-	if (bmap == VRF_BITMAP_NULL || vrf_id == VRF_UNKNOWN
-	    || bm->groups[group] == NULL)
+	if (vrf_hash == NULL || vrf_id == VRF_UNKNOWN)
 		return;
 
-	UNSET_FLAG(bm->groups[group][VRF_BITMAP_INDEX_IN_GROUP(offset)],
-		   VRF_BITMAP_FLAG(offset));
+	bit = hash_get(vrf_hash, &lookup, vrf_hash_bitmap_alloc);
+	bit->set = false;
 }
 
 int vrf_bitmap_check(vrf_bitmap_t bmap, vrf_id_t vrf_id)
 {
-	struct vrf_bitmap *bm = (struct vrf_bitmap *)bmap;
-	uint8_t group = VRF_BITMAP_GROUP(vrf_id);
-	uint8_t offset = VRF_BITMAP_BIT_OFFSET(vrf_id);
+	struct vrf_bit_set lookup = { .vrf_id = vrf_id };
+	struct hash *vrf_hash = bmap;
+	struct vrf_bit_set *bit;
 
-	if (bmap == VRF_BITMAP_NULL || vrf_id == VRF_UNKNOWN
-	    || bm->groups[group] == NULL)
+	if (vrf_hash == NULL || vrf_id == VRF_UNKNOWN)
 		return 0;
 
-	return CHECK_FLAG(bm->groups[group][VRF_BITMAP_INDEX_IN_GROUP(offset)],
-			  VRF_BITMAP_FLAG(offset))
-		       ? 1
-		       : 0;
+	bit = hash_lookup(vrf_hash, &lookup);
+	if (bit)
+		return bit->set;
+
+	return 0;
 }
 
 static void vrf_autocomplete(vector comps, struct cmd_token *token)
