@@ -236,20 +236,20 @@ extern void zebra_pbr_iptable_update_interfacelist(struct stream *s,
 size_t zebra_pbr_tcpflags_snprintf(char *buffer, size_t len,
 				   uint16_t tcp_val);
 
-DECLARE_HOOK(zebra_pbr_ipset_entry_wrap_script_get_stat,
+DECLARE_HOOK(zebra_pbr_ipset_entry_get_stat,
 	     (struct zebra_pbr_ipset_entry *ipset, uint64_t *pkts,
 	      uint64_t *bytes),
 	     (ipset, pkts, bytes))
-DECLARE_HOOK(zebra_pbr_iptable_wrap_script_get_stat,
+DECLARE_HOOK(zebra_pbr_iptable_get_stat,
 	     (struct zebra_pbr_iptable *iptable, uint64_t *pkts,
 	      uint64_t *bytes),
 	     (iptable, pkts, bytes))
-DECLARE_HOOK(zebra_pbr_iptable_wrap_script_update,
+DECLARE_HOOK(zebra_pbr_iptable_update,
 	     (int cmd, struct zebra_pbr_iptable *iptable), (cmd, iptable));
 
-DECLARE_HOOK(zebra_pbr_ipset_entry_wrap_script_update,
+DECLARE_HOOK(zebra_pbr_ipset_entry_update,
 	     (int cmd, struct zebra_pbr_ipset_entry *ipset), (cmd, ipset));
-DECLARE_HOOK(zebra_pbr_ipset_wrap_script_update,
+DECLARE_HOOK(zebra_pbr_ipset_update,
 	     (int cmd, struct zebra_pbr_ipset *ipset), (cmd, ipset));
 
 #endif /* _ZEBRA_PBR_H */
