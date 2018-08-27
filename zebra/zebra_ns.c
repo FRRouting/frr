@@ -44,27 +44,7 @@ extern struct zebra_privs_t zserv_privs;
 
 DEFINE_MTYPE(ZEBRA, ZEBRA_NS, "Zebra Name Space")
 
-static inline int zebra_ns_table_entry_compare(const struct zebra_ns_table *e1,
-					       const struct zebra_ns_table *e2);
-
-RB_GENERATE(zebra_ns_table_head, zebra_ns_table, zebra_ns_table_entry,
-	    zebra_ns_table_entry_compare);
-
 static struct zebra_ns *dzns;
-
-static inline int zebra_ns_table_entry_compare(const struct zebra_ns_table *e1,
-					       const struct zebra_ns_table *e2)
-{
-	if (e1->tableid < e2->tableid)
-		return -1;
-	if (e1->tableid > e2->tableid)
-		return 1;
-	if (e1->ns_id < e2->ns_id)
-		return -1;
-	if (e1->ns_id > e2->ns_id)
-		return 1;
-	return (e1->afi - e2->afi);
-}
 
 static int logicalrouter_config_write(struct vty *vty);
 
@@ -173,104 +153,8 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 	return 0;
 }
 
-struct route_table *zebra_ns_find_table(struct zebra_ns *zns, uint32_t tableid,
-					afi_t afi)
-{
-	struct zebra_ns_table finder;
-	struct zebra_ns_table *znst;
-
-	memset(&finder, 0, sizeof(finder));
-	finder.afi = afi;
-	finder.tableid = tableid;
-	finder.ns_id = zns->ns_id;
-	znst = RB_FIND(zebra_ns_table_head, &zns->ns_tables, &finder);
-
-	if (znst)
-		return znst->table;
-	else
-		return NULL;
-}
-
-unsigned long zebra_ns_score_proto(uint8_t proto, unsigned short instance)
-{
-	struct zebra_ns *zns;
-	struct zebra_ns_table *znst;
-	unsigned long cnt = 0;
-
-	zns = zebra_ns_lookup(NS_DEFAULT);
-
-	RB_FOREACH (znst, zebra_ns_table_head, &zns->ns_tables) {
-		if (znst->ns_id != NS_DEFAULT)
-			continue;
-		cnt += rib_score_proto_table(proto, instance, znst->table);
-	}
-	return cnt;
-}
-
-void zebra_ns_sweep_route(void)
-{
-	struct zebra_ns_table *znst;
-	struct zebra_ns *zns;
-
-	zns = zebra_ns_lookup(NS_DEFAULT);
-
-	RB_FOREACH (znst, zebra_ns_table_head, &zns->ns_tables) {
-		if (znst->ns_id != NS_DEFAULT)
-			continue;
-		rib_sweep_table(znst->table);
-	}
-}
-
-struct route_table *zebra_ns_get_table(struct zebra_ns *zns,
-				       struct zebra_vrf *zvrf, uint32_t tableid,
-				       afi_t afi)
-{
-	struct zebra_ns_table finder;
-	struct zebra_ns_table *znst;
-	rib_table_info_t *info;
-
-	memset(&finder, 0, sizeof(finder));
-	finder.afi = afi;
-	finder.tableid = tableid;
-	finder.ns_id = zns->ns_id;
-	znst = RB_FIND(zebra_ns_table_head, &zns->ns_tables, &finder);
-
-	if (znst)
-		return znst->table;
-
-	znst = XCALLOC(MTYPE_ZEBRA_NS, sizeof(*znst));
-	znst->tableid = tableid;
-	znst->afi = afi;
-	znst->ns_id = zns->ns_id;
-	znst->table =
-		(afi == AFI_IP6) ? srcdest_table_init() : route_table_init();
-
-	info = XCALLOC(MTYPE_RIB_TABLE_INFO, sizeof(*info));
-	info->zvrf = zvrf;
-	info->afi = afi;
-	info->safi = SAFI_UNICAST;
-	route_table_set_info(znst->table, info);
-	znst->table->cleanup = zebra_rtable_node_cleanup;
-
-	RB_INSERT(zebra_ns_table_head, &zns->ns_tables, znst);
-	return znst->table;
-}
-
-static void zebra_ns_free_table(struct zebra_ns_table *znst)
-{
-	void *table_info;
-
-	rib_close_table(znst->table);
-
-	table_info = route_table_get_info(znst->table);
-	route_table_finish(znst->table);
-	XFREE(MTYPE_RIB_TABLE_INFO, table_info);
-	XFREE(MTYPE_ZEBRA_NS, znst);
-}
-
 int zebra_ns_disable(ns_id_t ns_id, void **info)
 {
-	struct zebra_ns_table *znst, *tmp;
 	struct zebra_ns *zns = (struct zebra_ns *)(*info);
 
 	hash_clean(zns->rules_hash, zebra_pbr_rules_free);
@@ -282,13 +166,6 @@ int zebra_ns_disable(ns_id_t ns_id, void **info)
 	hash_clean(zns->iptable_hash,
 		   zebra_pbr_iptable_free);
 	hash_free(zns->iptable_hash);
-
-	RB_FOREACH_SAFE (znst, zebra_ns_table_head, &zns->ns_tables, tmp) {
-		if (znst->ns_id != ns_id)
-			continue;
-		RB_REMOVE(zebra_ns_table_head, &zns->ns_tables, znst);
-		zebra_ns_free_table(znst);
-	}
 
 	route_table_finish(zns->if_table);
 	zebra_vxlan_ns_disable(zns);
