@@ -1002,13 +1002,14 @@ void if_refresh(struct interface *ifp)
 	if_get_flags(ifp);
 }
 
-void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex)
+void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
+			  ns_id_t ns_id)
 {
 	struct zebra_if *zif;
 
 	zif = (struct zebra_if *)ifp->info;
 	zif->link_ifindex = link_ifindex;
-	zif->link = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
+	zif->link = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id),
 					      link_ifindex);
 }
 
