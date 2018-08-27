@@ -428,8 +428,7 @@ def ip4_route_zebra(node, vrf_name=None):
 
     lines = output.splitlines()
     header_found = False
-    while lines and (not strip(lines[0])
-                        or not header_found):
+    while lines and (not lines[0].strip() or not header_found):
         if '> - selected route' in lines[0]:
             header_found = True
         lines = lines[1:]
