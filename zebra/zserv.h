@@ -251,4 +251,7 @@ extern void zserv_close_client(struct zserv *client);
 extern void zserv_read_file(char *input);
 #endif
 
+/* TODO */
+int zebra_finalize(struct thread *event);
+
 #endif /* _ZEBRA_ZEBRA_H */

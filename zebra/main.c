@@ -147,6 +147,8 @@ static void sigint(void)
 
 	frr_early_fini();
 
+	zebra_dplane_pre_finish();
+
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, ln, nn, client))
 		zserv_close_client(client);
 
@@ -171,7 +173,18 @@ static void sigint(void)
 	route_map_finish();
 
 	list_delete(&zebrad.client_list);
+
+	/* Indicate that all new dplane work has been enqueued */
 	zebra_dplane_finish();
+}
+
+/* TODO */
+int zebra_finalize(struct thread *dummy)
+{
+	zlog_info("Zebra final shutdown");
+
+	/* Stop dplane thread and finish any cleanup */
+	zebra_dplane_shutdown();
 
 	work_queue_free_and_null(&zebrad.ribq);
 	meta_queue_free(zebrad.mq);
@@ -420,7 +433,7 @@ int main(int argc, char **argv)
 
 	/* RNH init */
 	zebra_rnh_init();
-	
+
 	/* Error init */
 	zebra_error_init();
 

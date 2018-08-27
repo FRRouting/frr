@@ -519,6 +519,18 @@ static void zebra_rnh_process_pbr_tables(int family,
 }
 
 /*
+ * Utility to determine whether a candidate nexthop is useable. We make this
+ * check in a couple of places, so this is a single home for the logic we
+ * use.
+ */
+static bool rnh_nexthop_valid(const struct nexthop *nh)
+{
+	return ((CHECK_FLAG(nh->flags, NEXTHOP_FLAG_FIB)
+		 || CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))
+		&& CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE));
+}
+
+/*
  * Determine appropriate route (route entry) resolving a tracked
  * nexthop.
  */
@@ -567,13 +579,10 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, int family,
 			 * have an installed nexthop to be useful.
 			 */
 			for (nexthop = re->ng.nexthop; nexthop;
-			     nexthop = nexthop->next)
-				if ((CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)
-				     || CHECK_FLAG(nexthop->flags,
-						   NEXTHOP_FLAG_RECURSIVE))
-				    && CHECK_FLAG(nexthop->flags,
-						  NEXTHOP_FLAG_ACTIVE))
+			     nexthop = nexthop->next) {
+				if (rnh_nexthop_valid(nexthop))
 					break;
+			}
 
 			if (nexthop == NULL)
 				continue;
@@ -904,9 +913,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		nump = stream_get_endp(s);
 		stream_putc(s, 0);
 		for (nh = re->ng.nexthop; nh; nh = nh->next)
-			if ((CHECK_FLAG(nh->flags, NEXTHOP_FLAG_FIB)
-			     || CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))
-			    && CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)) {
+			if (rnh_nexthop_valid(nh)) {
 				stream_putc(s, nh->type);
 				switch (nh->type) {
 				case NEXTHOP_TYPE_IPV4:

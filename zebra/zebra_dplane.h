@@ -170,6 +170,11 @@ const struct nexthop_group *dplane_ctx_get_ng(const dplane_ctx_h ctx);
 const struct zebra_dplane_info *dplane_ctx_get_ns(const dplane_ctx_h ctx);
 const struct nexthop_group *dplane_ctx_get_old_ng(const dplane_ctx_h ctx);
 
+/* Indicates zebra shutdown/exit is in progress. Some operations may be
+ * simplified or skipped during shutdown processing.
+ */
+bool dplane_is_in_shutdown(void);
+
 /*
  * Enqueue route change operations for the dataplane.
  */
@@ -241,10 +246,15 @@ int dplane_results_register(dplane_results_fp fp);
  */
 void zebra_dplane_init(void);
 
-/* Finalize/cleanup api, called quite late during zebra shutdown.
+/* Finalize/cleanup apis, one called early as shutdown is starting,
+ * one called late at the end of zebra shutdown, and then one called
+ * from the zebra main thread to stop the dplane thread free all resources.
+ *
  * Zebra expects to try to clean up all vrfs and all routes during
  * shutdown, so the dplane must be available until very late.
  */
+void zebra_dplane_pre_finish(void);
 void zebra_dplane_finish(void);
+void zebra_dplane_shutdown(void);
 
 #endif	/* _ZEBRA_DPLANE_H */
