@@ -1011,6 +1011,75 @@ is 4 octet long. The following format is used to define the community value.
 ``internet``
    ``internet`` represents well-known communities value 0.
 
+``graceful-shutdown``
+   ``graceful-shutdown`` represents well-known communities value
+   ``GRACEFUL_SHUTDOWN`` ``0xFFFF0000`` ``65535:0``. :rfc:`8326` implements
+   the purpose Graceful BGP Session Shutdown to reduce the amount of
+   lost traffic when taking BGP sessions down for maintainance. The use
+   of the community needs to be supported from your peers side to
+   actually have any effect.
+
+``accept-own``
+   ``accept-own`` represents well-known communities value ``ACCEPT_OWN``
+   ``0xFFFF0001`` ``65535:1``. :rfc:`7611` implements a way to signal
+   to a router to accept routes with a local nexthop address. This
+   can be the case when doing policing and having traffic having a
+   nexthop located in another VRF but still local interface to the
+   router. It is recommended to read the RFC for full details.
+
+``route-filter-translated-v4``
+   ``route-filter-translated-v4`` represents well-known communities value
+   ``ROUTE_FILTER_TRANSLATED_v4`` ``0xFFFF0002`` ``65535:2``.
+
+``route-filter-v4``
+   ``route-filter-v4`` represents well-known communities value
+   ``ROUTE_FILTER_v4`` ``0xFFFF0003`` ``65535:3``.
+
+``route-filter-translated-v6``
+   ``route-filter-translated-v6`` represents well-known communities value
+   ``ROUTE_FILTER_TRANSLATED_v6`` ``0xFFFF0004`` ``65535:4``.
+
+``route-filter-v6``
+   ``route-filter-v6`` represents well-known communities value
+   ``ROUTE_FILTER_v6`` ``0xFFFF0005`` ``65535:5``.
+
+``llgr-stale``
+   ``llgr-stale`` represents well-known communities value ``LLGR_STALE``
+   ``0xFFFF0006`` ``65535:6``.
+   Assigned and intented only for use with routers supporting the
+   Long-lived Graceful Restart Capability  as described in
+   :rfc:`draft-uttaro-idr-bgp-persistence`.
+   Routers recieving routes with this community may (depending on
+   implementation) choose allow to reject or modify routes on the
+   presence or absence of this community.
+
+``no-llgr``
+   ``no-llgr`` represents well-known communities value ``NO_LLGR``
+   ``0xFFFF0007`` ``65535:7``.
+   Assigned and intented only for use with routers supporting the
+   Long-lived Graceful Restart Capability  as described in
+   :rfc:`draft-uttaro-idr-bgp-persistence`.
+   Routers recieving routes with this community may (depending on
+   implementation) choose allow to reject or modify routes on the
+   presence or absence of this community.
+
+``accept-own-nexthop``
+   ``accept-own-nexthop`` represents well-known communities value
+   ``accept-own-nexthop`` ``0xFFFF0008`` ``65535:8``.
+   :rfc:`draft-agrewal-idr-accept-own-nexthop` describes
+   how to tag and label VPN routes to be able to send traffic between VRFs
+   via an internal layer 2 domain on the same PE device. Refer to
+   :rfc:`draft-agrewal-idr-accept-own-nexthop` for full details.
+
+``blackhole``
+   ``blackhole`` represents well-known communities value ``BLACKHOLE``
+   ``0xFFFF029A`` ``65535:666``. :rfc:`7999` documents sending prefixes to
+   EBGP peers and upstream for the purpose of blackholing traffic.
+   Prefixes tagged with the this community should normally not be
+   re-advertised from neighbors of the originating network. It is
+   recommended upon receiving prefixes tagged with this community to
+   add ``NO_EXPORT`` and ``NO_ADVERTISE``.
+
 ``no-export``
    ``no-export`` represents well-known communities value ``NO_EXPORT``
    ``0xFFFFFF01``. All routes carry this value must not be advertised to
@@ -1029,6 +1098,11 @@ is 4 octet long. The following format is used to define the community value.
    external BGP peers. Even if the neighboring router is part of confederation,
    it is considered as external BGP peer, so the route will not be announced to
    the peer.
+
+``no-peer``
+   ``no-peer`` represents well-known communities value ``NOPEER``
+   ``0xFFFFFF04``  ``65535:65284``. :rfc:`3765` is used to communicate to
+   another network how the originating network want the prefix propagated.
 
 When the communities attribute is received duplicate community values in the
 attribute are ignored and value is sorted in numerical order.

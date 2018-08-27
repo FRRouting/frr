@@ -179,7 +179,7 @@ The following commands are available inside the BGP configuration node.
 .. _bfd-ospf-peer-config:
 
 OSPF BFD Configuration
----------------------
+----------------------
 
 The following commands are available inside the interface configuration node.
 
@@ -364,7 +364,7 @@ You can inspect the current BFD peer status with the following commands:
                            Echo transmission interval: 50ms
 
    frr# show bfd peer 192.168.0.1 json
-{"multihop":false,"peer":"192.168.0.1","id":1,"remote-id":1,"status":"up","uptime":161,"diagnostic":"ok","remote-diagnostic":"ok","receive-interval":300,"transmit-interval":300,"echo-interval":50,"remote-receive-interval":300,"remote-transmit-interval":300,"remote-echo-interval":50}
+   {"multihop":false,"peer":"192.168.0.1","id":1,"remote-id":1,"status":"up","uptime":161,"diagnostic":"ok","remote-diagnostic":"ok","receive-interval":300,"transmit-interval":300,"echo-interval":50,"remote-receive-interval":300,"remote-transmit-interval":300,"remote-echo-interval":50}
 
 
 You can also inspect peer session counters with the following commands:
@@ -402,4 +402,4 @@ You can also inspect peer session counters with the following commands:
                 Zebra notifications: 4
 
    frr# show bfd peer 192.168.0.1 counters json
-{"multihop":false,"peer":"192.168.0.1","control-packet-input":348,"control-packet-output":685,"echo-packet-input":6815,"echo-packet-output":6816,"session-up":1,"session-down":0,"zebra-notifications":4}
+   {"multihop":false,"peer":"192.168.0.1","control-packet-input":348,"control-packet-output":685,"echo-packet-input":6815,"echo-packet-output":6816,"session-up":1,"session-down":0,"zebra-notifications":4}

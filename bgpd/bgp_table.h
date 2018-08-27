@@ -128,9 +128,9 @@ static inline struct bgp_node *bgp_node_parent_nolock(struct bgp_node *node)
 /*
  * bgp_unlock_node
  */
-static inline struct bgp_node *bgp_unlock_node(struct bgp_node *node)
+static inline void bgp_unlock_node(struct bgp_node *node)
 {
-	return (struct bgp_node *)route_unlock_node(bgp_node_to_rnode(node));
+	route_unlock_node(bgp_node_to_rnode(node));
 }
 
 /*

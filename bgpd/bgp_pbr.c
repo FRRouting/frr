@@ -1680,7 +1680,7 @@ static void bgp_pbr_dump_entry(struct bgp_pbr_filter *bpf, bool add)
 			 ? "!" : "",
 			 bpf->dscp->val);
 	}
-	zlog_info("BGP: %s FS PBR from %s to %s, %s %s",
+	zlog_debug("BGP: %s FS PBR from %s to %s, %s %s",
 		  add ? "adding" : "removing",
 		  bpf->src == NULL ? "<all>" :
 		  prefix2str(bpf->src, bufsrc, sizeof(bufsrc)),
@@ -1807,7 +1807,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		       bgp_pbr_match_alloc_intern);
 
 	/* new, then self allocate ipset_name and unique */
-	if (bpm && bpm->unique == 0) {
+	if (bpm->unique == 0) {
 		bpm->unique = ++bgp_pbr_match_counter_unique;
 		/* 0 value is forbidden */
 		sprintf(bpm->ipset_name, "match%p", bpm);
@@ -1838,10 +1838,9 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	temp2.src_port_max = src_port ? src_port->max_port : 0;
 	temp2.dst_port_max = dst_port ? dst_port->max_port : 0;
 	temp2.proto = bpf->protocol;
-	if (bpm)
-		bpme = hash_get(bpm->entry_hash, &temp2,
-				bgp_pbr_match_entry_alloc_intern);
-	if (bpme && bpme->unique == 0) {
+	bpme = hash_get(bpm->entry_hash, &temp2,
+			bgp_pbr_match_entry_alloc_intern);
+	if (bpme->unique == 0) {
 		bpme->unique = ++bgp_pbr_match_entry_counter_unique;
 		/* 0 value is forbidden */
 		bpme->backpointer = bpm;
@@ -1853,7 +1852,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		bpme_found = true;
 
 	/* already installed */
-	if (bpme_found && bpme) {
+	if (bpme_found) {
 		struct bgp_info_extra *extra = bgp_info_extra_get(binfo);
 
 		if (extra && extra->bgp_fs_pbr &&

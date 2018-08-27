@@ -38,6 +38,7 @@
 #include "queue.h"
 #include "memory.h"
 #include "lib/json.h"
+#include "lib_errors.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -188,8 +189,24 @@ static void bgp_info_extra_free(struct bgp_info_extra **extra)
 	if (e->parent) {
 		struct bgp_info *bi = (struct bgp_info *)e->parent;
 
-		if (bi->net)
-			bi->net = bgp_unlock_node((struct bgp_node *)bi->net);
+		if (bi->net) {
+			/* FIXME: since multiple e may have the same e->parent
+			 * and e->parent->net is holding a refcount for each
+			 * of them, we need to do some fudging here.
+			 *
+			 * WARNING: if bi->net->lock drops to 0, bi may be
+			 * freed as well (because bi->net was holding the
+			 * last reference to bi) => write after free!
+			 */
+			unsigned refcount;
+
+			bi = bgp_info_lock(bi);
+			refcount = bi->net->lock - 1;
+			bgp_unlock_node((struct bgp_node *)bi->net);
+			if (!refcount)
+				bi->net = NULL;
+			bgp_info_unlock(bi);
+		}
 		bgp_info_unlock(e->parent);
 		e->parent = NULL;
 	}
@@ -198,8 +215,7 @@ static void bgp_info_extra_free(struct bgp_info_extra **extra)
 		bgp_unlock(e->bgp_orig);
 
 	if ((*extra)->bgp_fs_pbr)
-		list_delete_all_node((*extra)->bgp_fs_pbr);
-	(*extra)->bgp_fs_pbr = NULL;
+		list_delete_and_null(&((*extra)->bgp_fs_pbr));
 	XFREE(MTYPE_BGP_ROUTE_EXTRA, *extra);
 
 	*extra = NULL;
@@ -338,14 +354,9 @@ static void bgp_pcount_adjust(struct bgp_node *rn, struct bgp_info *ri)
 		/* slight hack, but more robust against errors. */
 		if (ri->peer->pcount[table->afi][table->safi])
 			ri->peer->pcount[table->afi][table->safi]--;
-		else {
-			zlog_warn(
-				"%s: Asked to decrement 0 prefix count for peer %s",
-				__func__, ri->peer->host);
-			zlog_backtrace(LOG_WARNING);
-			zlog_warn("%s: Please report to Quagga bugzilla",
-				  __func__);
-		}
+		else
+			flog_err(LIB_ERR_DEVELOPMENT,
+				 "Asked to decrement 0 prefix count for peer");
 	} else if (BGP_INFO_COUNTABLE(ri)
 		   && !CHECK_FLAG(ri->flags, BGP_INFO_COUNTED)) {
 		SET_FLAG(ri->flags, BGP_INFO_COUNTED);
@@ -1039,8 +1050,8 @@ static enum filter_type bgp_input_filter(struct peer *peer, struct prefix *p,
 
 #define FILTER_EXIST_WARN(F, f, filter)                                        \
 	if (BGP_DEBUG(update, UPDATE_IN) && !(F##_IN(filter)))                 \
-		zlog_warn("%s: Could not find configured input %s-list %s!",   \
-			  peer->host, #f, F##_IN_NAME(filter));
+		zlog_debug("%s: Could not find configured input %s-list %s!",  \
+			   peer->host, #f, F##_IN_NAME(filter));
 
 	if (DISTRIBUTE_IN_NAME(filter)) {
 		FILTER_EXIST_WARN(DISTRIBUTE, distribute, filter);
@@ -1078,8 +1089,8 @@ static enum filter_type bgp_output_filter(struct peer *peer, struct prefix *p,
 
 #define FILTER_EXIST_WARN(F, f, filter)                                        \
 	if (BGP_DEBUG(update, UPDATE_OUT) && !(F##_OUT(filter)))               \
-		zlog_warn("%s: Could not find configured output %s-list %s!",  \
-			  peer->host, #f, F##_OUT_NAME(filter));
+		zlog_debug("%s: Could not find configured output %s-list %s!", \
+			   peer->host, #f, F##_OUT_NAME(filter));
 
 	if (DISTRIBUTE_OUT_NAME(filter)) {
 		FILTER_EXIST_WARN(DISTRIBUTE, distribute, filter);
@@ -8187,7 +8198,6 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			vty_out(vty, " \"routeDistinguishers\" : {");
 			++*json_header_depth;
 		}
-		json_paths = json_object_new_object();
 	}
 
 	if (use_json && rd) {
@@ -8414,8 +8424,6 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 		*total_cum = total_count;
 	}
 	if (use_json) {
-		if (json_paths)
-			json_object_free(json_paths);
 		if (rd) {
 			vty_out(vty, " }%s ", (is_last ? "" : ","));
 		}
@@ -8573,9 +8581,19 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	int count = 0;
 	int best = 0;
 	int suppress = 0;
+	int accept_own = 0;
+	int route_filter_translated_v4 = 0;
+	int route_filter_v4 = 0;
+	int route_filter_translated_v6 = 0;
+	int route_filter_v6 = 0;
+	int llgr_stale = 0;
+	int no_llgr = 0;
+	int accept_own_nexthop = 0;
+	int blackhole = 0;
 	int no_export = 0;
 	int no_advertise = 0;
 	int local_as = 0;
+	int no_peer = 0;
 	int first = 1;
 	int has_valid_label = 0;
 	mpls_label_t label = 0;
@@ -8652,12 +8670,41 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 		} else
 			vty_out(vty, ", no best path");
 
-		if (no_advertise)
-			vty_out(vty, ", not advertised to any peer");
+		if (accept_own)
+			vty_out(vty,
+			", accept own local route exported and imported in different VRF");
+		else if (route_filter_translated_v4)
+			vty_out(vty,
+			", mark translated RTs for VPNv4 route filtering");
+		else if (route_filter_v4)
+			vty_out(vty,
+			", attach RT as-is for VPNv4 route filtering");
+		else if (route_filter_translated_v6)
+			vty_out(vty,
+			", mark translated RTs for VPNv6 route filtering");
+		else if (route_filter_v6)
+			vty_out(vty,
+			", attach RT as-is for VPNv6 route filtering");
+		else if (llgr_stale)
+			vty_out(vty,
+			", mark routes to be retained for a longer time. Requeres support for Long-lived BGP Graceful Restart");
+		else if (no_llgr)
+			vty_out(vty,
+			", mark routes to not be treated according to Long-lived BGP Graceful Restart operations");
+		else if (accept_own_nexthop)
+			vty_out(vty,
+			", accept local nexthop");
+		else if (blackhole)
+			vty_out(vty, ", inform peer to blackhole prefix");
 		else if (no_export)
 			vty_out(vty, ", not advertised to EBGP peer");
+		else if (no_advertise)
+			vty_out(vty, ", not advertised to any peer");
 		else if (local_as)
 			vty_out(vty, ", not advertised outside local AS");
+		else if (no_peer)
+			vty_out(vty,
+			", inform EBGP peer not to advertise to their EBGP peers");
 
 		if (suppress)
 			vty_out(vty,
@@ -9018,6 +9065,10 @@ DEFUN (show_ip_bgp,
            |prefix-list WORD\
            |filter-list WORD\
            |statistics\
+           |community <AA:NN|local-AS|no-advertise|no-export|graceful-shutdown\
+           no-peer|blackhole|llgr-stale|no-llgr|accept-own|accept-own-nexthop\
+           route-filter-v6|route-filter-v4|route-filter-translated-v6|\
+           route-filter-translated-v4> [exact-match]\
            |community-list <(1-500)|WORD> [exact-match]\
            |A.B.C.D/M longer-prefixes\
            |X:X::X:X/M longer-prefixes\
@@ -9037,6 +9088,23 @@ DEFUN (show_ip_bgp,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n"
        "BGP RIB advertisement statistics\n"
+       "Display routes matching the communities\n"
+       COMMUNITY_AANN_STR
+       "Do not send outside local AS (well-known community)\n"
+       "Do not advertise to any peer (well-known community)\n"
+       "Do not export to next AS (well-known community)\n"
+       "Graceful shutdown (well-known community)\n"
+       "Do not export to any peer (well-known community)\n"
+       "Inform EBGP peers to blackhole traffic to prefix (well-known community)\n"
+       "Staled Long-lived Graceful Restart VPN route (well-known community)\n"
+       "Removed because Long-lived Graceful Restart was not enabled for VPN route (well-known community)\n"
+       "Should accept local VPN route if exported and imported into different VRF (well-known community)\n"
+       "Should accept VPN route with local nexthop (well-known community)\n"
+       "RT VPNv6 route filtering (well-known community)\n"
+       "RT VPNv4 route filtering (well-known community)\n"
+       "RT translated VPNv6 route filtering (well-known community)\n"
+       "RT translated VPNv4 route filtering (well-known community)\n"
+       "Exact match of the communities\n"
        "Display routes matching the community-list\n"
        "community-list number\n"
        "community-list name\n"
@@ -9797,8 +9865,6 @@ static int bgp_peer_count_walker(struct thread *t)
 				pc->count[PCOUNT_ADJ_IN]++;
 
 		for (ri = rn->info; ri; ri = ri->next) {
-			char buf[SU_ADDRSTRLEN];
-
 			if (ri->peer != peer)
 				continue;
 
@@ -9820,22 +9886,12 @@ static int bgp_peer_count_walker(struct thread *t)
 			if (CHECK_FLAG(ri->flags, BGP_INFO_COUNTED)) {
 				pc->count[PCOUNT_COUNTED]++;
 				if (CHECK_FLAG(ri->flags, BGP_INFO_UNUSEABLE))
-					zlog_warn(
-						"%s [pcount] %s/%d is counted but flags 0x%x",
-						peer->host,
-						inet_ntop(rn->p.family,
-							  &rn->p.u.prefix, buf,
-							  SU_ADDRSTRLEN),
-						rn->p.prefixlen, ri->flags);
+					flog_err(LIB_ERR_DEVELOPMENT,
+						 "Attempting to count but flags say it is unusable");
 			} else {
 				if (!CHECK_FLAG(ri->flags, BGP_INFO_UNUSEABLE))
-					zlog_warn(
-						"%s [pcount] %s/%d not counted but flags 0x%x",
-						peer->host,
-						inet_ntop(rn->p.family,
-							  &rn->p.u.prefix, buf,
-							  SU_ADDRSTRLEN),
-						rn->p.prefixlen, ri->flags);
+					flog_err(LIB_ERR_DEVELOPMENT,
+						 "Not counted but flags say we should");
 			}
 		}
 	}

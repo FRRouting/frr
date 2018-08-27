@@ -715,7 +715,7 @@ int zebra_import_table_config(struct vty *vty)
 	return write;
 }
 
-void zebra_import_table_rm_update()
+void zebra_import_table_rm_update(const char *rmap)
 {
 	afi_t afi;
 	int i;
@@ -730,9 +730,8 @@ void zebra_import_table_rm_update()
 				continue;
 
 			rmap_name = zebra_get_import_table_route_map(afi, i);
-			if (!rmap_name)
-				return;
-
+			if ((!rmap_name) || (strcmp(rmap_name, rmap) != 0))
+				continue;
 			table = zebra_vrf_other_route_table(afi, i,
 							    VRF_DEFAULT);
 			for (rn = route_top(table); rn; rn = route_next(rn)) {

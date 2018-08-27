@@ -107,7 +107,7 @@ struct log_ref *log_ref_get(uint32_t code)
 void log_ref_display(struct vty *vty, uint32_t code, bool json)
 {
 	struct log_ref *ref;
-	struct json_object *top, *obj;
+	struct json_object *top = NULL, *obj = NULL;
 	struct list *errlist;
 	struct listnode *ln;
 
@@ -146,7 +146,7 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 			char ubuf[256];
 
 			snprintf(pbuf, sizeof(pbuf), "\nError %"PRIu32" - %s",
-				 code, ref->title);
+				 ref->code, ref->title);
 			memset(ubuf, '=', strlen(pbuf));
 			ubuf[sizeof(ubuf) - 1] = '\0';
 

@@ -1435,24 +1435,6 @@ DEFUNSH(VTYSH_BGPD,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_BGPD,
-	rpki_exit,
-	rpki_exit_cmd,
-	"exit",
-	"Exit current mode and down to previous mode\n")
-{
-	vty->node = CONFIG_NODE;
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_BGPD,
-	rpki_quit,
-	rpki_quit_cmd,
-	"quit",
-	"Exit current mode and down to previous mode\n")
-{
-	return rpki_exit(self, vty, argc, argv);
-}
 #endif
 
 DEFUNSH(VTYSH_BGPD, address_family_evpn, address_family_evpn_cmd,
@@ -1790,6 +1772,7 @@ static int vtysh_exit(struct vty *vty)
 	case VTY_NODE:
 	case KEYCHAIN_NODE:
 	case BFD_NODE:
+	case RPKI_NODE:
 		vtysh_execute("end");
 		vtysh_execute("configure terminal");
 		vty->node = CONFIG_NODE;
@@ -1883,7 +1866,23 @@ DEFUNSH(VTYSH_BGPD, exit_vnc_config, exit_vnc_config_cmd, "exit-vnc",
 	    || vty->node == BGP_VNC_L2_GROUP_NODE)
 		vty->node = BGP_NODE;
 	return CMD_SUCCESS;
+
 }
+
+#if defined(HAVE_RPKI)
+DEFUNSH(VTYSH_BGPD, rpki_exit, rpki_exit_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	vtysh_exit(vty);
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD, rpki_quit, rpki_quit_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
+{
+	return rpki_exit(self, vty, argc, argv);
+}
+#endif /* HAVE_RPKI */
 
 DEFUNSH(VTYSH_PIMD|VTYSH_ZEBRA, exit_vrf_config, exit_vrf_config_cmd, "exit-vrf",
 	"Exit from VRF configuration mode\n")

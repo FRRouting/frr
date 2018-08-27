@@ -49,6 +49,7 @@
 #include "ospfd/ospf_lsdb.h"
 #include "ospfd/ospf_neighbor.h"
 #include "ospfd/ospf_dump.h"
+#include "ospfd/ospf_route.h"
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_vty.h"
 #include "ospfd/ospf_bfd.h"

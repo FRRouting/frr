@@ -47,6 +47,7 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_route.h"
+#include "lib/network.h"
 #include "lib/thread.h"
 #include "rtrlib/rtrlib.h"
 #include "rtrlib/rtr_mgr.h"
@@ -131,12 +132,14 @@ static route_map_result_t route_match(void *rule, const struct prefix *prefix,
 static void *route_match_compile(const char *arg);
 static void revalidate_bgp_node(struct bgp_node *bgp_node, afi_t afi,
 				safi_t safi);
+static void revalidate_all_routes(void);
 
 static struct rtr_mgr_config *rtr_config;
 static struct list *cache_list;
 static int rtr_is_running;
 static int rtr_is_stopping;
 static int rtr_is_starting;
+static _Atomic int rtr_update_overflow;
 static int rpki_debug;
 static unsigned int polling_period;
 static unsigned int expire_interval;
@@ -229,7 +232,7 @@ static void *route_match_compile(const char *arg)
 {
 	int *rpki_status;
 
-	rpki_status = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint8_t));
+	rpki_status = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(int));
 
 	if (strcmp(arg, "valid") == 0)
 		*rpki_status = RPKI_VALID;
@@ -345,6 +348,19 @@ static int bgpd_sync_callback(struct thread *thread)
 
 	thread_add_read(bm->master, bgpd_sync_callback, NULL,
 			rpki_sync_socket_bgpd, NULL);
+
+	if (atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst)) {
+		while (read(rpki_sync_socket_bgpd, &rec,
+			    sizeof(struct pfx_record))
+		       != -1)
+			;
+
+		atomic_store_explicit(&rtr_update_overflow, 0,
+				      memory_order_seq_cst);
+		revalidate_all_routes();
+		return 0;
+	}
+
 	int retval =
 		read(rpki_sync_socket_bgpd, &rec, sizeof(struct pfx_record));
 	if (retval != sizeof(struct pfx_record)) {
@@ -356,26 +372,36 @@ static int bgpd_sync_callback(struct thread *thread)
 	afi_t afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		safi_t safi;
+		struct peer *peer;
+		struct listnode *peer_listnode;
 
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			if (!bgp->rib[afi][safi])
-				continue;
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
+			safi_t safi;
 
-			struct list *matches = list_new();
+			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+				if (!peer->bgp->rib[afi][safi])
+					continue;
 
-			matches->del = (void (*)(void *))bgp_unlock_node;
+				struct list *matches = list_new();
 
-			bgp_table_range_lookup(bgp->rib[afi][safi], prefix,
-					       rec.max_len, matches);
+				matches->del =
+					(void (*)(void *))bgp_unlock_node;
+
+				bgp_table_range_lookup(
+					peer->bgp->rib[afi][safi], prefix,
+					rec.max_len, matches);
 
 
-			struct bgp_node *bgp_node;
+				struct bgp_node *bgp_node;
+				struct listnode *bgp_listnode;
 
-			for (ALL_LIST_ELEMENTS_RO(matches, node, bgp_node))
-				revalidate_bgp_node(bgp_node, afi, safi);
+				for (ALL_LIST_ELEMENTS_RO(matches, bgp_listnode,
+							  bgp_node))
+					revalidate_bgp_node(bgp_node, afi,
+							    safi);
 
-			list_delete_and_null(&matches);
+				list_delete_and_null(&matches);
+			}
 		}
 	}
 
@@ -398,14 +424,13 @@ static void revalidate_bgp_node(struct bgp_node *bgp_node, afi_t afi,
 			label = bgp_info->extra->label;
 			num_labels = bgp_info->extra->num_labels;
 		}
-		ret = bgp_update(ain->peer, &bgp_node->p, 0, ain->attr, afi,
-				 safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL,
-				 label, num_labels, 1, NULL);
+		ret = bgp_update(ain->peer, &bgp_node->p, ain->addpath_rx_id,
+				 ain->attr, afi, safi, ZEBRA_ROUTE_BGP,
+				 BGP_ROUTE_NORMAL, NULL, label, num_labels, 1,
+				 NULL);
 
-		if (ret < 0) {
-			bgp_unlock_node(bgp_node);
+		if (ret < 0)
 			return;
-		}
 	}
 }
 
@@ -413,25 +438,23 @@ static void revalidate_all_routes(void)
 {
 	struct bgp *bgp;
 	struct listnode *node;
-	struct bgp_node *bgp_node;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		for (size_t i = 0; i < 2; i++) {
-			safi_t safi;
-			afi_t afi = (i == 0) ? AFI_IP : AFI_IP6;
+		struct peer *peer;
+		struct listnode *peer_listnode;
 
-			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-				if (!bgp->rib[afi][safi])
-					continue;
+		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
 
-				for (bgp_node =
-					     bgp_table_top(bgp->rib[afi][safi]);
-				     bgp_node;
-				     bgp_node = bgp_route_next(bgp_node)) {
-					if (bgp_node->info != NULL) {
-						revalidate_bgp_node(bgp_node,
-								    afi, safi);
-					}
+			for (size_t i = 0; i < 2; i++) {
+				safi_t safi;
+				afi_t afi = (i == 0) ? AFI_IP : AFI_IP6;
+
+				for (safi = SAFI_UNICAST; safi < SAFI_MAX;
+				     safi++) {
+					if (!peer->bgp->rib[afi][safi])
+						continue;
+
+					bgp_soft_reconfig_in(peer, afi, safi);
 				}
 			}
 		}
@@ -442,28 +465,53 @@ static void rpki_update_cb_sync_rtr(struct pfx_table *p __attribute__((unused)),
 				    const struct pfx_record rec,
 				    const bool added __attribute__((unused)))
 {
-	if (rtr_is_stopping || rtr_is_starting)
+	if (rtr_is_stopping || rtr_is_starting
+	    || atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst))
 		return;
 
 	int retval =
 		write(rpki_sync_socket_rtr, &rec, sizeof(struct pfx_record));
-	if (retval != sizeof(struct pfx_record))
+	if (retval == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
+		atomic_store_explicit(&rtr_update_overflow, 1,
+				      memory_order_seq_cst);
+
+	else if (retval != sizeof(struct pfx_record))
 		RPKI_DEBUG("Could not write to rpki_sync_socket_rtr");
 }
 
 static void rpki_init_sync_socket(void)
 {
 	int fds[2];
+	const char *msg;
 
 	RPKI_DEBUG("initializing sync socket");
 	if (socketpair(PF_LOCAL, SOCK_DGRAM, 0, fds) != 0) {
-		RPKI_DEBUG("Could not open rpki sync socket");
-		return;
+		msg = "could not open rpki sync socketpair";
+		goto err;
 	}
 	rpki_sync_socket_rtr = fds[0];
 	rpki_sync_socket_bgpd = fds[1];
+
+	if (set_nonblocking(rpki_sync_socket_rtr) != 0) {
+		msg = "could not set rpki_sync_socket_rtr to non blocking";
+		goto err;
+	}
+
+	if (set_nonblocking(rpki_sync_socket_bgpd) != 0) {
+		msg = "could not set rpki_sync_socket_bgpd to non blocking";
+		goto err;
+	}
+
+
 	thread_add_read(bm->master, bgpd_sync_callback, NULL,
 			rpki_sync_socket_bgpd, NULL);
+
+	return;
+
+err:
+	zlog_err("RPKI: %s", msg);
+	abort();
+
 }
 
 static int bgp_rpki_init(struct thread_master *master)
@@ -514,6 +562,7 @@ static int start(void)
 
 	rtr_is_stopping = 0;
 	rtr_is_starting = 1;
+	rtr_update_overflow = 0;
 
 	if (list_isempty(cache_list)) {
 		RPKI_DEBUG(
@@ -1210,10 +1259,10 @@ DEFUN_NOSH (rpki_exit,
 	    "exit",
 	    "Exit rpki configuration and restart rpki session\n")
 {
-	int ret = reset(false);
+	reset(false);
 
 	vty->node = CONFIG_NODE;
-	return ret == SUCCESS ? CMD_SUCCESS : CMD_WARNING;
+	return CMD_SUCCESS;
 }
 
 DEFUN_NOSH (rpki_quit,

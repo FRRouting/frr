@@ -3187,14 +3187,15 @@ int bgp_delete(struct bgp *bgp)
 				.import_redirect_rtlist);
 		bgp->vpn_policy[afi].import_redirect_rtlist = NULL;
 	}
-	/* Remove visibility via the master list - there may however still be
-	 * routes to be processed still referencing the struct bgp.
-	 */
-	listnode_delete(bm->bgp, bgp);
 
 	/* Deregister from Zebra, if needed */
 	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
 		bgp_zebra_instance_deregister(bgp);
+
+	/* Remove visibility via the master list - there may however still be
+	 * routes to be processed still referencing the struct bgp.
+	 */
+	listnode_delete(bm->bgp, bgp);
 
 	/* Free interfaces in this instance. */
 	bgp_if_finish(bgp);
@@ -6631,17 +6632,6 @@ char *peer_uptime(time_t uptime2, char *buf, size_t len, uint8_t use_json,
 	time_t uptime1, epoch_tbuf;
 	struct tm *tm;
 
-	/* Check buffer length. */
-	if (len < BGP_UPTIME_LEN) {
-		if (!use_json) {
-			zlog_warn("peer_uptime (): buffer shortage %lu",
-				  (unsigned long)len);
-			/* XXX: should return status instead of buf... */
-			snprintf(buf, len, "<error> ");
-		}
-		return buf;
-	}
-
 	/* If there is no connection has been done before print `never'. */
 	if (uptime2 == 0) {
 		if (use_json) {
@@ -7356,7 +7346,7 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 }
 
 /* clang-format off */
-#if CONFDATE > 20180517
+#if CONFDATE > 20190517
 CPP_NOTICE("bgpd: remove 'bgp enforce-first-as' config migration from bgp_config_write")
 #endif
 /* clang-format on */

@@ -868,11 +868,16 @@ int zlog_rotate(void)
 		save_errno = errno;
 		umask(oldumask);
 		if (zl->fp == NULL) {
+
+			pthread_mutex_unlock(&loglock);
+
 			flog_err_sys(
 				LIB_ERR_SYSTEM_CALL,
 				"Log rotate failed: cannot open file %s for append: %s",
 				zl->filename, safe_strerror(save_errno));
 			ret = -1;
+
+			pthread_mutex_lock(&loglock);
 		} else {
 			logfile_fd = fileno(zl->fp);
 			zl->maxlvl[ZLOG_DEST_FILE] = level;
@@ -903,10 +908,6 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_ROUTE_ADD),
 	DESC_ENTRY(ZEBRA_ROUTE_DELETE),
 	DESC_ENTRY(ZEBRA_ROUTE_NOTIFY_OWNER),
-	DESC_ENTRY(ZEBRA_IPV4_ROUTE_ADD),
-	DESC_ENTRY(ZEBRA_IPV4_ROUTE_DELETE),
-	DESC_ENTRY(ZEBRA_IPV6_ROUTE_ADD),
-	DESC_ENTRY(ZEBRA_IPV6_ROUTE_DELETE),
 	DESC_ENTRY(ZEBRA_REDISTRIBUTE_ADD),
 	DESC_ENTRY(ZEBRA_REDISTRIBUTE_DELETE),
 	DESC_ENTRY(ZEBRA_REDISTRIBUTE_DEFAULT_ADD),

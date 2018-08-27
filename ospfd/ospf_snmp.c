@@ -47,6 +47,7 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_ism.h"
 #include "ospfd/ospf_dump.h"
+#include "ospfd/ospf_route.h"
 #include "ospfd/ospf_zebra.h"
 
 /* OSPF2-MIB. */

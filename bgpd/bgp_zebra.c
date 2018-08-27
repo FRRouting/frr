@@ -1576,8 +1576,14 @@ static void bgp_redist_del(struct bgp *bgp, afi_t afi, uint8_t type,
 
 /* Other routes redistribution into BGP. */
 int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
-			 unsigned short instance)
+			 unsigned short instance, bool changed)
 {
+	/* If redistribute options are changed call
+	 * bgp_redistribute_unreg() to reset the option and withdraw
+	 * the routes
+	 */
+	if (changed)
+		bgp_redistribute_unreg(bgp, afi, type, instance);
 
 	/* Return if already redistribute flag is set. */
 	if (instance) {

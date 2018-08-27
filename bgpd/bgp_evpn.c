@@ -4897,6 +4897,23 @@ void bgp_evpn_derive_auto_rd(struct bgp *bgp, struct bgpevpn *vpn)
 }
 
 /*
+ * Lookup L3-VNI
+ */
+bool bgp_evpn_lookup_l3vni_l2vni_table(vni_t vni)
+{
+	struct list *inst = bm->bgp;
+	struct listnode *node;
+	struct bgp *bgp_vrf;
+
+	for (ALL_LIST_ELEMENTS_RO(inst, node, bgp_vrf)) {
+		if (bgp_vrf->l3vni == vni)
+			return true;
+	}
+
+	return false;
+}
+
+/*
  * Lookup VNI.
  */
 struct bgpevpn *bgp_evpn_lookup_vni(struct bgp *bgp, vni_t vni)

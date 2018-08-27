@@ -167,6 +167,8 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 			up->ref_count, up->flags,
 			up->channel_oil->oil_ref_count);
 
+	 assert(up->ref_count > 0);
+
 	--up->ref_count;
 
 	if (up->ref_count >= 1)

@@ -1501,17 +1501,37 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 
 	/* filter route selection in following order:
 	 * - connected beats other types
+	 * - if both connected, loopback or vrf wins
 	 * - lower distance beats higher
 	 * - lower metric beats higher for equal distance
 	 * - last, hence oldest, route wins tie break.
 	 */
 
-	/* Connected routes. Pick the last connected
+	/* Connected routes. Check to see if either are a vrf
+	 * or loopback interface.  If not, pick the last connected
 	 * route of the set of lowest metric connected routes.
 	 */
 	if (alternate->type == ZEBRA_ROUTE_CONNECT) {
-		if (current->type != ZEBRA_ROUTE_CONNECT
-		    || alternate->metric <= current->metric)
+		if (current->type != ZEBRA_ROUTE_CONNECT)
+			return alternate;
+
+		/* both are connected.  are either loop or vrf? */
+		struct nexthop *nexthop = NULL;
+
+		for (ALL_NEXTHOPS(alternate->ng, nexthop)) {
+			if (if_is_loopback_or_vrf(if_lookup_by_index(
+				    nexthop->ifindex, alternate->vrf_id)))
+				return alternate;
+		}
+
+		for (ALL_NEXTHOPS(current->ng, nexthop)) {
+			if (if_is_loopback_or_vrf(if_lookup_by_index(
+				    nexthop->ifindex, current->vrf_id)))
+				return current;
+		}
+
+		/* Neither are loop or vrf so pick best metric  */
+		if (alternate->metric <= current->metric)
 			return alternate;
 
 		return current;
@@ -2651,8 +2671,7 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 }
 
 /* Schedule routes of a particular table (address-family) based on event. */
-static void rib_update_table(struct route_table *table,
-			     rib_update_event_t event)
+void rib_update_table(struct route_table *table, rib_update_event_t event)
 {
 	struct route_node *rn;
 	struct route_entry *re, *next;
@@ -2732,12 +2751,18 @@ void rib_update(vrf_id_t vrf_id, rib_update_event_t event)
 
 	/* Process routes of interested address-families. */
 	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
-	if (table)
+	if (table) {
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("%s : AFI_IP event %d", __func__, event);
 		rib_update_table(table, event);
+	}
 
 	table = zebra_vrf_table(AFI_IP6, SAFI_UNICAST, vrf_id);
-	if (table)
+	if (table) {
+		if (IS_ZEBRA_DEBUG_EVENT)
+			zlog_debug("%s : AFI_IP6 event %d", __func__, event);
 		rib_update_table(table, event);
+	}
 }
 
 /* Delete self installed routes after zebra is relaunched.  */

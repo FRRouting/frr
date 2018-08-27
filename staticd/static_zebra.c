@@ -34,6 +34,7 @@
 #include "log.h"
 #include "nexthop.h"
 #include "nexthop_group.h"
+#include "hash.h"
 
 #include "static_vrf.h"
 #include "static_routes.h"
@@ -43,6 +44,7 @@
 
 /* Zebra structure to hold current status. */
 struct zclient *zclient;
+static struct hash *static_nht_hash;
 
 static struct interface *zebra_interface_if_lookup(struct stream *s)
 {
@@ -176,10 +178,16 @@ static void zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
+struct static_nht_data {
+	struct prefix *nh;
+	uint32_t refcount;
+	uint8_t nh_num;
+};
 
 static int static_zebra_nexthop_update(int command, struct zclient *zclient,
 				       zebra_size_t length, vrf_id_t vrf_id)
 {
+	struct static_nht_data *nhtd, lookup;
 	struct zapi_route nhr;
 	afi_t afi = AFI_IP;
 
@@ -191,6 +199,14 @@ static int static_zebra_nexthop_update(int command, struct zclient *zclient,
 	if (nhr.prefix.family == AF_INET6)
 		afi = AFI_IP6;
 
+	memset(&lookup, 0, sizeof(lookup));
+	lookup.nh = &nhr.prefix;
+
+	nhtd = hash_lookup(static_nht_hash, &lookup);
+	if (nhtd)
+		nhtd->nh_num = nhr.nexthop_num;
+
+
 	static_nht_update(&nhr.prefix, nhr.nexthop_num, afi, vrf_id);
 	return 1;
 }
@@ -200,10 +216,50 @@ static void static_zebra_capabilities(struct zclient_capabilities *cap)
 	mpls_enabled = cap->mpls_enabled;
 }
 
+static unsigned int static_nht_hash_key(void *data)
+{
+	struct static_nht_data *nhtd = data;
+
+	return prefix_hash_key(nhtd->nh);
+}
+
+static int static_nht_hash_cmp(const void *d1, const void *d2)
+{
+	const struct static_nht_data *nhtd1 = d1;
+	const struct static_nht_data *nhtd2 = d2;
+
+	return prefix_same(nhtd1->nh, nhtd2->nh);
+}
+
+static void *static_nht_hash_alloc(void *data)
+{
+	struct static_nht_data *copy = data;
+	struct static_nht_data *new;
+
+	new = XMALLOC(MTYPE_TMP, sizeof(*new));
+
+	new->nh = prefix_new();
+	prefix_copy(new->nh, copy->nh);
+	new->refcount = 0;
+	new->nh_num = 0;
+
+	return new;
+}
+
+static void static_nht_hash_free(void *data)
+{
+	struct static_nht_data *nhtd = data;
+
+	prefix_free(nhtd->nh);
+	XFREE(MTYPE_TMP, nhtd);
+}
+
 void static_zebra_nht_register(struct static_route *si, bool reg)
 {
+	struct static_nht_data *nhtd, lookup;
 	uint32_t cmd;
 	struct prefix p;
+	afi_t afi = AFI_IP;
 
 	cmd = (reg) ?
 		ZEBRA_NEXTHOP_REGISTER : ZEBRA_NEXTHOP_UNREGISTER;
@@ -224,20 +280,48 @@ void static_zebra_nht_register(struct static_route *si, bool reg)
 		p.family = AF_INET;
 		p.prefixlen = IPV4_MAX_BITLEN;
 		p.u.prefix4 = si->addr.ipv4;
+		afi = AFI_IP;
 		break;
 	case STATIC_IPV6_GATEWAY:
 	case STATIC_IPV6_GATEWAY_IFNAME:
 		p.family = AF_INET6;
 		p.prefixlen = IPV6_MAX_BITLEN;
 		p.u.prefix6 = si->addr.ipv6;
+		afi = AFI_IP6;
 		break;
+	}
+
+	memset(&lookup, 0, sizeof(lookup));
+	lookup.nh = &p;
+
+	si->nh_registered = reg;
+
+	if (reg) {
+		nhtd = hash_get(static_nht_hash, &lookup,
+				static_nht_hash_alloc);
+		nhtd->refcount++;
+
+		if (nhtd->refcount > 1) {
+			static_nht_update(nhtd->nh, nhtd->nh_num,
+					  afi, si->nh_vrf_id);
+			return;
+		}
+	} else {
+		nhtd = hash_lookup(static_nht_hash, &lookup);
+		if (!nhtd)
+			return;
+
+		nhtd->refcount--;
+		if (nhtd->refcount >= 1)
+			return;
+
+		hash_release(static_nht_hash, nhtd);
+		static_nht_hash_free(nhtd);
 	}
 
 	if (zclient_send_rnh(zclient, cmd, &p, false, si->nh_vrf_id) < 0)
 		zlog_warn("%s: Failure to send nexthop to zebra",
 			  __PRETTY_FUNCTION__);
-
-	si->nh_registered = reg;
 }
 
 extern void static_zebra_route_add(struct route_node *rn,
@@ -273,9 +357,10 @@ extern void static_zebra_route_add(struct route_node *rn,
 		SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
 		api.tag = si_changed->tag;
 	}
-	api.tableid = si_changed->table_id;
-
-	zlog_debug("Distance sent down: %d %d", si_changed->distance, install);
+	if (si_changed->table_id != 0) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
+		api.tableid = si_changed->table_id;
+	}
 	for (/*loaded above*/; si; si = si->next) {
 		api_nh = &api.nexthops[nh_num];
 		if (si->nh_vrf_id == VRF_UNKNOWN)
@@ -372,4 +457,8 @@ void static_zebra_init(void)
 	zclient->interface_address_delete = interface_address_delete;
 	zclient->route_notify_owner = route_notify_owner;
 	zclient->nexthop_update = static_zebra_nexthop_update;
+
+	static_nht_hash = hash_create(static_nht_hash_key,
+				      static_nht_hash_cmp,
+				      "Static Nexthop Tracking hash");
 }

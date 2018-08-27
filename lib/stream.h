@@ -98,14 +98,15 @@
 struct stream {
 	struct stream *next;
 
-	/* Remainder is ***private*** to stream
+	/*
+	 * Remainder is ***private*** to stream
 	 * direct access is frowned upon!
 	 * Use the appropriate functions/macros
 	 */
-	size_t getp;	 /* next get position */
-	size_t endp;	 /* last valid data position */
-	size_t size;	 /* size of data segment */
-	unsigned char *data; /* data pointer */
+	size_t getp;	       /* next get position */
+	size_t endp;	       /* last valid data position */
+	size_t size;	       /* size of data segment */
+	unsigned char data[0]; /* data pointer */
 };
 
 /* First in first out queue structure. */
@@ -154,7 +155,14 @@ extern struct stream *stream_new(size_t);
 extern void stream_free(struct stream *);
 extern struct stream *stream_copy(struct stream *, struct stream *src);
 extern struct stream *stream_dup(struct stream *);
-extern size_t stream_resize(struct stream *, size_t);
+
+#if CONFDATE > 20190821
+CPP_NOTICE("lib: time to remove stream_resize_orig")
+#endif
+extern size_t stream_resize_orig(struct stream *s, size_t newsize);
+#define stream_resize stream_resize_orig
+extern size_t stream_resize_inplace(struct stream **sptr, size_t newsize);
+
 extern size_t stream_get_getp(struct stream *);
 extern size_t stream_get_endp(struct stream *);
 extern size_t stream_get_size(struct stream *);

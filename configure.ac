@@ -382,7 +382,7 @@ AC_ARG_ENABLE(bgp-vnc,
 AC_ARG_WITH(rfp-path,
   AS_HELP_STRING([--with-rfp-path[=DIR]],[path to replaced stub RFP used with BGP VNC]))
 AC_ARG_ENABLE(snmp,
-  AS_HELP_STRING([--enable-snmp=ARG], [enable SNMP support (smux or agentx)]))
+  AS_HELP_STRING([--enable-snmp], [enable SNMP support for agentx]))
 AC_ARG_ENABLE(zeromq,
   AS_HELP_STRING([--enable-zeromq], [enable ZeroMQ handler (libfrrzmq)]))
 AC_ARG_WITH(libpam,
@@ -418,8 +418,6 @@ AC_ARG_ENABLE(rusage,
   AS_HELP_STRING([--disable-rusage], [disable using getrusage]))
 AC_ARG_ENABLE(gcc_ultra_verbose,
   AS_HELP_STRING([--enable-gcc-ultra-verbose], [enable ultra verbose GCC warnings]))
-AC_ARG_ENABLE(linux24_tcp_md5,
-  AS_HELP_STRING([--enable-linux24-tcp-md5], [enable support for old, Linux-2.4 RFC2385 patch]))
 AC_ARG_ENABLE(backtrace,
   AS_HELP_STRING([--disable-backtrace,], [disable crash backtraces (default autodetect)]))
 AC_ARG_ENABLE(time-check,
@@ -643,10 +641,6 @@ AM_CONDITIONAL([HAVE_PROTOBUF], [test "x$have_protobuf" = "xyes"])
 #
 # End of logic for protobuf support.
 #
-
-if test "${enable_linux24_tcp_md5}" = "yes"; then
-  AC_DEFINE(HAVE_TCP_MD5_LINUX24,,Old Linux 2.4 TCP MD5 Signature Patch)
-fi
 
 AC_MSG_CHECKING(if zebra should be configurable to send Route Advertisements)
 if test "${enable_rtadv}" != "no"; then
@@ -1496,14 +1490,13 @@ int main(void);
      yes)
       SNMP_METHOD=agentx
       ;;
-     smux|agentx)
+     agentx)
       SNMP_METHOD="${enable_snmp}"
       ;;
      *)
-      AC_MSG_ERROR([--enable-snmp given with an unknown method (${enable_snmp}). Use smux or agentx])
+      AC_MSG_ERROR([--enable-snmp given with an unknown method (${enable_snmp}). Use yes or agentx])
       ;;
    esac
-   AH_TEMPLATE([SNMP_SMUX], [Use SNMP SMUX to interface with snmpd])
    AH_TEMPLATE([SNMP_AGENTX], [Use SNMP AgentX to interface with snmpd])
    AC_DEFINE_UNQUOTED(AS_TR_CPP(SNMP_${SNMP_METHOD}),,SNMP method to interface with snmpd)
 fi

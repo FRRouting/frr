@@ -393,7 +393,8 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id, int vty)
 	 * this should not be considered as an update
 	 * then create the new interface
 	 */
-	if (ifp->vrf_id != vrf_id && vrf_is_mapped_on_netns(vrf_id))
+	if (ifp->vrf_id != vrf_id && vrf_is_mapped_on_netns(
+					vrf_lookup_by_id(vrf_id)))
 		return if_create(name, vrf_id);
 	/* If it came from the kernel
 	 * or by way of zclient, believe it and update
@@ -469,6 +470,14 @@ int if_is_loopback(struct interface *ifp)
 int if_is_vrf(struct interface *ifp)
 {
 	return CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
+}
+
+bool if_is_loopback_or_vrf(struct interface *ifp)
+{
+	if (if_is_loopback(ifp) || if_is_vrf(ifp))
+		return true;
+
+	return false;
 }
 
 /* Does this interface support broadcast ? */
@@ -1140,7 +1149,7 @@ const char *if_link_type_str(enum zebra_link_type llt)
 		llts(ZEBRA_LLT_IEEE802154, "IEEE 802.15.4");
 		llts(ZEBRA_LLT_IEEE802154_PHY, "IEEE 802.15.4 Phy");
 	default:
-		zlog_warn("Unknown value %d", llt);
+		flog_err(LIB_ERR_DEVELOPMENT, "Unknown value %d", llt);
 		return "Unknown type!";
 #undef llts
 	}
