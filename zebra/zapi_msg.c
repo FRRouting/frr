@@ -2273,9 +2273,9 @@ static inline void zread_ipset(ZAPI_HANDLER_ARGS)
 		STREAM_GET(&zpi.ipset_name, s, ZEBRA_IPSET_NAME_SIZE);
 
 		if (hdr->command == ZEBRA_IPSET_CREATE)
-			zebra_pbr_create_ipset(zvrf->zns, &zpi);
+			zebra_pbr_create_ipset(&zpi);
 		else
-			zebra_pbr_destroy_ipset(zvrf->zns, &zpi);
+			zebra_pbr_destroy_ipset(&zpi);
 	}
 
 stream_failure:
@@ -2328,12 +2328,12 @@ static inline void zread_ipset_entry(ZAPI_HANDLER_ARGS)
 			zpi.filter_bm |= PBR_FILTER_PROTO;
 
 		/* calculate backpointer */
-		zpi.backpointer = zebra_pbr_lookup_ipset_pername(
-			zvrf->zns, ipset.ipset_name);
+		zpi.backpointer =
+			zebra_pbr_lookup_ipset_pername(ipset.ipset_name);
 		if (hdr->command == ZEBRA_IPSET_ENTRY_ADD)
-			zebra_pbr_add_ipset_entry(zvrf->zns, &zpi);
+			zebra_pbr_add_ipset_entry(&zpi);
 		else
-			zebra_pbr_del_ipset_entry(zvrf->zns, &zpi);
+			zebra_pbr_del_ipset_entry(&zpi);
 	}
 
 stream_failure:
@@ -2368,9 +2368,9 @@ static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 	zebra_pbr_iptable_update_interfacelist(s, &zpi);
 
 	if (hdr->command == ZEBRA_IPTABLE_ADD)
-		zebra_pbr_add_iptable(zvrf->zns, &zpi);
+		zebra_pbr_add_iptable(&zpi);
 	else
-		zebra_pbr_del_iptable(zvrf->zns, &zpi);
+		zebra_pbr_del_iptable(&zpi);
 stream_failure:
 	return;
 }

@@ -52,6 +52,12 @@ struct zebra_router {
 	struct hash *l3vni_table;
 
 	struct hash *rules_hash;
+
+	struct hash *ipset_hash;
+
+	struct hash *ipset_entry_hash;
+
+	struct hash *iptable_hash;
 };
 
 extern struct zebra_router zrouter;

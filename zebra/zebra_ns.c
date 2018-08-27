@@ -121,20 +121,6 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 
 	zns->ns_id = ns_id;
 
-	zns->ipset_hash =
-		hash_create_size(8, zebra_pbr_ipset_hash_key,
-				 zebra_pbr_ipset_hash_equal, "IPset Hash");
-
-	zns->ipset_entry_hash =
-		hash_create_size(8, zebra_pbr_ipset_entry_hash_key,
-				 zebra_pbr_ipset_entry_hash_equal,
-				 "IPset Hash Entry");
-
-	zns->iptable_hash =
-		hash_create_size(8, zebra_pbr_iptable_hash_key,
-				 zebra_pbr_iptable_hash_equal,
-				 "IPtable Hash Entry");
-
 #if defined(HAVE_RTADV)
 	rtadv_init(zns);
 #endif
@@ -152,15 +138,6 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 int zebra_ns_disable(ns_id_t ns_id, void **info)
 {
 	struct zebra_ns *zns = (struct zebra_ns *)(*info);
-
-	hash_clean(zns->ipset_entry_hash,
-		   zebra_pbr_ipset_entry_free),
-	hash_clean(zns->ipset_hash, zebra_pbr_ipset_free);
-	hash_free(zns->ipset_hash);
-	hash_free(zns->ipset_entry_hash);
-	hash_clean(zns->iptable_hash,
-		   zebra_pbr_iptable_free);
-	hash_free(zns->iptable_hash);
 
 	route_table_finish(zns->if_table);
 	zebra_vxlan_ns_disable(zns);

@@ -158,6 +158,13 @@ void zebra_router_terminate(void)
 
 	hash_clean(zrouter.rules_hash, zebra_pbr_rules_free);
 	hash_free(zrouter.rules_hash);
+
+	hash_clean(zrouter.ipset_entry_hash, zebra_pbr_ipset_entry_free),
+		hash_clean(zrouter.ipset_hash, zebra_pbr_ipset_free);
+	hash_free(zrouter.ipset_hash);
+	hash_free(zrouter.ipset_entry_hash);
+	hash_clean(zrouter.iptable_hash, zebra_pbr_iptable_free);
+	hash_free(zrouter.iptable_hash);
 }
 
 void zebra_router_init(void)
@@ -167,4 +174,16 @@ void zebra_router_init(void)
 	zrouter.rules_hash = hash_create_size(8, zebra_pbr_rules_hash_key,
 					      zebra_pbr_rules_hash_equal,
 					      "Rules Hash");
+
+	zrouter.ipset_hash =
+		hash_create_size(8, zebra_pbr_ipset_hash_key,
+				 zebra_pbr_ipset_hash_equal, "IPset Hash");
+
+	zrouter.ipset_entry_hash = hash_create_size(
+		8, zebra_pbr_ipset_entry_hash_key,
+		zebra_pbr_ipset_entry_hash_equal, "IPset Hash Entry");
+
+	zrouter.iptable_hash = hash_create_size(8, zebra_pbr_iptable_hash_key,
+						zebra_pbr_iptable_hash_equal,
+						"IPtable Hash Entry");
 }
