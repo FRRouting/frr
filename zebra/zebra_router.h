@@ -58,6 +58,10 @@ struct zebra_router {
 	struct hash *ipset_entry_hash;
 
 	struct hash *iptable_hash;
+
+#if defined(HAVE_RTADV)
+	struct rtadv rtadv;
+#endif /* HAVE_RTADV */
 };
 
 extern struct zebra_router zrouter;

@@ -53,10 +53,6 @@ struct zebra_ns {
 
 	struct route_table *if_table;
 
-#if defined(HAVE_RTADV)
-	struct rtadv rtadv;
-#endif /* HAVE_RTADV */
-
 	/* Back pointer */
 	struct ns *ns;
 };
