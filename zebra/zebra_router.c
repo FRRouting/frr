@@ -23,6 +23,7 @@
 
 #include "zebra_router.h"
 #include "zebra_memory.h"
+#include "zebra_pbr.h"
 
 struct zebra_router zrouter;
 
@@ -154,9 +155,16 @@ void zebra_router_terminate(void)
 		RB_REMOVE(zebra_router_table_head, &zrouter.tables, zrt);
 		zebra_router_free_table(zrt);
 	}
+
+	hash_clean(zrouter.rules_hash, zebra_pbr_rules_free);
+	hash_free(zrouter.rules_hash);
 }
 
 void zebra_router_init(void)
 {
 	zrouter.l3vni_table = NULL;
+
+	zrouter.rules_hash = hash_create_size(8, zebra_pbr_rules_hash_key,
+					      zebra_pbr_rules_hash_equal,
+					      "Rules Hash");
 }

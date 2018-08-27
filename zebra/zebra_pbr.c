@@ -26,6 +26,7 @@
 #include <memory.h>
 #include <hook.h>
 
+#include "zebra/zebra_router.h"
 #include "zebra/zebra_pbr.h"
 #include "zebra/rt.h"
 #include "zebra/zapi_msg.h"
@@ -158,6 +159,9 @@ uint32_t zebra_pbr_rules_hash_key(void *arg)
 		key = jhash_1word(rule->rule.filter.fwmark, key);
 	else
 		key = jhash_1word(0, key);
+
+	key = jhash_1word(rule->vrf_id, key);
+
 	return jhash_3words(rule->rule.filter.src_port,
 			    rule->rule.filter.dst_port,
 			    prefix_hash_key(&rule->rule.filter.dst_ip),
@@ -201,6 +205,9 @@ bool zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 	if (r1->ifp != r2->ifp)
 		return false;
 
+	if (r1->vrf_id != r2->vrf_id)
+		return false;
+
 	return true;
 }
 
@@ -208,6 +215,7 @@ struct pbr_rule_unique_lookup {
 	struct zebra_pbr_rule *rule;
 	uint32_t unique;
 	struct interface *ifp;
+	vrf_id_t vrf_id;
 };
 
 static int pbr_rule_lookup_unique_walker(struct hash_backet *b, void *data)
@@ -215,7 +223,9 @@ static int pbr_rule_lookup_unique_walker(struct hash_backet *b, void *data)
 	struct pbr_rule_unique_lookup *pul = data;
 	struct zebra_pbr_rule *rule = b->data;
 
-	if (pul->unique == rule->rule.unique && pul->ifp == rule->ifp) {
+	if (pul->unique == rule->rule.unique
+	    && pul->ifp == rule->ifp
+	    && pul->vrf_id == rule->vrf_id) {
 		pul->rule = rule;
 		return HASHWALK_ABORT;
 	}
@@ -223,16 +233,15 @@ static int pbr_rule_lookup_unique_walker(struct hash_backet *b, void *data)
 	return HASHWALK_CONTINUE;
 }
 
-static struct zebra_pbr_rule *pbr_rule_lookup_unique(struct zebra_ns *zns,
-						     uint32_t unique,
-						     struct interface *ifp)
+static struct zebra_pbr_rule *pbr_rule_lookup_unique(struct zebra_pbr_rule *zrule)
 {
 	struct pbr_rule_unique_lookup pul;
 
-	pul.unique = unique;
-	pul.ifp = ifp;
+	pul.unique = zrule->rule.unique;
+	pul.ifp = zrule->ifp;
 	pul.rule = NULL;
-	hash_walk(zns->rules_hash, &pbr_rule_lookup_unique_walker, &pul);
+	pul.vrf_id = zrule->vrf_id;
+	hash_walk(zrouter.rules_hash, &pbr_rule_lookup_unique_walker, &pul);
 
 	return pul.rule;
 }
@@ -438,30 +447,30 @@ static void *pbr_rule_alloc_intern(void *arg)
 	return new;
 }
 
-void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
+void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
 {
 	struct zebra_pbr_rule *unique =
-		pbr_rule_lookup_unique(zns, rule->rule.unique, rule->ifp);
+		pbr_rule_lookup_unique(rule);
 
-	(void)hash_get(zns->rules_hash, rule, pbr_rule_alloc_intern);
+	(void)hash_get(zrouter.rules_hash, rule, pbr_rule_alloc_intern);
 	(void)kernel_add_pbr_rule(rule);
 	/*
 	 * Rule Replace semantics, if we have an old, install the
 	 * new rule, look above, and then delete the old
 	 */
 	if (unique)
-		zebra_pbr_del_rule(zns, unique);
+		zebra_pbr_del_rule(unique);
 }
 
-void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
+void zebra_pbr_del_rule(struct zebra_pbr_rule *rule)
 {
 	struct zebra_pbr_rule *lookup;
 
-	lookup = hash_lookup(zns->rules_hash, rule);
+	lookup = hash_lookup(zrouter.rules_hash, rule);
 	(void)kernel_del_pbr_rule(rule);
 
 	if (lookup) {
-		hash_release(zns->rules_hash, lookup);
+		hash_release(zrouter.rules_hash, lookup);
 		XFREE(MTYPE_TMP, lookup);
 	} else
 		zlog_debug("%s: Rule being deleted we know nothing about",
@@ -470,13 +479,12 @@ void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
 
 static void zebra_pbr_cleanup_rules(struct hash_backet *b, void *data)
 {
-	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
 	struct zebra_pbr_rule *rule = b->data;
 	int *sock = data;
 
 	if (rule->sock == *sock) {
 		(void)kernel_del_pbr_rule(rule);
-		hash_release(zns->rules_hash, rule);
+		hash_release(zrouter.rules_hash, rule);
 		XFREE(MTYPE_TMP, rule);
 	}
 }
@@ -527,7 +535,7 @@ static int zebra_pbr_client_close_cleanup(struct zserv *client)
 
 	if (!sock)
 		return 0;
-	hash_iterate(zns->rules_hash, zebra_pbr_cleanup_rules, &sock);
+	hash_iterate(zrouter.rules_hash, zebra_pbr_cleanup_rules, &sock);
 	hash_iterate(zns->iptable_hash,
 		     zebra_pbr_cleanup_iptable, &sock);
 	hash_iterate(zns->ipset_entry_hash,
@@ -1136,7 +1144,7 @@ static void zebra_pbr_show_iptable_unit(struct zebra_pbr_iptable *iptable,
 
 		prfl.fwmark = iptable->fwmark;
 		prfl.ptr = NULL;
-		hash_walk(zns->rules_hash,
+		hash_walk(zrouter.rules_hash,
 			  &zebra_pbr_rule_lookup_fwmark_walkcb, &prfl);
 		if (prfl.ptr) {
 			struct zebra_pbr_rule *zpr = prfl.ptr;

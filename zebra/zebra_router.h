@@ -47,8 +47,11 @@ RB_PROTOTYPE(zebra_router_table_head, zebra_router_table,
 struct zebra_router {
 
 	struct zebra_router_table_head tables;
+
 	/* L3-VNI hash table (for EVPN). Only in default instance */
 	struct hash *l3vni_table;
+
+	struct hash *rules_hash;
 };
 
 extern struct zebra_router zrouter;

@@ -38,6 +38,8 @@ struct zebra_pbr_rule {
 	struct pbr_rule rule;
 
 	struct interface *ifp;
+
+	vrf_id_t vrf_id;
 };
 
 #define IS_RULE_FILTERING_ON_SRC_IP(r) \
@@ -151,8 +153,8 @@ extern const struct message icmp_typecode_str[];
 
 const char *zebra_pbr_ipset_type2str(uint32_t type);
 
-void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule);
-void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule);
+void zebra_pbr_add_rule(struct zebra_pbr_rule *rule);
+void zebra_pbr_del_rule(struct zebra_pbr_rule *rule);
 void zebra_pbr_create_ipset(struct zebra_ns *zns,
 			    struct zebra_pbr_ipset *ipset);
 void zebra_pbr_destroy_ipset(struct zebra_ns *zns,

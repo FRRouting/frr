@@ -57,8 +57,6 @@ struct zebra_ns {
 	struct rtadv rtadv;
 #endif /* HAVE_RTADV */
 
-	struct hash *rules_hash;
-
 	struct hash *ipset_hash;
 
 	struct hash *ipset_entry_hash;

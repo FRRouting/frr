@@ -2243,10 +2243,11 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		if (zpr.rule.filter.fwmark)
 			zpr.rule.filter.filter_bm |= PBR_FILTER_FWMARK;
 
+		zpr.vrf_id = zvrf->vrf->vrf_id;
 		if (hdr->command == ZEBRA_RULE_ADD)
-			zebra_pbr_add_rule(zvrf->zns, &zpr);
+			zebra_pbr_add_rule(&zpr);
 		else
-			zebra_pbr_del_rule(zvrf->zns, &zpr);
+			zebra_pbr_del_rule(&zpr);
 	}
 
 stream_failure:

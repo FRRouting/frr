@@ -121,10 +121,6 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 
 	zns->ns_id = ns_id;
 
-	zns->rules_hash =
-		hash_create_size(8, zebra_pbr_rules_hash_key,
-				 zebra_pbr_rules_hash_equal, "Rules Hash");
-
 	zns->ipset_hash =
 		hash_create_size(8, zebra_pbr_ipset_hash_key,
 				 zebra_pbr_ipset_hash_equal, "IPset Hash");
@@ -157,9 +153,8 @@ int zebra_ns_disable(ns_id_t ns_id, void **info)
 {
 	struct zebra_ns *zns = (struct zebra_ns *)(*info);
 
-	hash_clean(zns->rules_hash, zebra_pbr_rules_free);
-	hash_free(zns->rules_hash);
-	hash_clean(zns->ipset_entry_hash, zebra_pbr_ipset_entry_free);
+	hash_clean(zns->ipset_entry_hash,
+		   zebra_pbr_ipset_entry_free),
 	hash_clean(zns->ipset_hash, zebra_pbr_ipset_free);
 	hash_free(zns->ipset_hash);
 	hash_free(zns->ipset_entry_hash);
@@ -216,6 +211,7 @@ int zebra_ns_init(void)
 		zebra_ns_notify_parse();
 		zebra_ns_notify_init();
 	}
+
 	return 0;
 }
 
