@@ -34,9 +34,11 @@ struct memtype {
 	struct memtype *next, **ref;
 	const char *name;
 	_Atomic size_t n_alloc;
+	_Atomic size_t n_max;
 	_Atomic size_t size;
 #ifdef HAVE_MALLOC_USABLE_SIZE
 	_Atomic size_t total;
+	_Atomic size_t max_size;
 #endif
 };
 
