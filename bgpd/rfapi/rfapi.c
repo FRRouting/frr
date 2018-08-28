@@ -3113,7 +3113,8 @@ DEFUN (debug_rfapi_register_vn_un,
 	}
 
 
-	rc = rfapi_register(handle, &hpfx, lifetime, NULL, NULL, 0);
+	rc = rfapi_register(handle, &hpfx, lifetime, NULL, NULL,
+			    RFAPI_REGISTER_ADD);
 	if (rc) {
 		vty_out(vty, "rfapi_register failed with rc=%d (%s)\n", rc,
 			strerror(rc));
@@ -3213,7 +3214,8 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
 	/* L2 option parsing END */
 
 	/* TBD fixme */
-	rc = rfapi_register(handle, &hpfx, lifetime, NULL /* &uo */, opt, 0);
+	rc = rfapi_register(handle, &hpfx, lifetime, NULL /* &uo */, opt,
+			    RFAPI_REGISTER_ADD);
 	if (rc) {
 		vty_out(vty, "rfapi_register failed with rc=%d (%s)\n", rc,
 			strerror(rc));
@@ -3225,7 +3227,7 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
 
 DEFUN (debug_rfapi_unregister_vn_un,
        debug_rfapi_unregister_vn_un_cmd,
-       "debug rfapi-dev unregister vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M>",
+       "debug rfapi-dev unregister vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> [kill]",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_register\n"
@@ -3233,7 +3235,8 @@ DEFUN (debug_rfapi_unregister_vn_un,
        "virtual network interface address\n"
        "indicate xt addr follows\n"
        "underlay network interface address\n"
-       "indicate prefix follows\n" "prefix")
+       "prefix to remove\n"
+       "Remove without holddown")
 {
 	struct rfapi_ip_addr vn;
 	struct rfapi_ip_addr un;
@@ -3275,7 +3278,9 @@ DEFUN (debug_rfapi_unregister_vn_un,
 	}
 	rfapiQprefix2Rprefix(&pfx, &hpfx);
 
-	rfapi_register(handle, &hpfx, 0, NULL, NULL, 1);
+	rfapi_register(handle, &hpfx, 0, NULL, NULL,
+		       (argc == 10 ?
+			RFAPI_REGISTER_KILL : RFAPI_REGISTER_WITHDRAW));
 
 	return CMD_SUCCESS;
 }
