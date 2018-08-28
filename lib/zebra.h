@@ -28,7 +28,6 @@
 #include "compiler.h"
 
 #ifdef SUNOS_5
-#define _XPG4_2
 typedef unsigned int uint32_t;
 typedef unsigned short uint16_t;
 typedef unsigned char uint8_t;

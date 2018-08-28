@@ -298,11 +298,6 @@ AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AC_CHECK_TOOL(AR, ar)
 
-dnl -----------------
-dnl System extensions
-dnl -----------------
-AC_GNU_SOURCE
-
 dnl -------
 dnl libtool
 dnl -------
@@ -823,7 +818,7 @@ int main(int argc, char **argv) {
 dnl Utility macro to avoid retyping includes all the time
 m4_define([FRR_INCLUDES],
 [#ifdef SUNOS_5
-#define _XPG4_2
+#define _POSIX_C_SOURCE 200809L
 #define __EXTENSIONS__
 #endif
 #include <stdio.h>
@@ -916,6 +911,7 @@ case "$host_os" in
 
     AC_DEFINE(SUNOS_5, 1, [SunOS 5])
     AC_DEFINE(SOLARIS_IPV6, 1, Solaris IPv6)
+    AC_DEFINE(_POSIX_C_SOURCE, 200809L, [enable POSIX.1-2008 and XPG7/SUSv4])
 
     AC_CHECK_LIB(socket, main)
     AC_CHECK_LIB(nsl, main)
