@@ -793,15 +793,17 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 			ifp = if_lookup_by_index(oif[count], vrf);
 			char temp[256];
 
-			sprintf(temp, "%s ", ifp->name);
+			sprintf(temp, "%s(%d) ", ifp ? ifp->name : "Unknown",
+				oif[count]);
 			strcat(oif_list, temp);
 		}
 		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(vrf);
 		ifp = if_lookup_by_index(iif, vrf);
-		zlog_debug(
-			"MCAST VRF: %s(%d) %s (%s,%s) IIF: %s OIF: %s jiffies: %lld",
-			zvrf->vrf->name, vrf, nl_msg_type_to_str(h->nlmsg_type),
-			sbuf, gbuf, ifp->name, oif_list, m->lastused);
+		zlog_debug("MCAST VRF: %s(%d) %s (%s,%s) IIF: %s(%d) OIF: %s jiffies: %lld",
+			   zvrf->vrf->name, vrf,
+			   nl_msg_type_to_str(h->nlmsg_type),
+			   sbuf, gbuf, ifp ? ifp->name : "Unknown", iif,
+			   oif_list, m->lastused);
 	}
 	return 0;
 }
