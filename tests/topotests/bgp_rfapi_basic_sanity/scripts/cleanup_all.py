@@ -21,6 +21,10 @@ luCommand('r2','vtysh -c "show bgp ipv4 vpn"',num,'pass','VPN SAFI clear')
 luCommand('r3','vtysh -c "show bgp ipv4 vpn"',num,'pass','VPN SAFI clear')
 luCommand('r4','vtysh -c "show bgp ipv4 vpn"',num,'pass','VPN SAFI clear')
 
+luCommand('r1','vtysh -c "show vnc registrations"','Locally: *Active:  0 .* Remotely: *Active:  0 .*In Holddown: *Active:  0','wait','No holddowns',20)
+luCommand('r3','vtysh -c "show vnc registrations"','Locally: *Active:  0 .* Remotely: *Active:  0 .*In Holddown: *Active:  0','wait','No holddowns')
+luCommand('r4','vtysh -c "show vnc registrations"','Locally: *Active:  0 .* Remotely: *Active:  0 .*In Holddown: *Active:  0','wait','No holddowns')
+
 luCommand('r1','vtysh -c "show vnc summary"','.','none')
 luCommand('r3','vtysh -c "show vnc summary"','.','none')
 luCommand('r4','vtysh -c "show vnc summary"','.','none')
