@@ -332,8 +332,9 @@ static int pim_sock_read(struct thread *t)
 		if (!ifp || !ifp->info) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
-					"%s: Received incoming pim packet on interface not yet configured for pim",
-					__PRETTY_FUNCTION__);
+					"%s: Received incoming pim packet on interface(%s:%d) not yet configured for pim",
+					__PRETTY_FUNCTION__,
+					ifp ? ifp->name : "Unknown", ifindex);
 			goto done;
 		}
 		int fail = pim_pim_packet(ifp, buf, len);
