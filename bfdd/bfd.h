@@ -473,10 +473,10 @@ void log_fatal(const char *fmt, ...);
  *
  * Contains the code related with receiving/seding, packing/unpacking BFD data.
  */
-int bp_set_ttlv6(int sd);
-int bp_set_ttl(int sd);
-int bp_set_tosv6(int sd);
-int bp_set_tos(int sd);
+int bp_set_ttlv6(int sd, uint8_t value);
+int bp_set_ttl(int sd, uint8_t value);
+int bp_set_tosv6(int sd, uint8_t value);
+int bp_set_tos(int sd, uint8_t value);
 int bp_bind_dev(int sd, const char *dev);
 
 int bp_udp_shop(void);
