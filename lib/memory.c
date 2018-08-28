@@ -39,8 +39,8 @@ static inline void mt_count_alloc(struct memtype *mt, size_t size, void *ptr)
 	size_t current;
 	size_t oldsize;
 
-	current = atomic_add_fetch_explicit(&mt->n_alloc, 1,
-					    memory_order_relaxed);
+	current = 1 + atomic_fetch_add_explicit(&mt->n_alloc, 1,
+						memory_order_relaxed);
 
 	oldsize = atomic_load_explicit(&mt->n_max, memory_order_relaxed);
 	if (current > oldsize)
@@ -61,8 +61,8 @@ static inline void mt_count_alloc(struct memtype *mt, size_t size, void *ptr)
 #ifdef HAVE_MALLOC_USABLE_SIZE
 	size_t mallocsz = malloc_usable_size(ptr);
 
-	current = atomic_add_fetch_explicit(&mt->total, mallocsz,
-					    memory_order_relaxed);
+	current = mallocsz + atomic_fetch_add_explicit(&mt->total, mallocsz,
+						       memory_order_relaxed);
 	oldsize = atomic_load_explicit(&mt->max_size, memory_order_relaxed);
 	if (current > oldsize)
 		/* note that this may fail, but approximation is sufficient */
