@@ -65,6 +65,15 @@ def test_check_close():
     #CheckFunc = 'ltemplateVersionCheck(\'3.1\', cli=True)'
     ltemplateTest('scripts/check_close.py', False, CliOnFail, CheckFunc)
 
+def test_check_timeout():
+    CliOnFail = None
+    # For debugging, uncomment the next line
+    #CliOnFail = 'tgen.mininet_cli'
+    CheckFunc = 'ltemplateVersionCheck(\'3.1\')'
+    #uncomment next line to start cli *before* script is run
+    #CheckFunc = 'ltemplateVersionCheck(\'3.1\', cli=True)'
+    ltemplateTest('scripts/check_timeout.py', False, CliOnFail, CheckFunc)
+
 def test_cleanup_all():
     CliOnFail = None
     # For debugging, uncomment the next line

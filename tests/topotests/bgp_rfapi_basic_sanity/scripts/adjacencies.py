@@ -7,4 +7,4 @@ luCommand('r3','vtysh -c "show bgp vrf all summary"',' 00:0','pass','All adjacen
 luCommand('r4','vtysh -c "show bgp vrf all summary"',' 00:0','pass','All adjacencies up')
 luCommand('r1','ping 3.3.3.3 -c 1',' 0. packet loss','wait','PE->PE3 (loopback) ping')
 luCommand('r1','ping 4.4.4.4 -c 1',' 0. packet loss','wait','PE->PE4 (loopback) ping')
-luCommand('r4','ping 3.3.3.3 -c 1',' 0. packet loss','wait','PE->PE3 (loopback) ping')
+#luCommand('r4','ping 3.3.3.3 -c 1',' 0. packet loss','wait','PE->PE3 (loopback) ping')
