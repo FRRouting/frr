@@ -335,6 +335,11 @@ Guidelines for code review
 - For a PR you marked with "Changes requested", please respond to updates in a
   timely manner to avoid impeding the flow of development.
 
+- Rejected or obsolete PRs are generally closed by the submitter based
+  on requests and/or agreement captured in a PR comment.  The comment
+  may originate with a reviewer or document agreement reached on Slack,
+  the Development mailing list, or the weekly technical meeting.
+
 
 Coding Practices & Style
 ========================
