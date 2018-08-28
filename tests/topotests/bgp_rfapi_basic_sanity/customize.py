@@ -3,8 +3,9 @@
 #
 # Part of NetDEF Topology Tests
 #
-# Copyright (c) 2017 by
+# Copyright (c) 2017-2018 by
 # Network Device Education Foundation, Inc. ("NetDEF")
+# Modified by LabN Consulting, L.L.C.
 #
 # Permission to use, copy, modify, and/or distribute this software
 # for any purpose with or without fee is hereby granted, provided
@@ -103,9 +104,9 @@ class ThisTestTopo(Topo):
         switch[1].add_link(tgen.gears['r3'], nodeif='r3-eth0')
         switch[1].add_link(tgen.gears['r4'], nodeif='r4-eth0')
 
-        switch[1] = tgen.add_switch('sw2')
-        switch[1].add_link(tgen.gears['r2'], nodeif='r2-eth2')
-        switch[1].add_link(tgen.gears['r3'], nodeif='r3-eth1')
+        switch[2] = tgen.add_switch('sw2')
+        switch[2].add_link(tgen.gears['r2'], nodeif='r2-eth2')
+        switch[2].add_link(tgen.gears['r3'], nodeif='r3-eth1')
 
 def ltemplatePreRouterStartHook():
     cc = ltemplateRtrCmd()
