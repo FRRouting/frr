@@ -135,6 +135,11 @@ systems. Once the automated tests succeed, other developers will review your
 code for quality and correctness. After any concerns are resolved, your code
 will be merged into the branch it was submitted against.
 
+The title of the pull request should provide a high level technical
+summary of the included patches.  The description should provide
+additional details that will help the reviewer to understand the context
+of the included patches.
+
 Patch Submission via Mailing List
 ---------------------------------
 
