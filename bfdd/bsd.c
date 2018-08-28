@@ -250,12 +250,6 @@ ssize_t bsd_echo_sock_read(int sd, uint8_t *buf, ssize_t *buflen,
 	return 0;
 }
 
-int ptm_bfd_vxlan_sock_init(void)
-{
-	/* TODO: not supported yet. */
-	return -1;
-}
-
 int bp_bind_dev(int sd, const char *dev)
 {
 	/*

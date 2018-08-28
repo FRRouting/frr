@@ -90,7 +90,6 @@ static void sigterm_handler(void)
 	socket_close(&bglobal.bg_mhop);
 	socket_close(&bglobal.bg_shop6);
 	socket_close(&bglobal.bg_mhop6);
-	socket_close(&bglobal.bg_vxlan);
 
 	/* Terminate and free() FRR related memory. */
 	frr_fini();
@@ -155,7 +154,6 @@ static void bg_init(void)
 	bglobal.bg_shop6 = bp_udp6_shop();
 	bglobal.bg_mhop6 = bp_udp6_mhop();
 	bglobal.bg_echo = ptm_bfd_echo_sock_init();
-	bglobal.bg_vxlan = ptm_bfd_vxlan_sock_init();
 }
 
 int main(int argc, char *argv[])
@@ -216,10 +214,6 @@ int main(int argc, char *argv[])
 			&bglobal.bg_ev[3]);
 	thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_echo,
 			&bglobal.bg_ev[4]);
-#if 0 /* TODO VxLAN support. */
-	thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_vxlan,
-			&bglobal.bg_ev[5]);
-#endif
 	thread_add_read(master, control_accept, NULL, bglobal.bg_csock,
 			&bglobal.bg_csockev);
 

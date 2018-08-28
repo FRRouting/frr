@@ -137,13 +137,9 @@ struct bfd_echo_pkt {
 #define IP_HDR_LEN 20
 #define UDP_HDR_LEN 8
 #define ETH_HDR_LEN 14
-#define VXLAN_HDR_LEN 8
 #define HEADERS_MIN_LEN (ETH_HDR_LEN + IP_HDR_LEN + UDP_HDR_LEN)
 #define BFD_ECHO_PKT_TOT_LEN                                                   \
 	((int)(ETH_HDR_LEN + IP_HDR_LEN + UDP_HDR_LEN + BFD_ECHO_PKT_LEN))
-#define BFD_VXLAN_PKT_TOT_LEN                                                  \
-	((int)(VXLAN_HDR_LEN + ETH_HDR_LEN + IP_HDR_LEN + UDP_HDR_LEN          \
-	       + BFD_CTRL_PKT_LEN))
 #define BFD_RX_BUF_LEN 160
 
 /* BFD session flags */
@@ -154,9 +150,6 @@ enum bfd_session_flags {
 					     * actively
 					     */
 	BFD_SESS_FLAG_MH = 1 << 2,	  /* BFD Multi-hop session */
-	BFD_SESS_FLAG_VXLAN = 1 << 3,       /* BFD Multi-hop session which is
-					     * used to monitor vxlan tunnel
-					     */
 	BFD_SESS_FLAG_IPV6 = 1 << 4,	/* BFD IPv6 session */
 	BFD_SESS_FLAG_SEND_EVT_ACTIVE = 1 << 5, /* send event timer active */
 	BFD_SESS_FLAG_SEND_EVT_IGNORE = 1 << 6, /* ignore send event when timer
@@ -189,18 +182,6 @@ struct bfd_session_stats {
 	uint64_t session_up;
 	uint64_t session_down;
 	uint64_t znotification;
-};
-
-struct bfd_session_vxlan_info {
-	uint32_t vnid;
-	uint32_t decay_min_rx;
-	uint8_t forwarding_if_rx;
-	uint8_t cpath_down;
-	uint8_t check_tnl_key;
-	uint8_t local_dst_mac[ETHERNET_ADDRESS_LENGTH];
-	uint8_t peer_dst_mac[ETHERNET_ADDRESS_LENGTH];
-	struct in_addr local_dst_ip;
-	struct in_addr peer_dst_ip;
 };
 
 /* bfd_session shortcut label forwarding. */
@@ -258,7 +239,6 @@ struct bfd_session {
 						 * which will be transmitted
 						 */
 	struct bfd_session_stats stats;
-	struct bfd_session_vxlan_info vxlan_info;
 
 	struct timeval uptime;   /* last up time */
 	struct timeval downtime; /* last down time */
@@ -407,7 +387,6 @@ struct bfd_global {
 	int bg_shop6;
 	int bg_mhop6;
 	int bg_echo;
-	int bg_vxlan;
 	struct thread *bg_ev[6];
 
 	int bg_csock;
@@ -617,7 +596,6 @@ int ptm_bfd_fetch_ifindex(const char *ifname);
 void ptm_bfd_fetch_local_mac(const char *ifname, uint8_t *mac);
 void fetch_portname_from_ifindex(int ifindex, char *ifname, size_t ifnamelen);
 int ptm_bfd_echo_sock_init(void);
-int ptm_bfd_vxlan_sock_init(void);
 #endif /* BFD_LINUX || BFD_BSD */
 
 #ifdef BFD_LINUX

@@ -40,14 +40,6 @@
 /*
  * Definitions
  */
-
-/* iov for BFD control frames */
-#define CMSG_HDR_LEN sizeof(struct cmsghdr)
-#define CMSG_TTL_LEN (CMSG_HDR_LEN + sizeof(uint32_t))
-#define CMSG_IN_PKT_INFO_LEN (CMSG_HDR_LEN + sizeof(struct in_pktinfo) + 4)
-#define CMSG_IN6_PKT_INFO_LEN                                                  \
-	(CMSG_HDR_LEN + sizeof(struct in6_addr) + sizeof(int) + 4)
-
 struct bfd_raw_echo_pkt {
 #ifdef BFD_LINUX
 	struct iphdr ip;
@@ -59,25 +51,11 @@ struct bfd_raw_echo_pkt {
 	struct bfd_echo_pkt data;
 };
 
-#if 0 /* TODO: VxLAN support. */
-struct bfd_raw_ctrl_pkt {
-	struct iphdr ip;
-	struct udphdr udp;
-	struct bfd_pkt data;
-};
-#endif
-
-struct vxlan_hdr {
-	uint32_t flags;
-	uint32_t vnid;
-};
-
 #define IP_ECHO_PKT_LEN (IP_HDR_LEN + UDP_HDR_LEN + BFD_ECHO_PKT_LEN)
 #define UDP_ECHO_PKT_LEN (UDP_HDR_LEN + BFD_ECHO_PKT_LEN)
-#define IP_CTRL_PKT_LEN (IP_HDR_LEN + UDP_HDR_LEN + BFD_PKT_LEN)
-#define UDP_CTRL_PKT_LEN (UDP_HDR_LEN + BFD_PKT_LEN)
 
 static uint8_t msgbuf[BFD_PKT_LEN];
+
 
 /*
  * Prototypes
@@ -86,11 +64,7 @@ static uint16_t ptm_bfd_gen_IP_ID(struct bfd_session *bfd);
 static void ptm_bfd_echo_pkt_create(struct bfd_session *bfd);
 static int ptm_bfd_echo_loopback(uint8_t *pkt, int pkt_len, struct sockaddr *ss,
 				 socklen_t sslen);
-static void ptm_bfd_vxlan_pkt_snd(struct bfd_session *bfd, int fbit);
 static int ptm_bfd_process_echo_pkt(int s);
-static bool
-ptm_bfd_validate_vxlan_pkt(struct bfd_session *bfd,
-			   struct bfd_session_vxlan_info *vxlan_info);
 
 static void bfd_sd_reschedule(int sd);
 static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
@@ -166,10 +140,7 @@ static int _ptm_bfd_send(struct bfd_session *bs, bool use_layer2,
 		sa = (struct sockaddr *)&dll;
 		slen = sizeof(dll);
 #else
-		/*
-		 * TODO: implement layer 2 send for *BSDs. This is
-		 * needed for VxLAN.
-		 */
+		/* TODO: implement layer 2 send for *BSDs. */
 		log_warning("packet-send: not implemented");
 		return -1;
 #endif
@@ -396,86 +367,6 @@ static int ptm_bfd_echo_loopback(uint8_t *pkt, int pkt_len, struct sockaddr *ss,
 	return 0;
 }
 
-static void ptm_bfd_vxlan_pkt_snd(struct bfd_session *bfd
-				  __attribute__((__unused__)),
-				  int fbit __attribute__((__unused__)))
-{
-#if 0 /* TODO: VxLAN support. */
-	struct bfd_raw_ctrl_pkt cp;
-	uint8_t vxlan_pkt[BFD_VXLAN_PKT_TOT_LEN];
-	uint8_t *pkt = vxlan_pkt;
-	struct sockaddr_in sin;
-	struct vxlan_hdr *vhdr;
-
-	memset(vxlan_pkt, 0, sizeof(vxlan_pkt));
-	memset(&cp, 0, sizeof(cp));
-
-	/* Construct VxLAN header information */
-	vhdr = (struct vxlan_hdr *)pkt;
-	vhdr->flags = htonl(0x08000000);
-	vhdr->vnid = htonl(bfd->vxlan_info.vnid << 8);
-	pkt += VXLAN_HDR_LEN;
-
-	/* Construct ethernet header information */
-	memcpy(pkt, bfd->vxlan_info.peer_dst_mac, ETHERNET_ADDRESS_LENGTH);
-	pkt = pkt + ETHERNET_ADDRESS_LENGTH;
-	memcpy(pkt, bfd->vxlan_info.local_dst_mac, ETHERNET_ADDRESS_LENGTH);
-	pkt = pkt + ETHERNET_ADDRESS_LENGTH;
-	pkt[0] = ETH_P_IP / 256;
-	pkt[1] = ETH_P_IP % 256;
-	pkt += 2;
-
-	/* Construct IP header information */
-	cp.ip.version = 4;
-	cp.ip.ihl = 5;
-	cp.ip.tos = 0;
-	cp.ip.tot_len = htons(IP_CTRL_PKT_LEN);
-	cp.ip.id = ptm_bfd_gen_IP_ID(bfd);
-	cp.ip.frag_off = 0;
-	cp.ip.ttl = BFD_TTL_VAL;
-	cp.ip.protocol = IPPROTO_UDP;
-	cp.ip.daddr = bfd->vxlan_info.peer_dst_ip.s_addr;
-	cp.ip.saddr = bfd->vxlan_info.local_dst_ip.s_addr;
-	cp.ip.check = checksum((uint16_t *)&cp.ip, IP_HDR_LEN);
-
-	/* Construct UDP header information */
-	cp.udp.source = htons(BFD_DEFDESTPORT);
-	cp.udp.dest = htons(BFD_DEFDESTPORT);
-	cp.udp.len = htons(UDP_CTRL_PKT_LEN);
-
-	/* Construct BFD control packet information */
-	cp.data.diag = bfd->local_diag;
-	BFD_SETVER(cp.data.diag, BFD_VERSION);
-	BFD_SETSTATE(cp.data.flags, bfd->ses_state);
-	BFD_SETDEMANDBIT(cp.data.flags, BFD_DEF_DEMAND);
-	BFD_SETPBIT(cp.data.flags, bfd->polling);
-	BFD_SETFBIT(cp.data.flags, fbit);
-	cp.data.detect_mult = bfd->detect_mult;
-	cp.data.len = BFD_PKT_LEN;
-	cp.data.discrs.my_discr = htonl(bfd->discrs.my_discr);
-	cp.data.discrs.remote_discr = htonl(bfd->discrs.remote_discr);
-	cp.data.timers.desired_min_tx = htonl(bfd->timers.desired_min_tx);
-	cp.data.timers.required_min_rx = htonl(bfd->timers.required_min_rx);
-	cp.data.timers.required_min_echo = htonl(bfd->timers.required_min_echo);
-
-	cp.udp.check =
-		udp4_checksum(&cp.ip, (uint8_t *)&cp.udp, UDP_CTRL_PKT_LEN);
-
-	memcpy(pkt, &cp, sizeof(cp));
-	sin.sin_family = AF_INET;
-	sin.sin_addr = bfd->shop.peer.sa_sin.sin_addr;
-	sin.sin_port = htons(4789);
-
-	if (sendto(bfd->sock, vxlan_pkt, BFD_VXLAN_PKT_TOT_LEN, 0,
-		   (struct sockaddr *)&sin, sizeof(struct sockaddr_in))
-	    < 0) {
-		ERRLOG("Error sending vxlan bfd pkt: %s", strerror(errno));
-	} else {
-		bfd->stats.tx_ctrl_pkt++;
-	}
-#endif
-}
-
 static int ptm_bfd_process_echo_pkt(int s)
 {
 	uint32_t my_discr = 0;
@@ -570,14 +461,6 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 {
 	struct bfd_pkt cp;
 
-	/* if the BFD session is for VxLAN tunnel, then construct and
-	 * send bfd raw packet
-	 */
-	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_VXLAN)) {
-		ptm_bfd_vxlan_pkt_snd(bfd, fbit);
-		return;
-	}
-
 	/* Set fields according to section 6.5.7 */
 	cp.diag = bfd->local_diag;
 	BFD_SETVER(cp.diag, BFD_VERSION);
@@ -605,88 +488,6 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 		return;
 
 	bfd->stats.tx_ctrl_pkt++;
-}
-
-#if 0  /* TODO VxLAN Support */
-static struct bfd_pkt *
-ptm_bfd_process_vxlan_pkt(int s, ptm_sockevent_e se, void *udata, int *ifindex,
-			  struct sockaddr_in *sin,
-			  struct bfd_session_vxlan_info_t *vxlan_info,
-			  uint8_t *rx_pkt, int *mlen)
-{
-	struct sockaddr_ll sll;
-	uint32_t from_len = sizeof(struct sockaddr_ll);
-	struct bfd_raw_ctrl_pkt *cp;
-	uint8_t *pkt = rx_pkt;
-	struct iphdr *iph;
-	struct ethhdr *inner_ethh;
-
-	*mlen = recvfrom(s, rx_pkt, BFD_RX_BUF_LEN, MSG_DONTWAIT,
-			 (struct sockaddr *)&sll, &from_len);
-
-	if (*mlen < 0) {
-		if (errno != EAGAIN)
-			ERRLOG("Error receiving from BFD Vxlan socket %d: %m",
-			       s);
-		return NULL;
-	}
-
-	iph = (struct iphdr *)(pkt + ETH_HDR_LEN);
-	pkt = pkt + ETH_HDR_LEN + IP_HDR_LEN + UDP_HDR_LEN;
-	vxlan_info->vnid = ntohl(*((int *)(pkt + 4)));
-	vxlan_info->vnid = vxlan_info->vnid >> 8;
-
-	pkt = pkt + VXLAN_HDR_LEN;
-	inner_ethh = (struct ethhdr *)pkt;
-
-	cp = (struct bfd_raw_ctrl_pkt *)(pkt + ETH_HDR_LEN);
-
-	/* Discard the non BFD packets */
-	if (ntohs(cp->udp.dest) != BFD_DEFDESTPORT)
-		return NULL;
-
-	*ifindex = sll.sll_ifindex;
-	sin->sin_addr.s_addr = iph->saddr;
-	sin->sin_port = ntohs(cp->udp.dest);
-
-	vxlan_info->local_dst_ip.s_addr = cp->ip.daddr;
-	memcpy(vxlan_info->local_dst_mac, inner_ethh->h_dest,
-	       ETHERNET_ADDRESS_LENGTH);
-
-	return &cp->data;
-}
-#endif /* VxLAN */
-
-static bool
-ptm_bfd_validate_vxlan_pkt(struct bfd_session *bfd,
-			   struct bfd_session_vxlan_info *vxlan_info)
-{
-	if (bfd->vxlan_info.check_tnl_key && (vxlan_info->vnid != 0)) {
-		log_error("vxlan-packet: vnid not zero: %d", vxlan_info->vnid);
-		return false;
-	}
-
-	if (bfd->vxlan_info.local_dst_ip.s_addr
-	    != vxlan_info->local_dst_ip.s_addr) {
-		log_error("vxlan-packet: wrong inner destination",
-			  inet_ntoa(vxlan_info->local_dst_ip));
-		return false;
-	}
-
-	if (memcmp(bfd->vxlan_info.local_dst_mac, vxlan_info->local_dst_mac,
-		   ETHERNET_ADDRESS_LENGTH)) {
-		log_error(
-			"vxlan-packet: wrong inner mac: %02x:%02x:%02x:%02x:%02x:%02x",
-			vxlan_info->local_dst_mac[0],
-			vxlan_info->local_dst_mac[1],
-			vxlan_info->local_dst_mac[2],
-			vxlan_info->local_dst_mac[3],
-			vxlan_info->local_dst_mac[4],
-			vxlan_info->local_dst_mac[5]);
-		return false;
-	}
-
-	return true;
 }
 
 static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
@@ -904,10 +705,6 @@ static void bfd_sd_reschedule(int sd)
 		bglobal.bg_ev[4] = NULL;
 		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_echo,
 				&bglobal.bg_ev[4]);
-	} else if (sd == bglobal.bg_vxlan) {
-		bglobal.bg_ev[5] = NULL;
-		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_vxlan,
-				&bglobal.bg_ev[5]);
 	}
 }
 
@@ -952,12 +749,11 @@ int bfd_recv_cb(struct thread *t)
 	int sd = THREAD_FD(t);
 	struct bfd_session *bfd;
 	struct bfd_pkt *cp;
-	bool is_mhop, is_vxlan;
+	bool is_mhop;
 	ssize_t mlen = 0;
 	uint32_t oldEchoXmt_TO, oldXmtTime;
 	struct sockaddr_any local, peer;
 	char port[MAXNAMELEN + 1], vrfname[MAXNAMELEN + 1];
-	struct bfd_session_vxlan_info vxlan_info;
 
 	/* Schedule next read. */
 	bfd_sd_reschedule(sd);
@@ -975,7 +771,7 @@ int bfd_recv_cb(struct thread *t)
 	memset(&peer, 0, sizeof(peer));
 
 	/* Handle control packets. */
-	is_mhop = is_vxlan = false;
+	is_mhop = false;
 	if (sd == bglobal.bg_shop || sd == bglobal.bg_mhop) {
 		is_mhop = sd == bglobal.bg_mhop;
 		mlen = bfd_recv_ipv4(sd, is_mhop, port, sizeof(port), vrfname,
@@ -985,18 +781,6 @@ int bfd_recv_cb(struct thread *t)
 		mlen = bfd_recv_ipv6(sd, is_mhop, port, sizeof(port), vrfname,
 				     sizeof(vrfname), &local, &peer);
 	}
-#if 0 /* TODO vxlan handling */
-	cp = ptm_bfd_process_vxlan_pkt(s, se, udata, &local_ifindex,
-				       &sin, &vxlan_info, rx_pkt, &mlen);
-	if (!cp)
-		return -1;
-
-	is_vxlan = true;
-	/* keep in network-byte order */
-	peer.ip4_addr.s_addr = sin.sin_addr.s_addr;
-	peer.family = AF_INET;
-	strcpy(peer_addr, inet_ntoa(sin.sin_addr));
-#endif
 
 	/* Implement RFC 5880 6.8.6 */
 	if (mlen < BFD_PKT_LEN) {
@@ -1043,10 +827,6 @@ int bfd_recv_cb(struct thread *t)
 			 "no session found");
 		return 0;
 	}
-
-	/* Handle VxLAN cases. */
-	if (is_vxlan && !ptm_bfd_validate_vxlan_pkt(bfd, &vxlan_info))
-		return 0;
 
 	bfd->stats.rx_ctrl_pkt++;
 
@@ -1330,12 +1110,10 @@ int bp_peer_socket(struct bfd_peer_cfg *bpc)
 		return -1;
 	}
 
-	if (!bpc->bpc_has_vxlan) {
-		/* Set TTL to 255 for all transmitted packets */
-		if (bp_set_ttl(sd, BFD_TTL_VAL) != 0) {
-			close(sd);
-			return -1;
-		}
+	/* Set TTL to 255 for all transmitted packets */
+	if (bp_set_ttl(sd, BFD_TTL_VAL) != 0) {
+		close(sd);
+		return -1;
 	}
 
 	/* Set TOS to CS6 for all transmitted packets */
@@ -1344,8 +1122,7 @@ int bp_peer_socket(struct bfd_peer_cfg *bpc)
 		return -1;
 	}
 
-	/* dont bind-to-device incase of vxlan */
-	if (!bpc->bpc_has_vxlan && bpc->bpc_has_localif) {
+	if (bpc->bpc_has_localif) {
 		if (bp_bind_dev(sd, bpc->bpc_localif) != 0) {
 			close(sd);
 			return -1;
@@ -1364,7 +1141,7 @@ int bp_peer_socket(struct bfd_peer_cfg *bpc)
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 	sin.sin_len = sizeof(sin);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
-	if (bpc->bpc_mhop || bpc->bpc_has_vxlan)
+	if (bpc->bpc_mhop)
 		sin.sin_addr = bpc->bpc_local.sa_sin.sin_addr;
 	else
 		sin.sin_addr.s_addr = INADDR_ANY;
@@ -1404,12 +1181,10 @@ int bp_peer_socketv6(struct bfd_peer_cfg *bpc)
 		return -1;
 	}
 
-	if (!bpc->bpc_has_vxlan) {
-		/* Set TTL to 255 for all transmitted packets */
-		if (bp_set_ttlv6(sd, BFD_TTL_VAL) != 0) {
-			close(sd);
-			return -1;
-		}
+	/* Set TTL to 255 for all transmitted packets */
+	if (bp_set_ttlv6(sd, BFD_TTL_VAL) != 0) {
+		close(sd);
+		return -1;
 	}
 
 	/* Set TOS to CS6 for all transmitted packets */

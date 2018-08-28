@@ -52,20 +52,6 @@ static struct sock_filter bfd_echo_filter[] = {
 	{0x6, 0, 0, 0x0000ffff},  {0x6, 0, 0, 0x00000000},
 };
 
-/* Berkeley Packet filter code to filter out BFD vxlan packets.
- * tcpdump -dd "(udp dst port 4789)"
- */
-static struct sock_filter bfd_vxlan_filter[] = {
-	{0x28, 0, 0, 0x0000000c}, {0x15, 0, 4, 0x000086dd},
-	{0x30, 0, 0, 0x00000014}, {0x15, 0, 11, 0x00000011},
-	{0x28, 0, 0, 0x00000038}, {0x15, 8, 9, 0x000012b5},
-	{0x15, 0, 8, 0x00000800}, {0x30, 0, 0, 0x00000017},
-	{0x15, 0, 6, 0x00000011}, {0x28, 0, 0, 0x00000014},
-	{0x45, 4, 0, 0x00001fff}, {0xb1, 0, 0, 0x0000000e},
-	{0x48, 0, 0, 0x00000010}, {0x15, 0, 1, 0x000012b5},
-	{0x6, 0, 0, 0x0000ffff},  {0x6, 0, 0, 0x00000000},
-};
-
 
 /*
  * Definitions.
@@ -144,31 +130,6 @@ int ptm_bfd_echo_sock_init(void)
 	if (setsockopt(s, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf))
 	    == -1) {
 		log_error("echo-socket: setsockopt(SO_ATTACH_FILTER): %s",
-			  strerror(errno));
-		close(s);
-		return -1;
-	}
-
-	return s;
-}
-
-int ptm_bfd_vxlan_sock_init(void)
-{
-	int s;
-	struct sock_fprog bpf = {.len = sizeof(bfd_vxlan_filter)
-					/ sizeof(bfd_vxlan_filter[0]),
-				 .filter = bfd_vxlan_filter};
-
-	s = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP));
-	if (s == -1) {
-		log_error("vxlan-socket: creation failure: %s",
-			  strerror(errno));
-		return -1;
-	}
-
-	if (setsockopt(s, SOL_SOCKET, SO_ATTACH_FILTER, &bpf, sizeof(bpf))
-	    == -1) {
-		log_error("vxlan-socket: setsockopt(SO_ATTACH_FILTER): %s",
 			  strerror(errno));
 		close(s);
 		return -1;
