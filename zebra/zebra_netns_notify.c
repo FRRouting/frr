@@ -149,6 +149,41 @@ static int zebra_ns_delete(char *name)
 	return 0;
 }
 
+static int zebra_ns_notify_self_identify(struct stat *netst)
+{
+	char net_path[64];
+	int netns;
+
+	sprintf(net_path, "/proc/self/ns/net");
+	netns = open(net_path, O_RDONLY);
+	if (netns < 0)
+		return -1;
+	if (fstat(netns, netst) < 0) {
+		close(netns);
+		return -1;
+	}
+	close(netns);
+	return 0;
+}
+
+static bool zebra_ns_notify_is_default_netns(const char *name)
+{
+	struct stat default_netns_stat;
+	struct stat st;
+	char netnspath[64];
+
+	if (zebra_ns_notify_self_identify(&default_netns_stat))
+		return false;
+
+	memset(&st, 0, sizeof(struct stat));
+	snprintf(netnspath, 64, "%s/%s", NS_RUN_DIR, name);
+	/* compare with local stat */
+	if (stat(netnspath, &st) == 0 &&
+	    (st.st_dev == default_netns_stat.st_dev) &&
+	    (st.st_ino == default_netns_stat.st_ino))
+		return true;
+	return false;
+}
 
 static int zebra_ns_ready_read(struct thread *t)
 {
@@ -177,6 +212,14 @@ static int zebra_ns_ready_read(struct thread *t)
 	}
 	if (err < 0)
 		return zebra_ns_continue_read(zns_info, stop_retry);
+
+	if (zebra_ns_notify_is_default_netns(basename(netnspath))) {
+		zlog_warn(
+			  "NS notify : NS %s is default VRF."
+			  " Updating VRF Name", basename(netnspath));
+		vrf_set_default_name(basename(netnspath));
+		return zebra_ns_continue_read(zns_info, 1);
+	}
 
 	/* success : close fd and create zns context */
 	zebra_ns_notify_create_context_from_entry_name(basename(netnspath));
@@ -257,6 +300,13 @@ void zebra_ns_notify_parse(void)
 		if (S_ISDIR(st.st_mode)) {
 			zlog_warn("NS parsing init: %s is not a NS",
 				  dent->d_name);
+			continue;
+		}
+		if (zebra_ns_notify_is_default_netns(dent->d_name)) {
+			zlog_warn(
+				  "NS notify : NS %s is default VRF."
+				  " Updating VRF Name", dent->d_name);
+			vrf_set_default_name(dent->d_name);
 			continue;
 		}
 		zebra_ns_notify_create_context_from_entry_name(dent->d_name);

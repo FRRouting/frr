@@ -312,10 +312,14 @@ int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 	if (argv_find(argv, argc, "ip", idx))
 		*afi = AFI_IP;
 
-	if (argv_find(argv, argc, "view", idx)
-	    || argv_find(argv, argc, "vrf", idx)) {
+	if (argv_find(argv, argc, "view", idx))
 		vrf_name = argv[*idx + 1]->arg;
-
+	else if (argv_find(argv, argc, "vrf", idx)) {
+		vrf_name = argv[*idx + 1]->arg;
+		if (strmatch(vrf_name, VRF_DEFAULT_NAME))
+			vrf_name = NULL;
+	}
+	if (vrf_name) {
 		if (strmatch(vrf_name, "all"))
 			*bgp = NULL;
 		else {
@@ -910,9 +914,12 @@ DEFUN_NOSH (router_bgp,
 		if (argc > 3) {
 			name = argv[idx_vrf]->arg;
 
-			if (!strcmp(argv[idx_view_vrf]->text, "vrf"))
-				inst_type = BGP_INSTANCE_TYPE_VRF;
-			else if (!strcmp(argv[idx_view_vrf]->text, "view"))
+			if (!strcmp(argv[idx_view_vrf]->text, "vrf")) {
+				if (strmatch(name, VRF_DEFAULT_NAME))
+					name = NULL;
+				else
+					inst_type = BGP_INSTANCE_TYPE_VRF;
+			} else if (!strcmp(argv[idx_view_vrf]->text, "view"))
 				inst_type = BGP_INSTANCE_TYPE_VIEW;
 		}
 
@@ -7144,13 +7151,17 @@ DEFUN (clear_ip_bgp_all,
 	if (argv_find(argv, argc, "ip", &idx))
 		afi = AFI_IP;
 
-	/* [<view|vrf> VIEWVRFNAME] */
-	if (argv_find(argv, argc, "view", &idx)
-	    || argv_find(argv, argc, "vrf", &idx)) {
+	/* [<vrf> VIEWVRFNAME] */
+	if (argv_find(argv, argc, "vrf", &idx)) {
+		vrf = argv[idx + 1]->arg;
+		idx += 2;
+		if (vrf && strmatch(vrf, VRF_DEFAULT_NAME))
+			vrf = NULL;
+	} else if (argv_find(argv, argc, "view", &idx)) {
+		/* [<view> VIEWVRFNAME] */
 		vrf = argv[idx + 1]->arg;
 		idx += 2;
 	}
-
 	/* ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] */
 	if (argv_find_and_parse_afi(argv, argc, &idx, &afi))
 		argv_find_and_parse_safi(argv, argc, &idx, &safi);
@@ -7215,8 +7226,16 @@ DEFUN (clear_ip_bgp_prefix,
 	int idx = 0;
 
 	/* [<view|vrf> VIEWVRFNAME] */
-	if (argv_find(argv, argc, "VIEWVRFNAME", &idx))
-		vrf = argv[idx]->arg;
+	if (argv_find(argv, argc, "vrf", &idx)) {
+		vrf = argv[idx + 1]->arg;
+		idx += 2;
+		if (vrf && strmatch(vrf, VRF_DEFAULT_NAME))
+			vrf = NULL;
+	} else if (argv_find(argv, argc, "view", &idx)) {
+		/* [<view> VIEWVRFNAME] */
+		vrf = argv[idx + 1]->arg;
+		idx += 2;
+	}
 
 	prefix = argv[argc - 1]->arg;
 
@@ -7258,16 +7277,23 @@ DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        "Clear bestpath and re-advertise\n"
        "IPv6 prefix\n")
 {
-	int idx_word = 3;
 	int idx_safi = 0;
+	int idx_vrfview = 0;
 	int idx_ipv6_prefix = 0;
 	safi_t safi = SAFI_UNICAST;
 	char *prefix = argv_find(argv, argc, "X:X::X:X/M", &idx_ipv6_prefix) ?
 		argv[idx_ipv6_prefix]->arg : NULL;
-	/* [<view|vrf> VIEWVRFNAME] */
-	char *vrfview = argv_find(argv, argc, "VIEWVRFNAME", &idx_word) ?
-		argv[idx_word]->arg : NULL;
+	char *vrfview = NULL;
 
+	/* [<view|vrf> VIEWVRFNAME] */
+	if (argv_find(argv, argc, "vrf", &idx_vrfview)) {
+		vrfview = argv[idx_vrfview + 1]->arg;
+		if (vrfview && strmatch(vrfview, VRF_DEFAULT_NAME))
+			vrfview = NULL;
+	} else if (argv_find(argv, argc, "view", &idx_vrfview)) {
+		/* [<view> VIEWVRFNAME] */
+		vrfview = argv[idx_vrfview + 1]->arg;
+	}
 	argv_find_and_parse_safi(argv, argc, &idx_safi, &safi);
 
 	return bgp_clear_prefix(
@@ -7458,10 +7484,18 @@ DEFUN(show_bgp_martian_nexthop_db, show_bgp_martian_nexthop_db_cmd,
 {
 	struct bgp *bgp = NULL;
 	int idx = 0;
+	char *name = NULL;
 
-	if (argv_find(argv, argc, "view", &idx)
-	    || argv_find(argv, argc, "vrf", &idx))
-		bgp = bgp_lookup_by_name(argv[idx + 1]->arg);
+	/* [<vrf> VIEWVRFNAME] */
+	if (argv_find(argv, argc, "vrf", &idx)) {
+		name = argv[idx + 1]->arg;
+		if (name && strmatch(name, VRF_DEFAULT_NAME))
+			name = NULL;
+	} else if (argv_find(argv, argc, "view", &idx))
+		/* [<view> VIEWVRFNAME] */
+		name = argv[idx + 1]->arg;
+	if (name)
+		bgp = bgp_lookup_by_name(name);
 	else
 		bgp = bgp_get_default();
 
@@ -8211,10 +8245,14 @@ DEFUN (show_ip_bgp_summary,
 	/* show [ip] bgp */
 	if (argv_find(argv, argc, "ip", &idx))
 		afi = AFI_IP;
-	/* [<view|vrf> VIEWVRFNAME] */
-	if (argv_find(argv, argc, "view", &idx)
-	    || argv_find(argv, argc, "vrf", &idx))
-		vrf = argv[++idx]->arg;
+	/* [<vrf> VIEWVRFNAME] */
+	if (argv_find(argv, argc, "vrf", &idx)) {
+		vrf = argv[idx + 1]->arg;
+		if (vrf && strmatch(vrf, VRF_DEFAULT_NAME))
+			vrf = NULL;
+	} else if (argv_find(argv, argc, "view", &idx))
+		/* [<view> VIEWVRFNAME] */
+		vrf = argv[idx + 1]->arg;
 	/* ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] */
 	if (argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
 		argv_find_and_parse_safi(argv, argc, &idx, &safi);
@@ -10888,8 +10926,13 @@ DEFUN (show_ip_bgp_neighbors,
 
 	int idx = 0;
 
-	if (argv_find(argv, argc, "view", &idx)
-	    || argv_find(argv, argc, "vrf", &idx))
+	/* [<vrf> VIEWVRFNAME] */
+	if (argv_find(argv, argc, "vrf", &idx)) {
+		vrf = argv[idx + 1]->arg;
+		if (vrf && strmatch(vrf, VRF_DEFAULT_NAME))
+			vrf = NULL;
+	} else if (argv_find(argv, argc, "view", &idx))
+		/* [<view> VIEWVRFNAME] */
 		vrf = argv[idx + 1]->arg;
 
 	idx++;
@@ -11183,8 +11226,11 @@ DEFUN (show_ip_bgp_route_leak,
 		return CMD_WARNING;
 	}
 
-	if (argv_find(argv, argc, "vrf", &idx))
-		vrf = argv[++idx]->arg;
+	if (argv_find(argv, argc, "vrf", &idx)) {
+		vrf = argv[idx + 1]->arg;
+		if (vrf && strmatch(vrf, VRF_DEFAULT_NAME))
+			vrf = NULL;
+	}
 	/* ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] */
 	if (argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
 		argv_find_and_parse_safi(argv, argc, &idx, &safi);
@@ -11257,10 +11303,14 @@ DEFUN (show_ip_bgp_updgrps,
 	/* show [ip] bgp */
 	if (argv_find(argv, argc, "ip", &idx))
 		afi = AFI_IP;
-	/* [<view|vrf> VIEWVRFNAME] */
-	if (argv_find(argv, argc, "view", &idx)
-	    || argv_find(argv, argc, "vrf", &idx))
-		vrf = argv[++idx]->arg;
+	/* [<vrf> VIEWVRFNAME] */
+	if (argv_find(argv, argc, "vrf", &idx)) {
+		vrf = argv[idx + 1]->arg;
+		if (vrf && strmatch(vrf, VRF_DEFAULT_NAME))
+			vrf = NULL;
+	} else if (argv_find(argv, argc, "view", &idx))
+		/* [<view> VIEWVRFNAME] */
+		vrf = argv[idx + 1]->arg;
 	/* ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] */
 	if (argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
 		argv_find_and_parse_safi(argv, argc, &idx, &safi);

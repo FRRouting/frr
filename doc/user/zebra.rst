@@ -48,6 +48,13 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
 
    .. seealso:: :ref:`zebra-vrf`
 
+.. option:: -o, --vrfdefaultname
+
+   When *Zebra* starts with this option, the default VRF name is changed to the
+   parameter.
+
+   .. seealso:: :ref:`zebra-vrf`
+
 .. option:: --v6-rr-semantics
 
    The linux kernel is receiving the ability to use the same route
@@ -355,6 +362,40 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    will dump the routing table ``TABLENO`` of the *Linux network namespace*
    ``VRF``.
 
+By using the :option:`-n` option, the *Linux network namespace* will be mapped
+over the *Zebra* VRF. One nice feature that is possible by handling *Linux
+network namespace* is the ability to name default VRF. At startup, *Zebra*
+discovers the available *Linux network namespace* by parsing folder
+`/var/run/netns`. Each file stands for a *Linux network namespace*, but not all
+*Linux network namespaces* are available under that folder. This is the case for
+default VRF. It is possible to name the default VRF, by creating a file, by
+executing following commands.
+
+.. code-block:: shell
+
+   touch /var/run/netns/vrf0
+   mount --bind /proc/self/ns/net /var/run/netns/vrf0
+
+Above command illustrates what happens when the default VRF is visible under
+`var/run/netns/`. Here, the default VRF file is `vrf0`.
+At startup, FRR detects the presence of that file. It detects that the file
+statistics information matches the same file statistics information as
+`/proc/self/ns/net` ( through stat() function). As statistics information
+matches, then `vrf0` stands for the new default namespace name.
+Consequently, the VRF naming `Default` will be overriden by the new discovered
+namespace name `vrf0`.
+
+For those who don't use VRF backend with *Linux network namespace*, it is
+possible to statically configure and recompile FRR. It is possible to choose an
+alternate name for default VRF. Then, the default VRF naming will automatically
+be updated with the new name. To illustrate, if you want to recompile with
+`global` value, use the following command:
+
+.. code-block:: linux
+
+   ./configure --with-defaultvrfname=global
+
+More information about the option in :ref:`_frr-configuration`.
 
 .. _zebra-mpls:
 

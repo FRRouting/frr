@@ -166,7 +166,7 @@ int main(int argc, char **argv)
 	master = frr_init();
 
 	/* Library inits. */
-	vrf_init(NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL, NULL);
 
 	/* RIPngd inits. */
 	ripng_init();

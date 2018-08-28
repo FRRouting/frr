@@ -145,6 +145,8 @@ static struct ospf *ospf_cmd_lookup_ospf(struct vty *vty,
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
 		vrf_name = argv[idx_vrf + 1]->arg;
+		if (vrf_name == NULL || strmatch(vrf_name, VRF_DEFAULT_NAME))
+			vrf_name = NULL;
 		if (enable) {
 			/* Allocate VRF aware instance */
 			ospf = ospf_get(*instance, vrf_name);

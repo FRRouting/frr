@@ -170,7 +170,7 @@ int main(int argc, char **argv)
 	/* Library initialization. */
 	rip_error_init();
 	keychain_init();
-	vrf_init(NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL, NULL);
 
 	/* RIP related initialization. */
 	rip_init();
