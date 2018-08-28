@@ -49,6 +49,11 @@
 #define atomic_fetch_and_explicit __atomic_fetch_and
 #define atomic_fetch_or_explicit __atomic_fetch_or
 
+#define atomic_add_fetch_explicit __atomic_add_fetch
+#define atomic_sub_fetch_explicit __atomic_sub_fetch
+#define atomic_and_fetch_explicit __atomic_and_fetch
+#define atomic_or_fetch_explicit __atomic_or_fetch
+
 #define atomic_compare_exchange_weak_explicit(atom, expect, desire, mem1,      \
 					      mem2)                            \
 	__atomic_compare_exchange_n(atom, expect, desire, 1, mem1, mem2)
@@ -137,6 +142,7 @@
 		*_expect = rval;                                               \
 		ret;                                                           \
 	})
+
 #define atomic_fetch_and_explicit(ptr, val, mem)                               \
 	({                                                                     \
 		__sync_synchronize();                                          \
@@ -148,6 +154,36 @@
 	({                                                                     \
 		__sync_synchronize();                                          \
 		typeof(*ptr) rval = __sync_fetch_and_or(ptr, val);             \
+		__sync_synchronize();                                          \
+		rval;                                                          \
+	})
+
+#define atomic_add_fetch_explicit(ptr, val, mem)                               \
+	({                                                                     \
+		__sync_synchronize();                                          \
+		typeof(*ptr) rval = __sync_add_and_fetch((ptr), (val));        \
+		__sync_synchronize();                                          \
+		rval;                                                          \
+	})
+#define atomic_sub_fetch_explicit(ptr, val, mem)                               \
+	({                                                                     \
+		__sync_synchronize();                                          \
+		typeof(*ptr) rval = __sync_sub_and_fetch((ptr), (val));        \
+		__sync_synchronize();                                          \
+		rval;                                                          \
+	})
+
+#define atomic_and_fetch_explicit(ptr, val, mem)                               \
+	({                                                                     \
+		__sync_synchronize();                                          \
+		typeof(*ptr) rval = __sync_and_and_fetch(ptr, val);            \
+		__sync_synchronize();                                          \
+		rval;                                                          \
+	})
+#define atomic_or_fetch_explicit(ptr, val, mem)                                \
+	({                                                                     \
+		__sync_synchronize();                                          \
+		typeof(*ptr) rval = __sync_or_and_fetch(ptr, val);             \
 		__sync_synchronize();                                          \
 		rval;                                                          \
 	})
