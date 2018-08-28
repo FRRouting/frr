@@ -607,7 +607,7 @@ static int pid_is_exec(pid_t pid, const struct stat *esb)
 	struct stat sb;
 	char buf[32];
 
-	sprintf(buf, "/proc/%d/exe", pid);
+	sprintf(buf, "/proc/%ld/exe", (long)pid);
 	if (stat(buf, &sb) != 0)
 		return 0;
 	return (sb.st_dev == esb->st_dev && sb.st_ino == esb->st_ino);
@@ -619,7 +619,7 @@ static int pid_is_user(pid_t pid, uid_t uid)
 	struct stat sb;
 	char buf[32];
 
-	sprintf(buf, "/proc/%d", pid);
+	sprintf(buf, "/proc/%ld", (long)pid);
 	if (stat(buf, &sb) != 0)
 		return 0;
 	return (sb.st_uid == uid);
@@ -632,7 +632,7 @@ static int pid_is_cmd(pid_t pid, const char *name)
 	FILE *f;
 	int c;
 
-	sprintf(buf, "/proc/%d/stat", pid);
+	sprintf(buf, "/proc/%ld/stat", (long)pid);
 	f = fopen(buf, "r");
 	if (!f)
 		return 0;
@@ -664,12 +664,12 @@ static void check(pid_t pid)
 static void do_pidfile(const char *name)
 {
 	FILE *f;
-	pid_t pid;
+	long pid;
 
 	f = fopen(name, "r");
 	if (f) {
-		if (fscanf(f, "%d", &pid) == 1)
-			check(pid);
+		if (fscanf(f, "%ld", &pid) == 1)
+			check((pid_t)pid);
 		fclose(f);
 	} else if (errno != ENOENT)
 		fatal("open pidfile %s: %s", name, strerror(errno));
@@ -682,7 +682,7 @@ static void do_procinit(void)
 	DIR *procdir;
 	struct dirent *entry;
 	int foundany;
-	pid_t pid;
+	long pid;
 
 	procdir = opendir("/proc");
 	if (!procdir)
@@ -690,10 +690,10 @@ static void do_procinit(void)
 
 	foundany = 0;
 	while ((entry = readdir(procdir)) != NULL) {
-		if (sscanf(entry->d_name, "%d", &pid) != 1)
+		if (sscanf(entry->d_name, "%ld", &pid) != 1)
 			continue;
 		foundany++;
-		check(pid);
+		check((pid_t)pid);
 	}
 	closedir(procdir);
 	if (!foundany)
@@ -728,21 +728,21 @@ static void do_stop(int signal_nr, int quietmode, int *n_killed,
 
 	for (p = found; p; p = p->next) {
 		if (testmode)
-			printf("Would send signal %d to %d.\n", signal_nr,
-			       p->pid);
+			printf("Would send signal %d to %ld.\n", signal_nr,
+			       (long)p->pid);
 		else if (kill(p->pid, signal_nr) == 0) {
 			push(&killed, p->pid);
 			(*n_killed)++;
 		} else {
-			printf("%s: warning: failed to kill %d: %s\n", progname,
-			       p->pid, strerror(errno));
+			printf("%s: warning: failed to kill %ld: %s\n",
+			       progname, (long)p->pid, strerror(errno));
 			(*n_notkilled)++;
 		}
 	}
 	if (quietmode < 0 && killed) {
 		printf("Stopped %s (pid", what_stop);
 		for (p = killed; p; p = p->next)
-			printf(" %d", p->pid);
+			printf(" %ld", (long)p->pid);
 		putchar(')');
 		if (retry_nr > 0)
 			printf(", retry #%d", retry_nr);
@@ -1055,7 +1055,7 @@ int main(int argc, char **argv)
 		if (pidf == NULL)
 			fatal("Unable to open pidfile `%s' for writing: %s",
 			      pidfile, strerror(errno));
-		fprintf(pidf, "%d\n", pidt);
+		fprintf(pidf, "%ld\n", (long)pidt);
 		fclose(pidf);
 	}
 	set_namespaces();

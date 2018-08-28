@@ -39,6 +39,7 @@
 #include "zebra/interface.h"
 #include "zebra/ioctl_solaris.h"
 #include "zebra/rib.h"
+#include "zebra/rt.h"
 
 static int if_get_addr(struct interface *, struct sockaddr *, const char *);
 static void interface_info_ioctl(struct interface *);
@@ -55,7 +56,6 @@ static int interface_list_ioctl(int af)
 	struct lifconf lifconf;
 	struct interface *ifp;
 	int n;
-	int save_errno;
 	size_t needed, lastneeded = 0;
 	char *buf = NULL;
 
@@ -76,13 +76,11 @@ calculate_lifc_len:
 		lifn.lifn_flags = LIFC_NOXMIT;
 		/* we want NOXMIT interfaces too */
 		ret = ioctl(sock, SIOCGLIFNUM, &lifn);
-		save_errno = errno;
-
 	}
 
 	if (ret < 0) {
 		zlog_warn("interface_list_ioctl: SIOCGLIFNUM failed %s",
-			  safe_strerror(save_errno));
+			  safe_strerror(errno));
 		close(sock);
 		return -1;
 	}
