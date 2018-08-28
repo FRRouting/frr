@@ -2132,9 +2132,8 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 		return 0;
 	}
 
-	if (!check_rbit) {
+	if (!check_rbit)
 		return 0;
-	}
 
 	/* If the MAC's sequence number has changed, inform the MAC and all
 	 * neighbors associated with the MAC to BGP, else just inform this
@@ -4044,7 +4043,7 @@ static void process_remote_macip_add(vni_t vni,
 	struct zebra_if *zif = NULL;
 	uint32_t tmp_seq;
 	uint8_t sticky = 0;
-	u_char remote_gw = 0;
+	uint8_t remote_gw = 0;
 	uint8_t router_flag = 0;
 
 	/* Locate VNI hash entry - expected to exist. */
