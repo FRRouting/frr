@@ -54,6 +54,26 @@ DEFUN (rfp_example_config_value,
 		rfi->config_var = value;
 	return CMD_SUCCESS;
 }
+DEFUN (rfp_holddown_factor,
+       rfp_holddown_factor_cmd,
+       "rfp holddown-factor (0-4294967295)",
+       RFP_SHOW_STR
+       "Set Hold-Down Factor as a percentage of registration lifetime.\n"
+       "Percentage of registration lifetime\n")
+{
+	struct rfp_instance_t *rfi;
+	uint32_t value = 0;
+
+	value = strtoul((argv[--argc]->arg), NULL, 10);
+	rfi = rfapi_get_rfp_start_val(VTY_GET_CONTEXT(bgp)); /* BGP_NODE */
+	if (!rfi) {
+		vty_out(vty, "VNC not configured\n");
+		return CMD_WARNING;
+	}
+	rfi->rfapi_config.holddown_factor = value;
+	rfapi_rfp_set_configuration(rfi, &rfi->rfapi_config);
+	return CMD_SUCCESS;
+}
 
 static void rfp_vty_install()
 {
@@ -63,6 +83,7 @@ static void rfp_vty_install()
 	installed = 1;
 	/* example of new cli command */
 	install_element(BGP_NODE, &rfp_example_config_value_cmd);
+	install_element(BGP_NODE, &rfp_holddown_factor_cmd);
 }
 
 /***********************************************************************
@@ -196,7 +217,11 @@ static int rfp_cfg_write_cb(struct vty *vty, void *rfp_start_val)
 		vty_out(vty, "\n");
 		write++;
 	}
-
+	if (rfi->rfapi_config.holddown_factor != 0) {
+		vty_out(vty, " rfp holddown-factor %u\n",
+			rfi->rfapi_config.holddown_factor);
+		write++;
+	}
 	return write;
 }
 
