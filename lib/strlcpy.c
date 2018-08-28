@@ -20,9 +20,11 @@
 /* adapted for Quagga from glibc patch submission originally from
  * Florian Weimer <fweimer@redhat.com>, 2016-05-18 */
 
-#include <string.h>
-
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
+
+#include <string.h>
 
 #ifndef HAVE_STRLCPY
 #undef strlcpy

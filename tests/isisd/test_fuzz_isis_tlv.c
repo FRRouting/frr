@@ -1,3 +1,7 @@
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "test_fuzz_isis_tlv_tests.h"
 
 #include <zebra.h>

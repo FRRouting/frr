@@ -24,8 +24,6 @@
 
 /* TBD remove unneeded includes */
 
-#include <errno.h>
-
 #include "lib/zebra.h"
 #include "lib/prefix.h"
 #include "lib/agg_table.h"

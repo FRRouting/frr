@@ -23,8 +23,6 @@
  * Purpose:	maintain per-nve ribs and generate change lists
  */
 
-#include <errno.h>
-
 #include "lib/zebra.h"
 #include "lib/prefix.h"
 #include "lib/agg_table.h"

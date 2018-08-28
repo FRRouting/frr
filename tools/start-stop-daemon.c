@@ -25,12 +25,17 @@
  *   the whole automake/config.h dance.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #ifdef HAVE_LXC
 #define _GNU_SOURCE
 #include <sched.h>
 #endif /* HAVE_LXC */
 
 #include <stddef.h>
+#undef VERSION
 #define VERSION "1.9.18"
 
 #define MIN_POLL_INTERVAL 20000 /*us*/

@@ -23,8 +23,6 @@
  * Purpose:	Handle import of routes from BGP to RFAPI
  */
 
-#include <errno.h>
-
 #include "lib/zebra.h"
 #include "lib/prefix.h"
 #include "lib/agg_table.h"
