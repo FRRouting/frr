@@ -167,6 +167,7 @@ EXTRA_DIST = frr-sphinx.mk \
 	manpages/bfd-options.rst \
 	developer/bgpd.rst \
 	developer/bgp-typecodes.rst \
+	developer/building-frr-for-openwrt.rst \
 	developer/building-frr-on-alpine.rst \
 	developer/building-frr-on-centos6.rst \
 	developer/building-frr-on-centos7.rst \
@@ -176,7 +177,6 @@ EXTRA_DIST = frr-sphinx.mk \
 	developer/building-frr-on-freebsd10.rst \
 	developer/building-frr-on-freebsd11.rst \
 	developer/building-frr-on-freebsd9.rst \
-	developer/building-frr-on-lede-openwrt.rst \
 	developer/building-frr-on-netbsd6.rst \
 	developer/building-frr-on-netbsd7.rst \
 	developer/building-frr-on-omnios.rst \
