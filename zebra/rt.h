@@ -32,33 +32,6 @@
 #include "zebra/zebra_dplane.h"
 
 /*
- * Install/delete the specified prefix p from the kernel
- *
- * old = NULL, new = pointer - Install new
- * old = pointer, new = pointer - Route replace Old w/ New
- * old = pointer, new = NULL, - Route Delete
- *
- * Please note not all kernels support route replace
- * semantics so we will end up with a delete than
- * a re-add.
- */
-extern enum zebra_dplane_result kernel_route_rib(struct route_node *rn,
-						 const struct prefix *p,
-						 const struct prefix *src_p,
-						 struct route_entry *old,
-						 struct route_entry *new);
-
-/*
- * So route install/failure may not be immediately known
- * so let's separate it out and allow the result to
- * be passed back up.
- */
-extern void kernel_route_rib_pass_fail(struct route_node *rn,
-				       const struct prefix *p,
-				       struct route_entry *re,
-				       enum zebra_dplane_status res);
-
-/*
  * Update or delete a prefix from the kernel,
  * using info from a dataplane context.
  */

@@ -444,43 +444,6 @@ done:
 	return res;
 }
 
-enum zebra_dplane_result kernel_route_rib(struct route_node *rn,
-					  const struct prefix *p,
-					  const struct prefix *src_p,
-					  struct route_entry *old,
-					  struct route_entry *new)
-{
-	int route = 0;
-
-	if (src_p && src_p->prefixlen) {
-		flog_warn(EC_ZEBRA_UNSUPPORTED_V6_SRCDEST,
-			  "%s: IPv6 sourcedest routes unsupported!", __func__);
-		return ZEBRA_DPLANE_REQUEST_FAILURE;
-	}
-
-	frr_elevate_privs(&zserv_privs) {
-		if (old)
-			route |= kernel_rtm(RTM_DELETE, p,
-					    &old->ng, old->metric);
-		if (new)
-			route |= kernel_rtm(RTM_ADD, p, &new->ng, new->metric);
-	}
-
-	if (new) {
-		kernel_route_rib_pass_fail(
-			rn, p, new,
-			(!route) ? ZEBRA_DPLANE_INSTALL_SUCCESS
-				 : ZEBRA_DPLANE_INSTALL_FAILURE);
-	} else {
-		kernel_route_rib_pass_fail(rn, p, old,
-					   (!route)
-						   ? ZEBRA_DPLANE_DELETE_SUCCESS
-						   : ZEBRA_DPLANE_DELETE_FAILURE);
-	}
-
-	return ZEBRA_DPLANE_REQUEST_SUCCESS;
-}
-
 int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
 			int llalen, ns_id_t ns_id)
 {
