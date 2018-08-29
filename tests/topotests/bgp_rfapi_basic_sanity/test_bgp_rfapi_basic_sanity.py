@@ -29,15 +29,6 @@ sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
 
 from lib.ltemplate import *
 
-def test_adjacencies():
-    CliOnFail = None
-    # For debugging, uncomment the next line
-    #CliOnFail = 'tgen.mininet_cli'
-    CheckFunc = 'ltemplateVersionCheck(\'3.1\')'
-    #uncomment next line to start cli *before* script is run
-    #CheckFunc = 'ltemplateVersionCheck(\'3.1\', cli=True)'
-    ltemplateTest('scripts/adjacencies.py', False, CliOnFail, CheckFunc)
-
 def test_add_routes():
     CliOnFail = None
     # For debugging, uncomment the next line
@@ -46,6 +37,15 @@ def test_add_routes():
     #uncomment next line to start cli *before* script is run
     #CheckFunc = 'ltemplateVersionCheck(\'3.1\', cli=True)'
     ltemplateTest('scripts/add_routes.py', False, CliOnFail, CheckFunc)
+
+def test_adjacencies():
+    CliOnFail = None
+    # For debugging, uncomment the next line
+    #CliOnFail = 'tgen.mininet_cli'
+    CheckFunc = 'ltemplateVersionCheck(\'3.1\')'
+    #uncomment next line to start cli *before* script is run
+    #CheckFunc = 'ltemplateVersionCheck(\'3.1\', cli=True)'
+    ltemplateTest('scripts/adjacencies.py', False, CliOnFail, CheckFunc)
 
 def test_check_routes():
     CliOnFail = None
