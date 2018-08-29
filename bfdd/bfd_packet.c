@@ -54,8 +54,6 @@ struct bfd_raw_echo_pkt {
 #define IP_ECHO_PKT_LEN (IP_HDR_LEN + UDP_HDR_LEN + BFD_ECHO_PKT_LEN)
 #define UDP_ECHO_PKT_LEN (UDP_HDR_LEN + BFD_ECHO_PKT_LEN)
 
-static uint8_t msgbuf[BFD_PKT_LEN];
-
 
 /*
  * Prototypes
@@ -67,14 +65,14 @@ static int ptm_bfd_echo_loopback(uint8_t *pkt, int pkt_len, struct sockaddr *ss,
 static int ptm_bfd_process_echo_pkt(int s);
 
 static void bfd_sd_reschedule(int sd);
-static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
-			     char *vrfname, size_t vrfnamelen,
-			     struct sockaddr_any *local,
-			     struct sockaddr_any *peer);
-static ssize_t bfd_recv_ipv6(int sd, bool is_mhop, char *port, size_t portlen,
-			     char *vrfname, size_t vrfnamelen,
-			     struct sockaddr_any *local,
-			     struct sockaddr_any *peer);
+ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
+		      char *port, size_t portlen, char *vrfname,
+		      size_t vrfnamelen, struct sockaddr_any *local,
+		      struct sockaddr_any *peer);
+ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
+		      char *port, size_t portlen, char *vrfname,
+		      size_t vrfnamelen, struct sockaddr_any *local,
+		      struct sockaddr_any *peer);
 
 /* socket related prototypes */
 static void bp_set_ipopts(int sd);
@@ -490,10 +488,10 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 	bfd->stats.tx_ctrl_pkt++;
 }
 
-static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
-			     char *vrfname, size_t vrfnamelen,
-			     struct sockaddr_any *local,
-			     struct sockaddr_any *peer)
+ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
+		      char *port, size_t portlen, char *vrfname,
+		      size_t vrfnamelen, struct sockaddr_any *local,
+		      struct sockaddr_any *peer)
 {
 	struct cmsghdr *cm;
 	int ifindex;
@@ -505,7 +503,7 @@ static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
 
 	/* Prepare the recvmsg params. */
 	iov[0].iov_base = msgbuf;
-	iov[0].iov_len = sizeof(msgbuf);
+	iov[0].iov_len = msgbuflen;
 
 	memset(&msghdr, 0, sizeof(msghdr));
 	msghdr.msg_name = &msgaddr;
@@ -536,16 +534,14 @@ static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
 		switch (cm->cmsg_type) {
 #ifdef BFD_LINUX
 		case IP_TTL: {
-			uint32_t ttl;
+			uint32_t ttlval;
 
-			memcpy(&ttl, CMSG_DATA(cm), sizeof(ttl));
-			if ((is_mhop == false) && (ttl != BFD_TTL_VAL)) {
-				log_debug(
-					"ipv4-recv: invalid TTL from %s (expected %d, got %d flags %d)",
-					satostr(peer), ttl, BFD_TTL_VAL,
-					msghdr.msg_flags);
+			memcpy(&ttlval, CMSG_DATA(cm), sizeof(ttlval));
+			if (ttlval > 255) {
+				log_debug("ipv4-recv: invalid TTL: %u", ttlval);
 				return -1;
 			}
+			*ttl = ttlval;
 			break;
 		}
 
@@ -565,16 +561,7 @@ static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
 #endif /* BFD_LINUX */
 #ifdef BFD_BSD
 		case IP_RECVTTL: {
-			uint8_t ttl;
-
-			memcpy(&ttl, CMSG_DATA(cm), sizeof(ttl));
-			if ((is_mhop == false) && (ttl != BFD_TTL_VAL)) {
-				log_debug(
-					"ipv4-recv: invalid TTL from %s (expected %d, got %d flags %d)",
-					satostr(peer), ttl, BFD_TTL_VAL,
-					msghdr.msg_flags);
-				return -1;
-			}
+			memcpy(ttl, CMSG_DATA(cm), sizeof(*ttl));
 			break;
 		}
 
@@ -609,9 +596,10 @@ static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
 	return mlen;
 }
 
-ssize_t bfd_recv_ipv6(int sd, bool is_mhop, char *port, size_t portlen,
-		      char *vrfname, size_t vrfnamelen,
-		      struct sockaddr_any *local, struct sockaddr_any *peer)
+ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
+		      char *port, size_t portlen, char *vrfname,
+		      size_t vrfnamelen, struct sockaddr_any *local,
+		      struct sockaddr_any *peer)
 {
 	struct cmsghdr *cm;
 	struct in6_pktinfo *pi6 = NULL;
@@ -625,7 +613,7 @@ ssize_t bfd_recv_ipv6(int sd, bool is_mhop, char *port, size_t portlen,
 
 	/* Prepare the recvmsg params. */
 	iov[0].iov_base = msgbuf;
-	iov[0].iov_len = sizeof(msgbuf);
+	iov[0].iov_len = msgbuflen;
 
 	memset(&msghdr6, 0, sizeof(msghdr6));
 	msghdr6.msg_name = &msgaddr6;
@@ -655,13 +643,12 @@ ssize_t bfd_recv_ipv6(int sd, bool is_mhop, char *port, size_t portlen,
 
 		if (cm->cmsg_type == IPV6_HOPLIMIT) {
 			memcpy(&ttlval, CMSG_DATA(cm), sizeof(ttlval));
-			if ((is_mhop == false) && (ttlval != BFD_TTL_VAL)) {
-				log_debug(
-					"ipv6-recv: invalid TTL from %s (expected %d, got %d flags %d)",
-					satostr(peer), ttlval, BFD_TTL_VAL,
-					msghdr6.msg_flags);
+			if (ttlval > 255) {
+				log_debug("ipv6-recv: invalid TTL: %u", ttlval);
 				return -1;
 			}
+
+			*ttl = ttlval;
 		} else if (cm->cmsg_type == IPV6_PKTINFO) {
 			pi6 = (struct in6_pktinfo *)CMSG_DATA(cm);
 			if (pi6) {
@@ -752,8 +739,10 @@ int bfd_recv_cb(struct thread *t)
 	bool is_mhop;
 	ssize_t mlen = 0;
 	uint32_t oldEchoXmt_TO, oldXmtTime;
+	uint8_t ttl;
 	struct sockaddr_any local, peer;
 	char port[MAXNAMELEN + 1], vrfname[MAXNAMELEN + 1];
+	uint8_t msgbuf[1516];
 
 	/* Schedule next read. */
 	bfd_sd_reschedule(sd);
@@ -774,18 +763,27 @@ int bfd_recv_cb(struct thread *t)
 	is_mhop = false;
 	if (sd == bglobal.bg_shop || sd == bglobal.bg_mhop) {
 		is_mhop = sd == bglobal.bg_mhop;
-		mlen = bfd_recv_ipv4(sd, is_mhop, port, sizeof(port), vrfname,
-				     sizeof(vrfname), &local, &peer);
+		mlen = bfd_recv_ipv4(sd, msgbuf, sizeof(msgbuf), &ttl, port,
+				     sizeof(port), vrfname, sizeof(vrfname),
+				     &local, &peer);
 	} else if (sd == bglobal.bg_shop6 || sd == bglobal.bg_mhop6) {
 		is_mhop = sd == bglobal.bg_mhop6;
-		mlen = bfd_recv_ipv6(sd, is_mhop, port, sizeof(port), vrfname,
-				     sizeof(vrfname), &local, &peer);
+		mlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), &ttl, port,
+				     sizeof(port), vrfname, sizeof(vrfname),
+				     &local, &peer);
 	}
 
 	/* Implement RFC 5880 6.8.6 */
 	if (mlen < BFD_PKT_LEN) {
 		cp_debug(is_mhop, &peer, &local, port, vrfname,
 			 "too small (%ld bytes)", mlen);
+		return 0;
+	}
+
+	/* Validate packet TTL. */
+	if ((is_mhop == false) && (ttl != BFD_TTL_VAL)) {
+		cp_debug(is_mhop, &peer, &local, port, vrfname,
+			 "invalid TTL: %d expected %d", ttl, BFD_TTL_VAL);
 		return 0;
 	}
 
