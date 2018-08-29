@@ -468,21 +468,12 @@ void ns_init(void)
 	if (ns_initialised == 1)
 		return;
 	errno = 0;
-#ifdef HAVE_NETNS
-	if (have_netns_enabled < 0) {
+	if (have_netns())
 		ns_default_ns_fd = open(NS_DEFAULT_NAME, O_RDONLY);
-		if (ns_default_ns_fd == -1)
-			flog_err(LIB_ERR_NS,
-				  "NS initialization failure %d(%s)", errno,
-				  safe_strerror(errno));
-	} else {
+	else {
 		ns_default_ns_fd = -1;
 		default_ns = NULL;
 	}
-#else
-	ns_default_ns_fd = -1;
-	default_ns = NULL;
-#endif /* HAVE_NETNS */
 	ns_current_ns_fd = -1;
 	ns_initialised = 1;
 }
