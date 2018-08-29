@@ -18,6 +18,8 @@ luCommand('r3','vtysh -c "debug rfapi-dev register vn 10.0.0.2 un 2.2.2.2 prefix
 luCommand('r3','vtysh -c "show vnc registrations local"','1 out of 1','wait','Local registration')
 luCommand('r3','vtysh -c "debug rfapi-dev response-omit-self on"','.','none')
 luCommand('r3','vtysh -c "debug rfapi-dev query vn 10.0.0.2 un 2.2.2.2 target 22.22.22.22"','rc=2', 'pass', 'Self excluded')
+luCommand('r3','vtysh -c "debug rfapi-dev open vn 10.0.1.2 un 2.1.1.2"','rfapi_set_response_cb: status 0', 'pass', 'Opened query only RFAPI')
+luCommand('r3','vtysh -c "debug rfapi-dev query vn 10.0.1.2 un 2.1.1.2 target 22.22.22.22"','22.22.22.0/24', 'pass', 'See local')
 
 luCommand('r4','vtysh -c "debug rfapi-dev open vn 10.0.0.3 un 3.3.3.3"','rfapi_set_response_cb: status 0', 'pass', 'Opened RFAPI')
 luCommand('r4','vtysh -c "debug rfapi-dev register vn 10.0.0.3 un 3.3.3.3 prefix 33.33.33.0/24 lifetime {}"'.format(to),'', 'none', 'Prefix registered')
