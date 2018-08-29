@@ -29,6 +29,12 @@
 #ifdef HAVE_STDATOMIC_H
 #include <stdatomic.h>
 
+/* These are available in gcc, but not in stdatomic */
+#define atomic_add_fetch_explicit __atomic_add_fetch
+#define atomic_sub_fetch_explicit __atomic_sub_fetch
+#define atomic_and_fetch_explicit __atomic_and_fetch
+#define atomic_or_fetch_explicit __atomic_or_fetch
+
 /* gcc 4.7 and newer */
 #elif defined(HAVE___ATOMIC)
 
