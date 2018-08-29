@@ -158,7 +158,8 @@ static void bg_init(void)
 	bglobal.bg_mhop = bp_udp_mhop();
 	bglobal.bg_shop6 = bp_udp6_shop();
 	bglobal.bg_mhop6 = bp_udp6_mhop();
-	bglobal.bg_echo = ptm_bfd_echo_sock_init();
+	bglobal.bg_echo = bp_echo_socket();
+	bglobal.bg_echov6 = bp_echov6_socket();
 }
 
 int main(int argc, char *argv[])
@@ -219,6 +220,8 @@ int main(int argc, char *argv[])
 			&bglobal.bg_ev[3]);
 	thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_echo,
 			&bglobal.bg_ev[4]);
+	thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_echov6,
+			&bglobal.bg_ev[5]);
 	thread_add_read(master, control_accept, NULL, bglobal.bg_csock,
 			&bglobal.bg_csockev);
 

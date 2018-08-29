@@ -130,14 +130,6 @@ struct bfd_echo_pkt {
 #define BFD_GETSTATE(flags) ((flags >> 6) & 0x3)
 #define BFD_ECHO_VERSION 1
 #define BFD_ECHO_PKT_LEN sizeof(struct bfd_echo_pkt)
-#define BFD_CTRL_PKT_LEN sizeof(struct bfd_pkt)
-#define IP_HDR_LEN 20
-#define UDP_HDR_LEN 8
-#define ETH_HDR_LEN 14
-#define HEADERS_MIN_LEN (ETH_HDR_LEN + IP_HDR_LEN + UDP_HDR_LEN)
-#define BFD_ECHO_PKT_TOT_LEN                                                   \
-	((int)(ETH_HDR_LEN + IP_HDR_LEN + UDP_HDR_LEN + BFD_ECHO_PKT_LEN))
-#define BFD_RX_BUF_LEN 160
 
 enum bfd_diagnosticis {
 	BD_OK = 0,
@@ -248,14 +240,10 @@ struct bfd_session {
 	int ifindex;
 	uint8_t local_mac[ETHERNET_ADDRESS_LENGTH];
 	uint8_t peer_mac[ETHERNET_ADDRESS_LENGTH];
-	uint16_t ip_id;
 
 	/* BFD session flags */
 	enum bfd_session_flags flags;
 
-	uint8_t echo_pkt[BFD_ECHO_PKT_TOT_LEN]; /* Save the Echo Packet
-						 * which will be transmitted
-						 */
 	struct bfd_session_stats stats;
 
 	struct timeval uptime;   /* last up time */
@@ -405,6 +393,7 @@ struct bfd_global {
 	int bg_shop6;
 	int bg_mhop6;
 	int bg_echo;
+	int bg_echov6;
 	struct thread *bg_ev[6];
 
 	int bg_csock;
@@ -482,13 +471,13 @@ int bp_udp6_shop(void);
 int bp_udp6_mhop(void);
 int bp_peer_socket(struct bfd_peer_cfg *bpc);
 int bp_peer_socketv6(struct bfd_peer_cfg *bpc);
+int bp_echo_socket(void);
+int bp_echov6_socket(void);
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit);
 void ptm_bfd_echo_snd(struct bfd_session *bfd);
 
 int bfd_recv_cb(struct thread *t);
-
-uint16_t checksum(uint16_t *buf, int len);
 
 
 /*
@@ -599,29 +588,13 @@ int ptm_bfd_notify(struct bfd_session *bs);
 /*
  * OS compatibility functions.
  */
-struct udp_psuedo_header {
-	uint32_t saddr;
-	uint32_t daddr;
-	uint8_t reserved;
-	uint8_t protocol;
-	uint16_t len;
-};
-
-#define UDP_PSUEDO_HDR_LEN sizeof(struct udp_psuedo_header)
-
 #if defined(BFD_LINUX) || defined(BFD_BSD)
 int ptm_bfd_fetch_ifindex(const char *ifname);
 void ptm_bfd_fetch_local_mac(const char *ifname, uint8_t *mac);
 void fetch_portname_from_ifindex(int ifindex, char *ifname, size_t ifnamelen);
-int ptm_bfd_echo_sock_init(void);
 #endif /* BFD_LINUX || BFD_BSD */
 
-#ifdef BFD_LINUX
-uint16_t udp4_checksum(struct iphdr *iph, uint8_t *buf, int len);
-#endif /* BFD_LINUX */
-
 #ifdef BFD_BSD
-uint16_t udp4_checksum(struct ip *ip, uint8_t *buf, int len);
 ssize_t bsd_echo_sock_read(int sd, uint8_t *buf, ssize_t *buflen,
 			   struct sockaddr_storage *ss, socklen_t *sslen,
 			   uint8_t *ttl, uint32_t *id);

@@ -37,32 +37,13 @@
 
 #include "bfd.h"
 
-/*
- * Definitions
- */
-struct bfd_raw_echo_pkt {
-#ifdef BFD_LINUX
-	struct iphdr ip;
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD
-	struct ip ip;
-#endif /* BFD_BSD */
-	struct udphdr udp;
-	struct bfd_echo_pkt data;
-};
-
-#define IP_ECHO_PKT_LEN (IP_HDR_LEN + UDP_HDR_LEN + BFD_ECHO_PKT_LEN)
-#define UDP_ECHO_PKT_LEN (UDP_HDR_LEN + BFD_ECHO_PKT_LEN)
-
 
 /*
  * Prototypes
  */
-static uint16_t ptm_bfd_gen_IP_ID(struct bfd_session *bfd);
-static void ptm_bfd_echo_pkt_create(struct bfd_session *bfd);
-static int ptm_bfd_echo_loopback(uint8_t *pkt, int pkt_len, struct sockaddr *ss,
-				 socklen_t sslen);
 static int ptm_bfd_process_echo_pkt(int s);
+int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
+		  size_t datalen);
 
 static void bfd_sd_reschedule(int sd);
 ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
@@ -73,6 +54,9 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 		      char *port, size_t portlen, char *vrfname,
 		      size_t vrfnamelen, struct sockaddr_any *local,
 		      struct sockaddr_any *peer);
+int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
+		struct sockaddr *to, socklen_t tolen);
+int bp_bfd_echo_in(int sd, uint8_t *ttl, uint32_t *my_discr);
 
 /* socket related prototypes */
 static void bp_set_ipopts(int sd);
@@ -84,65 +68,17 @@ static void bp_bind_ipv6(int sd, uint16_t port);
 /*
  * Functions
  */
-uint16_t checksum(uint16_t *buf, int len)
-{
-	int nbytes = len;
-	int sum = 0;
-	uint16_t csum = 0;
-	int size = sizeof(uint16_t);
-
-	while (nbytes > 1) {
-		sum += *buf++;
-		nbytes -= size;
-	}
-
-	if (nbytes == 1) {
-		*(uint8_t *)(&csum) = *(uint8_t *)buf;
-		sum += csum;
-	}
-
-	sum = (sum >> 16) + (sum & 0xFFFF);
-	sum += (sum >> 16);
-	csum = ~sum;
-	return csum;
-}
-
-static uint16_t ptm_bfd_gen_IP_ID(struct bfd_session *bfd)
-{
-	return (++bfd->ip_id);
-}
-
-static int _ptm_bfd_send(struct bfd_session *bs, bool use_layer2,
-			 uint16_t *port, const void *data, size_t datalen)
+int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
+		  size_t datalen)
 {
 	struct sockaddr *sa;
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
-#ifdef BFD_LINUX
-	struct sockaddr_ll dll;
-#endif /* BFD_LINUX */
 	socklen_t slen;
 	ssize_t rv;
 	int sd = -1;
 
-	if (use_layer2) {
-#ifdef BFD_LINUX
-		memset(&dll, 0, sizeof(dll));
-		dll.sll_family = AF_PACKET;
-		dll.sll_protocol = htons(ETH_P_IP);
-		memcpy(dll.sll_addr, bs->peer_mac, ETHERNET_ADDRESS_LENGTH);
-		dll.sll_halen = htons(ETHERNET_ADDRESS_LENGTH);
-		dll.sll_ifindex = bs->ifindex;
-
-		sd = bglobal.bg_echo;
-		sa = (struct sockaddr *)&dll;
-		slen = sizeof(dll);
-#else
-		/* TODO: implement layer 2 send for *BSDs. */
-		log_warning("packet-send: not implemented");
-		return -1;
-#endif
-	} else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6)) {
+	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6)) {
 		memset(&sin6, 0, sizeof(sin6));
 		sin6.sin6_family = AF_INET6;
 		sin6.sin6_addr = bs->shop.peer.sa_sin6.sin6_addr;
@@ -184,252 +120,63 @@ static int _ptm_bfd_send(struct bfd_session *bs, bool use_layer2,
 	return 0;
 }
 
-static void ptm_bfd_echo_pkt_create(struct bfd_session *bfd)
-{
-	struct bfd_raw_echo_pkt ep;
-	uint8_t *pkt = bfd->echo_pkt;
-
-	memset(&ep, 0, sizeof(ep));
-	memset(bfd->echo_pkt, 0, sizeof(bfd->echo_pkt));
-
-	/* Construct ethernet header information */
-	memcpy(pkt, bfd->peer_mac, ETHERNET_ADDRESS_LENGTH);
-	pkt = pkt + ETHERNET_ADDRESS_LENGTH;
-	memcpy(pkt, bfd->local_mac, ETHERNET_ADDRESS_LENGTH);
-	pkt = pkt + ETHERNET_ADDRESS_LENGTH;
-#ifdef BFD_LINUX
-	pkt[0] = ETH_P_IP / 256;
-	pkt[1] = ETH_P_IP % 256;
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD
-	pkt[0] = ETHERTYPE_IP / 256;
-	pkt[1] = ETHERTYPE_IP % 256;
-#endif /* BFD_BSD */
-	pkt += 2;
-
-	/* Construct IP header information */
-#ifdef BFD_LINUX
-	ep.ip.version = 4;
-	ep.ip.ihl = 5;
-	ep.ip.tos = 0;
-	ep.ip.tot_len = htons(IP_ECHO_PKT_LEN);
-	ep.ip.id = htons(ptm_bfd_gen_IP_ID(bfd));
-	ep.ip.frag_off = 0;
-	ep.ip.ttl = BFD_TTL_VAL;
-	ep.ip.protocol = IPPROTO_UDP;
-	ep.ip.saddr = bfd->local_ip.sa_sin.sin_addr.s_addr;
-	ep.ip.daddr = bfd->shop.peer.sa_sin.sin_addr.s_addr;
-	ep.ip.check = checksum((uint16_t *)&ep.ip, IP_HDR_LEN);
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD
-	ep.ip.ip_v = 4;
-	ep.ip.ip_hl = 5;
-	ep.ip.ip_tos = 0;
-	ep.ip.ip_len = htons(IP_ECHO_PKT_LEN);
-	ep.ip.ip_id = htons(ptm_bfd_gen_IP_ID(bfd));
-	ep.ip.ip_off = 0;
-	ep.ip.ip_ttl = BFD_TTL_VAL;
-	ep.ip.ip_p = IPPROTO_UDP;
-	ep.ip.ip_src = bfd->local_ip.sa_sin.sin_addr;
-	ep.ip.ip_dst = bfd->shop.peer.sa_sin.sin_addr;
-	ep.ip.ip_sum = checksum((uint16_t *)&ep.ip, IP_HDR_LEN);
-#endif /* BFD_BSD */
-
-	/* Construct UDP header information */
-#ifdef BFD_LINUX
-	ep.udp.source = htons(BFD_DEF_ECHO_PORT);
-	ep.udp.dest = htons(BFD_DEF_ECHO_PORT);
-	ep.udp.len = htons(UDP_ECHO_PKT_LEN);
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD
-	ep.udp.uh_sport = htons(BFD_DEF_ECHO_PORT);
-	ep.udp.uh_dport = htons(BFD_DEF_ECHO_PORT);
-	ep.udp.uh_ulen = htons(UDP_ECHO_PKT_LEN);
-#endif /* BFD_BSD */
-
-	/* Construct Echo packet information */
-	ep.data.ver = BFD_ECHO_VERSION;
-	ep.data.len = BFD_ECHO_PKT_LEN;
-	ep.data.my_discr = htonl(bfd->discrs.my_discr);
-#ifdef BFD_LINUX
-	ep.udp.check =
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD
-	ep.udp.uh_sum =
-#endif /* BFD_BSD */
-		udp4_checksum(&ep.ip, (uint8_t *)&ep.udp,
-			      UDP_ECHO_PKT_LEN);
-
-	memcpy(pkt, &ep, sizeof(ep));
-}
-
 void ptm_bfd_echo_snd(struct bfd_session *bfd)
 {
-	struct bfd_raw_echo_pkt *ep;
-	bool use_layer2 = false;
-	const void *pkt;
-	size_t pktlen;
-	uint16_t port = htons(BFD_DEF_ECHO_PORT);
+	struct sockaddr_any *sa;
+	socklen_t salen;
+	int sd;
+	struct bfd_echo_pkt bep;
+	struct sockaddr_in sin;
+	struct sockaddr_in6 sin6;
 
-	if (!BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE)) {
-		ptm_bfd_echo_pkt_create(bfd);
+	if (!BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
 		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE);
-	} else {
-		/* just update the checksum and ip Id */
-		ep = (struct bfd_raw_echo_pkt *)(bfd->echo_pkt + ETH_HDR_LEN);
-#ifdef BFD_LINUX
-		ep->ip.id = htons(ptm_bfd_gen_IP_ID(bfd));
-		ep->ip.check = 0;
-		ep->ip.check = checksum((uint16_t *)&ep->ip, IP_HDR_LEN);
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD
-		ep->ip.ip_id = htons(ptm_bfd_gen_IP_ID(bfd));
-		ep->ip.ip_sum = 0;
-		ep->ip.ip_sum = checksum((uint16_t *)&ep->ip, IP_HDR_LEN);
-#endif /* BFD_BSD */
-	}
 
-	if (use_layer2) {
-		pkt = bfd->echo_pkt;
-		pktlen = BFD_ECHO_PKT_TOT_LEN;
-	} else {
-		pkt = &bfd->echo_pkt[ETH_HDR_LEN + IP_HDR_LEN + UDP_HDR_LEN];
-		pktlen = BFD_ECHO_PKT_TOT_LEN
-			 - (ETH_HDR_LEN + IP_HDR_LEN + UDP_HDR_LEN);
-	}
+	memset(&bep, 0, sizeof(bep));
+	bep.ver = BFD_ECHO_VERSION;
+	bep.len = BFD_ECHO_PKT_LEN;
+	bep.my_discr = htonl(bfd->discrs.my_discr);
 
-	if (_ptm_bfd_send(bfd, use_layer2, &port, pkt, pktlen) != 0) {
-		log_debug("echo-packet: send failure: %s", strerror(errno));
+	sa = BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH) ? &bfd->mhop.peer
+							  : &bfd->shop.peer;
+	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6)) {
+		sd = bglobal.bg_echov6;
+		sin6 = sa->sa_sin6;
+		sin6.sin6_port = htons(BFD_DEF_ECHO_PORT);
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+		sin6.sin6_len = sizeof(sin6);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
+
+		sa = (struct sockaddr_any *)&sin6;
+		salen = sizeof(sin6);
+	} else {
+		sd = bglobal.bg_echo;
+		sin = sa->sa_sin;
+		sin.sin_port = htons(BFD_DEF_ECHO_PORT);
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+		sin.sin_len = sizeof(sin);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
+
+		sa = (struct sockaddr_any *)&sin;
+		salen = sizeof(sin);
+	}
+	if (bp_udp_send(sd, BFD_TTL_VAL, (uint8_t *)&bep, sizeof(bep),
+			(struct sockaddr *)sa, salen)
+	    == -1)
 		return;
-	}
 
 	bfd->stats.tx_echo_pkt++;
 }
 
-static int ptm_bfd_echo_loopback(uint8_t *pkt, int pkt_len, struct sockaddr *ss,
-				 socklen_t sslen)
-{
-#ifdef BFD_LINUX
-	struct bfd_raw_echo_pkt *ep =
-		(struct bfd_raw_echo_pkt *)(pkt + ETH_HDR_LEN);
-	uint8_t temp_mac[ETHERNET_ADDRESS_LENGTH];
-	uint32_t temp_ip;
-	struct ethhdr *eth = (struct ethhdr *)pkt;
-
-	/* swap the mac addresses */
-	memcpy(temp_mac, eth->h_source, ETHERNET_ADDRESS_LENGTH);
-	memcpy(eth->h_source, eth->h_dest, ETHERNET_ADDRESS_LENGTH);
-	memcpy(eth->h_dest, temp_mac, ETHERNET_ADDRESS_LENGTH);
-
-	/* swap ip addresses */
-	temp_ip = ep->ip.saddr;
-	ep->ip.saddr = ep->ip.daddr;
-	ep->ip.daddr = temp_ip;
-
-	ep->ip.ttl = ep->ip.ttl - 1;
-	ep->ip.check = 0;
-	ep->ip.check = checksum((uint16_t *)ep, IP_HDR_LEN);
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD_FILTER
-	struct bfd_raw_echo_pkt_t *ep =
-		(struct bfd_raw_echo_pkt *)(pkt + ETH_HDR_LEN);
-	uint8_t temp_mac[ETHERNET_ADDRESS_LENGTH];
-	struct in_addr temp_ip;
-	struct ether_header *ether = (struct ether_header *)pkt;
-
-	/*
-	 * TODO: this is not yet implemented and requires BPF code for
-	 * OmniOS, NetBSD and FreeBSD9.
-	 */
-
-	/* swap the mac addresses */
-	memcpy(temp_mac, ether->ether_shost, ETHERNET_ADDRESS_LENGTH);
-	memcpy(ether->ether_shost, ether->ether_dhost, ETHERNET_ADDRESS_LENGTH);
-	memcpy(ether->ether_dhost, temp_mac, ETHERNET_ADDRESS_LENGTH);
-
-	/* swap ip addresses */
-	temp_ip = ep->ip.ip_src;
-	ep->ip.ip_src = ep->ip.ip_dst;
-	ep->ip.ip_dst = temp_ip;
-
-	ep->ip.ip_ttl = ep->ip.ip_ttl - 1;
-	ep->ip.ip_sum = 0;
-	ep->ip.ip_sum = checksum((uint16_t *)ep, IP_HDR_LEN);
-#endif /* BFD_BSD_FILTER */
-
-	if (sendto(bglobal.bg_echo, pkt, pkt_len, 0, ss, sslen) < 0) {
-		log_debug("echo-loopback: send failure: %s", strerror(errno));
-		return -1;
-	}
-
-	return 0;
-}
-
 static int ptm_bfd_process_echo_pkt(int s)
 {
-	uint32_t my_discr = 0;
-	struct sockaddr_storage ss;
-	socklen_t sslen = sizeof(ss);
-	uint8_t rx_pkt[BFD_RX_BUF_LEN];
-	ssize_t pkt_len = sizeof(rx_pkt);
 	struct bfd_session *bfd;
-#ifdef BFD_LINUX
-	struct bfd_raw_echo_pkt *ep;
+	uint32_t my_discr = 0;
+	uint8_t ttl = 0;
 
-	/*
-	 * valgrind: memset() ss so valgrind doesn't complain about
-	 * uninitialized memory.
-	 */
-	memset(&ss, 0, sizeof(ss));
-	pkt_len = recvfrom(s, rx_pkt, sizeof(rx_pkt), MSG_DONTWAIT,
-			   (struct sockaddr *)&ss, &sslen);
-	if (pkt_len <= 0) {
-		if (errno != EAGAIN)
-			log_error("echo-packet: read failure: %s",
-				  strerror(errno));
-
-		return -1;
-	}
-
-	/* Check if we have at least the basic headers to send back. */
-	if (pkt_len < BFD_ECHO_PKT_TOT_LEN) {
-		log_debug("echo-packet: too short (got %ld, expected %d)",
-			  pkt_len, BFD_ECHO_PKT_TOT_LEN);
-		return -1;
-	}
-
-	ep = (struct bfd_raw_echo_pkt *)(rx_pkt + ETH_HDR_LEN);
-	/* if TTL = 255, assume that the received echo packet has
-	 * to be looped back
-	 */
-	if (ep->ip.ttl == BFD_TTL_VAL)
-		return ptm_bfd_echo_loopback(rx_pkt, pkt_len,
-					     (struct sockaddr *)&ss,
-					     sizeof(struct sockaddr_ll));
-
-	my_discr = ntohl(ep->data.my_discr);
-	if (ep->data.my_discr == 0) {
-		log_debug("echo-packet: 'my discriminator' is zero");
-		return -1;
-	}
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD
-	int rv;
-	uint8_t ttl;
-
-	/*
-	 * bsd_echo_sock_read() already treats invalid TTL values and
-	 * zeroed discriminators.
-	 */
-	rv = bsd_echo_sock_read(s, rx_pkt, &pkt_len, &ss, &sslen, &ttl,
-				&my_discr);
-	if (rv == -1)
-		return -1;
-
-	if (ttl == BFD_TTL_VAL)
-		return ptm_bfd_echo_loopback(rx_pkt, pkt_len,
-					     (struct sockaddr *)&ss, sslen);
-#endif /* BFD_BSD */
+	/* Receive and parse echo packet. */
+	if (bp_bfd_echo_in(s, &ttl, &my_discr) == -1)
+		return 0;
 
 	/* Your discriminator not zero - use it to find session */
 	bfd = bfd_id_lookup(my_discr);
@@ -482,7 +229,7 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 	}
 	cp.timers.required_min_echo = htonl(bfd->timers.required_min_echo);
 
-	if (_ptm_bfd_send(bfd, false, NULL, &cp, BFD_PKT_LEN) != 0)
+	if (_ptm_bfd_send(bfd, NULL, &cp, BFD_PKT_LEN) != 0)
 		return;
 
 	bfd->stats.tx_ctrl_pkt++;
@@ -692,6 +439,10 @@ static void bfd_sd_reschedule(int sd)
 		bglobal.bg_ev[4] = NULL;
 		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_echo,
 				&bglobal.bg_ev[4]);
+	} else if (sd == bglobal.bg_echov6) {
+		bglobal.bg_ev[5] = NULL;
+		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_echov6,
+				&bglobal.bg_ev[5]);
 	}
 }
 
@@ -748,7 +499,7 @@ int bfd_recv_cb(struct thread *t)
 	bfd_sd_reschedule(sd);
 
 	/* Handle echo packets. */
-	if (sd == bglobal.bg_echo) {
+	if (sd == bglobal.bg_echo || sd == bglobal.bg_echov6) {
 		ptm_bfd_process_echo_pkt(sd);
 		return 0;
 	}
@@ -979,6 +730,121 @@ int bfd_recv_cb(struct thread *t)
 			ntohl(cp->timers.required_min_echo);
 
 		control_notify_config(BCM_NOTIFY_CONFIG_UPDATE, bfd);
+	}
+
+	return 0;
+}
+
+/*
+ * bp_bfd_echo_in: proccesses an BFD echo packet. On TTL == BFD_TTL_VAL
+ * the packet is looped back or returns the my discriminator ID along
+ * with the TTL.
+ *
+ * Returns -1 on error or loopback or 0 on success.
+ */
+int bp_bfd_echo_in(int sd, uint8_t *ttl, uint32_t *my_discr)
+{
+	struct bfd_echo_pkt *bep;
+	ssize_t rlen;
+	struct sockaddr_any local, peer;
+	char port[MAXNAMELEN + 1], vrfname[MAXNAMELEN + 1];
+	uint8_t msgbuf[1516];
+
+	if (sd == bglobal.bg_echo)
+		rlen = bfd_recv_ipv4(sd, msgbuf, sizeof(msgbuf), ttl, port,
+				     sizeof(port), vrfname, sizeof(vrfname),
+				     &local, &peer);
+	else
+		rlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), ttl, port,
+				     sizeof(port), vrfname, sizeof(vrfname),
+				     &local, &peer);
+
+	/* Short packet, better not risk reading it. */
+	if (rlen < (ssize_t)sizeof(*bep)) {
+		cp_debug(false, &peer, &local, port, vrfname,
+			 "small echo packet");
+		return -1;
+	}
+
+	/* Test for loopback. */
+	if (*ttl == BFD_TTL_VAL) {
+		bp_udp_send(sd, *ttl - 1, msgbuf, rlen,
+			    (struct sockaddr *)&peer,
+			    (sd == bglobal.bg_echo) ? sizeof(peer.sa_sin)
+						    : sizeof(peer.sa_sin6));
+		return -1;
+	}
+
+	/* Read my discriminator from BFD Echo packet. */
+	bep = (struct bfd_echo_pkt *)msgbuf;
+	*my_discr = ntohl(bep->my_discr);
+	if (*my_discr == 0) {
+		cp_debug(false, &peer, &local, port, vrfname,
+			 "invalid echo packet discriminator (zero)");
+		return -1;
+	}
+
+	return 0;
+}
+
+int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
+		struct sockaddr *to, socklen_t tolen)
+{
+	struct cmsghdr *cmsg;
+	ssize_t wlen;
+	int ttlval = ttl;
+	bool is_ipv6 = to->sa_family == AF_INET6;
+	struct msghdr msg;
+	struct iovec iov[1];
+	uint8_t msgctl[255];
+
+	/* Prepare message data. */
+	iov[0].iov_base = data;
+	iov[0].iov_len = datalen;
+
+	memset(&msg, 0, sizeof(msg));
+	memset(msgctl, 0, sizeof(msgctl));
+	msg.msg_name = to;
+	msg.msg_namelen = tolen;
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 1;
+
+	/* Prepare the packet TTL information. */
+	if (ttl > 0) {
+		/* Use ancillary data. */
+		msg.msg_control = msgctl;
+		msg.msg_controllen = CMSG_LEN(sizeof(ttlval));
+
+		/* Configure the ancillary data. */
+		cmsg = CMSG_FIRSTHDR(&msg);
+		cmsg->cmsg_len = CMSG_LEN(sizeof(ttlval));
+		if (is_ipv6) {
+			cmsg->cmsg_level = IPPROTO_IPV6;
+			cmsg->cmsg_type = IPV6_HOPLIMIT;
+		} else {
+#if BFD_LINUX
+			cmsg->cmsg_level = IPPROTO_IP;
+			cmsg->cmsg_type = IP_TTL;
+#else
+			/* FreeBSD does not support TTL in ancillary data. */
+			msg.msg_control = NULL;
+			msg.msg_controllen = 0;
+
+			bp_set_ttl(sd, ttl);
+#endif /* BFD_BSD */
+		}
+		memcpy(CMSG_DATA(cmsg), &ttlval, sizeof(ttlval));
+	}
+
+	/* Send echo back. */
+	wlen = sendmsg(sd, &msg, 0);
+	if (wlen <= 0) {
+		log_debug("udp-send: loopback failure: (%d) %s", errno, strerror(errno));
+		return -1;
+	} else if (wlen < (ssize_t)datalen) {
+		log_debug("udp-send: partial send: %ld expected %ld", wlen,
+			  datalen);
+		return -1;
 	}
 
 	return 0;
@@ -1324,4 +1190,32 @@ int bp_udp6_mhop(void)
 	bp_bind_ipv6(sd, BFD_DEF_MHOP_DEST_PORT);
 
 	return sd;
+}
+
+int bp_echo_socket(void)
+{
+	int s;
+
+	s = socket(AF_INET, SOCK_DGRAM, 0);
+	if (s == -1)
+		log_fatal("echo-socket: socket: %s", strerror(errno));
+
+	bp_set_ipopts(s);
+	bp_bind_ip(s, BFD_DEF_ECHO_PORT);
+
+	return s;
+}
+
+int bp_echov6_socket(void)
+{
+	int s;
+
+	s = socket(AF_INET6, SOCK_DGRAM, 0);
+	if (s == -1)
+		log_fatal("echov6-socket: socket: %s", strerror(errno));
+
+	bp_set_ipv6opts(s);
+	bp_bind_ipv6(s, BFD_DEF_ECHO_PORT);
+
+	return s;
 }
