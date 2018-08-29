@@ -153,12 +153,18 @@ static int static_vrf_config_write(struct vty *vty)
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vty_frame(vty, "vrf %s\n", vrf->name);
+
 		static_config(vty, vrf->info, AFI_IP,
 			      SAFI_UNICAST, "ip route");
 		static_config(vty, vrf->info, AFI_IP,
 			      SAFI_MULTICAST, "ip mroute");
 		static_config(vty, vrf->info, AFI_IP6,
 			      SAFI_UNICAST, "ipv6 route");
+
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vty_endframe(vty, "!\n");
 	}
 
 	return 0;
