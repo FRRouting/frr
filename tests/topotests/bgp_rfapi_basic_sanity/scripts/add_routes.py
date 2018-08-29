@@ -2,8 +2,10 @@ from lutil import luCommand
 holddownFactorSet = luCommand('r1','vtysh -c "show running"','rfp holddown-factor','none','Holddown factor set')
 if not holddownFactorSet:
     to = "-1"
+    cost = ""
 else:
     to = "6"
+    cost = "cost 50"
 luCommand('r1','vtysh -c "debug rfapi-dev open vn 10.0.0.1 un 1.1.1.1"','rfapi_set_response_cb: status 0', 'pass', 'Opened RFAPI')
 luCommand('r1','vtysh -c "debug rfapi-dev register vn 10.0.0.1 un 1.1.1.1 prefix 11.11.11.0/24 lifetime {}"'.format(to),'', 'none', 'Prefix registered')
 luCommand('r1','vtysh -c "show vnc registrations local"','1 out of 1','wait','Local registration')
@@ -22,7 +24,7 @@ luCommand('r4','vtysh -c "show vnc registrations local"','1 out of 1','wait','Lo
 luCommand('r4','vtysh -c "debug rfapi-dev response-omit-self off"','.','none')
 luCommand('r4','vtysh -c "debug rfapi-dev query vn 10.0.0.3 un 3.3.3.3 target 33.33.33.33"','33.33.33.0/24', 'pass', 'Query self')
 
-luCommand('r4','vtysh -c "debug rfapi-dev register vn 10.0.0.3 un 3.3.3.3 prefix 11.11.11.0/24 lifetime {}"'.format(to),'', 'none', 'MP Prefix registered')
+luCommand('r4','vtysh -c "debug rfapi-dev register vn 10.0.0.3 un 3.3.3.3 prefix 11.11.11.0/24 lifetime {} {}"'.format(to, cost),'', 'none', 'MP Prefix registered')
 luCommand('r4','vtysh -c "show vnc registrations local"','2 out of 2','wait','Local registration')
 luCommand('r4','vtysh -c "debug rfapi-dev query vn 10.0.0.3 un 3.3.3.3 target 11.11.11.11"','11.11.11.0/24', 'pass', 'Query self MP')
 
