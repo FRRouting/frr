@@ -153,7 +153,7 @@ static int zvni_mac_send_del_to_client(vni_t vni, struct ethaddr *macaddr,
 static zebra_vni_t *zvni_map_vlan(struct interface *ifp,
 				  struct interface *br_if, vlanid_t vid);
 static int zvni_mac_install(zebra_vni_t *zvni, zebra_mac_t *mac);
-static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac, int local);
+static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac);
 static void zvni_install_mac_hash(struct hash_backet *backet, void *ctxt);
 
 static unsigned int vni_hash_keymake(void *p);
@@ -2309,7 +2309,7 @@ static void zvni_mac_del_hash_entry(struct hash_backet *backet, void *arg)
 		}
 
 		if (wctx->uninstall)
-			zvni_mac_uninstall(wctx->zvni, mac, 0);
+			zvni_mac_uninstall(wctx->zvni, mac);
 
 		zvni_mac_del(wctx->zvni, mac);
 	}
@@ -2611,18 +2611,16 @@ static int zvni_mac_install(zebra_vni_t *zvni, zebra_mac_t *mac)
 }
 
 /*
- * Uninstall remote MAC from the kernel. In the scenario where the MAC
- * moves to remote, we have to uninstall any existing local entry first.
+ * Uninstall remote MAC from the kernel.
  */
-static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac, int local)
+static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac)
 {
 	struct zebra_if *zif;
 	struct zebra_l2info_vxlan *vxl;
 	struct in_addr vtep_ip = {.s_addr = 0};
-	struct zebra_ns *zns;
 	struct interface *ifp;
 
-	if (!local && !(mac->flags & ZEBRA_MAC_REMOTE))
+	if (!(mac->flags & ZEBRA_MAC_REMOTE))
 		return 0;
 
 	if (!zvni->vxlan_if) {
@@ -2636,19 +2634,10 @@ static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac, int local)
 		return -1;
 	vxl = &zif->l2info.vxl;
 
-	if (local) {
-		zns = zebra_ns_lookup(NS_DEFAULT);
-		ifp = if_lookup_by_index_per_ns(zns,
-						mac->fwd_info.local.ifindex);
-		if (!ifp) // unexpected
-			return -1;
-	} else {
-		ifp = zvni->vxlan_if;
-		vtep_ip = mac->fwd_info.r_vtep_ip;
-	}
+	ifp = zvni->vxlan_if;
+	vtep_ip = mac->fwd_info.r_vtep_ip;
 
-	return kernel_del_mac(ifp, vxl->access_vlan, &mac->macaddr, vtep_ip,
-			      local);
+	return kernel_del_mac(ifp, vxl->access_vlan, &mac->macaddr, vtep_ip);
 }
 
 /*
@@ -2677,7 +2666,7 @@ static void zvni_deref_ip2mac(zebra_vni_t *zvni, zebra_mac_t *mac,
 		return;
 
 	if (uninstall)
-		zvni_mac_uninstall(zvni, mac, 0);
+		zvni_mac_uninstall(zvni, mac);
 
 	zvni_mac_del(zvni, mac);
 }
@@ -3290,7 +3279,7 @@ static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 	vxl = &zif->l2info.vxl;
 
 	return kernel_del_mac(zl3vni->vxlan_if, vxl->access_vlan,
-			      &zrmac->macaddr, zrmac->fwd_info.r_vtep_ip, 0);
+			      &zrmac->macaddr, zrmac->fwd_info.r_vtep_ip);
 }
 
 /* handle rmac add */
@@ -4391,7 +4380,7 @@ static void process_remote_macip_del(vni_t vni,
 			zvni_process_neigh_on_remote_mac_del(zvni, mac);
 
 			if (list_isempty(mac->neigh_list)) {
-				zvni_mac_uninstall(zvni, mac, 0);
+				zvni_mac_uninstall(zvni, mac);
 				zvni_mac_del(zvni, mac);
 			} else
 				SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);

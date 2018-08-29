@@ -459,7 +459,7 @@ int kernel_add_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
 }
 
 int kernel_del_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
-		   struct in_addr vtep_ip, int local)
+		   struct in_addr vtep_ip)
 {
 	return 0;
 }

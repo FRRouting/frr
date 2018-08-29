@@ -2178,7 +2178,7 @@ int netlink_macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 
 static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
 				 struct ethaddr *mac, struct in_addr vtep_ip,
-				 int local, int cmd, uint8_t sticky)
+				 int cmd, uint8_t sticky)
 {
 	struct zebra_ns *zns;
 	struct {
@@ -2223,12 +2223,10 @@ static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
 
 	addattr_l(&req.n, sizeof(req), NDA_LLADDR, mac, 6);
 	req.ndm.ndm_ifindex = ifp->ifindex;
-	if (!local) {
-		dst_alen = 4; // TODO: hardcoded
-		addattr_l(&req.n, sizeof(req), NDA_DST, &vtep_ip, dst_alen);
-		dst_present = 1;
-		sprintf(dst_buf, " dst %s", inet_ntoa(vtep_ip));
-	}
+	dst_alen = 4; // TODO: hardcoded
+	addattr_l(&req.n, sizeof(req), NDA_DST, &vtep_ip, dst_alen);
+	dst_present = 1;
+	sprintf(dst_buf, " dst %s", inet_ntoa(vtep_ip));
 	br_zif = (struct zebra_if *)br_if->info;
 	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif) && vid > 0) {
 		addattr16(&req.n, sizeof(req), NDA_VLAN, vid);
@@ -2565,15 +2563,14 @@ static int netlink_neigh_update2(struct interface *ifp, struct ipaddr *ip,
 int kernel_add_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
 		   struct in_addr vtep_ip, uint8_t sticky)
 {
-	return netlink_macfdb_update(ifp, vid, mac, vtep_ip, 0, RTM_NEWNEIGH,
+	return netlink_macfdb_update(ifp, vid, mac, vtep_ip, RTM_NEWNEIGH,
 				     sticky);
 }
 
 int kernel_del_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
-		   struct in_addr vtep_ip, int local)
+		   struct in_addr vtep_ip)
 {
-	return netlink_macfdb_update(ifp, vid, mac, vtep_ip, local,
-				     RTM_DELNEIGH, 0);
+	return netlink_macfdb_update(ifp, vid, mac, vtep_ip, RTM_DELNEIGH, 0);
 }
 
 int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
