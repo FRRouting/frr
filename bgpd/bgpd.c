@@ -6626,7 +6626,7 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 }
 
 /* Display peer uptime.*/
-char *peer_uptime(time_t uptime2, char *buf, size_t len, uint8_t use_json,
+char *peer_uptime(time_t uptime2, char *buf, size_t len, bool use_json,
 		  json_object *json)
 {
 	time_t uptime1, epoch_tbuf;

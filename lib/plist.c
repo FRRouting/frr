@@ -1900,7 +1900,7 @@ void prefix_bgp_orf_remove_all(afi_t afi, char *name)
 
 /* return prefix count */
 int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
-				uint8_t use_json)
+				bool use_json)
 {
 	struct prefix_list *plist;
 	struct prefix_list_entry *pentry;

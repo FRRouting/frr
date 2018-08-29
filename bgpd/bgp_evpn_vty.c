@@ -983,7 +983,7 @@ static void show_vni_entry(struct hash_backet *backet, void *args[])
 
 static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 				 enum bgp_show_type type, void *output_arg,
-				 int option, uint8_t use_json)
+				 int option, bool use_json)
 {
 	afi_t afi = AFI_L2VPN;
 	struct bgp *bgp;
@@ -1276,7 +1276,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_all_neighbor_routes,
 	union sockunion su;
 	struct peer *peer;
 	int ret;
-	uint8_t uj = use_json(argc, argv);
+	bool uj = use_json(argc, argv);
 
 	argv_find(argv, argc, "A.B.C.D", &idx_ipv4);
 
@@ -1336,7 +1336,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_routes,
 	union sockunion su;
 	struct peer *peer;
 	struct prefix_rd prd;
-	uint8_t uj = use_json(argc, argv);
+	bool uj = use_json(argc, argv);
 
 	argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN", &idx_ext_community);
 	argv_find(argv, argc, "A.B.C.D", &idx_ipv4);
@@ -1409,7 +1409,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_all_neighbor_advertised_routes,
 	int ret;
 	struct peer *peer;
 	union sockunion su;
-	uint8_t uj = use_json(argc, argv);
+	bool uj = use_json(argc, argv);
 
 	argv_find(argv, argc, "A.B.C.D", &idx_ipv4);
 
@@ -1467,7 +1467,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes,
 	struct peer *peer;
 	struct prefix_rd prd;
 	union sockunion su;
-	uint8_t uj = use_json(argc, argv);
+	bool uj = use_json(argc, argv);
 
 	argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN", &idx_ext_community);
 	argv_find(argv, argc, "A.B.C.D", &idx_ipv4);
@@ -3172,7 +3172,7 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 	struct bgp *bgp_def;
 	vni_t vni;
 	int idx = 0;
-	uint8_t uj = 0;
+	bool uj = false;
 	json_object *json = NULL;
 	uint32_t num_l2vnis = 0;
 	uint32_t num_l3vnis = 0;
@@ -3255,7 +3255,7 @@ DEFUN(show_bgp_l2vpn_evpn_es,
       JSON_STR)
 {
 	int idx = 0;
-	uint8_t uj = 0;
+	bool uj = false;
 	esi_t esi;
 	json_object *json = NULL;
 	struct bgp *bgp = NULL;
@@ -3312,7 +3312,7 @@ DEFUN(show_bgp_l2vpn_evpn_summary,
       JSON_STR)
 {
 	int idx_vrf = 0;
-	uint8_t uj = use_json(argc, argv);
+	bool uj = use_json(argc, argv);
 	char *vrf = NULL;
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf))
@@ -3341,7 +3341,7 @@ DEFUN(show_bgp_l2vpn_evpn_route,
 	struct bgp *bgp;
 	int type_idx = 0;
 	int type = 0;
-	uint8_t uj = 0;
+	bool uj = false;
 	json_object *json = NULL;
 
 	uj = use_json(argc, argv);
@@ -3404,7 +3404,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
 	int type = 0;
 	int rd_idx = 0;
 	int type_idx = 0;
-	int uj = 0;
+	bool uj = false;
 	json_object *json = NULL;
 
 	bgp = bgp_get_default();
@@ -3477,7 +3477,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd_macip,
 	int rd_idx = 0;
 	int mac_idx = 0;
 	int ip_idx = 0;
-	int uj = 0;
+	bool uj = false;
 	json_object *json = NULL;
 
 	memset(&mac, 0, sizeof(struct ethaddr));
@@ -3541,7 +3541,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_esi,
       "ESI ID\n"
       JSON_STR)
 {
-	int uj = 0;
+	bool uj = false;
 	esi_t esi;
 	struct bgp *bgp = NULL;
 	json_object *json = NULL;
@@ -3597,7 +3597,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni, show_bgp_l2vpn_evpn_route_vni_cmd,
 	struct in_addr vtep_ip;
 	int type = 0;
 	int idx = 0;
-	int uj = 0;
+	bool uj = false;
 	json_object *json = NULL;
 
 	bgp = bgp_get_default();
@@ -3669,7 +3669,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_macip,
 	struct ethaddr mac;
 	struct ipaddr ip;
 	int idx = 0;
-	int uj = 0;
+	bool uj = false;
 	json_object *json = NULL;
 
 	bgp = bgp_get_default();
@@ -3737,7 +3737,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_multicast,
 	int ret;
 	struct in_addr orig_ip;
 	int idx = 0;
-	int uj = 0;
+	bool uj = false;
 	json_object *json = NULL;
 
 	bgp = bgp_get_default();
@@ -3793,7 +3793,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_all,
 	struct bgp *bgp;
 	struct in_addr vtep_ip;
 	int idx = 0;
-	int uj = 0;
+	bool uj = false;
 	json_object *json = NULL;
 
 	bgp = bgp_get_default();
@@ -3841,7 +3841,7 @@ DEFUN(show_bgp_l2vpn_evpn_vrf_import_rt,
       "Show vrf import route target\n"
       JSON_STR)
 {
-	uint8_t uj = 0;
+	bool uj = false;
 	struct bgp *bgp_def = NULL;
 	json_object *json = NULL;
 
@@ -3878,7 +3878,7 @@ DEFUN(show_bgp_l2vpn_evpn_import_rt,
       JSON_STR)
 {
 	struct bgp *bgp;
-	uint8_t uj = 0;
+	bool uj = false;
 	json_object *json = NULL;
 
 	bgp = bgp_get_default();
@@ -4359,7 +4359,7 @@ DEFUN (show_bgp_vrf_l3vni_info,
 	json_object *json_vnis = NULL;
 	json_object *json_export_rts = NULL;
 	json_object *json_import_rts = NULL;
-	uint8_t uj = use_json(argc, argv);
+	bool uj = use_json(argc, argv);
 
 	if (uj) {
 		json = json_object_new_object();

@@ -1513,7 +1513,7 @@ extern struct peer *peer_create(union sockunion *, const char *, struct bgp *,
 				struct peer_group *);
 extern struct peer *peer_create_accept(struct bgp *);
 extern void peer_xfer_config(struct peer *dst, struct peer *src);
-extern char *peer_uptime(time_t, char *, size_t, uint8_t, json_object *);
+extern char *peer_uptime(time_t, char *, size_t, bool, json_object *);
 
 extern int bgp_config_write(struct vty *);
 

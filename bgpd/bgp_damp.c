@@ -523,7 +523,7 @@ void bgp_config_write_damp(struct vty *vty)
 }
 
 static const char *bgp_get_reuse_time(unsigned int penalty, char *buf,
-				      size_t len, uint8_t use_json,
+				      size_t len, bool use_json,
 				      json_object *json)
 {
 	time_t reuse_time = 0;
@@ -641,7 +641,7 @@ void bgp_damp_info_vty(struct vty *vty, struct bgp_info *binfo,
 }
 
 const char *bgp_damp_reuse_time_vty(struct vty *vty, struct bgp_info *binfo,
-				    char *timebuf, size_t len, uint8_t use_json,
+				    char *timebuf, size_t len, bool use_json,
 				    json_object *json)
 {
 	struct bgp_damp_info *bdi;

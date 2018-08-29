@@ -91,11 +91,11 @@ extern struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 const char *bfd_get_status_str(int status);
 
 extern void bfd_show_param(struct vty *vty, struct bfd_info *bfd_info,
-			   int bfd_tag, int extra_space, uint8_t use_json,
+			   int bfd_tag, int extra_space, bool use_json,
 			   json_object *json_obj);
 
 extern void bfd_show_info(struct vty *vty, struct bfd_info *bfd_info,
-			  int multihop, int extra_space, uint8_t use_json,
+			  int multihop, int extra_space, bool use_json,
 			  json_object *json_obj);
 
 extern void bfd_client_sendmsg(struct zclient *zclient, int command);

@@ -436,7 +436,7 @@ extern void route_vty_out(struct vty *, struct prefix *, struct bgp_info *, int,
 extern void route_vty_out_tag(struct vty *, struct prefix *, struct bgp_info *,
 			      int, safi_t, json_object *);
 extern void route_vty_out_tmp(struct vty *, struct prefix *, struct attr *,
-			      safi_t, uint8_t, json_object *);
+			      safi_t, bool, json_object *);
 extern void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 				  struct bgp_info *binfo, int display,
 				  json_object *json);
@@ -484,5 +484,5 @@ extern void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 extern int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 			     struct bgp_table *table, struct prefix_rd *prd,
 			     enum bgp_show_type type, void *output_arg,
-			     uint8_t use_json);
+			     bool use_json);
 #endif /* _QUAGGA_BGP_ROUTE_H */
