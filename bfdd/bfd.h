@@ -105,9 +105,6 @@ struct bfd_echo_pkt {
 #define BFD_CBIT 0x08
 #define BFD_ABIT 0x04
 #define BFD_DEMANDBIT 0x02
-#define BFD_DIAGNEIGHDOWN 3
-#define BFD_DIAGDETECTTIME 1
-#define BFD_DIAGADMINDOWN 7
 #define BFD_SETDEMANDBIT(flags, val)                                           \
 	{                                                                      \
 		if ((val))                                                     \
@@ -141,6 +138,27 @@ struct bfd_echo_pkt {
 #define BFD_ECHO_PKT_TOT_LEN                                                   \
 	((int)(ETH_HDR_LEN + IP_HDR_LEN + UDP_HDR_LEN + BFD_ECHO_PKT_LEN))
 #define BFD_RX_BUF_LEN 160
+
+enum bfd_diagnosticis {
+	BD_OK = 0,
+	/* Control Detection Time Expired. */
+	BD_CONTROL_EXPIRED = 1,
+	/* Echo Function Failed. */
+	BD_ECHO_FAILED = 2,
+	/* Neighbor Signaled Session Down. */
+	BD_NEIGHBOR_DOWN = 3,
+	/* Forwarding Plane Reset. */
+	BD_FORWARDING_RESET = 4,
+	/* Path Down. */
+	BD_PATH_DOWN = 5,
+	/* Concatenated Path Down. */
+	BD_CONCATPATH_DOWN = 6,
+	/* Administratively Down. */
+	BD_ADMIN_DOWN = 7,
+	/* Reverse Concatenated Path Down. */
+	BD_REVCONCATPATH_DOWN = 8,
+	/* 9..31: reserved. */
+};
 
 /* BFD session flags */
 enum bfd_session_flags {

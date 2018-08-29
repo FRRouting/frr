@@ -886,7 +886,7 @@ int bfd_recv_cb(struct thread *t)
 	/* State switch from section 6.8.6 */
 	if (BFD_GETSTATE(cp->flags) == PTM_BFD_ADM_DOWN) {
 		if (bfd->ses_state != PTM_BFD_DOWN)
-			ptm_bfd_ses_dn(bfd, BFD_DIAGNEIGHDOWN);
+			ptm_bfd_ses_dn(bfd, BD_NEIGHBOR_DOWN);
 	} else {
 		switch (bfd->ses_state) {
 		case (PTM_BFD_DOWN):
@@ -902,7 +902,7 @@ int bfd_recv_cb(struct thread *t)
 			break;
 		case (PTM_BFD_UP):
 			if (BFD_GETSTATE(cp->flags) == PTM_BFD_DOWN)
-				ptm_bfd_ses_dn(bfd, BFD_DIAGNEIGHDOWN);
+				ptm_bfd_ses_dn(bfd, BD_NEIGHBOR_DOWN);
 			break;
 		}
 	}

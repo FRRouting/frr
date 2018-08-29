@@ -130,17 +130,22 @@ static struct option longopts[] = {
 struct bfd_global bglobal;
 
 struct bfd_diag_str_list diag_list[] = {
-	{.str = "NeighDown", .type = BFD_DIAGNEIGHDOWN},
-	{.str = "DetectTime", .type = BFD_DIAGDETECTTIME},
-	{.str = "AdminDown", .type = BFD_DIAGADMINDOWN},
+	{.str = "control-expired", .type = BD_CONTROL_EXPIRED},
+	{.str = "echo-failed", .type = BD_ECHO_FAILED},
+	{.str = "neighbor-down", .type = BD_NEIGHBOR_DOWN},
+	{.str = "forwarding-reset", .type = BD_FORWARDING_RESET},
+	{.str = "path-down", .type = BD_PATH_DOWN},
+	{.str = "concatenated-path-down", .type = BD_CONCATPATH_DOWN},
+	{.str = "administratively-down", .type = BD_ADMIN_DOWN},
+	{.str = "reverse-concat-path-down", .type = BD_REVCONCATPATH_DOWN},
 	{.str = NULL},
 };
 
 struct bfd_state_str_list state_list[] = {
-	{.str = "AdminDown", .type = PTM_BFD_ADM_DOWN},
-	{.str = "Down", .type = PTM_BFD_DOWN},
-	{.str = "Init", .type = PTM_BFD_INIT},
-	{.str = "Up", .type = PTM_BFD_UP},
+	{.str = "admin-down", .type = PTM_BFD_ADM_DOWN},
+	{.str = "down", .type = PTM_BFD_DOWN},
+	{.str = "init", .type = PTM_BFD_INIT},
+	{.str = "up", .type = PTM_BFD_UP},
 	{.str = NULL},
 };
 

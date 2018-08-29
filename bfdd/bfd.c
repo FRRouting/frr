@@ -337,7 +337,7 @@ int bfd_recvtimer_cb(struct thread *t)
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
-		ptm_bfd_ses_dn(bs, BFD_DIAGDETECTTIME);
+		ptm_bfd_ses_dn(bs, BD_CONTROL_EXPIRED);
 		bfd_recvtimer_update(bs);
 		break;
 
@@ -360,7 +360,7 @@ int bfd_echo_recvtimer_cb(struct thread *t)
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
-		ptm_bfd_ses_dn(bs, BFD_DIAGDETECTTIME);
+		ptm_bfd_ses_dn(bs, BD_ECHO_FAILED);
 		break;
 	}
 
