@@ -13,7 +13,7 @@ new topology, preferably, using the newest
 
 
 ## Installation of Mininet for running tests
-Only tested with Ubuntu 16.04 (which uses Mininet 2.2.0)
+Only tested with Ubuntu 16.04 and Ubuntu 18.04 (which uses Mininet 2.2.x)
 
 Instructions are the same for all setups (ie ExaBGP is only used for BGP 
 tests)

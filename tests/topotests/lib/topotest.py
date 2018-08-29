@@ -434,6 +434,22 @@ def ip4_route_zebra(node, vrf_name=None):
         lines = lines[1:]
     return '\n'.join(lines)
 
+def proto_name_to_number(protocol):
+    return {
+        'bgp':    '186',
+        'isis':   '187',
+        'ospf':   '188',
+        'rip':    '189',
+        'ripng':  '190',
+        'nhrp':   '191',
+        'eigrp':  '192',
+        'ldp':    '193',
+        'sharp':  '194',
+        'pbr':    '195',
+        'static': '196'
+    }.get(protocol, protocol)  # default return same as input
+
+
 def ip4_route(node):
     """
     Gets a structured return of the command 'ip route'. It can be used in
@@ -464,7 +480,8 @@ def ip4_route(node):
             if prev == 'via':
                 route['via'] = column
             if prev == 'proto':
-                route['proto'] = column
+                # translate protocol names back to numbers
+                route['proto'] = proto_name_to_number(column)
             if prev == 'metric':
                 route['metric'] = column
             if prev == 'scope':
@@ -502,7 +519,8 @@ def ip6_route(node):
             if prev == 'via':
                 route['via'] = column
             if prev == 'proto':
-                route['proto'] = column
+                # translate protocol names back to numbers
+                route['proto'] = proto_name_to_number(column)
             if prev == 'metric':
                 route['metric'] = column
             if prev == 'pref':
