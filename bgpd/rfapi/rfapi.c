@@ -2928,6 +2928,8 @@ static void test_nexthops_callback(
 
 	rfapiPrintNhl(stream, next_hops);
 
+	fp(out, "\n");
+
 	rfapi_free_next_hop_list(next_hops);
 }
 
@@ -3049,7 +3051,7 @@ DEFUN (debug_rfapi_close_rfd,
 
 DEFUN (debug_rfapi_register_vn_un,
        debug_rfapi_register_vn_un_cmd,
-       "debug rfapi-dev register vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime SECONDS",
+       "debug rfapi-dev register vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime SECONDS [cost (0-255)]",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_register\n"
@@ -3063,7 +3065,9 @@ DEFUN (debug_rfapi_register_vn_un,
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "indicate lifetime follows\n"
-       "lifetime\n")
+       "lifetime\n"
+       "Cost (localpref = 255-cost)\n"
+       "0-255\n")
 {
 	struct rfapi_ip_addr vn;
 	struct rfapi_ip_addr un;
@@ -3072,6 +3076,7 @@ DEFUN (debug_rfapi_register_vn_un,
 	uint32_t lifetime;
 	struct rfapi_ip_prefix hpfx;
 	int rc;
+	uint8_t cost = 100;
 
 	/*
 	 * Get VN addr
@@ -3112,6 +3117,9 @@ DEFUN (debug_rfapi_register_vn_un,
 		lifetime = strtoul(argv[10]->arg, NULL, 10);
 	}
 
+	if (argc >= 13)
+		cost = (uint8_t) strtoul(argv[12]->arg, NULL, 10);
+	hpfx.cost = cost;
 
 	rc = rfapi_register(handle, &hpfx, lifetime, NULL, NULL,
 			    RFAPI_REGISTER_ADD);
