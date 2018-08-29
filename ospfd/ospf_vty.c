@@ -413,7 +413,8 @@ static void ospf_passive_interface_set(struct ospf *ospf,
 				ipv4.prefix = ip_ptr->prefix;
 				ipv4.prefixlen = ip_ptr->prefixlen;
 				ospf_network_set(ospf, &ipv4, area_id,
-						 OSPF_AREA_ID_FMT_DECIMAL);
+						 OSPF_AREA_ID_FMT_DECIMAL,
+						 OSPF_IF_PASSIVE);
 			}
 		}
 
@@ -501,7 +502,8 @@ static void ospf_passive_interface_addr_set(struct ospf *ospf,
 		}
 		if (ipv4.prefixlen) {
 			ospf_network_set(ospf, &ipv4, area_id,
-					 OSPF_AREA_ID_FMT_DECIMAL);
+					 OSPF_AREA_ID_FMT_DECIMAL,
+					 OSPF_IF_PASSIVE);
 		}
 
 		/* XXX We should call ospf_if_set_multicast on exactly those
@@ -694,7 +696,7 @@ DEFUN (ospf_network_area,
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 
-	ret = ospf_network_set(ospf, &p, area_id, format);
+	ret = ospf_network_set(ospf, &p, area_id, format, OSPF_IF_ACTIVE);
 	if (ret == 0) {
 		vty_out(vty, "There is already same network statement.\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -10007,15 +10009,15 @@ static int config_write_interface(struct vty *vty)
 static int check_if_passive_intf(struct ospf *ospf, struct in_addr area_id,
 				 struct prefix *p)
 {
-	struct ospf_interface *oi;
-	struct listnode *node;
+	struct route_node *rn;
+	struct ospf_network *network;
 
 	if (area_id.s_addr != 0)
 		return 0;
-	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
-		if (oi->passive_interface != OSPF_IF_PASSIVE)
-			continue;
-		if (prefix_match(p, oi->address))
+	rn = route_node_get(ospf->networks, p);
+	if (rn && rn->info) {
+		network = rn->info;
+		if (network->passive == OSPF_IF_PASSIVE)
 			return 1;
 	}
 	return 0;

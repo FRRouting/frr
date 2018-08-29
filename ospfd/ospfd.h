@@ -432,6 +432,7 @@ struct ospf_network {
 	/* Area ID. */
 	struct in_addr area_id;
 	int area_id_fmt;
+	uint8_t passive;
 };
 
 /* OSPF NBMA neighbor structure. */
@@ -510,7 +511,7 @@ extern struct ospf *ospf_lookup_by_vrf_id(vrf_id_t vrf_id);
 extern void ospf_finish(struct ospf *);
 extern void ospf_router_id_update(struct ospf *ospf);
 extern int ospf_network_set(struct ospf *, struct prefix_ipv4 *, struct in_addr,
-			    int);
+			    int, uint8_t passive);
 extern void ospf_network_free(struct ospf *ospf, struct ospf_network *network);
 extern int ospf_network_unset(struct ospf *, struct prefix_ipv4 *,
 			      struct in_addr);

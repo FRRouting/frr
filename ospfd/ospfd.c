@@ -1031,6 +1031,7 @@ static struct ospf_network *ospf_network_new(struct in_addr area_id)
 
 	new->area_id = area_id;
 	new->area_id_fmt = OSPF_AREA_ID_FMT_DOTTEDQUAD;
+	new->passive = OSPF_IF_ACTIVE;
 
 	return new;
 }
@@ -1043,7 +1044,7 @@ void ospf_network_free(struct ospf *ospf, struct ospf_network *network)
 }
 
 int ospf_network_set(struct ospf *ospf, struct prefix_ipv4 *p,
-		     struct in_addr area_id, int df)
+		     struct in_addr area_id, int df, uint8_t passive)
 {
 	struct ospf_network *network;
 	struct ospf_area *area;
@@ -1055,6 +1056,7 @@ int ospf_network_set(struct ospf *ospf, struct prefix_ipv4 *p,
 		route_unlock_node(rn);
 
 		if (IPV4_ADDR_SAME(&area_id, &network->area_id)) {
+			network->passive = passive;
 			return 1;
 		} else {
 			/* There is already same network statement. */
@@ -1063,6 +1065,7 @@ int ospf_network_set(struct ospf *ospf, struct prefix_ipv4 *p,
 	}
 
 	rn->info = network = ospf_network_new(area_id);
+	network->passive = passive;
 	network->area_id_fmt = df;
 	area = ospf_area_get(ospf, area_id);
 	ospf_area_display_format_set(ospf, area, df);
