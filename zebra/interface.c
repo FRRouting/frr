@@ -1007,6 +1007,8 @@ void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 {
 	struct zebra_if *zif;
 
+	if (IS_ZEBRA_IF_VETH(ifp))
+		return;
 	zif = (struct zebra_if *)ifp->info;
 	zif->link_ifindex = link_ifindex;
 	zif->link = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id),
@@ -1092,6 +1094,10 @@ static const char *zebra_ziftype_2str(zebra_iftype_t zif_type)
 
 	case ZEBRA_IF_VRF:
 		return "VRF";
+		break;
+
+	case ZEBRA_IF_VETH:
+		return "VETH";
 		break;
 
 	default:

@@ -259,6 +259,8 @@ static void netlink_determine_zebra_iftype(char *kind, zebra_iftype_t *zif_type)
 		*zif_type = ZEBRA_IF_VXLAN;
 	else if (strcmp(kind, "macvlan") == 0)
 		*zif_type = ZEBRA_IF_MACVLAN;
+	else if (strcmp(kind, "veth") == 0)
+		*zif_type = ZEBRA_IF_VETH;
 }
 
 #define parse_rtattr_nested(tb, max, rta)                                      \
