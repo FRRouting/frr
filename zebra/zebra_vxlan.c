@@ -180,8 +180,8 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 			     struct ipaddr *ip);
 struct interface *zebra_get_vrr_intf_for_svi(struct interface *ifp);
 static int advertise_gw_macip_enabled(zebra_vni_t *zvni);
-static void zvni_deref_ip2mac(zebra_vni_t *zvni, zebra_mac_t *mac,
-			      int uninstall);
+static int remote_neigh_count(zebra_mac_t *zmac);
+static void zvni_deref_ip2mac(zebra_vni_t *zvni, zebra_mac_t *mac);
 
 /* Private functions */
 static int host_rb_entry_compare(const struct host_rb_entry *hle1,
@@ -1876,7 +1876,7 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 
 	/* see if the mac needs to be deleted as well*/
 	if (mac)
-		zvni_deref_ip2mac(zvni, mac, 0);
+		zvni_deref_ip2mac(zvni, mac);
 
 	return 0;
 }
@@ -2062,7 +2062,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 					neigh_mac_change = upd_mac_seq = true;
 					listnode_delete(
 						old_zmac->neigh_list, n);
-					zvni_deref_ip2mac(zvni, old_zmac, 0);
+					zvni_deref_ip2mac(zvni, old_zmac);
 				}
 
 				/* Update the forwarding info. */
@@ -2090,7 +2090,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 					neigh_mac_change = upd_mac_seq = true;
 					listnode_delete(old_zmac->neigh_list,
 							n);
-					zvni_deref_ip2mac(zvni, old_zmac, 0);
+					zvni_deref_ip2mac(zvni, old_zmac);
 				}
 
 				/* Link to new MAC */
@@ -2655,20 +2655,43 @@ static void zvni_install_mac_hash(struct hash_backet *backet, void *ctxt)
 }
 
 /*
+ * Count of remote neighbors referencing this MAC.
+ */
+static int remote_neigh_count(zebra_mac_t *zmac)
+{
+	zebra_neigh_t *n = NULL;
+	struct listnode *node = NULL;
+	int count = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(zmac->neigh_list, node, n)) {
+		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
+			count++;
+	}
+
+	return count;
+}
+
+/*
  * Decrement neighbor refcount of MAC; uninstall and free it if
  * appropriate.
  */
-static void zvni_deref_ip2mac(zebra_vni_t *zvni, zebra_mac_t *mac,
-			      int uninstall)
+static void zvni_deref_ip2mac(zebra_vni_t *zvni, zebra_mac_t *mac)
 {
-	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO)
-	    || !list_isempty(mac->neigh_list))
+	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO))
 		return;
 
-	if (uninstall)
+	/* If all remote neighbors referencing a remote MAC go away,
+	 * we need to uninstall the MAC.
+	 */
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) &&
+	    remote_neigh_count(mac) == 0) {
 		zvni_mac_uninstall(zvni, mac);
+		UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
+	}
 
-	zvni_mac_del(zvni, mac);
+	/* If no neighbors, delete the MAC. */
+	if (list_isempty(mac->neigh_list))
+		zvni_mac_del(zvni, mac);
 }
 
 /*
@@ -4261,7 +4284,7 @@ static void process_remote_macip_add(vni_t vni,
 				old_mac = zvni_mac_lookup(zvni, &n->emac);
 				if (old_mac) {
 					listnode_delete(old_mac->neigh_list, n);
-					zvni_deref_ip2mac(zvni, old_mac, 1);
+					zvni_deref_ip2mac(zvni, old_mac);
 				}
 				listnode_add_sort(mac->neigh_list, n);
 				memcpy(&n->emac, macaddr, ETH_ALEN);
@@ -4373,16 +4396,22 @@ static void process_remote_macip_del(vni_t vni,
 		    && (memcmp(n->emac.octet, macaddr->octet, ETH_ALEN) == 0)) {
 			zvni_neigh_uninstall(zvni, n);
 			zvni_neigh_del(zvni, n);
-			zvni_deref_ip2mac(zvni, mac, 1);
+			zvni_deref_ip2mac(zvni, mac);
 		}
 	} else {
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 			zvni_process_neigh_on_remote_mac_del(zvni, mac);
 
-			if (list_isempty(mac->neigh_list)) {
+			/* If all remote neighbors referencing a remote MAC
+			 * go away, we need to uninstall the MAC.
+			 */
+			if (remote_neigh_count(mac) == 0) {
 				zvni_mac_uninstall(zvni, mac);
+				UNSET_FLAG(mac->flags, ZEBRA_MAC_REMOTE);
+			}
+			if (list_isempty(mac->neigh_list))
 				zvni_mac_del(zvni, mac);
-			} else
+			else
 				SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 		}
 	}
