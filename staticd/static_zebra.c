@@ -35,6 +35,7 @@
 #include "nexthop.h"
 #include "nexthop_group.h"
 #include "hash.h"
+#include "jhash.h"
 
 #include "static_vrf.h"
 #include "static_routes.h"
@@ -180,6 +181,9 @@ static void zebra_connected(struct zclient *zclient)
 
 struct static_nht_data {
 	struct prefix *nh;
+
+	vrf_id_t nh_vrf_id;
+
 	uint32_t refcount;
 	uint8_t nh_num;
 };
@@ -201,13 +205,18 @@ static int static_zebra_nexthop_update(int command, struct zclient *zclient,
 
 	memset(&lookup, 0, sizeof(lookup));
 	lookup.nh = &nhr.prefix;
+	lookup.nh_vrf_id = vrf_id;
 
 	nhtd = hash_lookup(static_nht_hash, &lookup);
-	if (nhtd)
+
+	if (nhtd) {
 		nhtd->nh_num = nhr.nexthop_num;
 
+		static_nht_update(&nhr.prefix, nhr.nexthop_num, afi,
+				  nhtd->nh_vrf_id);
+	} else
+		zlog_err("No nhtd?");
 
-	static_nht_update(&nhr.prefix, nhr.nexthop_num, afi, vrf_id);
 	return 1;
 }
 
@@ -219,14 +228,19 @@ static void static_zebra_capabilities(struct zclient_capabilities *cap)
 static unsigned int static_nht_hash_key(void *data)
 {
 	struct static_nht_data *nhtd = data;
+	unsigned int key = 0;
 
-	return prefix_hash_key(nhtd->nh);
+	key = prefix_hash_key(nhtd->nh);
+	return jhash_1word(nhtd->nh_vrf_id, key);
 }
 
 static int static_nht_hash_cmp(const void *d1, const void *d2)
 {
 	const struct static_nht_data *nhtd1 = d1;
 	const struct static_nht_data *nhtd2 = d2;
+
+	if (nhtd1->nh_vrf_id != nhtd2->nh_vrf_id)
+		return 0;
 
 	return prefix_same(nhtd1->nh, nhtd2->nh);
 }
@@ -242,6 +256,7 @@ static void *static_nht_hash_alloc(void *data)
 	prefix_copy(new->nh, copy->nh);
 	new->refcount = 0;
 	new->nh_num = 0;
+	new->nh_vrf_id = copy->nh_vrf_id;
 
 	return new;
 }
@@ -293,6 +308,7 @@ void static_zebra_nht_register(struct static_route *si, bool reg)
 
 	memset(&lookup, 0, sizeof(lookup));
 	lookup.nh = &p;
+	lookup.nh_vrf_id = si->nh_vrf_id;
 
 	si->nh_registered = reg;
 
