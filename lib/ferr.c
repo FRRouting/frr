@@ -148,7 +148,7 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 			snprintf(pbuf, sizeof(pbuf), "\nError %"PRIu32" - %s",
 				 ref->code, ref->title);
 			memset(ubuf, '=', strlen(pbuf));
-			ubuf[sizeof(ubuf) - 1] = '\0';
+			ubuf[strlen(pbuf) - 1] = '\0';
 
 			vty_out(vty, "%s\n%s\n", pbuf, ubuf);
 			vty_out(vty, "Description:\n%s\n\n", ref->description);
