@@ -2955,7 +2955,7 @@ void rib_close_table(struct route_table *table)
 	if (!table)
 		return;
 
-	info = table->info;
+	info = route_table_get_info(table);
 
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
 		dest = rib_dest_from_rnode(rn);

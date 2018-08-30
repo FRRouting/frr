@@ -84,7 +84,7 @@ static inline int rnode_is_srcnode(struct route_node *rn)
 static inline struct route_table *srcdest_rnode_table(struct route_node *rn)
 {
 	if (rnode_is_srcnode(rn)) {
-		struct route_node *dst_rn = rn->table->info;
+		struct route_node *dst_rn = route_table_get_info(rn->table);
 		return dst_rn->table;
 	} else {
 		return rn->table;
@@ -92,7 +92,7 @@ static inline struct route_table *srcdest_rnode_table(struct route_node *rn)
 }
 static inline void *srcdest_rnode_table_info(struct route_node *rn)
 {
-	return srcdest_rnode_table(rn)->info;
+	return route_table_get_info(srcdest_rnode_table(rn));
 }
 
 #endif /* _ZEBRA_SRC_DEST_TABLE_H */

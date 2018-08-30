@@ -1358,7 +1358,7 @@ static void vty_show_ip_route_summary(struct vty *vty,
 		}
 
 	vty_out(vty, "%-20s %-20s %s  (vrf %s)\n", "Route Source", "Routes",
-		"FIB", zvrf_name(((rib_table_info_t *)table->info)->zvrf));
+		"FIB", zvrf_name(((rib_table_info_t *)route_table_get_info(table))->zvrf));
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if ((rib_cnt[i] > 0) || (i == ZEBRA_ROUTE_BGP
@@ -1434,7 +1434,7 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 
 	vty_out(vty, "%-20s %-20s %s  (vrf %s)\n", "Route Source",
 		"Prefix Routes", "FIB",
-		zvrf_name(((rib_table_info_t *)table->info)->zvrf));
+		zvrf_name(((rib_table_info_t *)route_table_get_info(table))->zvrf));
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (rib_cnt[i] > 0) {

@@ -249,7 +249,7 @@ struct route_table *zebra_ns_get_table(struct zebra_ns *zns,
 	info->zvrf = zvrf;
 	info->afi = afi;
 	info->safi = SAFI_UNICAST;
-	znst->table->info = info;
+	route_table_set_info(znst->table, info);
 	znst->table->cleanup = zebra_rtable_node_cleanup;
 
 	RB_INSERT(zebra_ns_table_head, &zns->ns_tables, znst);
@@ -262,7 +262,7 @@ static void zebra_ns_free_table(struct zebra_ns_table *znst)
 
 	rib_close_table(znst->table);
 
-	table_info = znst->table->info;
+	table_info = route_table_get_info(znst->table);
 	route_table_finish(znst->table);
 	XFREE(MTYPE_RIB_TABLE_INFO, table_info);
 	XFREE(MTYPE_ZEBRA_NS, znst);
