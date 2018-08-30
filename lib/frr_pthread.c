@@ -332,7 +332,7 @@ static void *fpt_run(void *arg)
 
 	fpt->master->handle_signals = false;
 
-	if (fpt->os_name)
+	if (fpt->os_name[0])
 		frr_pthread_set_name(fpt, NULL, fpt->os_name);
 
 	frr_pthread_notify_running(fpt);
