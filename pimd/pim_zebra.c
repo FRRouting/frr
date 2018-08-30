@@ -19,8 +19,6 @@
 
 #include <zebra.h>
 
-#include "zebra/rib.h"
-
 #include "if.h"
 #include "log.h"
 #include "prefix.h"

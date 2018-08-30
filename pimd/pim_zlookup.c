@@ -18,7 +18,6 @@
  */
 
 #include <zebra.h>
-#include "zebra/rib.h"
 
 #include "log.h"
 #include "prefix.h"
