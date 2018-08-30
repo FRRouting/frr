@@ -10744,7 +10744,7 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 	}
 
 	if (type != show_peer && !nbr_output && !use_json)
-		vty_out(vty, "%% No BGP neighbors found \n");
+		vty_out(vty, "%% No BGP neighbors found\n");
 
 	if (use_json) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
@@ -11045,13 +11045,12 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name, afi_t afi,
 			json_object_free(json);
 
 			return CMD_WARNING;
-		} else {
-			/* Provide context for the block */
-			json_object_string_add(json, "vrf",
-					       name ? name : "default");
-			json_object_string_add(json, "afiSafi",
-					       afi_safi_print(afi, safi));
 		}
+
+		/* Provide context for the block */
+		json_object_string_add(json, "vrf", name ? name : "default");
+		json_object_string_add(json, "afiSafi",
+				       afi_safi_print(afi, safi));
 
 		if (!CHECK_FLAG(bgp->af_flags[afi][safi],
 				BGP_CONFIG_VRF_TO_VRF_IMPORT)) {

@@ -86,8 +86,8 @@ struct graceful_restart_af {
 
 extern int bgp_open_option_parse(struct peer *, uint8_t, int *);
 extern void bgp_open_capability(struct stream *, struct peer *);
-extern void bgp_capability_vty_out(struct vty *, struct peer *, bool,
-				   json_object *);
+extern void bgp_capability_vty_out(struct vty *vty, struct peer *peer,
+				   bool use_json, json_object *json_neigh);
 extern as_t peek_for_as4_capability(struct peer *, uint8_t);
 
 #endif /* _QUAGGA_BGP_OPEN_H */

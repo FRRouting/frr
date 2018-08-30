@@ -3263,6 +3263,7 @@ DEFUN (show_ip_ospf,
 	if (vrf_name) {
 		bool ospf_output = FALSE;
 		use_vrf = 1;
+
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 				if (!ospf->oi_running)
@@ -3288,7 +3289,7 @@ DEFUN (show_ip_ospf,
 						json, JSON_C_TO_STRING_PRETTY));
 				json_object_free(json);
 			} else
-				vty_out(vty, "%% OSPF instance not found \n");
+				vty_out(vty, "%% OSPF instance not found\n");
 
 			return CMD_SUCCESS;
 		}
@@ -3302,7 +3303,7 @@ DEFUN (show_ip_ospf,
 						json, JSON_C_TO_STRING_PRETTY));
 				json_object_free(json);
 			} else
-				vty_out(vty, "%% OSPF instance not found \n");
+				vty_out(vty, "%% OSPF instance not found\n");
 
 			return CMD_SUCCESS;
 		}
@@ -3965,7 +3966,7 @@ DEFUN (show_ip_ospf_interface,
 						json, JSON_C_TO_STRING_PRETTY));
 				json_object_free(json);
 			} else if (!ospf)
-				vty_out(vty, "%% OSPF instance not found \n");
+				vty_out(vty, "%% OSPF instance not found\n");
 
 			return ret;
 		}
@@ -3977,7 +3978,7 @@ DEFUN (show_ip_ospf_interface,
 						json, JSON_C_TO_STRING_PRETTY));
 				json_object_free(json);
 			} else
-				vty_out(vty, "%% OSPF instance not found \n");
+				vty_out(vty, "%% OSPF instance not found\n");
 
 			return CMD_SUCCESS;
 		}
@@ -3994,7 +3995,7 @@ DEFUN (show_ip_ospf_interface,
 						json, JSON_C_TO_STRING_PRETTY));
 				json_object_free(json);
 			} else
-				vty_out(vty, "%% OSPF instance not found \n");
+				vty_out(vty, "%% OSPF instance not found\n");
 
 			return CMD_SUCCESS;
 		}
@@ -6339,6 +6340,7 @@ DEFUN (show_ip_ospf_database_max,
 	if (vrf_name) {
 		bool ospf_output = FALSE;
 		use_vrf = 1;
+
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 				if (!ospf->oi_running)
@@ -6354,7 +6356,7 @@ DEFUN (show_ip_ospf_database_max,
 		} else {
 			ospf = ospf_lookup_by_inst_name(inst, vrf_name);
 			if (ospf == NULL || !ospf->oi_running) {
-				vty_out(vty, "%% OSPF instance not found \n");
+				vty_out(vty, "%% OSPF instance not found\n");
 				return CMD_SUCCESS;
 			}
 			ret = (show_ip_ospf_database_common(
@@ -6365,7 +6367,7 @@ DEFUN (show_ip_ospf_database_max,
 		/* Display default ospf (instance 0) info */
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf == NULL || !ospf->oi_running) {
-			vty_out(vty, "%% OSPF instance not found \n");
+			vty_out(vty, "%% OSPF instance not found\n");
 			return CMD_SUCCESS;
 		}
 
@@ -6429,7 +6431,7 @@ DEFUN (show_ip_ospf_instance_database,
 		} else {
 			ospf = ospf_lookup_by_inst_name(inst, vrf_name);
 			if ((ospf == NULL) || !ospf->oi_running) {
-				vty_out(vty, "%% OSPF instance not found \n");
+				vty_out(vty, "%% OSPF instance not found\n");
 				return CMD_SUCCESS;
 			}
 
@@ -6440,7 +6442,7 @@ DEFUN (show_ip_ospf_instance_database,
 		/* Display default ospf (instance 0) info */
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf == NULL || !ospf->oi_running) {
-			vty_out(vty, "%% OSPF instance not found \n");
+			vty_out(vty, "%% OSPF instance not found\n");
 			return CMD_SUCCESS;
 		}
 
@@ -6473,7 +6475,7 @@ DEFUN (show_ip_ospf_instance_database_max,
 		return CMD_NOT_MY_INSTANCE;
 
 	if (!ospf->oi_running) {
-		vty_out(vty, "%% OSPF instance not found \n");
+		vty_out(vty, "%% OSPF instance not found\n");
 		return CMD_SUCCESS;
 	}
 
@@ -6565,7 +6567,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 		if (ospf == NULL)
 			return CMD_NOT_MY_INSTANCE;
 		if (!ospf->oi_running) {
-			vty_out(vty, "%% OSPF instance not found \n");
+			vty_out(vty, "%% OSPF instance not found\n");
 			return CMD_SUCCESS;
 		}
 
@@ -6578,6 +6580,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 	if (vrf_name) {
 		bool ospf_output = FALSE;
 		use_vrf = 1;
+
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 				if (!ospf->oi_running)
@@ -6592,7 +6595,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 		} else {
 			ospf = ospf_lookup_by_inst_name(inst, vrf_name);
 			if ((ospf == NULL) || !ospf->oi_running) {
-				vty_out(vty, "%% OSPF instance not found \n");
+				vty_out(vty, "%% OSPF instance not found\n");
 				return CMD_SUCCESS;
 			}
 
@@ -6603,7 +6606,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 		/* Display default ospf (instance 0) info */
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf == NULL || !ospf->oi_running) {
-			vty_out(vty, "%% OSPF instance not found \n");
+			vty_out(vty, "%% OSPF instance not found\n");
 			return CMD_SUCCESS;
 		}
 
@@ -9345,6 +9348,7 @@ DEFUN (show_ip_ospf_border_routers,
 	if (vrf_name) {
 		bool ospf_output = FALSE;
 		use_vrf = 1;
+
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 				if (!ospf->oi_running)
@@ -9356,11 +9360,11 @@ DEFUN (show_ip_ospf_border_routers,
 			}
 
 			if (!ospf_output)
-				vty_out(vty, "%% OSPF instance not found \n");
+				vty_out(vty, "%% OSPF instance not found\n");
 		} else {
 			ospf = ospf_lookup_by_inst_name(inst, vrf_name);
 			if (ospf == NULL || !ospf->oi_running) {
-				vty_out(vty, "%% OSPF instance not found \n");
+				vty_out(vty, "%% OSPF instance not found\n");
 				return CMD_SUCCESS;
 			}
 
@@ -9371,7 +9375,7 @@ DEFUN (show_ip_ospf_border_routers,
 		/* Display default ospf (instance 0) info */
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf == NULL || !ospf->oi_running) {
-			vty_out(vty, "%% OSPF instance not found \n");
+			vty_out(vty, "%% OSPF instance not found\n");
 			return CMD_SUCCESS;
 		}
 
@@ -9487,6 +9491,7 @@ DEFUN (show_ip_ospf_route,
 	if (vrf_name) {
 		bool ospf_output = FALSE;
 		use_vrf = 1;
+
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 				if (!ospf->oi_running)
@@ -9514,7 +9519,7 @@ DEFUN (show_ip_ospf_route,
 						json, JSON_C_TO_STRING_PRETTY));
 				json_object_free(json);
 			} else
-				vty_out(vty, "%% OSPF instance not found \n");
+				vty_out(vty, "%% OSPF instance not found\n");
 
 			return CMD_SUCCESS;
 		}
@@ -9528,7 +9533,7 @@ DEFUN (show_ip_ospf_route,
 						json, JSON_C_TO_STRING_PRETTY));
 				json_object_free(json);
 			} else
-				vty_out(vty, "%% OSPF instance not found \n");
+				vty_out(vty, "%% OSPF instance not found\n");
 
 			return CMD_SUCCESS;
 		}

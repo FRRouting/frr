@@ -435,8 +435,9 @@ extern void route_vty_out(struct vty *, struct prefix *, struct bgp_info *, int,
 			  safi_t, json_object *);
 extern void route_vty_out_tag(struct vty *, struct prefix *, struct bgp_info *,
 			      int, safi_t, json_object *);
-extern void route_vty_out_tmp(struct vty *, struct prefix *, struct attr *,
-			      safi_t, bool, json_object *);
+extern void route_vty_out_tmp(struct vty *vty, struct prefix *p,
+			      struct attr *attr, safi_t safi, bool use_json,
+			      json_object *json_ar);
 extern void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 				  struct bgp_info *binfo, int display,
 				  json_object *json);
