@@ -91,21 +91,41 @@ an example)
 Create empty FRR configuration files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-::
+.. code-block:: shell
 
-    sudo mkdir /usr/local/etc/frr
-    sudo touch /usr/local/etc/frr/zebra.conf
-    sudo touch /usr/local/etc/frr/bgpd.conf
-    sudo touch /usr/local/etc/frr/ospfd.conf
-    sudo touch /usr/local/etc/frr/ospf6d.conf
-    sudo touch /usr/local/etc/frr/isisd.conf
-    sudo touch /usr/local/etc/frr/ripd.conf
-    sudo touch /usr/local/etc/frr/ripngd.conf
-    sudo touch /usr/local/etc/frr/pimd.conf
-    sudo chown -R frr:frr /usr/local/etc/frr
-    sudo touch /usr/local/etc/frr/vtysh.conf
-    sudo chown frr:frrvty /usr/local/etc/frr/vtysh.conf
-    sudo chmod 640 /usr/local/etc/frr/*.conf
+   sudo mkdir /usr/local/etc/frr
+
+For integrated config file:
+
+.. code-block:: shell
+
+   sudo touch /usr/local/etc/frr/frr.conf
+
+For individual config files:
+
+.. note:: Integrated config is preferred to individual config.
+
+.. code-block:: shell
+
+   sudo touch /usr/local/etc/frr/babeld.conf
+   sudo touch /usr/local/etc/frr/bfdd.conf
+   sudo touch /usr/local/etc/frr/bgpd.conf
+   sudo touch /usr/local/etc/frr/eigrpd.conf
+   sudo touch /usr/local/etc/frr/isisd.conf
+   sudo touch /usr/local/etc/frr/ldpd.conf
+   sudo touch /usr/local/etc/frr/nhrpd.conf
+   sudo touch /usr/local/etc/frr/ospf6d.conf
+   sudo touch /usr/local/etc/frr/ospfd.conf
+   sudo touch /usr/local/etc/frr/pbrd.conf
+   sudo touch /usr/local/etc/frr/pimd.conf
+   sudo touch /usr/local/etc/frr/ripd.conf
+   sudo touch /usr/local/etc/frr/ripngd.conf
+   sudo touch /usr/local/etc/frr/staticd.conf
+   sudo touch /usr/local/etc/frr/zebra.conf
+   sudo chown -R frr:frr /usr/local/etc/frr/
+   sudo touch /usr/local/etc/frr/vtysh.conf
+   sudo chown frr:frrvty /usr/local/etc/frr/vtysh.conf
+   sudo chmod 640 /usr/local/etc/frr/*.conf
 
 Enable IP & IPv6 forwarding
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -114,9 +134,8 @@ Add the following lines to the end of ``/etc/sysctl.conf``:
 
 ::
 
-    # Routing: We need to forward packets
-    net.inet.ip.forwarding=1
-    net.inet6.ip6.forwarding=1
+   # Routing: We need to forward packets
+   net.inet.ip.forwarding=1
+   net.inet6.ip6.forwarding=1
 
-**Reboot** or use ``sysctl`` to apply the same config to the running
-system
+**Reboot** or use ``sysctl`` to apply the same config to the running system.
