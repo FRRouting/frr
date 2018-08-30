@@ -28,6 +28,8 @@
 DECLARE_MTYPE(FRR_PTHREAD);
 DECLARE_MTYPE(PTHREAD_PRIM);
 
+#define OS_THREAD_NAMELEN 16
+
 struct frr_pthread;
 struct frr_pthread_attr;
 
@@ -89,6 +91,9 @@ struct frr_pthread {
 	 * Requires: mtx
 	 */
 	char *name;
+
+	/* Used in pthread_set_name max 16 characters */
+	char os_name[OS_THREAD_NAMELEN];
 };
 
 extern struct frr_pthread_attr frr_pthread_attr_default;
@@ -122,18 +127,23 @@ void frr_pthread_finish(void);
  *
  * @param attr - the thread attributes
  * @param name - Human-readable name
+ * @param os_name - 16 characters (including '\0') thread name to set in os,
  * @return the created frr_pthread upon success, or NULL upon failure
  */
 struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
-				    const char *name);
+				    const char *name, const char *os_name);
 
 /*
  * Changes the name of the frr_pthread.
  *
  * @param fpt - the frr_pthread to operate on
  * @param name - Human-readable name
+ * @param os_name - 16 characters thread name , including the null
+ * terminator ('\0') to set in os.
+ * @return -  on success returns 0 otherwise nonzero error number.
  */
-void frr_pthread_set_name(struct frr_pthread *fpt, const char *name);
+int frr_pthread_set_name(struct frr_pthread *fpt, const char *name,
+			 const char *os_name);
 
 /*
  * Destroys an frr_pthread.

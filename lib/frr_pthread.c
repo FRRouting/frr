@@ -85,7 +85,7 @@ void frr_pthread_finish()
 }
 
 struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
-				    const char *name)
+				    const char *name, const char *os_name)
 {
 	static struct frr_pthread holder = {};
 	struct frr_pthread *fpt = NULL;
@@ -107,6 +107,9 @@ struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
 			fpt->attr = *attr;
 			name = (name ? name : "Anonymous thread");
 			fpt->name = XSTRDUP(MTYPE_FRR_PTHREAD, name);
+			if (os_name)
+				snprintf(fpt->os_name, OS_THREAD_NAMELEN,
+					 "%s", os_name);
 			if (attr == &frr_pthread_attr_default)
 				fpt->attr.id = frr_pthread_get_id();
 			/* initialize startup synchronization primitives */
@@ -140,16 +143,34 @@ void frr_pthread_destroy(struct frr_pthread *fpt)
 	XFREE(MTYPE_FRR_PTHREAD, fpt);
 }
 
-void frr_pthread_set_name(struct frr_pthread *fpt, const char *name)
+int frr_pthread_set_name(struct frr_pthread *fpt, const char *name,
+			 const char *os_name)
 {
-	pthread_mutex_lock(&fpt->mtx);
-	{
-		if (fpt->name)
-			XFREE(MTYPE_FRR_PTHREAD, fpt->name);
-		fpt->name = XSTRDUP(MTYPE_FRR_PTHREAD, name);
+	int ret = 0;
+
+	if (name) {
+		pthread_mutex_lock(&fpt->mtx);
+		{
+			if (fpt->name)
+				XFREE(MTYPE_FRR_PTHREAD, fpt->name);
+			fpt->name = XSTRDUP(MTYPE_FRR_PTHREAD, name);
+		}
+		pthread_mutex_unlock(&fpt->mtx);
+		thread_master_set_name(fpt->master, name);
 	}
-	pthread_mutex_unlock(&fpt->mtx);
-	thread_master_set_name(fpt->master, name);
+
+	if (os_name) {
+		pthread_mutex_lock(&fpt->mtx);
+		snprintf(fpt->os_name, OS_THREAD_NAMELEN, "%s", os_name);
+		pthread_mutex_unlock(&fpt->mtx);
+#ifdef GNU_LINUX
+		ret = pthread_setname_np(fpt->thread, fpt->os_name);
+#elif defined(OPEN_BSD)
+		ret = pthread_set_name_np(fpt->thread, fpt->os_name);
+#endif
+	}
+
+	return ret;
 }
 
 struct frr_pthread *frr_pthread_get(uint32_t id)
@@ -310,6 +331,9 @@ static void *fpt_run(void *arg)
 	thread_add_read(fpt->master, &fpt_dummy, NULL, sleeper[0], NULL);
 
 	fpt->master->handle_signals = false;
+
+	if (fpt->os_name)
+		frr_pthread_set_name(fpt, NULL, fpt->os_name);
 
 	frr_pthread_notify_running(fpt);
 
