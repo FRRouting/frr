@@ -3262,6 +3262,7 @@ DEFUN (show_ip_ospf,
 	/* vrf input is provided could be all or specific vrf*/
 	if (vrf_name) {
 		bool ospf_output = FALSE;
+
 		use_vrf = 1;
 
 		if (all_vrf) {
@@ -6339,6 +6340,7 @@ DEFUN (show_ip_ospf_database_max,
 
 	if (vrf_name) {
 		bool ospf_output = FALSE;
+
 		use_vrf = 1;
 
 		if (all_vrf) {
@@ -6579,6 +6581,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 
 	if (vrf_name) {
 		bool ospf_output = FALSE;
+
 		use_vrf = 1;
 
 		if (all_vrf) {
@@ -9347,6 +9350,7 @@ DEFUN (show_ip_ospf_border_routers,
 
 	if (vrf_name) {
 		bool ospf_output = FALSE;
+
 		use_vrf = 1;
 
 		if (all_vrf) {
@@ -9490,6 +9494,7 @@ DEFUN (show_ip_ospf_route,
 	/* vrf input is provided could be all or specific vrf*/
 	if (vrf_name) {
 		bool ospf_output = FALSE;
+
 		use_vrf = 1;
 
 		if (all_vrf) {
