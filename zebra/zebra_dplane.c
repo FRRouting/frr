@@ -176,6 +176,9 @@ static struct zebra_dplane_globals {
 	_Atomic uint32_t dg_routes_queued_max;
 	_Atomic uint32_t dg_route_errors;
 
+	/* Dataplane pthread */
+	struct frr_pthread *dg_pthread;
+
 	/* Event-delivery context 'master' for the dplane */
 	struct thread_master *dg_master;
 
@@ -1004,13 +1007,23 @@ static void zebra_dplane_init_internal(struct zebra_t *zebra)
 	zdplane_info.dg_max_queued_updates = DPLANE_DEFAULT_MAX_QUEUED;
 
 	/* TODO -- register default kernel 'provider' during init */
+	zdplane_info.dg_run = true;
+
+	/* Start dataplane pthread */
 
 	zdplane_info.dg_run = true;
 
-	/* TODO -- start dataplane pthread. We're using the zebra
-	 * core/main thread temporarily
-	 */
-	zdplane_info.dg_master = zebra->master;
+	struct frr_pthread_attr pattr = {
+		.start = frr_pthread_attr_default.start,
+		.stop = frr_pthread_attr_default.stop
+	};
+
+	zdplane_info.dg_pthread = frr_pthread_new(&pattr, "Zebra dplane thread",
+						  "Zebra dplane");
+
+	zdplane_info.dg_master = zdplane_info.dg_pthread->master;
+
+	frr_pthread_run(zdplane_info.dg_pthread, NULL);
 }
 
 /* Indicates zebra shutdown/exit is in progress. Some operations may be
@@ -1122,8 +1135,12 @@ void zebra_dplane_shutdown(void)
 
 	THREAD_OFF(zdplane_info.dg_t_update);
 
-	/* TODO */
-	/* frr_pthread_stop(...) */
+	frr_pthread_stop(zdplane_info.dg_pthread, NULL);
+
+	/* Destroy pthread */
+	frr_pthread_destroy(zdplane_info.dg_pthread);
+	zdplane_info.dg_pthread = NULL;
+	zdplane_info.dg_master = NULL;
 
 	/* Notify provider(s) of final shutdown */
 

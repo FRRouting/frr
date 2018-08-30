@@ -390,6 +390,9 @@ int main(int argc, char **argv)
 	vty_config_lockless();
 	zebrad.master = frr_init();
 
+	/* Initialize pthread library */
+	frr_pthread_init();
+
 	/* Zebra related initialize. */
 	zebra_router_init();
 	zserv_init();
@@ -444,9 +447,6 @@ int main(int argc, char **argv)
 
 	/* Needed for BSD routing socket. */
 	pid = getpid();
-
-	/* Intialize pthread library */
-	frr_pthread_init();
 
 	/* Start Zebra API server */
 	zserv_start(zserv_path);
