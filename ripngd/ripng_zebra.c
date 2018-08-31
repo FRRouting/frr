@@ -23,7 +23,7 @@
 
 #include "command.h"
 #include "prefix.h"
-#include "table.h"
+#include "agg_table.h"
 #include "stream.h"
 #include "memory.h"
 #include "routemap.h"
@@ -37,7 +37,7 @@
 struct zclient *zclient = NULL;
 
 /* Send ECMP routes to zebra. */
-static void ripng_zebra_ipv6_send(struct route_node *rp, uint8_t cmd)
+static void ripng_zebra_ipv6_send(struct agg_node *rp, uint8_t cmd)
 {
 	struct list *list = (struct list *)rp->info;
 	struct zapi_route api;
@@ -100,13 +100,13 @@ static void ripng_zebra_ipv6_send(struct route_node *rp, uint8_t cmd)
 }
 
 /* Add/update ECMP routes to zebra. */
-void ripng_zebra_ipv6_add(struct route_node *rp)
+void ripng_zebra_ipv6_add(struct agg_node *rp)
 {
 	ripng_zebra_ipv6_send(rp, ZEBRA_ROUTE_ADD);
 }
 
 /* Delete ECMP routes from zebra. */
-void ripng_zebra_ipv6_delete(struct route_node *rp)
+void ripng_zebra_ipv6_delete(struct agg_node *rp)
 {
 	ripng_zebra_ipv6_send(rp, ZEBRA_ROUTE_DELETE);
 }

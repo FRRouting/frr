@@ -47,7 +47,7 @@ struct rfapi_advertised_prefixes {
 };
 
 struct rfapi_descriptor {
-	struct route_node *un_node; /* backref to un table */
+	struct agg_node *un_node; /* backref to un table */
 
 	struct rfapi_descriptor *next; /* next vn_addr */
 
@@ -76,7 +76,7 @@ struct rfapi_descriptor {
 	struct rfapi_import_table *import_table;
 
 	uint32_t monitor_count;
-	struct route_table *mon;  /* rfapi_monitors */
+	struct agg_table *mon;    /* rfapi_monitors */
 	struct skiplist *mon_eth; /* ethernet monitors */
 
 	/*
@@ -85,10 +85,10 @@ struct rfapi_descriptor {
 	 * rsp_times      last time we sent response containing pfx
 	 */
 	uint32_t rib_prefix_count; /* pfxes with routes */
-	struct route_table *rib[AFI_MAX];
-	struct route_table *rib_pending[AFI_MAX];
+	struct agg_table *rib[AFI_MAX];
+	struct agg_table *rib_pending[AFI_MAX];
 	struct work_queue *updated_responses_queue;
-	struct route_table *rsp_times[AFI_MAX];
+	struct agg_table *rsp_times[AFI_MAX];
 
 	uint32_t rsp_counter;	 /* dedup initial rsp */
 	time_t rsp_time;	      /* dedup initial rsp */
@@ -171,7 +171,7 @@ struct rfapi_global_stats {
  * check vn address to get exact match.
  */
 struct rfapi {
-	struct route_table *un[AFI_MAX];
+	struct agg_table *un[AFI_MAX];
 	struct rfapi_import_table *imports; /* IPv4, IPv6 */
 	struct list descriptors;	    /* debug & resolve-nve imports */
 
@@ -198,8 +198,8 @@ struct rfapi {
 	 * bgp unicast or zebra, we need to keep track of information
 	 * related to expiring the routes according to the VNC lifetime
 	 */
-	struct route_table *rt_export_bgp[AFI_MAX];
-	struct route_table *rt_export_zebra[AFI_MAX];
+	struct agg_table *rt_export_bgp[AFI_MAX];
+	struct agg_table *rt_export_zebra[AFI_MAX];
 
 	/*
 	 * For VNC->BGP unicast exports in CE mode, we need a

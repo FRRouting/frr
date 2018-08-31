@@ -27,7 +27,7 @@
 
 #include "lib/zebra.h"
 #include "lib/prefix.h"
-#include "lib/table.h"
+#include "lib/agg_table.h"
 #include "lib/vty.h"
 #include "lib/memory.h"
 #include "lib/log.h"
@@ -80,7 +80,7 @@
  */
 struct rfapi_withdraw {
 	struct rfapi_import_table *import_table;
-	struct route_node *node;
+	struct agg_node *node;
 	struct bgp_info *info;
 	safi_t safi; /* used only for bulk operations */
 	/*
@@ -88,8 +88,8 @@ struct rfapi_withdraw {
 	 * Normally when a timer expires, lockoffset should be 0. However, if
 	 * the timer expiration function is called directly (e.g.,
 	 * rfapiExpireVpnNow), the node could be locked by a preceding
-	 * route_top() or route_next() in a loop, so we need to pass this
-	 * value in.
+	 * agg_route_top() or agg_route_next() in a loop, so we need to pass
+	 * this value in.
 	 */
 	int lockoffset;
 };
@@ -140,8 +140,8 @@ void rfapiCheckRouteCount()
 	for (it = h->imports; it; it = it->next) {
 		for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
 
-			struct route_table *rt;
-			struct route_node *rn;
+			struct agg_table *rt;
+			struct agg_node *rn;
 
 			int holddown_count = 0;
 			int local_count = 0;
@@ -150,7 +150,8 @@ void rfapiCheckRouteCount()
 
 			rt = it->imported_vpn[afi];
 
-			for (rn = route_top(rt); rn; rn = route_next(rn)) {
+			for (rn = agg_route_top(rt); rn;
+			     rn = agg_route_next(rn)) {
 				struct bgp_info *bi;
 				struct bgp_info *next;
 
@@ -211,11 +212,11 @@ void rfapiCheckRouteCount()
  * Validate reference count for a node in an import table
  *
  * Normally lockoffset is 0 for nodes in quiescent state. However,
- * route_unlock_node will delete the node if it is called when
+ * agg_unlock_node will delete the node if it is called when
  * node->lock == 1, and we have to validate the refcount before
  * the node is deleted. In this case, we specify lockoffset 1.
  */
-void rfapiCheckRefcount(struct route_node *rn, safi_t safi, int lockoffset)
+void rfapiCheckRefcount(struct agg_node *rn, safi_t safi, int lockoffset)
 {
 	unsigned int count_bi = 0;
 	unsigned int count_monitor = 0;
@@ -613,8 +614,8 @@ struct rfapi_import_table *rfapiMacImportTableGet(struct bgp *bgp, uint32_t lni)
 		it->rt_import_list = enew;
 
 		for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
-			it->imported_vpn[afi] = route_table_init();
-			it->imported_encap[afi] = route_table_init();
+			it->imported_vpn[afi] = agg_table_init();
+			it->imported_encap[afi] = agg_table_init();
 		}
 
 		it->l2_logical_net_id = lni;
@@ -633,10 +634,10 @@ struct rfapi_import_table *rfapiMacImportTableGet(struct bgp *bgp, uint32_t lni)
  * Returns pointer to the list of moved monitors
  */
 static struct rfapi_monitor_vpn *
-rfapiMonitorMoveShorter(struct route_node *original_vpn_node, int lockoffset)
+rfapiMonitorMoveShorter(struct agg_node *original_vpn_node, int lockoffset)
 {
 	struct bgp_info *bi;
-	struct route_node *par;
+	struct agg_node *par;
 	struct rfapi_monitor_vpn *m;
 	struct rfapi_monitor_vpn *mlast;
 	struct rfapi_monitor_vpn *moved;
@@ -679,7 +680,8 @@ rfapiMonitorMoveShorter(struct route_node *original_vpn_node, int lockoffset)
 	 *    one route (even if it is only a withdrawn route) with a
 	 *    valid UN address. Call this node "Node P."
 	 */
-	for (par = original_vpn_node->parent; par; par = par->parent) {
+	for (par = agg_node_parent(original_vpn_node); par;
+	     par = agg_node_parent(par)) {
 		for (bi = par->info; bi; bi = bi->next) {
 			struct prefix pfx;
 			if (!rfapiGetUnAddrOfVpnBi(bi, &pfx)) {
@@ -699,14 +701,14 @@ rfapiMonitorMoveShorter(struct route_node *original_vpn_node, int lockoffset)
 	 */
 	if (!par) {
 		/* this isn't necessarily 0/0 */
-		par = route_top(original_vpn_node->table);
+		par = agg_route_table_top(original_vpn_node);
 
 		/*
 		 * If we got the top node but it wasn't 0/0,
 		 * ignore it
 		 */
 		if (par && par->p.prefixlen) {
-			route_unlock_node(par); /* maybe free */
+			agg_unlock_node(par); /* maybe free */
 			par = NULL;
 		}
 
@@ -725,7 +727,8 @@ rfapiMonitorMoveShorter(struct route_node *original_vpn_node, int lockoffset)
 		pfx_default.family = original_vpn_node->p.family;
 
 		/* creates default node if none exists */
-		par = route_node_get(original_vpn_node->table, &pfx_default);
+		par = agg_node_get(agg_get_table(original_vpn_node),
+				   &pfx_default);
 		++parent_already_refcounted;
 	}
 
@@ -764,18 +767,18 @@ rfapiMonitorMoveShorter(struct route_node *original_vpn_node, int lockoffset)
 	RFAPI_CHECK_REFCOUNT(par, SAFI_MPLS_VPN,
 			     parent_already_refcounted - movecount);
 	while (movecount > parent_already_refcounted) {
-		route_lock_node(par);
+		agg_lock_node(par);
 		++parent_already_refcounted;
 	}
 	while (movecount < parent_already_refcounted) {
 		/* unlikely, but code defensively */
-		route_unlock_node(par);
+		agg_unlock_node(par);
 		--parent_already_refcounted;
 	}
 	RFAPI_CHECK_REFCOUNT(original_vpn_node, SAFI_MPLS_VPN,
 			     movecount + lockoffset);
 	while (movecount--) {
-		route_unlock_node(original_vpn_node);
+		agg_unlock_node(original_vpn_node);
 	}
 
 #if DEBUG_MONITOR_MOVE_SHORTER
@@ -796,12 +799,12 @@ rfapiMonitorMoveShorter(struct route_node *original_vpn_node, int lockoffset)
  * Implement MONITOR_MOVE_LONGER(new_node) from
  * RFAPI-Import-Event-Handling.txt
  */
-static void rfapiMonitorMoveLonger(struct route_node *new_vpn_node)
+static void rfapiMonitorMoveLonger(struct agg_node *new_vpn_node)
 {
 	struct rfapi_monitor_vpn *monitor;
 	struct rfapi_monitor_vpn *mlast;
 	struct bgp_info *bi;
-	struct route_node *par;
+	struct agg_node *par;
 
 	RFAPI_CHECK_REFCOUNT(new_vpn_node, SAFI_MPLS_VPN, 0);
 
@@ -824,7 +827,8 @@ static void rfapiMonitorMoveLonger(struct route_node *new_vpn_node)
 	/*
 	 * Find first parent node that has monitors
 	 */
-	for (par = new_vpn_node->parent; par; par = par->parent) {
+	for (par = agg_node_parent(new_vpn_node); par;
+	     par = agg_node_parent(par)) {
 		if (RFAPI_MONITOR_VPN(par))
 			break;
 	}
@@ -860,14 +864,14 @@ static void rfapiMonitorMoveLonger(struct route_node *new_vpn_node)
 			RFAPI_MONITOR_VPN_W_ALLOC(new_vpn_node) = monitor;
 			monitor->node = new_vpn_node;
 
-			route_lock_node(new_vpn_node); /* incr refcount */
+			agg_lock_node(new_vpn_node); /* incr refcount */
 
 			monitor = mlast ? mlast->next : RFAPI_MONITOR_VPN(par);
 
 			RFAPI_CHECK_REFCOUNT(par, SAFI_MPLS_VPN, 1);
 			/* decr refcount after we're done with par as this might
 			 * free it */
-			route_unlock_node(par);
+			agg_unlock_node(par);
 
 			continue;
 		}
@@ -919,10 +923,10 @@ static void rfapiImportTableFlush(struct rfapi_import_table *it)
 
 	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
 
-		struct route_node *rn;
+		struct agg_node *rn;
 
-		for (rn = route_top(it->imported_vpn[afi]); rn;
-		     rn = route_next(rn)) {
+		for (rn = agg_route_top(it->imported_vpn[afi]); rn;
+		     rn = agg_route_next(rn)) {
 			/*
 			 * Each route_node has:
 			 * aggregate: points to rfapi_it_extra with monitor
@@ -936,8 +940,8 @@ static void rfapiImportTableFlush(struct rfapi_import_table *it)
 			rfapiMonitorExtraFlush(SAFI_MPLS_VPN, rn);
 		}
 
-		for (rn = route_top(it->imported_encap[afi]); rn;
-		     rn = route_next(rn)) {
+		for (rn = agg_route_top(it->imported_encap[afi]); rn;
+		     rn = agg_route_next(rn)) {
 			/* free bgp_info and its children */
 			rfapiBgpInfoChainFree(rn->info);
 			rn->info = NULL;
@@ -945,8 +949,8 @@ static void rfapiImportTableFlush(struct rfapi_import_table *it)
 			rfapiMonitorExtraFlush(SAFI_ENCAP, rn);
 		}
 
-		route_table_finish(it->imported_vpn[afi]);
-		route_table_finish(it->imported_encap[afi]);
+		agg_table_finish(it->imported_vpn[afi]);
+		agg_table_finish(it->imported_encap[afi]);
 	}
 	if (it->monitor_exterior_orphans) {
 		skiplist_free(it->monitor_exterior_orphans);
@@ -1293,9 +1297,9 @@ int rfapi_extract_l2o(
 
 static struct rfapi_next_hop_entry *
 rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
-			    struct bgp_info *bi,   /* route to encode */
-			    uint32_t lifetime,     /* use this in nhe */
-			    struct route_node *rn) /* req for L2 eth addr */
+			    struct bgp_info *bi, /* route to encode */
+			    uint32_t lifetime,   /* use this in nhe */
+			    struct agg_node *rn) /* req for L2 eth addr */
 {
 	struct rfapi_next_hop_entry *new;
 	int have_vnc_tunnel_un = 0;
@@ -1481,7 +1485,7 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 	return new;
 }
 
-int rfapiHasNonRemovedRoutes(struct route_node *rn)
+int rfapiHasNonRemovedRoutes(struct agg_node *rn)
 {
 	struct bgp_info *bi;
 
@@ -1501,7 +1505,7 @@ int rfapiHasNonRemovedRoutes(struct route_node *rn)
 /*
  * DEBUG FUNCTION
  */
-void rfapiDumpNode(struct route_node *rn)
+void rfapiDumpNode(struct agg_node *rn)
 {
 	struct bgp_info *bi;
 
@@ -1527,14 +1531,14 @@ void rfapiDumpNode(struct route_node *rn)
 #endif
 
 static int rfapiNhlAddNodeRoutes(
-	struct route_node *rn,		      /* in */
+	struct agg_node *rn,		      /* in */
 	struct rfapi_ip_prefix *rprefix,      /* in */
 	uint32_t lifetime,		      /* in */
 	int removed,			      /* in */
 	struct rfapi_next_hop_entry **head,   /* in/out */
 	struct rfapi_next_hop_entry **tail,   /* in/out */
 	struct rfapi_ip_addr *exclude_vnaddr, /* omit routes to same NVE */
-	struct route_node *rfd_rib_node,      /* preload this NVE rib node */
+	struct agg_node *rfd_rib_node,	/* preload this NVE rib node */
 	struct prefix *pfx_target_original)   /* query target */
 {
 	struct bgp_info *bi;
@@ -1544,15 +1548,17 @@ static int rfapiNhlAddNodeRoutes(
 	int count = 0;
 	int is_l2 = (rn->p.family == AF_ETHERNET);
 
-	if (rfd_rib_node && rfd_rib_node->table && rfd_rib_node->table->info) {
+	if (rfd_rib_node) {
+		struct agg_table *atable = agg_get_table(rfd_rib_node);
 		struct rfapi_descriptor *rfd;
 
-		rfd = (struct rfapi_descriptor *)(rfd_rib_node->table->info);
+		if (atable) {
+			rfd = agg_get_table_info(atable);
 
-		if (rfapiRibFTDFilterRecentPrefix(
-			rfd, rn, pfx_target_original))
-
-			return 0;
+			if (rfapiRibFTDFilterRecentPrefix(rfd, rn,
+							  pfx_target_original))
+				return 0;
+		}
 	}
 
 	seen_nexthops =
@@ -1657,13 +1663,13 @@ static int rfapiNhlAddNodeRoutes(
  * matches (of course, we still travel down its child subtrees).
  */
 static int rfapiNhlAddSubtree(
-	struct route_node *rn,		      /* in */
+	struct agg_node *rn,		      /* in */
 	uint32_t lifetime,		      /* in */
 	struct rfapi_next_hop_entry **head,   /* in/out */
 	struct rfapi_next_hop_entry **tail,   /* in/out */
-	struct route_node *omit_node,	 /* in */
+	struct agg_node *omit_node,	   /* in */
 	struct rfapi_ip_addr *exclude_vnaddr, /* omit routes to same NVE */
-	struct route_table *rfd_rib_table,    /* preload here */
+	struct agg_table *rfd_rib_table,      /* preload here */
 	struct prefix *pfx_target_original)   /* query target */
 {
 	struct rfapi_ip_prefix rprefix;
@@ -1671,65 +1677,67 @@ static int rfapiNhlAddSubtree(
 
 	/* FIXME: need to find a better way here to work without sticking our
 	 * hands in node->link */
-	if (rn->l_left && rn->l_left != omit_node) {
-		if (rn->l_left->info) {
+	if (agg_node_left(rn) && agg_node_left(rn) != omit_node) {
+		if (agg_node_left(rn)->info) {
 			int count = 0;
-			struct route_node *rib_rn = NULL;
+			struct agg_node *rib_rn = NULL;
 
-			rfapiQprefix2Rprefix(&rn->l_left->p, &rprefix);
+			rfapiQprefix2Rprefix(&agg_node_left(rn)->p, &rprefix);
 			if (rfd_rib_table) {
-				rib_rn = route_node_get(rfd_rib_table,
-							&rn->l_left->p);
+				rib_rn = agg_node_get(rfd_rib_table,
+						      &agg_node_left(rn)->p);
 			}
 
 			count = rfapiNhlAddNodeRoutes(
-				rn->l_left, &rprefix, lifetime, 0, head, tail,
-				exclude_vnaddr, rib_rn, pfx_target_original);
+				agg_node_left(rn), &rprefix, lifetime, 0, head,
+				tail, exclude_vnaddr, rib_rn,
+				pfx_target_original);
 			if (!count) {
 				count = rfapiNhlAddNodeRoutes(
-					rn->l_left, &rprefix, lifetime, 1, head,
-					tail, exclude_vnaddr, rib_rn,
+					agg_node_left(rn), &rprefix, lifetime,
+					1, head, tail, exclude_vnaddr, rib_rn,
 					pfx_target_original);
 			}
 			rcount += count;
 			if (rib_rn)
-				route_unlock_node(rib_rn);
+				agg_unlock_node(rib_rn);
 		}
 	}
 
-	if (rn->l_right && rn->l_right != omit_node) {
-		if (rn->l_right->info) {
+	if (agg_node_right(rn) && agg_node_right(rn) != omit_node) {
+		if (agg_node_right(rn)->info) {
 			int count = 0;
-			struct route_node *rib_rn = NULL;
+			struct agg_node *rib_rn = NULL;
 
-			rfapiQprefix2Rprefix(&rn->l_right->p, &rprefix);
+			rfapiQprefix2Rprefix(&agg_node_right(rn)->p, &rprefix);
 			if (rfd_rib_table) {
-				rib_rn = route_node_get(rfd_rib_table,
-							&rn->l_right->p);
+				rib_rn = agg_node_get(rfd_rib_table,
+						      &agg_node_right(rn)->p);
 			}
 			count = rfapiNhlAddNodeRoutes(
-				rn->l_right, &rprefix, lifetime, 0, head, tail,
-				exclude_vnaddr, rib_rn, pfx_target_original);
+				agg_node_right(rn), &rprefix, lifetime, 0, head,
+				tail, exclude_vnaddr, rib_rn,
+				pfx_target_original);
 			if (!count) {
 				count = rfapiNhlAddNodeRoutes(
-					rn->l_right, &rprefix, lifetime, 1,
-					head, tail, exclude_vnaddr, rib_rn,
+					agg_node_right(rn), &rprefix, lifetime,
+					1, head, tail, exclude_vnaddr, rib_rn,
 					pfx_target_original);
 			}
 			rcount += count;
 			if (rib_rn)
-				route_unlock_node(rib_rn);
+				agg_unlock_node(rib_rn);
 		}
 	}
 
-	if (rn->l_left) {
+	if (agg_node_left(rn)) {
 		rcount += rfapiNhlAddSubtree(
-			rn->l_left, lifetime, head, tail, omit_node,
+			agg_node_left(rn), lifetime, head, tail, omit_node,
 			exclude_vnaddr, rfd_rib_table, pfx_target_original);
 	}
-	if (rn->l_right) {
+	if (agg_node_right(rn)) {
 		rcount += rfapiNhlAddSubtree(
-			rn->l_right, lifetime, head, tail, omit_node,
+			agg_node_right(rn), lifetime, head, tail, omit_node,
 			exclude_vnaddr, rfd_rib_table, pfx_target_original);
 	}
 
@@ -1748,17 +1756,17 @@ static int rfapiNhlAddSubtree(
  * next less-specific node (i.e., this node's parent) at the end.
  */
 struct rfapi_next_hop_entry *rfapiRouteNode2NextHopList(
-	struct route_node *rn, uint32_t lifetime, /* put into nexthop entries */
-	struct rfapi_ip_addr *exclude_vnaddr,     /* omit routes to same NVE */
-	struct route_table *rfd_rib_table,	/* preload here */
-	struct prefix *pfx_target_original)       /* query target */
+	struct agg_node *rn, uint32_t lifetime, /* put into nexthop entries */
+	struct rfapi_ip_addr *exclude_vnaddr,   /* omit routes to same NVE */
+	struct agg_table *rfd_rib_table,	/* preload here */
+	struct prefix *pfx_target_original)     /* query target */
 {
 	struct rfapi_ip_prefix rprefix;
 	struct rfapi_next_hop_entry *answer = NULL;
 	struct rfapi_next_hop_entry *last = NULL;
-	struct route_node *parent;
+	struct agg_node *parent;
 	int count = 0;
-	struct route_node *rib_rn;
+	struct agg_node *rib_rn;
 
 #if DEBUG_RETURNED_NHL
 	{
@@ -1773,7 +1781,7 @@ struct rfapi_next_hop_entry *rfapiRouteNode2NextHopList(
 
 	rfapiQprefix2Rprefix(&rn->p, &rprefix);
 
-	rib_rn = rfd_rib_table ? route_node_get(rfd_rib_table, &rn->p) : NULL;
+	rib_rn = rfd_rib_table ? agg_node_get(rfd_rib_table, &rn->p) : NULL;
 
 	/*
 	 * Add non-withdrawn routes at this node
@@ -1795,7 +1803,7 @@ struct rfapi_next_hop_entry *rfapiRouteNode2NextHopList(
 		rfapiPrintNhl(NULL, answer);
 #endif
 		if (rib_rn)
-			route_unlock_node(rib_rn);
+			agg_unlock_node(rib_rn);
 		return answer;
 	}
 
@@ -1806,7 +1814,7 @@ struct rfapi_next_hop_entry *rfapiRouteNode2NextHopList(
 				      exclude_vnaddr, rib_rn,
 				      pfx_target_original);
 	if (rib_rn)
-		route_unlock_node(rib_rn);
+		agg_unlock_node(rib_rn);
 
 	// rfapiPrintNhl(NULL, answer);
 
@@ -1814,7 +1822,8 @@ struct rfapi_next_hop_entry *rfapiRouteNode2NextHopList(
 	 * walk up the tree until we find a node with non-deleted
 	 * routes, then add them
 	 */
-	for (parent = rn->parent; parent; parent = parent->parent) {
+	for (parent = agg_node_parent(rn); parent;
+	     parent = agg_node_parent(parent)) {
 		if (rfapiHasNonRemovedRoutes(parent)) {
 			break;
 		}
@@ -1824,9 +1833,8 @@ struct rfapi_next_hop_entry *rfapiRouteNode2NextHopList(
 	 * Add non-withdrawn routes from less-specific prefix
 	 */
 	if (parent) {
-		rib_rn = rfd_rib_table
-				 ? route_node_get(rfd_rib_table, &parent->p)
-				 : NULL;
+		rib_rn = rfd_rib_table ? agg_node_get(rfd_rib_table, &parent->p)
+				       : NULL;
 		rfapiQprefix2Rprefix(&parent->p, &rprefix);
 		count += rfapiNhlAddNodeRoutes(parent, &rprefix, lifetime, 0,
 					       &answer, &last, exclude_vnaddr,
@@ -1835,7 +1843,7 @@ struct rfapi_next_hop_entry *rfapiRouteNode2NextHopList(
 					    rn, exclude_vnaddr, rfd_rib_table,
 					    pfx_target_original);
 		if (rib_rn)
-			route_unlock_node(rib_rn);
+			agg_unlock_node(rib_rn);
 	} else {
 		/*
 		 * There is no parent with non-removed routes. Still need to
@@ -1861,19 +1869,18 @@ struct rfapi_next_hop_entry *rfapiRouteNode2NextHopList(
  * Construct nexthop list of all routes in table
  */
 struct rfapi_next_hop_entry *rfapiRouteTable2NextHopList(
-	struct route_table *rt,
-	uint32_t lifetime,		      /* put into nexthop entries */
-	struct rfapi_ip_addr *exclude_vnaddr, /* omit routes to same NVE */
-	struct route_table *rfd_rib_table,    /* preload this NVE rib table */
-	struct prefix *pfx_target_original)   /* query target */
+	struct agg_table *rt, uint32_t lifetime, /* put into nexthop entries */
+	struct rfapi_ip_addr *exclude_vnaddr,    /* omit routes to same NVE */
+	struct agg_table *rfd_rib_table,    /* preload this NVE rib table */
+	struct prefix *pfx_target_original) /* query target */
 {
-	struct route_node *rn;
+	struct agg_node *rn;
 	struct rfapi_next_hop_entry *biglist = NULL;
 	struct rfapi_next_hop_entry *nhl;
 	struct rfapi_next_hop_entry *tail = NULL;
 	int count = 0;
 
-	for (rn = route_top(rt); rn; rn = route_next(rn)) {
+	for (rn = agg_route_top(rt); rn; rn = agg_route_next(rn)) {
 
 		nhl = rfapiRouteNode2NextHopList(rn, lifetime, exclude_vnaddr,
 						 rfd_rib_table,
@@ -1898,18 +1905,18 @@ struct rfapi_next_hop_entry *rfapiRouteTable2NextHopList(
 }
 
 struct rfapi_next_hop_entry *rfapiEthRouteNode2NextHopList(
-	struct route_node *rn, struct rfapi_ip_prefix *rprefix,
+	struct agg_node *rn, struct rfapi_ip_prefix *rprefix,
 	uint32_t lifetime,		      /* put into nexthop entries */
 	struct rfapi_ip_addr *exclude_vnaddr, /* omit routes to same NVE */
-	struct route_table *rfd_rib_table,    /* preload NVE rib table */
+	struct agg_table *rfd_rib_table,      /* preload NVE rib table */
 	struct prefix *pfx_target_original)   /* query target */
 {
 	int count = 0;
 	struct rfapi_next_hop_entry *answer = NULL;
 	struct rfapi_next_hop_entry *last = NULL;
-	struct route_node *rib_rn;
+	struct agg_node *rib_rn;
 
-	rib_rn = rfd_rib_table ? route_node_get(rfd_rib_table, &rn->p) : NULL;
+	rib_rn = rfd_rib_table ? agg_node_get(rfd_rib_table, &rn->p) : NULL;
 
 	count = rfapiNhlAddNodeRoutes(rn, rprefix, lifetime, 0, &answer, &last,
 				      NULL, rib_rn, pfx_target_original);
@@ -1928,7 +1935,7 @@ struct rfapi_next_hop_entry *rfapiEthRouteNode2NextHopList(
 	}
 
 	if (rib_rn)
-		route_unlock_node(rib_rn);
+		agg_unlock_node(rib_rn);
 
 #if DEBUG_RETURNED_NHL
 	rfapiPrintNhl(NULL, answer);
@@ -1945,13 +1952,13 @@ struct rfapi_next_hop_entry *rfapiEthRouteTable2NextHopList(
 	uint32_t logical_net_id, struct rfapi_ip_prefix *rprefix,
 	uint32_t lifetime,		      /* put into nexthop entries */
 	struct rfapi_ip_addr *exclude_vnaddr, /* omit routes to same NVE */
-	struct route_table *rfd_rib_table,    /* preload NVE rib node */
+	struct agg_table *rfd_rib_table,      /* preload NVE rib node */
 	struct prefix *pfx_target_original)   /* query target */
 {
 	struct rfapi_import_table *it;
 	struct bgp *bgp = bgp_get_default();
-	struct route_table *rt;
-	struct route_node *rn;
+	struct agg_table *rt;
+	struct agg_node *rn;
 	struct rfapi_next_hop_entry *biglist = NULL;
 	struct rfapi_next_hop_entry *nhl;
 	struct rfapi_next_hop_entry *tail = NULL;
@@ -1961,7 +1968,7 @@ struct rfapi_next_hop_entry *rfapiEthRouteTable2NextHopList(
 	it = rfapiMacImportTableGet(bgp, logical_net_id);
 	rt = it->imported_vpn[AFI_L2VPN];
 
-	for (rn = route_top(rt); rn; rn = route_next(rn)) {
+	for (rn = agg_route_top(rt); rn; rn = agg_route_next(rn)) {
 
 		nhl = rfapiEthRouteNode2NextHopList(
 			rn, rprefix, lifetime, exclude_vnaddr, rfd_rib_table,
@@ -1989,7 +1996,7 @@ struct rfapi_next_hop_entry *rfapiEthRouteTable2NextHopList(
  * Insert a new bi to the imported route table node,
  * keeping the list of BIs sorted best route first
  */
-static void rfapiBgpInfoAttachSorted(struct route_node *rn,
+static void rfapiBgpInfoAttachSorted(struct agg_node *rn,
 				     struct bgp_info *info_new, afi_t afi,
 				     safi_t safi)
 {
@@ -2031,7 +2038,7 @@ static void rfapiBgpInfoAttachSorted(struct route_node *rn,
 	bgp_attr_intern(info_new->attr);
 }
 
-static void rfapiBgpInfoDetach(struct route_node *rn, struct bgp_info *bi)
+static void rfapiBgpInfoDetach(struct agg_node *rn, struct bgp_info *bi)
 {
 	/*
 	 * Remove the route (doubly-linked)
@@ -2127,8 +2134,8 @@ static int rfapi_bi_peer_rd_aux_cmp(void *b1, void *b2)
 /*
  * Index on RD and Peer
  */
-static void rfapiItBiIndexAdd(struct route_node *rn, /* Import table VPN node */
-			      struct bgp_info *bi)   /* new BI */
+static void rfapiItBiIndexAdd(struct agg_node *rn, /* Import table VPN node */
+			      struct bgp_info *bi) /* new BI */
 {
 	struct skiplist *sl;
 
@@ -2153,15 +2160,15 @@ static void rfapiItBiIndexAdd(struct route_node *rn, /* Import table VPN node */
 			sl = skiplist_new(0, rfapi_bi_peer_rd_cmp, NULL);
 		}
 		RFAPI_IT_EXTRA_GET(rn)->u.vpn.idx_rd = sl;
-		route_lock_node(rn); /* for skiplist */
+		agg_lock_node(rn); /* for skiplist */
 	}
 	assert(!skiplist_insert(sl, (void *)bi, (void *)bi));
-	route_lock_node(rn); /* for skiplist entry */
+	agg_lock_node(rn); /* for skiplist entry */
 
 	/* NB: BIs in import tables are not refcounted */
 }
 
-static void rfapiItBiIndexDump(struct route_node *rn)
+static void rfapiItBiIndexDump(struct agg_node *rn)
 {
 	struct skiplist *sl;
 	void *cursor = NULL;
@@ -2192,7 +2199,7 @@ static void rfapiItBiIndexDump(struct route_node *rn)
 }
 
 static struct bgp_info *rfapiItBiIndexSearch(
-	struct route_node *rn, /* Import table VPN node */
+	struct agg_node *rn, /* Import table VPN node */
 	struct prefix_rd *prd, struct peer *peer,
 	struct prefix *aux_prefix) /* optional L3 addr for L2 ITs */
 {
@@ -2298,8 +2305,8 @@ static struct bgp_info *rfapiItBiIndexSearch(
 	return bi_result;
 }
 
-static void rfapiItBiIndexDel(struct route_node *rn, /* Import table VPN node */
-			      struct bgp_info *bi)   /* old BI */
+static void rfapiItBiIndexDel(struct agg_node *rn, /* Import table VPN node */
+			      struct bgp_info *bi) /* old BI */
 {
 	struct skiplist *sl;
 	int rc;
@@ -2322,7 +2329,7 @@ static void rfapiItBiIndexDel(struct route_node *rn, /* Import table VPN node */
 	}
 	assert(!rc);
 
-	route_unlock_node(rn); /* for skiplist entry */
+	agg_unlock_node(rn); /* for skiplist entry */
 
 	/* NB: BIs in import tables are not refcounted */
 }
@@ -2332,17 +2339,16 @@ static void rfapiItBiIndexDel(struct route_node *rn, /* Import table VPN node */
  * refers to it
  */
 static void rfapiMonitorEncapAdd(struct rfapi_import_table *import_table,
-				 struct prefix *p,	  /* VN address */
-				 struct route_node *vpn_rn, /* VPN node */
-				 struct bgp_info *vpn_bi)   /* VPN bi/route */
+				 struct prefix *p,	/* VN address */
+				 struct agg_node *vpn_rn, /* VPN node */
+				 struct bgp_info *vpn_bi) /* VPN bi/route */
 {
 	afi_t afi = family2afi(p->family);
-	struct route_node *rn;
+	struct agg_node *rn;
 	struct rfapi_monitor_encap *m;
 
 	assert(afi);
-	rn = route_node_get(import_table->imported_encap[afi],
-			    p); /* locks rn */
+	rn = agg_node_get(import_table->imported_encap[afi], p); /* locks rn */
 	assert(rn);
 
 	m = XCALLOC(MTYPE_RFAPI_MONITOR_ENCAP,
@@ -2399,7 +2405,7 @@ static void rfapiMonitorEncapDelete(struct bgp_info *vpn_bi)
 			 * freed */
 			rfapiMonitorExtraPrune(SAFI_ENCAP, hme->rn);
 
-			route_unlock_node(hme->rn); /* decr ref count */
+			agg_unlock_node(hme->rn); /* decr ref count */
 			XFREE(MTYPE_RFAPI_MONITOR_ENCAP, hme);
 			vpn_bi->extra->vnc.import.hme = NULL;
 		}
@@ -2533,7 +2539,7 @@ done:
 	}
 
 	RFAPI_CHECK_REFCOUNT(wcb->node, SAFI_MPLS_VPN, 1 + wcb->lockoffset);
-	route_unlock_node(wcb->node); /* decr ref count */
+	agg_unlock_node(wcb->node); /* decr ref count */
 	XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
 	return 0;
 }
@@ -2660,7 +2666,7 @@ static void rfapiCopyUnEncap2VPN(struct bgp_info *encap_bi,
  */
 static int rfapiWithdrawEncapUpdateCachedUn(
 	struct rfapi_import_table *import_table, struct bgp_info *encap_bi,
-	struct route_node *vpn_rn, struct bgp_info *vpn_bi)
+	struct agg_node *vpn_rn, struct bgp_info *vpn_bi)
 {
 	if (!encap_bi) {
 
@@ -2762,7 +2768,7 @@ static int rfapiWithdrawTimerEncap(struct thread *t)
 	/*
 	 * for each VPN node referenced in the ENCAP monitors:
 	 */
-	struct route_node *rn;
+	struct agg_node *rn;
 	while (!skiplist_first(vpn_node_sl, (void **)&rn, NULL)) {
 		if (!wcb->node->info) {
 			struct rfapi_monitor_vpn *moved;
@@ -2783,7 +2789,7 @@ static int rfapiWithdrawTimerEncap(struct thread *t)
 
 done:
 	RFAPI_CHECK_REFCOUNT(wcb->node, SAFI_ENCAP, 1);
-	route_unlock_node(wcb->node); /* decr ref count */
+	agg_unlock_node(wcb->node); /* decr ref count */
 	XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
 	skiplist_free(vpn_node_sl);
 	return 0;
@@ -2796,7 +2802,7 @@ done:
  */
 static void
 rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
-			  struct route_node *rn, struct bgp_info *bi, afi_t afi,
+			  struct agg_node *rn, struct bgp_info *bi, afi_t afi,
 			  safi_t safi,
 			  int (*timer_service_func)(struct thread *))
 {
@@ -2886,7 +2892,7 @@ typedef void(rfapi_bi_filtered_import_f)(struct rfapi_import_table *, int,
 
 
 static void rfapiExpireEncapNow(struct rfapi_import_table *it,
-				struct route_node *rn, struct bgp_info *bi)
+				struct agg_node *rn, struct bgp_info *bi)
 {
 	struct rfapi_withdraw *wcb;
 	struct thread t;
@@ -2939,8 +2945,8 @@ static void rfapiBgpInfoFilteredImportEncap(
 	uint8_t sub_type,  /* part of bgp_info */
 	uint32_t *label)   /* part of bgp_info */
 {
-	struct route_table *rt = NULL;
-	struct route_node *rn;
+	struct agg_table *rt = NULL;
+	struct agg_node *rn;
 	struct bgp_info *info_new;
 	struct bgp_info *bi;
 	struct bgp_info *next;
@@ -3034,10 +3040,10 @@ static void rfapiBgpInfoFilteredImportEncap(
 	}
 
 	/*
-	 * route_node_lookup returns a node only if there is at least
+	 * agg_node_lookup returns a node only if there is at least
 	 * one route attached.
 	 */
-	rn = route_node_lookup(rt, p);
+	rn = agg_node_lookup(rt, p);
 
 #if DEBUG_ENCAP_MONITOR
 	vnc_zlog_debug_verbose("%s: initial encap lookup(it=%p) rn=%p",
@@ -3047,7 +3053,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 	if (rn) {
 
 		RFAPI_CHECK_REFCOUNT(rn, SAFI_ENCAP, 1);
-		route_unlock_node(rn); /* undo lock in route_node_lookup */
+		agg_unlock_node(rn); /* undo lock in agg_node_lookup */
 
 
 		/*
@@ -3187,9 +3193,9 @@ static void rfapiBgpInfoFilteredImportEncap(
 
 	if (rn) {
 		if (!replacing)
-			route_lock_node(rn); /* incr ref count for new BI */
+			agg_lock_node(rn); /* incr ref count for new BI */
 	} else {
-		rn = route_node_get(rt, p);
+		rn = agg_node_get(rt, p);
 	}
 
 	vnc_zlog_debug_verbose(
@@ -3254,7 +3260,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 		struct rfapi_monitor_encap *m;
 		struct rfapi_monitor_encap *mnext;
 
-		struct route_node *referenced_vpn_prefix;
+		struct agg_node *referenced_vpn_prefix;
 
 		/*
 		 * Optimized approach: build radix tree on the fly to
@@ -3265,9 +3271,9 @@ static void rfapiBgpInfoFilteredImportEncap(
 		 * struct rfapi_monitor_encap, each of which refers to a
 		 * specific VPN node.
 		 */
-		struct route_table *referenced_vpn_table;
+		struct agg_table *referenced_vpn_table;
 
-		referenced_vpn_table = route_table_init();
+		referenced_vpn_table = agg_table_init();
 		assert(referenced_vpn_table);
 
 /*
@@ -3306,8 +3312,8 @@ static void rfapiBgpInfoFilteredImportEncap(
 			 * per prefix.
 			 */
 
-			referenced_vpn_prefix = route_node_get(
-				referenced_vpn_table, &m->node->p);
+			referenced_vpn_prefix =
+				agg_node_get(referenced_vpn_table, &m->node->p);
 			assert(referenced_vpn_prefix);
 			for (mnext = referenced_vpn_prefix->info; mnext;
 			     mnext = mnext->next) {
@@ -3320,7 +3326,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 				/*
 				 * already have an entry for this VPN node
 				 */
-				route_unlock_node(referenced_vpn_prefix);
+				agg_unlock_node(referenced_vpn_prefix);
 			} else {
 				mnext = XCALLOC(
 					MTYPE_RFAPI_MONITOR_ENCAP,
@@ -3335,16 +3341,18 @@ static void rfapiBgpInfoFilteredImportEncap(
 		/*
 		 * for each VPN node referenced in the ENCAP monitors:
 		 */
-		for (referenced_vpn_prefix = route_top(referenced_vpn_table);
-		     referenced_vpn_prefix; referenced_vpn_prefix = route_next(
-						    referenced_vpn_prefix)) {
+		for (referenced_vpn_prefix =
+			     agg_route_top(referenced_vpn_table);
+		     referenced_vpn_prefix;
+		     referenced_vpn_prefix =
+			     agg_route_next(referenced_vpn_prefix)) {
 
 			while ((m = referenced_vpn_prefix->info)) {
 
-				struct route_node *n;
+				struct agg_node *n;
 
 				rfapiMonitorMoveLonger(m->node);
-				for (n = m->node; n; n = n->parent) {
+				for (n = m->node; n; n = agg_node_parent(n)) {
 					// rfapiDoRouteCallback(import_table, n,
 					// NULL);
 				}
@@ -3352,18 +3360,18 @@ static void rfapiBgpInfoFilteredImportEncap(
 							  NULL);
 
 				referenced_vpn_prefix->info = m->next;
-				route_unlock_node(referenced_vpn_prefix);
+				agg_unlock_node(referenced_vpn_prefix);
 				XFREE(MTYPE_RFAPI_MONITOR_ENCAP, m);
 			}
 		}
-		route_table_finish(referenced_vpn_table);
+		agg_table_finish(referenced_vpn_table);
 	}
 
 	RFAPI_CHECK_REFCOUNT(rn, SAFI_ENCAP, 0);
 }
 
 static void rfapiExpireVpnNow(struct rfapi_import_table *it,
-			      struct route_node *rn, struct bgp_info *bi,
+			      struct agg_node *rn, struct bgp_info *bi,
 			      int lockoffset)
 {
 	struct rfapi_withdraw *wcb;
@@ -3398,9 +3406,9 @@ void rfapiBgpInfoFilteredImportVPN(
 	uint8_t sub_type,  /* part of bgp_info */
 	uint32_t *label)   /* part of bgp_info */
 {
-	struct route_table *rt = NULL;
-	struct route_node *rn;
-	struct route_node *n;
+	struct agg_table *rt = NULL;
+	struct agg_node *rn;
+	struct agg_node *n;
 	struct bgp_info *info_new;
 	struct bgp_info *bi;
 	struct bgp_info *next;
@@ -3408,7 +3416,7 @@ void rfapiBgpInfoFilteredImportVPN(
 	struct prefix vn_prefix;
 	struct prefix un_prefix;
 	int un_prefix_valid = 0;
-	struct route_node *ern;
+	struct agg_node *ern;
 	int replacing = 0;
 	int original_had_routes = 0;
 	struct prefix original_nexthop;
@@ -3494,17 +3502,17 @@ void rfapiBgpInfoFilteredImportVPN(
 	memset(&original_nexthop, 0, sizeof(original_nexthop));
 
 	/*
-	 * route_node_lookup returns a node only if there is at least
+	 * agg_node_lookup returns a node only if there is at least
 	 * one route attached.
 	 */
-	rn = route_node_lookup(rt, p);
+	rn = agg_node_lookup(rt, p);
 
 	vnc_zlog_debug_verbose("%s: rn=%p", __func__, rn);
 
 	if (rn) {
 
 		RFAPI_CHECK_REFCOUNT(rn, SAFI_MPLS_VPN, 1);
-		route_unlock_node(rn); /* undo lock in route_node_lookup */
+		agg_unlock_node(rn); /* undo lock in agg_node_lookup */
 
 		if (rn->info)
 			original_had_routes = 1;
@@ -3667,10 +3675,10 @@ void rfapiBgpInfoFilteredImportVPN(
 	/*
 	 * lookup un address in encap table
 	 */
-	ern = route_node_match(import_table->imported_encap[afi], &vn_prefix);
+	ern = agg_node_match(import_table->imported_encap[afi], &vn_prefix);
 	if (ern) {
 		rfapiCopyUnEncap2VPN(ern->info, info_new);
-		route_unlock_node(ern); /* undo lock in route_note_match */
+		agg_unlock_node(ern); /* undo lock in route_note_match */
 	} else {
 		char buf[PREFIX_STRLEN];
 
@@ -3683,13 +3691,13 @@ void rfapiBgpInfoFilteredImportVPN(
 
 	if (rn) {
 		if (!replacing)
-			route_lock_node(rn);
+			agg_lock_node(rn);
 	} else {
 		/*
 		 * No need to increment reference count, so only "get"
 		 * if the node is not there already
 		 */
-		rn = route_node_get(rt, p);
+		rn = agg_node_get(rt, p);
 	}
 
 	/*
@@ -3856,7 +3864,7 @@ void rfapiBgpInfoFilteredImportVPN(
 	}
 
 	if (!(bgp->rfapi_cfg->flags & BGP_VNC_CONFIG_CALLBACK_DISABLE)) {
-		for (n = rn; n; n = n->parent) {
+		for (n = rn; n; n = agg_node_parent(n)) {
 			// rfapiDoRouteCallback(import_table, n, NULL);
 		}
 		rfapiMonitorItNodeChanged(import_table, rn, NULL);
@@ -4108,9 +4116,9 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 				   struct rfapi_import_table *import_table,
 				   afi_t afi, safi_t safi)
 {
-	struct route_node *rn;
+	struct agg_node *rn;
 	struct bgp_info *bi;
-	struct route_table *rt;
+	struct agg_table *rt;
 	int (*timer_service_func)(struct thread *);
 
 	assert(afi == AFI_IP || afi == AFI_IP6);
@@ -4131,7 +4139,7 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 	}
 
 
-	for (rn = route_top(rt); rn; rn = route_next(rn)) {
+	for (rn = agg_route_top(rt); rn; rn = agg_route_next(rn)) {
 		for (bi = rn->info; bi; bi = bi->next) {
 			if (bi->peer == peer) {
 
@@ -4274,7 +4282,7 @@ struct rfapi *bgp_rfapi_new(struct bgp *bgp)
 	h = (struct rfapi *)XCALLOC(MTYPE_RFAPI, sizeof(struct rfapi));
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		h->un[afi] = route_table_init();
+		h->un[afi] = agg_table_init();
 	}
 
 	/*
@@ -4282,10 +4290,10 @@ struct rfapi *bgp_rfapi_new(struct bgp *bgp)
 	 */
 	h->it_ce = XCALLOC(MTYPE_RFAPI_IMPORTTABLE,
 			   sizeof(struct rfapi_import_table));
-	h->it_ce->imported_vpn[AFI_IP] = route_table_init();
-	h->it_ce->imported_vpn[AFI_IP6] = route_table_init();
-	h->it_ce->imported_encap[AFI_IP] = route_table_init();
-	h->it_ce->imported_encap[AFI_IP6] = route_table_init();
+	h->it_ce->imported_vpn[AFI_IP] = agg_table_init();
+	h->it_ce->imported_vpn[AFI_IP6] = agg_table_init();
+	h->it_ce->imported_encap[AFI_IP] = agg_table_init();
+	h->it_ce->imported_encap[AFI_IP6] = agg_table_init();
 	rfapiBgpTableFilteredImport(bgp, h->it_ce, AFI_IP, SAFI_MPLS_VPN);
 	rfapiBgpTableFilteredImport(bgp, h->it_ce, AFI_IP6, SAFI_MPLS_VPN);
 
@@ -4317,10 +4325,10 @@ void bgp_rfapi_destroy(struct bgp *bgp, struct rfapi *h)
 		h->resolve_nve_nexthop = NULL;
 	}
 
-	route_table_finish(h->it_ce->imported_vpn[AFI_IP]);
-	route_table_finish(h->it_ce->imported_vpn[AFI_IP6]);
-	route_table_finish(h->it_ce->imported_encap[AFI_IP]);
-	route_table_finish(h->it_ce->imported_encap[AFI_IP6]);
+	agg_table_finish(h->it_ce->imported_vpn[AFI_IP]);
+	agg_table_finish(h->it_ce->imported_vpn[AFI_IP6]);
+	agg_table_finish(h->it_ce->imported_encap[AFI_IP]);
+	agg_table_finish(h->it_ce->imported_encap[AFI_IP6]);
 
 	if (h->import_mac) {
 		struct rfapi_import_table *it;
@@ -4346,7 +4354,7 @@ void bgp_rfapi_destroy(struct bgp *bgp, struct rfapi *h)
 		rfp_stop(h->rfp);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		route_table_finish(h->un[afi]);
+		agg_table_finish(h->un[afi]);
 	}
 
 	XFREE(MTYPE_RFAPI_IMPORTTABLE, h->it_ce);
@@ -4394,8 +4402,8 @@ rfapiImportTableRefAdd(struct bgp *bgp, struct ecommunity *rt_import_list,
 		 */
 		for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
 
-			it->imported_vpn[afi] = route_table_init();
-			it->imported_encap[afi] = route_table_init();
+			it->imported_vpn[afi] = agg_table_init();
+			it->imported_encap[afi] = agg_table_init();
 
 			rfapiBgpTableFilteredImport(bgp, it, afi,
 						    SAFI_MPLS_VPN);
@@ -4452,8 +4460,8 @@ static void rfapiDeleteRemotePrefixesIt(
 
 	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
 
-		struct route_table *rt;
-		struct route_node *rn;
+		struct agg_table *rt;
+		struct agg_node *rn;
 
 		if (p && (family2afi(p->family) != afi)) {
 			continue;
@@ -4466,7 +4474,7 @@ static void rfapiDeleteRemotePrefixesIt(
 		vnc_zlog_debug_verbose("%s: scanning rt for afi=%d", __func__,
 				       afi);
 
-		for (rn = route_top(rt); rn; rn = route_next(rn)) {
+		for (rn = agg_route_top(rt); rn; rn = agg_route_next(rn)) {
 			struct bgp_info *bi;
 			struct bgp_info *next;
 

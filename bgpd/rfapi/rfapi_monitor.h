@@ -30,10 +30,10 @@
  * to indicate which nves are interested in a prefix/target
  */
 struct rfapi_monitor_vpn {
-	struct rfapi_monitor_vpn *next; /* chain from struct route_node */
+	struct rfapi_monitor_vpn *next; /* chain from struct agg_node */
 	struct rfapi_descriptor *rfd;   /* which NVE requested the route */
 	struct prefix p;		/* constant: pfx in original request */
-	struct route_node *node;	/* node we're currently attached to */
+	struct agg_node *node;		/* node we're currently attached to */
 	uint32_t flags;
 #define RFAPI_MON_FLAG_NEEDCALLBACK	0x00000001      /* deferred callback */
 
@@ -44,9 +44,9 @@ struct rfapi_monitor_vpn {
 struct rfapi_monitor_encap {
 	struct rfapi_monitor_encap *next;
 	struct rfapi_monitor_encap *prev;
-	struct route_node *node; /* VPN node */
+	struct agg_node *node;   /* VPN node */
 	struct bgp_info *bi;     /* VPN bi */
-	struct route_node *rn;   /* parent node */
+	struct agg_node *rn;     /* parent node */
 };
 
 struct rfapi_monitor_eth {
@@ -98,7 +98,7 @@ struct rfapi_it_extra {
 	((struct rfapi_it_extra                                                \
 		  *)((rn)->aggregate                                           \
 			     ? (rn)->aggregate                                 \
-			     : (route_lock_node(rn),                           \
+			     : (agg_lock_node(rn),                             \
 				(rn)->aggregate = XCALLOC(                     \
 					MTYPE_RFAPI_IT_EXTRA,                  \
 					sizeof(struct rfapi_it_extra)))))
@@ -138,16 +138,16 @@ extern void rfapiMonitorCleanCheck(struct bgp *bgp);
 
 extern void rfapiMonitorCheckAttachAllowed(void);
 
-extern void rfapiMonitorExtraFlush(safi_t safi, struct route_node *rn);
+extern void rfapiMonitorExtraFlush(safi_t safi, struct agg_node *rn);
 
-extern struct route_node *
-rfapiMonitorGetAttachNode(struct rfapi_descriptor *rfd, struct prefix *p);
+extern struct agg_node *rfapiMonitorGetAttachNode(struct rfapi_descriptor *rfd,
+						  struct prefix *p);
 
 extern void rfapiMonitorAttachImportHd(struct rfapi_descriptor *rfd);
 
-extern struct route_node *rfapiMonitorAdd(struct bgp *bgp,
-					  struct rfapi_descriptor *rfd,
-					  struct prefix *p);
+extern struct agg_node *rfapiMonitorAdd(struct bgp *bgp,
+					struct rfapi_descriptor *rfd,
+					struct prefix *p);
 
 extern void rfapiMonitorDetachImportHd(struct rfapi_descriptor *rfd);
 
@@ -164,24 +164,24 @@ extern void rfapiMonitorResponseRemovalOff(struct bgp *bgp);
 
 extern void rfapiMonitorResponseRemovalOn(struct bgp *bgp);
 
-extern void rfapiMonitorExtraPrune(safi_t safi, struct route_node *rn);
+extern void rfapiMonitorExtraPrune(safi_t safi, struct agg_node *rn);
 
 extern void rfapiMonitorTimersRestart(struct rfapi_descriptor *rfd,
 				      struct prefix *p);
 
 extern void rfapiMonitorItNodeChanged(struct rfapi_import_table *import_table,
-				      struct route_node *it_node,
+				      struct agg_node *it_node,
 				      struct rfapi_monitor_vpn *monitor_list);
 
 extern void rfapiMonitorMovedUp(struct rfapi_import_table *import_table,
-				struct route_node *old_node,
-				struct route_node *new_node,
+				struct agg_node *old_node,
+				struct agg_node *new_node,
 				struct rfapi_monitor_vpn *monitor_list);
 
-extern struct route_node *rfapiMonitorEthAdd(struct bgp *bgp,
-					     struct rfapi_descriptor *rfd,
-					     struct ethaddr *macaddr,
-					     uint32_t logical_net_id);
+extern struct agg_node *rfapiMonitorEthAdd(struct bgp *bgp,
+					   struct rfapi_descriptor *rfd,
+					   struct ethaddr *macaddr,
+					   uint32_t logical_net_id);
 
 extern void rfapiMonitorEthDel(struct bgp *bgp, struct rfapi_descriptor *rfd,
 			       struct ethaddr *macaddr,

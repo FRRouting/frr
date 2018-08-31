@@ -109,13 +109,13 @@ struct ripng {
 	struct stream *obuf;
 
 	/* RIPng routing information base. */
-	struct route_table *table;
+	struct agg_table *table;
 
 	/* RIPng only static route information. */
-	struct route_table *route;
+	struct agg_table *route;
 
 	/* RIPng aggregate route information. */
-	struct route_table *aggregate;
+	struct agg_table *aggregate;
 
 	/* RIPng threads. */
 	struct thread *t_read;
@@ -198,7 +198,7 @@ struct ripng_info {
 	uint8_t metric_out;
 	uint16_t tag_out;
 
-	struct route_node *rp;
+	struct agg_node *rp;
 };
 
 #ifdef notyet
@@ -377,8 +377,8 @@ extern void ripng_redistribute_withdraw(int type);
 extern void ripng_distribute_update_interface(struct interface *);
 extern void ripng_if_rmap_update_interface(struct interface *);
 
-extern void ripng_zebra_ipv6_add(struct route_node *);
-extern void ripng_zebra_ipv6_delete(struct route_node *);
+extern void ripng_zebra_ipv6_add(struct agg_node *node);
+extern void ripng_zebra_ipv6_delete(struct agg_node *node);
 
 extern void ripng_redistribute_clean(void);
 extern int ripng_redistribute_check(int);

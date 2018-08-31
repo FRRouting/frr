@@ -23,7 +23,7 @@
 
 #include "lib/zebra.h"
 #include "lib/prefix.h"
-#include "lib/table.h"
+#include "lib/agg_table.h"
 #include "lib/vty.h"
 #include "lib/memory.h"
 #include "lib/routemap.h"
@@ -742,7 +742,7 @@ static void rfapiDebugPrintMonitorEncap(void *stream,
 	   m->bi, HVTYNL);
 }
 
-void rfapiShowItNode(void *stream, struct route_node *rn)
+void rfapiShowItNode(void *stream, struct agg_node *rn)
 {
 	struct bgp_info *bi;
 	char buf[BUFSIZ];
@@ -766,10 +766,10 @@ void rfapiShowItNode(void *stream, struct route_node *rn)
 	/* doesn't show montors */
 }
 
-void rfapiShowImportTable(void *stream, const char *label,
-			  struct route_table *rt, int isvpn)
+void rfapiShowImportTable(void *stream, const char *label, struct agg_table *rt,
+			  int isvpn)
 {
-	struct route_node *rn;
+	struct agg_node *rn;
 	char buf[BUFSIZ];
 
 	int (*fp)(void *, const char *, ...);
@@ -782,7 +782,7 @@ void rfapiShowImportTable(void *stream, const char *label,
 
 	fp(out, "Import Table [%s]%s", label, HVTYNL);
 
-	for (rn = route_top(rt); rn; rn = route_next(rn)) {
+	for (rn = agg_route_top(rt); rn; rn = agg_route_next(rn)) {
 		struct bgp_info *bi;
 
 		if (rn->p.family == AF_ETHERNET) {
@@ -851,7 +851,7 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 
 	for (ALL_LIST_ELEMENTS_RO(&h->descriptors, node, rfd)) {
 
-		struct route_node *rn;
+		struct agg_node *rn;
 		int printedquerier = 0;
 
 
@@ -868,8 +868,8 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 		 * IP Queries
 		 */
 		if (rfd->mon) {
-			for (rn = route_top(rfd->mon); rn;
-			     rn = route_next(rn)) {
+			for (rn = agg_route_top(rfd->mon); rn;
+			     rn = agg_route_next(rn)) {
 				struct rfapi_monitor_vpn *m;
 				char buf_remain[BUFSIZ];
 				char buf_pfx[BUFSIZ];
@@ -1012,7 +1012,7 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 }
 
 static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
-				 struct route_node *rn, struct bgp_info *bi)
+				 struct agg_node *rn, struct bgp_info *bi)
 {
 	int (*fp)(void *, const char *, ...);
 	struct vty *vty;
@@ -1218,13 +1218,13 @@ static int rfapiShowRemoteRegistrationsIt(struct bgp *bgp, void *stream,
 
 	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
 
-		struct route_node *rn;
+		struct agg_node *rn;
 
 		if (!it->imported_vpn[afi])
 			continue;
 
-		for (rn = route_top(it->imported_vpn[afi]); rn;
-		     rn = route_next(rn)) {
+		for (rn = agg_route_top(it->imported_vpn[afi]); rn;
+		     rn = agg_route_next(rn)) {
 
 			struct bgp_info *bi;
 			int count_only;
