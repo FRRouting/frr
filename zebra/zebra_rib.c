@@ -1932,11 +1932,10 @@ static void rib_process_after(struct zebra_dplane_ctx *ctx)
 	op = dplane_ctx_get_op(ctx);
 	status = dplane_ctx_get_status(ctx);
 
-	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug("%u:%s Processing dplane ctx %p, op %s result %s",
 			   dplane_ctx_get_vrf(ctx), dest_str, ctx,
 			   dplane_op2str(op), dplane_res2str(status));
-	}
 
 	if (op == DPLANE_OP_ROUTE_DELETE) {
 		/*
@@ -3289,7 +3288,7 @@ static int rib_process_dplane_results(struct thread *thread)
  * the dataplane pthread. We enqueue the results here for processing by
  * the main thread later.
  */
-static int rib_dplane_results(const struct zebra_dplane_ctx *ctx)
+static int rib_dplane_results(struct zebra_dplane_ctx *ctx)
 {
 	/* Take lock controlling queue of results */
 	pthread_mutex_lock(&dplane_mutex);
