@@ -1,4 +1,4 @@
-### How to an submit issue
+### How to submit an issue
 Please use this text as a template and replace text in the sections or remove
 the entire section if it does not apply to your issue. For example in case of
 a question or feature request, just a description with some example is probably
