@@ -391,16 +391,25 @@ static int as_list_dup_check(struct as_list *aslist, struct as_filter *new)
 	return 0;
 }
 
-DEFUN (ip_as_path,
-       ip_as_path_cmd,
-       "ip as-path access-list WORD <deny|permit> LINE...",
-       IP_STR
-       "BGP autonomous system path filter\n"
-       "Specify an access list name\n"
-       "Regular expression access list name\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "A regular-expression to match the BGP AS paths\n")
+static int config_bgp_aspath_validate(const char *regstr)
+{
+	char valid_chars[] = "1234567890_^|[,{}() ]$*+.?-";
+
+	if (strspn(regstr, valid_chars) == strlen(regstr))
+		return 1;
+
+	return 0;
+}
+
+DEFUN(ip_as_path, ip_as_path_cmd,
+      "ip as-path access-list WORD <deny|permit> LINE...",
+      IP_STR
+      "BGP autonomous system path filter\n"
+      "Specify an access list name\n"
+      "Regular expression access list name\n"
+      "Specify packets to reject\n"
+      "Specify packets to forward\n"
+      "A regular-expression (1234567890_(^|[,{}() ]|$)) to match the BGP AS paths\n")
 {
 	int idx = 0;
 	enum as_filter_type type;
@@ -428,6 +437,12 @@ DEFUN (ip_as_path,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (!config_bgp_aspath_validate(regstr)) {
+		vty_out(vty, "Invalid character in as-path access-list %s\n",
+			regstr);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	asfilter = as_filter_make(regex, regstr, type);
 
 	XFREE(MTYPE_TMP, regstr);
@@ -444,17 +459,15 @@ DEFUN (ip_as_path,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ip_as_path,
-       no_ip_as_path_cmd,
-       "no ip as-path access-list WORD <deny|permit> LINE...",
-       NO_STR
-       IP_STR
-       "BGP autonomous system path filter\n"
-       "Specify an access list name\n"
-       "Regular expression access list name\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "A regular-expression to match the BGP AS paths\n")
+DEFUN(no_ip_as_path, no_ip_as_path_cmd,
+      "no ip as-path access-list WORD <deny|permit> LINE...",
+      NO_STR IP_STR
+      "BGP autonomous system path filter\n"
+      "Specify an access list name\n"
+      "Regular expression access list name\n"
+      "Specify packets to reject\n"
+      "Specify packets to forward\n"
+      "A regular-expression (1234567890_(^|[,{}() ]|$)) to match the BGP AS paths\n")
 {
 	int idx = 0;
 	enum as_filter_type type;
@@ -487,6 +500,12 @@ DEFUN (no_ip_as_path,
 	/* Compile AS path. */
 	argv_find(argv, argc, "LINE", &idx);
 	regstr = argv_concat(argv, argc, idx);
+
+	if (!config_bgp_aspath_validate(regstr)) {
+		vty_out(vty, "Invalid character in as-path access-list %s\n",
+			regstr);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	regex = bgp_regcomp(regstr);
 	if (!regex) {
