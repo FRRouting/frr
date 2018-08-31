@@ -51,8 +51,8 @@ extern struct eigrp_neighbor *eigrp_nbr_lookup_by_addr(struct eigrp_interface *,
 						       struct in_addr *);
 extern struct eigrp_neighbor *eigrp_nbr_lookup_by_addr_process(struct eigrp *,
 							       struct in_addr);
-extern void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty);
+extern void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *);
 
-extern int eigrp_nbr_split_horizon_check(struct eigrp_nexthop_entry *ne,
-					 struct eigrp_interface *ei);
+extern int eigrp_nbr_split_horizon_check(struct eigrp_route_descriptor *,
+					 struct eigrp_interface *);
 #endif /* _ZEBRA_EIGRP_NEIGHBOR_H */

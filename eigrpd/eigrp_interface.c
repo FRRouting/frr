@@ -138,8 +138,8 @@ void eigrp_del_if_params(struct eigrp_if_params *eip)
 
 int eigrp_if_up(struct eigrp_interface *ei)
 {
-	struct eigrp_prefix_entry *pe;
-	struct eigrp_nexthop_entry *ne;
+	struct eigrp_prefix_descriptor *en;
+	struct eigrp_route_descriptor *er;
 	struct eigrp_metrics metric;
 	struct eigrp_interface *ei2;
 	struct listnode *node, *nnode;
@@ -172,14 +172,14 @@ int eigrp_if_up(struct eigrp_interface *ei)
 
 	/*Add connected entry to topology table*/
 
-	ne = eigrp_nexthop_entry_new();
-	ne->ei = ei;
-	ne->reported_metric = metric;
-	ne->total_metric = metric;
-	ne->distance = eigrp_calculate_metrics(eigrp, metric);
-	ne->reported_distance = 0;
-	ne->adv_router = eigrp->neighbor_self;
-	ne->flags = EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG;
+	er = eigrp_route_descriptor_new();
+	er->ei = ei;
+	er->reported_metric = metric;
+	er->total_metric = metric;
+	er->distance = eigrp_calculate_metrics(eigrp, metric);
+	er->reported_distance = 0;
+	er->adv_router = eigrp->neighbor_self;
+	er->flags = EIGRP_ROUTE_SUCCESSOR_FLAG;
 
 	struct prefix dest_addr;
 
@@ -187,45 +187,45 @@ int eigrp_if_up(struct eigrp_interface *ei)
 	dest_addr.u.prefix4 = ei->connected->address->u.prefix4;
 	dest_addr.prefixlen = ei->connected->address->prefixlen;
 	apply_mask(&dest_addr);
-	pe = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
+	en = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
 					      &dest_addr);
 
-	if (pe == NULL) {
-		pe = eigrp_prefix_entry_new();
-		pe->serno = eigrp->serno;
-		pe->destination = (struct prefix *)prefix_ipv4_new();
-		prefix_copy(pe->destination, &dest_addr);
-		pe->af = AF_INET;
-		pe->nt = EIGRP_TOPOLOGY_TYPE_CONNECTED;
+	if (en == NULL) {
+		en = eigrp_prefix_descriptor_new();
+		en->serno = eigrp->serno;
+		en->destination = (struct prefix *)prefix_ipv4_new();
+		prefix_copy(en->destination, &dest_addr);
+		en->af = AF_INET;
+		en->nt = EIGRP_TOPOLOGY_TYPE_CONNECTED;
 
-		ne->prefix = pe;
-		pe->reported_metric = metric;
-		pe->state = EIGRP_FSM_STATE_PASSIVE;
-		pe->fdistance = eigrp_calculate_metrics(eigrp, metric);
-		pe->req_action |= EIGRP_FSM_NEED_UPDATE;
-		eigrp_prefix_entry_add(eigrp->topology_table, pe);
-		listnode_add(eigrp->topology_changes_internalIPV4, pe);
+		er->prefix = en;
+		en->reported_metric = metric;
+		en->state = EIGRP_FSM_STATE_PASSIVE;
+		en->fdistance = eigrp_calculate_metrics(eigrp, metric);
+		en->req_action |= EIGRP_FSM_NEED_UPDATE;
+		eigrp_prefix_descriptor_add(eigrp->topology_table, en);
+		listnode_add(eigrp->topology_changes_internalIPV4, en);
 
-		eigrp_nexthop_entry_add(pe, ne);
+		eigrp_route_descriptor_add(en, er);
 
 		for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei2)) {
 			eigrp_update_send(ei2);
 		}
 
-		pe->req_action &= ~EIGRP_FSM_NEED_UPDATE;
-		listnode_delete(eigrp->topology_changes_internalIPV4, pe);
+		en->req_action &= ~EIGRP_FSM_NEED_UPDATE;
+		listnode_delete(eigrp->topology_changes_internalIPV4, en);
 	} else {
 		struct eigrp_fsm_action_message msg;
 
-		ne->prefix = pe;
-		eigrp_nexthop_entry_add(pe, ne);
+		er->prefix = en;
+		eigrp_route_descriptor_add(en, er);
 
 		msg.packet_type = EIGRP_OPC_UPDATE;
 		msg.eigrp = eigrp;
 		msg.data_type = EIGRP_CONNECTED;
 		msg.adv_router = NULL;
-		msg.entry = ne;
-		msg.prefix = pe;
+		msg.prefix = en;
+		msg.route = er;
 
 		eigrp_fsm_event(&msg);
 	}
@@ -333,7 +333,7 @@ uint8_t eigrp_default_iftype(struct interface *ifp)
 void eigrp_if_free(struct eigrp_interface *ei, int source)
 {
 	struct prefix dest_addr;
-	struct eigrp_prefix_entry *pe;
+	struct eigrp_prefix_descriptor *en;
 	struct eigrp *eigrp = eigrp_lookup();
 
 	if (!eigrp)
@@ -346,10 +346,10 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 
 	dest_addr = *ei->connected->address;
 	apply_mask(&dest_addr);
-	pe = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
+	en = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
 					      &dest_addr);
-	if (pe)
-		eigrp_prefix_entry_delete(eigrp->topology_table, pe);
+	if (en)
+		eigrp_prefix_descriptor_delete(eigrp->topology_table, en);
 
 	eigrp_if_down(ei);
 

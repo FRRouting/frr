@@ -357,7 +357,7 @@ void eigrp_zebra_route_add(struct prefix *p, struct list *successors)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
-	struct eigrp_nexthop_entry *te;
+	struct eigrp_route_descriptor *te;
 	struct listnode *node;
 	int count = 0;
 

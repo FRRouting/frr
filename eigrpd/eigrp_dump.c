@@ -1,5 +1,5 @@
 /*
- * EIGRP Dump Functions and Debugging.
+ * EIGRP Dump Functions and Debugging.r
  * Copyright (C) 2013-2014
  * Authors:
  *   Donnie Savage
@@ -153,7 +153,7 @@ const char *eigrp_if_name_string(struct eigrp_interface *ei)
 	return buf;
 }
 
-const char *eigrp_topology_ip_string(struct eigrp_prefix_entry *tn)
+const char *eigrp_topology_ip_string(struct eigrp_prefix_descriptor *tn)
 {
 	static char buf[EIGRP_IF_STRING_MAXLEN] = "";
 	uint32_t ifaddr;
@@ -286,7 +286,7 @@ void show_ip_eigrp_topology_header(struct vty *vty, struct eigrp *eigrp)
 		"R - Reply\n       r - reply Status, s - sia Status\n\n");
 }
 
-void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
+void show_ip_eigrp_prefix_descriptor(struct vty *vty, struct eigrp_prefix_descriptor *tn)
 {
 	struct list *successors = eigrp_topology_get_successor(tn);
 	char buffer[PREFIX_STRLEN];
@@ -303,14 +303,14 @@ void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
 		list_delete_and_null(&successors);
 }
 
-void show_ip_eigrp_nexthop_entry(struct vty *vty, struct eigrp *eigrp,
-				 struct eigrp_nexthop_entry *te, int *first)
+void show_ip_eigrp_route_descriptor(struct vty *vty, struct eigrp *eigrp,
+				 struct eigrp_route_descriptor *te, int *first)
 {
 	if (te->reported_distance == EIGRP_MAX_METRIC)
 		return;
 
 	if (*first) {
-		show_ip_eigrp_prefix_entry(vty, te->prefix);
+		show_ip_eigrp_prefix_descriptor(vty, te->prefix);
 		*first = 0;
 	}
 

@@ -10,7 +10,6 @@ endif
 
 eigrpd_libeigrp_a_SOURCES = \
 	eigrpd/eigrp_dump.c \
-	eigrpd/eigrp_errors.c \
 	eigrpd/eigrp_filter.c \
 	eigrpd/eigrp_fsm.c \
 	eigrpd/eigrp_hello.c \
@@ -40,7 +39,6 @@ eigrpdheader_HEADERS = \
 
 noinst_HEADERS += \
 	eigrpd/eigrp_const.h \
-	eigrpd/eigrp_errors.h \
 	eigrpd/eigrp_filter.h \
 	eigrpd/eigrp_fsm.h \
 	eigrpd/eigrp_interface.h \

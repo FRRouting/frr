@@ -37,6 +37,26 @@
 #define EIGRP_MAJOR_VERSION     1
 #define EIGRP_MINOR_VERSION	2
 
+/* EIGRP master for system wide configuration and variables. */
+struct eigrp_master {
+	/* EIGRP instance. */
+	struct list *eigrp;
+
+	/* EIGRP thread master. */
+	struct thread_master *master;
+
+	/* Zebra interface list. */
+	struct list *iflist;
+
+	/* EIGRP start time. */
+	time_t start_time;
+
+	/* Various EIGRP global configuration. */
+	uint8_t options;
+
+#define EIGRP_MASTER_SHUTDOWN (1 << 0) /* deferred-shutdown */
+};
+
 /* Extern variables. */
 extern struct zclient *zclient;
 extern struct thread_master *master;

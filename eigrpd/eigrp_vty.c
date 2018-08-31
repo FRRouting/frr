@@ -465,8 +465,8 @@ DEFUN (show_ip_eigrp_topology,
 {
 	struct eigrp *eigrp;
 	struct listnode *node;
-	struct eigrp_prefix_entry *tn;
-	struct eigrp_nexthop_entry *te;
+	struct eigrp_prefix_descriptor *tn;
+	struct eigrp_route_descriptor *tr;
 	struct route_node *rn;
 	int first;
 
@@ -484,16 +484,11 @@ DEFUN (show_ip_eigrp_topology,
 
 		tn = rn->info;
 		first = 1;
-		for (ALL_LIST_ELEMENTS_RO(tn->entries, node, te)) {
+		for (ALL_LIST_ELEMENTS_RO(tn->entries, node, tr)) {
 			if (argc == 5
-			    || (((te->flags
-				  & EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)
-				 == EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)
-				|| ((te->flags
-				     & EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG)
-				    == EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG))) {
-				show_ip_eigrp_nexthop_entry(vty, eigrp, te,
-							    &first);
+			    || (((tr->flags & EIGRP_ROUTE_SUCCESSOR_FLAG) == EIGRP_ROUTE_SUCCESSOR_FLAG) ||
+				((tr->flags & EIGRP_ROUTE_FSUCCESSOR_FLAG) == EIGRP_ROUTE_FSUCCESSOR_FLAG))) {
+				show_ip_eigrp_route_descriptor(vty, eigrp, tr, &first);
 				first = 0;
 			}
 		}

@@ -260,152 +260,145 @@ static const char *change2str(enum metric_change change)
 static enum eigrp_fsm_events
 eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 {
-	// Loading base information from message
-	// struct eigrp *eigrp = msg->eigrp;
-	struct eigrp_prefix_entry *prefix = msg->prefix;
-	struct eigrp_nexthop_entry *entry = msg->entry;
-	uint8_t actual_state = prefix->state;
-	enum metric_change change;
+    // Loading base information from message
+    // struct eigrp *eigrp = msg->eigrp;
+    struct eigrp_prefix_descriptor *prefix = msg->prefix;
+    struct eigrp_route_descriptor *route = msg->route;
+    uint8_t actual_state = prefix->state;
+    enum metric_change change;
 
-	if (entry == NULL) {
-		entry = eigrp_nexthop_entry_new();
-		entry->adv_router = msg->adv_router;
-		entry->ei = msg->adv_router->ei;
-		entry->prefix = prefix;
-		msg->entry = entry;
-	}
+    if (route == NULL) {
+	route = eigrp_route_descriptor_new();
+	route->adv_router = msg->adv_router;
+	route->ei = msg->adv_router->ei;
+	route->prefix = prefix;
+	msg->route = route;
+    }
 
-	/*
-	 * Calculate resultant metrics and insert to correct position
-	 * in entries list
-	 */
-	change = eigrp_topology_update_distance(msg);
+    /*
+     * Calculate resultant metrics and insert to correct position
+     * in entries list
+     */
+    change = eigrp_topology_update_distance(msg);
 
-	/* Store for display later */
-	msg->change = change;
+    /* Store for display later */
+    msg->change = change;
 
-	switch (actual_state) {
+    switch (actual_state) {
 	case EIGRP_FSM_STATE_PASSIVE: {
-		struct eigrp_nexthop_entry *head =
-			listnode_head(prefix->entries);
+	    struct eigrp_route_descriptor *head =
+		listnode_head(prefix->entries);
 
-		if (head->reported_distance < prefix->fdistance) {
-			return EIGRP_FSM_KEEP_STATE;
-		}
-		/*
-		 * if best entry doesn't satisfy feasibility condition it means
-		 * move to active state
-		 * dependently if it was query from successor
-		 */
-		if (msg->packet_type == EIGRP_OPC_QUERY) {
-			return EIGRP_FSM_EVENT_Q_FCN;
-		} else {
-			return EIGRP_FSM_EVENT_NQ_FCN;
-		}
+	    if (head->reported_distance < prefix->fdistance) {
+		return EIGRP_FSM_KEEP_STATE;
+	    }
+	    /*
+	     * if best route doesn't satisfy feasibility condition it means
+	     * move to active state
+	     * dependently if it was query from successor
+	     */
+	    if (msg->packet_type == EIGRP_OPC_QUERY) {
+		return EIGRP_FSM_EVENT_Q_FCN;
+	    } else {
+		return EIGRP_FSM_EVENT_NQ_FCN;
+	    }
 
-		break;
+	    break;
 	}
 	case EIGRP_FSM_STATE_ACTIVE_0: {
-		if (msg->packet_type == EIGRP_OPC_REPLY) {
-			struct eigrp_nexthop_entry *head =
-				listnode_head(prefix->entries);
+	    if (msg->packet_type == EIGRP_OPC_REPLY) {
+		struct eigrp_route_descriptor *head =
+		    listnode_head(prefix->entries);
 
-			listnode_delete(prefix->rij, entry->adv_router);
-			if (prefix->rij->count)
-				return EIGRP_FSM_KEEP_STATE;
+		listnode_delete(prefix->rij, route->adv_router);
+		if (prefix->rij->count)
+		    return EIGRP_FSM_KEEP_STATE;
 
-			zlog_info("All reply received\n");
-			if (head->reported_distance < prefix->fdistance) {
-				return EIGRP_FSM_EVENT_LR_FCS;
-			}
-
-			return EIGRP_FSM_EVENT_LR_FCN;
-		} else if (msg->packet_type == EIGRP_OPC_QUERY
-			   && (entry->flags
-			       & EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)) {
-			return EIGRP_FSM_EVENT_QACT;
+		zlog_info("All reply received\n");
+		if (head->reported_distance < prefix->fdistance) {
+		    return EIGRP_FSM_EVENT_LR_FCS;
 		}
 
-		return EIGRP_FSM_KEEP_STATE;
+		return EIGRP_FSM_EVENT_LR_FCN;
+	    } else if (msg->packet_type == EIGRP_OPC_QUERY
+		       && (route->flags & EIGRP_ROUTE_SUCCESSOR_FLAG)) {
+		return EIGRP_FSM_EVENT_QACT;
+	    }
 
-		break;
+	    return EIGRP_FSM_KEEP_STATE;
+
+	    break;
 	}
 	case EIGRP_FSM_STATE_ACTIVE_1: {
-		if (msg->packet_type == EIGRP_OPC_QUERY
-		    && (entry->flags & EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)) {
-			return EIGRP_FSM_EVENT_QACT;
-		} else if (msg->packet_type == EIGRP_OPC_REPLY) {
-			listnode_delete(prefix->rij, entry->adv_router);
+	    if (msg->packet_type == EIGRP_OPC_QUERY
+		&& (route->flags & EIGRP_ROUTE_SUCCESSOR_FLAG)) {
+		return EIGRP_FSM_EVENT_QACT;
+	    } else if (msg->packet_type == EIGRP_OPC_REPLY) {
+		listnode_delete(prefix->rij, route->adv_router);
 
-			if (change == METRIC_INCREASE
-			    && (entry->flags
-				& EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)) {
-				return EIGRP_FSM_EVENT_DINC;
-			} else if (prefix->rij->count) {
-				return EIGRP_FSM_KEEP_STATE;
-			} else {
-				zlog_info("All reply received\n");
-				return EIGRP_FSM_EVENT_LR;
-			}
-		} else if (msg->packet_type == EIGRP_OPC_UPDATE
-			   && change == METRIC_INCREASE
-			   && (entry->flags
-			       & EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)) {
-			return EIGRP_FSM_EVENT_DINC;
+		if (change == METRIC_INCREASE
+		    && (route->flags & EIGRP_ROUTE_SUCCESSOR_FLAG)) {
+		    return EIGRP_FSM_EVENT_DINC;
+		} else if (prefix->rij->count) {
+		    return EIGRP_FSM_KEEP_STATE;
+		} else {
+		    zlog_info("All reply received\n");
+		    return EIGRP_FSM_EVENT_LR;
 		}
-		return EIGRP_FSM_KEEP_STATE;
+	    } else if (msg->packet_type == EIGRP_OPC_UPDATE
+		       && change == METRIC_INCREASE
+		       && (route->flags & EIGRP_ROUTE_SUCCESSOR_FLAG)) {
+		return EIGRP_FSM_EVENT_DINC;
+	    }
+	    return EIGRP_FSM_KEEP_STATE;
 
-		break;
+	    break;
 	}
 	case EIGRP_FSM_STATE_ACTIVE_2: {
-		if (msg->packet_type == EIGRP_OPC_REPLY) {
-			struct eigrp_nexthop_entry *head =
-				listnode_head(prefix->entries);
+	    if (msg->packet_type == EIGRP_OPC_REPLY) {
+		struct eigrp_route_descriptor *head = listnode_head(prefix->entries);
 
-			listnode_delete(prefix->rij, entry->adv_router);
-			if (prefix->rij->count) {
-				return EIGRP_FSM_KEEP_STATE;
-			} else {
-				zlog_info("All reply received\n");
-				if (head->reported_distance
-				    < prefix->fdistance) {
-					return EIGRP_FSM_EVENT_LR_FCS;
-				}
+		listnode_delete(prefix->rij, route->adv_router);
+		if (prefix->rij->count) {
+		    return EIGRP_FSM_KEEP_STATE;
+		} else {
+		    zlog_info("All reply received\n");
+		    if (head->reported_distance < prefix->fdistance) {
+			return EIGRP_FSM_EVENT_LR_FCS;
+		    }
 
-				return EIGRP_FSM_EVENT_LR_FCN;
-			}
+		    return EIGRP_FSM_EVENT_LR_FCN;
 		}
-		return EIGRP_FSM_KEEP_STATE;
+	    }
+	    return EIGRP_FSM_KEEP_STATE;
 
-		break;
+	    break;
 	}
 	case EIGRP_FSM_STATE_ACTIVE_3: {
-		if (msg->packet_type == EIGRP_OPC_REPLY) {
-			listnode_delete(prefix->rij, entry->adv_router);
+	    if (msg->packet_type == EIGRP_OPC_REPLY) {
+		listnode_delete(prefix->rij, route->adv_router);
 
-			if (change == METRIC_INCREASE
-			    && (entry->flags
-				& EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)) {
-				return EIGRP_FSM_EVENT_DINC;
-			} else if (prefix->rij->count) {
-				return EIGRP_FSM_KEEP_STATE;
-			} else {
-				zlog_info("All reply received\n");
-				return EIGRP_FSM_EVENT_LR;
-			}
-		} else if (msg->packet_type == EIGRP_OPC_UPDATE
-			   && change == METRIC_INCREASE
-			   && (entry->flags
-			       & EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)) {
-			return EIGRP_FSM_EVENT_DINC;
+		if (change == METRIC_INCREASE
+		    && (route->flags & EIGRP_ROUTE_SUCCESSOR_FLAG)) {
+		    return EIGRP_FSM_EVENT_DINC;
+		} else if (prefix->rij->count) {
+		    return EIGRP_FSM_KEEP_STATE;
+		} else {
+		    zlog_info("All reply received\n");
+		    return EIGRP_FSM_EVENT_LR;
 		}
-		return EIGRP_FSM_KEEP_STATE;
+	    } else if (msg->packet_type == EIGRP_OPC_UPDATE
+		       && change == METRIC_INCREASE
+		       && (route->flags & EIGRP_ROUTE_SUCCESSOR_FLAG)) {
+		return EIGRP_FSM_EVENT_DINC;
+	    }
+	    return EIGRP_FSM_KEEP_STATE;
 
-		break;
+	    break;
 	}
-	}
+    }
 
-	return EIGRP_FSM_KEEP_STATE;
+    return EIGRP_FSM_KEEP_STATE;
 }
 
 /*
@@ -434,9 +427,9 @@ int eigrp_fsm_event(struct eigrp_fsm_action_message *msg)
 int eigrp_fsm_event_nq_fcn(struct eigrp_fsm_action_message *msg)
 {
 	struct eigrp *eigrp = msg->eigrp;
-	struct eigrp_prefix_entry *prefix = msg->prefix;
+	struct eigrp_prefix_descriptor *prefix = msg->prefix;
 	struct list *successors = eigrp_topology_get_successor(prefix);
-	struct eigrp_nexthop_entry *ne;
+	struct eigrp_route_descriptor *ne;
 
 	assert(successors); // If this is NULL we have shit the bed, fun huh?
 
@@ -461,9 +454,9 @@ int eigrp_fsm_event_nq_fcn(struct eigrp_fsm_action_message *msg)
 int eigrp_fsm_event_q_fcn(struct eigrp_fsm_action_message *msg)
 {
 	struct eigrp *eigrp = msg->eigrp;
-	struct eigrp_prefix_entry *prefix = msg->prefix;
+	struct eigrp_prefix_descriptor *prefix = msg->prefix;
 	struct list *successors = eigrp_topology_get_successor(prefix);
-	struct eigrp_nexthop_entry *ne;
+	struct eigrp_route_descriptor *ne;
 
 	assert(successors); // If this is NULL somebody poked us in the eye.
 
@@ -487,8 +480,8 @@ int eigrp_fsm_event_q_fcn(struct eigrp_fsm_action_message *msg)
 int eigrp_fsm_event_keep_state(struct eigrp_fsm_action_message *msg)
 {
 	struct eigrp *eigrp;
-	struct eigrp_prefix_entry *prefix = msg->prefix;
-	struct eigrp_nexthop_entry *ne = listnode_head(prefix->entries);
+	struct eigrp_prefix_descriptor *prefix = msg->prefix;
+	struct eigrp_route_descriptor *ne = listnode_head(prefix->entries);
 
 	if (prefix->state == EIGRP_FSM_STATE_PASSIVE) {
 		if (!eigrp_metrics_is_same(prefix->reported_metric,
@@ -517,8 +510,8 @@ int eigrp_fsm_event_keep_state(struct eigrp_fsm_action_message *msg)
 int eigrp_fsm_event_lr(struct eigrp_fsm_action_message *msg)
 {
 	struct eigrp *eigrp = msg->eigrp;
-	struct eigrp_prefix_entry *prefix = msg->prefix;
-	struct eigrp_nexthop_entry *ne = listnode_head(prefix->entries);
+	struct eigrp_prefix_descriptor *prefix = msg->prefix;
+	struct eigrp_route_descriptor *ne = listnode_head(prefix->entries);
 
 	prefix->fdistance = prefix->distance = prefix->rdistance = ne->distance;
 	prefix->reported_metric = ne->total_metric;
@@ -546,7 +539,7 @@ int eigrp_fsm_event_lr(struct eigrp_fsm_action_message *msg)
 int eigrp_fsm_event_dinc(struct eigrp_fsm_action_message *msg)
 {
 	struct list *successors = eigrp_topology_get_successor(msg->prefix);
-	struct eigrp_nexthop_entry *ne;
+	struct eigrp_route_descriptor *ne;
 
 	assert(successors); // Trump and his big hands
 
@@ -567,8 +560,8 @@ int eigrp_fsm_event_dinc(struct eigrp_fsm_action_message *msg)
 int eigrp_fsm_event_lr_fcs(struct eigrp_fsm_action_message *msg)
 {
 	struct eigrp *eigrp = msg->eigrp;
-	struct eigrp_prefix_entry *prefix = msg->prefix;
-	struct eigrp_nexthop_entry *ne = listnode_head(prefix->entries);
+	struct eigrp_prefix_descriptor *prefix = msg->prefix;
+	struct eigrp_route_descriptor *ne = listnode_head(prefix->entries);
 
 	prefix->state = EIGRP_FSM_STATE_PASSIVE;
 	prefix->distance = prefix->rdistance = ne->distance;
@@ -598,8 +591,8 @@ int eigrp_fsm_event_lr_fcs(struct eigrp_fsm_action_message *msg)
 int eigrp_fsm_event_lr_fcn(struct eigrp_fsm_action_message *msg)
 {
 	struct eigrp *eigrp = msg->eigrp;
-	struct eigrp_prefix_entry *prefix = msg->prefix;
-	struct eigrp_nexthop_entry *best_successor;
+	struct eigrp_prefix_descriptor *prefix = msg->prefix;
+	struct eigrp_route_descriptor *best_successor;
 	struct list *successors = eigrp_topology_get_successor(prefix);
 
 	assert(successors); // Routing without a stack
@@ -628,13 +621,13 @@ int eigrp_fsm_event_lr_fcn(struct eigrp_fsm_action_message *msg)
 int eigrp_fsm_event_qact(struct eigrp_fsm_action_message *msg)
 {
 	struct list *successors = eigrp_topology_get_successor(msg->prefix);
-	struct eigrp_nexthop_entry *ne;
+	struct eigrp_route_descriptor *route;
 
 	assert(successors); // Cats and no Dogs
 
-	ne = listnode_head(successors);
+	route = listnode_head(successors);
 	msg->prefix->state = EIGRP_FSM_STATE_ACTIVE_2;
-	msg->prefix->distance = ne->distance;
+	msg->prefix->distance = route->distance;
 
 	list_delete_and_null(&successors);
 	return 1;

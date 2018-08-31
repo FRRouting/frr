@@ -126,10 +126,10 @@ enum metric_change { METRIC_DECREASE, METRIC_SAME, METRIC_INCREASE };
 #define EIGRP_TOPOLOGY_TYPE_REMOTE_EXTERNAL     2 // Remote external network
 
 /*EIGRP TT entry flags*/
-#define EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG     (1 << 0)
-#define EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG    (1 << 1)
-#define EIGRP_NEXTHOP_ENTRY_INTABLE_FLAG       (1 << 2)
-#define EIGRP_NEXTHOP_ENTRY_EXTERNAL_FLAG      (1 << 3)
+#define EIGRP_ROUTE_SUCCESSOR_FLAG     (1 << 0)
+#define EIGRP_ROUTE_FSUCCESSOR_FLAG    (1 << 1)
+#define EIGRP_ROUTE_INTABLE_FLAG       (1 << 2)
+#define EIGRP_ROUTE_EXTERNAL_FLAG      (1 << 3)
 
 /*EIGRP FSM state count, event count*/
 #define EIGRP_FSM_STATE_MAX                  5

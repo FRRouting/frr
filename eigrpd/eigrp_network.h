@@ -45,7 +45,7 @@ extern void eigrp_adjust_sndbuflen(struct eigrp *, unsigned int);
 
 extern uint32_t eigrp_calculate_metrics(struct eigrp *, struct eigrp_metrics);
 extern uint32_t eigrp_calculate_total_metrics(struct eigrp *,
-					      struct eigrp_nexthop_entry *);
+					      struct eigrp_route_descriptor *);
 extern uint8_t eigrp_metrics_is_same(struct eigrp_metrics,
 				     struct eigrp_metrics);
 extern void eigrp_external_routes_refresh(struct eigrp *, int);

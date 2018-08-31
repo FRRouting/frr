@@ -694,7 +694,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
 					       ei)) {
-				counter += ei->hello_out;
+				counter += ei->stats.sent.hello;
 			}
 			return SNMP_INTEGER(counter);
 		} else
@@ -706,7 +706,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
 					       ei)) {
-				counter += ei->hello_in;
+				counter += ei->status.rcvd.hello;
 			}
 			return SNMP_INTEGER(counter);
 		} else
@@ -718,7 +718,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
 					       ei)) {
-				counter += ei->update_out;
+				counter += ei->status.sent.update;
 			}
 			return SNMP_INTEGER(counter);
 		} else
@@ -730,7 +730,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
 					       ei)) {
-				counter += ei->update_in;
+				counter += ei->status.rvcd.update;
 			}
 			return SNMP_INTEGER(counter);
 		} else
@@ -742,7 +742,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
 					       ei)) {
-				counter += ei->query_out;
+				counter += ei->stats.sent.query;
 			}
 			return SNMP_INTEGER(counter);
 		} else
@@ -754,7 +754,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
 					       ei)) {
-				counter += ei->query_in;
+				counter += ei->stats.rcvd.query;
 			}
 			return SNMP_INTEGER(counter);
 		} else
@@ -766,7 +766,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
 					       ei)) {
-				counter += ei->reply_out;
+				counter += ei->stats.sent.reply;
 			}
 			return SNMP_INTEGER(counter);
 		} else
@@ -778,7 +778,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
 					       ei)) {
-				counter += ei->reply_in;
+				counter += ei->ststs.rcvd.reply;
 			}
 			return SNMP_INTEGER(counter);
 		} else
@@ -790,7 +790,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
 					       ei)) {
-				counter += ei->ack_out;
+				counter += ei->stats.sent.ack;
 			}
 			return SNMP_INTEGER(counter);
 		} else
@@ -802,7 +802,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
 					       ei)) {
-				counter += ei->ack_in;
+				counter += ei->stats.rcvd.ack;
 			}
 			return SNMP_INTEGER(counter);
 		} else
@@ -828,7 +828,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
 					       ei)) {
-				counter += ei->siaQuery_out;
+				counter += ei->stats.sent.siaQuery;
 			}
 			return SNMP_INTEGER(counter);
 		} else
@@ -840,7 +840,7 @@ static uint8_t *eigrpTraffStatsEntry(struct variable *v, oid *name,
 			counter = 0;
 			for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode,
 					       ei)) {
-				counter += ei->siaQuery_in;
+				counter += ei->stats.rcvd.siaQuery;
 			}
 			return SNMP_INTEGER(counter);
 		} else
