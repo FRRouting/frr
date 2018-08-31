@@ -396,7 +396,7 @@ static int64_t prefix_new_seq_get(struct prefix_list *plist)
 
 	newseq = ((maxseq / 5) * 5) + 5;
 
-	return newseq;
+	return (newseq > UINT_MAX) ? UINT_MAX : newseq;
 }
 
 /* Return prefix list entry which has same seq number. */
