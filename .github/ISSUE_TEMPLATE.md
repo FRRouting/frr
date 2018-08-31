@@ -1,14 +1,14 @@
-### How to submit issue
+### How to an submit issue
 Please use this text as a template and replace text in the sections or remove
-the entire section if that does not apply to your issue. For example in case of
-question or feature request, just description with some example is probably
-fine. Also remember to use github's markup form properly, especially in case of
-output or code listing.
+the entire section if it does not apply to your issue. For example in case of
+a question or feature request, just description with some example is probably
+fine. Also remember to use GitHub Flavored Markdown properly, especially
+posting output or code listings.
 
 ### Things you may try first
-(put "x" in "[]" if you already tried following)
-* [] Did you check if this is a duplicate issue?
-* [] Did you test it on the latest FRRouting/frr master branch?
+(put "x" in "[ ]" if you already tried following)
+* [ ] Did you check if this is a duplicate issue?
+* [ ] Did you test it on the latest FRRouting/frr master branch?
 
 **Related Issue:**
 [fill here if applicable]
@@ -22,13 +22,18 @@ output or code listing.
 3. [and so on...]
 
 **Expected behavior:**
- [What you expected to happen]
+[What you expected to happen]
 
 **Actual behavior:**
- [What actually happened]
+[What actually happened]
 
-### Components:
+### Components
 [bgpd, build, doc, isisd, ospfd, etc.]
+
+### Versions
+* OS: [name] [version]
+* Kernel: [Linux/BSD] [version]
+* FRR: [version]
 
 ### Attachments
 [Attach if applicable. Fx. log-files, log-lines. etc. etc.]
