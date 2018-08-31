@@ -1,8 +1,8 @@
 ### How to an submit issue
 Please use this text as a template and replace text in the sections or remove
 the entire section if it does not apply to your issue. For example in case of
-a question or feature request, just description with some example is probably
-fine. Also remember to use GitHub Flavored Markdown properly, especially
+a question or feature request, just a description with some example is probably
+fine. Also remember to use GitHub Flavored Markdown properly, especially if
 posting output or code listings.
 
 ### Things you may try first
@@ -36,7 +36,7 @@ posting output or code listings.
 * FRR: [version]
 
 ### Attachments
-[Attach if applicable. Fx. log-files, log-lines. etc. etc.]
+[Attach if applicable. For example log-files, log-lines. etc. etc.]
 
 You're also welcomed to provide us with any other data you think may be useful.
 
