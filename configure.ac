@@ -132,25 +132,29 @@ dnl - specifically, options to control warnings
 
 AC_USE_SYSTEM_EXTENSIONS
 AC_DEFUN([AC_C_FLAG], [{
+    m4_pushdef([cachename],[m4_translit([frr_cv_$1],[ =-],[___])])
+    AC_CACHE_CHECK([[whether $CC supports $1]], cachename, [
 	AC_LANG_PUSH(C)
 	ac_c_flag_save="$CFLAGS"
 	CFLAGS="$CFLAGS $1"
-	AC_MSG_CHECKING([[whether $CC supports $1]])
 	AC_COMPILE_IFELSE(
 		[AC_LANG_PROGRAM([[]])],
 		[
-			AC_MSG_RESULT([yes])
-			m4_if([$3], [], [], [
-				CFLAGS="$ac_c_flag_save"
-				$3
-			])
+			cachename=yes
 		], [
-			CFLAGS="$ac_c_flag_save"
-			AC_MSG_RESULT([no])
-			$2
+			cachename=no
 		])
+	CFLAGS="$ac_c_flag_save"
 	AC_LANG_POP(C)
-	}])
+    ])
+    if test "${cachename}" = yes; then
+	m4_if([$3], [], [CFLAGS="$CFLAGS $1"], [$3])
+    else
+	:
+	$2
+    fi
+    m4_popdef([cachename])
+}])
 
 AC_DEFUN([AC_LINK_IFELSE_FLAGS], [{
 	AC_LANG_PUSH(C)
@@ -343,6 +347,8 @@ AC_ARG_ENABLE(vtysh,
   AS_HELP_STRING([--disable-vtysh], [do not build integrated vty shell for FRR]))
 AC_ARG_ENABLE(doc,
   AS_HELP_STRING([--disable-doc], [do not build docs]))
+AC_ARG_ENABLE(doc-html,
+  AS_HELP_STRING([--enable-doc-html], [build HTML docs]))
 AC_ARG_ENABLE(zebra,
   AS_HELP_STRING([--disable-zebra], [do not build zebra daemon]))
 AC_ARG_ENABLE(bgpd,
@@ -525,6 +531,46 @@ AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
 #
 # Python for clippy
 #
+
+AC_DEFUN([FRR_PYTHON_CHECK_WORKING], [
+  AC_MSG_CHECKING([whether we found a working Python version])
+  AC_LINK_IFELSE_FLAGS([$PYTHON_CFLAGS], [$PYTHON_LIBS], [AC_LANG_PROGRAM([
+#include <Python.h>
+#if PY_VERSION_HEX < 0x02070000
+#error python too old
+#endif
+int main(void);
+],
+[
+{
+  Py_Initialize();
+  return 0;
+}
+])], [
+    # some python installs are missing the zlib dependency...
+    PYTHON_LIBS="${PYTHON_LIBS} -lz"
+    AC_LINK_IFELSE_FLAGS([$PYTHON_CFLAGS], [$PYTHON_LIBS], [AC_LANG_PROGRAM([
+#include <Python.h>
+#if PY_VERSION_HEX < 0x02070000
+#error python too old
+#endif
+int main(void);
+],
+[
+{
+  Py_Initialize();
+  return 0;
+}
+])], [
+      m4_if([$1], [], [
+        PYTHONCONFIG=""
+        unset PYTHON_LIBS
+        unset PYTHON_CFLAGS
+      ], [$1])
+    ])
+  ])
+])
+
 AS_IF([test "$host" = "$build"], [
   PYTHONCONFIG=""
 
@@ -532,60 +578,40 @@ AS_IF([test "$host" = "$build"], [
   # 1.  try python3, but respect the user's preference on which minor ver
   # 2.  try python, which might be py3 or py2 again on the user's preference
   # 3.  try python2 (can really only be 2.7 but eh)
-  # 4.  try 3.5 > 3.4 > 3.3 > 3.2 > 2.7 through pkg-config (no user pref)
+  # 4.  try 3.6 > 3.5 > 3.4 > 3.3 > 3.2 > 2.7 through pkg-config (no user pref)
   #
   # (AX_PYTHON_DEVEL has no clue about py3 vs py2)
   # (AX_PYTHON does not do what we need)
 
-  AC_CHECK_TOOLS([PYTHONCONFIG], [python3-config python-config python2-config])
+  AC_CHECK_TOOLS([PYTHONCONFIG], [ \
+	python3-config \
+	python-config \
+	python2-config \
+	python3.6-config \
+	python3.5-config \
+	python3.4-config \
+	python3.3-config \
+	python3.2-config \
+	python2.7-config ])
   if test -n "$PYTHONCONFIG"; then
     PYTHON_CFLAGS="`\"${PYTHONCONFIG}\" --includes`"
-    PYTHON_LIBS="`\"${PYTHONCONFIG}\" --libs`"
+    PYTHON_LIBS="`\"${PYTHONCONFIG}\" --ldflags`"
 
-    AC_MSG_CHECKING([whether we found a working Python version])
-    AC_LINK_IFELSE_FLAGS([$PYTHON_CFLAGS], [$PYTHON_LIBS], [AC_LANG_PROGRAM([
-#include <Python.h>
-#if PY_VERSION_HEX < 0x02070000
-#error python too old
-#endif
-int main(void);
-],
-[
-{
-  Py_Initialize();
-  return 0;
-}
-])], [
-      PYTHONCONFIG=""
-      unset PYTHON_LIBS
-      unset PYTHON_CFLAGS
-    ])
+    FRR_PYTHON_CHECK_WORKING([])
   fi
 
   if test -z "$PYTHONCONFIG"; then
-    PKG_CHECK_MODULES([PYTHON], python-3.5, [], [
-      PKG_CHECK_MODULES([PYTHON], python-3.4, [], [
-        PKG_CHECK_MODULES([PYTHON], python-3.3, [], [
-          PKG_CHECK_MODULES([PYTHON], python-3.2, [], [
-            PKG_CHECK_MODULES([PYTHON], python-2.7, [], [
-              AC_MSG_FAILURE([could not find python-config or pkg-config python, please install Python development files from libpython-dev or similar])
-              ])])])])])
+    PKG_CHECK_MODULES([PYTHON], python-3.6, [], [
+      PKG_CHECK_MODULES([PYTHON], python-3.5, [], [
+        PKG_CHECK_MODULES([PYTHON], python-3.4, [], [
+          PKG_CHECK_MODULES([PYTHON], python-3.3, [], [
+            PKG_CHECK_MODULES([PYTHON], python-3.2, [], [
+              PKG_CHECK_MODULES([PYTHON], python-2.7, [], [
+                AC_MSG_FAILURE([could not find python-config or pkg-config python, please install Python development files from libpython-dev or similar])
+                ])])])])])])
 
 
-    AC_MSG_CHECKING([whether we found a working Python version])
-    AC_LINK_IFELSE_FLAGS([$PYTHON_CFLAGS], [$PYTHON_LIBS], [AC_LANG_PROGRAM([
-#include <Python.h>
-#if PY_VERSION_HEX < 0x02070000
-#error python too old
-#endif
-int main(void);
-],
-[
-{
-  Py_Initialize();
-  return 0;
-}
-])], [
+    FRR_PYTHON_CHECK_WORKING([
       AC_MSG_FAILURE([could not find python-config or pkg-config python, please install Python development files from libpython-dev or similar])
     ])
   fi
@@ -1313,12 +1339,9 @@ FRR_INCLUDES
 ])dnl
 
 dnl disable doc check
-if test "${enable_doc}" = "no";then
-  DOC=""
-else
-  AC_CHECK_PROGS([SPHINXBUILD], [sphinx-build sphinx-build3 sphinx-build2], [no])
-  DOC="doc"
-fi
+AC_CHECK_PROGS([SPHINXBUILD], [sphinx-build sphinx-build3 sphinx-build2], [no])
+AM_CONDITIONAL(DOC, test "${enable_doc}" != "no")
+AM_CONDITIONAL(DOC_HTML, test "${enable_doc_html}" = "yes")
 
 dnl --------------------
 dnl Daemon disable check
@@ -1434,7 +1457,6 @@ fi
 # set 
 AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != xno])
 
-AC_SUBST(DOC)
 AC_SUBST(RFPTEST)
 AC_SUBST(LIBRFP)
 AC_SUBST(RFPINC)
@@ -1518,8 +1540,8 @@ AC_SEARCH_LIBS(dlopen, [dl dld], [], [
 
 AC_CHECK_HEADERS([link.h])
 
-AC_MSG_CHECKING([for dlinfo(RTLD_DI_ORIGIN)])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+AC_CACHE_CHECK([for dlinfo(RTLD_DI_ORIGIN)], [frr_cv_rtld_di_origin], [
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <stdlib.h>
 #ifdef HAVE_LINK_H
 #include <link.h>
@@ -1529,14 +1551,17 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   char origin[1];
   dlinfo (NULL, RTLD_DI_ORIGIN, &origin);
 ]])], [
-  AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_DLINFO_ORIGIN, 1, [Have dlinfo RTLD_DI_ORIGIN])
-], [
-  AC_MSG_RESULT(no)
+    frr_cv_rtld_di_origin=yes
+  ], [
+    frr_cv_rtld_di_origin=no
+  ])
 ])
+if test "$frr_cv_rtld_di_origin" = yes; then
+  AC_DEFINE(HAVE_DLINFO_ORIGIN, 1, [Have dlinfo RTLD_DI_ORIGIN])
+fi
 
-AC_MSG_CHECKING([for dlinfo(RTLD_DI_LINKMAP)])
-AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+AC_CACHE_CHECK([for dlinfo(RTLD_DI_LINKMAP)], [frr_cv_rtld_di_linkmap], [
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <stdlib.h>
 #ifdef HAVE_LINK_H
 #include <link.h>
@@ -1546,12 +1571,14 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
   struct link_map *lm = NULL;
   dlinfo (NULL, RTLD_DI_LINKMAP, &lm);
 ]])], [
-  AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_DLINFO_LINKMAP, 1, [Have dlinfo RTLD_DI_LINKMAP])
-], [
-  AC_MSG_RESULT(no)
+    frr_cv_rtld_di_linkmap=yes
+  ], [
+    frr_cv_rtld_di_linkmap=no
+  ])
 ])
-
+if test "$frr_cv_rtld_di_linkmap" = yes; then
+  AC_DEFINE(HAVE_DLINFO_LINKMAP, 1, [Have dlinfo RTLD_DI_LINKMAP])
+fi
 
 AM_CONDITIONAL(SNMP, test "x$SNMP_METHOD" = "xagentx")
 
@@ -1808,8 +1835,8 @@ dnl mallinfo, e.g. such as Umem on Solaris.
 dnl -----------------------------------------
 AC_CHECK_HEADERS([malloc.h malloc/malloc.h],,, [FRR_INCLUDES])
 
-AC_MSG_CHECKING(whether mallinfo is available)
-AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES [
+AC_CACHE_CHECK([whether mallinfo is available], [frr_cv_mallinfo], [
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES [
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
 #endif
@@ -1819,11 +1846,14 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES [
 ]], [[
 struct mallinfo ac_x; ac_x = mallinfo ();
 ]])], [
-  AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_MALLINFO,,mallinfo)
-], [
-  AC_MSG_RESULT(no)
+    frr_cv_mallinfo=yes
+  ], [
+    frr_cv_mallinfo=no
+  ])
 ])
+if test "$frr_cv_mallinfo" = yes; then
+  AC_DEFINE(HAVE_MALLINFO,,mallinfo)
+fi
 
 AC_MSG_CHECKING(whether malloc_usable_size is available)
 AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES [
@@ -1983,18 +2013,16 @@ AC_CACHE_VAL(ac_cv_htonl_works,
 )
 AC_MSG_RESULT($ac_cv_htonl_works)
 
-AC_CONFIG_FILES([Makefile
+AC_CONFIG_FILES([Makefile],[sed -e 's/^#AUTODERP# //' -i Makefile])
+
+AC_CONFIG_FILES([
 	  bgpd/Makefile
 	  vtysh/Makefile
-	  doc/Makefile
-	  doc/user/Makefile
-	  doc/manpages/Makefile
-	  doc/developer/Makefile
 	  tests/Makefile
 	  bgpd/rfp-example/rfptest/Makefile
 	  bgpd/rfp-example/librfp/Makefile
 	  redhat/frr.spec
-	  debianpkg/Makefile
+	  solaris/Makefile
 	  debianpkg/changelog
 	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml
@@ -2009,8 +2037,6 @@ if test "${enable_bgp_vnc}" != "no"; then
       AC_CONFIG_FILES([${with_rfp_path}/rfptest/Makefile ${with_rfp_path}/librfp/Makefile])
    fi
 fi
-
-AC_CONFIG_FILES([solaris/Makefile])
 
 AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
 

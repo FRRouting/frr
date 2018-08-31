@@ -1,0 +1,110 @@
+#
+# doc/user
+#
+
+user_RSTFILES = \
+	doc/user/babeld.rst \
+	doc/user/ldpd.rst \
+	doc/user/basic.rst \
+	doc/user/bgp.rst \
+	doc/user/bugs.rst \
+	doc/user/conf.py \
+	doc/user/eigrpd.rst \
+	doc/user/filter.rst \
+	doc/user/glossary.rst \
+	doc/user/index.rst \
+	doc/user/installation.rst \
+	doc/user/ipv6.rst \
+	doc/user/isisd.rst \
+	doc/user/kernel.rst \
+	doc/user/nhrpd.rst \
+	doc/user/ospf6d.rst \
+	doc/user/ospfd.rst \
+	doc/user/ospf_fundamentals.rst \
+	doc/user/overview.rst \
+	doc/user/packet-dumps.rst \
+	doc/user/pim.rst \
+	doc/user/ripd.rst \
+	doc/user/pbr.rst \
+	doc/user/ripngd.rst \
+	doc/user/routemap.rst \
+	doc/user/routeserver.rst \
+	doc/user/rpki.rst \
+	doc/user/setup.rst \
+	doc/user/sharp.rst \
+	doc/user/snmp.rst \
+	doc/user/snmptrap.rst \
+	doc/user/static.rst \
+	doc/user/vnc.rst \
+	doc/user/vtysh.rst \
+	doc/user/zebra.rst \
+	doc/user/bfd.rst \
+	doc/user/flowspec.rst \
+	# end
+
+EXTRA_DIST += \
+	$(user_RSTFILES) \
+	doc/user/Useful_Sysctl_Settings.md \
+	# end
+
+USERBUILD = doc/user/_build
+$(USERBUILD)/.doctrees/environment.pickle: $(user_RSTFILES)
+
+#
+# automake integration (things that should be built in "all")
+#
+
+if DOC
+nodist_noinst_DATA += $(USERBUILD)/texinfo/frr.info
+endif
+if DOC_HTML
+nodist_noinst_DATA += $(USERBUILD)/html/.buildinfo
+endif
+
+#
+# standard targets
+#
+
+.PHONY: info html pdf
+info: $(USERBUILD)/texinfo/frr.info
+html: $(USERBUILD)/html/.buildinfo
+pdf:  $(USERBUILD)/latexpdf
+
+#
+# hook-ins for clean / install / doc
+#
+
+.PHONY: clean-userdocs
+clean-local: clean-userdocs
+clean-userdocs:
+	-rm -rf "$(USERBUILD)"
+
+# INSTALL_INFO=install-info
+.PHONY: install-info uninstall-info install-html uninstall-html
+
+install-info: $(USERBUILD)/texinfo/frr.info
+	$(MKDIR_P) "$(DESTDIR)$(infodir)"
+	$(INSTALL_DATA) "$<" "$(DESTDIR)$(infodir)"
+	[ -z "${DESTDIR}" ] && $(INSTALL_INFO) --info-dir="$(DESTDIR)$(infodir)" "$<" || true
+uninstall-info: $(USERBUILD)/texinfo/frr.info
+	-rm -f "$(DESTDIR)$(infodir)/$<"
+	[ -z "${DESTDIR}" ] && $(INSTALL_INFO) --delete --info-dir="$(DESTDIR)$(infodir)" "$<" || true
+
+install-html: $(USERBUILD)/html/.buildinfo
+	$(MKDIR_P) "$(DESTDIR)$(htmldir)"
+	cp -r "$(USERBUILD)/html" "$(DESTDIR)$(htmldir)"
+uninstall-html:
+	-rm -rf "$(DESTDIR)$(htmldir)/html"
+
+.PHONY: install-data-local uninstall-local
+if DOC
+DOC_INFO=info
+install-data-local: install-info
+uninstall-local:  uninstall-info
+endif
+if DOC_HTML
+DOC_HTML=html
+install-data-local: install-html
+uninstall-local:  uninstall-html
+endif
+doc: $(DOC_INFO) $(DOC_HTML)

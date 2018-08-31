@@ -1,0 +1,72 @@
+#
+# doc/developer
+#
+
+dev_RSTFILES = \
+	doc/developer/bgp-typecodes.rst \
+	doc/developer/bgpd.rst \
+	doc/developer/building-frr-for-openwrt.rst \
+	doc/developer/building-frr-on-alpine.rst \
+	doc/developer/building-frr-on-centos6.rst \
+	doc/developer/building-frr-on-centos7.rst \
+	doc/developer/building-frr-on-debian8.rst \
+	doc/developer/building-frr-on-debian9.rst \
+	doc/developer/building-frr-on-fedora24.rst \
+	doc/developer/building-frr-on-freebsd10.rst \
+	doc/developer/building-frr-on-freebsd11.rst \
+	doc/developer/building-frr-on-freebsd9.rst \
+	doc/developer/building-frr-on-netbsd6.rst \
+	doc/developer/building-frr-on-netbsd7.rst \
+	doc/developer/building-frr-on-omnios.rst \
+	doc/developer/building-frr-on-openbsd6.rst \
+	doc/developer/building-frr-on-ubuntu1204.rst \
+	doc/developer/building-frr-on-ubuntu1404.rst \
+	doc/developer/building-frr-on-ubuntu1604.rst \
+	doc/developer/building-frr-on-ubuntu1804.rst \
+	doc/developer/building.rst \
+	doc/developer/cli.rst \
+	doc/developer/conf.py \
+	doc/developer/hooks.rst \
+	doc/developer/index.rst \
+	doc/developer/library.rst \
+	doc/developer/logging.rst \
+	doc/developer/maintainer-release-build.rst \
+	doc/developer/memtypes.rst \
+	doc/developer/modules.rst \
+	doc/developer/next-hop-tracking.rst \
+	doc/developer/ospf-api.rst \
+	doc/developer/ospf-sr.rst \
+	doc/developer/ospf.rst \
+	doc/developer/workflow.rst \
+	doc/developer/zebra.rst \
+	# end
+
+EXTRA_DIST += \
+	$(dev_RSTFILES) \
+	doc/developer/draft-zebra-00.ms \
+	doc/developer/ldpd-basic-test-setup.md \
+	# end
+
+DEVBUILD = doc/developer/_build
+$(DEVBUILD)/.doctrees/environment.pickle: $(dev_RSTFILES)
+
+#
+# nothing built automatically for "all" target.
+#
+
+#
+# standard targets
+#
+
+developer-info: $(DEVBUILD)/texinfo/frr.info
+developer-html: $(DEVBUILD)/html/.buildinfo
+developer-pdf:  $(DEVBUILD)/latexpdf
+
+#
+# hook-in for clean
+#
+
+.PHONY: clean-devdocs
+clean-local: clean-devdocs
+clean-devdocs:
+	-rm -rf "$(DEVBUILD)"

@@ -2,8 +2,8 @@
 # Automake fragment intended to be shared by Makefile.am files in the
 # tree. When used, should be included at the very top of the file.
 #
-AM_CPPFLAGS = @ASAN_FLAGS@ @TSAN_FLAGS@ @MSAN_FLAGS@ @WERROR@
-AM_CFLAGS = @ASAN_FLAGS@ @TSAN_FLAGS@ @MSAN_FLAGS@ @WERROR@
+AM_CPPFLAGS = @ASAN_FLAGS@ @TSAN_FLAGS@ @MSAN_FLAGS@
+AM_CFLAGS = @ASAN_FLAGS@ @TSAN_FLAGS@ @MSAN_FLAGS@ $(WERROR)
 
 AM_V_CLIPPY = $(am__v_CLIPPY_$(V))
 am__v_CLIPPY_ = $(am__v_CLIPPY_$(AM_DEFAULT_VERBOSITY))
