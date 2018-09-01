@@ -140,9 +140,10 @@ extern int bgp_damp_decay(time_t, int);
 extern void bgp_config_write_damp(struct vty *);
 extern void bgp_damp_info_vty(struct vty *, struct bgp_info *,
 			      json_object *json_path);
-extern const char *bgp_damp_reuse_time_vty(struct vty *, struct bgp_info *,
-					   char *, size_t, uint8_t,
-					   json_object *);
+extern const char *bgp_damp_reuse_time_vty(struct vty *vty,
+					   struct bgp_info *binfo,
+					   char *timebuf, size_t len,
+					   bool use_json, json_object *json);
 extern int bgp_show_dampening_parameters(struct vty *vty, afi_t, safi_t);
 
 #endif /* _QUAGGA_BGP_DAMP_H */

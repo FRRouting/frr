@@ -530,7 +530,7 @@ void bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, char *addr)
 /*
  * bgp_bfd_show_info - Show the peer BFD information.
  */
-void bgp_bfd_show_info(struct vty *vty, struct peer *peer, uint8_t use_json,
+void bgp_bfd_show_info(struct vty *vty, struct peer *peer, bool use_json,
 		       json_object *json_neigh)
 {
 	bfd_show_info(vty, (struct bfd_info *)peer->bfd_info,

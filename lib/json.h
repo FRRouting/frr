@@ -52,7 +52,7 @@ extern int json_object_object_get_ex(struct json_object *obj, const char *key,
 
 #include "command.h"
 
-extern int use_json(const int argc, struct cmd_token *argv[]);
+extern bool use_json(const int argc, struct cmd_token *argv[]);
 extern void json_object_string_add(struct json_object *obj, const char *key,
 				   const char *s);
 extern void json_object_int_add(struct json_object *obj, const char *key,
