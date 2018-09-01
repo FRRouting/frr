@@ -35,6 +35,11 @@
 #define FRR_NO_CFG_PID_DRY		(1 << 3)
 #define FRR_NO_ZCLIENT		(1 << 4)
 
+enum frr_ret {
+	SUCCESS = 0,
+	FAILURE = 1
+};
+
 struct frr_daemon_info {
 	unsigned flags;
 
@@ -91,6 +96,7 @@ struct frr_daemon_info {
 			  .version = FRR_VERSION, )                            \
 /* end */
 
+extern int frr_guard_daemon(void);
 extern void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv);
 extern void frr_opt_add(const char *optstr, const struct option *longopts,
 			const char *helpstr);
