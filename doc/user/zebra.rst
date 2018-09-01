@@ -395,8 +395,6 @@ be updated with the new name. To illustrate, if you want to recompile with
 
    ./configure --with-defaultvrfname=global
 
-More information about the option in :ref:`_frr-configuration`.
-
 .. _zebra-mpls:
 
 MPLS Commands

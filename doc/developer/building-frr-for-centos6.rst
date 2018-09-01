@@ -40,98 +40,96 @@ Install required packages
 
 Add packages:
 
-::
+.. code-block:: shell
 
-    sudo yum install git autoconf automake libtool make gawk \
+   sudo yum install git autoconf automake libtool make gawk \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
       json-c-devel pam-devel flex epel-release perl-XML-LibXML \
       c-ares-devel
 
-Install newer version of bison (CentOS 6 package source is too old) from
-CentOS 7
+Install newer version of bison (CentOS 6 package source is too old) from CentOS
+7:
 
-::
+.. code-block:: shell
 
-    sudo yum install rpm-build
-    curl -O http://vault.centos.org/7.0.1406/os/Source/SPackages/bison-2.7-4.el7.src.rpm
-    rpmbuild --rebuild ./bison-2.7-4.el7.src.rpm
-    sudo yum install ./rpmbuild/RPMS/x86_64/bison-2.7-4.el6.x86_64.rpm
-    rm -rf rpmbuild
+   sudo yum install rpm-build
+   curl -O http://vault.centos.org/7.0.1406/os/Source/SPackages/bison-2.7-4.el7.src.rpm
+   rpmbuild --rebuild ./bison-2.7-4.el7.src.rpm
+   sudo yum install ./rpmbuild/RPMS/x86_64/bison-2.7-4.el6.x86_64.rpm
+   rm -rf rpmbuild
 
-Install newer version of autoconf and automake (Package versions are too
-old)
+Install newer version of autoconf and automake (Package versions are too old):
 
-::
+.. code-block:: shell
 
-    curl -O http://ftp.gnu.org/gnu/autoconf/autoconf-2.69.tar.gz
-    tar xvf autoconf-2.69.tar.gz
-    cd autoconf-2.69
-    ./configure --prefix=/usr
-    make
-    sudo make install
-    cd ..
+   curl -O http://ftp.gnu.org/gnu/autoconf/autoconf-2.69.tar.gz
+   tar xvf autoconf-2.69.tar.gz
+   cd autoconf-2.69
+   ./configure --prefix=/usr
+   make
+   sudo make install
+   cd ..
 
-    curl -O http://ftp.gnu.org/gnu/automake/automake-1.15.tar.gz
-    tar xvf automake-1.15.tar.gz
-    cd automake-1.15
-    ./configure --prefix=/usr
-    make
-    sudo make install
-    cd ..
+   curl -O http://ftp.gnu.org/gnu/automake/automake-1.15.tar.gz
+   tar xvf automake-1.15.tar.gz
+   cd automake-1.15
+   ./configure --prefix=/usr
+   make
+   sudo make install
+   cd ..
 
-Install ``Python 2.7`` in parallel to default 2.6. Make sure you've
-install EPEL (``epel-release`` as above). Then install current
-``python27``, ``python27-devel`` and ``pytest``
+Install ``Python 2.7`` in parallel to default 2.6. Make sure you've install
+EPEL (``epel-release`` as above). Then install current ``python27``:
+``python27-devel`` and ``pytest``
 
-::
+.. code-block:: shell
 
-    sudo rpm -ivh http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
-    sudo rpm -ivh https://centos6.iuscommunity.org/ius-release.rpm
-    sudo yum install python27 python27-pip python27-devel
-    sudo pip2.7 install pytest
+   sudo rpm -ivh http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
+   sudo rpm -ivh https://centos6.iuscommunity.org/ius-release.rpm
+   sudo yum install python27 python27-pip python27-devel
+   sudo pip2.7 install pytest
 
-Please note that ``CentOS 6`` needs to keep python pointing to version
-2.6 for ``yum`` to keep working, so don't create a symlink for python2.7
-to python
+Please note that ``CentOS 6`` needs to keep python pointing to version 2.6 for
+``yum`` to keep working, so don't create a symlink for python2.7 to python.
 
-Install newer ``Sphinx-Build`` based on ``Python 2.7``
+Install newer ``Sphinx-Build`` based on ``Python 2.7``.
 
 Create a new repo ``/etc/yum.repos.d/puias6.repo`` with the following contents:
 
 ::
 
-    ### Name: RPM Repository for RHEL 6 - PUIAS (used for Sphinx-Build)
-    ### URL: http://springdale.math.ias.edu/data/puias/computational
-    [puias-computational]
-    name = RPM Repository for RHEL 6 - Sphinx-Build
-    baseurl = http://springdale.math.ias.edu/data/puias/computational/$releasever/$basearch
-    #mirrorlist =
-    enabled = 1
-    protect = 0
-    gpgkey =
-    gpgcheck = 0
+   ### Name: RPM Repository for RHEL 6 - PUIAS (used for Sphinx-Build)
+   ### URL: http://springdale.math.ias.edu/data/puias/computational
+   [puias-computational]
+   name = RPM Repository for RHEL 6 - Sphinx-Build
+   baseurl = http://springdale.math.ias.edu/data/puias/computational/$releasever/$basearch
+   #mirrorlist =
+   enabled = 1
+   protect = 0
+   gpgkey =
+   gpgcheck = 0
 
 Update rpm database & Install newer sphinx
 
-::
+.. code-block:: shell
 
-    sudo yum update
-    sudo yum install python27-sphinx
+   sudo yum update
+   sudo yum install python27-sphinx
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 
-**This assumes you want to build and install FRR from source and not
-using any packages**
+**This assumes you want to build and install FRR from source and not using any
+packages**
 
 Add frr groups and user
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-::
+.. code-block:: shell
 
-    sudo groupadd -g 92 frr
-    sudo groupadd -r -g 85 frrvt
-    sudo useradd -u 92 -g 92 -M -r -G frrvt -s /sbin/nologin \
+   sudo groupadd -g 92 frr
+   sudo groupadd -r -g 85 frrvt
+   sudo useradd -u 92 -g 92 -M -r -G frrvt -s /sbin/nologin \
       -c "FRR FRRouting suite" -d /var/run/frr frr
 
 Download Source, configure and compile it
@@ -140,7 +138,7 @@ Download Source, configure and compile it
 (You may prefer different options on configure statement. These are just
 an example.)
 
-::
+.. code-block:: shell
 
     git clone https://github.com/frrouting/frr.git frr
     cd frr
@@ -178,32 +176,50 @@ an example.)
 Create empty FRR configuration files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-::
+.. code-block:: shell
 
-    sudo mkdir /var/log/frr
-    sudo mkdir /etc/frr
-    sudo touch /etc/frr/zebra.conf
-    sudo touch /etc/frr/bgpd.conf
-    sudo touch /etc/frr/ospfd.conf
-    sudo touch /etc/frr/ospf6d.conf
-    sudo touch /etc/frr/isisd.conf
-    sudo touch /etc/frr/ripd.conf
-    sudo touch /etc/frr/ripngd.conf
-    sudo touch /etc/frr/nhrpd.conf
-    sudo touch /etc/frr/eigrpd.conf
-    sudo touch /etc/frr/babeld.conf
-    sudo chown -R frr:frr /etc/frr/
-    sudo touch /etc/frr/vtysh.conf
-    sudo chown frr:frrvt /etc/frr/vtysh.conf
-    sudo chmod 640 /etc/frr/*.conf
+   sudo mkdir /var/log/frr
+   sudo mkdir /etc/frr
+
+For integrated config file:
+
+.. code-block:: shell
+
+   sudo touch /etc/frr/frr.conf
+
+For individual config files:
+
+.. note:: Integrated config is preferred to individual config.
+
+.. code-block:: shell
+
+   sudo touch /etc/frr/babeld.conf
+   sudo touch /etc/frr/bfdd.conf
+   sudo touch /etc/frr/bgpd.conf
+   sudo touch /etc/frr/eigrpd.conf
+   sudo touch /etc/frr/isisd.conf
+   sudo touch /etc/frr/ldpd.conf
+   sudo touch /etc/frr/nhrpd.conf
+   sudo touch /etc/frr/ospf6d.conf
+   sudo touch /etc/frr/ospfd.conf
+   sudo touch /etc/frr/pbrd.conf
+   sudo touch /etc/frr/pimd.conf
+   sudo touch /etc/frr/ripd.conf
+   sudo touch /etc/frr/ripngd.conf
+   sudo touch /etc/frr/staticd.conf
+   sudo touch /etc/frr/zebra.conf
+   sudo chown -R frr:frr /etc/frr/
+   sudo touch /etc/frr/vtysh.conf
+   sudo chown frr:frrvty /etc/frr/vtysh.conf
+   sudo chmod 640 /etc/frr/*.conf
 
 Install daemon config file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-::
+.. code-block:: shell
 
-    sudo install -p -m 644 redhat/daemons /etc/frr/
-    sudo chown frr:frr /etc/frr/daemons
+   sudo install -p -m 644 redhat/daemons /etc/frr/
+   sudo chown frr:frr /etc/frr/daemons
 
 Edit /etc/frr/daemons as needed to select the required daemons
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -214,42 +230,40 @@ Enable the daemons as required by changing the value to ``yes``
 Enable IP & IPv6 forwarding
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Edit ``/etc/sysctl.conf`` and set the following values (ignore the other
-settings)
+Edit :file:`/etc/sysctl.conf` and set the following values (ignore the other
+settings)::
 
-::
+   # Controls IP packet forwarding
+   net.ipv4.ip_forward = 1
+   net.ipv6.conf.all.forwarding=1
 
-    # Controls IP packet forwarding
-    net.ipv4.ip_forward = 1
-    net.ipv6.conf.all.forwarding=1
-
-    # Controls source route verification
-    net.ipv4.conf.default.rp_filter = 0
+   # Controls source route verification
+   net.ipv4.conf.default.rp_filter = 0
 
 Load the modifed sysctl's on the system:
 
-::
+.. code-block:: shell
 
-    sudo sysctl -p /etc/sysctl.d/90-routing-sysctl.conf
+   sudo sysctl -p /etc/sysctl.d/90-routing-sysctl.conf
 
 Add init.d startup files
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-::
+.. code-block::
 
-    sudo install -p -m 755 redhat/frr.init /etc/init.d/frr
-    sudo chkconfig --add frr
+   sudo install -p -m 755 redhat/frr.init /etc/init.d/frr
+   sudo chkconfig --add frr
 
-Enable frr daemon at startup
+Enable FRR daemon at startup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-::
+.. code-block::
 
-    sudo chkconfig frr on
+   sudo chkconfig frr on
 
 Start FRR manually (or reboot)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-::
+.. code-block::
 
-    sudo /etc/init.d/frr start
+   sudo /etc/init.d/frr start

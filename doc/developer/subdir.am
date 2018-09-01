@@ -6,23 +6,23 @@ dev_RSTFILES = \
 	doc/developer/bgp-typecodes.rst \
 	doc/developer/bgpd.rst \
 	doc/developer/building-frr-for-openwrt.rst \
-	doc/developer/building-frr-on-alpine.rst \
-	doc/developer/building-frr-on-centos6.rst \
-	doc/developer/building-frr-on-centos7.rst \
-	doc/developer/building-frr-on-debian8.rst \
-	doc/developer/building-frr-on-debian9.rst \
-	doc/developer/building-frr-on-fedora24.rst \
-	doc/developer/building-frr-on-freebsd10.rst \
-	doc/developer/building-frr-on-freebsd11.rst \
-	doc/developer/building-frr-on-freebsd9.rst \
-	doc/developer/building-frr-on-netbsd6.rst \
-	doc/developer/building-frr-on-netbsd7.rst \
-	doc/developer/building-frr-on-omnios.rst \
-	doc/developer/building-frr-on-openbsd6.rst \
-	doc/developer/building-frr-on-ubuntu1204.rst \
-	doc/developer/building-frr-on-ubuntu1404.rst \
-	doc/developer/building-frr-on-ubuntu1604.rst \
-	doc/developer/building-frr-on-ubuntu1804.rst \
+	doc/developer/building-frr-for-alpine.rst \
+	doc/developer/building-frr-for-centos6.rst \
+	doc/developer/building-frr-for-centos7.rst \
+	doc/developer/building-frr-for-debian8.rst \
+	doc/developer/building-frr-for-debian9.rst \
+	doc/developer/building-frr-for-fedora24.rst \
+	doc/developer/building-frr-for-freebsd10.rst \
+	doc/developer/building-frr-for-freebsd11.rst \
+	doc/developer/building-frr-for-freebsd9.rst \
+	doc/developer/building-frr-for-netbsd6.rst \
+	doc/developer/building-frr-for-netbsd7.rst \
+	doc/developer/building-frr-for-omnios.rst \
+	doc/developer/building-frr-for-openbsd6.rst \
+	doc/developer/building-frr-for-ubuntu1204.rst \
+	doc/developer/building-frr-for-ubuntu1404.rst \
+	doc/developer/building-frr-for-ubuntu1604.rst \
+	doc/developer/building-frr-for-ubuntu1804.rst \
 	doc/developer/building.rst \
 	doc/developer/cli.rst \
 	doc/developer/conf.py \
