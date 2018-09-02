@@ -149,10 +149,11 @@ zebra_zebra_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 zebra_zebra_snmp_la_LIBADD = lib/libfrrsnmp.la
 
 zebra_zebra_fpm_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
-zebra_zebra_fpm_la_LIBADD = $(Q_FPM_PB_CLIENT_LDOPTS)
+zebra_zebra_fpm_la_LIBADD =
 zebra_zebra_fpm_la_SOURCES = zebra/zebra_fpm.c
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_netlink.c
 if HAVE_PROTOBUF
+zebra_zebra_fpm_la_LIBADD += fpm/libfrrfpm_pb.la qpb/libfrr_pb.la $(PROTOBUF_C_LIBS)
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_protobuf.c
 if DEV_BUILD
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_dt.c
