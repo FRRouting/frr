@@ -607,27 +607,26 @@ AC_SUBST(PYTHON_LIBS)
 # Logic for protobuf support.
 #
 if test "$enable_protobuf" = "yes"; then
-   have_protobuf=yes
+  # Check for protoc & protoc-c
 
-   # Check for protoc-c
-   AC_CHECK_PROG([PROTOC_C], [protoc-c], [protoc-c], [/bin/false])
-   if test "x$PROTOC_C" = "x/bin/false"; then
-      have_protobuf=no
-   else
-      found_protobuf_c=no
-      PKG_CHECK_MODULES([PROTOBUF_C], libprotobuf-c >= 0.14,
-                     [found_protobuf_c=yes],
-                     [AC_MSG_RESULT([pkg-config did not find libprotobuf-c])])
+  # protoc is not required, it's only for a "be nice" helper target
+  AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
 
-      if test "x$found_protobuf_c" = "xyes"; then
-         LDFLAGS="$LDFLAGS $PROTOBUF_C_LIBS"
-         CFLAGS="$CFLAGS $PROTOBUF_C_CFLAGS"
-      else
-        AC_CHECK_HEADER([google/protobuf-c/protobuf-c.h], [],
-                        [have_protobuf=no; AC_MSG_RESULT([Couldn't find google/protobuf-c.h])])
-      fi
-   fi
+  AC_CHECK_PROGS([PROTOC_C], [protoc-c], [/bin/false])
+  if test "$PROTOC_C" = "/bin/false"; then
+    AC_MSG_FAILURE([protobuf requested but protoc-c not found.  Install protobuf-c.])
+  fi
+
+  PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 0.14],, [
+    AC_MSG_FAILURE([protobuf requested but libprotobuf-c not found.  Install protobuf-c.])
+  ])
+  AC_CHECK_HEADER([google/protobuf-c/protobuf-c.h], [], [
+    AC_MSG_FAILURE([protobuf requested but protobuf-c.h not found.  Install protobuf-c.])
+  ])
+
+  AC_DEFINE(HAVE_PROTOBUF,, protobuf)
 fi
+AM_CONDITIONAL([HAVE_PROTOBUF], [test "x$enable_protobuf" = "xyes"])
 
 #
 # Logic for old vpn commans support.
@@ -635,18 +634,6 @@ fi
 if test "$enable_oldvpn_commands" = "yes"; then
    AC_DEFINE(KEEP_OLD_VPN_COMMANDS,, [Define for compiling with old vpn commands])
 fi
-
-# Fail if the user explicity enabled protobuf support and we couldn't
-# find the compiler or libraries.
-if test "x$have_protobuf" = "xno" && test "x$enable_protobuf" = "xyes"; then
-   AC_MSG_ERROR([Protobuf enabled explicitly but can't find libraries/tools])
-fi
-
-if test "x$have_protobuf" = "xyes"; then
-   AC_DEFINE(HAVE_PROTOBUF,, protobuf)
-fi
-
-AM_CONDITIONAL([HAVE_PROTOBUF], [test "x$have_protobuf" = "xyes"])
 
 #
 # End of logic for protobuf support.
@@ -2042,7 +2029,7 @@ group to run as         : ${enable_group}
 group for vty sockets   : ${enable_vty_group}
 config file mask        : ${enable_configfile_mask}
 log file mask           : ${enable_logfile_mask}
-zebra protobuf enabled  : ${have_protobuf:-no}
+zebra protobuf enabled  : ${enable_protobuf:-no}
 
 The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory."
