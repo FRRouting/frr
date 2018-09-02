@@ -4,14 +4,16 @@ AUTOMAKE_OPTIONS = subdir-objects 1.12
 ACLOCAL_AMFLAGS = -I m4
 
 AM_CFLAGS = \
-	@ASAN_FLAGS@ @TSAN_FLAGS@ @MSAN_FLAGS@ \
-	$(WERROR)
+	$(SAN_FLAGS) \
+	$(WERROR) \
+	# end
 AM_CPPFLAGS = \
-	@ASAN_FLAGS@ @TSAN_FLAGS@ @MSAN_FLAGS@ \
 	-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
 	-I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib
 AM_LDFLAGS = \
-	-export-dynamic
+	-export-dynamic \
+	$(SAN_FLAGS) \
+	# end
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE)
 LIBCAP = @LIBCAP@
 

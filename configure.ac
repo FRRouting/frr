@@ -189,46 +189,6 @@ CC="${CC% -std=c99}"
 
 AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
 
-dnl AddressSanitizer support
-AC_ARG_ENABLE([address-sanitizer], AS_HELP_STRING([--enable-address-sanitizer], \
-              [enabled AddressSanitizer support for detecting a wide variety of \
-               memory allocation and deallocation errors]), \
-              [AC_DEFINE(HAVE_ADDRESS_SANITIZER, 1, [enable AddressSanitizer])
-              ASAN_FLAGS="-fsanitize=address"
-              SAN_CLIPPY_FLAGS="-fno-sanitize=all"
-              AC_SUBST([ASAN_FLAGS])
-              AC_SUBST([SAN_CLIPPY_FLAGS])
-              LIBS="-ldl $LIBS"
-              AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Address Sanitizer Enabled])],
-                                                 [AC_MSG_ERROR([Address Sanitizer not available])])
-              ])
-
-dnl ThreadSanitizer support
-AC_ARG_ENABLE([thread-sanitizer], AS_HELP_STRING([--enable-thread-sanitizer], \
-              [enabled ThreadSanitizer support for detecting data races]), \
-              [AC_DEFINE(HAVE_THREAD_SANITIZER, 1, [enable ThreadSanitizer])
-              TSAN_FLAGS="-fsanitize=thread"
-              SAN_CLIPPY_FLAGS="-fno-sanitize=all"
-              AC_SUBST([TSAN_FLAGS])
-              AC_SUBST([SAN_CLIPPY_FLAGS])
-              LIBS="-ldl $LIBS"
-              AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Thread Sanitizer Enabled])],
-                                                 [AC_MSG_ERROR([Thread Sanitizer not available])])
-              ])
-
-dnl MemorySanitizer support
-AC_ARG_ENABLE([memory-sanitizer], AS_HELP_STRING([--enable-memory-sanitizer], \
-              [enabled MemorySanitizer support for detecting uninitialized memory reads]), \
-              [AC_DEFINE(HAVE_THREAD_SANITIZER, 1, [enable MemorySanitizer])
-              MSAN_FLAGS="-fsanitize=memory -fPIE -pie"
-              SAN_CLIPPY_FLAGS="-fno-sanitize=all"
-              AC_SUBST([MSAN_FLAGS])
-              AC_SUBST([SAN_CLIPPY_FLAGS])
-              LIBS="-ldl $LIBS"
-              AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Memory Sanitizer Enabled])],
-                                                 [AC_MSG_ERROR([Memory Sanitizer not available])])
-              ])
-
 dnl if the user has specified any CFLAGS, override our settings
 if test "x${enable_gcov}" = "xyes"; then
    if test "z$orig_cflags" = "z"; then
@@ -286,6 +246,30 @@ if test x"${enable_werror}" = x"yes" ; then
   WERROR="-Werror"
 fi
 AC_SUBST(WERROR)
+
+SAN_FLAGS=""
+if test "$enable_address_sanitizer" = "yes"; then
+  AC_C_FLAG([-fsanitize=address], [
+    AC_MSG_ERROR([$CC does not support Address Sanitizer.])
+  ], [
+    SAN_FLAGS="$SAN_FLAGS -fsanitize=address"
+  ])
+fi
+if test "$enable_thread_sanitizer" = "yes"; then
+  AC_C_FLAG([-fsanitize=thread], [
+    AC_MSG_ERROR([$CC does not support Thread Sanitizer.])
+  ], [
+    SAN_FLAGS="$SAN_FLAGS -fsanitize=thread"
+  ])
+fi
+if test "$enable_memory_sanitizer" = "yes"; then
+  AC_C_FLAG([-fsanitize=thread -fPIE -pie], [
+    AC_MSG_ERROR([$CC does not support Thread Sanitizer.])
+  ], [
+    SAN_FLAGS="-fsanitize=memory -fPIE -pie"
+  ])
+fi
+AC_SUBST([SAN_FLAGS])
 
 dnl ----------
 dnl Essentials
@@ -444,6 +428,12 @@ AC_ARG_ENABLE([gcov],
   AS_HELP_STRING([--enable-gcov], [Add code coverage information]))
 AC_ARG_ENABLE(bfdd,
   AS_HELP_STRING([--disable-bfdd], [do not build bfdd]))
+AC_ARG_ENABLE([address-sanitizer],
+  AS_HELP_STRING([--enable-address-sanitizer], [enable AddressSanitizer support for detecting a wide variety of memory allocation and deallocation errors]))
+AC_ARG_ENABLE([thread-sanitizer],
+  AS_HELP_STRING([--enable-thread-sanitizer], [enable ThreadSanitizer support for detecting data races]))
+AC_ARG_ENABLE([memory-sanitizer],
+  AS_HELP_STRING([--enable-memory-sanitizer], [enable MemorySanitizer support for detecting uninitialized memory reads]))
 
 AS_IF([test "${enable_clippy_only}" != "yes"], [
 AC_CHECK_HEADERS(json-c/json.h)
@@ -2017,9 +2007,9 @@ FRR version             : ${PACKAGE_VERSION}
 host operating system   : ${host_os}
 source code location    : ${srcdir}
 compiler                : ${CC}
-compiler flags          : ${CFLAGS}
+compiler flags          : ${CFLAGS} ${SAN_FLAGS}
 make                    : ${MAKE-make}
-linker flags            : ${LDFLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
+linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
 state file directory    : ${frr_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
 example directory       : `eval echo \`echo ${exampledir}\``
