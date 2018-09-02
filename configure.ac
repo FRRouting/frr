@@ -287,20 +287,6 @@ if test x"${enable_werror}" = x"yes" ; then
 fi
 AC_SUBST(WERROR)
 
-dnl need link on this one, not compile
-AC_LANG_PUSH(C)
-ac_ld_flag_save="$LDFLAGS"
-LDFLAGS="$LDFLAGS -rdynamic"
-AC_MSG_CHECKING([[whether linker supports -rdynamic]])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[]])],
-	[AC_MSG_RESULT([yes])],
-	[
-		LDFLAGS="$ac_ld_flag_save"
-		AC_MSG_RESULT([no])
-	])
-AC_LANG_POP(C)
-
 dnl ----------
 dnl Essentials
 dnl ----------
