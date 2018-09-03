@@ -99,8 +99,8 @@ int ospf_if_get_output_cost(struct ospf_interface *oi)
 		cost = (uint32_t)((double)refbw / (double)bw + (double)0.5);
 		if (cost < 1)
 			cost = 1;
-		else if (cost > 65535)
-			cost = 65535;
+		else if (cost > UINT32_MAX)
+			cost = UINT32_MAX;
 	}
 
 	return cost;

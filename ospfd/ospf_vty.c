@@ -2511,12 +2511,12 @@ DEFUN (no_ospf_refresh_timer,
 }
 
 
-DEFUN (ospf_auto_cost_reference_bandwidth,
-       ospf_auto_cost_reference_bandwidth_cmd,
-       "auto-cost reference-bandwidth (1-4294967)",
-       "Calculate OSPF interface cost according to bandwidth\n"
-       "Use reference bandwidth method to assign OSPF cost\n"
-       "The reference bandwidth in terms of Mbits per second\n")
+DEFUN(ospf_auto_cost_reference_bandwidth,
+      ospf_auto_cost_reference_bandwidth_cmd,
+      "auto-cost reference-bandwidth (1-4294967295)",
+      "Calculate OSPF interface cost according to bandwidth\n"
+      "Use reference bandwidth method to assign OSPF cost\n"
+      "The reference bandwidth in terms of Mbits per second\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
@@ -2525,7 +2525,7 @@ DEFUN (ospf_auto_cost_reference_bandwidth,
 	struct interface *ifp;
 
 	refbw = strtol(argv[idx_number]->arg, NULL, 10);
-	if (refbw < 1 || refbw > 4294967) {
+	if (refbw < 1 || refbw > UINT32_MAX) {
 		vty_out(vty, "reference-bandwidth value is invalid\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -2541,13 +2541,13 @@ DEFUN (ospf_auto_cost_reference_bandwidth,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ospf_auto_cost_reference_bandwidth,
-       no_ospf_auto_cost_reference_bandwidth_cmd,
-       "no auto-cost reference-bandwidth [(1-4294967)]",
-       NO_STR
-       "Calculate OSPF interface cost according to bandwidth\n"
-       "Use reference bandwidth method to assign OSPF cost\n"
-       "The reference bandwidth in terms of Mbits per second\n")
+DEFUN(no_ospf_auto_cost_reference_bandwidth,
+      no_ospf_auto_cost_reference_bandwidth_cmd,
+      "no auto-cost reference-bandwidth [(1-4294967295)]",
+      NO_STR
+      "Calculate OSPF interface cost according to bandwidth\n"
+      "Use reference bandwidth method to assign OSPF cost\n"
+      "The reference bandwidth in terms of Mbits per second\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
