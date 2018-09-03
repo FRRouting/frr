@@ -1,4 +1,4 @@
-Contributing to OPNsense
+Contributing to FRRouting
 ========================
 
 Thanks for considering a pull request or issue report.  Below are a
@@ -14,9 +14,8 @@ as there may be workarounds or ideas available.
 
 When creating bug reports, please make sure you provide the following:
 
-* The current OPNsense version where the bug first appeared
-* The last OPNsense version where the bug did not exist
-* The exact URL of the GUI page involved (if any)
+* The current FRRouting version where the bug first appeared
+* The last FRRouting version where the bug did not exist
 * A list of steps to replicate the bug
 
 All issues reported will have to be triaged and prioritised.  As we
@@ -26,12 +25,7 @@ but reporting an issue may help others to fill in.
 Feature requests that are in line with project goals will eventually
 be added to our roadmap:
 
-https://opnsense.org/about/road-map/
-
-Feature requests beyond the scope of OPNsense may still be provided
-using the plugin framework:
-
-https://github.com/opnsense/plugins/issues
+https://github.com/FRRouting/frr/wiki/Feature-Requests
 
 Stale issues are timed out after several months of inactivity.
 
