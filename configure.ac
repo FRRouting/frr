@@ -815,6 +815,10 @@ int main(int argc, char **argv) {
   ])
 ])
 
+AC_CHECK_HEADERS([pthread_np.h],,, [
+#include <pthread.h>
+])
+
 dnl Utility macro to avoid retyping includes all the time
 m4_define([FRR_INCLUDES],
 [#ifdef SUNOS_5
@@ -1784,12 +1788,15 @@ dnl order to check no alternative allocator
 dnl has been specified, which might not provide
 dnl mallinfo, e.g. such as Umem on Solaris.
 dnl -----------------------------------------
-AC_CHECK_HEADERS([malloc.h malloc/malloc.h],,, [FRR_INCLUDES])
+AC_CHECK_HEADERS([malloc.h malloc_np.h malloc/malloc.h],,, [FRR_INCLUDES])
 
 AC_CACHE_CHECK([whether mallinfo is available], [frr_cv_mallinfo], [
   AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES [
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
+#endif
+#ifdef HAVE_MALLOC_NP_H
+#include <malloc_np.h>
 #endif
 #ifdef HAVE_MALLOC_MALLOC_H
 #include <malloc/malloc.h>
