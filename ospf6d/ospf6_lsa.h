@@ -137,21 +137,14 @@ struct ospf6_lsa {
 #define OSPF6_LSA_SEQWRAPPED 0x20
 
 struct ospf6_lsa_handler {
-	const struct {
-		uint16_t type; /* host byte order */
-		const char *name;
-		const char *short_name;
-		int (*show)(struct vty *, struct ospf6_lsa *);
-		char *(*get_prefix_str)(struct ospf6_lsa *, char *buf,
-					int buflen, int pos);
-	} s;
-#define lh_type       s.type
-#define lh_name       s.name
-#define lh_short_name s.short_name
-#define lh_show       s.show
-#define lh_get_prefix_str s.get_prefix_str
-	uint8_t debug;
-#define lh_debug debug
+	uint16_t lh_type; /* host byte order */
+	const char *lh_name;
+	const char *lh_short_name;
+	int (*lh_show)(struct vty *, struct ospf6_lsa *);
+	char *(*lh_get_prefix_str)(struct ospf6_lsa *, char *buf,
+				   int buflen, int pos);
+
+	uint8_t lh_debug;
 };
 
 #define OSPF6_LSA_IS_KNOWN(t)                                                  \
