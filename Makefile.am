@@ -84,8 +84,6 @@ nodist_pkginclude_HEADERS =
 dist_examples_DATA =
 man_MANS =
 
-README: README.md
-
 ## libtool, the self-made GNU scourge
 ## ... this should fix relinking
 ## ... and AUTOMAKE_DUMMY is needed to prevent automake from treating this
