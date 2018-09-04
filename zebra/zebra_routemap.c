@@ -1761,10 +1761,10 @@ void zebra_route_map_init()
     install_element(VRF_NODE, &ipv6_protocol_vrf_cmd);
 	install_element(VIEW_NODE, &show_ipv6_protocol_cmd);
 	install_element(CONFIG_NODE, &ip_protocol_nht_rmap_cmd);
-    install_element(CONFIG_NODE, &ip_protocol_nht_rmap_vrf_cmd);
+    install_element(VRF_NODE, &ip_protocol_nht_rmap_vrf_cmd);
 	install_element(VIEW_NODE, &show_ip_protocol_nht_cmd);
 	install_element(CONFIG_NODE, &ipv6_protocol_nht_rmap_cmd);
-    install_element(CONFIG_NODE, &ipv6_protocol_nht_rmap_vrf_cmd);
+    install_element(VRF_NODE, &ipv6_protocol_nht_rmap_vrf_cmd);
 	install_element(VIEW_NODE, &show_ipv6_protocol_nht_cmd);
 	install_element(CONFIG_NODE, &zebra_route_map_timer_cmd);
 	install_element(CONFIG_NODE, &no_zebra_route_map_timer_cmd);
