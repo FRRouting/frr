@@ -83,7 +83,7 @@ void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf)
 {
 }
 
-void zebra_vxlan_print_evpn(struct vty *vty, uint8_t uj)
+void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 {
 }
 

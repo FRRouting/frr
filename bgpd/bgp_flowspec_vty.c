@@ -365,9 +365,8 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 
 int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 			    struct bgp_table *table, enum bgp_show_type type,
-			    void *output_arg, uint8_t use_json,
-			    int is_last, unsigned long *output_cum,
-			    unsigned long *total_cum)
+			    void *output_arg, bool use_json, int is_last,
+			    unsigned long *output_cum, unsigned long *total_cum)
 {
 	struct bgp_info *ri;
 	struct bgp_node *rn;
@@ -527,13 +526,11 @@ DEFUN (bgp_fs_local_install_ifname,
 	return bgp_fs_local_install_interface(bgp, no, ifname);
 }
 
-extern int bgp_flowspec_display_match_per_ip(afi_t afi,
-			struct bgp_table *rib,
-			struct prefix *match,
-			int prefix_check,
-			struct vty *vty,
-			uint8_t use_json,
-			json_object *json_paths)
+extern int bgp_flowspec_display_match_per_ip(afi_t afi, struct bgp_table *rib,
+					     struct prefix *match,
+					     int prefix_check, struct vty *vty,
+					     bool use_json,
+					     json_object *json_paths)
 {
 	struct bgp_node *rn;
 	struct prefix *prefix;
