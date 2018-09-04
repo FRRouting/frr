@@ -1442,46 +1442,6 @@ static void zebra_rib_table_rm_update(const char *rmap)
             }
         }
     }
-
-#if 0
-	for (i = 0; i <= ZEBRA_ROUTE_MAX; i++) {
-	/* Check for ip routemap table */
-
-		rmap_name = proto_rm[AFI_IP][i];
-		if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
-			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("%s : AFI_IP rmap %s, route type %s",
-				__func__, rmap, zebra_route_string(i));
-			/* There is single rib table for all protocols */
-			if (afi_ip == 0) {
-				table = zebra_vrf_table(AFI_IP, SAFI_UNICAST,
-						VRF_DEFAULT);
-				if (table) {
-					afi_ip = 1;
-					rib_update_table(table,
-						RIB_UPDATE_RMAP_CHANGE);
-				}
-			}
-		}
-
-		/* Check for ipv6 routemap table */
-		rmap_name = proto_rm[AFI_IP6][i];
-		if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
-			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("%s : AFI_IP6 rmap %s,route type %s",
-				__func__, rmap, zebra_route_string(i));
-			if (afi_ipv6 == 0) {
-				table = zebra_vrf_table(AFI_IP6, SAFI_UNICAST,
-						VRF_DEFAULT);
-				if (table) {
-					afi_ipv6 = 1;
-					rib_update_table(table,
-						RIB_UPDATE_RMAP_CHANGE);
-				}
-			}
-		}
-	}
-#endif
 }
 
 /* The function checks if the changed routemap specified by parameter rmap
