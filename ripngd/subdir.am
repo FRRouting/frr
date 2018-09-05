@@ -12,7 +12,7 @@ vtysh_scan += \
 	$(top_srcdir)/ripngd/ripng_zebra.c \
 	$(top_srcdir)/ripngd/ripngd.c \
 	# end
-rstman8_DATA += $(MANBUILD)/ripngd.8
+man8 += $(MANBUILD)/ripngd.8
 endif
 
 ripngd_libripng_a_SOURCES = \

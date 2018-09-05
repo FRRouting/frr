@@ -1300,8 +1300,13 @@ FRR_INCLUDES
 ])dnl
 
 dnl disable doc check
-AC_CHECK_PROGS([SPHINXBUILD], [sphinx-build sphinx-build3 sphinx-build2], [no])
-AM_CONDITIONAL(DOC, test "${enable_doc}" != "no")
+AC_CHECK_PROGS([SPHINXBUILD], [sphinx-build sphinx-build3 sphinx-build2], [/bin/false])
+if test "$SPHINXBUILD" = "/bin/false"; then
+  if test "${enable_doc}" = "yes"; then
+    AC_MSG_ERROR([Documentation was explicitly requested with --enable-doc but sphinx-build is not available. Please disable docs or install sphinx.])
+  fi
+fi
+AM_CONDITIONAL(DOC, test "${enable_doc}" != "no" -a "$SPHINXBUILD" != "/bin/false")
 AM_CONDITIONAL(DOC_HTML, test "${enable_doc_html}" = "yes")
 
 dnl --------------------
@@ -2025,6 +2030,6 @@ The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory."
 
 if test "${enable_doc}" != "no";then
-  AS_IF([test "x$SPHINXBUILD" = xno],
+  AS_IF([test "$SPHINXBUILD" = /bin/false],
      AC_MSG_WARN(sphinx-build is missing but required to build documentation))
 fi

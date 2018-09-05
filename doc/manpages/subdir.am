@@ -46,10 +46,16 @@ rstman8dir = $(mandir)/man8
 rstman1_DATA =
 rstman8_DATA =
 
-rstman1_DATA += $(MANBUILD)/frr.1
+if DOC
+rstman1_DATA += $(man1)
+rstman8_DATA += $(man8)
+endif # DOC
+
+man1 = $(MANBUILD)/frr.1
+man8 =
 
 # dependency
-$(rstman8_DATA) $(rstman1_DATA): $(MANBUILD)/man.stamp
+$(man8) $(man1): $(MANBUILD)/man.stamp
 
 #
 # hook-ins for clean / doc

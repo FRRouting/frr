@@ -13,7 +13,7 @@ vtysh_scan += \
 	$(top_srcdir)/isisd/isis_vty.c \
 	$(top_srcdir)/isisd/isisd.c \
 	# end
-rstman8_DATA += $(MANBUILD)/isisd.8
+man8 += $(MANBUILD)/isisd.8
 endif
 
 isisd_libisis_a_SOURCES = \

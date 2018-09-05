@@ -17,7 +17,7 @@ vtysh_scan += \
 if SNMP
 module_LTLIBRARIES += ripd/ripd_snmp.la
 endif
-rstman8_DATA += $(MANBUILD)/ripd.8
+man8 += $(MANBUILD)/ripd.8
 endif
 
 ripd_librip_a_SOURCES = \
