@@ -7,7 +7,7 @@ noinst_LIBRARIES += bfdd/libbfd.a
 sbin_PROGRAMS += bfdd/bfdd
 dist_examples_DATA += bfdd/bfdd.conf.sample
 vtysh_scan += $(top_srcdir)/bfdd/bfdd_vty.c
-rstman8_DATA += $(MANBUILD)/bfdd.8
+man8 += $(MANBUILD)/bfdd.8
 endif
 
 bfdd_libbfd_a_SOURCES = \

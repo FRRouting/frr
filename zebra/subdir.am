@@ -32,7 +32,7 @@ if FPM
 module_LTLIBRARIES += zebra/zebra_fpm.la
 endif
 
-rstman8_DATA += $(MANBUILD)/zebra.8
+man8 += $(MANBUILD)/zebra.8
 ## endif ZEBRA
 endif
 

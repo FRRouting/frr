@@ -11,7 +11,7 @@ vtysh_scan += \
 	$(top_srcdir)/eigrpd/eigrp_vty.c \
 	# end
 #	$(top_srcdir)/eigrpd/eigrp_routemap.c
-rstman8_DATA += $(MANBUILD)/eigrpd.8
+man8 += $(MANBUILD)/eigrpd.8
 endif
 
 eigrpd_libeigrp_a_SOURCES = \

@@ -42,7 +42,7 @@ endif
 if RPKI
 module_LTLIBRARIES += bgpd/bgpd_rpki.la
 endif
-rstman8_DATA += $(MANBUILD)/bgpd.8
+man8 += $(MANBUILD)/bgpd.8
 endif
 
 bgpd_libbgp_a_SOURCES = \
