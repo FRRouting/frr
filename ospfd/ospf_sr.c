@@ -2311,7 +2311,7 @@ DEFUN (show_ip_opsf_srdb,
 	int idx = 0;
 	struct in_addr rid;
 	struct sr_node *srn;
-	uint8_t uj = use_json(argc, argv);
+	bool uj = use_json(argc, argv);
 	json_object *json = NULL, *json_node_array = NULL;
 
 	if (!OspfSR.enabled) {

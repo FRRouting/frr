@@ -432,7 +432,7 @@ static void pim_show_membership_helper(struct vty *vty,
 	json_object_object_add(json_iface, ch_grp_str, json_row);
 }
 static void pim_show_membership(struct pim_instance *pim, struct vty *vty,
-				uint8_t uj)
+				bool uj)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
@@ -549,7 +549,7 @@ static void pim_print_ifp_flags(struct vty *vty, struct interface *ifp,
 }
 
 static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
-				 uint8_t uj)
+				 bool uj)
 {
 	struct interface *ifp;
 	time_t now;
@@ -634,7 +634,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 
 static void igmp_show_interfaces_single(struct pim_instance *pim,
 					struct vty *vty, const char *ifname,
-					uint8_t uj)
+					bool uj)
 {
 	struct igmp_sock *igmp;
 	struct interface *ifp;
@@ -894,7 +894,7 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty)
 
 static void pim_show_interfaces_single(struct pim_instance *pim,
 				       struct vty *vty, const char *ifname,
-				       uint8_t uj)
+				       bool uj)
 {
 	struct in_addr ifaddr;
 	struct interface *ifp;
@@ -1295,7 +1295,7 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 }
 
 static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
-				 const char *ifname, uint8_t uj)
+				 const char *ifname, bool uj)
 {
 	struct interface *ifp;
 	struct igmp_stats rx_stats;
@@ -1365,7 +1365,7 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 }
 
 static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
-				uint8_t uj)
+				bool uj)
 {
 	struct interface *ifp;
 	struct listnode *upnode;
@@ -1458,7 +1458,7 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 }
 
 static void pim_show_interface_traffic(struct pim_instance *pim,
-				       struct vty *vty, uint8_t uj)
+				       struct vty *vty, bool uj)
 {
 	struct interface *ifp = NULL;
 	struct pim_interface *pim_ifp = NULL;
@@ -1538,7 +1538,7 @@ static void pim_show_interface_traffic(struct pim_instance *pim,
 
 static void pim_show_interface_traffic_single(struct pim_instance *pim,
 					      struct vty *vty,
-					      const char *ifname, uint8_t uj)
+					      const char *ifname, bool uj)
 {
 	struct interface *ifp = NULL;
 	struct pim_interface *pim_ifp = NULL;
@@ -1627,7 +1627,7 @@ static void pim_show_interface_traffic_single(struct pim_instance *pim,
 
 static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 				 struct pim_ifchannel *ch, json_object *json,
-				 time_t now, uint8_t uj)
+				 time_t now, bool uj)
 {
 	char ch_src_str[INET_ADDRSTRLEN];
 	char ch_grp_str[INET_ADDRSTRLEN];
@@ -1690,7 +1690,7 @@ static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 	}
 }
 
-static void pim_show_join(struct pim_instance *pim, struct vty *vty, uint8_t uj)
+static void pim_show_join(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
@@ -1724,7 +1724,7 @@ static void pim_show_join(struct pim_instance *pim, struct vty *vty, uint8_t uj)
 }
 
 static void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
-				      const char *neighbor, uint8_t uj)
+				      const char *neighbor, bool uj)
 {
 	struct listnode *neighnode;
 	struct interface *ifp;
@@ -1933,8 +1933,7 @@ static void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
 }
 
 static void pim_show_state(struct pim_instance *pim, struct vty *vty,
-			   const char *src_or_group, const char *group,
-			   uint8_t uj)
+			   const char *src_or_group, const char *group, bool uj)
 {
 	struct channel_oil *c_oil;
 	struct listnode *node;
@@ -2135,7 +2134,7 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 }
 
 static void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
-			       uint8_t uj)
+			       bool uj)
 {
 	struct listnode *neighnode;
 	struct interface *ifp;
@@ -2331,7 +2330,7 @@ static const char *pim_reg_state2brief_str(enum pim_reg_state reg_state,
 }
 
 static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
-			      uint8_t uj)
+			      bool uj)
 {
 	struct listnode *upnode;
 	struct pim_upstream *up;
@@ -2476,7 +2475,7 @@ static void pim_show_join_desired_helper(struct pim_instance *pim,
 					 struct vty *vty,
 					 struct pim_interface *pim_ifp,
 					 struct pim_ifchannel *ch,
-					 json_object *json, uint8_t uj)
+					 json_object *json, bool uj)
 {
 	struct pim_upstream *up = ch->upstream;
 	json_object *json_group = NULL;
@@ -2532,7 +2531,7 @@ static void pim_show_join_desired_helper(struct pim_instance *pim,
 }
 
 static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
-				  uint8_t uj)
+				  bool uj)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
@@ -2568,7 +2567,7 @@ static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 }
 
 static void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty,
-				  uint8_t uj)
+				  bool uj)
 {
 	struct listnode *upnode;
 	struct pim_upstream *up;
@@ -2701,7 +2700,7 @@ static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
 		uptime_mroute_del, (long long)pim->mroute_del_events);
 }
 
-static void pim_show_rpf(struct pim_instance *pim, struct vty *vty, uint8_t uj)
+static void pim_show_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct listnode *up_node;
 	struct pim_upstream *up;
@@ -2821,8 +2820,7 @@ static void pim_show_nexthop(struct pim_instance *pim, struct vty *vty)
 	hash_walk(pim->rpf_hash, pim_print_pnc_cache_walkcb, &cwd);
 }
 
-static void igmp_show_groups(struct pim_instance *pim, struct vty *vty,
-			     uint8_t uj)
+static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct interface *ifp;
 	time_t now;
@@ -4496,7 +4494,7 @@ DEFUN (show_ip_multicast_vrf_all,
 }
 
 static void show_mroute(struct pim_instance *pim, struct vty *vty, bool fill,
-			uint8_t uj)
+			bool uj)
 {
 	struct listnode *node;
 	struct channel_oil *c_oil;
@@ -5549,7 +5547,7 @@ DEFUN (no_ip_pim_ssm_prefix_list_name,
 }
 
 static void ip_pim_ssm_show_group_range(struct pim_instance *pim,
-					struct vty *vty, uint8_t uj)
+					struct vty *vty, bool uj)
 {
 	struct pim_ssm *ssm = pim->ssm_info;
 	const char *range_str =
@@ -5589,7 +5587,7 @@ DEFUN (show_ip_pim_ssm_range,
 }
 
 static void ip_pim_ssm_show_group_type(struct pim_instance *pim,
-				       struct vty *vty, uint8_t uj,
+				       struct vty *vty, bool uj,
 				       const char *group)
 {
 	struct in_addr group_addr;
@@ -7908,7 +7906,7 @@ static void print_empty_json_obj(struct vty *vty)
 }
 
 static void ip_msdp_show_mesh_group(struct pim_instance *pim, struct vty *vty,
-				    uint8_t uj)
+				    bool uj)
 {
 	struct listnode *mbrnode;
 	struct pim_msdp_mg_mbr *mbr;
@@ -8030,7 +8028,7 @@ DEFUN (show_ip_msdp_mesh_group_vrf_all,
 }
 
 static void ip_msdp_show_peers(struct pim_instance *pim, struct vty *vty,
-			       uint8_t uj)
+			       bool uj)
 {
 	struct listnode *mpnode;
 	struct pim_msdp_peer *mp;
@@ -8084,7 +8082,7 @@ static void ip_msdp_show_peers(struct pim_instance *pim, struct vty *vty,
 }
 
 static void ip_msdp_show_peers_detail(struct pim_instance *pim, struct vty *vty,
-				      const char *peer, uint8_t uj)
+				      const char *peer, bool uj)
 {
 	struct listnode *mpnode;
 	struct pim_msdp_peer *mp;
@@ -8262,8 +8260,7 @@ DEFUN (show_ip_msdp_peer_detail_vrf_all,
 	return CMD_SUCCESS;
 }
 
-static void ip_msdp_show_sa(struct pim_instance *pim, struct vty *vty,
-			    uint8_t uj)
+static void ip_msdp_show_sa(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct listnode *sanode;
 	struct pim_msdp_sa *sa;
@@ -8340,7 +8337,7 @@ static void ip_msdp_show_sa(struct pim_instance *pim, struct vty *vty,
 static void ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa,
 					 const char *src_str,
 					 const char *grp_str, struct vty *vty,
-					 uint8_t uj, json_object *json)
+					 bool uj, json_object *json)
 {
 	char rp_str[INET_ADDRSTRLEN];
 	char peer_str[INET_ADDRSTRLEN];
@@ -8404,7 +8401,7 @@ static void ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa,
 }
 
 static void ip_msdp_show_sa_detail(struct pim_instance *pim, struct vty *vty,
-				   uint8_t uj)
+				   bool uj)
 {
 	struct listnode *sanode;
 	struct pim_msdp_sa *sa;
@@ -8487,7 +8484,7 @@ DEFUN (show_ip_msdp_sa_detail_vrf_all,
 }
 
 static void ip_msdp_show_sa_addr(struct pim_instance *pim, struct vty *vty,
-				 const char *addr, uint8_t uj)
+				 const char *addr, bool uj)
 {
 	struct listnode *sanode;
 	struct pim_msdp_sa *sa;
@@ -8516,7 +8513,7 @@ static void ip_msdp_show_sa_addr(struct pim_instance *pim, struct vty *vty,
 }
 
 static void ip_msdp_show_sa_sg(struct pim_instance *pim, struct vty *vty,
-			       const char *src, const char *grp, uint8_t uj)
+			       const char *src, const char *grp, bool uj)
 {
 	struct listnode *sanode;
 	struct pim_msdp_sa *sa;
