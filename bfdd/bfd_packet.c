@@ -186,8 +186,8 @@ static int ptm_bfd_process_echo_pkt(int s)
 	}
 
 	if (!BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE)) {
-		log_debug("echo-packet: echo disabled [%s]", my_discr,
-			  bs_to_string(bfd));
+		log_debug("echo-packet: echo disabled [%s] (id:%u)",
+			  bs_to_string(bfd), my_discr);
 		return -1;
 	}
 
