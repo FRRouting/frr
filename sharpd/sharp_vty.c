@@ -81,13 +81,14 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 
 DEFPY (install_routes,
        install_routes_cmd,
-       "sharp install routes A.B.C.D$start nexthop A.B.C.D$nexthop (1-1000000)$routes [instance (0-255)$instance]",
+       "sharp install routes A.B.C.D$start nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6> (1-1000000)$routes [instance (0-255)$instance]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
        "Address to start /32 generation at\n"
-       "Nexthop to use\n"
-       "Nexthop address\n"
+       "Nexthop to use(Can be an IPv4 or IPv6 address)\n"
+       "V4 Nexthop address to use\n"
+       "V6 Nexthop address to use\n"
        "How many to create\n"
        "Instance to use\n"
        "Instance\n")
@@ -107,8 +108,13 @@ DEFPY (install_routes,
 	p.prefixlen = 32;
 	p.u.prefix4 = start;
 
-	nhop.gate.ipv4 = nexthop;
-	nhop.type = NEXTHOP_TYPE_IPV4;
+	if (nexthop4.s_addr != INADDR_ANY) {
+		nhop.gate.ipv4 = nexthop4;
+		nhop.type = NEXTHOP_TYPE_IPV4;
+	} else {
+		memcpy(&nhop.gate.ipv6, &nexthop6, IPV6_MAX_BYTELEN);
+		nhop.type = NEXTHOP_TYPE_IPV6;
+	}
 
 	zlog_debug("Inserting %ld routes", routes);
 

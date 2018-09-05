@@ -193,7 +193,7 @@ void route_add(struct prefix *p, uint8_t instance, struct nexthop *nh)
 
 	api_nh = &api.nexthops[0];
 	api_nh->vrf_id = VRF_DEFAULT;
-	api_nh->gate.ipv4 = nh->gate.ipv4;
+	api_nh->gate = nh->gate;
 	api_nh->type = nh->type;
 	api_nh->ifindex = nh->ifindex;
 	api.nexthop_num = 1;
