@@ -8201,6 +8201,8 @@ DEFUN (no_ospf_redistribute_source,
 		return CMD_SUCCESS;
 
 	ospf_routemap_unset(red);
+	ospf_redist_del(ospf, source, 0);
+
 	return ospf_redistribute_unset(ospf, source, 0);
 }
 
@@ -8315,6 +8317,8 @@ DEFUN (no_ospf_redistribute_instance_source,
 		return CMD_SUCCESS;
 
 	ospf_routemap_unset(red);
+	ospf_redist_del(ospf, source, instance);
+
 	return ospf_redistribute_unset(ospf, source, instance);
 }
 
@@ -8447,6 +8451,8 @@ DEFUN (no_ospf_default_information_originate,
 		return CMD_SUCCESS;
 
 	ospf_routemap_unset(red);
+	ospf_redist_del(ospf, DEFAULT_ROUTE, 0);
+
 	return ospf_redistribute_default_unset(ospf);
 }
 
