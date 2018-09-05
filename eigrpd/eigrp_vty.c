@@ -1090,7 +1090,7 @@ DEFUN (eigrp_redistribute_source_metric,
 DEFUN (no_eigrp_redistribute_source_metric,
        no_eigrp_redistribute_source_metric_cmd,
        "no redistribute " FRR_REDIST_STR_EIGRPD
-       " metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)",
+       " [metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)]",
        "Disable\n"
        REDIST_STR
        FRR_REDIST_HELP_STR_EIGRPD
