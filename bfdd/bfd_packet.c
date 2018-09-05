@@ -420,27 +420,27 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 static void bfd_sd_reschedule(int sd)
 {
 	if (sd == bglobal.bg_shop) {
-		bglobal.bg_ev[0] = NULL;
+		THREAD_OFF(bglobal.bg_ev[0]);
 		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_shop,
 				&bglobal.bg_ev[0]);
 	} else if (sd == bglobal.bg_mhop) {
-		bglobal.bg_ev[1] = NULL;
+		THREAD_OFF(bglobal.bg_ev[1]);
 		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_mhop,
 				&bglobal.bg_ev[1]);
 	} else if (sd == bglobal.bg_shop6) {
-		bglobal.bg_ev[2] = NULL;
+		THREAD_OFF(bglobal.bg_ev[2]);
 		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_shop6,
 				&bglobal.bg_ev[2]);
 	} else if (sd == bglobal.bg_mhop6) {
-		bglobal.bg_ev[3] = NULL;
+		THREAD_OFF(bglobal.bg_ev[3]);
 		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_mhop6,
 				&bglobal.bg_ev[3]);
 	} else if (sd == bglobal.bg_echo) {
-		bglobal.bg_ev[4] = NULL;
+		THREAD_OFF(bglobal.bg_ev[4]);
 		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_echo,
 				&bglobal.bg_ev[4]);
 	} else if (sd == bglobal.bg_echov6) {
-		bglobal.bg_ev[5] = NULL;
+		THREAD_OFF(bglobal.bg_ev[5]);
 		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_echov6,
 				&bglobal.bg_ev[5]);
 	}
