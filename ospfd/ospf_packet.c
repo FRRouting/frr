@@ -2958,7 +2958,7 @@ int ospf_read(struct thread *thread)
 	   purposes and must remain very accurate in doing this. */
 
 	/* If incoming interface is passive one, ignore it. */
-	if (oi && OSPF_IF_PASSIVE_STATUS(oi) == OSPF_IF_PASSIVE) {
+	if (oi && oi->passive_interface == OSPF_IF_PASSIVE) {
 		char buf[3][INET_ADDRSTRLEN];
 
 		if (IS_DEBUG_OSPF_EVENT)
@@ -3565,7 +3565,7 @@ static void ospf_poll_send(struct ospf_nbr_nbma *nbr_nbma)
 	assert(oi);
 
 	/* If this is passive interface, do not send OSPF Hello. */
-	if (OSPF_IF_PASSIVE_STATUS(oi) == OSPF_IF_PASSIVE)
+	if (oi->passive_interface == OSPF_IF_PASSIVE)
 		return;
 
 	if (oi->type != OSPF_IFTYPE_NBMA)
@@ -3627,7 +3627,7 @@ int ospf_hello_reply_timer(struct thread *thread)
 void ospf_hello_send(struct ospf_interface *oi)
 {
 	/* If this is passive interface, do not send OSPF Hello. */
-	if (OSPF_IF_PASSIVE_STATUS(oi) == OSPF_IF_PASSIVE)
+	if (oi->passive_interface == OSPF_IF_PASSIVE)
 		return;
 
 	if (oi->type == OSPF_IFTYPE_NBMA) {

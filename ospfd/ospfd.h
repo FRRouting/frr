@@ -511,6 +511,7 @@ extern void ospf_finish(struct ospf *);
 extern void ospf_router_id_update(struct ospf *ospf);
 extern int ospf_network_set(struct ospf *, struct prefix_ipv4 *, struct in_addr,
 			    int);
+extern void ospf_network_free(struct ospf *ospf, struct ospf_network *network);
 extern int ospf_network_unset(struct ospf *, struct prefix_ipv4 *,
 			      struct in_addr);
 extern int ospf_area_display_format_set(struct ospf *, struct ospf_area *area,
@@ -543,6 +544,7 @@ extern int ospf_nbr_nbma_poll_interval_unset(struct ospf *, struct in_addr);
 extern void ospf_prefix_list_update(struct prefix_list *);
 extern void ospf_init(void);
 extern void ospf_if_update(struct ospf *, struct interface *);
+extern void ospf_passive_if_update(struct ospf *ospf, struct interface *ifp);
 extern void ospf_ls_upd_queue_empty(struct ospf_interface *);
 extern void ospf_terminate(void);
 extern void ospf_nbr_nbma_if_update(struct ospf *, struct ospf_interface *);

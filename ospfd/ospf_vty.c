@@ -377,65 +377,173 @@ DEFPY (no_ospf_router_id,
 }
 
 
-static void ospf_passive_interface_default(struct ospf *ospf, uint8_t newval)
+static void ospf_passive_interface_set(struct ospf *ospf,
+				       struct interface *ifp, int create)
 {
-	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
-	struct listnode *ln;
-	struct interface *ifp;
+	struct listnode *cnode;
+	struct connected *co;
+	struct route_node *rn;
 	struct ospf_interface *oi;
+	struct in_addr area_id = {0};
+	struct prefix_ipv4 ipv4, *ip_ptr;
+	int exist = 0;
 
-	ospf->passive_interface_default = newval;
+	if (create == OSPF_IF_PASSIVE) {
+		/* if networks of interface already been created
+		 * just update them all
+		 */
+		for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+			oi = rn->info;
+			if (!oi)
+				continue;
+			exist = 1;
+			if (oi->passive_interface != OSPF_IF_ACTIVE)
+				continue;
+			oi->passive_interface = OSPF_IF_PASSIVE;
+			ospf_if_down(oi);
+			ospf_if_set_multicast(oi);
+		}
+		if (exist)
+			return;
 
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		if (ifp && OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp),
-						    passive_interface))
-			UNSET_IF_PARAM(IF_DEF_PARAMS(ifp), passive_interface);
-	}
-	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, ln, oi)) {
-		if (OSPF_IF_PARAM_CONFIGURED(oi->params, passive_interface))
-			UNSET_IF_PARAM(oi->params, passive_interface);
-		/* update multicast memberships */
-		ospf_if_set_multicast(oi);
+		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, co)) {
+			ip_ptr = (struct prefix_ipv4 *)co->address;
+			if (ip_ptr->family == AF_INET) {
+				ipv4.family = ip_ptr->family;
+				ipv4.prefix = ip_ptr->prefix;
+				ipv4.prefixlen = ip_ptr->prefixlen;
+				ospf_network_set(ospf, &ipv4, area_id,
+						 OSPF_AREA_ID_FMT_DECIMAL);
+			}
+		}
+
+		/* XXX We should call ospf_if_set_multicast on exactly those
+		 * interfaces for which the passive property changed. It is
+		 * too much work to determine this set, so we do this for
+		 * every interface
+		 * This is safe and reasonable because ospf_if_set_multicast
+		 * uses a record of joined groups to avoid systems calls if
+		 * the desired memberships match the current memership.
+		 */
+		for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+			oi = rn->info;
+			ospf_if_set_multicast(oi);
+		}
+	} else {
+		/* The passive interface has been added, then just activate
+		 *  the interface
+		 */
+		for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+			oi = rn->info;
+			if (oi->passive_interface == OSPF_IF_PASSIVE) {
+				oi->passive_interface = OSPF_IF_ACTIVE;
+				ospf_if_up(oi);
+			}
+		}
+
+		/* XXX We should call ospf_if_set_multicast on exactly those
+		 * interfaces for which the passive property changed. It is
+		 * too much work to determine this set, so we do this for
+		 * every interface
+		 * This is safe and reasonable because ospf_if_set_multicast
+		 * uses a record of joined groups to avoid systems calls if
+		 * the desired memberships match the current memership.
+		 */
+		for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+			oi = rn->info;
+			ospf_if_set_multicast(oi);
+		}
 	}
 }
 
-static void ospf_passive_interface_update_addr(struct ospf *ospf,
-					       struct interface *ifp,
-					       struct ospf_if_params *params,
-					       uint8_t value,
-					       struct in_addr addr)
+static void ospf_passive_interface_addr_set(struct ospf *ospf,
+					    struct interface *ifp,
+					    struct in_addr *addr, int create)
 {
-	uint8_t dflt;
+	struct connected *co;
+	struct route_node *rn;
+	struct listnode *cnode;
+	struct ospf_interface *oi;
+	struct prefix_ipv4 *ip_ptr, ipv4 = {0};
+	struct in_addr area_id = {0};
 
-	params->passive_interface = value;
-	if (params != IF_DEF_PARAMS(ifp)) {
-		if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp),
-					     passive_interface))
-			dflt = IF_DEF_PARAMS(ifp)->passive_interface;
-		else
-			dflt = ospf->passive_interface_default;
+	ipv4.family = AF_INET;
+	ipv4.prefix = *addr;
 
-		if (value != dflt)
-			SET_IF_PARAM(params, passive_interface);
-		else
-			UNSET_IF_PARAM(params, passive_interface);
+	if (create == OSPF_IF_PASSIVE) {
+		/* If network of interface has been created, just update it */
+		for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+			oi = rn->info;
+			if (!oi)
+				continue;
+			ip_ptr = (struct prefix_ipv4 *)oi->address;
+			if (ip_ptr->family == AF_INET &&
+			    !memcmp(&ip_ptr->prefix, &ipv4.prefix,
+				    sizeof(ipv4.prefix))) {
+				if (oi->passive_interface != OSPF_IF_ACTIVE)
+					return;
+				oi->passive_interface = OSPF_IF_PASSIVE;
+				ospf_if_down(oi);
+				ospf_if_set_multicast(oi);
+				return;
+			}
+		}
 
-		ospf_free_if_params(ifp, addr);
-		ospf_if_update_params(ifp, addr);
-	}
-}
+		/* First find the connected IPv4 addr of this interface */
+		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, co)) {
+			ip_ptr = (struct prefix_ipv4 *)co->address;
+			if (ip_ptr->family == AF_INET &&
+			    !memcmp(&ip_ptr->prefix, &ipv4.prefix,
+				    sizeof(ipv4.prefix))) {
+				ipv4.prefixlen = ip_ptr->prefixlen;
+				break;
+			}
+		}
+		if (ipv4.prefixlen) {
+			ospf_network_set(ospf, &ipv4, area_id,
+					 OSPF_AREA_ID_FMT_DECIMAL);
+		}
 
-static void ospf_passive_interface_update(struct ospf *ospf,
-					  struct interface *ifp,
-					  struct ospf_if_params *params,
-					  uint8_t value)
-{
-	params->passive_interface = value;
-	if (params == IF_DEF_PARAMS(ifp)) {
-		if (value != ospf->passive_interface_default)
-			SET_IF_PARAM(params, passive_interface);
-		else
-			UNSET_IF_PARAM(params, passive_interface);
+		/* XXX We should call ospf_if_set_multicast on exactly those
+		 * interfaces for which the passive property changed. It is
+		 * too much work to determine this set, so we do this for
+		 * every interface
+		 * This is safe and reasonable because ospf_if_set_multicast
+		 * uses a record of joined groups to avoid systems calls if
+		 * the desired memberships match the current memership.
+		 */
+		for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+			oi = rn->info;
+			ip_ptr = (struct prefix_ipv4 *)oi->address;
+			if (ip_ptr->family == AF_INET &&
+			    !memcmp(&ip_ptr->prefix, &ipv4.prefix,
+				    sizeof(ipv4.prefix))) {
+				ospf_if_set_multicast(oi);
+				break;
+			}
+		}
+	} else {
+		/* We should find the ospf_interface for activate it */
+		for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+			oi = rn->info;
+
+			if (!oi || oi->passive_interface == OSPF_IF_ACTIVE)
+				continue;
+			ip_ptr = (struct prefix_ipv4 *)oi->address;
+			if (ip_ptr->family == AF_INET &&
+			    !memcmp(&ip_ptr->prefix, &ipv4.prefix,
+				    sizeof(ipv4.prefix))) {
+				oi->passive_interface = OSPF_IF_ACTIVE;
+				ospf_if_up(oi);
+
+				/* XXX We should call ospf_if_set_multicast on
+				 * all those interfaces for which the
+				 * passive property changed.
+				 */
+				ospf_if_set_multicast(oi);
+				break;
+			}
+		}
 	}
 }
 
@@ -452,11 +560,17 @@ DEFUN (ospf_passive_interface,
 	struct interface *ifp = NULL;
 	struct in_addr addr = {.s_addr = INADDR_ANY};
 	int ret;
-	struct ospf_if_params *params;
-	struct route_node *rn;
+	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
+	uint8_t orig_default;
 
 	if (strmatch(argv[1]->text, "default")) {
-		ospf_passive_interface_default(ospf, OSPF_IF_PASSIVE);
+		/* create passive-interface from connected address */
+		ospf->passive_interface_default = OSPF_IF_PASSIVE;
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			if (ifp)
+				ospf_passive_interface_set(ospf, ifp,
+							   OSPF_IF_PASSIVE);
+		}
 		return CMD_SUCCESS;
 	}
 	if (ospf->vrf_id != VRF_UNKNOWN)
@@ -467,8 +581,6 @@ DEFUN (ospf_passive_interface,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	params = IF_DEF_PARAMS(ifp);
-
 	if (argc == 3) {
 		ret = inet_aton(argv[idx_ipv4]->arg, &addr);
 		if (!ret) {
@@ -476,36 +588,18 @@ DEFUN (ospf_passive_interface,
 				"Please specify interface address by A.B.C.D\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-
-		params = ospf_get_if_params(ifp, addr);
-		ospf_if_update_params(ifp, addr);
-		ospf_passive_interface_update_addr(ospf, ifp, params,
-						   OSPF_IF_PASSIVE, addr);
+		orig_default = ospf->passive_interface_default;
+		ospf->passive_interface_default = OSPF_IF_PASSIVE;
+		ospf_passive_interface_addr_set(ospf, ifp, &addr,
+						OSPF_IF_PASSIVE);
+		ospf->passive_interface_default = orig_default;
+		return CMD_SUCCESS;
 	}
 
-	ospf_passive_interface_update(ospf, ifp, params, OSPF_IF_PASSIVE);
-
-	/* XXX We should call ospf_if_set_multicast on exactly those
-	 * interfaces for which the passive property changed.  It is too much
-	 * work to determine this set, so we do this for every interface.
-	 * This is safe and reasonable because ospf_if_set_multicast uses a
-	 * record of joined groups to avoid systems calls if the desired
-	 * memberships match the current memership.
-	 */
-
-	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
-		struct ospf_interface *oi = rn->info;
-
-		if (oi && (OSPF_IF_PARAM(oi, passive_interface)
-			   == OSPF_IF_PASSIVE))
-			ospf_if_set_multicast(oi);
-	}
-	/*
-	 * XXX It is not clear what state transitions the interface needs to
-	 * undergo when going from active to passive.  Fixing this will
-	 * require precise identification of interfaces having such a
-	 * transition.
-	 */
+	orig_default = ospf->passive_interface_default;
+	ospf->passive_interface_default = OSPF_IF_PASSIVE;
+	ospf_passive_interface_set(ospf, ifp, OSPF_IF_PASSIVE);
+	ospf->passive_interface_default = orig_default;
 
 	return CMD_SUCCESS;
 }
@@ -523,12 +617,16 @@ DEFUN (no_ospf_passive_interface,
 	int idx_ipv4 = 3;
 	struct interface *ifp = NULL;
 	struct in_addr addr = {.s_addr = INADDR_ANY};
-	struct ospf_if_params *params;
 	int ret;
-	struct route_node *rn;
+	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
 
 	if (strmatch(argv[2]->text, "default")) {
-		ospf_passive_interface_default(ospf, OSPF_IF_ACTIVE);
+		ospf->passive_interface_default = OSPF_IF_ACTIVE;
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			if (ifp)
+				ospf_passive_interface_set(ospf, ifp,
+							   OSPF_IF_ACTIVE);
+		}
 		return CMD_SUCCESS;
 	}
 
@@ -540,8 +638,6 @@ DEFUN (no_ospf_passive_interface,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	params = IF_DEF_PARAMS(ifp);
-
 	if (argc == 4) {
 		ret = inet_aton(argv[idx_ipv4]->arg, &addr);
 		if (!ret) {
@@ -549,29 +645,12 @@ DEFUN (no_ospf_passive_interface,
 				"Please specify interface address by A.B.C.D\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-
-		params = ospf_lookup_if_params(ifp, addr);
-		if (params == NULL)
-			return CMD_SUCCESS;
-		ospf_passive_interface_update_addr(ospf, ifp, params,
-						   OSPF_IF_ACTIVE, addr);
+		ospf_passive_interface_addr_set(ospf, ifp, &addr,
+						OSPF_IF_ACTIVE);
+		return CMD_SUCCESS;
 	}
-	ospf_passive_interface_update(ospf, ifp, params, OSPF_IF_ACTIVE);
 
-	/* XXX We should call ospf_if_set_multicast on exactly those
-	 * interfaces for which the passive property changed.  It is too much
-	 * work to determine this set, so we do this for every interface.
-	 * This is safe and reasonable because ospf_if_set_multicast uses a
-	 * record of joined groups to avoid systems calls if the desired
-	 * memberships match the current memership.
-	 */
-	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
-		struct ospf_interface *oi = rn->info;
-
-		if (oi
-		    && (OSPF_IF_PARAM(oi, passive_interface) == OSPF_IF_ACTIVE))
-			ospf_if_set_multicast(oi);
-	}
+	ospf_passive_interface_set(ospf, ifp, OSPF_IF_ACTIVE);
 
 	return CMD_SUCCESS;
 }
@@ -3639,7 +3718,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				OSPF_IF_PARAM(oi, retransmit_interval));
 		}
 
-		if (OSPF_IF_PASSIVE_STATUS(oi) == OSPF_IF_ACTIVE) {
+		if (oi->passive_interface == OSPF_IF_ACTIVE) {
 			char timebuf[OSPF_TIME_DUMP_SIZE];
 			if (use_json) {
 				long time_store = 0;
@@ -9925,6 +10004,23 @@ static int config_write_interface(struct vty *vty)
 	return write;
 }
 
+static int check_if_passive_intf(struct ospf *ospf, struct in_addr area_id,
+				 struct prefix *p)
+{
+	struct ospf_interface *oi;
+	struct listnode *node;
+
+	if (area_id.s_addr != 0)
+		return 0;
+	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
+		if (oi->passive_interface != OSPF_IF_PASSIVE)
+			continue;
+		if (prefix_match(p, oi->address))
+			return 1;
+	}
+	return 0;
+}
+
 static int config_write_network_area(struct vty *vty, struct ospf *ospf)
 {
 	struct route_node *rn;
@@ -9934,6 +10030,9 @@ static int config_write_network_area(struct vty *vty, struct ospf *ospf)
 	for (rn = route_top(ospf->networks); rn; rn = route_next(rn))
 		if (rn->info) {
 			struct ospf_network *n = rn->info;
+
+			if (check_if_passive_intf(ospf, n->area_id, &rn->p))
+				continue;
 
 			/* Create Area ID string by specified Area ID format. */
 			if (n->area_id_fmt == OSPF_AREA_ID_FMT_DOTTEDQUAD)
@@ -10265,8 +10364,6 @@ static int config_write_ospf_distance(struct vty *vty, struct ospf *ospf)
 
 static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
-	struct interface *ifp;
 	struct ospf_interface *oi;
 	struct listnode *node = NULL;
 	int write = 0;
@@ -10351,35 +10448,16 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	/* Redistribute information print. */
 	config_write_ospf_redistribute(vty, ospf);
 
-	/* passive-interface print. */
-	if (ospf->passive_interface_default == OSPF_IF_PASSIVE)
+	if (ospf->passive_interface_default == OSPF_IF_PASSIVE) {
+		/* all interface is passive */
 		vty_out(vty, " passive-interface default\n");
-
-	FOR_ALL_INTERFACES (vrf, ifp)
-		if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp),
-					     passive_interface)
-		    && IF_DEF_PARAMS(ifp)->passive_interface
-			       != ospf->passive_interface_default) {
-			vty_out(vty, " %spassive-interface %s\n",
-				IF_DEF_PARAMS(ifp)->passive_interface ? ""
-								      : "no ",
-				ifp->name);
-		}
-	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
-		if (!OSPF_IF_PARAM_CONFIGURED(oi->params, passive_interface))
-			continue;
-		if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(oi->ifp),
-					     passive_interface)) {
-			if (oi->params->passive_interface
-			    == IF_DEF_PARAMS(oi->ifp)->passive_interface)
+	} else {
+		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
+			if (oi->passive_interface != OSPF_IF_PASSIVE)
 				continue;
-		} else if (oi->params->passive_interface
-			   == ospf->passive_interface_default)
-			continue;
-
-		vty_out(vty, " %spassive-interface %s %s\n",
-			oi->params->passive_interface ? "" : "no ",
-			oi->ifp->name, inet_ntoa(oi->address->u.prefix4));
+			vty_out(vty, " passive-interface %s\n",
+				oi->ifp->name);
+		}
 	}
 
 	/* Network area print. */

@@ -71,7 +71,6 @@ extern struct zclient *zclient;
 
 
 static void ospf_remove_vls_through_area(struct ospf *, struct ospf_area *);
-static void ospf_network_free(struct ospf *, struct ospf_network *);
 static void ospf_area_free(struct ospf_area *);
 static void ospf_network_run(struct prefix *, struct ospf_area *);
 static void ospf_network_run_interface(struct ospf *, struct interface *,
@@ -974,13 +973,16 @@ static void add_ospf_interface(struct connected *co, struct ospf_area *area)
 
 	ospf_area_add_if(oi->area, oi);
 
+	if (area->ospf->passive_interface_default == OSPF_IF_PASSIVE)
+		oi->passive_interface = OSPF_IF_PASSIVE;
 	/*
 	 * if router_id is not configured, dont bring up
 	 * interfaces.
 	 * ospf_router_id_update() will call ospf_if_update
 	 * whenever r-id is configured instead.
 	 */
-	if ((area->ospf->router_id.s_addr != 0) && if_is_operative(co->ifp))
+	if ((area->ospf->router_id.s_addr != 0) && if_is_operative(co->ifp) &&
+	    oi->passive_interface == OSPF_IF_ACTIVE)
 		ospf_if_up(oi);
 }
 
@@ -1033,7 +1035,7 @@ static struct ospf_network *ospf_network_new(struct in_addr area_id)
 	return new;
 }
 
-static void ospf_network_free(struct ospf *ospf, struct ospf_network *network)
+void ospf_network_free(struct ospf *ospf, struct ospf_network *network)
 {
 	ospf_area_check_free(ospf, network->area_id);
 	ospf_schedule_abr_task(ospf);
@@ -1312,6 +1314,65 @@ void ospf_ls_upd_queue_empty(struct ospf_interface *oi)
 		thread_cancel(oi->t_ls_upd_event);
 		oi->t_ls_upd_event = NULL;
 	}
+}
+
+/* only add network and area */
+static int ospf_add_network_area(struct ospf *ospf, struct prefix_ipv4 *p,
+				 struct in_addr area_id, int df)
+{
+	struct ospf_network *network;
+	struct ospf_area *area;
+	struct route_node *rn;
+
+	rn = route_node_get(ospf->networks, (struct prefix *)p);
+	if (rn->info) {
+		network = rn->info;
+		route_unlock_node(rn);
+
+		if (IPV4_ADDR_SAME(&area_id, &network->area_id))
+			return 1;
+		/* There is already same network statement. */
+		return 0;
+	}
+
+	rn->info = network = ospf_network_new(area_id);
+	network->area_id_fmt = df;
+	area = ospf_area_get(ospf, area_id);
+	ospf_area_display_format_set(ospf, area, df);
+	return 0;
+}
+
+void ospf_passive_if_update(struct ospf *ospf, struct interface *ifp)
+{
+	struct in_addr area_id = {0};
+	struct listnode *cnode;
+	struct connected *co;
+	struct prefix_ipv4 ipv4, *ip_ptr;
+	struct ospf_area *area;
+
+	if (!ospf)
+		return;
+
+	/* OSPF must be ready. */
+	if (!ospf_is_ready(ospf))
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, co)) {
+		ip_ptr = (struct prefix_ipv4 *)co->address;
+		if (ip_ptr->family == AF_INET) {
+			ipv4.family = ip_ptr->family;
+			ipv4.prefix = ip_ptr->prefix;
+			ipv4.prefixlen = ip_ptr->prefixlen;
+			ospf_add_network_area(ospf, &ipv4, area_id,
+					 OSPF_AREA_ID_FMT_DECIMAL);
+			area = ospf_area_get(ospf, area_id);
+			ospf_network_run_interface(ospf, ifp, co->address,
+						   area);
+		}
+	}
+
+	/* Update connected redistribute. */
+	update_redistributed(ospf, 1);
 }
 
 void ospf_if_update(struct ospf *ospf, struct interface *ifp)
