@@ -37,74 +37,26 @@
 
 #include "bfd.h"
 
-/*
- * Definitions
- */
-
-/* iov for BFD control frames */
-#define CMSG_HDR_LEN sizeof(struct cmsghdr)
-#define CMSG_TTL_LEN (CMSG_HDR_LEN + sizeof(uint32_t))
-#define CMSG_IN_PKT_INFO_LEN (CMSG_HDR_LEN + sizeof(struct in_pktinfo) + 4)
-#define CMSG_IN6_PKT_INFO_LEN                                                  \
-	(CMSG_HDR_LEN + sizeof(struct in6_addr) + sizeof(int) + 4)
-
-struct bfd_raw_echo_pkt {
-#ifdef BFD_LINUX
-	struct iphdr ip;
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD
-	struct ip ip;
-#endif /* BFD_BSD */
-	struct udphdr udp;
-	struct bfd_echo_pkt data;
-};
-
-#if 0 /* TODO: VxLAN support. */
-struct bfd_raw_ctrl_pkt {
-	struct iphdr ip;
-	struct udphdr udp;
-	struct bfd_pkt data;
-};
-#endif
-
-struct vxlan_hdr {
-	uint32_t flags;
-	uint32_t vnid;
-};
-
-#define IP_ECHO_PKT_LEN (IP_HDR_LEN + UDP_HDR_LEN + BFD_ECHO_PKT_LEN)
-#define UDP_ECHO_PKT_LEN (UDP_HDR_LEN + BFD_ECHO_PKT_LEN)
-#define IP_CTRL_PKT_LEN (IP_HDR_LEN + UDP_HDR_LEN + BFD_PKT_LEN)
-#define UDP_CTRL_PKT_LEN (UDP_HDR_LEN + BFD_PKT_LEN)
-
-static uint8_t msgbuf[BFD_PKT_LEN];
-
-static int ttlval = BFD_TTL_VAL;
-static int tosval = BFD_TOS_VAL;
-static int rcvttl = BFD_RCV_TTL_VAL;
 
 /*
  * Prototypes
  */
-static uint16_t ptm_bfd_gen_IP_ID(struct bfd_session *bfd);
-static void ptm_bfd_echo_pkt_create(struct bfd_session *bfd);
-static int ptm_bfd_echo_loopback(uint8_t *pkt, int pkt_len, struct sockaddr *ss,
-				 socklen_t sslen);
-static void ptm_bfd_vxlan_pkt_snd(struct bfd_session *bfd, int fbit);
 static int ptm_bfd_process_echo_pkt(int s);
-static bool
-ptm_bfd_validate_vxlan_pkt(struct bfd_session *bfd,
-			   struct bfd_session_vxlan_info *vxlan_info);
+int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
+		  size_t datalen);
 
 static void bfd_sd_reschedule(int sd);
-static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
-			     char *vrfname, size_t vrfnamelen,
-			     struct sockaddr_any *local,
-			     struct sockaddr_any *peer);
-static ssize_t bfd_recv_ipv6(int sd, bool is_mhop, char *port, size_t portlen,
-			     char *vrfname, size_t vrfnamelen,
-			     struct sockaddr_any *local,
-			     struct sockaddr_any *peer);
+ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
+		      char *port, size_t portlen, char *vrfname,
+		      size_t vrfnamelen, struct sockaddr_any *local,
+		      struct sockaddr_any *peer);
+ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
+		      char *port, size_t portlen, char *vrfname,
+		      size_t vrfnamelen, struct sockaddr_any *local,
+		      struct sockaddr_any *peer);
+int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
+		struct sockaddr *to, socklen_t tolen);
+int bp_bfd_echo_in(int sd, uint8_t *ttl, uint32_t *my_discr);
 
 /* socket related prototypes */
 static void bp_set_ipopts(int sd);
@@ -116,68 +68,17 @@ static void bp_bind_ipv6(int sd, uint16_t port);
 /*
  * Functions
  */
-uint16_t checksum(uint16_t *buf, int len)
-{
-	int nbytes = len;
-	int sum = 0;
-	uint16_t csum = 0;
-	int size = sizeof(uint16_t);
-
-	while (nbytes > 1) {
-		sum += *buf++;
-		nbytes -= size;
-	}
-
-	if (nbytes == 1) {
-		*(uint8_t *)(&csum) = *(uint8_t *)buf;
-		sum += csum;
-	}
-
-	sum = (sum >> 16) + (sum & 0xFFFF);
-	sum += (sum >> 16);
-	csum = ~sum;
-	return csum;
-}
-
-static uint16_t ptm_bfd_gen_IP_ID(struct bfd_session *bfd)
-{
-	return (++bfd->ip_id);
-}
-
-static int _ptm_bfd_send(struct bfd_session *bs, bool use_layer2,
-			 uint16_t *port, const void *data, size_t datalen)
+int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
+		  size_t datalen)
 {
 	struct sockaddr *sa;
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
-#ifdef BFD_LINUX
-	struct sockaddr_ll dll;
-#endif /* BFD_LINUX */
 	socklen_t slen;
 	ssize_t rv;
 	int sd = -1;
 
-	if (use_layer2) {
-#ifdef BFD_LINUX
-		memset(&dll, 0, sizeof(dll));
-		dll.sll_family = AF_PACKET;
-		dll.sll_protocol = htons(ETH_P_IP);
-		memcpy(dll.sll_addr, bs->peer_mac, ETHERNET_ADDRESS_LENGTH);
-		dll.sll_halen = htons(ETHERNET_ADDRESS_LENGTH);
-		dll.sll_ifindex = bs->ifindex;
-
-		sd = bglobal.bg_echo;
-		sa = (struct sockaddr *)&dll;
-		slen = sizeof(dll);
-#else
-		/*
-		 * TODO: implement layer 2 send for *BSDs. This is
-		 * needed for VxLAN.
-		 */
-		log_warning("packet-send: not implemented");
-		return -1;
-#endif
-	} else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6)) {
+	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6)) {
 		memset(&sin6, 0, sizeof(sin6));
 		sin6.sin6_family = AF_INET6;
 		sin6.sin6_addr = bs->shop.peer.sa_sin6.sin6_addr;
@@ -219,332 +120,63 @@ static int _ptm_bfd_send(struct bfd_session *bs, bool use_layer2,
 	return 0;
 }
 
-static void ptm_bfd_echo_pkt_create(struct bfd_session *bfd)
-{
-	struct bfd_raw_echo_pkt ep;
-	uint8_t *pkt = bfd->echo_pkt;
-
-	memset(&ep, 0, sizeof(ep));
-	memset(bfd->echo_pkt, 0, sizeof(bfd->echo_pkt));
-
-	/* Construct ethernet header information */
-	memcpy(pkt, bfd->peer_mac, ETHERNET_ADDRESS_LENGTH);
-	pkt = pkt + ETHERNET_ADDRESS_LENGTH;
-	memcpy(pkt, bfd->local_mac, ETHERNET_ADDRESS_LENGTH);
-	pkt = pkt + ETHERNET_ADDRESS_LENGTH;
-#ifdef BFD_LINUX
-	pkt[0] = ETH_P_IP / 256;
-	pkt[1] = ETH_P_IP % 256;
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD
-	pkt[0] = ETHERTYPE_IP / 256;
-	pkt[1] = ETHERTYPE_IP % 256;
-#endif /* BFD_BSD */
-	pkt += 2;
-
-	/* Construct IP header information */
-#ifdef BFD_LINUX
-	ep.ip.version = 4;
-	ep.ip.ihl = 5;
-	ep.ip.tos = 0;
-	ep.ip.tot_len = htons(IP_ECHO_PKT_LEN);
-	ep.ip.id = htons(ptm_bfd_gen_IP_ID(bfd));
-	ep.ip.frag_off = 0;
-	ep.ip.ttl = BFD_TTL_VAL;
-	ep.ip.protocol = IPPROTO_UDP;
-	ep.ip.saddr = bfd->local_ip.sa_sin.sin_addr.s_addr;
-	ep.ip.daddr = bfd->shop.peer.sa_sin.sin_addr.s_addr;
-	ep.ip.check = checksum((uint16_t *)&ep.ip, IP_HDR_LEN);
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD
-	ep.ip.ip_v = 4;
-	ep.ip.ip_hl = 5;
-	ep.ip.ip_tos = 0;
-	ep.ip.ip_len = htons(IP_ECHO_PKT_LEN);
-	ep.ip.ip_id = htons(ptm_bfd_gen_IP_ID(bfd));
-	ep.ip.ip_off = 0;
-	ep.ip.ip_ttl = BFD_TTL_VAL;
-	ep.ip.ip_p = IPPROTO_UDP;
-	ep.ip.ip_src = bfd->local_ip.sa_sin.sin_addr;
-	ep.ip.ip_dst = bfd->shop.peer.sa_sin.sin_addr;
-	ep.ip.ip_sum = checksum((uint16_t *)&ep.ip, IP_HDR_LEN);
-#endif /* BFD_BSD */
-
-	/* Construct UDP header information */
-#ifdef BFD_LINUX
-	ep.udp.source = htons(BFD_DEF_ECHO_PORT);
-	ep.udp.dest = htons(BFD_DEF_ECHO_PORT);
-	ep.udp.len = htons(UDP_ECHO_PKT_LEN);
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD
-	ep.udp.uh_sport = htons(BFD_DEF_ECHO_PORT);
-	ep.udp.uh_dport = htons(BFD_DEF_ECHO_PORT);
-	ep.udp.uh_ulen = htons(UDP_ECHO_PKT_LEN);
-#endif /* BFD_BSD */
-
-	/* Construct Echo packet information */
-	ep.data.ver = BFD_ECHO_VERSION;
-	ep.data.len = BFD_ECHO_PKT_LEN;
-	ep.data.my_discr = htonl(bfd->discrs.my_discr);
-#ifdef BFD_LINUX
-	ep.udp.check =
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD
-	ep.udp.uh_sum =
-#endif /* BFD_BSD */
-		udp4_checksum(&ep.ip, (uint8_t *)&ep.udp,
-			      UDP_ECHO_PKT_LEN);
-
-	memcpy(pkt, &ep, sizeof(ep));
-}
-
 void ptm_bfd_echo_snd(struct bfd_session *bfd)
 {
-	struct bfd_raw_echo_pkt *ep;
-	bool use_layer2 = false;
-	const void *pkt;
-	size_t pktlen;
-	uint16_t port = htons(BFD_DEF_ECHO_PORT);
+	struct sockaddr_any *sa;
+	socklen_t salen;
+	int sd;
+	struct bfd_echo_pkt bep;
+	struct sockaddr_in sin;
+	struct sockaddr_in6 sin6;
 
-	if (!BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE)) {
-		ptm_bfd_echo_pkt_create(bfd);
+	if (!BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
 		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE);
-	} else {
-		/* just update the checksum and ip Id */
-		ep = (struct bfd_raw_echo_pkt *)(bfd->echo_pkt + ETH_HDR_LEN);
-#ifdef BFD_LINUX
-		ep->ip.id = htons(ptm_bfd_gen_IP_ID(bfd));
-		ep->ip.check = 0;
-		ep->ip.check = checksum((uint16_t *)&ep->ip, IP_HDR_LEN);
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD
-		ep->ip.ip_id = htons(ptm_bfd_gen_IP_ID(bfd));
-		ep->ip.ip_sum = 0;
-		ep->ip.ip_sum = checksum((uint16_t *)&ep->ip, IP_HDR_LEN);
-#endif /* BFD_BSD */
-	}
 
-	if (use_layer2) {
-		pkt = bfd->echo_pkt;
-		pktlen = BFD_ECHO_PKT_TOT_LEN;
-	} else {
-		pkt = &bfd->echo_pkt[ETH_HDR_LEN + IP_HDR_LEN + UDP_HDR_LEN];
-		pktlen = BFD_ECHO_PKT_TOT_LEN
-			 - (ETH_HDR_LEN + IP_HDR_LEN + UDP_HDR_LEN);
-	}
+	memset(&bep, 0, sizeof(bep));
+	bep.ver = BFD_ECHO_VERSION;
+	bep.len = BFD_ECHO_PKT_LEN;
+	bep.my_discr = htonl(bfd->discrs.my_discr);
 
-	if (_ptm_bfd_send(bfd, use_layer2, &port, pkt, pktlen) != 0) {
-		log_debug("echo-packet: send failure: %s", strerror(errno));
+	sa = BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH) ? &bfd->mhop.peer
+							  : &bfd->shop.peer;
+	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6)) {
+		sd = bglobal.bg_echov6;
+		sin6 = sa->sa_sin6;
+		sin6.sin6_port = htons(BFD_DEF_ECHO_PORT);
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+		sin6.sin6_len = sizeof(sin6);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
+
+		sa = (struct sockaddr_any *)&sin6;
+		salen = sizeof(sin6);
+	} else {
+		sd = bglobal.bg_echo;
+		sin = sa->sa_sin;
+		sin.sin_port = htons(BFD_DEF_ECHO_PORT);
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+		sin.sin_len = sizeof(sin);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
+
+		sa = (struct sockaddr_any *)&sin;
+		salen = sizeof(sin);
+	}
+	if (bp_udp_send(sd, BFD_TTL_VAL, (uint8_t *)&bep, sizeof(bep),
+			(struct sockaddr *)sa, salen)
+	    == -1)
 		return;
-	}
 
 	bfd->stats.tx_echo_pkt++;
 }
 
-static int ptm_bfd_echo_loopback(uint8_t *pkt, int pkt_len, struct sockaddr *ss,
-				 socklen_t sslen)
-{
-#ifdef BFD_LINUX
-	struct bfd_raw_echo_pkt *ep =
-		(struct bfd_raw_echo_pkt *)(pkt + ETH_HDR_LEN);
-	uint8_t temp_mac[ETHERNET_ADDRESS_LENGTH];
-	uint32_t temp_ip;
-	struct ethhdr *eth = (struct ethhdr *)pkt;
-
-	/* swap the mac addresses */
-	memcpy(temp_mac, eth->h_source, ETHERNET_ADDRESS_LENGTH);
-	memcpy(eth->h_source, eth->h_dest, ETHERNET_ADDRESS_LENGTH);
-	memcpy(eth->h_dest, temp_mac, ETHERNET_ADDRESS_LENGTH);
-
-	/* swap ip addresses */
-	temp_ip = ep->ip.saddr;
-	ep->ip.saddr = ep->ip.daddr;
-	ep->ip.daddr = temp_ip;
-
-	ep->ip.ttl = ep->ip.ttl - 1;
-	ep->ip.check = 0;
-	ep->ip.check = checksum((uint16_t *)ep, IP_HDR_LEN);
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD_FILTER
-	struct bfd_raw_echo_pkt_t *ep =
-		(struct bfd_raw_echo_pkt *)(pkt + ETH_HDR_LEN);
-	uint8_t temp_mac[ETHERNET_ADDRESS_LENGTH];
-	struct in_addr temp_ip;
-	struct ether_header *ether = (struct ether_header *)pkt;
-
-	/*
-	 * TODO: this is not yet implemented and requires BPF code for
-	 * OmniOS, NetBSD and FreeBSD9.
-	 */
-
-	/* swap the mac addresses */
-	memcpy(temp_mac, ether->ether_shost, ETHERNET_ADDRESS_LENGTH);
-	memcpy(ether->ether_shost, ether->ether_dhost, ETHERNET_ADDRESS_LENGTH);
-	memcpy(ether->ether_dhost, temp_mac, ETHERNET_ADDRESS_LENGTH);
-
-	/* swap ip addresses */
-	temp_ip = ep->ip.ip_src;
-	ep->ip.ip_src = ep->ip.ip_dst;
-	ep->ip.ip_dst = temp_ip;
-
-	ep->ip.ip_ttl = ep->ip.ip_ttl - 1;
-	ep->ip.ip_sum = 0;
-	ep->ip.ip_sum = checksum((uint16_t *)ep, IP_HDR_LEN);
-#endif /* BFD_BSD_FILTER */
-
-	if (sendto(bglobal.bg_echo, pkt, pkt_len, 0, ss, sslen) < 0) {
-		log_debug("echo-loopback: send failure: %s", strerror(errno));
-		return -1;
-	}
-
-	return 0;
-}
-
-static void ptm_bfd_vxlan_pkt_snd(struct bfd_session *bfd
-				  __attribute__((__unused__)),
-				  int fbit __attribute__((__unused__)))
-{
-#if 0 /* TODO: VxLAN support. */
-	struct bfd_raw_ctrl_pkt cp;
-	uint8_t vxlan_pkt[BFD_VXLAN_PKT_TOT_LEN];
-	uint8_t *pkt = vxlan_pkt;
-	struct sockaddr_in sin;
-	struct vxlan_hdr *vhdr;
-
-	memset(vxlan_pkt, 0, sizeof(vxlan_pkt));
-	memset(&cp, 0, sizeof(cp));
-
-	/* Construct VxLAN header information */
-	vhdr = (struct vxlan_hdr *)pkt;
-	vhdr->flags = htonl(0x08000000);
-	vhdr->vnid = htonl(bfd->vxlan_info.vnid << 8);
-	pkt += VXLAN_HDR_LEN;
-
-	/* Construct ethernet header information */
-	memcpy(pkt, bfd->vxlan_info.peer_dst_mac, ETHERNET_ADDRESS_LENGTH);
-	pkt = pkt + ETHERNET_ADDRESS_LENGTH;
-	memcpy(pkt, bfd->vxlan_info.local_dst_mac, ETHERNET_ADDRESS_LENGTH);
-	pkt = pkt + ETHERNET_ADDRESS_LENGTH;
-	pkt[0] = ETH_P_IP / 256;
-	pkt[1] = ETH_P_IP % 256;
-	pkt += 2;
-
-	/* Construct IP header information */
-	cp.ip.version = 4;
-	cp.ip.ihl = 5;
-	cp.ip.tos = 0;
-	cp.ip.tot_len = htons(IP_CTRL_PKT_LEN);
-	cp.ip.id = ptm_bfd_gen_IP_ID(bfd);
-	cp.ip.frag_off = 0;
-	cp.ip.ttl = BFD_TTL_VAL;
-	cp.ip.protocol = IPPROTO_UDP;
-	cp.ip.daddr = bfd->vxlan_info.peer_dst_ip.s_addr;
-	cp.ip.saddr = bfd->vxlan_info.local_dst_ip.s_addr;
-	cp.ip.check = checksum((uint16_t *)&cp.ip, IP_HDR_LEN);
-
-	/* Construct UDP header information */
-	cp.udp.source = htons(BFD_DEFDESTPORT);
-	cp.udp.dest = htons(BFD_DEFDESTPORT);
-	cp.udp.len = htons(UDP_CTRL_PKT_LEN);
-
-	/* Construct BFD control packet information */
-	cp.data.diag = bfd->local_diag;
-	BFD_SETVER(cp.data.diag, BFD_VERSION);
-	BFD_SETSTATE(cp.data.flags, bfd->ses_state);
-	BFD_SETDEMANDBIT(cp.data.flags, BFD_DEF_DEMAND);
-	BFD_SETPBIT(cp.data.flags, bfd->polling);
-	BFD_SETFBIT(cp.data.flags, fbit);
-	cp.data.detect_mult = bfd->detect_mult;
-	cp.data.len = BFD_PKT_LEN;
-	cp.data.discrs.my_discr = htonl(bfd->discrs.my_discr);
-	cp.data.discrs.remote_discr = htonl(bfd->discrs.remote_discr);
-	cp.data.timers.desired_min_tx = htonl(bfd->timers.desired_min_tx);
-	cp.data.timers.required_min_rx = htonl(bfd->timers.required_min_rx);
-	cp.data.timers.required_min_echo = htonl(bfd->timers.required_min_echo);
-
-	cp.udp.check =
-		udp4_checksum(&cp.ip, (uint8_t *)&cp.udp, UDP_CTRL_PKT_LEN);
-
-	memcpy(pkt, &cp, sizeof(cp));
-	sin.sin_family = AF_INET;
-	sin.sin_addr = bfd->shop.peer.sa_sin.sin_addr;
-	sin.sin_port = htons(4789);
-
-	if (sendto(bfd->sock, vxlan_pkt, BFD_VXLAN_PKT_TOT_LEN, 0,
-		   (struct sockaddr *)&sin, sizeof(struct sockaddr_in))
-	    < 0) {
-		ERRLOG("Error sending vxlan bfd pkt: %s", strerror(errno));
-	} else {
-		bfd->stats.tx_ctrl_pkt++;
-	}
-#endif
-}
-
 static int ptm_bfd_process_echo_pkt(int s)
 {
-	uint32_t my_discr = 0;
-	struct sockaddr_storage ss;
-	socklen_t sslen = sizeof(ss);
-	uint8_t rx_pkt[BFD_RX_BUF_LEN];
-	ssize_t pkt_len = sizeof(rx_pkt);
 	struct bfd_session *bfd;
-#ifdef BFD_LINUX
-	struct bfd_raw_echo_pkt *ep;
+	uint32_t my_discr = 0;
+	uint8_t ttl = 0;
 
-	/*
-	 * valgrind: memset() ss so valgrind doesn't complain about
-	 * uninitialized memory.
-	 */
-	memset(&ss, 0, sizeof(ss));
-	pkt_len = recvfrom(s, rx_pkt, sizeof(rx_pkt), MSG_DONTWAIT,
-			   (struct sockaddr *)&ss, &sslen);
-	if (pkt_len <= 0) {
-		if (errno != EAGAIN)
-			log_error("echo-packet: read failure: %s",
-				  strerror(errno));
-
-		return -1;
-	}
-
-	/* Check if we have at least the basic headers to send back. */
-	if (pkt_len < BFD_ECHO_PKT_TOT_LEN) {
-		log_debug("echo-packet: too short (got %ld, expected %d)",
-			  pkt_len, BFD_ECHO_PKT_TOT_LEN);
-		return -1;
-	}
-
-	ep = (struct bfd_raw_echo_pkt *)(rx_pkt + ETH_HDR_LEN);
-	/* if TTL = 255, assume that the received echo packet has
-	 * to be looped back
-	 */
-	if (ep->ip.ttl == BFD_TTL_VAL)
-		return ptm_bfd_echo_loopback(rx_pkt, pkt_len,
-					     (struct sockaddr *)&ss,
-					     sizeof(struct sockaddr_ll));
-
-	my_discr = ntohl(ep->data.my_discr);
-	if (ep->data.my_discr == 0) {
-		log_debug("echo-packet: 'my discriminator' is zero");
-		return -1;
-	}
-#endif /* BFD_LINUX */
-#ifdef BFD_BSD
-	int rv;
-	uint8_t ttl;
-
-	/*
-	 * bsd_echo_sock_read() already treats invalid TTL values and
-	 * zeroed discriminators.
-	 */
-	rv = bsd_echo_sock_read(s, rx_pkt, &pkt_len, &ss, &sslen, &ttl,
-				&my_discr);
-	if (rv == -1)
-		return -1;
-
-	if (ttl == BFD_TTL_VAL)
-		return ptm_bfd_echo_loopback(rx_pkt, pkt_len,
-					     (struct sockaddr *)&ss, sslen);
-#endif /* BFD_BSD */
+	/* Receive and parse echo packet. */
+	if (bp_bfd_echo_in(s, &ttl, &my_discr) == -1)
+		return 0;
 
 	/* Your discriminator not zero - use it to find session */
 	bfd = bfd_id_lookup(my_discr);
@@ -554,8 +186,8 @@ static int ptm_bfd_process_echo_pkt(int s)
 	}
 
 	if (!BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE)) {
-		log_debug("echo-packet: echo disabled [%s]", my_discr,
-			  bs_to_string(bfd));
+		log_debug("echo-packet: echo disabled [%s] (id:%u)",
+			  bs_to_string(bfd), my_discr);
 		return -1;
 	}
 
@@ -573,14 +205,6 @@ static int ptm_bfd_process_echo_pkt(int s)
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 {
 	struct bfd_pkt cp;
-
-	/* if the BFD session is for VxLAN tunnel, then construct and
-	 * send bfd raw packet
-	 */
-	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_VXLAN)) {
-		ptm_bfd_vxlan_pkt_snd(bfd, fbit);
-		return;
-	}
 
 	/* Set fields according to section 6.5.7 */
 	cp.diag = bfd->local_diag;
@@ -605,98 +229,16 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 	}
 	cp.timers.required_min_echo = htonl(bfd->timers.required_min_echo);
 
-	if (_ptm_bfd_send(bfd, false, NULL, &cp, BFD_PKT_LEN) != 0)
+	if (_ptm_bfd_send(bfd, NULL, &cp, BFD_PKT_LEN) != 0)
 		return;
 
 	bfd->stats.tx_ctrl_pkt++;
 }
 
-#if 0  /* TODO VxLAN Support */
-static struct bfd_pkt *
-ptm_bfd_process_vxlan_pkt(int s, ptm_sockevent_e se, void *udata, int *ifindex,
-			  struct sockaddr_in *sin,
-			  struct bfd_session_vxlan_info_t *vxlan_info,
-			  uint8_t *rx_pkt, int *mlen)
-{
-	struct sockaddr_ll sll;
-	uint32_t from_len = sizeof(struct sockaddr_ll);
-	struct bfd_raw_ctrl_pkt *cp;
-	uint8_t *pkt = rx_pkt;
-	struct iphdr *iph;
-	struct ethhdr *inner_ethh;
-
-	*mlen = recvfrom(s, rx_pkt, BFD_RX_BUF_LEN, MSG_DONTWAIT,
-			 (struct sockaddr *)&sll, &from_len);
-
-	if (*mlen < 0) {
-		if (errno != EAGAIN)
-			ERRLOG("Error receiving from BFD Vxlan socket %d: %m",
-			       s);
-		return NULL;
-	}
-
-	iph = (struct iphdr *)(pkt + ETH_HDR_LEN);
-	pkt = pkt + ETH_HDR_LEN + IP_HDR_LEN + UDP_HDR_LEN;
-	vxlan_info->vnid = ntohl(*((int *)(pkt + 4)));
-	vxlan_info->vnid = vxlan_info->vnid >> 8;
-
-	pkt = pkt + VXLAN_HDR_LEN;
-	inner_ethh = (struct ethhdr *)pkt;
-
-	cp = (struct bfd_raw_ctrl_pkt *)(pkt + ETH_HDR_LEN);
-
-	/* Discard the non BFD packets */
-	if (ntohs(cp->udp.dest) != BFD_DEFDESTPORT)
-		return NULL;
-
-	*ifindex = sll.sll_ifindex;
-	sin->sin_addr.s_addr = iph->saddr;
-	sin->sin_port = ntohs(cp->udp.dest);
-
-	vxlan_info->local_dst_ip.s_addr = cp->ip.daddr;
-	memcpy(vxlan_info->local_dst_mac, inner_ethh->h_dest,
-	       ETHERNET_ADDRESS_LENGTH);
-
-	return &cp->data;
-}
-#endif /* VxLAN */
-
-static bool
-ptm_bfd_validate_vxlan_pkt(struct bfd_session *bfd,
-			   struct bfd_session_vxlan_info *vxlan_info)
-{
-	if (bfd->vxlan_info.check_tnl_key && (vxlan_info->vnid != 0)) {
-		log_error("vxlan-packet: vnid not zero: %d", vxlan_info->vnid);
-		return false;
-	}
-
-	if (bfd->vxlan_info.local_dst_ip.s_addr
-	    != vxlan_info->local_dst_ip.s_addr) {
-		log_error("vxlan-packet: wrong inner destination",
-			  inet_ntoa(vxlan_info->local_dst_ip));
-		return false;
-	}
-
-	if (memcmp(bfd->vxlan_info.local_dst_mac, vxlan_info->local_dst_mac,
-		   ETHERNET_ADDRESS_LENGTH)) {
-		log_error(
-			"vxlan-packet: wrong inner mac: %02x:%02x:%02x:%02x:%02x:%02x",
-			vxlan_info->local_dst_mac[0],
-			vxlan_info->local_dst_mac[1],
-			vxlan_info->local_dst_mac[2],
-			vxlan_info->local_dst_mac[3],
-			vxlan_info->local_dst_mac[4],
-			vxlan_info->local_dst_mac[5]);
-		return false;
-	}
-
-	return true;
-}
-
-static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
-			     char *vrfname, size_t vrfnamelen,
-			     struct sockaddr_any *local,
-			     struct sockaddr_any *peer)
+ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
+		      char *port, size_t portlen, char *vrfname,
+		      size_t vrfnamelen, struct sockaddr_any *local,
+		      struct sockaddr_any *peer)
 {
 	struct cmsghdr *cm;
 	int ifindex;
@@ -708,7 +250,7 @@ static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
 
 	/* Prepare the recvmsg params. */
 	iov[0].iov_base = msgbuf;
-	iov[0].iov_len = sizeof(msgbuf);
+	iov[0].iov_len = msgbuflen;
 
 	memset(&msghdr, 0, sizeof(msghdr));
 	msghdr.msg_name = &msgaddr;
@@ -739,16 +281,14 @@ static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
 		switch (cm->cmsg_type) {
 #ifdef BFD_LINUX
 		case IP_TTL: {
-			uint32_t ttl;
+			uint32_t ttlval;
 
-			memcpy(&ttl, CMSG_DATA(cm), sizeof(ttl));
-			if ((is_mhop == false) && (ttl != BFD_TTL_VAL)) {
-				log_debug(
-					"ipv4-recv: invalid TTL from %s (expected %d, got %d flags %d)",
-					satostr(peer), ttl, BFD_TTL_VAL,
-					msghdr.msg_flags);
+			memcpy(&ttlval, CMSG_DATA(cm), sizeof(ttlval));
+			if (ttlval > 255) {
+				log_debug("ipv4-recv: invalid TTL: %u", ttlval);
 				return -1;
 			}
+			*ttl = ttlval;
 			break;
 		}
 
@@ -768,16 +308,7 @@ static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
 #endif /* BFD_LINUX */
 #ifdef BFD_BSD
 		case IP_RECVTTL: {
-			uint8_t ttl;
-
-			memcpy(&ttl, CMSG_DATA(cm), sizeof(ttl));
-			if ((is_mhop == false) && (ttl != BFD_TTL_VAL)) {
-				log_debug(
-					"ipv4-recv: invalid TTL from %s (expected %d, got %d flags %d)",
-					satostr(peer), ttl, BFD_TTL_VAL,
-					msghdr.msg_flags);
-				return -1;
-			}
+			memcpy(ttl, CMSG_DATA(cm), sizeof(*ttl));
 			break;
 		}
 
@@ -812,14 +343,16 @@ static ssize_t bfd_recv_ipv4(int sd, bool is_mhop, char *port, size_t portlen,
 	return mlen;
 }
 
-ssize_t bfd_recv_ipv6(int sd, bool is_mhop, char *port, size_t portlen,
-		      char *vrfname, size_t vrfnamelen,
-		      struct sockaddr_any *local, struct sockaddr_any *peer)
+ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
+		      char *port, size_t portlen, char *vrfname,
+		      size_t vrfnamelen, struct sockaddr_any *local,
+		      struct sockaddr_any *peer)
 {
 	struct cmsghdr *cm;
 	struct in6_pktinfo *pi6 = NULL;
 	int ifindex = 0;
 	ssize_t mlen;
+	uint32_t ttlval;
 	struct sockaddr_in6 msgaddr6;
 	struct msghdr msghdr6;
 	struct iovec iov[1];
@@ -827,7 +360,7 @@ ssize_t bfd_recv_ipv6(int sd, bool is_mhop, char *port, size_t portlen,
 
 	/* Prepare the recvmsg params. */
 	iov[0].iov_base = msgbuf;
-	iov[0].iov_len = sizeof(msgbuf);
+	iov[0].iov_len = msgbuflen;
 
 	memset(&msghdr6, 0, sizeof(msghdr6));
 	msghdr6.msg_name = &msgaddr6;
@@ -840,7 +373,7 @@ ssize_t bfd_recv_ipv6(int sd, bool is_mhop, char *port, size_t portlen,
 	mlen = recvmsg(sd, &msghdr6, MSG_DONTWAIT);
 	if (mlen == -1) {
 		if (errno != EAGAIN)
-			log_error("ipv4-recv: recv failed: %s",
+			log_error("ipv6-recv: recv failed: %s",
 				  strerror(errno));
 
 		return -1;
@@ -856,14 +389,13 @@ ssize_t bfd_recv_ipv6(int sd, bool is_mhop, char *port, size_t portlen,
 			continue;
 
 		if (cm->cmsg_type == IPV6_HOPLIMIT) {
-			memcpy(&ttlval, CMSG_DATA(cm), 4);
-			if ((is_mhop == false) && (ttlval != BFD_TTL_VAL)) {
-				log_debug(
-					"ipv6-recv: invalid TTL from %s (expected %d, got %d flags %d)",
-					satostr(peer), ttlval, BFD_TTL_VAL,
-					msghdr6.msg_flags);
+			memcpy(&ttlval, CMSG_DATA(cm), sizeof(ttlval));
+			if (ttlval > 255) {
+				log_debug("ipv6-recv: invalid TTL: %u", ttlval);
 				return -1;
 			}
+
+			*ttl = ttlval;
 		} else if (cm->cmsg_type == IPV6_PKTINFO) {
 			pi6 = (struct in6_pktinfo *)CMSG_DATA(cm);
 			if (pi6) {
@@ -888,28 +420,28 @@ ssize_t bfd_recv_ipv6(int sd, bool is_mhop, char *port, size_t portlen,
 static void bfd_sd_reschedule(int sd)
 {
 	if (sd == bglobal.bg_shop) {
-		bglobal.bg_ev[0] = NULL;
+		THREAD_OFF(bglobal.bg_ev[0]);
 		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_shop,
 				&bglobal.bg_ev[0]);
 	} else if (sd == bglobal.bg_mhop) {
-		bglobal.bg_ev[1] = NULL;
+		THREAD_OFF(bglobal.bg_ev[1]);
 		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_mhop,
 				&bglobal.bg_ev[1]);
 	} else if (sd == bglobal.bg_shop6) {
-		bglobal.bg_ev[2] = NULL;
+		THREAD_OFF(bglobal.bg_ev[2]);
 		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_shop6,
 				&bglobal.bg_ev[2]);
 	} else if (sd == bglobal.bg_mhop6) {
-		bglobal.bg_ev[3] = NULL;
+		THREAD_OFF(bglobal.bg_ev[3]);
 		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_mhop6,
 				&bglobal.bg_ev[3]);
 	} else if (sd == bglobal.bg_echo) {
-		bglobal.bg_ev[4] = NULL;
+		THREAD_OFF(bglobal.bg_ev[4]);
 		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_echo,
 				&bglobal.bg_ev[4]);
-	} else if (sd == bglobal.bg_vxlan) {
-		bglobal.bg_ev[5] = NULL;
-		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_vxlan,
+	} else if (sd == bglobal.bg_echov6) {
+		THREAD_OFF(bglobal.bg_ev[5]);
+		thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_echov6,
 				&bglobal.bg_ev[5]);
 	}
 }
@@ -955,18 +487,19 @@ int bfd_recv_cb(struct thread *t)
 	int sd = THREAD_FD(t);
 	struct bfd_session *bfd;
 	struct bfd_pkt *cp;
-	bool is_mhop, is_vxlan;
+	bool is_mhop;
 	ssize_t mlen = 0;
 	uint32_t oldEchoXmt_TO, oldXmtTime;
+	uint8_t ttl;
 	struct sockaddr_any local, peer;
 	char port[MAXNAMELEN + 1], vrfname[MAXNAMELEN + 1];
-	struct bfd_session_vxlan_info vxlan_info;
+	uint8_t msgbuf[1516];
 
 	/* Schedule next read. */
 	bfd_sd_reschedule(sd);
 
 	/* Handle echo packets. */
-	if (sd == bglobal.bg_echo) {
+	if (sd == bglobal.bg_echo || sd == bglobal.bg_echov6) {
 		ptm_bfd_process_echo_pkt(sd);
 		return 0;
 	}
@@ -978,33 +511,30 @@ int bfd_recv_cb(struct thread *t)
 	memset(&peer, 0, sizeof(peer));
 
 	/* Handle control packets. */
-	is_mhop = is_vxlan = false;
+	is_mhop = false;
 	if (sd == bglobal.bg_shop || sd == bglobal.bg_mhop) {
 		is_mhop = sd == bglobal.bg_mhop;
-		mlen = bfd_recv_ipv4(sd, is_mhop, port, sizeof(port), vrfname,
-				     sizeof(vrfname), &local, &peer);
+		mlen = bfd_recv_ipv4(sd, msgbuf, sizeof(msgbuf), &ttl, port,
+				     sizeof(port), vrfname, sizeof(vrfname),
+				     &local, &peer);
 	} else if (sd == bglobal.bg_shop6 || sd == bglobal.bg_mhop6) {
 		is_mhop = sd == bglobal.bg_mhop6;
-		mlen = bfd_recv_ipv6(sd, is_mhop, port, sizeof(port), vrfname,
-				     sizeof(vrfname), &local, &peer);
+		mlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), &ttl, port,
+				     sizeof(port), vrfname, sizeof(vrfname),
+				     &local, &peer);
 	}
-#if 0 /* TODO vxlan handling */
-	cp = ptm_bfd_process_vxlan_pkt(s, se, udata, &local_ifindex,
-				       &sin, &vxlan_info, rx_pkt, &mlen);
-	if (!cp)
-		return -1;
-
-	is_vxlan = true;
-	/* keep in network-byte order */
-	peer.ip4_addr.s_addr = sin.sin_addr.s_addr;
-	peer.family = AF_INET;
-	strcpy(peer_addr, inet_ntoa(sin.sin_addr));
-#endif
 
 	/* Implement RFC 5880 6.8.6 */
 	if (mlen < BFD_PKT_LEN) {
 		cp_debug(is_mhop, &peer, &local, port, vrfname,
 			 "too small (%ld bytes)", mlen);
+		return 0;
+	}
+
+	/* Validate packet TTL. */
+	if ((is_mhop == false) && (ttl != BFD_TTL_VAL)) {
+		cp_debug(is_mhop, &peer, &local, port, vrfname,
+			 "invalid TTL: %d expected %d", ttl, BFD_TTL_VAL);
 		return 0;
 	}
 
@@ -1047,10 +577,6 @@ int bfd_recv_cb(struct thread *t)
 		return 0;
 	}
 
-	/* Handle VxLAN cases. */
-	if (is_vxlan && !ptm_bfd_validate_vxlan_pkt(bfd, &vxlan_info))
-		return 0;
-
 	bfd->stats.rx_ctrl_pkt++;
 
 	/*
@@ -1058,10 +584,10 @@ int bfd_recv_cb(struct thread *t)
 	 * Single hop: set local address that received the packet.
 	 */
 	if (is_mhop) {
-		if ((BFD_TTL_VAL - bfd->mh_ttl) > ttlval) {
+		if ((BFD_TTL_VAL - bfd->mh_ttl) > BFD_TTL_VAL) {
 			cp_debug(is_mhop, &peer, &local, port, vrfname,
 				 "exceeded max hop count (expected %d, got %d)",
-				 bfd->mh_ttl, ttlval);
+				 bfd->mh_ttl, BFD_TTL_VAL);
 			return 0;
 		}
 	} else if (bfd->local_ip.sa_sin.sin_family == AF_UNSPEC) {
@@ -1111,7 +637,7 @@ int bfd_recv_cb(struct thread *t)
 	/* State switch from section 6.8.6 */
 	if (BFD_GETSTATE(cp->flags) == PTM_BFD_ADM_DOWN) {
 		if (bfd->ses_state != PTM_BFD_DOWN)
-			ptm_bfd_ses_dn(bfd, BFD_DIAGNEIGHDOWN);
+			ptm_bfd_ses_dn(bfd, BD_NEIGHBOR_DOWN);
 	} else {
 		switch (bfd->ses_state) {
 		case (PTM_BFD_DOWN):
@@ -1127,7 +653,7 @@ int bfd_recv_cb(struct thread *t)
 			break;
 		case (PTM_BFD_UP):
 			if (BFD_GETSTATE(cp->flags) == PTM_BFD_DOWN)
-				ptm_bfd_ses_dn(bfd, BFD_DIAGNEIGHDOWN);
+				ptm_bfd_ses_dn(bfd, BD_NEIGHBOR_DOWN);
 			break;
 		}
 	}
@@ -1209,6 +735,121 @@ int bfd_recv_cb(struct thread *t)
 	return 0;
 }
 
+/*
+ * bp_bfd_echo_in: proccesses an BFD echo packet. On TTL == BFD_TTL_VAL
+ * the packet is looped back or returns the my discriminator ID along
+ * with the TTL.
+ *
+ * Returns -1 on error or loopback or 0 on success.
+ */
+int bp_bfd_echo_in(int sd, uint8_t *ttl, uint32_t *my_discr)
+{
+	struct bfd_echo_pkt *bep;
+	ssize_t rlen;
+	struct sockaddr_any local, peer;
+	char port[MAXNAMELEN + 1], vrfname[MAXNAMELEN + 1];
+	uint8_t msgbuf[1516];
+
+	if (sd == bglobal.bg_echo)
+		rlen = bfd_recv_ipv4(sd, msgbuf, sizeof(msgbuf), ttl, port,
+				     sizeof(port), vrfname, sizeof(vrfname),
+				     &local, &peer);
+	else
+		rlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), ttl, port,
+				     sizeof(port), vrfname, sizeof(vrfname),
+				     &local, &peer);
+
+	/* Short packet, better not risk reading it. */
+	if (rlen < (ssize_t)sizeof(*bep)) {
+		cp_debug(false, &peer, &local, port, vrfname,
+			 "small echo packet");
+		return -1;
+	}
+
+	/* Test for loopback. */
+	if (*ttl == BFD_TTL_VAL) {
+		bp_udp_send(sd, *ttl - 1, msgbuf, rlen,
+			    (struct sockaddr *)&peer,
+			    (sd == bglobal.bg_echo) ? sizeof(peer.sa_sin)
+						    : sizeof(peer.sa_sin6));
+		return -1;
+	}
+
+	/* Read my discriminator from BFD Echo packet. */
+	bep = (struct bfd_echo_pkt *)msgbuf;
+	*my_discr = ntohl(bep->my_discr);
+	if (*my_discr == 0) {
+		cp_debug(false, &peer, &local, port, vrfname,
+			 "invalid echo packet discriminator (zero)");
+		return -1;
+	}
+
+	return 0;
+}
+
+int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
+		struct sockaddr *to, socklen_t tolen)
+{
+	struct cmsghdr *cmsg;
+	ssize_t wlen;
+	int ttlval = ttl;
+	bool is_ipv6 = to->sa_family == AF_INET6;
+	struct msghdr msg;
+	struct iovec iov[1];
+	uint8_t msgctl[255];
+
+	/* Prepare message data. */
+	iov[0].iov_base = data;
+	iov[0].iov_len = datalen;
+
+	memset(&msg, 0, sizeof(msg));
+	memset(msgctl, 0, sizeof(msgctl));
+	msg.msg_name = to;
+	msg.msg_namelen = tolen;
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 1;
+
+	/* Prepare the packet TTL information. */
+	if (ttl > 0) {
+		/* Use ancillary data. */
+		msg.msg_control = msgctl;
+		msg.msg_controllen = CMSG_LEN(sizeof(ttlval));
+
+		/* Configure the ancillary data. */
+		cmsg = CMSG_FIRSTHDR(&msg);
+		cmsg->cmsg_len = CMSG_LEN(sizeof(ttlval));
+		if (is_ipv6) {
+			cmsg->cmsg_level = IPPROTO_IPV6;
+			cmsg->cmsg_type = IPV6_HOPLIMIT;
+		} else {
+#if BFD_LINUX
+			cmsg->cmsg_level = IPPROTO_IP;
+			cmsg->cmsg_type = IP_TTL;
+#else
+			/* FreeBSD does not support TTL in ancillary data. */
+			msg.msg_control = NULL;
+			msg.msg_controllen = 0;
+
+			bp_set_ttl(sd, ttl);
+#endif /* BFD_BSD */
+		}
+		memcpy(CMSG_DATA(cmsg), &ttlval, sizeof(ttlval));
+	}
+
+	/* Send echo back. */
+	wlen = sendmsg(sd, &msg, 0);
+	if (wlen <= 0) {
+		log_debug("udp-send: loopback failure: (%d) %s", errno, strerror(errno));
+		return -1;
+	} else if (wlen < (ssize_t)datalen) {
+		log_debug("udp-send: partial send: %ld expected %ld", wlen,
+			  datalen);
+		return -1;
+	}
+
+	return 0;
+}
+
 
 /*
  * Sockets creation.
@@ -1218,10 +859,12 @@ int bfd_recv_cb(struct thread *t)
 /*
  * IPv4 sockets
  */
-int bp_set_ttl(int sd)
+int bp_set_ttl(int sd, uint8_t value)
 {
-	if (setsockopt(sd, IPPROTO_IP, IP_TTL, &ttlval, sizeof(ttlval)) == -1) {
-		log_warning("%s: setsockopt(IP_TTL): %s", __func__,
+	int ttl = value;
+
+	if (setsockopt(sd, IPPROTO_IP, IP_TTL, &ttl, sizeof(ttl)) == -1) {
+		log_warning("set-ttl: setsockopt(IP_TTL, %d): %s", value,
 			    strerror(errno));
 		return -1;
 	}
@@ -1229,10 +872,12 @@ int bp_set_ttl(int sd)
 	return 0;
 }
 
-int bp_set_tos(int sd)
+int bp_set_tos(int sd, uint8_t value)
 {
-	if (setsockopt(sd, IPPROTO_IP, IP_TOS, &tosval, sizeof(tosval)) == -1) {
-		log_warning("%s: setsockopt(IP_TOS): %s", __func__,
+	int tos = value;
+
+	if (setsockopt(sd, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)) == -1) {
+		log_warning("set-tos: setsockopt(IP_TOS, %d): %s", value,
 			    strerror(errno));
 		return -1;
 	}
@@ -1242,20 +887,23 @@ int bp_set_tos(int sd)
 
 static void bp_set_ipopts(int sd)
 {
-	if (bp_set_ttl(sd) != 0)
-		log_fatal("%s: TTL configuration failed", __func__);
+	int rcvttl = BFD_RCV_TTL_VAL;
+
+	if (bp_set_ttl(sd, BFD_TTL_VAL) != 0)
+		log_fatal("set-ipopts: TTL configuration failed");
 
 	if (setsockopt(sd, IPPROTO_IP, IP_RECVTTL, &rcvttl, sizeof(rcvttl))
 	    == -1)
-		log_fatal("%s: setsockopt(IP_RECVTTL): %s", __func__,
+		log_fatal("set-ipopts: setsockopt(IP_RECVTTL, %d): %s", rcvttl,
 			  strerror(errno));
 
 #ifdef BFD_LINUX
 	int pktinfo = BFD_PKT_INFO_VAL;
+
 	/* Figure out address and interface to do the peer matching. */
 	if (setsockopt(sd, IPPROTO_IP, IP_PKTINFO, &pktinfo, sizeof(pktinfo))
 	    == -1)
-		log_fatal("%s: setsockopt(IP_PKTINFO): %s", __func__,
+		log_fatal("set-ipopts: setsockopt(IP_PKTINFO, %d): %s", pktinfo,
 			  strerror(errno));
 #endif /* BFD_LINUX */
 #ifdef BFD_BSD
@@ -1263,12 +911,12 @@ static void bp_set_ipopts(int sd)
 
 	/* Find out our address for peer matching. */
 	if (setsockopt(sd, IPPROTO_IP, IP_RECVDSTADDR, &yes, sizeof(yes)) == -1)
-		log_fatal("%s: setsockopt(IP_RECVDSTADDR): %s", __func__,
+		log_fatal("set-ipopts: setsockopt(IP_RECVDSTADDR, %d): %s", yes,
 			  strerror(errno));
 
 	/* Find out interface where the packet came in. */
 	if (setsockopt_ifindex(AF_INET, sd, yes) == -1)
-		log_fatal("%s: setsockopt_ipv4_ifindex: %s", __func__,
+		log_fatal("set-ipopts: setsockopt_ipv4_ifindex(%d): %s", yes,
 			  strerror(errno));
 #endif /* BFD_BSD */
 }
@@ -1282,7 +930,7 @@ static void bp_bind_ip(int sd, uint16_t port)
 	sin.sin_addr.s_addr = htonl(INADDR_ANY);
 	sin.sin_port = htons(port);
 	if (bind(sd, (struct sockaddr *)&sin, sizeof(sin)) == -1)
-		log_fatal("%s: bind: %s", __func__, strerror(errno));
+		log_fatal("bind-ip: bind: %s", strerror(errno));
 }
 
 int bp_udp_shop(void)
@@ -1291,7 +939,7 @@ int bp_udp_shop(void)
 
 	sd = socket(AF_INET, SOCK_DGRAM, PF_UNSPEC);
 	if (sd == -1)
-		log_fatal("%s: socket: %s", __func__, strerror(errno));
+		log_fatal("udp-shop: socket: %s", strerror(errno));
 
 	bp_set_ipopts(sd);
 	bp_bind_ip(sd, BFD_DEFDESTPORT);
@@ -1305,7 +953,7 @@ int bp_udp_mhop(void)
 
 	sd = socket(AF_INET, SOCK_DGRAM, PF_UNSPEC);
 	if (sd == -1)
-		log_fatal("%s: socket: %s", __func__, strerror(errno));
+		log_fatal("udp-mhop: socket: %s", strerror(errno));
 
 	bp_set_ipopts(sd);
 	bp_bind_ip(sd, BFD_DEF_MHOP_DEST_PORT);
@@ -1326,22 +974,19 @@ int bp_peer_socket(struct bfd_peer_cfg *bpc)
 		return -1;
 	}
 
-	if (!bpc->bpc_has_vxlan) {
-		/* Set TTL to 255 for all transmitted packets */
-		if (bp_set_ttl(sd) != 0) {
-			close(sd);
-			return -1;
-		}
-	}
-
-	/* Set TOS to CS6 for all transmitted packets */
-	if (bp_set_tos(sd) != 0) {
+	/* Set TTL to 255 for all transmitted packets */
+	if (bp_set_ttl(sd, BFD_TTL_VAL) != 0) {
 		close(sd);
 		return -1;
 	}
 
-	/* dont bind-to-device incase of vxlan */
-	if (!bpc->bpc_has_vxlan && bpc->bpc_has_localif) {
+	/* Set TOS to CS6 for all transmitted packets */
+	if (bp_set_tos(sd, BFD_TOS_VAL) != 0) {
+		close(sd);
+		return -1;
+	}
+
+	if (bpc->bpc_has_localif) {
 		if (bp_bind_dev(sd, bpc->bpc_localif) != 0) {
 			close(sd);
 			return -1;
@@ -1360,7 +1005,7 @@ int bp_peer_socket(struct bfd_peer_cfg *bpc)
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 	sin.sin_len = sizeof(sin);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
-	if (bpc->bpc_mhop || bpc->bpc_has_vxlan)
+	if (bpc->bpc_mhop)
 		sin.sin_addr = bpc->bpc_local.sa_sin.sin_addr;
 	else
 		sin.sin_addr.s_addr = INADDR_ANY;
@@ -1400,16 +1045,14 @@ int bp_peer_socketv6(struct bfd_peer_cfg *bpc)
 		return -1;
 	}
 
-	if (!bpc->bpc_has_vxlan) {
-		/* Set TTL to 255 for all transmitted packets */
-		if (bp_set_ttlv6(sd) != 0) {
-			close(sd);
-			return -1;
-		}
+	/* Set TTL to 255 for all transmitted packets */
+	if (bp_set_ttlv6(sd, BFD_TTL_VAL) != 0) {
+		close(sd);
+		return -1;
 	}
 
 	/* Set TOS to CS6 for all transmitted packets */
-	if (bp_set_tosv6(sd) != 0) {
+	if (bp_set_tosv6(sd, BFD_TOS_VAL) != 0) {
 		close(sd);
 		return -1;
 	}
@@ -1454,24 +1097,27 @@ int bp_peer_socketv6(struct bfd_peer_cfg *bpc)
 	return sd;
 }
 
-int bp_set_ttlv6(int sd)
+int bp_set_ttlv6(int sd, uint8_t value)
 {
-	if (setsockopt(sd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &ttlval,
-		       sizeof(ttlval))
+	int ttl = value;
+
+	if (setsockopt(sd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &ttl, sizeof(ttl))
 	    == -1) {
-		log_warning("%s: setsockopt(IPV6_UNICAST_HOPS): %s", __func__,
-			    strerror(errno));
+		log_warning("set-ttlv6: setsockopt(IPV6_UNICAST_HOPS, %d): %s",
+			    value, strerror(errno));
 		return -1;
 	}
 
 	return 0;
 }
 
-int bp_set_tosv6(int sd)
+int bp_set_tosv6(int sd, uint8_t value)
 {
-	if (setsockopt(sd, IPPROTO_IPV6, IPV6_TCLASS, &tosval, sizeof(tosval))
+	int tos = value;
+
+	if (setsockopt(sd, IPPROTO_IPV6, IPV6_TCLASS, &tos, sizeof(tos))
 	    == -1) {
-		log_warning("%s: setsockopt(IPV6_TCLASS): %s", __func__,
+		log_warning("set-tosv6: setsockopt(IPV6_TCLASS, %d): %s", value,
 			    strerror(errno));
 		return -1;
 	}
@@ -1481,28 +1127,26 @@ int bp_set_tosv6(int sd)
 
 static void bp_set_ipv6opts(int sd)
 {
-	static int ipv6_pktinfo = BFD_IPV6_PKT_INFO_VAL;
-	static int ipv6_only = BFD_IPV6_ONLY_VAL;
+	int ipv6_pktinfo = BFD_IPV6_PKT_INFO_VAL;
+	int ipv6_only = BFD_IPV6_ONLY_VAL;
 
-	if (setsockopt(sd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, &ttlval,
-		       sizeof(ttlval))
-	    == -1)
-		log_fatal("%s: setsockopt(IPV6_UNICAST_HOPS): %s", __func__,
-			  strerror(errno));
+	if (bp_set_ttlv6(sd, BFD_TTL_VAL) == -1)
+		log_fatal("set-ipv6opts: setsockopt(IPV6_UNICAST_HOPS, %d): %s",
+			  BFD_TTL_VAL, strerror(errno));
 
-	if (setsockopt_ipv6_hoplimit(sd, rcvttl) == -1)
-		log_fatal("%s: setsockopt(IPV6_HOPLIMIT): %s", __func__,
-			  strerror(errno));
+	if (setsockopt_ipv6_hoplimit(sd, BFD_RCV_TTL_VAL) == -1)
+		log_fatal("set-ipv6opts: setsockopt(IPV6_HOPLIMIT, %d): %s",
+			  BFD_RCV_TTL_VAL, strerror(errno));
 
 	if (setsockopt_ipv6_pktinfo(sd, ipv6_pktinfo) == -1)
-		log_fatal("%s: setsockopt(IPV6_PKTINFO): %s", __func__,
-			  strerror(errno));
+		log_fatal("set-ipv6opts: setsockopt(IPV6_PKTINFO, %d): %s",
+			  ipv6_pktinfo, strerror(errno));
 
 	if (setsockopt(sd, IPPROTO_IPV6, IPV6_V6ONLY, &ipv6_only,
 		       sizeof(ipv6_only))
 	    == -1)
-		log_fatal("%s: setsockopt(IPV6_V6ONLY): %s", __func__,
-			  strerror(errno));
+		log_fatal("set-ipv6opts: setsockopt(IPV6_V6ONLY, %d): %s",
+			  ipv6_only, strerror(errno));
 }
 
 static void bp_bind_ipv6(int sd, uint16_t port)
@@ -1517,7 +1161,7 @@ static void bp_bind_ipv6(int sd, uint16_t port)
 	sin6.sin6_len = sizeof(sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 	if (bind(sd, (struct sockaddr *)&sin6, sizeof(sin6)) == -1)
-		log_fatal("%s: bind: %s", __func__, strerror(errno));
+		log_fatal("bind-ipv6: bind: %s", strerror(errno));
 }
 
 int bp_udp6_shop(void)
@@ -1526,7 +1170,7 @@ int bp_udp6_shop(void)
 
 	sd = socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC);
 	if (sd == -1)
-		log_fatal("%s: socket: %s", __func__, strerror(errno));
+		log_fatal("udp6-shop: socket: %s", strerror(errno));
 
 	bp_set_ipv6opts(sd);
 	bp_bind_ipv6(sd, BFD_DEFDESTPORT);
@@ -1540,10 +1184,38 @@ int bp_udp6_mhop(void)
 
 	sd = socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC);
 	if (sd == -1)
-		log_fatal("%s: socket: %s", __func__, strerror(errno));
+		log_fatal("udp6-mhop: socket: %s", strerror(errno));
 
 	bp_set_ipv6opts(sd);
 	bp_bind_ipv6(sd, BFD_DEF_MHOP_DEST_PORT);
 
 	return sd;
+}
+
+int bp_echo_socket(void)
+{
+	int s;
+
+	s = socket(AF_INET, SOCK_DGRAM, 0);
+	if (s == -1)
+		log_fatal("echo-socket: socket: %s", strerror(errno));
+
+	bp_set_ipopts(s);
+	bp_bind_ip(s, BFD_DEF_ECHO_PORT);
+
+	return s;
+}
+
+int bp_echov6_socket(void)
+{
+	int s;
+
+	s = socket(AF_INET6, SOCK_DGRAM, 0);
+	if (s == -1)
+		log_fatal("echov6-socket: socket: %s", strerror(errno));
+
+	bp_set_ipv6opts(s);
+	bp_bind_ipv6(s, BFD_DEF_ECHO_PORT);
+
+	return s;
 }

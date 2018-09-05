@@ -78,7 +78,7 @@ struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
 	} else {
 		memset(&shop, 0, sizeof(shop));
 		shop.peer = bpc->bpc_peer;
-		if (!bpc->bpc_has_vxlan && bpc->bpc_has_localif)
+		if (bpc->bpc_has_localif)
 			strlcpy(shop.port_name, bpc->bpc_localif,
 				sizeof(shop.port_name));
 
@@ -311,33 +311,6 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp, char *port_name,
 	return l_bfd;
 }
 
-#if 0  /* TODO VxLAN Support */
-static void
-_update_vxlan_sess_parms(struct bfd_session *bfd, bfd_sess_parms *sess_parms)
-{
-	struct bfd_session_vxlan_info *vxlan_info = &bfd->vxlan_info;
-	bfd_parms_list *parms = &sess_parms->parms;
-
-	vxlan_info->vnid = parms->vnid;
-	vxlan_info->check_tnl_key = parms->check_tnl_key;
-	vxlan_info->forwarding_if_rx = parms->forwarding_if_rx;
-	vxlan_info->cpath_down = parms->cpath_down;
-	vxlan_info->decay_min_rx = parms->decay_min_rx;
-
-	inet_aton(parms->local_dst_ip, &vxlan_info->local_dst_ip);
-	inet_aton(parms->remote_dst_ip, &vxlan_info->peer_dst_ip);
-
-	memcpy(vxlan_info->local_dst_mac, parms->local_dst_mac, ETH_ALEN);
-	memcpy(vxlan_info->peer_dst_mac, parms->remote_dst_mac, ETH_ALEN);
-
-	/* The interface may change for Vxlan BFD sessions, so update
-	 * the local mac and ifindex
-	 */
-	bfd->ifindex = sess_parms->ifindex;
-	memcpy(bfd->local_mac, sess_parms->local_mac, sizeof(bfd->local_mac));
-}
-#endif /* VxLAN support */
-
 int bfd_xmt_cb(struct thread *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
@@ -364,7 +337,7 @@ int bfd_recvtimer_cb(struct thread *t)
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
-		ptm_bfd_ses_dn(bs, BFD_DIAGDETECTTIME);
+		ptm_bfd_ses_dn(bs, BD_CONTROL_EXPIRED);
 		bfd_recvtimer_update(bs);
 		break;
 
@@ -387,7 +360,7 @@ int bfd_echo_recvtimer_cb(struct thread *t)
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
-		ptm_bfd_ses_dn(bs, BFD_DIAGDETECTTIME);
+		ptm_bfd_ses_dn(bs, BD_ECHO_FAILED);
 		break;
 	}
 
@@ -535,8 +508,6 @@ static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
 
 	_bfd_session_update(bs, bpc);
 
-	/* TODO add VxLAN support. */
-
 	control_notify_config(BCM_NOTIFY_CONFIG_UPDATE, bs);
 
 	return 0;
@@ -606,9 +577,6 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 		ptm_bfd_fetch_local_mac(bpc->bpc_localif, bfd->local_mac);
 	}
 
-	if (bpc->bpc_has_vxlan)
-		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_VXLAN);
-
 	if (bpc->bpc_ipv4 == false) {
 		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6);
 
@@ -644,29 +612,12 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 		bfd_mhop_insert(bfd);
 	} else {
 		bfd->shop.peer = bpc->bpc_peer;
-		if (!bpc->bpc_has_vxlan && bpc->bpc_has_localif)
+		if (bpc->bpc_has_localif)
 			strlcpy(bfd->shop.port_name, bpc->bpc_localif,
 				sizeof(bfd->shop.port_name));
 
 		bfd_shop_insert(bfd);
 	}
-
-	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_VXLAN)) {
-		static uint8_t bfd_def_vxlan_dmac[] = {0x00, 0x23, 0x20,
-						       0x00, 0x00, 0x01};
-		memcpy(bfd->peer_mac, bfd_def_vxlan_dmac,
-		       sizeof(bfd_def_vxlan_dmac));
-	}
-#if 0 /* TODO */
-	else if (event->rmac) {
-		if (sscanf(event->rmac, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-		    &bfd->peer_mac[0], &bfd->peer_mac[1], &bfd->peer_mac[2],
-		    &bfd->peer_mac[3], &bfd->peer_mac[4], &bfd->peer_mac[5])
-		    != 6)
-			DLOG("%s: Assigning remote mac = %s", __func__,
-			     event->rmac);
-	}
-#endif
 
 	/*
 	 * XXX: session update triggers echo start, so we must have our
