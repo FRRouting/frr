@@ -2209,7 +2209,6 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 		       union prefixconstptr src_pp,
 		       const struct route_entry *re)
 {
-	const struct prefix *p = pp.p;
 	const struct prefix *src_p = src_pp.p;
 	bool is_srcdst = src_p && src_p->prefixlen;
 	char straddr[PREFIX_STRLEN];
@@ -2232,10 +2231,34 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 		   re->nexthop_num, re->nexthop_active_num);
 
 	for (ALL_NEXTHOPS(re->ng, nexthop)) {
-		inet_ntop(p->family, &nexthop->gate, straddr, INET6_ADDRSTRLEN);
-		zlog_debug("%s: %s %s[%u] vrf %u with flags %s%s%s", func,
+		struct interface *ifp;
+		struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
+
+		switch (nexthop->type) {
+		case NEXTHOP_TYPE_BLACKHOLE:
+			sprintf(straddr, "Blackhole");
+			break;
+		case NEXTHOP_TYPE_IFINDEX:
+			ifp = if_lookup_by_index(nexthop->ifindex,
+						 nexthop->vrf_id);
+			sprintf(straddr, "%s", ifp ? ifp->name : "Unknown");
+			break;
+		case NEXTHOP_TYPE_IPV4:
+			/* fallthrough */
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			inet_ntop(AF_INET, &nexthop->gate, straddr,
+				  INET6_ADDRSTRLEN);
+			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			inet_ntop(AF_INET6, &nexthop->gate, straddr,
+				  INET6_ADDRSTRLEN);
+			break;
+		}
+		zlog_debug("%s: %s %s[%u] vrf %s(%u) with flags %s%s%s", func,
 			   (nexthop->rparent ? "  NH" : "NH"), straddr,
-			   nexthop->ifindex, nexthop->vrf_id,
+			   nexthop->ifindex, vrf ? vrf->name : "Unknown",
+			   nexthop->vrf_id,
 			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)
 				    ? "ACTIVE "
 				    : ""),
