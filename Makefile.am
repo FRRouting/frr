@@ -152,6 +152,7 @@ endif
 
 EXTRA_DIST += \
 	aclocal.m4 \
+	README.md \
 	m4/README.txt \
 	\
 	python/clidef.py \
