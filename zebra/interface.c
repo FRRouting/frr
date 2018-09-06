@@ -733,7 +733,7 @@ void if_delete_update(struct interface *ifp)
 	 * occur with this implementation whereas it is not possible with
 	 * vrf-lite).
 	 */
-	if ((ifp->vrf_id) && !vrf_is_backend_netns())
+	if (ifp->vrf_id && !vrf_is_backend_netns())
 		if_handle_vrf_change(ifp, VRF_DEFAULT);
 
 	/* Reset some zebra interface params to default values. */
