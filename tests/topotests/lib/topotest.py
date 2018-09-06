@@ -970,6 +970,12 @@ class Router(Node):
 
         Usage example: router.checkRouterVersion('>', '1.0')
         """
+
+        # Make sure we have version information first
+        if self.version == None:
+            self.version = self.cmd(os.path.join(self.daemondir, 'bgpd')+' -v').split()[2]
+            logger.info('{}: running version: {}'.format(self.name,self.version))
+
         rversion = self.version
         if rversion is None:
             return False
