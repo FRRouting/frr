@@ -1470,8 +1470,6 @@ extern void bgp_terminate(void);
 extern void bgp_reset(void);
 extern time_t bgp_clock(void);
 extern void bgp_zclient_reset(void);
-extern int bgp_nexthop_set(union sockunion *, union sockunion *,
-			   struct bgp_nexthop *, struct peer *);
 extern struct bgp *bgp_get_default(void);
 extern struct bgp *bgp_lookup(as_t, const char *);
 extern struct bgp *bgp_lookup_by_name(const char *);

@@ -1707,8 +1707,14 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 			stream_getl(s); /* RD low */
 		}
 		stream_get(&attr->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
-		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global))
+		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)) {
+			if (!peer->nexthop.ifp) {
+				zlog_warn("%s: interface not set appropriately to handle some attributes",
+					  peer->host);
+				return BGP_ATTR_PARSE_WITHDRAW;
+			}
 			attr->nh_ifindex = peer->nexthop.ifp->ifindex;
+		}
 		break;
 	case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
 	case BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL:
@@ -1718,8 +1724,14 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 			stream_getl(s); /* RD low */
 		}
 		stream_get(&attr->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
-		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global))
+		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)) {
+			if (!peer->nexthop.ifp) {
+				zlog_warn("%s: interface not set appropriately to handle some attributes",
+					  peer->host);
+				return BGP_ATTR_PARSE_WITHDRAW;
+			}
 			attr->nh_ifindex = peer->nexthop.ifp->ifindex;
+		}
 		if (attr->mp_nexthop_len
 		    == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
 			stream_getl(s); /* RD high */
@@ -1742,6 +1754,11 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 						  INET6_ADDRSTRLEN));
 
 			attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
+		}
+		if (!peer->nexthop.ifp) {
+			zlog_warn("%s: Interface not set appropriately to handle this some attributes",
+				  peer->host);
+			return BGP_ATTR_PARSE_WITHDRAW;
 		}
 		attr->nh_lla_ifindex = peer->nexthop.ifp->ifindex;
 		break;

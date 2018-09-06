@@ -73,6 +73,9 @@ extern int bgp_zebra_advertise_all_vni(struct bgp *, int);
 
 extern int bgp_zebra_num_connects(void);
 
+extern bool bgp_zebra_nexthop_set(union sockunion *, union sockunion *,
+				  struct bgp_nexthop *, struct peer *);
+
 struct bgp_pbr_action;
 struct bgp_pbr_match;
 struct bgp_pbr_match_entry;
