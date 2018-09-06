@@ -428,8 +428,12 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	/* Skip nexthops that have been filtered out due to route-map */
 	/* The nexthops are specific to this route and so the same */
 	/* nexthop for a different route may not have this flag set */
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FILTERED))
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FILTERED)) {
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+			zlog_debug("\t%s: Nexthop Filtered",
+				   __PRETTY_FUNCTION__);
 		return 0;
+	}
 
 	/*
 	 * Check to see if we should trust the passed in information
@@ -441,10 +445,21 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		if (ifp && connected_is_unnumbered(ifp)) {
 			if (if_is_operative(ifp))
 				return 1;
-			else
+			else {
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+					zlog_debug(
+						"\t%s: Onlink and interface %s is not operative",
+						__PRETTY_FUNCTION__, ifp->name);
 				return 0;
-		} else
+			}
+		} else {
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+				zlog_debug(
+					"\t%s: Interface %s is not unnumbered",
+					__PRETTY_FUNCTION__,
+					ifp ? ifp->name : "Unknown");
 			return 0;
+		}
 	}
 
 	/* Make lookup prefix. */
@@ -466,8 +481,12 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	}
 	/* Lookup table.  */
 	table = zebra_vrf_table(afi, SAFI_UNICAST, nexthop->vrf_id);
-	if (!table)
+	if (!table) {
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+			zlog_debug("\t%s: Table not found",
+				   __PRETTY_FUNCTION__);
 		return 0;
+	}
 
 	rn = route_node_match(table, (struct prefix *)&p);
 	while (rn) {
@@ -480,15 +499,25 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		 */
 		if (top && rn == top)
 			if (((afi == AFI_IP) && (rn->p.prefixlen != 32))
-			    || ((afi == AFI_IP6) && (rn->p.prefixlen != 128)))
+			    || ((afi == AFI_IP6) && (rn->p.prefixlen != 128))) {
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+					zlog_debug(
+						"\t%s: Matched against ourself and prefix length is not max bit length",
+						__PRETTY_FUNCTION__);
 				return 0;
+			}
 
 		/* Pick up selected route. */
 		/* However, do not resolve over default route unless explicitly
 		 * allowed. */
 		if (is_default_prefix(&rn->p)
-		    && !rnh_resolve_via_default(p.family))
+		    && !rnh_resolve_via_default(p.family)) {
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+				zlog_debug(
+					"\t:%s: Resolved against default route",
+					__PRETTY_FUNCTION__);
 			return 0;
+		}
 
 		dest = rib_dest_from_rnode(rn);
 		if (dest && dest->selected_fib
@@ -540,6 +569,9 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			}
 			if (resolved && set)
 				re->nexthop_mtu = match->mtu;
+			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
+				zlog_debug("\t%s: Recursion failed to find",
+					   __PRETTY_FUNCTION__);
 			return resolved;
 		} else if (re->type == ZEBRA_ROUTE_STATIC) {
 			resolved = 0;
@@ -558,6 +590,11 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			}
 			if (resolved && set)
 				re->nexthop_mtu = match->mtu;
+
+			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
+				zlog_debug(
+					"\t%s: Static route unable to resolve",
+					__PRETTY_FUNCTION__);
 			return resolved;
 		} else {
 			return 0;
@@ -900,8 +937,12 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	default:
 		break;
 	}
-	if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+	if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+			zlog_debug("\t%s: Unable to find a active nexthop",
+				   __PRETTY_FUNCTION__);
 		return 0;
+	}
 
 	/* XXX: What exactly do those checks do? Do we support
 	 * e.g. IPv4 routes with IPv6 nexthops or vice versa? */
