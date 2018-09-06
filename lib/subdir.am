@@ -152,6 +152,7 @@ pkginclude_HEADERS += \
 	lib/sha256.h \
 	lib/sigevent.h \
 	lib/skiplist.h \
+	lib/smux.h \
 	lib/sockopt.h \
 	lib/sockunion.h \
 	lib/spf_backoff.h \
