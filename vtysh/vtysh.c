@@ -1112,7 +1112,7 @@ static char *command_generator(const char *text, int state)
 	return NULL;
 }
 
-static char **new_completion(char *text, int start, int end)
+static char **new_completion(const char *text, int start, int end)
 {
 	char **matches;
 
@@ -3386,8 +3386,7 @@ void vtysh_readline_init(void)
 	rl_initialize();
 	rl_bind_key('?', (rl_command_func_t *)vtysh_rl_describe);
 	rl_completion_entry_function = vtysh_completion_entry_function;
-	rl_attempted_completion_function =
-		(rl_completion_func_t *)new_completion;
+	rl_attempted_completion_function = new_completion;
 }
 
 char *vtysh_prompt(void)
