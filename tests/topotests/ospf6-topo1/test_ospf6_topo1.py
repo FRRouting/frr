@@ -156,10 +156,14 @@ def setup_module(module):
     # For debugging after starting net, but before starting FRR/Quagga, uncomment the next line
     # CLI(net)
 
+    ospf_config = 'ospf6d.conf'
+    if net['r1'].checkRouterVersion('<', '4.0'):
+        ospf_config = 'ospf6d.conf-pre-v4'
+
     # Starting Routers
     for i in range(1, 5):
         net['r%s' % i].loadConf('zebra', '%s/r%s/zebra.conf' % (thisDir, i))
-        net['r%s' % i].loadConf('ospf6d', '%s/r%s/ospf6d.conf' % (thisDir, i))
+        net['r%s' % i].loadConf('ospf6d', '%s/r%s/%s' % (thisDir, i, ospf_config))
         net['r%s' % i].startRouter()
 
     # For debugging after starting FRR/Quagga daemons, uncomment the next line

@@ -111,7 +111,10 @@ def setup_module(module):
         net['r%s' % i].loadConf('ripd', '%s/r%s/ripd.conf' % (thisDir, i))
         net['r%s' % i].loadConf('ripngd', '%s/r%s/ripngd.conf' % (thisDir, i))
         net['r%s' % i].loadConf('ospfd', '%s/r%s/ospfd.conf' % (thisDir, i))
-        net['r%s' % i].loadConf('ospf6d', '%s/r%s/ospf6d.conf' % (thisDir, i))
+        if net['r1'].checkRouterVersion('<', '4.0'):
+            net['r%s' % i].loadConf('ospf6d', '%s/r%s/ospf6d.conf-pre-v4' % (thisDir, i))
+	else:
+	    net['r%s' % i].loadConf('ospf6d', '%s/r%s/ospf6d.conf' % (thisDir, i))
         net['r%s' % i].loadConf('isisd', '%s/r%s/isisd.conf' % (thisDir, i))
         net['r%s' % i].loadConf('bgpd', '%s/r%s/bgpd.conf' % (thisDir, i))
         if net['r%s' % i].daemon_available('ldpd'):

@@ -87,6 +87,10 @@ def setup_module(mod):
     tgen = Topogen(OSPFTopo, mod.__name__)
     tgen.start_topology()
 
+    ospf6_config = 'ospf6d.conf'
+    if tgen.gears['r1'].has_version('<', '4.0'):
+        ospf6_config = 'ospf6d.conf-pre-v4'
+
     router_list = tgen.routers()
     for rname, router in router_list.iteritems():
         router.load_config(
@@ -99,7 +103,7 @@ def setup_module(mod):
         )
         router.load_config(
             TopoRouter.RD_OSPF6,
-            os.path.join(CWD, '{}/ospf6d.conf'.format(rname))
+            os.path.join(CWD, '{}/{}'.format(rname, ospf6_config))
         )
 
     # Initialize all routers.

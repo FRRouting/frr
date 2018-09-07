@@ -1,0 +1,9 @@
+!
+router ospf6
+ router-id 10.0.255.4
+ redistribute kernel
+ redistribute connected
+ redistribute static
+ interface r4-eth0 area 0.0.0.1
+ interface r4-eth1 area 0.0.0.1
+!
