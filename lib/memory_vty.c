@@ -28,7 +28,9 @@
 #include <malloc/malloc.h>
 #endif
 #include <dlfcn.h>
+#ifdef HAVE_LINK_H
 #include <link.h>
+#endif
 
 #include "log.h"
 #include "memory.h"
