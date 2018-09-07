@@ -313,6 +313,13 @@ AX_PTHREAD([
   AC_MSG_FAILURE([This FRR version needs pthreads])
 ])
 
+AC_SEARCH_LIBS([pthread_condattr_setclock], [],
+		[frr_cv_pthread_condattr_setclock=yes],
+		[frr_cv_pthread_condattr_setclock=no])
+if test "$frr_cv_pthread_condattr_setclock" = yes; then
+  AC_DEFINE(HAVE_PTHREAD_CONDATTR_SETCLOCK, 1, [Have pthread.h pthread_condattr_setclock])
+fi
+
 dnl --------------
 dnl Check programs
 dnl --------------
