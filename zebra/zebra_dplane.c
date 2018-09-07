@@ -38,9 +38,11 @@ DEFINE_MTYPE(ZEBRA, DP_PROV, "Zebra DPlane Provider")
 #  define AOK 0
 #endif
 
+/* Enable test dataplane provider */
+/*#define DPLANE_TEST_PROVIDER 1 */
+
 /* Default value for max queued incoming updates */
 const uint32_t DPLANE_DEFAULT_MAX_QUEUED = 200;
-
 
 /* Default value for new work per cycle */
 const uint32_t DPLANE_DEFAULT_NEW_WORK = 100;
@@ -1135,9 +1137,16 @@ bool dplane_provider_is_threaded(const struct zebra_dplane_provider *prov)
  */
 int dplane_provider_work_ready(void)
 {
-	thread_add_event(zdplane_info.dg_master,
-			 dplane_thread_loop, NULL, 0,
-			 &zdplane_info.dg_t_update);
+	/* Note that during zebra startup, we may be offered work before
+	 * the dataplane pthread (and thread-master) are ready. We want to
+	 * enqueue the work, but the event-scheduling machinery may not be
+	 * available.
+	 */
+	if (zdplane_info.dg_run) {
+		thread_add_event(zdplane_info.dg_master,
+				 dplane_thread_loop, NULL, 0,
+				 &zdplane_info.dg_t_update);
+	}
 
 	return AOK;
 }
@@ -1217,6 +1226,8 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 	return 0;
 }
 
+#if DPLANE_TEST_PROVIDER
+
 /*
  * Test dataplane provider plugin
  */
@@ -1270,6 +1281,7 @@ static int test_dplane_shutdown_func(struct zebra_dplane_provider *prov,
 
 	return 0;
 }
+#endif	/* DPLANE_TEST_PROVIDER */
 
 /*
  * Register default kernel provider
@@ -1289,7 +1301,8 @@ static void dplane_provider_init(void)
 		zlog_err("Unable to register kernel dplane provider: %d",
 			 ret);
 
-	/* TODO -- make the test provider optional... */
+#if DPLANE_TEST_PROVIDER
+	/* Optional test provider ... */
 	ret = dplane_provider_register("Test",
 				       DPLANE_PRIO_PRE_KERNEL,
 				       DPLANE_PROV_FLAGS_DEFAULT,
@@ -1300,6 +1313,7 @@ static void dplane_provider_init(void)
 	if (ret != AOK)
 		zlog_err("Unable to register test dplane provider: %d",
 			 ret);
+#endif	/* DPLANE_TEST_PROVIDER */
 }
 
 /* Indicates zebra shutdown/exit is in progress. Some operations may be
@@ -1623,10 +1637,15 @@ static void zebra_dplane_init_internal(struct zebra_t *zebra)
 
 	/* Register default kernel 'provider' during init */
 	dplane_provider_init();
+}
 
+/*
+ * Start the dataplane pthread. This step needs to be run later than the
+ * 'init' step, in case zebra has fork-ed.
+ */
+void zebra_dplane_start(void)
+{
 	/* Start dataplane pthread */
-
-	zdplane_info.dg_run = true;
 
 	struct frr_pthread_attr pattr = {
 		.start = frr_pthread_attr_default.start,
@@ -1637,6 +1656,8 @@ static void zebra_dplane_init_internal(struct zebra_t *zebra)
 						  "Zebra dplane");
 
 	zdplane_info.dg_master = zdplane_info.dg_pthread->master;
+
+	zdplane_info.dg_run = true;
 
 	/* Enqueue an initial event for the dataplane pthread */
 	thread_add_event(zdplane_info.dg_master, dplane_thread_loop, NULL, 0,

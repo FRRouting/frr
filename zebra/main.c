@@ -448,6 +448,9 @@ int main(int argc, char **argv)
 	/* Needed for BSD routing socket. */
 	pid = getpid();
 
+	/* Start dataplane system */
+	zebra_dplane_start();
+
 	/* Start Zebra API server */
 	zserv_start(zserv_path);
 

@@ -324,6 +324,12 @@ int dplane_results_register(dplane_results_fp fp);
  */
 void zebra_dplane_init(void);
 
+/*
+ * Start the dataplane pthread. This step needs to be run later than the
+ * 'init' step, in case zebra has fork-ed.
+ */
+void zebra_dplane_start(void);
+
 /* Finalize/cleanup apis, one called early as shutdown is starting,
  * one called late at the end of zebra shutdown, and then one called
  * from the zebra main pthread to stop the dplane pthread and
