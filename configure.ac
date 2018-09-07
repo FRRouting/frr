@@ -1056,6 +1056,10 @@ dnl	 [TODO] on Linux, and in [TODO] on Solaris.
          if test $ac_cv_lib_readline_rl_completion_matches = no; then
            AC_DEFINE(rl_completion_matches,completion_matches,Old readline)
 	 fi
+	 AC_SEARCH_LIBS([append_history], [readline], [frr_cv_append_history=yes], [frr_cv_append_history=no])
+	 if test "$frr_cv_append_history" = yes; then
+	   AC_DEFINE(HAVE_APPEND_HISTORY, 1, [Have history.h append_history])
+	 fi
 	 ;;
 esac
 AC_SUBST(LIBREADLINE)

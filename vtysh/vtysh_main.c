@@ -30,6 +30,16 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+/*
+ * The append_history function only appears in newer versions
+ * of the readline library it appears like.  Since we don't
+ * need this just silently ignore the code on these
+ * ancient platforms.
+ */
+#if !defined HAVE_APPEND_HISTORY
+#define append_history(A, B)
+#endif
+
 #include <lib/version.h>
 #include "getopt.h"
 #include "command.h"
