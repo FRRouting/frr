@@ -185,6 +185,18 @@ DEFPY (remove_routes,
 	return CMD_SUCCESS;
 }
 
+DEFUN_NOSH (show_debugging_sharpd,
+	    show_debugging_sharpd_cmd,
+	    "show debugging [sharp]",
+	    SHOW_STR
+	    DEBUG_STR
+	    "Sharp Information\n")
+{
+	vty_out(vty, "Sharp debugging status\n");
+
+	return CMD_SUCCESS;
+}
+
 void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_cmd);
@@ -192,5 +204,8 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &vrf_label_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v6_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v4_cmd);
+
+	install_element(VIEW_NODE, &show_debugging_sharpd_cmd);
+
 	return;
 }
