@@ -49,50 +49,84 @@ static vector test_cmds;
 static char test_buf[32768];
 
 static struct cmd_node bgp_node = {
-	BGP_NODE, "%s(config-router)# ",
+	.node = BGP_NODE,
+	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node rip_node = {
-	RIP_NODE, "%s(config-router)# ",
+	.node = RIP_NODE,
+	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node isis_node = {
-	ISIS_NODE, "%s(config-router)# ",
+	.node = ISIS_NODE,
+	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node interface_node = {
-	INTERFACE_NODE, "%s(config-if)# ",
+	.node = INTERFACE_NODE,
+	.prompt = "%s(config-if)# ",
 };
 
-static struct cmd_node rmap_node = {RMAP_NODE, "%s(config-route-map)# "};
+static struct cmd_node rmap_node = {
+	.node = RMAP_NODE,
+	.prompt = "%s(config-route-map)# ",
+};
 
-static struct cmd_node zebra_node = {ZEBRA_NODE, "%s(config-router)# "};
+static struct cmd_node zebra_node = {
+	.node = ZEBRA_NODE,
+	.prompt = "%s(config-router)# ",
+};
 
-static struct cmd_node bgp_vpnv4_node = {BGP_VPNV4_NODE,
-					 "%s(config-router-af)# "};
+static struct cmd_node bgp_vpnv4_node = {
+	.node = BGP_VPNV4_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
-static struct cmd_node bgp_ipv4_node = {BGP_IPV4_NODE,
-					"%s(config-router-af)# "};
+static struct cmd_node bgp_ipv4_node = {
+	.node = BGP_IPV4_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
-static struct cmd_node bgp_ipv4m_node = {BGP_IPV4M_NODE,
-					 "%s(config-router-af)# "};
+static struct cmd_node bgp_ipv4m_node = {
+	.node = BGP_IPV4M_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
-static struct cmd_node bgp_ipv6_node = {BGP_IPV6_NODE,
-					"%s(config-router-af)# "};
+static struct cmd_node bgp_ipv6_node = {
+	.node = BGP_IPV6_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
-static struct cmd_node bgp_ipv6m_node = {BGP_IPV6M_NODE,
-					 "%s(config-router-af)# "};
+static struct cmd_node bgp_ipv6m_node = {
+	.node = BGP_IPV6M_NODE,
+	.prompt = "%s(config-router-af)# ",
+};
 
-static struct cmd_node ospf_node = {OSPF_NODE, "%s(config-router)# "};
+static struct cmd_node ospf_node = {
+	.node = OSPF_NODE,
+	.prompt = "%s(config-router)# ",
+};
 
-static struct cmd_node ripng_node = {RIPNG_NODE, "%s(config-router)# "};
+static struct cmd_node ripng_node = {
+	.node = RIPNG_NODE,
+	.prompt = "%s(config-router)# ",
+};
 
-static struct cmd_node ospf6_node = {OSPF6_NODE, "%s(config-ospf6)# "};
+static struct cmd_node ospf6_node = {
+	.node = OSPF6_NODE,
+	.prompt = "%s(config-ospf6)# ",
+};
 
-static struct cmd_node keychain_node = {KEYCHAIN_NODE, "%s(config-keychain)# "};
+static struct cmd_node keychain_node = {
+	.node = KEYCHAIN_NODE,
+	.prompt = "%s(config-keychain)# ",
+};
 
-static struct cmd_node keychain_key_node = {KEYCHAIN_KEY_NODE,
-					    "%s(config-keychain-key)# "};
+static struct cmd_node keychain_key_node = {
+	.node = KEYCHAIN_KEY_NODE,
+	.prompt = "%s(config-keychain-key)# ",
+};
 
 static int test_callback(const struct cmd_element *cmd, struct vty *vty,
 			 int argc, struct cmd_token *argv[])

@@ -667,7 +667,11 @@ static int config_write_as_list(struct vty *vty)
 	return write;
 }
 
-static struct cmd_node as_list_node = {AS_LIST_NODE, "", 1};
+static struct cmd_node as_list_node = {
+	.node = AS_LIST_NODE,
+	.prompt = "",
+	.vtysh = 1,
+};
 
 /* Register functions. */
 void bgp_filter_init(void)

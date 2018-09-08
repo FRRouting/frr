@@ -677,7 +677,11 @@ DEFPY (show_pbr_interface,
 
 /* PBR debugging CLI ------------------------------------------------------- */
 
-static struct cmd_node debug_node = {DEBUG_NODE, "", 1};
+static struct cmd_node debug_node = {
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.vtysh = 1,
+};
 
 DEFPY(debug_pbr,
       debug_pbr_cmd,
@@ -726,7 +730,9 @@ DEFUN_NOSH(show_debugging_pbr,
 
 
 static struct cmd_node interface_node = {
-	INTERFACE_NODE, "%s(config-if)# ", 1 /* vtysh ? yes */
+	.node = INTERFACE_NODE,
+	.prompt = "%s(config-if)# ",
+	.vtysh = 1,
 };
 
 static int pbr_interface_config_write(struct vty *vty)
@@ -755,7 +761,11 @@ static int pbr_interface_config_write(struct vty *vty)
 }
 
 /* PBR map node structure. */
-static struct cmd_node pbr_map_node = {PBRMAP_NODE, "%s(config-pbr-map)# ", 1};
+static struct cmd_node pbr_map_node = {
+	.node = PBRMAP_NODE,
+	.prompt = "%s(config-pbr-map)# ",
+	.vtysh = 1,
+};
 
 static int pbr_vty_map_config_write_sequence(struct vty *vty,
 					     struct pbr_map *pbrm,

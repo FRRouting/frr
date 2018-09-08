@@ -58,11 +58,10 @@ static void babel_interface_free (babel_interface_nfo *bi);
 
 
 static vector babel_enable_if;                 /* enable interfaces (by cmd). */
-static struct cmd_node babel_interface_node =  /* babeld's interface node.    */
-{
-    INTERFACE_NODE,
-    "%s(config-if)# ",
-    1 /* VTYSH */
+static struct cmd_node babel_interface_node = {
+    .node = INTERFACE_NODE,
+    .prompt = "%s(config-if)# ",
+    .vtysh = 1,
 };
 
 

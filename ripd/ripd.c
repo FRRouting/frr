@@ -3328,7 +3328,11 @@ static int config_write_rip(struct vty *vty)
 }
 
 /* RIP node structure. */
-static struct cmd_node rip_node = {RIP_NODE, "%s(config-router)# ", 1};
+static struct cmd_node rip_node = {
+	.node = RIP_NODE,
+	.prompt = "%s(config-router)# ",
+	.vtysh = 1,
+};
 
 /* Distribute-list update functions. */
 static void rip_distribute_update(struct distribute_ctx *ctx,

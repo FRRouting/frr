@@ -181,22 +181,30 @@ const char *cmd_domainname_get(void)
 
 /* Standard command node structures. */
 static struct cmd_node auth_node = {
-	AUTH_NODE, "Password: ",
+	.node = AUTH_NODE,
+	.prompt = "Password: ",
 };
 
 static struct cmd_node view_node = {
-	VIEW_NODE, "%s> ",
+	.node = VIEW_NODE,
+	.prompt = "%s> ",
 };
 
 static struct cmd_node auth_enable_node = {
-	AUTH_ENABLE_NODE, "Password: ",
+	.node = AUTH_ENABLE_NODE,
+	.prompt = "Password: ",
 };
 
 static struct cmd_node enable_node = {
-	ENABLE_NODE, "%s# ",
+	.node = ENABLE_NODE,
+	.prompt = "%s# ",
 };
 
-static struct cmd_node config_node = {CONFIG_NODE, "%s(config)# ", 1};
+static struct cmd_node config_node = {
+	.node = CONFIG_NODE,
+	.prompt = "%s(config)# ",
+	.vtysh = 1,
+};
 
 static const struct facility_map {
 	int facility;

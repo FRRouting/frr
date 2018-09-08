@@ -173,7 +173,11 @@ static int bgp_vnc_config_write_debug(struct vty *vty)
 	return write;
 }
 
-static struct cmd_node debug_node = {DEBUG_VNC_NODE, "", 1};
+static struct cmd_node debug_node = {
+	.node = DEBUG_VNC_NODE,
+	.prompt = "",
+	.vtysh = 1,
+};
 
 void vnc_debug_init(void)
 {

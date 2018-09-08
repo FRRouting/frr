@@ -245,7 +245,11 @@ DEFUN(debug_resolver,
 	return CMD_SUCCESS;
 }
 
-static struct cmd_node resolver_debug_node = {RESOLVER_DEBUG_NODE, "", 1};
+static struct cmd_node resolver_debug_node = {
+	.node = RESOLVER_DEBUG_NODE,
+	.prompt = "",
+	.vtysh = 1,
+};
 
 static int resolver_config_write_debug(struct vty *vty)
 {

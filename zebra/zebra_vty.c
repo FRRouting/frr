@@ -3478,15 +3478,27 @@ DEFUN_HIDDEN (show_frr,
 }
 
 /* IP node for static routes. */
-static struct cmd_node ip_node = {IP_NODE, "", 1};
-static struct cmd_node protocol_node = {PROTOCOL_NODE, "", 1};
+static struct cmd_node ip_node = {
+	.node = IP_NODE,
+	.prompt = "",
+	.vtysh = 1,
+};
+static struct cmd_node protocol_node = {
+	.node = PROTOCOL_NODE,
+	.prompt = "",
+	.vtysh = 1,
+};
 /* table node for routing tables. */
-static struct cmd_node table_node = {TABLE_NODE,
-				     "", /* This node has no interface. */
-				     1};
-static struct cmd_node forwarding_node = {FORWARDING_NODE,
-					  "", /* This node has no interface. */
-					  1};
+static struct cmd_node table_node = {
+	.node = TABLE_NODE,
+	.prompt = "",
+	.vtysh = 1,
+};
+static struct cmd_node forwarding_node = {
+	.node = FORWARDING_NODE,
+	.prompt = "",
+	.vtysh = 1,
+};
 
 /* Route VTY.  */
 void zebra_vty_init(void)

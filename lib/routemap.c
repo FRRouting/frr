@@ -3015,7 +3015,11 @@ DEFUN (no_debug_rmap,
 }
 
 /* Debug node. */
-static struct cmd_node rmap_debug_node = {RMAP_DEBUG_NODE, "", 1};
+static struct cmd_node rmap_debug_node = {
+	.node = RMAP_DEBUG_NODE,
+	.prompt = "",
+	.vtysh = 1,
+};
 
 /* Configuration write function. */
 static int rmap_config_write_debug(struct vty *vty)

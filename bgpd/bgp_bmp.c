@@ -1772,7 +1772,10 @@ static void bmp_active_setup(struct bmp_active *ba)
 	}
 }
 
-static struct cmd_node bmp_node = {BMP_NODE, "%s(config-bgp-bmp)# "};
+static struct cmd_node bmp_node = {
+	.node = BMP_NODE,
+	.prompt = "%s(config-bgp-bmp)# "
+};
 
 #define BMP_STR "BGP Monitoring Protocol\n"
 

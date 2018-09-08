@@ -158,9 +158,11 @@ static void agentx_events_update(void)
 }
 
 /* AgentX node. */
-static struct cmd_node agentx_node = {SMUX_NODE,
-				      "", /* AgentX has no interface. */
-				      1};
+static struct cmd_node agentx_node = {
+	.node = SMUX_NODE,
+	.prompt = "",
+	.vtysh = 1,
+};
 
 /* Logging NetSNMP messages */
 static int agentx_log_callback(int major, int minor, void *serverarg,

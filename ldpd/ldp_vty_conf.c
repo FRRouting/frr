@@ -37,53 +37,46 @@ static void	 ldp_l2vpn_pw_config_write(struct vty *, struct l2vpn_pw *);
 static int	 ldp_vty_get_af(struct vty *);
 static int	 ldp_iface_is_configured(struct ldpd_conf *, const char *);
 
-struct cmd_node ldp_node =
-{
-	LDP_NODE,
-	"%s(config-ldp)# ",
-	1,
+struct cmd_node ldp_node = {
+	.node = LDP_NODE,
+	.prompt = "%s(config-ldp)# ",
+	.vtysh = 1,
 };
 
-struct cmd_node ldp_ipv4_node =
-{
-	LDP_IPV4_NODE,
-	"%s(config-ldp-af)# ",
-	1,
+struct cmd_node ldp_ipv4_node = {
+	.node = LDP_IPV4_NODE,
+	.prompt = "%s(config-ldp-af)# ",
+	.vtysh = 1,
 };
 
-struct cmd_node ldp_ipv6_node =
-{
-	LDP_IPV6_NODE,
-	"%s(config-ldp-af)# ",
-	1,
+struct cmd_node ldp_ipv6_node = {
+	.node = LDP_IPV6_NODE,
+	.prompt = "%s(config-ldp-af)# ",
+	.vtysh = 1,
 };
 
-struct cmd_node ldp_ipv4_iface_node =
-{
-	LDP_IPV4_IFACE_NODE,
-	"%s(config-ldp-af-if)# ",
-	1,
+struct cmd_node ldp_ipv4_iface_node = {
+	.node = LDP_IPV4_IFACE_NODE,
+	.prompt = "%s(config-ldp-af-if)# ",
+	.vtysh = 1,
 };
 
-struct cmd_node ldp_ipv6_iface_node =
-{
-	LDP_IPV6_IFACE_NODE,
-	"%s(config-ldp-af-if)# ",
-	1,
+struct cmd_node ldp_ipv6_iface_node = {
+	.node = LDP_IPV6_IFACE_NODE,
+	.prompt = "%s(config-ldp-af-if)# ",
+	.vtysh = 1,
 };
 
-struct cmd_node ldp_l2vpn_node =
-{
-	LDP_L2VPN_NODE,
-	"%s(config-l2vpn)# ",
-	1,
+struct cmd_node ldp_l2vpn_node = {
+	.node = LDP_L2VPN_NODE,
+	.prompt = "%s(config-l2vpn)# ",
+	.vtysh = 1,
 };
 
-struct cmd_node ldp_pseudowire_node =
-{
-	LDP_PSEUDOWIRE_NODE,
-	"%s(config-l2vpn-pw)# ",
-	1,
+struct cmd_node ldp_pseudowire_node = {
+	.node = LDP_PSEUDOWIRE_NODE,
+	.prompt = "%s(config-l2vpn-pw)# ",
+	.vtysh = 1,
 };
 
 int

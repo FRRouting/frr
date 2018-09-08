@@ -173,9 +173,11 @@ DEFUN (no_debug_rip_zebra,
 }
 
 /* Debug node. */
-static struct cmd_node debug_node = {DEBUG_NODE,
-				     "", /* Debug node has no interface. */
-				     1};
+static struct cmd_node debug_node = {
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.vtysh = 1,
+};
 
 static int config_write_debug(struct vty *vty)
 {

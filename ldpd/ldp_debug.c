@@ -30,11 +30,10 @@ struct ldp_debug conf_ldp_debug;
 struct ldp_debug ldp_debug;
 
 /* Debug node. */
-struct cmd_node ldp_debug_node =
-{
-	DEBUG_NODE,
-	"",
-	1
+struct cmd_node ldp_debug_node = {
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.vtysh = 1,
 };
 
 int

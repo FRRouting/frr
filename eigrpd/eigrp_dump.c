@@ -556,7 +556,9 @@ DEFUN (no_debug_eigrp_packets,
 
 /* Debug node. */
 static struct cmd_node eigrp_debug_node = {
-	DEBUG_NODE, "", 1 /* VTYSH */
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.vtysh = 1,
 };
 
 /* Initialize debug commands. */

@@ -886,15 +886,15 @@ DEFUN_NOSH(show_debugging_bfd,
 }
 
 struct cmd_node bfd_node = {
-	BFD_NODE,
-	"%s(config-bfd)# ",
-	1,
+	.node = BFD_NODE,
+	.prompt = "%s(config-bfd)# ",
+	.vtysh = 1,
 };
 
 struct cmd_node bfd_peer_node = {
-	BFD_PEER_NODE,
-	"%s(config-bfd-peer)# ",
-	1,
+	.node = BFD_PEER_NODE,
+	.prompt = "%s(config-bfd-peer)# ",
+	.vtysh = 1,
 };
 
 static int bfdd_write_config(struct vty *vty)

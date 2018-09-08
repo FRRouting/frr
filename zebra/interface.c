@@ -1664,7 +1664,11 @@ static void interface_update_stats(void)
 #endif /* HAVE_NET_RT_IFLIST */
 }
 
-struct cmd_node interface_node = {INTERFACE_NODE, "%s(config-if)# ", 1};
+struct cmd_node interface_node = {
+	.node = INTERFACE_NODE,
+	.prompt = "%s(config-if)# ",
+	.vtysh = 1,
+};
 
 #ifndef VTYSH_EXTRACT_PL
 #include "zebra/interface_clippy.c"
@@ -2074,7 +2078,9 @@ DEFUN (no_bandwidth_if,
 
 
 struct cmd_node link_params_node = {
-	LINK_PARAMS_NODE, "%s(config-link-params)# ", 1,
+	.node = LINK_PARAMS_NODE,
+	.prompt = "%s(config-link-params)# ",
+	.vtysh = 1,
 };
 
 static void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,

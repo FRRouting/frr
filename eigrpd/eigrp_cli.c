@@ -838,7 +838,11 @@ void eigrp_cli_show_keychain(struct vty *vty, struct lyd_node *dnode,
 /*
  * CLI installation procedures.
  */
-static struct cmd_node eigrp_node = {EIGRP_NODE, "%s(config-router)# ", 1};
+static struct cmd_node eigrp_node = {
+	.node = EIGRP_NODE,
+	.prompt = "%s(config-router)# ",
+	.vtysh = 1,
+};
 
 static int eigrp_config_write(struct vty *vty)
 {
@@ -854,8 +858,11 @@ static int eigrp_config_write(struct vty *vty)
 	return written;
 }
 
-static struct cmd_node eigrp_interface_node = {INTERFACE_NODE,
-					       "%s(config-if)# ", 1};
+static struct cmd_node eigrp_interface_node = {
+	.node = INTERFACE_NODE,
+	.prompt = "%s(config-if)# ",
+	.vtysh = 1,
+};
 
 
 static int eigrp_write_interface(struct vty *vty)

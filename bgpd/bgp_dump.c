@@ -778,7 +778,11 @@ DEFUN (no_dump_bgp_all,
 }
 
 /* BGP node structure. */
-static struct cmd_node bgp_dump_node = {DUMP_NODE, "", 1};
+static struct cmd_node bgp_dump_node = {
+	.node = DUMP_NODE,
+	.prompt = "",
+	.vtysh = 1,
+};
 
 #if 0
 char *
