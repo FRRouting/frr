@@ -1197,6 +1197,7 @@ static int handle_pipe_action(struct vty *vty, const char *cmd_in,
 
 	/* retrieve action */
 	token = strsep(&working, " ");
+	assert(token);
 
 	/* match result to known actions */
 	if (strmatch(token, "include")) {

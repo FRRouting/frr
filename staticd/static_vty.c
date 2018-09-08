@@ -88,8 +88,8 @@ static struct list *static_list;
 
 static int static_list_compare_helper(const char *s1, const char *s2)
 {
-	/* Are Both NULL */
-	if (s1 == s2)
+	/* extra (!s1 && !s2) to keep SA happy */
+	if (s1 == s2 || (!s1 && !s2))
 		return 0;
 
 	if (!s1 && s2)
