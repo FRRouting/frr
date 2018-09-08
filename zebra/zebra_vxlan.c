@@ -207,6 +207,9 @@ static int host_rb_entry_compare(const struct host_rb_entry *hle1,
 			return 1;
 
 		return 0;
+	} else if (hle1->p.family == AF_INET6) {
+		return memcmp(&hle1->p.u.prefix6, &hle2->p.u.prefix6,
+			      IPV6_MAX_BYTELEN);
 	} else {
 		zlog_warn("%s: Unexpected family type: %d", __PRETTY_FUNCTION__,
 			  hle1->p.family);
