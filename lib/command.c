@@ -99,6 +99,8 @@ const char *cmd_domainname_get(void)
 	return host.domainname;
 }
 
+static int root_on_exit(struct vty *vty);
+
 /* Standard command node structures. */
 static struct cmd_node auth_node = {
 	.name = "auth",
@@ -110,6 +112,7 @@ static struct cmd_node view_node = {
 	.name = "view",
 	.node = VIEW_NODE,
 	.prompt = "%s> ",
+	.node_exit = root_on_exit,
 };
 
 static struct cmd_node auth_enable_node = {
@@ -122,6 +125,7 @@ static struct cmd_node enable_node = {
 	.name = "enable",
 	.node = ENABLE_NODE,
 	.prompt = "%s# ",
+	.node_exit = root_on_exit,
 };
 
 static int config_write_host(struct vty *vty);
@@ -131,6 +135,7 @@ static struct cmd_node config_node = {
 	.parent_node = ENABLE_NODE,
 	.prompt = "%s(config)# ",
 	.config_write = config_write_host,
+	.node_exit = vty_config_node_exit,
 };
 
 static const struct facility_map {
@@ -1382,28 +1387,25 @@ DEFUN (config_exit,
 	return CMD_SUCCESS;
 }
 
+static int root_on_exit(struct vty *vty)
+{
+	if (vty_shell(vty))
+		exit(0);
+	else
+		vty->status = VTY_CLOSE;
+	return 0;
+}
+
 void cmd_exit(struct vty *vty)
 {
 	struct cmd_node *cnode = vector_lookup(cmdvec, vty->node);
 
-	switch (vty->node) {
-	case VIEW_NODE:
-	case ENABLE_NODE:
-		if (vty_shell(vty))
-			exit(0);
-		else
-			vty->status = VTY_CLOSE;
-		break;
-	case CONFIG_NODE:
-		vty->node = ENABLE_NODE;
-		vty_config_exit(vty);
-		break;
-	default:
-		if (cnode->parent_node)
-			vty->node = cnode->parent_node;
-		break;
+	if (cnode->node_exit) {
+		if (!cnode->node_exit(vty))
+			return;
 	}
-
+	if (cnode->parent_node)
+		vty->node = cnode->parent_node;
 	if (vty->xpath_index > 0)
 		vty->xpath_index--;
 }

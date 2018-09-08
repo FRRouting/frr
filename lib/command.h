@@ -182,6 +182,11 @@ struct cmd_node {
 	/* Node's configuration write function */
 	int (*config_write)(struct vty *);
 
+	/* called when leaving the node on a VTY session.
+	 * return 1 if normal exit processing should happen, 0 to suppress
+	 */
+	int (*node_exit)(struct vty *);
+
 	/* Node's command graph */
 	struct graph *cmdgraph;
 

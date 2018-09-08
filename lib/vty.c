@@ -2199,6 +2199,9 @@ void vty_close(struct vty *vty)
 	int i;
 	bool was_stdio = false;
 
+	/* Drop out of configure / transaction if needed. */
+	vty_config_exit(vty);
+
 	/* Cancel threads.*/
 	THREAD_OFF(vty->t_read);
 	THREAD_OFF(vty->t_write);
@@ -2241,9 +2244,6 @@ void vty_close(struct vty *vty)
 		vty->error->del = vty_error_delete;
 		list_delete(&vty->error);
 	}
-
-	/* Check configure. */
-	vty_config_exit(vty);
 
 	/* OK free vty. */
 	XFREE(MTYPE_VTY, vty);
@@ -2614,14 +2614,18 @@ void vty_config_exit(struct vty *vty)
 		cnode = vector_lookup(cmdvec, node);
 		node = cnode->parent_node;
 	}
-	if (node != CONFIG_NODE) {
-		vty_out(vty,
-			"WARNING: vty_config_exit() from outside CONFIG_NODE!\n");
+	if (node != CONFIG_NODE)
+		/* called outside config, e.g. vty_close() in ENABLE_NODE */
 		return;
-	}
 
 	while (vty->node != ENABLE_NODE)
+		/* will call vty_config_node_exit() below */
 		cmd_exit(vty);
+}
+
+int vty_config_node_exit(struct vty *vty)
+{
+	vty->xpath_index = 0;
 
 	/* Check if there's a pending confirmed commit. */
 	if (vty->t_confirmed_commit_timeout) {
@@ -2644,6 +2648,7 @@ void vty_config_exit(struct vty *vty)
 	}
 
 	vty->config = false;
+	return 1;
 }
 
 /* Master of the threads. */
