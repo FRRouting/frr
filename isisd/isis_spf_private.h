@@ -238,9 +238,12 @@ static void isis_vertex_queue_append(struct isis_vertex_queue *queue,
 __attribute__((__unused__))
 static struct isis_vertex *isis_vertex_queue_last(struct isis_vertex_queue *queue)
 {
-	assert(!queue->insert_counter);
+	struct listnode *tail;
 
-	return listgetdata(listtail(queue->l.list));
+	assert(!queue->insert_counter);
+	tail = listtail(queue->l.list);
+	assert(tail);
+	return listgetdata(tail);
 }
 
 __attribute__((__unused__))

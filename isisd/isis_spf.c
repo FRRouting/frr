@@ -650,16 +650,13 @@ lspfragloop:
 		}
 	}
 
-	if (!pseudo_lsp && spftree->family == AF_INET
+	if (!fabricd && !pseudo_lsp && spftree->family == AF_INET
 	    && spftree->mtid == ISIS_MT_IPV4_UNICAST) {
 		struct isis_item_list *reachs[] = {
 			&lsp->tlvs->oldstyle_ip_reach,
 			&lsp->tlvs->oldstyle_ip_reach_ext};
 
 		for (unsigned int i = 0; i < array_size(reachs); i++) {
-			if (fabricd)
-				continue;
-
 			vtype = i ? VTYPE_IPREACH_EXTERNAL
 				  : VTYPE_IPREACH_INTERNAL;
 
