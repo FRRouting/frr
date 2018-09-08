@@ -453,7 +453,6 @@ DEFUN (no_mpls_label_global_block,
 static struct cmd_node mpls_node = {
 	.node = MPLS_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 /* MPLS VTY.  */

@@ -161,7 +161,6 @@ static void agentx_events_update(void)
 static struct cmd_node agentx_node = {
 	.node = SMUX_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 /* Logging NetSNMP messages */

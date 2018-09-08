@@ -781,7 +781,6 @@ DEFUN (no_dump_bgp_all,
 static struct cmd_node bgp_dump_node = {
 	.node = DUMP_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 #if 0

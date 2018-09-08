@@ -176,9 +176,6 @@ struct cmd_node {
 	/* Prompt character at vty interface. */
 	const char *prompt;
 
-	/* Is this node's configuration goes to vtysh ? */
-	int vtysh;
-
 	/* Node's configuration write function */
 	int (*func)(struct vty *);
 

@@ -2048,7 +2048,6 @@ static void prefix_list_reset_afi(afi_t afi, int orf)
 static struct cmd_node prefix_node = {
 	.node = PREFIX_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 static int config_write_prefix_ipv4(struct vty *vty)
@@ -2113,7 +2112,6 @@ static void prefix_list_init_ipv4(void)
 static struct cmd_node prefix_ipv6_node = {
 	.node = PREFIX_IPV6_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 static int config_write_prefix_ipv6(struct vty *vty)

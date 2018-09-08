@@ -1644,7 +1644,6 @@ DEFUN_NOSH (show_debugging_ospf_instance,
 static struct cmd_node debug_node = {
 	.node = DEBUG_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 static int config_write_debug(struct vty *vty)

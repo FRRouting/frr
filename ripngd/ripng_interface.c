@@ -958,7 +958,6 @@ static int interface_config_write(struct vty *vty)
 static struct cmd_node interface_node = {
 	.node = INTERFACE_NODE,
 	.prompt = "%s(config-if)# ",
-	.vtysh = 1,
 };
 
 /* Initialization of interface. */

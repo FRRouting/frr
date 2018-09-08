@@ -1196,7 +1196,6 @@ int rip_show_network_config(struct vty *vty, struct rip *rip)
 static struct cmd_node interface_node = {
 	.node = INTERFACE_NODE,
 	.prompt = "%s(config-if)# ",
-	.vtysh = 1,
 };
 
 void rip_interface_sync(struct interface *ifp)

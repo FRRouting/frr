@@ -72,7 +72,6 @@ struct route_node *route_prev(struct route_node *node)
 static struct cmd_node debug_node = {
 	.node = DEBUG_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 static int config_write_ospf6_debug(struct vty *vty)

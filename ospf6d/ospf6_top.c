@@ -1116,7 +1116,6 @@ static int config_write_ospf6(struct vty *vty)
 static struct cmd_node ospf6_node = {
 	.node = OSPF6_NODE,
 	.prompt = "%s(config-ospf6)# ",
-	.vtysh = 1,
 };
 
 /* Install ospf related commands. */

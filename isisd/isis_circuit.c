@@ -1338,7 +1338,6 @@ ferr_r isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit,
 struct cmd_node interface_node = {
 	.node = INTERFACE_NODE,
 	.prompt = "%s(config-if)# ",
-	.vtysh = 1,
 };
 
 void isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type)

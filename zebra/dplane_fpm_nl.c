@@ -371,7 +371,6 @@ static int fpm_write_config(struct vty *vty)
 struct cmd_node fpm_node = {
 	.node = VTY_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 /*

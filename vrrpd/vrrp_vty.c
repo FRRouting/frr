@@ -747,19 +747,16 @@ static int vrrp_config_write_interface(struct vty *vty)
 static struct cmd_node interface_node = {
 	.node = INTERFACE_NODE,
 	.prompt = "%s(config-if)# ",
-	.vtysh = 1,
 };
 
 static struct cmd_node debug_node = {
 	.node = DEBUG_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 static struct cmd_node vrrp_node = {
 	.node = VRRP_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 void vrrp_vty_init(void)

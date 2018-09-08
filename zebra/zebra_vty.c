@@ -3481,23 +3481,19 @@ DEFUN_HIDDEN (show_frr,
 static struct cmd_node ip_node = {
 	.node = IP_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 static struct cmd_node protocol_node = {
 	.node = PROTOCOL_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 /* table node for routing tables. */
 static struct cmd_node table_node = {
 	.node = TABLE_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 static struct cmd_node forwarding_node = {
 	.node = FORWARDING_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 /* Route VTY.  */

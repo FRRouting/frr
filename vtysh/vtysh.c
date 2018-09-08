@@ -1390,7 +1390,6 @@ struct cmd_node link_params_node = {
 static struct cmd_node rpki_node = {
 	.node = RPKI_NODE,
 	.prompt = "%s(config-rpki)# ",
-	.vtysh = 1,
 };
 
 #if HAVE_BFDD > 0

@@ -761,7 +761,6 @@ DEFUN (no_vrf,
 static struct cmd_node vrf_node = {
 	.node = VRF_NODE,
 	.prompt = "%s(config-vrf)# ",
-	.vtysh = 1,
 };
 
 DEFUN_NOSH (vrf_netns,
@@ -855,7 +854,6 @@ static int vrf_write_host(struct vty *vty)
 static struct cmd_node vrf_debug_node = {
 	.node = VRF_DEBUG_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 void vrf_install_commands(void)

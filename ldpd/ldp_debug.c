@@ -33,7 +33,6 @@ struct ldp_debug ldp_debug;
 struct cmd_node ldp_debug_node = {
 	.node = DEBUG_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 int

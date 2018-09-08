@@ -73,7 +73,6 @@ static struct cmd_node cmd_babel_node =
 {
     .node   = BABEL_NODE,
     .prompt = "%s(config-router)# ",
-    .vtysh  = 1,
 };
 
 /* print current babel configuration on vty */

@@ -40,43 +40,36 @@ static int	 ldp_iface_is_configured(struct ldpd_conf *, const char *);
 struct cmd_node ldp_node = {
 	.node = LDP_NODE,
 	.prompt = "%s(config-ldp)# ",
-	.vtysh = 1,
 };
 
 struct cmd_node ldp_ipv4_node = {
 	.node = LDP_IPV4_NODE,
 	.prompt = "%s(config-ldp-af)# ",
-	.vtysh = 1,
 };
 
 struct cmd_node ldp_ipv6_node = {
 	.node = LDP_IPV6_NODE,
 	.prompt = "%s(config-ldp-af)# ",
-	.vtysh = 1,
 };
 
 struct cmd_node ldp_ipv4_iface_node = {
 	.node = LDP_IPV4_IFACE_NODE,
 	.prompt = "%s(config-ldp-af-if)# ",
-	.vtysh = 1,
 };
 
 struct cmd_node ldp_ipv6_iface_node = {
 	.node = LDP_IPV6_IFACE_NODE,
 	.prompt = "%s(config-ldp-af-if)# ",
-	.vtysh = 1,
 };
 
 struct cmd_node ldp_l2vpn_node = {
 	.node = LDP_L2VPN_NODE,
 	.prompt = "%s(config-l2vpn)# ",
-	.vtysh = 1,
 };
 
 struct cmd_node ldp_pseudowire_node = {
 	.node = LDP_PSEUDOWIRE_NODE,
 	.prompt = "%s(config-l2vpn-pw)# ",
-	.vtysh = 1,
 };
 
 int

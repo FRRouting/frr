@@ -20,13 +20,11 @@
 static struct cmd_node zebra_node = {
 	.node = ZEBRA_NODE,
 	.prompt = "%s(config-router)# ",
-	.vtysh = 1,
 };
 
 static struct cmd_node nhrp_interface_node = {
 	.node = INTERFACE_NODE,
 	.prompt = "%s(config-if)# ",
-	.vtysh = 1,
 };
 
 #define NHRP_DEBUG_FLAGS_CMD "<all|common|event|interface|kernel|route|vici>"

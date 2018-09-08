@@ -1677,7 +1677,6 @@ static struct debug_callbacks nb_dbg_cbs = {.debug_set_all = nb_debug_set_all};
 static struct cmd_node nb_debug_node = {
 	.node = NORTHBOUND_DEBUG_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 void nb_cli_install_default(int node)

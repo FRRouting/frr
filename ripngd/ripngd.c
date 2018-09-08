@@ -2438,7 +2438,6 @@ static int ripng_config_write(struct vty *vty)
 static struct cmd_node cmd_ripng_node = {
 	.node = RIPNG_NODE,
 	.prompt = "%s(config-router)# ",
-	.vtysh = 1,
 };
 
 static void ripng_distribute_update(struct distribute_ctx *ctx,

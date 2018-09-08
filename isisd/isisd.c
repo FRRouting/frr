@@ -788,7 +788,6 @@ DEFUN_NOSH (show_debugging,
 static struct cmd_node debug_node = {
 	.node = DEBUG_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 static int config_write_debug(struct vty *vty)
@@ -2148,7 +2147,6 @@ int isis_config_write(struct vty *vty)
 struct cmd_node router_node = {
 	.node = ROUTER_NODE,
 	.prompt = "%s(config-router)# ",
-	.vtysh = 1,
 };
 
 void isis_init(void)

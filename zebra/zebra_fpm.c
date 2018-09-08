@@ -1942,7 +1942,6 @@ static int fpm_remote_srv_write(struct vty *vty)
 static struct cmd_node zebra_node = {
 	.node = ZEBRA_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 

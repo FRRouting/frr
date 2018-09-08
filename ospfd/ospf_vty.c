@@ -10559,7 +10559,6 @@ void ospf_vty_show_init(void)
 static struct cmd_node interface_node = {
 	.node = INTERFACE_NODE,
 	.prompt = "%s(config-if)# ",
-	.vtysh = 1,
 };
 
 /* Initialization of OSPF interface. */
@@ -10675,7 +10674,6 @@ static void ospf_vty_zebra_init(void)
 static struct cmd_node ospf_node = {
 	.node = OSPF_NODE,
 	.prompt = "%s(config-router)# ",
-	.vtysh = 1,
 };
 
 static void ospf_interface_clear(struct interface *ifp)

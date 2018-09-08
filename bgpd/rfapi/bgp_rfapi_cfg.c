@@ -2967,13 +2967,11 @@ DEFUN_NOSH (exit_vnc,
 static struct cmd_node bgp_vnc_defaults_node = {
 	.node = BGP_VNC_DEFAULTS_NODE,
 	.prompt = "%s(config-router-vnc-defaults)# ",
-	.vtysh = 1,
 };
 
 static struct cmd_node bgp_vnc_nve_group_node = {
 	.node = BGP_VNC_NVE_GROUP_NODE,
 	.prompt = "%s(config-router-vnc-nve-group)# ",
-	.vtysh = 1,
 };
 
 /*-------------------------------------------------------------------------
@@ -3396,7 +3394,6 @@ DEFUN_NOSH (exit_vrf_policy,
 static struct cmd_node bgp_vrf_policy_node = {
 	.node = BGP_VRF_POLICY_NODE,
 	.prompt = "%s(config-router-vrf-policy)# ",
-	.vtysh = 1,
 };
 
 /*-------------------------------------------------------------------------
@@ -3635,7 +3632,6 @@ DEFUN (vnc_l2_group_rt,
 static struct cmd_node bgp_vnc_l2_group_node = {
 	.node = BGP_VNC_L2_GROUP_NODE,
 	.prompt = "%s(config-router-vnc-l2-group)# ",
-	.vtysh = 1,
 };
 
 struct rfapi_l2_group_cfg *

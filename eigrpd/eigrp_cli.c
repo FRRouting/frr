@@ -841,7 +841,6 @@ void eigrp_cli_show_keychain(struct vty *vty, struct lyd_node *dnode,
 static struct cmd_node eigrp_node = {
 	.node = EIGRP_NODE,
 	.prompt = "%s(config-router)# ",
-	.vtysh = 1,
 };
 
 static int eigrp_config_write(struct vty *vty)
@@ -861,7 +860,6 @@ static int eigrp_config_write(struct vty *vty)
 static struct cmd_node eigrp_interface_node = {
 	.node = INTERFACE_NODE,
 	.prompt = "%s(config-if)# ",
-	.vtysh = 1,
 };
 
 

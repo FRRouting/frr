@@ -1473,7 +1473,6 @@ DEFUN_NOSH (show_debugging_static,
 static struct cmd_node debug_node = {
 	.node = DEBUG_NODE,
 	.prompt = "",
-	.vtysh = 1,
 };
 
 void static_vty_init(void)

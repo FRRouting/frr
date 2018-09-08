@@ -203,7 +203,6 @@ static struct cmd_node enable_node = {
 static struct cmd_node config_node = {
 	.node = CONFIG_NODE,
 	.prompt = "%s(config)# ",
-	.vtysh = 1,
 };
 
 static const struct facility_map {
@@ -1724,8 +1723,7 @@ static int vty_write_config(struct vty *vty)
 	vty_out(vty, "!\n");
 
 	for (i = 0; i < vector_active(cmdvec); i++)
-		if ((node = vector_slot(cmdvec, i)) && node->func
-		    && (node->vtysh || vty->type != VTY_SHELL)) {
+		if ((node = vector_slot(cmdvec, i)) && node->func) {
 			if ((*node->func)(vty))
 				vty_out(vty, "!\n");
 		}
