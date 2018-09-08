@@ -1390,6 +1390,18 @@ DEFPY(ipv6_route_vrf,
 		table_str);
 }
 
+DEFUN_NOSH (show_debugging_staticd,
+	    show_debugging_staticd_cmd,
+	    "show debugging [static]",
+	    SHOW_STR
+	    DEBUG_STR
+	    "Static Information\n")
+{
+	vty_out(vty, "Static debugging status\n");
+
+	return CMD_SUCCESS;
+}
+
 void static_vty_init(void)
 {
 	install_element(CONFIG_NODE, &ip_mroute_dist_cmd);
@@ -1407,6 +1419,8 @@ void static_vty_init(void)
 	install_element(VRF_NODE, &ipv6_route_address_interface_vrf_cmd);
 	install_element(CONFIG_NODE, &ipv6_route_cmd);
 	install_element(VRF_NODE, &ipv6_route_vrf_cmd);
+
+	install_element(VIEW_NODE, &show_debugging_staticd_cmd);
 
 	static_list = list_new();
 	static_list->cmp = (int (*)(void *, void *))static_list_compare;
