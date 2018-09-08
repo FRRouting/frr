@@ -343,22 +343,23 @@ developing OSPF-API and frr applications.
     --disable-rpki \
 %endif
 %if %{with_bfdd}
-    --enable-bfdd
+    --enable-bfdd \
 %else
-    --disable-bfdd
+    --disable-bfdd \
 %endif
+    SPHINXBUILD=%{sphinx}
 
-make %{?_smp_mflags} MAKEINFO="makeinfo --no-split" SPHINXBUILD=%{sphinx}
+make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
 pushd doc
-make SPHINXBUILD=%{sphinx} info
+make info
 popd
 
 
 %install
 mkdir -p %{buildroot}%{_sysconfdir}/{frr,sysconfig,logrotate.d,pam.d,default} \
          %{buildroot}%{_localstatedir}/log/frr %{buildroot}%{_infodir}
-make DESTDIR=%{buildroot} INSTALL="install -p" CP="cp -p" SPHINXBUILD=%{sphinx} install
+make DESTDIR=%{buildroot} INSTALL="install -p" CP="cp -p" install
 
 # Remove this file, as it is uninstalled and causes errors when building on RH9
 rm -rf %{buildroot}/usr/share/info/dir
