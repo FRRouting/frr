@@ -10559,6 +10559,7 @@ static int config_write_interface(struct vty *vty);
 /* ospfd's interface node. */
 static struct cmd_node interface_node = {
 	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-if)# ",
 	.config_write = config_write_interface,
 };
@@ -10676,6 +10677,7 @@ static void ospf_vty_zebra_init(void)
 static int ospf_config_write(struct vty *vty);
 static struct cmd_node ospf_node = {
 	.node = OSPF_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 	.config_write = ospf_config_write,
 };

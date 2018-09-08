@@ -958,6 +958,7 @@ static int interface_config_write(struct vty *vty);
 /* ripngd's interface node. */
 static struct cmd_node interface_node = {
 	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-if)# ",
 	.config_write = interface_config_write,
 };

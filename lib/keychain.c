@@ -962,12 +962,14 @@ DEFUN (no_send_lifetime,
 static int keychain_config_write(struct vty *vty);
 static struct cmd_node keychain_node = {
 	.node = KEYCHAIN_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-keychain)# ",
 	.config_write = keychain_config_write,
 };
 
 static struct cmd_node keychain_key_node = {
 	.node = KEYCHAIN_KEY_NODE,
+	.parent_node = KEYCHAIN_NODE,
 	.prompt = "%s(config-keychain-key)# ",
 };
 

@@ -1196,6 +1196,7 @@ int rip_show_network_config(struct vty *vty, struct rip *rip)
 static int rip_interface_config_write(struct vty *vty);
 static struct cmd_node interface_node = {
 	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-if)# ",
 	.config_write = rip_interface_config_write,
 };

@@ -15336,67 +15336,80 @@ int bgp_config_write(struct vty *vty)
 /* BGP node structure. */
 static struct cmd_node bgp_node = {
 	.node = BGP_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 	.config_write = bgp_config_write,
 };
 
 static struct cmd_node bgp_ipv4_unicast_node = {
 	.node = BGP_IPV4_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv4_multicast_node = {
 	.node = BGP_IPV4M_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv4_labeled_unicast_node = {
 	.node = BGP_IPV4L_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv6_unicast_node = {
 	.node = BGP_IPV6_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv6_multicast_node = {
 	.node = BGP_IPV6M_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv6_labeled_unicast_node = {
 	.node = BGP_IPV6L_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_vpnv4_node = {
 	.node = BGP_VPNV4_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_vpnv6_node = {
 	.node = BGP_VPNV6_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af-vpnv6)# ",
 };
 
 static struct cmd_node bgp_evpn_node = {
 	.node = BGP_EVPN_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-evpn)# ",
 };
 
 static struct cmd_node bgp_evpn_vni_node = {
 	.node = BGP_EVPN_VNI_NODE,
+	.parent_node = BGP_EVPN_NODE,
 	.prompt = "%s(config-router-af-vni)# ",
 };
 
 static struct cmd_node bgp_flowspecv4_node = {
 	.node = BGP_FLOWSPECV4_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_flowspecv6_node = {
 	.node = BGP_FLOWSPECV6_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af-vpnv6)# ",
 };
 

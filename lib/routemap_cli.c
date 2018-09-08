@@ -1067,6 +1067,7 @@ static int route_map_config_write(struct vty *vty)
 static int route_map_config_write(struct vty *vty);
 static struct cmd_node rmap_node = {
 	.node = RMAP_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-route-map)# ",
 	.config_write = route_map_config_write,
 };

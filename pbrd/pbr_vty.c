@@ -732,6 +732,7 @@ DEFUN_NOSH(show_debugging_pbr,
 static int pbr_interface_config_write(struct vty *vty);
 static struct cmd_node interface_node = {
 	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-if)# ",
 	.config_write = pbr_interface_config_write,
 };
@@ -765,6 +766,7 @@ static int pbr_vty_map_config_write(struct vty *vty);
 /* PBR map node structure. */
 static struct cmd_node pbr_map_node = {
 	.node = PBRMAP_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-pbr-map)# ",
 	.config_write = pbr_vty_map_config_write,
 };

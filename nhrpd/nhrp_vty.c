@@ -20,6 +20,7 @@
 static int nhrp_config_write(struct vty *vty);
 static struct cmd_node zebra_node = {
 	.node = ZEBRA_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 	.config_write = nhrp_config_write,
 };
@@ -27,6 +28,7 @@ static struct cmd_node zebra_node = {
 static int interface_config_write(struct vty *vty);
 static struct cmd_node nhrp_interface_node = {
 	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-if)# ",
 	.config_write = interface_config_write,
 };

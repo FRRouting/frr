@@ -1116,6 +1116,7 @@ static int config_write_ospf6(struct vty *vty);
 /* OSPF6 node structure. */
 static struct cmd_node ospf6_node = {
 	.node = OSPF6_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-ospf6)# ",
 	.config_write = config_write_ospf6,
 };

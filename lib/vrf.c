@@ -760,6 +760,7 @@ DEFUN (no_vrf,
 
 static struct cmd_node vrf_node = {
 	.node = VRF_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-vrf)# ",
 };
 

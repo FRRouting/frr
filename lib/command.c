@@ -203,6 +203,7 @@ static struct cmd_node enable_node = {
 static int config_write_host(struct vty *vty);
 static struct cmd_node config_node = {
 	.node = CONFIG_NODE,
+	.parent_node = ENABLE_NODE,
 	.prompt = "%s(config)# ",
 	.config_write = config_write_host,
 };
@@ -1458,6 +1459,8 @@ DEFUN (config_exit,
 
 void cmd_exit(struct vty *vty)
 {
+	struct cmd_node *cnode = vector_lookup(cmdvec, vty->node);
+
 	switch (vty->node) {
 	case VIEW_NODE:
 	case ENABLE_NODE:
@@ -1470,73 +1473,9 @@ void cmd_exit(struct vty *vty)
 		vty->node = ENABLE_NODE;
 		vty_config_exit(vty);
 		break;
-	case INTERFACE_NODE:
-	case PW_NODE:
-	case VRF_NODE:
-	case NH_GROUP_NODE:
-	case ZEBRA_NODE:
-	case BGP_NODE:
-	case RIP_NODE:
-	case EIGRP_NODE:
-	case BABEL_NODE:
-	case RIPNG_NODE:
-	case OSPF_NODE:
-	case OSPF6_NODE:
-	case LDP_NODE:
-	case LDP_L2VPN_NODE:
-	case ISIS_NODE:
-	case OPENFABRIC_NODE:
-	case KEYCHAIN_NODE:
-	case RMAP_NODE:
-	case PBRMAP_NODE:
-	case VTY_NODE:
-	case BFD_NODE:
-		vty->node = CONFIG_NODE;
-		break;
-	case BGP_IPV4_NODE:
-	case BGP_IPV4M_NODE:
-	case BGP_IPV4L_NODE:
-	case BGP_VPNV4_NODE:
-	case BGP_VPNV6_NODE:
-	case BGP_FLOWSPECV4_NODE:
-	case BGP_FLOWSPECV6_NODE:
-	case BGP_VRF_POLICY_NODE:
-	case BGP_VNC_DEFAULTS_NODE:
-	case BGP_VNC_NVE_GROUP_NODE:
-	case BGP_VNC_L2_GROUP_NODE:
-	case BGP_IPV6_NODE:
-	case BGP_IPV6M_NODE:
-	case BGP_EVPN_NODE:
-	case BGP_IPV6L_NODE:
-	case BMP_NODE:
-		vty->node = BGP_NODE;
-		break;
-	case BGP_EVPN_VNI_NODE:
-		vty->node = BGP_EVPN_NODE;
-		break;
-	case LDP_IPV4_NODE:
-	case LDP_IPV6_NODE:
-		vty->node = LDP_NODE;
-		break;
-	case LDP_IPV4_IFACE_NODE:
-		vty->node = LDP_IPV4_NODE;
-		break;
-	case LDP_IPV6_IFACE_NODE:
-		vty->node = LDP_IPV6_NODE;
-		break;
-	case LDP_PSEUDOWIRE_NODE:
-		vty->node = LDP_L2VPN_NODE;
-		break;
-	case KEYCHAIN_KEY_NODE:
-		vty->node = KEYCHAIN_NODE;
-		break;
-	case LINK_PARAMS_NODE:
-		vty->node = INTERFACE_NODE;
-		break;
-	case BFD_PEER_NODE:
-		vty->node = BFD_NODE;
-		break;
 	default:
+		if (cnode->parent_node)
+			vty->node = cnode->parent_node;
 		break;
 	}
 
@@ -1564,7 +1503,6 @@ DEFUN (config_end,
 		vty_config_exit(vty);
 		vty->node = ENABLE_NODE;
 	}
-
 	return CMD_SUCCESS;
 }
 

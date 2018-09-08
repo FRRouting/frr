@@ -3331,6 +3331,7 @@ static int config_write_rip(struct vty *vty);
 /* RIP node structure. */
 static struct cmd_node rip_node = {
 	.node = RIP_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 	.config_write = config_write_rip,
 };

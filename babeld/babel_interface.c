@@ -61,6 +61,7 @@ static vector babel_enable_if;                 /* enable interfaces (by cmd). */
 static int interface_config_write(struct vty *vty);
 static struct cmd_node babel_interface_node = {
     .node = INTERFACE_NODE,
+    .parent_node = CONFIG_NODE,
     .prompt = "%s(config-if)# ",
     .config_write = interface_config_write,
 };

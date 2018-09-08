@@ -2605,6 +2605,24 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 
 void vty_config_exit(struct vty *vty)
 {
+	enum node_type node = vty->node;
+	struct cmd_node *cnode;
+
+	/* unlock and jump up to ENABLE_NODE if -and only if- we're
+	 * somewhere below CONFIG_NODE */
+	while (node && node != CONFIG_NODE) {
+		cnode = vector_lookup(cmdvec, node);
+		node = cnode->parent_node;
+	}
+	if (node != CONFIG_NODE) {
+		vty_out(vty,
+			"WARNING: vty_config_exit() from outside CONFIG_NODE!\n");
+		return;
+	}
+
+	while (vty->node != ENABLE_NODE)
+		cmd_exit(vty);
+
 	/* Check if there's a pending confirmed commit. */
 	if (vty->t_confirmed_commit_timeout) {
 		vty_out(vty,
@@ -2992,6 +3010,7 @@ static int vty_config_write(struct vty *vty)
 static int vty_config_write(struct vty *vty);
 struct cmd_node vty_node = {
 	.node = VTY_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-line)# ",
 	.config_write = vty_config_write,
 };

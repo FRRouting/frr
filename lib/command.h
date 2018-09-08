@@ -172,6 +172,7 @@ extern const char *const node_names[];
 struct cmd_node {
 	/* Node index. */
 	enum node_type node;
+	enum node_type parent_node;
 
 	/* Prompt character at vty interface. */
 	const char *prompt;

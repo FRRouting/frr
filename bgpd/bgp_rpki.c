@@ -145,6 +145,7 @@ static int rpki_sync_socket_bgpd;
 
 static struct cmd_node rpki_node = {
 	.node = RPKI_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-rpki)# ",
 	.config_write = config_write,
 };

@@ -50,81 +50,97 @@ static char test_buf[32768];
 
 static struct cmd_node bgp_node = {
 	.node = BGP_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node rip_node = {
 	.node = RIP_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node isis_node = {
 	.node = ISIS_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node interface_node = {
 	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-if)# ",
 };
 
 static struct cmd_node rmap_node = {
 	.node = RMAP_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-route-map)# ",
 };
 
 static struct cmd_node zebra_node = {
 	.node = ZEBRA_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node bgp_vpnv4_node = {
 	.node = BGP_VPNV4_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv4_node = {
 	.node = BGP_IPV4_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv4m_node = {
 	.node = BGP_IPV4M_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv6_node = {
 	.node = BGP_IPV6_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv6m_node = {
 	.node = BGP_IPV6M_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node ospf_node = {
 	.node = OSPF_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node ripng_node = {
 	.node = RIPNG_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node ospf6_node = {
 	.node = OSPF6_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-ospf6)# ",
 };
 
 static struct cmd_node keychain_node = {
 	.node = KEYCHAIN_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-keychain)# ",
 };
 
 static struct cmd_node keychain_key_node = {
 	.node = KEYCHAIN_KEY_NODE,
+	.parent_node = KEYCHAIN_NODE,
 	.prompt = "%s(config-keychain-key)# ",
 };
 

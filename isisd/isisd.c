@@ -2147,6 +2147,7 @@ static int isis_config_write(struct vty *vty)
 
 struct cmd_node router_node = {
 	.node = ROUTER_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 	.config_write = isis_config_write,
 };

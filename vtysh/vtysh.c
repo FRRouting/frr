@@ -1174,232 +1174,278 @@ static char **new_completion(const char *text, int start, int end)
 /* Vty node structures. */
 static struct cmd_node bgp_node = {
 	.node = BGP_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node rip_node = {
 	.node = RIP_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node isis_node = {
 	.node = ISIS_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node openfabric_node = {
 	.node = OPENFABRIC_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node interface_node = {
 	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-if)# ",
 };
 
 static struct cmd_node pw_node = {
 	.node = PW_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-pw)# ",
 };
 
 static struct cmd_node vrf_node = {
 	.node = VRF_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-vrf)# ",
 };
 
 static struct cmd_node nh_group_node = {
 	.node = NH_GROUP_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-nh-group)# ",
 };
 
 static struct cmd_node rmap_node = {
 	.node = RMAP_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-route-map)# ",
 };
 
 static struct cmd_node pbr_map_node = {
 	.node = PBRMAP_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-pbr-map)# ",
 };
 
 static struct cmd_node zebra_node = {
 	.node = ZEBRA_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node bgp_vpnv4_node = {
 	.node = BGP_VPNV4_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_vpnv6_node = {
 	.node = BGP_VPNV6_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_flowspecv4_node = {
 	.node = BGP_FLOWSPECV4_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_flowspecv6_node = {
 	.node = BGP_FLOWSPECV6_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv4_node = {
 	.node = BGP_IPV4_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv4m_node = {
 	.node = BGP_IPV4M_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv4l_node = {
 	.node = BGP_IPV4L_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv6_node = {
 	.node = BGP_IPV6_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv6m_node = {
 	.node = BGP_IPV6M_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_evpn_node = {
 	.node = BGP_EVPN_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_evpn_vni_node = {
 	.node = BGP_EVPN_VNI_NODE,
+	.parent_node = BGP_EVPN_NODE,
 	.prompt = "%s(config-router-af-vni)# ",
 };
 
 static struct cmd_node bgp_ipv6l_node = {
 	.node = BGP_IPV6L_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_vnc_defaults_node = {
 	.node = BGP_VNC_DEFAULTS_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-vnc-defaults)# ",
 };
 
 static struct cmd_node bgp_vnc_nve_group_node = {
 	.node = BGP_VNC_NVE_GROUP_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-vnc-nve-group)# ",
 };
 
 static struct cmd_node bgp_vrf_policy_node = {
 	.node = BGP_VRF_POLICY_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-vrf-policy)# ",
 };
 
 static struct cmd_node bgp_vnc_l2_group_node = {
 	.node = BGP_VNC_L2_GROUP_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-vnc-l2-group)# ",
 };
 
 static struct cmd_node bmp_node = {
 	.node = BMP_NODE,
+	.parent_node = BGP_NODE,
 	.prompt = "%s(config-bgp-bmp)# "
 };
 
 static struct cmd_node ospf_node = {
 	.node = OSPF_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node eigrp_node = {
 	.node = EIGRP_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node babel_node = {
 	.node = BABEL_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node ripng_node = {
 	.node = RIPNG_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node ospf6_node = {
 	.node = OSPF6_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-ospf6)# ",
 };
 
 static struct cmd_node ldp_node = {
 	.node = LDP_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-ldp)# ",
 };
 
 static struct cmd_node ldp_ipv4_node = {
 	.node = LDP_IPV4_NODE,
+	.parent_node = LDP_NODE,
 	.prompt = "%s(config-ldp-af)# ",
 };
 
 static struct cmd_node ldp_ipv6_node = {
 	.node = LDP_IPV6_NODE,
+	.parent_node = LDP_NODE,
 	.prompt = "%s(config-ldp-af)# ",
 };
 
 static struct cmd_node ldp_ipv4_iface_node = {
 	.node = LDP_IPV4_IFACE_NODE,
+	.parent_node = LDP_IPV4_NODE,
 	.prompt = "%s(config-ldp-af-if)# ",
 };
 
 static struct cmd_node ldp_ipv6_iface_node = {
 	.node = LDP_IPV6_IFACE_NODE,
+	.parent_node = LDP_IPV6_NODE,
 	.prompt = "%s(config-ldp-af-if)# ",
 };
 
 static struct cmd_node ldp_l2vpn_node = {
 	.node = LDP_L2VPN_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-l2vpn)# ",
 };
 
 static struct cmd_node ldp_pseudowire_node = {
 	.node = LDP_PSEUDOWIRE_NODE,
+	.parent_node = LDP_L2VPN_NODE,
 	.prompt = "%s(config-l2vpn-pw)# ",
 };
 
 static struct cmd_node keychain_node = {
 	.node = KEYCHAIN_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-keychain)# ",
 };
 
 static struct cmd_node keychain_key_node = {
 	.node = KEYCHAIN_KEY_NODE,
+	.parent_node = KEYCHAIN_NODE,
 	.prompt = "%s(config-keychain-key)# ",
 };
 
 struct cmd_node link_params_node = {
 	.node = LINK_PARAMS_NODE,
+	.parent_node = INTERFACE_NODE,
 	.prompt = "%s(config-link-params)# ",
 };
 
 static struct cmd_node rpki_node = {
 	.node = RPKI_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-rpki)# ",
 };
 
 #if HAVE_BFDD > 0
 static struct cmd_node bfd_node = {
 	.node = BFD_NODE,
+	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-bfd)# ",
 };
 
 static struct cmd_node bfd_peer_node = {
 	.node = BFD_PEER_NODE,
+	.parent_node = BFD_NODE,
 	.prompt = "%s(config-bfd-peer)# ",
 };
 #endif /* HAVE_BFDD */
