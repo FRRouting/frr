@@ -2,6 +2,7 @@
 Makefile.in
 *.o
 isisd
+fabricd
 .deps
 isisd.conf
 .nfs*

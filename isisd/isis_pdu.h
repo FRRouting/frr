@@ -24,6 +24,8 @@
 #ifndef _ZEBRA_ISIS_PDU_H
 #define _ZEBRA_ISIS_PDU_H
 
+#include "isisd/isis_tx_queue.h"
+
 #ifdef __SUNPRO_C
 #pragma pack(1)
 #endif
@@ -125,6 +127,8 @@ struct isis_p2p_hello_hdr {
 
 #define L1_LINK_STATE        18
 #define L2_LINK_STATE        20
+#define FS_LINK_STATE        10
+#define L2_CIRCUIT_FLOODING_SCOPE 2
 struct isis_lsp_hdr {
 	uint16_t pdu_len;
 	uint16_t rem_lifetime;
@@ -212,7 +216,7 @@ int send_l1_csnp(struct thread *thread);
 int send_l2_csnp(struct thread *thread);
 int send_l1_psnp(struct thread *thread);
 int send_l2_psnp(struct thread *thread);
-int send_lsp(struct thread *thread);
+void send_lsp(void *arg, struct isis_lsp *lsp, enum isis_tx_type tx_type);
 void fill_fixed_hdr(uint8_t pdu_type, struct stream *stream);
 int send_hello(struct isis_circuit *circuit, int level);
 int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa);

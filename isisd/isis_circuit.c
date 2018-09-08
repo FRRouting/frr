@@ -45,7 +45,6 @@
 #include "isisd/isis_flags.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_lsp.h"
-#include "isisd/isis_lsp_hash.h"
 #include "isisd/isis_pdu.h"
 #include "isisd/isis_network.h"
 #include "isisd/isis_misc.h"
@@ -58,6 +57,7 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_errors.h"
+#include "isisd/isis_tx_queue.h"
 
 DEFINE_QOBJ_TYPE(isis_circuit)
 
@@ -412,7 +412,7 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 	isis_circuit_if_bind(circuit, ifp);
 
 	if (if_is_broadcast(ifp)) {
-		if (circuit->circ_type_config == CIRCUIT_T_P2P)
+		if (fabricd || circuit->circ_type_config == CIRCUIT_T_P2P)
 			circuit->circ_type = CIRCUIT_T_P2P;
 		else
 			circuit->circ_type = CIRCUIT_T_BROADCAST;
@@ -495,29 +495,29 @@ static void isis_circuit_update_all_srmflags(struct isis_circuit *circuit,
 {
 	struct isis_area *area;
 	struct isis_lsp *lsp;
-	dnode_t *dnode, *dnode_next;
+	dnode_t *dnode;
 	int level;
 
 	assert(circuit);
 	area = circuit->area;
 	assert(area);
 	for (level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
-		if (level & circuit->is_type) {
-			if (area->lspdb[level - 1]
-			    && dict_count(area->lspdb[level - 1]) > 0) {
-				for (dnode = dict_first(area->lspdb[level - 1]);
-				     dnode != NULL; dnode = dnode_next) {
-					dnode_next = dict_next(
-						area->lspdb[level - 1], dnode);
-					lsp = dnode_get(dnode);
-					if (is_set) {
-						ISIS_SET_FLAG(lsp->SRMflags,
-							      circuit);
-					} else {
-						ISIS_CLEAR_FLAG(lsp->SRMflags,
-								circuit);
-					}
-				}
+		if (!(level & circuit->is_type))
+			continue;
+
+		if (!area->lspdb[level - 1]
+		    || !dict_count(area->lspdb[level - 1]))
+			continue;
+
+		for (dnode = dict_first(area->lspdb[level - 1]);
+		     dnode != NULL;
+		     dnode = dict_next(area->lspdb[level - 1], dnode)) {
+			lsp = dnode_get(dnode);
+			if (is_set) {
+				isis_tx_queue_add(circuit->tx_queue, lsp,
+						  TX_LSP_NORMAL);
+			} else {
+				isis_tx_queue_del(circuit->tx_queue, lsp);
 			}
 		}
 	}
@@ -672,10 +672,7 @@ int isis_circuit_up(struct isis_circuit *circuit)
 
 	isis_circuit_prepare(circuit);
 
-	circuit->lsp_queue = list_new();
-	circuit->lsp_hash = isis_lsp_hash_new();
-	circuit->lsp_queue_last_push[0] = circuit->lsp_queue_last_push[1] =
-		monotime(NULL);
+	circuit->tx_queue = isis_tx_queue_new(circuit, send_lsp);
 
 	return ISIS_OK;
 }
@@ -743,13 +740,9 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	THREAD_OFF(circuit->t_send_lsp);
 	THREAD_OFF(circuit->t_read);
 
-	if (circuit->lsp_queue) {
-		list_delete_and_null(&circuit->lsp_queue);
-	}
-
-	if (circuit->lsp_hash) {
-		isis_lsp_hash_free(circuit->lsp_hash);
-		circuit->lsp_hash = NULL;
+	if (circuit->tx_queue) {
+		isis_tx_queue_free(circuit->tx_queue);
+		circuit->tx_queue = NULL;
 	}
 
 	/* send one gratuitous hello to spead up convergence */
@@ -957,33 +950,35 @@ int isis_interface_config_write(struct vty *vty)
 			if (circuit == NULL)
 				continue;
 			if (circuit->ip_router) {
-				vty_out(vty, " ip router isis %s\n",
+				vty_out(vty, " ip router " PROTO_NAME " %s\n",
 					area->area_tag);
 				write++;
 			}
 			if (circuit->is_passive) {
-				vty_out(vty, " isis passive\n");
+				vty_out(vty, " " PROTO_NAME " passive\n");
 				write++;
 			}
 			if (circuit->circ_type_config == CIRCUIT_T_P2P) {
-				vty_out(vty, " isis network point-to-point\n");
+				vty_out(vty, " " PROTO_NAME " network point-to-point\n");
 				write++;
 			}
 			if (circuit->ipv6_router) {
-				vty_out(vty, " ipv6 router isis %s\n",
+				vty_out(vty, " ipv6 router " PROTO_NAME " %s\n",
 					area->area_tag);
 				write++;
 			}
 
 			/* ISIS - circuit type */
-			if (circuit->is_type == IS_LEVEL_1) {
-				vty_out(vty, " isis circuit-type level-1\n");
-				write++;
-			} else {
-				if (circuit->is_type == IS_LEVEL_2) {
-					vty_out(vty,
-						" isis circuit-type level-2-only\n");
+			if (!fabricd) {
+				if (circuit->is_type == IS_LEVEL_1) {
+					vty_out(vty, " " PROTO_NAME " circuit-type level-1\n");
 					write++;
+				} else {
+					if (circuit->is_type == IS_LEVEL_2) {
+						vty_out(vty,
+							" " PROTO_NAME " circuit-type level-2-only\n");
+						write++;
+					}
 				}
 			}
 
@@ -992,7 +987,7 @@ int isis_interface_config_write(struct vty *vty)
 			    == circuit->csnp_interval[1]) {
 				if (circuit->csnp_interval[0]
 				    != DEFAULT_CSNP_INTERVAL) {
-					vty_out(vty, " isis csnp-interval %d\n",
+					vty_out(vty, " " PROTO_NAME " csnp-interval %d\n",
 						circuit->csnp_interval[0]);
 					write++;
 				}
@@ -1001,7 +996,7 @@ int isis_interface_config_write(struct vty *vty)
 					if (circuit->csnp_interval[i]
 					    != DEFAULT_CSNP_INTERVAL) {
 						vty_out(vty,
-							" isis csnp-interval %d level-%d\n",
+							" " PROTO_NAME " csnp-interval %d level-%d\n",
 							circuit->csnp_interval
 								[i],
 							i + 1);
@@ -1015,7 +1010,7 @@ int isis_interface_config_write(struct vty *vty)
 			    == circuit->psnp_interval[1]) {
 				if (circuit->psnp_interval[0]
 				    != DEFAULT_PSNP_INTERVAL) {
-					vty_out(vty, " isis psnp-interval %d\n",
+					vty_out(vty, " " PROTO_NAME " psnp-interval %d\n",
 						circuit->psnp_interval[0]);
 					write++;
 				}
@@ -1024,7 +1019,7 @@ int isis_interface_config_write(struct vty *vty)
 					if (circuit->psnp_interval[i]
 					    != DEFAULT_PSNP_INTERVAL) {
 						vty_out(vty,
-							" isis psnp-interval %d level-%d\n",
+							" " PROTO_NAME " psnp-interval %d level-%d\n",
 							circuit->psnp_interval
 								[i],
 							i + 1);
@@ -1036,7 +1031,7 @@ int isis_interface_config_write(struct vty *vty)
 			/* ISIS - Hello padding - Defaults to true so only
 			 * display if false */
 			if (circuit->pad_hellos == 0) {
-				vty_out(vty, " no isis hello padding\n");
+				vty_out(vty, " no " PROTO_NAME " hello padding\n");
 				write++;
 			}
 
@@ -1051,7 +1046,7 @@ int isis_interface_config_write(struct vty *vty)
 				if (circuit->hello_interval[0]
 				    != DEFAULT_HELLO_INTERVAL) {
 					vty_out(vty,
-						" isis hello-interval %d\n",
+						" " PROTO_NAME " hello-interval %d\n",
 						circuit->hello_interval[0]);
 					write++;
 				}
@@ -1060,7 +1055,7 @@ int isis_interface_config_write(struct vty *vty)
 					if (circuit->hello_interval[i]
 					    != DEFAULT_HELLO_INTERVAL) {
 						vty_out(vty,
-							" isis hello-interval %d level-%d\n",
+							" " PROTO_NAME " hello-interval %d level-%d\n",
 							circuit->hello_interval
 								[i],
 							i + 1);
@@ -1075,7 +1070,7 @@ int isis_interface_config_write(struct vty *vty)
 				if (circuit->hello_multiplier[0]
 				    != DEFAULT_HELLO_MULTIPLIER) {
 					vty_out(vty,
-						" isis hello-multiplier %d\n",
+						" " PROTO_NAME " hello-multiplier %d\n",
 						circuit->hello_multiplier[0]);
 					write++;
 				}
@@ -1084,7 +1079,7 @@ int isis_interface_config_write(struct vty *vty)
 					if (circuit->hello_multiplier[i]
 					    != DEFAULT_HELLO_MULTIPLIER) {
 						vty_out(vty,
-							" isis hello-multiplier %d level-%d\n",
+							" " PROTO_NAME " hello-multiplier %d level-%d\n",
 							circuit->hello_multiplier
 								[i],
 							i + 1);
@@ -1096,7 +1091,7 @@ int isis_interface_config_write(struct vty *vty)
 			/* ISIS - Priority */
 			if (circuit->priority[0] == circuit->priority[1]) {
 				if (circuit->priority[0] != DEFAULT_PRIORITY) {
-					vty_out(vty, " isis priority %d\n",
+					vty_out(vty, " " PROTO_NAME " priority %d\n",
 						circuit->priority[0]);
 					write++;
 				}
@@ -1105,7 +1100,7 @@ int isis_interface_config_write(struct vty *vty)
 					if (circuit->priority[i]
 					    != DEFAULT_PRIORITY) {
 						vty_out(vty,
-							" isis priority %d level-%d\n",
+							" " PROTO_NAME " priority %d level-%d\n",
 							circuit->priority[i],
 							i + 1);
 						write++;
@@ -1117,7 +1112,7 @@ int isis_interface_config_write(struct vty *vty)
 			if (circuit->te_metric[0] == circuit->te_metric[1]) {
 				if (circuit->te_metric[0]
 				    != DEFAULT_CIRCUIT_METRIC) {
-					vty_out(vty, " isis metric %d\n",
+					vty_out(vty, " " PROTO_NAME " metric %d\n",
 						circuit->te_metric[0]);
 					write++;
 				}
@@ -1126,7 +1121,7 @@ int isis_interface_config_write(struct vty *vty)
 					if (circuit->te_metric[i]
 					    != DEFAULT_CIRCUIT_METRIC) {
 						vty_out(vty,
-							" isis metric %d level-%d\n",
+							" " PROTO_NAME " metric %d level-%d\n",
 							circuit->te_metric[i],
 							i + 1);
 						write++;
@@ -1134,12 +1129,12 @@ int isis_interface_config_write(struct vty *vty)
 				}
 			}
 			if (circuit->passwd.type == ISIS_PASSWD_TYPE_HMAC_MD5) {
-				vty_out(vty, " isis password md5 %s\n",
+				vty_out(vty, " " PROTO_NAME " password md5 %s\n",
 					circuit->passwd.passwd);
 				write++;
 			} else if (circuit->passwd.type
 				   == ISIS_PASSWD_TYPE_CLEARTXT) {
-				vty_out(vty, " isis password clear %s\n",
+				vty_out(vty, " " PROTO_NAME " password clear %s\n",
 					circuit->passwd.passwd);
 				write++;
 			}
@@ -1343,60 +1338,4 @@ void isis_circuit_init()
 	/* Install interface node */
 	install_node(&interface_node, isis_interface_config_write);
 	if_cmd_init();
-
-	isis_vty_init();
-}
-
-void isis_circuit_schedule_lsp_send(struct isis_circuit *circuit)
-{
-	if (circuit->t_send_lsp)
-		return;
-	circuit->t_send_lsp =
-		thread_add_event(master, send_lsp, circuit, 0, NULL);
-}
-
-void isis_circuit_queue_lsp(struct isis_circuit *circuit, struct isis_lsp *lsp)
-{
-	if (isis_lsp_hash_lookup(circuit->lsp_hash, lsp))
-		return;
-
-	listnode_add(circuit->lsp_queue, lsp);
-	isis_lsp_hash_add(circuit->lsp_hash, lsp);
-	isis_circuit_schedule_lsp_send(circuit);
-}
-
-void isis_circuit_lsp_queue_clean(struct isis_circuit *circuit)
-{
-	if (!circuit->lsp_queue)
-		return;
-
-	list_delete_all_node(circuit->lsp_queue);
-	isis_lsp_hash_clean(circuit->lsp_hash);
-}
-
-void isis_circuit_cancel_queued_lsp(struct isis_circuit *circuit,
-				    struct isis_lsp *lsp)
-{
-	if (!circuit->lsp_queue)
-		return;
-
-	listnode_delete(circuit->lsp_queue, lsp);
-	isis_lsp_hash_release(circuit->lsp_hash, lsp);
-}
-
-struct isis_lsp *isis_circuit_lsp_queue_pop(struct isis_circuit *circuit)
-{
-	if (!circuit->lsp_queue)
-		return NULL;
-
-	struct listnode *node = listhead(circuit->lsp_queue);
-	if (!node)
-		return NULL;
-
-	struct isis_lsp *rv = listgetdata(node);
-
-	list_delete_node(circuit->lsp_queue, node);
-	isis_lsp_hash_release(circuit->lsp_hash, rv);
-
-	return rv;
 }

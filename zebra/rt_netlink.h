@@ -54,6 +54,7 @@
 #define RTPROT_SHARP       194
 #define RTPROT_PBR         195
 #define RTPROT_ZSTATIC     196
+#define RTPROT_OPENFABRIC  197
 
 void rt_netlink_init(void);
 
