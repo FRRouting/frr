@@ -1335,6 +1335,7 @@ ferr_r isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit,
 }
 
 struct cmd_node interface_node = {
+	.name = "interface",
 	.node = INTERFACE_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-if)# ",

@@ -72,6 +72,7 @@ static time_t source_expiry_time;
 static int babel_config_write (struct vty *vty);
 static struct cmd_node cmd_babel_node =
 {
+    .name = "babel",
     .node   = BABEL_NODE,
     .parent_node = CONFIG_NODE,
     .prompt = "%s(config-router)# ",

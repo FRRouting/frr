@@ -49,96 +49,112 @@ static vector test_cmds;
 static char test_buf[32768];
 
 static struct cmd_node bgp_node = {
+	.name = "bgp",
 	.node = BGP_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node rip_node = {
+	.name = "rip",
 	.node = RIP_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node isis_node = {
+	.name = "isis",
 	.node = ISIS_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node interface_node = {
+	.name = "interface",
 	.node = INTERFACE_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-if)# ",
 };
 
 static struct cmd_node rmap_node = {
+	.name = "routemap",
 	.node = RMAP_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-route-map)# ",
 };
 
 static struct cmd_node zebra_node = {
+	.name = "zebra",
 	.node = ZEBRA_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node bgp_vpnv4_node = {
+	.name = "bgp vpnv4",
 	.node = BGP_VPNV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv4_node = {
+	.name = "bgp ipv4 unicast",
 	.node = BGP_IPV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv4m_node = {
+	.name = "bgp ipv4 multicast",
 	.node = BGP_IPV4M_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv6_node = {
+	.name = "bgp ipv6",
 	.node = BGP_IPV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv6m_node = {
+	.name = "bgp ipv6 multicast",
 	.node = BGP_IPV6M_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node ospf_node = {
+	.name = "ospf",
 	.node = OSPF_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node ripng_node = {
+	.name = "ripng",
 	.node = RIPNG_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
 
 static struct cmd_node ospf6_node = {
+	.name = "ospf6",
 	.node = OSPF6_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-ospf6)# ",
 };
 
 static struct cmd_node keychain_node = {
+	.name = "keychain",
 	.node = KEYCHAIN_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-keychain)# ",
 };
 
 static struct cmd_node keychain_key_node = {
+	.name = "keychain key",
 	.node = KEYCHAIN_KEY_NODE,
 	.parent_node = KEYCHAIN_NODE,
 	.prompt = "%s(config-keychain-key)# ",

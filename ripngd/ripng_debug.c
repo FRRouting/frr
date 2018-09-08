@@ -177,6 +177,7 @@ DEFUN (no_debug_ripng_zebra,
 static int config_write_debug(struct vty *vty);
 /* Debug node. */
 static struct cmd_node debug_node = {
+	.name = "debug",
 	.node = DEBUG_NODE,
 	.prompt = "",
 	.config_write = config_write_debug,

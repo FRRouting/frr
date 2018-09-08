@@ -3480,12 +3480,14 @@ DEFUN_HIDDEN (show_frr,
 /* IP node for static routes. */
 static int zebra_ip_config(struct vty *vty);
 static struct cmd_node ip_node = {
+	.name = "static ip",
 	.node = IP_NODE,
 	.prompt = "",
 	.config_write = zebra_ip_config,
 };
 static int config_write_protocol(struct vty *vty);
 static struct cmd_node protocol_node = {
+	.name = "protocol",
 	.node = PROTOCOL_NODE,
 	.prompt = "",
 	.config_write = config_write_protocol,
@@ -3493,12 +3495,14 @@ static struct cmd_node protocol_node = {
 /* table node for routing tables. */
 static int config_write_table(struct vty *vty);
 static struct cmd_node table_node = {
+	.name = "table",
 	.node = TABLE_NODE,
 	.prompt = "",
 	.config_write = config_write_table,
 };
 static int config_write_forwarding(struct vty *vty);
 static struct cmd_node forwarding_node = {
+	.name = "forwarding",
 	.node = FORWARDING_NODE,
 	.prompt = "",
 	.config_write = config_write_forwarding,

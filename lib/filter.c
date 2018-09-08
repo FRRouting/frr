@@ -2814,6 +2814,7 @@ static int config_write_access(struct vty *vty, afi_t afi)
 
 static int config_write_access_mac(struct vty *vty);
 static struct cmd_node access_mac_node = {
+	.name = "MAC access list",
 	.node = ACCESS_MAC_NODE,
 	.prompt = "",
 	.config_write = config_write_access_mac,
@@ -2868,6 +2869,7 @@ static void access_list_init_mac(void)
 /* Access-list node. */
 static int config_write_access_ipv4(struct vty *vty);
 static struct cmd_node access_node = {
+	.name = "ipv4 access list",
 	.node = ACCESS_NODE,
 	.prompt = "",
 	.config_write = config_write_access_ipv4,
@@ -2956,6 +2958,7 @@ static void access_list_init_ipv4(void)
 
 static int config_write_access_ipv6(struct vty *vty);
 static struct cmd_node access_ipv6_node = {
+	.name = "ipv6 access list",
 	.node = ACCESS_IPV6_NODE,
 	.prompt = "",
 	.config_write = config_write_access_ipv6,

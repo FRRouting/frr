@@ -2437,6 +2437,7 @@ static int ripng_config_write(struct vty *vty)
 static int ripng_config_write(struct vty *vty);
 /* RIPng node structure. */
 static struct cmd_node cmd_ripng_node = {
+	.name = "ripng",
 	.node = RIPNG_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",

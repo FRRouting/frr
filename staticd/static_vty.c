@@ -1471,6 +1471,7 @@ DEFUN_NOSH (show_debugging_static,
 }
 
 static struct cmd_node debug_node = {
+	.name = "debug",
 	.node = DEBUG_NODE,
 	.prompt = "",
 	.config_write = static_config_write_debug,

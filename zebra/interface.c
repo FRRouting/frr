@@ -1666,6 +1666,7 @@ static void interface_update_stats(void)
 
 static int if_config_write(struct vty *vty);
 struct cmd_node interface_node = {
+	.name = "interface",
 	.node = INTERFACE_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-if)# ",
@@ -2080,6 +2081,7 @@ DEFUN (no_bandwidth_if,
 
 
 struct cmd_node link_params_node = {
+	.name = "link-params",
 	.node = LINK_PARAMS_NODE,
 	.parent_node = INTERFACE_NODE,
 	.prompt = "%s(config-link-params)# ",

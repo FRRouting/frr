@@ -549,6 +549,7 @@ static int zebra_pw_config(struct vty *vty)
 
 static int zebra_pw_config(struct vty *vty);
 static struct cmd_node pw_node = {
+	.name = "pw",
 	.node = PW_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-pw)# ",

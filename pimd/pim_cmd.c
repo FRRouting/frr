@@ -70,6 +70,7 @@
 #endif
 
 static struct cmd_node interface_node = {
+	.name = "interface",
 	.node = INTERFACE_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-if)# ",
@@ -77,6 +78,7 @@ static struct cmd_node interface_node = {
 };
 
 static struct cmd_node debug_node = {
+	.name = "debug",
 	.node = DEBUG_NODE,
 	.prompt = "",
 	.config_write = pim_debug_config_write,

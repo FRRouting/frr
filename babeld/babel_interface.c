@@ -60,6 +60,7 @@ static void babel_interface_free (babel_interface_nfo *bi);
 static vector babel_enable_if;                 /* enable interfaces (by cmd). */
 static int interface_config_write(struct vty *vty);
 static struct cmd_node babel_interface_node = {
+    .name = "interface",
     .node = INTERFACE_NODE,
     .parent_node = CONFIG_NODE,
     .prompt = "%s(config-if)# ",

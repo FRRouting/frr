@@ -15335,6 +15335,7 @@ int bgp_config_write(struct vty *vty)
 
 /* BGP node structure. */
 static struct cmd_node bgp_node = {
+	.name = "bgp",
 	.node = BGP_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
@@ -15342,72 +15343,84 @@ static struct cmd_node bgp_node = {
 };
 
 static struct cmd_node bgp_ipv4_unicast_node = {
+	.name = "bgp ipv4 unicast",
 	.node = BGP_IPV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv4_multicast_node = {
+	.name = "bgp ipv4 multicast",
 	.node = BGP_IPV4M_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv4_labeled_unicast_node = {
+	.name = "bgp ipv4 labeled unicast",
 	.node = BGP_IPV4L_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv6_unicast_node = {
+	.name = "bgp ipv6",
 	.node = BGP_IPV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv6_multicast_node = {
+	.name = "bgp ipv6 multicast",
 	.node = BGP_IPV6M_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_ipv6_labeled_unicast_node = {
+	.name = "bgp ipv6 labeled unicast",
 	.node = BGP_IPV6L_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_vpnv4_node = {
+	.name = "bgp vpnv4",
 	.node = BGP_VPNV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_vpnv6_node = {
+	.name = "bgp vpnv6",
 	.node = BGP_VPNV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af-vpnv6)# ",
 };
 
 static struct cmd_node bgp_evpn_node = {
+	.name = "bgp evpn",
 	.node = BGP_EVPN_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-evpn)# ",
 };
 
 static struct cmd_node bgp_evpn_vni_node = {
+	.name = "bgp evpn vni",
 	.node = BGP_EVPN_VNI_NODE,
 	.parent_node = BGP_EVPN_NODE,
 	.prompt = "%s(config-router-af-vni)# ",
 };
 
 static struct cmd_node bgp_flowspecv4_node = {
+	.name = "bgp ipv4 flowspec",
 	.node = BGP_FLOWSPECV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
 };
 
 static struct cmd_node bgp_flowspecv6_node = {
+	.name = "bgp ipv6 flowspec",
 	.node = BGP_FLOWSPECV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af-vpnv6)# ",
@@ -17893,6 +17906,7 @@ static int community_list_config_write(struct vty *vty)
 
 static int community_list_config_write(struct vty *vty);
 static struct cmd_node community_list_node = {
+	.name = "community list",
 	.node = COMMUNITY_LIST_NODE,
 	.prompt = "",
 	.config_write = community_list_config_write,

@@ -669,6 +669,7 @@ static int config_write_as_list(struct vty *vty)
 
 static int config_write_as_list(struct vty *vty);
 static struct cmd_node as_list_node = {
+	.name = "as list",
 	.node = AS_LIST_NODE,
 	.prompt = "",
 	.config_write = config_write_as_list,

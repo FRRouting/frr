@@ -786,6 +786,7 @@ DEFUN_NOSH (show_debugging,
 static int config_write_debug(struct vty *vty);
 /* Debug node. */
 static struct cmd_node debug_node = {
+	.name = "debug",
 	.node = DEBUG_NODE,
 	.prompt = "",
 	.config_write = config_write_debug,
@@ -2128,6 +2129,13 @@ static int isis_config_write(struct vty *vty)
 	return write;
 }
 
+struct cmd_node router_node = {
+	.name = "openfabric",
+	.node = OPENFABRIC_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-router)# ",
+	.config_write = isis_config_write,
+};
 #else
 /* IS-IS configuration write function */
 static int isis_config_write(struct vty *vty)
@@ -2143,14 +2151,15 @@ static int isis_config_write(struct vty *vty)
 
 	return write;
 }
-#endif /* ifdef FABRICD */
 
 struct cmd_node router_node = {
-	.node = ROUTER_NODE,
+	.name = "isis",
+	.node = ISIS_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 	.config_write = isis_config_write,
 };
+#endif /* ifdef FABRICD */
 
 void isis_init(void)
 {

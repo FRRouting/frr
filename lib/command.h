@@ -165,11 +165,12 @@ enum node_type {
 
 extern vector cmdvec;
 extern const struct message tokennames[];
-extern const char *const node_names[];
 
 /* Node which has some commands and prompt string and configuration
    function pointer . */
 struct cmd_node {
+	const char *name;
+
 	/* Node index. */
 	enum node_type node;
 	enum node_type parent_node;

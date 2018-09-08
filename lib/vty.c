@@ -3009,6 +3009,7 @@ static int vty_config_write(struct vty *vty)
 
 static int vty_config_write(struct vty *vty);
 struct cmd_node vty_node = {
+	.name = "vty",
 	.node = VTY_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-line)# ",

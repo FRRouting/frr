@@ -745,6 +745,7 @@ static int vrrp_config_write_interface(struct vty *vty)
 }
 
 static struct cmd_node interface_node = {
+	.name = "interface",
 	.node = INTERFACE_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-if)# ",
@@ -752,12 +753,14 @@ static struct cmd_node interface_node = {
 };
 
 static struct cmd_node debug_node = {
+	.name = "debug",
 	.node = DEBUG_NODE,
 	.prompt = "",
 	.config_write = vrrp_config_write_debug,
 };
 
 static struct cmd_node vrrp_node = {
+	.name = "vrrp",
 	.node = VRRP_NODE,
 	.prompt = "",
 	.config_write = vrrp_config_write_global,

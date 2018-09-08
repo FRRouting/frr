@@ -935,6 +935,7 @@ DEFPY(ecmp_nexthops, ecmp_nexthops_cmd,
 
 static int nexthop_group_write(struct vty *vty);
 static struct cmd_node nexthop_group_node = {
+	.name = "nexthop-group",
 	.node = NH_GROUP_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-nh-group)# ",

@@ -3017,6 +3017,7 @@ DEFUN (no_debug_rmap,
 /* Debug node. */
 static int rmap_config_write_debug(struct vty *vty);
 static struct cmd_node rmap_debug_node = {
+	.name = "route-map debug",
 	.node = RMAP_DEBUG_NODE,
 	.prompt = "",
 	.config_write = rmap_config_write_debug,

@@ -40,6 +40,7 @@ static int	 ldp_vty_get_af(struct vty *);
 static int	 ldp_iface_is_configured(struct ldpd_conf *, const char *);
 
 struct cmd_node ldp_node = {
+	.name = "ldp",
 	.node = LDP_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-ldp)# ",
@@ -47,30 +48,35 @@ struct cmd_node ldp_node = {
 };
 
 struct cmd_node ldp_ipv4_node = {
+	.name = "ldp ipv4",
 	.node = LDP_IPV4_NODE,
 	.parent_node = LDP_NODE,
 	.prompt = "%s(config-ldp-af)# ",
 };
 
 struct cmd_node ldp_ipv6_node = {
+	.name = "ldp ipv6",
 	.node = LDP_IPV6_NODE,
 	.parent_node = LDP_NODE,
 	.prompt = "%s(config-ldp-af)# ",
 };
 
 struct cmd_node ldp_ipv4_iface_node = {
+	.name = "ldp ipv4 interface",
 	.node = LDP_IPV4_IFACE_NODE,
 	.parent_node = LDP_IPV4_NODE,
 	.prompt = "%s(config-ldp-af-if)# ",
 };
 
 struct cmd_node ldp_ipv6_iface_node = {
+	.name = "ldp ipv6 interface",
 	.node = LDP_IPV6_IFACE_NODE,
 	.parent_node = LDP_IPV6_NODE,
 	.prompt = "%s(config-ldp-af-if)# ",
 };
 
 struct cmd_node ldp_l2vpn_node = {
+	.name = "ldp l2vpn",
 	.node = LDP_L2VPN_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-l2vpn)# ",
@@ -78,6 +84,7 @@ struct cmd_node ldp_l2vpn_node = {
 };
 
 struct cmd_node ldp_pseudowire_node = {
+	.name = "ldp",
 	.node = LDP_PSEUDOWIRE_NODE,
 	.parent_node = LDP_L2VPN_NODE,
 	.prompt = "%s(config-l2vpn-pw)# ",

@@ -1773,6 +1773,7 @@ static void bmp_active_setup(struct bmp_active *ba)
 }
 
 static struct cmd_node bmp_node = {
+	.name = "bmp",
 	.node = BMP_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-bgp-bmp)# "

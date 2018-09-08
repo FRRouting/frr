@@ -557,6 +557,7 @@ DEFUN (no_debug_eigrp_packets,
 /* Debug node. */
 static int config_write_debug(struct vty *vty);
 static struct cmd_node eigrp_debug_node = {
+	.name = "debug",
 	.node = DEBUG_NODE,
 	.prompt = "",
 	.config_write = config_write_debug,

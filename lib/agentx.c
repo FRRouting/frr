@@ -160,6 +160,7 @@ static void agentx_events_update(void)
 /* AgentX node. */
 static int config_write_agentx(struct vty *vty);
 static struct cmd_node agentx_node = {
+	.name = "smux",
 	.node = SMUX_NODE,
 	.prompt = "",
 	.config_write = config_write_agentx,

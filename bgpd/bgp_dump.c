@@ -780,6 +780,7 @@ DEFUN (no_dump_bgp_all,
 static int config_write_bgp_dump(struct vty *vty);
 /* BGP node structure. */
 static struct cmd_node bgp_dump_node = {
+	.name = "dump",
 	.node = DUMP_NODE,
 	.prompt = "",
 	.config_write = config_write_bgp_dump,

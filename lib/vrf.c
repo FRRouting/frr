@@ -759,6 +759,7 @@ DEFUN (no_vrf,
 
 
 static struct cmd_node vrf_node = {
+	.name = "vrf",
 	.node = VRF_NODE,
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-vrf)# ",
@@ -854,6 +855,7 @@ static int vrf_write_host(struct vty *vty)
 
 static int vrf_write_host(struct vty *vty);
 static struct cmd_node vrf_debug_node = {
+	.name = "vrf debug",
 	.node = VRF_DEBUG_NODE,
 	.prompt = "",
 	.config_write = vrf_write_host,

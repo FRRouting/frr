@@ -1675,6 +1675,7 @@ static int nb_debug_config_write(struct vty *vty)
 
 static struct debug_callbacks nb_dbg_cbs = {.debug_set_all = nb_debug_set_all};
 static struct cmd_node nb_debug_node = {
+	.name = "northbound debug",
 	.node = NORTHBOUND_DEBUG_NODE,
 	.prompt = "",
 	.config_write = nb_debug_config_write,

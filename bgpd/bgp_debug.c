@@ -2284,6 +2284,7 @@ static int bgp_config_write_debug(struct vty *vty)
 
 static int bgp_config_write_debug(struct vty *vty);
 static struct cmd_node debug_node = {
+	.name = "debug",
 	.node = DEBUG_NODE,
 	.prompt = "",
 	.config_write = bgp_config_write_debug,
