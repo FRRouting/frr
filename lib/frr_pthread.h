@@ -234,4 +234,8 @@ void frr_pthread_yield(void);
  */
 uint32_t frr_pthread_get_id(void);
 
+#ifndef HAVE_PTHREAD_CONDATTR_SETCLOCK
+#define pthread_condattr_setclock(A, B)
+#endif
+
 #endif /* _FRR_PTHREAD_H */

@@ -313,6 +313,13 @@ AX_PTHREAD([
   AC_MSG_FAILURE([This FRR version needs pthreads])
 ])
 
+AC_SEARCH_LIBS([pthread_condattr_setclock], [],
+		[frr_cv_pthread_condattr_setclock=yes],
+		[frr_cv_pthread_condattr_setclock=no])
+if test "$frr_cv_pthread_condattr_setclock" = yes; then
+  AC_DEFINE(HAVE_PTHREAD_CONDATTR_SETCLOCK, 1, [Have pthread.h pthread_condattr_setclock])
+fi
+
 dnl --------------
 dnl Check programs
 dnl --------------
@@ -1048,6 +1055,10 @@ dnl	 [TODO] on Linux, and in [TODO] on Solaris.
 	              LIBREADLINE="$LIBREADLINE",, "$LIBREADLINE")
          if test $ac_cv_lib_readline_rl_completion_matches = no; then
            AC_DEFINE(rl_completion_matches,completion_matches,Old readline)
+	 fi
+	 AC_SEARCH_LIBS([append_history], [readline], [frr_cv_append_history=yes], [frr_cv_append_history=no])
+	 if test "$frr_cv_append_history" = yes; then
+	   AC_DEFINE(HAVE_APPEND_HISTORY, 1, [Have history.h append_history])
 	 fi
 	 ;;
 esac
