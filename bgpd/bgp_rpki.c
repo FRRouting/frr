@@ -146,6 +146,7 @@ static int rpki_sync_socket_bgpd;
 static struct cmd_node rpki_node = {
 	.node = RPKI_NODE,
 	.prompt = "%s(config-rpki)# ",
+	.config_write = config_write,
 };
 static const struct route_map_rule_cmd route_match_rpki_cmd = {
 	"rpki", route_match, route_match_compile, route_match_free};
@@ -1542,7 +1543,7 @@ static void overwrite_exit_commands(void)
 static void install_cli_commands(void)
 {
 	// TODO: make config write work
-	install_node(&rpki_node, &config_write);
+	install_node(&rpki_node);
 	install_default(RPKI_NODE);
 	overwrite_exit_commands();
 	install_element(CONFIG_NODE, &rpki_cmd);

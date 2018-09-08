@@ -33,9 +33,6 @@ extern struct cmd_node ldp_debug_node;
 
 union ldpd_addr;
 int	 ldp_get_address(const char *, int *, union ldpd_addr *);
-int	 ldp_config_write(struct vty *);
-int	 ldp_l2vpn_config_write(struct vty *);
-int	 ldp_debug_config_write(struct vty *);
 int	 ldp_vty_mpls_ldp (struct vty *, const char *);
 int	 ldp_vty_address_family (struct vty *, const char *, const char *);
 int	 ldp_vty_disc_holdtime(struct vty *, const char *, enum hello_type, long);

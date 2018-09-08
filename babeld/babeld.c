@@ -69,10 +69,12 @@ static time_t expiry_time;
 static time_t source_expiry_time;
 
 /* Babel node structure. */
+static int babel_config_write (struct vty *vty);
 static struct cmd_node cmd_babel_node =
 {
     .node   = BABEL_NODE,
     .prompt = "%s(config-router)# ",
+    .config_write = babel_config_write,
 };
 
 /* print current babel configuration on vty */
@@ -718,7 +720,7 @@ void
 babeld_quagga_init(void)
 {
 
-    install_node(&cmd_babel_node, &babel_config_write);
+    install_node(&cmd_babel_node);
 
     install_element(CONFIG_NODE, &router_babel_cmd);
     install_element(CONFIG_NODE, &no_router_babel_cmd);

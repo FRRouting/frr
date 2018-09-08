@@ -2812,9 +2812,11 @@ static int config_write_access(struct vty *vty, afi_t afi)
 	return write;
 }
 
+static int config_write_access_mac(struct vty *vty);
 static struct cmd_node access_mac_node = {
 	.node = ACCESS_MAC_NODE,
 	.prompt = "",
+	.config_write = config_write_access_mac,
 };
 
 static int config_write_access_mac(struct vty *vty)
@@ -2851,7 +2853,7 @@ static void access_list_reset_mac(void)
 /* Install vty related command. */
 static void access_list_init_mac(void)
 {
-	install_node(&access_mac_node, config_write_access_mac);
+	install_node(&access_mac_node);
 
 	install_element(ENABLE_NODE, &show_mac_access_list_cmd);
 	install_element(ENABLE_NODE, &show_mac_access_list_name_cmd);
@@ -2864,9 +2866,11 @@ static void access_list_init_mac(void)
 }
 
 /* Access-list node. */
+static int config_write_access_ipv4(struct vty *vty);
 static struct cmd_node access_node = {
 	.node = ACCESS_NODE,
 	.prompt = "",
+	.config_write = config_write_access_ipv4,
 };
 
 static int config_write_access_ipv4(struct vty *vty)
@@ -2903,7 +2907,7 @@ static void access_list_reset_ipv4(void)
 /* Install vty related command. */
 static void access_list_init_ipv4(void)
 {
-	install_node(&access_node, config_write_access_ipv4);
+	install_node(&access_node);
 
 	install_element(ENABLE_NODE, &show_ip_access_list_cmd);
 	install_element(ENABLE_NODE, &show_ip_access_list_name_cmd);
@@ -2950,9 +2954,11 @@ static void access_list_init_ipv4(void)
 	install_element(CONFIG_NODE, &no_access_list_remark_comment_cmd);
 }
 
+static int config_write_access_ipv6(struct vty *vty);
 static struct cmd_node access_ipv6_node = {
 	.node = ACCESS_IPV6_NODE,
 	.prompt = "",
+	.config_write = config_write_access_ipv6,
 };
 
 static int config_write_access_ipv6(struct vty *vty)
@@ -2988,7 +2994,7 @@ static void access_list_reset_ipv6(void)
 
 static void access_list_init_ipv6(void)
 {
-	install_node(&access_ipv6_node, config_write_access_ipv6);
+	install_node(&access_ipv6_node);
 
 	install_element(ENABLE_NODE, &show_ipv6_access_list_cmd);
 	install_element(ENABLE_NODE, &show_ipv6_access_list_name_cmd);

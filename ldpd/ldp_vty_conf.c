@@ -30,9 +30,11 @@
 #include "vty.h"
 #include "ldp_vty.h"
 
+static int	 ldp_config_write(struct vty *);
 static void	 ldp_af_iface_config_write(struct vty *, int);
 static void	 ldp_af_config_write(struct vty *, int, struct ldpd_conf *,
 		    struct ldpd_af_conf *);
+static int	 ldp_l2vpn_config_write(struct vty *);
 static void	 ldp_l2vpn_pw_config_write(struct vty *, struct l2vpn_pw *);
 static int	 ldp_vty_get_af(struct vty *);
 static int	 ldp_iface_is_configured(struct ldpd_conf *, const char *);
@@ -40,6 +42,7 @@ static int	 ldp_iface_is_configured(struct ldpd_conf *, const char *);
 struct cmd_node ldp_node = {
 	.node = LDP_NODE,
 	.prompt = "%s(config-ldp)# ",
+	.config_write = ldp_config_write,
 };
 
 struct cmd_node ldp_ipv4_node = {
@@ -65,6 +68,7 @@ struct cmd_node ldp_ipv6_iface_node = {
 struct cmd_node ldp_l2vpn_node = {
 	.node = LDP_L2VPN_NODE,
 	.prompt = "%s(config-l2vpn)# ",
+	.config_write = ldp_l2vpn_config_write,
 };
 
 struct cmd_node ldp_pseudowire_node = {
@@ -226,7 +230,7 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 	vty_out(vty, " exit-address-family\n");
 }
 
-int
+static int
 ldp_config_write(struct vty *vty)
 {
 	struct nbr_params	*nbrp;
@@ -331,7 +335,7 @@ ldp_l2vpn_pw_config_write(struct vty *vty, struct l2vpn_pw *pw)
 		vty_out (vty,"  ! Incomplete config, specify a pw-id\n");
 }
 
-int
+static int
 ldp_l2vpn_config_write(struct vty *vty)
 {
 	struct l2vpn		*l2vpn;

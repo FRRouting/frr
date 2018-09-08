@@ -3689,10 +3689,10 @@ bgp_rfapi_get_ecommunity_by_lni_label(struct bgp *bgp, uint32_t is_import,
 
 void bgp_rfapi_cfg_init(void)
 {
-	install_node(&bgp_vnc_defaults_node, NULL);
-	install_node(&bgp_vnc_nve_group_node, NULL);
-	install_node(&bgp_vrf_policy_node, NULL);
-	install_node(&bgp_vnc_l2_group_node, NULL);
+	install_node(&bgp_vnc_defaults_node);
+	install_node(&bgp_vnc_nve_group_node);
+	install_node(&bgp_vrf_policy_node);
+	install_node(&bgp_vnc_l2_group_node);
 	install_default(BGP_VRF_POLICY_NODE);
 	install_default(BGP_VNC_DEFAULTS_NODE);
 	install_default(BGP_VNC_NVE_GROUP_NODE);

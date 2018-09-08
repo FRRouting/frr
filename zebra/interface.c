@@ -1664,9 +1664,11 @@ static void interface_update_stats(void)
 #endif /* HAVE_NET_RT_IFLIST */
 }
 
+static int if_config_write(struct vty *vty);
 struct cmd_node interface_node = {
 	.node = INTERFACE_NODE,
 	.prompt = "%s(config-if)# ",
+	.config_write = if_config_write,
 };
 
 #ifndef VTYSH_EXTRACT_PL
@@ -3315,8 +3317,8 @@ void zebra_if_init(void)
 	hook_register_prio(if_del, 0, if_zebra_delete_hook);
 
 	/* Install configuration write function. */
-	install_node(&interface_node, if_config_write);
-	install_node(&link_params_node, NULL);
+	install_node(&interface_node);
+	install_node(&link_params_node);
 	if_cmd_init();
 	/*
 	 * This is *intentionally* setting this to NULL, signaling

@@ -779,14 +779,14 @@ ldp_vty_init (void)
 {
 	cmd_variable_handler_register(l2vpn_var_handlers);
 
-	install_node(&ldp_node, ldp_config_write);
-	install_node(&ldp_ipv4_node, NULL);
-	install_node(&ldp_ipv6_node, NULL);
-	install_node(&ldp_ipv4_iface_node, NULL);
-	install_node(&ldp_ipv6_iface_node, NULL);
-	install_node(&ldp_l2vpn_node, ldp_l2vpn_config_write);
-	install_node(&ldp_pseudowire_node, NULL);
-	install_node(&ldp_debug_node, ldp_debug_config_write);
+	install_node(&ldp_node);
+	install_node(&ldp_ipv4_node);
+	install_node(&ldp_ipv6_node);
+	install_node(&ldp_ipv4_iface_node);
+	install_node(&ldp_ipv6_iface_node);
+	install_node(&ldp_l2vpn_node);
+	install_node(&ldp_pseudowire_node);
+	install_node(&ldp_debug_node);
 	install_default(LDP_NODE);
 	install_default(LDP_IPV4_NODE);
 	install_default(LDP_IPV6_NODE);

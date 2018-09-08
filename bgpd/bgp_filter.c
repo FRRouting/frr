@@ -667,15 +667,17 @@ static int config_write_as_list(struct vty *vty)
 	return write;
 }
 
+static int config_write_as_list(struct vty *vty);
 static struct cmd_node as_list_node = {
 	.node = AS_LIST_NODE,
 	.prompt = "",
+	.config_write = config_write_as_list,
 };
 
 /* Register functions. */
 void bgp_filter_init(void)
 {
-	install_node(&as_list_node, config_write_as_list);
+	install_node(&as_list_node);
 
 	install_element(CONFIG_NODE, &bgp_as_path_cmd);
 	install_element(CONFIG_NODE, &no_bgp_as_path_cmd);

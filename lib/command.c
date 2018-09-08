@@ -200,9 +200,11 @@ static struct cmd_node enable_node = {
 	.prompt = "%s# ",
 };
 
+static int config_write_host(struct vty *vty);
 static struct cmd_node config_node = {
 	.node = CONFIG_NODE,
 	.prompt = "%s(config)# ",
+	.config_write = config_write_host,
 };
 
 static const struct facility_map {
@@ -352,10 +354,9 @@ static bool cmd_hash_cmp(const void *a, const void *b)
 }
 
 /* Install top node of command vector. */
-void install_node(struct cmd_node *node, int (*func)(struct vty *))
+void install_node(struct cmd_node *node)
 {
 	vector_set_index(cmdvec, node->node, node);
-	node->func = func;
 	node->cmdgraph = graph_new();
 	node->cmd_vector = vector_init(VECTOR_MIN_SIZE);
 	// add start node
@@ -1723,8 +1724,8 @@ static int vty_write_config(struct vty *vty)
 	vty_out(vty, "!\n");
 
 	for (i = 0; i < vector_active(cmdvec); i++)
-		if ((node = vector_slot(cmdvec, i)) && node->func) {
-			if ((*node->func)(vty))
+		if ((node = vector_slot(cmdvec, i)) && node->config_write) {
+			if ((*node->config_write)(vty))
 				vty_out(vty, "!\n");
 		}
 
@@ -2889,11 +2890,11 @@ void cmd_init(int terminal)
 	host.motdfile = NULL;
 
 	/* Install top nodes. */
-	install_node(&view_node, NULL);
-	install_node(&enable_node, NULL);
-	install_node(&auth_node, NULL);
-	install_node(&auth_enable_node, NULL);
-	install_node(&config_node, config_write_host);
+	install_node(&view_node);
+	install_node(&enable_node);
+	install_node(&auth_node);
+	install_node(&auth_enable_node);
+	install_node(&config_node);
 
 	/* Each node's basic commands. */
 	install_element(VIEW_NODE, &show_version_cmd);

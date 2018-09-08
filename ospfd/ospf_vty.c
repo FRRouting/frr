@@ -10555,17 +10555,19 @@ void ospf_vty_show_init(void)
 }
 
 
+static int config_write_interface(struct vty *vty);
 /* ospfd's interface node. */
 static struct cmd_node interface_node = {
 	.node = INTERFACE_NODE,
 	.prompt = "%s(config-if)# ",
+	.config_write = config_write_interface,
 };
 
 /* Initialization of OSPF interface. */
 static void ospf_vty_if_init(void)
 {
 	/* Install interface node. */
-	install_node(&interface_node, config_write_interface);
+	install_node(&interface_node);
 	if_cmd_init();
 
 	/* "ip ospf authentication" commands. */
@@ -10671,9 +10673,11 @@ static void ospf_vty_zebra_init(void)
 #endif /* 0 */
 }
 
+static int ospf_config_write(struct vty *vty);
 static struct cmd_node ospf_node = {
 	.node = OSPF_NODE,
 	.prompt = "%s(config-router)# ",
+	.config_write = ospf_config_write,
 };
 
 static void ospf_interface_clear(struct interface *ifp)
@@ -10747,7 +10751,7 @@ void ospf_vty_clear_init(void)
 void ospf_vty_init(void)
 {
 	/* Install ospf top node. */
-	install_node(&ospf_node, ospf_config_write);
+	install_node(&ospf_node);
 
 	/* "router ospf" commands. */
 	install_element(CONFIG_NODE, &router_ospf_cmd);

@@ -1473,11 +1473,12 @@ DEFUN_NOSH (show_debugging_static,
 static struct cmd_node debug_node = {
 	.node = DEBUG_NODE,
 	.prompt = "",
+	.config_write = static_config_write_debug,
 };
 
 void static_vty_init(void)
 {
-	install_node(&debug_node, static_config_write_debug);
+	install_node(&debug_node);
 
 	install_element(CONFIG_NODE, &ip_mroute_dist_cmd);
 

@@ -777,10 +777,12 @@ DEFUN (no_dump_bgp_all,
 	return bgp_dump_unset(bgp_dump_struct);
 }
 
+static int config_write_bgp_dump(struct vty *vty);
 /* BGP node structure. */
 static struct cmd_node bgp_dump_node = {
 	.node = DUMP_NODE,
 	.prompt = "",
+	.config_write = config_write_bgp_dump,
 };
 
 #if 0
@@ -860,7 +862,7 @@ void bgp_dump_init(void)
 		stream_new((BGP_MAX_PACKET_SIZE << 1) + BGP_DUMP_MSG_HEADER
 			   + BGP_DUMP_HEADER_SIZE);
 
-	install_node(&bgp_dump_node, config_write_bgp_dump);
+	install_node(&bgp_dump_node);
 
 	install_element(CONFIG_NODE, &dump_bgp_all_cmd);
 	install_element(CONFIG_NODE, &no_dump_bgp_all_cmd);

@@ -449,10 +449,12 @@ DEFUN (no_mpls_label_global_block,
 	return zebra_mpls_global_block(vty, 0, NULL, NULL);
 }
 
+static int zebra_mpls_config(struct vty *vty);
 /* MPLS node for MPLS LSP. */
 static struct cmd_node mpls_node = {
 	.node = MPLS_NODE,
 	.prompt = "",
+	.config_write = zebra_mpls_config,
 };
 
 /* MPLS VTY.  */
@@ -460,7 +462,7 @@ void zebra_mpls_vty_init(void)
 {
 	install_element(VIEW_NODE, &show_mpls_status_cmd);
 
-	install_node(&mpls_node, zebra_mpls_config);
+	install_node(&mpls_node);
 
 	install_element(CONFIG_NODE, &mpls_transit_lsp_cmd);
 	install_element(CONFIG_NODE, &no_mpls_transit_lsp_cmd);

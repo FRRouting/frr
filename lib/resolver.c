@@ -245,9 +245,11 @@ DEFUN(debug_resolver,
 	return CMD_SUCCESS;
 }
 
+static int resolver_config_write_debug(struct vty *vty);
 static struct cmd_node resolver_debug_node = {
 	.node = RESOLVER_DEBUG_NODE,
 	.prompt = "",
+	.config_write = resolver_config_write_debug,
 };
 
 static int resolver_config_write_debug(struct vty *vty)
@@ -277,7 +279,7 @@ void resolver_init(struct thread_master *tm)
 			  ARES_OPT_SOCK_STATE_CB | ARES_OPT_TIMEOUT
 				  | ARES_OPT_TRIES);
 
-	install_node(&resolver_debug_node, resolver_config_write_debug);
+	install_node(&resolver_debug_node);
 	install_element(CONFIG_NODE, &debug_resolver_cmd);
 	install_element(ENABLE_NODE, &debug_resolver_cmd);
 }

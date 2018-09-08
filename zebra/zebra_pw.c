@@ -547,14 +547,16 @@ static int zebra_pw_config(struct vty *vty)
 	return write;
 }
 
+static int zebra_pw_config(struct vty *vty);
 static struct cmd_node pw_node = {
 	.node = PW_NODE,
 	.prompt = "%s(config-pw)# ",
+	.config_write = zebra_pw_config,
 };
 
 void zebra_pw_vty_init(void)
 {
-	install_node(&pw_node, zebra_pw_config);
+	install_node(&pw_node);
 	install_default(PW_NODE);
 
 	install_element(CONFIG_NODE, &pseudowire_if_cmd);

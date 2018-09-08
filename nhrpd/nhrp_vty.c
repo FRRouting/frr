@@ -17,14 +17,18 @@
 #include "nhrpd.h"
 #include "netlink.h"
 
+static int nhrp_config_write(struct vty *vty);
 static struct cmd_node zebra_node = {
 	.node = ZEBRA_NODE,
 	.prompt = "%s(config-router)# ",
+	.config_write = nhrp_config_write,
 };
 
+static int interface_config_write(struct vty *vty);
 static struct cmd_node nhrp_interface_node = {
 	.node = INTERFACE_NODE,
 	.prompt = "%s(config-if)# ",
+	.config_write = interface_config_write,
 };
 
 #define NHRP_DEBUG_FLAGS_CMD "<all|common|event|interface|kernel|route|vici>"
@@ -1094,7 +1098,7 @@ static int interface_config_write(struct vty *vty)
 
 void nhrp_config_init(void)
 {
-	install_node(&zebra_node, nhrp_config_write);
+	install_node(&zebra_node);
 	install_default(ZEBRA_NODE);
 
 	/* access-list commands */
@@ -1118,7 +1122,7 @@ void nhrp_config_init(void)
 	install_element(CONFIG_NODE, &no_nhrp_nflog_group_cmd);
 
 	/* interface specific commands */
-	install_node(&nhrp_interface_node, interface_config_write);
+	install_node(&nhrp_interface_node);
 
 	if_cmd_init();
 	install_element(INTERFACE_NODE, &tunnel_protection_cmd);

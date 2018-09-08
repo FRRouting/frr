@@ -680,6 +680,7 @@ DEFPY (show_pbr_interface,
 static struct cmd_node debug_node = {
 	.node = DEBUG_NODE,
 	.prompt = "",
+	.config_write = pbr_debug_config_write,
 };
 
 DEFPY(debug_pbr,
@@ -728,9 +729,11 @@ DEFUN_NOSH(show_debugging_pbr,
 /* ------------------------------------------------------------------------- */
 
 
+static int pbr_interface_config_write(struct vty *vty);
 static struct cmd_node interface_node = {
 	.node = INTERFACE_NODE,
 	.prompt = "%s(config-if)# ",
+	.config_write = pbr_interface_config_write,
 };
 
 static int pbr_interface_config_write(struct vty *vty)
@@ -758,10 +761,12 @@ static int pbr_interface_config_write(struct vty *vty)
 	return 1;
 }
 
+static int pbr_vty_map_config_write(struct vty *vty);
 /* PBR map node structure. */
 static struct cmd_node pbr_map_node = {
 	.node = PBRMAP_NODE,
 	.prompt = "%s(config-pbr-map)# ",
+	.config_write = pbr_vty_map_config_write,
 };
 
 static int pbr_vty_map_config_write_sequence(struct vty *vty,
@@ -840,15 +845,13 @@ void pbr_vty_init(void)
 {
 	cmd_variable_handler_register(pbr_map_name);
 
-	install_node(&interface_node,
-		     pbr_interface_config_write);
+	install_node(&interface_node);
 	if_cmd_init();
 
-	install_node(&pbr_map_node,
-		     pbr_vty_map_config_write);
+	install_node(&pbr_map_node);
 
 	/* debug */
-	install_node(&debug_node, pbr_debug_config_write);
+	install_node(&debug_node);
 	install_element(VIEW_NODE, &debug_pbr_cmd);
 	install_element(CONFIG_NODE, &debug_pbr_cmd);
 	install_element(VIEW_NODE, &show_debugging_pbr_cmd);

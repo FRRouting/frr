@@ -1943,9 +1943,11 @@ static int config_write_ospf6_interface(struct vty *vty)
 	return 0;
 }
 
+static int config_write_ospf6_interface(struct vty *vty);
 static struct cmd_node interface_node = {
 	.node = INTERFACE_NODE,
 	.prompt = "%s(config-if)# ",
+	.config_write = config_write_ospf6_interface,
 };
 
 static int ospf6_ifp_create(struct interface *ifp)
@@ -2002,7 +2004,7 @@ static int ospf6_ifp_destroy(struct interface *ifp)
 void ospf6_interface_init(void)
 {
 	/* Install interface node. */
-	install_node(&interface_node, config_write_ospf6_interface);
+	install_node(&interface_node);
 	if_cmd_init();
 	if_zapi_callbacks(ospf6_ifp_create, ospf6_ifp_up,
 			  ospf6_ifp_down, ospf6_ifp_destroy);

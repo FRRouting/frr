@@ -1640,10 +1640,12 @@ DEFUN_NOSH (show_debugging_ospf_instance,
 	return show_debugging_ospf_common(vty, ospf);
 }
 
+static int config_write_debug(struct vty *vty);
 /* Debug node. */
 static struct cmd_node debug_node = {
 	.node = DEBUG_NODE,
 	.prompt = "",
+	.config_write = config_write_debug,
 };
 
 static int config_write_debug(struct vty *vty)
@@ -1784,7 +1786,7 @@ static int config_write_debug(struct vty *vty)
 /* Initialize debug commands. */
 void ospf_debug_init(void)
 {
-	install_node(&debug_node, config_write_debug);
+	install_node(&debug_node);
 
 	install_element(ENABLE_NODE, &show_debugging_ospf_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_ism_cmd);

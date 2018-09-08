@@ -471,9 +471,11 @@ DEFPY (debug_zebra_nexthop,
 }
 
 /* Debug node. */
+static int config_write_debug(struct vty *vty);
 struct cmd_node debug_node = {
 	.node = DEBUG_NODE,
 	.prompt = "",
+	.config_write = config_write_debug,
 };
 
 static int config_write_debug(struct vty *vty)
@@ -589,7 +591,7 @@ void zebra_debug_init(void)
 	zebra_debug_nht = 0;
 	zebra_debug_nexthop = 0;
 
-	install_node(&debug_node, config_write_debug);
+	install_node(&debug_node);
 
 	install_element(VIEW_NODE, &show_debugging_zebra_cmd);
 

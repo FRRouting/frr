@@ -959,9 +959,11 @@ DEFUN (no_send_lifetime,
 	return CMD_SUCCESS;
 }
 
+static int keychain_config_write(struct vty *vty);
 static struct cmd_node keychain_node = {
 	.node = KEYCHAIN_NODE,
 	.prompt = "%s(config-keychain)# ",
+	.config_write = keychain_config_write,
 };
 
 static struct cmd_node keychain_key_node = {
@@ -1046,8 +1048,8 @@ void keychain_init(void)
 {
 	keychain_list = list_new();
 
-	install_node(&keychain_node, keychain_config_write);
-	install_node(&keychain_key_node, NULL);
+	install_node(&keychain_node);
+	install_node(&keychain_key_node);
 
 	install_default(KEYCHAIN_NODE);
 	install_default(KEYCHAIN_KEY_NODE);

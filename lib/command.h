@@ -177,7 +177,7 @@ struct cmd_node {
 	const char *prompt;
 
 	/* Node's configuration write function */
-	int (*func)(struct vty *);
+	int (*config_write)(struct vty *);
 
 	/* Node's command graph */
 	struct graph *cmdgraph;
@@ -431,7 +431,7 @@ struct cmd_node {
 #define NO_GR_NEIGHBOR_HELPER_CMD "Undo Graceful Restart Helper command for a neighbor\n"
 
 /* Prototypes. */
-extern void install_node(struct cmd_node *node, int (*)(struct vty *));
+extern void install_node(struct cmd_node *node);
 extern void install_default(enum node_type);
 extern void install_element(enum node_type, const struct cmd_element *);
 

@@ -179,23 +179,23 @@ static void test_init(void)
 	yang_init(true);
 	nb_init(master, NULL, 0);
 
-	install_node(&bgp_node, NULL);
-	install_node(&rip_node, NULL);
-	install_node(&interface_node, NULL);
-	install_node(&rmap_node, NULL);
-	install_node(&zebra_node, NULL);
-	install_node(&bgp_vpnv4_node, NULL);
-	install_node(&bgp_ipv4_node, NULL);
-	install_node(&bgp_ipv4m_node, NULL);
-	install_node(&bgp_ipv6_node, NULL);
-	install_node(&bgp_ipv6m_node, NULL);
-	install_node(&ospf_node, NULL);
-	install_node(&ripng_node, NULL);
-	install_node(&ospf6_node, NULL);
-	install_node(&keychain_node, NULL);
-	install_node(&keychain_key_node, NULL);
-	install_node(&isis_node, NULL);
-	install_node(&vty_node, NULL);
+	install_node(&bgp_node);
+	install_node(&rip_node);
+	install_node(&interface_node);
+	install_node(&rmap_node);
+	install_node(&zebra_node);
+	install_node(&bgp_vpnv4_node);
+	install_node(&bgp_ipv4_node);
+	install_node(&bgp_ipv4m_node);
+	install_node(&bgp_ipv6_node);
+	install_node(&bgp_ipv6m_node);
+	install_node(&ospf_node);
+	install_node(&ripng_node);
+	install_node(&ospf6_node);
+	install_node(&keychain_node);
+	install_node(&keychain_key_node);
+	install_node(&isis_node);
+	install_node(&vty_node);
 
 	test_init_cmd();
 

@@ -2989,9 +2989,11 @@ static int vty_config_write(struct vty *vty)
 	return CMD_SUCCESS;
 }
 
+static int vty_config_write(struct vty *vty);
 struct cmd_node vty_node = {
 	.node = VTY_NODE,
 	.prompt = "%s(config-line)# ",
+	.config_write = vty_config_write,
 };
 
 /* Reset all VTY status. */
@@ -3085,7 +3087,7 @@ void vty_init(struct thread_master *master_thread, bool do_command_logging)
 	Vvty_serv_thread = vector_init(VECTOR_MIN_SIZE);
 
 	/* Install bgp top node. */
-	install_node(&vty_node, vty_config_write);
+	install_node(&vty_node);
 
 	install_element(VIEW_NODE, &config_who_cmd);
 	install_element(VIEW_NODE, &show_history_cmd);

@@ -2269,7 +2269,7 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 
 static int bgp_bmp_init(struct thread_master *tm)
 {
-	install_node(&bmp_node, NULL);
+	install_node(&bmp_node);
 	install_default(BMP_NODE);
 	install_element(BGP_NODE, &bmp_targets_cmd);
 	install_element(BGP_NODE, &no_bmp_targets_cmd);

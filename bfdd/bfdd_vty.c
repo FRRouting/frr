@@ -885,9 +885,11 @@ DEFUN_NOSH(show_debugging_bfd,
 	return CMD_SUCCESS;
 }
 
+static int bfdd_write_config(struct vty *vty);
 struct cmd_node bfd_node = {
 	.node = BFD_NODE,
 	.prompt = "%s(config-bfd)# ",
+	.config_write = bfdd_write_config,
 };
 
 struct cmd_node bfd_peer_node = {
@@ -943,11 +945,11 @@ void bfdd_vty_init(void)
 	install_element(CONFIG_NODE, &bfd_debug_network_cmd);
 
 	/* Install BFD node and commands. */
-	install_node(&bfd_node, bfdd_write_config);
+	install_node(&bfd_node);
 	install_default(BFD_NODE);
 
 	/* Install BFD peer node. */
-	install_node(&bfd_peer_node, NULL);
+	install_node(&bfd_peer_node);
 	install_default(BFD_PEER_NODE);
 
 	bfdd_cli_init();

@@ -1112,17 +1112,19 @@ static int config_write_ospf6(struct vty *vty)
 	return 0;
 }
 
+static int config_write_ospf6(struct vty *vty);
 /* OSPF6 node structure. */
 static struct cmd_node ospf6_node = {
 	.node = OSPF6_NODE,
 	.prompt = "%s(config-ospf6)# ",
+	.config_write = config_write_ospf6,
 };
 
 /* Install ospf related commands. */
 void ospf6_top_init(void)
 {
 	/* Install ospf6 top node. */
-	install_node(&ospf6_node, config_write_ospf6);
+	install_node(&ospf6_node);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_cmd);
 	install_element(CONFIG_NODE, &router_ospf6_cmd);

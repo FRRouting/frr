@@ -2434,10 +2434,12 @@ static int ripng_config_write(struct vty *vty)
 	return write;
 }
 
+static int ripng_config_write(struct vty *vty);
 /* RIPng node structure. */
 static struct cmd_node cmd_ripng_node = {
 	.node = RIPNG_NODE,
 	.prompt = "%s(config-router)# ",
+	.config_write = ripng_config_write,
 };
 
 static void ripng_distribute_update(struct distribute_ctx *ctx,
@@ -2851,7 +2853,7 @@ void ripng_vrf_terminate(void)
 void ripng_init(void)
 {
 	/* Install RIPNG_NODE. */
-	install_node(&cmd_ripng_node, ripng_config_write);
+	install_node(&cmd_ripng_node);
 
 	/* Install ripng commands. */
 	install_element(VIEW_NODE, &show_ipv6_ripng_cmd);
