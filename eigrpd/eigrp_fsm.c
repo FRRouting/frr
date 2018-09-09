@@ -87,6 +87,7 @@
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_dump.h"
 #include "eigrpd/eigrp_topology.h"
+#include "eigrpd/eigrp_metric.h"
 #include "eigrpd/eigrp_fsm.h"
 
 /*
@@ -261,9 +262,9 @@ static enum eigrp_fsm_events
 eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 {
     // Loading base information from message
-    // struct eigrp *eigrp = msg->eigrp;
-    struct eigrp_prefix_descriptor *prefix = msg->prefix;
-    struct eigrp_route_descriptor *route = msg->route;
+    // eigrp_t *eigrp = msg->eigrp;
+    eigrp_prefix_descriptor_t *prefix = msg->prefix;
+    eigrp_route_descriptor_t *route = msg->route;
     uint8_t actual_state = prefix->state;
     enum metric_change change;
 
@@ -286,7 +287,7 @@ eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 
     switch (actual_state) {
 	case EIGRP_FSM_STATE_PASSIVE: {
-	    struct eigrp_route_descriptor *head =
+	    eigrp_route_descriptor_t *head =
 		listnode_head(prefix->entries);
 
 	    if (head->reported_distance < prefix->fdistance) {
@@ -307,7 +308,7 @@ eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 	}
 	case EIGRP_FSM_STATE_ACTIVE_0: {
 	    if (msg->packet_type == EIGRP_OPC_REPLY) {
-		struct eigrp_route_descriptor *head =
+		eigrp_route_descriptor_t *head =
 		    listnode_head(prefix->entries);
 
 		listnode_delete(prefix->rij, route->adv_router);
@@ -356,7 +357,7 @@ eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 	}
 	case EIGRP_FSM_STATE_ACTIVE_2: {
 	    if (msg->packet_type == EIGRP_OPC_REPLY) {
-		struct eigrp_route_descriptor *head = listnode_head(prefix->entries);
+		eigrp_route_descriptor_t *head = listnode_head(prefix->entries);
 
 		listnode_delete(prefix->rij, route->adv_router);
 		if (prefix->rij->count) {
@@ -407,17 +408,19 @@ eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
  */
 int eigrp_fsm_event(struct eigrp_fsm_action_message *msg)
 {
-	enum eigrp_fsm_events event = eigrp_get_fsm_event(msg);
+    eigrp_t *eigrp = msg->eigrp;
+    enum eigrp_fsm_events event = eigrp_get_fsm_event(msg);
 
-	zlog_info(
-		"EIGRP AS: %d State: %s Event: %s Network: %s Packet Type: %s Reply RIJ Count: %d change: %s",
-		msg->eigrp->AS, prefix_state2str(msg->prefix->state),
-		fsm_state2str(event), eigrp_topology_ip_string(msg->prefix),
-		packet_type2str(msg->packet_type), msg->prefix->rij->count,
-		change2str(msg->change));
-	(*(NSM[msg->prefix->state][event].func))(msg);
+    assert(eigrp);		//// Can this happen? and if so, whats to do?
 
-	return 1;
+    zlog_info("EIGRP AS: %d State: %s Event: %s Network: %s Packet Type: %s Reply RIJ Count: %d change: %s",
+	      msg->eigrp->AS, prefix_state2str(msg->prefix->state),
+	      fsm_state2str(event), eigrp_topology_ip_string(msg->prefix),
+	      packet_type2str(msg->packet_type), msg->prefix->rij->count,
+	      change2str(msg->change));
+    (*(NSM[msg->prefix->state][event].func))(msg);
+
+    return 1;
 }
 
 /*
@@ -426,19 +429,20 @@ int eigrp_fsm_event(struct eigrp_fsm_action_message *msg)
  */
 int eigrp_fsm_event_nq_fcn(struct eigrp_fsm_action_message *msg)
 {
-	struct eigrp *eigrp = msg->eigrp;
-	struct eigrp_prefix_descriptor *prefix = msg->prefix;
+	eigrp_t *eigrp = msg->eigrp;
+	eigrp_prefix_descriptor_t *prefix = msg->prefix;
 	struct list *successors = eigrp_topology_get_successor(prefix);
-	struct eigrp_route_descriptor *ne;
+	eigrp_route_descriptor_t *ne;
 
-	assert(successors); // If this is NULL we have shit the bed, fun huh?
+	assert(eigrp);		//// Can this happen? and if so, whats to do?
+	assert(successors);	// If this is NULL we have shit the bed, fun huh?
 
 	ne = listnode_head(successors);
 	prefix->state = EIGRP_FSM_STATE_ACTIVE_1;
 	prefix->rdistance = prefix->distance = prefix->fdistance = ne->distance;
 	prefix->reported_metric = ne->total_metric;
 
-	if (eigrp_nbr_count_get()) {
+	if (eigrp_nbr_count_get(eigrp)) {
 		prefix->req_action |= EIGRP_FSM_NEED_QUERY;
 		listnode_add(eigrp->topology_changes_internalIPV4, prefix);
 	} else {
@@ -453,18 +457,19 @@ int eigrp_fsm_event_nq_fcn(struct eigrp_fsm_action_message *msg)
 
 int eigrp_fsm_event_q_fcn(struct eigrp_fsm_action_message *msg)
 {
-	struct eigrp *eigrp = msg->eigrp;
-	struct eigrp_prefix_descriptor *prefix = msg->prefix;
+	eigrp_t *eigrp = msg->eigrp;
+	eigrp_prefix_descriptor_t *prefix = msg->prefix;
 	struct list *successors = eigrp_topology_get_successor(prefix);
-	struct eigrp_route_descriptor *ne;
+	eigrp_route_descriptor_t *ne;
 
-	assert(successors); // If this is NULL somebody poked us in the eye.
+	assert(eigrp);		// Can this happen? and if so, whats to do?
+	assert(successors);	// If this is NULL somebody poked us in the eye.
 
 	ne = listnode_head(successors);
 	prefix->state = EIGRP_FSM_STATE_ACTIVE_3;
 	prefix->rdistance = prefix->distance = prefix->fdistance = ne->distance;
 	prefix->reported_metric = ne->total_metric;
-	if (eigrp_nbr_count_get()) {
+	if (eigrp_nbr_count_get(eigrp)) {
 		prefix->req_action |= EIGRP_FSM_NEED_QUERY;
 		listnode_add(eigrp->topology_changes_internalIPV4, prefix);
 	} else {
@@ -479,67 +484,68 @@ int eigrp_fsm_event_q_fcn(struct eigrp_fsm_action_message *msg)
 
 int eigrp_fsm_event_keep_state(struct eigrp_fsm_action_message *msg)
 {
-	struct eigrp *eigrp;
-	struct eigrp_prefix_descriptor *prefix = msg->prefix;
-	struct eigrp_route_descriptor *ne = listnode_head(prefix->entries);
+    eigrp_t *eigrp = msg->eigrp;
+    eigrp_prefix_descriptor_t *prefix = msg->prefix;
+    eigrp_route_descriptor_t *ne = listnode_head(prefix->entries);
 
-	if (prefix->state == EIGRP_FSM_STATE_PASSIVE) {
-		if (!eigrp_metrics_is_same(prefix->reported_metric,
-					   ne->total_metric)) {
-			prefix->rdistance = prefix->fdistance =
-				prefix->distance = ne->distance;
-			prefix->reported_metric = ne->total_metric;
-			if (msg->packet_type == EIGRP_OPC_QUERY)
-				eigrp_send_reply(msg->adv_router, prefix);
-			prefix->req_action |= EIGRP_FSM_NEED_UPDATE;
-			eigrp = eigrp_lookup();
-			assert(eigrp);
-			listnode_add(eigrp->topology_changes_internalIPV4,
-				     prefix);
-		}
-		eigrp_topology_update_node_flags(prefix);
-		eigrp_update_routing_table(prefix);
+    if (prefix->state == EIGRP_FSM_STATE_PASSIVE) {
+	if (!eigrp_metrics_is_same(prefix->reported_metric,
+				   ne->total_metric)) {
+	    prefix->rdistance = prefix->fdistance =
+		prefix->distance = ne->distance;
+	    prefix->reported_metric = ne->total_metric;
+	    if (msg->packet_type == EIGRP_OPC_QUERY)
+		eigrp_send_reply(msg->adv_router, prefix);
+	    prefix->req_action |= EIGRP_FSM_NEED_UPDATE;
+
+	    listnode_add(eigrp->topology_changes_internalIPV4, prefix);
 	}
 
-	if (msg->packet_type == EIGRP_OPC_QUERY)
-		eigrp_send_reply(msg->adv_router, prefix);
+	eigrp_topology_update_node_flags(eigrp, prefix);
+	eigrp_update_routing_table(eigrp, prefix);
+    }
 
-	return 1;
+    if (msg->packet_type == EIGRP_OPC_QUERY)
+	eigrp_send_reply(msg->adv_router, prefix);
+
+    return 1;
 }
 
 int eigrp_fsm_event_lr(struct eigrp_fsm_action_message *msg)
 {
-	struct eigrp *eigrp = msg->eigrp;
-	struct eigrp_prefix_descriptor *prefix = msg->prefix;
-	struct eigrp_route_descriptor *ne = listnode_head(prefix->entries);
+    eigrp_t *eigrp = msg->eigrp;
+    eigrp_prefix_descriptor_t *prefix = msg->prefix;
+    eigrp_route_descriptor_t *ne = listnode_head(prefix->entries);
 
-	prefix->fdistance = prefix->distance = prefix->rdistance = ne->distance;
-	prefix->reported_metric = ne->total_metric;
+    assert(eigrp);		// Can this happen? and if so, whats to do?
 
-	if (prefix->state == EIGRP_FSM_STATE_ACTIVE_3) {
-		struct list *successors = eigrp_topology_get_successor(prefix);
+    prefix->fdistance = prefix->distance = prefix->rdistance = ne->distance;
+    prefix->reported_metric = ne->total_metric;
 
-		assert(successors); // It's like Napolean and Waterloo
+    if (prefix->state == EIGRP_FSM_STATE_ACTIVE_3) {
+	struct list *successors = eigrp_topology_get_successor(prefix);
 
-		ne = listnode_head(successors);
-		eigrp_send_reply(ne->adv_router, prefix);
-		list_delete_and_null(&successors);
-	}
+	assert(successors); // It's like Napolean and Waterloo
 
-	prefix->state = EIGRP_FSM_STATE_PASSIVE;
-	prefix->req_action |= EIGRP_FSM_NEED_UPDATE;
-	listnode_add(eigrp->topology_changes_internalIPV4, prefix);
-	eigrp_topology_update_node_flags(prefix);
-	eigrp_update_routing_table(prefix);
-	eigrp_update_topology_table_prefix(eigrp->topology_table, prefix);
+	ne = listnode_head(successors);
+	eigrp_send_reply(ne->adv_router, prefix);
+	list_delete_and_null(&successors);
+    }
 
-	return 1;
+    prefix->state = EIGRP_FSM_STATE_PASSIVE;
+    prefix->req_action |= EIGRP_FSM_NEED_UPDATE;
+    listnode_add(eigrp->topology_changes_internalIPV4, prefix);
+    eigrp_topology_update_node_flags(eigrp, prefix);
+    eigrp_update_routing_table(eigrp, prefix);
+    eigrp_update_topology_table_prefix(eigrp, prefix);
+
+    return 1;
 }
 
 int eigrp_fsm_event_dinc(struct eigrp_fsm_action_message *msg)
 {
 	struct list *successors = eigrp_topology_get_successor(msg->prefix);
-	struct eigrp_route_descriptor *ne;
+	eigrp_route_descriptor_t *ne;
 
 	assert(successors); // Trump and his big hands
 
@@ -559,43 +565,46 @@ int eigrp_fsm_event_dinc(struct eigrp_fsm_action_message *msg)
 
 int eigrp_fsm_event_lr_fcs(struct eigrp_fsm_action_message *msg)
 {
-	struct eigrp *eigrp = msg->eigrp;
-	struct eigrp_prefix_descriptor *prefix = msg->prefix;
-	struct eigrp_route_descriptor *ne = listnode_head(prefix->entries);
+    eigrp_t *eigrp = msg->eigrp;
+    eigrp_prefix_descriptor_t *prefix = msg->prefix;
+    eigrp_route_descriptor_t *ne = listnode_head(prefix->entries);
 
-	prefix->state = EIGRP_FSM_STATE_PASSIVE;
-	prefix->distance = prefix->rdistance = ne->distance;
-	prefix->reported_metric = ne->total_metric;
-	prefix->fdistance = prefix->fdistance > prefix->distance
-				    ? prefix->distance
-				    : prefix->fdistance;
-	if (prefix->state == EIGRP_FSM_STATE_ACTIVE_2) {
-		struct list *successors = eigrp_topology_get_successor(prefix);
+    assert(eigrp);		// Can this happen? and if so, whats to do?
 
-		assert(successors); // Having a spoon and all you need is a
-				    // knife
-		ne = listnode_head(successors);
-		eigrp_send_reply(ne->adv_router, prefix);
+    prefix->state = EIGRP_FSM_STATE_PASSIVE;
+    prefix->distance = prefix->rdistance = ne->distance;
+    prefix->reported_metric = ne->total_metric;
+    prefix->fdistance = prefix->fdistance > prefix->distance ?
+	prefix->distance : prefix->fdistance;
+    if (prefix->state == EIGRP_FSM_STATE_ACTIVE_2) {
+	struct list *successors = eigrp_topology_get_successor(prefix);
 
-		list_delete_and_null(&successors);
-	}
-	prefix->req_action |= EIGRP_FSM_NEED_UPDATE;
-	listnode_add(eigrp->topology_changes_internalIPV4, prefix);
-	eigrp_topology_update_node_flags(prefix);
-	eigrp_update_routing_table(prefix);
-	eigrp_update_topology_table_prefix(eigrp->topology_table, prefix);
+	assert(successors); // Having a spoon and all you need is a
+	// knife
+	ne = listnode_head(successors);
+	eigrp_send_reply(ne->adv_router, prefix);
 
-	return 1;
+	list_delete_and_null(&successors);
+    }
+
+    prefix->req_action |= EIGRP_FSM_NEED_UPDATE;
+    listnode_add(eigrp->topology_changes_internalIPV4, prefix);
+    eigrp_topology_update_node_flags(eigrp, prefix);
+    eigrp_update_routing_table(eigrp, prefix);
+    eigrp_update_topology_table_prefix(eigrp, prefix);
+
+    return 1;
 }
 
 int eigrp_fsm_event_lr_fcn(struct eigrp_fsm_action_message *msg)
 {
-	struct eigrp *eigrp = msg->eigrp;
-	struct eigrp_prefix_descriptor *prefix = msg->prefix;
-	struct eigrp_route_descriptor *best_successor;
+	eigrp_t *eigrp = msg->eigrp;
+	eigrp_prefix_descriptor_t *prefix = msg->prefix;
+	eigrp_route_descriptor_t *best_successor;
 	struct list *successors = eigrp_topology_get_successor(prefix);
 
-	assert(successors); // Routing without a stack
+	assert(eigrp);		// Can this happen? and if so, whats to do?
+	assert(successors);	// Routing without a stack
 
 	prefix->state = prefix->state == EIGRP_FSM_STATE_ACTIVE_0
 				? EIGRP_FSM_STATE_ACTIVE_1
@@ -605,7 +614,7 @@ int eigrp_fsm_event_lr_fcn(struct eigrp_fsm_action_message *msg)
 	prefix->rdistance = prefix->distance = best_successor->distance;
 	prefix->reported_metric = best_successor->total_metric;
 
-	if (eigrp_nbr_count_get()) {
+	if (eigrp_nbr_count_get(eigrp)) {
 		prefix->req_action |= EIGRP_FSM_NEED_QUERY;
 		listnode_add(eigrp->topology_changes_internalIPV4, prefix);
 	} else {
@@ -621,7 +630,7 @@ int eigrp_fsm_event_lr_fcn(struct eigrp_fsm_action_message *msg)
 int eigrp_fsm_event_qact(struct eigrp_fsm_action_message *msg)
 {
 	struct list *successors = eigrp_topology_get_successor(msg->prefix);
-	struct eigrp_route_descriptor *route;
+	eigrp_route_descriptor_t *route;
 
 	assert(successors); // Cats and no Dogs
 

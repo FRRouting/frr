@@ -54,11 +54,11 @@
 #include "eigrpd/eigrp_fsm.h"
 #include "eigrpd/eigrp_memory.h"
 
-uint32_t eigrp_query_send_all(struct eigrp *eigrp)
+uint32_t eigrp_query_send_all(eigrp_t *eigrp)
 {
-	struct eigrp_interface *iface;
+	eigrp_interface_t *iface;
 	struct listnode *node, *node2, *nnode2;
-	struct eigrp_prefix_descriptor *pe;
+	eigrp_prefix_descriptor_t *pe;
 	uint32_t counter;
 
 	if (eigrp == NULL) {
@@ -85,11 +85,11 @@ uint32_t eigrp_query_send_all(struct eigrp *eigrp)
 }
 
 /*EIGRP QUERY read function*/
-void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
+void eigrp_query_receive(eigrp_t *eigrp, struct ip *iph,
 			 struct eigrp_header *eigrph, struct stream *s,
-			 struct eigrp_interface *ei, int size)
+			 eigrp_interface_t *ei, int size)
 {
-	struct eigrp_neighbor *nbr;
+	eigrp_neighbor_t *nbr;
 	struct TLV_IPv4_Internal_type *tlv;
 	struct prefix dest_addr;
 
@@ -118,7 +118,7 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 			dest_addr.family = AF_INET;
 			dest_addr.u.prefix4 = tlv->destination;
 			dest_addr.prefixlen = tlv->prefix_length;
-			struct eigrp_prefix_descriptor *dest =
+			eigrp_prefix_descriptor_t *dest =
 				eigrp_topology_table_lookup_ipv4(
 					eigrp->topology_table, &dest_addr);
 
@@ -126,7 +126,7 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 			 * know)*/
 			if (dest != NULL) {
 				struct eigrp_fsm_action_message msg;
-				struct eigrp_route_descriptor *route =
+				eigrp_route_descriptor_t *route =
 					eigrp_prefix_descriptor_lookup(dest->entries,
 								  nbr);
 				msg.packet_type = EIGRP_OPC_QUERY;
@@ -153,18 +153,18 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 			}
 		}
 	}
-	eigrp_hello_send_ack(nbr);
+	eigrp_hello_send_ack(eigrp, nbr);
 	eigrp_query_send_all(eigrp);
 	eigrp_update_send_all(eigrp, nbr->ei);
 }
 
-void eigrp_send_query(struct eigrp_interface *ei)
+void eigrp_send_query(eigrp_interface_t *ei)
 {
 	struct eigrp_packet *ep = NULL;
 	uint16_t length = EIGRP_HEADER_LEN;
 	struct listnode *node, *nnode, *node2, *nnode2;
-	struct eigrp_neighbor *nbr;
-	struct eigrp_prefix_descriptor *pe;
+	eigrp_neighbor_t *nbr;
+	eigrp_prefix_descriptor_t *pe;
 	bool has_tlv = false;
 	bool new_packet = true;
 	uint16_t eigrp_mtu = EIGRP_PACKET_MTU(ei->ifp->mtu);

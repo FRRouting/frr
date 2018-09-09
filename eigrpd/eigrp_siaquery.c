@@ -55,11 +55,11 @@
 #include "eigrpd/eigrp_memory.h"
 
 /*EIGRP SIA-QUERY read function*/
-void eigrp_siaquery_receive(struct eigrp *eigrp, struct ip *iph,
+void eigrp_siaquery_receive(eigrp_t *eigrp, struct ip *iph,
 			    struct eigrp_header *eigrph, struct stream *s,
-			    struct eigrp_interface *ei, int size)
+			    eigrp_interface_t *ei, int size)
 {
-	struct eigrp_neighbor *nbr;
+	eigrp_neighbor_t *nbr;
 	struct TLV_IPv4_Internal_type *tlv;
 
 	uint16_t type;
@@ -87,7 +87,7 @@ void eigrp_siaquery_receive(struct eigrp *eigrp, struct ip *iph,
 			dest_addr.family = AFI_IP;
 			dest_addr.u.prefix4 = tlv->destination;
 			dest_addr.prefixlen = tlv->prefix_length;
-			struct eigrp_prefix_descriptor *dest =
+			eigrp_prefix_descriptor_t *dest =
 				eigrp_topology_table_lookup_ipv4(
 					eigrp->topology_table, &dest_addr);
 
@@ -95,7 +95,7 @@ void eigrp_siaquery_receive(struct eigrp *eigrp, struct ip *iph,
 			 * know)*/
 			if (dest != NULL) {
 				struct eigrp_fsm_action_message msg;
-				struct eigrp_route_descriptor *route =
+				eigrp_route_descriptor_t *route =
 					eigrp_prefix_descriptor_lookup(dest->entries,
 								  nbr);
 				msg.packet_type = EIGRP_OPC_SIAQUERY;
@@ -110,11 +110,11 @@ void eigrp_siaquery_receive(struct eigrp *eigrp, struct ip *iph,
 			eigrp_IPv4_InternalTLV_free(tlv);
 		}
 	}
-	eigrp_hello_send_ack(nbr);
+	eigrp_hello_send_ack(eigrp, nbr);
 }
 
-void eigrp_send_siaquery(struct eigrp_neighbor *nbr,
-			 struct eigrp_prefix_descriptor *pe)
+void eigrp_send_siaquery(eigrp_neighbor_t *nbr,
+			 eigrp_prefix_descriptor_t *pe)
 {
 	struct eigrp_packet *ep;
 	uint16_t length = EIGRP_HEADER_LEN;

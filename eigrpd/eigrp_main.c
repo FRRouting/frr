@@ -197,16 +197,21 @@ int main(int argc, char **argv, char **envp)
 	prefix_list_delete_hook(eigrp_distribute_update_all);
 
 	/*
-	 * XXX: This is just to get the CLI installed to suppress VTYSH errors.
+	 * BOGO: This is just to get the CLI installed to suppress VTYSH errors.
 	 * Routemaps in EIGRP are not yet functional.
 	 */
 	route_map_init();
-	/*eigrp_route_map_init();
-	  route_map_add_hook (eigrp_rmap_update);
-	  route_map_delete_hook (eigrp_rmap_update);*/
-	/*if_rmap_init (EIGRP_NODE);
+	/*
+	  eigrp_route_map_init();
+	  route_map_add_hook (eigrp_rmap_add);
+	  route_map_delete_hook (eigrp_rmap_delete);
+	*/
+
+	/*
+	  if_rmap_init (EIGRP_NODE);
 	  if_rmap_hook_add (eigrp_if_rmap_update);
-	  if_rmap_hook_delete (eigrp_if_rmap_update);*/
+	  if_rmap_hook_delete (eigrp_if_rmap_update);
+	*/
 
 	/* Distribute list install. */
 	distribute_list_init(EIGRP_NODE);

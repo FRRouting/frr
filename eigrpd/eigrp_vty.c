@@ -55,7 +55,7 @@
 #include "eigrpd/eigrp_dump.h"
 #include "eigrpd/eigrp_const.h"
 
-static int config_write_network(struct vty *vty, struct eigrp *eigrp)
+static int config_write_network(struct vty *vty, eigrp_t *eigrp)
 {
 	struct route_node *rn;
 	int i;
@@ -87,9 +87,9 @@ static int config_write_network(struct vty *vty, struct eigrp *eigrp)
 	return 0;
 }
 
-static int config_write_interfaces(struct vty *vty, struct eigrp *eigrp)
+static int config_write_interfaces(struct vty *vty, eigrp_t *eigrp)
 {
-	struct eigrp_interface *ei;
+	eigrp_interface_t *ei;
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
@@ -133,7 +133,9 @@ static int eigrp_write_interface(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
-	struct eigrp_interface *ei;
+	eigrp_interface_t *ei;
+	uint32_t bandwidth;
+	uint32_t delay;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		ei = ifp->info;
@@ -145,10 +147,13 @@ static int eigrp_write_interface(struct vty *vty)
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
 
+		bandwidth = ei->params.bandwidth;
+		delay = ei->params.delay;
+
 		if (ei->params.bandwidth != EIGRP_BANDWIDTH_DEFAULT)
-			vty_out(vty, " bandwidth %u\n", ei->params.bandwidth);
+		    vty_out(vty, " bandwidth %u\n", bandwidth);
 		if (ei->params.delay != EIGRP_DELAY_DEFAULT)
-			vty_out(vty, " delay %u\n", ei->params.delay);
+		    vty_out(vty, " delay %u\n", delay);
 		if (ei->params.v_hello != EIGRP_HELLO_INTERVAL_DEFAULT)
 			vty_out(vty, " ip hello-interval eigrp %u\n",
 				ei->params.v_hello);
@@ -165,7 +170,7 @@ static int eigrp_write_interface(struct vty *vty)
 /**
  * Writes distribute lists to config
  */
-static int config_write_eigrp_distribute(struct vty *vty, struct eigrp *eigrp)
+static int config_write_eigrp_distribute(struct vty *vty, eigrp_t *eigrp)
 {
 	int write = 0;
 
@@ -178,7 +183,7 @@ static int config_write_eigrp_distribute(struct vty *vty, struct eigrp *eigrp)
 /**
  * Writes 'router eigrp' section to config
  */
-static int config_write_eigrp_router(struct vty *vty, struct eigrp *eigrp)
+static int config_write_eigrp_router(struct vty *vty, eigrp_t *eigrp)
 {
 	int write = 0;
 
@@ -217,7 +222,7 @@ DEFUN_NOSH (router_eigrp,
             "Start EIGRP configuration\n"
             "AS Number to use\n")
 {
-	struct eigrp *eigrp = eigrp_get(argv[2]->arg);
+	eigrp_t *eigrp = eigrp_get(argv[2]->arg);
 	VTY_PUSH_CONTEXT(EIGRP_NODE, eigrp);
 
 	return CMD_SUCCESS;
@@ -233,7 +238,7 @@ DEFUN (no_router_eigrp,
 {
 	vty->node = CONFIG_NODE;
 
-	struct eigrp *eigrp;
+	eigrp_t *eigrp;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -258,7 +263,7 @@ DEFUN (eigrp_router_id,
        "Router ID for this EIGRP process\n"
        "EIGRP Router-ID in IP address format\n")
 {
-	// struct eigrp *eigrp = vty->index;
+	// eigrp_t *eigrp = vty->index;
 	/*TODO: */
 
 	return CMD_SUCCESS;
@@ -272,7 +277,7 @@ DEFUN (no_eigrp_router_id,
        "Router ID for this EIGRP process\n"
        "EIGRP Router-ID in IP address format\n")
 {
-	// struct eigrp *eigrp = vty->index;
+	// eigrp_t *eigrp = vty->index;
 	/*TODO: */
 
 	return CMD_SUCCESS;
@@ -285,7 +290,7 @@ DEFUN (eigrp_passive_interface,
        "Interface to suppress on\n")
 {
 	VTY_DECLVAR_CONTEXT(eigrp, eigrp);
-	struct eigrp_interface *ei;
+	eigrp_interface_t *ei;
 	struct listnode *node;
 	char *ifname = argv[1]->arg;
 
@@ -306,7 +311,7 @@ DEFUN (no_eigrp_passive_interface,
        "Interface to suppress on\n")
 {
 	VTY_DECLVAR_CONTEXT(eigrp, eigrp);
-	struct eigrp_interface *ei;
+	eigrp_interface_t *ei;
 	struct listnode *node;
 	char *ifname = argv[2]->arg;
 
@@ -328,7 +333,7 @@ DEFUN (eigrp_timers_active,
        "Active state time limit in minutes\n"
        "Disable time limit for active state\n")
 {
-	// struct eigrp *eigrp = vty->index;
+	// eigrp_t *eigrp = vty->index;
 	/*TODO: */
 
 	return CMD_SUCCESS;
@@ -343,7 +348,7 @@ DEFUN (no_eigrp_timers_active,
        "Active state time limit in minutes\n"
        "Disable time limit for active state\n")
 {
-	// struct eigrp *eigrp = vty->index;
+	// eigrp_t *eigrp = vty->index;
 	/*TODO: */
 
 	return CMD_SUCCESS;
@@ -361,7 +366,7 @@ DEFUN (eigrp_metric_weights,
        "K4\n"
        "K5\n")
 {
-	// struct eigrp *eigrp = vty->index;
+	// eigrp_t *eigrp = vty->index;
 	/*TODO: */
 
 	return CMD_SUCCESS;
@@ -379,7 +384,7 @@ DEFUN (no_eigrp_metric_weights,
        "K4\n"
        "K5\n")
 {
-	// struct eigrp *eigrp = vty->index;
+	// eigrp_t *eigrp = vty->index;
 	/*TODO: */
 
 	return CMD_SUCCESS;
@@ -437,7 +442,7 @@ DEFUN (eigrp_neighbor,
        "Specify a neighbor router\n"
        "Neighbor address\n")
 {
-	// struct eigrp *eigrp = vty->index;
+	// eigrp_t *eigrp = vty->index;
 
 	return CMD_SUCCESS;
 }
@@ -449,7 +454,7 @@ DEFUN (no_eigrp_neighbor,
        "Specify a neighbor router\n"
        "Neighbor address\n")
 {
-	// struct eigrp *eigrp = vty->index;
+	// eigrp_t *eigrp = vty->index;
 
 	return CMD_SUCCESS;
 }
@@ -463,10 +468,10 @@ DEFUN (show_ip_eigrp_topology,
        "IP-EIGRP topology\n"
        "Show all links in topology table\n")
 {
-	struct eigrp *eigrp;
+	eigrp_t *eigrp;
 	struct listnode *node;
-	struct eigrp_prefix_descriptor *tn;
-	struct eigrp_route_descriptor *tr;
+	eigrp_prefix_descriptor_t *tn;
+	eigrp_route_descriptor_t *tr;
 	struct route_node *rn;
 	int first;
 
@@ -517,8 +522,8 @@ DEFUN (show_ip_eigrp_interfaces,
        "Interface name to look at\n"
        "Detailed information\n")
 {
-	struct eigrp_interface *ei;
-	struct eigrp *eigrp;
+	eigrp_interface_t *ei;
+	eigrp_t *eigrp;
 	struct listnode *node;
 	int idx = 0;
 	bool detail = false;
@@ -560,10 +565,10 @@ DEFUN (show_ip_eigrp_neighbors,
        "Interface to show on\n"
        "Detailed Information\n")
 {
-	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
+	eigrp_t *eigrp;
+	eigrp_interface_t *ei;
 	struct listnode *node, *node2, *nnode2;
-	struct eigrp_neighbor *nbr;
+	eigrp_neighbor_t *nbr;
 	bool detail = false;
 	int idx = 0;
 	const char *ifname = NULL;
@@ -601,8 +606,8 @@ DEFUN (eigrp_if_delay,
        "Throughput delay (tens of microseconds)\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
+	eigrp_interface_t *ei = ifp->info;
+	eigrp_t *eigrp;
 	uint32_t delay;
 
 	eigrp = eigrp_lookup();
@@ -632,8 +637,8 @@ DEFUN (no_eigrp_if_delay,
        "Throughput delay (tens of microseconds)\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
+	eigrp_interface_t *ei = ifp->info;
+	eigrp_t *eigrp;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -660,9 +665,9 @@ DEFUN (eigrp_if_bandwidth,
        "Bandwidth in kilobits\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
+	eigrp_interface_t *ei = ifp->info;
 	uint32_t bandwidth;
-	struct eigrp *eigrp;
+	eigrp_t *eigrp;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -692,8 +697,8 @@ DEFUN (no_eigrp_if_bandwidth,
        "Bandwidth in kilobits\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
+	eigrp_interface_t *ei = ifp->info;
+	eigrp_t *eigrp;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -721,9 +726,9 @@ DEFUN (eigrp_if_ip_hellointerval,
        "Seconds between hello transmissions\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
+	eigrp_interface_t *ei = ifp->info;
 	uint32_t hello;
-	struct eigrp *eigrp;
+	eigrp_t *eigrp;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -753,8 +758,8 @@ DEFUN (no_eigrp_if_ip_hellointerval,
        "Seconds between hello transmissions\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
+	eigrp_interface_t *ei = ifp->info;
+	eigrp_t *eigrp;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -784,9 +789,9 @@ DEFUN (eigrp_if_ip_holdinterval,
        "Seconds before neighbor is considered down\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
+	eigrp_interface_t *ei = ifp->info;
 	uint32_t hold;
-	struct eigrp *eigrp;
+	eigrp_t *eigrp;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -817,7 +822,7 @@ DEFUN (eigrp_ip_summary_address,
 {
 	// VTY_DECLVAR_CONTEXT(interface, ifp);
 	// uint32_t AS;
-	struct eigrp *eigrp;
+	eigrp_t *eigrp;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -844,7 +849,7 @@ DEFUN (no_eigrp_ip_summary_address,
 {
 	// VTY_DECLVAR_CONTEXT(interface, ifp);
 	// uint32_t AS;
-	struct eigrp *eigrp;
+	eigrp_t *eigrp;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -868,8 +873,8 @@ DEFUN (no_eigrp_if_ip_holdinterval,
        "Enhanced Interior Gateway Routing Protocol (EIGRP)\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
+	eigrp_interface_t *ei = ifp->info;
+	eigrp_t *eigrp;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -887,7 +892,7 @@ DEFUN (no_eigrp_if_ip_holdinterval,
 	return CMD_SUCCESS;
 }
 
-static int str2auth_type(const char *str, struct eigrp_interface *ei)
+static int str2auth_type(const char *str, eigrp_interface_t *ei)
 {
 	/* Sanity check. */
 	if (str == NULL)
@@ -916,8 +921,8 @@ DEFUN (eigrp_authentication_mode,
        "HMAC SHA256 algorithm \n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
+	eigrp_interface_t *ei = ifp->info;
+	eigrp_t *eigrp;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -951,8 +956,8 @@ DEFUN (no_eigrp_authentication_mode,
        "HMAC SHA256 algorithm \n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
+	eigrp_interface_t *ei = ifp->info;
+	eigrp_t *eigrp;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -981,8 +986,8 @@ DEFUN (eigrp_authentication_keychain,
        "Name of key-chain\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
+	eigrp_interface_t *ei = ifp->info;
+	eigrp_t *eigrp;
 	struct keychain *keychain;
 
 	eigrp = eigrp_lookup();
@@ -1021,8 +1026,8 @@ DEFUN (no_eigrp_authentication_keychain,
        "Name of key-chain\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
+	eigrp_interface_t *ei = ifp->info;
+	eigrp_t *eigrp;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -1060,7 +1065,7 @@ DEFUN (eigrp_redistribute_source_metric,
        "EIGRP MTU of the path\n")
 {
 	VTY_DECLVAR_CONTEXT(eigrp, eigrp);
-	struct eigrp_metrics metrics_from_command = {0};
+	eigrp_vmetrics_t metrics_from_command = {0};
 	int source;
 	int idx = 0;
 
@@ -1114,7 +1119,7 @@ DEFUN (eigrp_variance,
        "Control load balancing variance\n"
        "Metric variance multiplier\n")
 {
-	struct eigrp *eigrp;
+	eigrp_t *eigrp;
 	uint8_t variance;
 
 	eigrp = eigrp_lookup();
@@ -1138,7 +1143,7 @@ DEFUN (no_eigrp_variance,
        "Control load balancing variance\n"
        "Metric variance multiplier\n")
 {
-	struct eigrp *eigrp;
+	eigrp_t *eigrp;
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
 		vty_out(vty, "EIGRP Routing Process not enabled\n");
@@ -1158,7 +1163,7 @@ DEFUN (eigrp_maximum_paths,
        "Forward packets over multiple paths\n"
        "Number of paths\n")
 {
-	struct eigrp *eigrp;
+	eigrp_t *eigrp;
 	uint8_t max;
 
 	eigrp = eigrp_lookup();
@@ -1183,7 +1188,7 @@ DEFUN (no_eigrp_maximum_paths,
        "Forward packets over multiple paths\n"
        "Number of paths\n")
 {
-	struct eigrp *eigrp;
+	eigrp_t *eigrp;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -1209,10 +1214,10 @@ DEFUN (clear_ip_eigrp_neighbors,
        "Clear IP-EIGRP\n"
        "Clear IP-EIGRP neighbors\n")
 {
-	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
+	eigrp_t *eigrp;
+	eigrp_interface_t *ei;
 	struct listnode *node, *node2, *nnode2;
-	struct eigrp_neighbor *nbr;
+	eigrp_neighbor_t *nbr;
 
 	/* Check if eigrp process is enabled */
 	eigrp = eigrp_lookup();
@@ -1224,7 +1229,7 @@ DEFUN (clear_ip_eigrp_neighbors,
 	/* iterate over all eigrp interfaces */
 	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
 		/* send Goodbye Hello */
-		eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
+	    eigrp_hello_send(eigrp, ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
 
 		/* iterate over all neighbors on eigrp interface */
 		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
@@ -1264,10 +1269,10 @@ DEFUN (clear_ip_eigrp_neighbors_int,
        "Clear IP-EIGRP neighbors\n"
        "Interface's name\n")
 {
-	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
+	eigrp_t *eigrp;
+	eigrp_interface_t *ei;
 	struct listnode *node2, *nnode2;
-	struct eigrp_neighbor *nbr;
+	eigrp_neighbor_t *nbr;
 	int idx = 0;
 
 	/* Check if eigrp process is enabled */
@@ -1286,7 +1291,7 @@ DEFUN (clear_ip_eigrp_neighbors_int,
 	}
 
 	/* send Goodbye Hello */
-	eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
+	eigrp_hello_send(eigrp, ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
 
 	/* iterate over all neighbors on eigrp interface */
 	for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
@@ -1324,8 +1329,8 @@ DEFUN (clear_ip_eigrp_neighbors_IP,
        "Clear IP-EIGRP neighbors\n"
        "IP-EIGRP neighbor address\n")
 {
-	struct eigrp *eigrp;
-	struct eigrp_neighbor *nbr;
+	eigrp_t *eigrp;
+	eigrp_neighbor_t *nbr;
 	struct in_addr nbr_addr;
 
 	if (!inet_aton(argv[4]->arg, &nbr_addr)) {
@@ -1350,7 +1355,7 @@ DEFUN (clear_ip_eigrp_neighbors_IP,
 	}
 
 	/* execute hard reset on neighbor */
-	eigrp_nbr_hard_restart(nbr, vty);
+	eigrp_nbr_hard_restart(eigrp, nbr, vty);
 
 	return CMD_SUCCESS;
 }
@@ -1367,7 +1372,7 @@ DEFUN (clear_ip_eigrp_neighbors_soft,
        "Clear IP-EIGRP neighbors\n"
        "Resync with peers without adjacency reset\n")
 {
-	struct eigrp *eigrp;
+	eigrp_t *eigrp;
 
 	/* Check if eigrp process is enabled */
 	eigrp = eigrp_lookup();
@@ -1395,8 +1400,8 @@ DEFUN (clear_ip_eigrp_neighbors_int_soft,
        "Interface's name\n"
        "Resync with peer without adjacency reset\n")
 {
-	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
+	eigrp_t *eigrp;
+	eigrp_interface_t *ei;
 
 	/* Check if eigrp process is enabled */
 	eigrp = eigrp_lookup();
@@ -1430,8 +1435,8 @@ DEFUN (clear_ip_eigrp_neighbors_IP_soft,
        "IP-EIGRP neighbor address\n"
        "Resync with peer without adjacency reset\n")
 {
-	struct eigrp *eigrp;
-	struct eigrp_neighbor *nbr;
+	eigrp_t *eigrp;
+	eigrp_neighbor_t *nbr;
 	struct in_addr nbr_addr;
 
 	if (!inet_aton(argv[4]->arg, &nbr_addr)) {
@@ -1466,8 +1471,7 @@ static struct cmd_node eigrp_node = {EIGRP_NODE, "%s(config-router)# ", 1};
 /* Save EIGRP configuration */
 static int eigrp_config_write(struct vty *vty)
 {
-	struct eigrp *eigrp;
-
+	eigrp_t *eigrp;
 	int write = 0;
 
 	eigrp = eigrp_lookup();

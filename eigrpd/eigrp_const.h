@@ -32,14 +32,27 @@
 #ifndef _ZEBRA_EIGRP_CONST_H_
 #define _ZEBRA_EIGRP_CONST_H_
 
-#define FALSE 0
+#ifndef FALSE
+#define FALSE 0		// Everyone should know whats FALSE
+#endif
+#ifndef TRUE
+#define TRUE  1		// And, likewise, whats TRUE
+#endif
+
+/* Default protocol, port number. */
+#ifndef IPPROTO_EIGRPIGP
+#define IPPROTO_EIGRPIGP         88
+#endif /* IPPROTO_EIGRPIGP */
+
+#define EIGRP_MULTICAST_ADDRESS            0xe000000A /*224.0.0.10*/
+#define EIGRP_HEADER_VERSION            2
 
 #define EIGRP_NEIGHBOR_DOWN           0
 #define EIGRP_NEIGHBOR_PENDING        1
 #define EIGRP_NEIGHBOR_UP             2
 #define EIGRP_NEIGHBOR_STATE_MAX      3
 
-/*Packet requiring ack will be retransmitted again after this time*/
+/*Packet requiring ack will be re-transmitted again after this time*/
 #define EIGRP_PACKET_RETRANS_TIME        2 /* in seconds */
 #define EIGRP_PACKET_RETRANS_MAX         16 /* number of retrans attempts */
 #define PLAINTEXT_LENGTH                 81
@@ -51,13 +64,6 @@
 /* Return values of functions involved in packet verification */
 #define MSG_OK    0
 #define MSG_NG    1
-
-#define EIGRP_HEADER_VERSION            2
-
-/* Default protocol, port number. */
-#ifndef IPPROTO_EIGRPIGP
-#define IPPROTO_EIGRPIGP         88
-#endif /* IPPROTO_EIGRPIGP */
 
 #define EIGRP_AUTH_MD5_TLV_SIZE          40
 #define EIGRP_AUTH_SHA256_TLV_SIZE          56
@@ -84,14 +90,13 @@
 /* Default configuration file name for eigrp. */
 #define EIGRP_DEFAULT_CONFIG   "eigrpd.conf"
 
-#define EIGRP_HELLO_INTERVAL_DEFAULT        5
-#define EIGRP_HOLD_INTERVAL_DEFAULT         15
-#define EIGRP_BANDWIDTH_DEFAULT             100000
-#define EIGRP_DELAY_DEFAULT                 10
-#define EIGRP_RELIABILITY_DEFAULT           255
-#define EIGRP_LOAD_DEFAULT                  1
+#define EIGRP_HELLO_INTERVAL_DEFAULT	5
+#define EIGRP_HELLO_NORMAL                    0x00
+#define EIGRP_HELLO_GRACEFUL_SHUTDOWN         0x01
+#define EIGRP_HELLO_ADD_SEQUENCE              0x02
+#define EIGRP_HELLO_GRACEFUL_SHUTDOWN_NBR     0x04
+#define EIGRP_HOLD_INTERVAL_DEFAULT	15
 
-#define EIGRP_MULTICAST_ADDRESS            0xe000000A /*224.0.0.10*/
 
 #define EIGRP_MAX_METRIC                   0xffffffffU    /*4294967295*/
 enum metric_change { METRIC_DECREASE, METRIC_SAME, METRIC_INCREASE };
@@ -99,14 +104,15 @@ enum metric_change { METRIC_DECREASE, METRIC_SAME, METRIC_INCREASE };
 #define DEFAULT_ROUTE               ZEBRA_ROUTE_MAX
 #define DEFAULT_ROUTE_TYPE(T) ((T) == DEFAULT_ROUTE)
 
+/* interface defaults */
+#define EIGRP_BANDWIDTH_DEFAULT		100000
+#define EIGRP_DELAY_DEFAULT		10
+#define EIGRP_RELIABILITY_DEFAULT	255
+#define EIGRP_LOAD_DEFAULT		1
+
 #define INTERFACE_DOWN_BY_ZEBRA       1
 #define INTERFACE_DOWN_BY_VTY         2
 #define INTERFACE_DOWN_BY_FINAL       3
-
-#define EIGRP_HELLO_NORMAL                    0x00
-#define EIGRP_HELLO_GRACEFUL_SHUTDOWN         0x01
-#define EIGRP_HELLO_ADD_SEQUENCE              0x02
-#define EIGRP_HELLO_GRACEFUL_SHUTDOWN_NBR     0x04
 
 /* EIGRP Network Type. */
 #define EIGRP_IFTYPE_NONE 0
@@ -152,7 +158,7 @@ enum eigrp_fsm_states {
 enum eigrp_fsm_events {
 	/*
 	 * Input event other than query from succ,
-	 * FC is not satisified
+	 * FC is not satisfied
 	 */
 	EIGRP_FSM_EVENT_NQ_FCN,
 
@@ -162,7 +168,7 @@ enum eigrp_fsm_events {
 	/* Query from succ, FC not satisfied */
 	EIGRP_FSM_EVENT_Q_FCN,
 
-	/* last reply, FC satisifed with current value of FDij */
+	/* last reply, FC satisfied with current value of FDij */
 	EIGRP_FSM_EVENT_LR_FCS,
 
 	/* distance increase while in a active state */
@@ -171,7 +177,7 @@ enum eigrp_fsm_events {
 	/* Query from succ while in active state */
 	EIGRP_FSM_EVENT_QACT,
 
-	/* last reply, FC not satisified */
+	/* last reply, FC not satisfied */
 	EIGRP_FSM_EVENT_LR_FCN,
 
 	/*
@@ -187,7 +193,7 @@ enum eigrp_fsm_events {
 #define NULL_PROTID		0		/*!< unknown protocol */
 #define IGRP_PROTID		1		/*!< IGRP.. whos your daddy! */
 #define EIGRP_PROTID		2		/*!< EIGRP - Just flat out the best */
-#define STATIC_PROTID		3		/*!< Staticly configured source */
+#define STATIC_PROTID		3		/*!< Statically configured source */
 #define RIP_PROTID		4		/*!< Routing Information Protocol */
 #define HELLO_PROTID		5		/*!< Hello? RFC-891 you there? */
 #define OSPF_PROTID		6		/*!< OSPF - Open Shortest Path First */
@@ -239,22 +245,24 @@ enum eigrp_fsm_events {
  *      IPv6            0x0400                  ** legacy
  *      Multiprotocol   0x0600                  ** wide metrics
  *      MultiTopology   0x00f0                  ** deprecated
+ *
+ * These are considered legacy and are only used for backward compatibility with
+ * older Cisco Routers.  They should not be your first choice for packet coding
  */
-#define EIGRP_TLV_RANGEMASK     0xfff0          /*!< should be 0xff00 - opps */
-#define EIGRP_TLV_GENERAL       0x0000
+#define EIGRP_TLV_RANGEMASK     0xff00          /*!< Mak for TLV type */
+#define EIGRP_TLV_GENERAL       0x0000		/*!< General TLVs */
 
 /**
- * 1.2 TLV Definitions  ** legacy
- * These are considered legacyu and are only used for backward compability with
- * older Cisco Routers.  They should not be your first choice for packet codings
+ * Verson 1.2: Protocol Dependent TLV  Definitions
  */
 #define EIGRP_TLV_IPv4          0x0100          /*!< Classic IPv4 TLV encoding */
 #define EIGRP_TLV_ATALK         0x0200          /*!< Classic Appletalk TLV encoding*/
 #define EIGRP_TLV_IPX           0x0300          /*!< Classic IPX TLV encoding */
 #define EIGRP_TLV_IPv6          0x0400          /*!< Classic IPv6 TLV encoding */
+#define EIGRP_TLV_MP            0x0600          /*!< Multiprotocol (Wide Metric) TLV encoding */
 
 /**
- * 2.0 Multi-Protocol TLV Definitions
+ * Version 2.0: Multi-Protocol TLV Definitions
  * These are the current packet formats and should be used for packets
  */
 #define EIGRP_TLV_MP            0x0600          /*!< Non-PDM specific encoding */
@@ -276,7 +284,7 @@ enum eigrp_fsm_events {
 #define EIGRP_TLV_PEER_TIDLIST          (EIGRP_TLV_GENERAL | 0x0008)    /*!< peer sub-topology list */
 
 /* Older cisco routers send TIDLIST value wrong, adding for backwards
- * compatabily */
+ * compatibility */
 #define EIGRP_TLV_PEER_MTRLIST          (EIGRP_TLV_GENERAL | 0x00f5)
 
 /**
@@ -292,6 +300,16 @@ enum eigrp_fsm_events {
 #define EIGRP_TLV_IPv4_INT              (EIGRP_TLV_IPv4 | EIGRP_TLV_INTERNAL)
 #define EIGRP_TLV_IPv4_EXT              (EIGRP_TLV_IPv4 | EIGRP_TLV_EXTERNAL)
 #define EIGRP_TLV_IPv4_COM              (EIGRP_TLV_IPv4 | EIGRP_TLV_COMMUNITY)
+
+#define EIGRP_TLV_IPv6_REQ              (EIGRP_TLV_IPv6 | EIGRP_TLV_REQUEST)
+#define EIGRP_TLV_IPv6_INT              (EIGRP_TLV_IPv6 | EIGRP_TLV_INTERNAL)
+#define EIGRP_TLV_IPv6_EXT              (EIGRP_TLV_IPv6 | EIGRP_TLV_EXTERNAL)
+#define EIGRP_TLV_IPv6_COM              (EIGRP_TLV_IPv6 | EIGRP_TLV_COMMUNITY)
+
+#define EIGRP_TLV_MP_REQ		(EIGRP_TLV_MP | EIGRP_TLV_REQUEST)
+#define EIGRP_TLV_MP_INT		(EIGRP_TLV_MP | EIGRP_TLV_INTERNAL)
+#define EIGRP_TLV_MP_EXT		(EIGRP_TLV_MP | EIGRP_TLV_EXTERNAL)
+#define EIGRP_TLV_MP_COM		(EIGRP_TLV_MP | EIGRP_TLV_COMMUNITY)
 
 #define EIGRP_TLV_IPV4_SIZE_GRT_24_BIT      0x001D
 #define EIGRP_TLV_IPV4_SIZE_GRT_16_BIT      0x001C
@@ -360,8 +378,8 @@ enum eigrp_fsm_events {
  * packets with the CR-bit set can be accepted by an EIGRP speaker if and
  * only if a previous Hello was received with the SEQUENCE_TYPE TLV present.
  *
- * This allows multicasts to be transmitted in order and reliably at the
- * same time as unicasts are transmitted.
+ * This allows multicast to be transmitted in order and reliably at the
+ * same time as unicast are transmitted.
  */
 #define EIGRP_CR_FLAG 0x02
 

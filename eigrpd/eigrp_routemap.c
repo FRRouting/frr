@@ -54,20 +54,18 @@
 #include "eigrpd/eigrp_macros.h"
 #include "eigrpd/eigrp_routemap.h"
 
-void eigrp_if_rmap_update(struct if_rmap *if_rmap)
+void eigrp_if_rmap_update(eigrp_t *e, struct if_rmap *if_rmap)
 {
 	struct interface *ifp;
-	struct eigrp_interface *ei, *ei2;
+	eigrp_interface_t *ei, *ei2;
 	struct listnode *node, *nnode;
 	struct route_map *rmap;
-	struct eigrp *e;
 
 	ifp = if_lookup_by_name(if_rmap->ifname);
 	if (ifp == NULL)
 		return;
 
 	ei = NULL;
-	e = eigrp_lookup();
 	for (ALL_LIST_ELEMENTS(e->eiflist, node, nnode, ei2)) {
 		if (strcmp(ei2->ifp->name, ifp->name) == 0) {
 			ei = ei2;
@@ -103,32 +101,14 @@ void eigrp_if_rmap_update_interface(struct interface *ifp)
 		eigrp_if_rmap_update(if_rmap);
 }
 
-void eigrp_routemap_update_redistribute(void)
+void eigrp_routemap_update_redistribute(eigrp_t *e)
 {
 	int i;
-	struct eigrp *e;
-
-	e = eigrp_lookup();
-
-	if (e) {
-		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (e->route_map[i].name)
-				e->route_map[i].map = route_map_lookup_by_name(
-					e->route_map[i].name);
-		}
+	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+	    if (e->route_map[i].name)
+		e->route_map[i].map = route_map_lookup_by_name(
+		    e->route_map[i].name);
 	}
-}
-
-/* ARGSUSED */
-void eigrp_rmap_update(const char *notused)
-{
-	struct interface *ifp;
-	struct listnode *node, *nnode;
-
-	for (ALL_LIST_ELEMENTS(iflist, node, nnode, ifp))
-		eigrp_if_rmap_update_interface(ifp);
-
-	eigrp_routemap_update_redistribute();
 }
 
 /* Add eigrp route map rule. */
@@ -231,24 +211,6 @@ static int eigrp_route_set_delete(struct vty *vty,
 	return CMD_SUCCESS;
 }
 
-/* Hook function for updating route_map assignment. */
-/* ARGSUSED */
-void eigrp_route_map_update(const char *notused)
-{
-	int i;
-	struct eigrp *e;
-	e = eigrp_lookup();
-
-	if (e) {
-		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (e->route_map[i].name)
-				e->route_map[i].map = route_map_lookup_by_name(
-					e->route_map[i].name);
-		}
-	}
-}
-
-
 /* `match metric METRIC' */
 /* Match function return 1 if match is success else return zero. */
 static route_map_result_t route_match_metric(void *rule, struct prefix *prefix,
@@ -258,10 +220,10 @@ static route_map_result_t route_match_metric(void *rule, struct prefix *prefix,
 	//  uint32_t *metric;
 	//  uint32_t  check;
 	//  struct rip_info *rinfo;
-	//  struct eigrp_route_descriptor *te;
-	//  struct eigrp_prefix_descriptor *pe;
+	//  eigrp_route_descriptor_t *te;
+	//  eigrp_prefix_descriptor_t *pe;
 	//  struct listnode *node, *node2, *nnode, *nnode2;
-	//  struct eigrp *e;
+	//  eigrp_t *e;
 	//
 	//  e = eigrp_lookup();
 	//
@@ -306,7 +268,9 @@ static void route_match_metric_free(void *rule)
 
 /* Route map commands for metric matching. */
 struct route_map_rule_cmd route_match_metric_cmd = {
-	"metric", route_match_metric, route_match_metric_compile,
+	"metric",
+	route_match_metric,
+	route_match_metric_compile,
 	route_match_metric_free};
 
 /* `match interface IFNAME' */
@@ -1094,6 +1058,65 @@ ALIAS(no_set_tag, no_set_tag_val_cmd, "no set tag <0-65535>", NO_STR SET_STR
       "Tag value for routing protocol\n"
       "Tag value\n")
 
+
+
+/**
+ *
+ * Target for route_map_add_hook()
+ *
+ * ARGSUSED */
+void eigrp_rmap_add(const char *notused)
+{
+    eigrp_t *eigrp = eigrp_lookup();
+    struct interface *ifp;
+    struct listnode *node, *nnode;
+
+    // avoid null checks in lower functions, guard on entry 
+    if (eigrp) {
+
+	for (ALL_LIST_ELEMENTS(iflist, node, nnode, ifp))
+	    eigrp_if_rmap_update_interface(eigrp, ifp);
+	eigrp_routemap_update_redistribute(eigrp);
+    }
+}
+
+/**
+ *
+ * Target for route_map_delete_hook()
+ *
+ * ARGSUSED */
+void eigrp_rmap_delete(const char *notused)
+{
+    eigrp_t *eigrp = eigrp_lookup();
+    struct interface *ifp;
+    struct listnode *node, *nnode;
+
+    // avoid null checks in lower functions, guard on entry 
+    if (eigrp) {
+	for (ALL_LIST_ELEMENTS(iflist, node, nnode, ifp))
+	    eigrp_if_rmap_update_interface(eigrp, ifp);
+	eigrp_routemap_update_redistribute(eigrp);
+    }
+}
+
+
+/**
+ * Hook function for updating route_map assignment.
+ *
+ * ARGSUSED */
+void eigrp_route_map_update(const char *notused)
+{
+    eigrp_t *eigrp = eigrp_lookup();
+    int i;
+
+    // avoid null checks in lower functions, guard on entry 
+    if (eigrp) {
+	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+	    if (eigrp->route_map[i].name)
+		eigrp->route_map[i].map = route_map_lookup_by_name(eigrp->route_map[i].name);
+	}
+    }
+}
 
 /* Route-map init */
 void eigrp_route_map_init()

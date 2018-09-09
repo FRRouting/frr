@@ -60,20 +60,20 @@
 #include "eigrpd/eigrp_fsm.h"
 #include "eigrpd/eigrp_memory.h"
 
-void eigrp_send_reply(struct eigrp_neighbor *nbr, struct eigrp_prefix_descriptor *pe)
+void eigrp_send_reply(eigrp_neighbor_t *nbr, eigrp_prefix_descriptor_t *pe)
 {
     struct eigrp_packet *ep;
     uint16_t length = EIGRP_HEADER_LEN;
-    struct eigrp_interface *ei = nbr->ei;
-    struct eigrp *eigrp = ei->eigrp;
-    struct eigrp_prefix_descriptor *pe2;
+    eigrp_interface_t *ei = nbr->ei;
+    eigrp_t *eigrp = ei->eigrp;
+    eigrp_prefix_descriptor_t *pe2;
 
     // TODO: Work in progress
     /* Filtering */
     /* get list from eigrp process */
     pe2 = XCALLOC(MTYPE_EIGRP_PREFIX_DESCRIPTOR,
-		  sizeof(struct eigrp_prefix_descriptor));
-    memcpy(pe2, pe, sizeof(struct eigrp_prefix_descriptor));
+		  sizeof(eigrp_prefix_descriptor_t));
+    memcpy(pe2, pe, sizeof(eigrp_prefix_descriptor_t));
 
     if (eigrp_update_prefix_apply(eigrp, ei, EIGRP_FILTER_OUT,
 				  pe2->destination)) {
@@ -123,11 +123,11 @@ void eigrp_send_reply(struct eigrp_neighbor *nbr, struct eigrp_prefix_descriptor
 }
 
 /*EIGRP REPLY read function*/
-void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
+void eigrp_reply_receive(eigrp_t *eigrp, struct ip *iph,
 			 struct eigrp_header *eigrph, struct stream *s,
-			 struct eigrp_interface *ei, int size)
+			 eigrp_interface_t *ei, int size)
 {
-    struct eigrp_neighbor *nbr;
+    eigrp_neighbor_t *nbr;
     struct TLV_IPv4_Internal_type *tlv;
 
     uint16_t type;
@@ -158,7 +158,7 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 	dest_addr.family = AF_INET;
 	dest_addr.u.prefix4 = tlv->destination;
 	dest_addr.prefixlen = tlv->prefix_length;
-	struct eigrp_prefix_descriptor *dest =
+	eigrp_prefix_descriptor_t *dest =
 	    eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
 					     &dest_addr);
 	/*
@@ -176,7 +176,7 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 	}
 
 	struct eigrp_fsm_action_message msg;
-	struct eigrp_route_descriptor *route =
+	eigrp_route_descriptor_t *route =
 	    eigrp_prefix_descriptor_lookup(dest->entries, nbr);
 
 	if (eigrp_update_prefix_apply(eigrp, ei, EIGRP_FILTER_IN,
@@ -198,5 +198,5 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 
 	eigrp_IPv4_InternalTLV_free(tlv);
     }
-    eigrp_hello_send_ack(nbr);
+    eigrp_hello_send_ack(eigrp, nbr);
 }

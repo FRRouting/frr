@@ -71,23 +71,22 @@ const struct message eigrp_packet_type_str[] = {
 	{EIGRP_OPC_SIAREPLY, "SIAReply"},
 	{0}};
 
-
 static unsigned char zeropad[16] = {0};
 
 /* Forward function reference*/
 static struct stream *eigrp_recv_packet(int, struct interface **,
 					struct stream *);
-static int eigrp_verify_header(struct stream *, struct eigrp_interface *,
+static int eigrp_verify_header(struct stream *, eigrp_interface_t *,
 			       struct ip *, struct eigrp_header *);
-static int eigrp_check_network_mask(struct eigrp_interface *, struct in_addr);
+static int eigrp_check_network_mask(eigrp_interface_t *, struct in_addr);
 
 static int eigrp_retrans_count_exceeded(struct eigrp_packet *ep,
-					struct eigrp_neighbor *nbr)
+					eigrp_neighbor_t *nbr)
 {
 	return 1;
 }
 
-int eigrp_make_md5_digest(struct eigrp_interface *ei, struct stream *s,
+int eigrp_make_md5_digest(eigrp_interface_t *ei, struct stream *s,
 			  uint8_t flags)
 {
 	struct key *key = NULL;
@@ -158,7 +157,7 @@ int eigrp_make_md5_digest(struct eigrp_interface *ei, struct stream *s,
 
 int eigrp_check_md5_digest(struct stream *s,
 			   struct TLV_MD5_Authentication_Type *authTLV,
-			   struct eigrp_neighbor *nbr, uint8_t flags)
+			   eigrp_neighbor_t *nbr, uint8_t flags)
 {
 	MD5_CTX ctx;
 	unsigned char digest[EIGRP_AUTH_TYPE_MD5_LEN];
@@ -242,7 +241,7 @@ int eigrp_check_md5_digest(struct stream *s,
 	return 1;
 }
 
-int eigrp_make_sha256_digest(struct eigrp_interface *ei, struct stream *s,
+int eigrp_make_sha256_digest(eigrp_interface_t *ei, struct stream *s,
 			     uint8_t flags)
 {
 	struct key *key = NULL;
@@ -305,16 +304,16 @@ int eigrp_make_sha256_digest(struct eigrp_interface *ei, struct stream *s,
 
 int eigrp_check_sha256_digest(struct stream *s,
 			      struct TLV_SHA256_Authentication_Type *authTLV,
-			      struct eigrp_neighbor *nbr, uint8_t flags)
+			      eigrp_neighbor_t *nbr, uint8_t flags)
 {
 	return 1;
 }
 
 int eigrp_write(struct thread *thread)
 {
-	struct eigrp *eigrp = THREAD_ARG(thread);
+	eigrp_t *eigrp = THREAD_ARG(thread);
 	struct eigrp_header *eigrph;
-	struct eigrp_interface *ei;
+	eigrp_interface_t *ei;
 	struct eigrp_packet *ep;
 	struct sockaddr_in sa_dst;
 	struct ip iph;
@@ -473,12 +472,12 @@ int eigrp_read(struct thread *thread)
 {
 	int ret;
 	struct stream *ibuf;
-	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
+	eigrp_t *eigrp;
+	eigrp_interface_t *ei;
 	struct ip *iph;
 	struct eigrp_header *eigrph;
 	struct interface *ifp;
-	struct eigrp_neighbor *nbr;
+	eigrp_neighbor_t *nbr;
 
 	uint16_t opcode = 0;
 	uint16_t length = 0;
@@ -821,7 +820,7 @@ void eigrp_fifo_reset(struct eigrp_fifo *fifo)
 	fifo->count = 0;
 }
 
-struct eigrp_packet *eigrp_packet_new(size_t size, struct eigrp_neighbor *nbr)
+struct eigrp_packet *eigrp_packet_new(size_t size, eigrp_neighbor_t *nbr)
 {
 	struct eigrp_packet *new;
 
@@ -833,7 +832,7 @@ struct eigrp_packet *eigrp_packet_new(size_t size, struct eigrp_neighbor *nbr)
 	return new;
 }
 
-void eigrp_send_packet_reliably(struct eigrp_neighbor *nbr)
+void eigrp_send_packet_reliably(eigrp_neighbor_t *nbr)
 {
 	struct eigrp_packet *ep;
 
@@ -864,7 +863,7 @@ void eigrp_send_packet_reliably(struct eigrp_neighbor *nbr)
 }
 
 /* Calculate EIGRP checksum */
-void eigrp_packet_checksum(struct eigrp_interface *ei, struct stream *s,
+void eigrp_packet_checksum(eigrp_interface_t *ei, struct stream *s,
 			   uint16_t length)
 {
 	struct eigrp_header *eigrph;
@@ -876,7 +875,7 @@ void eigrp_packet_checksum(struct eigrp_interface *ei, struct stream *s,
 }
 
 /* Make EIGRP header. */
-void eigrp_packet_header_init(int type, struct eigrp *eigrp, struct stream *s,
+void eigrp_packet_header_init(int type, eigrp_t *eigrp, struct stream *s,
 			      uint32_t flags, uint32_t sequence, uint32_t ack)
 {
 	struct eigrp_header *eigrph;
@@ -926,7 +925,7 @@ struct eigrp_packet *eigrp_fifo_next(struct eigrp_fifo *fifo)
 	return fifo->tail;
 }
 
-void eigrp_packet_delete(struct eigrp_interface *ei)
+void eigrp_packet_delete(eigrp_interface_t *ei)
 {
 	struct eigrp_packet *ep;
 
@@ -947,7 +946,7 @@ void eigrp_packet_free(struct eigrp_packet *ep)
 }
 
 /* EIGRP Header verification. */
-static int eigrp_verify_header(struct stream *ibuf, struct eigrp_interface *ei,
+static int eigrp_verify_header(struct stream *ibuf, eigrp_interface_t *ei,
 			       struct ip *iph, struct eigrp_header *eigrph)
 {
 	/* Check network mask, Silently discarded. */
@@ -969,7 +968,7 @@ static int eigrp_verify_header(struct stream *ibuf, struct eigrp_interface *ei,
 /* Unbound socket will accept any Raw IP packets if proto is matched.
    To prevent it, compare src IP address and i/f address with masking
    i/f network mask. */
-static int eigrp_check_network_mask(struct eigrp_interface *ei,
+static int eigrp_check_network_mask(eigrp_interface_t *ei,
 				    struct in_addr ip_src)
 {
 	struct in_addr mask, me, him;
@@ -990,8 +989,8 @@ static int eigrp_check_network_mask(struct eigrp_interface *ei,
 
 int eigrp_unack_packet_retrans(struct thread *thread)
 {
-	struct eigrp_neighbor *nbr;
-	nbr = (struct eigrp_neighbor *)THREAD_ARG(thread);
+	eigrp_neighbor_t *nbr;
+	nbr = (eigrp_neighbor_t *)THREAD_ARG(thread);
 
 	struct eigrp_packet *ep;
 	ep = eigrp_fifo_next(nbr->retrans_queue);
@@ -1027,8 +1026,8 @@ int eigrp_unack_packet_retrans(struct thread *thread)
 
 int eigrp_unack_multicast_packet_retrans(struct thread *thread)
 {
-	struct eigrp_neighbor *nbr;
-	nbr = (struct eigrp_neighbor *)THREAD_ARG(thread);
+	eigrp_neighbor_t *nbr;
+	nbr = (eigrp_neighbor_t *)THREAD_ARG(thread);
 
 	struct eigrp_packet *ep;
 	ep = eigrp_fifo_next(nbr->multicast_queue);
@@ -1083,7 +1082,7 @@ struct eigrp_packet *eigrp_fifo_pop(struct eigrp_fifo *fifo)
 }
 
 struct eigrp_packet *eigrp_packet_duplicate(struct eigrp_packet *old,
-					    struct eigrp_neighbor *nbr)
+					    eigrp_neighbor_t *nbr)
 {
 	struct eigrp_packet *new;
 
@@ -1115,7 +1114,7 @@ struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 
 	tlv->type = stream_getw(s);
 	tlv->length = stream_getw(s);
-	tlv->forward.s_addr = stream_getl(s);
+	tlv->nexthop.s_addr = stream_getl(s);
 	tlv->metric.delay = stream_getl(s);
 	tlv->metric.bandwidth = stream_getl(s);
 	tlv->metric.mtu[0] = stream_getc(s);
@@ -1158,7 +1157,7 @@ struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 }
 
 uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
-					 struct eigrp_prefix_descriptor *pe)
+					 eigrp_prefix_descriptor_t *pe)
 {
 	uint16_t length;
 
@@ -1244,7 +1243,7 @@ uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 }
 
 uint16_t eigrp_add_authTLV_MD5_to_stream(struct stream *s,
-					 struct eigrp_interface *ei)
+					 eigrp_interface_t *ei)
 {
 	struct key *key;
 	struct keychain *keychain;
@@ -1284,7 +1283,7 @@ uint16_t eigrp_add_authTLV_MD5_to_stream(struct stream *s,
 }
 
 uint16_t eigrp_add_authTLV_SHA256_to_stream(struct stream *s,
-					    struct eigrp_interface *ei)
+					    eigrp_interface_t *ei)
 {
 	struct key *key;
 	struct keychain *keychain;

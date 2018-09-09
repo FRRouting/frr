@@ -28,22 +28,8 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-
-#include <zebra.h>
-
-#include "linklist.h"
-#include "prefix.h"
-#include "memory.h"
-#include "command.h"
-#include "thread.h"
-#include "stream.h"
-#include "table.h"
-#include "log.h"
-#include "keychain.h"
-#include "vty.h"
-
-#include "eigrpd/eigrp_structs.h"
 #include "eigrpd/eigrpd.h"
+
 #include "eigrpd/eigrp_interface.h"
 #include "eigrpd/eigrp_neighbor.h"
 #include "eigrpd/eigrp_dump.h"
@@ -54,68 +40,87 @@
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_memory.h"
 
-struct eigrp_neighbor *eigrp_nbr_new(struct eigrp_interface *ei)
+static inline uint16_t eigrp_tlv_decoder_safe(void)
 {
-	struct eigrp_neighbor *nbr;
+    return 0;
+}
+static inline uint16_t eigrp_tlv_encoder_safe(void)
+{
+    return 0;
+}
 
-	/* Allcate new neighbor. */
-	nbr = XCALLOC(MTYPE_EIGRP_NEIGHBOR, sizeof(struct eigrp_neighbor));
+eigrp_neighbor_t *eigrp_nbr_new(eigrp_interface_t *ei)
+{
+    eigrp_neighbor_t *nbr;
 
-	/* Relate neighbor to the interface. */
-	nbr->ei = ei;
+    /* Allcate new neighbor. */
+    nbr = XCALLOC(MTYPE_EIGRP_NEIGHBOR, sizeof(eigrp_neighbor_t));
 
-	/* Set default values. */
-	eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_DOWN);
+    /* Relate neighbor to the interface. */
+    nbr->ei = ei;
 
-	return nbr;
+    /* Set default values. */
+    eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_DOWN);
+
+    return nbr;
 }
 
 /**
- *@fn void dissect_eigrp_sw_version (tvbuff_t *tvb, proto_tree *tree,
- *                                   proto_item *ti)
- *
- * @par
  * Create a new neighbor structure and initalize it.
  */
-static struct eigrp_neighbor *eigrp_nbr_add(struct eigrp_interface *ei,
+static eigrp_neighbor_t *eigrp_nbr_init(eigrp_interface_t *ei,
 					    struct eigrp_header *eigrph,
 					    struct ip *iph)
 {
-	struct eigrp_neighbor *nbr;
+    eigrp_neighbor_t *nbr;
 
-	nbr = eigrp_nbr_new(ei);
-	nbr->src = iph->ip_src;
+    nbr = eigrp_nbr_new(ei);
+    nbr->src = iph->ip_src;
 
-	//  if (IS_DEBUG_EIGRP_EVENT)
-	//    zlog_debug("NSM[%s:%s]: start", IF_NAME (nbr->oi),
-	//               inet_ntoa (nbr->router_id));
+    /* copy over the values passed in by the neighbor */
+    nbr->K1 = EIGRP_K1_DEFAULT;
+    nbr->K2 = EIGRP_K2_DEFAULT;
+    nbr->K3 = EIGRP_K3_DEFAULT;
+    nbr->K4 = EIGRP_K4_DEFAULT;
+    nbr->K5 = EIGRP_K5_DEFAULT;
+    nbr->K6 = EIGRP_K6_DEFAULT;
 
-	return nbr;
+    nbr->v_holddown = EIGRP_HOLD_INTERVAL_DEFAULT;
+
+    nbr->tlv_decoder = (eigrp_tlv_decoder_t)&eigrp_tlv_decoder_safe;
+    nbr->tlv_encoder = (eigrp_tlv_encoder_t)&eigrp_tlv_encoder_safe;
+
+    //  if (IS_DEBUG_EIGRP_EVENT)
+    //    zlog_debug("NSM[%s:%s]: start", IF_NAME (nbr->oi),
+    //               inet_ntoa (nbr->router_id));
+
+    return nbr;
+
 }
 
-struct eigrp_neighbor *eigrp_nbr_get(struct eigrp_interface *ei,
+eigrp_neighbor_t *eigrp_nbr_get(eigrp_interface_t *ei,
 				     struct eigrp_header *eigrph,
 				     struct ip *iph)
 {
-	struct eigrp_neighbor *nbr;
-	struct listnode *node, *nnode;
+    eigrp_neighbor_t *nbr;
+    struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(ei->nbrs, node, nnode, nbr)) {
-		if (iph->ip_src.s_addr == nbr->src.s_addr) {
-			return nbr;
-		}
+    for (ALL_LIST_ELEMENTS(ei->nbrs, node, nnode, nbr)) {
+	if (iph->ip_src.s_addr == nbr->src.s_addr) {
+	    return nbr;
 	}
+    }
 
-	nbr = eigrp_nbr_add(ei, eigrph, iph);
-	listnode_add(ei->nbrs, nbr);
+    nbr = eigrp_nbr_init(ei, eigrph, iph);
+    listnode_add(ei->nbrs, nbr);
 
-	return nbr;
+    return nbr;
 }
 
 /**
  * @fn eigrp_nbr_lookup_by_addr
  *
- * @param[in]		ei			EIGRP interface
+ * @param[in]		ei		EIGRP interface
  * @param[in]		nbr_addr 	Address of neighbor
  *
  * @return void
@@ -124,10 +129,10 @@ struct eigrp_neighbor *eigrp_nbr_get(struct eigrp_interface *ei,
  * Function is used for neighbor lookup by address
  * in specified interface.
  */
-struct eigrp_neighbor *eigrp_nbr_lookup_by_addr(struct eigrp_interface *ei,
-						struct in_addr *addr)
+eigrp_neighbor_t *eigrp_nbr_lookup_by_addr(eigrp_interface_t *ei,
+					   struct in_addr *addr)
 {
-	struct eigrp_neighbor *nbr;
+	eigrp_neighbor_t *nbr;
 	struct listnode *node, *nnode;
 
 	for (ALL_LIST_ELEMENTS(ei->nbrs, node, nnode, nbr)) {
@@ -151,12 +156,12 @@ struct eigrp_neighbor *eigrp_nbr_lookup_by_addr(struct eigrp_interface *ei,
  * Function is used for neighbor lookup by address
  * in whole EIGRP process.
  */
-struct eigrp_neighbor *eigrp_nbr_lookup_by_addr_process(struct eigrp *eigrp,
-							struct in_addr nbr_addr)
+eigrp_neighbor_t *eigrp_nbr_lookup_by_addr_process(eigrp_t *eigrp,
+						   struct in_addr nbr_addr)
 {
-	struct eigrp_interface *ei;
+	eigrp_interface_t *ei;
 	struct listnode *node, *node2, *nnode2;
-	struct eigrp_neighbor *nbr;
+	eigrp_neighbor_t *nbr;
 
 	/* iterate over all eigrp interfaces */
 	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
@@ -174,7 +179,7 @@ struct eigrp_neighbor *eigrp_nbr_lookup_by_addr_process(struct eigrp *eigrp,
 
 
 /* Delete specified EIGRP neighbor from interface. */
-void eigrp_nbr_delete(struct eigrp_neighbor *nbr)
+void eigrp_nbr_delete(eigrp_neighbor_t *nbr)
 {
 	eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_DOWN);
 	if (nbr->ei)
@@ -193,7 +198,7 @@ void eigrp_nbr_delete(struct eigrp_neighbor *nbr)
 
 int holddown_timer_expired(struct thread *thread)
 {
-	struct eigrp_neighbor *nbr;
+	eigrp_neighbor_t *nbr;
 
 	nbr = THREAD_ARG(thread);
 
@@ -206,12 +211,12 @@ int holddown_timer_expired(struct thread *thread)
 	return 0;
 }
 
-uint8_t eigrp_nbr_state_get(struct eigrp_neighbor *nbr)
+uint8_t eigrp_nbr_state_get(eigrp_neighbor_t *nbr)
 {
 	return (nbr->state);
 }
 
-void eigrp_nbr_state_set(struct eigrp_neighbor *nbr, uint8_t state)
+void eigrp_nbr_state_set(eigrp_neighbor_t *nbr, uint8_t state)
 {
 	nbr->state = state;
 
@@ -247,7 +252,7 @@ void eigrp_nbr_state_set(struct eigrp_neighbor *nbr, uint8_t state)
 	}
 }
 
-const char *eigrp_nbr_state_str(struct eigrp_neighbor *nbr)
+const char *eigrp_nbr_state_str(eigrp_neighbor_t *nbr)
 {
 	const char *state;
 	switch (nbr->state) {
@@ -268,7 +273,7 @@ const char *eigrp_nbr_state_str(struct eigrp_neighbor *nbr)
 	return (state);
 }
 
-void eigrp_nbr_state_update(struct eigrp_neighbor *nbr)
+void eigrp_nbr_state_update(eigrp_neighbor_t *nbr)
 {
 	switch (nbr->state) {
 	case EIGRP_NEIGHBOR_DOWN: {
@@ -296,28 +301,22 @@ void eigrp_nbr_state_update(struct eigrp_neighbor *nbr)
 	}
 }
 
-int eigrp_nbr_count_get(void)
+int eigrp_nbr_count_get(eigrp_t *eigrp)
 {
-	struct eigrp_interface *iface;
-	struct listnode *node, *node2, *nnode2;
-	struct eigrp_neighbor *nbr;
-	struct eigrp *eigrp = eigrp_lookup();
-	uint32_t counter;
+    eigrp_interface_t *iface;
+    struct listnode *node, *node2, *nnode2;
+    eigrp_neighbor_t *nbr;
+    uint32_t counter;
 
-	if (eigrp == NULL) {
-		zlog_debug("EIGRP Routing Process not enabled");
-		return 0;
+    counter = 0;
+    for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, iface)) {
+	for (ALL_LIST_ELEMENTS(iface->nbrs, node2, nnode2, nbr)) {
+	    if (nbr->state == EIGRP_NEIGHBOR_UP) {
+		counter++;
+	    }
 	}
-
-	counter = 0;
-	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, iface)) {
-		for (ALL_LIST_ELEMENTS(iface->nbrs, node2, nnode2, nbr)) {
-			if (nbr->state == EIGRP_NEIGHBOR_UP) {
-				counter++;
-			}
-		}
-	}
-	return counter;
+    }
+    return counter;
 }
 
 /**
@@ -332,7 +331,7 @@ int eigrp_nbr_count_get(void)
  * Send Hello packet with Peer Termination TLV with
  * neighbor's address, set it's state to DOWN and delete the neighbor
  */
-void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty)
+void eigrp_nbr_hard_restart(eigrp_t *eigrp, eigrp_neighbor_t *nbr, struct vty *vty)
 {
 	if (nbr == NULL) {
 		zlog_err("Nbr Hard restart: Neighbor not specified.");
@@ -350,7 +349,7 @@ void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty)
 	}
 
 	/* send Hello with Peer Termination TLV */
-	eigrp_hello_send(nbr->ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN_NBR,
+	eigrp_hello_send(eigrp, nbr->ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN_NBR,
 			 &(nbr->src));
 	/* set neighbor to DOWN */
 	nbr->state = EIGRP_NEIGHBOR_DOWN;
@@ -358,8 +357,8 @@ void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty)
 	eigrp_nbr_delete(nbr);
 }
 
-int eigrp_nbr_split_horizon_check(struct eigrp_route_descriptor *ne,
-				  struct eigrp_interface *ei)
+int eigrp_nbr_split_horizon_check(eigrp_route_descriptor_t *ne,
+				  eigrp_interface_t *ei)
 {
 	if (ne->distance == EIGRP_MAX_METRIC)
 		return 0;

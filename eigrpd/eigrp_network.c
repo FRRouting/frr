@@ -49,7 +49,7 @@
 
 static int eigrp_network_match_iface(const struct connected *,
 				     const struct prefix *);
-static void eigrp_network_run_interface(struct eigrp *, struct prefix *,
+static void eigrp_network_run_interface(eigrp_t *, struct prefix *,
 					struct interface *);
 
 int eigrp_sock_init(void)
@@ -119,7 +119,7 @@ int eigrp_sock_init(void)
 	return eigrp_sock;
 }
 
-void eigrp_adjust_sndbuflen(struct eigrp *eigrp, unsigned int buflen)
+void eigrp_adjust_sndbuflen(eigrp_t *eigrp, unsigned int buflen)
 {
 	int newbuflen;
 	/* Check if any work has to be done at all. */
@@ -150,7 +150,7 @@ void eigrp_adjust_sndbuflen(struct eigrp *eigrp, unsigned int buflen)
 			 safe_strerror(errno));
 }
 
-int eigrp_if_ipmulticast(struct eigrp *top, struct prefix *p,
+int eigrp_if_ipmulticast(eigrp_t *top, struct prefix *p,
 			 unsigned int ifindex)
 {
 	uint8_t val;
@@ -187,7 +187,7 @@ int eigrp_if_ipmulticast(struct eigrp *top, struct prefix *p,
 }
 
 /* Join to the EIGRP multicast group. */
-int eigrp_if_add_allspfrouters(struct eigrp *top, struct prefix *p,
+int eigrp_if_add_allspfrouters(eigrp_t *top, struct prefix *p,
 			       unsigned int ifindex)
 {
 	int ret;
@@ -209,7 +209,7 @@ int eigrp_if_add_allspfrouters(struct eigrp *top, struct prefix *p,
 	return ret;
 }
 
-int eigrp_if_drop_allspfrouters(struct eigrp *top, struct prefix *p,
+int eigrp_if_drop_allspfrouters(eigrp_t *top, struct prefix *p,
 				unsigned int ifindex)
 {
 	int ret;
@@ -230,7 +230,7 @@ int eigrp_if_drop_allspfrouters(struct eigrp *top, struct prefix *p,
 	return ret;
 }
 
-int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
+int eigrp_network_set(eigrp_t *eigrp, struct prefix *p)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct route_node *rn;
@@ -269,10 +269,10 @@ static int eigrp_network_match_iface(const struct connected *co,
 	return prefix_match_network_statement(net, CONNECTED_PREFIX(co));
 }
 
-static void eigrp_network_run_interface(struct eigrp *eigrp, struct prefix *p,
+static void eigrp_network_run_interface(eigrp_t *eigrp, struct prefix *p,
 					struct interface *ifp)
 {
-	struct eigrp_interface *ei;
+	eigrp_interface_t *ei;
 	struct listnode *cnode;
 	struct connected *co;
 
@@ -307,7 +307,7 @@ void eigrp_if_update(struct interface *ifp)
 {
 	struct listnode *node, *nnode;
 	struct route_node *rn;
-	struct eigrp *eigrp;
+	eigrp_t *eigrp;
 
 	/*
 	 * In the event there are multiple eigrp autonymnous systems running,
@@ -326,121 +326,51 @@ void eigrp_if_update(struct interface *ifp)
 	}
 }
 
-int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
+int eigrp_network_unset(eigrp_t *eigrp, struct prefix *p)
 {
-	struct route_node *rn;
-	struct listnode *node, *nnode;
-	struct eigrp_interface *ei;
-	struct prefix *pref;
+    struct route_node *rn;
+    struct listnode *node, *nnode;
+    eigrp_interface_t *ei;
+    struct prefix *pref;
 
-	rn = route_node_lookup(eigrp->networks, p);
-	if (rn == NULL)
-		return 0;
+    rn = route_node_lookup(eigrp->networks, p);
+    if (rn == NULL)
+	return 0;
 
-	pref = rn->info;
-	route_unlock_node(rn);
+    pref = rn->info;
+    route_unlock_node(rn);
 
-	if (!IPV4_ADDR_SAME(&pref->u.prefix4, &p->u.prefix4))
-		return 0;
+    if (!IPV4_ADDR_SAME(&pref->u.prefix4, &p->u.prefix4))
+	return 0;
 
-	prefix_ipv4_free(rn->info);
-	rn->info = NULL;
-	route_unlock_node(rn); /* initial reference */
+    prefix_ipv4_free(rn->info);
+    rn->info = NULL;
+    route_unlock_node(rn); /* initial reference */
 
-	/* Find interfaces that not configured already.  */
-	for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei)) {
-		int found = 0;
-		struct connected *co = ei->connected;
+    /* Find interfaces that not configured already.  */
+    for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei)) {
+	int found = 0;
+	struct connected *co = ei->connected;
 
-		for (rn = route_top(eigrp->networks); rn; rn = route_next(rn)) {
-			if (rn->info == NULL)
-				continue;
+	for (rn = route_top(eigrp->networks); rn; rn = route_next(rn)) {
+	    if (rn->info == NULL)
+		continue;
 
-			if (eigrp_network_match_iface(co, &rn->p)) {
-				found = 1;
-				route_unlock_node(rn);
-				break;
-			}
-		}
-
-		if (found == 0) {
-			eigrp_if_free(ei, INTERFACE_DOWN_BY_VTY);
-		}
+	    if (eigrp_network_match_iface(co, &rn->p)) {
+		found = 1;
+		route_unlock_node(rn);
+		break;
+	    }
 	}
 
-	return 1;
+	if (found == 0) {
+	    eigrp_if_free(eigrp, ei, INTERFACE_DOWN_BY_VTY);
+	}
+    }
+
+    return 1;
 }
 
-uint32_t eigrp_calculate_metrics(struct eigrp *eigrp,
-				 struct eigrp_metrics metric)
-{
-	uint64_t temp_metric;
-	temp_metric = 0;
-
-	if (metric.delay == EIGRP_MAX_METRIC)
-		return EIGRP_MAX_METRIC;
-
-	// EIGRP Metric =
-	// {K1*BW+[(K2*BW)/(256-load)]+(K3*delay)}*{K5/(reliability+K4)}
-
-	if (eigrp->k_values[0])
-		temp_metric += (eigrp->k_values[0] * metric.bandwidth);
-	if (eigrp->k_values[1])
-		temp_metric += ((eigrp->k_values[1] * metric.bandwidth)
-				/ (256 - metric.load));
-	if (eigrp->k_values[2])
-		temp_metric += (eigrp->k_values[2] * metric.delay);
-	if (eigrp->k_values[3] && !eigrp->k_values[4])
-		temp_metric *= eigrp->k_values[3];
-	if (!eigrp->k_values[3] && eigrp->k_values[4])
-		temp_metric *= (eigrp->k_values[4] / metric.reliability);
-	if (eigrp->k_values[3] && eigrp->k_values[4])
-		temp_metric *= ((eigrp->k_values[4] / metric.reliability)
-				+ eigrp->k_values[3]);
-
-	if (temp_metric <= EIGRP_MAX_METRIC)
-		return (uint32_t)temp_metric;
-	else
-		return EIGRP_MAX_METRIC;
-}
-
-uint32_t eigrp_calculate_total_metrics(struct eigrp *eigrp,
-				       struct eigrp_route_descriptor *entry)
-{
-	struct eigrp_interface *ei = entry->ei;
-
-	entry->total_metric = entry->reported_metric;
-	uint64_t temp_delay =
-		(uint64_t)entry->total_metric.delay
-		+ (uint64_t)eigrp_delay_to_scaled(ei->params.delay);
-	entry->total_metric.delay = temp_delay > EIGRP_MAX_METRIC
-					    ? EIGRP_MAX_METRIC
-					    : (uint32_t)temp_delay;
-
-	uint32_t bw = eigrp_bandwidth_to_scaled(ei->params.bandwidth);
-	entry->total_metric.bandwidth = entry->total_metric.bandwidth > bw
-						? bw
-						: entry->total_metric.bandwidth;
-
-	return eigrp_calculate_metrics(eigrp, entry->total_metric);
-}
-
-uint8_t eigrp_metrics_is_same(struct eigrp_metrics metric1,
-			      struct eigrp_metrics metric2)
-{
-	if ((metric1.bandwidth == metric2.bandwidth)
-	    && (metric1.delay == metric2.delay)
-	    && (metric1.hop_count == metric2.hop_count)
-	    && (metric1.load == metric2.load)
-	    && (metric1.reliability == metric2.reliability)
-	    && (metric1.mtu[0] == metric2.mtu[0])
-	    && (metric1.mtu[1] == metric2.mtu[1])
-	    && (metric1.mtu[2] == metric2.mtu[2]))
-		return 1;
-
-	return 0; // if different
-}
-
-void eigrp_external_routes_refresh(struct eigrp *eigrp, int type)
+void eigrp_external_routes_refresh(eigrp_t *eigrp, int type)
 {
 }

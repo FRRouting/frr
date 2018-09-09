@@ -52,19 +52,21 @@
 #include "eigrpd/eigrp_vty.h"
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_topology.h"
+#include "eigrpd/eigrp_metric.h"
 #include "eigrpd/eigrp_memory.h"
 #include "eigrpd/eigrp_fsm.h"
 
-struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
-				     struct prefix *p)
+eigrp_interface_t *eigrp_if_new(eigrp_t *eigrp,
+				struct interface *ifp,
+				struct prefix *p)
 {
-	struct eigrp_interface *ei = ifp->info;
+	eigrp_interface_t *ei = ifp->info;
 	int i;
 
 	if (ei)
 		return ei;
 
-	ei = XCALLOC(MTYPE_EIGRP_IF, sizeof(struct eigrp_interface));
+	ei = XCALLOC(MTYPE_EIGRP_IF, sizeof(eigrp_interface_t));
 
 	/* Set zebra interface pointer. */
 	ei->ifp = ifp;
@@ -103,8 +105,8 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 
 int eigrp_if_delete_hook(struct interface *ifp)
 {
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
+	eigrp_interface_t *ei = ifp->info;
+	eigrp_t *eigrp;
 
 	if (!ei)
 		return 0;
@@ -136,14 +138,14 @@ void eigrp_del_if_params(struct eigrp_if_params *eip)
 		free(eip->auth_keychain);
 }
 
-int eigrp_if_up(struct eigrp_interface *ei)
+int eigrp_if_up(eigrp_interface_t *ei)
 {
-	struct eigrp_prefix_descriptor *en;
-	struct eigrp_route_descriptor *er;
-	struct eigrp_metrics metric;
-	struct eigrp_interface *ei2;
+	eigrp_prefix_descriptor_t *en;
+	eigrp_route_descriptor_t *er;
+	struct eigrp_vmetrics metric;
+	eigrp_interface_t *ei2;
 	struct listnode *node, *nnode;
-	struct eigrp *eigrp;
+	eigrp_t *eigrp;
 
 	if (ei == NULL)
 		return 0;
@@ -233,10 +235,10 @@ int eigrp_if_up(struct eigrp_interface *ei)
 	return 1;
 }
 
-int eigrp_if_down(struct eigrp_interface *ei)
+int eigrp_if_down(eigrp_interface_t *ei)
 {
 	struct listnode *node, *nnode;
-	struct eigrp_neighbor *nbr;
+	eigrp_neighbor_t *nbr;
 
 	if (ei == NULL)
 		return 0;
@@ -256,16 +258,16 @@ int eigrp_if_down(struct eigrp_interface *ei)
 	return 1;
 }
 
-void eigrp_if_stream_set(struct eigrp_interface *ei)
+void eigrp_if_stream_set(eigrp_interface_t *ei)
 {
 	/* set output fifo queue. */
 	if (ei->obuf == NULL)
 		ei->obuf = eigrp_fifo_new();
 }
 
-void eigrp_if_stream_unset(struct eigrp_interface *ei)
+void eigrp_if_stream_unset(eigrp_interface_t *ei)
 {
-	struct eigrp *eigrp = ei->eigrp;
+	eigrp_t *eigrp = ei->eigrp;
 
 	if (ei->obuf) {
 		eigrp_fifo_free(ei->obuf);
@@ -280,7 +282,7 @@ void eigrp_if_stream_unset(struct eigrp_interface *ei)
 	}
 }
 
-bool eigrp_if_is_passive(struct eigrp_interface *ei)
+bool eigrp_if_is_passive(eigrp_interface_t *ei)
 {
 	if (ei->params.passive_interface == EIGRP_IF_ACTIVE)
 		return false;
@@ -291,7 +293,7 @@ bool eigrp_if_is_passive(struct eigrp_interface *ei)
 	return true;
 }
 
-void eigrp_if_set_multicast(struct eigrp_interface *ei)
+void eigrp_if_set_multicast(eigrp_interface_t *ei)
 {
 	if (!eigrp_if_is_passive(ei)) {
 		/* The interface should belong to the EIGRP-all-routers group.
@@ -330,18 +332,14 @@ uint8_t eigrp_default_iftype(struct interface *ifp)
 		return EIGRP_IFTYPE_BROADCAST;
 }
 
-void eigrp_if_free(struct eigrp_interface *ei, int source)
+void eigrp_if_free(eigrp_t *eigrp, eigrp_interface_t *ei, int source)
 {
 	struct prefix dest_addr;
-	struct eigrp_prefix_descriptor *en;
-	struct eigrp *eigrp = eigrp_lookup();
-
-	if (!eigrp)
-		return;
+	eigrp_prefix_descriptor_t *en;
 
 	if (source == INTERFACE_DOWN_BY_VTY) {
 		THREAD_OFF(ei->t_hello);
-		eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
+		eigrp_hello_send(eigrp, ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
 	}
 
 	dest_addr = *ei->connected->address;
@@ -349,7 +347,7 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 	en = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
 					      &dest_addr);
 	if (en)
-		eigrp_prefix_descriptor_delete(eigrp->topology_table, en);
+		eigrp_prefix_descriptor_delete(eigrp, en);
 
 	eigrp_if_down(ei);
 
@@ -361,7 +359,7 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
    the MTU changes. */
 void eigrp_if_reset(struct interface *ifp)
 {
-	struct eigrp_interface *ei = ifp->info;
+	eigrp_interface_t *ei = ifp->info;
 
 	if (!ei)
 		return;
@@ -370,12 +368,12 @@ void eigrp_if_reset(struct interface *ifp)
 	eigrp_if_up(ei);
 }
 
-struct eigrp_interface *eigrp_if_lookup_by_local_addr(struct eigrp *eigrp,
-						      struct interface *ifp,
-						      struct in_addr address)
+eigrp_interface_t *eigrp_if_lookup_by_local_addr(eigrp_t *eigrp,
+						 struct interface *ifp,
+						 struct in_addr address)
 {
 	struct listnode *node;
-	struct eigrp_interface *ei;
+	eigrp_interface_t *ei;
 
 	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
 		if (ifp && ei->ifp != ifp)
@@ -394,15 +392,15 @@ struct eigrp_interface *eigrp_if_lookup_by_local_addr(struct eigrp *eigrp,
  * @param[in]		eigrp		EIGRP process
  * @param[in]		if_name 	Name of the interface
  *
- * @return struct eigrp_interface *
+ * @return eigrp_interface_t *
  *
  * @par
  * Function is used for lookup interface by name.
  */
-struct eigrp_interface *eigrp_if_lookup_by_name(struct eigrp *eigrp,
-						const char *if_name)
+eigrp_interface_t *eigrp_if_lookup_by_name(eigrp_t *eigrp,
+					   const char *if_name)
 {
-	struct eigrp_interface *ei;
+	eigrp_interface_t *ei;
 	struct listnode *node;
 
 	/* iterate over all eigrp interfaces */
@@ -416,32 +414,3 @@ struct eigrp_interface *eigrp_if_lookup_by_name(struct eigrp *eigrp,
 	return NULL;
 }
 
-uint32_t eigrp_bandwidth_to_scaled(uint32_t bandwidth)
-{
-	uint64_t temp_bandwidth = (256ull * 10000000) / bandwidth;
-
-	temp_bandwidth = temp_bandwidth < EIGRP_MAX_METRIC ? temp_bandwidth
-							   : EIGRP_MAX_METRIC;
-
-	return (uint32_t)temp_bandwidth;
-}
-
-uint32_t eigrp_scaled_to_bandwidth(uint32_t scaled)
-{
-	uint64_t temp_scaled = scaled * (256ull * 10000000);
-
-	temp_scaled =
-		temp_scaled < EIGRP_MAX_METRIC ? temp_scaled : EIGRP_MAX_METRIC;
-
-	return (uint32_t)temp_scaled;
-}
-
-uint32_t eigrp_delay_to_scaled(uint32_t delay)
-{
-	return delay * 256;
-}
-
-uint32_t eigrp_scaled_to_delay(uint32_t scaled)
-{
-	return scaled / 256;
-}
