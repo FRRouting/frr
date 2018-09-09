@@ -248,6 +248,8 @@ ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 	struct iovec iov[1];
 	uint8_t cmsgbuf[255];
 
+	port[0] = '\0';
+
 	/* Prepare the recvmsg params. */
 	iov[0].iov_base = msgbuf;
 	iov[0].iov_len = msgbuflen;

@@ -732,7 +732,8 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 							? 1
 							: 2,
 						buf, listcount(route->paths),
-						listcount(route->nh_list));
+						route->nh_list ?
+						listcount(route->nh_list) : 0);
 				}
 
 				if (listcount(route->paths)) {

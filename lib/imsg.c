@@ -299,11 +299,10 @@ int imsg_get_fd(struct imsgbuf *ibuf)
 	int fd;
 	struct imsg_fd *ifd;
 
-	if ((ifd = TAILQ_FIRST(&ibuf->fds)) == NULL)
+	if ((ifd = TAILQ_POP_FIRST(&ibuf->fds, entry)) == NULL)
 		return (-1);
 
 	fd = ifd->fd;
-	TAILQ_REMOVE(&ibuf->fds, ifd, entry);
 	free(ifd);
 
 	return (fd);

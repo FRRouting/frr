@@ -732,7 +732,7 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 		route->next = next;
 
 		if (node->info == next) {
-			assert(next->rnode == node);
+			assert(next && next->rnode == node);
 			node->info = route;
 			UNSET_FLAG(next->flag, OSPF6_ROUTE_BEST);
 			SET_FLAG(route->flag, OSPF6_ROUTE_BEST);
