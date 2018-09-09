@@ -845,10 +845,8 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	int family;
 	char buf[SRCDEST2STR_BUFFER];
 	const struct prefix *p, *src_p;
-    struct zebra_vrf *zvrf=NULL;
-    rib_table_info_t *info=NULL;
-
-    info = srcdest_rnode_table_info(rn);
+    struct zebra_vrf *zvrf = NULL;
+    rib_table_info_t *info = NULL;
 
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
@@ -916,19 +914,17 @@ static unsigned nexthop_active_check(struct route_node *rn,
 
     info = srcdest_rnode_table_info(rn);
     /* The original code didn't determine the family correctly
-	 * e.g. for NEXTHOP_TYPE_IFINDEX. Retrieve the correct afi
-	 * from the rib_table_info in those cases.
-	 * Possibly it may be better to use only the rib_table_info
-	 * in every case.
-	 */
-	if (!family) {
-		family = info->afi;
-	}
+     * e.g. for NEXTHOP_TYPE_IFINDEX. Retrieve the correct afi
+     * from the rib_table_info in those cases.
+     * Possibly it may be better to use only the rib_table_info
+     * in every case. */
+    if (!family)
+        family = info->afi;
 
-	memset(&nexthop->rmap_src.ipv6, 0, sizeof(union g_addr));
+    memset(&nexthop->rmap_src.ipv6, 0, sizeof(union g_addr));
 
-	/* It'll get set if required inside */
-    zvrf=info->zvrf;
+    /* It'll get set if required inside */
+    zvrf = info->zvrf;
 	ret = zebra_route_map_check(family, re->type, re->instance, p, nexthop,
 				    zvrf, re->tag);
 	if (ret == RMAP_DENYMATCH) {
