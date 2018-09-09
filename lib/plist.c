@@ -396,7 +396,7 @@ static int64_t prefix_new_seq_get(struct prefix_list *plist)
 
 	newseq = ((maxseq / 5) * 5) + 5;
 
-	return newseq;
+	return (newseq > UINT_MAX) ? UINT_MAX : newseq;
 }
 
 /* Return prefix list entry which has same seq number. */
@@ -1900,7 +1900,7 @@ void prefix_bgp_orf_remove_all(afi_t afi, char *name)
 
 /* return prefix count */
 int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
-				uint8_t use_json)
+				bool use_json)
 {
 	struct prefix_list *plist;
 	struct prefix_list_entry *pentry;

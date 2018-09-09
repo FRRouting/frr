@@ -891,6 +891,14 @@ static void vty_show_route_map_entry(struct vty *vty, struct route_map *map)
 	}
 }
 
+static int sort_route_map(const void **map1, const void **map2)
+{
+	const struct route_map *m1 = *map1;
+	const struct route_map *m2 = *map2;
+
+	return strcmp(m1->name, m2->name);
+}
+
 static int vty_show_route_map(struct vty *vty, const char *name)
 {
 	struct route_map *map;
@@ -907,9 +915,19 @@ static int vty_show_route_map(struct vty *vty, const char *name)
 			return CMD_SUCCESS;
 		}
 	} else {
+
+		struct list *maplist = list_new();
+		struct listnode *ln;
+
 		for (map = route_map_master.head; map; map = map->next)
-			if (!map->deleted)
-				vty_show_route_map_entry(vty, map);
+			listnode_add(maplist, map);
+
+		list_sort(maplist, sort_route_map);
+
+		for (ALL_LIST_ELEMENTS_RO(maplist, ln, map))
+			vty_show_route_map_entry(vty, map);
+
+		list_delete_and_null(&maplist);
 	}
 	return CMD_SUCCESS;
 }

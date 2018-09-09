@@ -93,3 +93,11 @@
     /bin/kill -USR1 `cat /var/run/frr/bfdd.pid 2> /dev/null` 2> /dev/null || true
     endscript
 }
+
+/var/log/frr/fabricd.log {
+    notifempty
+    missingok
+    postrotate
+        /bin/kill -USR1 `cat /var/run/frr/fabricd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}

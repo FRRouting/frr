@@ -67,8 +67,8 @@
  * 7- state not changed, usually by receiving not last reply
  */
 
-#include <thread.h>
 #include <zebra.h>
+#include <thread.h>
 
 #include "prefix.h"
 #include "table.h"

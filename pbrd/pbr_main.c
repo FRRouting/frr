@@ -146,7 +146,7 @@ int main(int argc, char **argv, char **envp)
 
 	pbr_debug_init();
 
-	vrf_init(NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	nexthop_group_init(pbr_nhgroup_add_cb,
 			   pbr_nhgroup_add_nexthop_cb,
 			   pbr_nhgroup_del_nexthop_cb,

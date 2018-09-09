@@ -191,6 +191,7 @@ typedef enum {
 	ZEBRA_IF_BRIDGE,    /* bridge device */
 	ZEBRA_IF_VLAN,      /* VLAN sub-interface */
 	ZEBRA_IF_MACVLAN,   /* MAC VLAN interface*/
+	ZEBRA_IF_VETH,      /* VETH interface*/
 } zebra_iftype_t;
 
 /* Zebra "slave" interface type */
@@ -312,7 +313,10 @@ static inline void zebra_if_set_ziftype(struct interface *ifp,
 #define IS_ZEBRA_IF_MACVLAN(ifp)                                               \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_MACVLAN)
 
-#define IS_ZEBRA_IF_BRIDGE_SLAVE(ifp)                                          \
+#define IS_ZEBRA_IF_VETH(ifp)                                               \
+	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_VETH)
+
+#define IS_ZEBRA_IF_BRIDGE_SLAVE(ifp)					\
 	(((struct zebra_if *)(ifp->info))->zif_slave_type                      \
 	 == ZEBRA_IF_SLAVE_BRIDGE)
 
@@ -344,7 +348,8 @@ extern int if_subnet_add(struct interface *, struct connected *);
 extern int if_subnet_delete(struct interface *, struct connected *);
 extern int ipv6_address_configured(struct interface *ifp);
 extern void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id);
-extern void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex);
+extern void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
+				 ns_id_t ns_id);
 
 extern void vrf_add_update(struct vrf *vrfp);
 

@@ -90,7 +90,6 @@ static void sigterm_handler(void)
 	socket_close(&bglobal.bg_mhop);
 	socket_close(&bglobal.bg_shop6);
 	socket_close(&bglobal.bg_mhop6);
-	socket_close(&bglobal.bg_vxlan);
 
 	/* Terminate and free() FRR related memory. */
 	frr_fini();
@@ -131,17 +130,22 @@ static struct option longopts[] = {
 struct bfd_global bglobal;
 
 struct bfd_diag_str_list diag_list[] = {
-	{.str = "NeighDown", .type = BFD_DIAGNEIGHDOWN},
-	{.str = "DetectTime", .type = BFD_DIAGDETECTTIME},
-	{.str = "AdminDown", .type = BFD_DIAGADMINDOWN},
+	{.str = "control-expired", .type = BD_CONTROL_EXPIRED},
+	{.str = "echo-failed", .type = BD_ECHO_FAILED},
+	{.str = "neighbor-down", .type = BD_NEIGHBOR_DOWN},
+	{.str = "forwarding-reset", .type = BD_FORWARDING_RESET},
+	{.str = "path-down", .type = BD_PATH_DOWN},
+	{.str = "concatenated-path-down", .type = BD_CONCATPATH_DOWN},
+	{.str = "administratively-down", .type = BD_ADMIN_DOWN},
+	{.str = "reverse-concat-path-down", .type = BD_REVCONCATPATH_DOWN},
 	{.str = NULL},
 };
 
 struct bfd_state_str_list state_list[] = {
-	{.str = "AdminDown", .type = PTM_BFD_ADM_DOWN},
-	{.str = "Down", .type = PTM_BFD_DOWN},
-	{.str = "Init", .type = PTM_BFD_INIT},
-	{.str = "Up", .type = PTM_BFD_UP},
+	{.str = "admin-down", .type = PTM_BFD_ADM_DOWN},
+	{.str = "down", .type = PTM_BFD_DOWN},
+	{.str = "init", .type = PTM_BFD_INIT},
+	{.str = "up", .type = PTM_BFD_UP},
 	{.str = NULL},
 };
 
@@ -154,8 +158,8 @@ static void bg_init(void)
 	bglobal.bg_mhop = bp_udp_mhop();
 	bglobal.bg_shop6 = bp_udp6_shop();
 	bglobal.bg_mhop6 = bp_udp6_mhop();
-	bglobal.bg_echo = ptm_bfd_echo_sock_init();
-	bglobal.bg_vxlan = ptm_bfd_vxlan_sock_init();
+	bglobal.bg_echo = bp_echo_socket();
+	bglobal.bg_echov6 = bp_echov6_socket();
 }
 
 int main(int argc, char *argv[])
@@ -216,10 +220,8 @@ int main(int argc, char *argv[])
 			&bglobal.bg_ev[3]);
 	thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_echo,
 			&bglobal.bg_ev[4]);
-#if 0 /* TODO VxLAN support. */
-	thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_vxlan,
+	thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_echov6,
 			&bglobal.bg_ev[5]);
-#endif
 	thread_add_read(master, control_accept, NULL, bglobal.bg_csock,
 			&bglobal.bg_csockev);
 

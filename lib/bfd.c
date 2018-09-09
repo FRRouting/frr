@@ -342,7 +342,7 @@ static void bfd_last_update(time_t last_update, char *buf, size_t len)
  * bfd_show_param - Show the BFD parameter information.
  */
 void bfd_show_param(struct vty *vty, struct bfd_info *bfd_info, int bfd_tag,
-		    int extra_space, uint8_t use_json, json_object *json_obj)
+		    int extra_space, bool use_json, json_object *json_obj)
 {
 	json_object *json_bfd = NULL;
 
@@ -378,7 +378,7 @@ void bfd_show_param(struct vty *vty, struct bfd_info *bfd_info, int bfd_tag,
  * bfd_show_status - Show the BFD status information.
  */
 static void bfd_show_status(struct vty *vty, struct bfd_info *bfd_info,
-			    int bfd_tag, int extra_space, uint8_t use_json,
+			    int bfd_tag, int extra_space, bool use_json,
 			    json_object *json_bfd)
 {
 	char time_buf[32];
@@ -402,7 +402,7 @@ static void bfd_show_status(struct vty *vty, struct bfd_info *bfd_info,
  * bfd_show_info - Show the BFD information.
  */
 void bfd_show_info(struct vty *vty, struct bfd_info *bfd_info, int multihop,
-		   int extra_space, uint8_t use_json, json_object *json_obj)
+		   int extra_space, bool use_json, json_object *json_obj)
 {
 	json_object *json_bfd = NULL;
 

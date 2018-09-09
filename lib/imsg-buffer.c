@@ -21,9 +21,9 @@
 #include "queue.h"
 #include "imsg.h"
 
-int ibuf_realloc(struct ibuf *, size_t);
-void ibuf_enqueue(struct msgbuf *, struct ibuf *);
-void ibuf_dequeue(struct msgbuf *, struct ibuf *);
+static int ibuf_realloc(struct ibuf *, size_t);
+static void ibuf_enqueue(struct msgbuf *, struct ibuf *);
+static void ibuf_dequeue(struct msgbuf *, struct ibuf *);
 
 struct ibuf *ibuf_open(size_t len)
 {
@@ -57,7 +57,7 @@ struct ibuf *ibuf_dynamic(size_t len, size_t max)
 	return (buf);
 }
 
-int ibuf_realloc(struct ibuf *buf, size_t len)
+static int ibuf_realloc(struct ibuf *buf, size_t len)
 {
 	uint8_t *b;
 
@@ -183,6 +183,8 @@ void msgbuf_drain(struct msgbuf *msgbuf, size_t n)
 		next = TAILQ_NEXT(buf, entry);
 		if (buf->rpos + n >= buf->wpos) {
 			n -= buf->wpos - buf->rpos;
+
+			TAILQ_REMOVE(&msgbuf->bufs, buf, entry);
 			ibuf_dequeue(msgbuf, buf);
 		} else {
 			buf->rpos += n;
@@ -195,7 +197,7 @@ void msgbuf_clear(struct msgbuf *msgbuf)
 {
 	struct ibuf *buf;
 
-	while ((buf = TAILQ_FIRST(&msgbuf->bufs)) != NULL)
+	while ((buf = TAILQ_POP_FIRST(&msgbuf->bufs, entry)) != NULL)
 		ibuf_dequeue(msgbuf, buf);
 }
 
@@ -266,16 +268,15 @@ again:
 	return (1);
 }
 
-void ibuf_enqueue(struct msgbuf *msgbuf, struct ibuf *buf)
+static void ibuf_enqueue(struct msgbuf *msgbuf, struct ibuf *buf)
 {
 	TAILQ_INSERT_TAIL(&msgbuf->bufs, buf, entry);
 	msgbuf->queued++;
 }
 
-void ibuf_dequeue(struct msgbuf *msgbuf, struct ibuf *buf)
+static void ibuf_dequeue(struct msgbuf *msgbuf, struct ibuf *buf)
 {
-	TAILQ_REMOVE(&msgbuf->bufs, buf, entry);
-
+	/* TAILQ_REMOVE done by caller */
 	if (buf->fd != -1)
 		close(buf->fd);
 

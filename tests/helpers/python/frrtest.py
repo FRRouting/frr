@@ -176,8 +176,14 @@ class TestRefOut(object):
         basedir = os.path.dirname(inspect.getsourcefile(type(self)))
         program = os.path.join(basedir, self.program)
 
-        refin = program + '.in'
-        refout = program + '.refout'
+        if getattr(self, 'built_refin', False):
+            refin = binpath(program) + '.in'
+        else:
+            refin = program + '.in'
+        if getattr(self, 'built_refout', False):
+            refout = binpath(program) + '.refout'
+        else:
+            refout = program + '.refout'
 
         intext = ''
         if os.path.exists(refin):

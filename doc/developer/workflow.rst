@@ -135,6 +135,11 @@ systems. Once the automated tests succeed, other developers will review your
 code for quality and correctness. After any concerns are resolved, your code
 will be merged into the branch it was submitted against.
 
+The title of the pull request should provide a high level technical
+summary of the included patches.  The description should provide
+additional details that will help the reviewer to understand the context
+of the included patches.
+
 Patch Submission via Mailing List
 ---------------------------------
 
@@ -329,6 +334,11 @@ Guidelines for code review
 
 - For a PR you marked with "Changes requested", please respond to updates in a
   timely manner to avoid impeding the flow of development.
+
+- Rejected or obsolete PRs are generally closed by the submitter based
+  on requests and/or agreement captured in a PR comment.  The comment
+  may originate with a reviewer or document agreement reached on Slack,
+  the Development mailing list, or the weekly technical meeting.
 
 
 Coding Practices & Style

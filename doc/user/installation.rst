@@ -139,6 +139,10 @@ options from the list below.
 
    Do not build isisd.
 
+.. option:: --disable-fabricd
+
+   Do not build fabricd.
+
 .. option:: --enable-isis-topology
 
    Enable IS-IS topology generator.

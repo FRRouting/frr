@@ -7,6 +7,10 @@
  * (at your option) any later version.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <netinet/if_ether.h>
 #include "nhrpd.h"
 #include "zbuf.h"

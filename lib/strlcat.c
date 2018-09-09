@@ -20,10 +20,12 @@
 /* adapted for Quagga from glibc patch submission originally from
  * Florian Weimer <fweimer@redhat.com>, 2016-05-18 */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdint.h>
 #include <string.h>
-
-#include "config.h"
 
 #ifndef HAVE_STRLCAT
 #undef strlcat

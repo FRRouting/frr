@@ -312,7 +312,7 @@ void ospf_bfd_write_config(struct vty *vty, struct ospf_if_params *params)
  * ospf_bfd_show_info - Show BFD info structure
  */
 void ospf_bfd_show_info(struct vty *vty, void *bfd_info, json_object *json_obj,
-			uint8_t use_json, int param_only)
+			bool use_json, int param_only)
 {
 	if (param_only)
 		bfd_show_param(vty, (struct bfd_info *)bfd_info, 1, 0, use_json,
@@ -326,7 +326,7 @@ void ospf_bfd_show_info(struct vty *vty, void *bfd_info, json_object *json_obj,
  * ospf_bfd_interface_show - Show the interface BFD configuration.
  */
 void ospf_bfd_interface_show(struct vty *vty, struct interface *ifp,
-			     json_object *json_interface_sub, uint8_t use_json)
+			     json_object *json_interface_sub, bool use_json)
 {
 	struct ospf_if_params *params;
 

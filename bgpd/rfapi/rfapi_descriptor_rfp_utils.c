@@ -18,9 +18,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-
-#include <errno.h>
-
 #include "lib/zebra.h"
 #include "lib/prefix.h"
 #include "lib/table.h"

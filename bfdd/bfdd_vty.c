@@ -827,7 +827,7 @@ DEFPY(bfd_show_peers_counters, bfd_show_peers_counters_cmd,
  * Configuration rules:
  *
  * Single hop:
- * peer + (optional vxlan or interface name)
+ * peer + (interface name)
  *
  * Multi hop:
  * peer + local + (optional vrf)
@@ -895,23 +895,6 @@ static int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 	}
 
 	bpc->bpc_mhop = mhop;
-
-#if 0
-	/* Handle VxLAN configuration. */
-	if (vxlan >= 0) {
-		if (vxlan > ((1 << 24) - 1)) {
-			snprintf(ebuf, ebuflen, "invalid VxLAN %d", vxlan);
-			return -1;
-		}
-		if (bpc->bpc_mhop) {
-			snprintf(ebuf, ebuflen,
-				 "multihop doesn't accept VxLAN");
-			return -1;
-		}
-
-		bpc->bpc_vxlan = vxlan;
-	}
-#endif /* VxLAN */
 
 	/* Handle interface specification configuration. */
 	if (ifname) {

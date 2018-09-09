@@ -213,7 +213,7 @@ int isis_sock_init(struct isis_circuit *circuit)
 
 int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 {
-	int bytesread = 0, bytestoread, offset, one = 1, err = ISIS_OK;
+	int bytesread = 0, bytestoread, offset, one = 1;
 	uint8_t *buff_ptr;
 	struct bpf_hdr *bpf_hdr;
 
@@ -249,7 +249,7 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, uint8_t *ssnpa)
 		memcpy(ssnpa, buff_ptr + bpf_hdr->bh_hdrlen + ETHER_ADDR_LEN,
 		ETHER_ADDR_LEN);
 
-		err = isis_handle_pdu(circuit, ssnpa);
+		isis_handle_pdu(circuit, ssnpa);
 		stream_reset(circuit->rcv_stream);
 		buff_ptr += BPF_WORDALIGN(bpf_hdr->bh_hdrlen +
 						bpf_hdr->bh_datalen);

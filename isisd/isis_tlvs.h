@@ -83,6 +83,8 @@ struct isis_extended_ip_reach {
 	uint32_t metric;
 	bool down;
 	struct prefix_ipv4 prefix;
+
+	struct isis_subtlvs *subtlvs;
 };
 
 struct isis_ipv6_reach;
@@ -101,6 +103,17 @@ struct isis_ipv6_reach {
 struct isis_protocols_supported {
 	uint8_t count;
 	uint8_t *protocols;
+};
+
+#define ISIS_TIER_UNDEFINED 15
+
+struct isis_spine_leaf {
+	uint8_t tier;
+
+	bool has_tier;
+	bool is_leaf;
+	bool is_spine;
+	bool is_backup;
 };
 
 enum isis_threeway_state {
@@ -176,6 +189,13 @@ struct isis_item_list {
 	unsigned int count;
 };
 
+struct isis_purge_originator {
+	bool sender_set;
+
+	uint8_t generator[6];
+	uint8_t sender[6];
+};
+
 RB_HEAD(isis_mt_item_list, isis_item_list);
 
 struct isis_item_list *isis_get_mt_items(struct isis_mt_item_list *m,
@@ -185,6 +205,7 @@ struct isis_item_list *isis_lookup_mt_items(struct isis_mt_item_list *m,
 
 struct isis_tlvs {
 	struct isis_item_list isis_auth;
+	struct isis_purge_originator *purge_originator;
 	struct isis_item_list area_addresses;
 	struct isis_item_list oldstyle_reach;
 	struct isis_item_list lan_neighbor;
@@ -205,11 +226,24 @@ struct isis_tlvs {
 	struct isis_item_list ipv6_reach;
 	struct isis_mt_item_list mt_ipv6_reach;
 	struct isis_threeway_adj *threeway_adj;
+	struct isis_spine_leaf *spine_leaf;
 };
 
-struct isis_subtlvs {
-	/* draft-baker-ipv6-isis-dst-src-routing-06 */
-	struct prefix_ipv6 *source_prefix;
+#define ISIS_PREFIX_SID_READVERTISED  0x80
+#define ISIS_PREFIX_SID_NODE          0x40
+#define ISIS_PREFIX_SID_NO_PHP        0x20
+#define ISIS_PREFIX_SID_EXPLICIT_NULL 0x10
+#define ISIS_PREFIX_SID_VALUE         0x08
+#define ISIS_PREFIX_SID_LOCAL         0x04
+
+struct isis_prefix_sid;
+struct isis_prefix_sid {
+	struct isis_prefix_sid *next;
+
+	uint8_t flags;
+	uint8_t algorithm;
+
+	uint32_t value;
 };
 
 enum isis_tlv_context {
@@ -220,6 +254,15 @@ enum isis_tlv_context {
 	ISIS_CONTEXT_MAX
 };
 
+struct isis_subtlvs {
+	enum isis_tlv_context context;
+
+	/* draft-baker-ipv6-isis-dst-src-routing-06 */
+	struct prefix_ipv6 *source_prefix;
+	/* draft-ietf-isis-segment-routing-extensions-16 */
+	struct isis_item_list prefix_sids;
+};
+
 enum isis_tlv_type {
 	ISIS_TLV_AREA_ADDRESSES = 1,
 	ISIS_TLV_OLDSTYLE_REACH = 2,
@@ -227,6 +270,7 @@ enum isis_tlv_type {
 	ISIS_TLV_PADDING = 8,
 	ISIS_TLV_LSP_ENTRY = 9,
 	ISIS_TLV_AUTH = 10,
+	ISIS_TLV_PURGE_ORIGINATOR = 13,
 	ISIS_TLV_EXTENDED_REACH = 22,
 
 	ISIS_TLV_OLDSTYLE_IP_REACH = 128,
@@ -236,6 +280,7 @@ enum isis_tlv_type {
 	ISIS_TLV_TE_ROUTER_ID = 134,
 	ISIS_TLV_EXTENDED_IP_REACH = 135,
 	ISIS_TLV_DYNAMIC_HOSTNAME = 137,
+	ISIS_TLV_SPINE_LEAF_EXT = 150,
 	ISIS_TLV_MT_REACH = 222,
 	ISIS_TLV_MT_ROUTER_INFO = 229,
 	ISIS_TLV_IPV6_ADDRESS = 232,
@@ -245,6 +290,7 @@ enum isis_tlv_type {
 	ISIS_TLV_THREE_WAY_ADJ = 240,
 	ISIS_TLV_MAX = 256,
 
+	ISIS_SUBTLV_PREFIX_SID = 3,
 	ISIS_SUBTLV_IPV6_SOURCE_PREFIX = 22
 };
 
@@ -331,6 +377,14 @@ void isis_tlvs_add_threeway_adj(struct isis_tlvs *tlvs,
 				const uint8_t *neighbor_id,
 				uint32_t neighbor_circuit_id);
 
+void isis_tlvs_add_spine_leaf(struct isis_tlvs *tlvs, uint8_t tier,
+			      bool has_tier, bool is_leaf, bool is_spine,
+			      bool is_backup);
+
 struct isis_mt_router_info *
 isis_tlvs_lookup_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid);
+
+void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
+				    const uint8_t *generator,
+				    const uint8_t *sender);
 #endif

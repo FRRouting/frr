@@ -72,4 +72,17 @@
 #include "freebsd-queue.h"
 #endif /* defined(__OpenBSD__) && !defined(STAILQ_HEAD) */
 
+#ifndef TAILQ_POP_FIRST
+#define TAILQ_POP_FIRST(head, field)                                           \
+	({  typeof((head)->tqh_first) _elm = TAILQ_FIRST(head);                \
+	    if (_elm) {                                                        \
+		if ((TAILQ_NEXT((_elm), field)) != NULL)                       \
+			TAILQ_NEXT((_elm), field)->field.tqe_prev =            \
+				&TAILQ_FIRST(head);                            \
+		else                                                           \
+			(head)->tqh_last = &TAILQ_FIRST(head);                 \
+		TAILQ_FIRST(head) = TAILQ_NEXT((_elm), field);                 \
+	}; _elm; })
+#endif
+
 #endif /* _FRR_QUEUE_H */

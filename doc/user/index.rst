@@ -42,6 +42,7 @@ Protocols
    bfd
    bgp
    babeld
+   fabricd
    ldpd
    eigrpd
    isisd

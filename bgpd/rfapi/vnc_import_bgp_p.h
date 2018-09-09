@@ -29,13 +29,13 @@
 
 extern void vnc_import_bgp_exterior_add_route_interior(
 	struct bgp *bgp, struct rfapi_import_table *it,
-	struct route_node *rn_interior, /* VPN IT node */
-	struct bgp_info *bi_interior);  /* VPN IT route */
+	struct agg_node *rn_interior,  /* VPN IT node */
+	struct bgp_info *bi_interior); /* VPN IT route */
 
 extern void vnc_import_bgp_exterior_del_route_interior(
 	struct bgp *bgp, struct rfapi_import_table *it,
-	struct route_node *rn_interior, /* VPN IT node */
-	struct bgp_info *bi_interior);  /* VPN IT route */
+	struct agg_node *rn_interior,  /* VPN IT node */
+	struct bgp_info *bi_interior); /* VPN IT route */
 
 extern void
 vnc_import_bgp_exterior_redist_enable_it(struct bgp *bgp, afi_t afi,
