@@ -1620,10 +1620,8 @@ lde_address_list_free(struct lde_nbr *ln)
 {
 	struct lde_addr		*lde_addr;
 
-	while ((lde_addr = TAILQ_FIRST(&ln->addr_list)) != NULL) {
-		TAILQ_REMOVE(&ln->addr_list, lde_addr, entry);
+	while ((lde_addr = TAILQ_POP_FIRST(&ln->addr_list, entry)) != NULL)
 		free(lde_addr);
-	}
 }
 
 static void zclient_sync_init(unsigned short instance)

@@ -705,7 +705,8 @@ static struct zserv *zserv_client_create(int sock)
 		.stop = frr_pthread_attr_default.stop
 	};
 	client->pthread =
-		frr_pthread_new(&zclient_pthr_attrs, "Zebra API client thread");
+		frr_pthread_new(&zclient_pthr_attrs, "Zebra API client thread",
+				"zebra_apic");
 
 	zebra_vrf_update_all(client);
 

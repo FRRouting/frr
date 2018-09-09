@@ -99,6 +99,7 @@ struct option longopts[] = {
 	{"ecmp", required_argument, NULL, 'e'},
 	{"label_socket", no_argument, NULL, 'l'},
 	{"retain", no_argument, NULL, 'r'},
+	{"vrfdefaultname", required_argument, NULL, 'o'},
 #ifdef HAVE_NETLINK
 	{"vrfwnetns", no_argument, NULL, 'n'},
 	{"nl-bufsize", required_argument, NULL, 's'},
@@ -235,7 +236,7 @@ int main(int argc, char **argv)
 	frr_preinit(&zebra_di, argc, argv);
 
 	frr_opt_add(
-		"bakz:e:l:r"
+		"bakz:e:l:o:r"
 #ifdef HAVE_NETLINK
 		"s:n"
 #endif
@@ -254,6 +255,7 @@ int main(int argc, char **argv)
 		"  -l, --label_socket    Socket to external label manager\n"
 		"  -k, --keep_kernel     Don't delete old routes which were installed by zebra.\n"
 		"  -r, --retain          When program terminates, retain added route by zebra.\n"
+		"  -o, --vrfdefaultname  Set default VRF name.\n"
 #ifdef HAVE_NETLINK
 		"  -n, --vrfwnetns       Use NetNS as VRF backend\n"
 		"  -s, --nl-bufsize      Set netlink receive buffer size\n"
@@ -295,6 +297,9 @@ int main(int argc, char **argv)
 					MULTIPATH_NUM);
 				return 1;
 			}
+			break;
+		case 'o':
+			vrf_set_default_name(optarg);
 			break;
 		case 'z':
 			zserv_path = optarg;

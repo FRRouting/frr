@@ -202,6 +202,7 @@ int skiplist_insert(register struct skiplist *l, register void *key,
 	}
 
 	k = randomLevel();
+	assert(k >= 0);
 	if (k > l->level) {
 		k = ++l->level;
 		update[k] = l->header;

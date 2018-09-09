@@ -40,10 +40,10 @@ struct rfapi_import_table {
 	struct ecommunity *rt_import_list; /* copied from nve grp */
 	int refcount;			   /* nve grps and nves */
 	uint32_t l2_logical_net_id;	/* L2 only: EVPN Eth Seg Id */
-	struct route_table *imported_vpn[AFI_MAX];
+	struct agg_table *imported_vpn[AFI_MAX];
 	struct rfapi_monitor_vpn *vpn0_queries[AFI_MAX];
 	struct rfapi_monitor_eth *eth0_queries;
-	struct route_table *imported_encap[AFI_MAX];
+	struct agg_table *imported_encap[AFI_MAX];
 	struct skiplist *monitor_exterior_orphans;
 	int local_count[AFI_MAX];
 	int remote_count[AFI_MAX];
@@ -80,7 +80,7 @@ extern void rfapiCheckRouteCount(void);
 extern void rfapiPrintBi(void *stream, struct bgp_info *bi);
 
 extern void rfapiShowImportTable(void *stream, const char *label,
-				 struct route_table *rt, int isvpn);
+				 struct agg_table *rt, int isvpn);
 
 extern struct rfapi_import_table *
 rfapiImportTableRefAdd(struct bgp *bgp, struct ecommunity *rt_import_list,
@@ -100,32 +100,31 @@ extern void rfapiImportTableRefDelByIt(struct bgp *bgp,
  * next less-specific node (i.e., this node's parent) at the end.
  */
 extern struct rfapi_next_hop_entry *rfapiRouteNode2NextHopList(
-	struct route_node *rn, uint32_t lifetime, /* put into nexthop entries */
-	struct rfapi_ip_addr *exclude_vnaddr,     /* omit routes to same NVE */
-	struct route_table *rfd_rib_table,   /* preload this NVE rib table */
-	struct prefix *pfx_target_original); /* query target */
+	struct agg_node *rn, uint32_t lifetime, /* put into nexthop entries */
+	struct rfapi_ip_addr *exclude_vnaddr,   /* omit routes to same NVE */
+	struct agg_table *rfd_rib_table,	/* preload this NVE rib table */
+	struct prefix *pfx_target_original);    /* query target */
 
 extern struct rfapi_next_hop_entry *rfapiRouteTable2NextHopList(
-	struct route_table *rt,
-	uint32_t lifetime,		      /* put into nexthop entries */
-	struct rfapi_ip_addr *exclude_vnaddr, /* omit routes to same NVE */
-	struct route_table *rfd_rib_table,    /* preload this NVE rib table */
-	struct prefix *pfx_target_original);  /* query target */
+	struct agg_table *rt, uint32_t lifetime, /* put into nexthop entries */
+	struct rfapi_ip_addr *exclude_vnaddr,    /* omit routes to same NVE */
+	struct agg_table *rfd_rib_table,     /* preload this NVE rib table */
+	struct prefix *pfx_target_original); /* query target */
 
 extern struct rfapi_next_hop_entry *rfapiEthRouteTable2NextHopList(
 	uint32_t logical_net_id, struct rfapi_ip_prefix *rprefix,
 	uint32_t lifetime,		      /* put into nexthop entries */
 	struct rfapi_ip_addr *exclude_vnaddr, /* omit routes to same NVE */
-	struct route_table *rib_route_table,  /* preload NVE rib node */
+	struct agg_table *rib_route_table,    /* preload NVE rib node */
 	struct prefix *pfx_target_original);  /* query target */
 
 extern int rfapiEcommunitiesIntersect(struct ecommunity *e1,
 				      struct ecommunity *e2);
 
-extern void rfapiCheckRefcount(struct route_node *rn, safi_t safi,
+extern void rfapiCheckRefcount(struct agg_node *rn, safi_t safi,
 			       int lockoffset);
 
-extern int rfapiHasNonRemovedRoutes(struct route_node *rn);
+extern int rfapiHasNonRemovedRoutes(struct agg_node *rn);
 
 extern int rfapiProcessDeferredClose(struct thread *t);
 
@@ -153,10 +152,10 @@ extern void rfapiBgpInfoFilteredImportVPN(
 	uint32_t *label);  /* part of bgp_info */
 
 extern struct rfapi_next_hop_entry *rfapiEthRouteNode2NextHopList(
-	struct route_node *rn, struct rfapi_ip_prefix *rprefix,
+	struct agg_node *rn, struct rfapi_ip_prefix *rprefix,
 	uint32_t lifetime,		      /* put into nexthop entries */
 	struct rfapi_ip_addr *exclude_vnaddr, /* omit routes to same NVE */
-	struct route_table *rib_route_table,  /* preload NVE rib table */
+	struct agg_table *rib_route_table,    /* preload NVE rib table */
 	struct prefix *pfx_target_original);  /* query target */
 
 extern struct rfapi_import_table *rfapiMacImportTableGetNoAlloc(struct bgp *bgp,

@@ -1,0 +1,17 @@
+#
+# librfp
+#
+
+if ENABLE_BGP_VNC
+noinst_LIBRARIES += bgpd/rfp-example/librfp/librfp.a
+RFPLDADD = bgpd/rfp-example/librfp/librfp.a
+endif
+
+bgpd_rfp_example_librfp_librfp_a_SOURCES = \
+	bgpd/rfp-example/librfp/rfp_example.c \
+	# end
+
+noinst_HEADERS += \
+	bgpd/rfp-example/librfp/rfp.h \
+	bgpd/rfp-example/librfp/rfp_internal.h \
+	# end

@@ -96,7 +96,7 @@ class IP4Handler(IPBase):
     code = Template('_fail = !inet_aton(argv[_i]->arg, &$varname);')
 class IP6Handler(IPBase):
     argtype = 'struct in6_addr'
-    decl = Template('struct in6_addr $varname = IN6ADDR_ANY_INIT;')
+    decl = Template('struct in6_addr $varname = {};')
     code = Template('_fail = !inet_pton(AF_INET6, argv[_i]->arg, &$varname);')
 class IPGenHandler(IPBase):
     argtype = 'const union sockunion *'
@@ -277,4 +277,4 @@ if __name__ == '__main__':
     process_file(args.cfile, ofd, dumpfd, args.all_defun)
 
     if args.o is not None:
-        clippy.wrdiff(args.o, ofd, [args.cfile, os.path.realpath(__file__)])
+        clippy.wrdiff(args.o, ofd, [args.cfile, os.path.realpath(__file__), sys.executable])

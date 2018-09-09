@@ -4,6 +4,8 @@
 
 if WATCHFRR
 sbin_PROGRAMS += watchfrr/watchfrr
+vtysh_scan += $(top_srcdir)/watchfrr/watchfrr_vty.c
+man8 += $(MANBUILD)/watchfrr.8
 endif
 
 noinst_HEADERS += \

@@ -218,10 +218,6 @@ static int parse_peer_config(struct json_object *jo, struct bfd_peer_cfg *bpc)
 			} else {
 				log_debug("\tlocal-interface: %s", sval);
 			}
-		} else if (strcmp(key, "vxlan") == 0) {
-			bpc->bpc_vxlan = json_object_get_int64(jo_val);
-			bpc->bpc_has_vxlan = true;
-			log_debug("\tvxlan: %ld", bpc->bpc_vxlan);
 		} else if (strcmp(key, "vrf-name") == 0) {
 			bpc->bpc_has_vrfname = true;
 			sval = json_object_get_string(jo_val);

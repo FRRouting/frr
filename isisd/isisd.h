@@ -33,11 +33,31 @@
 #include "isis_memory.h"
 #include "qobj.h"
 
+#ifdef FABRICD
+static const bool fabricd = true;
+#define PROTO_TYPE ZEBRA_ROUTE_OPENFABRIC
+#define PROTO_NAME "openfabric"
+#define PROTO_HELP "OpenFabric routing protocol\n"
+#define PROTO_REDIST_STR FRR_REDIST_STR_FABRICD
+#define PROTO_REDIST_HELP FRR_REDIST_HELP_STR_FABRICD
+#define ROUTER_NODE OPENFABRIC_NODE
+#else
+static const bool fabricd = false;
+#define PROTO_TYPE ZEBRA_ROUTE_ISIS
+#define PROTO_NAME "isis"
+#define PROTO_HELP "IS-IS routing protocol\n"
+#define PROTO_REDIST_STR FRR_REDIST_STR_ISISD
+#define PROTO_REDIST_HELP FRR_REDIST_HELP_STR_ISISD
+#define ROUTER_NODE ISIS_NODE
+#endif
+
 extern struct zebra_privs_t isisd_privs;
 
 /* uncomment if you are a developer in bug hunt */
 /* #define EXTREME_DEBUG  */
 /* #define EXTREME_DICT_DEBUG */
+
+struct fabricd;
 
 struct isis {
 	unsigned long process_id;
@@ -93,6 +113,8 @@ struct isis_area {
 	 */
 	int lsp_regenerate_pending[ISIS_LEVELS];
 
+	struct fabricd *fabricd;
+
 	/*
 	 * Configurables
 	 */
@@ -126,6 +148,7 @@ struct isis_area {
 	/* multi topology settings */
 	struct list *mt_settings;
 	int ipv6_circuits;
+	bool purge_originator;
 	/* Counters */
 	uint32_t circuit_state_changes;
 	struct isis_redist redist_settings[REDIST_PROTOCOL_COUNT]
@@ -168,7 +191,6 @@ int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
 				   const char *passwd, uint8_t snp_auth);
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				  const char *passwd, uint8_t snp_auth);
-void isis_vty_init(void);
 
 /* Master of threads. */
 extern struct thread_master *master;
@@ -188,6 +210,7 @@ extern struct thread_master *master;
 #define DEBUG_PACKET_DUMP                (1<<12)
 #define DEBUG_LSP_GEN                    (1<<13)
 #define DEBUG_LSP_SCHED                  (1<<14)
+#define DEBUG_FABRICD_FLOODING           (1<<15)
 
 #define lsp_debug(...)                                                         \
 	do {                                                                   \

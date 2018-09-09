@@ -64,7 +64,7 @@ void pim_bfd_write_config(struct vty *vty, struct interface *ifp)
  * pim_bfd_show_info - Show BFD info structure
  */
 void pim_bfd_show_info(struct vty *vty, void *bfd_info, json_object *json_obj,
-		       uint8_t use_json, int param_only)
+		       bool use_json, int param_only)
 {
 	if (param_only)
 		bfd_show_param(vty, (struct bfd_info *)bfd_info, 1, 0, use_json,

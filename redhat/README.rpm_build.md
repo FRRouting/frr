@@ -3,16 +3,15 @@ Building your own FRRouting RPM
 (Tested on CentOS 6, CentOS 7 and Fedora 24.)
 
 1. On CentOS 6 (which doesn't provide a bison/automake/autoconf of a recent enough version):
-    - Check out ../doc/Building_FRR_on_CentOS6.md for details on installing
+    - Check out ../doc/developer/building-frr-for-centos6.rst for details on installing
     a bison/automake/autoconf to support frr building.
 
     Newer automake/autoconf/bison is only needed to build the rpm and is
     **not** needed to install the binary rpm package
 
-2. Install the build packages as documented in doc/Building_on_xxxxx.md 
-   and the following additional packages:
+2. Install the build packages as documented in doc/developer/building-frr-for-xxxxx.rst and the following additional packages:
 
-        yum install rpm-build net-snmp-devel pam-devel
+        yum install rpm-build net-snmp-devel pam-devel libcap-devel
 
     Additionally, on systems with systemd (CentOS 7, Fedora)
 
@@ -28,8 +27,9 @@ Building your own FRRouting RPM
 
         cd frr
         ./bootstrap.sh
-        ./configure --with-pkg-extra-version=-MyRPMVersion
-        make SPHINXBUILD=sphinx-build2.7 dist
+        ./configure --with-pkg-extra-version=-MyRPMVersion \
+            SPHINXBUILD=sphinx-build2.7
+        make dist
             
     Note: configure parameters are not important for the RPM building - except the `with-pkg-extra-version` if you want to give the RPM a specific name to
     mark your own unoffical build

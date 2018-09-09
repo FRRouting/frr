@@ -208,7 +208,7 @@ int main(int argc, char *argv[], char *envp[])
 	/* thread master */
 	master = frr_init();
 
-	vrf_init(NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	access_list_init();
 	prefix_list_init();
 

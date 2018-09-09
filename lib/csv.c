@@ -17,6 +17,11 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -563,6 +568,8 @@ void csv_decode(csv_t *csv, char *inbuf)
 	csv_record_t *rec;
 
 	buf = (inbuf) ? inbuf : csv->buf;
+	assert(buf);
+
 	pos = strpbrk(buf, "\n");
 	while (pos != NULL) {
 		rec = calloc(1, sizeof(csv_record_t));

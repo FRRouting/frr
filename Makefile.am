@@ -1,12 +1,77 @@
 ## Process this file with automake to produce Makefile.in.
 
 AUTOMAKE_OPTIONS = subdir-objects 1.12
-include common.am
+ACLOCAL_AMFLAGS = -I m4
 
-AM_CPPFLAGS += -I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
-	      -I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib
+AM_CFLAGS = \
+	$(SAN_FLAGS) \
+	$(WERROR) \
+	# end
+AM_CPPFLAGS = \
+	-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
+	-I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib
+AM_LDFLAGS = \
+	-export-dynamic \
+	$(SAN_FLAGS) \
+	# end
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE)
 LIBCAP = @LIBCAP@
+
+# these two targets are provided to easily grab autoconf/Makefile variables
+# you can use either:
+#   eval `make VARFD=3 shvar-CFLAGS 3>&1 1>&2`
+#   CFLAGS="`make VARFD=3 var-CFLAGS 3>&1 1>&2`"
+# where the former can be used to set several variables at once.  Note the
+# fd redirections -- this is to prevent garbage from make rebuilding other
+# targets from causing issues.
+.PHONY: shvar-% var-%
+VARFD ?= 1
+shvar-%:
+	@echo "$*=\"$($*)\"" >&$(VARFD)
+var-%:
+	@echo "$($*)" >&$(VARFD)
+
+# overwriting these vars breaks cross-compilation.  let's be helpful and warn.
+#
+# note: "#AUTODERP# " will be removed from Makefile by configure.  These are
+# GNU make directives & automake will f*ck them up by trying to process them
+# as automake directives.
+#
+#AUTODERP# null=
+#AUTODERP# SPACE=$(null) $(null)
+#AUTODERP# mkcheck_CC =       $(findstring $(SPACE)CC=,      $(SPACE)$(MAKEOVERRIDES))
+#AUTODERP# mkcheck_CFLAGS =   $(findstring $(SPACE)CFLAGS=,  $(SPACE)$(MAKEOVERRIDES))
+#AUTODERP# mkcheck_CPPFLAGS = $(findstring $(SPACE)CPPFLAGS=,$(SPACE)$(MAKEOVERRIDES))
+#AUTODERP# mkcheck_CCLD =     $(findstring $(SPACE)CCLD=,    $(SPACE)$(MAKEOVERRIDES))
+#AUTODERP# mkcheck_LD =       $(findstring $(SPACE)LD=,      $(SPACE)$(MAKEOVERRIDES))
+#AUTODERP# mkcheck_LDFLAGS =  $(findstring $(SPACE)LDFLAGS=, $(SPACE)$(MAKEOVERRIDES))
+#AUTODERP# #
+#AUTODERP# ifneq ($(mkcheck_CC),)
+#AUTODERP#   $(warning WARNING: you have overwritten the "CC" variable on the make command line.)
+#AUTODERP# endif
+#AUTODERP# ifneq ($(mkcheck_CFLAGS),)
+#AUTODERP#   $(warning WARNING: you have overwritten the "CFLAGS" variable on the make command line.)
+#AUTODERP# endif
+#AUTODERP# ifneq ($(mkcheck_CPPFLAGS),)
+#AUTODERP#   $(warning WARNING: you have overwritten the "CPPFLAGS" variable on the make command line.)
+#AUTODERP# endif
+#AUTODERP# ifneq ($(mkcheck_CCLD),)
+#AUTODERP#   $(warning WARNING: you have overwritten the "CCLD" variable on the make command line.)
+#AUTODERP# endif
+#AUTODERP# ifneq ($(mkcheck_LD),)
+#AUTODERP#   $(warning WARNING: you have overwritten the "LD" variable on the make command line.)
+#AUTODERP# endif
+#AUTODERP# ifneq ($(mkcheck_LDFLAGS),)
+#AUTODERP#   $(warning WARNING: you have overwritten the "LDFLAGS" variable on the make command line.)
+#AUTODERP# endif
+#AUTODERP# #
+#AUTODERP# ifneq ($(mkcheck_CC)$(mkcheck_CFLAGS)$(mkcheck_CPPFLAGS)$(mkcheck_CCLD)$(mkcheck_LD)$(mkcheck_LDFLAGS),)
+#AUTODERP#   $(warning ------)
+#AUTODERP#   $(warning While overwriting these variables works most of the time, it is not recommended and can cause confusing build errors.)
+#AUTODERP#   $(warning This is especially problematic when cross-compiling, since tools that run on the build system during the build process will not be compiled correctly.)
+#AUTODERP#   $(warning All of these variables should be supplied to 'configure', and they will be remembered and correctly applied during 'make'.)
+#AUTODERP#   $(warning ------)
+#AUTODERP# endif
 
 EXTRA_DIST =
 BUILT_SOURCES =
@@ -20,11 +85,14 @@ sbin_SCRIPTS =
 noinst_PROGRAMS =
 noinst_HEADERS =
 noinst_LIBRARIES =
+nodist_noinst_DATA =
 lib_LTLIBRARIES =
 module_LTLIBRARIES =
 pkginclude_HEADERS =
 nodist_pkginclude_HEADERS =
 dist_examples_DATA =
+man_MANS =
+vtysh_scan =
 
 ## libtool, the self-made GNU scourge
 ## ... this should fix relinking
@@ -34,6 +102,10 @@ $(AUTOMAKE_DUMMY)install-moduleLTLIBRARIES: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-binPROGRAMS: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-sbinPROGRAMS: install-libLTLIBRARIES
 
+include doc/subdir.am
+include doc/user/subdir.am
+include doc/manpages/subdir.am
+include doc/developer/subdir.am
 include include/subdir.am
 include lib/subdir.am
 include zebra/subdir.am
@@ -41,7 +113,12 @@ include watchfrr/subdir.am
 include qpb/subdir.am
 include fpm/subdir.am
 include tools/subdir.am
+include debianpkg/subdir.am
+include solaris/subdir.am
 
+include bgpd/subdir.am
+include bgpd/rfp-example/librfp/subdir.am
+include bgpd/rfp-example/rfptest/subdir.am
 include ripd/subdir.am
 include ripngd/subdir.am
 include ospfd/subdir.am
@@ -58,17 +135,8 @@ include pbrd/subdir.am
 include staticd/subdir.am
 include bfdd/subdir.am
 
-SUBDIRS = . @LIBRFP@ @RFPTEST@ \
-	 @BGPD@ \
-	 @VTYSH@ @DOC@ \
-         @SOLARIS@ tests
-
-DIST_SUBDIRS = . bgpd \
-	  vtysh doc tests \
-	  solaris bgpd/rfp-example/librfp \
-	  bgpd/rfp-example/rfptest \
-	  debianpkg \
-	  # end
+include vtysh/subdir.am
+include tests/subdir.am
 
 if PKGSRC
 rcdir=@pkgsrcrcdir@
@@ -106,11 +174,36 @@ EXTRA_DIST += \
 	snapcraft/helpers \
 	snapcraft/snap \
 	\
-	vtysh/Makefile.am \
-	vtysh/Makefile.in \
+	babeld/Makefile \
+	bgpd/Makefile \
+	bgpd/rfp-example/librfp/Makefile \
+	bgpd/rfp-example/rfptest/Makefile \
+	doc/Makefile \
+	doc/developer/Makefile \
+	doc/manpages/Makefile \
+	doc/user/Makefile \
+	eigrpd/Makefile \
+	fpm/Makefile \
+	isisd/Makefile \
+	ldpd/Makefile \
+	lib/Makefile \
+	nhrpd/Makefile \
+	ospf6d/Makefile \
+	ospfclient/Makefile \
+	ospfd/Makefile \
+	pbrd/Makefile \
+	pimd/Makefile \
+	ports/Makefile \
+	qpb/Makefile \
+	ripd/Makefile \
+	ripngd/Makefile \
+	staticd/Makefile \
+	tests/Makefile \
+	tools/Makefile \
+	vtysh/Makefile \
+	watchfrr/Makefile \
+	zebra/Makefile \
 	# end
-
-ACLOCAL_AMFLAGS = -I m4
 
 noinst_HEADERS += defaults.h
 

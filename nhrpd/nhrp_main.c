@@ -7,6 +7,10 @@
  * (at your option) any later version.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <unistd.h>
 
 #include "zebra.h"
@@ -130,7 +134,7 @@ int main(int argc, char **argv)
 	/* Library inits. */
 	master = frr_init();
 	nhrp_error_init();
-	vrf_init(NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	nhrp_interface_init();
 	resolver_init();
 

@@ -261,8 +261,10 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 		return;
 
 	memset(&api, 0, sizeof(api));
+	if (fabricd)
+		api.flags |= ZEBRA_FLAG_ONLINK;
 	api.vrf_id = VRF_DEFAULT;
-	api.type = ZEBRA_ROUTE_ISIS;
+	api.type = PROTO_TYPE;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *prefix;
 	if (src_p && src_p->prefixlen) {
@@ -337,7 +339,7 @@ static void isis_zebra_route_del_route(struct prefix *prefix,
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
-	api.type = ZEBRA_ROUTE_ISIS;
+	api.type = PROTO_TYPE;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *prefix;
 	if (src_p && src_p->prefixlen) {
@@ -378,7 +380,7 @@ static int isis_zebra_read(int command, struct zclient *zclient,
 	 */
 	if (api.prefix.prefixlen == 0
 	    && api.src_prefix.prefixlen == 0
-	    && api.type == ZEBRA_ROUTE_ISIS) {
+	    && api.type == PROTO_TYPE) {
 		command = ZEBRA_REDISTRIBUTE_ROUTE_DEL;
 	}
 
@@ -424,7 +426,7 @@ static void isis_zebra_connected(struct zclient *zclient)
 void isis_zebra_init(struct thread_master *master)
 {
 	zclient = zclient_new_notify(master, &zclient_options_default);
-	zclient_init(zclient, ZEBRA_ROUTE_ISIS, 0, &isisd_privs);
+	zclient_init(zclient, PROTO_TYPE, 0, &isisd_privs);
 	zclient->zebra_connected = isis_zebra_connected;
 	zclient->router_id_update = isis_router_id_update_zebra;
 	zclient->interface_add = isis_zebra_if_add;

@@ -333,6 +333,7 @@ man_pages = [
     ('vtysh', 'vtysh', 'an integrated shell for FRRouting.', [], 1),
     ('frr', 'frr', 'a systemd interaction script', [], 1),
     ('bfdd', 'bfdd', fwfrr.format("a bfd"), [], 8),
+    ('fabricd', 'fabricd', fwfrr.format("an OpenFabric "), [], 8),
 ]
 
 # -- Options for Texinfo output -------------------------------------------

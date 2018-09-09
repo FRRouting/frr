@@ -105,9 +105,6 @@ struct bfd_echo_pkt {
 #define BFD_CBIT 0x08
 #define BFD_ABIT 0x04
 #define BFD_DEMANDBIT 0x02
-#define BFD_DIAGNEIGHDOWN 3
-#define BFD_DIAGDETECTTIME 1
-#define BFD_DIAGADMINDOWN 7
 #define BFD_SETDEMANDBIT(flags, val)                                           \
 	{                                                                      \
 		if ((val))                                                     \
@@ -133,18 +130,27 @@ struct bfd_echo_pkt {
 #define BFD_GETSTATE(flags) ((flags >> 6) & 0x3)
 #define BFD_ECHO_VERSION 1
 #define BFD_ECHO_PKT_LEN sizeof(struct bfd_echo_pkt)
-#define BFD_CTRL_PKT_LEN sizeof(struct bfd_pkt)
-#define IP_HDR_LEN 20
-#define UDP_HDR_LEN 8
-#define ETH_HDR_LEN 14
-#define VXLAN_HDR_LEN 8
-#define HEADERS_MIN_LEN (ETH_HDR_LEN + IP_HDR_LEN + UDP_HDR_LEN)
-#define BFD_ECHO_PKT_TOT_LEN                                                   \
-	((int)(ETH_HDR_LEN + IP_HDR_LEN + UDP_HDR_LEN + BFD_ECHO_PKT_LEN))
-#define BFD_VXLAN_PKT_TOT_LEN                                                  \
-	((int)(VXLAN_HDR_LEN + ETH_HDR_LEN + IP_HDR_LEN + UDP_HDR_LEN          \
-	       + BFD_CTRL_PKT_LEN))
-#define BFD_RX_BUF_LEN 160
+
+enum bfd_diagnosticis {
+	BD_OK = 0,
+	/* Control Detection Time Expired. */
+	BD_CONTROL_EXPIRED = 1,
+	/* Echo Function Failed. */
+	BD_ECHO_FAILED = 2,
+	/* Neighbor Signaled Session Down. */
+	BD_NEIGHBOR_DOWN = 3,
+	/* Forwarding Plane Reset. */
+	BD_FORWARDING_RESET = 4,
+	/* Path Down. */
+	BD_PATH_DOWN = 5,
+	/* Concatenated Path Down. */
+	BD_CONCATPATH_DOWN = 6,
+	/* Administratively Down. */
+	BD_ADMIN_DOWN = 7,
+	/* Reverse Concatenated Path Down. */
+	BD_REVCONCATPATH_DOWN = 8,
+	/* 9..31: reserved. */
+};
 
 /* BFD session flags */
 enum bfd_session_flags {
@@ -154,9 +160,6 @@ enum bfd_session_flags {
 					     * actively
 					     */
 	BFD_SESS_FLAG_MH = 1 << 2,	  /* BFD Multi-hop session */
-	BFD_SESS_FLAG_VXLAN = 1 << 3,       /* BFD Multi-hop session which is
-					     * used to monitor vxlan tunnel
-					     */
 	BFD_SESS_FLAG_IPV6 = 1 << 4,	/* BFD IPv6 session */
 	BFD_SESS_FLAG_SEND_EVT_ACTIVE = 1 << 5, /* send event timer active */
 	BFD_SESS_FLAG_SEND_EVT_IGNORE = 1 << 6, /* ignore send event when timer
@@ -189,18 +192,6 @@ struct bfd_session_stats {
 	uint64_t session_up;
 	uint64_t session_down;
 	uint64_t znotification;
-};
-
-struct bfd_session_vxlan_info {
-	uint32_t vnid;
-	uint32_t decay_min_rx;
-	uint8_t forwarding_if_rx;
-	uint8_t cpath_down;
-	uint8_t check_tnl_key;
-	uint8_t local_dst_mac[ETHERNET_ADDRESS_LENGTH];
-	uint8_t peer_dst_mac[ETHERNET_ADDRESS_LENGTH];
-	struct in_addr local_dst_ip;
-	struct in_addr peer_dst_ip;
 };
 
 /* bfd_session shortcut label forwarding. */
@@ -249,16 +240,11 @@ struct bfd_session {
 	int ifindex;
 	uint8_t local_mac[ETHERNET_ADDRESS_LENGTH];
 	uint8_t peer_mac[ETHERNET_ADDRESS_LENGTH];
-	uint16_t ip_id;
 
 	/* BFD session flags */
 	enum bfd_session_flags flags;
 
-	uint8_t echo_pkt[BFD_ECHO_PKT_TOT_LEN]; /* Save the Echo Packet
-						 * which will be transmitted
-						 */
 	struct bfd_session_stats stats;
-	struct bfd_session_vxlan_info vxlan_info;
 
 	struct timeval uptime;   /* last up time */
 	struct timeval downtime; /* last down time */
@@ -407,7 +393,7 @@ struct bfd_global {
 	int bg_shop6;
 	int bg_mhop6;
 	int bg_echo;
-	int bg_vxlan;
+	int bg_echov6;
 	struct thread *bg_ev[6];
 
 	int bg_csock;
@@ -473,10 +459,10 @@ void log_fatal(const char *fmt, ...);
  *
  * Contains the code related with receiving/seding, packing/unpacking BFD data.
  */
-int bp_set_ttlv6(int sd);
-int bp_set_ttl(int sd);
-int bp_set_tosv6(int sd);
-int bp_set_tos(int sd);
+int bp_set_ttlv6(int sd, uint8_t value);
+int bp_set_ttl(int sd, uint8_t value);
+int bp_set_tosv6(int sd, uint8_t value);
+int bp_set_tos(int sd, uint8_t value);
 int bp_bind_dev(int sd, const char *dev);
 
 int bp_udp_shop(void);
@@ -485,13 +471,13 @@ int bp_udp6_shop(void);
 int bp_udp6_mhop(void);
 int bp_peer_socket(struct bfd_peer_cfg *bpc);
 int bp_peer_socketv6(struct bfd_peer_cfg *bpc);
+int bp_echo_socket(void);
+int bp_echov6_socket(void);
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit);
 void ptm_bfd_echo_snd(struct bfd_session *bfd);
 
 int bfd_recv_cb(struct thread *t);
-
-uint16_t checksum(uint16_t *buf, int len);
 
 
 /*
@@ -602,30 +588,13 @@ int ptm_bfd_notify(struct bfd_session *bs);
 /*
  * OS compatibility functions.
  */
-struct udp_psuedo_header {
-	uint32_t saddr;
-	uint32_t daddr;
-	uint8_t reserved;
-	uint8_t protocol;
-	uint16_t len;
-};
-
-#define UDP_PSUEDO_HDR_LEN sizeof(struct udp_psuedo_header)
-
 #if defined(BFD_LINUX) || defined(BFD_BSD)
 int ptm_bfd_fetch_ifindex(const char *ifname);
 void ptm_bfd_fetch_local_mac(const char *ifname, uint8_t *mac);
 void fetch_portname_from_ifindex(int ifindex, char *ifname, size_t ifnamelen);
-int ptm_bfd_echo_sock_init(void);
-int ptm_bfd_vxlan_sock_init(void);
 #endif /* BFD_LINUX || BFD_BSD */
 
-#ifdef BFD_LINUX
-uint16_t udp4_checksum(struct iphdr *iph, uint8_t *buf, int len);
-#endif /* BFD_LINUX */
-
 #ifdef BFD_BSD
-uint16_t udp4_checksum(struct ip *ip, uint8_t *buf, int len);
 ssize_t bsd_echo_sock_read(int sd, uint8_t *buf, ssize_t *buflen,
 			   struct sockaddr_storage *ss, socklen_t *sslen,
 			   uint8_t *ttl, uint32_t *id);

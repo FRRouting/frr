@@ -34,9 +34,8 @@ extern void bgp_flowspec_vty_init(void);
 
 extern int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 				   struct bgp_table *table,
-				   enum bgp_show_type type,
-				   void *output_arg, uint8_t use_json,
-				   int is_last,
+				   enum bgp_show_type type, void *output_arg,
+				   bool use_json, int is_last,
 				   unsigned long *output_cum,
 				   unsigned long *total_cum);
 
@@ -50,12 +49,10 @@ extern void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 extern int bgp_fs_config_write_pbr(struct vty *vty, struct bgp *bgp,
 				   afi_t afi, safi_t safi);
 
-extern int bgp_flowspec_display_match_per_ip(afi_t afi,
-				struct bgp_table *rib,
-				struct prefix *match,
-				int prefix_check,
-				struct vty *vty,
-				uint8_t use_json,
-				json_object *json_paths);
+extern int bgp_flowspec_display_match_per_ip(afi_t afi, struct bgp_table *rib,
+					     struct prefix *match,
+					     int prefix_check, struct vty *vty,
+					     bool use_json,
+					     json_object *json_paths);
 
 #endif /* _FRR_BGP_FLOWSPEC_H */

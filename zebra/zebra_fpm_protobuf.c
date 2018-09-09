@@ -129,6 +129,7 @@ static inline int add_nexthop(qpb_allocator_t *allocator, Fpm__AddRoute *msg,
 	}
 
 	// TODO: Use src.
+	(void)src;
 
 	return 1;
 }

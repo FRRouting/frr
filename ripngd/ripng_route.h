@@ -42,11 +42,11 @@ struct ripng_aggregate {
 	uint16_t tag_out;
 };
 
-extern void ripng_aggregate_increment(struct route_node *rp,
+extern void ripng_aggregate_increment(struct agg_node *rp,
 				      struct ripng_info *rinfo);
-extern void ripng_aggregate_decrement(struct route_node *rp,
+extern void ripng_aggregate_decrement(struct agg_node *rp,
 				      struct ripng_info *rinfo);
-extern void ripng_aggregate_decrement_list(struct route_node *rp,
+extern void ripng_aggregate_decrement_list(struct agg_node *rp,
 					   struct list *list);
 extern int ripng_aggregate_add(struct prefix *p);
 extern int ripng_aggregate_delete(struct prefix *p);

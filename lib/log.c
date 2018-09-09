@@ -925,7 +925,6 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_IMPORT_ROUTE_REGISTER),
 	DESC_ENTRY(ZEBRA_IMPORT_ROUTE_UNREGISTER),
 	DESC_ENTRY(ZEBRA_IMPORT_CHECK_UPDATE),
-	DESC_ENTRY(ZEBRA_IPV4_ROUTE_IPV6_NEXTHOP_ADD),
 	DESC_ENTRY(ZEBRA_BFD_DEST_REGISTER),
 	DESC_ENTRY(ZEBRA_BFD_DEST_DEREGISTER),
 	DESC_ENTRY(ZEBRA_BFD_DEST_UPDATE),
@@ -1075,6 +1074,8 @@ int proto_redistnum(int afi, const char *s)
 			return ZEBRA_ROUTE_BABEL;
 		else if (strmatch(s, "sharp"))
 			return ZEBRA_ROUTE_SHARP;
+		else if (strmatch(s, "openfabric"))
+			return ZEBRA_ROUTE_OPENFABRIC;
 	}
 	if (afi == AFI_IP6) {
 		if (strmatch(s, "kernel"))
@@ -1103,6 +1104,8 @@ int proto_redistnum(int afi, const char *s)
 			return ZEBRA_ROUTE_BABEL;
 		else if (strmatch(s, "sharp"))
 			return ZEBRA_ROUTE_SHARP;
+		else if (strmatch(s, "openfabric"))
+			return ZEBRA_ROUTE_OPENFABRIC;
 	}
 	return -1;
 }

@@ -21,7 +21,7 @@
 
 #include "lib/zebra.h"
 #include "lib/prefix.h"
-#include "lib/table.h"
+#include "lib/agg_table.h"
 #include "lib/memory.h"
 #include "lib/vty.h"
 
@@ -33,11 +33,11 @@
 #include "bgpd/rfapi/rfapi_import.h"
 #include "bgpd/rfapi/vnc_debug.h"
 
-struct route_node *vnc_etn_get(struct bgp *bgp, vnc_export_type_t type,
-			       struct prefix *p)
+struct agg_node *vnc_etn_get(struct bgp *bgp, vnc_export_type_t type,
+			     struct prefix *p)
 {
-	struct route_table *t = NULL;
-	struct route_node *rn = NULL;
+	struct agg_table *t = NULL;
+	struct agg_node *rn = NULL;
 	afi_t afi;
 
 	if (!bgp || !bgp->rfapi)
@@ -49,27 +49,27 @@ struct route_node *vnc_etn_get(struct bgp *bgp, vnc_export_type_t type,
 	switch (type) {
 	case EXPORT_TYPE_BGP:
 		if (!bgp->rfapi->rt_export_bgp[afi])
-			bgp->rfapi->rt_export_bgp[afi] = route_table_init();
+			bgp->rfapi->rt_export_bgp[afi] = agg_table_init();
 		t = bgp->rfapi->rt_export_bgp[afi];
 		break;
 
 	case EXPORT_TYPE_ZEBRA:
 		if (!bgp->rfapi->rt_export_zebra[afi])
-			bgp->rfapi->rt_export_zebra[afi] = route_table_init();
+			bgp->rfapi->rt_export_zebra[afi] = agg_table_init();
 		t = bgp->rfapi->rt_export_zebra[afi];
 		break;
 	}
 
 	if (t)
-		rn = route_node_get(t, p);
+		rn = agg_node_get(t, p);
 	return rn;
 }
 
-struct route_node *vnc_etn_lookup(struct bgp *bgp, vnc_export_type_t type,
-				  struct prefix *p)
+struct agg_node *vnc_etn_lookup(struct bgp *bgp, vnc_export_type_t type,
+				struct prefix *p)
 {
-	struct route_table *t = NULL;
-	struct route_node *rn = NULL;
+	struct agg_table *t = NULL;
+	struct agg_node *rn = NULL;
 	afi_t afi;
 
 	if (!bgp || !bgp->rfapi)
@@ -81,19 +81,19 @@ struct route_node *vnc_etn_lookup(struct bgp *bgp, vnc_export_type_t type,
 	switch (type) {
 	case EXPORT_TYPE_BGP:
 		if (!bgp->rfapi->rt_export_bgp[afi])
-			bgp->rfapi->rt_export_bgp[afi] = route_table_init();
+			bgp->rfapi->rt_export_bgp[afi] = agg_table_init();
 		t = bgp->rfapi->rt_export_bgp[afi];
 		break;
 
 	case EXPORT_TYPE_ZEBRA:
 		if (!bgp->rfapi->rt_export_zebra[afi])
-			bgp->rfapi->rt_export_zebra[afi] = route_table_init();
+			bgp->rfapi->rt_export_zebra[afi] = agg_table_init();
 		t = bgp->rfapi->rt_export_zebra[afi];
 		break;
 	}
 
 	if (t)
-		rn = route_node_lookup(t, p);
+		rn = agg_node_lookup(t, p);
 	return rn;
 }
 
@@ -101,7 +101,7 @@ struct vnc_export_info *vnc_eti_get(struct bgp *bgp, vnc_export_type_t etype,
 				    struct prefix *p, struct peer *peer,
 				    uint8_t type, uint8_t subtype)
 {
-	struct route_node *etn;
+	struct agg_node *etn;
 	struct vnc_export_info *eti;
 
 	etn = vnc_etn_get(bgp, etype, p);
@@ -116,7 +116,7 @@ struct vnc_export_info *vnc_eti_get(struct bgp *bgp, vnc_export_type_t etype,
 	}
 
 	if (eti) {
-		route_unlock_node(etn);
+		agg_unlock_node(etn);
 	} else {
 		eti = XCALLOC(MTYPE_RFAPI_ETI, sizeof(struct vnc_export_info));
 		assert(eti);
@@ -134,7 +134,7 @@ struct vnc_export_info *vnc_eti_get(struct bgp *bgp, vnc_export_type_t etype,
 
 void vnc_eti_delete(struct vnc_export_info *goner)
 {
-	struct route_node *etn;
+	struct agg_node *etn;
 	struct vnc_export_info *eti;
 	struct vnc_export_info *eti_prev = NULL;
 
@@ -160,7 +160,7 @@ void vnc_eti_delete(struct vnc_export_info *goner)
 	goner->node = NULL;
 	XFREE(MTYPE_RFAPI_ETI, goner);
 
-	route_unlock_node(etn);
+	agg_unlock_node(etn);
 }
 
 struct vnc_export_info *vnc_eti_checktimer(struct bgp *bgp,
@@ -168,7 +168,7 @@ struct vnc_export_info *vnc_eti_checktimer(struct bgp *bgp,
 					   struct prefix *p, struct peer *peer,
 					   uint8_t type, uint8_t subtype)
 {
-	struct route_node *etn;
+	struct agg_node *etn;
 	struct vnc_export_info *eti;
 
 	etn = vnc_etn_lookup(bgp, etype, p);
@@ -183,7 +183,7 @@ struct vnc_export_info *vnc_eti_checktimer(struct bgp *bgp,
 		}
 	}
 
-	route_unlock_node(etn);
+	agg_unlock_node(etn);
 
 	if (eti && eti->timer)
 		return eti;

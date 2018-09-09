@@ -56,6 +56,8 @@
 #include "isisd/isis_mt.h"
 #include "isisd/isis_tlvs.h"
 #include "isisd/isis_errors.h"
+#include "isisd/fabricd.h"
+#include "isisd/isis_tx_queue.h"
 
 static int ack_lsp(struct isis_lsp_hdr *hdr, struct isis_circuit *circuit,
 		   int level)
@@ -206,6 +208,12 @@ static int process_p2p_hello(struct iih_info *iih)
 	THREAD_TIMER_OFF(adj->t_expire);
 	thread_add_timer(master, isis_adj_expire, adj, (long)adj->hold_time,
 			 &adj->t_expire);
+
+	/* While fabricds initial sync is in progress, ignore hellos from other
+	 * interfaces than the one we are performing the initial sync on. */
+	if (fabricd_initial_sync_is_in_progress(iih->circuit->area)
+	    && fabricd_initial_sync_circuit(iih->circuit->area) != iih->circuit)
+		return ISIS_OK;
 
 	/* 8.2.5.2 a) a match was detected */
 	if (isis_tlvs_area_addresses_match(iih->tlvs,
@@ -671,7 +679,7 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		goto out;
 	}
 
-	iih.v4_usable = (circuit->ip_addrs && listcount(circuit->ip_addrs)
+	iih.v4_usable = (fabricd_ip_addrs(circuit)
 			 && iih.tlvs->ipv4_address.count);
 
 	iih.v6_usable = (circuit->ipv6_link && listcount(circuit->ipv6_link)
@@ -700,14 +708,37 @@ out:
  * Section 7.3.15.1 - Action on receipt of a link state PDU
  */
 static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
-		       const uint8_t *ssnpa)
+		       const uint8_t *ssnpa, uint8_t max_area_addrs)
 {
-	int level = (pdu_type == L1_LINK_STATE) ? ISIS_LEVEL1 : ISIS_LEVEL2;
+	int level;
+	bool circuit_scoped;
+
+	if (pdu_type == FS_LINK_STATE) {
+		if (!fabricd)
+			return ISIS_ERROR;
+		if (max_area_addrs != L2_CIRCUIT_FLOODING_SCOPE)
+			return ISIS_ERROR;
+		level = ISIS_LEVEL2;
+		circuit_scoped = true;
+
+		/* The stream is used verbatim for sending out new LSPDUs.
+		 * So make sure we store it as an L2 LSPDU internally.
+		 * (compare for the reverse in `send_lsp`) */
+		stream_putc_at(circuit->rcv_stream, 4, L2_LINK_STATE);
+		stream_putc_at(circuit->rcv_stream, 7, 0);
+	} else {
+		if (pdu_type == L1_LINK_STATE)
+			level = ISIS_LEVEL1;
+		else
+			level = ISIS_LEVEL2;
+		circuit_scoped = false;
+	}
 
 	if (isis->debugs & DEBUG_UPDATE_PACKETS) {
 		zlog_debug(
-			"ISIS-Upd (%s): Rcvd L%d LSP on %s, cirType %s, cirID %u",
-			circuit->area->area_tag, level,
+			"ISIS-Upd (%s): Rcvd %sL%d LSP on %s, cirType %s, cirID %u",
+			circuit->area->area_tag,
+			circuit_scoped ? "Circuit scoped " : "", level,
 			circuit->interface->name,
 			circuit_t2string(circuit->is_type),
 			circuit->circuit_id);
@@ -869,7 +900,8 @@ dontcheckadj:
 	 * but
 	 *            wrong checksum, initiate a purge. */
 	if (lsp && (lsp->hdr.seqno == hdr.seqno)
-	    && (lsp->hdr.checksum != hdr.checksum)) {
+	    && (lsp->hdr.checksum != hdr.checksum)
+	    && hdr.rem_lifetime) {
 		zlog_warn("ISIS-Upd (%s): LSP %s seq 0x%08" PRIx32
 			  " with confused checksum received.",
 			  circuit->area->area_tag, rawlspid_print(hdr.lsp_id),
@@ -899,7 +931,8 @@ dontcheckadj:
 						   lsp_confusion);
 					tlvs = NULL;
 					/* ii */
-					lsp_set_all_srmflags(lsp);
+					if (!circuit_scoped)
+						lsp_flood(lsp, NULL);
 					/* v */
 					ISIS_FLAGS_CLEAR_ALL(
 						lsp->SSNflags); /* FIXME:
@@ -913,9 +946,10 @@ dontcheckadj:
 					 * Otherwise, don't reflood
 					 * through incoming circuit as usual */
 					if (!lsp_confusion) {
-						/* iii */
-						ISIS_CLEAR_FLAG(lsp->SRMflags,
-								circuit);
+						isis_tx_queue_del(
+							circuit->tx_queue,
+							lsp);
+
 						/* iv */
 						if (circuit->circ_type
 						    != CIRCUIT_T_BROADCAST)
@@ -926,7 +960,8 @@ dontcheckadj:
 				} /* 7.3.16.4 b) 2) */
 				else if (comp == LSP_EQUAL) {
 					/* i */
-					ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
+					isis_tx_queue_del(circuit->tx_queue,
+							  lsp);
 					/* ii */
 					if (circuit->circ_type
 					    != CIRCUIT_T_BROADCAST)
@@ -934,16 +969,19 @@ dontcheckadj:
 							      circuit);
 				} /* 7.3.16.4 b) 3) */
 				else {
-					ISIS_SET_FLAG(lsp->SRMflags, circuit);
+					isis_tx_queue_add(circuit->tx_queue,
+							  lsp, TX_LSP_NORMAL);
 					ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
 				}
 			} else if (lsp->hdr.rem_lifetime != 0) {
 				/* our own LSP -> 7.3.16.4 c) */
 				if (comp == LSP_NEWER) {
 					lsp_inc_seqno(lsp, hdr.seqno);
-					lsp_set_all_srmflags(lsp);
+					if (!circuit_scoped)
+						lsp_flood(lsp, NULL);
 				} else {
-					ISIS_SET_FLAG(lsp->SRMflags, circuit);
+					isis_tx_queue_add(circuit->tx_queue,
+							  lsp, TX_LSP_NORMAL);
 					ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
 				}
 				if (isis->debugs & DEBUG_UPDATE_PACKETS)
@@ -985,7 +1023,7 @@ dontcheckadj:
 		}
 		/* If the received LSP is older or equal,
 		 * resend the LSP which will act as ACK */
-		lsp_set_all_srmflags(lsp);
+		lsp_flood(lsp, NULL);
 	} else {
 		/* 7.3.15.1 e) - This lsp originated on another system */
 
@@ -1006,7 +1044,7 @@ dontcheckadj:
 				if (!lsp0) {
 					zlog_debug(
 						"Got lsp frag, while zero lsp not in database");
-					return ISIS_OK;
+					goto out;
 				}
 			}
 			/* i */
@@ -1023,10 +1061,8 @@ dontcheckadj:
 					   circuit->area, level, false);
 				tlvs = NULL;
 			}
-			/* ii */
-			lsp_set_all_srmflags(lsp);
-			/* iii */
-			ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
+			if (!circuit_scoped)
+				lsp_flood(lsp, circuit);
 
 			/* iv */
 			if (circuit->circ_type != CIRCUIT_T_BROADCAST)
@@ -1035,7 +1071,7 @@ dontcheckadj:
 		}
 		/* 7.3.15.1 e) 2) LSP equal to the one in db */
 		else if (comp == LSP_EQUAL) {
-			ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
+			isis_tx_queue_del(circuit->tx_queue, lsp);
 			lsp_update(lsp, &hdr, tlvs, circuit->rcv_stream,
 				   circuit->area, level, false);
 			tlvs = NULL;
@@ -1044,7 +1080,8 @@ dontcheckadj:
 		}
 		/* 7.3.15.1 e) 3) LSP older than the one in db */
 		else {
-			ISIS_SET_FLAG(lsp->SRMflags, circuit);
+			isis_tx_queue_add(circuit->tx_queue, lsp,
+					  TX_LSP_NORMAL);
 			ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
 		}
 	}
@@ -1052,6 +1089,10 @@ dontcheckadj:
 	retval = ISIS_OK;
 
 out:
+	if (circuit_scoped) {
+		fabricd_trigger_csnp(circuit->area);
+	}
+
 	isis_free_tlvs(tlvs);
 	return retval;
 }
@@ -1157,7 +1198,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 				     circuit->u.bc.adjdb[level - 1]))
 			return ISIS_OK; /* Silently discard */
 	} else {
-		if (!circuit->u.p2p.neighbor) {
+		if (!fabricd && !circuit->u.p2p.neighbor) {
 			zlog_warn("no p2p neighbor on circuit %s",
 				  circuit->interface->name);
 			return ISIS_OK; /* Silently discard */
@@ -1206,6 +1247,8 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		}
 	}
 
+	bool resync_needed = false;
+
 	/* 7.3.15.2 b) Actions on LSP_ENTRIES reported */
 	for (struct isis_lsp_entry *entry = entry_head; entry;
 	     entry = entry->next) {
@@ -1221,25 +1264,28 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 			if (cmp == LSP_EQUAL) {
 				/* if (circuit->circ_type !=
 				 * CIRCUIT_T_BROADCAST) */
-				ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
+				isis_tx_queue_del(circuit->tx_queue, lsp);
 			}
 			/* 7.3.15.2 b) 3) if it is older, clear SSN and set SRM
 			   */
 			else if (cmp == LSP_OLDER) {
 				ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
-				ISIS_SET_FLAG(lsp->SRMflags, circuit);
+				isis_tx_queue_add(circuit->tx_queue, lsp,
+						  TX_LSP_NORMAL);
 			}
 			/* 7.3.15.2 b) 4) if it is newer, set SSN and clear SRM
 			   on p2p */
 			else {
 				if (own_lsp) {
 					lsp_inc_seqno(lsp, entry->seqno);
-					ISIS_SET_FLAG(lsp->SRMflags, circuit);
+					isis_tx_queue_add(circuit->tx_queue, lsp,
+							TX_LSP_NORMAL);
 				} else {
 					ISIS_SET_FLAG(lsp->SSNflags, circuit);
 					/* if (circuit->circ_type !=
 					 * CIRCUIT_T_BROADCAST) */
-					ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
+					isis_tx_queue_del(circuit->tx_queue, lsp);
+					resync_needed = true;
 				}
 			}
 		} else {
@@ -1271,8 +1317,10 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 						entry->checksum, lsp0, level);
 				lsp_insert(lsp,
 					   circuit->area->lspdb[level - 1]);
-				ISIS_FLAGS_CLEAR_ALL(lsp->SRMflags);
+
+				lsp_set_all_srmflags(lsp, false);
 				ISIS_SET_FLAG(lsp->SSNflags, circuit);
+				resync_needed = true;
 			}
 		}
 	}
@@ -1303,11 +1351,17 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		}
 
 		/* on remaining LSPs we set SRM (neighbor knew not of) */
-		for (ALL_LIST_ELEMENTS_RO(lsp_list, node, lsp))
-			ISIS_SET_FLAG(lsp->SRMflags, circuit);
+		for (ALL_LIST_ELEMENTS_RO(lsp_list, node, lsp)) {
+			isis_tx_queue_add(circuit->tx_queue, lsp, TX_LSP_NORMAL);
+			resync_needed = true;
+		}
+
 		/* lets free it */
 		list_delete_and_null(&lsp_list);
 	}
+
+	if (fabricd_initial_sync_is_complete(circuit->area) && resync_needed)
+		zlog_warn("OpenFabric: Needed to resync LSPDB using CSNP!\n");
 
 	retval = ISIS_OK;
 out:
@@ -1327,6 +1381,7 @@ static int pdu_size(uint8_t pdu_type, uint8_t *size)
 		break;
 	case L1_LINK_STATE:
 	case L2_LINK_STATE:
+	case FS_LINK_STATE:
 		*size = ISIS_LSP_HDR_LEN;
 		break;
 	case L1_COMPLETE_SEQ_NUM:
@@ -1427,7 +1482,9 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 	}
 
 	/* either 3 or 0 */
-	if (max_area_addrs != 0 && max_area_addrs != isis->max_area_addrs) {
+	if (pdu_type != FS_LINK_STATE /* FS PDU doesn't contain max area addr field */
+	    && max_area_addrs != 0
+	    && max_area_addrs != isis->max_area_addrs) {
 		flog_err(
 			ISIS_ERR_PACKET,
 			"maximumAreaAddressesMismatch: maximumAreaAdresses in a received PDU %" PRIu8
@@ -1440,11 +1497,18 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 	case L1_LAN_HELLO:
 	case L2_LAN_HELLO:
 	case P2P_HELLO:
+		if (fabricd && pdu_type != P2P_HELLO)
+			return ISIS_ERROR;
 		retval = process_hello(pdu_type, circuit, ssnpa);
 		break;
 	case L1_LINK_STATE:
 	case L2_LINK_STATE:
-		retval = process_lsp(pdu_type, circuit, ssnpa);
+	case FS_LINK_STATE:
+		if (fabricd
+		    && pdu_type != L2_LINK_STATE
+		    && pdu_type != FS_LINK_STATE)
+			return ISIS_ERROR;
+		retval = process_lsp(pdu_type, circuit, ssnpa, max_area_addrs);
 		break;
 	case L1_COMPLETE_SEQ_NUM:
 	case L2_COMPLETE_SEQ_NUM:
@@ -1582,8 +1646,15 @@ int send_hello(struct isis_circuit *circuit, int level)
 		   && !circuit->disable_threeway_adj) {
 		uint32_t ext_circuit_id = circuit->idx;
 		if (circuit->u.p2p.neighbor) {
+			uint8_t threeway_state;
+
+			if (fabricd_initial_sync_is_in_progress(circuit->area)
+			    && fabricd_initial_sync_circuit(circuit->area) != circuit)
+				threeway_state = ISIS_THREEWAY_DOWN;
+			else
+				threeway_state = circuit->u.p2p.neighbor->threeway_state;
 			isis_tlvs_add_threeway_adj(tlvs,
-					circuit->u.p2p.neighbor->threeway_state,
+					threeway_state,
 					ext_circuit_id,
 					circuit->u.p2p.neighbor->sysid,
 					circuit->u.p2p.neighbor->ext_circuit_id);
@@ -1618,8 +1689,12 @@ int send_hello(struct isis_circuit *circuit, int level)
 						     false, false);
 	}
 
-	if (circuit->ip_router && circuit->ip_addrs)
-		isis_tlvs_add_ipv4_addresses(tlvs, circuit->ip_addrs);
+	if (circuit->ip_router) {
+		struct list *circuit_ip_addrs = fabricd_ip_addrs(circuit);
+
+		if (circuit_ip_addrs)
+			isis_tlvs_add_ipv4_addresses(tlvs, circuit_ip_addrs);
+	}
 
 	if (circuit->ipv6_router && circuit->ipv6_link)
 		isis_tlvs_add_ipv6_addresses(tlvs, circuit->ipv6_link);
@@ -1889,8 +1964,9 @@ int send_l1_csnp(struct thread *thread)
 
 	circuit->t_send_csnp[0] = NULL;
 
-	if (circuit->circ_type == CIRCUIT_T_BROADCAST
-	    && circuit->u.bc.is_dr[0]) {
+	if ((circuit->circ_type == CIRCUIT_T_BROADCAST
+	     && circuit->u.bc.is_dr[0])
+	     || circuit->circ_type == CIRCUIT_T_P2P) {
 		send_csnp(circuit, 1);
 	}
 	/* set next timer thread */
@@ -1911,8 +1987,9 @@ int send_l2_csnp(struct thread *thread)
 
 	circuit->t_send_csnp[1] = NULL;
 
-	if (circuit->circ_type == CIRCUIT_T_BROADCAST
-	    && circuit->u.bc.is_dr[1]) {
+	if ((circuit->circ_type == CIRCUIT_T_BROADCAST
+	     && circuit->u.bc.is_dr[1])
+             || circuit->circ_type == CIRCUIT_T_P2P) {
 		send_csnp(circuit, 2);
 	}
 	/* set next timer thread */
@@ -2086,24 +2163,11 @@ int send_l2_psnp(struct thread *thread)
 /*
  * ISO 10589 - 7.3.14.3
  */
-int send_lsp(struct thread *thread)
+void send_lsp(void *arg, struct isis_lsp *lsp, enum isis_tx_type tx_type)
 {
-	struct isis_circuit *circuit;
-	struct isis_lsp *lsp;
+	struct isis_circuit *circuit = arg;
 	int clear_srm = 1;
 	int retval = ISIS_OK;
-
-	circuit = THREAD_ARG(thread);
-	assert(circuit);
-	circuit->t_send_lsp = NULL;
-
-	lsp = isis_circuit_lsp_queue_pop(circuit);
-	if (!lsp)
-		return ISIS_OK;
-
-	if (!list_isempty(circuit->lsp_queue)) {
-		isis_circuit_schedule_lsp_send(circuit);
-	}
 
 	if (circuit->state != C_STATE_UP || circuit->is_passive == 1)
 		goto out;
@@ -2144,6 +2208,11 @@ int send_lsp(struct thread *thread)
 	/* copy our lsp to the send buffer */
 	stream_copy(circuit->snd_stream, lsp->pdu);
 
+	if (tx_type == TX_LSP_CIRCUIT_SCOPED) {
+		stream_putc_at(circuit->snd_stream, 4, FS_LINK_STATE);
+		stream_putc_at(circuit->snd_stream, 7, L2_CIRCUIT_FLOODING_SCOPE);
+	}
+
 	if (isis->debugs & DEBUG_UPDATE_PACKETS) {
 		zlog_debug("ISIS-Upd (%s): Sending L%d LSP %s, seq 0x%08" PRIx32
 			   ", cksum 0x%04" PRIx16 ", lifetime %" PRIu16
@@ -2181,8 +2250,6 @@ out:
 		 * to clear
 		 * the fag.
 		 */
-		ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
+		isis_tx_queue_del(circuit->tx_queue, lsp);
 	}
-
-	return retval;
 }

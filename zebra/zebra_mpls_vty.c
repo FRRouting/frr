@@ -339,7 +339,7 @@ DEFUN (show_mpls_table,
        JSON_STR)
 {
 	struct zebra_vrf *zvrf;
-	uint8_t uj = use_json(argc, argv);
+	bool uj = use_json(argc, argv);
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	zebra_mpls_print_lsp_table(vty, zvrf, uj);
@@ -357,7 +357,7 @@ DEFUN (show_mpls_table_lsp,
 {
 	uint32_t label;
 	struct zebra_vrf *zvrf;
-	uint8_t uj = use_json(argc, argv);
+	bool uj = use_json(argc, argv);
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	label = atoi(argv[3]->arg);

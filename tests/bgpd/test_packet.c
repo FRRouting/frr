@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 	bgp_attr_init();
 	master = thread_master_create(NULL);
 	bgp_master_init(master);
-	vrf_init(NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 
 	if (bgp_get(&bgp, &asn, NULL, BGP_INSTANCE_TYPE_DEFAULT))

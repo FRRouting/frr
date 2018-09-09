@@ -18,12 +18,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-
-#include <errno.h>
-
 #include "lib/zebra.h"
 #include "lib/prefix.h"
-#include "lib/table.h"
+#include "lib/agg_table.h"
 #include "lib/vty.h"
 #include "lib/memory.h"
 #include "lib/routemap.h"
@@ -203,11 +200,11 @@ int rfapi_ip_addr_cmp(struct rfapi_ip_addr *a1, struct rfapi_ip_addr *a2)
 
 static int rfapi_find_node(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
 			   struct rfapi_ip_addr *un_addr,
-			   struct route_node **node)
+			   struct agg_node **node)
 {
 	struct rfapi *h;
 	struct prefix p;
-	struct route_node *rn;
+	struct agg_node *rn;
 	int rc;
 	afi_t afi;
 
@@ -228,12 +225,12 @@ static int rfapi_find_node(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
 	if ((rc = rfapiRaddr2Qprefix(un_addr, &p)))
 		return rc;
 
-	rn = route_node_lookup(h->un[afi], &p);
+	rn = agg_node_lookup(h->un[afi], &p);
 
 	if (!rn)
 		return ENOENT;
 
-	route_unlock_node(rn);
+	agg_unlock_node(rn);
 
 	*node = rn;
 
@@ -244,7 +241,7 @@ static int rfapi_find_node(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
 int rfapi_find_rfd(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
 		   struct rfapi_ip_addr *un_addr, struct rfapi_descriptor **rfd)
 {
-	struct route_node *rn;
+	struct agg_node *rn;
 	int rc;
 
 	rc = rfapi_find_node(bgp, vn_addr, un_addr, &rn);
@@ -1347,8 +1344,8 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 #define RFD_RTINIT_AFI(rh, ary, afi)                                           \
 	do {                                                                   \
 		if (!ary[afi]) {                                               \
-			ary[afi] = route_table_init();                         \
-			ary[afi]->info = rh;                                   \
+			ary[afi] = agg_table_init();                           \
+			agg_set_table_info(ary[afi], rh);                      \
 		}                                                              \
 	} while (0)
 
@@ -1394,7 +1391,7 @@ int rfapi_init_and_open(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	char buf_un[BUFSIZ];
 	afi_t afi_vn, afi_un;
 	struct prefix pfx_un;
-	struct route_node *rn;
+	struct agg_node *rn;
 
 
 	rfapi_time(&rfd->open_time);
@@ -1423,7 +1420,7 @@ int rfapi_init_and_open(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		assert(afi_vn && afi_un);
 		assert(!rfapiRaddr2Qprefix(&rfd->un_addr, &pfx_un));
 
-		rn = route_node_get(h->un[afi_un], &pfx_un);
+		rn = agg_node_get(h->un[afi_un], &pfx_un);
 		assert(rn);
 		rfd->next = rn->info;
 		rn->info = rfd;
@@ -1535,7 +1532,7 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 	afi_t afi;
 	struct prefix p;
 	struct prefix p_original;
-	struct route_node *rn;
+	struct agg_node *rn;
 	struct rfapi_descriptor *rfd = (struct rfapi_descriptor *)handle;
 	struct bgp *bgp = rfd->bgp;
 	struct rfapi_next_hop_entry *pNHE = NULL;
@@ -1704,7 +1701,7 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 		}
 
 		if (rn) {
-			route_lock_node(rn); /* so we can unlock below */
+			agg_lock_node(rn); /* so we can unlock below */
 		} else {
 			/*
 			 * returns locked node. Don't unlock yet because the
@@ -1721,7 +1718,7 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 
 	assert(rn);
 	if (!rn->info) {
-		route_unlock_node(rn);
+		agg_unlock_node(rn);
 		vnc_zlog_debug_verbose(
 			"%s: VPN route not found, returning ENOENT", __func__);
 		return ENOENT;
@@ -1758,7 +1755,7 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 						  &p_original);
 	}
 
-	route_unlock_node(rn);
+	agg_unlock_node(rn);
 
 done:
 	if (ppNextHopEntry) {
@@ -2170,7 +2167,7 @@ int rfapi_close(void *handle)
 {
 	struct rfapi_descriptor *rfd = (struct rfapi_descriptor *)handle;
 	int rc;
-	struct route_node *node;
+	struct agg_node *node;
 	struct bgp *bgp;
 	struct rfapi *h;
 
@@ -2276,7 +2273,7 @@ int rfapi_close(void *handle)
 				}
 			}
 		}
-		route_unlock_node(node);
+		agg_unlock_node(node);
 	}
 
 	/*
@@ -2928,6 +2925,8 @@ static void test_nexthops_callback(
 
 	rfapiPrintNhl(stream, next_hops);
 
+	fp(out, "\n");
+
 	rfapi_free_next_hop_list(next_hops);
 }
 
@@ -3049,7 +3048,7 @@ DEFUN (debug_rfapi_close_rfd,
 
 DEFUN (debug_rfapi_register_vn_un,
        debug_rfapi_register_vn_un_cmd,
-       "debug rfapi-dev register vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime SECONDS",
+       "debug rfapi-dev register vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime SECONDS [cost (0-255)]",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_register\n"
@@ -3063,7 +3062,9 @@ DEFUN (debug_rfapi_register_vn_un,
        "IPv4 prefix\n"
        "IPv6 prefix\n"
        "indicate lifetime follows\n"
-       "lifetime\n")
+       "lifetime\n"
+       "Cost (localpref = 255-cost)\n"
+       "0-255\n")
 {
 	struct rfapi_ip_addr vn;
 	struct rfapi_ip_addr un;
@@ -3072,6 +3073,7 @@ DEFUN (debug_rfapi_register_vn_un,
 	uint32_t lifetime;
 	struct rfapi_ip_prefix hpfx;
 	int rc;
+	uint8_t cost = 100;
 
 	/*
 	 * Get VN addr
@@ -3112,8 +3114,12 @@ DEFUN (debug_rfapi_register_vn_un,
 		lifetime = strtoul(argv[10]->arg, NULL, 10);
 	}
 
+	if (argc >= 13)
+		cost = (uint8_t) strtoul(argv[12]->arg, NULL, 10);
+	hpfx.cost = cost;
 
-	rc = rfapi_register(handle, &hpfx, lifetime, NULL, NULL, 0);
+	rc = rfapi_register(handle, &hpfx, lifetime, NULL, NULL,
+			    RFAPI_REGISTER_ADD);
 	if (rc) {
 		vty_out(vty, "rfapi_register failed with rc=%d (%s)\n", rc,
 			strerror(rc));
@@ -3213,7 +3219,8 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
 	/* L2 option parsing END */
 
 	/* TBD fixme */
-	rc = rfapi_register(handle, &hpfx, lifetime, NULL /* &uo */, opt, 0);
+	rc = rfapi_register(handle, &hpfx, lifetime, NULL /* &uo */, opt,
+			    RFAPI_REGISTER_ADD);
 	if (rc) {
 		vty_out(vty, "rfapi_register failed with rc=%d (%s)\n", rc,
 			strerror(rc));
@@ -3225,7 +3232,7 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
 
 DEFUN (debug_rfapi_unregister_vn_un,
        debug_rfapi_unregister_vn_un_cmd,
-       "debug rfapi-dev unregister vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M>",
+       "debug rfapi-dev unregister vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> [kill]",
        DEBUG_STR
        DEBUG_RFAPI_STR
        "rfapi_register\n"
@@ -3233,7 +3240,8 @@ DEFUN (debug_rfapi_unregister_vn_un,
        "virtual network interface address\n"
        "indicate xt addr follows\n"
        "underlay network interface address\n"
-       "indicate prefix follows\n" "prefix")
+       "prefix to remove\n"
+       "Remove without holddown")
 {
 	struct rfapi_ip_addr vn;
 	struct rfapi_ip_addr un;
@@ -3275,7 +3283,9 @@ DEFUN (debug_rfapi_unregister_vn_un,
 	}
 	rfapiQprefix2Rprefix(&pfx, &hpfx);
 
-	rfapi_register(handle, &hpfx, 0, NULL, NULL, 1);
+	rfapi_register(handle, &hpfx, 0, NULL, NULL,
+		       (argc == 10 ?
+			RFAPI_REGISTER_KILL : RFAPI_REGISTER_WITHDRAW));
 
 	return CMD_SUCCESS;
 }

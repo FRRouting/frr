@@ -41,8 +41,6 @@ enum { IFLA_VRF_UNSPEC, IFLA_VRF_TABLE, __IFLA_VRF_MAX };
 #define VRF_NAMSIZ      36
 #define NS_NAMSIZ       16
 
-#define VRF_DEFAULT_NAME    "Default-IP-Routing-Table"
-
 /*
  * The command strings
  */
@@ -201,8 +199,10 @@ extern int vrf_bitmap_check(vrf_bitmap_t, vrf_id_t);
  * delete -> Called back when a vrf is being deleted from
  *           the system ( 2 and 3 ) above.
  */
-extern void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
-		     int (*disable)(struct vrf *), int (*delete)(struct vrf *));
+extern void vrf_init(int (*create)(struct vrf *vrf), int (*enable)(struct vrf *vrf),
+		     int (*disable)(struct vrf *vrf), int (*delete)(struct vrf *vrf),
+		     int ((*update)(struct vrf *vrf)));
+
 /*
  * Call vrf_terminate when the protocol is being shutdown
  */
@@ -235,6 +235,10 @@ extern int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *args);
 extern vrf_id_t vrf_get_default_id(void);
 /* The default VRF ID */
 #define VRF_DEFAULT vrf_get_default_id()
+
+extern void vrf_set_default_name(const char *default_name);
+extern const char *vrf_get_default_name(void);
+#define VRF_DEFAULT_NAME    vrf_get_default_name()
 
 /* VRF is mapped on netns or not ? */
 int vrf_is_mapped_on_netns(struct vrf *vrf);

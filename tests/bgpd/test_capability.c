@@ -913,7 +913,7 @@ int main(void)
 	qobj_init();
 	master = thread_master_create(NULL);
 	bgp_master_init(master);
-	vrf_init(NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 
 	bgp_pthreads_init();

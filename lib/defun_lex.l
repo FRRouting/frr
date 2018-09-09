@@ -1,4 +1,3 @@
-%{
 /*
  * clippy (CLI preparator in python) C pseudo-lexer
  * Copyright (C) 2016-2017  David Lamparter for NetDEF, Inc.
@@ -34,6 +33,12 @@
  * code documentation in it.
  */
 
+%top{
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+}
+%{
 /* ignore harmless bugs in old versions of flex */
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #pragma GCC diagnostic ignored "-Wunused-value"

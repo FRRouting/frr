@@ -2,24 +2,45 @@ if HAVE_PROTOBUF
 lib_LTLIBRARIES += qpb/libfrr_pb.la
 endif
 
-qpb_libfrr_pb_la_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir) -I$(top_builddir)/lib \
-	$(Q_PROTOBUF_C_CLIENT_INCLUDES)
+qpb_libfrr_pb_la_CPPFLAGS = $(AM_CPPFLAGS) $(PROTOBUF_C_CFLAGS)
+qpb_libfrr_pb_la_LIBADD = $(PROTOBUF_C_LIBS)
 qpb_libfrr_pb_la_LDFLAGS = -version-info 0:0:0
 
 qpb_libfrr_pb_la_SOURCES = \
+	qpb/qpb.c \
+	qpb/qpb_allocator.c \
+	# end
+nodist_qpb_libfrr_pb_la_SOURCES = \
+	qpb/qpb.pb-c.c \
+	# end
+
+noinst_HEADERS += \
 	qpb/linear_allocator.h \
 	qpb/qpb.h \
-	qpb/qpb.c \
 	qpb/qpb_allocator.h \
 	# end
 
-if HAVE_PROTOBUF
-qpb_libfrr_pb_la_SOURCES += qpb/qpb_allocator.c
-nodist_qpb_libfrr_pb_la_SOURCES = qpb/qpb.pb-c.c
 CLEANFILES += \
 	qpb/qpb.pb-c.c \
 	qpb/qpb.pb-c.h \
 	# end
-endif
 
 EXTRA_DIST += qpb/qpb.proto
+
+if HAVE_PROTOBUF
+
+# Rules
+.proto.pb.h:
+	$(PROTOC) -I$(top_srcdir) --cpp_out=$(top_srcdir) $(top_srcdir)/$^
+
+AM_V_PROTOC_C = $(am__v_PROTOC_C_$(V))
+am__v_PROTOC_C_ = $(am__v_PROTOC_C_$(AM_DEFAULT_VERBOSITY))
+am__v_PROTOC_C_0 = @echo "  PROTOC_C" $@;
+am__v_PROTOC_C_1 =
+
+.proto.pb-c.c:
+	$(AM_V_PROTOC_C)$(PROTOC_C) -I$(top_srcdir) --c_out=$(top_srcdir) $(top_srcdir)/$^
+.pb-c.c.pb-c.h:
+	@/bin/true
+
+endif  # HAVE_PROTOBUF

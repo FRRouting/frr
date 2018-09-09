@@ -289,7 +289,7 @@ static int _ptm_msg_read(struct stream *msg, int command,
 {
 	uint32_t pid;
 	uint8_t ttl __attribute__((unused));
-	uint8_t ifnamelen;
+	size_t ifnamelen;
 
 	/*
 	 * Register/Deregister/Update Message format:
