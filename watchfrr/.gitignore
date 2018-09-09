@@ -1,16 +1,1 @@
-!Makefile
-Makefile.in
-*.o
 watchfrr
-tags
-TAGS
-.deps
-.nfs*
-*.lo
-*.la
-*.libs
-.arch-inventory
-.arch-ids
-*~
-*.loT
-

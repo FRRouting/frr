@@ -1,16 +1,3 @@
-!Makefile
-Makefile.in
-*.o
 isisd
 fabricd
-.deps
 isisd.conf
-.nfs*
-*.lo
-*.la
-*.libs
-.arch-inventory
-.arch-ids
-*~
-*.loT
-*.a

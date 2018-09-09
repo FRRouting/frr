@@ -6,9 +6,18 @@ if RIPD
 noinst_LIBRARIES += ripd/librip.a
 sbin_PROGRAMS += ripd/ripd
 dist_examples_DATA += ripd/ripd.conf.sample
+vtysh_scan += \
+	$(top_srcdir)/ripd/rip_debug.c \
+	$(top_srcdir)/ripd/rip_interface.c \
+	$(top_srcdir)/ripd/rip_offset.c \
+	$(top_srcdir)/ripd/rip_zebra.c \
+	$(top_srcdir)/ripd/ripd.c \
+	# end
+
 if SNMP
 module_LTLIBRARIES += ripd/ripd_snmp.la
 endif
+rstman8_DATA += $(MANBUILD)/ripd.8
 endif
 
 ripd_librip_a_SOURCES = \
