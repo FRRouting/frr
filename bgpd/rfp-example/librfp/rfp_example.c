@@ -18,6 +18,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 /* stub rfp */
 #include "rfp_internal.h"
 #include "bgpd/rfapi/rfapi.h"

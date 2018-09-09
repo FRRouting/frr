@@ -31,6 +31,7 @@
 
 #include "zebra/rib.h"
 #include "zebra/rt.h"
+#include "zebra/zebra_pbr.h"
 
 /* Thank you, Solaris, for polluting application symbol namespace. */
 #undef hook_register

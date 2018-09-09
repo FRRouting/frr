@@ -619,7 +619,7 @@ DEFUN (no_interface_desc,
  *     if not:
  *     - no idea, just get the name in its entirety.
  */
-static struct interface *if_sunwzebra_get(char *name, vrf_id_t vrf_id)
+static struct interface *if_sunwzebra_get(const char *name, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 	char *cp;

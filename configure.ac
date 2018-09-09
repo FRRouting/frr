@@ -189,46 +189,6 @@ CC="${CC% -std=c99}"
 
 AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
 
-dnl AddressSanitizer support
-AC_ARG_ENABLE([address-sanitizer], AS_HELP_STRING([--enable-address-sanitizer], \
-              [enabled AddressSanitizer support for detecting a wide variety of \
-               memory allocation and deallocation errors]), \
-              [AC_DEFINE(HAVE_ADDRESS_SANITIZER, 1, [enable AddressSanitizer])
-              ASAN_FLAGS="-fsanitize=address"
-              SAN_CLIPPY_FLAGS="-fno-sanitize=all"
-              AC_SUBST([ASAN_FLAGS])
-              AC_SUBST([SAN_CLIPPY_FLAGS])
-              LIBS="-ldl $LIBS"
-              AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Address Sanitizer Enabled])],
-                                                 [AC_MSG_ERROR([Address Sanitizer not available])])
-              ])
-
-dnl ThreadSanitizer support
-AC_ARG_ENABLE([thread-sanitizer], AS_HELP_STRING([--enable-thread-sanitizer], \
-              [enabled ThreadSanitizer support for detecting data races]), \
-              [AC_DEFINE(HAVE_THREAD_SANITIZER, 1, [enable ThreadSanitizer])
-              TSAN_FLAGS="-fsanitize=thread"
-              SAN_CLIPPY_FLAGS="-fno-sanitize=all"
-              AC_SUBST([TSAN_FLAGS])
-              AC_SUBST([SAN_CLIPPY_FLAGS])
-              LIBS="-ldl $LIBS"
-              AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Thread Sanitizer Enabled])],
-                                                 [AC_MSG_ERROR([Thread Sanitizer not available])])
-              ])
-
-dnl MemorySanitizer support
-AC_ARG_ENABLE([memory-sanitizer], AS_HELP_STRING([--enable-memory-sanitizer], \
-              [enabled MemorySanitizer support for detecting uninitialized memory reads]), \
-              [AC_DEFINE(HAVE_THREAD_SANITIZER, 1, [enable MemorySanitizer])
-              MSAN_FLAGS="-fsanitize=memory -fPIE -pie"
-              SAN_CLIPPY_FLAGS="-fno-sanitize=all"
-              AC_SUBST([MSAN_FLAGS])
-              AC_SUBST([SAN_CLIPPY_FLAGS])
-              LIBS="-ldl $LIBS"
-              AC_TRY_COMPILE([],[const int i=0;],[AC_MSG_NOTICE([Memory Sanitizer Enabled])],
-                                                 [AC_MSG_ERROR([Memory Sanitizer not available])])
-              ])
-
 dnl if the user has specified any CFLAGS, override our settings
 if test "x${enable_gcov}" = "xyes"; then
    if test "z$orig_cflags" = "z"; then
@@ -287,19 +247,29 @@ if test x"${enable_werror}" = x"yes" ; then
 fi
 AC_SUBST(WERROR)
 
-dnl need link on this one, not compile
-AC_LANG_PUSH(C)
-ac_ld_flag_save="$LDFLAGS"
-LDFLAGS="$LDFLAGS -rdynamic"
-AC_MSG_CHECKING([[whether linker supports -rdynamic]])
-AC_LINK_IFELSE(
-	[AC_LANG_PROGRAM([[]])],
-	[AC_MSG_RESULT([yes])],
-	[
-		LDFLAGS="$ac_ld_flag_save"
-		AC_MSG_RESULT([no])
-	])
-AC_LANG_POP(C)
+SAN_FLAGS=""
+if test "$enable_address_sanitizer" = "yes"; then
+  AC_C_FLAG([-fsanitize=address], [
+    AC_MSG_ERROR([$CC does not support Address Sanitizer.])
+  ], [
+    SAN_FLAGS="$SAN_FLAGS -fsanitize=address"
+  ])
+fi
+if test "$enable_thread_sanitizer" = "yes"; then
+  AC_C_FLAG([-fsanitize=thread], [
+    AC_MSG_ERROR([$CC does not support Thread Sanitizer.])
+  ], [
+    SAN_FLAGS="$SAN_FLAGS -fsanitize=thread"
+  ])
+fi
+if test "$enable_memory_sanitizer" = "yes"; then
+  AC_C_FLAG([-fsanitize=thread -fPIE -pie], [
+    AC_MSG_ERROR([$CC does not support Thread Sanitizer.])
+  ], [
+    SAN_FLAGS="-fsanitize=memory -fPIE -pie"
+  ])
+fi
+AC_SUBST([SAN_FLAGS])
 
 dnl ----------
 dnl Essentials
@@ -327,11 +297,6 @@ AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AC_CHECK_TOOL(AR, ar)
-
-dnl -----------------
-dnl System extensions
-dnl -----------------
-AC_GNU_SOURCE
 
 dnl -------
 dnl libtool
@@ -467,6 +432,12 @@ AC_ARG_ENABLE([gcov],
   AS_HELP_STRING([--enable-gcov], [Add code coverage information]))
 AC_ARG_ENABLE(bfdd,
   AS_HELP_STRING([--disable-bfdd], [do not build bfdd]))
+AC_ARG_ENABLE([address-sanitizer],
+  AS_HELP_STRING([--enable-address-sanitizer], [enable AddressSanitizer support for detecting a wide variety of memory allocation and deallocation errors]))
+AC_ARG_ENABLE([thread-sanitizer],
+  AS_HELP_STRING([--enable-thread-sanitizer], [enable ThreadSanitizer support for detecting data races]))
+AC_ARG_ENABLE([memory-sanitizer],
+  AS_HELP_STRING([--enable-memory-sanitizer], [enable MemorySanitizer support for detecting uninitialized memory reads]))
 
 AS_IF([test "${enable_clippy_only}" != "yes"], [
 AC_CHECK_HEADERS(json-c/json.h)
@@ -630,27 +601,26 @@ AC_SUBST(PYTHON_LIBS)
 # Logic for protobuf support.
 #
 if test "$enable_protobuf" = "yes"; then
-   have_protobuf=yes
+  # Check for protoc & protoc-c
 
-   # Check for protoc-c
-   AC_CHECK_PROG([PROTOC_C], [protoc-c], [protoc-c], [/bin/false])
-   if test "x$PROTOC_C" = "x/bin/false"; then
-      have_protobuf=no
-   else
-      found_protobuf_c=no
-      PKG_CHECK_MODULES([PROTOBUF_C], libprotobuf-c >= 0.14,
-                     [found_protobuf_c=yes],
-                     [AC_MSG_RESULT([pkg-config did not find libprotobuf-c])])
+  # protoc is not required, it's only for a "be nice" helper target
+  AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
 
-      if test "x$found_protobuf_c" = "xyes"; then
-         LDFLAGS="$LDFLAGS $PROTOBUF_C_LIBS"
-         CFLAGS="$CFLAGS $PROTOBUF_C_CFLAGS"
-      else
-        AC_CHECK_HEADER([google/protobuf-c/protobuf-c.h], [],
-                        [have_protobuf=no; AC_MSG_RESULT([Couldn't find google/protobuf-c.h])])
-      fi
-   fi
+  AC_CHECK_PROGS([PROTOC_C], [protoc-c], [/bin/false])
+  if test "$PROTOC_C" = "/bin/false"; then
+    AC_MSG_FAILURE([protobuf requested but protoc-c not found.  Install protobuf-c.])
+  fi
+
+  PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 0.14],, [
+    AC_MSG_FAILURE([protobuf requested but libprotobuf-c not found.  Install protobuf-c.])
+  ])
+  AC_CHECK_HEADER([google/protobuf-c/protobuf-c.h], [], [
+    AC_MSG_FAILURE([protobuf requested but protobuf-c.h not found.  Install protobuf-c.])
+  ])
+
+  AC_DEFINE(HAVE_PROTOBUF,, protobuf)
 fi
+AM_CONDITIONAL([HAVE_PROTOBUF], [test "x$enable_protobuf" = "xyes"])
 
 #
 # Logic for old vpn commans support.
@@ -658,18 +628,6 @@ fi
 if test "$enable_oldvpn_commands" = "yes"; then
    AC_DEFINE(KEEP_OLD_VPN_COMMANDS,, [Define for compiling with old vpn commands])
 fi
-
-# Fail if the user explicity enabled protobuf support and we couldn't
-# find the compiler or libraries.
-if test "x$have_protobuf" = "xno" && test "x$enable_protobuf" = "xyes"; then
-   AC_MSG_ERROR([Protobuf enabled explicitly but can't find libraries/tools])
-fi
-
-if test "x$have_protobuf" = "xyes"; then
-   AC_DEFINE(HAVE_PROTOBUF,, protobuf)
-fi
-
-AM_CONDITIONAL([HAVE_PROTOBUF], [test "x$have_protobuf" = "xyes"])
 
 #
 # End of logic for protobuf support.
@@ -857,10 +815,15 @@ int main(int argc, char **argv) {
   ])
 ])
 
+AC_CHECK_HEADERS([pthread_np.h],,, [
+#include <pthread.h>
+])
+AC_CHECK_FUNCS([pthread_setname_np pthread_set_name_np])
+
 dnl Utility macro to avoid retyping includes all the time
 m4_define([FRR_INCLUDES],
 [#ifdef SUNOS_5
-#define _XPG4_2
+#define _POSIX_C_SOURCE 200809L
 #define __EXTENSIONS__
 #endif
 #include <stdio.h>
@@ -953,6 +916,7 @@ case "$host_os" in
 
     AC_DEFINE(SUNOS_5, 1, [SunOS 5])
     AC_DEFINE(SOLARIS_IPV6, 1, Solaris IPv6)
+    AC_DEFINE(_POSIX_C_SOURCE, 200809L, [enable POSIX.1-2008 and XPG7/SUSv4])
 
     AC_CHECK_LIB(socket, main)
     AC_CHECK_LIB(nsl, main)
@@ -1825,12 +1789,15 @@ dnl order to check no alternative allocator
 dnl has been specified, which might not provide
 dnl mallinfo, e.g. such as Umem on Solaris.
 dnl -----------------------------------------
-AC_CHECK_HEADERS([malloc.h malloc/malloc.h],,, [FRR_INCLUDES])
+AC_CHECK_HEADERS([malloc.h malloc_np.h malloc/malloc.h],,, [FRR_INCLUDES])
 
 AC_CACHE_CHECK([whether mallinfo is available], [frr_cv_mallinfo], [
   AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES [
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
+#endif
+#ifdef HAVE_MALLOC_NP_H
+#include <malloc_np.h>
 #endif
 #ifdef HAVE_MALLOC_MALLOC_H
 #include <malloc/malloc.h>
@@ -2059,9 +2026,9 @@ FRR version             : ${PACKAGE_VERSION}
 host operating system   : ${host_os}
 source code location    : ${srcdir}
 compiler                : ${CC}
-compiler flags          : ${CFLAGS}
+compiler flags          : ${CFLAGS} ${SAN_FLAGS}
 make                    : ${MAKE-make}
-linker flags            : ${LDFLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
+linker flags            : ${LDFLAGS} ${SAN_FLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
 state file directory    : ${frr_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
 example directory       : `eval echo \`echo ${exampledir}\``
@@ -2071,7 +2038,7 @@ group to run as         : ${enable_group}
 group for vty sockets   : ${enable_vty_group}
 config file mask        : ${enable_configfile_mask}
 log file mask           : ${enable_logfile_mask}
-zebra protobuf enabled  : ${have_protobuf:-no}
+zebra protobuf enabled  : ${enable_protobuf:-no}
 
 The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory."
