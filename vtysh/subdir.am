@@ -5,7 +5,7 @@
 if VTYSH
 bin_PROGRAMS += vtysh/vtysh
 dist_examples_DATA += vtysh/vtysh.conf.sample
-rstman1_DATA += $(MANBUILD)/vtysh.1
+man1 += $(MANBUILD)/vtysh.1
 endif
 
 vtysh_vtysh_SOURCES = \
