@@ -44,7 +44,6 @@
 #include "keychain.h"
 #include "libfrr.h"
 
-#include "eigrpd/eigrp_structs.h"
 #include "eigrpd/eigrpd.h"
 #include "eigrpd/eigrp_interface.h"
 #include "eigrpd/eigrp_zebra.h"
