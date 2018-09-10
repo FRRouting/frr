@@ -120,7 +120,7 @@ TAILQ_HEAD(dplane_ctx_q, zebra_dplane_ctx);
  */
 void dplane_ctx_fini(struct zebra_dplane_ctx **pctx);
 
-/* Enqueue a context block to caller's tailq. This just exists so that the
+/* Enqueue a context block to caller's tailq. This exists so that the
  * context struct can remain opaque.
  */
 void dplane_ctx_enqueue_tail(struct dplane_ctx_q *q,

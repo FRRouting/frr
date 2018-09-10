@@ -300,7 +300,7 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
  */
 void dplane_ctx_fini(struct zebra_dplane_ctx **pctx)
 {
-	/* TODO -- enqueue for next provider; for now, just free */
+	/* TODO -- maintain pool; for now, just free */
 	dplane_ctx_free(pctx);
 }
 
@@ -309,6 +309,18 @@ void dplane_ctx_enqueue_tail(struct dplane_ctx_q *q,
 			     const struct zebra_dplane_ctx *ctx)
 {
 	TAILQ_INSERT_TAIL(q, (struct zebra_dplane_ctx *)ctx, zd_q_entries);
+}
+
+/* Append a list of context blocks to another list */
+void dplane_ctx_list_append(struct dplane_ctx_q *to_list,
+			    struct dplane_ctx_q *from_list)
+{
+	if (TAILQ_FIRST(from_list)) {
+		TAILQ_CONCAT(to_list, from_list, zd_q_entries);
+
+		/* And clear 'from' list */
+		TAILQ_INIT(from_list);
+	}
 }
 
 /* Dequeue a context block from the head of a list */
@@ -649,6 +661,7 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 		goto done;
 
 	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	ctx->zd_type = re->type;
 	ctx->zd_old_type = re->type;
@@ -702,7 +715,7 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 
 	/* TODO -- maybe use array of nexthops to avoid allocs? */
 
-	/* Ensure that the dplane's nexthop flag is clear. */
+	/* Ensure that the dplane's nexthops flags are clear. */
 	for (ALL_NEXTHOPS(ctx->zd_ng, nexthop))
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 
@@ -1418,6 +1431,10 @@ void zebra_dplane_finish(void)
  * providers, taking complete work from each one and offering it
  * to the next in order. At each step, a limited number of updates are
  * processed during a cycle in order to provide some fairness.
+ *
+ * This loop through the providers is only run once, so that the dataplane
+ * pthread can look for other pending work - such as i/o work on behalf of
+ * providers.
  */
 static int dplane_thread_loop(struct thread *event)
 {
@@ -1431,7 +1448,10 @@ static int dplane_thread_loop(struct thread *event)
 	/* Capture work limit per cycle */
 	limit = zdplane_info.dg_updates_per_cycle;
 
+	/* Init temporary lists used to move contexts among providers */
 	TAILQ_INIT(&work_list);
+	TAILQ_INIT(&error_list);
+	error_counter = 0;
 
 	/* Check for zebra shutdown */
 	if (!zdplane_info.dg_run)
@@ -1445,15 +1465,12 @@ static int dplane_thread_loop(struct thread *event)
 	/* Locate initial registered provider */
 	prov = TAILQ_FIRST(&zdplane_info.dg_providers_q);
 
+	/* Move new work from incoming list to temp list */
 	for (counter = 0; counter < limit; counter++) {
 		ctx = TAILQ_FIRST(&zdplane_info.dg_route_ctx_q);
 		if (ctx) {
 			TAILQ_REMOVE(&zdplane_info.dg_route_ctx_q, ctx,
 				     zd_q_entries);
-
-			atomic_fetch_sub_explicit(
-				&zdplane_info.dg_routes_queued, 1,
-				memory_order_relaxed);
 
 			ctx->zd_provider = prov->dp_id;
 
@@ -1465,6 +1482,9 @@ static int dplane_thread_loop(struct thread *event)
 
 	DPLANE_UNLOCK();
 
+	atomic_fetch_sub_explicit(&zdplane_info.dg_routes_queued, counter,
+				  memory_order_relaxed);
+
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug("dplane: incoming new work counter: %d", counter);
 
@@ -1473,6 +1493,10 @@ static int dplane_thread_loop(struct thread *event)
 	 * work for the next provider
 	 */
 	while (prov) {
+
+		/* At each iteration, the temporary work list has 'counter'
+		 * items.
+		 */
 
 		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 			zlog_debug("dplane enqueues %d new work to provider '%s'",
@@ -1519,11 +1543,16 @@ static int dplane_thread_loop(struct thread *event)
 		if (dplane_provider_is_threaded(prov))
 			DPLANE_PROV_UNLOCK(prov);
 
-		/* Reset the temp list */
+		/* Reset the temp list (though the 'concat' may have done this
+		 * already), and the counter
+		 */
 		TAILQ_INIT(&work_list);
 		counter = 0;
 
-		/* Call into the provider code */
+		/* Call into the provider code. Note that this is
+		 * unconditional: we offer to do work even if we don't enqueue
+		 * any _new_ work.
+		 */
 		(*prov->dp_fp)(prov);
 
 		/* Check for zebra shutdown */
@@ -1558,25 +1587,29 @@ static int dplane_thread_loop(struct thread *event)
 		DPLANE_LOCK();
 		prov = TAILQ_NEXT(prov, dp_prov_link);
 		DPLANE_UNLOCK();
-
-		if (prov) {
-			TAILQ_FOREACH(ctx, &work_list, zd_q_entries)
-				ctx->zd_provider = prov->dp_id;
-		}
 	}
 
 	/* After all providers have been serviced, enqueue any completed
-	 * work back to zebra so it can process the results.
+	 * work and any errors back to zebra so it can process the results.
 	 */
-
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
-		zlog_debug("dplane has %d completed work for zebra main",
-			   counter);
+		zlog_debug("dplane has %d completed, %d errors, for zebra main",
+			   counter, error_counter);
 
 	/*
 	 * TODO -- I'd rather hand lists through the api to zebra main,
 	 * to reduce the number of lock/unlock cycles
 	 */
+	for (ctx = TAILQ_FIRST(&error_list); ctx; ) {
+		TAILQ_REMOVE(&error_list, ctx, zd_q_entries);
+
+		/* Call through to zebra main */
+		(*zdplane_info.dg_results_cb)(ctx);
+
+		ctx = TAILQ_FIRST(&error_list);
+	}
+
+
 	for (ctx = TAILQ_FIRST(&work_list); ctx; ) {
 		TAILQ_REMOVE(&work_list, ctx, zd_q_entries);
 
