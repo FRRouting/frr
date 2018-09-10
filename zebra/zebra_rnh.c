@@ -288,7 +288,8 @@ void zebra_deregister_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
 /* Apply the NHT route-map for a client to the route (and nexthops)
  * resolving a NH.
  */
-static int zebra_rnh_apply_nht_rmap(int family, struct route_node *prn,
+static int zebra_rnh_apply_nht_rmap(int family,
+                    struct zebra_vrf *zvrf,struct route_node *prn,
 				    struct route_entry *re, int proto)
 {
 	int at_least_one = 0;
@@ -302,7 +303,7 @@ static int zebra_rnh_apply_nht_rmap(int family, struct route_node *prn,
 		for (nexthop = re->ng.nexthop; nexthop;
 		     nexthop = nexthop->next) {
 			ret = zebra_nht_route_map_check(rmap_family, proto,
-							&prn->p, re, nexthop);
+							&prn->p, zvrf, re, nexthop);
 			if (ret != RMAP_DENYMATCH) {
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 				at_least_one++; /* at least one valid NH */
@@ -412,6 +413,7 @@ static void zebra_rnh_notify_protocol_clients(vrf_id_t vrfid, int family,
 	char bufn[INET6_ADDRSTRLEN];
 	char bufp[INET6_ADDRSTRLEN];
 	int num_resolving_nh;
+    struct zebra_vrf *zvrf=NULL;
 
 	if (IS_ZEBRA_DEBUG_NHT) {
 		prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
@@ -424,6 +426,8 @@ static void zebra_rnh_notify_protocol_clients(vrf_id_t vrfid, int family,
 				   bufn);
 	}
 
+    zvrf=vrf_info_lookup(vrfid);
+
 	for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client)) {
 		if (prn && re) {
 			/* Apply route-map for this client to route resolving
@@ -431,7 +435,7 @@ static void zebra_rnh_notify_protocol_clients(vrf_id_t vrfid, int family,
 			 * nexthop to see if it is filtered or not.
 			 */
 			num_resolving_nh = zebra_rnh_apply_nht_rmap(
-				family, prn, re, client->proto);
+				family, zvrf, prn, re, client->proto);
 			if (num_resolving_nh)
 				rnh->filtered[client->proto] = 0;
 			else
