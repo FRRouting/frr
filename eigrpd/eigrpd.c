@@ -43,9 +43,7 @@
 #include "sockopt.h"
 #include "keychain.h"
 #include "libfrr.h"
-#include "lib_errors.h"
 
-#include "eigrpd/eigrp_structs.h"
 #include "eigrpd/eigrpd.h"
 #include "eigrpd/eigrp_interface.h"
 #include "eigrpd/eigrp_zebra.h"
@@ -62,16 +60,16 @@ static struct eigrp_master eigrp_master;
 
 struct eigrp_master *eigrp_om;
 
-static void eigrp_delete(struct eigrp *);
-static struct eigrp *eigrp_new(const char *);
-static void eigrp_add(struct eigrp *);
+static void eigrp_delete(eigrp_t *);
+static eigrp_t *eigrp_new(const char *);
+static void eigrp_add(eigrp_t *);
 
 extern struct zclient *zclient;
 extern struct in_addr router_id_zebra;
 
 
 /*
- * void eigrp_router_id_update(struct eigrp *eigrp)
+ * void eigrp_router_id_update(eigrp_t *eigrp)
  *
  * Description:
  * update routerid associated with this instance of EIGRP.
@@ -93,7 +91,7 @@ extern struct in_addr router_id_zebra;
  * This does not work for IPv6, and to make the code simpler, its
  * stored and processed internerall as a 32bit number
  */
-void eigrp_router_id_update(struct eigrp *eigrp)
+void eigrp_router_id_update(eigrp_t *eigrp)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
@@ -136,9 +134,9 @@ void eigrp_master_init()
 }
 
 /* Allocate new eigrp structure. */
-static struct eigrp *eigrp_new(const char *AS)
+static eigrp_t *eigrp_new(const char *AS)
 {
-	struct eigrp *eigrp = XCALLOC(MTYPE_EIGRP_TOP, sizeof(struct eigrp));
+	eigrp_t *eigrp = XCALLOC(MTYPE_EIGRP_TOP, sizeof(struct eigrp));
 	int eigrp_socket;
 
 	/* init information relevant to peers */
@@ -162,16 +160,21 @@ static struct eigrp *eigrp_new(const char *AS)
 	eigrp->networks = eigrp_topology_new();
 
 	if ((eigrp_socket = eigrp_sock_init()) < 0) {
-		flog_err_sys(
-			LIB_ERR_SOCKET,
-			"eigrp_new: fatal error: eigrp_sock_init was unable to open a socket");
+		zlog_err(
+			"eigrp_new: fatal error: eigrp_sock_init was unable to open "
+			"a socket");
 		exit(1);
 	}
 
 	eigrp->fd = eigrp_socket;
 	eigrp->maxsndbuflen = getsockopt_so_sendbuf(eigrp->fd);
 
-	eigrp->ibuf = stream_new(EIGRP_PACKET_MAX_LEN + 1);
+	if ((eigrp->ibuf = stream_new(EIGRP_PACKET_MAX_LEN + 1)) == NULL) {
+		zlog_err(
+			"eigrp_new: fatal error: stream_new (%u) failed allocating ibuf",
+			EIGRP_PACKET_MAX_LEN + 1);
+		exit(1);
+	}
 
 	eigrp->t_read = NULL;
 	thread_add_read(master, eigrp_read, eigrp, eigrp->fd, &eigrp->t_read);
@@ -203,33 +206,32 @@ static struct eigrp *eigrp_new(const char *AS)
 	return eigrp;
 }
 
-static void eigrp_add(struct eigrp *eigrp)
+static void eigrp_add(eigrp_t *eigrp)
 {
-	listnode_add(eigrp_om->eigrp, eigrp);
+    listnode_add(eigrp_om->eigrp, eigrp);
 }
 
-static void eigrp_delete(struct eigrp *eigrp)
+static void eigrp_delete(eigrp_t *eigrp)
 {
-	listnode_delete(eigrp_om->eigrp, eigrp);
+    listnode_delete(eigrp_om->eigrp, eigrp);
 }
 
-struct eigrp *eigrp_get(const char *AS)
+eigrp_t *eigrp_get(const char *AS)
 {
-	struct eigrp *eigrp;
+    eigrp_t *eigrp = eigrp_lookup();
 
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		eigrp = eigrp_new(AS);
-		eigrp_add(eigrp);
-	}
+    if (eigrp == NULL) {
+	eigrp = eigrp_new(AS);
+	eigrp_add(eigrp);
+    }
 
-	return eigrp;
+    return eigrp;
 }
 
 /* Shut down the entire process */
 void eigrp_terminate(void)
 {
-	struct eigrp *eigrp;
+	eigrp_t *eigrp;
 	struct listnode *node, *nnode;
 
 	/* shutdown already in progress */
@@ -244,7 +246,7 @@ void eigrp_terminate(void)
 	frr_fini();
 }
 
-void eigrp_finish(struct eigrp *eigrp)
+void eigrp_finish(eigrp_t *eigrp)
 {
 	eigrp_finish_final(eigrp);
 
@@ -262,16 +264,16 @@ void eigrp_finish(struct eigrp *eigrp)
 }
 
 /* Final cleanup of eigrp instance */
-void eigrp_finish_final(struct eigrp *eigrp)
+void eigrp_finish_final(eigrp_t *eigrp)
 {
-	struct eigrp_interface *ei;
-	struct eigrp_neighbor *nbr;
+	eigrp_interface_t *ei;
+	eigrp_neighbor_t *nbr;
 	struct listnode *node, *nnode, *node2, *nnode2;
 
 	for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei)) {
 		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr))
 			eigrp_nbr_delete(nbr);
-		eigrp_if_free(ei, INTERFACE_DOWN_BY_FINAL);
+		eigrp_if_free(eigrp, ei, INTERFACE_DOWN_BY_FINAL);
 	}
 
 	THREAD_OFF(eigrp->t_write);
@@ -281,7 +283,7 @@ void eigrp_finish_final(struct eigrp *eigrp)
 	list_delete_and_null(&eigrp->eiflist);
 	list_delete_and_null(&eigrp->oi_write_q);
 
-	eigrp_topology_cleanup(eigrp->topology_table);
+	eigrp_topology_cleanup(eigrp);
 	eigrp_topology_free(eigrp->topology_table);
 
 	eigrp_nbr_delete(eigrp->neighbor_self);
@@ -295,10 +297,10 @@ void eigrp_finish_final(struct eigrp *eigrp)
 }
 
 /*Look for existing eigrp process*/
-struct eigrp *eigrp_lookup(void)
+eigrp_t *eigrp_lookup(void)
 {
-	if (listcount(eigrp_om->eigrp) == 0)
-		return NULL;
+    if (listcount(eigrp_om->eigrp) == 0)
+	return NULL;
 
-	return listgetdata(listhead(eigrp_om->eigrp));
+    return listgetdata(listhead(eigrp_om->eigrp));
 }
