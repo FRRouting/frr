@@ -324,14 +324,14 @@ void dplane_ctx_list_append(struct dplane_ctx_q *to_list,
 }
 
 /* Dequeue a context block from the head of a list */
-void dplane_ctx_dequeue(struct dplane_ctx_q *q, struct zebra_dplane_ctx **ctxp)
+struct zebra_dplane_ctx *dplane_ctx_dequeue(struct dplane_ctx_q *q)
 {
 	struct zebra_dplane_ctx *ctx = TAILQ_FIRST(q);
 
 	if (ctx)
 		TAILQ_REMOVE(q, ctx, zd_q_entries);
 
-	*ctxp = ctx;
+	return ctx;
 }
 
 /*

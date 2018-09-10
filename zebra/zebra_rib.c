@@ -3266,7 +3266,7 @@ static int rib_process_dplane_results(struct thread *thread)
 		pthread_mutex_lock(&dplane_mutex);
 		{
 			/* Dequeue context block */
-			dplane_ctx_dequeue(&rib_dplane_q, &ctx);
+			ctx = dplane_ctx_dequeue(&rib_dplane_q);
 		}
 		pthread_mutex_unlock(&dplane_mutex);
 
