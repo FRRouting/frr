@@ -1959,7 +1959,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	char buf[ETHER_ADDR_STRLEN];
 	char vid_buf[20];
 	char dst_buf[30];
-	uint8_t sticky = 0;
+	bool sticky;
 
 	ndm = NLMSG_DATA(h);
 
@@ -2030,7 +2030,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		sprintf(dst_buf, " dst %s", inet_ntoa(vtep_ip.u.prefix4));
 	}
 
-	sticky = (ndm->ndm_state & NUD_NOARP) ? 1 : 0;
+	sticky = !!(ndm->ndm_state & NUD_NOARP);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("Rx %s family %s IF %s(%u)%s %sMAC %s%s",
@@ -2178,7 +2178,7 @@ int netlink_macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 
 static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
 				 struct ethaddr *mac, struct in_addr vtep_ip,
-				 int cmd, uint8_t sticky)
+				 int cmd, bool sticky)
 {
 	struct zebra_ns *zns;
 	struct {
@@ -2264,8 +2264,8 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	char buf[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 	int mac_present = 0;
-	uint8_t ext_learned;
-	uint8_t router_flag;
+	bool is_ext;
+	bool is_router;
 
 	ndm = NLMSG_DATA(h);
 
@@ -2355,8 +2355,8 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 			memcpy(&mac, RTA_DATA(tb[NDA_LLADDR]), ETH_ALEN);
 		}
 
-		ext_learned = (ndm->ndm_flags & NTF_EXT_LEARNED) ? 1 : 0;
-		router_flag = (ndm->ndm_flags & NTF_ROUTER) ? 1 : 0;
+		is_ext = !!(ndm->ndm_flags & NTF_EXT_LEARNED);
+		is_router = !!(ndm->ndm_flags & NTF_ROUTER);
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
@@ -2379,7 +2379,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		if (ndm->ndm_state & NUD_VALID)
 			return zebra_vxlan_handle_kernel_neigh_update(
 				ifp, link_if, &ip, &mac, ndm->ndm_state,
-				ext_learned, router_flag);
+				is_ext, is_router);
 
 		return zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
 	}
@@ -2561,7 +2561,7 @@ static int netlink_neigh_update2(struct interface *ifp, struct ipaddr *ip,
 }
 
 int kernel_add_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
-		   struct in_addr vtep_ip, uint8_t sticky)
+		   struct in_addr vtep_ip, bool sticky)
 {
 	return netlink_macfdb_update(ifp, vid, mac, vtep_ip, RTM_NEWNEIGH,
 				     sticky);

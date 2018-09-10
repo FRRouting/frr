@@ -1963,7 +1963,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 				   struct interface *ifp,
 				   struct ipaddr *ip,
 				   struct ethaddr *macaddr,
-				   uint8_t router_flag)
+				   bool is_router)
 {
 	char buf[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
@@ -2029,7 +2029,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 	} else {
 		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
 			/* If there is no MAC change, BGP isn't interested. */
-			if (router_flag !=
+			if (is_router !=
 			    (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG)
 					? 1 : 0))
 				check_rbit = true;
@@ -2121,7 +2121,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 	}
 
 	/*Mark Router flag (R-bit) */
-	if (router_flag)
+	if (is_router)
 		SET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
 	else
 		UNSET_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG);
@@ -2593,7 +2593,7 @@ static int zvni_mac_install(zebra_vni_t *zvni, zebra_mac_t *mac)
 {
 	struct zebra_if *zif;
 	struct zebra_l2info_vxlan *vxl;
-	uint8_t sticky;
+	bool sticky;
 
 	if (!(mac->flags & ZEBRA_MAC_REMOTE))
 		return 0;
@@ -2603,8 +2603,8 @@ static int zvni_mac_install(zebra_vni_t *zvni, zebra_mac_t *mac)
 		return -1;
 	vxl = &zif->l2info.vxl;
 
-	sticky = CHECK_FLAG(mac->flags,
-			 (ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW)) ? 1 : 0;
+	sticky = !!CHECK_FLAG(mac->flags,
+			 (ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW));
 
 	return kernel_add_mac(zvni->vxlan_if, vxl->access_vlan, &mac->macaddr,
 			      mac->fwd_info.r_vtep_ip, sticky);
@@ -4058,9 +4058,9 @@ static void process_remote_macip_add(vni_t vni,
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
 	uint32_t tmp_seq;
-	uint8_t sticky = 0;
-	uint8_t remote_gw = 0;
-	uint8_t router_flag = 0;
+	bool sticky;
+	bool remote_gw;
+	bool is_router;
 
 	/* Locate VNI hash entry - expected to exist. */
 	zvni = zvni_lookup(vni);
@@ -4098,9 +4098,9 @@ static void process_remote_macip_add(vni_t vni,
 		zvni_vtep_install(zvni, &vtep_ip);
 	}
 
-	sticky = CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
-	remote_gw = CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
-	router_flag = CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
+	sticky = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
+	remote_gw = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
+	is_router = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
 
 	mac = zvni_mac_lookup(zvni, macaddr);
 
@@ -4124,9 +4124,8 @@ static void process_remote_macip_add(vni_t vni,
 	 */
 	if (!mac
 	    || !CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)
-	    || (CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY) ? 1 : 0) != sticky
-	    || (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW) ? 1 : 0)
-		!= remote_gw
+	    || sticky != !!CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY)
+	    || remote_gw != !!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE_DEF_GW)
 	    || !IPV4_ADDR_SAME(&mac->fwd_info.r_vtep_ip, &vtep_ip)
 	    || seq != mac->rem_seq)
 		update_mac = 1;
@@ -4217,10 +4216,9 @@ static void process_remote_macip_add(vni_t vni,
 	n = zvni_neigh_lookup(zvni, ipaddr);
 	if (!n
 	    || !CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)
+	    || is_router != !!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG)
 	    || (memcmp(&n->emac, macaddr, sizeof(*macaddr)) != 0)
 	    || !IPV4_ADDR_SAME(&n->r_vtep_ip, &vtep_ip)
-	    || ((CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG) ? 1 : 0)
-		!= router_flag)
 	    || seq != n->rem_seq)
 		update_neigh = 1;
 
@@ -5406,8 +5404,8 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp,
 					   struct ipaddr *ip,
 					   struct ethaddr *macaddr,
 					   uint16_t state,
-					   uint8_t ext_learned,
-					   uint8_t router_flag)
+					   bool is_ext,
+					   bool is_router)
 {
 	char buf[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
@@ -5433,14 +5431,14 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp,
 			"Add/Update neighbor %s MAC %s intf %s(%u) state 0x%x %s %s-> L2-VNI %u",
 			ipaddr2str(ip, buf2, sizeof(buf2)),
 			prefix_mac2str(macaddr, buf, sizeof(buf)), ifp->name,
-			ifp->ifindex, state, ext_learned ? "ext-learned " : "",
-			router_flag ? "router " : "",
+			ifp->ifindex, state, is_ext ? "ext-learned " : "",
+			is_router ? "router " : "",
 			zvni->vni);
 
 	/* Is this about a local neighbor or a remote one? */
-	if (!ext_learned)
+	if (!is_ext)
 		return zvni_local_neigh_update(zvni, ifp, ip, macaddr,
-					       router_flag);
+					       is_router);
 
 	return zvni_remote_neigh_update(zvni, ifp, ip, macaddr, state);
 }
@@ -5753,7 +5751,7 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 				     struct interface *br_if,
 				     struct ethaddr *macaddr, vlanid_t vid,
-				     uint8_t sticky)
+				     bool sticky)
 {
 	zebra_vni_t *zvni;
 	zebra_mac_t *mac;
