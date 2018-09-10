@@ -36,8 +36,8 @@ Add frr groups and user
 ::
 
     sudo groupadd -g 92 frr
-    sudo groupadd -r -g 85 frrvt
-    sudo useradd -u 92 -g 92 -M -r -G frrvt -s /sbin/nologin \
+    sudo groupadd -r -g 85 frrvty
+    sudo useradd -u 92 -g 92 -M -r -G frrvty -s /sbin/nologin \
       -c "FRR FRRouting suite" -d /var/run/frr frr
 
 Download Source, configure and compile it
@@ -66,7 +66,7 @@ an example.)
         --enable-ospfapi=yes \
         --enable-user=frr \
         --enable-group=frr \
-        --enable-vty-group=frrvt \
+        --enable-vty-group=frrvty \
         --enable-rtadv \
 	--enable-systemd=yes \
         --disable-exampledir \
@@ -102,7 +102,7 @@ Create empty FRR configuration files
     sudo touch /etc/frr/babeld.conf
     sudo chown -R frr:frr /etc/frr/
     sudo touch /etc/frr/vtysh.conf
-    sudo chown frr:frrvt /etc/frr/vtysh.conf
+    sudo chown frr:frrvty /etc/frr/vtysh.conf
     sudo chmod 640 /etc/frr/*.conf
 
 Install daemon config file

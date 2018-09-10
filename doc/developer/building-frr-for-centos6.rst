@@ -128,8 +128,8 @@ Add frr groups and user
 .. code-block:: shell
 
    sudo groupadd -g 92 frr
-   sudo groupadd -r -g 85 frrvt
-   sudo useradd -u 92 -g 92 -M -r -G frrvt -s /sbin/nologin \
+   sudo groupadd -r -g 85 frrvty
+   sudo useradd -u 92 -g 92 -M -r -G frrvty -s /sbin/nologin \
       -c "FRR FRRouting suite" -d /var/run/frr frr
 
 Download Source, configure and compile it
@@ -158,7 +158,7 @@ an example.)
         --enable-ospfapi=yes \
         --enable-user=frr \
         --enable-group=frr \
-        --enable-vty-group=frrvt \
+        --enable-vty-group=frrvty \
         --enable-rtadv \
         --disable-exampledir \
         --enable-watchfrr \
