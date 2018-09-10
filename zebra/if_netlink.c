@@ -1071,7 +1071,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	struct ifinfomsg *ifi;
 	struct rtattr *tb[IFLA_MAX + 1];
 	struct rtattr *linkinfo[IFLA_MAX + 1];
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	char *name = NULL;
 	char *kind = NULL;
 	char *desc = NULL;
@@ -1160,7 +1160,11 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	}
 
 	/* See if interface is present. */
-	ifp = if_lookup_by_name_per_ns(zns, name);
+	if ((ifi->ifi_index != IFINDEX_INTERNAL) &&
+	    h->nlmsg_type == RTM_NEWLINK)
+		ifp = if_lookup_by_index_per_ns(zns, ifi->ifi_index);
+	if (!ifp)
+		ifp = if_lookup_by_name_per_ns(zns, name);
 
 	if (ifp) {
 		if (ifp->desc)
@@ -1185,6 +1189,17 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		}
 		if (vrf_is_backend_netns())
 			vrf_id = (vrf_id_t)ns_id;
+		if (ifi->ifi_index != IFINDEX_INTERNAL && ifp &&
+		    strncmp(name, ifp->name, sizeof(ifp->name))) {
+			struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+			/* update name */
+			if (vrf) {
+				IFNAME_RB_REMOVE(vrf, ifp);
+				strlcpy(ifp->name, name, sizeof(ifp->name));
+				IFNAME_RB_INSERT(vrf, ifp);
+			}
+		}
 		if (ifp == NULL
 		    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 			/* Add interface notification from kernel */
@@ -1276,6 +1291,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			zebra_if_set_ziftype(ifp, zif_type, zif_slave_type);
 
 			netlink_interface_update_hw_addr(tb, ifp);
+
+			/* Update clients of interface more than once */
+			if_add_update(ifp);
 
 			if (if_is_no_ptm_operative(ifp)) {
 				ifp->flags = ifi->ifi_flags & 0x0000fffff;
