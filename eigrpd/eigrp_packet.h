@@ -41,10 +41,10 @@
     uint16_t length;
 #define EIGRP_TLV_HDR_SIZE	4
 
-typedef struct eigrp_tlv_header {
+struct eigrp_tlv_header {
     uint16_t type;		\
     uint16_t length;
-} eigrp_tlv_header_t;
+};
 
 /*Prototypes*/
 extern int eigrp_read(struct thread *);

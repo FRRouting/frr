@@ -42,7 +42,7 @@
 /**
  * only the most common structs used by most files are here
  */
-typedef struct eigrp_vmetrics {
+struct eigrp_vmetrics {
     eigrp_delay_t delay;
     eigrp_bandwidth_t bandwidth;
     unsigned char mtu[3];
@@ -51,7 +51,7 @@ typedef struct eigrp_vmetrics {
     uint8_t load;
     uint8_t tag;
     uint8_t flags;
-} eigrp_vmetrics_t;
+};
 
 typedef struct eigrp_extdata {
     uint32_t orig;
@@ -85,7 +85,7 @@ typedef struct eigrp_intf_stats {
     } sent;
 } eigrp_intf_stats_t;
 
-typedef struct eigrp {
+struct eigrp {
     char *name;			// Name of this EIGRP instance
     uint16_t AS;		// Autonomous system number
     uint16_t vrid;		// Virtual Router ID
@@ -144,7 +144,7 @@ typedef struct eigrp {
     } route_map[ZEBRA_ROUTE_MAX];
 
     QOBJ_FIELDS
-} eigrp_t;
+};
 DECLARE_QOBJ_TYPE(eigrp)
 
 typedef struct eigrp_if_params {
@@ -167,7 +167,7 @@ enum { MEMBER_ALLROUTERS = 0,
 };
 
 /*EIGRP interface structure*/
-typedef struct eigrp_interface {
+struct eigrp_interface {
     struct eigrp_if_params	params;
     eigrp_intf_stats_t	stats;		// Statistics fields
 
@@ -209,7 +209,7 @@ typedef struct eigrp_interface {
 
     /* Route-map. */
     struct route_map *routemap[EIGRP_FILTER_MAX];
-} eigrp_interface_t;
+};
 
 /* Determines if it is first or last packet
  * when packet consists of multiple packet
@@ -389,7 +389,7 @@ enum GR_type { EIGRP_GR_MANUAL, EIGRP_GR_FILTER };
 //---------------------------------------------------------------------------------------------------------------------------------------------
 
 /* EIGRP Topology table node structure */
-typedef struct eigrp_prefix_descriptor {
+struct eigrp_prefix_descriptor {
     struct list *entries, *rij;
     struct prefix *destination;
 
@@ -409,10 +409,10 @@ typedef struct eigrp_prefix_descriptor {
 
     uint64_t serno; /*Serial number for this entry. Increased with each
 		      change of entry*/
-} eigrp_prefix_descriptor_t;
+};
 
 /* EIGRP Topology table record structure */
-typedef struct eigrp_route_descriptor {
+struct eigrp_route_descriptor {
     uint16_t	type;
     uint16_t	afi;	// ipv4 or ipv6
 
@@ -432,7 +432,7 @@ typedef struct eigrp_route_descriptor {
     uint8_t flags;			   // used for marking successor and FS
 
     struct eigrp_interface *ei; // pointer for case of connected entry
-} eigrp_route_descriptor_t;
+};
 
 //---------------------------------------------------------------------------------------------------------------------------------------------
 typedef enum {

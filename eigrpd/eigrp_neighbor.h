@@ -33,7 +33,7 @@
 #define _ZEBRA_EIGRP_NEIGHBOR_H
 
 /* Neighbor Data Structure */
-typedef struct eigrp_neighbor {
+struct eigrp_neighbor {
 
     uint8_t os_rel_major;  // system version - just for show
     uint8_t os_rel_minor;  // system version - just for show
@@ -86,7 +86,7 @@ typedef struct eigrp_neighbor {
     /* if packet is first or last during Graceful restart */
     enum Packet_part_type nbr_gr_packet_type;
 
-} eigrp_neighbor_t;
+};
 
 
 /* Prototypes */
