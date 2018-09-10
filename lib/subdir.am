@@ -207,6 +207,17 @@ noinst_HEADERS += \
 	lib/plist_int.h \
 	#end
 
+# General note about module and module helper library (libfrrsnmp, libfrrzmq)
+# linking:  If we're linking libfrr statically into daemons, we *must* remove
+# libfrr from modules because modules will always link it in dynamically and
+# thus 2 copies of libfrr will be loaded... hilarity ensues.
+#
+# Not linking libfrr into modules should generally work fine because the
+# executable refers to libfrr either way and the dynamic linker should make
+# libfrr available to modules.  If some OS platform has a dynamic linker that
+# doesn't do that, libfrr needs to be readded to modules, but _only_ _if_
+# it's not linked into daemons statically.
+
 #
 # SNMP support
 #
@@ -216,7 +227,7 @@ endif
 
 lib_libfrrsnmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
 lib_libfrrsnmp_la_LDFLAGS = -version-info 0:0:0
-lib_libfrrsnmp_la_LIBADD = lib/libfrr.la $(SNMP_LIBS)
+lib_libfrrsnmp_la_LIBADD = $(SNMP_LIBS)
 lib_libfrrsnmp_la_SOURCES = \
 	lib/agentx.c \
 	lib/snmp.c \
@@ -232,7 +243,7 @@ endif
 
 lib_libfrrzmq_la_CFLAGS = $(WERROR) $(ZEROMQ_CFLAGS)
 lib_libfrrzmq_la_LDFLAGS = -version-info 0:0:0
-lib_libfrrzmq_la_LIBADD = lib/libfrr.la $(ZEROMQ_LIBS)
+lib_libfrrzmq_la_LIBADD = $(ZEROMQ_LIBS)
 lib_libfrrzmq_la_SOURCES = \
 	lib/frr_zmq.c \
 	#end

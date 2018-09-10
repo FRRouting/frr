@@ -1,0 +1,18 @@
+--- /usr/share/libtool/build-aux/ltmain.sh	2017-08-01 07:13:09.611041402 +0200
++++ ltmain.sh	2018-08-31 17:32:15.381903718 +0200
+@@ -8439,8 +8439,13 @@
+ 	  # shared platforms.
+ 	  if test unsupported != "$hardcode_direct"; then
+ 	    test -n "$old_library" && linklib=$old_library
+-	    compile_deplibs="$dir/$linklib $compile_deplibs"
+-	    finalize_deplibs="$dir/$linklib $finalize_deplibs"
++	    if test yes,yes = "$export_dynamic,$with_gnu_ld"; then
++	      compile_deplibs="-Wl,--no-whole-archive $dir/$linklib -Wl,--whole-archive $compile_deplibs"
++	      finalize_deplibs="-Wl,--no-whole-archive $dir/$linklib -Wl,--whole-archive $finalize_deplibs"
++	    else
++	      compile_deplibs="$dir/$linklib $compile_deplibs"
++	      finalize_deplibs="$dir/$linklib $finalize_deplibs"
++	    fi
+ 	  else
+ 	    compile_deplibs="-l$name -L$dir $compile_deplibs"
+ 	    finalize_deplibs="-l$name -L$dir $finalize_deplibs"

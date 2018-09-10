@@ -12,6 +12,7 @@ AM_CPPFLAGS = \
 	-I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib
 AM_LDFLAGS = \
 	-export-dynamic \
+	$(AC_LDFLAGS) \
 	$(SAN_FLAGS) \
 	# end
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE)
@@ -154,6 +155,7 @@ EXTRA_DIST += \
 	aclocal.m4 \
 	README.md \
 	m4/README.txt \
+	m4/libtool-whole-archive.patch \
 	\
 	python/clidef.py \
 	python/clippy/__init__.py \

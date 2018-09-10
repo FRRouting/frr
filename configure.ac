@@ -310,7 +310,18 @@ AC_CHECK_TOOL(AR, ar)
 dnl -------
 dnl libtool
 dnl -------
+AC_ARG_ENABLE(static-bin,
+  AS_HELP_STRING([--enable-static-bin], [link binaries statically]))
 LT_INIT
+_LT_CONFIG_LIBTOOL([
+  patch -N -i "${srcdir}/m4/libtool-whole-archive.patch" libtool >&AS_MESSAGE_LOG_FD || \
+    AC_MSG_WARN([Could not patch libtool for static linking support.  Loading modules into a statically linked daemon will fail.])
+])
+if test "$enable_static_bin" = "yes"; then
+  AC_LDFLAGS="-static"
+fi
+AC_SUBST(AC_LDFLAGS)
+AM_CONDITIONAL([STATIC_BIN], [test "x$enable_static_bin" = "xyes"])
 
 dnl ----------------------
 dnl Packages configuration
