@@ -137,27 +137,27 @@ extern unsigned long term_debug_eigrp_zebra;
 #define IS_DEBUG_EIGRP_EVENT IS_DEBUG_EIGRP(event, EVENT)
 
 /* Prototypes. */
-extern const char *eigrp_if_name_string(struct eigrp_interface *);
-extern const char *eigrp_if_ip_string(struct eigrp_interface *);
-extern const char *eigrp_neigh_ip_string(struct eigrp_neighbor *);
-extern const char *eigrp_topology_ip_string(struct eigrp_prefix_entry *);
+extern const char *eigrp_if_name_string(eigrp_interface_t *);
+extern const char *eigrp_if_ip_string(eigrp_interface_t *);
+extern const char *eigrp_neigh_ip_string(eigrp_neighbor_t *);
+extern const char *eigrp_topology_ip_string(eigrp_prefix_descriptor_t *);
 
 extern void eigrp_ip_header_dump(struct ip *);
 extern void eigrp_header_dump(struct eigrp_header *);
 
-extern void show_ip_eigrp_interface_header(struct vty *, struct eigrp *);
-extern void show_ip_eigrp_neighbor_header(struct vty *, struct eigrp *);
-extern void show_ip_eigrp_topology_header(struct vty *, struct eigrp *);
-extern void show_ip_eigrp_interface_detail(struct vty *, struct eigrp *,
-					   struct eigrp_interface *);
-extern void show_ip_eigrp_interface_sub(struct vty *, struct eigrp *,
-					struct eigrp_interface *);
-extern void show_ip_eigrp_neighbor_sub(struct vty *, struct eigrp_neighbor *,
+extern void show_ip_eigrp_interface_header(struct vty *, eigrp_t *);
+extern void show_ip_eigrp_neighbor_header(struct vty *, eigrp_t *);
+extern void show_ip_eigrp_topology_header(struct vty *, eigrp_t *);
+extern void show_ip_eigrp_interface_detail(struct vty *, eigrp_t *,
+					   eigrp_interface_t *);
+extern void show_ip_eigrp_interface_sub(struct vty *, eigrp_t *,
+					eigrp_interface_t *);
+extern void show_ip_eigrp_neighbor_sub(struct vty *, eigrp_neighbor_t *,
 				       int);
-extern void show_ip_eigrp_prefix_entry(struct vty *,
-				       struct eigrp_prefix_entry *);
-extern void show_ip_eigrp_nexthop_entry(struct vty *, struct eigrp *,
-					struct eigrp_nexthop_entry *, int *);
+extern void show_ip_eigrp_prefix_descriptor(struct vty *,
+					    eigrp_prefix_descriptor_t *);
+extern void show_ip_eigrp_route_descriptor(struct vty *, eigrp_t *,
+					   eigrp_route_descriptor_t *, int *);
 
 extern void eigrp_debug_init(void);
 

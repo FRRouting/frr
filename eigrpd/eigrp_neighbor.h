@@ -32,27 +32,90 @@
 #ifndef _ZEBRA_EIGRP_NEIGHBOR_H
 #define _ZEBRA_EIGRP_NEIGHBOR_H
 
+/* Neighbor Data Structure */
+struct eigrp_neighbor {
+
+    uint8_t os_rel_major;  // system version - just for show
+    uint8_t os_rel_minor;  // system version - just for show
+
+    /* TLV decoders for this peer - version dependent */
+    uint8_t tlv_rel_major; // eigrp version - tells us what TLV format to use
+    uint8_t tlv_rel_minor; // eigrp version - tells us what TLV format to use
+    
+    eigrp_tlv_decoder_t	tlv_decoder;
+    eigrp_tlv_encoder_t	tlv_encoder;
+
+    uint8_t K1;
+    uint8_t K2;
+    uint8_t K3;
+    uint8_t K4;
+    uint8_t K5;
+    uint8_t K6;
+
+    /* This neighbor's parent eigrp interface. */
+    eigrp_interface_t *ei;
+
+    /* EIGRP neighbor Information */
+    uint8_t state; /* neigbor status. */
+
+    uint32_t recv_sequence_number; /* Last received sequence Number. */
+    uint32_t init_sequence_number;
+
+    /*If packet is unacknowledged, we try to send it again 16 times*/
+    uint8_t retrans_counter;
+
+    struct in_addr src; /* Neighbor Src address. */
+
+    /* Timer values. */
+    uint16_t v_holddown;
+
+    /* Threads. */
+    struct thread *t_holddown;
+    struct thread *t_nbr_send_gr; /* thread for sending multiple GR packet
+				     chunks */
+
+    struct eigrp_fifo *retrans_queue;
+    struct eigrp_fifo *multicast_queue;
+
+    uint32_t crypt_seqnum; /* Cryptographic Sequence Number. */
+
+    /* prefixes not received from neighbor during Graceful restart */
+    struct list *nbr_gr_prefixes;
+    /* prefixes not yet send to neighbor during Graceful restart */
+    struct list *nbr_gr_prefixes_send;
+    /* if packet is first or last during Graceful restart */
+    enum Packet_part_type nbr_gr_packet_type;
+
+};
+
+
 /* Prototypes */
-extern struct eigrp_neighbor *eigrp_nbr_get(struct eigrp_interface *,
-					    struct eigrp_header *, struct ip *);
-extern struct eigrp_neighbor *eigrp_nbr_new(struct eigrp_interface *);
-extern void eigrp_nbr_delete(struct eigrp_neighbor *);
+extern eigrp_neighbor_t *eigrp_nbr_get(eigrp_interface_t *,
+				       struct eigrp_header *, struct ip *);
+extern eigrp_neighbor_t *eigrp_nbr_new(eigrp_interface_t *);
+extern void eigrp_nbr_delete(eigrp_neighbor_t *);
 
 extern int holddown_timer_expired(struct thread *);
 
-extern int eigrp_neighborship_check(struct eigrp_neighbor *,
+extern int eigrp_neighborship_check(eigrp_neighbor_t *,
 				    struct TLV_Parameter_Type *);
-extern void eigrp_nbr_state_update(struct eigrp_neighbor *);
-extern void eigrp_nbr_state_set(struct eigrp_neighbor *, uint8_t state);
-extern uint8_t eigrp_nbr_state_get(struct eigrp_neighbor *);
-extern int eigrp_nbr_count_get(void);
-extern const char *eigrp_nbr_state_str(struct eigrp_neighbor *);
-extern struct eigrp_neighbor *eigrp_nbr_lookup_by_addr(struct eigrp_interface *,
+extern void eigrp_nbr_state_update(eigrp_neighbor_t *);
+extern void eigrp_nbr_state_set(eigrp_neighbor_t *, uint8_t state);
+extern uint8_t eigrp_nbr_state_get(eigrp_neighbor_t *);
+extern int eigrp_nbr_count_get(eigrp_t *);
+extern const char *eigrp_nbr_state_str(eigrp_neighbor_t *);
+extern eigrp_neighbor_t *eigrp_nbr_lookup_by_addr(eigrp_interface_t *,
 						       struct in_addr *);
-extern struct eigrp_neighbor *eigrp_nbr_lookup_by_addr_process(struct eigrp *,
-							       struct in_addr);
-extern void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty);
+extern eigrp_neighbor_t *eigrp_nbr_lookup_by_addr_process(eigrp_t *, struct in_addr);
+extern void eigrp_nbr_hard_restart(eigrp_t *, eigrp_neighbor_t *nbr, struct vty *);
 
-extern int eigrp_nbr_split_horizon_check(struct eigrp_nexthop_entry *ne,
-					 struct eigrp_interface *ei);
+extern int eigrp_nbr_split_horizon_check(eigrp_route_descriptor_t *,
+					 eigrp_interface_t *);
+
+/**
+ * Found in eigrp-tlv*.c for peer versioning of TLV decoding
+ */
+extern void eigrp_tlv1_init(eigrp_neighbor_t *);
+extern void eigrp_tlv2_init(eigrp_neighbor_t *);
+
 #endif /* _ZEBRA_EIGRP_NEIGHBOR_H */
