@@ -15,6 +15,7 @@ man8 += $(MANBUILD)/eigrpd.8
 endif
 
 eigrpd_libeigrp_a_SOURCES = \
+	eigrpd/eigrpd.c \
 	eigrpd/eigrp_dump.c \
 	eigrpd/eigrp_errors.c \
 	eigrpd/eigrp_filter.c \
@@ -22,6 +23,7 @@ eigrpd_libeigrp_a_SOURCES = \
 	eigrpd/eigrp_hello.c \
 	eigrpd/eigrp_interface.c \
 	eigrpd/eigrp_memory.c \
+	eigrpd/eigrp_metric.c \
 	eigrpd/eigrp_neighbor.c \
 	eigrpd/eigrp_network.c \
 	eigrpd/eigrp_packet.c \
@@ -31,10 +33,11 @@ eigrpd_libeigrp_a_SOURCES = \
 	eigrpd/eigrp_siareply.c \
 	eigrpd/eigrp_snmp.c \
 	eigrpd/eigrp_topology.c \
+	eigrpd/eigrp_tlv1.c \
+	eigrpd/eigrp_tlv2.c \
 	eigrpd/eigrp_update.c \
 	eigrpd/eigrp_vty.c \
 	eigrpd/eigrp_zebra.c \
-	eigrpd/eigrpd.c \
 	# end
 
 eigrpdheaderdir = $(pkgincludedir)/eigrpd
@@ -45,18 +48,24 @@ eigrpdheader_HEADERS = \
 	# end
 
 noinst_HEADERS += \
+	eigrpd/eigrpd.h \
 	eigrpd/eigrp_const.h \
+	eigrpd/eigrp_dump.h \
 	eigrpd/eigrp_errors.h \
 	eigrpd/eigrp_filter.h \
 	eigrpd/eigrp_fsm.h \
 	eigrpd/eigrp_interface.h \
 	eigrpd/eigrp_macros.h \
 	eigrpd/eigrp_memory.h \
+	eigrpd/eigrp_metric.h \
 	eigrpd/eigrp_neighbor.h \
 	eigrpd/eigrp_network.h \
 	eigrpd/eigrp_packet.h \
+	eigrpd/eigrp_routemap.h \
 	eigrpd/eigrp_snmp.h \
 	eigrpd/eigrp_structs.h \
+	eigrpd/eigrp_topology.h \
+	eigrpd/eigrp_types.h \
 	eigrpd/eigrp_vty.h \
 	eigrpd/eigrp_zebra.h \
 	# end

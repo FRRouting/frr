@@ -37,31 +37,31 @@ extern void eigrp_if_init(void);
 extern int eigrp_if_new_hook(struct interface *);
 extern int eigrp_if_delete_hook(struct interface *);
 
-extern bool eigrp_if_is_passive(struct eigrp_interface *ei);
+extern bool eigrp_if_is_passive(eigrp_interface_t *ei);
 extern void eigrp_del_if_params(struct eigrp_if_params *);
-extern struct eigrp_interface *eigrp_if_new(struct eigrp *, struct interface *,
-					    struct prefix *);
-extern int eigrp_if_up(struct eigrp_interface *);
-extern void eigrp_if_stream_set(struct eigrp_interface *);
-extern void eigrp_if_set_multicast(struct eigrp_interface *);
+extern eigrp_interface_t *eigrp_if_new(eigrp_t *, struct interface *,
+				       struct prefix *);
+extern int  eigrp_if_up(eigrp_interface_t *);
+extern void eigrp_if_update(struct interface *);
+extern void eigrp_if_stream_set(eigrp_interface_t *);
+extern void eigrp_if_set_multicast(eigrp_interface_t *);
 extern uint8_t eigrp_default_iftype(struct interface *);
-extern void eigrp_if_free(struct eigrp_interface *, int);
-extern int eigrp_if_down(struct eigrp_interface *);
-extern void eigrp_if_stream_unset(struct eigrp_interface *);
+extern void eigrp_if_free(eigrp_t *, eigrp_interface_t *, int);
+extern int eigrp_if_down(eigrp_interface_t *);
+extern void eigrp_if_stream_unset(eigrp_interface_t *);
 
-extern struct eigrp_interface *eigrp_if_lookup_by_local_addr(struct eigrp *,
-							     struct interface *,
-							     struct in_addr);
-extern struct eigrp_interface *eigrp_if_lookup_by_name(struct eigrp *,
-						       const char *);
+extern eigrp_interface_t *eigrp_if_lookup_by_local_addr(eigrp_t *,
+							struct interface *,
+							struct in_addr);
+extern eigrp_interface_t *eigrp_if_lookup_by_name(eigrp_t *, const char *);
 
 /* Simulate down/up on the interface. */
 extern void eigrp_if_reset(struct interface *);
 
-extern uint32_t eigrp_bandwidth_to_scaled(uint32_t);
-extern uint32_t eigrp_scaled_to_bandwidth(uint32_t);
-extern uint32_t eigrp_delay_to_scaled(uint32_t);
-extern uint32_t eigrp_scaled_to_delay(uint32_t);
+extern int eigrp_if_add_allspfrouters(eigrp_t *, struct prefix *,
+				      unsigned int);
+extern int eigrp_if_drop_allspfrouters(eigrp_t *top, struct prefix *p,
+				       unsigned int ifindex);
 
 
 #endif /* ZEBRA_EIGRP_INTERFACE_H_ */

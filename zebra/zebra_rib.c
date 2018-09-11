@@ -886,6 +886,9 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	int family;
 	char buf[SRCDEST2STR_BUFFER];
 	const struct prefix *p, *src_p;
+	struct zebra_vrf *zvrf = NULL;
+	rib_table_info_t *info = NULL;
+
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
 	if (rn->p.family == AF_INET)
@@ -948,30 +951,29 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		return 0;
 	}
 
-	/* XXX: What exactly do those checks do? Do we support
-	 * e.g. IPv4 routes with IPv6 nexthops or vice versa? */
+    /* XXX: What exactly do those checks do? Do we support
+     * e.g. IPv4 routes with IPv6 nexthops or vice versa?
+     */
 	if (RIB_SYSTEM_ROUTE(re) || (family == AFI_IP && p->family != AF_INET)
 	    || (family == AFI_IP6 && p->family != AF_INET6))
 		return CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 
-	/* The original code didn't determine the family correctly
-	 * e.g. for NEXTHOP_TYPE_IFINDEX. Retrieve the correct afi
-	 * from the rib_table_info in those cases.
-	 * Possibly it may be better to use only the rib_table_info
-	 * in every case.
-	 */
-	if (!family) {
-		rib_table_info_t *info;
-
-		info = srcdest_rnode_table_info(rn);
+	info = srcdest_rnode_table_info(rn);
+    /* The original code didn't determine the family correctly
+     * e.g. for NEXTHOP_TYPE_IFINDEX. Retrieve the correct afi
+     * from the rib_table_info in those cases.
+     * Possibly it may be better to use only the rib_table_info
+     * in every case.
+     */
+	if (!family)
 		family = info->afi;
-	}
 
 	memset(&nexthop->rmap_src.ipv6, 0, sizeof(union g_addr));
 
 	/* It'll get set if required inside */
+	zvrf = info->zvrf;
 	ret = zebra_route_map_check(family, re->type, re->instance, p, nexthop,
-				    nexthop->vrf_id, re->tag);
+				    zvrf, re->tag);
 	if (ret == RMAP_DENYMATCH) {
 		if (IS_ZEBRA_DEBUG_RIB) {
 			srcdest_rnode2str(rn, buf, sizeof(buf));

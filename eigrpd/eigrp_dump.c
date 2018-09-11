@@ -1,5 +1,5 @@
 /*
- * EIGRP Dump Functions and Debugging.
+ * EIGRP Dump Functions and Debugging.r
  * Copyright (C) 2013-2014
  * Authors:
  *   Donnie Savage
@@ -93,9 +93,9 @@ static int config_write_debug(struct vty *vty)
 	return write;
 }
 
-static int eigrp_neighbor_packet_queue_sum(struct eigrp_interface *ei)
+static int eigrp_neighbor_packet_queue_sum(eigrp_interface_t *ei)
 {
-	struct eigrp_neighbor *nbr;
+	eigrp_neighbor_t *nbr;
 	struct listnode *node, *nnode;
 	int sum;
 	sum = 0;
@@ -142,7 +142,7 @@ void eigrp_header_dump(struct eigrp_header *eigrph)
 	zlog_debug("eigrp_AS %u", ntohs(eigrph->ASNumber));
 }
 
-const char *eigrp_if_name_string(struct eigrp_interface *ei)
+const char *eigrp_if_name_string(eigrp_interface_t *ei)
 {
 	static char buf[EIGRP_IF_STRING_MAXLEN] = "";
 
@@ -153,7 +153,7 @@ const char *eigrp_if_name_string(struct eigrp_interface *ei)
 	return buf;
 }
 
-const char *eigrp_topology_ip_string(struct eigrp_prefix_entry *tn)
+const char *eigrp_topology_ip_string(eigrp_prefix_descriptor_t *tn)
 {
 	static char buf[EIGRP_IF_STRING_MAXLEN] = "";
 	uint32_t ifaddr;
@@ -166,7 +166,7 @@ const char *eigrp_topology_ip_string(struct eigrp_prefix_entry *tn)
 }
 
 
-const char *eigrp_if_ip_string(struct eigrp_interface *ei)
+const char *eigrp_if_ip_string(eigrp_interface_t *ei)
 {
 	static char buf[EIGRP_IF_STRING_MAXLEN] = "";
 	uint32_t ifaddr;
@@ -182,7 +182,7 @@ const char *eigrp_if_ip_string(struct eigrp_interface *ei)
 	return buf;
 }
 
-const char *eigrp_neigh_ip_string(struct eigrp_neighbor *nbr)
+const char *eigrp_neigh_ip_string(eigrp_neighbor_t *nbr)
 {
 	static char buf[EIGRP_IF_STRING_MAXLEN] = "";
 	uint32_t ifaddr;
@@ -195,7 +195,7 @@ const char *eigrp_neigh_ip_string(struct eigrp_neighbor *nbr)
 	return buf;
 }
 
-void show_ip_eigrp_interface_header(struct vty *vty, struct eigrp *eigrp)
+void show_ip_eigrp_interface_header(struct vty *vty, eigrp_t *eigrp)
 {
 
 	vty_out(vty,
@@ -206,12 +206,15 @@ void show_ip_eigrp_interface_header(struct vty *vty, struct eigrp *eigrp)
 		"Flow Timer", "Routes");
 }
 
-void show_ip_eigrp_interface_sub(struct vty *vty, struct eigrp *eigrp,
-				 struct eigrp_interface *ei)
+void show_ip_eigrp_interface_sub(struct vty *vty, eigrp_t *eigrp,
+				 eigrp_interface_t *ei)
 {
+    uint32_t bandwidth = ei->params.bandwidth;
+    uint32_t delay = ei->params.delay;
+
 	vty_out(vty, "%-11s ", eigrp_if_name_string(ei));
-	vty_out(vty, "%-11u", ei->params.bandwidth);
-	vty_out(vty, "%-11u", ei->params.delay);
+	vty_out(vty, "%-11u", bandwidth);
+	vty_out(vty, "%-11u", delay);
 	vty_out(vty, "%-7u", ei->nbrs->count);
 	vty_out(vty, "%u %c %-10u", 0, '/',
 		eigrp_neighbor_packet_queue_sum(ei));
@@ -219,8 +222,9 @@ void show_ip_eigrp_interface_sub(struct vty *vty, struct eigrp *eigrp,
 	vty_out(vty, "%-8u %-8u \n", ei->params.v_hello, ei->params.v_wait);
 }
 
-void show_ip_eigrp_interface_detail(struct vty *vty, struct eigrp *eigrp,
-				    struct eigrp_interface *ei)
+void show_ip_eigrp_interface_detail(struct vty *vty,
+				    eigrp_t *eigrp,
+				    eigrp_interface_t *ei)
 {
 	vty_out(vty, "%-2s %s %d %-3s \n", "", "Hello interval is ", 0, " sec");
 	vty_out(vty, "%-2s %s %s \n", "", "Next xmit serial", "<none>");
@@ -236,7 +240,7 @@ void show_ip_eigrp_interface_detail(struct vty *vty, struct eigrp *eigrp,
 	vty_out(vty, "%-2s %s \n", "", "Use multicast");
 }
 
-void show_ip_eigrp_neighbor_header(struct vty *vty, struct eigrp *eigrp)
+void show_ip_eigrp_neighbor_header(struct vty *vty, eigrp_t *eigrp)
 {
 	vty_out(vty,
 		"\nEIGRP neighbors for AS(%d)\n\n%-3s %-17s %-20s %-6s %-8s %-6s %-5s %-5s %-5s\n %-41s %-6s %-8s %-6s %-4s %-6s %-5s \n",
@@ -245,7 +249,7 @@ void show_ip_eigrp_neighbor_header(struct vty *vty, struct eigrp *eigrp)
 		"Num");
 }
 
-void show_ip_eigrp_neighbor_sub(struct vty *vty, struct eigrp_neighbor *nbr,
+void show_ip_eigrp_neighbor_sub(struct vty *vty, eigrp_neighbor_t *nbr,
 				int detail)
 {
 
@@ -274,7 +278,7 @@ void show_ip_eigrp_neighbor_sub(struct vty *vty, struct eigrp_neighbor *nbr,
 /*
  * Print standard header for show EIGRP topology output
  */
-void show_ip_eigrp_topology_header(struct vty *vty, struct eigrp *eigrp)
+void show_ip_eigrp_topology_header(struct vty *vty, eigrp_t *eigrp)
 {
 	struct in_addr router_id;
 	router_id.s_addr = eigrp->router_id;
@@ -286,7 +290,7 @@ void show_ip_eigrp_topology_header(struct vty *vty, struct eigrp *eigrp)
 		"R - Reply\n       r - reply Status, s - sia Status\n\n");
 }
 
-void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
+void show_ip_eigrp_prefix_descriptor(struct vty *vty, eigrp_prefix_descriptor_t *tn)
 {
 	struct list *successors = eigrp_topology_get_successor(tn);
 	char buffer[PREFIX_STRLEN];
@@ -303,14 +307,14 @@ void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
 		list_delete_and_null(&successors);
 }
 
-void show_ip_eigrp_nexthop_entry(struct vty *vty, struct eigrp *eigrp,
-				 struct eigrp_nexthop_entry *te, int *first)
+void show_ip_eigrp_route_descriptor(struct vty *vty, eigrp_t *eigrp,
+				 eigrp_route_descriptor_t *te, int *first)
 {
 	if (te->reported_distance == EIGRP_MAX_METRIC)
 		return;
 
 	if (*first) {
-		show_ip_eigrp_prefix_entry(vty, te->prefix);
+		show_ip_eigrp_prefix_descriptor(vty, te->prefix);
 		*first = 0;
 	}
 
