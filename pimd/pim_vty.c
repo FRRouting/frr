@@ -267,7 +267,7 @@ int pim_interface_config_write(struct vty *vty)
 				struct pim_interface *pim_ifp = ifp->info;
 
 				if (PIM_IF_TEST_PIM(pim_ifp->options)) {
-					vty_out(vty, " ip pim sm\n");
+					vty_out(vty, " ip pim\n");
 					++writes;
 				}
 

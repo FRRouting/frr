@@ -5640,27 +5640,6 @@ DEFUN (show_ip_pim_group_type,
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (ip_multicast_routing,
-              ip_multicast_routing_cmd,
-              "ip multicast-routing",
-              IP_STR
-              "Enable IP multicast forwarding\n")
-{
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (no_ip_multicast_routing,
-              no_ip_multicast_routing_cmd,
-              "no ip multicast-routing",
-              NO_STR
-              IP_STR
-              "Enable IP multicast forwarding\n")
-{
-	vty_out(vty,
-		"Command is Disabled and will be removed in a future version\n");
-	return CMD_SUCCESS;
-}
-
 DEFUN (ip_ssmpingd,
        ip_ssmpingd_cmd,
        "ip ssmpingd [A.B.C.D]",
@@ -6431,16 +6410,12 @@ DEFUN_HIDDEN (interface_ip_pim_ssm,
 	return CMD_SUCCESS;
 }
 
-DEFUN (interface_ip_pim_sm,
-       interface_ip_pim_sm_cmd,
-       "ip pim sm",
-       IP_STR
-       PIM_STR
-       IFACE_PIM_SM_STR)
+static int interface_ip_pim_helper(struct vty *vty)
 {
 	struct pim_interface *pim_ifp;
 
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+
 	if (!pim_cmd_interface_add(ifp)) {
 		vty_out(vty, "Could not enable PIM SM on interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -6451,6 +6426,25 @@ DEFUN (interface_ip_pim_sm,
 	pim_if_create_pimreg(pim_ifp->pim);
 
 	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN (interface_ip_pim_sm,
+       interface_ip_pim_sm_cmd,
+       "ip pim sm",
+       IP_STR
+       PIM_STR
+       IFACE_PIM_SM_STR)
+{
+	return interface_ip_pim_helper(vty);
+}
+
+DEFUN (interface_ip_pim,
+       interface_ip_pim_cmd,
+       "ip pim",
+       IP_STR
+       PIM_STR)
+{
+	return interface_ip_pim_helper(vty);
 }
 
 static int pim_cmd_interface_delete(struct interface *ifp)
@@ -6478,6 +6472,17 @@ static int pim_cmd_interface_delete(struct interface *ifp)
 	return 1;
 }
 
+static int interface_no_ip_pim_helper(struct vty *vty)
+{
+        VTY_DECLVAR_CONTEXT(interface, ifp);
+        if (!pim_cmd_interface_delete(ifp)) {
+                vty_out(vty, "Unable to delete interface information\n");
+                return CMD_WARNING_CONFIG_FAILED;
+        }
+
+        return CMD_SUCCESS;
+}
+
 DEFUN_HIDDEN (interface_no_ip_pim_ssm,
        interface_no_ip_pim_ssm_cmd,
        "no ip pim ssm",
@@ -6486,16 +6491,10 @@ DEFUN_HIDDEN (interface_no_ip_pim_ssm,
        PIM_STR
        IFACE_PIM_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	if (!pim_cmd_interface_delete(ifp)) {
-		vty_out(vty, "Unable to delete interface information\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
+	return interface_no_ip_pim_helper(vty);
 }
 
-DEFUN (interface_no_ip_pim_sm,
+DEFUN_HIDDEN (interface_no_ip_pim_sm,
        interface_no_ip_pim_sm_cmd,
        "no ip pim sm",
        NO_STR
@@ -6503,13 +6502,17 @@ DEFUN (interface_no_ip_pim_sm,
        PIM_STR
        IFACE_PIM_SM_STR)
 {
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	if (!pim_cmd_interface_delete(ifp)) {
-		vty_out(vty, "Unable to delete interface information\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	return interface_no_ip_pim_helper(vty);
+}
 
-	return CMD_SUCCESS;
+DEFUN (interface_no_ip_pim,
+       interface_no_ip_pim_cmd,
+       "no ip pim",
+       NO_STR
+       IP_STR
+       PIM_STR)
+{
+	return interface_no_ip_pim_helper(vty);
 }
 
 /* boundaries */
@@ -7466,7 +7469,7 @@ DEFUN (interface_pim_use_source,
        interface_pim_use_source_cmd,
        "ip pim use-source A.B.C.D",
        IP_STR
-       "pim multicast routing\n"
+       PIM_STR
        "Configure primary IP address\n"
        "source ip address\n")
 {
@@ -7478,7 +7481,7 @@ DEFUN (interface_no_pim_use_source,
        "no ip pim use-source [A.B.C.D]",
        NO_STR
        IP_STR
-       "pim multicast routing\n"
+       PIM_STR
        "Delete source IP address\n"
        "source ip address\n")
 {
@@ -8634,8 +8637,6 @@ void pim_cmd_init(void)
 
 	install_node(&debug_node, pim_debug_config_write);
 
-	install_element(CONFIG_NODE, &ip_multicast_routing_cmd);
-	install_element(CONFIG_NODE, &no_ip_multicast_routing_cmd);
 	install_element(CONFIG_NODE, &ip_pim_rp_cmd);
 	install_element(VRF_NODE, &ip_pim_rp_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_rp_cmd);
@@ -8721,6 +8722,8 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_sm_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_sm_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ip_pim_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_drprio_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_hello_cmd);
