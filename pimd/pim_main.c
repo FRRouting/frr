@@ -85,7 +85,11 @@ int main(int argc, char **argv, char **envp)
 {
 	frr_preinit(&pimd_di, argc, argv);
 	frr_opt_add("", longopts, "");
-
+	/* Guard to prevent a second instance of this daemon*/
+	if (frr_guard_daemon() == FAILURE) {
+		zlog_err("There is already a PIMD Process running, hence not allowing a second instance");
+		exit(1);
+	}
 	/* this while just reads the options */
 	while (1) {
 		int opt;

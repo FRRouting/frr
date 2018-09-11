@@ -225,7 +225,11 @@ main(int argc, char *argv[])
 	frr_opt_add("LEn:", longopts,
 		"      --ctl_socket   Override ctl socket path\n"
 		"  -n, --instance     Instance id\n");
-
+	/* Guard to prevent a second instance of this daemon*/
+	if (frr_guard_daemon() == FAILURE ) {
+		zlog_err("There is already a LDPD Process running, hence not allowing a second instance");
+		exit(1);
+	}
 	while (1) {
 		int opt;
 

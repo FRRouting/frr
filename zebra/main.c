@@ -234,7 +234,11 @@ int main(int argc, char **argv)
 	logicalrouter_configure_backend(LOGICALROUTER_BACKEND_NETNS);
 
 	frr_preinit(&zebra_di, argc, argv);
-
+	/* Guard to prevent a second instance of this daemon*/
+	if (frr_guard_daemon() == FAILURE) {
+		zlog_err("There is already a NHRPD Process running, hence not allowing a second instance");
+		exit(1);
+	}
 	frr_opt_add(
 		"bakz:e:l:o:r"
 #ifdef HAVE_NETLINK

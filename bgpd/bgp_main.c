@@ -129,7 +129,6 @@ static struct frr_daemon_info bgpd_di;
 void sighup(void)
 {
 	zlog_info("SIGHUP received");
-
 	/* Terminate all thread. */
 	bgp_terminate();
 	bgp_reset();
@@ -380,7 +379,11 @@ int main(int argc, char **argv)
 		"  -n, --no_kernel    Do not install route to kernel.\n"
 		"  -S, --skip_runas   Skip capabilities checks, and changing user and group IDs.\n"
 		"  -e, --ecmp         Specify ECMP to use.\n");
-
+	/* Guard to prevent a second instance of this daemon*/
+	if (frr_guard_daemon() == FAILURE) {
+		zlog_err("There is already a BGPD Process running, hence not allowing a second instance");
+		exit(1);
+	}
 	/* Command line argument treatment. */
 	while (1) {
 		opt = frr_getopt(argc, argv, 0);
