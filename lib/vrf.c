@@ -493,9 +493,15 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 			  "vrf_init: failed to create the default VRF!");
 		exit(1);
 	}
-	if (vrf_is_backend_netns())
+	if (vrf_is_backend_netns()) {
+		struct ns *ns;
+
 		strlcpy(default_vrf->data.l.netns_name,
 			VRF_DEFAULT_NAME, NS_NAMSIZ);
+		ns = ns_lookup(ns_get_default_id());
+		ns->vrf_ctxt = default_vrf;
+		default_vrf->ns_ctxt = ns;
+	}
 
 	/* Enable the default VRF. */
 	if (!vrf_enable(default_vrf)) {
@@ -710,8 +716,6 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 int vrf_is_mapped_on_netns(struct vrf *vrf)
 {
 	if (!vrf || vrf->data.l.netns_name[0] == '\0')
-		return 0;
-	if (vrf->vrf_id == VRF_DEFAULT)
 		return 0;
 	return 1;
 }
