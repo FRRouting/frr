@@ -266,8 +266,8 @@ static void frr_guard_daemon(void)
 {
 	int fd;
 	struct flock lock;
-
 	const char *path = di->pid_file;
+
 	fd = open(path, O_RDWR);
 	if (fd != -1) {
 		memset(&lock, 0, sizeof(lock));
@@ -280,7 +280,7 @@ static void frr_guard_daemon(void)
 			exit(1);
 		} else if (lock.l_type == F_WRLCK) {
 			flog_err_sys(LIB_ERR_SYSTEM_CALL,
-				"Process %d has a write lock on file %s already! Error : ( %s)",
+				"Process %d has a write lock on file %s already! Error: (%s)",
 				lock.l_pid, path, safe_strerror(errno));
 			exit(1);
 		}
@@ -294,7 +294,6 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 
 	/* basename(), opencoded. */
 	char *p = strrchr(argv[0], '/');
-
 	di->progname = p ? p + 1 : argv[0];
 
 	umask(0027);
