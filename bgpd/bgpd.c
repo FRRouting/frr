@@ -1802,6 +1802,7 @@ static void peer_group2peer_config_copy_af(struct peer_group *group,
 static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 {
 	int active;
+	struct peer *other;
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		flog_err(EC_BGP_PEER_GROUP, "%s was called for peer-group %s",
@@ -1850,6 +1851,23 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 		if (peer->status == OpenSent || peer->status == OpenConfirm) {
 			peer->last_reset = PEER_DOWN_AF_ACTIVATE;
 			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+		}
+		/*
+		 * If we are turning on a AFI/SAFI locally and we've
+		 * started bringing a peer up, we need to tell
+		 * the other peer to restart because we might loose
+		 * configuration here because when the doppelganger
+		 * gets to a established state due to how
+		 * we resolve we could just overwrite the afi/safi
+		 * activation.
+		 */
+		other = peer->doppelganger;
+		if (other
+		    && (other->status == OpenSent
+			|| other->status == OpenConfirm)) {
+			other->last_reset = PEER_DOWN_AF_ACTIVATE;
+			bgp_notify_send(other, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		}
 	}
