@@ -26,13 +26,10 @@
 
 #include "frr_pthread.h"
 #include "memory.h"
-#include "hash.h"
+#include "linklist.h"
 
 DEFINE_MTYPE(LIB, FRR_PTHREAD, "FRR POSIX Thread");
 DEFINE_MTYPE(LIB, PTHREAD_PRIM, "POSIX synchronization primitives");
-
-/* id for next created pthread */
-static _Atomic uint32_t next_id = 0;
 
 /* default frr_pthread start/stop routine prototypes */
 static void *fpt_run(void *arg);
@@ -40,94 +37,66 @@ static int fpt_halt(struct frr_pthread *fpt, void **res);
 
 /* default frr_pthread attributes */
 struct frr_pthread_attr frr_pthread_attr_default = {
-	.id = 0,
 	.start = fpt_run,
 	.stop = fpt_halt,
 };
 
-/* hash table to keep track of all frr_pthreads */
-static struct hash *frr_pthread_hash;
-static pthread_mutex_t frr_pthread_hash_mtx = PTHREAD_MUTEX_INITIALIZER;
-
-/* frr_pthread_hash->hash_cmp */
-static int frr_pthread_hash_cmp(const void *value1, const void *value2)
-{
-	const struct frr_pthread *tq1 = value1;
-	const struct frr_pthread *tq2 = value2;
-
-	return (tq1->attr.id == tq2->attr.id);
-}
-
-/* frr_pthread_hash->hash_key */
-static unsigned int frr_pthread_hash_key(void *value)
-{
-	return ((struct frr_pthread *)value)->attr.id;
-}
+/* list to keep track of all frr_pthreads */
+static pthread_mutex_t frr_pthread_list_mtx = PTHREAD_MUTEX_INITIALIZER;
+static struct list *frr_pthread_list;
 
 /* ------------------------------------------------------------------------ */
 
 void frr_pthread_init()
 {
-	pthread_mutex_lock(&frr_pthread_hash_mtx);
+	pthread_mutex_lock(&frr_pthread_list_mtx);
 	{
-		frr_pthread_hash = hash_create(frr_pthread_hash_key,
-					       frr_pthread_hash_cmp, NULL);
+		frr_pthread_list = list_new();
+		frr_pthread_list->del = (void (*)(void *))&frr_pthread_destroy;
 	}
-	pthread_mutex_unlock(&frr_pthread_hash_mtx);
+	pthread_mutex_unlock(&frr_pthread_list_mtx);
 }
 
 void frr_pthread_finish()
 {
-	pthread_mutex_lock(&frr_pthread_hash_mtx);
+	pthread_mutex_lock(&frr_pthread_list_mtx);
 	{
-		hash_clean(frr_pthread_hash,
-			   (void (*)(void *))frr_pthread_destroy);
-		hash_free(frr_pthread_hash);
+		list_delete_and_null(&frr_pthread_list);
 	}
-	pthread_mutex_unlock(&frr_pthread_hash_mtx);
+	pthread_mutex_unlock(&frr_pthread_list_mtx);
 }
 
 struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
 				    const char *name, const char *os_name)
 {
-	static struct frr_pthread holder = {};
 	struct frr_pthread *fpt = NULL;
 
 	attr = attr ? attr : &frr_pthread_attr_default;
 
-	pthread_mutex_lock(&frr_pthread_hash_mtx);
+	fpt = XCALLOC(MTYPE_FRR_PTHREAD, sizeof(struct frr_pthread));
+	/* initialize mutex */
+	pthread_mutex_init(&fpt->mtx, NULL);
+	/* create new thread master */
+	fpt->master = thread_master_create(name);
+	/* set attributes */
+	fpt->attr = *attr;
+	name = (name ? name : "Anonymous thread");
+	fpt->name = XSTRDUP(MTYPE_FRR_PTHREAD, name);
+	if (os_name)
+		snprintf(fpt->os_name, OS_THREAD_NAMELEN, "%s", os_name);
+	/* initialize startup synchronization primitives */
+	fpt->running_cond_mtx = XCALLOC(
+		MTYPE_PTHREAD_PRIM, sizeof(pthread_mutex_t));
+	fpt->running_cond = XCALLOC(MTYPE_PTHREAD_PRIM,
+				    sizeof(pthread_cond_t));
+	pthread_mutex_init(fpt->running_cond_mtx, NULL);
+	pthread_cond_init(fpt->running_cond, NULL);
+
+	pthread_mutex_lock(&frr_pthread_list_mtx);
 	{
-		holder.attr.id = attr->id;
-
-		if (!hash_lookup(frr_pthread_hash, &holder)) {
-			fpt = XCALLOC(MTYPE_FRR_PTHREAD,
-				      sizeof(struct frr_pthread));
-			/* initialize mutex */
-			pthread_mutex_init(&fpt->mtx, NULL);
-			/* create new thread master */
-			fpt->master = thread_master_create(name);
-			/* set attributes */
-			fpt->attr = *attr;
-			name = (name ? name : "Anonymous thread");
-			fpt->name = XSTRDUP(MTYPE_FRR_PTHREAD, name);
-			if (os_name)
-				snprintf(fpt->os_name, OS_THREAD_NAMELEN,
-					 "%s", os_name);
-			if (attr == &frr_pthread_attr_default)
-				fpt->attr.id = frr_pthread_get_id();
-			/* initialize startup synchronization primitives */
-			fpt->running_cond_mtx = XCALLOC(
-				MTYPE_PTHREAD_PRIM, sizeof(pthread_mutex_t));
-			fpt->running_cond = XCALLOC(MTYPE_PTHREAD_PRIM,
-						    sizeof(pthread_cond_t));
-			pthread_mutex_init(fpt->running_cond_mtx, NULL);
-			pthread_cond_init(fpt->running_cond, NULL);
-
-			/* insert into global thread hash */
-			hash_get(frr_pthread_hash, fpt, hash_alloc_intern);
-		}
+		listnode_add(frr_pthread_list, fpt);
 	}
-	pthread_mutex_unlock(&frr_pthread_hash_mtx);
+	pthread_mutex_unlock(&frr_pthread_list_mtx);
 
 	return fpt;
 }
@@ -180,21 +149,6 @@ int frr_pthread_set_name(struct frr_pthread *fpt, const char *name,
 	return ret;
 }
 
-struct frr_pthread *frr_pthread_get(uint32_t id)
-{
-	static struct frr_pthread holder = {};
-	struct frr_pthread *fpt;
-
-	pthread_mutex_lock(&frr_pthread_hash_mtx);
-	{
-		holder.attr.id = id;
-		fpt = hash_lookup(frr_pthread_hash, &holder);
-	}
-	pthread_mutex_unlock(&frr_pthread_hash_mtx);
-
-	return fpt;
-}
-
 int frr_pthread_run(struct frr_pthread *fpt, const pthread_attr_t *attr)
 {
 	int ret;
@@ -239,31 +193,16 @@ int frr_pthread_stop(struct frr_pthread *fpt, void **result)
 	return ret;
 }
 
-/*
- * Callback for hash_iterate to stop all frr_pthread's.
- */
-static void frr_pthread_stop_all_iter(struct hash_backet *hb, void *arg)
-{
-	struct frr_pthread *fpt = hb->data;
-	frr_pthread_stop(fpt, NULL);
-}
-
 void frr_pthread_stop_all()
 {
-	pthread_mutex_lock(&frr_pthread_hash_mtx);
+	pthread_mutex_lock(&frr_pthread_list_mtx);
 	{
-		hash_iterate(frr_pthread_hash, frr_pthread_stop_all_iter, NULL);
+		struct listnode *n;
+		struct frr_pthread *fpt;
+		for (ALL_LIST_ELEMENTS_RO(frr_pthread_list, n, fpt))
+			frr_pthread_stop(fpt, NULL);
 	}
-	pthread_mutex_unlock(&frr_pthread_hash_mtx);
-}
-
-uint32_t frr_pthread_get_id(void)
-{
-	_Atomic uint32_t nxid;
-	nxid = atomic_fetch_add_explicit(&next_id, 1, memory_order_seq_cst);
-	/* just a sanity check, this should never happen */
-	assert(nxid <= (UINT32_MAX - 1));
-	return nxid;
+	pthread_mutex_unlock(&frr_pthread_list_mtx);
 }
 
 void frr_pthread_yield(void)

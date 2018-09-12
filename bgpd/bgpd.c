@@ -7750,35 +7750,36 @@ static const struct cmd_variable_handler bgp_viewvrf_var_handlers[] = {
 	{.completions = NULL},
 };
 
+struct frr_pthread *bgp_pth_io;
+struct frr_pthread *bgp_pth_ka;
+
 static void bgp_pthreads_init()
 {
+	assert(!bgp_pth_io);
+	assert(!bgp_pth_ka);
+
 	frr_pthread_init();
 
 	struct frr_pthread_attr io = {
-		.id = PTHREAD_IO,
 		.start = frr_pthread_attr_default.start,
 		.stop = frr_pthread_attr_default.stop,
 	};
 	struct frr_pthread_attr ka = {
-		.id = PTHREAD_KEEPALIVES,
 		.start = bgp_keepalives_start,
 		.stop = bgp_keepalives_stop,
 	};
-	frr_pthread_new(&io, "BGP I/O thread", "bgpd_io");
-	frr_pthread_new(&ka, "BGP Keepalives thread", "bgpd_ka");
+	bgp_pth_io = frr_pthread_new(&io, "BGP I/O thread", "bgpd_io");
+	bgp_pth_ka = frr_pthread_new(&ka, "BGP Keepalives thread", "bgpd_ka");
 }
 
 void bgp_pthreads_run()
 {
-	struct frr_pthread *io = frr_pthread_get(PTHREAD_IO);
-	struct frr_pthread *ka = frr_pthread_get(PTHREAD_KEEPALIVES);
-
-	frr_pthread_run(io, NULL);
-	frr_pthread_run(ka, NULL);
+	frr_pthread_run(bgp_pth_io, NULL);
+	frr_pthread_run(bgp_pth_ka, NULL);
 
 	/* Wait until threads are ready. */
-	frr_pthread_wait_running(io);
-	frr_pthread_wait_running(ka);
+	frr_pthread_wait_running(bgp_pth_io);
+	frr_pthread_wait_running(bgp_pth_ka);
 }
 
 void bgp_pthreads_finish()

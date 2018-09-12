@@ -703,7 +703,6 @@ static struct zserv *zserv_client_create(int sock)
 	listnode_add(zebrad.client_list, client);
 
 	struct frr_pthread_attr zclient_pthr_attrs = {
-		.id = frr_pthread_get_id(),
 		.start = frr_pthread_attr_default.start,
 		.stop = frr_pthread_attr_default.stop
 	};
