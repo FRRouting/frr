@@ -589,23 +589,19 @@ static void ospf_examine_transit_summaries(struct ospf_area *area,
 void ospf_ia_routing(struct ospf *ospf, struct route_table *rt,
 		     struct route_table *rtrs)
 {
+	struct listnode *node;
 	struct ospf_area *area;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("ospf_ia_routing():start");
 
 	if (IS_OSPF_ABR(ospf)) {
-		struct listnode *node;
-		struct ospf_area *area;
-
 		switch (ospf->abr_type) {
 		case OSPF_ABR_STAND:
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug("ospf_ia_routing():Standard ABR");
 
 			if ((area = ospf->backbone)) {
-				struct listnode *node;
-
 				if (IS_DEBUG_OSPF_EVENT) {
 					zlog_debug(
 						"ospf_ia_routing():backbone area found");
@@ -694,8 +690,6 @@ void ospf_ia_routing(struct ospf *ospf, struct route_table *rt,
 			break;
 		}
 	} else {
-		struct listnode *node;
-
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"ospf_ia_routing():not ABR, considering all areas");

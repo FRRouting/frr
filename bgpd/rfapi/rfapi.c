@@ -459,8 +459,6 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 	rfapiProcessWithdraw(peer, rfd, p, prd, NULL, afi, safi, type, kill);
 
 	if (bi) {
-		char buf[PREFIX_STRLEN];
-
 		prefix2str(p, buf, sizeof(buf));
 		vnc_zlog_debug_verbose(
 			"%s: Found route (safi=%d) to delete at prefix %s",

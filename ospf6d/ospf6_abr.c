@@ -918,9 +918,6 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 			 * old as the route.
 			 */
 			if (listcount(route->paths) > 1) {
-				struct listnode *anode;
-				struct ospf6_path *o_path;
-
 				for (ALL_LIST_ELEMENTS_RO(route->paths, anode,
 							  o_path)) {
 					inet_ntop(AF_INET,

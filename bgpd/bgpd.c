@@ -7332,7 +7332,6 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 		}
 		if (CHECK_FLAG(bgp->af_flags[afi][safi],
 			       BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
-			struct listnode *node;
 			char *name;
 
 			for (ALL_LIST_ELEMENTS_RO(

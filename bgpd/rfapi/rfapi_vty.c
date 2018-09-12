@@ -666,7 +666,6 @@ void rfapiPrintBi(void *stream, struct bgp_info *bi)
 		   HVTYNL);
 	}
 	if (bi->extra && bi->extra->vnc.import.aux_prefix.family) {
-		char buf[BUFSIZ];
 		const char *sp;
 
 		sp = rfapi_ntop(bi->extra->vnc.import.aux_prefix.family,
@@ -3179,8 +3178,6 @@ static int rfapiDeleteLocalPrefixesByRFD(struct rfapi_local_reg_delete_arg *cda,
 			list_delete_all_node(adb_delete_list);
 
 			if (!(pPrefix && !RFAPI_0_PREFIX(pPrefix))) {
-				void *cursor;
-
 				/*
 				 * Caller didn't specify a prefix, or specified
 				 * (0/32 or 0/128)

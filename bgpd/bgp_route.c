@@ -4040,7 +4040,6 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 		for (rn = bgp_table_top(peer->bgp->rib[afi][safi]); rn;
 		     rn = bgp_route_next(rn)) {
 			struct bgp_node *rm;
-			struct bgp_info *ri;
 
 			/* look for neighbor in tables */
 			if ((table = rn->info) == NULL)
@@ -4728,7 +4727,6 @@ static void bgp_static_update_safi(struct bgp *bgp, struct prefix *p,
 			break;
 
 	if (ri) {
-		union gw_addr add;
 		memset(&add, 0, sizeof(union gw_addr));
 		if (attrhash_cmp(ri->attr, attr_new)
 		    && overlay_index_equal(afi, ri, bgp_static->eth_s_id, &add)
@@ -8291,8 +8289,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 					continue;
 			}
 			if (type == bgp_show_type_prefix_longer) {
-				struct prefix *p = output_arg;
-
+				p = output_arg;
 				if (!prefix_match(p, &rn->p))
 					continue;
 			}

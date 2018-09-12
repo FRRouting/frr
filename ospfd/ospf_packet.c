@@ -4037,7 +4037,7 @@ void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
 			     ospf_lsa_lock(lsa)); /* oi->ls_upd_queue */
 	if (send_lsupd_now) {
 		struct list *send_update_list;
-		struct route_node *rn, *rnext;
+		struct route_node *rnext;
 
 		for (rn = route_top(oi->ls_upd_queue); rn; rn = rnext) {
 			rnext = route_next(rn);
