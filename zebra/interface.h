@@ -348,6 +348,7 @@ extern int ipv6_address_configured(struct interface *ifp);
 extern void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id);
 extern void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 				 ns_id_t ns_id);
+extern void zebra_if_update_all_links(void);
 
 extern void vrf_add_update(struct vrf *vrfp);
 
