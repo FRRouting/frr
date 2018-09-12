@@ -6474,13 +6474,13 @@ static int pim_cmd_interface_delete(struct interface *ifp)
 
 static int interface_no_ip_pim_helper(struct vty *vty)
 {
-        VTY_DECLVAR_CONTEXT(interface, ifp);
-        if (!pim_cmd_interface_delete(ifp)) {
-                vty_out(vty, "Unable to delete interface information\n");
-                return CMD_WARNING_CONFIG_FAILED;
-        }
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	if (!pim_cmd_interface_delete(ifp)) {
+		vty_out(vty, "Unable to delete interface information\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-        return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN_HIDDEN (interface_no_ip_pim_ssm,
