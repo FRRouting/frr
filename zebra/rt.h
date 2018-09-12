@@ -29,31 +29,7 @@
 #include "zebra/rib.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_mpls.h"
-
-/*
- * Philosophy Note:
- *
- * Flags being SET/UNSET do not belong in the South Bound
- * Interface.  This Setting belongs at the calling level
- * because we can and will have multiple different interfaces
- * and we will have potentially multiple different
- * modules/filters to call.  As such Setting/Unsetting
- * success failure should be handled by the caller.
- */
-
-
-enum dp_results {
-	DP_INSTALL_SUCCESS,
-	DP_INSTALL_FAILURE,
-	DP_DELETE_SUCCESS,
-	DP_DELETE_FAILURE,
-};
-
-enum dp_req_result {
-	DP_REQUEST_QUEUED,
-	DP_REQUEST_SUCCESS,
-	DP_REQUEST_FAILURE,
-};
+#include "zebra/zebra_dplane.h"
 
 /*
  * Install/delete the specified prefix p from the kernel
@@ -66,11 +42,11 @@ enum dp_req_result {
  * semantics so we will end up with a delete than
  * a re-add.
  */
-extern enum dp_req_result kernel_route_rib(struct route_node *rn,
-					   const struct prefix *p,
-					   const struct prefix *src_p,
-					   struct route_entry *old,
-					   struct route_entry *new);
+extern enum zebra_dplane_result kernel_route_rib(struct route_node *rn,
+						 const struct prefix *p,
+						 const struct prefix *src_p,
+						 struct route_entry *old,
+						 struct route_entry *new);
 
 /*
  * So route install/failure may not be immediately known
@@ -80,7 +56,7 @@ extern enum dp_req_result kernel_route_rib(struct route_node *rn,
 extern void kernel_route_rib_pass_fail(struct route_node *rn,
 				       const struct prefix *p,
 				       struct route_entry *re,
-				       enum dp_results res);
+				       enum zebra_dplane_status res);
 
 extern int kernel_address_add_ipv4(struct interface *, struct connected *);
 extern int kernel_address_delete_ipv4(struct interface *, struct connected *);
@@ -91,9 +67,9 @@ extern int kernel_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 extern int kernel_interface_set_master(struct interface *master,
 				       struct interface *slave);
 
-extern enum dp_req_result kernel_add_lsp(zebra_lsp_t *lsp);
-extern enum dp_req_result kernel_upd_lsp(zebra_lsp_t *lsp);
-extern enum dp_req_result kernel_del_lsp(zebra_lsp_t *lsp);
+extern enum zebra_dplane_result kernel_add_lsp(zebra_lsp_t *lsp);
+extern enum zebra_dplane_result kernel_upd_lsp(zebra_lsp_t *lsp);
+extern enum zebra_dplane_result kernel_del_lsp(zebra_lsp_t *lsp);
 
 /*
  * Add the ability to pass back up the lsp install/delete
@@ -104,7 +80,7 @@ extern enum dp_req_result kernel_del_lsp(zebra_lsp_t *lsp);
  * the install/failure to set/unset flags and to notify
  * as needed.
  */
-extern void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum dp_results res);
+extern void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum zebra_dplane_status res);
 
 extern int mpls_kernel_init(void);
 

@@ -1818,11 +1818,11 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	return suc;
 }
 
-enum dp_req_result kernel_route_rib(struct route_node *rn,
-				    const struct prefix *p,
-				    const struct prefix *src_p,
-				    struct route_entry *old,
-				    struct route_entry *new)
+enum zebra_dplane_result kernel_route_rib(struct route_node *rn,
+					  const struct prefix *p,
+					  const struct prefix *src_p,
+					  struct route_entry *old,
+					  struct route_entry *new)
 {
 	int ret = 0;
 
@@ -1852,20 +1852,20 @@ enum dp_req_result kernel_route_rib(struct route_node *rn,
 						      new, 0);
 		}
 		kernel_route_rib_pass_fail(rn, p, new,
-					   (!ret) ? DP_INSTALL_SUCCESS
-						  : DP_INSTALL_FAILURE);
-		return DP_REQUEST_SUCCESS;
+					   (!ret) ? ZEBRA_DPLANE_INSTALL_SUCCESS
+						  : ZEBRA_DPLANE_INSTALL_FAILURE);
+		return ZEBRA_DPLANE_REQUEST_SUCCESS;
 	}
 
 	if (old) {
 		ret = netlink_route_multipath(RTM_DELROUTE, p, src_p, old, 0);
 
 		kernel_route_rib_pass_fail(rn, p, old,
-					   (!ret) ? DP_DELETE_SUCCESS
-						  : DP_DELETE_FAILURE);
+					   (!ret) ? ZEBRA_DPLANE_DELETE_SUCCESS
+						  : ZEBRA_DPLANE_DELETE_FAILURE);
 	}
 
-	return DP_REQUEST_SUCCESS;
+	return ZEBRA_DPLANE_REQUEST_SUCCESS;
 }
 
 int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
