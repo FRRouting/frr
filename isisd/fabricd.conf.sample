@@ -1,0 +1,27 @@
+! -*- openfabric -*-
+!
+! fabricd sample configuration file
+!
+hostname fabricd
+password foo
+enable password foo
+log stdout
+!log file /tmp/fabricd.log
+!
+!
+router openfabric DEAD
+  net 47.0023.0000.0003.0300.0100.0102.0304.0506.00
+!  lsp-lifetime 65535
+
+!  hostname isisd-router
+!  domain-password foobar
+
+interface eth0
+ ip router openfabric DEAD
+! openfabric hello-interval 5
+! openfabric lsp-interval 1000
+
+! -- optional
+! openfabric retransmit-interval 10
+! openfabric retransmit-throttle-interval
+!

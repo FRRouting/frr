@@ -7,6 +7,10 @@
  * (at your option) any later version.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <net/if_arp.h>
 #include "zebra.h"
 #include "linklist.h"

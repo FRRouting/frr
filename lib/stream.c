@@ -272,7 +272,7 @@ void stream_forward_endp(struct stream *s, size_t size)
 }
 
 /* Copy from stream to destination. */
-inline bool stream_get2(void *dst, struct stream *s, size_t size)
+bool stream_get2(void *dst, struct stream *s, size_t size)
 {
 	STREAM_VERIFY_SANE(s);
 
@@ -301,7 +301,7 @@ void stream_get(void *dst, struct stream *s, size_t size)
 }
 
 /* Get next character from the stream. */
-inline bool stream_getc2(struct stream *s, uint8_t *byte)
+bool stream_getc2(struct stream *s, uint8_t *byte)
 {
 	STREAM_VERIFY_SANE(s);
 
@@ -346,7 +346,7 @@ uint8_t stream_getc_from(struct stream *s, size_t from)
 	return c;
 }
 
-inline bool stream_getw2(struct stream *s, uint16_t *word)
+bool stream_getw2(struct stream *s, uint16_t *word)
 {
 	STREAM_VERIFY_SANE(s);
 
@@ -467,7 +467,7 @@ void stream_get_from(void *dst, struct stream *s, size_t from, size_t size)
 	memcpy(dst, s->data + from, size);
 }
 
-inline bool stream_getl2(struct stream *s, uint32_t *l)
+bool stream_getl2(struct stream *s, uint32_t *l)
 {
 	STREAM_VERIFY_SANE(s);
 

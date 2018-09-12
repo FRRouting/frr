@@ -86,7 +86,7 @@
 %{!?frr_gid:            %global  frr_gid            92 }
 %{!?vty_gid:            %global  vty_gid            85 }
 
-%define daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd staticd bfdd
+%define daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd staticd bfdd fabricd
 
 %if %{with_ldpd}
     %define daemon_ldpd ldpd
@@ -343,22 +343,23 @@ developing OSPF-API and frr applications.
     --disable-rpki \
 %endif
 %if %{with_bfdd}
-    --enable-bfdd
+    --enable-bfdd \
 %else
-    --disable-bfdd
+    --disable-bfdd \
 %endif
+    SPHINXBUILD=%{sphinx}
 
-make %{?_smp_mflags} MAKEINFO="makeinfo --no-split" SPHINXBUILD=%{sphinx}
+make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
 pushd doc
-make SPHINXBUILD=%{sphinx} info
+make info
 popd
 
 
 %install
 mkdir -p %{buildroot}%{_sysconfdir}/{frr,sysconfig,logrotate.d,pam.d,default} \
          %{buildroot}%{_localstatedir}/log/frr %{buildroot}%{_infodir}
-make DESTDIR=%{buildroot} INSTALL="install -p" CP="cp -p" SPHINXBUILD=%{sphinx} install
+make DESTDIR=%{buildroot} INSTALL="install -p" CP="cp -p" install
 
 # Remove this file, as it is uninstalled and causes errors when building on RH9
 rm -rf %{buildroot}/usr/share/info/dir
@@ -459,6 +460,7 @@ zebra_spec_add_service isisd    2608/tcp "ISISd vty"
 %if %{with_bfdd}
     zebra_spec_add_service bfdd     2617/tcp "BFDd vty"
 %endif
+zebra_spec_add_service fabricd	2618/tcp "Fabricd vty"
 
 %if "%{initsystem}" == "systemd"
     for daemon in %all_daemons ; do
@@ -559,9 +561,9 @@ fi
 
 
 %files
-%doc */*.sample* AUTHORS COPYING
+%doc */*.sample* COPYING
 %doc doc/mpls
-%doc ChangeLog NEWS README
+%doc README.md
 %if 0%{?frr_user:1}
     %dir %attr(751,%{frr_user},%{frr_user}) %{configdir}
     %dir %attr(750,%{frr_user},%{frr_user}) %{_localstatedir}/log/frr
@@ -594,6 +596,7 @@ fi
     %{_sbindir}/pbrd
 %endif
 %{_sbindir}/isisd
+%{_sbindir}/fabricd
 %if %{with_ldpd}
     %{_sbindir}/ldpd
 %endif

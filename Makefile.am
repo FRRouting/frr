@@ -1,10 +1,19 @@
 ## Process this file with automake to produce Makefile.in.
 
 AUTOMAKE_OPTIONS = subdir-objects 1.12
-include common.am
+ACLOCAL_AMFLAGS = -I m4
 
-AM_CPPFLAGS += -I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
-	      -I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib
+AM_CFLAGS = \
+	$(SAN_FLAGS) \
+	$(WERROR) \
+	# end
+AM_CPPFLAGS = \
+	-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
+	-I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib
+AM_LDFLAGS = \
+	-export-dynamic \
+	$(SAN_FLAGS) \
+	# end
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE)
 LIBCAP = @LIBCAP@
 
@@ -83,6 +92,7 @@ pkginclude_HEADERS =
 nodist_pkginclude_HEADERS =
 dist_examples_DATA =
 man_MANS =
+vtysh_scan =
 
 ## libtool, the self-made GNU scourge
 ## ... this should fix relinking
@@ -106,6 +116,9 @@ include tools/subdir.am
 include debianpkg/subdir.am
 include solaris/subdir.am
 
+include bgpd/subdir.am
+include bgpd/rfp-example/librfp/subdir.am
+include bgpd/rfp-example/rfptest/subdir.am
 include ripd/subdir.am
 include ripngd/subdir.am
 include ospfd/subdir.am
@@ -122,16 +135,8 @@ include pbrd/subdir.am
 include staticd/subdir.am
 include bfdd/subdir.am
 
-SUBDIRS = . @LIBRFP@ @RFPTEST@ \
-	 @BGPD@ \
-	 @VTYSH@ \
-         tests
-
-DIST_SUBDIRS = . bgpd \
-	  vtysh tests \
-	  bgpd/rfp-example/librfp \
-	  bgpd/rfp-example/rfptest \
-	  # end
+include vtysh/subdir.am
+include tests/subdir.am
 
 if PKGSRC
 rcdir=@pkgsrcrcdir@
@@ -147,6 +152,7 @@ endif
 
 EXTRA_DIST += \
 	aclocal.m4 \
+	README.md \
 	m4/README.txt \
 	\
 	python/clidef.py \
@@ -169,16 +175,36 @@ EXTRA_DIST += \
 	snapcraft/helpers \
 	snapcraft/snap \
 	\
-	vtysh/Makefile.am \
-	vtysh/Makefile.in \
-	\
+	babeld/Makefile \
+	bgpd/Makefile \
+	bgpd/rfp-example/librfp/Makefile \
+	bgpd/rfp-example/rfptest/Makefile \
 	doc/Makefile \
 	doc/developer/Makefile \
 	doc/manpages/Makefile \
 	doc/user/Makefile \
+	eigrpd/Makefile \
+	fpm/Makefile \
+	isisd/Makefile \
+	ldpd/Makefile \
+	lib/Makefile \
+	nhrpd/Makefile \
+	ospf6d/Makefile \
+	ospfclient/Makefile \
+	ospfd/Makefile \
+	pbrd/Makefile \
+	pimd/Makefile \
+	ports/Makefile \
+	qpb/Makefile \
+	ripd/Makefile \
+	ripngd/Makefile \
+	staticd/Makefile \
+	tests/Makefile \
+	tools/Makefile \
+	vtysh/Makefile \
+	watchfrr/Makefile \
+	zebra/Makefile \
 	# end
-
-ACLOCAL_AMFLAGS = -I m4
 
 noinst_HEADERS += defaults.h
 

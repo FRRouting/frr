@@ -141,6 +141,7 @@ enum node_type {
 	BGP_FLOWSPECV6_NODE,	/* BGP IPv6 FLOWSPEC Address-Family */
 	BFD_NODE,		 /* BFD protocol mode. */
 	BFD_PEER_NODE,		 /* BFD peer configuration mode. */
+	OPENFABRIC_NODE,	/* OpenFabric router configuration node */
 	NODE_TYPE_MAX, /* maximum */
 };
 
@@ -364,7 +365,6 @@ struct cmd_node {
 #define PREFIX_LIST_STR "Build a prefix list\n"
 #define OSPF6_DUMP_TYPE_LIST                                                   \
 	"<neighbor|interface|area|lsa|zebra|config|dbex|spf|route|lsdb|redistribute|hook|asbr|prefix|abr>"
-#define ISIS_STR "IS-IS information\n"
 #define AREA_TAG_STR "[area tag]\n"
 #define COMMUNITY_AANN_STR "Community number where AA and NN are (0-65535)\n"
 #define COMMUNITY_VAL_STR  "Community number in AA:NN format (where AA and NN are (0-65535)) or local-AS|no-advertise|no-export|internet or additive\n"

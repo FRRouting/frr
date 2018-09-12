@@ -37,7 +37,6 @@ struct isis_lsp {
 		struct list *frags;
 		struct isis_lsp *zero_lsp;
 	} lspu;
-	uint32_t SRMflags[ISIS_MAX_CIRCUITS];
 	uint32_t SSNflags[ISIS_MAX_CIRCUITS];
 	int level;     /* L1 or L2? */
 	int scheduled; /* scheduled for sending */
@@ -100,6 +99,7 @@ void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost);
 void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost);
 int lsp_print_all(struct vty *vty, dict_t *lspdb, char detail, char dynhost);
 /* sets SRMflags for all active circuits of an lsp */
-void lsp_set_all_srmflags(struct isis_lsp *lsp);
+void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set);
+void lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit);
 
 #endif /* ISIS_LSP */

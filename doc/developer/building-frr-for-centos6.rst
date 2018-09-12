@@ -128,8 +128,8 @@ Add frr groups and user
 .. code-block:: shell
 
    sudo groupadd -g 92 frr
-   sudo groupadd -r -g 85 frrvt
-   sudo useradd -u 92 -g 92 -M -r -G frrvt -s /sbin/nologin \
+   sudo groupadd -r -g 85 frrvty
+   sudo useradd -u 92 -g 92 -M -r -G frrvty -s /sbin/nologin \
       -c "FRR FRRouting suite" -d /var/run/frr frr
 
 Download Source, configure and compile it
@@ -158,7 +158,7 @@ an example.)
         --enable-ospfapi=yes \
         --enable-user=frr \
         --enable-group=frr \
-        --enable-vty-group=frrvt \
+        --enable-vty-group=frrvty \
         --enable-rtadv \
         --disable-exampledir \
         --enable-watchfrr \
@@ -168,10 +168,11 @@ an example.)
         --enable-eigrpd \
         --enable-babeld \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion
-    make SPHINXBUILD=sphinx-build2.7
-    make check PYTHON=/usr/bin/python2.7 SPHINXBUILD=sphinx-build2.7
-    sudo make SPHINXBUILD=sphinx-build2.7 install
+        --with-pkg-extra-version=-MyOwnFRRVersion \
+        SPHINXBUILD=sphinx-build2.7
+    make
+    make check PYTHON=/usr/bin/python2.7
+    sudo make install
 
 Create empty FRR configuration files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

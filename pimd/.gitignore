@@ -1,17 +1,3 @@
-!Makefile
-Makefile.in
-libpim.a
 pimd
 mtracebis
 test_igmpv3_join
-tags
-TAGS
-.deps
-*.o
-*.lo
-*.la
-*.libs
-.arch-inventory
-.arch-ids
-*~
-*.loT

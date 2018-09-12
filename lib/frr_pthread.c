@@ -19,6 +19,9 @@
 
 #include <zebra.h>
 #include <pthread.h>
+#ifdef HAVE_PTHREAD_NP_H
+#include <pthread_np.h>
+#endif
 #include <sched.h>
 
 #include "frr_pthread.h"
@@ -163,10 +166,14 @@ int frr_pthread_set_name(struct frr_pthread *fpt, const char *name,
 		pthread_mutex_lock(&fpt->mtx);
 		snprintf(fpt->os_name, OS_THREAD_NAMELEN, "%s", os_name);
 		pthread_mutex_unlock(&fpt->mtx);
-#ifdef GNU_LINUX
+#ifdef HAVE_PTHREAD_SETNAME_NP
+# ifdef GNU_LINUX
 		ret = pthread_setname_np(fpt->thread, fpt->os_name);
-#elif defined(OPEN_BSD)
-		ret = pthread_set_name_np(fpt->thread, fpt->os_name);
+# else /* NetBSD */
+		ret = pthread_setname_np(fpt->thread, fpt->os_name, NULL);
+# endif
+#elif defined(HAVE_PTHREAD_SET_NAME_NP)
+		pthread_set_name_np(fpt->thread, fpt->os_name);
 #endif
 	}
 

@@ -22,6 +22,11 @@
  * 02111-1307, USA.
  */
 
+%top{
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+}
 %{
 /* ignore flex generated code in static analyzer */
 #ifndef __clang_analyzer__

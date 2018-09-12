@@ -14,6 +14,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
@@ -148,7 +152,7 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 			snprintf(pbuf, sizeof(pbuf), "\nError %"PRIu32" - %s",
 				 ref->code, ref->title);
 			memset(ubuf, '=', strlen(pbuf));
-			ubuf[strlen(pbuf) - 1] = '\0';
+			ubuf[strlen(pbuf)] = '\0';
 
 			vty_out(vty, "%s\n%s\n", pbuf, ubuf);
 			vty_out(vty, "Description:\n%s\n\n", ref->description);

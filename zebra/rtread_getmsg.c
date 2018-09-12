@@ -32,6 +32,7 @@
 
 #include "zebra/rib.h"
 #include "zebra/rt.h"
+#include "zebra/zebra_pbr.h"
 #include "zebra/zebra_errors.h"
 
 /* Thank you, Solaris, for polluting application symbol namespace. */

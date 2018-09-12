@@ -5456,7 +5456,8 @@ static void bgp_aggregate_free(struct bgp_aggregate *aggregate)
 	XFREE(MTYPE_BGP_AGGREGATE, aggregate);
 }
 
-static int bgp_aggregate_info_same(struct bgp_info *ri, struct aspath *aspath,
+static int bgp_aggregate_info_same(struct bgp_info *ri, uint8_t origin,
+				   struct aspath *aspath,
 				   struct community *comm)
 {
 	static struct aspath *ae = NULL;
@@ -5465,6 +5466,9 @@ static int bgp_aggregate_info_same(struct bgp_info *ri, struct aspath *aspath,
 		ae = aspath_empty();
 
 	if (!ri)
+		return 0;
+
+	if (origin != ri->attr->origin)
 		return 0;
 
 	if (!aspath_cmp(ri->attr->aspath, (aspath) ? aspath : ae))
@@ -5501,7 +5505,8 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 		 * If the aggregate information has not changed
 		 * no need to re-install it again.
 		 */
-		if (bgp_aggregate_info_same(rn->info, aspath, community)) {
+		if (bgp_aggregate_info_same(rn->info, origin, aspath,
+					    community)) {
 			bgp_unlock_node(rn);
 
 			if (aspath)

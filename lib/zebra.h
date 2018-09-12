@@ -28,7 +28,6 @@
 #include "compiler.h"
 
 #ifdef SUNOS_5
-#define _XPG4_2
 typedef unsigned int uint32_t;
 typedef unsigned short uint16_t;
 typedef unsigned char uint8_t;
@@ -414,6 +413,7 @@ extern const char *zserv_command_string(unsigned int command);
 #define ZEBRA_FLAG_FIB_OVERRIDE       0x200
 #define ZEBRA_FLAG_EVPN_ROUTE         0x400
 #define ZEBRA_FLAG_RR_USE_DISTANCE    0x800
+#define ZEBRA_FLAG_ONLINK             0x1000
 /* ZEBRA_FLAG_BLACKHOLE was 0x04 */
 /* ZEBRA_FLAG_REJECT was 0x80 */
 

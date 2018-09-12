@@ -995,7 +995,6 @@ static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 			if (len <= 0)
 				type_next = 1;
 			else {
-				len = 1;
 				type_next = 0;
 				*type = *offset;
 			}

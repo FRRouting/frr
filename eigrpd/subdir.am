@@ -6,6 +6,12 @@ if EIGRPD
 noinst_LIBRARIES += eigrpd/libeigrp.a
 sbin_PROGRAMS += eigrpd/eigrpd
 dist_examples_DATA += eigrpd/eigrpd.conf.sample
+vtysh_scan += \
+	$(top_srcdir)/eigrpd/eigrp_dump.c \
+	$(top_srcdir)/eigrpd/eigrp_vty.c \
+	# end
+#	$(top_srcdir)/eigrpd/eigrp_routemap.c
+man8 += $(MANBUILD)/eigrpd.8
 endif
 
 eigrpd_libeigrp_a_SOURCES = \

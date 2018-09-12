@@ -84,6 +84,22 @@ lib_libfrr_la_SOURCES = \
 	lib/logicalrouter.c \
 	# end
 
+vtysh_scan += \
+	$(top_srcdir)/lib/distribute.c \
+	$(top_srcdir)/lib/filter.c \
+	$(top_srcdir)/lib/if.c \
+	$(top_srcdir)/lib/if_rmap.c \
+	$(top_srcdir)/lib/keychain.c \
+	$(top_srcdir)/lib/logicalrouter.c \
+	$(top_srcdir)/lib/nexthop_group.c \
+	$(top_srcdir)/lib/plist.c \
+	$(top_srcdir)/lib/routemap.c \
+	$(top_srcdir)/lib/vrf.c \
+	$(top_srcdir)/lib/vty.c \
+	# end
+# can be loaded as DSO - always include for vtysh
+vtysh_scan += $(top_srcdir)/lib/agentx.c
+
 lib/plist_clippy.c: $(CLIPPY_DEPS)
 lib/plist.lo: lib/plist_clippy.c
 lib/nexthop_group_clippy.c: $(CLIPPY_DEPS)
@@ -152,6 +168,7 @@ pkginclude_HEADERS += \
 	lib/sha256.h \
 	lib/sigevent.h \
 	lib/skiplist.h \
+	lib/smux.h \
 	lib/sockopt.h \
 	lib/sockunion.h \
 	lib/spf_backoff.h \
@@ -237,9 +254,10 @@ lib_grammar_sandbox_SOURCES = \
 lib_grammar_sandbox_LDADD = \
 	lib/libfrr.la
 
-lib_clippy_CPPFLAGS = $(AM_CPPFLAGS) -D_GNU_SOURCE -DBUILDING_CLIPPY @SAN_CLIPPY_FLAGS@
-lib_clippy_CFLAGS = $(PYTHON_CFLAGS) @SAN_CLIPPY_FLAGS@
+lib_clippy_CPPFLAGS = $(AM_CPPFLAGS) -D_GNU_SOURCE -DBUILDING_CLIPPY
+lib_clippy_CFLAGS = $(PYTHON_CFLAGS)
 lib_clippy_LDADD = $(PYTHON_LIBS)
+lib_clippy_LDFLAGS = -export-dynamic
 lib_clippy_SOURCES = \
 	lib/clippy.c \
 	lib/command_graph.c \
@@ -252,6 +270,26 @@ lib_clippy_SOURCES = \
 	lib/vector.c \
 	# end
 
+# (global) clippy rules for all directories
+
+AM_V_CLIPPY = $(am__v_CLIPPY_$(V))
+am__v_CLIPPY_ = $(am__v_CLIPPY_$(AM_DEFAULT_VERBOSITY))
+am__v_CLIPPY_0 = @echo "  CLIPPY  " $@;
+am__v_CLIPPY_1 =
+
+CLIPPY_DEPS = $(HOSTTOOLS)lib/clippy $(top_srcdir)/python/clidef.py
+
+SUFFIXES = _clippy.c .proto .pb-c.c .pb-c.h .pb.h
+.c_clippy.c:
+	@{ test -x $(top_builddir)/$(HOSTTOOLS)lib/clippy || \
+		$(MAKE) -C $(top_builddir)/$(HOSTTOOLS) lib/clippy; }
+	$(AM_V_CLIPPY) $(top_builddir)/$(HOSTTOOLS)lib/clippy $(top_srcdir)/python/clidef.py -o $@ $<
+
+## automake's "ylwrap" is a great piece of GNU software... not.
+.l.c:
+	$(AM_V_LEX)$(am__skiplex) $(LEXCOMPILE) $<
+.y.c:
+	$(AM_V_YACC)$(am__skipyacc) $(YACCCOMPILE) $<
 
 #
 # generated sources & extra foo

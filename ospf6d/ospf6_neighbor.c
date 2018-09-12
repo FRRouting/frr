@@ -921,7 +921,7 @@ DEFUN (no_debug_ospf6,
 		handler = vector_slot(ospf6_lsa_handler_vector, i);
 
 		if (handler != NULL) {
-			UNSET_FLAG(handler->debug, OSPF6_LSA_DEBUG);
+			UNSET_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG);
 		}
 	}
 

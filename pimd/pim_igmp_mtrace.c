@@ -615,7 +615,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	static uint32_t qry_id, qry_src;
 	char mtrace_buf[MTRACE_HDR_SIZE + MTRACE_MAX_HOPS * MTRACE_RSP_SIZE];
 	struct interface *ifp;
-	struct interface *out_ifp;
+	struct interface *out_ifp = NULL;
 	struct pim_interface *pim_ifp;
 	struct pim_instance *pim;
 	struct igmp_mtrace *mtracep;

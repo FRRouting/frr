@@ -17,6 +17,3 @@ depend.smf
 frr.init
 *.pkg
 *.pkg.gz
-*~
-*.loT
-*.a
