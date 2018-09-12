@@ -436,8 +436,6 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 
 	/* Modify entry according to the interface routemap. */
 	if (ri->routemap[RIP_FILTER_IN]) {
-		int ret;
-
 		/* The object should be of the type of rip_info */
 		ret = route_map_apply(ri->routemap[RIP_FILTER_IN],
 				      (struct prefix *)&p, RMAP_RIP, &newinfo);

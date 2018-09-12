@@ -712,7 +712,7 @@ static int rip_enable_network_lookup_if(struct interface *ifp)
 
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, connected)) {
 		struct prefix *p;
-		struct route_node *node;
+		struct route_node *n;
 
 		p = connected->address;
 
@@ -721,10 +721,10 @@ static int rip_enable_network_lookup_if(struct interface *ifp)
 			address.prefix = p->u.prefix4;
 			address.prefixlen = IPV4_MAX_BITLEN;
 
-			node = route_node_match(rip_enable_network,
-						(struct prefix *)&address);
-			if (node) {
-				route_unlock_node(node);
+			n = route_node_match(rip_enable_network,
+					     (struct prefix *)&address);
+			if (n) {
+				route_unlock_node(n);
 				return 1;
 			}
 		}

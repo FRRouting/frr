@@ -706,8 +706,6 @@ static void ripng_route_process(struct rte *rte, struct sockaddr_in6 *from,
 
 	/* Modify entry. */
 	if (ri->routemap[RIPNG_FILTER_IN]) {
-		int ret;
-
 		ret = route_map_apply(ri->routemap[RIPNG_FILTER_IN],
 				      (struct prefix *)&p, RMAP_RIPNG,
 				      &newinfo);
@@ -1618,8 +1616,6 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 
 			/* Interface route-map */
 			if (ri->routemap[RIPNG_FILTER_OUT]) {
-				int ret;
-
 				ret = route_map_apply(
 					ri->routemap[RIPNG_FILTER_OUT],
 					(struct prefix *)p, RMAP_RIPNG, rinfo);
@@ -1636,8 +1632,6 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 
 			/* Redistribute route-map. */
 			if (ripng->route_map[rinfo->type].name) {
-				int ret;
-
 				ret = route_map_apply(
 					ripng->route_map[rinfo->type].map,
 					(struct prefix *)p, RMAP_RIPNG, rinfo);
@@ -1724,7 +1718,6 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 
 			/* Interface route-map */
 			if (ri->routemap[RIPNG_FILTER_OUT]) {
-				int ret;
 				struct ripng_info newinfo;
 
 				/* let's cast the aggregate structure to
