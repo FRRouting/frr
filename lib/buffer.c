@@ -445,7 +445,6 @@ in one shot. */
 
 	/* Free printed buffer data. */
 	while (written > 0) {
-		struct buffer_data *d;
 		if (!(d = b->head)) {
 			flog_err(
 				LIB_ERR_DEVELOPMENT,

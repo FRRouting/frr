@@ -315,7 +315,7 @@ static void cmd_graph_permute(struct list *out, struct graph_node **stack,
 	struct graph_node *gn = stack[stackpos];
 	struct cmd_token *tok = gn->data;
 	char *appendp = cmd + strlen(cmd);
-	size_t i, j;
+	size_t j;
 
 	if (tok->type < SPECIAL_TKN) {
 		sprintf(appendp, "%s ", tok->text);
@@ -332,7 +332,7 @@ static void cmd_graph_permute(struct list *out, struct graph_node **stack,
 	if (++stackpos == CMD_ARGC_MAX)
 		return;
 
-	for (i = 0; i < vector_active(gn->to); i++) {
+	for (size_t i = 0; i < vector_active(gn->to); i++) {
 		struct graph_node *gnext = vector_slot(gn->to, i);
 		for (j = 0; j < stackpos; j++)
 			if (stack[j] == gnext)

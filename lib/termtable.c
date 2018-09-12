@@ -395,7 +395,7 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 			memcpy(&buf[pos], left, lsize);
 			pos += lsize;
 
-			for (size_t i = 0; i < width - lsize - rsize; i++)
+			for (size_t l = 0; l < width - lsize - rsize; l++)
 				buf[pos++] = row[0].style.border.top;
 
 			pos -= width - lsize - rsize;
@@ -421,7 +421,7 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 				buf[pos++] = row[j].style.border.left;
 
 			/* print left padding */
-			for (int i = 0; i < row[j].style.lpad; i++)
+			for (int k = 0; k < row[j].style.lpad; k++)
 				buf[pos++] = ' ';
 
 			/* calculate padding for sprintf */
@@ -443,7 +443,7 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 			pos += sprintf(&buf[pos], fmt, abspad, row[j].text);
 
 			/* print right padding */
-			for (int i = 0; i < row[j].style.rpad; i++)
+			for (int k = 0; k < row[j].style.rpad; k++)
 				buf[pos++] = ' ';
 
 			/* if right border && not last col print right border */
@@ -483,7 +483,7 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 		memcpy(&buf[pos], left, lsize);
 		pos += lsize;
 
-		for (size_t i = 0; i < width - lsize - rsize; i++)
+		for (size_t l = 0; l < width - lsize - rsize; l++)
 			buf[pos++] = tt->style.border.bottom;
 
 		memcpy(&buf[pos], right, rsize);

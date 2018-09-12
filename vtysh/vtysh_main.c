@@ -596,7 +596,6 @@ int main(int argc, char **argv, char **env)
 			vtysh_execute("enable");
 
 		while (cmd != NULL) {
-			int ret;
 			char *eol;
 
 			while ((eol = strchr(cmd->line, '\n')) != NULL) {
@@ -662,7 +661,7 @@ int main(int argc, char **argv, char **env)
 	/* Boot startup configuration file. */
 	if (boot_flag) {
 		vtysh_flock_config(frr_config);
-		int ret = vtysh_read_config(frr_config);
+		ret = vtysh_read_config(frr_config);
 		vtysh_unflock_config();
 		if (ret) {
 			fprintf(stderr,
