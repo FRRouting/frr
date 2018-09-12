@@ -35,7 +35,7 @@
 #include "checksum.h"
 #include "md5.h"
 #include "vrf.h"
-#include "ospf_errors.h"
+#include "lib_errors.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -50,6 +50,7 @@
 #include "ospfd/ospf_spf.h"
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_dump.h"
+#include "ospfd/ospf_errors.h"
 
 /*
  * OSPF Fragmentation / fragmented writes
@@ -291,7 +292,7 @@ struct ospf_packet *ospf_packet_dup(struct ospf_packet *op)
 
 	if (stream_get_endp(op->s) != op->length)
 		/* XXX size_t */
-		zlog_warn(
+		zlog_debug(
 			"ospf_packet_dup stream %lu ospf_packet %u size mismatch",
 			(unsigned long)STREAM_SIZE(op->s), op->length);
 
@@ -341,7 +342,8 @@ static int ospf_check_md5_digest(struct ospf_interface *oi,
 	ck = ospf_crypt_key_lookup(OSPF_IF_PARAM(oi, auth_crypt),
 				   ospfh->u.crypt.key_id);
 	if (ck == NULL) {
-		zlog_warn("interface %s: ospf_check_md5 no key %d", IF_NAME(oi),
+		flog_warn(OSPF_WARN_MD5,
+			  "interface %s: ospf_check_md5 no key %d", IF_NAME(oi),
 			  ospfh->u.crypt.key_id);
 		return 0;
 	}
@@ -351,7 +353,8 @@ static int ospf_check_md5_digest(struct ospf_interface *oi,
 
 	if (nbr
 	    && ntohl(nbr->crypt_seqnum) > ntohl(ospfh->u.crypt.crypt_seqnum)) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_MD5,
 			"interface %s: ospf_check_md5 bad sequence %d (expect %d)",
 			IF_NAME(oi), ntohl(ospfh->u.crypt.crypt_seqnum),
 			ntohl(nbr->crypt_seqnum));
@@ -367,7 +370,8 @@ static int ospf_check_md5_digest(struct ospf_interface *oi,
 
 	/* compare the two */
 	if (memcmp((caddr_t)ospfh + length, digest, OSPF_AUTH_MD5_SIZE)) {
-		zlog_warn("interface %s: ospf_check_md5 checksum mismatch",
+		flog_warn(OSPF_WARN_MD5,
+			  "interface %s: ospf_check_md5 checksum mismatch",
 			  IF_NAME(oi));
 		return 0;
 	}
@@ -433,7 +437,8 @@ static int ospf_make_md5_digest(struct ospf_interface *oi,
 
 	if (stream_get_endp(op->s) != op->length)
 		/* XXX size_t */
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_MD5,
 			"ospf_make_md5_digest: length mismatch stream %lu ospf_packet %u",
 			(unsigned long)stream_get_endp(op->s), op->length);
 
@@ -596,7 +601,8 @@ static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 		sockopt_iphdrincl_swab_systoh(iph);
 
 		if (ret < 0)
-			zlog_warn(
+			flog_err(
+				LIB_ERR_SOCKET,
 				"*** ospf_write_frags: sendmsg failed to %s,"
 				" id %d, off %d, len %d, mtu %u failed with %s",
 				inet_ntoa(iph->ip_dst), iph->ip_id, iph->ip_off,
@@ -799,7 +805,8 @@ static int ospf_write(struct thread *thread)
 				iph.ip_len, oi->ifp->name, oi->ifp->mtu);
 
 		if (ret < 0)
-			zlog_warn(
+			flog_err(
+				LIB_ERR_SOCKET,
 				"*** sendmsg in ospf_write failed to %s, "
 				"id %d, off %d, len %d, interface %s, mtu %u: %s",
 				inet_ntoa(iph.ip_dst), iph.ip_id, iph.ip_off,
@@ -915,7 +922,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	if (oi->type != OSPF_IFTYPE_POINTOPOINT
 	    && oi->type != OSPF_IFTYPE_VIRTUALLINK)
 		if (oi->address->prefixlen != p.prefixlen) {
-			zlog_warn(
+			flog_warn(
+				OSPF_WARN_PACKET,
 				"Packet %s [Hello:RECV]: NetworkMask mismatch on %s (configured prefix length is %d, but hello packet indicates %d).",
 				inet_ntoa(ospfh->router_id), IF_NAME(oi),
 				(int)oi->address->prefixlen, (int)p.prefixlen);
@@ -924,11 +932,12 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 
 	/* Compare Router Dead Interval. */
 	if (OSPF_IF_PARAM(oi, v_wait) != ntohl(hello->dead_interval)) {
-		zlog_warn(
-			"Packet %s [Hello:RECV]: RouterDeadInterval mismatch "
-			"(expected %u, but received %u).",
-			inet_ntoa(ospfh->router_id), OSPF_IF_PARAM(oi, v_wait),
-			ntohl(hello->dead_interval));
+		flog_warn(OSPF_WARN_PACKET,
+			  "Packet %s [Hello:RECV]: RouterDeadInterval mismatch "
+			  "(expected %u, but received %u).",
+			  inet_ntoa(ospfh->router_id),
+			  OSPF_IF_PARAM(oi, v_wait),
+			  ntohl(hello->dead_interval));
 		return;
 	}
 
@@ -936,7 +945,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	if (OSPF_IF_PARAM(oi, fast_hello) == 0) {
 		if (OSPF_IF_PARAM(oi, v_hello)
 		    != ntohs(hello->hello_interval)) {
-			zlog_warn(
+			flog_warn(
+				OSPF_WARN_PACKET,
 				"Packet %s [Hello:RECV]: HelloInterval mismatch "
 				"(expected %u, but received %u).",
 				inet_ntoa(ospfh->router_id),
@@ -961,7 +971,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 		 * Drop this Hello packet not to establish neighbor
 		 * relationship.
 		 */
-		zlog_warn("Packet %s [Hello:RECV]: T-bit on, drop it.",
+		flog_warn(OSPF_WARN_PACKET,
+			  "Packet %s [Hello:RECV]: T-bit on, drop it.",
 			  inet_ntoa(ospfh->router_id));
 		return;
 	}
@@ -973,7 +984,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 		 * This router does know the correct usage of O-bit
 		 * the bit should be set in DD packet only.
 		 */
-		zlog_warn("Packet %s [Hello:RECV]: O-bit abuse?",
+		flog_warn(OSPF_WARN_PACKET,
+			  "Packet %s [Hello:RECV]: O-bit abuse?",
 			  inet_ntoa(ospfh->router_id));
 #ifdef STRICT_OBIT_USAGE_CHECK
 		return; /* Reject this packet. */
@@ -989,7 +1001,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 		      && CHECK_FLAG(hello->options, OSPF_OPTION_NP)
 		      && !CHECK_FLAG(OPTIONS(oi), OSPF_OPTION_E)
 		      && !CHECK_FLAG(hello->options, OSPF_OPTION_E))) {
-			zlog_warn(
+			flog_warn(
+				OSPF_WARN_PACKET,
 				"NSSA-Packet-%s[Hello:RECV]: my options: %x, his options %x",
 				inet_ntoa(ospfh->router_id), OPTIONS(oi),
 				hello->options);
@@ -1006,7 +1019,8 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 		   Packet's Options field should be ignored. */
 		if (CHECK_FLAG(OPTIONS(oi), OSPF_OPTION_E)
 		    != CHECK_FLAG(hello->options, OSPF_OPTION_E)) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_PACKET,
 			"Packet %s [Hello:RECV]: my options: %x, his options %x",
 			inet_ntoa(ospfh->router_id), OPTIONS(oi),
 			hello->options);
@@ -1123,7 +1137,8 @@ static void ospf_db_desc_proc(struct stream *s, struct ospf_interface *oi,
 
 		/* Unknown LS type. */
 		if (lsah->type < OSPF_MIN_LSA || lsah->type >= OSPF_MAX_LSA) {
-			zlog_warn("Packet [DD:RECV]: Unknown LS type %d.",
+			flog_warn(OSPF_WARN_PACKET,
+				  "Packet [DD:RECV]: Unknown LS type %d.",
 				  lsah->type);
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_SeqNumberMismatch);
 			return;
@@ -1131,7 +1146,8 @@ static void ospf_db_desc_proc(struct stream *s, struct ospf_interface *oi,
 
 		if (IS_OPAQUE_LSA(lsah->type)
 		    && !CHECK_FLAG(nbr->options, OSPF_OPTION_O)) {
-			zlog_warn("LSA[Type%d:%s]: Opaque capability mismatch?",
+			flog_warn(OSPF_WARN_PACKET,
+				  "LSA[Type%d:%s]: Opaque capability mismatch?",
 				  lsah->type, inet_ntoa(lsah->id));
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_SeqNumberMismatch);
 			return;
@@ -1144,7 +1160,8 @@ static void ospf_db_desc_proc(struct stream *s, struct ospf_interface *oi,
 			   but
 			   allow if from NSSA. */
 			if (oi->area->external_routing == OSPF_AREA_STUB) {
-				zlog_warn(
+				flog_warn(
+					OSPF_WARN_PACKET,
 					"Packet [DD:RECV]: LSA[Type%d:%s] from %s area.",
 					lsah->type, inet_ntoa(lsah->id),
 					(oi->area->external_routing
@@ -1271,7 +1288,7 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 	if (nbr == NULL) {
-		zlog_warn("Packet[DD]: Unknown Neighbor %s",
+		flog_warn(OSPF_WARN_PACKET, "Packet[DD]: Unknown Neighbor %s",
 			  inet_ntoa(ospfh->router_id));
 		return;
 	}
@@ -1279,7 +1296,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 	/* Check MTU. */
 	if ((OSPF_IF_PARAM(oi, mtu_ignore) == 0)
 	    && (ntohs(dd->mtu) > oi->ifp->mtu)) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_PACKET,
 			"Packet[DD]: Neighbor %s MTU %u is larger than [%s]'s MTU %u",
 			inet_ntoa(nbr->router_id), ntohs(dd->mtu), IF_NAME(oi),
 			oi->ifp->mtu);
@@ -1318,7 +1336,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		 * In Hello protocol, optional capability must have checked
 		 * to prevent this T-bit enabled router be my neighbor.
 		 */
-		zlog_warn("Packet[DD]: Neighbor %s: T-bit on?",
+		flog_warn(OSPF_WARN_PACKET,
+			  "Packet[DD]: Neighbor %s: T-bit on?",
 			  inet_ntoa(nbr->router_id));
 		return;
 	}
@@ -1342,7 +1361,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 	case NSM_Down:
 	case NSM_Attempt:
 	case NSM_TwoWay:
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_PACKET,
 			"Packet[DD]: Neighbor %s state is %s, packet discarded.",
 			inet_ntoa(nbr->router_id),
 			lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
@@ -1396,7 +1416,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 			/* Reset I, leaving MS */
 			UNSET_FLAG(nbr->dd_flags, OSPF_DD_FLAG_I);
 		} else {
-			zlog_warn("Packet[DD]: Neighbor %s Negotiation fails.",
+			flog_warn(OSPF_WARN_PACKET,
+				  "Packet[DD]: Neighbor %s Negotiation fails.",
 				  inet_ntoa(nbr->router_id));
 			break;
 		}
@@ -1416,10 +1437,9 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 			if (!CHECK_FLAG(nbr->options, OSPF_OPTION_O)
 			    && IPV4_ADDR_SAME(&DR(oi),
 					      &nbr->address.u.prefix4)) {
-				zlog_warn(
-					"DR-neighbor[%s] is NOT opaque-capable; "
-					"Opaque-LSAs cannot be reliably advertised "
-					"in this network.",
+				flog_warn(
+					OSPF_WARN_PACKET,
+					"DR-neighbor[%s] is NOT opaque-capable; Opaque-LSAs cannot be reliably advertised in this network.",
 					inet_ntoa(nbr->router_id));
 				/* This situation is undesirable, but not a real
 				 * error. */
@@ -1454,7 +1474,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		/* Check Master/Slave bit mismatch */
 		if (IS_SET_DD_MS(dd->flags)
 		    != IS_SET_DD_MS(nbr->last_recv.flags)) {
-			zlog_warn("Packet[DD]: Neighbor %s MS-bit mismatch.",
+			flog_warn(OSPF_WARN_PACKET,
+				  "Packet[DD]: Neighbor %s MS-bit mismatch.",
 				  inet_ntoa(nbr->router_id));
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_SeqNumberMismatch);
 			if (IS_DEBUG_OSPF_EVENT)
@@ -1478,7 +1499,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 			/* Save the new options for debugging */
 			nbr->options = dd->options;
 #endif /* ORIGINAL_CODING */
-			zlog_warn("Packet[DD]: Neighbor %s options mismatch.",
+			flog_warn(OSPF_WARN_PACKET,
+				  "Packet[DD]: Neighbor %s options mismatch.",
 				  inet_ntoa(nbr->router_id));
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_SeqNumberMismatch);
 			break;
@@ -1489,7 +1511,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		     && ntohl(dd->dd_seqnum) != nbr->dd_seqnum)
 		    || (!IS_SET_DD_MS(nbr->dd_flags)
 			&& ntohl(dd->dd_seqnum) != nbr->dd_seqnum + 1)) {
-			zlog_warn(
+			flog_warn(
+				OSPF_WARN_PACKET,
 				"Packet[DD]: Neighbor %s sequence number mismatch.",
 				inet_ntoa(nbr->router_id));
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_SeqNumberMismatch);
@@ -1539,7 +1562,8 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_SeqNumberMismatch);
 		break;
 	default:
-		zlog_warn("Packet[DD]: Neighbor %s NSM illegal status %u.",
+		flog_warn(OSPF_WARN_PACKET,
+			  "Packet[DD]: Neighbor %s NSM illegal status %u.",
 			  inet_ntoa(nbr->router_id), nbr->state);
 		break;
 	}
@@ -1565,7 +1589,8 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 	if (nbr == NULL) {
-		zlog_warn("Link State Request: Unknown Neighbor %s.",
+		flog_warn(OSPF_WARN_PACKET,
+			  "Link State Request: Unknown Neighbor %s.",
 			  inet_ntoa(ospfh->router_id));
 		return;
 	}
@@ -1576,9 +1601,9 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 	/* Neighbor State should be Exchange or later. */
 	if (nbr->state != NSM_Exchange && nbr->state != NSM_Loading
 	    && nbr->state != NSM_Full) {
-		zlog_warn(
-			"Link State Request received from %s: "
-			"Neighbor state is %s, packet discarded.",
+		flog_warn(
+			OSPF_WARN_PACKET,
+			"Link State Request received from %s: Neighbor state is %s, packet discarded.",
 			inet_ntoa(ospfh->router_id),
 			lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
 		return;
@@ -1669,7 +1694,8 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 		length = ntohs(lsah->length);
 
 		if (length > size) {
-			zlog_warn(
+			flog_warn(
+				OSPF_WARN_PACKET,
 				"Link State Update: LSA length exceeds packet size.");
 			break;
 		}
@@ -1683,7 +1709,8 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 			 * have a better
 			 * chance to compress repeated messages in syslog on the
 			 * other */
-			zlog_warn(
+			flog_warn(
+				OSPF_WARN_PACKET,
 				"Link State Update: LSA checksum error %x/%x, ID=%s from: nbr %s, router ID %s, adv router %s",
 				sum, lsah->checksum, inet_ntoa(lsah->id),
 				inet_ntoa(nbr->src), inet_ntoa(nbr->router_id),
@@ -1693,7 +1720,8 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 
 		/* Examine the LSA's LS type. */
 		if (lsah->type < OSPF_MIN_LSA || lsah->type >= OSPF_MAX_LSA) {
-			zlog_warn("Link State Update: Unknown LS type %d",
+			flog_warn(OSPF_WARN_PACKET,
+				  "Link State Update: Unknown LS type %d",
 				  lsah->type);
 			continue;
 		}
@@ -1717,7 +1745,8 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 				 * the bit will be set in Type-9,10,11 LSAs
 				 * only.
 				 */
-				zlog_warn("LSA[Type%d:%s]: O-bit abuse?",
+				flog_warn(OSPF_WARN_PACKET,
+					  "LSA[Type%d:%s]: O-bit abuse?",
 					  lsah->type, inet_ntoa(lsah->id));
 				continue;
 			}
@@ -1736,7 +1765,8 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 				continue;
 			}
 		} else if (IS_OPAQUE_LSA(lsah->type)) {
-			zlog_warn("LSA[Type%d:%s]: Opaque capability mismatch?",
+			flog_warn(OSPF_WARN_PACKET,
+				  "LSA[Type%d:%s]: Opaque capability mismatch?",
 				  lsah->type, inet_ntoa(lsah->id));
 			continue;
 		}
@@ -1806,7 +1836,8 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 	/* Check neighbor. */
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 	if (nbr == NULL) {
-		zlog_warn("Link State Update: Unknown Neighbor %s on int: %s",
+		flog_warn(OSPF_WARN_PACKET,
+			  "Link State Update: Unknown Neighbor %s on int: %s",
 			  inet_ntoa(ospfh->router_id), IF_NAME(oi));
 		return;
 	}
@@ -1971,7 +2002,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			 * Just send an LSAck message to cease retransmission.
 			 */
 			if (IS_LSA_MAXAGE(lsa)) {
-				zlog_warn("LSA[%s]: Boomerang effect?",
+				zlog_info("LSA[%s]: Boomerang effect?",
 					  dump_lsa_key(lsa));
 				ospf_ls_ack_send(nbr, lsa);
 				ospf_lsa_discard(lsa);
@@ -2087,7 +2118,8 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 
 		if (ospf_ls_request_lookup(nbr, lsa)) {
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_BadLSReq);
-			zlog_warn(
+			flog_warn(
+				OSPF_WARN_PACKET,
 				"LSA[%s] instance exists on Link state request list",
 				dump_lsa_key(lsa));
 
@@ -2200,7 +2232,8 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 	if (nbr == NULL) {
-		zlog_warn("Link State Acknowledgment: Unknown Neighbor %s.",
+		flog_warn(OSPF_WARN_PACKET,
+			  "Link State Acknowledgment: Unknown Neighbor %s.",
 			  inet_ntoa(ospfh->router_id));
 		return;
 	}
@@ -2270,12 +2303,14 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 
 	ret = stream_recvmsg(ibuf, fd, &msgh, 0, OSPF_MAX_PACKET_SIZE + 1);
 	if (ret < 0) {
-		zlog_warn("stream_recvmsg failed: %s", safe_strerror(errno));
+		flog_warn(OSPF_WARN_PACKET, "stream_recvmsg failed: %s",
+			  safe_strerror(errno));
 		return NULL;
 	}
 	if ((unsigned int)ret < sizeof(iph)) /* ret must be > 0 now */
 	{
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_PACKET,
 			"ospf_recv_packet: discarding runt packet of length %d "
 			"(ip header size is %u)",
 			ret, (unsigned int)sizeof(iph));
@@ -2321,7 +2356,8 @@ static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
 	*ifp = if_lookup_by_index(ifindex, ospf->vrf_id);
 
 	if (ret != ip_len) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_PACKET,
 			"ospf_recv_packet read length mismatch: ip_len is %d, "
 			"but recvmsg returned %d",
 			ip_len, ret);
@@ -2427,7 +2463,8 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 	case OSPF_AUTH_NULL: /* RFC2328 D.5.1 */
 		if (OSPF_AUTH_NULL != (iface_auth_type = ospf_auth_type(oi))) {
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				zlog_warn(
+				flog_warn(
+					OSPF_WARN_PACKET,
 					"interface %s: auth-type mismatch, local %s, rcvd Null",
 					IF_NAME(oi),
 					lookup_msg(ospf_auth_type_str,
@@ -2436,7 +2473,8 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 		}
 		if (!ospf_check_sum(ospfh)) {
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				zlog_warn(
+				flog_warn(
+					OSPF_WARN_PACKET,
 					"interface %s: Null auth OK, but checksum error, Router-ID %s",
 					IF_NAME(oi),
 					inet_ntoa(ospfh->router_id));
@@ -2447,7 +2485,8 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 		if (OSPF_AUTH_SIMPLE
 		    != (iface_auth_type = ospf_auth_type(oi))) {
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				zlog_warn(
+				flog_warn(
+					OSPF_WARN_PACKET,
 					"interface %s: auth-type mismatch, local %s, rcvd Simple",
 					IF_NAME(oi),
 					lookup_msg(ospf_auth_type_str,
@@ -2457,13 +2496,15 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 		if (memcmp(OSPF_IF_PARAM(oi, auth_simple), ospfh->u.auth_data,
 			   OSPF_AUTH_SIMPLE_SIZE)) {
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				zlog_warn("interface %s: Simple auth failed",
+				flog_warn(OSPF_WARN_PACKET,
+					  "interface %s: Simple auth failed",
 					  IF_NAME(oi));
 			return 0;
 		}
 		if (!ospf_check_sum(ospfh)) {
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				zlog_warn(
+				flog_warn(
+					OSPF_WARN_PACKET,
 					"interface %s: Simple auth OK, checksum error, Router-ID %s",
 					IF_NAME(oi),
 					inet_ntoa(ospfh->router_id));
@@ -2474,7 +2515,8 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 		if (OSPF_AUTH_CRYPTOGRAPHIC
 		    != (iface_auth_type = ospf_auth_type(oi))) {
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				zlog_warn(
+				flog_warn(
+					OSPF_WARN_PACKET,
 					"interface %s: auth-type mismatch, local %s, rcvd Cryptographic",
 					IF_NAME(oi),
 					lookup_msg(ospf_auth_type_str,
@@ -2483,7 +2525,8 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 		}
 		if (ospfh->checksum) {
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				zlog_warn(
+				flog_warn(
+					OSPF_WARN_PACKET,
 					"interface %s: OSPF header checksum is not 0",
 					IF_NAME(oi));
 			return 0;
@@ -2498,14 +2541,16 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 		       bug? */
 		    !ospf_check_md5_digest(oi, ospfh)) {
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-				zlog_warn("interface %s: MD5 auth failed",
+				flog_warn(OSPF_WARN_MD5,
+					  "interface %s: MD5 auth failed",
 					  IF_NAME(oi));
 			return 0;
 		}
 		return 1;
 	default:
 		if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
-			zlog_warn(
+			flog_warn(
+				OSPF_WARN_PACKET,
 				"interface %s: invalid packet auth-type (%02x)",
 				IF_NAME(oi), pkt_auth_type);
 		return 0;
@@ -2854,14 +2899,16 @@ static int ospf_verify_header(struct stream *ibuf, struct ospf_interface *oi,
 {
 	/* Check Area ID. */
 	if (!ospf_check_area_id(oi, ospfh)) {
-		zlog_warn("interface %s: ospf_read invalid Area ID %s.",
+		flog_warn(OSPF_WARN_PACKET,
+			  "interface %s: ospf_read invalid Area ID %s.",
 			  IF_NAME(oi), inet_ntoa(ospfh->area_id));
 		return -1;
 	}
 
 	/* Check network mask, Silently discarded. */
 	if (!ospf_check_network_mask(oi, iph->ip_src)) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_PACKET,
 			"interface %s: ospf_read network address is not same [%s]",
 			IF_NAME(oi), inet_ntoa(iph->ip_src));
 		return -1;
@@ -3006,12 +3053,14 @@ int ospf_read(struct thread *thread)
 	 */
 	else if (oi->ifp != ifp) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_warn("Packet from [%s] received on wrong link %s",
+			flog_warn(OSPF_WARN_PACKET,
+				  "Packet from [%s] received on wrong link %s",
 				  inet_ntoa(iph->ip_src), ifp->name);
 		return 0;
 	} else if (oi->state == ISM_Down) {
 		char buf[2][INET_ADDRSTRLEN];
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_PACKET,
 			"Ignoring packet from %s to %s received on interface that is "
 			"down [%s]; interface flags are %s",
 			inet_ntop(AF_INET, &iph->ip_src, buf[0],
@@ -3036,7 +3085,8 @@ int ospf_read(struct thread *thread)
 	 */
 	if (iph->ip_dst.s_addr == htonl(OSPF_ALLDROUTERS)
 	    && (oi->state != ISM_DR && oi->state != ISM_Backup)) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_PACKET,
 			"Dropping packet for AllDRouters from [%s] via [%s] (ISM: %s)",
 			inet_ntoa(iph->ip_src), IF_NAME(oi),
 			lookup_msg(ospf_ism_state_msg, oi->state, NULL));
@@ -3099,7 +3149,8 @@ int ospf_read(struct thread *thread)
 		ospf_ls_ack(iph, ospfh, ibuf, oi, length);
 		break;
 	default:
-		zlog_warn("interface %s: OSPF packet header type %d is illegal",
+		flog_warn(OSPF_WARN_PACKET,
+			  "interface %s: OSPF packet header type %d is illegal",
 			  IF_NAME(oi), ospfh->type);
 		break;
 	}
@@ -3830,7 +3881,8 @@ static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update,
 	if ((OSPF_LS_UPD_MIN_SIZE + ntohs(lsa->data->length))
 	    > ospf_packet_max(oi)) {
 		if (!warned) {
-			zlog_warn(
+			flog_warn(
+				OSPF_WARN_LARGE_LSA,
 				"ospf_ls_upd_packet_new: oversized LSA encountered!"
 				"will need to fragment. Not optimal. Try divide up"
 				" your network with areas. Use 'debug ospf packet send'"
@@ -3858,12 +3910,12 @@ static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update,
 		size = oi->ifp->mtu;
 
 	if (size > OSPF_MAX_PACKET_SIZE) {
-		zlog_warn(
-			"ospf_ls_upd_packet_new: oversized LSA id:%s too big,"
-			" %d bytes, packet size %ld, dropping it completely."
-			" OSPF routing is broken!",
-			inet_ntoa(lsa->data->id), ntohs(lsa->data->length),
-			(long int)size);
+		flog_warn(OSPF_WARN_LARGE_LSA,
+			  "ospf_ls_upd_packet_new: oversized LSA id:%s too big,"
+			  " %d bytes, packet size %ld, dropping it completely."
+			  " OSPF routing is broken!",
+			  inet_ntoa(lsa->data->id), ntohs(lsa->data->length),
+			  (long int)size);
 		list_delete_node(update, ln);
 		return NULL;
 	}
@@ -4019,10 +4071,12 @@ void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
 
 	if (oi->type == OSPF_IFTYPE_NBMA) {
 		if (flag == OSPF_SEND_PACKET_INDIRECT)
-			zlog_warn(
+			flog_warn(
+				OSPF_WARN_PACKET,
 				"* LS-Update is directly sent on NBMA network.");
 		if (IPV4_ADDR_SAME(&oi->address->u.prefix4, &p.prefix))
-			zlog_warn("* LS-Update is sent to myself.");
+			flog_warn(OSPF_WARN_PACKET,
+				  "* LS-Update is sent to myself.");
 	}
 
 	rn = route_node_get(oi->ls_upd_queue, (struct prefix *)&p);

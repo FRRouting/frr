@@ -61,6 +61,7 @@
 #include "zebra/zapi_msg.h"       /* for zserv_handle_commands */
 #include "zebra/zebra_vrf.h"      /* for zebra_vrf_lookup_by_id, zvrf */
 #include "zebra/zserv.h"          /* for zserv */
+#include "zebra/zebra_errors.h"   /* for error messages */
 /* clang-format on */
 
 /* privileges */
@@ -171,7 +172,8 @@ static void zserv_log_message(const char *errmsg, struct stream *msg,
  */
 static void zserv_client_fail(struct zserv *client)
 {
-	zlog_warn("Client '%s' encountered an error and is shutting down.",
+	flog_warn(ZEBRA_ERR_CLIENT_IO_ERROR,
+		  "Client '%s' encountered an error and is shutting down.",
 		  zebra_route_string(client->proto));
 
 	atomic_store_explicit(&client->pthread->running, false,
@@ -270,7 +272,8 @@ static int zserv_write(struct thread *thread)
 	return 0;
 
 zwrite_fail:
-	zlog_warn("%s: could not write to %s [fd = %d], closing.", __func__,
+	flog_warn(ZEBRA_ERR_CLIENT_WRITE_FAILED,
+		  "%s: could not write to %s [fd = %d], closing.", __func__,
 		  zebra_route_string(client->proto), client->sock);
 	zserv_client_fail(client);
 	return 0;
@@ -741,8 +744,8 @@ static int zserv_accept(struct thread *thread)
 	client_sock = accept(accept_sock, (struct sockaddr *)&client, &len);
 
 	if (client_sock < 0) {
-		zlog_warn("Can't accept zebra socket: %s",
-			  safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET, "Can't accept zebra socket: %s",
+			     safe_strerror(errno));
 		return -1;
 	}
 
@@ -772,10 +775,8 @@ void zserv_start(char *path)
 	/* Make UNIX domain socket. */
 	zebrad.sock = socket(sa.ss_family, SOCK_STREAM, 0);
 	if (zebrad.sock < 0) {
-		zlog_warn("Can't create zserv socket: %s",
-			  safe_strerror(errno));
-		zlog_warn(
-			"zebra can't provide full functionality due to above error");
+		flog_err_sys(LIB_ERR_SOCKET, "Can't create zserv socket: %s",
+			     safe_strerror(errno));
 		return;
 	}
 
@@ -797,10 +798,9 @@ void zserv_start(char *path)
 		ret = bind(zebrad.sock, (struct sockaddr *)&sa, sa_len);
 	}
 	if (ret < 0) {
-		zlog_warn("Can't bind zserv socket on %s: %s", path,
-			  safe_strerror(errno));
-		zlog_warn(
-			"zebra can't provide full functionality due to above error");
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "Can't bind zserv socket on %s: %s", path,
+			     safe_strerror(errno));
 		close(zebrad.sock);
 		zebrad.sock = -1;
 		return;
@@ -808,10 +808,9 @@ void zserv_start(char *path)
 
 	ret = listen(zebrad.sock, 5);
 	if (ret < 0) {
-		zlog_warn("Can't listen to zserv socket %s: %s", path,
-			  safe_strerror(errno));
-		zlog_warn(
-			"zebra can't provide full functionality due to above error");
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "Can't listen to zserv socket %s: %s", path,
+			     safe_strerror(errno));
 		close(zebrad.sock);
 		zebrad.sock = -1;
 		return;

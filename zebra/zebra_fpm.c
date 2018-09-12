@@ -1538,7 +1538,8 @@ static inline void zfpm_init_message_format(const char *format)
 		return;
 	}
 
-	zlog_warn("Unknown fpm format '%s'", format);
+	flog_warn(ZEBRA_ERR_FPM_FORMAT_UNKNOWN, "Unknown fpm format '%s'",
+		  format);
 }
 
 /**

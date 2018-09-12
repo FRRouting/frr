@@ -314,8 +314,9 @@ static int vty_log_out(struct vty *vty, const char *level,
 		/* Fatal I/O error. */
 		vty->monitor =
 			0; /* disable monitoring to avoid infinite recursion */
-		zlog_warn("%s: write failed to vty client fd %d, closing: %s",
-			  __func__, vty->fd, safe_strerror(errno));
+		flog_err(LIB_ERR_SOCKET,
+			 "%s: write failed to vty client fd %d, closing: %s",
+			 __func__, vty->fd, safe_strerror(errno));
 		buffer_reset(vty->obuf);
 		buffer_reset(vty->lbuf);
 		/* cannot call vty_close, because a parent routine may still try
@@ -534,7 +535,8 @@ static int vty_command(struct vty *vty, char *buf)
 		if ((realtime = thread_consumed_time(&after, &before, &cputime))
 		    > CONSUMED_TIME_CHECK)
 			/* Warn about CPU hog that must be fixed. */
-			zlog_warn(
+			flog_warn(
+				LIB_WARN_SLOW_THREAD,
 				"SLOW COMMAND: command took %lums (cpu time %lums): %s",
 				realtime / 1000, cputime / 1000, buf);
 	}
@@ -1326,7 +1328,8 @@ static int vty_telnet_option(struct vty *vty, unsigned char *buf, int nbytes)
 		switch (vty->sb_buf[0]) {
 		case TELOPT_NAWS:
 			if (vty->sb_len != TELNET_NAWS_SB_LEN)
-				zlog_warn(
+				flog_err(
+					LIB_ERR_SYSTEM_CALL,
 					"RFC 1073 violation detected: telnet NAWS option "
 					"should send %d characters, but we received %lu",
 					TELNET_NAWS_SB_LEN,
@@ -1448,7 +1451,8 @@ static int vty_read(struct thread *thread)
 			}
 			vty->monitor = 0; /* disable monitoring to avoid
 					     infinite recursion */
-			zlog_warn(
+			flog_err(
+				LIB_ERR_SOCKET,
 				"%s: read error on vty client fd %d, closing: %s",
 				__func__, vty->fd, safe_strerror(errno));
 			buffer_reset(vty->obuf);
@@ -1655,7 +1659,7 @@ static int vty_flush(struct thread *thread)
 	case BUFFER_ERROR:
 		vty->monitor =
 			0; /* disable monitoring to avoid infinite recursion */
-		zlog_warn("buffer_flush failed on vty client fd %d, closing",
+		zlog_info("buffer_flush failed on vty client fd %d, closing",
 			  vty->fd);
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
@@ -1902,7 +1906,8 @@ static int vty_accept(struct thread *thread)
 	/* We can handle IPv4 or IPv6 socket. */
 	vty_sock = sockunion_accept(accept_sock, &su);
 	if (vty_sock < 0) {
-		zlog_warn("can't accept vty socket : %s", safe_strerror(errno));
+		flog_err(LIB_ERR_SOCKET, "can't accept vty socket : %s",
+			 safe_strerror(errno));
 		return -1;
 	}
 	set_nonblocking(vty_sock);
@@ -2110,14 +2115,15 @@ static int vtysh_accept(struct thread *thread)
 		      (socklen_t *)&client_len);
 
 	if (sock < 0) {
-		zlog_warn("can't accept vty socket : %s", safe_strerror(errno));
+		flog_err(LIB_ERR_SOCKET, "can't accept vty socket : %s",
+			 safe_strerror(errno));
 		return -1;
 	}
 
 	if (set_nonblocking(sock) < 0) {
-		zlog_warn(
-			"vtysh_accept: could not set vty socket %d to non-blocking,"
-			" %s, closing",
+		flog_err(
+			LIB_ERR_SOCKET,
+			"vtysh_accept: could not set vty socket %d to non-blocking, %s, closing",
 			sock, safe_strerror(errno));
 		close(sock);
 		return -1;
@@ -2148,8 +2154,8 @@ static int vtysh_flush(struct vty *vty)
 	case BUFFER_ERROR:
 		vty->monitor =
 			0; /* disable monitoring to avoid infinite recursion */
-		zlog_warn("%s: write error to fd %d, closing", __func__,
-			  vty->fd);
+		flog_err(LIB_ERR_SOCKET, "%s: write error to fd %d, closing",
+			 __func__, vty->fd);
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
 		vty_close(vty);
@@ -2183,7 +2189,8 @@ static int vtysh_read(struct thread *thread)
 			}
 			vty->monitor = 0; /* disable monitoring to avoid
 					     infinite recursion */
-			zlog_warn(
+			flog_err(
+				LIB_ERR_SOCKET,
 				"%s: read failed on vtysh client fd %d, closing: %s",
 				__func__, sock, safe_strerror(errno));
 		}
@@ -2504,12 +2511,15 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 		confp = fopen(fullpath, "r");
 
 		if (confp == NULL) {
-			zlog_warn("%s: failed to open configuration file %s: %s, checking backup",
-				 __func__, fullpath, safe_strerror(errno));
+			flog_warn(
+				LIB_WARN_BACKUP_CONFIG,
+				"%s: failed to open configuration file %s: %s, checking backup",
+				__func__, fullpath, safe_strerror(errno));
 
 			confp = vty_use_backup_config(fullpath);
 			if (confp)
-				zlog_warn(
+				flog_warn(
+					LIB_WARN_BACKUP_CONFIG,
 					"WARNING: using backup configuration file!");
 			else {
 				flog_err(LIB_ERR_VTY,
@@ -2550,13 +2560,16 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 #endif /* VTYSH */
 		confp = fopen(config_default_dir, "r");
 		if (confp == NULL) {
-			zlog_warn("%s: failed to open configuration file %s: %s, checking backup",
-				  __func__, config_default_dir,
-				  safe_strerror(errno));
+			flog_err(
+				LIB_ERR_SYSTEM_CALL,
+				"%s: failed to open configuration file %s: %s, checking backup",
+				__func__, config_default_dir,
+				safe_strerror(errno));
 
 			confp = vty_use_backup_config(config_default_dir);
 			if (confp) {
-				zlog_warn(
+				flog_warn(
+					LIB_WARN_BACKUP_CONFIG,
 					"WARNING: using backup configuration file!");
 				fullpath = config_default_dir;
 			} else {

@@ -24,6 +24,174 @@
 #include "bgp_errors.h"
 
 /* clang-format off */
+static struct log_ref ferr_bgp_warn[] = {
+	{
+		.code = BGP_WARN_ASPATH_FEWER_HOPS,
+		.title = "BGP AS-path conversion has failed",
+		.description = "BGP has attempted to convert a AS2 to AS4 path and has failed",
+		.suggestion = "Open an Issue with all relevant log files and restart FRR"
+	},
+	{
+		.code = BGP_WARN_DEFUNCT_SNPA_LEN,
+		.title = "BGP has received a value in a reserved field",
+		.description = "BGP has received a non-zero value in a reserved field that was used for SNPA-length at one point in time",
+		.suggestion = "BGP has peered with either a router that is attempting to send SNPA data or it has received a corrupted packet.  If we are peering with a SNPA aware router(unlikely) upgrade that router, else open an Issue after gathering relevant log files",
+	},
+	{
+		.code = BGP_WARN_MISSING_ATTRIBUTE,
+		.title = "BGP has received an update with missing a missing attribute",
+		.description = "BGP received update packets must have some minimum attribute information within them",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_ATTRIBUTE_TOO_SMALL,
+		.title = "BGP udate packet with attribute data that is too small",
+		.description = "BGP has received an update packet that is too small to parse a given attribute.  This typically means that something has gone wrong between us and the remote peer",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_EXT_ATTRIBUTE_TOO_SMALL,
+		.title = "BGP udate packet with extended attribute data that is too small",
+		.description = "BGP has received an update packet that is too small to parse a given extended attribute.  This typically means that something has gone wrong between us and the remote peer",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_ATTRIBUTE_REPEATED,
+		.title = "BGP update packet received with a repeated attribute",
+		.description = "BGP has received an update packet with a attribute that is repeated more than one time for a particular route.  This typically means that something has gone wrong between us and the remote peer",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_ATTRIBUTE_TOO_LARGE,
+		.title = "BGP udate packet with attribute data that is too large",
+		.description = "BGP has received an update packet that has too much data in a particular attribute.  This typically means that something has gone wrong between us and the remote peer",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_ATTRIBUTE_PARSE_ERROR,
+		.title = "BGP update packet with attribute data has a parse error, specific to the attribute",
+		.description = "BGP has received an update packet with an attribute that when parsed does not make sense in some manner",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_ATTRIBUTE_PARSE_WITHDRAW,
+		.title = "BGP update packet with a broken optional attribute has caused a withdraw of associated routes",
+		.description = "BGP has received a update packet with optional attributes that did not parse correctly, instead of resetting the peer, withdraw associated routes and note that this has happened",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_ATTRIBUTE_FETCH_ERROR,
+		.title = "BGP update packet with a broken length",
+		.description = "BGP has received a update packet with an attribute that has an incorrect length",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_ATTRIBUTES_MISMATCH,
+		.title = "BGP update packet with a length different than attribute data length",
+		.description = "BGP has received a update packet with attributes that when parsed do not correctly add up to packet data length",
+		.suggestion = "Gather log data from this and remote peer and open an Issue with this data",
+	},
+	{
+		.code = BGP_WARN_DUMP,
+		.title = "BGP MRT dump subsystem has encountered an issue",
+		.description = "BGP has found that the attempted write of MRT data to a dump file has failed",
+		.suggestion = "Ensure BGP has permissions to write the specified file",
+	},
+	{
+		.code = BGP_WARN_UPDATE_PACKET_SHORT,
+		.title = "BGP Update Packet is to Small",
+		.description = "The update packet received from a peer is to small",
+		.suggestion = "Determine the source of the update packet and examine that peer for what has gone wrong",
+	},
+	{
+		.code = BGP_WARN_UPDATE_PACKET_LONG,
+		.title = "BGP Update Packet is to large",
+		.description = "The update packet received from a peer is to large",
+		.suggestion = "Determine the source of the update packet and examine that peer for what has gone wrong",
+	},
+	{
+		.code = BGP_WARN_UNRECOGNIZED_CAPABILITY,
+		.title = "Unknown BGP Capability Received",
+		.description = "The negotiation of capabilities has received a capability that we do not know what to do with",
+		.suggestion = "Determine the source of the capability and remove the capability from what is sent",
+	},
+	{
+		.code = BGP_WARN_NO_TCP_MD5,
+		.title = "Unable to set TCP MD5 option on socket",
+		.description = "BGP attempted to setup TCP MD5 configuration on the socket as per configuration but was unable to",
+		.suggestion = "Please collect log files and open Issue",
+	},
+	{
+		.code = BGP_WARN_NO_SOCKOPT_MARK,
+		.title = "Unable to set socket MARK option",
+		.description = "BGP attempted to set the SO_MARK option for a socket and was unable to do so",
+		.suggestion = "Please collect log files and open Issue",
+	},
+	{
+		.code = BGP_WARN_EVPN_PMSI_PRESENT,
+		.title = "BGP Received a EVPN NLRI with PMSI included",
+		.description = "BGP has received a type-3 NLRI with PMSI information.  At this time FRR is not capable of properly handling this NLRI type",
+		.suggestion = "Setup peer to not send this type of data to FRR"
+	},
+	{
+		.code = BGP_WARN_EVPN_VPN_VNI,
+		.title = "BGP has received a local macip and cannot properly handle it",
+		.description = "BGP has received a local macip from zebra and has no way to properly handle the macip because the vni is not setup properly",
+		.suggestion = "Ensure proper setup of BGP EVPN",
+	},
+	{
+		.code = BGP_WARN_EVPN_ESI,
+		.title = "BGP has received a local ESI for deletion",
+		.description = "BGP has received a local ESI for deletion but when attempting to find the stored data internally was unable to find the information for deletion",
+		.suggestion = "Gather logging and open an Issue",
+	},
+	{
+		.code = BGP_WARN_INVALID_LABEL_STACK,
+		.title = "BGP has received a label stack in a NLRI that does not have the BOS marked",
+		.description = "BGP when it receives a NLRI with a label stack should have the BOS marked, this received packet does not have this",
+		.suggestion = "Gather log information from here and remote peer and open an Issue",
+	},
+	{
+		.code = BGP_WARN_ZEBRA_SEND,
+		.title = "BGP has attempted to send data to zebra and has failed to do so",
+		.description = "BGP has attempted to send data to zebra but has been unable to do so",
+		.suggestion = "Gather log data, open an Issue and restart FRR"
+	},
+	{
+		.code = BGP_WARN_CAPABILITY_INVALID_LENGTH,
+		.title = "BGP has received a capability with an invalid length",
+		.description = "BGP has received a capability from it's peer who's size is wrong",
+		.suggestion = "Gather log files from here and from peer and open an Issue",
+	},
+	{
+		.code = BGP_WARN_CAPABILITY_INVALID_DATA,
+		.title = "BGP has received capability data with invalid information",
+		.description = "BGP has noticed that during processing of capability information that data was wrong",
+		.suggestion = "Gather log files from here and from peer and open an Issue",
+	},
+	{
+		.code = BGP_WARN_CAPABILITY_VENDOR,
+		.title = "BGP has recieved capability data specific to a particular vendor",
+		.description = "BGP has received a capability that is vendor specific and as such we have no knowledge of how to use this capability in FRR",
+		.suggestion = "On peer turn off this feature"
+	},
+	{
+		.code = BGP_WARN_CAPABILITY_UNKNOWN,
+		.title = "BGP has received capability data for a unknown capability",
+		.description = "BGP has received a capability that it does not know how to decode.  This may be due to a new feature that has not been coded into FRR or it may be a bug in the remote peer",
+		.suggestion = "Gather log files from here and from peer and open an Issue",
+	},
+	{
+		.code = BGP_WARN_INVALID_NEXTHOP_LENGTH,
+		.title = "BGP is attempting to write an invalid nexthop length value",
+		.description = "BGP is in the process of building NLRI information for a peer and has discovered an inconsistent internal state",
+		.suggestion = "Gather log files and open an Issue, restart FRR",
+	},
+	{
+		.code = END_FERR,
+	}
+};
+
 static struct log_ref ferr_bgp_err[] = {
 	{
 		.code = BGP_ERR_ATTR_FLAG,
@@ -303,4 +471,5 @@ static struct log_ref ferr_bgp_err[] = {
 void bgp_error_init(void)
 {
 	log_ref_add(ferr_bgp_err);
+	log_ref_add(ferr_bgp_warn);
 }

@@ -84,7 +84,8 @@ static int bgp_md5_set_socket(int socket, union sockunion *su,
 #endif /* HAVE_TCP_MD5SIG */
 
 	if (ret < 0)
-		zlog_warn("can't set TCP_MD5SIG option on socket %d: %s",
+		flog_warn(BGP_WARN_NO_TCP_MD5,
+			  "can't set TCP_MD5SIG option on socket %d: %s",
 			  socket, safe_strerror(en));
 
 	return ret;
@@ -561,7 +562,8 @@ int bgp_connect(struct peer *peer)
 	sockopt_reuseaddr(peer->fd);
 	sockopt_reuseport(peer->fd);
 	if (sockopt_mark_default(peer->fd, DATAPLANE_MARK, &bgpd_privs) < 0)
-		zlog_warn("Unable to set mark on FD for peer %s, err=%s",
+		flog_warn(BGP_WARN_NO_SOCKOPT_MARK,
+			  "Unable to set mark on FD for peer %s, err=%s",
 			  peer->host, safe_strerror(errno));
 
 #ifdef IPTOS_PREC_INTERNETCONTROL

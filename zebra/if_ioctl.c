@@ -38,6 +38,7 @@
 #include "zebra/interface.h"
 #include "zebra/rib.h"
 #include "zebra/rt.h"
+#include "zebra/zebra_errors.h"
 
 #include <ifaddrs.h>
 
@@ -57,8 +58,9 @@ static int interface_list_ioctl(void)
 	/* Normally SIOCGIFCONF works with AF_INET socket. */
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock < 0) {
-		zlog_warn("Can't make AF_INET socket stream: %s",
-			  safe_strerror(errno));
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "Can't make AF_INET socket stream: %s",
+			     safe_strerror(errno));
 		return -1;
 	}
 
@@ -86,7 +88,8 @@ static int interface_list_ioctl(void)
 		ret = ioctl(sock, SIOCGIFCONF, &ifconf);
 
 		if (ret < 0) {
-			zlog_warn("SIOCGIFCONF: %s", safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SYSTEM_CALL, "SIOCGIFCONF: %s",
+				     safe_strerror(errno));
 			goto end;
 		}
 		/* Repeatedly get info til buffer fails to grow. */

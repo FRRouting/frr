@@ -3683,9 +3683,11 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 	if (attr &&
 	    (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL))) {
 		if (attr->pmsi_tnl_type != PMSI_TNLTYPE_INGR_REPL) {
-			zlog_warn("%u:%s - Rx EVPN Type-3 NLRI with unsupported PTA %d",
-				  peer->bgp->vrf_id, peer->host,
-				  attr->pmsi_tnl_type);
+			flog_warn(
+				BGP_WARN_EVPN_PMSI_PRESENT,
+				"%u:%s - Rx EVPN Type-3 NLRI with unsupported PTA %d",
+				peer->bgp->vrf_id, peer->host,
+				attr->pmsi_tnl_type);
 		}
 	}
 
@@ -5162,7 +5164,8 @@ int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 	/* Lookup VNI hash - should exist. */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn || !is_vni_live(vpn)) {
-		zlog_warn("%u: VNI hash entry for VNI %u %s at MACIP DEL",
+		flog_warn(BGP_WARN_EVPN_VPN_VNI,
+			  "%u: VNI hash entry for VNI %u %s at MACIP DEL",
 			  bgp->vrf_id, vni, vpn ? "not live" : "not found");
 		return -1;
 	}
@@ -5186,7 +5189,8 @@ int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 	/* Lookup VNI hash - should exist. */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn || !is_vni_live(vpn)) {
-		zlog_warn("%u: VNI hash entry for VNI %u %s at MACIP ADD",
+		flog_warn(BGP_WARN_EVPN_VPN_VNI,
+			  "%u: VNI hash entry for VNI %u %s at MACIP ADD",
 			  bgp->vrf_id, vni, vpn ? "not live" : "not found");
 		return -1;
 	}
@@ -5398,7 +5402,8 @@ int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn) {
 		if (bgp_debug_zebra(NULL))
-			zlog_warn(
+			flog_warn(
+				BGP_WARN_EVPN_VPN_VNI,
 				"%u: VNI hash entry for VNI %u not found at DEL",
 				bgp->vrf_id, vni);
 		return 0;
@@ -5529,9 +5534,9 @@ int bgp_evpn_local_es_del(struct bgp *bgp,
 	/* Lookup ESI hash - should exist. */
 	es = bgp_evpn_lookup_es(bgp, esi);
 	if (!es) {
-		zlog_warn("%u: ESI hash entry for ESI %s at Local ES DEL",
-			  bgp->vrf_id,
-			  esi_to_str(esi, buf, sizeof(buf)));
+		flog_warn(BGP_WARN_EVPN_ESI,
+			  "%u: ESI hash entry for ESI %s at Local ES DEL",
+			  bgp->vrf_id, esi_to_str(esi, buf, sizeof(buf)));
 		return -1;
 	}
 

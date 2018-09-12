@@ -502,8 +502,8 @@ int ifm_read(struct if_msghdr *ifm)
 		 * RTA_IFP) is required.
 		 */
 		if (!ifnlen) {
-			zlog_warn("Interface index %d (new) missing ifname\n",
-				  ifm->ifm_index);
+			zlog_debug("Interface index %d (new) missing ifname\n",
+				   ifm->ifm_index);
 			return -1;
 		}
 
@@ -586,7 +586,7 @@ int ifm_read(struct if_msghdr *ifm)
 	 */
 	{
 		if (ifp->ifindex != ifm->ifm_index) {
-			zlog_warn(
+			zlog_debug(
 				"%s: index mismatch, ifname %s, ifp index %d, "
 				"ifm index %d",
 				__func__, ifp->name, ifp->ifindex,
@@ -709,7 +709,7 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 
 	/* Assert read up end point matches to end point */
 	if (pnt != end)
-		zlog_warn("ifam_read() doesn't read all socket data");
+		zlog_debug("ifam_read() doesn't read all socket data");
 }
 
 /* Interface's address information get. */
@@ -728,7 +728,8 @@ int ifam_read(struct ifa_msghdr *ifam)
 	ifam_read_mesg(ifam, &addr, &mask, &brd, ifname, &ifnlen);
 
 	if ((ifp = if_lookup_by_index(ifam->ifam_index, VRF_DEFAULT)) == NULL) {
-		zlog_warn("%s: no interface for ifname %s, index %d", __func__,
+		flog_warn(ZEBRA_ERR_UNKNOWN_INTERFACE,
+			  "%s: no interface for ifname %s, index %d", __func__,
 			  ifname, ifam->ifam_index);
 		return -1;
 	}
@@ -822,10 +823,10 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 
 	/* rt_msghdr version check. */
 	if (rtm->rtm_version != RTM_VERSION)
-		zlog_warn(
-			"Routing message version different %d should be %d."
-			"This may cause problem\n",
-			rtm->rtm_version, RTM_VERSION);
+		flog_warn(ZEBRA_ERR_RTM_VERSION_MISMATCH,
+			  "Routing message version different %d should be %d."
+			  "This may cause problem\n",
+			  rtm->rtm_version, RTM_VERSION);
 
 	/* Be sure structure is cleared */
 	memset(dest, 0, sizeof(union sockunion));
@@ -860,7 +861,7 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 
 	/* Assert read up to the end of pointer. */
 	if (pnt != end)
-		zlog_warn("rtm_read() doesn't read all socket data.");
+		zlog_debug("rtm_read() doesn't read all socket data.");
 
 	return rtm->rtm_flags;
 }
@@ -1182,7 +1183,8 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 			if (mask)
 				inet_ntop(AF_INET, &mask->sin.sin_addr,
 					  mask_buf, INET_ADDRSTRLEN);
-			zlog_warn(
+			flog_warn(
+				ZEBRA_ERR_RTM_NO_GATEWAY,
 				"%s: %s/%s: gate == NULL and no gateway found for ifindex %d",
 				__func__, dest_buf, mask_buf, index);
 			return -1;
@@ -1250,8 +1252,8 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 		if (errno == ESRCH)
 			return ZEBRA_ERR_RTNOEXIST;
 
-		zlog_warn("%s: write : %s (%d)", __func__, safe_strerror(errno),
-			  errno);
+		flog_err_sys(LIB_ERR_SOCKET, "%s: write : %s (%d)", __func__,
+			     safe_strerror(errno), errno);
 		return ZEBRA_ERR_KERNEL;
 	}
 	return ZEBRA_ERR_NOERROR;
@@ -1333,8 +1335,8 @@ static int kernel_read(struct thread *thread)
 
 	if (nbytes <= 0) {
 		if (nbytes < 0 && errno != EWOULDBLOCK && errno != EAGAIN)
-			zlog_warn("routing socket error: %s",
-				  safe_strerror(errno));
+			flog_err_sys(LIB_ERR_SOCKET, "routing socket error: %s",
+				     safe_strerror(errno));
 		return 0;
 	}
 
@@ -1350,7 +1352,7 @@ static int kernel_read(struct thread *thread)
 	 * can assume they have the whole message.
 	 */
 	if (rtm->rtm_msglen != nbytes) {
-		zlog_warn(
+		zlog_debug(
 			"kernel_read: rtm->rtm_msglen %d, nbytes %d, type %d\n",
 			rtm->rtm_msglen, nbytes, rtm->rtm_type);
 		return -1;
@@ -1390,7 +1392,8 @@ static void routing_socket(struct zebra_ns *zns)
 	}
 
 	if (routing_sock < 0) {
-		zlog_warn("Can't init kernel routing socket");
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "Can't init kernel routing socket");
 		return;
 	}
 

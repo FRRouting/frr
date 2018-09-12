@@ -50,7 +50,7 @@
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_abr.h"
-
+#include "ospfd/ospf_errors.h"
 
 uint32_t get_metric(uint8_t *metric)
 {
@@ -398,7 +398,8 @@ struct ospf_neighbor *ospf_nbr_lookup_ptop(struct ospf_interface *oi)
 
 	/* PtoP link must have only 1 neighbor. */
 	if (ospf_nbr_count(oi, 0) > 1)
-		zlog_warn("Point-to-Point link has more than 1 neighobrs.");
+		flog_warn(OSPF_WARN_PTP_NEIGHBOR,
+			  "Point-to-Point link has more than 1 neighobrs.");
 
 	return nbr;
 }
@@ -446,7 +447,8 @@ static char link_info_set(struct stream **s, struct in_addr id,
 		}
 
 		if (ret == OSPF_MAX_LSA_SIZE) {
-			zlog_warn(
+			flog_warn(
+				OSPF_WARN_LSA_SIZE,
 				"%s: Out of space in LSA stream, left %zd, size %zd",
 				__func__, STREAM_WRITEABLE(*s),
 				STREAM_SIZE(*s));
@@ -1817,12 +1819,11 @@ struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *ospf,
 	}
 
 	if ((new = ospf_lsa_install(ospf, NULL, new)) == NULL) {
-		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug(
-				"ospf_lsa_translated_nssa_originate(): "
-				"Could not install LSA "
-				"id %s",
-				inet_ntoa(type7->data->id));
+		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
+			  "ospf_lsa_translated_nssa_originate(): "
+			  "Could not install LSA "
+			  "id %s",
+			  inet_ntoa(type7->data->id));
 		return NULL;
 	}
 
@@ -1918,11 +1919,10 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 	}
 
 	if (!(new = ospf_lsa_install(ospf, NULL, new))) {
-		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug(
-				"ospf_translated_nssa_refresh(): Could not install "
-				"translated LSA, Id %s",
-				inet_ntoa(type7->data->id));
+		flog_warn(
+			OSPF_WARN_LSA_INSTALL_FAILURE,
+			"ospf_translated_nssa_refresh(): Could not install translated LSA, Id %s",
+			inet_ntoa(type7->data->id));
 		return NULL;
 	}
 
@@ -2043,19 +2043,28 @@ int ospf_external_lsa_originate_timer(struct thread *thread)
 	if (!ext_list)
 		return 0;
 
-	for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext))
+	for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {
 		/* Originate As-external-LSA from all type of distribute source.
 		 */
-		if ((rt = ext->external_info))
-			for (rn = route_top(rt); rn; rn = route_next(rn))
-				if ((ei = rn->info) != NULL)
-					if (!is_prefix_default(
-						    (struct prefix_ipv4 *)&ei
-							    ->p))
-						if (!ospf_external_lsa_originate(
-							    ospf, ei))
-							zlog_warn(
-								"LSA: AS-external-LSA was not originated.");
+		rt = ext->external_info;
+		if (!rt)
+			continue;
+
+		for (rn = route_top(rt); rn; rn = route_next(rn)) {
+			ei = rn->info;
+
+			if (!ei)
+				continue;
+
+			if (is_prefix_default((struct prefix_ipv4 *)&ei->p))
+				continue;
+
+			if (!ospf_external_lsa_originate(ospf, ei))
+				flog_warn(
+					OSPF_WARN_LSA_INSTALL_FAILURE,
+					"LSA: AS-external-LSA was not originated.");
+		}
+	}
 
 	return 0;
 }
@@ -2522,15 +2531,8 @@ void ospf_discard_from_db(struct ospf *ospf, struct ospf_lsdb *lsdb,
 {
 	struct ospf_lsa *old;
 
-	if (!lsdb) {
-		zlog_warn("%s: Called with NULL lsdb!", __func__);
-		if (!lsa)
-			zlog_warn("%s: and NULL LSA!", __func__);
-		else
-			zlog_warn("LSA[Type%d:%s]: not associated with LSDB!",
-				  lsa->data->type, inet_ntoa(lsa->data->id));
+	if (!lsdb)
 		return;
-	}
 
 	old = ospf_lsdb_lookup(lsdb, lsa);
 
@@ -2841,11 +2843,13 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 			if (lsa->lsdb) {
 				ospf_discard_from_db(ospf, lsa->lsdb, lsa);
 				ospf_lsdb_delete(lsa->lsdb, lsa);
-			} else
-				zlog_warn(
-					"%s: LSA[Type%d:%s]: No associated LSDB!",
-					__func__, lsa->data->type,
-					inet_ntoa(lsa->data->id));
+			} else {
+				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
+					zlog_debug(
+						"%s: LSA[Type%d:%s]: No associated LSDB!",
+						__func__, lsa->data->type,
+						inet_ntoa(lsa->data->id));
+			}
 		}
 
 	/*    A MaxAge LSA must be removed immediately from the router's link

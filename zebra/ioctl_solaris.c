@@ -37,6 +37,7 @@
 #include "zebra/rt.h"
 #include "zebra/interface.h"
 #include "zebra/ioctl_solaris.h"
+#include "zebra/zebra_errors.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -380,7 +381,7 @@ int if_prefix_add_ipv6(struct interface *ifp, struct connected *ifc)
 {
 	char addrbuf[PREFIX_STRLEN];
 
-	zlog_warn("Can't set %s on interface %s",
+	flog_warn(LIB_ERR_DEVELOPMENT, "Can't set %s on interface %s",
 		  prefix2str(ifc->address, addrbuf, sizeof(addrbuf)),
 		  ifp->name);
 
@@ -391,7 +392,7 @@ int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
 {
 	char addrbuf[PREFIX_STRLEN];
 
-	zlog_warn("Can't delete %s on interface %s",
+	flog_warn(LIB_ERR_DEVELOPMENT, "Can't delete %s on interface %s",
 		  prefix2str(ifc->address, addrbuf, sizeof(addrbuf)),
 		  ifp->name);
 

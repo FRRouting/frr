@@ -1457,9 +1457,9 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 
 	/* Attribute total length check. */
 	if (stream_pnt(s) + 2 > end) {
-		zlog_warn(
-			"%s [Error] Packet Error"
-			" (update packet is short for attribute length)",
+		flog_warn(
+			BGP_WARN_UPDATE_PACKET_SHORT,
+			"%s [Error] Packet Error (update packet is short for attribute length)",
 			peer->host);
 		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 				BGP_NOTIFY_UPDATE_MAL_ATTR);
@@ -1471,9 +1471,9 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 
 	/* Attribute length check. */
 	if (stream_pnt(s) + attribute_len > end) {
-		zlog_warn(
-			"%s [Error] Packet Error"
-			" (update packet attribute length overflow %d)",
+		flog_warn(
+			BGP_WARN_UPDATE_PACKET_LONG,
+			"%s [Error] Packet Error (update packet attribute length overflow %d)",
 			peer->host, attribute_len);
 		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 				BGP_NOTIFY_UPDATE_MAL_ATTR);
@@ -2104,7 +2104,8 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 					return BGP_Stop;
 			}
 		} else {
-			zlog_warn(
+			flog_warn(
+				BGP_WARN_UNRECOGNIZED_CAPABILITY,
 				"%s unrecognized capability code: %d - ignored",
 				peer->host, hdr->code);
 		}

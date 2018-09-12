@@ -40,6 +40,7 @@
 #include "ospfd/ospf_lsa.h"
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_zebra.h"
+#include "ospfd/ospf_errors.h"
 
 /* Hook function for updating route_map assignment. */
 static void ospf_route_map_update(const char *name)
@@ -392,7 +393,8 @@ static void *route_set_metric_compile(const char *arg)
 		metric->type = metric_absolute;
 
 	if (strmatch(arg, "+rtt") || strmatch(arg, "-rtt")) {
-		zlog_warn("OSPF does not support 'set metric +rtt / -rtt'");
+		flog_warn(OSPF_WARN_SET_METRIC_PLUS,
+			  "OSPF does not support 'set metric +rtt / -rtt'");
 		return metric;
 	}
 

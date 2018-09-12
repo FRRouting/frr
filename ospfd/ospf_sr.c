@@ -237,10 +237,6 @@ static int ospf_sr_start(struct ospf *ospf)
 	srn = hash_get(OspfSR.neighbors, (void *)&(ospf->router_id),
 		       (void *)sr_node_new);
 
-	/* Sanity Check */
-	if (srn == NULL)
-		return rc;
-
 	/* Complete & Store self SR Node */
 	srn->srgb.range_size = OspfSR.srgb.range_size;
 	srn->srgb.lower_bound = OspfSR.srgb.lower_bound;
@@ -825,9 +821,9 @@ static struct sr_prefix *get_ext_prefix_sid(struct tlv_header *tlvh)
 		case EXT_SUBTLV_PREFIX_SID:
 			psid = (struct ext_subtlv_prefix_sid *)sub_tlvh;
 			if (psid->algorithm != SR_ALGORITHM_SPF) {
-				flog_err(OSPF_ERR_SR_INVALID_ALGORITHM,
-					  "SR (%s): Unsupported Algorithm",
-					  __func__);
+				flog_err(OSPF_ERR_INVALID_ALGORITHM,
+					 "SR (%s): Unsupported Algorithm",
+					 __func__);
 				XFREE(MTYPE_OSPF_SR_PARAMS, srp);
 				return NULL;
 			}
@@ -1107,7 +1103,7 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 
 	if (OspfSR.neighbors == NULL) {
 		flog_err(OSPF_ERR_SR_INVALID_DB,
-			  "SR (%s): Abort! no valid SR DataBase", __func__);
+			 "SR (%s): Abort! no valid SR DataBase", __func__);
 		return;
 	}
 
@@ -1171,8 +1167,9 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	/* Check that we collect mandatory parameters */
 	if (srn->algo[0] == SR_ALGORITHM_UNSET || srgb.range_size == 0
 	    || srgb.lower_bound == 0) {
-		zlog_warn("SR (%s): Missing mandatory parameters. Abort!",
-			  __func__);
+		flog_err(OSPF_ERR_SR_NODE_CREATE,
+			 "SR (%s): Missing mandatory parameters. Abort!",
+			 __func__);
 		hash_release(OspfSR.neighbors, &(srn->adv_router));
 		XFREE(MTYPE_OSPF_SR_PARAMS, srn);
 		return;
@@ -1218,7 +1215,7 @@ void ospf_sr_ri_lsa_delete(struct ospf_lsa *lsa)
 	/* Sanity check */
 	if (OspfSR.neighbors == NULL) {
 		flog_err(OSPF_ERR_SR_INVALID_DB,
-			  "SR (%s): Abort! no valid SR Data Base", __func__);
+			 "SR (%s): Abort! no valid SR Data Base", __func__);
 		return;
 	}
 
@@ -1265,7 +1262,7 @@ void ospf_sr_ext_link_lsa_update(struct ospf_lsa *lsa)
 	/* Sanity check */
 	if (OspfSR.neighbors == NULL) {
 		flog_err(OSPF_ERR_SR_INVALID_DB,
-			  "SR (%s): Abort! no valid SR DataBase", __func__);
+			 "SR (%s): Abort! no valid SR DataBase", __func__);
 		return;
 	}
 
@@ -1317,7 +1314,7 @@ void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *lsa)
 	/* Sanity check */
 	if (OspfSR.neighbors == NULL) {
 		flog_err(OSPF_ERR_SR_INVALID_DB,
-			  "SR (%s): Abort! no valid SR DataBase", __func__);
+			 "SR (%s): Abort! no valid SR DataBase", __func__);
 		return;
 	}
 
@@ -1330,8 +1327,9 @@ void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *lsa)
 	 * processing Router Information LSA deletion
 	 */
 	if (srn == NULL) {
-		zlog_warn("SR (%s): Stop! no entry in SRDB for SR Node %s",
-			  __func__, inet_ntoa(lsah->adv_router));
+		flog_err(OSPF_ERR_SR_INVALID_DB,
+			 "SR (%s): Stop! no entry in SRDB for SR Node %s",
+			 __func__, inet_ntoa(lsah->adv_router));
 		return;
 	}
 
@@ -1347,11 +1345,11 @@ void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *lsa)
 		listnode_delete(srn->ext_link, srl);
 		XFREE(MTYPE_OSPF_SR_PARAMS, srl);
 	} else {
-		zlog_warn(
-			"SR (%s): Didn't found corresponding SR Link 8.0.0.%u "
-			"for SR Node %s",
-			__func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
-			inet_ntoa(lsah->adv_router));
+		flog_err(OSPF_ERR_SR_INVALID_DB,
+			 "SR (%s): Didn't found corresponding SR Link 8.0.0.%u "
+			 "for SR Node %s",
+			 __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
+			 inet_ntoa(lsah->adv_router));
 	}
 }
 
@@ -1375,7 +1373,7 @@ void ospf_sr_ext_prefix_lsa_update(struct ospf_lsa *lsa)
 	/* Sanity check */
 	if (OspfSR.neighbors == NULL) {
 		flog_err(OSPF_ERR_SR_INVALID_DB,
-			  "SR (%s): Abort! no valid SR DataBase", __func__);
+			 "SR (%s): Abort! no valid SR DataBase", __func__);
 		return;
 	}
 
@@ -1387,8 +1385,8 @@ void ospf_sr_ext_prefix_lsa_update(struct ospf_lsa *lsa)
 	/* Sanity check */
 	if (srn == NULL) {
 		flog_err(OSPF_ERR_SR_NODE_CREATE,
-			  "SR (%s): Abort! can't create SR node in hash table",
-			  __func__);
+			 "SR (%s): Abort! can't create SR node in hash table",
+			 __func__);
 		return;
 	}
 
@@ -1428,7 +1426,7 @@ void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa)
 	/* Sanity check */
 	if (OspfSR.neighbors == NULL) {
 		flog_err(OSPF_ERR_SR_INVALID_DB,
-			  "SR (%s): Abort! no valid SR DataBase", __func__);
+			 "SR (%s): Abort! no valid SR DataBase", __func__);
 		return;
 	}
 
@@ -1441,8 +1439,9 @@ void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa)
 	 * processing Router Information LSA deletion
 	 */
 	if (srn == NULL) {
-		zlog_warn("SR (%s):  Stop! no entry in SRDB for SR Node %s",
-			  __func__, inet_ntoa(lsah->adv_router));
+		flog_err(OSPF_ERR_SR_INVALID_DB,
+			 "SR (%s):  Stop! no entry in SRDB for SR Node %s",
+			 __func__, inet_ntoa(lsah->adv_router));
 		return;
 	}
 
@@ -1457,9 +1456,9 @@ void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa)
 		listnode_delete(srn->ext_link, srp);
 		XFREE(MTYPE_OSPF_SR_PARAMS, srp);
 	} else {
-		zlog_warn(
-			"SR (%s): Didn't found corresponding SR Prefix "
-			"7.0.0.%u for SR Node %s",
+		flog_err(
+			OSPF_ERR_SR_INVALID_DB,
+			"SR (%s): Didn't found corresponding SR Prefix 7.0.0.%u for SR Node %s",
 			__func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
 			inet_ntoa(lsah->adv_router));
 	}
@@ -1706,10 +1705,7 @@ DEFUN(ospf_sr_enable,
 
 	/* Start Segment Routing */
 	OspfSR.enabled = true;
-	if (!ospf_sr_start(ospf)) {
-		zlog_warn("SR: Unable to start Segment Routing. Abort!");
-		return CMD_WARNING;
-	}
+	ospf_sr_start(ospf);
 
 	/* Set Router Information SR parameters */
 	if (IS_DEBUG_OSPF_EVENT)
@@ -1994,7 +1990,7 @@ DEFUN (sr_prefix_sid,
 		 * update of this Extended Prefix
 		 */
 		listnode_add(OspfSR.self->ext_prefix, new);
-		zlog_warn(
+		zlog_info(
 			"Interface for prefix %s/%u not found. Deferred LSA "
 			"flooding",
 			inet_ntoa(p.u.prefix4), p.prefixlen);

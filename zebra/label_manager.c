@@ -209,7 +209,8 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
 
 	/* check & set client proto if unset */
 	if (zserv->proto && zserv->proto != proto) {
-		zlog_warn("Client proto(%u) != msg proto(%u)", zserv->proto,
+		flog_warn(ZEBRA_WARNING_LM_PROTO_MISMATCH,
+			  "Client proto(%u) != msg proto(%u)", zserv->proto,
 			  proto);
 		return -1;
 	}
@@ -277,9 +278,7 @@ static int lm_zclient_connect(struct thread *t)
 	}
 
 	/* make socket non-blocking */
-	if (set_nonblocking(zclient->sock) < 0)
-		zlog_warn("%s: set_nonblocking(%d) failed", __func__,
-			  zclient->sock);
+	(void)set_nonblocking(zclient->sock);
 
 	return 0;
 }

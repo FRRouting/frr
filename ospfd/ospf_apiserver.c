@@ -54,6 +54,7 @@
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_zebra.h"
+#include "ospfd/ospf_errors.h"
 
 #include "ospfd/ospf_api.h"
 #include "ospfd/ospf_apiserver.h"
@@ -152,7 +153,8 @@ int ospf_apiserver_init(void)
 		NULL,		  /* ospf_apiserver_lsa_refresher */
 		ospf_apiserver_lsa_update, ospf_apiserver_lsa_delete);
 	if (rc != 0) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_OPAQUE_REGISTRATION,
 			"ospf_apiserver_init: Failed to register opaque type [0/0]");
 	}
 
@@ -867,7 +869,8 @@ int ospf_apiserver_register_opaque_type(struct ospf_apiserver *apiserv,
 		NULL /* ospf_apiserver_lsa_delete */);
 
 	if (rc != 0) {
-		zlog_warn("Failed to register opaque type [%d/%d]", lsa_type,
+		flog_warn(OSPF_WARN_OPAQUE_REGISTRATION,
+			  "Failed to register opaque type [%d/%d]", lsa_type,
 			  opaque_type);
 		return OSPF_API_OPAQUETYPEINUSE;
 	}
@@ -1662,7 +1665,8 @@ int ospf_apiserver_originate1(struct ospf_lsa *lsa)
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(ospf, lsa->oi, lsa) == NULL) {
-		zlog_warn("ospf_apiserver_originate1: ospf_lsa_install failed");
+		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
+			  "ospf_apiserver_originate1: ospf_lsa_install failed");
 		return -1;
 	}
 
@@ -1773,7 +1777,8 @@ struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa)
 
 	/* Install LSA into LSDB. */
 	if (ospf_lsa_install(ospf, new->oi, new) == NULL) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_LSA_INSTALL_FAILURE,
 			"ospf_apiserver_lsa_refresher: ospf_lsa_install failed");
 		ospf_lsa_unlock(&new);
 		goto out;

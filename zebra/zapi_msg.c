@@ -62,6 +62,7 @@
 #include "zebra/zebra_pbr.h"
 #include "zebra/table_manager.h"
 #include "zebra/zapi_msg.h"
+#include "zebra/zebra_errors.h"
 
 /* Encoding helpers -------------------------------------------------------- */
 
@@ -1042,7 +1043,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 		l += 4;
 		if (p.family == AF_INET) {
 			if (p.prefixlen > IPV4_MAX_BITLEN) {
-				zlog_warn(
+				zlog_debug(
 					"%s: Specified prefix hdr->length %d is too large for a v4 address",
 					__PRETTY_FUNCTION__, p.prefixlen);
 				return;
@@ -1051,7 +1052,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 			l += IPV4_MAX_BYTELEN;
 		} else if (p.family == AF_INET6) {
 			if (p.prefixlen > IPV6_MAX_BITLEN) {
-				zlog_warn(
+				zlog_debug(
 					"%s: Specified prefix hdr->length %d is to large for a v6 address",
 					__PRETTY_FUNCTION__, p.prefixlen);
 				return;
@@ -1126,7 +1127,7 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 		l += 4;
 		if (p.family == AF_INET) {
 			if (p.prefixlen > IPV4_MAX_BITLEN) {
-				zlog_warn(
+				zlog_debug(
 					"%s: Specified prefix hdr->length %d is to large for a v4 address",
 					__PRETTY_FUNCTION__, p.prefixlen);
 				return;
@@ -1135,7 +1136,7 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 			l += IPV4_MAX_BYTELEN;
 		} else if (p.family == AF_INET6) {
 			if (p.prefixlen > IPV6_MAX_BITLEN) {
-				zlog_warn(
+				zlog_debug(
 					"%s: Specified prefix hdr->length %d is to large for a v6 address",
 					__PRETTY_FUNCTION__, p.prefixlen);
 				return;
@@ -1202,7 +1203,7 @@ static void zread_fec_register(ZAPI_HANDLER_ARGS)
 		if ((p.family == AF_INET && p.prefixlen > IPV4_MAX_BITLEN)
 		    || (p.family == AF_INET6
 			&& p.prefixlen > IPV6_MAX_BITLEN)) {
-			zlog_warn(
+			zlog_debug(
 				"%s: Specified prefix hdr->length: %d is to long for %d",
 				__PRETTY_FUNCTION__, p.prefixlen, p.family);
 			return;
@@ -1265,7 +1266,7 @@ static void zread_fec_unregister(ZAPI_HANDLER_ARGS)
 		if ((p.family == AF_INET && p.prefixlen > IPV4_MAX_BITLEN)
 		    || (p.family == AF_INET6
 			&& p.prefixlen > IPV6_MAX_BITLEN)) {
-			zlog_warn(
+			zlog_debug(
 				"%s: Received prefix hdr->length %d which is greater than %d can support",
 				__PRETTY_FUNCTION__, p.prefixlen, p.family);
 			return;
@@ -1318,7 +1319,8 @@ void zserv_nexthop_num_warn(const char *caller, const struct prefix *p,
 		char buff[PREFIX2STR_BUFFER];
 
 		prefix2str(p, buff, sizeof(buff));
-		zlog_warn(
+		flog_warn(
+			ZEBRA_ERR_MORE_NH_THAN_MULTIPATH,
 			"%s: Prefix %s has %d nexthops, but we can only use the first %d",
 			caller, buff, nexthop_num, multipath_num);
 	}
@@ -1481,7 +1483,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			}
 
 			if (!nexthop) {
-				zlog_warn(
+				flog_warn(
+					ZEBRA_ERR_NEXTHOP_CREATION_FAILED,
 					"%s: Nexthops Specified: %d but we failed to properly create one",
 					__PRETTY_FUNCTION__, api.nexthop_num);
 				nexthops_free(re->ng.nexthop);
@@ -1521,7 +1524,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 
 	afi = family2afi(api.prefix.family);
 	if (afi != AFI_IP6 && CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX)) {
-		zlog_warn("%s: Received SRC Prefix but afi is not v6",
+		flog_warn(ZEBRA_ERR_RX_SRCDEST_WRONG_AFI,
+			  "%s: Received SRC Prefix but afi is not v6",
 			  __PRETTY_FUNCTION__);
 		nexthops_free(re->ng.nexthop);
 		XFREE(MTYPE_RE, re);
@@ -1563,7 +1567,8 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 
 	afi = family2afi(api.prefix.family);
 	if (afi != AFI_IP6 && CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX)) {
-		zlog_warn("%s: Received a src prefix while afi is not v6",
+		flog_warn(ZEBRA_ERR_RX_SRCDEST_WRONG_AFI,
+			  "%s: Received a src prefix while afi is not v6",
 			  __PRETTY_FUNCTION__);
 		return;
 	}
@@ -1703,7 +1708,7 @@ static void zread_mpls_labels(ZAPI_HANDLER_ARGS)
 		STREAM_GET(&prefix.u.prefix4.s_addr, s, IPV4_MAX_BYTELEN);
 		STREAM_GETC(s, prefix.prefixlen);
 		if (prefix.prefixlen > IPV4_MAX_BITLEN) {
-			zlog_warn(
+			zlog_debug(
 				"%s: Specified prefix length %d is greater than a v4 address can support",
 				__PRETTY_FUNCTION__, prefix.prefixlen);
 			return;
@@ -1714,7 +1719,7 @@ static void zread_mpls_labels(ZAPI_HANDLER_ARGS)
 		STREAM_GET(&prefix.u.prefix6, s, 16);
 		STREAM_GETC(s, prefix.prefixlen);
 		if (prefix.prefixlen > IPV6_MAX_BITLEN) {
-			zlog_warn(
+			zlog_debug(
 				"%s: Specified prefix length %d is greater than a v6 address can support",
 				__PRETTY_FUNCTION__, prefix.prefixlen);
 			return;
@@ -1722,8 +1727,8 @@ static void zread_mpls_labels(ZAPI_HANDLER_ARGS)
 		STREAM_GET(&gate.ipv6, s, 16);
 		break;
 	default:
-		zlog_warn("%s: Specified AF %d is not supported for this call",
-			  __PRETTY_FUNCTION__, prefix.family);
+		zlog_debug("%s: Specified AF %d is not supported for this call",
+			   __PRETTY_FUNCTION__, prefix.family);
 		return;
 	}
 	STREAM_GETL(s, ifindex);
@@ -2077,7 +2082,8 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 	switch (hdr->command) {
 	case ZEBRA_PW_ADD:
 		if (pw) {
-			zlog_warn("%s: pseudowire %s already exists [%s]",
+			flog_warn(ZEBRA_ERR_PSEUDOWIRE_EXISTS,
+				  "%s: pseudowire %s already exists [%s]",
 				  __func__, ifname,
 				  zserv_command_string(hdr->command));
 			return;
@@ -2087,7 +2093,8 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 		break;
 	case ZEBRA_PW_DELETE:
 		if (!pw) {
-			zlog_warn("%s: pseudowire %s not found [%s]", __func__,
+			flog_warn(ZEBRA_ERR_PSEUDOWIRE_NONEXISTENT,
+				  "%s: pseudowire %s not found [%s]", __func__,
 				  ifname, zserv_command_string(hdr->command));
 			return;
 		}
@@ -2097,7 +2104,8 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 	case ZEBRA_PW_SET:
 	case ZEBRA_PW_UNSET:
 		if (!pw) {
-			zlog_warn("%s: pseudowire %s not found [%s]", __func__,
+			flog_warn(ZEBRA_ERR_PSEUDOWIRE_NONEXISTENT,
+				  "%s: pseudowire %s not found [%s]", __func__,
 				  ifname, zserv_command_string(hdr->command));
 			return;
 		}
@@ -2509,8 +2517,8 @@ void zserv_handle_commands(struct zserv *client, struct stream *msg)
 	zvrf = zebra_vrf_lookup_by_id(hdr.vrf_id);
 	if (!zvrf) {
 		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-			zlog_warn("ZAPI message specifies unknown VRF: %d",
-				  hdr.vrf_id);
+			zlog_debug("ZAPI message specifies unknown VRF: %d",
+				   hdr.vrf_id);
 		return;
 	}
 

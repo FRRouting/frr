@@ -35,9 +35,10 @@
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_attr.h"
+#include "bgpd/bgp_errors.h"
 
 /* Attr. Flags and Attr. Type Code. */
-#define AS_HEADER_SIZE        2	 
+#define AS_HEADER_SIZE 2
 
 /* Now FOUR octets are used for AS value. */
 #define AS_VALUE_SIZE         sizeof (as_t)
@@ -1638,7 +1639,8 @@ struct aspath *aspath_reconcile_as4(struct aspath *aspath,
 
 	if (hops < 0) {
 		if (BGP_DEBUG(as4, AS4))
-			zlog_warn(
+			flog_warn(
+				BGP_WARN_ASPATH_FEWER_HOPS,
 				"[AS4] Fewer hops in AS_PATH than NEW_AS_PATH");
 		/* Something's gone wrong. The RFC says we should now ignore
 		 * AS4_PATH,

@@ -57,6 +57,7 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_sr.h"
 #include "ospfd/ospf_ri.h"
+#include "ospfd/ospf_errors.h"
 
 /* Store Router Information PCE TLV and SubTLV in network byte order. */
 struct ospf_pce_info {
@@ -185,7 +186,8 @@ static int ospf_router_info_register(uint8_t scope)
 		NULL); /* del_lsa_hook */
 
 	if (rc != 0) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_OPAQUE_REGISTRATION,
 			"ospf_router_info_init: Failed to register functions");
 		return rc;
 	}
@@ -200,8 +202,8 @@ static int ospf_router_info_unregister()
 
 	if ((OspfRI.scope != OSPF_OPAQUE_AS_LSA)
 	    && (OspfRI.scope != OSPF_OPAQUE_AREA_LSA)) {
-		zlog_warn(
-			"Unable to unregister Router Info functions: Wrong scope!");
+		assert("Unable to unregister Router Info functions: Wrong scope!"
+		       == NULL);
 		return -1;
 	}
 
@@ -742,10 +744,8 @@ static struct ospf_lsa *ospf_router_info_lsa_new()
 	uint16_t length;
 
 	/* Create a stream for LSA. */
-	if ((s = stream_new(OSPF_MAX_LSA_SIZE)) == NULL) {
-		zlog_warn("ospf_router_info_lsa_new: stream_new() ?");
-		return NULL;
-	}
+	s = stream_new(OSPF_MAX_LSA_SIZE);
+
 	lsah = (struct lsa_header *)STREAM_DATA(s);
 
 	options = OSPF_OPTION_E;  /* Enable AS external as we flood RI with
@@ -814,11 +814,7 @@ static int ospf_router_info_lsa_originate1(void *arg)
 	}
 
 	/* Create new Opaque-LSA/ROUTER INFORMATION instance. */
-	if ((new = ospf_router_info_lsa_new()) == NULL) {
-		zlog_warn(
-			"ospf_router_info_lsa_originate1: ospf_router_info_lsa_new() ?");
-		return rc;
-	}
+	new = ospf_router_info_lsa_new();
 	new->vrf_id = vrf_id;
 
 	/* Get ospf info */
@@ -832,7 +828,8 @@ static int ospf_router_info_lsa_originate1(void *arg)
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_LSA_INSTALL_FAILURE,
 			"ospf_router_info_lsa_originate1: ospf_lsa_install() ?");
 		ospf_lsa_unlock(&new);
 		return rc;
@@ -881,7 +878,8 @@ static int ospf_router_info_lsa_originate(void *arg)
 		}
 	} else {
 		if (!is_mandated_params_set(OspfRI))
-			zlog_warn(
+			flog_warn(
+				OSPF_WARN_LSA,
 				"ospf_router_info_lsa_originate: lacks mandated ROUTER INFORMATION parameters");
 
 		/* Ok, let's try to originate an LSA */
@@ -912,7 +910,8 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 
 	/* Verify that the Router Information ID is supported */
 	if (GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr)) != 0) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_LSA,
 			"ospf_router_info_lsa_refresh: Unsupported Router Information ID");
 		return NULL;
 	}
@@ -925,11 +924,7 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 	}
 
 	/* Create new Opaque-LSA/ROUTER INFORMATION instance. */
-	if ((new = ospf_router_info_lsa_new()) == NULL) {
-		zlog_warn(
-			"ospf_router_info_lsa_refresh: ospf_router_info_lsa_new() ?");
-		return NULL;
-	}
+	new = ospf_router_info_lsa_new();
 	new->data->ls_seqnum = lsa_seqnum_increment(lsa);
 	new->vrf_id = lsa->vrf_id;
 
@@ -937,7 +932,8 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 	/* Given "lsa" will be freed in the next function. */
 	top = ospf_lookup_by_vrf_id(lsa->vrf_id);
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
-		zlog_warn("ospf_router_info_lsa_refresh: ospf_lsa_install() ?");
+		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
+			  "ospf_router_info_lsa_refresh: ospf_lsa_install() ?");
 		ospf_lsa_unlock(&new);
 		return new;
 	}
@@ -985,7 +981,8 @@ static void ospf_router_info_lsa_schedule(enum lsa_opcode opcode)
 
 	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	if ((OspfRI.scope == OSPF_OPAQUE_AREA_LSA) && (OspfRI.area == NULL)) {
-		zlog_warn(
+		flog_warn(
+			OSPF_WARN_LSA,
 			"ospf_router_info_lsa_schedule(): Router Info is Area scope flooding but area is not set");
 		OspfRI.area = ospf_area_lookup_by_area_id(top, OspfRI.area_id);
 	}
@@ -1015,10 +1012,6 @@ static void ospf_router_info_lsa_schedule(enum lsa_opcode opcode)
 		UNSET_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED);
 		ospf_opaque_lsa_flush_schedule(&lsa);
 		break;
-	default:
-		zlog_warn("ospf_router_info_lsa_schedule: Unknown opcode (%u)",
-			  opcode);
-		break;
 	}
 
 	return;
@@ -1030,7 +1023,8 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
 
 	/* Sanity Check */
 	if (lsa == NULL) {
-		zlog_warn("OSPF-RI (%s): Abort! LSA is NULL", __func__);
+		flog_warn(OSPF_WARN_LSA, "OSPF-RI (%s): Abort! LSA is NULL",
+			  __func__);
 		return -1;
 	}
 
@@ -1452,7 +1446,10 @@ DEFUN (router_info,
 
 	/* First start to register Router Information callbacks */
 	if ((ospf_router_info_register(scope)) != 0) {
-		zlog_warn(
+		vty_out(vty,
+			"%% Unable to register Router Information callbacks.");
+		flog_err(
+			OSPF_ERR_INIT_FAIL,
 			"Unable to register Router Information callbacks. Abort!");
 		return CMD_WARNING_CONFIG_FAILED;
 	}

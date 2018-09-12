@@ -24,6 +24,7 @@
 #include "log.h"
 #include "privs.h"
 #include "memory.h"
+#include "lib_errors.h"
 
 #ifdef HAVE_CAPABILITIES
 
@@ -288,7 +289,8 @@ zebra_privs_current_t zprivs_state_caps(void)
 		if (cap_get_flag(zprivs_state.caps,
 				 zprivs_state.syscaps_p->caps[i], CAP_EFFECTIVE,
 				 &val)) {
-			zlog_warn(
+			flog_err(
+				LIB_ERR_SYSTEM_CALL,
 				"zprivs_state_caps: could not cap_get_flag, %s",
 				safe_strerror(errno));
 			return ZPRIVS_UNKNOWN;

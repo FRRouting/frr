@@ -26,6 +26,7 @@
 #include "zebra/rt.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/debug.h"
+#include "zebra/zebra_errors.h"
 
 #include "privs.h"
 #include "prefix.h"
@@ -256,11 +257,11 @@ static int kernel_lsp_cmd(int action, zebra_lsp_t *lsp)
 			&& (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED)
 			    && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)))) {
 			if (nhlfe->nexthop->nh_label->num_labels > 1) {
-				zlog_warn(
-					"%s: can't push %u labels at once "
-					"(maximum is 1)",
-					__func__,
-					nhlfe->nexthop->nh_label->num_labels);
+				flog_warn(ZEBRA_ERR_MAX_LABELS_PUSH,
+					  "%s: can't push %u labels at once "
+					  "(maximum is 1)",
+					  __func__,
+					  nhlfe->nexthop->nh_label->num_labels);
 				continue;
 			}
 
@@ -359,8 +360,8 @@ static int kmpw_install(struct zebra_pw *pw)
 		imr.imr_type = IMR_TYPE_ETHERNET_TAGGED;
 		break;
 	default:
-		zlog_warn("%s: unhandled pseudowire type (%#X)", __func__,
-			  pw->type);
+		zlog_debug("%s: unhandled pseudowire type (%#X)", __func__,
+			   pw->type);
 		return -1;
 	}
 
@@ -381,8 +382,8 @@ static int kmpw_install(struct zebra_pw *pw)
 		sa_in6->sin6_addr = pw->nexthop.ipv6;
 		break;
 	default:
-		zlog_warn("%s: unhandled pseudowire address-family (%u)",
-			  __func__, pw->af);
+		zlog_debug("%s: unhandled pseudowire address-family (%u)",
+			   __func__, pw->af);
 		return -1;
 	}
 	memcpy(&imr.imr_nexthop, (struct sockaddr *)&ss,
@@ -430,13 +431,13 @@ int mpls_kernel_init(void)
 	socklen_t optlen;
 
 	if ((kr_state.fd = socket(AF_ROUTE, SOCK_RAW, 0)) == -1) {
-		zlog_warn("%s: socket", __func__);
+		flog_err_sys(LIB_ERR_SOCKET, "%s: socket", __func__);
 		return -1;
 	}
 
 	if ((kr_state.ioctl_fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0))
 	    == -1) {
-		zlog_warn("%s: ioctl socket", __func__);
+		flog_err_sys(LIB_ERR_SOCKET, "%s: ioctl socket", __func__);
 		return -1;
 	}
 
@@ -445,7 +446,8 @@ int mpls_kernel_init(void)
 	if (getsockopt(kr_state.fd, SOL_SOCKET, SO_RCVBUF, &default_rcvbuf,
 		       &optlen)
 	    == -1)
-		zlog_warn("kr_init getsockopt SOL_SOCKET SO_RCVBUF");
+		flog_err_sys(LIB_ERR_SOCKET,
+			     "kr_init getsockopt SOL_SOCKET SO_RCVBUF");
 	else
 		for (rcvbuf = MAX_RTSOCK_BUF;
 		     rcvbuf > default_rcvbuf

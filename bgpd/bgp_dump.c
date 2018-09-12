@@ -36,6 +36,7 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_dump.h"
+#include "bgpd/bgp_errors.h"
 
 enum bgp_dump_type {
 	BGP_DUMP_ALL,
@@ -119,7 +120,7 @@ static FILE *bgp_dump_open_file(struct bgp_dump *bgp_dump)
 		ret = strftime(realpath, MAXPATHLEN, bgp_dump->filename, tm);
 
 	if (ret == 0) {
-		zlog_warn("bgp_dump_open_file: strftime error");
+		flog_warn(BGP_WARN_DUMP, "bgp_dump_open_file: strftime error");
 		return NULL;
 	}
 
@@ -131,7 +132,7 @@ static FILE *bgp_dump_open_file(struct bgp_dump *bgp_dump)
 	bgp_dump->fp = fopen(realpath, "w");
 
 	if (bgp_dump->fp == NULL) {
-		zlog_warn("bgp_dump_open_file: %s: %s", realpath,
+		flog_warn(BGP_WARN_DUMP, "bgp_dump_open_file: %s: %s", realpath,
 			  strerror(errno));
 		umask(oldumask);
 		return NULL;

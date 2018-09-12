@@ -54,7 +54,8 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
  * using stream_put..._at() functions.
  */
 #define STREAM_WARN_OFFSETS(S)                                                 \
-	zlog_warn("&(struct stream): %p, size: %lu, getp: %lu, endp: %lu\n",   \
+	flog_warn(LIB_WARN_STREAM,                                             \
+		  "&(struct stream): %p, size: %lu, getp: %lu, endp: %lu\n",   \
 		  (void *)(S), (unsigned long)(S)->size,                       \
 		  (unsigned long)(S)->getp, (unsigned long)(S)->endp)
 
@@ -68,16 +69,16 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
 
 #define STREAM_BOUND_WARN(S, WHAT)                                             \
 	do {                                                                   \
-		zlog_warn("%s: Attempt to %s out of bounds", __func__,         \
-			  (WHAT));                                             \
+		flog_warn(LIB_WARN_STREAM, "%s: Attempt to %s out of bounds",  \
+			  __func__, (WHAT));                                   \
 		STREAM_WARN_OFFSETS(S);                                        \
 		assert(0);                                                     \
 	} while (0)
 
 #define STREAM_BOUND_WARN2(S, WHAT)                                            \
 	do {                                                                   \
-		zlog_warn("%s: Attempt to %s out of bounds", __func__,         \
-			  (WHAT));                                             \
+		flog_warn(LIB_WARN_STREAM, "%s: Attempt to %s out of bounds",  \
+			  __func__, (WHAT));                                   \
 		STREAM_WARN_OFFSETS(S);                                        \
 	} while (0)
 
@@ -85,7 +86,8 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
 #define CHECK_SIZE(S, Z)                                                       \
 	do {                                                                   \
 		if (((S)->endp + (Z)) > (S)->size) {                           \
-			zlog_warn(                                             \
+			flog_warn(                                             \
+				LIB_WARN_STREAM,                               \
 				"CHECK_SIZE: truncating requested size %lu\n", \
 				(unsigned long)(Z));                           \
 			STREAM_WARN_OFFSETS(S);                                \
@@ -966,8 +968,8 @@ ssize_t stream_read_try(struct stream *s, int fd, size_t size)
 	/* Error: was it transient (return -2) or fatal (return -1)? */
 	if (ERRNO_IO_RETRY(errno))
 		return -2;
-	zlog_warn("%s: read failed on fd %d: %s", __func__, fd,
-		  safe_strerror(errno));
+	flog_err(LIB_ERR_SOCKET, "%s: read failed on fd %d: %s", __func__, fd,
+		 safe_strerror(errno));
 	return -1;
 }
 
@@ -997,8 +999,8 @@ ssize_t stream_recvfrom(struct stream *s, int fd, size_t size, int flags,
 	/* Error: was it transient (return -2) or fatal (return -1)? */
 	if (ERRNO_IO_RETRY(errno))
 		return -2;
-	zlog_warn("%s: read failed on fd %d: %s", __func__, fd,
-		  safe_strerror(errno));
+	flog_err(LIB_ERR_SOCKET, "%s: read failed on fd %d: %s", __func__, fd,
+		 safe_strerror(errno));
 	return -1;
 }
 

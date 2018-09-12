@@ -25,6 +25,54 @@
 #include "lib_errors.h"
 
 /* clang-format off */
+static struct log_ref ferr_lib_warn[] = {
+	{
+		.code = LIB_WARN_SNMP,
+		.title = "SNMP has discovered a warning",
+		.description = "The SNMP AgentX library has returned a warning that we should report to the end user",
+		.suggestion = "Gather Log data and open an Issue.",
+	},
+	{
+		.code = LIB_WARN_STREAM,
+		.title = "The stream subsystem has encountered an error",
+		.description = "During sanity checking stream.c has detected an error in the data associated with a particular stream",
+		.suggestion = "Gather log data and open an Issue, restart FRR",
+	},
+	{
+		.code = LIB_WARN_LINUX_NS,
+		.title = "The Linux namespace subsystem has encountered a parsing error",
+		.description = "During system startup an invalid parameter for the namesapce was give to FRR",
+		.suggestion = "Gather log data and open an Issue. restart FRR",
+	},
+	{
+		.code = LIB_WARN_SLOW_THREAD,
+		.title = "The Event subsystem has detected a slow process",
+		.description = "The Event subsystem has detected a slow process, this typically indicates that FRR is having trouble completing work in a timely manner.  This can be either a misconfiguration, bug, or some combination therof.",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
+		.code = LIB_WARN_RMAP_RECURSION_LIMIT,
+		.title = "Reached the Route-Map Recursion Limit",
+		.description = "The Route-Map subsystem has detected a route-map depth of RMAP_RECURSION_LIMIT and has stopped processing",
+		.suggestion = "Re-work the Route-Map in question to not have so many route-map statements, or recompile FRR with a higher limit",
+	},
+	{
+		.code = LIB_WARN_BACKUP_CONFIG,
+		.title = "Unable to open configuration file",
+		.description = "The config subsystem attempted to read in it's configuration file which failed, so we are falling back to the backup config file to see if it is available",
+		.suggestion = "Create configuration file",
+	},
+	{
+		.code = LIB_WARN_VRF_LENGTH,
+		.title = "The VRF subsystem has encountered a parsing error",
+		.description = "The VRF subsystem, during initialization, has found a parsing error with input it has received",
+		.suggestion = "Check the length of the vrf name and adjust accordingly",
+	},
+	{
+		.code = END_FERR,
+	},
+};
+
 static struct log_ref ferr_lib_err[] = {
 	{
 		.code = LIB_ERR_PRIVILEGES,
@@ -42,7 +90,7 @@ static struct log_ref ferr_lib_err[] = {
 		.code = LIB_ERR_SOCKET,
 		.title = "Socket Error",
 		.description = "When attempting to access a socket a system error has occured and we were unable to properly complete the request",
-		.suggestion = "Ensure that there are sufficient system resources available and ensure that the frr user has sufficient permisions to work",
+		.suggestion = "Ensure that there are sufficient system resources available and ensure that the frr user has sufficient permisions to work.  If necessary open an Issue",
 	},
 	{
 		.code = LIB_ERR_ZAPI_MISSMATCH,
@@ -54,7 +102,7 @@ static struct log_ref ferr_lib_err[] = {
 		.code = LIB_ERR_ZAPI_ENCODE,
 		.title = "ZAPI Error",
 		.description = "The ZAPI subsystem has detected an encoding issue, between zebra and a client protocol",
-		.suggestion = "Restart FRR"
+		.suggestion = "Gather data and open an Issue, also Restart FRR"
 	},
 	{
 		.code = LIB_ERR_ZAPI_SOCKET,
@@ -118,5 +166,6 @@ static struct log_ref ferr_lib_err[] = {
 
 void lib_error_init(void)
 {
+	log_ref_add(ferr_lib_warn);
 	log_ref_add(ferr_lib_err);
 }
