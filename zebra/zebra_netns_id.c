@@ -24,13 +24,14 @@
 #include "log.h"
 #include "lib_errors.h"
 
+#include "zebra/rib.h"
+#include "zebra/zebra_dplane.h"
 #if defined(HAVE_NETLINK)
 
 #include <linux/net_namespace.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 
-#include "rib.h"
 #include "zebra_ns.h"
 #include "kernel_netlink.h"
 #endif /* defined(HAVE_NETLINK) */

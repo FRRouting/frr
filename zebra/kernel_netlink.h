@@ -52,7 +52,7 @@ extern bool netlink_read;
 extern void netlink_read_init(const char *fname);
 #endif /* HANDLE_NETLINK_FUZZING */
 extern int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
-			      struct nlsock *nl, struct zebra_ns *zns,
+			      struct nlsock *nl, struct zebra_dplane_info *zns,
 			      int count, int startup);
 extern int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns, int startup);
 extern int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
