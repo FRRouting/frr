@@ -210,9 +210,6 @@ int frr_pthread_stop(struct frr_pthread *fpt, void **result);
 /* Stops all frr_pthread's. */
 void frr_pthread_stop_all(void);
 
-/* Yields the current thread of execution */
-void frr_pthread_yield(void);
-
 #ifndef HAVE_PTHREAD_CONDATTR_SETCLOCK
 #define pthread_condattr_setclock(A, B)
 #endif

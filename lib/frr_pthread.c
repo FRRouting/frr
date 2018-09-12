@@ -205,11 +205,6 @@ void frr_pthread_stop_all()
 	pthread_mutex_unlock(&frr_pthread_list_mtx);
 }
 
-void frr_pthread_yield(void)
-{
-	(void)sched_yield();
-}
-
 /*
  * ----------------------------------------------------------------------------
  * Default Event Loop
