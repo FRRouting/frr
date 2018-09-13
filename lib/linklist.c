@@ -318,8 +318,8 @@ void list_sort(struct list *list, int (*cmp)(const void **, const void **))
 
 	qsort(items, n, sizeof(void *), realcmp);
 
-	for (unsigned int i = 0; i < n; ++i)
-		listnode_add(list, items[i]);
+	for (unsigned int j = 0; j < n; ++j)
+		listnode_add(list, items[j]);
 
 	XFREE(MTYPE_TMP, items);
 }

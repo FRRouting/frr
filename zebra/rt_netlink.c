@@ -585,7 +585,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 
 			for (;;) {
 				struct nexthop *nh = NULL;
-				vrf_id_t nh_vrf_id;
+
 				if (len < (int)sizeof(*rtnh)
 				    || rtnh->rtnh_len > len)
 					break;
@@ -2277,7 +2277,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 
 	/* Drop some "permanent" entries. */
 	if (ndm->ndm_state & NUD_PERMANENT) {
-		char buf[16] = "169.254.0.1";
+		char b[16] = "169.254.0.1";
 		struct in_addr ipv4_ll;
 
 		if (ndm->ndm_family != AF_INET)
@@ -2289,7 +2289,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		if (h->nlmsg_type != RTM_DELNEIGH)
 			return 0;
 
-		inet_pton(AF_INET, buf, &ipv4_ll);
+		inet_pton(AF_INET, b, &ipv4_ll);
 		if (ipv4_ll.s_addr != ip.ip._v4_addr.s_addr)
 			return 0;
 
