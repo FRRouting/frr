@@ -814,8 +814,9 @@ static void nhrp_packet_debug(struct zbuf *zb, const char *dir)
 
 	reply = packet_types[hdr->type].type == PACKET_REPLY;
 	debugf(NHRP_DEBUG_COMMON, "%s %s(%d) %s -> %s", dir,
-	       packet_types[hdr->type].name ?: "Unknown", hdr->type,
-	       reply ? buf[1] : buf[0], reply ? buf[0] : buf[1]);
+	       (packet_types[hdr->type].name ? packet_types[hdr->type].name
+					     : "Unknown"),
+	       hdr->type, reply ? buf[1] : buf[0], reply ? buf[0] : buf[1]);
 }
 
 static int proto2afi(uint16_t proto)
