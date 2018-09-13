@@ -26,13 +26,13 @@
 /* clang-format off */
 static struct log_ref ferr_nhrp_err[] = {
 	{
-		.code = NHRP_ERR_SWAN,
+		.code = EC_NHRP_SWAN,
 		.title = "NHRP Strong Swan Error",
 		.description = "NHRP has detected a error with the Strongswan code",
 		.suggestion = "Ensure that StrongSwan is configured correctly.  Restart StrongSwan and FRR"
 	},
 	{
-		.code = NHRP_ERR_RESOLVER,
+		.code = EC_NHRP_RESOLVER,
 		.title = "NHRP DNS Resolution",
 		.description = "NHRP has detected an error in an attempt to resolve a hostname",
 		.suggestion = "Ensure that DNS is working properly and the hostname is configured in dns.  If you are still seeing this error, open an issue"

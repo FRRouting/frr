@@ -198,7 +198,7 @@ void resolver_resolve(struct resolver_query *query, int af,
 				       union sockunion *))
 {
 	if (query->callback != NULL) {
-		flog_err(NHRP_ERR_RESOLVER,
+		flog_err(EC_NHRP_RESOLVER,
 			  "Trying to resolve '%s', but previous query was not finished yet",
 			  hostname);
 		return;
