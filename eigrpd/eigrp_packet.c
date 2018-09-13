@@ -354,7 +354,7 @@ int eigrp_write(struct thread *thread)
 		goto out;
 	}
 	if (ep->length < EIGRP_HEADER_LEN) {
-		flog_err(EIGRP_ERR_PACKET,
+		flog_err(EC_EIGRP_PACKET,
 			  "%s: Packet just has a header?", __PRETTY_FUNCTION__);
 		eigrp_header_dump((struct eigrp_header *)ep->s->data);
 		eigrp_packet_delete(ei);
