@@ -568,7 +568,7 @@ int isis_circuit_up(struct isis_circuit *circuit)
 
 	if (circuit->area->lsp_mtu > isis_circuit_pdu_size(circuit)) {
 		flog_err(
-			ISIS_ERR_CONFIG,
+			EC_ISIS_CONFIG,
 			"Interface MTU %zu on %s is too low to support area lsp mtu %u!",
 			isis_circuit_pdu_size(circuit),
 			circuit->interface->name, circuit->area->lsp_mtu);
@@ -580,7 +580,7 @@ int isis_circuit_up(struct isis_circuit *circuit)
 		circuit->circuit_id = isis_circuit_id_gen(isis, circuit->interface);
 		if (!circuit->circuit_id) {
 			flog_err(
-				ISIS_ERR_CONFIG,
+				EC_ISIS_CONFIG,
 				"There are already 255 broadcast circuits active!");
 			return ISIS_ERROR;
 		}
