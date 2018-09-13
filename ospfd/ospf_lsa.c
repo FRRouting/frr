@@ -398,7 +398,7 @@ struct ospf_neighbor *ospf_nbr_lookup_ptop(struct ospf_interface *oi)
 
 	/* PtoP link must have only 1 neighbor. */
 	if (ospf_nbr_count(oi, 0) > 1)
-		flog_warn(OSPF_WARN_PTP_NEIGHBOR,
+		flog_warn(EC_OSPF_PTP_NEIGHBOR,
 			  "Point-to-Point link has more than 1 neighobrs.");
 
 	return nbr;
@@ -448,7 +448,7 @@ static char link_info_set(struct stream **s, struct in_addr id,
 
 		if (ret == OSPF_MAX_LSA_SIZE) {
 			flog_warn(
-				OSPF_WARN_LSA_SIZE,
+				EC_OSPF_LSA_SIZE,
 				"%s: Out of space in LSA stream, left %zd, size %zd",
 				__func__, STREAM_WRITEABLE(*s),
 				STREAM_SIZE(*s));
@@ -1819,7 +1819,7 @@ struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *ospf,
 	}
 
 	if ((new = ospf_lsa_install(ospf, NULL, new)) == NULL) {
-		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
+		flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 			  "ospf_lsa_translated_nssa_originate(): "
 			  "Could not install LSA "
 			  "id %s",
@@ -1920,7 +1920,7 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 
 	if (!(new = ospf_lsa_install(ospf, NULL, new))) {
 		flog_warn(
-			OSPF_WARN_LSA_INSTALL_FAILURE,
+			EC_OSPF_LSA_INSTALL_FAILURE,
 			"ospf_translated_nssa_refresh(): Could not install translated LSA, Id %s",
 			inet_ntoa(type7->data->id));
 		return NULL;
@@ -2061,7 +2061,7 @@ int ospf_external_lsa_originate_timer(struct thread *thread)
 
 			if (!ospf_external_lsa_originate(ospf, ei))
 				flog_warn(
-					OSPF_WARN_LSA_INSTALL_FAILURE,
+					EC_OSPF_LSA_INSTALL_FAILURE,
 					"LSA: AS-external-LSA was not originated.");
 		}
 	}

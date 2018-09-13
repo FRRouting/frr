@@ -104,7 +104,7 @@ int ospf_mpls_te_init(void)
 		NULL /* ospf_mpls_te_del_lsa_hook */);
 	if (rc != 0) {
 		flog_warn(
-			OSPF_WARN_OPAQUE_REGISTRATION,
+			EC_OSPF_OPAQUE_REGISTRATION,
 			"ospf_mpls_te_init: Failed to register Traffic Engineering functions");
 		return rc;
 	}
@@ -142,7 +142,7 @@ static int ospf_mpls_te_register(enum inter_as_mode mode)
 
 	if (rc != 0) {
 		flog_warn(
-			OSPF_WARN_OPAQUE_REGISTRATION,
+			EC_OSPF_OPAQUE_REGISTRATION,
 			"ospf_router_info_init: Failed to register Inter-AS functions");
 		return rc;
 	}
@@ -820,19 +820,19 @@ static int is_mandated_params_set(struct mpls_te_link *lp)
 
 	if (ntohs(OspfMplsTE.router_addr.header.type) == 0) {
 		flog_warn(
-			OSPF_WARN_TE_UNEXPECTED,
+			EC_OSPF_TE_UNEXPECTED,
 			"MPLS-TE(is_mandated_params_set) Missing Router Address");
 		return rc;
 	}
 
 	if (ntohs(lp->link_type.header.type) == 0) {
-		flog_warn(OSPF_WARN_TE_UNEXPECTED,
+		flog_warn(EC_OSPF_TE_UNEXPECTED,
 			  "MPLS-TE(is_mandated_params_set) Missing Link Type");
 		return rc;
 	}
 
 	if (!IS_INTER_AS(lp->type) && (ntohs(lp->link_id.header.type) == 0)) {
-		flog_warn(OSPF_WARN_TE_UNEXPECTED,
+		flog_warn(EC_OSPF_TE_UNEXPECTED,
 			  "MPLS-TE(is_mandated_params_set) Missing Link ID");
 		return rc;
 	}
@@ -925,7 +925,7 @@ void ospf_mpls_te_update_if(struct interface *ifp)
 	/* Get Link context from interface */
 	if ((lp = lookup_linkparams_by_ifp(ifp)) == NULL) {
 		flog_warn(
-			OSPF_WARN_TE_UNEXPECTED,
+			EC_OSPF_TE_UNEXPECTED,
 			"OSPF MPLS-TE Update: Did not find Link Parameters context for interface %s",
 			ifp->name);
 		return;
@@ -970,7 +970,7 @@ static void ospf_mpls_te_ism_change(struct ospf_interface *oi, int old_state)
 
 	if ((lp = lookup_linkparams_by_ifp(oi->ifp)) == NULL) {
 		flog_warn(
-			OSPF_WARN_TE_UNEXPECTED,
+			EC_OSPF_TE_UNEXPECTED,
 			"ospf_mpls_te_ism_change: Cannot get linkparams from OI(%s)?",
 			IF_NAME(oi));
 		return;
@@ -978,7 +978,7 @@ static void ospf_mpls_te_ism_change(struct ospf_interface *oi, int old_state)
 
 	if (oi->area == NULL || oi->area->ospf == NULL) {
 		flog_warn(
-			OSPF_WARN_TE_UNEXPECTED,
+			EC_OSPF_TE_UNEXPECTED,
 			"ospf_mpls_te_ism_change: Cannot refer to OSPF from OI(%s)?",
 			IF_NAME(oi));
 		return;
@@ -989,7 +989,7 @@ static void ospf_mpls_te_ism_change(struct ospf_interface *oi, int old_state)
 	    || (lp->area != NULL && oi->area == NULL)) {
 		/* How should we consider this case? */
 		flog_warn(
-			OSPF_WARN_TE_UNEXPECTED,
+			EC_OSPF_TE_UNEXPECTED,
 			"MPLS-TE: Area for OI(%s) has changed to [%s], flush previous LSAs",
 			IF_NAME(oi),
 			oi->area ? inet_ntoa(oi->area->area_id) : "N/A");
@@ -1224,14 +1224,14 @@ static int ospf_mpls_te_lsa_originate1(struct ospf_area *area,
 	new = ospf_mpls_te_lsa_new(area->ospf, area, lp);
 	if (new == NULL) {
 		flog_warn(
-			OSPF_WARN_TE_UNEXPECTED,
+			EC_OSPF_TE_UNEXPECTED,
 			"ospf_mpls_te_lsa_originate1: ospf_mpls_te_lsa_new() ?");
 		return rc;
 	}
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(area->ospf, NULL /*oi*/, new) == NULL) {
-		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
+		flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 			  "ospf_mpls_te_lsa_originate1: ospf_lsa_install() ?");
 		ospf_lsa_unlock(&new);
 		return rc;
@@ -1326,7 +1326,7 @@ static int ospf_mpls_te_lsa_originate2(struct ospf *top,
 	new = ospf_mpls_te_lsa_new(top, NULL, lp);
 	if (new == NULL) {
 		flog_warn(
-			OSPF_WARN_LSA_UNEXPECTED,
+			EC_OSPF_LSA_UNEXPECTED,
 			"ospf_mpls_te_lsa_originate2: ospf_router_info_lsa_new() ?");
 		return rc;
 	}
@@ -1334,7 +1334,7 @@ static int ospf_mpls_te_lsa_originate2(struct ospf *top,
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
-		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
+		flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 			  "ospf_mpls_te_lsa_originate2: ospf_lsa_install() ?");
 		ospf_lsa_unlock(&new);
 		return rc;
@@ -1390,7 +1390,7 @@ static int ospf_mpls_te_lsa_originate_as(void *arg)
 
 		if (!is_mandated_params_set(lp)) {
 			flog_warn(
-				OSPF_WARN_TE_UNEXPECTED,
+				EC_OSPF_TE_UNEXPECTED,
 				"ospf_mpls_te_lsa_originate_as: Link(%s) lacks some mandated MPLS-TE parameters.",
 				lp->ifp ? lp->ifp->name : "?");
 			continue;
@@ -1437,7 +1437,7 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 
 	/* At first, resolve lsa/lp relationship. */
 	if ((lp = lookup_linkparams_by_instance(lsa)) == NULL) {
-		flog_warn(OSPF_WARN_TE_UNEXPECTED,
+		flog_warn(EC_OSPF_TE_UNEXPECTED,
 			  "ospf_mpls_te_lsa_refresh: Invalid parameter?");
 		lsa->data->ls_age =
 			htons(OSPF_LSA_MAXAGE); /* Flush it anyway. */
@@ -1448,7 +1448,7 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 	/* Check if lp was not disable in the interval */
 	if (!CHECK_FLAG(lp->flags, LPFLG_LSA_ACTIVE)) {
 		flog_warn(
-			OSPF_WARN_TE_UNEXPECTED,
+			EC_OSPF_TE_UNEXPECTED,
 			"ospf_mpls_te_lsa_refresh: lp was disabled: Flush it!");
 		lsa->data->ls_age =
 			htons(OSPF_LSA_MAXAGE); /* Flush it anyway. */
@@ -1464,7 +1464,7 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 	/* Create new Opaque-LSA/MPLS-TE instance. */
 	new = ospf_mpls_te_lsa_new(top, area, lp);
 	if (new == NULL) {
-		flog_warn(OSPF_WARN_TE_UNEXPECTED,
+		flog_warn(EC_OSPF_TE_UNEXPECTED,
 			  "ospf_mpls_te_lsa_refresh: ospf_mpls_te_lsa_new() ?");
 		return NULL;
 	}
@@ -1478,7 +1478,7 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 		top = area->ospf;
 
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
-		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
+		flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 			  "ospf_mpls_te_lsa_refresh: ospf_lsa_install() ?");
 		ospf_lsa_unlock(&new);
 		return NULL;
@@ -1534,7 +1534,7 @@ void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
 			/* Unable to set the area context. Abort! */
 			if (lp->area == NULL) {
 				flog_warn(
-					OSPF_WARN_TE_UNEXPECTED,
+					EC_OSPF_TE_UNEXPECTED,
 					"MPLS-TE(ospf_mpls_te_lsa_schedule) Area context is null. Abort !");
 				return;
 			}
@@ -1577,7 +1577,7 @@ void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
 		ospf_opaque_lsa_flush_schedule(&lsa);
 		break;
 	default:
-		flog_warn(OSPF_WARN_TE_UNEXPECTED,
+		flog_warn(EC_OSPF_TE_UNEXPECTED,
 			  "ospf_mpls_te_lsa_schedule: Unknown opcode (%u)",
 			  opcode);
 		break;

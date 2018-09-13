@@ -187,7 +187,7 @@ static int ospf_router_info_register(uint8_t scope)
 
 	if (rc != 0) {
 		flog_warn(
-			OSPF_WARN_OPAQUE_REGISTRATION,
+			EC_OSPF_OPAQUE_REGISTRATION,
 			"ospf_router_info_init: Failed to register functions");
 		return rc;
 	}
@@ -829,7 +829,7 @@ static int ospf_router_info_lsa_originate1(void *arg)
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
 		flog_warn(
-			OSPF_WARN_LSA_INSTALL_FAILURE,
+			EC_OSPF_LSA_INSTALL_FAILURE,
 			"ospf_router_info_lsa_originate1: ospf_lsa_install() ?");
 		ospf_lsa_unlock(&new);
 		return rc;
@@ -879,7 +879,7 @@ static int ospf_router_info_lsa_originate(void *arg)
 	} else {
 		if (!is_mandated_params_set(OspfRI))
 			flog_warn(
-				OSPF_WARN_LSA,
+				EC_OSPF_LSA,
 				"ospf_router_info_lsa_originate: lacks mandated ROUTER INFORMATION parameters");
 
 		/* Ok, let's try to originate an LSA */
@@ -911,7 +911,7 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 	/* Verify that the Router Information ID is supported */
 	if (GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr)) != 0) {
 		flog_warn(
-			OSPF_WARN_LSA,
+			EC_OSPF_LSA,
 			"ospf_router_info_lsa_refresh: Unsupported Router Information ID");
 		return NULL;
 	}
@@ -932,7 +932,7 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 	/* Given "lsa" will be freed in the next function. */
 	top = ospf_lookup_by_vrf_id(lsa->vrf_id);
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
-		flog_warn(OSPF_WARN_LSA_INSTALL_FAILURE,
+		flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
 			  "ospf_router_info_lsa_refresh: ospf_lsa_install() ?");
 		ospf_lsa_unlock(&new);
 		return new;
@@ -982,7 +982,7 @@ static void ospf_router_info_lsa_schedule(enum lsa_opcode opcode)
 	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	if ((OspfRI.scope == OSPF_OPAQUE_AREA_LSA) && (OspfRI.area == NULL)) {
 		flog_warn(
-			OSPF_WARN_LSA,
+			EC_OSPF_LSA,
 			"ospf_router_info_lsa_schedule(): Router Info is Area scope flooding but area is not set");
 		OspfRI.area = ospf_area_lookup_by_area_id(top, OspfRI.area_id);
 	}
@@ -1023,7 +1023,7 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
 
 	/* Sanity Check */
 	if (lsa == NULL) {
-		flog_warn(OSPF_WARN_LSA, "OSPF-RI (%s): Abort! LSA is NULL",
+		flog_warn(EC_OSPF_LSA, "OSPF-RI (%s): Abort! LSA is NULL",
 			  __func__);
 		return -1;
 	}
@@ -1449,7 +1449,7 @@ DEFUN (router_info,
 		vty_out(vty,
 			"%% Unable to register Router Information callbacks.");
 		flog_err(
-			OSPF_ERR_INIT_FAIL,
+			EC_OSPF_INIT_FAIL,
 			"Unable to register Router Information callbacks. Abort!");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
