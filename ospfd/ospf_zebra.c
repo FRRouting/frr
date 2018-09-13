@@ -1205,7 +1205,6 @@ static void ospf_filter_update(struct access_list *access)
 		/* Update distribute-list, and apply filter. */
 		for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
 			struct list *red_list;
-			struct listnode *node;
 			struct ospf_redist *red;
 
 			red_list = ospf->redist[type];
@@ -1295,7 +1294,6 @@ void ospf_prefix_list_update(struct prefix_list *plist)
 		 */
 		for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
 			struct list *red_list;
-			struct listnode *node;
 			struct ospf_redist *red;
 
 			red_list = ospf->redist[type];

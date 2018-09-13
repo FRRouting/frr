@@ -3086,7 +3086,6 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 			struct list *red_list;
-			struct listnode *node;
 			struct bgp_redist *red;
 
 			red_list = bgp->redist[afi][i];

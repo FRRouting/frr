@@ -539,7 +539,6 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 	    IP addresses for these packets are the neighbors' IP
 	    addresses.   */
 	if (oi->type == OSPF_IFTYPE_NBMA) {
-		struct route_node *rn;
 		struct ospf_neighbor *nbr;
 
 		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))

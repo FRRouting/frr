@@ -1904,9 +1904,9 @@ static void format_item_auth(uint16_t mtid, struct isis_item *i,
 		sbuf_push(buf, indent, "  Password: %s\n", obuf);
 		break;
 	case ISIS_PASSWD_TYPE_HMAC_MD5:
-		for (unsigned int i = 0; i < 16; i++) {
-			snprintf(obuf + 2 * i, sizeof(obuf) - 2 * i,
-				 "%02" PRIx8, auth->value[i]);
+		for (unsigned int j = 0; j < 16; j++) {
+			snprintf(obuf + 2 * j, sizeof(obuf) - 2 * j,
+				 "%02" PRIx8, auth->value[j]);
 		}
 		sbuf_push(buf, indent, "  HMAC-MD5: %s\n", obuf);
 		break;

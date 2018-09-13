@@ -2354,7 +2354,7 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 				    bgp_size_t size, struct bgp_nlri *mp_update,
 				    struct bgp_nlri *mp_withdraw)
 {
-	int ret;
+	bgp_attr_parse_ret_t ret;
 	uint8_t flag = 0;
 	uint8_t type = 0;
 	bgp_size_t length;
@@ -2509,7 +2509,6 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 		   Attribute Flags Error.  The Data field contains the erroneous
 		   attribute (type, length and value). */
 		if (bgp_attr_flag_invalid(&attr_args)) {
-			bgp_attr_parse_ret_t ret;
 			ret = bgp_attr_malformed(
 				&attr_args, BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
 				attr_args.total);
@@ -2647,13 +2646,10 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 	}
 
 	/* Check all mandatory well-known attributes are present */
-	{
-		bgp_attr_parse_ret_t ret;
-		if ((ret = bgp_attr_check(peer, attr)) < 0) {
-			if (as4_path)
-				aspath_unintern(&as4_path);
-			return ret;
-		}
+	if ((ret = bgp_attr_check(peer, attr)) < 0) {
+		if (as4_path)
+			aspath_unintern(&as4_path);
+		return ret;
 	}
 
 	/*

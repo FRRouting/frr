@@ -714,7 +714,7 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 		ospf_router_lsa_update_area(oi->area);
 
 		if (oi->type == OSPF_IFTYPE_VIRTUALLINK) {
-			struct ospf_area *vl_area = ospf_area_lookup_by_area_id(
+			vl_area = ospf_area_lookup_by_area_id(
 				oi->ospf, oi->vl_data->vl_area_id);
 
 			if (vl_area)

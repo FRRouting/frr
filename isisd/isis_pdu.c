@@ -1311,8 +1311,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 						continue;
 					}
 				}
-				struct isis_lsp *lsp =
-					lsp_new(circuit->area, entry->id,
+				lsp = lsp_new(circuit->area, entry->id,
 						entry->rem_lifetime, 0, 0,
 						entry->checksum, lsp0, level);
 				lsp_insert(lsp,
