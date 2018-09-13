@@ -95,7 +95,7 @@ static int pim_msdp_sock_accept(struct thread *thread)
 	if (!mp || !PIM_MSDP_PEER_IS_LISTENER(mp)) {
 		++pim->msdp.rejected_accepts;
 		if (PIM_DEBUG_MSDP_EVENTS) {
-			flog_err(PIM_ERR_MSDP_PACKET,
+			flog_err(EC_PIM_MSDP_PACKET,
 				  "msdp peer connection refused from %s",
 				  sockunion2str(&su, buf, SU_ADDRSTRLEN));
 		}
