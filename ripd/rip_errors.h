@@ -24,7 +24,7 @@
 #include "lib/ferr.h"
 
 enum rip_log_refs {
-	RIP_ERR_PACKET = RIP_FERR_START,
+	EC_RIP_PACKET = RIP_FERR_START,
 	RIP_ERR_CONFIG,
 };
 

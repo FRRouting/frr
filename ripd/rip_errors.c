@@ -25,7 +25,7 @@
 
 static struct log_ref ferr_rip_err[] = {
 	{
-		.code = RIP_ERR_PACKET,
+		.code = EC_RIP_PACKET,
 		.title = "RIP Packet Error",
 		.description = "RIP has detected a packet encode/decode issue",
 		.suggestion = "Gather log files from both sides and open a Issue"

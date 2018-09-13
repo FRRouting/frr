@@ -1056,7 +1056,7 @@ static void rip_auth_md5_set(struct stream *s, struct rip_interface *ri,
 
 	/* Check packet length. */
 	if (len < (RIP_HEADER_SIZE + RIP_RTE_SIZE)) {
-		flog_err(RIP_ERR_PACKET,
+		flog_err(EC_RIP_PACKET,
 			  "rip_auth_md5_set(): packet length %ld is less than minimum length.",
 			  len);
 		return;
