@@ -10822,7 +10822,7 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 		if (use_json) {
 			if (!(json = json_object_new_object())) {
 				flog_err(
-					BGP_ERR_JSON_MEM_ERROR,
+					EC_BGP_JSON_MEM_ERROR,
 					"Unable to allocate memory for JSON object");
 				vty_out(vty,
 					"{\"error\": {\"message:\": \"Unable to allocate memory for JSON object\"}}}\n");

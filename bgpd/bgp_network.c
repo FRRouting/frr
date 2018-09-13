@@ -84,7 +84,7 @@ static int bgp_md5_set_socket(int socket, union sockunion *su,
 #endif /* HAVE_TCP_MD5SIG */
 
 	if (ret < 0)
-		flog_warn(BGP_WARN_NO_TCP_MD5,
+		flog_warn(EC_BGP_NO_TCP_MD5,
 			  "can't set TCP_MD5SIG option on socket %d: %s",
 			  socket, safe_strerror(en));
 
@@ -562,7 +562,7 @@ int bgp_connect(struct peer *peer)
 	sockopt_reuseaddr(peer->fd);
 	sockopt_reuseport(peer->fd);
 	if (sockopt_mark_default(peer->fd, DATAPLANE_MARK, &bgpd_privs) < 0)
-		flog_warn(BGP_WARN_NO_SOCKOPT_MARK,
+		flog_warn(EC_BGP_NO_SOCKOPT_MARK,
 			  "Unable to set mark on FD for peer %s, err=%s",
 			  peer->host, safe_strerror(errno));
 
@@ -623,7 +623,7 @@ int bgp_getsockname(struct peer *peer)
 			    peer)) {
 #if defined(HAVE_CUMULUS)
 		flog_err(
-			BGP_ERR_NH_UPD,
+			EC_BGP_NH_UPD,
 			"%s: nexthop_set failed, resetting connection - intf %p",
 			peer->host, peer->nexthop.ifp);
 		return -1;

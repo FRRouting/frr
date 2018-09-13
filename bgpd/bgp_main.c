@@ -410,7 +410,7 @@ int main(int argc, char **argv)
 			if (multipath_num > MULTIPATH_NUM
 			    || multipath_num <= 0) {
 				flog_err(
-					BGP_ERR_MULTIPATH,
+					EC_BGP_MULTIPATH,
 					"Multipath Number specified must be less than %d and greater than 0",
 					MULTIPATH_NUM);
 				return 1;

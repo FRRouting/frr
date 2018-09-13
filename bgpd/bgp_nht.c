@@ -345,7 +345,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp) {
 		flog_err(
-			BGP_ERR_NH_UPD,
+			EC_BGP_NH_UPD,
 			"parse nexthop update: instance not found for vrf_id %u",
 			vrf_id);
 		return;
@@ -592,7 +592,7 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 			       bnc->bgp->vrf_id);
 	/* TBD: handle the failure */
 	if (ret < 0)
-		flog_warn(BGP_WARN_ZEBRA_SEND,
+		flog_warn(EC_BGP_ZEBRA_SEND,
 			  "sendmsg_nexthop: zclient_send_message() failed");
 
 	if ((command == ZEBRA_NEXTHOP_REGISTER)

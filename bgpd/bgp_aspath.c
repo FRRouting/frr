@@ -1640,7 +1640,7 @@ struct aspath *aspath_reconcile_as4(struct aspath *aspath,
 	if (hops < 0) {
 		if (BGP_DEBUG(as4, AS4))
 			flog_warn(
-				BGP_WARN_ASPATH_FEWER_HOPS,
+				EC_BGP_ASPATH_FEWER_HOPS,
 				"[AS4] Fewer hops in AS_PATH than NEW_AS_PATH");
 		/* Something's gone wrong. The RFC says we should now ignore
 		 * AS4_PATH,
