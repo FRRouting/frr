@@ -872,8 +872,8 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		break;
 	default:
 		flog_err(EC_ZEBRA_RNH_UNKNOWN_FAMILY,
-			  "%s: Unknown family (%d) notification attempted\n",
-			  __FUNCTION__, rn->p.family);
+			 "%s: Unknown family (%d) notification attempted\n",
+			 __FUNCTION__, rn->p.family);
 		break;
 	}
 	if (re) {

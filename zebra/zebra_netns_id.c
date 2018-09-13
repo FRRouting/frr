@@ -116,7 +116,7 @@ static int send_receive(int sock, struct nlmsghdr *nlh, unsigned int seq,
 	}
 	if (msg.msg_flags & MSG_TRUNC) {
 		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
-			  "netlink recvmsg : error message truncated");
+			 "netlink recvmsg : error message truncated");
 		return -1;
 	}
 	/* nlh already points to buf */

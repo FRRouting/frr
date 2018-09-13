@@ -1278,8 +1278,8 @@ static int lsp_regenerate(struct isis_area *area, int level)
 
 	if (!lsp) {
 		flog_err(EC_LIB_DEVELOPMENT,
-			  "ISIS-Upd (%s): lsp_regenerate: no L%d LSP found!",
-			  area->area_tag, level);
+			 "ISIS-Upd (%s): lsp_regenerate: no L%d LSP found!",
+			 area->area_tag, level);
 		return ISIS_ERROR;
 	}
 
@@ -1647,8 +1647,8 @@ static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 
 	if (!lsp) {
 		flog_err(EC_LIB_DEVELOPMENT,
-			  "lsp_regenerate_pseudo: no l%d LSP %s found!", level,
-			  rawlspid_print(lsp_id));
+			 "lsp_regenerate_pseudo: no l%d LSP %s found!", level,
+			 rawlspid_print(lsp_id));
 		return ISIS_ERROR;
 	}
 

@@ -174,7 +174,7 @@ static struct vrf_irt_node *vrf_import_rt_new(struct ecommunity_val *rt)
 	bgp_def = bgp_get_default();
 	if (!bgp_def) {
 		flog_err(EC_BGP_NO_DFLT,
-			  "vrf import rt new - def instance not created yet");
+			 "vrf import rt new - def instance not created yet");
 		return NULL;
 	}
 
@@ -205,7 +205,7 @@ static void vrf_import_rt_free(struct vrf_irt_node *irt)
 	bgp_def = bgp_get_default();
 	if (!bgp_def) {
 		flog_err(EC_BGP_NO_DFLT,
-			  "vrf import rt free - def instance not created yet");
+			 "vrf import rt free - def instance not created yet");
 		return;
 	}
 
@@ -226,9 +226,8 @@ static struct vrf_irt_node *lookup_vrf_import_rt(struct ecommunity_val *rt)
 
 	bgp_def = bgp_get_default();
 	if (!bgp_def) {
-		flog_err(
-			EC_BGP_NO_DFLT,
-			"vrf import rt lookup - def instance not created yet");
+		flog_err(EC_BGP_NO_DFLT,
+			 "vrf import rt lookup - def instance not created yet");
 		return NULL;
 	}
 
@@ -1389,12 +1388,11 @@ static int update_evpn_type4_route(struct bgp *bgp,
 					    &attr, 1, &ri,
 					    &route_changed);
 	if (ret != 0) {
-		flog_err(
-			EC_BGP_ES_INVALID,
-			"%u ERROR: Failed to updated ES route ESI: %s VTEP %s",
-			bgp->vrf_id,
-			esi_to_str(&p->prefix.es_addr.esi, buf, sizeof(buf)),
-			ipaddr2str(&es->originator_ip, buf1, sizeof(buf1)));
+		flog_err(EC_BGP_ES_INVALID,
+			 "%u ERROR: Failed to updated ES route ESI: %s VTEP %s",
+			 bgp->vrf_id,
+			 esi_to_str(&p->prefix.es_addr.esi, buf, sizeof(buf)),
+			 ipaddr2str(&es->originator_ip, buf1, sizeof(buf1)));
 	}
 
 	assert(ri);
@@ -2192,8 +2190,8 @@ static int delete_routes_for_es(struct bgp *bgp, struct evpnes *es)
 	ret = delete_evpn_type4_route(bgp, es, &p);
 	if (ret) {
 		flog_err(EC_BGP_EVPN_ROUTE_DELETE,
-			  "%u failed to delete type-4 route for ESI %s",
-			  bgp->vrf_id, esi_to_str(&es->esi, buf, sizeof(buf)));
+			 "%u failed to delete type-4 route for ESI %s",
+			 bgp->vrf_id, esi_to_str(&es->esi, buf, sizeof(buf)));
 	}
 
 	/* Delete all routes from per ES table */
@@ -3151,11 +3149,11 @@ static int install_uninstall_route_in_vrfs(struct bgp *bgp_def, afi_t afi,
 
 		if (ret) {
 			flog_err(EC_BGP_EVPN_FAIL,
-				  "%u: Failed to %s prefix %s in VRF %s",
-				  bgp_def->vrf_id,
-				  install ? "install" : "uninstall",
-				  prefix2str(evp, buf, sizeof(buf)),
-				  vrf_id_to_name(bgp_vrf->vrf_id));
+				 "%u: Failed to %s prefix %s in VRF %s",
+				 bgp_def->vrf_id,
+				 install ? "install" : "uninstall",
+				 prefix2str(evp, buf, sizeof(buf)),
+				 vrf_id_to_name(bgp_vrf->vrf_id));
 			return ret;
 		}
 	}
@@ -3186,14 +3184,13 @@ static int install_uninstall_route_in_vnis(struct bgp *bgp, afi_t afi,
 			ret = uninstall_evpn_route_entry(bgp, vpn, evp, ri);
 
 		if (ret) {
-			flog_err(
-				EC_BGP_EVPN_FAIL,
-				"%u: Failed to %s EVPN %s route in VNI %u",
-				bgp->vrf_id, install ? "install" : "uninstall",
-				evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
-					? "MACIP"
-					: "IMET",
-				vpn->vni);
+			flog_err(EC_BGP_EVPN_FAIL,
+				 "%u: Failed to %s EVPN %s route in VNI %u",
+				 bgp->vrf_id, install ? "install" : "uninstall",
+				 evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
+					 ? "MACIP"
+					 : "IMET",
+				 vpn->vni);
 			return ret;
 		}
 	}
@@ -3560,8 +3557,8 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 	if (psize != 33 && psize != 37 && psize != 49 && psize != 36
 	    && psize != 40 && psize != 52) {
 		flog_err(EC_BGP_EVPN_ROUTE_INVALID,
-			  "%u:%s - Rx EVPN Type-2 NLRI with invalid length %d",
-			  peer->bgp->vrf_id, peer->host, psize);
+			 "%u:%s - Rx EVPN Type-2 NLRI with invalid length %d",
+			 peer->bgp->vrf_id, peer->host, psize);
 		return -1;
 	}
 
@@ -3671,8 +3668,8 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 	 */
 	if (psize != 17 && psize != 29) {
 		flog_err(EC_BGP_EVPN_ROUTE_INVALID,
-			  "%u:%s - Rx EVPN Type-3 NLRI with invalid length %d",
-			  peer->bgp->vrf_id, peer->host, psize);
+			 "%u:%s - Rx EVPN Type-3 NLRI with invalid length %d",
+			 peer->bgp->vrf_id, peer->host, psize);
 		return -1;
 	}
 
@@ -3752,8 +3749,8 @@ static int process_type4_route(struct peer *peer, afi_t afi, safi_t safi,
 	 */
 	if (psize != 23 && psize != 35) {
 		flog_err(EC_BGP_EVPN_ROUTE_INVALID,
-			  "%u:%s - Rx EVPN Type-4 NLRI with invalid length %d",
-			  peer->bgp->vrf_id, peer->host, psize);
+			 "%u:%s - Rx EVPN Type-4 NLRI with invalid length %d",
+			 peer->bgp->vrf_id, peer->host, psize);
 		return -1;
 	}
 
@@ -3817,8 +3814,8 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	 */
 	if (psize != 34 && psize != 58) {
 		flog_err(EC_BGP_EVPN_ROUTE_INVALID,
-			  "%u:%s - Rx EVPN Type-5 NLRI with invalid length %d",
-			  peer->bgp->vrf_id, peer->host, psize);
+			 "%u:%s - Rx EVPN Type-5 NLRI with invalid length %d",
+			 peer->bgp->vrf_id, peer->host, psize);
 		return -1;
 	}
 
@@ -4124,8 +4121,8 @@ void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, struct prefix *p,
 	ret = update_evpn_type5_route(bgp_vrf, &evp, src_attr);
 	if (ret)
 		flog_err(EC_BGP_EVPN_ROUTE_CREATE,
-			  "%u: Failed to create type-5 route for prefix %s",
-			  bgp_vrf->vrf_id, prefix2str(p, buf, sizeof(buf)));
+			 "%u: Failed to create type-5 route for prefix %s",
+			 bgp_vrf->vrf_id, prefix2str(p, buf, sizeof(buf)));
 }
 
 /* Inject all prefixes of a particular address-family (currently, IPv4 or
@@ -5262,15 +5259,15 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *rmac,
 		switch (ret) {
 		case BGP_ERR_MULTIPLE_INSTANCE_NOT_SET:
 			flog_err(EC_BGP_MULTI_INSTANCE,
-				  "'bgp multiple-instance' not present\n");
+				 "'bgp multiple-instance' not present\n");
 			return -1;
 		case BGP_ERR_AS_MISMATCH:
 			flog_err(EC_BGP_EVPN_AS_MISMATCH,
-				  "BGP is already running; AS is %u\n", as);
+				 "BGP is already running; AS is %u\n", as);
 			return -1;
 		case BGP_ERR_INSTANCE_MISMATCH:
 			flog_err(EC_BGP_EVPN_INSTANCE_MISMATCH,
-				  "BGP instance name and AS number mismatch\n");
+				 "BGP instance name and AS number mismatch\n");
 			return -1;
 		}
 
@@ -5497,8 +5494,8 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	build_evpn_type3_prefix(&p, vpn->originator_ip);
 	if (update_evpn_route(bgp, vpn, &p, 0, 0)) {
 		flog_err(EC_BGP_EVPN_ROUTE_CREATE,
-			  "%u: Type3 route creation failure for VNI %u",
-			  bgp->vrf_id, vni);
+			 "%u: Type3 route creation failure for VNI %u",
+			 bgp->vrf_id, vni);
 		return -1;
 	}
 
@@ -5527,7 +5524,7 @@ int bgp_evpn_local_es_del(struct bgp *bgp,
 
 	if (!bgp->esihash) {
 		flog_err(EC_BGP_ES_CREATE, "%u: ESI hash not yet created",
-			  bgp->vrf_id);
+			 bgp->vrf_id);
 		return -1;
 	}
 
@@ -5564,7 +5561,7 @@ int bgp_evpn_local_es_add(struct bgp *bgp,
 
 	if (!bgp->esihash) {
 		flog_err(EC_BGP_ES_CREATE, "%u: ESI hash not yet created",
-			  bgp->vrf_id);
+			 bgp->vrf_id);
 		return -1;
 	}
 
@@ -5586,8 +5583,8 @@ int bgp_evpn_local_es_add(struct bgp *bgp,
 	build_evpn_type4_prefix(&p, esi, originator_ip->ipaddr_v4);
 	if (update_evpn_type4_route(bgp, es, &p)) {
 		flog_err(EC_BGP_EVPN_ROUTE_CREATE,
-			  "%u: Type4 route creation failure for ESI %s",
-			  bgp->vrf_id, esi_to_str(esi, buf, sizeof(buf)));
+			 "%u: Type4 route creation failure for ESI %s",
+			 bgp->vrf_id, esi_to_str(esi, buf, sizeof(buf)));
 		return -1;
 	}
 

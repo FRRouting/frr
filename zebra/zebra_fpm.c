@@ -1518,9 +1518,8 @@ static inline void zfpm_init_message_format(const char *format)
 
 	if (!strcmp("netlink", format)) {
 		if (!have_netlink) {
-			flog_err(
-				EC_ZEBRA_NETLINK_NOT_AVAILABLE,
-				"FPM netlink message format is not available");
+			flog_err(EC_ZEBRA_NETLINK_NOT_AVAILABLE,
+				 "FPM netlink message format is not available");
 			return;
 		}
 		zfpm_g->message_format = ZFPM_MSG_FORMAT_NETLINK;

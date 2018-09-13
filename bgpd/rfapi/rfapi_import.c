@@ -3897,8 +3897,7 @@ rfapiBgpInfoFilteredImportFunction(safi_t safi)
 
 	default:
 		/* not expected */
-		flog_err(EC_LIB_DEVELOPMENT, "%s: bad safi %d", __func__,
-			  safi);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: bad safi %d", __func__, safi);
 		return rfapiBgpInfoFilteredImportBadSafi;
 	}
 }

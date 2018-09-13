@@ -204,9 +204,8 @@ int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 				     ifp->name, inet6_ntoa(to->sin6_addr),
 				     safe_strerror(errno));
 		else
-			flog_err_sys(EC_LIB_SOCKET,
-				     "RIPng send fail on %s: %s", ifp->name,
-				     safe_strerror(errno));
+			flog_err_sys(EC_LIB_SOCKET, "RIPng send fail on %s: %s",
+				     ifp->name, safe_strerror(errno));
 	}
 
 	return ret;

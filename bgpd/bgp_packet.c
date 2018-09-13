@@ -1092,8 +1092,8 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	 */
 	if (CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV) && !as4) {
 		flog_err(EC_BGP_PKT_OPEN,
-			  "%s bad OPEN, got AS4 capability, but AS4 set to 0",
-			  peer->host);
+			 "%s bad OPEN, got AS4 capability, but AS4 set to 0",
+			 peer->host);
 		bgp_notify_send_with_data(peer, BGP_NOTIFY_OPEN_ERR,
 					  BGP_NOTIFY_OPEN_BAD_PEER_AS,
 					  notify_data_remote_as4, 4);
@@ -1400,9 +1400,9 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	/* Status must be Established. */
 	if (peer->status != Established) {
 		flog_err(EC_BGP_INVALID_STATUS,
-			  "%s [FSM] Update packet received under status %s",
-			  peer->host,
-			  lookup_msg(bgp_status_msg, peer->status, NULL));
+			 "%s [FSM] Update packet received under status %s",
+			 peer->host,
+			 lookup_msg(bgp_status_msg, peer->status, NULL));
 		bgp_notify_send(peer, BGP_NOTIFY_FSM_ERR, 0);
 		return BGP_Stop;
 	}
@@ -1424,9 +1424,9 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	   Subcode is set to Malformed Attribute List.  */
 	if (stream_pnt(s) + 2 > end) {
 		flog_err(EC_BGP_UPDATE_RCV,
-			  "%s [Error] Update packet error"
-			  " (packet length is short for unfeasible length)",
-			  peer->host);
+			 "%s [Error] Update packet error"
+			 " (packet length is short for unfeasible length)",
+			 peer->host);
 		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 				BGP_NOTIFY_UPDATE_MAL_ATTR);
 		return BGP_Stop;
@@ -1438,9 +1438,9 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	/* Unfeasible Route Length check. */
 	if (stream_pnt(s) + withdraw_len > end) {
 		flog_err(EC_BGP_UPDATE_RCV,
-			  "%s [Error] Update packet error"
-			  " (packet unfeasible length overflow %d)",
-			  peer->host, withdraw_len);
+			 "%s [Error] Update packet error"
+			 " (packet unfeasible length overflow %d)",
+			 peer->host, withdraw_len);
 		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 				BGP_NOTIFY_UPDATE_MAL_ATTR);
 		return BGP_Stop;
@@ -1573,7 +1573,7 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 
 		if (nlri_ret < 0) {
 			flog_err(EC_BGP_UPDATE_RCV,
-				  "%s [Error] Error parsing NLRI", peer->host);
+				 "%s [Error] Error parsing NLRI", peer->host);
 			if (peer->status == Established)
 				bgp_notify_send(
 					peer, BGP_NOTIFY_UPDATE_ERR,
@@ -1745,8 +1745,8 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 	/* If peer does not have the capability, send notification. */
 	if (!CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_ADV)) {
 		flog_err(EC_BGP_NO_CAP,
-			  "%s [Error] BGP route refresh is not enabled",
-			  peer->host);
+			 "%s [Error] BGP route refresh is not enabled",
+			 peer->host);
 		bgp_notify_send(peer, BGP_NOTIFY_HEADER_ERR,
 				BGP_NOTIFY_HEADER_BAD_MESTYPE);
 		return BGP_Stop;
@@ -2137,8 +2137,8 @@ int bgp_capability_receive(struct peer *peer, bgp_size_t size)
 	/* If peer does not have the capability, send notification. */
 	if (!CHECK_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV)) {
 		flog_err(EC_BGP_NO_CAP,
-			  "%s [Error] BGP dynamic capability is not enabled",
-			  peer->host);
+			 "%s [Error] BGP dynamic capability is not enabled",
+			 peer->host);
 		bgp_notify_send(peer, BGP_NOTIFY_HEADER_ERR,
 				BGP_NOTIFY_HEADER_BAD_MESTYPE);
 		return BGP_Stop;

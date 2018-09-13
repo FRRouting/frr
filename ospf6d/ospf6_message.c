@@ -1559,8 +1559,7 @@ int ospf6_receive(struct thread *thread)
 	/* receive message */
 	len = ospf6_recvmsg(&src, &dst, &ifindex, iovector);
 	if (len > iobuflen) {
-		flog_err(EC_LIB_DEVELOPMENT,
-			  "Excess message read");
+		flog_err(EC_LIB_DEVELOPMENT, "Excess message read");
 		return 0;
 	}
 

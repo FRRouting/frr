@@ -364,9 +364,9 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request)
 
 	if (ret < 0)
 		flog_err(EC_LIB_ZAPI_SOCKET,
-			  "zclient_route_send() %s failed: %s",
-			  (type == REM ? "delete" : "add"),
-			  safe_strerror(errno));
+			 "zclient_route_send() %s failed: %s",
+			 (type == REM ? "delete" : "add"),
+			 safe_strerror(errno));
 
 	return;
 }

@@ -410,8 +410,8 @@ int ifm_read(struct if_msghdr *ifm)
 	/* paranoia: sanity check structure */
 	if (ifm->ifm_msglen < sizeof(struct if_msghdr)) {
 		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
-			  "ifm_read: ifm->ifm_msglen %d too short\n",
-			  ifm->ifm_msglen);
+			 "ifm_read: ifm->ifm_msglen %d too short\n",
+			 ifm->ifm_msglen);
 		return -1;
 	}
 
@@ -1392,8 +1392,7 @@ static void routing_socket(struct zebra_ns *zns)
 	}
 
 	if (routing_sock < 0) {
-		flog_err_sys(EC_LIB_SOCKET,
-			     "Can't init kernel routing socket");
+		flog_err_sys(EC_LIB_SOCKET, "Can't init kernel routing socket");
 		return;
 	}
 

@@ -798,9 +798,8 @@ void zserv_start(char *path)
 		ret = bind(zebrad.sock, (struct sockaddr *)&sa, sa_len);
 	}
 	if (ret < 0) {
-		flog_err_sys(EC_LIB_SOCKET,
-			     "Can't bind zserv socket on %s: %s", path,
-			     safe_strerror(errno));
+		flog_err_sys(EC_LIB_SOCKET, "Can't bind zserv socket on %s: %s",
+			     path, safe_strerror(errno));
 		close(zebrad.sock);
 		zebrad.sock = -1;
 		return;

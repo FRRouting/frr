@@ -1773,9 +1773,9 @@ static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
 		mac = zvni_mac_add(zvni, macaddr);
 		if (!mac) {
 			flog_err(EC_ZEBRA_MAC_ADD_FAILED,
-				  "Failed to add MAC %s intf %s(%u) VID %u",
-				  prefix_mac2str(macaddr, buf, sizeof(buf)),
-				  ifp->name, ifp->ifindex, vxl->access_vlan);
+				 "Failed to add MAC %s intf %s(%u) VID %u",
+				 prefix_mac2str(macaddr, buf, sizeof(buf)),
+				 ifp->name, ifp->ifindex, vxl->access_vlan);
 			return -1;
 		}
 	}
@@ -3934,8 +3934,8 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 		/* Delete the hash entry. */
 		if (zvni_del(zvni)) {
 			flog_err(EC_ZEBRA_VNI_DEL_FAILED,
-				  "Failed to del VNI hash %p, VNI %u", zvni,
-				  zvni->vni);
+				 "Failed to del VNI hash %p, VNI %u", zvni,
+				 zvni->vni);
 			return -1;
 		}
 	} else {
@@ -6049,8 +6049,8 @@ void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS)
 
 		if (zvni_vtep_add(zvni, &vtep_ip) == NULL) {
 			flog_err(EC_ZEBRA_VTEP_ADD_FAILED,
-				  "Failed to add remote VTEP, VNI %u zvni %p",
-				  vni, zvni);
+				 "Failed to add remote VTEP, VNI %u zvni %p",
+				 vni, zvni);
 			continue;
 		}
 
@@ -6470,8 +6470,8 @@ int zebra_vxlan_if_del(struct interface *ifp)
 		/* Delete the hash entry. */
 		if (zvni_del(zvni)) {
 			flog_err(EC_ZEBRA_VNI_DEL_FAILED,
-				  "Failed to del VNI hash %p, IF %s(%u) VNI %u",
-				  zvni, ifp->name, ifp->ifindex, zvni->vni);
+				 "Failed to del VNI hash %p, IF %s(%u) VNI %u",
+				 zvni, ifp->name, ifp->ifindex, zvni->vni);
 			return -1;
 		}
 	}

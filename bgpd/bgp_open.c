@@ -524,8 +524,8 @@ static as_t bgp_capability_as4(struct peer *peer, struct capability_header *hdr)
 
 	if (hdr->length != CAPABILITY_CODE_AS4_LEN) {
 		flog_err(EC_BGP_PKT_OPEN,
-			  "%s AS4 capability has incorrect data length %d",
-			  peer->host, hdr->length);
+			 "%s AS4 capability has incorrect data length %d",
+			 peer->host, hdr->length);
 		return 0;
 	}
 
@@ -1198,9 +1198,9 @@ int bgp_open_option_parse(struct peer *peer, uint8_t length, int *mp_capability)
 		    && !peer->afc_nego[AFI_IP6][SAFI_FLOWSPEC]
 		    && !peer->afc_nego[AFI_L2VPN][SAFI_EVPN]) {
 			flog_err(EC_BGP_PKT_OPEN,
-				  "%s [Error] Configured AFI/SAFIs do not "
-				  "overlap with received MP capabilities",
-				  peer->host);
+				 "%s [Error] Configured AFI/SAFIs do not "
+				 "overlap with received MP capabilities",
+				 peer->host);
 
 			if (error != error_data)
 				bgp_notify_send_with_data(

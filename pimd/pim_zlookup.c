@@ -124,7 +124,7 @@ void zclient_lookup_new(void)
 	zlookup = zclient_new_notify(master, &zclient_options_default);
 	if (!zlookup) {
 		flog_err(EC_LIB_ZAPI_SOCKET, "%s: zclient_new() failure",
-			  __PRETTY_FUNCTION__);
+			 __PRETTY_FUNCTION__);
 		return;
 	}
 
@@ -171,8 +171,8 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 					  &version, &vrf_id, &command);
 		if (err < 0) {
 			flog_err(EC_LIB_ZAPI_MISSMATCH,
-				  "%s: zclient_read_header() failed",
-				  __PRETTY_FUNCTION__);
+				 "%s: zclient_read_header() failed",
+				 __PRETTY_FUNCTION__);
 			zclient_lookup_failed(zlookup);
 			return -1;
 		}
@@ -316,8 +316,8 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 	/* Check socket. */
 	if (zlookup->sock < 0) {
 		flog_err(EC_LIB_ZAPI_SOCKET,
-			  "%s: zclient lookup socket is not connected",
-			  __PRETTY_FUNCTION__);
+			 "%s: zclient lookup socket is not connected",
+			 __PRETTY_FUNCTION__);
 		zclient_lookup_failed(zlookup);
 		return -1;
 	}
@@ -536,8 +536,8 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 					  &version, &vrf_id, &command);
 		if (err < 0) {
 			flog_err(EC_LIB_ZAPI_MISSMATCH,
-				  "%s: zclient_read_header() failed",
-				  __PRETTY_FUNCTION__);
+				 "%s: zclient_read_header() failed",
+				 __PRETTY_FUNCTION__);
 			zclient_lookup_failed(zlookup);
 			return -1;
 		}

@@ -422,8 +422,8 @@ void eigrp_sw_version_initialize(void)
 		     &FRR_MINOR);
 	if (ret != 2)
 		flog_err(EC_EIGRP_PACKET,
-			  "Did not Properly parse %s, please fix VERSION string",
-			  VERSION);
+			 "Did not Properly parse %s, please fix VERSION string",
+			 VERSION);
 }
 
 /**

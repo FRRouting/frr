@@ -494,8 +494,8 @@ static int wakeup_init(struct thread *t_wakeup)
 	if (try_connect(dmn) < 0) {
 		SET_WAKEUP_DOWN(dmn);
 		flog_err(EC_WATCHFRR_CONNECTION,
-			  "%s state -> down : initial connection attempt failed",
-			  dmn->name);
+			 "%s state -> down : initial connection attempt failed",
+			 dmn->name);
 		dmn->state = DAEMON_DOWN;
 	}
 	return 0;
@@ -504,8 +504,8 @@ static int wakeup_init(struct thread *t_wakeup)
 static void daemon_down(struct daemon *dmn, const char *why)
 {
 	if (IS_UP(dmn) || (dmn->state == DAEMON_INIT))
-		flog_err(EC_WATCHFRR_CONNECTION,
-			  "%s state -> down : %s", dmn->name, why);
+		flog_err(EC_WATCHFRR_CONNECTION, "%s state -> down : %s",
+			 dmn->name, why);
 	else if (gs.loglevel > LOG_DEBUG)
 		zlog_debug("%s still down : %s", dmn->name, why);
 	if (IS_UP(dmn))
@@ -752,8 +752,8 @@ static int phase_hanging(struct thread *t_hanging)
 {
 	gs.t_phase_hanging = NULL;
 	flog_err(EC_WATCHFRR_CONNECTION,
-		  "Phase [%s] hanging for %ld seconds, aborting phased restart",
-		  phase_str[gs.phase], PHASE_TIMEOUT);
+		 "Phase [%s] hanging for %ld seconds, aborting phased restart",
+		 phase_str[gs.phase], PHASE_TIMEOUT);
 	gs.phase = PHASE_NONE;
 	return 0;
 }
@@ -868,9 +868,9 @@ static int wakeup_unresponsive(struct thread *t_wakeup)
 	dmn->t_wakeup = NULL;
 	if (dmn->state != DAEMON_UNRESPONSIVE)
 		flog_err(EC_WATCHFRR_CONNECTION,
-			  "%s: no longer unresponsive (now %s), "
-			  "wakeup should have been cancelled!",
-			  dmn->name, state_str[dmn->state]);
+			 "%s: no longer unresponsive (now %s), "
+			 "wakeup should have been cancelled!",
+			 dmn->name, state_str[dmn->state]);
 	else {
 		SET_WAKEUP_UNRESPONSIVE(dmn);
 		try_restart(dmn);
@@ -885,9 +885,9 @@ static int wakeup_no_answer(struct thread *t_wakeup)
 	dmn->t_wakeup = NULL;
 	dmn->state = DAEMON_UNRESPONSIVE;
 	flog_err(EC_WATCHFRR_CONNECTION,
-		  "%s state -> unresponsive : no response yet to ping "
-		  "sent %ld seconds ago",
-		  dmn->name, gs.timeout);
+		 "%s state -> unresponsive : no response yet to ping "
+		 "sent %ld seconds ago",
+		 dmn->name, gs.timeout);
 	SET_WAKEUP_UNRESPONSIVE(dmn);
 	try_restart(dmn);
 	return 0;

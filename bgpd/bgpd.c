@@ -1805,7 +1805,7 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		flog_err(EC_BGP_PEER_GROUP, "%s was called for peer-group %s",
-			  __func__, peer->host);
+			 __func__, peer->host);
 		return 1;
 	}
 
@@ -1919,7 +1919,7 @@ static int non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
 {
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		flog_err(EC_BGP_PEER_GROUP, "%s was called for peer-group %s",
-			  __func__, peer->host);
+			 __func__, peer->host);
 		return 1;
 	}
 
@@ -1932,8 +1932,8 @@ static int non_peergroup_deactivate_af(struct peer *peer, afi_t afi,
 
 	if (peer_af_delete(peer, afi, safi) != 0) {
 		flog_err(EC_BGP_PEER_DELETE,
-			  "couldn't delete af structure for peer %s",
-			  peer->host);
+			 "couldn't delete af structure for peer %s",
+			 peer->host);
 		return 1;
 	}
 
@@ -1983,8 +1983,8 @@ int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
 
 		if (peer_af_delete(peer, afi, safi) != 0) {
 			flog_err(EC_BGP_PEER_DELETE,
-				  "couldn't delete af structure for peer %s",
-				  peer->host);
+				 "couldn't delete af structure for peer %s",
+				 peer->host);
 		}
 
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, tmp_peer)) {

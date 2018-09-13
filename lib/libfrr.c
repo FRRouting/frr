@@ -274,12 +274,14 @@ static void frr_guard_daemon(void)
 		lock.l_type = F_WRLCK;
 		lock.l_whence = SEEK_SET;
 		if (fcntl(fd, F_GETLK, &lock) < 0) {
-			flog_err_sys(EC_LIB_SYSTEM_CALL,
+			flog_err_sys(
+				EC_LIB_SYSTEM_CALL,
 				"Could not do F_GETLK pid_file %s (%s), exiting",
 				path, safe_strerror(errno));
 			exit(1);
 		} else if (lock.l_type == F_WRLCK) {
-			flog_err_sys(EC_LIB_SYSTEM_CALL,
+			flog_err_sys(
+				EC_LIB_SYSTEM_CALL,
 				"Process %d has a write lock on file %s already! Error: (%s)",
 				lock.l_pid, path, safe_strerror(errno));
 			exit(1);
@@ -543,15 +545,15 @@ static void frr_mkdir(const char *path, bool strip)
 		if (errno == EEXIST)
 			return;
 
-		flog_err(EC_LIB_SYSTEM_CALL, "failed to mkdir \"%s\": %s",
-			 path, strerror(errno));
+		flog_err(EC_LIB_SYSTEM_CALL, "failed to mkdir \"%s\": %s", path,
+			 strerror(errno));
 		return;
 	}
 
 	zprivs_get_ids(&ids);
 	if (chown(path, ids.uid_normal, ids.gid_normal))
-		flog_err(EC_LIB_SYSTEM_CALL, "failed to chown \"%s\": %s",
-			 path, strerror(errno));
+		flog_err(EC_LIB_SYSTEM_CALL, "failed to chown \"%s\": %s", path,
+			 strerror(errno));
 }
 
 static struct thread_master *master;

@@ -218,8 +218,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 #endif
 
 		default:
-			flog_err(EC_BGP_UPDATE_RCV, "Unknown RD type %d",
-				  type);
+			flog_err(EC_BGP_UPDATE_RCV, "Unknown RD type %d", type);
 			break; /* just report */
 		}
 
@@ -367,9 +366,9 @@ int vpn_leak_label_callback(
 		}
 		/* Shouldn't happen: different label allocation */
 		flog_err(EC_BGP_LABEL,
-			  "%s: %s had label %u but got new assignment %u",
-			  __func__, vp->bgp->name_pretty, vp->tovpn_label,
-			  label);
+			 "%s: %s had label %u but got new assignment %u",
+			 __func__, vp->bgp->name_pretty, vp->tovpn_label,
+			 label);
 		/* use new one */
 	}
 

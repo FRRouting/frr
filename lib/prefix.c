@@ -658,8 +658,8 @@ void prefix_copy(struct prefix *dest, const struct prefix *src)
 		       (void *)src->u.prefix_flowspec.ptr, len);
 	} else {
 		flog_err(EC_LIB_DEVELOPMENT,
-			  "prefix_copy(): Unknown address family %d",
-			  src->family);
+			 "prefix_copy(): Unknown address family %d",
+			 src->family);
 		assert(0);
 	}
 }

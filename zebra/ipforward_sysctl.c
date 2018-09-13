@@ -43,7 +43,8 @@ int ipforward(void)
 
 	len = sizeof ipforwarding;
 	if (sysctl(mib, MIB_SIZ, &ipforwarding, &len, 0, 0) < 0) {
-		flog_err_sys(EC_LIB_SYSTEM_CALL, "Can't get ipforwarding value");
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "Can't get ipforwarding value");
 		return -1;
 	}
 	return ipforwarding;

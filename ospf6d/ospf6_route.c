@@ -575,7 +575,8 @@ static void route_table_assert(struct ospf6_route_table *table)
 		return;
 
 	flog_err(EC_LIB_DEVELOPMENT, "PANIC !!");
-	flog_err(EC_LIB_DEVELOPMENT, "Something has gone wrong with ospf6_route_table[%p]", table);
+	flog_err(EC_LIB_DEVELOPMENT,
+		 "Something has gone wrong with ospf6_route_table[%p]", table);
 	zlog_debug("table count = %d, real number = %d", table->count, num);
 	zlog_debug("DUMP START");
 	for (r = ospf6_route_head(table); r; r = ospf6_route_next(r)) {

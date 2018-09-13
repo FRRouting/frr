@@ -1632,8 +1632,8 @@ void update_group_adjust_peer(struct peer_af *paf)
 		updgrp = update_group_create(paf);
 		if (!updgrp) {
 			flog_err(EC_BGP_UPDGRP_CREATE,
-				  "couldn't create update group for peer %s",
-				  paf->peer->host);
+				 "couldn't create update group for peer %s",
+				 paf->peer->host);
 			return;
 		}
 	}

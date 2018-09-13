@@ -46,14 +46,14 @@
 enum dp_req_result kernel_add_pbr_rule(struct zebra_pbr_rule *rule)
 {
 	flog_err(EC_LIB_UNAVAILABLE, "%s not Implemented for this platform",
-		  __PRETTY_FUNCTION__);
+		 __PRETTY_FUNCTION__);
 	return DP_REQUEST_FAILURE;
 }
 
 enum dp_req_result kernel_del_pbr_rule(struct zebra_pbr_rule *rule)
 {
 	flog_err(EC_LIB_UNAVAILABLE, "%s not Implemented for this platform",
-		  __PRETTY_FUNCTION__);
+		 __PRETTY_FUNCTION__);
 	return DP_REQUEST_FAILURE;
 }
 

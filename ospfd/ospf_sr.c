@@ -1114,17 +1114,17 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	/* Sanity check */
 	if (srn == NULL) {
 		flog_err(EC_OSPF_SR_NODE_CREATE,
-			  "SR (%s): Abort! can't create SR node in hash table",
-			  __func__);
+			 "SR (%s): Abort! can't create SR node in hash table",
+			 __func__);
 		return;
 	}
 
 	if ((srn->instance != 0) && (srn->instance != ntohl(lsah->id.s_addr))) {
 		flog_err(EC_OSPF_SR_INVALID_LSA_ID,
-			  "SR (%s): Abort! Wrong "
-			  "LSA ID 4.0.0.%u for SR node %s/%u",
-			  __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
-			  inet_ntoa(lsah->adv_router), srn->instance);
+			 "SR (%s): Abort! Wrong "
+			 "LSA ID 4.0.0.%u for SR node %s/%u",
+			 __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
+			 inet_ntoa(lsah->adv_router), srn->instance);
 		return;
 	}
 
@@ -1225,17 +1225,16 @@ void ospf_sr_ri_lsa_delete(struct ospf_lsa *lsa)
 	/* Sanity check */
 	if (srn == NULL) {
 		flog_err(EC_OSPF_SR_NODE_CREATE,
-			  "SR (%s): Abort! no entry in SRDB for SR Node %s",
-			  __func__, inet_ntoa(lsah->adv_router));
+			 "SR (%s): Abort! no entry in SRDB for SR Node %s",
+			 __func__, inet_ntoa(lsah->adv_router));
 		return;
 	}
 
 	if ((srn->instance != 0) && (srn->instance != ntohl(lsah->id.s_addr))) {
-		flog_err(
-			EC_OSPF_SR_INVALID_LSA_ID,
-			"SR (%s): Abort! Wrong LSA ID 4.0.0.%u for SR node %s",
-			__func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
-			inet_ntoa(lsah->adv_router));
+		flog_err(EC_OSPF_SR_INVALID_LSA_ID,
+			 "SR (%s): Abort! Wrong LSA ID 4.0.0.%u for SR node %s",
+			 __func__, GET_OPAQUE_ID(ntohl(lsah->id.s_addr)),
+			 inet_ntoa(lsah->adv_router));
 		return;
 	}
 
@@ -1274,8 +1273,8 @@ void ospf_sr_ext_link_lsa_update(struct ospf_lsa *lsa)
 	/* Sanity check */
 	if (srn == NULL) {
 		flog_err(EC_OSPF_SR_NODE_CREATE,
-			  "SR (%s): Abort! can't create SR node in hash table",
-			  __func__);
+			 "SR (%s): Abort! can't create SR node in hash table",
+			 __func__);
 		return;
 	}
 

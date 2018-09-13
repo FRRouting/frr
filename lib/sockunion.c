@@ -576,8 +576,7 @@ union sockunion *sockunion_getpeername(int fd)
 	len = sizeof name;
 	ret = getpeername(fd, (struct sockaddr *)&name, &len);
 	if (ret < 0) {
-		flog_err(EC_LIB_SOCKET,
-			 "Can't get remote address and port: %s",
+		flog_err(EC_LIB_SOCKET, "Can't get remote address and port: %s",
 			 safe_strerror(errno));
 		return NULL;
 	}

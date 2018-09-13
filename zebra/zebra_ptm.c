@@ -181,8 +181,8 @@ static int zebra_ptm_flush_messages(struct thread *thread)
 
 	switch (buffer_flush_available(ptm_cb.wb, ptm_cb.ptm_sock)) {
 	case BUFFER_ERROR:
-		flog_err_sys(EC_LIB_SOCKET, "%s ptm socket error: %s",
-			     __func__, safe_strerror(errno));
+		flog_err_sys(EC_LIB_SOCKET, "%s ptm socket error: %s", __func__,
+			     safe_strerror(errno));
 		close(ptm_cb.ptm_sock);
 		ptm_cb.ptm_sock = -1;
 		zebra_ptm_reset_status(0);
@@ -207,8 +207,8 @@ static int zebra_ptm_send_message(char *data, int size)
 	errno = 0;
 	switch (buffer_write(ptm_cb.wb, ptm_cb.ptm_sock, data, size)) {
 	case BUFFER_ERROR:
-		flog_err_sys(EC_LIB_SOCKET, "%s ptm socket error: %s",
-			     __func__, safe_strerror(errno));
+		flog_err_sys(EC_LIB_SOCKET, "%s ptm socket error: %s", __func__,
+			     safe_strerror(errno));
 		close(ptm_cb.ptm_sock);
 		ptm_cb.ptm_sock = -1;
 		zebra_ptm_reset_status(0);
@@ -506,7 +506,7 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 
 	if (str2prefix(dest_str, &dest_prefix) == 0) {
 		flog_err(EC_ZEBRA_PREFIX_PARSE_ERROR,
-			  "%s: Peer addr %s not found", __func__, dest_str);
+			 "%s: Peer addr %s not found", __func__, dest_str);
 		return -1;
 	}
 
@@ -514,8 +514,8 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 	if (strcmp(ZEBRA_PTM_INVALID_SRC_IP, src_str)) {
 		if (str2prefix(src_str, &src_prefix) == 0) {
 			flog_err(EC_ZEBRA_PREFIX_PARSE_ERROR,
-				  "%s: Local addr %s not found", __func__,
-				  src_str);
+				 "%s: Local addr %s not found", __func__,
+				 src_str);
 			return -1;
 		}
 	}

@@ -1287,8 +1287,8 @@ static int bgp_connect_success(struct peer *peer)
 {
 	if (peer->fd < 0) {
 		flog_err(EC_BGP_CONNECT,
-			  "bgp_connect_success peer's fd is negative value %d",
-			  peer->fd);
+			 "bgp_connect_success peer's fd is negative value %d",
+			 peer->fd);
 		bgp_stop(peer);
 		return -1;
 	}
@@ -1355,9 +1355,9 @@ int bgp_start(struct peer *peer)
 	if (BGP_PEER_START_SUPPRESSED(peer)) {
 		if (bgp_debug_neighbor_events(peer))
 			flog_err(EC_BGP_FSM,
-				  "%s [FSM] Trying to start suppressed peer"
-				  " - this is never supposed to happen!",
-				  peer->host);
+				 "%s [FSM] Trying to start suppressed peer"
+				 " - this is never supposed to happen!",
+				 peer->host);
 		return -1;
 	}
 
@@ -1445,8 +1445,8 @@ int bgp_start(struct peer *peer)
 				peer->host, peer->fd);
 		if (peer->fd < 0) {
 			flog_err(EC_BGP_FSM,
-				  "bgp_start peer's fd is negative value %d",
-				  peer->fd);
+				 "bgp_start peer's fd is negative value %d",
+				 peer->fd);
 			return -1;
 		}
 		/*
@@ -1492,9 +1492,8 @@ static int bgp_fsm_open(struct peer *peer)
    peer and change to Idle status. */
 static int bgp_fsm_event_error(struct peer *peer)
 {
-	flog_err(EC_BGP_FSM,
-		  "%s [FSM] unexpected packet received in state %s", peer->host,
-		  lookup_msg(bgp_status_msg, peer->status, NULL));
+	flog_err(EC_BGP_FSM, "%s [FSM] unexpected packet received in state %s",
+		 peer->host, lookup_msg(bgp_status_msg, peer->status, NULL));
 
 	return bgp_stop_with_notify(peer, BGP_NOTIFY_FSM_ERR, 0);
 }

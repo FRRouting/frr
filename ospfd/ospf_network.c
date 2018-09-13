@@ -225,8 +225,7 @@ int ospf_sock_init(struct ospf *ospf)
 		}
 #else /* !IPTOS_PREC_INTERNETCONTROL */
 #warning "IP_HDRINCL not available, nor is IPTOS_PREC_INTERNETCONTROL"
-		flog_err(EC_LIB_UNAVAILABLE,
-			 "IP_HDRINCL option not available");
+		flog_err(EC_LIB_UNAVAILABLE, "IP_HDRINCL option not available");
 #endif /* IP_HDRINCL */
 
 		ret = setsockopt_ifindex(AF_INET, ospf_sock, 1);

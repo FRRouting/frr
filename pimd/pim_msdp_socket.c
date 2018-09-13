@@ -74,8 +74,8 @@ static int pim_msdp_sock_accept(struct thread *thread)
 	/* re-register accept thread */
 	accept_sock = THREAD_FD(thread);
 	if (accept_sock < 0) {
-		flog_err(EC_LIB_DEVELOPMENT,
-			  "accept_sock is negative value %d", accept_sock);
+		flog_err(EC_LIB_DEVELOPMENT, "accept_sock is negative value %d",
+			 accept_sock);
 		return -1;
 	}
 	pim->msdp.listener.thread = NULL;
@@ -96,8 +96,8 @@ static int pim_msdp_sock_accept(struct thread *thread)
 		++pim->msdp.rejected_accepts;
 		if (PIM_DEBUG_MSDP_EVENTS) {
 			flog_err(EC_PIM_MSDP_PACKET,
-				  "msdp peer connection refused from %s",
-				  sockunion2str(&su, buf, SU_ADDRSTRLEN));
+				 "msdp peer connection refused from %s",
+				 sockunion2str(&su, buf, SU_ADDRSTRLEN));
 		}
 		close(msdp_sock);
 		return -1;
@@ -141,8 +141,7 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
-		flog_err_sys(EC_LIB_SOCKET, "socket: %s",
-			     safe_strerror(errno));
+		flog_err_sys(EC_LIB_SOCKET, "socket: %s", safe_strerror(errno));
 		return sock;
 	}
 
@@ -162,8 +161,8 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 			if_lookup_by_name(pim->vrf->name, pim->vrf_id);
 		if (!ifp) {
 			flog_err(EC_LIB_INTERFACE,
-				  "%s: Unable to lookup vrf interface: %s",
-				  __PRETTY_FUNCTION__, pim->vrf->name);
+				 "%s: Unable to lookup vrf interface: %s",
+				 __PRETTY_FUNCTION__, pim->vrf->name);
 			close(sock);
 			return -1;
 		}
@@ -243,8 +242,8 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 			if_lookup_by_name(mp->pim->vrf->name, mp->pim->vrf_id);
 		if (!ifp) {
 			flog_err(EC_LIB_INTERFACE,
-				  "%s: Unable to lookup vrf interface: %s",
-				  __PRETTY_FUNCTION__, mp->pim->vrf->name);
+				 "%s: Unable to lookup vrf interface: %s",
+				 __PRETTY_FUNCTION__, mp->pim->vrf->name);
 			return -1;
 		}
 		if (pim_socket_bind(mp->fd, ifp)) {

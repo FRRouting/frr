@@ -90,8 +90,7 @@ int irdp_sock_init(void)
 	}
 
 	if (sock < 0) {
-		flog_err_sys(EC_LIB_SOCKET,
-			     "IRDP: can't create irdp socket %s",
+		flog_err_sys(EC_LIB_SOCKET, "IRDP: can't create irdp socket %s",
 			     safe_strerror(save_errno));
 		return sock;
 	};

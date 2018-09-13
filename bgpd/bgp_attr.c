@@ -997,14 +997,13 @@ bgp_attr_flags_diagnose(struct bgp_attr_parser_args *args,
 	for (i = 0; i <= 2; i++) /* O,T,P, but not E */
 		if (CHECK_FLAG(desired_flags, attr_flag_str[i].key)
 		    != CHECK_FLAG(real_flags, attr_flag_str[i].key)) {
-			flog_err(
-				EC_BGP_ATTR_FLAG,
-				"%s attribute must%s be flagged as \"%s\"",
-				lookup_msg(attr_str, attr_code, NULL),
-				CHECK_FLAG(desired_flags, attr_flag_str[i].key)
-					? ""
-					: " not",
-				attr_flag_str[i].str);
+			flog_err(EC_BGP_ATTR_FLAG,
+				 "%s attribute must%s be flagged as \"%s\"",
+				 lookup_msg(attr_str, attr_code, NULL),
+				 CHECK_FLAG(desired_flags, attr_flag_str[i].key)
+					 ? ""
+					 : " not",
+				 attr_flag_str[i].str);
 			seen = 1;
 		}
 	if (!seen) {
@@ -1076,17 +1075,17 @@ static int bgp_attr_flag_invalid(struct bgp_attr_parser_args *args)
 	if (CHECK_FLAG(flags, BGP_ATTR_FLAG_PARTIAL)) {
 		if (!CHECK_FLAG(flags, BGP_ATTR_FLAG_OPTIONAL)) {
 			flog_err(EC_BGP_ATTR_FLAG,
-				  "%s well-known attribute "
-				  "must NOT have the partial flag set (%x)",
-				  lookup_msg(attr_str, attr_code, NULL), flags);
+				 "%s well-known attribute "
+				 "must NOT have the partial flag set (%x)",
+				 lookup_msg(attr_str, attr_code, NULL), flags);
 			return 1;
 		}
 		if (CHECK_FLAG(flags, BGP_ATTR_FLAG_OPTIONAL)
 		    && !CHECK_FLAG(flags, BGP_ATTR_FLAG_TRANS)) {
 			flog_err(EC_BGP_ATTR_FLAG,
-				  "%s optional + transitive attribute "
-				  "must NOT have the partial flag set (%x)",
-				  lookup_msg(attr_str, attr_code, NULL), flags);
+				 "%s optional + transitive attribute "
+				 "must NOT have the partial flag set (%x)",
+				 lookup_msg(attr_str, attr_code, NULL), flags);
 			return 1;
 		}
 	}
@@ -1119,7 +1118,7 @@ static bgp_attr_parse_ret_t bgp_attr_origin(struct bgp_attr_parser_args *args)
 	   value). */
 	if (length != 1) {
 		flog_err(EC_BGP_ATTR_LEN,
-			  "Origin attribute length is not one %d", length);
+			 "Origin attribute length is not one %d", length);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 					  args->total);
 	}
@@ -1133,7 +1132,7 @@ static bgp_attr_parse_ret_t bgp_attr_origin(struct bgp_attr_parser_args *args)
 	if ((attr->origin != BGP_ORIGIN_IGP) && (attr->origin != BGP_ORIGIN_EGP)
 	    && (attr->origin != BGP_ORIGIN_INCOMPLETE)) {
 		flog_err(EC_BGP_ATTR_ORIGIN,
-			  "Origin attribute value is invalid %d", attr->origin);
+			 "Origin attribute value is invalid %d", attr->origin);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_INVAL_ORIGIN,
 					  args->total);
 	}
@@ -1162,8 +1161,8 @@ static int bgp_attr_aspath(struct bgp_attr_parser_args *args)
 	/* In case of IBGP, length will be zero. */
 	if (!attr->aspath) {
 		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
-			  "Malformed AS path from %s, length is %d", peer->host,
-			  length);
+			 "Malformed AS path from %s, length is %d", peer->host,
+			 length);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
 					  0);
 	}
@@ -1192,7 +1191,7 @@ static bgp_attr_parse_ret_t bgp_attr_aspath_check(struct peer *const peer,
 	    || (peer->sort == BGP_PEER_EBGP
 		&& aspath_confed_check(attr->aspath))) {
 		flog_err(EC_BGP_ATTR_MAL_AS_PATH, "Malformed AS path from %s",
-			  peer->host);
+			 peer->host);
 		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 				BGP_NOTIFY_UPDATE_MAL_AS_PATH);
 		return BGP_ATTR_PARSE_ERROR;
@@ -1203,8 +1202,8 @@ static bgp_attr_parse_ret_t bgp_attr_aspath_check(struct peer *const peer,
 		if (peer->sort == BGP_PEER_EBGP
 		    && !aspath_firstas_check(attr->aspath, peer->as)) {
 			flog_err(EC_BGP_ATTR_FIRST_AS,
-				  "%s incorrect first AS (must be %u)",
-				  peer->host, peer->as);
+				 "%s incorrect first AS (must be %u)",
+				 peer->host, peer->as);
 			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_MAL_AS_PATH);
 			return BGP_ATTR_PARSE_ERROR;
@@ -1237,8 +1236,8 @@ static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 	/* In case of IBGP, length will be zero. */
 	if (!*as4_path) {
 		flog_err(EC_BGP_ATTR_MAL_AS_PATH,
-			  "Malformed AS4 path from %s, length is %d",
-			  peer->host, length);
+			 "Malformed AS4 path from %s, length is %d", peer->host,
+			 length);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_MAL_AS_PATH,
 					  0);
 	}
@@ -1261,7 +1260,7 @@ static bgp_attr_parse_ret_t bgp_attr_nexthop(struct bgp_attr_parser_args *args)
 	/* Check nexthop attribute length. */
 	if (length != 4) {
 		flog_err(EC_BGP_ATTR_LEN,
-			  "Nexthop attribute length isn't four [%d]", length);
+			 "Nexthop attribute length isn't four [%d]", length);
 
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 					  args->total);
@@ -1306,7 +1305,7 @@ static bgp_attr_parse_ret_t bgp_attr_med(struct bgp_attr_parser_args *args)
 	/* Length check. */
 	if (length != 4) {
 		flog_err(EC_BGP_ATTR_LEN,
-			  "MED attribute length isn't four [%d]", length);
+			 "MED attribute length isn't four [%d]", length);
 
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 					  args->total);
@@ -1330,7 +1329,7 @@ bgp_attr_local_pref(struct bgp_attr_parser_args *args)
 	/* Length check. */
 	if (length != 4) {
 		flog_err(EC_BGP_ATTR_LEN,
-			  "LOCAL_PREF attribute length isn't 4 [%u]", length);
+			 "LOCAL_PREF attribute length isn't 4 [%u]", length);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 					  args->total);
 	}
@@ -1360,8 +1359,8 @@ static int bgp_attr_atomic(struct bgp_attr_parser_args *args)
 	/* Length check. */
 	if (length != 0) {
 		flog_err(EC_BGP_ATTR_LEN,
-			  "ATOMIC_AGGREGATE attribute length isn't 0 [%u]",
-			  length);
+			 "ATOMIC_AGGREGATE attribute length isn't 0 [%u]",
+			 length);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 					  args->total);
 	}
@@ -1387,8 +1386,8 @@ static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 
 	if (length != wantedlen) {
 		flog_err(EC_BGP_ATTR_LEN,
-			  "AGGREGATOR attribute length isn't %u [%u]",
-			  wantedlen, length);
+			 "AGGREGATOR attribute length isn't %u [%u]", wantedlen,
+			 length);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 					  args->total);
 	}
@@ -1416,8 +1415,8 @@ bgp_attr_as4_aggregator(struct bgp_attr_parser_args *args,
 	const bgp_size_t length = args->length;
 
 	if (length != 8) {
-		flog_err(EC_BGP_ATTR_LEN,
-			  "New Aggregator length is not 8 [%d]", length);
+		flog_err(EC_BGP_ATTR_LEN, "New Aggregator length is not 8 [%d]",
+			 length);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 					  0);
 	}
@@ -1577,7 +1576,7 @@ bgp_attr_originator_id(struct bgp_attr_parser_args *args)
 	/* Length check. */
 	if (length != 4) {
 		flog_err(EC_BGP_ATTR_LEN, "Bad originator ID length %d",
-			  length);
+			 length);
 
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 					  args->total);
@@ -1600,8 +1599,7 @@ bgp_attr_cluster_list(struct bgp_attr_parser_args *args)
 
 	/* Check length. */
 	if (length % 4) {
-		flog_err(EC_BGP_ATTR_LEN, "Bad cluster list length %d",
-			  length);
+		flog_err(EC_BGP_ATTR_LEN, "Bad cluster list length %d", length);
 
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 					  args->total);
@@ -2108,8 +2106,8 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(int32_t type,
 	else if (type == BGP_PREFIX_SID_IPV6) {
 		if (length != BGP_PREFIX_SID_IPV6_LENGTH) {
 			flog_err(EC_BGP_ATTR_LEN,
-				  "Prefix SID IPv6 length is %d instead of %d",
-				  length, BGP_PREFIX_SID_IPV6_LENGTH);
+				 "Prefix SID IPv6 length is %d instead of %d",
+				 length, BGP_PREFIX_SID_IPV6_LENGTH);
 			return bgp_attr_malformed(args,
 						  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 						  args->total);
@@ -2208,8 +2206,8 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	 * can only support that.
 	 */
 	if (length < 2) {
-		flog_err(EC_BGP_ATTR_LEN,
-			  "Bad PMSI tunnel attribute length %d", length);
+		flog_err(EC_BGP_ATTR_LEN, "Bad PMSI tunnel attribute length %d",
+			 length);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 					  args->total);
 	}
@@ -2217,15 +2215,15 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	tnl_type = stream_getc(peer->curr);
 	if (tnl_type > PMSI_TNLTYPE_MAX) {
 		flog_err(EC_BGP_ATTR_PMSI_TYPE,
-			  "Invalid PMSI tunnel attribute type %d", tnl_type);
+			 "Invalid PMSI tunnel attribute type %d", tnl_type);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 	}
 	if (tnl_type == PMSI_TNLTYPE_INGR_REPL) {
 		if (length != 9) {
 			flog_err(EC_BGP_ATTR_PMSI_LEN,
-				  "Bad PMSI tunnel attribute length %d for IR",
-				  length);
+				 "Bad PMSI tunnel attribute length %d for IR",
+				 length);
 			return bgp_attr_malformed(
 				args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 				args->total);

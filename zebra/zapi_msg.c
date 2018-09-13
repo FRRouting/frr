@@ -1787,8 +1787,8 @@ static void zread_table_manager_connect(struct zserv *client,
 	/* accept only dynamic routing protocols */
 	if ((proto >= ZEBRA_ROUTE_MAX) || (proto <= ZEBRA_ROUTE_STATIC)) {
 		flog_err(EC_ZEBRA_TM_WRONG_PROTO,
-			  "client %d has wrong protocol %s", client->sock,
-			  zebra_route_string(proto));
+			 "client %d has wrong protocol %s", client->sock,
+			 zebra_route_string(proto));
 		zsend_table_manager_connect_response(client, vrf_id, 1);
 		return;
 	}
@@ -1827,8 +1827,8 @@ static void zread_label_manager_connect(struct zserv *client,
 	/* accept only dynamic routing protocols */
 	if ((proto >= ZEBRA_ROUTE_MAX) || (proto <= ZEBRA_ROUTE_STATIC)) {
 		flog_err(EC_ZEBRA_TM_WRONG_PROTO,
-			  "client %d has wrong protocol %s", client->sock,
-			  zebra_route_string(proto));
+			 "client %d has wrong protocol %s", client->sock,
+			 zebra_route_string(proto));
 		zsend_label_manager_connect_response(client, vrf_id, 1);
 		return;
 	}
@@ -1857,8 +1857,8 @@ static int msg_client_id_mismatch(const char *op, struct zserv *client,
 {
 	if (proto != client->proto) {
 		flog_err(EC_ZEBRA_PROTO_OR_INSTANCE_MISMATCH,
-			  "%s: msg vs client proto mismatch, client=%u msg=%u",
-			  op, client->proto, proto);
+			 "%s: msg vs client proto mismatch, client=%u msg=%u",
+			 op, client->proto, proto);
 		/* TODO: fail when BGP sets proto and instance */
 		/* return 1; */
 	}
@@ -1989,8 +1989,8 @@ static void zread_get_table_chunk(struct zserv *client, struct stream *msg,
 	tmc = assign_table_chunk(client->proto, client->instance, size);
 	if (!tmc)
 		flog_err(EC_ZEBRA_TM_CANNOT_ASSIGN_CHUNK,
-			  "%s: Unable to assign Table Chunk of size %u",
-			  __func__, size);
+			 "%s: Unable to assign Table Chunk of size %u",
+			 __func__, size);
 	else
 		zlog_debug("Assigned Table Chunk %u - %u", tmc->start,
 			   tmc->end);

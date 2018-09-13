@@ -1056,7 +1056,7 @@ static int lsp_processq_add(zebra_lsp_t *lsp)
 
 	if (zebrad.lsp_process_q == NULL) {
 		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
-			  "%s: work_queue does not exist!", __func__);
+			 "%s: work_queue does not exist!", __func__);
 		return -1;
 	}
 
@@ -1699,7 +1699,7 @@ static int mpls_processq_init(struct zebra_t *zebra)
 	zebra->lsp_process_q = work_queue_new(zebra->master, "LSP processing");
 	if (!zebra->lsp_process_q) {
 		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
-			  "%s: could not initialise work queue!", __func__);
+			 "%s: could not initialise work queue!", __func__);
 		return -1;
 	}
 
@@ -1918,8 +1918,8 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
 	if (!fec) {
 		prefix2str(p, buf, BUFSIZ);
 		flog_err(EC_ZEBRA_FEC_RM_FAILED,
-			  "Failed to find FEC %s upon unregister, client %s",
-			  buf, zebra_route_string(client->proto));
+			 "Failed to find FEC %s upon unregister, client %s",
+			 buf, zebra_route_string(client->proto));
 		return -1;
 	}
 
@@ -2050,7 +2050,7 @@ int zebra_mpls_static_fec_add(struct zebra_vrf *zvrf, struct prefix *p,
 		if (!fec) {
 			prefix2str(p, buf, BUFSIZ);
 			flog_err(EC_ZEBRA_FEC_ADD_FAILED,
-				  "Failed to add FEC %s upon config", buf);
+				 "Failed to add FEC %s upon config", buf);
 			return -1;
 		}
 
@@ -2098,7 +2098,7 @@ int zebra_mpls_static_fec_del(struct zebra_vrf *zvrf, struct prefix *p)
 	if (!fec) {
 		prefix2str(p, buf, BUFSIZ);
 		flog_err(EC_ZEBRA_FEC_RM_FAILED,
-			  "Failed to find FEC %s upon delete", buf);
+			 "Failed to find FEC %s upon delete", buf);
 		return -1;
 	}
 

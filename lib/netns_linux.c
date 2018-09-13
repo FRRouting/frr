@@ -228,8 +228,8 @@ static int ns_enable_internal(struct ns *ns, void (*func)(ns_id_t, void *))
 		/* Non default NS. leave */
 		if (ns->ns_id == NS_UNKNOWN) {
 			flog_err(EC_LIB_NS,
-				  "Can not enable NS %s %u: Invalid NSID",
-				  ns->name, ns->ns_id);
+				 "Can not enable NS %s %u: Invalid NSID",
+				 ns->name, ns->ns_id);
 			return 0;
 		}
 		if (func)
@@ -488,7 +488,7 @@ void ns_init_management(ns_id_t default_ns_id, ns_id_t internal_ns)
 	default_ns = ns_get_created_internal(NULL, NULL, default_ns_id);
 	if (!default_ns) {
 		flog_err(EC_LIB_NS, "%s: failed to create the default NS!",
-			  __func__);
+			 __func__);
 		exit(1);
 	}
 	if (have_netns()) {
@@ -506,7 +506,7 @@ void ns_init_management(ns_id_t default_ns_id, ns_id_t internal_ns)
 	/* Enable the default NS. */
 	if (!ns_enable(default_ns, NULL)) {
 		flog_err(EC_LIB_NS, "%s: failed to enable the default NS!",
-			  __func__);
+			 __func__);
 		exit(1);
 	}
 }

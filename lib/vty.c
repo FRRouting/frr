@@ -2420,9 +2420,8 @@ static void vty_read_file(FILE *confp)
 		nl = strchr(vty->error_buf, '\n');
 		if (nl)
 			*nl = '\0';
-		flog_err(EC_LIB_VTY,
-			  "ERROR: %s on config line %u: %s", message, line_num,
-			  vty->error_buf);
+		flog_err(EC_LIB_VTY, "ERROR: %s on config line %u: %s", message,
+			 line_num, vty->error_buf);
 	}
 
 	vty_close(vty);
@@ -2523,8 +2522,8 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 					"WARNING: using backup configuration file!");
 			else {
 				flog_err(EC_LIB_VTY,
-					  "can't open configuration file [%s]",
-					  config_file);
+					 "can't open configuration file [%s]",
+					 config_file);
 				exit(1);
 			}
 		}
@@ -2574,8 +2573,8 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 				fullpath = config_default_dir;
 			} else {
 				flog_err(EC_LIB_VTY,
-					  "can't open configuration file [%s]",
-					  config_default_dir);
+					 "can't open configuration file [%s]",
+					 config_default_dir);
 				goto tmp_free_and_out;
 			}
 		} else

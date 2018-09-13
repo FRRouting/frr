@@ -342,9 +342,8 @@ static int ospf_check_md5_digest(struct ospf_interface *oi,
 	ck = ospf_crypt_key_lookup(OSPF_IF_PARAM(oi, auth_crypt),
 				   ospfh->u.crypt.key_id);
 	if (ck == NULL) {
-		flog_warn(EC_OSPF_MD5,
-			  "interface %s: ospf_check_md5 no key %d", IF_NAME(oi),
-			  ospfh->u.crypt.key_id);
+		flog_warn(EC_OSPF_MD5, "interface %s: ospf_check_md5 no key %d",
+			  IF_NAME(oi), ospfh->u.crypt.key_id);
 		return 0;
 	}
 
@@ -1336,8 +1335,7 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		 * In Hello protocol, optional capability must have checked
 		 * to prevent this T-bit enabled router be my neighbor.
 		 */
-		flog_warn(EC_OSPF_PACKET,
-			  "Packet[DD]: Neighbor %s: T-bit on?",
+		flog_warn(EC_OSPF_PACKET, "Packet[DD]: Neighbor %s: T-bit on?",
 			  inet_ntoa(nbr->router_id));
 		return;
 	}
@@ -1949,15 +1947,15 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 				char buf3[INET_ADDRSTRLEN];
 
 				flog_err(EC_OSPF_ROUTER_LSA_MISMATCH,
-					  "Incoming Router-LSA from %s with "
-					  "Adv-ID[%s] != LS-ID[%s]",
-					  inet_ntop(AF_INET, &ospfh->router_id,
-						    buf1, INET_ADDRSTRLEN),
-					  inet_ntop(AF_INET, &lsa->data->id,
-						    buf2, INET_ADDRSTRLEN),
-					  inet_ntop(AF_INET,
-						    &lsa->data->adv_router,
-						    buf3, INET_ADDRSTRLEN));
+					 "Incoming Router-LSA from %s with "
+					 "Adv-ID[%s] != LS-ID[%s]",
+					 inet_ntop(AF_INET, &ospfh->router_id,
+						   buf1, INET_ADDRSTRLEN),
+					 inet_ntop(AF_INET, &lsa->data->id,
+						   buf2, INET_ADDRSTRLEN),
+					 inet_ntop(AF_INET,
+						   &lsa->data->adv_router, buf3,
+						   INET_ADDRSTRLEN));
 				flog_err(
 					EC_OSPF_DOMAIN_CORRUPT,
 					"OSPF domain compromised by attack or corruption. "

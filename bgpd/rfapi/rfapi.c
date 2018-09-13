@@ -3943,7 +3943,7 @@ void *rfapi_rfp_init_group_config_ptr_vty(void *rfp_start_val,
 		break;
 	default:
 		flog_err(EC_LIB_DEVELOPMENT, "%s: Unknown group type=%d",
-			  __func__, type);
+			 __func__, type);
 		/* should never happen */
 		assert("Unknown type" == NULL);
 		break;
@@ -4058,7 +4058,7 @@ void *rfapi_rfp_get_group_config_ptr_name(
 		break;
 	default:
 		flog_err(EC_LIB_DEVELOPMENT, "%s: Unknown group type=%d",
-			  __func__, type);
+			 __func__, type);
 		/* should never happen */
 		assert("Unknown type" == NULL);
 		break;

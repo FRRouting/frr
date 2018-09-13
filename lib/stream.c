@@ -54,7 +54,7 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
  * using stream_put..._at() functions.
  */
 #define STREAM_WARN_OFFSETS(S)                                                 \
-	flog_warn(EC_LIB_STREAM,                                             \
+	flog_warn(EC_LIB_STREAM,                                               \
 		  "&(struct stream): %p, size: %lu, getp: %lu, endp: %lu\n",   \
 		  (void *)(S), (unsigned long)(S)->size,                       \
 		  (unsigned long)(S)->getp, (unsigned long)(S)->endp)
@@ -69,7 +69,7 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
 
 #define STREAM_BOUND_WARN(S, WHAT)                                             \
 	do {                                                                   \
-		flog_warn(EC_LIB_STREAM, "%s: Attempt to %s out of bounds",  \
+		flog_warn(EC_LIB_STREAM, "%s: Attempt to %s out of bounds",    \
 			  __func__, (WHAT));                                   \
 		STREAM_WARN_OFFSETS(S);                                        \
 		assert(0);                                                     \
@@ -77,7 +77,7 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
 
 #define STREAM_BOUND_WARN2(S, WHAT)                                            \
 	do {                                                                   \
-		flog_warn(EC_LIB_STREAM, "%s: Attempt to %s out of bounds",  \
+		flog_warn(EC_LIB_STREAM, "%s: Attempt to %s out of bounds",    \
 			  __func__, (WHAT));                                   \
 		STREAM_WARN_OFFSETS(S);                                        \
 	} while (0)
@@ -87,7 +87,7 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
 	do {                                                                   \
 		if (((S)->endp + (Z)) > (S)->size) {                           \
 			flog_warn(                                             \
-				EC_LIB_STREAM,                               \
+				EC_LIB_STREAM,                                 \
 				"CHECK_SIZE: truncating requested size %lu\n", \
 				(unsigned long)(Z));                           \
 			STREAM_WARN_OFFSETS(S);                                \

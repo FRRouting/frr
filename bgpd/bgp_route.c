@@ -9890,12 +9890,14 @@ static int bgp_peer_count_walker(struct thread *t)
 			if (CHECK_FLAG(ri->flags, BGP_INFO_COUNTED)) {
 				pc->count[PCOUNT_COUNTED]++;
 				if (CHECK_FLAG(ri->flags, BGP_INFO_UNUSEABLE))
-					flog_err(EC_LIB_DEVELOPMENT,
-						 "Attempting to count but flags say it is unusable");
+					flog_err(
+						EC_LIB_DEVELOPMENT,
+						"Attempting to count but flags say it is unusable");
 			} else {
 				if (!CHECK_FLAG(ri->flags, BGP_INFO_UNUSEABLE))
-					flog_err(EC_LIB_DEVELOPMENT,
-						 "Not counted but flags say we should");
+					flog_err(
+						EC_LIB_DEVELOPMENT,
+						"Not counted but flags say we should");
 			}
 		}
 	}

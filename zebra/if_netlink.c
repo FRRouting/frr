@@ -314,7 +314,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 			      name); // It would create vrf
 		if (!vrf) {
 			flog_err(EC_LIB_INTERFACE, "VRF %s id %u not created",
-				  name, ifi->ifi_index);
+				 name, ifi->ifi_index);
 			return;
 		}
 
@@ -336,8 +336,8 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 		/* Enable the created VRF. */
 		if (!vrf_enable(vrf)) {
 			flog_err(EC_LIB_INTERFACE,
-				  "Failed to enable VRF %s id %u", name,
-				  ifi->ifi_index);
+				 "Failed to enable VRF %s id %u", name,
+				 ifi->ifi_index);
 			return;
 		}
 

@@ -653,9 +653,10 @@ static int bgp_pbr_build_and_validate_entry(struct prefix *p,
 			action_count++;
 			if (action_count > ACTIONS_MAX_NUM) {
 				if (BGP_DEBUG(pbr, PBR_ERROR))
-					flog_err(EC_BGP_FLOWSPEC_PACKET,
-						  "%s: flowspec actions exceeds limit (max %u)",
-						  __func__, action_count);
+					flog_err(
+						EC_BGP_FLOWSPEC_PACKET,
+						"%s: flowspec actions exceeds limit (max %u)",
+						__func__, action_count);
 				break;
 			}
 			api_action = &api->actions[action_count - 1];
@@ -2252,16 +2253,15 @@ void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
 	if (!bgp_zebra_tm_chunk_obtained()) {
 		if (BGP_DEBUG(pbr, PBR_ERROR))
 			flog_err(EC_BGP_TABLE_CHUNK,
-				  "%s: table chunk not obtained yet",
-				  __func__);
+				 "%s: table chunk not obtained yet", __func__);
 		return;
 	}
 
 	if (bgp_pbr_build_and_validate_entry(p, info, &api) < 0) {
 		if (BGP_DEBUG(pbr, PBR_ERROR))
 			flog_err(EC_BGP_FLOWSPEC_INSTALLATION,
-				  "%s: cancel updating entry %p in bgp pbr",
-				  __func__, info);
+				 "%s: cancel updating entry %p in bgp pbr",
+				 __func__, info);
 		return;
 	}
 	bgp_pbr_handle_entry(bgp, info, &api, nlri_update);

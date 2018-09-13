@@ -1079,7 +1079,7 @@ int bgp_zebra_get_table_range(uint32_t chunk_size,
 	ret = tm_get_table_chunk(zclient, chunk_size, start, end);
 	if (ret < 0) {
 		flog_err(EC_BGP_TABLE_CHUNK,
-			  "BGP: Error getting table chunk %u", chunk_size);
+			 "BGP: Error getting table chunk %u", chunk_size);
 		return -1;
 	}
 	zlog_info("BGP: Table Manager returns range from chunk %u is [%u %u]",
@@ -2391,9 +2391,9 @@ static int bgp_zebra_process_local_macip(int command, struct zclient *zclient,
 	if (ipa_len != 0 && ipa_len != IPV4_MAX_BYTELEN
 	    && ipa_len != IPV6_MAX_BYTELEN) {
 		flog_err(EC_BGP_MACIP_LEN,
-			  "%u:Recv MACIP %s with invalid IP addr length %d",
-			  vrf_id, (command == ZEBRA_MACIP_ADD) ? "Add" : "Del",
-			  ipa_len);
+			 "%u:Recv MACIP %s with invalid IP addr length %d",
+			 vrf_id, (command == ZEBRA_MACIP_ADD) ? "Add" : "Del",
+			 ipa_len);
 		return -1;
 	}
 
@@ -2488,12 +2488,12 @@ static void bgp_zebra_process_label_chunk(
 
 	if (zclient->redist_default != proto) {
 		flog_err(EC_BGP_LM_ERROR, "Got LM msg with wrong proto %u",
-			  proto);
+			 proto);
 		return;
 	}
 	if (zclient->instance != instance) {
 		flog_err(EC_BGP_LM_ERROR, "Got LM msg with wrong instance %u",
-			  proto);
+			 proto);
 		return;
 	}
 
@@ -2502,7 +2502,7 @@ static void bgp_zebra_process_label_chunk(
 		last > MPLS_LABEL_UNRESERVED_MAX) {
 
 		flog_err(EC_BGP_LM_ERROR, "%s: Invalid Label chunk: %u - %u",
-			  __func__, first, last);
+			 __func__, first, last);
 		return;
 	}
 	if (BGP_DEBUG(zebra, ZEBRA)) {

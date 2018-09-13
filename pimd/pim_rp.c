@@ -114,7 +114,7 @@ void pim_rp_init(struct pim_instance *pim)
 
 	if (!str2prefix("224.0.0.0/4", &rp_info->group)) {
 		flog_err(EC_LIB_DEVELOPMENT,
-			  "Unable to convert 224.0.0.0/4 to prefix");
+			 "Unable to convert 224.0.0.0/4 to prefix");
 		list_delete_and_null(&pim->rp_list);
 		route_table_finish(pim->rp_table);
 		XFREE(MTYPE_PIM_RP, rp_info);

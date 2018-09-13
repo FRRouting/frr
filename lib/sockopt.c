@@ -129,8 +129,7 @@ int setsockopt_ipv6_multicast_hops(int sock, int val)
 	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &val,
 			 sizeof(val));
 	if (ret < 0)
-		flog_err(EC_LIB_SOCKET,
-			 "can't setsockopt IPV6_MULTICAST_HOPS");
+		flog_err(EC_LIB_SOCKET, "can't setsockopt IPV6_MULTICAST_HOPS");
 	return ret;
 }
 
@@ -171,8 +170,7 @@ int setsockopt_ipv6_multicast_loop(int sock, int val)
 	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &val,
 			 sizeof(val));
 	if (ret < 0)
-		flog_err(EC_LIB_SOCKET,
-			 "can't setsockopt IPV6_MULTICAST_LOOP");
+		flog_err(EC_LIB_SOCKET, "can't setsockopt IPV6_MULTICAST_LOOP");
 	return ret;
 }
 

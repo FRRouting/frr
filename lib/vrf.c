@@ -490,7 +490,7 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 	default_vrf = vrf_get(VRF_DEFAULT, VRF_DEFAULT_NAME);
 	if (!default_vrf) {
 		flog_err(EC_LIB_VRF_START,
-			  "vrf_init: failed to create the default VRF!");
+			 "vrf_init: failed to create the default VRF!");
 		exit(1);
 	}
 	if (vrf_is_backend_netns()) {
@@ -506,7 +506,7 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 	/* Enable the default VRF. */
 	if (!vrf_enable(default_vrf)) {
 		flog_err(EC_LIB_VRF_START,
-			  "vrf_init: failed to enable the default VRF!");
+			 "vrf_init: failed to enable the default VRF!");
 		exit(1);
 	}
 
