@@ -586,13 +586,13 @@ struct pbr_nexthop_group_cache *pbr_nht_add_group(const char *name)
 	       pnhgc);
 
 	for (ALL_NEXTHOPS(nhgc->nhg, nhop)) {
-		struct pbr_nexthop_cache lookup;
+		struct pbr_nexthop_cache lookupc;
 		struct pbr_nexthop_cache *pnhc;
 
-		lookup.nexthop = nhop;
-		pnhc = hash_lookup(pnhgc->nhh, &lookup);
+		lookupc.nexthop = nhop;
+		pnhc = hash_lookup(pnhgc->nhh, &lookupc);
 		if (!pnhc) {
-			pnhc = hash_get(pnhgc->nhh, &lookup, pbr_nh_alloc);
+			pnhc = hash_get(pnhgc->nhh, &lookupc, pbr_nh_alloc);
 			pnhc->parent = pnhgc;
 		}
 	}

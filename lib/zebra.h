@@ -333,18 +333,18 @@ struct in_pktinfo {
 #endif
 #define MAX(a, b)                                                              \
 	({                                                                     \
-		typeof(a) _a = (a);                                            \
-		typeof(b) _b = (b);                                            \
-		_a > _b ? _a : _b;                                             \
+		typeof(a) _max_a = (a);                                        \
+		typeof(b) _max_b = (b);                                        \
+		_max_a > _max_b ? _max_a : _max_b;                             \
 	})
 #ifdef MIN
 #undef MIN
 #endif
 #define MIN(a, b)                                                              \
 	({                                                                     \
-		typeof(a) _a = (a);                                            \
-		typeof(b) _b = (b);                                            \
-		_a < _b ? _a : _b;                                             \
+		typeof(a) _min_a = (a);                                        \
+		typeof(b) _min_b = (b);                                        \
+		_min_a < _min_b ? _min_a : _min_b;                             \
 	})
 
 #ifndef offsetof

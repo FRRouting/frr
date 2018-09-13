@@ -265,10 +265,10 @@ static void test_run(struct prng *prng, struct vty *vty, const char *cmd,
 			if (descriptions != NULL) {
 				for (j = 0; j < vector_active(descriptions);
 				     j++) {
-					struct cmd_token *cmd =
+					struct cmd_token *ct =
 						vector_slot(descriptions, j);
-					printf("  '%s' '%s'\n", cmd->text,
-					       cmd->desc);
+					printf("  '%s' '%s'\n", ct->text,
+					       ct->desc);
 				}
 				vector_free(descriptions);
 			}

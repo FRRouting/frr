@@ -2398,11 +2398,11 @@ void vnc_import_bgp_exterior_add_route_interior(
 	}
 	if (list_adopted) {
 		struct listnode *node;
-		struct agg_node *bi_exterior;
+		struct agg_node *an_bi_exterior;
 
-		for (ALL_LIST_ELEMENTS_RO(list_adopted, node, bi_exterior)) {
+		for (ALL_LIST_ELEMENTS_RO(list_adopted, node, an_bi_exterior)) {
 			skiplist_delete(it->monitor_exterior_orphans,
-					bi_exterior, NULL);
+					an_bi_exterior, NULL);
 		}
 		list_delete_and_null(&list_adopted);
 	}

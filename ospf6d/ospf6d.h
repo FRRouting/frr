@@ -72,12 +72,12 @@ extern struct thread_master *master;
 
 #define threadtimer_string(now, t, buf, size)                                  \
 	do {                                                                   \
-		struct timeval result;                                         \
+		struct timeval _result;                                        \
 		if (!t)                                                        \
 			snprintf(buf, size, "inactive");                       \
 		else {                                                         \
-			timersub(&t->u.sands, &now, &result);                  \
-			timerstring(&result, buf, size);                       \
+			timersub(&t->u.sands, &now, &_result);                 \
+			timerstring(&_result, buf, size);                      \
 		}                                                              \
 	} while (0)
 

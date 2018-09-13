@@ -140,8 +140,8 @@ static struct ttable_cell *ttable_insert_row_va(struct ttable *tt, int i,
 	int ncols = 0;
 
 	/* count how many columns we have */
-	for (int i = 0; format[i]; i++)
-		ncols += !!(format[i] == '|');
+	for (int j = 0; format[j]; j++)
+		ncols += !!(format[j] == '|');
 	ncols++;
 
 	if (tt->ncols == 0)
@@ -459,7 +459,7 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 			memcpy(&buf[pos], left, lsize);
 			pos += lsize;
 
-			for (size_t i = 0; i < width - lsize - rsize; i++)
+			for (size_t l = 0; l < width - lsize - rsize; l++)
 				buf[pos++] = row[0].style.border.bottom;
 
 			pos -= width - lsize - rsize;
