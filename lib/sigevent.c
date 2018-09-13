@@ -84,7 +84,7 @@ int quagga_sigevent_process(void)
 	sigdelset(&newmask, SIGKILL);
 
 	if ((sigprocmask(SIG_BLOCK, &newmask, &oldmask)) < 0) {
-		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "quagga_signal_timer: couldnt block signals!");
 		return -1;
 	}
@@ -330,7 +330,7 @@ static void trap_default_signals(void)
 				if (sigaction(sigmap[i].sigs[j], &act, NULL)
 				    < 0)
 					flog_err(
-						LIB_ERR_SYSTEM_CALL,
+						EC_LIB_SYSTEM_CALL,
 						"Unable to set signal handler for signal %d: %s",
 						sigmap[i].sigs[j],
 						safe_strerror(errno));

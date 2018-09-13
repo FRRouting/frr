@@ -1481,7 +1481,7 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 			}
 
 			/* else die */
-			flog_err(LIB_ERR_SYSTEM_CALL, "poll() error: %s",
+			flog_err(EC_LIB_SYSTEM_CALL, "poll() error: %s",
 				 safe_strerror(errno));
 			pthread_mutex_unlock(&m->mtx);
 			fetch = NULL;
@@ -1620,7 +1620,7 @@ void thread_call(struct thread *thread)
 		 * to fix.
 		 */
 		flog_warn(
-			LIB_WARN_SLOW_THREAD,
+			EC_LIB_SLOW_THREAD,
 			"SLOW THREAD: task %s (%lx) ran for %lums (cpu time %lums)",
 			thread->funcname, (unsigned long)thread->func,
 			realtime / 1000, cputime / 1000);

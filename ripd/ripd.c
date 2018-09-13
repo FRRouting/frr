@@ -1339,7 +1339,7 @@ static int rip_create_socket(void)
 	/* Make datagram socket. */
 	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (sock < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "Cannot create UDP socket: %s",
+		flog_err_sys(EC_LIB_SOCKET, "Cannot create UDP socket: %s",
 			     safe_strerror(errno));
 		exit(1);
 	}

@@ -865,7 +865,7 @@ static int rip_interface_wakeup(struct thread *t)
 
 	/* Join to multicast group. */
 	if (rip_multicast_join(ifp, rip->sock) < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "multicast join failed, interface %s not running",
 			     ifp->name);
 		return 0;

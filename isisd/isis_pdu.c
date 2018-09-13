@@ -1423,7 +1423,7 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 	uint8_t max_area_addrs = stream_getc(circuit->rcv_stream);
 
 	if (idrp == ISO9542_ESIS) {
-		flog_err(LIB_ERR_DEVELOPMENT,
+		flog_err(EC_LIB_DEVELOPMENT,
 			  "No support for ES-IS packet IDRP=%" PRIx8, idrp);
 		return ISIS_ERROR;
 	}

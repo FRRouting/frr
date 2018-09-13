@@ -602,7 +602,7 @@ static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 
 		if (ret < 0)
 			flog_err(
-				LIB_ERR_SOCKET,
+				EC_LIB_SOCKET,
 				"*** ospf_write_frags: sendmsg failed to %s,"
 				" id %d, off %d, len %d, mtu %u failed with %s",
 				inet_ntoa(iph->ip_dst), iph->ip_id, iph->ip_off,
@@ -806,7 +806,7 @@ static int ospf_write(struct thread *thread)
 
 		if (ret < 0)
 			flog_err(
-				LIB_ERR_SOCKET,
+				EC_LIB_SOCKET,
 				"*** sendmsg in ospf_write failed to %s, "
 				"id %d, off %d, len %d, interface %s, mtu %u: %s",
 				inet_ntoa(iph.ip_dst), iph.ip_id, iph.ip_off,

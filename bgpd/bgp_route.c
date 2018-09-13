@@ -355,7 +355,7 @@ static void bgp_pcount_adjust(struct bgp_node *rn, struct bgp_info *ri)
 		if (ri->peer->pcount[table->afi][table->safi])
 			ri->peer->pcount[table->afi][table->safi]--;
 		else
-			flog_err(LIB_ERR_DEVELOPMENT,
+			flog_err(EC_LIB_DEVELOPMENT,
 				 "Asked to decrement 0 prefix count for peer");
 	} else if (BGP_INFO_COUNTABLE(ri)
 		   && !CHECK_FLAG(ri->flags, BGP_INFO_COUNTED)) {
@@ -9890,11 +9890,11 @@ static int bgp_peer_count_walker(struct thread *t)
 			if (CHECK_FLAG(ri->flags, BGP_INFO_COUNTED)) {
 				pc->count[PCOUNT_COUNTED]++;
 				if (CHECK_FLAG(ri->flags, BGP_INFO_UNUSEABLE))
-					flog_err(LIB_ERR_DEVELOPMENT,
+					flog_err(EC_LIB_DEVELOPMENT,
 						 "Attempting to count but flags say it is unusable");
 			} else {
 				if (!CHECK_FLAG(ri->flags, BGP_INFO_UNUSEABLE))
-					flog_err(LIB_ERR_DEVELOPMENT,
+					flog_err(EC_LIB_DEVELOPMENT,
 						 "Not counted but flags say we should");
 			}
 		}

@@ -249,7 +249,7 @@ static pid_t run_background(char *shell_cmd)
 
 	switch (child = fork()) {
 	case -1:
-		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "fork failed, cannot run command [%s]: %s",
 			     shell_cmd, safe_strerror(errno));
 		return -1;
@@ -265,14 +265,14 @@ static pid_t run_background(char *shell_cmd)
 			char dashc[] = "-c";
 			char *const argv[4] = {shell, dashc, shell_cmd, NULL};
 			execv("/bin/sh", argv);
-			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			flog_err_sys(EC_LIB_SYSTEM_CALL,
 				     "execv(/bin/sh -c '%s') failed: %s",
 				     shell_cmd, safe_strerror(errno));
 			_exit(127);
 		}
 	default:
 		/* Parent process: we will reap the child later. */
-		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "Forked background command [pid %d]: %s",
 			     (int)child, shell_cmd);
 		return child;
@@ -334,7 +334,7 @@ static void sigchild(void)
 
 	switch (child = waitpid(-1, &status, WNOHANG)) {
 	case -1:
-		flog_err_sys(LIB_ERR_SYSTEM_CALL, "waitpid failed: %s",
+		flog_err_sys(EC_LIB_SYSTEM_CALL, "waitpid failed: %s",
 			     safe_strerror(errno));
 		return;
 	case 0:
@@ -359,7 +359,7 @@ static void sigchild(void)
 		gettimeofday(&restart->time, NULL);
 	} else {
 		flog_err_sys(
-			LIB_ERR_SYSTEM_CALL,
+			EC_LIB_SYSTEM_CALL,
 			"waitpid returned status for an unknown child process %d",
 			(int)child);
 		name = "(unknown)";
@@ -381,7 +381,7 @@ static void sigchild(void)
 				   name, (int)child);
 	} else
 		flog_err_sys(
-			LIB_ERR_SYSTEM_CALL,
+			EC_LIB_SYSTEM_CALL,
 			"cannot interpret %s %s process %d wait status 0x%x",
 			what, name, (int)child, status);
 	phase_check();
@@ -698,7 +698,7 @@ static int try_connect(struct daemon *dmn)
 	   of creating a socket. */
 	if (access(addr.sun_path, W_OK) < 0) {
 		if (errno != ENOENT)
-			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			flog_err_sys(EC_LIB_SYSTEM_CALL,
 				     "%s: access to socket %s denied: %s",
 				     dmn->name, addr.sun_path,
 				     safe_strerror(errno));
@@ -706,13 +706,13 @@ static int try_connect(struct daemon *dmn)
 	}
 
 	if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "%s(%s): cannot make socket: %s",
+		flog_err_sys(EC_LIB_SOCKET, "%s(%s): cannot make socket: %s",
 			     __func__, addr.sun_path, safe_strerror(errno));
 		return -1;
 	}
 
 	if (set_nonblocking(sock) < 0 || set_cloexec(sock) < 0) {
-		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "%s(%s): set_nonblocking/cloexec(%d) failed",
 			     __func__, addr.sun_path, sock);
 		close(sock);

@@ -104,7 +104,7 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 	safi = packet->safi;
 
 	if (afi == AFI_IP6) {
-		flog_err(LIB_ERR_DEVELOPMENT,
+		flog_err(EC_LIB_DEVELOPMENT,
 			  "BGP flowspec IPv6 not supported");
 		return -1;
 	}

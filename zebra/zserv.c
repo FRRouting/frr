@@ -744,7 +744,7 @@ static int zserv_accept(struct thread *thread)
 	client_sock = accept(accept_sock, (struct sockaddr *)&client, &len);
 
 	if (client_sock < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "Can't accept zebra socket: %s",
+		flog_err_sys(EC_LIB_SOCKET, "Can't accept zebra socket: %s",
 			     safe_strerror(errno));
 		return -1;
 	}
@@ -775,7 +775,7 @@ void zserv_start(char *path)
 	/* Make UNIX domain socket. */
 	zebrad.sock = socket(sa.ss_family, SOCK_STREAM, 0);
 	if (zebrad.sock < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "Can't create zserv socket: %s",
+		flog_err_sys(EC_LIB_SOCKET, "Can't create zserv socket: %s",
 			     safe_strerror(errno));
 		return;
 	}
@@ -798,7 +798,7 @@ void zserv_start(char *path)
 		ret = bind(zebrad.sock, (struct sockaddr *)&sa, sa_len);
 	}
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "Can't bind zserv socket on %s: %s", path,
 			     safe_strerror(errno));
 		close(zebrad.sock);
@@ -808,7 +808,7 @@ void zserv_start(char *path)
 
 	ret = listen(zebrad.sock, 5);
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "Can't listen to zserv socket %s: %s", path,
 			     safe_strerror(errno));
 		close(zebrad.sock);

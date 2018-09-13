@@ -88,7 +88,7 @@ static int send_receive(int sock, struct nlmsghdr *nlh, unsigned int seq,
 	ret = sendto(sock, (const void *)nlh, (size_t)nlh->nlmsg_len, 0,
 		     (struct sockaddr *)&snl, (socklen_t)sizeof(snl));
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "netlink( %u) sendmsg() error: %s",
+		flog_err_sys(EC_LIB_SOCKET, "netlink( %u) sendmsg() error: %s",
 			     sock, safe_strerror(errno));
 		return -1;
 	}
@@ -109,7 +109,7 @@ static int send_receive(int sock, struct nlmsghdr *nlh, unsigned int seq,
 	};
 	ret = recvmsg(sock, &msg, 0);
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "netlink recvmsg: error %d (errno %u)", ret,
 			     errno);
 		return -1;
@@ -176,7 +176,7 @@ ns_id_t zebra_ns_id_get(const char *netnspath)
 	/* netlink socket */
 	sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (sock < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "netlink( %u) socket() error: %s",
+		flog_err_sys(EC_LIB_SOCKET, "netlink( %u) socket() error: %s",
 			     sock, safe_strerror(errno));
 		close(fd);
 		return NS_UNKNOWN;
@@ -187,7 +187,7 @@ ns_id_t zebra_ns_id_get(const char *netnspath)
 	snl.nl_pid = 0; /* AUTO PID */
 	ret = bind(sock, (struct sockaddr *)&snl, sizeof(snl));
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "netlink( %u) socket() bind error: %s", sock,
 			     safe_strerror(errno));
 		close(sock);
@@ -263,7 +263,7 @@ ns_id_t zebra_ns_id_get(const char *netnspath)
 	if (ret <= 0) {
 		if (errno != EEXIST && ret != 0) {
 			flog_err(
-				LIB_ERR_SOCKET,
+				EC_LIB_SOCKET,
 				"netlink( %u) recvfrom() error 2 when reading: %s",
 				fd, safe_strerror(errno));
 			close(sock);

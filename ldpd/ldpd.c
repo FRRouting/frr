@@ -484,7 +484,7 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 
 	nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
 	if (nullfd == -1) {
-		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "%s: failed to open /dev/null: %s", __func__,
 			     safe_strerror(errno));
 	} else {

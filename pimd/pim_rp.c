@@ -113,7 +113,7 @@ void pim_rp_init(struct pim_instance *pim)
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
 
 	if (!str2prefix("224.0.0.0/4", &rp_info->group)) {
-		flog_err(LIB_ERR_DEVELOPMENT,
+		flog_err(EC_LIB_DEVELOPMENT,
 			  "Unable to convert 224.0.0.0/4 to prefix");
 		list_delete_and_null(&pim->rp_list);
 		route_table_finish(pim->rp_table);
@@ -236,7 +236,7 @@ static struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	rn = route_node_match(pim->rp_table, group);
 	if (!rn) {
 		flog_err(
-			LIB_ERR_DEVELOPMENT,
+			EC_LIB_DEVELOPMENT,
 			"%s: BUG We should have found default group information\n",
 			__PRETTY_FUNCTION__);
 		return best;
@@ -625,7 +625,7 @@ int pim_rp_del(struct pim_instance *pim, const char *rp,
 		if (rn) {
 			if (rn->info != rp_info)
 				flog_err(
-					LIB_ERR_DEVELOPMENT,
+					EC_LIB_DEVELOPMENT,
 					"Expected rn->info to be equal to rp_info");
 
 			if (PIM_DEBUG_TRACE) {

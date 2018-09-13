@@ -375,7 +375,7 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 
 	ret = sendmsg(sock, &msg, 0);
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "%s(%u): Tx RA failed, socket %u error %d (%s)",
 			     ifp->name, ifp->ifindex, sock, errno,
 			     safe_strerror(errno));
@@ -621,7 +621,7 @@ static int rtadv_read(struct thread *thread)
 				&hoplimit);
 
 	if (len < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "RA/RS recv failed, socket %u error %s", sock,
 			     safe_strerror(errno));
 		return len;
@@ -1767,7 +1767,7 @@ static int if_join_all_router(int sock, struct interface *ifp)
 	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_JOIN_GROUP, (char *)&mreq,
 			 sizeof mreq);
 	if (ret < 0)
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "%s(%u): Failed to join group, socket %u error %s",
 			     ifp->name, ifp->ifindex, sock,
 			     safe_strerror(errno));
@@ -1794,7 +1794,7 @@ static int if_leave_all_router(int sock, struct interface *ifp)
 			 sizeof mreq);
 	if (ret < 0)
 		flog_err_sys(
-			LIB_ERR_SOCKET,
+			EC_LIB_SOCKET,
 			"%s(%u): Failed to leave group, socket %u error %s",
 			ifp->name, ifp->ifindex, sock, safe_strerror(errno));
 

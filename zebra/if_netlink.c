@@ -82,7 +82,7 @@ static void set_ifindex(struct interface *ifp, ifindex_t ifi_index,
 	    && (oifp != ifp)) {
 		if (ifi_index == IFINDEX_INTERNAL)
 			flog_err(
-				LIB_ERR_INTERFACE,
+				EC_LIB_INTERFACE,
 				"Netlink is setting interface %s ifindex to reserved internal value %u",
 				ifp->name, ifi_index);
 		else {
@@ -92,7 +92,7 @@ static void set_ifindex(struct interface *ifp, ifindex_t ifi_index,
 					ifi_index, oifp->name, ifp->name);
 			if (if_is_up(oifp))
 				flog_err(
-					LIB_ERR_INTERFACE,
+					EC_LIB_INTERFACE,
 					"interface rename detected on up interface: index %d was renamed from %s to %s, results are uncertain!",
 					ifi_index, oifp->name, ifp->name);
 			if_delete_update(oifp);
@@ -313,7 +313,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 		vrf = vrf_get((vrf_id_t)ifi->ifi_index,
 			      name); // It would create vrf
 		if (!vrf) {
-			flog_err(LIB_ERR_INTERFACE, "VRF %s id %u not created",
+			flog_err(EC_LIB_INTERFACE, "VRF %s id %u not created",
 				  name, ifi->ifi_index);
 			return;
 		}
@@ -335,7 +335,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 
 		/* Enable the created VRF. */
 		if (!vrf_enable(vrf)) {
-			flog_err(LIB_ERR_INTERFACE,
+			flog_err(EC_LIB_INTERFACE,
 				  "Failed to enable VRF %s id %u", name,
 				  ifi->ifi_index);
 			return;
@@ -924,7 +924,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifp = if_lookup_by_index_per_ns(zns, ifa->ifa_index);
 	if (ifp == NULL) {
 		flog_err(
-			LIB_ERR_INTERFACE,
+			EC_LIB_INTERFACE,
 			"netlink_interface_addr can't find interface by index %d",
 			ifa->ifa_index);
 		return -1;

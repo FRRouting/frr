@@ -699,7 +699,7 @@ void if_delete_update(struct interface *ifp)
 
 	if (if_is_up(ifp)) {
 		flog_err(
-			LIB_ERR_INTERFACE,
+			EC_LIB_INTERFACE,
 			"interface %s vrf %u index %d is still up while being deleted.",
 			ifp->name, ifp->vrf_id, ifp->ifindex);
 		return;

@@ -1252,7 +1252,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 		if (errno == ESRCH)
 			return ZEBRA_ERR_RTNOEXIST;
 
-		flog_err_sys(LIB_ERR_SOCKET, "%s: write : %s (%d)", __func__,
+		flog_err_sys(EC_LIB_SOCKET, "%s: write : %s (%d)", __func__,
 			     safe_strerror(errno), errno);
 		return ZEBRA_ERR_KERNEL;
 	}
@@ -1335,7 +1335,7 @@ static int kernel_read(struct thread *thread)
 
 	if (nbytes <= 0) {
 		if (nbytes < 0 && errno != EWOULDBLOCK && errno != EAGAIN)
-			flog_err_sys(LIB_ERR_SOCKET, "routing socket error: %s",
+			flog_err_sys(EC_LIB_SOCKET, "routing socket error: %s",
 				     safe_strerror(errno));
 		return 0;
 	}
@@ -1392,7 +1392,7 @@ static void routing_socket(struct zebra_ns *zns)
 	}
 
 	if (routing_sock < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "Can't init kernel routing socket");
 		return;
 	}

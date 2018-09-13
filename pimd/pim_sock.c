@@ -151,7 +151,7 @@ int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
 		}
 #else
 		flog_err(
-			LIB_ERR_DEVELOPMENT,
+			EC_LIB_DEVELOPMENT,
 			"%s %s: Missing IP_PKTINFO and IP_RECVDSTADDR: unable to get dst addr from recvmsg()",
 			__FILE__, __PRETTY_FUNCTION__);
 		close(fd);
@@ -289,7 +289,7 @@ int pim_socket_join(int fd, struct in_addr group, struct in_addr ifaddr,
 			sprintf(ifaddr_str, "<ifaddr?>");
 
 		flog_err(
-			LIB_ERR_SOCKET,
+			EC_LIB_SOCKET,
 			"Failure socket joining fd=%d group %s on interface address %s: errno=%d: %s",
 			fd, group_str, ifaddr_str, errno, safe_strerror(errno));
 		return ret;

@@ -163,7 +163,7 @@ static int netlink_recvbuf(struct nlsock *nl, uint32_t newsize)
 
 	ret = getsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &oldsize, &oldlen);
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "Can't get %s receive buffer size: %s", nl->name,
 			     safe_strerror(errno));
 		return -1;
@@ -179,7 +179,7 @@ static int netlink_recvbuf(struct nlsock *nl, uint32_t newsize)
 		ret = setsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF,
 				 &nl_rcvbufsize, sizeof(nl_rcvbufsize));
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "Can't set %s receive buffer size: %s", nl->name,
 			     safe_strerror(errno));
 		return -1;
@@ -187,7 +187,7 @@ static int netlink_recvbuf(struct nlsock *nl, uint32_t newsize)
 
 	ret = getsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &newsize, &newlen);
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "Can't get %s receive buffer size: %s", nl->name,
 			     safe_strerror(errno));
 		return -1;
@@ -234,7 +234,7 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	namelen = sizeof snl;
 	ret = getsockname(sock, (struct sockaddr *)&snl, (socklen_t *)&namelen);
 	if (ret < 0 || namelen != sizeof snl) {
-		flog_err_sys(LIB_ERR_SOCKET, "Can't get %s socket name: %s",
+		flog_err_sys(EC_LIB_SOCKET, "Can't get %s socket name: %s",
 			     nl->name, safe_strerror(errno));
 		close(sock);
 		return -1;
@@ -453,7 +453,7 @@ static void netlink_install_filter(int sock, __u32 pid)
 
 	if (setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &prog, sizeof(prog))
 	    < 0)
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "Can't install socket filter: %s\n",
 			     safe_strerror(errno));
 }
@@ -723,7 +723,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 		}
 
 		if (status == 0) {
-			flog_err_sys(LIB_ERR_SOCKET, "%s EOF", nl->name);
+			flog_err_sys(EC_LIB_SOCKET, "%s EOF", nl->name);
 			return -1;
 		}
 
@@ -972,7 +972,7 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	}
 
 	if (status < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "netlink_talk sendmsg() error: %s",
+		flog_err_sys(EC_LIB_SOCKET, "netlink_talk sendmsg() error: %s",
 			     safe_strerror(save_errno));
 		return -1;
 	}
@@ -995,7 +995,7 @@ int netlink_request(struct nlsock *nl, struct nlmsghdr *n)
 
 	/* Check netlink socket. */
 	if (nl->sock < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "%s socket isn't active.",
+		flog_err_sys(EC_LIB_SOCKET, "%s socket isn't active.",
 			     nl->name);
 		return -1;
 	}
@@ -1090,7 +1090,7 @@ void kernel_init(struct zebra_ns *zns)
 
 	/* Register kernel socket. */
 	if (fcntl(zns->netlink.sock, F_SETFL, O_NONBLOCK) < 0)
-		flog_err_sys(LIB_ERR_SOCKET, "Can't set %s socket flags: %s",
+		flog_err_sys(EC_LIB_SOCKET, "Can't set %s socket flags: %s",
 			     zns->netlink.name, safe_strerror(errno));
 
 	if (fcntl(zns->netlink_cmd.sock, F_SETFL, O_NONBLOCK) < 0)

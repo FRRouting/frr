@@ -149,7 +149,7 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 		ret = sockopt_ttl(peer->su.sa.sa_family, bgp_sock, peer->ttl);
 		if (ret) {
 			flog_err(
-				LIB_ERR_SOCKET,
+				EC_LIB_SOCKET,
 				"%s: Can't set TxTTL on peer (rtrid %s) socket, err = %d",
 				__func__,
 				inet_ntop(AF_INET, &peer->remote_id, buf,
@@ -165,7 +165,7 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 		ret = sockopt_ttl(peer->su.sa.sa_family, bgp_sock, MAXTTL);
 		if (ret) {
 			flog_err(
-				LIB_ERR_SOCKET,
+				EC_LIB_SOCKET,
 				"%s: Can't set TxTTL on peer (rtrid %s) socket, err = %d",
 				__func__,
 				inet_ntop(AF_INET, &peer->remote_id, buf,
@@ -177,7 +177,7 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 				     MAXTTL + 1 - peer->gtsm_hops);
 		if (ret) {
 			flog_err(
-				LIB_ERR_SOCKET,
+				EC_LIB_SOCKET,
 				"%s: Can't set MinTTL on peer (rtrid %s) socket, err = %d",
 				__func__,
 				inet_ntop(AF_INET, &peer->remote_id, buf,
@@ -223,7 +223,7 @@ static int bgp_get_instance_for_inc_conn(int sock, struct bgp **bgp_inst)
 	if (rc != 0) {
 #if defined(HAVE_CUMULUS)
 		flog_err(
-			LIB_ERR_SOCKET,
+			EC_LIB_SOCKET,
 			"[Error] BGP SO_BINDTODEVICE get failed (%s), sock %d",
 			safe_strerror(errno), sock);
 		return -1;
@@ -280,7 +280,7 @@ static int bgp_accept(struct thread *thread)
 	/* Register accept thread. */
 	accept_sock = THREAD_FD(thread);
 	if (accept_sock < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "accept_sock is nevative value %d",
+		flog_err_sys(EC_LIB_SOCKET, "accept_sock is nevative value %d",
 			     accept_sock);
 		return -1;
 	}
@@ -292,7 +292,7 @@ static int bgp_accept(struct thread *thread)
 	/* Accept client connection. */
 	bgp_sock = sockunion_accept(accept_sock, &su);
 	if (bgp_sock < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "[Error] BGP socket accept failed (%s)",
 			     safe_strerror(errno));
 		return -1;
@@ -659,13 +659,13 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 	}
 
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "bind: %s", safe_strerror(en));
+		flog_err_sys(EC_LIB_SOCKET, "bind: %s", safe_strerror(en));
 		return ret;
 	}
 
 	ret = listen(sock, SOMAXCONN);
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "listen: %s",
+		flog_err_sys(EC_LIB_SOCKET, "listen: %s",
 			     safe_strerror(errno));
 		return ret;
 	}
@@ -708,7 +708,7 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 				      bgp->vrf_id);
 	}
 	if (ret != 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "getaddrinfo: %s",
+		flog_err_sys(EC_LIB_SOCKET, "getaddrinfo: %s",
 			     gai_strerror(ret));
 		return -1;
 	}
@@ -729,7 +729,7 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 					   ? bgp->name : NULL));
 		}
 		if (sock < 0) {
-			flog_err_sys(LIB_ERR_SOCKET, "socket: %s",
+			flog_err_sys(EC_LIB_SOCKET, "socket: %s",
 				     safe_strerror(errno));
 			continue;
 		}
@@ -748,10 +748,10 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 	freeaddrinfo(ainfo_save);
 	if (count == 0 && bgp->inst_type != BGP_INSTANCE_TYPE_VRF) {
 		flog_err(
-			LIB_ERR_SOCKET,
+			EC_LIB_SOCKET,
 			"%s: no usable addresses please check other programs usage of specified port %d",
 			__func__, port);
-		flog_err_sys(LIB_ERR_SOCKET, "%s: Program cannot continue",
+		flog_err_sys(EC_LIB_SOCKET, "%s: Program cannot continue",
 			     __func__);
 		exit(-1);
 	}

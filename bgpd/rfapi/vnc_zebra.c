@@ -571,7 +571,7 @@ static void vnc_zebra_add_del_prefix(struct bgp *bgp,
 		return;
 
 	if (rn->p.family != AF_INET && rn->p.family != AF_INET6) {
-		flog_err(LIB_ERR_DEVELOPMENT,
+		flog_err(EC_LIB_DEVELOPMENT,
 			  "%s: invalid route node addr family", __func__);
 		return;
 	}
@@ -644,7 +644,7 @@ static void vnc_zebra_add_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		return;
 
 	if (afi != AFI_IP && afi != AFI_IP6) {
-		flog_err(LIB_ERR_DEVELOPMENT, "%s: invalid vn addr family",
+		flog_err(EC_LIB_DEVELOPMENT, "%s: invalid vn addr family",
 			  __func__);
 		return;
 	}
@@ -743,12 +743,12 @@ static void vnc_zebra_add_del_group_afi(struct bgp *bgp,
 	if (afi == AFI_IP || afi == AFI_IP6) {
 		rt = import_table->imported_vpn[afi];
 	} else {
-		flog_err(LIB_ERR_DEVELOPMENT, "%s: bad afi %d", __func__, afi);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: bad afi %d", __func__, afi);
 		return;
 	}
 
 	if (!family) {
-		flog_err(LIB_ERR_DEVELOPMENT, "%s: computed bad family: %d",
+		flog_err(EC_LIB_DEVELOPMENT, "%s: computed bad family: %d",
 			  __func__, family);
 		return;
 	}

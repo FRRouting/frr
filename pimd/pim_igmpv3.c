@@ -1585,7 +1585,7 @@ void igmp_v3_send_query(struct igmp_group *group, int fd, const char *ifname,
 	msg_size = IGMP_V3_SOURCES_OFFSET + (num_sources << 2);
 	if (msg_size > query_buf_size) {
 		flog_err(
-			LIB_ERR_DEVELOPMENT,
+			EC_LIB_DEVELOPMENT,
 			"%s %s: unable to send: msg_size=%zd larger than query_buf_size=%d",
 			__FILE__, __PRETTY_FUNCTION__, msg_size,
 			query_buf_size);

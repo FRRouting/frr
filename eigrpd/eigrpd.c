@@ -163,7 +163,7 @@ static struct eigrp *eigrp_new(const char *AS)
 
 	if ((eigrp_socket = eigrp_sock_init()) < 0) {
 		flog_err_sys(
-			LIB_ERR_SOCKET,
+			EC_LIB_SOCKET,
 			"eigrp_new: fatal error: eigrp_sock_init was unable to open a socket");
 		exit(1);
 	}

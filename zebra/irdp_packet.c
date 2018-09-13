@@ -200,17 +200,17 @@ static int irdp_recvmsg(int sock, uint8_t *buf, int size, int *ifindex)
 
 	ret = recvmsg(sock, &msg, 0);
 	if (ret < 0) {
-		flog_warn(LIB_ERR_SOCKET, "IRDP: recvmsg: read error %s",
+		flog_warn(EC_LIB_SOCKET, "IRDP: recvmsg: read error %s",
 			  safe_strerror(errno));
 		return ret;
 	}
 
 	if (msg.msg_flags & MSG_TRUNC) {
-		flog_warn(LIB_ERR_SOCKET, "IRDP: recvmsg: truncated message");
+		flog_warn(EC_LIB_SOCKET, "IRDP: recvmsg: truncated message");
 		return ret;
 	}
 	if (msg.msg_flags & MSG_CTRUNC) {
-		flog_warn(LIB_ERR_SOCKET,
+		flog_warn(EC_LIB_SOCKET,
 			  "IRDP: recvmsg: truncated control message");
 		return ret;
 	}
@@ -236,7 +236,7 @@ int irdp_read_raw(struct thread *r)
 	ret = irdp_recvmsg(irdp_sock, (uint8_t *)buf, IRDP_RX_BUF, &ifindex);
 
 	if (ret < 0)
-		flog_warn(LIB_ERR_SOCKET, "IRDP: RX Error length = %d", ret);
+		flog_warn(EC_LIB_SOCKET, "IRDP: RX Error length = %d", ret);
 
 	ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
 	if (!ifp)

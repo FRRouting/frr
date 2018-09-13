@@ -321,7 +321,7 @@ static void isis_vertex_id_init(struct isis_vertex *vertex, const void *id,
 	} else if (VTYPE_IP(vtype)) {
 		memcpy(&vertex->N.ip, id, sizeof(vertex->N.ip));
 	} else {
-		flog_err(LIB_ERR_DEVELOPMENT, "Unknown Vertex Type");
+		flog_err(EC_LIB_DEVELOPMENT, "Unknown Vertex Type");
 	}
 }
 

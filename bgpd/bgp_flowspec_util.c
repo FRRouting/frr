@@ -565,7 +565,7 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 			offset += ret;
 			break;
 		default:
-			flog_err(LIB_ERR_DEVELOPMENT, "%s: unknown type %d\n",
+			flog_err(EC_LIB_DEVELOPMENT, "%s: unknown type %d\n",
 				  __func__, type);
 		}
 	}

@@ -288,7 +288,7 @@ void zebra_ns_notify_parse(void)
 	DIR *srcdir = opendir(NS_RUN_DIR);
 
 	if (srcdir == NULL) {
-		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "NS parsing init: failed to parse %s", NS_RUN_DIR);
 		return;
 	}
@@ -300,7 +300,7 @@ void zebra_ns_notify_parse(void)
 			continue;
 		if (fstatat(dirfd(srcdir), dent->d_name, &st, 0) < 0) {
 			flog_err_sys(
-				LIB_ERR_SYSTEM_CALL,
+				EC_LIB_SYSTEM_CALL,
 				"NS parsing init: failed to parse entry %s",
 				dent->d_name);
 			continue;
@@ -330,13 +330,13 @@ void zebra_ns_notify_init(void)
 	fd_monitor = inotify_init();
 	if (fd_monitor < 0) {
 		flog_err_sys(
-			LIB_ERR_SYSTEM_CALL,
+			EC_LIB_SYSTEM_CALL,
 			"NS notify init: failed to initialize inotify (%s)",
 			safe_strerror(errno));
 	}
 	if (inotify_add_watch(fd_monitor, NS_RUN_DIR,
 			      IN_CREATE | IN_DELETE) < 0) {
-		flog_err_sys(LIB_ERR_SYSTEM_CALL,
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "NS notify watch: failed to add watch (%s)",
 			     safe_strerror(errno));
 	}

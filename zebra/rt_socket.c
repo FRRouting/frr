@@ -214,7 +214,7 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 			case ZEBRA_ERR_RTEXIST:
 				if (cmd != RTM_ADD)
 					flog_err(
-						LIB_ERR_SYSTEM_CALL,
+						EC_LIB_SYSTEM_CALL,
 						"%s: rtm_write() returned %d for command %d",
 						__func__, error, cmd);
 				continue;
@@ -228,7 +228,7 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 			case ZEBRA_ERR_RTUNREACH:
 			default:
 				flog_err(
-					LIB_ERR_SYSTEM_CALL,
+					EC_LIB_SYSTEM_CALL,
 					"%s: %s: rtm_write() unexpectedly returned %d for command %s",
 					__func__,
 					prefix2str(p, prefix_buf,

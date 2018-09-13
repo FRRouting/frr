@@ -348,7 +348,7 @@ int eigrp_write(struct thread *thread)
 	/* Get one packet from queue. */
 	ep = eigrp_fifo_next(ei->obuf);
 	if (!ep) {
-		flog_err(LIB_ERR_DEVELOPMENT,
+		flog_err(EC_LIB_DEVELOPMENT,
 			  "%s: Interface %s no packet on queue?",
 			  __PRETTY_FUNCTION__, ei->ifp->name);
 		goto out;
@@ -1214,7 +1214,7 @@ uint16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 		stream_putw(s, length);
 		break;
 	default:
-		flog_err(LIB_ERR_DEVELOPMENT,
+		flog_err(EC_LIB_DEVELOPMENT,
 			  "%s: Unexpected prefix length: %d",
 			  __PRETTY_FUNCTION__, pe->destination->prefixlen);
 		return 0;
