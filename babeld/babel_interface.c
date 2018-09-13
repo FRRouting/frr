@@ -169,7 +169,7 @@ babel_interface_address_add (int cmd, struct zclient *client,
         if (babel_ifp->ipv4 == NULL) {
             babel_ifp->ipv4 = malloc(4);
             if (babel_ifp->ipv4 == NULL) {
-                flog_err(BABEL_ERR_MEMORY, "not enough memory");
+                flog_err(EC_BABEL_MEMORY, "not enough memory");
             } else {
                 memcpy(babel_ifp->ipv4, &prefix->u.prefix4, 4);
             }
@@ -709,7 +709,7 @@ interface_recalculate(struct interface *ifp)
     tmp = babel_ifp->sendbuf;
     babel_ifp->sendbuf = realloc(babel_ifp->sendbuf, babel_ifp->bufsize);
     if(babel_ifp->sendbuf == NULL) {
-        flog_err(BABEL_ERR_MEMORY, "Couldn't reallocate sendbuf.");
+        flog_err(EC_BABEL_MEMORY, "Couldn't reallocate sendbuf.");
         free(tmp);
         babel_ifp->bufsize = 0;
         return -1;
@@ -1060,7 +1060,7 @@ DEFUN (show_babel_route,
         }
         route_stream_done(routes);
     } else {
-        flog_err(BABEL_ERR_MEMORY, "Couldn't allocate route stream.");
+        flog_err(EC_BABEL_MEMORY, "Couldn't allocate route stream.");
     }
     xroutes = xroute_stream();
     if(xroutes) {
@@ -1072,7 +1072,7 @@ DEFUN (show_babel_route,
         }
         xroute_stream_done(xroutes);
     } else {
-        flog_err(BABEL_ERR_MEMORY, "Couldn't allocate route stream.");
+        flog_err(EC_BABEL_MEMORY, "Couldn't allocate route stream.");
     }
     return CMD_SUCCESS;
 }
@@ -1107,7 +1107,7 @@ DEFUN (show_babel_route_prefix,
         }
         route_stream_done(routes);
     } else {
-        flog_err(BABEL_ERR_MEMORY, "Couldn't allocate route stream.");
+        flog_err(EC_BABEL_MEMORY, "Couldn't allocate route stream.");
     }
     xroutes = xroute_stream();
     if(xroutes) {
@@ -1119,7 +1119,7 @@ DEFUN (show_babel_route_prefix,
         }
         xroute_stream_done(xroutes);
     } else {
-        flog_err(BABEL_ERR_MEMORY, "Couldn't allocate route stream.");
+        flog_err(EC_BABEL_MEMORY, "Couldn't allocate route stream.");
     }
     return CMD_SUCCESS;
 }
@@ -1165,7 +1165,7 @@ DEFUN (show_babel_route_addr,
         }
         route_stream_done(routes);
     } else {
-        flog_err(BABEL_ERR_MEMORY, "Couldn't allocate route stream.");
+        flog_err(EC_BABEL_MEMORY, "Couldn't allocate route stream.");
     }
     xroutes = xroute_stream();
     if(xroutes) {
@@ -1177,7 +1177,7 @@ DEFUN (show_babel_route_addr,
         }
         xroute_stream_done(xroutes);
     } else {
-        flog_err(BABEL_ERR_MEMORY, "Couldn't allocate route stream.");
+        flog_err(EC_BABEL_MEMORY, "Couldn't allocate route stream.");
     }
     return CMD_SUCCESS;
 }
@@ -1224,7 +1224,7 @@ DEFUN (show_babel_route_addr6,
         }
         route_stream_done(routes);
     } else {
-        flog_err(BABEL_ERR_MEMORY, "Couldn't allocate route stream.");
+        flog_err(EC_BABEL_MEMORY, "Couldn't allocate route stream.");
     }
     xroutes = xroute_stream();
     if(xroutes) {
@@ -1236,7 +1236,7 @@ DEFUN (show_babel_route_addr6,
         }
         xroute_stream_done(xroutes);
     } else {
-        flog_err(BABEL_ERR_MEMORY, "Couldn't allocate route stream.");
+        flog_err(EC_BABEL_MEMORY, "Couldn't allocate route stream.");
     }
     return CMD_SUCCESS;
 }

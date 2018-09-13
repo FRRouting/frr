@@ -297,7 +297,7 @@ babel_load_state_file(void)
                 unsigned char sid[8];
                 rc = parse_eui64(buf2, sid);
                 if(rc < 0) {
-                    flog_err(BABEL_ERR_CONFIG, "Couldn't parse babel-state.");
+                    flog_err(EC_BABEL_CONFIG, "Couldn't parse babel-state.");
                 } else {
                     struct timeval realnow;
                     debugf(BABEL_DEBUG_COMMON,
@@ -307,13 +307,13 @@ babel_load_state_file(void)
                     if(memcmp(sid, myid, 8) == 0)
                         myseqno = seqno_plus(s, 1);
                     else
-                        flog_err(BABEL_ERR_CONFIG,
+                        flog_err(EC_BABEL_CONFIG,
 				 "ID mismatch in babel-state. id=%s; old=%s",
                                  format_eui64(myid),
                                  format_eui64(sid));
                 }
             } else {
-                flog_err(BABEL_ERR_CONFIG, "Couldn't parse babel-state.");
+                flog_err(EC_BABEL_CONFIG, "Couldn't parse babel-state.");
             }
         }
         goto fini;
@@ -364,12 +364,12 @@ babel_save_state_file(void)
                       format_eui64(myid), (int)myseqno,
                       (long)realnow.tv_sec);
         if(rc < 0 || rc >= 100) {
-            flog_err(BABEL_ERR_CONFIG, "write(babel-state): overflow.");
+            flog_err(EC_BABEL_CONFIG, "write(babel-state): overflow.");
             unlink(state_file);
         } else {
             rc = write(fd, buf, rc);
             if(rc < 0) {
-                flog_err(BABEL_ERR_CONFIG, "write(babel-state): %s",
+                flog_err(EC_BABEL_CONFIG, "write(babel-state): %s",
 			  safe_strerror(errno));
                 unlink(state_file);
             }

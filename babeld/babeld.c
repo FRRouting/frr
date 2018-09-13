@@ -255,12 +255,12 @@ babel_get_myid(void)
         return;
     }
 
-    flog_err(BABEL_ERR_CONFIG,
+    flog_err(EC_BABEL_CONFIG,
 	      "Warning: couldn't find router id -- using random value.");
 
     rc = read_random_bytes(myid, 8);
     if(rc < 0) {
-        flog_err(BABEL_ERR_CONFIG, "read(random): %s (cannot assign an ID)",
+        flog_err(EC_BABEL_CONFIG, "read(random): %s (cannot assign an ID)",
 		  safe_strerror(errno));
         exit(1);
     }
@@ -519,7 +519,7 @@ resize_receive_buffer(int size)
     if(receive_buffer == NULL) {
         receive_buffer = malloc(size);
         if(receive_buffer == NULL) {
-            flog_err(BABEL_ERR_MEMORY, "malloc(receive_buffer): %s",
+            flog_err(EC_BABEL_MEMORY, "malloc(receive_buffer): %s",
 		      safe_strerror(errno));
             return -1;
         }
@@ -528,7 +528,7 @@ resize_receive_buffer(int size)
         unsigned char *new;
         new = realloc(receive_buffer, size);
         if(new == NULL) {
-            flog_err(BABEL_ERR_MEMORY, "realloc(receive_buffer): %s",
+            flog_err(EC_BABEL_MEMORY, "realloc(receive_buffer): %s",
 		      safe_strerror(errno));
             return -1;
         }
