@@ -1252,13 +1252,13 @@ static int vty_show_prefix_list_prefix(struct vty *vty, afi_t afi,
 			if (pentry->any)
 				vty_out(vty, "any");
 			else {
-				struct prefix *p = &pentry->prefix;
+				struct prefix *pf = &pentry->prefix;
 				char buf[BUFSIZ];
 
 				vty_out(vty, "%s/%d",
-					inet_ntop(p->family, p->u.val, buf,
+					inet_ntop(pf->family, pf->u.val, buf,
 						  BUFSIZ),
-					p->prefixlen);
+					pf->prefixlen);
 
 				if (pentry->ge)
 					vty_out(vty, " ge %d", pentry->ge);

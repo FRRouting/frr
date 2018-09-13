@@ -111,8 +111,8 @@ extern vrf_id_t vrf_name_to_id(const char *);
 
 #define VRF_GET_ID(V, NAME, USE_JSON)                                          \
 	do {                                                                   \
-		struct vrf *vrf;                                               \
-		if (!(vrf = vrf_lookup_by_name(NAME))) {                       \
+		struct vrf *_vrf;                                              \
+		if (!(_vrf = vrf_lookup_by_name(NAME))) {                      \
 			if (USE_JSON) {                                        \
 				vty_out(vty, "{}\n");                          \
 			} else {                                               \
@@ -120,7 +120,7 @@ extern vrf_id_t vrf_name_to_id(const char *);
 			}                                                      \
 			return CMD_WARNING;                                    \
 		}                                                              \
-		if (vrf->vrf_id == VRF_UNKNOWN) {                              \
+		if (_vrf->vrf_id == VRF_UNKNOWN) {                             \
 			if (USE_JSON) {                                        \
 				vty_out(vty, "{}\n");                          \
 			} else {                                               \
@@ -128,7 +128,7 @@ extern vrf_id_t vrf_name_to_id(const char *);
 			}                                                      \
 			return CMD_WARNING;                                    \
 		}                                                              \
-		(V) = vrf->vrf_id;                                             \
+		(V) = _vrf->vrf_id;                                            \
 	} while (0)
 
 /*

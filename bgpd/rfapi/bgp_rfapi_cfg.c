@@ -4015,21 +4015,21 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 			vty_out(vty, "!\n");
 
 		if (hc->l2_groups) {
-			struct rfapi_l2_group_cfg *rfg = NULL;
+			struct rfapi_l2_group_cfg *rfgc = NULL;
 			struct listnode *gnode;
-			for (ALL_LIST_ELEMENTS_RO(hc->l2_groups, gnode, rfg)) {
+			for (ALL_LIST_ELEMENTS_RO(hc->l2_groups, gnode, rfgc)) {
 				struct listnode *lnode;
 				void *data;
 				++write;
-				vty_out(vty, " vnc l2-group %s\n", rfg->name);
-				if (rfg->logical_net_id != 0)
+				vty_out(vty, " vnc l2-group %s\n", rfgc->name);
+				if (rfgc->logical_net_id != 0)
 					vty_out(vty,
 						"   logical-network-id %u\n",
-						rfg->logical_net_id);
-				if (rfg->labels != NULL
-				    && listhead(rfg->labels) != NULL) {
+						rfgc->logical_net_id);
+				if (rfgc->labels != NULL
+				    && listhead(rfgc->labels) != NULL) {
 					vty_out(vty, "   labels ");
-					for (ALL_LIST_ELEMENTS_RO(rfg->labels,
+					for (ALL_LIST_ELEMENTS_RO(rfgc->labels,
 								  lnode,
 								  data)) {
 						vty_out(vty, "%hu ",
@@ -4040,28 +4040,28 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 					vty_out(vty, "\n");
 				}
 
-				if (rfg->rt_import_list && rfg->rt_export_list
-				    && ecommunity_cmp(rfg->rt_import_list,
-						      rfg->rt_export_list)) {
+				if (rfgc->rt_import_list && rfgc->rt_export_list
+				    && ecommunity_cmp(rfgc->rt_import_list,
+						      rfgc->rt_export_list)) {
 					char *b = ecommunity_ecom2str(
-						rfg->rt_import_list,
+						rfgc->rt_import_list,
 						ECOMMUNITY_FORMAT_ROUTE_MAP,
 						ECOMMUNITY_ROUTE_TARGET);
 					vty_out(vty, "   rt both %s\n", b);
 					XFREE(MTYPE_ECOMMUNITY_STR, b);
 				} else {
-					if (rfg->rt_import_list) {
+					if (rfgc->rt_import_list) {
 						char *b = ecommunity_ecom2str(
-							rfg->rt_import_list,
+							rfgc->rt_import_list,
 							ECOMMUNITY_FORMAT_ROUTE_MAP,
 							ECOMMUNITY_ROUTE_TARGET);
 						vty_out(vty, "  rt import %s\n",
 							b);
 						XFREE(MTYPE_ECOMMUNITY_STR, b);
 					}
-					if (rfg->rt_export_list) {
+					if (rfgc->rt_export_list) {
 						char *b = ecommunity_ecom2str(
-							rfg->rt_export_list,
+							rfgc->rt_export_list,
 							ECOMMUNITY_FORMAT_ROUTE_MAP,
 							ECOMMUNITY_ROUTE_TARGET);
 						vty_out(vty, "  rt export %s\n",
@@ -4074,7 +4074,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 							  .cfg_group_cb)(
 						vty, bgp->rfapi->rfp,
 						RFAPI_RFP_CFG_GROUP_L2,
-						rfg->name, rfg->rfp_cfg);
+						rfgc->name, rfgc->rfp_cfg);
 				vty_out(vty, "   exit-vnc\n");
 				vty_out(vty, "!\n");
 			}

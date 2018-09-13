@@ -2901,13 +2901,13 @@ static int link_params_config_write(struct vty *vty, struct interface *ifp)
 
 static int if_config_write(struct vty *vty)
 {
-	struct vrf *vrf;
+	struct vrf *vrf0;
 	struct interface *ifp;
 
 	zebra_ptm_write(vty);
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		FOR_ALL_INTERFACES (vrf, ifp) {
+	RB_FOREACH (vrf0, vrf_name_head, &vrfs_by_name)
+		FOR_ALL_INTERFACES (vrf0, ifp) {
 			struct zebra_if *if_data;
 			struct listnode *addrnode;
 			struct connected *ifc;

@@ -7367,7 +7367,7 @@ DEFUN (show_bgp_vrfs,
 	for (ALL_LIST_ELEMENTS_RO(inst, node, bgp)) {
 		const char *name, *type;
 		struct peer *peer;
-		struct listnode *node, *nnode;
+		struct listnode *node2, *nnode2;
 		int peers_cfg, peers_estb;
 		json_object *json_vrf = NULL;
 
@@ -7387,7 +7387,7 @@ DEFUN (show_bgp_vrfs,
 			json_vrf = json_object_new_object();
 
 
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+		for (ALL_LIST_ELEMENTS(bgp->peer, node2, nnode2, peer)) {
 			if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
 				continue;
 			peers_cfg++;

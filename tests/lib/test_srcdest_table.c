@@ -289,7 +289,6 @@ static void test_state_verify(struct test_state *test)
 				expected_lock++;
 
 			if (rn->lock != expected_lock) {
-				const struct prefix_ipv6 *dst_p, *src_p;
 				srcdest_rnode_prefixes(
 					rn, (const struct prefix **)&dst_p,
 					(const struct prefix **)&src_p);
