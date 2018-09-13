@@ -1091,7 +1091,7 @@ void kernel_route_rib_pass_fail(struct route_node *rn, const struct prefix *p,
 		dest->selected_fib = re;
 
 		zsend_route_notify_owner(re, p, ZAPI_ROUTE_FAIL_INSTALL);
-		flog_err(ZEBRA_ERR_DP_INSTALL_FAIL,
+		flog_err(EC_ZEBRA_DP_INSTALL_FAIL,
 			 "%u:%s: Route install failed", re->vrf_id,
 			 prefix2str(p, buf, sizeof(buf)));
 		break;
@@ -1116,7 +1116,7 @@ void kernel_route_rib_pass_fail(struct route_node *rn, const struct prefix *p,
 		 * delete fails?
 		 */
 		dest->selected_fib = NULL;
-		flog_err(ZEBRA_ERR_DP_DELETE_FAIL,
+		flog_err(EC_ZEBRA_DP_DELETE_FAIL,
 			 "%u:%s: Route Deletion failure", re->vrf_id,
 			 prefix2str(p, buf, sizeof(buf)));
 
@@ -1174,12 +1174,12 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	switch (kernel_route_rib(rn, p, src_p, old, re)) {
 	case DP_REQUEST_QUEUED:
 		flog_err(
-			ZEBRA_ERR_DP_INVALID_RC,
+			EC_ZEBRA_DP_INVALID_RC,
 			"No current known DataPlane interfaces can return this, please fix");
 		break;
 	case DP_REQUEST_FAILURE:
 		flog_err(
-			ZEBRA_ERR_DP_INSTALL_FAIL,
+			EC_ZEBRA_DP_INSTALL_FAIL,
 			"No current known Rib Install Failure cases, please fix");
 		break;
 	case DP_REQUEST_SUCCESS:
@@ -1214,12 +1214,12 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	switch (kernel_route_rib(rn, p, src_p, re, NULL)) {
 	case DP_REQUEST_QUEUED:
 		flog_err(
-			ZEBRA_ERR_DP_INVALID_RC,
+			EC_ZEBRA_DP_INVALID_RC,
 			"No current known DataPlane interfaces can return this, please fix");
 		break;
 	case DP_REQUEST_FAILURE:
 		flog_err(
-			ZEBRA_ERR_DP_INSTALL_FAIL,
+			EC_ZEBRA_DP_INSTALL_FAIL,
 			"No current known RIB Install Failure cases, please fix");
 		break;
 	case DP_REQUEST_SUCCESS:
@@ -2012,7 +2012,7 @@ void rib_queue_add(struct route_node *rn)
 	}
 
 	if (zebrad.ribq == NULL) {
-		flog_err(ZEBRA_ERR_WQ_NONEXISTENT,
+		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
 			  "%s: work_queue does not exist!", __func__);
 		return;
 	}
@@ -2068,7 +2068,7 @@ static void rib_queue_init(struct zebra_t *zebra)
 
 	if (!(zebra->ribq =
 		      work_queue_new(zebra->master, "route_node processing"))) {
-		flog_err(ZEBRA_ERR_WQ_NONEXISTENT,
+		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
 			  "%s: could not initialise work queue!", __func__);
 		return;
 	}
@@ -2082,7 +2082,7 @@ static void rib_queue_init(struct zebra_t *zebra)
 	zebra->ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
 
 	if (!(zebra->mq = meta_queue_new())) {
-		flog_err(ZEBRA_ERR_WQ_NONEXISTENT,
+		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
 			  "%s: could not initialise meta queue!", __func__);
 		return;
 	}
@@ -2333,7 +2333,7 @@ void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	/* Lookup table.  */
 	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
 	if (!table) {
-		flog_err(ZEBRA_ERR_TABLE_LOOKUP_FAILED,
+		flog_err(EC_ZEBRA_TABLE_LOOKUP_FAILED,
 			  "%s:%u zebra_vrf_table() returned NULL", __func__,
 			  vrf_id);
 		return;
@@ -2381,7 +2381,7 @@ void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	rib_dest_t *dest;
 
 	if (NULL == (table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id))) {
-		flog_err(ZEBRA_ERR_TABLE_LOOKUP_FAILED,
+		flog_err(EC_ZEBRA_TABLE_LOOKUP_FAILED,
 			  "%s:%u zebra_vrf_table() returned NULL", __func__,
 			  vrf_id);
 		return;

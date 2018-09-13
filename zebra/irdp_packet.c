@@ -96,13 +96,13 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	src = ip->ip_src;
 
 	if (len != iplen) {
-		flog_err(ZEBRA_ERR_IRDP_LEN_MISMATCH,
+		flog_err(EC_ZEBRA_IRDP_LEN_MISMATCH,
 			  "IRDP: RX length doesnt match IP length");
 		return;
 	}
 
 	if (iplen < ICMP_MINLEN) {
-		flog_err(ZEBRA_ERR_IRDP_LEN_MISMATCH,
+		flog_err(EC_ZEBRA_IRDP_LEN_MISMATCH,
 			  "IRDP: RX ICMP packet too short from %s\n",
 			  inet_ntoa(src));
 		return;
@@ -113,7 +113,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	 +
 	 len of IP-header) 14+20 */
 	if (iplen > IRDP_RX_BUF - 34) {
-		flog_err(ZEBRA_ERR_IRDP_LEN_MISMATCH,
+		flog_err(EC_ZEBRA_IRDP_LEN_MISMATCH,
 			  "IRDP: RX ICMP packet too long from %s\n",
 			  inet_ntoa(src));
 		return;
@@ -124,7 +124,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	/* check icmp checksum */
 	if (in_cksum(icmp, datalen) != icmp->checksum) {
 		flog_warn(
-			ZEBRA_ERR_IRDP_BAD_CHECKSUM,
+			EC_ZEBRA_IRDP_BAD_CHECKSUM,
 			"IRDP: RX ICMP packet from %s. Bad checksum, silently ignored",
 			inet_ntoa(src));
 		return;
@@ -136,7 +136,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 		return;
 
 	if (icmp->code != 0) {
-		flog_warn(ZEBRA_ERR_IRDP_BAD_TYPE_CODE,
+		flog_warn(EC_ZEBRA_IRDP_BAD_TYPE_CODE,
 			  "IRDP: RX packet type %d from %s. Bad ICMP type code,"
 			  " silently ignored",
 			  icmp->type, inet_ntoa(src));
@@ -148,7 +148,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	    || (ntohl(ip->ip_dst.s_addr) == INADDR_ALLRTRS_GROUP
 		&& !(irdp->flags & IF_BROADCAST))) {
 		flog_warn(
-			ZEBRA_ERR_IRDP_BAD_RX_FLAGS,
+			EC_ZEBRA_IRDP_BAD_RX_FLAGS,
 			"IRDP: RX illegal from %s to %s while %s operates in %s; Please correct settings\n",
 			inet_ntoa(src),
 			ntohl(ip->ip_dst.s_addr) == INADDR_ALLRTRS_GROUP
@@ -174,7 +174,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 
 	default:
 		flog_warn(
-			ZEBRA_ERR_IRDP_BAD_TYPE,
+			EC_ZEBRA_IRDP_BAD_TYPE,
 			"IRDP: RX type %d from %s. Bad ICMP type, silently ignored",
 			icmp->type, inet_ntoa(src));
 	}

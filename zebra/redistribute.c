@@ -167,7 +167,7 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 
 	afi = family2afi(p->family);
 	if (!afi) {
-		flog_warn(ZEBRA_ERR_REDISTRIBUTE_UNKNOWN_AF,
+		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
 			  "%s: Unknown AFI/SAFI prefix received\n",
 			  __FUNCTION__);
 		return;
@@ -238,7 +238,7 @@ void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
 
 	afi = family2afi(p->family);
 	if (!afi) {
-		flog_warn(ZEBRA_ERR_REDISTRIBUTE_UNKNOWN_AF,
+		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
 			  "%s: Unknown AFI/SAFI prefix received\n",
 			  __FUNCTION__);
 		return;
@@ -278,7 +278,7 @@ void zebra_redistribute_add(ZAPI_HANDLER_ARGS)
 			zebra_route_string(type), zvrf_id(zvrf), instance);
 
 	if (afi == 0 || afi >= AFI_MAX) {
-		flog_warn(ZEBRA_ERR_REDISTRIBUTE_UNKNOWN_AF,
+		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
 			  "%s: Specified afi %d does not exist",
 			  __PRETTY_FUNCTION__, afi);
 		return;
@@ -325,7 +325,7 @@ void zebra_redistribute_delete(ZAPI_HANDLER_ARGS)
 	STREAM_GETW(msg, instance);
 
 	if (afi == 0 || afi >= AFI_MAX) {
-		flog_warn(ZEBRA_ERR_REDISTRIBUTE_UNKNOWN_AF,
+		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
 			  "%s: Specified afi %d does not exist",
 			  __PRETTY_FUNCTION__, afi);
 		return;
@@ -450,7 +450,7 @@ void zebra_interface_address_add_update(struct interface *ifp,
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		flog_warn(
-			ZEBRA_ERR_ADVERTISING_UNUSABLE_ADDR,
+			EC_ZEBRA_ADVERTISING_UNUSABLE_ADDR,
 			"WARNING: advertising address to clients that is not yet usable.");
 
 	zebra_vxlan_add_del_gw_macip(ifp, ifc->address, 1);

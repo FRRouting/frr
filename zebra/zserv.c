@@ -172,7 +172,7 @@ static void zserv_log_message(const char *errmsg, struct stream *msg,
  */
 static void zserv_client_fail(struct zserv *client)
 {
-	flog_warn(ZEBRA_ERR_CLIENT_IO_ERROR,
+	flog_warn(EC_ZEBRA_CLIENT_IO_ERROR,
 		  "Client '%s' encountered an error and is shutting down.",
 		  zebra_route_string(client->proto));
 
@@ -272,7 +272,7 @@ static int zserv_write(struct thread *thread)
 	return 0;
 
 zwrite_fail:
-	flog_warn(ZEBRA_ERR_CLIENT_WRITE_FAILED,
+	flog_warn(EC_ZEBRA_CLIENT_WRITE_FAILED,
 		  "%s: could not write to %s [fd = %d], closing.", __func__,
 		  zebra_route_string(client->proto), client->sock);
 	zserv_client_fail(client);

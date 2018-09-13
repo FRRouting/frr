@@ -350,7 +350,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 		vrf = vrf_lookup_by_id((vrf_id_t)ifi->ifi_index);
 
 		if (!vrf) {
-			flog_warn(ZEBRA_ERR_VRF_NOT_FOUND, "%s: vrf not found",
+			flog_warn(EC_ZEBRA_VRF_NOT_FOUND, "%s: vrf not found",
 				  __func__);
 			return;
 		}
@@ -900,7 +900,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	if (ifa->ifa_family != AF_INET && ifa->ifa_family != AF_INET6) {
 		flog_warn(
-			ZEBRA_ERR_UNKNOWN_FAMILY,
+			EC_ZEBRA_UNKNOWN_FAMILY,
 			"Invalid address family: %u received from kernel interface addr change: %u",
 			ifa->ifa_family, h->nlmsg_type);
 		return 0;
@@ -1081,7 +1081,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (!(ifi->ifi_family == AF_UNSPEC || ifi->ifi_family == AF_BRIDGE
 	      || ifi->ifi_family == AF_INET6)) {
 		flog_warn(
-			ZEBRA_ERR_UNKNOWN_FAMILY,
+			EC_ZEBRA_UNKNOWN_FAMILY,
 			"Invalid address family: %u received from kernel link change: %u",
 			ifi->ifi_family, h->nlmsg_type);
 		return 0;

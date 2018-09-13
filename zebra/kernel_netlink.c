@@ -286,7 +286,7 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		 * this message type or not ask for
 		 * it to be sent up to us
 		 */
-		flog_err(ZEBRA_ERR_UNKNOWN_NLMSG,
+		flog_err(EC_ZEBRA_UNKNOWN_NLMSG,
 			  "Unknown netlink nlmsg_type %s(%d) vrf %u\n",
 			  nl_msg_type_to_str(h->nlmsg_type), h->nlmsg_type,
 			  ns_id);
@@ -653,7 +653,7 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h)
 		if (is_err)
 			zlog_err("Extended Error: %s", msg);
 		else
-			flog_warn(ZEBRA_ERR_NETLINK_EXTENDED_WARNING,
+			flog_warn(EC_ZEBRA_NETLINK_EXTENDED_WARNING,
 				  "Extended Warning: %s", msg);
 	}
 }
@@ -710,7 +710,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 				continue;
 			if (errno == EWOULDBLOCK || errno == EAGAIN)
 				break;
-			flog_err(ZEBRA_ERR_RECVMSG_OVERRUN,
+			flog_err(EC_ZEBRA_RECVMSG_OVERRUN,
 				  "%s recvmsg overrun: %s", nl->name,
 				  safe_strerror(errno));
 			/*
@@ -728,7 +728,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 		}
 
 		if (msg.msg_namelen != sizeof snl) {
-			flog_err(ZEBRA_ERR_NETLINK_LENGTH_ERROR,
+			flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
 				  "%s sender address length error: length %d",
 				  nl->name, msg.msg_namelen);
 			return -1;
@@ -804,7 +804,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 				if (h->nlmsg_len
 				    < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
 					flog_err(
-						ZEBRA_ERR_NETLINK_LENGTH_ERROR,
+						EC_ZEBRA_NETLINK_LENGTH_ERROR,
 						"%s error: message truncated",
 						nl->name);
 					return -1;
@@ -859,7 +859,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 							err->msg.nlmsg_pid);
 				} else
 					flog_err(
-						ZEBRA_ERR_UNEXPECTED_MESSAGE,
+						EC_ZEBRA_UNEXPECTED_MESSAGE,
 						"%s error: %s, type=%s(%u), seq=%u, pid=%u",
 						nl->name,
 						safe_strerror(-errnum),
@@ -900,12 +900,12 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 
 		/* After error care. */
 		if (msg.msg_flags & MSG_TRUNC) {
-			flog_err(ZEBRA_ERR_NETLINK_LENGTH_ERROR,
+			flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
 				  "%s error: message truncated", nl->name);
 			continue;
 		}
 		if (status) {
-			flog_err(ZEBRA_ERR_NETLINK_LENGTH_ERROR,
+			flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
 				  "%s error: data remnant size %d", nl->name,
 				  status);
 			return -1;

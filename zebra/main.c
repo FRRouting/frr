@@ -292,7 +292,7 @@ int main(int argc, char **argv)
 			if (multipath_num > MULTIPATH_NUM
 			    || multipath_num <= 0) {
 				flog_err(
-					ZEBRA_ERR_BAD_MULTIPATH_NUM,
+					EC_ZEBRA_BAD_MULTIPATH_NUM,
 					"Multipath Number specified must be less than %d and greater than 0",
 					MULTIPATH_NUM);
 				return 1;

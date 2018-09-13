@@ -1061,7 +1061,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 			l += IPV6_MAX_BYTELEN;
 		} else {
 			flog_err(
-				ZEBRA_ERR_UNKNOWN_FAMILY,
+				EC_ZEBRA_UNKNOWN_FAMILY,
 				"rnh_register: Received unknown family type %d\n",
 				p.family);
 			return;
@@ -1145,7 +1145,7 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 			l += IPV6_MAX_BYTELEN;
 		} else {
 			flog_err(
-				ZEBRA_ERR_UNKNOWN_FAMILY,
+				EC_ZEBRA_UNKNOWN_FAMILY,
 				"rnh_register: Received unknown family type %d\n",
 				p.family);
 			return;
@@ -1182,7 +1182,7 @@ static void zread_fec_register(ZAPI_HANDLER_ARGS)
 	 */
 	if (hdr->length < ZEBRA_MIN_FEC_LENGTH) {
 		flog_err(
-			ZEBRA_ERR_IRDP_LEN_MISMATCH,
+			EC_ZEBRA_IRDP_LEN_MISMATCH,
 			"fec_register: Received a fec register of hdr->length %d, it is of insufficient size to properly decode",
 			hdr->length);
 		return;
@@ -1194,7 +1194,7 @@ static void zread_fec_register(ZAPI_HANDLER_ARGS)
 		STREAM_GETW(s, p.family);
 		if (p.family != AF_INET && p.family != AF_INET6) {
 			flog_err(
-				ZEBRA_ERR_UNKNOWN_FAMILY,
+				EC_ZEBRA_UNKNOWN_FAMILY,
 				"fec_register: Received unknown family type %d\n",
 				p.family);
 			return;
@@ -1242,7 +1242,7 @@ static void zread_fec_unregister(ZAPI_HANDLER_ARGS)
 	 */
 	if (hdr->length < ZEBRA_MIN_FEC_LENGTH) {
 		flog_err(
-			ZEBRA_ERR_IRDP_LEN_MISMATCH,
+			EC_ZEBRA_IRDP_LEN_MISMATCH,
 			"fec_unregister: Received a fec unregister of hdr->length %d, it is of insufficient size to properly decode",
 			hdr->length);
 		return;
@@ -1257,7 +1257,7 @@ static void zread_fec_unregister(ZAPI_HANDLER_ARGS)
 		STREAM_GETW(s, p.family);
 		if (p.family != AF_INET && p.family != AF_INET6) {
 			flog_err(
-				ZEBRA_ERR_UNKNOWN_FAMILY,
+				EC_ZEBRA_UNKNOWN_FAMILY,
 				"fec_unregister: Received unknown family type %d\n",
 				p.family);
 			return;
@@ -1320,7 +1320,7 @@ void zserv_nexthop_num_warn(const char *caller, const struct prefix *p,
 
 		prefix2str(p, buff, sizeof(buff));
 		flog_warn(
-			ZEBRA_ERR_MORE_NH_THAN_MULTIPATH,
+			EC_ZEBRA_MORE_NH_THAN_MULTIPATH,
 			"%s: Prefix %s has %d nexthops, but we can only use the first %d",
 			caller, buff, nexthop_num, multipath_num);
 	}
@@ -1484,7 +1484,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 
 			if (!nexthop) {
 				flog_warn(
-					ZEBRA_ERR_NEXTHOP_CREATION_FAILED,
+					EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 					"%s: Nexthops Specified: %d but we failed to properly create one",
 					__PRETTY_FUNCTION__, api.nexthop_num);
 				nexthops_free(re->ng.nexthop);
@@ -1524,7 +1524,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 
 	afi = family2afi(api.prefix.family);
 	if (afi != AFI_IP6 && CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX)) {
-		flog_warn(ZEBRA_ERR_RX_SRCDEST_WRONG_AFI,
+		flog_warn(EC_ZEBRA_RX_SRCDEST_WRONG_AFI,
 			  "%s: Received SRC Prefix but afi is not v6",
 			  __PRETTY_FUNCTION__);
 		nexthops_free(re->ng.nexthop);
@@ -1567,7 +1567,7 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 
 	afi = family2afi(api.prefix.family);
 	if (afi != AFI_IP6 && CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX)) {
-		flog_warn(ZEBRA_ERR_RX_SRCDEST_WRONG_AFI,
+		flog_warn(EC_ZEBRA_RX_SRCDEST_WRONG_AFI,
 			  "%s: Received a src prefix while afi is not v6",
 			  __PRETTY_FUNCTION__);
 		return;
@@ -1786,7 +1786,7 @@ static void zread_table_manager_connect(struct zserv *client,
 
 	/* accept only dynamic routing protocols */
 	if ((proto >= ZEBRA_ROUTE_MAX) || (proto <= ZEBRA_ROUTE_STATIC)) {
-		flog_err(ZEBRA_ERR_TM_WRONG_PROTO,
+		flog_err(EC_ZEBRA_TM_WRONG_PROTO,
 			  "client %d has wrong protocol %s", client->sock,
 			  zebra_route_string(proto));
 		zsend_table_manager_connect_response(client, vrf_id, 1);
@@ -1826,7 +1826,7 @@ static void zread_label_manager_connect(struct zserv *client,
 
 	/* accept only dynamic routing protocols */
 	if ((proto >= ZEBRA_ROUTE_MAX) || (proto <= ZEBRA_ROUTE_STATIC)) {
-		flog_err(ZEBRA_ERR_TM_WRONG_PROTO,
+		flog_err(EC_ZEBRA_TM_WRONG_PROTO,
 			  "client %d has wrong protocol %s", client->sock,
 			  zebra_route_string(proto));
 		zsend_label_manager_connect_response(client, vrf_id, 1);
@@ -1856,7 +1856,7 @@ static int msg_client_id_mismatch(const char *op, struct zserv *client,
 				  uint8_t proto, unsigned int instance)
 {
 	if (proto != client->proto) {
-		flog_err(ZEBRA_ERR_PROTO_OR_INSTANCE_MISMATCH,
+		flog_err(EC_ZEBRA_PROTO_OR_INSTANCE_MISMATCH,
 			  "%s: msg vs client proto mismatch, client=%u msg=%u",
 			  op, client->proto, proto);
 		/* TODO: fail when BGP sets proto and instance */
@@ -1865,7 +1865,7 @@ static int msg_client_id_mismatch(const char *op, struct zserv *client,
 
 	if (instance != client->instance) {
 		flog_err(
-			ZEBRA_ERR_PROTO_OR_INSTANCE_MISMATCH,
+			EC_ZEBRA_PROTO_OR_INSTANCE_MISMATCH,
 			"%s: msg vs client instance mismatch, client=%u msg=%u",
 			op, client->instance, instance);
 		/* TODO: fail when BGP sets proto and instance */
@@ -1901,7 +1901,7 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 	lmc = assign_label_chunk(client->proto, client->instance, keep, size);
 	if (!lmc)
 		flog_err(
-			ZEBRA_ERR_LM_CANNOT_ASSIGN_CHUNK,
+			EC_ZEBRA_LM_CANNOT_ASSIGN_CHUNK,
 			"Unable to assign Label Chunk of size %u to %s instance %u",
 			size, zebra_route_string(client->proto),
 			client->instance);
@@ -1960,7 +1960,7 @@ static void zread_label_manager_request(ZAPI_HANDLER_ARGS)
 			/* Sanity: don't allow 'unidentified' requests */
 			if (!client->proto) {
 				flog_err(
-					ZEBRA_ERR_LM_ALIENS,
+					EC_ZEBRA_LM_ALIENS,
 					"Got label request from an unidentified client");
 				return;
 			}
@@ -1988,7 +1988,7 @@ static void zread_get_table_chunk(struct zserv *client, struct stream *msg,
 
 	tmc = assign_table_chunk(client->proto, client->instance, size);
 	if (!tmc)
-		flog_err(ZEBRA_ERR_TM_CANNOT_ASSIGN_CHUNK,
+		flog_err(EC_ZEBRA_TM_CANNOT_ASSIGN_CHUNK,
 			  "%s: Unable to assign Table Chunk of size %u",
 			  __func__, size);
 	else
@@ -2028,7 +2028,7 @@ static void zread_table_manager_request(ZAPI_HANDLER_ARGS)
 		/* Sanity: don't allow 'unidentified' requests */
 		if (!client->proto) {
 			flog_err(
-				ZEBRA_ERR_TM_ALIENS,
+				EC_ZEBRA_TM_ALIENS,
 				"Got table request from an unidentified client");
 			return;
 		}
@@ -2082,7 +2082,7 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 	switch (hdr->command) {
 	case ZEBRA_PW_ADD:
 		if (pw) {
-			flog_warn(ZEBRA_ERR_PSEUDOWIRE_EXISTS,
+			flog_warn(EC_ZEBRA_PSEUDOWIRE_EXISTS,
 				  "%s: pseudowire %s already exists [%s]",
 				  __func__, ifname,
 				  zserv_command_string(hdr->command));
@@ -2093,7 +2093,7 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 		break;
 	case ZEBRA_PW_DELETE:
 		if (!pw) {
-			flog_warn(ZEBRA_ERR_PSEUDOWIRE_NONEXISTENT,
+			flog_warn(EC_ZEBRA_PSEUDOWIRE_NONEXISTENT,
 				  "%s: pseudowire %s not found [%s]", __func__,
 				  ifname, zserv_command_string(hdr->command));
 			return;
@@ -2104,7 +2104,7 @@ static void zread_pseudowire(ZAPI_HANDLER_ARGS)
 	case ZEBRA_PW_SET:
 	case ZEBRA_PW_UNSET:
 		if (!pw) {
-			flog_warn(ZEBRA_ERR_PSEUDOWIRE_NONEXISTENT,
+			flog_warn(EC_ZEBRA_PSEUDOWIRE_NONEXISTENT,
 				  "%s: pseudowire %s not found [%s]", __func__,
 				  ifname, zserv_command_string(hdr->command));
 			return;

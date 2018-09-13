@@ -126,7 +126,7 @@ static int if_group(struct interface *ifp, int sock, uint32_t group,
 	p = irdp_get_prefix(ifp);
 
 	if (!p) {
-		flog_warn(ZEBRA_ERR_NO_IFACE_ADDR,
+		flog_warn(EC_ZEBRA_NO_IFACE_ADDR,
 			  "IRDP: can't get address for %s", ifp->name);
 		return 1;
 	}
@@ -222,7 +222,7 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 		return;
 	}
 	if ((irdp_sock < 0) && ((irdp_sock = irdp_sock_init()) < 0)) {
-		flog_warn(ZEBRA_ERR_IRDP_CANNOT_ACTIVATE_IFACE,
+		flog_warn(EC_ZEBRA_IRDP_CANNOT_ACTIVATE_IFACE,
 			  "IRDP: Cannot activate interface %s (cannot create "
 			  "IRDP socket)",
 			  ifp->name);
@@ -236,7 +236,7 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 	if_add_update(ifp);
 
 	if (!(ifp->flags & IFF_UP)) {
-		flog_warn(ZEBRA_ERR_IRDP_IFACE_DOWN,
+		flog_warn(EC_ZEBRA_IRDP_IFACE_DOWN,
 			  "IRDP: Interface is down %s", ifp->name);
 	}
 
@@ -246,7 +246,7 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 		if_add_group(ifp);
 
 		if (!(ifp->flags & (IFF_MULTICAST | IFF_ALLMULTI))) {
-			flog_warn(ZEBRA_ERR_IRDP_IFACE_MCAST_DISABLED,
+			flog_warn(EC_ZEBRA_IRDP_IFACE_MCAST_DISABLED,
 				  "IRDP: Interface not multicast enabled %s",
 				  ifp->name);
 		}

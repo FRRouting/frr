@@ -115,14 +115,14 @@ static int send_receive(int sock, struct nlmsghdr *nlh, unsigned int seq,
 		return -1;
 	}
 	if (msg.msg_flags & MSG_TRUNC) {
-		flog_err(ZEBRA_ERR_NETLINK_LENGTH_ERROR,
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
 			  "netlink recvmsg : error message truncated");
 		return -1;
 	}
 	/* nlh already points to buf */
 	if (nlh->nlmsg_seq != seq) {
 		flog_err(
-			ZEBRA_ERR_NETLINK_BAD_SEQUENCE,
+			EC_ZEBRA_NETLINK_BAD_SEQUENCE,
 			"netlink recvmsg: bad sequence number %x (expected %x)",
 			seq, nlh->nlmsg_seq);
 		return -1;
@@ -337,7 +337,7 @@ static void zebra_ns_create_netns_directory(void)
 	/* S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH */
 	if (mkdir(NS_RUN_DIR, 0755)) {
 		if (errno != EEXIST) {
-			flog_warn(ZEBRA_ERR_NAMESPACE_DIR_INACCESSIBLE,
+			flog_warn(EC_ZEBRA_NAMESPACE_DIR_INACCESSIBLE,
 				  "NS check: failed to access %s", NS_RUN_DIR);
 			return;
 		}

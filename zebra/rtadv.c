@@ -485,7 +485,7 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	if ((radvert->nd_ra_curhoplimit && zif->rtadv.AdvCurHopLimit)
 	    && (radvert->nd_ra_curhoplimit != zif->rtadv.AdvCurHopLimit)) {
 		flog_warn(
-			ZEBRA_ERR_RA_PARAM_MISMATCH,
+			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvCurHopLimit doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
 	}
@@ -493,7 +493,7 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)
 	    && !zif->rtadv.AdvManagedFlag) {
 		flog_warn(
-			ZEBRA_ERR_RA_PARAM_MISMATCH,
+			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvManagedFlag doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
 	}
@@ -501,7 +501,7 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_OTHER)
 	    && !zif->rtadv.AdvOtherConfigFlag) {
 		flog_warn(
-			ZEBRA_ERR_RA_PARAM_MISMATCH,
+			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvOtherConfigFlag doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
 	}
@@ -510,7 +510,7 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	    && (ntohl(radvert->nd_ra_reachable)
 		!= zif->rtadv.AdvReachableTime)) {
 		flog_warn(
-			ZEBRA_ERR_RA_PARAM_MISMATCH,
+			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvReachableTime doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
 	}
@@ -519,7 +519,7 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	    && (ntohl(radvert->nd_ra_retransmit)
 		!= (unsigned int)zif->rtadv.AdvRetransTimer)) {
 		flog_warn(
-			ZEBRA_ERR_RA_PARAM_MISMATCH,
+			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvRetransTimer doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
 	}
@@ -549,7 +549,7 @@ static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 	/* Interface search. */
 	ifp = if_lookup_by_index_per_ns(zns, ifindex);
 	if (ifp == NULL) {
-		flog_warn(ZEBRA_ERR_UNKNOWN_INTERFACE,
+		flog_warn(EC_ZEBRA_UNKNOWN_INTERFACE,
 			  "RA/RS received on unknown IF %u from %s", ifindex,
 			  addr_str);
 		return;
@@ -830,7 +830,7 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 	/* Locate interface and check VRF match. */
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT), ifindex);
 	if (!ifp) {
-		flog_warn(ZEBRA_ERR_UNKNOWN_INTERFACE,
+		flog_warn(EC_ZEBRA_UNKNOWN_INTERFACE,
 			  "%u: IF %u RA %s client %s - interface unknown",
 			  zvrf_id(zvrf), ifindex, enable ? "enable" : "disable",
 			  zebra_route_string(client->proto));

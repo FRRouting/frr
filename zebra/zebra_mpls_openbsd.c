@@ -257,7 +257,7 @@ static int kernel_lsp_cmd(int action, zebra_lsp_t *lsp)
 			&& (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED)
 			    && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)))) {
 			if (nhlfe->nexthop->nh_label->num_labels > 1) {
-				flog_warn(ZEBRA_ERR_MAX_LABELS_PUSH,
+				flog_warn(EC_ZEBRA_MAX_LABELS_PUSH,
 					  "%s: can't push %u labels at once "
 					  "(maximum is 1)",
 					  __func__,

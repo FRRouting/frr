@@ -92,7 +92,7 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 		return;
 	}
 	if (vrf_handler_create(NULL, name, &vrf) != CMD_SUCCESS) {
-		flog_warn(ZEBRA_ERR_NS_VRF_CREATION_FAILED,
+		flog_warn(EC_ZEBRA_NS_VRF_CREATION_FAILED,
 			  "NS notify : failed to create VRF %s", name);
 		ns_map_nsid_with_external(ns_id, false);
 		return;
@@ -102,7 +102,7 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 					       ns_id_external, ns_id);
 	}
 	if (ret != CMD_SUCCESS) {
-		flog_warn(ZEBRA_ERR_NS_VRF_CREATION_FAILED,
+		flog_warn(EC_ZEBRA_NS_VRF_CREATION_FAILED,
 			  "NS notify : failed to create NS %s", netnspath);
 		ns_map_nsid_with_external(ns_id, false);
 		vrf_delete(vrf);
@@ -133,7 +133,7 @@ static int zebra_ns_delete(char *name)
 	struct ns *ns;
 
 	if (!vrf) {
-		flog_warn(ZEBRA_ERR_NS_DELETION_FAILED_NO_VRF,
+		flog_warn(EC_ZEBRA_NS_DELETION_FAILED_NO_VRF,
 			  "NS notify : no VRF found using NS %s", name);
 		return 0;
 	}
@@ -239,7 +239,7 @@ static int zebra_ns_notify_read(struct thread *t)
 		zebrad.master, zebra_ns_notify_read, NULL, fd_monitor, NULL);
 	len = read(fd_monitor, buf, sizeof(buf));
 	if (len < 0) {
-		flog_err_sys(ZEBRA_ERR_NS_NOTIFY_READ,
+		flog_err_sys(EC_ZEBRA_NS_NOTIFY_READ,
 			     "NS notify read: failed to read (%s)",
 			     safe_strerror(errno));
 		return 0;
@@ -257,13 +257,13 @@ static int zebra_ns_notify_read(struct thread *t)
 
 		if (offsetof(struct inotify_event, name) + event->len
 		    >= sizeof(buf)) {
-			flog_err(ZEBRA_ERR_NS_NOTIFY_READ,
+			flog_err(EC_ZEBRA_NS_NOTIFY_READ,
 				 "NS notify read: buffer underflow");
 			break;
 		}
 
 		if (strnlen(event->name, event->len) == event->len) {
-			flog_err(ZEBRA_ERR_NS_NOTIFY_READ,
+			flog_err(EC_ZEBRA_NS_NOTIFY_READ,
 				 "NS notify error: bad event name");
 			break;
 		}

@@ -237,7 +237,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 #endif
 		break;
 	default:
-		flog_warn(ZEBRA_ERR_CONNECTED_AFI_UNKNOWN,
+		flog_warn(EC_ZEBRA_CONNECTED_AFI_UNKNOWN,
 			  "Received unknown AFI: %s", afi2str(afi));
 		return;
 		break;
@@ -312,7 +312,7 @@ void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
 		if (CONNECTED_PEER(ifc)) {
 			if (IPV4_ADDR_SAME(addr, broad))
 				flog_warn(
-					ZEBRA_ERR_IFACE_SAME_LOCAL_AS_PEER,
+					EC_ZEBRA_IFACE_SAME_LOCAL_AS_PEER,
 					"warning: interface %s has same local and peer "
 					"address %s, routing protocols may malfunction",
 					ifp->name, inet_ntoa(*addr));
@@ -324,7 +324,7 @@ void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
 				bcalc.s_addr = ipv4_broadcast_addr(addr->s_addr,
 								   prefixlen);
 				flog_warn(
-					ZEBRA_ERR_BCAST_ADDR_MISMATCH,
+					EC_ZEBRA_BCAST_ADDR_MISMATCH,
 					"warning: interface %s broadcast addr %s/%d != "
 					"calculated %s, routing protocols may malfunction",
 					ifp->name,
