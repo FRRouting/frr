@@ -493,7 +493,7 @@ static int wakeup_init(struct thread *t_wakeup)
 	dmn->t_wakeup = NULL;
 	if (try_connect(dmn) < 0) {
 		SET_WAKEUP_DOWN(dmn);
-		flog_err(WATCHFRR_ERR_CONNECTION,
+		flog_err(EC_WATCHFRR_CONNECTION,
 			  "%s state -> down : initial connection attempt failed",
 			  dmn->name);
 		dmn->state = DAEMON_DOWN;
@@ -504,7 +504,7 @@ static int wakeup_init(struct thread *t_wakeup)
 static void daemon_down(struct daemon *dmn, const char *why)
 {
 	if (IS_UP(dmn) || (dmn->state == DAEMON_INIT))
-		flog_err(WATCHFRR_ERR_CONNECTION,
+		flog_err(EC_WATCHFRR_CONNECTION,
 			  "%s state -> down : %s", dmn->name, why);
 	else if (gs.loglevel > LOG_DEBUG)
 		zlog_debug("%s still down : %s", dmn->name, why);
@@ -751,7 +751,7 @@ static int try_connect(struct daemon *dmn)
 static int phase_hanging(struct thread *t_hanging)
 {
 	gs.t_phase_hanging = NULL;
-	flog_err(WATCHFRR_ERR_CONNECTION,
+	flog_err(EC_WATCHFRR_CONNECTION,
 		  "Phase [%s] hanging for %ld seconds, aborting phased restart",
 		  phase_str[gs.phase], PHASE_TIMEOUT);
 	gs.phase = PHASE_NONE;
@@ -867,7 +867,7 @@ static int wakeup_unresponsive(struct thread *t_wakeup)
 
 	dmn->t_wakeup = NULL;
 	if (dmn->state != DAEMON_UNRESPONSIVE)
-		flog_err(WATCHFRR_ERR_CONNECTION,
+		flog_err(EC_WATCHFRR_CONNECTION,
 			  "%s: no longer unresponsive (now %s), "
 			  "wakeup should have been cancelled!",
 			  dmn->name, state_str[dmn->state]);
@@ -884,7 +884,7 @@ static int wakeup_no_answer(struct thread *t_wakeup)
 
 	dmn->t_wakeup = NULL;
 	dmn->state = DAEMON_UNRESPONSIVE;
-	flog_err(WATCHFRR_ERR_CONNECTION,
+	flog_err(EC_WATCHFRR_CONNECTION,
 		  "%s state -> unresponsive : no response yet to ping "
 		  "sent %ld seconds ago",
 		  dmn->name, gs.timeout);

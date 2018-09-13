@@ -24,7 +24,7 @@
 #include "lib/ferr.h"
 
 enum watchfrr_log_refs {
-	WATCHFRR_ERR_CONNECTION = WATCHFRR_FERR_START,
+	EC_WATCHFRR_CONNECTION = WATCHFRR_FERR_START,
 };
 
 extern void watchfrr_error_init(void);
