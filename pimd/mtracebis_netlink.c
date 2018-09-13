@@ -243,7 +243,7 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
 					break; /* process next filter */
 				}
 				if (h->nlmsg_type == NLMSG_ERROR) {
-					struct nlmsgerr *err =
+					struct nlmsgerr *merr =
 						(struct nlmsgerr *)NLMSG_DATA(
 							h);
 					if (h->nlmsg_len
@@ -252,7 +252,7 @@ int rtnl_dump_filter_l(struct rtnl_handle *rth,
 						fprintf(stderr,
 							"ERROR truncated\n");
 					} else {
-						errno = -err->error;
+						errno = -merr->error;
 						perror("RTNETLINK answers");
 					}
 					return -1;
@@ -379,12 +379,12 @@ int rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n, pid_t peer,
 			}
 
 			if (h->nlmsg_type == NLMSG_ERROR) {
-				struct nlmsgerr *err =
+				struct nlmsgerr *merr =
 					(struct nlmsgerr *)NLMSG_DATA(h);
 				if (l < (int)sizeof(struct nlmsgerr)) {
 					fprintf(stderr, "ERROR truncated\n");
 				} else {
-					errno = -err->error;
+					errno = -merr->error;
 					if (errno == 0) {
 						if (answer)
 							memcpy(answer, h,

@@ -1115,7 +1115,8 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 			struct channel_oil *c_oil = child->channel_oil;
 			struct pim_ifchannel *chchannel =
 				pim_ifchannel_find(ifp, &child->sg);
-			struct pim_interface *pim_ifp = ifp->info;
+
+			pim_ifp = ifp->info;
 
 			if (PIM_DEBUG_EVENTS)
 				zlog_debug("%s %s: Prune(S,G)=%s(%s) from %s",

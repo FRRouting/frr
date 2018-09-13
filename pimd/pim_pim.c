@@ -573,8 +573,6 @@ int pim_msg_send(int fd, struct in_addr src, struct in_addr dst,
 	ip->ip_len = htons(sendlen);
 
 	if (PIM_DEBUG_PIM_PACKETS) {
-		struct pim_msg_header *header =
-			(struct pim_msg_header *)pim_msg;
 		char dst_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<dst?>", dst, dst_str, sizeof(dst_str));
 		zlog_debug("%s: to %s on %s: msg_size=%d checksum=%x",
