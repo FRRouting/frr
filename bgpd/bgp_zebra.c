@@ -287,6 +287,7 @@ static int bgp_interface_down(int command, struct zclient *zclient,
 	struct nbr_connected *nc;
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
+	struct peer *peer;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp)
@@ -307,11 +308,7 @@ static int bgp_interface_down(int command, struct zclient *zclient,
 		bgp_nbr_connected_delete(bgp, nc, 1);
 
 	/* Fast external-failover */
-	{
-		struct peer *peer;
-
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER))
-			return 0;
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER)) {
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 #if defined(HAVE_CUMULUS)
@@ -474,6 +471,7 @@ static int bgp_interface_vrf_update(int command, struct zclient *zclient,
 	struct nbr_connected *nc;
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
+	struct peer *peer;
 
 	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
 					      &new_vrf_id);
@@ -495,12 +493,7 @@ static int bgp_interface_vrf_update(int command, struct zclient *zclient,
 		bgp_nbr_connected_delete(bgp, nc, 1);
 
 	/* Fast external-failover */
-	{
-		struct peer *peer;
-
-		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER))
-			return 0;
-
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER)) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if ((peer->ttl != 1) && (peer->gtsm_hops != 1))
 				continue;
