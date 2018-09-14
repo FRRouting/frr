@@ -202,36 +202,56 @@ stop()
 	if ! started "$inst" ; then
 		echo -n " ($inst)"
 		return 0
+
+		# Make sure that watch FRR is stopped first
+	elif [ $inst == "watchfrr" ]; then
+		PIDFILE=`pidfile $inst`
+		PID=`cat $PIDFILE 2>/dev/null`
+
+		# Send signal to die
+		kill -2 $PID 2>/dev/null &
+
+		# Ask waiter to... wait
+		stop_waiter $PID $inst
 	else
 		PIDFILE=`pidfile $inst`
 		PID=`cat $PIDFILE 2>/dev/null`
-		kill -2 $PID 2>/dev/null
-		#
-		#       Now we have to wait until $DAEMON has _really_ stopped.
-		#
+
+		# Send signal to die
+		kill -2 $PID 2>/dev/null &
+
+		# Ask waiter to... wait
+		stop_waiter $PID $inst &
+	fi
+}
+
+stop_waiter(){
+	PID=$1
+	inst=$2
+	if [ "$2" = "zebra" ]; then
+		echo -n "$inst. "
+		sleep 0.5
+		echo
+		echo "Stopping staticd since zebra is running. "
+		stop staticd
+	fi
+	if [ "$2" != "zebra" ]; then
 		if test -n "$PID" && kill -0 $PID 2>/dev/null; then
-			echo -n " (waiting) ."
 			cnt=0
 			while kill -0 $PID 2>/dev/null; do
 				cnt=`expr $cnt + 1`
-				if [ $cnt -gt 60 ]; then
+				if [ $cnt -gt 12000 ]; then
 					# Waited 120 secs now, fail.
 					echo -n "Failed.. "
 					break
 				fi
-				sleep 2
-				echo -n "."
+				sleep 0.1
 			done
 		fi
-		echo -n " $inst"
-		rm -f `pidfile $inst`
-		rm -f `vtyfile $inst`
-
-		if [ "$1" = "zebra" ]; then
-			echo -n "Stopping staticd since zebra is running"
-			stop staticd
-		fi
+		echo -n "$inst. "
 	fi
+	rm -f `pidfile $inst`
+	rm -f `vtyfile $inst`
 }
 
 # Converts values from /etc/frr/daemons to all-numeric values.
@@ -314,9 +334,9 @@ start_watchfrr()
 # Stopps watchfrr.
 stop_watchfrr()
 {
-	echo -n "Stopping Frr monitor daemon:"
+	echo -n "Stopping Frr monitor daemon: "
 	stop watchfrr
-	echo "."
+	echo
 }
 
 # Stops all daemons that have a lower level of priority than the given.
@@ -337,7 +357,7 @@ stop_prio()
 	fi
 
 	wanted_prio=$1
-	daemon_list=${daemon:-$DAEMONS}
+	daemon_list=$(echo ${daemon:-$DAEMONS}| xargs -n1 | sort -g | xargs)
 
 	echo -n "Stopping Frr daemons (prio:$wanted_prio):"
 
@@ -361,8 +381,7 @@ stop_prio()
 			fi
 		done
 	done
-
-	echo "."
+	wait
 	if [ -z "$inst" ]; then
 		# Now stop other daemons that're prowling, coz the daemons file changed
 		echo -n "Stopping other frr daemons"
@@ -377,8 +396,8 @@ stop_prio()
 			echo -n "."
 			rm -rf "$pidfile"
 		done
-		echo "."
 
+		echo
 		echo -n "Removing remaining .vty files"
 		for vtyfile in $file_list_suffix.vty; do
 			rm -rf "$vtyfile"
