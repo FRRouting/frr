@@ -833,7 +833,9 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return 0;
 	}
 
-	if (!(rtm->rtm_family == AF_INET || rtm->rtm_family == AF_INET6)) {
+	if (!(rtm->rtm_family == AF_INET ||
+	      rtm->rtm_family == AF_INET6 ||
+	      rtm->rtm_family == RTNL_FAMILY_IPMR )) {
 		flog_warn(
 			EC_ZEBRA_UNKNOWN_FAMILY,
 			"Invalid address family: %u received from kernel route change: %s",
