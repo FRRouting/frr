@@ -385,6 +385,9 @@ extern void static_zebra_route_add(struct route_node *rn,
 		if (si->distance != si_changed->distance)
 			continue;
 
+		if (si->table_id != si_changed->table_id)
+			continue;
+
 		api_nh->vrf_id = si->nh_vrf_id;
 		switch (si->type) {
 		case STATIC_IFNAME:
