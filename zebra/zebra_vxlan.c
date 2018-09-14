@@ -285,7 +285,8 @@ static void zvni_find_neigh_addr_width(struct hash_backet *backet, void *ctxt)
 
 	n = (zebra_neigh_t *)backet->data;
 
-	ipaddr2str(&n->ip, buf, sizeof(buf)), width = strlen(buf);
+	ipaddr2str(&n->ip, buf, sizeof(buf));
+	width = strlen(buf);
 	if (width > wctx->addr_width)
 		wctx->addr_width = width;
 
