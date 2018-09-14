@@ -4767,14 +4767,17 @@ static int peer_default_originate_set_vty(struct vty *vty, const char *peer_str,
 {
 	int ret;
 	struct peer *peer;
+	struct route_map *route_map;
 
 	peer = peer_and_group_lookup_vty(vty, peer_str);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (set)
-		ret = peer_default_originate_set(peer, afi, safi, rmap);
-	else
+	if (set) {
+		route_map = route_map_lookup_warn_noexist(vty, rmap);
+		ret = peer_default_originate_set(peer, afi, safi,
+						 rmap, route_map);
+	} else
 		ret = peer_default_originate_unset(peer, afi, safi);
 
 	return bgp_vty_return(vty, ret);
@@ -5593,6 +5596,7 @@ static int peer_route_map_set_vty(struct vty *vty, const char *ip_str,
 	int ret;
 	struct peer *peer;
 	int direct = RMAP_IN;
+	struct route_map *route_map;
 
 	peer = peer_and_group_lookup_vty(vty, ip_str);
 	if (!peer)
@@ -5604,7 +5608,8 @@ static int peer_route_map_set_vty(struct vty *vty, const char *ip_str,
 	else if (strncmp(direct_str, "o", 1) == 0)
 		direct = RMAP_OUT;
 
-	ret = peer_route_map_set(peer, afi, safi, direct, name_str);
+	route_map = route_map_lookup_warn_noexist(vty, name_str);
+	ret = peer_route_map_set(peer, afi, safi, direct, name_str, route_map);
 
 	return bgp_vty_return(vty, ret);
 }
@@ -5691,12 +5696,14 @@ static int peer_unsuppress_map_set_vty(struct vty *vty, const char *ip_str,
 {
 	int ret;
 	struct peer *peer;
+	struct route_map *route_map;
 
 	peer = peer_and_group_lookup_vty(vty, ip_str);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	ret = peer_unsuppress_map_set(peer, afi, safi, name_str);
+	route_map = route_map_lookup_warn_noexist(vty, name_str);
+	ret = peer_unsuppress_map_set(peer, afi, safi, name_str, route_map);
 
 	return bgp_vty_return(vty, ret);
 }
@@ -6646,7 +6653,7 @@ DEFPY (af_route_map_vpn_imexport,
 			bgp->vpn_policy[afi].rmap_name[dir] = XSTRDUP(
 								      MTYPE_ROUTE_MAP_NAME, rmap_str);
 			bgp->vpn_policy[afi].rmap[dir] =
-				route_map_lookup_by_name(rmap_str);
+				route_map_lookup_warn_noexist(vty, rmap_str);
 			if (!bgp->vpn_policy[afi].rmap[dir])
 				return CMD_SUCCESS;
 		} else {
@@ -6719,7 +6726,7 @@ DEFPY(af_import_vrf_route_map, af_import_vrf_route_map_cmd,
 		bgp->vpn_policy[afi].rmap_name[dir] =
 			XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
 		bgp->vpn_policy[afi].rmap[dir] =
-			route_map_lookup_by_name(rmap_str);
+			route_map_lookup_warn_noexist(vty, rmap_str);
 		if (!bgp->vpn_policy[afi].rmap[dir])
 			return CMD_SUCCESS;
 	} else {
@@ -11641,6 +11648,8 @@ DEFUN (bgp_redistribute_ipv4_rmap,
 	int type;
 	struct bgp_redist *red;
 	bool changed;
+	struct route_map *route_map = route_map_lookup_warn_noexist(
+		vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
 	if (type < 0) {
@@ -11649,7 +11658,8 @@ DEFUN (bgp_redistribute_ipv4_rmap,
 	}
 
 	red = bgp_redist_add(bgp, AFI_IP, type, 0);
-	changed = bgp_redistribute_rmap_set(red, argv[idx_word]->arg);
+	changed =
+		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	return bgp_redistribute_set(bgp, AFI_IP, type, 0, changed);
 }
 
@@ -11713,6 +11723,8 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
+	struct route_map *route_map =
+		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
 	if (type < 0) {
@@ -11722,7 +11734,8 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
 	metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
 	red = bgp_redist_add(bgp, AFI_IP, type, 0);
-	changed = bgp_redistribute_rmap_set(red, argv[idx_word]->arg);
+	changed =
+		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	changed |= bgp_redistribute_metric_set(bgp, red, AFI_IP, type, metric);
 	return bgp_redistribute_set(bgp, AFI_IP, type, 0, changed);
 }
@@ -11756,6 +11769,8 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
+	struct route_map *route_map =
+		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
 	if (type < 0) {
@@ -11766,7 +11781,8 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
 
 	red = bgp_redist_add(bgp, AFI_IP, type, 0);
 	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP, type, metric);
-	changed |= bgp_redistribute_rmap_set(red, argv[idx_word]->arg);
+	changed |=
+		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	return bgp_redistribute_set(bgp, AFI_IP, type, 0, changed);
 }
 
@@ -11831,6 +11847,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap,
 	unsigned short instance;
 	int protocol;
 	bool changed;
+	struct route_map *route_map =
+		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
@@ -11839,7 +11857,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap,
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
-	changed = bgp_redistribute_rmap_set(red, argv[idx_word]->arg);
+	changed =
+		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, changed);
 }
 
@@ -11919,6 +11938,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
 	unsigned short instance;
 	int protocol;
 	bool changed;
+	struct route_map *route_map =
+		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
@@ -11929,7 +11950,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
 	metric = strtoul(argv[idx_number_2]->arg, NULL, 10);
 
 	red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
-	changed = bgp_redistribute_rmap_set(red, argv[idx_word]->arg);
+	changed =
+		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	changed |= bgp_redistribute_metric_set(bgp, red, AFI_IP, protocol,
 						metric);
 	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, changed);
@@ -11970,6 +11992,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
 	unsigned short instance;
 	int protocol;
 	bool changed;
+	struct route_map *route_map =
+		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
 		protocol = ZEBRA_ROUTE_OSPF;
@@ -11982,7 +12006,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
 	red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
 	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP, protocol,
 						metric);
-	changed |= bgp_redistribute_rmap_set(red, argv[idx_word]->arg);
+	changed |=
+		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	return bgp_redistribute_set(bgp, AFI_IP, protocol, instance, changed);
 }
 
@@ -12108,6 +12133,8 @@ DEFUN (bgp_redistribute_ipv6_rmap,
 	int type;
 	struct bgp_redist *red;
 	bool changed;
+	struct route_map *route_map =
+		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
 	if (type < 0) {
@@ -12116,7 +12143,8 @@ DEFUN (bgp_redistribute_ipv6_rmap,
 	}
 
 	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
-	changed = bgp_redistribute_rmap_set(red, argv[idx_word]->arg);
+	changed =
+		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, changed);
 }
 
@@ -12166,6 +12194,8 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
+	struct route_map *route_map =
+		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
 	if (type < 0) {
@@ -12175,7 +12205,8 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
 	metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
 	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
-	changed = bgp_redistribute_rmap_set(red, argv[idx_word]->arg);
+	changed =
+		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	changed |= bgp_redistribute_metric_set(bgp, red, AFI_IP6, type,
 						metric);
 	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, changed);
@@ -12199,6 +12230,8 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 	uint32_t metric;
 	struct bgp_redist *red;
 	bool changed;
+	struct route_map *route_map =
+		route_map_lookup_warn_noexist(vty, argv[idx_word]->arg);
 
 	type = proto_redistnum(AFI_IP6, argv[idx_protocol]->text);
 	if (type < 0) {
@@ -12210,7 +12243,8 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 	red = bgp_redist_add(bgp, AFI_IP6, type, 0);
 	changed = bgp_redistribute_metric_set(bgp, red, AFI_IP6, SAFI_UNICAST,
 						metric);
-	changed |= bgp_redistribute_rmap_set(red, argv[idx_word]->arg);
+	changed |=
+		bgp_redistribute_rmap_set(red, argv[idx_word]->arg, route_map);
 	return bgp_redistribute_set(bgp, AFI_IP6, type, 0, changed);
 }
 

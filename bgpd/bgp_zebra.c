@@ -1662,7 +1662,8 @@ int bgp_redistribute_resend(struct bgp *bgp, afi_t afi, int type,
 }
 
 /* Redistribute with route-map specification.  */
-int bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name)
+int bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name,
+			      struct route_map *route_map)
 {
 	if (red->rmap.name && (strcmp(red->rmap.name, name) == 0))
 		return 0;
@@ -1670,7 +1671,7 @@ int bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name)
 	if (red->rmap.name)
 		XFREE(MTYPE_ROUTE_MAP_NAME, red->rmap.name);
 	red->rmap.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, name);
-	red->rmap.map = route_map_lookup_by_name(name);
+	red->rmap.map = route_map;
 
 	return 1;
 }
