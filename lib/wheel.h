@@ -21,6 +21,7 @@
 #define __WHEEL_H__
 
 struct timer_wheel {
+	char *name;
 	struct thread_master *master;
 	int slots;
 	long long curr_slot;
@@ -76,7 +77,8 @@ struct timer_wheel {
  */
 struct timer_wheel *wheel_init(struct thread_master *master, int period,
 			       size_t slots, unsigned int (*slot_key)(void *),
-			       void (*slot_run)(void *));
+			       void (*slot_run)(void *),
+			       const char *run_name);
 
 /*
  * Delete the specified timer wheel created

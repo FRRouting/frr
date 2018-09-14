@@ -170,6 +170,8 @@ struct cpu_thread_history {
 #define thread_add_timer_tv(m,f,a,v,t) funcname_thread_add_timer_tv(m,f,a,v,t,#f,__FILE__,__LINE__)
 #define thread_add_event(m,f,a,v,t) funcname_thread_add_event(m,f,a,v,t,#f,__FILE__,__LINE__)
 #define thread_execute(m,f,a,v) funcname_thread_execute(m,f,a,v,#f,__FILE__,__LINE__)
+#define thread_execute_name(m, f, a, v, n)				\
+	funcname_thread_execute(m, f, a, v, n, __FILE__, __LINE__)
 
 /* Prototypes. */
 extern struct thread_master *thread_master_create(const char *);
