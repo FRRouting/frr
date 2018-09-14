@@ -177,7 +177,7 @@ int bgp_damp_withdraw(struct bgp_info *binfo, struct bgp_node *rn, afi_t afi,
 {
 	time_t t_now;
 	struct bgp_damp_info *bdi = NULL;
-	double last_penalty = 0;
+	unsigned int last_penalty = 0;
 
 	t_now = bgp_clock();
 
