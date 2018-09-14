@@ -118,7 +118,7 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type,
 	table = get_rnh_table(vrfid, PREFIX_FAMILY(p), type);
 	if (!table) {
 		prefix2str(p, buf, sizeof(buf));
-		flog_warn(ZEBRA_ERR_RNH_NO_TABLE,
+		flog_warn(EC_ZEBRA_RNH_NO_TABLE,
 			  "%u: Add RNH %s type %d - table not found", vrfid,
 			  buf, type);
 		exists = false;
@@ -871,9 +871,9 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		stream_put(s, &rn->p.u.prefix6, IPV6_MAX_BYTELEN);
 		break;
 	default:
-		flog_err(ZEBRA_ERR_RNH_UNKNOWN_FAMILY,
-			  "%s: Unknown family (%d) notification attempted\n",
-			  __FUNCTION__, rn->p.family);
+		flog_err(EC_ZEBRA_RNH_UNKNOWN_FAMILY,
+			 "%s: Unknown family (%d) notification attempted\n",
+			 __FUNCTION__, rn->p.family);
 		break;
 	}
 	if (re) {

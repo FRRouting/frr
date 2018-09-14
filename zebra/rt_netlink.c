@@ -435,7 +435,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		if (rtm->rtm_src_len != 0) {
 			char buf[PREFIX_STRLEN];
 			flog_warn(
-				ZEBRA_ERR_UNSUPPORTED_V4_SRCDEST,
+				EC_ZEBRA_UNSUPPORTED_V4_SRCDEST,
 				"unsupported IPv4 sourcedest route (dest %s vrf %u)",
 				prefix2str(&p, buf, sizeof(buf)), vrf_id);
 			return 0;
@@ -605,7 +605,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 						nh_vrf_id = ifp->vrf_id;
 					else {
 						flog_warn(
-							ZEBRA_ERR_UNKNOWN_INTERFACE,
+							EC_ZEBRA_UNKNOWN_INTERFACE,
 							"%s: Unknown interface %u specified, defaulting to VRF_DEFAULT",
 							__PRETTY_FUNCTION__,
 							index);
@@ -834,7 +834,7 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	if (!(rtm->rtm_family == AF_INET || rtm->rtm_family == AF_INET6)) {
 		flog_warn(
-			ZEBRA_ERR_UNKNOWN_FAMILY,
+			EC_ZEBRA_UNKNOWN_FAMILY,
 			"Invalid address family: %u received from kernel route change: %u",
 			rtm->rtm_family, h->nlmsg_type);
 		return 0;
@@ -2486,7 +2486,7 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 		return netlink_ipneigh_change(h, len, ns_id);
 	else {
 		flog_warn(
-			ZEBRA_ERR_UNKNOWN_FAMILY,
+			EC_ZEBRA_UNKNOWN_FAMILY,
 			"Invalid address family: %u received from kernel neighbor change: %u",
 			ndm->ndm_family, h->nlmsg_type);
 		return 0;

@@ -797,7 +797,7 @@ int ospf_nsm_event(struct thread *thread)
 			 * try set next_state.
 			 */
 			flog_err(
-				OSPF_ERR_FSM_INVALID_STATE,
+				EC_OSPF_FSM_INVALID_STATE,
 				"NSM[%s:%s]: %s (%s): "
 				"Warning: action tried to change next_state to %s",
 				IF_NAME(nbr->oi), inet_ntoa(nbr->router_id),

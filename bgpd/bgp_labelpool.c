@@ -127,8 +127,8 @@ static wq_item_status lp_cbq_docallback(struct work_queue *wq, void *data)
 
 	if (lcbq->label == MPLS_LABEL_NONE) {
 		/* shouldn't happen */
-		flog_err(BGP_ERR_LABEL, "%s: error: label==MPLS_LABEL_NONE",
-			  __func__);
+		flog_err(EC_BGP_LABEL, "%s: error: label==MPLS_LABEL_NONE",
+			 __func__);
 		return WQ_SUCCESS;
 	}
 
@@ -338,9 +338,9 @@ void bgp_lp_get(
 
 		if (rc) {
 			/* shouldn't happen */
-			flog_err(BGP_ERR_LABEL,
-				  "%s: can't insert new LCB into ledger list",
-				  __func__);
+			flog_err(EC_BGP_LABEL,
+				 "%s: can't insert new LCB into ledger list",
+				 __func__);
 			XFREE(MTYPE_BGP_LABEL_CB, lcb);
 			return;
 		}
@@ -427,9 +427,9 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 	struct lp_fifo *lf;
 
 	if (last < first) {
-		flog_err(BGP_ERR_LABEL,
-			  "%s: zebra label chunk invalid: first=%u, last=%u",
-			  __func__, first, last);
+		flog_err(EC_BGP_LABEL,
+			 "%s: zebra label chunk invalid: first=%u, last=%u",
+			 __func__, first, last);
 		return;
 	}
 

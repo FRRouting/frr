@@ -121,7 +121,7 @@ void route_read(struct zebra_ns *zns)
 	int flags, dev, retval, process;
 
 	if ((dev = open(_PATH_GETMSG_ROUTE, O_RDWR)) == -1) {
-		flog_err_sys(LIB_ERR_SYSTEM_CALL, "can't open %s: %s",
+		flog_err_sys(EC_LIB_SYSTEM_CALL, "can't open %s: %s",
 			     _PATH_GETMSG_ROUTE, safe_strerror(errno));
 		return;
 	}
@@ -143,7 +143,7 @@ void route_read(struct zebra_ns *zns)
 	flags = 0;
 
 	if (putmsg(dev, &msgdata, NULL, flags) == -1) {
-		flog_err_sys(LIB_ERR_SOCKET, "putmsg failed: %s",
+		flog_err_sys(EC_LIB_SOCKET, "putmsg failed: %s",
 			     safe_strerror(errno));
 		goto exit;
 	}
@@ -156,7 +156,7 @@ void route_read(struct zebra_ns *zns)
 		retval = getmsg(dev, &msgdata, NULL, &flags);
 
 		if (retval == -1) {
-			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			flog_err_sys(EC_LIB_SYSTEM_CALL,
 				     "getmsg(ctl) failed: %s",
 				     safe_strerror(errno));
 			goto exit;
@@ -215,7 +215,7 @@ void route_read(struct zebra_ns *zns)
 			retval = getmsg(dev, NULL, &msgdata, &flags);
 
 			if (retval == -1) {
-				flog_err_sys(LIB_ERR_SYSTEM_CALL,
+				flog_err_sys(EC_LIB_SYSTEM_CALL,
 					     "getmsg(data) failed: %s",
 					     safe_strerror(errno));
 				goto exit;

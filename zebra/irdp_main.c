@@ -90,8 +90,7 @@ int irdp_sock_init(void)
 	}
 
 	if (sock < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
-			     "IRDP: can't create irdp socket %s",
+		flog_err_sys(EC_LIB_SOCKET, "IRDP: can't create irdp socket %s",
 			     safe_strerror(save_errno));
 		return sock;
 	};
@@ -99,7 +98,7 @@ int irdp_sock_init(void)
 	i = 1;
 	ret = setsockopt(sock, IPPROTO_IP, IP_TTL, (void *)&i, sizeof(i));
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "IRDP: can't do irdp sockopt %s",
+		flog_err_sys(EC_LIB_SOCKET, "IRDP: can't do irdp sockopt %s",
 			     safe_strerror(errno));
 		close(sock);
 		return ret;
@@ -107,7 +106,7 @@ int irdp_sock_init(void)
 
 	ret = setsockopt_ifindex(AF_INET, sock, 1);
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "IRDP: can't do irdp sockopt %s",
+		flog_err_sys(EC_LIB_SOCKET, "IRDP: can't do irdp sockopt %s",
 			     safe_strerror(errno));
 		close(sock);
 		return ret;

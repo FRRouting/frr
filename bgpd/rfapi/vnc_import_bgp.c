@@ -603,8 +603,8 @@ static void vnc_import_bgp_add_route_mode_resolve_nve(
 	 */
 
 	if (!afi) {
-		flog_err(LIB_ERR_DEVELOPMENT, "%s: can't get afi of prefix",
-			  __func__);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: can't get afi of prefix",
+			 __func__);
 		return;
 	}
 
@@ -720,8 +720,8 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 	}
 
 	if (!afi) {
-		flog_err(LIB_ERR_DEVELOPMENT, "%s: can't get afi of prefix",
-			  __func__);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: can't get afi of prefix",
+			 __func__);
 		return;
 	}
 
@@ -908,8 +908,8 @@ vnc_import_bgp_add_route_mode_nvegroup(struct bgp *bgp, struct prefix *prefix,
 	assert(rfg);
 
 	if (!afi) {
-		flog_err(LIB_ERR_DEVELOPMENT, "%s: can't get afi of prefix",
-			  __func__);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: can't get afi of prefix",
+			 __func__);
 		return;
 	}
 
@@ -2634,8 +2634,8 @@ void vnc_import_bgp_add_route(struct bgp *bgp, struct prefix *prefix,
 	VNC_RHNCK(enter);
 
 	if (!afi) {
-		flog_err(LIB_ERR_DEVELOPMENT, "%s: can't get afi of prefix",
-			  __func__);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: can't get afi of prefix",
+			 __func__);
 		return;
 	}
 

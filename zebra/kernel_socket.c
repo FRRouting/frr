@@ -409,9 +409,9 @@ int ifm_read(struct if_msghdr *ifm)
 
 	/* paranoia: sanity check structure */
 	if (ifm->ifm_msglen < sizeof(struct if_msghdr)) {
-		flog_err(ZEBRA_ERR_NETLINK_LENGTH_ERROR,
-			  "ifm_read: ifm->ifm_msglen %d too short\n",
-			  ifm->ifm_msglen);
+		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+			 "ifm_read: ifm->ifm_msglen %d too short\n",
+			 ifm->ifm_msglen);
 		return -1;
 	}
 
@@ -728,7 +728,7 @@ int ifam_read(struct ifa_msghdr *ifam)
 	ifam_read_mesg(ifam, &addr, &mask, &brd, ifname, &ifnlen);
 
 	if ((ifp = if_lookup_by_index(ifam->ifam_index, VRF_DEFAULT)) == NULL) {
-		flog_warn(ZEBRA_ERR_UNKNOWN_INTERFACE,
+		flog_warn(EC_ZEBRA_UNKNOWN_INTERFACE,
 			  "%s: no interface for ifname %s, index %d", __func__,
 			  ifname, ifam->ifam_index);
 		return -1;
@@ -823,7 +823,7 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 
 	/* rt_msghdr version check. */
 	if (rtm->rtm_version != RTM_VERSION)
-		flog_warn(ZEBRA_ERR_RTM_VERSION_MISMATCH,
+		flog_warn(EC_ZEBRA_RTM_VERSION_MISMATCH,
 			  "Routing message version different %d should be %d."
 			  "This may cause problem\n",
 			  rtm->rtm_version, RTM_VERSION);
@@ -1184,7 +1184,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 				inet_ntop(AF_INET, &mask->sin.sin_addr,
 					  mask_buf, INET_ADDRSTRLEN);
 			flog_warn(
-				ZEBRA_ERR_RTM_NO_GATEWAY,
+				EC_ZEBRA_RTM_NO_GATEWAY,
 				"%s: %s/%s: gate == NULL and no gateway found for ifindex %d",
 				__func__, dest_buf, mask_buf, index);
 			return -1;
@@ -1252,7 +1252,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 		if (errno == ESRCH)
 			return ZEBRA_ERR_RTNOEXIST;
 
-		flog_err_sys(LIB_ERR_SOCKET, "%s: write : %s (%d)", __func__,
+		flog_err_sys(EC_LIB_SOCKET, "%s: write : %s (%d)", __func__,
 			     safe_strerror(errno), errno);
 		return ZEBRA_ERR_KERNEL;
 	}
@@ -1335,7 +1335,7 @@ static int kernel_read(struct thread *thread)
 
 	if (nbytes <= 0) {
 		if (nbytes < 0 && errno != EWOULDBLOCK && errno != EAGAIN)
-			flog_err_sys(LIB_ERR_SOCKET, "routing socket error: %s",
+			flog_err_sys(EC_LIB_SOCKET, "routing socket error: %s",
 				     safe_strerror(errno));
 		return 0;
 	}
@@ -1392,8 +1392,7 @@ static void routing_socket(struct zebra_ns *zns)
 	}
 
 	if (routing_sock < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
-			     "Can't init kernel routing socket");
+		flog_err_sys(EC_LIB_SOCKET, "Can't init kernel routing socket");
 		return;
 	}
 

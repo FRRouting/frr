@@ -68,9 +68,8 @@ static int bgp_flowspec_call_non_opaque_decode(uint8_t *nlri_content, int len,
 			     len,
 			     mval, error);
 	if (*error < 0)
-		flog_err(BGP_ERR_FLOWSPEC_PACKET,
-			  "%s: flowspec_op_decode error %d",
-			  __func__, *error);
+		flog_err(EC_BGP_FLOWSPEC_PACKET,
+			 "%s: flowspec_op_decode error %d", __func__, *error);
 	else
 		*match_num = *error;
 	return ret;
@@ -447,9 +446,9 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 					len - offset,
 					prefix, &error);
 			if (error < 0)
-				flog_err(BGP_ERR_FLOWSPEC_PACKET,
-					  "%s: flowspec_ip_address error %d",
-					  __func__, error);
+				flog_err(EC_BGP_FLOWSPEC_PACKET,
+					 "%s: flowspec_ip_address error %d",
+					 __func__, error);
 			else
 				bpem->match_bitmask |= bitmask;
 			offset += ret;
@@ -542,9 +541,10 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 					len - offset,
 					&bpem->tcpflags, &error);
 			if (error < 0)
-				flog_err(BGP_ERR_FLOWSPEC_PACKET,
-					  "%s: flowspec_tcpflags_decode error %d",
-					  __func__, error);
+				flog_err(
+					EC_BGP_FLOWSPEC_PACKET,
+					"%s: flowspec_tcpflags_decode error %d",
+					__func__, error);
 			else
 				bpem->match_tcpflags_num = error;
 			/* contains the number of slots used */
@@ -557,16 +557,17 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 					len - offset, &bpem->fragment,
 					&error);
 			if (error < 0)
-				flog_err(BGP_ERR_FLOWSPEC_PACKET,
-					  "%s: flowspec_fragment_type_decode error %d",
-					  __func__, error);
+				flog_err(
+					EC_BGP_FLOWSPEC_PACKET,
+					"%s: flowspec_fragment_type_decode error %d",
+					__func__, error);
 			else
 				bpem->match_fragment_num = error;
 			offset += ret;
 			break;
 		default:
-			flog_err(LIB_ERR_DEVELOPMENT, "%s: unknown type %d\n",
-				  __func__, type);
+			flog_err(EC_LIB_DEVELOPMENT, "%s: unknown type %d\n",
+				 __func__, type);
 		}
 	}
 	return error;

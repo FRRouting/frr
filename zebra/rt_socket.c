@@ -73,7 +73,7 @@ static int kernel_rtm_add_labels(struct mpls_label_stack *nh_label,
 				 struct sockaddr_mpls *smpls)
 {
 	if (nh_label->num_labels > 1) {
-		flog_warn(ZEBRA_ERR_MAX_LABELS_PUSH,
+		flog_warn(EC_ZEBRA_MAX_LABELS_PUSH,
 			  "%s: can't push %u labels at "
 			  "once (maximum is 1)",
 			  __func__, nh_label->num_labels);
@@ -214,7 +214,7 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 			case ZEBRA_ERR_RTEXIST:
 				if (cmd != RTM_ADD)
 					flog_err(
-						LIB_ERR_SYSTEM_CALL,
+						EC_LIB_SYSTEM_CALL,
 						"%s: rtm_write() returned %d for command %d",
 						__func__, error, cmd);
 				continue;
@@ -228,7 +228,7 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 			case ZEBRA_ERR_RTUNREACH:
 			default:
 				flog_err(
-					LIB_ERR_SYSTEM_CALL,
+					EC_LIB_SYSTEM_CALL,
 					"%s: %s: rtm_write() unexpectedly returned %d for command %s",
 					__func__,
 					prefix2str(p, prefix_buf,
@@ -400,7 +400,7 @@ enum dp_req_result kernel_route_rib(struct route_node *rn,
 	int route = 0;
 
 	if (src_p && src_p->prefixlen) {
-		flog_warn(ZEBRA_ERR_UNSUPPORTED_V6_SRCDEST,
+		flog_warn(EC_ZEBRA_UNSUPPORTED_V6_SRCDEST,
 			  "%s: IPv6 sourcedest routes unsupported!", __func__);
 		return DP_REQUEST_FAILURE;
 	}

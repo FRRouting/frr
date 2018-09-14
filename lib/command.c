@@ -2421,7 +2421,7 @@ static int set_log_file(struct vty *vty, const char *fname, int loglevel)
 		cwd[MAXPATHLEN] = '\0';
 
 		if (getcwd(cwd, MAXPATHLEN) == NULL) {
-			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			flog_err_sys(EC_LIB_SYSTEM_CALL,
 				     "config_log_file: Unable to alloc mem!");
 			return CMD_WARNING_CONFIG_FAILED;
 		}

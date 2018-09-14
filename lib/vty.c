@@ -314,7 +314,7 @@ static int vty_log_out(struct vty *vty, const char *level,
 		/* Fatal I/O error. */
 		vty->monitor =
 			0; /* disable monitoring to avoid infinite recursion */
-		flog_err(LIB_ERR_SOCKET,
+		flog_err(EC_LIB_SOCKET,
 			 "%s: write failed to vty client fd %d, closing: %s",
 			 __func__, vty->fd, safe_strerror(errno));
 		buffer_reset(vty->obuf);
@@ -536,7 +536,7 @@ static int vty_command(struct vty *vty, char *buf)
 		    > CONSUMED_TIME_CHECK)
 			/* Warn about CPU hog that must be fixed. */
 			flog_warn(
-				LIB_WARN_SLOW_THREAD,
+				EC_LIB_SLOW_THREAD,
 				"SLOW COMMAND: command took %lums (cpu time %lums): %s",
 				realtime / 1000, cputime / 1000, buf);
 	}
@@ -1329,14 +1329,14 @@ static int vty_telnet_option(struct vty *vty, unsigned char *buf, int nbytes)
 		case TELOPT_NAWS:
 			if (vty->sb_len != TELNET_NAWS_SB_LEN)
 				flog_err(
-					LIB_ERR_SYSTEM_CALL,
+					EC_LIB_SYSTEM_CALL,
 					"RFC 1073 violation detected: telnet NAWS option "
 					"should send %d characters, but we received %lu",
 					TELNET_NAWS_SB_LEN,
 					(unsigned long)vty->sb_len);
 			else if (sizeof(vty->sb_buf) < TELNET_NAWS_SB_LEN)
 				flog_err(
-					LIB_ERR_DEVELOPMENT,
+					EC_LIB_DEVELOPMENT,
 					"Bug detected: sizeof(vty->sb_buf) %lu < %d, too small to handle the telnet NAWS option",
 					(unsigned long)sizeof(vty->sb_buf),
 					TELNET_NAWS_SB_LEN);
@@ -1452,7 +1452,7 @@ static int vty_read(struct thread *thread)
 			vty->monitor = 0; /* disable monitoring to avoid
 					     infinite recursion */
 			flog_err(
-				LIB_ERR_SOCKET,
+				EC_LIB_SOCKET,
 				"%s: read error on vty client fd %d, closing: %s",
 				__func__, vty->fd, safe_strerror(errno));
 			buffer_reset(vty->obuf);
@@ -1906,7 +1906,7 @@ static int vty_accept(struct thread *thread)
 	/* We can handle IPv4 or IPv6 socket. */
 	vty_sock = sockunion_accept(accept_sock, &su);
 	if (vty_sock < 0) {
-		flog_err(LIB_ERR_SOCKET, "can't accept vty socket : %s",
+		flog_err(EC_LIB_SOCKET, "can't accept vty socket : %s",
 			 safe_strerror(errno));
 		return -1;
 	}
@@ -1980,7 +1980,7 @@ static void vty_serv_sock_addrinfo(const char *hostname, unsigned short port)
 	ret = getaddrinfo(hostname, port_str, &req, &ainfo);
 
 	if (ret != 0) {
-		flog_err_sys(LIB_ERR_SYSTEM_CALL, "getaddrinfo failed: %s",
+		flog_err_sys(EC_LIB_SYSTEM_CALL, "getaddrinfo failed: %s",
 			     gai_strerror(ret));
 		exit(1);
 	}
@@ -2041,7 +2041,7 @@ static void vty_serv_un(const char *path)
 	/* Make UNIX domain socket. */
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "Cannot create unix stream socket: %s",
 			     safe_strerror(errno));
 		return;
@@ -2061,7 +2061,7 @@ static void vty_serv_un(const char *path)
 
 	ret = bind(sock, (struct sockaddr *)&serv, len);
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "Cannot bind path %s: %s", path,
+		flog_err_sys(EC_LIB_SOCKET, "Cannot bind path %s: %s", path,
 			     safe_strerror(errno));
 		close(sock); /* Avoid sd leak. */
 		return;
@@ -2069,7 +2069,7 @@ static void vty_serv_un(const char *path)
 
 	ret = listen(sock, 5);
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET, "listen(fd %d) failed: %s", sock,
+		flog_err_sys(EC_LIB_SOCKET, "listen(fd %d) failed: %s", sock,
 			     safe_strerror(errno));
 		close(sock); /* Avoid sd leak. */
 		return;
@@ -2085,7 +2085,7 @@ static void vty_serv_un(const char *path)
 	if ((int)ids.gid_vty > 0) {
 		/* set group of socket */
 		if (chown(path, -1, ids.gid_vty)) {
-			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			flog_err_sys(EC_LIB_SYSTEM_CALL,
 				     "vty_serv_un: could chown socket, %s",
 				     safe_strerror(errno));
 		}
@@ -2115,14 +2115,14 @@ static int vtysh_accept(struct thread *thread)
 		      (socklen_t *)&client_len);
 
 	if (sock < 0) {
-		flog_err(LIB_ERR_SOCKET, "can't accept vty socket : %s",
+		flog_err(EC_LIB_SOCKET, "can't accept vty socket : %s",
 			 safe_strerror(errno));
 		return -1;
 	}
 
 	if (set_nonblocking(sock) < 0) {
 		flog_err(
-			LIB_ERR_SOCKET,
+			EC_LIB_SOCKET,
 			"vtysh_accept: could not set vty socket %d to non-blocking, %s, closing",
 			sock, safe_strerror(errno));
 		close(sock);
@@ -2154,7 +2154,7 @@ static int vtysh_flush(struct vty *vty)
 	case BUFFER_ERROR:
 		vty->monitor =
 			0; /* disable monitoring to avoid infinite recursion */
-		flog_err(LIB_ERR_SOCKET, "%s: write error to fd %d, closing",
+		flog_err(EC_LIB_SOCKET, "%s: write error to fd %d, closing",
 			 __func__, vty->fd);
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
@@ -2190,7 +2190,7 @@ static int vtysh_read(struct thread *thread)
 			vty->monitor = 0; /* disable monitoring to avoid
 					     infinite recursion */
 			flog_err(
-				LIB_ERR_SOCKET,
+				EC_LIB_SOCKET,
 				"%s: read failed on vtysh client fd %d, closing: %s",
 				__func__, sock, safe_strerror(errno));
 		}
@@ -2420,9 +2420,8 @@ static void vty_read_file(FILE *confp)
 		nl = strchr(vty->error_buf, '\n');
 		if (nl)
 			*nl = '\0';
-		flog_err(LIB_ERR_VTY,
-			  "ERROR: %s on config line %u: %s", message, line_num,
-			  vty->error_buf);
+		flog_err(EC_LIB_VTY, "ERROR: %s on config line %u: %s", message,
+			 line_num, vty->error_buf);
 	}
 
 	vty_close(vty);
@@ -2496,7 +2495,7 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 		if (!IS_DIRECTORY_SEP(config_file[0])) {
 			if (getcwd(cwd, MAXPATHLEN) == NULL) {
 				flog_err_sys(
-					LIB_ERR_SYSTEM_CALL,
+					EC_LIB_SYSTEM_CALL,
 					"Failure to determine Current Working Directory %d!",
 					errno);
 				exit(1);
@@ -2512,19 +2511,19 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 
 		if (confp == NULL) {
 			flog_warn(
-				LIB_WARN_BACKUP_CONFIG,
+				EC_LIB_BACKUP_CONFIG,
 				"%s: failed to open configuration file %s: %s, checking backup",
 				__func__, fullpath, safe_strerror(errno));
 
 			confp = vty_use_backup_config(fullpath);
 			if (confp)
 				flog_warn(
-					LIB_WARN_BACKUP_CONFIG,
+					EC_LIB_BACKUP_CONFIG,
 					"WARNING: using backup configuration file!");
 			else {
-				flog_err(LIB_ERR_VTY,
-					  "can't open configuration file [%s]",
-					  config_file);
+				flog_err(EC_LIB_VTY,
+					 "can't open configuration file [%s]",
+					 config_file);
 				exit(1);
 			}
 		}
@@ -2561,7 +2560,7 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 		confp = fopen(config_default_dir, "r");
 		if (confp == NULL) {
 			flog_err(
-				LIB_ERR_SYSTEM_CALL,
+				EC_LIB_SYSTEM_CALL,
 				"%s: failed to open configuration file %s: %s, checking backup",
 				__func__, config_default_dir,
 				safe_strerror(errno));
@@ -2569,13 +2568,13 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 			confp = vty_use_backup_config(config_default_dir);
 			if (confp) {
 				flog_warn(
-					LIB_WARN_BACKUP_CONFIG,
+					EC_LIB_BACKUP_CONFIG,
 					"WARNING: using backup configuration file!");
 				fullpath = config_default_dir;
 			} else {
-				flog_err(LIB_ERR_VTY,
-					  "can't open configuration file [%s]",
-					  config_default_dir);
+				flog_err(EC_LIB_VTY,
+					 "can't open configuration file [%s]",
+					 config_default_dir);
 				goto tmp_free_and_out;
 			}
 		} else
@@ -3088,13 +3087,13 @@ static void vty_save_cwd(void)
 		 * Hence not worrying about it too much.
 		 */
 		if (!chdir(SYSCONFDIR)) {
-			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			flog_err_sys(EC_LIB_SYSTEM_CALL,
 				     "Failure to chdir to %s, errno: %d",
 				     SYSCONFDIR, errno);
 			exit(-1);
 		}
 		if (getcwd(cwd, MAXPATHLEN) == NULL) {
-			flog_err_sys(LIB_ERR_SYSTEM_CALL,
+			flog_err_sys(EC_LIB_SYSTEM_CALL,
 				     "Failure to getcwd, errno: %d", errno);
 			exit(-1);
 		}

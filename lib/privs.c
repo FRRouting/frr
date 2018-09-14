@@ -290,7 +290,7 @@ zebra_privs_current_t zprivs_state_caps(void)
 				 zprivs_state.syscaps_p->caps[i], CAP_EFFECTIVE,
 				 &val)) {
 			flog_err(
-				LIB_ERR_SYSTEM_CALL,
+				EC_LIB_SYSTEM_CALL,
 				"zprivs_state_caps: could not cap_get_flag, %s",
 				safe_strerror(errno));
 			return ZPRIVS_UNKNOWN;

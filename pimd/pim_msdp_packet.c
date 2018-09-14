@@ -147,7 +147,7 @@ static void pim_msdp_connect_check(struct pim_msdp_peer *mp)
 
 	/* If getsockopt is fail, this is fatal error. */
 	if (ret < 0) {
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "can't get sockopt for nonblocking connect");
 		pim_msdp_peer_reset_tcp_conn(mp, "connect-failed");
 		return;
@@ -484,9 +484,9 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 
 	if (prefix_len != 32) {
 		/* ignore SA update if the prefix length is not 32 */
-		flog_err(PIM_ERR_MSDP_PACKET,
-			  "rxed sa update with invalid prefix length %d",
-			  prefix_len);
+		flog_err(EC_PIM_MSDP_PACKET,
+			 "rxed sa update with invalid prefix length %d",
+			 prefix_len);
 		return;
 	}
 	if (PIM_DEBUG_MSDP_PACKETS) {

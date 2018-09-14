@@ -312,7 +312,7 @@ int if_subnet_delete(struct interface *ifp, struct connected *ifc)
 	/* Get address derived subnet node. */
 	rn = route_node_lookup(zebra_if->ipv4_subnets, &cp);
 	if (!(rn && rn->info)) {
-		flog_warn(ZEBRA_ERR_REMOVE_ADDR_UNKNOWN_SUBNET,
+		flog_warn(EC_ZEBRA_REMOVE_ADDR_UNKNOWN_SUBNET,
 			  "Trying to remove an address from an unknown subnet."
 			  " (please report this bug)");
 		return -1;
@@ -327,7 +327,7 @@ int if_subnet_delete(struct interface *ifp, struct connected *ifc)
 	 * is unknown. */
 	if (!listnode_lookup(addr_list, ifc)) {
 		flog_warn(
-			ZEBRA_ERR_REMOVE_UNREGISTERED_ADDR,
+			EC_ZEBRA_REMOVE_UNREGISTERED_ADDR,
 			"Trying to remove an address from a subnet where it is not"
 			" currently registered. (please report this bug)");
 		return -1;
@@ -474,7 +474,7 @@ static void if_addr_wakeup(struct interface *ifp)
 				ret = if_set_prefix(ifp, ifc);
 				if (ret < 0) {
 					flog_err_sys(
-						ZEBRA_ERR_IFACE_ADDR_ADD_FAILED,
+						EC_ZEBRA_IFACE_ADDR_ADD_FAILED,
 						"Can't set interface's address: %s",
 						safe_strerror(errno));
 					continue;
@@ -497,7 +497,7 @@ static void if_addr_wakeup(struct interface *ifp)
 				ret = if_prefix_add_ipv6(ifp, ifc);
 				if (ret < 0) {
 					flog_err_sys(
-						ZEBRA_ERR_IFACE_ADDR_ADD_FAILED,
+						EC_ZEBRA_IFACE_ADDR_ADD_FAILED,
 						"Can't set interface's address: %s",
 						safe_strerror(errno));
 					continue;
@@ -699,7 +699,7 @@ void if_delete_update(struct interface *ifp)
 
 	if (if_is_up(ifp)) {
 		flog_err(
-			LIB_ERR_INTERFACE,
+			EC_LIB_INTERFACE,
 			"interface %s vrf %u index %d is still up while being deleted.",
 			ifp->name, ifp->vrf_id, ifp->ifindex);
 		return;
@@ -891,7 +891,7 @@ void if_up(struct interface *ifp)
 
 	/* Notify the protocol daemons. */
 	if (ifp->ptm_enable && (ifp->ptm_status == ZEBRA_PTM_STATUS_DOWN)) {
-		flog_warn(ZEBRA_ERR_PTM_NOT_READY,
+		flog_warn(EC_ZEBRA_PTM_NOT_READY,
 			  "%s: interface %s hasn't passed ptm check\n",
 			  __func__, ifp->name);
 		return;

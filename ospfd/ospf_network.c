@@ -52,7 +52,7 @@ int ospf_if_add_allspfrouters(struct ospf *top, struct prefix *p,
 					ifindex);
 	if (ret < 0)
 		flog_err(
-			LIB_ERR_SOCKET,
+			EC_LIB_SOCKET,
 			"can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
 			"ifindex %u, AllSPFRouters): %s; perhaps a kernel limit "
 			"on # of multicast group memberships has been exceeded?",
@@ -77,7 +77,7 @@ int ospf_if_drop_allspfrouters(struct ospf *top, struct prefix *p,
 					p->u.prefix4, htonl(OSPF_ALLSPFROUTERS),
 					ifindex);
 	if (ret < 0)
-		flog_err(LIB_ERR_SOCKET,
+		flog_err(EC_LIB_SOCKET,
 			 "can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, "
 			 "ifindex %u, AllSPFRouters): %s",
 			 top->fd, inet_ntoa(p->u.prefix4), ifindex,
@@ -103,7 +103,7 @@ int ospf_if_add_alldrouters(struct ospf *top, struct prefix *p,
 					ifindex);
 	if (ret < 0)
 		flog_err(
-			LIB_ERR_SOCKET,
+			EC_LIB_SOCKET,
 			"can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
 			"ifindex %u, AllDRouters): %s; perhaps a kernel limit "
 			"on # of multicast group memberships has been exceeded?",
@@ -126,7 +126,7 @@ int ospf_if_drop_alldrouters(struct ospf *top, struct prefix *p,
 					p->u.prefix4, htonl(OSPF_ALLDROUTERS),
 					ifindex);
 	if (ret < 0)
-		flog_err(LIB_ERR_SOCKET,
+		flog_err(EC_LIB_SOCKET,
 			 "can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, "
 			 "ifindex %u, AllDRouters): %s",
 			 top->fd, inet_ntoa(p->u.prefix4), ifindex,
@@ -147,7 +147,7 @@ int ospf_if_ipmulticast(struct ospf *top, struct prefix *p, ifindex_t ifindex)
 	/* Prevent receiving self-origined multicast packets. */
 	ret = setsockopt_ipv4_multicast_loop(top->fd, 0);
 	if (ret < 0)
-		flog_err(LIB_ERR_SOCKET,
+		flog_err(EC_LIB_SOCKET,
 			 "can't setsockopt IP_MULTICAST_LOOP(0) for fd %d: %s",
 			 top->fd, safe_strerror(errno));
 
@@ -157,7 +157,7 @@ int ospf_if_ipmulticast(struct ospf *top, struct prefix *p, ifindex_t ifindex)
 	ret = setsockopt(top->fd, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&val,
 			 len);
 	if (ret < 0)
-		flog_err(LIB_ERR_SOCKET,
+		flog_err(EC_LIB_SOCKET,
 			 "can't setsockopt IP_MULTICAST_TTL(1) for fd %d: %s",
 			 top->fd, safe_strerror(errno));
 #ifndef GNU_LINUX
@@ -166,7 +166,7 @@ int ospf_if_ipmulticast(struct ospf *top, struct prefix *p, ifindex_t ifindex)
 	 */
 	ret = setsockopt_ipv4_multicast_if(top->fd, p->u.prefix4, ifindex);
 	if (ret < 0)
-		flog_err(LIB_ERR_SOCKET,
+		flog_err(EC_LIB_SOCKET,
 			 "can't setsockopt IP_MULTICAST_IF(fd %d, addr %s, "
 			 "ifindex %u): %s",
 			 top->fd, inet_ntoa(p->u.prefix4), ifindex,
@@ -194,7 +194,7 @@ int ospf_sock_init(struct ospf *ospf)
 		ospf_sock = vrf_socket(AF_INET, SOCK_RAW, IPPROTO_OSPFIGP,
 				       ospf->vrf_id, ospf->name);
 		if (ospf_sock < 0) {
-			flog_err(LIB_ERR_SOCKET,
+			flog_err(EC_LIB_SOCKET,
 				 "ospf_read_sock_init: socket: %s",
 				 safe_strerror(errno));
 			exit(1);
@@ -205,7 +205,7 @@ int ospf_sock_init(struct ospf *ospf)
 		ret = setsockopt(ospf_sock, IPPROTO_IP, IP_HDRINCL, &hincl,
 				 sizeof(hincl));
 		if (ret < 0) {
-			flog_err(LIB_ERR_SOCKET,
+			flog_err(EC_LIB_SOCKET,
 				 "Can't set IP_HDRINCL option for fd %d: %s",
 				 ospf_sock, safe_strerror(errno));
 			close(ospf_sock);
@@ -217,7 +217,7 @@ int ospf_sock_init(struct ospf *ospf)
 		ret = setsockopt_ipv4_tos(ospf_sock,
 					  IPTOS_PREC_INTERNETCONTROL);
 		if (ret < 0) {
-			flog_err(LIB_ERR_SOCKET,
+			flog_err(EC_LIB_SOCKET,
 				 "can't set sockopt IP_TOS %d to socket %d: %s",
 				 tos, ospf_sock, safe_strerror(errno));
 			close(ospf_sock); /* Prevent sd leak. */
@@ -225,14 +225,13 @@ int ospf_sock_init(struct ospf *ospf)
 		}
 #else /* !IPTOS_PREC_INTERNETCONTROL */
 #warning "IP_HDRINCL not available, nor is IPTOS_PREC_INTERNETCONTROL"
-		flog_err(LIB_ERR_UNAVAILABLE,
-			 "IP_HDRINCL option not available");
+		flog_err(EC_LIB_UNAVAILABLE, "IP_HDRINCL option not available");
 #endif /* IP_HDRINCL */
 
 		ret = setsockopt_ifindex(AF_INET, ospf_sock, 1);
 
 		if (ret < 0)
-			flog_err(LIB_ERR_SOCKET,
+			flog_err(EC_LIB_SOCKET,
 				 "Can't set pktinfo option for fd %d",
 				 ospf_sock);
 

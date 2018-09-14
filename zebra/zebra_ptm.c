@@ -181,8 +181,8 @@ static int zebra_ptm_flush_messages(struct thread *thread)
 
 	switch (buffer_flush_available(ptm_cb.wb, ptm_cb.ptm_sock)) {
 	case BUFFER_ERROR:
-		flog_err_sys(LIB_ERR_SOCKET, "%s ptm socket error: %s",
-			     __func__, safe_strerror(errno));
+		flog_err_sys(EC_LIB_SOCKET, "%s ptm socket error: %s", __func__,
+			     safe_strerror(errno));
 		close(ptm_cb.ptm_sock);
 		ptm_cb.ptm_sock = -1;
 		zebra_ptm_reset_status(0);
@@ -207,8 +207,8 @@ static int zebra_ptm_send_message(char *data, int size)
 	errno = 0;
 	switch (buffer_write(ptm_cb.wb, ptm_cb.ptm_sock, data, size)) {
 	case BUFFER_ERROR:
-		flog_err_sys(LIB_ERR_SOCKET, "%s ptm socket error: %s",
-			     __func__, safe_strerror(errno));
+		flog_err_sys(EC_LIB_SOCKET, "%s ptm socket error: %s", __func__,
+			     safe_strerror(errno));
 		close(ptm_cb.ptm_sock);
 		ptm_cb.ptm_sock = -1;
 		zebra_ptm_reset_status(0);
@@ -505,17 +505,17 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 			dest_str, src_str);
 
 	if (str2prefix(dest_str, &dest_prefix) == 0) {
-		flog_err(ZEBRA_ERR_PREFIX_PARSE_ERROR,
-			  "%s: Peer addr %s not found", __func__, dest_str);
+		flog_err(EC_ZEBRA_PREFIX_PARSE_ERROR,
+			 "%s: Peer addr %s not found", __func__, dest_str);
 		return -1;
 	}
 
 	memset(&src_prefix, 0, sizeof(struct prefix));
 	if (strcmp(ZEBRA_PTM_INVALID_SRC_IP, src_str)) {
 		if (str2prefix(src_str, &src_prefix) == 0) {
-			flog_err(ZEBRA_ERR_PREFIX_PARSE_ERROR,
-				  "%s: Local addr %s not found", __func__,
-				  src_str);
+			flog_err(EC_ZEBRA_PREFIX_PARSE_ERROR,
+				 "%s: Local addr %s not found", __func__,
+				 src_str);
 			return -1;
 		}
 	}
@@ -609,7 +609,7 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
 		ifp = if_lookup_by_name_all_vrf(port_str);
 
 		if (!ifp) {
-			flog_warn(ZEBRA_ERR_UNKNOWN_INTERFACE,
+			flog_warn(EC_ZEBRA_UNKNOWN_INTERFACE,
 				  "%s: %s not found in interface list",
 				  __func__, port_str);
 			return -1;
@@ -649,7 +649,7 @@ int zebra_ptm_sock_read(struct thread *thread)
 
 	if (((rc == 0) && !errno)
 	    || (errno && (errno != EWOULDBLOCK) && (errno != EAGAIN))) {
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "%s routing socket error: %s(%d) bytes %d",
 			     __func__, safe_strerror(errno), errno, rc);
 

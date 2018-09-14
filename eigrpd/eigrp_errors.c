@@ -26,13 +26,13 @@
 /* clang-format off */
 static struct log_ref ferr_eigrp_err[] = {
 	{
-		.code = EIGRP_ERR_PACKET,
+		.code = EC_EIGRP_PACKET,
 		.title = "EIGRP Packet Error",
 		.description = "EIGRP has a packet that does not correctly decode or encode",
 		.suggestion = "Gather log files from both sides of the neighbor relationship and open an issue"
 	},
 	{
-		.code = EIGRP_ERR_CONFIG,
+		.code = EC_EIGRP_CONFIG,
 		.title = "EIGRP Configuration Error",
 		.description = "EIGRP has detected a configuration error",
 		.suggestion = "Correct the configuration issue, if it still persists open an Issue"

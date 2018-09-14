@@ -26,260 +26,260 @@
 /* clang-format off */
 static struct log_ref ferr_zebra_err[] = {
 	{
-		.code = ZEBRA_ERR_LM_RESPONSE,
+		.code = EC_ZEBRA_LM_RESPONSE,
 		.title = "Error reading response from label manager",
 		.description = "Zebra could not read the ZAPI header from the label manager",
 		.suggestion = "Wait for the error to resolve on its own. If it does not resolve, restart Zebra.",
 	},
 	{
-		.code = ZEBRA_ERR_LM_NO_SUCH_CLIENT,
+		.code = EC_ZEBRA_LM_NO_SUCH_CLIENT,
 		.title = "Label manager could not find ZAPI client",
 		.description = "Zebra was unable to find a ZAPI client matching the given protocol and instance number.",
 		.suggestion = "Ensure clients which use the label manager are properly configured and running.",
 	},
 	{
-		.code = ZEBRA_ERR_LM_RELAY_FAILED,
+		.code = EC_ZEBRA_LM_RELAY_FAILED,
 		.title = "Zebra could not relay label manager response",
 		.description = "Zebra found the client and instance to relay the label manager response or request to, but was not able to do so, possibly because the connection was closed.",
 		.suggestion = "Ensure clients which use the label manager are properly configured and running.",
 	},
 	{
-		.code = ZEBRA_ERR_LM_BAD_INSTANCE,
+		.code = EC_ZEBRA_LM_BAD_INSTANCE,
 		.title = "Mismatch between ZAPI instance and encoded message instance",
 		.description = "While relaying a request to the external label manager, Zebra noticed that the instance number encoded in the message did not match the client instance number.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_LM_EXHAUSTED_LABELS,
+		.code = EC_ZEBRA_LM_EXHAUSTED_LABELS,
 		.title = "Zebra label manager used all available labels",
 		.description = "Zebra is unable to assign additional label chunks because it has exhausted its assigned label range.",
 		.suggestion = "Make the label range bigger and restart Zebra.",
 	},
 	{
-		.code = ZEBRA_ERR_LM_DAEMON_MISMATCH,
+		.code = EC_ZEBRA_LM_DAEMON_MISMATCH,
 		.title = "Daemon mismatch when releasing label chunks",
 		.description = "Zebra noticed a mismatch between a label chunk and a protocol daemon number or instance when releasing unused label chunks.",
 		.suggestion = "Ignore this error.",
 	},
 	{
-		.code = ZEBRA_ERR_LM_UNRELEASED_CHUNK,
+		.code = EC_ZEBRA_LM_UNRELEASED_CHUNK,
 		.title = "Zebra did not free any label chunks",
 		.description = "Zebra's chunk cleanup procedure ran, but no label chunks were released.",
 		.suggestion = "Ignore this error.",
 	},
 	{
-		.code = ZEBRA_ERR_DP_INVALID_RC,
+		.code = EC_ZEBRA_DP_INVALID_RC,
 		.title = "Dataplane returned invalid status code",
 		.description = "The underlying dataplane responded to a Zebra message or other interaction with an unrecognized, unknown or invalid status code.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_WQ_NONEXISTENT,
+		.code = EC_ZEBRA_WQ_NONEXISTENT,
 		.title = "A necessary work queue does not exist.",
 		.description = "A necessary work queue does not exist.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_FEC_ADD_FAILED,
+		.code = EC_ZEBRA_FEC_ADD_FAILED,
 		.title = "Failed to add FEC for MPLS client",
 		.description = "A client requested a label binding for a new FEC, but Zebra was unable to add the FEC to its internal table.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_FEC_RM_FAILED,
+		.code = EC_ZEBRA_FEC_RM_FAILED,
 		.title = "Failed to remove FEC for MPLS client",
 		.description = "Zebra was unable to find and remove a FEC in its internal table.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_IRDP_LEN_MISMATCH,
+		.code = EC_ZEBRA_IRDP_LEN_MISMATCH,
 		.title = "IRDP message length mismatch",
 		.description = "The length encoded in the IP TLV does not match the length of the packet received.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_RNH_UNKNOWN_FAMILY,
+		.code = EC_ZEBRA_RNH_UNKNOWN_FAMILY,
 		.title = "Attempted to perform nexthop update for unknown address family",
 		.description = "Zebra attempted to perform a nexthop update for unknown address family",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_DP_INSTALL_FAIL,
+		.code = EC_ZEBRA_DP_INSTALL_FAIL,
 		.title = "Dataplane installation failure",
 		.description = "Installation of routes to underlying dataplane failed.",
 		.suggestion = "Check all configuration parameters for correctness.",
 	},
 	{
-		.code = ZEBRA_ERR_DP_DELETE_FAIL,
+		.code = EC_ZEBRA_DP_DELETE_FAIL,
 		.title = "Dataplane deletion failure",
 		.description = "Deletion of routes from underlying dataplane failed.",
 		.suggestion = "Check all configuration parameters for correctness.",
 	},
 	{
-		.code = ZEBRA_ERR_TABLE_LOOKUP_FAILED,
+		.code = EC_ZEBRA_TABLE_LOOKUP_FAILED,
 		.title = "Zebra table lookup failed",
 		.description = "Zebra attempted to look up a table for a particular address family and subsequent address family, but didn't find anything.",
 		.suggestion = "If you entered a command to trigger this error, make sure you entered the arguments correctly. Check your config file for any potential errors. If these look correct, seek help.",
 	},
 	{
-		.code = ZEBRA_ERR_NETLINK_NOT_AVAILABLE,
+		.code = EC_ZEBRA_NETLINK_NOT_AVAILABLE,
 		.title = "Netlink backend not available",
 		.description = "FRR was not compiled with support for Netlink. Any operations that require Netlink will fail.",
 		.suggestion = "Recompile FRR with Netlink, or install a package that supports this feature.",
 	},
 	{
-		.code = ZEBRA_ERR_PROTOBUF_NOT_AVAILABLE,
+		.code = EC_ZEBRA_PROTOBUF_NOT_AVAILABLE,
 		.title = "Protocol Buffers backend not available",
 		.description = "FRR was not compiled with support for Protocol Buffers. Any operations that require Protobuf will fail.",
 		.suggestion = "Recompile FRR with Protobuf support, or install a package that supports this feature.",
 	},
 	{
-		.code = ZEBRA_ERR_TM_EXHAUSTED_IDS,
+		.code = EC_ZEBRA_TM_EXHAUSTED_IDS,
 		.title = "Table manager used all available IDs",
 		.description = "Zebra's table manager used up all IDs available to it and can't assign any more.",
 		.suggestion = "Reconfigure Zebra with a larger range of table IDs.",
 	},
 	{
-		.code = ZEBRA_ERR_TM_DAEMON_MISMATCH,
+		.code = EC_ZEBRA_TM_DAEMON_MISMATCH,
 		.title = "Daemon mismatch when releasing table chunks",
 		.description = "Zebra noticed a mismatch between a table ID chunk and a protocol daemon number instance when releasing unused table chunks.",
 		.suggestion = "Ignore this error.",
 	},
 	{
-		.code = ZEBRA_ERR_TM_UNRELEASED_CHUNK,
+		.code = EC_ZEBRA_TM_UNRELEASED_CHUNK,
 		.title = "Zebra did not free any table chunks",
 		.description = "Zebra's table chunk cleanup procedure ran, but no table chunks were released.",
 		.suggestion = "Ignore this error.",
 	},
 	{
-		.code = ZEBRA_ERR_UNKNOWN_FAMILY,
+		.code = EC_ZEBRA_UNKNOWN_FAMILY,
 		.title = "Address family specifier unrecognized",
 		.description = "Zebra attempted to process information from somewhere that included an address family specifier, but did not recognize the provided specifier.",
 		.suggestion = "Ensure that your configuration is correct. If it is, notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_TM_WRONG_PROTO,
+		.code = EC_ZEBRA_TM_WRONG_PROTO,
 		.title = "Incorrect protocol for table manager client",
 		.description = "Zebra's table manager only accepts connections from daemons managing dynamic routing protocols, but received a connection attempt from a daemon that does not meet this criterion.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_PROTO_OR_INSTANCE_MISMATCH,
+		.code = EC_ZEBRA_PROTO_OR_INSTANCE_MISMATCH,
 		.title = "Mismatch between message and client protocol and/or instance",
 		.description = "Zebra detected a mismatch between a client's protocol and/or instance numbers versus those stored in a message transiting its socket.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_LM_CANNOT_ASSIGN_CHUNK,
+		.code = EC_ZEBRA_LM_CANNOT_ASSIGN_CHUNK,
 		.title = "Label manager unable to assign label chunk",
 		.description = "Zebra's label manager was unable to assign a label chunk to client.",
 		.suggestion = "Ensure that Zebra has a sufficient label range available and that there is not a range collision.",
 	},
 	{
-		.code = ZEBRA_ERR_LM_ALIENS,
+		.code = EC_ZEBRA_LM_ALIENS,
 		.title = "Label request from unidentified client",
 		.description = "Zebra's label manager received a label request from an unidentified client.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_TM_CANNOT_ASSIGN_CHUNK,
+		.code = EC_ZEBRA_TM_CANNOT_ASSIGN_CHUNK,
 		.title = "Table manager unable to assign table chunk",
 		.description = "Zebra's table manager was unable to assign a table chunk to a client.",
 		.suggestion = "Ensure that Zebra has sufficient table ID range available and that there is not a range collision.",
 	},
 	{
-		.code = ZEBRA_ERR_TM_ALIENS,
+		.code = EC_ZEBRA_TM_ALIENS,
 		.title = "Table request from unidentified client",
 		.description = "Zebra's table manager received a table request from an unidentified client.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_RECVBUF,
+		.code = EC_ZEBRA_RECVBUF,
 		.title = "Cannot set receive buffer size",
 		.description = "Socket receive buffer size could not be set in the kernel",
 		.suggestion = "Ignore this error.",
 	},
 	{
-		.code = ZEBRA_ERR_UNKNOWN_NLMSG,
+		.code = EC_ZEBRA_UNKNOWN_NLMSG,
 		.title = "Unknown Netlink message type",
 		.description = "Zebra received a Netlink message with an unrecognized type field.",
 		.suggestion = "Verify that you are running the latest version of FRR to ensure kernel compatibility. If the problem persists, notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_RECVMSG_OVERRUN,
+		.code = EC_ZEBRA_RECVMSG_OVERRUN,
 		.title = "Receive buffer overrun",
 		.description = "The kernel's buffer for a socket has been overrun, rendering the socket invalid.",
 		.suggestion = "Zebra will restart itself. Notify a developer if this issue shows up frequently.",
 	},
 	{
-		.code = ZEBRA_ERR_NETLINK_LENGTH_ERROR,
+		.code = EC_ZEBRA_NETLINK_LENGTH_ERROR,
 		.title = "Netlink message length mismatch",
 		.description = "Zebra received a Netlink message with incorrect length fields.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_NETLINK_LENGTH_ERROR,
+		.code = EC_ZEBRA_NETLINK_LENGTH_ERROR,
 		.title = "Netlink message length mismatch",
 		.description = "Zebra received a Netlink message with incorrect length fields.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_UNEXPECTED_MESSAGE,
+		.code = EC_ZEBRA_UNEXPECTED_MESSAGE,
 		.title = "Received unexpected response from kernel",
 		.description = "Received unexpected response from the kernel via Netlink.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_NETLINK_BAD_SEQUENCE,
+		.code = EC_ZEBRA_NETLINK_BAD_SEQUENCE,
 		.title = "Bad sequence number in Netlink message",
 		.description = "Zebra received a Netlink message with a bad sequence number.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_BAD_MULTIPATH_NUM,
+		.code = EC_ZEBRA_BAD_MULTIPATH_NUM,
 		.title = "Multipath number was out of valid range",
 		.description = "Multipath number specified to Zebra must be in the appropriate range",
 		.suggestion = "Provide a multipath number that is within its accepted range",
 	},
 	{
-		.code = ZEBRA_ERR_PREFIX_PARSE_ERROR,
+		.code = EC_ZEBRA_PREFIX_PARSE_ERROR,
 		.title = "String could not be parsed as IP prefix",
 		.description = "There was an attempt to parse a string as an IPv4 or IPv6 prefix, but the string could not be parsed and this operation failed.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_MAC_ADD_FAILED,
+		.code = EC_ZEBRA_MAC_ADD_FAILED,
 		.title = "Failed to add MAC address to interface",
 		.description = "Zebra attempted to assign a MAC address to a vxlan interface but failed",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_VNI_DEL_FAILED,
+		.code = EC_ZEBRA_VNI_DEL_FAILED,
 		.title = "Failed to delete VNI",
 		.description = "Zebra attempted to delete a VNI entry and failed",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_VTEP_ADD_FAILED,
+		.code = EC_ZEBRA_VTEP_ADD_FAILED,
 		.title = "Adding remote VTEP failed",
 		.description = "Zebra attempted to add a remote VTEP and failed.",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_VNI_ADD_FAILED,
+		.code = EC_ZEBRA_VNI_ADD_FAILED,
 		.title = "Adding VNI failed",
 		.description = "Zebra attempted to add a VNI hash to an interface and failed",
 		.suggestion = "Notify a developer.",
 	},
 	{
-		.code = ZEBRA_ERR_NS_NOTIFY_READ,
+		.code = EC_ZEBRA_NS_NOTIFY_READ,
 		.title = "Zebra failed to read namespace inotify information",
 		.description = "Zebra received an event from inotify, but failed to read what it was.",
 		.suggestion = "Notify a developer.",
 	},
 	/* Warnings */
 	{
-		.code = ZEBRA_WARNING_LM_PROTO_MISMATCH,
+		.code = EC_ZEBRAING_LM_PROTO_MISMATCH,
 		.title =
 			"Zebra label manager received malformed label request",
 		.description =
@@ -288,7 +288,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"This is a bug. Please report it.",
 	},
 	{
-		.code = ZEBRA_ERR_LSP_INSTALL_FAILURE,
+		.code = EC_ZEBRA_LSP_INSTALL_FAILURE,
 		.title =
 			"Zebra failed to install LSP into the kernel",
 		.description =
@@ -297,7 +297,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Wait for Zebra to reattempt installation.",
 	},
 	{
-		.code = ZEBRA_ERR_LSP_DELETE_FAILURE,
+		.code = EC_ZEBRA_LSP_DELETE_FAILURE,
 		.title =
 			"Zebra failed to remove LSP from the kernel",
 		.description =
@@ -306,7 +306,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Wait for Zebra to reattempt deletion.",
 	},
 	{
-		.code = ZEBRA_ERR_MPLS_SUPPORT_DISABLED,
+		.code = EC_ZEBRA_MPLS_SUPPORT_DISABLED,
 		.title =
 			"Zebra will not run with MPLS support",
 		.description =
@@ -315,7 +315,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"If you want MPLS support, upgrade the kernel to a version that provides MPLS support.",
 	},
 	{
-		.code = ZEBRA_ERR_SYSCTL_FAILED,
+		.code = EC_ZEBRA_SYSCTL_FAILED,
 		.title = "A call to sysctl() failed",
 		.description =
 			"sysctl() returned a nonzero exit code, indicating an error.",
@@ -323,7 +323,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"The log message should contain further details on the specific error that occurred; investigate the reported error.",
 	},
 	{
-		.code = ZEBRA_ERR_NS_VRF_CREATION_FAILED,
+		.code = EC_ZEBRA_NS_VRF_CREATION_FAILED,
 		.title =
 			"Zebra failed to create namespace VRF",
 		.description =
@@ -331,7 +331,7 @@ static struct log_ref ferr_zebra_err[] = {
 		.suggestion = "",
 	},
 	{
-		.code = ZEBRA_ERR_NS_DELETION_FAILED_NO_VRF,
+		.code = EC_ZEBRA_NS_DELETION_FAILED_NO_VRF,
 		.title =
 			"Zebra attempted to delete nonexistent namespace",
 		.description =
@@ -339,7 +339,7 @@ static struct log_ref ferr_zebra_err[] = {
 		.suggestion = "Please report this bug.",
 	},
 	{
-		.code = ZEBRA_ERR_IFLIST_FAILED,
+		.code = EC_ZEBRA_IFLIST_FAILED,
 		.title =
 			"Zebra interface listing failed",
 		.description =
@@ -348,7 +348,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Check that Zebra is running with the appropriate permissions. If it is, please report this as a bug.",
 	},
 	{
-		.code = ZEBRA_ERR_IRDP_BAD_CHECKSUM,
+		.code = EC_ZEBRA_IRDP_BAD_CHECKSUM,
 		.title =
 			"Zebra received ICMP packet with invalid checksum",
 		.description =
@@ -357,7 +357,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"If the problem continues to occur, investigate the source of the bad ICMP packets.",
 	},
 	{
-		.code = ZEBRA_ERR_IRDP_BAD_TYPE_CODE,
+		.code = EC_ZEBRA_IRDP_BAD_TYPE_CODE,
 		.title =
 			"Zebra received ICMP packet with bad type code",
 		.description =
@@ -366,7 +366,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"If the problem continues to occur, investigate the source of the bad ICMP packets.",
 	},
 	{
-		.code = ZEBRA_ERR_IRDP_BAD_RX_FLAGS,
+		.code = EC_ZEBRA_IRDP_BAD_RX_FLAGS,
 		.title =
 			"Zebra received IRDP packet while operating in wrong mode",
 		.description =
@@ -375,7 +375,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"If you wish to receive the messages, change your IRDP settings accordingly.",
 	},
 	{
-		.code = ZEBRA_ERR_IRDP_BAD_TYPE,
+		.code = EC_ZEBRA_IRDP_BAD_TYPE,
 		.title =
 			"Zebra received IRDP packet with bad type",
 		.description =
@@ -383,7 +383,7 @@ static struct log_ref ferr_zebra_err[] = {
 		.suggestion = "asdf",
 	},
 	{
-		.code = ZEBRA_ERR_RNH_NO_TABLE,
+		.code = EC_ZEBRA_RNH_NO_TABLE,
 		.title =
 			"Zebra could not find table for next hop",
 		.description =
@@ -391,7 +391,7 @@ static struct log_ref ferr_zebra_err[] = {
 		.suggestion = "Please report this bug.",
 	},
 	{
-		.code = ZEBRA_ERR_FPM_FORMAT_UNKNOWN,
+		.code = EC_ZEBRA_FPM_FORMAT_UNKNOWN,
 		.title =
 			"Unknown message format for Zebra's FPM module",
 		.description =
@@ -400,7 +400,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Provide or correct the module argument to provide a valid format. See documentation for further information.",
 	},
 	{
-		.code = ZEBRA_ERR_CLIENT_IO_ERROR,
+		.code = EC_ZEBRA_CLIENT_IO_ERROR,
 		.title =
 			"Zebra client connection failed",
 		.description =
@@ -409,7 +409,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Ignore this warning, it is mostly informational.",
 	},
 	{
-		.code = ZEBRA_ERR_CLIENT_WRITE_FAILED,
+		.code = EC_ZEBRA_CLIENT_WRITE_FAILED,
 		.title =
 			"Zebra failed to send message to client",
 		.description =
@@ -418,7 +418,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Ignore this warning, it is mostly informational.",
 	},
 	{
-		.code = ZEBRA_ERR_NETLINK_INVALID_AF,
+		.code = EC_ZEBRA_NETLINK_INVALID_AF,
 		.title =
 			"Zebra received Netlink message with invalid family",
 		.description =
@@ -427,7 +427,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Inspect the logged address family and submit it with a bug report.",
 	},
 	{
-		.code = ZEBRA_ERR_REMOVE_ADDR_UNKNOWN_SUBNET,
+		.code = EC_ZEBRA_REMOVE_ADDR_UNKNOWN_SUBNET,
 		.title =
 			"Zebra tried to remove address from unknown subnet",
 		.description =
@@ -436,7 +436,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"This is a bug, please report it.",
 	},
 	{
-		.code = ZEBRA_ERR_REMOVE_UNREGISTERED_ADDR,
+		.code = EC_ZEBRA_REMOVE_UNREGISTERED_ADDR,
 		.title =
 			"Zebra tried to remove unregistered address",
 		.description =
@@ -445,7 +445,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"This is a bug, please report it.",
 	},
 	{
-		.code = ZEBRA_ERR_PTM_NOT_READY,
+		.code = EC_ZEBRA_PTM_NOT_READY,
 		.title =
 			"Interface is up but PTM check has not completed",
 		.description =
@@ -454,7 +454,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"If the problem persists, ensure that the interface is actually up and that PTM is functioning properly.",
 	},
 	{
-		.code = ZEBRA_ERR_UNSUPPORTED_V4_SRCDEST,
+		.code = EC_ZEBRA_UNSUPPORTED_V4_SRCDEST,
 		.title =
 			"Kernel rejected sourcedest route",
 		.description =
@@ -463,7 +463,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Check configuration values for correctness",
 	},
 	{
-		.code = ZEBRA_ERR_UNKNOWN_INTERFACE,
+		.code = EC_ZEBRA_UNKNOWN_INTERFACE,
 		.title =
 			"Zebra encountered an unknown interface specifier",
 		.description =
@@ -472,7 +472,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Check configuration values for correctness.",
 	},
 	{
-		.code = ZEBRA_ERR_VRF_NOT_FOUND,
+		.code = EC_ZEBRA_VRF_NOT_FOUND,
 		.title =
 			"Zebra could not find the specified VRF",
 		.description =
@@ -481,7 +481,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Check configuration values for correctness. If values are correct, please file a bug report.",
 	},
 	{
-		.code = ZEBRA_ERR_MORE_NH_THAN_MULTIPATH,
+		.code = EC_ZEBRA_MORE_NH_THAN_MULTIPATH,
 		.title =
 			"More nexthops were provided than the configured multipath limit",
 		.description =
@@ -490,7 +490,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Reduce the number of nexthops, or increase the multipath limit.",
 	},
 	{
-		.code = ZEBRA_ERR_NEXTHOP_CREATION_FAILED,
+		.code = EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 		.title =
 			"Zebra failed to create one or more nexthops",
 		.description =
@@ -499,7 +499,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Check configuration values for correctness. If they are correct, report this as a bug.",
 	},
 	{
-		.code = ZEBRA_ERR_RX_SRCDEST_WRONG_AFI,
+		.code = EC_ZEBRA_RX_SRCDEST_WRONG_AFI,
 		.title =
 			"Zebra received sourcedest route install without IPv6 address family",
 		.description =
@@ -508,7 +508,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"This is a bug; please report it.",
 	},
 	{
-		.code = ZEBRA_ERR_PSEUDOWIRE_EXISTS,
+		.code = EC_ZEBRA_PSEUDOWIRE_EXISTS,
 		.title =
 			"Zebra received an installation / creation request for a pseudowire that already exists",
 		.description =
@@ -517,7 +517,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"This message is informational.",
 	},
 	{
-		.code = ZEBRA_ERR_PSEUDOWIRE_NONEXISTENT,
+		.code = EC_ZEBRA_PSEUDOWIRE_NONEXISTENT,
 		.title =
 			"Zebra received an uninstallation / deletion request for a pseudowire that already exists",
 		.description =
@@ -526,7 +526,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"This message is informational.",
 	},
 	{
-		.code = ZEBRA_ERR_PSEUDOWIRE_UNINSTALL_NOT_FOUND,
+		.code = EC_ZEBRA_PSEUDOWIRE_UNINSTALL_NOT_FOUND,
 		.title =
 			"Zebra received uninstall request for a pseudowire that doesn't exist",
 		.description =
@@ -535,7 +535,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"This message is informational.",
 	},
 	{
-		.code = ZEBRA_ERR_NO_IFACE_ADDR,
+		.code = EC_ZEBRA_NO_IFACE_ADDR,
 		.title = "No address on interface",
 		.description =
 			"Zebra attempted to retrieve a connected address for an interface, but the interface had no connected addresses.",
@@ -543,7 +543,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"This warning is situational; it is usually informative but can indicate a misconfiguration.",
 	},
 	{
-		.code = ZEBRA_ERR_IFACE_ADDR_ADD_FAILED,
+		.code = EC_ZEBRA_IFACE_ADDR_ADD_FAILED,
 		.title =
 			"Zebra failed to add address to interface",
 		.description =
@@ -552,7 +552,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Check configuration values for correctness.",
 	},
 	{
-		.code = ZEBRA_ERR_IRDP_CANNOT_ACTIVATE_IFACE,
+		.code = EC_ZEBRA_IRDP_CANNOT_ACTIVATE_IFACE,
 		.title =
 			"Zebra could not enable IRDP on interface",
 		.description =
@@ -561,7 +561,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Verify that Zebra has the appropriate privileges and that the system has sufficient socket resources.",
 	},
 	{
-		.code = ZEBRA_ERR_IRDP_IFACE_DOWN,
+		.code = EC_ZEBRA_IRDP_IFACE_DOWN,
 		.title =
 			"Zebra attempted to enable IRDP on an interface, but the interface was down",
 		.description = "Zebra attempted to enable IRDP on an interface, but the interface was down.",
@@ -569,7 +569,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Bring up the interface that IRDP is desired on.",
 	},
 	{
-		.code = ZEBRA_ERR_IRDP_IFACE_MCAST_DISABLED,
+		.code = EC_ZEBRA_IRDP_IFACE_MCAST_DISABLED,
 		.title =
 			"Zebra cannot enable IRDP on interface because multicast is disabled",
 		.description =
@@ -578,7 +578,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Enable multicast on the interface.",
 	},
 	{
-		.code = ZEBRA_ERR_NETLINK_EXTENDED_WARNING,
+		.code = EC_ZEBRA_NETLINK_EXTENDED_WARNING,
 		.title =
 			"Zebra received warning message from Netlink",
 		.description =
@@ -587,7 +587,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"This message is informational. See the Netlink error message for details.",
 	},
 	{
-		.code = ZEBRA_ERR_NAMESPACE_DIR_INACCESSIBLE,
+		.code = EC_ZEBRA_NAMESPACE_DIR_INACCESSIBLE,
 		.title =
 			"Zebra could not access /var/run/netns",
 		.description =
@@ -596,7 +596,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Ensure that Zebra has the proper privileges to access this directory.",
 	},
 	{
-		.code = ZEBRA_ERR_CONNECTED_AFI_UNKNOWN,
+		.code = EC_ZEBRA_CONNECTED_AFI_UNKNOWN,
 		.title =
 			"Zebra received unknown address family on interface",
 		.description =
@@ -605,7 +605,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"This message is informational.",
 	},
 	{
-		.code = ZEBRA_ERR_IFACE_SAME_LOCAL_AS_PEER,
+		.code = EC_ZEBRA_IFACE_SAME_LOCAL_AS_PEER,
 		.title =
 			"Zebra route has same destination address as local interface",
 		.description =
@@ -614,7 +614,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Investigate the source of the route to determine why the destination and interface addresses are the same.",
 	},
 	{
-		.code = ZEBRA_ERR_BCAST_ADDR_MISMATCH,
+		.code = EC_ZEBRA_BCAST_ADDR_MISMATCH,
 		.title =
 			"Zebra broadcast address sanity check failed",
 		.description =
@@ -623,7 +623,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Investigate the source of the broadcast address to determine why it does not match the computed address.",
 	},
 	{
-		.code = ZEBRA_ERR_REDISTRIBUTE_UNKNOWN_AF,
+		.code = EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
 		.title =
 			"Zebra encountered unknown address family during redistribution",
 		.description =
@@ -632,7 +632,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"This warning can be ignored; the redistribution operation will skip the unknown address family.",
 	},
 	{
-		.code = ZEBRA_ERR_ADVERTISING_UNUSABLE_ADDR,
+		.code = EC_ZEBRA_ADVERTISING_UNUSABLE_ADDR,
 		.title =
 			"Zebra advertising unusable interface address",
 		.description =
@@ -641,7 +641,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"This message is informational. The address should show up on the interface shortly after advertisement.",
 	},
 	{
-		.code = ZEBRA_ERR_RA_PARAM_MISMATCH,
+		.code = EC_ZEBRA_RA_PARAM_MISMATCH,
 		.title =
 			"Zebra received route advertisement with parameter mismatch",
 		.description =
@@ -650,7 +650,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"This message is informational; the route advertisement will be processed as normal. If issues arise due to the parameter mismatch, check Zebra's router advertisement configuration.",
 	},
 	{
-		.code = ZEBRA_ERR_RTM_VERSION_MISMATCH,
+		.code = EC_ZEBRA_RTM_VERSION_MISMATCH,
 		.title =
 			"Zebra received kernel message with uknown version",
 		.description =
@@ -659,7 +659,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"If issues arise, check if there is a version of FRR available for your kernel version.",
 	},
 	{
-		.code = ZEBRA_ERR_RTM_NO_GATEWAY,
+		.code = EC_ZEBRA_RTM_NO_GATEWAY,
 		.title =
 			"Zebra could not determine proper gateway for kernel route",
 		.description =
@@ -668,7 +668,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Check configuration values for correctness.",
 	},
 	{
-		.code = ZEBRA_ERR_MAX_LABELS_PUSH,
+		.code = EC_ZEBRA_MAX_LABELS_PUSH,
 		.title =
 			"Zebra exceeded maximum LSP labels for a single rtmsg",
 		.description =
@@ -677,7 +677,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"This message is informational.",
 	},
 	{
-		.code = ZEBRA_ERR_STICKY_MAC_ALREADY_LEARNT,
+		.code = EC_ZEBRA_STICKY_MAC_ALREADY_LEARNT,
 		.title =
 			"EVPN MAC already learnt as remote sticky MAC",
 		.description =
@@ -686,7 +686,7 @@ static struct log_ref ferr_zebra_err[] = {
 			"Check configuration values for correctness.",
 	},
 	{
-		.code = ZEBRA_ERR_UNSUPPORTED_V6_SRCDEST,
+		.code = EC_ZEBRA_UNSUPPORTED_V6_SRCDEST,
 		.title =
 			"Kernel does not support IPv6 sourcedest routes",
 		.description =

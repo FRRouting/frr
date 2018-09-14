@@ -412,8 +412,8 @@ eigrp_topology_update_distance(struct eigrp_fsm_action_message *msg)
 		}
 		break;
 	default:
-		flog_err(LIB_ERR_DEVELOPMENT, "%s: Please implement handler",
-			  __PRETTY_FUNCTION__);
+		flog_err(EC_LIB_DEVELOPMENT, "%s: Please implement handler",
+			 __PRETTY_FUNCTION__);
 		break;
 	}
 distance_done:

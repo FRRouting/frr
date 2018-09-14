@@ -1447,7 +1447,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 
 	if (recursion > RMAP_RECURSION_LIMIT) {
 		flog_warn(
-			LIB_WARN_RMAP_RECURSION_LIMIT,
+			EC_LIB_RMAP_RECURSION_LIMIT,
 			"route-map recursion limit (%d) reached, discarding route",
 			RMAP_RECURSION_LIMIT);
 		recursion = 0;

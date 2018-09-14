@@ -104,15 +104,14 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 	safi = packet->safi;
 
 	if (afi == AFI_IP6) {
-		flog_err(LIB_ERR_DEVELOPMENT,
-			  "BGP flowspec IPv6 not supported");
+		flog_err(EC_LIB_DEVELOPMENT, "BGP flowspec IPv6 not supported");
 		return -1;
 	}
 
 	if (packet->length >= FLOWSPEC_NLRI_SIZELIMIT) {
-		flog_err(BGP_ERR_FLOWSPEC_PACKET,
-			  "BGP flowspec nlri length maximum reached (%u)",
-			  packet->length);
+		flog_err(EC_BGP_FLOWSPEC_PACKET,
+			 "BGP flowspec nlri length maximum reached (%u)",
+			 packet->length);
 		return -1;
 	}
 
@@ -128,14 +127,16 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 
 		/* When packet overflow occur return immediately. */
 		if (pnt + psize > lim) {
-			flog_err(BGP_ERR_FLOWSPEC_PACKET,
-				  "Flowspec NLRI length inconsistent ( size %u seen)",
-				  psize);
+			flog_err(
+				EC_BGP_FLOWSPEC_PACKET,
+				"Flowspec NLRI length inconsistent ( size %u seen)",
+				psize);
 			return -1;
 		}
 		if (bgp_fs_nlri_validate(pnt, psize) < 0) {
-			flog_err(BGP_ERR_FLOWSPEC_PACKET,
-				  "Bad flowspec format or NLRI options not supported");
+			flog_err(
+				EC_BGP_FLOWSPEC_PACKET,
+				"Bad flowspec format or NLRI options not supported");
 			return -1;
 		}
 		p.family = AF_FLOWSPEC;
@@ -188,9 +189,9 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 					   ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
 					   NULL, NULL, 0, NULL);
 		if (ret) {
-			flog_err(BGP_ERR_FLOWSPEC_INSTALLATION,
-				  "Flowspec NLRI failed to be %s.",
-				  attr ? "added" : "withdrawn");
+			flog_err(EC_BGP_FLOWSPEC_INSTALLATION,
+				 "Flowspec NLRI failed to be %s.",
+				 attr ? "added" : "withdrawn");
 			return -1;
 		}
 	}

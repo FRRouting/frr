@@ -355,7 +355,7 @@ static void bgp_pcount_adjust(struct bgp_node *rn, struct bgp_info *ri)
 		if (ri->peer->pcount[table->afi][table->safi])
 			ri->peer->pcount[table->afi][table->safi]--;
 		else
-			flog_err(LIB_ERR_DEVELOPMENT,
+			flog_err(EC_LIB_DEVELOPMENT,
 				 "Asked to decrement 0 prefix count for peer");
 	} else if (BGP_INFO_COUNTABLE(ri)
 		   && !CHECK_FLAG(ri->flags, BGP_INFO_COUNTED)) {
@@ -4216,7 +4216,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		/* Prefix length check. */
 		if (p.prefixlen > prefix_blen(&p) * 8) {
 			flog_err(
-				BGP_ERR_UPDATE_RCV,
+				EC_BGP_UPDATE_RCV,
 				"%s [Error] Update packet error (wrong prefix length %d for afi %u)",
 				peer->host, p.prefixlen, packet->afi);
 			return -1;
@@ -4228,7 +4228,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		/* When packet overflow occur return immediately. */
 		if (pnt + psize > lim) {
 			flog_err(
-				BGP_ERR_UPDATE_RCV,
+				EC_BGP_UPDATE_RCV,
 				"%s [Error] Update packet error (prefix length %d overflows packet)",
 				peer->host, p.prefixlen);
 			return -1;
@@ -4238,7 +4238,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		 * prefix */
 		if (psize > (ssize_t)sizeof(p.u)) {
 			flog_err(
-				BGP_ERR_UPDATE_RCV,
+				EC_BGP_UPDATE_RCV,
 				"%s [Error] Update packet error (prefix length %d too large for prefix storage %zu)",
 				peer->host, p.prefixlen, sizeof(p.u));
 			return -1;
@@ -4260,7 +4260,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 				 * ignored.
 				 */
 				flog_err(
-					BGP_ERR_UPDATE_RCV,
+					EC_BGP_UPDATE_RCV,
 					"%s: IPv4 unicast NLRI is multicast address %s, ignoring",
 					peer->host, inet_ntoa(p.u.prefix4));
 				continue;
@@ -4273,7 +4273,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 				char buf[BUFSIZ];
 
 				flog_err(
-					BGP_ERR_UPDATE_RCV,
+					EC_BGP_UPDATE_RCV,
 					"%s: IPv6 unicast NLRI is link-local address %s, ignoring",
 					peer->host,
 					inet_ntop(AF_INET6, &p.u.prefix6, buf,
@@ -4285,7 +4285,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 				char buf[BUFSIZ];
 
 				flog_err(
-					BGP_ERR_UPDATE_RCV,
+					EC_BGP_UPDATE_RCV,
 					"%s: IPv6 unicast NLRI is multicast address %s, ignoring",
 					peer->host,
 					inet_ntop(AF_INET6, &p.u.prefix6, buf,
@@ -4315,7 +4315,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 	/* Packet length consistency check. */
 	if (pnt != lim) {
 		flog_err(
-			BGP_ERR_UPDATE_RCV,
+			EC_BGP_UPDATE_RCV,
 			"%s [Error] Update packet error (prefix length mismatch with total length)",
 			peer->host);
 		return -1;
@@ -9890,12 +9890,14 @@ static int bgp_peer_count_walker(struct thread *t)
 			if (CHECK_FLAG(ri->flags, BGP_INFO_COUNTED)) {
 				pc->count[PCOUNT_COUNTED]++;
 				if (CHECK_FLAG(ri->flags, BGP_INFO_UNUSEABLE))
-					flog_err(LIB_ERR_DEVELOPMENT,
-						 "Attempting to count but flags say it is unusable");
+					flog_err(
+						EC_LIB_DEVELOPMENT,
+						"Attempting to count but flags say it is unusable");
 			} else {
 				if (!CHECK_FLAG(ri->flags, BGP_INFO_UNUSEABLE))
-					flog_err(LIB_ERR_DEVELOPMENT,
-						 "Not counted but flags say we should");
+					flog_err(
+						EC_LIB_DEVELOPMENT,
+						"Not counted but flags say we should");
 			}
 		}
 	}

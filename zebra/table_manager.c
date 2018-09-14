@@ -147,9 +147,8 @@ struct table_manager_chunk *assign_table_chunk(uint8_t proto, uint16_t instance,
 #endif /* SUNOS_5 */
 	tmc->start = start;
 	if (RT_TABLE_ID_UNRESERVED_MAX - size  + 1 < start) {
-		flog_err(ZEBRA_ERR_TM_EXHAUSTED_IDS,
-			  "Reached max table id. Start/Size %u/%u", start,
-			  size);
+		flog_err(EC_ZEBRA_TM_EXHAUSTED_IDS,
+			 "Reached max table id. Start/Size %u/%u", start, size);
 		XFREE(MTYPE_TM_CHUNK, tmc);
 		return NULL;
 	}
@@ -186,8 +185,8 @@ int release_table_chunk(uint8_t proto, uint16_t instance, uint32_t start,
 		if (tmc->end != end)
 			continue;
 		if (tmc->proto != proto || tmc->instance != instance) {
-			flog_err(ZEBRA_ERR_TM_DAEMON_MISMATCH,
-				  "%s: Daemon mismatch!!", __func__);
+			flog_err(EC_ZEBRA_TM_DAEMON_MISMATCH,
+				 "%s: Daemon mismatch!!", __func__);
 			continue;
 		}
 		tmc->proto = NO_PROTO;
@@ -196,8 +195,8 @@ int release_table_chunk(uint8_t proto, uint16_t instance, uint32_t start,
 		break;
 	}
 	if (ret != 0)
-		flog_err(ZEBRA_ERR_TM_UNRELEASED_CHUNK,
-			  "%s: Table chunk not released!!", __func__);
+		flog_err(EC_ZEBRA_TM_UNRELEASED_CHUNK,
+			 "%s: Table chunk not released!!", __func__);
 
 	return ret;
 }

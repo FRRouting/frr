@@ -123,7 +123,7 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 	}
 
 	if (ret == -1)
-		flog_err_sys(LIB_ERR_SOCKET, "%s: %s", __func__,
+		flog_err_sys(EC_LIB_SOCKET, "%s: %s", __func__,
 			     safe_strerror(errno));
 
 	return ret;
@@ -230,7 +230,7 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 	}
 
 	if (ret == -1)
-		flog_err_sys(LIB_ERR_SOCKET, "%s: %s", __func__,
+		flog_err_sys(EC_LIB_SOCKET, "%s: %s", __func__,
 			     safe_strerror(errno));
 
 	return ret;
@@ -257,7 +257,7 @@ static int kernel_lsp_cmd(int action, zebra_lsp_t *lsp)
 			&& (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED)
 			    && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)))) {
 			if (nhlfe->nexthop->nh_label->num_labels > 1) {
-				flog_warn(ZEBRA_ERR_MAX_LABELS_PUSH,
+				flog_warn(EC_ZEBRA_MAX_LABELS_PUSH,
 					  "%s: can't push %u labels at once "
 					  "(maximum is 1)",
 					  __func__,
@@ -398,7 +398,7 @@ static int kmpw_install(struct zebra_pw *pw)
 	strlcpy(ifr.ifr_name, pw->ifname, sizeof(ifr.ifr_name));
 	ifr.ifr_data = (caddr_t)&imr;
 	if (ioctl(kr_state.ioctl_fd, SIOCSETMPWCFG, &ifr) == -1) {
-		flog_err_sys(LIB_ERR_SYSTEM_CALL, "ioctl SIOCSETMPWCFG: %s",
+		flog_err_sys(EC_LIB_SYSTEM_CALL, "ioctl SIOCSETMPWCFG: %s",
 			     safe_strerror(errno));
 		return -1;
 	}
@@ -416,7 +416,7 @@ static int kmpw_uninstall(struct zebra_pw *pw)
 	strlcpy(ifr.ifr_name, pw->ifname, sizeof(ifr.ifr_name));
 	ifr.ifr_data = (caddr_t)&imr;
 	if (ioctl(kr_state.ioctl_fd, SIOCSETMPWCFG, &ifr) == -1) {
-		flog_err_sys(LIB_ERR_SYSTEM_CALL, "ioctl SIOCSETMPWCFG: %s",
+		flog_err_sys(EC_LIB_SYSTEM_CALL, "ioctl SIOCSETMPWCFG: %s",
 			     safe_strerror(errno));
 		return -1;
 	}
@@ -431,13 +431,13 @@ int mpls_kernel_init(void)
 	socklen_t optlen;
 
 	if ((kr_state.fd = socket(AF_ROUTE, SOCK_RAW, 0)) == -1) {
-		flog_err_sys(LIB_ERR_SOCKET, "%s: socket", __func__);
+		flog_err_sys(EC_LIB_SOCKET, "%s: socket", __func__);
 		return -1;
 	}
 
 	if ((kr_state.ioctl_fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0))
 	    == -1) {
-		flog_err_sys(LIB_ERR_SOCKET, "%s: ioctl socket", __func__);
+		flog_err_sys(EC_LIB_SOCKET, "%s: ioctl socket", __func__);
 		return -1;
 	}
 
@@ -446,7 +446,7 @@ int mpls_kernel_init(void)
 	if (getsockopt(kr_state.fd, SOL_SOCKET, SO_RCVBUF, &default_rcvbuf,
 		       &optlen)
 	    == -1)
-		flog_err_sys(LIB_ERR_SOCKET,
+		flog_err_sys(EC_LIB_SOCKET,
 			     "kr_init getsockopt SOL_SOCKET SO_RCVBUF");
 	else
 		for (rcvbuf = MAX_RTSOCK_BUF;

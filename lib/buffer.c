@@ -332,7 +332,7 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 			} else {
 				/* This should absolutely never occur. */
 				flog_err_sys(
-					LIB_ERR_SYSTEM_CALL,
+					EC_LIB_SYSTEM_CALL,
 					"%s: corruption detected: iov_small overflowed; "
 					"head %p, tail %p, head->next %p",
 					__func__, (void *)b->head,
@@ -365,7 +365,7 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 			iov_size =
 				((iov_index > IOV_MAX) ? IOV_MAX : iov_index);
 			if ((nbytes = writev(fd, c_iov, iov_size)) < 0) {
-				flog_err(LIB_ERR_SOCKET,
+				flog_err(EC_LIB_SOCKET,
 					 "%s: writev to fd %d failed: %s",
 					 __func__, fd, safe_strerror(errno));
 				break;
@@ -378,7 +378,7 @@ buffer_status_t buffer_flush_window(struct buffer *b, int fd, int width,
 	}
 #else  /* IOV_MAX */
 	if ((nbytes = writev(fd, iov, iov_index)) < 0)
-		flog_err(LIB_ERR_SOCKET, "%s: writev to fd %d failed: %s",
+		flog_err(EC_LIB_SOCKET, "%s: writev to fd %d failed: %s",
 			 __func__, fd, safe_strerror(errno));
 #endif /* IOV_MAX */
 
@@ -439,7 +439,7 @@ in one shot. */
 		if (ERRNO_IO_RETRY(errno))
 			/* Calling code should try again later. */
 			return BUFFER_PENDING;
-		flog_err(LIB_ERR_SOCKET, "%s: write error on fd %d: %s",
+		flog_err(EC_LIB_SOCKET, "%s: write error on fd %d: %s",
 			 __func__, fd, safe_strerror(errno));
 		return BUFFER_ERROR;
 	}
@@ -448,7 +448,7 @@ in one shot. */
 	while (written > 0) {
 		if (!(d = b->head)) {
 			flog_err(
-				LIB_ERR_DEVELOPMENT,
+				EC_LIB_DEVELOPMENT,
 				"%s: corruption detected: buffer queue empty, but written is %lu",
 				__func__, (unsigned long)written);
 			break;
@@ -493,7 +493,7 @@ buffer_status_t buffer_write(struct buffer *b, int fd, const void *p,
 		if (ERRNO_IO_RETRY(errno))
 			nbytes = 0;
 		else {
-			flog_err(LIB_ERR_SOCKET, "%s: write error on fd %d: %s",
+			flog_err(EC_LIB_SOCKET, "%s: write error on fd %d: %s",
 				 __func__, fd, safe_strerror(errno));
 			return BUFFER_ERROR;
 		}

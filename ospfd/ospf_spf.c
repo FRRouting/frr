@@ -860,7 +860,7 @@ static void ospf_spf_next(struct vertex *v, struct ospf *ospf,
 						zlog_debug("found the LSA");
 				break;
 			default:
-				flog_warn(OSPF_WARN_LSA,
+				flog_warn(EC_OSPF_LSA,
 					  "Invalid LSA link type %d", type);
 				continue;
 			}
