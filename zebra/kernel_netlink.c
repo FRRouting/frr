@@ -641,8 +641,9 @@ static void netlink_parse_extended_ack(struct nlmsghdr *h)
 			 * but noticing it for later.
 			 */
 			err_nlh = &err->msg;
-			zlog_debug("%s: Received %d extended Ack",
-				   __PRETTY_FUNCTION__, err_nlh->nlmsg_type);
+			zlog_debug("%s: Received %s extended Ack",
+				   __PRETTY_FUNCTION__,
+				   nl_msg_type_to_str(err_nlh->nlmsg_type));
 		}
 	}
 
