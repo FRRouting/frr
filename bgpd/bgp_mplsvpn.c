@@ -516,9 +516,8 @@ leak_update(
 	if (bi) {
 		bool labelssame = labels_same(bi, label, num_labels);
 
-		if (attrhash_cmp(bi->attr, new_attr)
-		    && labelssame
-		    && !CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)) {
+		if (attrhash_cmp(bi->attr, new_attr) && labelssame
+		    && !CHECK_FLAG(bi->flags, BGP_PATH_REMOVED)) {
 
 			bgp_attr_unintern(&new_attr);
 			if (debug)
@@ -530,10 +529,10 @@ leak_update(
 		}
 
 		/* attr is changed */
-		bgp_info_set_flag(bn, bi, BGP_INFO_ATTR_CHANGED);
+		bgp_info_set_flag(bn, bi, BGP_PATH_ATTR_CHANGED);
 
 		/* Rewrite BGP route information. */
-		if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
+		if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED))
 			bgp_info_restore(bn, bi);
 		else
 			bgp_aggregate_decrement(bgp, p, bi, afi, safi);
@@ -548,7 +547,7 @@ leak_update(
 			setlabels(bi, label, num_labels);
 
 		if (nexthop_self_flag)
-			bgp_info_set_flag(bn, bi, BGP_INFO_ANNC_NH_SELF);
+			bgp_info_set_flag(bn, bi, BGP_PATH_ANNC_NH_SELF);
 
 		struct bgp *bgp_nexthop = bgp;
 		int nh_valid;
@@ -574,7 +573,7 @@ leak_update(
 				bgp_nexthop->name_pretty);
 
 		if (nh_valid)
-			bgp_info_set_flag(bn, bi, BGP_INFO_VALID);
+			bgp_info_set_flag(bn, bi, BGP_PATH_VALID);
 
 		/* Process change. */
 		bgp_aggregate_increment(bgp, p, bi, afi, safi);
@@ -592,7 +591,7 @@ leak_update(
 		bgp->peer_self, new_attr, bn);
 
 	if (nexthop_self_flag)
-		bgp_info_set_flag(bn, new, BGP_INFO_ANNC_NH_SELF);
+		bgp_info_set_flag(bn, new, BGP_PATH_ANNC_NH_SELF);
 
 	bgp_info_extra_get(new);
 
@@ -635,7 +634,7 @@ leak_update(
 			__func__, (nh_valid ? "" : "not "),
 			bgp_nexthop->name_pretty);
 	if (nh_valid)
-		bgp_info_set_flag(bn, new, BGP_INFO_VALID);
+		bgp_info_set_flag(bn, new, BGP_PATH_VALID);
 
 	bgp_aggregate_increment(bgp, p, new, afi, safi);
 	bgp_info_add(bn, new);

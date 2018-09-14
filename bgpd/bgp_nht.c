@@ -740,14 +740,14 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 				(bnc_is_valid_nexthop ? "" : "not "));
 		}
 
-		if ((CHECK_FLAG(path->flags, BGP_INFO_VALID) ? 1 : 0)
+		if ((CHECK_FLAG(path->flags, BGP_PATH_VALID) ? 1 : 0)
 		    != bnc_is_valid_nexthop) {
-			if (CHECK_FLAG(path->flags, BGP_INFO_VALID)) {
+			if (CHECK_FLAG(path->flags, BGP_PATH_VALID)) {
 				bgp_aggregate_decrement(bgp_path, &rn->p,
 							path, afi, safi);
-				bgp_info_unset_flag(rn, path, BGP_INFO_VALID);
+				bgp_info_unset_flag(rn, path, BGP_PATH_VALID);
 			} else {
-				bgp_info_set_flag(rn, path, BGP_INFO_VALID);
+				bgp_info_set_flag(rn, path, BGP_PATH_VALID);
 				bgp_aggregate_increment(bgp_path, &rn->p,
 							path, afi, safi);
 			}
@@ -762,7 +762,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 
 		if (CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED)
 		    || CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
-			SET_FLAG(path->flags, BGP_INFO_IGP_CHANGED);
+			SET_FLAG(path->flags, BGP_PATH_IGP_CHANGED);
 
 		bgp_process(bgp_path, rn, afi, safi);
 	}

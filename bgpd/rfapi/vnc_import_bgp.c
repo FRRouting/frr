@@ -452,7 +452,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 
 		return;
 	}
-	if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
+	if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED))
 		return;
 
 	vncHDResolveNve.peer = bi->peer;
@@ -1253,7 +1253,7 @@ static void vnc_import_bgp_del_route_mode_resolve_nve_one_bi(
 
 		return;
 	}
-	if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
+	if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED))
 		return;
 
 	vncHDResolveNve.peer = bi->peer;
@@ -1658,9 +1658,9 @@ static int is_usable_interior_route(struct bgp_info *bi_interior)
 #endif
 		return 0;
 	}
-	if (!CHECK_FLAG(bi_interior->flags, BGP_INFO_VALID)) {
+	if (!CHECK_FLAG(bi_interior->flags, BGP_PATH_VALID)) {
 #if DEBUG_IS_USABLE_INTERIOR
-		vnc_zlog_debug_verbose("%s: NO: BGP_INFO_VALID not set",
+		vnc_zlog_debug_verbose("%s: NO: BGP_PATH_VALID not set",
 				       __func__);
 #endif
 		return 0;
@@ -2772,7 +2772,7 @@ void vnc_import_bgp_redist_enable(struct bgp *bgp, afi_t afi)
 
 		for (bi = rn->info; bi; bi = bi->next) {
 
-			if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
+			if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED))
 				continue;
 
 			vnc_import_bgp_add_route(bgp, &rn->p, bi);
@@ -2812,7 +2812,7 @@ void vnc_import_bgp_exterior_redist_enable(struct bgp *bgp, afi_t afi)
 
 		for (bi = rn->info; bi; bi = bi->next) {
 
-			if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
+			if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED))
 				continue;
 
 			vnc_import_bgp_exterior_add_route(bgp_exterior, &rn->p,
@@ -2857,7 +2857,7 @@ void vnc_import_bgp_exterior_redist_enable_it(
 
 		for (bi = rn->info; bi; bi = bi->next) {
 
-			if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
+			if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED))
 				continue;
 
 			vnc_import_bgp_exterior_add_route_it(
@@ -2989,7 +2989,7 @@ void vnc_import_bgp_exterior_redist_disable(struct bgp *bgp, afi_t afi)
 
 			for (bi = rn->info; bi; bi = bi->next) {
 
-				if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
+				if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED))
 					continue;
 
 				vnc_import_bgp_exterior_del_route(bgp_exterior,

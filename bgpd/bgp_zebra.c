@@ -1480,7 +1480,7 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
 		for (ri = rn->info; ri; ri = ri->next)
-			if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED) &&
+			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED) &&
 
 			    (ri->type == ZEBRA_ROUTE_BGP
 			     && (ri->sub_type == BGP_ROUTE_NORMAL
@@ -1704,7 +1704,7 @@ int bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 				bgp_attr_unintern(&old_attr);
 
 				bgp_info_set_flag(rn, ri,
-						  BGP_INFO_ATTR_CHANGED);
+						  BGP_PATH_ATTR_CHANGED);
 				bgp_process(bgp, rn, afi, SAFI_UNICAST);
 			}
 		}

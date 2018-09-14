@@ -322,7 +322,7 @@ static void bgp_info_mpath_enqueue(struct bgp_info *prev_info,
 		prev->mp_next->mp_prev = mpath;
 	prev->mp_next = mpath;
 
-	SET_FLAG(binfo->flags, BGP_INFO_MULTIPATH);
+	SET_FLAG(binfo->flags, BGP_PATH_MULTIPATH);
 }
 
 /*
@@ -340,7 +340,7 @@ void bgp_info_mpath_dequeue(struct bgp_info *binfo)
 	if (mpath->mp_next)
 		mpath->mp_next->mp_prev = mpath->mp_prev;
 	mpath->mp_next = mpath->mp_prev = NULL;
-	UNSET_FLAG(binfo->flags, BGP_INFO_MULTIPATH);
+	UNSET_FLAG(binfo->flags, BGP_PATH_MULTIPATH);
 }
 
 /*
@@ -632,14 +632,14 @@ void bgp_info_mpath_update(struct bgp_node *rn, struct bgp_info *new_best,
 		bgp_info_mpath_count_set(new_best, mpath_count - 1);
 		if (mpath_changed
 		    || (bgp_info_mpath_count(new_best) != old_mpath_count))
-			SET_FLAG(new_best->flags, BGP_INFO_MULTIPATH_CHG);
+			SET_FLAG(new_best->flags, BGP_PATH_MULTIPATH_CHG);
 	}
 }
 
 /*
  * bgp_mp_dmed_deselect
  *
- * Clean up multipath information for BGP_INFO_DMED_SELECTED path that
+ * Clean up multipath information for BGP_PATH_DMED_SELECTED path that
  * is not selected as best path
  */
 void bgp_mp_dmed_deselect(struct bgp_info *dmed_best)
@@ -656,7 +656,7 @@ void bgp_mp_dmed_deselect(struct bgp_info *dmed_best)
 	}
 
 	bgp_info_mpath_count_set(dmed_best, 0);
-	UNSET_FLAG(dmed_best->flags, BGP_INFO_MULTIPATH_CHG);
+	UNSET_FLAG(dmed_best->flags, BGP_PATH_MULTIPATH_CHG);
 	assert(bgp_info_mpath_first(dmed_best) == 0);
 }
 
@@ -698,7 +698,7 @@ void bgp_info_mpath_aggregate_update(struct bgp_info *new_best,
 		if ((new_attr = bgp_info_mpath_attr(new_best))) {
 			bgp_attr_unintern(&new_attr);
 			bgp_info_mpath_attr_set(new_best, NULL);
-			SET_FLAG(new_best->flags, BGP_INFO_ATTR_CHANGED);
+			SET_FLAG(new_best->flags, BGP_PATH_ATTR_CHANGED);
 		}
 		return;
 	}
@@ -793,7 +793,7 @@ void bgp_info_mpath_aggregate_update(struct bgp_info *new_best,
 		if ((old_attr = bgp_info_mpath_attr(new_best)))
 			bgp_attr_unintern(&old_attr);
 		bgp_info_mpath_attr_set(new_best, new_attr);
-		SET_FLAG(new_best->flags, BGP_INFO_ATTR_CHANGED);
+		SET_FLAG(new_best->flags, BGP_PATH_ATTR_CHANGED);
 	} else
 		bgp_attr_unintern(&new_attr);
 }

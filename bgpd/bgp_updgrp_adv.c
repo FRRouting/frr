@@ -594,7 +594,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
 		for (ri = rn->info; ri; ri = ri->next)
 
-			if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED)
+			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)
 			    || (addpath_capable
 				&& bgp_addpath_tx_path(peer, afi, safi, ri))) {
 				if (subgroup_announce_check(rn, ri, subgrp,

@@ -157,7 +157,7 @@ void rfapiCheckRouteCount()
 					next = bi->next;
 
 					if (CHECK_FLAG(bi->flags,
-						       BGP_INFO_REMOVED)) {
+						       BGP_PATH_REMOVED)) {
 						++holddown_count;
 
 					} else {
@@ -891,7 +891,7 @@ static void rfapiBgpInfoChainFree(struct bgp_info *bi)
 		 * If there is a timer waiting to delete this bi, cancel
 		 * the timer and delete immediately
 		 */
-		if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)
+		if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED)
 		    && bi->extra->vnc.import.timer) {
 
 			struct thread *t =
@@ -1490,7 +1490,7 @@ int rfapiHasNonRemovedRoutes(struct agg_node *rn)
 	for (bi = rn->info; bi; bi = bi->next) {
 		struct prefix pfx;
 
-		if (!CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)
+		if (!CHECK_FLAG(bi->flags, BGP_PATH_REMOVED)
 		    && (bi->extra && !rfapiGetUnAddrOfVpnBi(bi, &pfx))) {
 
 			return 1;
@@ -1513,7 +1513,7 @@ void rfapiDumpNode(struct agg_node *rn)
 		int ctrc = rfapiGetUnAddrOfVpnBi(bi, &pfx);
 		int nr;
 
-		if (!CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)
+		if (!CHECK_FLAG(bi->flags, BGP_PATH_REMOVED)
 		    && (bi->extra && !ctrc)) {
 
 			nr = 1;
@@ -1567,7 +1567,7 @@ static int rfapiNhlAddNodeRoutes(
 		struct prefix pfx_vn;
 		struct prefix *newpfx;
 
-		if (removed && !CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)) {
+		if (removed && !CHECK_FLAG(bi->flags, BGP_PATH_REMOVED)) {
 #if DEBUG_RETURNED_NHL
 			vnc_zlog_debug_verbose(
 				"%s: want holddown, this route not holddown, skip",
@@ -1575,7 +1575,7 @@ static int rfapiNhlAddNodeRoutes(
 #endif
 			continue;
 		}
-		if (!removed && CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)) {
+		if (!removed && CHECK_FLAG(bi->flags, BGP_PATH_REMOVED)) {
 			continue;
 		}
 
@@ -1748,8 +1748,8 @@ static int rfapiNhlAddSubtree(
  * Construct an rfapi nexthop list based on the routes attached to
  * the specified node.
  *
- * If there are any routes that do NOT have BGP_INFO_REMOVED set,
- * return those only. If there are ONLY routes with BGP_INFO_REMOVED,
+ * If there are any routes that do NOT have BGP_PATH_REMOVED set,
+ * return those only. If there are ONLY routes with BGP_PATH_REMOVED,
  * then return those, and also include all the non-removed routes from the
  * next less-specific node (i.e., this node's parent) at the end.
  */
@@ -2015,8 +2015,9 @@ static void rfapiBgpInfoAttachSorted(struct agg_node *rn,
 
 	for (prev = NULL, next = rn->info; next;
 	     prev = next, next = next->next) {
-		if (!bgp || (!CHECK_FLAG(info_new->flags, BGP_INFO_REMOVED)
-			     && CHECK_FLAG(next->flags, BGP_INFO_REMOVED))
+		if (!bgp
+		    || (!CHECK_FLAG(info_new->flags, BGP_PATH_REMOVED)
+			&& CHECK_FLAG(next->flags, BGP_PATH_REMOVED))
 		    || bgp_info_cmp_compatible(bgp, info_new, next, pfx_buf,
 					       afi, safi)
 			       == -1) { /* -1 if 1st is better */
@@ -2443,7 +2444,7 @@ static int rfapiWithdrawTimerVPN(struct thread *t)
 	/*
 	 * Remove the route (doubly-linked)
 	 */
-	if (CHECK_FLAG(bi->flags, BGP_INFO_VALID)
+	if (CHECK_FLAG(bi->flags, BGP_PATH_VALID)
 	    && VALID_INTERIOR_TYPE(bi->type))
 		RFAPI_MONITOR_EXTERIOR(wcb->node)->valid_interior_count--;
 
@@ -2680,9 +2681,9 @@ static int rfapiWithdrawEncapUpdateCachedUn(
 		vpn_bi->extra->vnc.import.un_family = 0;
 		memset(&vpn_bi->extra->vnc.import.un, 0,
 		       sizeof(vpn_bi->extra->vnc.import.un));
-		if (CHECK_FLAG(vpn_bi->flags, BGP_INFO_VALID)) {
+		if (CHECK_FLAG(vpn_bi->flags, BGP_PATH_VALID)) {
 			if (rfapiGetVncTunnelUnAddr(vpn_bi->attr, NULL)) {
-				UNSET_FLAG(vpn_bi->flags, BGP_INFO_VALID);
+				UNSET_FLAG(vpn_bi->flags, BGP_PATH_VALID);
 				if (VALID_INTERIOR_TYPE(vpn_bi->type))
 					RFAPI_MONITOR_EXTERIOR(vpn_rn)
 						->valid_interior_count--;
@@ -2701,8 +2702,8 @@ static int rfapiWithdrawEncapUpdateCachedUn(
 			return 1;
 		}
 		rfapiCopyUnEncap2VPN(encap_bi, vpn_bi);
-		if (!CHECK_FLAG(vpn_bi->flags, BGP_INFO_VALID)) {
-			SET_FLAG(vpn_bi->flags, BGP_INFO_VALID);
+		if (!CHECK_FLAG(vpn_bi->flags, BGP_PATH_VALID)) {
+			SET_FLAG(vpn_bi->flags, BGP_PATH_VALID);
 			if (VALID_INTERIOR_TYPE(vpn_bi->type))
 				RFAPI_MONITOR_EXTERIOR(vpn_rn)
 					->valid_interior_count++;
@@ -2807,7 +2808,7 @@ rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
 	uint32_t lifetime;
 	struct rfapi_withdraw *wcb;
 
-	if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)) {
+	if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED)) {
 		/*
 		 * Already on the path to being withdrawn,
 		 * should already have a timer set up to
@@ -2824,7 +2825,7 @@ rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
 	/*
 	 * withdrawn routes get to hang around for a while
 	 */
-	SET_FLAG(bi->flags, BGP_INFO_REMOVED);
+	SET_FLAG(bi->flags, BGP_PATH_REMOVED);
 
 	/* set timer to remove the route later */
 	lifetime = rfapiGetHolddownFromLifetime(lifetime);
@@ -2874,7 +2875,7 @@ rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
 				      &bi->extra->vnc.import.timer);
 	}
 
-	/* re-sort route list (BGP_INFO_REMOVED routes are last) */
+	/* re-sort route list (BGP_PATH_REMOVED routes are last) */
 	if (((struct bgp_info *)rn->info)->next) {
 		rfapiBgpInfoDetach(rn, bi);
 		rfapiBgpInfoAttachSorted(rn, bi, afi, safi);
@@ -3136,7 +3137,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 				 * a previous withdraw, we must cancel its
 				 * timer.
 				 */
-				if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)
+				if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED)
 				    && bi->extra->vnc.import.timer) {
 
 					struct thread *t =
@@ -3213,7 +3214,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 		int un_match = 0;
 
 		next = bi->next;
-		if (!CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
+		if (!CHECK_FLAG(bi->flags, BGP_PATH_REMOVED))
 			continue;
 
 		/*
@@ -3290,8 +3291,8 @@ static void rfapiBgpInfoFilteredImportEncap(
 			 * the address family of the cached UN address field.
 			 */
 			rfapiCopyUnEncap2VPN(info_new, m->bi);
-			if (!CHECK_FLAG(m->bi->flags, BGP_INFO_VALID)) {
-				SET_FLAG(m->bi->flags, BGP_INFO_VALID);
+			if (!CHECK_FLAG(m->bi->flags, BGP_PATH_VALID)) {
+				SET_FLAG(m->bi->flags, BGP_PATH_VALID);
 				if (VALID_INTERIOR_TYPE(m->bi->type))
 					RFAPI_MONITOR_EXTERIOR(m->node)
 						->valid_interior_count++;
@@ -3558,7 +3559,7 @@ void rfapiBgpInfoFilteredImportVPN(
 			if (action == FIF_ACTION_WITHDRAW) {
 
 				int washolddown =
-					CHECK_FLAG(bi->flags, BGP_INFO_REMOVED);
+					CHECK_FLAG(bi->flags, BGP_PATH_REMOVED);
 
 				vnc_zlog_debug_verbose(
 					"%s: withdrawing at prefix %s/%d%s",
@@ -3599,7 +3600,7 @@ void rfapiBgpInfoFilteredImportVPN(
 				 * a previous withdraw, we must cancel its
 				 * timer.
 				 */
-				if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)
+				if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED)
 				    && bi->extra->vnc.import.timer) {
 
 					struct thread *t =
@@ -3636,7 +3637,7 @@ void rfapiBgpInfoFilteredImportVPN(
 					 * processing
 					 */
 					if (CHECK_FLAG(bi->flags,
-						       BGP_INFO_VALID)
+						       BGP_PATH_VALID)
 					    && VALID_INTERIOR_TYPE(bi->type))
 						RFAPI_MONITOR_EXTERIOR(rn)
 							->valid_interior_count--;
@@ -3718,7 +3719,7 @@ void rfapiBgpInfoFilteredImportVPN(
 	if (!rfapiGetUnAddrOfVpnBi(info_new, NULL)) {
 		if (VALID_INTERIOR_TYPE(info_new->type))
 			RFAPI_MONITOR_EXTERIOR(rn)->valid_interior_count++;
-		SET_FLAG(info_new->flags, BGP_INFO_VALID);
+		SET_FLAG(info_new->flags, BGP_PATH_VALID);
 	}
 	RFAPI_UPDATE_ITABLE_COUNT(info_new, import_table, afi, 1);
 	vnc_import_bgp_exterior_add_route_interior(bgp, import_table, rn,
@@ -3794,7 +3795,7 @@ void rfapiBgpInfoFilteredImportVPN(
 		/*
 		 * Must be holddown
 		 */
-		if (!CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
+		if (!CHECK_FLAG(bi->flags, BGP_PATH_REMOVED))
 			continue;
 
 		/*
@@ -4140,7 +4141,7 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 		for (bi = rn->info; bi; bi = bi->next) {
 			if (bi->peer == peer) {
 
-				if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)) {
+				if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED)) {
 					/* already in holddown, skip */
 					continue;
 				}
@@ -4244,7 +4245,7 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 					uint32_t label = 0;
 
 					if (CHECK_FLAG(bi->flags,
-						       BGP_INFO_REMOVED))
+						       BGP_PATH_REMOVED))
 						continue;
 
 					if (bi->extra)
@@ -4552,7 +4553,7 @@ static void rfapiDeleteRemotePrefixesIt(
 				 * a previous withdraw, we must cancel its
 				 * timer.
 				 */
-				if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)) {
+				if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED)) {
 					if (!delete_holddown)
 						continue;
 					if (bi->extra->vnc.import.timer) {

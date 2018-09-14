@@ -506,7 +506,7 @@ void rfapiPrintBi(void *stream, struct bgp_info *bi)
 	if (!bi)
 		return;
 
-	if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED) && bi->extra
+	if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED) && bi->extra
 	    && bi->extra->vnc.import.timer) {
 		struct thread *t = (struct thread *)bi->extra->vnc.import.timer;
 		r = snprintf(p, REMAIN, " [%4lu] ",
@@ -619,7 +619,7 @@ void rfapiPrintBi(void *stream, struct bgp_info *bi)
 	r = snprintf(p, REMAIN, " p@%p", bi->peer);
 	INCP;
 
-	if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)) {
+	if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED)) {
 		r = snprintf(p, REMAIN, " HD=yes");
 		INCP;
 	} else {
@@ -1113,7 +1113,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		fp(out, "%-10s ", buf_lifetime);
 	}
 
-	if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED) && bi->extra
+	if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED) && bi->extra
 	    && bi->extra->vnc.import.timer) {
 
 		uint32_t remaining;
@@ -1247,11 +1247,11 @@ static int rfapiShowRemoteRegistrationsIt(struct bgp *bgp, void *stream,
 				}
 
 				if (show_expiring
-				    && !CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
+				    && !CHECK_FLAG(bi->flags, BGP_PATH_REMOVED))
 					continue;
 
 				if (!show_expiring
-				    && CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
+				    && CHECK_FLAG(bi->flags, BGP_PATH_REMOVED))
 					continue;
 
 				if (bi->type == ZEBRA_ROUTE_BGP_DIRECT
@@ -1543,7 +1543,7 @@ void rfapiPrintAdvertisedInfo(struct vty *vty, struct rfapi_descriptor *rfd,
 	struct prefix_rd *prd;
 
 	/*
-	 * Find the bgp_info in the RIB corresponding to this
+	 * Find the bgp_path in the RIB corresponding to this
 	 * prefix and rfd
 	 */
 

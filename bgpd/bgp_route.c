@@ -318,9 +318,9 @@ void bgp_info_reap(struct bgp_node *rn, struct bgp_info *ri)
 
 void bgp_info_delete(struct bgp_node *rn, struct bgp_info *ri)
 {
-	bgp_info_set_flag(rn, ri, BGP_INFO_REMOVED);
+	bgp_info_set_flag(rn, ri, BGP_PATH_REMOVED);
 	/* set of previous already took care of pcount */
-	UNSET_FLAG(ri->flags, BGP_INFO_VALID);
+	UNSET_FLAG(ri->flags, BGP_PATH_VALID);
 }
 
 /* undo the effects of a previous call to bgp_info_delete; typically
@@ -328,9 +328,9 @@ void bgp_info_delete(struct bgp_node *rn, struct bgp_info *ri)
    deletion has been processed */
 void bgp_info_restore(struct bgp_node *rn, struct bgp_info *ri)
 {
-	bgp_info_unset_flag(rn, ri, BGP_INFO_REMOVED);
+	bgp_info_unset_flag(rn, ri, BGP_PATH_REMOVED);
 	/* unset of previous already took care of pcount */
-	SET_FLAG(ri->flags, BGP_INFO_VALID);
+	SET_FLAG(ri->flags, BGP_PATH_VALID);
 }
 
 /* Adjust pcount as required */
@@ -346,10 +346,10 @@ static void bgp_pcount_adjust(struct bgp_node *rn, struct bgp_info *ri)
 	if (ri->peer == ri->peer->bgp->peer_self)
 		return;
 
-	if (!BGP_INFO_COUNTABLE(ri)
-	    && CHECK_FLAG(ri->flags, BGP_INFO_COUNTED)) {
+	if (!BGP_PATH_COUNTABLE(ri)
+	    && CHECK_FLAG(ri->flags, BGP_PATH_COUNTED)) {
 
-		UNSET_FLAG(ri->flags, BGP_INFO_COUNTED);
+		UNSET_FLAG(ri->flags, BGP_PATH_COUNTED);
 
 		/* slight hack, but more robust against errors. */
 		if (ri->peer->pcount[table->afi][table->safi])
@@ -357,9 +357,9 @@ static void bgp_pcount_adjust(struct bgp_node *rn, struct bgp_info *ri)
 		else
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "Asked to decrement 0 prefix count for peer");
-	} else if (BGP_INFO_COUNTABLE(ri)
-		   && !CHECK_FLAG(ri->flags, BGP_INFO_COUNTED)) {
-		SET_FLAG(ri->flags, BGP_INFO_COUNTED);
+	} else if (BGP_PATH_COUNTABLE(ri)
+		   && !CHECK_FLAG(ri->flags, BGP_PATH_COUNTED)) {
+		SET_FLAG(ri->flags, BGP_PATH_COUNTED);
 		ri->peer->pcount[table->afi][table->safi]++;
 	}
 }
@@ -379,7 +379,7 @@ void bgp_info_set_flag(struct bgp_node *rn, struct bgp_info *ri, uint32_t flag)
 	/* early bath if we know it's not a flag that changes countability state
 	 */
 	if (!CHECK_FLAG(flag,
-			BGP_INFO_VALID | BGP_INFO_HISTORY | BGP_INFO_REMOVED))
+			BGP_PATH_VALID | BGP_PATH_HISTORY | BGP_PATH_REMOVED))
 		return;
 
 	bgp_pcount_adjust(rn, ri);
@@ -393,7 +393,7 @@ void bgp_info_unset_flag(struct bgp_node *rn, struct bgp_info *ri,
 	/* early bath if we know it's not a flag that changes countability state
 	 */
 	if (!CHECK_FLAG(flag,
-			BGP_INFO_VALID | BGP_INFO_HISTORY | BGP_INFO_REMOVED))
+			BGP_PATH_VALID | BGP_PATH_HISTORY | BGP_PATH_REMOVED))
 		return;
 
 	bgp_pcount_adjust(rn, ri);
@@ -896,7 +896,7 @@ static int bgp_info_cmp(struct bgp *bgp, struct bgp_info *new,
 	   preferred route based on the additional decision criteria below.  */
 	if (!bgp_flag_check(bgp, BGP_FLAG_COMPARE_ROUTER_ID)
 	    && new_sort == BGP_PEER_EBGP && exist_sort == BGP_PEER_EBGP) {
-		if (CHECK_FLAG(new->flags, BGP_INFO_SELECTED)) {
+		if (CHECK_FLAG(new->flags, BGP_PATH_SELECTED)) {
 			if (debug)
 				zlog_debug(
 					"%s: %s wins over %s due to oldest external",
@@ -904,7 +904,7 @@ static int bgp_info_cmp(struct bgp *bgp, struct bgp_info *new,
 			return 1;
 		}
 
-		if (CHECK_FLAG(exist->flags, BGP_INFO_SELECTED)) {
+		if (CHECK_FLAG(exist->flags, BGP_PATH_SELECTED)) {
 			if (debug)
 				zlog_debug(
 					"%s: %s loses to %s due to oldest external",
@@ -969,7 +969,7 @@ static int bgp_info_cmp(struct bgp *bgp, struct bgp_info *new,
 	/* Do this only if neither path is "stale" as stale paths do not have
 	 * valid peer information (as the connection may or may not be up).
 	 */
-	if (CHECK_FLAG(exist->flags, BGP_INFO_STALE)) {
+	if (CHECK_FLAG(exist->flags, BGP_PATH_STALE)) {
 		if (debug)
 			zlog_debug(
 				"%s: %s wins over %s due to latter path being STALE",
@@ -977,7 +977,7 @@ static int bgp_info_cmp(struct bgp *bgp, struct bgp_info *new,
 		return 1;
 	}
 
-	if (CHECK_FLAG(new->flags, BGP_INFO_STALE)) {
+	if (CHECK_FLAG(new->flags, BGP_PATH_STALE)) {
 		if (debug)
 			zlog_debug(
 				"%s: %s loses to %s due to former path being STALE",
@@ -1434,16 +1434,16 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 
 	/* With addpath we may be asked to TX all kinds of paths so make sure
 	 * ri is valid */
-	if (!CHECK_FLAG(ri->flags, BGP_INFO_VALID)
-	    || CHECK_FLAG(ri->flags, BGP_INFO_HISTORY)
-	    || CHECK_FLAG(ri->flags, BGP_INFO_REMOVED)) {
+	if (!CHECK_FLAG(ri->flags, BGP_PATH_VALID)
+	    || CHECK_FLAG(ri->flags, BGP_PATH_HISTORY)
+	    || CHECK_FLAG(ri->flags, BGP_PATH_REMOVED)) {
 		return 0;
 	}
 
 	/* If this is not the bestpath then check to see if there is an enabled
 	 * addpath
 	 * feature that requires us to advertise it */
-	if (!CHECK_FLAG(ri->flags, BGP_INFO_SELECTED)) {
+	if (!CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)) {
 		if (!bgp_addpath_tx_path(peer, afi, safi, ri)) {
 			return 0;
 		}
@@ -1801,7 +1801,7 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 						 ? AF_INET6
 						 : p->family),
 					attr);
-		} else if (CHECK_FLAG(ri->flags, BGP_INFO_ANNC_NH_SELF)) {
+		} else if (CHECK_FLAG(ri->flags, BGP_PATH_ANNC_NH_SELF)) {
 			/*
 			 * This flag is used for leaked vpn-vrf routes
 			 */
@@ -1812,7 +1812,7 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
 				zlog_debug(
-					"%s: BGP_INFO_ANNC_NH_SELF, family=%s",
+					"%s: BGP_PATH_ANNC_NH_SELF, family=%s",
 					__func__, family2str(family));
 			subgroup_announce_reset_nhop(family, attr);
 		}
@@ -1862,14 +1862,14 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 	new_select = NULL;
 	if (bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)) {
 
-		/* Clear BGP_INFO_DMED_SELECTED for all paths */
+		/* Clear BGP_PATH_DMED_SELECTED for all paths */
 		for (ri1 = rn->info; ri1; ri1 = ri1->next)
-			bgp_info_unset_flag(rn, ri1, BGP_INFO_DMED_SELECTED);
+			bgp_info_unset_flag(rn, ri1, BGP_PATH_DMED_SELECTED);
 
 		for (ri1 = rn->info; ri1; ri1 = ri1->next) {
-			if (CHECK_FLAG(ri1->flags, BGP_INFO_DMED_CHECK))
+			if (CHECK_FLAG(ri1->flags, BGP_PATH_DMED_CHECK))
 				continue;
-			if (BGP_INFO_HOLDDOWN(ri1))
+			if (BGP_PATH_HOLDDOWN(ri1))
 				continue;
 			if (ri1->peer && ri1->peer != bgp->peer_self)
 				if (ri1->peer->status != Established)
@@ -1879,9 +1879,9 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 			if (ri1->next) {
 				for (ri2 = ri1->next; ri2; ri2 = ri2->next) {
 					if (CHECK_FLAG(ri2->flags,
-						       BGP_INFO_DMED_CHECK))
+						       BGP_PATH_DMED_CHECK))
 						continue;
-					if (BGP_INFO_HOLDDOWN(ri2))
+					if (BGP_PATH_HOLDDOWN(ri2))
 						continue;
 					if (ri2->peer
 					    && ri2->peer != bgp->peer_self
@@ -1905,19 +1905,19 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 								 afi, safi)) {
 							bgp_info_unset_flag(
 								rn, new_select,
-								BGP_INFO_DMED_SELECTED);
+								BGP_PATH_DMED_SELECTED);
 							new_select = ri2;
 						}
 
 						bgp_info_set_flag(
 							rn, ri2,
-							BGP_INFO_DMED_CHECK);
+							BGP_PATH_DMED_CHECK);
 					}
 				}
 			}
-			bgp_info_set_flag(rn, new_select, BGP_INFO_DMED_CHECK);
+			bgp_info_set_flag(rn, new_select, BGP_PATH_DMED_CHECK);
 			bgp_info_set_flag(rn, new_select,
-					  BGP_INFO_DMED_SELECTED);
+					  BGP_PATH_DMED_SELECTED);
 
 			if (debug) {
 				bgp_info_path_with_addpath_rx_str(new_select,
@@ -1935,14 +1935,14 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 	new_select = NULL;
 	for (ri = rn->info; (ri != NULL) && (nextri = ri->next, 1);
 	     ri = nextri) {
-		if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED))
+		if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED))
 			old_select = ri;
 
-		if (BGP_INFO_HOLDDOWN(ri)) {
+		if (BGP_PATH_HOLDDOWN(ri)) {
 			/* reap REMOVED routes, if needs be
 			 * selected route must stay for a while longer though
 			 */
-			if (CHECK_FLAG(ri->flags, BGP_INFO_REMOVED)
+			if (CHECK_FLAG(ri->flags, BGP_PATH_REMOVED)
 			    && (ri != old_select))
 				bgp_info_reap(rn, ri);
 
@@ -1966,14 +1966,14 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 			}
 
 		if (bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)
-		    && (!CHECK_FLAG(ri->flags, BGP_INFO_DMED_SELECTED))) {
-			bgp_info_unset_flag(rn, ri, BGP_INFO_DMED_CHECK);
+		    && (!CHECK_FLAG(ri->flags, BGP_PATH_DMED_SELECTED))) {
+			bgp_info_unset_flag(rn, ri, BGP_PATH_DMED_CHECK);
 			if (debug)
 				zlog_debug("%s: ri %p dmed", __func__, ri);
 			continue;
 		}
 
-		bgp_info_unset_flag(rn, ri, BGP_INFO_DMED_CHECK);
+		bgp_info_unset_flag(rn, ri, BGP_PATH_DMED_CHECK);
 
 		if (bgp_info_cmp(bgp, ri, new_select, &paths_eq, mpath_cfg,
 				 debug, pfx_buf, afi, safi)) {
@@ -2012,7 +2012,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 				continue;
 			}
 
-			if (BGP_INFO_HOLDDOWN(ri))
+			if (BGP_PATH_HOLDDOWN(ri))
 				continue;
 
 			if (ri->peer && ri->peer != bgp->peer_self
@@ -2115,10 +2115,10 @@ void bgp_zebra_clear_route_change_flags(struct bgp_node *rn)
 	struct bgp_info *ri;
 
 	for (ri = rn->info; ri; ri = ri->next) {
-		if (BGP_INFO_HOLDDOWN(ri))
+		if (BGP_PATH_HOLDDOWN(ri))
 			continue;
-		UNSET_FLAG(ri->flags, BGP_INFO_IGP_CHANGED);
-		UNSET_FLAG(ri->flags, BGP_INFO_ATTR_CHANGED);
+		UNSET_FLAG(ri->flags, BGP_PATH_IGP_CHANGED);
+		UNSET_FLAG(ri->flags, BGP_PATH_ATTR_CHANGED);
 	}
 }
 
@@ -2137,8 +2137,8 @@ int bgp_zebra_has_route_changed(struct bgp_node *rn, struct bgp_info *selected)
 	 * we handle the case of BGP nexthop change. This is the behavior
 	 * when the best path has an attribute change anyway.
 	 */
-	if (CHECK_FLAG(selected->flags, BGP_INFO_IGP_CHANGED)
-	    || CHECK_FLAG(selected->flags, BGP_INFO_MULTIPATH_CHG))
+	if (CHECK_FLAG(selected->flags, BGP_PATH_IGP_CHANGED)
+	    || CHECK_FLAG(selected->flags, BGP_PATH_MULTIPATH_CHG))
 		return 1;
 
 	/*
@@ -2146,8 +2146,8 @@ int bgp_zebra_has_route_changed(struct bgp_node *rn, struct bgp_info *selected)
 	 */
 	for (mpinfo = bgp_info_mpath_first(selected); mpinfo;
 	     mpinfo = bgp_info_mpath_next(mpinfo)) {
-		if (CHECK_FLAG(mpinfo->flags, BGP_INFO_IGP_CHANGED)
-		    || CHECK_FLAG(mpinfo->flags, BGP_INFO_ATTR_CHANGED))
+		if (CHECK_FLAG(mpinfo->flags, BGP_PATH_IGP_CHANGED)
+		    || CHECK_FLAG(mpinfo->flags, BGP_PATH_ATTR_CHANGED))
 			return 1;
 	}
 
@@ -2269,7 +2269,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 	 */
 	if (old_select && old_select == new_select
 	    && !CHECK_FLAG(rn->flags, BGP_NODE_USER_CLEAR)
-	    && !CHECK_FLAG(old_select->flags, BGP_INFO_ATTR_CHANGED)
+	    && !CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED)
 	    && !bgp->addpath_tx_used[afi][safi]) {
 		if (bgp_zebra_has_route_changed(rn, old_select)) {
 #if ENABLE_BGP_VNC
@@ -2288,12 +2288,12 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 							   bgp, afi, safi);
 			}
 		}
-		UNSET_FLAG(old_select->flags, BGP_INFO_MULTIPATH_CHG);
+		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
 		bgp_zebra_clear_route_change_flags(rn);
 
 		/* If there is a change of interest to peers, reannounce the
 		 * route. */
-		if (CHECK_FLAG(old_select->flags, BGP_INFO_ATTR_CHANGED)
+		if (CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED)
 		    || CHECK_FLAG(rn->flags, BGP_NODE_LABEL_CHANGED)) {
 			group_announce_route(bgp, afi, safi, rn, new_select);
 
@@ -2304,7 +2304,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 						     SAFI_LABELED_UNICAST, rn,
 						     new_select);
 
-			UNSET_FLAG(old_select->flags, BGP_INFO_ATTR_CHANGED);
+			UNSET_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED);
 			UNSET_FLAG(rn->flags, BGP_NODE_LABEL_CHANGED);
 		}
 
@@ -2331,13 +2331,13 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 	}
 
 	if (old_select)
-		bgp_info_unset_flag(rn, old_select, BGP_INFO_SELECTED);
+		bgp_info_unset_flag(rn, old_select, BGP_PATH_SELECTED);
 	if (new_select) {
 		if (debug)
 			zlog_debug("%s: setting SELECTED flag", __func__);
-		bgp_info_set_flag(rn, new_select, BGP_INFO_SELECTED);
-		bgp_info_unset_flag(rn, new_select, BGP_INFO_ATTR_CHANGED);
-		UNSET_FLAG(new_select->flags, BGP_INFO_MULTIPATH_CHG);
+		bgp_info_set_flag(rn, new_select, BGP_PATH_SELECTED);
+		bgp_info_unset_flag(rn, new_select, BGP_PATH_ATTR_CHANGED);
+		UNSET_FLAG(new_select->flags, BGP_PATH_MULTIPATH_CHG);
 	}
 
 #if ENABLE_BGP_VNC
@@ -2425,7 +2425,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 	bgp_zebra_clear_route_change_flags(rn);
 
 	/* Reap old select bgp_info, if it has been removed */
-	if (old_select && CHECK_FLAG(old_select->flags, BGP_INFO_REMOVED))
+	if (old_select && CHECK_FLAG(old_select->flags, BGP_PATH_REMOVED))
 		bgp_info_reap(rn, old_select);
 
 	UNSET_FLAG(rn->flags, BGP_NODE_PROCESS_SCHEDULED);
@@ -2674,7 +2674,7 @@ void bgp_rib_remove(struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
 {
 	bgp_aggregate_decrement(peer->bgp, &rn->p, ri, afi, safi);
 
-	if (!CHECK_FLAG(ri->flags, BGP_INFO_HISTORY))
+	if (!CHECK_FLAG(ri->flags, BGP_PATH_HISTORY))
 		bgp_info_delete(rn, ri); /* keep historical info */
 
 	bgp_process(peer->bgp, rn, afi, safi);
@@ -2712,7 +2712,7 @@ static void bgp_rib_withdraw(struct bgp_node *rn, struct bgp_info *ri,
 		bgp_unlock_node(prn);
 	}
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {
-		if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED)) {
+		if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)) {
 
 			vnc_import_bgp_del_route(peer->bgp, &rn->p, ri);
 			vnc_import_bgp_exterior_del_route(peer->bgp, &rn->p,
@@ -3019,7 +3019,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		same_attr = attrhash_cmp(ri->attr, attr_new);
 
 		/* Same attribute comes in. */
-		if (!CHECK_FLAG(ri->flags, BGP_INFO_REMOVED)
+		if (!CHECK_FLAG(ri->flags, BGP_PATH_REMOVED)
 		    && attrhash_cmp(ri->attr, attr_new)
 		    && (!has_valid_label
 			|| memcmp(&(bgp_info_extra_get(ri))->label, label,
@@ -3031,7 +3031,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 			if (CHECK_FLAG(bgp->af_flags[afi][safi],
 				       BGP_CONFIG_DAMPENING)
 			    && peer->sort == BGP_PEER_EBGP
-			    && CHECK_FLAG(ri->flags, BGP_INFO_HISTORY)) {
+			    && CHECK_FLAG(ri->flags, BGP_PATH_HISTORY)) {
 				if (bgp_debug_update(peer, p, NULL, 1)) {
 					bgp_debug_rdpfxpath2str(
 						afi, safi, prd, p, label,
@@ -3070,9 +3070,9 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 				}
 
 				/* graceful restart STALE flag unset. */
-				if (CHECK_FLAG(ri->flags, BGP_INFO_STALE)) {
+				if (CHECK_FLAG(ri->flags, BGP_PATH_STALE)) {
 					bgp_info_unset_flag(rn, ri,
-							    BGP_INFO_STALE);
+							    BGP_PATH_STALE);
 					bgp_process(bgp, rn, afi, safi);
 				}
 			}
@@ -3084,7 +3084,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		}
 
 		/* Withdraw/Announce before we fully processed the withdraw */
-		if (CHECK_FLAG(ri->flags, BGP_INFO_REMOVED)) {
+		if (CHECK_FLAG(ri->flags, BGP_PATH_REMOVED)) {
 			if (bgp_debug_update(peer, p, NULL, 1)) {
 				bgp_debug_rdpfxpath2str(
 					afi, safi, prd, p, label, num_labels,
@@ -3108,11 +3108,11 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		}
 
 		/* graceful restart STALE flag unset. */
-		if (CHECK_FLAG(ri->flags, BGP_INFO_STALE))
-			bgp_info_unset_flag(rn, ri, BGP_INFO_STALE);
+		if (CHECK_FLAG(ri->flags, BGP_PATH_STALE))
+			bgp_info_unset_flag(rn, ri, BGP_PATH_STALE);
 
 		/* The attribute is changed. */
-		bgp_info_set_flag(rn, ri, BGP_INFO_ATTR_CHANGED);
+		bgp_info_set_flag(rn, ri, BGP_PATH_ATTR_CHANGED);
 
 		/* implicit withdraw, decrement aggregate and pcount here.
 		 * only if update is accepted, they'll increment below.
@@ -3125,7 +3125,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 			/* This is implicit withdraw so we should update
 			   dampening
 			   information.  */
-			if (!CHECK_FLAG(ri->flags, BGP_INFO_HISTORY))
+			if (!CHECK_FLAG(ri->flags, BGP_PATH_HISTORY))
 				bgp_damp_withdraw(ri, rn, afi, safi, 1);
 		}
 #if ENABLE_BGP_VNC
@@ -3145,7 +3145,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		}
 		if ((afi == AFI_IP || afi == AFI_IP6)
 		    && (safi == SAFI_UNICAST)) {
-			if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED)) {
+			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)) {
 				/*
 				 * Implicit withdraw case.
 				 */
@@ -3261,7 +3261,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 			if (bgp_find_or_add_nexthop(bgp, bgp_nexthop, afi,
 							ri, NULL, connected)
 			    || CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
-				bgp_info_set_flag(rn, ri, BGP_INFO_VALID);
+				bgp_info_set_flag(rn, ri, BGP_PATH_VALID);
 			else {
 				if (BGP_DEBUG(nht, NHT)) {
 					char buf1[INET6_ADDRSTRLEN];
@@ -3272,10 +3272,10 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 					zlog_debug("%s(%s): NH unresolved",
 						   __FUNCTION__, buf1);
 				}
-				bgp_info_unset_flag(rn, ri, BGP_INFO_VALID);
+				bgp_info_unset_flag(rn, ri, BGP_PATH_VALID);
 			}
 		} else
-			bgp_info_set_flag(rn, ri, BGP_INFO_VALID);
+			bgp_info_set_flag(rn, ri, BGP_PATH_VALID);
 
 #if ENABLE_BGP_VNC
 		if (safi == SAFI_MPLS_VPN) {
@@ -3388,7 +3388,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 
 		if (bgp_find_or_add_nexthop(bgp, bgp, afi, new, NULL, connected)
 		    || CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
-			bgp_info_set_flag(rn, new, BGP_INFO_VALID);
+			bgp_info_set_flag(rn, new, BGP_PATH_VALID);
 		else {
 			if (BGP_DEBUG(nht, NHT)) {
 				char buf1[INET6_ADDRSTRLEN];
@@ -3398,10 +3398,10 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 				zlog_debug("%s(%s): NH unresolved",
 					   __FUNCTION__, buf1);
 			}
-			bgp_info_unset_flag(rn, new, BGP_INFO_VALID);
+			bgp_info_unset_flag(rn, new, BGP_PATH_VALID);
 		}
 	} else
-		bgp_info_set_flag(rn, new, BGP_INFO_VALID);
+		bgp_info_set_flag(rn, new, BGP_PATH_VALID);
 
 	/* Addpath ID */
 	new->addpath_rx_id = addpath_id;
@@ -3589,7 +3589,7 @@ int bgp_withdraw(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	}
 
 	/* Withdraw specified route from routing table. */
-	if (ri && !CHECK_FLAG(ri->flags, BGP_INFO_HISTORY)) {
+	if (ri && !CHECK_FLAG(ri->flags, BGP_PATH_HISTORY)) {
 		bgp_rib_withdraw(rn, ri, peer, afi, safi, prd);
 		if (SAFI_UNICAST == safi
 		    && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF
@@ -3801,9 +3801,9 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
 		/* graceful restart STALE flag set. */
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)
 		    && peer->nsf[afi][safi]
-		    && !CHECK_FLAG(ri->flags, BGP_INFO_STALE)
-		    && !CHECK_FLAG(ri->flags, BGP_INFO_UNUSEABLE))
-			bgp_info_set_flag(rn, ri, BGP_INFO_STALE);
+		    && !CHECK_FLAG(ri->flags, BGP_PATH_STALE)
+		    && !CHECK_FLAG(ri->flags, BGP_PATH_UNUSEABLE))
+			bgp_info_set_flag(rn, ri, BGP_PATH_STALE);
 		else {
 			/* If this is an EVPN route, process for
 			 * un-import. */
@@ -4061,7 +4061,7 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 					if (ri->peer != peer)
 						continue;
 					if (!CHECK_FLAG(ri->flags,
-							BGP_INFO_STALE))
+							BGP_PATH_STALE))
 						break;
 
 					bgp_rib_remove(rm, ri, peer, afi, safi);
@@ -4074,7 +4074,7 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 			for (ri = rn->info; ri; ri = ri->next) {
 				if (ri->peer != peer)
 					continue;
-				if (!CHECK_FLAG(ri->flags, BGP_INFO_STALE))
+				if (!CHECK_FLAG(ri->flags, BGP_PATH_STALE))
 					break;
 				bgp_rib_remove(rn, ri, peer, afi, safi);
 				break;
@@ -4092,7 +4092,7 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table,
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
 		for (ri = rn->info; ri; ri = next) {
 			next = ri->next;
-			if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED)
+			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)
 			    && ri->type == ZEBRA_ROUTE_BGP
 			    && (ri->sub_type == BGP_ROUTE_NORMAL
 				|| ri->sub_type == BGP_ROUTE_AGGREGATE
@@ -4426,7 +4426,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 
 	if (ri) {
 		if (attrhash_cmp(ri->attr, attr_new)
-		    && !CHECK_FLAG(ri->flags, BGP_INFO_REMOVED)
+		    && !CHECK_FLAG(ri->flags, BGP_PATH_REMOVED)
 		    && !bgp_flag_check(bgp, BGP_FLAG_FORCE_STATIC_PROCESS)) {
 			bgp_unlock_node(rn);
 			bgp_attr_unintern(&attr_new);
@@ -4434,17 +4434,17 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 			return;
 		} else {
 			/* The attribute is changed. */
-			bgp_info_set_flag(rn, ri, BGP_INFO_ATTR_CHANGED);
+			bgp_info_set_flag(rn, ri, BGP_PATH_ATTR_CHANGED);
 
 			/* Rewrite BGP route information. */
-			if (CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
+			if (CHECK_FLAG(ri->flags, BGP_PATH_REMOVED))
 				bgp_info_restore(rn, ri);
 			else
 				bgp_aggregate_decrement(bgp, p, ri, afi, safi);
 #if ENABLE_BGP_VNC
 			if ((afi == AFI_IP || afi == AFI_IP6)
 			    && (safi == SAFI_UNICAST)) {
-				if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED)) {
+				if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)) {
 					/*
 					 * Implicit withdraw case.
 					 * We have to do this before ri is
@@ -4484,7 +4484,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 				if (bgp_find_or_add_nexthop(bgp, bgp_nexthop,
 					    afi, ri, NULL, 0))
 					bgp_info_set_flag(rn, ri,
-							  BGP_INFO_VALID);
+							  BGP_PATH_VALID);
 				else {
 					if (BGP_DEBUG(nht, NHT)) {
 						char buf1[INET6_ADDRSTRLEN];
@@ -4496,7 +4496,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 							__FUNCTION__, buf1);
 					}
 					bgp_info_unset_flag(rn, ri,
-							    BGP_INFO_VALID);
+							    BGP_PATH_VALID);
 				}
 			} else {
 				/* Delete the NHT structure if any, if we're
@@ -4507,7 +4507,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 				 * process interaction
 				 */
 				bgp_unlink_nexthop(ri);
-				bgp_info_set_flag(rn, ri, BGP_INFO_VALID);
+				bgp_info_set_flag(rn, ri, BGP_PATH_VALID);
 			}
 			/* Process change. */
 			bgp_aggregate_increment(bgp, p, ri, afi, safi);
@@ -4534,7 +4534,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 	if (bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)
 	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST)) {
 		if (bgp_find_or_add_nexthop(bgp, bgp, afi, new, NULL, 0))
-			bgp_info_set_flag(rn, new, BGP_INFO_VALID);
+			bgp_info_set_flag(rn, new, BGP_PATH_VALID);
 		else {
 			if (BGP_DEBUG(nht, NHT)) {
 				char buf1[INET6_ADDRSTRLEN];
@@ -4544,7 +4544,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 					"%s(%s): Route not in table, not advertising",
 					__FUNCTION__, buf1);
 			}
-			bgp_info_unset_flag(rn, new, BGP_INFO_VALID);
+			bgp_info_unset_flag(rn, new, BGP_PATH_VALID);
 		}
 	} else {
 		/* Delete the NHT structure if any, if we're toggling between
@@ -4553,7 +4553,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 		 */
 		bgp_unlink_nexthop(new);
 
-		bgp_info_set_flag(rn, new, BGP_INFO_VALID);
+		bgp_info_set_flag(rn, new, BGP_PATH_VALID);
 	}
 
 	/* Aggregate address increment. */
@@ -4740,17 +4740,17 @@ static void bgp_static_update_safi(struct bgp *bgp, struct prefix *p,
 		memset(&add, 0, sizeof(union gw_addr));
 		if (attrhash_cmp(ri->attr, attr_new)
 		    && overlay_index_equal(afi, ri, bgp_static->eth_s_id, &add)
-		    && !CHECK_FLAG(ri->flags, BGP_INFO_REMOVED)) {
+		    && !CHECK_FLAG(ri->flags, BGP_PATH_REMOVED)) {
 			bgp_unlock_node(rn);
 			bgp_attr_unintern(&attr_new);
 			aspath_unintern(&attr.aspath);
 			return;
 		} else {
 			/* The attribute is changed. */
-			bgp_info_set_flag(rn, ri, BGP_INFO_ATTR_CHANGED);
+			bgp_info_set_flag(rn, ri, BGP_PATH_ATTR_CHANGED);
 
 			/* Rewrite BGP route information. */
-			if (CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
+			if (CHECK_FLAG(ri->flags, BGP_PATH_REMOVED))
 				bgp_info_restore(rn, ri);
 			else
 				bgp_aggregate_decrement(bgp, p, ri, afi, safi);
@@ -4785,7 +4785,7 @@ static void bgp_static_update_safi(struct bgp *bgp, struct prefix *p,
 	/* Make new BGP info. */
 	new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0, bgp->peer_self,
 			attr_new, rn);
-	SET_FLAG(new->flags, BGP_INFO_VALID);
+	SET_FLAG(new->flags, BGP_PATH_VALID);
 	new->extra = bgp_info_extra_new();
 	if (num_labels) {
 		new->extra->label[0] = bgp_static->label;
@@ -5488,7 +5488,7 @@ static int bgp_aggregate_info_same(struct bgp_info *ri, uint8_t origin,
 	if (!community_cmp(ri->attr->community, comm))
 		return 0;
 
-	if (!CHECK_FLAG(ri->flags, BGP_INFO_VALID))
+	if (!CHECK_FLAG(ri->flags, BGP_PATH_VALID))
 		return 0;
 
 	return 1;
@@ -5543,7 +5543,7 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 						  community, aggregate->as_set,
 						  atomic_aggregate),
 			rn);
-		SET_FLAG(new->flags, BGP_INFO_VALID);
+		SET_FLAG(new->flags, BGP_PATH_VALID);
 
 		bgp_info_add(rn, new);
 		bgp_process(bgp, rn, afi, safi);
@@ -5603,7 +5603,7 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 		match = 0;
 
 		for (ri = rn->info; ri; ri = ri->next) {
-			if (BGP_INFO_HOLDDOWN(ri))
+			if (BGP_PATH_HOLDDOWN(ri))
 				continue;
 
 			if (del && ri == del)
@@ -5623,7 +5623,7 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 			if (aggregate->summary_only) {
 				(bgp_info_extra_get(ri))->suppress++;
 				bgp_info_set_flag(rn, ri,
-						  BGP_INFO_ATTR_CHANGED);
+						  BGP_PATH_ATTR_CHANGED);
 				match++;
 			}
 
@@ -5737,7 +5737,7 @@ static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 		match = 0;
 
 		for (ri = rn->info; ri; ri = ri->next) {
-			if (BGP_INFO_HOLDDOWN(ri))
+			if (BGP_PATH_HOLDDOWN(ri))
 				continue;
 
 			if (ri->sub_type == BGP_ROUTE_AGGREGATE)
@@ -5748,7 +5748,7 @@ static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 
 				if (ri->extra->suppress == 0) {
 					bgp_info_set_flag(
-						rn, ri, BGP_INFO_ATTR_CHANGED);
+						rn, ri, BGP_PATH_ATTR_CHANGED);
 					match++;
 				}
 			}
@@ -5779,7 +5779,7 @@ void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 	if (p->prefixlen == 0)
 		return;
 
-	if (BGP_INFO_HOLDDOWN(ri))
+	if (BGP_PATH_HOLDDOWN(ri))
 		return;
 
 	child = bgp_node_get(table, p);
@@ -6159,7 +6159,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 			/* Ensure the (source route) type is updated. */
 			bi->type = type;
 			if (attrhash_cmp(bi->attr, new_attr)
-			    && !CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)) {
+			    && !CHECK_FLAG(bi->flags, BGP_PATH_REMOVED)) {
 				bgp_attr_unintern(&new_attr);
 				aspath_unintern(&attr.aspath);
 				bgp_unlock_node(bn);
@@ -6167,10 +6167,10 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 			} else {
 				/* The attribute is changed. */
 				bgp_info_set_flag(bn, bi,
-						  BGP_INFO_ATTR_CHANGED);
+						  BGP_PATH_ATTR_CHANGED);
 
 				/* Rewrite BGP route information. */
-				if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
+				if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED))
 					bgp_info_restore(bn, bi);
 				else
 					bgp_aggregate_decrement(bgp, p, bi, afi,
@@ -6199,7 +6199,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 
 		new = info_make(type, BGP_ROUTE_REDISTRIBUTE, instance,
 				bgp->peer_self, new_attr, bn);
-		SET_FLAG(new->flags, BGP_INFO_VALID);
+		SET_FLAG(new->flags, BGP_PATH_VALID);
 
 		bgp_aggregate_increment(bgp, p, new, afi, SAFI_UNICAST);
 		bgp_info_add(bn, new);
@@ -6346,30 +6346,30 @@ static void route_vty_short_status_out(struct vty *vty, struct bgp_info *binfo,
 	if (json_path) {
 
 		/* Route status display. */
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_REMOVED))
+		if (CHECK_FLAG(binfo->flags, BGP_PATH_REMOVED))
 			json_object_boolean_true_add(json_path, "removed");
 
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_STALE))
+		if (CHECK_FLAG(binfo->flags, BGP_PATH_STALE))
 			json_object_boolean_true_add(json_path, "stale");
 
 		if (binfo->extra && binfo->extra->suppress)
 			json_object_boolean_true_add(json_path, "suppressed");
 
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_VALID)
-		    && !CHECK_FLAG(binfo->flags, BGP_INFO_HISTORY))
+		if (CHECK_FLAG(binfo->flags, BGP_PATH_VALID)
+		    && !CHECK_FLAG(binfo->flags, BGP_PATH_HISTORY))
 			json_object_boolean_true_add(json_path, "valid");
 
 		/* Selected */
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_HISTORY))
+		if (CHECK_FLAG(binfo->flags, BGP_PATH_HISTORY))
 			json_object_boolean_true_add(json_path, "history");
 
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_DAMPED))
+		if (CHECK_FLAG(binfo->flags, BGP_PATH_DAMPED))
 			json_object_boolean_true_add(json_path, "damped");
 
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_SELECTED))
+		if (CHECK_FLAG(binfo->flags, BGP_PATH_SELECTED))
 			json_object_boolean_true_add(json_path, "bestpath");
 
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_MULTIPATH))
+		if (CHECK_FLAG(binfo->flags, BGP_PATH_MULTIPATH))
 			json_object_boolean_true_add(json_path, "multipath");
 
 		/* Internal route. */
@@ -6385,26 +6385,26 @@ static void route_vty_short_status_out(struct vty *vty, struct bgp_info *binfo,
 	}
 
 	/* Route status display. */
-	if (CHECK_FLAG(binfo->flags, BGP_INFO_REMOVED))
+	if (CHECK_FLAG(binfo->flags, BGP_PATH_REMOVED))
 		vty_out(vty, "R");
-	else if (CHECK_FLAG(binfo->flags, BGP_INFO_STALE))
+	else if (CHECK_FLAG(binfo->flags, BGP_PATH_STALE))
 		vty_out(vty, "S");
 	else if (binfo->extra && binfo->extra->suppress)
 		vty_out(vty, "s");
-	else if (CHECK_FLAG(binfo->flags, BGP_INFO_VALID)
-		 && !CHECK_FLAG(binfo->flags, BGP_INFO_HISTORY))
+	else if (CHECK_FLAG(binfo->flags, BGP_PATH_VALID)
+		 && !CHECK_FLAG(binfo->flags, BGP_PATH_HISTORY))
 		vty_out(vty, "*");
 	else
 		vty_out(vty, " ");
 
 	/* Selected */
-	if (CHECK_FLAG(binfo->flags, BGP_INFO_HISTORY))
+	if (CHECK_FLAG(binfo->flags, BGP_PATH_HISTORY))
 		vty_out(vty, "h");
-	else if (CHECK_FLAG(binfo->flags, BGP_INFO_DAMPED))
+	else if (CHECK_FLAG(binfo->flags, BGP_PATH_DAMPED))
 		vty_out(vty, "d");
-	else if (CHECK_FLAG(binfo->flags, BGP_INFO_SELECTED))
+	else if (CHECK_FLAG(binfo->flags, BGP_PATH_SELECTED))
 		vty_out(vty, ">");
-	else if (CHECK_FLAG(binfo->flags, BGP_INFO_MULTIPATH))
+	else if (CHECK_FLAG(binfo->flags, BGP_PATH_MULTIPATH))
 		vty_out(vty, "=");
 	else
 		vty_out(vty, " ");
@@ -6427,9 +6427,8 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 	json_object *json_nexthop_global = NULL;
 	json_object *json_nexthop_ll = NULL;
 	char vrf_id_str[VRF_NAMSIZ] = {0};
-	bool nexthop_self = CHECK_FLAG(binfo->flags, BGP_INFO_ANNC_NH_SELF)
-				? true
-				: false;
+	bool nexthop_self =
+		CHECK_FLAG(binfo->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
 	bool nexthop_othervrf = false;
 	vrf_id_t nexthop_vrfid = VRF_DEFAULT;
 	const char *nexthop_vrfname = "Default";
@@ -7222,8 +7221,8 @@ static void flap_route_vty_out(struct vty *vty, struct prefix *p,
 		vty_out(vty, "%s ", peer_uptime(bdi->start_time, timebuf,
 						BGP_UPTIME_LEN, 0, NULL));
 
-	if (CHECK_FLAG(binfo->flags, BGP_INFO_DAMPED)
-	    && !CHECK_FLAG(binfo->flags, BGP_INFO_HISTORY)) {
+	if (CHECK_FLAG(binfo->flags, BGP_PATH_DAMPED)
+	    && !CHECK_FLAG(binfo->flags, BGP_PATH_HISTORY)) {
 		if (use_json)
 			bgp_damp_reuse_time_vty(vty, binfo, timebuf,
 						BGP_UPTIME_LEN, use_json, json);
@@ -7343,9 +7342,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 	int addpath_capable;
 	int has_adj;
 	unsigned int first_as;
-	bool nexthop_self = CHECK_FLAG(binfo->flags, BGP_INFO_ANNC_NH_SELF)
-				? true
-				: false;
+	bool nexthop_self =
+		CHECK_FLAG(binfo->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -7403,7 +7401,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 			}
 		}
 
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_REMOVED)) {
+		if (CHECK_FLAG(binfo->flags, BGP_PATH_REMOVED)) {
 			if (json_paths)
 				json_object_boolean_true_add(json_path,
 							     "removed");
@@ -7411,7 +7409,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				vty_out(vty, ", (removed)");
 		}
 
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_STALE)) {
+		if (CHECK_FLAG(binfo->flags, BGP_PATH_STALE)) {
 			if (json_paths)
 				json_object_boolean_true_add(json_path,
 							     "stale");
@@ -7452,13 +7450,13 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				vty_out(vty, ", (Received from a RS-client)");
 		}
 
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_HISTORY)) {
+		if (CHECK_FLAG(binfo->flags, BGP_PATH_HISTORY)) {
 			if (json_paths)
 				json_object_boolean_true_add(
 					json_path, "dampeningHistoryEntry");
 			else
 				vty_out(vty, ", (history entry)");
-		} else if (CHECK_FLAG(binfo->flags, BGP_INFO_DAMPED)) {
+		} else if (CHECK_FLAG(binfo->flags, BGP_PATH_DAMPED)) {
 			if (json_paths)
 				json_object_boolean_true_add(
 					json_path, "dampeningSuppressed");
@@ -7520,7 +7518,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		}
 
 		/* Display the IGP cost or 'inaccessible' */
-		if (!CHECK_FLAG(binfo->flags, BGP_INFO_VALID)) {
+		if (!CHECK_FLAG(binfo->flags, BGP_PATH_VALID)) {
 			if (json_paths)
 				json_object_boolean_false_add(
 					json_nexthop_global, "accessible");
@@ -7778,13 +7776,13 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 					attr->tag);
 		}
 
-		if (!CHECK_FLAG(binfo->flags, BGP_INFO_VALID)) {
+		if (!CHECK_FLAG(binfo->flags, BGP_PATH_VALID)) {
 			if (json_paths)
 				json_object_boolean_false_add(json_path,
 							      "valid");
 			else
 				vty_out(vty, ", invalid");
-		} else if (!CHECK_FLAG(binfo->flags, BGP_INFO_HISTORY)) {
+		} else if (!CHECK_FLAG(binfo->flags, BGP_PATH_HISTORY)) {
 			if (json_paths)
 				json_object_boolean_true_add(json_path,
 							     "valid");
@@ -7864,8 +7862,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				vty_out(vty, ", atomic-aggregate");
 		}
 
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_MULTIPATH)
-		    || (CHECK_FLAG(binfo->flags, BGP_INFO_SELECTED)
+		if (CHECK_FLAG(binfo->flags, BGP_PATH_MULTIPATH)
+		    || (CHECK_FLAG(binfo->flags, BGP_PATH_SELECTED)
 			&& bgp_info_mpath_count(binfo))) {
 			if (json_paths)
 				json_object_boolean_true_add(json_path,
@@ -7875,7 +7873,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		}
 
 		// Mark the bestpath(s)
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_DMED_SELECTED)) {
+		if (CHECK_FLAG(binfo->flags, BGP_PATH_DMED_SELECTED)) {
 			first_as = aspath_get_first_as(attr->aspath);
 
 			if (json_paths) {
@@ -7894,7 +7892,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 			}
 		}
 
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_SELECTED)) {
+		if (CHECK_FLAG(binfo->flags, BGP_PATH_SELECTED)) {
 			if (json_paths) {
 				if (!json_bestpath)
 					json_bestpath =
@@ -8077,7 +8075,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				if ((addpath_capable && has_adj)
 				    || (!addpath_capable && has_adj
 					&& CHECK_FLAG(binfo->flags,
-						      BGP_INFO_SELECTED))) {
+						      BGP_PATH_SELECTED))) {
 					if (json_path && !json_adv_to)
 						json_adv_to =
 							json_object_new_object();
@@ -8365,8 +8363,8 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			}
 			if (type == bgp_show_type_dampend_paths
 			    || type == bgp_show_type_damp_neighbor) {
-				if (!CHECK_FLAG(ri->flags, BGP_INFO_DAMPED)
-				    || CHECK_FLAG(ri->flags, BGP_INFO_HISTORY))
+				if (!CHECK_FLAG(ri->flags, BGP_PATH_DAMPED)
+				    || CHECK_FLAG(ri->flags, BGP_PATH_HISTORY))
 					continue;
 			}
 
@@ -8662,7 +8660,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 
 	for (ri = rn->info; ri; ri = ri->next) {
 		count++;
-		if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED)) {
+		if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)) {
 			best = count;
 			if (ri->extra && ri->extra->suppress)
 				suppress = 1;
@@ -8852,12 +8850,12 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 				if (pathtype == BGP_PATH_SHOW_ALL
 				    || (pathtype == BGP_PATH_SHOW_BESTPATH
 					&& CHECK_FLAG(ri->flags,
-						      BGP_INFO_SELECTED))
+						      BGP_PATH_SELECTED))
 				    || (pathtype == BGP_PATH_SHOW_MULTIPATH
 					&& (CHECK_FLAG(ri->flags,
-						       BGP_INFO_MULTIPATH)
+						       BGP_PATH_MULTIPATH)
 					    || CHECK_FLAG(ri->flags,
-							  BGP_INFO_SELECTED))))
+							  BGP_PATH_SELECTED))))
 					route_vty_out_detail(vty, bgp, &rm->p,
 							     ri, AFI_IP, safi,
 							     json_paths);
@@ -8891,15 +8889,15 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 							== BGP_PATH_SHOW_BESTPATH
 						&& CHECK_FLAG(
 							   ri->flags,
-							   BGP_INFO_SELECTED))
+							   BGP_PATH_SELECTED))
 					    || (pathtype
 							== BGP_PATH_SHOW_MULTIPATH
 						&& (CHECK_FLAG(
 							    ri->flags,
-							    BGP_INFO_MULTIPATH)
+							    BGP_PATH_MULTIPATH)
 						    || CHECK_FLAG(
 							       ri->flags,
-							       BGP_INFO_SELECTED))))
+							       BGP_PATH_SELECTED))))
 						route_vty_out_detail(
 							vty, bgp, &rn->p, ri,
 							afi, safi, json_paths);
@@ -9901,27 +9899,27 @@ static int bgp_peer_count_walker(struct thread *t)
 
 			pc->count[PCOUNT_ALL]++;
 
-			if (CHECK_FLAG(ri->flags, BGP_INFO_DAMPED))
+			if (CHECK_FLAG(ri->flags, BGP_PATH_DAMPED))
 				pc->count[PCOUNT_DAMPED]++;
-			if (CHECK_FLAG(ri->flags, BGP_INFO_HISTORY))
+			if (CHECK_FLAG(ri->flags, BGP_PATH_HISTORY))
 				pc->count[PCOUNT_HISTORY]++;
-			if (CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
+			if (CHECK_FLAG(ri->flags, BGP_PATH_REMOVED))
 				pc->count[PCOUNT_REMOVED]++;
-			if (CHECK_FLAG(ri->flags, BGP_INFO_STALE))
+			if (CHECK_FLAG(ri->flags, BGP_PATH_STALE))
 				pc->count[PCOUNT_STALE]++;
-			if (CHECK_FLAG(ri->flags, BGP_INFO_VALID))
+			if (CHECK_FLAG(ri->flags, BGP_PATH_VALID))
 				pc->count[PCOUNT_VALID]++;
-			if (!CHECK_FLAG(ri->flags, BGP_INFO_UNUSEABLE))
+			if (!CHECK_FLAG(ri->flags, BGP_PATH_UNUSEABLE))
 				pc->count[PCOUNT_PFCNT]++;
 
-			if (CHECK_FLAG(ri->flags, BGP_INFO_COUNTED)) {
+			if (CHECK_FLAG(ri->flags, BGP_PATH_COUNTED)) {
 				pc->count[PCOUNT_COUNTED]++;
-				if (CHECK_FLAG(ri->flags, BGP_INFO_UNUSEABLE))
+				if (CHECK_FLAG(ri->flags, BGP_PATH_UNUSEABLE))
 					flog_err(
 						EC_LIB_DEVELOPMENT,
 						"Attempting to count but flags say it is unusable");
 			} else {
-				if (!CHECK_FLAG(ri->flags, BGP_INFO_UNUSEABLE))
+				if (!CHECK_FLAG(ri->flags, BGP_PATH_UNUSEABLE))
 					flog_err(
 						EC_LIB_DEVELOPMENT,
 						"Not counted but flags say we should");

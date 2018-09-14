@@ -259,7 +259,7 @@ void vnc_direct_bgp_add_route_ce(struct bgp *bgp, struct agg_node *rn,
 	for (ubi = urn->info; ubi; ubi = ubi->next) {
 		struct prefix unicast_nexthop;
 
-		if (CHECK_FLAG(ubi->flags, BGP_INFO_REMOVED))
+		if (CHECK_FLAG(ubi->flags, BGP_PATH_REMOVED))
 			continue;
 
 		rfapiUnicastNexthop2Prefix(afi, ubi->attr, &unicast_nexthop);

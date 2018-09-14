@@ -185,21 +185,21 @@ struct bgp_info {
 
 	/* BGP information status.  */
 	uint16_t flags;
-#define BGP_INFO_IGP_CHANGED    (1 << 0)
-#define BGP_INFO_DAMPED         (1 << 1)
-#define BGP_INFO_HISTORY        (1 << 2)
-#define BGP_INFO_SELECTED       (1 << 3)
-#define BGP_INFO_VALID          (1 << 4)
-#define BGP_INFO_ATTR_CHANGED   (1 << 5)
-#define BGP_INFO_DMED_CHECK     (1 << 6)
-#define BGP_INFO_DMED_SELECTED  (1 << 7)
-#define BGP_INFO_STALE          (1 << 8)
-#define BGP_INFO_REMOVED        (1 << 9)
-#define BGP_INFO_COUNTED	(1 << 10)
-#define BGP_INFO_MULTIPATH      (1 << 11)
-#define BGP_INFO_MULTIPATH_CHG  (1 << 12)
-#define BGP_INFO_RIB_ATTR_CHG   (1 << 13)
-#define BGP_INFO_ANNC_NH_SELF   (1 << 14)
+#define BGP_PATH_IGP_CHANGED (1 << 0)
+#define BGP_PATH_DAMPED (1 << 1)
+#define BGP_PATH_HISTORY (1 << 2)
+#define BGP_PATH_SELECTED (1 << 3)
+#define BGP_PATH_VALID (1 << 4)
+#define BGP_PATH_ATTR_CHANGED (1 << 5)
+#define BGP_PATH_DMED_CHECK (1 << 6)
+#define BGP_PATH_DMED_SELECTED (1 << 7)
+#define BGP_PATH_STALE (1 << 8)
+#define BGP_PATH_REMOVED (1 << 9)
+#define BGP_PATH_COUNTED (1 << 10)
+#define BGP_PATH_MULTIPATH (1 << 11)
+#define BGP_PATH_MULTIPATH_CHG (1 << 12)
+#define BGP_PATH_RIB_ATTR_CHG (1 << 13)
+#define BGP_PATH_ANNC_NH_SELF (1 << 14)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
 	uint8_t type;
@@ -277,20 +277,20 @@ struct bgp_static {
 #define BGP_ATTR_NEXTHOP_AFI_IP6(attr)                                         \
 	(!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))             \
 	 && ((attr)->mp_nexthop_len == 16 || (attr)->mp_nexthop_len == 32))
-#define BGP_INFO_COUNTABLE(BI)                                                 \
-	(!CHECK_FLAG((BI)->flags, BGP_INFO_HISTORY)                            \
-	 && !CHECK_FLAG((BI)->flags, BGP_INFO_REMOVED))
+#define BGP_PATH_COUNTABLE(BI)                                                 \
+	(!CHECK_FLAG((BI)->flags, BGP_PATH_HISTORY)                            \
+	 && !CHECK_FLAG((BI)->flags, BGP_PATH_REMOVED))
 
 /* Flags which indicate a route is unuseable in some form */
-#define BGP_INFO_UNUSEABLE                                                     \
-	(BGP_INFO_HISTORY | BGP_INFO_DAMPED | BGP_INFO_REMOVED)
+#define BGP_PATH_UNUSEABLE                                                     \
+	(BGP_PATH_HISTORY | BGP_PATH_DAMPED | BGP_PATH_REMOVED)
 /* Macro to check BGP information is alive or not.  Sadly,
  * not equivalent to just checking previous, because of the
  * sense of the additional VALID flag.
  */
-#define BGP_INFO_HOLDDOWN(BI)                                                  \
-	(!CHECK_FLAG((BI)->flags, BGP_INFO_VALID)                              \
-	 || CHECK_FLAG((BI)->flags, BGP_INFO_UNUSEABLE))
+#define BGP_PATH_HOLDDOWN(BI)                                                  \
+	(!CHECK_FLAG((BI)->flags, BGP_PATH_VALID)                              \
+	 || CHECK_FLAG((BI)->flags, BGP_PATH_UNUSEABLE))
 
 #define DISTRIBUTE_IN_NAME(F)   ((F)->dlist[FILTER_IN].name)
 #define DISTRIBUTE_IN(F)        ((F)->dlist[FILTER_IN].alist)

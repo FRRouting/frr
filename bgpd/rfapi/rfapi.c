@@ -999,7 +999,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		}
 
 		if (attrhash_cmp(bi->attr, new_attr)
-		    && !CHECK_FLAG(bi->flags, BGP_INFO_REMOVED)) {
+		    && !CHECK_FLAG(bi->flags, BGP_PATH_REMOVED)) {
 			bgp_attr_unintern(&new_attr);
 			bgp_unlock_node(bn);
 
@@ -1010,7 +1010,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 			goto done;
 		} else {
 			/* The attribute is changed. */
-			bgp_info_set_flag(bn, bi, BGP_INFO_ATTR_CHANGED);
+			bgp_info_set_flag(bn, bi, BGP_PATH_ATTR_CHANGED);
 
 			if (safi == SAFI_MPLS_VPN) {
 				struct bgp_node *prn = NULL;
@@ -1028,7 +1028,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 			}
 
 			/* Rewrite BGP route information. */
-			if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
+			if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED))
 				bgp_info_restore(bn, bi);
 			else
 				bgp_aggregate_decrement(bgp, p, bi, afi, safi);
@@ -1070,7 +1070,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	new->type = type;
 	new->sub_type = sub_type;
 	new->peer = rfd->peer;
-	SET_FLAG(new->flags, BGP_INFO_VALID);
+	SET_FLAG(new->flags, BGP_PATH_VALID);
 	new->attr = new_attr;
 	new->uptime = bgp_clock();
 
