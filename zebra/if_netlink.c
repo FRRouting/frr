@@ -901,8 +901,8 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (ifa->ifa_family != AF_INET && ifa->ifa_family != AF_INET6) {
 		flog_warn(
 			EC_ZEBRA_UNKNOWN_FAMILY,
-			"Invalid address family: %u received from kernel interface addr change: %u",
-			ifa->ifa_family, h->nlmsg_type);
+			"Invalid address family: %u received from kernel interface addr change: %s",
+			ifa->ifa_family, nl_msg_type_to_str(h->nlmsg_type));
 		return 0;
 	}
 
@@ -1006,8 +1006,9 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (ifa->ifa_family == AF_INET) {
 		if (ifa->ifa_prefixlen > IPV4_MAX_BITLEN) {
 			zlog_err(
-				"Invalid prefix length: %u received from kernel interface addr change: %u",
-				ifa->ifa_prefixlen, h->nlmsg_type);
+				"Invalid prefix length: %u received from kernel interface addr change: %s",
+				ifa->ifa_prefixlen,
+				nl_msg_type_to_str(h->nlmsg_type));
 			return -1;
 		}
 		if (h->nlmsg_type == RTM_NEWADDR)
@@ -1022,8 +1023,9 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (ifa->ifa_family == AF_INET6) {
 		if (ifa->ifa_prefixlen > IPV6_MAX_BITLEN) {
 			zlog_err(
-				"Invalid prefix length: %u received from kernel interface addr change: %u",
-				ifa->ifa_prefixlen, h->nlmsg_type);
+				"Invalid prefix length: %u received from kernel interface addr change: %s",
+				ifa->ifa_prefixlen,
+				nl_msg_type_to_str(h->nlmsg_type));
 			return -1;
 		}
 		if (h->nlmsg_type == RTM_NEWADDR) {
@@ -1073,8 +1075,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	/* assume if not default zns, then new VRF */
 	if (!(h->nlmsg_type == RTM_NEWLINK || h->nlmsg_type == RTM_DELLINK)) {
 		/* If this is not link add/delete message so print warning. */
-		zlog_debug("netlink_link_change: wrong kernel message %d",
-			   h->nlmsg_type);
+		zlog_debug("netlink_link_change: wrong kernel message %s",
+			   nl_msg_type_to_str(h->nlmsg_type));
 		return 0;
 	}
 
@@ -1082,8 +1084,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	      || ifi->ifi_family == AF_INET6)) {
 		flog_warn(
 			EC_ZEBRA_UNKNOWN_FAMILY,
-			"Invalid address family: %u received from kernel link change: %u",
-			ifi->ifi_family, h->nlmsg_type);
+			"Invalid address family: %u received from kernel link change: %s",
+			ifi->ifi_family, nl_msg_type_to_str(h->nlmsg_type));
 		return 0;
 	}
 

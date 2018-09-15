@@ -828,15 +828,18 @@ int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	if (!(h->nlmsg_type == RTM_NEWROUTE || h->nlmsg_type == RTM_DELROUTE)) {
 		/* If this is not route add/delete message print warning. */
-		zlog_debug("Kernel message: %d NS %u\n", h->nlmsg_type, ns_id);
+		zlog_debug("Kernel message: %s NS %u\n",
+			   nl_msg_type_to_str(h->nlmsg_type), ns_id);
 		return 0;
 	}
 
-	if (!(rtm->rtm_family == AF_INET || rtm->rtm_family == AF_INET6)) {
+	if (!(rtm->rtm_family == AF_INET ||
+	      rtm->rtm_family == AF_INET6 ||
+	      rtm->rtm_family == RTNL_FAMILY_IPMR )) {
 		flog_warn(
 			EC_ZEBRA_UNKNOWN_FAMILY,
-			"Invalid address family: %u received from kernel route change: %u",
-			rtm->rtm_family, h->nlmsg_type);
+			"Invalid address family: %u received from kernel route change: %s",
+			rtm->rtm_family, nl_msg_type_to_str(h->nlmsg_type));
 		return 0;
 	}
 
@@ -2487,8 +2490,8 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 	else {
 		flog_warn(
 			EC_ZEBRA_UNKNOWN_FAMILY,
-			"Invalid address family: %u received from kernel neighbor change: %u",
-			ndm->ndm_family, h->nlmsg_type);
+			"Invalid address family: %u received from kernel neighbor change: %s",
+			ndm->ndm_family, nl_msg_type_to_str(h->nlmsg_type));
 		return 0;
 	}
 
