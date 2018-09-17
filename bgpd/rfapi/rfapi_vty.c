@@ -2004,7 +2004,8 @@ register_add(struct vty *vty, struct cmd_token *carg_prefix,
 					"Missing parameter for local-next-hop\n");
 				return CMD_WARNING_CONFIG_FAILED;
 			}
-			++argv, --argc;
+			++argv;
+			--argc;
 			arg_lnh = argv[0]->arg;
 		}
 		if (strmatch(argv[0]->text, "local-cost")) {
@@ -2018,7 +2019,8 @@ register_add(struct vty *vty, struct cmd_token *carg_prefix,
 					"Missing parameter for local-cost\n");
 				return CMD_WARNING_CONFIG_FAILED;
 			}
-			++argv, --argc;
+			++argv;
+			--argc;
 			arg_lnh_cost = argv[0]->arg;
 		}
 	}
