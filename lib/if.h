@@ -451,7 +451,7 @@ struct nbr_connected {
 #endif /* IFF_VIRTUAL */
 
 /* Prototypes. */
-extern int if_cmp_name_func(char *, char *);
+extern int if_cmp_name_func(const char *p1, const char *p2);
 
 /*
  * Passing in VRF_UNKNOWN is a valid thing to do, unless we

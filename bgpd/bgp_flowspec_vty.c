@@ -519,7 +519,7 @@ DEFUN (bgp_fs_local_install_ifname,
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
 	int idx = 0;
-	const char *no = strmatch(argv[0]->text, (char *)"no") ? "no" : NULL;
+	const char *no = strmatch(argv[0]->text, "no") ? "no" : NULL;
 	char *ifname = argv_find(argv, argc, "INTERFACE", &idx) ?
 		argv[idx]->arg : NULL;
 

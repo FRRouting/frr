@@ -171,8 +171,7 @@ static void isis_redist_update_ext_reach(struct isis_area *area, int level,
 
 	if (redist->map_name) {
 		map_ret =
-			route_map_apply(redist->map, (struct prefix *)p,
-					RMAP_ISIS, &area_info);
+			route_map_apply(redist->map, p, RMAP_ISIS, &area_info);
 		if (map_ret == RMAP_DENYMATCH)
 			area_info.distance = 255;
 	}
@@ -441,7 +440,8 @@ static void isis_redist_set(struct isis_area *area, int level, int family,
 		}
 
 		isis_redist_update_ext_reach(area, level, redist, p,
-					     (struct prefix_ipv6 *)src_p, info);
+					     (const struct prefix_ipv6 *)src_p,
+					     info);
 	}
 }
 

@@ -63,7 +63,7 @@ int ptm_enable = 0;
  * before all numbers.  Examples: de0 < de1, de100 < fxp0 < xl0, devpty <
  * devpty0, de0 < del0
  */
-int if_cmp_name_func(char *p1, char *p2)
+int if_cmp_name_func(const char *p1, const char *p2)
 {
 	unsigned int l1, l2;
 	long int x1, x2;
@@ -99,8 +99,8 @@ int if_cmp_name_func(char *p1, char *p2)
 		if (!*p2)
 			return 1;
 
-		x1 = strtol(p1, &p1, 10);
-		x2 = strtol(p2, &p2, 10);
+		x1 = strtol(p1, (char **)&p1, 10);
+		x2 = strtol(p2, (char **)&p2, 10);
 
 		/* let's compare numbers now */
 		if (x1 < x2)
@@ -121,7 +121,7 @@ int if_cmp_name_func(char *p1, char *p2)
 static int if_cmp_func(const struct interface *ifp1,
 		       const struct interface *ifp2)
 {
-	return if_cmp_name_func((char *)ifp1->name, (char *)ifp2->name);
+	return if_cmp_name_func(ifp1->name, ifp2->name);
 }
 
 static int if_cmp_index_func(const struct interface *ifp1,
