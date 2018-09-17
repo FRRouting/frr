@@ -778,6 +778,8 @@ That said, compatibility measures can (and should) be removed when either:
 -  some measure of time (dependent on the specific case) has passed, so that
    the compatibility grace period is considered expired.
 
+For CLI commands, the deprecation period is 1 year.
+
 In all cases, compatibility pieces should be marked with compiler/preprocessor
 annotations to print warnings at compile time, pointing to the appropriate
 update path. A ``-Werror`` build should fail if compatibility bits are used. To
