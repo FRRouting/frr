@@ -260,11 +260,11 @@ void bgp_attr_flush_encap(struct attr *attr)
  *
  * This algorithm could be made faster if needed
  */
-static int encap_same(struct bgp_attr_encap_subtlv *h1,
-		      struct bgp_attr_encap_subtlv *h2)
+static int encap_same(const struct bgp_attr_encap_subtlv *h1,
+		      const struct bgp_attr_encap_subtlv *h2)
 {
-	struct bgp_attr_encap_subtlv *p;
-	struct bgp_attr_encap_subtlv *q;
+	const struct bgp_attr_encap_subtlv *p;
+	const struct bgp_attr_encap_subtlv *q;
 
 	if (h1 == h2)
 		return 1;
@@ -357,8 +357,8 @@ static unsigned int encap_hash_key_make(void *p)
 
 static int encap_hash_cmp(const void *p1, const void *p2)
 {
-	return encap_same((struct bgp_attr_encap_subtlv *)p1,
-			  (struct bgp_attr_encap_subtlv *)p2);
+	return encap_same((const struct bgp_attr_encap_subtlv *)p1,
+			  (const struct bgp_attr_encap_subtlv *)p2);
 }
 
 static void encap_init(void)

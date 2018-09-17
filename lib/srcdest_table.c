@@ -301,5 +301,5 @@ const char *srcdest_rnode2str(struct route_node *rn, char *str, int size)
 	const struct prefix *dst_p, *src_p;
 
 	srcdest_rnode_prefixes(rn, &dst_p, &src_p);
-	return srcdest2str(dst_p, (struct prefix_ipv6*)src_p, str, size);
+	return srcdest2str(dst_p, (const struct prefix_ipv6 *)src_p, str, size);
 }

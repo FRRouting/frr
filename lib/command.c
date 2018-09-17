@@ -618,8 +618,8 @@ static int cmd_try_do_shortcut(enum node_type node, char *first_word)
  */
 static int compare_completions(const void *fst, const void *snd)
 {
-	struct cmd_token *first = *(struct cmd_token **)fst,
-			 *secnd = *(struct cmd_token **)snd;
+	const struct cmd_token *first = *(const struct cmd_token * const *)fst,
+			       *secnd = *(const struct cmd_token * const *)snd;
 	return strcmp(first->text, secnd->text);
 }
 
