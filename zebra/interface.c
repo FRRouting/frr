@@ -999,8 +999,10 @@ void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 					      link_ifindex);
 }
 
-/* during initial link dump kernel does not order lower devices before
- * upper devices so we need to fixup link dependencies at the end of dump */
+/*
+ * during initial link dump kernel does not order lower devices before
+ * upper devices so we need to fixup link dependencies at the end of dump
+ */
 void zebra_if_update_all_links(void)
 {
 	struct route_node *rn;

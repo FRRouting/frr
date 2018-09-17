@@ -2626,7 +2626,7 @@ static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac)
 {
 	struct zebra_if *zif;
 	struct zebra_l2info_vxlan *vxl;
-	struct in_addr vtep_ip = {.s_addr = 0};
+	struct in_addr vtep_ip;
 	struct interface *ifp;
 
 	if (!(mac->flags & ZEBRA_MAC_REMOTE))

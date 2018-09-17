@@ -680,10 +680,12 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (IS_ZEBRA_IF_VRF(ifp))
 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 
-	/* Just set the @link/lower-device ifindex. During nldump interfaces are
+	/*
+	 * Just set the @link/lower-device ifindex. During nldump interfaces are
 	 * not ordered in any fashion so we may end up getting upper devices
 	 * before lower devices. We will setup the real linkage once the dump
-	 * is complete. */
+	 * is complete.
+	 */
 	zif = (struct zebra_if *)ifp->info;
 	zif->link_ifindex = link_ifindex;
 
