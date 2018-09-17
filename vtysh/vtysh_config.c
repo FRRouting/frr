@@ -271,18 +271,18 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				 strlen("ipv6 prefix-list"))
 			 == 0)
 			config = config_get(PREFIX_IPV6_NODE, line);
-		else if (strncmp(line, "ip as-path access-list",
-				 strlen("ip as-path access-list"))
+		else if (strncmp(line, "bgp as-path access-list",
+				 strlen("bgp as-path access-list"))
 			 == 0)
 			config = config_get(AS_LIST_NODE, line);
-		else if (strncmp(line, "ip community-list",
-				 strlen("ip community-list"))
+		else if (strncmp(line, "bgp community-list",
+				 strlen("bgp community-list"))
 				 == 0
-			 || strncmp(line, "ip extcommunity-list",
-				    strlen("ip extcommunity-list"))
+			 || strncmp(line, "bgp extcommunity-list",
+				    strlen("bgp extcommunity-list"))
 				    == 0
-			 || strncmp(line, "ip large-community-list",
-				    strlen("ip large-community-list"))
+			 || strncmp(line, "bgp large-community-list",
+				    strlen("bgp large-community-list"))
 				    == 0)
 			config = config_get(COMMUNITY_LIST_NODE, line);
 		else if (strncmp(line, "ip route", strlen("ip route")) == 0)
