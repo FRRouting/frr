@@ -112,7 +112,7 @@ static int pim_zebra_if_add(int command, struct zclient *zclient,
 		struct pim_interface *pim_ifp;
 
 		if (!ifp->info) {
-			pim_ifp = pim_if_new(ifp, 0, 0, false);
+			pim_ifp = pim_if_new(ifp, false, false, false);
 			ifp->info = pim_ifp;
 		}
 

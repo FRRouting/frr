@@ -108,7 +108,7 @@ static int pim_sec_addr_comp(const void *p1, const void *p2)
 	return 0;
 }
 
-struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim,
+struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 				 bool ispimreg)
 {
 	struct pim_interface *pim_ifp;
@@ -1468,7 +1468,7 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 		pim->regiface = if_create(pimreg_name, pim->vrf_id);
 		pim->regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
 
-		pim_if_new(pim->regiface, 0, 0, true);
+		pim_if_new(pim->regiface, false, false, true);
 	}
 }
 

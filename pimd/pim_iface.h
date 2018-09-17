@@ -154,7 +154,7 @@ struct pim_interface {
 void pim_if_init(struct pim_instance *pim);
 void pim_if_terminate(struct pim_instance *pim);
 
-struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim,
+struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 				 bool ispimreg);
 void pim_if_delete(struct interface *ifp);
 void pim_if_addr_add(struct connected *ifc);
