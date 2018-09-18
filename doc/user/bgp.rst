@@ -845,6 +845,14 @@ Configuring Peers
    specified number of hops away will be allowed to become neighbors. This
    command is mutually exclusive with *ebgp-multihop*.
 
+.. index:: [no] bgp fast-external-failover
+.. clicmd:: [no] bgp fast-external-failover
+
+   This command causes bgp to not take down ebgp peers immediately
+   when a link flaps.  `bgp fast-external-failover` is the default
+   and will not be displayed as part of a `show run`.  The no form
+   of the command turns off this ability.
+
 .. _bgp-peer-filtering:
 
 Peer Filtering
