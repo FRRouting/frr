@@ -63,6 +63,9 @@ struct bgp_advertise {
 
 	/* BGP info.  */
 	struct bgp_info *binfo;
+
+	/* Advertising peer */
+	struct peer *peer;
 };
 
 /* BGP adjacency out.  */

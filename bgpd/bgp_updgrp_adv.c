@@ -152,7 +152,8 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 							subgroup_process_announce_selected(
 								subgrp, NULL,
 								ctx->rn,
-								adj->addpath_tx_id);
+								adj->addpath_tx_id,
+								ctx->peer);
 						}
 					}
 				}
@@ -164,7 +165,7 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 
 					subgroup_process_announce_selected(
 						subgrp, ri, ctx->rn,
-						ri->addpath_tx_id);
+						ri->addpath_tx_id, ri->peer);
 				}
 
 				/* Process the bestpath last so the "show [ip]
@@ -174,7 +175,8 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 				if (ctx->ri)
 					subgroup_process_announce_selected(
 						subgrp, ctx->ri, ctx->rn,
-						ctx->ri->addpath_tx_id);
+						ctx->ri->addpath_tx_id,
+						ctx->ri->peer);
 			}
 
 			/* An update-group that does not use addpath */
@@ -182,7 +184,8 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 				if (ctx->ri) {
 					subgroup_process_announce_selected(
 						subgrp, ctx->ri, ctx->rn,
-						ctx->ri->addpath_tx_id);
+						ctx->ri->addpath_tx_id,
+						ctx->ri->peer);
 				} else {
 					/* Find the addpath_tx_id of the path we
 					 * had advertised and
@@ -195,7 +198,8 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 							subgroup_process_announce_selected(
 								subgrp, NULL,
 								ctx->rn,
-								adj->addpath_tx_id);
+								adj->addpath_tx_id,
+								ctx->peer);
 						}
 					}
 				}
@@ -487,7 +491,7 @@ void bgp_adj_out_set_subgroup(struct bgp_node *rn,
  */
 void bgp_adj_out_unset_subgroup(struct bgp_node *rn,
 				struct update_subgroup *subgrp, char withdraw,
-				uint32_t addpath_tx_id)
+				uint32_t addpath_tx_id, struct peer *from)
 {
 	struct bgp_adj_out *adj;
 	struct bgp_advertise *adv;
@@ -508,6 +512,7 @@ void bgp_adj_out_unset_subgroup(struct bgp_node *rn,
 			adv = adj->adv;
 			adv->rn = rn;
 			adv->adj = adj;
+			adv->peer = from;
 
 			/* Note if we need to trigger a packet write */
 			trigger_write =
@@ -604,7 +609,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 				else
 					bgp_adj_out_unset_subgroup(
 						rn, subgrp, 1,
-						ri->addpath_tx_id);
+						ri->addpath_tx_id, ri->peer);
 			}
 
 	/*
@@ -784,7 +789,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 					      &p, NULL);
 			bgp_adj_out_unset_subgroup(
 				rn, subgrp, 0,
-				BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
+				BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE, from);
 		}
 	}
 	aspath_unintern(&info->attr->aspath);
@@ -830,11 +835,20 @@ void subgroup_announce_all(struct update_subgroup *subgrp)
  * input route.
  */
 void group_announce_route(struct bgp *bgp, afi_t afi, safi_t safi,
-			  struct bgp_node *rn, struct bgp_info *ri)
+			  struct bgp_node *rn, struct bgp_info *ri,
+			  struct bgp_info *old_ri)
 {
 	struct updwalk_context ctx;
 	ctx.ri = ri;
 	ctx.rn = rn;
+	ctx.peer = NULL;
+	/* Store the peer pointer in the context to be used when
+	 *  update and withdraw message to peer
+	 */
+	if (old_ri && CHECK_FLAG(old_ri->flags, BGP_INFO_REMOVED)) {
+		if (old_ri->peer != bgp->peer_self)
+			ctx.peer = old_ri->peer;
+	}
 	update_group_af_walk(bgp, afi, safi, group_announce_route_walkcb, &ctx);
 }
 

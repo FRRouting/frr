@@ -57,6 +57,12 @@
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_label.h"
 
+#define PEER_INFO_LEN      sizeof(uint64_t)
+#define ROUTE_INFO_LEN     sizeof(uint8_t)
+#define NUM_ROUTE_INFO_LEN sizeof(uint16_t)
+#define MP_ATTR_LEN_OFFSET sizeof(uint16_t)
+#define MP_ATTR_HEADER_LEN        7
+
 /********************
  * PRIVATE FUNCTIONS
  ********************/
@@ -383,6 +389,167 @@ void bpacket_queue_show_vty(struct bpacket_queue *q, struct vty *vty)
 	return;
 }
 
+/* Copy the routes from packet buffer allocated in subgroup_withdraw_packet()
+ * and subgroup_update_packet() to the new buffer.
+ * Parameters :
+ * curr :  packet buffer,  new :  buffer to be sent to peer
+ * peer :  peer pointer, num_route : number of routes
+ * When encoding routes to new buffer check if the route is received
+ * from the same peer to which routes need to be sent and filter these
+ * routes
+ */
+static int bpacket_copy_route(struct stream *new, struct stream *curr,
+				struct peer *peer, int num_route)
+{
+	int cnt = 0;
+	size_t plen;
+	uintptr_t peer_ptr;
+	size_t offset;
+	int prefix_count = 0;
+	struct peer *from = NULL;
+
+	while (cnt < num_route) {
+		/* Get the peer pointer */
+		peer_ptr = (uintptr_t)stream_getq(curr);
+		from = (struct peer *)peer_ptr;
+		/* Get the length of encoded prefix data */
+		plen = stream_getc(curr);
+		offset = stream_get_getp(curr);
+
+		/* If the route is received from same peer then filter
+		 * the route
+		 */
+		if (from != peer) {
+			stream_put(new, curr->data + offset, plen);
+			prefix_count++;
+		}
+		stream_forward_getp(curr, plen);
+		cnt++;
+	}
+	if (bgp_debug_update(peer, NULL, NULL, 0))
+		zlog_debug("%s : prefix_count %d", __func__, prefix_count);
+	return prefix_count;
+}
+
+/* Allocate a new buffer to send UPDATE message to peer. The packet buffer
+ * contains additional information like number of routes, peer from which
+ * the route is learnt and prefix data length which will be removed from the
+ *  new buffer
+ */
+static struct stream *bpacket_update_peer(struct bpacket *pkt,
+				struct peer_af *paf)
+{
+	bgp_size_t unfeasible_len;
+	bgp_size_t packet_len, attr_len;
+	struct stream *new = NULL, *curr = NULL;
+	afi_t afi;
+	safi_t safi;
+	struct peer *peer = NULL;
+	struct update_subgroup *subgrp = NULL;
+	int num_pfx;
+	int count = 0;
+	int len;
+
+	subgrp = PAF_SUBGRP(paf);
+	peer = PAF_PEER(paf);
+	afi = SUBGRP_AFI(subgrp);
+	safi = SUBGRP_SAFI(subgrp);
+	curr = pkt->buffer;
+
+	if ((pkt == NULL) || (curr == NULL)) {
+		flog_err(
+			EC_BGP_UPDATE_SND,
+			"%s : invalid packet", __func__);
+		return NULL;
+	}
+
+	/* Get the packet length, withdrawn routes length from packet buffer */
+	packet_len = stream_getw_from(curr, BGP_MARKER_SIZE);
+	unfeasible_len = stream_getw_from(curr, BGP_HEADER_SIZE);
+
+	if (bgp_debug_update(peer, NULL, NULL, 0))
+		zlog_debug("%s : unfeasible_len %d, packet_len %d",
+				__func__, unfeasible_len, packet_len);
+
+	/* Allocate new buffer */
+	new = stream_new(packet_len);
+	if (new == NULL) {
+		flog_err(
+			EC_BGP_UPDATE_SND,
+			"Error allocating buffer");
+		return NULL;
+	}
+
+	/* Copy the header and withdrawn routes length */
+	stream_write(new, curr->data, BGP_HEADER_SIZE);
+	stream_putw(new, unfeasible_len);
+	/* Set the get ptr of the buffer */
+	stream_forward_getp(curr, BGP_HEADER_SIZE + NUM_ROUTE_INFO_LEN);
+	/* Get the number of routes */
+	num_pfx = stream_getw(curr);
+
+	if (bgp_debug_update(peer, NULL, NULL, 0))
+		zlog_debug("%s : num_pfx %d", __func__, num_pfx);
+
+	if (pkt->type == BPKT_TYPE_WITHDRAW) {
+		if (afi == AFI_IP && safi == SAFI_UNICAST) {
+			count = bpacket_copy_route(new, curr, peer, num_pfx);
+			/* Attributes length */
+			stream_putw(new, 0);
+		} else {
+			/* Total attribute length */
+			attr_len = stream_getw(curr);
+			stream_putw(new, attr_len);
+
+			/* Copy MP_UNREACH_NLRI header */
+			stream_write(new, curr->data + stream_get_getp(curr),
+					MP_ATTR_HEADER_LEN);
+			stream_forward_getp(curr, MP_ATTR_HEADER_LEN);
+
+			count = bpacket_copy_route(new, curr, peer, num_pfx);
+		}
+	} else if (pkt->type == BPKT_TYPE_UPDATE) {
+		if (afi == AFI_IP && safi == SAFI_UNICAST) {
+			/* Copy the total attributes length */
+			attr_len = stream_getw(curr);
+			stream_putw(new, attr_len);
+			/* Copy the attributes */
+			stream_write(new, curr->data + stream_get_getp(curr),
+					attr_len);
+			stream_forward_getp(curr, attr_len);
+			/* Copy the routes */
+			count = bpacket_copy_route(new, curr, peer, num_pfx);
+		} else {
+			/* Copy the total attributes length */
+			attr_len = stream_getw(curr);
+			stream_putw(new, attr_len);
+			/* Get the MP_REACH_NLRI header length */
+			attr_len = stream_getc(curr);
+			/* Copy MP_REACH_NLRI header */
+			stream_write(new, curr->data + stream_get_getp(curr),
+					attr_len);
+			stream_forward_getp(curr, attr_len);
+			/* Copy the routes */
+			count = bpacket_copy_route(new, curr, peer, num_pfx);
+			/* Get the remaining data length in the packet */
+			len = stream_get_endp(curr) - stream_get_getp(curr);
+			/* Copy the remaining data */
+			stream_write(new, curr->data + stream_get_getp(curr),
+					len);
+		}
+	}
+	/* Reset the get ptr of packet buffer. The buffer will be
+	 * used to encode message for other peers in the same update
+	 * group
+	 */
+	stream_set_getp(curr, 0);
+
+	if (count)
+		return new;
+	stream_free(new);
+	return NULL;
+}
+
 struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 					 struct peer_af *paf)
 {
@@ -391,16 +558,46 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 	struct peer *peer;
 	char buf[BUFSIZ];
 	char buf2[BUFSIZ];
+	afi_t afi;
+	safi_t safi;
+	unsigned long offset;
 
-	s = stream_dup(pkt->buffer);
 	peer = PAF_PEER(paf);
+	afi = paf->afi;
+	safi = paf->safi;
+
+	s = bpacket_update_peer(pkt, paf);
+	if (s == NULL) {
+		if (bgp_debug_update(PAF_PEER(paf), NULL, NULL, 0))
+			zlog_debug("%s : no routes to send to peer %s",
+					__func__, peer->host);
+		return NULL;
+	}
 
 	vec = &pkt->arr.entries[BGP_ATTR_VEC_NH];
+
+	/* The packet buffer is encoded with the additonal information
+	 * including number of routes and length of attributes
+	 * for multiprotocol support. The offset for nexthop encoding gets
+	 * changed and requires to be modified to the original values
+	 */
+	if (CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_ADDED_NUM_ROUTES)) {
+		if ((afi == AFI_IP && safi == SAFI_UNICAST) ||
+				peer_cap_enhe(peer, afi, safi))
+			offset = vec->offset - NUM_ROUTE_INFO_LEN;
+		else
+			offset = vec->offset - NUM_ROUTE_INFO_LEN
+					- ROUTE_INFO_LEN;
+	} else
+		offset = vec->offset;
+
 	if (CHECK_FLAG(vec->flags, BPKT_ATTRVEC_FLAGS_UPDATED)) {
 		uint8_t nhlen;
 		afi_t nhafi;
 		int route_map_sets_nh;
-		nhlen = stream_getc_from(s, vec->offset);
+
+		nhlen = stream_getc_from(s, offset);
+
 		if (peer_cap_enhe(peer, paf->afi, paf->safi))
 			nhafi = AFI_IP6;
 		else
@@ -409,7 +606,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		if (nhafi == AFI_IP) {
 			struct in_addr v4nh, *mod_v4nh;
 			int nh_modified = 0;
-			size_t offset_nh = vec->offset + 1;
+			size_t offset_nh = offset + 1;
 
 			route_map_sets_nh =
 				(CHECK_FLAG(
@@ -496,8 +693,8 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			struct in6_addr v6nhglobal, *mod_v6nhg;
 			struct in6_addr v6nhlocal, *mod_v6nhl;
 			int gnh_modified, lnh_modified;
-			size_t offset_nhglobal = vec->offset + 1;
-			size_t offset_nhlocal = vec->offset + 1;
+			size_t offset_nhglobal = offset + 1;
+			size_t offset_nhlocal = offset + 1;
 
 			gnh_modified = lnh_modified = 0;
 			mod_v6nhg = &v6nhglobal;
@@ -613,7 +810,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			struct in_addr v4nh, *mod_v4nh;
 			int nh_modified = 0;
 
-			stream_get_from(&v4nh, s, vec->offset + 1, 4);
+			stream_get_from(&v4nh, s, offset + 1, 4);
 			mod_v4nh = &v4nh;
 
 			/* No route-map changes allowed for EVPN nexthops. */
@@ -623,7 +820,7 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 			}
 
 			if (nh_modified)
-				stream_put_in_addr_at(s, vec->offset + 1,
+				stream_put_in_addr_at(s, offset + 1,
 						      mod_v4nh);
 
 			if (bgp_debug_update(peer, NULL, NULL, 0))
@@ -675,7 +872,48 @@ int subgroup_packets_to_build(struct update_subgroup *subgrp)
 	return 0;
 }
 
-/* Make BGP update packet.  */
+/* Function : subgroup_update_packet()
+ *
+ * This function builds UPDATE message containing routes to be advertised
+ * to peers in the update group
+ *
+ * Packet encoding for AFI_IP, SAFI_UNICAST
+ *						NLRI
+ *  -------------------------------     -----------------------------------
+ * |  BGP Header (19 bytes)        |   | Peer (8 bytes)                    |
+ * |-------------------------------|   |-----------------------------------
+ * | Unfeasible route len (2 bytes)|   | Length of encoded route (1 byte)  |
+ * |-------------------------------|   |-----------------------------------|
+ * | Number of routes (2 bytes)    |   | Prefix Length (1 byte)            |
+ * |-------------------------------|   |-----------------------------------|
+ * | Attributes length (2 bytes)   |   | Prefix (variable)                 |
+ * |-------------------------------|    -----------------------------------
+ * | Attributes (variable)         |
+ * |-------------------------------|
+ * | NLRI                          |
+ *  -------------------------------
+ *
+ * Packet encoding for other AFI, SAFI
+ *
+ *						NLRI
+ *  ----------------------------------    -----------------------------------
+ * |  BGP Header (19 bytes)           |  | Peer (8 bytes)                    |
+ * |----------------------------------|  |-----------------------------------
+ * | Unfeasible route len (2 bytes)   |  | Length of encoded route (1 byte)  |
+ * |----------------------------------|  |-----------------------------------|
+ * | Number of routes (2 bytes)       |  | Prefix Length (1 byte)            |
+ * |----------------------------------|  |-----------------------------------|
+ * | Attributes length (2 bytes)      |  | Prefix (variable)                 |
+ * |----------------------------------|   -----------------------------------
+ * | MP_REACH_NLRI header len (1 byte)|
+ * |----------------------------------|
+ * | MP_REACH_NLRI header (variable)  |
+ * |----------------------------------|
+ * | NLRI                             |
+ * |----------------------------------|
+ * | Attributes (variable)            |
+ *  ----------------------------------
+ */
 struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 {
 	struct bpacket_attr_vec_arr vecarr;
@@ -689,6 +927,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	struct bgp_node *rn = NULL;
 	struct bgp_info *binfo = NULL;
 	bgp_size_t total_attr_len = 0;
+	bgp_size_t mp_attr_len = 0;
 	unsigned long attrlen_pos = 0;
 	size_t mpattrlen_pos = 0;
 	size_t mpattr_pos = 0;
@@ -705,6 +944,11 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	struct prefix_rd *prd = NULL;
 	mpls_label_t label = MPLS_INVALID_LABEL, *label_pnt = NULL;
 	uint32_t num_labels = 0;
+	size_t nlri_pos = 0, num_route = 0;
+	size_t route_pos = 0;
+	size_t data_len = 0;
+	struct peer *from = NULL;
+	uint32_t info_len, packet_len;
 
 	if (!subgrp)
 		return NULL;
@@ -737,19 +981,20 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 				  - BGP_MAX_PACKET_SIZE_OVERFLOW;
 		space_needed =
 			BGP_NLRI_LENGTH + addpath_overhead
-			+ bgp_packet_mpattr_prefix_size(afi, safi, &rn->p);
+			+ bgp_packet_mpattr_prefix_size(afi, safi, &rn->p)
+			+ PEER_INFO_LEN /* peer pointer */
+			+ (2 * ROUTE_INFO_LEN) /* length of prefix data */
+			+ NUM_ROUTE_INFO_LEN; /* number of prefixes */
 
 		/* When remaining space can't include NLRI and it's length.  */
 		if (space_remaining < space_needed)
 			break;
 
+		if (binfo)
+			from = binfo->peer;
+
 		/* If packet is empty, set attribute. */
 		if (stream_empty(s)) {
-			struct peer *from = NULL;
-
-			if (binfo)
-				from = binfo->peer;
-
 			/* 1: Write the BGP message header - 16 bytes marker, 2
 			 * bytes length,
 			 * one byte message type.
@@ -758,6 +1003,16 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 
 			/* 2: withdrawn routes length */
 			stream_putw(s, 0);
+
+			/* Number of routes */
+			num_route = stream_get_endp(s);
+			stream_putw(s, 0);
+
+			/* Set flag to indicate number of routes encoded in
+			 *  the buffer
+			 */
+			SET_FLAG(vecarr.entries[BGP_ATTR_VEC_NH].flags,
+					BPKT_ATTRVEC_FLAGS_ADDED_NUM_ROUTES);
 
 			/* 3: total attributes length - attrlen_pos stores the
 			 * position */
@@ -782,8 +1037,11 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 				STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
 				- BGP_MAX_PACKET_SIZE_OVERFLOW;
 			space_needed = BGP_NLRI_LENGTH + addpath_overhead
-				       + bgp_packet_mpattr_prefix_size(
-						 afi, safi, &rn->p);
+				+ bgp_packet_mpattr_prefix_size(
+					afi, safi, &rn->p)
+				+ PEER_INFO_LEN /* peer info */
+				+ (2 * ROUTE_INFO_LEN) /* length of prefix */
+				+ NUM_ROUTE_INFO_LEN; /* number of prefixes */
 
 			/* If the attributes alone do not leave any room for
 			 * NLRI then
@@ -812,10 +1070,22 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 		}
 
 		if ((afi == AFI_IP && safi == SAFI_UNICAST)
-		    && !peer_cap_enhe(peer, afi, safi))
+		    && !peer_cap_enhe(peer, afi, safi)) {
+			/* Encode peer pointer */
+			if (from)
+				stream_putq(s, (uintptr_t)from);
+			else
+				stream_putq(s, 0);
+
+			nlri_pos = stream_get_endp(s);
+			stream_putc(s, 0);
+			route_pos = stream_get_endp(s);
 			stream_put_prefix_addpath(s, &rn->p, addpath_encode,
 						  addpath_tx_id);
-		else {
+			data_len = stream_get_endp(s) - route_pos;
+			/* Length of prefix data */
+			stream_putc_at(s, nlri_pos, data_len);
+		} else {
 			/* Encode the prefix in MP_REACH_NLRI attribute */
 			if (rn->prn)
 				prd = (struct prefix_rd *)&rn->prn->p;
@@ -830,15 +1100,35 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 				num_labels = binfo->extra->num_labels;
 			}
 
-			if (stream_empty(snlri))
+			if (stream_empty(snlri)) {
+				/* Store length of MP_REACH_NLRI header */
+				nlri_pos = stream_get_endp(snlri);
+				stream_putc(snlri, 0);
+				data_len = stream_get_endp(snlri);
 				mpattrlen_pos = bgp_packet_mpattr_start(
 					snlri, peer, afi, safi, &vecarr,
 					adv->baa->attr);
+				data_len = stream_get_endp(snlri) - data_len;
+				/* Length of MP_REACH_NLRI header */
+				stream_putc_at(snlri, nlri_pos, data_len);
+			}
 
+			/* Encode peer pointer */
+			if (from)
+				stream_putq(snlri, (uintptr_t)from);
+			else
+				stream_putq(snlri, 0);
+
+			/* Length of prefix data */
+			nlri_pos = stream_get_endp(snlri);
+			stream_putc(snlri, 0);
+			route_pos = stream_get_endp(snlri);
 			bgp_packet_mpattr_prefix(snlri, afi, safi, &rn->p, prd,
 						 label_pnt, num_labels,
 						 addpath_encode, addpath_tx_id,
 						 adv->baa->attr);
+			data_len = stream_get_endp(snlri) - route_pos;
+			stream_putc_at(snlri, nlri_pos, data_len);
 		}
 
 		num_pfx++;
@@ -887,29 +1177,62 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 		adv = bgp_advertise_clean_subgroup(subgrp, adj);
 	}
 
+	/* Extra info length added to buffer which will be removed
+	 * when sending to peer
+	 */
+	info_len = ((PEER_INFO_LEN + ROUTE_INFO_LEN) * num_pfx)
+					+ NUM_ROUTE_INFO_LEN;
+
 	if (!stream_empty(s)) {
 		if (!stream_empty(snlri)) {
-			bgp_packet_mpattr_end(snlri, mpattrlen_pos);
-			total_attr_len += stream_get_endp(snlri);
+			/* MP_REACH_NLRI attribute length */
+			mp_attr_len = stream_get_endp(snlri) - mpattrlen_pos
+				- info_len - 2 + NUM_ROUTE_INFO_LEN;
+
+			stream_putw_at(snlri, mpattrlen_pos, mp_attr_len);
+			/* Total path attributes length includes
+			 *  MP_REACH_NLRI attribute length
+			 *  length field size (2 bytes)
+			 *  attribute type and flags
+			 *       (mpattrlen_pos - ROUTE_INFO_LEN)
+			 */
+			total_attr_len += mp_attr_len;
+			total_attr_len += 2;
+			total_attr_len += mpattrlen_pos - ROUTE_INFO_LEN;
+
+			if (bgp_debug_update(NULL, NULL,
+					subgrp->update_group, 0))
+				zlog_debug("info_len %d, mp_attr_len %d, total_attr_len %d",
+					info_len, mp_attr_len, total_attr_len);
 		}
 
 		/* set the total attribute length correctly */
 		stream_putw_at(s, attrlen_pos, total_attr_len);
+		stream_putw_at(s, num_route, num_pfx);
 
 		if (!stream_empty(snlri)) {
 			packet = stream_dupcat(s, snlri, mpattr_pos);
 			bpacket_attr_vec_arr_update(&vecarr, mpattr_pos);
-		} else
+			packet_len = stream_get_endp(packet) - info_len
+						- ROUTE_INFO_LEN;
+		} else {
 			packet = stream_dup(s);
-		bgp_packet_set_size(packet);
+			packet_len = stream_get_endp(packet) - info_len;
+		}
+
+		/* info_len : extra info (peer, num routes) added to buffer
+		 * ROUTE_INFO_LEN : length field size containing MP_REACH_ATTR
+		 *  length
+		 */
+		stream_putw_at(packet, BGP_MARKER_SIZE, packet_len);
+
 		if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
 			zlog_debug("u%" PRIu64 ":s%" PRIu64
-				   " send UPDATE len %zd numpfx %d",
-				   subgrp->update_group->id, subgrp->id,
-				   (stream_get_endp(packet)
-				    - stream_get_getp(packet)),
-				   num_pfx);
+					" send UPDATE len %d numpfx %d",
+					subgrp->update_group->id, subgrp->id,
+					packet_len, num_pfx);
 		pkt = bpacket_queue_add(SUBGRP_PKTQ(subgrp), packet, &vecarr);
+		pkt->type = BPKT_TYPE_UPDATE;
 		stream_reset(s);
 		stream_reset(snlri);
 		return pkt;
@@ -917,16 +1240,47 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	return NULL;
 }
 
-/* Make BGP withdraw packet.  */
-/* For ipv4 unicast:
-   16-octet marker | 2-octet length | 1-octet type |
-    2-octet withdrawn route length | withdrawn prefixes | 2-octet attrlen (=0)
-*/
-/* For other afi/safis:
-   16-octet marker | 2-octet length | 1-octet type |
-    2-octet withdrawn route length (=0) | 2-octet attrlen |
-     mp_unreach attr type | attr len | afi | safi | withdrawn prefixes
-*/
+/* Function : subgroup_withdraw_packet()
+ *
+ * This function builds UPDATE message containing routes to be withdrawn
+ * from peers in the update group
+ *
+ * Packet encoding for AFI_IP, SAFI_UNICAST
+ *						NLRI
+ *  -------------------------------     -----------------------------------
+ * |  BGP Header (19 bytes)        |   | Peer (8 bytes)                    |
+ * |-------------------------------|   |-----------------------------------
+ * | Unfeasible route len (2 bytes)|   | Length of encoded route (1 byte)  |
+ * |-------------------------------|   |-----------------------------------|
+ * | Number of routes (2 bytes)    |   | Prefix Length (1 byte)            |
+ * |-------------------------------|   |-----------------------------------|
+ * | Attributes length (2 bytes)   |   | Prefix (variable)                 |
+ * |-------------------------------|    -----------------------------------
+ * | NLRI (variable)               |
+ *  -------------------------------
+ * Header  :  16-octet marker | 2-octet length | 1-octet type
+ * Attributes length (set to 0)
+ *
+ * Packet encoding for other AFI, SAFI
+ *						NLRI
+ *  ----------------------------------    -----------------------------------
+ * |  BGP Header (19 bytes)           |  | Peer (8 bytes)                    |
+ * |----------------------------------|  |-----------------------------------|
+ * | Unfeasible route len (2 bytes)   |  | Length of encoded route (1 byte)  |
+ * |----------------------------------|  |-----------------------------------|
+ * | Number of routes (2 bytes)       |  | Prefix Length (1 byte)            |
+ * |----------------------------------|  |-----------------------------------|
+ * | Attributes length (2 bytes)      |  | Prefix (variable)                 |
+ * |----------------------------------|   -----------------------------------
+ * | MP_UNREACH_NLRI header (7 bytes) |
+ * |----------------------------------|
+ * | NLRI (variable)                  |
+ *  ----------------------------------
+ *
+ * Header  :  16-octet marker | 2-octet length | 1-octet type
+ * Attributes length : Length of MP_UNREACH_NLRI attribute
+ * MP_UNREACH_NLRI header : MP_UNREACH_NLRI type | attr len | afi | safi
+ */
 struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 {
 	struct bpacket *pkt;
@@ -940,6 +1294,9 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 	size_t mp_start = 0;
 	size_t attrlen_pos = 0;
 	size_t mplen_pos = 0;
+	size_t nlri_pos = 0, num_route = 0;
+	size_t route_pos = 0;
+	size_t plen = 0;
 	uint8_t first_time = 1;
 	afi_t afi;
 	safi_t safi;
@@ -950,7 +1307,7 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 	int addpath_overhead = 0;
 	uint32_t addpath_tx_id = 0;
 	struct prefix_rd *prd = NULL;
-
+	uint32_t info_len;
 
 	if (!subgrp)
 		return NULL;
@@ -976,7 +1333,10 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 			STREAM_WRITEABLE(s) - BGP_MAX_PACKET_SIZE_OVERFLOW;
 		space_needed =
 			BGP_NLRI_LENGTH + addpath_overhead + BGP_TOTAL_ATTR_LEN
-			+ bgp_packet_mpattr_prefix_size(afi, safi, &rn->p);
+			+ bgp_packet_mpattr_prefix_size(afi, safi, &rn->p)
+			+ PEER_INFO_LEN /* peer info */
+			+ ROUTE_INFO_LEN /* prefix data length field size */
+			+ NUM_ROUTE_INFO_LEN; /* number of prefix */
 
 		if (space_remaining < space_needed)
 			break;
@@ -984,14 +1344,30 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 		if (stream_empty(s)) {
 			bgp_packet_set_marker(s, BGP_MSG_UPDATE);
 			stream_putw(s, 0); /* unfeasible routes length */
+			num_route = stream_get_endp(s);
+			stream_putw(s, 0); /* num prefix */
 		} else
 			first_time = 0;
 
 		if (afi == AFI_IP && safi == SAFI_UNICAST
-		    && !peer_cap_enhe(peer, afi, safi))
-			stream_put_prefix_addpath(s, &rn->p, addpath_encode,
-						  addpath_tx_id);
-		else {
+		    && !peer_cap_enhe(peer, afi, safi)) {
+			/* Encode peer pointer */
+			if (adv->peer)
+				stream_putq(s, (uintptr_t)(adv->peer));
+			else
+				stream_putq(s, 0);
+
+			/* Length of the encoded prefix */
+			nlri_pos = stream_get_endp(s);
+			stream_putc(s, 0);
+
+			route_pos = stream_get_endp(s);
+			stream_put_prefix_addpath(s, &rn->p,
+						addpath_encode, addpath_tx_id);
+			plen = stream_get_endp(s) - route_pos;
+			/* Encode the length of route information */
+			stream_putc_at(s, nlri_pos, plen);
+		} else {
 			if (rn->prn)
 				prd = (struct prefix_rd *)&rn->prn->p;
 
@@ -1019,9 +1395,23 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 						subgrp->id, pkt_afi, pkt_safi);
 			}
 
+			/* Encode peer pointer */
+			if (adv->peer)
+				stream_putq(s, (uintptr_t)(adv->peer));
+			else
+				stream_putq(s, 0);
+
+			/* Length of prefix */
+			nlri_pos = stream_get_endp(s);
+			stream_putc(s, 0);
+			route_pos = stream_get_endp(s);
+			/* Encode route */
 			bgp_packet_mpunreach_prefix(s, &rn->p, afi, safi, prd,
 						    NULL, 0, addpath_encode,
 						    addpath_tx_id, NULL);
+			plen = stream_get_endp(s) - route_pos;
+			/* Encode the length of route information */
+			stream_putc_at(s, nlri_pos, plen);
 		}
 
 		num_pfx++;
@@ -1044,30 +1434,66 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 		bgp_unlock_node(rn);
 	}
 
+	/* Extra info added to buffer to be removed when sending to peer */
+	info_len = ((PEER_INFO_LEN + ROUTE_INFO_LEN) * num_pfx)
+			+ NUM_ROUTE_INFO_LEN;
+
 	if (!stream_empty(s)) {
 		if (afi == AFI_IP && safi == SAFI_UNICAST
-		    && !peer_cap_enhe(peer, afi, safi)) {
+			&& !peer_cap_enhe(peer, afi, safi)) {
 			unfeasible_len = stream_get_endp(s) - BGP_HEADER_SIZE
-					 - BGP_UNFEASIBLE_LEN;
+				- BGP_UNFEASIBLE_LEN - info_len;
+			/* Withdrawn routes length */
 			stream_putw_at(s, BGP_HEADER_SIZE, unfeasible_len);
+			/* Number of withdrawn routes */
+			stream_putw_at(s, num_route, num_pfx);
+			/* Attributes length */
 			stream_putw(s, 0);
+
+			if (bgp_debug_update(NULL, NULL,
+					     subgrp->update_group, 0))
+				zlog_debug("%s : num_pfx %d, unfeasible_len %d",
+					__func__, num_pfx, unfeasible_len);
 		} else {
+			/* Encode number of routes */
+			stream_putw_at(s, num_route, num_pfx);
 			/* Set the mp_unreach attr's length */
-			bgp_packet_mpunreach_end(s, mplen_pos);
+			total_attr_len = stream_get_endp(s) - mplen_pos
+				- info_len /* additional info len */
+				- 2 /* attributes length size */
+				+ NUM_ROUTE_INFO_LEN; /* num pfx field size */
+			stream_putw_at(s, mplen_pos, total_attr_len);
+
+			if (bgp_debug_update(NULL, NULL,
+					subgrp->update_group, 0))
+				zlog_debug("%s : mp_attr_len %d, num_pfx %d",
+					__func__, total_attr_len, num_pfx);
 
 			/* Set total path attribute length. */
-			total_attr_len = stream_get_endp(s) - mp_start;
+			total_attr_len = stream_get_endp(s) - mp_start
+				- info_len + NUM_ROUTE_INFO_LEN;
+
+			if (bgp_debug_update(NULL, NULL,
+					subgrp->update_group, 0))
+				zlog_debug("%s : info_len %d, total_attr_len %d",
+					__func__, info_len, total_attr_len);
+
 			stream_putw_at(s, attrlen_pos, total_attr_len);
 		}
-		bgp_packet_set_size(s);
+
+		/* bgp_packet_set_size(s); */
+		stream_putw_at(s, BGP_MARKER_SIZE,
+				stream_get_endp(s) - info_len);
+
 		if (bgp_debug_update(NULL, NULL, subgrp->update_group, 0))
 			zlog_debug("u%" PRIu64 ":s%" PRIu64
-				   " send UPDATE (withdraw) len %zd numpfx %d",
-				   subgrp->update_group->id, subgrp->id,
-				   (stream_get_endp(s) - stream_get_getp(s)),
-				   num_pfx);
+				" send UPDATE (withdraw) len %zd numpfx %d",
+				subgrp->update_group->id, subgrp->id,
+				stream_get_endp(s) - info_len,
+				num_pfx);
 		pkt = bpacket_queue_add(SUBGRP_PKTQ(subgrp), stream_dup(s),
 					NULL);
+		pkt->type = BPKT_TYPE_WITHDRAW;
 		stream_reset(s);
 		return pkt;
 	}

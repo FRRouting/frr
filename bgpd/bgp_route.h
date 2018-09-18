@@ -445,7 +445,8 @@ extern void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 extern int subgroup_process_announce_selected(struct update_subgroup *subgrp,
 					      struct bgp_info *selected,
 					      struct bgp_node *rn,
-					      uint32_t addpath_tx_id);
+					      uint32_t addpath_tx_id,
+					      struct peer *from);
 
 extern int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 				   struct update_subgroup *subgrp,

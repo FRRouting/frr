@@ -88,6 +88,10 @@ typedef struct {
 #define BPKT_ATTRVEC_FLAGS_RMAP_IPV4_NH_CHANGED   (1 << 4)
 #define BPKT_ATTRVEC_FLAGS_RMAP_IPV6_GNH_CHANGED  (1 << 5)
 #define BPKT_ATTRVEC_FLAGS_RMAP_IPV6_LNH_CHANGED  (1 << 6)
+#define BPKT_ATTRVEC_FLAGS_ADDED_NUM_ROUTES	(1 << 7)
+
+#define BPKT_TYPE_UPDATE   1
+#define BPKT_TYPE_WITHDRAW 2
 
 typedef struct bpacket_attr_vec_arr {
 	bpacket_attr_vec entries[BGP_ATTR_VEC_MAX];
@@ -104,6 +108,7 @@ struct bpacket {
 	bpacket_attr_vec_arr arr;
 
 	unsigned int ver;
+	uint8_t type;
 };
 
 struct bpacket_queue {
@@ -303,7 +308,7 @@ struct updwalk_context {
 	updgrp_walkcb cb;
 	void *context;
 	uint8_t flags;
-
+	struct peer *peer;
 #define UPDWALK_FLAGS_ADVQUEUE   (1 << 0)
 #define UPDWALK_FLAGS_ADVERTISED (1 << 1)
 };
@@ -442,7 +447,8 @@ extern void subgroup_announce_all(struct update_subgroup *subgrp);
 extern void subgroup_default_originate(struct update_subgroup *subgrp,
 				       int withdraw);
 extern void group_announce_route(struct bgp *bgp, afi_t afi, safi_t safi,
-				 struct bgp_node *rn, struct bgp_info *ri);
+				 struct bgp_node *rn, struct bgp_info *ri,
+				 struct bgp_info *old_ri);
 extern void subgroup_clear_table(struct update_subgroup *subgrp);
 extern void update_group_announce(struct bgp *bgp);
 extern void update_group_announce_rrclients(struct bgp *bgp);
@@ -457,8 +463,9 @@ extern void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 				     struct update_subgroup *subgrp,
 				     struct attr *attr, struct bgp_info *binfo);
 extern void bgp_adj_out_unset_subgroup(struct bgp_node *rn,
-				       struct update_subgroup *subgrp,
-				       char withdraw, uint32_t addpath_tx_id);
+					struct update_subgroup *subgrp,
+					char withdraw, uint32_t addpath_tx_id,
+					struct peer *peer);
 void subgroup_announce_table(struct update_subgroup *subgrp,
 			     struct bgp_table *table);
 extern void subgroup_trigger_write(struct update_subgroup *subgrp);

@@ -2059,7 +2059,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 int subgroup_process_announce_selected(struct update_subgroup *subgrp,
 				       struct bgp_info *selected,
 				       struct bgp_node *rn,
-				       uint32_t addpath_tx_id)
+				       uint32_t addpath_tx_id,
+				       struct peer *from)
 {
 	struct prefix *p;
 	struct peer *onlypeer;
@@ -2095,12 +2096,12 @@ int subgroup_process_announce_selected(struct update_subgroup *subgrp,
 			bgp_adj_out_set_subgroup(rn, subgrp, &attr, selected);
 		else
 			bgp_adj_out_unset_subgroup(rn, subgrp, 1,
-						   selected->addpath_tx_id);
+				   selected->addpath_tx_id, from);
 	}
 
 	/* If selected is NULL we must withdraw the path using addpath_tx_id */
 	else {
-		bgp_adj_out_unset_subgroup(rn, subgrp, 1, addpath_tx_id);
+		bgp_adj_out_unset_subgroup(rn, subgrp, 1, addpath_tx_id, from);
 	}
 
 	return 0;
@@ -2295,14 +2296,15 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 		 * route. */
 		if (CHECK_FLAG(old_select->flags, BGP_INFO_ATTR_CHANGED)
 		    || CHECK_FLAG(rn->flags, BGP_NODE_LABEL_CHANGED)) {
-			group_announce_route(bgp, afi, safi, rn, new_select);
+			group_announce_route(bgp, afi, safi, rn, new_select,
+						old_select);
 
 			/* unicast routes must also be annouced to
 			 * labeled-unicast update-groups */
 			if (safi == SAFI_UNICAST)
 				group_announce_route(bgp, afi,
 						     SAFI_LABELED_UNICAST, rn,
-						     new_select);
+						     new_select, old_select);
 
 			UNSET_FLAG(old_select->flags, BGP_INFO_ATTR_CHANGED);
 			UNSET_FLAG(rn->flags, BGP_NODE_LABEL_CHANGED);
@@ -2357,13 +2359,13 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 	}
 #endif
 
-	group_announce_route(bgp, afi, safi, rn, new_select);
+	group_announce_route(bgp, afi, safi, rn, new_select, old_select);
 
 	/* unicast routes must also be annouced to labeled-unicast update-groups
 	 */
 	if (safi == SAFI_UNICAST)
 		group_announce_route(bgp, afi, SAFI_LABELED_UNICAST, rn,
-				     new_select);
+				     new_select, old_select);
 
 	/* FIB update. */
 	if (bgp_fibupd_safi(safi) && (bgp->inst_type != BGP_INSTANCE_TYPE_VIEW)
