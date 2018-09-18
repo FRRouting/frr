@@ -50,7 +50,8 @@ void zebra_ipmr_route_stats(ZAPI_HANDLER_ARGS)
 		strlcpy(sbuf, inet_ntoa(mroute.sg.src), sizeof(sbuf));
 		strlcpy(gbuf, inet_ntoa(mroute.sg.grp), sizeof(gbuf));
 
-		zlog_debug("Asking for (%s,%s) mroute information", sbuf, gbuf);
+		zlog_debug("Asking for (%s,%s)[%s(%u)] mroute information",
+			   sbuf, gbuf, zvrf->vrf->name, zvrf->vrf->vrf_id);
 	}
 
 	suc = kernel_get_ipmr_sg_stats(zvrf, &mroute);
