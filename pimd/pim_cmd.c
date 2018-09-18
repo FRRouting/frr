@@ -5766,7 +5766,7 @@ static int pim_cmd_igmp_start(struct vty *vty, struct interface *ifp)
 	pim_ifp = ifp->info;
 
 	if (!pim_ifp) {
-		pim_ifp = pim_if_new(ifp, 1 /* igmp=true */, 0 /* pim=false */);
+		pim_ifp = pim_if_new(ifp, true, false, false);
 		if (!pim_ifp) {
 			vty_out(vty, "Could not enable IGMP on interface %s\n",
 				ifp->name);
@@ -6377,7 +6377,7 @@ static int pim_cmd_interface_add(struct interface *ifp)
 	struct pim_interface *pim_ifp = ifp->info;
 
 	if (!pim_ifp) {
-		pim_ifp = pim_if_new(ifp, 0 /* igmp=false */, 1 /* pim=true */);
+		pim_ifp = pim_if_new(ifp, false, true, false);
 		if (!pim_ifp) {
 			return 0;
 		}
