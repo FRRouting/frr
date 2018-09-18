@@ -777,8 +777,9 @@ static int if_get_ipv4_address(struct interface *ifp, struct in_addr *addr)
 	return 0;
 }
 
-int bgp_nexthop_set(union sockunion *local, union sockunion *remote,
-		    struct bgp_nexthop *nexthop, struct peer *peer)
+
+bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
+			   struct bgp_nexthop *nexthop, struct peer *peer)
 {
 	int ret = 0;
 	struct interface *ifp = NULL;
@@ -786,9 +787,9 @@ int bgp_nexthop_set(union sockunion *local, union sockunion *remote,
 	memset(nexthop, 0, sizeof(struct bgp_nexthop));
 
 	if (!local)
-		return -1;
+		return false;
 	if (!remote)
-		return -1;
+		return false;
 
 	if (local->sa.sa_family == AF_INET) {
 		nexthop->v4 = local->sin.sin_addr;
@@ -815,8 +816,24 @@ int bgp_nexthop_set(union sockunion *local, union sockunion *remote,
 						      peer->bgp->vrf_id);
 	}
 
-	if (!ifp)
-		return -1;
+	if (!ifp) {
+		/*
+		 * BGP views do not currently get proper data
+		 * from zebra( when attached ) to be able to
+		 * properly resolve nexthops, so give this
+		 * instance type a pass.
+		 */
+		if (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+			return true;
+		/*
+		 * If we have no interface data but we have established
+		 * some connection w/ zebra than something has gone
+		 * terribly terribly wrong here, so say this failed
+		 * If we do not any zebra connection then not
+		 * having a ifp pointer is ok.
+		 */
+		return zclient_num_connects ? false : true;
+	}
 
 	nexthop->ifp = ifp;
 
@@ -912,7 +929,7 @@ int bgp_nexthop_set(union sockunion *local, union sockunion *remote,
 
 	/* If we have identified the local interface, there is no error for now.
 	 */
-	return 0;
+	return true;
 }
 
 static struct in6_addr *bgp_info_to_ipv6_nexthop(struct bgp_info *info,

@@ -36,6 +36,7 @@
 #include "filter.h"
 #include "ns.h"
 #include "lib_errors.h"
+#include "nexthop.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_open.h"
@@ -44,6 +45,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_network.h"
+#include "bgpd/bgp_zebra.h"
 
 extern struct zebra_privs_t bgpd_privs;
 
@@ -618,15 +620,12 @@ int bgp_getsockname(struct peer *peer)
 	if (!peer->su_remote)
 		return -1;
 
-	if (bgp_nexthop_set(peer->su_local, peer->su_remote, &peer->nexthop,
-			    peer)) {
-#if defined(HAVE_CUMULUS)
-		flog_err(
-			EC_BGP_NH_UPD,
-			"%s: nexthop_set failed, resetting connection - intf %p",
-			peer->host, peer->nexthop.ifp);
+	if (!bgp_zebra_nexthop_set(peer->su_local, peer->su_remote,
+				   &peer->nexthop, peer)) {
+		flog_err(EC_BGP_NH_UPD,
+			 "%s: nexthop_set failed, resetting connection - intf %p",
+			 peer->host, peer->nexthop.ifp);
 		return -1;
-#endif
 	}
 	return 0;
 }
