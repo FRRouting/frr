@@ -231,6 +231,7 @@ if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
   AC_C_FLAG([-Wunreachable-code])
   AC_C_FLAG([-Wpacked])
   AC_C_FLAG([-Wpadded])
+  AC_C_FLAG([-Wshadow])
 else
   AC_C_FLAG([-Wno-unused-result])
 fi
