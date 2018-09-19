@@ -51,6 +51,8 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 
+DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information")
+
 #define ZEBRA_PTM_SUPPORT
 
 DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
@@ -99,7 +101,7 @@ static int if_zebra_new_hook(struct interface *ifp)
 {
 	struct zebra_if *zebra_if;
 
-	zebra_if = XCALLOC(MTYPE_TMP, sizeof(struct zebra_if));
+	zebra_if = XCALLOC(MTYPE_ZINFO, sizeof(struct zebra_if));
 
 	zebra_if->multicast = IF_ZEBRA_MULTICAST_UNSPEC;
 	zebra_if->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
@@ -177,7 +179,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 
 		THREAD_OFF(zebra_if->speed_update);
 
-		XFREE(MTYPE_TMP, zebra_if);
+		XFREE(MTYPE_ZINFO, zebra_if);
 	}
 
 	return 0;
