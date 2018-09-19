@@ -80,12 +80,14 @@ static void bgp_nexthop_cache_reset(struct bgp_table *table)
 	struct bgp_node *rn;
 	struct bgp_nexthop_cache *bnc;
 
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
-		if ((bnc = rn->info) != NULL) {
+	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
+		bnc = bgp_nexthop_get_node_info(rn);
+		if (bnc != NULL) {
 			bnc_free(bnc);
-			rn->info = NULL;
+			bgp_nexthop_set_node_info(rn, NULL);
 			bgp_unlock_node(rn);
 		}
+	}
 }
 
 static void *bgp_tip_hash_alloc(void *p)
@@ -530,35 +532,35 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail)
 
 		for (rn = bgp_table_top(bgp->nexthop_cache_table[afi]); rn;
 		     rn = bgp_route_next(rn)) {
-			if ((bnc = rn->info) != NULL) {
-				if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)) {
-					vty_out(vty,
-						" %s valid [IGP metric %d], #paths %d\n",
-						inet_ntop(rn->p.family,
-							  &rn->p.u.prefix, buf,
-							  sizeof(buf)),
-						bnc->metric, bnc->path_count);
+			bnc = bgp_nexthop_get_node_info(rn);
+			if (!bnc)
+				continue;
 
-					if (!detail)
-						continue;
+			if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)) {
+				vty_out(vty,
+					" %s valid [IGP metric %d], #paths %d\n",
+					inet_ntop(rn->p.family,
+						  &rn->p.u.prefix, buf,
+						  sizeof(buf)),
+					bnc->metric, bnc->path_count);
 
-					bgp_show_nexthops_detail(vty, bgp, bnc);
+				if (!detail)
+					continue;
 
-				} else {
-					vty_out(vty, " %s invalid\n",
-						inet_ntop(rn->p.family,
-							  &rn->p.u.prefix, buf,
-							  sizeof(buf)));
-					if (CHECK_FLAG(bnc->flags,
-						       BGP_NEXTHOP_CONNECTED))
-						vty_out(vty,
-							"  Must be Connected\n");
+				bgp_show_nexthops_detail(vty, bgp, bnc);
+
+			} else {
+				vty_out(vty, " %s invalid\n",
+					inet_ntop(rn->p.family,
+						  &rn->p.u.prefix, buf,
+						  sizeof(buf)));
+				if (CHECK_FLAG(bnc->flags,
+					       BGP_NEXTHOP_CONNECTED))
+					vty_out(vty, "  Must be Connected\n");
 				}
-				tbuf = time(NULL)
-				       - (bgp_clock() - bnc->last_update);
-				vty_out(vty, "  Last update: %s", ctime(&tbuf));
-				vty_out(vty, "\n");
-			}
+			tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
+			vty_out(vty, "  Last update: %s", ctime(&tbuf));
+			vty_out(vty, "\n");
 		}
 	}
 }

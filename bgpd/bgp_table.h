@@ -360,4 +360,16 @@ static inline void bgp_connected_set_node_info(struct bgp_node *node,
 	node->info = bc;
 }
 
+static inline struct bgp_nexthop_cache *
+bgp_nexthop_get_node_info(struct bgp_node *node)
+{
+	return node->info;
+}
+
+static inline void bgp_nexthop_set_node_info(struct bgp_node *node,
+					     struct bgp_nexthop_cache *bnc)
+{
+	node->info = bnc;
+}
+
 #endif /* _QUAGGA_BGP_TABLE_H */
