@@ -1446,7 +1446,7 @@ static int netlink_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 /*
  * Routing table change via netlink interface, using a dataplane context object
  */
-static int netlink_route_multipath(int cmd, dplane_ctx_h ctx)
+static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 {
 	int bytelen;
 	struct sockaddr_nl snl;
@@ -1827,7 +1827,7 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
  * Update or delete a prefix from the kernel,
  * using info from a dataplane context.
  */
-enum zebra_dplane_result kernel_route_update(dplane_ctx_h ctx)
+enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 {
 	int cmd, ret;
 	const struct prefix *p = dplane_ctx_get_dest(ctx);

@@ -60,7 +60,7 @@
  */
 static pthread_mutex_t dplane_mutex;
 static struct thread *t_dplane;
-static struct dplane_ctx_q_s rib_dplane_q;
+static struct dplane_ctx_q rib_dplane_q;
 
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason))
@@ -1818,7 +1818,8 @@ static void rib_process(struct route_node *rn)
  * Utility to match route with dplane context data
  */
 static bool rib_route_match_ctx(const struct route_entry *re,
-				const dplane_ctx_h ctx, bool is_update)
+				const struct zebra_dplane_ctx *ctx,
+				bool is_update)
 {
 	bool result = false;
 
@@ -1875,7 +1876,7 @@ done:
  * TODO - WIP version of route-update processing after async dataplane
  * update.
  */
-static void rib_process_after(dplane_ctx_h ctx)
+static void rib_process_after(struct zebra_dplane_ctx *ctx)
 {
 	struct route_table *table = NULL;
 	struct zebra_vrf *zvrf = NULL;
@@ -3240,7 +3241,7 @@ void rib_close_table(struct route_table *table)
  */
 static int rib_process_dplane_results(struct thread *thread)
 {
-	dplane_ctx_h ctx;
+	struct zebra_dplane_ctx *ctx;
 
 	do {
 		/* Take lock controlling queue of results */
@@ -3269,7 +3270,7 @@ static int rib_process_dplane_results(struct thread *thread)
  * the dataplane pthread. We enqueue the results here for processing by
  * the main thread later.
  */
-static int rib_dplane_results(dplane_ctx_h ctx)
+static int rib_dplane_results(const struct zebra_dplane_ctx *ctx)
 {
 	/* Take lock controlling queue of results */
 	pthread_mutex_lock(&dplane_mutex);

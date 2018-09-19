@@ -400,7 +400,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
  * Update or delete a prefix from the kernel,
  * using info from a dataplane context struct.
  */
-enum zebra_dplane_result kernel_route_update(dplane_ctx_h ctx)
+enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 {
 	enum zebra_dplane_result res = ZEBRA_DPLANE_REQUEST_SUCCESS;
 

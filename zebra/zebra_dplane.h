@@ -105,70 +105,75 @@ enum dplane_op_e {
 };
 
 /*
- * Opaque context block used to exchange info between the main zebra
+ * The dataplane context struct is used to exchange info between the main zebra
  * context and the dataplane module(s). If these are two independent pthreads,
  * they cannot share existing global data structures safely.
  */
-typedef struct zebra_dplane_ctx_s *dplane_ctx_h;
 
 /* Define a tailq list type for context blocks. The list is exposed/public,
  * but the internal linkage in the context struct is private, so there
  * are accessor apis that support enqueue and dequeue.
  */
-TAILQ_HEAD(dplane_ctx_q_s, zebra_dplane_ctx_s);
+TAILQ_HEAD(dplane_ctx_q, zebra_dplane_ctx);
 
 /* Return a dataplane results context block after use; the caller's pointer will
  * be cleared.
  */
-void dplane_ctx_fini(dplane_ctx_h *pctx);
+void dplane_ctx_fini(struct zebra_dplane_ctx **pctx);
 
 /* Enqueue a context block to caller's tailq. This just exists so that the
  * context struct can remain opaque.
  */
-void dplane_ctx_enqueue_tail(struct dplane_ctx_q_s *q, dplane_ctx_h ctx);
+void dplane_ctx_enqueue_tail(struct dplane_ctx_q *q,
+			     const struct zebra_dplane_ctx *ctx);
 
 /* Dequeue a context block from the head of caller's tailq */
-void dplane_ctx_dequeue(struct dplane_ctx_q_s *q, dplane_ctx_h *ctxp);
+void dplane_ctx_dequeue(struct dplane_ctx_q *q, struct zebra_dplane_ctx **ctxp);
 
 /*
  * Accessors for information from the context object
  */
-enum zebra_dplane_result dplane_ctx_get_status(const dplane_ctx_h ctx);
+enum zebra_dplane_result dplane_ctx_get_status(
+	const struct zebra_dplane_ctx *ctx);
 const char *dplane_res2str(enum zebra_dplane_result res);
 
-enum dplane_op_e dplane_ctx_get_op(const dplane_ctx_h ctx);
+enum dplane_op_e dplane_ctx_get_op(const struct zebra_dplane_ctx *ctx);
 const char *dplane_op2str(enum dplane_op_e op);
 
-const struct prefix *dplane_ctx_get_dest(const dplane_ctx_h ctx);
+const struct prefix *dplane_ctx_get_dest(const struct zebra_dplane_ctx *ctx);
 
 /* Source prefix is a little special - use convention to return NULL
  * to mean "no src prefix"
  */
-const struct prefix *dplane_ctx_get_src(const dplane_ctx_h ctx);
+const struct prefix *dplane_ctx_get_src(const struct zebra_dplane_ctx *ctx);
 
-bool dplane_ctx_is_update(const dplane_ctx_h ctx);
-uint32_t dplane_ctx_get_seq(const dplane_ctx_h ctx);
-uint32_t dplane_ctx_get_old_seq(const dplane_ctx_h ctx);
-vrf_id_t dplane_ctx_get_vrf(const dplane_ctx_h ctx);
-int dplane_ctx_get_type(const dplane_ctx_h ctx);
-int dplane_ctx_get_old_type(const dplane_ctx_h ctx);
-afi_t dplane_ctx_get_afi(const dplane_ctx_h ctx);
-safi_t dplane_ctx_get_safi(const dplane_ctx_h ctx);
-uint32_t dplane_ctx_get_table(const dplane_ctx_h ctx);
-route_tag_t dplane_ctx_get_tag(const dplane_ctx_h ctx);
-route_tag_t dplane_ctx_get_old_tag(const dplane_ctx_h ctx);
-uint16_t dplane_ctx_get_instance(const dplane_ctx_h ctx);
-uint16_t dplane_ctx_get_old_instance(const dplane_ctx_h ctx);
-uint32_t dplane_ctx_get_metric(const dplane_ctx_h ctx);
-uint32_t dplane_ctx_get_old_metric(const dplane_ctx_h ctx);
-uint32_t dplane_ctx_get_mtu(const dplane_ctx_h ctx);
-uint32_t dplane_ctx_get_nh_mtu(const dplane_ctx_h ctx);
-uint8_t dplane_ctx_get_distance(const dplane_ctx_h ctx);
-uint8_t dplane_ctx_get_old_distance(const dplane_ctx_h ctx);
+bool dplane_ctx_is_update(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_seq(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_old_seq(const struct zebra_dplane_ctx *ctx);
+vrf_id_t dplane_ctx_get_vrf(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_get_type(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_get_old_type(const struct zebra_dplane_ctx *ctx);
+afi_t dplane_ctx_get_afi(const struct zebra_dplane_ctx *ctx);
+safi_t dplane_ctx_get_safi(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_table(const struct zebra_dplane_ctx *ctx);
+route_tag_t dplane_ctx_get_tag(const struct zebra_dplane_ctx *ctx);
+route_tag_t dplane_ctx_get_old_tag(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_get_instance(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_get_old_instance(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_metric(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_old_metric(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_mtu(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_nh_mtu(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_get_distance(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx);
 
-const struct nexthop_group *dplane_ctx_get_ng(const dplane_ctx_h ctx);
-const struct zebra_dplane_info *dplane_ctx_get_ns(const dplane_ctx_h ctx);
-const struct nexthop_group *dplane_ctx_get_old_ng(const dplane_ctx_h ctx);
+const struct nexthop_group *dplane_ctx_get_ng(
+	const struct zebra_dplane_ctx *ctx);
+const struct nexthop_group *dplane_ctx_get_old_ng(
+	const struct zebra_dplane_ctx *ctx);
+
+const struct zebra_dplane_info *dplane_ctx_get_ns(
+	const struct zebra_dplane_ctx *ctx);
 
 /* Indicates zebra shutdown/exit is in progress. Some operations may be
  * simplified or skipped during shutdown processing.
@@ -217,7 +222,7 @@ enum dplane_provider_prio_e {
 };
 
 /* Provider's entry-point to process a context block */
-typedef int (*dplane_provider_process_fp)(dplane_ctx_h ctx);
+typedef int (*dplane_provider_process_fp)(struct zebra_dplane_ctx *ctx);
 
 /* Provider's entry-point for shutdown and cleanup */
 typedef int (*dplane_provider_fini_fp)(void);
@@ -231,7 +236,7 @@ int dplane_provider_register(const char *name,
 /*
  * Results are returned to zebra core via a callback
  */
-typedef int (*dplane_results_fp)(const dplane_ctx_h ctx);
+typedef int (*dplane_results_fp)(const struct zebra_dplane_ctx *ctx);
 
 /*
  * Zebra registers a results callback with the dataplane. The callback is

@@ -35,7 +35,8 @@
  * Update or delete a prefix from the kernel,
  * using info from a dataplane context.
  */
-extern enum zebra_dplane_result kernel_route_update(dplane_ctx_h ctx);
+extern enum zebra_dplane_result kernel_route_update(
+	struct zebra_dplane_ctx *ctx);
 
 extern int kernel_address_add_ipv4(struct interface *, struct connected *);
 extern int kernel_address_delete_ipv4(struct interface *, struct connected *);
