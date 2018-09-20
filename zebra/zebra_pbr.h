@@ -187,7 +187,6 @@ extern enum dp_req_result kernel_del_pbr_rule(struct zebra_pbr_rule *rule);
  */
 extern void kernel_read_pbr_rules(struct zebra_ns *zns);
 
-enum dp_results;
 /*
  * Handle success or failure of rule (un)install in the kernel.
  */
