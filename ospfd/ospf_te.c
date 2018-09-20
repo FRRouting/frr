@@ -2402,7 +2402,6 @@ DEFUN (no_ospf_mpls_te_inter_as,
 		zlog_debug("MPLS-TE: Inter-AS support OFF");
 
 	if ((OspfMplsTE.enabled) && (OspfMplsTE.inter_as != Off)) {
-		OspfMplsTE.inter_as = Off;
 		/* Flush all Inter-AS LSA */
 		for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp))
 			if (IS_INTER_AS(lp->type)
@@ -2412,6 +2411,7 @@ DEFUN (no_ospf_mpls_te_inter_as,
 
 	/* Deregister the Callbacks for Inter-AS suport */
 	ospf_mpls_te_unregister();
+	OspfMplsTE.inter_as = Off;
 
 	return CMD_SUCCESS;
 }
