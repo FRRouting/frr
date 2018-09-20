@@ -1905,7 +1905,7 @@ int lsp_tick(struct thread *thread)
 							 dnode);
 				}
 
-				if (fabricd_init_c) {
+				if (fabricd_init_c && lsp) {
 					fabricd_sync_incomplete |=
 						ISIS_CHECK_FLAG(lsp->SSNflags,
 								fabricd_init_c);
