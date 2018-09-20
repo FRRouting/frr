@@ -100,6 +100,12 @@ struct nexthop_group *nexthop_group_new(void)
 	return XCALLOC(MTYPE_NEXTHOP_GROUP, sizeof(struct nexthop_group));
 }
 
+void nexthop_group_copy(struct nexthop_group *to, struct nexthop_group *from)
+{
+	/* Copy everything, including recursive info */
+	copy_nexthops(&to->nexthop, from->nexthop, NULL);
+}
+
 void nexthop_group_delete(struct nexthop_group **nhg)
 {
 	XFREE(MTYPE_NEXTHOP_GROUP, *nhg);
@@ -117,6 +123,35 @@ void nexthop_add(struct nexthop **target, struct nexthop *nexthop)
 	else
 		*target = nexthop;
 	nexthop->prev = last;
+}
+
+void nexthop_group_add_sorted(struct nexthop_group *nhg,
+			      struct nexthop *nexthop)
+{
+	struct nexthop *position, *prev;
+
+	for (position = nhg->nexthop, prev = NULL; position;
+	     prev = position, position = position->next) {
+		if (nexthop_cmp(position, nexthop) > 0) {
+			nexthop->next = position;
+			nexthop->prev = prev;
+
+			if (nexthop->prev)
+				nexthop->prev->next = nexthop;
+			else
+				nhg->nexthop = nexthop;
+
+			position->prev = nexthop;
+			return;
+		}
+	}
+
+	nexthop->prev = prev;
+	if (prev)
+		prev->next = nexthop;
+	else
+		nhg->nexthop = nexthop;
+
 }
 
 /* Delete nexthop from a nexthop list.  */
