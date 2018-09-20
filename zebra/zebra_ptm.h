@@ -63,7 +63,9 @@ struct zebra_ptm_cb {
 	(protocol) == ZEBRA_ROUTE_BGP || \
 	(protocol) == ZEBRA_ROUTE_OSPF || \
 	(protocol) == ZEBRA_ROUTE_OSPF6 || \
-	(protocol) == ZEBRA_ROUTE_PIM \
+	(protocol) == ZEBRA_ROUTE_ISIS || \
+	(protocol) == ZEBRA_ROUTE_PIM || \
+	(protocol) == ZEBRA_ROUTE_OPENFABRIC \
 )
 
 void zebra_ptm_init(void);
