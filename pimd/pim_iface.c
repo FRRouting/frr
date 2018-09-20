@@ -128,7 +128,8 @@ static int pim_sec_addr_comp(const void *p1, const void *p2)
 	return 0;
 }
 
-struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
+struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim,
+				 bool ispimreg)
 {
 	struct pim_interface *pim_ifp;
 
@@ -219,7 +220,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 
 	pim_sock_reset(ifp);
 
-	pim_if_add_vif(ifp);
+	pim_if_add_vif(ifp, ispimreg);
 
 	return pim_ifp;
 }
@@ -672,7 +673,7 @@ void pim_if_addr_add(struct connected *ifc)
 	  address assigned, then try to create a vif_index.
 	*/
 	if (pim_ifp->mroute_vif_index < 0) {
-		pim_if_add_vif(ifp);
+		pim_if_add_vif(ifp, false);
 	}
 	pim_ifchannel_scan_forward_start(ifp);
 }
@@ -805,7 +806,7 @@ void pim_if_addr_add_all(struct interface *ifp)
 	 * address assigned, then try to create a vif_index.
 	 */
 	if (pim_ifp->mroute_vif_index < 0) {
-		pim_if_add_vif(ifp);
+		pim_if_add_vif(ifp, false);
 	}
 	pim_ifchannel_scan_forward_start(ifp);
 
@@ -970,7 +971,7 @@ static int pim_iface_next_vif_index(struct interface *ifp)
 
   see also pim_if_find_vifindex_by_ifindex()
  */
-int pim_if_add_vif(struct interface *ifp)
+int pim_if_add_vif(struct interface *ifp, bool ispimreg)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 	struct in_addr ifaddr;
@@ -992,8 +993,7 @@ int pim_if_add_vif(struct interface *ifp)
 	}
 
 	ifaddr = pim_ifp->primary_address;
-	if (ifp->ifindex != PIM_OIF_PIM_REGISTER_VIF
-	    && PIM_INADDR_IS_ANY(ifaddr)) {
+	if (!ispimreg && PIM_INADDR_IS_ANY(ifaddr)) {
 		zlog_warn(
 			"%s: could not get address for interface %s ifindex=%d",
 			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex);
@@ -1520,7 +1520,7 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 		pim->regiface = if_create(pimreg_name, pim->vrf_id);
 		pim->regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
 
-		pim_if_new(pim->regiface, 0, 0);
+		pim_if_new(pim->regiface, 0, 0, true);
 	}
 }
 
