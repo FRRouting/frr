@@ -1882,14 +1882,14 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	}
 
 	/* ipset create */
-	if (bpm && !bpm->installed)
+	if (!bpm->installed)
 		bgp_send_pbr_ipset_match(bpm, true);
 	/* ipset add */
-	if (bpme && !bpme->installed)
+	if (!bpme->installed)
 		bgp_send_pbr_ipset_entry_match(bpme, true);
 
 	/* iptables */
-	if (bpm && !bpm->installed_in_iptable)
+	if (!bpm->installed_in_iptable)
 		bgp_send_pbr_iptable(bpa, bpm, true);
 
 	/* A previous entry may already exist
