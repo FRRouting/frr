@@ -1759,8 +1759,19 @@ void route_map_upd8_dependency(route_map_event_t type, const char *arg,
 {
 	struct hash *upd8_hash = NULL;
 
-	if ((upd8_hash = route_map_get_dep_hash(type)))
+	if ((upd8_hash = route_map_get_dep_hash(type))) {
 		route_map_dep_update(upd8_hash, arg, rmap_name, type);
+
+		if (type == RMAP_EVENT_CALL_ADDED) {
+			/* Execute hook. */
+			if (route_map_master.add_hook)
+				(*route_map_master.add_hook)(rmap_name);
+		} else if (type == RMAP_EVENT_CALL_DELETED) {
+			/* Execute hook. */
+			if (route_map_master.delete_hook)
+				(*route_map_master.delete_hook)(rmap_name);
+		}
+	}
 }
 
 void route_map_notify_dependencies(const char *affected_name,
