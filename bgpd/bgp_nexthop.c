@@ -172,16 +172,24 @@ void bgp_tip_del(struct bgp *bgp, struct in_addr *tip)
 /* BGP own address structure */
 struct bgp_addr {
 	struct in_addr addr;
-	int refcnt;
+	struct list *ifp_name_list;
 };
 
 static void show_address_entry(struct hash_backet *backet, void *args)
 {
 	struct vty *vty = (struct vty *)args;
 	struct bgp_addr *addr = (struct bgp_addr *)backet->data;
+	char *name;
+	struct listnode *node;
 
-	vty_out(vty, "addr: %s, count: %d\n", inet_ntoa(addr->addr),
-		addr->refcnt);
+	vty_out(vty, "addr: %s, count: %d : ", inet_ntoa(addr->addr),
+		addr->ifp_name_list->count);
+
+	for (ALL_LIST_ELEMENTS_RO(addr->ifp_name_list, node, name)) {
+		vty_out(vty, " %s,", name);
+	}
+
+	vty_out(vty, "\n");
 }
 
 void bgp_nexthop_show_address_hash(struct vty *vty, struct bgp *bgp)
@@ -191,20 +199,32 @@ void bgp_nexthop_show_address_hash(struct vty *vty, struct bgp *bgp)
 		     vty);
 }
 
+static void bgp_address_hash_string_del(void *val)
+{
+	char *data = val;
+
+	XFREE(MTYPE_TMP, data);
+}
+
 static void *bgp_address_hash_alloc(void *p)
 {
 	const struct in_addr *val = (const struct in_addr *)p;
 	struct bgp_addr *addr;
 
 	addr = XMALLOC(MTYPE_BGP_ADDR, sizeof(struct bgp_addr));
-	addr->refcnt = 0;
 	addr->addr.s_addr = val->s_addr;
+
+	addr->ifp_name_list = list_new();
+	addr->ifp_name_list->del = bgp_address_hash_string_del;
 
 	return addr;
 }
 
-static void bgp_address_hash_free(void *addr)
+static void bgp_address_hash_free(void *data)
 {
+	struct bgp_addr *addr = data;
+
+	list_delete_and_null(&addr->ifp_name_list);
 	XFREE(MTYPE_BGP_ADDR, addr);
 }
 
@@ -239,24 +259,35 @@ void bgp_address_destroy(struct bgp *bgp)
 	bgp->address_hash = NULL;
 }
 
-static void bgp_address_add(struct bgp *bgp, struct prefix *p)
+static void bgp_address_add(struct bgp *bgp, struct connected *ifc,
+			    struct prefix *p)
 {
 	struct bgp_addr tmp;
 	struct bgp_addr *addr;
+	struct listnode *node;
+	char *name;
 
 	tmp.addr = p->u.prefix4;
 
 	addr = hash_get(bgp->address_hash, &tmp, bgp_address_hash_alloc);
-	if (!addr)
-		return;
 
-	addr->refcnt++;
+	for (ALL_LIST_ELEMENTS_RO(addr->ifp_name_list, node, name)) {
+		if (strcmp(ifc->ifp->name, name) == 0)
+			break;
+	}
+	if (!node) {
+		name = XSTRDUP(MTYPE_TMP, ifc->ifp->name);
+		listnode_add(addr->ifp_name_list, name);
+	}
 }
 
-static void bgp_address_del(struct bgp *bgp, struct prefix *p)
+static void bgp_address_del(struct bgp *bgp, struct connected *ifc,
+			    struct prefix *p)
 {
 	struct bgp_addr tmp;
 	struct bgp_addr *addr;
+	struct listnode *node;
+	char *name;
 
 	tmp.addr = p->u.prefix4;
 
@@ -265,10 +296,17 @@ static void bgp_address_del(struct bgp *bgp, struct prefix *p)
 	if (addr == NULL)
 		return;
 
-	addr->refcnt--;
+	for (ALL_LIST_ELEMENTS_RO(addr->ifp_name_list, node, name)) {
+		if (strcmp(ifc->ifp->name, name) == 0)
+			break;
+	}
 
-	if (addr->refcnt == 0) {
+	if (node)
+		list_delete_node(addr->ifp_name_list, node);
+
+	if (addr->ifp_name_list->count == 0) {
 		hash_release(bgp->address_hash, addr);
+		list_delete_and_null(&addr->ifp_name_list);
 		XFREE(MTYPE_BGP_ADDR, addr);
 	}
 }
@@ -296,7 +334,7 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 		if (prefix_ipv4_any((struct prefix_ipv4 *)&p))
 			return;
 
-		bgp_address_add(bgp, addr);
+		bgp_address_add(bgp, ifc, addr);
 
 		rn = bgp_node_get(bgp->connected_table[AFI_IP],
 				  (struct prefix *)&p);
@@ -359,7 +397,7 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 		if (prefix_ipv4_any((struct prefix_ipv4 *)&p))
 			return;
 
-		bgp_address_del(bgp, addr);
+		bgp_address_del(bgp, ifc, addr);
 
 		rn = bgp_node_lookup(bgp->connected_table[AFI_IP], &p);
 	} else if (addr->family == AF_INET6) {
