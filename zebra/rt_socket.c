@@ -453,13 +453,13 @@ int kernel_del_vtep(vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
 }
 
 int kernel_add_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
-		   struct in_addr vtep_ip, uint8_t sticky)
+		   struct in_addr vtep_ip, bool sticky)
 {
 	return 0;
 }
 
 int kernel_del_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
-		   struct in_addr vtep_ip, int local)
+		   struct in_addr vtep_ip)
 {
 	return 0;
 }

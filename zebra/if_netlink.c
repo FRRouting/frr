@@ -585,6 +585,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	zebra_slave_iftype_t zif_slave_type = ZEBRA_IF_SLAVE_NONE;
 	ifindex_t bridge_ifindex = IFINDEX_INTERNAL;
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
+	struct zebra_if *zif;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
@@ -679,8 +680,14 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (IS_ZEBRA_IF_VRF(ifp))
 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 
-	/* Update link. */
-	zebra_if_update_link(ifp, link_ifindex, ns_id);
+	/*
+	 * Just set the @link/lower-device ifindex. During nldump interfaces are
+	 * not ordered in any fashion so we may end up getting upper devices
+	 * before lower devices. We will setup the real linkage once the dump
+	 * is complete.
+	 */
+	zif = (struct zebra_if *)ifp->info;
+	zif->link_ifindex = link_ifindex;
 
 	/* Hardware type and address. */
 	ifp->ll_type = netlink_to_zebra_link_type(ifi->ifi_type);
@@ -753,6 +760,9 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 				 0);
 	if (ret < 0)
 		return ret;
+
+	/* fixup linkages */
+	zebra_if_update_all_links();
 
 	/* Get IPv4 address of the interfaces. */
 	ret = netlink_request_intf_addr(zns, AF_INET, RTM_GETADDR, 0);
