@@ -169,6 +169,28 @@ void bgp_tip_del(struct bgp *bgp, struct in_addr *tip)
 	}
 }
 
+/* BGP own address structure */
+struct bgp_addr {
+	struct in_addr addr;
+	int refcnt;
+};
+
+static void show_address_entry(struct hash_backet *backet, void *args)
+{
+	struct vty *vty = (struct vty *)args;
+	struct bgp_addr *addr = (struct bgp_addr *)backet->data;
+
+	vty_out(vty, "addr: %s, count: %d\n", inet_ntoa(addr->addr),
+		addr->refcnt);
+}
+
+void bgp_nexthop_show_address_hash(struct vty *vty, struct bgp *bgp)
+{
+	hash_iterate(bgp->address_hash,
+		     (void (*)(struct hash_backet *, void *))show_address_entry,
+		     vty);
+}
+
 static void *bgp_address_hash_alloc(void *p)
 {
 	const struct in_addr *val = (const struct in_addr *)p;
