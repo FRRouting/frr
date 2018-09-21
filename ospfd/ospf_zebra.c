@@ -756,19 +756,57 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 				  int mvalue)
 {
 	struct ospf_redist *red;
-
-	ospf->default_originate = originate;
+	int default_originate = ospf->default_originate;
 
 	red = ospf_redist_add(ospf, DEFAULT_ROUTE, 0);
+
+	/* Don't allow if the same lsa is aleardy originated. */
+	if((red->dmetric.type == mtype) &&
+		(red->dmetric.value == mvalue) &&
+		(default_originate == originate))
+		return CMD_SUCCESS;
+
 	red->dmetric.type = mtype;
 	red->dmetric.value = mvalue;
 
+	ospf->default_originate = originate;
+
 	ospf_external_add(ospf, DEFAULT_ROUTE, 0);
+
+	/* If "always" provided by user then notification
+	* need not be sent to zebra.
+	*/
+	if(originate == DEFAULT_ORIGINATE_ALWAYS)
+	{
+		struct prefix_ipv4 p;
+		struct in_addr nexthop;
+
+		nexthop.s_addr = 0;
+		p.family = AF_INET;
+		p.prefix.s_addr = 0;
+		p.prefixlen = 0;
+
+		ospf_external_info_add(ospf, DEFAULT_ROUTE, 0, p, 0, nexthop, 0);
+
+		ospf_external_lsa_refresh_default(ospf);
+
+		if(default_originate != DEFAULT_ORIGINATE_ALWAYS)
+			ospf_asbr_status_update(ospf, ++ospf->redistribute);
+
+		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
+			zlog_debug("Redistribute default route always.Type[%d], Metric[%d]",
+				metric_type(ospf, DEFAULT_ROUTE, 0),
+				metric_value(ospf, DEFAULT_ROUTE, 0));
+
+		return CMD_SUCCESS;
+
+	}
 
 	if (ospf_is_type_redistributed(ospf, DEFAULT_ROUTE, 0)) {
 		/* if ospf->default_originate changes value, is calling
 		   ospf_external_lsa_refresh_default sufficient to implement
 		   the change? */
+
 		ospf_external_lsa_refresh_default(ospf);
 
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
@@ -777,11 +815,12 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 				ospf_redist_string(DEFAULT_ROUTE),
 				metric_type(ospf, DEFAULT_ROUTE, 0),
 				metric_value(ospf, DEFAULT_ROUTE, 0));
+
 		return CMD_SUCCESS;
 	}
 
 	zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient,
-				     ospf->vrf_id);
+					ospf->vrf_id);
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
 		zlog_debug("Redistribute[DEFAULT]: Start  Type[%d], Metric[%d]",
@@ -795,26 +834,26 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 				 NULL);
 
 	ospf_asbr_status_update(ospf, ++ospf->redistribute);
-
 	return CMD_SUCCESS;
 }
 
 int ospf_redistribute_default_unset(struct ospf *ospf)
 {
-	if (!ospf_is_type_redistributed(ospf, DEFAULT_ROUTE, 0))
-		return CMD_SUCCESS;
+	if(ospf->default_originate != DEFAULT_ORIGINATE_ALWAYS)
+	{
+		if (!ospf_is_type_redistributed(ospf, DEFAULT_ROUTE, 0))
+			return CMD_SUCCESS;
+		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE, zclient,
+				ospf->vrf_id);
+	}
 
 	ospf->default_originate = DEFAULT_ORIGINATE_NONE;
-	ospf_redist_del(ospf, DEFAULT_ROUTE, 0);
-
-	zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE, zclient,
-				     ospf->vrf_id);
+        ospf_redist_del(ospf, DEFAULT_ROUTE, 0);
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
 		zlog_debug("Redistribute[DEFAULT]: Stop");
 
 	// Pending: how does the external_info cleanup work in this case?
-
 	ospf_asbr_status_update(ospf, --ospf->redistribute);
 
 	return CMD_SUCCESS;
@@ -944,6 +983,7 @@ void ospf_routemap_unset(struct ospf_redist *red)
 	ROUTEMAP(red) = NULL;
 }
 
+
 /* Zebra route add and delete treatment. */
 static int ospf_zebra_read_route(int command, struct zclient *zclient,
 				 zebra_size_t length, vrf_id_t vrf_id)
@@ -955,6 +995,7 @@ static int ospf_zebra_read_route(int command, struct zclient *zclient,
 	struct external_info *ei;
 	struct ospf *ospf;
 	int i;
+	uint8_t urt_type;
 
 	ospf = ospf_lookup_by_vrf_id(vrf_id);
 	if (ospf == NULL)
@@ -965,10 +1006,15 @@ static int ospf_zebra_read_route(int command, struct zclient *zclient,
 
 	ifindex = api.nexthops[0].ifindex;
 	nexthop = api.nexthops[0].gate.ipv4;
+	urt_type = api.type;
 
 	memcpy(&p, &api.prefix, sizeof(p));
 	if (IPV4_NET127(ntohl(p.prefix.s_addr)))
 		return 0;
+
+	/* Re-destributed route is default route */
+	if(is_prefix_default(&p))
+		urt_type = DEFAULT_ROUTE;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
 		char buf_prefix[PREFIX_STRLEN];
@@ -985,10 +1031,9 @@ static int ospf_zebra_read_route(int command, struct zclient *zclient,
 		 * to "summarize" routes in ASBR at the moment. Maybe we need
 		 * just a better generalised solution for these types?
 		 */
-
 		/* Protocol tag overwrites all other tag value sent by zebra */
-		if (ospf->dtag[api.type] > 0)
-			api.tag = ospf->dtag[api.type];
+		if (ospf->dtag[urt_type] > 0)
+			api.tag = ospf->dtag[urt_type];
 
 		/*
 		 * Given zebra sends update for a prefix via ADD message, it
@@ -997,21 +1042,22 @@ static int ospf_zebra_read_route(int command, struct zclient *zclient,
 		 * source
 		 * types.
 		 */
-		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			if (i != api.type)
+		for (i = 0; i <= ZEBRA_ROUTE_MAX; i++)
+			if (i != urt_type)
 				ospf_external_info_delete(ospf, i, api.instance,
 							  p);
 
-		ei = ospf_external_info_add(ospf, api.type, api.instance, p,
+		ei = ospf_external_info_add(ospf, urt_type, api.instance, p,
 					    ifindex, nexthop, api.tag);
 		if (ei == NULL) {
 			/* Nothing has changed, so nothing to do; return */
 			return 0;
 		}
-		if (ospf->router_id.s_addr == 0)
+		if (ospf->router_id.s_addr == 0){
 			/* Set flags to generate AS-external-LSA originate event
 			   for each redistributed protocols later. */
-			ospf->external_origin |= (1 << api.type);
+			ospf->external_origin |= (1 << urt_type);
+                    }
 		else {
 			if (ei) {
 				if (is_prefix_default(&p))
@@ -1041,14 +1087,13 @@ static int ospf_zebra_read_route(int command, struct zclient *zclient,
 		}
 	} else /* if (command == ZEBRA_REDISTRIBUTE_ROUTE_DEL) */
 	{
-		ospf_external_info_delete(ospf, api.type, api.instance, p);
+		ospf_external_info_delete(ospf, urt_type, api.instance, p);
 		if (is_prefix_default(&p))
 			ospf_external_lsa_refresh_default(ospf);
 		else
-			ospf_external_lsa_flush(ospf, api.type, &p,
+			ospf_external_lsa_flush(ospf, urt_type, &p,
 						ifindex /*, nexthop */);
 	}
-
 	return 0;
 }
 
