@@ -740,8 +740,6 @@ int ospf_redistribute_unset(struct ospf *ospf, int type,
 		zlog_debug("Redistribute[%s][%d] vrf id %u: Stop",
 			   ospf_redist_string(type), instance, ospf->vrf_id);
 
-	ospf_redist_del(ospf, type, instance);
-
 	/* Remove the routes from OSPF table. */
 	ospf_redistribute_withdraw(ospf, type, instance);
 
@@ -755,30 +753,17 @@ int ospf_redistribute_unset(struct ospf *ospf, int type,
 int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 				  int mvalue)
 {
-	struct ospf_redist *red;
-
 	ospf->default_originate = originate;
-
-	red = ospf_redist_add(ospf, DEFAULT_ROUTE, 0);
-	red->dmetric.type = mtype;
-	red->dmetric.value = mvalue;
 
 	ospf_external_add(ospf, DEFAULT_ROUTE, 0);
 
-	if (ospf_is_type_redistributed(ospf, DEFAULT_ROUTE, 0)) {
-		/* if ospf->default_originate changes value, is calling
-		   ospf_external_lsa_refresh_default sufficient to implement
-		   the change? */
-		ospf_external_lsa_refresh_default(ospf);
-
+	if (ospf_is_type_redistributed(ospf, DEFAULT_ROUTE, 0))
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
 			zlog_debug(
 				"Redistribute[%s]: Refresh  Type[%d], Metric[%d]",
 				ospf_redist_string(DEFAULT_ROUTE),
 				metric_type(ospf, DEFAULT_ROUTE, 0),
 				metric_value(ospf, DEFAULT_ROUTE, 0));
-		return CMD_SUCCESS;
-	}
 
 	zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient,
 				     ospf->vrf_id);
@@ -787,6 +772,8 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 		zlog_debug("Redistribute[DEFAULT]: Start  Type[%d], Metric[%d]",
 			   metric_type(ospf, DEFAULT_ROUTE, 0),
 			   metric_value(ospf, DEFAULT_ROUTE, 0));
+
+	ospf_external_lsa_refresh_default(ospf);
 
 	if (ospf->router_id.s_addr == 0)
 		ospf->external_origin |= (1 << DEFAULT_ROUTE);
@@ -805,7 +792,6 @@ int ospf_redistribute_default_unset(struct ospf *ospf)
 		return CMD_SUCCESS;
 
 	ospf->default_originate = DEFAULT_ORIGINATE_NONE;
-	ospf_redist_del(ospf, DEFAULT_ROUTE, 0);
 
 	zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE, zclient,
 				     ospf->vrf_id);
