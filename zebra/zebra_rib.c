@@ -1873,8 +1873,7 @@ done:
 }
 
 /*
- * TODO - WIP version of route-update processing after async dataplane
- * update.
+ * Route-update results processing after async dataplane update.
  */
 static void rib_process_after(struct zebra_dplane_ctx *ctx)
 {
@@ -2185,6 +2184,22 @@ static wq_item_status meta_queue_process(struct work_queue *dummy, void *data)
 {
 	struct meta_queue *mq = data;
 	unsigned i;
+	uint32_t queue_len, queue_limit;
+
+	/* Ensure there's room for more dataplane updates */
+	queue_limit = dplane_get_in_queue_limit();
+	queue_len = dplane_get_in_queue_len();
+	if (queue_len > queue_limit) {
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+			zlog_debug("meta_queue_process: dplane queue len %u, "
+				   "limit %u, retrying", queue_len, queue_limit);
+
+		/* Ensure that the meta-queue is actually enqueued */
+		if (work_queue_empty(zebrad.ribq))
+			work_queue_add(zebrad.ribq, zebrad.mq);
+
+		return WQ_QUEUE_BLOCKED;
+	}
 
 	for (i = 0; i < MQ_SIZE; i++)
 		if (process_subq(mq->subq[i], i)) {

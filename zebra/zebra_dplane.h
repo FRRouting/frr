@@ -193,6 +193,17 @@ enum zebra_dplane_result dplane_route_update(struct route_node *rn,
 enum zebra_dplane_result dplane_route_delete(struct route_node *rn,
 					     struct route_entry *re);
 
+/* Retrieve the limit on the number of pending, unprocessed updates. */
+uint32_t dplane_get_in_queue_limit(void);
+
+/* Configure limit on the number of pending, queued updates. If 'unset', reset
+ * to default value.
+ */
+void dplane_set_in_queue_limit(uint32_t limit, bool set);
+
+/* Retrieve the current queue depth of incoming, unprocessed updates */
+uint32_t dplane_get_in_queue_len(void);
+
 /*
  * Vty/cli apis
  */

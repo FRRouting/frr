@@ -38,6 +38,10 @@ DEFINE_MTYPE(ZEBRA, DP_PROV, "Zebra DPlane Provider")
 #  define AOK 0
 #endif
 
+/* Default value for max queued incoming updates */
+const uint32_t DPLANE_DEFAULT_MAX_QUEUED = 200;
+
+
 /* Validation check macro for context blocks */
 /* #define DPLANE_DEBUG 1 */
 
@@ -163,6 +167,9 @@ static struct zebra_dplane_globals {
 
 	/* Counter used to assign internal ids to providers */
 	uint32_t dg_provider_id;
+
+	/* Limit number of pending, unprocessed updates */
+	_Atomic uint32_t dg_max_queued_updates;
 
 	_Atomic uint64_t dg_routes_in;
 	_Atomic uint32_t dg_routes_queued;
@@ -508,6 +515,37 @@ const struct zebra_dplane_info *dplane_ctx_get_ns(
  */
 
 /*
+ * Retrieve the limit on the number of pending, unprocessed updates.
+ */
+uint32_t dplane_get_in_queue_limit(void)
+{
+	return atomic_load_explicit(&zdplane_info.dg_max_queued_updates,
+				    memory_order_relaxed);
+}
+
+/*
+ * Configure limit on the number of pending, queued updates.
+ */
+void dplane_set_in_queue_limit(uint32_t limit, bool set)
+{
+	/* Reset to default on 'unset' */
+	if (!set)
+		limit = DPLANE_DEFAULT_MAX_QUEUED;
+
+	atomic_store_explicit(&zdplane_info.dg_max_queued_updates, limit,
+			      memory_order_relaxed);
+}
+
+/*
+ * Retrieve the current queue depth of incoming, unprocessed updates
+ */
+uint32_t dplane_get_in_queue_len(void)
+{
+	return atomic_load_explicit(&zdplane_info.dg_routes_queued,
+				    memory_order_seq_cst);
+}
+
+/*
  * Initialize a context block for a route update from zebra data structs.
  */
 static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
@@ -603,6 +641,7 @@ done:
 static int dplane_route_enqueue(struct zebra_dplane_ctx *ctx)
 {
 	int ret = EINVAL;
+	uint32_t high, curr;
 
 	/* Enqueue for processing by the dataplane thread */
 	DPLANE_LOCK();
@@ -611,6 +650,21 @@ static int dplane_route_enqueue(struct zebra_dplane_ctx *ctx)
 				  zd_q_entries);
 	}
 	DPLANE_UNLOCK();
+
+	curr = atomic_add_fetch_explicit(&zdplane_info.dg_routes_queued,
+					 1, memory_order_seq_cst);
+
+	/* Maybe update high-water counter also */
+	high = atomic_load_explicit(&zdplane_info.dg_routes_queued_max,
+				    memory_order_seq_cst);
+	while (high < curr) {
+		if (atomic_compare_exchange_weak_explicit(
+			    &zdplane_info.dg_routes_queued_max,
+			    &high, curr,
+			    memory_order_seq_cst,
+			    memory_order_seq_cst))
+			break;
+	}
 
 	/* Ensure that an event for the dataplane thread is active */
 	thread_add_event(zdplane_info.dg_master, dplane_route_process, NULL, 0,
@@ -694,33 +748,13 @@ dplane_route_update_internal(struct route_node *rn,
 	}
 
 done:
-	/* Update counters */
+	/* Update counter */
 	atomic_fetch_add_explicit(&zdplane_info.dg_routes_in, 1,
 				  memory_order_relaxed);
 
-	if (ret == AOK) {
-		uint32_t high, curr;
-
-		curr = atomic_fetch_add_explicit(&zdplane_info.dg_routes_queued,
-						 1, memory_order_seq_cst);
-
-		/* We don't have add_and_fetch - sigh */
-		curr++;
-
-		/* Maybe update high-water counter also */
-		high = atomic_load_explicit(&zdplane_info.dg_routes_queued_max,
-					    memory_order_seq_cst);
-		while (high < curr) {
-			if (atomic_compare_exchange_weak_explicit(
-				    &zdplane_info.dg_routes_queued_max,
-				    &high, curr,
-				    memory_order_seq_cst,
-				    memory_order_seq_cst))
-				break;
-		}
-
+	if (ret == AOK)
 		result = ZEBRA_DPLANE_REQUEST_QUEUED;
-	} else if (ctx) {
+	else if (ctx) {
 		atomic_fetch_add_explicit(&zdplane_info.dg_route_errors, 1,
 					  memory_order_relaxed);
 		dplane_ctx_free(&ctx);
@@ -828,7 +862,7 @@ static int dplane_route_process(struct thread *event)
 		ctx->zd_status = res;
 
 		/* Enqueue result to zebra main context */
-		(*zdplane_info.dg_results_cb)(ctx);
+		zdplane_info.dg_results_cb(ctx);
 
 		ctx = NULL;
 	}
@@ -841,13 +875,15 @@ static int dplane_route_process(struct thread *event)
  */
 int dplane_show_helper(struct vty *vty, bool detailed)
 {
-	uint64_t queued, queue_max, errs, incoming;
+	uint64_t queued, limit, queue_max, errs, incoming;
 
 	/* Using atomics because counters are being changed in different
 	 * contexts.
 	 */
 	incoming = atomic_load_explicit(&zdplane_info.dg_routes_in,
 					memory_order_relaxed);
+	limit = atomic_load_explicit(&zdplane_info.dg_max_queued_updates,
+				     memory_order_relaxed);
 	queued = atomic_load_explicit(&zdplane_info.dg_routes_queued,
 				      memory_order_relaxed);
 	queue_max = atomic_load_explicit(&zdplane_info.dg_routes_queued_max,
@@ -857,6 +893,7 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 
 	vty_out(vty, "Route updates:            %"PRIu64"\n", incoming);
 	vty_out(vty, "Route update errors:      %"PRIu64"\n", errs);
+	vty_out(vty, "Route update queue limit: %"PRIu64"\n", limit);
 	vty_out(vty, "Route update queue depth: %"PRIu64"\n", queued);
 	vty_out(vty, "Route update queue max:   %"PRIu64"\n", queue_max);
 
@@ -955,6 +992,8 @@ static void zebra_dplane_init_internal(struct zebra_t *zebra)
 
 	TAILQ_INIT(&zdplane_info.dg_route_ctx_q);
 	TAILQ_INIT(&zdplane_info.dg_providers_q);
+
+	zdplane_info.dg_max_queued_updates = DPLANE_DEFAULT_MAX_QUEUED;
 
 	/* TODO -- register default kernel 'provider' during init */
 
