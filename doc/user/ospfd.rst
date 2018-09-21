@@ -15,49 +15,91 @@ enterprise networks.
 
 .. _configuring-ospfd:
 
-Configuring ospfd
-=================
+Configuring OSPF
+================
 
-There are no *ospfd* specific options. Common options can be specified
-(:ref:`common-invocation-options`) to *ospfd*.  *ospfd* needs to acquire
-interface information from *zebra* in order to function. Therefore *zebra* must
-be running before invoking *ospfd*. Also, if *zebra* is restarted then *ospfd*
-must be too.
+*ospfd* accepts all :ref:`common-invocation-options`.
+
+.. option:: -n, --instance
+
+   Specify the instance number for this invocation of *ospfd*.
+
+.. option:: -a, --apiserver
+
+   Enable the OSPF API server
+
+*ospfd* must acquire interface information from *zebra* in order to function.
+Therefore *zebra* must be running before invoking *ospfd*. Also, if *zebra* is
+restarted then *ospfd* must be too.
 
 Like other daemons, *ospfd* configuration is done in :abbr:`OSPF` specific
-configuration file :file:`ospfd.conf`.
+configuration file :file:`ospfd.conf` when the integrated config is not used.
+
+.. _ospf-multi-instance:
+
+Multi-instance Support
+----------------------
+
+OSPF supports multiple instances. Each instance is identified by a positive
+nonzero integer that must be provided when adding configuration items specific
+to that instance. Enabling instances is done with :file:`/etc/frr/daemons` in
+the following manner:
+
+::
+
+   ...
+   ospfd=yes
+   ospfd_instances=1,5,6
+   ...
+
+The ``ospfd_instances`` variable controls which instances are started and what
+their IDs are. In this example, after starting FRR you should see the following
+processes:
+
+.. code-block:: shell
+
+   # ps -ef | grep "ospfd"
+   frr      11816     1  0 17:30 ?        00:00:00 /usr/lib/frr/ospfd --daemon -A 127.0.0.1 -n 1
+   frr      11822     1  0 17:30 ?        00:00:00 /usr/lib/frr/ospfd --daemon -A 127.0.0.1 -n 2
+   frr      11828     1  0 17:30 ?        00:00:00 /usr/lib/frr/ospfd --daemon -A 127.0.0.1 -n 3
+
+
+The instance number should be specified in the config when addressing a particular instance:
+
+.. code-block:: frr
+
+   router ospf 5
+      router-id 1.2.3.4
+      area 0.0.0.0 authentication message-digest
+      ...
 
 .. _ospf-router:
 
-OSPF router
-===========
+Routers
+-------
 
-To start OSPF process you have to specify the OSPF router. As of this
-writing, *ospfd* does not support multiple OSPF processes.
+To start OSPF process you have to specify the OSPF router.
 
-.. index:: router ospf
-.. clicmd:: router ospf
+.. index:: router ospf [(1-65535)] vrf NAME
+.. clicmd:: router ospf [(1-65535)] vrf NAME
 
-.. index:: no router ospf
-.. clicmd:: no router ospf
+.. index:: no router ospf [(1-65535)] vrf NAME
+.. clicmd:: no router ospf [(1-65535)] vrf NAME
 
-   Enable or disable the OSPF process. *ospfd* does not yet
-   support multiple OSPF processes. So you can not specify an OSPF process
-   number.
+   Enable or disable the OSPF process.
 
 .. index:: ospf router-id A.B.C.D
 .. clicmd:: ospf router-id A.B.C.D
 
-.. index:: no ospf router-id
-.. clicmd:: no ospf router-id
+.. index:: no ospf router-id [A.B.C.D]
+.. clicmd:: no ospf router-id [A.B.C.D]
 
-   This sets the router-ID of the OSPF process. The
-   router-ID may be an IP address of the router, but need not be - it can
-   be any arbitrary 32bit number. However it MUST be unique within the
-   entire OSPF domain to the OSPF speaker - bad things will happen if
-   multiple OSPF speakers are configured with the same router-ID! If one
-   is not specified then *ospfd* will obtain a router-ID
-   automatically from *zebra*.
+   This sets the router-ID of the OSPF process. The router-ID may be an IP
+   address of the router, but need not be - it can be any arbitrary 32bit
+   number. However it MUST be unique within the entire OSPF domain to the OSPF
+   speaker - bad things will happen if multiple OSPF speakers are configured
+   with the same router-ID! If one is not specified then *ospfd* will obtain a
+   router-ID automatically from *zebra*.
 
 .. index:: ospf abr-type TYPE
 .. clicmd:: ospf abr-type TYPE
@@ -271,8 +313,8 @@ writing, *ospfd* does not support multiple OSPF processes.
 
 .. _ospf-area:
 
-OSPF area
-=========
+Areas
+-----
 
 .. index:: area A.B.C.D range A.B.C.D/M
 .. clicmd:: area A.B.C.D range A.B.C.D/M
@@ -510,8 +552,8 @@ OSPF area
 
 .. _ospf-interface:
 
-OSPF interface
-==============
+Interfaces
+----------
 
 .. index:: ip ospf area AREA [ADDR]
 .. clicmd:: ip ospf area AREA [ADDR]
@@ -664,8 +706,8 @@ OSPF interface
 
 .. _redistribute-routes-to-ospf:
 
-Redistribute routes to OSPF
-===========================
+Redistribution
+--------------
 
 .. index:: redistribute (kernel|connected|static|rip|bgp)
 .. clicmd:: redistribute (kernel|connected|static|rip|bgp)
@@ -785,8 +827,8 @@ Redistribute routes to OSPF
 
 .. _showing-ospf-information:
 
-Showing OSPF information
-========================
+Showing Information
+===================
 
 .. _show-ip-ospf:
 
