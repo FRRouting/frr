@@ -154,12 +154,12 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	 * the Interface type is SSM we don't need to
 	 * do anything here
 	 */
-	if (!rpg || (pim_rpf_addr_is_inaddr_none(rpg))
-	    || (!(PIM_I_am_DR(pim_ifp)))) {
+	if (!rpg || pim_rpf_addr_is_inaddr_none(rpg)) {
 		if (PIM_DEBUG_MROUTE_DETAIL)
 			zlog_debug(
-				"%s: Interface is not configured correctly to handle incoming packet: Could be !DR, !pim_ifp, !SM, !RP",
+				"%s: Interface is not configured correctly to handle incoming packet: Could be !pim_ifp, !SM, !RP",
 				__PRETTY_FUNCTION__);
+
 		return 0;
 	}
 
@@ -178,6 +178,26 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	memset(&sg, 0, sizeof(struct prefix_sg));
 	sg.src = msg->im_src;
 	sg.grp = msg->im_dst;
+
+	if (!(PIM_I_am_DR(pim_ifp))) {
+		struct channel_oil *c_oil;
+
+		if (PIM_DEBUG_MROUTE_DETAIL)
+			zlog_debug("%s: Interface is not the DR blackholing incoming traffic for %s",
+				   __PRETTY_FUNCTION__, pim_str_sg_dump(&sg));
+
+		/*
+		 * We are not the DR, but we are still receiving packets
+		 * Let's blackhole those packets for the moment
+		 * As that they will be coming up to the cpu
+		 * and causing us to consider them.
+		 */
+		c_oil = pim_channel_oil_add(pim_ifp->pim, &sg,
+					    pim_ifp->mroute_vif_index);
+		pim_mroute_add(c_oil, __PRETTY_FUNCTION__);
+
+		return 0;
+	}
 
 	up = pim_upstream_find_or_add(&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR,
 				      __PRETTY_FUNCTION__);
