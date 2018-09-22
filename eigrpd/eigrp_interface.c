@@ -183,9 +183,7 @@ int eigrp_if_up(struct eigrp_interface *ei)
 
 	struct prefix dest_addr;
 
-	dest_addr.family = AF_INET;
-	dest_addr.u.prefix4 = ei->connected->address->u.prefix4;
-	dest_addr.prefixlen = ei->connected->address->prefixlen;
+	dest_addr = *ei->address;
 	apply_mask(&dest_addr);
 	pe = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
 					      &dest_addr);
@@ -344,7 +342,7 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 		eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
 	}
 
-	dest_addr = *ei->connected->address;
+	dest_addr = *ei->address;
 	apply_mask(&dest_addr);
 	pe = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
 					      &dest_addr);

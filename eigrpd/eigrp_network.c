@@ -48,8 +48,8 @@
 #include "eigrpd/eigrp_vty.h"
 #include "eigrpd/eigrp_network.h"
 
-static int eigrp_network_match_iface(const struct connected *,
-				     const struct prefix *);
+static int eigrp_network_match_iface(const struct prefix *connected_prefix,
+				     const struct prefix *prefix);
 static void eigrp_network_run_interface(struct eigrp *, struct prefix *,
 					struct interface *);
 
@@ -241,11 +241,11 @@ int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 /* Check whether interface matches given network
  * returns: 1, true. 0, false
  */
-static int eigrp_network_match_iface(const struct connected *co,
+static int eigrp_network_match_iface(const struct prefix *co_prefix,
 				     const struct prefix *net)
 {
 	/* new approach: more elegant and conceptually clean */
-	return prefix_match_network_statement(net, CONNECTED_PREFIX(co));
+	return prefix_match_network_statement(net, co_prefix);
 }
 
 static void eigrp_network_run_interface(struct eigrp *eigrp, struct prefix *p,
@@ -263,10 +263,9 @@ static void eigrp_network_run_interface(struct eigrp *eigrp, struct prefix *p,
 			continue;
 
 		if (p->family == co->address->family && !ifp->info
-		    && eigrp_network_match_iface(co, p)) {
+		    && eigrp_network_match_iface(co->address, p)) {
 
 			ei = eigrp_if_new(eigrp, ifp, co->address);
-			ei->connected = co;
 
 			/* Relate eigrp interface to eigrp instance. */
 			ei->eigrp = eigrp;
@@ -328,21 +327,20 @@ int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 
 	/* Find interfaces that not configured already.  */
 	for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei)) {
-		int found = 0;
-		struct connected *co = ei->connected;
+		bool found = false;
 
 		for (rn = route_top(eigrp->networks); rn; rn = route_next(rn)) {
 			if (rn->info == NULL)
 				continue;
 
-			if (eigrp_network_match_iface(co, &rn->p)) {
-				found = 1;
+			if (eigrp_network_match_iface(ei->address, &rn->p)) {
+				found = true;
 				route_unlock_node(rn);
 				break;
 			}
 		}
 
-		if (found == 0) {
+		if (!found) {
 			eigrp_if_free(ei, INTERFACE_DOWN_BY_VTY);
 		}
 	}
