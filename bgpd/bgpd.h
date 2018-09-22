@@ -24,6 +24,7 @@
 #include "qobj.h"
 #include <pthread.h>
 
+#include "frr_pthread.h"
 #include "lib/json.h"
 #include "vrf.h"
 #include "vty.h"
@@ -97,6 +98,9 @@ enum bgp_af_index {
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
 
+extern struct frr_pthread *bgp_pth_io;
+extern struct frr_pthread *bgp_pth_ka;
+
 /* BGP master for system wide configurations and variables.  */
 struct bgp_master {
 	/* BGP instance list.  */
@@ -104,10 +108,6 @@ struct bgp_master {
 
 	/* BGP thread master.  */
 	struct thread_master *master;
-
-/* BGP pthreads. */
-#define PTHREAD_IO              (1 << 1)
-#define PTHREAD_KEEPALIVES      (1 << 2)
 
 	/* work queues */
 	struct work_queue *process_main_queue;

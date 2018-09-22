@@ -229,7 +229,7 @@ void bgp_keepalives_on(struct peer *peer)
 	if (CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
 		return;
 
-	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_KEEPALIVES);
+	struct frr_pthread *fpt = bgp_pth_ka;
 	assert(fpt->running);
 
 	/* placeholder bucket data to use for fast key lookups */
@@ -259,7 +259,7 @@ void bgp_keepalives_off(struct peer *peer)
 	if (!CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
 		return;
 
-	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_KEEPALIVES);
+	struct frr_pthread *fpt = bgp_pth_ka;
 	assert(fpt->running);
 
 	/* placeholder bucket data to use for fast key lookups */
