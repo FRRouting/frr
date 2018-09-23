@@ -28,6 +28,7 @@ This program
   text file
 """
 
+from __future__ import print_function, unicode_literals
 import argparse
 import copy
 import logging
@@ -38,9 +39,22 @@ import string
 import subprocess
 import sys
 from collections import OrderedDict
-from ipaddr import IPv6Address, IPNetwork
+try:
+    from ipaddress import IPv6Address, ip_network
+except ImportError:
+    from ipaddr import IPv6Address, IPNetwork
 from pprint import pformat
 
+try:
+    dict.iteritems
+except AttributeError:
+    # Python 3
+    def iteritems(d):
+        return iter(d.items())
+else:
+    # Python 2
+    def iteritems(d):
+        return d.iteritems()
 
 log = logging.getLogger(__name__)
 
@@ -116,7 +130,7 @@ class Config(object):
             ve.output = e.output
             raise ve
 
-        for line in file_output.split('\n'):
+        for line in file_output.decode('utf-8').split('\n'):
             line = line.strip()
 
             # Compress duplicate whitespaces
@@ -147,7 +161,7 @@ class Config(object):
             ve.output = e.output
             raise ve
 
-        for line in config_text.split('\n'):
+        for line in config_text.decode('utf-8').split('\n'):
             line = line.strip()
 
             if (line == 'Building configuration...' or
@@ -171,8 +185,8 @@ class Config(object):
         Return the parsed context as strings for display, log etc.
         """
 
-        for (_, ctx) in sorted(self.contexts.iteritems()):
-            print str(ctx) + '\n'
+        for (_, ctx) in sorted(iteritems(self.contexts)):
+            print(str(ctx) + '\n')
 
     def save_contexts(self, key, lines):
         """
@@ -195,11 +209,18 @@ class Config(object):
             addr = re_key_rt.group(2)
             if '/' in addr:
                 try:
-                    newaddr = IPNetwork(addr)
-                    key[0] = '%s route %s/%s%s' % (re_key_rt.group(1),
-                                                   newaddr.network,
-                                                   newaddr.prefixlen,
-                                                   re_key_rt.group(3))
+                    if 'ipaddress' not in sys.modules:
+                        newaddr = IPNetwork(addr)
+                        key[0] = '%s route %s/%s%s' % (re_key_rt.group(1),
+                                                       newaddr.network,
+                                                       newaddr.prefixlen,
+                                                       re_key_rt.group(3))
+                    else:
+                        newaddr = ip_network(addr, strict=False)
+                        key[0] = '%s route %s/%s%s' % (re_key_rt.group(1),
+                                                       str(newaddr.network_address),
+                                                       newaddr.prefixlen,
+                                                       re_key_rt.group(3))
                 except ValueError:
                     pass
 
@@ -211,8 +232,13 @@ class Config(object):
             addr = re_key_rt.group(4)
             if '/' in addr:
                 try:
-                    newaddr = '%s/%s' % (IPNetwork(addr).network,
-                                         IPNetwork(addr).prefixlen)
+                    if 'ipaddress' not in sys.modules:
+                        newaddr = '%s/%s' % (IPNetwork(addr).network,
+                                             IPNetwork(addr).prefixlen)
+                    else:
+                        network_addr = ip_network(addr, strict=False)
+                        newaddr = '%s/%s' % (str(network_addr.network_address),
+                                             network_addr.prefixlen)
                 except ValueError:
                     newaddr = addr
             else:
@@ -253,10 +279,16 @@ class Config(object):
                         addr = addr + '/8'
 
                     try:
-                        newaddr = IPNetwork(addr)
-                        line = 'network %s/%s %s' % (newaddr.network,
-                                                     newaddr.prefixlen,
-                                                     re_net.group(2))
+                        if 'ipaddress' not in sys.modules:
+                            newaddr = IPNetwork(addr)
+                            line = 'network %s/%s %s' % (newaddr.network,
+                                                         newaddr.prefixlen,
+                                                         re_net.group(2))
+                        else:
+                            network_addr = ip_network(addr, strict=False)
+                            line = 'network %s/%s %s' % (str(network_addr.network_address),
+                                                         network_addr.prefixlen,
+                                                         re_net.group(2))
                         newlines.append(line)
                     except ValueError:
                         # Really this should be an error. Whats a network
@@ -598,8 +630,12 @@ def get_normalized_ipv6_line(line):
             norm_word = None
             if "/" in word:
                 try:
-                    v6word = IPNetwork(word)
-                    norm_word = '%s/%s' % (v6word.network, v6word.prefixlen)
+                    if 'ipaddress' not in sys.modules:
+                        v6word = IPNetwork(word)
+                        norm_word = '%s/%s' % (v6word.network, v6word.prefixlen)
+                    else:
+                        v6word = ip_network(word, strict=False)
+                        norm_word = '%s/%s' % (str(v6word.network_address), v6word.prefixlen)
                 except ValueError:
                     pass
             if not norm_word:
@@ -926,7 +962,7 @@ def compare_context_objects(newconf, running):
 
     # Find contexts that are in newconf but not in running
     # Find contexts that are in running but not in newconf
-    for (running_ctx_keys, running_ctx) in running.contexts.iteritems():
+    for (running_ctx_keys, running_ctx) in iteritems(running.contexts):
 
         if running_ctx_keys not in newconf.contexts:
 
@@ -977,7 +1013,7 @@ def compare_context_objects(newconf, running):
 
     # Find the lines within each context to add
     # Find the lines within each context to del
-    for (newconf_ctx_keys, newconf_ctx) in newconf.contexts.iteritems():
+    for (newconf_ctx_keys, newconf_ctx) in iteritems(newconf.contexts):
 
         if newconf_ctx_keys in running.contexts:
             running_ctx = running.contexts[newconf_ctx_keys]
@@ -990,7 +1026,7 @@ def compare_context_objects(newconf, running):
                 if line not in newconf_ctx.dlines:
                     lines_to_del.append((newconf_ctx_keys, line))
 
-    for (newconf_ctx_keys, newconf_ctx) in newconf.contexts.iteritems():
+    for (newconf_ctx_keys, newconf_ctx) in iteritems(newconf.contexts):
 
         if newconf_ctx_keys not in running.contexts:
             lines_to_add.append((newconf_ctx_keys, None))
@@ -1016,14 +1052,14 @@ def vtysh_config_available():
         cmd = ['/usr/bin/vtysh', '-c', 'conf t']
         output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).strip()
 
-        if 'VTY configuration is locked by other VTY' in output:
-            print output
+        if 'VTY configuration is locked by other VTY' in output.decode('utf-8'):
+            print(output)
             log.error("'%s' returned\n%s\n" % (' '.join(cmd), output))
             return False
 
     except subprocess.CalledProcessError as e:
         msg = "vtysh could not connect with any frr daemons"
-        print msg
+        print(msg)
         log.error(msg)
         return False
 
@@ -1070,13 +1106,13 @@ if __name__ == '__main__':
     # Verify the new config file is valid
     if not os.path.isfile(args.filename):
         msg = "Filename %s does not exist" % args.filename
-        print msg
+        print(msg)
         log.error(msg)
         sys.exit(1)
 
     if not os.path.getsize(args.filename):
         msg = "Filename %s is an empty file" % args.filename
-        print msg
+        print(msg)
         log.error(msg)
         sys.exit(1)
 
@@ -1095,7 +1131,7 @@ if __name__ == '__main__':
 
     if not service_integrated_vtysh_config:
         msg = "'service integrated-vtysh-config' is not configured, this is required for 'service frr reload'"
-        print msg
+        print(msg)
         log.error(msg)
         sys.exit(1)
 
@@ -1123,8 +1159,8 @@ if __name__ == '__main__':
         lines_to_configure = []
 
         if lines_to_del:
-            print "\nLines To Delete"
-            print "==============="
+            print("\nLines To Delete")
+            print("===============")
 
             for (ctx_keys, line) in lines_to_del:
 
@@ -1133,11 +1169,11 @@ if __name__ == '__main__':
 
                 cmd = line_for_vtysh_file(ctx_keys, line, True)
                 lines_to_configure.append(cmd)
-                print cmd
+                print(cmd)
 
         if lines_to_add:
-            print "\nLines To Add"
-            print "============"
+            print("\nLines To Add")
+            print("============")
 
             for (ctx_keys, line) in lines_to_add:
 
@@ -1146,7 +1182,7 @@ if __name__ == '__main__':
 
                 cmd = line_for_vtysh_file(ctx_keys, line, False)
                 lines_to_configure.append(cmd)
-                print cmd
+                print(cmd)
 
     elif args.reload:
 
