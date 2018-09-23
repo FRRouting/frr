@@ -313,4 +313,63 @@ static inline uint64_t bgp_table_version(struct bgp_table *table)
 void bgp_table_range_lookup(const struct bgp_table *table, struct prefix *p,
 			    uint8_t maxlen, struct list *matches);
 
+
+static inline struct bgp_aggregate *
+bgp_aggregate_get_node_info(struct bgp_node *node)
+{
+	return node->info;
+}
+
+static inline void bgp_aggregate_set_node_info(struct bgp_node *node,
+					       struct bgp_aggregate *aggregate)
+{
+	node->info = aggregate;
+}
+
+static inline struct bgp_distance *bgp_distance_get_node(struct bgp_node *node)
+{
+	return node->info;
+}
+
+static inline void bgp_distance_set_node_info(struct bgp_node *node,
+					      struct bgp_distance *distance)
+{
+	node->info = distance;
+}
+
+static inline struct bgp_static *bgp_static_get_node_info(struct bgp_node *node)
+{
+	return node->info;
+}
+
+static inline void bgp_static_set_node_info(struct bgp_node *node,
+					    struct bgp_static *bgp_static)
+{
+	node->info = bgp_static;
+}
+
+static inline struct bgp_connected_ref *
+bgp_connected_get_node_info(struct bgp_node *node)
+{
+	return node->info;
+}
+
+static inline void bgp_connected_set_node_info(struct bgp_node *node,
+					       struct bgp_connected_ref *bc)
+{
+	node->info = bc;
+}
+
+static inline struct bgp_nexthop_cache *
+bgp_nexthop_get_node_info(struct bgp_node *node)
+{
+	return node->info;
+}
+
+static inline void bgp_nexthop_set_node_info(struct bgp_node *node,
+					     struct bgp_nexthop_cache *bnc)
+{
+	node->info = bnc;
+}
+
 #endif /* _QUAGGA_BGP_TABLE_H */
