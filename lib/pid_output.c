@@ -60,7 +60,7 @@ pid_t pid_output(const char *path)
 
 		if (fcntl(fd, F_SETLK, &lock) < 0) {
 			flog_err_sys(EC_LIB_SYSTEM_CALL,
-				     "Could not lock pid_file %s (%s), exiting",
+				     "Could not lock pid_file %s (%s), exiting.  Please ensure that the daemon is not already running",
 				     path, safe_strerror(errno));
 			exit(1);
 		}
