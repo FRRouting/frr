@@ -29,22 +29,22 @@
 /*
  * Install Label Forwarding entry into the kernel.
  */
-enum dp_req_result kernel_add_lsp(zebra_lsp_t *lsp)
+enum zebra_dplane_result kernel_add_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
 
 	if (!lsp || !lsp->best_nhlfe) { // unexpected
-		kernel_lsp_pass_fail(lsp, DP_INSTALL_FAILURE);
-		return DP_REQUEST_FAILURE;
+		kernel_lsp_pass_fail(lsp, ZEBRA_DPLANE_INSTALL_FAILURE);
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
 	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
 
 	kernel_lsp_pass_fail(lsp,
-			     (!ret) ? DP_INSTALL_SUCCESS
-				    : DP_INSTALL_FAILURE);
+			     (!ret) ? ZEBRA_DPLANE_INSTALL_SUCCESS
+				    : ZEBRA_DPLANE_INSTALL_FAILURE);
 
-	return DP_REQUEST_SUCCESS;
+	return ZEBRA_DPLANE_REQUEST_SUCCESS;
 }
 
 /*
@@ -58,48 +58,48 @@ enum dp_req_result kernel_add_lsp(zebra_lsp_t *lsp)
  * through the metric field (before kernel-MPLS). This shouldn't be an issue
  * any longer, so REPLACE can be reintroduced.
  */
-enum dp_req_result kernel_upd_lsp(zebra_lsp_t *lsp)
+enum zebra_dplane_result kernel_upd_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
 
 	if (!lsp || !lsp->best_nhlfe) { // unexpected
-		kernel_lsp_pass_fail(lsp, DP_INSTALL_FAILURE);
-		return DP_REQUEST_FAILURE;
+		kernel_lsp_pass_fail(lsp, ZEBRA_DPLANE_INSTALL_FAILURE);
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
 	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
 
 	kernel_lsp_pass_fail(lsp,
-			     (!ret) ? DP_INSTALL_SUCCESS
-				    : DP_INSTALL_FAILURE);
+			     (!ret) ? ZEBRA_DPLANE_INSTALL_SUCCESS
+				    : ZEBRA_DPLANE_INSTALL_FAILURE);
 
-	return DP_REQUEST_SUCCESS;
+	return ZEBRA_DPLANE_REQUEST_SUCCESS;
 }
 
 /*
  * Delete Label Forwarding entry from the kernel.
  */
-enum dp_req_result kernel_del_lsp(zebra_lsp_t *lsp)
+enum zebra_dplane_result kernel_del_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
 
 	if (!lsp) { // unexpected
-		kernel_lsp_pass_fail(lsp, DP_DELETE_FAILURE);
-		return DP_REQUEST_FAILURE;
+		kernel_lsp_pass_fail(lsp, ZEBRA_DPLANE_DELETE_FAILURE);
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
 	if (!CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)) {
-		kernel_lsp_pass_fail(lsp, DP_DELETE_FAILURE);
-		return DP_REQUEST_FAILURE;
+		kernel_lsp_pass_fail(lsp, ZEBRA_DPLANE_DELETE_FAILURE);
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
 	ret = netlink_mpls_multipath(RTM_DELROUTE, lsp);
 
 	kernel_lsp_pass_fail(lsp,
-			     (!ret) ? DP_DELETE_SUCCESS
-				    : DP_DELETE_FAILURE);
+			     (!ret) ? ZEBRA_DPLANE_DELETE_SUCCESS
+				    : ZEBRA_DPLANE_DELETE_FAILURE);
 
-	return DP_REQUEST_SUCCESS;
+	return ZEBRA_DPLANE_REQUEST_SUCCESS;
 }
 
 int mpls_kernel_init(void)

@@ -1060,7 +1060,7 @@ int zebra_rib_labeled_unicast(struct route_entry *re)
 
 void kernel_route_rib_pass_fail(struct route_node *rn, const struct prefix *p,
 				struct route_entry *re,
-				enum dp_results res)
+				enum zebra_dplane_status res)
 {
 	struct nexthop *nexthop;
 	char buf[PREFIX_STRLEN];
@@ -1069,7 +1069,7 @@ void kernel_route_rib_pass_fail(struct route_node *rn, const struct prefix *p,
 	dest = rib_dest_from_rnode(rn);
 
 	switch (res) {
-	case DP_INSTALL_SUCCESS:
+	case ZEBRA_DPLANE_INSTALL_SUCCESS:
 		dest->selected_fib = re;
 		for (ALL_NEXTHOPS(re->ng, nexthop)) {
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
@@ -1082,7 +1082,7 @@ void kernel_route_rib_pass_fail(struct route_node *rn, const struct prefix *p,
 		}
 		zsend_route_notify_owner(re, p, ZAPI_ROUTE_INSTALLED);
 		break;
-	case DP_INSTALL_FAILURE:
+	case ZEBRA_DPLANE_INSTALL_FAILURE:
 		/*
 		 * I am not sure this is the right thing to do here
 		 * but the code always set selected_fib before
@@ -1095,7 +1095,7 @@ void kernel_route_rib_pass_fail(struct route_node *rn, const struct prefix *p,
 			 "%u:%s: Route install failed", re->vrf_id,
 			 prefix2str(p, buf, sizeof(buf)));
 		break;
-	case DP_DELETE_SUCCESS:
+	case ZEBRA_DPLANE_DELETE_SUCCESS:
 		/*
 		 * The case where selected_fib is not re is
 		 * when we have received a system route
@@ -1110,7 +1110,7 @@ void kernel_route_rib_pass_fail(struct route_node *rn, const struct prefix *p,
 
 		zsend_route_notify_owner(re, p, ZAPI_ROUTE_REMOVED);
 		break;
-	case DP_DELETE_FAILURE:
+	case ZEBRA_DPLANE_DELETE_FAILURE:
 		/*
 		 * Should we set this to NULL if the
 		 * delete fails?
@@ -1121,6 +1121,8 @@ void kernel_route_rib_pass_fail(struct route_node *rn, const struct prefix *p,
 			 prefix2str(p, buf, sizeof(buf)));
 
 		zsend_route_notify_owner(re, p, ZAPI_ROUTE_REMOVE_FAIL);
+		break;
+	case ZEBRA_DPLANE_STATUS_NONE:
 		break;
 	}
 }
@@ -1172,17 +1174,17 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 */
 	hook_call(rib_update, rn, "installing in kernel");
 	switch (kernel_route_rib(rn, p, src_p, old, re)) {
-	case DP_REQUEST_QUEUED:
+	case ZEBRA_DPLANE_REQUEST_QUEUED:
 		flog_err(
 			EC_ZEBRA_DP_INVALID_RC,
 			"No current known DataPlane interfaces can return this, please fix");
 		break;
-	case DP_REQUEST_FAILURE:
+	case ZEBRA_DPLANE_REQUEST_FAILURE:
 		flog_err(
 			EC_ZEBRA_DP_INSTALL_FAIL,
 			"No current known Rib Install Failure cases, please fix");
 		break;
-	case DP_REQUEST_SUCCESS:
+	case ZEBRA_DPLANE_REQUEST_SUCCESS:
 		zvrf->installs++;
 		break;
 	}
@@ -1212,17 +1214,17 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	 */
 	hook_call(rib_update, rn, "uninstalling from kernel");
 	switch (kernel_route_rib(rn, p, src_p, re, NULL)) {
-	case DP_REQUEST_QUEUED:
+	case ZEBRA_DPLANE_REQUEST_QUEUED:
 		flog_err(
 			EC_ZEBRA_DP_INVALID_RC,
 			"No current known DataPlane interfaces can return this, please fix");
 		break;
-	case DP_REQUEST_FAILURE:
+	case ZEBRA_DPLANE_REQUEST_FAILURE:
 		flog_err(
 			EC_ZEBRA_DP_INSTALL_FAIL,
 			"No current known RIB Install Failure cases, please fix");
 		break;
-	case DP_REQUEST_SUCCESS:
+	case ZEBRA_DPLANE_REQUEST_SUCCESS:
 		if (zvrf)
 			zvrf->removals++;
 		break;

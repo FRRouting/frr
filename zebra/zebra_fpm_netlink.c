@@ -32,6 +32,7 @@
 #include "prefix.h"
 
 #include "zebra/zserv.h"
+#include "zebra/zebra_dplane.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/kernel_netlink.h"

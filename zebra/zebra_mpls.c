@@ -917,14 +917,14 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 
 			UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
 			switch (kernel_add_lsp(lsp)) {
-			case DP_REQUEST_QUEUED:
+			case ZEBRA_DPLANE_REQUEST_QUEUED:
 				flog_err(
 					EC_ZEBRA_DP_INVALID_RC,
 					"No current DataPlane interfaces can return this, please fix");
 				break;
-			case DP_REQUEST_FAILURE:
+			case ZEBRA_DPLANE_REQUEST_FAILURE:
 				break;
-			case DP_REQUEST_SUCCESS:
+			case ZEBRA_DPLANE_REQUEST_SUCCESS:
 				zvrf->lsp_installs++;
 				break;
 			}
@@ -934,14 +934,14 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 		if (!newbest) {
 
 			switch (kernel_del_lsp(lsp)) {
-			case DP_REQUEST_QUEUED:
+			case ZEBRA_DPLANE_REQUEST_QUEUED:
 				flog_err(
 					EC_ZEBRA_DP_INVALID_RC,
 					"No current DataPlane interfaces can return this, please fix");
 				break;
-			case DP_REQUEST_FAILURE:
+			case ZEBRA_DPLANE_REQUEST_FAILURE:
 				break;
-			case DP_REQUEST_SUCCESS:
+			case ZEBRA_DPLANE_REQUEST_SUCCESS:
 				zvrf->lsp_removals++;
 				break;
 			}
@@ -974,14 +974,14 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 			}
 
 			switch (kernel_upd_lsp(lsp)) {
-			case DP_REQUEST_QUEUED:
+			case ZEBRA_DPLANE_REQUEST_QUEUED:
 				flog_err(
 					EC_ZEBRA_DP_INVALID_RC,
 					"No current DataPlane interfaces can return this, please fix");
 				break;
-			case DP_REQUEST_FAILURE:
+			case ZEBRA_DPLANE_REQUEST_FAILURE:
 				break;
-			case DP_REQUEST_SUCCESS:
+			case ZEBRA_DPLANE_REQUEST_SUCCESS:
 				zvrf->lsp_installs++;
 				break;
 			}
@@ -1716,7 +1716,7 @@ static int mpls_processq_init(struct zebra_t *zebra)
 
 /* Public functions */
 
-void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum dp_results res)
+void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum zebra_dplane_status res)
 {
 	struct nexthop *nexthop;
 	zebra_nhlfe_t *nhlfe;
@@ -1725,13 +1725,13 @@ void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum dp_results res)
 		return;
 
 	switch (res) {
-	case DP_INSTALL_FAILURE:
+	case ZEBRA_DPLANE_INSTALL_FAILURE:
 		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 		clear_nhlfe_installed(lsp);
 		flog_warn(EC_ZEBRA_LSP_INSTALL_FAILURE,
 			  "LSP Install Failure: %u", lsp->ile.in_label);
 		break;
-	case DP_INSTALL_SUCCESS:
+	case ZEBRA_DPLANE_INSTALL_SUCCESS:
 		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 		for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
 			nexthop = nhlfe->nexthop;
@@ -1742,13 +1742,15 @@ void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum dp_results res)
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		}
 		break;
-	case DP_DELETE_SUCCESS:
+	case ZEBRA_DPLANE_DELETE_SUCCESS:
 		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 		clear_nhlfe_installed(lsp);
 		break;
-	case DP_DELETE_FAILURE:
+	case ZEBRA_DPLANE_DELETE_FAILURE:
 		flog_warn(EC_ZEBRA_LSP_DELETE_FAILURE,
 			  "LSP Deletion Failure: %u", lsp->ile.in_label);
+		break;
+	case ZEBRA_DPLANE_STATUS_NONE:
 		break;
 	}
 }
