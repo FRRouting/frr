@@ -380,10 +380,6 @@ static void unset_pce_domain(uint16_t type, uint32_t domain,
 	if (found) {
 		listnode_delete(pce->pce_domain, old);
 
-		/* Avoid misjudgement in the next lookup. */
-		if (listcount(pce->pce_domain) == 0)
-			pce->pce_domain->head = pce->pce_domain->tail = NULL;
-
 		/* Finally free the old domain */
 		XFREE(MTYPE_OSPF_PCE_PARAMS, old);
 	}
@@ -429,11 +425,6 @@ static void unset_pce_neighbor(uint16_t type, uint32_t domain,
 	/* if found remove it */
 	if (found) {
 		listnode_delete(pce->pce_neighbor, old);
-
-		/* Avoid misjudgement in the next lookup. */
-		if (listcount(pce->pce_neighbor) == 0)
-			pce->pce_neighbor->head = pce->pce_neighbor->tail =
-				NULL;
 
 		/* Finally free the old domain */
 		XFREE(MTYPE_OSPF_PCE_PARAMS, old);

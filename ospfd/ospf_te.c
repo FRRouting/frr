@@ -897,10 +897,6 @@ static int ospf_mpls_te_del_if(struct interface *ifp)
 		/* Dequeue listnode entry from the list. */
 		listnode_delete(iflist, lp);
 
-		/* Avoid misjudgement in the next lookup. */
-		if (listcount(iflist) == 0)
-			iflist->head = iflist->tail = NULL;
-
 		XFREE(MTYPE_OSPF_MPLS_TE, lp);
 	}
 
