@@ -415,6 +415,8 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 		bnc->change_flags |= BGP_NEXTHOP_CHANGED;
 
 	if (nhr.nexthop_num) {
+		struct peer *peer = bnc->nht_info;
+
 		/* notify bgp fsm if nbr ip goes from invalid->valid */
 		if (!bnc->nexthop_num)
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
@@ -430,6 +432,22 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 
 			nexthop = nexthop_from_zapi_nexthop(&nhr.nexthops[i]);
 
+			/*
+			 * Turn on RA for the v6 nexthops
+			 * we receive from bgp.  This is to allow us
+			 * to work with v4 routing over v6 nexthops
+			 */
+			if (peer &&
+			    CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE)
+			    && nhr.prefix.family == AF_INET6) {
+				struct interface *ifp;
+
+				ifp = if_lookup_by_index(nexthop->ifindex,
+							 nexthop->vrf_id);
+				zclient_send_interface_radv_req(
+					zclient, nexthop->vrf_id, ifp, true,
+					BGP_UNNUM_DEFAULT_RA_INTERVAL);
+			}
 			/* There is at least one label-switched path */
 			if (nexthop->nh_label &&
 				nexthop->nh_label->num_labels) {

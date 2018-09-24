@@ -1331,7 +1331,6 @@ void bgp_open_capability(struct stream *s, struct peer *peer)
 			 */
 			if (CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE)
 			    && peer->su.sa.sa_family == AF_INET6
-			    && IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr)
 			    && afi == AFI_IP
 			    && (safi == SAFI_UNICAST
 				|| safi == SAFI_LABELED_UNICAST)) {

@@ -51,6 +51,8 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 
+DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information")
+
 #define ZEBRA_PTM_SUPPORT
 
 DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
@@ -99,7 +101,7 @@ static int if_zebra_new_hook(struct interface *ifp)
 {
 	struct zebra_if *zebra_if;
 
-	zebra_if = XCALLOC(MTYPE_TMP, sizeof(struct zebra_if));
+	zebra_if = XCALLOC(MTYPE_ZINFO, sizeof(struct zebra_if));
 
 	zebra_if->multicast = IF_ZEBRA_MULTICAST_UNSPEC;
 	zebra_if->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
@@ -135,6 +137,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 		rtadv->AdvPrefixList = list_new();
 	}
 #endif /* HAVE_RTADV */
+
+	memset(&zebra_if->neigh_mac[0], 0, 6);
 
 	/* Initialize installed address chains tree. */
 	zebra_if->ipv4_subnets =
@@ -175,7 +179,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 
 		THREAD_OFF(zebra_if->speed_update);
 
-		XFREE(MTYPE_TMP, zebra_if);
+		XFREE(MTYPE_ZINFO, zebra_if);
 	}
 
 	return 0;
@@ -802,19 +806,32 @@ static void ipv6_ll_address_to_mac(struct in6_addr *address, uint8_t *mac)
 	mac[5] = address->s6_addr[15];
 }
 
-void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
-					  struct in6_addr *address, int add)
+static bool mac_is_same(char *mac1, char *mac2)
+{
+	if (mac1[0] == mac2[0] &&
+	    mac1[1] == mac2[1] &&
+	    mac1[2] == mac2[2] &&
+	    mac1[3] == mac2[3] &&
+	    mac1[4] == mac2[4] &&
+	    mac1[5] == mac2[5])
+		return true;
+	else
+		return false;
+}
+
+void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *ifp,
+				       char mac[6],
+				       struct in6_addr *address,
+				       int add)
 {
 	struct zebra_vrf *zvrf = vrf_info_lookup(ifp->vrf_id);
 	struct zebra_if *zif = ifp->info;
 	char buf[16] = "169.254.0.1";
 	struct in_addr ipv4_ll;
-	char mac[6];
 	ns_id_t ns_id;
 
 	inet_pton(AF_INET, buf, &ipv4_ll);
 
-	ipv6_ll_address_to_mac(address, (uint8_t *)mac);
 	ns_id = zvrf->zns->ns_id;
 
 	/*
@@ -823,10 +840,16 @@ void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
 	 *
 	 * supported message types are RTM_NEWNEIGH and RTM_DELNEIGH
 	 */
-	kernel_neigh_update(0, ifp->ifindex, ipv4_ll.s_addr, mac, 6, ns_id);
+	if (!mac_is_same(zif->neigh_mac, mac)) {
+		kernel_neigh_update(0, ifp->ifindex, ipv4_ll.s_addr,
+				    mac, 6, ns_id);
 
-	/* Add arp record */
-	kernel_neigh_update(add, ifp->ifindex, ipv4_ll.s_addr, mac, 6, ns_id);
+		/* Add arp record */
+		kernel_neigh_update(add, ifp->ifindex, ipv4_ll.s_addr,
+				    mac, 6, ns_id);
+	}
+
+	memcpy(&zif->neigh_mac[0], &mac[0], 6);
 
 	/*
 	 * We need to note whether or not we originated a v6
@@ -838,6 +861,16 @@ void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
 	memcpy(&zif->v6_2_v4_ll_addr6, address, sizeof(*address));
 
 	zvrf->neigh_updates++;
+}
+
+void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
+					  struct in6_addr *address, int add)
+{
+
+	char mac[6];
+
+	ipv6_ll_address_to_mac(address, (uint8_t *)mac);
+	if_nbr_mac_to_ipv4ll_neigh_update(ifp, mac, address, add);
 }
 
 static void if_nbr_ipv6ll_to_ipv4ll_neigh_add_all(struct interface *ifp)

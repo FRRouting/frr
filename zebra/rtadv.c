@@ -455,6 +455,38 @@ static void rtadv_process_solicit(struct interface *ifp)
 	rtadv_send_packet(zns->rtadv.sock, ifp);
 }
 
+/*
+ * This function processes optional attributes off of
+ * end of a RA packet received.  At this point in
+ * time we only care about this in one situation
+ * which is when a interface does not have a LL
+ * v6 address.  We still need to be able to install
+ * the mac address for v4 to v6 resolution
+ */
+static void rtadv_process_optional(uint8_t *optional, unsigned int len,
+				   struct interface *ifp,
+				   struct sockaddr_in6 *addr)
+{
+	char *mac;
+
+	while (len > 0) {
+		struct nd_opt_hdr *opt_hdr = (struct nd_opt_hdr *)optional;
+
+		switch(opt_hdr->nd_opt_type) {
+		case ND_OPT_SOURCE_LINKADDR:
+			mac = (char *)(optional+2);
+			if_nbr_mac_to_ipv4ll_neigh_update(ifp, mac,
+							  &addr->sin6_addr, 1);
+			break;
+		default:
+			break;
+		}
+
+		len -= 8 * opt_hdr->nd_opt_len;
+		optional += 8 * opt_hdr->nd_opt_len;
+	}
+}
+
 static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 				 struct interface *ifp,
 				 struct sockaddr_in6 *addr)
@@ -469,14 +501,19 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	inet_ntop(AF_INET6, &addr->sin6_addr, addr_str, INET6_ADDRSTRLEN);
 
 	if (len < sizeof(struct nd_router_advert)) {
-		zlog_debug("%s(%u): Rx RA with invalid length %d from %s",
-			   ifp->name, ifp->ifindex, len, addr_str);
+		if (IS_ZEBRA_DEBUG_PACKET)
+			zlog_debug("%s(%u): Rx RA with invalid length %d from %s",
+				   ifp->name, ifp->ifindex, len, addr_str);
 		return;
 	}
+
 	if (!IN6_IS_ADDR_LINKLOCAL(&addr->sin6_addr)) {
-		zlog_debug(
-			"%s(%u): Rx RA with non-linklocal source address from %s",
-			ifp->name, ifp->ifindex, addr_str);
+		rtadv_process_optional(msg + sizeof(struct nd_router_advert),
+				       len - sizeof(struct nd_router_advert),
+				       ifp, addr);
+		if (IS_ZEBRA_DEBUG_PACKET)
+			zlog_debug("%s(%u): Rx RA with non-linklocal source address from %s",
+				   ifp->name, ifp->ifindex, addr_str);
 		return;
 	}
 

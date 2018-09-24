@@ -845,6 +845,15 @@ Configuring Peers
    specified number of hops away will be allowed to become neighbors. This
    command is mutually exclusive with *ebgp-multihop*.
 
+.. index:: [no] neighbor PEER capability extended-nexthop
+.. clicmd:: [no] neighbor PEER capability extended-nexthop
+
+   Allow bgp to negotiate the extended-nexthop capability with it's peer.
+   If you are peering over a v6 LL address then this capability is turned
+   on automatically.  If you are peering over a v6 Global Address then
+   turning on this command will allow BGP to install v4 routes with
+   v6 nexthops if you do not have v4 configured on interfaces.
+
 .. index:: [no] bgp fast-external-failover
 .. clicmd:: [no] bgp fast-external-failover
 
