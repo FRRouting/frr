@@ -68,12 +68,6 @@ struct bgp_nexthop_cache {
 	struct bgp *bgp;
 };
 
-/* BGP own address structure */
-struct bgp_addr {
-	struct in_addr addr;
-	int refcnt;
-};
-
 /* Own tunnel-ip address structure */
 struct tip_addr {
 	struct in_addr addr;
@@ -103,4 +97,5 @@ extern void bgp_tip_del(struct bgp *bgp, struct in_addr *tip);
 extern void bgp_tip_hash_init(struct bgp *bgp);
 extern void bgp_tip_hash_destroy(struct bgp *bgp);
 
+extern void bgp_nexthop_show_address_hash(struct vty *vty, struct bgp *bgp);
 #endif /* _QUAGGA_BGP_NEXTHOP_H */

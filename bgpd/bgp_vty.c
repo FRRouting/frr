@@ -7451,14 +7451,6 @@ DEFUN (show_bgp_vrfs,
 	return CMD_SUCCESS;
 }
 
-static void show_address_entry(struct hash_backet *backet, void *args)
-{
-	struct vty *vty = (struct vty *)args;
-	struct bgp_addr *addr = (struct bgp_addr *)backet->data;
-
-	vty_out(vty, "addr: %s, count: %d\n", inet_ntoa(addr->addr),
-		addr->refcnt);
-}
 
 static void show_tip_entry(struct hash_backet *backet, void *args)
 {
@@ -7472,9 +7464,7 @@ static void show_tip_entry(struct hash_backet *backet, void *args)
 static void bgp_show_martian_nexthops(struct vty *vty, struct bgp *bgp)
 {
 	vty_out(vty, "self nexthop database:\n");
-	hash_iterate(bgp->address_hash,
-		     (void (*)(struct hash_backet *, void *))show_address_entry,
-		     vty);
+	bgp_nexthop_show_address_hash(vty, bgp);
 
 	vty_out(vty, "Tunnel-ip database:\n");
 	hash_iterate(bgp->tip_hash,
