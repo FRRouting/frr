@@ -178,7 +178,6 @@ struct eigrp_interface {
 	uint8_t type;
 
 	struct prefix *address;      /* Interface prefix */
-	struct connected *connected; /* Pointer to connected */
 
 	/* Neighbor information. */
 	struct list *nbrs; /* EIGRP Neighbor List */
