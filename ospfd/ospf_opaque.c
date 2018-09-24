@@ -438,10 +438,6 @@ void ospf_delete_opaque_functab(uint8_t lsa_type, uint8_t opaque_type)
 				/* Dequeue listnode entry from the list. */
 				listnode_delete(funclist, functab);
 
-				/* Avoid misjudgement in the next lookup. */
-				if (listcount(funclist) == 0)
-					funclist->head = funclist->tail = NULL;
-
 				XFREE(MTYPE_OSPF_OPAQUE_FUNCTAB, functab);
 				break;
 			}
@@ -2121,10 +2117,6 @@ void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa0)
 
 	/* Dequeue listnode entry from the list. */
 	listnode_delete(oipt->id_list, oipi);
-
-	/* Avoid misjudgement in the next lookup. */
-	if (listcount(oipt->id_list) == 0)
-		oipt->id_list->head = oipt->id_list->tail = NULL;
 
 	/* Disassociate internal control information with the given lsa. */
 	free_opaque_info_per_id((void *)oipi);
