@@ -19,8 +19,6 @@
 
 #include <zebra.h>
 
-#include "zebra/rib.h"
-
 #include "log.h"
 #include "zclient.h"
 #include "memory.h"
