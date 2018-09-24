@@ -1534,12 +1534,13 @@ unsigned int pim_upstream_hash_key(void *arg)
 
 void pim_upstream_terminate(struct pim_instance *pim)
 {
-	struct listnode *node, *nnode;
 	struct pim_upstream *up;
 
 	if (pim->upstream_list) {
-		for (ALL_LIST_ELEMENTS(pim->upstream_list, node, nnode, up))
+		while (pim->upstream_list->count) {
+			up = listnode_head(pim->upstream_list);
 			pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
+		}
 
 		list_delete_and_null(&pim->upstream_list);
 	}
