@@ -119,15 +119,8 @@ struct eigrp_nexthop_entry *eigrp_nexthop_entry_new()
  */
 void eigrp_topology_free(struct route_table *table)
 {
-	route_table_finish(table);
-}
-
-/*
- * Deleting all topology nodes in table
- */
-void eigrp_topology_cleanup(struct route_table *table)
-{
 	eigrp_topology_delete_all(table);
+	route_table_finish(table);
 }
 
 /*
@@ -181,6 +174,8 @@ void eigrp_prefix_entry_delete(struct route_table *table,
 			       struct eigrp_prefix_entry *pe)
 {
 	struct eigrp *eigrp = eigrp_lookup();
+	struct eigrp_nexthop_entry *ne;
+	struct listnode *node, *nnode;
 	struct route_node *rn;
 
 	if (!eigrp)
@@ -196,9 +191,12 @@ void eigrp_prefix_entry_delete(struct route_table *table,
 	 */
 	listnode_delete(eigrp->topology_changes_internalIPV4, pe);
 
+	for (ALL_LIST_ELEMENTS(pe->entries, node, nnode, ne))
+		eigrp_nexthop_entry_delete(pe, ne);
 	list_delete_and_null(&pe->entries);
 	list_delete_and_null(&pe->rij);
 	eigrp_zebra_route_delete(pe->destination);
+	prefix_free(pe->destination);
 
 	rn->info = NULL;
 	route_unlock_node(rn); // Lookup above
@@ -235,18 +233,6 @@ void eigrp_topology_delete_all(struct route_table *topology)
 
 		eigrp_prefix_entry_delete(topology, pe);
 	}
-}
-
-/*
- * Return 0 if topology is not empty
- * otherwise return 1
- */
-unsigned int eigrp_topology_table_isempty(struct list *topology)
-{
-	if (topology->count)
-		return 1;
-	else
-		return 0;
 }
 
 struct eigrp_prefix_entry *
