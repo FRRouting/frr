@@ -188,7 +188,7 @@ struct ospf {
 #define DEFAULT_ORIGINATE_NONE		0
 #define DEFAULT_ORIGINATE_ZEBRA		1
 #define DEFAULT_ORIGINATE_ALWAYS	2
-	uint32_t ref_bandwidth;       /* Reference Bandwidth (Kbps). */
+	uint32_t ref_bandwidth;       /* Reference Bandwidth (Mbps). */
 	struct route_table *networks; /* OSPF config networks. */
 	struct list *vlinks;	  /* Configured Virtual-Links. */
 	struct list *areas;	   /* OSPF areas. */
