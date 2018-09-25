@@ -1217,12 +1217,13 @@ int main(int argc, char **argv)
 		}
 	}
 	if (!gs.daemons) {
-		fputs("Must specify one or more daemons to monitor.\n", stderr);
+		flog_err(EC_WATCHFRR_UNEXPECTED_DAEMONS,
+			  "Must specify one or more daemons to monitor.");
 		frr_help_exit(1);
 	}
 	if (!watch_only && !gs.special) {
-		fprintf(stderr, "\"%s\" daemon must be in daemon list\n",
-			special);
+		flog_err(EC_WATCHFRR_UNEXPECTED_DAEMONS,
+			  "\"%s\" daemon must be in daemon lists", special);
 		frr_help_exit(1);
 	}
 

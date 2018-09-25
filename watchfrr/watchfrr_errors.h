@@ -25,6 +25,7 @@
 
 enum watchfrr_log_refs {
 	EC_WATCHFRR_CONNECTION = WATCHFRR_FERR_START,
+	EC_WATCHFRR_UNEXPECTED_DAEMONS,
 };
 
 extern void watchfrr_error_init(void);
