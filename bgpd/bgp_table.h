@@ -112,7 +112,7 @@ static inline struct route_node *bgp_node_to_rnode(struct bgp_node *node)
  */
 static inline struct bgp_table *bgp_node_table(struct bgp_node *node)
 {
-	return bgp_node_to_rnode(node)->table->info;
+	return route_table_get_info(bgp_node_to_rnode(node)->table);
 }
 
 /*

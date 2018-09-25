@@ -101,7 +101,7 @@ struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t afi, safi_t safi)
 	/*
 	 * Set up back pointer to bgp_table.
 	 */
-	rt->route_table->info = rt;
+	route_table_set_info(rt->route_table, rt);
 
 	/*
 	 * pointer to bgp instance allows working back from bgp_info to bgp

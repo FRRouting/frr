@@ -148,6 +148,6 @@ static inline struct agg_node *agg_route_table_top(struct agg_node *node)
 
 static inline struct agg_table *agg_get_table(struct agg_node *node)
 {
-	return (struct agg_table *)node->table->info;
+	return (struct agg_table *)route_table_get_info(node->table);
 }
 #endif

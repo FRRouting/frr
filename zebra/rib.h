@@ -355,7 +355,7 @@ extern uint8_t route_distance(int type);
  */
 static inline rib_table_info_t *rib_table_info(struct route_table *table)
 {
-	return (rib_table_info_t *)table->info;
+	return (rib_table_info_t *)route_table_get_info(table);
 }
 
 /*

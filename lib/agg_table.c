@@ -53,7 +53,7 @@ struct agg_table *agg_table_init(void)
 	at = XCALLOC(MTYPE_TMP, sizeof(struct agg_table));
 
 	at->route_table = route_table_init_with_delegate(&agg_table_delegate);
-	at->route_table->info = at;
+	route_table_set_info(at->route_table, at);
 
 	return at;
 }

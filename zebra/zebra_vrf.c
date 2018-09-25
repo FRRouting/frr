@@ -205,7 +205,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
 			table = zvrf->table[afi][safi];
-			table_info = table->info;
+			table_info = route_table_get_info(table);
 			route_table_finish(table);
 			XFREE(MTYPE_RIB_TABLE_INFO, table_info);
 			zvrf->table[afi][safi] = NULL;
@@ -261,7 +261,7 @@ static int zebra_vrf_delete(struct vrf *vrf)
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
 			table = zvrf->table[afi][safi];
 			if (table) {
-				table_info = table->info;
+				table_info = route_table_get_info(table);
 				route_table_finish(table);
 				XFREE(MTYPE_RIB_TABLE_INFO, table_info);
 			}
@@ -384,7 +384,7 @@ static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 	info->zvrf = zvrf;
 	info->afi = afi;
 	info->safi = safi;
-	table->info = info;
+	route_table_set_info(table, info);
 }
 
 /* Allocate new zebra VRF. */

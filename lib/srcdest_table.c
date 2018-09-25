@@ -103,7 +103,7 @@ static void srcdest_srcnode_destroy(route_table_delegate_t *delegate,
 
 	XFREE(MTYPE_ROUTE_SRC_NODE, rn);
 
-	srn = table->info;
+	srn = route_table_get_info(table);
 	if (srn->src_table && route_table_count(srn->src_table) == 0) {
 		/* deleting the route_table from inside destroy_node is ONLY
 		 * permitted IF table->count is 0!  see lib/table.c
@@ -140,7 +140,7 @@ static struct route_node *srcdest_srcnode_get(struct route_node *rn,
 		 * here */
 		srn->src_table = route_table_init_with_delegate(
 			&_srcdest_srcnode_delegate);
-		srn->src_table->info = srn;
+		route_table_set_info(srn->src_table, srn);
 
 		/* there is no route_unlock_node on the original rn here.
 		 * The reference is kept for the src_table. */
@@ -220,7 +220,7 @@ struct route_node *srcdest_route_next(struct route_node *rn)
 	}
 
 	/* This part handles the case of iterating source nodes. */
-	parent = route_lock_node(rn->table->info);
+	parent = route_lock_node(route_table_get_info(rn->table));
 	next = route_next(rn);
 
 	if (next) {
@@ -268,7 +268,7 @@ void srcdest_rnode_prefixes(struct route_node *rn, const struct prefix **p,
 			    const struct prefix **src_p)
 {
 	if (rnode_is_srcnode(rn)) {
-		struct route_node *dst_rn = rn->table->info;
+		struct route_node *dst_rn = route_table_get_info(rn->table);
 		if (p)
 			*p = &dst_rn->p;
 		if (src_p)
