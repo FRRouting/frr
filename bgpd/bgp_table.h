@@ -60,9 +60,10 @@ struct bgp_node {
 
 	STAILQ_ENTRY(bgp_node) pq;
 
+	uint64_t version;
+
 	mpls_label_t local_label;
 
-	uint64_t version;
 	uint8_t flags;
 #define BGP_NODE_PROCESS_SCHEDULED	(1 << 0)
 #define BGP_NODE_USER_CLEAR             (1 << 1)
