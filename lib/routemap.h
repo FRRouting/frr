@@ -142,6 +142,9 @@ struct route_map_index {
 	struct route_map_index *next;
 	struct route_map_index *prev;
 
+	/* Keep track how many times we've try to apply */
+	uint64_t applied;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(route_map_index)
@@ -162,6 +165,9 @@ struct route_map {
 	/* Maintain update info */
 	bool to_be_processed; /* True if modification isn't acted on yet */
 	bool deleted;         /* If 1, then this node will be deleted */
+
+	/* How many times have we applied this route-map */
+	uint64_t applied;
 
 	QOBJ_FIELDS
 };
