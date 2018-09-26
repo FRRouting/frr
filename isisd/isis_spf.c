@@ -1068,7 +1068,8 @@ static void isis_spf_loop(struct isis_spftree *spftree,
 		lsp = lsp_for_vertex(spftree, vertex);
 		if (!lsp) {
 			zlog_warn("ISIS-Spf: No LSP found for %s",
-				  rawlspid_print(vertex->N.id)); /* FIXME */
+				  isis_format_id(vertex->N.id,
+						 sizeof(vertex->N.id)));
 			continue;
 		}
 
