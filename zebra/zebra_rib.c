@@ -2191,8 +2191,8 @@ static wq_item_status meta_queue_process(struct work_queue *dummy, void *data)
 	queue_len = dplane_get_in_queue_len();
 	if (queue_len > queue_limit) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug("meta_queue_process: dplane queue len %u, "
-				   "limit %u, retrying", queue_len, queue_limit);
+			zlog_debug("rib queue: dplane queue len %u, limit %u, retrying",
+				   queue_len, queue_limit);
 
 		/* Ensure that the meta-queue is actually enqueued */
 		if (work_queue_empty(zebrad.ribq))

@@ -934,7 +934,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
  *
  * filter   -> The filter to read final results from kernel
  * nlmsghdr -> The data to send to the kernel
- * zns_info -> The netlink socket information
+ * dp_info -> The dataplane and netlink socket information
  * startup  -> Are we reading in under startup conditions
  *             This is passed through eventually to filter.
  */
@@ -990,7 +990,6 @@ int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 		return -1;
 	}
 
-
 	/*
 	 * Get reply from netlink socket.
 	 * The reply should either be an acknowlegement or an error.
@@ -1001,7 +1000,6 @@ int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 /*
  * Synchronous version of netlink_talk_info. Converts args to suit the
  * common version, which is suitable for both sync and async use.
- *
  */
 int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 		 struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns,

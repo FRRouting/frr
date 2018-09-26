@@ -70,8 +70,8 @@ struct zebra_dplane_ctx {
 	enum zebra_dplane_result zd_status;
 
 	/* TODO -- internal/sub-operation status? */
-	enum zebra_dplane_status zd_remote_status;
-	enum zebra_dplane_status zd_kernel_status;
+	enum zebra_dplane_result zd_remote_status;
+	enum zebra_dplane_result zd_kernel_status;
 
 	/* Dest and (optional) source prefixes */
 	struct prefix zd_dest;
