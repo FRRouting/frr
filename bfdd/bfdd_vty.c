@@ -886,14 +886,7 @@ static int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 	if (local)
 		bpc->bpc_local = *local;
 
-	if (peer) {
-		bpc->bpc_peer = *peer;
-	} else {
-		/* Peer configuration is mandatory. */
-		snprintf(ebuf, ebuflen, "no peer configured");
-		return -1;
-	}
-
+	bpc->bpc_peer = *peer;
 	bpc->bpc_mhop = mhop;
 
 	/* Handle interface specification configuration. */
