@@ -7209,7 +7209,9 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 			if (prd && memcmp(rn->p.u.val, prd->val, 8) != 0)
 				continue;
 
-			if ((table = rn->info) != NULL) {
+			table = bgp_node_get_bgp_table_info(rn);
+			if (table != NULL) {
+
 				if ((rm = bgp_node_match(table, &match))
 				    != NULL) {
 					if (rm->p.prefixlen

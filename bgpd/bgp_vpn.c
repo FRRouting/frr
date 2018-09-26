@@ -79,7 +79,8 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 		if (prd && memcmp(rn->p.u.val, prd->val, 8) != 0)
 			continue;
 
-		if ((table = rn->info) != NULL) {
+		table = bgp_node_get_bgp_table_info(rn);
+		if (table != NULL) {
 			if (use_json)
 				json_array = json_object_new_array();
 			else

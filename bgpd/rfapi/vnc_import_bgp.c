@@ -676,7 +676,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve(
 
 		struct bgp_table *table;
 
-		table = (struct bgp_table *)(bnp->info);
+		table = bgp_node_get_bgp_table_info(bnp);
 
 		if (!table)
 			continue;
@@ -1377,7 +1377,7 @@ vnc_import_bgp_del_route_mode_resolve_nve(struct bgp *bgp, afi_t afi,
 
 		struct bgp_table *table;
 
-		table = (struct bgp_table *)(bnp->info);
+		table = bgp_node_get_bgp_table_info(bnp);
 
 		if (!table)
 			continue;
@@ -2907,8 +2907,9 @@ void vnc_import_bgp_redist_disable(struct bgp *bgp, afi_t afi)
 
 		if (bgp_node_has_bgp_path_info_data(rn1)) {
 
-			for (rn2 = bgp_table_top(rn1->info); rn2;
-			     rn2 = bgp_route_next(rn2)) {
+			for (rn2 = bgp_table_top(
+				     bgp_node_get_bgp_table_info(rn1));
+			     rn2; rn2 = bgp_route_next(rn2)) {
 
 				struct bgp_path_info *bpi;
 				struct bgp_path_info *nextbpi;

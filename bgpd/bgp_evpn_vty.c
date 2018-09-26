@@ -1041,7 +1041,8 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 		if (prd && memcmp(rn->p.u.val, prd->val, 8) != 0)
 			continue;
 
-		if ((table = rn->info) == NULL)
+		table = bgp_node_get_bgp_table_info(rn);
+		if (!table)
 			continue;
 
 		rd_header = 1;
@@ -2039,7 +2040,7 @@ static void evpn_show_route_vni_multicast(struct vty *vty, struct bgp *bgp,
 	/* See if route exists. */
 	build_evpn_type3_prefix(&p, orig_ip);
 	rn = bgp_node_lookup(vpn->route_table, (struct prefix *)&p);
-	if (!rn || !rn->info) {
+	if (!rn || !bgp_node_has_bgp_path_info_data(rn)) {
 		if (!json)
 			vty_out(vty, "%% Network not in table\n");
 		return;
@@ -2109,7 +2110,7 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 	/* See if route exists. Look for both non-sticky and sticky. */
 	build_evpn_type2_prefix(&p, mac, ip);
 	rn = bgp_node_lookup(vpn->route_table, (struct prefix *)&p);
-	if (!rn || !rn->info) {
+	if (!rn || !bgp_node_has_bgp_path_info_data(rn)) {
 		if (!json)
 			vty_out(vty, "%% Network not in table\n");
 		return;
@@ -2213,7 +2214,7 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 	build_evpn_type2_prefix(&p, mac, ip);
 	rn = bgp_afi_node_lookup(bgp->rib[afi][safi], afi, safi,
 				 (struct prefix *)&p, prd);
-	if (!rn || !rn->info) {
+	if (!rn || !bgp_node_has_bgp_path_info_data(rn)) {
 		if (!json)
 			vty_out(vty, "%% Network not in table\n");
 		return;
@@ -2284,7 +2285,7 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 	if (!rd_rn)
 		return;
 
-	table = (struct bgp_table *)rd_rn->info;
+	table = bgp_node_get_bgp_table_info(rd_rn);
 	if (table == NULL)
 		return;
 
@@ -2408,7 +2409,7 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 		int add_rd_to_json = 0;
 		uint64_t tbl_ver;
 
-		table = (struct bgp_table *)rd_rn->info;
+		table = bgp_node_get_bgp_table_info(rd_rn);
 		if (table == NULL)
 			continue;
 

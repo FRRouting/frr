@@ -388,6 +388,18 @@ static inline void bgp_node_set_bgp_path_info(struct bgp_node *node,
 	node->info = bi;
 }
 
+static inline struct bgp_table *
+bgp_node_get_bgp_table_info(struct bgp_node *node)
+{
+	return node->info;
+}
+
+static inline void bgp_node_set_bgp_table_info(struct bgp_node *node,
+					       struct bgp_table *table)
+{
+	node->info = table;
+}
+
 static inline bool bgp_node_has_bgp_path_info_data(struct bgp_node *node)
 {
 	return !!node->info;

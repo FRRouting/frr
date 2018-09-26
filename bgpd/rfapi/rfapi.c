@@ -472,12 +472,10 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 
 			prn = bgp_node_get(bgp->rib[afi][safi],
 					   (struct prefix *)prd);
-			if (prn->info) {
-				table = (struct bgp_table *)(prn->info);
-
+			table = bgp_node_get_bgp_table_info(prn);
+			if (table)
 				vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
 					bgp, prd, table, p, bpi);
-			}
 			bgp_unlock_node(prn);
 		}
 
@@ -1018,12 +1016,10 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 				prn = bgp_node_get(bgp->rib[afi][safi],
 						   (struct prefix *)prd);
-				if (prn->info) {
-					table = (struct bgp_table *)(prn->info);
-
+				table = bgp_node_get_bgp_table_info(prn);
+				if (table)
 					vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
 						bgp, prd, table, p, bpi);
-				}
 				bgp_unlock_node(prn);
 			}
 
@@ -1043,12 +1039,10 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 				prn = bgp_node_get(bgp->rib[afi][safi],
 						   (struct prefix *)prd);
-				if (prn->info) {
-					table = (struct bgp_table *)(prn->info);
-
+				table = bgp_node_get_bgp_table_info(prn);
+				if (table)
 					vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 						bgp, prd, table, p, bpi);
-				}
 				bgp_unlock_node(prn);
 			}
 
@@ -1094,12 +1088,10 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		struct bgp_table *table = NULL;
 
 		prn = bgp_node_get(bgp->rib[afi][safi], (struct prefix *)prd);
-		if (prn->info) {
-			table = (struct bgp_table *)(prn->info);
-
+		table = bgp_node_get_bgp_table_info(prn);
+		if (table)
 			vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 				bgp, prd, table, p, new);
-		}
 		bgp_unlock_node(prn);
 		encode_label(label_val, &bn->local_label);
 	}
@@ -3697,10 +3689,13 @@ static void rfapi_print_exported(struct bgp *bgp)
 
 	for (rdn = bgp_table_top(bgp->rib[AFI_IP][SAFI_MPLS_VPN]); rdn;
 	     rdn = bgp_route_next(rdn)) {
-		if (!rdn->info)
+		struct bgp_table *table;
+
+		table = bgp_node_get_bgp_table_info(rdn);
+		if (!table)
 			continue;
 		fprintf(stderr, "%s: vpn rdn=%p\n", __func__, rdn);
-		for (rn = bgp_table_top(rdn->info); rn;
+		for (rn = bgp_table_top(table); rn;
 		     rn = bgp_route_next(rn)) {
 			bpi = bgp_node_get_bgp_path_info(rn);
 
@@ -3714,10 +3709,13 @@ static void rfapi_print_exported(struct bgp *bgp)
 	}
 	for (rdn = bgp_table_top(bgp->rib[AFI_IP][SAFI_ENCAP]); rdn;
 	     rdn = bgp_route_next(rdn)) {
-		if (!rdn->info)
+		struct bgp_table *table;
+
+		table = bgp_node_get_bgp_table_info(rdn);
+		if (!table)
 			continue;
 		fprintf(stderr, "%s: encap rdn=%p\n", __func__, rdn);
-		for (rn = bgp_table_top(rdn->info); rn;
+		for (rn = bgp_table_top(table)); rn;
 		     rn = bgp_route_next(rn)) {
 			bpi = bgp_node_get_bgp_path_info(rn);
 			if (!bpi)

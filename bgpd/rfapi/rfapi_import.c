@@ -4246,7 +4246,7 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 
 		if (bgp_node_has_bgp_path_info_data(rn1)) {
 
-			for (rn2 = bgp_table_top(rn1->info); rn2;
+			for (rn2 = bgp_table_top(bgp_node_get_bgp_table_info(rn1)); rn2;
 			     rn2 = bgp_route_next(rn2)) {
 
 				struct bgp_path_info *bpi;

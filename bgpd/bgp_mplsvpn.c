@@ -961,7 +961,7 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *bgp_vpn, /* to */
 		struct bgp_path_info *bpi;
 
 		/* This is the per-RD table of prefixes */
-		table = prn->info;
+		table = bgp_node_get_bgp_table_info(prn);
 
 		if (!table)
 			continue;
@@ -1381,7 +1381,7 @@ void vpn_leak_to_vrf_update_all(struct bgp *bgp_vrf, /* to */
 		memcpy(prd.val, prn->p.u.val, 8);
 
 		/* This is the per-RD table of prefixes */
-		table = prn->info;
+		table = bgp_node_get_bgp_table_info(prn);
 
 		if (!table)
 			continue;

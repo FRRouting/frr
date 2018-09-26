@@ -690,9 +690,12 @@ void subgroup_announce_route(struct update_subgroup *subgrp)
 		subgroup_announce_table(subgrp, NULL);
 	else
 		for (rn = bgp_table_top(update_subgroup_rib(subgrp)); rn;
-		     rn = bgp_route_next(rn))
-			if ((table = (rn->info)) != NULL)
-				subgroup_announce_table(subgrp, table);
+		     rn = bgp_route_next(rn)) {
+			table = bgp_node_get_bgp_table_info(rn);
+			if (!table)
+				continue;
+			subgroup_announce_table(subgrp, table);
+		}
 }
 
 void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
