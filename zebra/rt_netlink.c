@@ -2200,7 +2200,7 @@ static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
 	struct interface *br_if;
 	struct zebra_if *br_zif;
 	char buf[ETHER_ADDR_STRLEN];
-	int vid_present = 0, dst_present = 0;
+	int vid_present = 0;
 	char vid_buf[20];
 	char dst_buf[30];
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
@@ -2234,7 +2234,6 @@ static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
 	req.ndm.ndm_ifindex = ifp->ifindex;
 	dst_alen = 4; // TODO: hardcoded
 	addattr_l(&req.n, sizeof(req), NDA_DST, &vtep_ip, dst_alen);
-	dst_present = 1;
 	sprintf(dst_buf, " dst %s", inet_ntoa(vtep_ip));
 	br_zif = (struct zebra_if *)br_if->info;
 	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif) && vid > 0) {
@@ -2250,8 +2249,7 @@ static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
 			   nl_family_to_str(req.ndm.ndm_family), ifp->name,
 			   ifp->ifindex, vid_present ? vid_buf : "",
 			   sticky ? "sticky " : "",
-			   prefix_mac2str(mac, buf, sizeof(buf)),
-			   dst_present ? dst_buf : "");
+			   prefix_mac2str(mac, buf, sizeof(buf)), dst_buf);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    0);
