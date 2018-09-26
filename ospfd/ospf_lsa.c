@@ -1901,7 +1901,7 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 			zlog_debug(
 				"ospf_translated_nssa_refresh(): No translated Type-5 "
 				"found for Type-7 with Id %s",
-				type7 ? inet_ntoa(type7->data->id) : "(null)");
+				inet_ntoa(type7->data->id));
 		return NULL;
 	}
 
@@ -1914,7 +1914,7 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 			zlog_debug(
 				"ospf_translated_nssa_refresh(): Could not translate "
 				"Type-7 for %s to Type-5",
-				type7 ? inet_ntoa(type7->data->id) : "(null)");
+				inet_ntoa(type7->data->id));
 		return NULL;
 	}
 
