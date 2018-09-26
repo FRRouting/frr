@@ -3226,11 +3226,13 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 
 		/* For network route-map updates. */
 		for (bn = bgp_table_top(bgp->route[afi][safi]); bn;
-		     bn = bgp_route_next(bn))
-			if ((bgp_static = bn->info) != NULL) {
+		     bn = bgp_route_next(bn)) {
+			bgp_static = bgp_static_get_node_info(bn);
+			if (bgp_static != NULL) {
 				if (bgp_static->rmap.name
 				    && (strcmp(rmap_name, bgp_static->rmap.name)
 					== 0)) {
+
 					bgp_static->rmap.map = map;
 
 					if (route_update)
@@ -3253,6 +3255,7 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 						}
 				}
 			}
+		}
 	}
 
 	/* For redistribute route-map updates. */
