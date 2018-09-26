@@ -229,8 +229,6 @@ static int bgp_interface_delete(int command, struct zclient *zclient,
 	struct bgp *bgp;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
-	if (!bgp)
-		return 0;
 
 	s = zclient->ibuf;
 	ifp = zebra_interface_state_read(s, vrf_id);
@@ -240,7 +238,8 @@ static int bgp_interface_delete(int command, struct zclient *zclient,
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx Intf del VRF %u IF %s", vrf_id, ifp->name);
 
-	bgp_update_interface_nbrs(bgp, ifp, NULL);
+	if (bgp)
+		bgp_update_interface_nbrs(bgp, ifp, NULL);
 
 	if_set_index(ifp, IFINDEX_INTERNAL);
 	return 0;
@@ -257,8 +256,6 @@ static int bgp_interface_up(int command, struct zclient *zclient,
 	struct bgp *bgp;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
-	if (!bgp)
-		return 0;
 
 	s = zclient->ibuf;
 	ifp = zebra_interface_state_read(s, vrf_id);
@@ -268,6 +265,9 @@ static int bgp_interface_up(int command, struct zclient *zclient,
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx Intf up VRF %u IF %s", vrf_id, ifp->name);
+
+	if (!bgp)
+		return 0;
 
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, c))
 		bgp_connected_add(bgp, c);
@@ -290,8 +290,6 @@ static int bgp_interface_down(int command, struct zclient *zclient,
 	struct peer *peer;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
-	if (!bgp)
-		return 0;
 
 	s = zclient->ibuf;
 	ifp = zebra_interface_state_read(s, vrf_id);
@@ -300,6 +298,9 @@ static int bgp_interface_down(int command, struct zclient *zclient,
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx Intf down VRF %u IF %s", vrf_id, ifp->name);
+
+	if (!bgp)
+		return 0;
 
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, c))
 		bgp_connected_delete(bgp, c);
@@ -342,8 +343,6 @@ static int bgp_interface_address_add(int command, struct zclient *zclient,
 	struct bgp *bgp;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
-	if (!bgp)
-		return 0;
 
 	ifc = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
 
@@ -356,6 +355,9 @@ static int bgp_interface_address_add(int command, struct zclient *zclient,
 		zlog_debug("Rx Intf address add VRF %u IF %s addr %s", vrf_id,
 			   ifc->ifp->name, buf);
 	}
+
+	if (!bgp)
+		return 0;
 
 	if (if_is_operative(ifc->ifp)) {
 		bgp_connected_add(bgp, ifc);
@@ -379,8 +381,6 @@ static int bgp_interface_address_delete(int command, struct zclient *zclient,
 	struct bgp *bgp;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
-	if (!bgp)
-		return 0;
 
 	ifc = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
 
@@ -394,7 +394,7 @@ static int bgp_interface_address_delete(int command, struct zclient *zclient,
 			   ifc->ifp->name, buf);
 	}
 
-	if (if_is_operative(ifc->ifp)) {
+	if (bgp && if_is_operative(ifc->ifp)) {
 		bgp_connected_delete(bgp, ifc);
 	}
 
@@ -483,23 +483,23 @@ static int bgp_interface_vrf_update(int command, struct zclient *zclient,
 			   ifp->name, new_vrf_id);
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
-	if (!bgp)
-		return 0;
 
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, c))
-		bgp_connected_delete(bgp, c);
+	if (bgp) {
+		for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, c))
+			bgp_connected_delete(bgp, c);
 
-	for (ALL_LIST_ELEMENTS(ifp->nbr_connected, node, nnode, nc))
-		bgp_nbr_connected_delete(bgp, nc, 1);
+		for (ALL_LIST_ELEMENTS(ifp->nbr_connected, node, nnode, nc))
+			bgp_nbr_connected_delete(bgp, nc, 1);
 
-	/* Fast external-failover */
-	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER)) {
-		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			if ((peer->ttl != 1) && (peer->gtsm_hops != 1))
-				continue;
+		/* Fast external-failover */
+		if (!CHECK_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER)) {
+			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
+				if ((peer->ttl != 1) && (peer->gtsm_hops != 1))
+					continue;
 
-			if (ifp == peer->nexthop.ifp)
-				BGP_EVENT_ADD(peer, BGP_Stop);
+				if (ifp == peer->nexthop.ifp)
+					BGP_EVENT_ADD(peer, BGP_Stop);
+			}
 		}
 	}
 
@@ -2191,8 +2191,6 @@ static void bgp_encode_pbr_ipset_match(struct stream *s,
 
 	stream_put(s, pbim->ipset_name,
 		   ZEBRA_IPSET_NAME_SIZE);
-
-
 }
 
 static void bgp_encode_pbr_ipset_entry_match(struct stream *s,
