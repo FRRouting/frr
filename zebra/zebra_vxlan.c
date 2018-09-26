@@ -4269,10 +4269,8 @@ static void process_remote_macip_add(vni_t vni,
 					vni,
 					prefix_mac2str(macaddr,
 						       buf, sizeof(buf)),
-					ipa_len ? " IP " : "",
-					ipa_len ?
-					ipaddr2str(ipaddr,
-						   buf1, sizeof(buf1)) : "",
+					" IP ",
+					ipaddr2str(ipaddr, buf1, sizeof(buf1)),
 					n_type,
 					tmp_seq);
 				return;
