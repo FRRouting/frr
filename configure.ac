@@ -1931,6 +1931,7 @@ for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval vtysh_bin="\"$vtysh_bin\""
 done
 AC_DEFINE_UNQUOTED(VTYSH_BIN_PATH, "$vtysh_bin",path to vtysh binary)
+AC_SUBST(vtysh_bin)
 
 CFG_SYSCONF="$sysconfdir"
 CFG_SBIN="$sbindir"
@@ -2013,6 +2014,7 @@ fi
 AC_CONFIG_FILES([solaris/Makefile])
 
 AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
+AC_CONFIG_FILES([tools/frr],[chmod +x tools/frr])
 
 AC_CONFIG_COMMANDS([lib/route_types.h], [
 	dst="${ac_abs_top_builddir}/lib/route_types.h"
