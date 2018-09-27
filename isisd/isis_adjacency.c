@@ -122,6 +122,8 @@ struct isis_adjacency *isis_adj_lookup_snpa(const uint8_t *ssnpa,
 	return NULL;
 }
 
+DEFINE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj))
+
 void isis_delete_adj(void *arg)
 {
 	struct isis_adjacency *adj = arg;
@@ -130,6 +132,10 @@ void isis_delete_adj(void *arg)
 		return;
 
 	THREAD_TIMER_OFF(adj->t_expire);
+	if (adj->adj_state != ISIS_ADJ_DOWN) {
+		adj->adj_state = ISIS_ADJ_DOWN;
+		hook_call(isis_adj_state_change_hook, adj);
+	}
 
 	/* remove from SPF trees */
 	spftree_area_adj_del(adj->circuit->area, adj);
@@ -256,8 +262,7 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 				continue;
 			if (new_state == ISIS_ADJ_UP) {
 				circuit->upadjcount[level - 1]++;
-				isis_event_adjacency_state_change(adj,
-								  new_state);
+				hook_call(isis_adj_state_change_hook, adj);
 				/* update counter & timers for debugging
 				 * purposes */
 				adj->last_flap = time(NULL);
@@ -270,8 +275,7 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 				if (circuit->upadjcount[level - 1] == 0)
 					isis_tx_queue_clean(circuit->tx_queue);
 
-				isis_event_adjacency_state_change(adj,
-								  new_state);
+				hook_call(isis_adj_state_change_hook, adj);
 				del = true;
 			}
 
@@ -299,8 +303,7 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 				continue;
 			if (new_state == ISIS_ADJ_UP) {
 				circuit->upadjcount[level - 1]++;
-				isis_event_adjacency_state_change(adj,
-								  new_state);
+				hook_call(isis_adj_state_change_hook, adj);
 
 				if (adj->sys_type == ISIS_SYSTYPE_UNKNOWN)
 					send_hello(circuit, level);
@@ -326,8 +329,7 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 				if (circuit->upadjcount[level - 1] == 0)
 					isis_tx_queue_clean(circuit->tx_queue);
 
-				isis_event_adjacency_state_change(adj,
-								  new_state);
+				hook_call(isis_adj_state_change_hook, adj);
 				del = true;
 			}
 		}

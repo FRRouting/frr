@@ -1997,3 +1997,15 @@ void lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 		fabricd_lsp_flood(lsp);
 	}
 }
+
+static int lsp_handle_adj_state_change(struct isis_adjacency *adj)
+{
+	lsp_regenerate_schedule(adj->circuit->area, IS_LEVEL_1 | IS_LEVEL_2, 0);
+	return 0;
+}
+
+void lsp_init(void)
+{
+	hook_register(isis_adj_state_change_hook,
+		      lsp_handle_adj_state_change);
+}

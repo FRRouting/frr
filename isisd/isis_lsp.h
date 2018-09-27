@@ -101,5 +101,6 @@ int lsp_print_all(struct vty *vty, dict_t *lspdb, char detail, char dynhost);
 /* sets SRMflags for all active circuits of an lsp */
 void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set);
 void lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit);
+void lsp_init(void);
 
 #endif /* ISIS_LSP */
