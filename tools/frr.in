@@ -28,7 +28,6 @@ FRR_VTY_GROUP="@enable_vty_group@" # frrvty
 DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd ldpd nhrpd eigrpd sharpd pbrd staticd bfdd"
 MAX_INSTANCES=5
 RELOAD_SCRIPT="$D_PATH/frr-reload.py"
-WATCHFRR_STARTED="$V_PATH/watchfrr.started"
 
 if [ -e /lib/lsb/init-functions ]; then
     . /lib/lsb/init-functions
@@ -128,23 +127,13 @@ start()
                echo -n " $1"
            fi
 
-           if [ -e $WATCHFRR_STARTED ] ; then
-             rm $WATCHFRR_STARTED
-           fi
-            ${SSD} \
+           ${SSD} \
                 --start \
                 --pidfile=`pidfile $1` \
                 --exec "$D_PATH/$1" \
                 -- \
                 "${watchfrr_options[@]}"
-            for i in `seq 1 10`;
-            do
-              if [ -e $WATCHFRR_STARTED ] ; then
-		  break
-              else
-                  sleep 1
-              fi
-            done
+
         elif [ -n "$2" ]; then
           echo -n " $1-$2"
            if ! check_daemon $1 $2 ; then
