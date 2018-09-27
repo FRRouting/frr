@@ -254,6 +254,12 @@ static int dplane_thread_loop(struct thread *event);
  * Public APIs
  */
 
+/* Obtain thread_master for dataplane thread */
+struct thread_master *dplane_get_thread_master(void)
+{
+	return zdplane_info.dg_master;
+}
+
 /*
  * Allocate a dataplane update context
  */
@@ -1069,6 +1075,21 @@ int dplane_provider_get_work_limit(const struct zebra_dplane_provider *prov)
 	return zdplane_info.dg_updates_per_cycle;
 }
 
+/* Lock/unlock a provider's mutex - iff the provider was registered with
+ * the THREADED flag.
+ */
+void dplane_provider_lock(struct zebra_dplane_provider *prov)
+{
+	if (dplane_provider_is_threaded(prov))
+		DPLANE_PROV_LOCK(prov);
+}
+
+void dplane_provider_unlock(struct zebra_dplane_provider *prov)
+{
+	if (dplane_provider_is_threaded(prov))
+		DPLANE_PROV_UNLOCK(prov);
+}
+
 /*
  * Dequeue and maintain associated counter
  */
@@ -1077,8 +1098,7 @@ struct zebra_dplane_ctx *dplane_provider_dequeue_in_ctx(
 {
 	struct zebra_dplane_ctx *ctx = NULL;
 
-	if (dplane_provider_is_threaded(prov))
-		DPLANE_PROV_LOCK(prov);
+	dplane_provider_lock(prov);
 
 	ctx = TAILQ_FIRST(&(prov->dp_ctx_in_q));
 	if (ctx) {
@@ -1088,8 +1108,7 @@ struct zebra_dplane_ctx *dplane_provider_dequeue_in_ctx(
 					  memory_order_relaxed);
 	}
 
-	if (dplane_provider_is_threaded(prov))
-		DPLANE_PROV_UNLOCK(prov);
+	dplane_provider_unlock(prov);
 
 	return ctx;
 }
@@ -1105,8 +1124,7 @@ int dplane_provider_dequeue_in_list(struct zebra_dplane_provider *prov,
 
 	limit = zdplane_info.dg_updates_per_cycle;
 
-	if (dplane_provider_is_threaded(prov))
-		DPLANE_PROV_LOCK(prov);
+	dplane_provider_lock(prov);
 
 	for (ret = 0; ret < limit; ret++) {
 		ctx = TAILQ_FIRST(&(prov->dp_ctx_in_q));
@@ -1123,8 +1141,7 @@ int dplane_provider_dequeue_in_list(struct zebra_dplane_provider *prov,
 		atomic_fetch_sub_explicit(&prov->dp_in_queued, ret,
 					  memory_order_relaxed);
 
-	if (dplane_provider_is_threaded(prov))
-		DPLANE_PROV_UNLOCK(prov);
+	dplane_provider_unlock(prov);
 
 	return ret;
 }
@@ -1135,14 +1152,12 @@ int dplane_provider_dequeue_in_list(struct zebra_dplane_provider *prov,
 void dplane_provider_enqueue_out_ctx(struct zebra_dplane_provider *prov,
 				     struct zebra_dplane_ctx *ctx)
 {
-	if (dplane_provider_is_threaded(prov))
-		DPLANE_PROV_LOCK(prov);
+	dplane_provider_lock(prov);
 
 	TAILQ_INSERT_TAIL(&(prov->dp_ctx_out_q), ctx,
 			  zd_q_entries);
 
-	if (dplane_provider_is_threaded(prov))
-		DPLANE_PROV_UNLOCK(prov);
+	dplane_provider_unlock(prov);
 
 	atomic_fetch_add_explicit(&(prov->dp_out_counter), 1,
 				  memory_order_relaxed);
@@ -1394,15 +1409,13 @@ static bool dplane_work_pending(void)
 
 	while (prov) {
 
-		if (dplane_provider_is_threaded(prov))
-			DPLANE_PROV_LOCK(prov);
+		dplane_provider_lock(prov);
 
 		ctx = TAILQ_FIRST(&(prov->dp_ctx_in_q));
 		if (ctx == NULL)
 			ctx = TAILQ_FIRST(&(prov->dp_ctx_out_q));
 
-		if (dplane_provider_is_threaded(prov))
-			DPLANE_PROV_UNLOCK(prov);
+		dplane_provider_unlock(prov);
 
 		if (ctx != NULL)
 			break;
@@ -1542,7 +1555,6 @@ static int dplane_thread_loop(struct thread *event)
 		/* At each iteration, the temporary work list has 'counter'
 		 * items.
 		 */
-
 		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 			zlog_debug("dplane enqueues %d new work to provider '%s'",
 				   counter, dplane_provider_get_name(prov));
@@ -1572,8 +1584,7 @@ static int dplane_thread_loop(struct thread *event)
 		}
 
 		/* Enqueue new work to the provider */
-		if (dplane_provider_is_threaded(prov))
-			DPLANE_PROV_LOCK(prov);
+		dplane_provider_lock(prov);
 
 		if (TAILQ_FIRST(&work_list))
 			TAILQ_CONCAT(&(prov->dp_ctx_in_q), &work_list,
@@ -1591,8 +1602,7 @@ static int dplane_thread_loop(struct thread *event)
 			atomic_store_explicit(&prov->dp_in_max, curr,
 					      memory_order_relaxed);
 
-		if (dplane_provider_is_threaded(prov))
-			DPLANE_PROV_UNLOCK(prov);
+		dplane_provider_unlock(prov);
 
 		/* Reset the temp list (though the 'concat' may have done this
 		 * already), and the counter
@@ -1611,8 +1621,7 @@ static int dplane_thread_loop(struct thread *event)
 			break;
 
 		/* Dequeue completed work from the provider */
-		if (dplane_provider_is_threaded(prov))
-			DPLANE_PROV_LOCK(prov);
+		dplane_provider_lock(prov);
 
 		while (counter < limit) {
 			ctx = TAILQ_FIRST(&(prov->dp_ctx_out_q));
@@ -1627,8 +1636,7 @@ static int dplane_thread_loop(struct thread *event)
 				break;
 		}
 
-		if (dplane_provider_is_threaded(prov))
-			DPLANE_PROV_UNLOCK(prov);
+		dplane_provider_unlock(prov);
 
 		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 			zlog_debug("dplane dequeues %d completed work from provider %s",

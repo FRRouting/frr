@@ -288,7 +288,16 @@ uint32_t dplane_provider_get_id(const struct zebra_dplane_provider *prov);
 void *dplane_provider_get_data(const struct zebra_dplane_provider *prov);
 bool dplane_provider_is_threaded(const struct zebra_dplane_provider *prov);
 
-/* Providers should limit number of updates per work cycle */
+/* Lock/unlock a provider's mutex - iff the provider was registered with
+ * the THREADED flag.
+ */
+void dplane_provider_lock(struct zebra_dplane_provider *prov);
+void dplane_provider_unlock(struct zebra_dplane_provider *prov);
+
+/* Obtain thread_master for dataplane thread */
+struct thread_master *dplane_get_thread_master(void);
+
+/* Providers should (generally) limit number of updates per work cycle */
 int dplane_provider_get_work_limit(const struct zebra_dplane_provider *prov);
 
 /* Provider api to signal that work/events are available
