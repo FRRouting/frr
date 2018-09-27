@@ -14,23 +14,28 @@
 #
 
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
-D_PATH=/usr/lib/frr
-C_PATH=/etc/frr
-V_PATH=/var/run/frr
+D_PATH="@CFG_SBIN@" # /usr/lib/frr
+C_PATH="@CFG_SYSCONF@" # /etc/frr
+V_PATH="@CFG_STATE@" # /var/run/frr
+VTYSH="@vtysh_bin@" # /usr/bin/vtysh
+FRR_USER="@enable_user@" # frr
+FRR_GROUP="@enable_group@" # frr
+FRR_VTY_GROUP="@enable_vty_group@" # frrvty
 
 # Local Daemon selection may be done by using /etc/frr/daemons.
 # See /usr/share/doc/frr/README.Debian.gz for further information.
 # Keep zebra first and do not list watchfrr!
 DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd ldpd nhrpd eigrpd sharpd pbrd staticd bfdd"
 MAX_INSTANCES=5
-RELOAD_SCRIPT=/usr/lib/frr/frr-reload.py
+RELOAD_SCRIPT="$D_PATH/frr-reload.py"
+WATCHFRR_STARTED="$V_PATH/watchfrr.started"
 
 if [ -e /lib/lsb/init-functions ]; then
     . /lib/lsb/init-functions
 fi
 
-if [ -f /usr/lib/frr/ssd ]; then
-    SSD=/usr/lib/frr/ssd
+if [ -f $D_PATH/ssd ]; then
+    SSD=$D_PATH/ssd
 else
     SSD=`which start-stop-daemon`
 fi
@@ -45,6 +50,12 @@ pidfile()
 vtyfile()
 {
     echo "$V_PATH/$1.vty"
+}
+
+chownfrr()
+{
+    test -n "$FRR_USER" && chown "$FRR_USER" "$1"
+    test -n "$FRR_GROUP" && chgrp "$FRR_GROUP" "$1"
 }
 
 # Check if daemon is started by using the pidfile.
@@ -64,7 +75,7 @@ vtysh_b ()
 {
         # Rember, that all variables have been incremented by 1 in convert_daemon_prios()
         if [ "$vtysh_enable" = 2 -a -f $C_PATH/frr.conf ]; then
-                /usr/bin/vtysh -b -n
+                $VTYSH -b -n
         fi
 }
 
@@ -91,11 +102,11 @@ check_daemon()
           if [ -n "$2" ]; then
            if [ ! -r "$C_PATH/$1-$2.conf" ]; then
                 touch "$C_PATH/$1-$2.conf"
-                chown frr:frr "$C_PATH/$1-$2.conf"
+                chownfrr "$C_PATH/$1-$2.conf"
            fi
           elif [ ! -r "$C_PATH/$1.conf" ]; then
             touch "$C_PATH/$1.conf"
-            chown frr:frr "$C_PATH/$1.conf"
+            chownfrr "$C_PATH/$1.conf"
           fi
         fi
         return 0
@@ -117,8 +128,8 @@ start()
                echo -n " $1"
            fi
 
-           if [ -e /var/run/frr/watchfrr.started ] ; then
-             rm /var/run/frr/watchfrr.started
+           if [ -e $WATCHFRR_STARTED ] ; then
+             rm $WATCHFRR_STARTED
            fi
             ${SSD} \
                 --start \
@@ -128,7 +139,7 @@ start()
                 "${watchfrr_options[@]}"
             for i in `seq 1 10`;
             do
-              if [ -e /var/run/frr/watchfrr.started ] ; then
+              if [ -e $WATCHFRR_STARTED ] ; then
 		  break
               else
                   sleep 1
@@ -523,7 +534,7 @@ convert_daemon_prios
 if [ ! -d $V_PATH ]; then
     echo "Creating $V_PATH"
     mkdir -p $V_PATH
-    chown frr:frr $V_PATH
+    chownfrr $V_PATH
     chmod 755 /$V_PATH
 fi
 
@@ -604,7 +615,7 @@ case "$1" in
        NEW_CONFIG_FILE="${2:-$C_PATH/frr.conf}"
        [ ! -r $NEW_CONFIG_FILE ] && echo "Unable to read new configuration file $NEW_CONFIG_FILE" && exit 1
        echo "Applying only incremental changes to running configuration from frr.conf"
-       "$RELOAD_SCRIPT" --reload /etc/frr/frr.conf
+       "$RELOAD_SCRIPT" --reload $C_PATH/frr.conf
        exit $?
        ;;
 
