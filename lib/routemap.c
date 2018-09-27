@@ -854,11 +854,13 @@ static void vty_show_route_map_entry(struct vty *vty, struct route_map *map)
 	struct route_map_index *index;
 	struct route_map_rule *rule;
 
-	vty_out(vty, "%s:\n", frr_protonameinst);
+	vty_out(vty, "route-map: %s Invoked: %" PRIu64 "\n",
+		map->name, map->applied);
 
 	for (index = map->head; index; index = index->next) {
-		vty_out(vty, "route-map %s, %s, sequence %d\n", map->name,
-			route_map_type_str(index->type), index->pref);
+		vty_out(vty, " %s, sequence %d Invoked %" PRIu64 "\n",
+			route_map_type_str(index->type), index->pref,
+			index->applied);
 
 		/* Description */
 		if (index->description)
@@ -903,6 +905,8 @@ static int sort_route_map(const void **map1, const void **map2)
 static int vty_show_route_map(struct vty *vty, const char *name)
 {
 	struct route_map *map;
+
+	vty_out(vty, "%s:\n", frr_protonameinst);
 
 	if (name) {
 		map = route_map_lookup_by_name(name);
@@ -1457,8 +1461,10 @@ route_map_result_t route_map_apply(struct route_map *map,
 	if (map == NULL)
 		return RMAP_DENYMATCH;
 
+	map->applied++;
 	for (index = map->head; index; index = index->next) {
 		/* Apply this index. */
+		index->applied++;
 		ret = route_map_apply_match(&index->match_list, prefix, type,
 					    object);
 
