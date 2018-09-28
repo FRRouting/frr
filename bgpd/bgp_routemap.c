@@ -548,6 +548,45 @@ struct route_map_rule_cmd route_match_ip_next_hop_prefix_list_cmd = {
 	route_match_ip_next_hop_prefix_list_compile,
 	route_match_ip_next_hop_prefix_list_free};
 
+/* `match ip next-hop type <blackhole>' */
+
+static route_map_result_t
+route_match_ip_next_hop_type(void *rule, const struct prefix *prefix,
+			     route_map_object_t type, void *object)
+{
+	struct bgp_info *bgp_info;
+
+	if (type == RMAP_BGP && prefix->family == AF_INET) {
+		bgp_info = (struct bgp_info *)object;
+		if (!bgp_info || !bgp_info->attr)
+			return RMAP_DENYMATCH;
+
+		/* If nexthop interface's index can't be resolved and nexthop is
+		   set to any address then mark it as type `blackhole`.
+		   This logic works for matching kernel/static routes like:
+		   `ip route add blackhole 10.0.0.1`. */
+		if (bgp_info->attr->nexthop.s_addr == INADDR_ANY
+		    && !bgp_info->attr->nh_ifindex)
+			return RMAP_MATCH;
+	}
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_ip_next_hop_type_compile(const char *arg)
+{
+	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+static void route_match_ip_next_hop_type_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static struct route_map_rule_cmd route_match_ip_next_hop_type_cmd = {
+	"ip next-hop type", route_match_ip_next_hop_type,
+	route_match_ip_next_hop_type_compile,
+	route_match_ip_next_hop_type_free};
+
 /* `match ip route-source prefix-list PREFIX_LIST' */
 
 static route_map_result_t
@@ -2371,6 +2410,53 @@ struct route_map_rule_cmd route_match_ipv6_address_prefix_list_cmd = {
 	"ipv6 address prefix-list", route_match_ipv6_address_prefix_list,
 	route_match_ipv6_address_prefix_list_compile,
 	route_match_ipv6_address_prefix_list_free};
+
+/* `match ipv6 next-hop type <TYPE>' */
+
+static route_map_result_t
+route_match_ipv6_next_hop_type(void *rule, const struct prefix *prefix,
+			      route_map_object_t type, void *object)
+{
+	struct bgp_info *bgp_info;
+	struct in6_addr *addr = rule;
+
+	if (type == RMAP_BGP && prefix->family == AF_INET6) {
+		bgp_info = (struct bgp_info *)object;
+		if (!bgp_info || !bgp_info->attr)
+			return RMAP_DENYMATCH;
+
+		if (IPV6_ADDR_SAME(&bgp_info->attr->mp_nexthop_global, addr)
+		    && !bgp_info->attr->nh_ifindex)
+			return RMAP_MATCH;
+	}
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_ipv6_next_hop_type_compile(const char *arg)
+{
+	struct in6_addr *address;
+	int ret;
+
+	address = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct in6_addr));
+
+	ret = inet_pton(AF_INET6, "::0", address);
+	if (!ret) {
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, address);
+		return NULL;
+	}
+
+	return address;
+}
+
+static void route_match_ipv6_next_hop_type_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+struct route_map_rule_cmd route_match_ipv6_next_hop_type_cmd = {
+	"ipv6 next-hop type", route_match_ipv6_next_hop_type,
+	route_match_ipv6_next_hop_type_compile,
+	route_match_ipv6_next_hop_type_free};
 
 /* `set ipv6 nexthop global IP_ADDRESS' */
 
@@ -4645,11 +4731,17 @@ void bgp_route_map_init(void)
 	route_map_match_ip_next_hop_prefix_list_hook(generic_match_add);
 	route_map_no_match_ip_next_hop_prefix_list_hook(generic_match_delete);
 
+	route_map_match_ip_next_hop_type_hook(generic_match_add);
+	route_map_no_match_ip_next_hop_type_hook(generic_match_delete);
+
 	route_map_match_ipv6_address_hook(generic_match_add);
 	route_map_no_match_ipv6_address_hook(generic_match_delete);
 
 	route_map_match_ipv6_address_prefix_list_hook(generic_match_add);
 	route_map_no_match_ipv6_address_prefix_list_hook(generic_match_delete);
+
+	route_map_match_ipv6_next_hop_type_hook(generic_match_add);
+	route_map_no_match_ipv6_next_hop_type_hook(generic_match_delete);
 
 	route_map_match_metric_hook(generic_match_add);
 	route_map_no_match_metric_hook(generic_match_delete);
@@ -4676,6 +4768,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_ip_route_source_cmd);
 	route_map_install_match(&route_match_ip_address_prefix_list_cmd);
 	route_map_install_match(&route_match_ip_next_hop_prefix_list_cmd);
+	route_map_install_match(&route_match_ip_next_hop_type_cmd);
 	route_map_install_match(&route_match_ip_route_source_prefix_list_cmd);
 	route_map_install_match(&route_match_aspath_cmd);
 	route_map_install_match(&route_match_community_cmd);
@@ -4791,6 +4884,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_ipv6_address_cmd);
 	route_map_install_match(&route_match_ipv6_next_hop_cmd);
 	route_map_install_match(&route_match_ipv6_address_prefix_list_cmd);
+	route_map_install_match(&route_match_ipv6_next_hop_type_cmd);
 	route_map_install_set(&route_set_ipv6_nexthop_global_cmd);
 	route_map_install_set(&route_set_ipv6_nexthop_prefer_global_cmd);
 	route_map_install_set(&route_set_ipv6_nexthop_local_cmd);
