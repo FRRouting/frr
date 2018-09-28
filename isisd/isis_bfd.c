@@ -30,6 +30,7 @@
 #include "isisd/isis_constants.h"
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_circuit.h"
+#include "isisd/isisd.h"
 #include "isisd/fabricd.h"
 
 static int isis_bfd_interface_dest_update(int command, struct zclient *zclient,
@@ -72,6 +73,25 @@ void isis_bfd_circuit_param_set(struct isis_circuit *circuit,
 		isis_bfd_circuit_cmd(circuit, command);
 }
 
+static int bfd_circuit_write_settings(struct isis_circuit *circuit,
+				      struct vty *vty)
+{
+	struct bfd_info *bfd_info = circuit->bfd_info;
+
+	if (!bfd_info)
+		return 0;
+
+#if HAVE_BFDD == 0
+	if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG)) {
+		vty_out(vty, " %s bfd %" PRIu8 " %" PRIu32 " %" PRIu32 "\n",
+			PROTO_NAME, bfd_info->detect_mult,
+			bfd_info->required_min_rx, bfd_info->desired_min_tx);
+	} else
+#endif
+		vty_out(vty, " %s bfd\n", PROTO_NAME);
+	return 1;
+}
+
 void isis_bfd_init(void)
 {
 	bfd_gbl_init();
@@ -80,4 +100,6 @@ void isis_bfd_init(void)
 	zclient->zebra_connected = isis_bfd_zebra_connected;
 	zclient->interface_bfd_dest_update = isis_bfd_interface_dest_update;
 	zclient->bfd_dest_replay = isis_bfd_nbr_replay;
+	hook_register(isis_circuit_config_write,
+		      bfd_circuit_write_settings);
 }
