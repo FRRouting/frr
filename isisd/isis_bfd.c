@@ -33,6 +33,33 @@
 #include "isisd/isisd.h"
 #include "isisd/fabricd.h"
 
+DEFINE_MTYPE_STATIC(ISISD, BFD_SESSION, "ISIS BFD Session")
+
+struct bfd_session {
+	struct in_addr dst_ip;
+	struct in_addr src_ip;
+};
+
+static struct bfd_session *bfd_session_new(struct in_addr *dst_ip,
+					   struct in_addr *src_ip)
+{
+	struct bfd_session *rv;
+
+	rv = XMALLOC(MTYPE_BFD_SESSION, sizeof(*rv));
+	rv->dst_ip = *dst_ip;
+	rv->src_ip = *src_ip;
+	return rv;
+}
+
+static void bfd_session_free(struct bfd_session **session)
+{
+	if (!*session)
+		return;
+
+	XFREE(MTYPE_BFD_SESSION, *session);
+	*session = NULL;
+}
+
 static int isis_bfd_interface_dest_update(int command, struct zclient *zclient,
 					  zebra_size_t length, vrf_id_t vrf_id)
 {
@@ -55,9 +82,102 @@ static void isis_bfd_zebra_connected(struct zclient *zclient)
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 }
 
+static void bfd_handle_adj_down(struct isis_adjacency *adj)
+{
+	if (!adj->bfd_session)
+		return;
+
+	bfd_peer_sendmsg(zclient, NULL, AF_INET,
+			 &adj->bfd_session->dst_ip,
+			 &adj->bfd_session->src_ip,
+			 adj->circuit->interface->name,
+			 0, /* ttl */
+			 0, /* multihop */
+			 ZEBRA_BFD_DEST_DEREGISTER,
+			 0, /* set_flag */
+			 VRF_DEFAULT);
+	bfd_session_free(&adj->bfd_session);
+}
+
+static void bfd_handle_adj_up(struct isis_adjacency *adj, int command)
+{
+	struct isis_circuit *circuit = adj->circuit;
+
+	if (!circuit->bfd_info
+	    || !circuit->ip_router
+	    || !adj->ipv4_address_count)
+		goto out;
+
+	struct list *local_ips = fabricd_ip_addrs(adj->circuit);
+	if (!local_ips)
+		goto out;
+
+	struct in_addr *dst_ip = &adj->ipv4_addresses[0];
+	struct prefix_ipv4 *local_ip = listgetdata(listhead(local_ips));
+	struct in_addr *src_ip = &local_ip->prefix;
+
+	if (adj->bfd_session) {
+		if (adj->bfd_session->dst_ip.s_addr != dst_ip->s_addr
+		    || adj->bfd_session->src_ip.s_addr != src_ip->s_addr)
+			bfd_handle_adj_down(adj);
+	}
+
+	if (!adj->bfd_session)
+		adj->bfd_session = bfd_session_new(dst_ip, src_ip);
+
+	bfd_peer_sendmsg(zclient, circuit->bfd_info, AF_INET,
+			 &adj->bfd_session->dst_ip,
+			 &adj->bfd_session->src_ip,
+			 circuit->interface->name,
+			 0, /* ttl */
+			 0, /* multihop */
+			 command,
+			 0, /* set flag */
+			 VRF_DEFAULT);
+	return;
+out:
+	bfd_handle_adj_down(adj);
+}
+
+static int bfd_handle_adj_state_change(struct isis_adjacency *adj)
+{
+	if (adj->adj_state == ISIS_ADJ_UP)
+		bfd_handle_adj_up(adj, ZEBRA_BFD_DEST_REGISTER);
+	else
+		bfd_handle_adj_down(adj);
+	return 0;
+}
+
+static void bfd_adj_cmd(struct isis_adjacency *adj, int command)
+{
+	if (adj->adj_state == ISIS_ADJ_UP
+	    && command != ZEBRA_BFD_DEST_DEREGISTER) {
+		bfd_handle_adj_up(adj, command);
+	} else {
+		bfd_handle_adj_down(adj);
+	}
+}
+
 void isis_bfd_circuit_cmd(struct isis_circuit *circuit, int command)
 {
-	return;
+	switch (circuit->circ_type) {
+	case CIRCUIT_T_BROADCAST:
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+			struct list *adjdb = circuit->u.bc.adjdb[level - 1];
+
+			struct listnode *node;
+			struct isis_adjacency *adj;
+			for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj))
+				bfd_adj_cmd(adj, command);
+		}
+		break;
+	case CIRCUIT_T_P2P:
+		if (circuit->u.p2p.neighbor)
+			bfd_adj_cmd(circuit->u.p2p.neighbor, command);
+		break;
+	default:
+		break;
+	}
 }
 
 void isis_bfd_circuit_param_set(struct isis_circuit *circuit,
@@ -100,6 +220,8 @@ void isis_bfd_init(void)
 	zclient->zebra_connected = isis_bfd_zebra_connected;
 	zclient->interface_bfd_dest_update = isis_bfd_interface_dest_update;
 	zclient->bfd_dest_replay = isis_bfd_nbr_replay;
+	hook_register(isis_adj_state_change_hook,
+		      bfd_handle_adj_state_change);
 	hook_register(isis_circuit_config_write,
 		      bfd_circuit_write_settings);
 }
