@@ -63,6 +63,23 @@ static void bfd_session_free(struct bfd_session **session)
 static int isis_bfd_interface_dest_update(int command, struct zclient *zclient,
 					  zebra_size_t length, vrf_id_t vrf_id)
 {
+	struct interface *ifp;
+	struct prefix dst_ip;
+	int status;
+
+	ifp = bfd_get_peer_info(zclient->ibuf, &dst_ip, NULL, &status, vrf_id);
+	if (!ifp || dst_ip.family != AF_INET)
+		return 0;
+
+	if (isis->debugs & DEBUG_BFD) {
+		char dst_buf[INET6_ADDRSTRLEN];
+		inet_ntop(AF_INET, &dst_ip.u.prefix4,
+			  dst_buf, sizeof(dst_buf));
+
+		zlog_debug("ISIS-BFD: Received update for %s on %s: Changed state to %s",
+			   dst_buf, ifp->name, bfd_get_status_str(status));
+	}
+
 	return 0;
 }
 
@@ -74,6 +91,9 @@ static int isis_bfd_nbr_replay(int command, struct zclient *zclient,
 	struct listnode *anode;
 	struct isis_area *area;
 
+	if (isis->debugs & DEBUG_BFD)
+		zlog_debug("ISIS-BFD: Got neighbor replay request, resending neighbors.");
+
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
 		struct listnode *cnode;
 		struct isis_circuit *circuit;
@@ -81,6 +101,9 @@ static int isis_bfd_nbr_replay(int command, struct zclient *zclient,
 		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
 			isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_UPDATE);
 	}
+
+	if (isis->debugs & DEBUG_BFD)
+		zlog_debug("ISIS-BFD: Done with replay.");
 
 	return 0;
 }
@@ -94,10 +117,46 @@ static void isis_bfd_zebra_connected(struct zclient *zclient)
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 }
 
+static void bfd_debug(struct in_addr *dst, struct in_addr *src,
+		      const char *interface, int command)
+{
+	if (!(isis->debugs & DEBUG_BFD))
+		return;
+
+	char dst_str[INET6_ADDRSTRLEN];
+	char src_str[INET6_ADDRSTRLEN];
+
+	inet_ntop(AF_INET, dst, dst_str, sizeof(dst_str));
+	inet_ntop(AF_INET, src, src_str, sizeof(src_str));
+
+	const char *command_str;
+
+	switch (command) {
+	case ZEBRA_BFD_DEST_REGISTER:
+		command_str = "Register";
+		break;
+	case ZEBRA_BFD_DEST_DEREGISTER:
+		command_str = "Deregister";
+		break;
+	case ZEBRA_BFD_DEST_UPDATE:
+		command_str = "Update";
+		break;
+	default:
+		command_str = "Unknown-Cmd";
+		break;
+	}
+
+	zlog_debug("ISIS-BFD: %s peer %s on %s (src %s)",
+		   command_str, dst_str, interface, src_str);
+}
+
 static void bfd_handle_adj_down(struct isis_adjacency *adj)
 {
 	if (!adj->bfd_session)
 		return;
+
+	bfd_debug(&adj->bfd_session->dst_ip, &adj->bfd_session->src_ip,
+		  adj->circuit->interface->name, ZEBRA_BFD_DEST_DEREGISTER);
 
 	bfd_peer_sendmsg(zclient, NULL, AF_INET,
 			 &adj->bfd_session->dst_ip,
@@ -137,6 +196,8 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, int command)
 	if (!adj->bfd_session)
 		adj->bfd_session = bfd_session_new(dst_ip, src_ip);
 
+	bfd_debug(&adj->bfd_session->dst_ip, &adj->bfd_session->src_ip,
+		  circuit->interface->name, command);
 	bfd_peer_sendmsg(zclient, circuit->bfd_info, AF_INET,
 			 &adj->bfd_session->dst_ip,
 			 &adj->bfd_session->src_ip,
