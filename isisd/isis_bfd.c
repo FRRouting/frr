@@ -38,6 +38,7 @@ DEFINE_MTYPE_STATIC(ISISD, BFD_SESSION, "ISIS BFD Session")
 struct bfd_session {
 	struct in_addr dst_ip;
 	struct in_addr src_ip;
+	int status;
 };
 
 static struct bfd_session *bfd_session_new(struct in_addr *dst_ip,
@@ -45,7 +46,7 @@ static struct bfd_session *bfd_session_new(struct in_addr *dst_ip,
 {
 	struct bfd_session *rv;
 
-	rv = XMALLOC(MTYPE_BFD_SESSION, sizeof(*rv));
+	rv = XCALLOC(MTYPE_BFD_SESSION, sizeof(*rv));
 	rv->dst_ip = *dst_ip;
 	rv->src_ip = *src_ip;
 	return rv;
@@ -58,6 +59,40 @@ static void bfd_session_free(struct bfd_session **session)
 
 	XFREE(MTYPE_BFD_SESSION, *session);
 	*session = NULL;
+}
+
+static void bfd_adj_event(struct isis_adjacency *adj, struct prefix *dst,
+			  int new_status)
+{
+	if (!adj->bfd_session)
+		return;
+
+	if (adj->bfd_session->dst_ip.s_addr != dst->u.prefix4.s_addr)
+		return;
+
+	int old_status = adj->bfd_session->status;
+	adj->bfd_session->status = new_status;
+
+	if (old_status == new_status)
+		return;
+
+	if (isis->debugs & DEBUG_BFD) {
+		char dst_str[INET6_ADDRSTRLEN];
+
+		inet_ntop(AF_INET, &adj->bfd_session->dst_ip,
+			  dst_str, sizeof(dst_str));
+		zlog_debug("ISIS-BFD: Peer %s on %s changed from %s to %s",
+			   dst_str, adj->circuit->interface->name,
+			   bfd_get_status_str(old_status),
+			   bfd_get_status_str(new_status));
+	}
+
+	if (old_status != BFD_STATUS_UP
+	    || new_status != BFD_STATUS_DOWN) {
+		return;
+	}
+
+	isis_adj_state_change(adj, ISIS_ADJ_DOWN, "bfd session went down");
 }
 
 static int isis_bfd_interface_dest_update(int command, struct zclient *zclient,
@@ -78,6 +113,27 @@ static int isis_bfd_interface_dest_update(int command, struct zclient *zclient,
 
 		zlog_debug("ISIS-BFD: Received update for %s on %s: Changed state to %s",
 			   dst_buf, ifp->name, bfd_get_status_str(status));
+	}
+
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		return 0;
+
+	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+			struct list *adjdb = circuit->u.bc.adjdb[level - 1];
+
+			struct listnode *node, *nnode;
+			struct isis_adjacency *adj;
+
+			for (ALL_LIST_ELEMENTS(adjdb, node, nnode, adj))
+				bfd_adj_event(adj, &dst_ip, status);
+		}
+	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
+		if (circuit->u.p2p.neighbor) {
+			bfd_adj_event(circuit->u.p2p.neighbor,
+				      &dst_ip, status);
+		}
 	}
 
 	return 0;
