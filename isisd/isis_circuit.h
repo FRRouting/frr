@@ -65,6 +65,8 @@ struct isis_p2p_info {
 	struct thread *t_send_p2p_hello; /* send P2P IIHs in this thread  */
 };
 
+struct bfd_info;
+
 struct isis_circuit {
 	int state;
 	uint8_t circuit_id;	  /* l1/l2 bcast CircuitID */
@@ -127,6 +129,7 @@ struct isis_circuit {
 #define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
 	uint8_t flags;
 	bool disable_threeway_adj;
+	struct bfd_info *bfd_info;
 	/*
 	 * Counters as in 10589--11.2.5.9
 	 */

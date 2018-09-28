@@ -26,6 +26,11 @@
 
 #include "isisd/isis_bfd.h"
 #include "isisd/isis_zebra.h"
+#include "isisd/isis_common.h"
+#include "isisd/isis_constants.h"
+#include "isisd/isis_adjacency.h"
+#include "isisd/isis_circuit.h"
+#include "isisd/fabricd.h"
 
 static int isis_bfd_interface_dest_update(int command, struct zclient *zclient,
 					  zebra_size_t length, vrf_id_t vrf_id)
@@ -47,6 +52,24 @@ static void isis_bfd_zebra_connected(struct zclient *zclient)
 		orig_zebra_connected(zclient);
 
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+}
+
+void isis_bfd_circuit_cmd(struct isis_circuit *circuit, int command)
+{
+	return;
+}
+
+void isis_bfd_circuit_param_set(struct isis_circuit *circuit,
+				uint32_t min_rx, uint32_t min_tx,
+				uint32_t detect_mult, int defaults)
+{
+	int command = 0;
+
+	bfd_set_param(&circuit->bfd_info, min_rx,
+		      min_tx, detect_mult, defaults, &command);
+
+	if (command)
+		isis_bfd_circuit_cmd(circuit, command);
 }
 
 void isis_bfd_init(void)
