@@ -193,4 +193,8 @@ ferr_r isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit,
 int isis_circuit_mt_enabled_set(struct isis_circuit *circuit, uint16_t mtid,
 				bool enabled);
 
+DECLARE_HOOK(isis_circuit_config_write,
+	    (struct isis_circuit *circuit, struct vty *vty),
+	    (circuit, vty))
+
 #endif /* _ZEBRA_ISIS_CIRCUIT_H */

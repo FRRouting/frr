@@ -302,7 +302,7 @@ circuit_get_mt_setting(struct isis_circuit *circuit, uint16_t mtid)
 	return setting;
 }
 
-int circuit_write_mt_settings(struct isis_circuit *circuit, struct vty *vty)
+static int circuit_write_mt_settings(struct isis_circuit *circuit, struct vty *vty)
 {
 	int written = 0;
 	struct listnode *node;
@@ -550,4 +550,10 @@ void tlvs_add_mt_p2p(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
 
 	tlvs_add_mt_set(circuit->area, tlvs, adj->mt_count, adj->mt_set, id,
 			metric, subtlvs, subtlv_len);
+}
+
+void mt_init(void)
+{
+	hook_register(isis_circuit_config_write,
+		      circuit_write_mt_settings);
 }

@@ -57,6 +57,7 @@
 #include "isisd/isis_vty_common.h"
 #include "isisd/isis_bfd.h"
 #include "isisd/isis_lsp.h"
+#include "isisd/isis_mt.h"
 
 /* Default configuration file name */
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
@@ -216,6 +217,7 @@ int main(int argc, char **argv, char **envp)
 	isis_route_map_init();
 	isis_mpls_te_init();
 	lsp_init();
+	mt_init();
 
 	/* create the global 'isis' instance */
 	isis_new(1);
