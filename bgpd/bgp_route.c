@@ -5478,6 +5478,9 @@ static int bgp_aggregate_info_same(struct bgp_info *ri, uint8_t origin,
 	if (!community_cmp(ri->attr->community, comm))
 		return 0;
 
+	if (!CHECK_FLAG(ri->flags, BGP_INFO_VALID))
+		return 0;
+
 	return 1;
 }
 
