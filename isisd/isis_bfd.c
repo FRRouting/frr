@@ -70,6 +70,18 @@ static int isis_bfd_nbr_replay(int command, struct zclient *zclient,
 			       zebra_size_t length, vrf_id_t vrf_id)
 {
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+
+	struct listnode *anode;
+	struct isis_area *area;
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+		struct listnode *cnode;
+		struct isis_circuit *circuit;
+
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit))
+			isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_UPDATE);
+	}
+
 	return 0;
 }
 
