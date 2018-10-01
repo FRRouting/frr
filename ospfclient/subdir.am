@@ -23,9 +23,21 @@ endif
 
 ospfclient_ospfclient_LDADD = \
 	ospfclient/libfrrospfapiclient.la \
-	lib/libfrr.la \
 	@LIBCAP@ \
 	# end
+
+if STATIC_BIN
+# libfrr is linked in through libfrrospfapiclient.  If we list it here too,
+# it gets linked twice and we get a ton of symbol collisions.
+
+else # !STATIC_BIN
+# For most systems we don't need this, except Debian, who patch their linker
+# to disallow transitive references *while* *als* not patching their libtool
+# to work appropriately.  RedHat has the same linker behaviour, but things
+# work as expected since they also patch libtool.
+ospfclient_ospfclient_LDADD += lib/libfrr.la
+endif
+
 ospfclient_ospfclient_SOURCES = \
 	ospfclient/ospfclient.c \
 	# end
