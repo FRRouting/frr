@@ -973,3 +973,25 @@ void frr_fini(void)
 		fclose(fp);
 	}
 }
+
+#ifdef INTERP
+static const char interp[]
+	__attribute__((section(".interp"), used)) = INTERP;
+#endif
+/*
+ * executable entry point for libfrr.so
+ *
+ * note that libc initialization is skipped for this so the set of functions
+ * that can be called is rather limited
+ */
+extern void _libfrr_version(void)
+	__attribute__((visibility("hidden"), noreturn));
+void _libfrr_version(void)
+{
+	const char banner[] =
+		FRR_FULL_NAME " " FRR_VERSION ".\n"
+		FRR_COPYRIGHT GIT_INFO "\n"
+		"configured with:\n    " FRR_CONFIG_ARGS "\n";
+	write(1, banner, sizeof(banner) - 1);
+	_exit(0);
+}

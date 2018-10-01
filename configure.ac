@@ -741,6 +741,20 @@ if test "x$with_pkg_git_version" = "xyes"; then
 fi
 AM_CONDITIONAL([GIT_VERSION], [test "x$with_pkg_git_version" = "xyes"])
 
+AC_CHECK_TOOL([OBJCOPY], [objcopy], [:])
+AC_CACHE_CHECK([for .interp value to use], [frr_cv_interp], [
+  frr_cv_interp=""
+  AC_LINK_IFELSE([AC_LANG_SOURCE([[int main() { return 0; }]])], [
+    if $OBJCOPY -j.interp -Obinary conftest conftest.interp; then
+      frr_cv_interp="`xargs -0 echo < conftest.interp`"
+    fi
+    test -f conftest.interp && rm conftest.interp
+  ])
+])
+if test -n "$frr_cv_interp"; then
+  AC_DEFINE_UNQUOTED(INTERP, ["$frr_cv_interp"], [.interp value])
+fi
+
 dnl ------------------------------------
 dnl Check C keywords and standard  types
 dnl ------------------------------------
