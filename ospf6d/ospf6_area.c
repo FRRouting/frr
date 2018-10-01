@@ -441,6 +441,7 @@ DEFUN (area_range,
 			SET_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
 		} else if (strmatch(argv[idx_type]->text, "advertise")) {
 			UNSET_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
+			cost = range->path.u.cost_config;
 		} else {
 			cost = strtoul(argv[5]->arg, NULL, 10);
 			UNSET_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);

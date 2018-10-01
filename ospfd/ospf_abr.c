@@ -196,6 +196,8 @@ int ospf_area_range_set(struct ospf *ospf, struct in_addr area_id,
 
 	range = ospf_area_range_lookup(area, p);
 	if (range != NULL) {
+		if (!CHECK_FLAG(advertise, OSPF_AREA_RANGE_ADVERTISE))
+			range->cost_config = OSPF_AREA_RANGE_COST_UNSPEC;
 		if ((CHECK_FLAG(range->flags, OSPF_AREA_RANGE_ADVERTISE)
 		     && !CHECK_FLAG(advertise, OSPF_AREA_RANGE_ADVERTISE))
 		    || (!CHECK_FLAG(range->flags, OSPF_AREA_RANGE_ADVERTISE)
@@ -209,8 +211,10 @@ int ospf_area_range_set(struct ospf *ospf, struct in_addr area_id,
 
 	if (CHECK_FLAG(advertise, OSPF_AREA_RANGE_ADVERTISE))
 		SET_FLAG(range->flags, OSPF_AREA_RANGE_ADVERTISE);
-	else
+	else {
 		UNSET_FLAG(range->flags, OSPF_AREA_RANGE_ADVERTISE);
+		range->cost_config = OSPF_AREA_RANGE_COST_UNSPEC;
+	}
 
 	return 1;
 }
