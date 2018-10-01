@@ -8386,6 +8386,9 @@ DEFUN (ospf_default_information_originate,
 	int metric = -1;
 	struct ospf_redist *red;
 	int idx = 0;
+	int cur_originate = ospf->default_originate;
+	int sameRtmap = 0;
+	char *rtmap = NULL;
 
 	red = ospf_redist_add(ospf, DEFAULT_ROUTE, 0);
 
@@ -8407,7 +8410,28 @@ DEFUN (ospf_default_information_originate,
 	idx = 1;
 	/* Get route-map */
 	if (argv_find(argv, argc, "WORD", &idx))
-		ospf_routemap_set(red, argv[idx]->arg);
+		rtmap = argv[idx]->arg;
+
+	/* To check ,if user is providing same route map */
+	if ((rtmap == ROUTEMAP_NAME(red)) ||
+	    (rtmap && ROUTEMAP_NAME(red)
+	    && (strcmp(rtmap, ROUTEMAP_NAME(red)) == 0)))
+		sameRtmap = 1;
+
+	/* Don't allow if the same lsa is aleardy originated. */
+	if ((sameRtmap)
+	    && (red->dmetric.type == type)
+	    && (red->dmetric.value == metric)
+	    && (cur_originate == default_originate))
+		return CMD_SUCCESS;
+
+	/* Updating Metric details */
+	red->dmetric.type = type;
+	red->dmetric.value = metric;
+
+	/* updating route map details */
+	if (rtmap)
+		ospf_routemap_set(red, rtmap);
 	else
 		ospf_routemap_unset(red);
 
