@@ -8306,7 +8306,6 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 	unsigned long output_count = 0;
 	unsigned long total_count = 0;
 	struct prefix *p;
-	char buf[BUFSIZ];
 	char buf2[BUFSIZ];
 	json_object *json_paths = NULL;
 	int first = 1;
@@ -8527,14 +8526,32 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				continue;
 
 			p = &rn->p;
-			sprintf(buf2, "%s/%d",
-				inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
-				p->prefixlen);
-			if (first)
-				vty_out(vty, "\"%s\": ", buf2);
-			else
-				vty_out(vty, ",\"%s\": ", buf2);
+			/* encode prefix */
+			if (p->family == AF_FLOWSPEC) {
+				char retstr[BGP_FLOWSPEC_STRING_DISPLAY_MAX];
 
+				bgp_fs_nlri_get_string((unsigned char *)
+						       p->u.prefix_flowspec.ptr,
+						       p->u.prefix_flowspec
+						       .prefixlen,
+						       retstr,
+						       NLRI_STRING_FORMAT_MIN,
+						       NULL);
+				if (first)
+					vty_out(vty, "\"%s/%d\": ",
+						retstr,
+						p->u.prefix_flowspec.prefixlen);
+				else
+					vty_out(vty, ",\"%s/%d\": ",
+						retstr,
+						p->u.prefix_flowspec.prefixlen);
+			} else {
+				prefix2str(p, buf2, sizeof(buf2));
+				if (first)
+					vty_out(vty, "\"%s\": ", buf2);
+				else
+					vty_out(vty, ",\"%s\": ", buf2);
+			}
 			vty_out(vty, "%s",
 				json_object_to_json_string(json_paths));
 			json_object_free(json_paths);
