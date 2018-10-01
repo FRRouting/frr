@@ -345,7 +345,7 @@ rbe_remove(const struct rb_type *t, struct rbt_tree *rbt, struct rb_entry *rbe)
 			else
 				RBE_RIGHT(tmp) = rbe;
 
-			rbe_if_augment(t, parent);
+			rbe_if_augment(t, tmp);
 		} else
 			RBH_ROOT(rbt) = rbe;
 
