@@ -187,7 +187,7 @@ int main(int argc, char **argv)
 	master = om->master;
 
 	/* Library inits. */
-	debug_init();
+	ospf_debug_init();
 	ospf_vrf_init();
 
 	access_list_init();
