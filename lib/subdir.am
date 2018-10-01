@@ -82,6 +82,7 @@ lib_libfrr_la_SOURCES = \
 	lib/workqueue.c \
 	lib/zclient.c \
 	lib/logicalrouter.c \
+	lib/lua.c \
 	# end
 
 vtysh_scan += \
@@ -190,6 +191,7 @@ pkginclude_HEADERS += \
 	lib/zclient.h \
 	lib/zebra.h \
 	lib/logicalrouter.h \
+	lib/lua.h \
 	lib/pbr.h \
 	# end
 
