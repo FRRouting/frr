@@ -56,7 +56,7 @@ doc/%/_build/man/man.stamp: doc/%/_build/.doctrees/environment.pickle
 		$(MKDIR_P) "$${subdoc}/_build/man"; touch $@.tmp; \
 		$(SPHINXBUILD) -a -q -b man -d "$${subdoc}/_build/.doctrees" \
 			$(ALLSPHINXOPTS) "$(top_srcdir)/$${subdoc}" "$${subdoc}/_build/man" && \
-			mv $@.tmp $@ \
+			mv -f $@.tmp $@ \
 	)
 
 #
