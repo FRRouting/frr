@@ -1004,6 +1004,7 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 
 	if (lsa->header->type == htons(OSPF6_LSTYPE_INTER_ROUTER)) {
 		/* To pass test suites */
+		assert(router_lsa);
 		if (!OSPF6_OPT_ISSET(router_lsa->options, OSPF6_OPT_R)
 		    || !OSPF6_OPT_ISSET(router_lsa->options, OSPF6_OPT_V6)) {
 			if (is_debug)
