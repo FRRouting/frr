@@ -235,8 +235,10 @@ However, the same AS can be used with different VRFs.
 .. note::
 
    The separated nature of VRFs makes it possible to peer a single *bgpd*
-   process to itself, on one machine. This can be used for prototyping and
-   other purposes.
+   process to itself, on one machine. Note that this can be done fully within
+   BGP without a corresponding VRF in the kernel or Zebra, which enables some
+   practical use cases such as :ref:`route reflectors <bgp-route-reflector>`
+   and route servers.
 
 Configuration of additional autonomous systems, or of a router that targets a
 specific VRF, is accomplished with the following command:
@@ -304,6 +306,8 @@ BGP views are almost the same as normal BGP processes, except that routes
 selected by BGP are not installed into the kernel routing table. The view
 functionality allows the exchange of BGP routing information without affecting
 the kernel routing tables.
+
+Peers configured within a view and their traffic exist within the default VRF.
 
 .. index:: router bgp AS-NUMBER view NAME
 .. clicmd:: router bgp AS-NUMBER view NAME
