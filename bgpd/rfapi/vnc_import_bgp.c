@@ -1010,13 +1010,13 @@ vnc_import_bgp_add_route_mode_nvegroup(struct bgp *bgp, struct prefix *prefix,
 	bgp_attr_dup(&hattr, attr); /* hattr becomes a ghost attr */
 
 	if (rmap) {
-		struct bgp_path_info binfo;
+		struct bgp_path_info path;
 		route_map_result_t ret;
 
-		memset(&binfo, 0, sizeof(binfo));
-		binfo.peer = peer;
-		binfo.attr = &hattr;
-		ret = route_map_apply(rmap, prefix, RMAP_BGP, &binfo);
+		memset(&path, 0, sizeof(path));
+		path.peer = peer;
+		path.attr = &hattr;
+		ret = route_map_apply(rmap, prefix, RMAP_BGP, &path);
 		if (ret == RMAP_DENYMATCH) {
 			bgp_attr_flush(&hattr);
 			vnc_zlog_debug_verbose(

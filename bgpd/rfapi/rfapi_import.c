@@ -499,7 +499,7 @@ int rfapiGetUnAddrOfVpnBi(struct bgp_path_info *bi, struct prefix *p)
 
 
 /*
- * Make a new bgp_info from gathered parameters
+ * Make a new bgp_path_info from gathered parameters
  */
 static struct bgp_path_info *rfapiBgpInfoCreate(struct attr *attr,
 						struct peer *peer, void *rfd,
@@ -532,7 +532,7 @@ static struct bgp_path_info *rfapiBgpInfoCreate(struct attr *attr,
 }
 
 /*
- * Frees bgp_info as used in import tables (parts are not
+ * Frees bgp_path_info as used in import tables (parts are not
  * allocated exactly the way they are in the main RIBs)
  */
 static void rfapiBgpInfoFree(struct bgp_path_info *goner)
@@ -930,9 +930,9 @@ static void rfapiImportTableFlush(struct rfapi_import_table *it)
 			 * Each route_node has:
 			 * aggregate: points to rfapi_it_extra with monitor
 			 * chain(s)
-			 * info: points to chain of bgp_info
+			 * info: points to chain of bgp_path_info
 			 */
-			/* free bgp_info and its children */
+			/* free bgp_path_info and its children */
 			rfapiBgpInfoChainFree(rn->info);
 			rn->info = NULL;
 
@@ -941,7 +941,7 @@ static void rfapiImportTableFlush(struct rfapi_import_table *it)
 
 		for (rn = agg_route_top(it->imported_encap[afi]); rn;
 		     rn = agg_route_next(rn)) {
-			/* free bgp_info and its children */
+			/* free bgp_path_info and its children */
 			rfapiBgpInfoChainFree(rn->info);
 			rn->info = NULL;
 
@@ -2934,7 +2934,7 @@ static int rfapiGetNexthop(struct attr *attr, struct prefix *prefix)
 }
 
 /*
- * import a bgp_info if its route target list intersects with the
+ * import a bgp_path_info if its route target list intersects with the
  * import table's route target list
  */
 static void rfapiBgpInfoFilteredImportEncap(
@@ -2943,10 +2943,10 @@ static void rfapiBgpInfoFilteredImportEncap(
 	struct prefix *p,
 	struct prefix *aux_prefix, /* Unused for encap routes */
 	afi_t afi, struct prefix_rd *prd,
-	struct attr *attr, /* part of bgp_info */
-	uint8_t type,      /* part of bgp_info */
-	uint8_t sub_type,  /* part of bgp_info */
-	uint32_t *label)   /* part of bgp_info */
+	struct attr *attr, /* part of bgp_path_info */
+	uint8_t type,      /* part of bgp_path_info */
+	uint8_t sub_type,  /* part of bgp_path_info */
+	uint32_t *label)   /* part of bgp_path_info */
 {
 	struct agg_table *rt = NULL;
 	struct agg_node *rn;
@@ -3071,7 +3071,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 		for (bi = rn->info; bi; bi = bi->next) {
 
 			/*
-			 * Does this bgp_info refer to the same route
+			 * Does this bgp_path_info refer to the same route
 			 * as we are trying to add?
 			 */
 			vnc_zlog_debug_verbose("%s: comparing BI %p", __func__,
@@ -3395,7 +3395,7 @@ static void rfapiExpireVpnNow(struct rfapi_import_table *it,
 
 
 /*
- * import a bgp_info if its route target list intersects with the
+ * import a bgp_path_info if its route target list intersects with the
  * import table's route target list
  */
 void rfapiBgpInfoFilteredImportVPN(
@@ -3404,10 +3404,10 @@ void rfapiBgpInfoFilteredImportVPN(
 	struct prefix *p,
 	struct prefix *aux_prefix, /* AFI_L2VPN: optional IP */
 	afi_t afi, struct prefix_rd *prd,
-	struct attr *attr, /* part of bgp_info */
-	uint8_t type,      /* part of bgp_info */
-	uint8_t sub_type,  /* part of bgp_info */
-	uint32_t *label)   /* part of bgp_info */
+	struct attr *attr, /* part of bgp_path_info */
+	uint8_t type,      /* part of bgp_path_info */
+	uint8_t sub_type,  /* part of bgp_path_info */
+	uint32_t *label)   /* part of bgp_path_info */
 {
 	struct agg_table *rt = NULL;
 	struct agg_node *rn;
@@ -3882,10 +3882,10 @@ static void rfapiBgpInfoFilteredImportBadSafi(
 	struct prefix *p,
 	struct prefix *aux_prefix, /* AFI_L2VPN: optional IP */
 	afi_t afi, struct prefix_rd *prd,
-	struct attr *attr, /* part of bgp_info */
-	uint8_t type,      /* part of bgp_info */
-	uint8_t sub_type,  /* part of bgp_info */
-	uint32_t *label)   /* part of bgp_info */
+	struct attr *attr, /* part of bgp_path_info */
+	uint8_t type,      /* part of bgp_path_info */
+	uint8_t sub_type,  /* part of bgp_path_info */
+	uint32_t *label)   /* part of bgp_path_info */
 {
 	vnc_zlog_debug_verbose("%s: Error, bad safi", __func__);
 }

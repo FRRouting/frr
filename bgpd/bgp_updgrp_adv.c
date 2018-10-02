@@ -429,7 +429,7 @@ bgp_advertise_clean_subgroup(struct update_subgroup *subgrp,
 
 void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 			      struct update_subgroup *subgrp, struct attr *attr,
-			      struct bgp_path_info *binfo)
+			      struct bgp_path_info *path)
 {
 	struct bgp_adj_out *adj = NULL;
 	struct bgp_advertise *adv;
@@ -438,10 +438,10 @@ void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 		return;
 
 	/* Look for adjacency information. */
-	adj = adj_lookup(rn, subgrp, binfo->addpath_tx_id);
+	adj = adj_lookup(rn, subgrp, path->addpath_tx_id);
 
 	if (!adj) {
-		adj = bgp_adj_out_alloc(subgrp, rn, binfo->addpath_tx_id);
+		adj = bgp_adj_out_alloc(subgrp, rn, path->addpath_tx_id);
 		if (!adj)
 			return;
 	}
@@ -452,9 +452,9 @@ void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 
 	adv = adj->adv;
 	adv->rn = rn;
-	assert(adv->binfo == NULL);
+	assert(adv->pathi == NULL);
 	/* bgp_path_info adj_out reference */
-	adv->binfo = bgp_path_info_lock(binfo);
+	adv->pathi = bgp_path_info_lock(path);
 
 	if (attr)
 		adv->baa = bgp_advertise_intern(subgrp->hash, attr);

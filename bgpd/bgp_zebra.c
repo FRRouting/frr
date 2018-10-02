@@ -2080,7 +2080,7 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 		break;
 	case ZAPI_IPSET_ENTRY_INSTALLED:
 		{
-		struct bgp_path_info *bgp_info;
+		struct bgp_path_info *path;
 		struct bgp_path_info_extra *extra;
 
 		bgp_pbime->installed = true;
@@ -2088,9 +2088,9 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Received IPSET_ENTRY_INSTALLED",
 				   __PRETTY_FUNCTION__);
-		/* link bgp_info to bpme */
-		bgp_info = (struct bgp_path_info *)bgp_pbime->bgp_info;
-		extra = bgp_path_info_extra_get(bgp_info);
+		/* link bgp_path_info to bpme */
+		path = (struct bgp_path_info *)bgp_pbime->path;
+		extra = bgp_path_info_extra_get(path);
 		if (extra->bgp_fs_pbr == NULL)
 			extra->bgp_fs_pbr = list_new();
 		listnode_add(extra->bgp_fs_pbr, bgp_pbime);

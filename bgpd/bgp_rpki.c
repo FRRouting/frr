@@ -217,12 +217,12 @@ static route_map_result_t route_match(void *rule, const struct prefix *prefix,
 				      route_map_object_t type, void *object)
 {
 	int *rpki_status = rule;
-	struct bgp_path_info *bgp_info;
+	struct bgp_path_info *path;
 
 	if (type == RMAP_BGP) {
-		bgp_info = object;
+		path = object;
 
-		if (rpki_validate_prefix(bgp_info->peer, bgp_info->attr, prefix)
+		if (rpki_validate_prefix(path->peer, path->attr, prefix)
 		    == *rpki_status) {
 			return RMAP_MATCH;
 		}
@@ -418,13 +418,13 @@ static void revalidate_bgp_node(struct bgp_node *bgp_node, afi_t afi,
 
 	for (ain = bgp_node->adj_in; ain; ain = ain->next) {
 		int ret;
-		struct bgp_path_info *bgp_info = bgp_node->info;
+		struct bgp_path_info *path = bgp_node->info;
 		mpls_label_t *label = NULL;
 		uint32_t num_labels = 0;
 
-		if (bgp_info && bgp_info->extra) {
-			label = bgp_info->extra->label;
-			num_labels = bgp_info->extra->num_labels;
+		if (path && path->extra) {
+			label = path->extra->label;
+			num_labels = path->extra->num_labels;
 		}
 		ret = bgp_update(ain->peer, &bgp_node->p, ain->addpath_rx_id,
 				 ain->attr, afi, safi, ZEBRA_ROUTE_BGP,

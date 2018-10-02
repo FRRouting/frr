@@ -253,7 +253,7 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 }
 
 void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
-			    struct bgp_path_info *binfo, int display,
+			    struct bgp_path_info *path, int display,
 			    json_object *json_paths)
 {
 	struct attr *attr;
@@ -274,9 +274,9 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 			else
 				json_nlri_path = json_paths;
 		}
-		if (display == NLRI_STRING_FORMAT_LARGE && binfo)
+		if (display == NLRI_STRING_FORMAT_LARGE && path)
 			vty_out(vty, "BGP flowspec entry: (flags 0x%x)\n",
-				binfo->flags);
+				path->flags);
 		bgp_fs_nlri_get_string((unsigned char *)
 				       p->u.prefix_flowspec.ptr,
 				       p->u.prefix_flowspec.prefixlen,
@@ -292,11 +292,11 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 		else if (json_paths && display == NLRI_STRING_FORMAT_JSON)
 			json_object_array_add(json_paths, json_nlri_path);
 	}
-	if (!binfo)
+	if (!path)
 		return;
-	if (binfo->attr && binfo->attr->ecommunity) {
+	if (path->attr && path->attr->ecommunity) {
 		/* Print attribute */
-		attr = binfo->attr;
+		attr = path->attr;
 		s = ecommunity_ecom2str(attr->ecommunity,
 					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 		if (!s)
@@ -318,7 +318,7 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 			vty_out(vty, "\tNH %-16s\n", inet_ntoa(attr->nexthop));
 		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
-	peer_uptime(binfo->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL);
+	peer_uptime(path->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL);
 	if (display == NLRI_STRING_FORMAT_LARGE) {
 		vty_out(vty, "\treceived for %8s\n", timebuf);
 	} else if (json_paths) {
@@ -330,7 +330,7 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 	}
 	if (display == NLRI_STRING_FORMAT_LARGE) {
 		struct bgp_path_info_extra *extra =
-			bgp_path_info_extra_get(binfo);
+			bgp_path_info_extra_get(path);
 
 		if (extra->bgp_fs_pbr) {
 			struct listnode *node;

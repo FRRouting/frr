@@ -452,7 +452,7 @@ extern void route_vty_out_tmp(struct vty *vty, struct prefix *p,
 			      struct attr *attr, safi_t safi, bool use_json,
 			      json_object *json_ar);
 extern void route_vty_out_overlay(struct vty *vty, struct prefix *p,
-				  struct bgp_path_info *binfo, int display,
+				  struct bgp_path_info *path, int display,
 				  json_object *json);
 
 extern int subgroup_process_announce_selected(struct update_subgroup *subgrp,
@@ -495,7 +495,7 @@ extern void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 					struct prefix_rd *prd, afi_t afi,
 					safi_t safi, json_object *json);
 extern void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
-				 struct prefix *p, struct bgp_path_info *binfo,
+				 struct prefix *p, struct bgp_path_info *path,
 				 afi_t afi, safi_t safi,
 				 json_object *json_paths);
 extern int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,

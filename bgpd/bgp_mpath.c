@@ -289,17 +289,17 @@ void bgp_path_info_mpath_free(struct bgp_path_info_mpath **mpath)
  * doing lazy allocation.
  */
 static struct bgp_path_info_mpath *
-bgp_path_info_mpath_get(struct bgp_path_info *binfo)
+bgp_path_info_mpath_get(struct bgp_path_info *path)
 {
 	struct bgp_path_info_mpath *mpath;
-	if (!binfo->mpath) {
+	if (!path->mpath) {
 		mpath = bgp_path_info_mpath_new();
 		if (!mpath)
 			return NULL;
-		binfo->mpath = mpath;
-		mpath->mp_info = binfo;
+		path->mpath = mpath;
+		mpath->mp_info = path;
 	}
-	return binfo->mpath;
+	return path->mpath;
 }
 
 /*
@@ -309,12 +309,12 @@ bgp_path_info_mpath_get(struct bgp_path_info *binfo)
  * list entry
  */
 static void bgp_path_info_mpath_enqueue(struct bgp_path_info *prev_info,
-					struct bgp_path_info *binfo)
+					struct bgp_path_info *path)
 {
 	struct bgp_path_info_mpath *prev, *mpath;
 
 	prev = bgp_path_info_mpath_get(prev_info);
-	mpath = bgp_path_info_mpath_get(binfo);
+	mpath = bgp_path_info_mpath_get(path);
 	if (!prev || !mpath)
 		return;
 
@@ -324,7 +324,7 @@ static void bgp_path_info_mpath_enqueue(struct bgp_path_info *prev_info,
 		prev->mp_next->mp_prev = mpath;
 	prev->mp_next = mpath;
 
-	SET_FLAG(binfo->flags, BGP_PATH_MULTIPATH);
+	SET_FLAG(path->flags, BGP_PATH_MULTIPATH);
 }
 
 /*
@@ -332,9 +332,9 @@ static void bgp_path_info_mpath_enqueue(struct bgp_path_info *prev_info,
  *
  * Remove a path from the multipath list
  */
-void bgp_path_info_mpath_dequeue(struct bgp_path_info *binfo)
+void bgp_path_info_mpath_dequeue(struct bgp_path_info *path)
 {
-	struct bgp_path_info_mpath *mpath = binfo->mpath;
+	struct bgp_path_info_mpath *mpath = path->mpath;
 	if (!mpath)
 		return;
 	if (mpath->mp_prev)
@@ -342,7 +342,7 @@ void bgp_path_info_mpath_dequeue(struct bgp_path_info *binfo)
 	if (mpath->mp_next)
 		mpath->mp_next->mp_prev = mpath->mp_prev;
 	mpath->mp_next = mpath->mp_prev = NULL;
-	UNSET_FLAG(binfo->flags, BGP_PATH_MULTIPATH);
+	UNSET_FLAG(path->flags, BGP_PATH_MULTIPATH);
 }
 
 /*
@@ -350,11 +350,11 @@ void bgp_path_info_mpath_dequeue(struct bgp_path_info *binfo)
  *
  * Given a bgp_path_info, return the next multipath entry
  */
-struct bgp_path_info *bgp_path_info_mpath_next(struct bgp_path_info *binfo)
+struct bgp_path_info *bgp_path_info_mpath_next(struct bgp_path_info *path)
 {
-	if (!binfo->mpath || !binfo->mpath->mp_next)
+	if (!path->mpath || !path->mpath->mp_next)
 		return NULL;
-	return binfo->mpath->mp_next->mp_info;
+	return path->mpath->mp_next->mp_info;
 }
 
 /*
@@ -362,9 +362,9 @@ struct bgp_path_info *bgp_path_info_mpath_next(struct bgp_path_info *binfo)
  *
  * Given bestpath bgp_path_info, return the first multipath entry.
  */
-struct bgp_path_info *bgp_path_info_mpath_first(struct bgp_path_info *binfo)
+struct bgp_path_info *bgp_path_info_mpath_first(struct bgp_path_info *path)
 {
-	return bgp_path_info_mpath_next(binfo);
+	return bgp_path_info_mpath_next(path);
 }
 
 /*
@@ -372,11 +372,11 @@ struct bgp_path_info *bgp_path_info_mpath_first(struct bgp_path_info *binfo)
  *
  * Given the bestpath bgp_path_info, return the number of multipath entries
  */
-uint32_t bgp_path_info_mpath_count(struct bgp_path_info *binfo)
+uint32_t bgp_path_info_mpath_count(struct bgp_path_info *path)
 {
-	if (!binfo->mpath)
+	if (!path->mpath)
 		return 0;
-	return binfo->mpath->mp_count;
+	return path->mpath->mp_count;
 }
 
 /*
@@ -384,13 +384,13 @@ uint32_t bgp_path_info_mpath_count(struct bgp_path_info *binfo)
  *
  * Sets the count of multipaths into bestpath's mpath element
  */
-static void bgp_path_info_mpath_count_set(struct bgp_path_info *binfo,
+static void bgp_path_info_mpath_count_set(struct bgp_path_info *path,
 					  uint32_t count)
 {
 	struct bgp_path_info_mpath *mpath;
-	if (!count && !binfo->mpath)
+	if (!count && !path->mpath)
 		return;
-	mpath = bgp_path_info_mpath_get(binfo);
+	mpath = bgp_path_info_mpath_get(path);
 	if (!mpath)
 		return;
 	mpath->mp_count = count;
@@ -402,11 +402,11 @@ static void bgp_path_info_mpath_count_set(struct bgp_path_info *binfo,
  * Given bestpath bgp_path_info, return aggregated attribute set used
  * for advertising the multipath route
  */
-struct attr *bgp_path_info_mpath_attr(struct bgp_path_info *binfo)
+struct attr *bgp_path_info_mpath_attr(struct bgp_path_info *path)
 {
-	if (!binfo->mpath)
+	if (!path->mpath)
 		return NULL;
-	return binfo->mpath->mp_attr;
+	return path->mpath->mp_attr;
 }
 
 /*
@@ -414,13 +414,13 @@ struct attr *bgp_path_info_mpath_attr(struct bgp_path_info *binfo)
  *
  * Sets the aggregated attribute into bestpath's mpath element
  */
-static void bgp_path_info_mpath_attr_set(struct bgp_path_info *binfo,
+static void bgp_path_info_mpath_attr_set(struct bgp_path_info *path,
 					 struct attr *attr)
 {
 	struct bgp_path_info_mpath *mpath;
-	if (!attr && !binfo->mpath)
+	if (!attr && !path->mpath)
 		return;
-	mpath = bgp_path_info_mpath_get(binfo);
+	mpath = bgp_path_info_mpath_get(path);
 	if (!mpath)
 		return;
 	mpath->mp_attr = attr;

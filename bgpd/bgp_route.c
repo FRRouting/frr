@@ -239,49 +239,49 @@ struct bgp_path_info *bgp_path_info_new(void)
 }
 
 /* Free bgp route information. */
-static void bgp_path_info_free(struct bgp_path_info *binfo)
+static void bgp_path_info_free(struct bgp_path_info *path)
 {
-	if (binfo->attr)
-		bgp_attr_unintern(&binfo->attr);
+	if (path->attr)
+		bgp_attr_unintern(&path->attr);
 
-	bgp_unlink_nexthop(binfo);
-	bgp_path_info_extra_free(&binfo->extra);
-	bgp_path_info_mpath_free(&binfo->mpath);
+	bgp_unlink_nexthop(path);
+	bgp_path_info_extra_free(&path->extra);
+	bgp_path_info_mpath_free(&path->mpath);
 
-	peer_unlock(binfo->peer); /* bgp_path_info peer reference */
+	peer_unlock(path->peer); /* bgp_path_info peer reference */
 
-	XFREE(MTYPE_BGP_ROUTE, binfo);
+	XFREE(MTYPE_BGP_ROUTE, path);
 }
 
-struct bgp_path_info *bgp_path_info_lock(struct bgp_path_info *binfo)
+struct bgp_path_info *bgp_path_info_lock(struct bgp_path_info *path)
 {
-	binfo->lock++;
-	return binfo;
+	path->lock++;
+	return path;
 }
 
-struct bgp_path_info *bgp_path_info_unlock(struct bgp_path_info *binfo)
+struct bgp_path_info *bgp_path_info_unlock(struct bgp_path_info *path)
 {
-	assert(binfo && binfo->lock > 0);
-	binfo->lock--;
+	assert(path && path->lock > 0);
+	path->lock--;
 
-	if (binfo->lock == 0) {
+	if (path->lock == 0) {
 #if 0
       zlog_debug ("%s: unlocked and freeing", __func__);
       zlog_backtrace (LOG_DEBUG);
 #endif
-		bgp_path_info_free(binfo);
+		bgp_path_info_free(path);
 		return NULL;
 	}
 
 #if 0
-  if (binfo->lock == 1)
+  if (path->lock == 1)
     {
       zlog_debug ("%s: unlocked to 1", __func__);
       zlog_backtrace (LOG_DEBUG);
     }
 #endif
 
-	return binfo;
+	return path;
 }
 
 void bgp_path_info_add(struct bgp_node *rn, struct bgp_path_info *ri)
@@ -6355,41 +6355,41 @@ enum bgp_display_type {
 
 /* Print the short form route status for a bgp_path_info */
 static void route_vty_short_status_out(struct vty *vty,
-				       struct bgp_path_info *binfo,
+				       struct bgp_path_info *path,
 				       json_object *json_path)
 {
 	if (json_path) {
 
 		/* Route status display. */
-		if (CHECK_FLAG(binfo->flags, BGP_PATH_REMOVED))
+		if (CHECK_FLAG(path->flags, BGP_PATH_REMOVED))
 			json_object_boolean_true_add(json_path, "removed");
 
-		if (CHECK_FLAG(binfo->flags, BGP_PATH_STALE))
+		if (CHECK_FLAG(path->flags, BGP_PATH_STALE))
 			json_object_boolean_true_add(json_path, "stale");
 
-		if (binfo->extra && binfo->extra->suppress)
+		if (path->extra && path->extra->suppress)
 			json_object_boolean_true_add(json_path, "suppressed");
 
-		if (CHECK_FLAG(binfo->flags, BGP_PATH_VALID)
-		    && !CHECK_FLAG(binfo->flags, BGP_PATH_HISTORY))
+		if (CHECK_FLAG(path->flags, BGP_PATH_VALID)
+		    && !CHECK_FLAG(path->flags, BGP_PATH_HISTORY))
 			json_object_boolean_true_add(json_path, "valid");
 
 		/* Selected */
-		if (CHECK_FLAG(binfo->flags, BGP_PATH_HISTORY))
+		if (CHECK_FLAG(path->flags, BGP_PATH_HISTORY))
 			json_object_boolean_true_add(json_path, "history");
 
-		if (CHECK_FLAG(binfo->flags, BGP_PATH_DAMPED))
+		if (CHECK_FLAG(path->flags, BGP_PATH_DAMPED))
 			json_object_boolean_true_add(json_path, "damped");
 
-		if (CHECK_FLAG(binfo->flags, BGP_PATH_SELECTED))
+		if (CHECK_FLAG(path->flags, BGP_PATH_SELECTED))
 			json_object_boolean_true_add(json_path, "bestpath");
 
-		if (CHECK_FLAG(binfo->flags, BGP_PATH_MULTIPATH))
+		if (CHECK_FLAG(path->flags, BGP_PATH_MULTIPATH))
 			json_object_boolean_true_add(json_path, "multipath");
 
 		/* Internal route. */
-		if ((binfo->peer->as)
-		    && (binfo->peer->as == binfo->peer->local_as))
+		if ((path->peer->as)
+		    && (path->peer->as == path->peer->local_as))
 			json_object_string_add(json_path, "pathFrom",
 					       "internal");
 		else
@@ -6400,33 +6400,33 @@ static void route_vty_short_status_out(struct vty *vty,
 	}
 
 	/* Route status display. */
-	if (CHECK_FLAG(binfo->flags, BGP_PATH_REMOVED))
+	if (CHECK_FLAG(path->flags, BGP_PATH_REMOVED))
 		vty_out(vty, "R");
-	else if (CHECK_FLAG(binfo->flags, BGP_PATH_STALE))
+	else if (CHECK_FLAG(path->flags, BGP_PATH_STALE))
 		vty_out(vty, "S");
-	else if (binfo->extra && binfo->extra->suppress)
+	else if (path->extra && path->extra->suppress)
 		vty_out(vty, "s");
-	else if (CHECK_FLAG(binfo->flags, BGP_PATH_VALID)
-		 && !CHECK_FLAG(binfo->flags, BGP_PATH_HISTORY))
+	else if (CHECK_FLAG(path->flags, BGP_PATH_VALID)
+		 && !CHECK_FLAG(path->flags, BGP_PATH_HISTORY))
 		vty_out(vty, "*");
 	else
 		vty_out(vty, " ");
 
 	/* Selected */
-	if (CHECK_FLAG(binfo->flags, BGP_PATH_HISTORY))
+	if (CHECK_FLAG(path->flags, BGP_PATH_HISTORY))
 		vty_out(vty, "h");
-	else if (CHECK_FLAG(binfo->flags, BGP_PATH_DAMPED))
+	else if (CHECK_FLAG(path->flags, BGP_PATH_DAMPED))
 		vty_out(vty, "d");
-	else if (CHECK_FLAG(binfo->flags, BGP_PATH_SELECTED))
+	else if (CHECK_FLAG(path->flags, BGP_PATH_SELECTED))
 		vty_out(vty, ">");
-	else if (CHECK_FLAG(binfo->flags, BGP_PATH_MULTIPATH))
+	else if (CHECK_FLAG(path->flags, BGP_PATH_MULTIPATH))
 		vty_out(vty, "=");
 	else
 		vty_out(vty, " ");
 
 	/* Internal route. */
-	if (binfo->peer && (binfo->peer->as)
-	    && (binfo->peer->as == binfo->peer->local_as))
+	if (path->peer && (path->peer->as)
+	    && (path->peer->as == path->peer->local_as))
 		vty_out(vty, "i");
 	else
 		vty_out(vty, " ");
@@ -6434,7 +6434,7 @@ static void route_vty_short_status_out(struct vty *vty,
 
 /* called from terminal list command */
 void route_vty_out(struct vty *vty, struct prefix *p,
-		   struct bgp_path_info *binfo, int display, safi_t safi,
+		   struct bgp_path_info *path, int display, safi_t safi,
 		   json_object *json_paths)
 {
 	struct attr *attr;
@@ -6444,7 +6444,7 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 	json_object *json_nexthop_ll = NULL;
 	char vrf_id_str[VRF_NAMSIZ] = {0};
 	bool nexthop_self =
-		CHECK_FLAG(binfo->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
+		CHECK_FLAG(path->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
 	bool nexthop_othervrf = false;
 	vrf_id_t nexthop_vrfid = VRF_DEFAULT;
 	const char *nexthop_vrfname = "Default";
@@ -6453,7 +6453,7 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 		json_path = json_object_new_object();
 
 	/* short status lead text */
-	route_vty_short_status_out(vty, binfo, json_path);
+	route_vty_short_status_out(vty, path, json_path);
 
 	if (!json_paths) {
 		/* print prefix and mask */
@@ -6466,7 +6466,7 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 	}
 
 	/* Print attribute */
-	attr = binfo->attr;
+	attr = path->attr;
 	if (!attr) {
 		if (json_paths)
 			json_object_array_add(json_paths, json_path);
@@ -6480,26 +6480,26 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 	 * If vrf id of nexthop is different from that of prefix,
 	 * set up printable string to append
 	 */
-	if (binfo->extra && binfo->extra->bgp_orig) {
+	if (path->extra && path->extra->bgp_orig) {
 		const char *self = "";
 
 		if (nexthop_self)
 			self = "<";
 
 		nexthop_othervrf = true;
-		nexthop_vrfid = binfo->extra->bgp_orig->vrf_id;
+		nexthop_vrfid = path->extra->bgp_orig->vrf_id;
 
-		if (binfo->extra->bgp_orig->vrf_id == VRF_UNKNOWN)
+		if (path->extra->bgp_orig->vrf_id == VRF_UNKNOWN)
 			snprintf(vrf_id_str, sizeof(vrf_id_str),
 				"@%s%s", VRFID_NONE_STR, self);
 		else
 			snprintf(vrf_id_str, sizeof(vrf_id_str), "@%u%s",
-				binfo->extra->bgp_orig->vrf_id, self);
+				 path->extra->bgp_orig->vrf_id, self);
 
-		if (binfo->extra->bgp_orig->inst_type !=
-				BGP_INSTANCE_TYPE_DEFAULT)
+		if (path->extra->bgp_orig->inst_type
+		    != BGP_INSTANCE_TYPE_DEFAULT)
 
-			nexthop_vrfname = binfo->extra->bgp_orig->name;
+			nexthop_vrfname = path->extra->bgp_orig->name;
 	} else {
 		const char *self = "";
 
@@ -6625,7 +6625,7 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 			/* We display both LL & GL if both have been
 			 * received */
 			if ((attr->mp_nexthop_len == 32)
-			    || (binfo->peer->conf_if)) {
+			    || (path->peer->conf_if)) {
 				json_nexthop_ll = json_object_new_object();
 				json_object_string_add(
 					json_nexthop_ll, "ip",
@@ -6654,10 +6654,10 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 			 * prefer-global is set */
 			if (((attr->mp_nexthop_len == 32)
 			     && !attr->mp_nexthop_prefer_global)
-			    || (binfo->peer->conf_if)) {
-				if (binfo->peer->conf_if) {
+			    || (path->peer->conf_if)) {
+				if (path->peer->conf_if) {
 					len = vty_out(vty, "%s",
-						      binfo->peer->conf_if);
+						      path->peer->conf_if);
 					len = 16 - len; /* len of IPv6
 							   addr + max
 							   len of def
@@ -6727,7 +6727,7 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 		char buf[BUFSIZ];
 		json_object_string_add(
 			json_path, "peerId",
-			sockunion2str(&binfo->peer->su, buf, SU_ADDRSTRLEN));
+			sockunion2str(&path->peer->su, buf, SU_ADDRSTRLEN));
 	}
 
 	/* Print aspath */
@@ -6784,7 +6784,7 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 		/* prints an additional line, indented, with VNC info, if
 		 * present */
 		if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
-			rfapi_vty_out_vncinfo(vty, p, binfo, safi);
+			rfapi_vty_out_vncinfo(vty, p, path, safi);
 #endif
 	}
 }
@@ -6926,21 +6926,21 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 }
 
 void route_vty_out_tag(struct vty *vty, struct prefix *p,
-		       struct bgp_path_info *binfo, int display, safi_t safi,
+		       struct bgp_path_info *path, int display, safi_t safi,
 		       json_object *json)
 {
 	json_object *json_out = NULL;
 	struct attr *attr;
 	mpls_label_t label = MPLS_INVALID_LABEL;
 
-	if (!binfo->extra)
+	if (!path->extra)
 		return;
 
 	if (json)
 		json_out = json_object_new_object();
 
 	/* short status lead text */
-	route_vty_short_status_out(vty, binfo, json_out);
+	route_vty_short_status_out(vty, path, json_out);
 
 	/* print prefix and mask */
 	if (json == NULL) {
@@ -6951,7 +6951,7 @@ void route_vty_out_tag(struct vty *vty, struct prefix *p,
 	}
 
 	/* Print attribute */
-	attr = binfo->attr;
+	attr = path->attr;
 	if (attr) {
 		if (((p->family == AF_INET)
 		     && ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)))
@@ -7027,7 +7027,7 @@ void route_vty_out_tag(struct vty *vty, struct prefix *p,
 		}
 	}
 
-	label = decode_label(&binfo->extra->label[0]);
+	label = decode_label(&path->extra->label[0]);
 
 	if (bgp_is_valid_label(&label)) {
 		if (json) {
@@ -7041,7 +7041,7 @@ void route_vty_out_tag(struct vty *vty, struct prefix *p,
 }
 
 void route_vty_out_overlay(struct vty *vty, struct prefix *p,
-			   struct bgp_path_info *binfo, int display,
+			   struct bgp_path_info *path, int display,
 			   json_object *json_paths)
 {
 	struct attr *attr;
@@ -7051,11 +7051,11 @@ void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 	if (json_paths)
 		json_path = json_object_new_object();
 
-	if (!binfo->extra)
+	if (!path->extra)
 		return;
 
 	/* short status lead text */
-	route_vty_short_status_out(vty, binfo, json_path);
+	route_vty_short_status_out(vty, path, json_path);
 
 	/* print prefix and mask */
 	if (!display)
@@ -7064,7 +7064,7 @@ void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 		vty_out(vty, "%*s", 17, " ");
 
 	/* Print attribute */
-	attr = binfo->attr;
+	attr = path->attr;
 	if (attr) {
 		char buf1[BUFSIZ];
 		int af = NEXTHOP_FAMILY(attr->mp_nexthop_len);
@@ -7119,7 +7119,7 @@ void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 
 /* dampening route */
 static void damp_route_vty_out(struct vty *vty, struct prefix *p,
-			       struct bgp_path_info *binfo, int display,
+			       struct bgp_path_info *path, int display,
 			       safi_t safi, bool use_json, json_object *json)
 {
 	struct attr *attr;
@@ -7127,7 +7127,7 @@ static void damp_route_vty_out(struct vty *vty, struct prefix *p,
 	char timebuf[BGP_UPTIME_LEN];
 
 	/* short status lead text */
-	route_vty_short_status_out(vty, binfo, json);
+	route_vty_short_status_out(vty, path, json);
 
 	/* print prefix and mask */
 	if (!use_json) {
@@ -7137,7 +7137,7 @@ static void damp_route_vty_out(struct vty *vty, struct prefix *p,
 			vty_out(vty, "%*s", 17, " ");
 	}
 
-	len = vty_out(vty, "%s", binfo->peer->host);
+	len = vty_out(vty, "%s", path->peer->host);
 	len = 17 - len;
 	if (len < 1) {
 		if (!use_json)
@@ -7150,15 +7150,16 @@ static void damp_route_vty_out(struct vty *vty, struct prefix *p,
 	}
 
 	if (use_json)
-		bgp_damp_reuse_time_vty(vty, binfo, timebuf, BGP_UPTIME_LEN,
+		bgp_damp_reuse_time_vty(vty, path, timebuf, BGP_UPTIME_LEN,
 					use_json, json);
 	else
-		vty_out(vty, "%s ", bgp_damp_reuse_time_vty(vty, binfo, timebuf,
-							    BGP_UPTIME_LEN,
-							    use_json, json));
+		vty_out(vty, "%s ",
+			bgp_damp_reuse_time_vty(vty, path, timebuf,
+						BGP_UPTIME_LEN, use_json,
+						json));
 
 	/* Print attribute */
-	attr = binfo->attr;
+	attr = path->attr;
 	if (attr) {
 		/* Print aspath */
 		if (attr->aspath) {
@@ -7182,7 +7183,7 @@ static void damp_route_vty_out(struct vty *vty, struct prefix *p,
 
 /* flap route */
 static void flap_route_vty_out(struct vty *vty, struct prefix *p,
-			       struct bgp_path_info *binfo, int display,
+			       struct bgp_path_info *path, int display,
 			       safi_t safi, bool use_json, json_object *json)
 {
 	struct attr *attr;
@@ -7190,13 +7191,13 @@ static void flap_route_vty_out(struct vty *vty, struct prefix *p,
 	char timebuf[BGP_UPTIME_LEN];
 	int len;
 
-	if (!binfo->extra)
+	if (!path->extra)
 		return;
 
-	bdi = binfo->extra->damp_info;
+	bdi = path->extra->damp_info;
 
 	/* short status lead text */
-	route_vty_short_status_out(vty, binfo, json);
+	route_vty_short_status_out(vty, path, json);
 
 	/* print prefix and mask */
 	if (!use_json) {
@@ -7206,7 +7207,7 @@ static void flap_route_vty_out(struct vty *vty, struct prefix *p,
 			vty_out(vty, "%*s", 17, " ");
 	}
 
-	len = vty_out(vty, "%s", binfo->peer->host);
+	len = vty_out(vty, "%s", path->peer->host);
 	len = 16 - len;
 	if (len < 1) {
 		if (!use_json)
@@ -7237,14 +7238,14 @@ static void flap_route_vty_out(struct vty *vty, struct prefix *p,
 		vty_out(vty, "%s ", peer_uptime(bdi->start_time, timebuf,
 						BGP_UPTIME_LEN, 0, NULL));
 
-	if (CHECK_FLAG(binfo->flags, BGP_PATH_DAMPED)
-	    && !CHECK_FLAG(binfo->flags, BGP_PATH_HISTORY)) {
+	if (CHECK_FLAG(path->flags, BGP_PATH_DAMPED)
+	    && !CHECK_FLAG(path->flags, BGP_PATH_HISTORY)) {
 		if (use_json)
-			bgp_damp_reuse_time_vty(vty, binfo, timebuf,
+			bgp_damp_reuse_time_vty(vty, path, timebuf,
 						BGP_UPTIME_LEN, use_json, json);
 		else
 			vty_out(vty, "%s ",
-				bgp_damp_reuse_time_vty(vty, binfo, timebuf,
+				bgp_damp_reuse_time_vty(vty, path, timebuf,
 							BGP_UPTIME_LEN,
 							use_json, json));
 	} else {
@@ -7253,7 +7254,7 @@ static void flap_route_vty_out(struct vty *vty, struct prefix *p,
 	}
 
 	/* Print attribute */
-	attr = binfo->attr;
+	attr = path->attr;
 	if (attr) {
 		/* Print aspath */
 		if (attr->aspath) {
@@ -7330,7 +7331,7 @@ static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
 }
 
 void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
-			  struct bgp_path_info *binfo, afi_t afi, safi_t safi,
+			  struct bgp_path_info *path, afi_t afi, safi_t safi,
 			  json_object *json_paths)
 {
 	char buf[INET6_ADDRSTRLEN];
@@ -7359,7 +7360,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 	int has_adj;
 	unsigned int first_as;
 	bool nexthop_self =
-		CHECK_FLAG(binfo->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
+		CHECK_FLAG(path->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -7373,19 +7374,18 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		bgp_evpn_route2str((struct prefix_evpn *)p, buf2, sizeof(buf2));
 		vty_out(vty, "  Route %s", buf2);
 		tag_buf[0] = '\0';
-		if (binfo->extra && binfo->extra->num_labels) {
-			bgp_evpn_label2str(binfo->extra->label,
-					   binfo->extra->num_labels, tag_buf,
+		if (path->extra && path->extra->num_labels) {
+			bgp_evpn_label2str(path->extra->label,
+					   path->extra->num_labels, tag_buf,
 					   sizeof(tag_buf));
 			vty_out(vty, " VNI %s", tag_buf);
 		}
 		vty_out(vty, "\n");
-		if (binfo->extra && binfo->extra->parent) {
+		if (path->extra && path->extra->parent) {
 			struct bgp_path_info *parent_ri;
 			struct bgp_node *rn, *prn;
 
-			parent_ri =
-				(struct bgp_path_info *)binfo->extra->parent;
+			parent_ri = (struct bgp_path_info *)path->extra->parent;
 			rn = parent_ri->net;
 			if (rn && rn->prn) {
 				prn = rn->prn;
@@ -7398,7 +7398,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		}
 	}
 
-	attr = binfo->attr;
+	attr = path->attr;
 
 	if (attr) {
 		/* Line1 display AS-path, Aggregator */
@@ -7418,7 +7418,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 			}
 		}
 
-		if (CHECK_FLAG(binfo->flags, BGP_PATH_REMOVED)) {
+		if (CHECK_FLAG(path->flags, BGP_PATH_REMOVED)) {
 			if (json_paths)
 				json_object_boolean_true_add(json_path,
 							     "removed");
@@ -7426,7 +7426,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				vty_out(vty, ", (removed)");
 		}
 
-		if (CHECK_FLAG(binfo->flags, BGP_PATH_STALE)) {
+		if (CHECK_FLAG(path->flags, BGP_PATH_STALE)) {
 			if (json_paths)
 				json_object_boolean_true_add(json_path,
 							     "stale");
@@ -7449,7 +7449,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 			}
 		}
 
-		if (CHECK_FLAG(binfo->peer->af_flags[afi][safi],
+		if (CHECK_FLAG(path->peer->af_flags[afi][safi],
 			       PEER_FLAG_REFLECTOR_CLIENT)) {
 			if (json_paths)
 				json_object_boolean_true_add(
@@ -7458,7 +7458,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				vty_out(vty, ", (Received from a RR-client)");
 		}
 
-		if (CHECK_FLAG(binfo->peer->af_flags[afi][safi],
+		if (CHECK_FLAG(path->peer->af_flags[afi][safi],
 			       PEER_FLAG_RSERVER_CLIENT)) {
 			if (json_paths)
 				json_object_boolean_true_add(
@@ -7467,13 +7467,13 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				vty_out(vty, ", (Received from a RS-client)");
 		}
 
-		if (CHECK_FLAG(binfo->flags, BGP_PATH_HISTORY)) {
+		if (CHECK_FLAG(path->flags, BGP_PATH_HISTORY)) {
 			if (json_paths)
 				json_object_boolean_true_add(
 					json_path, "dampeningHistoryEntry");
 			else
 				vty_out(vty, ", (history entry)");
-		} else if (CHECK_FLAG(binfo->flags, BGP_PATH_DAMPED)) {
+		} else if (CHECK_FLAG(path->flags, BGP_PATH_DAMPED)) {
 			if (json_paths)
 				json_object_boolean_true_add(
 					json_path, "dampeningSuppressed");
@@ -7535,21 +7535,21 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		}
 
 		/* Display the IGP cost or 'inaccessible' */
-		if (!CHECK_FLAG(binfo->flags, BGP_PATH_VALID)) {
+		if (!CHECK_FLAG(path->flags, BGP_PATH_VALID)) {
 			if (json_paths)
 				json_object_boolean_false_add(
 					json_nexthop_global, "accessible");
 			else
 				vty_out(vty, " (inaccessible)");
 		} else {
-			if (binfo->extra && binfo->extra->igpmetric) {
+			if (path->extra && path->extra->igpmetric) {
 				if (json_paths)
 					json_object_int_add(
 						json_nexthop_global, "metric",
-						binfo->extra->igpmetric);
+						path->extra->igpmetric);
 				else
 					vty_out(vty, " (metric %u)",
-						binfo->extra->igpmetric);
+						path->extra->igpmetric);
 			}
 
 			/* IGP cost is 0, display this only for json */
@@ -7566,7 +7566,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 
 		/* Display peer "from" output */
 		/* This path was originated locally */
-		if (binfo->peer == bgp->peer_self) {
+		if (path->peer == bgp->peer_self) {
 
 			if (safi == SAFI_EVPN
 			    || (p->family == AF_INET
@@ -7598,53 +7598,52 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 			if (json_paths) {
 				json_object_string_add(
 					json_peer, "peerId",
-					sockunion2str(&binfo->peer->su, buf,
+					sockunion2str(&path->peer->su, buf,
 						      SU_ADDRSTRLEN));
 				json_object_string_add(
 					json_peer, "routerId",
 					inet_ntop(AF_INET,
-						  &binfo->peer->remote_id, buf1,
+						  &path->peer->remote_id, buf1,
 						  sizeof(buf1)));
 
-				if (binfo->peer->hostname)
+				if (path->peer->hostname)
 					json_object_string_add(
 						json_peer, "hostname",
-						binfo->peer->hostname);
+						path->peer->hostname);
 
-				if (binfo->peer->domainname)
+				if (path->peer->domainname)
 					json_object_string_add(
 						json_peer, "domainname",
-						binfo->peer->domainname);
+						path->peer->domainname);
 
-				if (binfo->peer->conf_if)
+				if (path->peer->conf_if)
 					json_object_string_add(
 						json_peer, "interface",
-						binfo->peer->conf_if);
+						path->peer->conf_if);
 			} else {
-				if (binfo->peer->conf_if) {
-					if (binfo->peer->hostname
+				if (path->peer->conf_if) {
+					if (path->peer->hostname
 					    && bgp_flag_check(
-						       binfo->peer->bgp,
+						       path->peer->bgp,
 						       BGP_FLAG_SHOW_HOSTNAME))
 						vty_out(vty, " from %s(%s)",
-							binfo->peer->hostname,
-							binfo->peer->conf_if);
+							path->peer->hostname,
+							path->peer->conf_if);
 					else
 						vty_out(vty, " from %s",
-							binfo->peer->conf_if);
+							path->peer->conf_if);
 				} else {
-					if (binfo->peer->hostname
+					if (path->peer->hostname
 					    && bgp_flag_check(
-						       binfo->peer->bgp,
+						       path->peer->bgp,
 						       BGP_FLAG_SHOW_HOSTNAME))
 						vty_out(vty, " from %s(%s)",
-							binfo->peer->hostname,
-							binfo->peer->host);
+							path->peer->hostname,
+							path->peer->host);
 					else
 						vty_out(vty, " from %s",
 							sockunion2str(
-								&binfo->peer
-									 ->su,
+								&path->peer->su,
 								buf,
 								SU_ADDRSTRLEN));
 				}
@@ -7657,7 +7656,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 					vty_out(vty, " (%s)",
 						inet_ntop(
 							AF_INET,
-							&binfo->peer->remote_id,
+							&path->peer->remote_id,
 							buf1, sizeof(buf1)));
 			}
 		}
@@ -7665,18 +7664,18 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		/*
 		 * Note when vrfid of nexthop is different from that of prefix
 		 */
-		if (binfo->extra && binfo->extra->bgp_orig) {
-			vrf_id_t nexthop_vrfid = binfo->extra->bgp_orig->vrf_id;
+		if (path->extra && path->extra->bgp_orig) {
+			vrf_id_t nexthop_vrfid = path->extra->bgp_orig->vrf_id;
 
 			if (json_paths) {
 				const char *vn;
 
-				if (binfo->extra->bgp_orig->inst_type ==
-					BGP_INSTANCE_TYPE_DEFAULT)
+				if (path->extra->bgp_orig->inst_type
+				    == BGP_INSTANCE_TYPE_DEFAULT)
 
 					vn = "Default";
 				else
-					vn = binfo->extra->bgp_orig->name;
+					vn = path->extra->bgp_orig->name;
 
 				json_object_string_add(json_path, "nhVrfName",
 					vn);
@@ -7793,13 +7792,13 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 					attr->tag);
 		}
 
-		if (!CHECK_FLAG(binfo->flags, BGP_PATH_VALID)) {
+		if (!CHECK_FLAG(path->flags, BGP_PATH_VALID)) {
 			if (json_paths)
 				json_object_boolean_false_add(json_path,
 							      "valid");
 			else
 				vty_out(vty, ", invalid");
-		} else if (!CHECK_FLAG(binfo->flags, BGP_PATH_HISTORY)) {
+		} else if (!CHECK_FLAG(path->flags, BGP_PATH_HISTORY)) {
 			if (json_paths)
 				json_object_boolean_true_add(json_path,
 							     "valid");
@@ -7807,8 +7806,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				vty_out(vty, ", valid");
 		}
 
-		if (binfo->peer != bgp->peer_self) {
-			if (binfo->peer->as == binfo->peer->local_as) {
+		if (path->peer != bgp->peer_self) {
+			if (path->peer->as == path->peer->local_as) {
 				if (CHECK_FLAG(bgp->config,
 					       BGP_CONFIG_CONFEDERATION)) {
 					if (json_paths)
@@ -7828,7 +7827,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				}
 			} else {
 				if (bgp_confederation_peers_check(
-					    bgp, binfo->peer->as)) {
+					    bgp, path->peer->as)) {
 					if (json_paths)
 						json_object_string_add(
 							json_peer, "type",
@@ -7845,7 +7844,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 						vty_out(vty, ", external");
 				}
 			}
-		} else if (binfo->sub_type == BGP_ROUTE_AGGREGATE) {
+		} else if (path->sub_type == BGP_ROUTE_AGGREGATE) {
 			if (json_paths) {
 				json_object_boolean_true_add(json_path,
 							     "aggregated");
@@ -7854,7 +7853,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 			} else {
 				vty_out(vty, ", aggregated, local");
 			}
-		} else if (binfo->type != ZEBRA_ROUTE_BGP) {
+		} else if (path->type != ZEBRA_ROUTE_BGP) {
 			if (json_paths)
 				json_object_boolean_true_add(json_path,
 							     "sourced");
@@ -7879,9 +7878,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				vty_out(vty, ", atomic-aggregate");
 		}
 
-		if (CHECK_FLAG(binfo->flags, BGP_PATH_MULTIPATH)
-		    || (CHECK_FLAG(binfo->flags, BGP_PATH_SELECTED)
-			&& bgp_path_info_mpath_count(binfo))) {
+		if (CHECK_FLAG(path->flags, BGP_PATH_MULTIPATH)
+		    || (CHECK_FLAG(path->flags, BGP_PATH_SELECTED)
+			&& bgp_path_info_mpath_count(path))) {
 			if (json_paths)
 				json_object_boolean_true_add(json_path,
 							     "multipath");
@@ -7890,7 +7889,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		}
 
 		// Mark the bestpath(s)
-		if (CHECK_FLAG(binfo->flags, BGP_PATH_DMED_SELECTED)) {
+		if (CHECK_FLAG(path->flags, BGP_PATH_DMED_SELECTED)) {
 			first_as = aspath_get_first_as(attr->aspath);
 
 			if (json_paths) {
@@ -7909,7 +7908,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 			}
 		}
 
-		if (CHECK_FLAG(binfo->flags, BGP_PATH_SELECTED)) {
+		if (CHECK_FLAG(path->flags, BGP_PATH_SELECTED)) {
 			if (json_paths) {
 				if (!json_bestpath)
 					json_bestpath =
@@ -8039,14 +8038,13 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				vty_out(vty, "\n");
 		}
 
-		if (binfo->extra && binfo->extra->damp_info)
-			bgp_damp_info_vty(vty, binfo, json_path);
+		if (path->extra && path->extra->damp_info)
+			bgp_damp_info_vty(vty, path, json_path);
 
 		/* Remote Label */
-		if (binfo->extra && bgp_is_valid_label(&binfo->extra->label[0])
+		if (path->extra && bgp_is_valid_label(&path->extra->label[0])
 		    && safi != SAFI_EVPN) {
-			mpls_label_t label =
-				label_pton(&binfo->extra->label[0]);
+			mpls_label_t label = label_pton(&path->extra->label[0]);
 			if (json_paths)
 				json_object_int_add(json_path, "remoteLabel",
 						    label);
@@ -8065,16 +8063,16 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		}
 
 		/* Line 8 display Addpath IDs */
-		if (binfo->addpath_rx_id || binfo->addpath_tx_id) {
+		if (path->addpath_rx_id || path->addpath_tx_id) {
 			if (json_paths) {
 				json_object_int_add(json_path, "addpathRxId",
-						    binfo->addpath_rx_id);
+						    path->addpath_rx_id);
 				json_object_int_add(json_path, "addpathTxId",
-						    binfo->addpath_tx_id);
+						    path->addpath_tx_id);
 			} else {
 				vty_out(vty, "      AddPath ID: RX %u, TX %u\n",
-					binfo->addpath_rx_id,
-					binfo->addpath_tx_id);
+					path->addpath_rx_id,
+					path->addpath_tx_id);
 			}
 		}
 
@@ -8087,11 +8085,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				addpath_capable =
 					bgp_addpath_encode_tx(peer, afi, safi);
 				has_adj = bgp_adj_out_lookup(
-					peer, binfo->net, binfo->addpath_tx_id);
+					peer, path->net, path->addpath_tx_id);
 
 				if ((addpath_capable && has_adj)
 				    || (!addpath_capable && has_adj
-					&& CHECK_FLAG(binfo->flags,
+					&& CHECK_FLAG(path->flags,
 						      BGP_PATH_SELECTED))) {
 					if (json_path && !json_adv_to)
 						json_adv_to =
@@ -8118,7 +8116,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		}
 
 		/* Line 9 display Uptime */
-		tbuf = time(NULL) - (bgp_clock() - binfo->uptime);
+		tbuf = time(NULL) - (bgp_clock() - path->uptime);
 		if (json_paths) {
 			json_last_update = json_object_new_object();
 			json_object_int_add(json_last_update, "epoch", tbuf);
@@ -8283,17 +8281,17 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			}
 			if (type == bgp_show_type_route_map) {
 				struct route_map *rmap = output_arg;
-				struct bgp_path_info binfo;
+				struct bgp_path_info path;
 				struct attr dummy_attr;
 				int ret;
 
 				bgp_attr_dup(&dummy_attr, ri->attr);
 
-				binfo.peer = ri->peer;
-				binfo.attr = &dummy_attr;
+				path.peer = ri->peer;
+				path.attr = &dummy_attr;
 
 				ret = route_map_apply(rmap, &rn->p, RMAP_BGP,
-						      &binfo);
+						      &path);
 				if (ret == RMAP_DENYMATCH)
 					continue;
 			}

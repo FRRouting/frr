@@ -31,7 +31,7 @@
 /*
  * These are per-rt-import-list
  *
- * routes are not segregated by RD - the RD is stored in bgp_info_extra
+ * routes are not segregated by RD - the RD is stored in bgp_path_info_extra
  * and is needed to determine if two prefixes are the same.
  */
 struct rfapi_import_table {
@@ -94,7 +94,7 @@ extern void rfapiImportTableRefDelByIt(struct bgp *bgp,
  * Construct an rfapi nexthop list based on the routes attached to
  * the specified node.
  *
- * If there are any routes that do NOT have BGP_INFO_REMOVED set,
+ * If there are any routes that do NOT have BGP_PATH_REMOVED set,
  * return those only. If there are ONLY routes with BGP_INFO_REMOVED,
  * then return those, and also include all the non-removed routes from the
  * next less-specific node (i.e., this node's parent) at the end.

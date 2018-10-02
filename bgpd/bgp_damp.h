@@ -44,7 +44,7 @@ struct bgp_damp_info {
 	time_t suppress_time;
 
 	/* Back reference to bgp_path_info. */
-	struct bgp_path_info *binfo;
+	struct bgp_path_info *path;
 
 	/* Back reference to bgp_node. */
 	struct bgp_node *rn;
@@ -142,7 +142,7 @@ extern void bgp_config_write_damp(struct vty *);
 extern void bgp_damp_info_vty(struct vty *vty, struct bgp_path_info *path,
 			      json_object *json_path);
 extern const char *bgp_damp_reuse_time_vty(struct vty *vty,
-					   struct bgp_path_info *binfo,
+					   struct bgp_path_info *path,
 					   char *timebuf, size_t len,
 					   bool use_json, json_object *json);
 extern int bgp_show_dampening_parameters(struct vty *vty, afi_t, safi_t);

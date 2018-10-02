@@ -456,7 +456,7 @@ extern void bgp_adj_out_remove_subgroup(struct bgp_node *rn,
 extern void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 				     struct update_subgroup *subgrp,
 				     struct attr *attr,
-				     struct bgp_path_info *binfo);
+				     struct bgp_path_info *path);
 extern void bgp_adj_out_unset_subgroup(struct bgp_node *rn,
 				       struct update_subgroup *subgrp,
 				       char withdraw, uint32_t addpath_tx_id);
