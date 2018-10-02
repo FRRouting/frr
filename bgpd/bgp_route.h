@@ -318,7 +318,11 @@ struct bgp_static {
 /* path PREFIX (addpath rxid NUMBER) */
 #define PATH_ADDPATH_STR_BUFFER PREFIX2STR_BUFFER + 32
 
-enum bgp_path_type { BGP_PATH_ALL, BGP_PATH_BESTPATH, BGP_PATH_MULTIPATH };
+enum bgp_path_type {
+	BGP_PATH_SHOW_ALL,
+	BGP_PATH_SHOW_BESTPATH,
+	BGP_PATH_SHOW_MULTIPATH
+};
 
 static inline void bgp_bump_version(struct bgp_node *node)
 {
