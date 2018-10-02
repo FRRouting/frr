@@ -2775,30 +2775,40 @@ static bool overlay_index_equal(afi_t afi, struct bgp_info *info,
 {
 	struct eth_segment_id *info_eth_s_id, *info_eth_s_id_remote;
 	union gw_addr *info_gw_ip, *info_gw_ip_remote;
-	char temp[16];
+	union {
+		struct eth_segment_id esi;
+		union gw_addr ip;
+	} temp;
 
 	if (afi != AFI_L2VPN)
 		return true;
 	if (!info->attr) {
-		memset(&temp, 0, 16);
-		info_eth_s_id = (struct eth_segment_id *)&temp;
-		info_gw_ip = (union gw_addr *)&temp;
+		memset(&temp, 0, sizeof(temp));
+		info_eth_s_id = &temp.esi;
+		info_gw_ip = &temp.ip;
+
 		if (eth_s_id == NULL && gw_ip == NULL)
 			return true;
 	} else {
 		info_eth_s_id = &(info->attr->evpn_overlay.eth_s_id);
 		info_gw_ip = &(info->attr->evpn_overlay.gw_ip);
 	}
-	if (gw_ip == NULL)
-		info_gw_ip_remote = (union gw_addr *)&temp;
-	else
+
+	if (gw_ip == NULL) {
+		memset(&temp, 0, sizeof(temp));
+		info_gw_ip_remote = &temp.ip;
+	} else
 		info_gw_ip_remote = gw_ip;
-	if (eth_s_id == NULL)
-		info_eth_s_id_remote = (struct eth_segment_id *)&temp;
-	else
+
+	if (eth_s_id == NULL) {
+		memset(&temp, 0, sizeof(temp));
+		info_eth_s_id_remote = &temp.esi;
+	} else
 		info_eth_s_id_remote = eth_s_id;
+
 	if (!memcmp(info_gw_ip, info_gw_ip_remote, sizeof(union gw_addr)))
 		return false;
+
 	return !memcmp(info_eth_s_id, info_eth_s_id_remote,
 		       sizeof(struct eth_segment_id));
 }
