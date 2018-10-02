@@ -991,7 +991,7 @@ static int vty_show_route_map(struct vty *vty, const char *name)
 		for (ALL_LIST_ELEMENTS_RO(maplist, ln, map))
 			vty_show_route_map_entry(vty, map);
 
-		list_delete_and_null(&maplist);
+		list_delete(&maplist);
 	}
 	return CMD_SUCCESS;
 }

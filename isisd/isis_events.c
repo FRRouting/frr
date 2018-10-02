@@ -134,7 +134,7 @@ static void circuit_resign_level(struct isis_circuit *circuit, int level)
 		circuit->lsp_regenerate_pending[idx] = 0;
 		circuit->u.bc.run_dr_elect[idx] = 0;
 		if (circuit->u.bc.lan_neighs[idx] != NULL)
-			list_delete_and_null(&circuit->u.bc.lan_neighs[idx]);
+			list_delete(&circuit->u.bc.lan_neighs[idx]);
 	}
 
 	return;

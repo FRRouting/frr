@@ -596,7 +596,7 @@ static void vnc_zebra_add_del_prefix(struct bgp *bgp,
 		nve_list_to_nh_array(rn->p.family, nves, &nexthop_count,
 				     &nh_ary, &nhp_ary);
 
-		list_delete_and_null(&nves);
+		list_delete(&nves);
 
 		if (nexthop_count)
 			vnc_zebra_route_msg(&rn->p, nexthop_count, nhp_ary,
@@ -768,7 +768,7 @@ static void vnc_zebra_add_del_group_afi(struct bgp *bgp,
 		vnc_zlog_debug_verbose("%s: family: %d, nve count: %d",
 				       __func__, family, nexthop_count);
 
-		list_delete_and_null(&nves);
+		list_delete(&nves);
 
 		if (nexthop_count) {
 			/*

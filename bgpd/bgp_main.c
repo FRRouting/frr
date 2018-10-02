@@ -234,7 +234,7 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	bgp_zebra_destroy();
 
 	bf_free(bm->rd_idspace);
-	list_delete_and_null(&bm->bgp);
+	list_delete(&bm->bgp);
 	memset(bm, 0, sizeof(*bm));
 
 	frr_fini();

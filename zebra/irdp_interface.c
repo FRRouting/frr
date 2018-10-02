@@ -309,7 +309,7 @@ static void irdp_if_stop(struct interface *ifp)
 
 	irdp_advert_off(ifp);
 
-	list_delete_and_null(&irdp->AdvPrefList);
+	list_delete(&irdp->AdvPrefList);
 
 	irdp->flags = 0;
 }

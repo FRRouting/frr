@@ -73,7 +73,7 @@ static int config_cmp(struct config *c1, struct config *c2)
 
 static void config_del(struct config *config)
 {
-	list_delete_and_null(&config->line);
+	list_delete(&config->line);
 	if (config->name)
 		XFREE(MTYPE_VTYSH_CONFIG_LINE, config->name);
 	XFREE(MTYPE_VTYSH_CONFIG, config);
@@ -393,7 +393,7 @@ void vtysh_config_dump(void)
 
 	for (i = 0; i < vector_active(configvec); i++)
 		if ((master = vector_slot(configvec, i)) != NULL) {
-			list_delete_and_null(&master);
+			list_delete(&master);
 			vector_slot(configvec, i) = NULL;
 		}
 	list_delete_all_node(config_top);

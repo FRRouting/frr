@@ -126,7 +126,7 @@ static void lsp_destroy(struct isis_lsp *lsp)
 	lsp_clear_data(lsp);
 
 	if (LSP_FRAGMENT(lsp->hdr.lsp_id) == 0 && lsp->lspu.frags) {
-		list_delete_and_null(&lsp->lspu.frags);
+		list_delete(&lsp->lspu.frags);
 		lsp->lspu.frags = NULL;
 	}
 
@@ -1181,7 +1181,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 		frag->tlvs = tlvs;
 	}
 
-	list_delete_and_null(&fragments);
+	list_delete(&fragments);
 	lsp_debug("ISIS (%s): LSP construction is complete. Serializing...",
 		  area->area_tag);
 	return;
@@ -1560,7 +1560,7 @@ static void lsp_build_pseudo(struct isis_lsp *lsp, struct isis_circuit *circuit,
 				LSP_PSEUDO_ID(ne_id));
 		}
 	}
-	list_delete_and_null(&adj_list);
+	list_delete(&adj_list);
 	return;
 }
 

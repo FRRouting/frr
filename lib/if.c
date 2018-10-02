@@ -206,8 +206,8 @@ void if_delete(struct interface *ifp)
 
 	if_delete_retain(ifp);
 
-	list_delete_and_null(&ifp->connected);
-	list_delete_and_null(&ifp->nbr_connected);
+	list_delete(&ifp->connected);
+	list_delete(&ifp->nbr_connected);
 
 	if_link_params_free(ifp);
 

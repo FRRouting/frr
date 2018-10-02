@@ -1356,7 +1356,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		}
 
 		/* lets free it */
-		list_delete_and_null(&lsp_list);
+		list_delete(&lsp_list);
 	}
 
 	if (fabricd_initial_sync_is_complete(circuit->area) && resync_needed)

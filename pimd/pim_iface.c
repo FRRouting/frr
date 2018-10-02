@@ -201,10 +201,10 @@ void pim_if_delete(struct interface *ifp)
 
 	pim_if_del_vif(ifp);
 
-	list_delete_and_null(&pim_ifp->igmp_socket_list);
-	list_delete_and_null(&pim_ifp->pim_neighbor_list);
-	list_delete_and_null(&pim_ifp->upstream_switch_list);
-	list_delete_and_null(&pim_ifp->sec_addr_list);
+	list_delete(&pim_ifp->igmp_socket_list);
+	list_delete(&pim_ifp->pim_neighbor_list);
+	list_delete(&pim_ifp->upstream_switch_list);
+	list_delete(&pim_ifp->sec_addr_list);
 
 	if (pim_ifp->boundary_oil_plist)
 		XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
@@ -1349,7 +1349,7 @@ int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
 	listnode_delete(pim_ifp->igmp_join_list, ij);
 	igmp_join_free(ij);
 	if (listcount(pim_ifp->igmp_join_list) < 1) {
-		list_delete_and_null(&pim_ifp->igmp_join_list);
+		list_delete(&pim_ifp->igmp_join_list);
 		pim_ifp->igmp_join_list = 0;
 	}
 

@@ -2426,14 +2426,14 @@ int peer_group_delete(struct peer_group *group)
 			peer_delete(other);
 		}
 	}
-	list_delete_and_null(&group->peer);
+	list_delete(&group->peer);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (ALL_LIST_ELEMENTS(group->listen_range[afi], node, nnode,
 				       prefix)) {
 			prefix_free(prefix);
 		}
-		list_delete_and_null(&group->listen_range[afi]);
+		list_delete(&group->listen_range[afi]);
 	}
 
 	XFREE(MTYPE_PEER_GROUP_HOST, group->name);
@@ -3221,8 +3221,8 @@ void bgp_free(struct bgp *bgp)
 
 	QOBJ_UNREG(bgp);
 
-	list_delete_and_null(&bgp->group);
-	list_delete_and_null(&bgp->peer);
+	list_delete(&bgp->group);
+	list_delete(&bgp->peer);
 
 	if (bgp->peerhash) {
 		hash_free(bgp->peerhash);
@@ -3264,9 +3264,9 @@ void bgp_free(struct bgp *bgp)
 		vpn_policy_direction_t dir;
 
 		if (bgp->vpn_policy[afi].import_vrf)
-			list_delete_and_null(&bgp->vpn_policy[afi].import_vrf);
+			list_delete(&bgp->vpn_policy[afi].import_vrf);
 		if (bgp->vpn_policy[afi].export_vrf)
-			list_delete_and_null(&bgp->vpn_policy[afi].export_vrf);
+			list_delete(&bgp->vpn_policy[afi].export_vrf);
 
 		dir = BGP_VPN_POLICY_DIR_FROMVPN;
 		if (bgp->vpn_policy[afi].rtlist[dir])
@@ -7864,7 +7864,7 @@ void bgp_terminate(void)
 	bgp_close();
 
 	if (bm->listen_sockets)
-		list_delete_and_null(&bm->listen_sockets);
+		list_delete(&bm->listen_sockets);
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp))
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))

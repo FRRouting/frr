@@ -266,15 +266,15 @@ void eigrp_finish_final(struct eigrp *eigrp)
 	THREAD_OFF(eigrp->t_read);
 	close(eigrp->fd);
 
-	list_delete_and_null(&eigrp->eiflist);
-	list_delete_and_null(&eigrp->oi_write_q);
+	list_delete(&eigrp->eiflist);
+	list_delete(&eigrp->oi_write_q);
 
 	eigrp_topology_free(eigrp->topology_table);
 
 	eigrp_nbr_delete(eigrp->neighbor_self);
 
-	list_delete_and_null(&eigrp->topology_changes_externalIPV4);
-	list_delete_and_null(&eigrp->topology_changes_internalIPV4);
+	list_delete(&eigrp->topology_changes_externalIPV4);
+	list_delete(&eigrp->topology_changes_internalIPV4);
 
 	listnode_delete(eigrp_om->eigrp, eigrp);
 

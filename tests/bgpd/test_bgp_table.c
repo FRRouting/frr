@@ -134,7 +134,7 @@ static void do_test(struct bgp_table *table, const char *prefix,
 
 	check_lookup_result(list, arglist);
 
-	list_delete_and_null(&list);
+	list_delete(&list);
 
 	va_end(arglist);
 

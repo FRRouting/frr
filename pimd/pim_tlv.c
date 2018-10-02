@@ -657,7 +657,7 @@ int pim_parse_addr_source(struct prefix_sg *sg, uint8_t *flags,
 #define FREE_ADDR_LIST(hello_option_addr_list)                                 \
 	{                                                                      \
 		if (hello_option_addr_list) {                                  \
-			list_delete_and_null(&hello_option_addr_list);         \
+			list_delete(&hello_option_addr_list);                  \
 			hello_option_addr_list = 0;                            \
 		}                                                              \
 	}

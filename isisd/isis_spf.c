@@ -824,7 +824,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 			adjdb = circuit->u.bc.adjdb[spftree->level - 1];
 			isis_adj_build_up_list(adjdb, adj_list);
 			if (listcount(adj_list) == 0) {
-				list_delete_and_null(&adj_list);
+				list_delete(&adj_list);
 				if (isis->debugs & DEBUG_SPF_EVENTS)
 					zlog_debug(
 						"ISIS-Spf: no L%d adjacencies on circuit %s",
@@ -890,7 +890,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 						"isis_spf_preload_tent unknow adj type");
 				}
 			}
-			list_delete_and_null(&adj_list);
+			list_delete(&adj_list);
 			/*
 			 * Add the pseudonode
 			 */

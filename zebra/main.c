@@ -170,7 +170,7 @@ static void sigint(void)
 	prefix_list_reset();
 	route_map_finish();
 
-	list_delete_and_null(&zebrad.client_list);
+	list_delete(&zebrad.client_list);
 	work_queue_free_and_null(&zebrad.ribq);
 	meta_queue_free(zebrad.mq);
 
