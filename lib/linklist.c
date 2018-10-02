@@ -248,11 +248,6 @@ void list_delete_and_null(struct list **list)
 	*list = NULL;
 }
 
-void list_delete_original(struct list *list)
-{
-	list_delete_and_null(&list);
-}
-
 struct listnode *listnode_lookup(struct list *list, void *data)
 {
 	struct listnode *node;
