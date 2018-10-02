@@ -139,7 +139,10 @@ struct bgp_info_extra {
 	 * Set to NULL if route is not imported from another bgp instance.
 	 */
 	struct bgp *bgp_orig;
-
+	/* set to VRF_UNKNOWN by default
+	 * this value will be overriden if route-map overrides vrf_id value
+	 */
+	vrf_id_t vrf_id;
 	/*
 	 * Nexthop in context of original bgp instance. Needed
 	 * for label resolution of core mpls routes exported to a vrf.

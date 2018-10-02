@@ -171,6 +171,7 @@ static struct bgp_info_extra *bgp_info_extra_new(void)
 	new = XCALLOC(MTYPE_BGP_ROUTE_EXTRA, sizeof(struct bgp_info_extra));
 	new->label[0] = MPLS_INVALID_LABEL;
 	new->num_labels = 0;
+	new->vrf_id = VRF_UNKNOWN;
 	return new;
 }
 
@@ -3255,24 +3256,35 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 
 			struct bgp *bgp_nexthop = bgp;
 
-			if (ri->extra && ri->extra->bgp_orig)
-				bgp_nexthop = ri->extra->bgp_orig;
-
-			if (bgp_find_or_add_nexthop(bgp, bgp_nexthop, afi,
-							ri, NULL, connected)
-			    || CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
-				bgp_info_set_flag(rn, ri, BGP_INFO_VALID);
-			else {
-				if (BGP_DEBUG(nht, NHT)) {
-					char buf1[INET6_ADDRSTRLEN];
-					inet_ntop(AF_INET,
-						  (const void *)&attr_new
+			if (ri->extra) {
+				if (ri->extra->vrf_id_local)
+					bgp_nexthop = bgp;
+				else if (ri->extra->vrf_id != VRF_UNKNOWN)
+					bgp_nexthop = bgp_lookup_by_vrf_id(
+							    ri->extra->vrf_id);
+				else if (ri->extra->bgp_orig)
+					bgp_nexthop = ri->extra->bgp_orig;
+				if (bgp_find_or_add_nexthop(bgp, bgp_nexthop,
+							    afi, ri, NULL,
+							    connected)
+				    || CHECK_FLAG(peer->flags,
+						  PEER_FLAG_IS_RFAPI_HD))
+					bgp_info_set_flag(rn, ri,
+							  BGP_INFO_VALID);
+				else {
+					if (BGP_DEBUG(nht, NHT)) {
+						char buf1[INET6_ADDRSTRLEN];
+						inet_ntop(AF_INET,
+							(const void *)&attr_new
 							  ->nexthop,
-						  buf1, INET6_ADDRSTRLEN);
-					zlog_debug("%s(%s): NH unresolved",
-						   __FUNCTION__, buf1);
+							buf1, INET6_ADDRSTRLEN);
+						zlog_debug(
+							"%s(%s): NH unresolved",
+							   __FUNCTION__, buf1);
+					}
+					bgp_info_unset_flag(rn, ri,
+							    BGP_INFO_VALID);
 				}
-				bgp_info_unset_flag(rn, ri, BGP_INFO_VALID);
 			}
 		} else
 			bgp_info_set_flag(rn, ri, BGP_INFO_VALID);
@@ -6465,26 +6477,45 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 	 * If vrf id of nexthop is different from that of prefix,
 	 * set up printable string to append
 	 */
-	if (binfo->extra && binfo->extra->bgp_orig) {
+	if (binfo->extra && !binfo->extra->vrf_id_local
+	    && (binfo->extra->bgp_orig ||
+		(binfo->extra->vrf_id != VRF_UNKNOWN &&
+		 binfo->peer && binfo->peer->bgp
+		 && binfo->extra->vrf_id != binfo->peer->bgp->vrf_id))) {
 		const char *self = "";
+		bool bgp_orig_chosen = false;
 
 		if (nexthop_self)
 			self = "<";
 
 		nexthop_othervrf = true;
-		nexthop_vrfid = binfo->extra->bgp_orig->vrf_id;
+		if (binfo->peer && binfo->peer->bgp
+		    && binfo->extra->vrf_id != VRF_UNKNOWN
+		    && binfo->extra->vrf_id != binfo->peer->bgp->vrf_id)
+			nexthop_vrfid = binfo->extra->vrf_id;
+		else {
+			nexthop_vrfid = binfo->extra->bgp_orig->vrf_id;
+			bgp_orig_chosen = true;
+		}
 
-		if (binfo->extra->bgp_orig->vrf_id == VRF_UNKNOWN)
+		if (nexthop_vrfid == VRF_UNKNOWN)
 			snprintf(vrf_id_str, sizeof(vrf_id_str),
-				"@%s%s", VRFID_NONE_STR, self);
+				 "@%s%s", VRFID_NONE_STR, self);
 		else
 			snprintf(vrf_id_str, sizeof(vrf_id_str), "@%u%s",
-				binfo->extra->bgp_orig->vrf_id, self);
+				 nexthop_vrfid, self);
 
-		if (binfo->extra->bgp_orig->inst_type !=
-				BGP_INSTANCE_TYPE_DEFAULT)
-
-			nexthop_vrfname = binfo->extra->bgp_orig->name;
+		if (bgp_orig_chosen == TRUE) {
+			if (binfo->extra->bgp_orig->inst_type !=
+			    BGP_INSTANCE_TYPE_DEFAULT)
+				nexthop_vrfname = binfo->extra->bgp_orig->name;
+		} else {
+			if ((bgp_lookup_by_vrf_id(nexthop_vrfid) != NULL) &&
+			    (bgp_lookup_by_vrf_id(nexthop_vrfid)->inst_type !=
+			     BGP_INSTANCE_TYPE_DEFAULT))
+				nexthop_vrfname = bgp_lookup_by_vrf_id(
+						       nexthop_vrfid)->name;
+		}
 	} else {
 		const char *self = "";
 
