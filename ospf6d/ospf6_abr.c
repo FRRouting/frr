@@ -171,8 +171,9 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 	/* AS External routes are never considered */
 	if (route->path.type == OSPF6_PATH_TYPE_EXTERNAL1
 	    || route->path.type == OSPF6_PATH_TYPE_EXTERNAL2) {
-		if (is_debug)
-			zlog_debug("Path type is external, skip");
+#if 0
+		zlog_debug("Path type is external, skip");
+#endif
 		return 0;
 	}
 
