@@ -303,11 +303,11 @@ In addition to supporting multiple autonomous systems, FRR's BGP implementation
 also supports *views*.
 
 BGP views are almost the same as normal BGP processes, except that routes
-selected by BGP are not installed into the kernel routing table. The view
-functionality allows the exchange of BGP routing information without affecting
-the kernel routing tables.
-
-Peers configured within a view and their traffic exist within the default VRF.
+selected by BGP are not installed into the kernel routing table.  Each BGP view
+provides an independent set of routing information which is only distributed
+via BGP. Multiple views can be supported, and BGP view information is always
+independent from other routing protocols and Zebra/kernel routes. BGP views use
+the core instance (i.e., default VRF) for communication with peers.
 
 .. index:: router bgp AS-NUMBER view NAME
 .. clicmd:: router bgp AS-NUMBER view NAME
