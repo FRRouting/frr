@@ -221,6 +221,7 @@ struct attr {
 #define BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED (1 << 4)
 #define BATTR_RMAP_IPV6_LL_NHOP_CHANGED (1 << 5)
 #define BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED (1 << 6)
+#define BATTR_RMAP_VRF_NHOP_CHANGED (1 << 7)
 
 /* Router Reflector related structure. */
 struct cluster_list {
