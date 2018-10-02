@@ -125,6 +125,20 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	if (!peer || !CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
 		return from_peer;
 
+	/*
+	 * Let's check that we are not going to loose known configuration
+	 * state based upon doppelganger rules.
+	 */
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (from_peer->afc[afi][safi] != peer->afc[afi][safi]) {
+			flog_err(
+				EC_BGP_DOPPELGANGER_CONFIG,
+				"from_peer->afc[%d][%d] is not the same as what we are overwriting",
+				afi, safi);
+			return NULL;
+		}
+	}
+
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s: peer transfer %p fd %d -> %p fd %d)",
 			   from_peer->host, from_peer, from_peer->fd, peer,
