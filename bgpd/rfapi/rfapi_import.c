@@ -79,7 +79,7 @@
 struct rfapi_withdraw {
 	struct rfapi_import_table *import_table;
 	struct agg_node *node;
-	struct bgp_info *info;
+	struct bgp_path_info *info;
 	safi_t safi; /* used only for bulk operations */
 	/*
 	 * For import table node reference count checking (i.e., debugging).
@@ -150,8 +150,8 @@ void rfapiCheckRouteCount()
 
 			for (rn = agg_route_top(rt); rn;
 			     rn = agg_route_next(rn)) {
-				struct bgp_info *bi;
-				struct bgp_info *next;
+				struct bgp_path_info *bi;
+				struct bgp_path_info *next;
 
 				for (bi = rn->info; bi; bi = next) {
 					next = bi->next;
@@ -218,7 +218,7 @@ void rfapiCheckRefcount(struct agg_node *rn, safi_t safi, int lockoffset)
 {
 	unsigned int count_bi = 0;
 	unsigned int count_monitor = 0;
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 	struct rfapi_monitor_encap *hme;
 	struct rfapi_monitor_vpn *hmv;
 
@@ -457,7 +457,7 @@ int rfapiGetVncTunnelUnAddr(struct attr *attr, struct prefix *p)
 /*
  * Get UN address wherever it might be
  */
-int rfapiGetUnAddrOfVpnBi(struct bgp_info *bi, struct prefix *p)
+int rfapiGetUnAddrOfVpnBi(struct bgp_path_info *bi, struct prefix *p)
 {
 	/* If it's in this route's VNC attribute, we're done */
 	if (!rfapiGetVncTunnelUnAddr(bi->attr, p))
@@ -501,12 +501,13 @@ int rfapiGetUnAddrOfVpnBi(struct bgp_info *bi, struct prefix *p)
 /*
  * Make a new bgp_info from gathered parameters
  */
-static struct bgp_info *rfapiBgpInfoCreate(struct attr *attr, struct peer *peer,
-					   void *rfd, struct prefix_rd *prd,
-					   uint8_t type, uint8_t sub_type,
-					   uint32_t *label)
+static struct bgp_path_info *rfapiBgpInfoCreate(struct attr *attr,
+						struct peer *peer, void *rfd,
+						struct prefix_rd *prd,
+						uint8_t type, uint8_t sub_type,
+						uint32_t *label)
 {
-	struct bgp_info *new;
+	struct bgp_path_info *new;
 
 	new = bgp_info_new();
 	assert(new);
@@ -534,7 +535,7 @@ static struct bgp_info *rfapiBgpInfoCreate(struct attr *attr, struct peer *peer,
  * Frees bgp_info as used in import tables (parts are not
  * allocated exactly the way they are in the main RIBs)
  */
-static void rfapiBgpInfoFree(struct bgp_info *goner)
+static void rfapiBgpInfoFree(struct bgp_path_info *goner)
 {
 	if (!goner)
 		return;
@@ -634,7 +635,7 @@ struct rfapi_import_table *rfapiMacImportTableGet(struct bgp *bgp, uint32_t lni)
 static struct rfapi_monitor_vpn *
 rfapiMonitorMoveShorter(struct agg_node *original_vpn_node, int lockoffset)
 {
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 	struct agg_node *par;
 	struct rfapi_monitor_vpn *m;
 	struct rfapi_monitor_vpn *mlast;
@@ -801,7 +802,7 @@ static void rfapiMonitorMoveLonger(struct agg_node *new_vpn_node)
 {
 	struct rfapi_monitor_vpn *monitor;
 	struct rfapi_monitor_vpn *mlast;
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 	struct agg_node *par;
 
 	RFAPI_CHECK_REFCOUNT(new_vpn_node, SAFI_MPLS_VPN, 0);
@@ -881,9 +882,9 @@ static void rfapiMonitorMoveLonger(struct agg_node *new_vpn_node)
 }
 
 
-static void rfapiBgpInfoChainFree(struct bgp_info *bi)
+static void rfapiBgpInfoChainFree(struct bgp_path_info *bi)
 {
-	struct bgp_info *next;
+	struct bgp_path_info *next;
 
 	while (bi) {
 
@@ -1100,7 +1101,8 @@ int rfapiEcommunityGetEthernetTag(struct ecommunity *ecom, uint16_t *tag_id)
 	return ENOENT;
 }
 
-static int rfapiVpnBiNhEqualsPt(struct bgp_info *bi, struct rfapi_ip_addr *hpt)
+static int rfapiVpnBiNhEqualsPt(struct bgp_path_info *bi,
+				struct rfapi_ip_addr *hpt)
 {
 	uint8_t family;
 
@@ -1136,7 +1138,8 @@ static int rfapiVpnBiNhEqualsPt(struct bgp_info *bi, struct rfapi_ip_addr *hpt)
 /*
  * Compare 2 VPN BIs. Return true if they have the same VN and UN addresses
  */
-static int rfapiVpnBiSamePtUn(struct bgp_info *bi1, struct bgp_info *bi2)
+static int rfapiVpnBiSamePtUn(struct bgp_path_info *bi1,
+			      struct bgp_path_info *bi2)
 {
 	struct prefix pfx_un1;
 	struct prefix pfx_un2;
@@ -1295,9 +1298,9 @@ int rfapi_extract_l2o(
 
 static struct rfapi_next_hop_entry *
 rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
-			    struct bgp_info *bi, /* route to encode */
-			    uint32_t lifetime,   /* use this in nhe */
-			    struct agg_node *rn) /* req for L2 eth addr */
+			    struct bgp_path_info *bi, /* route to encode */
+			    uint32_t lifetime,	/* use this in nhe */
+			    struct agg_node *rn)      /* req for L2 eth addr */
 {
 	struct rfapi_next_hop_entry *new;
 	int have_vnc_tunnel_un = 0;
@@ -1485,7 +1488,7 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 
 int rfapiHasNonRemovedRoutes(struct agg_node *rn)
 {
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 
 	for (bi = rn->info; bi; bi = bi->next) {
 		struct prefix pfx;
@@ -1505,7 +1508,7 @@ int rfapiHasNonRemovedRoutes(struct agg_node *rn)
  */
 void rfapiDumpNode(struct agg_node *rn)
 {
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 
 	vnc_zlog_debug_verbose("%s: rn=%p", __func__, rn);
 	for (bi = rn->info; bi; bi = bi->next) {
@@ -1539,7 +1542,7 @@ static int rfapiNhlAddNodeRoutes(
 	struct agg_node *rfd_rib_node,	/* preload this NVE rib node */
 	struct prefix *pfx_target_original)   /* query target */
 {
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 	struct rfapi_next_hop_entry *new;
 	struct prefix pfx_un;
 	struct skiplist *seen_nexthops;
@@ -1995,12 +1998,12 @@ struct rfapi_next_hop_entry *rfapiEthRouteTable2NextHopList(
  * keeping the list of BIs sorted best route first
  */
 static void rfapiBgpInfoAttachSorted(struct agg_node *rn,
-				     struct bgp_info *info_new, afi_t afi,
+				     struct bgp_path_info *info_new, afi_t afi,
 				     safi_t safi)
 {
 	struct bgp *bgp;
-	struct bgp_info *prev;
-	struct bgp_info *next;
+	struct bgp_path_info *prev;
+	struct bgp_path_info *next;
 	char pfx_buf[PREFIX2STR_BUFFER];
 
 
@@ -2037,7 +2040,7 @@ static void rfapiBgpInfoAttachSorted(struct agg_node *rn,
 	bgp_attr_intern(info_new->attr);
 }
 
-static void rfapiBgpInfoDetach(struct agg_node *rn, struct bgp_info *bi)
+static void rfapiBgpInfoDetach(struct agg_node *rn, struct bgp_path_info *bi)
 {
 	/*
 	 * Remove the route (doubly-linked)
@@ -2056,8 +2059,8 @@ static void rfapiBgpInfoDetach(struct agg_node *rn, struct bgp_info *bi)
  */
 static int rfapi_bi_peer_rd_cmp(void *b1, void *b2)
 {
-	struct bgp_info *bi1 = b1;
-	struct bgp_info *bi2 = b2;
+	struct bgp_path_info *bi1 = b1;
+	struct bgp_path_info *bi2 = b2;
 
 	/*
 	 * Compare peers
@@ -2081,8 +2084,8 @@ static int rfapi_bi_peer_rd_cmp(void *b1, void *b2)
  */
 static int rfapi_bi_peer_rd_aux_cmp(void *b1, void *b2)
 {
-	struct bgp_info *bi1 = b1;
-	struct bgp_info *bi2 = b2;
+	struct bgp_path_info *bi1 = b1;
+	struct bgp_path_info *bi2 = b2;
 	int rc;
 
 	/*
@@ -2134,7 +2137,7 @@ static int rfapi_bi_peer_rd_aux_cmp(void *b1, void *b2)
  * Index on RD and Peer
  */
 static void rfapiItBiIndexAdd(struct agg_node *rn, /* Import table VPN node */
-			      struct bgp_info *bi) /* new BI */
+			      struct bgp_path_info *bi) /* new BI */
 {
 	struct skiplist *sl;
 
@@ -2171,8 +2174,8 @@ static void rfapiItBiIndexDump(struct agg_node *rn)
 {
 	struct skiplist *sl;
 	void *cursor = NULL;
-	struct bgp_info *k;
-	struct bgp_info *v;
+	struct bgp_path_info *k;
+	struct bgp_path_info *v;
 	int rc;
 
 	sl = RFAPI_RDINDEX(rn);
@@ -2197,16 +2200,16 @@ static void rfapiItBiIndexDump(struct agg_node *rn)
 	}
 }
 
-static struct bgp_info *rfapiItBiIndexSearch(
+static struct bgp_path_info *rfapiItBiIndexSearch(
 	struct agg_node *rn, /* Import table VPN node */
 	struct prefix_rd *prd, struct peer *peer,
 	struct prefix *aux_prefix) /* optional L3 addr for L2 ITs */
 {
 	struct skiplist *sl;
 	int rc;
-	struct bgp_info bi_fake;
-	struct bgp_info_extra bi_extra;
-	struct bgp_info *bi_result;
+	struct bgp_path_info bi_fake;
+	struct bgp_path_info_extra bi_extra;
+	struct bgp_path_info *bi_result;
 
 	sl = RFAPI_RDINDEX(rn);
 	if (!sl)
@@ -2305,7 +2308,7 @@ static struct bgp_info *rfapiItBiIndexSearch(
 }
 
 static void rfapiItBiIndexDel(struct agg_node *rn, /* Import table VPN node */
-			      struct bgp_info *bi) /* old BI */
+			      struct bgp_path_info *bi) /* old BI */
 {
 	struct skiplist *sl;
 	int rc;
@@ -2337,10 +2340,11 @@ static void rfapiItBiIndexDel(struct agg_node *rn, /* Import table VPN node */
  * Add a backreference at the ENCAP node to the VPN route that
  * refers to it
  */
-static void rfapiMonitorEncapAdd(struct rfapi_import_table *import_table,
-				 struct prefix *p,	/* VN address */
-				 struct agg_node *vpn_rn, /* VPN node */
-				 struct bgp_info *vpn_bi) /* VPN bi/route */
+static void
+rfapiMonitorEncapAdd(struct rfapi_import_table *import_table,
+		     struct prefix *p,		   /* VN address */
+		     struct agg_node *vpn_rn,      /* VPN node */
+		     struct bgp_path_info *vpn_bi) /* VPN bi/route */
 {
 	afi_t afi = family2afi(p->family);
 	struct agg_node *rn;
@@ -2375,7 +2379,7 @@ static void rfapiMonitorEncapAdd(struct rfapi_import_table *import_table,
 	bgp_attr_intern(vpn_bi->attr);
 }
 
-static void rfapiMonitorEncapDelete(struct bgp_info *vpn_bi)
+static void rfapiMonitorEncapDelete(struct bgp_path_info *vpn_bi)
 {
 	/*
 	 * Remove encap monitor
@@ -2418,7 +2422,7 @@ static void rfapiMonitorEncapDelete(struct bgp_info *vpn_bi)
 static int rfapiWithdrawTimerVPN(struct thread *t)
 {
 	struct rfapi_withdraw *wcb = t->arg;
-	struct bgp_info *bi = wcb->info;
+	struct bgp_path_info *bi = wcb->info;
 	struct bgp *bgp = bgp_get_default();
 
 	struct rfapi_monitor_vpn *moved;
@@ -2466,7 +2470,7 @@ static int rfapiWithdrawTimerVPN(struct thread *t)
 	      & BGP_VNC_CONFIG_RESPONSE_REMOVAL_DISABLE)) {
 
 		int has_valid_duplicate = 0;
-		struct bgp_info *bii;
+		struct bgp_path_info *bii;
 
 		/*
 		 * First check if there are any OTHER routes at this node
@@ -2614,8 +2618,8 @@ static int rfapiAttrNexthopAddrDifferent(struct prefix *p1, struct prefix *p2)
 	return 1;
 }
 
-static void rfapiCopyUnEncap2VPN(struct bgp_info *encap_bi,
-				 struct bgp_info *vpn_bi)
+static void rfapiCopyUnEncap2VPN(struct bgp_path_info *encap_bi,
+				 struct bgp_path_info *vpn_bi)
 {
 	if (!encap_bi->attr) {
 		zlog_warn("%s: no encap bi attr/extra, can't copy UN address",
@@ -2664,8 +2668,8 @@ static void rfapiCopyUnEncap2VPN(struct bgp_info *encap_bi,
  * returns 0 on success, nonzero on error
  */
 static int rfapiWithdrawEncapUpdateCachedUn(
-	struct rfapi_import_table *import_table, struct bgp_info *encap_bi,
-	struct agg_node *vpn_rn, struct bgp_info *vpn_bi)
+	struct rfapi_import_table *import_table, struct bgp_path_info *encap_bi,
+	struct agg_node *vpn_rn, struct bgp_path_info *vpn_bi)
 {
 	if (!encap_bi) {
 
@@ -2720,7 +2724,7 @@ static int rfapiWithdrawEncapUpdateCachedUn(
 static int rfapiWithdrawTimerEncap(struct thread *t)
 {
 	struct rfapi_withdraw *wcb = t->arg;
-	struct bgp_info *bi = wcb->info;
+	struct bgp_path_info *bi = wcb->info;
 	int was_first_route = 0;
 	struct rfapi_monitor_encap *em;
 	struct skiplist *vpn_node_sl = skiplist_new(0, NULL, NULL);
@@ -2801,8 +2805,8 @@ done:
  */
 static void
 rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
-			  struct agg_node *rn, struct bgp_info *bi, afi_t afi,
-			  safi_t safi,
+			  struct agg_node *rn, struct bgp_path_info *bi,
+			  afi_t afi, safi_t safi,
 			  int (*timer_service_func)(struct thread *))
 {
 	uint32_t lifetime;
@@ -2876,7 +2880,7 @@ rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
 	}
 
 	/* re-sort route list (BGP_PATH_REMOVED routes are last) */
-	if (((struct bgp_info *)rn->info)->next) {
+	if (((struct bgp_path_info *)rn->info)->next) {
 		rfapiBgpInfoDetach(rn, bi);
 		rfapiBgpInfoAttachSorted(rn, bi, afi, safi);
 	}
@@ -2891,7 +2895,7 @@ typedef void(rfapi_bi_filtered_import_f)(struct rfapi_import_table *, int,
 
 
 static void rfapiExpireEncapNow(struct rfapi_import_table *it,
-				struct agg_node *rn, struct bgp_info *bi)
+				struct agg_node *rn, struct bgp_path_info *bi)
 {
 	struct rfapi_withdraw *wcb;
 	struct thread t;
@@ -2946,9 +2950,9 @@ static void rfapiBgpInfoFilteredImportEncap(
 {
 	struct agg_table *rt = NULL;
 	struct agg_node *rn;
-	struct bgp_info *info_new;
-	struct bgp_info *bi;
-	struct bgp_info *next;
+	struct bgp_path_info *info_new;
+	struct bgp_path_info *bi;
+	struct bgp_path_info *next;
 	char buf[BUFSIZ];
 
 	struct prefix p_firstbi_old;
@@ -3060,7 +3064,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 		 */
 		if (rn->info) {
 			rfapiNexthop2Prefix(
-				((struct bgp_info *)(rn->info))->attr,
+				((struct bgp_path_info *)(rn->info))->attr,
 				&p_firstbi_old);
 		}
 
@@ -3245,7 +3249,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 		rfapiExpireEncapNow(import_table, rn, bi);
 	}
 
-	rfapiNexthop2Prefix(((struct bgp_info *)(rn->info))->attr,
+	rfapiNexthop2Prefix(((struct bgp_path_info *)(rn->info))->attr,
 			    &p_firstbi_new);
 
 	/*
@@ -3370,7 +3374,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 }
 
 static void rfapiExpireVpnNow(struct rfapi_import_table *it,
-			      struct agg_node *rn, struct bgp_info *bi,
+			      struct agg_node *rn, struct bgp_path_info *bi,
 			      int lockoffset)
 {
 	struct rfapi_withdraw *wcb;
@@ -3408,9 +3412,9 @@ void rfapiBgpInfoFilteredImportVPN(
 	struct agg_table *rt = NULL;
 	struct agg_node *rn;
 	struct agg_node *n;
-	struct bgp_info *info_new;
-	struct bgp_info *bi;
-	struct bgp_info *next;
+	struct bgp_path_info *info_new;
+	struct bgp_path_info *bi;
+	struct bgp_path_info *next;
 	char buf[BUFSIZ];
 	struct prefix vn_prefix;
 	struct prefix un_prefix;
@@ -4115,7 +4119,7 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 				   afi_t afi, safi_t safi)
 {
 	struct agg_node *rn;
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 	struct agg_table *rt;
 	int (*timer_service_func)(struct thread *);
 
@@ -4239,7 +4243,7 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 			for (rn2 = bgp_table_top(rn1->info); rn2;
 			     rn2 = bgp_route_next(rn2)) {
 
-				struct bgp_info *bi;
+				struct bgp_path_info *bi;
 
 				for (bi = rn2->info; bi; bi = bi->next) {
 					uint32_t label = 0;
@@ -4473,8 +4477,8 @@ static void rfapiDeleteRemotePrefixesIt(
 				       afi);
 
 		for (rn = agg_route_top(rt); rn; rn = agg_route_next(rn)) {
-			struct bgp_info *bi;
-			struct bgp_info *next;
+			struct bgp_path_info *bi;
+			struct bgp_path_info *next;
 
 			if (VNC_DEBUG(IMPORT_DEL_REMOTE)) {
 				char p1line[PREFIX_STRLEN];

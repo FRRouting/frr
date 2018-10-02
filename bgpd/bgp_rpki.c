@@ -217,7 +217,7 @@ static route_map_result_t route_match(void *rule, const struct prefix *prefix,
 				      route_map_object_t type, void *object)
 {
 	int *rpki_status = rule;
-	struct bgp_info *bgp_info;
+	struct bgp_path_info *bgp_info;
 
 	if (type == RMAP_BGP) {
 		bgp_info = object;
@@ -418,7 +418,7 @@ static void revalidate_bgp_node(struct bgp_node *bgp_node, afi_t afi,
 
 	for (ain = bgp_node->adj_in; ain; ain = ain->next) {
 		int ret;
-		struct bgp_info *bgp_info = bgp_node->info;
+		struct bgp_path_info *bgp_info = bgp_node->info;
 		mpls_label_t *label = NULL;
 		uint32_t num_labels = 0;
 

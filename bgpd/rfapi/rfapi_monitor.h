@@ -45,7 +45,7 @@ struct rfapi_monitor_encap {
 	struct rfapi_monitor_encap *next;
 	struct rfapi_monitor_encap *prev;
 	struct agg_node *node;   /* VPN node */
-	struct bgp_info *bi;     /* VPN bi */
+	struct bgp_path_info *bi; /* VPN bi */
 	struct agg_node *rn;     /* parent node */
 };
 

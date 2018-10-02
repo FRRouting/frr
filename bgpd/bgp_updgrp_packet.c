@@ -687,7 +687,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	struct bgp_adj_out *adj;
 	struct bgp_advertise *adv;
 	struct bgp_node *rn = NULL;
-	struct bgp_info *binfo = NULL;
+	struct bgp_path_info *binfo = NULL;
 	bgp_size_t total_attr_len = 0;
 	unsigned long attrlen_pos = 0;
 	size_t mpattrlen_pos = 0;

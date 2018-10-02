@@ -50,9 +50,9 @@ static void register_zebra_rnh(struct bgp_nexthop_cache *bnc,
 static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc,
 				 int is_bgp_static_route);
 static void evaluate_paths(struct bgp_nexthop_cache *bnc);
-static int make_prefix(int afi, struct bgp_info *ri, struct prefix *p);
-static void path_nh_map(struct bgp_info *path, struct bgp_nexthop_cache *bnc,
-			int keep);
+static int make_prefix(int afi, struct bgp_path_info *ri, struct prefix *p);
+static void path_nh_map(struct bgp_path_info *path,
+			struct bgp_nexthop_cache *bnc, int keep);
 
 static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 {
@@ -66,7 +66,7 @@ static int bgp_isvalid_labeled_nexthop(struct bgp_nexthop_cache *bnc)
 		|| (bnc && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID)));
 }
 
-int bgp_find_nexthop(struct bgp_info *path, int connected)
+int bgp_find_nexthop(struct bgp_path_info *path, int connected)
 {
 	struct bgp_nexthop_cache *bnc = path->nexthop;
 
@@ -104,7 +104,7 @@ static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
 	}
 }
 
-void bgp_unlink_nexthop(struct bgp_info *path)
+void bgp_unlink_nexthop(struct bgp_path_info *path)
 {
 	struct bgp_nexthop_cache *bnc = path->nexthop;
 
@@ -143,7 +143,7 @@ void bgp_unlink_nexthop_by_peer(struct peer *peer)
  * we need both the bgp_route and bgp_nexthop pointers.
  */
 int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
-			    afi_t afi, struct bgp_info *ri,
+			    afi_t afi, struct bgp_path_info *ri,
 			    struct peer *peer, int connected)
 {
 	struct bgp_node *rn;
@@ -527,7 +527,7 @@ void bgp_cleanup_nexthops(struct bgp *bgp)
  * make_prefix - make a prefix structure from the path (essentially
  * path's node.
  */
-static int make_prefix(int afi, struct bgp_info *ri, struct prefix *p)
+static int make_prefix(int afi, struct bgp_path_info *ri, struct prefix *p)
 {
 
 	int is_bgp_static = ((ri->type == ZEBRA_ROUTE_BGP)
@@ -673,7 +673,7 @@ static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc,
 static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 {
 	struct bgp_node *rn;
-	struct bgp_info *path;
+	struct bgp_path_info *path;
 	int afi;
 	struct peer *peer = (struct peer *)bnc->nht_info;
 	struct bgp_table *table;
@@ -786,8 +786,8 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
  *   make - if set, make the association. if unset, just break the existing
  *          association.
  */
-static void path_nh_map(struct bgp_info *path, struct bgp_nexthop_cache *bnc,
-			int make)
+static void path_nh_map(struct bgp_path_info *path,
+			struct bgp_nexthop_cache *bnc, int make)
 {
 	if (path->nexthop) {
 		LIST_REMOVE(path, nh_thread);

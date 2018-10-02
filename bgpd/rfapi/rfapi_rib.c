@@ -616,9 +616,9 @@ void rfapiRibFree(struct rfapi_descriptor *rfd)
 }
 
 /*
- * Copies struct bgp_info to struct rfapi_info, except for rk fields and un
+ * Copies struct bgp_path_info to struct rfapi_info, except for rk fields and un
  */
-static void rfapiRibBi2Ri(struct bgp_info *bi, struct rfapi_info *ri,
+static void rfapiRibBi2Ri(struct bgp_path_info *bi, struct rfapi_info *ri,
 			  uint32_t lifetime)
 {
 	struct bgp_attr_encap_subtlv *pEncap;
@@ -733,7 +733,7 @@ static void rfapiRibBi2Ri(struct bgp_info *bi, struct rfapi_info *ri,
 int rfapiRibPreloadBi(
 	struct agg_node *rfd_rib_node, /* NULL = don't preload or filter */
 	struct prefix *pfx_vn, struct prefix *pfx_un, uint32_t lifetime,
-	struct bgp_info *bi)
+	struct bgp_path_info *bi)
 {
 	struct rfapi_descriptor *rfd;
 	struct skiplist *slRibPt = NULL;
@@ -1590,7 +1590,7 @@ void rfapiRibUpdatePendingNode(
 	struct agg_node *it_node, uint32_t lifetime)
 {
 	struct prefix *prefix;
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 	struct agg_node *pn;
 	afi_t afi;
 	uint32_t queued_flag;

@@ -394,7 +394,7 @@ int rfapiStream2Vty(void *stream,			   /* input */
 
 /* called from bgpd/bgp_vty.c'route_vty_out() */
 void rfapi_vty_out_vncinfo(struct vty *vty, struct prefix *p,
-			   struct bgp_info *bi, safi_t safi)
+			   struct bgp_path_info *bi, safi_t safi)
 {
 	char *s;
 	uint32_t lifetime;
@@ -479,7 +479,7 @@ void rfapiPrintAttrPtrs(void *stream, struct attr *attr)
 /*
  * Print BI in an Import Table
  */
-void rfapiPrintBi(void *stream, struct bgp_info *bi)
+void rfapiPrintBi(void *stream, struct bgp_path_info *bi)
 {
 	char buf[BUFSIZ];
 	char *s;
@@ -740,7 +740,7 @@ static void rfapiDebugPrintMonitorEncap(void *stream,
 
 void rfapiShowItNode(void *stream, struct agg_node *rn)
 {
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 	char buf[BUFSIZ];
 
 	int (*fp)(void *, const char *, ...);
@@ -779,7 +779,7 @@ void rfapiShowImportTable(void *stream, const char *label, struct agg_table *rt,
 	fp(out, "Import Table [%s]%s", label, HVTYNL);
 
 	for (rn = agg_route_top(rt); rn; rn = agg_route_next(rn)) {
-		struct bgp_info *bi;
+		struct bgp_path_info *bi;
 
 		if (rn->p.family == AF_ETHERNET) {
 			rfapiEthAddr2Str(&rn->p.u.prefix_eth, buf, BUFSIZ);
@@ -1008,7 +1008,7 @@ int rfapiShowVncQueries(void *stream, struct prefix *pfx_match)
 }
 
 static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
-				 struct agg_node *rn, struct bgp_info *bi)
+				 struct agg_node *rn, struct bgp_path_info *bi)
 {
 	int (*fp)(void *, const char *, ...);
 	struct vty *vty;
@@ -1126,7 +1126,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 #if RFAPI_REGISTRATIONS_REPORT_AGE
 		/*
 		 * Calculate when the timer started. Doing so here saves
-		 * us a timestamp field in "struct bgp_info".
+		 * us a timestamp field in "struct bgp_path_info".
 		 *
 		 * See rfapi_import.c'rfapiBiStartWithdrawTimer() for the
 		 * original calculation.
@@ -1222,7 +1222,7 @@ static int rfapiShowRemoteRegistrationsIt(struct bgp *bgp, void *stream,
 		for (rn = agg_route_top(it->imported_vpn[afi]); rn;
 		     rn = agg_route_next(rn)) {
 
-			struct bgp_info *bi;
+			struct bgp_path_info *bi;
 			int count_only;
 
 			/* allow for wider or more narrow mask from user */
@@ -1535,7 +1535,7 @@ void rfapiPrintAdvertisedInfo(struct vty *vty, struct rfapi_descriptor *rfd,
 {
 	afi_t afi; /* of the VN address */
 	struct bgp_node *bn;
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 	uint8_t type = ZEBRA_ROUTE_BGP;
 	struct bgp *bgp;
 	int printed = 0;

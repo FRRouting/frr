@@ -165,18 +165,19 @@ struct bgp_node *bgp_afi_node_lookup(struct bgp_table *table, afi_t afi,
 }
 
 /* Allocate bgp_info_extra */
-static struct bgp_info_extra *bgp_info_extra_new(void)
+static struct bgp_path_info_extra *bgp_info_extra_new(void)
 {
-	struct bgp_info_extra *new;
-	new = XCALLOC(MTYPE_BGP_ROUTE_EXTRA, sizeof(struct bgp_info_extra));
+	struct bgp_path_info_extra *new;
+	new = XCALLOC(MTYPE_BGP_ROUTE_EXTRA,
+		      sizeof(struct bgp_path_info_extra));
 	new->label[0] = MPLS_INVALID_LABEL;
 	new->num_labels = 0;
 	return new;
 }
 
-static void bgp_info_extra_free(struct bgp_info_extra **extra)
+static void bgp_info_extra_free(struct bgp_path_info_extra **extra)
 {
-	struct bgp_info_extra *e;
+	struct bgp_path_info_extra *e;
 
 	if (!extra || !*extra)
 		return;
@@ -187,7 +188,7 @@ static void bgp_info_extra_free(struct bgp_info_extra **extra)
 
 	e->damp_info = NULL;
 	if (e->parent) {
-		struct bgp_info *bi = (struct bgp_info *)e->parent;
+		struct bgp_path_info *bi = (struct bgp_path_info *)e->parent;
 
 		if (bi->net) {
 			/* FIXME: since multiple e may have the same e->parent
@@ -224,7 +225,7 @@ static void bgp_info_extra_free(struct bgp_info_extra **extra)
 /* Get bgp_info extra information for the given bgp_info, lazy allocated
  * if required.
  */
-struct bgp_info_extra *bgp_info_extra_get(struct bgp_info *ri)
+struct bgp_path_info_extra *bgp_info_extra_get(struct bgp_path_info *ri)
 {
 	if (!ri->extra)
 		ri->extra = bgp_info_extra_new();
@@ -232,13 +233,13 @@ struct bgp_info_extra *bgp_info_extra_get(struct bgp_info *ri)
 }
 
 /* Allocate new bgp info structure. */
-struct bgp_info *bgp_info_new(void)
+struct bgp_path_info *bgp_info_new(void)
 {
-	return XCALLOC(MTYPE_BGP_ROUTE, sizeof(struct bgp_info));
+	return XCALLOC(MTYPE_BGP_ROUTE, sizeof(struct bgp_path_info));
 }
 
 /* Free bgp route information. */
-static void bgp_info_free(struct bgp_info *binfo)
+static void bgp_info_free(struct bgp_path_info *binfo)
 {
 	if (binfo->attr)
 		bgp_attr_unintern(&binfo->attr);
@@ -252,13 +253,13 @@ static void bgp_info_free(struct bgp_info *binfo)
 	XFREE(MTYPE_BGP_ROUTE, binfo);
 }
 
-struct bgp_info *bgp_info_lock(struct bgp_info *binfo)
+struct bgp_path_info *bgp_info_lock(struct bgp_path_info *binfo)
 {
 	binfo->lock++;
 	return binfo;
 }
 
-struct bgp_info *bgp_info_unlock(struct bgp_info *binfo)
+struct bgp_path_info *bgp_info_unlock(struct bgp_path_info *binfo)
 {
 	assert(binfo && binfo->lock > 0);
 	binfo->lock--;
@@ -283,9 +284,9 @@ struct bgp_info *bgp_info_unlock(struct bgp_info *binfo)
 	return binfo;
 }
 
-void bgp_info_add(struct bgp_node *rn, struct bgp_info *ri)
+void bgp_info_add(struct bgp_node *rn, struct bgp_path_info *ri)
 {
-	struct bgp_info *top;
+	struct bgp_path_info *top;
 
 	top = rn->info;
 
@@ -302,7 +303,7 @@ void bgp_info_add(struct bgp_node *rn, struct bgp_info *ri)
 
 /* Do the actual removal of info from RIB, for use by bgp_process
    completion callback *only* */
-void bgp_info_reap(struct bgp_node *rn, struct bgp_info *ri)
+void bgp_info_reap(struct bgp_node *rn, struct bgp_path_info *ri)
 {
 	if (ri->next)
 		ri->next->prev = ri->prev;
@@ -316,7 +317,7 @@ void bgp_info_reap(struct bgp_node *rn, struct bgp_info *ri)
 	bgp_unlock_node(rn);
 }
 
-void bgp_info_delete(struct bgp_node *rn, struct bgp_info *ri)
+void bgp_info_delete(struct bgp_node *rn, struct bgp_path_info *ri)
 {
 	bgp_info_set_flag(rn, ri, BGP_PATH_REMOVED);
 	/* set of previous already took care of pcount */
@@ -326,7 +327,7 @@ void bgp_info_delete(struct bgp_node *rn, struct bgp_info *ri)
 /* undo the effects of a previous call to bgp_info_delete; typically
    called when a route is deleted and then quickly re-added before the
    deletion has been processed */
-void bgp_info_restore(struct bgp_node *rn, struct bgp_info *ri)
+void bgp_info_restore(struct bgp_node *rn, struct bgp_path_info *ri)
 {
 	bgp_info_unset_flag(rn, ri, BGP_PATH_REMOVED);
 	/* unset of previous already took care of pcount */
@@ -334,7 +335,7 @@ void bgp_info_restore(struct bgp_node *rn, struct bgp_info *ri)
 }
 
 /* Adjust pcount as required */
-static void bgp_pcount_adjust(struct bgp_node *rn, struct bgp_info *ri)
+static void bgp_pcount_adjust(struct bgp_node *rn, struct bgp_path_info *ri)
 {
 	struct bgp_table *table;
 
@@ -364,7 +365,8 @@ static void bgp_pcount_adjust(struct bgp_node *rn, struct bgp_info *ri)
 	}
 }
 
-static int bgp_label_index_differs(struct bgp_info *ri1, struct bgp_info *ri2)
+static int bgp_label_index_differs(struct bgp_path_info *ri1,
+				   struct bgp_path_info *ri2)
 {
 	return (!(ri1->attr->label_index == ri2->attr->label_index));
 }
@@ -372,7 +374,8 @@ static int bgp_label_index_differs(struct bgp_info *ri1, struct bgp_info *ri2)
 /* Set/unset bgp_info flags, adjusting any other state as needed.
  * This is here primarily to keep prefix-count in check.
  */
-void bgp_info_set_flag(struct bgp_node *rn, struct bgp_info *ri, uint32_t flag)
+void bgp_info_set_flag(struct bgp_node *rn, struct bgp_path_info *ri,
+		       uint32_t flag)
 {
 	SET_FLAG(ri->flags, flag);
 
@@ -385,7 +388,7 @@ void bgp_info_set_flag(struct bgp_node *rn, struct bgp_info *ri, uint32_t flag)
 	bgp_pcount_adjust(rn, ri);
 }
 
-void bgp_info_unset_flag(struct bgp_node *rn, struct bgp_info *ri,
+void bgp_info_unset_flag(struct bgp_node *rn, struct bgp_path_info *ri,
 			 uint32_t flag)
 {
 	UNSET_FLAG(ri->flags, flag);
@@ -413,7 +416,7 @@ static uint32_t bgp_med_value(struct attr *attr, struct bgp *bgp)
 	}
 }
 
-void bgp_info_path_with_addpath_rx_str(struct bgp_info *ri, char *buf)
+void bgp_info_path_with_addpath_rx_str(struct bgp_path_info *ri, char *buf)
 {
 	if (ri->addpath_rx_id)
 		sprintf(buf, "path %s (addpath rxid %d)", ri->peer->host,
@@ -424,8 +427,8 @@ void bgp_info_path_with_addpath_rx_str(struct bgp_info *ri, char *buf)
 
 /* Compare two bgp route entity.  If 'new' is preferable over 'exist' return 1.
  */
-static int bgp_info_cmp(struct bgp *bgp, struct bgp_info *new,
-			struct bgp_info *exist, int *paths_eq,
+static int bgp_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
+			struct bgp_path_info *exist, int *paths_eq,
 			struct bgp_maxpaths_cfg *mpath_cfg, int debug,
 			char *pfx_buf, afi_t afi, safi_t safi)
 {
@@ -1020,9 +1023,9 @@ static int bgp_info_cmp(struct bgp *bgp, struct bgp_info *new,
  * is preferred, or 0 if they are the same (usually will only occur if
  * multipath is enabled
  * This version is compatible with */
-int bgp_info_cmp_compatible(struct bgp *bgp, struct bgp_info *new,
-			    struct bgp_info *exist, char *pfx_buf, afi_t afi,
-			    safi_t safi)
+int bgp_info_cmp_compatible(struct bgp *bgp, struct bgp_path_info *new,
+			    struct bgp_path_info *exist, char *pfx_buf,
+			    afi_t afi, safi_t safi)
 {
 	int paths_eq;
 	int ret;
@@ -1164,7 +1167,7 @@ static int bgp_input_modifier(struct peer *peer, struct prefix *p,
 			      const char *rmap_name)
 {
 	struct bgp_filter *filter;
-	struct bgp_info info;
+	struct bgp_path_info info;
 	route_map_result_t ret;
 	struct route_map *rmap = NULL;
 
@@ -1190,7 +1193,7 @@ static int bgp_input_modifier(struct peer *peer, struct prefix *p,
 
 	/* Route map apply. */
 	if (rmap) {
-		memset(&info, 0, sizeof(struct bgp_info));
+		memset(&info, 0, sizeof(struct bgp_path_info));
 		/* Duplicate current value to new strucutre for modification. */
 		info.peer = peer;
 		info.attr = attr;
@@ -1212,7 +1215,7 @@ static int bgp_output_modifier(struct peer *peer, struct prefix *p,
 			       struct attr *attr, afi_t afi, safi_t safi,
 			       const char *rmap_name)
 {
-	struct bgp_info info;
+	struct bgp_path_info info;
 	route_map_result_t ret;
 	struct route_map *rmap = NULL;
 	uint8_t rmap_type;
@@ -1239,7 +1242,7 @@ static int bgp_output_modifier(struct peer *peer, struct prefix *p,
 	if (rmap == NULL)
 		return RMAP_DENY;
 
-	memset(&info, 0, sizeof(struct bgp_info));
+	memset(&info, 0, sizeof(struct bgp_path_info));
 	/* Route map apply. */
 	/* Duplicate current value to new strucutre for modification. */
 	info.peer = peer;
@@ -1372,7 +1375,7 @@ static void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr)
 		memset(&attr->mp_nexthop_global_in, 0, BGP_ATTR_NHLEN_IPV4);
 }
 
-int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
+int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *ri,
 			    struct update_subgroup *subgrp, struct prefix *p,
 			    struct attr *attr)
 {
@@ -1695,17 +1698,17 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 
 	/* Route map & unsuppress-map apply. */
 	if (ROUTE_MAP_OUT_NAME(filter) || (ri->extra && ri->extra->suppress)) {
-		struct bgp_info info;
-		struct bgp_info_extra dummy_info_extra;
+		struct bgp_path_info info;
+		struct bgp_path_info_extra dummy_info_extra;
 		struct attr dummy_attr;
 
-		memset(&info, 0, sizeof(struct bgp_info));
+		memset(&info, 0, sizeof(struct bgp_path_info));
 		info.peer = peer;
 		info.attr = attr;
 
 		if (ri->extra) {
 			memcpy(&dummy_info_extra, ri->extra,
-			       sizeof(struct bgp_info_extra));
+			       sizeof(struct bgp_path_info_extra));
 			info.extra = &dummy_info_extra;
 		}
 
@@ -1836,14 +1839,15 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 
 void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 			struct bgp_maxpaths_cfg *mpath_cfg,
-			struct bgp_info_pair *result, afi_t afi, safi_t safi)
+			struct bgp_path_info_pair *result, afi_t afi,
+			safi_t safi)
 {
-	struct bgp_info *new_select;
-	struct bgp_info *old_select;
-	struct bgp_info *ri;
-	struct bgp_info *ri1;
-	struct bgp_info *ri2;
-	struct bgp_info *nextri = NULL;
+	struct bgp_path_info *new_select;
+	struct bgp_path_info *old_select;
+	struct bgp_path_info *ri;
+	struct bgp_path_info *ri1;
+	struct bgp_path_info *ri2;
+	struct bgp_path_info *nextri = NULL;
 	int paths_eq, do_mpath, debug;
 	struct list mp_list;
 	char pfx_buf[PREFIX2STR_BUFFER];
@@ -2057,7 +2061,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
  * for advertisement to the subgroup.
  */
 int subgroup_process_announce_selected(struct update_subgroup *subgrp,
-				       struct bgp_info *selected,
+				       struct bgp_path_info *selected,
 				       struct bgp_node *rn,
 				       uint32_t addpath_tx_id)
 {
@@ -2112,7 +2116,7 @@ int subgroup_process_announce_selected(struct update_subgroup *subgrp,
  */
 void bgp_zebra_clear_route_change_flags(struct bgp_node *rn)
 {
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 
 	for (ri = rn->info; ri; ri = ri->next) {
 		if (BGP_PATH_HOLDDOWN(ri))
@@ -2127,9 +2131,10 @@ void bgp_zebra_clear_route_change_flags(struct bgp_node *rn)
  * if the route selection returns the same best route as earlier - to
  * determine if we need to update zebra or not.
  */
-int bgp_zebra_has_route_changed(struct bgp_node *rn, struct bgp_info *selected)
+int bgp_zebra_has_route_changed(struct bgp_node *rn,
+				struct bgp_path_info *selected)
 {
-	struct bgp_info *mpinfo;
+	struct bgp_path_info *mpinfo;
 
 	/* If this is multipath, check all selected paths for any nexthop
 	 * change or attribute change. Some attribute changes (e.g., community)
@@ -2185,9 +2190,9 @@ struct bgp_process_queue {
 static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 				 afi_t afi, safi_t safi)
 {
-	struct bgp_info *new_select;
-	struct bgp_info *old_select;
-	struct bgp_info_pair old_and_new;
+	struct bgp_path_info *new_select;
+	struct bgp_path_info *old_select;
+	struct bgp_path_info_pair old_and_new;
 	char pfx_buf[PREFIX2STR_BUFFER];
 	int debug = 0;
 
@@ -2669,8 +2674,8 @@ int bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 /* Unconditionally remove the route from the RIB, without taking
  * damping into consideration (eg, because the session went down)
  */
-void bgp_rib_remove(struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
-		    afi_t afi, safi_t safi)
+void bgp_rib_remove(struct bgp_node *rn, struct bgp_path_info *ri,
+		    struct peer *peer, afi_t afi, safi_t safi)
 {
 	bgp_aggregate_decrement(peer->bgp, &rn->p, ri, afi, safi);
 
@@ -2680,7 +2685,7 @@ void bgp_rib_remove(struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
 	bgp_process(peer->bgp, rn, afi, safi);
 }
 
-static void bgp_rib_withdraw(struct bgp_node *rn, struct bgp_info *ri,
+static void bgp_rib_withdraw(struct bgp_node *rn, struct bgp_path_info *ri,
 			     struct peer *peer, afi_t afi, safi_t safi,
 			     struct prefix_rd *prd)
 {
@@ -2728,14 +2733,14 @@ static void bgp_rib_withdraw(struct bgp_node *rn, struct bgp_info *ri,
 	bgp_rib_remove(rn, ri, peer, afi, safi);
 }
 
-struct bgp_info *info_make(int type, int sub_type, unsigned short instance,
-			   struct peer *peer, struct attr *attr,
-			   struct bgp_node *rn)
+struct bgp_path_info *info_make(int type, int sub_type, unsigned short instance,
+				struct peer *peer, struct attr *attr,
+				struct bgp_node *rn)
 {
-	struct bgp_info *new;
+	struct bgp_path_info *new;
 
 	/* Make new BGP info. */
-	new = XCALLOC(MTYPE_BGP_ROUTE, sizeof(struct bgp_info));
+	new = XCALLOC(MTYPE_BGP_ROUTE, sizeof(struct bgp_path_info));
 	new->type = type;
 	new->instance = instance;
 	new->sub_type = sub_type;
@@ -2769,7 +2774,7 @@ static void overlay_index_update(struct attr *attr,
 	}
 }
 
-static bool overlay_index_equal(afi_t afi, struct bgp_info *info,
+static bool overlay_index_equal(afi_t afi, struct bgp_path_info *info,
 				struct eth_segment_id *eth_s_id,
 				union gw_addr *gw_ip)
 {
@@ -2878,9 +2883,9 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	struct bgp *bgp;
 	struct attr new_attr;
 	struct attr *attr_new;
-	struct bgp_info *ri;
-	struct bgp_info *new;
-	struct bgp_info_extra *extra;
+	struct bgp_path_info *ri;
+	struct bgp_path_info *new;
+	struct bgp_path_info_extra *extra;
 	const char *reason;
 	char pfx_buf[BGP_PRD_PATH_STRLEN];
 	int connected = 0;
@@ -3531,7 +3536,7 @@ int bgp_withdraw(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	struct bgp *bgp;
 	char pfx_buf[BGP_PRD_PATH_STRLEN];
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 
 #if ENABLE_BGP_VNC
 	if ((SAFI_MPLS_VPN == safi) || (SAFI_ENCAP == safi)) {
@@ -3727,7 +3732,7 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 			if (ain->peer != peer)
 				continue;
 
-			struct bgp_info *ri = rn->info;
+			struct bgp_path_info *ri = rn->info;
 			uint32_t num_labels = 0;
 			mpls_label_t *label_pnt = NULL;
 
@@ -3783,7 +3788,7 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
 	struct bgp_clear_node_queue *cnq = data;
 	struct bgp_node *rn = cnq->rn;
 	struct peer *peer = wq->spec.data;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	struct bgp *bgp;
 	afi_t afi = bgp_node_table(rn)->afi;
 	safi_t safi = bgp_node_table(rn)->safi;
@@ -3882,7 +3887,7 @@ static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
 		return;
 
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		struct bgp_info *ri, *next;
+		struct bgp_path_info *ri, *next;
 		struct bgp_adj_in *ain;
 		struct bgp_adj_in *ain_next;
 
@@ -4043,7 +4048,7 @@ void bgp_clear_adj_in(struct peer *peer, afi_t afi, safi_t safi)
 void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	struct bgp_table *table;
 
 	if (safi == SAFI_MPLS_VPN) {
@@ -4086,8 +4091,8 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table,
 			      safi_t safi)
 {
 	struct bgp_node *rn;
-	struct bgp_info *ri;
-	struct bgp_info *next;
+	struct bgp_path_info *ri;
+	struct bgp_path_info *next;
 
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
 		for (ri = rn->info; ri; ri = next) {
@@ -4352,9 +4357,9 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 		       struct bgp_static *bgp_static, afi_t afi, safi_t safi)
 {
 	struct bgp_node *rn;
-	struct bgp_info *ri;
-	struct bgp_info *new;
-	struct bgp_info info;
+	struct bgp_path_info *ri;
+	struct bgp_path_info *new;
+	struct bgp_path_info info;
 	struct attr attr;
 	struct attr *attr_new;
 	int ret;
@@ -4387,7 +4392,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 	if (bgp_static->rmap.name) {
 		struct attr attr_tmp = attr;
 
-		memset(&info, 0, sizeof(struct bgp_info));
+		memset(&info, 0, sizeof(struct bgp_path_info));
 		info.peer = bgp->peer_self;
 		info.attr = &attr_tmp;
 
@@ -4582,7 +4587,7 @@ void bgp_static_withdraw(struct bgp *bgp, struct prefix *p, afi_t afi,
 			 safi_t safi)
 {
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 
 	rn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, NULL);
 
@@ -4617,7 +4622,7 @@ static void bgp_static_withdraw_safi(struct bgp *bgp, struct prefix *p,
 				     struct prefix_rd *prd)
 {
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 
 	rn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, prd);
 
@@ -4652,10 +4657,10 @@ static void bgp_static_update_safi(struct bgp *bgp, struct prefix *p,
 				   safi_t safi)
 {
 	struct bgp_node *rn;
-	struct bgp_info *new;
+	struct bgp_path_info *new;
 	struct attr *attr_new;
 	struct attr attr = {0};
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 #if ENABLE_BGP_VNC
 	mpls_label_t label = 0;
 #endif
@@ -4703,7 +4708,7 @@ static void bgp_static_update_safi(struct bgp *bgp, struct prefix *p,
 	/* Apply route-map. */
 	if (bgp_static->rmap.name) {
 		struct attr attr_tmp = attr;
-		struct bgp_info info;
+		struct bgp_path_info info;
 		int ret;
 
 		info.peer = bgp->peer_self;
@@ -5071,7 +5076,7 @@ static void bgp_purge_af_static_redist_routes(struct bgp *bgp, afi_t afi,
 {
 	struct bgp_table *table;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 
 	table = bgp->rib[afi][safi];
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
@@ -5467,7 +5472,7 @@ static void bgp_aggregate_free(struct bgp_aggregate *aggregate)
 	XFREE(MTYPE_BGP_AGGREGATE, aggregate);
 }
 
-static int bgp_aggregate_info_same(struct bgp_info *ri, uint8_t origin,
+static int bgp_aggregate_info_same(struct bgp_path_info *ri, uint8_t origin,
 				   struct aspath *aspath,
 				   struct community *comm)
 {
@@ -5503,7 +5508,7 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 {
 	struct bgp_node *rn;
 	struct bgp_table *table;
-	struct bgp_info *ri, *new;
+	struct bgp_path_info *ri, *new;
 
 	table = bgp->rib[afi][safi];
 
@@ -5566,8 +5571,8 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 
 /* Update an aggregate as routes are added/removed from the BGP table */
 static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
-				struct bgp_info *rinew, afi_t afi, safi_t safi,
-				struct bgp_info *del,
+				struct bgp_path_info *rinew, afi_t afi,
+				safi_t safi, struct bgp_path_info *del,
 				struct bgp_aggregate *aggregate)
 {
 	struct bgp_table *table;
@@ -5578,7 +5583,7 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 	struct aspath *asmerge = NULL;
 	struct community *community = NULL;
 	struct community *commerge = NULL;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	unsigned long match = 0;
 	uint8_t atomic_aggregate = 0;
 
@@ -5723,7 +5728,7 @@ static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 	struct bgp_table *table;
 	struct bgp_node *top;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	unsigned long match;
 
 	table = bgp->rib[afi][safi];
@@ -5763,7 +5768,7 @@ static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 }
 
 void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
-			     struct bgp_info *ri, afi_t afi, safi_t safi)
+			     struct bgp_path_info *ri, afi_t afi, safi_t safi)
 {
 	struct bgp_node *child;
 	struct bgp_node *rn;
@@ -5797,7 +5802,7 @@ void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 }
 
 void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
-			     struct bgp_info *del, afi_t afi, safi_t safi)
+			     struct bgp_path_info *del, afi_t afi, safi_t safi)
 {
 	struct bgp_node *child;
 	struct bgp_node *rn;
@@ -6061,9 +6066,9 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 			  uint8_t type, unsigned short instance,
 			  route_tag_t tag)
 {
-	struct bgp_info *new;
-	struct bgp_info *bi;
-	struct bgp_info info;
+	struct bgp_path_info *new;
+	struct bgp_path_info *bi;
+	struct bgp_path_info info;
 	struct bgp_node *bn;
 	struct attr attr;
 	struct attr *new_attr;
@@ -6119,7 +6124,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 
 		/* Apply route-map. */
 		if (red->rmap.name) {
-			memset(&info, 0, sizeof(struct bgp_info));
+			memset(&info, 0, sizeof(struct bgp_path_info));
 			info.peer = bgp->peer_self;
 			info.attr = &attr_new;
 
@@ -6222,7 +6227,7 @@ void bgp_redistribute_delete(struct bgp *bgp, struct prefix *p, uint8_t type,
 {
 	afi_t afi;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	struct bgp_redist *red;
 
 	afi = family2afi(p->family);
@@ -6256,7 +6261,7 @@ void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,
 			       unsigned short instance)
 {
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	struct bgp_table *table;
 
 	table = bgp->rib[afi][SAFI_UNICAST];
@@ -6340,7 +6345,8 @@ enum bgp_display_type {
 };
 
 /* Print the short form route status for a bgp_info */
-static void route_vty_short_status_out(struct vty *vty, struct bgp_info *binfo,
+static void route_vty_short_status_out(struct vty *vty,
+				       struct bgp_path_info *binfo,
 				       json_object *json_path)
 {
 	if (json_path) {
@@ -6418,8 +6424,9 @@ static void route_vty_short_status_out(struct vty *vty, struct bgp_info *binfo,
 }
 
 /* called from terminal list command */
-void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
-		   int display, safi_t safi, json_object *json_paths)
+void route_vty_out(struct vty *vty, struct prefix *p,
+		   struct bgp_path_info *binfo, int display, safi_t safi,
+		   json_object *json_paths)
 {
 	struct attr *attr;
 	json_object *json_path = NULL;
@@ -6910,7 +6917,7 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 }
 
 void route_vty_out_tag(struct vty *vty, struct prefix *p,
-		       struct bgp_info *binfo, int display, safi_t safi,
+		       struct bgp_path_info *binfo, int display, safi_t safi,
 		       json_object *json)
 {
 	json_object *json_out = NULL;
@@ -7025,7 +7032,7 @@ void route_vty_out_tag(struct vty *vty, struct prefix *p,
 }
 
 void route_vty_out_overlay(struct vty *vty, struct prefix *p,
-			   struct bgp_info *binfo, int display,
+			   struct bgp_path_info *binfo, int display,
 			   json_object *json_paths)
 {
 	struct attr *attr;
@@ -7103,8 +7110,8 @@ void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 
 /* dampening route */
 static void damp_route_vty_out(struct vty *vty, struct prefix *p,
-			       struct bgp_info *binfo, int display, safi_t safi,
-			       bool use_json, json_object *json)
+			       struct bgp_path_info *binfo, int display,
+			       safi_t safi, bool use_json, json_object *json)
 {
 	struct attr *attr;
 	int len;
@@ -7166,8 +7173,8 @@ static void damp_route_vty_out(struct vty *vty, struct prefix *p,
 
 /* flap route */
 static void flap_route_vty_out(struct vty *vty, struct prefix *p,
-			       struct bgp_info *binfo, int display, safi_t safi,
-			       bool use_json, json_object *json)
+			       struct bgp_path_info *binfo, int display,
+			       safi_t safi, bool use_json, json_object *json)
 {
 	struct attr *attr;
 	struct bgp_damp_info *bdi;
@@ -7314,7 +7321,7 @@ static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
 }
 
 void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
-			  struct bgp_info *binfo, afi_t afi, safi_t safi,
+			  struct bgp_path_info *binfo, afi_t afi, safi_t safi,
 			  json_object *json_paths)
 {
 	char buf[INET6_ADDRSTRLEN];
@@ -7365,10 +7372,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		}
 		vty_out(vty, "\n");
 		if (binfo->extra && binfo->extra->parent) {
-			struct bgp_info *parent_ri;
+			struct bgp_path_info *parent_ri;
 			struct bgp_node *rn, *prn;
 
-			parent_ri = (struct bgp_info *)binfo->extra->parent;
+			parent_ri =
+				(struct bgp_path_info *)binfo->extra->parent;
 			rn = parent_ri->net;
 			if (rn && rn->prn) {
 				prn = rn->prn;
@@ -8189,7 +8197,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			  unsigned long *total_cum,
 			  unsigned long *json_header_depth)
 {
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	struct bgp_node *rn;
 	int header = 1;
 	int display;
@@ -8266,7 +8274,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			}
 			if (type == bgp_show_type_route_map) {
 				struct route_map *rmap = output_arg;
-				struct bgp_info binfo;
+				struct bgp_path_info binfo;
 				struct attr dummy_attr;
 				int ret;
 
@@ -8591,7 +8599,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 				 struct bgp_node *rn, struct prefix_rd *prd,
 				 afi_t afi, safi_t safi, json_object *json)
 {
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	struct prefix *p;
 	struct peer *peer;
 	struct listnode *node, *nnode;
@@ -8799,7 +8807,7 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 	struct prefix match;
 	struct bgp_node *rn;
 	struct bgp_node *rm;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	struct bgp_table *table;
 	json_object *json = NULL;
 	json_object *json_paths = NULL;
@@ -9677,7 +9685,7 @@ static int bgp_table_stats_walker(struct thread *t)
 	ts->counts[BGP_STATS_MAXBITLEN] = space;
 
 	for (rn = top; rn; rn = bgp_route_next(rn)) {
-		struct bgp_info *ri;
+		struct bgp_path_info *ri;
 		struct bgp_node *prn = bgp_node_parent_nolock(rn);
 		unsigned int rinum = 0;
 
@@ -9887,7 +9895,7 @@ static int bgp_peer_count_walker(struct thread *t)
 
 	for (rn = bgp_table_top(pc->table); rn; rn = bgp_route_next(rn)) {
 		struct bgp_adj_in *ain;
-		struct bgp_info *ri;
+		struct bgp_path_info *ri;
 
 		for (ain = rn->adj_in; ain; ain = ain->next)
 			if (ain->peer == peer)
@@ -10864,8 +10872,8 @@ static int bgp_distance_unset(struct vty *vty, const char *distance_str,
 }
 
 /* Apply BGP information to distance method. */
-uint8_t bgp_distance_apply(struct prefix *p, struct bgp_info *rinfo, afi_t afi,
-			   safi_t safi, struct bgp *bgp)
+uint8_t bgp_distance_apply(struct prefix *p, struct bgp_path_info *rinfo,
+			   afi_t afi, safi_t safi, struct bgp *bgp)
 {
 	struct bgp_node *rn;
 	struct prefix q;
@@ -11143,8 +11151,8 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 	struct prefix match;
 	struct bgp_node *rn;
 	struct bgp_node *rm;
-	struct bgp_info *ri;
-	struct bgp_info *ri_temp;
+	struct bgp_path_info *ri;
+	struct bgp_path_info *ri_temp;
 	struct bgp *bgp;
 	struct bgp_table *table;
 

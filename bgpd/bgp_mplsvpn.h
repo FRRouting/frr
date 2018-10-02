@@ -53,10 +53,10 @@ extern int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 			     int tags, bool use_json);
 
 extern void vpn_leak_from_vrf_update(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
-				     struct bgp_info *info_vrf);
+				     struct bgp_path_info *info_vrf);
 
 extern void vpn_leak_from_vrf_withdraw(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
-				       struct bgp_info *info_vrf);
+				       struct bgp_path_info *info_vrf);
 
 extern void vpn_leak_from_vrf_withdraw_all(struct bgp *bgp_vpn,
 					   struct bgp *bgp_vrf, afi_t afi);
@@ -70,10 +70,10 @@ extern void vpn_leak_to_vrf_update_all(struct bgp *bgp_vrf, struct bgp *bgp_vpn,
 				       afi_t afi);
 
 extern void vpn_leak_to_vrf_update(struct bgp *bgp_vpn,
-				   struct bgp_info *info_vpn);
+				   struct bgp_path_info *info_vpn);
 
 extern void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,
-				     struct bgp_info *info_vpn);
+				     struct bgp_path_info *info_vpn);
 
 extern void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi);
 extern void vpn_leak_zebra_vrf_label_withdraw(struct bgp *bgp, afi_t afi);

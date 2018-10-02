@@ -172,8 +172,8 @@ static int bgp_reuse_timer(struct thread *t)
 }
 
 /* A route becomes unreachable (RFC2439 Section 4.8.2).  */
-int bgp_damp_withdraw(struct bgp_info *binfo, struct bgp_node *rn, afi_t afi,
-		      safi_t safi, int attr_change)
+int bgp_damp_withdraw(struct bgp_path_info *binfo, struct bgp_node *rn,
+		      afi_t afi, safi_t safi, int attr_change)
 {
 	time_t t_now;
 	struct bgp_damp_info *bdi = NULL;
@@ -252,7 +252,7 @@ int bgp_damp_withdraw(struct bgp_info *binfo, struct bgp_node *rn, afi_t afi,
 	return BGP_DAMP_USED;
 }
 
-int bgp_damp_update(struct bgp_info *binfo, struct bgp_node *rn, afi_t afi,
+int bgp_damp_update(struct bgp_path_info *binfo, struct bgp_node *rn, afi_t afi,
 		    safi_t safi)
 {
 	time_t t_now;
@@ -290,7 +290,7 @@ int bgp_damp_update(struct bgp_info *binfo, struct bgp_node *rn, afi_t afi,
 }
 
 /* Remove dampening information and history route.  */
-int bgp_damp_scan(struct bgp_info *binfo, afi_t afi, safi_t safi)
+int bgp_damp_scan(struct bgp_path_info *binfo, afi_t afi, safi_t safi)
 {
 	time_t t_now, t_diff;
 	struct bgp_damp_info *bdi;
@@ -334,7 +334,7 @@ int bgp_damp_scan(struct bgp_info *binfo, afi_t afi, safi_t safi)
 
 void bgp_damp_info_free(struct bgp_damp_info *bdi, int withdraw)
 {
-	struct bgp_info *binfo;
+	struct bgp_path_info *binfo;
 
 	if (!bdi)
 		return;
@@ -588,7 +588,7 @@ static const char *bgp_get_reuse_time(unsigned int penalty, char *buf,
 	return buf;
 }
 
-void bgp_damp_info_vty(struct vty *vty, struct bgp_info *binfo,
+void bgp_damp_info_vty(struct vty *vty, struct bgp_path_info *binfo,
 		       json_object *json_path)
 {
 	struct bgp_damp_info *bdi;
@@ -640,8 +640,9 @@ void bgp_damp_info_vty(struct vty *vty, struct bgp_info *binfo,
 	}
 }
 
-const char *bgp_damp_reuse_time_vty(struct vty *vty, struct bgp_info *binfo,
-				    char *timebuf, size_t len, bool use_json,
+const char *bgp_damp_reuse_time_vty(struct vty *vty,
+				    struct bgp_path_info *binfo, char *timebuf,
+				    size_t len, bool use_json,
 				    json_object *json)
 {
 	struct bgp_damp_info *bdi;

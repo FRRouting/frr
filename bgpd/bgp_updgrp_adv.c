@@ -101,7 +101,7 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 {
 	struct updwalk_context *ctx = arg;
 	struct update_subgroup *subgrp;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	afi_t afi;
 	safi_t safi;
 	struct peer *peer;
@@ -429,7 +429,7 @@ bgp_advertise_clean_subgroup(struct update_subgroup *subgrp,
 
 void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 			      struct update_subgroup *subgrp, struct attr *attr,
-			      struct bgp_info *binfo)
+			      struct bgp_path_info *binfo)
 {
 	struct bgp_adj_out *adj = NULL;
 	struct bgp_advertise *adv;
@@ -453,7 +453,8 @@ void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 	adv = adj->adv;
 	adv->rn = rn;
 	assert(adv->binfo == NULL);
-	adv->binfo = bgp_info_lock(binfo); /* bgp_info adj_out reference */
+	/* bgp_path_info adj_out reference */
+	adv->binfo = bgp_info_lock(binfo);
 
 	if (attr)
 		adv->baa = bgp_advertise_intern(subgrp->hash, attr);
@@ -568,7 +569,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 			     struct bgp_table *table)
 {
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	struct attr attr;
 	struct peer *peer;
 	afi_t afi;
@@ -663,11 +664,11 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 {
 	struct bgp *bgp;
 	struct attr attr;
-	struct bgp_info *info, init_info, tmp_info;
+	struct bgp_path_info *info, init_info, tmp_info;
 	struct prefix p;
 	struct peer *from;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	struct peer *peer;
 	int ret = RMAP_DENYMATCH;
 	afi_t afi;
@@ -830,7 +831,7 @@ void subgroup_announce_all(struct update_subgroup *subgrp)
  * input route.
  */
 void group_announce_route(struct bgp *bgp, afi_t afi, safi_t safi,
-			  struct bgp_node *rn, struct bgp_info *ri)
+			  struct bgp_node *rn, struct bgp_path_info *ri)
 {
 	struct updwalk_context ctx;
 	ctx.ri = ri;

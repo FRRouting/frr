@@ -925,7 +925,7 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 	return true;
 }
 
-static struct in6_addr *bgp_info_to_ipv6_nexthop(struct bgp_info *info,
+static struct in6_addr *bgp_info_to_ipv6_nexthop(struct bgp_path_info *info,
 						 ifindex_t *ifindex)
 {
 	struct in6_addr *nexthop = NULL;
@@ -968,7 +968,7 @@ static struct in6_addr *bgp_info_to_ipv6_nexthop(struct bgp_info *info,
 }
 
 static int bgp_table_map_apply(struct route_map *map, struct prefix *p,
-			       struct bgp_info *info)
+			       struct bgp_path_info *info)
 {
 	route_map_result_t ret;
 
@@ -1121,13 +1121,11 @@ static int update_ipv4nh_for_route_install(int nh_othervrf,
 	return 1;
 }
 
-static int update_ipv6nh_for_route_install(int nh_othervrf,
-					   struct in6_addr *nexthop,
-					   ifindex_t ifindex,
-					   struct bgp_info *ri,
-					   struct bgp_info *best_ri,
-					   bool is_evpn,
-					   struct zapi_nexthop *api_nh)
+static int
+update_ipv6nh_for_route_install(int nh_othervrf, struct in6_addr *nexthop,
+				ifindex_t ifindex, struct bgp_path_info *ri,
+				struct bgp_path_info *best_ri, bool is_evpn,
+				struct zapi_nexthop *api_nh)
 {
 	struct attr *attr;
 
@@ -1183,7 +1181,7 @@ static int update_ipv6nh_for_route_install(int nh_othervrf,
 }
 
 void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
-			struct bgp_info *info, struct bgp *bgp, afi_t afi,
+			struct bgp_path_info *info, struct bgp *bgp, afi_t afi,
 			safi_t safi)
 {
 	struct zapi_route api;
@@ -1193,11 +1191,11 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	int has_valid_label = 0;
 	uint8_t distance;
 	struct peer *peer;
-	struct bgp_info *mpinfo;
+	struct bgp_path_info *mpinfo;
 	uint32_t metric;
 	struct attr local_attr;
-	struct bgp_info local_info;
-	struct bgp_info *mpinfo_cp = &local_info;
+	struct bgp_path_info local_info;
+	struct bgp_path_info *mpinfo_cp = &local_info;
 	route_tag_t tag;
 	mpls_label_t label;
 	int nh_othervrf = 0;
@@ -1242,7 +1240,8 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 		/* Obtain peer from parent */
 		if (info->extra && info->extra->parent)
-			peer = ((struct bgp_info *)(info->extra->parent))->peer;
+			peer = ((struct bgp_path_info *)(info->extra->parent))
+				       ->peer;
 	}
 
 	tag = info->attr->tag;
@@ -1466,7 +1465,7 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 {
 	struct bgp_node *rn;
 	struct bgp_table *table;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 
 	/* Don't try to install if we're not connected to Zebra or Zebra doesn't
 	 * know of this instance.
@@ -1490,7 +1489,7 @@ void bgp_zebra_announce_table(struct bgp *bgp, afi_t afi, safi_t safi)
 						   safi);
 }
 
-void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info,
+void bgp_zebra_withdraw(struct prefix *p, struct bgp_path_info *info,
 			struct bgp *bgp, safi_t safi)
 {
 	struct zapi_route api;
@@ -1680,7 +1679,7 @@ int bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 				afi_t afi, int type, uint32_t metric)
 {
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 
 	if (red->redist_metric_flag && red->redist_metric == metric)
 		return 0;
@@ -2081,20 +2080,20 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 		break;
 	case ZAPI_IPSET_ENTRY_INSTALLED:
 		{
-			struct bgp_info *bgp_info;
-			struct bgp_info_extra *extra;
+		struct bgp_path_info *bgp_info;
+		struct bgp_path_info_extra *extra;
 
-			bgp_pbime->installed = true;
-			bgp_pbime->install_in_progress = false;
-			if (BGP_DEBUG(zebra, ZEBRA))
-				zlog_debug("%s: Received IPSET_ENTRY_INSTALLED",
-					   __PRETTY_FUNCTION__);
-			/* link bgp_info to bpme */
-			bgp_info = (struct bgp_info *)bgp_pbime->bgp_info;
-			extra = bgp_info_extra_get(bgp_info);
-			if (extra->bgp_fs_pbr == NULL)
-				extra->bgp_fs_pbr = list_new();
-			listnode_add(extra->bgp_fs_pbr, bgp_pbime);
+		bgp_pbime->installed = true;
+		bgp_pbime->install_in_progress = false;
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Received IPSET_ENTRY_INSTALLED",
+				   __PRETTY_FUNCTION__);
+		/* link bgp_info to bpme */
+		bgp_info = (struct bgp_path_info *)bgp_pbime->bgp_info;
+		extra = bgp_info_extra_get(bgp_info);
+		if (extra->bgp_fs_pbr == NULL)
+			extra->bgp_fs_pbr = list_new();
+		listnode_add(extra->bgp_fs_pbr, bgp_pbime);
 		}
 		break;
 	case ZAPI_IPSET_ENTRY_FAIL_REMOVE:

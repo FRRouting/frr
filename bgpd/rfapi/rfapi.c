@@ -361,7 +361,7 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 {
 	afi_t afi; /* of the VN address */
 	struct bgp_node *bn;
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 	char buf[PREFIX_STRLEN];
 	char buf2[RD_ADDRSTRLEN];
 	struct prefix_rd prd0;
@@ -575,8 +575,8 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		   int flags)
 {
 	afi_t afi; /* of the VN address */
-	struct bgp_info *new;
-	struct bgp_info *bi;
+	struct bgp_path_info *new;
+	struct bgp_path_info *bi;
 	struct bgp_node *bn;
 
 	struct attr attr = {0};
@@ -3690,7 +3690,7 @@ static void rfapi_print_exported(struct bgp *bgp)
 {
 	struct bgp_node *rdn;
 	struct bgp_node *rn;
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 
 	if (!bgp)
 		return;

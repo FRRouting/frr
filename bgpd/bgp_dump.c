@@ -299,9 +299,9 @@ static void bgp_dump_routes_index_table(struct bgp *bgp)
 }
 
 
-static struct bgp_info *bgp_dump_route_node_record(int afi, struct bgp_node *rn,
-						   struct bgp_info *info,
-						   unsigned int seq)
+static struct bgp_path_info *
+bgp_dump_route_node_record(int afi, struct bgp_node *rn,
+			   struct bgp_path_info *info, unsigned int seq)
 {
 	struct stream *obuf;
 	size_t sizep;
@@ -387,7 +387,7 @@ static struct bgp_info *bgp_dump_route_node_record(int afi, struct bgp_node *rn,
 static unsigned int bgp_dump_routes_func(int afi, int first_run,
 					 unsigned int seq)
 {
-	struct bgp_info *info;
+	struct bgp_path_info *info;
 	struct bgp_node *rn;
 	struct bgp *bgp;
 	struct bgp_table *table;

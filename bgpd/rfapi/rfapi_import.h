@@ -77,7 +77,7 @@ extern void rfapiCheckRouteCount(void);
 /*
  * Print BI in an Import Table
  */
-extern void rfapiPrintBi(void *stream, struct bgp_info *bi);
+extern void rfapiPrintBi(void *stream, struct bgp_path_info *bi);
 
 extern void rfapiShowImportTable(void *stream, const char *label,
 				 struct agg_table *rt, int isvpn);
@@ -128,7 +128,7 @@ extern int rfapiHasNonRemovedRoutes(struct agg_node *rn);
 
 extern int rfapiProcessDeferredClose(struct thread *t);
 
-extern int rfapiGetUnAddrOfVpnBi(struct bgp_info *bi, struct prefix *p);
+extern int rfapiGetUnAddrOfVpnBi(struct bgp_path_info *bi, struct prefix *p);
 
 extern void rfapiNexthop2Prefix(struct attr *attr, struct prefix *p);
 
@@ -146,10 +146,10 @@ extern void rfapiBgpInfoFilteredImportVPN(
 	struct prefix *p,
 	struct prefix *aux_prefix, /* AFI_ETHER: optional IP */
 	afi_t afi, struct prefix_rd *prd,
-	struct attr *attr, /* part of bgp_info */
-	uint8_t type,      /* part of bgp_info */
-	uint8_t sub_type,  /* part of bgp_info */
-	uint32_t *label);  /* part of bgp_info */
+	struct attr *attr, /* part of bgp_path_info */
+	uint8_t type,      /* part of bgp_path_info */
+	uint8_t sub_type,  /* part of bgp_path_info */
+	uint32_t *label);  /* part of bgp_path_info */
 
 extern struct rfapi_next_hop_entry *rfapiEthRouteNode2NextHopList(
 	struct agg_node *rn, struct rfapi_ip_prefix *rprefix,

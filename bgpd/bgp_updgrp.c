@@ -1904,7 +1904,7 @@ int bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi)
  * configured addpath-tx knob
  */
 int bgp_addpath_tx_path(struct peer *peer, afi_t afi, safi_t safi,
-			struct bgp_info *ri)
+			struct bgp_path_info *ri)
 {
 	if (CHECK_FLAG(peer->af_flags[afi][safi],
 		       PEER_FLAG_ADDPATH_TX_ALL_PATHS))

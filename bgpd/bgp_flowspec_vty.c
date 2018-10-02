@@ -253,8 +253,8 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 }
 
 void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
-			    struct bgp_info *binfo,
-			    int display, json_object *json_paths)
+			    struct bgp_path_info *binfo, int display,
+			    json_object *json_paths)
 {
 	struct attr *attr;
 	char return_string[BGP_FLOWSPEC_STRING_DISPLAY_MAX];
@@ -329,7 +329,7 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 			json_object_array_add(json_paths, json_time_path);
 	}
 	if (display == NLRI_STRING_FORMAT_LARGE) {
-		struct bgp_info_extra *extra = bgp_info_extra_get(binfo);
+		struct bgp_path_info_extra *extra = bgp_info_extra_get(binfo);
 
 		if (extra->bgp_fs_pbr) {
 			struct listnode *node;
@@ -368,7 +368,7 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 			    void *output_arg, bool use_json, int is_last,
 			    unsigned long *output_cum, unsigned long *total_cum)
 {
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	struct bgp_node *rn;
 	unsigned long total_count = 0;
 	json_object *json_paths = NULL;

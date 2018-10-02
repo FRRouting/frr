@@ -44,7 +44,7 @@ struct bgp_damp_info {
 	time_t suppress_time;
 
 	/* Back reference to bgp_info. */
-	struct bgp_info *binfo;
+	struct bgp_path_info *binfo;
 
 	/* Back reference to bgp_node. */
 	struct bgp_node *rn;
@@ -130,18 +130,19 @@ struct bgp_damp_config {
 extern int bgp_damp_enable(struct bgp *, afi_t, safi_t, time_t, unsigned int,
 			   unsigned int, time_t);
 extern int bgp_damp_disable(struct bgp *, afi_t, safi_t);
-extern int bgp_damp_withdraw(struct bgp_info *, struct bgp_node *, afi_t,
-			     safi_t, int);
-extern int bgp_damp_update(struct bgp_info *, struct bgp_node *, afi_t, safi_t);
-extern int bgp_damp_scan(struct bgp_info *, afi_t, safi_t);
-extern void bgp_damp_info_free(struct bgp_damp_info *, int);
+extern int bgp_damp_withdraw(struct bgp_path_info *path, struct bgp_node *rn,
+			     afi_t afi, safi_t safi, int attr_change);
+extern int bgp_damp_update(struct bgp_path_info *path, struct bgp_node *rn,
+			   afi_t afi, safi_t saff);
+extern int bgp_damp_scan(struct bgp_path_info *path, afi_t afi, safi_t safi);
+extern void bgp_damp_info_free(struct bgp_damp_info *path, int withdraw);
 extern void bgp_damp_info_clean(void);
 extern int bgp_damp_decay(time_t, int);
 extern void bgp_config_write_damp(struct vty *);
-extern void bgp_damp_info_vty(struct vty *, struct bgp_info *,
+extern void bgp_damp_info_vty(struct vty *vty, struct bgp_path_info *path,
 			      json_object *json_path);
 extern const char *bgp_damp_reuse_time_vty(struct vty *vty,
-					   struct bgp_info *binfo,
+					   struct bgp_path_info *binfo,
 					   char *timebuf, size_t len,
 					   bool use_json, json_object *json);
 extern int bgp_show_dampening_parameters(struct vty *vty, afi_t, safi_t);

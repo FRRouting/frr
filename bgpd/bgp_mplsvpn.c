@@ -402,7 +402,8 @@ static int ecom_intersect(struct ecommunity *e1, struct ecommunity *e2)
 	return 0;
 }
 
-static bool labels_same(struct bgp_info *bi, mpls_label_t *label, uint32_t n)
+static bool labels_same(struct bgp_path_info *bi, mpls_label_t *label,
+			uint32_t n)
 {
 	uint32_t i;
 
@@ -426,10 +427,9 @@ static bool labels_same(struct bgp_info *bi, mpls_label_t *label, uint32_t n)
 /*
  * make encoded route labels match specified encoded label set
  */
-static void setlabels(
-	struct bgp_info *bi,
-	mpls_label_t *label,		/* array of labels */
-	uint32_t num_labels)
+static void setlabels(struct bgp_path_info *bi,
+		      mpls_label_t *label, /* array of labels */
+		      uint32_t num_labels)
 {
 	if (num_labels)
 		assert(label);
@@ -441,7 +441,7 @@ static void setlabels(
 		return;
 	}
 
-	struct bgp_info_extra *extra = bgp_info_extra_get(bi);
+	struct bgp_path_info_extra *extra = bgp_info_extra_get(bi);
 	uint32_t i;
 
 	for (i = 0; i < num_labels; ++i) {
@@ -456,26 +456,18 @@ static void setlabels(
 /*
  * returns pointer to new bgp_info upon success
  */
-static struct bgp_info *
-leak_update(
-	struct bgp	*bgp,		/* destination bgp instance */
-	struct bgp_node *bn,
-	struct attr	*new_attr,	/* already interned */
-	afi_t		afi,
-	safi_t		safi,
-	struct bgp_info	*source_bi,
-	mpls_label_t	*label,
-	uint32_t	num_labels,
-	void		*parent,
-	struct bgp	*bgp_orig,
-	struct prefix	*nexthop_orig,
-	int		nexthop_self_flag,
-	int		debug)
+static struct bgp_path_info *
+leak_update(struct bgp *bgp, /* destination bgp instance */
+	    struct bgp_node *bn, struct attr *new_attr, /* already interned */
+	    afi_t afi, safi_t safi, struct bgp_path_info *source_bi,
+	    mpls_label_t *label, uint32_t num_labels, void *parent,
+	    struct bgp *bgp_orig, struct prefix *nexthop_orig,
+	    int nexthop_self_flag, int debug)
 {
 	struct prefix *p = &bn->p;
-	struct bgp_info *bi;
-	struct bgp_info *bi_ultimate;
-	struct bgp_info *new;
+	struct bgp_path_info *bi;
+	struct bgp_path_info *bi_ultimate;
+	struct bgp_path_info *new;
 	char buf_prefix[PREFIX_STRLEN];
 
 	if (debug) {
@@ -599,7 +591,7 @@ leak_update(
 		setlabels(new, label, num_labels);
 
 	new->extra->parent = bgp_info_lock(parent);
-	bgp_lock_node((struct bgp_node *)((struct bgp_info *)parent)->net);
+	bgp_lock_node((struct bgp_node *)((struct bgp_path_info *)parent)->net);
 	if (bgp_orig)
 		new->extra->bgp_orig = bgp_lock(bgp_orig);
 	if (nexthop_orig)
@@ -650,9 +642,9 @@ leak_update(
 }
 
 /* cf vnc_import_bgp_add_route_mode_nvegroup() and add_vnc_route() */
-void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
-			      struct bgp *bgp_vrf,       /* from */
-			      struct bgp_info *info_vrf) /* route */
+void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
+			      struct bgp *bgp_vrf,	    /* from */
+			      struct bgp_path_info *info_vrf) /* route */
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
 	struct prefix *p = &info_vrf->net->p;
@@ -705,7 +697,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 	 * route map handling
 	 */
 	if (bgp_vrf->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_TOVPN]) {
-		struct bgp_info info;
+		struct bgp_path_info info;
 		route_map_result_t ret;
 
 		memset(&info, 0, sizeof(info));
@@ -858,7 +850,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 	bn = bgp_afi_node_get(bgp_vpn->rib[afi][safi], afi, safi, p,
 			      &(bgp_vrf->vpn_policy[afi].tovpn_rd));
 
-	struct bgp_info *new_info;
+	struct bgp_path_info *new_info;
 
 	new_info = leak_update(bgp_vpn, bn, new_attr, afi, safi, info_vrf,
 			       &label, 1, info_vrf, bgp_vrf, NULL,
@@ -877,15 +869,15 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,       /* to */
 		vpn_leak_to_vrf_update(bgp_vrf, new_info);
 }
 
-void vpn_leak_from_vrf_withdraw(struct bgp *bgp_vpn,       /* to */
-				struct bgp *bgp_vrf,       /* from */
-				struct bgp_info *info_vrf) /* route */
+void vpn_leak_from_vrf_withdraw(struct bgp *bgp_vpn,		/* to */
+				struct bgp *bgp_vrf,		/* from */
+				struct bgp_path_info *info_vrf) /* route */
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
 	struct prefix *p = &info_vrf->net->p;
 	afi_t afi = family2afi(p->family);
 	safi_t safi = SAFI_MPLS_VPN;
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 	struct bgp_node *bn;
 	const char *debugmsg;
 	char buf_prefix[PREFIX_STRLEN];
@@ -965,7 +957,7 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *bgp_vpn, /* to */
 
 		struct bgp_table *table;
 		struct bgp_node *bn;
-		struct bgp_info *bi;
+		struct bgp_path_info *bi;
 
 		/* This is the per-RD table of prefixes */
 		table = prn->info;
@@ -1013,7 +1005,7 @@ void vpn_leak_from_vrf_update_all(struct bgp *bgp_vpn, /* to */
 				  afi_t afi)
 {
 	struct bgp_node *bn;
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
 
 	if (debug)
@@ -1036,9 +1028,10 @@ void vpn_leak_from_vrf_update_all(struct bgp *bgp_vpn, /* to */
 	}
 }
 
-static void vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,       /* to */
-					  struct bgp *bgp_vpn,       /* from */
-					  struct bgp_info *info_vpn) /* route */
+static void
+vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
+			      struct bgp *bgp_vpn,	    /* from */
+			      struct bgp_path_info *info_vpn) /* route */
 {
 	struct prefix *p = &info_vpn->net->p;
 	afi_t afi = family2afi(p->family);
@@ -1052,7 +1045,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,       /* to */
 	mpls_label_t *pLabels = NULL;
 	uint32_t num_labels = 0;
 	int nexthop_self_flag = 1;
-	struct bgp_info *bi_ultimate = NULL;
+	struct bgp_path_info *bi_ultimate = NULL;
 	int origin_local = 0;
 	struct bgp *src_vrf;
 
@@ -1124,7 +1117,7 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,       /* to */
 	 * route map handling
 	 */
 	if (bgp_vrf->vpn_policy[afi].rmap[BGP_VPN_POLICY_DIR_FROMVPN]) {
-		struct bgp_info info;
+		struct bgp_path_info info;
 		route_map_result_t ret;
 
 		memset(&info, 0, sizeof(info));
@@ -1221,8 +1214,8 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,       /* to */
 		src_vrf, &nexthop_orig, nexthop_self_flag, debug);
 }
 
-void vpn_leak_to_vrf_update(struct bgp *bgp_vpn,       /* from */
-			    struct bgp_info *info_vpn) /* route */
+void vpn_leak_to_vrf_update(struct bgp *bgp_vpn,	    /* from */
+			    struct bgp_path_info *info_vpn) /* route */
 {
 	struct listnode *mnode, *mnnode;
 	struct bgp *bgp;
@@ -1242,8 +1235,8 @@ void vpn_leak_to_vrf_update(struct bgp *bgp_vpn,       /* from */
 	}
 }
 
-void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,       /* from */
-			      struct bgp_info *info_vpn) /* route */
+void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,	    /* from */
+			      struct bgp_path_info *info_vpn) /* route */
 {
 	struct prefix *p;
 	afi_t afi;
@@ -1251,7 +1244,7 @@ void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,       /* from */
 	struct bgp *bgp;
 	struct listnode *mnode, *mnnode;
 	struct bgp_node *bn;
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 	const char *debugmsg;
 	char buf_prefix[PREFIX_STRLEN];
 
@@ -1309,7 +1302,7 @@ void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,       /* from */
 		bn = bgp_afi_node_get(bgp->rib[afi][safi], afi, safi, p, NULL);
 		for (bi = (bn ? bn->info : NULL); bi; bi = bi->next) {
 			if (bi->extra
-			    && (struct bgp_info *)bi->extra->parent
+			    && (struct bgp_path_info *)bi->extra->parent
 				       == info_vpn) {
 				break;
 			}
@@ -1330,7 +1323,7 @@ void vpn_leak_to_vrf_withdraw_all(struct bgp *bgp_vrf, /* to */
 				  afi_t afi)
 {
 	struct bgp_node *bn;
-	struct bgp_info *bi;
+	struct bgp_path_info *bi;
 	safi_t safi = SAFI_UNICAST;
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
@@ -1373,7 +1366,7 @@ void vpn_leak_to_vrf_update_all(struct bgp *bgp_vrf, /* to */
 
 		struct bgp_table *table;
 		struct bgp_node *bn;
-		struct bgp_info *bi;
+		struct bgp_path_info *bi;
 
 		memset(&prd, 0, sizeof(prd));
 		prd.family = AF_UNSPEC;

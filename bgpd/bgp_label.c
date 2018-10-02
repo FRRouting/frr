@@ -94,7 +94,7 @@ int bgp_parse_fec_update(void)
 	return 1;
 }
 
-mpls_label_t bgp_adv_label(struct bgp_node *rn, struct bgp_info *ri,
+mpls_label_t bgp_adv_label(struct bgp_node *rn, struct bgp_path_info *ri,
 			   struct peer *to, afi_t afi, safi_t safi)
 {
 	struct peer *from;
@@ -120,7 +120,8 @@ mpls_label_t bgp_adv_label(struct bgp_node *rn, struct bgp_info *ri,
 	return rn->local_label;
 }
 
-void bgp_reg_dereg_for_label(struct bgp_node *rn, struct bgp_info *ri, int reg)
+void bgp_reg_dereg_for_label(struct bgp_node *rn, struct bgp_path_info *ri,
+			     int reg)
 {
 	struct stream *s;
 	struct prefix *p;

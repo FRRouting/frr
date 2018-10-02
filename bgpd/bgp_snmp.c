@@ -674,14 +674,15 @@ static uint8_t *bgpRcvdPathAttrTable(struct variable *v, oid name[],
 	return NULL;
 }
 
-static struct bgp_info *bgp4PathAttrLookup(struct variable *v, oid name[],
-					   size_t *length, struct bgp *bgp,
-					   struct prefix_ipv4 *addr, int exact)
+static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
+						size_t *length, struct bgp *bgp,
+						struct prefix_ipv4 *addr,
+						int exact)
 {
 	oid *offset;
 	int offsetlen;
-	struct bgp_info *binfo;
-	struct bgp_info *min;
+	struct bgp_path_info *binfo;
+	struct bgp_path_info *min;
 	struct bgp_node *rn;
 	union sockunion su;
 	unsigned int len;
@@ -812,7 +813,7 @@ static uint8_t *bgp4PathAttrTable(struct variable *v, oid name[],
 				  WriteMethod **write_method)
 {
 	struct bgp *bgp;
-	struct bgp_info *binfo;
+	struct bgp_path_info *binfo;
 	struct prefix_ipv4 addr;
 
 	bgp = bgp_get_default();

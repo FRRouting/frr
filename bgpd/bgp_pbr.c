@@ -227,7 +227,7 @@ struct bgp_pbr_or_filter {
 };
 
 static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
-						  struct bgp_info *binfo,
+						  struct bgp_path_info *binfo,
 						  struct bgp_pbr_filter *bpf,
 						  struct nexthop *nh,
 						  float *rate);
@@ -627,7 +627,7 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 
 /* return -1 if build or validation failed */
 static int bgp_pbr_build_and_validate_entry(struct prefix *p,
-					    struct bgp_info *info,
+					    struct bgp_path_info *info,
 					    struct bgp_pbr_entry_main *api)
 {
 	int ret;
@@ -1224,11 +1224,11 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 		bpme->installed = false;
 		bpme->backpointer = NULL;
 		if (bpme->bgp_info) {
-			struct bgp_info *bgp_info;
-			struct bgp_info_extra *extra;
+			struct bgp_path_info *bgp_info;
+			struct bgp_path_info_extra *extra;
 
 			/* unlink bgp_info to bpme */
-			bgp_info = (struct bgp_info *)bpme->bgp_info;
+			bgp_info = (struct bgp_path_info *)bpme->bgp_info;
 			extra = bgp_info_extra_get(bgp_info);
 			if (extra->bgp_fs_pbr)
 				listnode_delete(extra->bgp_fs_pbr, bpme);
@@ -1304,9 +1304,10 @@ static int bgp_pbr_get_remaining_entry(struct hash_backet *backet, void *arg)
 	return HASHWALK_ABORT;
 }
 
-static void bgp_pbr_policyroute_remove_from_zebra_unit(struct bgp *bgp,
-				struct bgp_info *binfo,
-				struct bgp_pbr_filter *bpf)
+static void
+bgp_pbr_policyroute_remove_from_zebra_unit(struct bgp *bgp,
+					   struct bgp_path_info *binfo,
+					   struct bgp_pbr_filter *bpf)
 {
 	struct bgp_pbr_match temp;
 	struct bgp_pbr_match_entry temp2;
@@ -1438,13 +1439,10 @@ static uint8_t bgp_pbr_next_type_entry(uint8_t type_entry)
 	return 0;
 }
 
-static void  bgp_pbr_icmp_action(struct bgp *bgp,
-				 struct bgp_info *binfo,
-				 struct bgp_pbr_filter *bpf,
-				 struct bgp_pbr_or_filter *bpof,
-				 bool add,
-				 struct nexthop *nh,
-				 float *rate)
+static void bgp_pbr_icmp_action(struct bgp *bgp, struct bgp_path_info *binfo,
+				struct bgp_pbr_filter *bpf,
+				struct bgp_pbr_or_filter *bpof, bool add,
+				struct nexthop *nh, float *rate)
 {
 	struct bgp_pbr_range_port srcp, dstp;
 	struct bgp_pbr_val_mask *icmp_type, *icmp_code;
@@ -1507,11 +1505,10 @@ static void  bgp_pbr_icmp_action(struct bgp *bgp,
 	}
 }
 
-static void bgp_pbr_policyroute_remove_from_zebra_recursive(struct bgp *bgp,
-			struct bgp_info *binfo,
-			struct bgp_pbr_filter *bpf,
-			struct bgp_pbr_or_filter *bpof,
-			uint8_t type_entry)
+static void bgp_pbr_policyroute_remove_from_zebra_recursive(
+	struct bgp *bgp, struct bgp_path_info *binfo,
+	struct bgp_pbr_filter *bpf, struct bgp_pbr_or_filter *bpof,
+	uint8_t type_entry)
 {
 	struct listnode *node, *nnode;
 	struct bgp_pbr_val_mask *valmask;
@@ -1554,10 +1551,9 @@ static void bgp_pbr_policyroute_remove_from_zebra_recursive(struct bgp *bgp,
 	}
 }
 
-static void bgp_pbr_policyroute_remove_from_zebra(struct bgp *bgp,
-				struct bgp_info *binfo,
-				struct bgp_pbr_filter *bpf,
-				struct bgp_pbr_or_filter *bpof)
+static void bgp_pbr_policyroute_remove_from_zebra(
+	struct bgp *bgp, struct bgp_path_info *binfo,
+	struct bgp_pbr_filter *bpf, struct bgp_pbr_or_filter *bpof)
 {
 	if (!bpof)
 		return bgp_pbr_policyroute_remove_from_zebra_unit(bgp,
@@ -1692,10 +1688,10 @@ static void bgp_pbr_dump_entry(struct bgp_pbr_filter *bpf, bool add)
 }
 
 static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
-				     struct bgp_info *binfo,
-				     struct bgp_pbr_filter *bpf,
-				     struct nexthop *nh,
-				     float *rate)
+						  struct bgp_path_info *binfo,
+						  struct bgp_pbr_filter *bpf,
+						  struct nexthop *nh,
+						  float *rate)
 {
 	struct bgp_pbr_match temp;
 	struct bgp_pbr_match_entry temp2;
@@ -1854,7 +1850,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 
 	/* already installed */
 	if (bpme_found) {
-		struct bgp_info_extra *extra = bgp_info_extra_get(binfo);
+		struct bgp_path_info_extra *extra = bgp_info_extra_get(binfo);
 
 		if (extra && extra->bgp_fs_pbr &&
 		    listnode_lookup(extra->bgp_fs_pbr, bpme)) {
@@ -1911,13 +1907,10 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 
 }
 
-static void bgp_pbr_policyroute_add_to_zebra_recursive(struct bgp *bgp,
-			struct bgp_info *binfo,
-			struct bgp_pbr_filter *bpf,
-			struct bgp_pbr_or_filter *bpof,
-			struct nexthop *nh,
-			float *rate,
-			uint8_t type_entry)
+static void bgp_pbr_policyroute_add_to_zebra_recursive(
+	struct bgp *bgp, struct bgp_path_info *binfo,
+	struct bgp_pbr_filter *bpf, struct bgp_pbr_or_filter *bpof,
+	struct nexthop *nh, float *rate, uint8_t type_entry)
 {
 	struct listnode *node, *nnode;
 	struct bgp_pbr_val_mask *valmask;
@@ -1961,11 +1954,10 @@ static void bgp_pbr_policyroute_add_to_zebra_recursive(struct bgp *bgp,
 }
 
 static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
-				     struct bgp_info *binfo,
-				     struct bgp_pbr_filter *bpf,
-				     struct bgp_pbr_or_filter *bpof,
-				     struct nexthop *nh,
-				     float *rate)
+					     struct bgp_path_info *binfo,
+					     struct bgp_pbr_filter *bpf,
+					     struct bgp_pbr_or_filter *bpof,
+					     struct nexthop *nh, float *rate)
 {
 	if (!bpof)
 		return bgp_pbr_policyroute_add_to_zebra_unit(bgp, binfo,
@@ -2012,10 +2004,8 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 		list_delete_all_node(bpof->icmp_code);
 }
 
-static void bgp_pbr_handle_entry(struct bgp *bgp,
-				struct bgp_info *binfo,
-				struct bgp_pbr_entry_main *api,
-				bool add)
+static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *binfo,
+				 struct bgp_pbr_entry_main *api, bool add)
 {
 	struct nexthop nh;
 	int i = 0;
@@ -2236,8 +2226,8 @@ static void bgp_pbr_handle_entry(struct bgp *bgp,
 }
 
 void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
-			 struct bgp_info *info, afi_t afi, safi_t safi,
-			 bool nlri_update)
+			  struct bgp_path_info *info, afi_t afi, safi_t safi,
+			  bool nlri_update)
 {
 	struct bgp_pbr_entry_main api;
 

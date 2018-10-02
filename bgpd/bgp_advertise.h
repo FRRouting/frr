@@ -62,7 +62,7 @@ struct bgp_advertise {
 	struct bgp_advertise_attr *baa;
 
 	/* BGP info.  */
-	struct bgp_info *binfo;
+	struct bgp_path_info *binfo;
 };
 
 /* BGP adjacency out.  */

@@ -536,7 +536,7 @@ static void show_esi_routes(struct bgp *bgp,
 {
 	int header = 1;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	uint32_t prefix_cnt, path_cnt;
 	uint64_t tbl_ver;
 
@@ -616,7 +616,7 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
 			    json_object *json)
 {
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	struct bgp_table *table;
 	int header = 1;
 	uint64_t tbl_ver;
@@ -990,7 +990,7 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 	struct bgp_table *table;
 	struct bgp_node *rn;
 	struct bgp_node *rm;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	int rd_header;
 	int header = 1;
 
@@ -2017,7 +2017,7 @@ static void evpn_show_route_vni_multicast(struct vty *vty, struct bgp *bgp,
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	uint32_t path_cnt = 0;
 	afi_t afi;
 	safi_t safi;
@@ -2086,7 +2086,7 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	uint32_t path_cnt = 0;
 	afi_t afi;
 	safi_t safi;
@@ -2196,7 +2196,7 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 {
 	struct prefix_evpn p;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	afi_t afi;
 	safi_t safi;
 	uint32_t path_cnt = 0;
@@ -2262,7 +2262,7 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 	struct bgp_node *rd_rn;
 	struct bgp_table *table;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	int rd_header = 1;
 	afi_t afi;
 	safi_t safi;
@@ -2383,7 +2383,7 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 	struct bgp_node *rd_rn;
 	struct bgp_table *table;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *ri;
 	int header = 1;
 	int rd_header;
 	afi_t afi;

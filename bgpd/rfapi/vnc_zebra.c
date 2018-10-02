@@ -316,7 +316,7 @@ static void vnc_redistribute_withdraw(struct bgp *bgp, afi_t afi, uint8_t type)
 
 		for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
 
-			struct bgp_info *ri;
+			struct bgp_path_info *ri;
 
 			for (ri = rn->info; ri; ri = ri->next) {
 				if (ri->type

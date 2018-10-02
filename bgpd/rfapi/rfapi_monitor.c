@@ -346,7 +346,7 @@ struct agg_node *rfapiMonitorGetAttachNode(struct rfapi_descriptor *rfd,
 	for (rn = agg_node_match(rfd->import_table->imported_vpn[afi], p);
 	     rn;) {
 
-		struct bgp_info *bi;
+		struct bgp_path_info *bi;
 		struct prefix pfx_dummy;
 
 		/* TBD update this code to use new valid_interior_count */
