@@ -240,7 +240,7 @@ void list_delete_all_node(struct list *list)
 	list->count = 0;
 }
 
-void list_delete_and_null(struct list **list)
+void list_delete(struct list **list)
 {
 	assert(*list);
 	list_delete_all_node(*list);

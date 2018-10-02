@@ -210,7 +210,7 @@ static void vrf_import_rt_free(struct vrf_irt_node *irt)
 	}
 
 	hash_release(bgp_def->vrf_import_rt_hash, irt);
-	list_delete_and_null(&irt->vrfs);
+	list_delete(&irt->vrfs);
 	XFREE(MTYPE_BGP_EVPN_VRF_IMPORT_RT, irt);
 }
 
@@ -313,7 +313,7 @@ static struct irt_node *import_rt_new(struct bgp *bgp,
 static void import_rt_free(struct bgp *bgp, struct irt_node *irt)
 {
 	hash_release(bgp->import_rt_hash, irt);
-	list_delete_and_null(&irt->vnis);
+	list_delete(&irt->vnis);
 	XFREE(MTYPE_BGP_EVPN_IMPORT_RT, irt);
 }
 
@@ -4988,8 +4988,8 @@ void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn)
 	bgpevpn_unlink_from_l3vni(vpn);
 	bgp_table_unlock(vpn->route_table);
 	bgp_evpn_unmap_vni_from_its_rts(bgp, vpn);
-	list_delete_and_null(&vpn->import_rtl);
-	list_delete_and_null(&vpn->export_rtl);
+	list_delete(&vpn->import_rtl);
+	list_delete(&vpn->export_rtl);
 	bf_release_index(bm->rd_idspace, vpn->rd_id);
 	hash_release(bgp->vnihash, vpn);
 	QOBJ_UNREG(vpn);
@@ -5062,7 +5062,7 @@ struct evpnes *bgp_evpn_es_new(struct bgp *bgp,
  */
 void bgp_evpn_es_free(struct bgp *bgp, struct evpnes *es)
 {
-	list_delete_and_null(&es->vtep_list);
+	list_delete(&es->vtep_list);
 	bgp_table_unlock(es->route_table);
 	bf_release_index(bm->rd_idspace, es->rd_id);
 	hash_release(bgp->esihash, es);
@@ -5631,9 +5631,9 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 		hash_free(bgp->esihash);
 	bgp->esihash = NULL;
 
-	list_delete_and_null(&bgp->vrf_import_rtl);
-	list_delete_and_null(&bgp->vrf_export_rtl);
-	list_delete_and_null(&bgp->l2vnis);
+	list_delete(&bgp->vrf_import_rtl);
+	list_delete(&bgp->vrf_export_rtl);
+	list_delete(&bgp->l2vnis);
 }
 
 /*

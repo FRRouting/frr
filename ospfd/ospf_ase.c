@@ -77,7 +77,7 @@ struct ospf_route *ospf_find_asbr_route(struct ospf *ospf,
 
 	/* If none is found -- look through all. */
 	if (listcount(chosen) == 0) {
-		list_delete_and_null(&chosen);
+		list_delete(&chosen);
 		chosen = rn->info;
 	}
 
@@ -98,7 +98,7 @@ struct ospf_route *ospf_find_asbr_route(struct ospf *ospf,
 		}
 
 	if (chosen != rn->info)
-		list_delete_and_null(&chosen);
+		list_delete(&chosen);
 
 	return best;
 }
@@ -775,7 +775,7 @@ void ospf_ase_external_lsas_finish(struct route_table *rt)
 		if ((lst = rn->info) != NULL) {
 			for (ALL_LIST_ELEMENTS(lst, node, nnode, lsa))
 				ospf_lsa_unlock(&lsa); /* external_lsas lst */
-			list_delete_and_null(&lst);
+			list_delete(&lst);
 		}
 
 	route_table_finish(rt);

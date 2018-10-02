@@ -402,7 +402,7 @@ static int bgpd_sync_callback(struct thread *thread)
 					revalidate_bgp_node(bgp_node, afi,
 							    safi);
 
-				list_delete_and_null(&matches);
+				list_delete(&matches);
 			}
 		}
 	}
@@ -539,7 +539,7 @@ static int bgp_rpki_init(struct thread_master *master)
 static int bgp_rpki_fini(void)
 {
 	stop();
-	list_delete_and_null(&cache_list);
+	list_delete(&cache_list);
 
 	close(rpki_sync_socket_rtr);
 	close(rpki_sync_socket_bgpd);

@@ -52,7 +52,7 @@ void pim_ssmpingd_init(struct pim_instance *pim)
 void pim_ssmpingd_destroy(struct pim_instance *pim)
 {
 	if (pim->ssmpingd_list)
-		list_delete_and_null(&pim->ssmpingd_list);
+		list_delete(&pim->ssmpingd_list);
 }
 
 static struct ssmpingd_sock *ssmpingd_find(struct pim_instance *pim,

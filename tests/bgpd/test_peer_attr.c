@@ -966,7 +966,7 @@ static void test_finish(struct test *test)
 		test->vty = NULL;
 	}
 	if (test->log)
-		list_delete_and_null(&test->log);
+		list_delete(&test->log);
 	if (test->desc)
 		XFREE(MTYPE_TMP, test->desc);
 	if (test->error)
@@ -1423,7 +1423,7 @@ static void bgp_shutdown(void)
 	bgp_zebra_destroy();
 
 	bf_free(bm->rd_idspace);
-	list_delete_and_null(&bm->bgp);
+	list_delete(&bm->bgp);
 	memset(bm, 0, sizeof(*bm));
 
 	vty_terminate();
@@ -1502,7 +1502,7 @@ int main(void)
 		XFREE(MTYPE_TMP, pa);
 	}
 
-	list_delete_and_null(&pa_list);
+	list_delete(&pa_list);
 	bgp_shutdown();
 
 	return 0;

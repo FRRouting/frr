@@ -2287,7 +2287,7 @@ static int zvni_mac_del(zebra_vni_t *zvni, zebra_mac_t *mac)
 {
 	zebra_mac_t *tmp_mac;
 
-	list_delete_and_null(&mac->neigh_list);
+	list_delete(&mac->neigh_list);
 
 	/* Free the VNI hash entry and allocated memory. */
 	tmp_mac = hash_release(zvni->mac_table, mac);
@@ -3663,7 +3663,7 @@ static int zl3vni_del(zebra_l3vni_t *zl3vni)
 	assert(zns);
 
 	/* free the list of l2vnis */
-	list_delete_and_null(&zl3vni->l2vnis);
+	list_delete(&zl3vni->l2vnis);
 	zl3vni->l2vnis = NULL;
 
 	/* Free the rmac table */

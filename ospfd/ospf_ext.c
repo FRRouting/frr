@@ -185,7 +185,7 @@ void ospf_ext_term(void)
 	ospf_delete_opaque_functab(OSPF_OPAQUE_AREA_LSA,
 				   OPAQUE_TYPE_EXTENDED_LINK_LSA);
 
-	list_delete_and_null(&OspfEXT.iflist);
+	list_delete(&OspfEXT.iflist);
 	OspfEXT.scope = 0;
 	OspfEXT.enabled = false;
 

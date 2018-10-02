@@ -237,5 +237,5 @@ void table_manager_disable(ns_id_t ns_id)
 {
 	if (ns_id != NS_DEFAULT)
 		return;
-	list_delete_and_null(&tbl_mgr.lc_list);
+	list_delete(&tbl_mgr.lc_list);
 }

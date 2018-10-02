@@ -165,10 +165,10 @@ static void sr_node_del(struct sr_node *srn)
 		return;
 
 	/* Clean Extended Link */
-	list_delete_and_null(&srn->ext_link);
+	list_delete(&srn->ext_link);
 
 	/* Clean Prefix List */
-	list_delete_and_null(&srn->ext_prefix);
+	list_delete(&srn->ext_prefix);
 
 	XFREE(MTYPE_OSPF_SR_PARAMS, srn);
 }
@@ -283,7 +283,7 @@ static void ospf_sr_stop(void)
 
 	/*
 	 * Remove all SR Nodes from the Hash table. Prefix and Link SID will
-	 * be remove though list_delete_and_null() call. See sr_node_del()
+	 * be remove though list_delete() call. See sr_node_del()
 	 */
 	hash_clean(OspfSR.neighbors, (void *)sr_node_del);
 }

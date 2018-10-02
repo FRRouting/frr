@@ -223,7 +223,7 @@ void bgp_lp_finish(void)
 	skiplist_free(lp->inuse);
 	lp->inuse = NULL;
 
-	list_delete_and_null(&lp->chunks);
+	list_delete(&lp->chunks);
 
 	while ((lf = LABEL_FIFO_HEAD(lp->requests))) {
 

@@ -300,7 +300,7 @@ void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
 		tn->serno);
 
 	if (successors)
-		list_delete_and_null(&successors);
+		list_delete(&successors);
 }
 
 void show_ip_eigrp_nexthop_entry(struct vty *vty, struct eigrp *eigrp,

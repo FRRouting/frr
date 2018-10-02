@@ -167,7 +167,7 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 		json_object_free(top);
 	}
 
-	list_delete_and_null(&errlist);
+	list_delete(&errlist);
 }
 
 DEFUN_NOSH(show_error_code,

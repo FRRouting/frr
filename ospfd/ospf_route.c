@@ -54,7 +54,7 @@ struct ospf_route *ospf_route_new()
 void ospf_route_free(struct ospf_route * or)
 {
 	if (or->paths)
-		list_delete_and_null(& or->paths);
+		list_delete(& or->paths);
 
 	XFREE(MTYPE_OSPF_ROUTE, or);
 }
@@ -905,7 +905,7 @@ void ospf_prune_unreachable_routers(struct route_table *rtrs)
 				zlog_debug("Pruning router node %s",
 					   inet_ntoa(rn->p.u.prefix4));
 
-			list_delete_and_null(&paths);
+			list_delete(&paths);
 			rn->info = NULL;
 			route_unlock_node(rn);
 		}

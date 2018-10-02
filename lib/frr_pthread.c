@@ -61,7 +61,7 @@ void frr_pthread_finish()
 {
 	pthread_mutex_lock(&frr_pthread_list_mtx);
 	{
-		list_delete_and_null(&frr_pthread_list);
+		list_delete(&frr_pthread_list);
 	}
 	pthread_mutex_unlock(&frr_pthread_list_mtx);
 }

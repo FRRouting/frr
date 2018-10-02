@@ -244,7 +244,7 @@ extern void list_sort(struct list *list,
  *    pointer to list pointer; this will be set to NULL after the list has been
  *    deleted
  */
-extern void list_delete_and_null(struct list **plist);
+extern void list_delete(struct list **plist);
 
 /*
  * Delete all nodes from a list without deleting the list itself.

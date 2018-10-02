@@ -357,7 +357,7 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 			if (list_began)
 				vty_out(vty, ")");
 			vty_out(vty, "\n");
-			list_delete_and_null(&list_bpm);
+			list_delete(&list_bpm);
 		} else
 			vty_out(vty, "\tnot installed in PBR\n");
 	}
