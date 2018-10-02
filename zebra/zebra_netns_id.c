@@ -220,46 +220,36 @@ ns_id_t zebra_ns_id_get(const char *netnspath)
 	nlh = (struct nlmsghdr *)buf;
 
 	/* message to analyse : NEWNSID response */
-	len = ret;
 	ret = 0;
-	do {
-		if (nlh->nlmsg_type >= NLMSG_MIN_TYPE) {
-			return_nsid = extract_nsid(nlh, buf);
-			if (return_nsid != NS_UNKNOWN)
-				break;
-		} else {
-			if (nlh->nlmsg_type == NLMSG_ERROR) {
-				struct nlmsgerr *err =
-					(struct nlmsgerr
-						 *)((char *)nlh
-						    + NETLINK_ALIGN(sizeof(
-							      struct
-							      nlmsghdr)));
+	if (nlh->nlmsg_type >= NLMSG_MIN_TYPE) {
+		return_nsid = extract_nsid(nlh, buf);
+	} else {
+		if (nlh->nlmsg_type == NLMSG_ERROR) {
+			struct nlmsgerr *err =
+				(struct nlmsgerr
+					 *)((char *)nlh
+					    + NETLINK_ALIGN(
+						      sizeof(struct nlmsghdr)));
 
-				ret = -1;
-				if (err->error < 0)
-					errno = -err->error;
-				else
-					errno = err->error;
-				if (errno == 0) {
-					/* request NEWNSID was successfull
-					 * return EEXIST error to get GETNSID
-					 */
-					errno = EEXIST;
-				}
-			} else {
-				/* other errors ignored
-				 * attempt to get nsid
+			ret = -1;
+			if (err->error < 0)
+				errno = -err->error;
+			else
+				errno = err->error;
+			if (errno == 0) {
+				/* request NEWNSID was successfull
+				 * return EEXIST error to get GETNSID
 				 */
-				ret = -1;
 				errno = EEXIST;
-				break;
 			}
+		} else {
+			/* other errors ignored
+			 * attempt to get nsid
+			 */
+			ret = -1;
+			errno = EEXIST;
 		}
-		len = len - NETLINK_ALIGN(nlh->nlmsg_len);
-		nlh = (struct nlmsghdr *)((char *)nlh
-					  + NETLINK_ALIGN(nlh->nlmsg_len));
-	} while (len != 0 && return_nsid != NS_UNKNOWN && ret == 0);
+	}
 
 	if (ret <= 0) {
 		if (errno != EEXIST && ret != 0) {
