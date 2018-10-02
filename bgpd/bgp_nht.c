@@ -256,7 +256,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		path_nh_map(ri, bnc, 1); /* updates NHT ri list reference */
 
 		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) && bnc->metric)
-			(bgp_info_extra_get(ri))->igpmetric = bnc->metric;
+			(bgp_path_info_extra_get(ri))->igpmetric = bnc->metric;
 		else if (ri->extra)
 			ri->extra->igpmetric = 0;
 	} else if (peer)
@@ -745,9 +745,11 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			if (CHECK_FLAG(path->flags, BGP_PATH_VALID)) {
 				bgp_aggregate_decrement(bgp_path, &rn->p,
 							path, afi, safi);
-				bgp_info_unset_flag(rn, path, BGP_PATH_VALID);
+				bgp_path_info_unset_flag(rn, path,
+							 BGP_PATH_VALID);
 			} else {
-				bgp_info_set_flag(rn, path, BGP_PATH_VALID);
+				bgp_path_info_set_flag(rn, path,
+						       BGP_PATH_VALID);
 				bgp_aggregate_increment(bgp_path, &rn->p,
 							path, afi, safi);
 			}
@@ -756,7 +758,8 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		/* Copy the metric to the path. Will be used for bestpath
 		 * computation */
 		if (bgp_isvalid_nexthop(bnc) && bnc->metric)
-			(bgp_info_extra_get(path))->igpmetric = bnc->metric;
+			(bgp_path_info_extra_get(path))->igpmetric =
+				bnc->metric;
 		else if (path->extra)
 			path->extra->igpmetric = 0;
 

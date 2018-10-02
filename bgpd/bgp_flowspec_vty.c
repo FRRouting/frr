@@ -329,7 +329,8 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 			json_object_array_add(json_paths, json_time_path);
 	}
 	if (display == NLRI_STRING_FORMAT_LARGE) {
-		struct bgp_path_info_extra *extra = bgp_info_extra_get(binfo);
+		struct bgp_path_info_extra *extra =
+			bgp_path_info_extra_get(binfo);
 
 		if (extra->bgp_fs_pbr) {
 			struct listnode *node;

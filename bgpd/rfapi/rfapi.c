@@ -488,7 +488,7 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 		}
 
 		bgp_aggregate_decrement(bgp, p, bi, afi, safi);
-		bgp_info_delete(bn, bi);
+		bgp_path_info_delete(bn, bi);
 		bgp_process(bgp, bn, afi, safi);
 	} else {
 		vnc_zlog_debug_verbose(
@@ -1010,7 +1010,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 			goto done;
 		} else {
 			/* The attribute is changed. */
-			bgp_info_set_flag(bn, bi, BGP_PATH_ATTR_CHANGED);
+			bgp_path_info_set_flag(bn, bi, BGP_PATH_ATTR_CHANGED);
 
 			if (safi == SAFI_MPLS_VPN) {
 				struct bgp_node *prn = NULL;
@@ -1029,7 +1029,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 			/* Rewrite BGP route information. */
 			if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED))
-				bgp_info_restore(bn, bi);
+				bgp_path_info_restore(bn, bi);
 			else
 				bgp_aggregate_decrement(bgp, p, bi, afi, safi);
 			bgp_attr_unintern(&bi->attr);
@@ -1066,7 +1066,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	}
 
 
-	new = bgp_info_new();
+	new = bgp_path_info_new();
 	new->type = type;
 	new->sub_type = sub_type;
 	new->peer = rfd->peer;
@@ -1075,7 +1075,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	new->uptime = bgp_clock();
 
 	/* save backref to rfapi handle */
-	assert(bgp_info_extra_get(new));
+	assert(bgp_path_info_extra_get(new));
 	new->extra->vnc.export.rfapi_handle = (void *)rfd;
 	encode_label(label_val, &new->extra->label[0]);
 
@@ -1087,7 +1087,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	}
 
 	bgp_aggregate_increment(bgp, p, new, afi, safi);
-	bgp_info_add(bn, new);
+	bgp_path_info_add(bn, new);
 
 	if (safi == SAFI_MPLS_VPN) {
 		struct bgp_node *prn = NULL;

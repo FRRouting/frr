@@ -660,7 +660,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve(
 	pb->ubi = info;
 	pb->upfx = *prefix;
 
-	bgp_info_lock(info); /* skiplist refers to it */
+	bgp_path_info_lock(info); /* skiplist refers to it */
 	skiplist_insert(bgp->rfapi->resolve_nve_nexthop, &pb->hpfx, pb);
 
 	/*
@@ -1354,7 +1354,7 @@ vnc_import_bgp_del_route_mode_resolve_nve(struct bgp *bgp, afi_t afi,
 	while (!rc) {
 		if (pb->ubi == info) {
 			skiplist_delete(sl, &pfx_unicast_nexthop, pb);
-			bgp_info_unlock(info);
+			bgp_path_info_unlock(info);
 			break;
 		}
 		rc = skiplist_next_value(sl, &pfx_unicast_nexthop, (void *)&pb,
@@ -1829,7 +1829,7 @@ static void vnc_import_bgp_exterior_add_route_it(
 					    RFAPI_MONITOR_EXTERIOR(rn)->source,
 					    info, pfx_mon)) {
 
-					bgp_info_lock(info);
+					bgp_path_info_lock(info);
 				}
 			}
 			par = agg_node_parent(rn);
@@ -1847,7 +1847,7 @@ static void vnc_import_bgp_exterior_add_route_it(
 			if (!skiplist_insert(it->monitor_exterior_orphans, info,
 					     pfx_mon)) {
 
-				bgp_info_lock(info);
+				bgp_path_info_lock(info);
 			}
 		}
 	}
@@ -1986,7 +1986,8 @@ void vnc_import_bgp_exterior_del_route(
 								    ->source,
 							    info, NULL)) {
 
-							bgp_info_unlock(info);
+							bgp_path_info_unlock(
+								info);
 							agg_unlock_node(
 								rn); /* sl entry
 								      */
@@ -2023,7 +2024,7 @@ void vnc_import_bgp_exterior_del_route(
 			if (!skiplist_delete(it->monitor_exterior_orphans, info,
 					     NULL)) {
 
-				bgp_info_unlock(info);
+				bgp_path_info_unlock(info);
 			}
 		}
 	}
@@ -2949,7 +2950,7 @@ void vnc_import_bgp_redist_disable(struct bgp *bgp, afi_t afi)
 				       (void *)&pb)) {
 			info = pb->ubi;
 			skiplist_delete_first(bgp->rfapi->resolve_nve_nexthop);
-			bgp_info_unlock(info);
+			bgp_path_info_unlock(info);
 		}
 	}
 

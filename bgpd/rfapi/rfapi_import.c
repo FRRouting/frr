@@ -509,14 +509,14 @@ static struct bgp_path_info *rfapiBgpInfoCreate(struct attr *attr,
 {
 	struct bgp_path_info *new;
 
-	new = bgp_info_new();
+	new = bgp_path_info_new();
 	assert(new);
 
 	if (attr) {
 		if (!new->attr)
 			new->attr = bgp_attr_intern(attr);
 	}
-	bgp_info_extra_get(new);
+	bgp_path_info_extra_get(new);
 	if (prd) {
 		new->extra->vnc.import.rd = *prd;
 		rfapi_time(&new->extra->vnc.import.create_time);
@@ -2021,8 +2021,8 @@ static void rfapiBgpInfoAttachSorted(struct agg_node *rn,
 		if (!bgp
 		    || (!CHECK_FLAG(info_new->flags, BGP_PATH_REMOVED)
 			&& CHECK_FLAG(next->flags, BGP_PATH_REMOVED))
-		    || bgp_info_cmp_compatible(bgp, info_new, next, pfx_buf,
-					       afi, safi)
+		    || bgp_path_info_cmp_compatible(bgp, info_new, next,
+						    pfx_buf, afi, safi)
 			       == -1) { /* -1 if 1st is better */
 			break;
 		}

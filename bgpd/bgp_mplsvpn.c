@@ -441,7 +441,7 @@ static void setlabels(struct bgp_path_info *bi,
 		return;
 	}
 
-	struct bgp_path_info_extra *extra = bgp_info_extra_get(bi);
+	struct bgp_path_info_extra *extra = bgp_path_info_extra_get(bi);
 	uint32_t i;
 
 	for (i = 0; i < num_labels; ++i) {
@@ -454,7 +454,7 @@ static void setlabels(struct bgp_path_info *bi,
 }
 
 /*
- * returns pointer to new bgp_info upon success
+ * returns pointer to new bgp_path_info upon success
  */
 static struct bgp_path_info *
 leak_update(struct bgp *bgp, /* destination bgp instance */
@@ -521,11 +521,11 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		}
 
 		/* attr is changed */
-		bgp_info_set_flag(bn, bi, BGP_PATH_ATTR_CHANGED);
+		bgp_path_info_set_flag(bn, bi, BGP_PATH_ATTR_CHANGED);
 
 		/* Rewrite BGP route information. */
 		if (CHECK_FLAG(bi->flags, BGP_PATH_REMOVED))
-			bgp_info_restore(bn, bi);
+			bgp_path_info_restore(bn, bi);
 		else
 			bgp_aggregate_decrement(bgp, p, bi, afi, safi);
 		bgp_attr_unintern(&bi->attr);
@@ -539,7 +539,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 			setlabels(bi, label, num_labels);
 
 		if (nexthop_self_flag)
-			bgp_info_set_flag(bn, bi, BGP_PATH_ANNC_NH_SELF);
+			bgp_path_info_set_flag(bn, bi, BGP_PATH_ANNC_NH_SELF);
 
 		struct bgp *bgp_nexthop = bgp;
 		int nh_valid;
@@ -565,7 +565,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 				bgp_nexthop->name_pretty);
 
 		if (nh_valid)
-			bgp_info_set_flag(bn, bi, BGP_PATH_VALID);
+			bgp_path_info_set_flag(bn, bi, BGP_PATH_VALID);
 
 		/* Process change. */
 		bgp_aggregate_increment(bgp, p, bi, afi, safi);
@@ -583,14 +583,14 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		bgp->peer_self, new_attr, bn);
 
 	if (nexthop_self_flag)
-		bgp_info_set_flag(bn, new, BGP_PATH_ANNC_NH_SELF);
+		bgp_path_info_set_flag(bn, new, BGP_PATH_ANNC_NH_SELF);
 
-	bgp_info_extra_get(new);
+	bgp_path_info_extra_get(new);
 
 	if (num_labels)
 		setlabels(new, label, num_labels);
 
-	new->extra->parent = bgp_info_lock(parent);
+	new->extra->parent = bgp_path_info_lock(parent);
 	bgp_lock_node((struct bgp_node *)((struct bgp_path_info *)parent)->net);
 	if (bgp_orig)
 		new->extra->bgp_orig = bgp_lock(bgp_orig);
@@ -626,10 +626,10 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 			__func__, (nh_valid ? "" : "not "),
 			bgp_nexthop->name_pretty);
 	if (nh_valid)
-		bgp_info_set_flag(bn, new, BGP_PATH_VALID);
+		bgp_path_info_set_flag(bn, new, BGP_PATH_VALID);
 
 	bgp_aggregate_increment(bgp, p, new, afi, safi);
-	bgp_info_add(bn, new);
+	bgp_path_info_add(bn, new);
 
 	bgp_unlock_node(bn);
 	bgp_process(bgp, bn, afi, safi);
@@ -935,7 +935,7 @@ void vpn_leak_from_vrf_withdraw(struct bgp *bgp_vpn,		/* to */
 		vpn_leak_to_vrf_withdraw(bgp_vpn, bi);
 
 		bgp_aggregate_decrement(bgp_vpn, p, bi, afi, safi);
-		bgp_info_delete(bn, bi);
+		bgp_path_info_delete(bn, bi);
 		bgp_process(bgp_vpn, bn, afi, safi);
 	}
 	bgp_unlock_node(bn);
@@ -992,7 +992,7 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *bgp_vpn, /* to */
 							   __func__);
 					bgp_aggregate_decrement(bgp_vpn, &bn->p,
 								bi, afi, safi);
-					bgp_info_delete(bn, bi);
+					bgp_path_info_delete(bn, bi);
 					bgp_process(bgp_vpn, bn, afi, safi);
 				}
 			}
@@ -1312,7 +1312,7 @@ void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,	    /* from */
 			if (debug)
 				zlog_debug("%s: deleting bi %p", __func__, bi);
 			bgp_aggregate_decrement(bgp, p, bi, afi, safi);
-			bgp_info_delete(bn, bi);
+			bgp_path_info_delete(bn, bi);
 			bgp_process(bgp, bn, afi, safi);
 		}
 		bgp_unlock_node(bn);
@@ -1341,7 +1341,7 @@ void vpn_leak_to_vrf_withdraw_all(struct bgp *bgp_vrf, /* to */
 				/* delete route */
 				bgp_aggregate_decrement(bgp_vrf, &bn->p, bi,
 							afi, safi);
-				bgp_info_delete(bn, bi);
+				bgp_path_info_delete(bn, bi);
 				bgp_process(bgp_vrf, bn, afi, safi);
 			}
 		}

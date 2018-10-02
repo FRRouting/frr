@@ -358,19 +358,19 @@ extern void bgp_clear_stale_route(struct peer *, afi_t, safi_t);
 extern struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 					 safi_t safi, struct prefix *p,
 					 struct prefix_rd *prd);
-extern struct bgp_path_info *bgp_info_lock(struct bgp_path_info *path);
-extern struct bgp_path_info *bgp_info_unlock(struct bgp_path_info *path);
-extern void bgp_info_add(struct bgp_node *rn, struct bgp_path_info *ri);
-extern void bgp_info_reap(struct bgp_node *rn, struct bgp_path_info *ri);
-extern void bgp_info_delete(struct bgp_node *rn, struct bgp_path_info *ri);
+extern struct bgp_path_info *bgp_path_info_lock(struct bgp_path_info *path);
+extern struct bgp_path_info *bgp_path_info_unlock(struct bgp_path_info *path);
+extern void bgp_path_info_add(struct bgp_node *rn, struct bgp_path_info *ri);
+extern void bgp_path_info_reap(struct bgp_node *rn, struct bgp_path_info *ri);
+extern void bgp_path_info_delete(struct bgp_node *rn, struct bgp_path_info *ri);
 extern struct bgp_path_info_extra *
-bgp_info_extra_get(struct bgp_path_info *path);
-extern void bgp_info_set_flag(struct bgp_node *rn, struct bgp_path_info *path,
-			      uint32_t flag);
-extern void bgp_info_unset_flag(struct bgp_node *rn, struct bgp_path_info *path,
-				uint32_t flag);
-extern void bgp_info_path_with_addpath_rx_str(struct bgp_path_info *ri,
-					      char *buf);
+bgp_path_info_extra_get(struct bgp_path_info *path);
+extern void bgp_path_info_set_flag(struct bgp_node *rn,
+				   struct bgp_path_info *path, uint32_t flag);
+extern void bgp_path_info_unset_flag(struct bgp_node *rn,
+				     struct bgp_path_info *path, uint32_t flag);
+extern void bgp_path_info_path_with_addpath_rx_str(struct bgp_path_info *ri,
+						   char *buf);
 
 extern int bgp_nlri_parse_ip(struct peer *, struct attr *, struct bgp_nlri *);
 
@@ -472,12 +472,14 @@ extern void bgp_process_queues_drain_immediate(void);
 extern struct bgp_node *bgp_afi_node_lookup(struct bgp_table *table, afi_t afi,
 					    safi_t safi, struct prefix *p,
 					    struct prefix_rd *prd);
-extern struct bgp_path_info *bgp_info_new(void);
-extern void bgp_info_restore(struct bgp_node *rn, struct bgp_path_info *path);
+extern struct bgp_path_info *bgp_path_info_new(void);
+extern void bgp_path_info_restore(struct bgp_node *rn,
+				  struct bgp_path_info *path);
 
-extern int bgp_info_cmp_compatible(struct bgp *bgp, struct bgp_path_info *new,
-				   struct bgp_path_info *exist, char *pfx_buf,
-				   afi_t afi, safi_t safi);
+extern int bgp_path_info_cmp_compatible(struct bgp *bgp,
+					struct bgp_path_info *new,
+					struct bgp_path_info *exist,
+					char *pfx_buf, afi_t afi, safi_t safi);
 extern void bgp_attr_add_gshut_community(struct attr *attr);
 
 extern void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,

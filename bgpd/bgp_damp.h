@@ -43,7 +43,7 @@ struct bgp_damp_info {
 	/* Time of route start to be suppressed.  */
 	time_t suppress_time;
 
-	/* Back reference to bgp_info. */
+	/* Back reference to bgp_path_info. */
 	struct bgp_path_info *binfo;
 
 	/* Back reference to bgp_node. */

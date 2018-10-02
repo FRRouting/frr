@@ -1227,9 +1227,9 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 			struct bgp_path_info *bgp_info;
 			struct bgp_path_info_extra *extra;
 
-			/* unlink bgp_info to bpme */
+			/* unlink bgp_path_info to bpme */
 			bgp_info = (struct bgp_path_info *)bpme->bgp_info;
-			extra = bgp_info_extra_get(bgp_info);
+			extra = bgp_path_info_extra_get(bgp_info);
 			if (extra->bgp_fs_pbr)
 				listnode_delete(extra->bgp_fs_pbr, bpme);
 			bpme->bgp_info = NULL;
@@ -1850,7 +1850,8 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 
 	/* already installed */
 	if (bpme_found) {
-		struct bgp_path_info_extra *extra = bgp_info_extra_get(binfo);
+		struct bgp_path_info_extra *extra =
+			bgp_path_info_extra_get(binfo);
 
 		if (extra && extra->bgp_fs_pbr &&
 		    listnode_lookup(extra->bgp_fs_pbr, bpme)) {

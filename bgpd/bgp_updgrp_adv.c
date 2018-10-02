@@ -454,7 +454,7 @@ void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 	adv->rn = rn;
 	assert(adv->binfo == NULL);
 	/* bgp_path_info adj_out reference */
-	adv->binfo = bgp_info_lock(binfo);
+	adv->binfo = bgp_path_info_lock(binfo);
 
 	if (attr)
 		adv->baa = bgp_advertise_intern(subgrp->hash, attr);

@@ -925,8 +925,8 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 	return true;
 }
 
-static struct in6_addr *bgp_info_to_ipv6_nexthop(struct bgp_path_info *info,
-						 ifindex_t *ifindex)
+static struct in6_addr *
+bgp_path_info_to_ipv6_nexthop(struct bgp_path_info *info, ifindex_t *ifindex)
 {
 	struct in6_addr *nexthop = NULL;
 
@@ -994,7 +994,7 @@ static int bgp_table_map_apply(struct route_map *map, struct prefix *p,
 			ifindex_t ifindex;
 			struct in6_addr *nexthop;
 
-			nexthop = bgp_info_to_ipv6_nexthop(info, &ifindex);
+			nexthop = bgp_path_info_to_ipv6_nexthop(info, &ifindex);
 			zlog_debug(
 				"Zebra rmap deny: IPv6 route %s/%d nexthop %s",
 				inet_ntop(AF_INET6, &p->u.prefix6, buf[0],
@@ -1265,7 +1265,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
-	for (mpinfo = info; mpinfo; mpinfo = bgp_info_mpath_next(mpinfo)) {
+	for (mpinfo = info; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
 		if (valid_nh_count >= multipath_num)
 			break;
 
@@ -1355,8 +1355,8 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 					tag = mpinfo_cp->attr->tag;
 				}
 			}
-			nexthop = bgp_info_to_ipv6_nexthop(mpinfo_cp,
-							   &ifindex);
+			nexthop = bgp_path_info_to_ipv6_nexthop(mpinfo_cp,
+								&ifindex);
 			nh_updated = update_ipv6nh_for_route_install(
 					nh_othervrf, nexthop, ifindex,
 					mpinfo, info, is_evpn, api_nh);
@@ -1702,8 +1702,8 @@ int bgp_redistribute_metric_set(struct bgp *bgp, struct bgp_redist *red,
 				ri->attr = bgp_attr_intern(&new_attr);
 				bgp_attr_unintern(&old_attr);
 
-				bgp_info_set_flag(rn, ri,
-						  BGP_PATH_ATTR_CHANGED);
+				bgp_path_info_set_flag(rn, ri,
+						       BGP_PATH_ATTR_CHANGED);
 				bgp_process(bgp, rn, afi, SAFI_UNICAST);
 			}
 		}
@@ -2090,7 +2090,7 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 				   __PRETTY_FUNCTION__);
 		/* link bgp_info to bpme */
 		bgp_info = (struct bgp_path_info *)bgp_pbime->bgp_info;
-		extra = bgp_info_extra_get(bgp_info);
+		extra = bgp_path_info_extra_get(bgp_info);
 		if (extra->bgp_fs_pbr == NULL)
 			extra->bgp_fs_pbr = list_new();
 		listnode_add(extra->bgp_fs_pbr, bgp_pbime);

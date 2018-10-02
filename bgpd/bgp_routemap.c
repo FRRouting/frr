@@ -233,7 +233,7 @@ struct bgp_match_peer_compiled {
 /* 'match peer (A.B.C.D|X:X::X:X|WORD)' */
 
 /* Compares the peer specified in the 'match peer' clause with the peer
-    received in bgp_info->peer. If it is the same, or if the peer structure
+    received in bgp_path_info->peer. If it is the same, or if the peer structure
     received is a peer_group containing it, returns RMAP_MATCH. */
 static route_map_result_t route_match_peer(void *rule,
 					   const struct prefix *prefix,
@@ -354,7 +354,7 @@ static route_map_result_t route_match_command(void *rule,
 
 	zlog_debug("Set up prefix table");
 	/*
-	 * Setup the bgp_info information
+	 * Setup the bgp_path_info information
 	 */
 	lua_newtable(L);
 	lua_pushinteger(L, info->attr->med);

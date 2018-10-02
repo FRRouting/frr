@@ -939,7 +939,7 @@ static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
 	}
 
 	/* Delete route entry in the VNI route table, caller to remove. */
-	bgp_info_delete(rn, old_local);
+	bgp_path_info_delete(rn, old_local);
 }
 
 static struct in_addr *es_vtep_new(struct in_addr vtep)
@@ -1070,10 +1070,10 @@ static int evpn_es_route_select_install(struct bgp *bgp,
 		bgp_bump_version(rn);
 
 	if (old_select)
-		bgp_info_unset_flag(rn, old_select, BGP_PATH_SELECTED);
+		bgp_path_info_unset_flag(rn, old_select, BGP_PATH_SELECTED);
 	if (new_select) {
-		bgp_info_set_flag(rn, new_select, BGP_PATH_SELECTED);
-		bgp_info_unset_flag(rn, new_select, BGP_PATH_ATTR_CHANGED);
+		bgp_path_info_set_flag(rn, new_select, BGP_PATH_SELECTED);
+		bgp_path_info_unset_flag(rn, new_select, BGP_PATH_ATTR_CHANGED);
 		UNSET_FLAG(new_select->flags, BGP_PATH_MULTIPATH_CHG);
 	}
 
@@ -1093,9 +1093,9 @@ static int evpn_es_route_select_install(struct bgp *bgp,
 	/* Clear any route change flags. */
 	bgp_zebra_clear_route_change_flags(rn);
 
-	/* Reap old select bgp_info, if it has been removed */
+	/* Reap old select bgp_path_info, if it has been removed */
 	if (old_select && CHECK_FLAG(old_select->flags, BGP_PATH_REMOVED))
-		bgp_info_reap(rn, old_select);
+		bgp_path_info_reap(rn, old_select);
 
 	return ret;
 }
@@ -1161,10 +1161,10 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 		bgp_bump_version(rn);
 
 	if (old_select)
-		bgp_info_unset_flag(rn, old_select, BGP_PATH_SELECTED);
+		bgp_path_info_unset_flag(rn, old_select, BGP_PATH_SELECTED);
 	if (new_select) {
-		bgp_info_set_flag(rn, new_select, BGP_PATH_SELECTED);
-		bgp_info_unset_flag(rn, new_select, BGP_PATH_ATTR_CHANGED);
+		bgp_path_info_set_flag(rn, new_select, BGP_PATH_SELECTED);
+		bgp_path_info_unset_flag(rn, new_select, BGP_PATH_ATTR_CHANGED);
 		UNSET_FLAG(new_select->flags, BGP_PATH_MULTIPATH_CHG);
 	}
 
@@ -1204,9 +1204,9 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 	/* Clear any route change flags. */
 	bgp_zebra_clear_route_change_flags(rn);
 
-	/* Reap old select bgp_info, if it has been removed */
+	/* Reap old select bgp_path_info, if it has been removed */
 	if (old_select && CHECK_FLAG(old_select->flags, BGP_PATH_REMOVED))
-		bgp_info_reap(rn, old_select);
+		bgp_path_info_reap(rn, old_select);
 
 	return ret;
 }
@@ -1320,7 +1320,7 @@ static int update_evpn_type4_route_entry(struct bgp *bgp, struct evpnes *es,
 		SET_FLAG(tmp_ri->flags, BGP_PATH_VALID);
 
 		/* add the newly created path to the route-node */
-		bgp_info_add(rn, tmp_ri);
+		bgp_path_info_add(rn, tmp_ri);
 	} else {
 		tmp_ri = local_ri;
 		if (attrhash_cmp(tmp_ri->attr, attr)
@@ -1330,11 +1330,12 @@ static int update_evpn_type4_route_entry(struct bgp *bgp, struct evpnes *es,
 			/* The attribute has changed.
 			 * Add (or update) attribute to hash. */
 			attr_new = bgp_attr_intern(attr);
-			bgp_info_set_flag(rn, tmp_ri, BGP_PATH_ATTR_CHANGED);
+			bgp_path_info_set_flag(rn, tmp_ri,
+					       BGP_PATH_ATTR_CHANGED);
 
 			/* Restore route, if needed. */
 			if (CHECK_FLAG(tmp_ri->flags, BGP_PATH_REMOVED))
-				bgp_info_restore(rn, tmp_ri);
+				bgp_path_info_restore(rn, tmp_ri);
 
 			/* Unintern existing, set to new. */
 			bgp_attr_unintern(&tmp_ri->attr);
@@ -1464,13 +1465,13 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_def,
 		SET_FLAG(ri->flags, BGP_PATH_VALID);
 
 		/* Type-5 routes advertise the L3-VNI */
-		bgp_info_extra_get(ri);
+		bgp_path_info_extra_get(ri);
 		vni2label(bgp_vrf->l3vni, &label);
 		memcpy(&ri->extra->label, &label, sizeof(label));
 		ri->extra->num_labels = 1;
 
 		/* add the route entry to route node*/
-		bgp_info_add(rn, ri);
+		bgp_path_info_add(rn, ri);
 	} else {
 
 		tmp_ri = local_ri;
@@ -1482,11 +1483,12 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_def,
 			/* The attribute has changed. */
 			/* Add (or update) attribute to hash. */
 			attr_new = bgp_attr_intern(attr);
-			bgp_info_set_flag(rn, tmp_ri, BGP_PATH_ATTR_CHANGED);
+			bgp_path_info_set_flag(rn, tmp_ri,
+					       BGP_PATH_ATTR_CHANGED);
 
 			/* Restore route, if needed. */
 			if (CHECK_FLAG(tmp_ri->flags, BGP_PATH_REMOVED))
-				bgp_info_restore(rn, tmp_ri);
+				bgp_path_info_restore(rn, tmp_ri);
 
 			/* Unintern existing, set to new. */
 			bgp_attr_unintern(&tmp_ri->attr);
@@ -1607,7 +1609,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		tmp_ri = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_STATIC, 0,
 				   bgp->peer_self, attr_new, rn);
 		SET_FLAG(tmp_ri->flags, BGP_PATH_VALID);
-		bgp_info_extra_get(tmp_ri);
+		bgp_path_info_extra_get(tmp_ri);
 
 		/* The VNI goes into the 'label' field of the route */
 		vni2label(vpn->vni, &label[0]);
@@ -1629,7 +1631,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 
 		memcpy(&tmp_ri->extra->label, label, sizeof(label));
 		tmp_ri->extra->num_labels = num_labels;
-		bgp_info_add(rn, tmp_ri);
+		bgp_path_info_add(rn, tmp_ri);
 	} else {
 		tmp_ri = local_ri;
 		if (attrhash_cmp(tmp_ri->attr, attr)
@@ -1658,7 +1660,8 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 			/* The attribute has changed. */
 			/* Add (or update) attribute to hash. */
 			attr_new = bgp_attr_intern(attr);
-			bgp_info_set_flag(rn, tmp_ri, BGP_PATH_ATTR_CHANGED);
+			bgp_path_info_set_flag(rn, tmp_ri,
+					       BGP_PATH_ATTR_CHANGED);
 
 			/* Extract MAC mobility sequence number, if any. */
 			attr_new->mm_seqnum =
@@ -1667,7 +1670,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 
 			/* Restore route, if needed. */
 			if (CHECK_FLAG(tmp_ri->flags, BGP_PATH_REMOVED))
-				bgp_info_restore(rn, tmp_ri);
+				bgp_path_info_restore(rn, tmp_ri);
 
 			/* Unintern existing, set to new. */
 			bgp_attr_unintern(&tmp_ri->attr);
@@ -1796,7 +1799,7 @@ static void delete_evpn_route_entry(struct bgp *bgp, afi_t afi, safi_t safi,
 
 	/* Mark route for delete. */
 	if (tmp_ri)
-		bgp_info_delete(rn, tmp_ri);
+		bgp_path_info_delete(rn, tmp_ri);
 }
 
 
@@ -1845,7 +1848,7 @@ static int delete_evpn_type4_route(struct bgp *bgp,
 	 */
 	delete_evpn_route_entry(bgp, afi, safi, rn, &ri);
 	if (ri)
-		bgp_info_reap(rn, ri);
+		bgp_path_info_reap(rn, ri);
 	bgp_unlock_node(rn);
 	return 0;
 }
@@ -1919,7 +1922,7 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	 */
 	delete_evpn_route_entry(bgp, afi, safi, rn, &ri);
 	if (ri)
-		bgp_info_reap(rn, ri);
+		bgp_path_info_reap(rn, ri);
 	bgp_unlock_node(rn);
 
 	return 0;
@@ -2100,7 +2103,7 @@ static int delete_all_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 
 		/* Route entry in local table gets deleted immediately. */
 		if (ri)
-			bgp_info_reap(rn, ri);
+			bgp_path_info_reap(rn, ri);
 	}
 
 	return 0;
@@ -2119,8 +2122,8 @@ static int delete_all_es_routes(struct bgp *bgp, struct evpnes *es)
 	     rn = bgp_route_next(rn)) {
 		for (ri = rn->info; (ri != NULL) && (nextri = ri->next, 1);
 		     ri = nextri) {
-			bgp_info_delete(rn, ri);
-			bgp_info_reap(rn, ri);
+			bgp_path_info_delete(rn, ri);
+			bgp_path_info_reap(rn, ri);
 		}
 	}
 
@@ -2140,8 +2143,8 @@ static int delete_all_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	     rn = bgp_route_next(rn)) {
 		for (ri = rn->info; (ri != NULL) && (nextri = ri->next, 1);
 		     ri = nextri) {
-			bgp_info_delete(rn, ri);
-			bgp_info_reap(rn, ri);
+			bgp_path_info_delete(rn, ri);
+			bgp_path_info_reap(rn, ri);
 		}
 	}
 
@@ -2284,9 +2287,9 @@ static int install_evpn_route_entry_in_es(struct bgp *bgp, struct evpnes *es,
 		ri = info_make(parent_ri->type, BGP_ROUTE_IMPORTED, 0,
 			       parent_ri->peer, attr_new, rn);
 		SET_FLAG(ri->flags, BGP_PATH_VALID);
-		bgp_info_extra_get(ri);
+		bgp_path_info_extra_get(ri);
 		ri->extra->parent = parent_ri;
-		bgp_info_add(rn, ri);
+		bgp_path_info_add(rn, ri);
 	} else {
 		if (attrhash_cmp(ri->attr, parent_ri->attr)
 		    && !CHECK_FLAG(ri->flags, BGP_PATH_REMOVED)) {
@@ -2299,7 +2302,7 @@ static int install_evpn_route_entry_in_es(struct bgp *bgp, struct evpnes *es,
 
 		/* Restore route, if needed. */
 		if (CHECK_FLAG(ri->flags, BGP_PATH_REMOVED))
-			bgp_info_restore(rn, ri);
+			bgp_path_info_restore(rn, ri);
 
 		/* Mark if nexthop has changed. */
 		if (!IPV4_ADDR_SAME(&ri->attr->nexthop, &attr_new->nexthop))
@@ -2385,15 +2388,15 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		ri = info_make(parent_ri->type, BGP_ROUTE_IMPORTED, 0,
 			       parent_ri->peer, attr_new, rn);
 		SET_FLAG(ri->flags, BGP_PATH_VALID);
-		bgp_info_extra_get(ri);
-		ri->extra->parent = bgp_info_lock(parent_ri);
+		bgp_path_info_extra_get(ri);
+		ri->extra->parent = bgp_path_info_lock(parent_ri);
 		bgp_lock_node((struct bgp_node *)parent_ri->net);
 		if (parent_ri->extra) {
 			memcpy(&ri->extra->label, &parent_ri->extra->label,
 			       sizeof(ri->extra->label));
 			ri->extra->num_labels = parent_ri->extra->num_labels;
 		}
-		bgp_info_add(rn, ri);
+		bgp_path_info_add(rn, ri);
 	} else {
 		if (attrhash_cmp(ri->attr, &attr)
 		    && !CHECK_FLAG(ri->flags, BGP_PATH_REMOVED)) {
@@ -2406,7 +2409,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 
 		/* Restore route, if needed. */
 		if (CHECK_FLAG(ri->flags, BGP_PATH_REMOVED))
-			bgp_info_restore(rn, ri);
+			bgp_path_info_restore(rn, ri);
 
 		/* Mark if nexthop has changed. */
 		if ((afi == AFI_IP &&
@@ -2460,15 +2463,15 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		ri = info_make(parent_ri->type, BGP_ROUTE_IMPORTED, 0,
 			       parent_ri->peer, attr_new, rn);
 		SET_FLAG(ri->flags, BGP_PATH_VALID);
-		bgp_info_extra_get(ri);
-		ri->extra->parent = bgp_info_lock(parent_ri);
+		bgp_path_info_extra_get(ri);
+		ri->extra->parent = bgp_path_info_lock(parent_ri);
 		bgp_lock_node((struct bgp_node *)parent_ri->net);
 		if (parent_ri->extra) {
 			memcpy(&ri->extra->label, &parent_ri->extra->label,
 			       sizeof(ri->extra->label));
 			ri->extra->num_labels = parent_ri->extra->num_labels;
 		}
-		bgp_info_add(rn, ri);
+		bgp_path_info_add(rn, ri);
 	} else {
 		if (attrhash_cmp(ri->attr, parent_ri->attr)
 		    && !CHECK_FLAG(ri->flags, BGP_PATH_REMOVED)) {
@@ -2481,7 +2484,7 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 
 		/* Restore route, if needed. */
 		if (CHECK_FLAG(ri->flags, BGP_PATH_REMOVED))
-			bgp_info_restore(rn, ri);
+			bgp_path_info_restore(rn, ri);
 
 		/* Mark if nexthop has changed. */
 		if (!IPV4_ADDR_SAME(&ri->attr->nexthop, &attr_new->nexthop))
@@ -2528,7 +2531,7 @@ static int uninstall_evpn_route_entry_in_es(struct bgp *bgp, struct evpnes *es,
 		return 0;
 
 	/* Mark entry for deletion */
-	bgp_info_delete(rn, ri);
+	bgp_path_info_delete(rn, ri);
 
 	/* Perform route selection and update zebra, if required. */
 	ret = evpn_es_route_select_install(bgp, es, rn);
@@ -2595,7 +2598,7 @@ static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	bgp_aggregate_decrement(bgp_vrf, &rn->p, ri, afi, safi);
 
 	/* Mark entry for deletion */
-	bgp_info_delete(rn, ri);
+	bgp_path_info_delete(rn, ri);
 
 	/* Perform route selection and update zebra, if required. */
 	bgp_process(bgp_vrf, rn, afi, safi);
@@ -2634,7 +2637,7 @@ static int uninstall_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		return 0;
 
 	/* Mark entry for deletion */
-	bgp_info_delete(rn, ri);
+	bgp_path_info_delete(rn, ri);
 
 	/* Perform route selection and update zebra, if required. */
 	ret = evpn_route_select_install(bgp, vpn, rn);
@@ -5342,7 +5345,7 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	}
 
 	/* Remove remote routes from BGT VRF even if BGP_VRF_AUTO is configured,
-	 * bgp_delete would not remove/decrement bgp_info of the ip_prefix
+	 * bgp_delete would not remove/decrement bgp_path_info of the ip_prefix
 	 * routes. This will uninstalling the routes from zebra and decremnt the
 	 * bgp info count.
 	 */
