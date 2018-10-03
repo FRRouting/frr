@@ -21,6 +21,9 @@ EXTRA_DIST += \
 	debianpkg/frr-doc.install \
 	debianpkg/frr-doc.lintian-overrides \
 	debianpkg/frr-pythontools.install \
+	debianpkg/frr-rpki-rtrlib.install \
+	debianpkg/frr-snmp.install \
+	debianpkg/frr-snmp.lintian-overrides \
 	debianpkg/frr.conf \
 	debianpkg/frr.dirs \
 	debianpkg/frr.docs \
