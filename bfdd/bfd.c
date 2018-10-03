@@ -157,7 +157,8 @@ void ptm_bfd_echo_stop(struct bfd_session *bfd, int polling)
 void ptm_bfd_echo_start(struct bfd_session *bfd)
 {
 	bfd->echo_detect_TO = (bfd->remote_detect_mult * bfd->echo_xmt_TO);
-	ptm_bfd_echo_xmt_TO(bfd);
+	if (bfd->echo_detect_TO > 0)
+		ptm_bfd_echo_xmt_TO(bfd);
 
 	bfd->polling = 1;
 	bfd->new_timers.desired_min_tx = bfd->up_min_tx;
@@ -324,7 +325,8 @@ int bfd_echo_xmt_cb(struct thread *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
 
-	ptm_bfd_echo_xmt_TO(bs);
+	if (bs->echo_xmt_TO > 0)
+		ptm_bfd_echo_xmt_TO(bs);
 
 	return 0;
 }
