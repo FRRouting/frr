@@ -22,6 +22,36 @@ which itself is a fork of Zebra.
 Zebra was developed by Kunihiro Ishiguro.
 
 
+* Build Profiles used in the upstream debianpkg/
+================================================
+
+The following Build Profiles have been added:
+
+- pkg.frr.rtrlib (pkg.frr.nortrlib)
+  controls whether the RPKI module is built.
+  Will be enabled by default at some point, adds some extra dependencies.
+
+- pkg.frr.snmp (pkg.frr.nosnmp)
+  controls whether the SNMP module is built, see below for license issues.
+  Will remain default-off as long as the license issue persists.
+
+- pkg.frr.nosystemd
+  Disables both systemd unit file installation as well as watchfrr sd_notify
+  support at startup.  Removes libsystemd dependency.
+
+Note that all options have a "no" form;  if you want to have your decision
+be sticky regardless of changes to what it defaults to, then always use one
+of the two.  For example, all occurrences of <pkg.frr.rtrlib> will at some
+point be replaced with <!pkg.frr.nortrlib>.
+
+The main frr package has the exact same contents regardless of rtrlib or snmp
+choices.  The options only control frr-snmp and frr-rpki-rtrlib packages.
+
+The main frr package does NOT have the same contents if pkg.frr.nosystemd is
+used.  This option should only be used for systems that do not have systemd,
+e.g. Ubuntu 14.04.
+
+
 * Why has SNMP support been disabled?
 =====================================
 FRR used to link against the NetSNMP libraries to provide SNMP
@@ -43,9 +73,7 @@ during the last days before the Sarge release :-(
 
 It is allowed by the used licence mix that you fetch the sources and
 build FRR yourself with SNMP with
-	<remove the "grep ^smux" block at the end of debian/frr.preinst>
-        # export WANT_SNMP=1
-        # apt-get -b source frr
+        # apt-get -b source -Ppkg.frr.snmp frr
 Just distributing it in binary form, linked against OpenSSL, is forbidden.
 
 

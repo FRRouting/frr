@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Nobody <nobody@frrouting.org>
 Uploaders: Nobody <nobody@frrouting.org>
 XSBC-Original-Maintainer: <maintainers@frrouting.org>
-Build-Depends: autotools-dev, bison, chrpath, debhelper (>= 7.0.50~), dh-autoreconf, dh-systemd <!pkg.frr.nosystemd>, flex, gawk, git, install-info, libc-ares-dev, libcap-dev, libjson0 | libjson-c2 | libjson-c3, libjson0-dev | libjson-c-dev, libpam0g-dev | libpam-dev, libpcre3-dev, libpython-dev | libpython3-dev, libreadline-dev, libsnmp-dev, libsystemd-dev <!pkg.frr.nosystemd>, pkg-config, python (>= 2.7) | python3, python-sphinx | python3-sphinx, texinfo (>= 4.7)
+Build-Depends: autotools-dev, bison, chrpath, debhelper (>= 7.0.50~), dh-autoreconf, dh-systemd <!pkg.frr.nosystemd>, flex, gawk, git, install-info, libc-ares-dev, libcap-dev, libjson0 | libjson-c2 | libjson-c3, libjson0-dev | libjson-c-dev, libpam0g-dev | libpam-dev, libpcre3-dev, libpython-dev | libpython3-dev, libreadline-dev, librtr-dev <pkg.frr.rtrlib>, libsnmp-dev <pkg.frr.snmp>, libssh-dev <pkg.frr.rtrlib>, libsystemd-dev <!pkg.frr.nosystemd>, pkg-config, python (>= 2.7) | python3, python-sphinx | python3-sphinx, texinfo (>= 4.7)
 Standards-Version: 3.9.6
 Homepage: http://www.frrouting.org/
 
@@ -14,7 +14,6 @@ Depends: ${shlibs:Depends}, logrotate (>= 3.2-11), iproute2 | iproute, ${misc:De
 Pre-Depends: adduser
 Conflicts: zebra, zebra-pj, quagga
 Replaces: zebra, zebra-pj
-Suggests: snmpd
 Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon forked from Quagga
  FRR is free software which manages TCP/IP based routing protocols.
  It supports BGP4, BGP4+, OSPFv2, OSPFv3, IS-IS, RIPv1, RIPv2, RIPng,
@@ -22,6 +21,25 @@ Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon forked from Quagga
  .
  FRR is a fork of Quagga with an open community model. The main git
  lives on https://github.com/frrouting/frr.git
+
+Package: frr-snmp
+Section: net
+Architecture: any
+Depends: ${misc:Depends}, frr (= ${binary:Version}), ${shlibs:Depends}
+Recommends: snmpd
+Description: FRRouting SNMP support
+ Adds SNMP support to FRR's daemons by attaching to net-snmp's snmpd
+ through the AgentX protocol.
+Build-Profiles: <pkg.frr.snmp>
+
+Package: frr-rpki-rtrlib
+Section: net
+Architecture: any
+Depends: ${misc:Depends}, frr (= ${binary:Version}), ${shlibs:Depends}
+Description: FRRouting RTRlib RPKI support
+ Adds RPKI support to FRR's bgpd, allowing validation of BGP routes against
+ cryptographic information stored in WHOIS databases.
+Build-Profiles: <pkg.frr.rtrlib>
 
 Package: frr-dbg
 Architecture: any

@@ -14,19 +14,8 @@ WANT_OSPFAPI ?= 1
 WANT_BGP_VNC ?= 1
 WANT_CUMULUS_MODE ?= 0
 WANT_MULTIPATH ?= 1
-WANT_SNMP ?= 0
-WANT_RPKI ?= 0
 
 # NOTES:
-#
-# If you use WANT_RPKI, then there is a new dependency for librtr0 package
-#    and a build dependency of the librtr-dev package.
-#    While the librtr0 is added to the depenencies automatically, the build
-#    dependency can't be changed dynamically and building will fail if the
-#    librtr-dev isn't installed during package build
-#    Tested versions of both packages can be found at
-#    https://ci1.netdef.org/browse/RPKI-RTRLIB/latestSuccessful/artifact
-#
 # If multipath is enabled (WANT_MULTIPATH=1), then set number of multipaths here
 #    Please be aware that 0 is NOT disabled, but treated as unlimited
 
@@ -48,14 +37,6 @@ GENERATE_PDF ?= 0
 export DH_VERBOSE=1
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 export DH_OPTIONS=-v
-
-ifeq ($(WANT_SNMP), 1)
-  USE_SNMP=--enable-snmp
-  $(warning "DEBIAN: SNMP enabled, sorry for your inconvenience")
-else
-  USE_SNMP=--disable-snmp
-  $(warning "DEBIAN: SNMP disabled, see README.Debian")
-endif
 
 ifeq ($(WANT_OSPFAPI), 1)
   USE_OSPFAPI=--enable-ospfapi=yes
@@ -85,17 +66,15 @@ else
   USE_CUMULUS=--enable-cumulus=no
 endif
 
-ifeq ($(WANT_RPKI), 1)
-  USE_RPKI=--enable-rpki
-else
-  USE_RPKI=--disable-rpki
-endif
-
 ifeq ($(WANT_WERROR), 1)
   USE_WERROR=--enable-werror
 else
   USE_WERROR=--disable-werror
 endif
+
+#
+# generic debian options
+#
 
 ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
   DEBIAN_JOBS := $(subst parallel=,,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
@@ -103,6 +82,22 @@ endif
 
 ifdef DEBIAN_JOBS
 MAKEFLAGS += -j$(DEBIAN_JOBS)
+endif
+
+#
+# build profiles
+#
+
+ifeq ($(filter pkg.frr.rtrlib,$(DEB_BUILD_PROFILES)),)
+  USE_RPKI=--disable-rpki
+else
+  USE_RPKI=--enable-rpki
+endif
+
+ifeq ($(filter pkg.frr.snmp,$(DEB_BUILD_PROFILES)),)
+  USE_SNMP=--disable-snmp
+else
+  USE_SNMP=--enable-snmp
 endif
 
 ifeq ($(filter pkg.frr.nosystemd,$(DEB_BUILD_PROFILES)),)
