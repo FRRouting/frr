@@ -2,7 +2,12 @@ etc/frr/
 usr/bin/vtysh
 usr/bin/mtracebis
 usr/include/frr/
-usr/lib/
+usr/lib/libfrr.*
+usr/lib/libfrrospfapiclient.*
+usr/lib/frr/*d
+usr/lib/frr/watchfrr
+usr/lib/frr/zebra
+usr/lib/frr/modules/zebra_irdp.so
 usr/share/doc/frr/
 usr/share/man/
 usr/share/yang/
