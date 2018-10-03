@@ -100,6 +100,7 @@ o Cisco route-map
       ip default        :  (This will not be implemented by bgpd)
       ip next-hop       :  Done
       nexthop-vrf       :  Done
+      nexthop-vrf-local :  Done
       ip precedence     :  (This will not be implemented by bgpd)
       ip tos            :  (This will not be implemented by bgpd)
       level             :  (This will not be implemented by bgpd)
@@ -1459,6 +1460,7 @@ struct rmap_ip_nexthop_set {
 	int peer_address;
 	int unchanged;
 	char *name;
+	bool vrf_local;
 };
 
 static route_map_result_t route_set_ip_nexthop(void *rule,
@@ -1505,6 +1507,10 @@ static route_map_result_t route_set_ip_nexthop(void *rule,
 			vrf_name_to_id(rins->name);
 		SET_FLAG(path->attr->rmap_change_flags,
 			 BATTR_RMAP_VRF_NHOP_CHANGED);
+	} else if (rins->vrf_local) {
+		bgp_path_info_extra_get(path)->vrf_id_local = TRUE;
+		SET_FLAG(path->attr->rmap_change_flags,
+			 BATTR_RMAP_VRF_NHOP_CHANGED);
 	} else {
 		/* Set next hop value. */
 		path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
@@ -1517,6 +1523,18 @@ static route_map_result_t route_set_ip_nexthop(void *rule,
 	}
 
 	return RMAP_OKAY;
+}
+
+static void *route_set_nexthop_vrf_local_compile(const char *arg_unused)
+{
+	struct rmap_ip_nexthop_set *rins;
+
+	rins = XCALLOC(MTYPE_ROUTE_MAP_COMPILED,
+		       sizeof(struct rmap_ip_nexthop_set));
+
+	rins->vrf_local = TRUE;
+
+	return rins;
 }
 
 static void *route_set_nexthop_vrf_compile(const char *arg)
@@ -1578,7 +1596,7 @@ static void route_set_ip_nexthop_free(void *rule)
 		XFREE(MTYPE_ROUTE_MAP_COMPILED, rins->name);
 	if (rins->address)
 		XFREE(MTYPE_ROUTE_MAP_COMPILED, rins->address);
-
+	rins->vrf_local = 0;
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rins);
 }
 
@@ -1589,6 +1607,11 @@ struct route_map_rule_cmd route_set_ip_nexthop_cmd = {
 
 struct route_map_rule_cmd route_set_nexthop_vrf_cmd = {
 	"nexthop-vrf", route_set_ip_nexthop, route_set_nexthop_vrf_compile,
+	route_set_ip_nexthop_free};
+
+struct route_map_rule_cmd route_set_nexthop_vrf_local_cmd = {
+	"nexthop-vrf-local", route_set_ip_nexthop,
+	route_set_nexthop_vrf_local_compile,
 	route_set_ip_nexthop_free};
 
 /* `set local-preference LOCAL_PREF' */
@@ -3982,6 +4005,27 @@ DEFUN (set_nexthop_vrf,
 			       "nexthop-vrf", vrfname);
 }
 
+DEFUN (unset_nexthop_vrf_local,
+       unset_nexthop_vrf_local_cmd,
+       "no set nexthop-vrf-local",
+       NO_STR
+       SET_STR
+       "Next-hop VRF is local\n")
+{
+	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
+				  "nexthop-vrf-local", NULL);
+}
+
+DEFUN (set_nexthop_vrf_local,
+       set_nexthop_vrf_local_cmd,
+       "set nexthop-vrf-local",
+       SET_STR
+       "Next-hop VRF is local\n")
+{
+	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
+			       "nexthop-vrf-local", NULL);
+}
+
 DEFUN (set_ip_nexthop_peer,
        set_ip_nexthop_peer_cmd,
        "[no] set ip next-hop peer-address",
@@ -5029,6 +5073,7 @@ void bgp_route_map_init(void)
 
 	route_map_install_set(&route_set_ip_nexthop_cmd);
 	route_map_install_set(&route_set_nexthop_vrf_cmd);
+	route_map_install_set(&route_set_nexthop_vrf_local_cmd);
 	route_map_install_set(&route_set_local_pref_cmd);
 	route_map_install_set(&route_set_weight_cmd);
 	route_map_install_set(&route_set_label_index_cmd);
@@ -5083,6 +5128,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &match_nexthop_vrf_cmd);
 	install_element(RMAP_NODE, &unmatch_nexthop_vrf_cmd);
 
+	install_element(RMAP_NODE, &set_nexthop_vrf_local_cmd);
+	install_element(RMAP_NODE, &unset_nexthop_vrf_local_cmd);
 	install_element(RMAP_NODE, &set_nexthop_vrf_cmd);
 	install_element(RMAP_NODE, &unset_nexthop_vrf_cmd);
 	install_element(RMAP_NODE, &set_ip_nexthop_peer_cmd);
