@@ -293,7 +293,7 @@ typedef int (*updgrp_walkcb)(struct update_group *updgrp, void *ctx);
 struct updwalk_context {
 	struct vty *vty;
 	struct bgp_node *rn;
-	struct bgp_path_info *ri;
+	struct bgp_path_info *pi;
 	uint64_t updgrp_id;
 	uint64_t subgrp_id;
 	bgp_policy_type_e policy_type;
@@ -442,7 +442,7 @@ extern void subgroup_announce_all(struct update_subgroup *subgrp);
 extern void subgroup_default_originate(struct update_subgroup *subgrp,
 				       int withdraw);
 extern void group_announce_route(struct bgp *bgp, afi_t afi, safi_t safi,
-				 struct bgp_node *rn, struct bgp_path_info *ri);
+				 struct bgp_node *rn, struct bgp_path_info *pi);
 extern void subgroup_clear_table(struct update_subgroup *subgrp);
 extern void update_group_announce(struct bgp *bgp);
 extern void update_group_announce_rrclients(struct bgp *bgp);
@@ -470,7 +470,7 @@ extern int update_group_clear_update_dbg(struct update_group *updgrp,
 extern void update_bgp_group_free(struct bgp *bgp);
 extern int bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi);
 extern int bgp_addpath_tx_path(struct peer *peer, afi_t afi, safi_t safi,
-			       struct bgp_path_info *ri);
+			       struct bgp_path_info *pi);
 
 /*
  * Inline functions

@@ -50,7 +50,7 @@ static void register_zebra_rnh(struct bgp_nexthop_cache *bnc,
 static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc,
 				 int is_bgp_static_route);
 static void evaluate_paths(struct bgp_nexthop_cache *bnc);
-static int make_prefix(int afi, struct bgp_path_info *ri, struct prefix *p);
+static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p);
 static void path_nh_map(struct bgp_path_info *path,
 			struct bgp_nexthop_cache *bnc, int keep);
 
@@ -143,7 +143,7 @@ void bgp_unlink_nexthop_by_peer(struct peer *peer)
  * we need both the bgp_route and bgp_nexthop pointers.
  */
 int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
-			    afi_t afi, struct bgp_path_info *ri,
+			    afi_t afi, struct bgp_path_info *pi,
 			    struct peer *peer, int connected)
 {
 	struct bgp_node *rn;
@@ -151,9 +151,9 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	struct prefix p;
 	int is_bgp_static_route = 0;
 
-	if (ri) {
-		is_bgp_static_route = ((ri->type == ZEBRA_ROUTE_BGP)
-				       && (ri->sub_type == BGP_ROUTE_STATIC))
+	if (pi) {
+		is_bgp_static_route = ((pi->type == ZEBRA_ROUTE_BGP)
+				       && (pi->sub_type == BGP_ROUTE_STATIC))
 					      ? 1
 					      : 0;
 
@@ -161,12 +161,12 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		   to derive
 		   address-family from the next-hop. */
 		if (!is_bgp_static_route)
-			afi = BGP_ATTR_NEXTHOP_AFI_IP6(ri->attr) ? AFI_IP6
+			afi = BGP_ATTR_NEXTHOP_AFI_IP6(pi->attr) ? AFI_IP6
 								 : AFI_IP;
 
 		/* This will return TRUE if the global IPv6 NH is a link local
 		 * addr */
-		if (make_prefix(afi, ri, &p) < 0)
+		if (make_prefix(afi, pi, &p) < 0)
 			return 1;
 	} else if (peer) {
 		if (!sockunion2hostprefix(&peer->su, &p)) {
@@ -246,19 +246,19 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		bnc->flags |= BGP_NEXTHOP_VALID;
 	} else if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
 		register_zebra_rnh(bnc, is_bgp_static_route);
-	if (ri && ri->nexthop != bnc) {
+	if (pi && pi->nexthop != bnc) {
 		/* Unlink from existing nexthop cache, if any. This will also
 		 * free
 		 * the nexthop cache entry, if appropriate.
 		 */
-		bgp_unlink_nexthop(ri);
+		bgp_unlink_nexthop(pi);
 
-		path_nh_map(ri, bnc, 1); /* updates NHT ri list reference */
+		path_nh_map(pi, bnc, 1); /* updates NHT pi list reference */
 
 		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) && bnc->metric)
-			(bgp_path_info_extra_get(ri))->igpmetric = bnc->metric;
-		else if (ri->extra)
-			ri->extra->igpmetric = 0;
+			(bgp_path_info_extra_get(pi))->igpmetric = bnc->metric;
+		else if (pi->extra)
+			pi->extra->igpmetric = 0;
 	} else if (peer)
 		bnc->nht_info = (void *)peer; /* NHT peer reference */
 
@@ -527,11 +527,11 @@ void bgp_cleanup_nexthops(struct bgp *bgp)
  * make_prefix - make a prefix structure from the path (essentially
  * path's node.
  */
-static int make_prefix(int afi, struct bgp_path_info *ri, struct prefix *p)
+static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 {
 
-	int is_bgp_static = ((ri->type == ZEBRA_ROUTE_BGP)
-			     && (ri->sub_type == BGP_ROUTE_STATIC))
+	int is_bgp_static = ((pi->type == ZEBRA_ROUTE_BGP)
+			     && (pi->sub_type == BGP_ROUTE_STATIC))
 				    ? 1
 				    : 0;
 
@@ -540,10 +540,10 @@ static int make_prefix(int afi, struct bgp_path_info *ri, struct prefix *p)
 	case AFI_IP:
 		p->family = AF_INET;
 		if (is_bgp_static) {
-			p->u.prefix4 = ri->net->p.u.prefix4;
-			p->prefixlen = ri->net->p.prefixlen;
+			p->u.prefix4 = pi->net->p.u.prefix4;
+			p->prefixlen = pi->net->p.prefixlen;
 		} else {
-			p->u.prefix4 = ri->attr->nexthop;
+			p->u.prefix4 = pi->attr->nexthop;
 			p->prefixlen = IPV4_MAX_BITLEN;
 		}
 		break;
@@ -551,10 +551,10 @@ static int make_prefix(int afi, struct bgp_path_info *ri, struct prefix *p)
 		p->family = AF_INET6;
 
 		if (is_bgp_static) {
-			p->u.prefix6 = ri->net->p.u.prefix6;
-			p->prefixlen = ri->net->p.prefixlen;
+			p->u.prefix6 = pi->net->p.u.prefix6;
+			p->prefixlen = pi->net->p.prefixlen;
 		} else {
-			p->u.prefix6 = ri->attr->mp_nexthop_global;
+			p->u.prefix6 = pi->attr->mp_nexthop_global;
 			p->prefixlen = IPV6_MAX_BITLEN;
 		}
 		break;

@@ -341,7 +341,7 @@ static route_map_result_t route_match_command(void *rule,
 	u_int32_t locpref = 0;
 	u_int32_t newlocpref = 0;
 	enum lua_rm_status lrm_status;
-	struct bgp_path_info *info = (struct bgp_path_info *)object;
+	struct bgp_path_info *path = (struct bgp_path_info *)object;
 	lua_State *L = lua_initialize("/etc/frr/lua.scr");
 
 	if (L == NULL)
@@ -357,15 +357,15 @@ static route_map_result_t route_match_command(void *rule,
 	 * Setup the bgp_path_info information
 	 */
 	lua_newtable(L);
-	lua_pushinteger(L, info->attr->med);
+	lua_pushinteger(L, path->attr->med);
 	lua_setfield(L, -2, "metric");
-	lua_pushinteger(L, info->attr->nh_ifindex);
+	lua_pushinteger(L, path->attr->nh_ifindex);
 	lua_setfield(L, -2, "ifindex");
-	lua_pushstring(L, info->attr->aspath->str);
+	lua_pushstring(L, path->attr->aspath->str);
 	lua_setfield(L, -2, "aspath");
-	lua_pushinteger(L, info->attr->local_pref);
+	lua_pushinteger(L, path->attr->local_pref);
 	lua_setfield(L, -2, "localpref");
-	zlog_debug("%s %d", info->attr->aspath->str, info->attr->nh_ifindex);
+	zlog_debug("%s %d", path->attr->aspath->str, path->attr->nh_ifindex);
 	lua_setglobal(L, "nexthop");
 
 	zlog_debug("Set up nexthop information");
@@ -383,16 +383,16 @@ static route_map_result_t route_match_command(void *rule,
 	case LUA_RM_MATCH_AND_CHANGE:
 		zlog_debug("MATCH AND CHANGE");
 		lua_getglobal(L, "nexthop");
-		info->attr->med = get_integer(L, "metric");
+		path->attr->med = get_integer(L, "metric");
 		/*
 		 * This needs to be abstraced with the set function
 		 */
-		if (info->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
-			locpref = info->attr->local_pref;
+		if (path->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+			locpref = path->attr->local_pref;
 		newlocpref = get_integer(L, "localpref");
 		if (newlocpref != locpref) {
-			info->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
-			info->attr->local_pref = newlocpref;
+			path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
+			path->attr->local_pref = newlocpref;
 		}
 		status = RMAP_MATCH;
 		break;
@@ -1321,17 +1321,17 @@ static route_map_result_t route_match_interface(void *rule,
 						void *object)
 {
 	struct interface *ifp;
-	struct bgp_path_info *info;
+	struct bgp_path_info *path;
 
 	if (type == RMAP_BGP) {
-		info = object;
+		path = object;
 
-		if (!info || !info->attr)
+		if (!path || !path->attr)
 			return RMAP_NOMATCH;
 
 		ifp = if_lookup_by_name_all_vrf((char *)rule);
 
-		if (ifp == NULL || ifp->ifindex != info->attr->nh_ifindex)
+		if (ifp == NULL || ifp->ifindex != path->attr->nh_ifindex)
 			return RMAP_NOMATCH;
 
 		return RMAP_MATCH;

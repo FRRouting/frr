@@ -101,7 +101,7 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 {
 	struct updwalk_context *ctx = arg;
 	struct update_subgroup *subgrp;
-	struct bgp_path_info *ri;
+	struct bgp_path_info *pi;
 	afi_t afi;
 	safi_t safi;
 	struct peer *peer;
@@ -140,15 +140,15 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 					adj_next = adj->next;
 
 					if (adj->subgroup == subgrp) {
-						for (ri = ctx->rn->info; ri;
-						     ri = ri->next) {
-							if (ri->addpath_tx_id
+						for (pi = ctx->rn->info; pi;
+						     pi = pi->next) {
+							if (pi->addpath_tx_id
 							    == adj->addpath_tx_id) {
 								break;
 							}
 						}
 
-						if (!ri) {
+						if (!pi) {
 							subgroup_process_announce_selected(
 								subgrp, NULL,
 								ctx->rn,
@@ -157,32 +157,32 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 					}
 				}
 
-				for (ri = ctx->rn->info; ri; ri = ri->next) {
+				for (pi = ctx->rn->info; pi; pi = pi->next) {
 					/* Skip the bestpath for now */
-					if (ri == ctx->ri)
+					if (pi == ctx->pi)
 						continue;
 
 					subgroup_process_announce_selected(
-						subgrp, ri, ctx->rn,
-						ri->addpath_tx_id);
+						subgrp, pi, ctx->rn,
+						pi->addpath_tx_id);
 				}
 
 				/* Process the bestpath last so the "show [ip]
 				 * bgp neighbor x.x.x.x advertised"
 				 * output shows the attributes from the bestpath
 				 */
-				if (ctx->ri)
+				if (ctx->pi)
 					subgroup_process_announce_selected(
-						subgrp, ctx->ri, ctx->rn,
-						ctx->ri->addpath_tx_id);
+						subgrp, ctx->pi, ctx->rn,
+						ctx->pi->addpath_tx_id);
 			}
 
 			/* An update-group that does not use addpath */
 			else {
-				if (ctx->ri) {
+				if (ctx->pi) {
 					subgroup_process_announce_selected(
-						subgrp, ctx->ri, ctx->rn,
-						ctx->ri->addpath_tx_id);
+						subgrp, ctx->pi, ctx->rn,
+						ctx->pi->addpath_tx_id);
 				} else {
 					/* Find the addpath_tx_id of the path we
 					 * had advertised and
@@ -831,10 +831,10 @@ void subgroup_announce_all(struct update_subgroup *subgrp)
  * input route.
  */
 void group_announce_route(struct bgp *bgp, afi_t afi, safi_t safi,
-			  struct bgp_node *rn, struct bgp_path_info *ri)
+			  struct bgp_node *rn, struct bgp_path_info *pi)
 {
 	struct updwalk_context ctx;
-	ctx.ri = ri;
+	ctx.pi = pi;
 	ctx.rn = rn;
 	update_group_af_walk(bgp, afi, safi, group_announce_route_walkcb, &ctx);
 }

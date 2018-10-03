@@ -94,18 +94,18 @@ int bgp_parse_fec_update(void)
 	return 1;
 }
 
-mpls_label_t bgp_adv_label(struct bgp_node *rn, struct bgp_path_info *ri,
+mpls_label_t bgp_adv_label(struct bgp_node *rn, struct bgp_path_info *pi,
 			   struct peer *to, afi_t afi, safi_t safi)
 {
 	struct peer *from;
 	mpls_label_t remote_label;
 	int reflect;
 
-	if (!rn || !ri || !to)
+	if (!rn || !pi || !to)
 		return MPLS_INVALID_LABEL;
 
-	remote_label = ri->extra ? ri->extra->label[0] : MPLS_INVALID_LABEL;
-	from = ri->peer;
+	remote_label = pi->extra ? pi->extra->label[0] : MPLS_INVALID_LABEL;
+	from = pi->peer;
 	reflect =
 		((from->sort == BGP_PEER_IBGP) && (to->sort == BGP_PEER_IBGP));
 
@@ -120,7 +120,7 @@ mpls_label_t bgp_adv_label(struct bgp_node *rn, struct bgp_path_info *ri,
 	return rn->local_label;
 }
 
-void bgp_reg_dereg_for_label(struct bgp_node *rn, struct bgp_path_info *ri,
+void bgp_reg_dereg_for_label(struct bgp_node *rn, struct bgp_path_info *pi,
 			     int reg)
 {
 	struct stream *s;
@@ -143,11 +143,11 @@ void bgp_reg_dereg_for_label(struct bgp_node *rn, struct bgp_path_info *ri,
 	stream_putw(s, PREFIX_FAMILY(p));
 	stream_put_prefix(s, p);
 	if (reg) {
-		assert(ri);
-		if (ri->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)) {
-			if (ri->attr->label_index != BGP_INVALID_LABEL_INDEX) {
+		assert(pi);
+		if (pi->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PREFIX_SID)) {
+			if (pi->attr->label_index != BGP_INVALID_LABEL_INDEX) {
 				flags |= ZEBRA_FEC_REGISTER_LABEL_INDEX;
-				stream_putl(s, ri->attr->label_index);
+				stream_putl(s, pi->attr->label_index);
 			}
 		}
 		SET_FLAG(rn->flags, BGP_NODE_REGISTERED_FOR_LABEL);

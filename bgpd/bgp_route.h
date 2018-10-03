@@ -339,7 +339,7 @@ static inline int bgp_fibupd_safi(safi_t safi)
 }
 
 /* Prototypes. */
-extern void bgp_rib_remove(struct bgp_node *rn, struct bgp_path_info *ri,
+extern void bgp_rib_remove(struct bgp_node *rn, struct bgp_path_info *pi,
 			   struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_process_queue_init(void);
 extern void bgp_route_init(void);
@@ -360,16 +360,16 @@ extern struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 					 struct prefix_rd *prd);
 extern struct bgp_path_info *bgp_path_info_lock(struct bgp_path_info *path);
 extern struct bgp_path_info *bgp_path_info_unlock(struct bgp_path_info *path);
-extern void bgp_path_info_add(struct bgp_node *rn, struct bgp_path_info *ri);
-extern void bgp_path_info_reap(struct bgp_node *rn, struct bgp_path_info *ri);
-extern void bgp_path_info_delete(struct bgp_node *rn, struct bgp_path_info *ri);
+extern void bgp_path_info_add(struct bgp_node *rn, struct bgp_path_info *pi);
+extern void bgp_path_info_reap(struct bgp_node *rn, struct bgp_path_info *pi);
+extern void bgp_path_info_delete(struct bgp_node *rn, struct bgp_path_info *pi);
 extern struct bgp_path_info_extra *
 bgp_path_info_extra_get(struct bgp_path_info *path);
 extern void bgp_path_info_set_flag(struct bgp_node *rn,
 				   struct bgp_path_info *path, uint32_t flag);
 extern void bgp_path_info_unset_flag(struct bgp_node *rn,
 				     struct bgp_path_info *path, uint32_t flag);
-extern void bgp_path_info_path_with_addpath_rx_str(struct bgp_path_info *ri,
+extern void bgp_path_info_path_with_addpath_rx_str(struct bgp_path_info *pi,
 						   char *buf);
 
 extern int bgp_nlri_parse_ip(struct peer *, struct attr *, struct bgp_nlri *);
@@ -461,7 +461,7 @@ extern int subgroup_process_announce_selected(struct update_subgroup *subgrp,
 					      uint32_t addpath_tx_id);
 
 extern int subgroup_announce_check(struct bgp_node *rn,
-				   struct bgp_path_info *ri,
+				   struct bgp_path_info *pi,
 				   struct update_subgroup *subgrp,
 				   struct prefix *p, struct attr *attr);
 

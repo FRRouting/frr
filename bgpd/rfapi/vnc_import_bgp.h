@@ -62,12 +62,12 @@ extern void vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 	struct bgp *bgp, struct prefix_rd *prd, /* RD */
 	struct bgp_table *table_rd,		/* per-rd VPN route table */
 	struct prefix *prefix,			/* VPN prefix */
-	struct bgp_path_info *bi);		/* new VPN host route */
+	struct bgp_path_info *bpi);		/* new VPN host route */
 
 extern void vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
 	struct bgp *bgp, struct prefix_rd *prd, /* RD */
 	struct bgp_table *table_rd,		/* per-rd VPN route table */
 	struct prefix *prefix,			/* VPN prefix */
-	struct bgp_path_info *bi);		/* old VPN host route */
+	struct bgp_path_info *bpi);		/* old VPN host route */
 
 #endif /* _QUAGGA_RFAPI_VNC_IMPORT_BGP_H_ */

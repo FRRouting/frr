@@ -627,7 +627,7 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 
 /* return -1 if build or validation failed */
 static int bgp_pbr_build_and_validate_entry(struct prefix *p,
-					    struct bgp_path_info *info,
+					    struct bgp_path_info *path,
 					    struct bgp_pbr_entry_main *api)
 {
 	int ret;
@@ -645,8 +645,8 @@ static int bgp_pbr_build_and_validate_entry(struct prefix *p,
 	if (ret < 0)
 		return -1;
 	/* extract actiosn from flowspec ecom list */
-	if (info && info->attr && info->attr->ecommunity) {
-		ecom = info->attr->ecommunity;
+	if (path && path->attr && path->attr->ecommunity) {
+		ecom = path->attr->ecommunity;
 		for (i = 0; i < ecom->size; i++) {
 			ecom_eval = (struct ecommunity_val *)
 				(ecom->val + (i * ECOMMUNITY_SIZE));
@@ -690,7 +690,7 @@ static int bgp_pbr_build_and_validate_entry(struct prefix *p,
 				    (char)ECOMMUNITY_REDIRECT_IP_NH)) {
 				api_action->action = ACTION_REDIRECT_IP;
 				api_action->u.zr.redirect_ip_v4.s_addr =
-					info->attr->nexthop.s_addr;
+					path->attr->nexthop.s_addr;
 				api_action->u.zr.duplicate = ecom_eval->val[7];
 			} else {
 				if (ecom_eval->val[0] !=

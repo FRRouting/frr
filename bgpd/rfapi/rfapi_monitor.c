@@ -226,7 +226,7 @@ void rfapiMonitorExtraFlush(safi_t safi, struct agg_node *rn)
 			agg_unlock_node(rn);
 		}
 		if (hie->u.vpn.idx_rd) {
-			/* looping through bi->extra->vnc.import.rd is tbd */
+			/* looping through bpi->extra->vnc.import.rd is tbd */
 			while (!skiplist_delete_first(hie->u.vpn.idx_rd)) {
 				agg_unlock_node(rn);
 			}
@@ -346,16 +346,16 @@ struct agg_node *rfapiMonitorGetAttachNode(struct rfapi_descriptor *rfd,
 	for (rn = agg_node_match(rfd->import_table->imported_vpn[afi], p);
 	     rn;) {
 
-		struct bgp_path_info *bi;
+		struct bgp_path_info *bpi;
 		struct prefix pfx_dummy;
 
 		/* TBD update this code to use new valid_interior_count */
-		for (bi = rn->info; bi; bi = bi->next) {
+		for (bpi = rn->info; bpi; bpi = bpi->next) {
 			/*
 			 * If there is a cached ENCAP UN address, it's a usable
 			 * VPN route
 			 */
-			if (bi->extra && bi->extra->vnc.import.un_family) {
+			if (bpi->extra && bpi->extra->vnc.import.un_family) {
 				break;
 			}
 
@@ -364,11 +364,11 @@ struct agg_node *rfapiMonitorGetAttachNode(struct rfapi_descriptor *rfd,
 			 * address,
 			 * it's a usable VPN route.
 			 */
-			if (!rfapiGetVncTunnelUnAddr(bi->attr, &pfx_dummy)) {
+			if (!rfapiGetVncTunnelUnAddr(bpi->attr, &pfx_dummy)) {
 				break;
 			}
 		}
-		if (bi)
+		if (bpi)
 			break;
 
 		agg_unlock_node(rn);

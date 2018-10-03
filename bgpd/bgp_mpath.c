@@ -116,43 +116,44 @@ static int bgp_interface_same(struct interface *ifp1, struct interface *ifp2)
  * bgp_path_info_nexthop_cmp
  *
  * Compare the nexthops of two paths. Return value is less than, equal to,
- * or greater than zero if bi1 is respectively less than, equal to,
- * or greater than bi2.
+ * or greater than zero if bpi1 is respectively less than, equal to,
+ * or greater than bpi2.
  */
-int bgp_path_info_nexthop_cmp(struct bgp_path_info *bi1,
-			      struct bgp_path_info *bi2)
+int bgp_path_info_nexthop_cmp(struct bgp_path_info *bpi1,
+			      struct bgp_path_info *bpi2)
 {
 	int compare;
 	struct in6_addr addr1, addr2;
 
-	compare = IPV4_ADDR_CMP(&bi1->attr->nexthop, &bi2->attr->nexthop);
+	compare = IPV4_ADDR_CMP(&bpi1->attr->nexthop, &bpi2->attr->nexthop);
 	if (!compare) {
-		if (bi1->attr->mp_nexthop_len == bi2->attr->mp_nexthop_len) {
-			switch (bi1->attr->mp_nexthop_len) {
+		if (bpi1->attr->mp_nexthop_len == bpi2->attr->mp_nexthop_len) {
+			switch (bpi1->attr->mp_nexthop_len) {
 			case BGP_ATTR_NHLEN_IPV4:
 			case BGP_ATTR_NHLEN_VPNV4:
 				compare = IPV4_ADDR_CMP(
-					&bi1->attr->mp_nexthop_global_in,
-					&bi2->attr->mp_nexthop_global_in);
+					&bpi1->attr->mp_nexthop_global_in,
+					&bpi2->attr->mp_nexthop_global_in);
 				break;
 			case BGP_ATTR_NHLEN_IPV6_GLOBAL:
 			case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
 				compare = IPV6_ADDR_CMP(
-					&bi1->attr->mp_nexthop_global,
-					&bi2->attr->mp_nexthop_global);
+					&bpi1->attr->mp_nexthop_global,
+					&bpi2->attr->mp_nexthop_global);
 				break;
 			case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
-				addr1 = (bi1->attr->mp_nexthop_prefer_global)
-						? bi1->attr->mp_nexthop_global
-						: bi1->attr->mp_nexthop_local;
-				addr2 = (bi2->attr->mp_nexthop_prefer_global)
-						? bi2->attr->mp_nexthop_global
-						: bi2->attr->mp_nexthop_local;
+				addr1 = (bpi1->attr->mp_nexthop_prefer_global)
+						? bpi1->attr->mp_nexthop_global
+						: bpi1->attr->mp_nexthop_local;
+				addr2 = (bpi2->attr->mp_nexthop_prefer_global)
+						? bpi2->attr->mp_nexthop_global
+						: bpi2->attr->mp_nexthop_local;
 
-				if (!bi1->attr->mp_nexthop_prefer_global
-				    && !bi2->attr->mp_nexthop_prefer_global)
+				if (!bpi1->attr->mp_nexthop_prefer_global
+				    && !bpi2->attr->mp_nexthop_prefer_global)
 					compare = !bgp_interface_same(
-						bi1->peer->ifp, bi2->peer->ifp);
+						bpi1->peer->ifp,
+						bpi2->peer->ifp);
 
 				if (!compare)
 					compare = IPV6_ADDR_CMP(&addr1, &addr2);
@@ -164,14 +165,15 @@ int bgp_path_info_nexthop_cmp(struct bgp_path_info *bi1,
 		 * link-local
 		 * nexthops but another IPv6 peer only sends you global
 		 */
-		else if (bi1->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL
-			 || bi1->attr->mp_nexthop_len
+		else if (bpi1->attr->mp_nexthop_len
+				 == BGP_ATTR_NHLEN_IPV6_GLOBAL
+			 || bpi1->attr->mp_nexthop_len
 				    == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
-			compare = IPV6_ADDR_CMP(&bi1->attr->mp_nexthop_global,
-						&bi2->attr->mp_nexthop_global);
+			compare = IPV6_ADDR_CMP(&bpi1->attr->mp_nexthop_global,
+						&bpi2->attr->mp_nexthop_global);
 			if (!compare) {
-				if (bi1->attr->mp_nexthop_len
-				    < bi2->attr->mp_nexthop_len)
+				if (bpi1->attr->mp_nexthop_len
+				    < bpi2->attr->mp_nexthop_len)
 					compare = -1;
 				else
 					compare = 1;
@@ -196,24 +198,24 @@ int bgp_path_info_nexthop_cmp(struct bgp_path_info *bi1,
  */
 static int bgp_path_info_mpath_cmp(void *val1, void *val2)
 {
-	struct bgp_path_info *bi1, *bi2;
+	struct bgp_path_info *bpi1, *bpi2;
 	int compare;
 
-	bi1 = val1;
-	bi2 = val2;
+	bpi1 = val1;
+	bpi2 = val2;
 
-	compare = bgp_path_info_nexthop_cmp(bi1, bi2);
+	compare = bgp_path_info_nexthop_cmp(bpi1, bpi2);
 
 	if (!compare) {
-		if (!bi1->peer->su_remote && !bi2->peer->su_remote)
+		if (!bpi1->peer->su_remote && !bpi2->peer->su_remote)
 			compare = 0;
-		else if (!bi1->peer->su_remote)
+		else if (!bpi1->peer->su_remote)
 			compare = 1;
-		else if (!bi2->peer->su_remote)
+		else if (!bpi2->peer->su_remote)
 			compare = -1;
 		else
-			compare = sockunion_cmp(bi1->peer->su_remote,
-						bi2->peer->su_remote);
+			compare = sockunion_cmp(bpi1->peer->su_remote,
+						bpi2->peer->su_remote);
 	}
 
 	return compare;

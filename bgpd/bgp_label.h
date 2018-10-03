@@ -31,9 +31,9 @@ struct bgp_path_info;
 struct peer;
 
 extern void bgp_reg_dereg_for_label(struct bgp_node *rn,
-				    struct bgp_path_info *ri, int reg);
+				    struct bgp_path_info *pi, int reg);
 extern int bgp_parse_fec_update(void);
-extern mpls_label_t bgp_adv_label(struct bgp_node *rn, struct bgp_path_info *ri,
+extern mpls_label_t bgp_adv_label(struct bgp_node *rn, struct bgp_path_info *pi,
 				  struct peer *to, afi_t afi, safi_t safi);
 
 extern int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
@@ -85,9 +85,9 @@ static inline void bgp_unset_valid_label(mpls_label_t *label)
 }
 
 static inline void bgp_register_for_label(struct bgp_node *rn,
-					  struct bgp_path_info *ri)
+					  struct bgp_path_info *pi)
 {
-	bgp_reg_dereg_for_label(rn, ri, 1);
+	bgp_reg_dereg_for_label(rn, pi, 1);
 }
 
 static inline void bgp_unregister_for_label(struct bgp_node *rn)

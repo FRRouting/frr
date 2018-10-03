@@ -45,7 +45,7 @@ struct rfapi_monitor_encap {
 	struct rfapi_monitor_encap *next;
 	struct rfapi_monitor_encap *prev;
 	struct agg_node *node;   /* VPN node */
-	struct bgp_path_info *bi; /* VPN bi */
+	struct bgp_path_info *bpi; /* VPN bpi */
 	struct agg_node *rn;     /* parent node */
 };
 
@@ -83,7 +83,7 @@ struct rfapi_it_extra {
 				 * Encap TLV */
 				int valid_interior_count;
 
-				/* unicast exterior routes, key=bi,
+				/* unicast exterior routes, key=bpi,
 				 * val=allocated prefix */
 				struct skiplist *source;
 			} e;

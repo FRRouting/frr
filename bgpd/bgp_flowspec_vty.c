@@ -369,7 +369,7 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 			    void *output_arg, bool use_json, int is_last,
 			    unsigned long *output_cum, unsigned long *total_cum)
 {
-	struct bgp_path_info *ri;
+	struct bgp_path_info *pi;
 	struct bgp_node *rn;
 	unsigned long total_count = 0;
 	json_object *json_paths = NULL;
@@ -385,12 +385,10 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 			json_paths = json_object_new_array();
 			display = NLRI_STRING_FORMAT_JSON;
 		}
-		for (ri = rn->info; ri; ri = ri->next) {
+		for (pi = rn->info; pi; pi = pi->next) {
 			total_count++;
-			route_vty_out_flowspec(vty, &rn->p,
-					       ri, display,
+			route_vty_out_flowspec(vty, &rn->p, pi, display,
 					       json_paths);
-
 		}
 		if (use_json) {
 			vty_out(vty, "%s\n",
