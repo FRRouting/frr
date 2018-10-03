@@ -1899,28 +1899,25 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 						    != Established)
 							continue;
 
-					if (aspath_cmp_left(pi1->attr->aspath,
-							    pi2->attr->aspath)
-					    || aspath_cmp_left_confed(
+					if (!aspath_cmp_left(pi1->attr->aspath,
+							     pi2->attr->aspath)
+					    && !aspath_cmp_left_confed(
 						       pi1->attr->aspath,
-						       pi2->attr->aspath)) {
-						if (bgp_path_info_cmp(
-							    bgp, pi2,
-							    new_select,
-							    &paths_eq,
-							    mpath_cfg, debug,
-							    pfx_buf, afi,
-							    safi)) {
-							bgp_path_info_unset_flag(
-								rn, new_select,
-								BGP_PATH_DMED_SELECTED);
-							new_select = pi2;
-						}
+						       pi2->attr->aspath))
+						continue;
 
-						bgp_path_info_set_flag(
-							rn, pi2,
-							BGP_PATH_DMED_CHECK);
+					if (bgp_path_info_cmp(
+						    bgp, pi2, new_select,
+						    &paths_eq, mpath_cfg, debug,
+						    pfx_buf, afi, safi)) {
+						bgp_path_info_unset_flag(
+							rn, new_select,
+							BGP_PATH_DMED_SELECTED);
+						new_select = pi2;
 					}
+
+					bgp_path_info_set_flag(
+						rn, pi2, BGP_PATH_DMED_CHECK);
 				}
 			}
 			bgp_path_info_set_flag(rn, new_select,
@@ -8047,6 +8044,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		if (path->extra && bgp_is_valid_label(&path->extra->label[0])
 		    && safi != SAFI_EVPN) {
 			mpls_label_t label = label_pton(&path->extra->label[0]);
+
 			if (json_paths)
 				json_object_int_add(json_path, "remoteLabel",
 						    label);

@@ -317,7 +317,8 @@ static int run_bgp_path_info_mpath_update(testcase_t *t)
 	bgp_mp_list_add(&mp_list, &test_mp_list_info[1]);
 	new_best = &test_mp_list_info[3];
 	old_best = NULL;
-	bgp_path_info_mpath_update(&test_rn, new_best, old_best, &mp_list, &mp_cfg);
+	bgp_path_info_mpath_update(&test_rn, new_best, old_best, &mp_list,
+				   &mp_cfg);
 	bgp_mp_list_clear(&mp_list);
 	EXPECT_TRUE(bgp_path_info_mpath_count(new_best) == 2, test_result);
 	mpath = bgp_path_info_mpath_first(new_best);
@@ -331,7 +332,8 @@ static int run_bgp_path_info_mpath_update(testcase_t *t)
 	bgp_mp_list_add(&mp_list, &test_mp_list_info[1]);
 	new_best = &test_mp_list_info[0];
 	old_best = &test_mp_list_info[3];
-	bgp_path_info_mpath_update(&test_rn, new_best, old_best, &mp_list, &mp_cfg);
+	bgp_path_info_mpath_update(&test_rn, new_best, old_best, &mp_list,
+				   &mp_cfg);
 	bgp_mp_list_clear(&mp_list);
 	EXPECT_TRUE(bgp_path_info_mpath_count(new_best) == 1, test_result);
 	mpath = bgp_path_info_mpath_first(new_best);
