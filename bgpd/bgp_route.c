@@ -172,6 +172,7 @@ static struct bgp_info_extra *bgp_info_extra_new(void)
 	new->label[0] = MPLS_INVALID_LABEL;
 	new->num_labels = 0;
 	new->vrf_id = VRF_UNKNOWN;
+	new->vrf_id_local = FALSE;
 	return new;
 }
 
