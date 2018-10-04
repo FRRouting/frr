@@ -8666,17 +8666,39 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 			best = count;
 			if (ri->extra && ri->extra->suppress)
 				suppress = 1;
-			if (ri->attr->community != NULL) {
-				if (community_include(ri->attr->community,
-						      COMMUNITY_NO_ADVERTISE))
-					no_advertise = 1;
-				if (community_include(ri->attr->community,
-						      COMMUNITY_NO_EXPORT))
-					no_export = 1;
-				if (community_include(ri->attr->community,
-						      COMMUNITY_LOCAL_AS))
-					local_as = 1;
-			}
+
+			if (ri->attr->community == NULL)
+				continue;
+
+			no_advertise += community_include(
+				ri->attr->community, COMMUNITY_NO_ADVERTISE);
+			no_export += community_include(ri->attr->community,
+						       COMMUNITY_NO_EXPORT);
+			local_as += community_include(ri->attr->community,
+						      COMMUNITY_LOCAL_AS);
+			accept_own += community_include(ri->attr->community,
+							COMMUNITY_ACCEPT_OWN);
+			route_filter_translated_v4 += community_include(
+				ri->attr->community,
+				COMMUNITY_ROUTE_FILTER_TRANSLATED_v4);
+			route_filter_translated_v6 += community_include(
+				ri->attr->community,
+				COMMUNITY_ROUTE_FILTER_TRANSLATED_v6);
+			route_filter_v4 += community_include(
+				ri->attr->community, COMMUNITY_ROUTE_FILTER_v4);
+			route_filter_v6 += community_include(
+				ri->attr->community, COMMUNITY_ROUTE_FILTER_v6);
+			llgr_stale += community_include(ri->attr->community,
+							COMMUNITY_LLGR_STALE);
+			no_llgr += community_include(ri->attr->community,
+						     COMMUNITY_NO_LLGR);
+			accept_own_nexthop +=
+				community_include(ri->attr->community,
+						  COMMUNITY_ACCEPT_OWN_NEXTHOP);
+			blackhole += community_include(ri->attr->community,
+						       COMMUNITY_BLACKHOLE);
+			no_peer += community_include(ri->attr->community,
+						     COMMUNITY_NO_PEER);
 		}
 	}
 
