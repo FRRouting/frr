@@ -1050,6 +1050,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 						uint8_t subtlv_len;
 
 						if (IS_MPLS_TE(isisMplsTE)
+						    && circuit->interface
 						    && HAS_LINK_PARAMS(
 							       circuit->interface))
 							subtlv_len = add_te_subtlvs(
