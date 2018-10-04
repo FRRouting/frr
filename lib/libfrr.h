@@ -29,11 +29,21 @@
 #include "module.h"
 #include "hook.h"
 
+/* The following options disable specific command line options that
+ * are not applicable for a particular daemon.
+ */
 #define FRR_NO_PRIVSEP		(1 << 0)
 #define FRR_NO_TCPVTY		(1 << 1)
 #define FRR_LIMITED_CLI		(1 << 2)
-#define FRR_NO_CFG_PID_DRY		(1 << 3)
+#define FRR_NO_CFG_PID_DRY	(1 << 3)
 #define FRR_NO_ZCLIENT		(1 << 4)
+/* If FRR_DETACH_LATER is used, the daemon will keep its parent running
+ * until frr_detach() is called.  Normally "somedaemon -d" returns once the
+ * main event loop is reached in the daemon;  use this for extra startup bits.
+ *
+ * Does nothing if -d isn't used.
+ */
+#define FRR_DETACH_LATER	(1 << 5)
 
 struct frr_daemon_info {
 	unsigned flags;
@@ -102,10 +112,8 @@ extern struct thread_master *frr_init(void);
 DECLARE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 extern void frr_config_fork(void);
 
-extern void frr_vty_serv(void);
-
-/* note: contains call to frr_vty_serv() */
 extern void frr_run(struct thread_master *master);
+extern void frr_detach(void);
 
 extern bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 			     const char *path);
