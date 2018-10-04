@@ -379,6 +379,12 @@ struct in_pktinfo {
  */
 #define ZEBRA_HEADER_MARKER              254
 
+/*
+ * The compiler.h header is used for anyone using the CPP_NOTICE
+ * since this is universally needed, let's add it to zebra.h
+ */
+#include "compiler.h"
+
 /* Zebra route's types are defined in route_types.h */
 #include "route_types.h"
 
