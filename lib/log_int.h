@@ -36,6 +36,7 @@ struct zlog {
 	int facility;	/* as per syslog facility */
 	int record_priority; /* should messages logged through stdio include the
 				priority of the message? */
+	int error_code;
 	int syslog_options;  /* 2nd arg to openlog */
 	int timestamp_precision; /* # of digits of subsecond precision */
 };

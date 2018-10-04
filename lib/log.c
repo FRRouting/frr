@@ -684,6 +684,23 @@ ZLOG_FUNC(zlog_debug, LOG_DEBUG)
 
 #undef ZLOG_FUNC
 
+void zlog_err_id(uint32_t id, const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	if (zlog_default && zlog_default->error_code) {
+		char newfmt[strlen(format) + 32];
+
+		snprintf(newfmt, sizeof(newfmt), "[EC %"PRIu32"] %s", id,
+			 format);
+		vzlog(LOG_ERR, newfmt, args);
+	} else {
+		vzlog(LOG_ERR, format, args);
+	}
+	va_end(args);
+}
+
+
 void zlog_thread_info(int log_level)
 {
 	struct thread *tc;

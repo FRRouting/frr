@@ -570,6 +570,9 @@ static int config_write_host(struct vty *vty)
 		if (zlog_default->record_priority == 1)
 			vty_out(vty, "log record-priority\n");
 
+		if (zlog_default->error_code)
+			vty_out(vty, "log error-code\n");
+
 		if (zlog_default->timestamp_precision > 0)
 			vty_out(vty, "log timestamp precision %d\n",
 				zlog_default->timestamp_precision);
@@ -2334,6 +2337,8 @@ DEFUN (show_logging,
 	vty_out(vty, "Protocol name: %s\n", zl->protoname);
 	vty_out(vty, "Record priority: %s\n",
 		(zl->record_priority ? "enabled" : "disabled"));
+	vty_out(vty, "Error code: %s\n",
+		(zl->error_code ? "enabled" : "disabled"));
 	vty_out(vty, "Timestamp precision: %d\n", zl->timestamp_precision);
 
 	return CMD_SUCCESS;
@@ -2612,6 +2617,17 @@ DEFUN (no_config_log_record_priority,
 	return CMD_SUCCESS;
 }
 
+DEFUN (config_log_error_code,
+       config_log_error_code_cmd,
+       "[no] log error-code",
+       NO_STR
+       "Logging control\n"
+       "Log the error code number where available\n")
+{
+	zlog_default->error_code = !!strcmp(argv[0]->text, "no");
+	return CMD_SUCCESS;
+}
+
 DEFUN (config_log_timestamp_precision,
        config_log_timestamp_precision_cmd,
        "log timestamp precision (0-6)",
@@ -2883,6 +2899,7 @@ void cmd_init(int terminal)
 		install_element(CONFIG_NODE, &config_log_record_priority_cmd);
 		install_element(CONFIG_NODE,
 				&no_config_log_record_priority_cmd);
+		install_element(CONFIG_NODE, &config_log_error_code_cmd);
 		install_element(CONFIG_NODE,
 				&config_log_timestamp_precision_cmd);
 		install_element(CONFIG_NODE,
