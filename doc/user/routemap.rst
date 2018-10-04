@@ -105,10 +105,10 @@ Route Map Match Command
 
    Matches the specified `access_list`
 
-.. index:: match ip address PREFIX-LIST
-.. clicmd:: match ip address PREFIX-LIST
+.. index:: match ip address prefix-list PREFIX_LIST
+.. clicmd:: match ip address prefix-list PREFIX_LIST
 
-   Matches the specified `prefix-list`
+   Matches the specified `PREFIX_LIST`
 
 .. index:: match ip address prefix-len 0-32
 .. clicmd:: match ip address prefix-len 0-32
@@ -120,10 +120,10 @@ Route Map Match Command
 
    Matches the specified `access_list`
 
-.. index:: match ipv6 address PREFIX-LIST
-.. clicmd:: match ipv6 address PREFIX-LIST
+.. index:: match ipv6 address prefix-list PREFIX_LIST
+.. clicmd:: match ipv6 address prefix-list PREFIX_LIST
 
-   Matches the specified `prefix-list`
+   Matches the specified `PREFIX_LIST`
 
 .. index:: match ipv6 address prefix-len 0-128
 .. clicmd:: match ipv6 address prefix-len 0-128
