@@ -3097,7 +3097,9 @@ static int zvni_vtep_del_all(zebra_vni_t *zvni, int uninstall)
  */
 static int zvni_vtep_install(zebra_vni_t *zvni, struct in_addr *vtep_ip)
 {
-	return kernel_add_vtep(zvni->vni, zvni->vxlan_if, vtep_ip);
+	if (is_vxlan_flooding_head_end())
+		return kernel_add_vtep(zvni->vni, zvni->vxlan_if, vtep_ip);
+	return 0;
 }
 
 /*
@@ -3112,6 +3114,28 @@ static int zvni_vtep_uninstall(zebra_vni_t *zvni, struct in_addr *vtep_ip)
 	}
 
 	return kernel_del_vtep(zvni->vni, zvni->vxlan_if, vtep_ip);
+}
+
+/*
+ * Install or uninstall flood entries in the kernel corresponding to
+ * remote VTEPs. This is invoked upon change to BUM handling.
+ */
+static void zvni_handle_flooding_remote_vteps(struct hash_backet *backet,
+					      void *zvrf)
+{
+	zebra_vni_t *zvni;
+	zebra_vtep_t *zvtep;
+
+	zvni = (zebra_vni_t *)backet->data;
+	if (!zvni)
+		return;
+
+	for (zvtep = zvni->vteps; zvtep; zvtep = zvtep->next) {
+		if (is_vxlan_flooding_head_end())
+			zvni_vtep_install(zvni, &zvtep->vtep_ip);
+		else
+			zvni_vtep_uninstall(zvni, &zvtep->vtep_ip);
+	}
 }
 
 /*
@@ -6898,6 +6922,46 @@ int zebra_vxlan_vrf_delete(struct zebra_vrf *zvrf)
 }
 
 /*
+ * Handle message from client to specify the flooding mechanism for
+ * BUM packets. The default is to do head-end (ingress) replication
+ * and the other supported option is to disable it. This applies to
+ * all BUM traffic and disabling it applies to both the transmit and
+ * receive direction.
+ */
+void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	enum vxlan_flood_control flood_ctrl;
+
+	if (zvrf_id(zvrf) != VRF_DEFAULT) {
+		zlog_err("EVPN flood control for non-default VRF %u",
+			 zvrf_id(zvrf));
+		return;
+	}
+
+	s = msg;
+	STREAM_GETC(s, flood_ctrl);
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("EVPN flood control %u, currently %u",
+			   flood_ctrl, zvrf->vxlan_flood_ctrl);
+
+	if (zvrf->vxlan_flood_ctrl == flood_ctrl)
+		return;
+
+	zvrf->vxlan_flood_ctrl = flood_ctrl;
+
+	/* Install or uninstall flood entries corresponding to
+	 * remote VTEPs.
+	 */
+	hash_iterate(zvrf->vni_table, zvni_handle_flooding_remote_vteps,
+		     zvrf);
+
+stream_failure:
+	return;
+}
+
+/*
  * Handle message from client to enable/disable advertisement of g/w macip
  * routes
  */
@@ -7073,12 +7137,15 @@ stream_failure:
  * When enabled, the VNI hash table will be built and MAC FDB table read;
  * when disabled, the entries should be deleted and remote VTEPs and MACs
  * uninstalled from the kernel.
+ * This also informs the setting for BUM handling at the time this change
+ * occurs; it is relevant only when specifying "learn".
  */
 void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s = NULL;
 	int advertise = 0;
 	struct zebra_ns *zns = NULL;
+	enum vxlan_flood_control flood_ctrl;
 
 	if (zvrf_id(zvrf) != VRF_DEFAULT) {
 		zlog_debug("EVPN VNI Adv for non-default VRF %u",
@@ -7088,17 +7155,22 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 
 	s = msg;
 	STREAM_GETC(s, advertise);
+	STREAM_GETC(s, flood_ctrl);
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("EVPN VNI Adv %s, currently %s",
+		zlog_debug("EVPN VNI Adv %s, currently %s, flood control %u",
 			   advertise ? "enabled" : "disabled",
-			   is_evpn_enabled() ? "enabled" : "disabled");
+			   is_evpn_enabled() ? "enabled" : "disabled",
+			   flood_ctrl);
 
 	if (zvrf->advertise_all_vni == advertise)
 		return;
 
 	zvrf->advertise_all_vni = advertise;
 	if (is_evpn_enabled()) {
+		/* Note BUM handling */
+		zvrf->vxlan_flood_ctrl = flood_ctrl;
+
 		/* Build VNI hash table and inform BGP. */
 		zvni_build_hash_table();
 

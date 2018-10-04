@@ -1948,6 +1948,10 @@ int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise)
 
 	zclient_create_header(s, ZEBRA_ADVERTISE_ALL_VNI, bgp->vrf_id);
 	stream_putc(s, advertise);
+	/* Also inform current BUM handling setting. This is really
+	 * relevant only when 'advertise' is set.
+	 */
+	stream_putc(s, VXLAN_FLOOD_HEAD_END_REPL);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zclient_send_message(zclient);
