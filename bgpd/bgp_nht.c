@@ -587,8 +587,12 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 		return;
 
 	/* Don't try to register if Zebra doesn't know of this instance. */
-	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bnc->bgp))
+	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bnc->bgp)) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: No zebra instance to talk to, not installing NHT entry",
+				   __PRETTY_FUNCTION__);
 		return;
+	}
 
 	p = &(bnc->node->p);
 	if ((command == ZEBRA_NEXTHOP_REGISTER
