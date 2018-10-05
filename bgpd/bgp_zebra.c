@@ -1837,6 +1837,8 @@ void bgp_zebra_instance_register(struct bgp *bgp)
 	 */
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT && is_evpn_enabled())
 		bgp_zebra_advertise_all_vni(bgp, 1);
+
+	bgp_nht_register_nexthops(bgp);
 }
 
 /* Deregister this instance with Zebra. Invoked upon the instance

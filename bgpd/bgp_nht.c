@@ -240,8 +240,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 	}
 	if (bgp_route->inst_type == BGP_INSTANCE_TYPE_VIEW) {
-		bnc->flags |= BGP_NEXTHOP_REGISTERED;
-		bnc->flags |= BGP_NEXTHOP_VALID;
+		SET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
+		SET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 	} else if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
 		register_zebra_rnh(bnc, is_bgp_static_route);
 	if (pi && pi->nexthop != bnc) {
@@ -594,6 +594,11 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 		return;
 	}
 
+	if (!bgp_zebra_num_connects()) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: We have not connected yet, cannot send nexthops",
+				   __PRETTY_FUNCTION__);
+	}
 	p = &(bnc->node->p);
 	if ((command == ZEBRA_NEXTHOP_REGISTER
 	     || command == ZEBRA_IMPORT_ROUTE_REGISTER)
@@ -804,5 +809,32 @@ void path_nh_map(struct bgp_path_info *path, struct bgp_nexthop_cache *bnc,
 		LIST_INSERT_HEAD(&(bnc->paths), path, nh_thread);
 		path->nexthop = bnc;
 		path->nexthop->path_count++;
+	}
+}
+
+/*
+ * This function is called to register nexthops to zebra
+ * as that we may have tried to install the nexthops
+ * before we actually have a zebra connection
+ */
+void bgp_nht_register_nexthops(struct bgp *bgp)
+{
+	struct bgp_node *rn;
+	struct bgp_nexthop_cache *bnc;
+	afi_t afi;
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		if (!bgp->nexthop_cache_table[afi])
+			continue;
+
+		for (rn = bgp_table_top(bgp->nexthop_cache_table[afi]); rn;
+		     rn = bgp_route_next(rn)) {
+			bnc = bgp_nexthop_get_node_info(rn);
+
+			if (!bnc)
+				continue;
+
+			register_zebra_rnh(bnc, 0);
+		}
 	}
 }
