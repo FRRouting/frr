@@ -7681,6 +7681,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	int pfx_rcd_safi;
 	json_object *json_peer = NULL;
 	json_object *json_peers = NULL;
+	struct peer_af *paf;
 
 	/* labeled-unicast routes are installed in the unicast table so in order
 	 * to
@@ -7973,8 +7974,22 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			json_object_int_add(json_peer, "inq", 0);
 			peer_uptime(peer->uptime, timebuf, BGP_UPTIME_LEN,
 				    use_json, json_peer);
+
+			/*
+			 * Adding "pfxRcd" field to match with the corresponding
+			 * CLI. "prefixReceivedCount" will be deprecated in
+			 * future.
+			 */
 			json_object_int_add(json_peer, "prefixReceivedCount",
 					    peer->pcount[afi][pfx_rcd_safi]);
+			json_object_int_add(json_peer, "pfxRcd",
+					peer->pcount[afi][pfx_rcd_safi]);
+
+			paf = peer_af_find(peer, afi, pfx_rcd_safi);
+			if (paf && PAF_SUBGRP(paf))
+				json_object_int_add(json_peer,
+						"pfxSnt",
+						(PAF_SUBGRP(paf))->scount);
 
 			if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
 				json_object_string_add(json_peer, "state",
@@ -8688,6 +8703,9 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 		/* Receive prefix count */
 		json_object_int_add(json_addr, "acceptedPrefixCounter",
 				    p->pcount[afi][safi]);
+		if (paf && PAF_SUBGRP(paf))
+			json_object_int_add(json_addr, "sentPrefixCounter",
+						(PAF_SUBGRP(paf))->scount);
 
 		/* Maximum prefix */
 		if (CHECK_FLAG(p->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX)) {
