@@ -984,7 +984,6 @@ case "$host_os" in
     AC_CHECK_LIB(socket, main)
     AC_CHECK_LIB(nsl, main)
     AC_CHECK_LIB(umem, main)
-    CURSES=-lcurses
     SOLARIS="solaris"
     ;;
   linux*)
@@ -1050,40 +1049,47 @@ dnl ---------------------
 dnl Integrated VTY option
 dnl ---------------------
 case "${enable_vtysh}" in
-  "no") VTYSH="";;
-  *)    VTYSH="vtysh";
-         AC_DEFINE(VTYSH,,VTY shell)
-dnl	 Vtysh uses libreadline, which looks for termcap functions at
-dnl	 configure time.  We follow readlines search order.
-dnl	 The required procedures are in libtermcap on NetBSD, in
-dnl	 [TODO] on Linux, and in [TODO] on Solaris.
-	 AC_CHECK_LIB(termcap, tputs, LIBREADLINE="$LIBREADLINE -ltermcap",
-	   [AC_CHECK_LIB(tinfo, tputs, LIBREADLINE="$LIBREADLINE -ltinfo",
-	     [AC_CHECK_LIB(curses, tputs, LIBREADLINE="$LIBREADLINE -lcurses",
-	       [AC_CHECK_LIB(ncurses, tputs, 
-	                     LIBREADLINE="$LIBREADLINE -lncurses")]
-	      )]
-	    )]
-	  )
-         AC_CHECK_LIB(readline, main, LIBREADLINE="-lreadline $LIBREADLINE",,
-                      "$LIBREADLINE")
-         if test $ac_cv_lib_readline_main = no; then
-           AC_MSG_ERROR([vtysh needs libreadline but was not found and usable on your system.])
-         fi
-	 AC_CHECK_HEADER(readline/history.h)
-	 if test $ac_cv_header_readline_history_h = no;then
-           AC_MSG_ERROR([readline is too old to have readline/history.h, please update to the latest readline library.])
-	 fi
-	 AC_CHECK_LIB(readline, rl_completion_matches, 
-	              LIBREADLINE="$LIBREADLINE",, "$LIBREADLINE")
-         if test $ac_cv_lib_readline_rl_completion_matches = no; then
-           AC_DEFINE(rl_completion_matches,completion_matches,Old readline)
-	 fi
-	 AC_SEARCH_LIBS([append_history], [readline], [frr_cv_append_history=yes], [frr_cv_append_history=no])
-	 if test "$frr_cv_append_history" = yes; then
-	   AC_DEFINE(HAVE_APPEND_HISTORY, 1, [Have history.h append_history])
-	 fi
-	 ;;
+"no")
+  VTYSH="";;
+*)
+  VTYSH="vtysh";
+  AC_DEFINE(VTYSH,,VTY shell)
+
+  prev_libs="$LIBS"
+  AC_CHECK_LIB(readline, main, [
+    LIBREADLINE="-lreadline"
+  ], [
+    dnl readline failed - it might be incorrectly linked and missing its
+    dnl termcap/tinfo/curses dependency.  see if we can fix that...
+    AC_SEARCH_LIBS(tputs, [termcap tinfo curses ncurses], [
+      LIBREADLINE="$ac_cv_search_tputs"
+    ], [
+      AC_MSG_ERROR([libreadline (needed for vtysh) not found and/or missing dependencies])
+    ])
+
+    dnl re-try with the lib we found above
+    unset ac_cv_lib_readline_main
+    AC_CHECK_LIB(readline, main, [
+      LIBREADLINE="-lreadline $LIBREADLINE"
+    ], [
+      AC_MSG_ERROR([libreadline (needed for vtysh) not found and/or missing dependencies])
+    ], [$LIBREADLINE])
+  ], [])
+  LIBS="$prev_libs"
+
+  AC_CHECK_HEADER(readline/history.h)
+  if test $ac_cv_header_readline_history_h = no;then
+    AC_MSG_ERROR([readline is too old to have readline/history.h, please update to the latest readline library.])
+  fi
+  AC_CHECK_LIB(readline, rl_completion_matches, [true], [], [$LIBREADLINE])
+  if test $ac_cv_lib_readline_rl_completion_matches = no; then
+    AC_DEFINE(rl_completion_matches,completion_matches,Old readline)
+  fi
+  AC_CHECK_LIB(readline, [append_history], [frr_cv_append_history=yes], [frr_cv_append_history=no], [$LIBREADLINE])
+  if test "$frr_cv_append_history" = yes; then
+    AC_DEFINE(HAVE_APPEND_HISTORY, 1, [Have history.h append_history])
+  fi
+  ;;
 esac
 AC_SUBST(LIBREADLINE)
 AM_CONDITIONAL(VTYSH, test "x$VTYSH" = "xvtysh")
@@ -1484,7 +1490,6 @@ fi
 AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != xno])
 
 AC_SUBST(SOLARIS)
-AC_SUBST(CURSES)
 AC_CHECK_LIB(crypt, crypt, [],
 		    [AC_CHECK_LIB(crypto, DES_crypt)])
 AC_CHECK_LIB(resolv, res_init)
