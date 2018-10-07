@@ -1439,6 +1439,8 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 		if (peer->host)
 			XFREE(MTYPE_BGP_PEER_HOST, peer->host);
 		peer->host = XSTRDUP(MTYPE_BGP_PEER_HOST, conf_if);
+		if (su)
+			peer->su = *su;
 	} else if (su) {
 		peer->su = *su;
 		sockunion2str(su, buf, SU_ADDRSTRLEN);
