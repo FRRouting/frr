@@ -438,9 +438,9 @@ AC_ARG_ENABLE([memory-sanitizer],
 AS_IF([test "${enable_clippy_only}" != "yes"], [
 AC_CHECK_HEADERS(json-c/json.h)
 AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c", [], [-lm])
-if test $ac_cv_lib_json_c_json_object_get = no; then
+if test "$ac_cv_lib_json_c_json_object_get" = no; then
   AC_CHECK_LIB(json, json_object_get, LIBS="$LIBS -ljson")
-  if test $ac_cv_lib_json_json_object_get = no; then
+  if test "$ac_cv_lib_json_json_object_get" = no; then
       AC_MSG_ERROR([lib json is needed to compile])
   fi
 fi
@@ -1349,7 +1349,7 @@ fi
 
 AM_CONDITIONAL(BFDD, [test "x$BFDD" = "xbfdd"])
 
-if test $ac_cv_lib_json_c_json_object_get = no -a "x$BFDD" = "xbfdd"; then
+if test "$ac_cv_lib_json_c_json_object_get" = no -a "x$BFDD" = "xbfdd"; then
   AC_MSG_ERROR(["you must use json-c library to use bfdd"])
 fi
 
