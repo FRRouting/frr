@@ -19,6 +19,10 @@ AM_LDFLAGS = \
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE)
 LIBCAP = @LIBCAP@
 
+AR_FLAGS = @AR_FLAGS@
+ARFLAGS = @ARFLAGS@
+RANLIB = @RANLIB@
+
 # these two targets are provided to easily grab autoconf/Makefile variables
 # you can use either:
 #   eval `make VARFD=3 shvar-CFLAGS 3>&1 1>&2`

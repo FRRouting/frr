@@ -323,6 +323,32 @@ fi
 AC_SUBST(AC_LDFLAGS)
 AM_CONDITIONAL([STATIC_BIN], [test "x$enable_static_bin" = "xyes"])
 
+dnl $AR and $RANLIB are set by LT_INIT above
+AC_MSG_CHECKING([whether $AR supports D option])
+if $AR crD conftest.a; then
+  AC_MSG_RESULT([yes])
+  dnl ARFLAGS is for automake, AR_FLAGS for libtool m-(
+  ARFLAGS="crD"
+  AR_FLAGS="crD"
+else
+  AC_MSG_RESULT([no])
+  ARFLAGS="cru"
+  AR_FLAGS="cru"
+fi
+AC_SUBST(ARFLAGS)
+AC_SUBST(AR_FLAGS)
+
+AC_MSG_CHECKING([whether $RANLIB supports D option])
+if $RANLIB -D conftest.a; then
+  AC_MSG_RESULT([yes])
+  RANLIB="$RANLIB -D"
+else
+  AC_MSG_RESULT([no])
+fi
+AC_SUBST(RANLIB)
+
+test -f conftest.a && rm conftest.a
+
 dnl ----------------------
 dnl Packages configuration
 dnl ----------------------
