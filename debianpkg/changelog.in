@@ -1,5 +1,59 @@
 frr (@VERSION@) RELEASED; urgency=medium
 
+  * Staticd: New daemon responsible for management of static routes
+  * ISISd: Implement dst-src routing as per draft-ietf-isis-ipv6-dst-src-routing
+  * BFDd: new daemon for BFD (Bidrectional Forwarding Detection). Responsible
+    for notifying link changes to make routing protocols converge faster.
+  * various bug fixes
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Sun,  7 Oct 2018 08:10:00 -0700
+
+frr (5.0.1-0) RELEASED; urgency=medium
+
+  * Support Automake 1.16.1
+  * BGPd: Support for flowspec ICMP, DSCP, packet length, fragment and tcp flags
+  * BGPd: fix rpki validation for ipv6
+  * VRF: Workaround for kernel bug on Linux 4.14 and newer
+  * Zebra: Fix interface based routes from zebra not marked up
+  * Zebra: Fix large zebra memory usage when redistribute between protocols
+  * Zebra: Allow route-maps to match on source instance
+  * BGPd: Backport peer-attr overrides, peer-level enforce-first-as and filtered-routes fix
+  * BGPd: fix for crash during display of filtered-routes
+  * BGPd: Actually display labeled unicast routes received
+  * Label Manager: Fix to work correctly behind a label manager proxy
+  * Debian Pkg: Fix build dependency for install-info
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Thu,  5 Jul 2018 00:38:00 -0700
+
+frr (5.0-0) RELEASED; urgency=medium
+
+  * PIM: Add a Multicast Trace Command draft-ietf-idmr-traceroute-ipm-05
+  * IS-IS: Implement Three-Way Handshake as per RFC5303
+  * BGPD: Implement VPN-VRF route leaking per RFC4364.
+  * BGPD: Implement VRF with NETNS backend
+  * BGPD: Flowspec
+  * PBRD: Add a new Policy Based Routing Daemon
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Thu,  7 Jun 2018 17:47:00 -0700
+
+frr (4.0-0) RELEASED; urgency=medium
+
+  * ISIS-MT - https://tools.ietf.org/html/rfc5120
+  * BGP - RPKI (RFC 6810)
+  * BGP - v4 labeled unicast as per RFC 3107
+  * BGP/Zebra - Type 2 and 3 EVPN with symmetric and asymmetric routing
+  * EIGRP - https://tools.ietf.org/html/rfc7868
+  * FRR - Tab completion for iface names, prefix-lists, route-maps, BGP peers
+  * BABEL - https://tools.ietf.org/html/rfc6126
+  * PIM VRF - Added the ability to work with VRF’s to PIM
+  * OSPFv2 VRF - Added the ability to work with VRF’s to OSPFv2
+  * OSPFv2 Experimental SR - draft-ietf-ospf-segment-routing-extensions-24
+  * ZEBRA - Add ability to create a static route that leaks across VRF’s.
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Sun, 11 Mar 2018 17:22:20 -0700
+
+frr (3.0.3-1) RELEASED; urgency=medium
+
   * New Enabled: PIM draft Unnumbered
 
  -- FRRouting-Dev <dev@lists.frrouting.org>  Wed, 18 Oct 2017 17:01:42 -0700

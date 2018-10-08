@@ -662,11 +662,52 @@ fi
 
 
 %changelog
+* Sun Oct  7 2018 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Staticd: New daemon responsible for management of static routes
+- ISISd: Implement dst-src routing as per draft-ietf-isis-ipv6-dst-src-routing
+- BFDd: new daemon for BFD (Bidrectional Forwarding Detection). Responsiblei
+  for notifying link changes to make routing protocols converge faster.
+- various bug fixes
+
+* Thu Jul  5 2018 Martin Winter <mwinter@opensourcerouting.org> - 5.0.1
+- Support Automake 1.16.1
+- BGPd: Support for flowspec ICMP, DSCP, packet length, fragment and tcp flags
+- BGPd: fix rpki validation for ipv6
+- VRF: Workaround for kernel bug on Linux 4.14 and newer
+- Zebra: Fix interface based routes from zebra not marked up
+- Zebra: Fix large zebra memory usage when redistribute between protocols
+- Zebra: Allow route-maps to match on source instance
+- BGPd: Backport peer-attr overrides, peer-level enforce-first-as and filtered-routes fix
+- BGPd: fix for crash during display of filtered-routes
+- BGPd: Actually display labeled unicast routes received
+- Label Manager: Fix to work correctly behind a label manager proxy
+
+* Thu Jun  7 2018 Martin Winter <mwinter@opensourcerouting.org> - 5.0
+- PIM: Add a Multicast Trace Command draft-ietf-idmr-traceroute-ipm-05
+- IS-IS: Implement Three-Way Handshake as per RFC5303
+- BGPD: Implement VPN-VRF route leaking per RFC4364.
+- BGPD: Implement VRF with NETNS backend
+- BGPD: Flowspec
+- PBRD: Add a new Policy Based Routing Daemon
+
 * Sun May 28 2018 Rafael Zalamena <rzalamena@opensourcerouting.org> - %{version}
 - Add BFDd support
 
-* Sun May 20 2018 Martin Winter <mwinter@opensourcerouting.org>
+* Sun May 20 2018 Martin Winter <mwinter@opensourcerouting.org> - 4.0.1
 - Fixed RPKI RPM build
+
+* Sun Mar 11 2018 Martin Winter <mwinter@opensourcerouting.org> - 4.0
+- ISIS-MT - https://tools.ietf.org/html/rfc5120
+- BGP - RPKI (RFC 6810)
+- BGP - v4 labeled unicast as per RFC 3107
+- BGP/Zebra - Type 2 and 3 EVPN with symmetric and asymmetric routing
+- EIGRP - https://tools.ietf.org/html/rfc7868
+- FRR - Tab completion for iface names, prefix-lists, route-maps, BGP peers
+- BABEL - https://tools.ietf.org/html/rfc6126
+- PIM VRF - Added the ability to work with VRF’s to PIM
+- OSPFv2 VRF - Added the ability to work with VRF’s to OSPFv2
+- OSPFv2 Experimental SR - draft-ietf-ospf-segment-routing-extensions-24
+- ZEBRA - Add ability to create a static route that leaks across VRF’s.
 
 * Sun Mar  4 2018 Martin Winter <mwinter@opensourcerouting.org>
 - Add option to build with RPKI (default: disabled)
