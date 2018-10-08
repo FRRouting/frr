@@ -1677,6 +1677,15 @@ static int bgp_establish(struct peer *peer)
 			peer_delete(peer->doppelganger);
 	}
 
+	/*
+	 * If we are replacing the old peer for a doppelganger
+	 * then switch it around in the bgp->peerhash
+	 * the doppelgangers su and this peer's su are the same
+	 * so the hash_release is the same for either.
+	 */
+	hash_release(peer->bgp->peerhash, peer);
+	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
+
 	bgp_bfd_register_peer(peer);
 	return ret;
 }

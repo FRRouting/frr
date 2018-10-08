@@ -1422,7 +1422,15 @@ void bgp_recalculate_all_bestpaths(struct bgp *bgp)
 	}
 }
 
-/* Create new BGP peer.  */
+/*
+ * Create new BGP peer.
+ *
+ * conf_if and su are mutually exclusive if configuring from the cli.
+ * If we are handing a doppelganger, then we *must* pass in both
+ * the original peer's su and conf_if, so that we can appropriately
+ * track the bgp->peerhash( ie we don't want to remove the current
+ * one from the config ).
+ */
 struct peer *peer_create(union sockunion *su, const char *conf_if,
 			 struct bgp *bgp, as_t local_as, as_t remote_as,
 			 int as_type, afi_t afi, safi_t safi,
@@ -1435,12 +1443,13 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	peer = peer_new(bgp);
 	if (conf_if) {
 		peer->conf_if = XSTRDUP(MTYPE_PEER_CONF_IF, conf_if);
-		bgp_peer_conf_if_to_su_update(peer);
+		if (su)
+			peer->su = *su;
+		else
+			bgp_peer_conf_if_to_su_update(peer);
 		if (peer->host)
 			XFREE(MTYPE_BGP_PEER_HOST, peer->host);
 		peer->host = XSTRDUP(MTYPE_BGP_PEER_HOST, conf_if);
-		if (su)
-			peer->su = *su;
 	} else if (su) {
 		peer->su = *su;
 		sockunion2str(su, buf, SU_ADDRSTRLEN);
