@@ -11285,6 +11285,36 @@ DEFUN (clear_ip_bgp_dampening_address_mask,
 				    NULL, 0);
 }
 
+static void show_bgp_peerhash_entry(struct hash_backet *backet, void *arg)
+{
+       struct vty *vty = arg;
+       struct peer *peer = backet->data;
+       char buf[SU_ADDRSTRLEN];
+
+       vty_out(vty, "\tPeer: %s %s\n", peer->host,
+	       sockunion2str(&peer->su, buf, sizeof(buf)));
+}
+
+DEFUN (show_bgp_peerhash,
+       show_bgp_peerhash_cmd,
+       "show bgp peerhash",
+       SHOW_STR
+       BGP_STR
+       "Display information about the BGP peerhash\n")
+{
+       struct list *instances = bm->bgp;
+       struct listnode *node;
+       struct bgp *bgp;
+
+       for (ALL_LIST_ELEMENTS_RO(instances, node, bgp)) {
+               vty_out(vty, "BGP: %s\n", bgp->name);
+               hash_iterate(bgp->peerhash, show_bgp_peerhash_entry,
+                            vty);
+       }
+
+       return CMD_SUCCESS;
+}
+
 /* also used for encap safi */
 static void bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
 					 afi_t afi, safi_t safi)
@@ -11679,6 +11709,7 @@ void bgp_route_init(void)
 	/* show bgp ipv4 flowspec detailed */
 	install_element(VIEW_NODE, &show_ip_bgp_flowspec_routes_detailed_cmd);
 
+	install_element(VIEW_NODE, &show_bgp_peerhash_cmd);
 }
 
 void bgp_route_finish(void)
