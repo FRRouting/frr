@@ -169,11 +169,6 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		if (make_prefix(afi, ri, &p) < 0)
 			return 1;
 	} else if (peer) {
-		/* Don't register link local NH */
-		if (afi == AFI_IP6
-		    && IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr))
-			return 1;
-
 		if (!sockunion2hostprefix(&peer->su, &p)) {
 			if (BGP_DEBUG(nht, NHT)) {
 				zlog_debug(
@@ -285,10 +280,6 @@ void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer)
 	struct prefix p;
 
 	if (!peer)
-		return;
-
-	/* We don't register link local address for NHT */
-	if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr))
 		return;
 
 	if (!sockunion2hostprefix(&peer->su, &p))
@@ -437,8 +428,9 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 			 * we receive from bgp.  This is to allow us
 			 * to work with v4 routing over v6 nexthops
 			 */
-			if (peer &&
-			    CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE)
+			if (peer && !peer->ifp
+			    && CHECK_FLAG(peer->flags,
+					  PEER_FLAG_CAPABILITY_ENHE)
 			    && nhr.prefix.family == AF_INET6) {
 				struct interface *ifp;
 
@@ -556,11 +548,6 @@ static int make_prefix(int afi, struct bgp_info *ri, struct prefix *p)
 		}
 		break;
 	case AFI_IP6:
-		/* We don't register link local NH */
-		if (ri->attr->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL
-		    || IN6_IS_ADDR_LINKLOCAL(&ri->attr->mp_nexthop_global))
-			return -1;
-
 		p->family = AF_INET6;
 
 		if (is_bgp_static) {
