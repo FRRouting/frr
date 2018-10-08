@@ -8666,17 +8666,39 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 			best = count;
 			if (ri->extra && ri->extra->suppress)
 				suppress = 1;
-			if (ri->attr->community != NULL) {
-				if (community_include(ri->attr->community,
-						      COMMUNITY_NO_ADVERTISE))
-					no_advertise = 1;
-				if (community_include(ri->attr->community,
-						      COMMUNITY_NO_EXPORT))
-					no_export = 1;
-				if (community_include(ri->attr->community,
-						      COMMUNITY_LOCAL_AS))
-					local_as = 1;
-			}
+
+			if (ri->attr->community == NULL)
+				continue;
+
+			no_advertise += community_include(
+				ri->attr->community, COMMUNITY_NO_ADVERTISE);
+			no_export += community_include(ri->attr->community,
+						       COMMUNITY_NO_EXPORT);
+			local_as += community_include(ri->attr->community,
+						      COMMUNITY_LOCAL_AS);
+			accept_own += community_include(ri->attr->community,
+							COMMUNITY_ACCEPT_OWN);
+			route_filter_translated_v4 += community_include(
+				ri->attr->community,
+				COMMUNITY_ROUTE_FILTER_TRANSLATED_v4);
+			route_filter_translated_v6 += community_include(
+				ri->attr->community,
+				COMMUNITY_ROUTE_FILTER_TRANSLATED_v6);
+			route_filter_v4 += community_include(
+				ri->attr->community, COMMUNITY_ROUTE_FILTER_v4);
+			route_filter_v6 += community_include(
+				ri->attr->community, COMMUNITY_ROUTE_FILTER_v6);
+			llgr_stale += community_include(ri->attr->community,
+							COMMUNITY_LLGR_STALE);
+			no_llgr += community_include(ri->attr->community,
+						     COMMUNITY_NO_LLGR);
+			accept_own_nexthop +=
+				community_include(ri->attr->community,
+						  COMMUNITY_ACCEPT_OWN_NEXTHOP);
+			blackhole += community_include(ri->attr->community,
+						       COMMUNITY_BLACKHOLE);
+			no_peer += community_include(ri->attr->community,
+						     COMMUNITY_NO_PEER);
 		}
 	}
 
@@ -9087,10 +9109,6 @@ DEFUN (show_ip_bgp,
            |prefix-list WORD\
            |filter-list WORD\
            |statistics\
-           |community <AA:NN|local-AS|no-advertise|no-export|graceful-shutdown\
-           no-peer|blackhole|llgr-stale|no-llgr|accept-own|accept-own-nexthop\
-           route-filter-v6|route-filter-v4|route-filter-translated-v6|\
-           route-filter-translated-v4> [exact-match]\
            |community-list <(1-500)|WORD> [exact-match]\
            |A.B.C.D/M longer-prefixes\
            |X:X::X:X/M longer-prefixes\
@@ -9110,23 +9128,6 @@ DEFUN (show_ip_bgp,
        "Display routes conforming to the filter-list\n"
        "Regular expression access list name\n"
        "BGP RIB advertisement statistics\n"
-       "Display routes matching the communities\n"
-       COMMUNITY_AANN_STR
-       "Do not send outside local AS (well-known community)\n"
-       "Do not advertise to any peer (well-known community)\n"
-       "Do not export to next AS (well-known community)\n"
-       "Graceful shutdown (well-known community)\n"
-       "Do not export to any peer (well-known community)\n"
-       "Inform EBGP peers to blackhole traffic to prefix (well-known community)\n"
-       "Staled Long-lived Graceful Restart VPN route (well-known community)\n"
-       "Removed because Long-lived Graceful Restart was not enabled for VPN route (well-known community)\n"
-       "Should accept local VPN route if exported and imported into different VRF (well-known community)\n"
-       "Should accept VPN route with local nexthop (well-known community)\n"
-       "RT VPNv6 route filtering (well-known community)\n"
-       "RT VPNv4 route filtering (well-known community)\n"
-       "RT translated VPNv6 route filtering (well-known community)\n"
-       "RT translated VPNv4 route filtering (well-known community)\n"
-       "Exact match of the communities\n"
        "Display routes matching the community-list\n"
        "community-list number\n"
        "community-list name\n"
@@ -9188,11 +9189,14 @@ DEFUN (show_ip_bgp,
 DEFUN (show_ip_bgp_json,
        show_ip_bgp_json_cmd,
        "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]]\
-          [<\
-             cidr-only\
-             |dampening <flap-statistics|dampened-paths>\
-             |community [<AA:NN|local-AS|no-advertise|no-export|graceful-shutdown>] [exact-match]\
-          >] [json]",
+          [cidr-only\
+          |dampening <flap-statistics|dampened-paths>\
+          |community [AA:NN|local-AS|no-advertise|no-export\
+                     |graceful-shutdown|no-peer|blackhole|llgr-stale|no-llgr\
+                     |accept-own|accept-own-nexthop|route-filter-v6\
+                     |route-filter-v4|route-filter-translated-v6\
+                     |route-filter-translated-v4] [exact-match]\
+          ] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9209,6 +9213,16 @@ DEFUN (show_ip_bgp_json,
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
        "Graceful shutdown (well-known community)\n"
+       "Do not export to any peer (well-known community)\n"
+       "Inform EBGP peers to blackhole traffic to prefix (well-known community)\n"
+       "Staled Long-lived Graceful Restart VPN route (well-known community)\n"
+       "Removed because Long-lived Graceful Restart was not enabled for VPN route (well-known community)\n"
+       "Should accept local VPN route if exported and imported into different VRF (well-known community)\n"
+       "Should accept VPN route with local nexthop (well-known community)\n"
+       "RT VPNv6 route filtering (well-known community)\n"
+       "RT VPNv4 route filtering (well-known community)\n"
+       "RT translated VPNv6 route filtering (well-known community)\n"
+       "RT translated VPNv4 route filtering (well-known community)\n"
        "Exact match of the communities\n"
        JSON_STR)
 {
@@ -9217,7 +9231,6 @@ DEFUN (show_ip_bgp_json,
 	enum bgp_show_type sh_type = bgp_show_type_normal;
 	struct bgp *bgp = NULL;
 	int idx = 0;
-	int idx_community_type = 0;
 	int exact_match = 0;
 	bool uj = use_json(argc, argv);
 
@@ -9244,29 +9257,23 @@ DEFUN (show_ip_bgp_json,
 	}
 
 	if (argv_find(argv, argc, "community", &idx)) {
+		char *maybecomm = idx + 1 < argc ? argv[idx + 1]->text : NULL;
+		char *community = NULL;
 
-		/* show a specific community */
-		if (argv_find(argv, argc, "local-AS", &idx_community_type) ||
-			argv_find(argv, argc, "no-advertise",
-					&idx_community_type) ||
-			argv_find(argv, argc, "no-export",
-					&idx_community_type) ||
-			argv_find(argv, argc, "graceful-shutdown",
-					&idx_community_type) ||
-			argv_find(argv, argc, "AA:NN", &idx_community_type)) {
-			if (argv_find(argv, argc, "exact-match", &idx))
-				exact_match = 1;
+		if (maybecomm && !strmatch(maybecomm, "json")
+		    && !strmatch(maybecomm, "exact-match"))
+			community = maybecomm;
 
-			return (bgp_show_community(vty, bgp,
-						argv[idx_community_type]->arg,
-						exact_match, afi, safi, uj));
-		} else {
+		if (argv_find(argv, argc, "exact-match", &idx))
+			exact_match = 1;
 
-			/* show all communities */
+		if (community)
+			return bgp_show_community(vty, bgp, community,
+						  exact_match, afi, safi, uj);
+		else
 			return (bgp_show(vty, bgp, afi, safi,
-					bgp_show_type_community_all, NULL,
-					uj));
-		}
+					 bgp_show_type_community_all, NULL,
+					 uj));
 	}
 
 	return bgp_show(vty, bgp, afi, safi, sh_type, NULL, uj);
