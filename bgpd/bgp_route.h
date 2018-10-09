@@ -364,6 +364,7 @@ extern void bgp_info_add(struct bgp_node *rn, struct bgp_info *ri);
 extern void bgp_info_reap(struct bgp_node *rn, struct bgp_info *ri);
 extern void bgp_info_delete(struct bgp_node *rn, struct bgp_info *ri);
 extern struct bgp_info_extra *bgp_info_extra_get(struct bgp_info *);
+extern void bgp_info_extra_free(struct bgp_info_extra **extra);
 extern void bgp_info_set_flag(struct bgp_node *, struct bgp_info *, uint32_t);
 extern void bgp_info_unset_flag(struct bgp_node *, struct bgp_info *, uint32_t);
 extern void bgp_info_path_with_addpath_rx_str(struct bgp_info *ri, char *buf);

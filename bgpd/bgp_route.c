@@ -176,7 +176,7 @@ static struct bgp_info_extra *bgp_info_extra_new(void)
 	return new;
 }
 
-static void bgp_info_extra_free(struct bgp_info_extra **extra)
+void bgp_info_extra_free(struct bgp_info_extra **extra)
 {
 	struct bgp_info_extra *e;
 
