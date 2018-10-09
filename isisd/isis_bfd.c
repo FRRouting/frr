@@ -330,14 +330,7 @@ static int bfd_circuit_write_settings(struct isis_circuit *circuit,
 	if (!bfd_info)
 		return 0;
 
-#if HAVE_BFDD == 0
-	if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG)) {
-		vty_out(vty, " %s bfd %" PRIu8 " %" PRIu32 " %" PRIu32 "\n",
-			PROTO_NAME, bfd_info->detect_mult,
-			bfd_info->required_min_rx, bfd_info->desired_min_tx);
-	} else
-#endif
-		vty_out(vty, " %s bfd\n", PROTO_NAME);
+	vty_out(vty, " %s bfd\n", PROTO_NAME);
 	return 1;
 }
 

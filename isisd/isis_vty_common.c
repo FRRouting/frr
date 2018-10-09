@@ -521,53 +521,12 @@ DEFUN (isis_bfd,
 	return CMD_SUCCESS;
 }
 
-#if HAVE_BFDD > 0
-DEFUN_HIDDEN (
-#else
-DEFUN (
-#endif
-       isis_bfd_param,
-       isis_bfd_param_cmd,
-       PROTO_NAME " bfd (2-255) (50-60000) (50-60000)",
-       PROTO_HELP
-       "Enable BFD support\n"
-       "Detect Multiplier\n"
-       "Required min receive interval\n"
-       "Desired min transmit interval\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	uint32_t rx_val;
-	uint32_t tx_val;
-	uint8_t dm_val;
-	int ret;
-
-	if ((ret = bfd_validate_param(vty, argv[2]->arg, argv[3]->arg,
-				      argv[4]->arg, &dm_val, &rx_val,
-				      &tx_val)) != CMD_SUCCESS)
-		return ret;
-
-	isis_bfd_circuit_param_set(circuit, rx_val, tx_val, dm_val, false);
-	return CMD_SUCCESS;
-}
-
 DEFUN (no_isis_bfd,
        no_isis_bfd_cmd,
-#if HAVE_BFDD > 0
        "no " PROTO_NAME " bfd",
-#else
-       "no " PROTO_NAME " bfd [(2-255) (50-60000) (50-60000)]",
-#endif
        NO_STR
        PROTO_HELP
        "Disables BFD support\n"
-#if HAVE_BFDD == 0
-       "Detect Multiplier\n"
-       "Required min receive interval\n"
-       "Desired min transmit interval\n"
-#endif
 )
 {
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
@@ -1015,7 +974,6 @@ void isis_vty_init(void)
 	install_element(INTERFACE_NODE, &no_circuit_topology_cmd);
 
 	install_element(INTERFACE_NODE, &isis_bfd_cmd);
-	install_element(INTERFACE_NODE, &isis_bfd_param_cmd);
 	install_element(INTERFACE_NODE, &no_isis_bfd_cmd);
 
 	install_element(ROUTER_NODE, &set_overload_bit_cmd);
