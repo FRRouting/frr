@@ -371,6 +371,7 @@ extern void bgp_path_info_reap(struct bgp_node *rn, struct bgp_path_info *pi);
 extern void bgp_path_info_delete(struct bgp_node *rn, struct bgp_path_info *pi);
 extern struct bgp_path_info_extra *
 bgp_path_info_extra_get(struct bgp_path_info *path);
+extern void bgp_path_info_extra_free(struct bgp_path_info_extra **extra);
 extern void bgp_path_info_set_flag(struct bgp_node *rn,
 				   struct bgp_path_info *path, uint32_t flag);
 extern void bgp_path_info_unset_flag(struct bgp_node *rn,
