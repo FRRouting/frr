@@ -305,8 +305,10 @@ static void bgp_address_del(struct bgp *bgp, struct connected *ifc,
 			break;
 	}
 
-	if (node)
+	if (node) {
 		list_delete_node(addr->ifp_name_list, node);
+		XFREE(MTYPE_MARTIAN_STRING, name);
+	}
 
 	if (addr->ifp_name_list->count == 0) {
 		hash_release(bgp->address_hash, addr);
