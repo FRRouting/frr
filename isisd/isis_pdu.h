@@ -208,9 +208,7 @@ int isis_receive(struct thread *thread);
 /*
  * Sending functions
  */
-int send_lan_l1_hello(struct thread *thread);
-int send_lan_l2_hello(struct thread *thread);
-int send_p2p_hello(struct thread *thread);
+int send_hello_cb(struct thread *thread);
 int send_csnp(struct isis_circuit *circuit, int level);
 int send_l1_csnp(struct thread *thread);
 int send_l2_csnp(struct thread *thread);

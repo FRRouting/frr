@@ -24,8 +24,7 @@
 #ifndef _ZEBRA_ISIS_DR_H
 #define _ZEBRA_ISIS_DR_H
 
-int isis_run_dr_l1(struct thread *thread);
-int isis_run_dr_l2(struct thread *thread);
+int isis_run_dr(struct thread *thread);
 int isis_dr_elect(struct isis_circuit *circuit, int level);
 int isis_dr_resign(struct isis_circuit *circuit, int level);
 int isis_dr_commence(struct isis_circuit *circuit, int level);

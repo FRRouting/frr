@@ -1742,79 +1742,52 @@ int send_hello(struct isis_circuit *circuit, int level)
 	return retval;
 }
 
-int send_lan_l1_hello(struct thread *thread)
+int send_hello_cb(struct thread *thread)
 {
-	struct isis_circuit *circuit;
-	int retval;
+	struct isis_circuit_arg *arg = THREAD_ARG(thread);
+	
+	assert(arg);
+	
+	struct isis_circuit *circuit = arg->circuit;
+	int level = arg->level;
 
-	circuit = THREAD_ARG(thread);
 	assert(circuit);
-	circuit->u.bc.t_send_lan_hello[0] = NULL;
 
-	if (!(circuit->area->is_type & IS_LEVEL_1)) {
-		zlog_warn(
-			"ISIS-Hello (%s): Trying to send L1 IIH in L2-only area",
-			circuit->area->area_tag);
-		return 1;
+	if (circuit->circ_type == CIRCUIT_T_P2P) {
+		circuit->u.p2p.t_send_p2p_hello = NULL;
+
+		send_hello(circuit, 1);
+
+		thread_add_timer(master, send_hello_cb, arg,
+				 isis_jitter(circuit->hello_interval[1], IIH_JITTER),
+				 &circuit->u.p2p.t_send_p2p_hello);
+		return ISIS_OK;
 	}
 
-	if (circuit->u.bc.run_dr_elect[0])
-		isis_dr_elect(circuit, 1);
-
-	retval = send_hello(circuit, 1);
-
-	/* set next timer thread */
-	thread_add_timer(master, send_lan_l1_hello, circuit,
-			 isis_jitter(circuit->hello_interval[0], IIH_JITTER),
-			 &circuit->u.bc.t_send_lan_hello[0]);
-
-	return retval;
-}
-
-int send_lan_l2_hello(struct thread *thread)
-{
-	struct isis_circuit *circuit;
-	int retval;
-
-	circuit = THREAD_ARG(thread);
-	assert(circuit);
-	circuit->u.bc.t_send_lan_hello[1] = NULL;
-
-	if (!(circuit->area->is_type & IS_LEVEL_2)) {
-		zlog_warn("ISIS-Hello (%s): Trying to send L2 IIH in L1 area",
-			  circuit->area->area_tag);
-		return 1;
+	if (circuit->circ_type != CIRCUIT_T_BROADCAST) {
+		zlog_warn("ISIS-Hello (%s): Trying to send hello on unknown circuit type %d",
+			  circuit->area->area_tag, circuit->circ_type);
+		return ISIS_WARNING;
 	}
 
-	if (circuit->u.bc.run_dr_elect[1])
-		isis_dr_elect(circuit, 2);
+	circuit->u.bc.t_send_lan_hello[level - 1] = NULL;
+	if (!(circuit->is_type & level)) {
+		zlog_warn("ISIS-Hello (%s): Trying to send L%d IIH in L%d-only circuit",
+			  circuit->area->area_tag, level, 3 - level);
+		return ISIS_WARNING;
+	}
 
-	retval = send_hello(circuit, 2);
+	if (circuit->u.bc.run_dr_elect[level - 1])
+		isis_dr_elect(circuit, level);
 
-	/* set next timer thread */
-	thread_add_timer(master, send_lan_l2_hello, circuit,
-			 isis_jitter(circuit->hello_interval[1], IIH_JITTER),
-			 &circuit->u.bc.t_send_lan_hello[1]);
-
-	return retval;
-}
-
-int send_p2p_hello(struct thread *thread)
-{
-	struct isis_circuit *circuit;
-
-	circuit = THREAD_ARG(thread);
-	assert(circuit);
-	circuit->u.p2p.t_send_p2p_hello = NULL;
-
-	send_hello(circuit, 1);
+	int rv = send_hello(circuit, level);
 
 	/* set next timer thread */
-	thread_add_timer(master, send_p2p_hello, circuit,
-			 isis_jitter(circuit->hello_interval[1], IIH_JITTER),
-			 &circuit->u.p2p.t_send_p2p_hello);
+	thread_add_timer(master, send_hello_cb, arg,
+			 isis_jitter(circuit->hello_interval[level - 1], IIH_JITTER),
+			 &circuit->u.bc.t_send_lan_hello[level - 1]);
 
-	return ISIS_OK;
+	return rv;
 }
 
 /*
