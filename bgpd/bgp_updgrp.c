@@ -1182,6 +1182,8 @@ static void update_subgroup_copy_adj_out(struct update_subgroup *source,
 		aout_copy->attr =
 			aout->attr ? bgp_attr_intern(aout->attr) : NULL;
 	}
+
+	dest->scount = source->scount;
 }
 
 /*
