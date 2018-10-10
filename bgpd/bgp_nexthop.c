@@ -47,6 +47,8 @@
 #include "zebra/rib.h"
 #include "zebra/zserv.h" /* For ZEBRA_SERV_PATH. */
 
+DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Address Intf String");
+
 char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size)
 {
 	prefix2str(&(bnc->node->p), buf, size);
@@ -205,7 +207,7 @@ static void bgp_address_hash_string_del(void *val)
 {
 	char *data = val;
 
-	XFREE(MTYPE_TMP, data);
+	XFREE(MTYPE_MARTIAN_STRING, data);
 }
 
 static void *bgp_address_hash_alloc(void *p)
@@ -278,7 +280,7 @@ static void bgp_address_add(struct bgp *bgp, struct connected *ifc,
 			break;
 	}
 	if (!node) {
-		name = XSTRDUP(MTYPE_TMP, ifc->ifp->name);
+		name = XSTRDUP(MTYPE_MARTIAN_STRING, ifc->ifp->name);
 		listnode_add(addr->ifp_name_list, name);
 	}
 }
