@@ -6,6 +6,7 @@ usr/lib/
 tools/frr etc/init.d/
 usr/share/doc/frr/
 usr/share/snmp/mibs/
+usr/share/yang/
 tools/etc/* etc/
 tools/*.service    lib/systemd/system
 debian/frr.conf  usr/lib/tmpfiles.d
