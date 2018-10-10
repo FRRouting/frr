@@ -208,7 +208,7 @@ int isis_receive(struct thread *thread);
 /*
  * Sending functions
  */
-int send_hello_cb(struct thread *thread);
+void send_hello_sched(struct isis_circuit *circuit, int level, long delay);
 int send_csnp(struct isis_circuit *circuit, int level);
 int send_l1_csnp(struct thread *thread);
 int send_l2_csnp(struct thread *thread);

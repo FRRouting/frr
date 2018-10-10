@@ -97,12 +97,7 @@ static void circuit_commence_level(struct isis_circuit *circuit, int level)
 				 2 * circuit->hello_interval[level - 1],
 				 &circuit->u.bc.t_run_dr[level - 1]);
 
-		thread_add_timer(master, send_hello_cb,
-				 &circuit->level_arg[level - 1],
-				 isis_jitter(circuit->hello_interval[level - 1],
-					     IIH_JITTER),
-				 &circuit->u.bc.t_send_lan_hello[level - 1]);
-
+		send_hello_sched(circuit, level, TRIGGERED_IIH_DELAY);
 		circuit->u.bc.lan_neighs[level - 1] = list_new();
 	}
 }

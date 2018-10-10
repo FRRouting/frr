@@ -1742,7 +1742,7 @@ int send_hello(struct isis_circuit *circuit, int level)
 	return retval;
 }
 
-int send_hello_cb(struct thread *thread)
+static int send_hello_cb(struct thread *thread)
 {
 	struct isis_circuit_arg *arg = THREAD_ARG(thread);
 	
@@ -1755,12 +1755,9 @@ int send_hello_cb(struct thread *thread)
 
 	if (circuit->circ_type == CIRCUIT_T_P2P) {
 		circuit->u.p2p.t_send_p2p_hello = NULL;
-
 		send_hello(circuit, 1);
-
-		thread_add_timer(master, send_hello_cb, arg,
-				 isis_jitter(circuit->hello_interval[1], IIH_JITTER),
-				 &circuit->u.p2p.t_send_p2p_hello);
+		send_hello_sched(circuit, ISIS_LEVEL1,
+				 1000 * circuit->hello_interval[1]);
 		return ISIS_OK;
 	}
 
@@ -1783,12 +1780,55 @@ int send_hello_cb(struct thread *thread)
 	int rv = send_hello(circuit, level);
 
 	/* set next timer thread */
-	thread_add_timer(master, send_hello_cb, arg,
-			 isis_jitter(circuit->hello_interval[level - 1], IIH_JITTER),
-			 &circuit->u.bc.t_send_lan_hello[level - 1]);
-
+	send_hello_sched(circuit, level, 1000 * circuit->hello_interval[level - 1]);
 	return rv;
 }
+
+static void _send_hello_sched(struct isis_circuit *circuit,
+			      struct thread **threadp,
+			      int level, long delay)
+{
+	if (*threadp) {
+		if (thread_timer_remain_msec(*threadp) < (unsigned long)delay)
+			return;
+
+		thread_cancel(*threadp);
+	}
+
+	thread_add_timer_msec(master, send_hello_cb,
+			      &circuit->level_arg[level - 1],
+			      isis_jitter(delay, IIH_JITTER),
+			      threadp);
+}
+
+void send_hello_sched(struct isis_circuit *circuit, int level, long delay)
+{
+	if (circuit->circ_type == CIRCUIT_T_P2P) {
+		_send_hello_sched(circuit, &circuit->u.p2p.t_send_p2p_hello,
+				  ISIS_LEVEL1, delay);
+		return;
+	}
+
+	if (circuit->circ_type != CIRCUIT_T_BROADCAST) {
+		zlog_warn("%s: encountered unknown circuit type %d on %s",
+			  __func__, circuit->circ_type,
+			  circuit->interface->name);
+		return;
+	}
+
+	for (int loop_level = ISIS_LEVEL1; loop_level <= ISIS_LEVEL2; loop_level++) {
+		if (!(loop_level & level))
+			continue;
+
+		_send_hello_sched(
+			circuit,
+			&circuit->u.bc.t_send_lan_hello[loop_level - 1],
+			loop_level,
+			delay
+		);
+	}
+}
+
 
 /*
  * Count the maximum number of lsps that can be accomodated by a given size.

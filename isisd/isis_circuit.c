@@ -619,9 +619,7 @@ int isis_circuit_up(struct isis_circuit *circuit)
 			if (!(circuit->is_type & level))
 				continue;
 
-			thread_add_event(master, send_hello_cb,
-					 &circuit->level_arg[level - 1], 0,
-					 &circuit->u.bc.t_send_lan_hello[level - 1]);
+			send_hello_sched(circuit, level, TRIGGERED_IIH_DELAY);
 			circuit->u.bc.lan_neighs[level - 1] = list_new();
 
 			thread_add_timer(master, isis_run_dr,
@@ -637,9 +635,7 @@ int isis_circuit_up(struct isis_circuit *circuit)
 		 * for a ptp IF
 		 */
 		circuit->u.p2p.neighbor = NULL;
-		thread_add_event(master, send_hello_cb,
-				 &circuit->level_arg[0], 0,
-				 &circuit->u.p2p.t_send_p2p_hello);
+		send_hello_sched(circuit, 0, TRIGGERED_IIH_DELAY);
 	}
 
 	/* initializing PSNP timers */
