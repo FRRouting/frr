@@ -28,6 +28,7 @@
 #include "zebra/zebra_ns.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_mpls.h"
 
 /* Key netlink info from zebra ns */
 struct zebra_dplane_info {
@@ -167,6 +168,8 @@ bool dplane_ctx_is_update(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_seq(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_seq(const struct zebra_dplane_ctx *ctx);
 vrf_id_t dplane_ctx_get_vrf(const struct zebra_dplane_ctx *ctx);
+
+/* Accessors for route update information */
 int dplane_ctx_get_type(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_get_old_type(const struct zebra_dplane_ctx *ctx);
 afi_t dplane_ctx_get_afi(const struct zebra_dplane_ctx *ctx);
@@ -188,6 +191,15 @@ const struct nexthop_group *dplane_ctx_get_ng(
 const struct nexthop_group *dplane_ctx_get_old_ng(
 	const struct zebra_dplane_ctx *ctx);
 
+/* Accessors for LSP information */
+mpls_label_t dplane_ctx_get_in_label(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_get_addr_family(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_lsp_flags(const struct zebra_dplane_ctx *ctx);
+zebra_nhlfe_t *dplane_ctx_get_nhlfe(struct zebra_dplane_ctx *ctx);
+zebra_nhlfe_t *dplane_ctx_get_best_nhlfe(struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_lsp_num_ecmp(const struct zebra_dplane_ctx *ctx);
+
+/* Namespace info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
 	const struct zebra_dplane_ctx *ctx);
 

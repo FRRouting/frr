@@ -62,6 +62,45 @@ const uint32_t DPLANE_DEFAULT_NEW_WORK = 100;
 #endif	/* DPLANE_DEBUG */
 
 /*
+ * Route information captured for route updates.
+ */
+struct dplane_route_info {
+
+	/* Dest and (optional) source prefixes */
+	struct prefix zd_dest;
+	struct prefix zd_src;
+
+	afi_t zd_afi;
+	safi_t zd_safi;
+
+	int zd_type;
+	int zd_old_type;
+
+	route_tag_t zd_tag;
+	route_tag_t zd_old_tag;
+	uint32_t zd_metric;
+	uint32_t zd_old_metric;
+
+	uint16_t zd_instance;
+	uint16_t zd_old_instance;
+
+	uint8_t zd_distance;
+	uint8_t zd_old_distance;
+
+	uint32_t zd_mtu;
+	uint32_t zd_nexthop_mtu;
+
+	/* Nexthops */
+	struct nexthop_group zd_ng;
+
+	/* "Previous" nexthops, used only in route updates without netlink */
+	struct nexthop_group zd_old_ng;
+
+	/* TODO -- use fixed array of nexthops, to avoid mallocs? */
+
+};
+
+/*
  * The context block used to exchange info about route updates across
  * the boundary between the zebra main context (and pthread) and the
  * dataplane layer (and pthread).
@@ -80,50 +119,25 @@ struct zebra_dplane_ctx {
 	/* Flags - used by providers, e.g. */
 	int zd_flags;
 
-	/* TODO -- internal/sub-operation status? */
-	enum zebra_dplane_result zd_remote_status;
-	enum zebra_dplane_result zd_kernel_status;
-
-	/* Dest and (optional) source prefixes */
-	struct prefix zd_dest;
-	struct prefix zd_src;
-
 	bool zd_is_update;
 
 	uint32_t zd_seq;
 	uint32_t zd_old_seq;
+
+	/* TODO -- internal/sub-operation status? */
+	enum zebra_dplane_result zd_remote_status;
+	enum zebra_dplane_result zd_kernel_status;
+
 	vrf_id_t zd_vrf_id;
 	uint32_t zd_table_id;
 
-	int zd_type;
-	int zd_old_type;
+	union {
+		struct dplane_route_info rinfo;
+		zebra_lsp_t lsp;
+	} u;
 
-	afi_t zd_afi;
-	safi_t zd_safi;
-
-	route_tag_t zd_tag;
-	route_tag_t zd_old_tag;
-	uint32_t zd_metric;
-	uint32_t zd_old_metric;
-	uint16_t zd_instance;
-	uint16_t zd_old_instance;
-
-	uint8_t zd_distance;
-	uint8_t zd_old_distance;
-
-	uint32_t zd_mtu;
-	uint32_t zd_nexthop_mtu;
-
-	/* Namespace info */
+	/* Namespace info, used especially for netlink kernel communication */
 	struct zebra_dplane_info zd_ns_info;
-
-	/* Nexthops */
-	struct nexthop_group zd_ng;
-
-	/* "Previous" nexthops, used only in route updates without netlink */
-	struct nexthop_group zd_old_ng;
-
-	/* TODO -- use fixed array of nexthops, to avoid mallocs? */
 
 	/* Embedded list linkage */
 	TAILQ_ENTRY(zebra_dplane_ctx) zd_q_entries;
@@ -290,14 +304,14 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 		 */
 
 		/* Free embedded nexthops */
-		if ((*pctx)->zd_ng.nexthop) {
+		if ((*pctx)->u.rinfo.zd_ng.nexthop) {
 			/* This deals with recursive nexthops too */
-			nexthops_free((*pctx)->zd_ng.nexthop);
+			nexthops_free((*pctx)->u.rinfo.zd_ng.nexthop);
 		}
 
-		if ((*pctx)->zd_old_ng.nexthop) {
+		if ((*pctx)->u.rinfo.zd_old_ng.nexthop) {
 			/* This deals with recursive nexthops too */
-			nexthops_free((*pctx)->zd_old_ng.nexthop);
+			nexthops_free((*pctx)->u.rinfo.zd_old_ng.nexthop);
 		}
 
 		XFREE(MTYPE_DP_CTX, *pctx);
@@ -442,7 +456,7 @@ const struct prefix *dplane_ctx_get_dest(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->zd_dest);
+	return &(ctx->u.rinfo.zd_dest);
 }
 
 /* Source prefix is a little special - return NULL for "no src prefix" */
@@ -450,11 +464,11 @@ const struct prefix *dplane_ctx_get_src(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	if (ctx->zd_src.prefixlen == 0 &&
-	    IN6_IS_ADDR_UNSPECIFIED(&(ctx->zd_src.u.prefix6))) {
+	if (ctx->u.rinfo.zd_src.prefixlen == 0 &&
+	    IN6_IS_ADDR_UNSPECIFIED(&(ctx->u.rinfo.zd_src.u.prefix6))) {
 		return NULL;
 	} else {
-		return &(ctx->zd_src);
+		return &(ctx->u.rinfo.zd_src);
 	}
 }
 
@@ -490,28 +504,28 @@ int dplane_ctx_get_type(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->zd_type;
+	return ctx->u.rinfo.zd_type;
 }
 
 int dplane_ctx_get_old_type(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->zd_old_type;
+	return ctx->u.rinfo.zd_old_type;
 }
 
 afi_t dplane_ctx_get_afi(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->zd_afi;
+	return ctx->u.rinfo.zd_afi;
 }
 
 safi_t dplane_ctx_get_safi(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->zd_safi;
+	return ctx->u.rinfo.zd_safi;
 }
 
 uint32_t dplane_ctx_get_table(const struct zebra_dplane_ctx *ctx)
@@ -525,70 +539,70 @@ route_tag_t dplane_ctx_get_tag(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->zd_tag;
+	return ctx->u.rinfo.zd_tag;
 }
 
 route_tag_t dplane_ctx_get_old_tag(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->zd_old_tag;
+	return ctx->u.rinfo.zd_old_tag;
 }
 
 uint16_t dplane_ctx_get_instance(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->zd_instance;
+	return ctx->u.rinfo.zd_instance;
 }
 
 uint16_t dplane_ctx_get_old_instance(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->zd_old_instance;
+	return ctx->u.rinfo.zd_old_instance;
 }
 
 uint32_t dplane_ctx_get_metric(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->zd_metric;
+	return ctx->u.rinfo.zd_metric;
 }
 
 uint32_t dplane_ctx_get_old_metric(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->zd_old_metric;
+	return ctx->u.rinfo.zd_old_metric;
 }
 
 uint32_t dplane_ctx_get_mtu(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->zd_mtu;
+	return ctx->u.rinfo.zd_mtu;
 }
 
 uint32_t dplane_ctx_get_nh_mtu(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->zd_nexthop_mtu;
+	return ctx->u.rinfo.zd_nexthop_mtu;
 }
 
 uint8_t dplane_ctx_get_distance(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->zd_distance;
+	return ctx->u.rinfo.zd_distance;
 }
 
 uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->zd_old_distance;
+	return ctx->u.rinfo.zd_old_distance;
 }
 
 const struct nexthop_group *dplane_ctx_get_ng(
@@ -596,7 +610,7 @@ const struct nexthop_group *dplane_ctx_get_ng(
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->zd_ng);
+	return &(ctx->u.rinfo.zd_ng);
 }
 
 const struct nexthop_group *dplane_ctx_get_old_ng(
@@ -604,7 +618,7 @@ const struct nexthop_group *dplane_ctx_get_old_ng(
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->zd_old_ng);
+	return &(ctx->u.rinfo.zd_old_ng);
 }
 
 const struct zebra_dplane_info *dplane_ctx_get_ns(
@@ -613,6 +627,50 @@ const struct zebra_dplane_info *dplane_ctx_get_ns(
 	DPLANE_CTX_VALID(ctx);
 
 	return &(ctx->zd_ns_info);
+}
+
+/* Accessors for LSP information */
+
+mpls_label_t dplane_ctx_get_in_label(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.lsp.ile.in_label;
+}
+
+uint8_t dplane_ctx_get_addr_family(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.lsp.addr_family;
+}
+
+uint32_t dplane_ctx_get_lsp_flags(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.lsp.flags;
+}
+
+zebra_nhlfe_t *dplane_ctx_get_nhlfe(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.lsp.nhlfe_list;
+}
+
+zebra_nhlfe_t *dplane_ctx_get_best_nhlfe(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.lsp.best_nhlfe;
+}
+
+uint32_t dplane_ctx_get_lsp_num_ecmp(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.lsp.num_ecmp;
 }
 
 /*
@@ -673,36 +731,36 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
-	ctx->zd_type = re->type;
-	ctx->zd_old_type = re->type;
+	ctx->u.rinfo.zd_type = re->type;
+	ctx->u.rinfo.zd_old_type = re->type;
 
 	/* Prefixes: dest, and optional source */
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
-	prefix_copy(&(ctx->zd_dest), p);
+	prefix_copy(&(ctx->u.rinfo.zd_dest), p);
 
 	if (src_p)
-		prefix_copy(&(ctx->zd_src), src_p);
+		prefix_copy(&(ctx->u.rinfo.zd_src), src_p);
 	else
-		memset(&(ctx->zd_src), 0, sizeof(ctx->zd_src));
+		memset(&(ctx->u.rinfo.zd_src), 0, sizeof(ctx->u.rinfo.zd_src));
 
 	ctx->zd_table_id = re->table;
 
-	ctx->zd_metric = re->metric;
-	ctx->zd_old_metric = re->metric;
+	ctx->u.rinfo.zd_metric = re->metric;
+	ctx->u.rinfo.zd_old_metric = re->metric;
 	ctx->zd_vrf_id = re->vrf_id;
-	ctx->zd_mtu = re->mtu;
-	ctx->zd_nexthop_mtu = re->nexthop_mtu;
-	ctx->zd_instance = re->instance;
-	ctx->zd_tag = re->tag;
-	ctx->zd_old_tag = re->tag;
-	ctx->zd_distance = re->distance;
+	ctx->u.rinfo.zd_mtu = re->mtu;
+	ctx->u.rinfo.zd_nexthop_mtu = re->nexthop_mtu;
+	ctx->u.rinfo.zd_instance = re->instance;
+	ctx->u.rinfo.zd_tag = re->tag;
+	ctx->u.rinfo.zd_old_tag = re->tag;
+	ctx->u.rinfo.zd_distance = re->distance;
 
 	table = srcdest_rnode_table(rn);
 	info = table->info;
 
-	ctx->zd_afi = info->afi;
-	ctx->zd_safi = info->safi;
+	ctx->u.rinfo.zd_afi = info->afi;
+	ctx->u.rinfo.zd_safi = info->safi;
 
 	/* Extract ns info - can't use pointers to 'core' structs */
 	zvrf = vrf_info_lookup(re->vrf_id);
@@ -722,12 +780,12 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 #endif /* NETLINK*/
 
 	/* Copy nexthops; recursive info is included too */
-	copy_nexthops(&(ctx->zd_ng.nexthop), re->ng.nexthop, NULL);
+	copy_nexthops(&(ctx->u.rinfo.zd_ng.nexthop), re->ng.nexthop, NULL);
 
 	/* TODO -- maybe use array of nexthops to avoid allocs? */
 
 	/* Ensure that the dplane's nexthops flags are clear. */
-	for (ALL_NEXTHOPS(ctx->zd_ng, nexthop))
+	for (ALL_NEXTHOPS(ctx->u.rinfo.zd_ng, nexthop))
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 
 	/* Trying out the sequence number idea, so we can try to detect
@@ -821,17 +879,17 @@ dplane_route_update_internal(struct route_node *rn,
 			old_re->dplane_sequence++;
 			ctx->zd_old_seq = old_re->dplane_sequence;
 
-			ctx->zd_old_tag = old_re->tag;
-			ctx->zd_old_type = old_re->type;
-			ctx->zd_old_instance = old_re->instance;
-			ctx->zd_old_distance = old_re->distance;
-			ctx->zd_old_metric = old_re->metric;
+			ctx->u.rinfo.zd_old_tag = old_re->tag;
+			ctx->u.rinfo.zd_old_type = old_re->type;
+			ctx->u.rinfo.zd_old_instance = old_re->instance;
+			ctx->u.rinfo.zd_old_distance = old_re->distance;
+			ctx->u.rinfo.zd_old_metric = old_re->metric;
 
 #ifndef HAVE_NETLINK
 			/* For bsd, capture previous re's nexthops too, sigh.
 			 * We'll need these to do per-nexthop deletes.
 			 */
-			copy_nexthops(&(ctx->zd_old_ng.nexthop),
+			copy_nexthops(&(ctx->u.rinfo.zd_old_ng.nexthop),
 				      old_re->ng.nexthop, NULL);
 #endif	/* !HAVE_NETLINK */
 		}
