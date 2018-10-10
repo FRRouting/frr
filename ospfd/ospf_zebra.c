@@ -35,6 +35,7 @@
 #include "log.h"
 #include "lib/bfd.h"
 #include "nexthop.h"
+#include "lib_errors.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -117,7 +118,7 @@ static int ospf_interface_add(int command, struct zclient *zclient,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu,
 			ifp->speed);
 
-	assert(ifp->info);
+	/* the interface may already be present in case */
 
 	if (IF_DEF_PARAMS(ifp)
 	    && !OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp), type)) {
