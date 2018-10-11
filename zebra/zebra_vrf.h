@@ -135,6 +135,13 @@ struct zebra_vrf {
 #define PROTO_RM_MAP(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].map
 #define NHT_RM_MAP(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].map
 
+/*
+ * special macro to allow us to get the correct zebra_vrf
+ */
+#define ZEBRA_DECLVAR_CONTEXT(A, B)                                            \
+	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
+	struct zebra_vrf *B = (A) ? A->info : vrf_info_lookup(VRF_DEFAULT)
+
 static inline vrf_id_t zvrf_id(struct zebra_vrf *zvrf)
 {
 	if (!zvrf || !zvrf->vrf)

@@ -39,6 +39,10 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
 
+#ifndef VTYSH_EXTRACT_PL
+#include "zebra/zebra_routemap_clippy.c"
+#endif
+
 static uint32_t zebra_rmap_update_timer = ZEBRA_RMAP_DEFAULT_UPDATE_TIMER;
 static struct thread *zebra_t_rmap_update = NULL;
 char *proto_rm[AFI_MAX][ZEBRA_ROUTE_MAX + 1]; /* "any" == ZEBRA_ROUTE_MAX */
@@ -203,6 +207,107 @@ static void route_match_interface_free(void *rule)
 struct route_map_rule_cmd route_match_interface_cmd = {
 	"interface", route_match_interface, route_match_interface_compile,
 	route_match_interface_free};
+
+static int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap,
+			      int rtype, afi_t afi, safi_t safi)
+{
+	struct route_table *table;
+
+	if (PROTO_RM_NAME(zvrf, afi, rtype)) {
+		if (strcmp(PROTO_RM_NAME(zvrf, afi, rtype), rmap) == 0)
+			return CMD_SUCCESS;
+
+		XFREE(MTYPE_ROUTE_MAP_NAME, PROTO_RM_NAME(zvrf, afi, rtype));
+	}
+
+	PROTO_RM_NAME(zvrf, afi, rtype) = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
+	PROTO_RM_MAP(zvrf, afi, rtype) =
+		route_map_lookup_by_name(PROTO_RM_NAME(zvrf, afi, rtype));
+
+	if (PROTO_RM_MAP(zvrf, afi, rtype)) {
+
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+			zlog_debug(
+				"%u: IPv4 Routemap config for protocol %d scheduling RIB processing",
+				zvrf->vrf->vrf_id, rtype);
+		/* Process routes of interested address-families. */
+		table = zebra_vrf_table(afi, safi, zvrf->vrf->vrf_id);
+		if (table)
+			rib_update_table(table, RIB_UPDATE_RMAP_CHANGE);
+	}
+
+	return CMD_SUCCESS;
+}
+
+static int ip_protocol_rm_del(struct zebra_vrf *zvrf, const char *rmap,
+			      int rtype, afi_t afi, safi_t safi)
+{
+	struct route_table *table;
+
+	if (!PROTO_RM_NAME(zvrf, afi, rtype))
+		return CMD_SUCCESS;
+
+	if (!rmap || strcmp(rmap, PROTO_RM_NAME(zvrf, afi, rtype)) == 0) {
+		if (PROTO_RM_MAP(zvrf, afi, rtype)) {
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+				zlog_debug(
+					"%u: IPv4 Routemap unconfig for protocol %d, scheduling RIB processing",
+					zvrf->vrf->vrf_id, rtype);
+			PROTO_RM_MAP(zvrf, afi, rtype) = NULL;
+
+			/* Process routes of interested address-families. */
+			table = zebra_vrf_table(afi, safi, zvrf->vrf->vrf_id);
+			if (table)
+				rib_update_table(table, RIB_UPDATE_RMAP_CHANGE);
+		}
+		XFREE(MTYPE_ROUTE_MAP_NAME, PROTO_RM_NAME(zvrf, afi, rtype));
+	}
+	return CMD_SUCCESS;
+}
+
+static int ip_nht_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype,
+			 int afi)
+{
+
+	if (NHT_RM_NAME(zvrf, afi, rtype)) {
+		if (strcmp(NHT_RM_NAME(zvrf, afi, rtype), rmap) == 0)
+			return CMD_SUCCESS;
+
+		XFREE(MTYPE_ROUTE_MAP_NAME, NHT_RM_NAME(zvrf, afi, rtype));
+	}
+
+	NHT_RM_NAME(zvrf, afi, rtype) = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
+	NHT_RM_MAP(zvrf, afi, rtype) =
+		route_map_lookup_by_name(NHT_RM_NAME(zvrf, afi, rtype));
+
+	if (NHT_RM_MAP(zvrf, afi, rtype))
+		zebra_evaluate_rnh(zvrf, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+
+	return CMD_SUCCESS;
+}
+
+static int ip_nht_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
+			 int afi)
+{
+
+	if (!NHT_RM_NAME(zvrf, afi, rtype))
+		return CMD_SUCCESS;
+
+	if (!rmap || strcmp(rmap, NHT_RM_NAME(zvrf, afi, rtype)) == 0) {
+		if (NHT_RM_MAP(zvrf, afi, rtype)) {
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+				zlog_debug(
+					"%u: IPv4 Routemap unconfig for protocol %d, scheduling RIB processing",
+					zvrf->vrf->vrf_id, rtype);
+			NHT_RM_MAP(zvrf, afi, rtype) = NULL;
+
+			zebra_evaluate_rnh(zvrf, AF_INET, 1, RNH_NEXTHOP_TYPE,
+					   NULL);
+		}
+		XFREE(MTYPE_ROUTE_MAP_NAME, NHT_RM_NAME(zvrf, afi, rtype));
+	}
+	return CMD_SUCCESS;
+}
 
 DEFUN (match_ip_address_prefix_len,
        match_ip_address_prefix_len_cmd,
@@ -477,83 +582,67 @@ DEFUN (no_zebra_route_map_timer,
 	return (CMD_SUCCESS);
 }
 
-
-DEFUN (ip_protocol,
+DEFPY (ip_protocol,
        ip_protocol_cmd,
-       "ip protocol " FRR_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+       "ip protocol " FRR_IP_PROTOCOL_MAP_STR_ZEBRA
+       " $proto route-map ROUTE-MAP$rmap",
        IP_STR
        "Filter routing info exchanged between zebra and protocol\n"
        FRR_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Specify route-map\n"
        "Route map name\n")
 {
-	char *proto = argv[2]->text;
-	char *rmap = argv[4]->arg;
-	int i;
+	int ret, rtype;
+
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+
+	if (!zvrf)
+		return CMD_WARNING;
 
 	if (strcasecmp(proto, "any") == 0)
-		i = ZEBRA_ROUTE_MAX;
+		rtype = ZEBRA_ROUTE_MAX;
 	else
-		i = proto_name2num(proto);
-	if (i < 0) {
+		rtype = proto_name2num(proto);
+	if (rtype < 0) {
 		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-	if (proto_rm[AFI_IP][i]) {
-		if (strcmp(proto_rm[AFI_IP][i], rmap) == 0)
-			return CMD_SUCCESS;
 
-		XFREE(MTYPE_ROUTE_MAP_NAME, proto_rm[AFI_IP][i]);
-	}
-	proto_rm[AFI_IP][i] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
+	ret = ip_protocol_rm_add(zvrf, rmap, rtype, AFI_IP, SAFI_UNICAST);
 
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug(
-			"%u: IPv4 Routemap config for protocol %s, scheduling RIB processing",
-			VRF_DEFAULT, proto);
-
-	rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
-	return CMD_SUCCESS;
+	return ret;
 }
 
-DEFUN (no_ip_protocol,
+DEFPY (no_ip_protocol,
        no_ip_protocol_cmd,
-       "no ip protocol " FRR_IP_PROTOCOL_MAP_STR_ZEBRA " [route-map ROUTE-MAP]",
+       "no ip protocol " FRR_IP_PROTOCOL_MAP_STR_ZEBRA
+       " $proto [route-map ROUTE-MAP$rmap]",
        NO_STR
        IP_STR
        "Stop filtering routing info between zebra and protocol\n"
        FRR_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
-       "Specify route map\n"
+       "Specify route-map\n"
        "Route map name\n")
 {
-	char *proto = argv[3]->text;
-	char *rmap = (argc == 6) ? argv[5]->arg : NULL;
-	int i;
+	int ret, rtype;
+
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+
+	if (!zvrf)
+		return CMD_WARNING;
 
 	if (strcasecmp(proto, "any") == 0)
-		i = ZEBRA_ROUTE_MAX;
+		rtype = ZEBRA_ROUTE_MAX;
 	else
-		i = proto_name2num(proto);
-
-	if (i < 0) {
+		rtype = proto_name2num(proto);
+	if (rtype < 0) {
 		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (!proto_rm[AFI_IP][i])
-		return CMD_SUCCESS;
+	ret = ip_protocol_rm_del(zvrf, rmap, rtype, AFI_IP, SAFI_UNICAST);
 
-	if (!rmap || strcmp(rmap, proto_rm[AFI_IP][i]) == 0) {
-		XFREE(MTYPE_ROUTE_MAP_NAME, proto_rm[AFI_IP][i]);
-		proto_rm[AFI_IP][i] = NULL;
-
-		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug(
-				"%u: IPv4 Routemap unconfig for protocol %s, scheduling RIB processing",
-				VRF_DEFAULT, proto);
-		rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
-	}
-	return CMD_SUCCESS;
+	return ret;
 }
 
 DEFUN (show_ip_protocol,
@@ -582,81 +671,67 @@ DEFUN (show_ip_protocol,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_protocol,
+DEFPY (ipv6_protocol,
        ipv6_protocol_cmd,
-       "ipv6 protocol " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+       "ipv6 protocol " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA
+       " $proto route-map ROUTE-MAP$rmap",
        IP6_STR
        "Filter IPv6 routing info exchanged between zebra and protocol\n"
        FRR_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
-       "Specify route map\n"
+       "Specify route-map\n"
        "Route map name\n")
 {
-	char *proto = argv[2]->text;
-	char *rmap = argv[4]->arg;
-	int i;
+	int ret, rtype;
+
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+
+	if (!zvrf)
+		return CMD_WARNING;
 
 	if (strcasecmp(proto, "any") == 0)
-		i = ZEBRA_ROUTE_MAX;
+		rtype = ZEBRA_ROUTE_MAX;
 	else
-		i = proto_name2num(proto);
-	if (i < 0) {
+		rtype = proto_name2num(proto);
+	if (rtype < 0) {
 		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-	if (proto_rm[AFI_IP6][i]) {
-		if (strcmp(proto_rm[AFI_IP6][i], rmap) == 0)
-			return CMD_SUCCESS;
 
-		XFREE(MTYPE_ROUTE_MAP_NAME, proto_rm[AFI_IP6][i]);
-	}
-	proto_rm[AFI_IP6][i] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
+	ret = ip_protocol_rm_add(zvrf, rmap, rtype, AFI_IP6, SAFI_UNICAST);
 
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug(
-			"%u: IPv6 Routemap config for protocol %s, scheduling RIB processing",
-			VRF_DEFAULT, proto);
-
-	rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
-	return CMD_SUCCESS;
+	return ret;
 }
 
-DEFUN (no_ipv6_protocol,
+DEFPY (no_ipv6_protocol,
        no_ipv6_protocol_cmd,
-       "no ipv6 protocol " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA " [route-map ROUTE-MAP]",
+       "no ipv6 protocol " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA
+       " $proto [route-map ROUTE-MAP$rmap]",
        NO_STR
        IP6_STR
        "Stop filtering IPv6 routing info between zebra and protocol\n"
        FRR_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
-       "Specify route map\n"
+       "Specify route-map\n"
        "Route map name\n")
 {
-	const char *proto = argv[3]->text;
-	const char *rmap = (argc == 6) ? argv[5]->arg : NULL;
-	int i;
+	int ret, rtype;
+
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+
+	if (!zvrf)
+		return CMD_WARNING;
 
 	if (strcasecmp(proto, "any") == 0)
-		i = ZEBRA_ROUTE_MAX;
+		rtype = ZEBRA_ROUTE_MAX;
 	else
-		i = proto_name2num(proto);
-	if (i < 0) {
+		rtype = proto_name2num(proto);
+	if (rtype < 0) {
 		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-	if (!proto_rm[AFI_IP6][i])
-		return CMD_SUCCESS;
 
-	if (!rmap || strcmp(rmap, proto_rm[AFI_IP6][i]) == 0) {
-		XFREE(MTYPE_ROUTE_MAP_NAME, proto_rm[AFI_IP6][i]);
-		proto_rm[AFI_IP6][i] = NULL;
+	ret = ip_protocol_rm_del(zvrf, rmap, rtype, AFI_IP6, SAFI_UNICAST);
 
-		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug(
-				"%u: IPv6 Routemap unconfig for protocol %s, scheduling RIB processing",
-				VRF_DEFAULT, proto);
-
-		rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
-	}
-	return CMD_SUCCESS;
+	return ret;
 }
 
 DEFUN (show_ipv6_protocol,
@@ -685,48 +760,42 @@ DEFUN (show_ipv6_protocol,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ip_protocol_nht_rmap,
+DEFPY (ip_protocol_nht_rmap,
        ip_protocol_nht_rmap_cmd,
-       "ip nht " FRR_IP_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+       "ip nht " FRR_IP_PROTOCOL_MAP_STR_ZEBRA
+       " $proto route-map ROUTE-MAP$rmap",
        IP_STR
        "Filter Next Hop tracking route resolution\n"
        FRR_IP_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Specify route map\n"
        "Route map name\n")
 {
-	char *proto = argv[2]->text;
-	char *rmap = argv[4]->arg;
-	int i;
 
-	if (strcasecmp(proto, "any") == 0)
-		i = ZEBRA_ROUTE_MAX;
-	else
-		i = proto_name2num(proto);
-	if (i < 0) {
-		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (nht_rm[AFI_IP][i]) {
-		if (strcmp(nht_rm[AFI_IP][i], rmap) == 0)
-			return CMD_SUCCESS;
+	int ret, rtype;
 
-		XFREE(MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP][i]);
-	}
-
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
 
-	nht_rm[AFI_IP][i] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
-	zebra_evaluate_rnh(zvrf, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+	if (strcasecmp(proto, "any") == 0)
+		rtype = ZEBRA_ROUTE_MAX;
+	else
+		rtype = proto_name2num(proto);
+	if (rtype < 0) {
+		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	return CMD_SUCCESS;
+	ret = ip_nht_rm_add(zvrf, rmap, rtype, AFI_IP);
+
+	return ret;
 }
 
-DEFUN (no_ip_protocol_nht_rmap,
+DEFPY (no_ip_protocol_nht_rmap,
        no_ip_protocol_nht_rmap_cmd,
-       "no ip nht " FRR_IP_PROTOCOL_MAP_STR_ZEBRA " [route-map ROUTE-MAP]",
+       "no ip nht " FRR_IP_PROTOCOL_MAP_STR_ZEBRA
+       " $proto route-map [ROUTE-MAP$rmap]",
        NO_STR
        IP_STR
        "Filter Next Hop tracking route resolution\n"
@@ -734,33 +803,25 @@ DEFUN (no_ip_protocol_nht_rmap,
        "Specify route map\n"
        "Route map name\n")
 {
-	int idx = 0;
-	char *proto = argv[3]->text;
-	char *rmap = argv_find(argv, argc, "ROUTE-MAP", &idx) ? argv[idx]->arg
-							      : NULL;
+	int ret, rtype;
 
-	int i = strmatch(proto, "any") ? ZEBRA_ROUTE_MAX
-				       : proto_name2num(proto);
-
-	if (i < 0) {
-		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (!nht_rm[AFI_IP][i])
-		return CMD_SUCCESS;
-
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
 
-	if (!rmap || strcmp(rmap, nht_rm[AFI_IP][i]) == 0) {
-		XFREE(MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP][i]);
-		nht_rm[AFI_IP][i] = NULL;
-		zebra_evaluate_rnh(zvrf, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+	if (strcasecmp(proto, "any") == 0)
+		rtype = ZEBRA_ROUTE_MAX;
+	else
+		rtype = proto_name2num(proto);
+	if (rtype < 0) {
+		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
+		return CMD_WARNING_CONFIG_FAILED;
 	}
-	return CMD_SUCCESS;
+
+	ret = ip_nht_rm_del(zvrf, rmap, rtype, AFI_IP);
+
+	return ret;
 }
 
 DEFUN (show_ip_protocol_nht,
@@ -790,44 +851,41 @@ DEFUN (show_ip_protocol_nht,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_protocol_nht_rmap,
+DEFPY (ipv6_protocol_nht_rmap,
        ipv6_protocol_nht_rmap_cmd,
-       "ipv6 nht " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA " route-map ROUTE-MAP",
+       "ipv6 nht " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA
+       " $proto route-map ROUTE-MAP$rmap",
        IP6_STR
        "Filter Next Hop tracking route resolution\n"
        FRR_IP6_PROTOCOL_MAP_HELP_STR_ZEBRA
        "Specify route map\n"
        "Route map name\n")
 {
-	char *proto = argv[2]->text;
-	char *rmap = argv[4]->arg;
-	int i;
+	int ret, rtype;
 
-	if (strcasecmp(proto, "any") == 0)
-		i = ZEBRA_ROUTE_MAX;
-	else
-		i = proto_name2num(proto);
-	if (i < 0) {
-		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
 
-	if (nht_rm[AFI_IP6][i])
-		XFREE(MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP6][i]);
-	nht_rm[AFI_IP6][i] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
-	zebra_evaluate_rnh(zvrf, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
+	if (strcasecmp(proto, "any") == 0)
+		rtype = ZEBRA_ROUTE_MAX;
+	else
+		rtype = proto_name2num(proto);
+	if (rtype < 0) {
+		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	return CMD_SUCCESS;
+	ret = ip_nht_rm_add(zvrf, rmap, rtype, AFI_IP6);
+
+	return ret;
 }
 
-DEFUN (no_ipv6_protocol_nht_rmap,
+DEFPY (no_ipv6_protocol_nht_rmap,
        no_ipv6_protocol_nht_rmap_cmd,
-       "no ipv6 nht " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA " [route-map ROUTE-MAP]",
+       "no ipv6 nht " FRR_IP6_PROTOCOL_MAP_STR_ZEBRA
+       " $proto [route-map ROUTE-MAP$rmap]",
        NO_STR
        IP6_STR
        "Filter Next Hop tracking route resolution\n"
@@ -835,36 +893,25 @@ DEFUN (no_ipv6_protocol_nht_rmap,
        "Specify route map\n"
        "Route map name\n")
 {
-	char *proto = argv[3]->text;
-	char *rmap = (argc == 6) ? argv[5]->arg : NULL;
-	int i;
+	int ret, rtype;
 
-	if (strcasecmp(proto, "any") == 0)
-		i = ZEBRA_ROUTE_MAX;
-	else
-		i = proto_name2num(proto);
-	if (i < 0) {
-		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (nht_rm[AFI_IP6][i] && rmap && strcmp(rmap, nht_rm[AFI_IP6][i])) {
-		vty_out(vty, "invalid route-map \"%s\"\n", rmap);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (nht_rm[AFI_IP6][i]) {
-		XFREE(MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP6][i]);
-		nht_rm[AFI_IP6][i] = NULL;
-	}
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
 
 	if (!zvrf)
 		return CMD_WARNING;
 
-	zebra_evaluate_rnh(zvrf, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
+	if (strcasecmp(proto, "any") == 0)
+		rtype = ZEBRA_ROUTE_MAX;
+	else
+		rtype = proto_name2num(proto);
+	if (rtype < 0) {
+		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	return CMD_SUCCESS;
+	ret = ip_nht_rm_del(zvrf, rmap, rtype, AFI_IP6);
+
+	return ret;
 }
 
 DEFUN (show_ipv6_protocol_nht,
@@ -1699,15 +1746,23 @@ void zebra_route_map_init()
 {
 	install_element(CONFIG_NODE, &ip_protocol_cmd);
 	install_element(CONFIG_NODE, &no_ip_protocol_cmd);
+	install_element(VRF_NODE, &ip_protocol_cmd);
+	install_element(VRF_NODE, &no_ip_protocol_cmd);
 	install_element(VIEW_NODE, &show_ip_protocol_cmd);
 	install_element(CONFIG_NODE, &ipv6_protocol_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_protocol_cmd);
+	install_element(VRF_NODE, &ipv6_protocol_cmd);
+	install_element(VRF_NODE, &no_ipv6_protocol_cmd);
 	install_element(VIEW_NODE, &show_ipv6_protocol_cmd);
 	install_element(CONFIG_NODE, &ip_protocol_nht_rmap_cmd);
 	install_element(CONFIG_NODE, &no_ip_protocol_nht_rmap_cmd);
+	install_element(VRF_NODE, &ip_protocol_nht_rmap_cmd);
+	install_element(VRF_NODE, &no_ip_protocol_nht_rmap_cmd);
 	install_element(VIEW_NODE, &show_ip_protocol_nht_cmd);
 	install_element(CONFIG_NODE, &ipv6_protocol_nht_rmap_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_protocol_nht_rmap_cmd);
+	install_element(VRF_NODE, &ipv6_protocol_nht_rmap_cmd);
+	install_element(VRF_NODE, &no_ipv6_protocol_nht_rmap_cmd);
 	install_element(VIEW_NODE, &show_ipv6_protocol_nht_cmd);
 	install_element(CONFIG_NODE, &zebra_route_map_timer_cmd);
 	install_element(CONFIG_NODE, &no_zebra_route_map_timer_cmd);
