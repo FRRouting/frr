@@ -171,6 +171,7 @@ int bgp_option_set(int flag)
 	case BGP_OPT_MULTIPLE_INSTANCE:
 	case BGP_OPT_CONFIG_CISCO:
 	case BGP_OPT_NO_LISTEN:
+	case BGP_OPT_NO_ZEBRA:
 		SET_FLAG(bm->options, flag);
 		break;
 	default:
@@ -186,6 +187,7 @@ int bgp_option_unset(int flag)
 		if (listcount(bm->bgp) > 1)
 			return BGP_ERR_MULTIPLE_INSTANCE_USED;
 	/* Fall through.  */
+	case BGP_OPT_NO_ZEBRA:
 	case BGP_OPT_NO_FIB:
 	case BGP_OPT_CONFIG_CISCO:
 		UNSET_FLAG(bm->options, flag);
@@ -3095,6 +3097,8 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	}
 
 	bgp = bgp_create(as, name, inst_type);
+	if (bgp_option_check(BGP_OPT_NO_ZEBRA) && name)
+		bgp->vrf_id = vrf_generate_id();
 	bgp_router_id_set(bgp, &bgp->router_id_zebra);
 	bgp_address_init(bgp);
 	bgp_tip_hash_init(bgp);

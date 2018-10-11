@@ -375,6 +375,7 @@ int main(int argc, char **argv)
 	int bgp_port = BGP_PORT_DEFAULT;
 	char *bgp_address = NULL;
 	int no_fib_flag = 0;
+	int no_zebra_flag = 0;
 	int skip_runas = 0;
 	int instance = 0;
 
@@ -384,6 +385,7 @@ int main(int argc, char **argv)
 		"  -p, --bgp_port     Set BGP listen port number (0 means do not listen).\n"
 		"  -l, --listenon     Listen on specified address (implies -n)\n"
 		"  -n, --no_kernel    Do not install route to kernel.\n"
+		"  -Z, --no_zebra     Do not communicate with Zebra.\n"
 		"  -S, --skip_runas   Skip capabilities checks, and changing user and group IDs.\n"
 		"  -e, --ecmp         Specify ECMP to use.\n"
 		"  -I, --int_num      Set instance number (label-manager)\n");
@@ -430,6 +432,9 @@ int main(int argc, char **argv)
 		case 'n':
 			no_fib_flag = 1;
 			break;
+		case 'Z':
+			no_zebra_flag = 1;
+			break;
 		case 'S':
 			skip_runas = 1;
 			break;
@@ -453,9 +458,10 @@ int main(int argc, char **argv)
 	if (bgp_port == 0)
 		bgp_option_set(BGP_OPT_NO_LISTEN);
 	bm->address = bgp_address;
-	if (no_fib_flag)
+	if (no_fib_flag || no_zebra_flag)
 		bgp_option_set(BGP_OPT_NO_FIB);
-
+	if (no_zebra_flag)
+		bgp_option_set(BGP_OPT_NO_ZEBRA);
 	bgp_error_init();
 	/* Initializations. */
 	bgp_vrf_init();

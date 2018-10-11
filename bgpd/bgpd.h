@@ -131,6 +131,7 @@ struct bgp_master {
 #define BGP_OPT_MULTIPLE_INSTANCE        (1 << 1)
 #define BGP_OPT_CONFIG_CISCO             (1 << 2)
 #define BGP_OPT_NO_LISTEN                (1 << 3)
+#define BGP_OPT_NO_ZEBRA                 (1 << 4)
 
 	uint64_t updgrp_idspace;
 	uint64_t subgrp_idspace;
