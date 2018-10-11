@@ -7333,6 +7333,103 @@ DEFUN (clear_ip_bgp_all,
 	return bgp_clear_vty(vty, vrf, afi, safi, clr_sort, clr_type, clr_arg);
 }
 
+DEFUN (clear_ip_bgp_l2vpn_evpn_all,
+       clear_ip_bgp_l2vpn_evpn_all_cmd,
+       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] l2vpn [evpn] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<soft [<in|out>]|in [prefix-filter]|out>]",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       BGP_AFI_HELP_STR
+       BGP_SAFI_WITH_LABEL_HELP_STR
+       "Clear all peers\n"
+       "BGP neighbor address to clear\n"
+       "BGP IPv6 neighbor to clear\n"
+       "BGP neighbor on interface to clear\n"
+       "Clear peers with the AS number\n"
+       "Clear all external peers\n"
+       "Clear all members of peer-group\n"
+       "BGP peer-group name\n"
+       BGP_SOFT_STR
+       BGP_SOFT_IN_STR
+       BGP_SOFT_OUT_STR
+       BGP_SOFT_IN_STR
+       "Push out prefix-list ORF and do inbound soft reconfig\n"
+       BGP_SOFT_OUT_STR)
+{
+	char *vrf = NULL;
+
+	afi_t afi = AFI_IP6;
+	safi_t safi = SAFI_UNICAST;
+	enum clear_sort clr_sort = clear_peer;
+	enum bgp_clear_type clr_type;
+	char *clr_arg = NULL;
+
+	int idx = 0;
+
+	/* clear [ip] bgp */
+	if (argv_find(argv, argc, "ip", &idx))
+		afi = AFI_IP;
+
+	/* [<vrf> VIEWVRFNAME] */
+	if (argv_find(argv, argc, "vrf", &idx)) {
+		vrf = argv[idx + 1]->arg;
+		idx += 2;
+		if (vrf && strmatch(vrf, VRF_DEFAULT_NAME))
+			vrf = NULL;
+	} else if (argv_find(argv, argc, "view", &idx)) {
+		/* [<view> VIEWVRFNAME] */
+		vrf = argv[idx + 1]->arg;
+		idx += 2;
+	}
+
+	afi = AFI_L2VPN;
+	safi = SAFI_EVPN;
+
+	/* <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> */
+	if (argv_find(argv, argc, "*", &idx)) {
+		clr_sort = clear_all;
+	} else if (argv_find(argv, argc, "A.B.C.D", &idx)) {
+		clr_sort = clear_peer;
+		clr_arg = argv[idx]->arg;
+	} else if (argv_find(argv, argc, "X:X::X:X", &idx)) {
+		clr_sort = clear_peer;
+		clr_arg = argv[idx]->arg;
+	} else if (argv_find(argv, argc, "peer-group", &idx)) {
+		clr_sort = clear_group;
+		idx++;
+		clr_arg = argv[idx]->arg;
+	} else if (argv_find(argv, argc, "WORD", &idx)) {
+		clr_sort = clear_peer;
+		clr_arg = argv[idx]->arg;
+	} else if (argv_find(argv, argc, "(1-4294967295)", &idx)) {
+		clr_sort = clear_as;
+		clr_arg = argv[idx]->arg;
+	} else if (argv_find(argv, argc, "external", &idx)) {
+		clr_sort = clear_external;
+	}
+
+	/* [<soft [<in|out>]|in [prefix-filter]|out>] */
+	if (argv_find(argv, argc, "soft", &idx)) {
+		if (argv_find(argv, argc, "in", &idx)
+		    || argv_find(argv, argc, "out", &idx))
+			clr_type = strmatch(argv[idx]->text, "in")
+					   ? BGP_CLEAR_SOFT_IN
+					   : BGP_CLEAR_SOFT_OUT;
+		else
+			clr_type = BGP_CLEAR_SOFT_BOTH;
+	} else if (argv_find(argv, argc, "in", &idx)) {
+		clr_type = argv_find(argv, argc, "prefix-filter", &idx)
+				   ? BGP_CLEAR_SOFT_IN_ORF_PREFIX
+				   : BGP_CLEAR_SOFT_IN;
+	} else if (argv_find(argv, argc, "out", &idx)) {
+		clr_type = BGP_CLEAR_SOFT_OUT;
+	} else
+		clr_type = BGP_CLEAR_SOFT_NONE;
+
+	return bgp_clear_vty(vty, vrf, afi, safi, clr_sort, clr_type, clr_arg);
+}
+
 DEFUN (clear_ip_bgp_prefix,
        clear_ip_bgp_prefix_cmd,
        "clear [ip] bgp [<view|vrf> VIEWVRFNAME] prefix A.B.C.D/M",
@@ -13737,6 +13834,7 @@ void bgp_vty_init(void)
 
 	/* "clear ip bgp commands" */
 	install_element(ENABLE_NODE, &clear_ip_bgp_all_cmd);
+	install_element(ENABLE_NODE, &clear_ip_bgp_l2vpn_evpn_all_cmd);
 
 	/* clear ip bgp prefix  */
 	install_element(ENABLE_NODE, &clear_ip_bgp_prefix_cmd);
