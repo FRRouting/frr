@@ -867,6 +867,9 @@ int rib_lookup_ipv4_route(struct prefix_ipv4 *p, union sockunion *qgate,
 #define RIB_SYSTEM_ROUTE(R)                                                    \
 	((R)->type == ZEBRA_ROUTE_KERNEL || (R)->type == ZEBRA_ROUTE_CONNECT)
 
+#define RIB_KERNEL_ROUTE(R)						\
+	((R)->type == ZEBRA_ROUTE_KERNEL)
+
 /* This function verifies reachability of one given nexthop, which can be
  * numbered or unnumbered, IPv4 or IPv6. The result is unconditionally stored
  * in nexthop->flags field. If the 4th parameter, 'set', is non-zero,
@@ -1397,8 +1400,11 @@ static void rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 	}
 
 	/* Update nexthop for route, reset changed flag. */
-	nexthop_active_update(rn, old, 1);
-	UNSET_FLAG(old->status, ROUTE_ENTRY_CHANGED);
+	if (!nexthop_active_update(rn, old, 1) &&
+	    (RIB_KERNEL_ROUTE(old)))
+		SET_FLAG(old->status, ROUTE_ENTRY_REMOVED);
+	else
+		UNSET_FLAG(old->status, ROUTE_ENTRY_CHANGED);
 }
 
 static void rib_process_update_fib(struct zebra_vrf *zvrf,
