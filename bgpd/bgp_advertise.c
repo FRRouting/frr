@@ -90,9 +90,9 @@ struct bgp_advertise *bgp_advertise_new(void)
 
 void bgp_advertise_free(struct bgp_advertise *adv)
 {
-	if (adv->binfo)
-		bgp_info_unlock(
-			adv->binfo); /* bgp_advertise bgp_info reference */
+	if (adv->pathi)
+		/* bgp_advertise bgp_path_info reference */
+		bgp_path_info_unlock(adv->pathi);
 	XFREE(MTYPE_BGP_ADVERTISE, adv);
 }
 

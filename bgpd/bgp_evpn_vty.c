@@ -536,7 +536,7 @@ static void show_esi_routes(struct bgp *bgp,
 {
 	int header = 1;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *pi;
 	uint32_t prefix_cnt, path_cnt;
 	uint64_t tbl_ver;
 
@@ -573,13 +573,13 @@ static void show_esi_routes(struct bgp *bgp,
 		/* For EVPN, the prefix is displayed for each path (to fit in
 		 * with code that already exists).
 		 */
-		for (ri = rn->info; ri; ri = ri->next) {
+		for (pi = rn->info; pi; pi = pi->next) {
 			json_object *json_path = NULL;
 
 			if (json)
 				json_path = json_object_new_array();
 
-			route_vty_out(vty, &rn->p, ri, 0, SAFI_EVPN, json_path);
+			route_vty_out(vty, &rn->p, pi, 0, SAFI_EVPN, json_path);
 
 			if (json)
 				json_object_array_add(json_paths, json_path);
@@ -616,7 +616,7 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
 			    json_object *json)
 {
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *pi;
 	struct bgp_table *table;
 	int header = 1;
 	uint64_t tbl_ver;
@@ -660,18 +660,18 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
 		/* For EVPN, the prefix is displayed for each path (to fit in
 		 * with code that already exists).
 		 */
-		for (ri = rn->info; ri; ri = ri->next) {
+		for (pi = rn->info; pi; pi = pi->next) {
 			json_object *json_path = NULL;
 
 			if (vtep_ip.s_addr
 			    && !IPV4_ADDR_SAME(&(vtep_ip),
-					       &(ri->attr->nexthop)))
+					       &(pi->attr->nexthop)))
 				continue;
 
 			if (json)
 				json_path = json_object_new_array();
 
-			route_vty_out(vty, &rn->p, ri, 0, SAFI_EVPN, json_path);
+			route_vty_out(vty, &rn->p, pi, 0, SAFI_EVPN, json_path);
 
 			if (json)
 				json_object_array_add(json_paths, json_path);
@@ -990,7 +990,7 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 	struct bgp_table *table;
 	struct bgp_node *rn;
 	struct bgp_node *rm;
-	struct bgp_info *ri;
+	struct bgp_path_info *pi;
 	int rd_header;
 	int header = 1;
 
@@ -1046,14 +1046,14 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 		tbl_ver = table->version;
 
 		for (rm = bgp_table_top(table); rm; rm = bgp_route_next(rm))
-			for (ri = rm->info; ri; ri = ri->next) {
+			for (pi = rm->info; pi; pi = pi->next) {
 				total_count++;
 				if (type == bgp_show_type_neighbor) {
 					union sockunion *su = output_arg;
 
-					if (ri->peer->su_remote == NULL
+					if (pi->peer->su_remote == NULL
 					    || !sockunion_same(
-						       ri->peer->su_remote, su))
+						       pi->peer->su_remote, su))
 						continue;
 				}
 				if (header == 0) {
@@ -1162,14 +1162,14 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 				else
 					json_array = NULL;
 				if (option == SHOW_DISPLAY_TAGS)
-					route_vty_out_tag(vty, &rm->p, ri, 0,
+					route_vty_out_tag(vty, &rm->p, pi, 0,
 							  SAFI_EVPN,
 							  json_array);
 				else if (option == SHOW_DISPLAY_OVERLAY)
-					route_vty_out_overlay(vty, &rm->p, ri,
+					route_vty_out_overlay(vty, &rm->p, pi,
 							      0, json_array);
 				else
-					route_vty_out(vty, &rm->p, ri, 0,
+					route_vty_out(vty, &rm->p, pi, 0,
 						      SAFI_EVPN, json_array);
 				output_count++;
 			}
@@ -2017,7 +2017,7 @@ static void evpn_show_route_vni_multicast(struct vty *vty, struct bgp *bgp,
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *pi;
 	uint32_t path_cnt = 0;
 	afi_t afi;
 	safi_t safi;
@@ -2049,13 +2049,13 @@ static void evpn_show_route_vni_multicast(struct vty *vty, struct bgp *bgp,
 	route_vty_out_detail_header(vty, bgp, rn, NULL, afi, safi, json);
 
 	/* Display each path for this prefix. */
-	for (ri = rn->info; ri; ri = ri->next) {
+	for (pi = rn->info; pi; pi = pi->next) {
 		json_object *json_path = NULL;
 
 		if (json)
 			json_path = json_object_new_array();
 
-		route_vty_out_detail(vty, bgp, &rn->p, ri, afi, safi,
+		route_vty_out_detail(vty, bgp, &rn->p, pi, afi, safi,
 				     json_path);
 
 		if (json)
@@ -2086,7 +2086,7 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *pi;
 	uint32_t path_cnt = 0;
 	afi_t afi;
 	safi_t safi;
@@ -2119,13 +2119,13 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 	route_vty_out_detail_header(vty, bgp, rn, NULL, afi, safi, json);
 
 	/* Display each path for this prefix. */
-	for (ri = rn->info; ri; ri = ri->next) {
+	for (pi = rn->info; pi; pi = pi->next) {
 		json_object *json_path = NULL;
 
 		if (json)
 			json_path = json_object_new_array();
 
-		route_vty_out_detail(vty, bgp, &rn->p, ri, afi, safi,
+		route_vty_out_detail(vty, bgp, &rn->p, pi, afi, safi,
 				     json_path);
 
 		if (json)
@@ -2196,7 +2196,7 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 {
 	struct prefix_evpn p;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *pi;
 	afi_t afi;
 	safi_t safi;
 	uint32_t path_cnt = 0;
@@ -2226,13 +2226,13 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 		json_paths = json_object_new_array();
 
 	/* Display each path for this prefix. */
-	for (ri = rn->info; ri; ri = ri->next) {
+	for (pi = rn->info; pi; pi = pi->next) {
 		json_object *json_path = NULL;
 
 		if (json)
 			json_path = json_object_new_array();
 
-		route_vty_out_detail(vty, bgp, &rn->p, ri, afi, safi,
+		route_vty_out_detail(vty, bgp, &rn->p, pi, afi, safi,
 				     json_path);
 
 		if (json)
@@ -2262,7 +2262,7 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 	struct bgp_node *rd_rn;
 	struct bgp_table *table;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *pi;
 	int rd_header = 1;
 	afi_t afi;
 	safi_t safi;
@@ -2330,13 +2330,13 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 			json_paths = json_object_new_array();
 
 		/* Display each path for this prefix. */
-		for (ri = rn->info; ri; ri = ri->next) {
+		for (pi = rn->info; pi; pi = pi->next) {
 			json_object *json_path = NULL;
 
 			if (json)
 				json_path = json_object_new_array();
 
-			route_vty_out_detail(vty, bgp, &rn->p, ri, afi, safi,
+			route_vty_out_detail(vty, bgp, &rn->p, pi, afi, safi,
 					     json_path);
 
 			if (json)
@@ -2383,7 +2383,7 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 	struct bgp_node *rd_rn;
 	struct bgp_table *table;
 	struct bgp_node *rn;
-	struct bgp_info *ri;
+	struct bgp_path_info *pi;
 	int header = 1;
 	int rd_header;
 	afi_t afi;
@@ -2467,7 +2467,7 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 			 * fit in
 			 * with code that already exists).
 			 */
-			for (ri = rn->info; ri; ri = ri->next) {
+			for (pi = rn->info; pi; pi = pi->next) {
 				json_object *json_path = NULL;
 				path_cnt++;
 				add_prefix_to_json = 1;
@@ -2476,7 +2476,7 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 				if (json)
 					json_path = json_object_new_array();
 
-				route_vty_out(vty, &rn->p, ri, 0, SAFI_EVPN,
+				route_vty_out(vty, &rn->p, pi, 0, SAFI_EVPN,
 					      json_path);
 
 				if (json)

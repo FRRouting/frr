@@ -16,7 +16,7 @@
 # ...
 # (gdb) cont
 # Breakpoint 3, bgp_write_packet (peer=0x7fa885199080) at bgp_packet.c:614
-# 614                     if (CHECK_FLAG (adv->binfo->peer->cap,PEER_CAP_RESTART_RCV)
+# 614                     if (CHECK_FLAG (adv->path->peer->cap,PEER_CAP_RESTART_RCV)
 # (gdb) dump_prefix4  &adv->rn->p
 # IPv4:10.1.1.0/24
 # (gdb) dump_prefix  &adv->rn->p

@@ -687,7 +687,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	struct bgp_adj_out *adj;
 	struct bgp_advertise *adv;
 	struct bgp_node *rn = NULL;
-	struct bgp_info *binfo = NULL;
+	struct bgp_path_info *path = NULL;
 	bgp_size_t total_attr_len = 0;
 	unsigned long attrlen_pos = 0;
 	size_t mpattrlen_pos = 0;
@@ -731,7 +731,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 		rn = adv->rn;
 		adj = adv->adj;
 		addpath_tx_id = adj->addpath_tx_id;
-		binfo = adv->binfo;
+		path = adv->pathi;
 
 		space_remaining = STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
 				  - BGP_MAX_PACKET_SIZE_OVERFLOW;
@@ -747,8 +747,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 		if (stream_empty(s)) {
 			struct peer *from = NULL;
 
-			if (binfo)
-				from = binfo->peer;
+			if (path)
+				from = path->peer;
 
 			/* 1: Write the BGP message header - 16 bytes marker, 2
 			 * bytes length,
@@ -821,13 +821,13 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 				prd = (struct prefix_rd *)&rn->prn->p;
 
 			if (safi == SAFI_LABELED_UNICAST) {
-				label = bgp_adv_label(rn, binfo, peer, afi,
+				label = bgp_adv_label(rn, path, peer, afi,
 						      safi);
 				label_pnt = &label;
 				num_labels = 1;
-			} else if (binfo && binfo->extra) {
-				label_pnt = &binfo->extra->label[0];
-				num_labels = binfo->extra->num_labels;
+			} else if (path && path->extra) {
+				label_pnt = &path->extra->label[0];
+				num_labels = path->extra->num_labels;
 			}
 
 			if (stream_empty(snlri))

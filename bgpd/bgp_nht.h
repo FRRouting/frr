@@ -32,7 +32,7 @@ extern void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id);
  *   p - path for which the nexthop object is being looked up
  *   connected - True if NH MUST be a connected route
  */
-extern int bgp_find_nexthop(struct bgp_info *p, int connected);
+extern int bgp_find_nexthop(struct bgp_path_info *p, int connected);
 
 /**
  * bgp_find_or_add_nexthop() - lookup the nexthop cache table for the bnc
@@ -47,16 +47,17 @@ extern int bgp_find_nexthop(struct bgp_info *p, int connected);
  *   connected - True if NH MUST be a connected route
  */
 extern int bgp_find_or_add_nexthop(struct bgp *bgp_route,
-			struct bgp *bgp_nexthop, afi_t a, struct bgp_info *p,
-			struct peer *peer, int connected);
+				   struct bgp *bgp_nexthop, afi_t a,
+				   struct bgp_path_info *p, struct peer *peer,
+				   int connected);
 
 /**
  * bgp_unlink_nexthop() - Unlink the nexthop object from the path structure.
  * ARGUMENTS:
  *   p - path structure.
  */
-extern void bgp_unlink_nexthop(struct bgp_info *p);
-void bgp_unlink_nexthop_by_peer(struct peer *);
+extern void bgp_unlink_nexthop(struct bgp_path_info *p);
+void bgp_unlink_nexthop_by_peer(struct peer *peer);
 
 /**
  * bgp_delete_connected_nexthop() - Reset the 'peer' pointer for a connected

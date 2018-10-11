@@ -7524,12 +7524,13 @@ DEFUN (show_bgp_memory,
 	count = mtype_stats_alloc(MTYPE_BGP_ROUTE);
 	vty_out(vty, "%ld BGP routes, using %s of memory\n", count,
 		mtype_memstr(memstrbuf, sizeof(memstrbuf),
-			     count * sizeof(struct bgp_info)));
+			     count * sizeof(struct bgp_path_info)));
 	if ((count = mtype_stats_alloc(MTYPE_BGP_ROUTE_EXTRA)))
 		vty_out(vty, "%ld BGP route ancillaries, using %s of memory\n",
 			count,
-			mtype_memstr(memstrbuf, sizeof(memstrbuf),
-				     count * sizeof(struct bgp_info_extra)));
+			mtype_memstr(
+				memstrbuf, sizeof(memstrbuf),
+				count * sizeof(struct bgp_path_info_extra)));
 
 	if ((count = mtype_stats_alloc(MTYPE_BGP_STATIC)))
 		vty_out(vty, "%ld Static routes, using %s of memory\n", count,

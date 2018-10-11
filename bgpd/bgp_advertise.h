@@ -62,7 +62,7 @@ struct bgp_advertise {
 	struct bgp_advertise_attr *baa;
 
 	/* BGP info.  */
-	struct bgp_info *binfo;
+	struct bgp_path_info *pathi;
 };
 
 /* BGP adjacency out.  */
@@ -113,7 +113,7 @@ struct bgp_synchronize {
 };
 
 /* BGP adjacency linked list.  */
-#define BGP_INFO_ADD(N, A, TYPE)                                               \
+#define BGP_PATH_INFO_ADD(N, A, TYPE)                                          \
 	do {                                                                   \
 		(A)->prev = NULL;                                              \
 		(A)->next = (N)->TYPE;                                         \
@@ -122,7 +122,7 @@ struct bgp_synchronize {
 		(N)->TYPE = (A);                                               \
 	} while (0)
 
-#define BGP_INFO_DEL(N, A, TYPE)                                               \
+#define BGP_PATH_INFO_DEL(N, A, TYPE)                                          \
 	do {                                                                   \
 		if ((A)->next)                                                 \
 			(A)->next->prev = (A)->prev;                           \
@@ -132,10 +132,10 @@ struct bgp_synchronize {
 			(N)->TYPE = (A)->next;                                 \
 	} while (0)
 
-#define BGP_ADJ_IN_ADD(N,A)    BGP_INFO_ADD(N,A,adj_in)
-#define BGP_ADJ_IN_DEL(N,A)    BGP_INFO_DEL(N,A,adj_in)
-#define BGP_ADJ_OUT_ADD(N,A)   BGP_INFO_ADD(N,A,adj_out)
-#define BGP_ADJ_OUT_DEL(N,A)   BGP_INFO_DEL(N,A,adj_out)
+#define BGP_ADJ_IN_ADD(N, A) BGP_PATH_INFO_ADD(N, A, adj_in)
+#define BGP_ADJ_IN_DEL(N, A) BGP_PATH_INFO_DEL(N, A, adj_in)
+#define BGP_ADJ_OUT_ADD(N, A) BGP_PATH_INFO_ADD(N, A, adj_out)
+#define BGP_ADJ_OUT_DEL(N, A) BGP_PATH_INFO_DEL(N, A, adj_out)
 
 #define BGP_ADV_FIFO_ADD(F, N)                                                 \
 	do {                                                                   \

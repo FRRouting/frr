@@ -104,8 +104,8 @@ bgp_route.[hc]:
       looking for data in hash table, and putting there if missing, refcnt
       using pointer to existing data
     many validity checks
-    get new struct bgp_info (10 words/40 bytes)
-    call bgp_info_add with rn and bgp_info
+    get new struct bgp_path_info
+    call bgp_path_info_add with rn and bgp_path_info
     call bgp_process
 
 bgp_routemap.c
@@ -149,7 +149,7 @@ bgpd.c
 Question: How much memory does quagga's bgpd use as a function of
 state received from peers?
 
-It seems that a struct bgp_info is kept for each prefix.  The "struct
+It seems that a struct bgp_path_info is kept for each prefix.  The "struct
 attr *" is interned, and variables within that are interned.  So, 40
 bytes are kept per received prefix, plus interned shared values.  This
 could be 36 if 'int suppress' where changed to a u_char and moved to
