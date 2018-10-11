@@ -713,8 +713,13 @@ DEFUN (ip_protocol_nht_rmap,
 		XFREE(MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP][i]);
 	}
 
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!zvrf)
+		return CMD_WARNING;
+
 	nht_rm[AFI_IP][i] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
-	zebra_evaluate_rnh(0, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
 
 	return CMD_SUCCESS;
 }
@@ -745,10 +750,15 @@ DEFUN (no_ip_protocol_nht_rmap,
 	if (!nht_rm[AFI_IP][i])
 		return CMD_SUCCESS;
 
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!zvrf)
+		return CMD_WARNING;
+
 	if (!rmap || strcmp(rmap, nht_rm[AFI_IP][i]) == 0) {
 		XFREE(MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP][i]);
 		nht_rm[AFI_IP][i] = NULL;
-		zebra_evaluate_rnh(0, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+		zebra_evaluate_rnh(zvrf, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
 	}
 	return CMD_SUCCESS;
 }
@@ -801,10 +811,16 @@ DEFUN (ipv6_protocol_nht_rmap,
 		vty_out(vty, "invalid protocol name \"%s\"\n", proto);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!zvrf)
+		return CMD_WARNING;
+
 	if (nht_rm[AFI_IP6][i])
 		XFREE(MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP6][i]);
 	nht_rm[AFI_IP6][i] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
-	zebra_evaluate_rnh(0, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
 
 	return CMD_SUCCESS;
 }
@@ -841,8 +857,12 @@ DEFUN (no_ipv6_protocol_nht_rmap,
 		XFREE(MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP6][i]);
 		nht_rm[AFI_IP6][i] = NULL;
 	}
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
-	zebra_evaluate_rnh(0, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
+	if (!zvrf)
+		return CMD_WARNING;
+
+	zebra_evaluate_rnh(zvrf, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
 
 	return CMD_SUCCESS;
 }
@@ -1411,8 +1431,7 @@ static void zebra_nht_rm_update(const char *rmap)
 						afi_ip = 1;
 
 						zebra_evaluate_rnh(
-							zvrf->vrf->vrf_id,
-							AF_INET, 1,
+							zvrf, AF_INET, 1,
 							RNH_NEXTHOP_TYPE, NULL);
 					}
 				}
@@ -1438,8 +1457,7 @@ static void zebra_nht_rm_update(const char *rmap)
 						afi_ipv6 = 1;
 
 						zebra_evaluate_rnh(
-							zvrf->vrf->vrf_id,
-							AF_INET, 1,
+							zvrf, AF_INET, 1,
 							RNH_NEXTHOP_TYPE, NULL);
 					}
 				}

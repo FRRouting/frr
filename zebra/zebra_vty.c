@@ -1030,8 +1030,13 @@ DEFUN (ip_nht_default_route,
 	if (zebra_rnh_ip_default_route)
 		return CMD_SUCCESS;
 
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!zvrf)
+		return CMD_WARNING;
+
 	zebra_rnh_ip_default_route = 1;
-	zebra_evaluate_rnh(VRF_DEFAULT, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1046,8 +1051,13 @@ DEFUN (no_ip_nht_default_route,
 	if (!zebra_rnh_ip_default_route)
 		return CMD_SUCCESS;
 
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!zvrf)
+		return CMD_WARNING;
+
 	zebra_rnh_ip_default_route = 0;
-	zebra_evaluate_rnh(VRF_DEFAULT, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1061,8 +1071,13 @@ DEFUN (ipv6_nht_default_route,
 	if (zebra_rnh_ipv6_default_route)
 		return CMD_SUCCESS;
 
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!zvrf)
+		return CMD_WARNING;
+
 	zebra_rnh_ipv6_default_route = 1;
-	zebra_evaluate_rnh(VRF_DEFAULT, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1077,8 +1092,13 @@ DEFUN (no_ipv6_nht_default_route,
 	if (!zebra_rnh_ipv6_default_route)
 		return CMD_SUCCESS;
 
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!zvrf)
+		return CMD_WARNING;
+
 	zebra_rnh_ipv6_default_route = 0;
-	zebra_evaluate_rnh(VRF_DEFAULT, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
