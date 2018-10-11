@@ -302,8 +302,10 @@ static int zebra_rnh_apply_nht_rmap(int family, struct route_node *prn,
 	if (prn && re) {
 		for (nexthop = re->ng.nexthop; nexthop;
 		     nexthop = nexthop->next) {
-			ret = zebra_nht_route_map_check(rmap_family, proto,
-							&prn->p, re, nexthop);
+			struct zebra_vrf *zvrf =
+				zebra_vrf_lookup_by_id(nexthop->vrf_id);
+			ret = zebra_nht_route_map_check(
+				rmap_family, proto, &prn->p, zvrf, re, nexthop);
 			if (ret != RMAP_DENYMATCH) {
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 				at_least_one++; /* at least one valid NH */

@@ -1309,42 +1309,63 @@ static void zebra_rib_table_rm_update(const char *rmap)
 {
 	int i = 0;
 	struct route_table *table;
+	struct vrf *vrf = NULL;
+	struct zebra_vrf *zvrf = NULL;
 	char *rmap_name;
 	char afi_ip = 0;
 	char afi_ipv6 = 0;
 
-	for (i = 0; i <= ZEBRA_ROUTE_MAX; i++) {
-	/* Check for ip routemap table */
-		rmap_name = proto_rm[AFI_IP][i];
-		if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
-			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("%s : AFI_IP rmap %s, route type %s",
-				__func__, rmap, zebra_route_string(i));
-			/* There is single rib table for all protocols */
-			if (afi_ip == 0) {
-				table = zebra_vrf_table(AFI_IP, SAFI_UNICAST,
-						VRF_DEFAULT);
-				if (table) {
-					afi_ip = 1;
-					rib_update_table(table,
-						RIB_UPDATE_RMAP_CHANGE);
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		zvrf = vrf->info;
+		if (!zvrf)
+			continue;
+		for (i = 0; i <= ZEBRA_ROUTE_MAX; i++) {
+			rmap_name = PROTO_RM_NAME(zvrf, AFI_IP, i);
+			if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
+				if (IS_ZEBRA_DEBUG_EVENT)
+					zlog_debug(
+						"%s : AFI_IP rmap %s, route type %s",
+						__func__, rmap,
+						zebra_route_string(i));
+
+				PROTO_RM_MAP(zvrf, AFI_IP, i) =
+					route_map_lookup_by_name(rmap_name);
+				/* There is single rib table for all protocols
+				 */
+				if (afi_ip == 0) {
+					table = zvrf->table[AFI_IP]
+							   [SAFI_UNICAST];
+					if (table) {
+
+						afi_ip = 1;
+						rib_update_table(
+							table,
+							RIB_UPDATE_RMAP_CHANGE);
+					}
 				}
 			}
-		}
+			rmap_name = PROTO_RM_NAME(zvrf, AFI_IP6, i);
+			if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
+				if (IS_ZEBRA_DEBUG_EVENT)
+					zlog_debug(
+						"%s : AFI_IP6 rmap %s, route type %s",
+						__func__, rmap,
+						zebra_route_string(i));
 
-		/* Check for ipv6 routemap table */
-		rmap_name = proto_rm[AFI_IP6][i];
-		if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
-			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("%s : AFI_IP6 rmap %s,route type %s",
-				__func__, rmap, zebra_route_string(i));
-			if (afi_ipv6 == 0) {
-				table = zebra_vrf_table(AFI_IP6, SAFI_UNICAST,
-						VRF_DEFAULT);
-				if (table) {
-					afi_ipv6 = 1;
-					rib_update_table(table,
-						RIB_UPDATE_RMAP_CHANGE);
+				PROTO_RM_MAP(zvrf, AFI_IP6, i) =
+					route_map_lookup_by_name(rmap_name);
+				/* There is single rib table for all protocols
+				 */
+				if (afi_ipv6 == 0) {
+					table = zvrf->table[AFI_IP6]
+							   [SAFI_UNICAST];
+					if (table) {
+
+						afi_ipv6 = 1;
+						rib_update_table(
+							table,
+							RIB_UPDATE_RMAP_CHANGE);
+					}
 				}
 			}
 		}
@@ -1358,31 +1379,70 @@ static void zebra_rib_table_rm_update(const char *rmap)
 static void zebra_nht_rm_update(const char *rmap)
 {
 	int i = 0;
+	struct route_table *table;
+	struct vrf *vrf = NULL;
+	struct zebra_vrf *zvrf = NULL;
 	char *rmap_name;
 	char afi_ip = 0;
 	char afi_ipv6 = 0;
 
-	for (i = 0; i <= ZEBRA_ROUTE_MAX; i++) {
-		rmap_name = nht_rm[AFI_IP][i];
-		if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
-			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("%s : AFI_IP rmap %s route type %s",
-					__func__, rmap, zebra_route_string(i));
-			if (afi_ip == 0) {
-				afi_ip = 1;
-				zebra_evaluate_rnh(0, AF_INET, 1,
-					RNH_NEXTHOP_TYPE, NULL);
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		zvrf = vrf->info;
+		if (!zvrf)
+			continue;
+		for (i = 0; i <= ZEBRA_ROUTE_MAX; i++) {
+			rmap_name = NHT_RM_NAME(zvrf, AFI_IP, i);
+			if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
+				if (IS_ZEBRA_DEBUG_EVENT)
+					zlog_debug(
+						"%s : AFI_IP rmap %s, route type %s",
+						__func__, rmap,
+						zebra_route_string(i));
+
+				NHT_RM_MAP(zvrf, AFI_IP, i) =
+					route_map_lookup_by_name(rmap_name);
+				/* There is single rib table for all protocols
+				 */
+				if (afi_ip == 0) {
+					table = zvrf->table[AFI_IP]
+							   [SAFI_UNICAST];
+					if (table) {
+
+						afi_ip = 1;
+
+						zebra_evaluate_rnh(
+							zvrf->vrf->vrf_id,
+							AF_INET, 1,
+							RNH_NEXTHOP_TYPE, NULL);
+					}
+				}
 			}
-		}
-		rmap_name = nht_rm[AFI_IP6][i];
-		if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
-			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("%s : AFI_IP6 rmap %s route type %s",
-					__func__, rmap, zebra_route_string(i));
-			if (afi_ipv6 == 0) {
-				afi_ipv6 = 1;
-				zebra_evaluate_rnh(0, AF_INET6, 1,
-					RNH_NEXTHOP_TYPE, NULL);
+
+			rmap_name = NHT_RM_NAME(zvrf, AFI_IP6, i);
+			if (rmap_name && (strcmp(rmap_name, rmap) == 0)) {
+				if (IS_ZEBRA_DEBUG_EVENT)
+					zlog_debug(
+						"%s : AFI_IP6 rmap %s, route type %s",
+						__func__, rmap,
+						zebra_route_string(i));
+
+				NHT_RM_MAP(zvrf, AFI_IP6, i) =
+					route_map_lookup_by_name(rmap_name);
+				/* There is single rib table for all protocols
+				 */
+				if (afi_ipv6 == 0) {
+					table = zvrf->table[AFI_IP6]
+							   [SAFI_UNICAST];
+					if (table) {
+
+						afi_ipv6 = 1;
+
+						zebra_evaluate_rnh(
+							zvrf->vrf->vrf_id,
+							AF_INET, 1,
+							RNH_NEXTHOP_TYPE, NULL);
+					}
+				}
 			}
 		}
 	}
@@ -1439,28 +1499,26 @@ void zebra_route_map_write_delay_timer(struct vty *vty)
 	return;
 }
 
-route_map_result_t zebra_route_map_check(int family, int rib_type,
-					 uint8_t instance,
-					 const struct prefix *p,
-					 struct nexthop *nexthop,
-					 vrf_id_t vrf_id, route_tag_t tag)
+route_map_result_t
+zebra_route_map_check(int family, int rib_type, uint8_t instance,
+		      const struct prefix *p, struct nexthop *nexthop,
+		      struct zebra_vrf *zvrf, route_tag_t tag)
 {
 	struct route_map *rmap = NULL;
 	route_map_result_t ret = RMAP_MATCH;
 	struct nh_rmap_obj nh_obj;
 
 	nh_obj.nexthop = nexthop;
-	nh_obj.vrf_id = vrf_id;
+	nh_obj.vrf_id = nexthop->vrf_id;
 	nh_obj.source_protocol = rib_type;
 	nh_obj.instance = instance;
 	nh_obj.metric = 0;
 	nh_obj.tag = tag;
 
 	if (rib_type >= 0 && rib_type < ZEBRA_ROUTE_MAX)
-		rmap = route_map_lookup_by_name(proto_rm[family][rib_type]);
-	if (!rmap && proto_rm[family][ZEBRA_ROUTE_MAX])
-		rmap = route_map_lookup_by_name(
-			proto_rm[family][ZEBRA_ROUTE_MAX]);
+		rmap = PROTO_RM_MAP(zvrf, family, rib_type);
+	if (!rmap && PROTO_RM_NAME(zvrf, family, ZEBRA_ROUTE_MAX))
+		rmap = PROTO_RM_MAP(zvrf, family, ZEBRA_ROUTE_MAX);
 	if (rmap) {
 		ret = route_map_apply(rmap, p, RMAP_ZEBRA, &nh_obj);
 	}
@@ -1514,6 +1572,7 @@ zebra_import_table_route_map_check(int family, int re_type, uint8_t instance,
 
 route_map_result_t zebra_nht_route_map_check(int family, int client_proto,
 					     const struct prefix *p,
+					     struct zebra_vrf *zvrf,
 					     struct route_entry *re,
 					     struct nexthop *nexthop)
 {
@@ -1529,10 +1588,9 @@ route_map_result_t zebra_nht_route_map_check(int family, int client_proto,
 	nh_obj.tag = re->tag;
 
 	if (client_proto >= 0 && client_proto < ZEBRA_ROUTE_MAX)
-		rmap = route_map_lookup_by_name(nht_rm[family][client_proto]);
-	if (!rmap && nht_rm[family][ZEBRA_ROUTE_MAX])
-		rmap = route_map_lookup_by_name(
-			nht_rm[family][ZEBRA_ROUTE_MAX]);
+		rmap = NHT_RM_MAP(zvrf, family, client_proto);
+	if (!rmap && NHT_RM_MAP(zvrf, family, ZEBRA_ROUTE_MAX))
+		rmap = NHT_RM_MAP(zvrf, family, ZEBRA_ROUTE_MAX);
 	if (rmap)
 		ret = route_map_apply(rmap, p, RMAP_ZEBRA, &nh_obj);
 

@@ -32,6 +32,11 @@ typedef struct mpls_srgb_t_ {
 	uint32_t end_label;
 } mpls_srgb_t;
 
+struct zebra_rmap {
+	char *name;
+	struct route_map *map;
+};
+
 /* Routing table instance.  */
 struct zebra_vrf {
 	/* Back pointer */
@@ -92,6 +97,9 @@ struct zebra_vrf {
 	struct zebra_pw_head pseudowires;
 	struct zebra_static_pw_head static_pseudowires;
 
+	struct zebra_rmap proto_rm[AFI_MAX][ZEBRA_ROUTE_MAX + 1];
+	struct zebra_rmap nht_rm[AFI_MAX][ZEBRA_ROUTE_MAX + 1];
+
 	/* MPLS processing flags */
 	uint16_t mpls_flags;
 #define MPLS_FLAG_SCHEDULE_LSPS    (1 << 0)
@@ -122,6 +130,10 @@ struct zebra_vrf {
 	uint64_t lsp_installs;
 	uint64_t lsp_removals;
 };
+#define PROTO_RM_NAME(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].name
+#define NHT_RM_NAME(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].name
+#define PROTO_RM_MAP(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].map
+#define NHT_RM_MAP(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].map
 
 static inline vrf_id_t zvrf_id(struct zebra_vrf *zvrf)
 {
