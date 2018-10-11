@@ -6301,6 +6301,7 @@ static void route_vty_out_route(struct prefix *p, struct vty *vty,
 {
 	int len = 0;
 	char buf[BUFSIZ];
+	char buf2[BUFSIZ];
 
 	if (p->family == AF_INET) {
 		if (!json) {
@@ -6314,6 +6315,8 @@ static void route_vty_out_route(struct prefix *p, struct vty *vty,
 							 &p->u.prefix, buf,
 							 BUFSIZ));
 			json_object_int_add(json, "prefixLen", p->prefixlen);
+			prefix2str(p, buf2, PREFIX_STRLEN);
+			json_object_string_add(json, "network", buf2);
 		}
 	} else if (p->family == AF_ETHERNET) {
 		prefix2str(p, buf, PREFIX_STRLEN);
@@ -6337,6 +6340,15 @@ static void route_vty_out_route(struct prefix *p, struct vty *vty,
 				vty, "%s/%d",
 				inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
 				p->prefixlen);
+		else {
+			json_object_string_add(json, "prefix",
+						inet_ntop(p->family,
+							&p->u.prefix, buf,
+							BUFSIZ));
+			json_object_int_add(json, "prefixLen", p->prefixlen);
+			prefix2str(p, buf2, PREFIX_STRLEN);
+			json_object_string_add(json, "network", buf2);
+		}
 	}
 
 	if (!json) {
@@ -6795,6 +6807,7 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 	json_object *json_status = NULL;
 	json_object *json_net = NULL;
 	char buff[BUFSIZ];
+	char buf2[BUFSIZ];
 	/* Route status display. */
 	if (use_json) {
 		json_status = json_object_new_object();
@@ -6806,11 +6819,14 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 	}
 
 	/* print prefix and mask */
-	if (use_json)
+	if (use_json) {
 		json_object_string_add(
 			json_net, "addrPrefix",
 			inet_ntop(p->family, &p->u.prefix, buff, BUFSIZ));
-	else
+		json_object_int_add(json_net, "prefixLen", p->prefixlen);
+		prefix2str(p, buf2, PREFIX_STRLEN);
+		json_object_string_add(json_net, "network", buf2);
+	} else
 		route_vty_out_route(p, vty, NULL);
 
 	/* Print attribute */
