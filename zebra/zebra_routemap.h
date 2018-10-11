@@ -25,7 +25,8 @@
 #include "lib/routemap.h"
 
 extern void zebra_route_map_init(void);
-extern void zebra_routemap_config_write_protocol(struct vty *vty);
+extern void zebra_routemap_config_write_protocol(struct vty *vty,
+						 struct zebra_vrf *vrf);
 extern char *zebra_get_import_table_route_map(afi_t afi, uint32_t table);
 extern void zebra_add_import_table_route_map(afi_t afi, const char *rmap_name,
 					     uint32_t table);
@@ -36,9 +37,8 @@ extern void zebra_route_map_write_delay_timer(struct vty *);
 extern route_map_result_t
 zebra_import_table_route_map_check(int family, int rib_type, uint8_t instance,
 				   const struct prefix *p,
-				   struct nexthop *nexthop,
-				   vrf_id_t vrf_id, route_tag_t tag,
-				   const char *rmap_name);
+				   struct nexthop *nexthop, vrf_id_t vrf_id,
+				   route_tag_t tag, const char *rmap_name);
 extern route_map_result_t
 zebra_route_map_check(int family, int rib_type, uint8_t instance,
 		      const struct prefix *p, struct nexthop *nexthop,

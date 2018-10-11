@@ -45,9 +45,6 @@
 
 static uint32_t zebra_rmap_update_timer = ZEBRA_RMAP_DEFAULT_UPDATE_TIMER;
 static struct thread *zebra_t_rmap_update = NULL;
-char *proto_rm[AFI_MAX][ZEBRA_ROUTE_MAX + 1]; /* "any" == ZEBRA_ROUTE_MAX */
-/* NH Tracking route map */
-char *nht_rm[AFI_MAX][ZEBRA_ROUTE_MAX + 1]; /* "any" == ZEBRA_ROUTE_MAX */
 char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
 struct nh_rmap_obj {
@@ -201,6 +198,117 @@ static void *route_match_interface_compile(const char *arg)
 static void route_match_interface_free(void *rule)
 {
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static void show_vrf_proto_rm(struct vty *vty, struct zebra_vrf *zvrf,
+			      int af_type)
+{
+	int i;
+
+	vty_out(vty, "Protocol    : route-map\n");
+	vty_out(vty, "------------------------\n");
+
+	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+		if (PROTO_RM_NAME(zvrf, af_type, i))
+			vty_out(vty, "%-10s  : %-10s\n", zebra_route_string(i),
+				PROTO_RM_NAME(zvrf, af_type, i));
+		else
+			vty_out(vty, "%-10s  : none\n", zebra_route_string(i));
+	}
+
+	if (PROTO_RM_NAME(zvrf, af_type, i))
+		vty_out(vty, "%-10s  : %-10s\n", "any",
+			PROTO_RM_NAME(zvrf, af_type, i));
+	else
+		vty_out(vty, "%-10s  : none\n", "any");
+}
+
+static void show_vrf_nht_rm(struct vty *vty, struct zebra_vrf *zvrf,
+			    int af_type)
+{
+	int i;
+
+	vty_out(vty, "Protocol    : route-map\n");
+	vty_out(vty, "------------------------\n");
+
+	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+		if (NHT_RM_NAME(zvrf, af_type, i))
+			vty_out(vty, "%-10s  : %-10s\n", zebra_route_string(i),
+				NHT_RM_NAME(zvrf, af_type, i));
+		else
+			vty_out(vty, "%-10s  : none\n", zebra_route_string(i));
+	}
+
+	if (NHT_RM_NAME(zvrf, af_type, i))
+		vty_out(vty, "%-10s  : %-10s\n", "any",
+			NHT_RM_NAME(zvrf, af_type, i));
+	else
+		vty_out(vty, "%-10s  : none\n", "any");
+}
+
+static int show_proto_rm(struct vty *vty, int af_type, const char *vrf_all,
+			 const char *vrf_name)
+{
+	struct zebra_vrf *zvrf;
+
+	if (vrf_all) {
+		struct vrf *vrf;
+
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			zvrf = (struct zebra_vrf *)vrf->info;
+			if (zvrf == NULL)
+				continue;
+			vty_out(vty, "VRF: %s\n", zvrf->vrf->name);
+			show_vrf_proto_rm(vty, zvrf, af_type);
+		}
+	} else {
+		vrf_id_t vrf_id = VRF_DEFAULT;
+
+		if (vrf_name)
+			VRF_GET_ID(vrf_id, vrf_name, false);
+
+		zvrf = zebra_vrf_lookup_by_id(vrf_id);
+		if (!zvrf)
+			return CMD_SUCCESS;
+
+		vty_out(vty, "VRF: %s\n", zvrf->vrf->name);
+		show_vrf_proto_rm(vty, zvrf, af_type);
+	}
+
+	return CMD_SUCCESS;
+}
+
+static int show_nht_rm(struct vty *vty, int af_type, const char *vrf_all,
+		       const char *vrf_name)
+{
+	struct zebra_vrf *zvrf;
+
+	if (vrf_all) {
+		struct vrf *vrf;
+
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			zvrf = (struct zebra_vrf *)vrf->info;
+			if (zvrf == NULL)
+				continue;
+
+			vty_out(vty, "VRF: %s\n", zvrf->vrf->name);
+			show_vrf_nht_rm(vty, zvrf, af_type);
+		}
+	} else {
+		vrf_id_t vrf_id = VRF_DEFAULT;
+
+		if (vrf_name)
+			VRF_GET_ID(vrf_id, vrf_name, false);
+
+		zvrf = zebra_vrf_lookup_by_id(vrf_id);
+		if (!zvrf)
+			return CMD_SUCCESS;
+
+		vty_out(vty, "VRF: %s\n", zvrf->vrf->name);
+		show_vrf_nht_rm(vty, zvrf, af_type);
+	}
+
+	return CMD_SUCCESS;
 }
 
 /* Route map commands for interface matching */
@@ -645,30 +753,17 @@ DEFPY (no_ip_protocol,
 	return ret;
 }
 
-DEFUN (show_ip_protocol,
+DEFPY (show_ip_protocol,
        show_ip_protocol_cmd,
-       "show ip protocol",
-        SHOW_STR
-        IP_STR
-       "IP protocol filtering status\n")
+       "show ip protocol [vrf <NAME$vrf_name|all$vrf_all>]",
+       SHOW_STR
+       IP_STR
+       "IP protocol filtering status\n"
+       VRF_FULL_CMD_HELP_STR)
 {
-	int i;
+	int ret = show_proto_rm(vty, AFI_IP, vrf_all, vrf_name);
 
-	vty_out(vty, "Protocol    : route-map \n");
-	vty_out(vty, "------------------------\n");
-	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (proto_rm[AFI_IP][i])
-			vty_out(vty, "%-10s  : %-10s\n", zebra_route_string(i),
-				proto_rm[AFI_IP][i]);
-		else
-			vty_out(vty, "%-10s  : none\n", zebra_route_string(i));
-	}
-	if (proto_rm[AFI_IP][i])
-		vty_out(vty, "%-10s  : %-10s\n", "any", proto_rm[AFI_IP][i]);
-	else
-		vty_out(vty, "%-10s  : none\n", "any");
-
-	return CMD_SUCCESS;
+	return ret;
 }
 
 DEFPY (ipv6_protocol,
@@ -734,30 +829,17 @@ DEFPY (no_ipv6_protocol,
 	return ret;
 }
 
-DEFUN (show_ipv6_protocol,
+DEFPY (show_ipv6_protocol,
        show_ipv6_protocol_cmd,
-       "show ipv6 protocol",
-        SHOW_STR
-        IP6_STR
-       "IPv6 protocol filtering status\n")
+       "show ipv6 protocol [vrf <NAME$vrf_name|all$vrf_all>]",
+       SHOW_STR
+       IP6_STR
+       "IPv6 protocol filtering status\n"
+       VRF_FULL_CMD_HELP_STR)
 {
-	int i;
+	int ret = show_proto_rm(vty, AFI_IP6, vrf_all, vrf_name);
 
-	vty_out(vty, "Protocol    : route-map \n");
-	vty_out(vty, "------------------------\n");
-	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (proto_rm[AFI_IP6][i])
-			vty_out(vty, "%-10s  : %-10s\n", zebra_route_string(i),
-				proto_rm[AFI_IP6][i]);
-		else
-			vty_out(vty, "%-10s  : none\n", zebra_route_string(i));
-	}
-	if (proto_rm[AFI_IP6][i])
-		vty_out(vty, "%-10s  : %-10s\n", "any", proto_rm[AFI_IP6][i]);
-	else
-		vty_out(vty, "%-10s  : none\n", "any");
-
-	return CMD_SUCCESS;
+	return ret;
 }
 
 DEFPY (ip_protocol_nht_rmap,
@@ -824,31 +906,18 @@ DEFPY (no_ip_protocol_nht_rmap,
 	return ret;
 }
 
-DEFUN (show_ip_protocol_nht,
+DEFPY (show_ip_protocol_nht,
        show_ip_protocol_nht_cmd,
-       "show ip nht route-map",
+       "show ip nht route-map [vrf <NAME$vrf_name|all$vrf_all>]",
        SHOW_STR
        IP_STR
        "IP nexthop tracking table\n"
-       "IP Next Hop tracking filtering status\n")
+       "IP Next Hop tracking filtering status\n"
+       VRF_FULL_CMD_HELP_STR)
 {
-	int i;
+	int ret = show_nht_rm(vty, AFI_IP, vrf_all, vrf_name);
 
-	vty_out(vty, "Protocol    : route-map \n");
-	vty_out(vty, "------------------------\n");
-	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (nht_rm[AFI_IP][i])
-			vty_out(vty, "%-10s  : %-10s\n", zebra_route_string(i),
-				nht_rm[AFI_IP][i]);
-		else
-			vty_out(vty, "%-10s  : none\n", zebra_route_string(i));
-	}
-	if (nht_rm[AFI_IP][i])
-		vty_out(vty, "%-10s  : %-10s\n", "any", nht_rm[AFI_IP][i]);
-	else
-		vty_out(vty, "%-10s  : none\n", "any");
-
-	return CMD_SUCCESS;
+	return ret;
 }
 
 DEFPY (ipv6_protocol_nht_rmap,
@@ -914,31 +983,18 @@ DEFPY (no_ipv6_protocol_nht_rmap,
 	return ret;
 }
 
-DEFUN (show_ipv6_protocol_nht,
+DEFPY (show_ipv6_protocol_nht,
        show_ipv6_protocol_nht_cmd,
-       "show ipv6 nht route-map",
+       "show ipv6 nht route-map [vrf <NAME$vrf_name|all$vrf_all>]",
        SHOW_STR
        IP6_STR
        "Next Hop filtering status\n"
-       "Route-map\n")
+       "Route-map\n"
+       VRF_FULL_CMD_HELP_STR)
 {
-	int i;
+	int ret = show_nht_rm(vty, AFI_IP6, vrf_all, vrf_name);
 
-	vty_out(vty, "Protocol    : route-map \n");
-	vty_out(vty, "------------------------\n");
-	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (nht_rm[AFI_IP6][i])
-			vty_out(vty, "%-10s  : %-10s\n", zebra_route_string(i),
-				nht_rm[AFI_IP6][i]);
-		else
-			vty_out(vty, "%-10s  : none\n", zebra_route_string(i));
-	}
-	if (nht_rm[AFI_IP][i])
-		vty_out(vty, "%-10s  : %-10s\n", "any", nht_rm[AFI_IP6][i]);
-	else
-		vty_out(vty, "%-10s  : none\n", "any");
-
-	return CMD_SUCCESS;
+	return ret;
 }
 
 /*XXXXXXXXXXXXXXXXXXXXXXXXXXXX*/
@@ -1699,43 +1755,54 @@ static void zebra_route_map_event(route_map_event_t event,
 }
 
 /* ip protocol configuration write function */
-void zebra_routemap_config_write_protocol(struct vty *vty)
+void zebra_routemap_config_write_protocol(struct vty *vty,
+					  struct zebra_vrf *zvrf)
 {
 	int i;
+	char space[2];
+
+	memset(space, 0, sizeof(space));
+
+	if (zvrf_id(zvrf) != VRF_DEFAULT)
+		sprintf(space, "%s", " ");
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (proto_rm[AFI_IP][i])
-			vty_out(vty, "ip protocol %s route-map %s\n",
-				zebra_route_string(i), proto_rm[AFI_IP][i]);
+		if (PROTO_RM_NAME(zvrf, AFI_IP, i))
+			vty_out(vty, "%sip protocol %s route-map %s\n", space,
+				zebra_route_string(i),
+				PROTO_RM_NAME(zvrf, AFI_IP, i));
 
-		if (proto_rm[AFI_IP6][i])
-			vty_out(vty, "ipv6 protocol %s route-map %s\n",
-				zebra_route_string(i), proto_rm[AFI_IP6][i]);
+		if (PROTO_RM_NAME(zvrf, AFI_IP6, i))
+			vty_out(vty, "%sipv6 protocol %s route-map %s\n", space,
+				zebra_route_string(i),
+				PROTO_RM_NAME(zvrf, AFI_IP6, i));
 
-		if (nht_rm[AFI_IP][i])
-			vty_out(vty, "ip nht %s route-map %s\n",
-				zebra_route_string(i), nht_rm[AFI_IP][i]);
+		if (NHT_RM_NAME(zvrf, AFI_IP, i))
+			vty_out(vty, "%sip nht %s route-map %s\n", space,
+				zebra_route_string(i),
+				NHT_RM_NAME(zvrf, AFI_IP, i));
 
-		if (nht_rm[AFI_IP6][i])
-			vty_out(vty, "ipv6 nht %s route-map %s\n",
-				zebra_route_string(i), nht_rm[AFI_IP6][i]);
+		if (NHT_RM_NAME(zvrf, AFI_IP6, i))
+			vty_out(vty, "%sipv6 nht %s route-map %s\n", space,
+				zebra_route_string(i),
+				NHT_RM_NAME(zvrf, AFI_IP6, i));
 	}
 
-	if (proto_rm[AFI_IP][ZEBRA_ROUTE_MAX])
-		vty_out(vty, "ip protocol %s route-map %s\n", "any",
-			proto_rm[AFI_IP][ZEBRA_ROUTE_MAX]);
+	if (PROTO_RM_NAME(zvrf, AFI_IP, ZEBRA_ROUTE_MAX))
+		vty_out(vty, "%sip protocol %s route-map %s\n", space, "any",
+			PROTO_RM_NAME(zvrf, AFI_IP, ZEBRA_ROUTE_MAX));
 
-	if (proto_rm[AFI_IP6][ZEBRA_ROUTE_MAX])
-		vty_out(vty, "ipv6 protocol %s route-map %s\n", "any",
-			proto_rm[AFI_IP6][ZEBRA_ROUTE_MAX]);
+	if (PROTO_RM_NAME(zvrf, AFI_IP6, ZEBRA_ROUTE_MAX))
+		vty_out(vty, "%sipv6 protocol %s route-map %s\n", space, "any",
+			PROTO_RM_NAME(zvrf, AFI_IP6, ZEBRA_ROUTE_MAX));
 
-	if (nht_rm[AFI_IP][ZEBRA_ROUTE_MAX])
-		vty_out(vty, "ip nht %s route-map %s\n", "any",
-			nht_rm[AFI_IP][ZEBRA_ROUTE_MAX]);
+	if (NHT_RM_NAME(zvrf, AFI_IP, ZEBRA_ROUTE_MAX))
+		vty_out(vty, "%sip nht %s route-map %s\n", space, "any",
+			NHT_RM_NAME(zvrf, AFI_IP, ZEBRA_ROUTE_MAX));
 
-	if (nht_rm[AFI_IP6][ZEBRA_ROUTE_MAX])
-		vty_out(vty, "ipv6 nht %s route-map %s\n", "any",
-			nht_rm[AFI_IP6][ZEBRA_ROUTE_MAX]);
+	if (NHT_RM_NAME(zvrf, AFI_IP6, ZEBRA_ROUTE_MAX))
+		vty_out(vty, "%sipv6 nht %s route-map %s\n", space, "any",
+			NHT_RM_NAME(zvrf, AFI_IP6, ZEBRA_ROUTE_MAX));
 
 	if (zebra_rmap_update_timer != ZEBRA_RMAP_DEFAULT_UPDATE_TIMER)
 		vty_out(vty, "zebra route-map delay-timer %d\n",

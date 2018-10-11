@@ -2374,9 +2374,6 @@ static int config_write_protocol(struct vty *vty)
 								      == MCAST_MIX_DISTANCE
 							      ? "lower-distance"
 							      : "longer-prefix");
-
-	zebra_routemap_config_write_protocol(vty);
-
 	return 1;
 }
 
