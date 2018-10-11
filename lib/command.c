@@ -1281,7 +1281,8 @@ int cmd_execute(struct vty *vty, const char *cmd,
  *         as to why no command could be executed.
  */
 int command_config_read_one_line(struct vty *vty,
-				 const struct cmd_element **cmd, int use_daemon)
+				 const struct cmd_element **cmd,
+				 uint32_t line_num, int use_daemon)
 {
 	vector vline;
 	int saved_node;
@@ -1322,8 +1323,16 @@ int command_config_read_one_line(struct vty *vty,
 		}
 	}
 
-	if (ret != CMD_SUCCESS && ret != CMD_WARNING)
-		memcpy(vty->error_buf, vty->buf, VTY_BUFSIZ);
+	if (ret != CMD_SUCCESS && ret != CMD_WARNING) {
+		struct vty_error *ve = XCALLOC(MTYPE_TMP, sizeof(*ve));
+
+		memcpy(ve->error_buf, vty->buf, VTY_BUFSIZ);
+		ve->line_num = line_num;
+		if (!vty->error)
+			vty->error = list_new();
+
+		listnode_add(vty->error, ve);
+	}
 
 	cmd_free_strvec(vline);
 
@@ -1337,10 +1346,9 @@ int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 	*line_num = 0;
 
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
-		if (!error_ret)
-			++(*line_num);
+		++(*line_num);
 
-		ret = command_config_read_one_line(vty, NULL, 0);
+		ret = command_config_read_one_line(vty, NULL, *line_num, 0);
 
 		if (ret != CMD_SUCCESS && ret != CMD_WARNING
 		    && ret != CMD_ERR_NOTHING_TODO)
