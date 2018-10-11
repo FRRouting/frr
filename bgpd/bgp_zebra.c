@@ -1224,9 +1224,15 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	/*
 	 * vrf leaking support (will have only one nexthop)
 	 */
-	if (info->extra && info->extra->bgp_orig)
+	if (info->extra && info->extra->vrf_id_local)
+		nh_othervrf = 0;
+	else if (info->extra && info->extra->vrf_id != VRF_UNKNOWN) {
+		if (info->extra->vrf_id != bgp->vrf_id)
+			nh_othervrf = 0;
+		else
+			nh_othervrf = 1;
+	} else if (info->extra && info->extra->bgp_orig)
 		nh_othervrf = 1;
-
 	/* Make Zebra API structure. */
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = bgp->vrf_id;
@@ -1284,8 +1290,13 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			continue;
 
 		api_nh = &api.nexthops[valid_nh_count];
-		api_nh->vrf_id = nh_othervrf ? info->extra->bgp_orig->vrf_id
-					     : bgp->vrf_id;
+		if (nh_othervrf) {
+			if (info->extra->vrf_id != VRF_UNKNOWN)
+				api_nh->vrf_id = info->extra->vrf_id;
+			else if (info->extra->bgp_orig->vrf_id)
+				api_nh->vrf_id = info->extra->bgp_orig->vrf_id;
+		} else
+			api_nh->vrf_id = bgp->vrf_id;
 		if (nh_family == AF_INET) {
 			if (bgp_debug_zebra(&api.prefix)) {
 				if (mpinfo->extra) {
