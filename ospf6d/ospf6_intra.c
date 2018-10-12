@@ -1729,7 +1729,7 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 		listnode_add_sort(route->paths, path);
 
 		old = ospf6_route_lookup(&route->prefix, oa->route_table);
-		if (old && (ospf6_route_cmp(route, old) == 0)) {
+		if (old) {
 			if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
 				prefix2str(&route->prefix, buf, sizeof(buf));
 				zlog_debug("%s Update route: %s old cost %u new cost %u paths %u nh %u",
