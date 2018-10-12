@@ -2807,6 +2807,40 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 	}
 }
 
+#ifndef VTYSH_EXTRACT_PL
+#include "bgpd/bgp_evpn_vty_clippy.c"
+#endif
+
+DEFPY(bgp_evpn_flood_control,
+      bgp_evpn_flood_control_cmd,
+      "[no$no] flooding <disable$disable|head-end-replication$her>",
+      NO_STR
+      "Specify handling for BUM packets\n"
+      "Do not flood any BUM packets\n"
+      "Flood BUM packets using head-end replication\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	enum vxlan_flood_control flood_ctrl;
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	if (disable && !no)
+		flood_ctrl = VXLAN_FLOOD_DISABLED;
+	else if (her || no)
+		flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
+	else
+		return CMD_WARNING;
+
+	if (bgp->vxlan_flood_ctrl == flood_ctrl)
+		return CMD_SUCCESS;
+
+	bgp->vxlan_flood_ctrl = flood_ctrl;
+	bgp_evpn_flood_control_change(bgp);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (bgp_evpn_advertise_default_gw_vni,
        bgp_evpn_advertise_default_gw_vni_cmd,
        "advertise-default-gw",
@@ -3210,6 +3244,12 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 			json_object_string_add(json, "advertiseAllVnis",
 					       is_evpn_enabled() ? "Enabled"
 								 : "Disabled");
+			json_object_string_add(
+				json, "flooding",
+				bgp_def->vxlan_flood_ctrl
+						== VXLAN_FLOOD_HEAD_END_REPL
+					? "Head-end replication"
+					: "Disabled");
 			json_object_int_add(json, "numVnis", num_vnis);
 			json_object_int_add(json, "numL2Vnis", num_l2vnis);
 			json_object_int_add(json, "numL3Vnis", num_l3vnis);
@@ -3219,6 +3259,11 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 							    : "Disabled");
 			vty_out(vty, "Advertise All VNI flag: %s\n",
 				is_evpn_enabled() ? "Enabled" : "Disabled");
+			vty_out(vty, "BUM flooding: %s\n",
+				bgp_def->vxlan_flood_ctrl
+						== VXLAN_FLOOD_HEAD_END_REPL
+					? "Head-end replication"
+					: "Disabled");
 			vty_out(vty, "Number of L2 VNIs: %u\n", num_l2vnis);
 			vty_out(vty, "Number of L3 VNIs: %u\n", num_l3vnis);
 		}
@@ -4874,6 +4919,9 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (bgp->advertise_gw_macip)
 		vty_out(vty, "  advertise-default-gw\n");
 
+	if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_DISABLED)
+		vty_out(vty, "  flooding disable\n");
+
 	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
 		       BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST)) {
 		if (bgp->adv_cmd_rmap[AFI_IP][SAFI_UNICAST].name)
@@ -4965,6 +5013,7 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_type5_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_default_originate_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_default_originate_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_flood_control_cmd);
 
 	/* test commands */
 	install_element(BGP_EVPN_NODE, &test_adv_evpn_type4_route_cmd);

@@ -44,6 +44,15 @@ static inline int is_evpn_enabled()
 	return zvrf ? zvrf->advertise_all_vni : 0;
 }
 
+static inline int
+is_vxlan_flooding_head_end()
+{
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!zvrf)
+		return 0;
+	return (zvrf->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL);
+}
 
 /* VxLAN interface change flags of interest. */
 #define ZEBRA_VXLIF_LOCAL_IP_CHANGE     0x1
@@ -57,6 +66,7 @@ extern void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS);
+extern void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS);

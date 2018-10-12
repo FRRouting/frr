@@ -2439,6 +2439,7 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_IPSET_ENTRY_DELETE] = zread_ipset_entry,
 	[ZEBRA_IPTABLE_ADD] = zread_iptable,
 	[ZEBRA_IPTABLE_DELETE] = zread_iptable,
+	[ZEBRA_VXLAN_FLOOD_CONTROL] = zebra_vxlan_flood_control,
 };
 
 #if defined(HANDLE_ZAPI_FUZZING)
