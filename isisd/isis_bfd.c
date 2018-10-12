@@ -71,8 +71,8 @@ static void bfd_adj_event(struct isis_adjacency *adj, struct prefix *dst,
 		return;
 
 	int old_status = adj->bfd_session->status;
-	adj->bfd_session->status = new_status;
 
+	adj->bfd_session->status = new_status;
 	if (old_status == new_status)
 		return;
 
@@ -108,6 +108,7 @@ static int isis_bfd_interface_dest_update(int command, struct zclient *zclient,
 
 	if (isis->debugs & DEBUG_BFD) {
 		char dst_buf[INET6_ADDRSTRLEN];
+
 		inet_ntop(AF_INET, &dst_ip.u.prefix4,
 			  dst_buf, sizeof(dst_buf));
 
@@ -116,6 +117,7 @@ static int isis_bfd_interface_dest_update(int command, struct zclient *zclient,
 	}
 
 	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
 	if (!circuit)
 		return 0;
 
@@ -236,6 +238,7 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, int command)
 		goto out;
 
 	struct list *local_ips = fabricd_ip_addrs(adj->circuit);
+
 	if (!local_ips)
 		goto out;
 
@@ -296,6 +299,7 @@ void isis_bfd_circuit_cmd(struct isis_circuit *circuit, int command)
 
 			struct listnode *node;
 			struct isis_adjacency *adj;
+
 			for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj))
 				bfd_adj_cmd(adj, command);
 		}

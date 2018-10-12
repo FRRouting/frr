@@ -507,6 +507,7 @@ DEFUN (isis_bfd,
        "Enable BFD support\n")
 {
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
@@ -530,6 +531,7 @@ DEFUN (no_isis_bfd,
 )
 {
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 

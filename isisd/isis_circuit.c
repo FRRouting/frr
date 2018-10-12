@@ -1142,7 +1142,8 @@ int isis_interface_config_write(struct vty *vty)
 					circuit->passwd.passwd);
 				write++;
 			}
-			write += hook_call(isis_circuit_config_write, circuit, vty);
+			write += hook_call(isis_circuit_config_write,
+					   circuit, vty);
 		}
 		vty_endframe(vty, "!\n");
 	}
