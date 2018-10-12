@@ -3228,32 +3228,25 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 		for (bn = bgp_table_top(bgp->route[afi][safi]); bn;
 		     bn = bgp_route_next(bn)) {
 			bgp_static = bgp_static_get_node_info(bn);
-			if (bgp_static != NULL) {
-				if (bgp_static->rmap.name
-				    && (strcmp(rmap_name, bgp_static->rmap.name)
-					== 0)) {
+			if (!bgp_static)
+				continue;
 
-					bgp_static->rmap.map = map;
+			if (!bgp_static->rmap.name
+			    || (strcmp(rmap_name, bgp_static->rmap.name) != 0))
+				continue;
 
-					if (route_update)
-						if (!bgp_static->backdoor) {
-							if (bgp_debug_zebra(
-								    &bn->p))
-								zlog_debug(
-									"Processing route_map %s update on "
-									"static route %s",
-									rmap_name,
-									inet_ntop(
-										bn->p.family,
-										&bn->p.u.prefix,
-										buf,
-										INET6_ADDRSTRLEN));
-							bgp_static_update(
-								bgp, &bn->p,
-								bgp_static, afi,
-								safi);
-						}
-				}
+			bgp_static->rmap.map = map;
+
+			if (route_update && !bgp_static->backdoor) {
+				if (bgp_debug_zebra(&bn->p))
+					zlog_debug(
+						"Processing route_map %s update on static route %s",
+						rmap_name,
+						inet_ntop(bn->p.family,
+							  &bn->p.u.prefix, buf,
+							  INET6_ADDRSTRLEN));
+				bgp_static_update(bgp, &bn->p, bgp_static, afi,
+						  safi);
 			}
 		}
 	}
@@ -3269,38 +3262,38 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 				continue;
 
 			for (ALL_LIST_ELEMENTS_RO(red_list, node, red)) {
-				if (red->rmap.name
-				    && (strcmp(rmap_name, red->rmap.name)
-					== 0)) {
-					red->rmap.map = map;
+				if (!red->rmap.name
+				    || (strcmp(rmap_name, red->rmap.name) != 0))
+					continue;
 
-					if (route_update) {
-						if (BGP_DEBUG(zebra, ZEBRA))
-							zlog_debug(
-								"Processing route_map %s update on "
-								"redistributed routes",
-								rmap_name);
+				red->rmap.map = map;
 
-						bgp_redistribute_resend(
-							bgp, afi, i,
+				if (!route_update)
+					continue;
+
+				if (BGP_DEBUG(zebra, ZEBRA))
+					zlog_debug(
+						"Processing route_map %s update on redistributed routes",
+						rmap_name);
+
+				bgp_redistribute_resend(bgp, afi, i,
 							red->instance);
-					}
-				}
 			}
 		}
 
 	/* for type5 command route-maps */
 	FOREACH_AFI_SAFI (afi, safi) {
-		if (bgp->adv_cmd_rmap[afi][safi].name
-		    && strcmp(rmap_name, bgp->adv_cmd_rmap[afi][safi].name)
-			       == 0) {
-			if (BGP_DEBUG(zebra, ZEBRA))
-				zlog_debug(
-					"Processing route_map %s update on advertise type5 route command",
-					rmap_name);
-			bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
-			bgp_evpn_advertise_type5_routes(bgp, afi, safi);
-		}
+		if (!bgp->adv_cmd_rmap[afi][safi].name
+		    || strcmp(rmap_name, bgp->adv_cmd_rmap[afi][safi].name)
+			       != 0)
+			continue;
+
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug(
+				"Processing route_map %s update on advertise type5 route command",
+				rmap_name);
+		bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
+		bgp_evpn_advertise_type5_routes(bgp, afi, safi);
 	}
 }
 
