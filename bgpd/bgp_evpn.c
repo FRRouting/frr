@@ -1921,8 +1921,10 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	/* Delete route entry in the VNI route table. This can just be removed.
 	 */
 	delete_evpn_route_entry(bgp, afi, safi, rn, &pi);
-	if (pi)
+	if (pi) {
 		bgp_path_info_reap(rn, pi);
+		evpn_route_select_install(bgp, vpn, rn);
+	}
 	bgp_unlock_node(rn);
 
 	return 0;
