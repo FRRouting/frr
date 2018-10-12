@@ -2835,7 +2835,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 	peer = peer_lookup_by_conf_if(bgp, conf_if);
 	if (peer) {
 		if (as_str)
-			ret = peer_remote_as(bgp, &su, conf_if, &as, as_type,
+			ret = peer_remote_as(bgp, NULL, conf_if, &as, as_type,
 					     afi, safi);
 	} else {
 		if (bgp_flag_check(bgp, BGP_FLAG_NO_DEFAULT_IPV4)
