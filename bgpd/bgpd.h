@@ -122,6 +122,9 @@ struct bgp_master {
 	/* Listener address */
 	char *address;
 
+	/* The Mac table */
+	struct hash *self_mac_hash;
+
 	/* BGP start time.  */
 	time_t start_time;
 
