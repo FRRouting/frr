@@ -30,6 +30,7 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_evpn_private.h"
 
 DEFINE_MTYPE_STATIC(BGPD, BSM, "Mac Hash Entry");
 DEFINE_MTYPE_STATIC(BGPD, BSM_STRING, "Mac Hash Entry Interface String");
@@ -67,7 +68,9 @@ static void bgp_mac_hash_free(void *data)
 {
 	struct bgp_self_mac *bsm = data;
 
-	list_delete(&bsm->ifp_list);
+	if (bsm->ifp_list)
+		list_delete(&bsm->ifp_list);
+
 	XFREE(MTYPE_BSM, bsm);
 }
 
@@ -129,9 +132,109 @@ static struct bgp_self_mac *bgp_mac_find_interface_name(const char *ifname)
 	return bmfi.bsm;
 }
 
-static void bgp_mac_remove_ifp_internal(struct bgp_self_mac *bsm, char *ifname)
+static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
+					 struct bgp_table *table)
+{
+	struct bgp_node *prn, *rn;
+	struct bgp_path_info *pi;
+	uint32_t count = 0;
+
+	for (prn = bgp_table_top(table); prn; prn = bgp_route_next(prn)) {
+		struct bgp_table *sub = prn->info;
+
+		if (!sub)
+			continue;
+
+		for (rn = bgp_table_top(sub); rn; rn = bgp_route_next(rn)) {
+			struct prefix_rd prd;
+			uint32_t num_labels = 0;
+			mpls_label_t *label_pnt = NULL;
+			struct bgp_route_evpn evpn;
+
+			count++;
+			for (pi = rn->info; pi; pi = pi->next) {
+				if (pi->peer == peer)
+					break;
+			}
+
+			if (!pi)
+				continue;
+
+			if (pi->extra)
+				num_labels = pi->extra->num_labels;
+			if (num_labels)
+				label_pnt = &pi->extra->label[0];
+
+			prd.family = AF_UNSPEC;
+			prd.prefixlen = 64;
+			memcpy(&prd.val, &prn->p.u.val, 8);
+
+			memcpy(&evpn, &pi->attr->evpn_overlay, sizeof(evpn));
+			int32_t ret = bgp_update(peer, &rn->p,
+						 pi->addpath_rx_id,
+						 pi->attr, AFI_L2VPN, SAFI_EVPN,
+						 ZEBRA_ROUTE_BGP,
+						 BGP_ROUTE_NORMAL, &prd,
+						 label_pnt, num_labels,
+						 1, &evpn);
+
+			if (ret < 0)
+				bgp_unlock_node(rn);
+		}
+	}
+}
+
+static void bgp_mac_rescan_evpn_table(struct bgp *bgp)
 {
 	struct listnode *node;
+	struct peer *peer;
+	safi_t safi;
+	afi_t afi;
+
+	afi = AFI_L2VPN;
+	safi = SAFI_EVPN;
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+			continue;
+
+		if (peer->status != Established)
+			continue;
+
+		if (CHECK_FLAG(peer->af_flags[afi][safi],
+			       PEER_FLAG_SOFT_RECONFIG)) {
+			if (bgp_debug_update(peer, NULL, NULL, 1))
+				zlog_debug("Processing EVPN MAC interface change on peer %s (inbound, soft-reconfig)",
+					   peer->host);
+
+			bgp_soft_reconfig_in(peer, afi, safi);
+		} else {
+			struct bgp_table *table = bgp->rib[afi][safi];
+
+			if (bgp_debug_update(peer, NULL, NULL, 1))
+				zlog_debug("Processing EVPN MAC interface change on peer %s",
+					   peer->host);
+			bgp_process_mac_rescan_table(bgp, peer, table);
+		}
+	}
+}
+
+static void bgp_mac_rescan_all_evpn_tables(void)
+{
+	struct listnode *node;
+	struct bgp *bgp;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		struct bgp_table *table = bgp->rib[AFI_L2VPN][SAFI_EVPN];
+
+		if (table)
+			bgp_mac_rescan_evpn_table(bgp);
+	}
+}
+
+static void bgp_mac_remove_ifp_internal(struct bgp_self_mac *bsm, char *ifname)
+{
+	struct listnode *node = NULL;
 	char *name;
 
 	for (ALL_LIST_ELEMENTS_RO(bsm->ifp_list, node, name)) {
@@ -149,7 +252,7 @@ static void bgp_mac_remove_ifp_internal(struct bgp_self_mac *bsm, char *ifname)
 		list_delete(&bsm->ifp_list);
 		XFREE(MTYPE_BSM, bsm);
 
-		/* Code to rescan tables */
+		bgp_mac_rescan_all_evpn_tables();
 	}
 }
 
@@ -188,7 +291,7 @@ void bgp_mac_add_mac_entry(struct interface *ifp)
 		listnode_add(bsm->ifp_list, ifname);
 	}
 
-	/* Code to rescan */
+	bgp_mac_rescan_all_evpn_tables();
 }
 
 void bgp_mac_del_mac_entry(struct interface *ifp)
@@ -206,6 +309,26 @@ void bgp_mac_del_mac_entry(struct interface *ifp)
 	 * win if we happen to have received it from a peer.
 	 */
 	bgp_mac_remove_ifp_internal(bsm, ifp->name);
+}
+
+bool bgp_mac_entry_exists(struct prefix *p)
+{
+	struct prefix_evpn *pevpn = (struct prefix_evpn *)p;
+	struct bgp_self_mac lookup;
+	struct bgp_self_mac *bsm;
+
+	if (pevpn->family != AF_EVPN)
+		return false;
+
+	if (pevpn->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
+		return false;
+
+	memcpy(&lookup.macaddr, &p->u.prefix_evpn.macip_addr.mac, ETH_ALEN);
+	bsm = hash_lookup(bm->self_mac_hash, &lookup);
+	if (!bsm)
+		return false;
+
+	return true;
 }
 
 static void bgp_mac_show_mac_entry(struct hash_backet *backet, void *arg)
