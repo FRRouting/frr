@@ -23,5 +23,13 @@
 void bgp_mac_init(void);
 void bgp_mac_finish(void);
 
+/*
+ * Functions to add/delete the mac entry from the appropriate
+ * bgp hash's.  Additionally to do some additional processing
+ * to allow the win/loss to be processed.
+ */
+void bgp_mac_add_mac_entry(struct interface *ifp);
+void bgp_mac_del_mac_entry(struct interface *ifp);
+
 void bgp_mac_dump_table(struct vty *vty);
 #endif
