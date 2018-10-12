@@ -1090,8 +1090,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 		zebra_add_rnh_client(rnh, client, type, zvrf_id(zvrf));
 		/* Anything not AF_INET/INET6 has been filtered out above */
 		if (!exist)
-			zebra_evaluate_rnh(zvrf_id(zvrf), p.family, 1, type,
-					   &p);
+			zebra_evaluate_rnh(zvrf, p.family, 1, type, &p);
 	}
 
 stream_failure:

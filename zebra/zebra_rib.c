@@ -886,6 +886,8 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	int family;
 	char buf[SRCDEST2STR_BUFFER];
 	const struct prefix *p, *src_p;
+	struct zebra_vrf *zvrf;
+
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
 	if (rn->p.family == AF_INET)
@@ -949,7 +951,8 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	}
 
 	/* XXX: What exactly do those checks do? Do we support
-	 * e.g. IPv4 routes with IPv6 nexthops or vice versa? */
+	 * e.g. IPv4 routes with IPv6 nexthops or vice versa?
+	 */
 	if (RIB_SYSTEM_ROUTE(re) || (family == AFI_IP && p->family != AF_INET)
 	    || (family == AFI_IP6 && p->family != AF_INET6))
 		return CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -969,9 +972,16 @@ static unsigned nexthop_active_check(struct route_node *rn,
 
 	memset(&nexthop->rmap_src.ipv6, 0, sizeof(union g_addr));
 
+	zvrf = zebra_vrf_lookup_by_id(nexthop->vrf_id);
+	if (!zvrf) {
+		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+			zlog_debug("\t%s: zvrf is NULL", __PRETTY_FUNCTION__);
+		return CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+	}
+
 	/* It'll get set if required inside */
-	ret = zebra_route_map_check(family, re->type, re->instance, p, nexthop,
-				    nexthop->vrf_id, re->tag);
+	ret = zebra_route_map_check(family, re->type, re->instance, p,
+				    nexthop, zvrf, re->tag);
 	if (ret == RMAP_DENYMATCH) {
 		if (IS_ZEBRA_DEBUG_RIB) {
 			srcdest_rnode2str(rn, buf, sizeof(buf));
@@ -1002,6 +1012,7 @@ static int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 	union g_addr prev_src;
 	unsigned int prev_active, new_active, old_num_nh;
 	ifindex_t prev_index;
+
 	old_num_nh = re->nexthop_active_num;
 
 	re->nexthop_active_num = 0;
@@ -1890,14 +1901,12 @@ static void meta_queue_process_complete(struct work_queue *dummy)
 			continue;
 
 		zvrf->flags &= ~ZEBRA_VRF_RIB_SCHEDULED;
-		zebra_evaluate_rnh(zvrf_id(zvrf), AF_INET, 0, RNH_NEXTHOP_TYPE,
+		zebra_evaluate_rnh(zvrf, AF_INET, 0, RNH_NEXTHOP_TYPE, NULL);
+		zebra_evaluate_rnh(zvrf, AF_INET, 0, RNH_IMPORT_CHECK_TYPE,
 				   NULL);
-		zebra_evaluate_rnh(zvrf_id(zvrf), AF_INET, 0,
-				   RNH_IMPORT_CHECK_TYPE, NULL);
-		zebra_evaluate_rnh(zvrf_id(zvrf), AF_INET6, 0, RNH_NEXTHOP_TYPE,
+		zebra_evaluate_rnh(zvrf, AF_INET6, 0, RNH_NEXTHOP_TYPE, NULL);
+		zebra_evaluate_rnh(zvrf, AF_INET6, 0, RNH_IMPORT_CHECK_TYPE,
 				   NULL);
-		zebra_evaluate_rnh(zvrf_id(zvrf), AF_INET6, 0,
-				   RNH_IMPORT_CHECK_TYPE, NULL);
 	}
 
 	/* Schedule LSPs for processing, if needed. */

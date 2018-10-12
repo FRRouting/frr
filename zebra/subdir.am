@@ -95,6 +95,10 @@ zebra_zebra_SOURCES = \
 zebra/zebra_vty_clippy.c: $(CLIPPY_DEPS)
 zebra/zebra_vty.$(OBJEXT): zebra/zebra_vty_clippy.c
 
+
+zebra/zebra_routemap_clippy.c: $(CLIPPY_DEPS)
+zebra/zebra_routemap.$(OBJEXT): zebra/zebra_routemap_clippy.c
+
 noinst_HEADERS += \
 	zebra/connected.h \
 	zebra/debug.h \
