@@ -27,6 +27,7 @@ endif
 noinst_HEADERS += \
 	isisd/dict.h \
 	isisd/isis_adjacency.h \
+	isisd/isis_bfd.h \
 	isisd/isis_circuit.h \
 	isisd/isis_common.h \
 	isisd/isis_constants.h \
@@ -60,6 +61,7 @@ noinst_HEADERS += \
 LIBISIS_SOURCES = \
 	isisd/dict.c \
 	isisd/isis_adjacency.c \
+	isisd/isis_bfd.c \
 	isisd/isis_circuit.c \
 	isisd/isis_csm.c \
 	isisd/isis_dr.c \

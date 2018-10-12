@@ -216,25 +216,6 @@ void isis_circuit_is_type_set(struct isis_circuit *circuit, int newtype)
  *
  * ***********************************************************************/
 
-void isis_event_adjacency_state_change(struct isis_adjacency *adj, int newstate)
-{
-	/* adjacency state change event.
-	 * - the only proto-type was supported */
-
-	/* invalid arguments */
-	if (!adj || !adj->circuit || !adj->circuit->area)
-		return;
-
-	if (isis->debugs & DEBUG_EVENTS)
-		zlog_debug("ISIS-Evt (%s) Adjacency State change",
-			   adj->circuit->area->area_tag);
-
-	/* LSP generation again */
-	lsp_regenerate_schedule(adj->circuit->area, IS_LEVEL_1 | IS_LEVEL_2, 0);
-
-	return;
-}
-
 /* events supporting code */
 
 int isis_event_dis_status_change(struct thread *thread)
