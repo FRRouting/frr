@@ -2177,6 +2177,87 @@ static int iptable_notify_owner(int command, struct zclient *zclient,
 	return 0;
 }
 
+/* Process route notification messages from RIB */
+static int bgp_zebra_route_notify_owner(int command, struct zclient *zclient,
+					zebra_size_t length, vrf_id_t vrf_id)
+{
+	struct prefix p;
+	enum zapi_route_notify_owner note;
+	uint32_t table_id;
+	char buf[PREFIX_STRLEN];
+	afi_t afi;
+	safi_t safi;
+	struct bgp_node *rn;
+	struct bgp *bgp;
+	struct bgp_path_info *ri, *new_select;
+
+	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note,
+					&afi, &safi)) {
+		zlog_err("%s : error in msg decode", __PRETTY_FUNCTION__);
+		return -1;
+	}
+
+	bgp = bgp_lookup_by_vrf_id(vrf_id);
+	if (!bgp) {
+		flog_err(EC_BGP_INVALID_BGP_INSTANCE,
+			"%s : bgp instance not found vrf %d",
+			__PRETTY_FUNCTION__, vrf_id);
+		return -1;
+	}
+
+	if ((afi < AFI_IP) || (afi >= AFI_MAX) ||
+		(safi < SAFI_UNICAST) || (safi >= SAFI_MAX)) {
+		flog_err(EC_BGP_INVALID_ROUTE,
+			"%s : invalid afi %d, safi %d", __PRETTY_FUNCTION__,
+			afi, safi);
+	}
+
+	rn = bgp_afi_node_lookup(bgp->rib[afi][safi], afi, safi, &p,
+					&bgp->vrf_prd);
+	if (!rn) {
+		flog_err(EC_BGP_INVALID_ROUTE,
+			"%s : route %s not found afi %d, safi %d",
+			__PRETTY_FUNCTION__, buf, afi, safi);
+		return -1;
+	}
+
+	new_select = NULL;
+	for (ri = rn->info; ri; ri = ri->next)
+		if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)) {
+			new_select = ri;
+		break;
+	}
+
+	if (new_select == NULL) {
+		flog_err(EC_BGP_INVALID_ROUTE,
+			"%s : selected route not found for prefix %s",
+			__PRETTY_FUNCTION__, buf);
+		return -1;
+	}
+
+	switch (note) {
+	case ZAPI_ROUTE_FAIL_INSTALL:
+		flog_err(EC_BGP_FIB_INSTALL_ERROR,
+			"%s: [%s] Route install failure for afi %d, safi %d",
+			__PRETTY_FUNCTION__, buf, afi, safi);
+		break;
+	case ZAPI_ROUTE_INSTALLED:
+		/* Clear the flags so that route can be processed */
+		if (CHECK_FLAG(rn->flags, BGP_NODE_FIB_INSTALL_PENDING)) {
+			UNSET_FLAG(rn->flags, BGP_NODE_FIB_INSTALL_PENDING);
+			/* Advertise the route */
+			group_announce_route(bgp, afi, safi, rn, new_select);
+		}
+		break;
+	default:
+		flog_err(EC_BGP_FIB_INSTALL_ERROR,
+			"%s : invalid status",  __PRETTY_FUNCTION__);
+		break;
+	}
+
+	return 0;
+}
+
 static void bgp_encode_pbr_rule_action(struct stream *s,
 				  struct bgp_pbr_action *pbra)
 {
@@ -2590,6 +2671,7 @@ void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient->ipset_notify_owner = ipset_notify_owner;
 	zclient->ipset_entry_notify_owner = ipset_entry_notify_owner;
 	zclient->iptable_notify_owner = iptable_notify_owner;
+	zclient->route_notify_owner = bgp_zebra_route_notify_owner;
 	zclient->instance = instance;
 }
 

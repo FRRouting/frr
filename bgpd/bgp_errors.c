@@ -469,6 +469,24 @@ static struct log_ref ferr_bgp_err[] = {
 		.suggestion = "Gather data and open a Issue so that this developmental escape can be fixed, the peer should have been reset",
 	},
 	{
+		.code = EC_BGP_FIB_INSTALL_ERROR,
+		.title = "Error installing BGP route in FIB",
+		.description = "BGP route not successfully added to FIB",
+		.suggestion = "Get log files from router and open an issue",
+	},
+	{
+		.code = EC_BGP_INVALID_BGP_INSTANCE,
+		.title = "BGP instance for the specifc vrf is invalid",
+		.description = "Indicates that specified bgp instance is NULL",
+		.suggestion = "Get log files from router and open an issue",
+	},
+	{
+		.code = EC_BGP_INVALID_ROUTE,
+		.title = "BGP route node is invalid",
+		.description = "BGP route for the specified AFI/SAFI is NULL",
+		.suggestion = "Get log files from router and open an issue",
+	},
+	{
 		.code = END_FERR,
 	}
 };

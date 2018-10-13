@@ -67,6 +67,7 @@ struct bgp_node {
 #define BGP_NODE_USER_CLEAR             (1 << 1)
 #define BGP_NODE_LABEL_CHANGED          (1 << 2)
 #define BGP_NODE_REGISTERED_FOR_LABEL   (1 << 3)
+#define BGP_NODE_FIB_INSTALL_PENDING    (1 << 4)
 };
 
 /*

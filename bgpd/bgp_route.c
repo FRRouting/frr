@@ -2075,10 +2075,14 @@ int subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	struct attr attr;
 	afi_t afi;
 	safi_t safi;
+	struct bgp *bgp;
+	bool advertise = true;
+	bool fib_enabled = true;
 
 	p = &rn->p;
 	afi = SUBGRP_AFI(subgrp);
 	safi = SUBGRP_SAFI(subgrp);
+	bgp = SUBGRP_INST(subgrp);
 	onlypeer = ((SUBGRP_PCOUNT(subgrp) == 1) ? (SUBGRP_PFIRST(subgrp))->peer
 						 : NULL);
 
@@ -2097,12 +2101,24 @@ int subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	memset(&attr, 0, sizeof(struct attr));
 	/* It's initialized in bgp_announce_check() */
 
+	if ((bgp_zebra_num_connects() == 0) ||
+		bgp_option_check(BGP_OPT_NO_FIB))
+		fib_enabled = false;
+
+	/* Do not advertise routes that are not installed in FIB */
+	if (bgp && CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING)
+		&& CHECK_FLAG(rn->flags, BGP_NODE_FIB_INSTALL_PENDING)
+		&& fib_enabled)
+		advertise = false;
+
 	/* Announcement to the subgroup.  If the route is filtered withdraw it.
 	 */
 	if (selected) {
-		if (subgroup_announce_check(rn, selected, subgrp, p, &attr))
-			bgp_adj_out_set_subgroup(rn, subgrp, &attr, selected);
-		else
+		if (subgroup_announce_check(rn, selected, subgrp, p, &attr)) {
+			if (advertise)
+				bgp_adj_out_set_subgroup(rn, subgrp,
+						&attr, selected);
+		} else
 			bgp_adj_out_unset_subgroup(rn, subgrp, 1,
 						   selected->addpath_tx_id);
 	}
@@ -2900,6 +2916,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	int vnc_implicit_withdraw = 0;
 #endif
 	int same_attr = 0;
+	bool fib_enabled = true;
 
 	memset(&new_attr, 0, sizeof(struct attr));
 	new_attr.label_index = BGP_INVALID_LABEL_INDEX;
@@ -2912,6 +2929,22 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		has_valid_label = (num_labels > 0) ? 1 : 0;
 	else
 		has_valid_label = bgp_is_valid_label(label);
+
+	/* If the route is newly learnt from peer and suppress fib is
+	 * configured, advertise route when route is installed in fib
+	 */
+
+	if ((bgp_zebra_num_connects() == 0) ||
+		bgp_option_check(BGP_OPT_NO_FIB))
+		fib_enabled = false;
+
+	if (bgp && CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING)
+		&& (sub_type == BGP_ROUTE_NORMAL) && fib_enabled) {
+		if (rn->info == NULL)
+			SET_FLAG(rn->flags, BGP_NODE_FIB_INSTALL_PENDING);
+		else
+			UNSET_FLAG(rn->flags, BGP_NODE_FIB_INSTALL_PENDING);
+	}
 
 	/* When peer's soft reconfiguration enabled.  Record input packet in
 	   Adj-RIBs-In.  */

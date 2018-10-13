@@ -575,10 +575,14 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 	afi_t afi;
 	safi_t safi;
 	int addpath_capable;
+	struct bgp *bgp;
+	bool advertise = true;
+	bool fib_enabled = true;
 
 	peer = SUBGRP_PEER(subgrp);
 	afi = SUBGRP_AFI(subgrp);
 	safi = SUBGRP_SAFI(subgrp);
+	bgp = SUBGRP_INST(subgrp);
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
 	if (safi == SAFI_LABELED_UNICAST)
@@ -592,21 +596,32 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 			  PEER_FLAG_DEFAULT_ORIGINATE))
 		subgroup_default_originate(subgrp, 0);
 
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
-		for (ri = rn->info; ri; ri = ri->next)
+	if ((bgp_zebra_num_connects() == 0) ||
+		bgp_option_check(BGP_OPT_NO_FIB))
+		fib_enabled = false;
 
+	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
+		/* Do not advertise routes that are not installed in FIB */
+		if (bgp
+			&& CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING)
+			&& CHECK_FLAG(rn->flags, BGP_NODE_FIB_INSTALL_PENDING)
+			&& fib_enabled)
+			advertise = false;
+		for (ri = rn->info; ri; ri = ri->next)
 			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)
 			    || (addpath_capable
 				&& bgp_addpath_tx_path(peer, afi, safi, ri))) {
 				if (subgroup_announce_check(rn, ri, subgrp,
-							    &rn->p, &attr))
-					bgp_adj_out_set_subgroup(rn, subgrp,
-								 &attr, ri);
-				else
+							    &rn->p, &attr)) {
+					if (advertise)
+						bgp_adj_out_set_subgroup(rn,
+							subgrp, &attr, ri);
+				} else
 					bgp_adj_out_unset_subgroup(
 						rn, subgrp, 1,
 						ri->addpath_tx_id);
 			}
+	}
 
 	/*
 	 * We walked through the whole table -- make sure our version number
@@ -834,8 +849,23 @@ void group_announce_route(struct bgp *bgp, afi_t afi, safi_t safi,
 			  struct bgp_node *rn, struct bgp_path_info *pi)
 {
 	struct updwalk_context ctx;
+	bool fib_enabled = true;
+
 	ctx.pi = pi;
 	ctx.rn = rn;
+
+	/* If fib suppress is enabled and new route is being added,
+	 * advertise route when it gets added to fib
+	 */
+	if ((bgp_zebra_num_connects() == 0) ||
+		bgp_option_check(BGP_OPT_NO_FIB))
+		fib_enabled = false;
+
+	if (bgp && CHECK_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING)
+		&& CHECK_FLAG(rn->flags, BGP_NODE_FIB_INSTALL_PENDING)
+		&& fib_enabled)
+		return;
+
 	update_group_af_walk(bgp, afi, safi, group_announce_route_walkcb, &ctx);
 }
 

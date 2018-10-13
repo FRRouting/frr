@@ -2874,7 +2874,9 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->addpath_tx_id = BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE;
 
 	/* Suppress fib pending enabled by default */
+#if 0
 	bgp_suppress_fib_pending_set(bgp, true);
+#endif
 
 	bgp->as = *as;
 
