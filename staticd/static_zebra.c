@@ -150,7 +150,8 @@ static int route_notify_owner(int command, struct zclient *zclient,
 
 	prefix2str(&p, buf, sizeof(buf));
 
-	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note))
+	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note,
+					NULL, NULL))
 		return -1;
 
 	switch (note) {

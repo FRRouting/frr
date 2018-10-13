@@ -600,7 +600,8 @@ extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *, struct zapi_route *);
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 			      uint32_t *tableid,
-			      enum zapi_route_notify_owner *note);
+			      enum zapi_route_notify_owner *note,
+			      afi_t *afi, safi_t *safi);
 bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
 			     uint32_t *priority, uint32_t *unique,
 			     ifindex_t *ifindex,

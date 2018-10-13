@@ -686,6 +686,7 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 static int route_notify_internal(const struct prefix *p, int type,
 				 uint16_t instance, vrf_id_t vrf_id,
 				 uint32_t table_id,
+				 afi_t afi, safi_t safi,
 				 enum zapi_route_notify_owner note)
 {
 	struct zserv *client;
@@ -728,16 +729,26 @@ static int route_notify_internal(const struct prefix *p, int type,
 
 	stream_putl(s, table_id);
 
+	/* Encode AFI, SAFI in the message */
+	if (type == ZEBRA_ROUTE_BGP) {
+		stream_putc(s, afi);
+		stream_putc(s, safi);
+	} else {
+		stream_putc(s, 0);
+		stream_putc(s, 0);
+	}
+
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zserv_send_message(client, s);
 }
 
 int zsend_route_notify_owner(struct route_entry *re, const struct prefix *p,
+			     afi_t afi, safi_t safi,
 			     enum zapi_route_notify_owner note)
 {
 	return (route_notify_internal(p, re->type, re->instance, re->vrf_id,
-				      re->table, note));
+				      re->table, afi, safi, note));
 }
 
 void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
@@ -1365,6 +1376,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	re->flags = api.flags;
 	re->uptime = time(NULL);
 	re->vrf_id = vrf_id;
+
 	if (api.tableid && vrf_id == VRF_DEFAULT)
 		re->table = api.tableid;
 	else

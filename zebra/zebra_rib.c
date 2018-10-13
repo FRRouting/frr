@@ -1076,8 +1076,21 @@ void kernel_route_rib_pass_fail(struct route_node *rn, const struct prefix *p,
 	struct nexthop *nexthop;
 	char buf[PREFIX_STRLEN];
 	rib_dest_t *dest;
+	rib_table_info_t *info;
+	afi_t afi;
+	safi_t safi;
 
 	dest = rib_dest_from_rnode(rn);
+	info = srcdest_rnode_table_info(rn);
+
+	/* Get the AFI, SAFI from the rib table */
+	if (info) {
+		afi = info->afi;
+		safi = info->safi;
+	} else {
+		afi = 0;
+		safi = 0;
+	}
 
 	switch (res) {
 	case ZEBRA_DPLANE_INSTALL_SUCCESS:
@@ -1091,7 +1104,8 @@ void kernel_route_rib_pass_fail(struct route_node *rn, const struct prefix *p,
 			else
 				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		}
-		zsend_route_notify_owner(re, p, ZAPI_ROUTE_INSTALLED);
+		zsend_route_notify_owner(re, p, afi, safi,
+					 ZAPI_ROUTE_INSTALLED);
 		break;
 	case ZEBRA_DPLANE_INSTALL_FAILURE:
 		/*
@@ -1101,7 +1115,8 @@ void kernel_route_rib_pass_fail(struct route_node *rn, const struct prefix *p,
 		 */
 		dest->selected_fib = re;
 
-		zsend_route_notify_owner(re, p, ZAPI_ROUTE_FAIL_INSTALL);
+		zsend_route_notify_owner(re, p, afi, safi,
+					 ZAPI_ROUTE_FAIL_INSTALL);
 		flog_err(EC_ZEBRA_DP_INSTALL_FAIL,
 			 "%u:%s: Route install failed", re->vrf_id,
 			 prefix2str(p, buf, sizeof(buf)));
@@ -1119,7 +1134,8 @@ void kernel_route_rib_pass_fail(struct route_node *rn, const struct prefix *p,
 		for (ALL_NEXTHOPS(re->ng, nexthop))
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 
-		zsend_route_notify_owner(re, p, ZAPI_ROUTE_REMOVED);
+		zsend_route_notify_owner(re, p, afi, safi,
+					 ZAPI_ROUTE_REMOVED);
 		break;
 	case ZEBRA_DPLANE_DELETE_FAILURE:
 		/*
@@ -1131,7 +1147,8 @@ void kernel_route_rib_pass_fail(struct route_node *rn, const struct prefix *p,
 			 "%u:%s: Route Deletion failure", re->vrf_id,
 			 prefix2str(p, buf, sizeof(buf)));
 
-		zsend_route_notify_owner(re, p, ZAPI_ROUTE_REMOVE_FAIL);
+		zsend_route_notify_owner(re, p, afi, safi,
+					 ZAPI_ROUTE_REMOVE_FAIL);
 		break;
 	case ZEBRA_DPLANE_STATUS_NONE:
 		break;
@@ -1148,6 +1165,17 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	rib_table_info_t *info = srcdest_rnode_table_info(rn);
 	const struct prefix *p, *src_p;
 	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
+	afi_t afi;
+	safi_t safi;
+
+	/* Get the AFI, SAFI from the rib table */
+	if (info) {
+		afi = info->afi;
+		safi = info->safi;
+	} else {
+		afi = 0;
+		safi = 0;
+	}
 
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
@@ -1177,7 +1205,8 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 * know that they've lost
 	 */
 	if (old && (old != re) && (old->type != re->type))
-		zsend_route_notify_owner(old, p, ZAPI_ROUTE_BETTER_ADMIN_WON);
+		zsend_route_notify_owner(old, p, afi, safi,
+					 ZAPI_ROUTE_BETTER_ADMIN_WON);
 
 	/*
 	 * Make sure we update the FPM any time we send new information to

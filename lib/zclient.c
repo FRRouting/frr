@@ -1062,9 +1062,12 @@ int zapi_pbr_rule_encode(uint8_t cmd, struct stream *s, struct pbr_rule *zrule)
 
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 			      uint32_t *tableid,
-			      enum zapi_route_notify_owner *note)
+			      enum zapi_route_notify_owner *note,
+			      afi_t *afi, safi_t *safi)
 {
 	uint32_t t;
+	afi_t afi_val;
+	safi_t safi_val;
 
 	STREAM_GET(note, s, sizeof(*note));
 
@@ -1072,8 +1075,16 @@ bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 	STREAM_GETC(s, p->prefixlen);
 	STREAM_GET(&p->u.prefix, s, prefix_blen(p));
 	STREAM_GETL(s, t);
+	STREAM_GETC(s, afi_val);
+	STREAM_GETC(s, safi_val);
 
 	*tableid = t;
+
+	if (afi)
+		*afi = afi_val;
+
+	if (safi)
+		*safi = safi_val;
 
 	return true;
 
