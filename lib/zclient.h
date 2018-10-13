@@ -156,6 +156,7 @@ typedef enum {
 	ZEBRA_IPTABLE_DELETE,
 	ZEBRA_IPTABLE_NOTIFY_OWNER,
 	ZEBRA_VXLAN_FLOOD_CONTROL,
+	ZEBRA_ROUTE_NOTIFY_REQUEST,
 } zebra_message_types_t;
 
 struct redist_proto {
@@ -483,6 +484,10 @@ extern void zclient_send_interface_radv_req(struct zclient *zclient,
 extern int zebra_redistribute_send(int command, struct zclient *, afi_t,
 				   int type, unsigned short instance,
 				   vrf_id_t vrf_id);
+
+/* Send route notify request to zebra */
+extern int  zebra_route_notify_send(int command, struct zclient *zclient,
+				    bool set);
 
 /* If state has changed, update state and call zebra_redistribute_send. */
 extern void zclient_redistribute(int command, struct zclient *, afi_t, int type,

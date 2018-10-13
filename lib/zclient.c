@@ -1290,6 +1290,22 @@ int zebra_redistribute_send(int command, struct zclient *zclient, afi_t afi,
 	return zclient_send_message(zclient);
 }
 
+/* Send route notify request to zebra */
+int  zebra_route_notify_send(int command, struct zclient *zclient, bool set)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, command, 0);
+	stream_putc(s, !!set);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
 /* Get prefix in ZServ format; family should be filled in on prefix */
 static void zclient_stream_get_prefix(struct stream *s, struct prefix *p)
 {

@@ -1683,6 +1683,21 @@ stream_failure:
 	return;
 }
 
+/* Process route notify request message from client */
+static void zread_route_notify_request(ZAPI_HANDLER_ARGS)
+{
+	uint8_t notify;
+
+	STREAM_GETC(msg, notify);
+	client->notify_owner = notify;
+
+	if (IS_ZEBRA_DEBUG_RECV)
+		zlog_debug("notify %d", notify);
+
+stream_failure:
+	return;
+}
+
 /* Unregister all information in a VRF. */
 static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 {
@@ -2452,6 +2467,7 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_IPTABLE_ADD] = zread_iptable,
 	[ZEBRA_IPTABLE_DELETE] = zread_iptable,
 	[ZEBRA_VXLAN_FLOOD_CONTROL] = zebra_vxlan_flood_control,
+	[ZEBRA_ROUTE_NOTIFY_REQUEST] = zread_route_notify_request,
 };
 
 #if defined(HANDLE_ZAPI_FUZZING)
