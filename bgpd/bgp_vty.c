@@ -1065,6 +1065,28 @@ DEFPY (no_bgp_router_id,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_suppress_fib_pending,
+	bgp_suppress_fib_pending_cmd,
+	"bgp suppress-fib-pending",
+	BGP_STR
+	"Advertise only routes that are programmed in hardware to peers\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	bgp_suppress_fib_pending_set(bgp, true);
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_bgp_suppress_fib_pending,
+	no_bgp_suppress_fib_pending_cmd,
+	"no bgp suppress-fib-pending",
+	NO_STR
+	BGP_STR
+	"Advertise only routes that are programmed in hardware to peers\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	bgp_suppress_fib_pending_set(bgp, false);
+	return CMD_SUCCESS;
+}
 
 /* BGP Cluster ID.  */
 DEFUN (bgp_cluster_id,
@@ -12545,6 +12567,10 @@ void bgp_vty_init(void)
 	/* "bgp router-id" commands. */
 	install_element(BGP_NODE, &bgp_router_id_cmd);
 	install_element(BGP_NODE, &no_bgp_router_id_cmd);
+
+	/* "bgp suppress-fib-pending" command */
+	install_element(BGP_NODE, &bgp_suppress_fib_pending_cmd);
+	install_element(BGP_NODE, &no_bgp_suppress_fib_pending_cmd);
 
 	/* "bgp cluster-id" commands. */
 	install_element(BGP_NODE, &bgp_cluster_id_cmd);

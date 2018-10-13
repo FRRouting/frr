@@ -353,6 +353,7 @@ struct bgp {
 #define BGP_FLAG_SHOW_HOSTNAME            (1 << 19)
 #define BGP_FLAG_GR_PRESERVE_FWD          (1 << 20)
 #define BGP_FLAG_GRACEFUL_SHUTDOWN        (1 << 21)
+#define BGP_FLAG_SUPPRESS_FIB_PENDING     (1 << 22)
 
 	/* BGP Per AF flags */
 	uint16_t af_flags[AFI_MAX][SAFI_MAX];
@@ -1548,6 +1549,7 @@ extern int bgp_flag_check(struct bgp *, int);
 extern void bgp_router_id_zebra_bump(vrf_id_t, const struct prefix *);
 extern int bgp_router_id_static_set(struct bgp *, struct in_addr);
 
+extern void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set);
 extern int bgp_cluster_id_set(struct bgp *, struct in_addr *);
 extern int bgp_cluster_id_unset(struct bgp *);
 

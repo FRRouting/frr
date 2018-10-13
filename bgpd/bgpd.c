@@ -102,6 +102,9 @@ struct community_list_handler *bgp_clist;
 
 unsigned int multipath_num = MULTIPATH_NUM;
 
+/* Number of bgp instances configured for suppress fib config */
+unsigned int bgp_suppress_fib_count;
+
 static void bgp_if_finish(struct bgp *bgp);
 static void peer_drop_dynamic_neighbor(struct peer *peer);
 
@@ -299,6 +302,38 @@ int bgp_router_id_static_set(struct bgp *bgp, struct in_addr id)
 	bgp->router_id_static = id;
 	bgp_router_id_set(bgp, id.s_addr ? &id : &bgp->router_id_zebra);
 	return 0;
+}
+
+/* Set the suppress fib pending for the bgp configuration */
+void bgp_suppress_fib_pending_set(struct bgp *bgp, bool set)
+{
+	bool send_msg = false;
+
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+		return;
+
+	if (set) {
+		SET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING);
+		if (bgp_suppress_fib_count == 0)
+			send_msg = true;
+		bgp_suppress_fib_count++;
+	} else {
+		UNSET_FLAG(bgp->flags, BGP_FLAG_SUPPRESS_FIB_PENDING);
+		bgp_suppress_fib_count--;
+
+		if (bgp_suppress_fib_count == 0)
+			send_msg = true;
+	}
+
+	/* Send route notify request to RIB */
+	if (send_msg) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("Sending ZEBRA_ROUTE_NOTIFY_REQUEST");
+
+		if (zclient)
+			zebra_route_notify_send(ZEBRA_ROUTE_NOTIFY_REQUEST,
+						zclient, set);
+	}
 }
 
 /* BGP's cluster-id control. */
@@ -2837,6 +2872,9 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp_flag_set(bgp, BGP_FLAG_DETERMINISTIC_MED);
 #endif
 	bgp->addpath_tx_id = BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE;
+
+	/* Suppress fib pending enabled by default */
+	bgp_suppress_fib_pending_set(bgp, true);
 
 	bgp->as = *as;
 
@@ -7449,6 +7487,10 @@ int bgp_config_write(struct vty *vty)
 		if (bgp->router_id_static.s_addr != 0)
 			vty_out(vty, " bgp router-id %s\n",
 				inet_ntoa(bgp->router_id_static));
+
+		/* Suppress fib pending */
+		if (bgp_flag_check(bgp, BGP_FLAG_SUPPRESS_FIB_PENDING))
+			vty_out(vty, " bgp suppress-fib-pending\n");
 
 		/* BGP log-neighbor-changes. */
 		if (!!bgp_flag_check(bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES)
