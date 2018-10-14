@@ -811,6 +811,18 @@ struct route_map *route_map_lookup_by_name(const char *name)
 	return map;
 }
 
+/* Simple helper to warn if route-map does not exist. */
+struct route_map *route_map_lookup_warn_noexist(struct vty *vty, const char *name)
+{
+	struct route_map *route_map = route_map_lookup_by_name(name);
+
+	if (!route_map)
+		if (vty_shell_serv(vty))
+			vty_out(vty, "The route-map '%s' does not exist.\n", name);
+
+	return route_map;
+}
+
 int route_map_mark_updated(const char *name)
 {
 	struct route_map *map;
