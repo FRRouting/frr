@@ -127,14 +127,6 @@ else
 endif
 
 override_dh_auto_configure:
-	# Frr needs /proc to check some BSD vs Linux specific stuff.
-	# Else it fails with an obscure error message pointing out that
-	# IPCTL_FORWARDING is an undefined symbol which is not very helpful.
-	@if ! [ -d /proc/1 ]; then \
-		echo "./configure needs a mounted /proc"; \
-		exit 1; \
-	fi
-
 	if ! [ -e config.status ]; then \
 	dh_auto_configure -- \
 		--enable-exampledir=/usr/share/doc/frr/examples/ \
@@ -153,7 +145,6 @@ override_dh_auto_configure:
 		--enable-werror \
 		--with-libpam \
 		--enable-systemd=yes \
-		--enable-poll=yes \
 		$(USE_CUMULUS) \
 		$(USE_PIM) \
 		--enable-dependency-tracking \
@@ -164,12 +155,7 @@ override_dh_auto_configure:
 	fi
 
 override_dh_auto_build:
-	# doc/ is a bit crazy
-ifeq ($(GENERATE_PDF), 1)
-	dh_auto_build -- -C doc pdf
-endif
-	rm -vf doc/user/_build/texinfo/frr.info
-	dh_auto_build -- -C doc info
+	dh_auto_build
 
 override_dh_auto_test:
 
@@ -186,12 +172,9 @@ override_dh_auto_install:
 	mkdir -p debian/tmp/etc/frr/
 	perl -pi -e 's#^!log file #!log file /var/log/frr/#' debian/tmp/usr/share/doc/frr/examples/*sample*
 
-	# leftover from previously shipping SMUX client OID MIB
-	mkdir -p debian/tmp/usr/share/snmp/mibs/
-
-	# cleaning .la files
-	sed -i "/dependency_libs/ s/'.*'/''/" debian/tmp/usr/lib/*.la
-	sed -i "/dependency_libs/ s/'.*'/''/" debian/tmp/usr/lib/frr/modules/*.la
+	# we don't need .la files
+	rm debian/tmp/usr/lib/*.la
+	rm debian/tmp/usr/lib/frr/modules/*.la
 
 override_dh_systemd_start:
 	dh_systemd_start frr.service
