@@ -346,6 +346,7 @@ struct in_pktinfo {
 		typeof(b) _min_b = (b);                                        \
 		_min_a < _min_b ? _min_a : _min_b;                             \
 	})
+#define CLIP(x, low, high) (MIN(MAX((x), (low)), (high)))
 
 #ifndef offsetof
 #ifdef __compiler_offsetof
