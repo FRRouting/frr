@@ -39,6 +39,7 @@ WANT_FRR_USER ?= frr
 WANT_FRR_VTY_GROUP ?= frrvty
 
 # Don't build PDF docs by default
+# add build deps: texlive-latex-base, texlive-generic-recommended
 GENERATE_PDF ?= 0
 
 #
