@@ -7,15 +7,15 @@
 # The following are the defaults. They can be overridden by setting a 
 # env variable to a different value
 
-WANT_LDP ?= 1
-WANT_PIM ?= 1
+# -Werror - don't enable this unless you're doing a dev package build
+WANT_WERROR ?= 0
+
 WANT_OSPFAPI ?= 1
 WANT_BGP_VNC ?= 1
 WANT_CUMULUS_MODE ?= 0
 WANT_MULTIPATH ?= 1
 WANT_SNMP ?= 0
 WANT_RPKI ?= 0
-WANT_BFD ?= 1
 
 # NOTES:
 #
@@ -57,18 +57,6 @@ else
   $(warning "DEBIAN: SNMP disabled, see README.Debian")
 endif
 
-ifeq ($(WANT_LDP), 1)
-  USE_LDP=--enable-ldpd
-else
-  USE_LDP=--disable-ldpd
-endif
-
-ifeq ($(WANT_PIM), 1)
-  USE_PIM=--enable-pimd
-else
-  USE_PIM=--disable-pimd
-endif
-
 ifeq ($(WANT_OSPFAPI), 1)
   USE_OSPFAPI=--enable-ospfapi=yes
 else
@@ -103,10 +91,10 @@ else
   USE_RPKI=--disable-rpki
 endif
 
-ifeq ($(WANT_BFD), 1)
-  USE_BFD=--enable-bfdd
+ifeq ($(WANT_WERROR), 1)
+  USE_WERROR=--enable-werror
 else
-  USE_BFD=--disable-bfdd
+  USE_WERROR=--disable-werror
 endif
 
 ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
@@ -137,21 +125,18 @@ override_dh_auto_configure:
 		$(USE_SNMP) \
 		$(USE_OSPFAPI) \
 		$(USE_MULTIPATH) \
-		$(USE_LDP) \
 		--enable-fpm \
 		$(USE_FRR_USER) $(USE_FRR_GROUP) \
 		$(USE_FRR_VTY_GROUP) \
 		--enable-configfile-mask=0640 \
 		--enable-logfile-mask=0640 \
-		--enable-werror \
+		$(USE_WERROR) \
 		--with-libpam \
 		--enable-systemd=yes \
 		$(USE_CUMULUS) \
-		$(USE_PIM) \
-		--enable-dependency-tracking \
+		--disable-dependency-tracking \
 		$(USE_BGP_VNC) \
 		$(USE_RPKI) \
-		$(USE_BFD) \
 		$(shell dpkg-buildflags --export=configure); \
 	fi
 
