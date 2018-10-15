@@ -6851,7 +6851,7 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 				char buf[BUFSIZ];
 
 				json_object_string_add(
-					json_net, "netHopGloabal",
+					json_net, "nextHopGlobal",
 					inet_ntop(AF_INET6,
 						  &attr->mp_nexthop_global, buf,
 						  BUFSIZ));
