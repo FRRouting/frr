@@ -446,6 +446,9 @@ typedef enum {
 	SAFI_MAX = 8
 } safi_t;
 
+enum ordering { LESS = -1, EQUAL = 0, GREATER = 1 };
+#define INT_TO_ORDERING(x) CLIP(x, -1, 1)
+
 /*
  * The above AFI and SAFI definitions are for internal use. The protocol
  * definitions (IANA values) as for example used in BGP protocol packets
