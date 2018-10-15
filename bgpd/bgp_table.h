@@ -365,12 +365,12 @@ static inline void bgp_connected_set_node_info(struct bgp_node *node,
 }
 
 static inline struct bgp_nexthop_cache *
-bgp_nexthop_get_node_info(struct bgp_node *node)
+bgp_node_get_bgp_nexthop_info(struct bgp_node *node)
 {
 	return node->info;
 }
 
-static inline void bgp_nexthop_set_node_info(struct bgp_node *node,
+static inline void bgp_node_set_bgp_nexthop_info(struct bgp_node *node,
 					     struct bgp_nexthop_cache *bnc)
 {
 	node->info = bnc;

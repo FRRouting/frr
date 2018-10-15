@@ -81,7 +81,7 @@ static void bgp_nexthop_cache_reset(struct bgp_table *table)
 	struct bgp_nexthop_cache *bnc;
 
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		bnc = bgp_nexthop_get_node_info(rn);
+		bnc = bgp_node_get_bgp_nexthop_info(rn);
 		if (!bnc)
 			continue;
 
@@ -92,7 +92,7 @@ static void bgp_nexthop_cache_reset(struct bgp_table *table)
 		}
 
 		bnc_free(bnc);
-		bgp_nexthop_set_node_info(rn, NULL);
+		bgp_node_set_bgp_nexthop_info(rn, NULL);
 		bgp_unlock_node(rn);
 	}
 }
@@ -601,7 +601,7 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail)
 
 		for (rn = bgp_table_top(bgp->nexthop_cache_table[afi]); rn;
 		     rn = bgp_route_next(rn)) {
-			bnc = bgp_nexthop_get_node_info(rn);
+			bnc = bgp_node_get_bgp_nexthop_info(rn);
 			if (!bnc)
 				continue;
 
