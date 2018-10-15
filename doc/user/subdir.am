@@ -99,12 +99,18 @@ uninstall-html:
 .PHONY: install-data-local uninstall-local
 if DOC
 DOC_INFO=info
-install-data-local: install-info
-uninstall-local:  uninstall-info
+TARGET_INSTALL_INFO=install-info
+TARGET_UNINSTALL_INFO=uninstall-info
 endif
 if DOC_HTML
 DOC_HTML=html
-install-data-local: install-html
-uninstall-local:  uninstall-html
+TARGET_INSTALL_HTML=install-html
+TARGET_UNINSTALL_HTML=uninstall-html
 endif
+
+# leave the comments in, this was causing weird reordering issues in automake
+install-data-local: $(TARGET_INSTALL_INFO) $(TARGET_INSTALL_HTML)
+#
+uninstall-local: $(TARGET_UNINSTALL_INFO) $(TARGET_UNINSTALL_HTML)
+#
 doc: $(DOC_INFO) $(DOC_HTML)
