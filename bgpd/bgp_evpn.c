@@ -134,6 +134,14 @@ static int vni_hash_cmp(const void *p1, const void *p2)
 	return (vpn1->vni == vpn2->vni);
 }
 
+static int vni_list_cmp(void *p1, void *p2)
+{
+	const struct bgpevpn *vpn1 = p1;
+	const struct bgpevpn *vpn2 = p2;
+
+	return vpn1->vni - vpn2->vni;
+}
+
 /*
  * Make vrf import route target hash key.
  */
@@ -5722,7 +5730,7 @@ void bgp_evpn_init(struct bgp *bgp)
 		(int (*)(void *, void *))evpn_route_target_cmp;
 	bgp->vrf_export_rtl->del = evpn_xxport_delete_ecomm;
 	bgp->l2vnis = list_new();
-	bgp->l2vnis->cmp = (int (*)(void *, void *))vni_hash_cmp;
+	bgp->l2vnis->cmp = vni_list_cmp;
 
 	/* Default BUM handling is to do head-end replication. */
 	bgp->vxlan_flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
