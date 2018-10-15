@@ -1586,25 +1586,27 @@ void funcname_thread_execute(struct thread_master *m,
 			     int (*func)(struct thread *), void *arg, int val,
 			     debugargdef)
 {
-	struct cpu_thread_history tmp;
-	struct thread dummy;
+	struct thread *thread;
 
-	memset(&dummy, 0, sizeof(struct thread));
+	/* Get or allocate new thread to execute. */
+	pthread_mutex_lock(&m->mtx);
+	{
+		thread = thread_get(m, THREAD_EVENT, func, arg, debugargpass);
 
-	pthread_mutex_init(&dummy.mtx, NULL);
-	dummy.type = THREAD_EVENT;
-	dummy.add_type = THREAD_EXECUTE;
-	dummy.master = NULL;
-	dummy.arg = arg;
-	dummy.u.val = val;
+		/* Set its event value. */
+		pthread_mutex_lock(&thread->mtx);
+		{
+			thread->add_type = THREAD_EXECUTE;
+			thread->u.val = val;
+			thread->ref = &thread;
+		}
+		pthread_mutex_unlock(&thread->mtx);
+	}
+	pthread_mutex_unlock(&m->mtx);
 
-	tmp.func = dummy.func = func;
-	tmp.funcname = dummy.funcname = funcname;
-	dummy.hist = hash_get(m->cpu_record, &tmp,
-			      (void *(*)(void *))cpu_record_hash_alloc);
+	/* Execute thread doing all accounting. */
+	thread_call(thread);
 
-	dummy.schedfrom = schedfrom;
-	dummy.schedfrom_line = fromln;
-
-	thread_call(&dummy);
+	/* Give back or free thread. */
+	thread_add_unuse(m, thread);
 }
