@@ -142,6 +142,12 @@ static void sigint(void)
 	struct zebra_vrf *zvrf;
 	struct listnode *ln, *nn;
 	struct zserv *client;
+	static bool sigint_done;
+
+	if (sigint_done)
+		return;
+
+	sigint_done = true;
 
 	zlog_notice("Terminating on signal");
 
@@ -174,11 +180,17 @@ static void sigint(void)
 
 	list_delete(&zebrad.client_list);
 
-	/* Indicate that all new dplane work has been enqueued */
+	/* Indicate that all new dplane work has been enqueued. When that
+	 * work is complete, the dataplane will enqueue an event
+	 * with the 'finalize' function.
+	 */
 	zebra_dplane_finish();
 }
 
-/* TODO */
+/*
+ * Final shutdown step for the zebra main thread. This is run after all
+ * async update processing has completed.
+ */
 int zebra_finalize(struct thread *dummy)
 {
 	zlog_info("Zebra final shutdown");
