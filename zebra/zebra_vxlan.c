@@ -4433,6 +4433,13 @@ static void process_remote_macip_del(vni_t vni,
 	} else {
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 			zvni_process_neigh_on_remote_mac_del(zvni, mac);
+			/*
+			 * the remote sequence number in the auto mac entry
+			 * needs to be reset to 0 as the mac entry may have
+			 * been removed on all VTEPs (including
+			 * the originating one)
+			 */
+			mac->rem_seq = 0;
 
 			/* If all remote neighbors referencing a remote MAC
 			 * go away, we need to uninstall the MAC.
