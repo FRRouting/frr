@@ -70,16 +70,12 @@ static int delete_all_vni_routes(struct bgp *bgp, struct bgpevpn *vpn);
  */
 
 /* compare two IPV4 VTEP IPs */
-static int evpn_vtep_ip_cmp(const void *p1, const void *p2)
+static int evpn_vtep_ip_cmp(void *p1, void *p2)
 {
 	const struct in_addr *ip1 = p1;
 	const struct in_addr *ip2 = p2;
 
-	if (!ip1 && !ip2)
-		return 1;
-	if (!ip1 || !ip2)
-		return 0;
-	return (ip1->s_addr == ip2->s_addr);
+	return ip1->s_addr - ip2->s_addr;
 }
 
 /*
@@ -132,6 +128,14 @@ static int vni_hash_cmp(const void *p1, const void *p2)
 	if (!vpn1 || !vpn2)
 		return 0;
 	return (vpn1->vni == vpn2->vni);
+}
+
+static int vni_list_cmp(void *p1, void *p2)
+{
+	const struct bgpevpn *vpn1 = p1;
+	const struct bgpevpn *vpn2 = p2;
+
+	return vpn1->vni - vpn2->vni;
 }
 
 /*
@@ -5065,7 +5069,7 @@ struct evpnes *bgp_evpn_es_new(struct bgp *bgp,
 
 	/* Initialise the VTEP list */
 	es->vtep_list = list_new();
-	es->vtep_list->cmp = (int (*)(void *, void *))evpn_vtep_ip_cmp;
+	es->vtep_list->cmp = evpn_vtep_ip_cmp;
 
 	/* auto derive RD for this es */
 	bf_assign_index(bm->rd_idspace, es->rd_id);
@@ -5722,7 +5726,7 @@ void bgp_evpn_init(struct bgp *bgp)
 		(int (*)(void *, void *))evpn_route_target_cmp;
 	bgp->vrf_export_rtl->del = evpn_xxport_delete_ecomm;
 	bgp->l2vnis = list_new();
-	bgp->l2vnis->cmp = (int (*)(void *, void *))vni_hash_cmp;
+	bgp->l2vnis->cmp = vni_list_cmp;
 
 	/* Default BUM handling is to do head-end replication. */
 	bgp->vxlan_flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
