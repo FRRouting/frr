@@ -869,7 +869,7 @@ static uint8_t *bgp4PathAttrTable(struct variable *v, oid name[],
 	case BGP4PATHATTRBEST: /* 13 */
 #define BGP4_PathAttrBest_false 1
 #define BGP4_PathAttrBest_true  2
-		if (CHECK_FLAG(path->flags, BGP_INFO_SELECTED))
+		if (CHECK_FLAG(path->flags, BGP_PATH_SELECTED))
 			return SNMP_INTEGER(BGP4_PathAttrBest_true);
 		else
 			return SNMP_INTEGER(BGP4_PathAttrBest_false);
