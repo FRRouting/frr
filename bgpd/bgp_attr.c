@@ -725,6 +725,7 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 				       struct aspath *aspath,
 				       struct community *community,
 				       struct ecommunity *ecommunity,
+				       struct lcommunity *lcommunity,
 				       int as_set, uint8_t atomic_aggregate)
 {
 	struct attr attr;
@@ -764,6 +765,11 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 	if (ecommunity) {
 		attr.ecommunity = ecommunity;
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
+	}
+
+	if (lcommunity) {
+		attr.lcommunity = lcommunity;
+		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
 	}
 
 	if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {

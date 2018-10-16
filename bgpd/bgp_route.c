@@ -5483,7 +5483,8 @@ static void bgp_aggregate_free(struct bgp_aggregate *aggregate)
 static int bgp_aggregate_info_same(struct bgp_path_info *pi, uint8_t origin,
 				   struct aspath *aspath,
 				   struct community *comm,
-				   struct ecommunity *ecomm)
+				   struct ecommunity *ecomm,
+				   struct lcommunity *lcomm)
 {
 	static struct aspath *ae = NULL;
 
@@ -5505,6 +5506,9 @@ static int bgp_aggregate_info_same(struct bgp_path_info *pi, uint8_t origin,
 	if (!ecommunity_cmp(pi->attr->ecommunity, ecomm))
 		return 0;
 
+	if (!lcommunity_cmp(pi->attr->lcommunity, lcomm))
+		return 0;
+
 	if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID))
 		return 0;
 
@@ -5516,6 +5520,7 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 				  struct aspath *aspath,
 				  struct community *community,
 				  struct ecommunity *ecommunity,
+				  struct lcommunity *lcommunity,
 				  uint8_t atomic_aggregate,
 				  struct bgp_aggregate *aggregate)
 {
@@ -5538,7 +5543,7 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 		 * no need to re-install it again.
 		 */
 		if (bgp_aggregate_info_same(rn->info, origin, aspath, community,
-					    ecommunity)) {
+					    ecommunity, lcommunity)) {
 			bgp_unlock_node(rn);
 
 			if (aspath)
@@ -5547,6 +5552,8 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 				community_free(community);
 			if (ecommunity)
 				ecommunity_free(&ecommunity);
+			if (lcommunity)
+				lcommunity_free(&lcommunity);
 
 			return;
 		}
@@ -5561,6 +5568,7 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 				bgp->peer_self,
 				bgp_attr_aggregate_intern(bgp, origin, aspath,
 							  community, ecommunity,
+							  lcommunity,
 							  aggregate->as_set,
 							  atomic_aggregate),
 				rn);
@@ -5601,6 +5609,8 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 	struct community *commerge = NULL;
 	struct ecommunity *ecommunity = NULL;
 	struct ecommunity *ecommerge = NULL;
+	struct lcommunity *lcommunity = NULL;
+	struct lcommunity *lcommerge = NULL;
 	struct bgp_path_info *pi;
 	unsigned long match = 0;
 	uint8_t atomic_aggregate = 0;
@@ -5704,6 +5714,19 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 					ecommunity = ecommunity_dup(
 						pi->attr->ecommunity);
 			}
+
+			if (pi->attr->lcommunity) {
+				if (lcommunity) {
+					lcommerge = lcommunity_merge(
+						lcommunity,
+						pi->attr->lcommunity);
+					lcommunity =
+						lcommunity_uniq_sort(lcommerge);
+					lcommunity_free(&lcommerge);
+				} else
+					lcommunity = lcommunity_dup(
+						pi->attr->lcommunity);
+			}
 		}
 		if (match)
 			bgp_process(bgp, rn, afi, safi);
@@ -5753,11 +5776,25 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 					ecommunity = ecommunity_dup(
 						pinew->attr->ecommunity);
 			}
+
+			if (pinew->attr->lcommunity) {
+				if (lcommunity) {
+					lcommerge = lcommunity_merge(
+						lcommunity,
+						pinew->attr->lcommunity);
+					lcommunity =
+						lcommunity_uniq_sort(lcommerge);
+					lcommunity_free(&lcommerge);
+				} else
+					lcommunity = lcommunity_dup(
+						pinew->attr->lcommunity);
+			}
 		}
 	}
 
 	bgp_aggregate_install(bgp, afi, safi, p, origin, aspath, community,
-			      ecommunity, atomic_aggregate, aggregate);
+			      ecommunity, lcommunity, atomic_aggregate,
+			      aggregate);
 
 	if (aggregate->count == 0) {
 		if (aspath)
@@ -5766,6 +5803,8 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 			community_free(community);
 		if (ecommunity)
 			ecommunity_free(&ecommunity);
+		if (lcommunity)
+			lcommunity_free(&lcommunity);
 	}
 }
 
@@ -5910,8 +5949,8 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 
 	aggregate = bgp_aggregate_get_node_info(rn);
 	bgp_aggregate_delete(bgp, &p, afi, safi, aggregate);
-	bgp_aggregate_install(bgp, afi, safi, &p, 0, NULL, NULL, NULL, 0,
-			      aggregate);
+	bgp_aggregate_install(bgp, afi, safi, &p, 0, NULL, NULL,
+			      NULL, NULL,  0, aggregate);
 
 	/* Unlock aggregate address configuration. */
 	bgp_aggregate_set_node_info(rn, NULL);
