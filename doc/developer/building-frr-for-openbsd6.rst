@@ -23,6 +23,8 @@ Select Python2.7 as default (required for pytest)
 
     ln -s /usr/local/bin/python2.7 /usr/local/bin/python
 
+.. include:: building-libyang.rst
+
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 

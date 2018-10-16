@@ -19,6 +19,8 @@ Add packages:
        libc-ares-dev python3-dev libsystemd-dev python-ipaddress \
        python3-sphinx install-info
 
+.. include:: building-libyang.rst
+
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 

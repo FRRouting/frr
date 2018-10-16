@@ -15,6 +15,8 @@ Required packages
       libc-ares-dev python3-dev libsystemd-dev python-ipaddress \
       python3-sphinx install-info
 
+.. include:: building-libyang.rst
+
 Optional packages
 ^^^^^^^^^^^^^^^^^
 

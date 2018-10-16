@@ -31,6 +31,8 @@ Select default Python and py.test
     sudo ln -s /usr/pkg/bin/python2.7 /usr/bin/python
     sudo ln -s /usr/pkg/bin/py.test-2.7 /usr/bin/py.test
 
+.. include:: building-libyang.rst
+
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 
