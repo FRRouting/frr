@@ -1268,7 +1268,8 @@ expanded
    This command defines a new expanded community list. ``COMMUNITY`` is a
    string expression of communities attribute. ``COMMUNITY`` can be a regular
    expression (:ref:`bgp-regular-expressions`) to match the communities
-   attribute in BGP updates.
+   attribute in BGP updates. The expanded community is only used to filter,
+   not `set` actions.
 
 .. deprecated:: 5.0
    It is recommended to use the more explicit versions of this command.
@@ -1365,6 +1366,8 @@ The ollowing commands can be used in route maps:
 
    If ``none`` is specified as the community value, the communities attribute
    is not sent.
+
+   It is not possible to set an expanded community list.
 
 .. index:: set comm-list WORD delete
 .. clicmd:: set comm-list WORD delete
@@ -1606,6 +1609,10 @@ BGP Extended Communities in Route Map
 
    This command set Site of Origin value.
 
+
+Note that the extended expanded community is only used for `match` rule, not for
+`set` actions.
+
 .. _bgp-large-communities-attribute:
 
 Large Communities Attribute
@@ -1717,6 +1724,8 @@ Large Communities in Route Map
    large-community list. The third will add a large-community value without
    overwriting other values. Multiple large-community values can be specified.
 
+Note that the large expanded community is only used for `match` rule, not for
+`set` actions.
 
 .. _bgp-l3vpn-vrfs:
 
