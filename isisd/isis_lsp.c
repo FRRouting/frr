@@ -110,6 +110,8 @@ static void lsp_clear_data(struct isis_lsp *lsp)
 	lsp->tlvs = NULL;
 }
 
+static void lsp_remove_frags(struct list *frags, dict_t *lspdb);
+
 static void lsp_destroy(struct isis_lsp *lsp)
 {
 	struct listnode *cnode;
@@ -125,9 +127,17 @@ static void lsp_destroy(struct isis_lsp *lsp)
 
 	lsp_clear_data(lsp);
 
-	if (LSP_FRAGMENT(lsp->hdr.lsp_id) == 0 && lsp->lspu.frags) {
-		list_delete(&lsp->lspu.frags);
-		lsp->lspu.frags = NULL;
+	if (!LSP_FRAGMENT(lsp->hdr.lsp_id)) {
+		if (lsp->lspu.frags) {
+			lsp_remove_frags(lsp->lspu.frags,
+					 lsp->area->lspdb[lsp->level - 1]);
+			list_delete(&lsp->lspu.frags);
+		}
+	} else {
+		if (lsp->lspu.zero_lsp
+		    && lsp->lspu.zero_lsp->lspu.frags) {
+			listnode_delete(lsp->lspu.zero_lsp->lspu.frags, lsp);
+		}
 	}
 
 	isis_spf_schedule(lsp->area, lsp->level);
@@ -170,10 +180,6 @@ static void lsp_remove_frags(struct list *frags, dict_t *lspdb)
 		lsp_destroy(lsp);
 		dnode_destroy(dict_delete(lspdb, dnode));
 	}
-
-	list_delete_all_node(frags);
-
-	return;
 }
 
 void lsp_search_and_destroy(uint8_t *id, dict_t *lspdb)
