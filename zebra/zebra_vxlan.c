@@ -2218,6 +2218,7 @@ static int zvni_remote_neigh_update(zebra_vni_t *zvni,
 
 		UNSET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
 		SET_FLAG(n->flags, ZEBRA_NEIGH_REMOTE);
+		ZEBRA_NEIGH_SET_ACTIVE(n);
 		n->r_vtep_ip = zmac->fwd_info.r_vtep_ip;
 	}
 
