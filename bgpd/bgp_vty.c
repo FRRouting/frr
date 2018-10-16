@@ -2740,7 +2740,8 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 			ret = peer_group_remote_as(bgp, peer_str, &as, as_type);
 			if (ret < 0) {
 				vty_out(vty,
-					"%% Create the peer-group or interface first\n");
+					"%% Create the peer-group or interface first or specify \"interface\" keyword\n");
+				vty_out(vty, "%% if using an unnumbered interface neighbor\n");
 				return CMD_WARNING_CONFIG_FAILED;
 			}
 			return CMD_SUCCESS;
