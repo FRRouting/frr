@@ -522,6 +522,17 @@ struct isis_lsp *lsp_new_from_recv(struct isis_lsp_hdr *hdr,
 	return lsp;
 }
 
+static void lsp_adjust_stream(struct isis_lsp *lsp)
+{
+	if (lsp->pdu) {
+		if (STREAM_SIZE(lsp->pdu) == LLC_LEN + lsp->area->lsp_mtu)
+			return;
+		stream_free(lsp->pdu);
+	}
+
+	lsp->pdu = stream_new(LLC_LEN + lsp->area->lsp_mtu);
+}
+
 struct isis_lsp *lsp_new(struct isis_area *area, uint8_t *lsp_id,
 			 uint16_t rem_lifetime, uint32_t seqno,
 			 uint8_t lsp_bits, uint16_t checksum,
@@ -532,7 +543,7 @@ struct isis_lsp *lsp_new(struct isis_area *area, uint8_t *lsp_id,
 	lsp = XCALLOC(MTYPE_ISIS_LSP, sizeof(struct isis_lsp));
 	lsp->area = area;
 
-	lsp->pdu = stream_new(LLC_LEN + area->lsp_mtu);
+	lsp_adjust_stream(lsp);
 
 	/* Minimal LSP PDU size */
 	lsp->hdr.pdu_len = ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN;
@@ -1153,6 +1164,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	struct isis_tlvs *tlvs = lsp->tlvs;
 	lsp->tlvs = NULL;
 
+	lsp_adjust_stream(lsp);
 	lsp_pack_pdu(lsp);
 	size_t tlv_space = STREAM_WRITEABLE(lsp->pdu) - LLC_LEN;
 	lsp_clear_data(lsp);
@@ -1184,6 +1196,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 			frag = lsp_next_frag(LSP_FRAGMENT(frag->hdr.lsp_id) + 1,
 					     lsp, area, level);
+			lsp_adjust_stream(frag);
 		}
 		frag->tlvs = tlvs;
 	}
@@ -1956,7 +1969,7 @@ void lsp_purge_non_exist(int level, struct isis_lsp_hdr *hdr,
 	lsp = XCALLOC(MTYPE_ISIS_LSP, sizeof(struct isis_lsp));
 	lsp->area = area;
 	lsp->level = level;
-	lsp->pdu = stream_new(LLC_LEN + area->lsp_mtu);
+	lsp_adjust_stream(lsp);
 	lsp->age_out = ZERO_AGE_LIFETIME;
 
 	memcpy(&lsp->hdr, hdr, sizeof(lsp->hdr));
