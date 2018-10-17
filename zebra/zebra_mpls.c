@@ -1808,6 +1808,29 @@ int zebra_mpls_lsp_uninstall(struct zebra_vrf *zvrf, struct route_node *rn,
 }
 
 /*
+ * Add an NHLFE to an LSP, return the newly-added object
+ */
+zebra_nhlfe_t *zebra_mpls_lsp_add_nhlfe(zebra_lsp_t *lsp,
+					enum lsp_types_t lsp_type,
+					enum nexthop_types_t gtype,
+					union g_addr *gate,
+					ifindex_t ifindex,
+					mpls_label_t out_label)
+{
+	/* Just a public pass-through to the internal implementation */
+	return nhlfe_add(lsp, lsp_type, gtype, gate, ifindex, out_label);
+}
+
+/*
+ * Free an allocated NHLFE
+ */
+void zebra_mpls_nhlfe_del(zebra_nhlfe_t *nhlfe)
+{
+	/* Just a pass-through to the internal implementation */
+	nhlfe_del(nhlfe);
+}
+
+/*
  * Registration from a client for the label binding for a FEC. If a binding
  * already exists, it is informed to the client.
  * NOTE: If there is a manually configured label binding, that is used.
