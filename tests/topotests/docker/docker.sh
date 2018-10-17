@@ -31,19 +31,19 @@ CDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #
 
 OLD_IMAGE_SHA=$( \
-  docker images | \
-  egrep "^topotests" | \
-  sed -r "s/( )+/ /g" | \
-  cut -d " " -f 3 \
+	docker images | \
+	egrep "^topotests" | \
+	sed -r "s/( )+/ /g" | \
+	cut -d " " -f 3 \
 )
 
 docker build --force-rm --pull --compress -t topotests . || \
-  log_fatal "failed to generate topotest docker image"
+	log_fatal "failed to generate topotest docker image"
 
 if [ ! -z "$OLD_IMAGE_SHA" ]; then
-  log_info "Removing old topotest image"
-  docker rmi $OLD_IMAGE_SHA || \
-    log_warning "failed to remove old image"
+	log_info "Removing old topotest image"
+	docker rmi $OLD_IMAGE_SHA || \
+		log_warning "failed to remove old image"
 fi
 
 exit 0
