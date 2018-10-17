@@ -180,7 +180,7 @@ void ripng_peer_display(struct vty *vty)
 
 static int ripng_peer_list_cmp(struct ripng_peer *p1, struct ripng_peer *p2)
 {
-	return addr6_cmp(&p1->addr, &p2->addr) > 0;
+	return memcmp(&p1->addr, &p2->addr, sizeof(struct in6_addr));
 }
 
 void ripng_peer_init()

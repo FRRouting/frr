@@ -1268,6 +1268,14 @@ static int neigh_cmp(const void *p1, const void *p2)
 	return (memcmp(&n1->ip, &n2->ip, sizeof(struct ipaddr)) == 0);
 }
 
+static int neigh_list_cmp(void *p1, void *p2)
+{
+	const zebra_neigh_t *n1 = p1;
+	const zebra_neigh_t *n2 = p2;
+
+	return memcmp(&n1->ip, &n2->ip, sizeof(struct ipaddr));
+}
+
 /*
  * Callback to allocate neighbor hash entry.
  */
@@ -2275,7 +2283,7 @@ static zebra_mac_t *zvni_mac_add(zebra_vni_t *zvni, struct ethaddr *macaddr)
 	assert(mac);
 
 	mac->neigh_list = list_new();
-	mac->neigh_list->cmp = (int (*)(void *, void *))neigh_cmp;
+	mac->neigh_list->cmp = neigh_list_cmp;
 
 	return mac;
 }
@@ -2759,6 +2767,16 @@ static int vni_hash_cmp(const void *p1, const void *p2)
 	const zebra_vni_t *zvni2 = p2;
 
 	return (zvni1->vni == zvni2->vni);
+}
+
+static int vni_list_cmp(void *p1, void *p2)
+{
+	const zebra_vni_t *zvni1 = p1;
+	const zebra_vni_t *zvni2 = p2;
+
+	if (zvni1->vni == zvni2->vni)
+		return 0;
+	return (zvni1->vni < zvni2->vni) ? -1 : 1;
 }
 
 /*
@@ -3662,7 +3680,7 @@ static zebra_l3vni_t *zl3vni_add(vni_t vni, vrf_id_t vrf_id)
 	zl3vni->svi_if = NULL;
 	zl3vni->vxlan_if = NULL;
 	zl3vni->l2vnis = list_new();
-	zl3vni->l2vnis->cmp = (int (*)(void *, void *))vni_hash_cmp;
+	zl3vni->l2vnis->cmp = vni_list_cmp;
 
 	/* Create hash table for remote RMAC */
 	zl3vni->rmac_table = hash_create(mac_hash_keymake, mac_cmp,
