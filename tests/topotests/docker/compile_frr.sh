@@ -32,7 +32,7 @@ CDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ ! -f .sync_source -o $SYNC_SOURCE -ne 0 ]; then
 	log_info "Syncing FRR source with host..."
 	mkdir -p $FRR_BUILD_DIR >/dev/null 2>&1
-	rsync -a --info=progress2 --chown root:root $FRR_DIR/. $FRR_BUILD_DIR/
+	rsync -a --info=progress2 --chown root:root $FRR_HOST_DIR/. $FRR_BUILD_DIR/
 	touch .sync_source
 fi
 

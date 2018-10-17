@@ -117,16 +117,16 @@ fi
 if [ -z "$TOPOTEST_PATH" ]; then
 	docker run --rm -ti \
 		-v "$TOPOTEST_LOGS:/tmp" \
-		-v "$TOPOTEST_FRR:/root/frr:ro" \
-		-v "$TOPOTEST_BUILDCACHE:/root/frr-build" \
+		-v "$TOPOTEST_FRR:/root/host-frr:ro" \
+		-v "$TOPOTEST_BUILDCACHE:/root/persist" \
 		--privileged \
 		$TOPOTEST_OPTIONS \
 		frrouting/topotests "$@"
 else
 	docker run --rm -ti \
 		-v "$TOPOTEST_LOGS:/tmp" \
-		-v "$TOPOTEST_FRR:/root/frr:ro" \
-		-v "$TOPOTEST_BUILDCACHE:/root/frr-build" \
+		-v "$TOPOTEST_FRR:/root/host-frr:ro" \
+		-v "$TOPOTEST_BUILDCACHE:/root/persist" \
 		-v "$TOPOTEST_PATH:/root/topotests:ro" \
 		--privileged \
 		$TOPOTEST_OPTIONS \

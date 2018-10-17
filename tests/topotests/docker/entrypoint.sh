@@ -61,7 +61,7 @@ ovs-appctl -t ovsdb-server \
 env \
 	CLEAN=1 \
 	VERBOSE=0 \
-	bash /opt/topotests/compile_frr.sh
+	bash "${CDIR}/compile_frr.sh"
 
 log_info "Setting permissions on /tmp so we can generate logs"
 chmod -v 1777 /tmp

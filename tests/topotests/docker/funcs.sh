@@ -22,9 +22,13 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-FRR_DIR=/root/frr
-FRR_BUILD_DIR=/root/frr-build
+FRR_HOST_DIR=/root/host-frr
+FRR_BUILD_DIR=/root/persist/frr-build
 TOPOTESTS_DIR=/root/topotests
+
+if [ ! -L "/root/frr" ]; then
+	ln -s $FRR_BUILD_DIR /root/frr
+fi
 
 [ -z $CLEAN ] && CLEAN=0
 [ -z $VERBOSE ] && VERBOSE=1
