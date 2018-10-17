@@ -14,7 +14,3 @@ Here are some useful tips:
 
 * The topotests log directory can be found on your host machine on
   `/tmp/topotests_logs`.
-
-* You may open an `xterm` inside the container. We do our best to detect
-  the X session on your host machine
-

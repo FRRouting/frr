@@ -22,30 +22,113 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+set -e
 
-# Source folders
-FRR_DIR=$HOME/src/frr
-TOPOTESTS_DIR=$HOME/src/topotests
+if [[ "$1" = "-h" ]] || [[ "$1" = "--help" ]]; then
+	cat >&2 <<-EOF
 
+	This script runs the FRRouting topotests on the FRR tree
+	in the current working directory.
 
-#
-# Script begin
-#
-CMD=$1
-if [ -z $1 ]; then
-  CMD=bash
+	Usage: $0 [args...]
+
+	Its behavior can be modified by the following environment variables:
+
+	TOPOTEST_AUTOLOAD       If set to 1, the script will try to load necessary
+	                        kernel modules without asking for confirmation first.
+
+	TOPOTEST_BUILDCACHE     Docker volume used for caching multiple FRR builds
+	                        over container runs. By default a
+	                        \`topotest-buildcache\` volume will be created for
+	                        that purpose.
+
+	TOPOTEST_FRR            If set, don't test the FRR in the current working
+	                        directory, but the one at the given path.
+
+	TOPOTEST_LOGS           If set, don't use \`/tmp/topotest_logs\` directory
+	                        but use the provided path instead.
+
+	TOPOTEST_OPTIONS        These options are appended to the docker-run
+	                        command for starting the tests.
+
+	TOPOTEST_PATH           If set, don't use the tests built into the image
+	                        but the ones at the given path.
+
+	To get information about the commands available inside of the container,
+	run \`$0 help\`.
+	EOF
+	exit 1
 fi
 
-docker run --rm -ti \
-  -v "/lib/modules:/lib/modules" \
-  -v "/tmp/topotests_logs:/tmp" \
-  -v "$FRR_DIR:/root/frr:ro" \
-  -v "$TOPOTESTS_DIR:/root/topotests:ro" \
-  -v "/tmp/.X11-unix:/tmp/.X11-unix" \
-  -v "$HOME/.Xauthority:/root/.Xauthority" \
-  -e DISPLAY=$DISPLAY \
-  --net=host \
-  --privileged \
-  topotests
+#
+# These two modules are needed to run the MPLS tests.
+# They are often not automatically loaded.
+#
+# We cannot load them from the container since we don't
+# have host kernel modules available there. If we load
+# them from the host however, they can be used just fine.
+#
 
-exit 0
+for module in mpls-router mpls-iptunnel; do
+	if modprobe -n $module 2> /dev/null; then
+		:
+	else
+		# If the module doesn't exist, we cannot do anything about it
+		continue
+	fi
+
+	if [ $(grep -c ${module/-/_} /proc/modules) -ne 0 ]; then
+		# If the module is loaded, we don't have to do anything
+		continue
+	fi
+
+	if [ "$TOPOTEST_AUTOLOAD" != "1" ]; then
+		echo "To run all the possible tests, we need to load $module."
+		echo -n "Do you want to proceed? [y/n] "
+		read answer
+		if [ x"$answer" != x"y" ]; then
+			echo "Not loading."
+			continue
+		fi
+	fi
+
+	if [ x"$(whoami)" = x"root" ]; then
+		modprobe $module
+	else
+		sudo modprobe $module
+	fi
+done
+
+if [ -z "$TOPOTEST_LOGS" ]; then
+	mkdir -p /tmp/topotest_logs
+	TOPOTEST_LOGS="/tmp/topotest_logs"
+fi
+
+if [ -z "$TOPOTEST_FRR" ]; then
+	TOPOTEST_FRR="$(pwd)"
+fi
+
+if [ -z "$TOPOTEST_BUILDCACHE" ]; then
+	TOPOTEST_BUILDCACHE=topotest-buildcache
+	docker volume inspect "${TOPOTEST_BUILDCACHE}" &> /dev/null \
+		|| docker volume create "${TOPOTEST_BUILDCACHE}"
+fi
+
+if [ -z "$TOPOTEST_PATH" ]; then
+	docker run --rm -ti \
+		-v "$TOPOTEST_LOGS:/tmp" \
+		-v "$TOPOTEST_FRR:/root/frr:ro" \
+		-v "$TOPOTEST_BUILDCACHE:/root/frr-build" \
+		--privileged \
+		$TOPOTEST_OPTIONS \
+		frrouting/topotests "$@"
+else
+	docker run --rm -ti \
+		-v "$TOPOTEST_LOGS:/tmp" \
+		-v "$TOPOTEST_FRR:/root/frr:ro" \
+		-v "$TOPOTEST_BUILDCACHE:/root/frr-build" \
+		-v "$TOPOTEST_PATH:/root/topotests:ro" \
+		--privileged \
+		$TOPOTEST_OPTIONS \
+		frrouting/topotests "$@"
+fi
