@@ -13152,6 +13152,8 @@ void bgp_vty_init(void)
 	install_element(BGP_VPNV4_NODE, &no_neighbor_route_server_client_cmd);
 	install_element(BGP_VPNV6_NODE, &neighbor_route_server_client_cmd);
 	install_element(BGP_VPNV6_NODE, &no_neighbor_route_server_client_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_route_server_client_cmd);
+	install_element(BGP_EVPN_NODE, &no_neighbor_route_server_client_cmd);
 	install_element(BGP_FLOWSPECV4_NODE, &neighbor_route_server_client_cmd);
 	install_element(BGP_FLOWSPECV4_NODE,
 			&no_neighbor_route_server_client_cmd);
