@@ -110,6 +110,8 @@ static void lsp_clear_data(struct isis_lsp *lsp)
 	lsp->tlvs = NULL;
 }
 
+static void lsp_remove_frags(struct list *frags, dict_t *lspdb);
+
 static void lsp_destroy(struct isis_lsp *lsp)
 {
 	struct listnode *cnode;
@@ -125,9 +127,17 @@ static void lsp_destroy(struct isis_lsp *lsp)
 
 	lsp_clear_data(lsp);
 
-	if (LSP_FRAGMENT(lsp->hdr.lsp_id) == 0 && lsp->lspu.frags) {
-		list_delete(&lsp->lspu.frags);
-		lsp->lspu.frags = NULL;
+	if (!LSP_FRAGMENT(lsp->hdr.lsp_id)) {
+		if (lsp->lspu.frags) {
+			lsp_remove_frags(lsp->lspu.frags,
+					 lsp->area->lspdb[lsp->level - 1]);
+			list_delete(&lsp->lspu.frags);
+		}
+	} else {
+		if (lsp->lspu.zero_lsp
+		    && lsp->lspu.zero_lsp->lspu.frags) {
+			listnode_delete(lsp->lspu.zero_lsp->lspu.frags, lsp);
+		}
 	}
 
 	isis_spf_schedule(lsp->area, lsp->level);
@@ -170,10 +180,6 @@ static void lsp_remove_frags(struct list *frags, dict_t *lspdb)
 		lsp_destroy(lsp);
 		dnode_destroy(dict_delete(lspdb, dnode));
 	}
-
-	list_delete_all_node(frags);
-
-	return;
 }
 
 void lsp_search_and_destroy(uint8_t *id, dict_t *lspdb)
@@ -516,6 +522,17 @@ struct isis_lsp *lsp_new_from_recv(struct isis_lsp_hdr *hdr,
 	return lsp;
 }
 
+static void lsp_adjust_stream(struct isis_lsp *lsp)
+{
+	if (lsp->pdu) {
+		if (STREAM_SIZE(lsp->pdu) == LLC_LEN + lsp->area->lsp_mtu)
+			return;
+		stream_free(lsp->pdu);
+	}
+
+	lsp->pdu = stream_new(LLC_LEN + lsp->area->lsp_mtu);
+}
+
 struct isis_lsp *lsp_new(struct isis_area *area, uint8_t *lsp_id,
 			 uint16_t rem_lifetime, uint32_t seqno,
 			 uint8_t lsp_bits, uint16_t checksum,
@@ -526,7 +543,7 @@ struct isis_lsp *lsp_new(struct isis_area *area, uint8_t *lsp_id,
 	lsp = XCALLOC(MTYPE_ISIS_LSP, sizeof(struct isis_lsp));
 	lsp->area = area;
 
-	lsp->pdu = stream_new(LLC_LEN + area->lsp_mtu);
+	lsp_adjust_stream(lsp);
 
 	/* Minimal LSP PDU size */
 	lsp->hdr.pdu_len = ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN;
@@ -1147,6 +1164,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	struct isis_tlvs *tlvs = lsp->tlvs;
 	lsp->tlvs = NULL;
 
+	lsp_adjust_stream(lsp);
 	lsp_pack_pdu(lsp);
 	size_t tlv_space = STREAM_WRITEABLE(lsp->pdu) - LLC_LEN;
 	lsp_clear_data(lsp);
@@ -1178,6 +1196,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 			frag = lsp_next_frag(LSP_FRAGMENT(frag->hdr.lsp_id) + 1,
 					     lsp, area, level);
+			lsp_adjust_stream(frag);
 		}
 		frag->tlvs = tlvs;
 	}
@@ -1950,7 +1969,7 @@ void lsp_purge_non_exist(int level, struct isis_lsp_hdr *hdr,
 	lsp = XCALLOC(MTYPE_ISIS_LSP, sizeof(struct isis_lsp));
 	lsp->area = area;
 	lsp->level = level;
-	lsp->pdu = stream_new(LLC_LEN + area->lsp_mtu);
+	lsp_adjust_stream(lsp);
 	lsp->age_out = ZERO_AGE_LIFETIME;
 
 	memcpy(&lsp->hdr, hdr, sizeof(lsp->hdr));
