@@ -75,4 +75,11 @@ extern void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer);
  */
 extern void bgp_cleanup_nexthops(struct bgp *bgp);
 
+/*
+ * Add or remove the tracking of the bgp_path_info that
+ * uses this nexthop
+ */
+extern void path_nh_map(struct bgp_path_info *path,
+			struct bgp_nexthop_cache *bnc, bool make);
+
 #endif /* _BGP_NHT_H */
