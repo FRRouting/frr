@@ -92,16 +92,16 @@ static unsigned int esi_hash_keymake(void *p)
 /*
  * Compare two ESIs.
  */
-static int esi_cmp(const void *p1, const void *p2)
+static bool esi_cmp(const void *p1, const void *p2)
 {
 	const struct evpnes *pes1 = p1;
 	const struct evpnes *pes2 = p2;
 
 	if (pes1 == NULL && pes2 == NULL)
-		return 1;
+		return true;
 
 	if (pes1 == NULL || pes2 == NULL)
-		return 0;
+		return false;
 
 	return (memcmp(pes1->esi.val, pes2->esi.val, ESI_BYTES) == 0);
 }
@@ -118,15 +118,15 @@ static unsigned int vni_hash_key_make(void *p)
 /*
  * Comparison function for vni hash
  */
-static int vni_hash_cmp(const void *p1, const void *p2)
+static bool vni_hash_cmp(const void *p1, const void *p2)
 {
 	const struct bgpevpn *vpn1 = p1;
 	const struct bgpevpn *vpn2 = p2;
 
 	if (!vpn1 && !vpn2)
-		return 1;
+		return true;
 	if (!vpn1 || !vpn2)
-		return 0;
+		return false;
 	return (vpn1->vni == vpn2->vni);
 }
 
@@ -152,16 +152,16 @@ static unsigned int vrf_import_rt_hash_key_make(void *p)
 /*
  * Comparison function for vrf import rt hash
  */
-static int vrf_import_rt_hash_cmp(const void *p1, const void *p2)
+static bool vrf_import_rt_hash_cmp(const void *p1, const void *p2)
 {
 	const struct vrf_irt_node *irt1 = p1;
 	const struct vrf_irt_node *irt2 = p2;
 
 	if (irt1 == NULL && irt2 == NULL)
-		return 1;
+		return true;
 
 	if (irt1 == NULL || irt2 == NULL)
-		return 0;
+		return false;
 
 	return (memcmp(irt1->rt.val, irt2->rt.val, ECOMMUNITY_SIZE) == 0);
 }
@@ -269,16 +269,16 @@ static unsigned int import_rt_hash_key_make(void *p)
 /*
  * Comparison function for import rt hash
  */
-static int import_rt_hash_cmp(const void *p1, const void *p2)
+static bool import_rt_hash_cmp(const void *p1, const void *p2)
 {
 	const struct irt_node *irt1 = p1;
 	const struct irt_node *irt2 = p2;
 
 	if (irt1 == NULL && irt2 == NULL)
-		return 1;
+		return true;
 
 	if (irt1 == NULL || irt2 == NULL)
-		return 0;
+		return false;
 
 	return (memcmp(irt1->rt.val, irt2->rt.val, ECOMMUNITY_SIZE) == 0);
 }

@@ -313,7 +313,7 @@ unsigned int lcommunity_hash_make(void *arg)
 }
 
 /* Compare two Large Communities Attribute structure.  */
-int lcommunity_cmp(const void *arg1, const void *arg2)
+bool lcommunity_cmp(const void *arg1, const void *arg2)
 {
 	const struct lcommunity *lcom1 = arg1;
 	const struct lcommunity *lcom2 = arg2;

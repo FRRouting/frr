@@ -337,7 +337,7 @@ static unsigned int cmd_hash_key(void *p)
 	return jhash(p, size, 0);
 }
 
-static int cmd_hash_cmp(const void *a, const void *b)
+static bool cmd_hash_cmp(const void *a, const void *b)
 {
 	return a == b;
 }

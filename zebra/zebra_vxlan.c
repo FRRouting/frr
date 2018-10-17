@@ -81,7 +81,6 @@ static int zvni_macip_send_msg_to_client(vni_t vni, struct ethaddr *macaddr,
 					 struct ipaddr *ip, uint8_t flags,
 					 uint32_t seq, uint16_t cmd);
 static unsigned int neigh_hash_keymake(void *p);
-static int neigh_cmp(const void *p1, const void *p2);
 static void *zvni_neigh_alloc(void *p);
 static zebra_neigh_t *zvni_neigh_add(zebra_vni_t *zvni, struct ipaddr *ip,
 				     struct ethaddr *mac);
@@ -137,7 +136,7 @@ static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni);
 static void zebra_vxlan_process_l3vni_oper_down(zebra_l3vni_t *zl3vni);
 
 static unsigned int mac_hash_keymake(void *p);
-static int mac_cmp(const void *p1, const void *p2);
+static bool mac_cmp(const void *p1, const void *p2);
 static void *zvni_mac_alloc(void *p);
 static zebra_mac_t *zvni_mac_add(zebra_vni_t *zvni, struct ethaddr *macaddr);
 static int zvni_mac_del(zebra_vni_t *zvni, zebra_mac_t *mac);
@@ -157,7 +156,6 @@ static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac);
 static void zvni_install_mac_hash(struct hash_backet *backet, void *ctxt);
 
 static unsigned int vni_hash_keymake(void *p);
-static int vni_hash_cmp(const void *p1, const void *p2);
 static void *zvni_alloc(void *p);
 static zebra_vni_t *zvni_lookup(vni_t vni);
 static zebra_vni_t *zvni_add(vni_t vni);
@@ -1254,16 +1252,16 @@ static unsigned int neigh_hash_keymake(void *p)
 /*
  * Compare two neighbor hash structures.
  */
-static int neigh_cmp(const void *p1, const void *p2)
+static bool neigh_cmp(const void *p1, const void *p2)
 {
 	const zebra_neigh_t *n1 = p1;
 	const zebra_neigh_t *n2 = p2;
 
 	if (n1 == NULL && n2 == NULL)
-		return 1;
+		return true;
 
 	if (n1 == NULL || n2 == NULL)
-		return 0;
+		return false;
 
 	return (memcmp(&n1->ip, &n2->ip, sizeof(struct ipaddr)) == 0);
 }
@@ -2240,16 +2238,16 @@ static unsigned int mac_hash_keymake(void *p)
 /*
  * Compare two MAC addresses.
  */
-static int mac_cmp(const void *p1, const void *p2)
+static bool mac_cmp(const void *p1, const void *p2)
 {
 	const zebra_mac_t *pmac1 = p1;
 	const zebra_mac_t *pmac2 = p2;
 
 	if (pmac1 == NULL && pmac2 == NULL)
-		return 1;
+		return true;
 
 	if (pmac1 == NULL || pmac2 == NULL)
-		return 0;
+		return false;
 
 	return (memcmp(pmac1->macaddr.octet, pmac2->macaddr.octet, ETH_ALEN)
 		== 0);
@@ -2761,7 +2759,7 @@ static unsigned int vni_hash_keymake(void *p)
 /*
  * Compare 2 VNI hash entries.
  */
-static int vni_hash_cmp(const void *p1, const void *p2)
+static bool vni_hash_cmp(const void *p1, const void *p2)
 {
 	const zebra_vni_t *zvni1 = p1;
 	const zebra_vni_t *zvni2 = p2;
@@ -3619,7 +3617,7 @@ static unsigned int l3vni_hash_keymake(void *p)
 /*
  * Compare 2 L3 VNI hash entries.
  */
-static int l3vni_hash_cmp(const void *p1, const void *p2)
+static bool l3vni_hash_cmp(const void *p1, const void *p2)
 {
 	const zebra_l3vni_t *zl3vni1 = p1;
 	const zebra_l3vni_t *zl3vni2 = p2;

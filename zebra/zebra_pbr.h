@@ -213,7 +213,7 @@ extern int kernel_pbr_rule_del(struct zebra_pbr_rule *rule);
 
 extern void zebra_pbr_rules_free(void *arg);
 extern uint32_t zebra_pbr_rules_hash_key(void *arg);
-extern int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2);
+extern bool zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2);
 
 /* has operates on 32bit pointer
  * and field is a string of 8bit
@@ -222,15 +222,16 @@ extern int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2);
 
 extern void zebra_pbr_ipset_free(void *arg);
 extern uint32_t zebra_pbr_ipset_hash_key(void *arg);
-extern int zebra_pbr_ipset_hash_equal(const void *arg1, const void *arg2);
+extern bool zebra_pbr_ipset_hash_equal(const void *arg1, const void *arg2);
 
 extern void zebra_pbr_ipset_entry_free(void *arg);
 extern uint32_t zebra_pbr_ipset_entry_hash_key(void *arg);
-extern int zebra_pbr_ipset_entry_hash_equal(const void *arg1, const void *arg2);
+extern bool zebra_pbr_ipset_entry_hash_equal(const void *arg1,
+					     const void *arg2);
 
 extern void zebra_pbr_iptable_free(void *arg);
 extern uint32_t zebra_pbr_iptable_hash_key(void *arg);
-extern int zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2);
+extern bool zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2);
 
 extern void zebra_pbr_init(void);
 extern void zebra_pbr_show_ipset_list(struct vty *vty, char *ipsetname);

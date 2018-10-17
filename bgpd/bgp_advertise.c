@@ -71,7 +71,7 @@ unsigned int baa_hash_key(void *p)
 	return attrhash_key_make(baa->attr);
 }
 
-int baa_hash_cmp(const void *p1, const void *p2)
+bool baa_hash_cmp(const void *p1, const void *p2)
 {
 	const struct bgp_advertise_attr *baa1 = p1;
 	const struct bgp_advertise_attr *baa2 = p2;

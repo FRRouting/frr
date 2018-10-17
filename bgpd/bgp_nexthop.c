@@ -123,7 +123,7 @@ static unsigned int bgp_tip_hash_key_make(void *p)
 	return jhash_1word(addr->addr.s_addr, 0);
 }
 
-static int bgp_tip_hash_cmp(const void *p1, const void *p2)
+static bool bgp_tip_hash_cmp(const void *p1, const void *p2)
 {
 	const struct tip_addr *addr1 = p1;
 	const struct tip_addr *addr2 = p2;
@@ -246,7 +246,7 @@ static unsigned int bgp_address_hash_key_make(void *p)
 	return jhash_1word(addr->addr.s_addr, 0);
 }
 
-static int bgp_address_hash_cmp(const void *p1, const void *p2)
+static bool bgp_address_hash_cmp(const void *p1, const void *p2)
 {
 	const struct bgp_addr *addr1 = p1;
 	const struct bgp_addr *addr2 = p2;

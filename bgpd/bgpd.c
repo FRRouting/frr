@@ -769,7 +769,7 @@ static unsigned int peer_hash_key_make(void *p)
 	return sockunion_hash(&peer->su);
 }
 
-static int peer_hash_same(const void *p1, const void *p2)
+static bool peer_hash_same(const void *p1, const void *p2)
 {
 	const struct peer *peer1 = p1;
 	const struct peer *peer2 = p2;

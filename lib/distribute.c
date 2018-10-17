@@ -140,15 +140,15 @@ static unsigned int distribute_hash_make(void *arg)
 
 /* If two distribute-list have same value then return 1 else return
    0. This function is used by hash package. */
-static int distribute_cmp(const struct distribute *dist1,
+static bool distribute_cmp(const struct distribute *dist1,
 			  const struct distribute *dist2)
 {
 	if (dist1->ifname && dist2->ifname)
 		if (strcmp(dist1->ifname, dist2->ifname) == 0)
-			return 1;
+			return true;
 	if (!dist1->ifname && !dist2->ifname)
-		return 1;
-	return 0;
+		return true;
+	return false;
 }
 
 /* Set access-list name to the distribute list. */
@@ -521,7 +521,7 @@ void distribute_list_init(int node)
 {
 	disthash = hash_create(
 		distribute_hash_make,
-		(int (*)(const void *, const void *))distribute_cmp, NULL);
+		(bool (*)(const void *, const void *))distribute_cmp, NULL);
 
 	/* vtysh command-extraction doesn't grok install_element(node, ) */
 	if (node == RIP_NODE) {
