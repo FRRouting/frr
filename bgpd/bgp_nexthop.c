@@ -84,18 +84,18 @@ static void bgp_nexthop_cache_reset(struct bgp_table *table)
 
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
 		bnc = bgp_nexthop_get_node_info(rn);
-		if (bnc != NULL) {
-			while (!LIST_EMPTY(&(bnc->paths))) {
-				struct bgp_path_info *path =
-					LIST_FIRST(&(bnc->paths));
+		if (!bnc)
+			continue;
 
-				path_nh_map(path, bnc, false);
-			}
+		while (!LIST_EMPTY(&(bnc->paths))) {
+			struct bgp_path_info *path = LIST_FIRST(&(bnc->paths));
 
-			bnc_free(bnc);
-			bgp_nexthop_set_node_info(rn, NULL);
-			bgp_unlock_node(rn);
+			path_nh_map(path, bnc, false);
 		}
+
+		bnc_free(bnc);
+		bgp_nexthop_set_node_info(rn, NULL);
+		bgp_unlock_node(rn);
 	}
 }
 
