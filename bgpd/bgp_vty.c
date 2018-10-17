@@ -11375,6 +11375,23 @@ DEFUN (show_bgp_instance_all_ipv6_updgrps,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_bgp_l2vpn_evpn_updgrps,
+	show_bgp_l2vpn_evpn_updgrps_cmd,
+	"show [ip] bgp l2vpn evpn update-groups",
+	SHOW_STR
+	IP_STR
+	BGP_STR
+	"l2vpn address family\n"
+	"evpn sub-address family\n"
+	"Detailed info about dynamic update groups\n")
+{
+	char *vrf = NULL;
+	uint64_t subgrp_id = 0;
+
+	bgp_show_update_groups(vty, vrf, AFI_L2VPN, SAFI_EVPN, subgrp_id);
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_bgp_updgrps_stats,
        show_bgp_updgrps_stats_cmd,
        "show [ip] bgp update-groups statistics",
@@ -13606,6 +13623,7 @@ void bgp_vty_init(void)
 
 	/* "show [ip] bgp summary" commands. */
 	install_element(VIEW_NODE, &show_bgp_instance_all_ipv6_updgrps_cmd);
+	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_updgrps_cmd);
 	install_element(VIEW_NODE, &show_bgp_instance_updgrps_stats_cmd);
 	install_element(VIEW_NODE, &show_bgp_updgrps_stats_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_instance_updgrps_adj_s_cmd);
