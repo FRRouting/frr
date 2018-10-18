@@ -79,6 +79,7 @@ struct static_hold_route {
 	char *distance_str;
 	char *label_str;
 	char *table_str;
+	bool onlink;
 
 	/* processed & masked destination, used for config display */
 	struct prefix dest;
@@ -273,7 +274,8 @@ static int static_route_leak(
 	afi_t afi, safi_t safi, const char *negate, const char *dest_str,
 	const char *mask_str, const char *src_str, const char *gate_str,
 	const char *ifname, const char *flag_str, const char *tag_str,
-	const char *distance_str, const char *label_str, const char *table_str)
+	const char *distance_str, const char *label_str, const char *table_str,
+	bool onlink)
 {
 	int ret;
 	uint8_t distance;
@@ -509,7 +511,7 @@ static int static_route_leak(
 	if (!negate) {
 		static_add_route(afi, safi, type, &p, src_p, gatep, ifname,
 				 bh_type, tag, distance, svrf, nh_svrf,
-				 &snh_label, table_id);
+				 &snh_label, table_id, onlink);
 		/* Mark as having FRR configuration */
 		vrf_set_user_cfged(svrf->vrf);
 	} else {
@@ -550,10 +552,10 @@ static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 		if (!svrf)
 			return CMD_WARNING_CONFIG_FAILED;
 	}
-	return static_route_leak(
-		vty, svrf, svrf, afi, safi, negate, dest_str, mask_str, src_str,
-		gate_str, ifname, flag_str, tag_str, distance_str, label_str,
-		table_str);
+	return static_route_leak(vty, svrf, svrf, afi, safi, negate, dest_str,
+				 mask_str, src_str, gate_str, ifname, flag_str,
+				 tag_str, distance_str, label_str, table_str,
+				 false);
 }
 
 void static_config_install_delayed_routes(struct static_vrf *svrf)
@@ -578,7 +580,8 @@ void static_config_install_delayed_routes(struct static_vrf *svrf)
 			NULL, osvrf, nh_svrf, shr->afi, shr->safi, NULL,
 			shr->dest_str, shr->mask_str, shr->src_str,
 			shr->gate_str, shr->ifname, shr->flag_str, shr->tag_str,
-			shr->distance_str, shr->label_str, shr->table_str);
+			shr->distance_str, shr->label_str, shr->table_str,
+			shr->onlink);
 
 		if (installed != CMD_SUCCESS)
 			zlog_debug(
@@ -817,9 +820,10 @@ DEFPY(ip_route_blackhole_vrf,
 	 * valid.  Add an assert to make it happy
 	 */
 	assert(prefix);
-	return static_route_leak(vty, svrf, svrf, AFI_IP, SAFI_UNICAST,
-				 no, prefix, mask_str, NULL, NULL, NULL,
-				 flag, tag_str, distance_str, label, table_str);
+	return static_route_leak(vty, svrf, svrf, AFI_IP, SAFI_UNICAST, no,
+				 prefix, mask_str, NULL, NULL, NULL, flag,
+				 tag_str, distance_str, label, table_str,
+				 false);
 }
 
 DEFPY(ip_route_address_interface,
@@ -835,6 +839,7 @@ DEFPY(ip_route_address_interface,
 	  |label WORD                                  \
 	  |table (1-4294967295)                        \
 	  |nexthop-vrf NAME                            \
+	  |onlink$onlink                               \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -851,7 +856,8 @@ DEFPY(ip_route_address_interface,
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
       "The table number to configure\n"
-      VRF_CMD_HELP_STR)
+      VRF_CMD_HELP_STR
+      "Treat the nexthop as directly attached to the interface")
 {
 	struct static_vrf *svrf;
 	struct static_vrf *nh_svrf;
@@ -884,10 +890,10 @@ DEFPY(ip_route_address_interface,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	return static_route_leak(
-		vty, svrf, nh_svrf, AFI_IP, SAFI_UNICAST, no, prefix, mask_str,
-		NULL, gate_str, ifname, flag, tag_str, distance_str, label,
-		table_str);
+	return static_route_leak(vty, svrf, nh_svrf, AFI_IP, SAFI_UNICAST, no,
+				 prefix, mask_str, NULL, gate_str, ifname, flag,
+				 tag_str, distance_str, label, table_str,
+				 !!onlink);
 }
 
 DEFPY(ip_route_address_interface_vrf,
@@ -902,6 +908,7 @@ DEFPY(ip_route_address_interface_vrf,
 	  |label WORD                                  \
 	  |table (1-4294967295)                        \
 	  |nexthop-vrf NAME                            \
+	  |onlink$onlink                               \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -917,7 +924,8 @@ DEFPY(ip_route_address_interface_vrf,
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
       "The table number to configure\n"
-      VRF_CMD_HELP_STR)
+      VRF_CMD_HELP_STR
+      "Treat the nexthop as directly attached to the interface")
 {
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	const char *flag = NULL;
@@ -945,10 +953,10 @@ DEFPY(ip_route_address_interface_vrf,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	return static_route_leak(
-		vty, svrf, nh_svrf, AFI_IP, SAFI_UNICAST, no, prefix, mask_str,
-		NULL, gate_str, ifname, flag, tag_str, distance_str, label,
-		table_str);
+	return static_route_leak(vty, svrf, nh_svrf, AFI_IP, SAFI_UNICAST, no,
+				 prefix, mask_str, NULL, gate_str, ifname, flag,
+				 tag_str, distance_str, label, table_str,
+				 !!onlink);
 }
 
 DEFPY(ip_route,
@@ -1014,7 +1022,7 @@ DEFPY(ip_route,
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP, SAFI_UNICAST, no, prefix, mask_str,
 		NULL, gate_str, ifname, flag, tag_str, distance_str, label,
-		table_str);
+		table_str, false);
 }
 
 DEFPY(ip_route_vrf,
@@ -1073,7 +1081,7 @@ DEFPY(ip_route_vrf,
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP, SAFI_UNICAST, no, prefix, mask_str,
 		NULL, gate_str, ifname, flag, tag_str, distance_str, label,
-		table_str);
+		table_str, false);
 }
 
 DEFPY(ipv6_route_blackhole,
@@ -1159,7 +1167,7 @@ DEFPY(ipv6_route_blackhole_vrf,
 	return static_route_leak(
 		vty, svrf, svrf, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
 		from_str, NULL, NULL, flag, tag_str, distance_str, label,
-		table_str);
+		table_str, false);
 }
 
 DEFPY(ipv6_route_address_interface,
@@ -1174,6 +1182,7 @@ DEFPY(ipv6_route_address_interface,
             |label WORD                                    \
 	    |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
+	    |onlink$onlink                                 \
           }]",
       NO_STR
       IPV6_STR
@@ -1190,7 +1199,8 @@ DEFPY(ipv6_route_address_interface,
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
       "The table number to configure\n"
-      VRF_CMD_HELP_STR)
+      VRF_CMD_HELP_STR
+      "Treat the nexthop as directly attached to the interface")
 {
 	struct static_vrf *svrf;
 	struct static_vrf *nh_svrf;
@@ -1220,7 +1230,7 @@ DEFPY(ipv6_route_address_interface,
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
 		from_str, gate_str, ifname, NULL, tag_str, distance_str, label,
-		table_str);
+		table_str, !!onlink);
 }
 
 DEFPY(ipv6_route_address_interface_vrf,
@@ -1234,6 +1244,7 @@ DEFPY(ipv6_route_address_interface_vrf,
             |label WORD                                    \
 	    |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
+	    |onlink$onlink                                 \
           }]",
       NO_STR
       IPV6_STR
@@ -1249,7 +1260,8 @@ DEFPY(ipv6_route_address_interface_vrf,
       MPLS_LABEL_HELPSTR
       "Table to configure\n"
       "The table number to configure\n"
-      VRF_CMD_HELP_STR)
+      VRF_CMD_HELP_STR
+      "Treat the nexthop as directly attached to the interface")
 {
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	struct static_vrf *svrf = vrf->info;
@@ -1274,7 +1286,7 @@ DEFPY(ipv6_route_address_interface_vrf,
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
 		from_str, gate_str, ifname, NULL, tag_str, distance_str, label,
-		table_str);
+		table_str, !!onlink);
 }
 
 DEFPY(ipv6_route,
@@ -1334,7 +1346,7 @@ DEFPY(ipv6_route,
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
 		from_str, gate_str, ifname, NULL, tag_str, distance_str, label,
-		table_str);
+		table_str, false);
 }
 
 DEFPY(ipv6_route_vrf,
@@ -1387,7 +1399,7 @@ DEFPY(ipv6_route_vrf,
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
 		from_str, gate_str, ifname, NULL, tag_str, distance_str, label,
-		table_str);
+		table_str, false);
 }
 
 DEFUN_NOSH (show_debugging_staticd,
