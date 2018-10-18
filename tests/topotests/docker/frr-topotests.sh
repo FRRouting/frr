@@ -105,7 +105,12 @@ if [ -z "$TOPOTEST_LOGS" ]; then
 fi
 
 if [ -z "$TOPOTEST_FRR" ]; then
-	TOPOTEST_FRR="$(pwd)"
+	TOPOTEST_FRR="$(git rev-parse --show-toplevel || true)"
+	if [ -z "$TOPOTEST_FRR" ]; then
+		echo "Could not determine base of FRR tree." >&2
+		echo "frr-topotests only works if you have your tree in git." >&2
+		exit 1
+	fi
 fi
 
 if [ -z "$TOPOTEST_BUILDCACHE" ]; then

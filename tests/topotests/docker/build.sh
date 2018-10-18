@@ -22,15 +22,7 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# Load shared functions
-CDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-. $CDIR/funcs.sh
-
-#
-# Script begin
-#
-
 exec docker build --pull \
 		  --compress \
-		  -t frrrouting/topotests \
+		  -t frrouting/topotests \
 		  .

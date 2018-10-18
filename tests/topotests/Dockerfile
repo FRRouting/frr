@@ -58,11 +58,13 @@ RUN echo "" >> /etc/security/limits.conf; \
     echo "root hard core unlimited" >> /etc/security/limits.conf
 
 # Copy run scripts to facilitate users wanting to run the tests
+COPY docker/inner /opt/topotests
 COPY . /root/topotests
-WORKDIR /root
-ENV PATH "$PATH:/root/topotests/docker"
 
-RUN echo "cat /root/topotests/docker/motd.txt" >> /root/.profile && \
+WORKDIR /root/topotests
+ENV PATH "$PATH:/opt/topotests"
+
+RUN echo "cat /opt/topotests/motd.txt" >> /root/.profile && \
       echo "export PS1='(topotests) $PS1'" >> /root/.profile
 
-ENTRYPOINT [ "bash", "/root/topotests/docker/entrypoint.sh" ]
+ENTRYPOINT [ "bash", "/opt/topotests/entrypoint.sh" ]
