@@ -55,6 +55,10 @@
 #include "eigrpd/eigrp_dump.h"
 #include "eigrpd/eigrp_const.h"
 
+#ifndef VTYSH_EXTRACT_PL
+#include "eigrpd/eigrp_vty_clippy.c"
+#endif
+
 static int config_write_network(struct vty *vty, struct eigrp *eigrp)
 {
 	struct route_node *rn;
@@ -975,9 +979,10 @@ DEFUN (no_eigrp_authentication_mode,
 	return CMD_SUCCESS;
 }
 
-DEFUN (eigrp_authentication_keychain,
+DEFPY (eigrp_authentication_keychain,
        eigrp_authentication_keychain_cmd,
-       "ip authentication key-chain eigrp (1-65535) WORD",
+       "[no] ip authentication key-chain eigrp (1-65535)$as WORD$name",
+       NO_STR
        "Interface Internet Protocol config commands\n"
        "Authentication subcommands\n"
        "Key-chain\n"
@@ -1001,52 +1006,29 @@ DEFUN (eigrp_authentication_keychain,
 		return CMD_SUCCESS;
 	}
 
-	keychain = keychain_lookup(argv[4]->arg);
+	if (no) {
+		if ((ei->params.auth_keychain != NULL)
+		    && (strcmp(ei->params.auth_keychain, name) == 0)) {
+			free(ei->params.auth_keychain);
+			ei->params.auth_keychain = NULL;
+		} else
+			vty_out(vty,
+				"Key chain with specified name not configured on interface\n");
+		return CMD_SUCCESS;
+	}
+
+	keychain = keychain_lookup(name);
 	if (keychain != NULL) {
 		if (ei->params.auth_keychain) {
 			free(ei->params.auth_keychain);
 			ei->params.auth_keychain = strdup(keychain->name);
 		} else
 			ei->params.auth_keychain = strdup(keychain->name);
-	} else
-		vty_out(vty, "Key chain with specified name not found\n");
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_eigrp_authentication_keychain,
-       no_eigrp_authentication_keychain_cmd,
-       "no ip authentication key-chain eigrp (1-65535) WORD",
-       "Disable\n"
-       "Interface Internet Protocol config commands\n"
-       "Authentication subcommands\n"
-       "Key-chain\n"
-       "Enhanced Interior Gateway Routing Protocol (EIGRP)\n"
-       "Autonomous system number\n"
-       "Name of key-chain\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct eigrp_interface *ei = ifp->info;
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup();
-	if (eigrp == NULL) {
-		vty_out(vty, "EIGRP Routing Process not enabled\n");
-		return CMD_SUCCESS;
-	}
-
-	if (!ei) {
-		vty_out(vty, " EIGRP not configured on this interface\n");
-		return CMD_SUCCESS;
-	}
-
-	if ((ei->params.auth_keychain != NULL)
-	    && (strcmp(ei->params.auth_keychain, argv[5]->arg) == 0)) {
-		free(ei->params.auth_keychain);
-		ei->params.auth_keychain = NULL;
-	} else
+	} else {
 		vty_out(vty,
-			"Key chain with specified name not configured on interface\n");
+			"Key chain with specified name not found\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	return CMD_SUCCESS;
 }
@@ -1538,7 +1520,6 @@ void eigrp_vty_if_init(void)
 	install_element(INTERFACE_NODE, &eigrp_authentication_mode_cmd);
 	install_element(INTERFACE_NODE, &no_eigrp_authentication_mode_cmd);
 	install_element(INTERFACE_NODE, &eigrp_authentication_keychain_cmd);
-	install_element(INTERFACE_NODE, &no_eigrp_authentication_keychain_cmd);
 
 	/*EIGRP Summarization commands*/
 	install_element(INTERFACE_NODE, &eigrp_ip_summary_address_cmd);
