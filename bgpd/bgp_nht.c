@@ -51,8 +51,6 @@ static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc,
 				 int is_bgp_static_route);
 static void evaluate_paths(struct bgp_nexthop_cache *bnc);
 static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p);
-static void path_nh_map(struct bgp_path_info *path,
-			struct bgp_nexthop_cache *bnc, int keep);
 
 static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 {
@@ -111,7 +109,7 @@ void bgp_unlink_nexthop(struct bgp_path_info *path)
 	if (!bnc)
 		return;
 
-	path_nh_map(path, NULL, 0);
+	path_nh_map(path, NULL, false);
 
 	bgp_unlink_nexthop_check(bnc);
 }
@@ -253,7 +251,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		 */
 		bgp_unlink_nexthop(pi);
 
-		path_nh_map(pi, bnc, 1); /* updates NHT pi list reference */
+		/* updates NHT pi list reference */
+		path_nh_map(pi, bnc, true);
 
 		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) && bnc->metric)
 			(bgp_path_info_extra_get(pi))->igpmetric = bnc->metric;
@@ -789,8 +788,8 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
  *   make - if set, make the association. if unset, just break the existing
  *          association.
  */
-static void path_nh_map(struct bgp_path_info *path,
-			struct bgp_nexthop_cache *bnc, int make)
+void path_nh_map(struct bgp_path_info *path, struct bgp_nexthop_cache *bnc,
+		 bool make)
 {
 	if (path->nexthop) {
 		LIST_REMOVE(path, nh_thread);
