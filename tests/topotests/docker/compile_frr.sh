@@ -32,6 +32,11 @@ CDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Script begin
 #
 
+if [ "${TOPOTEST_CLEAN}" != "0" ]; then
+	log_info "Cleaning FRR builddir..."
+	rm -rf $FRR_SYNC_DIR $FRR_BUILD_DIR &> /dev/null
+fi
+
 log_info "Syncing FRR source with host..."
 mkdir -p $FRR_SYNC_DIR
 rsync -a --info=progress2 \
@@ -50,11 +55,6 @@ if [ "${TOPOTEST_VERBOSE}" != "0" ]; then
 	exec 3>&1
 else
 	exec 3>/dev/null
-fi
-
-if [ "${TOPOTEST_CLEAN}" != "0" ]; then
-	log_info "Cleaning FRR builddir..."
-	git clean -xdf > /dev/null
 fi
 
 log_info "Building FRR..."
