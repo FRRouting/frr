@@ -33,9 +33,12 @@ CDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 "${CDIR}/openvswitch.sh"
 
 log_info "Setting permissions on /tmp so we can generate logs"
-chmod -v 1777 /tmp
+chmod 1777 /tmp
 
-log_info "Starting bash shell to interact with topotests"
-echo ''
+if [ $# -eq 0 ] || ([[ "$1" != /* ]] && [[ "$1" != ./* ]]); then
+	export TOPOTESTS_CHECK_MEMLEAK=/tmp/memleak_
+	export TOPOTESTS_CHECK_STDERR=Yes
+	set -- pytest --junitxml /tmp/topotests.xml "$@"
+fi
 
-exec bash
+exec "$@"

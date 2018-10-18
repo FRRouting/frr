@@ -83,11 +83,15 @@ if [ ! -e Makefile ]; then
 	fi
 
 	bash configure >&3 \
-		--enable-multipath=64 \
+		--enable-static-bin \
+		--with-moduledir=/usr/lib/frr/modules \
 		--prefix=/usr \
 		--localstatedir=/var/run/frr \
 		--sbindir=/usr/lib/frr \
 		--sysconfdir=/etc/frr \
+		--enable-multipath=0 \
+		--enable-fpm \
+		--enable-sharpd \
 		$EXTRA_CONFIGURE \
 		--with-pkg-extra-version=-topotests \
 		|| log_fatal "failed to configure the sources"
