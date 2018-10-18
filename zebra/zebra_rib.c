@@ -601,9 +601,20 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 					__PRETTY_FUNCTION__);
 			return resolved;
 		} else {
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+				zlog_debug("\t%s: Route Type %s has not turned on recursion",
+					   __PRETTY_FUNCTION__,
+					   zebra_route_string(re->type));
+				if (re->type == ZEBRA_ROUTE_BGP &&
+				    !CHECK_FLAG(re->flags, ZEBRA_FLAG_IBGP))
+					zlog_debug("\tEBGP: see \"disable-ebgp-connected-route-check\" or \"disable-connected-check\"");
+			}
 			return 0;
 		}
 	}
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("\t%s: Nexthop did not lookup in table",
+			   __PRETTY_FUNCTION__);
 	return 0;
 }
 
