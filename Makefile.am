@@ -4,6 +4,7 @@ AUTOMAKE_OPTIONS = subdir-objects 1.12
 ACLOCAL_AMFLAGS = -I m4
 
 AM_CFLAGS = \
+	$(UNWIND_CFLAGS) \
 	$(SAN_FLAGS) \
 	$(WERROR) \
 	# end

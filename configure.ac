@@ -958,10 +958,6 @@ case "$host_os" in
     AC_CHECK_LIB(socket, main)
     AC_CHECK_LIB(nsl, main)
     AC_CHECK_LIB(umem, main)
-    AC_CHECK_FUNCS([printstack], [
-      AC_DEFINE([HAVE_PRINTSTACK],1,[Solaris printstack])
-      AC_DEFINE([HAVE_STACK_TRACE],1,[Stack symbols decode functionality])
-    ])
     CURSES=-lcurses
     SOLARIS="solaris"
     ;;
@@ -1811,17 +1807,31 @@ dnl check for glibc 'backtrace'
 dnl --------------------------- 
 if test x"${enable_backtrace}" != x"no" ; then
   backtrace_ok=no
-  AC_CHECK_HEADER([execinfo.h], [
-    AC_SEARCH_LIBS([backtrace], [execinfo], [
-      AC_DEFINE(HAVE_GLIBC_BACKTRACE,,[Glibc backtrace])
-      AC_DEFINE(HAVE_STACK_TRACE,,[Stack symbol decoding])
-      backtrace_ok=yes
-    ],, [-lm])
+  PKG_CHECK_MODULES([UNWIND], [libunwind], [
+    AC_DEFINE(HAVE_LIBUNWIND, 1, [libunwind])
+    backtrace_ok=yes
+  ], [
+    case "$host_os" in
+    sunos* | solaris2*)
+      AC_CHECK_FUNCS([printstack], [
+        AC_DEFINE([HAVE_PRINTSTACK], 1, [Solaris printstack])
+        backtrace_ok=yes
+      ])
+      ;;
+    esac
+    if test "$backtrace_ok" = no; then
+      AC_CHECK_HEADER([execinfo.h], [
+        AC_SEARCH_LIBS([backtrace], [execinfo], [
+          AC_DEFINE(HAVE_GLIBC_BACKTRACE, 1, [Glibc backtrace])
+          backtrace_ok=yes
+        ],, [-lm])
+      ])
+    fi
   ])
 
   if test x"${enable_backtrace}" = x"yes" -a x"${backtrace_ok}" = x"no"; then
     dnl user explicitly requested backtrace but we failed to find support
-    AC_MSG_FAILURE([failed to find backtrace support])
+    AC_MSG_FAILURE([failed to find backtrace or libunwind support])
   fi
 fi
 
