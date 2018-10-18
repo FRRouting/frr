@@ -29,13 +29,31 @@ CDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #
 # Script begin
 #
-"${CDIR}/compile_frr.sh"
-"${CDIR}/openvswitch.sh"
 
-log_info "Setting permissions on /tmp so we can generate logs"
-chmod -v 1777 /tmp
+log_info "Configuring OpenvSwitch...."
 
-log_info "Starting bash shell to interact with topotests"
-echo ''
+# Configure OpenvSwitch so we are able to run mininet
+mkdir -p /var/run/openvswitch
+ovsdb-tool create /etc/openvswitch/conf.db \
+	/usr/share/openvswitch/vswitch.ovsschema
+ovsdb-server /etc/openvswitch/conf.db \
+	--remote=punix:/var/run/openvswitch/db.sock \
+	--remote=ptcp:6640 --pidfile=ovsdb-server.pid >/dev/null 2>/dev/null & \
+	disown
+ovs-vswitchd >/dev/null 2>/dev/null & disown
 
-exec bash
+sleep 2
+
+ovs-vsctl --no-wait -- init
+ovs_version=$(ovs-vsctl -V | grep ovs-vsctl | awk '{print $4}')
+ovs_db_version=$(\
+	ovsdb-tool schema-version /usr/share/openvswitch/vswitch.ovsschema)
+ovs-vsctl --no-wait -- set Open_vSwitch . db-version="${ovs_db_version}"
+ovs-vsctl --no-wait -- set Open_vSwitch . ovs-version="${ovs_version}"
+ovs-vsctl --no-wait -- set Open_vSwitch . system-type="docker-ovs"
+ovs-vsctl --no-wait -- set Open_vSwitch . system-version="0.1"
+ovs-vsctl --no-wait -- \
+	set Open_vSwitch . external-ids:system-id=`cat /proc/sys/kernel/random/uuid`
+ovs-vsctl --no-wait -- set-manager ptcp:6640
+ovs-appctl -t ovsdb-server \
+	ovsdb-server/add-remote db:Open_vSwitch,Open_vSwitch,manager_options
