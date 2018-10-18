@@ -8,6 +8,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         bison \
         flex \
         gdb \
+        git \
         inetutils-ping \
         install-info \
         iproute2 \

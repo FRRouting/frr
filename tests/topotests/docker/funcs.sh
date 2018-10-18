@@ -23,18 +23,17 @@
 # SOFTWARE.
 
 FRR_HOST_DIR=/root/host-frr
+FRR_SYNC_DIR=/root/persist/frr-sync
 FRR_BUILD_DIR=/root/persist/frr-build
-TOPOTESTS_DIR=/root/topotests
 
 if [ ! -L "/root/frr" ]; then
 	ln -s $FRR_BUILD_DIR /root/frr
 fi
 
-[ -z $CLEAN ] && CLEAN=0
-[ -z $VERBOSE ] && VERBOSE=1
-[ -z $DOC ] && DOC=0
-[ -z $SANITIZER ] && SANITIZER=1
-[ -z $SYNC_SOURCE ] && SYNC_SOURCE=0
+[ -z $TOPOTEST_CLEAN ] && TOPOTEST_CLEAN=0
+[ -z $TOPOTEST_VERBOSE ] && TOPOTEST_VERBOSE=1
+[ -z $TOPOTEST_DOC ] && TOPOTEST_DOC=0
+[ -z $TOPOTEST_SANITIZER ] && TOPOTEST_SANITIZER=1
 
 log_info() {
 	local msg=$1

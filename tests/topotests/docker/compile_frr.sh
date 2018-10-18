@@ -22,6 +22,8 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+set -e
+
 # Load shared functions
 CDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . $CDIR/funcs.sh
@@ -29,36 +31,47 @@ CDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #
 # Script begin
 #
-if [ ! -f .sync_source -o $SYNC_SOURCE -ne 0 ]; then
-	log_info "Syncing FRR source with host..."
-	mkdir -p $FRR_BUILD_DIR >/dev/null 2>&1
-	rsync -a --info=progress2 --chown root:root $FRR_HOST_DIR/. $FRR_BUILD_DIR/
-	touch .sync_source
+
+log_info "Syncing FRR source with host..."
+mkdir -p $FRR_SYNC_DIR
+rsync -a --info=progress2 \
+	--exclude '*.o' \
+	--exclude '*.lo'\
+	--chown root:root \
+	$FRR_HOST_DIR/. $FRR_SYNC_DIR/
+(cd $FRR_SYNC_DIR && git clean -xdf > /dev/null)
+mkdir -p $FRR_BUILD_DIR
+rsync -a --info=progress2 --chown root:root $FRR_SYNC_DIR/. $FRR_BUILD_DIR/
+
+cd "$FRR_BUILD_DIR" || \
+	log_fatal "failed to find frr directory"
+
+if [ "${TOPOTEST_VERBOSE}" != "0" ]; then
+	exec 3>&1
+else
+	exec 3>/dev/null
+fi
+
+if [ "${TOPOTEST_CLEAN}" != "0" ]; then
+	log_info "Cleaning FRR builddir..."
+	git clean -xdf > /dev/null
 fi
 
 log_info "Building FRR..."
 
-cd $FRR_BUILD_DIR || \
-	log_fatal "failed to find frr directory"
-
-if [ $CLEAN -ne 0 ]; then
-	make distclean >/dev/null 2>&1
-	rm -f Makefile configure
-fi
-
-if [ ! -f configure ]; then
-	bash bootstrap.sh || \
+if [ ! -e configure ]; then
+	bash bootstrap.sh >&3 || \
 		log_fatal "failed to bootstrap configuration"
 fi
 
-if [ $DOC -ne 0 ]; then
+if [ "${TOPOTEST_DOC}" != "0" ]; then
 	EXTRA_CONFIGURE+=" --enable-doc "
 else
 	EXTRA_CONFIGURE+=" --disable-doc "
 fi
 
-if [ ! -f Makefile ]; then
-	if [ $SANITIZER -ne 0 ]; then
+if [ ! -e Makefile ]; then
+	if [ "${TOPOTEST_SANITIZER}" != "0" ]; then
 		export CC="gcc"
 		export CFLAGS="-O1 -g -fsanitize=address -fno-omit-frame-pointer"
 		export LD="gcc"
@@ -69,7 +82,7 @@ if [ ! -f Makefile ]; then
 		rm -f .address_sanitizer
 	fi
 
-	bash configure >/dev/null \
+	bash configure >&3 \
 		--enable-multipath=64 \
 		--prefix=/usr \
 		--localstatedir=/var/run/frr \
@@ -82,18 +95,11 @@ fi
 
 # if '.address_sanitizer' file exists it means we are using address sanitizer.
 if [ -f .address_sanitizer ]; then
-	make -C lib CFLAGS="-g -O2" LDFLAGS="-g" clippy
+	make -C lib CFLAGS="-g -O2" LDFLAGS="-g" clippy >&3
 fi
 
-if [ $VERBOSE -ne 0 ]; then
-	make -j$(cpu_count) || \
-		log_fatal "failed to build the sources"
-else
-	make -j$(cpu_count) >/dev/null || \
-		log_fatal "failed to build the sources"
-fi
+make -j$(cpu_count) >&3 || \
+	log_fatal "failed to build the sources"
 
 make install >/dev/null || \
 	log_fatal "failed to install frr"
-
-exit 0

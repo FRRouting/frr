@@ -114,21 +114,20 @@ if [ -z "$TOPOTEST_BUILDCACHE" ]; then
 		|| docker volume create "${TOPOTEST_BUILDCACHE}"
 fi
 
-if [ -z "$TOPOTEST_PATH" ]; then
-	docker run --rm -ti \
-		-v "$TOPOTEST_LOGS:/tmp" \
-		-v "$TOPOTEST_FRR:/root/host-frr:ro" \
-		-v "$TOPOTEST_BUILDCACHE:/root/persist" \
-		--privileged \
-		$TOPOTEST_OPTIONS \
-		frrouting/topotests "$@"
-else
-	docker run --rm -ti \
-		-v "$TOPOTEST_LOGS:/tmp" \
-		-v "$TOPOTEST_FRR:/root/host-frr:ro" \
-		-v "$TOPOTEST_BUILDCACHE:/root/persist" \
-		-v "$TOPOTEST_PATH:/root/topotests:ro" \
-		--privileged \
-		$TOPOTEST_OPTIONS \
-		frrouting/topotests "$@"
+set -- --rm -ti \
+	-v "$TOPOTEST_LOGS:/tmp" \
+	-v "$TOPOTEST_FRR:/root/host-frr:ro" \
+	-v "$TOPOTEST_BUILDCACHE:/root/persist" \
+	-e "TOPOTEST_CLEAN=$TOPOTEST_CLEAN" \
+	-e "TOPOTEST_VERBOSE=$TOPOTEST_VERBOSE" \
+	-e "TOPOTEST_DOC=$TOPOTEST_DOC" \
+	-e "TOPOTEST_SANITIZER=$TOPOTEST_SANITIZER" \
+	--privileged \
+	$TOPOTEST_OPTIONS \
+	frrouting/topotests "$@"
+
+if [ -n "TOPOTEST_PATH" ]; then
+	set -- -v "$TOPOTEST_PATH:/root/topotests:ro" "$@"
 fi
+
+exec docker run "$@"

@@ -57,11 +57,7 @@ ovs-vsctl --no-wait -- set-manager ptcp:6640
 ovs-appctl -t ovsdb-server \
 	ovsdb-server/add-remote db:Open_vSwitch,Open_vSwitch,manager_options
 
-# Build FRR
-env \
-	CLEAN=1 \
-	VERBOSE=0 \
-	bash "${CDIR}/compile_frr.sh"
+bash "${CDIR}/compile_frr.sh"
 
 log_info "Setting permissions on /tmp so we can generate logs"
 chmod -v 1777 /tmp
@@ -69,7 +65,4 @@ chmod -v 1777 /tmp
 log_info "Starting bash shell to interact with topotests"
 echo ''
 
-tmux
-
-log_info "Stopping OpenvSwitch"
-service openvswitch-switch stop
+exec bash
