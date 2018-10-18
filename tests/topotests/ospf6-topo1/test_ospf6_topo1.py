@@ -345,8 +345,13 @@ def test_linux_ipv6_kernel_routingTable():
             actual = actual.rstrip()
             actual = re.sub(r'  +', ' ', actual)
 
-            # Fix newlines (make them all the same)
-            actual = ('\n'.join(sorted(actual.splitlines()))).splitlines(1)
+            filtered_lines = []
+            for line in sorted(actual.splitlines()):
+                if line.startswith('fe80::/64 ') \
+                        or line.startswith('unreachable fe80::/64 '):
+                    continue
+                filtered_lines.append(line)
+            actual = '\n'.join(filtered_lines).splitlines(1)
 
             # Print Actual table
             # print("Router r%s table" % i)
