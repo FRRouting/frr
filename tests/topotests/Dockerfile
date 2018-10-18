@@ -9,8 +9,8 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         flex \
         gdb \
         git \
-        inetutils-ping \
         install-info \
+        iputils-ping \
         iproute2 \
         less \
         libtool \
@@ -24,6 +24,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         python-pip \
         python-sphinx \
         rsync \
+        strace \
         tcpdump \
         texinfo \
         tmux \
