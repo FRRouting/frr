@@ -1,23 +1,21 @@
 # Topotests in Docker
 
-This is folder contains auxiliary scripts to automate or help deploying
-topology tests under Docker on a standardized Ubuntu environment.
+## Usage
 
-Files description:
+If you have Docker installed, you can run the topotests in Docker.
+The easiest way to do this, is to use the `frr-topotests.sh` script
+from this repository:
 
-* _funcs.sh_: shared bash code
-* _docker.sh_: builds docker image to run topotests
-* _compile_frr.sh_: compile FRR sources (should be used by `topotests_run.sh`)
-* _topotests_run.sh_: runs topotest image with the selected command
+```console
+wget -O /usr/local/bin/frr-topotests \
+    https://raw.githubusercontent.com/frrouting/topotests/master/docker/frr-topotests.sh
+chmod +x /usr/local/bin/frr-topotests
+```
 
-## Running Topotests in Docker
+Once this script is in place, simply run it while you are inside your FRR repository:
 
-All you need to run topotests in Docker is:
+```
+frr-topotests
+```
 
-* Have Docker installed (tested against docker-ce[1])
-* Build the topotest images
-* Have the FRR/Topotest sources cloned in your machine
-
-Review and configure your sources folder in `topotests_run.sh`.
-
-[1]: https://docs.docker.com/install/linux/docker-ce/ubuntu/
+It should build FRR inside of the container and run the topotests on it.
