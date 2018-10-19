@@ -2251,7 +2251,8 @@ DEFUN(no_match_ipv6_next_hop_type, no_match_ipv6_next_hop_type_cmd,
 
 	if (rmap_match_set_hook.no_match_ipv6_next_hop_type)
 		return rmap_match_set_hook.no_match_ipv6_next_hop_type(
-			vty, index, "ipv6 next-hop type", argv[idx_word]->arg,
+			vty, index, "ipv6 next-hop type",
+			(argc <= idx_word) ? NULL : argv[idx_word]->arg,
 			RMAP_EVENT_MATCH_DELETED);
 	return CMD_SUCCESS;
 }
