@@ -323,6 +323,32 @@ fi
 AC_SUBST(AC_LDFLAGS)
 AM_CONDITIONAL([STATIC_BIN], [test "x$enable_static_bin" = "xyes"])
 
+dnl $AR and $RANLIB are set by LT_INIT above
+AC_MSG_CHECKING([whether $AR supports D option])
+if $AR crD conftest.a; then
+  AC_MSG_RESULT([yes])
+  dnl ARFLAGS is for automake, AR_FLAGS for libtool m-(
+  ARFLAGS="crD"
+  AR_FLAGS="crD"
+else
+  AC_MSG_RESULT([no])
+  ARFLAGS="cru"
+  AR_FLAGS="cru"
+fi
+AC_SUBST(ARFLAGS)
+AC_SUBST(AR_FLAGS)
+
+AC_MSG_CHECKING([whether $RANLIB supports D option])
+if $RANLIB -D conftest.a; then
+  AC_MSG_RESULT([yes])
+  RANLIB="$RANLIB -D"
+else
+  AC_MSG_RESULT([no])
+fi
+AC_SUBST(RANLIB)
+
+test -f conftest.a && rm conftest.a
+
 dnl ----------------------
 dnl Packages configuration
 dnl ----------------------
@@ -462,9 +488,9 @@ AC_ARG_ENABLE([memory-sanitizer],
 AS_IF([test "${enable_clippy_only}" != "yes"], [
 AC_CHECK_HEADERS(json-c/json.h)
 AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c", [], [-lm])
-if test $ac_cv_lib_json_c_json_object_get = no; then
+if test "$ac_cv_lib_json_c_json_object_get" = no; then
   AC_CHECK_LIB(json, json_object_get, LIBS="$LIBS -ljson")
-  if test $ac_cv_lib_json_json_object_get = no; then
+  if test "$ac_cv_lib_json_json_object_get" = no; then
       AC_MSG_ERROR([lib json is needed to compile])
   fi
 fi
@@ -958,7 +984,6 @@ case "$host_os" in
     AC_CHECK_LIB(socket, main)
     AC_CHECK_LIB(nsl, main)
     AC_CHECK_LIB(umem, main)
-    CURSES=-lcurses
     SOLARIS="solaris"
     ;;
   linux*)
@@ -1024,40 +1049,47 @@ dnl ---------------------
 dnl Integrated VTY option
 dnl ---------------------
 case "${enable_vtysh}" in
-  "no") VTYSH="";;
-  *)    VTYSH="vtysh";
-         AC_DEFINE(VTYSH,,VTY shell)
-dnl	 Vtysh uses libreadline, which looks for termcap functions at
-dnl	 configure time.  We follow readlines search order.
-dnl	 The required procedures are in libtermcap on NetBSD, in
-dnl	 [TODO] on Linux, and in [TODO] on Solaris.
-	 AC_CHECK_LIB(termcap, tputs, LIBREADLINE="$LIBREADLINE -ltermcap",
-	   [AC_CHECK_LIB(tinfo, tputs, LIBREADLINE="$LIBREADLINE -ltinfo",
-	     [AC_CHECK_LIB(curses, tputs, LIBREADLINE="$LIBREADLINE -lcurses",
-	       [AC_CHECK_LIB(ncurses, tputs, 
-	                     LIBREADLINE="$LIBREADLINE -lncurses")]
-	      )]
-	    )]
-	  )
-         AC_CHECK_LIB(readline, main, LIBREADLINE="-lreadline $LIBREADLINE",,
-                      "$LIBREADLINE")
-         if test $ac_cv_lib_readline_main = no; then
-           AC_MSG_ERROR([vtysh needs libreadline but was not found and usable on your system.])
-         fi
-	 AC_CHECK_HEADER(readline/history.h)
-	 if test $ac_cv_header_readline_history_h = no;then
-           AC_MSG_ERROR([readline is too old to have readline/history.h, please update to the latest readline library.])
-	 fi
-	 AC_CHECK_LIB(readline, rl_completion_matches, 
-	              LIBREADLINE="$LIBREADLINE",, "$LIBREADLINE")
-         if test $ac_cv_lib_readline_rl_completion_matches = no; then
-           AC_DEFINE(rl_completion_matches,completion_matches,Old readline)
-	 fi
-	 AC_SEARCH_LIBS([append_history], [readline], [frr_cv_append_history=yes], [frr_cv_append_history=no])
-	 if test "$frr_cv_append_history" = yes; then
-	   AC_DEFINE(HAVE_APPEND_HISTORY, 1, [Have history.h append_history])
-	 fi
-	 ;;
+"no")
+  VTYSH="";;
+*)
+  VTYSH="vtysh";
+  AC_DEFINE(VTYSH,,VTY shell)
+
+  prev_libs="$LIBS"
+  AC_CHECK_LIB(readline, main, [
+    LIBREADLINE="-lreadline"
+  ], [
+    dnl readline failed - it might be incorrectly linked and missing its
+    dnl termcap/tinfo/curses dependency.  see if we can fix that...
+    AC_SEARCH_LIBS(tputs, [termcap tinfo curses ncurses], [
+      LIBREADLINE="$ac_cv_search_tputs"
+    ], [
+      AC_MSG_ERROR([libreadline (needed for vtysh) not found and/or missing dependencies])
+    ])
+
+    dnl re-try with the lib we found above
+    unset ac_cv_lib_readline_main
+    AC_CHECK_LIB(readline, main, [
+      LIBREADLINE="-lreadline $LIBREADLINE"
+    ], [
+      AC_MSG_ERROR([libreadline (needed for vtysh) not found and/or missing dependencies])
+    ], [$LIBREADLINE])
+  ], [])
+  LIBS="$prev_libs"
+
+  AC_CHECK_HEADER(readline/history.h)
+  if test $ac_cv_header_readline_history_h = no;then
+    AC_MSG_ERROR([readline is too old to have readline/history.h, please update to the latest readline library.])
+  fi
+  AC_CHECK_LIB(readline, rl_completion_matches, [true], [], [$LIBREADLINE])
+  if test $ac_cv_lib_readline_rl_completion_matches = no; then
+    AC_DEFINE(rl_completion_matches,completion_matches,Old readline)
+  fi
+  AC_CHECK_LIB(readline, [append_history], [frr_cv_append_history=yes], [frr_cv_append_history=no], [$LIBREADLINE])
+  if test "$frr_cv_append_history" = yes; then
+    AC_DEFINE(HAVE_APPEND_HISTORY, 1, [Have history.h append_history])
+  fi
+  ;;
 esac
 AC_SUBST(LIBREADLINE)
 AM_CONDITIONAL(VTYSH, test "x$VTYSH" = "xvtysh")
@@ -1398,7 +1430,7 @@ fi
 
 AM_CONDITIONAL(BFDD, [test "x$BFDD" = "xbfdd"])
 
-if test $ac_cv_lib_json_c_json_object_get = no -a "x$BFDD" = "xbfdd"; then
+if test "$ac_cv_lib_json_c_json_object_get" = no -a "x$BFDD" = "xbfdd"; then
   AC_MSG_ERROR(["you must use json-c library to use bfdd"])
 fi
 
@@ -1458,7 +1490,6 @@ fi
 AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != xno])
 
 AC_SUBST(SOLARIS)
-AC_SUBST(CURSES)
 AC_CHECK_LIB(crypt, crypt, [],
 		    [AC_CHECK_LIB(crypto, DES_crypt)])
 AC_CHECK_LIB(resolv, res_init)
