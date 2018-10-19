@@ -448,12 +448,15 @@ static void bgp_damp_config_clean(struct bgp_damp_config *damp)
 {
 	/* Free decay array */
 	XFREE(MTYPE_BGP_DAMP_ARRAY, damp->decay_array);
+	damp->decay_array_size = 0;
 
 	/* Free reuse index array */
 	XFREE(MTYPE_BGP_DAMP_ARRAY, damp->reuse_index);
+	damp->reuse_index_size = 0;
 
 	/* Free reuse list array. */
 	XFREE(MTYPE_BGP_DAMP_ARRAY, damp->reuse_list);
+	damp->reuse_list_size = 0;
 }
 
 /* Clean all the bgp_damp_info stored in reuse_list. */
