@@ -90,7 +90,7 @@ DEFUN_NOSH(bfd_enter, bfd_enter_cmd, "bfd", "Configure BFD peers\n")
 
 DEFUN_NOSH(
 	bfd_peer_enter, bfd_peer_enter_cmd,
-	"peer <A.B.C.D|X:X::X:X> [{multihop|local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
+	"peer <A.B.C.D|X:X::X:X> [{[multihop] local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
 	PEER_STR PEER_IPV4_STR PEER_IPV6_STR
 	MHOP_STR
 	LOCAL_STR LOCAL_IPV4_STR LOCAL_IPV6_STR
