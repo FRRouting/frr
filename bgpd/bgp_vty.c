@@ -824,7 +824,7 @@ DEFUN_HIDDEN (no_bgp_multiple_instance,
 
 DEFUN_HIDDEN (bgp_local_mac,
               bgp_local_mac_cmd,
-              "bgp local-mac vni " BGP_CMD_VNI_RANGE " mac WORD seq (0-4294967295)",
+              "bgp local-mac vni " CMD_VNI_RANGE " mac WORD seq (0-4294967295)",
               BGP_STR
               "Local MAC config\n"
               "VxLAN Network Identifier\n"
@@ -866,7 +866,7 @@ DEFUN_HIDDEN (bgp_local_mac,
 
 DEFUN_HIDDEN (no_bgp_local_mac,
               no_bgp_local_mac_cmd,
-              "no bgp local-mac vni " BGP_CMD_VNI_RANGE " mac WORD",
+              "no bgp local-mac vni " CMD_VNI_RANGE " mac WORD",
               NO_STR
               BGP_STR
               "Local MAC config\n"

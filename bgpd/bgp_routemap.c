@@ -3438,7 +3438,7 @@ DEFUN (no_match_evpn_route_type,
 
 DEFUN (match_evpn_vni,
        match_evpn_vni_cmd,
-       "match evpn vni (1-16777215)",
+       "match evpn vni " CMD_VNI_RANGE,
        MATCH_STR
        EVPN_HELP_STR
        "Match VNI\n"
@@ -3450,7 +3450,7 @@ DEFUN (match_evpn_vni,
 
 DEFUN (no_match_evpn_vni,
        no_match_evpn_vni_cmd,
-       "no match evpn vni (1-16777215)",
+       "no match evpn vni " CMD_VNI_RANGE,
        NO_STR
        MATCH_STR
        EVPN_HELP_STR

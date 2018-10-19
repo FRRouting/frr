@@ -44,8 +44,6 @@ struct bgp;
 	"Address Family modifier\n"                                            \
 	"Address Family modifier\n"
 
-#define BGP_CMD_VNI_RANGE "(1-16777215)"
-
 extern void bgp_vty_init(void);
 extern const char *afi_safi_print(afi_t afi, safi_t safi);
 extern const char *afi_safi_json(afi_t afi, safi_t safi);
