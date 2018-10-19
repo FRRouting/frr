@@ -5482,7 +5482,9 @@ static void bgp_aggregate_free(struct bgp_aggregate *aggregate)
 
 static int bgp_aggregate_info_same(struct bgp_path_info *pi, uint8_t origin,
 				   struct aspath *aspath,
-				   struct community *comm)
+				   struct community *comm,
+				   struct ecommunity *ecomm,
+				   struct lcommunity *lcomm)
 {
 	static struct aspath *ae = NULL;
 
@@ -5501,6 +5503,12 @@ static int bgp_aggregate_info_same(struct bgp_path_info *pi, uint8_t origin,
 	if (!community_cmp(pi->attr->community, comm))
 		return 0;
 
+	if (!ecommunity_cmp(pi->attr->ecommunity, ecomm))
+		return 0;
+
+	if (!lcommunity_cmp(pi->attr->lcommunity, lcomm))
+		return 0;
+
 	if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID))
 		return 0;
 
@@ -5511,6 +5519,8 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 				  struct prefix *p, uint8_t origin,
 				  struct aspath *aspath,
 				  struct community *community,
+				  struct ecommunity *ecommunity,
+				  struct lcommunity *lcommunity,
 				  uint8_t atomic_aggregate,
 				  struct bgp_aggregate *aggregate)
 {
@@ -5532,14 +5542,18 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 		 * If the aggregate information has not changed
 		 * no need to re-install it again.
 		 */
-		if (bgp_aggregate_info_same(rn->info, origin, aspath,
-					    community)) {
+		if (bgp_aggregate_info_same(rn->info, origin, aspath, community,
+					    ecommunity, lcommunity)) {
 			bgp_unlock_node(rn);
 
 			if (aspath)
 				aspath_free(aspath);
 			if (community)
 				community_free(community);
+			if (ecommunity)
+				ecommunity_free(&ecommunity);
+			if (lcommunity)
+				lcommunity_free(&lcommunity);
 
 			return;
 		}
@@ -5550,12 +5564,14 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (pi)
 			bgp_path_info_delete(rn, pi);
 
-		new = info_make(
-			ZEBRA_ROUTE_BGP, BGP_ROUTE_AGGREGATE, 0, bgp->peer_self,
-			bgp_attr_aggregate_intern(bgp, origin, aspath,
-						  community, aggregate->as_set,
-						  atomic_aggregate),
-			rn);
+		new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_AGGREGATE, 0,
+				bgp->peer_self,
+				bgp_attr_aggregate_intern(bgp, origin, aspath,
+							  community, ecommunity,
+							  lcommunity,
+							  aggregate->as_set,
+							  atomic_aggregate),
+				rn);
 		SET_FLAG(new->flags, BGP_PATH_VALID);
 
 		bgp_path_info_add(rn, new);
@@ -5591,6 +5607,10 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 	struct aspath *asmerge = NULL;
 	struct community *community = NULL;
 	struct community *commerge = NULL;
+	struct ecommunity *ecommunity = NULL;
+	struct ecommunity *ecommerge = NULL;
+	struct lcommunity *lcommunity = NULL;
+	struct lcommunity *lcommerge = NULL;
 	struct bgp_path_info *pi;
 	unsigned long match = 0;
 	uint8_t atomic_aggregate = 0;
@@ -5670,16 +5690,43 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 			} else
 				aspath = aspath_dup(pi->attr->aspath);
 
-			if (!pi->attr->community)
-				continue;
+			if (pi->attr->community) {
+				if (community) {
+					commerge = community_merge(
+						community, pi->attr->community);
+					community =
+						community_uniq_sort(commerge);
+					community_free(commerge);
+				} else
+					community = community_dup(
+						pi->attr->community);
+			}
 
-			if (community) {
-				commerge = community_merge(community,
-							   pi->attr->community);
-				community = community_uniq_sort(commerge);
-				community_free(commerge);
-			} else
-				community = community_dup(pi->attr->community);
+			if (pi->attr->ecommunity) {
+				if (ecommunity) {
+					ecommerge = ecommunity_merge(
+						ecommunity,
+						pi->attr->ecommunity);
+					ecommunity =
+						ecommunity_uniq_sort(ecommerge);
+					ecommunity_free(&ecommerge);
+				} else
+					ecommunity = ecommunity_dup(
+						pi->attr->ecommunity);
+			}
+
+			if (pi->attr->lcommunity) {
+				if (lcommunity) {
+					lcommerge = lcommunity_merge(
+						lcommunity,
+						pi->attr->lcommunity);
+					lcommunity =
+						lcommunity_uniq_sort(lcommerge);
+					lcommunity_free(&lcommerge);
+				} else
+					lcommunity = lcommunity_dup(
+						pi->attr->lcommunity);
+			}
 		}
 		if (match)
 			bgp_process(bgp, rn, afi, safi);
@@ -5716,17 +5763,48 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 					community = community_dup(
 						pinew->attr->community);
 			}
+
+			if (pinew->attr->ecommunity) {
+				if (ecommunity) {
+					ecommerge = ecommunity_merge(
+						ecommunity,
+						pinew->attr->ecommunity);
+					ecommunity =
+						ecommunity_uniq_sort(ecommerge);
+					ecommunity_free(&ecommerge);
+				} else
+					ecommunity = ecommunity_dup(
+						pinew->attr->ecommunity);
+			}
+
+			if (pinew->attr->lcommunity) {
+				if (lcommunity) {
+					lcommerge = lcommunity_merge(
+						lcommunity,
+						pinew->attr->lcommunity);
+					lcommunity =
+						lcommunity_uniq_sort(lcommerge);
+					lcommunity_free(&lcommerge);
+				} else
+					lcommunity = lcommunity_dup(
+						pinew->attr->lcommunity);
+			}
 		}
 	}
 
 	bgp_aggregate_install(bgp, afi, safi, p, origin, aspath, community,
-			      atomic_aggregate, aggregate);
+			      ecommunity, lcommunity, atomic_aggregate,
+			      aggregate);
 
 	if (aggregate->count == 0) {
 		if (aspath)
 			aspath_free(aspath);
 		if (community)
 			community_free(community);
+		if (ecommunity)
+			ecommunity_free(&ecommunity);
+		if (lcommunity)
+			lcommunity_free(&lcommunity);
 	}
 }
 
@@ -5871,7 +5949,8 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 
 	aggregate = bgp_aggregate_get_node_info(rn);
 	bgp_aggregate_delete(bgp, &p, afi, safi, aggregate);
-	bgp_aggregate_install(bgp, afi, safi, &p, 0, NULL, NULL, 0, aggregate);
+	bgp_aggregate_install(bgp, afi, safi, &p, 0, NULL, NULL,
+			      NULL, NULL,  0, aggregate);
 
 	/* Unlock aggregate address configuration. */
 	bgp_aggregate_set_node_info(rn, NULL);
