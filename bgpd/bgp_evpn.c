@@ -1702,25 +1702,18 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 static void evpn_cleanup_local_non_best_route(struct bgp *bgp,
 					      struct bgpevpn *vpn,
 					      struct bgp_node *rn,
-					      struct bgp_path_info *local_pi,
-					      int *route_change)
+					      struct bgp_path_info *local_pi)
 {
 	struct bgp_path_info *tmp_pi;
 	struct bgp_path_info *curr_select = NULL;
 	uint8_t flags = 0;
 	char buf[PREFIX_STRLEN];
 
-	if (CHECK_FLAG(local_pi->flags, BGP_PATH_SELECTED)) {
-		/* local path is the winner; no additional cleanup needed */
-		return;
-	}
-
 	/* local path was not picked as the winner; kick it out */
 	if (bgp_debug_zebra(NULL)) {
 		zlog_debug("evicting local evpn prefix %s as remote won",
 					prefix2str(&rn->p, buf, sizeof(buf)));
 	}
-	*route_change = 0;
 	evpn_delete_old_local_route(bgp, vpn, rn, local_pi);
 	bgp_path_info_reap(rn, local_pi);
 
@@ -1813,10 +1806,14 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	 */
 	evpn_route_select_install(bgp, vpn, rn);
 	/*
-	 * if the new local route was not selected evict it and tell zebra
-	 * to add the best remote dest
+	 * If the new local route was not selected evict it and tell zebra
+	 * to re-add the best remote dest. BGP doesn't retain non-best local
+	 * routes.
 	 */
-	evpn_cleanup_local_non_best_route(bgp, vpn, rn, pi, &route_change);
+	if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
+		route_change = 0;
+		evpn_cleanup_local_non_best_route(bgp, vpn, rn, pi);
+	}
 	bgp_path_info_unlock(pi);
 
 	bgp_unlock_node(rn);
