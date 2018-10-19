@@ -1345,15 +1345,15 @@ void bgp_attr_add_gshut_community(struct attr *attr)
 		merge = community_merge(community_dup(old), gshut);
 
 		if (old->refcnt == 0)
-			community_free(old);
+			community_free(&old);
 
 		new = community_uniq_sort(merge);
-		community_free(merge);
+		community_free(&merge);
 	} else {
 		new = community_dup(gshut);
 	}
 
-	community_free(gshut);
+	community_free(&gshut);
 	attr->community = new;
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 
@@ -5549,7 +5549,7 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 			if (aspath)
 				aspath_free(aspath);
 			if (community)
-				community_free(community);
+				community_free(&community);
 			if (ecommunity)
 				ecommunity_free(&ecommunity);
 			if (lcommunity)
@@ -5696,7 +5696,7 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 						community, pi->attr->community);
 					community =
 						community_uniq_sort(commerge);
-					community_free(commerge);
+					community_free(&commerge);
 				} else
 					community = community_dup(
 						pi->attr->community);
@@ -5758,7 +5758,7 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 						pinew->attr->community);
 					community =
 						community_uniq_sort(commerge);
-					community_free(commerge);
+					community_free(&commerge);
 				} else
 					community = community_dup(
 						pinew->attr->community);
@@ -5800,7 +5800,7 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 		if (aspath)
 			aspath_free(aspath);
 		if (community)
-			community_free(community);
+			community_free(&community);
 		if (ecommunity)
 			ecommunity_free(&ecommunity);
 		if (lcommunity)
@@ -9607,7 +9607,7 @@ static int bgp_show_community(struct vty *vty, struct bgp *bgp,
 		       (exact ? bgp_show_type_community_exact
 			      : bgp_show_type_community),
 		       com, use_json);
-	community_free(com);
+	community_free(&com);
 
 	return ret;
 }
