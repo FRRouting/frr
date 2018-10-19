@@ -313,6 +313,8 @@ static void vnc_redistribute_withdraw(struct bgp *bgp, afi_t afi, uint8_t type)
 
 		/* This is the per-RD table of prefixes */
 		table = prn->info;
+		if (!table)
+			continue;
 
 		for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
 
