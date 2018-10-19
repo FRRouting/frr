@@ -4485,7 +4485,7 @@ static void rfapiDeleteRemotePrefixesIt(
 			struct bgp_path_info *bpi;
 			struct bgp_path_info *next;
 
-			if (VNC_DEBUG(IMPORT_DEL_REMOTE)) {
+			if (p && VNC_DEBUG(IMPORT_DEL_REMOTE)) {
 				char p1line[PREFIX_STRLEN];
 				char p2line[PREFIX_STRLEN];
 
