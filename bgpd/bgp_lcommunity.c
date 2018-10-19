@@ -318,6 +318,12 @@ int lcommunity_cmp(const void *arg1, const void *arg2)
 	const struct lcommunity *lcom1 = arg1;
 	const struct lcommunity *lcom2 = arg2;
 
+	if (lcom1 == NULL && lcom2 == NULL)
+		return 1;
+
+	if (lcom1 == NULL || lcom2 == NULL)
+		return 0;
+
 	return (lcom1->size == lcom2->size
 		&& memcmp(lcom1->val, lcom2->val, lcom_length(lcom1)) == 0);
 }
