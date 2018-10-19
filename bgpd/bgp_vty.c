@@ -6749,13 +6749,12 @@ ALIAS(af_import_vrf_route_map, af_no_import_vrf_route_map_cmd,
       "Vrf routes being filtered\n"
       "Specify route map\n")
 
-DEFPY (bgp_imexport_vrf,
-       bgp_imexport_vrf_cmd,
-       "[no] import vrf NAME$import_name",
-       NO_STR
-       "Import routes from another VRF\n"
-       "VRF to import from\n"
-       "The name of the VRF\n")
+DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
+      "[no] import vrf VIEWVRFNAME$import_name",
+      NO_STR
+      "Import routes from another VRF\n"
+      "VRF to import from\n"
+      "The name of the VRF\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	struct listnode *node;
