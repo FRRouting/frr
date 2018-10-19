@@ -419,7 +419,7 @@ extern char **cmd_complete_command(vector, struct vty *, int *status);
 extern const char *cmd_prompt(enum node_type);
 extern int command_config_read_one_line(struct vty *vty,
 					const struct cmd_element **,
-					int use_config_node);
+					uint32_t line_num, int use_config_node);
 extern int config_from_file(struct vty *, FILE *, unsigned int *line_num);
 extern enum node_type node_parent(enum node_type);
 /*

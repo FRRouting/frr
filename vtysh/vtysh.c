@@ -856,7 +856,7 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
 		lineno++;
 
-		ret = command_config_read_one_line(vty, &cmd, 1);
+		ret = command_config_read_one_line(vty, &cmd, lineno, 1);
 
 		switch (ret) {
 		case CMD_WARNING:
