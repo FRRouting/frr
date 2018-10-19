@@ -1401,7 +1401,6 @@ static void vnc_direct_bgp_del_group_afi(struct bgp *bgp,
 		return;
 	}
 
-	assert(afi == AFI_IP || afi == AFI_IP6);
 	rt = import_table->imported_vpn[afi];
 
 	if (!rfg->nves && rfg->type != RFAPI_GROUP_CFG_VRF) {
