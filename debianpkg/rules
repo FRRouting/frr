@@ -161,6 +161,7 @@ override_dh_auto_install:
 	# we don't need .la files
 	rm debian/tmp/usr/lib/*.la
 	rm debian/tmp/usr/lib/frr/modules/*.la
+	rm debian/tmp/usr/lib/frr/libyang_plugins/*.la
 
 override_dh_systemd_start:
 	dh_systemd_start frr.service
