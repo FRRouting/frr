@@ -1406,6 +1406,9 @@ static route_map_result_t route_set_ip_nexthop(void *rule,
 	if (type != RMAP_BGP)
 		return RMAP_OKAY;
 
+	if (prefix->family == AF_INET6)
+		return RMAP_OKAY;
+
 	path = object;
 	peer = path->peer;
 
