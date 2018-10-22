@@ -1717,7 +1717,7 @@ static route_map_result_t route_set_community(void *rule,
 			attr->community = NULL;
 			/* See the longer comment down below. */
 			if (old && old->refcnt == 0)
-				community_free(old);
+				community_free(&old);
 			return RMAP_OKAY;
 		}
 
@@ -1726,7 +1726,7 @@ static route_map_result_t route_set_community(void *rule,
 			merge = community_merge(community_dup(old), rcs->com);
 
 			new = community_uniq_sort(merge);
-			community_free(merge);
+			community_free(&merge);
 		} else
 			new = community_dup(rcs->com);
 
@@ -1736,7 +1736,7 @@ static route_map_result_t route_set_community(void *rule,
 		 * Really need to cleanup attribute caching sometime.
 		 */
 		if (old && old->refcnt == 0)
-			community_free(old);
+			community_free(&old);
 
 		/* will be interned by caller if required */
 		attr->community = new;
@@ -1790,7 +1790,7 @@ static void route_set_community_free(void *rule)
 	struct rmap_com_set *rcs = rule;
 
 	if (rcs->com)
-		community_free(rcs->com);
+		community_free(&rcs->com);
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcs);
 }
 
@@ -2031,7 +2031,7 @@ static route_map_result_t route_set_community_delete(
 			merge = community_list_match_delete(community_dup(old),
 							    list);
 			new = community_uniq_sort(merge);
-			community_free(merge);
+			community_free(&merge);
 
 			/* HACK: if the old community is not intern'd,
 			 * we should free it here, or all reference to it may be
@@ -2039,13 +2039,13 @@ static route_map_result_t route_set_community_delete(
 			 * Really need to cleanup attribute caching sometime.
 			 */
 			if (old->refcnt == 0)
-				community_free(old);
+				community_free(&old);
 
 			if (new->size == 0) {
 				path->attr->community = NULL;
 				path->attr->flag &=
 					~ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
-				community_free(new);
+				community_free(&new);
 			} else {
 				path->attr->community = new;
 				path->attr->flag |=
@@ -4171,7 +4171,7 @@ DEFUN (set_community,
 		ret = generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
 				      "community", str);
 
-	community_free(com);
+	community_free(&com);
 
 	return ret;
 }

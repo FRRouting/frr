@@ -39,19 +39,19 @@ static struct community *community_new(void)
 }
 
 /* Free communities value.  */
-void community_free(struct community *com)
+void community_free(struct community **com)
 {
-	if (com->val)
-		XFREE(MTYPE_COMMUNITY_VAL, com->val);
-	if (com->str)
-		XFREE(MTYPE_COMMUNITY_STR, com->str);
+	if ((*com)->val)
+		XFREE(MTYPE_COMMUNITY_VAL, (*com)->val);
+	if ((*com)->str)
+		XFREE(MTYPE_COMMUNITY_STR, (*com)->str);
 
-	if (com->json) {
-		json_object_free(com->json);
-		com->json = NULL;
+	if ((*com)->json) {
+		json_object_free((*com)->json);
+		(*com)->json = NULL;
 	}
 
-	XFREE(MTYPE_COMMUNITY, com);
+	XFREE(MTYPE_COMMUNITY, (*com));
 }
 
 /* Add one community value to the community. */
@@ -498,7 +498,7 @@ struct community *community_intern(struct community *com)
 	/* Arguemnt com is allocated temporary.  So when it is not used in
 	   hash, it should be freed.  */
 	if (find != com)
-		community_free(com);
+		community_free(&com);
 
 	/* Increment refrence counter.  */
 	find->refcnt++;
@@ -524,8 +524,7 @@ void community_unintern(struct community **com)
 		ret = (struct community *)hash_release(comhash, *com);
 		assert(ret != NULL);
 
-		community_free(*com);
-		*com = NULL;
+		community_free(com);
 	}
 }
 
@@ -874,13 +873,13 @@ struct community *community_str2com(const char *str)
 			break;
 		case community_token_unknown:
 			if (com)
-				community_free(com);
+				community_free(&com);
 			return NULL;
 		}
 	} while (str);
 
 	com_sort = community_uniq_sort(com);
-	community_free(com);
+	community_free(&com);
 
 	return com_sort;
 }
