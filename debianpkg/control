@@ -10,21 +10,21 @@ Build-Depends:
  chrpath,
  debhelper (>= 7.0.50~),
  dh-autoreconf,
- dh-systemd,
+ dh-systemd <!pkg.frr.nosystemd>,
  flex,
  gawk,
  git,
  install-info,
  libc-ares-dev,
  libcap-dev,
- libjson-c-dev,
- libjson-c2 | libjson-c3,
+ libjson0 | libjson-c2 | libjson-c3,
+ libjson0-dev | libjson-c-dev,
  libpam0g-dev | libpam-dev,
  libpcre3-dev,
  libpython-dev | libpython3-dev,
  libreadline-dev,
  libsnmp-dev,
- libsystemd-dev,
+ libsystemd-dev <!pkg.frr.nosystemd>,
  pkg-config,
  python (>= 2.7) | python3,
  python-sphinx | python3-sphinx,
@@ -38,7 +38,6 @@ Depends:
  ${misc:Depends},
  ${shlibs:Depends},
  iproute2 | iproute,
- libc-ares2,
  logrotate (>= 3.2-11)
 Pre-Depends: adduser
 Conflicts: zebra, zebra-pj, quagga
@@ -83,8 +82,8 @@ Architecture: all
 Depends:
  ${misc:Depends},
  frr (= ${binary:Version}),
- python (>= 2.7),
- python-ipaddr
+ python (>= 2.7) | python3,
+ python-ipaddr | python-ipaddress
 Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (Python Tools)
  This package includes info files for frr, a free software which manages
  TCP/IP based routing protocols.  It supports BGP4, BGP4+, OSPFv2, OSPFv3,
