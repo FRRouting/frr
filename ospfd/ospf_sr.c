@@ -2053,6 +2053,9 @@ DEFUN (no_sr_prefix_sid,
 	bool found = false;
 	int rc;
 
+	if (!ospf_sr_enabled(vty))
+		return CMD_WARNING_CONFIG_FAILED;
+
 	/* Get network prefix */
 	argv_find(argv, argc, "A.B.C.D/M", &idx);
 	rc = str2prefix(argv[idx]->arg, &p);
