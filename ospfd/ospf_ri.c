@@ -1419,7 +1419,7 @@ DEFUN (router_info,
 
 	uint8_t scope;
 
-	if (OspfRI.enabled)
+	if (OspfRI.enabled && OspfRI.registered)
 		return CMD_SUCCESS;
 
 	/* Check and get Area value if present */
