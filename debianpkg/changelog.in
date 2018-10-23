@@ -1,4 +1,4 @@
-frr (@VERSION@) RELEASED; urgency=medium
+frr (@VERSION@-0) RELEASED; urgency=medium
 
   * Staticd: New daemon responsible for management of static routes
   * ISISd: Implement dst-src routing as per draft-ietf-isis-ipv6-dst-src-routing
