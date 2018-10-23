@@ -133,8 +133,20 @@ def test_bgp_convergence():
 
     expected = json.loads(open(reffile).read())
 
+    def _output_summary_cmp(router, cmd, data):
+        """
+        Runs `cmd` that returns JSON data (normally the command ends with 'json')
+        and compare with `data` contents.
+        """
+        output = router.vtysh_cmd(cmd, isjson=True)
+        if output.has_key('ipv4Unicast'):
+            output['ipv4Unicast']['vrfName'].replace('default', 'Default')
+        elif output.has_key('vrfName'):
+            output['vrfName'].replace('default', 'Default')
+        return topotest.json_cmp(output, data)
+
     test_func = functools.partial(
-        topotest.router_json_cmp, router, 'show ip bgp summary json', expected)
+        _output_summary_cmp, router, 'show ip bgp summary json', expected)
     _, res = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assertmsg = 'BGP router network did not converge'
     assert res is None, assertmsg
