@@ -81,7 +81,8 @@ Section: net
 Architecture: all
 Depends:
  ${misc:Depends},
- frr (= ${binary:Version}),
+ frr (<< ${source:Upstream-Version}.0-~),
+ frr (>= ${source:Version}~),
  python (>= 2.7) | python3,
  python-ipaddr | python-ipaddress
 Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (Python Tools)
