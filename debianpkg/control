@@ -55,7 +55,6 @@ Package: frr-dbg
 Architecture: any
 Depends:
  ${misc:Depends},
- ${shlibs:Depends},
  frr (= ${binary:Version})
 Priority: extra
 Section: debug
