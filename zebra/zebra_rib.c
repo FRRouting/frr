@@ -1400,6 +1400,10 @@ static void rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 	}
 
 	/* Update nexthop for route, reset changed flag. */
+	/* Note: this code also handles the Linux case when an interface goes
+	 * down, causing the kernel to delete routes without sending DELROUTE
+	 * notifications
+	 */
 	if (!nexthop_active_update(rn, old, 1) &&
 	    (RIB_KERNEL_ROUTE(old)))
 		SET_FLAG(old->status, ROUTE_ENTRY_REMOVED);
