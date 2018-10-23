@@ -158,6 +158,7 @@ EXTRA_DIST += \
 	aclocal.m4 \
 	README.md \
 	m4/README.txt \
+	config.version \
 	\
 	python/clidef.py \
 	python/clippy/__init__.py \
