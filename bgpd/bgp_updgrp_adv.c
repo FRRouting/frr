@@ -663,7 +663,6 @@ void subgroup_announce_route(struct update_subgroup *subgrp)
 void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 {
 	struct bgp *bgp;
-	struct attr attr;
 	struct bgp_path_info *info, init_info, tmp_info;
 	struct prefix p;
 	struct peer *from;
@@ -687,23 +686,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	bgp = peer->bgp;
 	from = bgp->peer_self;
 
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
-	attr.local_pref = bgp->default_local_pref;
-
-	if ((afi == AFI_IP6) || peer_cap_enhe(peer, afi, safi)) {
-		/* IPv6 global nexthop must be included.
-		 */
-		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
-
-		/* If the peer is on shared nextwork and
-		 * we have link-local nexthop set it. */
-		if (peer->shared_network
-		    && !IN6_IS_ADDR_UNSPECIFIED(&peer->nexthop.v6_local))
-			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
-	}
-	init_info.attr = &attr;
+	init_info.attr = NULL;
 	info = &init_info;
-	bgp_attr_intern(info->attr);
 
 	memset(&p, 0, sizeof(p));
 	p.family = afi2family(afi);
@@ -724,9 +708,13 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 
 				if ((afi == AFI_IP6)
 				    || peer_cap_enhe(peer, afi, safi)) {
+					/* IPv6 global nexthop must be included.
+					 */
 					tmp_info.attr->mp_nexthop_len =
 						BGP_ATTR_NHLEN_IPV6_GLOBAL;
 
+					/* If the peer is on shared nextwork and
+					 * we have link-local nexthop set it. */
 					if (peer->shared_network
 					    && !IN6_IS_ADDR_UNSPECIFIED(
 						       &peer->nexthop.v6_local))
@@ -739,7 +727,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 					&rn->p, RMAP_BGP, &tmp_info);
 
 				info = &tmp_info;
-				bgp_attr_intern(info->attr);
 
 				if (ret != RMAP_DENYMATCH)
 					break;
@@ -788,7 +775,6 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 				BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
 		}
 	}
-	aspath_unintern(&info->attr->aspath);
 }
 
 /*
