@@ -1092,7 +1092,7 @@ struct bfd_session *bfd_mhop_lookup(struct bfd_mhop_key mhop)
 
 	_mhop_key(&bs, &mhop);
 
-	return hash_lookup(bfd_shop_hash, &bs);
+	return hash_lookup(bfd_mhop_hash, &bs);
 }
 
 struct bfd_vrf *bfd_vrf_lookup(int vrf_id)
