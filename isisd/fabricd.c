@@ -105,7 +105,7 @@ static unsigned neighbor_entry_hash_key(void *np)
 	return jhash(n->vertex->N.id, ISIS_SYS_ID_LEN, 0x55aa5a5a);
 }
 
-static int neighbor_entry_hash_cmp(const void *a, const void *b)
+static bool neighbor_entry_hash_cmp(const void *a, const void *b)
 {
 	const struct neighbor_entry *na = a, *nb = b;
 

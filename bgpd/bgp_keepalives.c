@@ -123,10 +123,11 @@ static void peer_process(struct hash_backet *hb, void *arg)
 		*next_update = diff;
 }
 
-static int peer_hash_cmp(const void *f, const void *s)
+static bool peer_hash_cmp(const void *f, const void *s)
 {
 	const struct pkat *p1 = f;
 	const struct pkat *p2 = s;
+
 	return p1->peer == p2->peer;
 }
 

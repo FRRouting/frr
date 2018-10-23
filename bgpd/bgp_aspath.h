@@ -85,9 +85,10 @@ extern struct aspath *aspath_filter_exclude(struct aspath *, struct aspath *);
 extern struct aspath *aspath_add_seq_n(struct aspath *, as_t, unsigned);
 extern struct aspath *aspath_add_seq(struct aspath *, as_t);
 extern struct aspath *aspath_add_confed_seq(struct aspath *, as_t);
-extern int aspath_cmp(const void *, const void *);
+extern bool aspath_cmp(const void *as1, const void *as2);
 extern int aspath_cmp_left(const struct aspath *, const struct aspath *);
-extern int aspath_cmp_left_confed(const struct aspath *, const struct aspath *);
+extern bool aspath_cmp_left_confed(const struct aspath *as1,
+				   const struct aspath *as2xs);
 extern struct aspath *aspath_delete_confed_seq(struct aspath *);
 extern struct aspath *aspath_empty(void);
 extern struct aspath *aspath_empty_get(void);

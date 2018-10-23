@@ -68,7 +68,7 @@ static unsigned int cpu_record_hash_key(struct cpu_thread_history *a)
 	return jhash(&a->func, size, 0);
 }
 
-static int cpu_record_hash_cmp(const struct cpu_thread_history *a,
+static bool cpu_record_hash_cmp(const struct cpu_thread_history *a,
 			       const struct cpu_thread_history *b)
 {
 	return a->func == b->func;
@@ -434,7 +434,7 @@ struct thread_master *thread_master_create(const char *name)
 
 	rv->cpu_record = hash_create_size(
 		8, (unsigned int (*)(void *))cpu_record_hash_key,
-		(int (*)(const void *, const void *))cpu_record_hash_cmp,
+		(bool (*)(const void *, const void *))cpu_record_hash_cmp,
 		"Thread Hash");
 
 

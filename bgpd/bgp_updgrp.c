@@ -393,7 +393,7 @@ static unsigned int updgrp_hash_key_make(void *p)
 	return key;
 }
 
-static int updgrp_hash_cmp(const void *p1, const void *p2)
+static bool updgrp_hash_cmp(const void *p1, const void *p2)
 {
 	const struct update_group *grp1;
 	const struct update_group *grp2;
@@ -407,7 +407,7 @@ static int updgrp_hash_cmp(const void *p1, const void *p2)
 	safi_t safi;
 
 	if (!p1 || !p2)
-		return 0;
+		return false;
 
 	grp1 = p1;
 	grp2 = p2;
@@ -422,68 +422,68 @@ static int updgrp_hash_cmp(const void *p1, const void *p2)
 
 	/* put EBGP and IBGP peers in different update groups */
 	if (pe1->sort != pe2->sort)
-		return 0;
+		return false;
 
 	/* check peer flags */
 	if ((pe1->flags & PEER_UPDGRP_FLAGS)
 	    != (pe2->flags & PEER_UPDGRP_FLAGS))
-		return 0;
+		return false;
 
 	/* If there is 'local-as' configured, it should match. */
 	if (pe1->change_local_as != pe2->change_local_as)
-		return 0;
+		return false;
 
 	/* flags like route reflector client */
 	if ((flags1 & PEER_UPDGRP_AF_FLAGS) != (flags2 & PEER_UPDGRP_AF_FLAGS))
-		return 0;
+		return false;
 
 	if ((pe1->cap & PEER_UPDGRP_CAP_FLAGS)
 	    != (pe2->cap & PEER_UPDGRP_CAP_FLAGS))
-		return 0;
+		return false;
 
 	if ((pe1->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS)
 	    != (pe2->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS))
-		return 0;
+		return false;
 
 	if (pe1->v_routeadv != pe2->v_routeadv)
-		return 0;
+		return false;
 
 	if (pe1->group != pe2->group)
-		return 0;
+		return false;
 
 	/* route-map names should be the same */
 	if ((fl1->map[RMAP_OUT].name && !fl2->map[RMAP_OUT].name)
 	    || (!fl1->map[RMAP_OUT].name && fl2->map[RMAP_OUT].name)
 	    || (fl1->map[RMAP_OUT].name && fl2->map[RMAP_OUT].name
 		&& strcmp(fl1->map[RMAP_OUT].name, fl2->map[RMAP_OUT].name)))
-		return 0;
+		return false;
 
 	if ((fl1->dlist[FILTER_OUT].name && !fl2->dlist[FILTER_OUT].name)
 	    || (!fl1->dlist[FILTER_OUT].name && fl2->dlist[FILTER_OUT].name)
 	    || (fl1->dlist[FILTER_OUT].name && fl2->dlist[FILTER_OUT].name
 		&& strcmp(fl1->dlist[FILTER_OUT].name,
 			  fl2->dlist[FILTER_OUT].name)))
-		return 0;
+		return false;
 
 	if ((fl1->plist[FILTER_OUT].name && !fl2->plist[FILTER_OUT].name)
 	    || (!fl1->plist[FILTER_OUT].name && fl2->plist[FILTER_OUT].name)
 	    || (fl1->plist[FILTER_OUT].name && fl2->plist[FILTER_OUT].name
 		&& strcmp(fl1->plist[FILTER_OUT].name,
 			  fl2->plist[FILTER_OUT].name)))
-		return 0;
+		return false;
 
 	if ((fl1->aslist[FILTER_OUT].name && !fl2->aslist[FILTER_OUT].name)
 	    || (!fl1->aslist[FILTER_OUT].name && fl2->aslist[FILTER_OUT].name)
 	    || (fl1->aslist[FILTER_OUT].name && fl2->aslist[FILTER_OUT].name
 		&& strcmp(fl1->aslist[FILTER_OUT].name,
 			  fl2->aslist[FILTER_OUT].name)))
-		return 0;
+		return false;
 
 	if ((fl1->usmap.name && !fl2->usmap.name)
 	    || (!fl1->usmap.name && fl2->usmap.name)
 	    || (fl1->usmap.name && fl2->usmap.name
 		&& strcmp(fl1->usmap.name, fl2->usmap.name)))
-		return 0;
+		return false;
 
 	if ((pe1->default_rmap[afi][safi].name
 	     && !pe2->default_rmap[afi][safi].name)
@@ -493,19 +493,19 @@ static int updgrp_hash_cmp(const void *p1, const void *p2)
 		&& pe2->default_rmap[afi][safi].name
 		&& strcmp(pe1->default_rmap[afi][safi].name,
 			  pe2->default_rmap[afi][safi].name)))
-		return 0;
+		return false;
 
 	if ((afi == AFI_IP6) && (pe1->shared_network != pe2->shared_network))
-		return 0;
+		return false;
 
 	if ((CHECK_FLAG(pe1->flags, PEER_FLAG_LONESOUL)
 	     || CHECK_FLAG(pe1->af_cap[afi][safi], PEER_CAP_ORF_PREFIX_SM_RCV)
 	     || CHECK_FLAG(pe1->af_cap[afi][safi],
 			   PEER_CAP_ORF_PREFIX_SM_OLD_RCV))
 	    && !sockunion_same(&pe1->su, &pe2->su))
-		return 0;
+		return false;
 
-	return 1;
+	return true;
 }
 
 static void peer_lonesoul_or_not(struct peer *peer, int set)

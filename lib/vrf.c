@@ -366,7 +366,7 @@ static unsigned int vrf_hash_bitmap_key(void *data)
 	return bit->vrf_id;
 }
 
-static int vrf_hash_bitmap_cmp(const void *a, const void *b)
+static bool vrf_hash_bitmap_cmp(const void *a, const void *b)
 {
 	const struct vrf_bit_set *bit1 = a;
 	const struct vrf_bit_set *bit2 = b;

@@ -117,7 +117,7 @@ static unsigned int if_rmap_hash_make(void *data)
 	return string_hash_make(if_rmap->ifname);
 }
 
-static int if_rmap_hash_cmp(const void *arg1, const void *arg2)
+static bool if_rmap_hash_cmp(const void *arg1, const void *arg2)
 {
 	const struct if_rmap *if_rmap1 = arg1;
 	const struct if_rmap *if_rmap2 = arg2;

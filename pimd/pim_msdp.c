@@ -687,7 +687,7 @@ static unsigned int pim_msdp_sa_hash_key_make(void *p)
 	return (jhash_2words(sa->sg.src.s_addr, sa->sg.grp.s_addr, 0));
 }
 
-static int pim_msdp_sa_hash_eq(const void *p1, const void *p2)
+static bool pim_msdp_sa_hash_eq(const void *p1, const void *p2)
 {
 	const struct pim_msdp_sa *sa1 = p1;
 	const struct pim_msdp_sa *sa2 = p2;
@@ -1221,7 +1221,7 @@ static unsigned int pim_msdp_peer_hash_key_make(void *p)
 	return (jhash_1word(mp->peer.s_addr, 0));
 }
 
-static int pim_msdp_peer_hash_eq(const void *p1, const void *p2)
+static bool pim_msdp_peer_hash_eq(const void *p1, const void *p2)
 {
 	const struct pim_msdp_peer *mp1 = p1;
 	const struct pim_msdp_peer *mp2 = p2;
