@@ -849,7 +849,7 @@ void bgp_attr_undup(struct attr *new, struct attr *old)
 		aspath_free(new->aspath);
 
 	if (new->community != old->community)
-		community_free(new->community);
+		community_free(&new->community);
 
 	if (new->ecommunity != old->ecommunity)
 		ecommunity_free(&new->ecommunity);
@@ -887,11 +887,8 @@ void bgp_attr_flush(struct attr *attr)
 		aspath_free(attr->aspath);
 		attr->aspath = NULL;
 	}
-	if (attr->community && !attr->community->refcnt) {
-		community_free(attr->community);
-		attr->community = NULL;
-	}
-
+	if (attr->community && !attr->community->refcnt)
+		community_free(&attr->community);
 	if (attr->ecommunity && !attr->ecommunity->refcnt)
 		ecommunity_free(&attr->ecommunity);
 	if (attr->lcommunity && !attr->lcommunity->refcnt)
