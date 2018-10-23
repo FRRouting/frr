@@ -32,10 +32,13 @@
 #include "zebra/zebra_dplane.h"
 
 /*
- * Update or delete a prefix from the kernel,
+ * Update or delete a route or LSP from the kernel,
  * using info from a dataplane context.
  */
 extern enum zebra_dplane_result kernel_route_update(
+	struct zebra_dplane_ctx *ctx);
+
+extern enum zebra_dplane_result kernel_lsp_update(
 	struct zebra_dplane_ctx *ctx);
 
 extern int kernel_address_add_ipv4(struct interface *, struct connected *);

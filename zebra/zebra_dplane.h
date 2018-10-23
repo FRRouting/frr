@@ -102,6 +102,10 @@ enum dplane_op_e {
 	DPLANE_OP_ROUTE_UPDATE,
 	DPLANE_OP_ROUTE_DELETE,
 
+	/* LSP update */
+	DPLANE_OP_LSP_INSTALL,
+	DPLANE_OP_LSP_UPDATE,
+	DPLANE_OP_LSP_DELETE
 };
 
 /*
@@ -220,6 +224,13 @@ enum zebra_dplane_result dplane_route_update(struct route_node *rn,
 
 enum zebra_dplane_result dplane_route_delete(struct route_node *rn,
 					     struct route_entry *re);
+
+/*
+ * Enqueue LSP change operations for the dataplane.
+ */
+enum zebra_dplane_result dplane_lsp_add(zebra_lsp_t *lsp);
+enum zebra_dplane_result dplane_lsp_update(zebra_lsp_t *lsp);
+enum zebra_dplane_result dplane_lsp_delete(zebra_lsp_t *lsp);
 
 /* Retrieve the limit on the number of pending, unprocessed updates. */
 uint32_t dplane_get_in_queue_limit(void);

@@ -51,12 +51,8 @@ enum zebra_dplane_result kernel_add_lsp(zebra_lsp_t *lsp)
  * Update Label Forwarding entry in the kernel. This means that the Label
  * forwarding entry is already installed and needs an update - either a new
  * path is to be added, an installed path has changed (e.g., outgoing label)
- * or an installed path (but not all paths) has to be removed.
- * TODO: Performs a DEL followed by ADD now, need to change to REPLACE. Note
- * that REPLACE was originally implemented for IPv4 nexthops but removed as
- * it was not functioning when moving from swap to PHP as that was signaled
- * through the metric field (before kernel-MPLS). This shouldn't be an issue
- * any longer, so REPLACE can be reintroduced.
+ * or an installed path (but not all paths) has to be removed. This performs
+ * a REPLACE operation, internally.
  */
 enum zebra_dplane_result kernel_upd_lsp(zebra_lsp_t *lsp)
 {
@@ -100,6 +96,11 @@ enum zebra_dplane_result kernel_del_lsp(zebra_lsp_t *lsp)
 				    : ZEBRA_DPLANE_DELETE_FAILURE);
 
 	return ZEBRA_DPLANE_REQUEST_SUCCESS;
+}
+
+enum zebra_dplane_result kernel_lsp_update(struct zebra_dplane_ctx *ctx)
+{
+	return ZEBRA_DPLANE_REQUEST_FAILURE;
 }
 
 int mpls_kernel_init(void)

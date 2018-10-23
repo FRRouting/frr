@@ -343,6 +343,11 @@ enum zebra_dplane_result kernel_del_lsp(zebra_lsp_t *lsp)
 	return ZEBRA_DPLANE_REQUEST_SUCCESS;
 }
 
+enum zebra_dplane_result kernel_lsp_update(struct zebra_dplane_ctx *ctx)
+{
+	return ZEBRA_DPLANE_REQUEST_FAILURE;
+}
+
 static int kmpw_install(struct zebra_pw *pw)
 {
 	struct ifreq ifr;

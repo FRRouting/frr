@@ -24,6 +24,7 @@
 #ifdef HAVE_NETLINK
 
 #include "zebra/zebra_mpls.h"
+#include "zebra/zebra_dplane.h"
 
 #define NL_DEFAULT_ROUTE_METRIC 20
 
@@ -59,6 +60,9 @@
 void rt_netlink_init(void);
 
 extern int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp);
+
+/* MPLS label forwarding table change, using dataplane context information. */
+extern int netlink_mpls_multipath_ctx(int cmd, struct zebra_dplane_ctx *ctx);
 
 extern int netlink_route_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
 extern int netlink_route_read(struct zebra_ns *zns);

@@ -44,4 +44,9 @@ int mpls_kernel_init(void)
 	return -1;
 };
 
+enum zebra_dplane_result kernel_lsp_update(struct zebra_dplane_ctx *ctx)
+{
+	return ZEBRA_DPLANE_REQUEST_FAILURE;
+}
+
 #endif /* !defined(HAVE_NETLINK) && !defined(OPEN_BSD) */
