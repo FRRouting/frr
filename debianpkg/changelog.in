@@ -1,4 +1,4 @@
-frr (@VERSION@) RELEASED; urgency=medium
+frr (@VERSION@-0) RELEASED; urgency=medium
 
   * New Enabled: PIM draft Unnumbered
 
