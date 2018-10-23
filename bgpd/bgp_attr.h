@@ -287,7 +287,7 @@ extern bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *,
 				       mpls_label_t *, uint32_t, int, uint32_t);
 extern void bgp_dump_routes_attr(struct stream *, struct attr *,
 				 struct prefix *);
-extern int attrhash_cmp(const void *, const void *);
+extern bool attrhash_cmp(const void *arg1, const void *arg2);
 extern unsigned int attrhash_key_make(void *);
 extern void attr_show_all(struct vty *);
 extern unsigned long int attr_count(void);

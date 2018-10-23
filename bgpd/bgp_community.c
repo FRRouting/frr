@@ -613,17 +613,17 @@ int community_match(const struct community *com1, const struct community *com2)
 
 /* If two aspath have same value then return 1 else return 0. This
    function is used by hash package. */
-int community_cmp(const struct community *com1, const struct community *com2)
+bool community_cmp(const struct community *com1, const struct community *com2)
 {
 	if (com1 == NULL && com2 == NULL)
-		return 1;
+		return true;
 	if (com1 == NULL || com2 == NULL)
-		return 0;
+		return false;
 
 	if (com1->size == com2->size)
 		if (memcmp(com1->val, com2->val, com1->size * 4) == 0)
-			return 1;
-	return 0;
+			return true;
+	return false;
 }
 
 /* Add com2 to the end of com1. */
@@ -901,7 +901,7 @@ void community_init(void)
 {
 	comhash =
 		hash_create((unsigned int (*)(void *))community_hash_make,
-			    (int (*)(const void *, const void *))community_cmp,
+			    (bool (*)(const void *, const void *))community_cmp,
 			    "BGP Community Hash");
 }
 

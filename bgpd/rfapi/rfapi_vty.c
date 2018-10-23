@@ -4845,6 +4845,10 @@ DEFUN (add_vrf_prefix_rd_label_pref,
 static int rfapi_cfg_group_it_count(struct rfapi_nve_group_cfg *rfg)
 {
 	int count = 0;
+
+	if (rfg->rfapi_import_table == NULL)
+		return 0;
+
 	afi_t afi = AFI_MAX;
 	while (afi-- > 0) {
 		count += rfg->rfapi_import_table->local_count[afi];

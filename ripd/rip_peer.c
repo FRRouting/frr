@@ -172,7 +172,10 @@ void rip_peer_display(struct vty *vty)
 
 static int rip_peer_list_cmp(struct rip_peer *p1, struct rip_peer *p2)
 {
-	return htonl(p1->addr.s_addr) > htonl(p2->addr.s_addr);
+	if (p2->addr.s_addr == p1->addr.s_addr)
+		return 0;
+
+	return (htonl(p1->addr.s_addr) < htonl(p2->addr.s_addr)) ? -1 : 1;
 }
 
 void rip_peer_init(void)

@@ -267,13 +267,13 @@ extern void bgp_pbr_cleanup(struct bgp *bgp);
 extern void bgp_pbr_init(struct bgp *bgp);
 
 extern uint32_t bgp_pbr_action_hash_key(void *arg);
-extern int bgp_pbr_action_hash_equal(const void *arg1,
+extern bool bgp_pbr_action_hash_equal(const void *arg1,
 				     const void *arg2);
 extern uint32_t bgp_pbr_match_entry_hash_key(void *arg);
-extern int bgp_pbr_match_entry_hash_equal(const void *arg1,
+extern bool bgp_pbr_match_entry_hash_equal(const void *arg1,
 					  const void *arg2);
 extern uint32_t bgp_pbr_match_hash_key(void *arg);
-extern int bgp_pbr_match_hash_equal(const void *arg1,
+extern bool bgp_pbr_match_hash_equal(const void *arg1,
 				    const void *arg2);
 
 void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api);

@@ -164,7 +164,7 @@ uint32_t zebra_pbr_rules_hash_key(void *arg)
 			    jhash_1word(rule->rule.unique, key));
 }
 
-int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
+bool zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct zebra_pbr_rule *r1, *r2;
 
@@ -172,36 +172,36 @@ int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 	r2 = (const struct zebra_pbr_rule *)arg2;
 
 	if (r1->rule.seq != r2->rule.seq)
-		return 0;
+		return false;
 
 	if (r1->rule.priority != r2->rule.priority)
-		return 0;
+		return false;
 
 	if (r1->rule.unique != r2->rule.unique)
-		return 0;
+		return false;
 
 	if (r1->rule.action.table != r2->rule.action.table)
-		return 0;
+		return false;
 
 	if (r1->rule.filter.src_port != r2->rule.filter.src_port)
-		return 0;
+		return false;
 
 	if (r1->rule.filter.dst_port != r2->rule.filter.dst_port)
-		return 0;
+		return false;
 
 	if (r1->rule.filter.fwmark != r2->rule.filter.fwmark)
-		return 0;
+		return false;
 
 	if (!prefix_same(&r1->rule.filter.src_ip, &r2->rule.filter.src_ip))
-		return 0;
+		return false;
 
 	if (!prefix_same(&r1->rule.filter.dst_ip, &r2->rule.filter.dst_ip))
-		return 0;
+		return false;
 
 	if (r1->ifp != r2->ifp)
-		return 0;
+		return false;
 
-	return 1;
+	return true;
 }
 
 struct pbr_rule_unique_lookup {
@@ -260,7 +260,7 @@ uint32_t zebra_pbr_ipset_hash_key(void *arg)
 	return jhash2(pnt, ZEBRA_IPSET_NAME_HASH_SIZE, 0x63ab42de);
 }
 
-int zebra_pbr_ipset_hash_equal(const void *arg1, const void *arg2)
+bool zebra_pbr_ipset_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct zebra_pbr_ipset *r1, *r2;
 
@@ -268,13 +268,13 @@ int zebra_pbr_ipset_hash_equal(const void *arg1, const void *arg2)
 	r2 = (const struct zebra_pbr_ipset *)arg2;
 
 	if (r1->type != r2->type)
-		return 0;
+		return false;
 	if (r1->unique != r2->unique)
-		return 0;
+		return false;
 	if (strncmp(r1->ipset_name, r2->ipset_name,
 		    ZEBRA_IPSET_NAME_SIZE))
-		return 0;
-	return 1;
+		return false;
+	return true;
 }
 
 void zebra_pbr_ipset_entry_free(void *arg)
@@ -313,7 +313,7 @@ uint32_t zebra_pbr_ipset_entry_hash_key(void *arg)
 	return key;
 }
 
-int zebra_pbr_ipset_entry_hash_equal(const void *arg1, const void *arg2)
+bool zebra_pbr_ipset_entry_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct zebra_pbr_ipset_entry *r1, *r2;
 
@@ -321,29 +321,29 @@ int zebra_pbr_ipset_entry_hash_equal(const void *arg1, const void *arg2)
 	r2 = (const struct zebra_pbr_ipset_entry *)arg2;
 
 	if (r1->unique != r2->unique)
-		return 0;
+		return false;
 
 	if (!prefix_same(&r1->src, &r2->src))
-		return 0;
+		return false;
 
 	if (!prefix_same(&r1->dst, &r2->dst))
-		return 0;
+		return false;
 
 	if (r1->src_port_min != r2->src_port_min)
-		return 0;
+		return false;
 
 	if (r1->src_port_max != r2->src_port_max)
-		return 0;
+		return false;
 
 	if (r1->dst_port_min != r2->dst_port_min)
-		return 0;
+		return false;
 
 	if (r1->dst_port_max != r2->dst_port_max)
-		return 0;
+		return false;
 
 	if (r1->proto != r2->proto)
-		return 0;
-	return 1;
+		return false;
+	return true;
 }
 
 void zebra_pbr_iptable_free(void *arg)
@@ -389,7 +389,7 @@ uint32_t zebra_pbr_iptable_hash_key(void *arg)
 			    iptable->unique, key);
 }
 
-int zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2)
+bool zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct zebra_pbr_iptable *r1, *r2;
 
@@ -397,31 +397,31 @@ int zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2)
 	r2 = (const struct zebra_pbr_iptable *)arg2;
 
 	if (r1->type != r2->type)
-		return 0;
+		return false;
 	if (r1->unique != r2->unique)
-		return 0;
+		return false;
 	if (r1->filter_bm != r2->filter_bm)
-		return 0;
+		return false;
 	if (r1->fwmark != r2->fwmark)
-		return 0;
+		return false;
 	if (r1->action != r2->action)
-		return 0;
+		return false;
 	if (strncmp(r1->ipset_name, r2->ipset_name,
 		    ZEBRA_IPSET_NAME_SIZE))
-		return 0;
+		return false;
 	if (r1->pkt_len_min != r2->pkt_len_min)
-		return 0;
+		return false;
 	if (r1->pkt_len_max != r2->pkt_len_max)
-		return 0;
+		return false;
 	if (r1->tcp_flags != r2->tcp_flags)
-		return 0;
+		return false;
 	if (r1->tcp_mask_flags != r2->tcp_mask_flags)
-		return 0;
+		return false;
 	if (r1->dscp_value != r2->dscp_value)
-		return 0;
+		return false;
 	if (r1->fragment != r2->fragment)
-		return 0;
-	return 1;
+		return false;
+	return true;
 }
 
 static void *pbr_rule_alloc_intern(void *arg)

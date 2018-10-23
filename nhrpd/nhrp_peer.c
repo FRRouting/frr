@@ -157,10 +157,11 @@ static unsigned int nhrp_peer_key(void *peer_data)
 	return sockunion_hash(&p->vc->remote.nbma);
 }
 
-static int nhrp_peer_cmp(const void *cache_data, const void *key_data)
+static bool nhrp_peer_cmp(const void *cache_data, const void *key_data)
 {
 	const struct nhrp_peer *a = cache_data;
 	const struct nhrp_peer *b = key_data;
+
 	return a->ifp == b->ifp && a->vc == b->vc;
 }
 

@@ -94,7 +94,7 @@ static unsigned int sr_hash(void *p)
 }
 
 /* Compare 2 Router ID hash entries based on SR Node */
-static int sr_cmp(const void *p1, const void *p2)
+static bool sr_cmp(const void *p1, const void *p2)
 {
 	const struct sr_node *srn = p1;
 	const struct in_addr *rid = p2;
@@ -2052,6 +2052,9 @@ DEFUN (no_sr_prefix_sid,
 	struct interface *ifp;
 	bool found = false;
 	int rc;
+
+	if (!ospf_sr_enabled(vty))
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Get network prefix */
 	argv_find(argv, argc, "A.B.C.D/M", &idx);

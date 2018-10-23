@@ -769,7 +769,7 @@ static unsigned int peer_hash_key_make(void *p)
 	return sockunion_hash(&peer->su);
 }
 
-static int peer_hash_same(const void *p1, const void *p2)
+static bool peer_hash_same(const void *p1, const void *p2)
 {
 	const struct peer *peer1 = p1;
 	const struct peer *peer2 = p2;
@@ -6306,9 +6306,6 @@ int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi,
 
 int peer_maximum_prefix_unset(struct peer *peer, afi_t afi, safi_t safi)
 {
-	struct peer *member;
-	struct listnode *node, *nnode;
-
 	/* Inherit configuration from peer-group if peer is member. */
 	if (peer_group_active(peer)) {
 		peer_af_flag_inherit(peer, afi, safi, PEER_FLAG_MAX_PREFIX);
@@ -6332,19 +6329,26 @@ int peer_maximum_prefix_unset(struct peer *peer, afi_t afi, safi_t safi)
 	 * Remove flags and configuration from all peer-group members, unless
 	 * they are explicitely overriding peer-group configuration.
 	 */
-	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
-		/* Skip peers with overridden configuration. */
-		if (CHECK_FLAG(member->af_flags_override[afi][safi],
-			       PEER_FLAG_MAX_PREFIX))
-			continue;
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		struct peer *member;
+		struct listnode *node;
 
-		/* Remove flag and configuration on peer-group member. */
-		UNSET_FLAG(member->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX);
-		UNSET_FLAG(member->af_flags[afi][safi],
-			   PEER_FLAG_MAX_PREFIX_WARNING);
-		member->pmax[afi][safi] = 0;
-		member->pmax_threshold[afi][safi] = 0;
-		member->pmax_restart[afi][safi] = 0;
+		for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
+			/* Skip peers with overridden configuration. */
+			if (CHECK_FLAG(member->af_flags_override[afi][safi],
+				       PEER_FLAG_MAX_PREFIX))
+				continue;
+
+			/* Remove flag and configuration on peer-group member.
+			 */
+			UNSET_FLAG(member->af_flags[afi][safi],
+				   PEER_FLAG_MAX_PREFIX);
+			UNSET_FLAG(member->af_flags[afi][safi],
+				   PEER_FLAG_MAX_PREFIX_WARNING);
+			member->pmax[afi][safi] = 0;
+			member->pmax_threshold[afi][safi] = 0;
+			member->pmax_restart[afi][safi] = 0;
+		}
 	}
 
 	return 0;

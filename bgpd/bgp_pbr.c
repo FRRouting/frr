@@ -847,7 +847,7 @@ uint32_t bgp_pbr_match_hash_key(void *arg)
 	return jhash_1word(pbm->type, key);
 }
 
-int bgp_pbr_match_hash_equal(const void *arg1, const void *arg2)
+bool bgp_pbr_match_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct bgp_pbr_match *r1, *r2;
 
@@ -855,35 +855,35 @@ int bgp_pbr_match_hash_equal(const void *arg1, const void *arg2)
 	r2 = (const struct bgp_pbr_match *)arg2;
 
 	if (r1->vrf_id != r2->vrf_id)
-		return 0;
+		return false;
 
 	if (r1->type != r2->type)
-		return 0;
+		return false;
 
 	if (r1->flags != r2->flags)
-		return 0;
+		return false;
 
 	if (r1->action != r2->action)
-		return 0;
+		return false;
 
 	if (r1->pkt_len_min != r2->pkt_len_min)
-		return 0;
+		return false;
 
 	if (r1->pkt_len_max != r2->pkt_len_max)
-		return 0;
+		return false;
 
 	if (r1->tcp_flags != r2->tcp_flags)
-		return 0;
+		return false;
 
 	if (r1->tcp_mask_flags != r2->tcp_mask_flags)
-		return 0;
+		return false;
 
 	if (r1->dscp_value != r2->dscp_value)
-		return 0;
+		return false;
 
 	if (r1->fragment != r2->fragment)
-		return 0;
-	return 1;
+		return false;
+	return true;
 }
 
 uint32_t bgp_pbr_match_entry_hash_key(void *arg)
@@ -903,45 +903,41 @@ uint32_t bgp_pbr_match_entry_hash_key(void *arg)
 	return key;
 }
 
-int bgp_pbr_match_entry_hash_equal(const void *arg1, const void *arg2)
+bool bgp_pbr_match_entry_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct bgp_pbr_match_entry *r1, *r2;
 
 	r1 = (const struct bgp_pbr_match_entry *)arg1;
 	r2 = (const struct bgp_pbr_match_entry *)arg2;
 
-	/* on updates, comparing
-	 * backpointer is not necessary
-	 */
-
-	/* unique value is self calculated
-	 */
-
-	/* rate is ignored for now
+	/*
+	 * on updates, comparing backpointer is not necessary
+	 * unique value is self calculated
+	 * rate is ignored for now
 	 */
 
 	if (!prefix_same(&r1->src, &r2->src))
-		return 0;
+		return false;
 
 	if (!prefix_same(&r1->dst, &r2->dst))
-		return 0;
+		return false;
 
 	if (r1->src_port_min != r2->src_port_min)
-		return 0;
+		return false;
 
 	if (r1->dst_port_min != r2->dst_port_min)
-		return 0;
+		return false;
 
 	if (r1->src_port_max != r2->src_port_max)
-		return 0;
+		return false;
 
 	if (r1->dst_port_max != r2->dst_port_max)
-		return 0;
+		return false;
 
 	if (r1->proto != r2->proto)
-		return 0;
+		return false;
 
-	return 1;
+	return true;
 }
 
 uint32_t bgp_pbr_action_hash_key(void *arg)
@@ -955,7 +951,7 @@ uint32_t bgp_pbr_action_hash_key(void *arg)
 	return key;
 }
 
-int bgp_pbr_action_hash_equal(const void *arg1, const void *arg2)
+bool bgp_pbr_action_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct bgp_pbr_action *r1, *r2;
 
@@ -967,11 +963,12 @@ int bgp_pbr_action_hash_equal(const void *arg1, const void *arg2)
 	 * rate is ignored
 	 */
 	if (r1->vrf_id != r2->vrf_id)
-		return 0;
+		return false;
 
 	if (memcmp(&r1->nh, &r2->nh, sizeof(struct nexthop)))
-		return 0;
-	return 1;
+		return false;
+
+	return true;
 }
 
 struct bgp_pbr_action *bgp_pbr_action_rule_lookup(vrf_id_t vrf_id,

@@ -146,7 +146,7 @@ static unsigned int cluster_hash_key_make(void *p)
 	return jhash(cluster->list, cluster->length, 0);
 }
 
-static int cluster_hash_cmp(const void *p1, const void *p2)
+static bool cluster_hash_cmp(const void *p1, const void *p2)
 {
 	const struct cluster_list *cluster1 = p1;
 	const struct cluster_list *cluster2 = p2;
@@ -355,7 +355,7 @@ static unsigned int encap_hash_key_make(void *p)
 	return jhash(encap->value, encap->length, 0);
 }
 
-static int encap_hash_cmp(const void *p1, const void *p2)
+static bool encap_hash_cmp(const void *p1, const void *p2)
 {
 	return encap_same((const struct bgp_attr_encap_subtlv *)p1,
 			  (const struct bgp_attr_encap_subtlv *)p2);
@@ -441,7 +441,7 @@ static unsigned int transit_hash_key_make(void *p)
 	return jhash(transit->val, transit->length, 0);
 }
 
-static int transit_hash_cmp(const void *p1, const void *p2)
+static bool transit_hash_cmp(const void *p1, const void *p2)
 {
 	const struct transit *transit1 = p1;
 	const struct transit *transit2 = p2;
@@ -527,7 +527,7 @@ unsigned int attrhash_key_make(void *p)
 	return key;
 }
 
-int attrhash_cmp(const void *p1, const void *p2)
+bool attrhash_cmp(const void *p1, const void *p2)
 {
 	const struct attr *attr1 = p1;
 	const struct attr *attr2 = p2;
@@ -565,10 +565,10 @@ int attrhash_cmp(const void *p1, const void *p2)
 		    && overlay_index_same(attr1, attr2)
 		    && attr1->nh_ifindex == attr2->nh_ifindex
 		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex)
-			return 1;
+			return true;
 	}
 
-	return 0;
+	return false;
 }
 
 static void attrhash_init(void)
