@@ -14,7 +14,7 @@ EXTRA_DIST = README.Debian README.Maintainer \
 	backports/sonic.debian8/debian/rules \
 	backports/sonic.debian8/debian/source/format \
 	backports/sonic.debian8/exclude \
-	backports/sonic.debian8/versionext 
+	backports/sonic.debian8/versionext \
 	backports/ubuntu12.04/debian/control \
 	backports/ubuntu12.04/debian/frr.install \
 	backports/ubuntu12.04/debian/frr.postinst \
