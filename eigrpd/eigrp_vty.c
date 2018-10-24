@@ -661,16 +661,15 @@ DEFUN (no_eigrp_if_delay,
 	return CMD_SUCCESS;
 }
 
-DEFUN (eigrp_if_bandwidth,
+DEFPY (eigrp_if_bandwidth,
        eigrp_if_bandwidth_cmd,
-       "eigrp bandwidth (1-10000000)",
+       "eigrp bandwidth (1-10000000)$bw",
        "EIGRP specific commands\n"
        "Set bandwidth informational parameter\n"
        "Bandwidth in kilobits\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct eigrp_interface *ei = ifp->info;
-	uint32_t bandwidth;
 	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
@@ -684,9 +683,7 @@ DEFUN (eigrp_if_bandwidth,
 		return CMD_SUCCESS;
 	}
 
-	bandwidth = atoi(argv[1]->arg);
-
-	ei->params.bandwidth = bandwidth;
+	ei->params.bandwidth = bw;
 	eigrp_if_reset(ifp);
 
 	return CMD_SUCCESS;
