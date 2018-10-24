@@ -160,6 +160,13 @@ struct isis_area *isis_area_create(const char *area_tag)
 
 	if (fabricd)
 		area->fabricd = fabricd_new(area);
+
+	area->lsp_refresh_arg[0].area = area;
+	area->lsp_refresh_arg[0].level = IS_LEVEL_1;
+	area->lsp_refresh_arg[1].area = area;
+	area->lsp_refresh_arg[1].level = IS_LEVEL_2;
+
+
 	QOBJ_REG(area, isis_area);
 
 	return area;

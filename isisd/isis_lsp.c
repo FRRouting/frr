@@ -59,8 +59,7 @@
 #include "isisd/fabricd.h"
 #include "isisd/isis_tx_queue.h"
 
-static int lsp_l1_refresh(struct thread *thread);
-static int lsp_l2_refresh(struct thread *thread);
+static int lsp_refresh(struct thread *thread);
 static int lsp_l1_refresh_pseudo(struct thread *thread);
 static int lsp_l2_refresh_pseudo(struct thread *thread);
 
@@ -1251,12 +1250,9 @@ int lsp_generate(struct isis_area *area, int level)
 
 	THREAD_TIMER_OFF(area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
-	if (level == IS_LEVEL_1)
-		thread_add_timer(master, lsp_l1_refresh, area, refresh_time,
-				 &area->t_lsp_refresh[level - 1]);
-	else if (level == IS_LEVEL_2)
-		thread_add_timer(master, lsp_l2_refresh, area, refresh_time,
-				 &area->t_lsp_refresh[level - 1]);
+	thread_add_timer(master, lsp_refresh,
+			 &area->lsp_refresh_arg[level - 1], refresh_time,
+			 &area->t_lsp_refresh[level - 1]);
 
 	if (isis->debugs & DEBUG_UPDATE_PACKETS) {
 		zlog_debug("ISIS-Upd (%s): Building L%d LSP %s, len %" PRIu16
@@ -1323,12 +1319,9 @@ static int lsp_regenerate(struct isis_area *area, int level)
 	lsp_seqno_update(lsp);
 
 	refresh_time = lsp_refresh_time(lsp, rem_lifetime);
-	if (level == IS_LEVEL_1)
-		thread_add_timer(master, lsp_l1_refresh, area, refresh_time,
-				 &area->t_lsp_refresh[level - 1]);
-	else if (level == IS_LEVEL_2)
-		thread_add_timer(master, lsp_l2_refresh, area, refresh_time,
-				 &area->t_lsp_refresh[level - 1]);
+	thread_add_timer(master, lsp_refresh,
+			 &area->lsp_refresh_arg[level - 1], refresh_time,
+			 &area->t_lsp_refresh[level - 1]);
 	area->lsp_regenerate_pending[level - 1] = 0;
 
 	if (isis->debugs & DEBUG_UPDATE_PACKETS) {
@@ -1350,42 +1343,28 @@ static int lsp_regenerate(struct isis_area *area, int level)
 /*
  * Something has changed or periodic refresh -> regenerate LSP
  */
-static int lsp_l1_refresh(struct thread *thread)
+static int lsp_refresh(struct thread *thread)
 {
-	struct isis_area *area;
+	struct lsp_refresh_arg *arg = THREAD_ARG(thread);
 
-	area = THREAD_ARG(thread);
+	assert(arg);
+
+	struct isis_area *area = arg->area;
+
 	assert(area);
 
-	area->t_lsp_refresh[0] = NULL;
-	area->lsp_regenerate_pending[0] = 0;
+	int level = arg->level;
 
-	if ((area->is_type & IS_LEVEL_1) == 0)
+	area->t_lsp_refresh[level - 1] = NULL;
+	area->lsp_regenerate_pending[level - 1] = 0;
+
+	if ((area->is_type & level) == 0)
 		return ISIS_ERROR;
 
 	sched_debug(
-		"ISIS (%s): LSP L1 refresh timer expired. Refreshing LSP...",
-		area->area_tag);
-	return lsp_regenerate(area, IS_LEVEL_1);
-}
-
-static int lsp_l2_refresh(struct thread *thread)
-{
-	struct isis_area *area;
-
-	area = THREAD_ARG(thread);
-	assert(area);
-
-	area->t_lsp_refresh[1] = NULL;
-	area->lsp_regenerate_pending[1] = 0;
-
-	if ((area->is_type & IS_LEVEL_2) == 0)
-		return ISIS_ERROR;
-
-	sched_debug(
-		"ISIS (%s): LSP L2 refresh timer expired. Refreshing LSP...",
-		area->area_tag);
-	return lsp_regenerate(area, IS_LEVEL_2);
+		"ISIS (%s): LSP L%d refresh timer expired. Refreshing LSP...",
+		area->area_tag, level);
+	return lsp_regenerate(area, level);
 }
 
 int _lsp_regenerate_schedule(struct isis_area *area, int level,
@@ -1472,15 +1451,10 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 		}
 
 		area->lsp_regenerate_pending[lvl - 1] = 1;
-		if (lvl == IS_LEVEL_1) {
-			thread_add_timer_msec(master, lsp_l1_refresh, area,
-					      timeout,
-					      &area->t_lsp_refresh[lvl - 1]);
-		} else if (lvl == IS_LEVEL_2) {
-			thread_add_timer_msec(master, lsp_l2_refresh, area,
-					      timeout,
-					      &area->t_lsp_refresh[lvl - 1]);
-		}
+		thread_add_timer_msec(master, lsp_refresh,
+				      &area->lsp_refresh_arg[lvl - 1],
+				      timeout,
+				      &area->t_lsp_refresh[lvl - 1]);
 	}
 
 	if (all_pseudo) {

@@ -90,6 +90,11 @@ enum spf_tree_id {
 	SPFTREE_COUNT
 };
 
+struct lsp_refresh_arg {
+	struct isis_area *area;
+	int level;
+};
+
 struct isis_area {
 	struct isis *isis;			       /* back pointer */
 	dict_t *lspdb[ISIS_LEVELS];		       /* link-state dbs */
@@ -159,6 +164,8 @@ struct isis_area {
 							    SPF algo
 							    parameters*/
 	struct thread *spf_timer[ISIS_LEVELS];
+
+	struct lsp_refresh_arg lsp_refresh_arg[ISIS_LEVELS];
 
 	QOBJ_FIELDS
 };
