@@ -1,6 +1,2 @@
-usr/lib/libfrrsnmp.*
-usr/lib/frr/modules/bgpd_snmp.so
-usr/lib/frr/modules/ospfd_snmp.so
-usr/lib/frr/modules/ospf6d_snmp.so
-usr/lib/frr/modules/ripd_snmp.so
-usr/lib/frr/modules/zebra_snmp.so
+usr/lib/*/libfrrsnmp.*
+usr/lib/*/frr/modules/*_snmp.so
