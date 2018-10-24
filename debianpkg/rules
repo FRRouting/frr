@@ -156,3 +156,8 @@ endif
 	# we don't need .la files
 	rm debian/tmp/usr/lib/*.la
 	rm debian/tmp/usr/lib/frr/modules/*.la
+
+override_dh_auto_clean:
+# we generally do NOT want a full distclean since that wipes both
+# debianpkg/changelog and config.version
+	if test -f Makefile; then make redistclean; fi
