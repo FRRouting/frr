@@ -17,7 +17,6 @@ tools_ssd_SOURCES = tools/start-stop-daemon.c
 
 EXTRA_DIST += \
 	tools/etc \
-	tools/frr \
 	tools/frr-reload \
 	tools/frr-reload.py \
 	tools/frr.service \
