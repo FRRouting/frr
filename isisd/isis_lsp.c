@@ -1388,7 +1388,9 @@ static int lsp_l2_refresh(struct thread *thread)
 	return lsp_regenerate(area, IS_LEVEL_2);
 }
 
-int lsp_regenerate_schedule(struct isis_area *area, int level, int all_pseudo)
+int _lsp_regenerate_schedule(struct isis_area *area, int level,
+			     int all_pseudo, const char *func,
+			     const char *file, int line)
 {
 	struct isis_lsp *lsp;
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
@@ -1402,9 +1404,11 @@ int lsp_regenerate_schedule(struct isis_area *area, int level, int all_pseudo)
 		return ISIS_ERROR;
 
 	sched_debug(
-		"ISIS (%s): Scheduling regeneration of %s LSPs, %sincluding PSNs",
+		"ISIS (%s): Scheduling regeneration of %s LSPs, %sincluding PSNs"
+		" Caller: %s %s:%d",
 		area->area_tag, circuit_t2string(level),
-		all_pseudo ? "" : "not ");
+		all_pseudo ? "" : "not ",
+		func, file, line);
 
 	memcpy(id, isis->sysid, ISIS_SYS_ID_LEN);
 	LSP_PSEUDO_ID(id) = LSP_FRAGMENT(id) = 0;
