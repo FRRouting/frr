@@ -1361,6 +1361,14 @@ static int lsp_refresh(struct thread *thread)
 	if ((area->is_type & level) == 0)
 		return ISIS_ERROR;
 
+	if (monotime_since(&area->last_lsp_refresh_event[level - 1], NULL) < 50000L) {
+		sched_debug("ISIS (%s): Still unstable, postpone LSP L%d refresh",
+			    area->area_tag, level);
+		_lsp_regenerate_schedule(area, level, 0, false,
+					 __func__, __FILE__, __LINE__);
+		return 0;
+	}
+
 	sched_debug(
 		"ISIS (%s): LSP L%d refresh timer expired. Refreshing LSP...",
 		area->area_tag, level);
@@ -1368,8 +1376,9 @@ static int lsp_refresh(struct thread *thread)
 }
 
 int _lsp_regenerate_schedule(struct isis_area *area, int level,
-			     int all_pseudo, const char *func,
-			     const char *file, int line)
+			     int all_pseudo, bool postpone,
+			     const char *func, const char *file,
+			     int line)
 {
 	struct isis_lsp *lsp;
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
@@ -1396,6 +1405,10 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 	for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; lvl++) {
 		if (!((level & lvl) && (area->is_type & lvl)))
 			continue;
+
+		if (postpone) {
+			monotime(&area->last_lsp_refresh_event[lvl - 1]);
+		}
 
 		sched_debug(
 			"ISIS (%s): Checking whether L%d needs to be scheduled",

@@ -105,6 +105,7 @@ struct isis_area {
 	struct flags flags;
 	struct thread *t_tick; /* LSP walker */
 	struct thread *t_lsp_refresh[ISIS_LEVELS];
+	struct timeval last_lsp_refresh_event[ISIS_LEVELS];
 	/* t_lsp_refresh is used in two ways:
 	 * a) regular refresh of LSPs
 	 * b) (possibly throttled) updates to LSPs

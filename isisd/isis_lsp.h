@@ -55,11 +55,11 @@ int lsp_tick(struct thread *thread);
 
 int lsp_generate(struct isis_area *area, int level);
 #define lsp_regenerate_schedule(area, level, all_pseudo) \
-	_lsp_regenerate_schedule((area), (level), (all_pseudo), \
+	_lsp_regenerate_schedule((area), (level), (all_pseudo), true, \
 				 __func__, __FILE__, __LINE__)
 int _lsp_regenerate_schedule(struct isis_area *area, int level,
-			     int all_pseudo, const char *func,
-				     const char *file, int line);
+			     int all_pseudo, bool postpone,
+			     const char *func, const char *file, int line);
 int lsp_generate_pseudo(struct isis_circuit *circuit, int level);
 int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level);
 
