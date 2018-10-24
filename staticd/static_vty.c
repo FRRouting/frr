@@ -199,7 +199,7 @@ static int zebra_static_route_holdem(
 	const char *dest_str, const char *mask_str, const char *src_str,
 	const char *gate_str, const char *ifname, const char *flag_str,
 	const char *tag_str, const char *distance_str, const char *label_str,
-	const char *table_str)
+	const char *table_str, bool onlink)
 {
 	struct static_hold_route *shr, *lookup;
 	struct listnode *node;
@@ -212,6 +212,7 @@ static int zebra_static_route_holdem(
 	shr->nhvrf_name = XSTRDUP(MTYPE_STATIC_ROUTE, nh_svrf->vrf->name);
 	shr->afi = afi;
 	shr->safi = safi;
+	shr->onlink = onlink;
 	if (dest)
 		prefix_copy(&shr->dest, dest);
 	if (dest_str)
@@ -347,7 +348,7 @@ static int static_route_leak(
 		return zebra_static_route_holdem(
 			svrf, nh_svrf, afi, safi, negate, &p, dest_str,
 			mask_str, src_str, gate_str, ifname, flag_str, tag_str,
-			distance_str, label_str, table_str);
+			distance_str, label_str, table_str, onlink);
 	}
 
 	if (table_str) {
@@ -646,7 +647,9 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 		if (shr->table_str)
 			vty_out(vty, "table %s", shr->table_str);
 		if (strcmp(shr->vrf_name, shr->nhvrf_name) != 0)
-			vty_out(vty, "nexthop-vrf %s", shr->nhvrf_name);
+			vty_out(vty, "nexthop-vrf %s ", shr->nhvrf_name);
+		if (shr->onlink)
+			vty_out(vty, "onlink");
 		vty_out(vty, "\n");
 	}
 
@@ -716,6 +719,9 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 			if (si->table_id &&
 			    svrf->vrf->data.l.table_id == RT_TABLE_MAIN)
 				vty_out(vty, " table %u", si->table_id);
+
+			if (si->onlink)
+				vty_out(vty, " onlink");
 
 			vty_out(vty, "\n");
 
