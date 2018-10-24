@@ -77,6 +77,16 @@ build FRR yourself with SNMP with
 Just distributing it in binary form, linked against OpenSSL, is forbidden.
 
 
+* Debian Policy compliance notes
+================================
+
+- 4.15 Reproducibility
+  FRR build is reproducible as outlined in version 4.2.1 of the Policy, but
+  won't be reproducible when the build directory is varied.  This is because
+  configure parameters are burned into the executables which includes CFLAGS
+  like -fdebug-prefix-map=/build/directory/...
+
+
 * Daemon selection:
 ===================
 
