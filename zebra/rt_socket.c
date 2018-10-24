@@ -245,9 +245,12 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 	} /* for (ALL_NEXTHOPS(...))*/
 
 	/* If there was no useful nexthop, then complain. */
-	if (nexthop_num == 0 && IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: No useful nexthops were found in RIB entry %p",
-			   __func__, re);
+	if (nexthop_num == 0) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: No useful nexthops were found in RIB entry %p",
+				   __func__, re);
+		return 1;
+	}
 
 	return 0; /*XXX*/
 }
@@ -374,7 +377,7 @@ static int kernel_rtm_ipv6(int cmd, const struct prefix *p,
 	if (nexthop_num == 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("kernel_rtm_ipv6(): No useful nexthop.");
-		return 0;
+		return 1;
 	}
 
 	return 0; /*XXX*/
