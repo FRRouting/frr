@@ -34,9 +34,7 @@ GENERATE_PDF ?= 0
 #
 ####################################
 
-export DH_VERBOSE=1
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
-export DH_OPTIONS=-v
 
 ifeq ($(WANT_OSPFAPI), 1)
   USE_OSPFAPI=--enable-ospfapi=yes
@@ -79,14 +77,28 @@ endif
 ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
   DEBIAN_JOBS := $(subst parallel=,,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
 endif
-
 ifdef DEBIAN_JOBS
 MAKEFLAGS += -j$(DEBIAN_JOBS)
+endif
+
+ifneq (,$(filter terse,$(DEB_BUILD_OPTIONS)))
+MAKE_SILENT="V=0"
+export DH_VERBOSE=0
+else
+MAKE_SILENT="V=1"
+export DH_VERBOSE=1
+export DH_OPTIONS=-v
 endif
 
 #
 # build profiles
 #
+
+ifeq ($(filter nodoc,$(DEB_BUILD_PROFILES)),)
+  USE_DOC=--enable-doc
+else
+  USE_DOC=--disable-doc
+endif
 
 ifeq ($(filter pkg.frr.rtrlib,$(DEB_BUILD_PROFILES)),)
   USE_RPKI=--disable-rpki
@@ -118,6 +130,8 @@ override_dh_auto_configure:
 		--localstatedir=/var/run/frr \
 		--sbindir=/usr/lib/frr \
 		--sysconfdir=/etc/frr \
+		--with-vtysh-pager=/usr/bin/pager \
+		$(USE_DOC) \
 		$(USE_SNMP) \
 		$(USE_OSPFAPI) \
 		$(USE_MULTIPATH) \
@@ -156,6 +170,9 @@ endif
 	# we don't need .la files
 	rm debian/tmp/usr/lib/*.la
 	rm debian/tmp/usr/lib/frr/modules/*.la
+
+override_dh_auto_build:
+	dh_auto_build -- $(MAKE_SILENT)
 
 override_dh_auto_clean:
 # we generally do NOT want a full distclean since that wipes both

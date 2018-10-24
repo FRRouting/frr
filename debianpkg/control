@@ -3,7 +3,6 @@ Section: net
 Priority: optional
 Maintainer: Nobody <nobody@frrouting.org>
 Uploaders: Nobody <nobody@frrouting.org>
-XSBC-Original-Maintainer: <maintainers@frrouting.org>
 Build-Depends:
  autotools-dev,
  bison,
@@ -31,8 +30,10 @@ Build-Depends:
  python (>= 2.7) | python3,
  python-sphinx | python3-sphinx,
  texinfo (>= 4.7)
-Standards-Version: 3.9.6
+Standards-Version: 4.2.1
 Homepage: http://www.frrouting.org/
+Vcs-Browser: https://github.com/FRRouting/frr/
+Vcs-Git: https://github.com/FRRouting/frr.git
 
 Package: frr
 Architecture: any
@@ -43,6 +44,7 @@ Depends:
  logrotate (>= 3.2-11)
 Pre-Depends: adduser
 Recommends: frr-pythontools
+Suggests: frr-doc
 Conflicts: zebra, zebra-pj, quagga
 Replaces: zebra, zebra-pj
 Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon forked from Quagga
@@ -83,7 +85,7 @@ Architecture: any
 Depends:
  ${misc:Depends},
  frr (= ${binary:Version})
-Priority: extra
+Priority: optional
 Section: debug
 Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (debug symbols)
  This package provides debugging symbols for all binary packages built

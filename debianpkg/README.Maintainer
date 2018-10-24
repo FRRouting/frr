@@ -1,4 +1,14 @@
 #
+# TODO
+#
+
+- check that tests/{control,daemons} actually do something useful and sensible
+- /usr/share/doc/frr-doc should be named just frr?
+- debian/watch pgpsigurlmangle / signing-key
+- multiarch for DSOs?
+- frr try-restart
+
+#
 # To check if the patches still apply on new upstream versions:
 #
 for i in debian/patches/*.diff; do echo -e "#\n# $i\n#"; patch --fuzz=3 --dry-run -p1 < $i; done
