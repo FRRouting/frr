@@ -168,9 +168,9 @@ endif
 	perl -pi -e 's#^!log file #!log file /var/log/frr/#' debian/tmp/usr/share/doc/frr/examples/*sample*
 
 	# we don't need .la files
-	rm debian/tmp/usr/lib/*.la
-	rm debian/tmp/usr/lib/frr/modules/*.la
-	rm debian/tmp/usr/lib/frr/libyang_plugins/*.la
+	rm debian/tmp/usr/lib/*/*.la
+	rm debian/tmp/usr/lib/*/frr/modules/*.la
+	rm debian/tmp/usr/lib/*/frr/libyang_plugins/*.la
 
 override_dh_auto_build:
 	dh_auto_build -- $(MAKE_SILENT)
