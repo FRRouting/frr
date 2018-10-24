@@ -20,7 +20,7 @@ if ! getent passwd frr >/dev/null; then
         adduser \
           --system \
           --ingroup frr \
-          --home /var/run/frr/ \
+          --home /nonexistent \
           --gecos "Frr routing suite" \
           --shell /bin/false \
           frr  >/dev/null
