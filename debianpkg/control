@@ -42,6 +42,7 @@ Depends:
  iproute2 | iproute,
  logrotate (>= 3.2-11)
 Pre-Depends: adduser
+Recommends: frr-pythontools
 Conflicts: zebra, zebra-pj, quagga
 Replaces: zebra, zebra-pj
 Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon forked from Quagga
