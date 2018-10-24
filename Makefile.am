@@ -223,6 +223,9 @@ clean-python:
 	find -name __pycache__ -o -name .pytest_cache | xargs rm -rf
 	find -name "*.pyc" -o -name "*_clippy.c" | xargs rm -f
 
+redistclean:
+	$(MAKE) distclean CONFIG_CLEAN_FILES="$(filter-out $(EXTRA_DIST), $(CONFIG_CLEAN_FILES))"
+
 indent:
 	tools/indent.py `find sharpd bgpd eigrpd include isisd lib nhrpd ospf6d ospfd pimd qpb ripd vtysh zebra -name '*.[ch]' | grep -v include/linux`
 
