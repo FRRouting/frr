@@ -80,6 +80,7 @@ var-%:
 EXTRA_DIST =
 BUILT_SOURCES =
 CLEANFILES =
+DISTCLEANFILES =
 
 examplesdir = $(exampledir)
 
@@ -212,6 +213,12 @@ EXTRA_DIST += \
 	# end
 
 noinst_HEADERS += defaults.h
+
+clean-local: clean-python
+.PHONY: clean-python
+clean-python:
+	find -name __pycache__ -o -name .pytest_cache | xargs rm -rf
+	find -name "*.pyc" -o -name "*_clippy.c" | xargs rm -f
 
 indent:
 	tools/indent.py `find sharpd bgpd eigrpd include isisd lib nhrpd ospf6d ospfd pimd qpb ripd vtysh zebra -name '*.[ch]' | grep -v include/linux`
