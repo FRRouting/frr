@@ -11,6 +11,7 @@ EXTRA_DIST += \
 	debianpkg/copyright \
 	debianpkg/rules \
 	debianpkg/source/format \
+	debianpkg/source/lintian-overrides \
 	debianpkg/tests/control \
 	debianpkg/tests/daemons \
 	debianpkg/watchfrr.rc \

@@ -1,1 +1,4 @@
+# libfrr* are for internal use only and do not provide a stable API or ABI.
+# soname / library versioning is irrelevant and they must always be shipped
+# exact-matching to the daemons compiled against it
 frr: package-name-doesnt-match-sonames libfrrsnmp0
