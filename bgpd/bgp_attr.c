@@ -1690,7 +1690,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 				 * - for consistency in rx processing
 				 *
 				 * The following comment is to signal GCC this intention
-				 * and supress the warning
+				 * and suppress the warning
 				 */
 	/* FALLTHRU */
 	case BGP_ATTR_NHLEN_IPV4:
@@ -2612,7 +2612,7 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 			return ret;
 		}
 
-		/* If hard error occured immediately return to the caller. */
+		/* If hard error occurred immediately return to the caller. */
 		if (ret == BGP_ATTR_PARSE_ERROR) {
 			zlog_warn("%s: Attribute %s, parse error", peer->host,
 				  lookup_msg(attr_str, type, NULL));

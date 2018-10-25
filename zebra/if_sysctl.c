@@ -59,7 +59,7 @@ void ifstat_update_sysctl(void)
 	/* We free this memory at the end of this function. */
 	ref = buf = XMALLOC(MTYPE_TMP, bufsiz);
 
-	/* Fetch interface informations into allocated buffer. */
+	/* Fetch interface information into allocated buffer. */
 	if (sysctl(mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) {
 		zlog_warn("sysctl error by %s", safe_strerror(errno));
 		XFREE(MTYPE_TMP, ref);
@@ -108,7 +108,7 @@ void interface_list(struct zebra_ns *zns)
 	/* We free this memory at the end of this function. */
 	ref = buf = XMALLOC(MTYPE_TMP, bufsiz);
 
-	/* Fetch interface informations into allocated buffer. */
+	/* Fetch interface information into allocated buffer. */
 	if (sysctl(mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) {
 		zlog_warn("sysctl error by %s", safe_strerror(errno));
 		return;

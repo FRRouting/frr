@@ -171,7 +171,7 @@ void ospf_router_id_update(struct ospf *ospf)
 
 		/* Flush (inline) all external LSAs which now match the new
 		   router-id,
-		   need to adjust the OSPF_LSA_SELF flag, so the flush doesnt
+		   need to adjust the OSPF_LSA_SELF flag, so the flush doesn't
 		   hit
 		   asserts in ospf_refresher_unregister_lsa(). This step is
 		   needed

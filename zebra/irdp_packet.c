@@ -96,7 +96,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 
 	if (len != iplen) {
 		flog_err(ZEBRA_ERR_IRDP_LEN_MISMATCH,
-			  "IRDP: RX length doesnt match IP length");
+			  "IRDP: RX length doesn't match IP length");
 		return;
 	}
 
@@ -107,7 +107,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 		return;
 	}
 
-	/* XXX: RAW doesnt receive link-layer, surely? ??? */
+	/* XXX: RAW doesn't receive link-layer, surely? ??? */
 	/* Check so we don't checksum packets longer than oure RX_BUF - (ethlen
 	 +
 	 len of IP-header) 14+20 */

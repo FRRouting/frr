@@ -1239,7 +1239,7 @@ static void rip_response_process(struct rip_packet *packet, int size,
 		   Ciscos before the 'ip subnet zero' option, it would be almost
 		   right too :-)
 
-		   Cisco summarize ripv1 advertisments to the classful boundary
+		   Cisco summarize ripv1 advertisements to the classful boundary
 		   (/16 for class B's) except when the RIP packet does to inside
 		   the classful network in question.  */
 
@@ -2514,7 +2514,7 @@ static void rip_update_process(int route_type)
 						      VRF_DEFAULT);
 			if (!connected) {
 				zlog_warn(
-					"Neighbor %s doesnt have connected interface!",
+					"Neighbor %s doesn't have connected interface!",
 					inet_ntoa(p->u.prefix4));
 				continue;
 			}

@@ -272,7 +272,7 @@ static void bgp_update_explicit_eors(struct peer *peer)
 					   PEER_STATUS_EOR_RECEIVED)) {
 				if (bgp_debug_neighbor_events(peer))
 					zlog_debug(
-						"   afi %d safi %d didnt receive EOR",
+						"   afi %d safi %d didn't receive EOR",
 						afi, safi);
 				return;
 			}

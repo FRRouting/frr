@@ -3321,7 +3321,7 @@ static int ospf_make_db_desc(struct ospf_interface *oi,
 				if (IS_OPAQUE_LSA(lsa->data->type)
 				    && (!CHECK_FLAG(options, OSPF_OPTION_O))) {
 					/* Suppress advertising
-					 * opaque-informations. */
+					 * opaque-information. */
 					/* Remove LSA from DB summary list. */
 					ospf_lsdb_delete(lsdb, lsa);
 					continue;

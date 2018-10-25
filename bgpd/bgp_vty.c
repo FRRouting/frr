@@ -2288,7 +2288,7 @@ DEFUN (bgp_default_show_hostname,
        "bgp default show-hostname",
        "BGP specific commands\n"
        "Configure BGP defaults\n"
-       "Show hostname in certain command ouputs\n")
+       "Show hostname in certain command outputs\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	bgp_flag_set(bgp, BGP_FLAG_SHOW_HOSTNAME);
@@ -2301,7 +2301,7 @@ DEFUN (no_bgp_default_show_hostname,
        NO_STR
        "BGP specific commands\n"
        "Configure BGP defaults\n"
-       "Show hostname in certain command ouputs\n")
+       "Show hostname in certain command outputs\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	bgp_flag_unset(bgp, BGP_FLAG_SHOW_HOSTNAME);
@@ -5995,7 +5995,7 @@ DEFUN (neighbor_allowas_in,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Accept as-path with my AS present in it\n"
-       "Number of occurances of AS number\n"
+       "Number of occurrences of AS number\n"
        "Only accept my AS in the as-path if the route was originated in my AS\n")
 {
 	int idx_peer = 1;
@@ -6029,7 +6029,7 @@ ALIAS_HIDDEN(
 	"neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [<(1-10)|origin>]",
 	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	"Accept as-path with my AS present in it\n"
-	"Number of occurances of AS number\n"
+	"Number of occurrences of AS number\n"
 	"Only accept my AS in the as-path if the route was originated in my AS\n")
 
 DEFUN (no_neighbor_allowas_in,
@@ -6039,7 +6039,7 @@ DEFUN (no_neighbor_allowas_in,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "allow local ASN appears in aspath attribute\n"
-       "Number of occurances of AS number\n"
+       "Number of occurrences of AS number\n"
        "Only accept my AS in the as-path if the route was originated in my AS\n")
 {
 	int idx_peer = 2;
@@ -6061,7 +6061,7 @@ ALIAS_HIDDEN(
 	"no neighbor <A.B.C.D|X:X::X:X|WORD> allowas-in [<(1-10)|origin>]",
 	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	"allow local ASN appears in aspath attribute\n"
-	"Number of occurances of AS number\n"
+	"Number of occurrences of AS number\n"
 	"Only accept my AS in the as-path if the route was originated in my AS\n")
 
 DEFUN (neighbor_ttl_security,
@@ -10149,7 +10149,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint8_t use_json,
 			json_object_object_add(
 				json_neigh, "gracefulRestartInfo", json_grace);
 		} else {
-			vty_out(vty, "  Graceful restart informations:\n");
+			vty_out(vty, "  Graceful restart information:\n");
 			if (p->status == Established) {
 				vty_out(vty, "    End-of-RIB send: ");
 				FOREACH_AFI_SAFI (afi, safi) {

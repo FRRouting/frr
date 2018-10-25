@@ -171,7 +171,7 @@ static inline char *label2str(mpls_label_t label, char *buf, size_t len)
 		strlcpy(buf, "Router Alert", len);
 		return (buf);
 	case MPLS_LABEL_IPV6_EXPLICIT_NULL:
-		strlcpy(buf, "IPv6 Explict Null", len);
+		strlcpy(buf, "IPv6 Explicit Null", len);
 		return (buf);
 	case MPLS_LABEL_IMPLICIT_NULL:
 		strlcpy(buf, "implicit-null", len);

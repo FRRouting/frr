@@ -510,7 +510,7 @@ struct opaque_info_per_type {
 	/* Collection of callback functions for this opaque-type. */
 	struct ospf_opaque_functab *functab;
 
-	/* List of Opaque-LSA control informations per opaque-id. */
+	/* List of Opaque-LSA control information per opaque-id. */
 	struct list *id_list;
 };
 
