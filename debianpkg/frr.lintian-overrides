@@ -1,2 +1,2 @@
-frr: package-name-doesnt-match-sonames libfrr0 libfrrfpm-pb0 libfrrospfapiclient0
+frr: package-name-doesnt-match-sonames libfrr0 libfrrospfapiclient0
 frr: systemd-service-file-refers-to-unusual-wantedby-target lib/systemd/system/frr.service network-online.target
