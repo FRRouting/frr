@@ -1,7 +1,7 @@
-Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: Frr
 Upstream-Contact: maintainers@frrouting.org, security@frrouting.org
-Source: http://www.frrouting.org/
+Source: https://www.frrouting.org/
 
 Files: *
 Copyright: 1996-2003 by the original Zebra authors:

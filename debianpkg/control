@@ -31,7 +31,7 @@ Build-Depends:
  python-sphinx | python3-sphinx,
  texinfo (>= 4.7)
 Standards-Version: 4.2.1
-Homepage: http://www.frrouting.org/
+Homepage: https://www.frrouting.org/
 Vcs-Browser: https://github.com/FRRouting/frr/
 Vcs-Git: https://github.com/FRRouting/frr.git
 
