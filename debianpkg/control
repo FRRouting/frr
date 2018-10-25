@@ -68,7 +68,7 @@ Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (documentation)
 Package: frr-pythontools
 Section: net
 Architecture: all
-Depends: ${misc:Depends}, frr (>= ${source:Version}), frr (<< ${source:Upstream-Version}.0-~), python (>= 2.7) | python3, python-ipaddr | python-ipaddress
+Depends: ${misc:Depends}, frr (>= ${source:Version}), frr (<< ${source:Upstream-Version}.0-~), python3:any
 Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (Python Tools)
  This package includes info files for frr, a free software which manages
  TCP/IP based routing protocols.  It supports BGP4, BGP4+, OSPFv2, OSPFv3,
