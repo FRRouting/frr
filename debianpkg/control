@@ -56,7 +56,7 @@ Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (debug symbols)
  Debian package maintainers.
 
 Package: frr-doc
-Section: net
+Section: doc
 Architecture: all
 Depends: ${misc:Depends}
 Suggests: frr
