@@ -1,3 +1,5 @@
 index.rst
 overview.rst
+{% if not CONFIG_DOC_DATASHEETS_WEB %}
 usage.rst
+{% endif %}

@@ -9,4 +9,6 @@
 .. toctree::
 
    overview
+{% if not CONFIG_DOC_DATASHEETS_WEB %}
    usage
+{% endif %}
