@@ -37,6 +37,8 @@ dev_RSTFILES = \
 	doc/developer/ospf-api.rst \
 	doc/developer/ospf-sr.rst \
 	doc/developer/ospf.rst \
+	doc/developer/packaging.rst \
+	doc/developer/packaging-debian.rst \
 	doc/developer/workflow.rst \
 	doc/developer/zebra.rst \
 	# end
