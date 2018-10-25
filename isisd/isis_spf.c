@@ -887,7 +887,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 				case ISIS_SYSTYPE_UNKNOWN:
 				default:
 					zlog_warn(
-						"isis_spf_preload_tent unknow adj type");
+						"isis_spf_preload_tent unknown adj type");
 				}
 			}
 			list_delete(&adj_list);

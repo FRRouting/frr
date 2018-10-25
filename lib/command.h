@@ -355,7 +355,7 @@ struct cmd_node {
 #define IN_STR  "Filter incoming routing updates\n"
 #define V4NOTATION_STR "specify by IPv4 address notation(e.g. 0.0.0.0)\n"
 #define OSPF6_NUMBER_STR "Specify by number\n"
-#define INTERFACE_STR "Interface infomation\n"
+#define INTERFACE_STR "Interface information\n"
 #define IFNAME_STR "Interface name(e.g. ep0)\n"
 #define IP6_STR "IPv6 Information\n"
 #define OSPF6_STR "Open Shortest Path First (OSPF) for IPv6\n"

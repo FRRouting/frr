@@ -321,7 +321,7 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 
 	/* if this is a route to ASBR */
 	if (route->type == OSPF6_DEST_TYPE_ROUTER) {
-		/* Only the prefered best path is considered */
+		/* Only the preferred best path is considered */
 		if (!CHECK_FLAG(route->flag, OSPF6_ROUTE_BEST)) {
 			if (is_debug)
 				zlog_debug(

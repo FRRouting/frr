@@ -3999,7 +3999,7 @@ DEFUN(test_withdraw_evpn_type4_route,
 	}
 
 	if (!bgp->peer_self) {
-		vty_out(vty, "%%BGP instance doesnt have self peer\n");
+		vty_out(vty, "%%BGP instance doesn't have self peer\n");
 		return CMD_WARNING;
 	}
 

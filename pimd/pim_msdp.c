@@ -74,7 +74,7 @@ static int pim_msdp_sa_adv_timer_cb(struct thread *t)
 	struct pim_instance *pim = THREAD_ARG(t);
 
 	if (PIM_DEBUG_MSDP_EVENTS) {
-		zlog_debug("MSDP SA advertisment timer expired");
+		zlog_debug("MSDP SA advertisement timer expired");
 	}
 
 	pim_msdp_sa_adv_timer_setup(pim, true /* start */);

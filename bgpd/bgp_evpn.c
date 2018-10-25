@@ -1449,7 +1449,7 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_def,
 	}
 
 	/*
-	 * create a new route entry if one doesnt exist.
+	 * create a new route entry if one doesn't exist.
 	 * Otherwise see if route attr has changed
 	 */
 	if (!local_pi) {
@@ -5288,7 +5288,7 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *rmac,
 	}
 	as = bgp_def->as;
 
-	/* if the BGP vrf instance doesnt exist - create one */
+	/* if the BGP vrf instance doesn't exist - create one */
 	bgp_vrf = bgp_lookup_by_name(vrf_id_to_name(vrf_id));
 	if (!bgp_vrf) {
 

@@ -689,7 +689,7 @@ int bgp_show_dampening_parameters(struct vty *vty, afi_t afi, safi_t safi)
 		vty_out(vty, "Suppress penalty: %d\n", damp->suppress_value);
 		vty_out(vty, "Max suppress time: %lld min\n",
 			(long long)damp->max_suppress_time / 60);
-		vty_out(vty, "Max supress penalty: %u\n", damp->ceiling);
+		vty_out(vty, "Max suppress penalty: %u\n", damp->ceiling);
 		vty_out(vty, "\n");
 	} else
 		vty_out(vty, "dampening not enabled for %s\n",

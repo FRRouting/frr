@@ -94,7 +94,7 @@ static int ospf_db_desc_timer(struct thread *thread)
 	return 0;
 }
 
-/* Hook function called after ospf NSM event is occured.
+/* Hook function called after ospf NSM event is occurred.
  *
  * Set/clear any timers whose condition is implicit to the neighbour
  * state. There may be other timers which are set/unset according to other
