@@ -300,6 +300,7 @@ extern struct ospf_vl_data *ospf_vl_data_new(struct ospf_area *,
 					     struct in_addr);
 extern struct ospf_vl_data *ospf_vl_lookup(struct ospf *, struct ospf_area *,
 					   struct in_addr);
+extern int ospf_vl_count(struct ospf *ospf, struct ospf_area *area);
 extern void ospf_vl_data_free(struct ospf_vl_data *);
 extern void ospf_vl_add(struct ospf *, struct ospf_vl_data *);
 extern void ospf_vl_delete(struct ospf *, struct ospf_vl_data *);
