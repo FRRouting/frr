@@ -1,0 +1,4 @@
+version=4
+
+https://github.com/FRRouting/frr/releases/ \
+	download/frr-(?:\d[\d.]*)/frr-(\d[\d.]*)\.tar\.xz debian uupdate
