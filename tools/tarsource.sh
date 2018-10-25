@@ -25,6 +25,8 @@ options:
     -d			use dirty git tree with local changes
     -D			generate Debian .dsc and .debian.tar.xz too
 			(note: output files are moved to parent directory)
+    -l			remove Debian auto-build changelog entry
+			(always done for releases)
     -n			allow executing from non-git source (NOT RECOMMENDED)
     -h			show this help text
 
@@ -40,11 +42,12 @@ EOF
 
 set -e
 
-options=`getopt -o 'hi:o:C:S:e:z:Ddn' -l help -- "$@"`
+options=`getopt -o 'hi:o:C:S:e:z:Ddnl' -l help -- "$@"`
 debian=false
 dirty=false
 nongit=false
 zip=xz
+adjchangelog=false
 set - $options
 while test $# -gt 0; do
 	arg="$1"; shift; optarg=$1
@@ -59,6 +62,7 @@ while test $# -gt 0; do
 	-e)		eval extraver=$optarg; shift;;
 	-z)		eval zip=$optarg; shift;;
 	-S)		eval keyid=$optarg; shift;;
+	-l)		adjchangelog=true;;
 	--)		break;;
 	*)		echo something went wrong with getopt >&2
 			exit 1
@@ -140,6 +144,7 @@ if test -d "$src/.git"; then
 		egrep -v '\.git|^m4/|^config|^README|^alpine/|^debianpkg/|^pkgsrc/|^ports/|^redhat/|^snapcraft/|^solaris/|^tests/|^gdb/|^docker/|^\.' | \
 		wc -l`"
 	if test "$changes" -eq 0; then
+		adjchangelog=true
 		echo "detected release build for tag $gittag" >&2
 		test -z "$extraver" && extraver=""
 	else
@@ -188,17 +193,26 @@ mv frr-${PACKAGE_VERSION}.tar.$zip "$outdir" || true
 lsfiles="frr-${PACKAGE_VERSION}.tar.$zip"
 
 if $debian; then
-	DEBVER="`dpkg-parsechangelog -ldebianpkg/changelog -SVersion`"
+	mkdir -p "$tmpdir/debian/source"
+	cp debianpkg/changelog "$tmpdir/debian/changelog"
+	if $adjchangelog; then
+		if grep -q 'autoconf changelog entry' debianpkg/changelog; then
+			tail -n +9 debianpkg/changelog > "$tmpdir/debian/changelog"
+		fi
+	fi
+	echo '3.0 (quilt)' > "$tmpdir/debian/source/format"
+	DEBVER="`dpkg-parsechangelog -l\"$tmpdir/debian/changelog\" -SVersion`"
+
 	# rename debianpkg to debian while tar'ing
 	eval $debsrc | tar -cho $taropt \
 		--exclude-vcs --exclude debianpkg/source/format \
-		--exclude debianpkg/changelog.in --exclude debianpkg/subdir.am \
+		--exclude debianpkg/changelog \
+		--exclude debianpkg/changelog.in \
+		--exclude debianpkg/subdir.am \
 		--transform 's%^debianpkg%debian%' \
 		-T - -f ../frr_${DEBVER}.debian.tar
-
-	mkdir -p "$tmpdir/debian/source"
-	echo '3.0 (quilt)' > "$tmpdir/debian/source/format"
-	tar -uf ../frr_${DEBVER}.debian.tar $taropt -C "$tmpdir" debian/source/format
+	# add specially prepared files from above
+	tar -uf ../frr_${DEBVER}.debian.tar $taropt -C "$tmpdir" debian/source/format debian/changelog
 
 	test -f ../frr_${DEBVER}.debian.tar.$zip && rm -f ../frr_${DEBVER}.debian.tar.$zip
 	$ziptool ../frr_${DEBVER}.debian.tar
@@ -207,7 +221,7 @@ if $debian; then
 	parent="${parent##*/}"
 	# pack up debian files proper
 	ln -s "$outdir/frr-${PACKAGE_VERSION}.tar.$zip" ../frr_${PACKAGE_VERSION}.orig.tar.$zip
-	dpkg-source -l"$parent/debianpkg/changelog" -c"$parent/debianpkg/control" \
+	dpkg-source -l"$tmpdir/debian/changelog" -c"$parent/debianpkg/control" \
 		--format='3.0 (custom)' --target-format='3.0 (quilt)' \
 		-b . frr_${PACKAGE_VERSION}.orig.tar.$zip frr_${DEBVER}.debian.tar.$zip
 

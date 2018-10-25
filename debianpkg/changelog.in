@@ -1,4 +1,45 @@
-frr (@VERSION@-0) RELEASED; urgency=medium
+frr (@VERSION@-0) UNRELEASED; urgency=medium
+
+  * autoconf changelog entry -- for git autobuilds only.
+    remove and replace when creating releases!
+    (tools/tarsource.sh will handle this)
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Thu, 25 Oct 2018 16:36:50 +0200
+
+frr (6.0-2) RELEASED; urgency=medium
+
+  * add install-info to build deps
+  * remove trailing whitespace from control
+  * cleanup tcp-zebra configure options
+  * drop unused SMUX client OID MIBs
+  * remove /proc check
+  * remove --enable-poll
+  * remove libtool .la files
+  * drop texlive-latex-base, texlive-generic-recommended build deps
+  * consistently allow python2 or python3
+  * remove bad USE_* options, add WERROR
+  * drop libncurses5 dep
+  * remove backports mechanism
+  * use better dependency for pythontools (binNMU compatible)
+  * remove bogus shlib:Depends on frr-dbg
+  * create frr-snmp and frr-rpki-rtrlib
+  * make frr-pythontools a "Recommends:"
+  * use redistclean target
+  * update to Debian Policy version 4.2.1
+  * raise debhelper compat level to 9
+  * ditch development-only files
+  * modernise dh_missing and use fail mode
+  * disable zeromq and FPM
+  * always install /etc/init.d/frr
+  * put frr-doc package in 'doc' section
+  * install HTML docs, drop tools/
+  * fix install for {frr,rfptest,ospfclient}
+  * add watch file
+  * change python dependency and shebang to python3:any
+
+ -- David Lamparter <equinox-debian@diac24.net>  Thu, 25 Oct 2018 16:36:50 +0200
+
+frr (6.0-1) RELEASED; urgency=medium
 
   * New Enabled: PIM draft Unnumbered
 
