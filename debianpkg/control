@@ -1,8 +1,8 @@
 Source: frr
 Section: net
 Priority: optional
-Maintainer: Nobody <nobody@frrouting.org>
-Uploaders: Nobody <nobody@frrouting.org>
+Maintainer: David Lamparter <equinox-debian@diac24.net>
+Uploaders: FRRouting-dev <dev@lists.frrouting.org>
 Build-Depends:
  autotools-dev,
  bison,
