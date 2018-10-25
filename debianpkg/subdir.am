@@ -11,16 +11,19 @@ EXTRA_DIST += \
 	debianpkg/copyright \
 	debianpkg/rules \
 	debianpkg/source/format \
+	debianpkg/source/lintian-overrides \
 	debianpkg/tests/control \
 	debianpkg/tests/daemons \
 	debianpkg/watchfrr.rc \
 	debianpkg/watch \
 	\
+	debianpkg/frr-dbg.lintian-overrides \
 	debianpkg/frr-doc.docs \
 	debianpkg/frr-doc.info \
 	debianpkg/frr-doc.install \
 	debianpkg/frr-pythontools.install \
 	debianpkg/frr-rpki-rtrlib.install \
+	debianpkg/frr-rpki-rtrlib.lintian-overrides \
 	debianpkg/frr-snmp.install \
 	debianpkg/frr-snmp.lintian-overrides \
 	debianpkg/frr.conf \
