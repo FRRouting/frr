@@ -37,6 +37,7 @@ frr (6.0-2) RELEASED; urgency=medium
   * add watch file
   * change python dependency and shebang to python3:any
   * use set -e in maintscripts
+  * put myself in as maintainer
 
  -- David Lamparter <equinox-debian@diac24.net>  Thu, 25 Oct 2018 16:36:50 +0200
 

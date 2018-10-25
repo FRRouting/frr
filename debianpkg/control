@@ -1,8 +1,8 @@
 Source: frr
 Section: net
 Priority: optional
-Maintainer: Nobody <nobody@frrouting.org>
-Uploaders: Nobody <nobody@frrouting.org>
+Maintainer: David Lamparter <equinox-debian@diac24.net>
+Uploaders: FRRouting-dev <dev@lists.frrouting.org>
 Build-Depends: autotools-dev, bison, chrpath, debhelper (>= 7.0.50~), dh-autoreconf, dh-systemd <!pkg.frr.nosystemd>, flex, gawk, git, install-info, libc-ares-dev, libcap-dev, libjson0 | libjson-c2 | libjson-c3, libjson0-dev | libjson-c-dev, libpam0g-dev | libpam-dev, libpcre3-dev, libpython-dev | libpython3-dev, libreadline-dev, librtr-dev <pkg.frr.rtrlib>, libsnmp-dev <pkg.frr.snmp>, libssh-dev <pkg.frr.rtrlib>, libsystemd-dev <!pkg.frr.nosystemd>, pkg-config, python (>= 2.7) | python3, python-sphinx | python3-sphinx, texinfo (>= 4.7)
 Standards-Version: 4.2.1
 Homepage: http://www.frrouting.org/
