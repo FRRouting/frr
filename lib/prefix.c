@@ -971,6 +971,10 @@ uint8_t ip_masklen(struct in_addr netmask)
 {
 	uint32_t tmp = ~ntohl(netmask.s_addr);
 
+	/*
+	 * clz: count leading zeroes. sadly, the behaviour of this builtin is
+	 * undefined for a 0 argument, even though most CPUs give 32
+	 */
 	return tmp ? __builtin_clz(tmp) : 32;
 }
 

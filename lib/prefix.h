@@ -304,9 +304,8 @@ union prefixconstptr {
 #define INET6_BUFSIZ 53
 #endif /* INET6_BUFSIZ */
 
-/* Maximum prefix string length (IPv6) */
-/* dead:beef:dead:beef:dead:beef:dead:beef:255.255.255.255 + / + 65535 + \0 */
-#define PREFIX_STRLEN 53
+/* Maximum string length of the result of prefix2str */
+#define PREFIX_STRLEN 80
 
 /* Max bit/byte length of IPv4 address. */
 #define IPV4_MAX_BYTELEN    4
