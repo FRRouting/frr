@@ -1,4 +1,49 @@
-frr (@VERSION@-0) RELEASED; urgency=medium
+frr (@VERSION@-0) UNRELEASED; urgency=medium
+
+  * autoconf changelog entry -- for git autobuilds only.
+    remove and replace when creating releases!
+    (tools/tarsource.sh will handle this)
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Thu, 25 Oct 2018 16:36:50 +0200
+
+frr (6.0-2) testing; urgency=medium
+
+  * add install-info to build deps
+  * remove trailing whitespace from control
+  * cleanup tcp-zebra configure options
+  * drop unused SMUX client OID MIBs
+  * remove /proc check
+  * remove --enable-poll
+  * remove libtool .la files
+  * drop texlive-latex-base, texlive-generic-recommended build deps
+  * consistently allow python2 or python3
+  * remove bad USE_* options, add WERROR
+  * drop libncurses5 dep
+  * remove backports mechanism
+  * use better dependency for pythontools (binNMU compatible)
+  * remove bogus shlib:Depends on frr-dbg
+  * create frr-snmp and frr-rpki-rtrlib
+  * make frr-pythontools a "Recommends:"
+  * use redistclean target
+  * update to Debian Policy version 4.2.1
+  * raise debhelper compat level to 9
+  * ditch development-only files
+  * modernise dh_missing and use fail mode
+  * disable zeromq and FPM
+  * always install /etc/init.d/frr
+  * put frr-doc package in 'doc' section
+  * install HTML docs, drop tools/
+  * fix install for {frr,rfptest,ospfclient}
+  * add watch file
+  * change python dependency and shebang to python3:any
+  * use set -e in maintscripts
+  * put myself in as maintainer
+  * update copyright file
+  * closes: #863249
+
+ -- David Lamparter <equinox-debian@diac24.net>  Thu, 25 Oct 2018 16:36:50 +0200
+
+frr (6.0-1) RELEASED; urgency=medium
 
   * Staticd: New daemon responsible for management of static routes
   * ISISd: Implement dst-src routing as per draft-ietf-isis-ipv6-dst-src-routing
@@ -61,7 +106,7 @@ frr (3.0.3-1) RELEASED; urgency=medium
 frr (3.0-1) RELEASED; urgency=medium
 
   * Added Debian 9 Backport
- 
+
  -- FRRouting-Dev <dev@lists.frrouting.org>  Mon, 16 Oct 2017 03:28:00 -0700
 
 frr (3.0-0) RELEASED; urgency=medium
@@ -82,7 +127,7 @@ frr (3.0-0) RELEASED; urgency=medium
   * New Enabled: PIM Sparse Mode
   * New Enabled: NHRP RFC 2332
   * New Enabled: Label Manager
-  * Switched from hardening-wrapper to dpkg-buildflags. 
+  * Switched from hardening-wrapper to dpkg-buildflags.
 
  -- FRRouting-Dev <dev@lists.frrouting.org>  Fri, 13 Oct 2017 16:17:26 -0700
 
@@ -120,7 +165,7 @@ quagga (0.99.24+cl3u3) RELEASED; urgency=medium
 
 quagga (0.99.23.1-1+cl3u2) RELEASED; urgency=medium
 
-  * New Enabled: VRF - See Documentation for how to use 
+  * New Enabled: VRF - See Documentation for how to use
   * New Enabled: Improved interface statistics
   * New Enabled: Various vtysh improvements
   * New Enabled: Numerous compile warnings and SA fixes
@@ -138,7 +183,7 @@ quagga (0.99.23.1-1+cl3u2) RELEASED; urgency=medium
   * New Enabled: BGP default keepalive to 3s and holdtime to 9s
   * New Enabled: OSPF spf timers are now '0 50 5000' by default
   * New Enabled: BGP hostname is displayed by default
-  * New Enabled: BGP 'no-as-set' is the default for 
+  * New Enabled: BGP 'no-as-set' is the default for
        'bgp as-path multipath-relax"
   * New Enabled: RA is on by default if using 5549 on an interface
   * New Enabled: peer-group restrictions relaxed, update-groups determine
@@ -162,11 +207,11 @@ quagga (0.99.23.1-1+cl3u2) RELEASED; urgency=medium
   * Closes: CM-9974  Get route counts right for show ip route summary
   * Closes: CM-9786  BGP memory leak in peer hostname
   * Closes: CM-9340  BGP: Ensure correct sequence of processing at exit
-  * Closes: CM-9270  ripd: Fix crash when a default route is passed to rip 
-  * Closes: CM-9255  BGPD crash around bgp_config_write ()  
+  * Closes: CM-9270  ripd: Fix crash when a default route is passed to rip
+  * Closes: CM-9255  BGPD crash around bgp_config_write ()
   * Closes: CM-9134  ospf6d: Fix for crash when non area 0 network
        entered first
-  * Closes: CM-8934  OSPFv3: Check area before scheduling SPF 
+  * Closes: CM-8934  OSPFv3: Check area before scheduling SPF
   * Closes: CM-8514  zebra: Crash upon disabling a link
   * Closes: CM-8295  BGP crash in group_announce_route_walkcb
   * Closes: CM-8191  BGP: crash in update_subgroup_merge()
@@ -202,15 +247,15 @@ quagga (0.99.22.4-4) unstable; urgency=medium
 
 quagga (0.99.22.4-3) unstable; urgency=low
 
-  * Added status to init script (thanks to Peter J. Holzer). Closes: #730625 
+  * Added status to init script (thanks to Peter J. Holzer). Closes: #730625
   * Init script now sources /lib/lsb/init-functions.
-  * Switched from hardening-wrapper to dpkg-buildflags. 
+  * Switched from hardening-wrapper to dpkg-buildflags.
 
  -- Christian Hammers <ch@debian.org>  Wed, 01 Jan 2014 19:12:01 +0100
 
 quagga (0.99.22.4-2) unstable; urgency=low
 
-  * Fixed typo in package description (thanks to Davide Prina). 
+  * Fixed typo in package description (thanks to Davide Prina).
     Closes: #625860
   * Added Italian Debconf translation (thanks to Beatrice Torracca)
     Closes: #729798
@@ -225,15 +270,15 @@ quagga (0.99.22.4-1) unstable; urgency=high
     the OSPF API-server (exporting the LSDB and allowing announcement of
     Opaque-LSAs) writes past the end of fixed on-stack buffers.  This leads
     to an exploitable stack overflow.
- 
+
     For this condition to occur, the following two conditions must be true:
     - Quagga is configured with --enable-opaque-lsa
     - ospfd is started with the "-a" command line option
-    
+
     If either of these does not hold, the relevant code is not executed and
     the issue does not get triggered."
     Closes: #726724
-   
+
   * New upstream release
     - ospfd: protect vs. VU#229804 (malformed Router-LSA)
       (Quagga is said to be non-vulnerable but still adds some protection)
@@ -242,7 +287,7 @@ quagga (0.99.22.4-1) unstable; urgency=high
 
 quagga (0.99.22.1-2) unstable; urgency=low
 
-  * Added autopkgtests (thanks to Yolanda Robla). Closes: #710147 
+  * Added autopkgtests (thanks to Yolanda Robla). Closes: #710147
   * Added "status" command to init script (thanks to James Andrewartha).
     Closes: #690013
   * Added "libsnmp-dev" to Build-Deps. There not needed for the official
@@ -250,7 +295,7 @@ quagga (0.99.22.1-2) unstable; urgency=low
     SNMP feature (which for licence reasons cannot be done by Debian).
     Thanks to Ben Winslow). Closes: #694852
   * Changed watchquagga_options to an array so that quotes can finally
-    be used as expected. Closes: #681088 
+    be used as expected. Closes: #681088
   * Fixed bug that prevented restarting only the watchquagga daemon
     (thanks to Harald Kappe). Closes: #687124
 
@@ -269,7 +314,7 @@ quagga (0.99.22.1-1) unstable; urgency=low
 
 quagga (0.99.22-1) unstable; urgency=low
 
-  * New upstream release. 
+  * New upstream release.
     - [bgpd] The semantics of default-originate route-map have changed.
       The route-map is now used to advertise the default route conditionally.
       The old behaviour which allowed to set attributes on the originated
@@ -281,7 +326,7 @@ quagga (0.99.22-1) unstable; urgency=low
     - [isisd] is in "beta" state.
     - [ospf6d] is in "alpha/experimental" state
     - More changes are documented in the upstream changelog!
-  * debian/watch: Adjusted to new savannah.gnu.org site, thanks to Bart 
+  * debian/watch: Adjusted to new savannah.gnu.org site, thanks to Bart
     Martens.
   * debian/patches/99_CVE-2012-1820_bgp_capability_orf.diff removed as its
     in the changelog.
@@ -328,7 +373,7 @@ quagga (0.99.21-1) unstable; urgency=low
     - [babeld] a new routing daemon implementing the BABEL ad-hoc mesh routing
       protocol has been merged.
     - [isisd] a major overhaul has been picked up. Please note that isisd is
-      STILL NOT SUITABLE FOR PRODUCTION USE. 
+      STILL NOT SUITABLE FOR PRODUCTION USE.
     - a lot of bugs have been fixed
   * Added watchquagga daemon.
   * Added DEP-3 conforming patch comments.
@@ -363,7 +408,7 @@ quagga (0.99.20-2) unstable; urgency=low
 
   * Bumped standards version to 0.9.2.
   * Migrated to "dh" build system.
-  * Added quagga-dbg package. 
+  * Added quagga-dbg package.
 
  -- Christian Hammers <ch@debian.org>  Fri, 14 Oct 2011 23:59:26 +0200
 
@@ -371,7 +416,7 @@ quagga (0.99.20-1) unstable; urgency=low
 
   * New upstream release:
     "The primary focus of this release is a fix of SEGV regression in ospfd,
-     which was introduced in 0.99.19. It also features a series of minor 
+     which was introduced in 0.99.19. It also features a series of minor
      improvements, including better RFC compliance in bgpd, better support
      of FreeBSD and some enhancements to isisd."
   * Fixes off-by-one bug (removed 20_ospf6_area_argv.dpatch). Closes: #519488
@@ -396,7 +441,7 @@ quagga (0.99.18-1) unstable; urgency=low
   * SECURITY:
     "This release fixes 2 denial of services in bgpd, which can be remotely
     triggered by malformed AS-Pathlimit or Extended-Community attributes.
-    These issues have been assigned CVE-2010-1674 and CVE-2010-1675. 
+    These issues have been assigned CVE-2010-1674 and CVE-2010-1675.
     Support for AS-Pathlimit has been removed with this release."
   * Added Brazilian Portuguese debconf translation. Closes: #617735
   * Changed section for quagga-doc from "doc" to "net".
@@ -406,7 +451,7 @@ quagga (0.99.18-1) unstable; urgency=low
 
 quagga (0.99.17-4) unstable; urgency=low
 
-  * Added comment to init script (thanks to Marc Haber). Closes: #599524 
+  * Added comment to init script (thanks to Marc Haber). Closes: #599524
 
  -- Christian Hammers <ch@debian.org>  Thu, 13 Jan 2011 23:53:29 +0100
 
@@ -419,7 +464,7 @@ quagga (0.99.17-3) unstable; urgency=low
 
 quagga (0.99.17-2) unstable; urgency=low
 
-  * Added Danisch Debconf translation (thanks to Joe Dalton). Closes: #596259 
+  * Added Danisch Debconf translation (thanks to Joe Dalton). Closes: #596259
 
  -- Christian Hammers <ch@debian.org>  Sat, 18 Sep 2010 12:20:07 +0200
 
@@ -438,7 +483,7 @@ quagga (0.99.17-1) unstable; urgency=high
 
 quagga (0.99.16-1) unstable; urgency=low
 
-  * New upstream release. Closes: #574527 
+  * New upstream release. Closes: #574527
   * Added chrpath to debian/rules to fix rpath problems that lintian spottet.
 
  -- Christian Hammers <ch@debian.org>  Sun, 21 Mar 2010 17:05:40 +0100
@@ -455,16 +500,16 @@ quagga (0.99.15-1) unstable; urgency=low
 
   * New upstream release
     "This fixes some annoying little ospfd and ospf6d regressions, which made
-    0.99.14 a bit of a problem release (...) This release still contains a 
-    regression in the "no ip address ..." command, at least on Linux. 
-    See bug #486, which contains a workaround patch. This release should be 
+    0.99.14 a bit of a problem release (...) This release still contains a
+    regression in the "no ip address ..." command, at least on Linux.
+    See bug #486, which contains a workaround patch. This release should be
     considered a 1.0.0 release candidate. Please test this release as widely
     as possible."
-  * Fixed wrong port number in zebra.8 (thanks to Thijs Kinkhorst). 
+  * Fixed wrong port number in zebra.8 (thanks to Thijs Kinkhorst).
     Closes: #517860
-  * Added Russian Debconf tanslation (thanks to Yuri Kozlov). 
+  * Added Russian Debconf tanslation (thanks to Yuri Kozlov).
     Closes: #539464
-  * Removed so-version in build-dep to libreadline-dev on request of 
+  * Removed so-version in build-dep to libreadline-dev on request of
     Matthias Klose.
   * Added README.source with reference to dpatch as suggested by lintian.
   * Bumped standards versionto 3.8.3.
@@ -485,8 +530,8 @@ quagga (0.99.14-1) unstable; urgency=low
 
 quagga (0.99.13-2) unstable; urgency=low
 
-  * Added Japanese Debconf translation (thanks to Hideki Yamane). 
-    Closes: #510714 
+  * Added Japanese Debconf translation (thanks to Hideki Yamane).
+    Closes: #510714
   * When checking for obsoleted config options in preinst, print filename
     where it occures (thanks to Michael Bussmann). Closes: #339489
 
@@ -510,7 +555,7 @@ quagga (0.99.12-1) unstable; urgency=high
     "This release fixes an urgent bug in bgpd where it could hit an assert
     if it received a long AS_PATH with a 4-byte ASN." Noteworthy bugfixes:
     + [bgpd] Fix bgp ipv4/ipv6 accept handling
-    + [bgpd] AS4 bugfix by Chris Caputo 
+    + [bgpd] AS4 bugfix by Chris Caputo
     + [bgpd] Allow accepted peers to progress even if realpeer is in Connect
     + [ospfd] Switch Fletcher checksum back to old ospfd version
 
@@ -535,7 +580,7 @@ quagga (0.99.10-1) unstable; urgency=medium
     + bgpd: 4-Byte AS Number support
     + Sessions were incorrectly reset if a partial AS-Pathlimit attribute
       was received.
-    + Advertisement of Multi-Protocol prefixes (i.e. non-IPv4) had been 
+    + Advertisement of Multi-Protocol prefixes (i.e. non-IPv4) had been
       broken in the 0.99.9 release. Closes: #467656
 
  -- Christian Hammers <ch@debian.org>  Tue, 08 Jul 2008 23:32:42 +0200
@@ -570,7 +615,7 @@ quagga (0.99.9-3) unstable; urgency=low
     Closes: #428574
   * debian/control: (thanks to Marco Rodrigues)
     + Bump Standards-Version to 3.7.3 (no changes needed).
-    + Add Homepage field. 
+    + Add Homepage field.
 
  -- Christian Hammers <ch@debian.org>  Mon, 28 Jan 2008 22:29:18 +0100
 
@@ -600,7 +645,7 @@ quagga (0.99.9-1) unstable; urgency=high
 
 quagga (0.99.8-1) unstable; urgency=low
 
-  * New upstream version. 
+  * New upstream version.
 
  -- Christian Hammers <ch@debian.org>  Fri, 17 Aug 2007 00:07:04 +0200
 
@@ -626,7 +671,7 @@ quagga (0.99.7-2) unstable; urgency=low
 
 quagga (0.99.7-1) unstable; urgency=low
 
-  * New upstream release. Closes: #421553 
+  * New upstream release. Closes: #421553
 
  -- Christian Hammers <ch@debian.org>  Mon, 30 Apr 2007 14:22:34 +0200
 
@@ -640,7 +685,7 @@ quagga (0.99.6-5) unstable; urgency=high
 
   * SECURITY:
     The bgpd daemon was vulnerable to a Denial-of-Service. Configured peers
-    could cause a Quagga bgpd to, typically, assert() and abort. The DoS 
+    could cause a Quagga bgpd to, typically, assert() and abort. The DoS
     could be triggered by peers by sending an UPDATE message with a crafted,
     malformed Multi-Protocol reachable/unreachable NLRI attribute.
     This is CVE-2007-1995 and Quagga Bug#354. Closes: #418323
@@ -649,8 +694,8 @@ quagga (0.99.6-5) unstable; urgency=high
 
 quagga (0.99.6-4) unstable; urgency=low
 
-  * Improved note in README.Debian for SNMP self-builders (thanks to Matthias 
-    Wamser). Closes: #414788 
+  * Improved note in README.Debian for SNMP self-builders (thanks to Matthias
+    Wamser). Closes: #414788
 
  -- Christian Hammers <ch@debian.org>  Wed, 14 Mar 2007 02:18:57 +0100
 
@@ -677,7 +722,7 @@ quagga (0.99.6-1) unstable; urgency=low
 quagga (0.99.5-5) unstable; urgency=high
 
   * Changed Depends on adduser to Pre-Depends to avoid uninstallability
-    in certain cases (thanks to Steve Langasek, Lucas Nussbaum). 
+    in certain cases (thanks to Steve Langasek, Lucas Nussbaum).
     Closes: #398562
 
  -- Christian Hammers <ch@debian.org>  Wed, 15 Nov 2006 17:46:34 +0100
@@ -685,7 +730,7 @@ quagga (0.99.5-5) unstable; urgency=high
 quagga (0.99.5-4) unstable; urgency=low
 
   * Added default PAM file and some explanations regarding PAM authentication
-    of vtysh which could prevent the start at boot-time when used wrong. 
+    of vtysh which could prevent the start at boot-time when used wrong.
     Now PAM permits anybody to access the vtysh tool (a malicious user could
     build his own vtysh without PAM anyway) and the access is controled by
     the read/write permissions of the vtysh socket which are only granted to
@@ -706,7 +751,7 @@ quagga (0.99.5-3) unstable; urgency=medium
 
 quagga (0.99.5-2) unstable; urgency=medium
 
-  * Added LSB info section to initscript. 
+  * Added LSB info section to initscript.
   * Removed unnecessary depends to libncurses5 to make checklib happy.
     The one to libcap should remain though as it is just temporarily
     unused.
@@ -753,7 +798,7 @@ quagga (0.99.4-1) unstable; urgency=low
 
 quagga (0.99.3-3) unstable; urgency=low
 
-  * Added CVE numbers for the security patch in 0.99.3-2. 
+  * Added CVE numbers for the security patch in 0.99.3-2.
 
  -- Christian Hammers <ch@debian.org>  Sat,  6 May 2006 17:14:22 +0200
 
@@ -765,7 +810,7 @@ quagga (0.99.3-2) unstable; urgency=high
     CVE-2006-2223 - missing configuration to disable RIPv1 or require
                     plaintext or MD5 authentication
     CVE-2006-2224 - lack of enforcement of RIPv2 authentication requirements
-    Closes: #365940 
+    Closes: #365940
   * First amd64 upload.
 
  -- Christian Hammers <ch@debian.org>  Thu,  4 May 2006 00:22:09 +0200
@@ -796,7 +841,7 @@ quagga (0.99.1-7) unstable; urgency=low
 
 quagga (0.99.1-6) unstable; urgency=low
 
-  * Fixed debconf dependency as requested by Joey Hess. 
+  * Fixed debconf dependency as requested by Joey Hess.
 
  -- Christian Hammers <ch@debian.org>  Mon, 26 Sep 2005 20:47:35 +0200
 
@@ -916,7 +961,7 @@ quagga (0.98.3-2) unstable; urgency=low
 
 quagga (0.98.3-1) unstable; urgency=low
 
-  * New upstream release. 
+  * New upstream release.
     Mmost notably fixes last regression in bgpd (reannounce of prefixes
     with changed attributes works again), race condition in netlink
     handling while using IPv6, MTU changes handling in ospfd and several
@@ -935,9 +980,9 @@ quagga (0.98.2-1) unstable; urgency=medium
 
   * Quoting the upstream announcement:
     The 0.98.1 release unfortunately was a brown paper bag release with
-    respect to ospfd. [...] 0.98.2 has been released, with one crucial change 
-    to fix the unfortunate mistake in 0.98.1, which caused problems if 
-    ospfd became DR.  
+    respect to ospfd. [...] 0.98.2 has been released, with one crucial change
+    to fix the unfortunate mistake in 0.98.1, which caused problems if
+    ospfd became DR.
   * Note: the upstream tarball had a strange problem, apparently redhat.spec
     was twice in it? At least debuild gave a strange error message so I
     unpacked it by hand. No changes were made to the .orig.tar.gz!
@@ -960,7 +1005,7 @@ quagga (0.98.1-1) unstable; urgency=medium
 
 quagga (0.98.0-3) unstable; urgency=low
 
-  * Fixed problem in init script. Closes: #290317 
+  * Fixed problem in init script. Closes: #290317
   * Removed obsolete "smux peer enable" patch.
 
  -- Christian Hammers <ch@debian.org>  Fri, 14 Jan 2005 17:37:27 +0100
@@ -982,7 +1027,7 @@ quagga (0.98.0-1) unstable; urgency=low
 
 quagga (0.97.5-1) unstable; urgency=low
 
-  * New upstream version. 
+  * New upstream version.
   * Added Czech debconf translation (thanks to Miroslav Kure).
     Closes: #287293
   * Added Brazilian debconf translation (thanks to Andre Luis Lopes).
@@ -992,7 +1037,7 @@ quagga (0.97.5-1) unstable; urgency=low
 
 quagga (0.97.4-2) unstable; urgency=low
 
-  * Fixed quagga.info build problem. 
+  * Fixed quagga.info build problem.
 
  -- Christian Hammers <ch@debian.org>  Wed,  5 Jan 2005 22:38:01 +0100
 
@@ -1026,7 +1071,7 @@ quagga (0.97.2-4) unstable; urgency=low
 
   * Added Portuguese debconf translation (thanks to Andre Luis Lopes).
     Closes: #279352
-  * Disabled ospfapi server by default on recommendation of Paul Jakma. 
+  * Disabled ospfapi server by default on recommendation of Paul Jakma.
 
  -- Christian Hammers <ch@debian.org>  Sun,  7 Nov 2004 15:07:05 +0100
 
@@ -1042,14 +1087,14 @@ quagga (0.97.2-2) unstable; urgency=low
     suggestion from Paul Jakma. Still not perfect though.
   * Fixed upstream vtysh.conf.sample file.
   * "ip ospf network broadcast" is now saved correctly. Closes: #244116
-  * Daemon options are now in /etc/quagga/debian.conf to be user 
+  * Daemon options are now in /etc/quagga/debian.conf to be user
     configurable (thanks to Simon Raven and Hasso Tepper). Closes: #266715
 
  -- Christian Hammers <ch@debian.org>  Tue, 26 Oct 2004 23:35:45 +0200
 
 quagga (0.97.2-1) unstable; urgency=low
 
-  * New upstream version. 
+  * New upstream version.
     Closes: #254541
   * Fixed warning on unmodular kernels (thanks to Christoph Biedl).
     Closes: #277973
@@ -1065,7 +1110,7 @@ quagga (0.97.1-2) unstable; urgency=low
 
 quagga (0.97.1-1) unstable; urgency=low
 
-  * New upstream version. 
+  * New upstream version.
   * Removed some obsolete files from debian/patches.
   * Added patch from upstream bug 113. Closes: #254541
   * Added patch from upstream that fixes a compilation problem in the
@@ -1101,7 +1146,7 @@ quagga (0.96.5-10) unstable; urgency=medium
 quagga (0.96.5-9) unstable; urgency=low
 
   * Rewrote the documentation chapter about SNMP support. Closes: #195653
-  * Added MPLS docs. 
+  * Added MPLS docs.
 
  -- Christian Hammers <ch@debian.org>  Thu, 29 Jul 2004 21:01:52 +0200
 
@@ -1128,7 +1173,7 @@ quagga (0.96.5-7) unstable; urgency=low
 
 quagga (0.96.5-6) unstable; urgency=low
 
-  * Try to load the capability module as it is needed now. 
+  * Try to load the capability module as it is needed now.
 
  -- Christian Hammers <ch@debian.org>  Tue,  8 Jun 2004 23:25:29 +0200
 
@@ -1157,9 +1202,9 @@ quagga (0.96.5-3) unstable; urgency=low
 quagga (0.96.5-2) unstable; urgency=low
 
   * New upstream version.
-  * New md5 patch version (thanks to Niklas Jakobsson and Hasso Tepper). 
+  * New md5 patch version (thanks to Niklas Jakobsson and Hasso Tepper).
     Closes: #250985
-  * Fixes info file generation (thanks to Peder Chr. Norgaard). 
+  * Fixes info file generation (thanks to Peder Chr. Norgaard).
     Closes: #250992
   * Added catalan debconf translation (thanks to Aleix Badia i Bosch).
     Closes: #250118
@@ -1190,14 +1235,14 @@ quagga (0.96.4x-10) unstable; urgency=low
     started to require it.
     See: CAN-2004-0230, http://www.us-cert.gov/cas/techalerts/TA04-111A.html
   * PATCHES:
-    This release contains the MD5 patch from Hasso Tepper. It also seems to 
+    This release contains the MD5 patch from Hasso Tepper. It also seems to
     required a kernel patch. See /usr/share/doc/quagga/README.Debian.MD5.
 
  -- Christian Hammers <ch@debian.org>  Thu, 29 Apr 2004 01:01:38 +0200
 
 quagga (0.96.4x-9) unstable; urgency=low
 
-  * Fixed daemon loading order (thanks to Matt Kemner). 
+  * Fixed daemon loading order (thanks to Matt Kemner).
   * Fixed typo in init script (thanks to Charlie Brett). Closes: #238582
 
  -- Christian Hammers <ch@debian.org>  Sun,  4 Apr 2004 15:32:18 +0200
@@ -1205,7 +1250,7 @@ quagga (0.96.4x-9) unstable; urgency=low
 quagga (0.96.4x-8) unstable; urgency=low
 
   * Patched upstream source so that quagga header files end up in
-    /usr/include/quagga/. Closes: #233792 
+    /usr/include/quagga/. Closes: #233792
 
  -- Christian Hammers <ch@debian.org>  Mon, 23 Feb 2004 01:42:53 +0100
 
@@ -1218,8 +1263,8 @@ quagga (0.96.4x-7) unstable; urgency=low
 
 quagga (0.96.4x-6) unstable; urgency=low
 
-  * Added dependency to iproute. 
-  * Initscript now checks not only for the pid file but also for the 
+  * Added dependency to iproute.
+  * Initscript now checks not only for the pid file but also for the
     daemons presence (thanks to Phil Gregory). Closes: #224389
   * Added my patch to configure file permissions.
 
@@ -1236,13 +1281,13 @@ quagga (0.96.4x-5) unstable; urgency=low
     obscure whitespaces inside an C macro. (Thanks to Marc Haber).
     Closes: #223529
   * Now uses /usr/bin/pager. Closes: #204070
-  * Added note about the "official woody backports" on my homepage. 
+  * Added note about the "official woody backports" on my homepage.
 
  -- Christian Hammers <ch@debian.org>  Mon, 15 Dec 2003 20:39:06 +0100
 
 quagga (0.96.4x-4) unstable; urgency=high
 
-  * SECURITY: 
+  * SECURITY:
     Fixes another bug that was originally reported against Zebra.
     .
     http://rhn.redhat.com/errata/RHSA-2003-307.html
@@ -1264,7 +1309,7 @@ quagga (0.96.4x-3) unstable; urgency=low
   * Made the directory (but not the config/log files!) world accessible
     again on user request (thanks to Anand Kumria)). Closes: #213129
   * No longer providing sample configuration in /etc/quagga/. They are
-    now only available in /usr/share/doc/quagga/ to avoid accidently 
+    now only available in /usr/share/doc/quagga/ to avoid accidently
     using them without changing the adresses (thanks to Marc Haber).
     Closes: #215918
 
@@ -1273,13 +1318,13 @@ quagga (0.96.4x-3) unstable; urgency=low
 quagga (0.96.4x-2) unstable; urgency=low
 
   * Fixed permission problem with pidfile (thanks to Kir Kostuchenko).
-    Closes: #220938 
+    Closes: #220938
 
  -- Christian Hammers <ch@debian.org>  Sun, 16 Nov 2003 14:24:08 +0100
 
 quagga (0.96.4x-1) unstable; urgency=low
 
-  * Reupload of 0.96.4. Last upload-in-a-hurry produced a totally 
+  * Reupload of 0.96.4. Last upload-in-a-hurry produced a totally
     crappy .tar.gz file. Closes: #220621
 
  -- Christian Hammers <ch@debian.org>  Fri, 14 Nov 2003 19:45:57 +0100
@@ -1289,7 +1334,7 @@ quagga (0.96.4-1) unstable; urgency=high
   * SECURITY: Remote DoS of protocol daemons.
     Fix for a remote triggerable crash in vty layer. The management
     ports ("telnet myrouter ospfd") should not be open to the internet!
-    
+
   * New upstream version.
     - OSPF bugfixes.
     - Some improvements for bgp and rip.
@@ -1306,7 +1351,7 @@ quagga (0.96.3-3) unstable; urgency=low
 
 quagga (0.96.3-2) unstable; urgency=low
 
-  * Readded GNOME-PRODUCT-ZEBRA-MIB. 
+  * Readded GNOME-PRODUCT-ZEBRA-MIB.
 
  -- Christian Hammers <ch@debian.org>  Thu, 23 Oct 2003 06:17:03 +0200
 
