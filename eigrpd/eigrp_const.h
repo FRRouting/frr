@@ -152,7 +152,7 @@ enum eigrp_fsm_states {
 enum eigrp_fsm_events {
 	/*
 	 * Input event other than query from succ,
-	 * FC is not satisified
+	 * FC is not satisfied
 	 */
 	EIGRP_FSM_EVENT_NQ_FCN,
 
@@ -171,7 +171,7 @@ enum eigrp_fsm_events {
 	/* Query from succ while in active state */
 	EIGRP_FSM_EVENT_QACT,
 
-	/* last reply, FC not satisified */
+	/* last reply, FC not satisfied */
 	EIGRP_FSM_EVENT_LR_FCN,
 
 	/*

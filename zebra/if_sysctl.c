@@ -61,7 +61,7 @@ void ifstat_update_sysctl(void)
 	/* We free this memory at the end of this function. */
 	ref = buf = XMALLOC(MTYPE_TMP, bufsiz);
 
-	/* Fetch interface informations into allocated buffer. */
+	/* Fetch interface information into allocated buffer. */
 	if (sysctl(mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) {
 		flog_warn(EC_ZEBRA_SYSCTL_FAILED, "sysctl error by %s",
 			  safe_strerror(errno));
@@ -113,7 +113,7 @@ void interface_list(struct zebra_ns *zns)
 	/* We free this memory at the end of this function. */
 	ref = buf = XMALLOC(MTYPE_TMP, bufsiz);
 
-	/* Fetch interface informations into allocated buffer. */
+	/* Fetch interface information into allocated buffer. */
 	if (sysctl(mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) {
 		flog_err_sys(EC_ZEBRA_IFLIST_FAILED,
 			     "Could not enumerate interfaces: %s",

@@ -136,7 +136,7 @@ These following options control the daemon's VTY (interactive command line) inte
 
    NB: Unlike the other options, this option specifies a directory, not a full path.
 
-   This option is primarily used by the SNAP packaging system, its semantics may change.  It should not be neccessary in most other scenarios.
+   This option is primarily used by the SNAP packaging system, its semantics may change.  It should not be necessary in most other scenarios.
 
 MODULE LOADING
 --------------

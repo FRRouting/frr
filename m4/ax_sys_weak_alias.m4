@@ -22,7 +22,7 @@
 #   another object file.
 #
 #   There are four known schemes of declaring weak symbols; each scheme is
-#   checked in turn, and the first one found is prefered. Note that only one
+#   checked in turn, and the first one found is preferred. Note that only one
 #   of the mentioned preprocessor macros will be defined!
 #
 #   1. Function attributes

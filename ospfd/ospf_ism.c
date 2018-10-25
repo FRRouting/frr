@@ -277,7 +277,7 @@ static int ospf_wait_timer(struct thread *thread)
 	return 0;
 }
 
-/* Hook function called after ospf ISM event is occured. And vty's
+/* Hook function called after ospf ISM event is occurred. And vty's
    network command invoke this function after making interface
    structure. */
 static void ism_timer_set(struct ospf_interface *oi)
