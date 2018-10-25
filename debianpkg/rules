@@ -4,7 +4,7 @@
 ######################################
 #
 #    WANT_xxxx   --> Set to 1 for enable, 0 for disable
-# The following are the defaults. They can be overridden by setting a 
+# The following are the defaults. They can be overridden by setting a
 # env variable to a different value
 
 # -Werror - don't enable this unless you're doing a dev package build
@@ -158,17 +158,17 @@ override_dh_auto_install:
 
 	sed -e '1c #!/usr/bin/python3' -i debian/tmp/usr/lib/frr/frr-reload.py
 
-	# let dh_systemd_* and dh_installinit do their thing automatically
+# let dh_systemd_* and dh_installinit do their thing automatically
 ifeq ($(filter pkg.frr.nosystemd,$(DEB_BUILD_PROFILES)),)
 	cp tools/frr.service debian/frr.service
 endif
 	cp tools/frr debian/frr.init
 
-	# install config files
+# install config files
 	mkdir -p debian/tmp/etc/frr/
 	perl -pi -e 's#^!log file #!log file /var/log/frr/#' debian/tmp/usr/share/doc/frr/examples/*sample*
 
-	# drop dev-only files
+# drop dev-only files
 	find debian/tmp -name '*.la' -o -name '*.a' -o -name 'lib*.so' | xargs rm -f
 	rm -rf debian/tmp/usr/include
 
