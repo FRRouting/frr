@@ -58,7 +58,7 @@ Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (debug symbols)
 Package: frr-doc
 Section: doc
 Architecture: all
-Depends: ${misc:Depends}
+Depends: ${misc:Depends}, libjs-jquery, libjs-underscore
 Suggests: frr
 Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (documentation)
  This package includes info files for frr, a free software which manages
