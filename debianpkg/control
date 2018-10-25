@@ -26,7 +26,6 @@ Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon forked from Quagga
  lives on https://github.com/frrouting/frr.git
 
 Package: frr-snmp
-Section: net
 Architecture: any
 Depends: ${misc:Depends}, frr (= ${binary:Version}), ${shlibs:Depends}
 Recommends: snmpd
@@ -36,7 +35,6 @@ Description: FRRouting SNMP support
 Build-Profiles: <pkg.frr.snmp>
 
 Package: frr-rpki-rtrlib
-Section: net
 Architecture: any
 Depends: ${misc:Depends}, frr (= ${binary:Version}), ${shlibs:Depends}
 Description: FRRouting RTRlib RPKI support
@@ -47,7 +45,6 @@ Build-Profiles: <pkg.frr.rtrlib>
 Package: frr-dbg
 Architecture: any
 Depends: ${misc:Depends}, frr (= ${binary:Version})
-Priority: optional
 Section: debug
 Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (debug symbols)
  This package provides debugging symbols for all binary packages built
@@ -66,7 +63,6 @@ Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (documentation)
  IS-IS, RIPv1, RIPv2, RIPng, PIM and LDP as well as the IPv6 versions of these.
 
 Package: frr-pythontools
-Section: net
 Architecture: all
 Depends: ${misc:Depends}, frr (>= ${source:Version}), frr (<< ${source:Upstream-Version}.0-~), python3:any
 Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (Python Tools)
