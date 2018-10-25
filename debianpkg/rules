@@ -135,7 +135,8 @@ override_dh_auto_configure:
 		$(USE_SNMP) \
 		$(USE_OSPFAPI) \
 		$(USE_MULTIPATH) \
-		--enable-fpm \
+		--disable-fpm \
+		--disable-zeromq \
 		$(USE_FRR_USER) $(USE_FRR_GROUP) \
 		$(USE_FRR_VTY_GROUP) \
 		--enable-configfile-mask=0640 \

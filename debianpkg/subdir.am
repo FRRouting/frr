@@ -15,7 +15,6 @@ EXTRA_DIST += \
 	debianpkg/tests/daemons \
 	debianpkg/watchfrr.rc \
 	\
-	debianpkg/frr-dbg.lintian-overrides \
 	debianpkg/frr-doc.docs \
 	debianpkg/frr-doc.info \
 	debianpkg/frr-doc.install \
