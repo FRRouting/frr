@@ -1,4 +1,6 @@
-#!/bin/bash -e
+#!/bin/bash
+
+set -e
 
 ######################
 frruid=`getent passwd frr | awk -F ":" '{ print $3 }'`
