@@ -2827,11 +2827,26 @@ DEFUN (no_router_rip,
 	return CMD_SUCCESS;
 }
 
+DEFUN (rip_version_both,
+       rip_version_both_cmd,
+       "version <1 2|2 1>",
+       "Set routing protocol version\n"
+       "RIP version 1\n"
+       "RIP version 2\n"
+       "RIP version 2\n"
+       "RIP version 1\n")
+{
+	rip->version_send = RI_RIP_VERSION_1_AND_2;
+	rip->version_recv = RI_RIP_VERSION_1_AND_2;
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (rip_version,
        rip_version_cmd,
        "version (1-2)",
        "Set routing protocol version\n"
-       "version\n")
+       "RIP version\n")
 {
 	int idx_number = 1;
 	int version;
@@ -3651,9 +3666,13 @@ static int config_write_rip(struct vty *vty)
 
 		/* RIP version statement.  Default is RIP version 2. */
 		if (rip->version_send != RI_RIP_VERSION_2
-		    || rip->version_recv != RI_RIP_VERSION_1_AND_2)
-			vty_out(vty, " version %d\n", rip->version_send);
-
+		    || rip->version_recv != RI_RIP_VERSION_1_AND_2) {
+			if (rip->version_send == RI_RIP_VERSION_1_AND_2)
+				vty_out(vty, " version 1 2\n");
+			else
+				vty_out(vty, " version %d\n",
+					rip->version_send);
+		}
 		/* RIP timer configuration. */
 		if (rip->update_time != RIP_UPDATE_TIMER_DEFAULT
 		    || rip->timeout_time != RIP_TIMEOUT_TIMER_DEFAULT
@@ -3997,6 +4016,7 @@ void rip_init(void)
 	install_default(RIP_NODE);
 	install_element(RIP_NODE, &rip_version_cmd);
 	install_element(RIP_NODE, &no_rip_version_cmd);
+	install_element(RIP_NODE, &rip_version_both_cmd);
 	install_element(RIP_NODE, &rip_default_metric_cmd);
 	install_element(RIP_NODE, &no_rip_default_metric_cmd);
 	install_element(RIP_NODE, &rip_timers_cmd);
