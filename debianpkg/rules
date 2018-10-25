@@ -120,6 +120,8 @@ else
   USE_SYSTEMD=--enable-systemd=no
 endif
 
+export PYTHON=python3
+
 %:
 	dh $@ --with=$(DH_WITH_SYSTEMD)autoreconf --parallel --dbg-package=frr-dbg
 
@@ -154,8 +156,7 @@ override_dh_auto_configure:
 override_dh_auto_install:
 	dh_auto_install
 
-	# installed in frr-pythontools
-	rm debian/tmp/usr/lib/frr/frr-reload.py
+	sed -e '1c #!/usr/bin/python3' -i debian/tmp/usr/lib/frr/frr-reload.py
 
 	# let dh_systemd_* and dh_installinit do their thing automatically
 ifeq ($(filter pkg.frr.nosystemd,$(DEB_BUILD_PROFILES)),)
