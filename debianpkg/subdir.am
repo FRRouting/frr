@@ -14,6 +14,7 @@ EXTRA_DIST += \
 	debianpkg/tests/control \
 	debianpkg/tests/daemons \
 	debianpkg/watchfrr.rc \
+	debianpkg/watch \
 	\
 	debianpkg/frr-doc.docs \
 	debianpkg/frr-doc.info \
