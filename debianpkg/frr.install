@@ -3,6 +3,7 @@ usr/bin/vtysh
 usr/bin/mtracebis
 usr/lib/*/libfrr.*
 usr/lib/*/libfrrospfapiclient.*
+usr/lib/frr/frr
 usr/lib/frr/*d
 usr/lib/frr/watchfrr
 usr/lib/frr/zebra
