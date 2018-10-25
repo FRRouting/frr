@@ -36,6 +36,7 @@ frr (6.0-2) RELEASED; urgency=medium
   * fix install for {frr,rfptest,ospfclient}
   * add watch file
   * change python dependency and shebang to python3:any
+  * use set -e in maintscripts
 
  -- David Lamparter <equinox-debian@diac24.net>  Thu, 25 Oct 2018 16:36:50 +0200
 
