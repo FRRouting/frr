@@ -27,6 +27,7 @@ options:
 			(note: output files are moved to parent directory)
     -l			remove Debian auto-build changelog entry
 			(always done for releases)
+    -V			write version information to config.version and exit
     -n			allow executing from non-git source (NOT RECOMMENDED)
     -h			show this help text
 
@@ -37,17 +38,26 @@ tools need to be _exactly_ identical to get the same tarball.
 
 Note(2) the debian ".orig" tarball is always identical to the "plain" tarball
 generated without the -D option.
+
+Note(3) if you want the tool to identify github PRs, you need to edit your
+.git/config to fetch PRs from github like this:
+
+	[remote "origin"]
+		url = git@github.com:frrouting/frr.git
+		fetch = +refs/heads/*:refs/remotes/origin/*
+ADD:		fetch = +refs/pull/*/head:refs/remotes/origin/pull/*
 EOF
 }
 
 set -e
 
-options=`getopt -o 'hi:o:C:S:e:z:Ddnl' -l help -- "$@"`
+options=`getopt -o 'hi:o:C:S:e:z:DdnlV' -l help -- "$@"`
 debian=false
 dirty=false
 nongit=false
 zip=xz
 adjchangelog=false
+writeversion=false
 set - $options
 while test $# -gt 0; do
 	arg="$1"; shift; optarg=$1
@@ -63,6 +73,7 @@ while test $# -gt 0; do
 	-z)		eval zip=$optarg; shift;;
 	-S)		eval keyid=$optarg; shift;;
 	-l)		adjchangelog=true;;
+	-V)		writeversion=true;;
 	--)		break;;
 	*)		echo something went wrong with getopt >&2
 			exit 1
@@ -81,6 +92,14 @@ if test -e "$outdir" -a \! -d "$outdir"; then
 	exit 1
 elif test \! -d "$outdir"; then
 	mkdir -p "$outdir"
+fi
+
+if $writeversion; then
+	if $nongit; then
+		echo "The -V option cannot be used without a git tree" >&2
+		exit 1
+	fi
+	dirty=true
 fi
 
 case "$zip" in
@@ -129,7 +148,7 @@ if test -d "$src/.git"; then
 	# if we're creating a tarball from git, force the timestamps inside
 	# the tar to match the commit date - this makes the tarball itself
 	# reproducible
-	gitts="`TZ=UTC git show -s --format=%cd --date=local HEAD`"
+	gitts="`TZ=UTC git show -s --format=%cd --date=local $commit`"
 	gitts="`TZ=UTC date -d "$gitts" '+%Y-%m-%dT%H:%M:%SZ'`"
 	taropt="--mtime=$gitts $taropt"
 
@@ -150,10 +169,36 @@ if test -d "$src/.git"; then
 	else
 		gitdate="`TZ=UTC date -d "$gitts" '+%Y%m%d'`"
 		gitrev="`git rev-parse --short $commit`"
-		dayseq="`git rev-list --since='$gitdate 00:00:00 +0000' HEAD | wc -l`"
+		dayseq="`git rev-list --since \"${gitts%T*} 00:00:00 +0000\" $commit | wc -l`"
 		dayseq="`printf '%02d' $(( $dayseq - 1 ))`"
 
 		test -z "$extraver" && extraver="-$gitdate-$dayseq-g$gitrev"
+
+		git -C "$src" remote -v | grep fetch | sed -e 's% (fetch)$%%' \
+			| egrep -i '\b(git@github\.com:frrouting/frr\.git|https://github\.com/FRRouting/frr\.git)$' \
+			| while read remote; do
+			remote="${remote%%	*}"
+
+			git -C "$src" var -l | egrep "^remote.$remote.fetch=" \
+				| while read fetch; do
+				fetch="${fetch#*=}"
+				from="${fetch%:*}"
+				to="${fetch#*:}"
+				if test "$from" = "+refs/pull/*/head"; then
+					name="`git -C \"$src\" name-rev --name-only --refs \"$to\" $commit`"
+					test "$name" = "undefined" && continue
+					realname="${name%~*}"
+					realname="${realname%%^*}"
+					realname="${realname%%@*}"
+					if test "$realname" = "$name"; then
+						echo "${name##*/}" > "$tmpdir/.gitpr"
+						break
+					fi
+				fi
+			done || true
+			test -n "$gitpr" && break
+		done || true
+		test -f "$tmpdir/.gitpr" && extraver="-PR`cat \"$tmpdir/.gitpr\"`$extraver"
 	fi
 
 	debsrc="( git ls-files debianpkg/; echo debianpkg/changelog )"
@@ -167,8 +212,29 @@ else
 	debsrc="echo debianpkg"
 fi
 
+if $writeversion; then
+	pkgver="`egrep ^AC_INIT configure.ac`"
+	pkgver="${pkgver#*,}"
+	pkgver="${pkgver%,*}"
+	pkgver="`echo $pkgver`" # strip whitespace
+
+	echo -e "\033[32;1mwriting version ID \033[36;1mfrr-$pkgver$extraver\033[m"
+
+	cat > config.version <<EOF
+# config.version override by tarsource.sh
+EXTRAVERSION="$extraver"
+DIST_PACKAGE_VERSION="$pkgver$extraver"
+gitts="$gitts"
+taropt="$taropt"
+EOF
+	exit 0
+fi
+
 echo -e "\033[33;1mpreparing source tree\033[m"
 
+# config.version will also overwrite gitts and taropt when tarsource.sh
+# was used to write the config.version file before - but configure will
+# overwrite config.version down below!
 if test -f config.version; then
 	# never executed for clean git build
 	. ./config.version
