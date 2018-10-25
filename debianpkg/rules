@@ -121,7 +121,7 @@ else
 endif
 
 %:
-	dh $@ --with=$(DH_WITH_SYSTEMD)autoreconf --parallel --dbg-package=frr-dbg --list-missing
+	dh $@ --with=$(DH_WITH_SYSTEMD)autoreconf --parallel --dbg-package=frr-dbg
 
 override_dh_auto_configure:
 	if ! [ -e config.status ]; then \
@@ -173,6 +173,9 @@ endif
 
 override_dh_auto_build:
 	dh_auto_build -- $(MAKE_SILENT)
+
+override_dh_missing:
+	dh_missing --fail-missing
 
 override_dh_auto_clean:
 # we generally do NOT want a full distclean since that wipes both
