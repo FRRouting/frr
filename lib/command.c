@@ -1621,17 +1621,52 @@ DEFUN (show_version,
 	return CMD_SUCCESS;
 }
 
-/* "Set" version ... ignore version tags */
-DEFUN (frr_version_defaults,
-       frr_version_defaults_cmd,
-       "frr <version|defaults> LINE...",
+DEFUN (frr_defaults,
+       frr_defaults_cmd,
+       "frr defaults PROFILE...",
+       "FRRouting global parameters\n"
+       "set of configuration defaults used\n"
+       "profile string\n")
+{
+	char *profile = argv_concat(argv, argc, 2);
+	int rv = CMD_SUCCESS;
+
+	if (!frr_defaults_profile_valid(profile)) {
+		vty_out(vty, "%% WARNING: profile %s is not known in this version\n",
+			profile);
+		rv = CMD_WARNING;
+	}
+	frr_defaults_profile_set(profile);
+	XFREE(MTYPE_TMP, profile);
+	return rv;
+}
+
+DEFUN (frr_version,
+       frr_version_cmd,
+       "frr version VERSION...",
        "FRRouting global parameters\n"
        "version configuration was written by\n"
-       "set of configuration defaults used\n"
        "version string\n")
 {
+	char *version = argv_concat(argv, argc, 2);
+
+	frr_defaults_version_set(version);
+	XFREE(MTYPE_TMP, version);
 	return CMD_SUCCESS;
 }
+
+static void defaults_autocomplete(vector comps, struct cmd_token *token)
+{
+	const char **p;
+
+	for (p = frr_defaults_profiles; *p; p++)
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, *p));
+}
+
+static const struct cmd_variable_handler default_var_handlers[] = {
+	{.tokenname = "PROFILE", .completions = defaults_autocomplete},
+	{.completions = NULL},
+};
 
 /* Help display function for all node. */
 DEFUN (config_help,
@@ -1765,8 +1800,10 @@ static int vty_write_config(struct vty *vty)
 		vty_out(vty, "!\n");
 	}
 
+	if (strcmp(frr_defaults_version(), FRR_VER_SHORT))
+		vty_out(vty, "! loaded from %s\n", frr_defaults_version());
 	vty_out(vty, "frr version %s\n", FRR_VER_SHORT);
-	vty_out(vty, "frr defaults %s\n", DFLT_NAME);
+	vty_out(vty, "frr defaults %s\n", frr_defaults_profile());
 	vty_out(vty, "!\n");
 
 	for (i = 0; i < vector_active(cmdvec); i++)
@@ -2859,6 +2896,8 @@ void cmd_init(int terminal)
 	host.motd = default_motd;
 	host.motdfile = NULL;
 
+	cmd_variable_handler_register(default_var_handlers);
+
 	/* Install top nodes. */
 	install_node(&view_node, NULL);
 	install_node(&enable_node, NULL);
@@ -2904,7 +2943,8 @@ void cmd_init(int terminal)
 	install_element(CONFIG_NODE, &no_hostname_cmd);
 	install_element(CONFIG_NODE, &domainname_cmd);
 	install_element(CONFIG_NODE, &no_domainname_cmd);
-	install_element(CONFIG_NODE, &frr_version_defaults_cmd);
+	install_element(CONFIG_NODE, &frr_defaults_cmd);
+	install_element(CONFIG_NODE, &frr_version_cmd);
 	install_element(CONFIG_NODE, &debug_memstats_cmd);
 
 	if (terminal > 0) {
