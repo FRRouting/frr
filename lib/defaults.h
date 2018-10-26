@@ -18,6 +18,142 @@
 #ifndef _FRR_DEFAULTS_H
 #define _FRR_DEFAULTS_H
 
+#include "config.h"
+#include "compiler.h"
+
+#ifdef HAVE_DATACENTER
+
+#define DFLT_BGP_IMPORT_CHECK			1
+#define DFLT_BGP_TIMERS_CONNECT			10
+#define DFLT_BGP_HOLDTIME			9
+#define DFLT_BGP_KEEPALIVE			3
+#define DFLT_BGP_LOG_NEIGHBOR_CHANGES		1
+#define DFLT_BGP_SHOW_HOSTNAME			1
+#define DFLT_BGP_DETERMINISTIC_MED		1
+
+#define DFLT_OSPF_LOG_ADJACENCY_CHANGES		1
+#define DFLT_OSPF6_LOG_ADJACENCY_CHANGES	1
+
+#else  /* !HAVE_DATACENTER */
+
+#define DFLT_BGP_IMPORT_CHECK			0
+#define DFLT_BGP_TIMERS_CONNECT			120
+#define DFLT_BGP_HOLDTIME			180
+#define DFLT_BGP_KEEPALIVE			60
+#define DFLT_BGP_LOG_NEIGHBOR_CHANGES		0
+#define DFLT_BGP_SHOW_HOSTNAME			0
+#define DFLT_BGP_DETERMINISTIC_MED		0
+
+#define DFLT_OSPF_LOG_ADJACENCY_CHANGES		0
+#define DFLT_OSPF6_LOG_ADJACENCY_CHANGES	0
+
+#endif /* !HAVE_DATACENTER */
+
+/* frr_default wraps information about a default that has different
+ * values depending on FRR version or default-set
+ *
+ * frr_default_entry describes one match rule and the resulting value;
+ * entries are evaluated in order and the first matching is used.
+ *
+ * If both match_version and match_profile are specified, they must both
+ * match.  A NULL value matches everything.
+ */
+struct frr_default_entry {
+	/* syntax: "(<|<=|==|>=|>) [whitespace] version", e.g.
+	 *   ">= 6.1-dev" "<6.0"
+	 */
+	const char *match_version;
+	/* exact profile string to compare against */
+	const char *match_profile;
+
+	/* value to use */
+	const char *val_str;
+	long val_long;
+	unsigned long val_ulong;
+	float val_float;
+};
+
+/* one struct frr_default exists for each malleable default value */
+struct frr_default {
+	struct frr_default *next;
+
+	/* for UI/debug use */
+	const char *name;
+
+	/* the following two sets of variables differ because the written
+	 * config always targets the *current* FRR version
+	 *
+	 * e.g. if you load a config that has "frr version 5.0" on 6.0
+	 *   *dflt_long => set to the default value in 5.0
+	 *   *save_long => set to the default value in 6.0
+	 * config save will write "frr version 6.0" with 6.0 defaults
+	 */
+
+	/* variable holding the default value for reading/use */
+	const char **dflt_str;
+	long *dflt_long;
+	unsigned long *dflt_ulong;
+	float *dflt_float;
+
+	/* variable to use when comparing for config save */
+	const char **save_str;
+	long *save_long;
+	unsigned long *save_ulong;
+	float *save_float;
+
+	struct frr_default_entry entries[];
+};
+
+#define _FRR_CFG_DEFAULT(type, typname, varname, ...) \
+	static type DFLT_##varname;                                            \
+	static type SAVE_##varname;                                            \
+	static struct frr_default _dflt_##varname = {                          \
+		.name = #varname,                                              \
+		.dflt_##typname = &DFLT_##varname,                             \
+		.save_##typname = &SAVE_##varname,                             \
+		.entries = { __VA_ARGS__ },                                    \
+	};                                                                     \
+	static void _dfltinit_##varname(void)                                  \
+		__attribute__((_CONSTRUCTOR(1000)));                           \
+	static void _dfltinit_##varname(void)                                  \
+	{                                                                      \
+		frr_default_add(&_dflt_##varname);                             \
+	}
+
+/* use:
+ *   FRR_CFG_DEFAULT_LONG(SHARP_BLUNTNESS,
+ *	{ .val_long = 2, .match_version = ">= 10.0" },
+ *	{ .val_long = 1, .match_profile = "datacenter" },
+ *	{ .val_long = 0 },
+ *   )
+ *
+ * This will create DFLT_SHARP_BLUNTNESS and SAVE_SHARP_BLUNTNESS variables.
+ *
+ * Note: preprocessor defines cannot be used as variable names because they
+ * will be expanded and blow up with a compile error.  Use an enum or add an
+ * extra _ at the beginning (e.g. _SHARP_BLUNTNESS => DFLT__SHARP_BLUNTNESS)
+ */
+#define FRR_CFG_DEFAULT_LONG(varname, ...) \
+	_FRR_CFG_DEFAULT(long, long, varname, ## __VA_ARGS__)
+#define FRR_CFG_DEFAULT_ULONG(varname, ...) \
+	_FRR_CFG_DEFAULT(unsigned long, ulong, varname, ## __VA_ARGS__)
+#define FRR_CFG_DEFAULT_FLOAT(varname, ...) \
+	_FRR_CFG_DEFAULT(float, float, varname, ## __VA_ARGS__)
+#define FRR_CFG_DEFAULT_STR(varname, ...) \
+	_FRR_CFG_DEFAULT(const char *, str, varname, ## __VA_ARGS__)
+
+
+/* daemons don't need to call any of these, libfrr handles that */
+extern void frr_default_add(struct frr_default *dflt);
+extern void frr_defaults_version_set(const char *version);
+extern void frr_defaults_profile_set(const char *profile);
+extern const char *frr_defaults_version(void);
+extern const char *frr_defaults_profile(void);
+extern void frr_defaults_apply(void);
+
+extern const char *frr_defaults_profiles[];
+extern bool frr_defaults_profile_valid(const char *profile);
+
 /* like strcmp(), but with version ordering */
 extern int frr_version_cmp(const char *aa, const char *bb);
 
