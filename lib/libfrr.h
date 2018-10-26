@@ -152,4 +152,7 @@ extern char frr_protonameinst[];
 
 extern bool debug_memstats_at_exit;
 
+/* like strcmp(), but with version ordering */
+extern int frr_version_cmp(const char *aa, const char *bb);
+
 #endif /* _ZEBRA_FRR_H */

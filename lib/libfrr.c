@@ -168,6 +168,57 @@ static const struct optspec os_user = {"u:g:",
 				       "  -g, --group        Group to run as\n",
 				       lo_user};
 
+static int version_value(int ch)
+{
+	/* non-ASCII shouldn't happen */
+	if (ch < 0 || ch >= 128)
+		return 2;
+
+	/* ~foo sorts older than nothing */
+	if (ch == '~')
+		return 0;
+	if (ch == '\0')
+		return 1;
+	if (isalpha(ch))
+		return 0x100 + tolower(ch);
+
+	/* punctuation and digits (and everything else) */
+	return 0x200 + ch;
+}
+
+int frr_version_cmp(const char *aa, const char *bb)
+{
+	const char *apos = aa, *bpos = bb;
+
+	/* || is correct, we won't scan past the end of a string since that
+	 * doesn't compare equal to anything else */
+	while (apos[0] || bpos[0]) {
+		if (isdigit(apos[0]) && isdigit(bpos[0])) {
+			unsigned long av, bv;
+			char *aend = NULL, *bend = NULL;
+
+			av = strtoul(apos, &aend, 10);
+			bv = strtoul(bpos, &bend, 10);
+			if (av < bv)
+				return -1;
+			if (av > bv)
+				return 1;
+
+			apos = aend;
+			bpos = bend;
+			continue;
+		}
+
+		int a = version_value(*apos++);
+		int b = version_value(*bpos++);
+
+		if (a < b)
+			return -1;
+		if (a > b)
+			return 1;
+	}
+	return 0;
+}
 
 bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 		      const char *path)
