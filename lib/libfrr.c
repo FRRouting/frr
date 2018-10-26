@@ -175,7 +175,6 @@ static const struct optspec os_user = {"u:g:",
 				       "  -g, --group        Group to run as\n",
 				       lo_user};
 
-
 bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 		      const char *path)
 {

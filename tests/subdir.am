@@ -69,6 +69,7 @@ check_PROGRAMS = \
 	tests/lib/test_timer_performance \
 	tests/lib/test_ttable \
 	tests/lib/test_typelist \
+	tests/lib/test_versioncmp \
 	tests/lib/test_zlog \
 	tests/lib/test_graph \
 	tests/lib/cli/test_cli \
@@ -293,6 +294,10 @@ tests_lib_test_typelist_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_typelist_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_typelist_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_typelist_SOURCES = tests/lib/test_typelist.c tests/helpers/c/prng.c
+tests_lib_test_versioncmp_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_versioncmp_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_versioncmp_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_versioncmp_SOURCES = tests/lib/test_versioncmp.c
 tests_lib_test_zlog_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_zlog_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_zlog_LDADD = $(ALL_TESTS_LDADD)
@@ -344,6 +349,7 @@ EXTRA_DIST += \
 	tests/lib/test_ttable.py \
 	tests/lib/test_ttable.refout \
 	tests/lib/test_typelist.py \
+	tests/lib/test_versioncmp.py \
 	tests/lib/test_zlog.py \
 	tests/lib/test_graph.py \
 	tests/lib/test_graph.refout \
