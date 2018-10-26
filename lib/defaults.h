@@ -21,20 +21,6 @@
 #ifndef _FRR_DEFAULTS_H
 #define _FRR_DEFAULTS_H
 
-#include "config.h"
-
-#ifdef HAVE_DATACENTER
-
-#define DFLT_OSPF_LOG_ADJACENCY_CHANGES		1
-#define DFLT_OSPF6_LOG_ADJACENCY_CHANGES	1
-
-#else  /* !HAVE_DATACENTER */
-
-#define DFLT_OSPF_LOG_ADJACENCY_CHANGES		0
-#define DFLT_OSPF6_LOG_ADJACENCY_CHANGES	0
-
-#endif /* !HAVE_DATACENTER */
-
 /* frr_default wraps information about a default that has different
  * values depending on FRR version or default-set
  *

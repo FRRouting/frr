@@ -10335,9 +10335,9 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	if (CHECK_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES)) {
 		if (CHECK_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
 			vty_out(vty, " log-adjacency-changes detail\n");
-		else if (!DFLT_OSPF_LOG_ADJACENCY_CHANGES)
+		else if (!ospf_dfltsave_log_adj_changes())
 			vty_out(vty, " log-adjacency-changes\n");
-	} else if (DFLT_OSPF_LOG_ADJACENCY_CHANGES) {
+	} else if (ospf_dfltsave_log_adj_changes()) {
 		vty_out(vty, " no log-adjacency-changes\n");
 	}
 

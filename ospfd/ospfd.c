@@ -61,6 +61,11 @@
 
 DEFINE_QOBJ_TYPE(ospf)
 
+FRR_CFG_DEFAULT_LONG(OSPF_LOG_ADJACENCY_CHANGES,
+	{ .val_long = 1, .match_profile = "datacenter", },
+	{ .val_long = 0 },
+)
+
 /* OSPF process wide configuration. */
 static struct ospf_master ospf_master;
 
@@ -314,10 +319,8 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 	new->oi_write_q = list_new();
 	new->write_oi_count = OSPF_WRITE_INTERFACE_COUNT_DEFAULT;
 
-/* Enable "log-adjacency-changes" */
-#if DFLT_OSPF_LOG_ADJACENCY_CHANGES
-	SET_FLAG(new->config, OSPF_LOG_ADJACENCY_CHANGES);
-#endif
+	if (DFLT_OSPF_LOG_ADJACENCY_CHANGES)
+		SET_FLAG(new->config, OSPF_LOG_ADJACENCY_CHANGES);
 
 	QOBJ_REG(new, ospf);
 
@@ -333,6 +336,11 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 	thread_add_read(master, ospf_read, new, new->fd, &new->t_read);
 
 	return new;
+}
+
+bool ospf_dfltsave_log_adj_changes(void)
+{
+	return SAVE_OSPF_LOG_ADJACENCY_CHANGES;
 }
 
 struct ospf *ospf_lookup_instance(unsigned short instance)

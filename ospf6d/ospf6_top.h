@@ -29,6 +29,12 @@ struct ospf6_master {
 	uint32_t zebra_router_id;
 };
 
+/* ospf6->config_flags */
+enum {
+	OSPF6_LOG_ADJACENCY_CHANGES =	(1 << 0),
+	OSPF6_LOG_ADJACENCY_DETAIL =	(1 << 1),
+};
+
 /* OSPFv3 top level data structure */
 struct ospf6 {
 	/* my router id */
@@ -65,10 +71,8 @@ struct ospf6 {
 
 	uint8_t flag;
 
-	/* Configured flags */
+	/* Configuration bitmask, refer to enum above */
 	uint8_t config_flags;
-#define OSPF6_LOG_ADJACENCY_CHANGES      (1 << 0)
-#define OSPF6_LOG_ADJACENCY_DETAIL       (1 << 1)
 
 	/* LSA timer parameters */
 	unsigned int lsa_minarrival; /* LSA minimum arrival in milliseconds. */

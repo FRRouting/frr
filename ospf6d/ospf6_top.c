@@ -51,6 +51,11 @@
 
 DEFINE_QOBJ_TYPE(ospf6)
 
+FRR_CFG_DEFAULT_LONG(OSPF6_LOG_ADJACENCY_CHANGES,
+	{ .val_long = 1, .match_profile = "datacenter", },
+	{ .val_long = 0 },
+)
+
 /* global ospf6d variable */
 struct ospf6 *ospf6;
 static struct ospf6_master ospf6_master;
@@ -178,10 +183,8 @@ static struct ospf6 *ospf6_create(void)
 
 	o->distance_table = route_table_init();
 
-/* Enable "log-adjacency-changes" */
-#if DFLT_OSPF6_LOG_ADJACENCY_CHANGES
-	SET_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
-#endif
+	if (DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
+		SET_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
 
 	QOBJ_REG(o, ospf6);
 
@@ -1078,9 +1081,9 @@ static int config_write_ospf6(struct vty *vty)
 	if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES)) {
 		if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
 			vty_out(vty, " log-adjacency-changes detail\n");
-		else if (!DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
+		else if (!SAVE_OSPF6_LOG_ADJACENCY_CHANGES)
 			vty_out(vty, " log-adjacency-changes\n");
-	} else if (DFLT_OSPF6_LOG_ADJACENCY_CHANGES) {
+	} else if (SAVE_OSPF6_LOG_ADJACENCY_CHANGES) {
 		vty_out(vty, " no log-adjacency-changes\n");
 	}
 

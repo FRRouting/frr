@@ -117,6 +117,14 @@ struct ospf_redist {
 #define ROUTEMAP(R)        (R->route_map.map)
 };
 
+/* ospf->config */
+enum {
+	OSPF_RFC1583_COMPATIBLE =	(1 << 0),
+	OSPF_OPAQUE_CAPABLE =		(1 << 2),
+	OSPF_LOG_ADJACENCY_CHANGES =	(1 << 3),
+	OSPF_LOG_ADJACENCY_DETAIL =	(1 << 4),
+};
+
 /* OSPF instance structure. */
 struct ospf {
 	/* OSPF's running state based on the '[no] router ospf [<instance>]'
@@ -151,12 +159,8 @@ struct ospf {
 	/* NSSA ABR */
 	uint8_t anyNSSA; /* Bump for every NSSA attached. */
 
-	/* Configured variables. */
+	/* Configuration bitmask, refer to enum above */
 	uint8_t config;
-#define OSPF_RFC1583_COMPATIBLE         (1 << 0)
-#define OSPF_OPAQUE_CAPABLE		(1 << 2)
-#define OSPF_LOG_ADJACENCY_CHANGES	(1 << 3)
-#define OSPF_LOG_ADJACENCY_DETAIL	(1 << 4)
 
 	/* Opaque-LSA administrative flags. */
 	uint8_t opaque;
@@ -573,5 +577,7 @@ extern void ospf_vrf_link(struct ospf *ospf, struct vrf *vrf);
 extern void ospf_vrf_unlink(struct ospf *ospf, struct vrf *vrf);
 const char *ospf_vrf_id_to_name(vrf_id_t vrf_id);
 int ospf_area_nssa_no_summary_set(struct ospf *, struct in_addr);
+
+extern bool ospf_dfltsave_log_adj_changes(void);
 
 #endif /* _ZEBRA_OSPFD_H */
