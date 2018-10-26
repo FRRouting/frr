@@ -1502,7 +1502,7 @@ DEFUNSH(VTYSH_BGPD, vnc_l2_group, vnc_l2_group_cmd, "vnc l2-group NAME",
 }
 #endif
 
-DEFUNSH(VTYSH_RIPD, key_chain, key_chain_cmd, "key chain WORD",
+DEFUNSH(VTYSH_KEYS, key_chain, key_chain_cmd, "key chain WORD",
 	"Authentication key management\n"
 	"Key-chain management\n"
 	"Key-chain name\n")
@@ -1511,7 +1511,7 @@ DEFUNSH(VTYSH_RIPD, key_chain, key_chain_cmd, "key chain WORD",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_RIPD, key, key_cmd, "key (0-2147483647)",
+DEFUNSH(VTYSH_KEYS, key, key_cmd, "key (0-2147483647)",
 	"Configure a key\n"
 	"Key identifier number\n")
 {
