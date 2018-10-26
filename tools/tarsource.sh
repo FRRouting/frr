@@ -83,9 +83,6 @@ done
 
 cwd="`pwd`"
 outdir="${outdir:-$cwd}"
-cd `dirname $0`/..
-selfdir="`pwd`"
-src="${src:-$selfdir}"
 
 if test -e "$outdir" -a \! -d "$outdir"; then
 	echo "output $outdir must be a directory" >&2
@@ -93,6 +90,13 @@ if test -e "$outdir" -a \! -d "$outdir"; then
 elif test \! -d "$outdir"; then
 	mkdir -p "$outdir"
 fi
+
+cd "$outdir"
+outdir="`pwd`"
+cd "$cwd"
+cd "`dirname $0`/.."
+selfdir="`pwd`"
+src="${src:-$selfdir}"
 
 if $writeversion; then
 	if $nongit; then
@@ -283,11 +287,9 @@ if $debian; then
 	test -f ../frr_${DEBVER}.debian.tar.$zip && rm -f ../frr_${DEBVER}.debian.tar.$zip
 	$ziptool ../frr_${DEBVER}.debian.tar
 
-	parent="`pwd`"
-	parent="${parent##*/}"
 	# pack up debian files proper
 	ln -s "$outdir/frr-${PACKAGE_VERSION}.tar.$zip" ../frr_${PACKAGE_VERSION}.orig.tar.$zip
-	dpkg-source -l"$tmpdir/debian/changelog" -c"$parent/debianpkg/control" \
+	dpkg-source -l"$tmpdir/debian/changelog" -c"`pwd`/debianpkg/control" \
 		--format='3.0 (custom)' --target-format='3.0 (quilt)' \
 		-b . frr_${PACKAGE_VERSION}.orig.tar.$zip frr_${DEBVER}.debian.tar.$zip
 
