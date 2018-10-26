@@ -39,6 +39,7 @@
 #include "routemap.h"
 #include "frr_pthread.h"
 
+#include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -173,6 +174,8 @@ static void sigint(void)
 	list_delete(&zebrad.client_list);
 	work_queue_free_and_null(&zebrad.ribq);
 	meta_queue_free(zebrad.mq);
+
+	zebra_router_terminate();
 
 	frr_fini();
 	exit(0);
@@ -354,6 +357,7 @@ int main(int argc, char **argv)
 	zebrad.master = frr_init();
 
 	/* Zebra related initialize. */
+	zebra_router_init();
 	zserv_init();
 	rib_init();
 	zebra_if_init();
@@ -418,7 +422,7 @@ int main(int argc, char **argv)
 
 	/* RNH init */
 	zebra_rnh_init();
-	
+
 	/* Error init */
 	zebra_error_init();
 

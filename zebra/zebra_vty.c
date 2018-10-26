@@ -35,6 +35,7 @@
 #include "srcdest_table.h"
 #include "vxlan.h"
 
+#include "zebra/zebra_router.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_mpls.h"
@@ -896,7 +897,7 @@ DEFPY (show_route_table,
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	struct route_table *t;
 
-	t = zebra_ns_find_table(zvrf->zns, table, afi);
+	t = zebra_router_find_table(zvrf, table, afi, SAFI_UNICAST);
 	if (t)
 		do_show_route_helper(vty, zvrf, t, afi, false, 0, false, false,
 				     0, 0, !!json);
@@ -925,7 +926,7 @@ DEFPY (show_route_table_vrf,
 		VRF_GET_ID(vrf_id, vrf_name, !!json);
 	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 
-	t = zebra_ns_find_table(zvrf->zns, table, afi);
+	t = zebra_router_find_table(zvrf, table, afi, SAFI_UNICAST);
 	if (t)
 		do_show_route_helper(vty, zvrf, t, afi, false, 0, false, false,
 				     0, 0, !!json);

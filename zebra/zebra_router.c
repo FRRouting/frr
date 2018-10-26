@@ -1,0 +1,189 @@
+/* Zebra Router Code.
+ * Copyright (C) 2018 Cumulus Networks, Inc.
+ *                    Donald Sharp
+ *
+ * This file is part of FRR.
+ *
+ * FRR is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * FRR is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with FRR; see the file COPYING.  If not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
+ */
+#include "zebra.h"
+
+#include "zebra_router.h"
+#include "zebra_memory.h"
+#include "zebra_pbr.h"
+
+struct zebra_router zrouter;
+
+static inline int
+zebra_router_table_entry_compare(const struct zebra_router_table *e1,
+				 const struct zebra_router_table *e2);
+
+RB_GENERATE(zebra_router_table_head, zebra_router_table,
+	    zebra_router_table_entry, zebra_router_table_entry_compare);
+
+
+static inline int
+zebra_router_table_entry_compare(const struct zebra_router_table *e1,
+				 const struct zebra_router_table *e2)
+{
+	if (e1->tableid < e2->tableid)
+		return -1;
+	if (e1->tableid > e2->tableid)
+		return 1;
+	if (e1->ns_id < e2->ns_id)
+		return -1;
+	if (e1->ns_id > e2->ns_id)
+		return 1;
+	if (e1->afi < e2->afi)
+		return -1;
+	if (e1->afi > e2->afi)
+		return 1;
+	return (e1->safi - e2->safi);
+}
+
+
+struct route_table *zebra_router_find_table(struct zebra_vrf *zvrf,
+					    uint32_t tableid, afi_t afi,
+					    safi_t safi)
+{
+	struct zebra_router_table finder;
+	struct zebra_router_table *zrt;
+
+	memset(&finder, 0, sizeof(finder));
+	finder.afi = afi;
+	finder.safi = safi;
+	finder.tableid = tableid;
+	finder.ns_id = zvrf->zns->ns_id;
+	zrt = RB_FIND(zebra_router_table_head, &zrouter.tables, &finder);
+
+	if (zrt)
+		return zrt->table;
+	else
+		return NULL;
+}
+
+struct route_table *zebra_router_get_table(struct zebra_vrf *zvrf,
+					   uint32_t tableid, afi_t afi,
+					   safi_t safi)
+{
+	struct zebra_router_table finder;
+	struct zebra_router_table *zrt;
+	rib_table_info_t *info;
+
+	memset(&finder, 0, sizeof(finder));
+	finder.afi = afi;
+	finder.safi = safi;
+	finder.tableid = tableid;
+	finder.ns_id = zvrf->zns->ns_id;
+	zrt = RB_FIND(zebra_router_table_head, &zrouter.tables, &finder);
+
+	if (zrt)
+		return zrt->table;
+
+	zrt = XCALLOC(MTYPE_ZEBRA_NS, sizeof(*zrt));
+	zrt->tableid = tableid;
+	zrt->afi = afi;
+	zrt->ns_id = zvrf->zns->ns_id;
+	zrt->table =
+		(afi == AFI_IP6) ? srcdest_table_init() : route_table_init();
+
+	info = XCALLOC(MTYPE_RIB_TABLE_INFO, sizeof(*info));
+	info->zvrf = zvrf;
+	info->afi = afi;
+	info->safi = SAFI_UNICAST;
+	route_table_set_info(zrt->table, info);
+	zrt->table->cleanup = zebra_rtable_node_cleanup;
+
+	RB_INSERT(zebra_router_table_head, &zrouter.tables, zrt);
+	return zrt->table;
+}
+
+unsigned long zebra_router_score_proto(uint8_t proto, unsigned short instance)
+{
+	struct zebra_router_table *zrt;
+	unsigned long cnt = 0;
+
+	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
+		if (zrt->ns_id != NS_DEFAULT)
+			continue;
+		cnt += rib_score_proto_table(proto, instance, zrt->table);
+	}
+	return cnt;
+}
+
+void zebra_router_sweep_route(void)
+{
+	struct zebra_router_table *zrt;
+
+	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
+		if (zrt->ns_id != NS_DEFAULT)
+			continue;
+		rib_sweep_table(zrt->table);
+	}
+}
+
+static void zebra_router_free_table(struct zebra_router_table *zrt)
+{
+	void *table_info;
+
+	rib_close_table(zrt->table);
+
+	table_info = route_table_get_info(zrt->table);
+	route_table_finish(zrt->table);
+	XFREE(MTYPE_RIB_TABLE_INFO, table_info);
+	XFREE(MTYPE_ZEBRA_NS, zrt);
+}
+
+void zebra_router_terminate(void)
+{
+	struct zebra_router_table *zrt, *tmp;
+
+	RB_FOREACH_SAFE (zrt, zebra_router_table_head, &zrouter.tables, tmp) {
+		RB_REMOVE(zebra_router_table_head, &zrouter.tables, zrt);
+		zebra_router_free_table(zrt);
+	}
+
+	hash_clean(zrouter.rules_hash, zebra_pbr_rules_free);
+	hash_free(zrouter.rules_hash);
+
+	hash_clean(zrouter.ipset_entry_hash, zebra_pbr_ipset_entry_free),
+		hash_clean(zrouter.ipset_hash, zebra_pbr_ipset_free);
+	hash_free(zrouter.ipset_hash);
+	hash_free(zrouter.ipset_entry_hash);
+	hash_clean(zrouter.iptable_hash, zebra_pbr_iptable_free);
+	hash_free(zrouter.iptable_hash);
+}
+
+void zebra_router_init(void)
+{
+	zrouter.l3vni_table = NULL;
+
+	zrouter.rules_hash = hash_create_size(8, zebra_pbr_rules_hash_key,
+					      zebra_pbr_rules_hash_equal,
+					      "Rules Hash");
+
+	zrouter.ipset_hash =
+		hash_create_size(8, zebra_pbr_ipset_hash_key,
+				 zebra_pbr_ipset_hash_equal, "IPset Hash");
+
+	zrouter.ipset_entry_hash = hash_create_size(
+		8, zebra_pbr_ipset_entry_hash_key,
+		zebra_pbr_ipset_entry_hash_equal, "IPset Hash Entry");
+
+	zrouter.iptable_hash = hash_create_size(8, zebra_pbr_iptable_hash_key,
+						zebra_pbr_iptable_hash_equal,
+						"IPtable Hash Entry");
+}

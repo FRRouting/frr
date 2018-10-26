@@ -38,6 +38,7 @@
 #include "vrf.h"
 #include "workqueue.h"
 
+#include "zebra/zebra_router.h"
 #include "zebra/connected.h"
 #include "zebra/debug.h"
 #include "zebra/interface.h"
@@ -2930,7 +2931,7 @@ void rib_sweep_route(void)
 		rib_sweep_table(zvrf->table[AFI_IP6][SAFI_UNICAST]);
 	}
 
-	zebra_ns_sweep_route();
+	zebra_router_sweep_route();
 }
 
 /* Remove specific by protocol routes from 'table'. */
@@ -2972,7 +2973,7 @@ unsigned long rib_score_proto(uint8_t proto, unsigned short instance)
 					 proto, instance,
 					 zvrf->table[AFI_IP6][SAFI_UNICAST]);
 
-	cnt += zebra_ns_score_proto(proto, instance);
+	cnt += zebra_router_score_proto(proto, instance);
 
 	return cnt;
 }

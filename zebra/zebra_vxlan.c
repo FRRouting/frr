@@ -37,6 +37,7 @@
 #include <linux/neighbour.h>
 #endif
 
+#include "zebra/zebra_router.h"
 #include "zebra/debug.h"
 #include "zebra/interface.h"
 #include "zebra/rib.h"
@@ -3643,15 +3644,12 @@ static void *zl3vni_alloc(void *p)
  */
 static zebra_l3vni_t *zl3vni_lookup(vni_t vni)
 {
-	struct zebra_ns *zns;
 	zebra_l3vni_t tmp_l3vni;
 	zebra_l3vni_t *zl3vni = NULL;
 
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	assert(zns);
 	memset(&tmp_l3vni, 0, sizeof(zebra_l3vni_t));
 	tmp_l3vni.vni = vni;
-	zl3vni = hash_lookup(zns->l3vni_table, &tmp_l3vni);
+	zl3vni = hash_lookup(zrouter.l3vni_table, &tmp_l3vni);
 
 	return zl3vni;
 }
@@ -3662,16 +3660,12 @@ static zebra_l3vni_t *zl3vni_lookup(vni_t vni)
 static zebra_l3vni_t *zl3vni_add(vni_t vni, vrf_id_t vrf_id)
 {
 	zebra_l3vni_t tmp_zl3vni;
-	struct zebra_ns *zns = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
-
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	assert(zns);
 
 	memset(&tmp_zl3vni, 0, sizeof(zebra_l3vni_t));
 	tmp_zl3vni.vni = vni;
 
-	zl3vni = hash_get(zns->l3vni_table, &tmp_zl3vni, zl3vni_alloc);
+	zl3vni = hash_get(zrouter.l3vni_table, &tmp_zl3vni, zl3vni_alloc);
 	assert(zl3vni);
 
 	zl3vni->vrf_id = vrf_id;
@@ -3696,11 +3690,7 @@ static zebra_l3vni_t *zl3vni_add(vni_t vni, vrf_id_t vrf_id)
  */
 static int zl3vni_del(zebra_l3vni_t *zl3vni)
 {
-	struct zebra_ns *zns;
 	zebra_l3vni_t *tmp_zl3vni;
-
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	assert(zns);
 
 	/* free the list of l2vnis */
 	list_delete(&zl3vni->l2vnis);
@@ -3715,7 +3705,7 @@ static int zl3vni_del(zebra_l3vni_t *zl3vni)
 	zl3vni->nh_table = NULL;
 
 	/* Free the VNI hash entry and allocated memory. */
-	tmp_zl3vni = hash_release(zns->l3vni_table, zl3vni);
+	tmp_zl3vni = hash_release(zrouter.l3vni_table, zl3vni);
 	if (tmp_zl3vni)
 		XFREE(MTYPE_ZL3VNI, tmp_zl3vni);
 
@@ -4634,18 +4624,10 @@ void zebra_vxlan_print_rmacs_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
 
 void zebra_vxlan_print_rmacs_all_l3vni(struct vty *vty, bool use_json)
 {
-	struct zebra_ns *zns = NULL;
 	json_object *json = NULL;
 	void *args[2];
 
 	if (!is_evpn_enabled()) {
-		if (use_json)
-			vty_out(vty, "{}\n");
-		return;
-	}
-
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	if (!zns) {
 		if (use_json)
 			vty_out(vty, "{}\n");
 		return;
@@ -4656,7 +4638,7 @@ void zebra_vxlan_print_rmacs_all_l3vni(struct vty *vty, bool use_json)
 
 	args[0] = vty;
 	args[1] = json;
-	hash_iterate(zns->l3vni_table,
+	hash_iterate(zrouter.l3vni_table,
 		     (void (*)(struct hash_backet *,
 			       void *))zl3vni_print_rmac_hash_all_vni,
 		     args);
@@ -4759,7 +4741,6 @@ void zebra_vxlan_print_nh_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
 
 void zebra_vxlan_print_nh_all_l3vni(struct vty *vty, bool use_json)
 {
-	struct zebra_ns *zns = NULL;
 	json_object *json = NULL;
 	void *args[2];
 
@@ -4769,16 +4750,12 @@ void zebra_vxlan_print_nh_all_l3vni(struct vty *vty, bool use_json)
 		return;
 	}
 
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	if (!zns)
-		return;
-
 	if (use_json)
 		json = json_object_new_object();
 
 	args[0] = vty;
 	args[1] = json;
-	hash_iterate(zns->l3vni_table,
+	hash_iterate(zrouter.l3vni_table,
 		     (void (*)(struct hash_backet *,
 			       void *))zl3vni_print_nh_hash_all_vni,
 		     args);
@@ -5273,21 +5250,16 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 	int num_l3vnis = 0;
 	int num_vnis = 0;
 	json_object *json = NULL;
-	struct zebra_ns *zns = NULL;
 	struct zebra_vrf *zvrf = NULL;
 
 	if (!is_evpn_enabled())
-		return;
-
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	if (!zns)
 		return;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	if (!zvrf)
 		return;
 
-	num_l3vnis = hashcount(zns->l3vni_table);
+	num_l3vnis = hashcount(zrouter.l3vni_table);
 	num_l2vnis = hashcount(zvrf->vni_table);
 	num_vnis = num_l2vnis + num_l3vnis;
 
@@ -5319,16 +5291,10 @@ void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 			    bool use_json)
 {
 	json_object *json = NULL;
-	struct zebra_ns *zns = NULL;
 	void *args[2];
 
 	if (!is_evpn_enabled())
 		return;
-
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	if (!zns)
-		return;
-
 
 	if (use_json)
 		json = json_object_new_object();
@@ -5346,7 +5312,7 @@ void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 		     args);
 
 	/* Display all L3-VNIs */
-	hash_iterate(zns->l3vni_table,
+	hash_iterate(zrouter.l3vni_table,
 		     (void (*)(struct hash_backet *, void *))zl3vni_print_hash,
 		     args);
 
@@ -7160,7 +7126,6 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 {
 	struct stream *s = NULL;
 	int advertise = 0;
-	struct zebra_ns *zns = NULL;
 	enum vxlan_flood_control flood_ctrl;
 
 	if (zvrf_id(zvrf) != VRF_DEFAULT) {
@@ -7206,11 +7171,7 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 		hash_iterate(zvrf->vni_table, zvni_cleanup_all, zvrf);
 
 		/* cleanup all l3vnis */
-		zns = zebra_ns_lookup(NS_DEFAULT);
-		if (!zns)
-			return;
-
-		hash_iterate(zns->l3vni_table, zl3vni_cleanup_all, NULL);
+		hash_iterate(zrouter.l3vni_table, zl3vni_cleanup_all, NULL);
 	}
 
 stream_failure:
@@ -7249,14 +7210,14 @@ void zebra_vxlan_close_tables(struct zebra_vrf *zvrf)
 /* init the l3vni table */
 void zebra_vxlan_ns_init(struct zebra_ns *zns)
 {
-	zns->l3vni_table = hash_create(l3vni_hash_keymake, l3vni_hash_cmp,
-				       "Zebra VRF L3 VNI table");
+	zrouter.l3vni_table = hash_create(l3vni_hash_keymake, l3vni_hash_cmp,
+					  "Zebra VRF L3 VNI table");
 }
 
 /* free l3vni table */
 void zebra_vxlan_ns_disable(struct zebra_ns *zns)
 {
-	hash_free(zns->l3vni_table);
+	hash_free(zrouter.l3vni_table);
 }
 
 /* get the l3vni svi ifindex */

@@ -36,6 +36,7 @@
 #include "nexthop.h"
 #include "vrf.h"
 
+#include "zebra/zebra_router.h"
 #include "zebra/rib.h"
 #include "zebra/rt.h"
 #include "zebra/zserv.h"
@@ -469,12 +470,11 @@ static void zebra_rnh_process_pbr_tables(int family,
 					 struct route_node *prn,
 					 struct route_entry *re)
 {
-	struct zebra_ns_table *znst;
+	struct zebra_router_table *zrt;
 	struct route_entry *o_re;
 	struct route_node *o_rn;
 	struct listnode *node;
 	struct zserv *client;
-	struct zebra_ns *zns;
 	afi_t afi = AFI_IP;
 
 	if (family == AF_INET6)
@@ -492,13 +492,12 @@ static void zebra_rnh_process_pbr_tables(int family,
 	if (!client)
 		return;
 
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	RB_FOREACH (znst, zebra_ns_table_head, &zns->ns_tables) {
-		if (afi != znst->afi)
+	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
+		if (afi != zrt->afi)
 			continue;
 
-		for (o_rn = route_top(znst->table);
-		     o_rn; o_rn = srcdest_route_next(o_rn)) {
+		for (o_rn = route_top(zrt->table); o_rn;
+		     o_rn = srcdest_route_next(o_rn)) {
 			RNODE_FOREACH_RE (o_rn, o_re) {
 				if (o_re->type == ZEBRA_ROUTE_PBR)
 					break;
