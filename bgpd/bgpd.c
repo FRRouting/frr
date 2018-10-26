@@ -87,6 +87,35 @@
 #include "bgpd/bgp_pbr.h"
 #include "bgpd/bgp_addpath.h"
 
+FRR_CFG_DEFAULT_LONG(BGP_IMPORT_CHECK,
+	{ .val_long = 1, .match_profile = "datacenter", },
+	{ .val_long = 0 },
+)
+FRR_CFG_DEFAULT_LONG(BGP_SHOW_HOSTNAME,
+	{ .val_long = 1, .match_profile = "datacenter", },
+	{ .val_long = 0 },
+)
+FRR_CFG_DEFAULT_LONG(BGP_LOG_NEIGHBOR_CHANGES,
+	{ .val_long = 1, .match_profile = "datacenter", },
+	{ .val_long = 0 },
+)
+FRR_CFG_DEFAULT_LONG(BGP_DETERMINISTIC_MED,
+	{ .val_long = 1, .match_profile = "datacenter", },
+	{ .val_long = 0 },
+)
+FRR_CFG_DEFAULT_LONG(BGP_CONNECT_RETRY,
+	{ .val_long = 10, .match_profile = "datacenter", },
+	{ .val_long = 120 },
+)
+FRR_CFG_DEFAULT_LONG(BGP_HOLDTIME,
+	{ .val_long = 9, .match_profile = "datacenter", },
+	{ .val_long = 180 },
+)
+FRR_CFG_DEFAULT_LONG(BGP_KEEPALIVE,
+	{ .val_long = 3, .match_profile = "datacenter", },
+	{ .val_long = 60 },
+)
+
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master)
 DEFINE_QOBJ_TYPE(bgp)
@@ -377,10 +406,16 @@ int bgp_timers_set(struct bgp *bgp, uint32_t keepalive, uint32_t holdtime)
 
 int bgp_timers_unset(struct bgp *bgp)
 {
-	bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
-	bgp->default_holdtime = BGP_DEFAULT_HOLDTIME;
+	bgp->default_keepalive = DFLT_BGP_KEEPALIVE;
+	bgp->default_holdtime = DFLT_BGP_HOLDTIME;
 
 	return 0;
+}
+
+bool bgp_timers_nondefault(struct bgp *bgp)
+{
+	return (bgp->default_holdtime != SAVE_BGP_HOLDTIME)
+		|| (bgp->default_keepalive != SAVE_BGP_KEEPALIVE);
 }
 
 /* BGP confederation configuration.  */
@@ -1129,7 +1164,7 @@ struct peer *peer_new(struct bgp *bgp)
 	/* Set default value. */
 	peer->fd = -1;
 	peer->v_start = BGP_INIT_START_TIMER;
-	peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
+	peer->v_connect = DFLT_BGP_CONNECT_RETRY;
 	peer->status = Idle;
 	peer->ostatus = Idle;
 	peer->cur_event = peer->last_event = peer->last_major_event = 0;
@@ -2414,7 +2449,7 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 		if (CHECK_FLAG(conf->flags, PEER_FLAG_TIMER_CONNECT))
 			peer->v_connect = conf->connect;
 		else
-			peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
+			peer->v_connect = DFLT_BGP_CONNECT_RETRY;
 	}
 
 	/* advertisement-interval apply */
@@ -2862,24 +2897,20 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
 	bgp->default_subgroup_pkt_queue_max =
 		BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX;
-	bgp->default_holdtime = BGP_DEFAULT_HOLDTIME;
-	bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
+	bgp->default_holdtime = DFLT_BGP_HOLDTIME;
+	bgp->default_keepalive = DFLT_BGP_KEEPALIVE;
 	bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 	bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
 	bgp->dynamic_neighbors_limit = BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;
 	bgp->dynamic_neighbors_count = 0;
-#if DFLT_BGP_IMPORT_CHECK
-	bgp_flag_set(bgp, BGP_FLAG_IMPORT_CHECK);
-#endif
-#if DFLT_BGP_SHOW_HOSTNAME
-	bgp_flag_set(bgp, BGP_FLAG_SHOW_HOSTNAME);
-#endif
-#if DFLT_BGP_LOG_NEIGHBOR_CHANGES
-	bgp_flag_set(bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
-#endif
-#if DFLT_BGP_DETERMINISTIC_MED
-	bgp_flag_set(bgp, BGP_FLAG_DETERMINISTIC_MED);
-#endif
+	if (DFLT_BGP_IMPORT_CHECK)
+		bgp_flag_set(bgp, BGP_FLAG_IMPORT_CHECK);
+	if (DFLT_BGP_SHOW_HOSTNAME)
+		bgp_flag_set(bgp, BGP_FLAG_SHOW_HOSTNAME);
+	if (DFLT_BGP_LOG_NEIGHBOR_CHANGES)
+		bgp_flag_set(bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+	if (DFLT_BGP_DETERMINISTIC_MED)
+		bgp_flag_set(bgp, BGP_FLAG_DETERMINISTIC_MED);
 	bgp_addpath_init_bgp_data(&bgp->tx_addpath);
 
 	bgp->as = *as;
@@ -4905,7 +4936,7 @@ int peer_timers_connect_unset(struct peer *peer)
 	if (peer->connect)
 		peer->v_connect = peer->connect;
 	else
-		peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
+		peer->v_connect = DFLT_BGP_CONNECT_RETRY;
 
 	/* Skip peer-group mechanics for regular peers. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
@@ -4923,7 +4954,7 @@ int peer_timers_connect_unset(struct peer *peer)
 		/* Remove flag and configuration on peer-group member. */
 		UNSET_FLAG(member->flags, PEER_FLAG_TIMER_CONNECT);
 		member->connect = 0;
-		member->v_connect = BGP_DEFAULT_CONNECT_RETRY;
+		member->v_connect = DFLT_BGP_CONNECT_RETRY;
 	}
 
 	return 0;
@@ -6971,6 +7002,13 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	if (peergroup_flag_check(peer, PEER_FLAG_TIMER_CONNECT))
 		vty_out(vty, " neighbor %s timers connect %u\n", addr,
 			peer->connect);
+	/* need special-case handling for changed default values due to
+	 * config profile / version */
+	else if (peer->connect != SAVE_BGP_CONNECT_RETRY &&
+		 (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
+			|| !peer_group_active(peer)))
+		vty_out(vty, " neighbor %s timers connect %u\n", addr,
+			peer->connect);
 
 	/* capability dynamic */
 	if (peergroup_flag_check(peer, PEER_FLAG_DYNAMIC_CAPABILITY))
@@ -7466,7 +7504,7 @@ int bgp_config_write(struct vty *vty)
 
 		/* BGP log-neighbor-changes. */
 		if (!!bgp_flag_check(bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES)
-		    != DFLT_BGP_LOG_NEIGHBOR_CHANGES)
+		    != SAVE_BGP_LOG_NEIGHBOR_CHANGES)
 			vty_out(vty, " %sbgp log-neighbor-changes\n",
 				bgp_flag_check(bgp,
 					       BGP_FLAG_LOG_NEIGHBOR_CHANGES)
@@ -7488,7 +7526,7 @@ int bgp_config_write(struct vty *vty)
 
 		/* BGP default show-hostname */
 		if (!!bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME)
-		    != DFLT_BGP_SHOW_HOSTNAME)
+		    != SAVE_BGP_SHOW_HOSTNAME)
 			vty_out(vty, " %sbgp default show-hostname\n",
 				bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME)
 					? ""
@@ -7533,7 +7571,7 @@ int bgp_config_write(struct vty *vty)
 
 		/* BGP deterministic-med. */
 		if (!!bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)
-		    != DFLT_BGP_DETERMINISTIC_MED)
+		    != SAVE_BGP_DETERMINISTIC_MED)
 			vty_out(vty, " %sbgp deterministic-med\n",
 				bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED)
 					? ""
@@ -7622,7 +7660,7 @@ int bgp_config_write(struct vty *vty)
 
 		/* BGP network import check. */
 		if (!!bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)
-		    != DFLT_BGP_IMPORT_CHECK)
+		    != SAVE_BGP_IMPORT_CHECK)
 			vty_out(vty, " %sbgp network import-check\n",
 				bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK)
 					? ""
@@ -7634,8 +7672,8 @@ int bgp_config_write(struct vty *vty)
 			bgp_config_write_damp(vty);
 
 		/* BGP timers configuration. */
-		if (bgp->default_keepalive != BGP_DEFAULT_KEEPALIVE
-		    && bgp->default_holdtime != BGP_DEFAULT_HOLDTIME)
+		if (bgp->default_keepalive != SAVE_BGP_KEEPALIVE
+		    && bgp->default_holdtime != SAVE_BGP_HOLDTIME)
 			vty_out(vty, " timers bgp %u %u\n",
 				bgp->default_keepalive, bgp->default_holdtime);
 

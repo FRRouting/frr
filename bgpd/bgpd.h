@@ -1366,13 +1366,9 @@ struct bgp_nlri {
 #define BGP_EVENTS_MAX                          15
 
 /* BGP timers default value.  */
-/* note: the DFLT_ ones depend on compile-time "defaults" selection */
 #define BGP_INIT_START_TIMER                     1
-#define BGP_DEFAULT_HOLDTIME                      DFLT_BGP_HOLDTIME
-#define BGP_DEFAULT_KEEPALIVE                     DFLT_BGP_KEEPALIVE
 #define BGP_DEFAULT_EBGP_ROUTEADV                0
 #define BGP_DEFAULT_IBGP_ROUTEADV                0
-#define BGP_DEFAULT_CONNECT_RETRY                 DFLT_BGP_TIMERS_CONNECT
 
 /* BGP default local preference.  */
 #define BGP_DEFAULT_LOCAL_PREF                 100
@@ -1567,6 +1563,7 @@ extern int bgp_confederation_peers_remove(struct bgp *, as_t);
 
 extern int bgp_timers_set(struct bgp *, uint32_t keepalive, uint32_t holdtime);
 extern int bgp_timers_unset(struct bgp *);
+extern bool bgp_timers_nondefault(struct bgp *);
 
 extern int bgp_default_local_preference_set(struct bgp *, uint32_t);
 extern int bgp_default_local_preference_unset(struct bgp *);

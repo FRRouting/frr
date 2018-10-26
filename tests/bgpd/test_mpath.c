@@ -117,8 +117,8 @@ static struct bgp *bgp_create_fake(as_t *as, const char *name)
 
 	bgp_scan_init(bgp);
 	bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
-	bgp->default_holdtime = BGP_DEFAULT_HOLDTIME;
-	bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
+	bgp->default_holdtime = 180;
+	bgp->default_keepalive = 60;
 	bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 	bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
 
