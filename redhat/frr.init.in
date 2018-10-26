@@ -26,16 +26,20 @@
 ### END INIT INFO
 
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
-D_PATH=/usr/lib/frr
-C_PATH=/etc/frr
-V_PATH=/var/run/frr
+D_PATH="@CFG_SBIN@" # /usr/lib/frr
+C_PATH="@CFG_SYSCONF@" # /etc/frr
+V_PATH="@CFG_STATE@" # /var/run/frr
+VTYSH="@vtysh_bin@" # /usr/bin/vtysh
+FRR_USER="@enable_user@" # frr
+FRR_GROUP="@enable_group@" # frr
+FRR_VTY_GROUP="@enable_vty_group@" # frrvty
 
-# Local Daemon selection may be done by using /etc/frr/daemons.
+# Local Daemon selection may be done by using /etc/frr/daemons.conf.
 # See /usr/share/doc/frr/README.Debian.gz for further information.
 # Keep zebra first and do not list watchfrr!
-DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd pimd pbrd ldpd nhrpd eigrpd babeld staticd sharpd bfdd fabricd"
+DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd"
 MAX_INSTANCES=5
-RELOAD_SCRIPT=/usr/lib/frr/frr-reload.py
+RELOAD_SCRIPT="$D_PATH/frr-reload.py"
 
 . /etc/init.d/functions
 
@@ -49,6 +53,12 @@ pidfile()
 vtyfile()
 {
 	echo "$V_PATH/$1.vty"
+}
+
+chownfrr()
+{
+	test -n "$FRR_USER" && chown "$FRR_USER" "$1"
+	test -n "$FRR_GROUP" && chgrp "$FRR_GROUP" "$1"
 }
 
 # Check if daemon is started by using the pidfile.
@@ -68,7 +78,7 @@ vtysh_b ()
 {
 	# Rember, that all variables have been incremented by 1 in convert_daemon_prios()
 	if [ "$vtysh_enable" = 2 -a -f $C_PATH/frr.conf ]; then
-		/usr/bin/vtysh -b -n
+		$VTYSH -b -n
 	fi
 }
 
@@ -78,6 +88,11 @@ vtysh_b ()
 # returns:      0=ok, 1=error
 check_daemon()
 {
+	if [ $1 != "watchfrr" -a $1 != "vtysh_enable" ]; then
+		# check for daemon binary
+		if [ ! -x "$D_PATH/$1" ]; then return 1; fi
+	fi
+
 	# If the integrated config file is used the others are not checked.
 	if [ -r "$C_PATH/frr.conf" ]; then
 		return 0
@@ -86,24 +101,21 @@ check_daemon()
 	# vtysh_enable has no config file nor binary so skip check.
 	# (Not sure why vtysh_enable is in this list but does not hurt)
 	if [ $1 != "watchfrr" -a $1 != "vtysh_enable" ]; then
-		# check for daemon binary
-		if [ ! -x "$D_PATH/$1" ]; then return 1; fi
-
 		# check for config file
 		if [ -n "$2" ]; then
 			if [ ! -r "$C_PATH/$1-$2.conf" ]; then
 				touch "$C_PATH/$1-$2.conf"
-				chown frr:frr "$C_PATH/$1-$2.conf"
+				chownfrr "$C_PATH/$1-$2.conf"
 			fi
 		elif [ ! -r "$C_PATH/$1.conf" ]; then
 			touch "$C_PATH/$1.conf"
-			chown frr:frr "$C_PATH/$1.conf"
+			chownfrr "$C_PATH/$1.conf"
 		fi
 	fi
 	return 0
 }
 
-# Starts the server if it's not already running according to the pid file.
+# Starts the server if it's not alrady running according to the pid file.
 # The Frr daemons creates the pidfile when starting.
 start()
 {
@@ -119,29 +131,25 @@ start()
 			echo -n " $1"
 		fi
 
-		if [ -e /var/run/frr/watchfrr.started ] ; then
-			rm /var/run/frr/watchfrr.started
-		fi
-		daemon --pidfile=`pidfile $1` "$D_PATH/$1" -d "${watchfrr_options[@]}"
+		daemon \
+			--pidfile=`pidfile $1` \
+			"$D_PATH/$1" \
+			-d \
+			"${watchfrr_options[@]}"
+
 		RETVAL=$?
-		[ $RETVAL -ne 0 ] && break
-		for i in `seq 1 10`;
-		do
-			if [ -e /var/run/frr/watchfrr.started ] ; then
-				RETVAL=0
-				break
-			else
-				sleep 1
-			fi
-		done
-		RETVAL=1
 	elif [ -n "$2" ]; then
 		echo -n " $1-$2"
 		if ! check_daemon $1 $2 ; then
 			echo -n " (binary does not exist)"
 			return;
 		fi
-		daemon --pidfile=`pidfile $1-$2` "$D_PATH/$1" -d `eval echo "$""$1""_options"` -n "$2"
+
+		daemon \
+			--pidfile=`pidfile $1-$2` \
+			"$D_PATH/$1" \
+			-d \
+			`eval echo "$""$1""_options"` -n "$2"
 		RETVAL=$?
 	else
 		echo -n " $1 "
@@ -149,11 +157,30 @@ start()
 			echo " (binary does not exist)"
 			return;
 		fi
-		daemon --pidfile=`pidfile $1` "$D_PATH/$1" -d `eval echo "$""$1""_options"`
+		daemon \
+			--pidfile=`pidfile $1` \
+			"$D_PATH/$1" \
+			-d \
+			`eval echo "$""$1""_options"`
 		RETVAL=$?
 	fi
 	echo
 	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/$1
+
+	# Start the staticd automatically
+	if [ "$1" = "zebra" ]; then
+		echo -n "starting staticd since zebra is running"
+		if ! check_daemon staticd ; then
+			echo -n " (binary does not exist)"
+			return;
+		fi
+
+		daemon \
+			--pidfile=`pidfile staticd` \
+			"$D_PATH/staticd" \
+			-d \
+			`eval echo "$"staticd"_options"`
+	fi
 	return $RETVAL
 }
 
@@ -185,7 +212,7 @@ stop()
 	fi
 }
 
-# Converts values from /etc/frr/daemons to all-numeric values.
+# Converts values from /etc/frr/daemons.conf to all-numeric values.
 convert_daemon_prios()
 {
 	for name in $DAEMONS zebra vtysh_enable watchfrr_enable; do
@@ -225,7 +252,7 @@ start_watchfrr()
 	# Check variable type
 	if ! declare -p watchfrr_options | grep -q '^declare \-a'; then
 		echo
-		echo "ERROR: The variable watchfrr_options from /etc/frr/daemons must be a BASH array!"
+		echo "ERROR: The variable watchfrr_options from /etc/frr/debian.cnf must be a BASH array!"
 		echo "ERROR: Please convert config file and restart!"
 		exit 1
 	fi
@@ -449,18 +476,32 @@ check_status()
 	return $failed_status
 }
 
+load_old_config() {
+	oldcfg="$1"
+	[ -r "$oldcfg" ] || return 0
+
+	echo "Reading deprecated $oldcfg.  Please move its settings to $C_PATH/daemons.conf and remove it." >&2
+
+	# save off settings from daemons.conf for the OR below
+	for dmn in $DAEMONS; do eval "_new_$dmn=\${$dmn:-no}"; done
+
+	. "$oldcfg"
+
+	# OR together the daemon enabling options between config files
+	for dmn in $DAEMONS; do eval "test \$_new_$dmn != no && $dmn=\$_new_$dmn; unset _new_$dmn"; done
+}
+
 #########################################################
 #               Main program                            #
 #########################################################
 
 # Config broken but script must exit silently.
-[ ! -r "$C_PATH/daemons" ] && exit 0
+[ ! -r "$C_PATH/daemons.conf" ] && exit 0
+. "$C_PATH/daemons.conf"
 
-# Load configuration
-. "$C_PATH/daemons"
-
-# Read configuration variable file if it is present
-[ -r /etc/sysconfig/frr ] && . /etc/sysconfig/frr
+load_old_config "$C_PATH/daemons"
+load_old_config "/etc/default/frr"
+load_old_config "/etc/sysconfig/frr"
 
 MAX_INSTANCES=${MAX_INSTANCES:=5}
 
@@ -470,7 +511,7 @@ convert_daemon_prios
 if [ ! -d $V_PATH ]; then
 	echo "Creating $V_PATH"
 	mkdir -p $V_PATH
-	chown frr:frr $V_PATH
+	chownfrr $V_PATH
 	chmod 755 /$V_PATH
 fi
 
@@ -485,13 +526,13 @@ case "$1" in
 		# Try to load this necessary (at least for 2.6) module.
 		if [ -d /lib/modules/`uname -r` ] ; then
 			echo "Loading capability module if not yet done."
-			LC_ALL=C modprobe -a capability 2>&1 | egrep -v "(not found|Can't locate)"
+			set +e; LC_ALL=C modprobe -a capability 2>&1 | egrep -v "(not found|Can't locate)"; set -e
 		fi
 
 		# Start all daemons
 		cd $C_PATH/
 		if [ "$2" != "watchfrr" ]; then
-		  start_prio 10 $dmn
+			start_prio 10 $dmn
 		fi
 		start_watchfrr
 		vtysh_b
@@ -513,11 +554,16 @@ case "$1" in
 		fi
 
 		if [ -z "$dmn" -o "$dmn" = "zebra" ]; then
-			echo "Removing all routes made by zebra."
-			ip route flush proto zebra
-			# At least in CentOS/RHEL 6, iproute2 doesn't know
-			# about the new protocol names, so we have to flush them
-			# by number (it also doesn't support rt_protos.d
+			echo "Removing all routes made by FRR."
+			# Specific values for each proto can be found
+			# in /etc/iproute2/rt_protos as well as FRR
+			# specific ones in /etc/iproute2/rt_protos.d
+			# Additionally if a new protocol is added
+			# we need to add it here as well as
+			# in rt_netlink.h( follow the directions! )
+			ip route flush proto 4
+			ip route flush proto 11
+			ip route flush proto 42
 			ip route flush proto 186
 			ip route flush proto 187
 			ip route flush proto 188
@@ -527,6 +573,9 @@ case "$1" in
 			ip route flush proto 192
 			ip route flush proto 193
 			ip route flush proto 194
+			ip route flush proto 195
+			ip route flush proto 196
+			ip route flush proto 197
 		else
 			[ -n "$dmn" ] && eval "${dmn/-/_}=0"
 			start_watchfrr
@@ -536,16 +585,17 @@ case "$1" in
 	reload)
 		# Just apply the commands that have changed, no restart necessary
 		if [ ! -x "$RELOAD_SCRIPT" ]; then
-			echo "frr-reload - reload not supported. Use restart or install frr-pythontools package"
-			exit 1
+			echo "Please install frr-pythontools package. Required for reload"
+			exit 0
 		fi
+
 		NEW_CONFIG_FILE="${2:-$C_PATH/frr.conf}"
 		if [ ! -r $NEW_CONFIG_FILE ]; then
 			echo "Unable to read configuration file $NEW_CONFIG_FILE. Only supporting integrated config"
 			exit 1
 		fi
 		echo "Applying only incremental changes to running configuration from frr.conf"
-		"$RELOAD_SCRIPT" --reload /etc/frr/frr.conf
+		"$RELOAD_SCRIPT" --reload $C_PATH/frr.conf
 		exit $?
 		;;
 

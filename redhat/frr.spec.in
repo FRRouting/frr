@@ -384,10 +384,11 @@ install %{zeb_rh_src}/frr.init %{buildroot}%{_sbindir}/frr
 ln -s %{_sbindir}/frr %{buildroot}%{_initddir}/frr
 %endif
 
-install %{zeb_rh_src}/daemons %{buildroot}%{_sysconfdir}/frr
+install %{zeb_src}/tools/etc/frr/daemons      %{buildroot}%{_sysconfdir}/frr
+install %{zeb_src}/tools/etc/frr/daemons.conf %{buildroot}%{_sysconfdir}/frr
 # add rpki module to daemon
 %if %{with_rpki}
-    sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{buildroot}%{_sysconfdir}/frr/daemons
+    sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{buildroot}%{_sysconfdir}/frr/daemons.conf
 %endif
 install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
 install -m644 %{zeb_rh_src}/frr.logrotate %{buildroot}%{_sysconfdir}/logrotate.d/frr
@@ -474,12 +475,12 @@ zebra_spec_add_service fabricd	2618/tcp "Fabricd vty"
 
 # Fix bad path in previous config files
 #  Config files won't get replaced by default, so we do this ugly hack to fix it
-%__sed -i 's|/etc/init.d/|%{_sbindir}/|g' %{configdir}/daemons 2> /dev/null || true
+%__sed -i 's|/etc/init.d/|%{_sbindir}/|g' %{configdir}/daemons.conf 2> /dev/null || true
 
 # With systemd, watchfrr is mandatory. Fix config to make sure it's enabled if
 # we install or upgrade to a frr built with systemd
 %if "%{initsystem}" == "systemd"
-    %__sed -i 's|watchfrr_enable=no|watchfrr_enable=yes|g' %{configdir}/daemons 2> /dev/null || true
+    %__sed -i 's|watchfrr_enable=no|watchfrr_enable=yes|g' %{configdir}/daemons.conf 2> /dev/null || true
 %endif
 
 /sbin/install-info %{_infodir}/frr.info.gz %{_infodir}/dir
@@ -504,6 +505,7 @@ for daemon in %{all_daemons} ; do
 done
 %if 0%{?frr_user:1}
     chown %{frr_user}:%{frr_user} %{configdir}/daemons
+    chown %{frr_user}:%{frr_user} %{configdir}/daemons.conf
 %endif
 
 %if %{with_watchfrr}
@@ -628,6 +630,7 @@ fi
 %{_bindir}/*
 %config(noreplace) %{configdir}/[!v]*.conf*
 %config(noreplace) %attr(750,%{frr_user},%{frr_user}) %{configdir}/daemons
+%config(noreplace) %attr(750,%{frr_user},%{frr_user}) %{configdir}/daemons.conf
 %if "%{initsystem}" == "systemd"
     %{_unitdir}/frr.service
 %else

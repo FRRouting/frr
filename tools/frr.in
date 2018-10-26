@@ -6,12 +6,11 @@
 # Required-Stop: $local_fs $network $remote_fs $syslog
 # Default-Start:  2 3 4 5
 # Default-Stop: 0 1 6
-# Short-Description: start and stop the Frr routing suite
-# Description: Frr is a routing suite for IP routing protocols like
-#              BGP, OSPF, RIP and others. This script contols the main
+# Short-Description: Start/Stop the FRR Routing daemons
+# Description: FRRouting (FRR) is a routing suite for IP routing protocols
+#              like BGP, OSPF, RIP and others. This script contols the main
 #              daemon "frr" as well as the individual protocol daemons.
 ### END INIT INFO
-#
 
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
 D_PATH="@CFG_SBIN@" # /usr/lib/frr
@@ -115,7 +114,7 @@ check_daemon()
 # The Frr daemons creates the pidfile when starting.
 start()
 {
-	ulimit -n $MAX_FDS
+	ulimit -n $MAX_FDS > /dev/null 2> /dev/null
 	if [ "$1" = "watchfrr" ]; then
 
 		# We may need to restart watchfrr if new daemons are added and/or
@@ -310,7 +309,7 @@ start_watchfrr()
 # Stopps watchfrr.
 stop_watchfrr()
 {
-	echo -n "Stopping Frr monitor daemon:"
+	echo -n "Stopping FRRouting monitor daemon:"
 	stop watchfrr
 	echo "."
 }
@@ -335,7 +334,7 @@ stop_prio()
 	wanted_prio=$1
 	daemon_list=${daemon:-$DAEMONS}
 
-	echo -n "Stopping Frr daemons (prio:$wanted_prio):"
+	echo -n "Stopping FRRouting daemons (prio:$wanted_prio):"
 
 	for prio_i in `seq 10 -1 $wanted_prio`; do
 		for daemon_name in $daemon_list; do
@@ -361,7 +360,7 @@ stop_prio()
 	echo "."
 	if [ -z "$inst" ]; then
 		# Now stop other daemons that're prowling, coz the daemons file changed
-		echo -n "Stopping other frr daemons"
+		echo -n "Stopping other FRRouting daemons"
 		if [ -n "$daemon" ]; then
 			eval "file_list_suffix="$V_PATH"/"$daemon*""
 		else
@@ -518,6 +517,7 @@ load_old_config() {
 
 load_old_config "$C_PATH/daemons"
 load_old_config "/etc/default/frr"
+load_old_config "/etc/sysconfig/frr"
 
 MAX_INSTANCES=${MAX_INSTANCES:=5}
 
@@ -606,7 +606,10 @@ case "$1" in
 		fi
 
 		NEW_CONFIG_FILE="${2:-$C_PATH/frr.conf}"
-		[ ! -r $NEW_CONFIG_FILE ] && echo "Unable to read new configuration file $NEW_CONFIG_FILE" && exit 1
+		if [ ! -r $NEW_CONFIG_FILE ]; then
+			echo "Unable to read configuration file $NEW_CONFIG_FILE. Only supporting integrated config"
+			exit 1
+		fi
 		echo "Applying only incremental changes to running configuration from frr.conf"
 		"$RELOAD_SCRIPT" --reload $C_PATH/frr.conf
 		exit $?
@@ -633,5 +636,4 @@ case "$1" in
 		;;
 esac
 
-echo "Exiting from the script"
 exit 0

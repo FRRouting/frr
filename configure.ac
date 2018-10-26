@@ -2174,6 +2174,7 @@ AC_CONFIG_FILES([
 
 AC_CONFIG_FILES([vtysh/extract.pl], [chmod +x vtysh/extract.pl])
 AC_CONFIG_FILES([tools/frr], [chmod +x tools/frr])
+AC_CONFIG_FILES([redhat/frr.init], [chmod +x redhat/frr.init])
 
 AC_CONFIG_COMMANDS([lib/route_types.h], [
 	dst="${ac_abs_top_builddir}/lib/route_types.h"
