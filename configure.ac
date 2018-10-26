@@ -560,6 +560,7 @@ fi
 
 if test "${enable_datacenter}" = "yes" ; then
   AC_DEFINE(HAVE_DATACENTER,,Compile extensions for a DataCenter)
+  AC_MSG_WARN([The --enable-datacenter compile time option is deprecated.  Please modify the init script to pass -F datacenter to the daemons instead.])
   DFLT_NAME="datacenter"
 else
   DFLT_NAME="traditional"
