@@ -5,7 +5,7 @@
 set -e
 
 # modify config file to enable all daemons and copy config files
-CONFIG_FILE=/etc/frr/daemons
+CONFIG_FILE=/etc/frr/daemons.conf
 DAEMONS=("zebra" "bgpd" "ospfd" "ospf6d" "ripd" "ripngd" "isisd" "pimd" "fabricd")
 
 for daemon in "${DAEMONS[@]}"

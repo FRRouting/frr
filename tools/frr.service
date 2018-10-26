@@ -5,7 +5,6 @@ OnFailure=heartbeat-failed@%n.service
 
 [Service]
 Nice=-5
-EnvironmentFile=/etc/default/frr
 Type=forking
 NotifyAccess=all
 StartLimitInterval=3m

@@ -52,7 +52,7 @@ Just distributing it in binary form, linked against OpenSSL, is forbidden.
 * Daemon selection:
 ===================
 
-The Debian package uses /etc/frr/daemons to tell the
+The Debian package uses /etc/frr/daemons.conf to tell the
 initscript which daemons to start. It's in the format
 <daemon>=<yes|no|priority>
 with no spaces (it's simply source-d into the initscript).

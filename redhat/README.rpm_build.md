@@ -84,7 +84,7 @@ Enabling daemons after installation of the package:
 
 ### init.d based systems (ie CentOS 6):
 
-1. Edit /etc/frr/daemons and enable required routing daemons (Zebra is probably needed for most deployments, so make sure to enable it.)
+1. Edit /etc/frr/daemons.conf and enable required routing daemons (Zebra is probably needed for most deployments, so make sure to enable it.)
 
 2. Enable the daemons as needed to run after boot (Zebra is mandatory)
     
@@ -97,12 +97,12 @@ allowed.
 
         service frr start
             
-Configuration is stored in `/etc/frr/*.conf` files and daemon selection is stored in `/etc/frr/daemons`.
+Configuration is stored in `/etc/frr/*.conf` files and daemon selection is stored in `/etc/frr/daemons.conf`.
 
 
 ### systemd based systems (ie CentOS 7, Fedora 24)
 
-1. Edit /etc/frr/daemons and enable required routing daemons (Zebra is probably needed for most deployments, so make sure to enable it.)
+1. Edit /etc/frr/daemons.conf and enable required routing daemons (Zebra is probably needed for most deployments, so make sure to enable it.)
  
 2. Enable the frr daemons to run after boot.
     
@@ -115,5 +115,5 @@ allowed.
 
         systemctl start frr
             
-Configuration is stored in `/etc/frr/*.conf` files and daemon selection is stored in `/etc/frr/daemons`.
+Configuration is stored in `/etc/frr/*.conf` files and daemon selection is stored in `/etc/frr/daemons.conf`.
 

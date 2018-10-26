@@ -96,11 +96,11 @@ Install daemon config file
 
 ::
 
-    sudo install -p -m 644 redhat/daemons /etc/frr/
-    sudo chown frr:frr /etc/frr/daemons
+    sudo install -p -m 644 redhat/daemons.conf /etc/frr/
+    sudo chown frr:frr /etc/frr/daemons.conf
 
-Edit /etc/frr/daemons as needed to select the required daemons
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Edit /etc/frr/daemons.conf as needed to select the required daemons
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Look for the section with ``watchfrr_enable=...`` and ``zebra=...`` etc.
 Enable the daemons as required by changing the value to ``yes``

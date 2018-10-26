@@ -42,7 +42,7 @@ Multi-instance Support
 
 OSPF supports multiple instances. Each instance is identified by a positive
 nonzero integer that must be provided when adding configuration items specific
-to that instance. Enabling instances is done with :file:`/etc/frr/daemons` in
+to that instance. Enabling instances is done with :file:`/etc/frr/daemons.conf` in
 the following manner:
 
 ::

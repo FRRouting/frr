@@ -22,7 +22,7 @@ FRR_USER="@enable_user@" # frr
 FRR_GROUP="@enable_group@" # frr
 FRR_VTY_GROUP="@enable_vty_group@" # frrvty
 
-# Local Daemon selection may be done by using /etc/frr/daemons.
+# Local Daemon selection may be done by using /etc/frr/daemons.conf.
 # See /usr/share/doc/frr/README.Debian.gz for further information.
 # Keep zebra first and do not list watchfrr!
 DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd"
@@ -231,7 +231,7 @@ stop()
 	fi
 }
 
-# Converts values from /etc/frr/daemons to all-numeric values.
+# Converts values from /etc/frr/daemons.conf to all-numeric values.
 convert_daemon_prios()
 {
 	for name in $DAEMONS zebra vtysh_enable watchfrr_enable; do
@@ -493,19 +493,31 @@ check_status()
 	return $failed_status
 }
 
+load_old_config() {
+	oldcfg="$1"
+	[ -r "$oldcfg" ] || return 0
+
+	echo "Reading deprecated $oldcfg.  Please move its settings to $C_PATH/daemons.conf and remove it." >&2
+
+	# save off settings from daemons.conf for the OR below
+	for dmn in $DAEMONS; do eval "_new_$dmn=\${$dmn:-no}"; done
+
+	. "$oldcfg"
+
+	# OR together the daemon enabling options between config files
+	for dmn in $DAEMONS; do eval "test \$_new_$dmn != no && $dmn=\$_new_$dmn; unset _new_$dmn"; done
+}
+
 #########################################################
 #               Main program                            #
 #########################################################
 
 # Config broken but script must exit silently.
-[ ! -r "$C_PATH/daemons" ] && exit 0
-
-# Load configuration
-. "$C_PATH/daemons"
+[ ! -r "$C_PATH/daemons.conf" ] && exit 0
 . "$C_PATH/daemons.conf"
 
-# Read configuration variable file if it is present
-[ -r /etc/default/frr ] && . /etc/default/frr
+load_old_config "$C_PATH/daemons"
+load_old_config "/etc/default/frr"
 
 MAX_INSTANCES=${MAX_INSTANCES:=5}
 
