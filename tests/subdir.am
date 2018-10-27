@@ -84,6 +84,7 @@ tests/lib/cli/test_commands_defun.c: vtysh/vtysh_cmd.c
 		-e 's/VTYSH_[A-Z][A-Z_0-9]*/0/g' \
 		< vtysh/vtysh_cmd.c \
 		> "$@"
+CLEANFILES += tests/lib/cli/test_commands_defun.c
 
 tests/isisd/test_fuzz_isis_tlv_tests.h: $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz
 	gzip -d < $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz > "$@"
@@ -166,7 +167,8 @@ tests_lib_cli_test_cli_SOURCES = tests/lib/cli/test_cli.c tests/lib/cli/common_c
 tests_lib_cli_test_commands_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_cli_test_commands_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_cli_test_commands_LDADD = $(ALL_TESTS_LDADD)
-tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands_defun.c tests/lib/cli/test_commands.c tests/helpers/c/prng.c
+nodist_tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands_defun.c
+tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands.c tests/helpers/c/prng.c
 tests_lib_test_buffer_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_buffer_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_buffer_LDADD = $(ALL_TESTS_LDADD)
@@ -293,3 +295,8 @@ EXTRA_DIST += \
 tests/tests.xml: $(check_PROGRAMS)
 	( cd tests; $(PYTHON) ../$(srcdir)/tests/runtests.py --junitxml=tests.xml -v ../$(srcdir)/tests; )
 check: tests/tests.xml
+
+clean-local: clean-tests
+.PHONY: clean-tests
+clean-tests:
+	-rm -f tests/tests.xml

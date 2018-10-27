@@ -352,9 +352,19 @@ test -f conftest.a && rm conftest.a
 dnl ----------------------
 dnl Packages configuration
 dnl ----------------------
+if test -f config.version; then
+  . ./config.version
+elif test -f "${srcdir}/config.version"; then
+  . "${srcdir}/config.version"
+fi
 AC_ARG_WITH(pkg-extra-version,
-	AS_HELP_STRING([--with-pkg-extra-version=VER], [add extra version field, for packagers/distributions]),
-	[EXTRAVERSION=$withval],)
+  AS_HELP_STRING([--with-pkg-extra-version=VER], [add extra version field, for packagers/distributions]), [
+  if test "$withval" = "no"; then
+    EXTRAVERSION=
+  else
+    EXTRAVERSION=$withval
+  fi
+], [])
 AC_ARG_WITH(pkg-git-version,
 	AS_HELP_STRING([--with-pkg-git-version], [add git information to MOTD and build version string]),
 	[ test "x$withval" != "xno" && with_pkg_git_version="yes" ])
@@ -768,6 +778,7 @@ if test "x${EXTRAVERSION}" != "x" ; then
   AC_SUBST(PACKAGE_EXTRAVERSION, ["${EXTRAVERSION}"])
   PACKAGE_STRING="${PACKAGE_STRING}${EXTRAVERSION}"
 fi
+AC_SUBST(EXTRAVERSION)
 
 if test "x$with_pkg_git_version" = "xyes"; then
 	if test -d "${srcdir}/.git"; then
@@ -2059,6 +2070,7 @@ AC_MSG_RESULT($ac_cv_htonl_works)
 AC_CONFIG_FILES([Makefile],[sed -e 's/^#AUTODERP# //' -i Makefile])
 
 AC_CONFIG_FILES([
+	  config.version
 	  redhat/frr.spec
 	  solaris/Makefile
 	  debianpkg/changelog
