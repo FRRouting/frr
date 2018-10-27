@@ -1380,7 +1380,7 @@ DEFUN (no_debug_bgp_update_direct_peer,
 
 DEFPY (debug_bgp_update_prefix_afi_safi,
        debug_bgp_update_prefix_afi_safi_cmd,
-       "debug bgp updates prefix l2vpn$afi evpn$safi type <macip mac <M:A:C|M:A:C/M> [ip <A.B.C.D|X:X::X:X>]|multicast ip <A.B.C.D|X:X::X:X>|prefix ip <A.B.C.D/M|X:X::X:X/M>>",
+       "debug bgp updates prefix l2vpn$afi evpn$safi type <macip mac <X:X:X:X:X:X|X:X:X:X:X:X/M> [ip <A.B.C.D|X:X::X:X>]|multicast ip <A.B.C.D|X:X::X:X>|prefix ip <A.B.C.D/M|X:X::X:X/M>>",
        DEBUG_STR
        BGP_STR
        "BGP updates\n"
@@ -1443,7 +1443,7 @@ DEFPY (debug_bgp_update_prefix_afi_safi,
 
 DEFPY (no_debug_bgp_update_prefix_afi_safi,
        no_debug_bgp_update_prefix_afi_safi_cmd,
-       "no debug bgp updates prefix l2vpn$afi evpn$safi type <macip mac <M:A:C|M:A:C/M> [ip <A.B.C.D|X:X::X:X>]|multicast ip <A.B.C.D|X:X::X:X>|prefix ip <A.B.C.D/M|X:X::X:X/M>>",
+       "no debug bgp updates prefix l2vpn$afi evpn$safi type <macip mac <X:X:X:X:X:X|X:X:X:X:X:X/M> [ip <A.B.C.D|X:X::X:X>]|multicast ip <A.B.C.D|X:X::X:X>|prefix ip <A.B.C.D/M|X:X::X:X/M>>",
        NO_STR
        DEBUG_STR
        BGP_STR

@@ -1302,7 +1302,7 @@ static int filter_set_zebra(struct vty *vty, const char *name_str,
 
 DEFUN (mac_access_list,
        mac_access_list_cmd,
-       "mac access-list WORD <deny|permit> MAC",
+       "mac access-list WORD <deny|permit> X:X:X:X:X:X",
        "Add a mac access-list\n"
        "Add an access list entry\n"
        "MAC zebra access-list name\n"
@@ -1316,7 +1316,7 @@ DEFUN (mac_access_list,
 
 DEFUN (no_mac_access_list,
        no_mac_access_list_cmd,
-       "no mac access-list WORD <deny|permit> MAC",
+       "no mac access-list WORD <deny|permit> X:X:X:X:X:X",
        NO_STR
        "Remove a mac access-list\n"
        "Remove an access list entry\n"
