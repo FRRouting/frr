@@ -47,13 +47,20 @@ Recommends: frr-pythontools
 Suggests: frr-doc
 Conflicts: zebra, zebra-pj, quagga
 Replaces: zebra, zebra-pj
-Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon forked from Quagga
- FRR is free software which manages TCP/IP based routing protocols.
- It supports BGP4, BGP4+, OSPFv2, OSPFv3, IS-IS, RIPv1, RIPv2, RIPng,
- PIM and LDP as well as the IPv6 versions of these.
+Description: FRRouting suite of internet protocols (BGP, OSPF, IS-IS, ...)
+ FRRouting implements the routing protocols commonly used in the
+ internet and private networks to exchange information between routers.
+ Both IP and IPv6 are supported, as are BGP, OSPF, IS-IS, BABEL, EIGRP,
+ RIP, LDP, BFD, PIM and NHRP protocols.
  .
- FRR is a fork of Quagga with an open community model. The main git
- lives on https://github.com/frrouting/frr.git
+ These protocols are used to turn your system into a dynamic router,
+ exchanging information about available connections with other routers
+ in a standards-compliant way.  The actual packet forwarding
+ functionality is provided by the OS kernel.
+ .
+ FRRouting is a fork of Quagga with an open community model. The main
+ git lives on https://github.com/frrouting/frr.git and the project name
+ is commonly abbreviated as "FRR."
 
 Package: frr-snmp
 Architecture: any
@@ -62,9 +69,10 @@ Depends:
  ${shlibs:Depends},
  frr (= ${binary:Version})
 Recommends: snmpd
-Description: FRRouting SNMP support
+Description: FRRouting suite - SNMP support
  Adds SNMP support to FRR's daemons by attaching to net-snmp's snmpd
- through the AgentX protocol.
+ through the AgentX protocol.  Provides read-only access to current
+ routing state through standard SNMP MIBs.
 Build-Profiles: <pkg.frr.snmp>
 
 Package: frr-rpki-rtrlib
@@ -73,9 +81,12 @@ Depends:
  ${misc:Depends},
  ${shlibs:Depends},
  frr (= ${binary:Version})
-Description: FRRouting RTRlib RPKI support
- Adds RPKI support to FRR's bgpd, allowing validation of BGP routes against
- cryptographic information stored in WHOIS databases.
+Description: FRRouting suite - BGP RPKI support (rtrlib)
+ Adds RPKI support to FRR's bgpd, allowing validation of BGP routes
+ against cryptographic information stored in WHOIS databases.  This is
+ used to prevent hijacking of networks on the wider internet.  It is only
+ relevant to internet service providers using their own autonomous system
+ number.
 Build-Profiles: <pkg.frr.rtrlib>
 
 Package: frr-dbg
@@ -84,11 +95,13 @@ Depends:
  ${misc:Depends},
  frr (= ${binary:Version})
 Section: debug
-Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (debug symbols)
+Description: FRRouting suite - debug symbols
  This package provides debugging symbols for all binary packages built
- from frr source package. It's highly recommended to have this package
- installed before reporting any FRR crashes to either FRR developers or
- Debian package maintainers.
+ from frr source package. FRR itself uses these symbols when printing
+ backtraces for crashes or other issues.
+ .
+ It is highly recommended to have this package installed before reporting
+ any FRR crashes to either FRR developers or Debian package maintainers.
 
 Package: frr-doc
 Section: doc
@@ -98,10 +111,10 @@ Depends:
  libjs-jquery,
  libjs-underscore
 Suggests: frr
-Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (documentation)
- This package includes info files for frr, a free software which manages
- TCP/IP based routing protocols.  It supports BGP4, BGP4+, OSPFv2, OSPFv3,
- IS-IS, RIPv1, RIPv2, RIPng, PIM and LDP as well as the IPv6 versions of these.
+Description: FRRouting suite - user manual
+ This provides the FRR user manual in HTML form.  This is the official
+ manual maintained as part of the package and is also available online
+ at https://frrouting.readthedocs.io/
 
 Package: frr-pythontools
 Architecture: all
@@ -110,7 +123,10 @@ Depends:
  frr (<< ${source:Upstream-Version}.0-~),
  frr (>= ${source:Version}~),
  python3:any
-Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (Python Tools)
- This package includes info files for frr, a free software which manages
- TCP/IP based routing protocols.  It supports BGP4, BGP4+, OSPFv2, OSPFv3,
- IS-IS, RIPv1, RIPv2, RIPng, PIM and LDP as well as the IPv6 versions of these.
+Description: FRRouting suite - Python tools
+ The FRRouting suite uses a small Python tool to provide configuration
+ reload functionality, particularly useful when the interactive configuration
+ shell is not used.
+ .
+ Without this package installed, "reload" (as a systemd or init script
+ invocation) will not work for the FRR daemons.
