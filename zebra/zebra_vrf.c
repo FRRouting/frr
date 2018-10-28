@@ -380,6 +380,7 @@ static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 	table->cleanup = zebra_rtable_node_cleanup;
 	zvrf->table[afi][safi] = table;
 
+	XFREE(MTYPE_RIB_TABLE_INFO, table->info);
 	info = XCALLOC(MTYPE_RIB_TABLE_INFO, sizeof(*info));
 	info->zvrf = zvrf;
 	info->afi = afi;
