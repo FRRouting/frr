@@ -18,7 +18,7 @@ EXTRA_DIST += \
 	debianpkg/watch \
 	\
 	debianpkg/frr-dbg.lintian-overrides \
-	debianpkg/frr-doc.docs \
+	debianpkg/frr-doc.doc-base \
 	debianpkg/frr-doc.info \
 	debianpkg/frr-doc.install \
 	debianpkg/frr-pythontools.install \
