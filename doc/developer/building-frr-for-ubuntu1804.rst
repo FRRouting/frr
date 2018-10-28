@@ -115,7 +115,7 @@ Create empty FRR configuration files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Although not strictly necessary, it's good practice to create empty
-configuration files _before_ starting FRR. This assures that the permissions 
+configuration files _before_ starting FRR. This assures that the permissions
 are correct. If the files are not already present, FRR will create them.
 
 It's also important to consider _which_ files to create. FRR supports writing

@@ -385,7 +385,7 @@ Additional kernel modules are also needed to support MPLS forwarding.
    appropriate value.
 
 :makevar:`VRF forwarding`
-   General information on Linux VRF support can be found in 
+   General information on Linux VRF support can be found in
    https://www.kernel.org/doc/Documentation/networking/vrf.txt. Kernel
    support for VRFs was introduced in 4.3 and improved upon through
    4.13, which is the version most used in FRR testing (as of June
@@ -421,7 +421,7 @@ Additional kernel modules are also needed to support MPLS forwarding.
    included in future kernel versions so upgrading your kernel may also
    address this issue.
 
-   
+
 Building
 ^^^^^^^^
 

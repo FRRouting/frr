@@ -269,7 +269,7 @@ RNH table::
     O   O
        / \
       O   O
-   
+
    struct rnh
    {
      uint8_t flags;
