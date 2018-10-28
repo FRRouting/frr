@@ -244,7 +244,7 @@ Load the modifed sysctl's on the system:
 Add init.d startup files
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code-block::
+.. code-block:: shell
 
    sudo install -p -m 755 redhat/frr.init /etc/init.d/frr
    sudo chkconfig --add frr
@@ -252,13 +252,13 @@ Add init.d startup files
 Enable FRR daemon at startup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code-block::
+.. code-block:: shell
 
    sudo chkconfig frr on
 
 Start FRR manually (or reboot)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. code-block::
+.. code-block:: shell
 
    sudo /etc/init.d/frr start
