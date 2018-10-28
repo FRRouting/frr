@@ -2767,7 +2767,7 @@ DEFUN (no_ip_address_label,
 
 static int ipv6_address_install(struct vty *vty, struct interface *ifp,
 				const char *addr_str, const char *peer_str,
-				const char *label, int secondary)
+				const char *label)
 {
 	struct zebra_if *if_data;
 	struct prefix_ipv6 cp;
@@ -2797,10 +2797,6 @@ static int ipv6_address_install(struct vty *vty, struct interface *ifp,
 		p = prefix_ipv6_new();
 		*p = cp;
 		ifc->address = (struct prefix *)p;
-
-		/* Secondary. */
-		if (secondary)
-			SET_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY);
 
 		/* Label. */
 		if (label)
@@ -2857,7 +2853,7 @@ int ipv6_address_configured(struct interface *ifp)
 
 static int ipv6_address_uninstall(struct vty *vty, struct interface *ifp,
 				  const char *addr_str, const char *peer_str,
-				  const char *label, int secondry)
+				  const char *label)
 {
 	struct prefix_ipv6 cp;
 	struct connected *ifc;
@@ -2915,7 +2911,7 @@ DEFUN (ipv6_address,
 	int idx_ipv6_prefixlen = 2;
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	return ipv6_address_install(vty, ifp, argv[idx_ipv6_prefixlen]->arg,
-				    NULL, NULL, 0);
+				    NULL, NULL);
 }
 
 DEFUN (no_ipv6_address,
@@ -2929,7 +2925,7 @@ DEFUN (no_ipv6_address,
 	int idx_ipv6_prefixlen = 3;
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	return ipv6_address_uninstall(vty, ifp, argv[idx_ipv6_prefixlen]->arg,
-				      NULL, NULL, 0);
+				      NULL, NULL);
 }
 
 static int link_params_config_write(struct vty *vty, struct interface *ifp)
