@@ -133,6 +133,9 @@ override_dh_auto_configure:
 		--sbindir=/usr/lib/frr \
 		--sysconfdir=/etc/frr \
 		--with-vtysh-pager=/usr/bin/pager \
+		--libdir=/usr/lib/$(DEB_HOST_MULTIARCH)/frr \
+		--with-moduledir=/usr/lib/$(DEB_HOST_MULTIARCH)/frr/modules \
+		LIBTOOLFLAGS="-rpath /usr/lib/$(DEB_HOST_MULTIARCH)/frr" \
 		$(USE_DOC) \
 		$(USE_SNMP) \
 		$(USE_OSPFAPI) \
@@ -180,6 +183,10 @@ endif
 
 override_dh_auto_build:
 	dh_auto_build -- $(MAKE_SILENT)
+
+override_dh_makeshlibs:
+# we don't need or want ldconfig for private libs
+	dh_makeshlibs -n
 
 override_dh_missing:
 	dh_missing --fail-missing
