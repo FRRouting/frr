@@ -383,7 +383,7 @@ alternate name for default VRF. Then, the default VRF naming will automatically
 be updated with the new name. To illustrate, if you want to recompile with
 `global` value, use the following command:
 
-.. code-block:: linux
+.. code-block:: shell
 
    ./configure --with-defaultvrfname=global
 
