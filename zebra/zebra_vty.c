@@ -2568,6 +2568,76 @@ DEFUN (no_ipv6_forwarding,
 	return CMD_SUCCESS;
 }
 
+/* Display dataplane info */
+DEFUN (show_dataplane,
+       show_dataplane_cmd,
+       "show zebra dplane [detailed]",
+       SHOW_STR
+       ZEBRA_STR
+       "Zebra dataplane information\n"
+       "Detailed output\n")
+{
+	int idx = 0;
+	bool detailed = false;
+
+	if (argv_find(argv, argc, "detailed", &idx))
+		detailed = true;
+
+	return dplane_show_helper(vty, detailed);
+}
+
+/* Display dataplane providers info */
+DEFUN (show_dataplane_providers,
+       show_dataplane_providers_cmd,
+       "show zebra dplane providers [detailed]",
+       SHOW_STR
+       ZEBRA_STR
+       "Zebra dataplane information\n"
+       "Zebra dataplane provider information\n"
+       "Detailed output\n")
+{
+	int idx = 0;
+	bool detailed = false;
+
+	if (argv_find(argv, argc, "detailed", &idx))
+		detailed = true;
+
+	return dplane_show_provs_helper(vty, detailed);
+}
+
+/* Configure dataplane incoming queue limit */
+DEFUN (zebra_dplane_queue_limit,
+       zebra_dplane_queue_limit_cmd,
+       "zebra dplane limit (0-10000)",
+       ZEBRA_STR
+       "Zebra dataplane\n"
+       "Limit incoming queued updates\n"
+       "Number of queued updates\n")
+{
+	uint32_t limit = 0;
+
+	limit = strtoul(argv[3]->arg, NULL, 10);
+
+	dplane_set_in_queue_limit(limit, true);
+
+	return CMD_SUCCESS;
+}
+
+/* Reset dataplane queue limit to default value */
+DEFUN (no_zebra_dplane_queue_limit,
+       no_zebra_dplane_queue_limit_cmd,
+       "no zebra dplane limit [(0-10000)]",
+       NO_STR
+       ZEBRA_STR
+       "Zebra dataplane\n"
+       "Limit incoming queued updates\n"
+       "Number of queued updates\n")
+{
+	dplane_set_in_queue_limit(0, false);
+
+	return CMD_SUCCESS;
+}
+
 /* Table configuration write function. */
 static int config_write_table(struct vty *vty)
 {
@@ -2698,5 +2768,8 @@ void zebra_vty_init(void)
 	install_element(VRF_NODE, &vrf_vni_mapping_cmd);
 	install_element(VRF_NODE, &no_vrf_vni_mapping_cmd);
 
-
+	install_element(VIEW_NODE, &show_dataplane_cmd);
+	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
+	install_element(CONFIG_NODE, &zebra_dplane_queue_limit_cmd);
+	install_element(CONFIG_NODE, &no_zebra_dplane_queue_limit_cmd);
 }

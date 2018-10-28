@@ -353,8 +353,11 @@ void zebra_ns_notify_close(void)
 
 	if (zebra_netns_notify_current->u.fd > 0)
 		fd = zebra_netns_notify_current->u.fd;
-	thread_cancel(zebra_netns_notify_current);
-	/* auto-removal of inotify items */
+
+	if (zebra_netns_notify_current->master != NULL)
+		thread_cancel(zebra_netns_notify_current);
+
+	/* auto-removal of notify items */
 	if (fd > 0)
 		close(fd);
 }
