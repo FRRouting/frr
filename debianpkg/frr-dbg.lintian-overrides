@@ -1,2 +1,5 @@
 # extra priority is deprecated
 frr-dbg binary: debug-package-should-be-priority-extra
+
+# personal name
+spelling-error-in-copyright Ang And

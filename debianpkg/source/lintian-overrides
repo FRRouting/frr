@@ -1,12 +1,5 @@
 # these are for build-compatibility on older distros (e.g. Ubuntu 14.04)
 frr source: alternatively-build-depends-on-python-sphinx-and-python3-sphinx
 
-# still need the OR for Ubuntu 14.04
+# Debian Jessie and Ubuntu 16.04 need dh-systemd
 frr source: ored-build-depends-on-obsolete-package
-
-# old lintian on Ubuntu 14.04
-frr source: invalid-restriction-formula-in-build-profiles-field *
-frr source: invalid-profile-name-in-source-relation *
-frr source: restriction-formula-without-versioned-dpkg-dev-dependency
-frr source: restriction-formula-with-debhelper-without-debhelper-version
-frr source: package-needs-versioned-debhelper-build-depends 9
