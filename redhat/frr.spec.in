@@ -645,9 +645,6 @@ fi
 
 %files devel
 %{_libdir}/lib*.so
-%if %{with_ospfclient}
-    %{_sbindir}/ospfclient
-%endif
 %dir %{_includedir}/%{name}
 %{_includedir}/%{name}/*.h
 %dir %{_includedir}/%{name}/ospfd
