@@ -144,7 +144,7 @@
 Summary: Routing daemon
 Name:           frr
 Version:        %{rpmversion}
-Release:        @CONFDATE@%{release_rev}%{?dist}
+Release:        %{release_rev}%{?dist}
 License:        GPLv2+
 Group:          System Environment/Daemons
 Source0:        https://github.com/FRRouting/frr/archive/%{name}-%{frrversion}.tar.gz
