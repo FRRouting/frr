@@ -140,16 +140,6 @@ Standard Commands
    behind the other end of the link (or even on the link in Point-to-Multipoint
    setups), though generally /32s are used.
 
-.. index:: ip address ADDRESS/PREFIX secondary
-
-.. clicmd:: ip address ADDRESS/PREFIX secondary
-.. index:: no ip address ADDRESS/PREFIX secondary
-
-.. clicmd:: no ip address ADDRESS/PREFIX secondary
-
-   Set the secondary flag for this address. This causes ospfd to not treat the
-   address as a distinct subnet.
-
 .. index:: description DESCRIPTION ...
 
 .. clicmd:: description DESCRIPTION ...
