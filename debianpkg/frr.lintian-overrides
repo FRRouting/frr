@@ -1,9 +1,3 @@
-# libfrr* are for internal use only and do not provide a stable API or ABI.
-# soname / library versioning is irrelevant and they must always be shipped
-# exact-matching to the daemons compiled against it
-frr binary: package-name-doesnt-match-sonames libfrr0 libfrrospfapiclient0
-frr binary: no-symbols-control-file *
-
 # we're a bit special since we provide network connectivity by starting up
 # routing protocols.
 frr binary: systemd-service-file-refers-to-unusual-wantedby-target lib/systemd/system/frr.service network-online.target
