@@ -8,7 +8,7 @@ usr/lib/frr/*d
 usr/lib/frr/watchfrr
 usr/lib/frr/zebra
 usr/lib/*/frr/modules/zebra_irdp.so
-usr/share/doc/frr/
+usr/share/doc/frr/examples
 usr/share/man/
 usr/share/yang/
 tools/etc/* etc/

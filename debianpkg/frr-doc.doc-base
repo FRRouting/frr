@@ -1,0 +1,23 @@
+Document: frr
+Title: FRRouting user manual
+Abstract: General user/operator description for the FRRouting suite of
+ routing protocol daemons.
+Section: Network/Communication
+
+Format: HTML
+Index: /usr/share/doc/frr/html/index.html
+Files: /usr/share/doc/frr/html/*
+
+Format: info
+Index: /usr/share/info/frr.info.gz
+Files:
+ /usr/share/info/frr.info.gz
+ /usr/share/info/fig-normal-processing.png
+ /usr/share/info/fig-rs-processing.png
+ /usr/share/info/fig-vnc-commercial-route-reflector.png
+ /usr/share/info/fig-vnc-frr-route-reflector.png
+ /usr/share/info/fig-vnc-gw.png
+ /usr/share/info/fig-vnc-mesh.png
+ /usr/share/info/fig-vnc-redundant-route-reflectors.png
+ /usr/share/info/fig_topologies_full.png
+ /usr/share/info/fig_topologies_rs.png
