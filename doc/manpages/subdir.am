@@ -1,0 +1,73 @@
+#
+# doc/manpages
+#
+
+man_RSTFILES = \
+	doc/manpages/bgpd.rst \
+	doc/manpages/common-options.rst \
+	doc/manpages/conf.py \
+	doc/manpages/defines.rst \
+	doc/manpages/eigrpd.rst \
+	doc/manpages/epilogue.rst \
+	doc/manpages/frr.rst \
+	doc/manpages/index.rst \
+	doc/manpages/isisd.rst \
+	doc/manpages/ldpd.rst \
+	doc/manpages/mtracebis.rst \
+	doc/manpages/nhrpd.rst \
+	doc/manpages/ospf6d.rst \
+	doc/manpages/ospfclient.rst \
+	doc/manpages/ospfd.rst \
+	doc/manpages/pimd.rst \
+	doc/manpages/ripd.rst \
+	doc/manpages/pbrd.rst \
+	doc/manpages/ripngd.rst \
+	doc/manpages/sharpd.rst \
+	doc/manpages/staticd.rst \
+	doc/manpages/vtysh.rst \
+	doc/manpages/watchfrr.rst \
+	doc/manpages/zebra.rst \
+	doc/manpages/bfdd.rst \
+	doc/manpages/bfd-options.rst \
+	# end
+
+EXTRA_DIST += $(man_RSTFILES)
+
+MANPARENT = doc/manpages/_build
+MANBUILD = $(MANPARENT)/man
+doc/manpages/_build/.doctrees/environment.pickle: $(man_RSTFILES)
+
+#
+# automake integration
+#
+
+rstman1dir = $(mandir)/man1
+rstman8dir = $(mandir)/man8
+
+rstman1_DATA =
+rstman8_DATA =
+
+if DOC
+rstman1_DATA += $(man1)
+rstman8_DATA += $(man8)
+endif # DOC
+
+man1 = $(MANBUILD)/frr.1
+man8 =
+
+# dependency
+$(man8) $(man1): $(MANBUILD)/man.stamp
+
+#
+# hook-ins for clean / doc
+# (install is handled by automake _DATA)
+#
+
+clean-local: clean-manpages
+.PHONY: clean-manpages
+clean-manpages:
+	-rm -rf $(MANPARENT)
+
+doc: doc-man
+.PHONY: doc-man
+doc-man: $(rstman8_DATA) $(rstman1_DATA)

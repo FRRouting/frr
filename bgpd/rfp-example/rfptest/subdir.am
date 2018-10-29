@@ -1,0 +1,20 @@
+#
+# libtest
+#
+
+if ENABLE_BGP_VNC
+noinst_PROGRAMS += bgpd/rfp-example/rfptest/rfptest
+endif
+
+bgpd_rfp_example_rfptest_rfptest_CFLAGS = -I$(top_srcdir)/bgpd/rfapi
+bgpd_rfp_example_rfptest_rfptest_SOURCES = \
+	bgpd/rfp-example/rfptest/rfptest.c \
+	# end
+noinst_HEADERS += \
+	bgpd/rfp-example/rfptest/rfptest.h \
+	# end
+
+bgpd_rfp_example_rfptest_rfptest_LDADD = \
+	lib/libfrr.la \
+	$(RFPLDADD) \
+	# end

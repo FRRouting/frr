@@ -170,10 +170,11 @@ an example.)
         --enable-eigrpd \
         --enable-babeld \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion
-    make SPHINXBUILD=sphinx-build2.7
-    make check PYTHON=/usr/bin/python2.7 SPHINXBUILD=sphinx-build2.7
-    sudo make SPHINXBUILD=sphinx-build2.7 install
+        --with-pkg-extra-version=-MyOwnFRRVersion \
+        SPHINXBUILD=sphinx-build2.7
+    make
+    make check PYTHON=/usr/bin/python2.7
+    sudo make install
 
 Create empty FRR configuration files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

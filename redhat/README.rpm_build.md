@@ -28,8 +28,9 @@ Building your own FRRouting RPM
 
         cd frr
         ./bootstrap.sh
-        ./configure --with-pkg-extra-version=-MyRPMVersion
-        make SPHINXBUILD=sphinx-build2.7 dist
+        ./configure --with-pkg-extra-version=-MyRPMVersion \
+            SPHINXBUILD=sphinx-build2.7
+        make dist
             
     Note: configure parameters are not important for the RPM building - except the `with-pkg-extra-version` if you want to give the RPM a specific name to
     mark your own unoffical build

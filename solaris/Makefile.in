@@ -2,13 +2,56 @@
 
 # XXX This file uses GNU make extensions.
 
-.PHONY: packages
+.PHONY: packages all all-files
+
+all: all-files
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+bindir = @bindir@
+sbindir = @sbindir@
+libexecdir = @libexecdir@
+datarootdir = @datarootdir@
+datadir = @datadir@
+sysconfdir = @sysconfdir@
+sharedstatedir = @sharedstatedir@
+localstatedir = @localstatedir@
+libdir = @libdir@
+includedir = @includedir@
+infodir = @infodir@
+mandir = @mandir@
+frr_statedir = @frr_statedir@
+
+builddir = @builddir@
+srcdir = @srcdir@
+top_builddir = @top_builddir@
+top_srcdir = @top_srcdir@
+abs_builddir = @abs_builddir@
+abs_srcdir = @abs_srcdir@
+abs_top_builddir = @abs_top_builddir@
+abs_top_srcdir = @abs_top_srcdir@
+
+enable_user = @enable_user@
+enable_group = @enable_group@
+enable_vty_group = @enable_vty_group@
+
+PACKAGE_NAME = @PACKAGE_NAME@
+PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_VERSION = @PACKAGE_VERSION@
+PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
+CONFDATE = @CONFDATE@
+
+host_cpu = @host_cpu@
+host_os = @host_os@
+
+SED = @SED@
+MAKE = @MAKE@
 
 # the names of the various subpackages, and some convenient 
 # derived variables.
 pkg_names = daemons dev doc libs smf
 pkg_frr_daemons = zebra bgpd ospfd ospf6d ripd ripngd
-pkg_name_rev = @PACKAGE_VERSION@-@CONFDATE@-@target_os@-@target_cpu@
+pkg_name_rev = $(PACKAGE_VERSION)-$(CONFDATE)-$(host_os)-$(host_cpu)
 pkg_depends = $(pkg_names:%=depend.%)
 pkg_packages = $(pkg_names:%=@PACKAGE_TARNAME@-%-$(pkg_name_rev).pkg)
 pkg_pkginfos = $(pkg_names:%=pkginfo.%.full)
@@ -36,29 +79,28 @@ edit = $(SED) \
 	-e 's,@enable_group\@,$(enable_group),g' \
 	-e 's,@enable_vty_group\@,$(enable_vty_group),g' \
 	-e 's,@frr_statedir\@,$(frr_statedir),g' \
-	-e 's,[@]PACKAGE_NAME[@],@PACKAGE_NAME@,g' \
- 	-e 's,[@]PACKAGE_TARNAME[@],@PACKAGE_TARNAME@,g' \
- 	-e 's,[@]PACKAGE_VERSION[@],@PACKAGE_VERSION@,g' \
- 	-e 's,[@]PACKAGE_BUGREPORT[@],@PACKAGE_BUGREPORT@,g' \
-  	-e 's,[@]CONFDATE[@],@CONFDATE@,g' \
- 	-e 's,[@]target_cpu[@],$(target_cpu),g' \
- 	-e 's,[@]target_host[@],$(target_host),g' \
- 	-e 's,[@]target_os[@],$(target_os),g'
+	-e 's,[@]PACKAGE_NAME[@],$(PACKAGE_NAME),g' \
+	-e 's,[@]PACKAGE_TARNAME[@],$(PACKAGE_TARNAME),g' \
+	-e 's,[@]PACKAGE_VERSION[@],$(PACKAGE_VERSION),g' \
+	-e 's,[@]PACKAGE_BUGREPORT[@],$(PACKAGE_BUGREPORT),g' \
+	-e 's,[@]CONFDATE[@],$(CONFDATE),g' \
+	-e 's,[@]host_cpu[@],$(host_cpu),g' \
+	-e 's,[@]host_os[@],$(host_os),g'
 
 # common options for pkgmk
-pkg_make_vars = exec_prefix=@exec_prefix@ prefix=@prefix@ \
-	builddir=@builddir@ srcdir=@srcdir@ \
-	top_builddir=@top_builddir@ top_srcdir=@top_srcdir@ \
-	abs_builddir=@abs_builddir@ abs_srcdir=@abs_srcdir@ \
-	abs_top_builddir=@abs_top_builddir@ abs_top_srcdir=@abs_top_srcdir@
+pkg_make_vars = exec_prefix=$(exec_prefix) prefix=$(prefix) \
+	builddir=$(builddir) srcdir=$(srcdir) \
+	top_builddir=$(top_builddir) top_srcdir=$(top_srcdir) \
+	abs_builddir=$(abs_builddir) abs_srcdir=$(abs_srcdir) \
+	abs_top_builddir=$(abs_top_builddir) abs_top_srcdir=$(abs_top_srcdir)
 
 # pkgmk: write the package to spool in build dir, to avoid root dependencies
-pkg_make = pkgmk -o -d @abs_builddir@ \
+pkg_make = pkgmk -o -d $(abs_builddir) \
 	-f $< DESTDIR="$(DESTDIR)/" $(pkg_make_vars)
 
 # pkgtrans: write a pkg file stream, shame we cant pipe directly to it from
 # pkgmk..
-pkg_trans = pkgtrans -s @abs_builddir@ "@abs_builddir@/$@"
+pkg_trans = pkgtrans -s $(abs_builddir) "$(abs_builddir)/$@"
 
 # pkgmk can only cope with a single pkginfo, cant 'stack' various 
 # pkginfo template files and a package specific pkginfo file in the prototype
@@ -95,7 +137,7 @@ frr.init: $(srcdir)/frr.init.in Makefile
 	$(edit) $< > $@
 
 # construct the pkg
-@PACKAGE_TARNAME@-%-$(pkg_name_rev).pkg: prototype.% \
+$(PACKAGE_TARNAME)-%-$(pkg_name_rev).pkg: prototype.% \
 		depend.% frr.init pkginfo.%.full
 	($(pkg_make) && \
 	$(pkg_trans) "FRR$*")
@@ -103,22 +145,11 @@ frr.init: $(srcdir)/frr.init.in Makefile
 %.pkg.gz : %.pkg
 	(gzip -c $< > $@)
 
-# pkginfo.package and prototype.package are all built sources
-#BUILT_SOURCES = pkginfo.daemons pkginfo.dev pkginfo.doc pkginfo.libs \
-#	prototype.daemons prototype.dev prototype.doc prototype.libs
-BUILT_SOURCES = $(pkg_pkginfos) pkginfo.tmpl $(pkg_prototypes) \
-	$(pkg_manifests) $(pkg_depends) frr.init
-
-CLEANFILES = $(BUILT_SOURCES) $(pkg_packages)
-
-EXTRA_DIST = $(pkg_manifests:%=%.in) $(pkg_prototypes:%=%.in) \
-	$(pkg_names:%=pkginfo.%.tmpl.in) $(srcdir)/pkginfo.tmpl.in \
-	$(pkg_depends:%=%.in) frr.init.in README.txt
-
 pkg-root-install:
 	(cd $(top_builddir) && \
 	 $(MAKE) DESTDIR=$(abs_builddir)/frr-root install)
 
 packages: $(pkg_packages)
 
-#nodist_pkgdata_DATA = $(pkg_packages)
+all-files: $(pkg_pkginfos) pkginfo.tmpl $(pkg_prototypes) \
+	$(pkg_manifests) $(pkg_depends) frr.init

@@ -49,12 +49,14 @@
 #include "bgpd/bgp_route.h"
 #include "lib/network.h"
 #include "lib/thread.h"
+#ifndef VTYSH_EXTRACT_PL
 #include "rtrlib/rtrlib.h"
 #include "rtrlib/rtr_mgr.h"
 #include "rtrlib/lib/ip.h"
 #include "rtrlib/transport/tcp/tcp_transport.h"
 #if defined(FOUND_SSH)
 #include "rtrlib/transport/ssh/ssh_transport.h"
+#endif
 #endif
 #include "hook.h"
 #include "libfrr.h"

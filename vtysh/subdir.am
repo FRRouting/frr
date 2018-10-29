@@ -1,0 +1,35 @@
+#
+# vtysh
+#
+
+if VTYSH
+bin_PROGRAMS += vtysh/vtysh
+dist_examples_DATA += vtysh/vtysh.conf.sample
+man1 += $(MANBUILD)/vtysh.1
+endif
+
+vtysh_vtysh_SOURCES = \
+	vtysh/vtysh_main.c \
+	vtysh/vtysh.c \
+	vtysh/vtysh_user.c \
+	vtysh/vtysh_config.c \
+	# end
+nodist_vtysh_vtysh_SOURCES = \
+	vtysh/vtysh_cmd.c \
+	# end
+CLEANFILES += vtysh/vtysh_cmd.c
+
+noinst_HEADERS += \
+	vtysh/vtysh.h \
+	vtysh/vtysh_user.h \
+	# end
+
+vtysh_vtysh_LDADD = lib/libfrr.la @LIBCAP@ @LIBREADLINE@ @LIBS@ @LIBPAM@
+
+AM_V_EXTRACT = $(am__v_EXTRACT_$(V))
+am__v_EXTRACT_ = $(am__v_EXTRACT_$(AM_DEFAULT_VERBOSITY))
+am__v_EXTRACT_0 = @echo "  EXTRACT " $@;
+am__v_EXTRACT_1 =
+
+vtysh/vtysh_cmd.c: $(vtysh_scan) vtysh/extract.pl
+	$(AM_V_EXTRACT) vtysh/extract.pl $(vtysh_scan) > vtysh/vtysh_cmd.c

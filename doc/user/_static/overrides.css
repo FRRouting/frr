@@ -19,11 +19,6 @@ table.mark th {
 table.mark td {
     vertical-align: middle;
 }
-table.mark td[colspan="7"] {
-    text-align: center;
-    padding-top: 8pt;
-    padding-bottom: 2pt;
-}
 table.mark cite {
     font-weight: bold;
 }
@@ -32,12 +27,25 @@ table.mark cite {
 td.mark {
     width: 4.5em;
 }
+table.mark strong {
+    display:block;
+    text-align: center;
+    margin:auto;
+    padding-top: 8pt;
+    padding-bottom: 2pt;
+}
 td.mark span {
     display: block;
     padding: 3px 1px;
     border: 1px dotted #666;
     width: 36pt;
     margin:auto;
+}
+table.mark tr td:first-child {
+    padding-left:1.5em;
+}
+table.mark tr td:first-child cite {
+    margin-left:-1.5em;
 }
 span.mark-y   { background-color: #77ffaa; }
 span.mark-geq { background-color: #aaff77; }

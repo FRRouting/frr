@@ -130,6 +130,13 @@ If all worked correctly, then you should end up with the Debian packages under
 with the sources (``frr_*.orig.tar.gz``, ``frr_*.debian.tar.xz`` and
 ``frr_*.dsc``)
 
+The build procedure can also be executed automatically using the ``tools/build-debian-package.sh``
+script. For example:
+
+.. code-block:: shell
+
+   EXTRA_VERSION="-myversion" WANT_SNMP=1 WANT_CUMULUS_MODE=1 tools/build-debian-package.sh
+
 .. _deb-backports:
 
 Debian Backports
