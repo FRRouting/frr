@@ -131,7 +131,7 @@ get the following::
    ...
 
 Note that the static route doesn't show up there. Similarly, if we ask
-*staticd* for its config, we get::
+*staticd* for its configuration, we get::
 
    (config)# do sh running-config staticd
 
@@ -160,3 +160,42 @@ This is because VTYSH asks each daemon for its currently running configuration,
 and combines equivalent blocks together. In the above example, it combined the
 ``vrf blue`` blocks from both *zebra* and *staticd* together into one. This is
 done in :file:`vtysh_config.c`.
+
+Protocol
+========
+
+VTYSH communicates with FRR daemons by way of domain socket. Each daemon
+creates its own socket, typically in :file:`/var/run/frr/<daemon>.vty`. The
+protocol is very simple. In the VTYSH to daemon direction, messages are simply
+NULL-terminated strings, whose content are CLI commands. Here is a typical
+message from VTYSH to a daemon:
+
+::
+
+   Request
+
+   00000000: 646f 2077 7269 7465 2074 6572 6d69 6e61  do write termina
+   00000010: 6c0a 00                                  l..
+
+
+The response format has some more data in it. First is a NULL-terminated string
+containing the plaintext response, which is just the output of the command that
+was sent in the request. This is displayed to the user. The plaintext response
+is followed by 3 null marker bytes, followed by a 1-byte status code that
+indicates whether the command was successful or not.
+
+::
+
+   Response
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                       Plaintext Response                      |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                 Marker (0x00)                 |  Status Code  |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+The first ``0x00`` byte in the marker also serves to terminate the plaintext
+response.
