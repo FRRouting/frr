@@ -12,7 +12,6 @@ Build-Depends:
  dh-autoreconf,
  flex,
  gawk,
- git,
  install-info,
  libc-ares-dev,
  libcap-dev,
@@ -20,15 +19,15 @@ Build-Depends:
  libjson0-dev | libjson-c-dev,
  libpam0g-dev | libpam-dev,
  libpcre3-dev,
- libpython-dev | libpython3-dev,
+ libpython3-dev,
  libreadline-dev,
  librtr-dev <pkg.frr.rtrlib>,
- libsnmp-dev <pkg.frr.snmp>,
+ libsnmp-dev,
  libssh-dev <pkg.frr.rtrlib>,
  libsystemd-dev <!pkg.frr.nosystemd>,
  pkg-config,
- python (>= 2.7) | python3,
- python-sphinx | python3-sphinx,
+ python3,
+ python3-sphinx,
  texinfo (>= 4.7)
 Standards-Version: 4.2.1
 Homepage: https://www.frrouting.org/
@@ -73,7 +72,6 @@ Description: FRRouting suite - SNMP support
  Adds SNMP support to FRR's daemons by attaching to net-snmp's snmpd
  through the AgentX protocol.  Provides read-only access to current
  routing state through standard SNMP MIBs.
-Build-Profiles: <pkg.frr.snmp>
 
 Package: frr-rpki-rtrlib
 Architecture: any
@@ -88,20 +86,6 @@ Description: FRRouting suite - BGP RPKI support (rtrlib)
  relevant to internet service providers using their own autonomous system
  number.
 Build-Profiles: <pkg.frr.rtrlib>
-
-Package: frr-dbg
-Architecture: any
-Depends:
- ${misc:Depends},
- frr (= ${binary:Version})
-Section: debug
-Description: FRRouting suite - debug symbols
- This package provides debugging symbols for all binary packages built
- from frr source package. FRR itself uses these symbols when printing
- backtraces for crashes or other issues.
- .
- It is highly recommended to have this package installed before reporting
- any FRR crashes to either FRR developers or Debian package maintainers.
 
 Package: frr-doc
 Section: doc

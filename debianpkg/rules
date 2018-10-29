@@ -1,132 +1,41 @@
 #!/usr/bin/make -f
 
-# FRRouting Configuration options
-######################################
-#
-#    WANT_xxxx   --> Set to 1 for enable, 0 for disable
-# The following are the defaults. They can be overridden by setting a
-# env variable to a different value
-
-# -Werror - don't enable this unless you're doing a dev package build
-WANT_WERROR ?= 0
-
-WANT_OSPFAPI ?= 1
-WANT_BGP_VNC ?= 1
-WANT_CUMULUS_MODE ?= 0
-WANT_MULTIPATH ?= 1
-
-# NOTES:
-# If multipath is enabled (WANT_MULTIPATH=1), then set number of multipaths here
-#    Please be aware that 0 is NOT disabled, but treated as unlimited
-
-MULTIPATH ?= 256
-
-# Set the following to the value required (or leave alone for the default below)
-# WANT_FRR_USER is used for the username and groupname of the FRR user account
-
-WANT_FRR_USER ?= frr
-WANT_FRR_VTY_GROUP ?= frrvty
-
-# Don't build PDF docs by default
-# add build deps: texlive-latex-base, texlive-generic-recommended
-GENERATE_PDF ?= 0
-
-#
-####################################
+# standard Debian options & profiles
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
-ifeq ($(WANT_OSPFAPI), 1)
-  USE_OSPFAPI=--enable-ospfapi=yes
-else
-  USE_OSPFAPI=--enable-ospfapi=no
-endif
-
-ifeq ($(WANT_BGP_VNC), 1)
-  USE_BGP_VNC=--enable-bgp-vnc=yes
-else
-  USE_BGP_VNC=--enable-bgp-vnc=no
-endif
-
-USE_FRR_USER=--enable-user=$(WANT_FRR_USER)
-USE_FRR_GROUP=--enable-group=$(WANT_FRR_USER)
-USE_FRR_VTY_GROUP=--enable-vty-group=$(WANT_FRR_VTY_GROUP)
-
-ifeq ($(WANT_MULTIPATH), 1)
-  USE_MULTIPATH=--enable-multipath=$(MULTIPATH)
-else
-  USE_MULTIPATH=--disable-multipath
-endif
-
-ifeq ($(WANT_CUMULUS_MODE), 1)
-  USE_CUMULUS=--enable-cumulus=yes
-else
-  USE_CUMULUS=--enable-cumulus=no
-endif
-
-ifeq ($(WANT_WERROR), 1)
-  USE_WERROR=--enable-werror
-else
-  USE_WERROR=--disable-werror
-endif
-
-#
-# generic debian options
-#
-
-ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
-  DEBIAN_JOBS := $(subst parallel=,,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
-endif
-ifdef DEBIAN_JOBS
-MAKEFLAGS += -j$(DEBIAN_JOBS)
-endif
-
 ifneq (,$(filter terse,$(DEB_BUILD_OPTIONS)))
-MAKE_SILENT="V=0"
-export DH_VERBOSE=0
+  MAKE_SILENT="V=0"
+  export DH_VERBOSE=0
 else
-MAKE_SILENT="V=1"
-export DH_VERBOSE=1
-export DH_OPTIONS=-v
+  MAKE_SILENT="V=1"
+  export DH_VERBOSE=1
+  export DH_OPTIONS=-v
 endif
 
-#
-# build profiles
-#
-
-ifeq ($(filter nodoc,$(DEB_BUILD_PROFILES)),)
-  USE_DOC=--enable-doc --enable-doc-html
-else
-  USE_DOC=--disable-doc
-endif
+# package-specific build profiles
 
 ifeq ($(filter pkg.frr.rtrlib,$(DEB_BUILD_PROFILES)),)
-  USE_RPKI=--disable-rpki
+  CONF_RPKI=--disable-rpki
 else
-  USE_RPKI=--enable-rpki
-endif
-
-ifeq ($(filter pkg.frr.snmp,$(DEB_BUILD_PROFILES)),)
-  USE_SNMP=--disable-snmp
-else
-  USE_SNMP=--enable-snmp
+  CONF_RPKI=--enable-rpki
 endif
 
 ifeq ($(filter pkg.frr.nosystemd,$(DEB_BUILD_PROFILES)),)
   DH_WITH_SYSTEMD=systemd,
-  USE_SYSTEMD=--enable-systemd=yes
+  CONF_SYSTEMD=--enable-systemd=yes
 else
   DH_WITH_SYSTEMD=
-  USE_SYSTEMD=--enable-systemd=no
+  CONF_SYSTEMD=--enable-systemd=no
 endif
 
 export PYTHON=python3
 
 %:
-	dh $@ --with=$(DH_WITH_SYSTEMD)autoreconf --parallel --dbg-package=frr-dbg
+	dh $@ --with=$(DH_WITH_SYSTEMD)autoreconf --parallel
 
 override_dh_auto_configure:
-	if ! [ -e config.status ]; then \
+	$(shell dpkg-buildflags --export=sh); \
 	dh_auto_configure -- \
 		--enable-exampledir=/usr/share/doc/frr/examples/ \
 		--localstatedir=/var/run/frr \
@@ -136,25 +45,26 @@ override_dh_auto_configure:
 		--libdir=/usr/lib/$(DEB_HOST_MULTIARCH)/frr \
 		--with-moduledir=/usr/lib/$(DEB_HOST_MULTIARCH)/frr/modules \
 		LIBTOOLFLAGS="-rpath /usr/lib/$(DEB_HOST_MULTIARCH)/frr" \
-		$(USE_DOC) \
-		$(USE_SNMP) \
-		$(USE_OSPFAPI) \
-		$(USE_MULTIPATH) \
+		--disable-dependency-tracking \
+		\
+		$(CONF_SYSTEMD) \
+		$(CONF_RPKI) \
+		--with-libpam \
+		--enable-doc \
+		--enable-doc-html \
+		--enable-snmp \
 		--disable-fpm \
 		--disable-zeromq \
-		$(USE_FRR_USER) $(USE_FRR_GROUP) \
-		$(USE_FRR_VTY_GROUP) \
+		--enable-ospfapi \
+		--enable-bgp-vnc \
+		--enable-multipath=256 \
+		\
+		--enable-user=frr \
+		--enable-group=frr \
+		--enable-vty-group=frrvty \
 		--enable-configfile-mask=0640 \
 		--enable-logfile-mask=0640 \
-		$(USE_WERROR) \
-		--with-libpam \
-		$(USE_SYSTEMD) \
-		$(USE_CUMULUS) \
-		--disable-dependency-tracking \
-		$(USE_BGP_VNC) \
-		$(USE_RPKI) \
-		$(shell dpkg-buildflags --export=configure); \
-	fi
+		# end
 
 override_dh_auto_install:
 	dh_auto_install
@@ -169,7 +79,7 @@ endif
 
 # install config files
 	mkdir -p debian/tmp/etc/frr/
-	perl -pi -e 's#^!log file #!log file /var/log/frr/#' debian/tmp/usr/share/doc/frr/examples/*sample*
+	sed -e 's#^!log file #!log file /var/log/frr/#' -i debian/tmp/usr/share/doc/frr/examples/*sample*
 
 # drop dev-only files
 	find debian/tmp -name '*.la' -o -name '*.a' -o -name 'lib*.so' | xargs rm -f
@@ -185,7 +95,6 @@ override_dh_auto_build:
 	dh_auto_build -- $(MAKE_SILENT)
 
 override_dh_makeshlibs:
-# we don't need or want ldconfig for private libs
 	dh_makeshlibs -n
 
 override_dh_missing:
