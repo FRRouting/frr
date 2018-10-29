@@ -1226,7 +1226,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	/*
 	 * vrf leaking support (will have only one nexthop)
 	 */
-	if (info->extra && info->extra->vrf_id_local)
+	if (info->extra && info->extra->vrf_local)
 		nh_othervrf = 0;
 	else if (info->extra && info->extra->vrf_id != VRF_UNKNOWN) {
 		if (info->extra->vrf_id != bgp->vrf_id)

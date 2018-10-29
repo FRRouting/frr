@@ -597,7 +597,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	if (num_labels)
 		setlabels(new, label, num_labels);
 	new->extra->vrf_id = nh_info->vrf_id;
-	new->extra->vrf_id_local = nh_info->vrf_local;
+	new->extra->vrf_local = nh_info->vrf_local;
 
 	new->extra->parent = bgp_path_info_lock(parent);
 	bgp_lock_node((struct bgp_node *)((struct bgp_path_info *)parent)->net);
@@ -614,7 +614,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 
 	if (new->extra->vrf_id != VRF_UNKNOWN)
 		bgp_nexthop = bgp_lookup_by_vrf_id(new->extra->vrf_id);
-	else if (!new->extra->vrf_id_local &&
+	else if (!new->extra->vrf_local &&
 		 new->extra->bgp_orig)
 		bgp_nexthop = new->extra->bgp_orig;
 	/*
@@ -1152,7 +1152,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 				      p, RMAP_BGP, &info);
 		if (RMAP_DENYMATCH != ret && bextra) {
 			nh_info.vrf_id = bextra->vrf_id;
-			nh_info.vrf_local = bextra->vrf_id_local;
+			nh_info.vrf_local = bextra->vrf_local;
 		}
 		if (bextra)
 			bgp_path_info_extra_free(&bextra);

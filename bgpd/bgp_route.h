@@ -144,7 +144,7 @@ struct bgp_path_info_extra {
 	 * this value will be overriden if route-map overrides vrf_id value
 	 */
 	vrf_id_t vrf_id;
-	bool vrf_id_local;
+	bool vrf_local;
 	/*
 	 * Nexthop in context of original bgp instance. Needed
 	 * for label resolution of core mpls routes exported to a vrf.

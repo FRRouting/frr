@@ -174,7 +174,7 @@ static struct bgp_path_info_extra *bgp_path_info_extra_new(void)
 	new->label[0] = MPLS_INVALID_LABEL;
 	new->num_labels = 0;
 	new->vrf_id = VRF_UNKNOWN;
-	new->vrf_id_local = FALSE;
+	new->vrf_local = FALSE;
 	return new;
 }
 
@@ -3295,7 +3295,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 			struct bgp *bgp_nexthop = bgp;
 
 			if (pi->extra) {
-				if (pi->extra->vrf_id_local)
+				if (pi->extra->vrf_local)
 					bgp_nexthop = bgp;
 				else if (pi->extra->vrf_id != VRF_UNKNOWN)
 					bgp_nexthop = bgp_lookup_by_vrf_id(
@@ -6609,7 +6609,7 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 	 * If vrf id of nexthop is different from that of prefix,
 	 * set up printable string to append
 	 */
-	if (path->extra && !path->extra->vrf_id_local
+	if (path->extra && !path->extra->vrf_local
 	    && (path->extra->bgp_orig ||
 		(path->extra->vrf_id != VRF_UNKNOWN &&
 		 path->peer && path->peer->bgp

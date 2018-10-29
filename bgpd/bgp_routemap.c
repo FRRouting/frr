@@ -1508,7 +1508,7 @@ static route_map_result_t route_set_ip_nexthop(void *rule,
 		SET_FLAG(path->attr->rmap_change_flags,
 			 BATTR_RMAP_VRF_NHOP_CHANGED);
 	} else if (rins->vrf_local) {
-		bgp_path_info_extra_get(path)->vrf_id_local = TRUE;
+		bgp_path_info_extra_get(path)->vrf_local = TRUE;
 		SET_FLAG(path->attr->rmap_change_flags,
 			 BATTR_RMAP_VRF_NHOP_CHANGED);
 	} else {
