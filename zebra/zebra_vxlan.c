@@ -605,7 +605,7 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 				json_mac, "remoteVtep",
 				inet_ntoa(mac->fwd_info.r_vtep_ip));
 		} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO))
-			json_object_string_add(json_mac, "type", "auto mac");
+			json_object_string_add(json_mac, "type", "auto");
 
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY))
 			json_object_boolean_true_add(json_mac, "stickyMac");
