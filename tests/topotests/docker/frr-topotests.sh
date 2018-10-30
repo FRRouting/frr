@@ -42,6 +42,12 @@ if [[ "$1" = "-h" ]] || [[ "$1" = "--help" ]]; then
 	                        \`topotest-buildcache\` volume will be created for
 	                        that purpose.
 
+	TOPOTEST_CLEAN          Clean all previous build artifacts prior to
+	                        building. Disabled by default, set to 1 to enable.
+
+	TOPOTEST_DOC            Build the documentation associated with FRR.
+	                        Disabled by default, set to 1 to enable.
+
 	TOPOTEST_FRR            If set, don't test the FRR in the current working
 	                        directory, but the one at the given path.
 
@@ -53,6 +59,12 @@ if [[ "$1" = "-h" ]] || [[ "$1" = "--help" ]]; then
 
 	TOPOTEST_PATH           If set, don't use the tests built into the image
 	                        but the ones at the given path.
+
+	TOPOTEST_SANITIZER      Controls whether to use the address sanitizer.
+	                        Enabled by default, set to 0 to disable.
+
+	TOPOTEST_VERBOSE        Show detailed build output.
+	                        Enabled by default, set to 0 to disable.
 
 	To get information about the commands available inside of the container,
 	run \`$0 help\`.
