@@ -13,7 +13,7 @@ AC_SUBST(PACKAGE_URL)
 PACKAGE_FULLNAME="FRRouting"
 AC_SUBST(PACKAGE_FULLNAME)
 
-CONFIG_ARGS="$ac_configure_args"
+CONFIG_ARGS="`echo $ac_configure_args | sed -e \"s% '[[A-Z]]*FLAGS=[[^']]\+'%%g\"`"
 AC_SUBST(CONFIG_ARGS)
 
 AC_CONFIG_SRCDIR(lib/zebra.h)
