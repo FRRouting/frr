@@ -210,9 +210,9 @@ struct bgp_path_info {
 #define BGP_ROUTE_NORMAL       0
 #define BGP_ROUTE_STATIC       1
 #define BGP_ROUTE_AGGREGATE    2
-#define BGP_ROUTE_REDISTRIBUTE 3 
+#define BGP_ROUTE_REDISTRIBUTE 3
 #ifdef ENABLE_BGP_VNC
-# define BGP_ROUTE_RFP          4 
+# define BGP_ROUTE_RFP          4
 #endif
 #define BGP_ROUTE_IMPORTED     5        /* from another bgp instance/safi */
 
