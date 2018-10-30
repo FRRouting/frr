@@ -91,10 +91,19 @@ AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directo
 ])
 AC_SUBST([moduledir], [$moduledir])
 
-yangmodelsdir="\${datarootdir}/yang"
-AC_SUBST([yangmodelsdir], [$yangmodelsdir])
 
-libyang_pluginsdir="\${libdir}/frr/libyang_plugins"
+AC_ARG_WITH([yangmodelsdir], [AS_HELP_STRING([--with-yangmodelsdir=DIR], [yang models directory (${datarootdir}/yang)])], [
+	yangmodelsdir="$withval"
+], [
+	yangmodelsdir="\${datarootdir}/yang"
+])
+AC_SUBST(yangmodelsdir)
+
+AC_ARG_WITH([libyang_pluginsdir], [AS_HELP_STRING([--with-libyang-pluginsdir=DIR], [yangmodule plugins directory (${libdir}/frr/libyang_plugins)])], [
+	libyang_pluginsdir="$withval"
+], [
+   libyang_pluginsdir="\${libdir}/frr/libyang_plugins"
+])
 AC_SUBST(libyang_pluginsdir)
 
 AC_ARG_ENABLE(tcmalloc,
