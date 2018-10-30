@@ -3246,8 +3246,10 @@ void rib_close_table(struct route_table *table)
 			if (info->safi == SAFI_UNICAST)
 				hook_call(rib_update, rn, NULL);
 
-			if (!RIB_SYSTEM_ROUTE(dest->selected_fib))
+			if (!RIB_SYSTEM_ROUTE(dest->selected_fib)) {
 				rib_uninstall_kernel(rn, dest->selected_fib);
+				dest->selected_fib = NULL;
+			}
 		}
 	}
 }
