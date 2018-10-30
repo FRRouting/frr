@@ -186,6 +186,8 @@ Standard Commands
    Enable/disable link-detect on platforms which support this. Currently only
    Linux and Solaris, and only where network interface drivers support
    reporting link-state via the ``IFF_RUNNING`` flag.
+   
+   In FRR, link-detect is on by default.
 
 .. _link-parameters-commands:
 
