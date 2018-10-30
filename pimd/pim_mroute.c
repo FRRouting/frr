@@ -74,15 +74,19 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 		}
 	}
 
-	opt = enable ? MRT_INIT : MRT_DONE;
-	err = setsockopt(pim->mroute_socket, IPPROTO_IP, opt, &opt, opt_len);
-	if (err) {
-		zlog_warn(
-			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,%s=%d): errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__, pim->mroute_socket,
-			enable ? "MRT_INIT" : "MRT_DONE", opt, errno,
-			safe_strerror(errno));
-		return -1;
+	frr_elevate_privs(&pimd_privs) {
+		opt = enable ? MRT_INIT : MRT_DONE;
+		err = setsockopt(pim->mroute_socket, IPPROTO_IP,
+				 opt, &opt, opt_len);
+		if (err) {
+			zlog_warn(
+				  "%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,%s=%d): errno=%d: %s",
+				  __FILE__, __PRETTY_FUNCTION__,
+				  pim->mroute_socket,
+				  enable ? "MRT_INIT" : "MRT_DONE", opt, errno,
+				  safe_strerror(errno));
+			return -1;
+		}
 	}
 
 #if defined(HAVE_IP_PKTINFO)
