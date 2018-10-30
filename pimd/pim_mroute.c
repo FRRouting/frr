@@ -48,8 +48,8 @@ static void mroute_read_on(struct pim_instance *pim);
 static int pim_mroute_set(struct pim_instance *pim, int enable)
 {
 	int err;
-	int opt;
-	socklen_t opt_len = sizeof(opt);
+	int opt, data;
+	socklen_t data_len = sizeof(data);
 	long flags;
 
 	/*
@@ -58,15 +58,15 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 	if (pim->vrf_id != VRF_DEFAULT) {
 		frr_elevate_privs(&pimd_privs) {
 
-			opt = pim->vrf->data.l.table_id;
+			data = pim->vrf->data.l.table_id;
 			err = setsockopt(pim->mroute_socket, IPPROTO_IP,
 					 MRT_TABLE,
-					 &opt, opt_len);
+					 &data, data_len);
 			if (err) {
 				zlog_warn(
 					  "%s %s: failure: setsockopt(fd=%d,IPPROTO_IP, MRT_TABLE=%d): errno=%d: %s",
 					  __FILE__, __PRETTY_FUNCTION__,
-					  pim->mroute_socket, opt, errno,
+					  pim->mroute_socket, data, errno,
 					  safe_strerror(errno));
 				return -1;
 			}
@@ -76,14 +76,19 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 
 	frr_elevate_privs(&pimd_privs) {
 		opt = enable ? MRT_INIT : MRT_DONE;
+		/*
+		 * *BSD *cares* about what value we pass down
+		 * here
+		 */
+		data = 1;
 		err = setsockopt(pim->mroute_socket, IPPROTO_IP,
-				 opt, &opt, opt_len);
+				 opt, &data, data_len);
 		if (err) {
 			zlog_warn(
 				  "%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,%s=%d): errno=%d: %s",
 				  __FILE__, __PRETTY_FUNCTION__,
 				  pim->mroute_socket,
-				  enable ? "MRT_INIT" : "MRT_DONE", opt, errno,
+				  enable ? "MRT_INIT" : "MRT_DONE", data, errno,
 				  safe_strerror(errno));
 			return -1;
 		}
@@ -92,9 +97,9 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 #if defined(HAVE_IP_PKTINFO)
 	if (enable) {
 		/* Linux and Solaris IP_PKTINFO */
-		opt = 1;
-		if (setsockopt(pim->mroute_socket, IPPROTO_IP, IP_PKTINFO, &opt,
-			       sizeof(opt))) {
+		data = 1;
+		if (setsockopt(pim->mroute_socket, IPPROTO_IP, IP_PKTINFO,
+			       &data, data_len)) {
 			zlog_warn(
 				"Could not set IP_PKTINFO on socket fd=%d: errno=%d: %s",
 				pim->mroute_socket, errno,
