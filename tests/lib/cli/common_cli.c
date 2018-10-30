@@ -78,6 +78,7 @@ int main(int argc, char **argv)
 	/* Library inits. */
 	cmd_init(1);
 	cmd_hostname_set("test");
+	cmd_domainname_set("test.domain");
 
 	vty_init(master);
 	memory_init();
