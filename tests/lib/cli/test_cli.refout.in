@@ -311,6 +311,7 @@ frr version @PACKAGE_VERSION@
 frr defaults @DFLT_NAME@
 !
 hostname test
+domainname test.domain
 !
 !
 !
@@ -327,6 +328,7 @@ frr version @PACKAGE_VERSION@
 frr defaults @DFLT_NAME@
 !
 hostname foohost
+domainname test.domain
 !
 !
 !
