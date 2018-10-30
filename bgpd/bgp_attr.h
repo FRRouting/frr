@@ -92,12 +92,6 @@ struct bgp_tea_options {
 
 #endif
 
-/* Overlay Index Info */
-struct overlay_index {
-	struct eth_segment_id eth_s_id;
-	union gw_addr gw_ip;
-};
-
 enum pta_type {
 	PMSI_TNLTYPE_NO_INFO = 0,
 	PMSI_TNLTYPE_RSVP_TE_P2MP,
@@ -204,7 +198,7 @@ struct attr {
 	struct bgp_attr_encap_subtlv *vnc_subtlvs; /* VNC-specific */
 #endif
 	/* EVPN */
-	struct overlay_index evpn_overlay;
+	struct bgp_route_evpn evpn_overlay;
 
 	/* EVPN MAC Mobility sequence number, if any. */
 	uint32_t mm_seqnum;
