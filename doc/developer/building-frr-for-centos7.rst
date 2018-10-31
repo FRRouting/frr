@@ -24,6 +24,8 @@ Add packages:
       json-c-devel pam-devel bison flex pytest c-ares-devel \
       python-devel systemd-devel python-sphinx
 
+.. include:: building-libyang.rst
+
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 

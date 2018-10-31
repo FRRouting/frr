@@ -41,6 +41,7 @@
 #include "libfrr.h"
 #include "frrstr.h"
 #include "lib_errors.h"
+#include "northbound_cli.h"
 
 #include <arpa/telnet.h>
 #include <termios.h>
@@ -88,6 +89,9 @@ char *vty_cwd = NULL;
 /* Configure lock. */
 static int vty_config;
 static int vty_config_is_lockless = 0;
+
+/* Exclusive configuration lock. */
+struct vty *vty_exclusive_lock;
 
 /* Login password check. */
 static int no_password_check = 0;
@@ -827,6 +831,8 @@ static void vty_end_config(struct vty *vty)
 		/* Unknown node, we have to ignore it. */
 		break;
 	}
+
+	vty->xpath_index = 0;
 
 	vty_prompt(vty);
 	vty->cp = 0;
@@ -1718,6 +1724,10 @@ static struct vty *vty_new_init(int vty_sock)
 	memset(vty->hist, 0, sizeof(vty->hist));
 	vty->hp = 0;
 	vty->hindex = 0;
+	vty->xpath_index = 0;
+	memset(vty->xpath, 0, sizeof(vty->xpath));
+	vty->private_config = false;
+	vty->candidate_config = vty_shared_candidate_config;
 	vector_set_index(vtyvec, vty_sock, vty);
 	vty->status = VTY_NORMAL;
 	vty->lines = -1;
@@ -2372,7 +2382,7 @@ static int vty_timeout(struct thread *thread)
 }
 
 /* Read up configuration file from file_name. */
-static void vty_read_file(FILE *confp)
+static void vty_read_file(struct nb_config *config, FILE *confp)
 {
 	int ret;
 	struct vty *vty;
@@ -2391,6 +2401,12 @@ static void vty_read_file(FILE *confp)
 	vty->wfd = STDERR_FILENO;
 	vty->type = VTY_FILE;
 	vty->node = CONFIG_NODE;
+	if (config)
+		vty->candidate_config = config;
+	else {
+		vty->private_config = true;
+		vty->candidate_config = nb_config_new(NULL);
+	}
 
 	/* Execute configuration file */
 	ret = config_from_file(vty, confp, &line_num);
@@ -2434,6 +2450,22 @@ static void vty_read_file(FILE *confp)
 			flog_err(EC_LIB_VTY, "ERROR: %s on config line %u: %s",
 				 message, ve->line_num, ve->error_buf);
 		}
+	}
+
+	/*
+	 * Automatically commit the candidate configuration after
+	 * reading the configuration file.
+	 */
+	if (config == NULL && vty->candidate_config
+	    && frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL) {
+		int ret;
+
+		ret = nb_candidate_commit(vty->candidate_config, NB_CLIENT_CLI,
+					  true, "Read configuration file",
+					  NULL);
+		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
+			zlog_err("%s: failed to read configuration file.",
+				 __func__);
 	}
 
 	vty_close(vty);
@@ -2494,7 +2526,8 @@ static FILE *vty_use_backup_config(const char *fullpath)
 }
 
 /* Read up configuration file from file_name. */
-bool vty_read_config(const char *config_file, char *config_default_dir)
+bool vty_read_config(struct nb_config *config, const char *config_file,
+		     char *config_default_dir)
 {
 	char cwd[MAXPATHLEN];
 	FILE *confp = NULL;
@@ -2508,9 +2541,9 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 			if (getcwd(cwd, MAXPATHLEN) == NULL) {
 				flog_err_sys(
 					EC_LIB_SYSTEM_CALL,
-					"Failure to determine Current Working Directory %d!",
-					errno);
-				exit(1);
+					"%s: failure to determine Current Working Directory %d!",
+					__func__, errno);
+				goto tmp_free_and_out;
 			}
 			tmp = XMALLOC(MTYPE_TMP,
 				      strlen(cwd) + strlen(config_file) + 2);
@@ -2533,10 +2566,11 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 					EC_LIB_BACKUP_CONFIG,
 					"WARNING: using backup configuration file!");
 			else {
-				flog_err(EC_LIB_VTY,
-					 "can't open configuration file [%s]",
-					 config_file);
-				exit(1);
+				flog_err(
+					EC_LIB_VTY,
+					"%s: can't open configuration file [%s]",
+					__func__, config_file);
+				goto tmp_free_and_out;
 			}
 		}
 	} else {
@@ -2593,7 +2627,7 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 			fullpath = config_default_dir;
 	}
 
-	vty_read_file(confp);
+	vty_read_file(config, confp);
 	read_success = true;
 
 	fclose(confp);
@@ -2671,6 +2705,18 @@ int vty_config_lock(struct vty *vty)
 
 int vty_config_unlock(struct vty *vty)
 {
+	vty_config_exclusive_unlock(vty);
+
+	if (vty->candidate_config) {
+		if (vty->private_config)
+			nb_config_free(vty->candidate_config);
+		vty->candidate_config = NULL;
+	}
+	if (vty->candidate_config_base) {
+		nb_config_free(vty->candidate_config_base);
+		vty->candidate_config_base = NULL;
+	}
+
 	if (vty_config_is_lockless)
 		return 0;
 	if (vty_config == 1 && vty->config == 1) {
@@ -2683,6 +2729,21 @@ int vty_config_unlock(struct vty *vty)
 void vty_config_lockless(void)
 {
 	vty_config_is_lockless = 1;
+}
+
+int vty_config_exclusive_lock(struct vty *vty)
+{
+	if (vty_exclusive_lock == NULL) {
+		vty_exclusive_lock = vty;
+		return 1;
+	}
+	return 0;
+}
+
+void vty_config_exclusive_unlock(struct vty *vty)
+{
+	if (vty_exclusive_lock == vty)
+		vty_exclusive_lock = NULL;
 }
 
 /* Master of the threads. */

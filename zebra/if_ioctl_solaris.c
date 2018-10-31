@@ -156,7 +156,7 @@ calculate_lifc_len:
 		       && (*(lifreq->lifr_name + normallen) != ':'))
 			normallen++;
 
-		ifp = if_get_by_name(lifreq->lifr_name, VRF_DEFAULT, 0);
+		ifp = if_get_by_name(lifreq->lifr_name, VRF_DEFAULT);
 
 		if (lifreq->lifr_addr.ss_family == AF_INET)
 			ifp->flags |= IFF_IPV4;

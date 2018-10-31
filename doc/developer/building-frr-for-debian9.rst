@@ -12,6 +12,8 @@ Add packages:
       libreadline-dev texinfo libjson-c-dev pkg-config bison flex \
       python-pip libc-ares-dev python3-dev python-pytest python3-sphinx
 
+.. include:: building-libyang.rst
+
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 

@@ -64,6 +64,8 @@ Install pytest:
 
     pip install pytest
 
+.. include:: building-libyang.rst
+
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 

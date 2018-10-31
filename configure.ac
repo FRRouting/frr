@@ -91,6 +91,21 @@ AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directo
 ])
 AC_SUBST([moduledir], [$moduledir])
 
+
+AC_ARG_WITH([yangmodelsdir], [AS_HELP_STRING([--with-yangmodelsdir=DIR], [yang models directory (${datarootdir}/yang)])], [
+	yangmodelsdir="$withval"
+], [
+	yangmodelsdir="\${datarootdir}/yang"
+])
+AC_SUBST(yangmodelsdir)
+
+AC_ARG_WITH([libyang_pluginsdir], [AS_HELP_STRING([--with-libyang-pluginsdir=DIR], [yangmodule plugins directory (${libdir}/frr/libyang_plugins)])], [
+	libyang_pluginsdir="$withval"
+], [
+   libyang_pluginsdir="\${libdir}/frr/libyang_plugins"
+])
+AC_SUBST(libyang_pluginsdir)
+
 AC_ARG_ENABLE(tcmalloc,
 	AS_HELP_STRING([--enable-tcmalloc], [Turn on tcmalloc]),
 [case "${enableval}" in
@@ -417,6 +432,12 @@ AC_ARG_ENABLE(bgp-vnc,
   AS_HELP_STRING([--disable-bgp-vnc],[turn off BGP VNC support]))
 AC_ARG_ENABLE(snmp,
   AS_HELP_STRING([--enable-snmp], [enable SNMP support for agentx]))
+AC_ARG_ENABLE(config_rollbacks,
+  AS_HELP_STRING([--enable-config-rollbacks], [enable configuration rollbacks (requires sqlite3)]))
+AC_ARG_ENABLE(confd,
+  AS_HELP_STRING([--enable-confd=ARG], [enable confd integration]))
+AC_ARG_ENABLE(sysrepo,
+  AS_HELP_STRING([--enable-sysrepo], [enable sysrepo integration]))
 AC_ARG_ENABLE(zeromq,
   AS_HELP_STRING([--enable-zeromq], [enable ZeroMQ handler (libfrrzmq)]))
 AC_ARG_WITH(libpam,
@@ -1569,6 +1590,55 @@ AC_SUBST(SNMP_LIBS)
 AC_SUBST(SNMP_CFLAGS)
 
 dnl ---------------
+dnl libyang
+dnl ---------------
+PKG_CHECK_MODULES(libyang, [libyang >= 0.16.7], , [
+  AC_MSG_ERROR([libyang (>= 0.16.7) was not found on your system.])
+])
+
+dnl ---------------
+dnl configuration rollbacks
+dnl ---------------
+SQLITE3=false
+if test "$enable_config_rollbacks" = "yes"; then
+  PKG_CHECK_MODULES(sqlite3,[sqlite3], [
+    AC_DEFINE(HAVE_CONFIG_ROLLBACKS,1,Enable configuration rollbacks)
+    AC_DEFINE(HAVE_SQLITE3,1,Enable sqlite3 database)
+    SQLITE3=true
+  ], [
+    AC_MSG_ERROR([--enable-config-rollbacks given but sqlite3 was not found on your system.])
+  ])
+fi
+AM_CONDITIONAL(SQLITE3, $SQLITE3)
+
+dnl ---------------
+dnl confd
+dnl ---------------
+if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
+   AC_CHECK_PROG([CONFD], [confd], [confd], [/bin/false])
+   if test "x$CONFD" = "x/bin/false"; then
+      AC_MSG_ERROR([confd was not found on your system.])]
+   fi
+   CONFD_CFLAGS="-I${enable_confd}/include -L${enable_confd}/lib"
+   AC_SUBST(CONFD_CFLAGS)
+   AC_DEFINE(HAVE_CONFD,1,Enable confd integration)
+fi
+AM_CONDITIONAL([CONFD], [test "x$enable_confd" != "x"])
+
+dnl ---------------
+dnl sysrepo
+dnl ---------------
+if test "$enable_sysrepo" = "yes"; then
+  PKG_CHECK_MODULES(sysrepo,[libsysrepo],
+      [AC_DEFINE(HAVE_SYSREPO,1,Enable sysrepo integration)
+      SYSREPO=true],
+      [SYSREPO=false
+      AC_MSG_ERROR([sysrepo was not found on your system.])]
+  )
+fi
+AM_CONDITIONAL([SYSREPO], [test "x$enable_sysrepo" = "xyes"])
+
+dnl ---------------
 dnl math
 dnl ---------------
 AC_SEARCH_LIBS([sqrt], [m])
@@ -2009,6 +2079,7 @@ AC_DEFINE_UNQUOTED(LDPD_SOCKET, "$frr_statedir/ldpd.sock",ldpd control socket)
 AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$frr_statedir/zserv.api",zebra api socket)
 AC_DEFINE_UNQUOTED(BFDD_CONTROL_SOCKET, "$frr_statedir/bfdd.sock", bfdd control socket)
 AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$frr_statedir",daemon vty directory)
+AC_DEFINE_UNQUOTED(DAEMON_DB_DIR, "$frr_statedir",daemon database directory)
 
 dnl autoconf does this, but it does it too late...
 test "x$prefix" = xNONE && prefix=$ac_default_prefix
@@ -2026,17 +2097,25 @@ CFG_SYSCONF="$sysconfdir"
 CFG_SBIN="$sbindir"
 CFG_STATE="$frr_statedir"
 CFG_MODULE="$moduledir"
+CFG_YANGMODELS="$yangmodelsdir"
+CFG_LIBYANG_PLUGINS="$libyang_pluginsdir"
 for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
 	eval CFG_SBIN="\"$CFG_SBIN\""
 	eval CFG_STATE="\"$CFG_STATE\""
 	eval CFG_MODULE="\"$CFG_MODULE\""
+	eval CFG_YANGMODELS="\"$CFG_YANGMODELS\""
+	eval CFG_LIBYANG_PLUGINS="\"$CFG_LIBYANG_PLUGINS\""
 done
 AC_SUBST(CFG_SYSCONF)
 AC_SUBST(CFG_SBIN)
 AC_SUBST(CFG_STATE)
 AC_SUBST(CFG_MODULE)
+AC_SUBST(CFG_YANGMODELS)
+AC_SUBST(CFG_LIBYANG_PLUGINS)
 AC_DEFINE_UNQUOTED(MODULE_PATH, "$CFG_MODULE", path to modules)
+AC_DEFINE_UNQUOTED(YANG_MODELS_PATH, "$CFG_YANGMODELS", path to YANG data models)
+AC_DEFINE_UNQUOTED(LIBYANG_PLUGINS_PATH, "$CFG_LIBYANG_PLUGINS", path to libyang plugins)
 
 dnl ------------------------------------
 dnl Enable RPKI and add librtr to libs

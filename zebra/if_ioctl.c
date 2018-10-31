@@ -110,7 +110,7 @@ static int interface_list_ioctl(void)
 		unsigned int size;
 
 		ifreq = (struct ifreq *)((caddr_t)ifconf.ifc_req + n);
-		ifp = if_get_by_name(ifreq->ifr_name, VRF_DEFAULT, 0);
+		ifp = if_get_by_name(ifreq->ifr_name, VRF_DEFAULT);
 		if_add_update(ifp);
 		size = ifreq->ifr_addr.sa_len;
 		if (size < sizeof(ifreq->ifr_addr))
@@ -120,7 +120,7 @@ static int interface_list_ioctl(void)
 	}
 #else
 	for (n = 0; n < ifconf.ifc_len; n += sizeof(struct ifreq)) {
-		ifp = if_get_by_name(ifreq->ifr_name, VRF_DEFAULT, 0);
+		ifp = if_get_by_name(ifreq->ifr_name, VRF_DEFAULT);
 		if_add_update(ifp);
 		ifreq++;
 	}

@@ -222,6 +222,19 @@ options from the list below.
    the COMMIT (git hash) and TOKEN (codecov upload token) environment variables
    be set.
 
+.. option:: --enable-config-rollbacks
+
+   Build with configuration rollback support. Requires SQLite3.
+
+.. option:: --enable-confd=<dir>
+
+   Build the ConfD northbound plugin. Look for the libconfd libs and headers
+   in `dir`.
+
+.. option:: --enable-sysrepo
+
+   Build the Sysrepo northbound plugin.
+
 You may specify any combination of the above options to the configure
 script. By default, the executables are placed in :file:`/usr/local/sbin`
 and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`

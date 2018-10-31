@@ -71,14 +71,9 @@ static struct frr_daemon_info ripd_di;
 static void sighup(void)
 {
 	zlog_info("SIGHUP received");
-	rip_clean();
-	rip_reset();
-	zlog_info("ripd restarting!");
 
 	/* Reload config file. */
-	vty_read_config(ripd_di.config_file, config_default);
-
-	/* Try to return to normal operation. */
+	vty_read_config(NULL, ripd_di.config_file, config_default);
 }
 
 /* SIGINT handler. */
@@ -119,13 +114,19 @@ static struct quagga_signal_t ripd_signals[] = {
 	},
 };
 
+static const struct frr_yang_module_info *ripd_yang_modules[] = {
+	&frr_interface_info,
+	&frr_ripd_info,
+};
+
 FRR_DAEMON_INFO(ripd, RIP, .vty_port = RIP_VTY_PORT,
 
 		.proghelp = "Implementation of the RIP routing protocol.",
 
 		.signals = ripd_signals, .n_signals = array_size(ripd_signals),
 
-		.privs = &ripd_privs, )
+		.privs = &ripd_privs, .yang_modules = ripd_yang_modules,
+		.n_yang_modules = array_size(ripd_yang_modules), )
 
 #if CONFDATE > 20190521
 CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")
@@ -164,6 +165,8 @@ int main(int argc, char **argv)
 		}
 	}
 
+	vty_config_lockless();
+
 	/* Prepare master thread. */
 	master = frr_init();
 
@@ -175,6 +178,7 @@ int main(int argc, char **argv)
 	/* RIP related initialization. */
 	rip_init();
 	rip_if_init();
+	rip_cli_init();
 	rip_zclient_init(master);
 	rip_peer_init();
 

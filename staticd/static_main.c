@@ -100,6 +100,9 @@ struct quagga_signal_t static_signals[] = {
 	},
 };
 
+static const struct frr_yang_module_info *staticd_yang_modules[] = {
+};
+
 #define STATIC_VTY_PORT 2616
 
 FRR_DAEMON_INFO(staticd, STATIC, .vty_port = STATIC_VTY_PORT,
@@ -109,7 +112,8 @@ FRR_DAEMON_INFO(staticd, STATIC, .vty_port = STATIC_VTY_PORT,
 		.signals = static_signals,
 		.n_signals = array_size(static_signals),
 
-		.privs = &static_privs,
+		.privs = &static_privs, .yang_modules = staticd_yang_modules,
+		.n_yang_modules = array_size(staticd_yang_modules),
 )
 
 int main(int argc, char **argv, char **envp)

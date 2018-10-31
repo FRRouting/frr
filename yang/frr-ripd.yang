@@ -1,0 +1,587 @@
+module frr-ripd {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/ripd";
+  prefix frr-ripd;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+  import ietf-yang-types {
+    prefix yang;
+  }
+  import frr-interface {
+    prefix frr-interface;
+  }
+  import frr-route-types {
+    prefix frr-route-types;
+  }
+
+  organization
+    "Free Range Routing";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR ripd daemon.";
+
+  revision 2017-12-06 {
+    description
+      "Initial revision.";
+    reference
+      "RFC 1058: Routing Information Protocol.
+       RFC 2453: RIP Version 2.";
+  }
+
+  container ripd {
+    /*
+     * Global configuration data
+     */
+    container instance {
+      presence "Present if the RIP protocol is enabled.";
+      description
+        "RIP routing instance.";
+
+      leaf allow-ecmp {
+        type boolean;
+        default "false";
+        description
+          "Allow equal-cost multi-path.";
+      }
+      leaf default-information-originate {
+        type boolean;
+        default "false";
+        description
+          "Control distribution of default route.";
+      }
+      leaf default-metric {
+        type uint8 {
+          range "1..16";
+        }
+        default "1";
+        description
+          "Default metric of redistributed routes.";
+      }
+      container distance {
+        description
+          "Administrative distance.";
+        leaf default {
+          type uint8 {
+            range "0..255";
+          }
+          default "0";
+          description
+            "Default administrative distance.";
+        }
+        list source {
+          key "prefix";
+          description
+            "Custom administrative distance per IP prefix.";
+          leaf prefix {
+            type inet:ipv4-prefix;
+            description
+              "Prefix.";
+          }
+          leaf distance {
+            type uint8 {
+              range "1..255";
+            }
+            mandatory true;
+            description
+              "Administrative distance.";
+          }
+          leaf access-list {
+            type string;
+            description
+              "Access-list name.";
+          }
+        }
+      }
+      leaf-list explicit-neighbor {
+        type inet:ipv4-address;
+        description
+          "Specifies the RIP neighbors. Useful for a
+           non-broadcast multiple access (NBMA) network.";
+      }
+      leaf-list network {
+        type inet:ipv4-prefix;
+        description
+          "Enable RIP on the specified IP network.";
+      }
+      leaf-list interface {
+        type string {
+          length "1..16";
+        }
+        description
+          "Enable RIP on the specified interface.";
+      }
+      list offset-list {
+        key "interface direction";
+        description
+          "Offset-list to modify route metric.";
+        leaf interface {
+          type string;
+          description
+            "Interface to match. Use '*' to match all interfaces.";
+        }
+        leaf direction {
+          type enumeration {
+            enum in {
+              value 0;
+              description
+                "Incoming updates.";
+            }
+            enum out {
+              value 1;
+              description
+                "Outgoing updates.";
+            }
+          }
+          description
+            "Incoming or outgoing updates.";
+        }
+        leaf access-list {
+          type string;
+          mandatory true;
+          description
+            "Access-list name.";
+        }
+        leaf metric {
+          type uint8 {
+            range "0..16";
+          }
+          mandatory true;
+          description
+            "Route metric.";
+        }
+      }
+      leaf passive-default {
+        type boolean;
+        default "false";
+        description
+          "Control whether interfaces are in the passive mode
+           by default or not.";
+      }
+      leaf-list passive-interface {
+        when "../passive-default = 'false'";
+        type string {
+          length "1..16";
+        }
+        description
+          "A list of interfaces where the sending of RIP packets
+           is disabled.";
+      }
+      leaf-list non-passive-interface {
+        when "../passive-default = 'true'";
+        type string {
+          length "1..16";
+        }
+        description
+          "A list of interfaces where the sending of RIP packets
+           is enabled.";
+      }
+      list redistribute {
+        key "protocol";
+        description
+          "Redistributes routes learned from other routing protocols.";
+        leaf protocol {
+          type frr-route-types:frr-route-types-v4;
+          description
+            "Routing protocol.";
+          must '. != "rip"';
+        }
+        leaf route-map {
+          type string {
+            length "1..max";
+          }
+          description
+            "Applies the conditions of the specified route-map to
+             routes that are redistributed into the RIP routing
+             instance.";
+        }
+        leaf metric {
+          type uint8 {
+            range "0..16";
+          }
+          description
+            "Metric used for the redistributed route. If a metric is
+             not specified, the metric configured with the
+             default-metric attribute in RIP router configuration is
+             used. If the default-metric attribute has not been
+             configured, the default metric for redistributed routes
+             is 0.";
+        }
+      }
+      leaf-list static-route {
+        type inet:ipv4-prefix;
+        description
+          "RIP static routes.";
+      }
+      container timers {
+        description
+          "Settings of basic timers";
+        leaf flush-interval {
+          type uint32 {
+            range "5..2147483647";
+          }
+          units "seconds";
+          default "120";
+          description
+            "Interval before a route is flushed from the routing
+             table.";
+        }
+        leaf holddown-interval {
+          type uint32 {
+            range "5..2147483647";
+          }
+          units "seconds";
+          default "180";
+          description
+            "Interval before better routes are released.";
+        }
+        leaf update-interval {
+          type uint32 {
+            range "5..2147483647";
+          }
+          units "seconds";
+          default "30";
+          description
+            "Interval at which RIP updates are sent.";
+        }
+      }
+      container version {
+        leaf receive {
+          type enumeration {
+            enum "1" {
+              value 1;
+              description
+                "Accept RIPv1 updates only.";
+            }
+            enum "2" {
+              value 2;
+              description
+                "Accept RIPv2 updates only.";
+            }
+            enum "1-2" {
+              value 3;
+              description
+                "Accept both RIPv1 and RIPv2 updates.";
+            }
+          }
+          default "1-2";
+          description
+            "Advertisement reception - Version control.";
+        }
+        leaf send {
+          type enumeration {
+            enum "1" {
+              value 1;
+              description
+                "Send RIPv1 updates only.";
+            }
+            enum "2" {
+              value 2;
+              description
+                "Send RIPv2 updates only.";
+            }
+          }
+          default "2";
+          description
+            "Advertisement transmission - Version control.";
+        }
+        must
+          '(./receive = "1" and ./send = "1") or ' +
+          '(./receive = "2" and ./send = "2") or ' +
+          '(./receive = "1-2" and ./send = "2")';
+      }
+    }
+
+    /*
+     * Operational data.
+     */
+    container state {
+      config false;
+      description
+        "Operational data.";
+
+      container neighbors {
+        description
+          "Neighbor information.";
+        list neighbor {
+          key "address";
+          description
+            "A RIP neighbor.";
+          leaf address {
+            type inet:ipv4-address;
+            description
+              "IP address that a RIP neighbor is using as its
+               source address.";
+          }
+          leaf last-update {
+            type yang:date-and-time;
+            description
+              "The time when the most recent RIP update was
+               received from this neighbor.";
+          }
+          leaf bad-packets-rcvd {
+            type yang:counter32;
+            description
+              "The number of RIP invalid packets received from
+               this neighbor which were subsequently discarded
+               for any reason (e.g. a version 0 packet, or an
+               unknown command type).";
+          }
+          leaf bad-routes-rcvd {
+            type yang:counter32;
+            description
+              "The number of routes received from this neighbor,
+               in valid RIP packets, which were ignored for any
+               reason (e.g. unknown address family, or invalid
+               metric).";
+          }
+        }
+      }
+      container routes {
+        description
+          "Route information.";
+        list route {
+          key "prefix";
+          description
+            "A RIP IPv4 route.";
+          leaf prefix {
+            type inet:ipv4-prefix;
+            description
+              "IP address (in the form A.B.C.D) and prefix length,
+               separated by the slash (/) character. The range of
+               values for the prefix-length is 0 to 32.";
+          }
+          leaf next-hop {
+            type inet:ipv4-address;
+            description
+              "Next hop IPv4 address.";
+          }
+          leaf interface {
+            type string;
+            description
+              "The interface that the route uses.";
+          }
+          leaf metric {
+            type uint8 {
+              range "0..16";
+            }
+            description
+              "Route metric.";
+          }
+        }
+      }
+    }
+  }
+
+  /*
+   * Per-interface configuration data
+   */
+  augment "/frr-interface:lib/frr-interface:interface" {
+    container rip {
+      description
+        "RIP interface parameters.";
+      leaf split-horizon {
+        type enumeration {
+          enum "disabled" {
+            value 0;
+            description
+              "Disables split-horizon processing.";
+          }
+          enum "simple" {
+            value 1;
+            description
+              "Enables simple split-horizon processing.";
+          }
+          enum "poison-reverse" {
+            value 2;
+            description
+              "Enables split-horizon processing with poison
+               reverse.";
+          }
+        }
+        default "simple";
+        description
+          "Controls RIP split-horizon processing on the specified
+           interface.";
+      }
+      leaf v2-broadcast {
+        type boolean;
+        default "false";
+        description
+          "Send IP broadcast v2 update.";
+      }
+      leaf version-receive {
+        type enumeration {
+          enum "unspecified" {
+            value 0;
+            description
+              "Inherit configuration from the routing instance.";
+          }
+          enum "1" {
+            value 1;
+            description
+              "Accept RIPv1 updates only.";
+          }
+          enum "2" {
+            value 2;
+            description
+              "Accept RIPv2 updates only.";
+          }
+          enum "both" {
+            value 3;
+            description
+              "Accept both RIPv1 and RIPv2 updates.";
+          }
+          enum "none" {
+            value 4;
+            description
+              "Do not accept neither RIPv1 nor RIPv2 updates.";
+          }
+        }
+        default "unspecified";
+        description
+          "Advertisement reception - Version control.";
+      }
+      leaf version-send {
+        type enumeration {
+          enum "unspecified" {
+            value 0;
+            description
+              "Inherit configuration from the routing instance.";
+          }
+          enum "1" {
+            value 1;
+            description
+              "Send RIPv1 updates only.";
+          }
+          enum "2" {
+            value 2;
+            description
+              "Send RIPv2 updates only.";
+          }
+          enum "both" {
+            value 3;
+            description
+              "Send both RIPv1 and RIPv2 updates.";
+          }
+          enum "none" {
+            value 4;
+            description
+              "Do not send neither RIPv1 nor RIPv2 updates.";
+          }
+        }
+        default "unspecified";
+        description
+          "Advertisement transmission - Version control.";
+      }
+      container authentication-scheme {
+        description
+          "Specify the authentication scheme for the RIP interface";
+        leaf mode {
+          type enumeration {
+            enum "none" {
+              value 0;
+              description
+                "No authentication.";
+            }
+            enum "plain-text" {
+              value 2;
+              description
+                "Plain-text authentication.";
+            }
+            enum "md5" {
+              value 3;
+              description
+                "MD5 authentication.";
+            }
+          }
+          default "none";
+          description
+            "Specify the authentication mode.";
+        }
+        leaf md5-auth-length {
+          when "../mode = 'md5'";
+          type enumeration {
+            enum "16" {
+              value 16;
+              description
+                "RFC compatible.";
+            }
+            enum "20" {
+              value 20;
+              description
+                "Old ripd compatible.";
+            }
+          }
+          default "20";
+          description
+            "MD5 authentication data length.";
+        }
+      }
+      choice authentication-data {
+        description
+          "Choose whether to use a simple password or a key-chain.";
+        leaf authentication-password {
+          type string {
+            length "1..16";
+          }
+          description
+            "Authentication string.";
+        }
+        leaf authentication-key-chain {
+          type string;
+          description
+            "Key-chain name.";
+        }
+      }
+    }
+  }
+
+  /*
+   * RPCs
+   */
+  rpc clear-rip-route {
+    description
+      "Clears RIP routes from the IP routing table and routes
+       redistributed into the RIP protocol.";
+  }
+
+  /*
+   * Notifications
+   */
+  notification authentication-type-failure {
+    description
+      "This notification is sent when the system
+       receives a PDU with the wrong authentication type
+       field.";
+    leaf interface-name {
+      type string;
+      description
+        "Describes the name of the RIP interface.";
+    }
+    leaf raw-pdu {
+      type binary;
+      description
+        "Received raw PDU.";
+    }
+  }
+  notification authentication-failure {
+    description
+      "This notification is sent when the system
+       receives a PDU with the wrong authentication
+       information.";
+    leaf interface-name {
+      type string;
+      description
+        "Describes the name of the RIP interface.";
+    }
+    leaf raw-pdu {
+      type binary;
+      description
+        "Received raw PDU.";
+    }
+  }
+}

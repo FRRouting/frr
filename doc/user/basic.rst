@@ -478,6 +478,10 @@ These options apply to all |PACKAGE_NAME| daemons.
    When initializing the daemon, allow the specification of a default
    log level at startup from one of the specified levels.
 
+.. option:: --tcli
+
+   Enable the transactional CLI mode.
+
 .. _loadable-module-support:
 
 Loadable Module Support

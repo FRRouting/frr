@@ -18,6 +18,8 @@ Add packages:
        pkg-config libpam0g-dev libjson-c-dev bison flex python-pytest \
        libc-ares-dev python3-dev python3-sphinx install-info
 
+.. include:: building-libyang.rst
+
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 

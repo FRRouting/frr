@@ -1383,6 +1383,8 @@ static void bgp_startup(void)
 		 LOG_DAEMON);
 	zprivs_preinit(&bgpd_privs);
 	zprivs_init(&bgpd_privs);
+	yang_init();
+	nb_init(NULL, 0);
 
 	master = thread_master_create(NULL);
 	bgp_master_init(master);
@@ -1428,6 +1430,8 @@ static void bgp_shutdown(void)
 
 	vty_terminate();
 	cmd_terminate();
+	nb_terminate();
+	yang_terminate();
 	zprivs_terminate(&bgpd_privs);
 	thread_master_free(master);
 	master = NULL;

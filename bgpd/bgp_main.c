@@ -137,7 +137,7 @@ void sighup(void)
 	zlog_info("bgpd restarting!");
 
 	/* Reload config file. */
-	vty_read_config(bgpd_di.config_file, config_default);
+	vty_read_config(NULL, bgpd_di.config_file, config_default);
 
 	/* Try to return to normal operation. */
 }
@@ -348,13 +348,17 @@ static void bgp_vrf_terminate(void)
 	vrf_terminate();
 }
 
+static const struct frr_yang_module_info *bgpd_yang_modules[] = {
+};
+
 FRR_DAEMON_INFO(bgpd, BGP, .vty_port = BGP_VTY_PORT,
 
 		.proghelp = "Implementation of the BGP routing protocol.",
 
 		.signals = bgp_signals, .n_signals = array_size(bgp_signals),
 
-		.privs = &bgpd_privs, )
+		.privs = &bgpd_privs, .yang_modules = bgpd_yang_modules,
+		.n_yang_modules = array_size(bgpd_yang_modules), )
 
 #if CONFDATE > 20190521
 CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")

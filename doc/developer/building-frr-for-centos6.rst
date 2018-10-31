@@ -115,6 +115,8 @@ Update rpm database & Install newer sphinx
    sudo yum update
    sudo yum install python27-sphinx
 
+.. include:: building-libyang.rst
+
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 

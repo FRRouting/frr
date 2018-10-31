@@ -40,6 +40,8 @@ compile)
     mv /usr/bin/clang /usr/bin/clang34
     ln -s /usr/local/bin/clang36 /usr/bin/clang
 
+.. include:: building-libyang.rst
+
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 

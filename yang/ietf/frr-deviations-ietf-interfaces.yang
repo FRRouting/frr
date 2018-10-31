@@ -1,0 +1,72 @@
+module frr-deviations-ietf-interfaces {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/frr-deviations-ietf-interfaces";
+  prefix frr-deviations-ietf-interfaces;
+
+  import ietf-interfaces {
+    prefix ietf-interfaces;
+  }
+
+  organization
+    "Free Range Routing";
+
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+
+  description
+    "This module defines deviation statements for the ietf-interfaces
+     module.";
+
+  deviation "/ietf-interfaces:interfaces/ietf-interfaces:interface/ietf-interfaces:type" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-interfaces:interfaces/ietf-interfaces:interface/ietf-interfaces:enabled" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-interfaces:interfaces/ietf-interfaces:interface/ietf-interfaces:link-up-down-trap-enable" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-interfaces:interfaces/ietf-interfaces:interface/ietf-interfaces:admin-status" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-interfaces:interfaces/ietf-interfaces:interface/ietf-interfaces:oper-status" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-interfaces:interfaces/ietf-interfaces:interface/ietf-interfaces:last-change" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-interfaces:interfaces/ietf-interfaces:interface/ietf-interfaces:if-index" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-interfaces:interfaces/ietf-interfaces:interface/ietf-interfaces:phys-address" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-interfaces:interfaces/ietf-interfaces:interface/ietf-interfaces:higher-layer-if" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-interfaces:interfaces/ietf-interfaces:interface/ietf-interfaces:lower-layer-if" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-interfaces:interfaces/ietf-interfaces:interface/ietf-interfaces:speed" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-interfaces:interfaces/ietf-interfaces:interface/ietf-interfaces:statistics" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-interfaces:interfaces-state" {
+    deviate not-supported;
+  }
+}

@@ -474,8 +474,7 @@ extern struct interface *if_lookup_prefix(struct prefix *prefix,
    by a '\0' character: */
 extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
-extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id,
-					int vty);
+extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id);
 extern void if_set_index(struct interface *ifp, ifindex_t ifindex);
 
 /* Delete the interface, but do not free the structure, and leave it in the
@@ -497,7 +496,6 @@ extern bool if_is_loopback_or_vrf(struct interface *ifp);
 extern int if_is_broadcast(struct interface *);
 extern int if_is_pointopoint(struct interface *);
 extern int if_is_multicast(struct interface *);
-extern void if_cmd_init(void);
 struct vrf;
 extern void if_terminate(struct vrf *vrf);
 extern void if_dump_all(void);
@@ -533,5 +531,9 @@ struct nbr_connected *nbr_connected_check(struct interface *, struct prefix *);
 /* link parameters */
 struct if_link_params *if_link_params_get(struct interface *);
 void if_link_params_free(struct interface *);
+
+/* Northbound. */
+extern void if_cmd_init(void);
+extern const struct frr_yang_module_info frr_interface_info;
 
 #endif /* _ZEBRA_IF_H */

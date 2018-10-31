@@ -41,12 +41,11 @@
 #include "keychain.h"
 #include "privs.h"
 #include "lib_errors.h"
+#include "northbound_cli.h"
 
 #include "ripd/ripd.h"
 #include "ripd/rip_debug.h"
 #include "ripd/rip_errors.h"
-
-DEFINE_QOBJ_TYPE(rip)
 
 /* UDP receive buffer size */
 #define RIP_UDP_RCV_BUF 41600
@@ -64,7 +63,6 @@ long rip_global_route_changes = 0;
 long rip_global_queries = 0;
 
 /* Prototypes. */
-static void rip_event(enum rip_event, int);
 static void rip_output_process(struct connected *, struct sockaddr_in *, int,
 			       uint8_t);
 static int rip_triggered_update(struct thread *);
@@ -97,7 +95,7 @@ static int sockopt_broadcast(int sock)
 	return 0;
 }
 
-static int rip_route_rte(struct rip_info *rinfo)
+int rip_route_rte(struct rip_info *rinfo)
 {
 	return (rinfo->type == ZEBRA_ROUTE_RIP
 		&& rinfo->sub_type == RIP_ROUTE_RTE);
@@ -1322,7 +1320,7 @@ static void rip_response_process(struct rip_packet *packet, int size,
 }
 
 /* Make socket for RIP protocol. */
-static int rip_create_socket(void)
+int rip_create_socket(void)
 {
 	int ret;
 	int sock;
@@ -1873,6 +1871,7 @@ static int rip_read(struct thread *t)
 			zlog_debug(
 				"packet RIPv%d is dropped because authentication disabled",
 				packet->version);
+		ripd_notif_send_auth_type_failure(ifp->name);
 		rip_peer_bad_packet(&from);
 		return -1;
 	}
@@ -1909,6 +1908,7 @@ static int rip_read(struct thread *t)
 				zlog_debug(
 					"RIPv1"
 					" dropped because authentication enabled");
+			ripd_notif_send_auth_type_failure(ifp->name);
 			rip_peer_bad_packet(&from);
 			return -1;
 		}
@@ -1921,6 +1921,7 @@ static int rip_read(struct thread *t)
 			if (IS_RIP_DEBUG_PACKET)
 				zlog_debug(
 					"RIPv2 authentication failed: no auth RTE in packet");
+			ripd_notif_send_auth_type_failure(ifp->name);
 			rip_peer_bad_packet(&from);
 			return -1;
 		}
@@ -1931,6 +1932,7 @@ static int rip_read(struct thread *t)
 				zlog_debug(
 					"RIPv2"
 					" dropped because authentication enabled");
+			ripd_notif_send_auth_type_failure(ifp->name);
 			rip_peer_bad_packet(&from);
 			return -1;
 		}
@@ -1966,6 +1968,7 @@ static int rip_read(struct thread *t)
 			if (IS_RIP_DEBUG_PACKET)
 				zlog_debug("RIPv2 %s authentication failure",
 					   auth_desc);
+			ripd_notif_send_auth_failure(ifp->name);
 			rip_peer_bad_packet(&from);
 			return -1;
 		}
@@ -2663,36 +2666,42 @@ void rip_redistribute_withdraw(int type)
 }
 
 /* Create new RIP instance and set it to global variable. */
-static int rip_create(void)
+int rip_create(int socket)
 {
 	rip = XCALLOC(MTYPE_RIP, sizeof(struct rip));
 
 	/* Set initial value. */
-	rip->version_send = RI_RIP_VERSION_2;
-	rip->version_recv = RI_RIP_VERSION_1_AND_2;
-	rip->update_time = RIP_UPDATE_TIMER_DEFAULT;
-	rip->timeout_time = RIP_TIMEOUT_TIMER_DEFAULT;
-	rip->garbage_time = RIP_GARBAGE_TIMER_DEFAULT;
-	rip->default_metric = RIP_DEFAULT_METRIC_DEFAULT;
+	rip->ecmp = yang_get_default_bool("%s/allow-ecmp", RIP_INSTANCE);
+	rip->default_metric =
+		yang_get_default_uint8("%s/default-metric", RIP_INSTANCE);
+	rip->distance =
+		yang_get_default_uint8("%s/distance/default", RIP_INSTANCE);
+	rip->passive_default =
+		yang_get_default_bool("%s/passive-default", RIP_INSTANCE);
+	rip->garbage_time = yang_get_default_uint32("%s/timers/flush-interval",
+						    RIP_INSTANCE);
+	rip->timeout_time = yang_get_default_uint32(
+		"%s/timers/holddown-interval", RIP_INSTANCE);
+	rip->update_time = yang_get_default_uint32("%s/timers/update-interval",
+						   RIP_INSTANCE);
+	rip->version_send =
+		yang_get_default_enum("%s/version/send", RIP_INSTANCE);
+	rip->version_recv =
+		yang_get_default_enum("%s/version/receive", RIP_INSTANCE);
 
 	/* Initialize RIP routig table. */
 	rip->table = route_table_init();
-	rip->route = route_table_init();
 	rip->neighbor = route_table_init();
 
 	/* Make output stream. */
 	rip->obuf = stream_new(1500);
 
-	/* Make socket. */
-	rip->sock = rip_create_socket();
-	if (rip->sock < 0)
-		return rip->sock;
+	/* Set socket. */
+	rip->sock = socket;
 
 	/* Create read and timer thread. */
 	rip_event(RIP_READ, rip->sock);
 	rip_event(RIP_UPDATE_EVENT, 1);
-
-	QOBJ_REG(rip, rip);
 
 	return 0;
 }
@@ -2791,150 +2800,6 @@ void rip_event(enum rip_event event, int sock)
 	}
 }
 
-DEFUN_NOSH (router_rip,
-       router_rip_cmd,
-       "router rip",
-       "Enable a routing process\n"
-       "Routing Information Protocol (RIP)\n")
-{
-	int ret;
-
-	/* If rip is not enabled before. */
-	if (!rip) {
-		ret = rip_create();
-		if (ret < 0) {
-			zlog_info("Can't create RIP");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	VTY_PUSH_CONTEXT(RIP_NODE, rip);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_router_rip,
-       no_router_rip_cmd,
-       "no router rip",
-       NO_STR
-       "Enable a routing process\n"
-       "Routing Information Protocol (RIP)\n")
-{
-	if (rip)
-		rip_clean();
-	return CMD_SUCCESS;
-}
-
-DEFUN (rip_version,
-       rip_version_cmd,
-       "version (1-2)",
-       "Set routing protocol version\n"
-       "version\n")
-{
-	int idx_number = 1;
-	int version;
-
-	version = atoi(argv[idx_number]->arg);
-	if (version != RIPv1 && version != RIPv2) {
-		vty_out(vty, "invalid rip version %d\n", version);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	rip->version_send = version;
-	rip->version_recv = version;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_version,
-       no_rip_version_cmd,
-       "no version [(1-2)]",
-       NO_STR
-       "Set routing protocol version\n"
-       "Version\n")
-{
-	/* Set RIP version to the default. */
-	rip->version_send = RI_RIP_VERSION_2;
-	rip->version_recv = RI_RIP_VERSION_1_AND_2;
-
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (rip_route,
-       rip_route_cmd,
-       "route A.B.C.D/M",
-       "RIP static route configuration\n"
-       "IP prefix <network>/<length>\n")
-{
-	int idx_ipv4_prefixlen = 1;
-	int ret;
-	struct nexthop nh;
-	struct prefix_ipv4 p;
-	struct route_node *node;
-
-	memset(&nh, 0, sizeof(nh));
-	nh.type = NEXTHOP_TYPE_IPV4;
-
-	ret = str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
-	if (ret < 0) {
-		vty_out(vty, "Malformed address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	apply_mask_ipv4(&p);
-
-	/* For router rip configuration. */
-	node = route_node_get(rip->route, (struct prefix *)&p);
-
-	if (node->info) {
-		vty_out(vty, "There is already same static route.\n");
-		route_unlock_node(node);
-		return CMD_WARNING;
-	}
-
-	node->info = (void *)1;
-
-	rip_redistribute_add(ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, &nh, 0, 0,
-			     0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_route,
-       no_rip_route_cmd,
-       "no route A.B.C.D/M",
-       NO_STR
-       "RIP static route configuration\n"
-       "IP prefix <network>/<length>\n")
-{
-	int idx_ipv4_prefixlen = 2;
-	int ret;
-	struct prefix_ipv4 p;
-	struct route_node *node;
-
-	ret = str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
-	if (ret < 0) {
-		vty_out(vty, "Malformed address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	apply_mask_ipv4(&p);
-
-	/* For router rip configuration. */
-	node = route_node_lookup(rip->route, (struct prefix *)&p);
-	if (!node) {
-		vty_out(vty, "Can't find route %s.\n",
-			argv[idx_ipv4_prefixlen]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	rip_redistribute_delete(ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0);
-	route_unlock_node(node);
-
-	node->info = NULL;
-	route_unlock_node(node);
-
-	return CMD_SUCCESS;
-}
-
 #if 0
 static void
 rip_update_default_metric (void)
@@ -2952,200 +2817,17 @@ rip_update_default_metric (void)
 }
 #endif
 
-DEFUN (rip_default_metric,
-       rip_default_metric_cmd,
-       "default-metric (1-16)",
-       "Set a metric of redistribute routes\n"
-       "Default metric\n")
-{
-	int idx_number = 1;
-	if (rip) {
-		rip->default_metric = atoi(argv[idx_number]->arg);
-		/* rip_update_default_metric (); */
-	}
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_default_metric,
-       no_rip_default_metric_cmd,
-       "no default-metric [(1-16)]",
-       NO_STR
-       "Set a metric of redistribute routes\n"
-       "Default metric\n")
-{
-	if (rip) {
-		rip->default_metric = RIP_DEFAULT_METRIC_DEFAULT;
-		/* rip_update_default_metric (); */
-	}
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (rip_timers,
-       rip_timers_cmd,
-       "timers basic (5-2147483647) (5-2147483647) (5-2147483647)",
-       "Adjust routing timers\n"
-       "Basic routing protocol update timers\n"
-       "Routing table update timer value in second. Default is 30.\n"
-       "Routing information timeout timer. Default is 180.\n"
-       "Garbage collection timer. Default is 120.\n")
-{
-	int idx_number = 2;
-	int idx_number_2 = 3;
-	int idx_number_3 = 4;
-	unsigned long update;
-	unsigned long timeout;
-	unsigned long garbage;
-	char *endptr = NULL;
-	unsigned long RIP_TIMER_MAX = 2147483647;
-	unsigned long RIP_TIMER_MIN = 5;
-
-	update = strtoul(argv[idx_number]->arg, &endptr, 10);
-	if (update > RIP_TIMER_MAX || update < RIP_TIMER_MIN
-	    || *endptr != '\0') {
-		vty_out(vty, "update timer value error\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	timeout = strtoul(argv[idx_number_2]->arg, &endptr, 10);
-	if (timeout > RIP_TIMER_MAX || timeout < RIP_TIMER_MIN
-	    || *endptr != '\0') {
-		vty_out(vty, "timeout timer value error\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	garbage = strtoul(argv[idx_number_3]->arg, &endptr, 10);
-	if (garbage > RIP_TIMER_MAX || garbage < RIP_TIMER_MIN
-	    || *endptr != '\0') {
-		vty_out(vty, "garbage timer value error\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Set each timer value. */
-	rip->update_time = update;
-	rip->timeout_time = timeout;
-	rip->garbage_time = garbage;
-
-	/* Reset update timer thread. */
-	rip_event(RIP_UPDATE_EVENT, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_timers,
-       no_rip_timers_cmd,
-       "no timers basic [(0-65535) (0-65535) (0-65535)]",
-       NO_STR
-       "Adjust routing timers\n"
-       "Basic routing protocol update timers\n"
-       "Routing table update timer value in second. Default is 30.\n"
-       "Routing information timeout timer. Default is 180.\n"
-       "Garbage collection timer. Default is 120.\n")
-{
-	/* Set each timer value to the default. */
-	rip->update_time = RIP_UPDATE_TIMER_DEFAULT;
-	rip->timeout_time = RIP_TIMEOUT_TIMER_DEFAULT;
-	rip->garbage_time = RIP_GARBAGE_TIMER_DEFAULT;
-
-	/* Reset update timer thread. */
-	rip_event(RIP_UPDATE_EVENT, 0);
-
-	return CMD_SUCCESS;
-}
-
 
 struct route_table *rip_distance_table;
 
-struct rip_distance {
-	/* Distance value for the IP source prefix. */
-	uint8_t distance;
-
-	/* Name of the access-list to be matched. */
-	char *access_list;
-};
-
-static struct rip_distance *rip_distance_new(void)
+struct rip_distance *rip_distance_new(void)
 {
 	return XCALLOC(MTYPE_RIP_DISTANCE, sizeof(struct rip_distance));
 }
 
-static void rip_distance_free(struct rip_distance *rdistance)
+void rip_distance_free(struct rip_distance *rdistance)
 {
 	XFREE(MTYPE_RIP_DISTANCE, rdistance);
-}
-
-static int rip_distance_set(struct vty *vty, const char *distance_str,
-			    const char *ip_str, const char *access_list_str)
-{
-	int ret;
-	struct prefix_ipv4 p;
-	uint8_t distance;
-	struct route_node *rn;
-	struct rip_distance *rdistance;
-
-	ret = str2prefix_ipv4(ip_str, &p);
-	if (ret == 0) {
-		vty_out(vty, "Malformed prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	distance = atoi(distance_str);
-
-	/* Get RIP distance node. */
-	rn = route_node_get(rip_distance_table, (struct prefix *)&p);
-	if (rn->info) {
-		rdistance = rn->info;
-		route_unlock_node(rn);
-	} else {
-		rdistance = rip_distance_new();
-		rn->info = rdistance;
-	}
-
-	/* Set distance value. */
-	rdistance->distance = distance;
-
-	/* Reset access-list configuration. */
-	if (rdistance->access_list) {
-		free(rdistance->access_list);
-		rdistance->access_list = NULL;
-	}
-	if (access_list_str)
-		rdistance->access_list = strdup(access_list_str);
-
-	return CMD_SUCCESS;
-}
-
-static int rip_distance_unset(struct vty *vty, const char *distance_str,
-			      const char *ip_str, const char *access_list_str)
-{
-	int ret;
-	struct prefix_ipv4 p;
-	struct route_node *rn;
-	struct rip_distance *rdistance;
-
-	ret = str2prefix_ipv4(ip_str, &p);
-	if (ret == 0) {
-		vty_out(vty, "Malformed prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	rn = route_node_lookup(rip_distance_table, (struct prefix *)&p);
-	if (!rn) {
-		vty_out(vty, "Can't find specified prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	rdistance = rn->info;
-
-	if (rdistance->access_list)
-		free(rdistance->access_list);
-	rip_distance_free(rdistance);
-
-	rn->info = NULL;
-	route_unlock_node(rn);
-	route_unlock_node(rn);
-
-	return CMD_SUCCESS;
 }
 
 static void rip_distance_reset(void)
@@ -3212,7 +2894,7 @@ static void rip_distance_show(struct vty *vty)
 	int header = 1;
 	char buf[BUFSIZ];
 
-	vty_out(vty, "  Distance: (default is %d)\n",
+	vty_out(vty, "  Distance: (default is %u)\n",
 		rip->distance ? rip->distance : ZEBRA_RIP_DISTANCE_DEFAULT);
 
 	for (rn = route_top(rip_distance_table); rn; rn = route_next(rn))
@@ -3231,92 +2913,8 @@ static void rip_distance_show(struct vty *vty)
 		}
 }
 
-DEFUN (rip_distance,
-       rip_distance_cmd,
-       "distance (1-255)",
-       "Administrative distance\n"
-       "Distance value\n")
-{
-	int idx_number = 1;
-	rip->distance = atoi(argv[idx_number]->arg);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_distance,
-       no_rip_distance_cmd,
-       "no distance (1-255)",
-       NO_STR
-       "Administrative distance\n"
-       "Distance value\n")
-{
-	rip->distance = 0;
-	return CMD_SUCCESS;
-}
-
-DEFUN (rip_distance_source,
-       rip_distance_source_cmd,
-       "distance (1-255) A.B.C.D/M",
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n")
-{
-	int idx_number = 1;
-	int idx_ipv4_prefixlen = 2;
-	rip_distance_set(vty, argv[idx_number]->arg,
-			 argv[idx_ipv4_prefixlen]->arg, NULL);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_distance_source,
-       no_rip_distance_source_cmd,
-       "no distance (1-255) A.B.C.D/M",
-       NO_STR
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n")
-{
-	int idx_number = 2;
-	int idx_ipv4_prefixlen = 3;
-	rip_distance_unset(vty, argv[idx_number]->arg,
-			   argv[idx_ipv4_prefixlen]->arg, NULL);
-	return CMD_SUCCESS;
-}
-
-DEFUN (rip_distance_source_access_list,
-       rip_distance_source_access_list_cmd,
-       "distance (1-255) A.B.C.D/M WORD",
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n"
-       "Access list name\n")
-{
-	int idx_number = 1;
-	int idx_ipv4_prefixlen = 2;
-	int idx_word = 3;
-	rip_distance_set(vty, argv[idx_number]->arg,
-			 argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_distance_source_access_list,
-       no_rip_distance_source_access_list_cmd,
-       "no distance (1-255) A.B.C.D/M WORD",
-       NO_STR
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n"
-       "Access list name\n")
-{
-	int idx_number = 2;
-	int idx_ipv4_prefixlen = 3;
-	int idx_word = 4;
-	rip_distance_unset(vty, argv[idx_number]->arg,
-			   argv[idx_ipv4_prefixlen]->arg, argv[idx_word]->arg);
-	return CMD_SUCCESS;
-}
-
 /* Update ECMP routes to zebra when ECMP is disabled. */
-static void rip_ecmp_disable(void)
+void rip_ecmp_disable(void)
 {
 	struct route_node *rp;
 	struct rip_info *rinfo, *tmp_rinfo;
@@ -3351,38 +2949,6 @@ static void rip_ecmp_disable(void)
 			/* Signal the output process to trigger an update. */
 			rip_event(RIP_TRIGGERED_UPDATE, 0);
 		}
-}
-
-DEFUN (rip_allow_ecmp,
-       rip_allow_ecmp_cmd,
-       "allow-ecmp",
-       "Allow Equal Cost MultiPath\n")
-{
-	if (rip->ecmp) {
-		vty_out(vty, "ECMP is already enabled.\n");
-		return CMD_WARNING;
-	}
-
-	rip->ecmp = 1;
-	zlog_info("ECMP is enabled.");
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_allow_ecmp,
-       no_rip_allow_ecmp_cmd,
-       "no allow-ecmp",
-       NO_STR
-       "Allow Equal Cost MultiPath\n")
-{
-	if (!rip->ecmp) {
-		vty_out(vty, "ECMP is already disabled.\n");
-		return CMD_WARNING;
-	}
-
-	rip->ecmp = 0;
-	zlog_info("ECMP is disabled.");
-	rip_ecmp_disable();
-	return CMD_SUCCESS;
 }
 
 /* Print out routes update time. */
@@ -3547,23 +3113,23 @@ DEFUN (show_ip_rip_status,
 		return CMD_SUCCESS;
 
 	vty_out(vty, "Routing Protocol is \"rip\"\n");
-	vty_out(vty, "  Sending updates every %ld seconds with +/-50%%,",
+	vty_out(vty, "  Sending updates every %u seconds with +/-50%%,",
 		rip->update_time);
 	vty_out(vty, " next due in %lu seconds\n",
 		thread_timer_remain_second(rip->t_update));
-	vty_out(vty, "  Timeout after %ld seconds,", rip->timeout_time);
-	vty_out(vty, " garbage collect after %ld seconds\n", rip->garbage_time);
+	vty_out(vty, "  Timeout after %u seconds,", rip->timeout_time);
+	vty_out(vty, " garbage collect after %u seconds\n", rip->garbage_time);
 
 	/* Filtering status show. */
 	config_show_distribute(vty);
 
 	/* Default metric information. */
-	vty_out(vty, "  Default redistribution metric is %d\n",
+	vty_out(vty, "  Default redistribution metric is %u\n",
 		rip->default_metric);
 
 	/* Redistribute information. */
 	vty_out(vty, "  Redistributing:");
-	config_write_rip_redistribute(vty, 0);
+	rip_show_redistribute_config(vty);
 	vty_out(vty, "\n");
 
 	vty_out(vty, "  Default version control: send version %s,",
@@ -3606,7 +3172,7 @@ DEFUN (show_ip_rip_status,
 	}
 
 	vty_out(vty, "  Routing for Networks:\n");
-	config_write_rip_network(vty, 0);
+	rip_show_network_config(vty);
 
 	{
 		int found_passive = 0;
@@ -3639,84 +3205,20 @@ DEFUN (show_ip_rip_status,
 static int config_write_rip(struct vty *vty)
 {
 	int write = 0;
-	struct route_node *rn;
-	struct rip_distance *rdistance;
+	struct lyd_node *dnode;
 
-	if (rip) {
-		/* Router RIP statement. */
-		vty_out(vty, "router rip\n");
+	dnode = yang_dnode_get(running_config->dnode,
+			       "/frr-ripd:ripd/instance");
+	if (dnode) {
 		write++;
 
-		/* RIP version statement.  Default is RIP version 2. */
-		if (rip->version_send != RI_RIP_VERSION_2
-		    || rip->version_recv != RI_RIP_VERSION_1_AND_2)
-			vty_out(vty, " version %d\n", rip->version_send);
-
-		/* RIP timer configuration. */
-		if (rip->update_time != RIP_UPDATE_TIMER_DEFAULT
-		    || rip->timeout_time != RIP_TIMEOUT_TIMER_DEFAULT
-		    || rip->garbage_time != RIP_GARBAGE_TIMER_DEFAULT)
-			vty_out(vty, " timers basic %lu %lu %lu\n",
-				rip->update_time, rip->timeout_time,
-				rip->garbage_time);
-
-		/* Default information configuration. */
-		if (rip->default_information) {
-			if (rip->default_information_route_map)
-				vty_out(vty,
-					" default-information originate route-map %s\n",
-					rip->default_information_route_map);
-			else
-				vty_out(vty,
-					" default-information originate\n");
-		}
-
-		/* Redistribute configuration. */
-		config_write_rip_redistribute(vty, 1);
-
-		/* RIP offset-list configuration. */
-		config_write_rip_offset_list(vty);
-
-		/* RIP enabled network and interface configuration. */
-		config_write_rip_network(vty, 1);
-
-		/* RIP default metric configuration */
-		if (rip->default_metric != RIP_DEFAULT_METRIC_DEFAULT)
-			vty_out(vty, " default-metric %d\n",
-				rip->default_metric);
+		nb_cli_show_dnode_cmds(vty, dnode, false);
 
 		/* Distribute configuration. */
 		write += config_write_distribute(vty);
 
 		/* Interface routemap configuration */
 		write += config_write_if_rmap(vty);
-
-		/* Distance configuration. */
-		if (rip->distance)
-			vty_out(vty, " distance %d\n", rip->distance);
-
-		/* RIP source IP prefix distance configuration. */
-		for (rn = route_top(rip_distance_table); rn;
-		     rn = route_next(rn))
-			if ((rdistance = rn->info) != NULL)
-				vty_out(vty, " distance %d %s/%d %s\n",
-					rdistance->distance,
-					inet_ntoa(rn->p.u.prefix4),
-					rn->p.prefixlen,
-					rdistance->access_list
-						? rdistance->access_list
-						: "");
-
-		/* ECMP configuration. */
-		if (rip->ecmp)
-			vty_out(vty, " allow-ecmp\n");
-
-		/* RIP static route configuration. */
-		for (rn = route_top(rip->route); rn; rn = route_next(rn))
-			if (rn->info)
-				vty_out(vty, " route %s/%d\n",
-					inet_ntoa(rn->p.u.prefix4),
-					rn->p.prefixlen);
 	}
 	return write;
 }
@@ -3817,8 +3319,6 @@ void rip_clean(void)
 	struct listnode *listnode = NULL;
 
 	if (rip) {
-		QOBJ_UNREG(rip);
-
 		/* Clear RIP routes */
 		for (rp = route_top(rip->table); rp; rp = route_next(rp))
 			if ((list = rp->info) != NULL) {
@@ -3852,12 +3352,6 @@ void rip_clean(void)
 		}
 
 		stream_free(rip->obuf);
-		/* Static RIP route configuration. */
-		for (rp = route_top(rip->route); rp; rp = route_next(rp))
-			if (rp->info) {
-				rp->info = NULL;
-				route_unlock_node(rp);
-			}
 
 		/* RIP neighbor configuration. */
 		for (rp = route_top(rip->neighbor); rp; rp = route_next(rp))
@@ -3866,16 +3360,11 @@ void rip_clean(void)
 				route_unlock_node(rp);
 			}
 
-		/* Redistribute related clear. */
-		if (rip->default_information_route_map)
-			free(rip->default_information_route_map);
-
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
 			if (rip->route_map[i].name)
 				free(rip->route_map[i].name);
 
 		XFREE(MTYPE_ROUTE_TABLE, rip->table);
-		XFREE(MTYPE_ROUTE_TABLE, rip->route);
 		XFREE(MTYPE_ROUTE_TABLE, rip->neighbor);
 
 		XFREE(MTYPE_RIP, rip);
@@ -3888,30 +3377,6 @@ void rip_clean(void)
 	rip_interfaces_clean();
 	rip_distance_reset();
 	rip_redistribute_clean();
-}
-
-/* Reset all values to the default settings. */
-void rip_reset(void)
-{
-	/* Reset global counters. */
-	rip_global_route_changes = 0;
-	rip_global_queries = 0;
-
-	/* Call ripd related reset functions. */
-	rip_debug_reset();
-	rip_route_map_reset();
-
-	/* Call library reset functions. */
-	vty_reset();
-	access_list_reset();
-	prefix_list_reset();
-
-	distribute_list_reset();
-
-	rip_interfaces_reset();
-	rip_distance_reset();
-
-	rip_zclient_reset();
 }
 
 static void rip_if_rmap_update(struct if_rmap *if_rmap)
@@ -3989,26 +3454,8 @@ void rip_init(void)
 	/* Install rip commands. */
 	install_element(VIEW_NODE, &show_ip_rip_cmd);
 	install_element(VIEW_NODE, &show_ip_rip_status_cmd);
-	install_element(CONFIG_NODE, &router_rip_cmd);
-	install_element(CONFIG_NODE, &no_router_rip_cmd);
 
 	install_default(RIP_NODE);
-	install_element(RIP_NODE, &rip_version_cmd);
-	install_element(RIP_NODE, &no_rip_version_cmd);
-	install_element(RIP_NODE, &rip_default_metric_cmd);
-	install_element(RIP_NODE, &no_rip_default_metric_cmd);
-	install_element(RIP_NODE, &rip_timers_cmd);
-	install_element(RIP_NODE, &no_rip_timers_cmd);
-	install_element(RIP_NODE, &rip_route_cmd);
-	install_element(RIP_NODE, &no_rip_route_cmd);
-	install_element(RIP_NODE, &rip_distance_cmd);
-	install_element(RIP_NODE, &no_rip_distance_cmd);
-	install_element(RIP_NODE, &rip_distance_source_cmd);
-	install_element(RIP_NODE, &no_rip_distance_source_cmd);
-	install_element(RIP_NODE, &rip_distance_source_access_list_cmd);
-	install_element(RIP_NODE, &no_rip_distance_source_access_list_cmd);
-	install_element(RIP_NODE, &rip_allow_ecmp_cmd);
-	install_element(RIP_NODE, &no_rip_allow_ecmp_cmd);
 
 	/* Debug related init. */
 	rip_debug_init();

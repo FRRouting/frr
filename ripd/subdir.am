@@ -7,6 +7,7 @@ noinst_LIBRARIES += ripd/librip.a
 sbin_PROGRAMS += ripd/ripd
 dist_examples_DATA += ripd/ripd.conf.sample
 vtysh_scan += \
+	$(top_srcdir)/ripd/rip_cli.c \
 	$(top_srcdir)/ripd/rip_debug.c \
 	$(top_srcdir)/ripd/rip_interface.c \
 	$(top_srcdir)/ripd/rip_offset.c \
@@ -21,18 +22,24 @@ man8 += $(MANBUILD)/ripd.8
 endif
 
 ripd_librip_a_SOURCES = \
+	ripd/rip_cli.c \
 	ripd/rip_debug.c \
 	ripd/rip_errors.c \
 	ripd/rip_interface.c \
 	ripd/rip_memory.c \
 	ripd/rip_offset.c \
+	ripd/rip_northbound.c \
 	ripd/rip_peer.c \
 	ripd/rip_routemap.c \
 	ripd/rip_zebra.c \
 	ripd/ripd.c \
 	# end
 
+ripd/rip_cli_clippy.c: $(CLIPPY_DEPS)
+ripd/rip_cli.$(OBJEXT): ripd/rip_cli_clippy.c
+
 noinst_HEADERS += \
+	ripd/rip_cli.h \
 	ripd/rip_debug.h \
 	ripd/rip_errors.h \
 	ripd/rip_interface.h \
