@@ -65,7 +65,7 @@ static void community_entry_free(struct community_entry *entry)
 	switch (entry->style) {
 	case COMMUNITY_LIST_STANDARD:
 		if (entry->u.com)
-			community_free(entry->u.com);
+			community_free(&entry->u.com);
 		break;
 	case LARGE_COMMUNITY_LIST_STANDARD:
 		if (entry->u.lcom)
@@ -903,7 +903,7 @@ int community_list_unset(struct community_list_handler *ch, const char *name,
 
 	if (com) {
 		entry = community_list_entry_lookup(list, com, direct);
-		community_free(com);
+		community_free(&com);
 	} else
 		entry = community_list_entry_lookup(list, str, direct);
 

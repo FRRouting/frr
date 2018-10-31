@@ -54,7 +54,12 @@ void lsp_db_destroy(dict_t *lspdb);
 int lsp_tick(struct thread *thread);
 
 int lsp_generate(struct isis_area *area, int level);
-int lsp_regenerate_schedule(struct isis_area *area, int level, int all_pseudo);
+#define lsp_regenerate_schedule(area, level, all_pseudo) \
+	_lsp_regenerate_schedule((area), (level), (all_pseudo), true, \
+				 __func__, __FILE__, __LINE__)
+int _lsp_regenerate_schedule(struct isis_area *area, int level,
+			     int all_pseudo, bool postpone,
+			     const char *func, const char *file, int line);
 int lsp_generate_pseudo(struct isis_circuit *circuit, int level);
 int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level);
 
@@ -101,5 +106,6 @@ int lsp_print_all(struct vty *vty, dict_t *lspdb, char detail, char dynhost);
 /* sets SRMflags for all active circuits of an lsp */
 void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set);
 void lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit);
+void lsp_init(void);
 
 #endif /* ISIS_LSP */

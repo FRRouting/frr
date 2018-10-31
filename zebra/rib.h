@@ -91,6 +91,9 @@ struct route_entry {
 	/* Nexthop information. */
 	uint8_t nexthop_num;
 	uint8_t nexthop_active_num;
+
+	/* Sequence value incremented for each dataplane operation */
+	uint32_t dplane_sequence;
 };
 
 /* meta-queue structure:

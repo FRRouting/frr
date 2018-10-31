@@ -1695,7 +1695,6 @@ struct vty *vty_new()
 	new->lbuf = buffer_new(0);
 	new->obuf = buffer_new(0); /* Use default buffer size. */
 	new->buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
-	new->error_buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
 	new->max = VTY_BUFSIZ;
 
 	return new;
@@ -2278,6 +2277,13 @@ void vty_serv_sock(const char *addr, unsigned short port, const char *path)
 #endif /* VTYSH */
 }
 
+static void vty_error_delete(void *arg)
+{
+	struct vty_error *ve = arg;
+
+	XFREE(MTYPE_TMP, ve);
+}
+
 /* Close vty interface.  Warning: call this only from functions that
    will be careful not to access the vty afterwards (since it has
    now been freed).  This is safest from top-level functions (called
@@ -2329,8 +2335,10 @@ void vty_close(struct vty *vty)
 	if (vty->buf)
 		XFREE(MTYPE_VTY, vty->buf);
 
-	if (vty->error_buf)
-		XFREE(MTYPE_VTY, vty->error_buf);
+	if (vty->error) {
+		vty->error->del = vty_error_delete;
+		list_delete(&vty->error);
+	}
 
 	/* Check configure. */
 	vty_config_unlock(vty);
@@ -2368,6 +2376,8 @@ static void vty_read_file(FILE *confp)
 {
 	int ret;
 	struct vty *vty;
+	struct vty_error *ve;
+	struct listnode *node;
 	unsigned int line_num = 0;
 
 	vty = vty_new();
@@ -2417,11 +2427,13 @@ static void vty_read_file(FILE *confp)
 			break;
 		}
 
-		nl = strchr(vty->error_buf, '\n');
-		if (nl)
-			*nl = '\0';
-		flog_err(EC_LIB_VTY, "ERROR: %s on config line %u: %s", message,
-			 line_num, vty->error_buf);
+		for (ALL_LIST_ELEMENTS_RO(vty->error, node, ve)) {
+			nl = strchr(ve->error_buf, '\n');
+			if (nl)
+				*nl = '\0';
+			flog_err(EC_LIB_VTY, "ERROR: %s on config line %u: %s",
+				 message, ve->line_num, ve->error_buf);
+		}
 	}
 
 	vty_close(vty);

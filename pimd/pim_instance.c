@@ -188,7 +188,7 @@ static int pim_vrf_config_write(struct vty *vty)
 		pim_global_config_write_worker(pim, vty);
 
 		if (vrf->vrf_id != VRF_DEFAULT)
-			vty_endframe(vty, "!\n");
+			vty_endframe(vty, " exit-vrf\n!\n");
 	}
 
 	return 0;

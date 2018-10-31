@@ -44,6 +44,9 @@ eigrpdheader_HEADERS = \
 	eigrpd/eigrpd.h \
 	# end
 
+eigrpd/eigrp_vty_clippy.c: $(CLIPPY_DEPS)
+eigrpd/eigrp_vty.$(OBJEXT): eigrpd/eigrp_vty_clippy.c
+
 noinst_HEADERS += \
 	eigrpd/eigrp_const.h \
 	eigrpd/eigrp_errors.h \

@@ -64,8 +64,8 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 		     const char *ifname, enum static_blackhole_type bh_type,
 		     route_tag_t tag, uint8_t distance, struct static_vrf *svrf,
 		     struct static_vrf *nh_svrf,
-		     struct static_nh_label *snh_label,
-		     uint32_t table_id)
+		     struct static_nh_label *snh_label, uint32_t table_id,
+		     bool onlink)
 {
 	struct route_node *rn;
 	struct static_route *si;
@@ -104,7 +104,7 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 			    && (table_id == si->table_id)
 			    && !memcmp(&si->snh_label, snh_label,
 				       sizeof(struct static_nh_label))
-			    && si->bh_type == bh_type) {
+			    && si->bh_type == bh_type && si->onlink == onlink) {
 				route_unlock_node(rn);
 				return 0;
 			}
@@ -129,6 +129,7 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 	si->nh_vrf_id = nh_svrf->vrf->vrf_id;
 	strcpy(si->nh_vrfname, nh_svrf->vrf->name);
 	si->table_id = table_id;
+	si->onlink = onlink;
 
 	if (ifname)
 		strlcpy(si->ifname, ifname, sizeof(si->ifname));

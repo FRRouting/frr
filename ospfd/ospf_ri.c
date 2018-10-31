@@ -591,7 +591,7 @@ static int is_mandated_params_set(struct ospf_router_info ori)
  * @param enable To activate or not Segment Routing router Information flooding
  * @param size   Size of Label Range i.e. SRGB size
  * @param lower  Lower bound of the Label Range i.e. SRGB first label
- * @param msd    Maximum label Stack Depth suported by the router
+ * @param msd    Maximum label Stack Depth supported by the router
  *
  * @return none
  */

@@ -68,7 +68,7 @@ struct community {
 /* Prototypes of communities attribute functions.  */
 extern void community_init(void);
 extern void community_finish(void);
-extern void community_free(struct community *);
+extern void community_free(struct community **comm);
 extern struct community *community_uniq_sort(struct community *);
 extern struct community *community_parse(uint32_t *, unsigned short);
 extern struct community *community_intern(struct community *);
@@ -77,7 +77,8 @@ extern char *community_str(struct community *, bool make_json);
 extern unsigned int community_hash_make(struct community *);
 extern struct community *community_str2com(const char *);
 extern int community_match(const struct community *, const struct community *);
-extern int community_cmp(const struct community *, const struct community *);
+extern bool community_cmp(const struct community *c1,
+			  const struct community *c2);
 extern struct community *community_merge(struct community *,
 					 struct community *);
 extern struct community *community_delete(struct community *,

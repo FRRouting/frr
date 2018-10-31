@@ -8,9 +8,10 @@ static unsigned int nhrp_reqid_key(void *data)
 	return r->request_id;
 }
 
-static int nhrp_reqid_cmp(const void *data, const void *key)
+static bool nhrp_reqid_cmp(const void *data, const void *key)
 {
 	const struct nhrp_reqid *a = data, *b = key;
+
 	return a->request_id == b->request_id;
 }
 

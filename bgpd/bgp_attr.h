@@ -272,10 +272,13 @@ extern void bgp_attr_unintern_sub(struct attr *);
 extern void bgp_attr_unintern(struct attr **);
 extern void bgp_attr_flush(struct attr *);
 extern struct attr *bgp_attr_default_set(struct attr *attr, uint8_t);
-extern struct attr *bgp_attr_aggregate_intern(struct bgp *, uint8_t,
-					      struct aspath *,
-					      struct community *, int as_set,
-					      uint8_t);
+extern struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
+					      struct aspath *aspath,
+					      struct community *community,
+					      struct ecommunity *ecommunity,
+					      struct lcommunity *lcommunity,
+					      int as_set,
+					      uint8_t atomic_aggregate);
 extern bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *,
 				       struct stream *, struct attr *,
 				       struct bpacket_attr_vec_arr *vecarr,
@@ -284,7 +287,7 @@ extern bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *,
 				       mpls_label_t *, uint32_t, int, uint32_t);
 extern void bgp_dump_routes_attr(struct stream *, struct attr *,
 				 struct prefix *);
-extern int attrhash_cmp(const void *, const void *);
+extern bool attrhash_cmp(const void *arg1, const void *arg2);
 extern unsigned int attrhash_key_make(void *);
 extern void attr_show_all(struct vty *);
 extern unsigned long int attr_count(void);

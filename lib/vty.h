@@ -33,6 +33,11 @@
 #define VTY_BUFSIZ 4096
 #define VTY_MAXHIST 20
 
+struct vty_error {
+	char error_buf[VTY_BUFSIZ];
+	uint32_t line_num;
+};
+
 /* VTY struct. */
 struct vty {
 	/* File descripter of this vty. */
@@ -71,7 +76,7 @@ struct vty {
 	char *buf;
 
 	/* Command input error buffer */
-	char *error_buf;
+	struct list *error;
 
 	/* Command cursor point */
 	int cp;

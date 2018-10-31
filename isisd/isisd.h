@@ -90,6 +90,11 @@ enum spf_tree_id {
 	SPFTREE_COUNT
 };
 
+struct lsp_refresh_arg {
+	struct isis_area *area;
+	int level;
+};
+
 struct isis_area {
 	struct isis *isis;			       /* back pointer */
 	dict_t *lspdb[ISIS_LEVELS];		       /* link-state dbs */
@@ -100,6 +105,7 @@ struct isis_area {
 	struct flags flags;
 	struct thread *t_tick; /* LSP walker */
 	struct thread *t_lsp_refresh[ISIS_LEVELS];
+	struct timeval last_lsp_refresh_event[ISIS_LEVELS];
 	/* t_lsp_refresh is used in two ways:
 	 * a) regular refresh of LSPs
 	 * b) (possibly throttled) updates to LSPs
@@ -160,6 +166,8 @@ struct isis_area {
 							    parameters*/
 	struct thread *spf_timer[ISIS_LEVELS];
 
+	struct lsp_refresh_arg lsp_refresh_arg[ISIS_LEVELS];
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(isis_area)
@@ -211,6 +219,7 @@ extern struct thread_master *master;
 #define DEBUG_LSP_GEN                    (1<<13)
 #define DEBUG_LSP_SCHED                  (1<<14)
 #define DEBUG_FABRICD_FLOODING           (1<<15)
+#define DEBUG_BFD                        (1<<16)
 
 #define lsp_debug(...)                                                         \
 	do {                                                                   \

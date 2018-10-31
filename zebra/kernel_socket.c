@@ -48,6 +48,7 @@
 #include "zebra/kernel_socket.h"
 #include "zebra/rib.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/zebra_ptm.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -469,7 +470,7 @@ int ifm_read(struct if_msghdr *ifm)
 		if (ifnlen && (strncmp(ifp->name, ifname, IFNAMSIZ) != 0)) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
-					"%s: ifp name %s doesnt match sdl name %s",
+					"%s: ifp name %s doesn't match sdl name %s",
 					__func__, ifp->name, ifname);
 			ifp = NULL;
 		}

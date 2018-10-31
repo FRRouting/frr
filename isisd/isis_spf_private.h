@@ -95,16 +95,16 @@ static unsigned isis_vertex_queue_hash_key(void *vp)
 }
 
 __attribute__((__unused__))
-static int isis_vertex_queue_hash_cmp(const void *a, const void *b)
+static bool isis_vertex_queue_hash_cmp(const void *a, const void *b)
 {
 	const struct isis_vertex *va = a, *vb = b;
 
 	if (va->type != vb->type)
-		return 0;
+		return false;
 
 	if (VTYPE_IP(va->type)) {
 		if (prefix_cmp(&va->N.ip.dest, &vb->N.ip.dest))
-			return 0;
+			return false;
 
 		return prefix_cmp((const struct prefix *)&va->N.ip.src,
 				  (const struct prefix *)&vb->N.ip.src) == 0;

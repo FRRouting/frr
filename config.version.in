@@ -1,0 +1,4 @@
+# this file is used to carry --with-pkg-extra-version into tarballs
+EXTRAVERSION="@EXTRAVERSION@"
+# for easy access by scripts before ./configure is run
+DIST_PACKAGE_VERSION="@PACKAGE_VERSION@"

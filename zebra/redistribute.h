@@ -38,10 +38,11 @@ extern void zebra_redistribute_default_delete(ZAPI_HANDLER_ARGS);
 
 extern void redistribute_update(const struct prefix *p,
 				const struct prefix *src_p,
-				struct route_entry *, struct route_entry *);
+				struct route_entry *re,
+				struct route_entry *prev_re);
 extern void redistribute_delete(const struct prefix *p,
 				const struct prefix *src_p,
-				struct route_entry *);
+				struct route_entry *re);
 
 extern void zebra_interface_up_update(struct interface *);
 extern void zebra_interface_down_update(struct interface *);

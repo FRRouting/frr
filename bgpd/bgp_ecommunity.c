@@ -253,16 +253,16 @@ unsigned int ecommunity_hash_make(void *arg)
 }
 
 /* Compare two Extended Communities Attribute structure.  */
-int ecommunity_cmp(const void *arg1, const void *arg2)
+bool ecommunity_cmp(const void *arg1, const void *arg2)
 {
 	const struct ecommunity *ecom1 = arg1;
 	const struct ecommunity *ecom2 = arg2;
 
 	if (ecom1 == NULL && ecom2 == NULL)
-		return 1;
+		return true;
 
 	if (ecom1 == NULL || ecom2 == NULL)
-		return 0;
+		return false;
 
 	return (ecom1->size == ecom2->size
 		&& memcmp(ecom1->val, ecom2->val, ecom1->size * ECOMMUNITY_SIZE)

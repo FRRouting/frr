@@ -68,6 +68,8 @@ struct isis_dis_record {
 	time_t last_dis_change; /* timestamp for last dis change */
 };
 
+struct bfd_session;
+
 struct isis_adjacency {
 	uint8_t snpa[ETH_ALEN];		    /* NeighbourSNPAAddress */
 	uint8_t sysid[ISIS_SYS_ID_LEN];     /* neighbourSystemIdentifier */
@@ -100,6 +102,7 @@ struct isis_adjacency {
 	struct isis_circuit *circuit; /* back pointer */
 	uint16_t *mt_set;      /* Topologies this adjacency is valid for */
 	unsigned int mt_count; /* Number of entries in mt_set */
+	struct bfd_session *bfd_session;
 };
 
 struct isis_threeway_adj;
@@ -114,6 +117,7 @@ void isis_delete_adj(void *adj);
 void isis_adj_process_threeway(struct isis_adjacency *adj,
 			       struct isis_threeway_adj *tw_adj,
 			       enum isis_adj_usage adj_usage);
+DECLARE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj))
 void isis_adj_state_change(struct isis_adjacency *adj,
 			   enum isis_adj_state state, const char *reason);
 void isis_adj_print(struct isis_adjacency *adj);

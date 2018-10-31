@@ -1171,7 +1171,7 @@ is 4 octet long. The following format is used to define the community value.
    ``0xFFFF0006`` ``65535:6``.
    Assigned and intented only for use with routers supporting the
    Long-lived Graceful Restart Capability  as described in
-   :rfc:`draft-uttaro-idr-bgp-persistence`.
+   [Draft-IETF-uttaro-idr-bgp-persistence]_.
    Routers recieving routes with this community may (depending on
    implementation) choose allow to reject or modify routes on the
    presence or absence of this community.
@@ -1181,7 +1181,7 @@ is 4 octet long. The following format is used to define the community value.
    ``0xFFFF0007`` ``65535:7``.
    Assigned and intented only for use with routers supporting the
    Long-lived Graceful Restart Capability  as described in
-   :rfc:`draft-uttaro-idr-bgp-persistence`.
+   [Draft-IETF-uttaro-idr-bgp-persistence]_.
    Routers recieving routes with this community may (depending on
    implementation) choose allow to reject or modify routes on the
    presence or absence of this community.
@@ -1189,10 +1189,10 @@ is 4 octet long. The following format is used to define the community value.
 ``accept-own-nexthop``
    ``accept-own-nexthop`` represents well-known communities value
    ``accept-own-nexthop`` ``0xFFFF0008`` ``65535:8``.
-   :rfc:`draft-agrewal-idr-accept-own-nexthop` describes
+   [Draft-IETF-agrewal-idr-accept-own-nexthop]_ describes
    how to tag and label VPN routes to be able to send traffic between VRFs
    via an internal layer 2 domain on the same PE device. Refer to
-   :rfc:`draft-agrewal-idr-accept-own-nexthop` for full details.
+   [Draft-IETF-agrewal-idr-accept-own-nexthop]_ for full details.
 
 ``blackhole``
    ``blackhole`` represents well-known communities value ``BLACKHOLE``
@@ -1230,6 +1230,9 @@ is 4 octet long. The following format is used to define the community value.
 When the communities attribute is received duplicate community values in the
 attribute are ignored and value is sorted in numerical order.
 
+.. [Draft-IETF-uttaro-idr-bgp-persistence] <https://tools.ietf.org/id/draft-uttaro-idr-bgp-persistence-04.txt>
+.. [Draft-IETF-agrewal-idr-accept-own-nexthop] <https://tools.ietf.org/id/draft-agrewal-idr-accept-own-nexthop-00.txt>
+
 .. _bgp-community-lists:
 
 Community Lists
@@ -1265,7 +1268,8 @@ expanded
    This command defines a new expanded community list. ``COMMUNITY`` is a
    string expression of communities attribute. ``COMMUNITY`` can be a regular
    expression (:ref:`bgp-regular-expressions`) to match the communities
-   attribute in BGP updates.
+   attribute in BGP updates. The expanded community is only used to filter,
+   not `set` actions.
 
 .. deprecated:: 5.0
    It is recommended to use the more explicit versions of this command.
@@ -1362,6 +1366,8 @@ The ollowing commands can be used in route maps:
 
    If ``none`` is specified as the community value, the communities attribute
    is not sent.
+
+   It is not possible to set an expanded community list.
 
 .. index:: set comm-list WORD delete
 .. clicmd:: set comm-list WORD delete
@@ -1603,6 +1609,10 @@ BGP Extended Communities in Route Map
 
    This command set Site of Origin value.
 
+
+Note that the extended expanded community is only used for `match` rule, not for
+`set` actions.
+
 .. _bgp-large-communities-attribute:
 
 Large Communities Attribute
@@ -1714,6 +1724,8 @@ Large Communities in Route Map
    large-community list. The third will add a large-community value without
    overwriting other values. Multiple large-community values can be specified.
 
+Note that the large expanded community is only used for `match` rule, not for
+`set` actions.
 
 .. _bgp-l3vpn-vrfs:
 

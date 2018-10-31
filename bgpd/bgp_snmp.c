@@ -674,14 +674,15 @@ static uint8_t *bgpRcvdPathAttrTable(struct variable *v, oid name[],
 	return NULL;
 }
 
-static struct bgp_info *bgp4PathAttrLookup(struct variable *v, oid name[],
-					   size_t *length, struct bgp *bgp,
-					   struct prefix_ipv4 *addr, int exact)
+static struct bgp_path_info *bgp4PathAttrLookup(struct variable *v, oid name[],
+						size_t *length, struct bgp *bgp,
+						struct prefix_ipv4 *addr,
+						int exact)
 {
 	oid *offset;
 	int offsetlen;
-	struct bgp_info *binfo;
-	struct bgp_info *min;
+	struct bgp_path_info *path;
+	struct bgp_path_info *min;
 	struct bgp_node *rn;
 	union sockunion su;
 	unsigned int len;
@@ -714,9 +715,9 @@ static struct bgp_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 		if (rn) {
 			bgp_unlock_node(rn);
 
-			for (binfo = rn->info; binfo; binfo = binfo->next)
-				if (sockunion_same(&binfo->peer->su, &su))
-					return binfo;
+			for (path = rn->info; path; path = path->next)
+				if (sockunion_same(&path->peer->su, &su))
+					return path;
 		}
 	} else {
 		offset = name + v->namelen;
@@ -761,22 +762,22 @@ static struct bgp_info *bgp4PathAttrLookup(struct variable *v, oid name[],
 		do {
 			min = NULL;
 
-			for (binfo = rn->info; binfo; binfo = binfo->next) {
-				if (binfo->peer->su.sin.sin_family == AF_INET
+			for (path = rn->info; path; path = path->next) {
+				if (path->peer->su.sin.sin_family == AF_INET
 				    && ntohl(paddr.s_addr)
-					       < ntohl(binfo->peer->su.sin
+					       < ntohl(path->peer->su.sin
 							       .sin_addr
 							       .s_addr)) {
 					if (min) {
-						if (ntohl(binfo->peer->su.sin
+						if (ntohl(path->peer->su.sin
 								  .sin_addr
 								  .s_addr)
 						    < ntohl(min->peer->su.sin
 								    .sin_addr
 								    .s_addr))
-							min = binfo;
+							min = path;
 					} else
-						min = binfo;
+						min = path;
 				}
 			}
 
@@ -812,7 +813,7 @@ static uint8_t *bgp4PathAttrTable(struct variable *v, oid name[],
 				  WriteMethod **write_method)
 {
 	struct bgp *bgp;
-	struct bgp_info *binfo;
+	struct bgp_path_info *path;
 	struct prefix_ipv4 addr;
 
 	bgp = bgp_get_default();
@@ -824,13 +825,13 @@ static uint8_t *bgp4PathAttrTable(struct variable *v, oid name[],
 		return NULL;
 	memset(&addr, 0, sizeof(struct prefix_ipv4));
 
-	binfo = bgp4PathAttrLookup(v, name, length, bgp, &addr, exact);
-	if (!binfo)
+	path = bgp4PathAttrLookup(v, name, length, bgp, &addr, exact);
+	if (!path)
 		return NULL;
 
 	switch (v->magic) {
 	case BGP4PATHATTRPEER: /* 1 */
-		return SNMP_IPADDRESS(binfo->peer->su.sin.sin_addr);
+		return SNMP_IPADDRESS(path->peer->su.sin.sin_addr);
 		break;
 	case BGP4PATHATTRIPADDRPREFIXLEN: /* 2 */
 		return SNMP_INTEGER(addr.prefixlen);
@@ -839,28 +840,28 @@ static uint8_t *bgp4PathAttrTable(struct variable *v, oid name[],
 		return SNMP_IPADDRESS(addr.prefix);
 		break;
 	case BGP4PATHATTRORIGIN: /* 4 */
-		return SNMP_INTEGER(binfo->attr->origin);
+		return SNMP_INTEGER(path->attr->origin);
 		break;
 	case BGP4PATHATTRASPATHSEGMENT: /* 5 */
-		return aspath_snmp_pathseg(binfo->attr->aspath, var_len);
+		return aspath_snmp_pathseg(path->attr->aspath, var_len);
 		break;
 	case BGP4PATHATTRNEXTHOP: /* 6 */
-		return SNMP_IPADDRESS(binfo->attr->nexthop);
+		return SNMP_IPADDRESS(path->attr->nexthop);
 		break;
 	case BGP4PATHATTRMULTIEXITDISC: /* 7 */
-		return SNMP_INTEGER(binfo->attr->med);
+		return SNMP_INTEGER(path->attr->med);
 		break;
 	case BGP4PATHATTRLOCALPREF: /* 8 */
-		return SNMP_INTEGER(binfo->attr->local_pref);
+		return SNMP_INTEGER(path->attr->local_pref);
 		break;
 	case BGP4PATHATTRATOMICAGGREGATE: /* 9 */
 		return SNMP_INTEGER(1);
 		break;
 	case BGP4PATHATTRAGGREGATORAS: /* 10 */
-		return SNMP_INTEGER(binfo->attr->aggregator_as);
+		return SNMP_INTEGER(path->attr->aggregator_as);
 		break;
 	case BGP4PATHATTRAGGREGATORADDR: /* 11 */
-		return SNMP_IPADDRESS(binfo->attr->aggregator_addr);
+		return SNMP_IPADDRESS(path->attr->aggregator_addr);
 		break;
 	case BGP4PATHATTRCALCLOCALPREF: /* 12 */
 		return SNMP_INTEGER(-1);
@@ -868,7 +869,7 @@ static uint8_t *bgp4PathAttrTable(struct variable *v, oid name[],
 	case BGP4PATHATTRBEST: /* 13 */
 #define BGP4_PathAttrBest_false 1
 #define BGP4_PathAttrBest_true  2
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_SELECTED))
+		if (CHECK_FLAG(path->flags, BGP_PATH_SELECTED))
 			return SNMP_INTEGER(BGP4_PathAttrBest_true);
 		else
 			return SNMP_INTEGER(BGP4_PathAttrBest_false);

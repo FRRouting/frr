@@ -36,11 +36,12 @@ extern void bgp_config_write_maxpaths(struct vty *, struct bgp *, afi_t,
 				      safi_t);
 extern void bgp_config_write_redistribute(struct vty *, struct bgp *, afi_t,
 					  safi_t);
-extern void bgp_zebra_announce(struct bgp_node *, struct prefix *,
-			       struct bgp_info *, struct bgp *, afi_t, safi_t);
+extern void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
+			       struct bgp_path_info *path, struct bgp *bgp,
+			       afi_t afi, safi_t safi);
 extern void bgp_zebra_announce_table(struct bgp *, afi_t, safi_t);
-extern void bgp_zebra_withdraw(struct prefix *, struct bgp_info *,
-			       struct bgp *, safi_t);
+extern void bgp_zebra_withdraw(struct prefix *p, struct bgp_path_info *path,
+			       struct bgp *bgp, safi_t safi);
 
 extern void bgp_zebra_initiate_radv(struct bgp *bgp, struct peer *peer);
 extern void bgp_zebra_terminate_radv(struct bgp *bgp, struct peer *peer);
@@ -55,7 +56,8 @@ extern struct bgp_redist *bgp_redist_add(struct bgp *, afi_t, uint8_t,
 extern int bgp_redistribute_set(struct bgp *, afi_t, int, unsigned short,
 				bool changed);
 extern int bgp_redistribute_resend(struct bgp *, afi_t, int, unsigned short);
-extern int bgp_redistribute_rmap_set(struct bgp_redist *, const char *);
+extern int bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name,
+				     struct route_map *route_map);
 extern int bgp_redistribute_metric_set(struct bgp *, struct bgp_redist *, afi_t,
 				       int, uint32_t);
 extern int bgp_redistribute_unset(struct bgp *, afi_t, int, unsigned short);
@@ -71,6 +73,8 @@ extern int bgp_zebra_advertise_subnet(struct bgp *bgp, int advertise,
 				      vni_t vni);
 extern int bgp_zebra_advertise_gw_macip(struct bgp *, int, vni_t);
 extern int bgp_zebra_advertise_all_vni(struct bgp *, int);
+extern int bgp_zebra_vxlan_flood_control(struct bgp *bgp,
+					 enum vxlan_flood_control flood_ctrl);
 
 extern int bgp_zebra_num_connects(void);
 

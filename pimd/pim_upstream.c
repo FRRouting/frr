@@ -462,7 +462,7 @@ static int pim_upstream_could_register(struct pim_upstream *up)
 	return 0;
 }
 
-/* Source registration is supressed for SSM groups. When the SSM range changes
+/* Source registration is suppressed for SSM groups. When the SSM range changes
  * we re-revaluate register setup for existing upstream entries */
 void pim_upstream_register_reevaluate(struct pim_instance *pim)
 {
@@ -1554,16 +1554,16 @@ void pim_upstream_terminate(struct pim_instance *pim)
 	pim->upstream_sg_wheel = NULL;
 }
 
-int pim_upstream_equal(const void *arg1, const void *arg2)
+bool pim_upstream_equal(const void *arg1, const void *arg2)
 {
 	const struct pim_upstream *up1 = (const struct pim_upstream *)arg1;
 	const struct pim_upstream *up2 = (const struct pim_upstream *)arg2;
 
 	if ((up1->sg.grp.s_addr == up2->sg.grp.s_addr)
 	    && (up1->sg.src.s_addr == up2->sg.src.s_addr))
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 /* rfc4601:section-4.2:"Data Packet Forwarding Rules" defines

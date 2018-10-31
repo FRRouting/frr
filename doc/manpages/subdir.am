@@ -34,7 +34,8 @@ man_RSTFILES = \
 
 EXTRA_DIST += $(man_RSTFILES)
 
-MANBUILD = doc/manpages/_build/man
+MANPARENT = doc/manpages/_build
+MANBUILD = $(MANPARENT)/man
 doc/manpages/_build/.doctrees/environment.pickle: $(man_RSTFILES)
 
 #
@@ -66,7 +67,7 @@ $(man8) $(man1): $(MANBUILD)/man.stamp
 clean-local: clean-manpages
 .PHONY: clean-manpages
 clean-manpages:
-	-rm -rf $(MANBUILD)
+	-rm -rf $(MANPARENT)
 
 doc: doc-man
 .PHONY: doc-man

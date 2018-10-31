@@ -631,7 +631,7 @@ static unsigned int route_map_hash_key_make(void *p)
 	return string_hash_make(map->name);
 }
 
-static int route_map_hash_cmp(const void *p1, const void *p2)
+static bool route_map_hash_cmp(const void *p1, const void *p2)
 {
 	const struct route_map *map1 = p1;
 	const struct route_map *map2 = p2;
@@ -639,14 +639,14 @@ static int route_map_hash_cmp(const void *p1, const void *p2)
 	if (map1->deleted == map2->deleted) {
 		if (map1->name && map2->name) {
 			if (!strcmp(map1->name, map2->name)) {
-				return 1;
+				return true;
 			}
 		} else if (!map1->name && !map2->name) {
-			return 1;
+			return true;
 		}
 	}
 
-	return 0;
+	return false;
 }
 
 enum route_map_upd8_type {
@@ -676,7 +676,6 @@ struct route_map_dep {
 struct hash *route_map_dep_hash[ROUTE_MAP_DEP_MAX];
 
 static unsigned int route_map_dep_hash_make_key(void *p);
-static int route_map_dep_hash_cmp(const void *p1, const void *p2);
 static void route_map_clear_all_references(char *rmap_name);
 static void route_map_rule_delete(struct route_map_rule_list *,
 				  struct route_map_rule *);
@@ -809,6 +808,18 @@ struct route_map *route_map_lookup_by_name(const char *name)
 	map = hash_lookup(route_map_master_hash, &tmp_map);
 	XFREE(MTYPE_ROUTE_MAP_NAME, tmp_map.name);
 	return map;
+}
+
+/* Simple helper to warn if route-map does not exist. */
+struct route_map *route_map_lookup_warn_noexist(struct vty *vty, const char *name)
+{
+	struct route_map *route_map = route_map_lookup_by_name(name);
+
+	if (!route_map)
+		if (vty_shell_serv(vty))
+			vty_out(vty, "The route-map '%s' does not exist.\n", name);
+
+	return route_map;
 }
 
 int route_map_mark_updated(const char *name)
@@ -1612,12 +1623,12 @@ void route_map_event_hook(void (*func)(route_map_event_t, const char *))
 }
 
 /* Routines for route map dependency lists and dependency processing */
-static int route_map_rmap_hash_cmp(const void *p1, const void *p2)
+static bool route_map_rmap_hash_cmp(const void *p1, const void *p2)
 {
 	return (strcmp((const char *)p1, (const char *)p2) == 0);
 }
 
-static int route_map_dep_hash_cmp(const void *p1, const void *p2)
+static bool route_map_dep_hash_cmp(const void *p1, const void *p2)
 {
 
 	return (strcmp(((const struct route_map_dep *)p1)->dep_name,
@@ -2239,7 +2250,8 @@ DEFUN(no_match_ipv6_next_hop_type, no_match_ipv6_next_hop_type_cmd,
 
 	if (rmap_match_set_hook.no_match_ipv6_next_hop_type)
 		return rmap_match_set_hook.no_match_ipv6_next_hop_type(
-			vty, index, "ipv6 next-hop type", argv[idx_word]->arg,
+			vty, index, "ipv6 next-hop type",
+			(argc <= idx_word) ? NULL : argv[idx_word]->arg,
 			RMAP_EVENT_MATCH_DELETED);
 	return CMD_SUCCESS;
 }

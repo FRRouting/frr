@@ -47,6 +47,8 @@
 #include "zebra/rib.h"
 #include "zebra/zserv.h" /* For ZEBRA_SERV_PATH. */
 
+DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Address Intf String");
+
 char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size)
 {
 	prefix2str(&(bnc->node->p), buf, size);
@@ -82,11 +84,18 @@ static void bgp_nexthop_cache_reset(struct bgp_table *table)
 
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
 		bnc = bgp_nexthop_get_node_info(rn);
-		if (bnc != NULL) {
-			bnc_free(bnc);
-			bgp_nexthop_set_node_info(rn, NULL);
-			bgp_unlock_node(rn);
+		if (!bnc)
+			continue;
+
+		while (!LIST_EMPTY(&(bnc->paths))) {
+			struct bgp_path_info *path = LIST_FIRST(&(bnc->paths));
+
+			path_nh_map(path, bnc, false);
 		}
+
+		bnc_free(bnc);
+		bgp_nexthop_set_node_info(rn, NULL);
+		bgp_unlock_node(rn);
 	}
 }
 
@@ -114,7 +123,7 @@ static unsigned int bgp_tip_hash_key_make(void *p)
 	return jhash_1word(addr->addr.s_addr, 0);
 }
 
-static int bgp_tip_hash_cmp(const void *p1, const void *p2)
+static bool bgp_tip_hash_cmp(const void *p1, const void *p2)
 {
 	const struct tip_addr *addr1 = p1;
 	const struct tip_addr *addr2 = p2;
@@ -205,7 +214,7 @@ static void bgp_address_hash_string_del(void *val)
 {
 	char *data = val;
 
-	XFREE(MTYPE_TMP, data);
+	XFREE(MTYPE_MARTIAN_STRING, data);
 }
 
 static void *bgp_address_hash_alloc(void *p)
@@ -237,7 +246,7 @@ static unsigned int bgp_address_hash_key_make(void *p)
 	return jhash_1word(addr->addr.s_addr, 0);
 }
 
-static int bgp_address_hash_cmp(const void *p1, const void *p2)
+static bool bgp_address_hash_cmp(const void *p1, const void *p2)
 {
 	const struct bgp_addr *addr1 = p1;
 	const struct bgp_addr *addr2 = p2;
@@ -278,7 +287,7 @@ static void bgp_address_add(struct bgp *bgp, struct connected *ifc,
 			break;
 	}
 	if (!node) {
-		name = XSTRDUP(MTYPE_TMP, ifc->ifp->name);
+		name = XSTRDUP(MTYPE_MARTIAN_STRING, ifc->ifp->name);
 		listnode_add(addr->ifp_name_list, name);
 	}
 }
@@ -303,8 +312,10 @@ static void bgp_address_del(struct bgp *bgp, struct connected *ifc,
 			break;
 	}
 
-	if (node)
+	if (node) {
 		list_delete_node(addr->ifp_name_list, node);
+		XFREE(MTYPE_MARTIAN_STRING, name);
+	}
 
 	if (addr->ifp_name_list->count == 0) {
 		hash_release(bgp->address_hash, addr);

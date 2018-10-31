@@ -887,7 +887,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 				case ISIS_SYSTYPE_UNKNOWN:
 				default:
 					zlog_warn(
-						"isis_spf_preload_tent unknow adj type");
+						"isis_spf_preload_tent unknown adj type");
 				}
 			}
 			list_delete(&adj_list);
@@ -1248,7 +1248,8 @@ static struct isis_spf_run *isis_run_spf_arg(struct isis_area *area, int level)
 	return run;
 }
 
-int isis_spf_schedule(struct isis_area *area, int level)
+int _isis_spf_schedule(struct isis_area *area, int level,
+		       const char *func, const char *file, int line)
 {
 	struct isis_spftree *spftree = area->spftree[SPFTREE_IPV4][level - 1];
 	time_t now = monotime(NULL);
@@ -1257,10 +1258,12 @@ int isis_spf_schedule(struct isis_area *area, int level)
 	assert(diff >= 0);
 	assert(area->is_type & level);
 
-	if (isis->debugs & DEBUG_SPF_EVENTS)
+	if (isis->debugs & DEBUG_SPF_EVENTS) {
 		zlog_debug(
-			"ISIS-Spf (%s) L%d SPF schedule called, lastrun %d sec ago",
-			area->area_tag, level, diff);
+			"ISIS-Spf (%s) L%d SPF schedule called, lastrun %d sec ago"
+			" Caller: %s %s:%d",
+			area->area_tag, level, diff, func, file, line);
+	}
 
 	if (area->spf_delay_ietf[level - 1]) {
 		/* Need to call schedule function also if spf delay is running

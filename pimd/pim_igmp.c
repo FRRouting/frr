@@ -836,15 +836,15 @@ static unsigned int igmp_group_hash_key(void *arg)
 	return jhash_1word(group->group_addr.s_addr, 0);
 }
 
-static int igmp_group_hash_equal(const void *arg1, const void *arg2)
+static bool igmp_group_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct igmp_group *g1 = (const struct igmp_group *)arg1;
 	const struct igmp_group *g2 = (const struct igmp_group *)arg2;
 
 	if (g1->group_addr.s_addr == g2->group_addr.s_addr)
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,

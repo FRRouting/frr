@@ -36,10 +36,12 @@ static unsigned int nhrp_cache_protocol_key(void *peer_data)
 	return sockunion_hash(&p->remote_addr);
 }
 
-static int nhrp_cache_protocol_cmp(const void *cache_data, const void *key_data)
+static bool nhrp_cache_protocol_cmp(const void *cache_data,
+				    const void *key_data)
 {
 	const struct nhrp_cache *a = cache_data;
 	const struct nhrp_cache *b = key_data;
+
 	return sockunion_same(&a->remote_addr, &b->remote_addr);
 }
 

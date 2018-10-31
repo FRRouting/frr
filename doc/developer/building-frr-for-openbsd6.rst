@@ -57,16 +57,12 @@ an example)
     ./configure \
         --sysconfdir=/etc/frr \
         --localstatedir=/var/frr \
-        --enable-pimd \
-        --enable-ospfclient=yes \
-        --enable-ospfapi=yes \
         --enable-multipath=64 \
         --enable-user=_frr \
         --enable-group=_frr \
         --enable-vty-group=_frrvty \
         --enable-configfile-mask=0640 \
         --enable-logfile-mask=0640 \
-        --enable-rtadv \
         --enable-fpm \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion

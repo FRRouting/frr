@@ -861,15 +861,10 @@ static struct hash *bfd_vrf_hash;
 static struct hash *bfd_iface_hash;
 
 static unsigned int bfd_id_hash_do(void *p);
-static int bfd_id_hash_cmp(const void *n1, const void *n2);
 static unsigned int bfd_shop_hash_do(void *p);
-static int bfd_shop_hash_cmp(const void *n1, const void *n2);
 static unsigned int bfd_mhop_hash_do(void *p);
-static int bfd_mhop_hash_cmp(const void *n1, const void *n2);
 static unsigned int bfd_vrf_hash_do(void *p);
-static int bfd_vrf_hash_cmp(const void *n1, const void *n2);
 static unsigned int bfd_iface_hash_do(void *p);
-static int bfd_iface_hash_cmp(const void *n1, const void *n2);
 
 static void _shop_key(struct bfd_session *bs, const struct bfd_shop_key *shop);
 static void _shop_key2(struct bfd_session *bs, const struct bfd_shop_key *shop);
@@ -889,7 +884,7 @@ static unsigned int bfd_id_hash_do(void *p)
 	return jhash_1word(bs->discrs.my_discr, 0);
 }
 
-static int bfd_id_hash_cmp(const void *n1, const void *n2)
+static bool bfd_id_hash_cmp(const void *n1, const void *n2)
 {
 	const struct bfd_session *bs1 = n1, *bs2 = n2;
 
@@ -904,7 +899,7 @@ static unsigned int bfd_shop_hash_do(void *p)
 	return jhash(&bs->shop, sizeof(bs->shop), 0);
 }
 
-static int bfd_shop_hash_cmp(const void *n1, const void *n2)
+static bool bfd_shop_hash_cmp(const void *n1, const void *n2)
 {
 	const struct bfd_session *bs1 = n1, *bs2 = n2;
 
@@ -919,7 +914,7 @@ static unsigned int bfd_mhop_hash_do(void *p)
 	return jhash(&bs->mhop, sizeof(bs->mhop), 0);
 }
 
-static int bfd_mhop_hash_cmp(const void *n1, const void *n2)
+static bool bfd_mhop_hash_cmp(const void *n1, const void *n2)
 {
 	const struct bfd_session *bs1 = n1, *bs2 = n2;
 
@@ -934,7 +929,7 @@ static unsigned int bfd_vrf_hash_do(void *p)
 	return jhash_1word(vrf->vrf_id, 0);
 }
 
-static int bfd_vrf_hash_cmp(const void *n1, const void *n2)
+static bool bfd_vrf_hash_cmp(const void *n1, const void *n2)
 {
 	const struct bfd_vrf *v1 = n1, *v2 = n2;
 
@@ -949,7 +944,7 @@ static unsigned int bfd_iface_hash_do(void *p)
 	return string_hash_make(iface->ifname);
 }
 
-static int bfd_iface_hash_cmp(const void *n1, const void *n2)
+static bool bfd_iface_hash_cmp(const void *n1, const void *n2)
 {
 	const struct bfd_iface *i1 = n1, *i2 = n2;
 
@@ -1045,7 +1040,7 @@ struct bfd_session *bfd_mhop_lookup(struct bfd_mhop_key mhop)
 
 	_mhop_key(&bs, &mhop);
 
-	return hash_lookup(bfd_shop_hash, &bs);
+	return hash_lookup(bfd_mhop_hash, &bs);
 }
 
 struct bfd_vrf *bfd_vrf_lookup(int vrf_id)

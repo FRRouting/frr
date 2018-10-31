@@ -220,6 +220,9 @@ extern void route_map_install_set(struct route_map_rule_cmd *cmd);
 /* Lookup route map by name. */
 extern struct route_map *route_map_lookup_by_name(const char *name);
 
+/* Simple helper to warn if route-map does not exist. */
+struct route_map *route_map_lookup_warn_noexist(struct vty *vty, const char *name);
+
 /* Apply route map to the object. */
 extern route_map_result_t route_map_apply(struct route_map *map,
 					  const struct prefix *prefix,

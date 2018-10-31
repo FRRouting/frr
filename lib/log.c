@@ -38,6 +38,12 @@
 #include <ucontext.h>
 #endif
 
+#ifdef HAVE_LIBUNWIND
+#define UNW_LOCAL_ONLY
+#include <libunwind.h>
+#include <dlfcn.h>
+#endif
+
 DEFINE_MTYPE_STATIC(LIB, ZLOG, "Logging")
 
 static int logfile_fd = -1; /* Used in signal handler. */
@@ -313,7 +319,9 @@ static char *num_append(char *s, int len, unsigned long x)
 	return str_append(s, len, t);
 }
 
-#if defined(SA_SIGINFO) || defined(HAVE_STACK_TRACE)
+#if defined(SA_SIGINFO) \
+	|| defined(HAVE_PRINTSTACK) \
+	|| defined(HAVE_GLIBC_BACKTRACE)
 static char *hex_append(char *s, int len, unsigned long x)
 {
 	char buf[30];
@@ -533,7 +541,37 @@ void zlog_signal(int signo, const char *action
    Needs to be enhanced to support syslog logging. */
 void zlog_backtrace_sigsafe(int priority, void *program_counter)
 {
-#ifdef HAVE_STACK_TRACE
+#ifdef HAVE_LIBUNWIND
+	char buf[100];
+	unw_cursor_t cursor;
+	unw_context_t uc;
+	unw_word_t ip, off, sp;
+	Dl_info dlinfo;
+
+	unw_getcontext(&uc);
+	unw_init_local(&cursor, &uc);
+	while (unw_step(&cursor) > 0) {
+		char name[128] = "?";
+
+		unw_get_reg(&cursor, UNW_REG_IP, &ip);
+		unw_get_reg(&cursor, UNW_REG_SP, &sp);
+
+		if (unw_is_signal_frame(&cursor))
+			dprintf(2, "    ---- signal ----\n");
+
+		if (!unw_get_proc_name(&cursor, buf, sizeof(buf), &off)) {
+			snprintf(name, sizeof(name), "%s+%#lx",
+				buf, (long)off);
+		}
+		dprintf(2, "%-30s %16lx %16lx", name, (long)ip, (long)sp);
+		if (dladdr((void *)ip, &dlinfo)) {
+			dprintf(2, " %s (mapped at %p)",
+				dlinfo.dli_fname, dlinfo.dli_fbase);
+		}
+		dprintf(2, "\n");
+
+	}
+#elif defined(HAVE_GLIBC_BACKTRACE) || defined(HAVE_PRINTSTACK)
 	static const char pclabel[] = "Program counter: ";
 	void *array[64];
 	int size;
@@ -624,9 +662,38 @@ void zlog_backtrace_sigsafe(int priority, void *program_counter)
 
 void zlog_backtrace(int priority)
 {
-#ifndef HAVE_GLIBC_BACKTRACE
-	zlog(priority, "No backtrace available on this platform.");
-#else
+#ifdef HAVE_LIBUNWIND
+	char buf[100];
+	unw_cursor_t cursor;
+	unw_context_t uc;
+	unw_word_t ip, off, sp;
+	Dl_info dlinfo;
+
+	unw_getcontext(&uc);
+	unw_init_local(&cursor, &uc);
+	zlog(priority, "Backtrace:");
+	while (unw_step(&cursor) > 0) {
+		char name[128] = "?";
+
+		unw_get_reg(&cursor, UNW_REG_IP, &ip);
+		unw_get_reg(&cursor, UNW_REG_SP, &sp);
+
+		if (unw_is_signal_frame(&cursor))
+			zlog(priority, "    ---- signal ----");
+
+		if (!unw_get_proc_name(&cursor, buf, sizeof(buf), &off))
+			snprintf(name, sizeof(name), "%s+%#lx",
+				buf, (long)off);
+
+		if (dladdr((void *)ip, &dlinfo))
+			zlog(priority, "%-30s %16lx %16lx %s (mapped at %p)",
+				name, (long)ip, (long)sp,
+				dlinfo.dli_fname, dlinfo.dli_fbase);
+		else
+			zlog(priority, "%-30s %16lx %16lx",
+				name, (long)ip, (long)sp);
+	}
+#elif defined(HAVE_GLIBC_BACKTRACE)
 	void *array[20];
 	int size, i;
 	char **strings;
@@ -651,7 +718,9 @@ void zlog_backtrace(int priority)
 			zlog(priority, "[bt %d] %s", i, strings[i]);
 		free(strings);
 	}
-#endif /* HAVE_GLIBC_BACKTRACE */
+#else /* !HAVE_GLIBC_BACKTRACE && !HAVE_LIBUNWIND */
+	zlog(priority, "No backtrace available on this platform.");
+#endif
 }
 
 void zlog(int priority, const char *format, ...)
@@ -980,6 +1049,7 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_IPSET_DESTROY),
 	DESC_ENTRY(ZEBRA_IPSET_ENTRY_ADD),
 	DESC_ENTRY(ZEBRA_IPSET_ENTRY_DELETE),
+	DESC_ENTRY(ZEBRA_VXLAN_FLOOD_CONTROL),
 };
 #undef DESC_ENTRY
 

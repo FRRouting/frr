@@ -79,7 +79,7 @@ static zebra_fec_t *fec_add(struct route_table *table, struct prefix *p,
 static int fec_del(zebra_fec_t *fec);
 
 static unsigned int label_hash(void *p);
-static int label_cmp(const void *p1, const void *p2);
+static bool label_cmp(const void *p1, const void *p2);
 static int nhlfe_nexthop_active_ipv4(zebra_nhlfe_t *nhlfe,
 				     struct nexthop *nexthop);
 static int nhlfe_nexthop_active_ipv6(zebra_nhlfe_t *nhlfe,
@@ -592,7 +592,7 @@ static unsigned int label_hash(void *p)
 /*
  * Compare 2 LSP hash entries based on in-label.
  */
-static int label_cmp(const void *p1, const void *p2)
+static bool label_cmp(const void *p1, const void *p2)
 {
 	const zebra_ile_t *ile1 = p1;
 	const zebra_ile_t *ile2 = p2;

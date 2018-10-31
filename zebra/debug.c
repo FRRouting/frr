@@ -275,6 +275,7 @@ DEFUN (debug_zebra_dplane,
        "Detailed debug information\n")
 {
 	int idx = 0;
+
 	SET_FLAG(zebra_debug_dplane, ZEBRA_DEBUG_DPLANE);
 
 	if (argv_find(argv, argc, "detailed", &idx))

@@ -50,9 +50,7 @@ static void register_zebra_rnh(struct bgp_nexthop_cache *bnc,
 static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc,
 				 int is_bgp_static_route);
 static void evaluate_paths(struct bgp_nexthop_cache *bnc);
-static int make_prefix(int afi, struct bgp_info *ri, struct prefix *p);
-static void path_nh_map(struct bgp_info *path, struct bgp_nexthop_cache *bnc,
-			int keep);
+static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p);
 
 static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 {
@@ -66,7 +64,7 @@ static int bgp_isvalid_labeled_nexthop(struct bgp_nexthop_cache *bnc)
 		|| (bnc && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID)));
 }
 
-int bgp_find_nexthop(struct bgp_info *path, int connected)
+int bgp_find_nexthop(struct bgp_path_info *path, int connected)
 {
 	struct bgp_nexthop_cache *bnc = path->nexthop;
 
@@ -104,14 +102,14 @@ static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
 	}
 }
 
-void bgp_unlink_nexthop(struct bgp_info *path)
+void bgp_unlink_nexthop(struct bgp_path_info *path)
 {
 	struct bgp_nexthop_cache *bnc = path->nexthop;
 
 	if (!bnc)
 		return;
 
-	path_nh_map(path, NULL, 0);
+	path_nh_map(path, NULL, false);
 
 	bgp_unlink_nexthop_check(bnc);
 }
@@ -143,7 +141,7 @@ void bgp_unlink_nexthop_by_peer(struct peer *peer)
  * we need both the bgp_route and bgp_nexthop pointers.
  */
 int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
-			    afi_t afi, struct bgp_info *ri,
+			    afi_t afi, struct bgp_path_info *pi,
 			    struct peer *peer, int connected)
 {
 	struct bgp_node *rn;
@@ -151,9 +149,9 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	struct prefix p;
 	int is_bgp_static_route = 0;
 
-	if (ri) {
-		is_bgp_static_route = ((ri->type == ZEBRA_ROUTE_BGP)
-				       && (ri->sub_type == BGP_ROUTE_STATIC))
+	if (pi) {
+		is_bgp_static_route = ((pi->type == ZEBRA_ROUTE_BGP)
+				       && (pi->sub_type == BGP_ROUTE_STATIC))
 					      ? 1
 					      : 0;
 
@@ -161,19 +159,14 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		   to derive
 		   address-family from the next-hop. */
 		if (!is_bgp_static_route)
-			afi = BGP_ATTR_NEXTHOP_AFI_IP6(ri->attr) ? AFI_IP6
+			afi = BGP_ATTR_NEXTHOP_AFI_IP6(pi->attr) ? AFI_IP6
 								 : AFI_IP;
 
 		/* This will return TRUE if the global IPv6 NH is a link local
 		 * addr */
-		if (make_prefix(afi, ri, &p) < 0)
+		if (make_prefix(afi, pi, &p) < 0)
 			return 1;
 	} else if (peer) {
-		/* Don't register link local NH */
-		if (afi == AFI_IP6
-		    && IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr))
-			return 1;
-
 		if (!sockunion2hostprefix(&peer->su, &p)) {
 			if (BGP_DEBUG(nht, NHT)) {
 				zlog_debug(
@@ -251,19 +244,20 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		bnc->flags |= BGP_NEXTHOP_VALID;
 	} else if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
 		register_zebra_rnh(bnc, is_bgp_static_route);
-	if (ri && ri->nexthop != bnc) {
+	if (pi && pi->nexthop != bnc) {
 		/* Unlink from existing nexthop cache, if any. This will also
 		 * free
 		 * the nexthop cache entry, if appropriate.
 		 */
-		bgp_unlink_nexthop(ri);
+		bgp_unlink_nexthop(pi);
 
-		path_nh_map(ri, bnc, 1); /* updates NHT ri list reference */
+		/* updates NHT pi list reference */
+		path_nh_map(pi, bnc, true);
 
 		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) && bnc->metric)
-			(bgp_info_extra_get(ri))->igpmetric = bnc->metric;
-		else if (ri->extra)
-			ri->extra->igpmetric = 0;
+			(bgp_path_info_extra_get(pi))->igpmetric = bnc->metric;
+		else if (pi->extra)
+			pi->extra->igpmetric = 0;
 	} else if (peer)
 		bnc->nht_info = (void *)peer; /* NHT peer reference */
 
@@ -285,10 +279,6 @@ void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer)
 	struct prefix p;
 
 	if (!peer)
-		return;
-
-	/* We don't register link local address for NHT */
-	if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL(&peer->su.sin6.sin6_addr))
 		return;
 
 	if (!sockunion2hostprefix(&peer->su, &p))
@@ -437,8 +427,9 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 			 * we receive from bgp.  This is to allow us
 			 * to work with v4 routing over v6 nexthops
 			 */
-			if (peer &&
-			    CHECK_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE)
+			if (peer && !peer->ifp
+			    && CHECK_FLAG(peer->flags,
+					  PEER_FLAG_CAPABILITY_ENHE)
 			    && nhr.prefix.family == AF_INET6) {
 				struct interface *ifp;
 
@@ -535,11 +526,11 @@ void bgp_cleanup_nexthops(struct bgp *bgp)
  * make_prefix - make a prefix structure from the path (essentially
  * path's node.
  */
-static int make_prefix(int afi, struct bgp_info *ri, struct prefix *p)
+static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 {
 
-	int is_bgp_static = ((ri->type == ZEBRA_ROUTE_BGP)
-			     && (ri->sub_type == BGP_ROUTE_STATIC))
+	int is_bgp_static = ((pi->type == ZEBRA_ROUTE_BGP)
+			     && (pi->sub_type == BGP_ROUTE_STATIC))
 				    ? 1
 				    : 0;
 
@@ -548,26 +539,21 @@ static int make_prefix(int afi, struct bgp_info *ri, struct prefix *p)
 	case AFI_IP:
 		p->family = AF_INET;
 		if (is_bgp_static) {
-			p->u.prefix4 = ri->net->p.u.prefix4;
-			p->prefixlen = ri->net->p.prefixlen;
+			p->u.prefix4 = pi->net->p.u.prefix4;
+			p->prefixlen = pi->net->p.prefixlen;
 		} else {
-			p->u.prefix4 = ri->attr->nexthop;
+			p->u.prefix4 = pi->attr->nexthop;
 			p->prefixlen = IPV4_MAX_BITLEN;
 		}
 		break;
 	case AFI_IP6:
-		/* We don't register link local NH */
-		if (ri->attr->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL
-		    || IN6_IS_ADDR_LINKLOCAL(&ri->attr->mp_nexthop_global))
-			return -1;
-
 		p->family = AF_INET6;
 
 		if (is_bgp_static) {
-			p->u.prefix6 = ri->net->p.u.prefix6;
-			p->prefixlen = ri->net->p.prefixlen;
+			p->u.prefix6 = pi->net->p.u.prefix6;
+			p->prefixlen = pi->net->p.prefixlen;
 		} else {
-			p->u.prefix6 = ri->attr->mp_nexthop_global;
+			p->u.prefix6 = pi->attr->mp_nexthop_global;
 			p->prefixlen = IPV6_MAX_BITLEN;
 		}
 		break;
@@ -686,7 +672,7 @@ static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc,
 static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 {
 	struct bgp_node *rn;
-	struct bgp_info *path;
+	struct bgp_path_info *path;
 	int afi;
 	struct peer *peer = (struct peer *)bnc->nht_info;
 	struct bgp_table *table;
@@ -753,14 +739,16 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 				(bnc_is_valid_nexthop ? "" : "not "));
 		}
 
-		if ((CHECK_FLAG(path->flags, BGP_INFO_VALID) ? 1 : 0)
+		if ((CHECK_FLAG(path->flags, BGP_PATH_VALID) ? 1 : 0)
 		    != bnc_is_valid_nexthop) {
-			if (CHECK_FLAG(path->flags, BGP_INFO_VALID)) {
+			if (CHECK_FLAG(path->flags, BGP_PATH_VALID)) {
 				bgp_aggregate_decrement(bgp_path, &rn->p,
 							path, afi, safi);
-				bgp_info_unset_flag(rn, path, BGP_INFO_VALID);
+				bgp_path_info_unset_flag(rn, path,
+							 BGP_PATH_VALID);
 			} else {
-				bgp_info_set_flag(rn, path, BGP_INFO_VALID);
+				bgp_path_info_set_flag(rn, path,
+						       BGP_PATH_VALID);
 				bgp_aggregate_increment(bgp_path, &rn->p,
 							path, afi, safi);
 			}
@@ -769,13 +757,14 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		/* Copy the metric to the path. Will be used for bestpath
 		 * computation */
 		if (bgp_isvalid_nexthop(bnc) && bnc->metric)
-			(bgp_info_extra_get(path))->igpmetric = bnc->metric;
+			(bgp_path_info_extra_get(path))->igpmetric =
+				bnc->metric;
 		else if (path->extra)
 			path->extra->igpmetric = 0;
 
 		if (CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED)
 		    || CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED))
-			SET_FLAG(path->flags, BGP_INFO_IGP_CHANGED);
+			SET_FLAG(path->flags, BGP_PATH_IGP_CHANGED);
 
 		bgp_process(bgp_path, rn, afi, safi);
 	}
@@ -799,8 +788,8 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
  *   make - if set, make the association. if unset, just break the existing
  *          association.
  */
-static void path_nh_map(struct bgp_info *path, struct bgp_nexthop_cache *bnc,
-			int make)
+void path_nh_map(struct bgp_path_info *path, struct bgp_nexthop_cache *bnc,
+		 bool make)
 {
 	if (path->nexthop) {
 		LIST_REMOVE(path, nh_thread);

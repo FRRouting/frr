@@ -1,7 +1,7 @@
 /*
  * Zebra Vrf Header
  * Copyright (C) 2016 Cumulus Networks
- *                    Donald Sahrp
+ *                    Donald Sharp
  *
  * This file is part of Quagga.
  *
@@ -22,6 +22,8 @@
 #if !defined(__ZEBRA_VRF_H__)
 #define __ZEBRA_VRF_H__
 
+#include "vxlan.h"
+
 #include <zebra/zebra_ns.h>
 #include <zebra/zebra_pw.h>
 #include <lib/vxlan.h>
@@ -31,6 +33,11 @@ typedef struct mpls_srgb_t_ {
 	uint32_t start_label;
 	uint32_t end_label;
 } mpls_srgb_t;
+
+struct zebra_rmap {
+	char *name;
+	struct route_map *map;
+};
 
 /* Routing table instance.  */
 struct zebra_vrf {
@@ -92,6 +99,9 @@ struct zebra_vrf {
 	struct zebra_pw_head pseudowires;
 	struct zebra_static_pw_head static_pseudowires;
 
+	struct zebra_rmap proto_rm[AFI_MAX][ZEBRA_ROUTE_MAX + 1];
+	struct zebra_rmap nht_rm[AFI_MAX][ZEBRA_ROUTE_MAX + 1];
+
 	/* MPLS processing flags */
 	uint16_t mpls_flags;
 #define MPLS_FLAG_SCHEDULE_LSPS    (1 << 0)
@@ -115,13 +125,31 @@ struct zebra_vrf {
 	/* l3-vni info */
 	vni_t l3vni;
 
+	/*
+	 * Flooding mechanism for BUM packets for VxLAN-EVPN.
+	 */
+	enum vxlan_flood_control vxlan_flood_ctrl;
+
 	/* Route Installs */
 	uint64_t installs;
 	uint64_t removals;
+	uint64_t installs_queued;
+	uint64_t removals_queued;
 	uint64_t neigh_updates;
 	uint64_t lsp_installs;
 	uint64_t lsp_removals;
 };
+#define PROTO_RM_NAME(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].name
+#define NHT_RM_NAME(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].name
+#define PROTO_RM_MAP(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].map
+#define NHT_RM_MAP(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].map
+
+/*
+ * special macro to allow us to get the correct zebra_vrf
+ */
+#define ZEBRA_DECLVAR_CONTEXT(A, B)                                            \
+	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
+	struct zebra_vrf *B = (A) ? A->info : vrf_info_lookup(VRF_DEFAULT)
 
 static inline vrf_id_t zvrf_id(struct zebra_vrf *zvrf)
 {

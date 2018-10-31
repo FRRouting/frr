@@ -212,7 +212,7 @@ struct rfapi {
 
 	/*
 	 * when importing bgp-direct routes in resolve-nve mode,
-	 * this list maps unicast route nexthops to their bgp_infos
+	 * this list maps unicast route nexthops to their bgp_path_infos
 	 * in the unicast table
 	 */
 	struct skiplist *resolve_nve_nexthop;

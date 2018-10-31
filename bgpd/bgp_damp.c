@@ -42,8 +42,8 @@ static struct bgp_damp_config *damp = &bgp_damp_cfg;
 
 /* Utility macro to add and delete BGP dampening information to no
    used list.  */
-#define BGP_DAMP_LIST_ADD(N,A)  BGP_INFO_ADD(N,A,no_reuse_list)
-#define BGP_DAMP_LIST_DEL(N,A)  BGP_INFO_DEL(N,A,no_reuse_list)
+#define BGP_DAMP_LIST_ADD(N, A) BGP_PATH_INFO_ADD(N, A, no_reuse_list)
+#define BGP_DAMP_LIST_DEL(N, A) BGP_PATH_INFO_DEL(N, A, no_reuse_list)
 
 /* Calculate reuse list index by penalty value.  */
 static int bgp_reuse_index(int penalty)
@@ -128,7 +128,7 @@ static int bgp_reuse_timer(struct thread *t)
 
 	/* 3. if ( the saved list head pointer is non-empty ) */
 	for (; bdi; bdi = next) {
-		struct bgp *bgp = bdi->binfo->peer->bgp;
+		struct bgp *bgp = bdi->path->peer->bgp;
 
 		next = bdi->next;
 
@@ -145,15 +145,15 @@ static int bgp_reuse_timer(struct thread *t)
 		/* if (figure-of-merit < reuse).  */
 		if (bdi->penalty < damp->reuse_limit) {
 			/* Reuse the route.  */
-			bgp_info_unset_flag(bdi->rn, bdi->binfo,
-					    BGP_INFO_DAMPED);
+			bgp_path_info_unset_flag(bdi->rn, bdi->path,
+						 BGP_PATH_DAMPED);
 			bdi->suppress_time = 0;
 
 			if (bdi->lastrecord == BGP_RECORD_UPDATE) {
-				bgp_info_unset_flag(bdi->rn, bdi->binfo,
-						    BGP_INFO_HISTORY);
+				bgp_path_info_unset_flag(bdi->rn, bdi->path,
+							 BGP_PATH_HISTORY);
 				bgp_aggregate_increment(bgp, &bdi->rn->p,
-							bdi->binfo, bdi->afi,
+							bdi->path, bdi->afi,
 							bdi->safi);
 				bgp_process(bgp, bdi->rn, bdi->afi, bdi->safi);
 			}
@@ -172,8 +172,8 @@ static int bgp_reuse_timer(struct thread *t)
 }
 
 /* A route becomes unreachable (RFC2439 Section 4.8.2).  */
-int bgp_damp_withdraw(struct bgp_info *binfo, struct bgp_node *rn, afi_t afi,
-		      safi_t safi, int attr_change)
+int bgp_damp_withdraw(struct bgp_path_info *path, struct bgp_node *rn,
+		      afi_t afi, safi_t safi, int attr_change)
 {
 	time_t t_now;
 	struct bgp_damp_info *bdi = NULL;
@@ -182,8 +182,8 @@ int bgp_damp_withdraw(struct bgp_info *binfo, struct bgp_node *rn, afi_t afi,
 	t_now = bgp_clock();
 
 	/* Processing Unreachable Messages.  */
-	if (binfo->extra)
-		bdi = binfo->extra->damp_info;
+	if (path->extra)
+		bdi = path->extra->damp_info;
 
 	if (bdi == NULL) {
 		/* If there is no previous stability history. */
@@ -195,7 +195,7 @@ int bgp_damp_withdraw(struct bgp_info *binfo, struct bgp_node *rn, afi_t afi,
 
 		bdi = XCALLOC(MTYPE_BGP_DAMP_INFO,
 			      sizeof(struct bgp_damp_info));
-		bdi->binfo = binfo;
+		bdi->path = path;
 		bdi->rn = rn;
 		bdi->penalty =
 			(attr_change ? DEFAULT_PENALTY / 2 : DEFAULT_PENALTY);
@@ -205,7 +205,7 @@ int bgp_damp_withdraw(struct bgp_info *binfo, struct bgp_node *rn, afi_t afi,
 		bdi->index = -1;
 		bdi->afi = afi;
 		bdi->safi = safi;
-		(bgp_info_extra_get(binfo))->damp_info = bdi;
+		(bgp_path_info_extra_get(path))->damp_info = bdi;
 		BGP_DAMP_LIST_ADD(damp, bdi);
 	} else {
 		last_penalty = bdi->penalty;
@@ -222,16 +222,16 @@ int bgp_damp_withdraw(struct bgp_info *binfo, struct bgp_node *rn, afi_t afi,
 		bdi->flap++;
 	}
 
-	assert((rn == bdi->rn) && (binfo == bdi->binfo));
+	assert((rn == bdi->rn) && (path == bdi->path));
 
 	bdi->lastrecord = BGP_RECORD_WITHDRAW;
 	bdi->t_updated = t_now;
 
 	/* Make this route as historical status.  */
-	bgp_info_set_flag(rn, binfo, BGP_INFO_HISTORY);
+	bgp_path_info_set_flag(rn, path, BGP_PATH_HISTORY);
 
 	/* Remove the route from a reuse list if it is on one.  */
-	if (CHECK_FLAG(bdi->binfo->flags, BGP_INFO_DAMPED)) {
+	if (CHECK_FLAG(bdi->path->flags, BGP_PATH_DAMPED)) {
 		/* If decay rate isn't equal to 0, reinsert brn. */
 		if (bdi->penalty != last_penalty && bdi->index >= 0) {
 			bgp_reuse_list_delete(bdi);
@@ -243,7 +243,7 @@ int bgp_damp_withdraw(struct bgp_info *binfo, struct bgp_node *rn, afi_t afi,
 	/* If not suppressed before, do annonunce this withdraw and
 	   insert into reuse_list.  */
 	if (bdi->penalty >= damp->suppress_value) {
-		bgp_info_set_flag(rn, binfo, BGP_INFO_DAMPED);
+		bgp_path_info_set_flag(rn, path, BGP_PATH_DAMPED);
 		bdi->suppress_time = t_now;
 		BGP_DAMP_LIST_DEL(damp, bdi);
 		bgp_reuse_list_add(bdi);
@@ -252,28 +252,28 @@ int bgp_damp_withdraw(struct bgp_info *binfo, struct bgp_node *rn, afi_t afi,
 	return BGP_DAMP_USED;
 }
 
-int bgp_damp_update(struct bgp_info *binfo, struct bgp_node *rn, afi_t afi,
+int bgp_damp_update(struct bgp_path_info *path, struct bgp_node *rn, afi_t afi,
 		    safi_t safi)
 {
 	time_t t_now;
 	struct bgp_damp_info *bdi;
 	int status;
 
-	if (!binfo->extra || !((bdi = binfo->extra->damp_info)))
+	if (!path->extra || !((bdi = path->extra->damp_info)))
 		return BGP_DAMP_USED;
 
 	t_now = bgp_clock();
-	bgp_info_unset_flag(rn, binfo, BGP_INFO_HISTORY);
+	bgp_path_info_unset_flag(rn, path, BGP_PATH_HISTORY);
 
 	bdi->lastrecord = BGP_RECORD_UPDATE;
 	bdi->penalty = bgp_damp_decay(t_now - bdi->t_updated, bdi->penalty);
 
-	if (!CHECK_FLAG(bdi->binfo->flags, BGP_INFO_DAMPED)
+	if (!CHECK_FLAG(bdi->path->flags, BGP_PATH_DAMPED)
 	    && (bdi->penalty < damp->suppress_value))
 		status = BGP_DAMP_USED;
-	else if (CHECK_FLAG(bdi->binfo->flags, BGP_INFO_DAMPED)
+	else if (CHECK_FLAG(bdi->path->flags, BGP_PATH_DAMPED)
 		 && (bdi->penalty < damp->reuse_limit)) {
-		bgp_info_unset_flag(rn, binfo, BGP_INFO_DAMPED);
+		bgp_path_info_unset_flag(rn, path, BGP_PATH_DAMPED);
 		bgp_reuse_list_delete(bdi);
 		BGP_DAMP_LIST_ADD(damp, bdi);
 		bdi->suppress_time = 0;
@@ -290,28 +290,29 @@ int bgp_damp_update(struct bgp_info *binfo, struct bgp_node *rn, afi_t afi,
 }
 
 /* Remove dampening information and history route.  */
-int bgp_damp_scan(struct bgp_info *binfo, afi_t afi, safi_t safi)
+int bgp_damp_scan(struct bgp_path_info *path, afi_t afi, safi_t safi)
 {
 	time_t t_now, t_diff;
 	struct bgp_damp_info *bdi;
 
-	assert(binfo->extra && binfo->extra->damp_info);
+	assert(path->extra && path->extra->damp_info);
 
 	t_now = bgp_clock();
-	bdi = binfo->extra->damp_info;
+	bdi = path->extra->damp_info;
 
-	if (CHECK_FLAG(binfo->flags, BGP_INFO_DAMPED)) {
+	if (CHECK_FLAG(path->flags, BGP_PATH_DAMPED)) {
 		t_diff = t_now - bdi->suppress_time;
 
 		if (t_diff >= damp->max_suppress_time) {
-			bgp_info_unset_flag(bdi->rn, binfo, BGP_INFO_DAMPED);
+			bgp_path_info_unset_flag(bdi->rn, path,
+						 BGP_PATH_DAMPED);
 			bgp_reuse_list_delete(bdi);
 			BGP_DAMP_LIST_ADD(damp, bdi);
 			bdi->penalty = damp->reuse_limit;
 			bdi->suppress_time = 0;
 			bdi->t_updated = t_now;
 
-			/* Need to announce UPDATE once this binfo is usable
+			/* Need to announce UPDATE once this path is usable
 			 * again. */
 			if (bdi->lastrecord == BGP_RECORD_UPDATE)
 				return 1;
@@ -323,7 +324,7 @@ int bgp_damp_scan(struct bgp_info *binfo, afi_t afi, safi_t safi)
 		bdi->penalty = bgp_damp_decay(t_diff, bdi->penalty);
 
 		if (bdi->penalty <= damp->reuse_limit / 2.0) {
-			/* release the bdi, bdi->binfo. */
+			/* release the bdi, bdi->path. */
 			bgp_damp_info_free(bdi, 1);
 			return 0;
 		} else
@@ -334,23 +335,24 @@ int bgp_damp_scan(struct bgp_info *binfo, afi_t afi, safi_t safi)
 
 void bgp_damp_info_free(struct bgp_damp_info *bdi, int withdraw)
 {
-	struct bgp_info *binfo;
+	struct bgp_path_info *path;
 
 	if (!bdi)
 		return;
 
-	binfo = bdi->binfo;
-	binfo->extra->damp_info = NULL;
+	path = bdi->path;
+	path->extra->damp_info = NULL;
 
-	if (CHECK_FLAG(binfo->flags, BGP_INFO_DAMPED))
+	if (CHECK_FLAG(path->flags, BGP_PATH_DAMPED))
 		bgp_reuse_list_delete(bdi);
 	else
 		BGP_DAMP_LIST_DEL(damp, bdi);
 
-	bgp_info_unset_flag(bdi->rn, binfo, BGP_INFO_HISTORY | BGP_INFO_DAMPED);
+	bgp_path_info_unset_flag(bdi->rn, path,
+				 BGP_PATH_HISTORY | BGP_PATH_DAMPED);
 
 	if (bdi->lastrecord == BGP_RECORD_WITHDRAW && withdraw)
-		bgp_info_delete(bdi->rn, binfo);
+		bgp_path_info_delete(bdi->rn, path);
 
 	XFREE(MTYPE_BGP_DAMP_INFO, bdi);
 }
@@ -446,12 +448,15 @@ static void bgp_damp_config_clean(struct bgp_damp_config *damp)
 {
 	/* Free decay array */
 	XFREE(MTYPE_BGP_DAMP_ARRAY, damp->decay_array);
+	damp->decay_array_size = 0;
 
 	/* Free reuse index array */
 	XFREE(MTYPE_BGP_DAMP_ARRAY, damp->reuse_index);
+	damp->reuse_index_size = 0;
 
 	/* Free reuse list array. */
 	XFREE(MTYPE_BGP_DAMP_ARRAY, damp->reuse_list);
+	damp->reuse_list_size = 0;
 }
 
 /* Clean all the bgp_damp_info stored in reuse_list. */
@@ -588,7 +593,7 @@ static const char *bgp_get_reuse_time(unsigned int penalty, char *buf,
 	return buf;
 }
 
-void bgp_damp_info_vty(struct vty *vty, struct bgp_info *binfo,
+void bgp_damp_info_vty(struct vty *vty, struct bgp_path_info *path,
 		       json_object *json_path)
 {
 	struct bgp_damp_info *bdi;
@@ -596,11 +601,11 @@ void bgp_damp_info_vty(struct vty *vty, struct bgp_info *binfo,
 	char timebuf[BGP_UPTIME_LEN];
 	int penalty;
 
-	if (!binfo->extra)
+	if (!path->extra)
 		return;
 
 	/* BGP dampening information.  */
-	bdi = binfo->extra->damp_info;
+	bdi = path->extra->damp_info;
 
 	/* If dampening is not enabled or there is no dampening information,
 	   return immediately.  */
@@ -618,8 +623,8 @@ void bgp_damp_info_vty(struct vty *vty, struct bgp_info *binfo,
 		peer_uptime(bdi->start_time, timebuf, BGP_UPTIME_LEN, 1,
 			    json_path);
 
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_DAMPED)
-		    && !CHECK_FLAG(binfo->flags, BGP_INFO_HISTORY))
+		if (CHECK_FLAG(path->flags, BGP_PATH_DAMPED)
+		    && !CHECK_FLAG(path->flags, BGP_PATH_HISTORY))
 			bgp_get_reuse_time(penalty, timebuf, BGP_UPTIME_LEN, 1,
 					   json_path);
 	} else {
@@ -629,8 +634,8 @@ void bgp_damp_info_vty(struct vty *vty, struct bgp_info *binfo,
 			peer_uptime(bdi->start_time, timebuf, BGP_UPTIME_LEN, 0,
 				    json_path));
 
-		if (CHECK_FLAG(binfo->flags, BGP_INFO_DAMPED)
-		    && !CHECK_FLAG(binfo->flags, BGP_INFO_HISTORY))
+		if (CHECK_FLAG(path->flags, BGP_PATH_DAMPED)
+		    && !CHECK_FLAG(path->flags, BGP_PATH_HISTORY))
 			vty_out(vty, ", reuse in %s",
 				bgp_get_reuse_time(penalty, timebuf,
 						   BGP_UPTIME_LEN, 0,
@@ -640,7 +645,7 @@ void bgp_damp_info_vty(struct vty *vty, struct bgp_info *binfo,
 	}
 }
 
-const char *bgp_damp_reuse_time_vty(struct vty *vty, struct bgp_info *binfo,
+const char *bgp_damp_reuse_time_vty(struct vty *vty, struct bgp_path_info *path,
 				    char *timebuf, size_t len, bool use_json,
 				    json_object *json)
 {
@@ -648,11 +653,11 @@ const char *bgp_damp_reuse_time_vty(struct vty *vty, struct bgp_info *binfo,
 	time_t t_now, t_diff;
 	int penalty;
 
-	if (!binfo->extra)
+	if (!path->extra)
 		return NULL;
 
 	/* BGP dampening information.  */
-	bdi = binfo->extra->damp_info;
+	bdi = path->extra->damp_info;
 
 	/* If dampening is not enabled or there is no dampening information,
 	   return immediately.  */
@@ -684,7 +689,7 @@ int bgp_show_dampening_parameters(struct vty *vty, afi_t afi, safi_t safi)
 		vty_out(vty, "Suppress penalty: %d\n", damp->suppress_value);
 		vty_out(vty, "Max suppress time: %lld min\n",
 			(long long)damp->max_suppress_time / 60);
-		vty_out(vty, "Max supress penalty: %u\n", damp->ceiling);
+		vty_out(vty, "Max suppress penalty: %u\n", damp->ceiling);
 		vty_out(vty, "\n");
 	} else
 		vty_out(vty, "dampening not enabled for %s\n",

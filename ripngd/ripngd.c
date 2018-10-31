@@ -1560,7 +1560,7 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 		    && rinfo->suppress == 0) {
 			/* If no route-map are applied, the RTE will be these
 			 * following
-			 * informations.
+			 * information.
 			 */
 			p = (struct prefix_ipv6 *)&rp->p;
 			rinfo->metric_out = rinfo->metric;
@@ -1701,7 +1701,7 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 		    && aggregate->suppress == 0) {
 			/* If no route-map are applied, the RTE will be these
 			 * following
-			 * informations.
+			 * information.
 			 */
 			p = (struct prefix_ipv6 *)&rp->p;
 			aggregate->metric_set = 0;

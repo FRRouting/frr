@@ -740,6 +740,20 @@ int zsend_route_notify_owner(struct route_entry *re, const struct prefix *p,
 				      re->table, note));
 }
 
+/*
+ * Route-owner notification using info from dataplane update context.
+ */
+int zsend_route_notify_owner_ctx(const struct zebra_dplane_ctx *ctx,
+				 enum zapi_route_notify_owner note)
+{
+	return (route_notify_internal(dplane_ctx_get_dest(ctx),
+				      dplane_ctx_get_type(ctx),
+				      dplane_ctx_get_instance(ctx),
+				      dplane_ctx_get_vrf(ctx),
+				      dplane_ctx_get_table(ctx),
+				      note));
+}
+
 void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 			     enum zapi_rule_notify_owner note)
 {
@@ -1090,8 +1104,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 		zebra_add_rnh_client(rnh, client, type, zvrf_id(zvrf));
 		/* Anything not AF_INET/INET6 has been filtered out above */
 		if (!exist)
-			zebra_evaluate_rnh(zvrf_id(zvrf), p.family, 1, type,
-					   &p);
+			zebra_evaluate_rnh(zvrf, p.family, 1, type, &p);
 	}
 
 stream_failure:
@@ -2244,10 +2257,11 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		if (zpr.rule.filter.fwmark)
 			zpr.rule.filter.filter_bm |= PBR_FILTER_FWMARK;
 
+		zpr.vrf_id = zvrf->vrf->vrf_id;
 		if (hdr->command == ZEBRA_RULE_ADD)
-			zebra_pbr_add_rule(zvrf->zns, &zpr);
+			zebra_pbr_add_rule(&zpr);
 		else
-			zebra_pbr_del_rule(zvrf->zns, &zpr);
+			zebra_pbr_del_rule(&zpr);
 	}
 
 stream_failure:
@@ -2273,9 +2287,9 @@ static inline void zread_ipset(ZAPI_HANDLER_ARGS)
 		STREAM_GET(&zpi.ipset_name, s, ZEBRA_IPSET_NAME_SIZE);
 
 		if (hdr->command == ZEBRA_IPSET_CREATE)
-			zebra_pbr_create_ipset(zvrf->zns, &zpi);
+			zebra_pbr_create_ipset(&zpi);
 		else
-			zebra_pbr_destroy_ipset(zvrf->zns, &zpi);
+			zebra_pbr_destroy_ipset(&zpi);
 	}
 
 stream_failure:
@@ -2328,12 +2342,12 @@ static inline void zread_ipset_entry(ZAPI_HANDLER_ARGS)
 			zpi.filter_bm |= PBR_FILTER_PROTO;
 
 		/* calculate backpointer */
-		zpi.backpointer = zebra_pbr_lookup_ipset_pername(
-			zvrf->zns, ipset.ipset_name);
+		zpi.backpointer =
+			zebra_pbr_lookup_ipset_pername(ipset.ipset_name);
 		if (hdr->command == ZEBRA_IPSET_ENTRY_ADD)
-			zebra_pbr_add_ipset_entry(zvrf->zns, &zpi);
+			zebra_pbr_add_ipset_entry(&zpi);
 		else
-			zebra_pbr_del_ipset_entry(zvrf->zns, &zpi);
+			zebra_pbr_del_ipset_entry(&zpi);
 	}
 
 stream_failure:
@@ -2368,9 +2382,9 @@ static inline void zread_iptable(ZAPI_HANDLER_ARGS)
 	zebra_pbr_iptable_update_interfacelist(s, &zpi);
 
 	if (hdr->command == ZEBRA_IPTABLE_ADD)
-		zebra_pbr_add_iptable(zvrf->zns, &zpi);
+		zebra_pbr_add_iptable(&zpi);
 	else
-		zebra_pbr_del_iptable(zvrf->zns, &zpi);
+		zebra_pbr_del_iptable(&zpi);
 stream_failure:
 	return;
 }
@@ -2440,6 +2454,7 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_IPSET_ENTRY_DELETE] = zread_ipset_entry,
 	[ZEBRA_IPTABLE_ADD] = zread_iptable,
 	[ZEBRA_IPTABLE_DELETE] = zread_iptable,
+	[ZEBRA_VXLAN_FLOOD_CONTROL] = zebra_vxlan_flood_control,
 };
 
 #if defined(HANDLE_ZAPI_FUZZING)

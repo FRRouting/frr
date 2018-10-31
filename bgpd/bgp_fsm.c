@@ -931,7 +931,7 @@ static void bgp_update_delay_process_status_change(struct peer *peer)
 	}
 }
 
-/* Called after event occured, this function change status and reset
+/* Called after event occurred, this function change status and reset
    read/write and timer thread. */
 void bgp_fsm_change_status(struct peer *peer, int status)
 {
@@ -1676,6 +1676,15 @@ static int bgp_establish(struct peer *peer)
 		else
 			peer_delete(peer->doppelganger);
 	}
+
+	/*
+	 * If we are replacing the old peer for a doppelganger
+	 * then switch it around in the bgp->peerhash
+	 * the doppelgangers su and this peer's su are the same
+	 * so the hash_release is the same for either.
+	 */
+	hash_release(peer->bgp->peerhash, peer);
+	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 
 	bgp_bfd_register_peer(peer);
 	return ret;

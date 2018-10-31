@@ -323,12 +323,48 @@ fi
 AC_SUBST(AC_LDFLAGS)
 AM_CONDITIONAL([STATIC_BIN], [test "x$enable_static_bin" = "xyes"])
 
+dnl $AR and $RANLIB are set by LT_INIT above
+AC_MSG_CHECKING([whether $AR supports D option])
+if $AR crD conftest.a; then
+  AC_MSG_RESULT([yes])
+  dnl ARFLAGS is for automake, AR_FLAGS for libtool m-(
+  ARFLAGS="crD"
+  AR_FLAGS="crD"
+else
+  AC_MSG_RESULT([no])
+  ARFLAGS="cru"
+  AR_FLAGS="cru"
+fi
+AC_SUBST(ARFLAGS)
+AC_SUBST(AR_FLAGS)
+
+AC_MSG_CHECKING([whether $RANLIB supports D option])
+if $RANLIB -D conftest.a; then
+  AC_MSG_RESULT([yes])
+  RANLIB="$RANLIB -D"
+else
+  AC_MSG_RESULT([no])
+fi
+AC_SUBST(RANLIB)
+
+test -f conftest.a && rm conftest.a
+
 dnl ----------------------
 dnl Packages configuration
 dnl ----------------------
+if test -f config.version; then
+  . ./config.version
+elif test -f "${srcdir}/config.version"; then
+  . "${srcdir}/config.version"
+fi
 AC_ARG_WITH(pkg-extra-version,
-	AS_HELP_STRING([--with-pkg-extra-version=VER], [add extra version field, for packagers/distributions]),
-	[EXTRAVERSION=$withval],)
+  AS_HELP_STRING([--with-pkg-extra-version=VER], [add extra version field, for packagers/distributions]), [
+  if test "$withval" = "no"; then
+    EXTRAVERSION=
+  else
+    EXTRAVERSION=$withval
+  fi
+], [])
 AC_ARG_WITH(pkg-git-version,
 	AS_HELP_STRING([--with-pkg-git-version], [add git information to MOTD and build version string]),
 	[ test "x$withval" != "xno" && with_pkg_git_version="yes" ])
@@ -462,9 +498,9 @@ AC_ARG_ENABLE([memory-sanitizer],
 AS_IF([test "${enable_clippy_only}" != "yes"], [
 AC_CHECK_HEADERS(json-c/json.h)
 AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c", [], [-lm])
-if test $ac_cv_lib_json_c_json_object_get = no; then
+if test "$ac_cv_lib_json_c_json_object_get" = no; then
   AC_CHECK_LIB(json, json_object_get, LIBS="$LIBS -ljson")
-  if test $ac_cv_lib_json_json_object_get = no; then
+  if test "$ac_cv_lib_json_json_object_get" = no; then
       AC_MSG_ERROR([lib json is needed to compile])
   fi
 fi
@@ -742,6 +778,7 @@ if test "x${EXTRAVERSION}" != "x" ; then
   AC_SUBST(PACKAGE_EXTRAVERSION, ["${EXTRAVERSION}"])
   PACKAGE_STRING="${PACKAGE_STRING}${EXTRAVERSION}"
 fi
+AC_SUBST(EXTRAVERSION)
 
 if test "x$with_pkg_git_version" = "xyes"; then
 	if test -d "${srcdir}/.git"; then
@@ -958,11 +995,6 @@ case "$host_os" in
     AC_CHECK_LIB(socket, main)
     AC_CHECK_LIB(nsl, main)
     AC_CHECK_LIB(umem, main)
-    AC_CHECK_FUNCS([printstack], [
-      AC_DEFINE([HAVE_PRINTSTACK],1,[Solaris printstack])
-      AC_DEFINE([HAVE_STACK_TRACE],1,[Stack symbols decode functionality])
-    ])
-    CURSES=-lcurses
     SOLARIS="solaris"
     ;;
   linux*)
@@ -1028,40 +1060,47 @@ dnl ---------------------
 dnl Integrated VTY option
 dnl ---------------------
 case "${enable_vtysh}" in
-  "no") VTYSH="";;
-  *)    VTYSH="vtysh";
-         AC_DEFINE(VTYSH,,VTY shell)
-dnl	 Vtysh uses libreadline, which looks for termcap functions at
-dnl	 configure time.  We follow readlines search order.
-dnl	 The required procedures are in libtermcap on NetBSD, in
-dnl	 [TODO] on Linux, and in [TODO] on Solaris.
-	 AC_CHECK_LIB(termcap, tputs, LIBREADLINE="$LIBREADLINE -ltermcap",
-	   [AC_CHECK_LIB(tinfo, tputs, LIBREADLINE="$LIBREADLINE -ltinfo",
-	     [AC_CHECK_LIB(curses, tputs, LIBREADLINE="$LIBREADLINE -lcurses",
-	       [AC_CHECK_LIB(ncurses, tputs, 
-	                     LIBREADLINE="$LIBREADLINE -lncurses")]
-	      )]
-	    )]
-	  )
-         AC_CHECK_LIB(readline, main, LIBREADLINE="-lreadline $LIBREADLINE",,
-                      "$LIBREADLINE")
-         if test $ac_cv_lib_readline_main = no; then
-           AC_MSG_ERROR([vtysh needs libreadline but was not found and usable on your system.])
-         fi
-	 AC_CHECK_HEADER(readline/history.h)
-	 if test $ac_cv_header_readline_history_h = no;then
-           AC_MSG_ERROR([readline is too old to have readline/history.h, please update to the latest readline library.])
-	 fi
-	 AC_CHECK_LIB(readline, rl_completion_matches, 
-	              LIBREADLINE="$LIBREADLINE",, "$LIBREADLINE")
-         if test $ac_cv_lib_readline_rl_completion_matches = no; then
-           AC_DEFINE(rl_completion_matches,completion_matches,Old readline)
-	 fi
-	 AC_SEARCH_LIBS([append_history], [readline], [frr_cv_append_history=yes], [frr_cv_append_history=no])
-	 if test "$frr_cv_append_history" = yes; then
-	   AC_DEFINE(HAVE_APPEND_HISTORY, 1, [Have history.h append_history])
-	 fi
-	 ;;
+"no")
+  VTYSH="";;
+*)
+  VTYSH="vtysh";
+  AC_DEFINE(VTYSH,,VTY shell)
+
+  prev_libs="$LIBS"
+  AC_CHECK_LIB(readline, main, [
+    LIBREADLINE="-lreadline"
+  ], [
+    dnl readline failed - it might be incorrectly linked and missing its
+    dnl termcap/tinfo/curses dependency.  see if we can fix that...
+    AC_SEARCH_LIBS(tputs, [termcap tinfo curses ncurses], [
+      LIBREADLINE="$ac_cv_search_tputs"
+    ], [
+      AC_MSG_ERROR([libreadline (needed for vtysh) not found and/or missing dependencies])
+    ])
+
+    dnl re-try with the lib we found above
+    unset ac_cv_lib_readline_main
+    AC_CHECK_LIB(readline, main, [
+      LIBREADLINE="-lreadline $LIBREADLINE"
+    ], [
+      AC_MSG_ERROR([libreadline (needed for vtysh) not found and/or missing dependencies])
+    ], [$LIBREADLINE])
+  ], [])
+  LIBS="$prev_libs"
+
+  AC_CHECK_HEADER(readline/history.h)
+  if test $ac_cv_header_readline_history_h = no;then
+    AC_MSG_ERROR([readline is too old to have readline/history.h, please update to the latest readline library.])
+  fi
+  AC_CHECK_LIB(readline, rl_completion_matches, [true], [], [$LIBREADLINE])
+  if test $ac_cv_lib_readline_rl_completion_matches = no; then
+    AC_DEFINE(rl_completion_matches,completion_matches,Old readline)
+  fi
+  AC_CHECK_LIB(readline, [append_history], [frr_cv_append_history=yes], [frr_cv_append_history=no], [$LIBREADLINE])
+  if test "$frr_cv_append_history" = yes; then
+    AC_DEFINE(HAVE_APPEND_HISTORY, 1, [Have history.h append_history])
+  fi
+  ;;
 esac
 AC_SUBST(LIBREADLINE)
 AM_CONDITIONAL(VTYSH, test "x$VTYSH" = "xvtysh")
@@ -1402,7 +1441,7 @@ fi
 
 AM_CONDITIONAL(BFDD, [test "x$BFDD" = "xbfdd"])
 
-if test $ac_cv_lib_json_c_json_object_get = no -a "x$BFDD" = "xbfdd"; then
+if test "$ac_cv_lib_json_c_json_object_get" = no -a "x$BFDD" = "xbfdd"; then
   AC_MSG_ERROR(["you must use json-c library to use bfdd"])
 fi
 
@@ -1462,7 +1501,6 @@ fi
 AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != xno])
 
 AC_SUBST(SOLARIS)
-AC_SUBST(CURSES)
 AC_CHECK_LIB(crypt, crypt, [],
 		    [AC_CHECK_LIB(crypto, DES_crypt)])
 AC_CHECK_LIB(resolv, res_init)
@@ -1497,6 +1535,11 @@ if test "${enable_snmp}" != "" -a "${enable_snmp}" != "no"; then
    fi
    SNMP_LIBS="`${NETSNMP_CONFIG} --agent-libs`"
    SNMP_CFLAGS="`${NETSNMP_CONFIG} --base-cflags`"
+   # net-snmp lists all of its own dependencies.  we absolutely do not want that
+   # among other things we avoid a GPL vs. OpenSSL license conflict here
+   for removelib in crypto ssl sensors pci wrap; do
+     SNMP_LIBS="`echo $SNMP_LIBS | sed -e 's/\(^\|\s\)-l'$removelib'\b/ /g' -e 's/\(^\|\s\)\([^\s]*\/\)\?lib'$removelib'\.[^\s]\+\b/ /g'`"
+   done
    AC_MSG_CHECKING([whether we can link to Net-SNMP])
    AC_LINK_IFELSE_FLAGS([$SNMP_CFLAGS], [$SNMP_LIBS], [AC_LANG_PROGRAM([
 int main(void);
@@ -1811,17 +1854,31 @@ dnl check for glibc 'backtrace'
 dnl --------------------------- 
 if test x"${enable_backtrace}" != x"no" ; then
   backtrace_ok=no
-  AC_CHECK_HEADER([execinfo.h], [
-    AC_SEARCH_LIBS([backtrace], [execinfo], [
-      AC_DEFINE(HAVE_GLIBC_BACKTRACE,,[Glibc backtrace])
-      AC_DEFINE(HAVE_STACK_TRACE,,[Stack symbol decoding])
-      backtrace_ok=yes
-    ],, [-lm])
+  PKG_CHECK_MODULES([UNWIND], [libunwind], [
+    AC_DEFINE(HAVE_LIBUNWIND, 1, [libunwind])
+    backtrace_ok=yes
+  ], [
+    case "$host_os" in
+    sunos* | solaris2*)
+      AC_CHECK_FUNCS([printstack], [
+        AC_DEFINE([HAVE_PRINTSTACK], 1, [Solaris printstack])
+        backtrace_ok=yes
+      ])
+      ;;
+    esac
+    if test "$backtrace_ok" = no; then
+      AC_CHECK_HEADER([execinfo.h], [
+        AC_SEARCH_LIBS([backtrace], [execinfo], [
+          AC_DEFINE(HAVE_GLIBC_BACKTRACE, 1, [Glibc backtrace])
+          backtrace_ok=yes
+        ],, [-lm])
+      ])
+    fi
   ])
 
   if test x"${enable_backtrace}" = x"yes" -a x"${backtrace_ok}" = x"no"; then
     dnl user explicitly requested backtrace but we failed to find support
-    AC_MSG_FAILURE([failed to find backtrace support])
+    AC_MSG_FAILURE([failed to find backtrace or libunwind support])
   fi
 fi
 
@@ -2018,6 +2075,7 @@ AC_MSG_RESULT($ac_cv_htonl_works)
 AC_CONFIG_FILES([Makefile],[sed -e 's/^#AUTODERP# //' -i Makefile])
 
 AC_CONFIG_FILES([
+	  config.version
 	  redhat/frr.spec
 	  solaris/Makefile
 	  debianpkg/changelog

@@ -924,6 +924,10 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 	return;
 }
 
+DEFINE_HOOK(isis_circuit_config_write,
+	    (struct isis_circuit *circuit, struct vty *vty),
+	    (circuit, vty))
+
 int isis_interface_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -1138,7 +1142,8 @@ int isis_interface_config_write(struct vty *vty)
 					circuit->passwd.passwd);
 				write++;
 			}
-			write += circuit_write_mt_settings(circuit, vty);
+			write += hook_call(isis_circuit_config_write,
+					   circuit, vty);
 		}
 		vty_endframe(vty, "!\n");
 	}

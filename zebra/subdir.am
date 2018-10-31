@@ -79,6 +79,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_ptm_redistribute.c \
 	zebra/zebra_pw.c \
 	zebra/zebra_rib.c \
+	zebra/zebra_router.c \
 	zebra/zebra_rnh.c \
 	zebra/zebra_routemap.c \
 	zebra/zebra_vrf.c \
@@ -94,6 +95,10 @@ zebra_zebra_SOURCES = \
 
 zebra/zebra_vty_clippy.c: $(CLIPPY_DEPS)
 zebra/zebra_vty.$(OBJEXT): zebra/zebra_vty_clippy.c
+
+
+zebra/zebra_routemap_clippy.c: $(CLIPPY_DEPS)
+zebra/zebra_routemap.$(OBJEXT): zebra/zebra_routemap_clippy.c
 
 noinst_HEADERS += \
 	zebra/connected.h \
@@ -127,6 +132,7 @@ noinst_HEADERS += \
 	zebra/zebra_pw.h \
 	zebra/zebra_rnh.h \
 	zebra/zebra_routemap.h \
+	zebra/zebra_router.h \
 	zebra/zebra_vrf.h \
 	zebra/zebra_vxlan.h \
 	zebra/zebra_vxlan_private.h \

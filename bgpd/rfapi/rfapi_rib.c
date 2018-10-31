@@ -616,18 +616,18 @@ void rfapiRibFree(struct rfapi_descriptor *rfd)
 }
 
 /*
- * Copies struct bgp_info to struct rfapi_info, except for rk fields and un
+ * Copies struct bgp_path_info to struct rfapi_info, except for rk fields and un
  */
-static void rfapiRibBi2Ri(struct bgp_info *bi, struct rfapi_info *ri,
+static void rfapiRibBi2Ri(struct bgp_path_info *bpi, struct rfapi_info *ri,
 			  uint32_t lifetime)
 {
 	struct bgp_attr_encap_subtlv *pEncap;
 
-	ri->cost = rfapiRfpCost(bi->attr);
+	ri->cost = rfapiRfpCost(bpi->attr);
 	ri->lifetime = lifetime;
 
 	/* This loop based on rfapiRouteInfo2NextHopEntry() */
-	for (pEncap = bi->attr->vnc_subtlvs; pEncap; pEncap = pEncap->next) {
+	for (pEncap = bpi->attr->vnc_subtlvs; pEncap; pEncap = pEncap->next) {
 		struct bgp_tea_options *hop;
 
 		switch (pEncap->type) {
@@ -665,13 +665,13 @@ static void rfapiRibBi2Ri(struct bgp_info *bi, struct rfapi_info *ri,
 	}
 
 	rfapi_un_options_free(ri->un_options); /* maybe free old version */
-	ri->un_options = rfapi_encap_tlv_to_un_option(bi->attr);
+	ri->un_options = rfapi_encap_tlv_to_un_option(bpi->attr);
 
 	/*
 	 * VN options
 	 */
-	if (bi->extra
-	    && decode_rd_type(bi->extra->vnc.import.rd.val)
+	if (bpi->extra
+	    && decode_rd_type(bpi->extra->vnc.import.rd.val)
 		       == RD_TYPE_VNC_ETH) {
 		/* ethernet route */
 
@@ -683,21 +683,21 @@ static void rfapiRibBi2Ri(struct bgp_info *bi, struct rfapi_info *ri,
 
 		vo->type = RFAPI_VN_OPTION_TYPE_L2ADDR;
 
-		/* copy from RD already stored in bi, so we don't need it_node
+		/* copy from RD already stored in bpi, so we don't need it_node
 		 */
-		memcpy(&vo->v.l2addr.macaddr, bi->extra->vnc.import.rd.val + 2,
+		memcpy(&vo->v.l2addr.macaddr, bpi->extra->vnc.import.rd.val + 2,
 		       ETH_ALEN);
 
-		(void)rfapiEcommunityGetLNI(bi->attr->ecommunity,
+		(void)rfapiEcommunityGetLNI(bpi->attr->ecommunity,
 					    &vo->v.l2addr.logical_net_id);
-		(void)rfapiEcommunityGetEthernetTag(bi->attr->ecommunity,
+		(void)rfapiEcommunityGetEthernetTag(bpi->attr->ecommunity,
 						    &vo->v.l2addr.tag_id);
 
 		/* local_nve_id comes from RD */
-		vo->v.l2addr.local_nve_id = bi->extra->vnc.import.rd.val[1];
+		vo->v.l2addr.local_nve_id = bpi->extra->vnc.import.rd.val[1];
 
 		/* label comes from MP_REACH_NLRI label */
-		vo->v.l2addr.label = decode_label(&bi->extra->label[0]);
+		vo->v.l2addr.label = decode_label(&bpi->extra->label[0]);
 
 		rfapi_vn_options_free(
 			ri->vn_options); /* maybe free old version */
@@ -707,8 +707,8 @@ static void rfapiRibBi2Ri(struct bgp_info *bi, struct rfapi_info *ri,
 	/*
 	 * If there is an auxiliary IP address (L2 can have it), copy it
 	 */
-	if (bi->extra && bi->extra->vnc.import.aux_prefix.family) {
-		ri->rk.aux_prefix = bi->extra->vnc.import.aux_prefix;
+	if (bpi->extra && bpi->extra->vnc.import.aux_prefix.family) {
+		ri->rk.aux_prefix = bpi->extra->vnc.import.aux_prefix;
 	}
 }
 
@@ -733,7 +733,7 @@ static void rfapiRibBi2Ri(struct bgp_info *bi, struct rfapi_info *ri,
 int rfapiRibPreloadBi(
 	struct agg_node *rfd_rib_node, /* NULL = don't preload or filter */
 	struct prefix *pfx_vn, struct prefix *pfx_un, uint32_t lifetime,
-	struct bgp_info *bi)
+	struct bgp_path_info *bpi)
 {
 	struct rfapi_descriptor *rfd;
 	struct skiplist *slRibPt = NULL;
@@ -751,13 +751,13 @@ int rfapiRibPreloadBi(
 
 	memset((void *)&rk, 0, sizeof(rk));
 	rk.vn = *pfx_vn;
-	rk.rd = bi->extra->vnc.import.rd;
+	rk.rd = bpi->extra->vnc.import.rd;
 
 	/*
 	 * If there is an auxiliary IP address (L2 can have it), copy it
 	 */
-	if (bi->extra->vnc.import.aux_prefix.family) {
-		rk.aux_prefix = bi->extra->vnc.import.aux_prefix;
+	if (bpi->extra->vnc.import.aux_prefix.family) {
+		rk.aux_prefix = bpi->extra->vnc.import.aux_prefix;
 	}
 
 	/*
@@ -774,13 +774,13 @@ int rfapiRibPreloadBi(
 
 		/* found: update contents of existing route in RIB */
 		ori->un = *pfx_un;
-		rfapiRibBi2Ri(bi, ori, lifetime);
+		rfapiRibBi2Ri(bpi, ori, lifetime);
 	} else {
 		/* not found: add new route to RIB */
 		ori = rfapi_info_new();
 		ori->rk = rk;
 		ori->un = *pfx_un;
-		rfapiRibBi2Ri(bi, ori, lifetime);
+		rfapiRibBi2Ri(bpi, ori, lifetime);
 
 		if (!slRibPt) {
 			slRibPt = skiplist_new(0, rfapi_rib_key_cmp, NULL);
@@ -1590,7 +1590,7 @@ void rfapiRibUpdatePendingNode(
 	struct agg_node *it_node, uint32_t lifetime)
 {
 	struct prefix *prefix;
-	struct bgp_info *bi;
+	struct bgp_path_info *bpi;
 	struct agg_node *pn;
 	afi_t afi;
 	uint32_t queued_flag;
@@ -1640,25 +1640,25 @@ void rfapiRibUpdatePendingNode(
 	}
 
 	/*
-	 * The BIs in the import table are already sorted by cost
+	 * The BPIs in the import table are already sorted by cost
 	 */
-	for (bi = it_node->info; bi; bi = bi->next) {
+	for (bpi = it_node->info; bpi; bpi = bpi->next) {
 
 		struct rfapi_info *ri;
 		struct prefix pfx_nh;
 
-		if (!bi->attr) {
+		if (!bpi->attr) {
 			/* shouldn't happen */
 			/* TBD increment error stats counter */
 			continue;
 		}
-		if (!bi->extra) {
+		if (!bpi->extra) {
 			/* shouldn't happen */
 			/* TBD increment error stats counter */
 			continue;
 		}
 
-		rfapiNexthop2Prefix(bi->attr, &pfx_nh);
+		rfapiNexthop2Prefix(bpi->attr, &pfx_nh);
 
 		/*
 		 * Omit route if nexthop is self
@@ -1675,15 +1675,15 @@ void rfapiRibUpdatePendingNode(
 
 		ri = rfapi_info_new();
 		ri->rk.vn = pfx_nh;
-		ri->rk.rd = bi->extra->vnc.import.rd;
+		ri->rk.rd = bpi->extra->vnc.import.rd;
 		/*
 		 * If there is an auxiliary IP address (L2 can have it), copy it
 		 */
-		if (bi->extra->vnc.import.aux_prefix.family) {
-			ri->rk.aux_prefix = bi->extra->vnc.import.aux_prefix;
+		if (bpi->extra->vnc.import.aux_prefix.family) {
+			ri->rk.aux_prefix = bpi->extra->vnc.import.aux_prefix;
 		}
 
-		if (rfapiGetUnAddrOfVpnBi(bi, &ri->un)) {
+		if (rfapiGetUnAddrOfVpnBi(bpi, &ri->un)) {
 			rfapi_info_free(ri);
 			continue;
 		}
@@ -1711,7 +1711,7 @@ void rfapiRibUpdatePendingNode(
 			continue;
 		}
 
-		rfapiRibBi2Ri(bi, ri, lifetime);
+		rfapiRibBi2Ri(bpi, ri, lifetime);
 
 		if (!pn->info) {
 			pn->info = list_new();
