@@ -651,8 +651,16 @@ static int dplane_route_enqueue(struct zebra_dplane_ctx *ctx)
 	}
 	DPLANE_UNLOCK();
 
-	curr = atomic_add_fetch_explicit(&zdplane_info.dg_routes_queued,
-					 1, memory_order_seq_cst);
+	curr = atomic_add_fetch_explicit(
+#ifdef __clang__
+		/* TODO -- issue with the clang atomic/intrinsics currently;
+		 * casting away the 'Atomic'-ness of the variable works.
+		 */
+		(uint32_t *)&(zdplane_info.dg_routes_queued),
+#else
+		&(zdplane_info.dg_routes_queued),
+#endif
+		1, memory_order_seq_cst);
 
 	/* Maybe update high-water counter also */
 	high = atomic_load_explicit(&zdplane_info.dg_routes_queued_max,
