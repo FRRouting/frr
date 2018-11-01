@@ -58,6 +58,7 @@
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_labelpool.h"
 #include "bgpd/bgp_pbr.h"
+#include "bgpd/bgp_evpn_private.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -1993,6 +1994,42 @@ int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise)
 	 * relevant only when 'advertise' is set.
 	 */
 	stream_putc(s, bgp->vxlan_flood_ctrl);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
+int bgp_zebra_dup_addr_detection(struct bgp *bgp)
+{
+	struct stream *s;
+
+	/* Check socket. */
+	if (!zclient || zclient->sock < 0)
+		return 0;
+
+	/* Don't try to register if Zebra doesn't know of this instance. */
+	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+		return 0;
+
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("dup addr detect %s max_moves %u time %u freeze %s freeze_time %u",
+			   bgp->evpn_info->dup_addr_detect ?
+			   "enable" : "disable",
+			   bgp->evpn_info->dad_max_moves,
+			   bgp->evpn_info->dad_time,
+			   bgp->evpn_info->dad_freeze ?
+			   "enable" : "disable",
+			   bgp->evpn_info->dad_freeze_time);
+
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_DUPLICATE_ADDR_DETECTION,
+			      bgp->vrf_id);
+	stream_putl(s, bgp->evpn_info->dup_addr_detect);
+	stream_putl(s, bgp->evpn_info->dad_time);
+	stream_putl(s, bgp->evpn_info->dad_max_moves);
+	stream_putl(s, bgp->evpn_info->dad_freeze);
+	stream_putl(s, bgp->evpn_info->dad_freeze_time);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zclient_send_message(zclient);
