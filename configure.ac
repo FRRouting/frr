@@ -1595,6 +1595,12 @@ dnl ---------------
 PKG_CHECK_MODULES(libyang, [libyang >= 0.16.7], , [
   AC_MSG_ERROR([libyang (>= 0.16.7) was not found on your system.])
 ])
+AC_CHECK_MEMBER([struct lyd_node.priv], [], [
+  AC_MSG_ERROR([m4_normalize([
+    libyang needs to be compiled with ENABLE_LYD_PRIV=ON.
+    See http://docs.frrouting.org/projects/dev-guide/en/latest/building-libyang.html for details.])
+  ])
+], [[#include <libyang/libyang.h>]])
 
 dnl ---------------
 dnl configuration rollbacks
