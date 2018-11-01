@@ -26,6 +26,8 @@
 CDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . $CDIR/funcs.sh
 
+set -e
+
 #
 # Script begin
 #
