@@ -81,5 +81,11 @@ extern void bgp_cleanup_nexthops(struct bgp *bgp);
  */
 extern void path_nh_map(struct bgp_path_info *path,
 			struct bgp_nexthop_cache *bnc, bool make);
+/*
+ * When we actually have the connection to
+ * the zebra daemon, we need to reregister
+ * any nexthops we may have sitting around
+ */
+extern void bgp_nht_register_nexthops(struct bgp *bgp);
 
 #endif /* _BGP_NHT_H */

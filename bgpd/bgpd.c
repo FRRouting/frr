@@ -3072,9 +3072,12 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, true);
 	listnode_add(bm->bgp, bgp);
 
-	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: Registering BGP instance %s to zebra",
+				   __PRETTY_FUNCTION__, name);
 		bgp_zebra_instance_register(bgp);
-
+	}
 
 	return 0;
 }
@@ -3218,8 +3221,12 @@ int bgp_delete(struct bgp *bgp)
 	}
 
 	/* Deregister from Zebra, if needed */
-	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: deregistering this bgp %s instance from zebra",
+				   __PRETTY_FUNCTION__, bgp->name);
 		bgp_zebra_instance_deregister(bgp);
+	}
 
 	/* Remove visibility via the master list - there may however still be
 	 * routes to be processed still referencing the struct bgp.

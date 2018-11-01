@@ -940,6 +940,10 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 		client->ifdel_cnt);
 	vty_out(vty, "BFD peer    %-12d%-12d%-12d\n", client->bfd_peer_add_cnt,
 		client->bfd_peer_upd8_cnt, client->bfd_peer_del_cnt);
+	vty_out(vty, "NHT v4      %-12d%-12d%-12d\n",
+		client->v4_nh_watch_add_cnt, 0, client->v4_nh_watch_rem_cnt);
+	vty_out(vty, "NHT v6      %-12d%-12d%-12d\n",
+		client->v6_nh_watch_add_cnt, 0, client->v6_nh_watch_rem_cnt);
 	vty_out(vty, "Interface Up Notifications: %d\n", client->ifup_cnt);
 	vty_out(vty, "Interface Down Notifications: %d\n", client->ifdown_cnt);
 	vty_out(vty, "VNI add notifications: %d\n", client->vniadd_cnt);

@@ -68,8 +68,11 @@ static inline int bgp_install_info_to_zebra(struct bgp *bgp)
 	if (zclient->sock <= 0)
 		return 0;
 
-	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
+		zlog_debug("%s: No zebra instance to talk to, not installing information",
+			   __PRETTY_FUNCTION__);
 		return 0;
+	}
 
 	return 1;
 }
@@ -1834,6 +1837,8 @@ void bgp_zebra_instance_register(struct bgp *bgp)
 	 */
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT && is_evpn_enabled())
 		bgp_zebra_advertise_all_vni(bgp, 1);
+
+	bgp_nht_register_nexthops(bgp);
 }
 
 /* Deregister this instance with Zebra. Invoked upon the instance
@@ -1895,8 +1900,12 @@ int bgp_zebra_advertise_subnet(struct bgp *bgp, int advertise, vni_t vni)
 		return 0;
 
 	/* Don't try to register if Zebra doesn't know of this instance. */
-	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: No zebra instance to talk to, cannot advertise subnet",
+				   __PRETTY_FUNCTION__);
 		return 0;
+	}
 
 	s = zclient->obuf;
 	stream_reset(s);
@@ -1918,8 +1927,12 @@ int bgp_zebra_advertise_gw_macip(struct bgp *bgp, int advertise, vni_t vni)
 		return 0;
 
 	/* Don't try to register if Zebra doesn't know of this instance. */
-	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: No zebra instance to talk to, not installing gw_macip",
+				   __PRETTY_FUNCTION__);
 		return 0;
+	}
 
 	s = zclient->obuf;
 	stream_reset(s);
@@ -1942,8 +1955,12 @@ int bgp_zebra_vxlan_flood_control(struct bgp *bgp,
 		return 0;
 
 	/* Don't try to register if Zebra doesn't know of this instance. */
-	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug("%s: No zebra instance to talk to, not installing all vni",
+				   __PRETTY_FUNCTION__);
 		return 0;
+	}
 
 	s = zclient->obuf;
 	stream_reset(s);
