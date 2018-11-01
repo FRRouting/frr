@@ -1217,6 +1217,7 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 	STREAM_GETC(s, nhr->nexthop_num);
 
 	for (i = 0; i < nhr->nexthop_num; i++) {
+		STREAM_GETL(s, nhr->nexthops[i].vrf_id);
 		STREAM_GETC(s, nhr->nexthops[i].type);
 		switch (nhr->nexthops[i].type) {
 		case NEXTHOP_TYPE_IPV4:

@@ -913,6 +913,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		stream_putc(s, 0);
 		for (nh = re->ng.nexthop; nh; nh = nh->next)
 			if (rnh_nexthop_valid(nh)) {
+				stream_putl(s, nh->vrf_id);
 				stream_putc(s, nh->type);
 				switch (nh->type) {
 				case NEXTHOP_TYPE_IPV4:
