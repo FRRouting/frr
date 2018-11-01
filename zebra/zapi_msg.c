@@ -118,6 +118,7 @@ static void zserv_encode_vrf(struct stream *s, struct zebra_vrf *zvrf)
 
 static int zserv_encode_nexthop(struct stream *s, struct nexthop *nexthop)
 {
+	stream_putl(s, nexthop->vrf_id);
 	stream_putc(s, nexthop->type);
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
