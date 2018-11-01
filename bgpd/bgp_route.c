@@ -6664,7 +6664,8 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 					       inet_ntoa(attr->nexthop));
 				json_object_string_add(json_nexthop_global,
 						       "afi", "ipv4");
-				json_object_boolean_true_add(json_nexthop_global,
+				json_object_boolean_true_add(
+							json_nexthop_global,
 							     "used");
 			} else {
 				vty_out(vty, "%-16s", inet_ntoa(attr->nexthop));
@@ -6791,19 +6792,32 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 
 	/* MED/Metric */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
-		if (json_paths)
+		if (json_paths) {
+
+			/*
+			 * Adding "metric" field to match with corresponding
+			 * CLI. "med" will be deprecated in future.
+			 */
 			json_object_int_add(json_path, "med", attr->med);
-		else
+			json_object_int_add(json_path, "metric", attr->med);
+		} else
 			vty_out(vty, "%10u", attr->med);
 	else if (!json_paths)
 		vty_out(vty, "          ");
 
 	/* Local Pref */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
-		if (json_paths)
+		if (json_paths) {
+
+			/*
+			 * Adding "locPrf" field to match with corresponding
+			 * CLI. "localPref" will be deprecated in future.
+			 */
 			json_object_int_add(json_path, "localpref",
 					    attr->local_pref);
-		else
+			json_object_int_add(json_path, "locPrf",
+						attr->local_pref);
+		} else
 			vty_out(vty, "%7u", attr->local_pref);
 	else if (!json_paths)
 		vty_out(vty, "       ");
@@ -6822,10 +6836,17 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 
 	/* Print aspath */
 	if (attr->aspath) {
-		if (json_paths)
+		if (json_paths) {
+
+			/*
+			 * Adding "path" field to match with corresponding
+			 * CLI. "aspath" will be deprecated in future.
+			 */
 			json_object_string_add(json_path, "aspath",
 					       attr->aspath->str);
-		else
+			json_object_string_add(json_path, "path",
+						attr->aspath->str);
+		} else
 			aspath_print_vty(vty, "%s", attr->aspath, " ");
 	}
 
@@ -6941,16 +6962,34 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 				json_object_int_add(json_net, "metric",
 						    attr->med);
 
-			if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+			if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF)) {
+
+				/*
+				 * Adding "locPrf" field to match with
+				 * corresponding CLI. "localPref" will be
+				 * deprecated in future.
+				 */
 				json_object_int_add(json_net, "localPref",
 						    attr->local_pref);
+				json_object_int_add(json_net, "locPrf",
+							attr->local_pref);
+			}
 
 			json_object_int_add(json_net, "weight", attr->weight);
 
 			/* Print aspath */
-			if (attr->aspath)
+			if (attr->aspath) {
+
+				/*
+				 * Adding "path" field to match with
+				 * corresponding CLI. "localPref" will be
+				 * deprecated in future.
+				 */
 				json_object_string_add(json_net, "asPath",
 						       attr->aspath->str);
+				json_object_string_add(json_net, "path",
+							attr->aspath->str);
+			}
 
 			/* Print origin */
 			json_object_string_add(json_net, "bgpOriginCode",
@@ -7853,10 +7892,18 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				bgp_origin_long_str[attr->origin]);
 
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC)) {
-			if (json_paths)
+			if (json_paths) {
+
+				/*
+				 * Adding "metric" field to match with
+				 * corresponding CLI. "med" will be
+				 * deprecated in future.
+				 */
 				json_object_int_add(json_path, "med",
 						    attr->med);
-			else
+				json_object_int_add(json_path, "metric",
+							attr->med);
+			} else
 				vty_out(vty, ", metric %u", attr->med);
 		}
 
