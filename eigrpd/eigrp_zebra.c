@@ -116,7 +116,7 @@ void eigrp_zebra_init(void)
 {
 	struct zclient_options opt = {.receive_notify = false};
 
-	zclient = zclient_new_notify(master, &opt);
+	zclient = zclient_new(master, &opt);
 
 	zclient_init(zclient, ZEBRA_ROUTE_EIGRP, 0, &eigrpd_privs);
 	zclient->zebra_connected = eigrp_zebra_connected;
