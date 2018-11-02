@@ -5916,7 +5916,7 @@ void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 
 	/* Aggregate address configuration check. */
 	for (rn = child; rn; rn = bgp_node_parent_nolock(rn)) {
-		aggregate = bgp_aggregate_get_node_info(rn);
+		aggregate = bgp_node_get_bgp_aggregate_info(rn);
 		if (aggregate != NULL && rn->p.prefixlen < p->prefixlen) {
 			bgp_aggregate_delete(bgp, &rn->p, afi, safi, aggregate);
 			bgp_aggregate_route(bgp, &rn->p, pi, afi, safi, NULL,
@@ -5947,7 +5947,7 @@ void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
 
 	/* Aggregate address configuration check. */
 	for (rn = child; rn; rn = bgp_node_parent_nolock(rn)) {
-		aggregate = bgp_aggregate_get_node_info(rn);
+		aggregate = bgp_node_get_bgp_aggregate_info(rn);
 		if (aggregate != NULL && rn->p.prefixlen < p->prefixlen) {
 			bgp_aggregate_delete(bgp, &rn->p, afi, safi, aggregate);
 			bgp_aggregate_route(bgp, &rn->p, NULL, afi, safi, del,
@@ -5986,13 +5986,13 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	aggregate = bgp_aggregate_get_node_info(rn);
+	aggregate = bgp_node_get_bgp_aggregate_info(rn);
 	bgp_aggregate_delete(bgp, &p, afi, safi, aggregate);
 	bgp_aggregate_install(bgp, afi, safi, &p, 0, NULL, NULL,
 			      NULL, NULL,  0, aggregate);
 
 	/* Unlock aggregate address configuration. */
-	bgp_aggregate_set_node_info(rn, NULL);
+	bgp_node_set_bgp_aggregate_info(rn, NULL);
 	bgp_aggregate_free(aggregate);
 	bgp_unlock_node(rn);
 	bgp_unlock_node(rn);
@@ -6043,7 +6043,7 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	aggregate->summary_only = summary_only;
 	aggregate->as_set = as_set;
 	aggregate->safi = safi;
-	bgp_aggregate_set_node_info(rn, aggregate);
+	bgp_node_set_bgp_aggregate_info(rn, aggregate);
 
 	/* Aggregate address insert into BGP routing table. */
 	bgp_aggregate_route(bgp, &p, NULL, afi, safi, NULL, aggregate);
@@ -11777,7 +11777,7 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 	/* Aggregate-address configuration. */
 	for (rn = bgp_table_top(bgp->aggregate[afi][safi]); rn;
 	     rn = bgp_route_next(rn)) {
-		bgp_aggregate = bgp_aggregate_get_node_info(rn);
+		bgp_aggregate = bgp_node_get_bgp_aggregate_info(rn);
 		if (bgp_aggregate == NULL)
 			continue;
 

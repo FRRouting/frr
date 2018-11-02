@@ -319,13 +319,14 @@ void bgp_table_range_lookup(const struct bgp_table *table, struct prefix *p,
 
 
 static inline struct bgp_aggregate *
-bgp_aggregate_get_node_info(struct bgp_node *node)
+bgp_node_get_bgp_aggregate_info(struct bgp_node *node)
 {
 	return node->info;
 }
 
-static inline void bgp_aggregate_set_node_info(struct bgp_node *node,
-					       struct bgp_aggregate *aggregate)
+static inline void
+bgp_node_set_bgp_aggregate_info(struct bgp_node *node,
+				struct bgp_aggregate *aggregate)
 {
 	node->info = aggregate;
 }
