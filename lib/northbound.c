@@ -51,7 +51,7 @@ static int nb_transaction_process(enum nb_event event,
 				  struct nb_transaction *transaction);
 static void nb_transaction_apply_finish(struct nb_transaction *transaction);
 
-static void nb_node_new_cb(const struct lys_node *snode, void *arg1, void *arg2)
+static int nb_node_new_cb(const struct lys_node *snode, void *arg)
 {
 	struct nb_node *nb_node;
 	struct lys_node *sparent, *sparent_list;
@@ -73,15 +73,19 @@ static void nb_node_new_cb(const struct lys_node *snode, void *arg1, void *arg2)
 	 */
 	nb_node->snode = snode;
 	lys_set_private(snode, nb_node);
+
+	return YANG_ITER_CONTINUE;
 }
 
-static void nb_node_del_cb(const struct lys_node *snode, void *arg1, void *arg2)
+static int nb_node_del_cb(const struct lys_node *snode, void *arg)
 {
 	struct nb_node *nb_node;
 
 	nb_node = snode->priv;
 	lys_set_private(snode, NULL);
 	XFREE(MTYPE_NB_NODE, nb_node);
+
+	return YANG_ITER_CONTINUE;
 }
 
 struct nb_node *nb_node_find(const char *xpath)
@@ -170,15 +174,16 @@ static unsigned int nb_node_validate_priority(const struct nb_node *nb_node)
 	return 0;
 }
 
-static void nb_node_validate(const struct lys_node *snode, void *arg1,
-			     void *arg2)
+static int nb_node_validate(const struct lys_node *snode, void *arg)
 {
 	struct nb_node *nb_node = snode->priv;
-	unsigned int *errors = arg1;
+	unsigned int *errors = arg;
 
 	/* Validate callbacks and priority. */
 	*errors += nb_node_validate_cbs(nb_node);
 	*errors += nb_node_validate_priority(nb_node);
+
+	return YANG_ITER_CONTINUE;
 }
 
 struct nb_config *nb_config_new(struct lyd_node *dnode)
@@ -1165,14 +1170,14 @@ void nb_init(const struct frr_yang_module_info *modules[], size_t nmodules)
 		yang_module_load(modules[i]->name);
 
 	/* Create a nb_node for all YANG schema nodes. */
-	yang_all_snodes_iterate(nb_node_new_cb, 0, NULL, NULL);
+	yang_snodes_iterate_all(nb_node_new_cb, 0, NULL);
 
 	/* Load northbound callbacks. */
 	for (size_t i = 0; i < nmodules; i++)
 		nb_load_callbacks(modules[i]);
 
 	/* Validate northbound callbacks. */
-	yang_all_snodes_iterate(nb_node_validate, 0, &errors, NULL);
+	yang_snodes_iterate_all(nb_node_validate, 0, &errors);
 	if (errors > 0) {
 		flog_err(
 			EC_LIB_NB_CBS_VALIDATION,
@@ -1200,7 +1205,7 @@ void nb_terminate(void)
 	nb_cli_terminate();
 
 	/* Delete all nb_node's from all YANG modules. */
-	yang_all_snodes_iterate(nb_node_del_cb, 0, NULL, NULL);
+	yang_snodes_iterate_all(nb_node_del_cb, 0, NULL);
 
 	/* Delete the running configuration. */
 	nb_config_free(running_config);

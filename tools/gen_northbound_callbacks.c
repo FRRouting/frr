@@ -149,8 +149,7 @@ static void generate_callback_name(struct lys_node *snode,
 	replace_hyphens_by_underscores(buffer);
 }
 
-static void generate_callbacks(const struct lys_node *snode, void *arg1,
-			       void *arg2)
+static int generate_callbacks(const struct lys_node *snode, void *arg)
 {
 	bool first = true;
 
@@ -163,7 +162,7 @@ static void generate_callbacks(const struct lys_node *snode, void *arg1,
 	case LYS_RPC:
 		break;
 	default:
-		return;
+		return YANG_ITER_CONTINUE;
 	}
 
 	for (struct nb_callback_info *cb = &nb_callbacks[0];
@@ -198,10 +197,11 @@ static void generate_callbacks(const struct lys_node *snode, void *arg1,
 		       nb_callbacks[cb->operation].arguments,
 		       nb_callbacks[cb->operation].return_value);
 	}
+
+	return YANG_ITER_CONTINUE;
 }
 
-static void generate_nb_nodes(const struct lys_node *snode, void *arg1,
-			      void *arg2)
+static int generate_nb_nodes(const struct lys_node *snode, void *arg)
 {
 	bool first = true;
 
@@ -214,7 +214,7 @@ static void generate_nb_nodes(const struct lys_node *snode, void *arg1,
 	case LYS_RPC:
 		break;
 	default:
-		return;
+		return YANG_ITER_CONTINUE;
 	}
 
 	for (struct nb_callback_info *cb = &nb_callbacks[0];
@@ -245,6 +245,8 @@ static void generate_nb_nodes(const struct lys_node *snode, void *arg1,
 
 	if (!first)
 		printf("\t\t},\n");
+
+	return YANG_ITER_CONTINUE;
 }
 
 int main(int argc, char *argv[])
@@ -274,8 +276,7 @@ int main(int argc, char *argv[])
 	module = yang_module_load(argv[0]);
 
 	/* Generate callback functions. */
-	yang_module_snodes_iterate(module->info, generate_callbacks, 0, NULL,
-				   NULL);
+	yang_snodes_iterate_module(module->info, generate_callbacks, 0, NULL);
 
 	strlcpy(module_name_underscores, module->name,
 		sizeof(module_name_underscores));
@@ -287,8 +288,7 @@ int main(int argc, char *argv[])
 	       "\t.name = \"%s\",\n"
 	       "\t.nodes = {\n",
 	       module_name_underscores, module->name);
-	yang_module_snodes_iterate(module->info, generate_nb_nodes, 0, NULL,
-				   NULL);
+	yang_snodes_iterate_module(module->info, generate_nb_nodes, 0, NULL);
 	printf("\t\t{\n"
 	       "\t\t\t.xpath = NULL,\n"
 	       "\t\t},\n");

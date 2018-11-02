@@ -977,17 +977,16 @@ static int frr_confd_dp_read(struct thread *thread)
 	return 0;
 }
 
-static void frr_confd_subscribe_state(const struct lys_node *snode, void *arg1,
-				      void *arg2)
+static int frr_confd_subscribe_state(const struct lys_node *snode, void *arg)
 {
 	struct nb_node *nb_node = snode->priv;
-	struct confd_data_cbs *data_cbs = arg1;
+	struct confd_data_cbs *data_cbs = arg;
 
 	if (!CHECK_FLAG(snode->flags, LYS_CONFIG_R))
-		return;
+		return YANG_ITER_CONTINUE;
 	/* We only need to subscribe to the root of the state subtrees. */
 	if (snode->parent && CHECK_FLAG(snode->parent->flags, LYS_CONFIG_R))
-		return;
+		return YANG_ITER_CONTINUE;
 
 	if (debug_northbound)
 		zlog_debug("%s: providing data to '%s' (callpoint %s)",
@@ -996,6 +995,8 @@ static void frr_confd_subscribe_state(const struct lys_node *snode, void *arg1,
 	strlcpy(data_cbs->callpoint, snode->name, sizeof(data_cbs->callpoint));
 	if (confd_register_data_cb(dctx, data_cbs) != CONFD_OK)
 		flog_err_confd("confd_register_data_cb");
+
+	return YANG_ITER_CONTINUE;
 }
 
 static int frr_confd_init_dp(const char *program_name)
@@ -1068,7 +1069,7 @@ static int frr_confd_init_dp(const char *program_name)
 	 * Iterate over all loaded YANG modules and subscribe to the paths
 	 * referent to state data.
 	 */
-	yang_all_snodes_iterate(frr_confd_subscribe_state, 0, &data_cbs, NULL);
+	yang_snodes_iterate_all(frr_confd_subscribe_state, 0, &data_cbs);
 
 	/* Register notification stream. */
 	memset(&ncbs, 0, sizeof(ncbs));
@@ -1132,12 +1133,14 @@ static void frr_confd_finish_dp(void)
 
 /* ------------ Main ------------ */
 
-static void frr_confd_calculate_snode_hash(const struct lys_node *snode,
-					   void *arg1, void *arg2)
+static int frr_confd_calculate_snode_hash(const struct lys_node *snode,
+					  void *arg)
 {
 	struct nb_node *nb_node = snode->priv;
 
 	nb_node->confd_hash = confd_str2hash(snode->name);
+
+	return YANG_ITER_CONTINUE;
 }
 
 static int frr_confd_init(const char *program_name)
@@ -1168,7 +1171,7 @@ static int frr_confd_init(const char *program_name)
 		goto error;
 	}
 
-	yang_all_snodes_iterate(frr_confd_calculate_snode_hash, 0, NULL, NULL);
+	yang_snodes_iterate_all(frr_confd_calculate_snode_hash, 0, NULL);
 
 	hook_register(nb_notification_send, frr_confd_notification_send);
 

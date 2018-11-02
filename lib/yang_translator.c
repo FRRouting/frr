@@ -400,24 +400,28 @@ error:
 	return YANG_TRANSLATE_FAILURE;
 }
 
-static void yang_translator_validate_cb(const struct lys_node *snode_custom,
-					void *arg1, void *arg2)
+struct translator_validate_args {
+	struct yang_translator *translator;
+	unsigned int errors;
+};
+
+static int yang_translator_validate_cb(const struct lys_node *snode_custom,
+				       void *arg)
 {
-	struct yang_translator *translator = arg1;
-	unsigned int *errors = arg2;
+	struct translator_validate_args *args = arg;
 	struct yang_mapping_node *mapping;
 	const struct lys_node *snode_native;
 	const struct lys_type *stype_custom, *stype_native;
 	char xpath[XPATH_MAXLEN];
 
 	yang_snode_get_path(snode_custom, YANG_PATH_DATA, xpath, sizeof(xpath));
-	mapping = yang_mapping_lookup(translator, YANG_TRANSLATE_TO_NATIVE,
-				      xpath);
+	mapping = yang_mapping_lookup(args->translator,
+				      YANG_TRANSLATE_TO_NATIVE, xpath);
 	if (!mapping) {
 		flog_warn(EC_LIB_YANG_TRANSLATOR_LOAD,
 			  "%s: missing mapping for \"%s\"", __func__, xpath);
-		*errors += 1;
-		return;
+		args->errors += 1;
+		return YANG_ITER_CONTINUE;
 	}
 
 	snode_native =
@@ -433,12 +437,14 @@ static void yang_translator_validate_cb(const struct lys_node *snode_custom,
 				EC_LIB_YANG_TRANSLATOR_LOAD,
 				"%s: YANG types are incompatible (xpath: \"%s\")",
 				__func__, xpath);
-			*errors += 1;
-			return;
+			args->errors += 1;
+			return YANG_ITER_CONTINUE;
 		}
 
 		/* TODO: check if the value spaces are identical. */
 	}
+
+	return YANG_ITER_CONTINUE;
 }
 
 /*
@@ -449,32 +455,36 @@ static unsigned int yang_translator_validate(struct yang_translator *translator)
 {
 	struct yang_tmodule *tmodule;
 	struct listnode *ln;
-	unsigned int errors = 0;
+	struct translator_validate_args args;
+
+	args.translator = translator;
+	args.errors = 0;
 
 	for (ALL_LIST_ELEMENTS_RO(translator->modules, ln, tmodule)) {
-		yang_module_snodes_iterate(
+		yang_snodes_iterate_module(
 			tmodule->module, yang_translator_validate_cb,
 			YANG_ITER_FILTER_NPCONTAINERS
 				| YANG_ITER_FILTER_LIST_KEYS
 				| YANG_ITER_FILTER_INPUT_OUTPUT,
-			translator, &errors);
+			&args);
 	}
 
-	if (errors)
+	if (args.errors)
 		flog_warn(
 			EC_LIB_YANG_TRANSLATOR_LOAD,
 			"%s: failed to validate \"%s\" module translator: %u error(s)",
-			__func__, translator->family, errors);
+			__func__, translator->family, args.errors);
 
-	return errors;
+	return args.errors;
 }
 
-static void yang_module_nodes_count_cb(const struct lys_node *snode, void *arg1,
-				       void *arg2)
+static int yang_module_nodes_count_cb(const struct lys_node *snode, void *arg)
 {
-	unsigned int *total = arg1;
+	unsigned int *total = arg;
 
 	*total += 1;
+
+	return YANG_ITER_CONTINUE;
 }
 
 /* Calculate the number of nodes for the given module. */
@@ -482,11 +492,11 @@ static unsigned int yang_module_nodes_count(const struct lys_module *module)
 {
 	unsigned int total = 0;
 
-	yang_module_snodes_iterate(module, yang_module_nodes_count_cb,
+	yang_snodes_iterate_module(module, yang_module_nodes_count_cb,
 				   YANG_ITER_FILTER_NPCONTAINERS
 					   | YANG_ITER_FILTER_LIST_KEYS
 					   | YANG_ITER_FILTER_INPUT_OUTPUT,
-				   &total, NULL);
+				   &total);
 
 	return total;
 }

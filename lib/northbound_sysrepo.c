@@ -732,18 +732,17 @@ static void frr_sr_subscribe_config(struct yang_module *module)
 			 sr_strerror(ret));
 }
 
-static void frr_sr_subscribe_state(const struct lys_node *snode, void *arg1,
-				   void *arg2)
+static int frr_sr_subscribe_state(const struct lys_node *snode, void *arg)
 {
-	struct yang_module *module = arg1;
+	struct yang_module *module = arg;
 	struct nb_node *nb_node;
 	int ret;
 
 	if (!CHECK_FLAG(snode->flags, LYS_CONFIG_R))
-		return;
+		return YANG_ITER_CONTINUE;
 	/* We only need to subscribe to the root of the state subtrees. */
 	if (snode->parent && CHECK_FLAG(snode->parent->flags, LYS_CONFIG_R))
-		return;
+		return YANG_ITER_CONTINUE;
 
 	nb_node = snode->priv;
 	if (debug_northbound)
@@ -756,17 +755,18 @@ static void frr_sr_subscribe_state(const struct lys_node *snode, void *arg1,
 	if (ret != SR_ERR_OK)
 		flog_err(EC_LIB_LIBSYSREPO, "sr_dp_get_items_subscribe(): %s",
 			 sr_strerror(ret));
+
+	return YANG_ITER_CONTINUE;
 }
 
-static void frr_sr_subscribe_rpc(const struct lys_node *snode, void *arg1,
-				 void *arg2)
+static int frr_sr_subscribe_rpc(const struct lys_node *snode, void *arg)
 {
-	struct yang_module *module = arg1;
+	struct yang_module *module = arg;
 	struct nb_node *nb_node;
 	int ret;
 
 	if (snode->nodetype != LYS_RPC)
-		return;
+		return YANG_ITER_CONTINUE;
 
 	nb_node = snode->priv;
 	if (debug_northbound)
@@ -779,17 +779,18 @@ static void frr_sr_subscribe_rpc(const struct lys_node *snode, void *arg1,
 	if (ret != SR_ERR_OK)
 		flog_err(EC_LIB_LIBSYSREPO, "sr_rpc_subscribe(): %s",
 			 sr_strerror(ret));
+
+	return YANG_ITER_CONTINUE;
 }
 
-static void frr_sr_subscribe_action(const struct lys_node *snode, void *arg1,
-				    void *arg2)
+static int frr_sr_subscribe_action(const struct lys_node *snode, void *arg)
 {
-	struct yang_module *module = arg1;
+	struct yang_module *module = arg;
 	struct nb_node *nb_node;
 	int ret;
 
 	if (snode->nodetype != LYS_ACTION)
-		return;
+		return YANG_ITER_CONTINUE;
 
 	nb_node = snode->priv;
 	if (debug_northbound)
@@ -802,6 +803,8 @@ static void frr_sr_subscribe_action(const struct lys_node *snode, void *arg1,
 	if (ret != SR_ERR_OK)
 		flog_err(EC_LIB_LIBSYSREPO, "sr_action_subscribe(): %s",
 			 sr_strerror(ret));
+
+	return YANG_ITER_CONTINUE;
 }
 
 /* FRR's Sysrepo initialization. */
@@ -839,12 +842,12 @@ static int frr_sr_init(const char *program_name)
 	/* Perform subscriptions. */
 	RB_FOREACH (module, yang_modules, &yang_modules) {
 		frr_sr_subscribe_config(module);
-		yang_module_snodes_iterate(module->info, frr_sr_subscribe_state,
-					   0, module, NULL);
-		yang_module_snodes_iterate(module->info, frr_sr_subscribe_rpc,
-					   0, module, NULL);
-		yang_module_snodes_iterate(
-			module->info, frr_sr_subscribe_action, 0, module, NULL);
+		yang_snodes_iterate_module(module->info, frr_sr_subscribe_state,
+					   0, module);
+		yang_snodes_iterate_module(module->info, frr_sr_subscribe_rpc,
+					   0, module);
+		yang_snodes_iterate_module(module->info,
+					   frr_sr_subscribe_action, 0, module);
 	}
 
 	hook_register(nb_notification_send, frr_sr_notification_send);

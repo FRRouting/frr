@@ -32,8 +32,7 @@ static void __attribute__((noreturn)) usage(int status)
 	exit(status);
 }
 
-static void generate_yang_deviation(const struct lys_node *snode, void *arg1,
-				    void *arg2)
+static int generate_yang_deviation(const struct lys_node *snode, void *arg)
 {
 	char xpath[XPATH_MAXLEN];
 
@@ -42,6 +41,8 @@ static void generate_yang_deviation(const struct lys_node *snode, void *arg1,
 	printf("  deviation \"%s\" {\n", xpath);
 	printf("    deviate not-supported;\n");
 	printf("  }\n\n");
+
+	return YANG_ITER_CONTINUE;
 }
 
 int main(int argc, char *argv[])
@@ -70,8 +71,8 @@ int main(int argc, char *argv[])
 	module = yang_module_load(argv[0]);
 
 	/* Generate deviations. */
-	yang_module_snodes_iterate(module->info, generate_yang_deviation,
-				   YANG_ITER_FILTER_IMPLICIT, NULL, NULL);
+	yang_snodes_iterate_module(module->info, generate_yang_deviation,
+				   YANG_ITER_FILTER_IMPLICIT, NULL);
 
 	/* Cleanup and exit. */
 	yang_terminate();
