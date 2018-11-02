@@ -695,6 +695,33 @@ static struct log_ref ferr_zebra_err[] = {
 			"Do not use v6 sourcedest routes, or upgrade your kernel.",
 	},
 	{
+		.code = EC_ZEBRA_DUP_MAC_DETECTED,
+		.title =
+			"EVPN MAC is detected duplicate",
+		.description =
+			"Zebra has hit duplicate address detection threshold which means host MAC is moving.",
+		.suggestion =
+			"Check network topology to detect duplicate host MAC for correctness.",
+	},
+	{
+		.code = EC_ZEBRA_DUP_IP_INHERIT_DETECTED,
+		.title =
+			"EVPN IP is detected duplicate by MAC",
+		.description =
+			"Zebra has hit duplicate address detection threshold which means MAC-IP pair is moving.",
+		.suggestion =
+			"Check network topology to detect duplicate host MAC for correctness.",
+	},
+	{
+		.code = EC_ZEBRA_DUP_IP_DETECTED,
+		.title =
+			"EVPN IP is detected duplicate",
+		.description =
+			"Zebra has hit duplicate address detection threshold which means host IP is moving.",
+		.suggestion =
+			"Check network topology to detect duplicate host IP for correctness.",
+	},
+	{
 		.code = END_FERR,
 	}
 };
