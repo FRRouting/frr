@@ -8427,12 +8427,14 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 	if (use_json && !*json_header_depth) {
 		vty_out(vty,
 			"{\n \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64
-			",\n \"routerId\": \"%s\",\n \"routes\": { ",
+			",\n \"routerId\": \"%s\",\n \"defaultLocPrf\": %u,\n"
+			" \"localAS\": %u,\n \"routes\": { ",
 			bgp->vrf_id == VRF_UNKNOWN ? -1 : (int)bgp->vrf_id,
 			bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
 						? VRF_DEFAULT_NAME
 						: bgp->name,
-			table->version, inet_ntoa(bgp->router_id));
+			table->version, inet_ntoa(bgp->router_id),
+			bgp->default_local_pref, bgp->as);
 		*json_header_depth = 2;
 		if (rd) {
 			vty_out(vty, " \"routeDistinguishers\" : {");
@@ -8599,6 +8601,9 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				else
 					vty_out(vty, "%u", bgp->vrf_id);
 				vty_out(vty, "\n");
+				vty_out(vty, "Default local pref %u, ",
+					bgp->default_local_pref);
+				vty_out(vty, "local AS %u\n", bgp->as);
 				vty_out(vty, BGP_SHOW_SCODE_HEADER);
 				vty_out(vty, BGP_SHOW_NCODE_HEADER);
 				vty_out(vty, BGP_SHOW_OCODE_HEADER);
@@ -10454,6 +10459,9 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 					    table->version);
 			json_object_string_add(json, "bgpLocalRouterId",
 					       inet_ntoa(bgp->router_id));
+			json_object_int_add(json, "defaultLocPrf",
+						bgp->default_local_pref);
+			json_object_int_add(json, "localAS", bgp->as);
 			json_object_object_add(json, "bgpStatusCodes",
 					       json_scode);
 			json_object_object_add(json, "bgpOriginCodes",
@@ -10470,6 +10478,9 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 			else
 				vty_out(vty, "%u", bgp->vrf_id);
 			vty_out(vty, "\n");
+			vty_out(vty, "Default local pref %u, ",
+				bgp->default_local_pref);
+			vty_out(vty, "local AS %u\n", bgp->as);
 			vty_out(vty, BGP_SHOW_SCODE_HEADER);
 			vty_out(vty, BGP_SHOW_NCODE_HEADER);
 			vty_out(vty, BGP_SHOW_OCODE_HEADER);
@@ -10497,6 +10508,11 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 							"bgpLocalRouterId",
 							inet_ntoa(
 								bgp->router_id));
+						json_object_int_add(json,
+						"defaultLocPrf",
+						bgp->default_local_pref);
+						json_object_int_add(json,
+						"localAS", bgp->as);
 						json_object_object_add(
 							json, "bgpStatusCodes",
 							json_scode);
@@ -10515,6 +10531,11 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 							vty_out(vty, "%u",
 								bgp->vrf_id);
 						vty_out(vty, "\n");
+						vty_out(vty,
+						"Default local pref %u, ",
+						bgp->default_local_pref);
+						vty_out(vty, "local AS %u\n",
+						bgp->as);
 						vty_out(vty,
 							BGP_SHOW_SCODE_HEADER);
 						vty_out(vty,
@@ -10576,6 +10597,13 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 								"bgpLocalRouterId",
 								inet_ntoa(
 									bgp->router_id));
+							json_object_int_add(
+							json, "defaultLocPrf",
+							bgp->default_local_pref
+							);
+							json_object_int_add(
+							json, "localAS",
+							bgp->as);
 							json_object_object_add(
 								json,
 								"bgpStatusCodes",
@@ -10601,6 +10629,13 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 								"%u",
 								bgp->vrf_id);
 							vty_out(vty, "\n");
+							vty_out(vty,
+							"Default local pref %u, ",
+							bgp->default_local_pref
+							);
+							vty_out(vty,
+							"local AS %u\n",
+							bgp->as);
 							vty_out(vty,
 								BGP_SHOW_SCODE_HEADER);
 							vty_out(vty,
