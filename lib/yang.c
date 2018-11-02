@@ -496,12 +496,18 @@ void *yang_dnode_get_entry(const struct lyd_node *dnode)
 	abort();
 }
 
-struct lyd_node *yang_dnode_new(struct ly_ctx *ly_ctx)
+struct lyd_node *yang_dnode_new(struct ly_ctx *ly_ctx, bool config_only)
 {
 	struct lyd_node *dnode;
+	int options;
+
+	if (config_only)
+		options = LYD_OPT_CONFIG;
+	else
+		options = LYD_OPT_DATA | LYD_OPT_DATA_NO_YANGLIB;
 
 	dnode = NULL;
-	if (lyd_validate(&dnode, LYD_OPT_CONFIG, ly_ctx) != 0) {
+	if (lyd_validate(&dnode, options, ly_ctx) != 0) {
 		/* Should never happen. */
 		flog_err(EC_LIB_LIBYANG, "%s: lyd_validate() failed", __func__);
 		exit(1);

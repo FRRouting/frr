@@ -371,10 +371,14 @@ extern void *yang_dnode_get_entry(const struct lyd_node *dnode);
  * ly_ctx
  *    libyang context to operate on.
  *
+ * config
+ *    Specify whether the data node will contain only configuration data (true)
+ *    or both configuration data and state data (false).
+ *
  * Returns:
  *    Pointer to newly created libyang data node.
  */
-extern struct lyd_node *yang_dnode_new(struct ly_ctx *ly_ctx);
+extern struct lyd_node *yang_dnode_new(struct ly_ctx *ly_ctx, bool config_only);
 
 /*
  * Duplicate a libyang data node.

@@ -189,7 +189,7 @@ struct nb_config *nb_config_new(struct lyd_node *dnode)
 	if (dnode)
 		config->dnode = dnode;
 	else
-		config->dnode = yang_dnode_new(ly_native_ctx);
+		config->dnode = yang_dnode_new(ly_native_ctx, true);
 	config->version = 0;
 
 	return config;

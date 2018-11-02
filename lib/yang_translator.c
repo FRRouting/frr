@@ -351,7 +351,7 @@ int yang_translate_dnode(const struct yang_translator *translator, int dir,
 		ly_ctx = ly_native_ctx;
 	else
 		ly_ctx = translator->ly_ctx;
-	new = yang_dnode_new(ly_ctx);
+	new = yang_dnode_new(ly_ctx, false);
 
 	/* Iterate over all nodes from the data tree. */
 	LY_TREE_FOR (*dnode, root) {
