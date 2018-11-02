@@ -5426,6 +5426,42 @@ void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 	}
 }
 
+void zebra_vxlan_dup_addr_detection(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	int time = 0;
+	uint32_t max_moves = 0;
+	uint32_t freeze_time = 0;
+	bool dup_addr_detect = false;
+	bool freeze = false;
+
+	s = msg;
+	STREAM_GETL(s, dup_addr_detect);
+	STREAM_GETL(s, time);
+	STREAM_GETL(s, max_moves);
+	STREAM_GETL(s, freeze);
+	STREAM_GETL(s, freeze_time);
+
+	zvrf->dup_addr_detect = dup_addr_detect;
+	zvrf->dad_time = time;
+	zvrf->dad_max_moves = max_moves;
+	zvrf->dad_freeze = freeze;
+	zvrf->dad_freeze_time = freeze_time;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug(
+			"%s: duplicate detect %s max_moves %u timeout %u freeze %s freeze_time %u",
+			__PRETTY_FUNCTION__,
+			zvrf->dup_addr_detect ? "enable" : "disable",
+			zvrf->dad_max_moves,
+			zvrf->dad_time,
+			zvrf->dad_freeze ? "enable" : "disable",
+			zvrf->dad_freeze_time);
+
+stream_failure:
+	return;
+}
+
 /*
  * Handle neighbor delete notification from the kernel (on a VLAN device
  * / L3 interface). This may result in either the neighbor getting deleted
