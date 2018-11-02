@@ -522,22 +522,10 @@ void yang_dnode_free(struct lyd_node *dnode)
 
 struct yang_data *yang_data_new(const char *xpath, const char *value)
 {
-	const struct lys_node *snode;
 	struct yang_data *data;
-
-	snode = ly_ctx_get_node(ly_native_ctx, NULL, xpath, 0);
-	if (!snode)
-		snode = ly_ctx_get_node(ly_native_ctx, NULL, xpath, 1);
-	if (!snode) {
-		flog_err(EC_LIB_YANG_UNKNOWN_DATA_PATH,
-			 "%s: unknown data path: %s", __func__, xpath);
-		zlog_backtrace(LOG_ERR);
-		abort();
-	}
 
 	data = XCALLOC(MTYPE_YANG_DATA, sizeof(*data));
 	strlcpy(data->xpath, xpath, sizeof(data->xpath));
-	data->snode = snode;
 	if (value)
 		data->value = strdup(value);
 

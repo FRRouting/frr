@@ -101,9 +101,9 @@ static void frr_confd_hkeypath_get_keys(const confd_hkeypath_t *kp,
 			continue;
 
 		for (int j = 0; kp->v[i][j].type != C_NOEXISTS; j++) {
-			strlcpy(keys->key[keys->num].value,
+			strlcpy(keys->key[keys->num],
 				(char *)kp->v[i][j].val.buf.ptr,
-				sizeof(keys->key[keys->num].value));
+				sizeof(keys->key[keys->num]));
 			keys->num++;
 		}
 	}
@@ -572,7 +572,7 @@ static int frr_confd_data_get_next(struct confd_trans_ctx *tctx,
 
 	/* Feed keys to ConfD. */
 	for (size_t i = 0; i < keys.num; i++)
-		CONFD_SET_STR(&v[i], keys.key[i].value);
+		CONFD_SET_STR(&v[i], keys.key[i]);
 	confd_data_reply_next_key(tctx, v, keys.num, (long)nb_next);
 
 	return CONFD_OK;
@@ -816,10 +816,18 @@ static int frr_confd_notification_send(const char *xpath,
 	CONFD_SET_TAG_XMLBEGIN(&values[i++], nb_node->confd_hash,
 			       module->confd_hash);
 	for (ALL_LIST_ELEMENTS_RO(arguments, node, data)) {
-		struct nb_node *option_arg;
+		struct nb_node *nb_node_arg;
 
-		option_arg = data->snode->priv;
-		CONFD_SET_TAG_STR(&values[i++], option_arg->confd_hash,
+		nb_node_arg = nb_node_find(data->xpath);
+		if (!nb_node_arg) {
+			flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
+				  "%s: unknown data path: %s", __func__,
+				  data->xpath);
+			XFREE(MTYPE_CONFD, values);
+			return NB_ERR;
+		}
+
+		CONFD_SET_TAG_STR(&values[i++], nb_node_arg->confd_hash,
 				  data->value);
 	}
 	CONFD_SET_TAG_XMLEND(&values[i++], nb_node->confd_hash,
@@ -921,9 +929,18 @@ static int frr_confd_action_execute(struct confd_user_info *uinfo,
 				listcount(output) * sizeof(*reply));
 
 		for (ALL_LIST_ELEMENTS_RO(output, node, data)) {
+			struct nb_node *nb_node_output;
 			int hash;
 
-			hash = confd_str2hash(data->snode->name);
+			nb_node_output = nb_node_find(data->xpath);
+			if (!nb_node_output) {
+				flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
+					  "%s: unknown data path: %s", __func__,
+					  data->xpath);
+				goto exit;
+			}
+
+			hash = confd_str2hash(nb_node_output->snode->name);
 			CONFD_SET_TAG_STR(&reply[i++], hash, data->value);
 		}
 		confd_action_reply_values(uinfo, reply, listcount(output));

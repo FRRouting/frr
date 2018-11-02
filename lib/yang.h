@@ -69,12 +69,6 @@ struct yang_data {
 	/* XPath identifier of the data element. */
 	char xpath[XPATH_MAXLEN];
 
-	/*
-	 * Schema information (necessary to interpret certain values like
-	 * enums).
-	 */
-	const struct lys_node *snode;
-
 	/* Value encoded as a raw string. */
 	char *value;
 };
@@ -83,16 +77,8 @@ struct yang_list_keys {
 	/* Number os keys (max: LIST_MAXKEYS). */
 	uint8_t num;
 
-	struct {
-		/*
-		 * Schema information (necessary to interpret certain values
-		 * like enums).
-		 */
-		struct lys_node *snode;
-
-		/* Value encoded as a raw string. */
-		char value[LIST_MAXKEYLEN];
-	} key[LIST_MAXKEYS];
+	/* Value encoded as a raw string. */
+	char key[LIST_MAXKEYS][LIST_MAXKEYLEN];
 };
 
 enum yang_path_type {

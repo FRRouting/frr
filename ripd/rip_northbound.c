@@ -1023,8 +1023,8 @@ static int ripd_state_neighbors_neighbor_get_keys(const void *list_entry,
 	const struct rip_peer *peer = listgetdata(node);
 
 	keys->num = 1;
-	(void)inet_ntop(AF_INET, &peer->addr, keys->key[0].value,
-			sizeof(keys->key[0].value));
+	(void)inet_ntop(AF_INET, &peer->addr, keys->key[0],
+			sizeof(keys->key[0]));
 
 	return NB_OK;
 }
@@ -1034,7 +1034,7 @@ ripd_state_neighbors_neighbor_lookup_entry(const struct yang_list_keys *keys)
 {
 	struct in_addr address;
 
-	yang_str2ipv4(keys->key[0].value, &address);
+	yang_str2ipv4(keys->key[0], &address);
 
 	return rip_peer_lookup(&address);
 }
@@ -1113,8 +1113,7 @@ static int ripd_state_routes_route_get_keys(const void *list_entry,
 	const struct route_node *rn = list_entry;
 
 	keys->num = 1;
-	(void)prefix2str(&rn->p, keys->key[0].value,
-			 sizeof(keys->key[0].value));
+	(void)prefix2str(&rn->p, keys->key[0], sizeof(keys->key[0]));
 
 	return NB_OK;
 }
@@ -1125,7 +1124,7 @@ ripd_state_routes_route_lookup_entry(const struct yang_list_keys *keys)
 	struct prefix prefix;
 	struct route_node *rn;
 
-	yang_str2ipv4p(keys->key[0].value, &prefix);
+	yang_str2ipv4p(keys->key[0], &prefix);
 
 	rn = route_node_lookup(rip->table, &prefix);
 	if (!rn || !rn->info)

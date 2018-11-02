@@ -45,6 +45,7 @@ static int frr_sr_finish(void);
 /* Convert FRR YANG data value to sysrepo YANG data value. */
 static int yang_data_frr2sr(struct yang_data *frr_data, sr_val_t *sr_data)
 {
+	struct nb_node *nb_node;
 	const struct lys_node *snode;
 	struct lys_node_container *scontainer;
 	struct lys_node_leaf *sleaf;
@@ -53,7 +54,15 @@ static int yang_data_frr2sr(struct yang_data *frr_data, sr_val_t *sr_data)
 
 	sr_val_set_xpath(sr_data, frr_data->xpath);
 
-	snode = frr_data->snode;
+	nb_node = nb_node_find(frr_data->xpath);
+	if (!nb_node) {
+		flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
+			  "%s: unknown data path: %s", __func__,
+			  frr_data->xpath);
+		return -1;
+	}
+
+	snode = nb_node->snode;
 	switch (snode->nodetype) {
 	case LYS_CONTAINER:
 		scontainer = (struct lys_node_container *)snode;
@@ -386,7 +395,7 @@ static void frr_sr_state_cb_list(struct list *elements, const char *xpath,
 			snprintf(xpath_list + strlen(xpath_list),
 				 sizeof(xpath_list) - strlen(xpath_list),
 				 "[%s='%s']", slist->keys[i]->name,
-				 keys.key[i].value);
+				 keys.key[i]);
 		}
 
 		/* Loop through list entries. */
