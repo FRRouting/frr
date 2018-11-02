@@ -840,7 +840,7 @@ void yang_str2ipv4p(const char *value, union prefixptr prefix)
 }
 
 struct yang_data *yang_data_new_ipv4p(const char *xpath,
-				      const union prefixptr prefix)
+				      union prefixconstptr prefix)
 {
 	char value_str[PREFIX2STR_BUFFER];
 
@@ -950,7 +950,7 @@ void yang_str2ipv6p(const char *value, union prefixptr prefix)
 }
 
 struct yang_data *yang_data_new_ipv6p(const char *xpath,
-				      const union prefixptr prefix)
+				      union prefixconstptr prefix)
 {
 	char value_str[PREFIX2STR_BUFFER];
 
