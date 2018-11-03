@@ -50,6 +50,12 @@ static void nb_transaction_free(struct nb_transaction *transaction);
 static int nb_transaction_process(enum nb_event event,
 				  struct nb_transaction *transaction);
 static void nb_transaction_apply_finish(struct nb_transaction *transaction);
+static int nb_oper_data_iter_node(const struct lys_node *snode,
+				  const char *xpath, const void *list_entry,
+				  const struct yang_list_keys *list_keys,
+				  struct yang_translator *translator,
+				  bool first, uint32_t flags,
+				  nb_oper_data_cb cb, void *arg);
 
 static int nb_node_check_config_only(const struct lys_node *snode, void *arg)
 {
@@ -930,6 +936,331 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 	}
 }
 
+static int nb_oper_data_iter_children(const struct lys_node *snode,
+				      const char *xpath, const void *list_entry,
+				      const struct yang_list_keys *list_keys,
+				      struct yang_translator *translator,
+				      bool first, uint32_t flags,
+				      nb_oper_data_cb cb, void *arg)
+{
+	struct lys_node *child;
+
+	LY_TREE_FOR (snode->child, child) {
+		int ret;
+
+		ret = nb_oper_data_iter_node(child, xpath, list_entry,
+					     list_keys, translator, false,
+					     flags, cb, arg);
+		if (ret != NB_OK)
+			return ret;
+	}
+
+	return NB_OK;
+}
+
+static int nb_oper_data_iter_leaf(const struct nb_node *nb_node,
+				  const char *xpath, const void *list_entry,
+				  const struct yang_list_keys *list_keys,
+				  struct yang_translator *translator,
+				  uint32_t flags, nb_oper_data_cb cb, void *arg)
+{
+	struct yang_data *data;
+
+	if (CHECK_FLAG(nb_node->snode->flags, LYS_CONFIG_W))
+		return NB_OK;
+
+	/* Ignore list keys. */
+	if (lys_is_key((struct lys_node_leaf *)nb_node->snode, NULL))
+		return NB_OK;
+
+	data = nb_node->cbs.get_elem(xpath, list_entry);
+	if (data == NULL)
+		/* Leaf of type "empty" is not present. */
+		return NB_OK;
+
+	return (*cb)(nb_node->snode, translator, data, arg);
+}
+
+static int nb_oper_data_iter_container(const struct nb_node *nb_node,
+				       const char *xpath,
+				       const void *list_entry,
+				       const struct yang_list_keys *list_keys,
+				       struct yang_translator *translator,
+				       uint32_t flags, nb_oper_data_cb cb,
+				       void *arg)
+{
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_CONFIG_ONLY))
+		return NB_OK;
+
+	/* Presence containers. */
+	if (nb_node->cbs.get_elem) {
+		struct yang_data *data;
+		int ret;
+
+		data = nb_node->cbs.get_elem(xpath, list_entry);
+		if (data == NULL)
+			/* Presence container is not present. */
+			return NB_OK;
+
+		ret = (*cb)(nb_node->snode, translator, data, arg);
+		if (ret != NB_OK)
+			return ret;
+	}
+
+	/* Iterate over the child nodes. */
+	return nb_oper_data_iter_children(nb_node->snode, xpath, list_entry,
+					  list_keys, translator, false, flags,
+					  cb, arg);
+}
+
+static int
+nb_oper_data_iter_leaflist(const struct nb_node *nb_node, const char *xpath,
+			   const void *parent_list_entry,
+			   const struct yang_list_keys *parent_list_keys,
+			   struct yang_translator *translator, uint32_t flags,
+			   nb_oper_data_cb cb, void *arg)
+{
+	const void *list_entry = NULL;
+
+	if (CHECK_FLAG(nb_node->snode->flags, LYS_CONFIG_W))
+		return NB_OK;
+
+	do {
+		struct yang_data *data;
+		int ret;
+
+		list_entry =
+			nb_node->cbs.get_next(parent_list_entry, list_entry);
+		if (!list_entry)
+			/* End of the list. */
+			break;
+
+		data = nb_node->cbs.get_elem(xpath, list_entry);
+		if (data == NULL)
+			continue;
+
+		ret = (*cb)(nb_node->snode, translator, data, arg);
+		if (ret != NB_OK)
+			return ret;
+	} while (list_entry);
+
+	return NB_OK;
+}
+
+static int nb_oper_data_iter_list(const struct nb_node *nb_node,
+				  const char *xpath_list,
+				  const void *parent_list_entry,
+				  const struct yang_list_keys *parent_list_keys,
+				  struct yang_translator *translator,
+				  uint32_t flags, nb_oper_data_cb cb, void *arg)
+{
+	struct lys_node_list *slist = (struct lys_node_list *)nb_node->snode;
+	const void *list_entry = NULL;
+
+	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_CONFIG_ONLY))
+		return NB_OK;
+
+	/* Iterate over all list entries. */
+	do {
+		struct yang_list_keys list_keys;
+		char xpath[XPATH_MAXLEN];
+		int ret;
+
+		/* Obtain list entry. */
+		list_entry =
+			nb_node->cbs.get_next(parent_list_entry, list_entry);
+		if (!list_entry)
+			/* End of the list. */
+			break;
+
+		/* Obtain the list entry keys. */
+		if (nb_node->cbs.get_keys(list_entry, &list_keys) != NB_OK) {
+			flog_warn(EC_LIB_NB_CB_STATE,
+				  "%s: failed to get list keys", __func__);
+			return NB_ERR;
+		}
+
+		/* Build XPath of the list entry. */
+		strlcpy(xpath, xpath_list, sizeof(xpath));
+		for (unsigned int i = 0; i < list_keys.num; i++) {
+			snprintf(xpath + strlen(xpath),
+				 sizeof(xpath) - strlen(xpath), "[%s='%s']",
+				 slist->keys[i]->name, list_keys.key[i]);
+		}
+
+		/* Iterate over the child nodes. */
+		ret = nb_oper_data_iter_children(
+			nb_node->snode, xpath, list_entry, &list_keys,
+			translator, false, flags, cb, arg);
+		if (ret != NB_OK)
+			return ret;
+	} while (list_entry);
+
+	return NB_OK;
+}
+
+static int nb_oper_data_iter_node(const struct lys_node *snode,
+				  const char *xpath_parent,
+				  const void *list_entry,
+				  const struct yang_list_keys *list_keys,
+				  struct yang_translator *translator,
+				  bool first, uint32_t flags,
+				  nb_oper_data_cb cb, void *arg)
+{
+	struct nb_node *nb_node;
+	char xpath[XPATH_MAXLEN];
+	int ret = NB_OK;
+
+	if (!first && CHECK_FLAG(flags, NB_OPER_DATA_ITER_NORECURSE)
+	    && CHECK_FLAG(snode->nodetype, LYS_CONTAINER | LYS_LIST))
+		return NB_OK;
+
+	/* Update XPath. */
+	strlcpy(xpath, xpath_parent, sizeof(xpath));
+	if (!first && snode->nodetype != LYS_USES)
+		snprintf(xpath + strlen(xpath), sizeof(xpath) - strlen(xpath),
+			 "/%s", snode->name);
+
+	nb_node = snode->priv;
+	switch (snode->nodetype) {
+	case LYS_CONTAINER:
+		ret = nb_oper_data_iter_container(nb_node, xpath, list_entry,
+						  list_keys, translator, flags,
+						  cb, arg);
+		break;
+	case LYS_LEAF:
+		ret = nb_oper_data_iter_leaf(nb_node, xpath, list_entry,
+					     list_keys, translator, flags, cb,
+					     arg);
+		break;
+	case LYS_LEAFLIST:
+		ret = nb_oper_data_iter_leaflist(nb_node, xpath, list_entry,
+						 list_keys, translator, flags,
+						 cb, arg);
+		break;
+	case LYS_LIST:
+		ret = nb_oper_data_iter_list(nb_node, xpath, list_entry,
+					     list_keys, translator, flags, cb,
+					     arg);
+		break;
+	case LYS_USES:
+		ret = nb_oper_data_iter_children(snode, xpath, list_entry,
+						 list_keys, translator, false,
+						 flags, cb, arg);
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+
+int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
+			 uint32_t flags, nb_oper_data_cb cb, void *arg)
+{
+	struct nb_node *nb_node;
+	const void *list_entry = NULL;
+	struct yang_list_keys list_keys;
+	struct list *list_dnodes;
+	struct lyd_node *dnode, *dn;
+	struct listnode *ln;
+	int ret;
+
+	nb_node = nb_node_find(xpath);
+	if (!nb_node) {
+		flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
+			  "%s: unknown data path: %s", __func__, xpath);
+		return NB_ERR;
+	}
+
+	/* For now this function works only with containers and lists. */
+	if (!CHECK_FLAG(nb_node->snode->nodetype, LYS_CONTAINER | LYS_LIST)) {
+		flog_warn(
+			EC_LIB_NB_OPERATIONAL_DATA,
+			"%s: can't iterate over YANG leaf or leaf-list [xpath %s]",
+			__func__, xpath);
+		return NB_ERR;
+	}
+
+	/*
+	 * Create a data tree from the XPath so that we can parse the keys of
+	 * all YANG lists (if any).
+	 */
+	ly_errno = 0;
+	dnode = lyd_new_path(NULL, ly_native_ctx, xpath, NULL, 0,
+			     LYD_PATH_OPT_UPDATE);
+	if (!dnode && ly_errno) {
+		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed",
+			  __func__);
+		return NB_ERR;
+	}
+	/*
+	 * We can remove the following two lines once we depend on
+	 * libyang-v0.16-r2, which has the LYD_PATH_OPT_NOPARENTRET flag for
+	 * lyd_new_path().
+	 */
+	dnode = yang_dnode_get(dnode, xpath);
+	assert(dnode);
+
+	/*
+	 * Create a linked list to sort the data nodes starting from the root.
+	 */
+	list_dnodes = list_new();
+	for (dn = dnode; dn; dn = dn->parent) {
+		if (dn->schema->nodetype != LYS_LIST || !dn->child)
+			continue;
+		listnode_add_head(list_dnodes, dn);
+	}
+	/*
+	 * Use the northbound callbacks to find list entry pointer corresponding
+	 * to the given XPath.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(list_dnodes, ln, dn)) {
+		struct lyd_node *child;
+		struct nb_node *nn;
+		unsigned int n = 0;
+
+		/* Obtain the list entry keys. */
+		memset(&list_keys, 0, sizeof(list_keys));
+		LY_TREE_FOR (dn->child, child) {
+			if (!lys_is_key((struct lys_node_leaf *)child->schema,
+					NULL))
+				continue;
+			strlcpy(list_keys.key[n],
+				yang_dnode_get_string(child, NULL),
+				sizeof(list_keys.key[n]));
+			n++;
+		}
+		list_keys.num = n;
+		assert(list_keys.num
+		       == ((struct lys_node_list *)dn->schema)->keys_size);
+
+		/* Find the list entry pointer. */
+		nn = dn->schema->priv;
+		list_entry = nn->cbs.lookup_entry(list_entry, &list_keys);
+		if (list_entry == NULL) {
+			list_delete(&list_dnodes);
+			yang_dnode_free(dnode);
+			return NB_ERR_NOT_FOUND;
+		}
+	}
+
+	/* If a list entry was given, iterate over that list entry only. */
+	if (dnode->schema->nodetype == LYS_LIST && dnode->child)
+		ret = nb_oper_data_iter_children(
+			nb_node->snode, xpath, list_entry, &list_keys,
+			translator, true, flags, cb, arg);
+	else
+		ret = nb_oper_data_iter_node(nb_node->snode, xpath, list_entry,
+					     &list_keys, translator, true,
+					     flags, cb, arg);
+
+	list_delete(&list_dnodes);
+	yang_dnode_free(dnode);
+
+	return ret;
+}
+
 bool nb_operation_is_valid(enum nb_operation operation,
 			   const struct lys_node *snode)
 {
@@ -1038,6 +1369,7 @@ bool nb_operation_is_valid(enum nb_operation operation,
 
 		switch (snode->nodetype) {
 		case LYS_LEAF:
+		case LYS_LEAFLIST:
 			break;
 		case LYS_CONTAINER:
 			scontainer = (struct lys_node_container *)snode;
@@ -1049,6 +1381,19 @@ bool nb_operation_is_valid(enum nb_operation operation,
 		}
 		return true;
 	case NB_OP_GET_NEXT:
+		switch (snode->nodetype) {
+		case LYS_LIST:
+			if (CHECK_FLAG(nb_node->flags, F_NB_NODE_CONFIG_ONLY))
+				return false;
+			break;
+		case LYS_LEAFLIST:
+			if (CHECK_FLAG(snode->flags, LYS_CONFIG_W))
+				return false;
+			break;
+		default:
+			return false;
+		}
+		return true;
 	case NB_OP_GET_KEYS:
 	case NB_OP_LOOKUP_ENTRY:
 		switch (snode->nodetype) {

@@ -1097,6 +1097,117 @@ DEFPY (show_config_transaction,
 #endif /* HAVE_CONFIG_ROLLBACKS */
 }
 
+static int nb_cli_oper_data_cb(const struct lys_node *snode,
+			       struct yang_translator *translator,
+			       struct yang_data *data, void *arg)
+{
+	struct lyd_node *dnode = arg;
+	struct ly_ctx *ly_ctx;
+
+	if (translator) {
+		int ret;
+
+		ret = yang_translate_xpath(translator,
+					   YANG_TRANSLATE_FROM_NATIVE,
+					   data->xpath, sizeof(data->xpath));
+		switch (ret) {
+		case YANG_TRANSLATE_SUCCESS:
+			break;
+		case YANG_TRANSLATE_NOTFOUND:
+			goto exit;
+		case YANG_TRANSLATE_FAILURE:
+			goto error;
+		}
+
+		ly_ctx = translator->ly_ctx;
+	} else
+		ly_ctx = ly_native_ctx;
+
+	ly_errno = 0;
+	dnode = lyd_new_path(dnode, ly_ctx, data->xpath, (void *)data->value, 0,
+			     LYD_PATH_OPT_UPDATE);
+	if (!dnode && ly_errno) {
+		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed",
+			  __func__);
+		goto error;
+	}
+
+exit:
+	yang_data_free(data);
+	return NB_OK;
+
+error:
+	yang_data_free(data);
+	return NB_ERR;
+}
+
+DEFPY (show_yang_operational_data,
+       show_yang_operational_data_cmd,
+       "show yang operational-data XPATH$xpath\
+         [{\
+	   format <json$json|xml$xml>\
+	   |translate WORD$translator_family\
+	 }]",
+       SHOW_STR
+       "YANG information\n"
+       "Show YANG operational data\n"
+       "XPath expression specifying the YANG data path\n"
+       "Set the output format\n"
+       "JavaScript Object Notation\n"
+       "Extensible Markup Language\n"
+       "Translate operational data\n"
+       "YANG module translator\n")
+{
+	LYD_FORMAT format;
+	struct yang_translator *translator = NULL;
+	struct ly_ctx *ly_ctx;
+	struct lyd_node *dnode;
+	char *strp;
+
+	if (xml)
+		format = LYD_XML;
+	else
+		format = LYD_JSON;
+
+	if (translator_family) {
+		translator = yang_translator_find(translator_family);
+		if (!translator) {
+			vty_out(vty, "%% Module translator \"%s\" not found\n",
+				translator_family);
+			return CMD_WARNING;
+		}
+
+		ly_ctx = translator->ly_ctx;
+	} else
+		ly_ctx = ly_native_ctx;
+
+	/* Obtain data. */
+	dnode = yang_dnode_new(ly_ctx, false);
+	if (nb_oper_data_iterate(xpath, translator, 0, nb_cli_oper_data_cb,
+				 dnode)
+	    != NB_OK) {
+		vty_out(vty, "%% Failed to fetch operational data.\n");
+		yang_dnode_free(dnode);
+		return CMD_WARNING;
+	}
+	lyd_validate(&dnode, LYD_OPT_DATA | LYD_OPT_DATA_NO_YANGLIB, ly_ctx);
+
+	/* Display the data. */
+	if (lyd_print_mem(&strp, dnode, format,
+			  LYP_FORMAT | LYP_WITHSIBLINGS | LYP_WD_ALL)
+		    != 0
+	    || !strp) {
+		vty_out(vty, "%% Failed to display operational data.\n");
+		yang_dnode_free(dnode);
+		return CMD_WARNING;
+	}
+	vty_out(vty, "%s", strp);
+	free(strp);
+	yang_dnode_free(dnode);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (show_yang_module,
        show_yang_module_cmd,
        "show yang module [module-translator WORD$translator_family]",
@@ -1436,6 +1547,7 @@ void nb_cli_init(void)
 	/* Other commands. */
 	install_element(CONFIG_NODE, &yang_module_translator_load_cmd);
 	install_element(CONFIG_NODE, &yang_module_translator_unload_cmd);
+	install_element(ENABLE_NODE, &show_yang_operational_data_cmd);
 	install_element(ENABLE_NODE, &show_yang_module_cmd);
 	install_element(ENABLE_NODE, &show_yang_module_detail_cmd);
 	install_element(ENABLE_NODE, &show_yang_module_translator_cmd);

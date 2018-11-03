@@ -1003,7 +1003,7 @@ lib_interface_rip_authentication_key_chain_delete(enum nb_event event,
  * XPath: /frr-ripd:ripd/state/neighbors/neighbor
  */
 static const void *
-ripd_state_neighbors_neighbor_get_next(const char *xpath,
+ripd_state_neighbors_neighbor_get_next(const void *parent_list_entry,
 				       const void *list_entry)
 {
 	struct listnode *node;
@@ -1030,7 +1030,8 @@ static int ripd_state_neighbors_neighbor_get_keys(const void *list_entry,
 }
 
 static const void *
-ripd_state_neighbors_neighbor_lookup_entry(const struct yang_list_keys *keys)
+ripd_state_neighbors_neighbor_lookup_entry(const void *parent_list_entry,
+					   const struct yang_list_keys *keys)
 {
 	struct in_addr address;
 
@@ -1089,8 +1090,9 @@ ripd_state_neighbors_neighbor_bad_routes_rcvd_get_elem(const char *xpath,
 /*
  * XPath: /frr-ripd:ripd/state/routes/route
  */
-static const void *ripd_state_routes_route_get_next(const char *xpath,
-						    const void *list_entry)
+static const void *
+ripd_state_routes_route_get_next(const void *parent_list_entry,
+				 const void *list_entry)
 {
 	struct route_node *rn;
 
@@ -1119,7 +1121,8 @@ static int ripd_state_routes_route_get_keys(const void *list_entry,
 }
 
 static const void *
-ripd_state_routes_route_lookup_entry(const struct yang_list_keys *keys)
+ripd_state_routes_route_lookup_entry(const void *parent_list_entry,
+				     const struct yang_list_keys *keys)
 {
 	struct prefix prefix;
 	struct route_node *rn;

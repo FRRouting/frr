@@ -84,19 +84,22 @@ static struct nb_callback_info {
 		.operation = NB_OP_GET_NEXT,
 		.return_type = "const void *",
 		.return_value = "NULL",
-		.arguments = "const char *xpath, const void *list_entry",
+		.arguments =
+			"const void *parent_list_entry, const void *list_entry",
 	},
 	{
 		.operation = NB_OP_GET_KEYS,
 		.return_type = "int ",
 		.return_value = "NB_OK",
-		.arguments = "const void *list_entry, struct yang_list_keys *keys",
+		.arguments =
+			"const void *list_entry, struct yang_list_keys *keys",
 	},
 	{
 		.operation = NB_OP_LOOKUP_ENTRY,
 		.return_type = "const void *",
 		.return_value = "NULL",
-		.arguments = "const struct yang_list_keys *keys",
+		.arguments =
+			"const void *parent_list_entry, const struct yang_list_keys *keys",
 	},
 	{
 		.operation = NB_OP_RPC,

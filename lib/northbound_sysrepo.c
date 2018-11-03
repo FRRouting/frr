@@ -299,111 +299,15 @@ static int frr_sr_config_change_cb(sr_session_ctx_t *session,
 	}
 }
 
-static void frr_sr_state_get_elem(struct list *elements,
-				  struct nb_node *nb_node,
-				  const void *list_entry, const char *xpath)
+static int frr_sr_state_data_iter_cb(const struct lys_node *snode,
+				     struct yang_translator *translator,
+				     struct yang_data *data, void *arg)
 {
-	struct yang_data *data;
+	struct list *elements = arg;
 
-	data = nb_node->cbs.get_elem(xpath, list_entry);
-	if (data)
-		listnode_add(elements, data);
-}
+	listnode_add(elements, data);
 
-static void frr_sr_state_cb_container(struct list *elements, const char *xpath,
-				      const struct lys_node *snode)
-{
-	struct lys_node *child;
-
-	LY_TREE_FOR (snode->child, child) {
-		struct nb_node *nb_node = child->priv;
-		char xpath_child[XPATH_MAXLEN];
-
-		if (!nb_operation_is_valid(NB_OP_GET_ELEM, child))
-			continue;
-
-		snprintf(xpath_child, sizeof(xpath_child), "%s/%s", xpath,
-			 child->name);
-
-		frr_sr_state_get_elem(elements, nb_node, NULL, xpath_child);
-	}
-}
-
-static void frr_sr_state_cb_list_entry(struct list *elements,
-				       const char *xpath_list,
-				       const void *list_entry,
-				       struct lys_node *child)
-{
-	struct nb_node *nb_node = child->priv;
-	struct lys_node_leaf *sleaf;
-	char xpath_child[XPATH_MAXLEN];
-
-	/* Sysrepo doesn't want to know about list keys. */
-	switch (child->nodetype) {
-	case LYS_LEAF:
-		sleaf = (struct lys_node_leaf *)child;
-		if (lys_is_key(sleaf, NULL))
-			return;
-		break;
-	case LYS_LEAFLIST:
-		break;
-	default:
-		return;
-	}
-
-	if (!nb_operation_is_valid(NB_OP_GET_ELEM, child))
-		return;
-
-	snprintf(xpath_child, sizeof(xpath_child), "%s/%s", xpath_list,
-		 child->name);
-
-	frr_sr_state_get_elem(elements, nb_node, list_entry, xpath_child);
-}
-
-static void frr_sr_state_cb_list(struct list *elements, const char *xpath,
-				 const struct lys_node *snode)
-{
-	struct nb_node *nb_node = snode->priv;
-	struct lys_node_list *slist = (struct lys_node_list *)snode;
-	const void *next;
-
-	for (next = nb_node->cbs.get_next(xpath, NULL); next;
-	     next = nb_node->cbs.get_next(xpath, next)) {
-		struct yang_list_keys keys;
-		const void *list_entry;
-		char xpath_list[XPATH_MAXLEN];
-		struct lys_node *child;
-
-		/* Get the list keys. */
-		if (nb_node->cbs.get_keys(next, &keys) != NB_OK) {
-			flog_warn(EC_LIB_NB_CB_STATE,
-				  "%s: failed to get list keys", __func__);
-			continue;
-		}
-
-		/* Get list item. */
-		list_entry = nb_node->cbs.lookup_entry(&keys);
-		if (!list_entry) {
-			flog_warn(EC_LIB_NB_CB_STATE,
-				  "%s: failed to lookup list entry", __func__);
-			continue;
-		}
-
-		/* Append list keys to the XPath. */
-		strlcpy(xpath_list, xpath, sizeof(xpath_list));
-		for (unsigned int i = 0; i < keys.num; i++) {
-			snprintf(xpath_list + strlen(xpath_list),
-				 sizeof(xpath_list) - strlen(xpath_list),
-				 "[%s='%s']", slist->keys[i]->name,
-				 keys.key[i]);
-		}
-
-		/* Loop through list entries. */
-		LY_TREE_FOR (snode->child, child) {
-			frr_sr_state_cb_list_entry(elements, xpath_list,
-						   list_entry, child);
-		}
-	}
+	return NB_OK;
 }
 
 /* Callback for state retrieval. */
@@ -413,26 +317,20 @@ static int frr_sr_state_cb(const char *xpath, sr_val_t **values,
 {
 	struct list *elements;
 	struct yang_data *data;
-	const struct lys_node *snode;
 	struct listnode *node;
 	sr_val_t *v;
 	int ret, count, i = 0;
 
-	/* Find schema node. */
-	snode = ly_ctx_get_node(ly_native_ctx, NULL, xpath, 0);
-
 	elements = yang_data_list_new();
-
-	switch (snode->nodetype) {
-	case LYS_CONTAINER:
-		frr_sr_state_cb_container(elements, xpath, snode);
-		break;
-	case LYS_LIST:
-		frr_sr_state_cb_list(elements, xpath, snode);
-		break;
-	default:
-		break;
+	if (nb_oper_data_iterate(xpath, NULL, NB_OPER_DATA_ITER_NORECURSE,
+				 frr_sr_state_data_iter_cb, elements)
+	    != NB_OK) {
+		flog_warn(EC_LIB_NB_OPERATIONAL_DATA,
+			  "%s: failed to obtain operational data [xpath %s]",
+			  __func__, xpath);
+		goto exit;
 	}
+
 	if (list_isempty(elements))
 		goto exit;
 

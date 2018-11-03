@@ -68,6 +68,7 @@ check_PROGRAMS = \
 	tests/lib/test_graph \
 	tests/lib/cli/test_cli \
 	tests/lib/cli/test_commands \
+	tests/lib/northbound/test_oper_data \
 	$(TESTS_BGPD) \
 	$(TESTS_ISISD) \
 	$(TESTS_OSPF6D) \
@@ -175,6 +176,11 @@ tests_lib_cli_test_commands_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_cli_test_commands_LDADD = $(ALL_TESTS_LDADD)
 nodist_tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands_defun.c
 tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands.c tests/helpers/c/prng.c
+tests_lib_northbound_test_oper_data_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_northbound_test_oper_data_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_northbound_test_oper_data_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_northbound_test_oper_data_SOURCES = tests/lib/northbound/test_oper_data.c
+nodist_tests_lib_northbound_test_oper_data_SOURCES = yang/frr-test-module.yang.c
 tests_lib_test_buffer_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_buffer_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_buffer_LDADD = $(ALL_TESTS_LDADD)
@@ -284,6 +290,9 @@ EXTRA_DIST += \
 	tests/lib/cli/test_cli.in \
 	tests/lib/cli/test_cli.py \
 	tests/lib/cli/test_cli.refout \
+	tests/lib/northbound/test_oper_data.in \
+	tests/lib/northbound/test_oper_data.py \
+	tests/lib/northbound/test_oper_data.refout \
 	tests/lib/test_nexthop_iter.py \
 	tests/lib/test_ringbuf.py \
 	tests/lib/test_srcdest_table.py \

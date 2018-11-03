@@ -21,9 +21,10 @@
 #define _FRR_NORTHBOUND_H_
 
 #include "hook.h"
-#include "yang.h"
 #include "linklist.h"
 #include "openbsd-tree.h"
+#include "yang.h"
+#include "yang_translator.h"
 
 /* Forward declaration(s). */
 struct vty;
@@ -211,15 +212,15 @@ struct nb_callbacks {
 	/*
 	 * Operational data callback.
 	 *
-	 * The callback function should return the value of a specific leaf or
-	 * inform if a typeless value (presence containers or leafs of type
-	 * empty) exists or not.
+	 * The callback function should return the value of a specific leaf,
+	 * leaf-list entry or inform if a typeless value (presence containers or
+	 * leafs of type empty) exists or not.
 	 *
 	 * xpath
 	 *    YANG data path of the data we want to get.
 	 *
 	 * list_entry
-	 *    Pointer to list entry.
+	 *    Pointer to list entry (might be NULL).
 	 *
 	 * Returns:
 	 *    Pointer to newly created yang_data structure, or NULL to indicate
@@ -229,22 +230,24 @@ struct nb_callbacks {
 				      const void *list_entry);
 
 	/*
-	 * Operational data callback for YANG lists.
+	 * Operational data callback for YANG lists and leaf-lists.
 	 *
-	 * The callback function should return the next entry in the list. The
-	 * 'list_entry' parameter will be NULL on the first invocation.
+	 * The callback function should return the next entry in the list or
+	 * leaf-list. The 'list_entry' parameter will be NULL on the first
+	 * invocation.
 	 *
-	 * xpath
-	 *    Data path of the YANG list.
+	 * parent_list_entry
+	 *    Pointer to parent list entry.
 	 *
 	 * list_entry
-	 *    Pointer to list entry.
+	 *    Pointer to (leaf-)list entry.
 	 *
 	 * Returns:
-	 *    Pointer to the next entry in the list, or NULL to signal that the
-	 *    end of the list was reached.
+	 *    Pointer to the next entry in the (leaf-)list, or NULL to signal
+	 *    that the end of the (leaf-)list was reached.
 	 */
-	const void *(*get_next)(const char *xpath, const void *list_entry);
+	const void *(*get_next)(const void *parent_list_entry,
+				const void *list_entry);
 
 	/*
 	 * Operational data callback for YANG lists.
@@ -270,13 +273,17 @@ struct nb_callbacks {
 	 * The callback function should return a list entry based on the list
 	 * keys given as a parameter.
 	 *
+	 * parent_list_entry
+	 *    Pointer to parent list entry.
+	 *
 	 * keys
 	 *    Structure containing the keys of the list entry.
 	 *
 	 * Returns:
 	 *    Pointer to the list entry if found, or NULL if not found.
 	 */
-	const void *(*lookup_entry)(const struct yang_list_keys *keys);
+	const void *(*lookup_entry)(const void *parent_list_entry,
+				    const struct yang_list_keys *keys);
 
 	/*
 	 * RPC and action callback.
@@ -433,6 +440,14 @@ struct nb_transaction {
 	struct nb_config *config;
 	struct nb_config_cbs changes;
 };
+
+/* Callback function used by nb_oper_data_iterate(). */
+typedef int (*nb_oper_data_cb)(const struct lys_node *snode,
+			       struct yang_translator *translator,
+			       struct yang_data *data, void *arg);
+
+/* Iterate over direct child nodes only. */
+#define NB_OPER_DATA_ITER_NORECURSE 0x0001
 
 DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 	     (xpath, arguments))
@@ -699,6 +714,31 @@ extern void nb_candidate_commit_apply(struct nb_transaction *transaction,
 extern int nb_candidate_commit(struct nb_config *candidate,
 			       enum nb_client client, bool save_transaction,
 			       const char *comment, uint32_t *transaction_id);
+
+/*
+ * Iterate over operetional data.
+ *
+ * xpath
+ *    Data path of the YANG data we want to iterate over.
+ *
+ * translator
+ *    YANG module translator (might be NULL).
+ *
+ * flags
+ *    NB_OPER_DATA_ITER_ flags to control how the iteration is performed.
+ *
+ * cb
+ *    Function to call with each data node.
+ *
+ * arg
+ *    Arbitrary argument passed as the fourth parameter in each call to 'cb'.
+ *
+ * Returns:
+ *    NB_OK on success, NB_ERR otherwise.
+ */
+extern int nb_oper_data_iterate(const char *xpath,
+				struct yang_translator *translator,
+				uint32_t flags, nb_oper_data_cb cb, void *arg);
 
 /*
  * Validate if the northbound operation is valid for the given node.
