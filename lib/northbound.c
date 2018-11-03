@@ -380,7 +380,8 @@ static void nb_config_diff(const struct nb_config *config1,
 		nb_config_diff_add_change(changes, operation, dnode);
 
 		if (type == LYD_DIFF_CREATED
-		    && (dnode->schema->nodetype & (LYS_CONTAINER | LYS_LIST)))
+		    && CHECK_FLAG(dnode->schema->nodetype,
+				  LYS_CONTAINER | LYS_LIST))
 			nb_config_diff_new_subtree(dnode, changes);
 	}
 
@@ -898,7 +899,7 @@ bool nb_operation_is_valid(enum nb_operation operation,
 
 	switch (operation) {
 	case NB_OP_CREATE:
-		if (!(snode->flags & LYS_CONFIG_W))
+		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
 			return false;
 
 		switch (snode->nodetype) {
@@ -920,7 +921,7 @@ bool nb_operation_is_valid(enum nb_operation operation,
 		}
 		return true;
 	case NB_OP_MODIFY:
-		if (!(snode->flags & LYS_CONFIG_W))
+		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
 			return false;
 
 		switch (snode->nodetype) {
@@ -938,7 +939,7 @@ bool nb_operation_is_valid(enum nb_operation operation,
 		}
 		return true;
 	case NB_OP_DELETE:
-		if (!(snode->flags & LYS_CONFIG_W))
+		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
 			return false;
 
 		switch (snode->nodetype) {
@@ -957,7 +958,8 @@ bool nb_operation_is_valid(enum nb_operation operation,
 				return true;
 			if (sleaf->when)
 				return true;
-			if ((sleaf->flags & LYS_MAND_TRUE) || sleaf->dflt)
+			if (CHECK_FLAG(sleaf->flags, LYS_MAND_TRUE)
+			    || sleaf->dflt)
 				return false;
 			break;
 		case LYS_CONTAINER:
@@ -973,13 +975,13 @@ bool nb_operation_is_valid(enum nb_operation operation,
 		}
 		return true;
 	case NB_OP_MOVE:
-		if (!(snode->flags & LYS_CONFIG_W))
+		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
 			return false;
 
 		switch (snode->nodetype) {
 		case LYS_LIST:
 		case LYS_LEAFLIST:
-			if (!(snode->flags & LYS_USERORDERED))
+			if (!CHECK_FLAG(snode->flags, LYS_USERORDERED))
 				return false;
 			break;
 		default:
@@ -987,11 +989,11 @@ bool nb_operation_is_valid(enum nb_operation operation,
 		}
 		return true;
 	case NB_OP_APPLY_FINISH:
-		if (!(snode->flags & LYS_CONFIG_W))
+		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
 			return false;
 		return true;
 	case NB_OP_GET_ELEM:
-		if (!(snode->flags & LYS_CONFIG_R))
+		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_R))
 			return false;
 
 		switch (snode->nodetype) {
@@ -1009,7 +1011,7 @@ bool nb_operation_is_valid(enum nb_operation operation,
 	case NB_OP_GET_NEXT:
 	case NB_OP_GET_KEYS:
 	case NB_OP_LOOKUP_ENTRY:
-		if (!(snode->flags & LYS_CONFIG_R))
+		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_R))
 			return false;
 
 		switch (snode->nodetype) {
@@ -1020,7 +1022,7 @@ bool nb_operation_is_valid(enum nb_operation operation,
 		}
 		return true;
 	case NB_OP_RPC:
-		if (snode->flags & (LYS_CONFIG_W | LYS_CONFIG_R))
+		if (CHECK_FLAG(snode->flags, LYS_CONFIG_W | LYS_CONFIG_R))
 			return false;
 
 		switch (snode->nodetype) {

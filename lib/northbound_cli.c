@@ -359,7 +359,7 @@ static int nb_cli_show_config_libyang(struct vty *vty, LYD_FORMAT format,
 {
 	struct lyd_node *dnode;
 	char *strp;
-	int options;
+	int options = 0;
 
 	dnode = yang_dnode_dup(config->dnode);
 	if (translator
@@ -371,11 +371,11 @@ static int nb_cli_show_config_libyang(struct vty *vty, LYD_FORMAT format,
 		return CMD_WARNING;
 	}
 
-	options = LYP_FORMAT | LYP_WITHSIBLINGS;
+	SET_FLAG(options, LYP_FORMAT | LYP_WITHSIBLINGS);
 	if (with_defaults)
-		options |= LYP_WD_ALL;
+		SET_FLAG(options, LYP_WD_ALL);
 	else
-		options |= LYP_WD_TRIM;
+		SET_FLAG(options, LYP_WD_TRIM);
 
 	if (lyd_print_mem(&strp, dnode, format, options) == 0 && strp) {
 		vty_out(vty, "%s", strp);

@@ -739,10 +739,10 @@ static void frr_sr_subscribe_state(const struct lys_node *snode, void *arg1,
 	struct nb_node *nb_node;
 	int ret;
 
-	if (!(snode->flags & LYS_CONFIG_R))
+	if (!CHECK_FLAG(snode->flags, LYS_CONFIG_R))
 		return;
 	/* We only need to subscribe to the root of the state subtrees. */
-	if (snode->parent && (snode->parent->flags & LYS_CONFIG_R))
+	if (snode->parent && CHECK_FLAG(snode->parent->flags, LYS_CONFIG_R))
 		return;
 
 	nb_node = snode->priv;

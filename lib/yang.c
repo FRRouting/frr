@@ -132,7 +132,7 @@ static void yang_snodes_iterate(const struct lys_node *snode,
 		case LYS_CASE:
 		case LYS_INPUT:
 		case LYS_OUTPUT:
-			if (snode->flags & LYS_IMPLICIT)
+			if (CHECK_FLAG(snode->flags, LYS_IMPLICIT))
 				goto next;
 			break;
 		default:
@@ -183,7 +183,7 @@ next:
 	 * YANG leafs and leaf-lists can't have child nodes, and trying to
 	 * access snode->child is undefined behavior.
 	 */
-	if (snode->nodetype & (LYS_LEAF | LYS_LEAFLIST))
+	if (CHECK_FLAG(snode->nodetype, LYS_LEAF | LYS_LEAFLIST))
 		return;
 
 	LY_TREE_FOR (snode->child, child) {
@@ -324,7 +324,7 @@ const struct lys_type *yang_snode_get_type(const struct lys_node *snode)
 	struct lys_node_leaf *sleaf = (struct lys_node_leaf *)snode;
 	struct lys_type *type;
 
-	if (!(sleaf->nodetype & (LYS_LEAF | LYS_LEAFLIST)))
+	if (!CHECK_FLAG(sleaf->nodetype, LYS_LEAF | LYS_LEAFLIST))
 		return NULL;
 
 	type = &sleaf->type;
@@ -440,7 +440,7 @@ bool yang_dnode_is_default_recursive(const struct lyd_node *dnode)
 	struct lyd_node *root, *next, *dnode_iter;
 
 	snode = dnode->schema;
-	if (snode->nodetype & (LYS_LEAF | LYS_LEAFLIST))
+	if (CHECK_FLAG(snode->nodetype, LYS_LEAF | LYS_LEAFLIST))
 		return yang_dnode_is_default(dnode, NULL);
 
 	if (!yang_dnode_is_default(dnode, NULL))
@@ -466,7 +466,7 @@ void yang_dnode_change_leaf(struct lyd_node *dnode, const char *value)
 
 void yang_dnode_set_entry(const struct lyd_node *dnode, void *entry)
 {
-	assert(dnode->schema->nodetype & (LYS_LIST | LYS_CONTAINER));
+	assert(CHECK_FLAG(dnode->schema->nodetype, LYS_LIST | LYS_CONTAINER));
 	lyd_set_private(dnode, entry);
 }
 

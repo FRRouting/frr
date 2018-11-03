@@ -130,9 +130,9 @@ static void generate_callback_name(struct lys_node *snode,
 	snodes = list_new();
 	for (; snode; snode = lys_parent(snode)) {
 		/* Skip schema-only snodes. */
-		if (snode->nodetype
-		    & (LYS_USES | LYS_CHOICE | LYS_CASE | LYS_INPUT
-		       | LYS_OUTPUT))
+		if (CHECK_FLAG(snode->nodetype, LYS_USES | LYS_CHOICE | LYS_CASE
+							| LYS_INPUT
+							| LYS_OUTPUT))
 			continue;
 
 		listnode_add_head(snodes, snode);
