@@ -40,23 +40,3 @@ When building libyang on CentOS 6, it's also necessary to pass the
 Note: please check the `libyang build requirements
 <https://github.com/CESNET/libyang/blob/master/README.md#build-requirements>`_
 first.
-
-Libyang uses loadable libraries an YANG modules.  It supports
-environment variables to allow overriding the load paths for each of
-these. With FRR, this override currently must be done at the time of
-running FRR's configure command using new options. The new options are:
-
-.. code-block:: shell
-
-   --with-yangmodelsdir=DIR
-                          yang models directory (${datarootdir}/yang)
-   --with-libyang-pluginsdir=DIR
-                          yangmodule plugins directory
-                          (${libdir}/frr/libyang_plugins)
-
-an example which uses the compile directory is:
-
-.. code-block:: shell
-
-   ./configure --with-libyang-pluginsdir="`pwd`/yang/libyang_plugins/.libs" \
-          --with-yangmodelsdir="`pwd`/yang"
