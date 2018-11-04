@@ -350,7 +350,10 @@ static void zvni_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json)
 	const char *type_str;
 	const char *state_str;
 	bool flags_present = false;
+	struct zebra_vrf *zvrf;
+	struct timeval detect_start_time = {0, 0};
 
+	zvrf = zebra_vrf_lookup_by_id(n->zvni->vrf_id);
 	ipaddr2str(&n->ip, buf2, sizeof(buf2));
 	prefix_mac2str(&n->emac, buf1, sizeof(buf1));
 	type_str = CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL) ?
@@ -397,9 +400,36 @@ static void zvni_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json)
 			vty_out(vty, "\n");
 		vty_out(vty, " Local Seq: %u Remote Seq: %u\n",
 			n->loc_seq, n->rem_seq);
+
+		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE)) {
+			vty_out(vty, " Duplicate, detected at %s",
+				time_to_string(n->dad_dup_detect_time));
+		} else if (n->dad_count) {
+			monotime_since(&n->detect_start_time,
+				       &detect_start_time);
+			if (detect_start_time.tv_sec <= zvrf->dad_time) {
+				char *buf = time_to_string(n->
+						detect_start_time.tv_sec);
+				char tmp_buf[30];
+
+				memset(tmp_buf, 0, 30);
+				strncpy(tmp_buf, buf, strlen(buf) - 1);
+				vty_out(vty,
+					" Duplicate detection started at %s, detection count %u\n",
+					tmp_buf, n->dad_count);
+			}
+		}
 	} else {
 		json_object_int_add(json, "localSequence", n->loc_seq);
 		json_object_int_add(json, "remoteSequence", n->rem_seq);
+		json_object_int_add(json, "detectionCount",
+				    n->dad_count);
+		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE))
+			json_object_boolean_true_add(json, "isDuplicate");
+		else
+			json_object_boolean_false_add(json, "isDuplicate");
+
+
 	}
 }
 
@@ -445,6 +475,14 @@ static void zvni_print_neigh_hash(struct hash_backet *backet, void *ctxt)
 					    n->loc_seq);
 			json_object_int_add(json_row, "remoteSequence",
 					    n->rem_seq);
+			json_object_int_add(json_row, "detectionCount",
+					    n->dad_count);
+			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE))
+				json_object_boolean_true_add(json_row,
+							     "isDuplicate");
+			else
+				json_object_boolean_false_add(json_row,
+							      "isDuplicate");
 		}
 		wctx->count++;
 	} else if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
@@ -475,6 +513,14 @@ static void zvni_print_neigh_hash(struct hash_backet *backet, void *ctxt)
 					    n->loc_seq);
 			json_object_int_add(json_row, "remoteSequence",
 					    n->rem_seq);
+			json_object_int_add(json_row, "detectionCount",
+					    n->dad_count);
+			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE))
+				json_object_boolean_true_add(json_row,
+							     "isDuplicate");
+			else
+				json_object_boolean_false_add(json_row,
+							      "isDuplicate");
 		}
 		wctx->count++;
 	}
@@ -625,6 +671,10 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 	struct listnode *node = NULL;
 	char buf1[20];
 	char buf2[INET6_ADDRSTRLEN];
+	struct zebra_vrf *zvrf;
+	struct timeval detect_start_time = {0, 0};
+
+	zvrf = zebra_vrf_lookup_by_id(mac->zvni->vrf_id);
 
 	vty = (struct vty *)ctxt;
 	prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1));
@@ -669,6 +719,12 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 
 		json_object_int_add(json_mac, "localSequence", mac->loc_seq);
 		json_object_int_add(json_mac, "remoteSequence", mac->rem_seq);
+
+		json_object_int_add(json_mac, "detectionCount", mac->dad_count);
+		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE))
+			json_object_boolean_true_add(json_mac, "isDuplicate");
+		else
+			json_object_boolean_false_add(json_mac, "isDuplicate");
 
 		/* print all the associated neigh */
 		if (!listcount(mac->neigh_list))
@@ -747,6 +803,25 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 			mac->rem_seq);
 		vty_out(vty, "\n");
 
+		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE)) {
+			vty_out(vty, " Duplicate, detected at %s",
+				time_to_string(mac->dad_dup_detect_time));
+		} else if (mac->dad_count) {
+			monotime_since(&mac->detect_start_time,
+			       &detect_start_time);
+			if (detect_start_time.tv_sec <= zvrf->dad_time) {
+				char *buf = time_to_string(mac->
+						detect_start_time.tv_sec);
+				char tmp_buf[30];
+
+				memset(tmp_buf, 0, 30);
+				strncpy(tmp_buf, buf, strlen(buf) - 1);
+				vty_out(vty,
+					" Duplicate detection started at %s, detection count %u\n",
+					tmp_buf, mac->dad_count);
+			}
+		}
+
 		/* print all the associated neigh */
 		vty_out(vty, " Neighbors:\n");
 		if (!listcount(mac->neigh_list))
@@ -820,6 +895,14 @@ static void zvni_print_mac_hash(struct hash_backet *backet, void *ctxt)
 					    mac->loc_seq);
 			json_object_int_add(json_mac, "remoteSequence",
 					    mac->rem_seq);
+			json_object_int_add(json_mac, "detectionCount",
+					    mac->dad_count);
+			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE))
+				json_object_boolean_true_add(json_mac,
+							     "isDuplicate");
+			else
+				json_object_boolean_false_add(json_mac,
+							     "isDuplicate");
 			json_object_object_add(json_mac_hdr, buf1, json_mac);
 		}
 
@@ -850,6 +933,15 @@ static void zvni_print_mac_hash(struct hash_backet *backet, void *ctxt)
 					    mac->loc_seq);
 			json_object_int_add(json_mac, "remoteSequence",
 					    mac->rem_seq);
+			json_object_int_add(json_mac, "detectionCount",
+					    mac->dad_count);
+			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE))
+				json_object_boolean_true_add(json_mac,
+							     "isDuplicate");
+			else
+				json_object_boolean_false_add(json_mac,
+							      "isDuplicate");
+
 		}
 
 		wctx->count++;
