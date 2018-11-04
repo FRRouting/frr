@@ -181,5 +181,17 @@ extern void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id,
 extern void zebra_vxlan_evpn_vrf_route_del(vrf_id_t vrf_id,
 					   struct ipaddr *vtep_ip,
 					   struct prefix *host_prefix);
+extern void zebra_vxlan_clear_dup_detect_vni_mac(struct vty *vty,
+						 struct zebra_vrf *zvrf,
+						 vni_t vni,
+						 struct ethaddr *macaddr);
+extern void zebra_vxlan_clear_dup_detect_vni_ip(struct vty *vty,
+						struct zebra_vrf *zvrf,
+						vni_t vni, struct ipaddr *ip);
+extern void zebra_vxlan_clear_dup_detect_vni_all(struct vty *vty,
+						 struct zebra_vrf *zvrf);
+extern void zebra_vxlan_clear_dup_detect_vni(struct vty *vty,
+					     struct zebra_vrf *zvrf,
+					     vni_t vni);
 
 #endif /* _ZEBRA_VXLAN_H */
