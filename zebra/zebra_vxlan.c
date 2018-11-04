@@ -184,6 +184,8 @@ static int zebra_vxlan_ip_inherit_dad_from_mac(struct zebra_vrf *zvrf,
 					       zebra_neigh_t *nbr);
 static int remote_neigh_count(zebra_mac_t *zmac);
 static void zvni_deref_ip2mac(zebra_vni_t *zvni, zebra_mac_t *mac);
+static int zebra_vxlan_dad_mac_auto_recovery_exp(struct thread *t);
+static int zebra_vxlan_dad_ip_auto_recovery_exp(struct thread *t);
 
 /* Private functions */
 static int host_rb_entry_compare(const struct host_rb_entry *hle1,
@@ -1559,7 +1561,10 @@ static void zvni_process_neigh_on_local_mac_change(zebra_vni_t *zvni,
 {
 	zebra_neigh_t *n = NULL;
 	struct listnode *node = NULL;
+	struct zebra_vrf *zvrf = NULL;
 	char buf[ETHER_ADDR_STRLEN];
+
+	zvrf = vrf_info_lookup(zvni->vrf_id);
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("Processing neighbors on local MAC %s %s, VNI %u",
@@ -1577,9 +1582,12 @@ static void zvni_process_neigh_on_local_mac_change(zebra_vni_t *zvni,
 			if (IS_ZEBRA_NEIGH_INACTIVE(n) || seq_change) {
 				ZEBRA_NEIGH_SET_ACTIVE(n);
 				n->loc_seq = zmac->loc_seq;
-				zvni_neigh_send_add_to_client(
-					zvni->vni, &n->ip, &n->emac,
-					n->flags, n->loc_seq);
+				if (!(zvrf->dup_addr_detect &&
+				      zvrf->dad_freeze && !!CHECK_FLAG(n->flags,
+						ZEBRA_NEIGH_DUPLICATE)))
+					zvni_neigh_send_add_to_client(
+						zvni->vni, &n->ip, &n->emac,
+						n->flags, n->loc_seq);
 			}
 		}
 	}
@@ -2334,6 +2342,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 
 			goto send_notif;
 		}
+
 		/* MAC binding changed and previous state was remote */
 		if (!(neigh_mac_change && neigh_was_remote))
 			goto send_notif;
@@ -2376,12 +2385,33 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 			/* Capture Duplicate detection time */
 			n->dad_dup_detect_time = monotime(NULL);
 
+			/* Start auto recovery timer for this IP */
+			THREAD_OFF(n->dad_ip_auto_recovery_timer);
+			if (zvrf->dad_freeze && zvrf->dad_freeze_time) {
+				if (IS_ZEBRA_DEBUG_VXLAN)
+					zlog_debug(
+						"%s: duplicate addr MAC %s IP %s flags 0x%x auto recovery time %u start",
+					__PRETTY_FUNCTION__,
+					prefix_mac2str(macaddr, buf,
+						       sizeof(buf)),
+					ipaddr2str(ip, buf2, sizeof(buf2)),
+					n->flags,
+					zvrf->dad_freeze_time);
+
+				thread_add_timer(zebrad.master,
+					zebra_vxlan_dad_ip_auto_recovery_exp,
+					n,
+					zvrf->dad_freeze_time,
+					&n->dad_ip_auto_recovery_timer);
+			}
+
 			if (zvrf->dad_freeze)
 				neigh_on_hold = true;
 		}
 	}
 
 send_notif:
+
 	/* Before we program this in BGP, we need to check if MAC is locally
 	 * learnt. If not, force neighbor to be inactive and reset its seq.
 	 */
@@ -4574,6 +4604,26 @@ static void process_remote_macip_add(vni_t vni,
 							     sizeof(buf1)));
 				}
 
+				/* Start auto recovery timer for this
+				 * MAC
+				 */
+				THREAD_OFF(mac->dad_mac_auto_recovery_timer);
+				if (zvrf->dad_freeze && zvrf->dad_freeze_time) {
+					if (IS_ZEBRA_DEBUG_VXLAN)
+						zlog_debug("%s: duplicate addr MAC %s flags 0%x auto recovery time %u start",
+						   __PRETTY_FUNCTION__,
+						   prefix_mac2str(&mac->macaddr,
+							buf, sizeof(buf)),
+						   mac->flags,
+						   zvrf->dad_freeze_time);
+
+					thread_add_timer(zebrad.master,
+					zebra_vxlan_dad_mac_auto_recovery_exp,
+					mac,
+					zvrf->dad_freeze_time,
+					&mac->dad_mac_auto_recovery_timer);
+				}
+
 				if (zvrf->dad_freeze)
 					is_dup_detect = true;
 			}
@@ -4788,6 +4838,27 @@ process_neigh:
 				/* Capture Duplicate detection time */
 				n->dad_dup_detect_time = monotime(NULL);
 
+				/* Start auto recovery timer for this IP */
+				THREAD_OFF(n->dad_ip_auto_recovery_timer);
+				if (zvrf->dad_freeze && zvrf->dad_freeze_time) {
+					if (IS_ZEBRA_DEBUG_VXLAN)
+						zlog_debug(
+							"%s: duplicate addr MAC %s IP %s flags 0x%x auto recovery time %u start",
+						   __PRETTY_FUNCTION__,
+						   prefix_mac2str(&mac->macaddr,
+								  buf,
+								  sizeof(buf)),
+						   ipaddr2str(ipaddr, buf1,
+							      sizeof(buf1)),
+						   mac->flags,
+						   zvrf->dad_freeze_time);
+
+					thread_add_timer(zebrad.master,
+						zebra_vxlan_dad_ip_auto_recovery_exp,
+						n,
+						zvrf->dad_freeze_time,
+						&n->dad_ip_auto_recovery_timer);
+				}
 				if (zvrf->dad_freeze)
 					is_dup_detect = true;
 			}
@@ -6529,6 +6600,31 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 							     sizeof(buf2)));
 					}
 
+					/* Start auto recovery timer for this
+					 * MAC
+					 */
+					THREAD_OFF(
+					mac->dad_mac_auto_recovery_timer);
+					if (zvrf->dad_freeze &&
+					    zvrf->dad_freeze_time) {
+						if (IS_ZEBRA_DEBUG_VXLAN)
+							zlog_debug("%s: duplicate addr MAC %s flags 0x%x auto recovery time %u start",
+							__PRETTY_FUNCTION__,
+							prefix_mac2str(
+								&mac->macaddr,
+								buf,
+								sizeof(buf)),
+							mac->flags,
+							zvrf->dad_freeze_time);
+
+						thread_add_timer(zebrad.master,
+						zebra_vxlan_dad_mac_auto_recovery_exp,
+						mac,
+						zvrf->dad_freeze_time,
+						&mac->
+						dad_mac_auto_recovery_timer);
+					}
+
 					/* Do not inform to client (BGPd),
 					 * upd_neigh for neigh sequence change.
 					 */
@@ -7863,4 +7959,128 @@ ifindex_t get_l3vni_svi_ifindex(vrf_id_t vrf_id)
 		return 0;
 
 	return zl3vni->svi_if->ifindex;
+}
+
+static int zebra_vxlan_dad_ip_auto_recovery_exp(struct thread *t)
+{
+	struct zebra_vrf *zvrf = NULL;
+	zebra_neigh_t *nbr = NULL;
+	zebra_vni_t *zvni = NULL;
+	char buf1[INET6_ADDRSTRLEN];
+	char buf2[ETHER_ADDR_STRLEN];
+
+	nbr = THREAD_ARG(t);
+
+	/* since this is asynchronous we need sanity checks*/
+	zvrf = vrf_info_lookup(nbr->zvni->vrf_id);
+	if (!zvrf)
+		goto exit;
+
+	zvni = zvni_lookup(nbr->zvni->vni);
+	if (!zvni)
+		goto exit;
+
+	nbr = zvni_neigh_lookup(zvni, &nbr->ip);
+	if (!nbr)
+		goto exit;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%s: duplicate addr MAC %s IP %s flags 0x%x learn count %u vni %u auto recovery expired",
+			  __PRETTY_FUNCTION__,
+			  prefix_mac2str(&nbr->emac, buf1, sizeof(buf1)),
+			  ipaddr2str(&nbr->ip, buf2, sizeof(buf2)),
+			  nbr->flags,
+			  nbr->dad_count, zvni->vni);
+
+	UNSET_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE);
+	nbr->dad_count = 0;
+	nbr->detect_start_time.tv_sec = 0;
+	nbr->detect_start_time.tv_usec = 0;
+	nbr->dad_dup_detect_time = 0;
+	nbr->dad_ip_auto_recovery_timer = NULL;
+
+	/* Send to BGP */
+	if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL)) {
+		zvni_neigh_send_add_to_client(zvni->vni, &nbr->ip, &nbr->emac,
+					      nbr->flags, nbr->loc_seq);
+	} else if (!!CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_REMOTE)) {
+		zvni_neigh_install(zvni, nbr);
+	}
+
+exit:
+	return 0;
+}
+
+static int zebra_vxlan_dad_mac_auto_recovery_exp(struct thread *t)
+{
+	struct zebra_vrf *zvrf = NULL;
+	zebra_mac_t *mac = NULL;
+	zebra_vni_t *zvni = NULL;
+	struct listnode *node = NULL;
+	zebra_neigh_t *nbr = NULL;
+	char buf[ETHER_ADDR_STRLEN];
+
+	mac = THREAD_ARG(t);
+
+	/* since this is asynchronous we need sanity checks*/
+	zvrf = vrf_info_lookup(mac->zvni->vrf_id);
+	if (!zvrf)
+		goto exit;
+
+	zvni = zvni_lookup(mac->zvni->vni);
+	if (!zvni)
+		goto exit;
+
+	mac = zvni_mac_lookup(zvni, &mac->macaddr);
+	if (!mac)
+		goto exit;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%s: duplicate addr mac %s flags 0x%x learn count %u host count %u auto recovery expired",
+			    __PRETTY_FUNCTION__,
+			    prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
+			    mac->flags,
+			    mac->dad_count,
+			    listcount(mac->neigh_list));
+
+	/* Remove all IPs as duplicate associcated with this MAC */
+	for (ALL_LIST_ELEMENTS_RO(mac->neigh_list, node, nbr)) {
+		if (nbr->dad_count) {
+			if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL))
+				ZEBRA_NEIGH_SET_INACTIVE(nbr);
+			else if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_REMOTE))
+				zvni_neigh_install(zvni, nbr);
+		}
+
+		UNSET_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE);
+		nbr->dad_count = 0;
+		nbr->detect_start_time.tv_sec = 0;
+		nbr->dad_dup_detect_time = 0;
+	}
+
+	UNSET_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE);
+	mac->dad_count = 0;
+	mac->detect_start_time.tv_sec = 0;
+	mac->detect_start_time.tv_usec = 0;
+	mac->dad_dup_detect_time = 0;
+	mac->dad_mac_auto_recovery_timer = NULL;
+
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
+		/* Inform to BGP */
+		if (zvni_mac_send_add_to_client(zvni->vni, &mac->macaddr,
+					mac->flags, mac->loc_seq))
+			return -1;
+
+		/* Process all neighbors associated with this MAC. */
+		zvni_process_neigh_on_local_mac_change(zvni, mac, 0);
+
+	} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
+		zvni_process_neigh_on_remote_mac_add(zvni, mac);
+
+		/* Install the entry. */
+		zvni_mac_install(zvni, mac);
+	}
+
+exit:
+	return 0;
 }

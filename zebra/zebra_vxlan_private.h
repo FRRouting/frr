@@ -343,6 +343,8 @@ struct zebra_neigh_t_ {
 	/* Underlying interface. */
 	ifindex_t ifindex;
 
+	zebra_vni_t *zvni;
+
 	uint32_t flags;
 #define ZEBRA_NEIGH_LOCAL     0x01
 #define ZEBRA_NEIGH_REMOTE    0x02
