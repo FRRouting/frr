@@ -677,6 +677,111 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 	return CMD_SUCCESS;
 }
 
+/* validates that vrf route leak is possible across vrfs
+ * params:
+ *  vrf_id_orig : should always be valid
+ *  vrf_id_target : may be not set
+ *  ifp : local interface from vrf_id_orig
+ *  ifindex : interface index pointer to return
+ *          it is ifindex of local interface of vrf
+ * return:
+ * - ROUTE_LEAK_VRF_LITE_POSSIBLE
+ *    if vrf route leak is possible, because it is vrf lite
+ * - ROUTE_LEAK_VRF_NETNS_POSSIBLE
+ *    if vrf is netns based and virtual ethernet is available and up
+ * - ROUTE_LEAK_VRF_NETNS_MAYBE
+ *    if interfaces for veth are present, but status of interface is not up
+ * - ROUTE_LEAK_VRF_NOT_POSSIBLE on other cases
+ */
+int vrf_route_leak_possible(vrf_id_t vrf_id_orig,
+			    vrf_id_t vrf_id_target,
+			    struct interface *ifp,
+			    ifindex_t *ifindex)
+{
+	struct interface *ifp_orig, *ifp_target;
+	struct vrf *vrf_orig = NULL, *vrf_target = NULL;
+	int ret = ROUTE_LEAK_VRF_NOT_POSSIBLE;
+
+	if (vrf_id_target == vrf_id_orig)
+		return ROUTE_LEAK_ROUTING_POSSIBLE;
+	/* if not netns, then vrf lite, then natively supported */
+	if (vrf_id_orig != VRF_UNKNOWN) {
+		if (!vrf_is_mapped_on_netns(vrf_id_orig))
+			return ROUTE_LEAK_VRF_LITE_POSSIBLE;
+		vrf_orig = vrf_lookup_by_id(vrf_id_orig);
+		if (!vrf_orig)
+			return ret;
+	} else
+		return ret;
+	if (vrf_id_target != VRF_UNKNOWN) {
+		if (!vrf_is_mapped_on_netns(vrf_id_target))
+			return ROUTE_LEAK_VRF_LITE_POSSIBLE;
+		vrf_target = vrf_lookup_by_id(vrf_id_target);
+		if (!vrf_target)
+			return ret;
+	}
+
+	/* passed interface is used in veth to cross vrf borders
+	 * look for vrf name
+	 */
+	if (vrf_id_target == VRF_UNKNOWN) {
+		if (!ifp)
+			return ret;
+		vrf_target = vrf_lookup_by_name(ifp->name);
+
+		if (!vrf_target)
+			return ret;
+		/* look for interface in target vrf
+		 * with name is local vrf_orig name
+		 */
+		if (vrf_orig == vrf_target)
+			return ret;
+		ifp_target = if_lookup_by_name(vrf_orig->name,
+					       vrf_target->vrf_id);
+		if (!ifp_target)
+			return ret;
+		ifp_orig = if_lookup_by_name(vrf_target->name, vrf_id_orig);
+		if (!ifp_orig)
+			return ret;
+		if (!if_is_up(ifp_orig) || !if_is_up(ifp_target))
+			return ROUTE_LEAK_VRF_NETNS_MAYBE;
+		return ROUTE_LEAK_VRF_NETNS_POSSIBLE;
+	}
+
+	/* on netns based vrf, solution consists in having interface
+	 * name matching target vrf name
+	 * example: communication between vrf0 and vrf1
+	 * to reach vrf1, interface vrf1 must exist in vrf vrf0
+	 */
+	ifp_orig = if_lookup_by_name(vrf_target->name, vrf_id_orig);
+	if (!ifp_orig)
+		return ret;
+	if (ifindex)
+		*ifindex = ifp_orig->ifindex;
+	ifp_target = if_lookup_by_name(vrf_orig->name, vrf_id_target);
+	/* because remote may not be present, this doesn ot mean that the
+	 * user will not provision it
+	 */
+	if (!ifp_target)
+		return ROUTE_LEAK_VRF_NETNS_MAYBE;
+
+	/* return interface index of the interface to use
+	 * in case a route leak must be established to reach vrf_target
+	 */
+	/* check that links are up on both sides
+	 * if not, the presence of interfaces is just enough
+	 * to assume this will be possible in an other
+	 * operational context
+	 */
+	if (!if_is_up(ifp_orig) || !if_is_up(ifp_target))
+		return ROUTE_LEAK_VRF_NETNS_MAYBE;
+	/* having interface name is not enough. one should check:
+	 * - that mac addresses are the same
+	 * - that interfaces are veth based
+	 */
+	return ROUTE_LEAK_VRF_NETNS_POSSIBLE;
+}
+
 int vrf_is_mapped_on_netns(vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
