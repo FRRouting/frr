@@ -700,6 +700,8 @@ DEFUN (ospf_area_range,
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
 	ospf_area_range_set(ospf, area_id, &p, OSPF_AREA_RANGE_ADVERTISE);
+	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
+				     format);
 	if (argc > 5) {
 		cost = strtoul(argv[idx_cost]->arg, NULL, 10);
 		ospf_area_range_cost_set(ospf, area_id, &p, cost);
