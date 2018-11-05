@@ -89,6 +89,8 @@ struct isis_circuit *isis_circuit_new()
 		circuit->priority[i] = DEFAULT_PRIORITY;
 		circuit->metric[i] = DEFAULT_CIRCUIT_METRIC;
 		circuit->te_metric[i] = DEFAULT_CIRCUIT_METRIC;
+		circuit->level_arg[i].level = i + 1;
+		circuit->level_arg[i].circuit = circuit;
 	}
 
 	circuit->mtc = mpls_te_circuit_new();
