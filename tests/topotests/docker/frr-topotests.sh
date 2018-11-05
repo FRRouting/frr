@@ -32,7 +32,11 @@ if [[ "$1" = "-h" ]] || [[ "$1" = "--help" ]]; then
 
 	Usage: $0 [args...]
 
-	Its behavior can be modified by the following environment variables:
+	If any arguments are provided and the first argument starts with / or ./
+	the arguments are interpreted as command and will be executed instead
+	of pytest.
+
+	Behavior can be further modified by the following environment variables:
 
 	TOPOTEST_AUTOLOAD       If set to 1, the script will try to load necessary
 	                        kernel modules without asking for confirmation first.
@@ -66,8 +70,6 @@ if [[ "$1" = "-h" ]] || [[ "$1" = "--help" ]]; then
 	TOPOTEST_VERBOSE        Show detailed build output.
 	                        Enabled by default, set to 0 to disable.
 
-	To get information about the commands available inside of the container,
-	run \`$0 help\`.
 	EOF
 	exit 1
 fi

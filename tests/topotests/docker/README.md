@@ -30,8 +30,8 @@ of the image. If you need to force a complete recompile, you can set `TOPOTEST_C
 TOPOTEST_CLEAN=1 frr-topotests
 ```
 
-By default, `frr-topotests` will execute pytest without any arguments. If you append an
-arguments with the first one starting with `/` or `./`, they will replace the call to
+By default, `frr-topotests` will build frr and run pytest. If you append
+arguments and the first one starts with `/` or `./`, they will replace the call to
 pytest. If the appended arguments do not match this patttern, they will be provided to
 pytest as arguments.
 
