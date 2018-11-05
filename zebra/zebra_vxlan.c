@@ -453,8 +453,8 @@ static void zvni_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json)
 			monotime_since(&n->detect_start_time,
 				       &detect_start_time);
 			if (detect_start_time.tv_sec <= zvrf->dad_time) {
-				char *buf = time_to_string(n->
-						detect_start_time.tv_sec);
+				char *buf = time_to_string(
+						n->detect_start_time.tv_sec);
 				char tmp_buf[30];
 
 				memset(tmp_buf, 0, 30);
@@ -878,8 +878,8 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 			monotime_since(&mac->detect_start_time,
 			       &detect_start_time);
 			if (detect_start_time.tv_sec <= zvrf->dad_time) {
-				char *buf = time_to_string(mac->
-						detect_start_time.tv_sec);
+				char *buf = time_to_string(
+						mac->detect_start_time.tv_sec);
 				char tmp_buf[30];
 
 				memset(tmp_buf, 0, 30);
@@ -5042,10 +5042,10 @@ process_neigh:
 						   zvrf->dad_freeze_time);
 
 					thread_add_timer(zebrad.master,
-						zebra_vxlan_dad_ip_auto_recovery_exp,
-						n,
-						zvrf->dad_freeze_time,
-						&n->dad_ip_auto_recovery_timer);
+					zebra_vxlan_dad_ip_auto_recovery_exp,
+					n,
+					zvrf->dad_freeze_time,
+					&n->dad_ip_auto_recovery_timer);
 				}
 				if (zvrf->dad_freeze)
 					is_dup_detect = true;
@@ -7269,8 +7269,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 						zebra_vxlan_dad_mac_auto_recovery_exp,
 						mac,
 						zvrf->dad_freeze_time,
-						&mac->
-						dad_mac_auto_recovery_timer);
+						&mac->dad_mac_auto_recovery_timer);
 					}
 
 					/* Do not inform to client (BGPd),
