@@ -15,6 +15,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         less \
         libtool \
         libjson-c-dev \
+        libpcre3-dev \
         libpython-dev \
         libreadline-dev \
         libc-ares-dev \
@@ -30,12 +31,23 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         tmux \
         valgrind \
         vim \
+        wget \
         x11-xserver-utils \
         xterm \
     && pip install \
         exabgp==3.4.17 \
         ipaddr \
         pytest
+
+RUN cd /tmp \
+    && wget -q https://ci1.netdef.org/artifact/LIBYANG-YANGRELEASE/shared/build-1/Ubuntu-18.04-x86_64-Packages/libyang-dev_0.16.46_amd64.deb \
+         -O libyang-dev.deb \
+    && wget -q https://ci1.netdef.org/artifact/LIBYANG-YANGRELEASE/shared/build-1/Ubuntu-18.04-x86_64-Packages/libyang_0.16.46_amd64.deb \
+         -O libyang.deb \
+    && echo "039252cc66eb254a97e160b1c325af669470cde8a02d73ec9f7b920ed3c7997c  libyang.deb" | sha256sum -c - \
+    && echo "e7e2d5bfc7b33b3218df8bef404432970f9b4ad10d6dbbdcb0e0be2babbb68e9  libyang-dev.deb" | sha256sum -c - \
+    && dpkg -i libyang*.deb \
+    && rm libyang*.deb
 
 RUN groupadd -r -g 92 frr \
     && groupadd -r -g 85 frrvty \
