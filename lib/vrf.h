@@ -242,6 +242,14 @@ extern const char *vrf_get_default_name(void);
 
 /* VRF is mapped on netns or not ? */
 int vrf_is_mapped_on_netns(struct vrf *vrf);
+#define ROUTE_LEAK_VRF_NOT_POSSIBLE	0
+#define ROUTE_LEAK_VRF_LITE_POSSIBLE	1
+#define ROUTE_LEAK_VRF_NETNS_POSSIBLE	2
+#define ROUTE_LEAK_ROUTING_POSSIBLE	3
+#define ROUTE_LEAK_VRF_NETNS_MAYBE	4
+int vrf_route_leak_possible(vrf_id_t vrf_id_orig,
+			    vrf_id_t vrf_id_target,
+			    ifindex_t *ifindex);
 
 /* VRF switch from NETNS */
 extern int vrf_switch_to_netns(vrf_id_t vrf_id);
