@@ -270,10 +270,6 @@ int isis_dr_commence(struct isis_circuit *circuit, int level)
 
 	/* Lets keep a pause in DR election */
 	circuit->u.bc.run_dr_elect[level - 1] = 0;
-	thread_add_timer(master, isis_run_dr,
-			 &circuit->level_arg[level - 1],
-			 2 * circuit->hello_interval[level - 1],
-			 &circuit->u.bc.t_run_dr[level - 1]);
 	circuit->u.bc.is_dr[level - 1] = 1;
 
 	if (level == 1) {
@@ -319,6 +315,10 @@ int isis_dr_commence(struct isis_circuit *circuit, int level)
 				 &circuit->t_send_csnp[1]);
 	}
 
+	thread_add_timer(master, isis_run_dr,
+			 &circuit->level_arg[level - 1],
+			 2 * circuit->hello_interval[level - 1],
+			 &circuit->u.bc.t_run_dr[level - 1]);
 	thread_add_event(master, isis_event_dis_status_change, circuit, 0,
 			 NULL);
 
