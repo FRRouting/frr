@@ -838,3 +838,48 @@ void bgp_nht_register_nexthops(struct bgp *bgp)
 		}
 	}
 }
+
+void bgp_nht_register_enhe_capability_interfaces(struct peer *peer)
+{
+	struct bgp *bgp;
+	struct bgp_node *rn;
+	struct bgp_nexthop_cache *bnc;
+	struct nexthop *nhop;
+	struct interface *ifp;
+	struct prefix p;
+
+	if (peer->ifp)
+		return;
+
+	bgp = peer->bgp;
+
+	if (!bgp->nexthop_cache_table[AFI_IP6])
+		return;
+
+	if (!sockunion2hostprefix(&peer->su, &p)) {
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug("%s: Unable to convert prefix to sockunion",
+				   __PRETTY_FUNCTION__);
+		return;
+	}
+
+	if (p.family != AF_INET6)
+		return;
+	rn = bgp_node_lookup(bgp->nexthop_cache_table[AFI_IP6], &p);
+
+	bnc = bgp_nexthop_get_node_info(rn);
+	if (!bnc)
+		return;
+
+	if (peer != bnc->nht_info)
+		return;
+
+	for (nhop = bnc->nexthop; nhop; nhop = nhop->next) {
+		ifp = if_lookup_by_index(nhop->ifindex,
+					 nhop->vrf_id);
+		zclient_send_interface_radv_req(zclient,
+						nhop->vrf_id,
+						ifp, true,
+						BGP_UNNUM_DEFAULT_RA_INTERVAL);
+	}
+}

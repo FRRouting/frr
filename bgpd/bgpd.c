@@ -3905,6 +3905,9 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 		return 0;
 	}
 
+	if (set && flag == PEER_FLAG_CAPABILITY_ENHE)
+		bgp_nht_register_enhe_capability_interfaces(peer);
+
 	/*
 	 * Update peer-group members, unless they are explicitely overriding
 	 * peer-group configuration.
@@ -3927,6 +3930,9 @@ static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 
 		/* Update flag on peer-group member. */
 		COND_FLAG(member->flags, flag, set != member_invert);
+
+		if (set && flag == PEER_FLAG_CAPABILITY_ENHE)
+			bgp_nht_register_enhe_capability_interfaces(member);
 
 		/* Execute flag action on peer-group member. */
 		if (action.type == peer_change_reset)

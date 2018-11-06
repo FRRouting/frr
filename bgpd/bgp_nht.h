@@ -88,4 +88,13 @@ extern void path_nh_map(struct bgp_path_info *path,
  */
 extern void bgp_nht_register_nexthops(struct bgp *bgp);
 
+/*
+ * When we have the the PEER_FLAG_CAPABILITY_ENHE flag
+ * set on a peer *after* it has been brought up we need
+ * to notice and setup the interface based RA,
+ * this code can walk the registered nexthops and
+ * register the important ones with zebra for RA.
+ */
+extern void bgp_nht_register_enhe_capability_interfaces(struct peer *peer);
+
 #endif /* _BGP_NHT_H */
