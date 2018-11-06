@@ -139,10 +139,12 @@ def test_bgp_convergence():
         and compare with `data` contents.
         """
         output = router.vtysh_cmd(cmd, isjson=True)
-        if output.has_key('ipv4Unicast'):
-            output['ipv4Unicast']['vrfName'].replace('default', 'Default')
-        elif output.has_key('vrfName'):
-            output['vrfName'].replace('default', 'Default')
+        if 'ipv4Unicast' in output:
+            output['ipv4Unicast']['vrfName'] = \
+                    output['ipv4Unicast']['vrfName'].replace(
+                        'default', 'Default')
+        elif 'vrfName' in output:
+            output['vrfName'] = output['vrfName'].replace('default', 'Default')
         return topotest.json_cmp(output, data)
 
     test_func = functools.partial(
