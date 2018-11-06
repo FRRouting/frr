@@ -48,10 +48,11 @@ from mininet.topo import Topo
 total_ebgp_peers = 20
 
 #####################################################
-##
-##   Network Topology Definition
-##
+#
+#   Network Topology Definition
+#
 #####################################################
+
 
 class BGPECMPTopo1(Topo):
     "BGP ECMP Topology 1"
@@ -63,13 +64,13 @@ class BGPECMPTopo1(Topo):
         router = tgen.add_router('r1')
 
         # Setup Switches - 1 switch per 5 peering routers
-        for swNum in range(1, (total_ebgp_peers+4)/5 +1):
+        for swNum in range(1, (total_ebgp_peers + 4) / 5 + 1):
             switch = tgen.add_switch('s{}'.format(swNum))
             switch.add_link(router)
 
         # Add 'total_ebgp_peers' number of eBGP ExaBGP neighbors
         for peerNum in range(1, total_ebgp_peers+1):
-            swNum = ((peerNum -1) / 5 + 1)
+            swNum = ((peerNum - 1) / 5 + 1)
 
             peer_ip = '10.0.{}.{}'.format(swNum, peerNum + 100)
             peer_route = 'via 10.0.{}.1'.format(swNum)
@@ -81,9 +82,9 @@ class BGPECMPTopo1(Topo):
 
 
 #####################################################
-##
-##   Tests starting
-##
+#
+#   Tests starting
+#
 #####################################################
 
 def setup_module(module):
@@ -112,9 +113,11 @@ def setup_module(module):
         peer.start(peer_dir, env_file)
         logger.info(pname)
 
+
 def teardown_module(module):
     tgen = get_topogen()
     tgen.stop_topology()
+
 
 def test_bgp_convergence():
     "Test for BGP topology convergence"
@@ -135,8 +138,8 @@ def test_bgp_convergence():
 
     def _output_summary_cmp(router, cmd, data):
         """
-        Runs `cmd` that returns JSON data (normally the command ends with 'json')
-        and compare with `data` contents.
+        Runs `cmd` that returns JSON data (normally the command ends
+        with 'json') and compare with `data` contents.
         """
         output = router.vtysh_cmd(cmd, isjson=True)
         if 'ipv4Unicast' in output:
@@ -152,6 +155,7 @@ def test_bgp_convergence():
     _, res = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assertmsg = 'BGP router network did not converge'
     assert res is None, assertmsg
+
 
 def test_bgp_ecmp():
     tgen = get_topogen()
@@ -175,10 +179,11 @@ def test_bgp_ecmp():
                 expect['routes'][netkey].append(peer)
 
     test_func = functools.partial(topotest.router_json_cmp,
-        tgen.gears['r1'], 'show ip bgp json', expect)
+                                  tgen.gears['r1'], 'show ip bgp json', expect)
     _, res = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
     assertmsg = 'expected multipath routes in "show ip bgp" output'
     assert res is None, assertmsg
+
 
 if __name__ == '__main__':
     args = ["-s"] + sys.argv[1:]
