@@ -1890,6 +1890,41 @@ address-family:
    Disables automatic leaking from vrf VRFNAME to the current VRF using
    the VPN RIB as intermediary.
 
+Leaking with Netns Based VRF
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When BGP routes may be leaked in a separate VRF,  the validation process in
+BGP checks that the nexthop entry is reachable in the remote VRF. If reachable,
+then the entry is injected in to the *zebra* RIB. There, a selection process
+may elect the entry.
+The validation and selection process is conditionated by the kind of VRF backend.
+Currently, only the *Linux VRF* implementation is able to handle VRF route leaks.
+However, if the VRF backend is based on Linux network namespaces, it is possible
+to use route-maps that change the nexthop targeted VRF.
+
+Instead of keeping the targeted VRF and nexthop provided by the origin route, the
+topology assumes there are some virtual ethernet link topology between network namespaces.
+Those virtual ethernet links are IP-based. A route-map is applied to imported entries.
+Targeted nexthop VRF is matched and replaced by local VRF. As the virtual ethernet link
+are IP based, the targeted nexthop is replaced by the IP from the virtual ethernet interface
+that is owned by the targeted VRF.
+
+Following command helps on how to match imported vrf entries, under route-map config node.
+
+.. index:: match nexthop-vrf VRFNAME
+.. clicmd:: match nexthop-vrf VRFNAME
+
+Following command helps on how to change targeted nexthop vrf and nexthop ip, under route-map
+config node.
+
+.. index:: set nexthop-vrf VRFNAME
+.. clicmd:: set nexthop-vrf VRFNAME
+
+.. index:: set ip nexthop VRFNAME
+.. clicmd:: set ip nexthop VRFNAME
+
+.. index:: set nexthop-vrf-local
+.. clicmd:: set nexthop-vrf-local
 
 .. _bgp-cisco-compatibility:
 
