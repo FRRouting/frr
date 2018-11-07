@@ -1116,15 +1116,15 @@ static struct route_map_rule_cmd route_match_ip_next_hop_prefix_list_cmd = {
 
 /* Match function should return 1 if match is success else return
    zero. */
-static route_map_result_t route_match_ip_address(void *rule,
-						 const struct prefix *prefix,
-						 route_map_object_t type,
-						 void *object)
+static route_map_result_t route_match_address(afi_t afi, void *rule,
+					      const struct prefix *prefix,
+					      route_map_object_t type,
+					      void *object)
 {
 	struct access_list *alist;
 
 	if (type == RMAP_ZEBRA) {
-		alist = access_list_lookup(AFI_IP, (char *)rule);
+		alist = access_list_lookup(afi, (char *)rule);
 		if (alist == NULL)
 			return RMAP_NOMATCH;
 
@@ -1135,23 +1135,45 @@ static route_map_result_t route_match_ip_address(void *rule,
 	return RMAP_NOMATCH;
 }
 
+static route_map_result_t route_match_ip_address(void *rule,
+						 const struct prefix *prefix,
+						 route_map_object_t type,
+						 void *object)
+{
+	return route_match_address(AFI_IP, rule, prefix, type, object);
+}
+
+static route_map_result_t route_match_ipv6_address(void *rule,
+						   const struct prefix *prefix,
+						   route_map_object_t type,
+						   void *object)
+
+{
+	return route_match_address(AFI_IP6, rule, prefix, type, object);
+}
+
 /* Route map `ip address' match statement.  `arg' should be
    access-list name. */
-static void *route_match_ip_address_compile(const char *arg)
+static void *route_match_address_compile(const char *arg)
 {
 	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
 /* Free route map's compiled `ip address' value. */
-static void route_match_ip_address_free(void *rule)
+static void route_match_address_free(void *rule)
 {
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
 /* Route map commands for ip address matching. */
 static struct route_map_rule_cmd route_match_ip_address_cmd = {
-	"ip address", route_match_ip_address, route_match_ip_address_compile,
-	route_match_ip_address_free};
+	"ip address", route_match_ip_address, route_match_address_compile,
+	route_match_address_free};
+
+/* Route map commands for ipv6 address matching. */
+static struct route_map_rule_cmd route_match_ipv6_address_cmd = {
+	"ipv6 address", route_match_ipv6_address, route_match_address_compile,
+	route_match_address_free};
 
 /* `match ip address prefix-list PREFIX_LIST' */
 
@@ -1869,6 +1891,7 @@ void zebra_route_map_init()
 	route_map_install_match(&route_match_ip_next_hop_cmd);
 	route_map_install_match(&route_match_ip_next_hop_prefix_list_cmd);
 	route_map_install_match(&route_match_ip_address_cmd);
+	route_map_install_match(&route_match_ipv6_address_cmd);
 	route_map_install_match(&route_match_ip_address_prefix_list_cmd);
 	route_map_install_match(&route_match_ipv6_address_prefix_list_cmd);
 	route_map_install_match(&route_match_ip_address_prefix_len_cmd);
