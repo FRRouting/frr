@@ -112,6 +112,7 @@ typedef enum {
 	ZEBRA_MPLS_LABELS_DELETE,
 	ZEBRA_IPMR_ROUTE_STATS,
 	ZEBRA_LABEL_MANAGER_CONNECT,
+	ZEBRA_LABEL_MANAGER_CONNECT_ASYNC,
 	ZEBRA_GET_LABEL_CHUNK,
 	ZEBRA_RELEASE_LABEL_CHUNK,
 	ZEBRA_FEC_REGISTER,
@@ -154,6 +155,7 @@ typedef enum {
 	ZEBRA_IPTABLE_ADD,
 	ZEBRA_IPTABLE_DELETE,
 	ZEBRA_IPTABLE_NOTIFY_OWNER,
+	ZEBRA_VXLAN_FLOOD_CONTROL,
 } zebra_message_types_t;
 
 struct redist_proto {
@@ -572,7 +574,7 @@ extern int zclient_send_get_label_chunk(
 	uint8_t		keep,
 	uint32_t	chunk_size);
 
-extern int lm_label_manager_connect(struct zclient *zclient);
+extern int lm_label_manager_connect(struct zclient *zclient, int async);
 extern int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
 			      uint32_t chunk_size, uint32_t *start,
 			      uint32_t *end);

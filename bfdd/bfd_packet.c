@@ -197,7 +197,8 @@ static int ptm_bfd_process_echo_pkt(int s)
 	bfd->echo_detect_TO = bfd->remote_detect_mult * bfd->echo_xmt_TO;
 
 	/* Update echo receive timeout. */
-	bfd_echo_recvtimer_update(bfd);
+	if (bfd->echo_detect_TO > 0)
+		bfd_echo_recvtimer_update(bfd);
 
 	return 0;
 }

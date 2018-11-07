@@ -253,8 +253,8 @@ void bgp_fs_nlri_get_string(unsigned char *nlri_content, size_t len,
 }
 
 void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
-			    struct bgp_info *binfo,
-			    int display, json_object *json_paths)
+			    struct bgp_path_info *path, int display,
+			    json_object *json_paths)
 {
 	struct attr *attr;
 	char return_string[BGP_FLOWSPEC_STRING_DISPLAY_MAX];
@@ -274,9 +274,9 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 			else
 				json_nlri_path = json_paths;
 		}
-		if (display == NLRI_STRING_FORMAT_LARGE && binfo)
+		if (display == NLRI_STRING_FORMAT_LARGE && path)
 			vty_out(vty, "BGP flowspec entry: (flags 0x%x)\n",
-				binfo->flags);
+				path->flags);
 		bgp_fs_nlri_get_string((unsigned char *)
 				       p->u.prefix_flowspec.ptr,
 				       p->u.prefix_flowspec.prefixlen,
@@ -292,11 +292,11 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 		else if (json_paths && display == NLRI_STRING_FORMAT_JSON)
 			json_object_array_add(json_paths, json_nlri_path);
 	}
-	if (!binfo)
+	if (!path)
 		return;
-	if (binfo->attr && binfo->attr->ecommunity) {
+	if (path->attr && path->attr->ecommunity) {
 		/* Print attribute */
-		attr = binfo->attr;
+		attr = path->attr;
 		s = ecommunity_ecom2str(attr->ecommunity,
 					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 		if (!s)
@@ -318,7 +318,7 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 			vty_out(vty, "\tNH %-16s\n", inet_ntoa(attr->nexthop));
 		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
-	peer_uptime(binfo->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL);
+	peer_uptime(path->uptime, timebuf, BGP_UPTIME_LEN, 0, NULL);
 	if (display == NLRI_STRING_FORMAT_LARGE) {
 		vty_out(vty, "\treceived for %8s\n", timebuf);
 	} else if (json_paths) {
@@ -329,7 +329,8 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 			json_object_array_add(json_paths, json_time_path);
 	}
 	if (display == NLRI_STRING_FORMAT_LARGE) {
-		struct bgp_info_extra *extra = bgp_info_extra_get(binfo);
+		struct bgp_path_info_extra *extra =
+			bgp_path_info_extra_get(path);
 
 		if (extra->bgp_fs_pbr) {
 			struct listnode *node;
@@ -357,7 +358,7 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 			if (list_began)
 				vty_out(vty, ")");
 			vty_out(vty, "\n");
-			list_delete_and_null(&list_bpm);
+			list_delete(&list_bpm);
 		} else
 			vty_out(vty, "\tnot installed in PBR\n");
 	}
@@ -368,7 +369,7 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 			    void *output_arg, bool use_json, int is_last,
 			    unsigned long *output_cum, unsigned long *total_cum)
 {
-	struct bgp_info *ri;
+	struct bgp_path_info *pi;
 	struct bgp_node *rn;
 	unsigned long total_count = 0;
 	json_object *json_paths = NULL;
@@ -384,12 +385,10 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 			json_paths = json_object_new_array();
 			display = NLRI_STRING_FORMAT_JSON;
 		}
-		for (ri = rn->info; ri; ri = ri->next) {
+		for (pi = rn->info; pi; pi = pi->next) {
 			total_count++;
-			route_vty_out_flowspec(vty, &rn->p,
-					       ri, display,
+			route_vty_out_flowspec(vty, &rn->p, pi, display,
 					       json_paths);
-
 		}
 		if (use_json) {
 			vty_out(vty, "%s\n",

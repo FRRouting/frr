@@ -142,6 +142,9 @@ struct route_map_index {
 	struct route_map_index *next;
 	struct route_map_index *prev;
 
+	/* Keep track how many times we've try to apply */
+	uint64_t applied;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(route_map_index)
@@ -162,6 +165,9 @@ struct route_map {
 	/* Maintain update info */
 	bool to_be_processed; /* True if modification isn't acted on yet */
 	bool deleted;         /* If 1, then this node will be deleted */
+
+	/* How many times have we applied this route-map */
+	uint64_t applied;
 
 	QOBJ_FIELDS
 };
@@ -213,6 +219,9 @@ extern void route_map_install_set(struct route_map_rule_cmd *cmd);
 
 /* Lookup route map by name. */
 extern struct route_map *route_map_lookup_by_name(const char *name);
+
+/* Simple helper to warn if route-map does not exist. */
+struct route_map *route_map_lookup_warn_noexist(struct vty *vty, const char *name);
 
 /* Apply route map to the object. */
 extern route_map_result_t route_map_apply(struct route_map *map,
@@ -283,6 +292,14 @@ extern void route_map_match_ip_next_hop_prefix_list_hook(int (*func)(
 extern void route_map_no_match_ip_next_hop_prefix_list_hook(int (*func)(
 	struct vty *vty, struct route_map_index *index, const char *command,
 	const char *arg, route_map_event_t type));
+/* match ip next hop type */
+extern void route_map_match_ip_next_hop_type_hook(int (*func)(
+	struct vty *vty, struct route_map_index *index, const char *command,
+	const char *arg, route_map_event_t type));
+/* no match ip next hop type */
+extern void route_map_no_match_ip_next_hop_type_hook(int (*func)(
+	struct vty *vty, struct route_map_index *index, const char *command,
+	const char *arg, route_map_event_t type));
 /* match ipv6 address */
 extern void route_map_match_ipv6_address_hook(int (*func)(
 	struct vty *vty, struct route_map_index *index, const char *command,
@@ -297,6 +314,14 @@ extern void route_map_match_ipv6_address_prefix_list_hook(int (*func)(
 	const char *arg, route_map_event_t type));
 /* no match ipv6 address prefix list */
 extern void route_map_no_match_ipv6_address_prefix_list_hook(int (*func)(
+	struct vty *vty, struct route_map_index *index, const char *command,
+	const char *arg, route_map_event_t type));
+/* match ipv6 next-hop type */
+extern void route_map_match_ipv6_next_hop_type_hook(int (*func)(
+	struct vty *vty, struct route_map_index *index, const char *command,
+	const char *arg, route_map_event_t type));
+/* no match ipv6 next-hop type */
+extern void route_map_no_match_ipv6_next_hop_type_hook(int (*func)(
 	struct vty *vty, struct route_map_index *index, const char *command,
 	const char *arg, route_map_event_t type));
 /* match metric */

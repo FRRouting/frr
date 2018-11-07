@@ -32,10 +32,39 @@ struct quagga_signal_t sigs[] = {};
 
 struct thread_master *master;
 
-static int threadfunc(struct thread *thread)
+void func1(int *arg);
+void func3(void);
+
+void func1(int *arg)
 {
 	int *null = NULL;
 	*null += 1;
+	*arg = 1;
+}
+
+static void func2(size_t depth, int *arg)
+{
+	/* variable stack frame size */
+	int buf[depth];
+	for (size_t i = 0; i < depth; i++)
+		buf[i] = arg[i] + 1;
+	if (depth > 0)
+		func2(depth - 1, buf);
+	else
+		func1(&buf[0]);
+	for (size_t i = 0; i < depth; i++)
+		buf[i] = arg[i] + 2;
+}
+
+void func3(void)
+{
+	int buf[6];
+	func2(6, buf);
+}
+
+static int threadfunc(struct thread *thread)
+{
+	func3();
 	return 0;
 }
 

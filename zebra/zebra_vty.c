@@ -35,6 +35,7 @@
 #include "srcdest_table.h"
 #include "vxlan.h"
 
+#include "zebra/zebra_router.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_mpls.h"
@@ -66,13 +67,6 @@ static void vty_show_ip_route_summary(struct vty *vty,
 				      struct route_table *table);
 static void vty_show_ip_route_summary_prefix(struct vty *vty,
 					     struct route_table *table);
-
-/*
- * special macro to allow us to get the correct zebra_vrf
- */
-#define ZEBRA_DECLVAR_CONTEXT(A, B)                                            \
-	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
-	struct zebra_vrf *B = (vrf) ? vrf->info : NULL;
 
 /* VNI range as per RFC 7432 */
 #define CMD_VNI_RANGE "(1-16777215)"
@@ -302,7 +296,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				if (vrf)
 					vty_out(vty, "(vrf %s)", vrf->name);
 				else
-					vty_out(vty, "(vrf UKNOWN)");
+					vty_out(vty, "(vrf UNKNOWN)");
 			}
 
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
@@ -677,7 +671,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			if (vrf)
 				vty_out(vty, "(vrf %s)", vrf->name);
 			else
-				vty_out(vty, "(vrf UKNOWN)");
+				vty_out(vty, "(vrf UNKNOWN)");
 		}
 
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
@@ -903,7 +897,7 @@ DEFPY (show_route_table,
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	struct route_table *t;
 
-	t = zebra_ns_find_table(zvrf->zns, table, afi);
+	t = zebra_router_find_table(zvrf, table, afi, SAFI_UNICAST);
 	if (t)
 		do_show_route_helper(vty, zvrf, t, afi, false, 0, false, false,
 				     0, 0, !!json);
@@ -932,7 +926,7 @@ DEFPY (show_route_table_vrf,
 		VRF_GET_ID(vrf_id, vrf_name, !!json);
 	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 
-	t = zebra_ns_find_table(zvrf->zns, table, afi);
+	t = zebra_router_find_table(zvrf, table, afi, SAFI_UNICAST);
 	if (t)
 		do_show_route_helper(vty, zvrf, t, afi, false, 0, false, false,
 				     0, 0, !!json);
@@ -1027,11 +1021,17 @@ DEFUN (ip_nht_default_route,
        "Filter Next Hop tracking route resolution\n"
        "Resolve via default route\n")
 {
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+
+	if (!zvrf)
+		return CMD_WARNING;
+
 	if (zebra_rnh_ip_default_route)
 		return CMD_SUCCESS;
 
 	zebra_rnh_ip_default_route = 1;
-	zebra_evaluate_rnh(VRF_DEFAULT, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+
+	zebra_evaluate_rnh(zvrf, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1043,11 +1043,16 @@ DEFUN (no_ip_nht_default_route,
        "Filter Next Hop tracking route resolution\n"
        "Resolve via default route\n")
 {
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+
+	if (!zvrf)
+		return CMD_WARNING;
+
 	if (!zebra_rnh_ip_default_route)
 		return CMD_SUCCESS;
 
 	zebra_rnh_ip_default_route = 0;
-	zebra_evaluate_rnh(VRF_DEFAULT, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1058,11 +1063,16 @@ DEFUN (ipv6_nht_default_route,
        "Filter Next Hop tracking route resolution\n"
        "Resolve via default route\n")
 {
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+
+	if (!zvrf)
+		return CMD_WARNING;
+
 	if (zebra_rnh_ipv6_default_route)
 		return CMD_SUCCESS;
 
 	zebra_rnh_ipv6_default_route = 1;
-	zebra_evaluate_rnh(VRF_DEFAULT, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1074,11 +1084,17 @@ DEFUN (no_ipv6_nht_default_route,
        "Filter Next Hop tracking route resolution\n"
        "Resolve via default route\n")
 {
+
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+
+	if (!zvrf)
+		return CMD_WARNING;
+
 	if (!zebra_rnh_ipv6_default_route)
 		return CMD_SUCCESS;
 
 	zebra_rnh_ipv6_default_route = 0;
-	zebra_evaluate_rnh(VRF_DEFAULT, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1358,7 +1374,7 @@ static void vty_show_ip_route_summary(struct vty *vty,
 		}
 
 	vty_out(vty, "%-20s %-20s %s  (vrf %s)\n", "Route Source", "Routes",
-		"FIB", zvrf_name(((rib_table_info_t *)table->info)->zvrf));
+		"FIB", zvrf_name(((rib_table_info_t *)route_table_get_info(table))->zvrf));
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if ((rib_cnt[i] > 0) || (i == ZEBRA_ROUTE_BGP
@@ -1434,7 +1450,7 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 
 	vty_out(vty, "%-20s %-20s %s  (vrf %s)\n", "Route Source",
 		"Prefix Routes", "FIB",
-		zvrf_name(((rib_table_info_t *)table->info)->zvrf));
+		zvrf_name(((rib_table_info_t *)route_table_get_info(table))->zvrf));
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (rib_cnt[i] > 0) {
@@ -1991,18 +2007,21 @@ DEFUN (show_evpn_mac_vni_all_vtep,
 
 DEFUN (show_evpn_mac_vni_mac,
        show_evpn_mac_vni_mac_cmd,
-       "show evpn mac vni " CMD_VNI_RANGE " mac WORD",
+       "show evpn mac vni " CMD_VNI_RANGE " mac WORD [json]",
        SHOW_STR
        "EVPN\n"
        "MAC addresses\n"
        "VxLAN Network Identifier\n"
        "VNI number\n"
        "MAC\n"
-       "MAC address (e.g., 00:e0:ec:20:12:62)\n")
+       "MAC address (e.g., 00:e0:ec:20:12:62)\n"
+       JSON_STR)
+
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
 	struct ethaddr mac;
+	bool uj = use_json(argc, argv);
 
 	vni = strtoul(argv[4]->arg, NULL, 10);
 	if (!prefix_str2mac(argv[6]->arg, &mac)) {
@@ -2010,7 +2029,7 @@ DEFUN (show_evpn_mac_vni_mac,
 		return CMD_WARNING;
 	}
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	zebra_vxlan_print_specific_mac_vni(vty, zvrf, vni, &mac);
+	zebra_vxlan_print_specific_mac_vni(vty, zvrf, vni, &mac, uj);
 	return CMD_SUCCESS;
 }
 
@@ -2359,9 +2378,6 @@ static int config_write_protocol(struct vty *vty)
 								      == MCAST_MIX_DISTANCE
 							      ? "lower-distance"
 							      : "longer-prefix");
-
-	zebra_routemap_config_write_protocol(vty);
-
 	return 1;
 }
 
@@ -2555,6 +2571,76 @@ DEFUN (no_ipv6_forwarding,
 	return CMD_SUCCESS;
 }
 
+/* Display dataplane info */
+DEFUN (show_dataplane,
+       show_dataplane_cmd,
+       "show zebra dplane [detailed]",
+       SHOW_STR
+       ZEBRA_STR
+       "Zebra dataplane information\n"
+       "Detailed output\n")
+{
+	int idx = 0;
+	bool detailed = false;
+
+	if (argv_find(argv, argc, "detailed", &idx))
+		detailed = true;
+
+	return dplane_show_helper(vty, detailed);
+}
+
+/* Display dataplane providers info */
+DEFUN (show_dataplane_providers,
+       show_dataplane_providers_cmd,
+       "show zebra dplane providers [detailed]",
+       SHOW_STR
+       ZEBRA_STR
+       "Zebra dataplane information\n"
+       "Zebra dataplane provider information\n"
+       "Detailed output\n")
+{
+	int idx = 0;
+	bool detailed = false;
+
+	if (argv_find(argv, argc, "detailed", &idx))
+		detailed = true;
+
+	return dplane_show_provs_helper(vty, detailed);
+}
+
+/* Configure dataplane incoming queue limit */
+DEFUN (zebra_dplane_queue_limit,
+       zebra_dplane_queue_limit_cmd,
+       "zebra dplane limit (0-10000)",
+       ZEBRA_STR
+       "Zebra dataplane\n"
+       "Limit incoming queued updates\n"
+       "Number of queued updates\n")
+{
+	uint32_t limit = 0;
+
+	limit = strtoul(argv[3]->arg, NULL, 10);
+
+	dplane_set_in_queue_limit(limit, true);
+
+	return CMD_SUCCESS;
+}
+
+/* Reset dataplane queue limit to default value */
+DEFUN (no_zebra_dplane_queue_limit,
+       no_zebra_dplane_queue_limit_cmd,
+       "no zebra dplane limit [(0-10000)]",
+       NO_STR
+       ZEBRA_STR
+       "Zebra dataplane\n"
+       "Limit incoming queued updates\n"
+       "Number of queued updates\n")
+{
+	dplane_set_in_queue_limit(0, false);
+
+	return CMD_SUCCESS;
+}
+
 /* Table configuration write function. */
 static int config_write_table(struct vty *vty)
 {
@@ -2649,6 +2735,10 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &no_ip_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &ipv6_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_nht_default_route_cmd);
+	install_element(VRF_NODE, &ip_nht_default_route_cmd);
+	install_element(VRF_NODE, &no_ip_nht_default_route_cmd);
+	install_element(VRF_NODE, &ipv6_nht_default_route_cmd);
+	install_element(VRF_NODE, &no_ipv6_nht_default_route_cmd);
 	install_element(VIEW_NODE, &show_ipv6_mroute_cmd);
 
 	/* Commands for VRF */
@@ -2681,5 +2771,8 @@ void zebra_vty_init(void)
 	install_element(VRF_NODE, &vrf_vni_mapping_cmd);
 	install_element(VRF_NODE, &no_vrf_vni_mapping_cmd);
 
-
+	install_element(VIEW_NODE, &show_dataplane_cmd);
+	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
+	install_element(CONFIG_NODE, &zebra_dplane_queue_limit_cmd);
+	install_element(CONFIG_NODE, &no_zebra_dplane_queue_limit_cmd);
 }

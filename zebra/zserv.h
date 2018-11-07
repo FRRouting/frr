@@ -133,6 +133,10 @@ struct zserv {
 	uint32_t macipdel_cnt;
 	uint32_t prefixadd_cnt;
 	uint32_t prefixdel_cnt;
+	uint32_t v4_nh_watch_add_cnt;
+	uint32_t v4_nh_watch_rem_cnt;
+	uint32_t v6_nh_watch_add_cnt;
+	uint32_t v6_nh_watch_rem_cnt;
 
 	time_t nh_reg_time;
 	time_t nh_dereg_time;
@@ -250,5 +254,8 @@ extern void zserv_close_client(struct zserv *client);
 #if defined(HANDLE_ZAPI_FUZZING)
 extern void zserv_read_file(char *input);
 #endif
+
+/* TODO */
+int zebra_finalize(struct thread *event);
 
 #endif /* _ZEBRA_ZEBRA_H */

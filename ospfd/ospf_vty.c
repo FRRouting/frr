@@ -460,7 +460,7 @@ DEFUN (ospf_passive_interface,
 		return CMD_SUCCESS;
 	}
 	if (ospf->vrf_id != VRF_UNKNOWN)
-		ifp = if_get_by_name(argv[1]->arg, ospf->vrf_id, 0);
+		ifp = if_get_by_name(argv[1]->arg, ospf->vrf_id);
 
 	if (ifp == NULL) {
 		vty_out(vty, "interface %s not found.\n", (char *)argv[1]->arg);
@@ -533,7 +533,7 @@ DEFUN (no_ospf_passive_interface,
 	}
 
 	if (ospf->vrf_id != VRF_UNKNOWN)
-		ifp = if_get_by_name(argv[2]->arg, ospf->vrf_id, 0);
+		ifp = if_get_by_name(argv[2]->arg, ospf->vrf_id);
 
 	if (ifp == NULL) {
 		vty_out(vty, "interface %s not found.\n", (char *)argv[2]->arg);
@@ -750,6 +750,7 @@ DEFUN (ospf_area_range_not_advertise,
 	ospf_area_range_set(ospf, area_id, &p, 0);
 	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
 				     format);
+	ospf_area_range_substitute_unset(ospf, area_id, &p);
 
 	return CMD_SUCCESS;
 }
@@ -8201,6 +8202,8 @@ DEFUN (no_ospf_redistribute_source,
 		return CMD_SUCCESS;
 
 	ospf_routemap_unset(red);
+	ospf_redist_del(ospf, source, 0);
+
 	return ospf_redistribute_unset(ospf, source, 0);
 }
 
@@ -8315,6 +8318,8 @@ DEFUN (no_ospf_redistribute_instance_source,
 		return CMD_SUCCESS;
 
 	ospf_routemap_unset(red);
+	ospf_redist_del(ospf, source, instance);
+
 	return ospf_redistribute_unset(ospf, source, instance);
 }
 
@@ -8382,6 +8387,9 @@ DEFUN (ospf_default_information_originate,
 	int metric = -1;
 	struct ospf_redist *red;
 	int idx = 0;
+	int cur_originate = ospf->default_originate;
+	int sameRtmap = 0;
+	char *rtmap = NULL;
 
 	red = ospf_redist_add(ospf, DEFAULT_ROUTE, 0);
 
@@ -8403,7 +8411,28 @@ DEFUN (ospf_default_information_originate,
 	idx = 1;
 	/* Get route-map */
 	if (argv_find(argv, argc, "WORD", &idx))
-		ospf_routemap_set(red, argv[idx]->arg);
+		rtmap = argv[idx]->arg;
+
+	/* To check ,if user is providing same route map */
+	if ((rtmap == ROUTEMAP_NAME(red)) ||
+	    (rtmap && ROUTEMAP_NAME(red)
+	    && (strcmp(rtmap, ROUTEMAP_NAME(red)) == 0)))
+		sameRtmap = 1;
+
+	/* Don't allow if the same lsa is aleardy originated. */
+	if ((sameRtmap)
+	    && (red->dmetric.type == type)
+	    && (red->dmetric.value == metric)
+	    && (cur_originate == default_originate))
+		return CMD_SUCCESS;
+
+	/* Updating Metric details */
+	red->dmetric.type = type;
+	red->dmetric.value = metric;
+
+	/* updating route map details */
+	if (rtmap)
+		ospf_routemap_set(red, rtmap);
 	else
 		ospf_routemap_unset(red);
 
@@ -8447,6 +8476,8 @@ DEFUN (no_ospf_default_information_originate,
 		return CMD_SUCCESS;
 
 	ospf_routemap_unset(red);
+	ospf_redist_del(ospf, DEFAULT_ROUTE, 0);
+
 	return ospf_redistribute_default_unset(ospf);
 }
 

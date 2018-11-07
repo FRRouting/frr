@@ -341,10 +341,10 @@ void ospf_if_free(struct ospf_interface *oi)
 	route_table_finish(oi->ls_upd_queue);
 
 	/* Free any lists that should be freed */
-	list_delete_and_null(&oi->nbr_nbma);
+	list_delete(&oi->nbr_nbma);
 
-	list_delete_and_null(&oi->ls_ack);
-	list_delete_and_null(&oi->ls_ack_direct.ls_ack);
+	list_delete(&oi->ls_ack);
+	list_delete(&oi->ls_ack_direct.ls_ack);
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf interface %s vrf %s id %u deleted",
@@ -545,7 +545,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 
 void ospf_del_if_params(struct ospf_if_params *oip)
 {
-	list_delete_and_null(&oip->auth_crypt);
+	list_delete(&oip->auth_crypt);
 	bfd_info_free(&(oip->bfd_info));
 	XFREE(MTYPE_OSPF_IF_PARAMS, oip);
 }
@@ -918,6 +918,23 @@ static void ospf_vl_if_delete(struct ospf_vl_data *vl_data)
 	ospf_if_free(vl_data->vl_oi);
 	if_delete(ifp);
 	vlink_count--;
+}
+
+/* for a defined area, count the number of configured vl
+ */
+int ospf_vl_count(struct ospf *ospf, struct ospf_area *area)
+{
+	int count = 0;
+	struct ospf_vl_data *vl_data;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->vlinks, node, vl_data)) {
+		if (area
+		    && !IPV4_ADDR_SAME(&vl_data->vl_area_id, &area->area_id))
+			continue;
+		count++;
+	}
+	return count;
 }
 
 /* Look up vl_data for given peer, optionally qualified to be in the

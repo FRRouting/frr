@@ -36,6 +36,8 @@
 #include "module.h"
 #include "network.h"
 #include "lib_errors.h"
+#include "db.h"
+#include "northbound_cli.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 DEFINE_KOOH(frr_early_fini, (), ())
@@ -43,6 +45,9 @@ DEFINE_KOOH(frr_fini, (), ())
 
 const char frr_sysconfdir[] = SYSCONFDIR;
 const char frr_vtydir[] = DAEMON_VTY_DIR;
+#ifdef HAVE_SQLITE3
+const char frr_dbdir[] = DAEMON_DB_DIR;
+#endif
 const char frr_moduledir[] = MODULE_PATH;
 
 char frr_protoname[256] = "NONE";
@@ -51,9 +56,13 @@ char frr_protonameinst[256] = "NONE";
 char config_default[512];
 char frr_zclientpath[256];
 static char pidfile_default[512];
+#ifdef HAVE_SQLITE3
+static char dbfile_default[512];
+#endif
 static char vtypath_default[256];
 
 bool debug_memstats_at_exit = 0;
+static bool nodetach_term, nodetach_daemon;
 
 static char comb_optstr[256];
 static struct option comb_lo[64];
@@ -81,6 +90,8 @@ static void opt_extend(const struct optspec *os)
 #define OPTION_MODULEDIR 1002
 #define OPTION_LOG       1003
 #define OPTION_LOGLEVEL  1004
+#define OPTION_TCLI      1005
+#define OPTION_DB_FILE   1006
 
 static const struct option lo_always[] = {
 	{"help", no_argument, NULL, 'h'},
@@ -91,6 +102,7 @@ static const struct option lo_always[] = {
 	{"moduledir", required_argument, NULL, OPTION_MODULEDIR},
 	{"log", required_argument, NULL, OPTION_LOG},
 	{"log-level", required_argument, NULL, OPTION_LOGLEVEL},
+	{"tcli", no_argument, NULL, OPTION_TCLI},
 	{NULL}};
 static const struct optspec os_always = {
 	"hvdM:",
@@ -101,13 +113,17 @@ static const struct optspec os_always = {
 	"      --vty_socket   Override vty socket path\n"
 	"      --moduledir    Override modules directory\n"
 	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
-	"      --log-level    Set Logging Level to use, debug, info, warn, etc\n",
+	"      --log-level    Set Logging Level to use, debug, info, warn, etc\n"
+	"      --tcli         Use transaction-based CLI\n",
 	lo_always};
 
 
 static const struct option lo_cfg_pid_dry[] = {
 	{"pid_file", required_argument, NULL, 'i'},
 	{"config_file", required_argument, NULL, 'f'},
+#ifdef HAVE_SQLITE3
+	{"db_file", required_argument, NULL, OPTION_DB_FILE},
+#endif
 	{"pathspace", required_argument, NULL, 'N'},
 	{"dryrun", no_argument, NULL, 'C'},
 	{"terminal", no_argument, NULL, 't'},
@@ -116,6 +132,9 @@ static const struct optspec os_cfg_pid_dry = {
 	"f:i:CtN:",
 	"  -f, --config_file  Set configuration file name\n"
 	"  -i, --pid_file     Set process identifier file name\n"
+#ifdef HAVE_SQLITE3
+	"      --db_file      Set database file name\n"
+#endif
 	"  -N, --pathspace    Insert prefix into config & socket paths\n"
 	"  -C, --dryrun       Check configuration for validity and exit\n"
 	"  -t, --terminal     Open terminal session on stdio\n"
@@ -262,34 +281,6 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 
 static struct frr_daemon_info *di = NULL;
 
-static void frr_guard_daemon(void)
-{
-	int fd;
-	struct flock lock;
-	const char *path = di->pid_file;
-
-	fd = open(path, O_RDWR);
-	if (fd != -1) {
-		memset(&lock, 0, sizeof(lock));
-		lock.l_type = F_WRLCK;
-		lock.l_whence = SEEK_SET;
-		if (fcntl(fd, F_GETLK, &lock) < 0) {
-			flog_err_sys(
-				EC_LIB_SYSTEM_CALL,
-				"Could not do F_GETLK pid_file %s (%s), exiting",
-				path, safe_strerror(errno));
-			exit(1);
-		} else if (lock.l_type == F_WRLCK) {
-			flog_err_sys(
-				EC_LIB_SYSTEM_CALL,
-				"Process %d has a write lock on file %s already! Error: (%s)",
-				lock.l_pid, path, safe_strerror(errno));
-			exit(1);
-		}
-		close(fd);
-	}
-}
-
 void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 {
 	di = daemon;
@@ -309,16 +300,24 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 		opt_extend(&os_zclient);
 	if (!(di->flags & FRR_NO_TCPVTY))
 		opt_extend(&os_vty);
+	if (di->flags & FRR_DETACH_LATER)
+		nodetach_daemon = true;
 
 	snprintf(config_default, sizeof(config_default), "%s/%s.conf",
 		 frr_sysconfdir, di->name);
 	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
 		 frr_vtydir, di->name);
+#ifdef HAVE_SQLITE3
+	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s.db",
+		 frr_dbdir, di->name);
+#endif
 
 	strlcpy(frr_protoname, di->logname, sizeof(frr_protoname));
 	strlcpy(frr_protonameinst, di->logname, sizeof(frr_protonameinst));
 
 	strlcpy(frr_zclientpath, ZEBRA_SERV_PATH, sizeof(frr_zclientpath));
+
+	di->cli_mode = FRR_CLI_CLASSIC;
 }
 
 void frr_opt_add(const char *optstr, const struct option *longopts,
@@ -405,6 +404,13 @@ static int frr_opt(int opt)
 		}
 		di->pathspace = optarg;
 		break;
+#ifdef HAVE_SQLITE3
+	case OPTION_DB_FILE:
+		if (di->flags & FRR_NO_CFG_PID_DRY)
+			return 1;
+		di->db_file = optarg;
+		break;
+#endif
 	case 'C':
 		if (di->flags & FRR_NO_CFG_PID_DRY)
 			return 1;
@@ -468,6 +474,9 @@ static int frr_opt(int opt)
 			break;
 		}
 		di->module_path = optarg;
+		break;
+	case OPTION_TCLI:
+		di->cli_mode = FRR_CLI_TRANSACTIONAL;
 		break;
 	case 'u':
 		if (di->flags & FRR_NO_PRIVSEP)
@@ -581,6 +590,10 @@ struct thread_master *frr_init(void)
 		 frr_sysconfdir, p_pathspace, di->name, p_instance);
 	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s%s%s.pid",
 		 frr_vtydir, p_pathspace, di->name, p_instance);
+#ifdef HAVE_SQLITE3
+	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s%s%s.db",
+		 frr_dbdir, p_pathspace, di->name, p_instance);
+#endif
 
 	zprivs_preinit(di->privs);
 
@@ -619,23 +632,40 @@ struct thread_master *frr_init(void)
 
 	zprivs_init(di->privs);
 
-	/* Guard to prevent a second instance of this daemon */
-	frr_guard_daemon();
-
 	master = thread_master_create(NULL);
 	signal_init(master, di->n_signals, di->signals);
+
+#ifdef HAVE_SQLITE3
+	if (!di->db_file)
+		di->db_file = dbfile_default;
+	db_init(di->db_file);
+#endif
 
 	if (di->flags & FRR_LIMITED_CLI)
 		cmd_init(-1);
 	else
 		cmd_init(1);
+
 	vty_init(master);
 	memory_init();
 
 	log_ref_init();
 	lib_error_init();
 
+	yang_init();
+	nb_init(di->yang_modules, di->n_yang_modules);
+
 	return master;
+}
+
+const char *frr_get_progname(void)
+{
+	return di ? di->progname : NULL;
+}
+
+enum frr_cli_mode frr_get_cli_mode(void)
+{
+	return di ? di->cli_mode : FRR_CLI_CLASSIC;
 }
 
 static int rcvd_signal = 0;
@@ -780,17 +810,23 @@ static void frr_daemonize(void)
  */
 static int frr_config_read_in(struct thread *t)
 {
-	if (!vty_read_config(di->config_file, config_default) &&
+	if (!vty_read_config(NULL, di->config_file, config_default) &&
 	    di->backup_config_file) {
 		char *orig = XSTRDUP(MTYPE_TMP, host_config_get());
 
 		zlog_info("Attempting to read backup config file: %s specified",
 			  di->backup_config_file);
-		vty_read_config(di->backup_config_file, config_default);
+		vty_read_config(NULL, di->backup_config_file, config_default);
 
 		host_config_set(orig);
 		XFREE(MTYPE_TMP, orig);
 	}
+
+	/*
+	 * Update the shared candidate after reading the startup configuration.
+	 */
+	nb_config_replace(vty_shared_candidate_config, running_config, true);
+
 	return 0;
 }
 
@@ -798,13 +834,16 @@ void frr_config_fork(void)
 {
 	hook_call(frr_late_init, master);
 
-	/* Don't start execution if we are in dry-run mode */
-	if (di->dryrun) {
-		frr_config_read_in(NULL);
-		exit(0);
-	}
+	if (!(di->flags & FRR_NO_CFG_PID_DRY)) {
+		/* Don't start execution if we are in dry-run mode */
+		if (di->dryrun) {
+			frr_config_read_in(NULL);
+			exit(0);
+		}
 
-	thread_add_event(master, frr_config_read_in, NULL, 0, &di->read_in);
+		thread_add_event(master, frr_config_read_in, NULL, 0,
+				 &di->read_in);
+	}
 
 	if (di->daemon_mode || di->terminal)
 		frr_daemonize();
@@ -814,7 +853,7 @@ void frr_config_fork(void)
 	pid_output(di->pid_file);
 }
 
-void frr_vty_serv(void)
+static void frr_vty_serv(void)
 {
 	/* allow explicit override of vty_path in the future
 	 * (not currently set anywhere) */
@@ -841,14 +880,22 @@ void frr_vty_serv(void)
 	vty_serv_sock(di->vty_addr, di->vty_port, di->vty_path);
 }
 
+static void frr_check_detach(void)
+{
+	if (nodetach_term || nodetach_daemon)
+		return;
+
+	if (daemon_ctl_sock != -1)
+		close(daemon_ctl_sock);
+	daemon_ctl_sock = -1;
+}
+
 static void frr_terminal_close(int isexit)
 {
 	int nullfd;
 
-	if (daemon_ctl_sock != -1) {
-		close(daemon_ctl_sock);
-		daemon_ctl_sock = -1;
-	}
+	nodetach_term = false;
+	frr_check_detach();
 
 	if (!di->daemon_mode || isexit) {
 		printf("\n%s exiting\n", di->name);
@@ -912,6 +959,12 @@ out:
 	return 0;
 }
 
+void frr_detach(void)
+{
+	nodetach_daemon = false;
+	frr_check_detach();
+}
+
 void frr_run(struct thread_master *master)
 {
 	char instanceinfo[64] = "";
@@ -926,6 +979,8 @@ void frr_run(struct thread_master *master)
 		    instanceinfo, di->vty_port, di->startinfo);
 
 	if (di->terminal) {
+		nodetach_term = true;
+
 		vty_stdio(frr_terminal_close);
 		if (daemon_ctl_sock != -1) {
 			set_nonblocking(daemon_ctl_sock);
@@ -945,9 +1000,7 @@ void frr_run(struct thread_master *master)
 			close(nullfd);
 		}
 
-		if (daemon_ctl_sock != -1)
-			close(daemon_ctl_sock);
-		daemon_ctl_sock = -1;
+		frr_check_detach();
 	}
 
 	/* end fixed stderr startup logging */
@@ -974,6 +1027,11 @@ void frr_fini(void)
 	/* memory_init -> nothing needed */
 	vty_terminate();
 	cmd_terminate();
+	nb_terminate();
+	yang_terminate();
+#ifdef HAVE_SQLITE3
+	db_close();
+#endif
 	log_ref_fini();
 	zprivs_terminate(di->privs);
 	/* signal_init -> nothing needed */
@@ -1003,4 +1061,26 @@ void frr_fini(void)
 		log_memstats(fp, di->name);
 		fclose(fp);
 	}
+}
+
+#ifdef INTERP
+static const char interp[]
+	__attribute__((section(".interp"), used)) = INTERP;
+#endif
+/*
+ * executable entry point for libfrr.so
+ *
+ * note that libc initialization is skipped for this so the set of functions
+ * that can be called is rather limited
+ */
+extern void _libfrr_version(void)
+	__attribute__((visibility("hidden"), noreturn));
+void _libfrr_version(void)
+{
+	const char banner[] =
+		FRR_FULL_NAME " " FRR_VERSION ".\n"
+		FRR_COPYRIGHT GIT_INFO "\n"
+		"configured with:\n    " FRR_CONFIG_ARGS "\n";
+	write(1, banner, sizeof(banner) - 1);
+	_exit(0);
 }

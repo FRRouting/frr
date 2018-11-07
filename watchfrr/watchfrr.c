@@ -55,9 +55,11 @@
 
 #define PING_TOKEN	"PING"
 
+DEFINE_MGROUP(WATCHFRR, "watchfrr")
+DEFINE_MTYPE_STATIC(WATCHFRR, WATCHFRR_DAEMON, "watchfrr daemon entry")
+
 /* Needs to be global, referenced somewhere inside libfrr. */
 struct thread_master *master;
-static char pidfile_default[256];
 
 static bool watch_only = false;
 
@@ -230,7 +232,7 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 		name of the daemon should be substituted.\n\
     --dry	Do not start or restart anything, just log.\n\
 -p, --pid-file	Set process identifier file name\n\
-		(default is %s).\n\
+		(default is %s/watchfrr.pid).\n\
 -b, --blank-string\n\
 		When the supplied argument string is found in any of the\n\
 		various shell command arguments (-r, -s, or -k), replace\n\
@@ -240,7 +242,7 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 -h, --help	Display this help and exit\n",
 		frr_vtydir, DEFAULT_LOGLEVEL, LOG_EMERG, LOG_DEBUG, LOG_DEBUG,
 		DEFAULT_MIN_RESTART, DEFAULT_MAX_RESTART, DEFAULT_PERIOD,
-		DEFAULT_TIMEOUT, DEFAULT_RESTART_TIMEOUT, pidfile_default);
+		DEFAULT_TIMEOUT, DEFAULT_RESTART_TIMEOUT, frr_vtydir);
 }
 
 static pid_t run_background(char *shell_cmd)
@@ -609,12 +611,13 @@ static void daemon_send_ready(void)
 	if (!sent && gs.numdown == 0) {
 		FILE *fp;
 
+		zlog_notice("all daemons up, doing startup-complete notify");
+		frr_detach();
+
 		fp = fopen(DAEMON_VTY_DIR "/watchfrr.started", "w");
 		if (fp)
 			fclose(fp);
 #if defined HAVE_SYSTEMD
-		zlog_notice(
-			"Watchfrr: Notifying Systemd we are up and running");
 		systemd_send_started(master, 0);
 #endif
 		sent = 1;
@@ -961,6 +964,53 @@ static char *translate_blanks(const char *cmd, const char *blankstr)
 	return res;
 }
 
+static void watchfrr_init(int argc, char **argv)
+{
+	const char *special = "zebra";
+	int i;
+	struct daemon *dmn, **add = &gs.daemons;
+	char alldaemons[512] = "", *p = alldaemons;
+
+	for (i = optind; i < argc; i++) {
+		dmn = XCALLOC(MTYPE_WATCHFRR_DAEMON, sizeof(*dmn));
+
+		dmn->name = dmn->restart.name = argv[i];
+		dmn->state = DAEMON_INIT;
+		gs.numdaemons++;
+		gs.numdown++;
+		dmn->fd = -1;
+		dmn->t_wakeup = NULL;
+		thread_add_timer_msec(master, wakeup_init, dmn,
+				      100 + (random() % 900),
+				      &dmn->t_wakeup);
+		dmn->restart.interval = gs.min_restart_interval;
+		*add = dmn;
+		add = &dmn->next;
+
+		if (!strcmp(dmn->name, special))
+			gs.special = dmn;
+	}
+
+	if (!gs.daemons) {
+		fprintf(stderr,
+			"Must specify one or more daemons to monitor.\n\n");
+		frr_help_exit(1);
+	}
+	if (!watch_only && !gs.special) {
+		fprintf(stderr, "\"%s\" daemon must be in daemon lists\n\n",
+			special);
+		frr_help_exit(1);
+	}
+
+	for (dmn = gs.daemons; dmn; dmn = dmn->next) {
+		snprintf(p, alldaemons + sizeof(alldaemons) - p, "%s%s",
+			 (p == alldaemons) ? "" : " ", dmn->name);
+		p += strlen(p);
+	}
+	zlog_notice("%s %s watching [%s]%s", progname, FRR_VERSION, alldaemons,
+		    watch_only ? ", monitor mode" : "");
+}
+
 struct zebra_privs_t watchfrr_privs = {
 #ifdef VTY_GROUP
 	.vty_group = VTY_GROUP,
@@ -984,7 +1034,8 @@ static struct quagga_signal_t watchfrr_signals[] = {
 
 FRR_DAEMON_INFO(watchfrr, WATCHFRR,
 		.flags = FRR_NO_PRIVSEP | FRR_NO_TCPVTY | FRR_LIMITED_CLI
-			 | FRR_NO_CFG_PID_DRY | FRR_NO_ZCLIENT,
+			 | FRR_NO_CFG_PID_DRY | FRR_NO_ZCLIENT
+			 | FRR_DETACH_LATER,
 
 		.printhelp = printhelp,
 		.copyright = "Copyright 2004 Andrew J. Schorr",
@@ -999,12 +1050,7 @@ FRR_DAEMON_INFO(watchfrr, WATCHFRR,
 int main(int argc, char **argv)
 {
 	int opt;
-	const char *pidfile = pidfile_default;
-	const char *special = "zebra";
 	const char *blankstr = NULL;
-
-	snprintf(pidfile_default, sizeof(pidfile_default), "%s/watchfrr.pid",
-		 frr_vtydir);
 
 	frr_preinit(&watchfrr_di, argc, argv);
 	progname = watchfrr_di.progname;
@@ -1087,7 +1133,7 @@ int main(int argc, char **argv)
 			gs.period = 1000 * period;
 		} break;
 		case 'p':
-			pidfile = optarg;
+			watchfrr_di.pid_file = optarg;
 			break;
 		case 'r':
 			if (!valid_command(optarg)) {
@@ -1167,98 +1213,18 @@ int main(int argc, char **argv)
 
 	master = frr_init();
 	watchfrr_error_init();
-
-	zlog_set_level(ZLOG_DEST_MONITOR, ZLOG_DISABLED);
-	if (watchfrr_di.daemon_mode) {
-		zlog_set_level(ZLOG_DEST_SYSLOG, MIN(gs.loglevel, LOG_DEBUG));
-		if (daemon(0, 0) < 0) {
-			fprintf(stderr, "Watchfrr daemon failed: %s",
-				strerror(errno));
-			exit(1);
-		}
-	} else
-		zlog_set_level(ZLOG_DEST_STDOUT, MIN(gs.loglevel, LOG_DEBUG));
-
+	watchfrr_init(argc, argv);
 	watchfrr_vty_init();
 
-	frr_vty_serv();
+	frr_config_fork();
 
-	{
-		int i;
-		struct daemon *tail = NULL;
+	zlog_set_level(ZLOG_DEST_MONITOR, ZLOG_DISABLED);
+	if (watchfrr_di.daemon_mode)
+		zlog_set_level(ZLOG_DEST_SYSLOG, MIN(gs.loglevel, LOG_DEBUG));
+	else
+		zlog_set_level(ZLOG_DEST_STDOUT, MIN(gs.loglevel, LOG_DEBUG));
 
-		for (i = optind; i < argc; i++) {
-			struct daemon *dmn;
-
-			if (!(dmn = (struct daemon *)calloc(1, sizeof(*dmn)))) {
-				fprintf(stderr, "calloc(1,%u) failed: %s\n",
-					(unsigned int)sizeof(*dmn),
-					safe_strerror(errno));
-				return 1;
-			}
-			dmn->name = dmn->restart.name = argv[i];
-			dmn->state = DAEMON_INIT;
-			gs.numdaemons++;
-			gs.numdown++;
-			dmn->fd = -1;
-			dmn->t_wakeup = NULL;
-			thread_add_timer_msec(master, wakeup_init, dmn,
-					      100 + (random() % 900),
-					      &dmn->t_wakeup);
-			dmn->restart.interval = gs.min_restart_interval;
-			if (tail)
-				tail->next = dmn;
-			else
-				gs.daemons = dmn;
-			tail = dmn;
-
-			if (!strcmp(dmn->name, special))
-				gs.special = dmn;
-		}
-	}
-	if (!gs.daemons) {
-		fputs("Must specify one or more daemons to monitor.\n", stderr);
-		frr_help_exit(1);
-	}
-	if (!watch_only && !gs.special) {
-		fprintf(stderr, "\"%s\" daemon must be in daemon list\n",
-			special);
-		frr_help_exit(1);
-	}
-
-	/* Make sure we're not already running. */
-	pid_output(pidfile);
-
-	/* Announce which daemons are being monitored. */
-	{
-		struct daemon *dmn;
-		size_t len = 0;
-
-		for (dmn = gs.daemons; dmn; dmn = dmn->next)
-			len += strlen(dmn->name) + 1;
-
-		{
-			char buf[len + 1];
-			char *p = buf;
-
-			for (dmn = gs.daemons; dmn; dmn = dmn->next) {
-				if (p != buf)
-					*p++ = ' ';
-				strcpy(p, dmn->name);
-				p += strlen(p);
-			}
-			zlog_notice("%s %s watching [%s]%s", progname,
-				    FRR_VERSION, buf,
-				    watch_only ? ", monitor mode" : "");
-		}
-	}
-
-	{
-		struct thread thread;
-
-		while (thread_fetch(master, &thread))
-			thread_call(&thread);
-	}
+	frr_run(master);
 
 	systemd_send_stopping();
 	/* Not reached. */

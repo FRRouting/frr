@@ -42,11 +42,11 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	}
 
 	if (pim->static_routes)
-		list_delete_and_null(&pim->static_routes);
-
-	pim_rp_free(pim);
+		list_delete(&pim->static_routes);
 
 	pim_upstream_terminate(pim);
+
+	pim_rp_free(pim);
 
 	/* Traverse and cleanup rpf_hash */
 	if (pim->rpf_hash) {
@@ -188,7 +188,7 @@ static int pim_vrf_config_write(struct vty *vty)
 		pim_global_config_write_worker(pim, vty);
 
 		if (vrf->vrf_id != VRF_DEFAULT)
-			vty_endframe(vty, "!\n");
+			vty_endframe(vty, " exit-vrf\n!\n");
 	}
 
 	return 0;

@@ -356,7 +356,7 @@ int sockopt_ttl(int family, int sock, int ttl)
  * Which on linux is a no-op since it is enabled by
  * default and on BSD it uses TCP_NOPUSH to do
  * the same thing( which it was not configured to
- * use).  This cleanup of the api occured on 8/1/17
+ * use).  This cleanup of the api occurred on 8/1/17
  * I imagine if after more than 1 year of no-one
  * complaining, and a major upgrade release we
  * can deprecate and remove this function call

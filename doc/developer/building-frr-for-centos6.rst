@@ -44,8 +44,7 @@ Add packages:
 
    sudo yum install git autoconf automake libtool make gawk \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
-      json-c-devel pam-devel flex epel-release perl-XML-LibXML \
-      c-ares-devel
+      json-c-devel pam-devel flex epel-release c-ares-devel
 
 Install newer version of bison (CentOS 6 package source is too old) from CentOS
 7:
@@ -116,6 +115,8 @@ Update rpm database & Install newer sphinx
    sudo yum update
    sudo yum install python27-sphinx
 
+.. include:: building-libyang.rst
+
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 
@@ -154,19 +155,12 @@ an example.)
         --disable-pimd \
         --enable-snmp=agentx \
         --enable-multipath=64 \
-        --enable-ospfclient=yes \
-        --enable-ospfapi=yes \
         --enable-user=frr \
         --enable-group=frr \
         --enable-vty-group=frrvty \
-        --enable-rtadv \
         --disable-exampledir \
-        --enable-watchfrr \
         --disable-ldpd \
         --enable-fpm \
-        --enable-nhrpd \
-        --enable-eigrpd \
-        --enable-babeld \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion \
         SPHINXBUILD=sphinx-build2.7

@@ -18,6 +18,8 @@ Add packages:
        pkg-config libpam0g-dev libjson-c-dev bison flex python-pytest \
        libc-ares-dev python3-dev python3-sphinx install-info
 
+.. include:: building-libyang.rst
+
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 
@@ -52,19 +54,13 @@ an example.)
         --localstatedir=/var/run/frr \
         --sbindir=/usr/lib/frr \
         --sysconfdir=/etc/frr \
-        --enable-pimd \
-        --enable-watchfrr \
-        --enable-ospfclient=yes \
-        --enable-ospfapi=yes \
         --enable-multipath=64 \
         --enable-user=frr \
         --enable-group=frr \
         --enable-vty-group=frrvty \
         --enable-configfile-mask=0640 \
         --enable-logfile-mask=0640 \
-        --enable-rtadv \
         --enable-fpm \
-        --enable-ldpd \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion
     make

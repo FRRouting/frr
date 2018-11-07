@@ -34,7 +34,11 @@ void isis_spftree_del(struct isis_spftree *spftree);
 void spftree_area_init(struct isis_area *area);
 void spftree_area_del(struct isis_area *area);
 void spftree_area_adj_del(struct isis_area *area, struct isis_adjacency *adj);
-int isis_spf_schedule(struct isis_area *area, int level);
+#define isis_spf_schedule(area, level) \
+	_isis_spf_schedule((area), (level), __func__, \
+			   __FILE__, __LINE__)
+int _isis_spf_schedule(struct isis_area *area, int level,
+		       const char *func, const char *file, int line);
 void isis_spf_cmds_init(void);
 void isis_spf_print(struct isis_spftree *spftree, struct vty *vty);
 struct isis_spftree *isis_run_hopcount_spf(struct isis_area *area,

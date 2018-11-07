@@ -39,6 +39,7 @@
 #include "routemap.h"
 #include "frr_pthread.h"
 
+#include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -142,10 +143,18 @@ static void sigint(void)
 	struct zebra_vrf *zvrf;
 	struct listnode *ln, *nn;
 	struct zserv *client;
+	static bool sigint_done;
+
+	if (sigint_done)
+		return;
+
+	sigint_done = true;
 
 	zlog_notice("Terminating on signal");
 
 	frr_early_fini();
+
+	zebra_dplane_pre_finish();
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, ln, nn, client))
 		zserv_close_client(client);
@@ -170,9 +179,30 @@ static void sigint(void)
 	prefix_list_reset();
 	route_map_finish();
 
-	list_delete_and_null(&zebrad.client_list);
+	list_delete(&zebrad.client_list);
+
+	/* Indicate that all new dplane work has been enqueued. When that
+	 * work is complete, the dataplane will enqueue an event
+	 * with the 'finalize' function.
+	 */
+	zebra_dplane_finish();
+}
+
+/*
+ * Final shutdown step for the zebra main thread. This is run after all
+ * async update processing has completed.
+ */
+int zebra_finalize(struct thread *dummy)
+{
+	zlog_info("Zebra final shutdown");
+
+	/* Stop dplane thread and finish any cleanup */
+	zebra_dplane_shutdown();
+
 	work_queue_free_and_null(&zebrad.ribq);
 	meta_queue_free(zebrad.mq);
+
+	zebra_router_terminate();
 
 	frr_fini();
 	exit(0);
@@ -203,6 +233,10 @@ struct quagga_signal_t zebra_signals[] = {
 	},
 };
 
+static const struct frr_yang_module_info *zebra_yang_modules[] = {
+	&frr_interface_info,
+};
+
 FRR_DAEMON_INFO(
 	zebra, ZEBRA, .vty_port = ZEBRA_VTY_PORT, .flags = FRR_NO_ZCLIENT,
 
@@ -212,7 +246,10 @@ FRR_DAEMON_INFO(
 
 	.signals = zebra_signals, .n_signals = array_size(zebra_signals),
 
-	.privs = &zserv_privs, )
+	.privs = &zserv_privs,
+
+	.yang_modules = zebra_yang_modules,
+	.n_yang_modules = array_size(zebra_yang_modules), )
 
 /* Main startup routine. */
 int main(int argc, char **argv)
@@ -354,6 +391,7 @@ int main(int argc, char **argv)
 	zebrad.master = frr_init();
 
 	/* Zebra related initialize. */
+	zebra_router_init();
 	zserv_init();
 	rib_init();
 	zebra_if_init();
@@ -418,7 +456,7 @@ int main(int argc, char **argv)
 
 	/* RNH init */
 	zebra_rnh_init();
-	
+
 	/* Error init */
 	zebra_error_init();
 

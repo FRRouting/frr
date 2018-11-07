@@ -140,7 +140,7 @@ extern const char *ospf_timer_dump(struct thread *, char *, size_t);
 extern const char *ospf_timeval_dump(struct timeval *, char *, size_t);
 extern void ospf_ip_header_dump(struct ip *);
 extern void ospf_packet_dump(struct stream *);
-extern void debug_init(void);
+extern void ospf_debug_init(void);
 
 /* Appropriate buffer size to use with ospf_timer_dump and ospf_timeval_dump: */
 #define OSPF_TIME_DUMP_SIZE	16

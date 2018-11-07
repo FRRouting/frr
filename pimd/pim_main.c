@@ -71,6 +71,10 @@ struct zebra_privs_t pimd_privs = {
 	.cap_num_p = sizeof(_caps_p) / sizeof(_caps_p[0]),
 	.cap_num_i = 0};
 
+static const struct frr_yang_module_info *pimd_yang_modules[] = {
+	&frr_interface_info,
+};
+
 FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,
 
 		.proghelp = "Implementation of the PIM routing protocol.",
@@ -78,7 +82,8 @@ FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,
 		.signals = pimd_signals,
 		.n_signals = 4 /* XXX array_size(pimd_signals) XXX*/,
 
-		.privs = &pimd_privs, )
+		.privs = &pimd_privs, .yang_modules = pimd_yang_modules,
+		.n_yang_modules = array_size(pimd_yang_modules), )
 
 
 int main(int argc, char **argv, char **envp)

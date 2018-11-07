@@ -44,6 +44,15 @@ static inline int is_evpn_enabled()
 	return zvrf ? zvrf->advertise_all_vni : 0;
 }
 
+static inline int
+is_vxlan_flooding_head_end()
+{
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (!zvrf)
+		return 0;
+	return (zvrf->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL);
+}
 
 /* VxLAN interface change flags of interest. */
 #define ZEBRA_VXLIF_LOCAL_IP_CHANGE     0x1
@@ -57,6 +66,7 @@ extern void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS);
+extern void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS);
@@ -84,7 +94,8 @@ extern void zebra_vxlan_print_macs_all_vni_vtep(struct vty *vty,
 						bool use_json);
 extern void zebra_vxlan_print_specific_mac_vni(struct vty *vty,
 					       struct zebra_vrf *zvrf,
-					       vni_t vni, struct ethaddr *mac);
+					       vni_t vni, struct ethaddr *mac,
+					       bool use_json);
 extern void zebra_vxlan_print_macs_vni_vtep(struct vty *vty,
 					    struct zebra_vrf *zvrf, vni_t vni,
 					    struct in_addr vtep_ip,
@@ -122,15 +133,15 @@ extern int zebra_vxlan_svi_down(struct interface *ifp,
 				struct interface *link_if);
 extern int zebra_vxlan_handle_kernel_neigh_update(
 	struct interface *ifp, struct interface *link_if, struct ipaddr *ip,
-	struct ethaddr *macaddr, uint16_t state, uint8_t ext_learned,
-	uint8_t router_flag);
+	struct ethaddr *macaddr, uint16_t state, bool is_ext,
+	bool is_router);
 extern int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 				       struct interface *link_if,
 				       struct ipaddr *ip);
 extern int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 					    struct interface *br_if,
 					    struct ethaddr *mac, vlanid_t vid,
-					    uint8_t sticky);
+					    bool sticky);
 extern int zebra_vxlan_local_mac_del(struct interface *ifp,
 				     struct interface *br_if,
 				     struct ethaddr *mac, vlanid_t vid);

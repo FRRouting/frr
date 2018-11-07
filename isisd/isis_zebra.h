@@ -27,6 +27,8 @@ extern struct zclient *zclient;
 void isis_zebra_init(struct thread_master *);
 void isis_zebra_stop(void);
 
+struct isis_route_info;
+
 void isis_zebra_route_update(struct prefix *prefix,
 			     struct prefix_ipv6 *src_p,
 			     struct isis_route_info *route_info);

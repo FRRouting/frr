@@ -313,10 +313,12 @@ static void vnc_redistribute_withdraw(struct bgp *bgp, afi_t afi, uint8_t type)
 
 		/* This is the per-RD table of prefixes */
 		table = prn->info;
+		if (!table)
+			continue;
 
 		for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
 
-			struct bgp_info *ri;
+			struct bgp_path_info *ri;
 
 			for (ri = rn->info; ri; ri = ri->next) {
 				if (ri->type
@@ -576,7 +578,9 @@ static void vnc_zebra_add_del_prefix(struct bgp *bgp,
 		return;
 	}
 
-	if (!zclient_vnc->redist[family2afi(rn->p.family)][ZEBRA_ROUTE_VNC])
+	if (!vrf_bitmap_check(zclient_vnc->redist[family2afi(rn->p.family)]
+						 [ZEBRA_ROUTE_VNC],
+			      VRF_DEFAULT))
 		return;
 
 	if (!bgp->rfapi_cfg) {
@@ -596,7 +600,7 @@ static void vnc_zebra_add_del_prefix(struct bgp *bgp,
 		nve_list_to_nh_array(rn->p.family, nves, &nexthop_count,
 				     &nh_ary, &nhp_ary);
 
-		list_delete_and_null(&nves);
+		list_delete(&nves);
 
 		if (nexthop_count)
 			vnc_zebra_route_msg(&rn->p, nexthop_count, nhp_ary,
@@ -640,7 +644,8 @@ static void vnc_zebra_add_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	if (zclient_vnc->sock < 0)
 		return;
 
-	if (!zclient_vnc->redist[afi][ZEBRA_ROUTE_VNC])
+	if (!vrf_bitmap_check(zclient_vnc->redist[afi][ZEBRA_ROUTE_VNC],
+			      VRF_DEFAULT))
 		return;
 
 	if (afi != AFI_IP && afi != AFI_IP6) {
@@ -768,7 +773,7 @@ static void vnc_zebra_add_del_group_afi(struct bgp *bgp,
 		vnc_zlog_debug_verbose("%s: family: %d, nve count: %d",
 				       __func__, family, nexthop_count);
 
-		list_delete_and_null(&nves);
+		list_delete(&nves);
 
 		if (nexthop_count) {
 			/*
@@ -839,12 +844,12 @@ int vnc_redistribute_set(struct bgp *bgp, afi_t afi, int type)
 	//  bgp->redist[afi][type] = 1;
 
 	/* Return if already redistribute flag is set. */
-	if (zclient_vnc->redist[afi][type])
+	if (vrf_bitmap_check(zclient_vnc->redist[afi][type], VRF_DEFAULT))
 		return CMD_WARNING_CONFIG_FAILED;
 
 	vrf_bitmap_set(zclient_vnc->redist[afi][type], VRF_DEFAULT);
 
-	// zclient_vnc->redist[afi][type] = 1;
+	// vrf_bitmap_set(zclient_vnc->redist[afi][type], VRF_DEFAULT);
 
 	/* Return if zebra connection is not established. */
 	if (zclient_vnc->sock < 0)
@@ -875,9 +880,9 @@ int vnc_redistribute_unset(struct bgp *bgp, afi_t afi, int type)
 	bgp->rfapi_cfg->redist[afi][type] = 0;
 
 	/* Return if zebra connection is disabled. */
-	if (!zclient_vnc->redist[afi][type])
+	if (!vrf_bitmap_check(zclient_vnc->redist[afi][type], VRF_DEFAULT))
 		return CMD_WARNING_CONFIG_FAILED;
-	zclient_vnc->redist[afi][type] = 0;
+	vrf_bitmap_unset(zclient_vnc->redist[afi][type], VRF_DEFAULT);
 
 	if (bgp->rfapi_cfg->redist[AFI_IP][type] == 0
 	    && bgp->rfapi_cfg->redist[AFI_IP6][type] == 0

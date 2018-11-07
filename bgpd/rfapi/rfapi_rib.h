@@ -105,7 +105,7 @@ extern void rfapiRibUpdatePendingNodeSubtree(struct bgp *bgp,
 
 extern int rfapiRibPreloadBi(struct agg_node *rfd_rib_node,
 			     struct prefix *pfx_vn, struct prefix *pfx_un,
-			     uint32_t lifetime, struct bgp_info *bi);
+			     uint32_t lifetime, struct bgp_path_info *bpi);
 
 extern struct rfapi_next_hop_entry *
 rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,

@@ -235,11 +235,8 @@ void eigrp_send_query(struct eigrp_interface *ei)
 		}
 	}
 
-	if (!has_tlv) {
-		if (ep)
-			eigrp_packet_free(ep);
+	if (!has_tlv)
 		return;
-	}
 
 	if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
 	    && ei->params.auth_keychain != NULL)

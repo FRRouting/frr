@@ -38,7 +38,7 @@ static struct list *_hashes;
 
 struct hash *hash_create_size(unsigned int size,
 			      unsigned int (*hash_key)(void *),
-			      int (*hash_cmp)(const void *, const void *),
+			      bool (*hash_cmp)(const void *, const void *),
 			      const char *name)
 {
 	struct hash *hash;
@@ -67,7 +67,7 @@ struct hash *hash_create_size(unsigned int size,
 }
 
 struct hash *hash_create(unsigned int (*hash_key)(void *),
-			 int (*hash_cmp)(const void *, const void *),
+			 bool (*hash_cmp)(const void *, const void *),
 			 const char *name)
 {
 	return hash_create_size(HASH_INITIAL_SIZE, hash_key, hash_cmp, name);
@@ -318,7 +318,7 @@ void hash_free(struct hash *hash)
 		if (_hashes) {
 			listnode_delete(_hashes, hash);
 			if (_hashes->count == 0) {
-				list_delete_and_null(&_hashes);
+				list_delete(&_hashes);
 			}
 		}
 	}

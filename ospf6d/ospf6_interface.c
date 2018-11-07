@@ -241,7 +241,7 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
 		ospf6_neighbor_delete(on);
 
-	list_delete_and_null(&oi->neighbor_list);
+	list_delete(&oi->neighbor_list);
 
 	THREAD_OFF(oi->thread_send_hello);
 	THREAD_OFF(oi->thread_send_lsupdate);
@@ -1073,13 +1073,18 @@ DEFUN (show_ipv6_ospf6_interface_traffic,
 
 DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
        show_ipv6_ospf6_interface_ifname_prefix_cmd,
-       "show ipv6 ospf6 interface IFNAME prefix [<X:X::X:X|X:X::X:X/M>] [<match|detail>]",
+       "show ipv6 ospf6 interface IFNAME prefix\
+          [<\
+	    detail\
+	    |<X:X::X:X|X:X::X:X/M> [<match|detail>]\
+	  >]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        INTERFACE_STR
        IFNAME_STR
        "Display connected prefixes to advertise\n"
+       "Display details of the prefixes\n"
        OSPF6_ROUTE_ADDRESS_STR
        OSPF6_ROUTE_PREFIX_STR
        OSPF6_ROUTE_MATCH_STR
@@ -1111,12 +1116,17 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
 
 DEFUN (show_ipv6_ospf6_interface_prefix,
        show_ipv6_ospf6_interface_prefix_cmd,
-       "show ipv6 ospf6 interface prefix [<X:X::X:X|X:X::X:X/M>] [<match|detail>]",
+       "show ipv6 ospf6 interface prefix\
+          [<\
+	    detail\
+	    |<X:X::X:X|X:X::X:X/M> [<match|detail>]\
+	  >]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
        INTERFACE_STR
        "Display connected prefixes to advertise\n"
+       "Display details of the prefixes\n"
        OSPF6_ROUTE_ADDRESS_STR
        OSPF6_ROUTE_PREFIX_STR
        OSPF6_ROUTE_MATCH_STR

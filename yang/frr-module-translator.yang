@@ -1,0 +1,68 @@
+module frr-module-translator {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/frr-module-translator";
+  prefix frr-module-translator;
+
+  organization
+    "Free Range Routing";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "A model for FRR YANG module translators.";
+
+  revision 2018-07-31 {
+    description
+      "Initial revision.";
+  }
+
+  container frr-module-translator {
+    leaf family {
+      type string {
+        length "0 .. 32";
+      }
+      mandatory true;
+      description
+        "Family of YANG models.";
+    }
+    list module {
+      key "name";
+      ordered-by user;
+      description
+        "YANG module.";
+
+      leaf name {
+        type string;
+        description
+          "Module name.";
+      }
+      leaf deviations {
+        type string;
+        mandatory true;
+        description
+          "Module containing the YANG deviations.";
+      }
+      list mappings {
+        key "custom";
+        description
+          "YANG mappings between the custom module and FRR native modules.";
+
+        leaf custom {
+          type string {
+            length "0 .. 256";
+          }
+          description
+            "YANG path of the custom module.";
+        }
+        leaf native {
+          type string {
+            length "0 .. 256";
+          }
+          mandatory true;
+          description
+            "Corresponding path of the native YANG modules";
+        }
+      }
+    }
+  }
+}

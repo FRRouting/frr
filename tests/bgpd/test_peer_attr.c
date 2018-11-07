@@ -966,7 +966,7 @@ static void test_finish(struct test *test)
 		test->vty = NULL;
 	}
 	if (test->log)
-		list_delete_and_null(&test->log);
+		list_delete(&test->log);
 	if (test->desc)
 		XFREE(MTYPE_TMP, test->desc);
 	if (test->error)
@@ -1383,12 +1383,14 @@ static void bgp_startup(void)
 		 LOG_DAEMON);
 	zprivs_preinit(&bgpd_privs);
 	zprivs_init(&bgpd_privs);
+	yang_init();
+	nb_init(NULL, 0);
 
 	master = thread_master_create(NULL);
 	bgp_master_init(master);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
-	bgp_init();
+	bgp_init(0);
 	bgp_pthreads_run();
 }
 
@@ -1423,11 +1425,13 @@ static void bgp_shutdown(void)
 	bgp_zebra_destroy();
 
 	bf_free(bm->rd_idspace);
-	list_delete_and_null(&bm->bgp);
+	list_delete(&bm->bgp);
 	memset(bm, 0, sizeof(*bm));
 
 	vty_terminate();
 	cmd_terminate();
+	nb_terminate();
+	yang_terminate();
 	zprivs_terminate(&bgpd_privs);
 	thread_master_free(master);
 	master = NULL;
@@ -1502,7 +1506,7 @@ int main(void)
 		XFREE(MTYPE_TMP, pa);
 	}
 
-	list_delete_and_null(&pa_list);
+	list_delete(&pa_list);
 	bgp_shutdown();
 
 	return 0;

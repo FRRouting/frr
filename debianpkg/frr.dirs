@@ -4,5 +4,5 @@ etc/iproute2/rt_protos.d/
 usr/share/doc/frr/
 usr/share/doc/frr/examples/
 usr/share/lintian/overrides/
-usr/share/snmp/mibs/
+usr/share/yang/
 var/log/frr/

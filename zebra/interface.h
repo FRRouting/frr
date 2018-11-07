@@ -279,6 +279,7 @@ struct zebra_if {
 	 * for bgp unnumbered?
 	 */
 	bool v6_2_v4_ll_neigh_entry;
+	char neigh_mac[6];
 	struct in6_addr v6_2_v4_ll_addr6;
 };
 
@@ -332,6 +333,10 @@ extern struct interface *if_link_per_ns(struct zebra_ns *, struct interface *);
 extern const char *ifindex2ifname_per_ns(struct zebra_ns *, unsigned int);
 
 extern void if_unlink_per_ns(struct interface *);
+extern void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *fip,
+					      char mac[6],
+					      struct in6_addr *address,
+					      int add);
 extern void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
 						 struct in6_addr *address,
 						 int add);
@@ -348,6 +353,7 @@ extern int ipv6_address_configured(struct interface *ifp);
 extern void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id);
 extern void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 				 ns_id_t ns_id);
+extern void zebra_if_update_all_links(void);
 
 extern void vrf_add_update(struct vrf *vrfp);
 

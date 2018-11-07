@@ -133,7 +133,7 @@ void redist_del_instance(struct redist_proto *red, unsigned short instance)
 	XFREE(MTYPE_REDIST_INST, id);
 	if (!red->instances->count) {
 		red->enabled = 0;
-		list_delete_and_null(&red->instances);
+		list_delete(&red->instances);
 	}
 }
 
@@ -1217,6 +1217,7 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 	STREAM_GETC(s, nhr->nexthop_num);
 
 	for (i = 0; i < nhr->nexthop_num; i++) {
+		STREAM_GETL(s, nhr->nexthops[i].vrf_id);
 		STREAM_GETC(s, nhr->nexthops[i].type);
 		switch (nhr->nexthops[i].type) {
 		case NEXTHOP_TYPE_IPV4:
@@ -1400,7 +1401,7 @@ struct interface *zebra_interface_add_read(struct stream *s, vrf_id_t vrf_id)
 	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* Lookup/create interface by name. */
-	ifp = if_get_by_name(ifname_tmp, vrf_id, 0);
+	ifp = if_get_by_name(ifname_tmp, vrf_id);
 
 	zebra_interface_if_set_value(s, ifp);
 
@@ -1839,24 +1840,29 @@ static int zclient_read_sync_response(struct zclient *zclient,
  * immediately reads the answer from the input buffer.
  *
  * @param zclient Zclient used to connect to label manager (zebra)
+ * @param async Synchronous (0) or asynchronous (1) operation
  * @result Result of response
  */
-int lm_label_manager_connect(struct zclient *zclient)
+int lm_label_manager_connect(struct zclient *zclient, int async)
 {
 	int ret;
 	struct stream *s;
 	uint8_t result;
+	uint16_t cmd = async ? ZEBRA_LABEL_MANAGER_CONNECT_ASYNC :
+			       ZEBRA_LABEL_MANAGER_CONNECT;
 
 	if (zclient_debug)
 		zlog_debug("Connecting to Label Manager (LM)");
 
-	if (zclient->sock < 0)
+	if (zclient->sock < 0) {
+		zlog_debug("%s: invalid zclient socket", __func__);
 		return -1;
+	}
 
 	/* send request */
 	s = zclient->obuf;
 	stream_reset(s);
-	zclient_create_header(s, ZEBRA_LABEL_MANAGER_CONNECT, VRF_DEFAULT);
+	zclient_create_header(s, cmd, VRF_DEFAULT);
 
 	/* proto */
 	stream_putc(s, zclient->redist_default);
@@ -1882,8 +1888,11 @@ int lm_label_manager_connect(struct zclient *zclient)
 	if (zclient_debug)
 		zlog_debug("LM connect request sent (%d bytes)", ret);
 
+	if (async)
+		return 0;
+
 	/* read response */
-	if (zclient_read_sync_response(zclient, ZEBRA_LABEL_MANAGER_CONNECT)
+	if (zclient_read_sync_response(zclient, cmd)
 	    != 0)
 		return -1;
 

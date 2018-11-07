@@ -163,7 +163,7 @@ void area_mt_init(struct isis_area *area)
 
 void area_mt_finish(struct isis_area *area)
 {
-	list_delete_and_null(&area->mt_settings);
+	list_delete(&area->mt_settings);
 }
 
 struct isis_area_mt_setting *area_get_mt_setting(struct isis_area *area,
@@ -286,7 +286,7 @@ void circuit_mt_init(struct isis_circuit *circuit)
 
 void circuit_mt_finish(struct isis_circuit *circuit)
 {
-	list_delete_and_null(&circuit->mt_settings);
+	list_delete(&circuit->mt_settings);
 }
 
 struct isis_circuit_mt_setting *
@@ -302,7 +302,8 @@ circuit_get_mt_setting(struct isis_circuit *circuit, uint16_t mtid)
 	return setting;
 }
 
-int circuit_write_mt_settings(struct isis_circuit *circuit, struct vty *vty)
+static int circuit_write_mt_settings(struct isis_circuit *circuit,
+				     struct vty *vty)
 {
 	int written = 0;
 	struct listnode *node;
@@ -550,4 +551,10 @@ void tlvs_add_mt_p2p(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
 
 	tlvs_add_mt_set(circuit->area, tlvs, adj->mt_count, adj->mt_set, id,
 			metric, subtlvs, subtlv_len);
+}
+
+void mt_init(void)
+{
+	hook_register(isis_circuit_config_write,
+		      circuit_write_mt_settings);
 }

@@ -1030,8 +1030,7 @@ int zebra_ptm_bfd_client_deregister(struct zserv *client)
 	char tmp_buf[64];
 	int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
 
-	if (proto != ZEBRA_ROUTE_OSPF && proto != ZEBRA_ROUTE_BGP
-	    && proto != ZEBRA_ROUTE_OSPF6 && proto != ZEBRA_ROUTE_PIM)
+	if (!IS_BFD_ENABLED_PROTOCOL(proto))
 		return 0;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
@@ -1310,17 +1309,8 @@ static void zebra_ptm_send_clients(struct stream *msg)
 
 	/* Send message to all running client daemons. */
 	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
-		switch (client->proto) {
-		case ZEBRA_ROUTE_BGP:
-		case ZEBRA_ROUTE_OSPF:
-		case ZEBRA_ROUTE_OSPF6:
-		case ZEBRA_ROUTE_PIM:
-			break;
-
-		default:
-			/* NOTHING: skip this daemon. */
+		if (!IS_BFD_ENABLED_PROTOCOL(client->proto))
 			continue;
-		}
 
 		zserv_send_message(client, msg);
 
@@ -1341,22 +1331,8 @@ static int _zebra_ptm_bfd_client_deregister(struct zserv *zs)
 	struct stream *msg;
 	struct ptm_process *pp;
 
-	/* Filter daemons that must receive this treatment. */
-	switch (zs->proto) {
-	case ZEBRA_ROUTE_BGP:
-	case ZEBRA_ROUTE_OSPF:
-	case ZEBRA_ROUTE_OSPF6:
-	case ZEBRA_ROUTE_PIM:
-		break;
-
-	case ZEBRA_ROUTE_BFD:
-		/* Don't try to send BFDd messages to itself. */
+	if (!IS_BFD_ENABLED_PROTOCOL(zs->proto))
 		return 0;
-
-	default:
-		/* Unsupported daemon. */
-		return 0;
-	}
 
 	/* Find daemon pid by zebra connection pointer. */
 	pp = pp_lookup_byzs(zs);

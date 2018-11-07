@@ -134,7 +134,7 @@ void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
 	int ret;
 	int len;
 
-	/* Individual reg/dereg messages are supressed during shutdown. */
+	/* Individual reg/dereg messages are suppressed during shutdown. */
 	if (CHECK_FLAG(bfd_gbl.flags, BFD_GBL_FLAG_IN_SHUTDOWN)) {
 		if (bfd_debug)
 			zlog_debug(

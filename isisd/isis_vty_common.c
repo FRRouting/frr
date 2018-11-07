@@ -28,12 +28,14 @@
 
 #include "command.h"
 #include "spf_backoff.h"
+#include "bfd.h"
 
 #include "isis_circuit.h"
 #include "isis_csm.h"
 #include "isis_misc.h"
 #include "isis_mt.h"
 #include "isisd.h"
+#include "isis_bfd.h"
 #include "isis_vty_common.h"
 
 struct isis_circuit *isis_circuit_lookup(struct vty *vty)
@@ -498,6 +500,49 @@ DEFUN (no_circuit_topology,
 	return isis_circuit_mt_enabled_set(circuit, mtid, false);
 }
 
+DEFUN (isis_bfd,
+       isis_bfd_cmd,
+       PROTO_NAME " bfd",
+       PROTO_HELP
+       "Enable BFD support\n")
+{
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
+	if (!circuit)
+		return CMD_ERR_NO_MATCH;
+
+	if (circuit->bfd_info
+	    && CHECK_FLAG(circuit->bfd_info->flags, BFD_FLAG_PARAM_CFG)) {
+		return CMD_SUCCESS;
+	}
+
+	isis_bfd_circuit_param_set(circuit, BFD_DEF_MIN_RX,
+				   BFD_DEF_MIN_TX, BFD_DEF_DETECT_MULT, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_isis_bfd,
+       no_isis_bfd_cmd,
+       "no " PROTO_NAME " bfd",
+       NO_STR
+       PROTO_HELP
+       "Disables BFD support\n"
+)
+{
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+
+	if (!circuit)
+		return CMD_ERR_NO_MATCH;
+
+	if (!circuit->bfd_info)
+		return CMD_SUCCESS;
+
+	isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_DEREGISTER);
+	bfd_info_free(&circuit->bfd_info);
+	return CMD_SUCCESS;
+}
+
 DEFUN (set_overload_bit,
        set_overload_bit_cmd,
        "set-overload-bit",
@@ -929,6 +974,9 @@ void isis_vty_init(void)
 
 	install_element(INTERFACE_NODE, &circuit_topology_cmd);
 	install_element(INTERFACE_NODE, &no_circuit_topology_cmd);
+
+	install_element(INTERFACE_NODE, &isis_bfd_cmd);
+	install_element(INTERFACE_NODE, &no_isis_bfd_cmd);
 
 	install_element(ROUTER_NODE, &set_overload_bit_cmd);
 	install_element(ROUTER_NODE, &no_set_overload_bit_cmd);

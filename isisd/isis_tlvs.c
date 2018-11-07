@@ -2946,7 +2946,7 @@ struct list *isis_fragment_tlvs(struct isis_tlvs *tlvs, size_t size)
 		struct listnode *node;
 		for (ALL_LIST_ELEMENTS_RO(rv, node, fragment_tlvs))
 			isis_free_tlvs(fragment_tlvs);
-		list_delete_and_null(&rv);
+		list_delete(&rv);
 	}
 
 	stream_free(dummy_stream);

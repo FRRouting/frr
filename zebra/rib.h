@@ -91,6 +91,9 @@ struct route_entry {
 	/* Nexthop information. */
 	uint8_t nexthop_num;
 	uint8_t nexthop_active_num;
+
+	/* Sequence value incremented for each dataplane operation */
+	uint32_t dplane_sequence;
 };
 
 /* meta-queue structure:
@@ -355,7 +358,7 @@ extern uint8_t route_distance(int type);
  */
 static inline rib_table_info_t *rib_table_info(struct route_table *table)
 {
-	return (rib_table_info_t *)table->info;
+	return (rib_table_info_t *)route_table_get_info(table);
 }
 
 /*

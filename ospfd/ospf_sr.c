@@ -94,7 +94,7 @@ static unsigned int sr_hash(void *p)
 }
 
 /* Compare 2 Router ID hash entries based on SR Node */
-static int sr_cmp(const void *p1, const void *p2)
+static bool sr_cmp(const void *p1, const void *p2)
 {
 	const struct sr_node *srn = p1;
 	const struct in_addr *rid = p2;
@@ -165,10 +165,10 @@ static void sr_node_del(struct sr_node *srn)
 		return;
 
 	/* Clean Extended Link */
-	list_delete_and_null(&srn->ext_link);
+	list_delete(&srn->ext_link);
 
 	/* Clean Prefix List */
-	list_delete_and_null(&srn->ext_prefix);
+	list_delete(&srn->ext_prefix);
 
 	XFREE(MTYPE_OSPF_SR_PARAMS, srn);
 }
@@ -283,7 +283,7 @@ static void ospf_sr_stop(void)
 
 	/*
 	 * Remove all SR Nodes from the Hash table. Prefix and Link SID will
-	 * be remove though list_delete_and_null() call. See sr_node_del()
+	 * be remove though list_delete() call. See sr_node_del()
 	 */
 	hash_clean(OspfSR.neighbors, (void *)sr_node_del);
 }
@@ -2052,6 +2052,9 @@ DEFUN (no_sr_prefix_sid,
 	struct interface *ifp;
 	bool found = false;
 	int rc;
+
+	if (!ospf_sr_enabled(vty))
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Get network prefix */
 	argv_find(argv, argc, "A.B.C.D/M", &idx);

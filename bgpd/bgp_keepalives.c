@@ -123,10 +123,11 @@ static void peer_process(struct hash_backet *hb, void *arg)
 		*next_update = diff;
 }
 
-static int peer_hash_cmp(const void *f, const void *s)
+static bool peer_hash_cmp(const void *f, const void *s)
 {
 	const struct pkat *p1 = f;
 	const struct pkat *p2 = s;
+
 	return p1->peer == p2->peer;
 }
 
@@ -229,7 +230,7 @@ void bgp_keepalives_on(struct peer *peer)
 	if (CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
 		return;
 
-	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_KEEPALIVES);
+	struct frr_pthread *fpt = bgp_pth_ka;
 	assert(fpt->running);
 
 	/* placeholder bucket data to use for fast key lookups */
@@ -259,7 +260,7 @@ void bgp_keepalives_off(struct peer *peer)
 	if (!CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
 		return;
 
-	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_KEEPALIVES);
+	struct frr_pthread *fpt = bgp_pth_ka;
 	assert(fpt->running);
 
 	/* placeholder bucket data to use for fast key lookups */

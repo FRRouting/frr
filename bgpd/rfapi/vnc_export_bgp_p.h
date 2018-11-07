@@ -30,10 +30,10 @@
 #include "rfapi_private.h"
 
 extern void vnc_direct_bgp_add_route_ce(struct bgp *bgp, struct agg_node *rn,
-					struct bgp_info *bi);
+					struct bgp_path_info *bpi);
 
 extern void vnc_direct_bgp_del_route_ce(struct bgp *bgp, struct agg_node *rn,
-					struct bgp_info *bi);
+					struct bgp_path_info *bpi);
 
 extern void vnc_direct_bgp_add_prefix(struct bgp *bgp,
 				      struct rfapi_import_table *import_table,

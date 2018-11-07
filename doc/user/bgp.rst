@@ -181,20 +181,6 @@ will establish the connection with unicast only capability. When there are no
 common capabilities, FRR sends Unsupported Capability error and then resets the
 connection.
 
-.. _bgp-concepts-vrfs:
-
-VRFs: Virtual Routing and Forwarding
-------------------------------------
-
-*bgpd* supports :abbr:`L3VPN (Layer 3 Virtual Private Networks)` :abbr:`VRFs
-(Virtual Routing and Forwarding tables)` for IPv4 :rfc:`4364` and IPv6
-:rfc:`4659`.  L3VPN routes, and their associated VRF MPLS labels, can be
-distributed to VPN SAFI neighbors in the *default*, i.e., non VRF, BGP
-instance. VRF MPLS labels are reached using *core* MPLS labels which are
-distributed using LDP or BGP labeled unicast.  *bgpd* also supports inter-VRF
-route leaking.  General information on FRR's VRF support can be found in
-:ref:`zebra-vrf`.
-
 .. _bgp-router-configuration:
 
 BGP Router Configuration
@@ -227,6 +213,126 @@ internal or external.
    selected as the largest IP Address of the interfaces. When `router zebra` is
    not enabled *bgpd* can't get interface information so `router-id` is set to
    0.0.0.0. So please set router-id by hand.
+
+
+.. _bgp-multiple-autonomous-systems:
+
+Multiple Autonomous Systems
+---------------------------
+
+FRR's BGP implementation is capable of running multiple autonomous systems at
+once. Each configured AS corresponds to a :ref:`zebra-vrf`. In the past, to get
+the same functionality the network administrator had to run a new *bgpd*
+process; using VRFs allows multiple autonomous systems to be handled in a
+single process.
+
+When using multiple autonomous systems, all router config blocks after the
+first one must specify a VRF to be the target of BGP's route selection. This
+VRF must be unique within respect to all other VRFs being used for the same
+purpose, i.e. two different autonomous systems cannot use the same VRF.
+However, the same AS can be used with different VRFs.
+
+.. note::
+
+   The separated nature of VRFs makes it possible to peer a single *bgpd*
+   process to itself, on one machine. Note that this can be done fully within
+   BGP without a corresponding VRF in the kernel or Zebra, which enables some
+   practical use cases such as :ref:`route reflectors <bgp-route-reflector>`
+   and route servers.
+
+Configuration of additional autonomous systems, or of a router that targets a
+specific VRF, is accomplished with the following command:
+
+.. index:: router bgp ASN vrf VRFNAME
+.. clicmd:: router bgp ASN vrf VRFNAME
+
+   ``VRFNAME`` is matched against VRFs configured in the kernel. When ``vrf
+   VRFNAME`` is not specified, the BGP protocol process belongs to the default
+   VRF.
+
+An example configuration with multiple autonomous systems might look like this:
+
+.. code-block:: frr
+
+   router bgp 1
+    neighbor 10.0.0.1 remote-as 20
+    neighbor 10.0.0.2 remote-as 30
+   !
+   router bgp 2 vrf blue
+    neighbor 10.0.0.3 remote-as 40
+    neighbor 10.0.0.4 remote-as 50
+   !
+   router bgp 3 vrf red
+    neighbor 10.0.0.5 remote-as 60
+    neighbor 10.0.0.6 remote-as 70
+   ...
+
+In the past this feature done differently and the following commands were
+required to enable the functionality. They are now deprecated.
+
+.. deprecated:: 5.0
+   This command is deprecated and may be safely removed from the config.
+
+.. index:: bgp multiple-instance
+.. clicmd:: bgp multiple-instance
+
+   Enable BGP multiple instance feature. Because this is now the default
+   configuration this command will not be displayed in the running
+   configuration.
+
+.. deprecated:: 5.0
+   This command is deprecated and may be safely removed from the config.
+
+.. index:: no bgp multiple-instance
+.. clicmd:: no bgp multiple-instance
+
+   In previous versions of FRR, this command disabled the BGP multiple instance
+   feature. This functionality is automatically turned on when BGP multiple
+   instances or views exist so this command no longer does anything.
+
+.. seealso:: :ref:`bgp-vrf-route-leaking`
+.. seealso:: :ref:`zebra-vrf`
+
+
+.. _bgp-views:
+
+Views
+-----
+
+In addition to supporting multiple autonomous systems, FRR's BGP implementation
+also supports *views*.
+
+BGP views are almost the same as normal BGP processes, except that routes
+selected by BGP are not installed into the kernel routing table.  Each BGP view
+provides an independent set of routing information which is only distributed
+via BGP. Multiple views can be supported, and BGP view information is always
+independent from other routing protocols and Zebra/kernel routes. BGP views use
+the core instance (i.e., default VRF) for communication with peers.
+
+.. index:: router bgp AS-NUMBER view NAME
+.. clicmd:: router bgp AS-NUMBER view NAME
+
+   Make a new BGP view. You can use an arbitrary word for the ``NAME``. Routes
+   selected by the view are not installed into the kernel routing table.
+
+   With this command, you can setup Route Server like below.
+
+   .. code-block:: frr
+
+      !
+      router bgp 1 view 1
+       neighbor 10.0.0.1 remote-as 2
+       neighbor 10.0.0.2 remote-as 3
+      !
+      router bgp 2 view 2
+       neighbor 10.0.0.3 remote-as 4
+       neighbor 10.0.0.4 remote-as 5
+
+.. index:: show [ip] bgp view NAME
+.. clicmd:: show [ip] bgp view NAME
+
+   Display the routing table of BGP view ``NAME``.
+
 
 Route Selection
 ---------------
@@ -845,6 +951,15 @@ Configuring Peers
    specified number of hops away will be allowed to become neighbors. This
    command is mutually exclusive with *ebgp-multihop*.
 
+.. index:: [no] neighbor PEER capability extended-nexthop
+.. clicmd:: [no] neighbor PEER capability extended-nexthop
+
+   Allow bgp to negotiate the extended-nexthop capability with it's peer.
+   If you are peering over a v6 LL address then this capability is turned
+   on automatically.  If you are peering over a v6 Global Address then
+   turning on this command will allow BGP to install v4 routes with
+   v6 nexthops if you do not have v4 configured on interfaces.
+
 .. index:: [no] bgp fast-external-failover
 .. clicmd:: [no] bgp fast-external-failover
 
@@ -1056,7 +1171,7 @@ is 4 octet long. The following format is used to define the community value.
    ``0xFFFF0006`` ``65535:6``.
    Assigned and intented only for use with routers supporting the
    Long-lived Graceful Restart Capability  as described in
-   :rfc:`draft-uttaro-idr-bgp-persistence`.
+   [Draft-IETF-uttaro-idr-bgp-persistence]_.
    Routers recieving routes with this community may (depending on
    implementation) choose allow to reject or modify routes on the
    presence or absence of this community.
@@ -1066,7 +1181,7 @@ is 4 octet long. The following format is used to define the community value.
    ``0xFFFF0007`` ``65535:7``.
    Assigned and intented only for use with routers supporting the
    Long-lived Graceful Restart Capability  as described in
-   :rfc:`draft-uttaro-idr-bgp-persistence`.
+   [Draft-IETF-uttaro-idr-bgp-persistence]_.
    Routers recieving routes with this community may (depending on
    implementation) choose allow to reject or modify routes on the
    presence or absence of this community.
@@ -1074,10 +1189,10 @@ is 4 octet long. The following format is used to define the community value.
 ``accept-own-nexthop``
    ``accept-own-nexthop`` represents well-known communities value
    ``accept-own-nexthop`` ``0xFFFF0008`` ``65535:8``.
-   :rfc:`draft-agrewal-idr-accept-own-nexthop` describes
+   [Draft-IETF-agrewal-idr-accept-own-nexthop]_ describes
    how to tag and label VPN routes to be able to send traffic between VRFs
    via an internal layer 2 domain on the same PE device. Refer to
-   :rfc:`draft-agrewal-idr-accept-own-nexthop` for full details.
+   [Draft-IETF-agrewal-idr-accept-own-nexthop]_ for full details.
 
 ``blackhole``
    ``blackhole`` represents well-known communities value ``BLACKHOLE``
@@ -1115,6 +1230,9 @@ is 4 octet long. The following format is used to define the community value.
 When the communities attribute is received duplicate community values in the
 attribute are ignored and value is sorted in numerical order.
 
+.. [Draft-IETF-uttaro-idr-bgp-persistence] <https://tools.ietf.org/id/draft-uttaro-idr-bgp-persistence-04.txt>
+.. [Draft-IETF-agrewal-idr-accept-own-nexthop] <https://tools.ietf.org/id/draft-agrewal-idr-accept-own-nexthop-00.txt>
+
 .. _bgp-community-lists:
 
 Community Lists
@@ -1150,7 +1268,8 @@ expanded
    This command defines a new expanded community list. ``COMMUNITY`` is a
    string expression of communities attribute. ``COMMUNITY`` can be a regular
    expression (:ref:`bgp-regular-expressions`) to match the communities
-   attribute in BGP updates.
+   attribute in BGP updates. The expanded community is only used to filter,
+   not `set` actions.
 
 .. deprecated:: 5.0
    It is recommended to use the more explicit versions of this command.
@@ -1247,6 +1366,8 @@ The ollowing commands can be used in route maps:
 
    If ``none`` is specified as the community value, the communities attribute
    is not sent.
+
+   It is not possible to set an expanded community list.
 
 .. index:: set comm-list WORD delete
 .. clicmd:: set comm-list WORD delete
@@ -1488,6 +1609,10 @@ BGP Extended Communities in Route Map
 
    This command set Site of Origin value.
 
+
+Note that the extended expanded community is only used for `match` rule, not for
+`set` actions.
+
 .. _bgp-large-communities-attribute:
 
 Large Communities Attribute
@@ -1599,33 +1724,26 @@ Large Communities in Route Map
    large-community list. The third will add a large-community value without
    overwriting other values. Multiple large-community values can be specified.
 
+Note that the large expanded community is only used for `match` rule, not for
+`set` actions.
 
-.. _bgp-vrfs:
+.. _bgp-l3vpn-vrfs:
 
-VRFs
-----
+L3VPN VRFs
+----------
 
-BGP supports multiple VRF instances with the following command:
+*bgpd* supports :abbr:`L3VPN (Layer 3 Virtual Private Networks)` :abbr:`VRFs
+(Virtual Routing and Forwarding)` for IPv4 :rfc:`4364` and IPv6 :rfc:`4659`.
+L3VPN routes, and their associated VRF MPLS labels, can be distributed to VPN
+SAFI neighbors in the *default*, i.e., non VRF, BGP instance. VRF MPLS labels
+are reached using *core* MPLS labels which are distributed using LDP or BGP
+labeled unicast.  *bgpd* also supports inter-VRF route leaking.
 
-.. index:: router bgp ASN vrf VRFNAME
-.. clicmd:: router bgp ASN vrf VRFNAME
 
-``VRFNAME`` is matched against VRFs configured in the kernel. When
-``vrf VRFNAME`` is not specified, the BGP protocol process belongs to the
-default VRF.
-
-With VRF, you can isolate networking information. Having BGP VRF allows you to
-have several BGP instances on the same system process. This solution solves
-scalabiliy issues where the network administrator had previously to run
-separately several BGP processes on each namespace. Now, not only BGP VRF
-solves this, but also this method applies to both kind of VRFs backend: default
-VRF from Linux kernel or network namespaces. Also, having separate BGP
-instances does not imply that the AS number has to be different. For internal
-purposes, it is possible to do iBGP peering from two differents network
-namespaces.
+.. _bgp-vrf-route-leaking:
 
 VRF Route Leaking
-^^^^^^^^^^^^^^^^^
+-----------------
 
 BGP routes may be leaked (i.e. copied) between a unicast VRF RIB and the VPN
 SAFI RIB of the default VRF for use in MPLS-based L3VPNs. Unicast routes may
@@ -1639,7 +1757,7 @@ to a unicast VRF, whereas ``export`` refers to routes leaked from a unicast VRF
 to VPN.
 
 Required parameters
-"""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^
 
 Routes exported from a unicast VRF to the VPN RIB must be augmented by two
 parameters:
@@ -1673,7 +1791,7 @@ When using the shortcut syntax for vrf-to-vrf leaking, the RD and RT are
 auto-derived.
 
 General configuration
-"""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^
 
 Configuration of route leaking between a unicast VRF RIB and the VPN SAFI RIB
 of the default VRF is accomplished via commands in the context of a VRF
@@ -1772,86 +1890,6 @@ address-family:
    Disables automatic leaking from vrf VRFNAME to the current VRF using
    the VPN RIB as intermediary.
 
-.. _bgp-instances-and-views:
-
-Instances and Views
--------------------
-
-A BGP *instance* is a normal BGP process. Routes selected by BGP are installed
-into the kernel routing table.
-
-.. note::
-   In previous versions of FRR, running multiple AS's from the same BGP process
-   was not supported; in order to run multiple AS's it was necessary to run
-   multiple BGP processes. This had to be explicitly configured with the
-   ``bgp multiple-instance`` command. Recent versions of FRR support multiple
-   BGP AS's within the same process by simply defining multiple
-   ``router bgp X`` blocks, so the ``multiple-instance`` command is now
-   unnecessary and deprecated.
-
-.. index:: router bgp AS-NUMBER
-.. clicmd:: router bgp AS-NUMBER
-
-   Make a new BGP instance. You can use an arbitrary word for the `name`.
-
-   .. code-block:: frr
-
-      router bgp 1
-       neighbor 10.0.0.1 remote-as 2
-       neighbor 10.0.0.2 remote-as 3
-      !
-      router bgp 2
-       neighbor 10.0.0.3 remote-as 4
-       neighbor 10.0.0.4 remote-as 5
-
-.. deprecated:: 5.0
-   This command does nothing and can be safely removed.
-
-.. index:: bgp multiple-instance
-.. clicmd:: bgp multiple-instance
-
-   Enable BGP multiple instance feature. Because this is now the default
-   configuration this command will not be displayed in the running
-   configuration.
-
-.. deprecated:: 5.0
-   This command does nothing and can be safely removed.
-
-.. index:: no bgp multiple-instance
-.. clicmd:: no bgp multiple-instance
-
-   In previous versions of FRR, this command disabled the BGP multiple instance
-   feature. This functionality is automatically turned on when BGP multiple
-   instances or views exist so this command no longer does anything.
-
-BGP views are almost same as normal BGP processes, except that routes selected
-by BGP are not installed into the kernel routing table. The view functionality
-allows the exchange of BGP routing information only without affecting the
-kernel routing tables.
-
-.. index:: router bgp AS-NUMBER view NAME
-.. clicmd:: router bgp AS-NUMBER view NAME
-
-   Make a new BGP view. You can use arbitrary word for the ``NAME``. Routes selected by the view are not installed into the kernel routing table.
-   view's route selection result does not go to the kernel routing table.
-
-   With this command, you can setup Route Server like below.
-
-   .. code-block:: frr
-
-      !
-      router bgp 1 view 1
-       neighbor 10.0.0.1 remote-as 2
-       neighbor 10.0.0.2 remote-as 3
-      !
-      router bgp 2 view 2
-       neighbor 10.0.0.3 remote-as 4
-       neighbor 10.0.0.4 remote-as 5
-
-.. index:: show [ip] bgp view NAME
-.. clicmd:: show [ip] bgp view NAME
-
-   Display the routing table of BGP view ``NAME``.
 
 .. _bgp-cisco-compatibility:
 

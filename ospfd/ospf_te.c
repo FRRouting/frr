@@ -169,7 +169,7 @@ static int ospf_mpls_te_unregister()
 
 void ospf_mpls_te_term(void)
 {
-	list_delete_and_null(&OspfMplsTE.iflist);
+	list_delete(&OspfMplsTE.iflist);
 
 	ospf_delete_opaque_functab(OSPF_OPAQUE_AREA_LSA,
 				   OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA);
@@ -896,10 +896,6 @@ static int ospf_mpls_te_del_if(struct interface *ifp)
 
 		/* Dequeue listnode entry from the list. */
 		listnode_delete(iflist, lp);
-
-		/* Avoid misjudgement in the next lookup. */
-		if (listcount(iflist) == 0)
-			iflist->head = iflist->tail = NULL;
 
 		XFREE(MTYPE_OSPF_MPLS_TE, lp);
 	}

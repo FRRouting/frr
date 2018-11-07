@@ -407,7 +407,7 @@ static int ripng_garbage_collect(struct thread *t)
 	/* Unlock route_node. */
 	listnode_delete(rp->info, rinfo);
 	if (list_isempty((struct list *)rp->info)) {
-		list_delete_and_null((struct list **)&rp->info);
+		list_delete((struct list **)&rp->info);
 		agg_unlock_node(rp);
 	}
 
@@ -1560,7 +1560,7 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 		    && rinfo->suppress == 0) {
 			/* If no route-map are applied, the RTE will be these
 			 * following
-			 * informations.
+			 * information.
 			 */
 			p = (struct prefix_ipv6 *)&rp->p;
 			rinfo->metric_out = rinfo->metric;
@@ -1701,7 +1701,7 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 		    && aggregate->suppress == 0) {
 			/* If no route-map are applied, the RTE will be these
 			 * following
-			 * informations.
+			 * information.
 			 */
 			p = (struct prefix_ipv6 *)&rp->p;
 			aggregate->metric_set = 0;
@@ -2144,7 +2144,7 @@ DEFUN (clear_ipv6_rip,
 		}
 
 		if (list_isempty(list)) {
-			list_delete_and_null(&list);
+			list_delete(&list);
 			rp->info = NULL;
 			agg_unlock_node(rp);
 		}
@@ -2826,7 +2826,7 @@ void ripng_clean()
 						rinfo->t_garbage_collect);
 					ripng_info_free(rinfo);
 				}
-				list_delete_and_null(&list);
+				list_delete(&list);
 				rp->info = NULL;
 				agg_unlock_node(rp);
 			}

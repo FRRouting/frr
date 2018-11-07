@@ -55,6 +55,9 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_errors.h"
 #include "isisd/isis_vty_common.h"
+#include "isisd/isis_bfd.h"
+#include "isisd/isis_lsp.h"
+#include "isisd/isis_mt.h"
 
 /* Default configuration file name */
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
@@ -147,6 +150,10 @@ struct quagga_signal_t isisd_signals[] = {
 	},
 };
 
+static const struct frr_yang_module_info *isisd_yang_modules[] = {
+	&frr_interface_info,
+};
+
 #ifdef FABRICD
 FRR_DAEMON_INFO(fabricd, OPEN_FABRIC, .vty_port = FABRICD_VTY_PORT,
 
@@ -163,7 +170,8 @@ FRR_DAEMON_INFO(isisd, ISIS, .vty_port = ISISD_VTY_PORT,
 		.signals = isisd_signals,
 		.n_signals = array_size(isisd_signals),
 
-		.privs = &isisd_privs, )
+		.privs = &isisd_privs, .yang_modules = isisd_yang_modules,
+		.n_yang_modules = array_size(isisd_yang_modules), )
 
 /*
  * Main routine of isisd. Parse arguments and handle IS-IS state machine.
@@ -213,11 +221,14 @@ int main(int argc, char **argv, char **envp)
 	isis_redist_init();
 	isis_route_map_init();
 	isis_mpls_te_init();
+	lsp_init();
+	mt_init();
 
 	/* create the global 'isis' instance */
 	isis_new(1);
 
 	isis_zebra_init(master);
+	isis_bfd_init();
 
 	frr_config_fork();
 	frr_run(master);

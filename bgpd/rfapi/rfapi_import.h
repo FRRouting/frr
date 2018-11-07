@@ -31,7 +31,7 @@
 /*
  * These are per-rt-import-list
  *
- * routes are not segregated by RD - the RD is stored in bgp_info_extra
+ * routes are not segregated by RD - the RD is stored in bgp_path_info_extra
  * and is needed to determine if two prefixes are the same.
  */
 struct rfapi_import_table {
@@ -51,18 +51,18 @@ struct rfapi_import_table {
 	int imported_count[AFI_MAX];
 };
 
-#define RFAPI_LOCAL_BI(bi)                                                     \
-	(((bi)->type == ZEBRA_ROUTE_BGP) && ((bi)->sub_type == BGP_ROUTE_RFP))
+#define RFAPI_LOCAL_BI(bpi)                                                    \
+	(((bpi)->type == ZEBRA_ROUTE_BGP) && ((bpi)->sub_type == BGP_ROUTE_RFP))
 
-#define RFAPI_DIRECT_IMPORT_BI(bi)                                             \
-	(((bi)->type == ZEBRA_ROUTE_BGP_DIRECT)                                \
-	 || ((bi)->type == ZEBRA_ROUTE_BGP_DIRECT_EXT))
+#define RFAPI_DIRECT_IMPORT_BI(bpi)                                            \
+	(((bpi)->type == ZEBRA_ROUTE_BGP_DIRECT)                               \
+	 || ((bpi)->type == ZEBRA_ROUTE_BGP_DIRECT_EXT))
 
-#define RFAPI_UPDATE_ITABLE_COUNT(bi, itable, afi, cnt)                        \
-	if (RFAPI_LOCAL_BI(bi)) {                                              \
+#define RFAPI_UPDATE_ITABLE_COUNT(bpi, itable, afi, cnt)                       \
+	if (RFAPI_LOCAL_BI(bpi)) {                                             \
 		(itable)->local_count[(afi)] += (cnt);                         \
 	} else {                                                               \
-		if (RFAPI_DIRECT_IMPORT_BI(bi))                                \
+		if (RFAPI_DIRECT_IMPORT_BI(bpi))                               \
 			(itable)->imported_count[(afi)] += (cnt);              \
 		else                                                           \
 			(itable)->remote_count[(afi)] += (cnt);                \
@@ -75,9 +75,9 @@ extern void rfapiDebugBacktrace(void);
 extern void rfapiCheckRouteCount(void);
 
 /*
- * Print BI in an Import Table
+ * Print BPI in an Import Table
  */
-extern void rfapiPrintBi(void *stream, struct bgp_info *bi);
+extern void rfapiPrintBi(void *stream, struct bgp_path_info *bpi);
 
 extern void rfapiShowImportTable(void *stream, const char *label,
 				 struct agg_table *rt, int isvpn);
@@ -94,7 +94,7 @@ extern void rfapiImportTableRefDelByIt(struct bgp *bgp,
  * Construct an rfapi nexthop list based on the routes attached to
  * the specified node.
  *
- * If there are any routes that do NOT have BGP_INFO_REMOVED set,
+ * If there are any routes that do NOT have BGP_PATH_REMOVED set,
  * return those only. If there are ONLY routes with BGP_INFO_REMOVED,
  * then return those, and also include all the non-removed routes from the
  * next less-specific node (i.e., this node's parent) at the end.
@@ -128,7 +128,7 @@ extern int rfapiHasNonRemovedRoutes(struct agg_node *rn);
 
 extern int rfapiProcessDeferredClose(struct thread *t);
 
-extern int rfapiGetUnAddrOfVpnBi(struct bgp_info *bi, struct prefix *p);
+extern int rfapiGetUnAddrOfVpnBi(struct bgp_path_info *bpi, struct prefix *p);
 
 extern void rfapiNexthop2Prefix(struct attr *attr, struct prefix *p);
 
@@ -146,10 +146,10 @@ extern void rfapiBgpInfoFilteredImportVPN(
 	struct prefix *p,
 	struct prefix *aux_prefix, /* AFI_ETHER: optional IP */
 	afi_t afi, struct prefix_rd *prd,
-	struct attr *attr, /* part of bgp_info */
-	uint8_t type,      /* part of bgp_info */
-	uint8_t sub_type,  /* part of bgp_info */
-	uint32_t *label);  /* part of bgp_info */
+	struct attr *attr, /* part of bgp_path_info */
+	uint8_t type,      /* part of bgp_path_info */
+	uint8_t sub_type,  /* part of bgp_path_info */
+	uint32_t *label);  /* part of bgp_path_info */
 
 extern struct rfapi_next_hop_entry *rfapiEthRouteNode2NextHopList(
 	struct agg_node *rn, struct rfapi_ip_prefix *rprefix,

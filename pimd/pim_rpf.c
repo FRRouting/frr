@@ -407,7 +407,7 @@ unsigned int pim_rpf_hash_key(void *arg)
 	return jhash_1word(r->rpf.rpf_addr.u.prefix4.s_addr, 0);
 }
 
-int pim_rpf_equal(const void *arg1, const void *arg2)
+bool pim_rpf_equal(const void *arg1, const void *arg2)
 {
 	const struct pim_nexthop_cache *r1 =
 		(const struct pim_nexthop_cache *)arg1;

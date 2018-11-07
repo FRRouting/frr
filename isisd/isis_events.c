@@ -134,7 +134,7 @@ static void circuit_resign_level(struct isis_circuit *circuit, int level)
 		circuit->lsp_regenerate_pending[idx] = 0;
 		circuit->u.bc.run_dr_elect[idx] = 0;
 		if (circuit->u.bc.lan_neighs[idx] != NULL)
-			list_delete_and_null(&circuit->u.bc.lan_neighs[idx]);
+			list_delete(&circuit->u.bc.lan_neighs[idx]);
 	}
 
 	return;
@@ -215,25 +215,6 @@ void isis_circuit_is_type_set(struct isis_circuit *circuit, int newtype)
  * 6) a change in DIS status
  *
  * ***********************************************************************/
-
-void isis_event_adjacency_state_change(struct isis_adjacency *adj, int newstate)
-{
-	/* adjacency state change event.
-	 * - the only proto-type was supported */
-
-	/* invalid arguments */
-	if (!adj || !adj->circuit || !adj->circuit->area)
-		return;
-
-	if (isis->debugs & DEBUG_EVENTS)
-		zlog_debug("ISIS-Evt (%s) Adjacency State change",
-			   adj->circuit->area->area_tag);
-
-	/* LSP generation again */
-	lsp_regenerate_schedule(adj->circuit->area, IS_LEVEL_1 | IS_LEVEL_2, 0);
-
-	return;
-}
 
 /* events supporting code */
 

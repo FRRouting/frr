@@ -136,7 +136,7 @@ void ospf_opaque_finish(void)
 int ospf_opaque_type9_lsa_init(struct ospf_interface *oi)
 {
 	if (oi->opaque_lsa_self != NULL)
-		list_delete_and_null(&oi->opaque_lsa_self);
+		list_delete(&oi->opaque_lsa_self);
 
 	oi->opaque_lsa_self = list_new();
 	oi->opaque_lsa_self->del = free_opaque_info_per_type;
@@ -148,7 +148,7 @@ void ospf_opaque_type9_lsa_term(struct ospf_interface *oi)
 {
 	OSPF_TIMER_OFF(oi->t_opaque_lsa_self);
 	if (oi->opaque_lsa_self != NULL)
-		list_delete_and_null(&oi->opaque_lsa_self);
+		list_delete(&oi->opaque_lsa_self);
 	oi->opaque_lsa_self = NULL;
 	return;
 }
@@ -156,7 +156,7 @@ void ospf_opaque_type9_lsa_term(struct ospf_interface *oi)
 int ospf_opaque_type10_lsa_init(struct ospf_area *area)
 {
 	if (area->opaque_lsa_self != NULL)
-		list_delete_and_null(&area->opaque_lsa_self);
+		list_delete(&area->opaque_lsa_self);
 
 	area->opaque_lsa_self = list_new();
 	area->opaque_lsa_self->del = free_opaque_info_per_type;
@@ -177,14 +177,14 @@ void ospf_opaque_type10_lsa_term(struct ospf_area *area)
 
 	OSPF_TIMER_OFF(area->t_opaque_lsa_self);
 	if (area->opaque_lsa_self != NULL)
-		list_delete_and_null(&area->opaque_lsa_self);
+		list_delete(&area->opaque_lsa_self);
 	return;
 }
 
 int ospf_opaque_type11_lsa_init(struct ospf *top)
 {
 	if (top->opaque_lsa_self != NULL)
-		list_delete_and_null(&top->opaque_lsa_self);
+		list_delete(&top->opaque_lsa_self);
 
 	top->opaque_lsa_self = list_new();
 	top->opaque_lsa_self->del = free_opaque_info_per_type;
@@ -205,7 +205,7 @@ void ospf_opaque_type11_lsa_term(struct ospf *top)
 
 	OSPF_TIMER_OFF(top->t_opaque_lsa_self);
 	if (top->opaque_lsa_self != NULL)
-		list_delete_and_null(&top->opaque_lsa_self);
+		list_delete(&top->opaque_lsa_self);
 	return;
 }
 
@@ -314,16 +314,16 @@ static void ospf_opaque_funclist_term(void)
 	struct list *funclist;
 
 	funclist = ospf_opaque_wildcard_funclist;
-	list_delete_and_null(&funclist);
+	list_delete(&funclist);
 
 	funclist = ospf_opaque_type9_funclist;
-	list_delete_and_null(&funclist);
+	list_delete(&funclist);
 
 	funclist = ospf_opaque_type10_funclist;
-	list_delete_and_null(&funclist);
+	list_delete(&funclist);
 
 	funclist = ospf_opaque_type11_funclist;
-	list_delete_and_null(&funclist);
+	list_delete(&funclist);
 	return;
 }
 
@@ -438,10 +438,6 @@ void ospf_delete_opaque_functab(uint8_t lsa_type, uint8_t opaque_type)
 				/* Dequeue listnode entry from the list. */
 				listnode_delete(funclist, functab);
 
-				/* Avoid misjudgement in the next lookup. */
-				if (listcount(funclist) == 0)
-					funclist->head = funclist->tail = NULL;
-
 				XFREE(MTYPE_OSPF_OPAQUE_FUNCTAB, functab);
 				break;
 			}
@@ -504,7 +500,7 @@ struct opaque_info_per_type {
 	/* Collection of callback functions for this opaque-type. */
 	struct ospf_opaque_functab *functab;
 
-	/* List of Opaque-LSA control informations per opaque-id. */
+	/* List of Opaque-LSA control information per opaque-id. */
 	struct list *id_list;
 };
 
@@ -637,7 +633,7 @@ static void free_opaque_info_per_type(void *val)
 	}
 
 	OSPF_TIMER_OFF(oipt->t_opaque_lsa_self);
-	list_delete_and_null(&oipt->id_list);
+	list_delete(&oipt->id_list);
 	XFREE(MTYPE_OPAQUE_INFO_PER_TYPE, oipt);
 	return;
 }
@@ -2121,10 +2117,6 @@ void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa0)
 
 	/* Dequeue listnode entry from the list. */
 	listnode_delete(oipt->id_list, oipi);
-
-	/* Avoid misjudgement in the next lookup. */
-	if (listcount(oipt->id_list) == 0)
-		oipt->id_list->head = oipt->id_list->tail = NULL;
 
 	/* Disassociate internal control information with the given lsa. */
 	free_opaque_info_per_id((void *)oipi);

@@ -1799,7 +1799,7 @@ static int config_write_debug(struct vty *vty)
 }
 
 /* Initialize debug commands. */
-void debug_init()
+void ospf_debug_init(void)
 {
 	install_node(&debug_node, config_write_debug);
 

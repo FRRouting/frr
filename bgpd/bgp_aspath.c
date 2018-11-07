@@ -900,7 +900,7 @@ size_t aspath_put(struct stream *s, struct aspath *as, int use32bit)
 			while ((seg->length - written) > AS_SEGMENT_MAX) {
 				assegment_header_put(s, seg->type,
 						     AS_SEGMENT_MAX);
-				assegment_data_put(s, seg->as, AS_SEGMENT_MAX,
+				assegment_data_put(s, (seg->as + written), AS_SEGMENT_MAX,
 						   use32bit);
 				written += AS_SEGMENT_MAX;
 				bytes += ASSEGMENT_SIZE(AS_SEGMENT_MAX,
@@ -1726,23 +1726,23 @@ struct aspath *aspath_reconcile_as4(struct aspath *aspath,
 /* Compare leftmost AS value for MED check.  If as1's leftmost AS and
    as2's leftmost AS is same return 1. (confederation as-path
    only).  */
-int aspath_cmp_left_confed(const struct aspath *aspath1,
-			   const struct aspath *aspath2)
+bool aspath_cmp_left_confed(const struct aspath *aspath1,
+			    const struct aspath *aspath2)
 {
 	if (!(aspath1 && aspath2))
-		return 0;
+		return false;
 
 	if (!(aspath1->segments && aspath2->segments))
-		return 0;
+		return false;
 
 	if ((aspath1->segments->type != AS_CONFED_SEQUENCE)
 	    || (aspath2->segments->type != AS_CONFED_SEQUENCE))
-		return 0;
+		return false;
 
 	if (aspath1->segments->as[0] == aspath2->segments->as[0])
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 /* Delete all AS_CONFED_SEQUENCE/SET segments from aspath.
@@ -2008,7 +2008,7 @@ unsigned int aspath_key_make(void *p)
 }
 
 /* If two aspath have same value then return 1 else return 0 */
-int aspath_cmp(const void *arg1, const void *arg2)
+bool aspath_cmp(const void *arg1, const void *arg2)
 {
 	const struct assegment *seg1 = ((const struct aspath *)arg1)->segments;
 	const struct assegment *seg2 = ((const struct aspath *)arg2)->segments;
@@ -2016,18 +2016,18 @@ int aspath_cmp(const void *arg1, const void *arg2)
 	while (seg1 || seg2) {
 		int i;
 		if ((!seg1 && seg2) || (seg1 && !seg2))
-			return 0;
+			return false;
 		if (seg1->type != seg2->type)
-			return 0;
+			return false;
 		if (seg1->length != seg2->length)
-			return 0;
+			return false;
 		for (i = 0; i < seg1->length; i++)
 			if (seg1->as[i] != seg2->as[i])
-				return 0;
+				return false;
 		seg1 = seg1->next;
 		seg2 = seg2->next;
 	}
-	return 1;
+	return true;
 }
 
 /* AS path hash initialize. */

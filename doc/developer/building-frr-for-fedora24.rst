@@ -14,8 +14,10 @@ Add packages:
 
     sudo dnf install git autoconf automake libtool make gawk \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
-      json-c-devel pam-devel perl-XML-LibXML pytest bison flex \
-      c-ares-devel python3-devel python3-sphinx
+      json-c-devel pam-devel pytest bison flex c-ares-devel \
+      python3-devel python3-sphinx
+
+.. include:: building-libyang.rst
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
@@ -52,22 +54,13 @@ an example.)
         --libexecdir=/usr/lib/frr \
         --localstatedir=/var/run/frr \
         --with-moduledir=/usr/lib/frr/modules \
-        --enable-pimd \
         --enable-snmp=agentx \
         --enable-multipath=64 \
-        --enable-ospfclient=yes \
-        --enable-ospfapi=yes \
         --enable-user=frr \
         --enable-group=frr \
         --enable-vty-group=frrvty \
-        --enable-rtadv \
         --disable-exampledir \
-        --enable-watchfrr \
-        --enable-ldpd \
         --enable-fpm \
-        --enable-nhrpd \
-        --enable-eigrpd \
-        --enable-babeld \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion
     make

@@ -222,9 +222,9 @@ static const char *fsm_state2str(enum eigrp_fsm_events event)
 	case EIGRP_FSM_EVENT_LR:
 		return "Last Reply Event";
 	case EIGRP_FSM_EVENT_Q_FCN:
-		return "Query Event Feasability not satisified";
+		return "Query Event Feasability not satisfied";
 	case EIGRP_FSM_EVENT_LR_FCS:
-		return "Last Reply Event Feasability satisified";
+		return "Last Reply Event Feasability satisfied";
 	case EIGRP_FSM_EVENT_DINC:
 		return "Distance Increase Event";
 	case EIGRP_FSM_EVENT_QACT:
@@ -453,7 +453,7 @@ int eigrp_fsm_event_nq_fcn(struct eigrp_fsm_action_message *msg)
 					 // neighbors left
 	}
 
-	list_delete_and_null(&successors);
+	list_delete(&successors);
 
 	return 1;
 }
@@ -479,7 +479,7 @@ int eigrp_fsm_event_q_fcn(struct eigrp_fsm_action_message *msg)
 					 // neighbors left
 	}
 
-	list_delete_and_null(&successors);
+	list_delete(&successors);
 
 	return 1;
 }
@@ -530,7 +530,7 @@ int eigrp_fsm_event_lr(struct eigrp_fsm_action_message *msg)
 
 		ne = listnode_head(successors);
 		eigrp_send_reply(ne->adv_router, prefix);
-		list_delete_and_null(&successors);
+		list_delete(&successors);
 	}
 
 	prefix->state = EIGRP_FSM_STATE_PASSIVE;
@@ -560,7 +560,7 @@ int eigrp_fsm_event_dinc(struct eigrp_fsm_action_message *msg)
 			msg);
 
 
-	list_delete_and_null(&successors);
+	list_delete(&successors);
 	return 1;
 }
 
@@ -584,7 +584,7 @@ int eigrp_fsm_event_lr_fcs(struct eigrp_fsm_action_message *msg)
 		ne = listnode_head(successors);
 		eigrp_send_reply(ne->adv_router, prefix);
 
-		list_delete_and_null(&successors);
+		list_delete(&successors);
 	}
 	prefix->req_action |= EIGRP_FSM_NEED_UPDATE;
 	listnode_add(eigrp->topology_changes_internalIPV4, prefix);
@@ -620,7 +620,7 @@ int eigrp_fsm_event_lr_fcn(struct eigrp_fsm_action_message *msg)
 					 // neighbors left
 	}
 
-	list_delete_and_null(&successors);
+	list_delete(&successors);
 
 	return 1;
 }
@@ -636,6 +636,6 @@ int eigrp_fsm_event_qact(struct eigrp_fsm_action_message *msg)
 	msg->prefix->state = EIGRP_FSM_STATE_ACTIVE_2;
 	msg->prefix->distance = ne->distance;
 
-	list_delete_and_null(&successors);
+	list_delete(&successors);
 	return 1;
 }

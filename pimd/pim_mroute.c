@@ -48,8 +48,8 @@ static void mroute_read_on(struct pim_instance *pim);
 static int pim_mroute_set(struct pim_instance *pim, int enable)
 {
 	int err;
-	int opt;
-	socklen_t opt_len = sizeof(opt);
+	int opt, data;
+	socklen_t data_len = sizeof(data);
 	long flags;
 
 	/*
@@ -58,15 +58,15 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 	if (pim->vrf_id != VRF_DEFAULT) {
 		frr_elevate_privs(&pimd_privs) {
 
-			opt = pim->vrf->data.l.table_id;
+			data = pim->vrf->data.l.table_id;
 			err = setsockopt(pim->mroute_socket, IPPROTO_IP,
 					 MRT_TABLE,
-					 &opt, opt_len);
+					 &data, data_len);
 			if (err) {
 				zlog_warn(
 					  "%s %s: failure: setsockopt(fd=%d,IPPROTO_IP, MRT_TABLE=%d): errno=%d: %s",
 					  __FILE__, __PRETTY_FUNCTION__,
-					  pim->mroute_socket, opt, errno,
+					  pim->mroute_socket, data, errno,
 					  safe_strerror(errno));
 				return -1;
 			}
@@ -74,23 +74,32 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 		}
 	}
 
-	opt = enable ? MRT_INIT : MRT_DONE;
-	err = setsockopt(pim->mroute_socket, IPPROTO_IP, opt, &opt, opt_len);
-	if (err) {
-		zlog_warn(
-			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,%s=%d): errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__, pim->mroute_socket,
-			enable ? "MRT_INIT" : "MRT_DONE", opt, errno,
-			safe_strerror(errno));
-		return -1;
+	frr_elevate_privs(&pimd_privs) {
+		opt = enable ? MRT_INIT : MRT_DONE;
+		/*
+		 * *BSD *cares* about what value we pass down
+		 * here
+		 */
+		data = 1;
+		err = setsockopt(pim->mroute_socket, IPPROTO_IP,
+				 opt, &data, data_len);
+		if (err) {
+			zlog_warn(
+				  "%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,%s=%d): errno=%d: %s",
+				  __FILE__, __PRETTY_FUNCTION__,
+				  pim->mroute_socket,
+				  enable ? "MRT_INIT" : "MRT_DONE", data, errno,
+				  safe_strerror(errno));
+			return -1;
+		}
 	}
 
 #if defined(HAVE_IP_PKTINFO)
 	if (enable) {
 		/* Linux and Solaris IP_PKTINFO */
-		opt = 1;
-		if (setsockopt(pim->mroute_socket, IPPROTO_IP, IP_PKTINFO, &opt,
-			       sizeof(opt))) {
+		data = 1;
+		if (setsockopt(pim->mroute_socket, IPPROTO_IP, IP_PKTINFO,
+			       &data, data_len)) {
 			zlog_warn(
 				"Could not set IP_PKTINFO on socket fd=%d: errno=%d: %s",
 				pim->mroute_socket, errno,
@@ -154,12 +163,12 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	 * the Interface type is SSM we don't need to
 	 * do anything here
 	 */
-	if (!rpg || (pim_rpf_addr_is_inaddr_none(rpg))
-	    || (!(PIM_I_am_DR(pim_ifp)))) {
+	if (!rpg || pim_rpf_addr_is_inaddr_none(rpg)) {
 		if (PIM_DEBUG_MROUTE_DETAIL)
 			zlog_debug(
-				"%s: Interface is not configured correctly to handle incoming packet: Could be !DR, !pim_ifp, !SM, !RP",
+				"%s: Interface is not configured correctly to handle incoming packet: Could be !pim_ifp, !SM, !RP",
 				__PRETTY_FUNCTION__);
+
 		return 0;
 	}
 
@@ -178,6 +187,26 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	memset(&sg, 0, sizeof(struct prefix_sg));
 	sg.src = msg->im_src;
 	sg.grp = msg->im_dst;
+
+	if (!(PIM_I_am_DR(pim_ifp))) {
+		struct channel_oil *c_oil;
+
+		if (PIM_DEBUG_MROUTE_DETAIL)
+			zlog_debug("%s: Interface is not the DR blackholing incoming traffic for %s",
+				   __PRETTY_FUNCTION__, pim_str_sg_dump(&sg));
+
+		/*
+		 * We are not the DR, but we are still receiving packets
+		 * Let's blackhole those packets for the moment
+		 * As that they will be coming up to the cpu
+		 * and causing us to consider them.
+		 */
+		c_oil = pim_channel_oil_add(pim_ifp->pim, &sg,
+					    pim_ifp->mroute_vif_index);
+		pim_mroute_add(c_oil, __PRETTY_FUNCTION__);
+
+		return 0;
+	}
 
 	up = pim_upstream_find_or_add(&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR,
 				      __PRETTY_FUNCTION__);

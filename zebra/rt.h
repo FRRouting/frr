@@ -29,58 +29,14 @@
 #include "zebra/rib.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_mpls.h"
+#include "zebra/zebra_dplane.h"
 
 /*
- * Philosophy Note:
- *
- * Flags being SET/UNSET do not belong in the South Bound
- * Interface.  This Setting belongs at the calling level
- * because we can and will have multiple different interfaces
- * and we will have potentially multiple different
- * modules/filters to call.  As such Setting/Unsetting
- * success failure should be handled by the caller.
+ * Update or delete a prefix from the kernel,
+ * using info from a dataplane context.
  */
-
-
-enum dp_results {
-	DP_INSTALL_SUCCESS,
-	DP_INSTALL_FAILURE,
-	DP_DELETE_SUCCESS,
-	DP_DELETE_FAILURE,
-};
-
-enum dp_req_result {
-	DP_REQUEST_QUEUED,
-	DP_REQUEST_SUCCESS,
-	DP_REQUEST_FAILURE,
-};
-
-/*
- * Install/delete the specified prefix p from the kernel
- *
- * old = NULL, new = pointer - Install new
- * old = pointer, new = pointer - Route replace Old w/ New
- * old = pointer, new = NULL, - Route Delete
- *
- * Please note not all kernels support route replace
- * semantics so we will end up with a delete than
- * a re-add.
- */
-extern enum dp_req_result kernel_route_rib(struct route_node *rn,
-					   const struct prefix *p,
-					   const struct prefix *src_p,
-					   struct route_entry *old,
-					   struct route_entry *new);
-
-/*
- * So route install/failure may not be immediately known
- * so let's separate it out and allow the result to
- * be passed back up.
- */
-extern void kernel_route_rib_pass_fail(struct route_node *rn,
-				       const struct prefix *p,
-				       struct route_entry *re,
-				       enum dp_results res);
+extern enum zebra_dplane_result kernel_route_update(
+	struct zebra_dplane_ctx *ctx);
 
 extern int kernel_address_add_ipv4(struct interface *, struct connected *);
 extern int kernel_address_delete_ipv4(struct interface *, struct connected *);
@@ -91,9 +47,9 @@ extern int kernel_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 extern int kernel_interface_set_master(struct interface *master,
 				       struct interface *slave);
 
-extern enum dp_req_result kernel_add_lsp(zebra_lsp_t *lsp);
-extern enum dp_req_result kernel_upd_lsp(zebra_lsp_t *lsp);
-extern enum dp_req_result kernel_del_lsp(zebra_lsp_t *lsp);
+extern enum zebra_dplane_result kernel_add_lsp(zebra_lsp_t *lsp);
+extern enum zebra_dplane_result kernel_upd_lsp(zebra_lsp_t *lsp);
+extern enum zebra_dplane_result kernel_del_lsp(zebra_lsp_t *lsp);
 
 /*
  * Add the ability to pass back up the lsp install/delete
@@ -104,7 +60,7 @@ extern enum dp_req_result kernel_del_lsp(zebra_lsp_t *lsp);
  * the install/failure to set/unset flags and to notify
  * as needed.
  */
-extern void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum dp_results res);
+extern void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum zebra_dplane_status res);
 
 extern int mpls_kernel_init(void);
 
@@ -116,10 +72,9 @@ extern int kernel_del_vtep(vni_t vni, struct interface *ifp,
 			   struct in_addr *vtep_ip);
 extern int kernel_add_mac(struct interface *ifp, vlanid_t vid,
 			  struct ethaddr *mac, struct in_addr vtep_ip,
-			  uint8_t sticky);
+			  bool sticky);
 extern int kernel_del_mac(struct interface *ifp, vlanid_t vid,
-			  struct ethaddr *mac, struct in_addr vtep_ip,
-			  int local);
+			  struct ethaddr *mac, struct in_addr vtep_ip);
 
 extern int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
 			    struct ethaddr *mac, uint8_t flags);

@@ -228,7 +228,7 @@ void show_ip_eigrp_interface_detail(struct vty *vty, struct eigrp *eigrp,
 		"Un/reliable mcasts: ", 0, "/", 0, "Un/reliable ucasts: ", 0,
 		"/", 0);
 	vty_out(vty, "%-2s %s %d %s %d %s %d \n", "", "Mcast exceptions: ", 0,
-		"  CR packets: ", 0, "  ACKs supressed: ", 0);
+		"  CR packets: ", 0, "  ACKs suppressed: ", 0);
 	vty_out(vty, "%-2s %s %d %s %d \n", "", "Retransmissions sent: ", 0,
 		"Out-of-sequence rcvd: ", 0);
 	vty_out(vty, "%-2s %s %s %s \n", "", "Authentication mode is ", "not",
@@ -300,7 +300,7 @@ void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
 		tn->serno);
 
 	if (successors)
-		list_delete_and_null(&successors);
+		list_delete(&successors);
 }
 
 void show_ip_eigrp_nexthop_entry(struct vty *vty, struct eigrp *eigrp,

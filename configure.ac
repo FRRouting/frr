@@ -91,6 +91,21 @@ AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directo
 ])
 AC_SUBST([moduledir], [$moduledir])
 
+
+AC_ARG_WITH([yangmodelsdir], [AS_HELP_STRING([--with-yangmodelsdir=DIR], [yang models directory (${datarootdir}/yang)])], [
+	yangmodelsdir="$withval"
+], [
+	yangmodelsdir="\${datarootdir}/yang"
+])
+AC_SUBST(yangmodelsdir)
+
+AC_ARG_WITH([libyang_pluginsdir], [AS_HELP_STRING([--with-libyang-pluginsdir=DIR], [yangmodule plugins directory (${libdir}/frr/libyang_plugins)])], [
+	libyang_pluginsdir="$withval"
+], [
+   libyang_pluginsdir="\${libdir}/frr/libyang_plugins"
+])
+AC_SUBST(libyang_pluginsdir)
+
 AC_ARG_ENABLE(tcmalloc,
 	AS_HELP_STRING([--enable-tcmalloc], [Turn on tcmalloc]),
 [case "${enableval}" in
@@ -203,7 +218,15 @@ elif test "x${enable_dev_build}" = "xyes"; then
       AC_C_FLAG([-g3])
       AC_C_FLAG([-O0])
    fi
+   if test "x${enable_lua}" = "xyes"; then
+      AC_CHECK_LIB([lua], [lua_newstate],
+      [LIBS="$LIBS -llua"])
+      AC_DEFINE(HAVE_LUA,,Lua enabled for development)
+   fi
 else
+   if test "x${enable_lua}" = "xyes"; then
+      AC_MSG_ERROR([Lua is not meant to be built/used outside of development at this time])
+   fi
    if test "z$orig_cflags" = "z"; then
       AC_C_FLAG([-g])
       AC_C_FLAG([-Os], [
@@ -302,14 +325,61 @@ AC_CHECK_TOOL(AR, ar)
 dnl -------
 dnl libtool
 dnl -------
+AC_ARG_ENABLE(static-bin,
+  AS_HELP_STRING([--enable-static-bin], [link binaries statically]))
 LT_INIT
+_LT_CONFIG_LIBTOOL([
+  patch -N -i "${srcdir}/m4/libtool-whole-archive.patch" libtool >&AS_MESSAGE_LOG_FD || \
+    AC_MSG_WARN([Could not patch libtool for static linking support.  Loading modules into a statically linked daemon will fail.])
+])
+if test "$enable_static_bin" = "yes"; then
+  AC_LDFLAGS="-static"
+fi
+AC_SUBST(AC_LDFLAGS)
+AM_CONDITIONAL([STATIC_BIN], [test "x$enable_static_bin" = "xyes"])
+
+dnl $AR and $RANLIB are set by LT_INIT above
+AC_MSG_CHECKING([whether $AR supports D option])
+if $AR crD conftest.a; then
+  AC_MSG_RESULT([yes])
+  dnl ARFLAGS is for automake, AR_FLAGS for libtool m-(
+  ARFLAGS="crD"
+  AR_FLAGS="crD"
+else
+  AC_MSG_RESULT([no])
+  ARFLAGS="cru"
+  AR_FLAGS="cru"
+fi
+AC_SUBST(ARFLAGS)
+AC_SUBST(AR_FLAGS)
+
+AC_MSG_CHECKING([whether $RANLIB supports D option])
+if $RANLIB -D conftest.a; then
+  AC_MSG_RESULT([yes])
+  RANLIB="$RANLIB -D"
+else
+  AC_MSG_RESULT([no])
+fi
+AC_SUBST(RANLIB)
+
+test -f conftest.a && rm conftest.a
 
 dnl ----------------------
 dnl Packages configuration
 dnl ----------------------
+if test -f config.version; then
+  . ./config.version
+elif test -f "${srcdir}/config.version"; then
+  . "${srcdir}/config.version"
+fi
 AC_ARG_WITH(pkg-extra-version,
-	AS_HELP_STRING([--with-pkg-extra-version=VER], [add extra version field, for packagers/distributions]),
-	[EXTRAVERSION=$withval],)
+  AS_HELP_STRING([--with-pkg-extra-version=VER], [add extra version field, for packagers/distributions]), [
+  if test "$withval" = "no"; then
+    EXTRAVERSION=
+  else
+    EXTRAVERSION=$withval
+  fi
+], [])
 AC_ARG_WITH(pkg-git-version,
 	AS_HELP_STRING([--with-pkg-git-version], [add git information to MOTD and build version string]),
 	[ test "x$withval" != "xno" && with_pkg_git_version="yes" ])
@@ -362,6 +432,12 @@ AC_ARG_ENABLE(bgp-vnc,
   AS_HELP_STRING([--disable-bgp-vnc],[turn off BGP VNC support]))
 AC_ARG_ENABLE(snmp,
   AS_HELP_STRING([--enable-snmp], [enable SNMP support for agentx]))
+AC_ARG_ENABLE(config_rollbacks,
+  AS_HELP_STRING([--enable-config-rollbacks], [enable configuration rollbacks (requires sqlite3)]))
+AC_ARG_ENABLE(confd,
+  AS_HELP_STRING([--enable-confd=ARG], [enable confd integration]))
+AC_ARG_ENABLE(sysrepo,
+  AS_HELP_STRING([--enable-sysrepo], [enable sysrepo integration]))
 AC_ARG_ENABLE(zeromq,
   AS_HELP_STRING([--enable-zeromq], [enable ZeroMQ handler (libfrrzmq)]))
 AC_ARG_WITH(libpam,
@@ -443,9 +519,9 @@ AC_ARG_ENABLE([memory-sanitizer],
 AS_IF([test "${enable_clippy_only}" != "yes"], [
 AC_CHECK_HEADERS(json-c/json.h)
 AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c", [], [-lm])
-if test $ac_cv_lib_json_c_json_object_get = no; then
+if test "$ac_cv_lib_json_c_json_object_get" = no; then
   AC_CHECK_LIB(json, json_object_get, LIBS="$LIBS -ljson")
-  if test $ac_cv_lib_json_json_object_get = no; then
+  if test "$ac_cv_lib_json_json_object_get" = no; then
       AC_MSG_ERROR([lib json is needed to compile])
   fi
 fi
@@ -453,6 +529,9 @@ fi
 
 AC_ARG_ENABLE([dev_build],
     AS_HELP_STRING([--enable-dev-build], [build for development]))
+
+AC_ARG_ENABLE([lua],
+    AS_HELP_STRING([--enable-lua], [Build Lua scripting]))
 
 if test x"${enable_time_check}" != x"no" ; then
   if test x"${enable_time_check}" = x"yes" -o x"${enable_time_check}" = x ; then
@@ -720,6 +799,7 @@ if test "x${EXTRAVERSION}" != "x" ; then
   AC_SUBST(PACKAGE_EXTRAVERSION, ["${EXTRAVERSION}"])
   PACKAGE_STRING="${PACKAGE_STRING}${EXTRAVERSION}"
 fi
+AC_SUBST(EXTRAVERSION)
 
 if test "x$with_pkg_git_version" = "xyes"; then
 	if test -d "${srcdir}/.git"; then
@@ -729,6 +809,20 @@ if test "x$with_pkg_git_version" = "xyes"; then
 	fi
 fi
 AM_CONDITIONAL([GIT_VERSION], [test "x$with_pkg_git_version" = "xyes"])
+
+AC_CHECK_TOOL([OBJCOPY], [objcopy], [:])
+AC_CACHE_CHECK([for .interp value to use], [frr_cv_interp], [
+  frr_cv_interp=""
+  AC_LINK_IFELSE([AC_LANG_SOURCE([[int main() { return 0; }]])], [
+    if $OBJCOPY -j.interp -Obinary conftest conftest.interp; then
+      frr_cv_interp="`xargs -0 echo < conftest.interp`"
+    fi
+    test -f conftest.interp && rm conftest.interp
+  ])
+])
+if test -n "$frr_cv_interp"; then
+  AC_DEFINE_UNQUOTED(INTERP, ["$frr_cv_interp"], [.interp value])
+fi
 
 dnl ------------------------------------
 dnl Check C keywords and standard  types
@@ -922,11 +1016,6 @@ case "$host_os" in
     AC_CHECK_LIB(socket, main)
     AC_CHECK_LIB(nsl, main)
     AC_CHECK_LIB(umem, main)
-    AC_CHECK_FUNCS([printstack], [
-      AC_DEFINE([HAVE_PRINTSTACK],1,[Solaris printstack])
-      AC_DEFINE([HAVE_STACK_TRACE],1,[Stack symbols decode functionality])
-    ])
-    CURSES=-lcurses
     SOLARIS="solaris"
     ;;
   linux*)
@@ -992,40 +1081,47 @@ dnl ---------------------
 dnl Integrated VTY option
 dnl ---------------------
 case "${enable_vtysh}" in
-  "no") VTYSH="";;
-  *)    VTYSH="vtysh";
-         AC_DEFINE(VTYSH,,VTY shell)
-dnl	 Vtysh uses libreadline, which looks for termcap functions at
-dnl	 configure time.  We follow readlines search order.
-dnl	 The required procedures are in libtermcap on NetBSD, in
-dnl	 [TODO] on Linux, and in [TODO] on Solaris.
-	 AC_CHECK_LIB(termcap, tputs, LIBREADLINE="$LIBREADLINE -ltermcap",
-	   [AC_CHECK_LIB(tinfo, tputs, LIBREADLINE="$LIBREADLINE -ltinfo",
-	     [AC_CHECK_LIB(curses, tputs, LIBREADLINE="$LIBREADLINE -lcurses",
-	       [AC_CHECK_LIB(ncurses, tputs, 
-	                     LIBREADLINE="$LIBREADLINE -lncurses")]
-	      )]
-	    )]
-	  )
-         AC_CHECK_LIB(readline, main, LIBREADLINE="-lreadline $LIBREADLINE",,
-                      "$LIBREADLINE")
-         if test $ac_cv_lib_readline_main = no; then
-           AC_MSG_ERROR([vtysh needs libreadline but was not found and usable on your system.])
-         fi
-	 AC_CHECK_HEADER(readline/history.h)
-	 if test $ac_cv_header_readline_history_h = no;then
-           AC_MSG_ERROR([readline is too old to have readline/history.h, please update to the latest readline library.])
-	 fi
-	 AC_CHECK_LIB(readline, rl_completion_matches, 
-	              LIBREADLINE="$LIBREADLINE",, "$LIBREADLINE")
-         if test $ac_cv_lib_readline_rl_completion_matches = no; then
-           AC_DEFINE(rl_completion_matches,completion_matches,Old readline)
-	 fi
-	 AC_SEARCH_LIBS([append_history], [readline], [frr_cv_append_history=yes], [frr_cv_append_history=no])
-	 if test "$frr_cv_append_history" = yes; then
-	   AC_DEFINE(HAVE_APPEND_HISTORY, 1, [Have history.h append_history])
-	 fi
-	 ;;
+"no")
+  VTYSH="";;
+*)
+  VTYSH="vtysh";
+  AC_DEFINE(VTYSH,,VTY shell)
+
+  prev_libs="$LIBS"
+  AC_CHECK_LIB(readline, main, [
+    LIBREADLINE="-lreadline"
+  ], [
+    dnl readline failed - it might be incorrectly linked and missing its
+    dnl termcap/tinfo/curses dependency.  see if we can fix that...
+    AC_SEARCH_LIBS(tputs, [termcap tinfo curses ncurses], [
+      LIBREADLINE="$ac_cv_search_tputs"
+    ], [
+      AC_MSG_ERROR([libreadline (needed for vtysh) not found and/or missing dependencies])
+    ])
+
+    dnl re-try with the lib we found above
+    unset ac_cv_lib_readline_main
+    AC_CHECK_LIB(readline, main, [
+      LIBREADLINE="-lreadline $LIBREADLINE"
+    ], [
+      AC_MSG_ERROR([libreadline (needed for vtysh) not found and/or missing dependencies])
+    ], [$LIBREADLINE])
+  ], [])
+  LIBS="$prev_libs"
+
+  AC_CHECK_HEADER(readline/history.h)
+  if test $ac_cv_header_readline_history_h = no;then
+    AC_MSG_ERROR([readline is too old to have readline/history.h, please update to the latest readline library.])
+  fi
+  AC_CHECK_LIB(readline, rl_completion_matches, [true], [], [$LIBREADLINE])
+  if test $ac_cv_lib_readline_rl_completion_matches = no; then
+    AC_DEFINE(rl_completion_matches,completion_matches,Old readline)
+  fi
+  AC_CHECK_LIB(readline, [append_history], [frr_cv_append_history=yes], [frr_cv_append_history=no], [$LIBREADLINE])
+  if test "$frr_cv_append_history" = yes; then
+    AC_DEFINE(HAVE_APPEND_HISTORY, 1, [Have history.h append_history])
+  fi
+  ;;
 esac
 AC_SUBST(LIBREADLINE)
 AM_CONDITIONAL(VTYSH, test "x$VTYSH" = "xvtysh")
@@ -1126,6 +1222,7 @@ if test x"$LIBM" = x ; then
   AC_MSG_WARN([Unable to find working pow function - bgpd may not link])
 fi
 LIBS="$TMPLIBS"
+
 AC_SUBST(LIBM)
 
 AC_CHECK_FUNCS([ppoll], [
@@ -1365,7 +1462,7 @@ fi
 
 AM_CONDITIONAL(BFDD, [test "x$BFDD" = "xbfdd"])
 
-if test $ac_cv_lib_json_c_json_object_get = no -a "x$BFDD" = "xbfdd"; then
+if test "$ac_cv_lib_json_c_json_object_get" = no -a "x$BFDD" = "xbfdd"; then
   AC_MSG_ERROR(["you must use json-c library to use bfdd"])
 fi
 
@@ -1425,7 +1522,6 @@ fi
 AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != xno])
 
 AC_SUBST(SOLARIS)
-AC_SUBST(CURSES)
 AC_CHECK_LIB(crypt, crypt, [],
 		    [AC_CHECK_LIB(crypto, DES_crypt)])
 AC_CHECK_LIB(resolv, res_init)
@@ -1460,6 +1556,11 @@ if test "${enable_snmp}" != "" -a "${enable_snmp}" != "no"; then
    fi
    SNMP_LIBS="`${NETSNMP_CONFIG} --agent-libs`"
    SNMP_CFLAGS="`${NETSNMP_CONFIG} --base-cflags`"
+   # net-snmp lists all of its own dependencies.  we absolutely do not want that
+   # among other things we avoid a GPL vs. OpenSSL license conflict here
+   for removelib in crypto ssl sensors pci wrap; do
+     SNMP_LIBS="`echo $SNMP_LIBS | sed -e 's/\(^\|\s\)-l'$removelib'\b/ /g' -e 's/\(^\|\s\)\([^\s]*\/\)\?lib'$removelib'\.[^\s]\+\b/ /g'`"
+   done
    AC_MSG_CHECKING([whether we can link to Net-SNMP])
    AC_LINK_IFELSE_FLAGS([$SNMP_CFLAGS], [$SNMP_LIBS], [AC_LANG_PROGRAM([
 int main(void);
@@ -1487,6 +1588,61 @@ fi
 AM_CONDITIONAL([SNMP], [test "x${SNMP_METHOD}" != "x"])
 AC_SUBST(SNMP_LIBS)
 AC_SUBST(SNMP_CFLAGS)
+
+dnl ---------------
+dnl libyang
+dnl ---------------
+PKG_CHECK_MODULES(libyang, [libyang >= 0.16.7], , [
+  AC_MSG_ERROR([libyang (>= 0.16.7) was not found on your system.])
+])
+AC_CHECK_MEMBER([struct lyd_node.priv], [], [
+  AC_MSG_ERROR([m4_normalize([
+    libyang needs to be compiled with ENABLE_LYD_PRIV=ON.
+    See http://docs.frrouting.org/projects/dev-guide/en/latest/building-libyang.html for details.])
+  ])
+], [[#include <libyang/libyang.h>]])
+
+dnl ---------------
+dnl configuration rollbacks
+dnl ---------------
+SQLITE3=false
+if test "$enable_config_rollbacks" = "yes"; then
+  PKG_CHECK_MODULES(sqlite3,[sqlite3], [
+    AC_DEFINE(HAVE_CONFIG_ROLLBACKS,1,Enable configuration rollbacks)
+    AC_DEFINE(HAVE_SQLITE3,1,Enable sqlite3 database)
+    SQLITE3=true
+  ], [
+    AC_MSG_ERROR([--enable-config-rollbacks given but sqlite3 was not found on your system.])
+  ])
+fi
+AM_CONDITIONAL(SQLITE3, $SQLITE3)
+
+dnl ---------------
+dnl confd
+dnl ---------------
+if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
+   AC_CHECK_PROG([CONFD], [confd], [confd], [/bin/false])
+   if test "x$CONFD" = "x/bin/false"; then
+      AC_MSG_ERROR([confd was not found on your system.])]
+   fi
+   CONFD_CFLAGS="-I${enable_confd}/include -L${enable_confd}/lib"
+   AC_SUBST(CONFD_CFLAGS)
+   AC_DEFINE(HAVE_CONFD,1,Enable confd integration)
+fi
+AM_CONDITIONAL([CONFD], [test "x$enable_confd" != "x"])
+
+dnl ---------------
+dnl sysrepo
+dnl ---------------
+if test "$enable_sysrepo" = "yes"; then
+  PKG_CHECK_MODULES(sysrepo,[libsysrepo],
+      [AC_DEFINE(HAVE_SYSREPO,1,Enable sysrepo integration)
+      SYSREPO=true],
+      [SYSREPO=false
+      AC_MSG_ERROR([sysrepo was not found on your system.])]
+  )
+fi
+AM_CONDITIONAL([SYSREPO], [test "x$enable_sysrepo" = "xyes"])
 
 dnl ---------------
 dnl math
@@ -1774,17 +1930,31 @@ dnl check for glibc 'backtrace'
 dnl --------------------------- 
 if test x"${enable_backtrace}" != x"no" ; then
   backtrace_ok=no
-  AC_CHECK_HEADER([execinfo.h], [
-    AC_SEARCH_LIBS([backtrace], [execinfo], [
-      AC_DEFINE(HAVE_GLIBC_BACKTRACE,,[Glibc backtrace])
-      AC_DEFINE(HAVE_STACK_TRACE,,[Stack symbol decoding])
-      backtrace_ok=yes
-    ],, [-lm])
+  PKG_CHECK_MODULES([UNWIND], [libunwind], [
+    AC_DEFINE(HAVE_LIBUNWIND, 1, [libunwind])
+    backtrace_ok=yes
+  ], [
+    case "$host_os" in
+    sunos* | solaris2*)
+      AC_CHECK_FUNCS([printstack], [
+        AC_DEFINE([HAVE_PRINTSTACK], 1, [Solaris printstack])
+        backtrace_ok=yes
+      ])
+      ;;
+    esac
+    if test "$backtrace_ok" = no; then
+      AC_CHECK_HEADER([execinfo.h], [
+        AC_SEARCH_LIBS([backtrace], [execinfo], [
+          AC_DEFINE(HAVE_GLIBC_BACKTRACE, 1, [Glibc backtrace])
+          backtrace_ok=yes
+        ],, [-lm])
+      ])
+    fi
   ])
 
   if test x"${enable_backtrace}" = x"yes" -a x"${backtrace_ok}" = x"no"; then
     dnl user explicitly requested backtrace but we failed to find support
-    AC_MSG_FAILURE([failed to find backtrace support])
+    AC_MSG_FAILURE([failed to find backtrace or libunwind support])
   fi
 fi
 
@@ -1915,6 +2085,7 @@ AC_DEFINE_UNQUOTED(LDPD_SOCKET, "$frr_statedir/ldpd.sock",ldpd control socket)
 AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$frr_statedir/zserv.api",zebra api socket)
 AC_DEFINE_UNQUOTED(BFDD_CONTROL_SOCKET, "$frr_statedir/bfdd.sock", bfdd control socket)
 AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$frr_statedir",daemon vty directory)
+AC_DEFINE_UNQUOTED(DAEMON_DB_DIR, "$frr_statedir",daemon database directory)
 
 dnl autoconf does this, but it does it too late...
 test "x$prefix" = xNONE && prefix=$ac_default_prefix
@@ -1926,22 +2097,31 @@ for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval vtysh_bin="\"$vtysh_bin\""
 done
 AC_DEFINE_UNQUOTED(VTYSH_BIN_PATH, "$vtysh_bin",path to vtysh binary)
+AC_SUBST(vtysh_bin)
 
 CFG_SYSCONF="$sysconfdir"
 CFG_SBIN="$sbindir"
 CFG_STATE="$frr_statedir"
 CFG_MODULE="$moduledir"
+CFG_YANGMODELS="$yangmodelsdir"
+CFG_LIBYANG_PLUGINS="$libyang_pluginsdir"
 for I in 1 2 3 4 5 6 7 8 9 10; do
 	eval CFG_SYSCONF="\"$CFG_SYSCONF\""
 	eval CFG_SBIN="\"$CFG_SBIN\""
 	eval CFG_STATE="\"$CFG_STATE\""
 	eval CFG_MODULE="\"$CFG_MODULE\""
+	eval CFG_YANGMODELS="\"$CFG_YANGMODELS\""
+	eval CFG_LIBYANG_PLUGINS="\"$CFG_LIBYANG_PLUGINS\""
 done
 AC_SUBST(CFG_SYSCONF)
 AC_SUBST(CFG_SBIN)
 AC_SUBST(CFG_STATE)
 AC_SUBST(CFG_MODULE)
+AC_SUBST(CFG_YANGMODELS)
+AC_SUBST(CFG_LIBYANG_PLUGINS)
 AC_DEFINE_UNQUOTED(MODULE_PATH, "$CFG_MODULE", path to modules)
+AC_DEFINE_UNQUOTED(YANG_MODELS_PATH, "$CFG_YANGMODELS", path to YANG data models)
+AC_DEFINE_UNQUOTED(LIBYANG_PLUGINS_PATH, "$CFG_LIBYANG_PLUGINS", path to libyang plugins)
 
 dnl ------------------------------------
 dnl Enable RPKI and add librtr to libs
@@ -1980,6 +2160,7 @@ AC_MSG_RESULT($ac_cv_htonl_works)
 AC_CONFIG_FILES([Makefile],[sed -e 's/^#AUTODERP# //' -i Makefile])
 
 AC_CONFIG_FILES([
+	  config.version
 	  redhat/frr.spec
 	  solaris/Makefile
 	  debianpkg/changelog
@@ -1992,6 +2173,7 @@ AC_CONFIG_FILES([
 	  pkgsrc/eigrpd.sh])
 
 AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
+AC_CONFIG_FILES([tools/frr],[chmod +x tools/frr])
 
 AC_CONFIG_COMMANDS([lib/route_types.h], [
 	dst="${ac_abs_top_builddir}/lib/route_types.h"

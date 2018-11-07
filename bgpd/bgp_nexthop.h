@@ -63,15 +63,9 @@ struct bgp_nexthop_cache {
 
 	struct bgp_node *node;
 	void *nht_info; /* In BGP, peer session */
-	LIST_HEAD(path_list, bgp_info) paths;
+	LIST_HEAD(path_list, bgp_path_info) paths;
 	unsigned int path_count;
 	struct bgp *bgp;
-};
-
-/* BGP own address structure */
-struct bgp_addr {
-	struct in_addr addr;
-	int refcnt;
 };
 
 /* Own tunnel-ip address structure */
@@ -80,8 +74,6 @@ struct tip_addr {
 	int refcnt;
 };
 
-extern int bgp_nexthop_lookup(afi_t, struct peer *peer, struct bgp_info *,
-			      int *, int *);
 extern void bgp_connected_add(struct bgp *bgp, struct connected *c);
 extern void bgp_connected_delete(struct bgp *bgp, struct connected *c);
 extern int bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
@@ -103,4 +95,5 @@ extern void bgp_tip_del(struct bgp *bgp, struct in_addr *tip);
 extern void bgp_tip_hash_init(struct bgp *bgp);
 extern void bgp_tip_hash_destroy(struct bgp *bgp);
 
+extern void bgp_nexthop_show_address_hash(struct vty *vty, struct bgp *bgp);
 #endif /* _QUAGGA_BGP_NEXTHOP_H */

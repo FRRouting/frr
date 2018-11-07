@@ -585,6 +585,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	zebra_slave_iftype_t zif_slave_type = ZEBRA_IF_SLAVE_NONE;
 	ifindex_t bridge_ifindex = IFINDEX_INTERNAL;
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
+	struct zebra_if *zif;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
@@ -663,7 +664,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
 	/* Add interface. */
-	ifp = if_get_by_name(name, vrf_id, 0);
+	ifp = if_get_by_name(name, vrf_id);
 	set_ifindex(ifp, ifi->ifi_index, zns);
 	ifp->flags = ifi->ifi_flags & 0x0000fffff;
 	ifp->mtu6 = ifp->mtu = *(uint32_t *)RTA_DATA(tb[IFLA_MTU]);
@@ -679,8 +680,14 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (IS_ZEBRA_IF_VRF(ifp))
 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 
-	/* Update link. */
-	zebra_if_update_link(ifp, link_ifindex, ns_id);
+	/*
+	 * Just set the @link/lower-device ifindex. During nldump interfaces are
+	 * not ordered in any fashion so we may end up getting upper devices
+	 * before lower devices. We will setup the real linkage once the dump
+	 * is complete.
+	 */
+	zif = (struct zebra_if *)ifp->info;
+	zif->link_ifindex = link_ifindex;
 
 	/* Hardware type and address. */
 	ifp->ll_type = netlink_to_zebra_link_type(ifi->ifi_type);
@@ -698,8 +705,8 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 }
 
 /* Request for specific interface or address information from the kernel */
-static int netlink_request_intf_addr(struct zebra_ns *zns, int family, int type,
-				     uint32_t filter_mask)
+static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
+				     int type, uint32_t filter_mask)
 {
 	struct {
 		struct nlmsghdr n;
@@ -717,57 +724,65 @@ static int netlink_request_intf_addr(struct zebra_ns *zns, int family, int type,
 	if (filter_mask)
 		addattr32(&req.n, sizeof(req), IFLA_EXT_MASK, filter_mask);
 
-	return netlink_request(&zns->netlink_cmd, &req.n);
+	return netlink_request(netlink_cmd, &req.n);
 }
 
 /* Interface lookup by netlink socket. */
 int interface_lookup_netlink(struct zebra_ns *zns)
 {
 	int ret;
+	struct zebra_dplane_info dp_info;
+	struct nlsock *netlink_cmd = &zns->netlink_cmd;
+
+	/* Capture key info from ns struct */
+	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
 
 	/* Get interface information. */
-	ret = netlink_request_intf_addr(zns, AF_PACKET, RTM_GETLINK, 0);
+	ret = netlink_request_intf_addr(netlink_cmd, AF_PACKET, RTM_GETLINK, 0);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_interface, &zns->netlink_cmd, zns, 0,
+	ret = netlink_parse_info(netlink_interface, netlink_cmd, &dp_info, 0,
 				 1);
 	if (ret < 0)
 		return ret;
 
 	/* Get interface information - for bridge interfaces. */
-	ret = netlink_request_intf_addr(zns, AF_BRIDGE, RTM_GETLINK,
+	ret = netlink_request_intf_addr(netlink_cmd, AF_BRIDGE, RTM_GETLINK,
 					RTEXT_FILTER_BRVLAN);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_interface, &zns->netlink_cmd, zns, 0,
+	ret = netlink_parse_info(netlink_interface, netlink_cmd, &dp_info, 0,
 				 0);
 	if (ret < 0)
 		return ret;
 
 	/* Get interface information - for bridge interfaces. */
-	ret = netlink_request_intf_addr(zns, AF_BRIDGE, RTM_GETLINK,
+	ret = netlink_request_intf_addr(netlink_cmd, AF_BRIDGE, RTM_GETLINK,
 					RTEXT_FILTER_BRVLAN);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_interface, &zns->netlink_cmd, zns, 0,
+	ret = netlink_parse_info(netlink_interface, netlink_cmd, &dp_info, 0,
 				 0);
 	if (ret < 0)
 		return ret;
 
+	/* fixup linkages */
+	zebra_if_update_all_links();
+
 	/* Get IPv4 address of the interfaces. */
-	ret = netlink_request_intf_addr(zns, AF_INET, RTM_GETADDR, 0);
+	ret = netlink_request_intf_addr(netlink_cmd, AF_INET, RTM_GETADDR, 0);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_interface_addr, &zns->netlink_cmd, zns,
+	ret = netlink_parse_info(netlink_interface_addr, netlink_cmd, &dp_info,
 				 0, 1);
 	if (ret < 0)
 		return ret;
 
 	/* Get IPv6 address of the interfaces. */
-	ret = netlink_request_intf_addr(zns, AF_INET6, RTM_GETADDR, 0);
+	ret = netlink_request_intf_addr(netlink_cmd, AF_INET6, RTM_GETADDR, 0);
 	if (ret < 0)
 		return ret;
-	ret = netlink_parse_info(netlink_interface_addr, &zns->netlink_cmd, zns,
+	ret = netlink_parse_info(netlink_interface_addr, netlink_cmd, &dp_info,
 				 0, 1);
 	if (ret < 0)
 		return ret;
@@ -1183,7 +1198,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 			if (ifp == NULL) {
 				/* unknown interface */
-				ifp = if_get_by_name(name, vrf_id, 0);
+				ifp = if_get_by_name(name, vrf_id);
 			} else {
 				/* pre-configured interface, learnt now */
 				if (ifp->vrf_id != vrf_id)

@@ -1,0 +1,29 @@
+-- Route map functionality
+--
+-- There are no parameters passed in.
+-- Currently we set two global tables
+-- prefix
+--    .family = The v4 or v6 family we are working in
+--    .route  = the A.B.C.D/X or Z:A:B::D/X string
+-- nexthop
+--    .metric = The metric we are going to use
+--    .ifindex = The outgoing interface
+--    .aspath = The aspath of the route
+--    .localpref = The localpref value
+--
+-- Valid Return Codes:
+--   0 - Some sort of processing failure
+--       This turns into a implicit DENY
+--   1 - No match was found, turns into a DENY
+--   2 - Match found, turns into a PERMIT
+--   3 - Match found and data structures changed, turns into a PERMIT
+--       and a reread of the prefix and nexthop tables
+function mooey ()
+   zlog_debug(string.format("Family: %d: %s %d ifindex: %d aspath: %s localpref: %d",
+                            prefix.family, prefix.route,
+			    nexthop.metric, nexthop.ifindex, nexthop.aspath, nexthop.localpref))
+
+   nexthop.metric = 33
+   nexthop.localpref = 13
+   return 3
+end

@@ -62,9 +62,7 @@ static struct eigrp_master eigrp_master;
 
 struct eigrp_master *eigrp_om;
 
-static void eigrp_delete(struct eigrp *);
 static struct eigrp *eigrp_new(const char *);
-static void eigrp_add(struct eigrp *);
 
 extern struct zclient *zclient;
 extern struct in_addr router_id_zebra;
@@ -203,16 +201,6 @@ static struct eigrp *eigrp_new(const char *AS)
 	return eigrp;
 }
 
-static void eigrp_add(struct eigrp *eigrp)
-{
-	listnode_add(eigrp_om->eigrp, eigrp);
-}
-
-static void eigrp_delete(struct eigrp *eigrp)
-{
-	listnode_delete(eigrp_om->eigrp, eigrp);
-}
-
 struct eigrp *eigrp_get(const char *AS)
 {
 	struct eigrp *eigrp;
@@ -220,7 +208,7 @@ struct eigrp *eigrp_get(const char *AS)
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
 		eigrp = eigrp_new(AS);
-		eigrp_add(eigrp);
+		listnode_add(eigrp_om->eigrp, eigrp);
 	}
 
 	return eigrp;
@@ -278,19 +266,19 @@ void eigrp_finish_final(struct eigrp *eigrp)
 	THREAD_OFF(eigrp->t_read);
 	close(eigrp->fd);
 
-	list_delete_and_null(&eigrp->eiflist);
-	list_delete_and_null(&eigrp->oi_write_q);
+	list_delete(&eigrp->eiflist);
+	list_delete(&eigrp->oi_write_q);
 
-	eigrp_topology_cleanup(eigrp->topology_table);
 	eigrp_topology_free(eigrp->topology_table);
 
 	eigrp_nbr_delete(eigrp->neighbor_self);
 
-	list_delete_and_null(&eigrp->topology_changes_externalIPV4);
-	list_delete_and_null(&eigrp->topology_changes_internalIPV4);
+	list_delete(&eigrp->topology_changes_externalIPV4);
+	list_delete(&eigrp->topology_changes_internalIPV4);
 
-	eigrp_delete(eigrp);
+	listnode_delete(eigrp_om->eigrp, eigrp);
 
+	stream_free(eigrp->ibuf);
 	XFREE(MTYPE_EIGRP_TOP, eigrp);
 }
 

@@ -234,13 +234,13 @@ static unsigned int static_nht_hash_key(void *data)
 	return jhash_1word(nhtd->nh_vrf_id, key);
 }
 
-static int static_nht_hash_cmp(const void *d1, const void *d2)
+static bool static_nht_hash_cmp(const void *d1, const void *d2)
 {
 	const struct static_nht_data *nhtd1 = d1;
 	const struct static_nht_data *nhtd2 = d2;
 
 	if (nhtd1->nh_vrf_id != nhtd2->nh_vrf_id)
-		return 0;
+		return false;
 
 	return prefix_same(nhtd1->nh, nhtd2->nh);
 }
@@ -364,6 +364,8 @@ extern void static_zebra_route_add(struct route_node *rn,
 		memcpy(&api.src_prefix, src_pp, sizeof(api.src_prefix));
 	}
 	SET_FLAG(api.flags, ZEBRA_FLAG_RR_USE_DISTANCE);
+	if (si_changed->onlink)
+		SET_FLAG(api.flags, ZEBRA_FLAG_ONLINK);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	if (si_changed->distance) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);

@@ -856,7 +856,7 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
 		lineno++;
 
-		ret = command_config_read_one_line(vty, &cmd, 1);
+		ret = command_config_read_one_line(vty, &cmd, lineno, 1);
 
 		switch (ret) {
 		case CMD_WARNING:
@@ -1502,7 +1502,7 @@ DEFUNSH(VTYSH_BGPD, vnc_l2_group, vnc_l2_group_cmd, "vnc l2-group NAME",
 }
 #endif
 
-DEFUNSH(VTYSH_RIPD, key_chain, key_chain_cmd, "key chain WORD",
+DEFUNSH(VTYSH_KEYS, key_chain, key_chain_cmd, "key chain WORD",
 	"Authentication key management\n"
 	"Key-chain management\n"
 	"Key-chain name\n")
@@ -1511,7 +1511,7 @@ DEFUNSH(VTYSH_RIPD, key_chain, key_chain_cmd, "key chain WORD",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_RIPD, key, key_cmd, "key (0-2147483647)",
+DEFUNSH(VTYSH_KEYS, key, key_cmd, "key (0-2147483647)",
 	"Configure a key\n"
 	"Key identifier number\n")
 {
@@ -2265,7 +2265,7 @@ DEFUN (vtysh_show_work_queues,
 
 DEFUN (vtysh_show_work_queues_daemon,
        vtysh_show_work_queues_daemon_cmd,
-       "show work-queues <zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pbrd|fabricd>",
+       "show work-queues <zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pbrd|fabricd|pimd|staticd>",
        SHOW_STR
        "Work Queue information\n"
        "For the zebra daemon\n"
@@ -2276,7 +2276,9 @@ DEFUN (vtysh_show_work_queues_daemon,
        "For the bgp daemon\n"
        "For the isis daemon\n"
        "For the pbr daemon\n"
-       "For the fabricd daemon\n")
+       "For the fabricd daemon\n"
+       "For the pim daemon\n"
+       "For the static daemon\n")
 {
 	int idx_protocol = 2;
 	unsigned int i;
@@ -2614,7 +2616,7 @@ DEFUNSH(VTYSH_ALL, no_vtysh_config_enable_password,
 
 DEFUN (vtysh_write_terminal,
        vtysh_write_terminal_cmd,
-       "write terminal [<zebra|ripd|ripngd|ospfd|ospf6d|ldpd|bgpd|isisd|fabricd|pimd>]",
+       "write terminal [<zebra|ripd|ripngd|ospfd|ospf6d|ldpd|bgpd|isisd|fabricd|pimd|staticd>]",
        "Write running configuration to memory, network, or terminal\n"
        "Write to terminal\n"
        "For the zebra daemon\n"
@@ -2626,7 +2628,8 @@ DEFUN (vtysh_write_terminal,
        "For the bgp daemon\n"
        "For the isis daemon\n"
        "For the fabricd daemon\n"
-       "For the pim daemon\n")
+       "For the pim daemon\n"
+       "For the static daemon\n")
 {
 	unsigned int i;
 	char line[] = "do write terminal\n";
@@ -2652,7 +2655,7 @@ DEFUN (vtysh_write_terminal,
 
 DEFUN (vtysh_show_running_config,
        vtysh_show_running_config_cmd,
-       "show running-config [<zebra|ripd|ripngd|ospfd|ospf6d|ldpd|bgpd|isisd|fabricd|pimd>]",
+       "show running-config [<zebra|ripd|ripngd|ospfd|ospf6d|ldpd|bgpd|isisd|fabricd|pimd|staticd>]",
        SHOW_STR
        "Current operating configuration\n"
        "For the zebra daemon\n"
@@ -2664,7 +2667,8 @@ DEFUN (vtysh_show_running_config,
        "For the bgp daemon\n"
        "For the isis daemon\n"
        "For the fabricd daemon\n"
-       "For the pim daemon\n")
+       "For the pim daemon\n"
+       "For the static daemon\n")
 {
 	return vtysh_write_terminal(self, vty, argc, argv);
 }

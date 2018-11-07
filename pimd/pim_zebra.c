@@ -19,8 +19,6 @@
 
 #include <zebra.h>
 
-#include "zebra/rib.h"
-
 #include "if.h"
 #include "log.h"
 #include "prefix.h"
@@ -1044,9 +1042,14 @@ void igmp_source_forward_start(struct pim_instance *pim,
 		return;
 	}
 
-	if (!(PIM_I_am_DR(pim_oif)))
+	if (!(PIM_I_am_DR(pim_oif))) {
+		if (PIM_DEBUG_IGMP_TRACE)
+			zlog_debug("%s: %s was received on %s interface but we are not DR for that interface",
+				   __PRETTY_FUNCTION__,
+				   pim_str_sg_dump(&sg),
+				   group->group_igmp_sock->interface->name);
 		return;
-
+	}
 	/*
 	  Feed IGMPv3-gathered local membership information into PIM
 	  per-interface (S,G) state.

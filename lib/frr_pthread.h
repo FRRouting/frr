@@ -34,7 +34,6 @@ struct frr_pthread;
 struct frr_pthread_attr;
 
 struct frr_pthread_attr {
-	_Atomic uint32_t id;
 	void *(*start)(void *);
 	int (*stop)(struct frr_pthread *, void **);
 };
@@ -155,13 +154,6 @@ int frr_pthread_set_name(struct frr_pthread *fpt, const char *name,
 void frr_pthread_destroy(struct frr_pthread *fpt);
 
 /*
- * Gets an existing frr_pthread by its id.
- *
- * @return frr_thread associated with the provided id, or NULL on error
- */
-struct frr_pthread *frr_pthread_get(uint32_t id);
-
-/*
  * Creates a new pthread and binds it to a frr_pthread.
  *
  * This function is a wrapper for pthread_create. The first parameter is the
@@ -217,22 +209,6 @@ int frr_pthread_stop(struct frr_pthread *fpt, void **result);
 
 /* Stops all frr_pthread's. */
 void frr_pthread_stop_all(void);
-
-/* Yields the current thread of execution */
-void frr_pthread_yield(void);
-
-/*
- * Returns a unique identifier for use with frr_pthread_new().
- *
- * Internally, this is an integer that increments after each call to this
- * function. Because the number of pthreads created should never exceed INT_MAX
- * during the life of the program, there is no overflow protection. If by
- * chance this function returns an ID which is already in use,
- * frr_pthread_new() will fail when it is provided.
- *
- * @return unique identifier
- */
-uint32_t frr_pthread_get_id(void);
 
 #ifndef HAVE_PTHREAD_CONDATTR_SETCLOCK
 #define pthread_condattr_setclock(A, B)

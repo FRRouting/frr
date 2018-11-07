@@ -736,7 +736,7 @@ void igmp_startup_mode_on(struct igmp_sock *igmp)
 
 static void igmp_group_free(struct igmp_group *group)
 {
-	list_delete_and_null(&group->group_source_list);
+	list_delete(&group->group_source_list);
 
 	XFREE(MTYPE_PIM_IGMP_GROUP, group);
 }
@@ -788,7 +788,7 @@ void igmp_sock_free(struct igmp_sock *igmp)
 	zassert(igmp->igmp_group_list);
 	zassert(!listcount(igmp->igmp_group_list));
 
-	list_delete_and_null(&igmp->igmp_group_list);
+	list_delete(&igmp->igmp_group_list);
 	hash_free(igmp->igmp_group_hash);
 
 	XFREE(MTYPE_PIM_IGMP_SOCKET, igmp);
@@ -836,15 +836,15 @@ static unsigned int igmp_group_hash_key(void *arg)
 	return jhash_1word(group->group_addr.s_addr, 0);
 }
 
-static int igmp_group_hash_equal(const void *arg1, const void *arg2)
+static bool igmp_group_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct igmp_group *g1 = (const struct igmp_group *)arg1;
 	const struct igmp_group *g2 = (const struct igmp_group *)arg2;
 
 	if (g1->group_addr.s_addr == g2->group_addr.s_addr)
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,

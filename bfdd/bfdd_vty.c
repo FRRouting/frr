@@ -90,7 +90,7 @@ DEFUN_NOSH(bfd_enter, bfd_enter_cmd, "bfd", "Configure BFD peers\n")
 
 DEFUN_NOSH(
 	bfd_peer_enter, bfd_peer_enter_cmd,
-	"peer <A.B.C.D|X:X::X:X> [{multihop|local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
+	"peer <A.B.C.D|X:X::X:X> [{[multihop] local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
 	PEER_STR PEER_IPV4_STR PEER_IPV6_STR
 	MHOP_STR
 	LOCAL_STR LOCAL_IPV4_STR LOCAL_IPV6_STR
@@ -886,14 +886,7 @@ static int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 	if (local)
 		bpc->bpc_local = *local;
 
-	if (peer) {
-		bpc->bpc_peer = *peer;
-	} else {
-		/* Peer configuration is mandatory. */
-		snprintf(ebuf, ebuflen, "no peer configured");
-		return -1;
-	}
-
+	bpc->bpc_peer = *peer;
 	bpc->bpc_mhop = mhop;
 
 	/* Handle interface specification configuration. */

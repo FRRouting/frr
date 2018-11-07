@@ -4,6 +4,7 @@ AUTOMAKE_OPTIONS = subdir-objects 1.12
 ACLOCAL_AMFLAGS = -I m4
 
 AM_CFLAGS = \
+	$(UNWIND_CFLAGS) \
 	$(SAN_FLAGS) \
 	$(WERROR) \
 	# end
@@ -12,10 +13,15 @@ AM_CPPFLAGS = \
 	-I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib
 AM_LDFLAGS = \
 	-export-dynamic \
+	$(AC_LDFLAGS) \
 	$(SAN_FLAGS) \
 	# end
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE)
 LIBCAP = @LIBCAP@
+
+AR_FLAGS = @AR_FLAGS@
+ARFLAGS = @ARFLAGS@
+RANLIB = @RANLIB@
 
 # these two targets are provided to easily grab autoconf/Makefile variables
 # you can use either:
@@ -76,6 +82,7 @@ var-%:
 EXTRA_DIST =
 BUILT_SOURCES =
 CLEANFILES =
+DISTCLEANFILES =
 
 examplesdir = $(exampledir)
 
@@ -88,9 +95,11 @@ noinst_LIBRARIES =
 nodist_noinst_DATA =
 lib_LTLIBRARIES =
 module_LTLIBRARIES =
+libyang_plugins_LTLIBRARIES =
 pkginclude_HEADERS =
 nodist_pkginclude_HEADERS =
 dist_examples_DATA =
+dist_yangmodels_DATA =
 man_MANS =
 vtysh_scan =
 
@@ -101,6 +110,7 @@ vtysh_scan =
 $(AUTOMAKE_DUMMY)install-moduleLTLIBRARIES: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-binPROGRAMS: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-sbinPROGRAMS: install-libLTLIBRARIES
+$(AUTOMAKE_DUMMY)install-libyang_pluginsLTLIBRARIES: install-libLTLIBRARIES
 
 include doc/subdir.am
 include doc/user/subdir.am
@@ -134,6 +144,8 @@ include pimd/subdir.am
 include pbrd/subdir.am
 include staticd/subdir.am
 include bfdd/subdir.am
+include yang/subdir.am
+include yang/libyang_plugins/subdir.am
 
 include vtysh/subdir.am
 include tests/subdir.am
@@ -154,6 +166,8 @@ EXTRA_DIST += \
 	aclocal.m4 \
 	README.md \
 	m4/README.txt \
+	m4/libtool-whole-archive.patch \
+	config.version \
 	\
 	python/clidef.py \
 	python/clippy/__init__.py \
@@ -207,6 +221,15 @@ EXTRA_DIST += \
 	# end
 
 noinst_HEADERS += defaults.h
+
+clean-local: clean-python
+.PHONY: clean-python
+clean-python:
+	find -name __pycache__ -o -name .pytest_cache | xargs rm -rf
+	find -name "*.pyc" -o -name "*_clippy.c" | xargs rm -f
+
+redistclean:
+	$(MAKE) distclean CONFIG_CLEAN_FILES="$(filter-out $(EXTRA_DIST), $(CONFIG_CLEAN_FILES))"
 
 indent:
 	tools/indent.py `find sharpd bgpd eigrpd include isisd lib nhrpd ospf6d ospfd pimd qpb ripd vtysh zebra -name '*.[ch]' | grep -v include/linux`

@@ -58,18 +58,18 @@ static unsigned tx_queue_hash_key(void *p)
 	return jhash_1word(e->lsp->level, id_key);
 }
 
-static int tx_queue_hash_cmp(const void *a, const void *b)
+static bool tx_queue_hash_cmp(const void *a, const void *b)
 {
 	const struct isis_tx_queue_entry *ea = a, *eb = b;
 
 	if (ea->lsp->level != eb->lsp->level)
-		return 0;
+		return false;
 
 	if (memcmp(ea->lsp->hdr.lsp_id, eb->lsp->hdr.lsp_id,
 		   ISIS_SYS_ID_LEN + 2))
-		return 0;
+		return false;
 
-	return 1;
+	return true;
 }
 
 struct isis_tx_queue *isis_tx_queue_new(void *arg,

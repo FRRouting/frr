@@ -2,7 +2,12 @@
 # tools
 #
 
-noinst_PROGRAMS += tools/permutations
+noinst_PROGRAMS += \
+	tools/permutations \
+	tools/gen_northbound_callbacks \
+	tools/gen_yang_deviations \
+	# end
+
 sbin_PROGRAMS += tools/ssd
 sbin_SCRIPTS += \
 	tools/frr-reload \
@@ -13,11 +18,16 @@ sbin_SCRIPTS += \
 tools_permutations_SOURCES = tools/permutations.c
 tools_permutations_LDADD = lib/libfrr.la
 
+tools_gen_northbound_callbacks_SOURCES = tools/gen_northbound_callbacks.c
+tools_gen_northbound_callbacks_LDADD = lib/libfrr.la -lyang
+
+tools_gen_yang_deviations_SOURCES = tools/gen_yang_deviations.c
+tools_gen_yang_deviations_LDADD = lib/libfrr.la -lyang
+
 tools_ssd_SOURCES = tools/start-stop-daemon.c
 
 EXTRA_DIST += \
 	tools/etc \
-	tools/frr \
 	tools/frr-reload \
 	tools/frr-reload.py \
 	tools/frr.service \
@@ -26,4 +36,5 @@ EXTRA_DIST += \
 	tools/rrlookup.pl \
 	tools/zc.pl \
 	tools/zebra.el \
+	tools/build-debian-package.sh \
 	# end

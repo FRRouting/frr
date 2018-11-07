@@ -1187,8 +1187,9 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			vty_out(vty, "Designated Router\n");
 			vty_out(vty, "-----------------\n");
 			vty_out(vty, "Address   : %s\n", dr_str);
-			vty_out(vty, "Priority  : %d\n",
-				pim_ifp->pim_dr_priority);
+			vty_out(vty, "Priority  : %d(%d)\n",
+				pim_ifp->pim_dr_priority,
+				pim_ifp->pim_dr_num_nondrpri_neighbors);
 			vty_out(vty, "Uptime    : %s\n", dr_uptime);
 			vty_out(vty, "Elections : %d\n",
 				pim_ifp->pim_dr_election_count);

@@ -277,7 +277,7 @@ void ospf6_area_delete(struct ospf6_area *oa)
 	for (ALL_LIST_ELEMENTS_RO(oa->if_list, n, oi))
 		oi->area = NULL;
 
-	list_delete_and_null(&oa->if_list);
+	list_delete(&oa->if_list);
 
 	ospf6_lsdb_delete(oa->lsdb);
 	ospf6_lsdb_delete(oa->lsdb_self);
@@ -441,6 +441,7 @@ DEFUN (area_range,
 			SET_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
 		} else if (strmatch(argv[idx_type]->text, "advertise")) {
 			UNSET_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
+			cost = range->path.u.cost_config;
 		} else {
 			cost = strtoul(argv[5]->arg, NULL, 10);
 			UNSET_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
@@ -771,7 +772,7 @@ DEFUN (show_ipv6_ospf6_spf_tree,
        SHOW_STR
        IP6_STR
        OSPF6_STR
-       "Shortest Path First caculation\n"
+       "Shortest Path First calculation\n"
        "Show SPF tree\n")
 {
 	struct listnode *node;
@@ -806,7 +807,7 @@ DEFUN (show_ipv6_ospf6_area_spf_tree,
        OSPF6_STR
        OSPF6_AREA_STR
        OSPF6_AREA_ID_STR
-       "Shortest Path First caculation\n"
+       "Shortest Path First calculation\n"
        "Show SPF tree\n")
 {
 	int idx_ipv4 = 4;

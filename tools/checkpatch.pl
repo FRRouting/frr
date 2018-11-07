@@ -359,6 +359,7 @@ our $InitAttribute = qr{$InitAttributeData|$InitAttributeConst|$InitAttributeIni
 # We need \b after 'init' otherwise 'initconst' will cause a false positive in a check
 our $Attribute	= qr{
 			const|
+			_Atomic|
 			__percpu|
 			__nocast|
 			__safe|
@@ -4515,17 +4516,6 @@ sub process {
 				}
 				CHK("UNNECESSARY_PARENTHESES",
 				    "Unnecessary parentheses around '$match'\n" . $herectx);
-			}
-		}
-
-#goto labels aren't indented, allow a single space however
-		if ($line=~/^.\s+[A-Za-z\d_]+:(?![0-9]+)/ and
-		   !($line=~/^. [A-Za-z\d_]+:/) and !($line=~/^.\s+default:/)) {
-			if (WARN("INDENTED_LABEL",
-				 "labels should not be indented\n" . $herecurr) &&
-			    $fix) {
-				$fixed[$fixlinenr] =~
-				    s/^(.)\s+/$1/;
 			}
 		}
 

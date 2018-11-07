@@ -1,0 +1,46 @@
+module frr-interface {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/interface";
+  prefix frr-interface;
+
+  organization
+    "Free Range Routing";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR interfaces.";
+
+  revision 2018-03-28 {
+    description
+      "Initial revision.";
+  }
+
+  container lib {
+    list interface {
+      key "name vrf";
+      description
+        "Interface.";
+
+      leaf name {
+        type string {
+          length "1..16";
+        }
+        description
+          "Interface name.";
+      }
+      leaf vrf {
+        type string {
+          length "1..36";
+        }
+        description
+          "VRF this interface is associated with.";
+      }
+      leaf description {
+        type string;
+        description
+          "Interface description.";
+      }
+    }
+  }
+}

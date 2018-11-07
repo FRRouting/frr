@@ -79,7 +79,7 @@ static zebra_fec_t *fec_add(struct route_table *table, struct prefix *p,
 static int fec_del(zebra_fec_t *fec);
 
 static unsigned int label_hash(void *p);
-static int label_cmp(const void *p1, const void *p2);
+static bool label_cmp(const void *p1, const void *p2);
 static int nhlfe_nexthop_active_ipv4(zebra_nhlfe_t *nhlfe,
 				     struct nexthop *nexthop);
 static int nhlfe_nexthop_active_ipv6(zebra_nhlfe_t *nhlfe,
@@ -572,7 +572,7 @@ static zebra_fec_t *fec_add(struct route_table *table, struct prefix *p,
  */
 static int fec_del(zebra_fec_t *fec)
 {
-	list_delete_and_null(&fec->client_list);
+	list_delete(&fec->client_list);
 	fec->rn->info = NULL;
 	route_unlock_node(fec->rn);
 	XFREE(MTYPE_FEC, fec);
@@ -592,7 +592,7 @@ static unsigned int label_hash(void *p)
 /*
  * Compare 2 LSP hash entries based on in-label.
  */
-static int label_cmp(const void *p1, const void *p2)
+static bool label_cmp(const void *p1, const void *p2)
 {
 	const zebra_ile_t *ile1 = p1;
 	const zebra_ile_t *ile2 = p2;
@@ -917,14 +917,14 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 
 			UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
 			switch (kernel_add_lsp(lsp)) {
-			case DP_REQUEST_QUEUED:
+			case ZEBRA_DPLANE_REQUEST_QUEUED:
 				flog_err(
 					EC_ZEBRA_DP_INVALID_RC,
 					"No current DataPlane interfaces can return this, please fix");
 				break;
-			case DP_REQUEST_FAILURE:
+			case ZEBRA_DPLANE_REQUEST_FAILURE:
 				break;
-			case DP_REQUEST_SUCCESS:
+			case ZEBRA_DPLANE_REQUEST_SUCCESS:
 				zvrf->lsp_installs++;
 				break;
 			}
@@ -934,14 +934,14 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 		if (!newbest) {
 
 			switch (kernel_del_lsp(lsp)) {
-			case DP_REQUEST_QUEUED:
+			case ZEBRA_DPLANE_REQUEST_QUEUED:
 				flog_err(
 					EC_ZEBRA_DP_INVALID_RC,
 					"No current DataPlane interfaces can return this, please fix");
 				break;
-			case DP_REQUEST_FAILURE:
+			case ZEBRA_DPLANE_REQUEST_FAILURE:
 				break;
-			case DP_REQUEST_SUCCESS:
+			case ZEBRA_DPLANE_REQUEST_SUCCESS:
 				zvrf->lsp_removals++;
 				break;
 			}
@@ -974,14 +974,14 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 			}
 
 			switch (kernel_upd_lsp(lsp)) {
-			case DP_REQUEST_QUEUED:
+			case ZEBRA_DPLANE_REQUEST_QUEUED:
 				flog_err(
 					EC_ZEBRA_DP_INVALID_RC,
 					"No current DataPlane interfaces can return this, please fix");
 				break;
-			case DP_REQUEST_FAILURE:
+			case ZEBRA_DPLANE_REQUEST_FAILURE:
 				break;
-			case DP_REQUEST_SUCCESS:
+			case ZEBRA_DPLANE_REQUEST_SUCCESS:
 				zvrf->lsp_installs++;
 				break;
 			}
@@ -1716,7 +1716,7 @@ static int mpls_processq_init(struct zebra_t *zebra)
 
 /* Public functions */
 
-void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum dp_results res)
+void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum zebra_dplane_status res)
 {
 	struct nexthop *nexthop;
 	zebra_nhlfe_t *nhlfe;
@@ -1725,13 +1725,13 @@ void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum dp_results res)
 		return;
 
 	switch (res) {
-	case DP_INSTALL_FAILURE:
+	case ZEBRA_DPLANE_INSTALL_FAILURE:
 		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 		clear_nhlfe_installed(lsp);
 		flog_warn(EC_ZEBRA_LSP_INSTALL_FAILURE,
 			  "LSP Install Failure: %u", lsp->ile.in_label);
 		break;
-	case DP_INSTALL_SUCCESS:
+	case ZEBRA_DPLANE_INSTALL_SUCCESS:
 		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 		for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
 			nexthop = nhlfe->nexthop;
@@ -1742,13 +1742,15 @@ void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum dp_results res)
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		}
 		break;
-	case DP_DELETE_SUCCESS:
+	case ZEBRA_DPLANE_DELETE_SUCCESS:
 		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 		clear_nhlfe_installed(lsp);
 		break;
-	case DP_DELETE_FAILURE:
+	case ZEBRA_DPLANE_DELETE_FAILURE:
 		flog_warn(EC_ZEBRA_LSP_DELETE_FAILURE,
 			  "LSP Deletion Failure: %u", lsp->ile.in_label);
+		break;
+	case ZEBRA_DPLANE_STATUS_NONE:
 		break;
 	}
 }
@@ -2808,7 +2810,7 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 		vty_out(vty, "\n");
 	}
 
-	list_delete_and_null(&lsp_list);
+	list_delete(&lsp_list);
 }
 
 /*
@@ -2847,7 +2849,7 @@ int zebra_mpls_write_lsp_config(struct vty *vty, struct zebra_vrf *zvrf)
 		}
 	}
 
-	list_delete_and_null(&slsp_list);
+	list_delete(&slsp_list);
 	return (zvrf->slsp_table->count ? 1 : 0);
 }
 

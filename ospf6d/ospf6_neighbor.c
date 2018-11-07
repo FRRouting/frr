@@ -59,7 +59,11 @@ int ospf6_neighbor_cmp(void *va, void *vb)
 {
 	struct ospf6_neighbor *ona = (struct ospf6_neighbor *)va;
 	struct ospf6_neighbor *onb = (struct ospf6_neighbor *)vb;
-	return (ntohl(ona->router_id) < ntohl(onb->router_id) ? -1 : 1);
+
+	if (ona->router_id == onb->router_id)
+		return 0;
+
+	return (ntohl(ona->router_id) < ntohl(onb->router_id)) ? -1 : 1;
 }
 
 struct ospf6_neighbor *ospf6_neighbor_lookup(uint32_t router_id,

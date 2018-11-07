@@ -1013,7 +1013,7 @@ int main(int argc, char **argv)
 	if (background) { /* ok, we need to detach this process */
 		int i, fd;
 		if (quietmode < 0)
-			printf("Detatching to start %s...", startas);
+			printf("Detaching to start %s...", startas);
 		i = fork();
 		if (i < 0) {
 			fatal("Unable to fork.\n");
@@ -1030,7 +1030,9 @@ int main(int argc, char **argv)
 		/* change tty */
 		fd = open("/dev/tty", O_RDWR);
 		if (fd >= 0) {
-			ioctl(fd, TIOCNOTTY, 0);
+			if (ioctl(fd, TIOCNOTTY, 0) < 0)
+				printf("ioctl TIOCNOTTY failed: %s\n",
+				       strerror(errno));
 			close(fd);
 		}
 		chdir("/");

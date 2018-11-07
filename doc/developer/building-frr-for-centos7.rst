@@ -22,7 +22,9 @@ Add packages:
     sudo yum install git autoconf automake libtool make gawk \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
       json-c-devel pam-devel bison flex pytest c-ares-devel \
-      perl-XML-LibXML python-devel systemd-devel python-sphinx
+      python-devel systemd-devel python-sphinx
+
+.. include:: building-libyang.rst
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
@@ -59,23 +61,15 @@ an example.)
         --libexecdir=/usr/lib/frr \
         --localstatedir=/var/run/frr \
         --with-moduledir=/usr/lib/frr/modules \
-        --enable-pimd \
         --enable-snmp=agentx \
         --enable-multipath=64 \
-        --enable-ospfclient=yes \
-        --enable-ospfapi=yes \
         --enable-user=frr \
         --enable-group=frr \
         --enable-vty-group=frrvty \
-        --enable-rtadv \
 	--enable-systemd=yes \
         --disable-exampledir \
-        --enable-watchfrr \
         --disable-ldpd \
         --enable-fpm \
-        --enable-nhrpd \
-        --enable-eigrpd \
-        --enable-babeld \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion
     make

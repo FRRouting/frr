@@ -74,7 +74,7 @@ static int pim_msdp_sa_adv_timer_cb(struct thread *t)
 	struct pim_instance *pim = THREAD_ARG(t);
 
 	if (PIM_DEBUG_MSDP_EVENTS) {
-		zlog_debug("MSDP SA advertisment timer expired");
+		zlog_debug("MSDP SA advertisement timer expired");
 	}
 
 	pim_msdp_sa_adv_timer_setup(pim, true /* start */);
@@ -687,7 +687,7 @@ static unsigned int pim_msdp_sa_hash_key_make(void *p)
 	return (jhash_2words(sa->sg.src.s_addr, sa->sg.grp.s_addr, 0));
 }
 
-static int pim_msdp_sa_hash_eq(const void *p1, const void *p2)
+static bool pim_msdp_sa_hash_eq(const void *p1, const void *p2)
 {
 	const struct pim_msdp_sa *sa1 = p1;
 	const struct pim_msdp_sa *sa2 = p2;
@@ -1221,7 +1221,7 @@ static unsigned int pim_msdp_peer_hash_key_make(void *p)
 	return (jhash_1word(mp->peer.s_addr, 0));
 }
 
-static int pim_msdp_peer_hash_eq(const void *p1, const void *p2)
+static bool pim_msdp_peer_hash_eq(const void *p1, const void *p2)
 {
 	const struct pim_msdp_peer *mp1 = p1;
 	const struct pim_msdp_peer *mp2 = p2;
@@ -1260,7 +1260,7 @@ static void pim_msdp_mg_free(struct pim_instance *pim)
 		XFREE(MTYPE_PIM_MSDP_MG_NAME, mg->mesh_group_name);
 
 	if (mg->mbr_list)
-		list_delete_and_null(&mg->mbr_list);
+		list_delete(&mg->mbr_list);
 
 	XFREE(MTYPE_PIM_MSDP_MG, pim->msdp.mg);
 }
@@ -1610,7 +1610,7 @@ void pim_msdp_exit(struct pim_instance *pim)
 	}
 
 	if (pim->msdp.peer_list) {
-		list_delete_and_null(&pim->msdp.peer_list);
+		list_delete(&pim->msdp.peer_list);
 	}
 
 	if (pim->msdp.sa_hash) {
@@ -1620,7 +1620,7 @@ void pim_msdp_exit(struct pim_instance *pim)
 	}
 
 	if (pim->msdp.sa_list) {
-		list_delete_and_null(&pim->msdp.sa_list);
+		list_delete(&pim->msdp.sa_list);
 	}
 
 	if (pim->msdp.work_obuf)

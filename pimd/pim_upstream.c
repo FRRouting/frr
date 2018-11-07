@@ -19,8 +19,6 @@
 
 #include <zebra.h>
 
-#include "zebra/rib.h"
-
 #include "log.h"
 #include "zclient.h"
 #include "memory.h"
@@ -82,7 +80,7 @@ static void pim_upstream_remove_children(struct pim_instance *pim,
 		if (child)
 			child->parent = NULL;
 	}
-	list_delete_and_null(&up->sources);
+	list_delete(&up->sources);
 }
 
 /*
@@ -204,11 +202,11 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 
 	for (ALL_LIST_ELEMENTS(up->ifchannels, node, nnode, ch))
 		pim_ifchannel_delete(ch);
-	list_delete_and_null(&up->ifchannels);
+	list_delete(&up->ifchannels);
 
 	pim_upstream_remove_children(pim, up);
 	if (up->sources)
-		list_delete_and_null(&up->sources);
+		list_delete(&up->sources);
 
 	if (up->parent && up->parent->sources)
 		listnode_delete(up->parent->sources, up);
@@ -464,7 +462,7 @@ static int pim_upstream_could_register(struct pim_upstream *up)
 	return 0;
 }
 
-/* Source registration is supressed for SSM groups. When the SSM range changes
+/* Source registration is suppressed for SSM groups. When the SSM range changes
  * we re-revaluate register setup for existing upstream entries */
 void pim_upstream_register_reevaluate(struct pim_instance *pim)
 {
@@ -685,9 +683,9 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 
 		pim_upstream_remove_children(pim, up);
 		if (up->sources)
-			list_delete_and_null(&up->sources);
+			list_delete(&up->sources);
 
-		list_delete_and_null(&up->ifchannels);
+		list_delete(&up->ifchannels);
 
 		hash_release(pim->upstream_hash, up);
 		XFREE(MTYPE_PIM_UPSTREAM, up);
@@ -1536,14 +1534,15 @@ unsigned int pim_upstream_hash_key(void *arg)
 
 void pim_upstream_terminate(struct pim_instance *pim)
 {
-	struct listnode *node, *nnode;
 	struct pim_upstream *up;
 
 	if (pim->upstream_list) {
-		for (ALL_LIST_ELEMENTS(pim->upstream_list, node, nnode, up))
+		while (pim->upstream_list->count) {
+			up = listnode_head(pim->upstream_list);
 			pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
+		}
 
-		list_delete_and_null(&pim->upstream_list);
+		list_delete(&pim->upstream_list);
 	}
 
 	if (pim->upstream_hash)
@@ -1555,16 +1554,16 @@ void pim_upstream_terminate(struct pim_instance *pim)
 	pim->upstream_sg_wheel = NULL;
 }
 
-int pim_upstream_equal(const void *arg1, const void *arg2)
+bool pim_upstream_equal(const void *arg1, const void *arg2)
 {
 	const struct pim_upstream *up1 = (const struct pim_upstream *)arg1;
 	const struct pim_upstream *up2 = (const struct pim_upstream *)arg2;
 
 	if ((up1->sg.grp.s_addr == up2->sg.grp.s_addr)
 	    && (up1->sg.src.s_addr == up2->sg.src.s_addr))
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 /* rfc4601:section-4.2:"Data Packet Forwarding Rules" defines

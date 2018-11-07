@@ -219,7 +219,7 @@ struct bgp_pbr_match_entry {
 	uint16_t dst_port_max;
 	uint8_t proto;
 
-	void *bgp_info;
+	void *path;
 
 	bool installed;
 	bool install_in_progress;
@@ -267,23 +267,22 @@ extern void bgp_pbr_cleanup(struct bgp *bgp);
 extern void bgp_pbr_init(struct bgp *bgp);
 
 extern uint32_t bgp_pbr_action_hash_key(void *arg);
-extern int bgp_pbr_action_hash_equal(const void *arg1,
+extern bool bgp_pbr_action_hash_equal(const void *arg1,
 				     const void *arg2);
 extern uint32_t bgp_pbr_match_entry_hash_key(void *arg);
-extern int bgp_pbr_match_entry_hash_equal(const void *arg1,
+extern bool bgp_pbr_match_entry_hash_equal(const void *arg1,
 					  const void *arg2);
 extern uint32_t bgp_pbr_match_hash_key(void *arg);
-extern int bgp_pbr_match_hash_equal(const void *arg1,
+extern bool bgp_pbr_match_hash_equal(const void *arg1,
 				    const void *arg2);
 
 void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api);
 
 struct bgp_node;
-struct bgp_info;
+struct bgp_path_info;
 extern void bgp_pbr_update_entry(struct bgp *bgp, struct prefix *p,
-				 struct bgp_info *new_select,
-				afi_t afi, safi_t safi,
-				bool nlri_update);
+				 struct bgp_path_info *new_select, afi_t afi,
+				 safi_t safi, bool nlri_update);
 
 /* bgp pbr utilities */
 extern struct bgp_pbr_interface *pbr_interface_lookup(const char *name);

@@ -171,8 +171,9 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 	/* AS External routes are never considered */
 	if (route->path.type == OSPF6_PATH_TYPE_EXTERNAL1
 	    || route->path.type == OSPF6_PATH_TYPE_EXTERNAL2) {
-		if (is_debug)
-			zlog_debug("Path type is external, skip");
+#if 0
+		zlog_debug("Path type is external, skip");
+#endif
 		return 0;
 	}
 
@@ -320,7 +321,7 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 
 	/* if this is a route to ASBR */
 	if (route->type == OSPF6_DEST_TYPE_ROUTER) {
-		/* Only the prefered best path is considered */
+		/* Only the preferred best path is considered */
 		if (!CHECK_FLAG(route->flag, OSPF6_ROUTE_BEST)) {
 			if (is_debug)
 				zlog_debug(
@@ -1004,6 +1005,7 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 
 	if (lsa->header->type == htons(OSPF6_LSTYPE_INTER_ROUTER)) {
 		/* To pass test suites */
+		assert(router_lsa);
 		if (!OSPF6_OPT_ISSET(router_lsa->options, OSPF6_OPT_R)
 		    || !OSPF6_OPT_ISSET(router_lsa->options, OSPF6_OPT_V6)) {
 			if (is_debug)

@@ -52,7 +52,7 @@ void pim_rp_list_hash_clean(void *data)
 {
 	struct pim_nexthop_cache *pnc = (struct pim_nexthop_cache *)data;
 
-	list_delete_and_null(&pnc->rp_list);
+	list_delete(&pnc->rp_list);
 
 	hash_clean(pnc->upstream_hash, NULL);
 	hash_free(pnc->upstream_hash);
@@ -115,7 +115,7 @@ void pim_rp_init(struct pim_instance *pim)
 	if (!str2prefix("224.0.0.0/4", &rp_info->group)) {
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "Unable to convert 224.0.0.0/4 to prefix");
-		list_delete_and_null(&pim->rp_list);
+		list_delete(&pim->rp_list);
 		route_table_finish(pim->rp_table);
 		XFREE(MTYPE_PIM_RP, rp_info);
 		return;
@@ -138,7 +138,7 @@ void pim_rp_init(struct pim_instance *pim)
 void pim_rp_free(struct pim_instance *pim)
 {
 	if (pim->rp_list)
-		list_delete_and_null(&pim->rp_list);
+		list_delete(&pim->rp_list);
 }
 
 /*

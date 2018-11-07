@@ -24,6 +24,7 @@
 #include "qobj.h"
 #include <pthread.h>
 
+#include "frr_pthread.h"
 #include "lib/json.h"
 #include "vrf.h"
 #include "vty.h"
@@ -97,6 +98,9 @@ enum bgp_af_index {
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
 
+extern struct frr_pthread *bgp_pth_io;
+extern struct frr_pthread *bgp_pth_ka;
+
 /* BGP master for system wide configurations and variables.  */
 struct bgp_master {
 	/* BGP instance list.  */
@@ -104,10 +108,6 @@ struct bgp_master {
 
 	/* BGP thread master.  */
 	struct thread_master *master;
-
-/* BGP pthreads. */
-#define PTHREAD_IO              (1 << 1)
-#define PTHREAD_KEEPALIVES      (1 << 2)
 
 	/* work queues */
 	struct work_queue *process_main_queue;
@@ -484,6 +484,11 @@ struct bgp {
 
 	/* EVPN - use RFC 8365 to auto-derive RT */
 	int advertise_autort_rfc8365;
+
+	/*
+	 * Flooding mechanism for BUM packets for VxLAN-EVPN.
+	 */
+	enum vxlan_flood_control vxlan_flood_ctrl;
 
 	/* Hash table of Import RTs to EVIs */
 	struct hash *import_rt_hash;
@@ -1518,7 +1523,7 @@ extern int bgp_config_write(struct vty *);
 
 extern void bgp_master_init(struct thread_master *master);
 
-extern void bgp_init(void);
+extern void bgp_init(unsigned short instance);
 extern void bgp_pthreads_run(void);
 extern void bgp_pthreads_finish(void);
 extern void bgp_route_map_init(void);
@@ -1605,8 +1610,9 @@ extern int peer_update_source_if_set(struct peer *, const char *);
 extern int peer_update_source_addr_set(struct peer *, const union sockunion *);
 extern int peer_update_source_unset(struct peer *);
 
-extern int peer_default_originate_set(struct peer *, afi_t, safi_t,
-				      const char *);
+extern int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
+				      const char *rmap,
+				      struct route_map *route_map);
 extern int peer_default_originate_unset(struct peer *, afi_t, safi_t);
 
 extern int peer_port_set(struct peer *, uint16_t);
@@ -1644,10 +1650,13 @@ extern int peer_prefix_list_unset(struct peer *, afi_t, safi_t, int);
 extern int peer_aslist_set(struct peer *, afi_t, safi_t, int, const char *);
 extern int peer_aslist_unset(struct peer *, afi_t, safi_t, int);
 
-extern int peer_route_map_set(struct peer *, afi_t, safi_t, int, const char *);
+extern int peer_route_map_set(struct peer *peer, afi_t afi, safi_t safi, int,
+			      const char *name, struct route_map *route_map);
 extern int peer_route_map_unset(struct peer *, afi_t, safi_t, int);
 
-extern int peer_unsuppress_map_set(struct peer *, afi_t, safi_t, const char *);
+extern int peer_unsuppress_map_set(struct peer *peer, afi_t afi, safi_t safi,
+				   const char *name,
+				   struct route_map *route_map);
 
 extern int peer_password_set(struct peer *, const char *);
 extern int peer_password_unset(struct peer *);

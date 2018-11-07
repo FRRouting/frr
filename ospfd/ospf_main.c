@@ -123,13 +123,18 @@ struct quagga_signal_t ospf_signals[] = {
 	},
 };
 
+static const struct frr_yang_module_info *ospfd_yang_modules[] = {
+	&frr_interface_info,
+};
+
 FRR_DAEMON_INFO(ospfd, OSPF, .vty_port = OSPF_VTY_PORT,
 
 		.proghelp = "Implementation of the OSPFv2 routing protocol.",
 
 		.signals = ospf_signals, .n_signals = array_size(ospf_signals),
 
-		.privs = &ospfd_privs, )
+		.privs = &ospfd_privs, .yang_modules = ospfd_yang_modules,
+		.n_yang_modules = array_size(ospfd_yang_modules), )
 
 /* OSPFd main routine. */
 int main(int argc, char **argv)
@@ -187,7 +192,7 @@ int main(int argc, char **argv)
 	master = om->master;
 
 	/* Library inits. */
-	debug_init();
+	ospf_debug_init();
 	ospf_vrf_init();
 
 	access_list_init();

@@ -202,7 +202,7 @@ void ospf6_delete(struct ospf6 *o)
 		ospf6_area_delete(oa);
 
 
-	list_delete_and_null(&o->area_list);
+	list_delete(&o->area_list);
 
 	ospf6_lsdb_delete(o->lsdb);
 	ospf6_lsdb_delete(o->lsdb_self);
@@ -656,7 +656,7 @@ DEFUN (ospf6_interface_area,
 	uint32_t area_id;
 
 	/* find/create ospf6 interface */
-	ifp = if_get_by_name(argv[idx_ifname]->arg, VRF_DEFAULT, 0);
+	ifp = if_get_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);

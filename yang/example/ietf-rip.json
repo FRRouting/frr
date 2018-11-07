@@ -1,0 +1,40 @@
+{
+    "ietf-interfaces:interfaces": {
+        "interface": [
+            {
+                "description": "Engineering",
+                "name": "eth0"
+            }
+        ]
+    },
+    "ietf-routing:routing": {
+        "control-plane-protocols": {
+            "control-plane-protocol": [
+                {
+                    "name": "main",
+                    "type": "ietf-rip:ripv2",
+                    "ietf-rip:rip": {
+                        "default-metric": "2",
+                        "distance": "80",
+                        "interfaces": {
+                            "interface": [
+                                {
+                                    "interface": "eth0",
+                                    "split-horizon": "poison-reverse"
+                                }
+                            ]
+                        },
+                        "originate-default-route": {
+                            "enabled": "true"
+                        },
+                        "timers": {
+                            "flush-interval": "241",
+                            "holddown-interval": "181",
+                            "update-interval": "31"
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

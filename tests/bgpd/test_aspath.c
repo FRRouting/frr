@@ -1273,9 +1273,6 @@ static int handle_attr_test(struct aspath_tests *t)
 	struct aspath *asp;
 	size_t datalen;
 
-	bgp_pthreads_init();
-	frr_pthread_get(PTHREAD_KEEPALIVES)->running = true;
-
 	asp = make_aspath(t->segment->asdata, t->segment->len, 0);
 
 	peer.curr = stream_new(BGP_MAX_PACKET_SIZE);
@@ -1381,6 +1378,9 @@ int main(void)
 	empty_get_test();
 
 	i = 0;
+
+	bgp_pthreads_init();
+	bgp_pth_ka->running = true;
 
 	while (aspath_tests[i].desc) {
 		printf("aspath_attr test %d\n", i);

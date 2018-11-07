@@ -241,7 +241,7 @@ Legend:
     /\   struct bgp_node: a BGP destination/route/prefix
     \/
 
-    [ ]  struct bgp_info: a BGP path (e.g. route received from a peer)
+    [ ]  struct bgp_path_info: a BGP path (e.g. route received from a peer)
 
      _
     (_)  struct bgp_nexthop_cache: a BGP nexthop

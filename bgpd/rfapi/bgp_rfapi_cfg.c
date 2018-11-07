@@ -1601,8 +1601,10 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
 	idx += 2; /* skip afi and keyword */
 
 	if (is_bgp) {
-		if (idx == argc || strmatch(argv[idx]->arg,
-					    rfg->plist_export_bgp_name[afi])) {
+		if (idx == argc
+		    || (rfg->plist_export_bgp_name[afi]
+			&& strmatch(argv[idx]->arg,
+				    rfg->plist_export_bgp_name[afi]))) {
 			if (rfg->plist_export_bgp_name[afi])
 				free(rfg->plist_export_bgp_name[afi]);
 			rfg->plist_export_bgp_name[afi] = NULL;
@@ -1612,8 +1614,9 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
 		}
 	} else {
 		if (idx == argc
-		    || strmatch(argv[idx]->arg,
-				rfg->plist_export_zebra_name[afi])) {
+		    || (rfg->plist_export_zebra_name[afi]
+			&& strmatch(argv[idx]->arg,
+				    rfg->plist_export_zebra_name[afi]))) {
 			if (rfg->plist_export_zebra_name[afi])
 				free(rfg->plist_export_zebra_name[afi]);
 			rfg->plist_export_zebra_name[afi] = NULL;
@@ -1732,8 +1735,10 @@ DEFUN (vnc_nve_group_export_no_routemap,
 	}
 
 	if (is_bgp) {
-		if (idx == argc || strmatch(argv[idx]->arg,
-					    rfg->routemap_export_bgp_name)) {
+		if (idx == argc
+		    || (rfg->routemap_export_bgp_name
+			&& strmatch(argv[idx]->arg,
+				    rfg->routemap_export_bgp_name))) {
 			if (rfg->routemap_export_bgp_name)
 				free(rfg->routemap_export_bgp_name);
 			rfg->routemap_export_bgp_name = NULL;
@@ -1743,8 +1748,10 @@ DEFUN (vnc_nve_group_export_no_routemap,
 			vnc_direct_bgp_reexport_group_afi(bgp, rfg, AFI_IP6);
 		}
 	} else {
-		if (idx == argc || strmatch(argv[idx]->arg,
-					    rfg->routemap_export_zebra_name)) {
+		if (idx == argc
+		    || (rfg->routemap_export_zebra_name
+			&& strmatch(argv[idx]->arg,
+				    rfg->routemap_export_zebra_name))) {
 			if (rfg->routemap_export_zebra_name)
 				free(rfg->routemap_export_zebra_name);
 			rfg->routemap_export_zebra_name = NULL;
@@ -2290,7 +2297,7 @@ static void bgp_rfapi_delete_nve_group(struct vty *vty, /* NULL = no output */
 			listnode_delete(rfg->nves, rfd);
 			listnode_add(orphaned_nves, rfd);
 		}
-		list_delete_and_null(&rfg->nves);
+		list_delete(&rfg->nves);
 	}
 
 	/* delete it */
@@ -2367,7 +2374,7 @@ static void bgp_rfapi_delete_nve_group(struct vty *vty, /* NULL = no output */
 			if (vty)
 				vty_out(vty, "\n");
 		}
-		list_delete_and_null(&orphaned_nves);
+		list_delete(&orphaned_nves);
 	}
 }
 
@@ -3395,7 +3402,7 @@ static void bgp_rfapi_delete_l2_group(struct vty *vty, /* NULL = no output */
 	if (rfg->rt_export_list)
 		ecommunity_free(&rfg->rt_export_list);
 	if (rfg->labels)
-		list_delete_and_null(&rfg->labels);
+		list_delete(&rfg->labels);
 	if (rfg->rfp_cfg)
 		XFREE(MTYPE_RFAPI_RFP_GROUP_CFG, rfg->rfp_cfg);
 	listnode_delete(bgp->rfapi_cfg->l2_groups, rfg);
@@ -3468,7 +3475,7 @@ DEFUN (vnc_l2_group_lni,
 
 DEFUN (vnc_l2_group_labels,
        vnc_l2_group_labels_cmd,
-       "labels LABELLIST...",
+       "labels (0-1048575)...",
        "Specify label values associated with group\n"
        "Space separated list of label values <0-1048575>\n")
 {
@@ -3502,7 +3509,7 @@ DEFUN (vnc_l2_group_labels,
 
 DEFUN (vnc_l2_group_no_labels,
        vnc_l2_group_no_labels_cmd,
-       "no labels LABELLIST...",
+       "no labels (0-1048575)...",
        NO_STR
        "Specify label values associated with L2 group\n"
        "Space separated list of label values <0-1048575>\n")
@@ -3809,10 +3816,10 @@ void bgp_rfapi_cfg_destroy(struct bgp *bgp, struct rfapi_cfg *h)
 	bgp_rfapi_delete_named_nve_group(NULL, bgp, NULL, RFAPI_GROUP_CFG_MAX);
 	bgp_rfapi_delete_named_l2_group(NULL, bgp, NULL);
 	if (h->l2_groups != NULL)
-		list_delete_and_null(&h->l2_groups);
-	list_delete_and_null(&h->nve_groups_sequential);
-	list_delete_and_null(&h->rfg_export_direct_bgp_l);
-	list_delete_and_null(&h->rfg_export_zebra_l);
+		list_delete(&h->l2_groups);
+	list_delete(&h->nve_groups_sequential);
+	list_delete(&h->rfg_export_direct_bgp_l);
+	list_delete(&h->rfg_export_zebra_l);
 	if (h->default_rt_export_list)
 		ecommunity_free(&h->default_rt_export_list);
 	if (h->default_rt_import_list)
