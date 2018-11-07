@@ -8365,8 +8365,9 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			"{\n \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64
 			",\n \"routerId\": \"%s\",\n \"routes\": { ",
 			bgp->vrf_id == VRF_UNKNOWN ? -1 : (int)bgp->vrf_id,
-			bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ? "Default"
-								    : bgp->name,
+			bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
+						? VRF_DEFAULT_NAME
+						: bgp->name,
 			table->version, inet_ntoa(bgp->router_id));
 		*json_header_depth = 2;
 		if (rd) {
@@ -8742,12 +8743,12 @@ static void bgp_show_all_instances_routes_vty(struct vty *vty, afi_t afi,
 
 			vty_out(vty, "\"%s\":",
 				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-					? "Default"
+					? VRF_DEFAULT_NAME
 					: bgp->name);
 		} else {
 			vty_out(vty, "\nInstance %s:\n",
 				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-					? "Default"
+					? VRF_DEFAULT_NAME
 					: bgp->name);
 		}
 		bgp_show(vty, bgp, afi, safi, bgp_show_type_normal, NULL,
@@ -8882,7 +8883,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 				vty_out(vty, ", table %s",
 					(bgp->inst_type
 					 == BGP_INSTANCE_TYPE_DEFAULT)
-						? "Default-IP-Routing-Table"
+						? VRF_DEFAULT_NAME
 						: bgp->name);
 		} else
 			vty_out(vty, ", no best path");
