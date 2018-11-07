@@ -2407,11 +2407,11 @@ DEFUN (no_ospf_mpls_te_inter_as,
 			if (IS_INTER_AS(lp->type)
 			    && CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
 				ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
-	}
 
-	/* Deregister the Callbacks for Inter-AS suport */
-	ospf_mpls_te_unregister();
-	OspfMplsTE.inter_as = Off;
+		/* Deregister the Callbacks for Inter-AS suport */
+		ospf_mpls_te_unregister();
+		OspfMplsTE.inter_as = Off;
+	}
 
 	return CMD_SUCCESS;
 }
