@@ -36,6 +36,9 @@ extern void bgp_config_write_maxpaths(struct vty *, struct bgp *, afi_t,
 				      safi_t);
 extern void bgp_config_write_redistribute(struct vty *, struct bgp *, afi_t,
 					  safi_t);
+extern void bgp_zebra_send_mpls_label(int cmd, mpls_label_t in_label,
+				      mpls_label_t out_label,
+				      struct prefix *gateway);
 extern void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			       struct bgp_path_info *path, struct bgp *bgp,
 			       afi_t afi, safi_t safi);

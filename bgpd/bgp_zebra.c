@@ -1192,6 +1192,54 @@ update_ipv6nh_for_route_install(int nh_othervrf, struct in6_addr *nexthop,
 	return 1;
 }
 
+void
+bgp_zebra_send_mpls_label(int cmd, mpls_label_t in_label,
+			  mpls_label_t out_label,
+			  struct prefix *gateway)
+{
+	struct stream		*s;
+	struct in_addr ipv4_in;
+	struct in6_addr ipv6_in;
+
+	ipv4_in.s_addr = INADDR_ANY;
+	memset(&ipv6_in, 0, sizeof(struct in6_addr));
+
+	if (in_label < MPLS_LABEL_RESERVED_MAX ||
+	    in_label == MPLS_LABEL_NONE)
+		return;
+
+	/* Reset stream. */
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_putc(s, ZEBRA_LSP_BGP);
+	stream_putl(s, gateway->family);
+	switch (gateway->family) {
+	case AF_INET:
+		stream_put_in_addr(s, &ipv4_in);
+		stream_putc(s, 0);
+		stream_put_in_addr(s, &gateway->u.prefix4);
+		break;
+	case AF_INET6:
+		stream_write(s, &ipv6_in, 16);
+		stream_putc(s, 0);
+		stream_write(s, (uint8_t *)&gateway->u.prefix6, 16);
+		break;
+	default:
+		return;
+	}
+	stream_putl(s, 0);
+	stream_putc(s, 0);
+	stream_putl(s, in_label);
+	stream_putl(s, out_label);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	zclient_send_message(zclient);
+}
+
 void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			struct bgp_path_info *info, struct bgp *bgp, afi_t afi,
 			safi_t safi)
