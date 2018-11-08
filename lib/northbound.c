@@ -236,7 +236,8 @@ void nb_config_replace(struct nb_config *config_dst,
 		config_dst->version = config_src->version;
 
 	/* Update dnode. */
-	yang_dnode_free(config_dst->dnode);
+	if (config_dst->dnode)
+		yang_dnode_free(config_dst->dnode);
 	if (preserve_source) {
 		config_dst->dnode = yang_dnode_dup(config_src->dnode);
 	} else {

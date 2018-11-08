@@ -523,6 +523,8 @@ struct lyd_node *yang_dnode_dup(const struct lyd_node *dnode)
 
 void yang_dnode_free(struct lyd_node *dnode)
 {
+	while (dnode->parent)
+		dnode = dnode->parent;
 	lyd_free_withsiblings(dnode);
 }
 
