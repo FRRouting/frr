@@ -204,22 +204,16 @@ int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 extern struct thread_master *master;
 
 #define DEBUG_ADJ_PACKETS                (1<<0)
-#define DEBUG_CHECKSUM_ERRORS            (1<<1)
-#define DEBUG_LOCAL_UPDATES              (1<<2)
-#define DEBUG_PROTOCOL_ERRORS            (1<<3)
-#define DEBUG_SNP_PACKETS                (1<<4)
-#define DEBUG_UPDATE_PACKETS             (1<<5)
-#define DEBUG_SPF_EVENTS                 (1<<6)
-#define DEBUG_SPF_STATS                  (1<<7)
-#define DEBUG_SPF_TRIGGERS               (1<<8)
-#define DEBUG_RTE_EVENTS                 (1<<9)
-#define DEBUG_EVENTS                     (1<<10)
-#define DEBUG_ZEBRA                      (1<<11)
-#define DEBUG_PACKET_DUMP                (1<<12)
-#define DEBUG_LSP_GEN                    (1<<13)
-#define DEBUG_LSP_SCHED                  (1<<14)
-#define DEBUG_FABRICD_FLOODING           (1<<15)
-#define DEBUG_BFD                        (1<<16)
+#define DEBUG_SNP_PACKETS                (1<<1)
+#define DEBUG_UPDATE_PACKETS             (1<<2)
+#define DEBUG_SPF_EVENTS                 (1<<3)
+#define DEBUG_RTE_EVENTS                 (1<<4)
+#define DEBUG_EVENTS                     (1<<5)
+#define DEBUG_PACKET_DUMP                (1<<6)
+#define DEBUG_LSP_GEN                    (1<<7)
+#define DEBUG_LSP_SCHED                  (1<<8)
+#define DEBUG_FABRICD_FLOODING           (1<<9)
+#define DEBUG_BFD                        (1<<10)
 
 #define lsp_debug(...)                                                         \
 	do {                                                                   \
@@ -233,7 +227,7 @@ extern struct thread_master *master;
 			zlog_debug(__VA_ARGS__);                               \
 	} while (0)
 
-#define DEBUG_TE                         (1<<13)
+#define DEBUG_TE                         DEBUG_LSP_GEN
 
 #define IS_DEBUG_ISIS(x)                 (isis->debugs & x)
 
