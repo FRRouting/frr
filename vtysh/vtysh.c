@@ -104,7 +104,7 @@ static int vty_close_pager(struct vty *vty)
 	return 0;
 }
 
-void vtysh_pager_init(void)
+static void vtysh_pager_envdef(void)
 {
 	char *pager_defined;
 
@@ -2881,52 +2881,58 @@ DEFUN (vtysh_copy_running_config,
 	return vtysh_write_memory(self, vty, argc, argv);
 }
 
+DEFUN (vtysh_terminal_paginate,
+       vtysh_terminal_paginate_cmd,
+       "[no] terminal paginate",
+       NO_STR
+       "Set terminal line parameters\n"
+       "Use pager for output scrolling\n")
+{
+	free(vtysh_pager_name);
+	vtysh_pager_name = NULL;
+
+	if (strcmp(argv[0]->text, "no"))
+		vtysh_pager_envdef();
+	return CMD_SUCCESS;
+}
+
 DEFUN (vtysh_terminal_length,
        vtysh_terminal_length_cmd,
-       "terminal length (0-512)",
+       "[no] terminal length (0-4294967295)",
+       NO_STR
        "Set terminal line parameters\n"
        "Set number of lines on a screen\n"
-       "Number of lines on screen (0 for no pausing)\n")
+       "Number of lines on screen (0 for no pausing, nonzero to use pager)\n")
 {
 	int idx_number = 2;
-	int lines;
-	char *endptr = NULL;
-	char default_pager[10];
+	unsigned long lines;
 
-	lines = strtol(argv[idx_number]->arg, &endptr, 10);
-	if (lines < 0 || lines > 512 || *endptr != '\0') {
-		vty_out(vty, "length is malformed\n");
-		return CMD_WARNING;
+	free(vtysh_pager_name);
+	vtysh_pager_name = NULL;
+
+	if (!strcmp(argv[0]->text, "no") || !strcmp(argv[1]->text, "no")) {
+		/* "terminal no length" = use VTYSH_PAGER */
+		vtysh_pager_envdef();
+		return CMD_SUCCESS;
 	}
 
-	if (vtysh_pager_name) {
-		free(vtysh_pager_name);
-		vtysh_pager_name = NULL;
-	}
-
+	lines = strtoul(argv[idx_number]->arg, NULL, 10);
 	if (lines != 0) {
-		snprintf(default_pager, 10, "more -%i", lines);
-		vtysh_pager_name = strdup(default_pager);
+		vty_out(vty,
+			"%% The \"terminal length\" command is deprecated and its value is ignored.\n"
+			"%% Please use \"terminal paginate\" instead with OS TTY length handling.\n");
+		vtysh_pager_envdef();
 	}
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (vtysh_terminal_no_length,
+ALIAS_DEPRECATED(vtysh_terminal_length,
        vtysh_terminal_no_length_cmd,
        "terminal no length",
        "Set terminal line parameters\n"
        NO_STR
        "Set number of lines on a screen\n")
-{
-	if (vtysh_pager_name) {
-		free(vtysh_pager_name);
-		vtysh_pager_name = NULL;
-	}
-
-	vtysh_pager_init();
-	return CMD_SUCCESS;
-}
 
 DEFUN (vtysh_show_daemons,
        vtysh_show_daemons_cmd,
@@ -3805,6 +3811,7 @@ void vtysh_init_vty(void)
 	/* "write memory" command. */
 	install_element(ENABLE_NODE, &vtysh_write_memory_cmd);
 
+	install_element(VIEW_NODE, &vtysh_terminal_paginate_cmd);
 	install_element(VIEW_NODE, &vtysh_terminal_length_cmd);
 	install_element(VIEW_NODE, &vtysh_terminal_no_length_cmd);
 	install_element(VIEW_NODE, &vtysh_show_daemons_cmd);
