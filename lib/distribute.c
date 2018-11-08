@@ -299,14 +299,52 @@ DEFUN (ipv6_distribute_list,
 		ifname = argv[argc - 1]->arg;
 
 	/* Get interface name corresponding distribute list. */
-	distfn(ifname, type, argv[1 + prefix]->arg);
+	distfn(ifname, type, argv[2 + prefix]->arg);
 
 	return CMD_SUCCESS;
 }
 
 DEFUN (no_distribute_list,
        no_distribute_list_cmd,
-       "no [ipv6] distribute-list [prefix] WORD <in|out> [WORD]",
+       "no distribute-list [prefix] WORD <in|out> [WORD]",
+       NO_STR
+       "Filter networks in routing updates\n"
+       "Specify a prefix\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+{
+	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
+
+	int idx_alname = 2 + prefix;
+	int idx_disttype = idx_alname + 1;
+	enum distribute_type type =
+		argv[idx_disttype]->arg[0] == 'i' ?
+		DISTRIBUTE_V4_IN : DISTRIBUTE_V4_OUT;
+
+	/* Set appropriate function call */
+	int (*distfn)(const char *, enum distribute_type,
+		      const char *) =
+		prefix ? &distribute_list_prefix_unset : &distribute_list_unset;
+
+	/* if interface is present, get name */
+	const char *ifname = NULL;
+	if (argv[argc - 1]->type == VARIABLE_TKN)
+		ifname = argv[argc - 1]->arg;
+	/* Get interface name corresponding distribute list. */
+	int ret = distfn(ifname, type, argv[2 + prefix]->arg);
+
+	if (!ret) {
+		vty_out(vty, "distribute list doesn't exist\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_distribute_list,
+       no_ipv6_distribute_list_cmd,
+       "no ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
        NO_STR
        "IPv6\n"
        "Filter networks in routing updates\n"
@@ -316,20 +354,14 @@ DEFUN (no_distribute_list,
        "Filter outgoing routing updates\n"
        "Interface name\n")
 {
-	int ipv6 = strmatch(argv[1]->text, "ipv6");
-	int prefix = (argv[2 + ipv6]->type == WORD_TKN) ? 1 : 0;
+	int prefix = (argv[3]->type == WORD_TKN) ? 1 : 0;
 
-	int idx_alname = 2 + ipv6 + prefix;
+	int idx_alname = 3 + prefix;
 	int idx_disttype = idx_alname + 1;
 
-	/* Check of distribute list type. */
-	enum distribute_type distin =
-		(ipv6) ? DISTRIBUTE_V6_IN : DISTRIBUTE_V4_IN;
-	enum distribute_type distout =
-		(ipv6) ? DISTRIBUTE_V6_OUT : DISTRIBUTE_V4_OUT;
-
 	enum distribute_type type =
-		argv[idx_disttype]->arg[0] == 'i' ? distin : distout;
+		argv[idx_disttype]->arg[0] == 'i' ?
+		DISTRIBUTE_V6_IN : DISTRIBUTE_V6_OUT;
 
 	/* Set appropriate function call */
 	int (*distfn)(const char *, enum distribute_type, const char *) =
@@ -337,10 +369,11 @@ DEFUN (no_distribute_list,
 
 	/* if interface is present, get name */
 	const char *ifname = NULL;
+
 	if (argv[argc - 1]->type == VARIABLE_TKN)
 		ifname = argv[argc - 1]->arg;
 	/* Get interface name corresponding distribute list. */
-	int ret = distfn(ifname, type, argv[2 + prefix]->arg);
+	int ret = distfn(ifname, type, argv[3 + prefix]->arg);
 
 	if (!ret) {
 		vty_out(vty, "distribute list doesn't exist\n");
@@ -535,6 +568,7 @@ void distribute_list_init(int node)
 	/* install v6 */
 	if (node == RIPNG_NODE) {
 		install_element(RIPNG_NODE, &ipv6_distribute_list_cmd);
+		install_element(RIPNG_NODE, &no_ipv6_distribute_list_cmd);
 	}
 
 	/* TODO: install v4 syntax command for v6 only protocols. */
