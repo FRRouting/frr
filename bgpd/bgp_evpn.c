@@ -1693,6 +1693,58 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 }
 
 /*
+ * If the local route was not selected evict it and tell zebra to re-add
+ * the best remote dest.
+ *
+ * Typically a local path added by zebra is expected to be selected as
+ * best. In which case when a remote path wins as best (later)
+ * evpn_route_select_install itself evicts the older-local-best path.
+ *
+ * However if bgp's add and zebra's add cross paths (race condition) it
+ * is possible that the local path is no longer the "older" best path.
+ * It is a path that was never designated as best and hence requires
+ * additional handling to prevent bgp from injecting and holding on to a
+ * non-best local path.
+ */
+static void evpn_cleanup_local_non_best_route(struct bgp *bgp,
+					      struct bgpevpn *vpn,
+					      struct bgp_node *rn,
+					      struct bgp_path_info *local_pi)
+{
+	struct bgp_path_info *tmp_pi;
+	struct bgp_path_info *curr_select = NULL;
+	uint8_t flags = 0;
+	char buf[PREFIX_STRLEN];
+
+	/* local path was not picked as the winner; kick it out */
+	if (bgp_debug_zebra(NULL)) {
+		zlog_debug("evicting local evpn prefix %s as remote won",
+					prefix2str(&rn->p, buf, sizeof(buf)));
+	}
+	evpn_delete_old_local_route(bgp, vpn, rn, local_pi);
+	bgp_path_info_reap(rn, local_pi);
+
+	/* tell zebra to re-add the best remote path */
+	for (tmp_pi = rn->info; tmp_pi; tmp_pi = tmp_pi->next) {
+		if (CHECK_FLAG(tmp_pi->flags, BGP_PATH_SELECTED)) {
+			curr_select = tmp_pi;
+			break;
+		}
+	}
+	if (curr_select &&
+	    curr_select->type == ZEBRA_ROUTE_BGP
+	    && curr_select->sub_type == BGP_ROUTE_IMPORTED) {
+		if (curr_select->attr->sticky)
+			SET_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
+		if (curr_select->attr->default_gw)
+			SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
+		evpn_zebra_install(bgp, vpn, (struct prefix_evpn *)&rn->p,
+				   curr_select->attr->nexthop, flags,
+				   mac_mobility_seqnum(curr_select->attr));
+	}
+}
+
+/*
  * Create or update EVPN route (of type based on prefix) for specified VNI
  * and schedule for processing.
  */
@@ -1754,10 +1806,23 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	assert(pi);
 	attr_new = pi->attr;
 
+	/* lock ri to prevent freeing in evpn_route_select_install */
+	bgp_path_info_lock(pi);
 	/* Perform route selection; this is just to set the flags correctly
 	 * as local route in the VNI always wins.
 	 */
 	evpn_route_select_install(bgp, vpn, rn);
+	/*
+	 * If the new local route was not selected evict it and tell zebra
+	 * to re-add the best remote dest. BGP doesn't retain non-best local
+	 * routes.
+	 */
+	if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
+		route_change = 0;
+		evpn_cleanup_local_non_best_route(bgp, vpn, rn, pi);
+	}
+	bgp_path_info_unlock(pi);
+
 	bgp_unlock_node(rn);
 
 	/* If this is a new route or some attribute has changed, export the
@@ -1928,8 +1993,10 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	/* Delete route entry in the VNI route table. This can just be removed.
 	 */
 	delete_evpn_route_entry(bgp, afi, safi, rn, &pi);
-	if (pi)
+	if (pi) {
 		bgp_path_info_reap(rn, pi);
+		evpn_route_select_install(bgp, vpn, rn);
+	}
 	bgp_unlock_node(rn);
 
 	return 0;

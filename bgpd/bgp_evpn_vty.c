@@ -3195,7 +3195,7 @@ DEFUN (no_bgp_evpn_advertise_type5,
  */
 DEFUN(show_bgp_l2vpn_evpn_vni,
       show_bgp_l2vpn_evpn_vni_cmd,
-      "show bgp l2vpn evpn vni [(1-16777215)] [json]",
+      "show bgp l2vpn evpn vni [" CMD_VNI_RANGE "] [json]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -3623,7 +3623,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_esi,
  * Display per-VNI EVPN routing table.
  */
 DEFUN(show_bgp_l2vpn_evpn_route_vni, show_bgp_l2vpn_evpn_route_vni_cmd,
-      "show bgp l2vpn evpn route vni (1-16777215) [<type <macip|multicast> | vtep A.B.C.D>] [json]",
+      "show bgp l2vpn evpn route vni " CMD_VNI_RANGE " [<type <macip|multicast> | vtep A.B.C.D>] [json]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -3696,7 +3696,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni, show_bgp_l2vpn_evpn_route_vni_cmd,
  */
 DEFUN(show_bgp_l2vpn_evpn_route_vni_macip,
       show_bgp_l2vpn_evpn_route_vni_macip_cmd,
-      "show bgp l2vpn evpn route vni (1-16777215) mac WORD [ip WORD] [json]",
+      "show bgp l2vpn evpn route vni " CMD_VNI_RANGE " mac WORD [ip WORD] [json]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -3766,7 +3766,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_macip,
  */
 DEFUN(show_bgp_l2vpn_evpn_route_vni_multicast,
       show_bgp_l2vpn_evpn_route_vni_multicast_cmd,
-      "show bgp l2vpn evpn route vni (1-16777215) multicast A.B.C.D [json]",
+      "show bgp l2vpn evpn route vni " CMD_VNI_RANGE " multicast A.B.C.D [json]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -4019,7 +4019,7 @@ DEFUN(test_withdraw_evpn_type4_route,
 }
 
 ALIAS_HIDDEN(show_bgp_l2vpn_evpn_vni, show_bgp_evpn_vni_cmd,
-	     "show bgp evpn vni [(1-16777215)]", SHOW_STR BGP_STR EVPN_HELP_STR
+	     "show bgp evpn vni [" CMD_VNI_RANGE "]", SHOW_STR BGP_STR EVPN_HELP_STR
 	     "Show VNI\n"
 	     "VNI number\n")
 
@@ -4060,7 +4060,7 @@ ALIAS_HIDDEN(
 
 ALIAS_HIDDEN(
 	show_bgp_l2vpn_evpn_route_vni, show_bgp_evpn_route_vni_cmd,
-	"show bgp evpn route vni (1-16777215) [<type <macip|multicast> | vtep A.B.C.D>]",
+	"show bgp evpn route vni " CMD_VNI_RANGE " [<type <macip|multicast> | vtep A.B.C.D>]",
 	SHOW_STR BGP_STR EVPN_HELP_STR
 	"EVPN route information\n"
 	"VXLAN Network Identifier\n"
@@ -4073,7 +4073,7 @@ ALIAS_HIDDEN(
 
 ALIAS_HIDDEN(show_bgp_l2vpn_evpn_route_vni_macip,
 	     show_bgp_evpn_route_vni_macip_cmd,
-	     "show bgp evpn route vni (1-16777215) mac WORD [ip WORD]",
+	     "show bgp evpn route vni " CMD_VNI_RANGE " mac WORD [ip WORD]",
 	     SHOW_STR BGP_STR EVPN_HELP_STR
 	     "EVPN route information\n"
 	     "VXLAN Network Identifier\n"
@@ -4085,7 +4085,7 @@ ALIAS_HIDDEN(show_bgp_l2vpn_evpn_route_vni_macip,
 
 ALIAS_HIDDEN(show_bgp_l2vpn_evpn_route_vni_multicast,
 	     show_bgp_evpn_route_vni_multicast_cmd,
-	     "show bgp evpn route vni (1-16777215) multicast A.B.C.D",
+	     "show bgp evpn route vni " CMD_VNI_RANGE " multicast A.B.C.D",
 	     SHOW_STR BGP_STR EVPN_HELP_STR
 	     "EVPN route information\n"
 	     "VXLAN Network Identifier\n"
@@ -4108,7 +4108,7 @@ ALIAS_HIDDEN(show_bgp_l2vpn_evpn_import_rt, show_bgp_evpn_import_rt_cmd,
 
 DEFUN_NOSH (bgp_evpn_vni,
             bgp_evpn_vni_cmd,
-            "vni (1-16777215)",
+            "vni " CMD_VNI_RANGE,
             "VXLAN Network Identifier\n"
             "VNI number\n")
 {
@@ -4134,7 +4134,7 @@ DEFUN_NOSH (bgp_evpn_vni,
 
 DEFUN (no_bgp_evpn_vni,
        no_bgp_evpn_vni_cmd,
-       "no vni (1-16777215)",
+       "no vni " CMD_VNI_RANGE,
        NO_STR
        "VXLAN Network Identifier\n"
        "VNI number\n")

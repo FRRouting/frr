@@ -822,6 +822,87 @@ DEFUN_HIDDEN (no_bgp_multiple_instance,
 	return CMD_SUCCESS;
 }
 
+DEFUN_HIDDEN (bgp_local_mac,
+              bgp_local_mac_cmd,
+              "bgp local-mac vni " CMD_VNI_RANGE " mac WORD seq (0-4294967295)",
+              BGP_STR
+              "Local MAC config\n"
+              "VxLAN Network Identifier\n"
+              "VNI number\n"
+              "local mac\n"
+              "mac address\n"
+              "mac-mobility sequence\n"
+              "seq number\n")
+{
+	int rv;
+	vni_t vni;
+	struct ethaddr mac;
+	struct ipaddr ip;
+	uint32_t seq;
+	struct bgp *bgp;
+
+	vni = strtoul(argv[3]->arg, NULL, 10);
+	if (!prefix_str2mac(argv[5]->arg, &mac)) {
+		vty_out(vty, "%% Malformed MAC address\n");
+		return CMD_WARNING;
+	}
+	memset(&ip, 0, sizeof(ip));
+	seq = strtoul(argv[7]->arg, NULL, 10);
+
+	bgp = bgp_get_default();
+	if (!bgp) {
+		vty_out(vty, "Default BGP instance is not there\n");
+		return CMD_WARNING;
+	}
+
+	rv = bgp_evpn_local_macip_add(bgp, vni, &mac, &ip, 0 /* flags */, seq);
+	if (rv < 0) {
+		vty_out(vty, "Internal error\n");
+		return CMD_WARNING;
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN (no_bgp_local_mac,
+              no_bgp_local_mac_cmd,
+              "no bgp local-mac vni " CMD_VNI_RANGE " mac WORD",
+              NO_STR
+              BGP_STR
+              "Local MAC config\n"
+              "VxLAN Network Identifier\n"
+              "VNI number\n"
+              "local mac\n"
+              "mac address\n")
+{
+	int rv;
+	vni_t vni;
+	struct ethaddr mac;
+	struct ipaddr ip;
+	struct bgp *bgp;
+
+	vni = strtoul(argv[4]->arg, NULL, 10);
+	if (!prefix_str2mac(argv[6]->arg, &mac)) {
+		vty_out(vty, "%% Malformed MAC address\n");
+		return CMD_WARNING;
+	}
+	memset(&ip, 0, sizeof(ip));
+
+	bgp = bgp_get_default();
+	if (!bgp) {
+		vty_out(vty, "Default BGP instance is not there\n");
+		return CMD_WARNING;
+	}
+
+	rv = bgp_evpn_local_macip_del(bgp, vni, &mac, &ip);
+	if (rv < 0) {
+		vty_out(vty, "Internal error\n");
+		return CMD_WARNING;
+	}
+
+	return CMD_SUCCESS;
+}
+
 #if (CONFDATE > 20190601)
 CPP_NOTICE("bgpd: time to remove deprecated cli bgp config-type cisco")
 CPP_NOTICE("This includes BGP_OPT_CISCO_CONFIG")
@@ -12592,6 +12673,10 @@ void bgp_vty_init(void)
 	/* "bgp config-type" commands. */
 	install_element(CONFIG_NODE, &bgp_config_type_cmd);
 	install_element(CONFIG_NODE, &no_bgp_config_type_cmd);
+
+	/* "bgp local-mac" hidden commands. */
+	install_element(CONFIG_NODE, &bgp_local_mac_cmd);
+	install_element(CONFIG_NODE, &no_bgp_local_mac_cmd);
 
 	/* bgp route-map delay-timer commands. */
 	install_element(CONFIG_NODE, &bgp_set_route_map_delay_timer_cmd);

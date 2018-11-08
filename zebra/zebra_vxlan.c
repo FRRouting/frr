@@ -148,8 +148,7 @@ static void zvni_mac_del_all(zebra_vni_t *zvni, int uninstall, int upd_client,
 static zebra_mac_t *zvni_mac_lookup(zebra_vni_t *zvni, struct ethaddr *macaddr);
 static int zvni_mac_send_add_to_client(vni_t vni, struct ethaddr *macaddr,
 				       uint8_t flags, uint32_t seq);
-static int zvni_mac_send_del_to_client(vni_t vni, struct ethaddr *macaddr,
-				       uint8_t flags);
+static int zvni_mac_send_del_to_client(vni_t vni, struct ethaddr *macaddr);
 static zebra_vni_t *zvni_map_vlan(struct interface *ifp,
 				  struct interface *br_if, vlanid_t vid);
 static int zvni_mac_install(zebra_vni_t *zvni, zebra_mac_t *mac);
@@ -2305,6 +2304,7 @@ static int zvni_remote_neigh_update(zebra_vni_t *zvni,
 
 		UNSET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
 		SET_FLAG(n->flags, ZEBRA_NEIGH_REMOTE);
+		ZEBRA_NEIGH_SET_ACTIVE(n);
 		n->r_vtep_ip = zmac->fwd_info.r_vtep_ip;
 	}
 
@@ -2407,7 +2407,7 @@ static void zvni_mac_del_hash_entry(struct hash_backet *backet, void *arg)
 				  &wctx->r_vtep_ip))) {
 		if (wctx->upd_client && (mac->flags & ZEBRA_MAC_LOCAL)) {
 			zvni_mac_send_del_to_client(wctx->zvni->vni,
-						    &mac->macaddr, mac->flags);
+						    &mac->macaddr);
 		}
 
 		if (wctx->uninstall)
@@ -2494,18 +2494,10 @@ static int zvni_mac_send_add_to_client(vni_t vni, struct ethaddr *macaddr,
 /*
  * Inform BGP about local MAC deletion.
  */
-static int zvni_mac_send_del_to_client(vni_t vni, struct ethaddr *macaddr,
-				       uint8_t mac_flags)
+static int zvni_mac_send_del_to_client(vni_t vni, struct ethaddr *macaddr)
 {
-	uint8_t flags = 0;
-
-	if (CHECK_FLAG(mac_flags, ZEBRA_MAC_STICKY))
-		SET_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
-	if (CHECK_FLAG(mac_flags, ZEBRA_MAC_DEF_GW))
-		SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
-
-	return zvni_macip_send_msg_to_client(vni, macaddr, NULL, flags,
-					     0, ZEBRA_MACIP_DEL);
+	return zvni_macip_send_msg_to_client(vni, macaddr, NULL, 0 /* flags */,
+					     0 /* seq */, ZEBRA_MACIP_DEL);
 }
 
 /*
@@ -4304,6 +4296,10 @@ static void process_remote_macip_add(vni_t vni,
 			}
 		}
 
+		/* Remove local MAC from BGP. */
+		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
+			zvni_mac_send_del_to_client(zvni->vni, macaddr);
+
 		/* Set "auto" and "remote" forwarding info. */
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
 		memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
@@ -4324,6 +4320,7 @@ static void process_remote_macip_add(vni_t vni,
 
 		/* Install the entry. */
 		zvni_mac_install(zvni, mac);
+
 	}
 
 	/* Update seq number. */
@@ -4522,6 +4519,13 @@ static void process_remote_macip_del(vni_t vni,
 	} else {
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 			zvni_process_neigh_on_remote_mac_del(zvni, mac);
+			/*
+			 * the remote sequence number in the auto mac entry
+			 * needs to be reset to 0 as the mac entry may have
+			 * been removed on all VTEPs (including
+			 * the originating one)
+			 */
+			mac->rem_seq = 0;
 
 			/* If all remote neighbors referencing a remote MAC
 			 * go away, we need to uninstall the MAC.
@@ -5730,7 +5734,7 @@ int zebra_vxlan_check_del_local_mac(struct interface *ifp,
 			ifp->ifindex, vni);
 
 	/* Remove MAC from BGP. */
-	zvni_mac_send_del_to_client(zvni->vni, macaddr, mac->flags);
+	zvni_mac_send_del_to_client(zvni->vni, macaddr);
 
 	/*
 	 * If there are no neigh associated with the mac delete the mac
@@ -5841,7 +5845,7 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 	zvni_process_neigh_on_local_mac_del(zvni, mac);
 
 	/* Remove MAC from BGP. */
-	zvni_mac_send_del_to_client(zvni->vni, macaddr, mac->flags);
+	zvni_mac_send_del_to_client(zvni->vni, macaddr);
 
 	/*
 	 * If there are no neigh associated with the mac delete the mac
