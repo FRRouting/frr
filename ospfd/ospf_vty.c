@@ -245,8 +245,11 @@ DEFUN_NOSH (router_ospf,
 						return ret;
 					}
 				}
-				ospf_interface_area_set(ospf, ifp);
-				ospf->if_ospf_cli_count++;
+				if (!ospf_interface_area_is_already_set(ospf,
+									ifp)) {
+					ospf_interface_area_set(ospf, ifp);
+					ospf->if_ospf_cli_count++;
+				}
 			}
 		}
 
