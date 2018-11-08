@@ -522,7 +522,7 @@ AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c", [], [-lm])
 if test "$ac_cv_lib_json_c_json_object_get" = no; then
   AC_CHECK_LIB(json, json_object_get, LIBS="$LIBS -ljson")
   if test "$ac_cv_lib_json_json_object_get" = no; then
-      AC_MSG_ERROR([lib json is needed to compile])
+      AC_MSG_ERROR([libjson is needed to compile])
   fi
 fi
 ])
