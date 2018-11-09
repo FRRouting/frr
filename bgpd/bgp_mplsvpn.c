@@ -1644,6 +1644,75 @@ void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 	}
 }
 
+int bgp_vpn_leak_mpls_callback(mpls_label_t label,
+			       void *labelid,
+			       bool allocated)
+{
+	struct bgp_leak_mpls *blm = (struct bgp_leak_mpls *)labelid;
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
+	struct nexthop *nexthop;
+	struct bgp_nexthop_cache *bnc;
+	struct prefix nhop;
+	mpls_label_t label_out = 0;
+
+	memset(&nhop, 0, sizeof(struct prefix));
+	blm->label_new = label;
+	blm->flags &= ~BGP_LEAK_MPLS_ALLOC_WIP;
+
+	if (debug)
+		zlog_debug("%s: label=%u, allocated=%d",
+			   __func__, label, allocated);
+	if (!allocated)
+		/* remove current lsp entries XXX more work to do */
+		return 0;
+
+	/* create lsp entry */
+	/* establish a lsp on default vrf path
+	 * mpls lsp <label> NHgateway oldlabel
+	 */
+	bnc = blm->bnc;
+	if (!bnc)
+		goto error_disallocate_label;
+	/* retrieve nexthop */
+	for (nexthop = bnc->nexthop; nexthop; nexthop = nexthop->next) {
+		if (nexthop->type == NEXTHOP_TYPE_IPV4 ||
+		    nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
+			nhop.family = AF_INET;
+			nhop.prefixlen = IPV4_MAX_PREFIXLEN;
+			nhop.u.prefix4.s_addr = nexthop->gate.ipv4.s_addr;
+		} else if (nexthop->type == NEXTHOP_TYPE_IPV6 ||
+			   nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
+			nhop.family = AF_INET;
+			nhop.prefixlen = IPV4_MAX_PREFIXLEN;
+			memcpy(&nhop.u.prefix6, &nexthop->gate.ipv6,
+			       sizeof(struct in6_addr));
+		} else
+			continue;
+		if (nexthop->nh_label) {
+			struct mpls_label_stack *nh_label = nexthop->nh_label;
+			int i = 0;
+
+			for (i = 0; i < nh_label->num_labels; i++)
+				label_out = nh_label->label[i];
+		}
+
+	}
+	if (!nhop.family || !label_out)
+		goto error_disallocate_label;
+	memcpy(&blm->nhop, &nhop, sizeof(struct prefix));
+	blm->label_out = label_out;
+	bgp_zebra_send_mpls_label(ZEBRA_MPLS_LABELS_ADD,
+				  blm->label_new,
+				  label_out,
+				  &nhop);
+	/* call evaluate paths again */
+	evaluate_paths(bnc);
+	return 0;
+ error_disallocate_label:
+	bgp_lp_release(LP_TYPE_VRF_VETH, labelid, label);
+	return 0;
+}
+
 /* For testing purpose, static route of MPLS-VPN. */
 DEFUN (vpnv4_network,
        vpnv4_network_cmd,
