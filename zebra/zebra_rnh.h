@@ -48,6 +48,9 @@ struct rnh {
 	struct route_node *node;
 	int filtered[ZEBRA_ROUTE_MAX]; /* if this has been filtered for client
 					  */
+	ifindex_t xvrf_ifindex;		/* used in case route leaks
+					 * that are not connected
+					 */
 };
 
 typedef enum { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE } rnh_type_t;
