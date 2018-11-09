@@ -585,7 +585,7 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 	}
 
 	ret = zclient_send_rnh(zclient, command, p, exact_match,
-			       bnc->bgp->vrf_id);
+			       bnc->bgp->vrf_id, bnc->bgp->vrf_id);
 	/* TBD: handle the failure */
 	if (ret < 0)
 		zlog_warn("sendmsg_nexthop: zclient_send_message() failed");
