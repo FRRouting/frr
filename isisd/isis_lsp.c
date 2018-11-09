@@ -1361,7 +1361,7 @@ static int lsp_refresh(struct thread *thread)
 	if ((area->is_type & level) == 0)
 		return ISIS_ERROR;
 
-	if (monotime_since(&area->last_lsp_refresh_event[level - 1], NULL) < 50000L) {
+	if (monotime_since(&area->last_lsp_refresh_event[level - 1], NULL) < 100000L) {
 		sched_debug("ISIS (%s): Still unstable, postpone LSP L%d refresh",
 			    area->area_tag, level);
 		_lsp_regenerate_schedule(area, level, 0, false,
