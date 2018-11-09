@@ -2398,16 +2398,16 @@ DEFUN (no_ospf_mpls_te_inter_as,
 		zlog_debug("MPLS-TE: Inter-AS support OFF");
 
 	if ((OspfMplsTE.enabled) && (OspfMplsTE.inter_as != Off)) {
-		OspfMplsTE.inter_as = Off;
 		/* Flush all Inter-AS LSA */
 		for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp))
 			if (IS_INTER_AS(lp->type)
 			    && CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
 				ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
-	}
 
-	/* Deregister the Callbacks for Inter-AS support */
-	ospf_mpls_te_unregister();
+		/* Deregister the Callbacks for Inter-AS support */
+		ospf_mpls_te_unregister();
+		OspfMplsTE.inter_as = Off;
+	}
 
 	return CMD_SUCCESS;
 }
