@@ -66,6 +66,7 @@ struct bgp_nexthop_cache {
 	LIST_HEAD(path_list, bgp_info) paths;
 	unsigned int path_count;
 	struct bgp *bgp;
+	struct bgp *bgp_route; /* originator of the request */
 };
 
 /* BGP own address structure */

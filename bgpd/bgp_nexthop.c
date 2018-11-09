@@ -79,13 +79,25 @@ static void bgp_nexthop_cache_reset(struct bgp_table *table)
 {
 	struct bgp_node *rn;
 	struct bgp_nexthop_cache *bnc;
+	struct listnode *node, *next;
 
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
-		if ((bnc = rn->info) != NULL) {
+	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
+		if (!rn->info)
+			continue;
+		for (ALL_LIST_ELEMENTS((struct list *)rn->info, node, next,
+				       bnc)) {
+			while (!LIST_EMPTY(&(bnc->paths))) {
+				struct bgp_info *path =
+					LIST_FIRST(&(bnc->paths));
+
+				path_nh_map(path, bnc, false);
+			}
 			bnc_free(bnc);
-			rn->info = NULL;
-			bgp_unlock_node(rn);
 		}
+		list_delete_and_null((struct list **)&rn->info);
+		bgp_unlock_node(rn);
+	}
+
 }
 
 static void *bgp_tip_hash_alloc(void *p)
@@ -527,7 +539,12 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail)
 
 		for (rn = bgp_table_top(bgp->nexthop_cache_table[afi]); rn;
 		     rn = bgp_route_next(rn)) {
-			if ((bnc = rn->info) != NULL) {
+			struct listnode *node, *next;
+
+			if (!rn->info)
+				continue;
+			for (ALL_LIST_ELEMENTS((struct list *)rn->info,
+					       node, next, bnc)) {
 				if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)) {
 					vty_out(vty,
 						" %s valid [IGP metric %d], #paths %d\n",
