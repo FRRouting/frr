@@ -74,9 +74,7 @@ if [ ! -e Makefile ]; then
 	if [ "${TOPOTEST_SANITIZER}" != "0" ]; then
 		export CC="gcc"
 		export CFLAGS="-O1 -g -fsanitize=address -fno-omit-frame-pointer"
-		export LD="gcc"
 		export LDFLAGS="-g -fsanitize=address -ldl"
-		EXTRA_CONFIGURE+=" --enable-shared=no "
 		touch .address_sanitizer
 	else
 		rm -f .address_sanitizer
@@ -84,6 +82,8 @@ if [ ! -e Makefile ]; then
 
 	bash configure >&3 \
 		--enable-static-bin \
+		--enable-static \
+		--enable-shared \
 		--with-moduledir=/usr/lib/frr/modules \
 		--prefix=/usr \
 		--localstatedir=/var/run/frr \
