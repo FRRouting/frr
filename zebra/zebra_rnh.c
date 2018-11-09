@@ -638,6 +638,61 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, int family,
 
 		/* Route entry found, we're done; else, walk up the tree. */
 		if (re) {
+			/* we found out a route in the targeted nexthop vrf
+			 * however, if the route comes from an imported
+			 * route entry, then a new route must be found
+			 */
+			int ret;
+			ifindex_t ifindex = 0;
+			static struct nexthop local_nexthop;
+			static struct nexthop resolved_nexthop;
+			static struct route_entry local_re;
+
+			ret = vrf_route_leak_possible(rnh->vrf_id_route,
+						      rnh->vrf_id,&ifindex);
+			if (ret == ROUTE_LEAK_VRF_NETNS_POSSIBLE) {
+				/* it is possible to create a route
+				 * using interface as nexthop.
+				 * the re will be copied, and extended to
+				 * contain the interface index of the veth
+				 * to use. To avoid allocation, rely on static
+				 * variables. This should be ok, since the re
+				 * information is copied in copy_state(), then
+				 * encoded in zapi(). the static variables will
+				 * be able to be used later.
+				 */
+				memcpy(&local_re, re,
+				       sizeof(struct route_entry));
+				if (re->ng.nexthop)
+					memcpy(&local_nexthop,
+					       re->ng.nexthop,
+					       sizeof(struct nexthop));
+				/* vrf id of the origin is kept */
+				local_re.vrf_id = rnh->vrf_id_route;
+				memset(&resolved_nexthop, 0,
+				       sizeof(struct nexthop));
+				resolved_nexthop.vrf_id = rnh->vrf_id_route;
+				resolved_nexthop.type = NEXTHOP_TYPE_IFINDEX;
+				resolved_nexthop.ifindex = ifindex;
+				resolved_nexthop.rparent = &local_nexthop;
+				/* resolved is the interface index only */
+				local_nexthop.resolved = &resolved_nexthop;
+				SET_FLAG(local_nexthop.flags,
+					 NEXTHOP_FLAG_RECURSIVE);
+				local_re.ng.nexthop = &local_nexthop;
+				re = &local_re;
+				if (rnh->xvrf_ifindex != ifindex)
+					SET_FLAG(re->status,
+					     ROUTE_ENTRY_NEXTHOPS_CHANGED);
+				rnh->xvrf_ifindex = ifindex;
+			} else if (ret == ROUTE_LEAK_VRF_NOT_POSSIBLE ||
+				 ret == ROUTE_LEAK_VRF_NETNS_MAYBE) {
+				/* route leak has been found and no
+				 * route has been made available
+				 */
+				rnh->xvrf_ifindex = 0;
+				return NULL;
+			}
 			*prn = rn;
 			return re;
 		}
