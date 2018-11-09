@@ -719,6 +719,7 @@ static int nb_configuration_callback(const enum nb_event event,
 	const struct lyd_node *dnode = change->cb.dnode;
 	union nb_resource *resource;
 	int ret = NB_ERR;
+	enum lib_log_refs ref;
 
 	if (debug_northbound) {
 		const char *value = "(none)";
@@ -751,12 +752,36 @@ static int nb_configuration_callback(const enum nb_event event,
 		break;
 	}
 
-	if (ret != NB_OK)
-		flog_warn(
-			EC_LIB_NB_CB_CONFIG,
-			"%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
-			__func__, nb_err_name(ret), nb_event_name(event),
-			nb_operation_name(operation), xpath);
+	if (ret != NB_OK) {
+		switch (event) {
+		case NB_EV_VALIDATE:
+			ref = EC_LIB_NB_CB_CONFIG_VALIDATE;
+			break;
+		case NB_EV_PREPARE:
+			ref = EC_LIB_NB_CB_CONFIG_PREPARE;
+			break;
+		case NB_EV_ABORT:
+			ref = EC_LIB_NB_CB_CONFIG_ABORT;
+			break;
+		case NB_EV_APPLY:
+			ref = EC_LIB_NB_CB_CONFIG_APPLY;
+			break;
+		}
+		if (event == NB_EV_VALIDATE || event == NB_EV_PREPARE)
+			flog_warn(
+				ref,
+				"%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
+				__func__, nb_err_name(ret),
+				nb_event_name(event),
+				nb_operation_name(operation), xpath);
+		else
+			flog_err(
+				ref,
+				"%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
+				__func__, nb_err_name(ret),
+				nb_event_name(event),
+				nb_operation_name(operation), xpath);
+	}
 
 	return ret;
 }

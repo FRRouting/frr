@@ -105,10 +105,16 @@ static struct log_ref ferr_lib_warn[] = {
 		.suggestion = "Check if the installed FRR YANG modules are in sync with the FRR binaries",
 	},
 	{
-		.code = EC_LIB_NB_CB_CONFIG,
-		.title = "A northbound configuration callback has failed",
-		.description = "The northbound subsystem has detected that a callback used to process a configuration change has returned an error",
-		.suggestion = "The log message should contain further details on the specific error that occurred; investigate the reported error.",
+		.code = EC_LIB_NB_CB_CONFIG_VALIDATE,
+		.title = "A northbound configuration callback has failed in the VALIDATE phase",
+		.description = "A callback used to process a configuration change has returned a validation error",
+		.suggestion = "The provided configuration is invalid. Fix any inconsistency and try again.",
+	},
+	{
+		.code = EC_LIB_NB_CB_CONFIG_PREPARE,
+		.title = "A northbound configuration callback has failed in the PREPARE phase",
+		.description = "A callback used to process a configuration change has returned a resource allocation error",
+		.suggestion = "The system might be running out of resources. Check the log for more details.",
 	},
 	{
 		.code = EC_LIB_NB_CB_STATE,
@@ -325,6 +331,18 @@ static struct log_ref ferr_lib_err[] = {
 		.title = "libsysrepo error",
 		.description = "The northbound subsystem has detected that the libsysrepo library returned an error",
 		.suggestion = "Open an Issue with all relevant log files and restart FRR"
+	},
+	{
+		.code = EC_LIB_NB_CB_CONFIG_ABORT,
+		.title = "A northbound configuration callback has failed in the ABORT phase",
+		.description = "A callback used to process a configuration change has returned an error while trying to abort a change",
+		.suggestion = "Gather log data and open an Issue.",
+	},
+	{
+		.code = EC_LIB_NB_CB_CONFIG_APPLY,
+		.title = "A northbound configuration callback has failed in the APPLY phase",
+		.description = "A callback used to process a configuration change has returned an error while applying the changes",
+		.suggestion = "Gather log data and open an Issue.",
 	},
 	{
 		.code = END_FERR,
