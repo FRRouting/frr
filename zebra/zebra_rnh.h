@@ -50,6 +50,12 @@ struct rnh {
 	 * if this has been filtered for the client
 	 */
 	int filtered[ZEBRA_ROUTE_MAX];
+
+	/* interface index of veth
+	 * used in vrf route leak case
+	 * with netns backend vrfs
+	 */
+	ifindex_t xvrf_ifindex;
 };
 
 typedef enum { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE } rnh_type_t;
