@@ -37,6 +37,8 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_nexthop.h"
+#include "bgpd/bgp_label.h"
+#include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_fsm.h"
@@ -51,6 +53,9 @@ static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc,
 static void evaluate_paths(struct bgp_nexthop_cache *bnc);
 static int make_prefix(int afi, struct bgp_info *ri, struct prefix *p);
 
+DEFINE_MTYPE_STATIC(BGPD, BGP_NEXTHOP_LEAK_LABEL,
+		    "Bgp Nexthop Label used for VRF route leak");
+
 static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 {
 	return (bgp_zebra_num_connects() == 0
@@ -61,6 +66,92 @@ static int bgp_isvalid_labeled_nexthop(struct bgp_nexthop_cache *bnc)
 {
 	return (bgp_zebra_num_connects() == 0
 		|| (bnc && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID)));
+}
+
+static struct bgp_leak_mpls *bgp_nht_lookup_leak_mpls(
+						struct bgp_nexthop_cache *bnc,
+						struct bgp_info_extra *extra,
+						bool create)
+{
+	struct listnode *node, *next;
+	struct bgp_leak_mpls *blm;
+
+	if (!bnc || !bnc->leak_mpls ||
+	    !extra || extra->num_labels != 1)
+		return NULL;
+	for (ALL_LIST_ELEMENTS(bnc->leak_mpls, node, next, blm))
+		if (blm->label_origin == extra->label[0])
+			return blm;
+	if (!create)
+		return NULL;
+	blm = XCALLOC(MTYPE_BGP_NEXTHOP_LEAK_LABEL,
+		      sizeof(struct bgp_leak_mpls));
+	blm->label_origin = extra->label[0];
+	blm->bnc = bnc;
+	listnode_add(bnc->leak_mpls, blm);
+	return blm;
+}
+
+static int bgp_nht_handle_label(struct bgp_leak_mpls *blm,
+				 struct bgp_info *path)
+{
+	int bnc_is_valid_nexthop = 1;
+
+	if (blm->label_new == 0) {
+		bnc_is_valid_nexthop = 0;
+		if (!(blm->flags &
+		      BGP_LEAK_MPLS_ALLOC_WIP)) {
+			blm->flags |=
+				BGP_LEAK_MPLS_ALLOC_WIP;
+			bgp_lp_get(LP_TYPE_VRF_VETH, blm,
+				   bgp_vpn_leak_mpls_callback);
+		}
+	} else {
+		if (!bgp_is_valid_label(&path->extra->label_route_leak) ||
+		    decode_label(&path->extra->label_route_leak)
+		    != blm->label_new) {
+			blm->refcnt++;
+			/* insert new mpls value */
+			encode_label(blm->label_new,
+				     &path->extra->label_route_leak);
+			bgp_set_valid_label(&path->extra->label_route_leak);
+		}
+	}
+	return bnc_is_valid_nexthop;
+}
+
+
+static void bgp_nht_leak_mpls_detach(struct bgp_info_extra *extra,
+				     struct bgp_nexthop_cache *bnc)
+{
+	struct bgp_leak_mpls *blm;
+
+	if (!bnc)
+		return;
+
+	blm = bgp_nht_lookup_leak_mpls(bnc, extra, 0);
+	/* suppress additional mpls entry */
+	if (!blm)
+		return;
+	if (blm->label_new &&
+	    bgp_is_valid_label(&extra->label_route_leak) &&
+	    decode_label(&extra->label_route_leak) == blm->label_new) {
+		blm->refcnt--;
+		extra->label_route_leak = 0;
+		if (!blm->refcnt) {
+			/* flush MPLS LSP entry */
+			bgp_zebra_send_mpls_label(ZEBRA_MPLS_LABELS_DELETE,
+						  blm->label_new,
+						  blm->label_out,
+						  &blm->nhop);
+			/* flush allocated label */
+			bgp_lp_release(LP_TYPE_VRF_VETH, blm, blm->label_new);
+			/* flush blm */
+			listnode_delete(bnc->leak_mpls, blm);
+			XFREE(MTYPE_BGP_NEXTHOP_LEAK_LABEL, blm);
+			blm = NULL;
+		}
+	}
 }
 
 static struct bgp_nexthop_cache *bgp_lookup_bnc_per_route(struct list *route,
@@ -224,6 +315,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		bnc->node = rn;
 		bnc->bgp = bgp_nexthop;
 		bnc->bgp_route = bgp_route;
+		bnc->leak_mpls = list_new();
 		bgp_lock_node(rn);
 		if (BGP_DEBUG(nht, NHT)) {
 			char buf[PREFIX2STR_BUFFER];
@@ -295,6 +387,26 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	} else if (peer)
 		bnc->nht_info = (void *)peer; /* NHT peer reference */
 
+	if (ri && (bnc->flags & BGP_NEXTHOP_RECURSION_IFACE) &&
+	    CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) &&
+	    CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID)) {
+		struct bgp_leak_mpls *blm;
+
+		blm = bgp_nht_lookup_leak_mpls(bnc, ri->extra, 1);
+		if (blm->label_new == 0) {
+			if (!(blm->flags & BGP_LEAK_MPLS_ALLOC_WIP)) {
+				blm->flags |= BGP_LEAK_MPLS_ALLOC_WIP;
+				bgp_lp_get(LP_TYPE_VRF_VETH, blm,
+					   bgp_vpn_leak_mpls_callback);
+				bnc->flags &= ~BGP_NEXTHOP_VALID;
+			}
+		} else {
+			/* insert new mpls value */
+			encode_label(blm->label_new,
+				     &ri->extra->label_route_leak);
+			bgp_set_valid_label(&ri->extra->label_route_leak);
+		}
+	}
 	/*
 	 * We are cheating here.  Views have no associated underlying
 	 * ability to detect nexthops.  So when we have a view
@@ -756,6 +868,23 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 
 			bnc_is_valid_nexthop =
 				bgp_isvalid_labeled_nexthop(bnc) ? 1 : 0;
+			if (!bnc->nexthop_num &&
+			    (bnc->change_flags & BGP_NEXTHOP_CHANGED)) {
+				bgp_nht_leak_mpls_detach(path->extra, bnc);
+				bnc_is_valid_nexthop = 0;
+			} else if ((bnc->flags & BGP_NEXTHOP_RECURSION_IFACE)
+				   && bnc->nexthop_num)
+				bnc_is_valid_nexthop = 1;
+			if ((bnc->flags & BGP_NEXTHOP_RECURSION_IFACE) &&
+			    bnc_is_valid_nexthop && bnc->nexthop_num) {
+				struct bgp_leak_mpls *blm;
+
+				blm = bgp_nht_lookup_leak_mpls(bnc,
+							       path->extra,
+							       1);
+				bnc_is_valid_nexthop =
+					bgp_nht_handle_label(blm, path);
+			}
 		} else {
 			bnc_is_valid_nexthop =
 				bgp_isvalid_nexthop(bnc) ? 1 : 0;
@@ -821,6 +950,7 @@ void path_nh_map(struct bgp_info *path, struct bgp_nexthop_cache *bnc,
 {
 	if (path->nexthop) {
 		LIST_REMOVE(path, nh_thread);
+		bgp_nht_leak_mpls_detach(path->extra, path->nexthop);
 		path->nexthop->path_count--;
 		path->nexthop = NULL;
 	}

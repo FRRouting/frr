@@ -89,6 +89,7 @@ struct bgp_info_extra {
 	/* MPLS label(s) - VNI(s) for EVPN-VxLAN  */
 	mpls_label_t label[BGP_MAX_LABELS];
 	uint32_t num_labels;
+	mpls_label_t label_route_leak; /* for crossing some VRFs */
 
 #if ENABLE_BGP_VNC
 	union {
