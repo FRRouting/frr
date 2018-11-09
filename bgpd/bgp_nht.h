@@ -97,4 +97,5 @@ extern void bgp_nht_register_nexthops(struct bgp *bgp);
  */
 extern void bgp_nht_register_enhe_capability_interfaces(struct peer *peer);
 
+extern void evaluate_paths(struct bgp_nexthop_cache *bnc);
 #endif /* _BGP_NHT_H */

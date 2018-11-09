@@ -78,6 +78,9 @@ extern void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,
 extern void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi);
 extern void vpn_leak_zebra_vrf_label_withdraw(struct bgp *bgp, afi_t afi);
 extern int vpn_leak_label_callback(mpls_label_t label, void *lblid, bool alloc);
+extern int bgp_vpn_leak_mpls_callback(mpls_label_t label,
+				      void *labelid,
+				      bool allocated);
 extern void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 				afi_t afi, safi_t safi);
 void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
