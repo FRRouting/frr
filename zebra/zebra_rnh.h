@@ -35,6 +35,7 @@ struct rnh {
 
 	/* VRF identifier. */
 	vrf_id_t vrf_id;
+	vrf_id_t vrf_id_route;
 
 	struct route_entry *state;
 	struct prefix resolved_route;
@@ -68,9 +69,10 @@ static inline int rnh_resolve_via_default(int family)
 }
 
 extern struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid,
-				 rnh_type_t type, bool *exists);
+				 rnh_type_t type, bool *exists,
+				 vrf_id_t vrfid_route);
 extern struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid,
-				    rnh_type_t type);
+				    rnh_type_t type, vrf_id_t vrfid_route);
 extern void zebra_free_rnh(struct rnh *rnh);
 extern void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type);
 extern void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
