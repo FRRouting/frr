@@ -356,6 +356,9 @@ struct zapi_route {
 	vrf_id_t vrf_id;
 
 	uint32_t tableid;
+
+	/* for vrf route leak */
+	vrf_id_t vrf_id_route;
 };
 
 struct zapi_pw {
@@ -593,7 +596,7 @@ extern void zebra_read_pw_status_update(int command, struct zclient *zclient,
 extern int zclient_route_send(uint8_t, struct zclient *, struct zapi_route *);
 extern int zclient_send_rnh(struct zclient *zclient, int command,
 			    struct prefix *p, bool exact_match,
-			    vrf_id_t vrf_id);
+			    vrf_id_t vrf_id, vrf_id_t vrf_id_route);
 extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *, struct zapi_route *);
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,

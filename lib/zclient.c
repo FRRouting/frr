@@ -656,7 +656,7 @@ static int zclient_connect(struct thread *t)
 }
 
 int zclient_send_rnh(struct zclient *zclient, int command, struct prefix *p,
-		     bool exact_match, vrf_id_t vrf_id)
+		     bool exact_match, vrf_id_t vrf_id, vrf_id_t vrf_id_route)
 {
 	struct stream *s;
 
@@ -677,6 +677,7 @@ int zclient_send_rnh(struct zclient *zclient, int command, struct prefix *p,
 	default:
 		break;
 	}
+	stream_putl(s, vrf_id_route);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zclient_send_message(zclient);
@@ -1216,7 +1217,7 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 	default:
 		break;
 	}
-
+	STREAM_GETL(s, nhr->vrf_id_route);
 	STREAM_GETC(s, nhr->type);
 	STREAM_GETW(s, nhr->instance);
 	STREAM_GETC(s, nhr->distance);
