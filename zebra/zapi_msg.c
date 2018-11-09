@@ -1039,6 +1039,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 	uint8_t flags = 0;
 	uint16_t type = cmd2type[hdr->command];
 	bool exist;
+	vrf_id_t vrf_id_route;
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
@@ -1083,6 +1084,9 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
+		STREAM_GETL(s, vrf_id_route);
+		l += 4;
+
 		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), type, &exist);
 		if (!rnh)
 			return;
@@ -1122,6 +1126,7 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 	struct prefix p;
 	unsigned short l = 0;
 	uint16_t type = cmd2type[hdr->command];
+	vrf_id_t vrf_id_route;
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
@@ -1168,6 +1173,9 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
+		STREAM_GETL(s, vrf_id_route);
+		l += 4;
+
 		rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), type);
 		if (rnh) {
 			client->nh_dereg_time = monotime(NULL);

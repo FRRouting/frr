@@ -905,6 +905,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 			 __FUNCTION__, rn->p.family);
 		break;
 	}
+	stream_putl(s, rnh->vrf_id_route);
 	if (re) {
 		stream_putc(s, re->type);
 		stream_putw(s, re->instance);
