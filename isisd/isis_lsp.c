@@ -406,8 +406,12 @@ static void lsp_seqno_update(struct isis_lsp *lsp0)
 	for (ALL_LIST_ELEMENTS_RO(lsp0->lspu.frags, node, lsp)) {
 		if (lsp->tlvs)
 			lsp_inc_seqno(lsp, 0);
-		else
+		else if (lsp->hdr.rem_lifetime) {
+			/* Purge should only be applied when the fragment has
+			 * non-zero remaining lifetime.
+			 */
 			lsp_purge(lsp, lsp0->level, NULL);
+		}
 	}
 
 	return;
@@ -1306,6 +1310,13 @@ static int lsp_regenerate(struct isis_area *area, int level)
 	lsp->last_generated = time(NULL);
 	lsp_flood(lsp, NULL);
 	for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag)) {
+		if (!frag->tlvs) {
+			/* Updating and flooding should only affect fragments
+			 * carrying data
+			 */
+			continue;
+		}
+
 		frag->hdr.lsp_bits = lsp_bits_generate(
 			level, area->overload_bit, area->attached_bit);
 		/* Set the lifetime values of all the fragments to the same
