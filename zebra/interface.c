@@ -1150,6 +1150,15 @@ static const char *zebra_ziftype_2str(zebra_iftype_t zif_type)
 		return "VETH";
 		break;
 
+	case ZEBRA_IF_BOND:
+		return "bond";
+
+	case ZEBRA_IF_BOND_SLAVE:
+		return "bond_slave";
+
+	case ZEBRA_IF_MACVLAN:
+		return "macvlan";
+
 	default:
 		return "Unknown";
 		break;
@@ -1277,6 +1286,15 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		if (br_slave->bridge_ifindex != IFINDEX_INTERNAL)
 			vty_out(vty, "  Master (bridge) ifindex %u\n",
 				br_slave->bridge_ifindex);
+	}
+
+	if (IS_ZEBRA_IF_BOND_SLAVE(ifp)) {
+		struct zebra_l2info_bondslave *bond_slave;
+
+		bond_slave = &zebra_if->bondslave_info;
+		if (bond_slave->bond_ifindex != IFINDEX_INTERNAL)
+			vty_out(vty, "  Master (bond) ifindex %u\n",
+				bond_slave->bond_ifindex);
 	}
 
 	if (zebra_if->link_ifindex != IFINDEX_INTERNAL) {
