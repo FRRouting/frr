@@ -501,7 +501,6 @@ void static_cleanup_vrf_ids(struct static_vrf *disable_svrf)
  * This function enables static routes when an interface it relies
  * on in a different vrf is coming up.
  *
- * svrf -> The svrf that ifp is being brought up
  * stable -> The stable we are looking at.
  * ifp -> interface coming up
  * afi -> the afi in question
