@@ -465,7 +465,7 @@ void static_zebra_init(void)
 {
 	struct zclient_options opt = { .receive_notify = true };
 
-	zclient = zclient_new_notify(master, &opt);
+	zclient = zclient_new(master, &opt);
 
 	zclient_init(zclient, ZEBRA_ROUTE_STATIC, 0, &static_privs);
 	zclient->zebra_capabilities = static_zebra_capabilities;

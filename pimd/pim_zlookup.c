@@ -120,7 +120,7 @@ void zclient_lookup_free(void)
 
 void zclient_lookup_new(void)
 {
-	zlookup = zclient_new_notify(master, &zclient_options_default);
+	zlookup = zclient_new(master, &zclient_options_default);
 	if (!zlookup) {
 		flog_err(EC_LIB_ZAPI_SOCKET, "%s: zclient_new() failure",
 			 __PRETTY_FUNCTION__);

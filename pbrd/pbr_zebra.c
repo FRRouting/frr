@@ -391,7 +391,7 @@ void pbr_zebra_init(void)
 {
 	struct zclient_options opt = { .receive_notify = true };
 
-	zclient = zclient_new_notify(master, &opt);
+	zclient = zclient_new(master, &opt);
 
 	zclient_init(zclient, ZEBRA_ROUTE_PBR, 0, &pbr_privs);
 	zclient->zebra_connected = zebra_connected;
