@@ -578,29 +578,17 @@ void lsp_insert(struct isis_lsp *lsp, dict_t *lspdb)
 void lsp_build_list_nonzero_ht(uint8_t *start_id, uint8_t *stop_id,
 			       struct list *list, dict_t *lspdb)
 {
-	dnode_t *first, *last, *curr;
+	for (dnode_t *curr = dict_lower_bound(lspdb, start_id);
+	     curr; curr = dict_next(lspdb, curr)) {
+		struct isis_lsp *lsp = curr->dict_data;
 
-	first = dict_lower_bound(lspdb, start_id);
-	if (!first)
-		return;
-
-	last = dict_upper_bound(lspdb, stop_id);
-
-	curr = first;
-
-	if (((struct isis_lsp *)(curr->dict_data))->hdr.rem_lifetime)
-		listnode_add(list, first->dict_data);
-
-	while (curr) {
-		curr = dict_next(lspdb, curr);
-		if (curr
-		    && ((struct isis_lsp *)(curr->dict_data))->hdr.rem_lifetime)
-			listnode_add(list, curr->dict_data);
-		if (curr == last)
+		if (memcmp(lsp->hdr.lsp_id, stop_id,
+			   ISIS_SYS_ID_LEN + 2) > 0)
 			break;
-	}
 
-	return;
+		if (lsp->hdr.rem_lifetime)
+			listnode_add(list, lsp);
+	}
 }
 
 static void lsp_set_time(struct isis_lsp *lsp)
