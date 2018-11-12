@@ -249,6 +249,8 @@ static struct zebra_dplane_globals {
 
 /* Prototypes */
 static int dplane_thread_loop(struct thread *event);
+static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
+				 struct zebra_ns *zns);
 
 /*
  * Public APIs
@@ -706,16 +708,17 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 	zvrf = vrf_info_lookup(re->vrf_id);
 	zns = zvrf->zns;
 
-	zebra_dplane_info_from_zns(&(ctx->zd_ns_info), zns, true /*is_cmd*/);
+	/* Internal copy helper */
+	dplane_info_from_zns(&(ctx->zd_ns_info), zns);
 
 #if defined(HAVE_NETLINK)
 	/* Increment message counter after copying to context struct - may need
 	 * two messages in some 'update' cases.
 	 */
 	if (op == DPLANE_OP_ROUTE_UPDATE)
-		zns->netlink_cmd.seq += 2;
+		zns->netlink_dplane.seq += 2;
 	else
-		zns->netlink_cmd.seq++;
+		zns->netlink_dplane.seq++;
 #endif /* NETLINK*/
 
 	/* Copy nexthops; recursive info is included too */
@@ -1163,9 +1166,27 @@ void dplane_provider_enqueue_out_ctx(struct zebra_dplane_provider *prov,
 				  memory_order_relaxed);
 }
 
+/*
+ * Accessor for provider object
+ */
 bool dplane_provider_is_threaded(const struct zebra_dplane_provider *prov)
 {
 	return (prov->dp_flags & DPLANE_PROV_FLAG_THREADED);
+}
+
+/*
+ * Internal helper that copies information from a zebra ns object; this is
+ * called in the zebra main pthread context as part of dplane ctx init.
+ */
+static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
+				 struct zebra_ns *zns)
+{
+	ns_info->ns_id = zns->ns_id;
+
+#if defined(HAVE_NETLINK)
+	ns_info->is_cmd = true;
+	ns_info->nls = zns->netlink_dplane;
+#endif /* NETLINK */
 }
 
 /*
