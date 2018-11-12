@@ -358,8 +358,6 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 		if (newhop->ifindex) {
 			resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 			resolved_hop->ifindex = newhop->ifindex;
-			if (newhop->flags & NEXTHOP_FLAG_ONLINK)
-				resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
 		}
 		break;
 	case NEXTHOP_TYPE_IPV6:
@@ -397,6 +395,9 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 		resolved_hop->bh_type = nexthop->bh_type;
 		break;
 	}
+
+	if (newhop->flags & NEXTHOP_FLAG_ONLINK)
+		resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
 
 	/* Copy labels of the resolved route */
 	if (newhop->nh_label)
