@@ -547,12 +547,17 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail)
 					       node, next, bnc)) {
 				if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)) {
 					vty_out(vty,
-						" %s valid [IGP metric %d], #paths %d\n",
+						" %s valid [IGP metric %d], #paths %d",
 						inet_ntop(rn->p.family,
 							  &rn->p.u.prefix, buf,
 							  sizeof(buf)),
 						bnc->metric, bnc->path_count);
-
+					if (bnc->bgp != bnc->bgp_route)
+						vty_out(vty, " (from vrf %s)",
+							vrf_id_to_name(
+							     bnc->bgp_route
+							     ->vrf_id));
+					vty_out(vty, "\n");
 					if (!detail)
 						continue;
 
