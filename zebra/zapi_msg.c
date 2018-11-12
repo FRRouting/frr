@@ -2159,6 +2159,7 @@ static void zread_vrf_label(ZAPI_HANDLER_ARGS)
 	struct stream *s;
 	struct zebra_vrf *def_zvrf;
 	enum lsp_types_t ltype;
+	int is_vrf_route_leak_possible;
 
 	s = msg;
 	STREAM_GETL(s, nlabel);
@@ -2172,9 +2173,25 @@ static void zread_vrf_label(ZAPI_HANDLER_ARGS)
 
 	STREAM_GETC(s, ltype);
 
-	if (zvrf->vrf->vrf_id != VRF_DEFAULT)
-		ifp = if_lookup_by_name(zvrf->vrf->name, zvrf->vrf->vrf_id);
-	else
+	if (zvrf->vrf->vrf_id != VRF_DEFAULT) {
+		ifindex_t ifindex = 0;
+
+		if (vrf_is_mapped_on_netns(zvrf->vrf->vrf_id))
+			ifp = if_lookup_by_name(zvrf->vrf->name,
+						VRF_DEFAULT);
+		else
+			ifp = if_lookup_by_name(zvrf->vrf->name,
+						zvrf->vrf->vrf_id);
+		is_vrf_route_leak_possible =
+			vrf_route_leak_possible(VRF_DEFAULT, zvrf->vrf->vrf_id,
+						&ifindex);
+		if (is_vrf_route_leak_possible == ROUTE_LEAK_VRF_NOT_POSSIBLE &&
+		    ifp) {
+			zlog_warn("Warning: interface %s does not fullfill all requirements"
+				  "Check the doc/developer/vrf-netns-route-leak.rst",
+				  zvrf->vrf->name);
+		}
+	} else
 		ifp = if_lookup_by_name("lo", VRF_DEFAULT);
 
 	if (!ifp) {
