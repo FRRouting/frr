@@ -1708,6 +1708,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-isisd:isis/instance/is-type",
 			.cbs.modify = isis_instance_is_type_modify,
+			.cbs.cli_show = cli_show_isis_is_type,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/area-address",

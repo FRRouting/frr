@@ -322,6 +322,67 @@ void cli_show_isis_area_address(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " net %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/is-type
+ */
+DEFPY(is_type, is_type_cmd, "is-type <level-1|level-1-2|level-2-only>$level",
+      "IS Level for this routing process (OSI only)\n"
+      "Act as a station router only\n"
+      "Act as both a station router and an area router\n"
+      "Act as an area router only\n")
+{
+	nb_cli_enqueue_change(vty, "./is-type", NB_OP_MODIFY,
+			      strmatch(level, "level-2-only") ? "level-2"
+							      : level);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_is_type, no_is_type_cmd,
+      "no is-type [<level-1|level-1-2|level-2-only>]",
+      NO_STR
+      "IS Level for this routing process (OSI only)\n"
+      "Act as a station router only\n"
+      "Act as both a station router and an area router\n"
+      "Act as an area router only\n")
+{
+	const char *value = NULL;
+	const struct lyd_node *dnode =
+		yang_dnode_get(running_config->dnode, VTY_CURR_XPATH);
+	struct isis_area *area = yang_dnode_get_entry(dnode, false);
+
+	/*
+	 * Put the is-type back to defaults:
+	 * - level-1-2 on first area
+	 * - level-1 for the rest
+	 */
+	if (area && listgetdata(listhead(isis->area_list)) == area)
+		value = "level-1-2";
+	else
+		value = NULL;
+	nb_cli_enqueue_change(vty, "./is-type", NB_OP_MODIFY, value);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_is_type(struct vty *vty, struct lyd_node *dnode,
+			   bool show_defaults)
+{
+	int is_type = yang_dnode_get_enum(dnode, NULL);
+
+	switch (is_type) {
+	case IS_LEVEL_1:
+		vty_out(vty, " is-type level-1\n");
+		break;
+	case IS_LEVEL_2:
+		vty_out(vty, " is-type level-2-only\n");
+		break;
+	case IS_LEVEL_1_AND_2:
+		vty_out(vty, " is-type level-1-2\n");
+		break;
+	}
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -332,6 +393,9 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &no_ip_router_isis_cmd);
 
 	install_element(ISIS_NODE, &net_cmd);
+
+	install_element(ISIS_NODE, &is_type_cmd);
+	install_element(ISIS_NODE, &no_is_type_cmd);
 }
 
 #endif /* ifndef FABRICD */

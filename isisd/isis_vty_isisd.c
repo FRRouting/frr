@@ -605,56 +605,6 @@ DEFUN (no_dynamic_hostname,
 	return CMD_SUCCESS;
 }
 
-DEFUN (is_type,
-       is_type_cmd,
-       "is-type <level-1|level-1-2|level-2-only>",
-       "IS Level for this routing process (OSI only)\n"
-       "Act as a station router only\n"
-       "Act as both a station router and an area router\n"
-       "Act as an area router only\n")
-{
-	int idx_level = 1;
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-	int type;
-
-	type = string2circuit_t(argv[idx_level]->arg);
-	if (!type) {
-		vty_out(vty, "Unknown IS level \n");
-		return CMD_SUCCESS;
-	}
-
-	isis_area_is_type_set(area, type);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_is_type,
-       no_is_type_cmd,
-       "no is-type <level-1|level-1-2|level-2-only>",
-       NO_STR
-       "IS Level for this routing process (OSI only)\n"
-       "Act as a station router only\n"
-       "Act as both a station router and an area router\n"
-       "Act as an area router only\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-	int type;
-
-	/*
-	 * Put the is-type back to defaults:
-	 * - level-1-2 on first area
-	 * - level-1 for the rest
-	 */
-	if (listgetdata(listhead(isis->area_list)) == area)
-		type = IS_LEVEL_1_AND_2;
-	else
-		type = IS_LEVEL_1;
-
-	isis_area_is_type_set(area, type);
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (lsp_gen_interval_level,
        lsp_gen_interval_level_cmd,
        "lsp-gen-interval <level-1|level-2> (1-120)",
@@ -837,9 +787,6 @@ void isis_vty_daemon_init(void)
 
 	install_element(ROUTER_NODE, &dynamic_hostname_cmd);
 	install_element(ROUTER_NODE, &no_dynamic_hostname_cmd);
-
-	install_element(ROUTER_NODE, &is_type_cmd);
-	install_element(ROUTER_NODE, &no_is_type_cmd);
 
 	install_element(ROUTER_NODE, &lsp_gen_interval_level_cmd);
 	install_element(ROUTER_NODE, &no_lsp_gen_interval_level_cmd);
