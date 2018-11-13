@@ -43,5 +43,7 @@ void cli_show_isis_area_pwd(struct vty *vty, struct lyd_node *dnode,
 			    bool show_defaults);
 void cli_show_isis_domain_pwd(struct vty *vty, struct lyd_node *dnode,
 			      bool show_defaults);
+void cli_show_isis_lsp_gen_interval(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults);
 
 #endif /* ISISD_ISIS_CLI_H_ */

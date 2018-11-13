@@ -579,6 +579,58 @@ void cli_show_isis_domain_pwd(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/lsp/generation-interval
+ */
+DEFPY(lsp_gen_interval, lsp_gen_interval_cmd,
+      "lsp-gen-interval [level-1|level-2]$level (1-120)$val",
+      "Minimum interval between regenerating same LSP\n"
+      "Set interval for level 1 only\n"
+      "Set interval for level 2 only\n"
+      "Minimum interval in seconds\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(vty, "./lsp/generation-interval/level-1",
+				      NB_OP_MODIFY, val_str);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(vty, "./lsp/generation-interval/level-2",
+				      NB_OP_MODIFY, val_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_lsp_gen_interval, no_lsp_gen_interval_cmd,
+      "no lsp-gen-interval [level-1|level-2]$level [(1-120)]",
+      NO_STR
+      "Minimum interval between regenerating same LSP\n"
+      "Set interval for level 1 only\n"
+      "Set interval for level 2 only\n"
+      "Minimum interval in seconds\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(vty, "./lsp/generation-interval/level-1",
+				      NB_OP_MODIFY, NULL);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(vty, "./lsp/generation-interval/level-2",
+				      NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_lsp_gen_interval(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
+	const char *l2 = yang_dnode_get_string(dnode, "./level-2");
+
+	if (strmatch(l1, l2))
+		vty_out(vty, " lsp-gen-interval %s\n", l1);
+	else {
+		vty_out(vty, " lsp-gen-interval level-1 %s\n", l1);
+		vty_out(vty, " lsp-gen-interval level-2 %s\n", l2);
+	}
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -604,6 +656,9 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &area_passwd_cmd);
 	install_element(ISIS_NODE, &domain_passwd_cmd);
 	install_element(ISIS_NODE, &no_area_passwd_cmd);
+
+	install_element(ISIS_NODE, &lsp_gen_interval_cmd);
+	install_element(ISIS_NODE, &no_lsp_gen_interval_cmd);
 }
 
 #endif /* ifndef FABRICD */

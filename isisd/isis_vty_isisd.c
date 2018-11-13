@@ -465,35 +465,6 @@ DEFUN (no_psnp_interval_level,
 	return CMD_SUCCESS;
 }
 
-DEFUN (lsp_gen_interval_level,
-       lsp_gen_interval_level_cmd,
-       "lsp-gen-interval <level-1|level-2> (1-120)",
-       "Minimum interval between regenerating same LSP\n"
-       "Set interval for level 1 only\n"
-       "Set interval for level 2 only\n"
-       "Minimum interval in seconds\n")
-{
-	uint16_t interval = atoi(argv[2]->arg);
-
-	return isis_vty_lsp_gen_interval_set(vty, level_for_arg(argv[1]->text),
-					     interval);
-}
-
-DEFUN (no_lsp_gen_interval_level,
-       no_lsp_gen_interval_level_cmd,
-       "no lsp-gen-interval <level-1|level-2> [(1-120)]",
-       NO_STR
-       "Minimum interval between regenerating same LSP\n"
-       "Set interval for level 1 only\n"
-       "Set interval for level 2 only\n"
-       "Minimum interval in seconds\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-
-	return isis_vty_lsp_gen_interval_set(vty, level_for_arg(argv[2]->text),
-					     DEFAULT_MIN_LSP_GEN_INTERVAL);
-}
-
 DEFUN (max_lsp_lifetime_level,
        max_lsp_lifetime_level_cmd,
        "max-lsp-lifetime <level-1|level-2> (350-65535)",
@@ -612,9 +583,6 @@ void isis_vty_daemon_init(void)
 
 	install_element(INTERFACE_NODE, &psnp_interval_level_cmd);
 	install_element(INTERFACE_NODE, &no_psnp_interval_level_cmd);
-
-	install_element(ROUTER_NODE, &lsp_gen_interval_level_cmd);
-	install_element(ROUTER_NODE, &no_lsp_gen_interval_level_cmd);
 
 	install_element(ROUTER_NODE, &max_lsp_lifetime_level_cmd);
 	install_element(ROUTER_NODE, &no_max_lsp_lifetime_level_cmd);

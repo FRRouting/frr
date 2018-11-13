@@ -499,57 +499,6 @@ DEFUN (area_purge_originator,
 	return CMD_SUCCESS;
 }
 
-int isis_vty_lsp_gen_interval_set(struct vty *vty, int level, uint16_t interval)
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-	int lvl;
-
-	for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl) {
-		if (!(lvl & level))
-			continue;
-
-		if (interval >= area->lsp_refresh[lvl - 1]) {
-			vty_out(vty,
-				"LSP gen interval %us must be less than "
-				"the LSP refresh interval %us\n",
-				interval, area->lsp_refresh[lvl - 1]);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl) {
-		if (!(lvl & level))
-			continue;
-		area->lsp_gen_interval[lvl - 1] = interval;
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (lsp_gen_interval,
-       lsp_gen_interval_cmd,
-       "lsp-gen-interval (1-120)",
-       "Minimum interval between regenerating same LSP\n"
-       "Minimum interval in seconds\n")
-{
-	uint16_t interval = atoi(argv[1]->arg);
-
-	return isis_vty_lsp_gen_interval_set(vty, IS_LEVEL_1_AND_2, interval);
-}
-
-DEFUN (no_lsp_gen_interval,
-       no_lsp_gen_interval_cmd,
-       "no lsp-gen-interval [(1-120)]",
-       NO_STR
-       "Minimum interval between regenerating same LSP\n"
-       "Minimum interval in seconds\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-
-	return isis_vty_lsp_gen_interval_set(vty, IS_LEVEL_1_AND_2,
-					     DEFAULT_MIN_LSP_GEN_INTERVAL);
-}
-
 DEFUN (spf_interval,
        spf_interval_cmd,
        "spf-interval (1-120)",
@@ -793,9 +742,6 @@ void isis_vty_init(void)
 	install_element(ROUTER_NODE, &no_area_lsp_mtu_cmd);
 
 	install_element(ROUTER_NODE, &area_purge_originator_cmd);
-
-	install_element(ROUTER_NODE, &lsp_gen_interval_cmd);
-	install_element(ROUTER_NODE, &no_lsp_gen_interval_cmd);
 
 	install_element(ROUTER_NODE, &spf_interval_cmd);
 	install_element(ROUTER_NODE, &no_spf_interval_cmd);

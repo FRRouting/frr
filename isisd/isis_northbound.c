@@ -420,7 +420,16 @@ static int isis_instance_lsp_generation_interval_level_1_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	uint16_t gen_int;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	gen_int = yang_dnode_get_uint16(dnode, NULL);
+	area = yang_dnode_get_entry(dnode, true);
+	area->lsp_gen_interval[0] = gen_int;
+
 	return NB_OK;
 }
 
@@ -431,7 +440,16 @@ static int isis_instance_lsp_generation_interval_level_2_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	uint16_t gen_int;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	gen_int = yang_dnode_get_uint16(dnode, NULL);
+	area = yang_dnode_get_entry(dnode, true);
+	area->lsp_gen_interval[1] = gen_int;
+
 	return NB_OK;
 }
 
@@ -1860,6 +1878,10 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/maximum-lifetime/level-2",
 			.cbs.modify = isis_instance_lsp_maximum_lifetime_level_2_modify,
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/lsp/generation-interval",
+			.cbs.cli_show = cli_show_isis_lsp_gen_interval,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/generation-interval/level-1",
