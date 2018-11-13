@@ -21,5 +21,11 @@
 #define ISISD_ISIS_CLI_H_
 
 /* add cli_show declarations here as externs */
+void cli_show_router_isis(struct vty *vty, struct lyd_node *dnode,
+			  bool show_defaults);
+void cli_show_ip_isis_ipv4(struct vty *vty, struct lyd_node *dnode,
+			   bool show_defaults);
+void cli_show_ip_isis_ipv6(struct vty *vty, struct lyd_node *dnode,
+			   bool show_defaults);
 
 #endif /* ISISD_ISIS_CLI_H_ */

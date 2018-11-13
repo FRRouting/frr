@@ -29,6 +29,7 @@
 #include "isisd/isis_tlvs.h"
 #include "isisd/isis_misc.h"
 #include "isisd/isis_lsp.h"
+#include "isisd/isis_csm.h"
 
 DEFUN (fabric_tier,
        fabric_tier_cmd,
@@ -181,6 +182,109 @@ DEFUN (show_lsp_flooding,
 	return CMD_SUCCESS;
 }
 
+DEFUN (ip_router_isis,
+       ip_router_isis_cmd,
+       "ip router " PROTO_NAME " WORD",
+       "Interface Internet Protocol config commands\n"
+       "IP router interface commands\n"
+       PROTO_HELP
+       "Routing process tag\n")
+{
+	int idx_afi = 0;
+	int idx_word = 3;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit;
+	struct isis_area *area;
+	const char *af = argv[idx_afi]->arg;
+	const char *area_tag = argv[idx_word]->arg;
+
+	/* Prevent more than one area per circuit */
+	circuit = circuit_scan_by_ifp(ifp);
+	if (circuit && circuit->area) {
+		if (strcmp(circuit->area->area_tag, area_tag)) {
+			vty_out(vty, "ISIS circuit is already defined on %s\n",
+				circuit->area->area_tag);
+			return CMD_ERR_NOTHING_TODO;
+		}
+	}
+
+	area = isis_area_lookup(area_tag);
+	if (!area)
+		area = isis_area_create(area_tag);
+
+	if (!circuit || !circuit->area) {
+		circuit = isis_circuit_create(area, ifp);
+
+		if (circuit->state != C_STATE_CONF
+		    && circuit->state != C_STATE_UP) {
+			vty_out(vty,
+				"Couldn't bring up interface, please check log.\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	bool ip = circuit->ip_router, ipv6 = circuit->ipv6_router;
+	if (af[2] != '\0')
+		ipv6 = true;
+	else
+		ip = true;
+
+	isis_circuit_af_set(circuit, ip, ipv6);
+	return CMD_SUCCESS;
+}
+
+DEFUN (ip6_router_isis,
+       ip6_router_isis_cmd,
+       "ipv6 router " PROTO_NAME " WORD",
+       "Interface Internet Protocol config commands\n"
+       "IP router interface commands\n"
+       PROTO_HELP
+       "Routing process tag\n")
+{
+	return ip_router_isis(self, vty, argc, argv);
+}
+
+DEFUN (no_ip_router_isis,
+       no_ip_router_isis_cmd,
+       "no <ip|ipv6> router " PROTO_NAME " WORD",
+       NO_STR
+       "Interface Internet Protocol config commands\n"
+       "IP router interface commands\n"
+       "IP router interface commands\n"
+       PROTO_HELP
+       "Routing process tag\n")
+{
+	int idx_afi = 1;
+	int idx_word = 4;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+	const char *af = argv[idx_afi]->arg;
+	const char *area_tag = argv[idx_word]->arg;
+
+	area = isis_area_lookup(area_tag);
+	if (!area) {
+		vty_out(vty, "Can't find ISIS instance %s\n",
+			area_tag);
+		return CMD_ERR_NO_MATCH;
+	}
+
+	circuit = circuit_lookup_by_ifp(ifp, area->circuit_list);
+	if (!circuit) {
+		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
+		return CMD_ERR_NO_MATCH;
+	}
+
+	bool ip = circuit->ip_router, ipv6 = circuit->ipv6_router;
+	if (af[2] != '\0')
+		ipv6 = false;
+	else
+		ip = false;
+
+	isis_circuit_af_set(circuit, ip, ipv6);
+	return CMD_SUCCESS;
+}
+
 void isis_vty_daemon_init(void)
 {
 	install_element(ROUTER_NODE, &fabric_tier_cmd);
@@ -189,4 +293,8 @@ void isis_vty_daemon_init(void)
 	install_element(ROUTER_NODE, &no_triggered_csnp_cmd);
 
 	install_element(ENABLE_NODE, &show_lsp_flooding_cmd);
+
+	install_element(INTERFACE_NODE, &ip_router_isis_cmd);
+	install_element(INTERFACE_NODE, &ip6_router_isis_cmd);
+	install_element(INTERFACE_NODE, &no_ip_router_isis_cmd);
 }

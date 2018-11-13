@@ -54,14 +54,35 @@ static int isis_instance_create(enum nb_event event,
 				const struct lyd_node *dnode,
 				union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	const char *area_tag;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area_tag = yang_dnode_get_string(dnode, "./area-tag");
+	area = isis_area_lookup(area_tag);
+	if (area)
+		return NB_ERR_INCONSISTENCY;
+
+	area = isis_area_create(area_tag);
+	/* save area in dnode to avoid looking it up all the time */
+	yang_dnode_set_entry(dnode, area);
+
 	return NB_OK;
 }
 
 static int isis_instance_delete(enum nb_event event,
 				const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	const char *area_tag;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area_tag = yang_dnode_get_string(dnode, "./area-tag");
+	isis_area_destroy(area_tag);
+
 	return NB_OK;
 }
 
@@ -72,7 +93,16 @@ static int isis_instance_is_type_modify(enum nb_event event,
 					const struct lyd_node *dnode,
 					union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	int type;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	type = yang_dnode_get_enum(dnode, NULL);
+	isis_area_is_type_set(area, type);
+
 	return NB_OK;
 }
 
@@ -1003,14 +1033,63 @@ static int lib_interface_isis_create(enum nb_event event,
 				     const struct lyd_node *dnode,
 				     union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+	const char *area_tag = yang_dnode_get_string(dnode, "./area-tag");
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = isis_area_lookup(area_tag);
+	/* The area should have already be created. We are
+	 * setting the priority of the global isis area creation
+	 * slightly lower, so it should be executed first, but I
+	 * cannot rely on that so here I have to check.
+	 */
+	if (!area) {
+		flog_err(
+			EC_LIB_NB_CB_CONFIG_APPLY,
+			"%s: attempt to create circuit for area %s before the area has been created",
+			__func__, area_tag);
+		abort();
+	}
+
+	ifp = yang_dnode_get_entry(dnode, true);
+	circuit = isis_circuit_create(area, ifp);
+	assert(circuit->state == C_STATE_CONF || circuit->state == C_STATE_UP);
+	yang_dnode_set_entry(dnode, circuit);
+
 	return NB_OK;
 }
 
 static int lib_interface_isis_delete(enum nb_event event,
 				     const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	if (!circuit)
+		return NB_ERR_INCONSISTENCY;
+	/* delete circuit through csm changes */
+	switch (circuit->state) {
+	case C_STATE_UP:
+		isis_csm_state_change(IF_DOWN_FROM_Z, circuit,
+				      circuit->interface);
+		isis_csm_state_change(ISIS_DISABLE, circuit, circuit->area);
+		break;
+	case C_STATE_CONF:
+		isis_csm_state_change(ISIS_DISABLE, circuit, circuit->area);
+		break;
+	case C_STATE_INIT:
+		isis_csm_state_change(IF_DOWN_FROM_Z, circuit,
+				      circuit->interface);
+		break;
+	}
+
 	return NB_OK;
 }
 
@@ -1021,7 +1100,32 @@ static int lib_interface_isis_area_tag_modify(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+	struct interface *ifp;
+	struct vrf *vrf;
+	const char *area_tag, *ifname, *vrfname;
+
+	if (event == NB_EV_VALIDATE) {
+		/* libyang doesn't like relative paths across module boundaries
+		 */
+		ifname = yang_dnode_get_string(dnode->parent->parent, "./name");
+		vrfname = yang_dnode_get_string(dnode->parent->parent, "./vrf");
+		vrf = vrf_lookup_by_name(vrfname);
+		assert(vrf);
+		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
+		if (!ifp)
+			return NB_OK;
+		circuit = circuit_lookup_by_ifp(ifp, isis->init_circ_list);
+		area_tag = yang_dnode_get_string(dnode, NULL);
+		if (circuit && circuit->area && circuit->area->area_tag
+		    && strcmp(circuit->area->area_tag, area_tag)) {
+			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
+				  "ISIS circuit is already defined on %s",
+				  circuit->area->area_tag);
+			return NB_ERR_VALIDATION;
+		}
+	}
+
 	return NB_OK;
 }
 
@@ -1032,7 +1136,42 @@ static int lib_interface_isis_circuit_type_modify(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	int circ_type = yang_dnode_get_enum(dnode, NULL);
+	struct isis_circuit *circuit;
+	struct interface *ifp;
+	struct vrf *vrf;
+	const char *ifname, *vrfname;
+
+	switch (event) {
+	case NB_EV_VALIDATE:
+		/* libyang doesn't like relative paths across module boundaries
+		 */
+		ifname = yang_dnode_get_string(dnode->parent->parent, "./name");
+		vrfname = yang_dnode_get_string(dnode->parent->parent, "./vrf");
+		vrf = vrf_lookup_by_name(vrfname);
+		assert(vrf);
+		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
+		if (!ifp)
+			break;
+		circuit = circuit_lookup_by_ifp(ifp, isis->init_circ_list);
+		if (circuit && circuit->state == C_STATE_UP
+		    && circuit->area->is_type != IS_LEVEL_1_AND_2
+		    && circuit->area->is_type != circ_type) {
+			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
+				  "Invalid circuit level for area %s",
+				  circuit->area->area_tag);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		circuit = yang_dnode_get_entry(dnode, true);
+		isis_circuit_is_type_set(circuit, circ_type);
+		break;
+	}
+
 	return NB_OK;
 }
 
@@ -1043,14 +1182,34 @@ static int lib_interface_isis_ipv4_routing_create(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	bool ipv6;
+	struct isis_circuit *circuit;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	ipv6 = yang_dnode_exists(dnode, "../ipv6-routing");
+	isis_circuit_af_set(circuit, true, ipv6);
+
 	return NB_OK;
 }
 
 static int lib_interface_isis_ipv4_routing_delete(enum nb_event event,
 						  const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	bool ipv6;
+	struct isis_circuit *circuit;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	if (circuit && circuit->area) {
+		ipv6 = yang_dnode_exists(dnode, "../ipv6-routing");
+		isis_circuit_af_set(circuit, false, ipv6);
+	}
+
 	return NB_OK;
 }
 
@@ -1061,14 +1220,34 @@ static int lib_interface_isis_ipv6_routing_create(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	bool ipv4;
+	struct isis_circuit *circuit;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	ipv4 = yang_dnode_exists(dnode, "../ipv6-routing");
+	isis_circuit_af_set(circuit, ipv4, true);
+
 	return NB_OK;
 }
 
 static int lib_interface_isis_ipv6_routing_delete(enum nb_event event,
 						  const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	bool ipv4;
+	struct isis_circuit *circuit;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	if (circuit->area) {
+		ipv4 = yang_dnode_exists(dnode, "../ipv4-routing");
+		isis_circuit_af_set(circuit, ipv4, false);
+	}
+
 	return NB_OK;
 }
 
@@ -1415,6 +1594,8 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance",
 			.cbs.create = isis_instance_create,
 			.cbs.delete = isis_instance_delete,
+			.cbs.cli_show = cli_show_router_isis,
+			.priority = NB_DFLT_PRIORITY - 1,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/is-type",
@@ -1705,11 +1886,13 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/ipv4-routing",
 			.cbs.create = lib_interface_isis_ipv4_routing_create,
 			.cbs.delete = lib_interface_isis_ipv4_routing_delete,
+			.cbs.cli_show = cli_show_ip_isis_ipv4,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/ipv6-routing",
 			.cbs.create = lib_interface_isis_ipv6_routing_create,
 			.cbs.delete = lib_interface_isis_ipv6_routing_delete,
+			.cbs.cli_show = cli_show_ip_isis_ipv6,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/csnp-interval/level-1",

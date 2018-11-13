@@ -36,6 +36,7 @@
 #include "table.h"
 #include "qobj.h"
 #include "spf_backoff.h"
+#include "lib/northbound_cli.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
@@ -67,7 +68,6 @@ DEFINE_QOBJ_TYPE(isis_area)
  * Prototypes.
  */
 int isis_area_get(struct vty *, const char *);
-int isis_area_destroy(struct vty *, const char *);
 int area_net_title(struct vty *, const char *);
 int area_clear_net_title(struct vty *, const char *);
 int show_isis_interface_common(struct vty *, const char *ifname, char);
@@ -207,7 +207,7 @@ int isis_area_get(struct vty *vty, const char *area_tag)
 	return CMD_SUCCESS;
 }
 
-int isis_area_destroy(struct vty *vty, const char *area_tag)
+int isis_area_destroy(const char *area_tag)
 {
 	struct isis_area *area;
 	struct listnode *node, *nnode;
@@ -217,7 +217,8 @@ int isis_area_destroy(struct vty *vty, const char *area_tag)
 	area = isis_area_lookup(area_tag);
 
 	if (area == NULL) {
-		vty_out(vty, "Can't find ISIS instance \n");
+		zlog_warn("%s: could not find area with area-tag %s",
+				__func__, area_tag);
 		return CMD_ERR_NO_MATCH;
 	}
 
@@ -1452,12 +1453,13 @@ DEFUN (show_database,
 	return show_isis_database(vty, id, uilevel);
 }
 
+#ifdef FABRICD
 /*
- * 'router isis' command
+ * 'router openfabric' command
  */
-DEFUN_NOSH (router_isis,
-       router_isis_cmd,
-       "router " PROTO_NAME " WORD",
+DEFUN_NOSH (router_openfabric,
+       router_openfabric_cmd,
+       "router openfabric WORD",
        ROUTER_STR
        PROTO_HELP
        "ISO Routing area tag\n")
@@ -1467,20 +1469,20 @@ DEFUN_NOSH (router_isis,
 }
 
 /*
- *'no router isis' command
+ *'no router openfabric' command
  */
-DEFUN (no_router_isis,
-       no_router_isis_cmd,
-       "no router " PROTO_NAME " WORD",
+DEFUN (no_router_openfabric,
+       no_router_openfabric_cmd,
+       "no router openfabric WORD",
        NO_STR
        ROUTER_STR
        PROTO_HELP
        "ISO Routing area tag\n")
 {
 	int idx_word = 3;
-	return isis_area_destroy(vty, argv[idx_word]->arg);
+	return isis_area_destroy(argv[idx_word]->arg);
 }
-
+#endif /* ifdef FABRICD */
 /*
  * 'net' command
  */
@@ -2179,11 +2181,12 @@ void isis_init()
 	install_element(CONFIG_NODE, &debug_isis_bfd_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_bfd_cmd);
 
-	install_element(CONFIG_NODE, &router_isis_cmd);
-	install_element(CONFIG_NODE, &no_router_isis_cmd);
-
 	install_default(ROUTER_NODE);
 
+#ifdef FABRICD
+	install_element(CONFIG_NODE, &router_openfabric_cmd);
+	install_element(CONFIG_NODE, &no_router_openfabric_cmd);
+#endif /* ifdef FABRICD */
 	install_element(ROUTER_NODE, &net_cmd);
 	install_element(ROUTER_NODE, &no_net_cmd);
 

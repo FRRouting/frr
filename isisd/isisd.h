@@ -29,6 +29,7 @@
 #include "isisd/isis_common.h"
 #include "isisd/isis_redist.h"
 #include "isisd/isis_pdu_counter.h"
+#include "isisd/isis_circuit.h"
 #include "isis_flags.h"
 #include "dict.h"
 #include "isis_memory.h"
@@ -185,6 +186,7 @@ void isis_new(unsigned long);
 struct isis_area *isis_area_create(const char *);
 struct isis_area *isis_area_lookup(const char *);
 int isis_area_get(struct vty *vty, const char *area_tag);
+int isis_area_destroy(const char *area_tag);
 void print_debug(struct vty *, int, int);
 struct isis_lsp *lsp_for_arg(const char *argv, dict_t *lspdb);
 
