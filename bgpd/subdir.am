@@ -46,6 +46,7 @@ man8 += $(MANBUILD)/bgpd.8
 endif
 
 bgpd_libbgp_a_SOURCES = \
+	bgpd/bgp_addpath.c \
 	bgpd/bgp_advertise.c \
 	bgpd/bgp_aspath.c \
 	bgpd/bgp_attr.c \
@@ -115,6 +116,8 @@ bgpd_libbgp_a_SOURCES += \
 endif
 
 noinst_HEADERS += \
+	bgpd/bgp_addpath.h \
+	bgpd/bgp_addpath_types.h \
 	bgpd/bgp_advertise.h \
 	bgpd/bgp_aspath.h \
 	bgpd/bgp_attr.h \

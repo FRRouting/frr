@@ -64,8 +64,7 @@
 	 | PEER_FLAG_REMOVE_PRIVATE_AS_ALL                                     \
 	 | PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE                                 \
 	 | PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE                             \
-	 | PEER_FLAG_ADDPATH_TX_ALL_PATHS                                      \
-	 | PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS | PEER_FLAG_AS_OVERRIDE)
+	 | PEER_FLAG_AS_OVERRIDE)
 
 #define PEER_UPDGRP_CAP_FLAGS (PEER_CAP_AS4_RCV)
 
@@ -469,8 +468,6 @@ extern int update_group_clear_update_dbg(struct update_group *updgrp,
 
 extern void update_bgp_group_free(struct bgp *bgp);
 extern int bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi);
-extern int bgp_addpath_tx_path(struct peer *peer, afi_t afi, safi_t safi,
-			       struct bgp_path_info *pi);
 
 /*
  * Inline functions

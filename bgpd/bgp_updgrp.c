@@ -152,6 +152,7 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->af_cap[afi][safi] = src->af_cap[afi][safi];
 	dst->afc_nego[afi][safi] = src->afc_nego[afi][safi];
 	dst->orf_plist[afi][safi] = src->orf_plist[afi][safi];
+	dst->addpath_type[afi][safi] = src->addpath_type[afi][safi];
 	dst->local_as = src->local_as;
 	dst->change_local_as = src->change_local_as;
 	dst->shared_network = src->shared_network;
@@ -322,6 +323,7 @@ static unsigned int updgrp_hash_key_make(void *p)
 	key = jhash_1word(peer->sort, key); /* EBGP or IBGP */
 	key = jhash_1word((peer->flags & PEER_UPDGRP_FLAGS), key);
 	key = jhash_1word((flags & PEER_UPDGRP_AF_FLAGS), key);
+	key = jhash_1word((uint32_t)peer->addpath_type[afi][safi], key);
 	key = jhash_1word((peer->cap & PEER_UPDGRP_CAP_FLAGS), key);
 	key = jhash_1word((peer->af_cap[afi][safi] & PEER_UPDGRP_AF_CAP_FLAGS),
 			  key);
@@ -436,6 +438,9 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 	/* flags like route reflector client */
 	if ((flags1 & PEER_UPDGRP_AF_FLAGS) != (flags2 & PEER_UPDGRP_AF_FLAGS))
 		return false;
+
+	if (pe1->addpath_type[afi][safi] != pe2->addpath_type[afi][safi])
+		return 0;
 
 	if ((pe1->cap & PEER_UPDGRP_CAP_FLAGS)
 	    != (pe2->cap & PEER_UPDGRP_CAP_FLAGS))
@@ -1899,23 +1904,4 @@ int bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi)
 	return (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV)
 		&& CHECK_FLAG(peer->af_cap[afi][safi],
 			      PEER_CAP_ADDPATH_AF_RX_RCV));
-}
-
-/*
- * Return true if this is a path we should advertise due to a
- * configured addpath-tx knob
- */
-int bgp_addpath_tx_path(struct peer *peer, afi_t afi, safi_t safi,
-			struct bgp_path_info *pi)
-{
-	if (CHECK_FLAG(peer->af_flags[afi][safi],
-		       PEER_FLAG_ADDPATH_TX_ALL_PATHS))
-		return 1;
-
-	if (CHECK_FLAG(peer->af_flags[afi][safi],
-		       PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS)
-	    && CHECK_FLAG(pi->flags, BGP_PATH_DMED_SELECTED))
-		return 1;
-
-	return 0;
 }

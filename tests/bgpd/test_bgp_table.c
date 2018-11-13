@@ -28,6 +28,8 @@
 #include "bgpd/bgp_table.h"
 #include "linklist.h"
 
+/* Satisfy link requirements from including bgpd.h */
+struct zebra_privs_t bgpd_privs = {0};
 /*
  * test_node_t
  *

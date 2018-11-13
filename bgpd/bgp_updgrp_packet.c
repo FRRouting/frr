@@ -56,6 +56,7 @@
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_label.h"
+#include "bgpd/bgp_addpath.h"
 
 /********************
  * PRIVATE FUNCTIONS

@@ -72,6 +72,8 @@ enum lib_log_refs {
 	EC_LIB_SYSREPO_INIT,
 	EC_LIB_SYSREPO_DATA_CONVERT,
 	EC_LIB_LIBSYSREPO,
+	EC_LIB_ID_CONSISTENCY,
+	EC_LIB_ID_EXHAUST,
 };
 
 extern void lib_error_init(void);

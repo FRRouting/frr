@@ -51,6 +51,7 @@ check_PROGRAMS = \
 	tests/lib/test_heavy_thread \
 	tests/lib/test_heavy_wq \
 	tests/lib/test_heavy \
+	tests/lib/test_idalloc \
 	tests/lib/test_memory \
 	tests/lib/test_nexthop_iter \
 	tests/lib/test_privs \
@@ -198,6 +199,9 @@ tests_lib_test_heavy_wq_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_heavy_wq_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_heavy_wq_LDADD = $(ALL_TESTS_LDADD) -lm
 tests_lib_test_heavy_wq_SOURCES = tests/lib/test_heavy_wq.c tests/helpers/c/main.c
+tests_lib_test_idalloc_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_idalloc_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_idalloc_SOURCES = tests/lib/test_idalloc.c
 tests_lib_test_memory_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_memory_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_memory_LDADD = $(ALL_TESTS_LDADD)
