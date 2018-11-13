@@ -1034,10 +1034,17 @@ ripd_state_neighbors_neighbor_lookup_entry(const void *parent_list_entry,
 					   const struct yang_list_keys *keys)
 {
 	struct in_addr address;
+	struct rip_peer *peer;
+	struct listnode *node;
 
 	yang_str2ipv4(keys->key[0], &address);
 
-	return rip_peer_lookup(&address);
+	for (ALL_LIST_ELEMENTS_RO(peer_list, node, peer)) {
+		if (IPV4_ADDR_SAME(&peer->addr, &address))
+			return node;
+	}
+
+	return NULL;
 }
 
 /*
@@ -1047,7 +1054,8 @@ static struct yang_data *
 ripd_state_neighbors_neighbor_address_get_elem(const char *xpath,
 					       const void *list_entry)
 {
-	const struct rip_peer *peer = list_entry;
+	const struct listnode *node = list_entry;
+	const struct rip_peer *peer = listgetdata(node);
 
 	return yang_data_new_ipv4(xpath, &peer->addr);
 }
@@ -1070,7 +1078,8 @@ static struct yang_data *
 ripd_state_neighbors_neighbor_bad_packets_rcvd_get_elem(const char *xpath,
 							const void *list_entry)
 {
-	const struct rip_peer *peer = list_entry;
+	const struct listnode *node = list_entry;
+	const struct rip_peer *peer = listgetdata(node);
 
 	return yang_data_new_uint32(xpath, peer->recv_badpackets);
 }
@@ -1082,7 +1091,8 @@ static struct yang_data *
 ripd_state_neighbors_neighbor_bad_routes_rcvd_get_elem(const char *xpath,
 						       const void *list_entry)
 {
-	const struct rip_peer *peer = list_entry;
+	const struct listnode *node = list_entry;
+	const struct rip_peer *peer = listgetdata(node);
 
 	return yang_data_new_uint32(xpath, peer->recv_badroutes);
 }
@@ -1135,10 +1145,7 @@ ripd_state_routes_route_lookup_entry(const void *parent_list_entry,
 
 	route_unlock_node(rn);
 
-	/*
-	 * TODO: we need to handle ECMP properly.
-	 */
-	return listnode_head(rn->info);
+	return rn;
 }
 
 /*
@@ -1148,7 +1155,8 @@ static struct yang_data *
 ripd_state_routes_route_prefix_get_elem(const char *xpath,
 					const void *list_entry)
 {
-	const struct rip_info *rinfo = list_entry;
+	const struct route_node *rn = list_entry;
+	const struct rip_info *rinfo = listnode_head(rn->info);
 
 	return yang_data_new_ipv4p(xpath, &rinfo->rp->p);
 }
@@ -1160,7 +1168,8 @@ static struct yang_data *
 ripd_state_routes_route_next_hop_get_elem(const char *xpath,
 					  const void *list_entry)
 {
-	const struct rip_info *rinfo = list_entry;
+	const struct route_node *rn = list_entry;
+	const struct rip_info *rinfo = listnode_head(rn->info);
 
 	switch (rinfo->nh.type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -1178,7 +1187,8 @@ static struct yang_data *
 ripd_state_routes_route_interface_get_elem(const char *xpath,
 					   const void *list_entry)
 {
-	const struct rip_info *rinfo = list_entry;
+	const struct route_node *rn = list_entry;
+	const struct rip_info *rinfo = listnode_head(rn->info);
 
 	switch (rinfo->nh.type) {
 	case NEXTHOP_TYPE_IFINDEX:
@@ -1197,7 +1207,8 @@ static struct yang_data *
 ripd_state_routes_route_metric_get_elem(const char *xpath,
 					const void *list_entry)
 {
-	const struct rip_info *rinfo = list_entry;
+	const struct route_node *rn = list_entry;
+	const struct rip_info *rinfo = listnode_head(rn->info);
 
 	return yang_data_new_uint8(xpath, rinfo->metric);
 }
