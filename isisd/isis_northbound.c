@@ -361,7 +361,39 @@ static int isis_instance_lsp_mtu_modify(enum nb_event event,
 					const struct lyd_node *dnode,
 					union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct listnode *node;
+	struct isis_circuit *circuit;
+	uint16_t lsp_mtu = yang_dnode_get_uint16(dnode, NULL);
+	struct isis_area *area;
+
+	switch (event) {
+	case NB_EV_VALIDATE:
+		area = yang_dnode_get_entry(dnode, false);
+		if (!area)
+			break;
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+			if (circuit->state != C_STATE_INIT
+			    && circuit->state != C_STATE_UP)
+				continue;
+			if (lsp_mtu > isis_circuit_pdu_size(circuit)) {
+				flog_warn(
+					EC_LIB_NB_CB_CONFIG_VALIDATE,
+					"ISIS area contains circuit %s, which has a maximum PDU size of %zu",
+					circuit->interface->name,
+					isis_circuit_pdu_size(circuit));
+				return NB_ERR_VALIDATION;
+			}
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		area = yang_dnode_get_entry(dnode, true);
+		isis_area_lsp_mtu_set(area, lsp_mtu);
+		break;
+	}
+
 	return NB_OK;
 }
 
@@ -1898,6 +1930,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/mtu",
 			.cbs.modify = isis_instance_lsp_mtu_modify,
+			.cbs.cli_show = cli_show_isis_lsp_mtu,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/refresh-interval",

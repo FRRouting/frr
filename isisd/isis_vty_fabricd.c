@@ -544,6 +544,54 @@ DEFUN (no_max_lsp_lifetime,
 					     DEFAULT_LSP_LIFETIME);
 }
 
+
+static int isis_vty_lsp_mtu_set(struct vty *vty, unsigned int lsp_mtu)
+{
+	VTY_DECLVAR_CONTEXT(isis_area, area);
+	struct listnode *node;
+	struct isis_circuit *circuit;
+
+	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+		if (circuit->state != C_STATE_INIT
+		    && circuit->state != C_STATE_UP)
+			continue;
+		if (lsp_mtu > isis_circuit_pdu_size(circuit)) {
+			vty_out(vty,
+				"ISIS area contains circuit %s, which has a maximum PDU size of %zu.\n",
+				circuit->interface->name,
+				isis_circuit_pdu_size(circuit));
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	isis_area_lsp_mtu_set(area, lsp_mtu);
+	return CMD_SUCCESS;
+}
+
+DEFUN (area_lsp_mtu,
+       area_lsp_mtu_cmd,
+       "lsp-mtu (128-4352)",
+       "Configure the maximum size of generated LSPs\n"
+       "Maximum size of generated LSPs\n")
+{
+	int idx_number = 1;
+	unsigned int lsp_mtu;
+
+	lsp_mtu = strtoul(argv[idx_number]->arg, NULL, 10);
+
+	return isis_vty_lsp_mtu_set(vty, lsp_mtu);
+}
+
+DEFUN (no_area_lsp_mtu,
+       no_area_lsp_mtu_cmd,
+       "no lsp-mtu [(128-4352)]",
+       NO_STR
+       "Configure the maximum size of generated LSPs\n"
+       "Maximum size of generated LSPs\n")
+{
+	return isis_vty_lsp_mtu_set(vty, DEFAULT_LSP_MTU);
+}
+
 void isis_vty_daemon_init(void)
 {
 	install_element(ROUTER_NODE, &fabric_tier_cmd);
@@ -571,4 +619,7 @@ void isis_vty_daemon_init(void)
 
 	install_element(ROUTER_NODE, &max_lsp_lifetime_cmd);
 	install_element(ROUTER_NODE, &no_max_lsp_lifetime_cmd);
+
+	install_element(ROUTER_NODE, &area_lsp_mtu_cmd);
+	install_element(ROUTER_NODE, &no_area_lsp_mtu_cmd);
 }

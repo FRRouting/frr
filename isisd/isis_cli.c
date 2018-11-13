@@ -735,6 +735,34 @@ void cli_show_isis_lsp_max_lifetime(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/lsp/mtu
+ */
+DEFPY(area_lsp_mtu, area_lsp_mtu_cmd, "lsp-mtu (128-4352)$val",
+      "Configure the maximum size of generated LSPs\n"
+      "Maximum size of generated LSPs\n")
+{
+	nb_cli_enqueue_change(vty, "./lsp/mtu", NB_OP_MODIFY, val_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_area_lsp_mtu, no_area_lsp_mtu_cmd, "no lsp-mtu [(128-4352)]",
+      NO_STR
+      "Configure the maximum size of generated LSPs\n"
+      "Maximum size of generated LSPs\n")
+{
+	nb_cli_enqueue_change(vty, "./lsp/mtu", NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_lsp_mtu(struct vty *vty, struct lyd_node *dnode,
+			   bool show_defaults)
+{
+	vty_out(vty, " lsp-mtu %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -767,6 +795,8 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_lsp_refresh_interval_cmd);
 	install_element(ISIS_NODE, &max_lsp_lifetime_cmd);
 	install_element(ISIS_NODE, &no_max_lsp_lifetime_cmd);
+	install_element(ISIS_NODE, &area_lsp_mtu_cmd);
+	install_element(ISIS_NODE, &no_area_lsp_mtu_cmd);
 }
 
 #endif /* ifndef FABRICD */
