@@ -525,32 +525,6 @@ DEFUN (no_spf_interval_level,
 	return CMD_SUCCESS;
 }
 
-DEFUN (lsp_refresh_interval_level,
-       lsp_refresh_interval_level_cmd,
-       "lsp-refresh-interval <level-1|level-2> (1-65235)",
-       "LSP refresh interval\n"
-       "LSP refresh interval for Level 1 only\n"
-       "LSP refresh interval for Level 2 only\n"
-       "LSP refresh interval in seconds\n")
-{
-	uint16_t interval = atoi(argv[2]->arg);
-	return isis_vty_lsp_refresh_set(vty, level_for_arg(argv[1]->text),
-					interval);
-}
-
-DEFUN (no_lsp_refresh_interval_level,
-       no_lsp_refresh_interval_level_cmd,
-       "no lsp-refresh-interval <level-1|level-2> [(1-65235)]",
-       NO_STR
-       "LSP refresh interval\n"
-       "LSP refresh interval for Level 1 only\n"
-       "LSP refresh interval for Level 2 only\n"
-       "LSP refresh interval in seconds\n")
-{
-	return isis_vty_lsp_refresh_set(vty, level_for_arg(argv[2]->text),
-					DEFAULT_MAX_LSP_GEN_INTERVAL);
-}
-
 void isis_vty_daemon_init(void)
 {
 	install_element(INTERFACE_NODE, &isis_circuit_type_cmd);
@@ -589,7 +563,4 @@ void isis_vty_daemon_init(void)
 
 	install_element(ROUTER_NODE, &spf_interval_level_cmd);
 	install_element(ROUTER_NODE, &no_spf_interval_level_cmd);
-
-	install_element(ROUTER_NODE, &lsp_refresh_interval_level_cmd);
-	install_element(ROUTER_NODE, &no_lsp_refresh_interval_level_cmd);
 }

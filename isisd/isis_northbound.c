@@ -373,7 +373,16 @@ isis_instance_lsp_refresh_interval_level_1_modify(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	uint16_t refr_int;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	refr_int = yang_dnode_get_uint16(dnode, NULL);
+	area = yang_dnode_get_entry(dnode, true);
+	isis_area_lsp_refresh_set(area, IS_LEVEL_1, refr_int);
+
 	return NB_OK;
 }
 
@@ -385,7 +394,16 @@ isis_instance_lsp_refresh_interval_level_2_modify(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	uint16_t refr_int;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	refr_int = yang_dnode_get_uint16(dnode, NULL);
+	area = yang_dnode_get_entry(dnode, true);
+	isis_area_lsp_refresh_set(area, IS_LEVEL_2, refr_int);
+
 	return NB_OK;
 }
 
@@ -1862,6 +1880,10 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/mtu",
 			.cbs.modify = isis_instance_lsp_mtu_modify,
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/lsp/refresh-interval",
+			.cbs.cli_show = cli_show_isis_lsp_ref_interval,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/refresh-interval/level-1",

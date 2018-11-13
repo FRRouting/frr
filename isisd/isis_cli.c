@@ -631,6 +631,58 @@ void cli_show_isis_lsp_gen_interval(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/lsp/refresh-interval
+ */
+DEFPY(lsp_refresh_interval, lsp_refresh_interval_cmd,
+      "lsp-refresh-interval [level-1|level-2]$level (1-65235)$val",
+      "LSP refresh interval\n"
+      "LSP refresh interval for Level 1 only\n"
+      "LSP refresh interval for Level 2 only\n"
+      "LSP refresh interval in seconds\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(vty, "./lsp/refresh-interval/level-1",
+				      NB_OP_MODIFY, val_str);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(vty, "./lsp/refresh-interval/level-2",
+				      NB_OP_MODIFY, val_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_lsp_refresh_interval, no_lsp_refresh_interval_cmd,
+      "no lsp-refresh-interval [level-1|level-2]$level [(1-65235)]",
+      NO_STR
+      "LSP refresh interval\n"
+      "LSP refresh interval for Level 1 only\n"
+      "LSP refresh interval for Level 2 only\n"
+      "LSP refresh interval in seconds\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(vty, "./lsp/refresh-interval/level-1",
+				      NB_OP_MODIFY, NULL);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(vty, "./lsp/refresh-interval/level-2",
+				      NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_lsp_ref_interval(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
+	const char *l2 = yang_dnode_get_string(dnode, "./level-2");
+
+	if (strmatch(l1, l2))
+		vty_out(vty, " lsp-refresh-interval %s\n", l1);
+	else {
+		vty_out(vty, " lsp-refresh-interval level-1 %s\n", l1);
+		vty_out(vty, " lsp-refresh-interval level-2 %s\n", l2);
+	}
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -659,6 +711,8 @@ void isis_cli_init(void)
 
 	install_element(ISIS_NODE, &lsp_gen_interval_cmd);
 	install_element(ISIS_NODE, &no_lsp_gen_interval_cmd);
+	install_element(ISIS_NODE, &lsp_refresh_interval_cmd);
+	install_element(ISIS_NODE, &no_lsp_refresh_interval_cmd);
 }
 
 #endif /* ifndef FABRICD */

@@ -419,6 +419,62 @@ DEFUN (no_lsp_gen_interval,
 	return isis_vty_lsp_gen_interval_set(vty, IS_LEVEL_1_AND_2,
 					     DEFAULT_MIN_LSP_GEN_INTERVAL);
 }
+
+static int
+isis_vty_lsp_refresh_set(struct vty *vty, int level, uint16_t interval)
+{
+	VTY_DECLVAR_CONTEXT(isis_area, area);
+	int lvl;
+
+	for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl) {
+		if (!(lvl & level))
+			continue;
+		if (interval <= area->lsp_gen_interval[lvl - 1]) {
+			vty_out(vty,
+				"LSP refresh interval %us must be greater than "
+				"the configured LSP gen interval %us\n",
+				interval, area->lsp_gen_interval[lvl - 1]);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (interval > (area->max_lsp_lifetime[lvl - 1] - 300)) {
+			vty_out(vty,
+				"LSP refresh interval %us must be less than "
+				"the configured LSP lifetime %us less 300\n",
+				interval, area->max_lsp_lifetime[lvl - 1]);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; ++lvl) {
+		if (!(lvl & level))
+			continue;
+		isis_area_lsp_refresh_set(area, lvl, interval);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (lsp_refresh_interval,
+       lsp_refresh_interval_cmd,
+       "lsp-refresh-interval (1-65235)",
+       "LSP refresh interval\n"
+       "LSP refresh interval in seconds\n")
+{
+	unsigned int interval = atoi(argv[1]->arg);
+	return isis_vty_lsp_refresh_set(vty, IS_LEVEL_1_AND_2, interval);
+}
+
+DEFUN (no_lsp_refresh_interval,
+       no_lsp_refresh_interval_cmd,
+       "no lsp-refresh-interval [(1-65235)]",
+       NO_STR
+       "LSP refresh interval\n"
+       "LSP refresh interval in seconds\n")
+{
+	return isis_vty_lsp_refresh_set(vty, IS_LEVEL_1_AND_2,
+					DEFAULT_MAX_LSP_GEN_INTERVAL);
+}
+
 void isis_vty_daemon_init(void)
 {
 	install_element(ROUTER_NODE, &fabric_tier_cmd);
@@ -440,4 +496,7 @@ void isis_vty_daemon_init(void)
 
 	install_element(ROUTER_NODE, &lsp_gen_interval_cmd);
 	install_element(ROUTER_NODE, &no_lsp_gen_interval_cmd);
+
+	install_element(ROUTER_NODE, &lsp_refresh_interval_cmd);
+	install_element(ROUTER_NODE, &no_lsp_refresh_interval_cmd);
 }
