@@ -71,6 +71,11 @@ static const char *yang_module_imp_clb(const char *mod_name,
 	return NULL;
 }
 
+static const char * const frr_native_modules[] = {
+	"frr-interface",
+	"frr-ripd",
+};
+
 /* Generate the yang_modules tree. */
 static inline int yang_module_compare(const struct yang_module *a,
 				      const struct yang_module *b)
@@ -106,6 +111,12 @@ struct yang_module *yang_module_load(const char *module_name)
 	}
 
 	return module;
+}
+
+void yang_module_load_all(void)
+{
+	for (size_t i = 0; i < array_size(frr_native_modules); i++)
+		yang_module_load(frr_native_modules[i]);
 }
 
 struct yang_module *yang_module_find(const char *module_name)

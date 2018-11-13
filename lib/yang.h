@@ -115,6 +115,11 @@ extern struct yang_modules yang_modules;
 extern struct yang_module *yang_module_load(const char *module_name);
 
 /*
+ * Load all FRR native YANG models.
+ */
+extern void yang_module_load_all(void);
+
+/*
  * Find a YANG module by its name.
  *
  * module_name
