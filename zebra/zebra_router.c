@@ -133,6 +133,7 @@ struct route_table *zebra_router_get_table(struct zebra_vrf *zvrf,
 	info->zvrf = zvrf;
 	info->afi = afi;
 	info->safi = safi;
+	info->table_id = tableid;
 	route_table_set_info(zrt->table, info);
 	zrt->table->cleanup = zebra_rtable_node_cleanup;
 
