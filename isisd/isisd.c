@@ -1483,6 +1483,7 @@ DEFUN (no_router_openfabric,
 	return isis_area_destroy(argv[idx_word]->arg);
 }
 #endif /* ifdef FABRICD */
+#ifdef FABRICD
 /*
  * 'net' command
  */
@@ -1509,7 +1510,7 @@ DEFUN (no_net,
 	int idx_word = 2;
 	return area_clear_net_title(vty, argv[idx_word]->arg);
 }
-
+#endif /* ifdef FABRICD */
 DEFUN (isis_topology,
        isis_topology_cmd,
        "topology " ISIS_MT_NAMES " [overload]",
@@ -2187,9 +2188,10 @@ void isis_init()
 	install_element(CONFIG_NODE, &router_openfabric_cmd);
 	install_element(CONFIG_NODE, &no_router_openfabric_cmd);
 #endif /* ifdef FABRICD */
+#ifdef FABRICD
 	install_element(ROUTER_NODE, &net_cmd);
 	install_element(ROUTER_NODE, &no_net_cmd);
-
+#endif /* ifdef FABRICD */
 	install_element(ROUTER_NODE, &isis_topology_cmd);
 	install_element(ROUTER_NODE, &no_isis_topology_cmd);
 

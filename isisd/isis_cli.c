@@ -302,6 +302,26 @@ void cli_show_ip_isis_ipv6(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, "../area-tag"));
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/area-address
+ */
+DEFPY(net, net_cmd, "[no] net WORD",
+      "Remove an existing Network Entity Title for this process\n"
+      "A Network Entity Title for this process (OSI only)\n"
+      "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n")
+{
+	nb_cli_enqueue_change(vty, "./area-address",
+			      no ? NB_OP_DELETE : NB_OP_CREATE, net);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_area_address(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults)
+{
+	vty_out(vty, " net %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -310,6 +330,8 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &ip_router_isis_cmd);
 	install_element(INTERFACE_NODE, &ip6_router_isis_cmd);
 	install_element(INTERFACE_NODE, &no_ip_router_isis_cmd);
+
+	install_element(ISIS_NODE, &net_cmd);
 }
 
 #endif /* ifndef FABRICD */

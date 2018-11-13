@@ -30,6 +30,7 @@
 #include "isisd/isis_misc.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_csm.h"
+#include "isisd/isis_circuit.h"
 
 DEFUN (fabric_tier,
        fabric_tier_cmd,

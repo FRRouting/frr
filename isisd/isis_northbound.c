@@ -113,14 +113,122 @@ static int isis_instance_area_address_create(enum nb_event event,
 					     const struct lyd_node *dnode,
 					     union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	struct area_addr addr, *addrr = NULL, *addrp = NULL;
+	struct listnode *node;
+	uint8_t buff[255];
+	const char *net_title = yang_dnode_get_string(dnode, NULL);
+
+	switch (event) {
+	case NB_EV_VALIDATE:
+		addr.addr_len = dotformat2buff(buff, net_title);
+		memcpy(addr.area_addr, buff, addr.addr_len);
+		if (addr.area_addr[addr.addr_len - 1] != 0) {
+			flog_warn(
+				EC_LIB_NB_CB_CONFIG_VALIDATE,
+				"nsel byte (last byte) in area address must be 0");
+			return NB_ERR_VALIDATION;
+		}
+		if (isis->sysid_set) {
+			/* Check that the SystemID portions match */
+			if (memcmp(isis->sysid, GETSYSID((&addr)),
+				   ISIS_SYS_ID_LEN)) {
+				flog_warn(
+					EC_LIB_NB_CB_CONFIG_VALIDATE,
+					"System ID must not change when defining additional area addresses");
+				return NB_ERR_VALIDATION;
+			}
+		}
+		break;
+	case NB_EV_PREPARE:
+		addrr = XMALLOC(MTYPE_ISIS_AREA_ADDR, sizeof(struct area_addr));
+		addrr->addr_len = dotformat2buff(buff, net_title);
+		memcpy(addrr->area_addr, buff, addrr->addr_len);
+		resource->ptr = addrr;
+		break;
+	case NB_EV_ABORT:
+		XFREE(MTYPE_ISIS_AREA_ADDR, resource->ptr);
+		break;
+	case NB_EV_APPLY:
+		area = yang_dnode_get_entry(dnode, true);
+		addrr = resource->ptr;
+
+		if (isis->sysid_set == 0) {
+			/*
+			 * First area address - get the SystemID for this router
+			 */
+			memcpy(isis->sysid, GETSYSID(addrr), ISIS_SYS_ID_LEN);
+			isis->sysid_set = 1;
+		} else {
+			/* check that we don't already have this address */
+			for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node,
+						  addrp)) {
+				if ((addrp->addr_len + ISIS_SYS_ID_LEN
+				     + ISIS_NSEL_LEN)
+				    != (addrr->addr_len))
+					continue;
+				if (!memcmp(addrp->area_addr, addrr->area_addr,
+					    addrr->addr_len)) {
+					XFREE(MTYPE_ISIS_AREA_ADDR, addrr);
+					return NB_OK; /* silent fail */
+				}
+			}
+		}
+
+		/*Forget the systemID part of the address */
+		addrr->addr_len -= (ISIS_SYS_ID_LEN + ISIS_NSEL_LEN);
+		assert(area->area_addrs); /* to silence scan-build sillyness */
+		listnode_add(area->area_addrs, addrr);
+
+		/* only now we can safely generate our LSPs for this area */
+		if (listcount(area->area_addrs) > 0) {
+			if (area->is_type & IS_LEVEL_1)
+				lsp_generate(area, IS_LEVEL_1);
+			if (area->is_type & IS_LEVEL_2)
+				lsp_generate(area, IS_LEVEL_2);
+		}
+		break;
+	}
+
 	return NB_OK;
 }
 
 static int isis_instance_area_address_delete(enum nb_event event,
 					     const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct area_addr addr, *addrp = NULL;
+	struct listnode *node;
+	uint8_t buff[255];
+	struct isis_area *area;
+	const char *net_title;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	net_title = yang_dnode_get_string(dnode, NULL);
+	addr.addr_len = dotformat2buff(buff, net_title);
+	memcpy(addr.area_addr, buff, (int)addr.addr_len);
+	area = yang_dnode_get_entry(dnode, true);
+	for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node, addrp)) {
+		if ((addrp->addr_len + ISIS_SYS_ID_LEN + 1) == addr.addr_len
+		    && !memcmp(addrp->area_addr, addr.area_addr, addr.addr_len))
+			break;
+	}
+	if (!addrp)
+		return NB_ERR_INCONSISTENCY;
+
+	listnode_delete(area->area_addrs, addrp);
+	XFREE(MTYPE_ISIS_AREA_ADDR, addrp);
+	/*
+	 * Last area address - reset the SystemID for this router
+	 */
+	if (listcount(area->area_addrs) == 0) {
+		memset(isis->sysid, 0, ISIS_SYS_ID_LEN);
+		isis->sysid_set = 0;
+		if (isis->debugs & DEBUG_EVENTS)
+			zlog_debug("Router has no SystemID");
+	}
+
 	return NB_OK;
 }
 
@@ -1605,6 +1713,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/area-address",
 			.cbs.create = isis_instance_area_address_create,
 			.cbs.delete = isis_instance_area_address_delete,
+			.cbs.cli_show = cli_show_isis_area_address,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/dynamic-hostname",
