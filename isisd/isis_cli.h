@@ -31,5 +31,7 @@ void cli_show_isis_area_address(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults);
 void cli_show_isis_is_type(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults);
+void cli_show_isis_dynamic_hostname(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults);
 
 #endif /* ISISD_ISIS_CLI_H_ */

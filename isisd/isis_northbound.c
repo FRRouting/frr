@@ -239,7 +239,14 @@ static int isis_instance_dynamic_hostname_modify(enum nb_event event,
 						 const struct lyd_node *dnode,
 						 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	isis_area_dynhostname_set(area, yang_dnode_get_bool(dnode, NULL));
+
 	return NB_OK;
 }
 
@@ -1719,6 +1726,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-isisd:isis/instance/dynamic-hostname",
 			.cbs.modify = isis_instance_dynamic_hostname_modify,
+			.cbs.cli_show = cli_show_isis_dynamic_hostname,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/attached",

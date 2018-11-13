@@ -580,31 +580,6 @@ DEFUN (no_set_attached_bit,
 	return CMD_SUCCESS;
 }
 
-DEFUN (dynamic_hostname,
-       dynamic_hostname_cmd,
-       "hostname dynamic",
-       "Dynamic hostname for IS-IS\n"
-       "Dynamic hostname\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-
-	isis_area_dynhostname_set(area, true);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_dynamic_hostname,
-       no_dynamic_hostname_cmd,
-       "no hostname dynamic",
-       NO_STR
-       "Dynamic hostname for IS-IS\n"
-       "Dynamic hostname\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-
-	isis_area_dynhostname_set(area, false);
-	return CMD_SUCCESS;
-}
-
 DEFUN (lsp_gen_interval_level,
        lsp_gen_interval_level_cmd,
        "lsp-gen-interval <level-1|level-2> (1-120)",
@@ -784,9 +759,6 @@ void isis_vty_daemon_init(void)
 
 	install_element(ROUTER_NODE, &set_attached_bit_cmd);
 	install_element(ROUTER_NODE, &no_set_attached_bit_cmd);
-
-	install_element(ROUTER_NODE, &dynamic_hostname_cmd);
-	install_element(ROUTER_NODE, &no_dynamic_hostname_cmd);
 
 	install_element(ROUTER_NODE, &lsp_gen_interval_level_cmd);
 	install_element(ROUTER_NODE, &no_lsp_gen_interval_level_cmd);

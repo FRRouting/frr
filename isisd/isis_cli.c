@@ -383,6 +383,29 @@ void cli_show_isis_is_type(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/dynamic-hostname
+ */
+DEFPY(dynamic_hostname, dynamic_hostname_cmd, "[no] hostname dynamic",
+      NO_STR
+      "Dynamic hostname for IS-IS\n"
+      "Dynamic hostname\n")
+{
+	nb_cli_enqueue_change(vty, "./dynamic-hostname", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_dynamic_hostname(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " hostname dynamic\n");
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -396,6 +419,8 @@ void isis_cli_init(void)
 
 	install_element(ISIS_NODE, &is_type_cmd);
 	install_element(ISIS_NODE, &no_is_type_cmd);
+
+	install_element(ISIS_NODE, &dynamic_hostname_cmd);
 }
 
 #endif /* ifndef FABRICD */
