@@ -1149,6 +1149,32 @@ void ospf_interface_area_unset(struct ospf *ospf, struct interface *ifp)
 	update_redistributed(ospf, 0); /* interfaces possibly removed */
 }
 
+bool ospf_interface_area_is_already_set(struct ospf *ospf,
+					struct interface *ifp)
+{
+	struct route_node *rn_oi;
+
+	if (!ospf)
+		return false; /* Ospf not ready yet */
+
+	/* Find interfaces that may need to be removed. */
+	for (rn_oi = route_top(IF_OIFS(ifp)); rn_oi;
+	     rn_oi = route_next(rn_oi)) {
+		struct ospf_interface *oi = rn_oi->info;
+
+		if (oi == NULL)
+			continue;
+
+		if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+			continue;
+		/* at least one route covered by interface
+		 * that implies already done
+		 */
+		return true;
+	}
+	return false;
+}
+
 /* Check whether interface matches given network
  * returns: 1, true. 0, false
  */
