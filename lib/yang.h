@@ -98,6 +98,9 @@ enum yang_iter_flags {
 
 	/* Filter implicitely created nodes. */
 	YANG_ITER_FILTER_IMPLICIT = (1<<3),
+
+	/* Allow iteration over augmentations. */
+	YANG_ITER_ALLOW_AUGMENTATIONS = (1<<4),
 };
 
 /* Callback used by the yang_snodes_iterate_*() family of functions. */

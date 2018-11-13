@@ -272,8 +272,15 @@ int main(int argc, char *argv[])
 
 	yang_init();
 
-	/* Load YANG module. */
-	module = yang_module_load(argv[0]);
+	/* Load all FRR native models to ensure all augmentations are loaded. */
+	yang_module_load_all();
+	module = yang_module_find(argv[0]);
+	if (!module)
+		/* Non-native FRR module (e.g. modules from unit tests). */
+		module = yang_module_load(argv[0]);
+
+	/* Create a nb_node for all YANG schema nodes. */
+	nb_nodes_create();
 
 	/* Generate callback functions. */
 	yang_snodes_iterate_module(module->info, generate_callbacks, 0, NULL);
@@ -296,6 +303,7 @@ int main(int argc, char *argv[])
 	       "};\n");
 
 	/* Cleanup and exit. */
+	nb_nodes_delete();
 	yang_terminate();
 
 	return 0;

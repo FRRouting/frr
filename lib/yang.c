@@ -195,7 +195,8 @@ next:
 		return YANG_ITER_CONTINUE;
 
 	LY_TREE_FOR (snode->child, child) {
-		if (child->parent != snode)
+		if (!CHECK_FLAG(flags, YANG_ITER_ALLOW_AUGMENTATIONS)
+		    && child->parent != snode)
 			continue;
 
 		ret = yang_snodes_iterate_subtree(child, cb, flags, arg);

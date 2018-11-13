@@ -349,11 +349,16 @@ struct nb_node {
 	/* Pointer to the nearest parent list, if any. */
 	struct nb_node *parent_list;
 
+	/* Flags. */
+	uint8_t flags;
+
 #ifdef HAVE_CONFD
 	/* ConfD hash value corresponding to this YANG path. */
 	int confd_hash;
 #endif
 };
+/* The YANG container or list contains only config data. */
+#define F_NB_NODE_CONFIG_ONLY 0x01
 
 struct frr_yang_module_info {
 	/* YANG module name. */
@@ -434,6 +439,16 @@ DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 
 extern int debug_northbound;
 extern struct nb_config *running_config;
+
+/*
+ * Create a northbound node for all YANG schema nodes.
+ */
+void nb_nodes_create(void);
+
+/*
+ * Delete all northbound nodes from all YANG schema nodes.
+ */
+void nb_nodes_delete(void);
 
 /*
  * Find the northbound node corresponding to a YANG data path.

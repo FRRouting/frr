@@ -51,6 +51,18 @@ static int nb_transaction_process(enum nb_event event,
 				  struct nb_transaction *transaction);
 static void nb_transaction_apply_finish(struct nb_transaction *transaction);
 
+static int nb_node_check_config_only(const struct lys_node *snode, void *arg)
+{
+	bool *config_only = arg;
+
+	if (CHECK_FLAG(snode->flags, LYS_CONFIG_R)) {
+		*config_only = false;
+		return YANG_ITER_STOP;
+	}
+
+	return YANG_ITER_CONTINUE;
+}
+
 static int nb_node_new_cb(const struct lys_node *snode, void *arg)
 {
 	struct nb_node *nb_node;
@@ -66,6 +78,17 @@ static int nb_node_new_cb(const struct lys_node *snode, void *arg)
 	sparent_list = yang_snode_parent_list(snode);
 	if (sparent_list)
 		nb_node->parent_list = sparent_list->priv;
+
+	/* Set flags. */
+	if (CHECK_FLAG(snode->nodetype, LYS_CONTAINER | LYS_LIST)) {
+		bool config_only = true;
+
+		yang_snodes_iterate_subtree(snode, nb_node_check_config_only,
+					    YANG_ITER_ALLOW_AUGMENTATIONS,
+					    &config_only);
+		if (config_only)
+			SET_FLAG(nb_node->flags, F_NB_NODE_CONFIG_ONLY);
+	}
 
 	/*
 	 * Link the northbound node and the libyang schema node with one
@@ -86,6 +109,16 @@ static int nb_node_del_cb(const struct lys_node *snode, void *arg)
 	XFREE(MTYPE_NB_NODE, nb_node);
 
 	return YANG_ITER_CONTINUE;
+}
+
+void nb_nodes_create(void)
+{
+	yang_snodes_iterate_all(nb_node_new_cb, 0, NULL);
+}
+
+void nb_nodes_delete(void)
+{
+	yang_snodes_iterate_all(nb_node_del_cb, 0, NULL);
 }
 
 struct nb_node *nb_node_find(const char *xpath)
@@ -900,6 +933,7 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 bool nb_operation_is_valid(enum nb_operation operation,
 			   const struct lys_node *snode)
 {
+	struct nb_node *nb_node = snode->priv;
 	struct lys_node_container *scontainer;
 	struct lys_node_leaf *sleaf;
 
@@ -1017,11 +1051,10 @@ bool nb_operation_is_valid(enum nb_operation operation,
 	case NB_OP_GET_NEXT:
 	case NB_OP_GET_KEYS:
 	case NB_OP_LOOKUP_ENTRY:
-		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_R))
-			return false;
-
 		switch (snode->nodetype) {
 		case LYS_LIST:
+			if (CHECK_FLAG(nb_node->flags, F_NB_NODE_CONFIG_ONLY))
+				return false;
 			break;
 		default:
 			return false;
@@ -1170,7 +1203,7 @@ void nb_init(const struct frr_yang_module_info *modules[], size_t nmodules)
 		yang_module_load(modules[i]->name);
 
 	/* Create a nb_node for all YANG schema nodes. */
-	yang_snodes_iterate_all(nb_node_new_cb, 0, NULL);
+	nb_nodes_create();
 
 	/* Load northbound callbacks. */
 	for (size_t i = 0; i < nmodules; i++)
@@ -1205,7 +1238,7 @@ void nb_terminate(void)
 	nb_cli_terminate();
 
 	/* Delete all nb_node's from all YANG modules. */
-	yang_snodes_iterate_all(nb_node_del_cb, 0, NULL);
+	nb_nodes_delete();
 
 	/* Delete the running configuration. */
 	nb_config_free(running_config);
