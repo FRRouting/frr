@@ -537,18 +537,44 @@ isis_instance_spf_minimum_interval_level_2_modify(enum nb_event event,
 /*
  * XPath: /frr-isisd:isis/instance/area-password
  */
+static void area_password_apply_finish(const struct lyd_node *dnode)
+{
+	const char *password = yang_dnode_get_string(dnode, "./password");
+	struct isis_area *area = yang_dnode_get_entry(dnode, true);
+	int pass_type = yang_dnode_get_enum(dnode, "./password-type");
+	uint8_t snp_auth = yang_dnode_get_enum(dnode, "./authenticate-snp");
+
+	switch (pass_type) {
+	case ISIS_PASSWD_TYPE_CLEARTXT:
+		isis_area_passwd_cleartext_set(area, IS_LEVEL_1, password,
+					       snp_auth);
+		break;
+	case ISIS_PASSWD_TYPE_HMAC_MD5:
+		isis_area_passwd_hmac_md5_set(area, IS_LEVEL_1, password,
+					      snp_auth);
+		break;
+	}
+}
+
 static int isis_instance_area_password_create(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* actual setting is done in apply_finish */
 	return NB_OK;
 }
 
 static int isis_instance_area_password_delete(enum nb_event event,
 					      const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	isis_area_passwd_unset(area, IS_LEVEL_1);
+
 	return NB_OK;
 }
 
@@ -560,7 +586,7 @@ isis_instance_area_password_password_modify(enum nb_event event,
 					    const struct lyd_node *dnode,
 					    union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* actual setting is done in apply_finish */
 	return NB_OK;
 }
 
@@ -572,7 +598,7 @@ isis_instance_area_password_password_type_modify(enum nb_event event,
 						 const struct lyd_node *dnode,
 						 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* actual setting is done in apply_finish */
 	return NB_OK;
 }
 
@@ -583,25 +609,51 @@ static int isis_instance_area_password_authenticate_snp_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* actual setting is done in apply_finish */
 	return NB_OK;
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/domain-password
  */
+static void domain_password_apply_finish(const struct lyd_node *dnode)
+{
+	const char *password = yang_dnode_get_string(dnode, "./password");
+	struct isis_area *area = yang_dnode_get_entry(dnode, true);
+	int pass_type = yang_dnode_get_enum(dnode, "./password-type");
+	uint8_t snp_auth = yang_dnode_get_enum(dnode, "./authenticate-snp");
+
+	switch (pass_type) {
+	case ISIS_PASSWD_TYPE_CLEARTXT:
+		isis_area_passwd_cleartext_set(area, IS_LEVEL_2, password,
+					       snp_auth);
+		break;
+	case ISIS_PASSWD_TYPE_HMAC_MD5:
+		isis_area_passwd_hmac_md5_set(area, IS_LEVEL_2, password,
+					      snp_auth);
+		break;
+	}
+}
+
 static int isis_instance_domain_password_create(enum nb_event event,
 						const struct lyd_node *dnode,
 						union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* actual setting is done in apply_finish */
 	return NB_OK;
 }
 
 static int isis_instance_domain_password_delete(enum nb_event event,
 						const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	isis_area_passwd_unset(area, IS_LEVEL_2);
+
 	return NB_OK;
 }
 
@@ -613,7 +665,7 @@ isis_instance_domain_password_password_modify(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* actual setting is done in apply_finish */
 	return NB_OK;
 }
 
@@ -625,7 +677,7 @@ isis_instance_domain_password_password_type_modify(enum nb_event event,
 						   const struct lyd_node *dnode,
 						   union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* actual setting is done in apply_finish */
 	return NB_OK;
 }
 
@@ -636,7 +688,7 @@ static int isis_instance_domain_password_authenticate_snp_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* actual setting is done in apply_finish */
 	return NB_OK;
 }
 
@@ -1854,6 +1906,8 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/area-password",
 			.cbs.create = isis_instance_area_password_create,
 			.cbs.delete = isis_instance_area_password_delete,
+			.cbs.apply_finish = area_password_apply_finish,
+			.cbs.cli_show = cli_show_isis_area_pwd,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/area-password/password",
@@ -1871,6 +1925,8 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/domain-password",
 			.cbs.create = isis_instance_domain_password_create,
 			.cbs.delete = isis_instance_domain_password_delete,
+			.cbs.apply_finish = domain_password_apply_finish,
+			.cbs.cli_show = cli_show_isis_domain_pwd,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/domain-password/password",

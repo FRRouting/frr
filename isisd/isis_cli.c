@@ -490,6 +490,95 @@ void cli_show_isis_metric_style(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/area-password
+ */
+DEFPY(area_passwd, area_passwd_cmd,
+      "area-password <clear|md5>$pwd_type WORD$pwd [authenticate snp <send-only|validate>$snp]",
+      "Configure the authentication password for an area\n"
+      "Clear-text authentication type\n"
+      "MD5 authentication type\n"
+      "Level-wide password\n"
+      "Authentication\n"
+      "SNP PDUs\n"
+      "Send but do not check PDUs on receiving\n"
+      "Send and check PDUs on receiving\n")
+{
+	nb_cli_enqueue_change(vty, "./area-password", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./area-password/password", NB_OP_MODIFY,
+			      pwd);
+	nb_cli_enqueue_change(vty, "./area-password/password-type",
+			      NB_OP_MODIFY, pwd_type);
+	nb_cli_enqueue_change(vty, "./area-password/authenticate-snp",
+			      NB_OP_MODIFY, snp ? snp : "none");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_area_pwd(struct vty *vty, struct lyd_node *dnode,
+			    bool show_defaults)
+{
+	const char *snp;
+
+	vty_out(vty, " area-password %s %s",
+		yang_dnode_get_string(dnode, "./password-type"),
+		yang_dnode_get_string(dnode, "./password"));
+	snp = yang_dnode_get_string(dnode, "./authenticate-snp");
+	if (!strmatch("none", snp))
+		vty_out(vty, " authenticate snp %s", snp);
+	vty_out(vty, "\n");
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/domain-password
+ */
+DEFPY(domain_passwd, domain_passwd_cmd,
+      "domain-password <clear|md5>$pwd_type WORD$pwd [authenticate snp <send-only|validate>$snp]",
+      "Set the authentication password for a routing domain\n"
+      "Clear-text authentication type\n"
+      "MD5 authentication type\n"
+      "Level-wide password\n"
+      "Authentication\n"
+      "SNP PDUs\n"
+      "Send but do not check PDUs on receiving\n"
+      "Send and check PDUs on receiving\n")
+{
+	nb_cli_enqueue_change(vty, "./domain-password", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./domain-password/password", NB_OP_MODIFY,
+			      pwd);
+	nb_cli_enqueue_change(vty, "./domain-password/password-type",
+			      NB_OP_MODIFY, pwd_type);
+	nb_cli_enqueue_change(vty, "./domain-password/authenticate-snp",
+			      NB_OP_MODIFY, snp ? snp : "none");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_area_passwd, no_area_passwd_cmd,
+      "no <area-password|domain-password>$cmd",
+      NO_STR
+      "Configure the authentication password for an area\n"
+      "Set the authentication password for a routing domain\n")
+{
+	nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+
+	return nb_cli_apply_changes(vty, "./%s", cmd);
+}
+
+void cli_show_isis_domain_pwd(struct vty *vty, struct lyd_node *dnode,
+			      bool show_defaults)
+{
+	const char *snp;
+
+	vty_out(vty, " domain-password %s %s",
+		yang_dnode_get_string(dnode, "./password-type"),
+		yang_dnode_get_string(dnode, "./password"));
+	snp = yang_dnode_get_string(dnode, "./authenticate-snp");
+	if (!strmatch("none", snp))
+		vty_out(vty, " authenticate snp %s", snp);
+	vty_out(vty, "\n");
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -511,6 +600,10 @@ void isis_cli_init(void)
 
 	install_element(ISIS_NODE, &metric_style_cmd);
 	install_element(ISIS_NODE, &no_metric_style_cmd);
+
+	install_element(ISIS_NODE, &area_passwd_cmd);
+	install_element(ISIS_NODE, &domain_passwd_cmd);
+	install_element(ISIS_NODE, &no_area_passwd_cmd);
 }
 
 #endif /* ifndef FABRICD */

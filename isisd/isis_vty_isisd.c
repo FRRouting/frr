@@ -580,32 +580,6 @@ DEFUN (no_lsp_refresh_interval_level,
 					DEFAULT_MAX_LSP_GEN_INTERVAL);
 }
 
-DEFUN (area_passwd,
-       area_passwd_cmd,
-       "area-password <clear|md5> WORD [authenticate snp <send-only|validate>]",
-       "Configure the authentication password for an area\n"
-       "Authentication type\n"
-       "Authentication type\n"
-       "Area password\n"
-       "Authentication\n"
-       "SNP PDUs\n"
-       "Send but do not check PDUs on receiving\n"
-       "Send and check PDUs on receiving\n")
-{
-	return isis_vty_password_set(vty, argc, argv, IS_LEVEL_1);
-}
-
-DEFUN (no_area_passwd,
-       no_area_passwd_cmd,
-       "no area-password",
-       NO_STR
-       "Configure the authentication password for an area\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-
-	return isis_area_passwd_unset(area, IS_LEVEL_1);
-}
-
 void isis_vty_daemon_init(void)
 {
 	install_element(INTERFACE_NODE, &isis_circuit_type_cmd);
@@ -650,7 +624,4 @@ void isis_vty_daemon_init(void)
 
 	install_element(ROUTER_NODE, &lsp_refresh_interval_level_cmd);
 	install_element(ROUTER_NODE, &no_lsp_refresh_interval_level_cmd);
-
-	install_element(ROUTER_NODE, &area_passwd_cmd);
-	install_element(ROUTER_NODE, &no_area_passwd_cmd);
 }

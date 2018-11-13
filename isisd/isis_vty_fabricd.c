@@ -309,6 +309,65 @@ DEFUN (no_set_overload_bit,
 	return CMD_SUCCESS;
 }
 
+static int isis_vty_password_set(struct vty *vty, int argc,
+			  struct cmd_token *argv[], int level)
+{
+	VTY_DECLVAR_CONTEXT(isis_area, area);
+
+	int idx_algo = 1;
+	int idx_password = 2;
+	int idx_snp_auth = 5;
+	uint8_t snp_auth = 0;
+
+	const char *passwd = argv[idx_password]->arg;
+	if (strlen(passwd) > 254) {
+		vty_out(vty, "Too long area password (>254)\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (argc > idx_snp_auth) {
+		snp_auth = SNP_AUTH_SEND;
+		if (strmatch(argv[idx_snp_auth]->text, "validate"))
+			snp_auth |= SNP_AUTH_RECV;
+	}
+
+	if (strmatch(argv[idx_algo]->text, "clear")) {
+		return isis_area_passwd_cleartext_set(area, level,
+						      passwd, snp_auth);
+	} else if (strmatch(argv[idx_algo]->text, "md5")) {
+		return isis_area_passwd_hmac_md5_set(area, level,
+						     passwd, snp_auth);
+	}
+
+	return CMD_WARNING_CONFIG_FAILED;
+}
+
+DEFUN (domain_passwd,
+       domain_passwd_cmd,
+       "domain-password <clear|md5> WORD [authenticate snp <send-only|validate>]",
+       "Set the authentication password for a routing domain\n"
+       "Authentication type\n"
+       "Authentication type\n"
+       "Level-wide password\n"
+       "Authentication\n"
+       "SNP PDUs\n"
+       "Send but do not check PDUs on receiving\n"
+       "Send and check PDUs on receiving\n")
+{
+	return isis_vty_password_set(vty, argc, argv, IS_LEVEL_2);
+}
+
+DEFUN (no_domain_passwd,
+       no_domain_passwd_cmd,
+       "no domain-password",
+       NO_STR
+       "Set the authentication password for a routing domain\n")
+{
+	VTY_DECLVAR_CONTEXT(isis_area, area);
+
+	return isis_area_passwd_unset(area, IS_LEVEL_2);
+}
+
 void isis_vty_daemon_init(void)
 {
 	install_element(ROUTER_NODE, &fabric_tier_cmd);
@@ -324,4 +383,7 @@ void isis_vty_daemon_init(void)
 
 	install_element(ROUTER_NODE, &set_overload_bit_cmd);
 	install_element(ROUTER_NODE, &no_set_overload_bit_cmd);
+
+	install_element(ROUTER_NODE, &domain_passwd_cmd);
+	install_element(ROUTER_NODE, &no_domain_passwd_cmd);
 }
