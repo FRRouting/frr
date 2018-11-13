@@ -257,14 +257,28 @@ static int isis_instance_attached_create(enum nb_event event,
 					 const struct lyd_node *dnode,
 					 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	isis_area_attached_bit_set(area, true);
+
 	return NB_OK;
 }
 
 static int isis_instance_attached_delete(enum nb_event event,
 					 const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	isis_area_attached_bit_set(area, false);
+
 	return NB_OK;
 }
 
@@ -275,14 +289,28 @@ static int isis_instance_overload_create(enum nb_event event,
 					 const struct lyd_node *dnode,
 					 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	isis_area_overload_bit_set(area, true);
+
 	return NB_OK;
 }
 
 static int isis_instance_overload_delete(enum nb_event event,
 					 const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	isis_area_overload_bit_set(area, false);
+
 	return NB_OK;
 }
 
@@ -1732,11 +1760,13 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/attached",
 			.cbs.create = isis_instance_attached_create,
 			.cbs.delete = isis_instance_attached_delete,
+			.cbs.cli_show = cli_show_isis_attached,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/overload",
 			.cbs.create = isis_instance_overload_create,
 			.cbs.delete = isis_instance_overload_delete,
+			.cbs.cli_show = cli_show_isis_overload,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/metric-style",

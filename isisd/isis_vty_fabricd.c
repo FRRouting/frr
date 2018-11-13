@@ -286,6 +286,29 @@ DEFUN (no_ip_router_isis,
 	return CMD_SUCCESS;
 }
 
+DEFUN (set_overload_bit,
+       set_overload_bit_cmd,
+       "set-overload-bit",
+       "Set overload bit to avoid any transit traffic\n")
+{
+	VTY_DECLVAR_CONTEXT(isis_area, area);
+
+	isis_area_overload_bit_set(area, true);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_set_overload_bit,
+       no_set_overload_bit_cmd,
+       "no set-overload-bit",
+       "Reset overload bit to accept transit traffic\n"
+       "Reset overload bit\n")
+{
+	VTY_DECLVAR_CONTEXT(isis_area, area);
+
+	isis_area_overload_bit_set(area, false);
+	return CMD_SUCCESS;
+}
+
 void isis_vty_daemon_init(void)
 {
 	install_element(ROUTER_NODE, &fabric_tier_cmd);
@@ -298,4 +321,7 @@ void isis_vty_daemon_init(void)
 	install_element(INTERFACE_NODE, &ip_router_isis_cmd);
 	install_element(INTERFACE_NODE, &ip6_router_isis_cmd);
 	install_element(INTERFACE_NODE, &no_ip_router_isis_cmd);
+
+	install_element(ROUTER_NODE, &set_overload_bit_cmd);
+	install_element(ROUTER_NODE, &no_set_overload_bit_cmd);
 }

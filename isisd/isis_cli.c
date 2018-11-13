@@ -406,6 +406,44 @@ void cli_show_isis_dynamic_hostname(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " hostname dynamic\n");
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/overload
+ */
+DEFPY(set_overload_bit, set_overload_bit_cmd, "[no] set-overload-bit",
+      "Reset overload bit to accept transit traffic\n"
+      "Set overload bit to avoid any transit traffic\n")
+{
+	nb_cli_enqueue_change(vty, "./overload",
+			      no ? NB_OP_DELETE : NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_overload(struct vty *vty, struct lyd_node *dnode,
+			    bool show_defaults)
+{
+	vty_out(vty, " set-overload-bit\n");
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/attached
+ */
+DEFPY(set_attached_bit, set_attached_bit_cmd, "[no] set-attached-bit",
+      "Reset attached bit\n"
+      "Set attached bit to identify as L1/L2 router for inter-area traffic\n")
+{
+	nb_cli_enqueue_change(vty, "./attached",
+			      no ? NB_OP_DELETE : NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_attached(struct vty *vty, struct lyd_node *dnode,
+			    bool show_defaults)
+{
+	vty_out(vty, " set-attached-bit\n");
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -421,6 +459,9 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_is_type_cmd);
 
 	install_element(ISIS_NODE, &dynamic_hostname_cmd);
+
+	install_element(ISIS_NODE, &set_overload_bit_cmd);
+	install_element(ISIS_NODE, &set_attached_bit_cmd);
 }
 
 #endif /* ifndef FABRICD */

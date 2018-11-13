@@ -440,29 +440,6 @@ DEFUN (no_isis_bfd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (set_overload_bit,
-       set_overload_bit_cmd,
-       "set-overload-bit",
-       "Set overload bit to avoid any transit traffic\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-
-	isis_area_overload_bit_set(area, true);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_set_overload_bit,
-       no_set_overload_bit_cmd,
-       "no set-overload-bit",
-       "Reset overload bit to accept transit traffic\n"
-       "Reset overload bit\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-
-	isis_area_overload_bit_set(area, false);
-	return CMD_SUCCESS;
-}
-
 static int isis_vty_lsp_mtu_set(struct vty *vty, unsigned int lsp_mtu)
 {
 	VTY_DECLVAR_CONTEXT(isis_area, area);
@@ -870,9 +847,6 @@ void isis_vty_init(void)
 
 	install_element(INTERFACE_NODE, &isis_bfd_cmd);
 	install_element(INTERFACE_NODE, &no_isis_bfd_cmd);
-
-	install_element(ROUTER_NODE, &set_overload_bit_cmd);
-	install_element(ROUTER_NODE, &no_set_overload_bit_cmd);
 
 	install_element(ROUTER_NODE, &area_lsp_mtu_cmd);
 	install_element(ROUTER_NODE, &no_area_lsp_mtu_cmd);

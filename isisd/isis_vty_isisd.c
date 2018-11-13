@@ -557,29 +557,6 @@ DEFUN (no_metric_style,
 	return CMD_SUCCESS;
 }
 
-DEFUN (set_attached_bit,
-       set_attached_bit_cmd,
-       "set-attached-bit",
-       "Set attached bit to identify as L1/L2 router for inter-area traffic\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-
-	isis_area_attached_bit_set(area, true);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_set_attached_bit,
-       no_set_attached_bit_cmd,
-       "no set-attached-bit",
-       NO_STR
-       "Reset attached bit\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-
-	isis_area_attached_bit_set(area, false);
-	return CMD_SUCCESS;
-}
-
 DEFUN (lsp_gen_interval_level,
        lsp_gen_interval_level_cmd,
        "lsp-gen-interval <level-1|level-2> (1-120)",
@@ -756,9 +733,6 @@ void isis_vty_daemon_init(void)
 
 	install_element(ROUTER_NODE, &metric_style_cmd);
 	install_element(ROUTER_NODE, &no_metric_style_cmd);
-
-	install_element(ROUTER_NODE, &set_attached_bit_cmd);
-	install_element(ROUTER_NODE, &no_set_attached_bit_cmd);
 
 	install_element(ROUTER_NODE, &lsp_gen_interval_level_cmd);
 	install_element(ROUTER_NODE, &no_lsp_gen_interval_level_cmd);
