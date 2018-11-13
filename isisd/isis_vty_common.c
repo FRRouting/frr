@@ -587,74 +587,6 @@ DEFUN (spf_delay_ietf,
 	return CMD_SUCCESS;
 }
 
-int isis_vty_max_lsp_lifetime_set(struct vty *vty, int level, uint16_t interval)
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-	int lvl;
-	uint16_t refresh_interval = interval - 300;
-	int set_refresh_interval[ISIS_LEVELS] = {0, 0};
-
-	for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; lvl++) {
-		if (!(lvl & level))
-			continue;
-
-		if (refresh_interval < area->lsp_refresh[lvl - 1]) {
-			vty_out(vty,
-				"Level %d Max LSP lifetime %us must be 300s greater than "
-				"the configured LSP refresh interval %us\n",
-				lvl, interval, area->lsp_refresh[lvl - 1]);
-			vty_out(vty,
-				"Automatically reducing level %d LSP refresh interval "
-				"to %us\n",
-				lvl, refresh_interval);
-			set_refresh_interval[lvl - 1] = 1;
-
-			if (refresh_interval
-			    <= area->lsp_gen_interval[lvl - 1]) {
-				vty_out(vty,
-					"LSP refresh interval %us must be greater than "
-					"the configured LSP gen interval %us\n",
-					refresh_interval,
-					area->lsp_gen_interval[lvl - 1]);
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-		}
-	}
-
-	for (lvl = IS_LEVEL_1; lvl <= IS_LEVEL_2; lvl++) {
-		if (!(lvl & level))
-			continue;
-		isis_area_max_lsp_lifetime_set(area, lvl, interval);
-		if (set_refresh_interval[lvl - 1])
-			isis_area_lsp_refresh_set(area, lvl, refresh_interval);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (max_lsp_lifetime,
-       max_lsp_lifetime_cmd,
-       "max-lsp-lifetime (350-65535)",
-       "Maximum LSP lifetime\n"
-       "LSP lifetime in seconds\n")
-{
-	int lifetime = atoi(argv[1]->arg);
-
-	return isis_vty_max_lsp_lifetime_set(vty, IS_LEVEL_1_AND_2, lifetime);
-}
-
-
-DEFUN (no_max_lsp_lifetime,
-       no_max_lsp_lifetime_cmd,
-       "no max-lsp-lifetime [(350-65535)]",
-       NO_STR
-       "Maximum LSP lifetime\n"
-       "LSP lifetime in seconds\n")
-{
-	return isis_vty_max_lsp_lifetime_set(vty, IS_LEVEL_1_AND_2,
-					     DEFAULT_LSP_LIFETIME);
-}
-
 void isis_vty_init(void)
 {
 	install_element(INTERFACE_NODE, &isis_passive_cmd);
@@ -691,9 +623,6 @@ void isis_vty_init(void)
 
 	install_element(ROUTER_NODE, &spf_interval_cmd);
 	install_element(ROUTER_NODE, &no_spf_interval_cmd);
-
-	install_element(ROUTER_NODE, &max_lsp_lifetime_cmd);
-	install_element(ROUTER_NODE, &no_max_lsp_lifetime_cmd);
 
 	install_element(ROUTER_NODE, &spf_delay_ietf_cmd);
 	install_element(ROUTER_NODE, &no_spf_delay_ietf_cmd);

@@ -683,6 +683,58 @@ void cli_show_isis_lsp_ref_interval(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/lsp/maximum-lifetime
+ */
+DEFPY(max_lsp_lifetime, max_lsp_lifetime_cmd,
+      "max-lsp-lifetime [level-1|level-2]$level (350-65535)$val",
+      "Maximum LSP lifetime\n"
+      "Maximum LSP lifetime for Level 1 only\n"
+      "Maximum LSP lifetime for Level 2 only\n"
+      "LSP lifetime in seconds\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(vty, "./lsp/maximum-lifetime/level-1",
+				      NB_OP_MODIFY, val_str);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(vty, "./lsp/maximum-lifetime/level-2",
+				      NB_OP_MODIFY, val_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_max_lsp_lifetime, no_max_lsp_lifetime_cmd,
+      "no max-lsp-lifetime [level-1|level-2]$level [(350-65535)]",
+      NO_STR
+      "Maximum LSP lifetime\n"
+      "Maximum LSP lifetime for Level 1 only\n"
+      "Maximum LSP lifetime for Level 2 only\n"
+      "LSP lifetime in seconds\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(vty, "./lsp/maximum-lifetime/level-1",
+				      NB_OP_MODIFY, NULL);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(vty, "./lsp/maximum-lifetime/level-2",
+				      NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_lsp_max_lifetime(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
+	const char *l2 = yang_dnode_get_string(dnode, "./level-2");
+
+	if (strmatch(l1, l2))
+		vty_out(vty, " max-lsp-lifetime %s\n", l1);
+	else {
+		vty_out(vty, " max-lsp-lifetime level-1 %s\n", l1);
+		vty_out(vty, " max-lsp-lifetime level-2 %s\n", l2);
+	}
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -713,6 +765,8 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_lsp_gen_interval_cmd);
 	install_element(ISIS_NODE, &lsp_refresh_interval_cmd);
 	install_element(ISIS_NODE, &no_lsp_refresh_interval_cmd);
+	install_element(ISIS_NODE, &max_lsp_lifetime_cmd);
+	install_element(ISIS_NODE, &no_max_lsp_lifetime_cmd);
 }
 
 #endif /* ifndef FABRICD */

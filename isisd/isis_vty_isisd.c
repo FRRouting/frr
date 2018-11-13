@@ -465,33 +465,6 @@ DEFUN (no_psnp_interval_level,
 	return CMD_SUCCESS;
 }
 
-DEFUN (max_lsp_lifetime_level,
-       max_lsp_lifetime_level_cmd,
-       "max-lsp-lifetime <level-1|level-2> (350-65535)",
-       "Maximum LSP lifetime\n"
-       "Maximum LSP lifetime for Level 1 only\n"
-       "Maximum LSP lifetime for Level 2 only\n"
-       "LSP lifetime in seconds\n")
-{
-	uint16_t lifetime = atoi(argv[2]->arg);
-
-	return isis_vty_max_lsp_lifetime_set(vty, level_for_arg(argv[1]->text),
-					     lifetime);
-}
-
-DEFUN (no_max_lsp_lifetime_level,
-       no_max_lsp_lifetime_level_cmd,
-       "no max-lsp-lifetime <level-1|level-2> [(350-65535)]",
-       NO_STR
-       "Maximum LSP lifetime\n"
-       "Maximum LSP lifetime for Level 1 only\n"
-       "Maximum LSP lifetime for Level 2 only\n"
-       "LSP lifetime in seconds\n")
-{
-	return isis_vty_max_lsp_lifetime_set(vty, level_for_arg(argv[1]->text),
-					     DEFAULT_LSP_LIFETIME);
-}
-
 DEFUN (spf_interval_level,
        spf_interval_level_cmd,
        "spf-interval <level-1|level-2> (1-120)",
@@ -557,9 +530,6 @@ void isis_vty_daemon_init(void)
 
 	install_element(INTERFACE_NODE, &psnp_interval_level_cmd);
 	install_element(INTERFACE_NODE, &no_psnp_interval_level_cmd);
-
-	install_element(ROUTER_NODE, &max_lsp_lifetime_level_cmd);
-	install_element(ROUTER_NODE, &no_max_lsp_lifetime_level_cmd);
 
 	install_element(ROUTER_NODE, &spf_interval_level_cmd);
 	install_element(ROUTER_NODE, &no_spf_interval_level_cmd);

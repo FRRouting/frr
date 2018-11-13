@@ -415,7 +415,16 @@ isis_instance_lsp_maximum_lifetime_level_1_modify(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	uint16_t max_lt;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	max_lt = yang_dnode_get_uint16(dnode, NULL);
+	area = yang_dnode_get_entry(dnode, true);
+	isis_area_max_lsp_lifetime_set(area, IS_LEVEL_1, max_lt);
+
 	return NB_OK;
 }
 
@@ -427,7 +436,16 @@ isis_instance_lsp_maximum_lifetime_level_2_modify(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	uint16_t max_lt;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	max_lt = yang_dnode_get_uint16(dnode, NULL);
+	area = yang_dnode_get_entry(dnode, true);
+	isis_area_max_lsp_lifetime_set(area, IS_LEVEL_2, max_lt);
+
 	return NB_OK;
 }
 
@@ -1892,6 +1910,10 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/refresh-interval/level-2",
 			.cbs.modify = isis_instance_lsp_refresh_interval_level_2_modify,
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/lsp/maximum-lifetime",
+			.cbs.cli_show = cli_show_isis_lsp_max_lifetime,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/maximum-lifetime/level-1",
