@@ -321,7 +321,18 @@ static int isis_instance_metric_style_modify(enum nb_event event,
 					     const struct lyd_node *dnode,
 					     union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	bool old_metric, new_metric;
+	enum isis_metric_style metric_style = yang_dnode_get_enum(dnode, NULL);
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	old_metric = (metric_style == ISIS_WIDE_METRIC) ? false : true;
+	new_metric = (metric_style == ISIS_NARROW_METRIC) ? false : true;
+	isis_area_metricstyle_set(area, old_metric, new_metric);
+
 	return NB_OK;
 }
 
@@ -1771,6 +1782,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-isisd:isis/instance/metric-style",
 			.cbs.modify = isis_instance_metric_style_modify,
+			.cbs.cli_show = cli_show_isis_metric_style,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/purge-originator",

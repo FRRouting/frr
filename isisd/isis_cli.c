@@ -444,6 +444,52 @@ void cli_show_isis_attached(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " set-attached-bit\n");
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/metric-style
+ */
+DEFPY(metric_style, metric_style_cmd,
+	  "metric-style <narrow|transition|wide>$style",
+      "Use old-style (ISO 10589) or new-style packet formats\n"
+      "Use old style of TLVs with narrow metric\n"
+      "Send and accept both styles of TLVs during transition\n"
+      "Use new style of TLVs to carry wider metric\n")
+{
+	nb_cli_enqueue_change(vty, "./metric-style", NB_OP_MODIFY, style);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_metric_style, no_metric_style_cmd,
+	  "no metric-style [narrow|transition|wide]",
+	  NO_STR
+	  "Use old-style (ISO 10589) or new-style packet formats\n"
+      "Use old style of TLVs with narrow metric\n"
+      "Send and accept both styles of TLVs during transition\n"
+      "Use new style of TLVs to carry wider metric\n")
+{
+	nb_cli_enqueue_change(vty, "./metric-style", NB_OP_MODIFY, "narrow");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_metric_style(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults)
+{
+	int metric = yang_dnode_get_enum(dnode, NULL);
+
+	switch (metric) {
+	case ISIS_NARROW_METRIC:
+		vty_out(vty, " metric-style narrow\n");
+		break;
+	case ISIS_WIDE_METRIC:
+		vty_out(vty, " metric-style wide\n");
+		break;
+	case ISIS_TRANSITION_METRIC:
+		vty_out(vty, " metric-style transition\n");
+		break;
+	}
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -462,6 +508,9 @@ void isis_cli_init(void)
 
 	install_element(ISIS_NODE, &set_overload_bit_cmd);
 	install_element(ISIS_NODE, &set_attached_bit_cmd);
+
+	install_element(ISIS_NODE, &metric_style_cmd);
+	install_element(ISIS_NODE, &no_metric_style_cmd);
 }
 
 #endif /* ifndef FABRICD */

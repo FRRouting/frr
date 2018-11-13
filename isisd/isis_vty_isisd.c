@@ -465,98 +465,6 @@ DEFUN (no_psnp_interval_level,
 	return CMD_SUCCESS;
 }
 
-static int validate_metric_style_narrow(struct vty *vty, struct isis_area *area)
-{
-	struct isis_circuit *circuit;
-	struct listnode *node;
-
-	if (!vty)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	if (!area) {
-		vty_out(vty, "ISIS area is invalid\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
-		if ((area->is_type & IS_LEVEL_1)
-		    && (circuit->is_type & IS_LEVEL_1)
-		    && (circuit->te_metric[0] > MAX_NARROW_LINK_METRIC)) {
-			vty_out(vty, "ISIS circuit %s metric is invalid\n",
-				circuit->interface->name);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		if ((area->is_type & IS_LEVEL_2)
-		    && (circuit->is_type & IS_LEVEL_2)
-		    && (circuit->te_metric[1] > MAX_NARROW_LINK_METRIC)) {
-			vty_out(vty, "ISIS circuit %s metric is invalid\n",
-				circuit->interface->name);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (metric_style,
-       metric_style_cmd,
-       "metric-style <narrow|transition|wide>",
-       "Use old-style (ISO 10589) or new-style packet formats\n"
-       "Use old style of TLVs with narrow metric\n"
-       "Send and accept both styles of TLVs during transition\n"
-       "Use new style of TLVs to carry wider metric\n")
-{
-	int idx_metric_style = 1;
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-	int ret;
-
-	if (strncmp(argv[idx_metric_style]->arg, "w", 1) == 0) {
-		isis_area_metricstyle_set(area, false, true);
-		return CMD_SUCCESS;
-	}
-
-	if (area_is_mt(area)) {
-		vty_out(vty,
-			"Narrow metrics cannot be used while multi topology IS-IS is active\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ret = validate_metric_style_narrow(vty, area);
-	if (ret != CMD_SUCCESS)
-		return ret;
-
-	if (strncmp(argv[idx_metric_style]->arg, "t", 1) == 0)
-		isis_area_metricstyle_set(area, true, true);
-	else if (strncmp(argv[idx_metric_style]->arg, "n", 1) == 0)
-		isis_area_metricstyle_set(area, true, false);
-	return CMD_SUCCESS;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_metric_style,
-       no_metric_style_cmd,
-       "no metric-style",
-       NO_STR
-       "Use old-style (ISO 10589) or new-style packet formats\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-	int ret;
-
-	if (area_is_mt(area)) {
-		vty_out(vty,
-			"Narrow metrics cannot be used while multi topology IS-IS is active\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ret = validate_metric_style_narrow(vty, area);
-	if (ret != CMD_SUCCESS)
-		return ret;
-
-	isis_area_metricstyle_set(area, true, false);
-	return CMD_SUCCESS;
-}
-
 DEFUN (lsp_gen_interval_level,
        lsp_gen_interval_level_cmd,
        "lsp-gen-interval <level-1|level-2> (1-120)",
@@ -730,9 +638,6 @@ void isis_vty_daemon_init(void)
 
 	install_element(INTERFACE_NODE, &psnp_interval_level_cmd);
 	install_element(INTERFACE_NODE, &no_psnp_interval_level_cmd);
-
-	install_element(ROUTER_NODE, &metric_style_cmd);
-	install_element(ROUTER_NODE, &no_metric_style_cmd);
 
 	install_element(ROUTER_NODE, &lsp_gen_interval_level_cmd);
 	install_element(ROUTER_NODE, &no_lsp_gen_interval_level_cmd);

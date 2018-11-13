@@ -1746,11 +1746,9 @@ void isis_area_is_type_set(struct isis_area *area, int is_type)
 void isis_area_metricstyle_set(struct isis_area *area, bool old_metric,
 			       bool new_metric)
 {
-	if (area->oldmetric != old_metric || area->newmetric != new_metric) {
-		area->oldmetric = old_metric;
-		area->newmetric = new_metric;
-		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-	}
+	area->oldmetric = old_metric;
+	area->newmetric = new_metric;
+	lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
 }
 
 void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)

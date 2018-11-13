@@ -98,6 +98,13 @@ struct lsp_refresh_arg {
 	int level;
 };
 
+/* for yang configuration */
+enum isis_metric_style {
+	ISIS_NARROW_METRIC = 0,
+	ISIS_WIDE_METRIC,
+	ISIS_TRANSITION_METRIC,
+};
+
 struct isis_area {
 	struct isis *isis;			       /* back pointer */
 	dict_t *lspdb[ISIS_LEVELS];		       /* link-state dbs */
