@@ -1711,6 +1711,8 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 						setsrc = 1;
 					}
 				}
+
+				continue;
 			}
 
 			if ((cmd == RTM_NEWROUTE
