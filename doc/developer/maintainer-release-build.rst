@@ -1,5 +1,5 @@
-Release Build Procedure for FRR maintainers
-=========================================================
+Release Build Procedure for FRR Maintainers
+===========================================
 
 1. Rename branch (if needed)
 
