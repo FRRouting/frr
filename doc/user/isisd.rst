@@ -30,14 +30,11 @@ configuration file :file:`isisd.conf`.
 ISIS router
 ===========
 
-To start ISIS process you have to specify the ISIS router. As of this
+To start the ISIS process you have to specify the ISIS router. As of this
 writing, *isisd* does not support multiple ISIS processes.
 
-.. index:: router isis WORD
-.. clicmd:: router isis WORD
-
-.. index:: no router isis WORD
-.. clicmd:: no router isis WORD
+.. index:: [no] router isis WORD
+.. clicmd:: [no] router isis WORD
 
    Enable or disable the ISIS process by specifying the ISIS domain with
    'WORD'.  *isisd* does not yet support multiple ISIS processes but you must
@@ -197,17 +194,15 @@ ISIS region
 ISIS interface
 ==============
 
-.. index:: ip router isis WORD
-.. clicmd:: ip router isis WORD
-
-.. index:: no ip router isis WORD
-.. clicmd:: no ip router isis WORD
-
 .. _ip-router-isis-word:
 
-   Activate ISIS adjacency on this interface. Note that the name
-   of ISIS instance must be the same as the one used to configure the ISIS process
-   (see command :clicmd:`router isis WORD`).
+.. index:: [no] <ip|ipv6> router isis WORD
+.. clicmd:: [no] <ip|ipv6> router isis WORD
+
+   Activate ISIS adjacency on this interface. Note that the name of ISIS
+   instance must be the same as the one used to configure the ISIS process (see
+   command :clicmd:`router isis WORD`). To enable IPv4, issue ``ip router isis
+   WORD``; to enable IPv6, issue ``ipv6 router isis WORD``.
 
 .. index:: isis circuit-type [level-1 | level-1-2 | level-2]
 .. clicmd:: isis circuit-type [level-1 | level-1-2 | level-2]
