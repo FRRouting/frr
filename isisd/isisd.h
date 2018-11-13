@@ -50,6 +50,7 @@ static const bool fabricd = false;
 #define PROTO_REDIST_STR FRR_REDIST_STR_ISISD
 #define PROTO_REDIST_HELP FRR_REDIST_HELP_STR_ISISD
 #define ROUTER_NODE ISIS_NODE
+extern void isis_cli_init(void);
 #endif
 
 extern struct zebra_privs_t isisd_privs;
@@ -208,6 +209,8 @@ int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				  const char *passwd, uint8_t snp_auth);
 
+extern const struct frr_yang_module_info frr_isisd_info;
+extern void isis_northbound_init(void);
 /* Master of threads. */
 extern struct thread_master *master;
 

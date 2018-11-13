@@ -31,3 +31,7 @@ endif
 if RIPNGD
 dist_yangmodels_DATA += yang/frr-ripngd.yang
 endif
+
+if ISISD
+dist_yangmodels_DATA += yang/frr-isisd.yang
+endif

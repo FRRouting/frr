@@ -151,8 +151,12 @@ struct quagga_signal_t isisd_signals[] = {
 	},
 };
 
+
 static const struct frr_yang_module_info *isisd_yang_modules[] = {
 	&frr_interface_info,
+#ifndef FABRICD
+	&frr_isisd_info,
+#endif /* ifndef FABRICD */
 };
 
 #ifdef FABRICD
@@ -217,6 +221,9 @@ int main(int argc, char **argv, char **envp)
 	isis_init();
 	isis_circuit_init();
 	isis_vty_init();
+#ifndef FABRICD
+	isis_cli_init();
+#endif /* ifdef FABRICD */
 	isis_spf_cmds_init();
 	isis_redist_init();
 	isis_route_map_init();
