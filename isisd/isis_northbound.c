@@ -2087,14 +2087,20 @@ static int lib_interface_isis_password_create(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
-	/* TODO: implement me. */
 	return NB_OK;
 }
 
 static int lib_interface_isis_password_delete(enum nb_event event,
 					      const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	isis_circuit_passwd_unset(circuit);
+
 	return NB_OK;
 }
 
@@ -2106,7 +2112,17 @@ lib_interface_isis_password_password_modify(enum nb_event event,
 					    const struct lyd_node *dnode,
 					    union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+	const char *password;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	password = yang_dnode_get_string(dnode, NULL);
+	circuit = yang_dnode_get_entry(dnode, true);
+	circuit->passwd.len = strlen(password);
+	strncpy((char *)circuit->passwd.passwd, password, 255);
+
 	return NB_OK;
 }
 
@@ -2118,7 +2134,16 @@ lib_interface_isis_password_password_type_modify(enum nb_event event,
 						 const struct lyd_node *dnode,
 						 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+	uint8_t pass_type;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	pass_type = yang_dnode_get_enum(dnode, NULL);
+	circuit = yang_dnode_get_entry(dnode, true);
+	circuit->passwd.type = pass_type;
+
 	return NB_OK;
 }
 
@@ -2645,6 +2670,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/password",
 			.cbs.create = lib_interface_isis_password_create,
 			.cbs.delete = lib_interface_isis_password_delete,
+			.cbs.cli_show = cli_show_ip_isis_password,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/password/password",

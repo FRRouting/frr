@@ -1236,6 +1236,49 @@ void cli_show_ip_isis_passive(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " isis passive\n");
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/password
+ */
+
+DEFPY(isis_passwd, isis_passwd_cmd, "isis password <md5|clear>$type WORD$pwd",
+      "IS-IS routing protocol\n"
+      "Configure the authentication password for a circuit\n"
+      "HMAC-MD5 authentication\n"
+      "Cleartext password\n"
+      "Circuit password\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/password", NB_OP_CREATE,
+			      NULL);
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/password/password",
+			      NB_OP_MODIFY, pwd);
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/password/password-type",
+			      NB_OP_MODIFY, type);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_isis_passwd, no_isis_passwd_cmd, "no isis password [<md5|clear> WORD]",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Configure the authentication password for a circuit\n"
+      "HMAC-MD5 authentication\n"
+      "Cleartext password\n"
+      "Circuit password\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/password", NB_OP_DELETE,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_password(struct vty *vty, struct lyd_node *dnode,
+			       bool show_defaults)
+{
+	vty_out(vty, " isis password %s %s\n",
+		yang_dnode_get_string(dnode, "./password-type"),
+		yang_dnode_get_string(dnode, "./password"));
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -1289,6 +1332,9 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &isis_topology_cmd);
 
 	install_element(INTERFACE_NODE, &isis_passive_cmd);
+
+	install_element(INTERFACE_NODE, &isis_passwd_cmd);
+	install_element(INTERFACE_NODE, &no_isis_passwd_cmd);
 }
 
 #endif /* ifndef FABRICD */

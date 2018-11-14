@@ -56,53 +56,6 @@ struct isis_circuit *isis_circuit_lookup(struct vty *vty)
 	return circuit;
 }
 
-DEFUN (isis_passwd,
-       isis_passwd_cmd,
-       PROTO_NAME " password <md5|clear> WORD",
-       PROTO_HELP
-       "Configure the authentication password for a circuit\n"
-       "HMAC-MD5 authentication\n"
-       "Cleartext password\n"
-       "Circuit password\n")
-{
-	int idx_encryption = 2;
-	int idx_word = 3;
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	ferr_r rv;
-
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	if (argv[idx_encryption]->arg[0] == 'm')
-		rv = isis_circuit_passwd_hmac_md5_set(circuit,
-						      argv[idx_word]->arg);
-	else
-		rv = isis_circuit_passwd_cleartext_set(circuit,
-						       argv[idx_word]->arg);
-
-	CMD_FERR_RETURN(rv, "Failed to set circuit password: $ERR");
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_isis_passwd,
-       no_isis_passwd_cmd,
-       "no " PROTO_NAME " password [<md5|clear> WORD]",
-       NO_STR
-       PROTO_HELP
-       "Configure the authentication password for a circuit\n"
-       "HMAC-MD5 authentication\n"
-       "Cleartext password\n"
-       "Circuit password\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	CMD_FERR_RETURN(isis_circuit_passwd_unset(circuit),
-			"Failed to unset circuit password: $ERR");
-	return CMD_SUCCESS;
-}
-
 DEFUN (isis_metric,
        isis_metric_cmd,
        PROTO_NAME " metric (0-16777215)",
@@ -410,9 +363,6 @@ DEFUN (no_isis_bfd,
 
 void isis_vty_init(void)
 {
-	install_element(INTERFACE_NODE, &isis_passwd_cmd);
-	install_element(INTERFACE_NODE, &no_isis_passwd_cmd);
-
 	install_element(INTERFACE_NODE, &isis_metric_cmd);
 	install_element(INTERFACE_NODE, &no_isis_metric_cmd);
 
