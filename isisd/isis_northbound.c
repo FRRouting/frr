@@ -2466,6 +2466,25 @@ static void notif_prep_instance_hdr(const char *xpath,
 	listnode_add(args, data);
 }
 
+static void notif_prepr_iface_hdr(const char *xpath,
+				  const struct isis_circuit *circuit,
+				  struct list *args)
+{
+	char xpath_arg[XPATH_MAXLEN];
+	struct yang_data *data;
+
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/interface-name", xpath);
+	data = yang_data_new_string(xpath_arg, circuit->interface->name);
+	listnode_add(args, data);
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/interface-level", xpath);
+	data = yang_data_new_enum(xpath_arg, circuit->is_type);
+	listnode_add(args, data);
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/extended-circuit-id", xpath);
+	/* we do not seem to have the extended version of the circuit_id */
+	data = yang_data_new_uint32(xpath_arg, (uint32_t)circuit->circuit_id);
+	listnode_add(args, data);
+}
+
 /*
  * XPath:
  * /frr-isisd:database-overload
@@ -2480,6 +2499,31 @@ void isis_notif_db_overload(const struct isis_area *area, bool overload)
 	notif_prep_instance_hdr(xpath, area, "default", arguments);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/overload", xpath);
 	data = yang_data_new_enum(xpath_arg, !!overload);
+	listnode_add(arguments, data);
+
+	nb_notification_send(xpath, arguments);
+}
+
+/*
+ * XPath:
+ * /frr-isisd:lsp-too-large
+ */
+void isis_notif_lsp_too_large(const struct isis_circuit *circuit,
+			      uint32_t pdu_size, const char *lsp_id)
+{
+	const char *xpath = "/frr-isisd:lsp-too-large";
+	struct list *arguments = yang_data_list_new();
+	char xpath_arg[XPATH_MAXLEN];
+	struct yang_data *data;
+	struct isis_area *area = circuit->area;
+
+	notif_prep_instance_hdr(xpath, area, "default", arguments);
+	notif_prepr_iface_hdr(xpath, circuit, arguments);
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/pdu-size", xpath);
+	data = yang_data_new_uint32(xpath_arg, pdu_size);
+	listnode_add(arguments, data);
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/lsp-id", xpath);
+	data = yang_data_new_string(xpath_arg, lsp_id);
 	listnode_add(arguments, data);
 
 	nb_notification_send(xpath, arguments);

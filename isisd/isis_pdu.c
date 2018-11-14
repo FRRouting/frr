@@ -2238,6 +2238,11 @@ void send_lsp(struct isis_circuit *circuit, struct isis_lsp *lsp,
 			lsp->hdr.checksum, lsp->hdr.rem_lifetime,
 			circuit->interface->name, stream_get_endp(lsp->pdu),
 			stream_get_size(circuit->snd_stream));
+#ifndef FABRICD
+		/* send a northbound notification */
+		isis_notif_lsp_too_large(circuit, stream_get_endp(lsp->pdu),
+					 rawlspid_print(lsp->hdr.lsp_id));
+#endif /* ifndef FABRICD */
 		if (isis->debugs & DEBUG_PACKET_DUMP)
 			zlog_dump_data(STREAM_DATA(lsp->pdu),
 				       stream_get_endp(lsp->pdu));
