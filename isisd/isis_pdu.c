@@ -1117,6 +1117,13 @@ dontcheckadj:
 						circuit->area->area_tag,
 						rawlspid_print(hdr.lsp_id),
 						lsp->hdr.seqno);
+			} else {
+				/* our own LSP with 0 remaining life time */
+#ifndef FABRICD
+				/* send northbound notification */
+				isis_notif_own_lsp_purge(
+					circuit, rawlspid_print(hdr.lsp_id));
+#endif /* ifndef FABRICD */
 			}
 		}
 		goto out;
