@@ -844,6 +844,12 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 	hdr.checksum = stream_getw(circuit->rcv_stream);
 	hdr.lsp_bits = stream_getc(circuit->rcv_stream);
 
+#ifndef FABRICD
+	/* send northbound notification */
+	isis_notif_lsp_received(circuit, rawlspid_print(hdr.lsp_id), hdr.seqno,
+				time(NULL), sysid_print(hdr.lsp_id));
+#endif /* ifndef FABRICD */
+
 	if (pdu_len_validate(hdr.pdu_len, circuit)) {
 		zlog_debug("ISIS-Upd (%s): LSP %s invalid LSP length %" PRIu16,
 			   circuit->area->area_tag, rawlspid_print(hdr.lsp_id),
