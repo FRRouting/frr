@@ -38,6 +38,7 @@
 #include "prefix.h"
 #include "stream.h"
 #include "qobj.h"
+#include "lib/northbound_cli.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
@@ -919,6 +920,7 @@ DEFINE_HOOK(isis_circuit_config_write,
 	    (struct isis_circuit *circuit, struct vty *vty),
 	    (circuit, vty))
 
+#ifdef FABRICD
 int isis_interface_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -1141,6 +1143,33 @@ int isis_interface_config_write(struct vty *vty)
 
 	return write;
 }
+#else
+int isis_interface_config_write(struct vty *vty)
+{
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	int write = 0;
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+	struct lyd_node *dnode;
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		dnode = yang_dnode_get(
+			running_config->dnode,
+			"/frr-interface:lib/interface[name='%s'][vrf='%s']",
+			ifp->name, vrf->name);
+		if (dnode == NULL)
+			continue;
+
+		write++;
+		nb_cli_show_dnode_cmds(vty, dnode, false);
+		circuit = circuit_scan_by_ifp(ifp);
+		if (circuit)
+			write += hook_call(isis_circuit_config_write, circuit,
+					   vty);
+	}
+	return write;
+}
+#endif /* ifdef FABRICD */
 
 struct isis_circuit *isis_circuit_create(struct isis_area *area,
 					 struct interface *ifp)

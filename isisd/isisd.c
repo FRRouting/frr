@@ -1833,6 +1833,7 @@ DEFUN (no_log_adj_changes,
 	return CMD_SUCCESS;
 }
 #endif /* ifdef FABRICD */
+#ifdef FABRICD
 /* IS-IS configuration write function */
 int isis_config_write(struct vty *vty)
 {
@@ -2106,6 +2107,21 @@ int isis_config_write(struct vty *vty)
 
 	return write;
 }
+
+#else
+/* IS-IS configuration write function */
+int isis_config_write(struct vty *vty)
+{
+	int write = 0;
+	struct lyd_node *dnode;
+
+	dnode = yang_dnode_get(running_config->dnode, "/frr-isisd:isis");
+	if (dnode)
+		nb_cli_show_dnode_cmds(vty, dnode, false);
+
+	return write;
+}
+#endif /* ifdef FABRICD */
 
 struct cmd_node router_node = {ROUTER_NODE, "%s(config-router)# ", 1};
 
