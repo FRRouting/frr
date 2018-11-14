@@ -452,36 +452,6 @@ DEFUN (area_purge_originator,
 	return CMD_SUCCESS;
 }
 
-DEFUN (spf_interval,
-       spf_interval_cmd,
-       "spf-interval (1-120)",
-       "Minimum interval between SPF calculations\n"
-       "Minimum interval between consecutive SPFs in seconds\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-	uint16_t interval = atoi(argv[1]->arg);
-
-	area->min_spf_interval[0] = interval;
-	area->min_spf_interval[1] = interval;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_spf_interval,
-       no_spf_interval_cmd,
-       "no spf-interval [(1-120)]",
-       NO_STR
-       "Minimum interval between SPF calculations\n"
-       "Minimum interval between consecutive SPFs in seconds\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-
-	area->min_spf_interval[0] = MINIMUM_SPF_INTERVAL;
-	area->min_spf_interval[1] = MINIMUM_SPF_INTERVAL;
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (no_spf_delay_ietf,
        no_spf_delay_ietf_cmd,
        "no spf-delay-ietf",
@@ -570,9 +540,6 @@ void isis_vty_init(void)
 	install_element(INTERFACE_NODE, &no_isis_bfd_cmd);
 
 	install_element(ROUTER_NODE, &area_purge_originator_cmd);
-
-	install_element(ROUTER_NODE, &spf_interval_cmd);
-	install_element(ROUTER_NODE, &no_spf_interval_cmd);
 
 	install_element(ROUTER_NODE, &spf_delay_ietf_cmd);
 	install_element(ROUTER_NODE, &no_spf_delay_ietf_cmd);

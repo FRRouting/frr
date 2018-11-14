@@ -465,39 +465,6 @@ DEFUN (no_psnp_interval_level,
 	return CMD_SUCCESS;
 }
 
-DEFUN (spf_interval_level,
-       spf_interval_level_cmd,
-       "spf-interval <level-1|level-2> (1-120)",
-       "Minimum interval between SPF calculations\n"
-       "Set interval for level 1 only\n"
-       "Set interval for level 2 only\n"
-       "Minimum interval between consecutive SPFs in seconds\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-	uint16_t interval = atoi(argv[2]->arg);
-
-	area->min_spf_interval[level_for_arg(argv[1]->text)] = interval;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_spf_interval_level,
-       no_spf_interval_level_cmd,
-       "no spf-interval <level-1|level-2> [(1-120)]",
-       NO_STR
-       "Minimum interval between SPF calculations\n"
-       "Set interval for level 1 only\n"
-       "Set interval for level 2 only\n"
-       "Minimum interval between consecutive SPFs in seconds\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-	int level = level_for_arg(argv[1]->text);
-
-	area->min_spf_interval[level] = MINIMUM_SPF_INTERVAL;
-
-	return CMD_SUCCESS;
-}
-
 void isis_vty_daemon_init(void)
 {
 	install_element(INTERFACE_NODE, &isis_circuit_type_cmd);
@@ -530,7 +497,4 @@ void isis_vty_daemon_init(void)
 
 	install_element(INTERFACE_NODE, &psnp_interval_level_cmd);
 	install_element(INTERFACE_NODE, &no_psnp_interval_level_cmd);
-
-	install_element(ROUTER_NODE, &spf_interval_level_cmd);
-	install_element(ROUTER_NODE, &no_spf_interval_level_cmd);
 }

@@ -604,7 +604,14 @@ isis_instance_spf_minimum_interval_level_1_modify(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	area->min_spf_interval[0] = yang_dnode_get_uint16(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -616,7 +623,14 @@ isis_instance_spf_minimum_interval_level_2_modify(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	area->min_spf_interval[1] = yang_dnode_get_uint16(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -1992,6 +2006,10 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-isisd:isis/instance/spf/ietf-backoff-delay/time-to-learn",
 			.cbs.modify = isis_instance_spf_ietf_backoff_delay_time_to_learn_modify,
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/spf/minimum-interval",
+			.cbs.cli_show = cli_show_isis_spf_min_interval,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/spf/minimum-interval/level-1",
