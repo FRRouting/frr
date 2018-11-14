@@ -430,6 +430,9 @@ static int frr_confd_init_cdb(void)
 				continue;
 			}
 
+			if (CHECK_FLAG(snode->flags, LYS_CONFIG_R))
+				continue;
+
 			nb_node = snode->priv;
 			if (debug_northbound)
 				zlog_debug("%s: subscribing to '%s'", __func__,
