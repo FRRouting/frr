@@ -43,47 +43,6 @@ static int level_for_arg(const char *arg)
 		return IS_LEVEL_2;
 }
 
-DEFUN (isis_network,
-       isis_network_cmd,
-       "isis network point-to-point",
-       "IS-IS routing protocol\n"
-       "Set network type\n"
-       "point-to-point network type\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	if (isis_circuit_circ_type_set(circuit, CIRCUIT_T_P2P)) {
-		vty_out(vty,
-			"isis network point-to-point is valid only on broadcast interfaces\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_isis_network,
-       no_isis_network_cmd,
-       "no isis network point-to-point",
-       NO_STR
-       "IS-IS routing protocol\n"
-       "Set network type for circuit\n"
-       "point-to-point network type\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	if (isis_circuit_circ_type_set(circuit, CIRCUIT_T_BROADCAST)) {
-		vty_out(vty,
-			"isis network point-to-point is valid only on broadcast interfaces\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (isis_priority,
        isis_priority_cmd,
        "isis priority (0-127)",
@@ -161,9 +120,6 @@ DEFUN (no_isis_priority_level,
 
 void isis_vty_daemon_init(void)
 {
-	install_element(INTERFACE_NODE, &isis_network_cmd);
-	install_element(INTERFACE_NODE, &no_isis_network_cmd);
-
 	install_element(INTERFACE_NODE, &isis_priority_cmd);
 	install_element(INTERFACE_NODE, &no_isis_priority_cmd);
 	install_element(INTERFACE_NODE, &isis_priority_level_cmd);

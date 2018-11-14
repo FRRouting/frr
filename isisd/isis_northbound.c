@@ -2092,14 +2092,48 @@ static int lib_interface_isis_network_type_modify(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+	int net_type = yang_dnode_get_enum(dnode, NULL);
+
+	switch (event) {
+	case NB_EV_VALIDATE:
+		circuit = yang_dnode_get_entry(dnode, false);
+		if (!circuit)
+			break;
+		if (circuit->circ_type == CIRCUIT_T_LOOPBACK
+		    || circuit->circ_type == CIRCUIT_T_UNKNOWN) {
+			flog_warn(
+				EC_LIB_NB_CB_CONFIG_VALIDATE,
+				"Cannot change network type on unknown or loopback interface");
+			return NB_ERR_VALIDATION;
+		}
+		if (net_type == CIRCUIT_T_BROADCAST
+		    && circuit->state == C_STATE_UP
+		    && !if_is_broadcast(circuit->interface)) {
+			flog_warn(
+				EC_LIB_NB_CB_CONFIG_VALIDATE,
+				"Cannot configure non-broadcast interface for broadcast operation");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		circuit = yang_dnode_get_entry(dnode, true);
+		isis_circuit_circ_type_set(circuit, net_type);
+		break;
+	}
+
 	return NB_OK;
 }
 
 static int lib_interface_isis_network_type_delete(enum nb_event event,
 						  const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	/* FIXME: This cannot be done in FRR. Not sure what the intended
+	 * behavior is.
+	 */
 	return NB_OK;
 }
 
@@ -2813,6 +2847,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/network-type",
 			.cbs.modify = lib_interface_isis_network_type_modify,
 			.cbs.delete = lib_interface_isis_network_type_delete,
+			.cbs.cli_show = cli_show_ip_isis_network_type,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/passive",

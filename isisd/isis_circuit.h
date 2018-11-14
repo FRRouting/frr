@@ -184,7 +184,7 @@ void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,
 			 bool ipv6_router);
 ferr_r isis_circuit_passive_set(struct isis_circuit *circuit, bool passive);
 void isis_circuit_is_type_set(struct isis_circuit *circuit, int is_type);
-ferr_r isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type);
+void isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type);
 
 ferr_r isis_circuit_metric_set(struct isis_circuit *circuit, int level,
 			       int metric);

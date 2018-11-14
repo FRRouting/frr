@@ -1261,35 +1261,22 @@ struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1,
 };
 
-ferr_r isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type)
+void isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type)
 {
 	if (circuit->circ_type == circ_type)
-		return ferr_ok();
-
-	/* Changing the network type to/of loopback or unknown interfaces
-	 * is not supported. */
-	if (circ_type == CIRCUIT_T_UNKNOWN || circ_type == CIRCUIT_T_LOOPBACK
-	    || circuit->circ_type == CIRCUIT_T_LOOPBACK) {
-		return ferr_cfg_invalid(
-			"cannot change network type on unknown interface");
-	}
+		return;
 
 	if (circuit->state != C_STATE_UP) {
 		circuit->circ_type = circ_type;
 		circuit->circ_type_config = circ_type;
 	} else {
 		struct isis_area *area = circuit->area;
-		if (circ_type == CIRCUIT_T_BROADCAST
-		    && !if_is_broadcast(circuit->interface))
-			return ferr_cfg_reality(
-				"cannot configure non-broadcast interface for broadcast operation");
 
 		isis_csm_state_change(ISIS_DISABLE, circuit, area);
 		circuit->circ_type = circ_type;
 		circuit->circ_type_config = circ_type;
 		isis_csm_state_change(ISIS_ENABLE, circuit, area);
 	}
-	return ferr_ok();
 }
 
 int isis_circuit_mt_enabled_set(struct isis_circuit *circuit, uint16_t mtid,

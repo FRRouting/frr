@@ -1799,6 +1799,31 @@ void cli_show_ip_isis_circ_type(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/network-type
+ */
+DEFPY(isis_network, isis_network_cmd, "[no] isis network point-to-point",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Set network type\n"
+      "point-to-point network type\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/network-type",
+			      NB_OP_MODIFY,
+			      no ? "broadcast" : "point-to-point");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_network_type(struct vty *vty, struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	if (yang_dnode_get_enum(dnode, NULL) != CIRCUIT_T_P2P)
+		vty_out(vty, " no");
+
+	vty_out(vty, " isis network point-to-point\n");
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -1879,6 +1904,8 @@ void isis_cli_init(void)
 
 	install_element(INTERFACE_NODE, &isis_circuit_type_cmd);
 	install_element(INTERFACE_NODE, &no_isis_circuit_type_cmd);
+
+	install_element(INTERFACE_NODE, &isis_network_cmd);
 }
 
 #endif /* ifndef FABRICD */
