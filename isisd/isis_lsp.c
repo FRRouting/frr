@@ -355,6 +355,15 @@ void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno)
 	else
 		newseq = seqno + 1;
 
+#ifndef FABRICD
+	/* check for overflow */
+	if (newseq < lsp->hdr.seqno) {
+		/* send northbound notification */
+		isis_notif_lsp_exceed_max(lsp->area,
+					  rawlspid_print(lsp->hdr.lsp_id));
+	}
+#endif /* ifndef FABRICD */
+
 	lsp->hdr.seqno = newseq;
 
 	lsp_pack_pdu(lsp);

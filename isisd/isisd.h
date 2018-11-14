@@ -229,6 +229,8 @@ extern void isis_notif_if_state_change(const struct isis_circuit *circuit,
 				       bool down);
 extern void isis_notif_corrupted_lsp(const struct isis_area *area,
 				     const char *lsp_id); /* currently unused */
+extern void isis_notif_lsp_exceed_max(const struct isis_area *area,
+				      const char *lsp_id);
 /* Master of threads. */
 extern struct thread_master *master;
 
