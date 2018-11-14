@@ -683,6 +683,10 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 
 	if (!iih.tlvs->area_addresses.count) {
 		zlog_warn("No Area addresses TLV in %s", pdu_name);
+#ifndef FABRICD
+		/* send northbound notification */
+		isis_notif_area_mismatch(circuit, raw_pdu);
+#endif /* ifndef FABRICD */
 		goto out;
 	}
 
@@ -736,6 +740,10 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 				circuit->area->area_tag, level,
 				circuit->interface->name);
 		}
+#ifndef FABRICD
+		/* send northbound notification */
+		isis_notif_area_mismatch(circuit, raw_pdu);
+#endif /* ifndef FABRICD */
 		goto out;
 	}
 

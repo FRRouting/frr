@@ -2733,6 +2733,28 @@ void isis_notif_reject_adjacency(const struct isis_circuit *circuit,
 	nb_notification_send(xpath, arguments);
 }
 
+/*
+ * XPath:
+ * /frr-isisd:area-mismatch
+ */
+void isis_notif_area_mismatch(const struct isis_circuit *circuit,
+			      const char *raw_pdu)
+{
+	const char *xpath = "/frr-isisd:area-mismatch";
+	struct list *arguments = yang_data_list_new();
+	char xpath_arg[XPATH_MAXLEN];
+	struct yang_data *data;
+	struct isis_area *area = circuit->area;
+
+	notif_prep_instance_hdr(xpath, area, "default", arguments);
+	notif_prepr_iface_hdr(xpath, circuit, arguments);
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/raw-pdu", xpath);
+	data = yang_data_new(xpath_arg, raw_pdu);
+	listnode_add(arguments, data);
+
+	nb_notification_send(xpath, arguments);
+}
+
 /* clang-format off */
 const struct frr_yang_module_info frr_isisd_info = {
 	.name = "frr-isisd",

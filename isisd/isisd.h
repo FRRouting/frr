@@ -245,6 +245,8 @@ extern void isis_notif_adj_state_change(const struct isis_adjacency *adj,
 extern void isis_notif_reject_adjacency(const struct isis_circuit *circuit,
 					const char *reason,
 					const char *raw_pdu);
+extern void isis_notif_area_mismatch(const struct isis_circuit *circuit,
+				     const char *raw_pdu);
 /* Master of threads. */
 extern struct thread_master *master;
 
