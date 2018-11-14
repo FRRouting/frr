@@ -845,18 +845,63 @@ static int isis_instance_domain_password_authenticate_snp_modify(
 /*
  * XPath: /frr-isisd:isis/instance/default-information-originate/ipv4
  */
+static void default_info_origin_apply_finish(const struct lyd_node *dnode,
+					     int family)
+{
+	int originate_type = DEFAULT_ORIGINATE;
+	unsigned long metric = 0;
+	const char *routemap = NULL;
+	struct isis_area *area = yang_dnode_get_entry(dnode, true);
+	int level = yang_dnode_get_enum(dnode, "./level");
+
+	if (yang_dnode_exists(dnode, "./always")) {
+		originate_type = DEFAULT_ORIGINATE_ALWAYS;
+	} else if (family == AF_INET6) {
+		zlog_warn(
+			"%s: Zebra doesn't implement default-originate for IPv6 yet, so use with care or use default-originate always.",
+			__func__);
+	}
+
+	if (yang_dnode_exists(dnode, "./metric"))
+		metric = yang_dnode_get_uint32(dnode, "./metric");
+	else if (yang_dnode_exists(dnode, "./route-map"))
+		routemap = yang_dnode_get_string(dnode, "./route-map");
+
+	isis_redist_set(area, level, family, DEFAULT_ROUTE, metric, routemap,
+			originate_type);
+}
+
+static void default_info_origin_ipv4_apply_finish(const struct lyd_node *dnode)
+{
+	default_info_origin_apply_finish(dnode, AF_INET);
+}
+
+static void default_info_origin_ipv6_apply_finish(const struct lyd_node *dnode)
+{
+	default_info_origin_apply_finish(dnode, AF_INET6);
+}
+
 static int isis_instance_default_information_originate_ipv4_create(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
 static int isis_instance_default_information_originate_ipv4_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	int level;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	level = yang_dnode_get_enum(dnode, "./level");
+	isis_redist_unset(area, level, AF_INET, DEFAULT_ROUTE);
+
 	return NB_OK;
 }
 
@@ -867,14 +912,14 @@ static int isis_instance_default_information_originate_ipv4_always_create(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
 static int isis_instance_default_information_originate_ipv4_always_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
@@ -885,14 +930,14 @@ static int isis_instance_default_information_originate_ipv4_route_map_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
 static int isis_instance_default_information_originate_ipv4_route_map_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
@@ -903,14 +948,14 @@ static int isis_instance_default_information_originate_ipv4_metric_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
 static int isis_instance_default_information_originate_ipv4_metric_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
@@ -921,14 +966,23 @@ static int isis_instance_default_information_originate_ipv6_create(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
 static int isis_instance_default_information_originate_ipv6_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	int level;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	level = yang_dnode_get_enum(dnode, "./level");
+	isis_redist_unset(area, level, AF_INET6, DEFAULT_ROUTE);
+
 	return NB_OK;
 }
 
@@ -939,14 +993,14 @@ static int isis_instance_default_information_originate_ipv6_always_create(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
 static int isis_instance_default_information_originate_ipv6_always_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
@@ -957,14 +1011,14 @@ static int isis_instance_default_information_originate_ipv6_route_map_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
 static int isis_instance_default_information_originate_ipv6_route_map_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
@@ -975,14 +1029,14 @@ static int isis_instance_default_information_originate_ipv6_metric_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
 static int isis_instance_default_information_originate_ipv6_metric_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
 }
 
@@ -2202,6 +2256,8 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv4",
 			.cbs.create = isis_instance_default_information_originate_ipv4_create,
 			.cbs.delete = isis_instance_default_information_originate_ipv4_delete,
+			.cbs.apply_finish = default_info_origin_ipv4_apply_finish,
+			.cbs.cli_show = cli_show_isis_def_origin_ipv4,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv4/always",
@@ -2222,6 +2278,8 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv6",
 			.cbs.create = isis_instance_default_information_originate_ipv6_create,
 			.cbs.delete = isis_instance_default_information_originate_ipv6_delete,
+			.cbs.apply_finish = default_info_origin_ipv6_apply_finish,
+			.cbs.cli_show = cli_show_isis_def_origin_ipv6,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv6/always",

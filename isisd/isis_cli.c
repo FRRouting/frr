@@ -962,6 +962,88 @@ DEFPY(isis_mpls_te_inter_as, isis_mpls_te_inter_as_cmd,
 	return CMD_SUCCESS;
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/default-information-originate
+ */
+DEFPY(isis_default_originate, isis_default_originate_cmd,
+      "[no] default-information originate <ipv4|ipv6>$ip"
+      " <level-1|level-2>$level [always]$always"
+      " [<metric (0-16777215)$metric|route-map WORD$rmap>]",
+      NO_STR
+      "Control distribution of default information\n"
+      "Distribute a default route\n"
+      "Distribute default route for IPv4\n"
+      "Distribute default route for IPv6\n"
+      "Distribute default route into level-1\n"
+      "Distribute default route into level-2\n"
+      "Always advertise default route\n"
+      "Metric for default route\n"
+      "ISIS default metric\n"
+      "Route map reference\n"
+      "Pointer to route-map entries\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+	else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./always",
+				      always ? NB_OP_CREATE : NB_OP_DELETE,
+				      NULL);
+		nb_cli_enqueue_change(vty, "./route-map",
+				      rmap ? NB_OP_MODIFY : NB_OP_DELETE,
+				      rmap ? rmap : NULL);
+		nb_cli_enqueue_change(vty, "./metric",
+				      metric ? NB_OP_MODIFY : NB_OP_DELETE,
+				      metric ? metric_str : NULL);
+		if (strmatch(ip, "ipv6") && !always) {
+			vty_out(vty,
+				"Zebra doesn't implement default-originate for IPv6 yet\n");
+			vty_out(vty,
+				"so use with care or use default-originate always.\n");
+		}
+	}
+
+	return nb_cli_apply_changes(
+		vty, "./default-information-originate/%s[level='%s']", ip,
+		level);
+}
+
+static void vty_print_def_origin(struct vty *vty, struct lyd_node *dnode,
+				 const char *family, const char *level, bool show_defaults)
+{
+	const char *metric;
+
+	vty_out(vty, " default-information originate %s %s", family, level);
+	if (yang_dnode_exists(dnode, "./always"))
+		vty_out(vty, " always");
+
+	if (yang_dnode_exists(dnode, "./route-map"))
+		vty_out(vty, " route-map %s",
+			yang_dnode_get_string(dnode, "./route-map"));
+	else if (yang_dnode_exists(dnode, "./metric")) {
+		metric = yang_dnode_get_string(dnode, "./metric");
+		if (show_defaults || !yang_dnode_is_default(dnode, "./metric"))
+			vty_out(vty, " metric %s", metric);
+	}
+	vty_out(vty, "\n");
+}
+
+void cli_show_isis_def_origin_ipv4(struct vty *vty, struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	const char *level = yang_dnode_get_string(dnode, "./level");
+
+	vty_print_def_origin(vty, dnode, "ipv4", level, show_defaults);
+}
+
+void cli_show_isis_def_origin_ipv6(struct vty *vty, struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	const char *level = yang_dnode_get_string(dnode, "./level");
+
+	vty_print_def_origin(vty, dnode, "ipv6", level, show_defaults);
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -1008,6 +1090,8 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_isis_mpls_te_on_cmd);
 	install_element(ISIS_NODE, &isis_mpls_te_router_addr_cmd);
 	install_element(ISIS_NODE, &isis_mpls_te_inter_as_cmd);
+
+	install_element(ISIS_NODE, &isis_default_originate_cmd);
 }
 
 #endif /* ifndef FABRICD */
