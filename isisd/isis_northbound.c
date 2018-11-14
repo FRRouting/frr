@@ -343,14 +343,28 @@ static int isis_instance_purge_originator_create(enum nb_event event,
 						 const struct lyd_node *dnode,
 						 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	area->purge_originator = true;
+
 	return NB_OK;
 }
 
 static int isis_instance_purge_originator_delete(enum nb_event event,
 						 const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	area->purge_originator = false;
+
 	return NB_OK;
 }
 
@@ -1976,6 +1990,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/purge-originator",
 			.cbs.create = isis_instance_purge_originator_create,
 			.cbs.delete = isis_instance_purge_originator_delete,
+			.cbs.cli_show = cli_show_isis_purge_origin,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/lsp/mtu",

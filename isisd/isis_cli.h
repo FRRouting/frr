@@ -55,5 +55,7 @@ void cli_show_isis_spf_min_interval(struct vty *vty, struct lyd_node *dnode,
 				    bool show_defaults);
 void cli_show_isis_spf_ietf_backoff(struct vty *vty, struct lyd_node *dnode,
 				    bool show_defaults);
+void cli_show_isis_purge_origin(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults);
 
 #endif /* ISISD_ISIS_CLI_H_ */

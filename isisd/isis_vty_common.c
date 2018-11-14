@@ -439,18 +439,6 @@ DEFUN (no_isis_bfd,
 	return CMD_SUCCESS;
 }
 
-DEFUN (area_purge_originator,
-       area_purge_originator_cmd,
-       "[no] purge-originator",
-       NO_STR
-       "Use the RFC 6232 purge-originator\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-
-	area->purge_originator = !!strcmp(argv[0]->text, "no");
-	return CMD_SUCCESS;
-}
-
 void isis_vty_init(void)
 {
 	install_element(INTERFACE_NODE, &isis_passive_cmd);
@@ -479,8 +467,6 @@ void isis_vty_init(void)
 
 	install_element(INTERFACE_NODE, &isis_bfd_cmd);
 	install_element(INTERFACE_NODE, &no_isis_bfd_cmd);
-
-	install_element(ROUTER_NODE, &area_purge_originator_cmd);
 
 	isis_vty_daemon_init();
 }

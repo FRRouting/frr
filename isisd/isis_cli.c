@@ -881,6 +881,24 @@ void cli_show_isis_spf_ietf_backoff(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, "./time-to-learn"));
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/purge-originator
+ */
+DEFPY(area_purge_originator, area_purge_originator_cmd, "[no] purge-originator",
+      NO_STR "Use the RFC 6232 purge-originator\n")
+{
+	nb_cli_enqueue_change(vty, "./purge-originator",
+			      no ? NB_OP_DELETE : NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_purge_origin(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults)
+{
+	vty_out(vty, " purge-originator\n");
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -920,6 +938,8 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_spf_interval_cmd);
 	install_element(ISIS_NODE, &spf_delay_ietf_cmd);
 	install_element(ISIS_NODE, &no_spf_delay_ietf_cmd);
+
+	install_element(ISIS_NODE, &area_purge_originator_cmd);
 }
 
 #endif /* ifndef FABRICD */
