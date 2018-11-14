@@ -667,11 +667,21 @@ int isis_circuit_up(struct isis_circuit *circuit)
 
 	circuit->tx_queue = isis_tx_queue_new(circuit, send_lsp);
 
+#ifndef FABRICD
+	/* send northbound notification */
+	isis_notif_if_state_change(circuit, false);
+#endif /* ifndef FABRICD */
+
 	return ISIS_OK;
 }
 
 void isis_circuit_down(struct isis_circuit *circuit)
 {
+#ifndef FABRICD
+	/* send northbound notification */
+	isis_notif_if_state_change(circuit, true);
+#endif /* ifndef FABRICD */
+
 	/* Clear the flags for all the lsps of the circuit. */
 	isis_circuit_update_all_srmflags(circuit, 0);
 

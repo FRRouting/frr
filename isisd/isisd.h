@@ -225,6 +225,8 @@ extern void isis_northbound_init(void);
 extern void isis_notif_db_overload(const struct isis_area *area, bool overload);
 extern void isis_notif_lsp_too_large(const struct isis_circuit *circuit,
 				     uint32_t pdu_size, const char *lsp_id);
+extern void isis_notif_if_state_change(const struct isis_circuit *circuit,
+				       bool down);
 /* Master of threads. */
 extern struct thread_master *master;
 
