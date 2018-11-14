@@ -524,12 +524,38 @@ static int isis_instance_lsp_generation_interval_level_2_modify(
 /*
  * XPath: /frr-isisd:isis/instance/spf/ietf-backoff-delay
  */
+static void ietf_backoff_delay_apply_finish(const struct lyd_node *dnode)
+{
+	long init_delay = yang_dnode_get_uint16(dnode, "./init-delay");
+	long short_delay = yang_dnode_get_uint16(dnode, "./short-delay");
+	long long_delay = yang_dnode_get_uint16(dnode, "./long-delay");
+	long holddown = yang_dnode_get_uint16(dnode, "./hold-down");
+	long timetolearn = yang_dnode_get_uint16(dnode, "./time-to-learn");
+	struct isis_area *area = yang_dnode_get_entry(dnode, true);
+	size_t bufsiz = strlen(area->area_tag) + sizeof("IS-IS  Lx");
+	char *buf = XCALLOC(MTYPE_TMP, bufsiz);
+
+	snprintf(buf, bufsiz, "IS-IS %s L1", area->area_tag);
+	spf_backoff_free(area->spf_delay_ietf[0]);
+	area->spf_delay_ietf[0] =
+		spf_backoff_new(master, buf, init_delay, short_delay,
+				long_delay, holddown, timetolearn);
+
+	snprintf(buf, bufsiz, "IS-IS %s L2", area->area_tag);
+	spf_backoff_free(area->spf_delay_ietf[1]);
+	area->spf_delay_ietf[1] =
+		spf_backoff_new(master, buf, init_delay, short_delay,
+				long_delay, holddown, timetolearn);
+
+	XFREE(MTYPE_TMP, buf);
+}
+
 static int
 isis_instance_spf_ietf_backoff_delay_create(enum nb_event event,
 					    const struct lyd_node *dnode,
 					    union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* All the work is done in the apply_finish */
 	return NB_OK;
 }
 
@@ -537,7 +563,17 @@ static int
 isis_instance_spf_ietf_backoff_delay_delete(enum nb_event event,
 					    const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	spf_backoff_free(area->spf_delay_ietf[0]);
+	spf_backoff_free(area->spf_delay_ietf[1]);
+	area->spf_delay_ietf[0] = NULL;
+	area->spf_delay_ietf[1] = NULL;
+
 	return NB_OK;
 }
 
@@ -548,7 +584,7 @@ static int isis_instance_spf_ietf_backoff_delay_init_delay_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* All the work is done in the apply_finish */
 	return NB_OK;
 }
 
@@ -559,7 +595,7 @@ static int isis_instance_spf_ietf_backoff_delay_short_delay_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* All the work is done in the apply_finish */
 	return NB_OK;
 }
 
@@ -570,7 +606,7 @@ static int isis_instance_spf_ietf_backoff_delay_long_delay_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* All the work is done in the apply_finish */
 	return NB_OK;
 }
 
@@ -581,7 +617,7 @@ static int isis_instance_spf_ietf_backoff_delay_hold_down_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* All the work is done in the apply_finish */
 	return NB_OK;
 }
 
@@ -592,7 +628,7 @@ static int isis_instance_spf_ietf_backoff_delay_time_to_learn_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* All the work is done in the apply_finish */
 	return NB_OK;
 }
 
@@ -1986,6 +2022,8 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/spf/ietf-backoff-delay",
 			.cbs.create = isis_instance_spf_ietf_backoff_delay_create,
 			.cbs.delete = isis_instance_spf_ietf_backoff_delay_delete,
+			.cbs.apply_finish = ietf_backoff_delay_apply_finish,
+			.cbs.cli_show = cli_show_isis_spf_ietf_backoff,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/spf/ietf-backoff-delay/init-delay",

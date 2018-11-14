@@ -815,6 +815,72 @@ void cli_show_isis_spf_min_interval(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/spf/ietf-backoff-delay
+ */
+DEFPY(spf_delay_ietf, spf_delay_ietf_cmd,
+      "spf-delay-ietf init-delay (0-60000) short-delay (0-60000) long-delay (0-60000) holddown (0-60000) time-to-learn (0-60000)",
+      "IETF SPF delay algorithm\n"
+      "Delay used while in QUIET state\n"
+      "Delay used while in QUIET state in milliseconds\n"
+      "Delay used while in SHORT_WAIT state\n"
+      "Delay used while in SHORT_WAIT state in milliseconds\n"
+      "Delay used while in LONG_WAIT\n"
+      "Delay used while in LONG_WAIT state in milliseconds\n"
+      "Time with no received IGP events before considering IGP stable\n"
+      "Time with no received IGP events before considering IGP stable (in milliseconds)\n"
+      "Maximum duration needed to learn all the events related to a single failure\n"
+      "Maximum duration needed to learn all the events related to a single failure (in milliseconds)\n")
+{
+	nb_cli_enqueue_change(vty, "./spf/ietf-backoff-delay", NB_OP_CREATE,
+			      NULL);
+	nb_cli_enqueue_change(vty, "./spf/ietf-backoff-delay/init-delay",
+			      NB_OP_MODIFY, init_delay_str);
+	nb_cli_enqueue_change(vty, "./spf/ietf-backoff-delay/short-delay",
+			      NB_OP_MODIFY, short_delay_str);
+	nb_cli_enqueue_change(vty, "./spf/ietf-backoff-delay/long-delay",
+			      NB_OP_MODIFY, long_delay_str);
+	nb_cli_enqueue_change(vty, "./spf/ietf-backoff-delay/hold-down",
+			      NB_OP_MODIFY, holddown_str);
+	nb_cli_enqueue_change(vty, "./spf/ietf-backoff-delay/time-to-learn",
+			      NB_OP_MODIFY, time_to_learn_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_spf_delay_ietf, no_spf_delay_ietf_cmd,
+      "no spf-delay-ietf [init-delay (0-60000) short-delay (0-60000) long-delay (0-60000) holddown (0-60000) time-to-learn (0-60000)]",
+      NO_STR
+	  "IETF SPF delay algorithm\n"
+      "Delay used while in QUIET state\n"
+      "Delay used while in QUIET state in milliseconds\n"
+      "Delay used while in SHORT_WAIT state\n"
+      "Delay used while in SHORT_WAIT state in milliseconds\n"
+      "Delay used while in LONG_WAIT\n"
+      "Delay used while in LONG_WAIT state in milliseconds\n"
+      "Time with no received IGP events before considering IGP stable\n"
+      "Time with no received IGP events before considering IGP stable (in milliseconds)\n"
+      "Maximum duration needed to learn all the events related to a single failure\n"
+      "Maximum duration needed to learn all the events related to a single failure (in milliseconds)\n")
+{
+	nb_cli_enqueue_change(vty, "./spf/ietf-backoff-delay", NB_OP_DELETE,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_spf_ietf_backoff(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	vty_out(vty,
+		" spf-delay-ietf init-delay %s short-delay %s long-delay %s holddown %s time-to-learn %s\n",
+		yang_dnode_get_string(dnode, "./init-delay"),
+		yang_dnode_get_string(dnode, "./short-delay"),
+		yang_dnode_get_string(dnode, "./long-delay"),
+		yang_dnode_get_string(dnode, "./hold-down"),
+		yang_dnode_get_string(dnode, "./time-to-learn"));
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -852,6 +918,8 @@ void isis_cli_init(void)
 
 	install_element(ISIS_NODE, &spf_interval_cmd);
 	install_element(ISIS_NODE, &no_spf_interval_cmd);
+	install_element(ISIS_NODE, &spf_delay_ietf_cmd);
+	install_element(ISIS_NODE, &no_spf_delay_ietf_cmd);
 }
 
 #endif /* ifndef FABRICD */

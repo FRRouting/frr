@@ -27,7 +27,6 @@
 #include <zebra.h>
 
 #include "command.h"
-#include "spf_backoff.h"
 #include "bfd.h"
 
 #include "isis_circuit.h"
@@ -452,64 +451,6 @@ DEFUN (area_purge_originator,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_spf_delay_ietf,
-       no_spf_delay_ietf_cmd,
-       "no spf-delay-ietf",
-       NO_STR
-       "IETF SPF delay algorithm\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-
-	spf_backoff_free(area->spf_delay_ietf[0]);
-	spf_backoff_free(area->spf_delay_ietf[1]);
-	area->spf_delay_ietf[0] = NULL;
-	area->spf_delay_ietf[1] = NULL;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (spf_delay_ietf,
-       spf_delay_ietf_cmd,
-       "spf-delay-ietf init-delay (0-60000) short-delay (0-60000) long-delay (0-60000) holddown (0-60000) time-to-learn (0-60000)",
-       "IETF SPF delay algorithm\n"
-       "Delay used while in QUIET state\n"
-       "Delay used while in QUIET state in milliseconds\n"
-       "Delay used while in SHORT_WAIT state\n"
-       "Delay used while in SHORT_WAIT state in milliseconds\n"
-       "Delay used while in LONG_WAIT\n"
-       "Delay used while in LONG_WAIT state in milliseconds\n"
-       "Time with no received IGP events before considering IGP stable\n"
-       "Time with no received IGP events before considering IGP stable (in milliseconds)\n"
-       "Maximum duration needed to learn all the events related to a single failure\n"
-       "Maximum duration needed to learn all the events related to a single failure (in milliseconds)\n")
-{
-	VTY_DECLVAR_CONTEXT(isis_area, area);
-
-	long init_delay = atol(argv[2]->arg);
-	long short_delay = atol(argv[4]->arg);
-	long long_delay = atol(argv[6]->arg);
-	long holddown = atol(argv[8]->arg);
-	long timetolearn = atol(argv[10]->arg);
-
-	size_t bufsiz = strlen(area->area_tag) + sizeof("IS-IS  Lx");
-	char *buf = XCALLOC(MTYPE_TMP, bufsiz);
-
-	snprintf(buf, bufsiz, "IS-IS %s L1", area->area_tag);
-	spf_backoff_free(area->spf_delay_ietf[0]);
-	area->spf_delay_ietf[0] =
-		spf_backoff_new(master, buf, init_delay, short_delay,
-				long_delay, holddown, timetolearn);
-
-	snprintf(buf, bufsiz, "IS-IS %s L2", area->area_tag);
-	spf_backoff_free(area->spf_delay_ietf[1]);
-	area->spf_delay_ietf[1] =
-		spf_backoff_new(master, buf, init_delay, short_delay,
-				long_delay, holddown, timetolearn);
-
-	XFREE(MTYPE_TMP, buf);
-	return CMD_SUCCESS;
-}
-
 void isis_vty_init(void)
 {
 	install_element(INTERFACE_NODE, &isis_passive_cmd);
@@ -540,9 +481,6 @@ void isis_vty_init(void)
 	install_element(INTERFACE_NODE, &no_isis_bfd_cmd);
 
 	install_element(ROUTER_NODE, &area_purge_originator_cmd);
-
-	install_element(ROUTER_NODE, &spf_delay_ietf_cmd);
-	install_element(ROUTER_NODE, &no_spf_delay_ietf_cmd);
 
 	isis_vty_daemon_init();
 }
