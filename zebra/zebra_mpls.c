@@ -1813,17 +1813,22 @@ int zebra_mpls_lsp_uninstall(struct zebra_vrf *zvrf, struct route_node *rn,
  * NOTE: If there is a manually configured label binding, that is used.
  * Otherwise, if a label index is specified, it means we have to allocate the
  * label from a locally configured label block (SRGB), if one exists and index
- * is acceptable.
+ * is acceptable. If no label index then just register the specified label.
+ * NOTE2: Either label or label_index is expected to be set to MPLS_INVALID_*
+ * by the calling function. Register requests with both will be rejected.
  */
 int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
-			    uint32_t label_index, struct zserv *client)
+			    uint32_t label, uint32_t label_index,
+			    struct zserv *client)
 {
 	struct route_table *table;
 	zebra_fec_t *fec;
 	char buf[BUFSIZ];
-	int new_client;
-	int label_change = 0;
+	bool new_client;
+	bool label_change = false;
 	uint32_t old_label;
+	bool have_label_index = (label_index != MPLS_INVALID_LABEL_INDEX);
+	bool is_configured_fec = false; /* indicate statically configured FEC */
 
 	table = zvrf->fec_table[family2afi(PREFIX_FAMILY(p))];
 	if (!table)
@@ -1832,12 +1837,20 @@ int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
 	if (IS_ZEBRA_DEBUG_MPLS)
 		prefix2str(p, buf, BUFSIZ);
 
+	if (label != MPLS_INVALID_LABEL && have_label_index) {
+		flog_err(
+			EC_ZEBRA_FEC_LABEL_INDEX_LABEL_CONFLICT,
+			"Rejecting FEC register for %s with both label %u and Label Index %u specified, client %s",
+			buf, label, label_index,
+			zebra_route_string(client->proto));
+		return -1;
+	}
+
 	/* Locate FEC */
 	fec = fec_find(table, p);
 	if (!fec) {
-		fec = fec_add(table, p, MPLS_INVALID_LABEL, 0, label_index);
+		fec = fec_add(table, p, label, 0, label_index);
 		if (!fec) {
-			prefix2str(p, buf, BUFSIZ);
 			flog_err(
 				EC_ZEBRA_FEC_ADD_FAILED,
 				"Failed to add FEC %s upon register, client %s",
@@ -1846,16 +1859,19 @@ int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
 		}
 
 		old_label = MPLS_INVALID_LABEL;
-		new_client = 1;
+		new_client = true;
 	} else {
+		/* Check if the FEC has been statically defined in the config */
+		is_configured_fec = fec->flags & FEC_FLAG_CONFIGURED;
 		/* Client may register same FEC with different label index. */
 		new_client =
 			(listnode_lookup(fec->client_list, client) == NULL);
-		if (!new_client && fec->label_index == label_index)
+		if (!new_client && fec->label_index == label_index
+		    && fec->label == label)
 			/* Duplicate register */
 			return 0;
 
-		/* Save current label, update label index */
+		/* Save current label, update the FEC */
 		old_label = fec->label;
 		fec->label_index = label_index;
 	}
@@ -1864,21 +1880,29 @@ int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
 		listnode_add(fec->client_list, client);
 
 	if (IS_ZEBRA_DEBUG_MPLS)
-		zlog_debug("FEC %s Label Index %u %s by client %s", buf,
-			   label_index, new_client ? "registered" : "updated",
-			   zebra_route_string(client->proto));
+		zlog_debug("FEC %s label%s %u %s by client %s%s", buf,
+			   have_label_index ? " index" : "",
+			   have_label_index ? label_index : label,
+			   new_client ? "registered" : "updated",
+			   zebra_route_string(client->proto),
+			   is_configured_fec
+				   ? ", but using statically configured label"
+				   : "");
 
-	/* If not a configured FEC, derive the local label (from label index)
-	 * or reset it.
+	/* If not a statically configured FEC, derive the local label
+	 * from label index or use the provided label
 	 */
-	if (!(fec->flags & FEC_FLAG_CONFIGURED)) {
-		fec_derive_label_from_index(zvrf, fec);
+	if (!is_configured_fec) {
+		if (have_label_index)
+			fec_derive_label_from_index(zvrf, fec);
+		else
+			fec->label = label;
 
 		/* If no label change, exit. */
 		if (fec->label == old_label)
 			return 0;
 
-		label_change = 1;
+		label_change = true;
 	}
 
 	/* If new client or label change, update client and install or uninstall
@@ -2106,8 +2130,8 @@ int zebra_mpls_static_fec_del(struct zebra_vrf *zvrf, struct prefix *p)
 
 	if (IS_ZEBRA_DEBUG_MPLS) {
 		prefix2str(p, buf, BUFSIZ);
-		zlog_debug("Delete fec %s label index %u", buf,
-			   fec->label_index);
+		zlog_debug("Delete fec %s label %u label index %u", buf,
+			   fec->label, fec->label_index);
 	}
 
 	old_label = fec->label;

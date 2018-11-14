@@ -452,9 +452,6 @@ extern const char *zserv_command_string(unsigned int command);
  */
 #define ZEBRA_FLAG_ONLINK             0x80
 
-/* Zebra FEC flags. */
-#define ZEBRA_FEC_REGISTER_LABEL_INDEX        0x1
-
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
 #endif

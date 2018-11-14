@@ -1187,6 +1187,7 @@ static void zread_fec_register(ZAPI_HANDLER_ARGS)
 	unsigned short l = 0;
 	struct prefix p;
 	uint16_t flags;
+	uint32_t label = MPLS_INVALID_LABEL;
 	uint32_t label_index = MPLS_INVALID_LABEL_INDEX;
 
 	s = msg;
@@ -1229,12 +1230,15 @@ static void zread_fec_register(ZAPI_HANDLER_ARGS)
 		l += 5;
 		STREAM_GET(&p.u.prefix, s, PSIZE(p.prefixlen));
 		l += PSIZE(p.prefixlen);
-		if (flags & ZEBRA_FEC_REGISTER_LABEL_INDEX) {
+		if (flags & ZEBRA_FEC_REGISTER_LABEL) {
+			STREAM_GETL(s, label);
+			l += 4;
+		} else if (flags & ZEBRA_FEC_REGISTER_LABEL_INDEX) {
 			STREAM_GETL(s, label_index);
 			l += 4;
-		} else
-			label_index = MPLS_INVALID_LABEL_INDEX;
-		zebra_mpls_fec_register(zvrf, &p, label_index, client);
+		}
+
+		zebra_mpls_fec_register(zvrf, &p, label, label_index, client);
 	}
 
 stream_failure:

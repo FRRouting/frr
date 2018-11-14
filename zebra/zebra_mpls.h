@@ -191,16 +191,9 @@ int zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
 int zebra_mpls_lsp_uninstall(struct zebra_vrf *zvrf, struct route_node *rn,
 			     struct route_entry *re);
 
-/*
- * Registration from a client for the label binding for a FEC. If a binding
- * already exists, it is informed to the client.
- * NOTE: If there is a manually configured label binding, that is used.
- * Otherwise, if aa label index is specified, it means we have to allocate the
- * label from a locally configured label block (SRGB), if one exists and index
- * is acceptable.
- */
 int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
-			    uint32_t label_index, struct zserv *client);
+			    uint32_t label, uint32_t label_index,
+			    struct zserv *client);
 
 /*
  * Deregistration from a client for the label binding for a FEC. The FEC
