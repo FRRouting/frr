@@ -602,7 +602,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			bgp->update_delay_over = 0;
 
 		if (!found)
-			vty_out(vty, "%%BGP: No %s peer configured",
+			vty_out(vty, "%%BGP: No %s peer configured\n",
 				afi_safi_print(afi, safi));
 
 		return CMD_SUCCESS;
