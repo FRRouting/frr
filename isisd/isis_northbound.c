@@ -2550,6 +2550,25 @@ void isis_notif_if_state_change(const struct isis_circuit *circuit, bool down)
 	nb_notification_send(xpath, arguments);
 }
 
+/*
+ * XPath:
+ * /frr-isisd:corrupted-lsp-detected
+ */
+void isis_notif_corrupted_lsp(const struct isis_area *area, const char *lsp_id)
+{
+	const char *xpath = "/frr-isisd:corrupted-lsp-detected";
+	struct list *arguments = yang_data_list_new();
+	char xpath_arg[XPATH_MAXLEN];
+	struct yang_data *data;
+
+	notif_prep_instance_hdr(xpath, area, "default", arguments);
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/lsp-id", xpath);
+	data = yang_data_new_string(xpath_arg, lsp_id);
+	listnode_add(arguments, data);
+
+	nb_notification_send(xpath, arguments);
+}
+
 /* clang-format off */
 const struct frr_yang_module_info frr_isisd_info = {
 	.name = "frr-isisd",
