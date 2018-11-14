@@ -2658,6 +2658,56 @@ void isis_notif_authentication_failure(const struct isis_circuit *circuit,
 	nb_notification_send(xpath, arguments);
 }
 
+/*
+ * XPath:
+ * /frr-isisd:adjacency-state-change
+ */
+void isis_notif_adj_state_change(const struct isis_adjacency *adj,
+				 int new_state, const char *reason)
+{
+	const char *xpath = "/frr-isisd:adjacency-state-change";
+	struct list *arguments = yang_data_list_new();
+	char xpath_arg[XPATH_MAXLEN];
+	struct yang_data *data;
+	struct isis_circuit *circuit = adj->circuit;
+	struct isis_area *area = circuit->area;
+	struct isis_dynhn *dyn = dynhn_find_by_id(adj->sysid);
+
+	notif_prep_instance_hdr(xpath, area, "default", arguments);
+	notif_prepr_iface_hdr(xpath, circuit, arguments);
+	if (dyn) {
+		snprintf(xpath_arg, sizeof(xpath_arg), "%s/neighbor", xpath);
+		data = yang_data_new_string(xpath_arg, dyn->hostname);
+		listnode_add(arguments, data);
+	}
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/neighbor-system-id", xpath);
+	data = yang_data_new_string(xpath_arg, sysid_print(adj->sysid));
+	listnode_add(arguments, data);
+
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/state", xpath);
+	switch (new_state) {
+	case ISIS_ADJ_DOWN:
+		data = yang_data_new_string(xpath_arg, "down");
+		break;
+	case ISIS_ADJ_UP:
+		data = yang_data_new_string(xpath_arg, "up");
+		break;
+	case ISIS_ADJ_INITIALIZING:
+		data = yang_data_new_string(xpath_arg, "init");
+		break;
+	default:
+		data = yang_data_new_string(xpath_arg, "failed");
+	}
+	listnode_add(arguments, data);
+	if (new_state == ISIS_ADJ_DOWN) {
+		snprintf(xpath_arg, sizeof(xpath_arg), "%s/reason", xpath);
+		data = yang_data_new_string(xpath_arg, reason);
+		listnode_add(arguments, data);
+	}
+
+	nb_notification_send(xpath, arguments);
+}
+
 /* clang-format off */
 const struct frr_yang_module_info frr_isisd_info = {
 	.name = "frr-isisd",
