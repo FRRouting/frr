@@ -1878,6 +1878,24 @@ void cli_show_ip_isis_priority(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/log-adjacency-changes
+ */
+DEFPY(log_adj_changes, log_adj_changes_cmd, "[no] log-adjacency-changes",
+      NO_STR "Log changes in adjacency state\n")
+{
+	nb_cli_enqueue_change(vty, "./log-adjacency-changes",
+			      no ? NB_OP_DELETE : NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_log_adjacency(struct vty *vty, struct lyd_node *dnode,
+				 bool show_defaults)
+{
+	vty_out(vty, " log-adjacency-changes\n");
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -1963,6 +1981,8 @@ void isis_cli_init(void)
 
 	install_element(INTERFACE_NODE, &isis_priority_cmd);
 	install_element(INTERFACE_NODE, &no_isis_priority_cmd);
+
+	install_element(ISIS_NODE, &log_adj_changes_cmd);
 }
 
 #endif /* ifndef FABRICD */

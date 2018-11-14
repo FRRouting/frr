@@ -119,5 +119,7 @@ void cli_show_ip_isis_network_type(struct vty *vty, struct lyd_node *dnode,
 				   bool show_defaults);
 void cli_show_ip_isis_priority(struct vty *vty, struct lyd_node *dnode,
 			       bool show_defaults);
+void cli_show_isis_log_adjacency(struct vty *vty, struct lyd_node *dnode,
+				 bool show_defaults);
 
 #endif /* ISISD_ISIS_CLI_H_ */

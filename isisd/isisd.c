@@ -1807,6 +1807,7 @@ void isis_area_lsp_refresh_set(struct isis_area *area, int level,
 	lsp_regenerate_schedule(area, level, 1);
 }
 
+#ifdef FABRICD
 DEFUN (log_adj_changes,
        log_adj_changes_cmd,
        "log-adjacency-changes",
@@ -1831,7 +1832,7 @@ DEFUN (no_log_adj_changes,
 
 	return CMD_SUCCESS;
 }
-
+#endif /* ifdef FABRICD */
 /* IS-IS configuration write function */
 int isis_config_write(struct vty *vty)
 {
@@ -2189,17 +2190,16 @@ void isis_init()
 #ifdef FABRICD
 	install_element(CONFIG_NODE, &router_openfabric_cmd);
 	install_element(CONFIG_NODE, &no_router_openfabric_cmd);
-#endif /* ifdef FABRICD */
-#ifdef FABRICD
+
 	install_element(ROUTER_NODE, &net_cmd);
 	install_element(ROUTER_NODE, &no_net_cmd);
-#endif /* ifdef FABRICD */
-#ifdef FABRICD
+
 	install_element(ROUTER_NODE, &isis_topology_cmd);
 	install_element(ROUTER_NODE, &no_isis_topology_cmd);
-#endif /* ifdef FABRICD */
+
 	install_element(ROUTER_NODE, &log_adj_changes_cmd);
 	install_element(ROUTER_NODE, &no_log_adj_changes_cmd);
+#endif /* ifdef FABRICD */
 
 	spf_backoff_cmd_init();
 }
