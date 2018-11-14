@@ -1950,7 +1950,16 @@ lib_interface_isis_hello_multiplier_level_1_modify(enum nb_event event,
 						   const struct lyd_node *dnode,
 						   union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+	uint16_t multi;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	multi = yang_dnode_get_uint16(dnode, NULL);
+	circuit->hello_multiplier[0] = multi;
+
 	return NB_OK;
 }
 
@@ -1962,7 +1971,16 @@ lib_interface_isis_hello_multiplier_level_2_modify(enum nb_event event,
 						   const struct lyd_node *dnode,
 						   union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+	uint16_t multi;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	multi = yang_dnode_get_uint16(dnode, NULL);
+	circuit->hello_multiplier[1] = multi;
+
 	return NB_OK;
 }
 
@@ -2670,6 +2688,10 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/interval/level-2",
 			.cbs.modify = lib_interface_isis_hello_interval_level_2_modify,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/multiplier",
+			.cbs.cli_show = cli_show_ip_isis_hello_multi,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/multiplier/level-1",

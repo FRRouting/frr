@@ -56,42 +56,6 @@ struct isis_circuit *isis_circuit_lookup(struct vty *vty)
 	return circuit;
 }
 
-DEFUN (isis_hello_multiplier,
-       isis_hello_multiplier_cmd,
-       PROTO_NAME " hello-multiplier (2-100)",
-       PROTO_HELP
-       "Set multiplier for Hello holding time\n"
-       "Hello multiplier value\n")
-{
-	uint16_t mult = atoi(argv[2]->arg);
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	circuit->hello_multiplier[0] = mult;
-	circuit->hello_multiplier[1] = mult;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_isis_hello_multiplier,
-       no_isis_hello_multiplier_cmd,
-       "no " PROTO_NAME " hello-multiplier [(2-100)]",
-       NO_STR
-       PROTO_HELP
-       "Set multiplier for Hello holding time\n"
-       "Hello multiplier value\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	circuit->hello_multiplier[0] = DEFAULT_HELLO_MULTIPLIER;
-	circuit->hello_multiplier[1] = DEFAULT_HELLO_MULTIPLIER;
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (csnp_interval,
        csnp_interval_cmd,
        PROTO_NAME " csnp-interval (1-600)",
@@ -264,9 +228,6 @@ DEFUN (no_isis_bfd,
 
 void isis_vty_init(void)
 {
-	install_element(INTERFACE_NODE, &isis_hello_multiplier_cmd);
-	install_element(INTERFACE_NODE, &no_isis_hello_multiplier_cmd);
-
 	install_element(INTERFACE_NODE, &csnp_interval_cmd);
 	install_element(INTERFACE_NODE, &no_csnp_interval_cmd);
 

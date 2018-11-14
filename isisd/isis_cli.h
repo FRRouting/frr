@@ -89,5 +89,7 @@ void cli_show_ip_isis_metric(struct vty *vty, struct lyd_node *dnode,
 			     bool show_defaults);
 void cli_show_ip_isis_hello_interval(struct vty *vty, struct lyd_node *dnode,
 				     bool show_defaults);
+void cli_show_ip_isis_hello_multi(struct vty *vty, struct lyd_node *dnode,
+				  bool show_defaults);
 
 #endif /* ISISD_ISIS_CLI_H_ */

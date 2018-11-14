@@ -219,45 +219,6 @@ DEFUN (no_isis_priority_level,
 	return CMD_SUCCESS;
 }
 
-DEFUN (isis_hello_multiplier_level,
-       isis_hello_multiplier_level_cmd,
-       "isis hello-multiplier (2-100) <level-1|level-2>",
-       "IS-IS routing protocol\n"
-       "Set multiplier for Hello holding time\n"
-       "Hello multiplier value\n"
-       "Specify hello multiplier for level-1 IIHs\n"
-       "Specify hello multiplier for level-2 IIHs\n")
-{
-	uint16_t mult = atoi(argv[2]->arg);
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	circuit->hello_multiplier[level_for_arg(argv[3]->text)] = mult;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_isis_hello_multiplier_level,
-       no_isis_hello_multiplier_level_cmd,
-       "no isis hello-multiplier [(2-100)] <level-1|level-2>",
-       NO_STR
-       "IS-IS routing protocol\n"
-       "Set multiplier for Hello holding time\n"
-       "Hello multiplier value\n"
-       "Specify hello multiplier for level-1 IIHs\n"
-       "Specify hello multiplier for level-2 IIHs\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	int level = level_for_arg(argv[argc - 1]->text);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	circuit->hello_multiplier[level] = DEFAULT_HELLO_MULTIPLIER;
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (isis_threeway_adj,
        isis_threeway_adj_cmd,
        "[no] isis three-way-handshake",
@@ -396,9 +357,6 @@ void isis_vty_daemon_init(void)
 	install_element(INTERFACE_NODE, &no_isis_priority_cmd);
 	install_element(INTERFACE_NODE, &isis_priority_level_cmd);
 	install_element(INTERFACE_NODE, &no_isis_priority_level_cmd);
-
-	install_element(INTERFACE_NODE, &isis_hello_multiplier_level_cmd);
-	install_element(INTERFACE_NODE, &no_isis_hello_multiplier_level_cmd);
 
 	install_element(INTERFACE_NODE, &isis_threeway_adj_cmd);
 

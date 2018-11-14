@@ -1391,6 +1391,64 @@ void cli_show_ip_isis_hello_interval(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/hello/multiplier
+ */
+DEFPY(isis_hello_multiplier, isis_hello_multiplier_cmd,
+      "isis hello-multiplier [level-1|level-2]$level (2-100)$mult",
+      "IS-IS routing protocol\n"
+      "Set multiplier for Hello holding time\n"
+      "Specify hello multiplier for level-1 IIHs\n"
+      "Specify hello multiplier for level-2 IIHs\n"
+      "Hello multiplier value\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(
+			vty, "./frr-isisd:isis/hello/multiplier/level-1",
+			NB_OP_MODIFY, mult_str);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(
+			vty, "./frr-isisd:isis/hello/multiplier/level-2",
+			NB_OP_MODIFY, mult_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_isis_hello_multiplier, no_isis_hello_multiplier_cmd,
+      "no isis hello-multiplier [level-1|level-2]$level [(2-100)]",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Set multiplier for Hello holding time\n"
+      "Specify hello multiplier for level-1 IIHs\n"
+      "Specify hello multiplier for level-2 IIHs\n"
+      "Hello multiplier value\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(
+			vty, "./frr-isisd:isis/hello/multiplier/level-1",
+			NB_OP_MODIFY, NULL);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(
+			vty, "./frr-isisd:isis/hello/multiplier/level-2",
+			NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_hello_multi(struct vty *vty, struct lyd_node *dnode,
+				  bool show_defaults)
+{
+	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
+	const char *l2 = yang_dnode_get_string(dnode, "./level-2");
+
+	if (strmatch(l1, l2))
+		vty_out(vty, " isis hello-multiplier %s\n", l1);
+	else {
+		vty_out(vty, " isis hello-multiplier %s level-1\n", l1);
+		vty_out(vty, " isis hello-multiplier %s level-2\n", l2);
+	}
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -1453,6 +1511,9 @@ void isis_cli_init(void)
 
 	install_element(INTERFACE_NODE, &isis_hello_interval_cmd);
 	install_element(INTERFACE_NODE, &no_isis_hello_interval_cmd);
+
+	install_element(INTERFACE_NODE, &isis_hello_multiplier_cmd);
+	install_element(INTERFACE_NODE, &no_isis_hello_multiplier_cmd);
 }
 
 #endif /* ifndef FABRICD */
