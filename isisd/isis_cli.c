@@ -1044,6 +1044,68 @@ void cli_show_isis_def_origin_ipv6(struct vty *vty, struct lyd_node *dnode,
 	vty_print_def_origin(vty, dnode, "ipv6", level, show_defaults);
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/redistribute
+ */
+DEFPY(isis_redistribute, isis_redistribute_cmd,
+      "[no] redistribute <ipv4|ipv6>$ip " PROTO_REDIST_STR
+      "$proto"
+      " <level-1|level-2>$level"
+      " [<metric (0-16777215)|route-map WORD>]",
+      NO_STR REDIST_STR
+      "Redistribute IPv4 routes\n"
+      "Redistribute IPv6 routes\n" PROTO_REDIST_HELP
+      "Redistribute into level-1\n"
+      "Redistribute into level-2\n"
+      "Metric for redistributed routes\n"
+      "ISIS default metric\n"
+      "Route map reference\n"
+      "Pointer to route-map entries\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+	else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./route-map",
+				      route_map ? NB_OP_MODIFY : NB_OP_DELETE,
+				      route_map ? route_map : NULL);
+		nb_cli_enqueue_change(vty, "./metric",
+				      metric ? NB_OP_MODIFY : NB_OP_DELETE,
+				      metric ? metric_str : NULL);
+	}
+
+	return nb_cli_apply_changes(
+		vty, "./redistribute/%s[protocol='%s'][level='%s']", ip, proto,
+		level);
+}
+
+static void vty_print_redistribute(struct vty *vty, struct lyd_node *dnode,
+				   const char *family)
+{
+	const char *level = yang_dnode_get_string(dnode, "./level");
+	const char *protocol = yang_dnode_get_string(dnode, "./protocol");
+
+	vty_out(vty, " redistribute %s %s %s", family, protocol, level);
+	if (yang_dnode_exists(dnode, "./metric"))
+		vty_out(vty, " metric %s",
+			yang_dnode_get_string(dnode, "./metric"));
+	else if (yang_dnode_exists(dnode, "./route-map"))
+		vty_out(vty, " route-map %s",
+			yang_dnode_get_string(dnode, "./route-map"));
+	vty_out(vty, "\n");
+}
+
+void cli_show_isis_redistribute_ipv4(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	vty_print_redistribute(vty, dnode, "ipv4");
+}
+void cli_show_isis_redistribute_ipv6(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	vty_print_redistribute(vty, dnode, "ipv6");
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -1092,6 +1154,7 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &isis_mpls_te_inter_as_cmd);
 
 	install_element(ISIS_NODE, &isis_default_originate_cmd);
+	install_element(ISIS_NODE, &isis_redistribute_cmd);
 }
 
 #endif /* ifndef FABRICD */

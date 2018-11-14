@@ -65,5 +65,9 @@ void cli_show_isis_def_origin_ipv4(struct vty *vty, struct lyd_node *dnode,
 				   bool show_defaults);
 void cli_show_isis_def_origin_ipv6(struct vty *vty, struct lyd_node *dnode,
 				   bool show_defaults);
+void cli_show_isis_redistribute_ipv4(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults);
+void cli_show_isis_redistribute_ipv6(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults);
 
 #endif /* ISISD_ISIS_CLI_H_ */

@@ -1043,18 +1043,58 @@ static int isis_instance_default_information_originate_ipv6_metric_delete(
 /*
  * XPath: /frr-isisd:isis/instance/redistribute/ipv4
  */
+static void redistribute_apply_finish(const struct lyd_node *dnode, int family)
+{
+	assert(family == AF_INET || family == AF_INET6);
+	int type, level;
+	unsigned long metric = 0;
+	const char *routemap = NULL;
+	struct isis_area *area;
+
+	type = yang_dnode_get_enum(dnode, "./protocol");
+	level = yang_dnode_get_enum(dnode, "./level");
+	area = yang_dnode_get_entry(dnode, true);
+
+	if (yang_dnode_exists(dnode, "./metric"))
+		metric = yang_dnode_get_uint32(dnode, "./metric");
+	else if (yang_dnode_exists(dnode, "./route-map"))
+		routemap = yang_dnode_get_string(dnode, "./route-map");
+
+	isis_redist_set(area, level, family, type, metric, routemap, 0);
+}
+
+static void redistribute_ipv4_apply_finish(const struct lyd_node *dnode)
+{
+	redistribute_apply_finish(dnode, AF_INET);
+}
+
+static void redistribute_ipv6_apply_finish(const struct lyd_node *dnode)
+{
+	redistribute_apply_finish(dnode, AF_INET6);
+}
+
 static int isis_instance_redistribute_ipv4_create(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
 }
 
 static int isis_instance_redistribute_ipv4_delete(enum nb_event event,
 						  const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	int level, type;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	level = yang_dnode_get_enum(dnode, "./level");
+	type = yang_dnode_get_enum(dnode, "./protocol");
+	isis_redist_unset(area, level, AF_INET, type);
+
 	return NB_OK;
 }
 
@@ -1066,7 +1106,7 @@ isis_instance_redistribute_ipv4_route_map_modify(enum nb_event event,
 						 const struct lyd_node *dnode,
 						 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
 }
 
@@ -1074,7 +1114,7 @@ static int
 isis_instance_redistribute_ipv4_route_map_delete(enum nb_event event,
 						 const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
 }
 
@@ -1086,7 +1126,7 @@ isis_instance_redistribute_ipv4_metric_modify(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
 }
 
@@ -1094,7 +1134,7 @@ static int
 isis_instance_redistribute_ipv4_metric_delete(enum nb_event event,
 					      const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
 }
 
@@ -1105,14 +1145,24 @@ static int isis_instance_redistribute_ipv6_create(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
 }
 
 static int isis_instance_redistribute_ipv6_delete(enum nb_event event,
 						  const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	int level, type;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	level = yang_dnode_get_enum(dnode, "./level");
+	type = yang_dnode_get_enum(dnode, "./protocol");
+	isis_redist_unset(area, level, AF_INET6, type);
+
 	return NB_OK;
 }
 
@@ -1124,7 +1174,7 @@ isis_instance_redistribute_ipv6_route_map_modify(enum nb_event event,
 						 const struct lyd_node *dnode,
 						 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
 }
 
@@ -1132,7 +1182,7 @@ static int
 isis_instance_redistribute_ipv6_route_map_delete(enum nb_event event,
 						 const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
 }
 
@@ -1144,7 +1194,7 @@ isis_instance_redistribute_ipv6_metric_modify(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
 }
 
@@ -1152,7 +1202,7 @@ static int
 isis_instance_redistribute_ipv6_metric_delete(enum nb_event event,
 					      const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
 }
 
@@ -2300,6 +2350,8 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv4",
 			.cbs.create = isis_instance_redistribute_ipv4_create,
 			.cbs.delete = isis_instance_redistribute_ipv4_delete,
+			.cbs.apply_finish = redistribute_ipv4_apply_finish,
+			.cbs.cli_show = cli_show_isis_redistribute_ipv4,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv4/route-map",
@@ -2315,6 +2367,8 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6",
 			.cbs.create = isis_instance_redistribute_ipv6_create,
 			.cbs.delete = isis_instance_redistribute_ipv6_delete,
+			.cbs.apply_finish = redistribute_ipv6_apply_finish,
+			.cbs.cli_show = cli_show_isis_redistribute_ipv6,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6/route-map",
