@@ -1956,7 +1956,16 @@ lib_interface_isis_metric_level_1_modify(enum nb_event event,
 					 const struct lyd_node *dnode,
 					 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+	unsigned int met;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	met = yang_dnode_get_uint32(dnode, NULL);
+	isis_circuit_metric_set(circuit, IS_LEVEL_1, met);
+
 	return NB_OK;
 }
 
@@ -1968,7 +1977,16 @@ lib_interface_isis_metric_level_2_modify(enum nb_event event,
 					 const struct lyd_node *dnode,
 					 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+	unsigned int met;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	met = yang_dnode_get_uint32(dnode, NULL);
+	isis_circuit_metric_set(circuit, IS_LEVEL_2, met);
+
 	return NB_OK;
 }
 
@@ -2638,6 +2656,10 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/multiplier/level-2",
 			.cbs.modify = lib_interface_isis_hello_multiplier_level_2_modify,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/metric",
+			.cbs.cli_show = cli_show_ip_isis_metric,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/metric/level-1",

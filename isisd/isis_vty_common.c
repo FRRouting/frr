@@ -56,69 +56,6 @@ struct isis_circuit *isis_circuit_lookup(struct vty *vty)
 	return circuit;
 }
 
-DEFUN (isis_metric,
-       isis_metric_cmd,
-       PROTO_NAME " metric (0-16777215)",
-       PROTO_HELP
-       "Set default metric for circuit\n"
-       "Default metric value\n")
-{
-	int idx_number = 2;
-	int met;
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	met = atoi(argv[idx_number]->arg);
-
-	/* RFC3787 section 5.1 */
-	if (circuit->area && circuit->area->oldmetric == 1
-	    && met > MAX_NARROW_LINK_METRIC) {
-		vty_out(vty,
-			"Invalid metric %d - should be <0-63> "
-			"when narrow metric type enabled\n",
-			met);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* RFC4444 */
-	if (circuit->area && circuit->area->newmetric == 1
-	    && met > MAX_WIDE_LINK_METRIC) {
-		vty_out(vty,
-			"Invalid metric %d - should be <0-16777215> "
-			"when wide metric type enabled\n",
-			met);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	CMD_FERR_RETURN(isis_circuit_metric_set(circuit, IS_LEVEL_1, met),
-			"Failed to set L1 metric: $ERR");
-	CMD_FERR_RETURN(isis_circuit_metric_set(circuit, IS_LEVEL_2, met),
-			"Failed to set L2 metric: $ERR");
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_isis_metric,
-       no_isis_metric_cmd,
-       "no " PROTO_NAME " metric [(0-16777215)]",
-       NO_STR
-       PROTO_HELP
-       "Set default metric for circuit\n"
-       "Default metric value\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	CMD_FERR_RETURN(isis_circuit_metric_set(circuit, IS_LEVEL_1,
-						DEFAULT_CIRCUIT_METRIC),
-			"Failed to set L1 metric: $ERR");
-	CMD_FERR_RETURN(isis_circuit_metric_set(circuit, IS_LEVEL_2,
-						DEFAULT_CIRCUIT_METRIC),
-			"Failed to set L2 metric: $ERR");
-	return CMD_SUCCESS;
-}
-
 DEFUN (isis_hello_interval,
        isis_hello_interval_cmd,
        PROTO_NAME " hello-interval (1-600)",
@@ -363,9 +300,6 @@ DEFUN (no_isis_bfd,
 
 void isis_vty_init(void)
 {
-	install_element(INTERFACE_NODE, &isis_metric_cmd);
-	install_element(INTERFACE_NODE, &no_isis_metric_cmd);
-
 	install_element(INTERFACE_NODE, &isis_hello_interval_cmd);
 	install_element(INTERFACE_NODE, &no_isis_hello_interval_cmd);
 

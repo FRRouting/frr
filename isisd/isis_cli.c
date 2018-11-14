@@ -1279,6 +1279,60 @@ void cli_show_ip_isis_password(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, "./password"));
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/metric
+ */
+DEFPY(isis_metric, isis_metric_cmd,
+      "isis metric [level-1|level-2]$level (0-16777215)$met",
+      "IS-IS routing protocol\n"
+      "Set default metric for circuit\n"
+      "Specify metric for level-1 routing\n"
+      "Specify metric for level-2 routing\n"
+      "Default metric value\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/metric/level-1",
+				      NB_OP_MODIFY, met_str);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/metric/level-2",
+				      NB_OP_MODIFY, met_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_isis_metric, no_isis_metric_cmd,
+      "no isis metric [level-1|level-2]$level [(0-16777215)]",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Set default metric for circuit\n"
+      "Specify metric for level-1 routing\n"
+      "Specify metric for level-2 routing\n"
+      "Default metric value\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/metric/level-1",
+				      NB_OP_MODIFY, NULL);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/metric/level-2",
+				      NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_metric(struct vty *vty, struct lyd_node *dnode,
+			     bool show_defaults)
+{
+	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
+	const char *l2 = yang_dnode_get_string(dnode, "./level-2");
+
+	if (strmatch(l1, l2))
+		vty_out(vty, " isis metric %s\n", l1);
+	else {
+		vty_out(vty, " isis metric %s level-1\n", l1);
+		vty_out(vty, " isis metric %s level-2\n", l2);
+	}
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -1335,6 +1389,9 @@ void isis_cli_init(void)
 
 	install_element(INTERFACE_NODE, &isis_passwd_cmd);
 	install_element(INTERFACE_NODE, &no_isis_passwd_cmd);
+
+	install_element(INTERFACE_NODE, &isis_metric_cmd);
+	install_element(INTERFACE_NODE, &no_isis_metric_cmd);
 }
 
 #endif /* ifndef FABRICD */
