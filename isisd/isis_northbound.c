@@ -2443,6 +2443,48 @@ static int lib_interface_isis_multi_topology_ipv6_dstsrc_modify(
 							ISIS_MT_IPV6_DSTSRC);
 }
 
+/*
+ * NOTIFICATIONS
+ */
+static void notif_prep_instance_hdr(const char *xpath,
+				    const struct isis_area *area,
+				    const char *routing_instance,
+				    struct list *args)
+{
+	char xpath_arg[XPATH_MAXLEN];
+	struct yang_data *data;
+
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/routing-instance", xpath);
+	data = yang_data_new_string(xpath_arg, routing_instance);
+	listnode_add(args, data);
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/routing-protocol-name",
+		 xpath);
+	data = yang_data_new_string(xpath_arg, area->area_tag);
+	listnode_add(args, data);
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/isis-level", xpath);
+	data = yang_data_new_enum(xpath_arg, area->is_type);
+	listnode_add(args, data);
+}
+
+/*
+ * XPath:
+ * /frr-isisd:database-overload
+ */
+void isis_notif_db_overload(const struct isis_area *area, bool overload)
+{
+	const char *xpath = "/frr-isisd:database-overload";
+	struct list *arguments = yang_data_list_new();
+	char xpath_arg[XPATH_MAXLEN];
+	struct yang_data *data;
+
+	notif_prep_instance_hdr(xpath, area, "default", arguments);
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/overload", xpath);
+	data = yang_data_new_enum(xpath_arg, !!overload);
+	listnode_add(arguments, data);
+
+	nb_notification_send(xpath, arguments);
+}
+
 /* clang-format off */
 const struct frr_yang_module_info frr_isisd_info = {
 	.name = "frr-isisd",

@@ -220,6 +220,9 @@ int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 
 extern const struct frr_yang_module_info frr_isisd_info;
 extern void isis_northbound_init(void);
+
+/* YANG northbound notifications */
+extern void isis_notif_db_overload(const struct isis_area *area, bool overload);
 /* Master of threads. */
 extern struct thread_master *master;
 

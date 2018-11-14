@@ -1763,6 +1763,9 @@ void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 		area->overload_bit = new_overload_bit;
 		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
 	}
+#ifndef FABRICD
+	isis_notif_db_overload(area, overload_bit);
+#endif /* ifndef FABRICD */
 }
 
 void isis_area_attached_bit_set(struct isis_area *area, bool attached_bit)
