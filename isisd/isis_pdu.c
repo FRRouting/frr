@@ -1584,6 +1584,10 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 			"IDFieldLengthMismatch: ID Length field in a received PDU  %" PRIu8
 			", while the parameter for this IS is %u",
 			id_len, ISIS_SYS_ID_LEN);
+#ifndef FABRICD
+		/* send northbound notification */
+		isis_notif_id_len_mismatch(circuit, id_len, raw_pdu);
+#endif /* ifndef FABRICD */
 		return ISIS_ERROR;
 	}
 

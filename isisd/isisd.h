@@ -252,6 +252,8 @@ extern void isis_notif_lsp_received(const struct isis_circuit *circuit,
 				    uint32_t timestamp, const char *sys_id);
 extern void isis_notif_lsp_gen(const struct isis_area *area, const char *lsp_id,
 			       uint32_t seqno, uint32_t timestamp);
+extern void isis_notif_id_len_mismatch(const struct isis_circuit *circuit,
+				       uint8_t rcv_id_len, const char *raw_pdu);
 /* Master of threads. */
 extern struct thread_master *master;
 
