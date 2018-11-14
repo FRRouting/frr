@@ -242,6 +242,9 @@ isis_notif_authentication_failure(const struct isis_circuit *circuit,
 				  const char *raw_pdu);
 extern void isis_notif_adj_state_change(const struct isis_adjacency *adj,
 					int new_state, const char *reason);
+extern void isis_notif_reject_adjacency(const struct isis_circuit *circuit,
+					const char *reason,
+					const char *raw_pdu);
 /* Master of threads. */
 extern struct thread_master *master;
 

@@ -583,11 +583,21 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 	if (p2p_hello) {
 		if (circuit->circ_type != CIRCUIT_T_P2P) {
 			zlog_warn("p2p hello on non p2p circuit");
+#ifndef FABRICD
+			isis_notif_reject_adjacency(
+				circuit, "p2p hello on non p2p circuit",
+				raw_pdu);
+#endif /* ifndef FABRICD */
 			return ISIS_WARNING;
 		}
 	} else {
 		if (circuit->circ_type != CIRCUIT_T_BROADCAST) {
 			zlog_warn("lan hello on non broadcast circuit");
+#ifndef FABRICD
+			isis_notif_reject_adjacency(
+				circuit, "lan hello on non broadcast circuit",
+				raw_pdu);
+#endif /* ifndef FABRICD */
 			return ISIS_WARNING;
 		}
 
@@ -595,6 +605,12 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 			zlog_debug(
 				"level %d LAN Hello received over circuit with externalDomain = true",
 				level);
+#ifndef FABRICD
+			isis_notif_reject_adjacency(
+				circuit,
+				"LAN Hello received over circuit with externalDomain = true",
+				raw_pdu);
+#endif /* ifndef FABRICD */
 			return ISIS_WARNING;
 		}
 
@@ -605,6 +621,10 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 					circuit->area->area_tag,
 					circuit->interface->name);
 			}
+#ifndef FABRICD
+			isis_notif_reject_adjacency(
+				circuit, "Interface level mismatch", raw_pdu);
+#endif /* ifndef FABRICD */
 			return ISIS_WARNING;
 		}
 	}
@@ -630,6 +650,10 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 			"ISIS-Adj (%s): Rcvd %s from (%s) with invalid pdu length %" PRIu16,
 			circuit->area->area_tag, pdu_name,
 			circuit->interface->name, iih.pdu_len);
+#ifndef FABRICD
+		isis_notif_reject_adjacency(circuit, "Invalid PDU length",
+					    raw_pdu);
+#endif /* ifndef FABRICD */
 		return ISIS_WARNING;
 	}
 
@@ -637,6 +661,10 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		flog_err(EC_ISIS_PACKET,
 			 "Level %d LAN Hello with Circuit Type %d", level,
 			 iih.circ_type);
+#ifndef FABRICD
+		isis_notif_reject_adjacency(
+			circuit, "LAN Hello with wrong IS-level", raw_pdu);
+#endif /* ifndef FABRICD */
 		return ISIS_ERROR;
 	}
 
@@ -646,6 +674,10 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 	if (isis_unpack_tlvs(STREAM_READABLE(circuit->rcv_stream),
 			     circuit->rcv_stream, &iih.tlvs, &error_log)) {
 		zlog_warn("isis_unpack_tlvs() failed: %s", error_log);
+#ifndef FABRICD
+		isis_notif_reject_adjacency(circuit, "Failed to unpack TLVs",
+					    raw_pdu);
+#endif /* ifndef FABRICD */
 		goto out;
 	}
 
@@ -656,6 +688,10 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 
 	if (!iih.tlvs->protocols_supported.count) {
 		zlog_warn("No supported protocols TLV in %s", pdu_name);
+#ifndef FABRICD
+		isis_notif_reject_adjacency(
+			circuit, "No supported protocols TLV", raw_pdu);
+#endif /* ifndef FABRICD */
 		goto out;
 	}
 
@@ -682,6 +718,10 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		zlog_warn(
 			"ISIS-Adj (%s): Received IIH with own sysid - discard",
 			circuit->area->area_tag);
+#ifndef FABRICD
+		isis_notif_reject_adjacency(
+			circuit, "Received IIH with our own sysid", raw_pdu);
+#endif /* ifndef FABRICD */
 		goto out;
 	}
 
@@ -711,7 +751,11 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 				"ISIS-Adj (%s): Neither IPv4 nor IPv6 considered usable. Ignoring IIH",
 				circuit->area->area_tag);
 		}
-
+#ifndef FABRICD
+		isis_notif_reject_adjacency(
+			circuit, "Neither IPv4 not IPv6 considered usable",
+			raw_pdu);
+#endif /* ifndef FABRICD */
 		goto out;
 	}
 
