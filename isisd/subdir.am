@@ -13,7 +13,6 @@ vtysh_scan += \
 	$(top_srcdir)/isisd/isis_te.c \
 	$(top_srcdir)/isisd/isis_vty_common.c \
 	$(top_srcdir)/isisd/isis_vty_fabricd.c \
-	$(top_srcdir)/isisd/isis_vty_isisd.c \
 	$(top_srcdir)/isisd/isisd.c \
 	# end
 man8 += $(MANBUILD)/isisd.8
@@ -105,7 +104,6 @@ ISIS_LDADD_COMMON = lib/libfrr.la @LIBCAP@
 
 isisd_libisis_a_SOURCES = \
 	$(LIBISIS_SOURCES) \
-	isisd/isis_vty_isisd.c \
 	isisd/isis_northbound.c \
 	isisd/isis_cli.c \
 	#end

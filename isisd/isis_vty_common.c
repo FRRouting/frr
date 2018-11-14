@@ -103,5 +103,7 @@ void isis_vty_init(void)
 	install_element(INTERFACE_NODE, &isis_bfd_cmd);
 	install_element(INTERFACE_NODE, &no_isis_bfd_cmd);
 
+#ifdef FABRICD
 	isis_vty_daemon_init();
+#endif /* ifdef FABRICD */
 }

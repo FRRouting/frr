@@ -2069,7 +2069,14 @@ lib_interface_isis_priority_level_1_modify(enum nb_event event,
 					   const struct lyd_node *dnode,
 					   union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	circuit->priority[0] = yang_dnode_get_uint8(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -2081,7 +2088,14 @@ lib_interface_isis_priority_level_2_modify(enum nb_event event,
 					   const struct lyd_node *dnode,
 					   union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	circuit->priority[1] = yang_dnode_get_uint8(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -2834,6 +2848,10 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/metric/level-2",
 			.cbs.modify = lib_interface_isis_metric_level_2_modify,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/priority",
+			.cbs.cli_show = cli_show_ip_isis_priority,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/priority/level-1",
