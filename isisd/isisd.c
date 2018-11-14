@@ -288,6 +288,7 @@ int isis_area_destroy(const char *area_tag)
 	return CMD_SUCCESS;
 }
 
+#ifdef FABRICD
 static void area_set_mt_enabled(struct isis_area *area, uint16_t mtid,
 				bool enabled)
 {
@@ -313,6 +314,7 @@ static void area_set_mt_overload(struct isis_area *area, uint16_t mtid,
 						0);
 	}
 }
+#endif /* ifdef FABRICD */
 
 int area_net_title(struct vty *vty, const char *net_title)
 {
@@ -1511,6 +1513,7 @@ DEFUN (no_net,
 	return area_clear_net_title(vty, argv[idx_word]->arg);
 }
 #endif /* ifdef FABRICD */
+#ifdef FABRICD
 DEFUN (isis_topology,
        isis_topology_cmd,
        "topology " ISIS_MT_NAMES " [overload]",
@@ -1575,6 +1578,7 @@ DEFUN (no_isis_topology,
 	area_set_mt_overload(area, mtid, false);
 	return CMD_SUCCESS;
 }
+#endif /* ifdef FABRICD */
 
 void isis_area_lsp_mtu_set(struct isis_area *area, unsigned int lsp_mtu)
 {
@@ -2190,9 +2194,10 @@ void isis_init()
 	install_element(ROUTER_NODE, &net_cmd);
 	install_element(ROUTER_NODE, &no_net_cmd);
 #endif /* ifdef FABRICD */
+#ifdef FABRICD
 	install_element(ROUTER_NODE, &isis_topology_cmd);
 	install_element(ROUTER_NODE, &no_isis_topology_cmd);
-
+#endif /* ifdef FABRICD */
 	install_element(ROUTER_NODE, &log_adj_changes_cmd);
 	install_element(ROUTER_NODE, &no_log_adj_changes_cmd);
 

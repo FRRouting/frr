@@ -1209,21 +1209,72 @@ isis_instance_redistribute_ipv6_metric_delete(enum nb_event event,
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv4-multicast
  */
+static int isis_multi_topology_common(enum nb_event event,
+				      const struct lyd_node *dnode,
+				      const char *topology, bool create)
+{
+	struct isis_area *area;
+	struct isis_area_mt_setting *setting;
+	uint16_t mtid = isis_str2mtid(topology);
+
+	switch (event) {
+	case NB_EV_VALIDATE:
+		if (mtid == (uint16_t)-1) {
+			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
+				  "Unknown topology %s", topology);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		area = yang_dnode_get_entry(dnode, true);
+		setting = area_get_mt_setting(area, mtid);
+		setting->enabled = create;
+		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 0);
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int isis_multi_topology_overload_common(enum nb_event event,
+					       const struct lyd_node *dnode,
+					       const char *topology,
+					       bool create)
+{
+	struct isis_area *area;
+	struct isis_area_mt_setting *setting;
+	uint16_t mtid = isis_str2mtid(topology);
+
+	/* validation is done in isis_multi_topology_common */
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = yang_dnode_get_entry(dnode, true);
+	setting = area_get_mt_setting(area, mtid);
+	setting->overload = create;
+	if (setting->enabled)
+		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 0);
+
+	return NB_OK;
+}
+
 static int
 isis_instance_multi_topology_ipv4_multicast_create(enum nb_event event,
 						   const struct lyd_node *dnode,
 						   union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_common(event, dnode, "ipv4-multicast", true);
 }
 
 static int
 isis_instance_multi_topology_ipv4_multicast_delete(enum nb_event event,
 						   const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_common(event, dnode, "ipv4-multicast",
+					  false);
 }
 
 /*
@@ -1233,15 +1284,15 @@ static int isis_instance_multi_topology_ipv4_multicast_overload_create(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_overload_common(event, dnode,
+						   "ipv4-multicast", true);
 }
 
 static int isis_instance_multi_topology_ipv4_multicast_overload_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_overload_common(event, dnode,
+						   "ipv4-multicast", false);
 }
 
 /*
@@ -1251,15 +1302,13 @@ static int isis_instance_multi_topology_ipv4_management_create(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_common(event, dnode, "ipv4-mgmt", true);
 }
 
 static int isis_instance_multi_topology_ipv4_management_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_common(event, dnode, "ipv4-mgmt", false);
 }
 
 /*
@@ -1269,15 +1318,15 @@ static int isis_instance_multi_topology_ipv4_management_overload_create(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_overload_common(event, dnode, "ipv4-mgmt",
+						   true);
 }
 
 static int isis_instance_multi_topology_ipv4_management_overload_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_overload_common(event, dnode, "ipv4-mgmt",
+						   false);
 }
 
 /*
@@ -1288,16 +1337,14 @@ isis_instance_multi_topology_ipv6_unicast_create(enum nb_event event,
 						 const struct lyd_node *dnode,
 						 union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_common(event, dnode, "ipv6-unicast", true);
 }
 
 static int
 isis_instance_multi_topology_ipv6_unicast_delete(enum nb_event event,
 						 const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_common(event, dnode, "ipv6-unicast", false);
 }
 
 /*
@@ -1307,15 +1354,15 @@ static int isis_instance_multi_topology_ipv6_unicast_overload_create(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_overload_common(event, dnode, "ipv6-unicast",
+						   true);
 }
 
 static int isis_instance_multi_topology_ipv6_unicast_overload_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_overload_common(event, dnode, "ipv6-unicast",
+						   false);
 }
 
 /*
@@ -1326,16 +1373,15 @@ isis_instance_multi_topology_ipv6_multicast_create(enum nb_event event,
 						   const struct lyd_node *dnode,
 						   union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_common(event, dnode, "ipv6-multicast", true);
 }
 
 static int
 isis_instance_multi_topology_ipv6_multicast_delete(enum nb_event event,
 						   const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_common(event, dnode, "ipv6-multicast",
+					  false);
 }
 
 /*
@@ -1345,15 +1391,15 @@ static int isis_instance_multi_topology_ipv6_multicast_overload_create(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_overload_common(event, dnode,
+						   "ipv6-multicast", true);
 }
 
 static int isis_instance_multi_topology_ipv6_multicast_overload_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_overload_common(event, dnode,
+						   "ipv6-multicast", false);
 }
 
 /*
@@ -1363,15 +1409,13 @@ static int isis_instance_multi_topology_ipv6_management_create(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_common(event, dnode, "ipv6-mgmt", true);
 }
 
 static int isis_instance_multi_topology_ipv6_management_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_common(event, dnode, "ipv6-mgmt", false);
 }
 
 /*
@@ -1381,15 +1425,15 @@ static int isis_instance_multi_topology_ipv6_management_overload_create(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_overload_common(event, dnode, "ipv6-mgmt",
+						   true);
 }
 
 static int isis_instance_multi_topology_ipv6_management_overload_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_overload_common(event, dnode, "ipv6-mgmt",
+						   false);
 }
 
 /*
@@ -1400,16 +1444,14 @@ isis_instance_multi_topology_ipv6_dstsrc_create(enum nb_event event,
 						const struct lyd_node *dnode,
 						union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_common(event, dnode, "ipv6-dstsrc", true);
 }
 
 static int
 isis_instance_multi_topology_ipv6_dstsrc_delete(enum nb_event event,
 						const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_common(event, dnode, "ipv6-dstsrc", false);
 }
 
 /*
@@ -1419,15 +1461,15 @@ static int isis_instance_multi_topology_ipv6_dstsrc_overload_create(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_overload_common(event, dnode, "ipv6-dstsrc",
+						   true);
 }
 
 static int isis_instance_multi_topology_ipv6_dstsrc_overload_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_multi_topology_overload_common(event, dnode, "ipv6-dstsrc",
+						   false);
 }
 
 /*
@@ -2384,6 +2426,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv4-multicast",
 			.cbs.create = isis_instance_multi_topology_ipv4_multicast_create,
 			.cbs.delete = isis_instance_multi_topology_ipv4_multicast_delete,
+			.cbs.cli_show = cli_show_isis_mt_ipv4_multicast,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv4-multicast/overload",
@@ -2394,6 +2437,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv4-management",
 			.cbs.create = isis_instance_multi_topology_ipv4_management_create,
 			.cbs.delete = isis_instance_multi_topology_ipv4_management_delete,
+			.cbs.cli_show = cli_show_isis_mt_ipv4_mgmt,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv4-management/overload",
@@ -2404,6 +2448,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-unicast",
 			.cbs.create = isis_instance_multi_topology_ipv6_unicast_create,
 			.cbs.delete = isis_instance_multi_topology_ipv6_unicast_delete,
+			.cbs.cli_show = cli_show_isis_mt_ipv6_unicast,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-unicast/overload",
@@ -2414,6 +2459,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-multicast",
 			.cbs.create = isis_instance_multi_topology_ipv6_multicast_create,
 			.cbs.delete = isis_instance_multi_topology_ipv6_multicast_delete,
+			.cbs.cli_show = cli_show_isis_mt_ipv6_multicast,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-multicast/overload",
@@ -2424,6 +2470,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-management",
 			.cbs.create = isis_instance_multi_topology_ipv6_management_create,
 			.cbs.delete = isis_instance_multi_topology_ipv6_management_delete,
+			.cbs.cli_show = cli_show_isis_mt_ipv6_mgmt,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-management/overload",
@@ -2434,6 +2481,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-dstsrc",
 			.cbs.create = isis_instance_multi_topology_ipv6_dstsrc_create,
 			.cbs.delete = isis_instance_multi_topology_ipv6_dstsrc_delete,
+			.cbs.cli_show = cli_show_isis_mt_ipv6_dstsrc,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-dstsrc/overload",

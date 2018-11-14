@@ -1106,6 +1106,116 @@ void cli_show_isis_redistribute_ipv6(struct vty *vty, struct lyd_node *dnode,
 	vty_print_redistribute(vty, dnode, "ipv6");
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/multi-topology
+ */
+DEFPY(isis_topology, isis_topology_cmd,
+      "[no] topology "
+      "<ipv4-unicast"
+      "|ipv4-mgmt"
+      "|ipv6-unicast"
+      "|ipv4-multicast"
+      "|ipv6-multicast"
+      "|ipv6-mgmt"
+      "|ipv6-dstsrc>$topology "
+      "[overload]$overload",
+      NO_STR
+      "Configure IS-IS topologies\n"
+      "IPv4 unicast topology\n"
+      "IPv4 management topology\n"
+      "IPv6 unicast topology\n"
+      "IPv4 multicast topology\n"
+      "IPv6 multicast topology\n"
+      "IPv6 management topology\n"
+      "IPv6 dst-src topology\n"
+      "Set overload bit for topology\n")
+{
+	char base_xpath[XPATH_MAXLEN];
+
+	/* Since IPv4-unicast is not configurable it is not present in the
+	 * YANG model, so we need to validate it here
+	 */
+	if (strmatch(topology, "ipv4-unicast")) {
+		vty_out(vty, "Cannot configure IPv4 unicast topology\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (strmatch(topology, "ipv4-mgmt"))
+		snprintf(base_xpath, XPATH_MAXLEN,
+			 "./multi-topology/ipv4-management");
+	else if (strmatch(topology, "ipv6-mgmt"))
+		snprintf(base_xpath, XPATH_MAXLEN,
+			 "./multi-topology/ipv6-management");
+	else
+		snprintf(base_xpath, XPATH_MAXLEN, "./multi-topology/%s",
+			 topology);
+
+	if (no)
+		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+	else {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./overload",
+				      overload ? NB_OP_CREATE : NB_OP_DELETE,
+				      NULL);
+	}
+
+	return nb_cli_apply_changes(vty, base_xpath);
+}
+
+void cli_show_isis_mt_ipv4_multicast(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	vty_out(vty, " topology ipv4-multicast");
+	if (yang_dnode_exists(dnode, "./overload"))
+		vty_out(vty, " overload");
+	vty_out(vty, "\n");
+}
+
+void cli_show_isis_mt_ipv4_mgmt(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults)
+{
+	vty_out(vty, " topology ipv4-mgmt");
+	if (yang_dnode_exists(dnode, "./overload"))
+		vty_out(vty, " overload");
+	vty_out(vty, "\n");
+}
+
+void cli_show_isis_mt_ipv6_unicast(struct vty *vty, struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	vty_out(vty, " topology ipv6-unicast");
+	if (yang_dnode_exists(dnode, "./overload"))
+		vty_out(vty, " overload");
+	vty_out(vty, "\n");
+}
+
+void cli_show_isis_mt_ipv6_multicast(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	vty_out(vty, " topology ipv6-multicast");
+	if (yang_dnode_exists(dnode, "./overload"))
+		vty_out(vty, " overload");
+	vty_out(vty, "\n");
+}
+
+void cli_show_isis_mt_ipv6_mgmt(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults)
+{
+	vty_out(vty, " topology ipv6-mgmt");
+	if (yang_dnode_exists(dnode, "./overload"))
+		vty_out(vty, " overload");
+	vty_out(vty, "\n");
+}
+
+void cli_show_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
+				  bool show_defaults)
+{
+	vty_out(vty, " topology ipv6-dstsrc");
+	if (yang_dnode_exists(dnode, "./overload"))
+		vty_out(vty, " overload");
+	vty_out(vty, "\n");
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -1155,6 +1265,8 @@ void isis_cli_init(void)
 
 	install_element(ISIS_NODE, &isis_default_originate_cmd);
 	install_element(ISIS_NODE, &isis_redistribute_cmd);
+
+	install_element(ISIS_NODE, &isis_topology_cmd);
 }
 
 #endif /* ifndef FABRICD */
