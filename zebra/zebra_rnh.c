@@ -365,13 +365,26 @@ zebra_rnh_resolve_import_entry(struct zebra_vrf *zvrf, int family,
 			       struct route_node *nrn, struct rnh *rnh,
 			       struct route_node **prn)
 {
-	struct route_table *route_table;
+	struct route_table *route_table = NULL;
 	struct route_node *rn;
 	struct route_entry *re;
 
 	*prn = NULL;
 
-	route_table = zvrf->table[family2afi(family)][SAFI_UNICAST];
+	if (vrf_is_mapped_on_netns(zvrf->vrf) &&
+	    rnh->vrf_id != rnh->vrf_id_route) {
+		struct zebra_vrf *zvrf_origin = NULL;
+		struct vrf *vrf_origin;
+
+		vrf_origin = vrf_lookup_by_id(rnh->vrf_id_route);
+		if (vrf_origin)
+			zvrf_origin = (struct zebra_vrf *)vrf_origin->info;
+		if (zvrf_origin)
+			route_table =
+			  zvrf_origin->table[
+					 family2afi(family)][SAFI_UNICAST];
+	} else
+		route_table = zvrf->table[family2afi(family)][SAFI_UNICAST];
 	if (!route_table) // unexpected
 		return NULL;
 
