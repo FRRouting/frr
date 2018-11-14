@@ -256,6 +256,9 @@ extern void isis_notif_id_len_mismatch(const struct isis_circuit *circuit,
 				       uint8_t rcv_id_len, const char *raw_pdu);
 extern void isis_notif_version_skew(const struct isis_circuit *circuit,
 				    uint8_t version, const char *raw_pdu);
+extern void isis_notif_lsp_error(const struct isis_circuit *circuit,
+				 const char *lsp_id, const char *raw_pdu,
+				 uint32_t offset, uint8_t tlv_type);
 /* Master of threads. */
 extern struct thread_master *master;
 

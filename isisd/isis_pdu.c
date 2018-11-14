@@ -916,6 +916,17 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 			     circuit->rcv_stream, &tlvs, &error_log)) {
 		zlog_warn("Something went wrong unpacking the LSP: %s",
 			  error_log);
+#ifndef FABRICD
+		/* send northbound notification. Note that the tlv-type and
+		 * offset cannot correctly be set here as they are not returned
+		 * by isis_unpack_tlvs, but in there I cannot fire a
+		 * notification because I have no circuit information. So until
+		 * we change the code above to return those extra fields, we
+		 * will send dummy values which are ignored in the callback
+		 */
+		isis_notif_lsp_error(circuit, rawlspid_print(hdr.lsp_id),
+				     raw_pdu, 0, 0);
+#endif /* ifndef FABRICD */
 		goto out;
 	}
 
