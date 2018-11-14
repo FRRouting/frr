@@ -219,45 +219,6 @@ DEFUN (no_isis_priority_level,
 	return CMD_SUCCESS;
 }
 
-DEFUN (isis_hello_interval_level,
-       isis_hello_interval_level_cmd,
-       "isis hello-interval (1-600) <level-1|level-2>",
-       "IS-IS routing protocol\n"
-       "Set Hello interval\n"
-       "Holdtime 1 second, interval depends on multiplier\n"
-       "Specify hello-interval for level-1 IIHs\n"
-       "Specify hello-interval for level-2 IIHs\n")
-{
-	uint32_t interval = atoi(argv[2]->arg);
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	circuit->hello_interval[level_for_arg(argv[3]->text)] = interval;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_isis_hello_interval_level,
-       no_isis_hello_interval_level_cmd,
-       "no isis hello-interval [(1-600)] <level-1|level-2>",
-       NO_STR
-       "IS-IS routing protocol\n"
-       "Set Hello interval\n"
-       "Holdtime 1 second, interval depends on multiplier\n"
-       "Specify hello-interval for level-1 IIHs\n"
-       "Specify hello-interval for level-2 IIHs\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	int level = level_for_arg(argv[argc - 1]->text);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	circuit->hello_interval[level] = DEFAULT_HELLO_INTERVAL;
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (isis_hello_multiplier_level,
        isis_hello_multiplier_level_cmd,
        "isis hello-multiplier (2-100) <level-1|level-2>",
@@ -435,9 +396,6 @@ void isis_vty_daemon_init(void)
 	install_element(INTERFACE_NODE, &no_isis_priority_cmd);
 	install_element(INTERFACE_NODE, &isis_priority_level_cmd);
 	install_element(INTERFACE_NODE, &no_isis_priority_level_cmd);
-
-	install_element(INTERFACE_NODE, &isis_hello_interval_level_cmd);
-	install_element(INTERFACE_NODE, &no_isis_hello_interval_level_cmd);
 
 	install_element(INTERFACE_NODE, &isis_hello_multiplier_level_cmd);
 	install_element(INTERFACE_NODE, &no_isis_hello_multiplier_level_cmd);

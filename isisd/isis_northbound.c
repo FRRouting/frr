@@ -1908,7 +1908,16 @@ lib_interface_isis_hello_interval_level_1_modify(enum nb_event event,
 						 const struct lyd_node *dnode,
 						 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+	uint32_t interval;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	interval = yang_dnode_get_uint32(dnode, NULL);
+	circuit->hello_interval[0] = interval;
+
 	return NB_OK;
 }
 
@@ -1920,7 +1929,16 @@ lib_interface_isis_hello_interval_level_2_modify(enum nb_event event,
 						 const struct lyd_node *dnode,
 						 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+	uint32_t interval;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	interval = yang_dnode_get_uint32(dnode, NULL);
+	circuit->hello_interval[1] = interval;
+
 	return NB_OK;
 }
 
@@ -2640,6 +2658,10 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/padding",
 			.cbs.modify = lib_interface_isis_hello_padding_modify,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/interval",
+			.cbs.cli_show = cli_show_ip_isis_hello_interval,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/hello/interval/level-1",

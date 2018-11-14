@@ -56,42 +56,6 @@ struct isis_circuit *isis_circuit_lookup(struct vty *vty)
 	return circuit;
 }
 
-DEFUN (isis_hello_interval,
-       isis_hello_interval_cmd,
-       PROTO_NAME " hello-interval (1-600)",
-       PROTO_HELP
-       "Set Hello interval\n"
-       "Holdtime 1 seconds, interval depends on multiplier\n")
-{
-	uint32_t interval = atoi(argv[2]->arg);
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	circuit->hello_interval[0] = interval;
-	circuit->hello_interval[1] = interval;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_isis_hello_interval,
-       no_isis_hello_interval_cmd,
-       "no " PROTO_NAME " hello-interval [(1-600)]",
-       NO_STR
-       PROTO_HELP
-       "Set Hello interval\n"
-       "Holdtime 1 second, interval depends on multiplier\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	circuit->hello_interval[0] = DEFAULT_HELLO_INTERVAL;
-	circuit->hello_interval[1] = DEFAULT_HELLO_INTERVAL;
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (isis_hello_multiplier,
        isis_hello_multiplier_cmd,
        PROTO_NAME " hello-multiplier (2-100)",
@@ -300,9 +264,6 @@ DEFUN (no_isis_bfd,
 
 void isis_vty_init(void)
 {
-	install_element(INTERFACE_NODE, &isis_hello_interval_cmd);
-	install_element(INTERFACE_NODE, &no_isis_hello_interval_cmd);
-
 	install_element(INTERFACE_NODE, &isis_hello_multiplier_cmd);
 	install_element(INTERFACE_NODE, &no_isis_hello_multiplier_cmd);
 

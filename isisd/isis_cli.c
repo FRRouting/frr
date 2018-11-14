@@ -1333,6 +1333,64 @@ void cli_show_ip_isis_metric(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/hello/interval
+ */
+DEFPY(isis_hello_interval, isis_hello_interval_cmd,
+      "isis hello-interval [level-1|level-2]$level (1-600)$intv",
+      "IS-IS routing protocol\n"
+      "Set Hello interval\n"
+      "Specify hello-interval for level-1 IIHs\n"
+      "Specify hello-interval for level-2 IIHs\n"
+      "Holdtime 1 seconds, interval depends on multiplier\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/hello/interval/level-1",
+				      NB_OP_MODIFY, intv_str);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/hello/interval/level-2",
+				      NB_OP_MODIFY, intv_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_isis_hello_interval, no_isis_hello_interval_cmd,
+      "no isis hello-interval [level-1|level-2]$level [(1-600)]",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Set Hello interval\n"
+      "Specify hello-interval for level-1 IIHs\n"
+      "Specify hello-interval for level-2 IIHs\n"
+      "Holdtime 1 second, interval depends on multiplier\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/hello/interval/level-1",
+				      NB_OP_MODIFY, NULL);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/hello/interval/level-2",
+				      NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_hello_interval(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
+	const char *l2 = yang_dnode_get_string(dnode, "./level-2");
+
+	if (strmatch(l1, l2))
+		vty_out(vty, " isis hello-interval %s\n", l1);
+	else {
+		vty_out(vty, " isis hello-interval %s level-1\n", l1);
+		vty_out(vty, " isis hello-interval %s level-2\n", l2);
+	}
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -1392,6 +1450,9 @@ void isis_cli_init(void)
 
 	install_element(INTERFACE_NODE, &isis_metric_cmd);
 	install_element(INTERFACE_NODE, &no_isis_metric_cmd);
+
+	install_element(INTERFACE_NODE, &isis_hello_interval_cmd);
+	install_element(INTERFACE_NODE, &no_isis_hello_interval_cmd);
 }
 
 #endif /* ifndef FABRICD */
