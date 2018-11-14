@@ -1575,6 +1575,10 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 
 	if (version1 != 1) {
 		zlog_warn("Unsupported ISIS version %" PRIu8, version1);
+#ifndef FABRICD
+		/* send northbound notification */
+		isis_notif_version_skew(circuit, version1, raw_pdu);
+#endif /* ifndef FABRICD */
 		return ISIS_WARNING;
 	}
 
@@ -1614,6 +1618,10 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 
 	if (version2 != 1) {
 		zlog_warn("Unsupported ISIS PDU version %" PRIu8, version2);
+#ifndef FABRICD
+		/* send northbound notification */
+		isis_notif_version_skew(circuit, version2, raw_pdu);
+#endif /* ifndef FABRICD */
 		return ISIS_WARNING;
 	}
 
