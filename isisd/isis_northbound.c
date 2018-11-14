@@ -2209,14 +2209,28 @@ static int lib_interface_isis_disable_three_way_handshake_create(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	circuit->disable_threeway_adj = true;
+
 	return NB_OK;
 }
 
 static int lib_interface_isis_disable_three_way_handshake_delete(
 	enum nb_event event, const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	circuit->disable_threeway_adj = false;
+
 	return NB_OK;
 }
 
@@ -2750,6 +2764,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/disable-three-way-handshake",
 			.cbs.create = lib_interface_isis_disable_three_way_handshake_create,
 			.cbs.delete = lib_interface_isis_disable_three_way_handshake_delete,
+			.cbs.cli_show = cli_show_ip_isis_threeway_shake,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-unicast",

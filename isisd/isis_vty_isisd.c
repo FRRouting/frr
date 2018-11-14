@@ -219,21 +219,6 @@ DEFUN (no_isis_priority_level,
 	return CMD_SUCCESS;
 }
 
-DEFUN (isis_threeway_adj,
-       isis_threeway_adj_cmd,
-       "[no] isis three-way-handshake",
-       NO_STR
-       "IS-IS commands\n"
-       "Enable/Disable three-way handshake\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	circuit->disable_threeway_adj = !strcmp(argv[0]->text, "no");
-	return CMD_SUCCESS;
-}
-
 DEFUN (isis_hello_padding,
        isis_hello_padding_cmd,
        "isis hello padding",
@@ -357,8 +342,6 @@ void isis_vty_daemon_init(void)
 	install_element(INTERFACE_NODE, &no_isis_priority_cmd);
 	install_element(INTERFACE_NODE, &isis_priority_level_cmd);
 	install_element(INTERFACE_NODE, &no_isis_priority_level_cmd);
-
-	install_element(INTERFACE_NODE, &isis_threeway_adj_cmd);
 
 	install_element(INTERFACE_NODE, &isis_hello_padding_cmd);
 	install_element(INTERFACE_NODE, &no_isis_hello_padding_cmd);

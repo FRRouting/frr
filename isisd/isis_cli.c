@@ -1449,6 +1449,28 @@ void cli_show_ip_isis_hello_multi(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/disable-three-way-handshake
+ */
+DEFPY(isis_threeway_adj, isis_threeway_adj_cmd, "[no] isis three-way-handshake",
+      NO_STR
+      "IS-IS commands\n"
+      "Enable/Disable three-way handshake\n")
+{
+	nb_cli_enqueue_change(vty,
+			      "./frr-isisd:isis/disable-three-way-handshake",
+			      no ? NB_OP_CREATE : NB_OP_DELETE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_threeway_shake(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	vty_out(vty, " no isis three-way-handshake\n");
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -1514,6 +1536,8 @@ void isis_cli_init(void)
 
 	install_element(INTERFACE_NODE, &isis_hello_multiplier_cmd);
 	install_element(INTERFACE_NODE, &no_isis_hello_multiplier_cmd);
+
+	install_element(INTERFACE_NODE, &isis_threeway_adj_cmd);
 }
 
 #endif /* ifndef FABRICD */
