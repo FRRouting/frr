@@ -234,6 +234,12 @@ extern void isis_notif_lsp_exceed_max(const struct isis_area *area,
 extern void
 isis_notif_max_area_addr_mismatch(const struct isis_circuit *circuit,
 				  uint8_t max_area_addrs, const char *raw_pdu);
+extern void
+isis_notif_authentication_type_failure(const struct isis_circuit *circuit,
+				       const char *raw_pdu);
+extern void
+isis_notif_authentication_failure(const struct isis_circuit *circuit,
+				  const char *raw_pdu);
 /* Master of threads. */
 extern struct thread_master *master;
 

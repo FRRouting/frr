@@ -196,6 +196,13 @@ struct isis_purge_originator {
 	uint8_t sender[6];
 };
 
+enum isis_auth_result {
+	ISIS_AUTH_OK = 0,
+	ISIS_AUTH_TYPE_FAILURE,
+	ISIS_AUTH_FAILURE,
+	ISIS_AUTH_NO_VALIDATOR,
+};
+
 RB_HEAD(isis_mt_item_list, isis_item_list);
 
 struct isis_item_list *isis_get_mt_items(struct isis_mt_item_list *m,
@@ -337,8 +344,8 @@ void isis_tlvs_add_ipv4_addresses(struct isis_tlvs *tlvs,
 				  struct list *addresses);
 void isis_tlvs_add_ipv6_addresses(struct isis_tlvs *tlvs,
 				  struct list *addresses);
-bool isis_tlvs_auth_is_valid(struct isis_tlvs *tlvs, struct isis_passwd *passwd,
-			     struct stream *stream, bool is_lsp);
+int isis_tlvs_auth_is_valid(struct isis_tlvs *tlvs, struct isis_passwd *passwd,
+			    struct stream *stream, bool is_lsp);
 bool isis_tlvs_area_addresses_match(struct isis_tlvs *tlvs,
 				    struct list *addresses);
 struct isis_adjacency;

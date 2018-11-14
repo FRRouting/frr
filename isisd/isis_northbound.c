@@ -2614,6 +2614,50 @@ void isis_notif_max_area_addr_mismatch(const struct isis_circuit *circuit,
 	nb_notification_send(xpath, arguments);
 }
 
+/*
+ * XPath:
+ * /frr-isisd:authentication-type-failure
+ */
+void isis_notif_authentication_type_failure(const struct isis_circuit *circuit,
+					    const char *raw_pdu)
+{
+	const char *xpath = "/frr-isisd:authentication-type-failure";
+	struct list *arguments = yang_data_list_new();
+	char xpath_arg[XPATH_MAXLEN];
+	struct yang_data *data;
+	struct isis_area *area = circuit->area;
+
+	notif_prep_instance_hdr(xpath, area, "default", arguments);
+	notif_prepr_iface_hdr(xpath, circuit, arguments);
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/raw-pdu", xpath);
+	data = yang_data_new(xpath_arg, raw_pdu);
+	listnode_add(arguments, data);
+
+	nb_notification_send(xpath, arguments);
+}
+
+/*
+ * XPath:
+ * /frr-isisd:authentication-failure
+ */
+void isis_notif_authentication_failure(const struct isis_circuit *circuit,
+				       const char *raw_pdu)
+{
+	const char *xpath = "/frr-isisd:authentication-failure";
+	struct list *arguments = yang_data_list_new();
+	char xpath_arg[XPATH_MAXLEN];
+	struct yang_data *data;
+	struct isis_area *area = circuit->area;
+
+	notif_prep_instance_hdr(xpath, area, "default", arguments);
+	notif_prepr_iface_hdr(xpath, circuit, arguments);
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/raw-pdu", xpath);
+	data = yang_data_new(xpath_arg, raw_pdu);
+	listnode_add(arguments, data);
+
+	nb_notification_send(xpath, arguments);
+}
+
 /* clang-format off */
 const struct frr_yang_module_info frr_isisd_info = {
 	.name = "frr-isisd",

@@ -553,6 +553,10 @@ static int pdu_len_validate(uint16_t pdu_len, struct isis_circuit *circuit)
 static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 			 uint8_t *ssnpa)
 {
+	/* keep a copy of the raw pdu for NB notifications */
+	size_t pdu_start = stream_get_getp(circuit->rcv_stream);
+	size_t pdu_end = stream_get_endp(circuit->rcv_stream);
+	char raw_pdu[pdu_end - pdu_start];
 	bool p2p_hello = (pdu_type == P2P_HELLO);
 	int level = p2p_hello ? 0
 			      : (pdu_type == L1_LAN_HELLO) ? ISIS_LEVEL1
@@ -562,6 +566,9 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 			? "P2P IIH"
 			: (level == ISIS_LEVEL1) ? "L1 LAN IIH" : "L2 LAN IIH";
 
+
+	stream_get_from(raw_pdu, circuit->rcv_stream, pdu_start,
+			pdu_end - pdu_start);
 	if (isis->debugs & DEBUG_ADJ_PACKETS) {
 		zlog_debug("ISIS-Adj (%s): Rcvd %s on %s, cirType %s, cirID %u",
 			   circuit->area->area_tag, pdu_name,
@@ -652,11 +659,22 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		goto out;
 	}
 
-	if (!isis_tlvs_auth_is_valid(iih.tlvs, &circuit->passwd,
-				     circuit->rcv_stream, false)) {
+	int auth_code = isis_tlvs_auth_is_valid(iih.tlvs, &circuit->passwd,
+						circuit->rcv_stream, false);
+	if (auth_code != ISIS_AUTH_OK) {
 		isis_event_auth_failure(circuit->area->area_tag,
 					"IIH authentication failure",
 					iih.sys_id);
+#ifndef FABRICD
+		/* send northbound notification */
+		stream_get_from(raw_pdu, circuit->rcv_stream, pdu_start,
+				pdu_end - pdu_start);
+		if (auth_code == ISIS_AUTH_FAILURE)
+			isis_notif_authentication_failure(circuit, raw_pdu);
+		else /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
+			isis_notif_authentication_type_failure(circuit,
+							       raw_pdu);
+#endif /* ifndef FABRICD */
 		goto out;
 	}
 
@@ -724,6 +742,12 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 {
 	int level;
 	bool circuit_scoped;
+	size_t pdu_start = stream_get_getp(circuit->rcv_stream);
+	size_t pdu_end = stream_get_endp(circuit->rcv_stream);
+	char raw_pdu[pdu_end - pdu_start];
+
+	stream_get_from(raw_pdu, circuit->rcv_stream, pdu_start,
+			pdu_end - pdu_start);
 
 	if (pdu_type == FS_LINK_STATE) {
 		if (!fabricd)
@@ -846,10 +870,20 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 	struct isis_passwd *passwd = (level == ISIS_LEVEL1)
 					     ? &circuit->area->area_passwd
 					     : &circuit->area->domain_passwd;
-	if (!isis_tlvs_auth_is_valid(tlvs, passwd, circuit->rcv_stream, true)) {
+	int auth_code = isis_tlvs_auth_is_valid(tlvs, passwd,
+						circuit->rcv_stream, true);
+	if (auth_code != ISIS_AUTH_OK) {
 		isis_event_auth_failure(circuit->area->area_tag,
 					"LSP authentication failure",
 					hdr.lsp_id);
+#ifndef FABRICD
+		/* send northbound notification */
+		if (auth_code == ISIS_AUTH_FAILURE)
+			isis_notif_authentication_failure(circuit, raw_pdu);
+		else /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
+			isis_notif_authentication_type_failure(circuit,
+							       raw_pdu);
+#endif /* ifndef FABRICD */
 		goto out;
 	}
 
@@ -1124,6 +1158,12 @@ out:
 static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		       const uint8_t *ssnpa)
 {
+#ifndef FABRICD
+	size_t pdu_start = stream_get_getp(circuit->rcv_stream);
+	size_t pdu_end = stream_get_endp(circuit->rcv_stream);
+	char raw_pdu[pdu_end - pdu_start];
+#endif /* ifndef FABRICD */
+
 	bool is_csnp = (pdu_type == L1_COMPLETE_SEQ_NUM
 			|| pdu_type == L2_COMPLETE_SEQ_NUM);
 	char typechar = is_csnp ? 'C' : 'P';
@@ -1134,6 +1174,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 
 	uint16_t pdu_len = stream_getw(circuit->rcv_stream);
 	uint8_t rem_sys_id[ISIS_SYS_ID_LEN];
+
 	stream_get(rem_sys_id, circuit->rcv_stream, ISIS_SYS_ID_LEN);
 	stream_forward_getp(circuit->rcv_stream, 1); /* Circuit ID - unused */
 
@@ -1237,13 +1278,26 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 	struct isis_passwd *passwd = (level == IS_LEVEL_1)
 					     ? &circuit->area->area_passwd
 					     : &circuit->area->domain_passwd;
-	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_RECV)
-	    && !isis_tlvs_auth_is_valid(tlvs, passwd, circuit->rcv_stream,
-					false)) {
-		isis_event_auth_failure(circuit->area->area_tag,
-					"SNP authentication failure",
-					rem_sys_id);
-		goto out;
+	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_RECV)) {
+		int auth_code = isis_tlvs_auth_is_valid(
+			tlvs, passwd, circuit->rcv_stream, false);
+		if (auth_code != ISIS_AUTH_OK) {
+			isis_event_auth_failure(circuit->area->area_tag,
+						"SNP authentication failure",
+						rem_sys_id);
+#ifndef FABRICD
+			/* send northbound notification */
+			stream_get_from(raw_pdu, circuit->rcv_stream, pdu_start,
+					pdu_end - pdu_start);
+			if (auth_code == ISIS_AUTH_FAILURE)
+				isis_notif_authentication_failure(circuit,
+								  raw_pdu);
+			else /* AUTH_TYPE_FAILURE or NO_VALIDATOR */
+				isis_notif_authentication_type_failure(circuit,
+								       raw_pdu);
+#endif /* ifndef FABRICD */
+			goto out;
+		}
 	}
 
 	struct isis_lsp_entry *entry_head =
