@@ -444,7 +444,7 @@ uint16_t dplane_ctx_get_old_instance(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->zd_instance;
+	return ctx->zd_old_instance;
 }
 
 uint32_t dplane_ctx_get_metric(const struct zebra_dplane_ctx *ctx)
