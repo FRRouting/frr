@@ -1091,6 +1091,16 @@ dontcheckadj:
 			} else if (lsp->hdr.rem_lifetime != 0) {
 				/* our own LSP -> 7.3.16.4 c) */
 				if (comp == LSP_NEWER) {
+#ifndef FABRICD
+					if (lsp->hdr.seqno < hdr.seqno) {
+						/* send northbound
+						 * notification */
+						isis_notif_seqno_skipped(
+							circuit,
+							rawlspid_print(
+								hdr.lsp_id));
+					}
+#endif /* ifndef FABRICD */
 					lsp_inc_seqno(lsp, hdr.seqno);
 					lsp_flood_or_update(lsp, NULL,
 							    circuit_scoped);
@@ -1131,6 +1141,11 @@ dontcheckadj:
 		if (comp == LSP_NEWER) {
 			/* 7.3.16.1  */
 			lsp_inc_seqno(lsp, hdr.seqno);
+#ifndef FABRICD
+			/* send northbound notification */
+			isis_notif_seqno_skipped(circuit,
+						 rawlspid_print(hdr.lsp_id));
+#endif /* ifndef FABRICD */
 			if (isis->debugs & DEBUG_UPDATE_PACKETS) {
 				zlog_debug(
 					"ISIS-Upd (%s): (2) re-originating LSP %s new seq 0x%08" PRIx32,

@@ -2891,6 +2891,28 @@ void isis_notif_lsp_error(const struct isis_circuit *circuit,
 	nb_notification_send(xpath, arguments);
 }
 
+/*
+ * XPath:
+ * /frr-isisd:sequence-number-skipped
+ */
+void isis_notif_seqno_skipped(const struct isis_circuit *circuit,
+			      const char *lsp_id)
+{
+	const char *xpath = "/frr-isisd:sequence-number-skipped";
+	struct list *arguments = yang_data_list_new();
+	char xpath_arg[XPATH_MAXLEN];
+	struct yang_data *data;
+	struct isis_area *area = circuit->area;
+
+	notif_prep_instance_hdr(xpath, area, "default", arguments);
+	notif_prepr_iface_hdr(xpath, circuit, arguments);
+	snprintf(xpath_arg, sizeof(xpath_arg), "%s/lsp-id", xpath);
+	data = yang_data_new_string(xpath_arg, lsp_id);
+	listnode_add(arguments, data);
+
+	nb_notification_send(xpath, arguments);
+}
+
 /* clang-format off */
 const struct frr_yang_module_info frr_isisd_info = {
 	.name = "frr-isisd",

@@ -259,6 +259,8 @@ extern void isis_notif_version_skew(const struct isis_circuit *circuit,
 extern void isis_notif_lsp_error(const struct isis_circuit *circuit,
 				 const char *lsp_id, const char *raw_pdu,
 				 uint32_t offset, uint8_t tlv_type);
+extern void isis_notif_seqno_skipped(const struct isis_circuit *circuit,
+				     const char *lsp_id);
 /* Master of threads. */
 extern struct thread_master *master;
 
