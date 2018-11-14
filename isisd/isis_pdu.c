@@ -1423,6 +1423,12 @@ static int pdu_size(uint8_t pdu_type, uint8_t *size)
 int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 {
 	int retval = ISIS_OK;
+	size_t pdu_start = stream_get_getp(circuit->rcv_stream);
+	size_t pdu_end = stream_get_endp(circuit->rcv_stream);
+	char raw_pdu[pdu_end - pdu_start];
+
+	stream_get_from(raw_pdu, circuit->rcv_stream, pdu_start,
+			pdu_end - pdu_start);
 
 	/* Verify that at least the 8 bytes fixed header have been received */
 	if (stream_get_endp(circuit->rcv_stream) < ISIS_FIXED_HDR_LEN) {
@@ -1437,6 +1443,7 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 	uint8_t pdu_type = stream_getc(circuit->rcv_stream)
 			   & 0x1f; /* bits 6-8 are reserved */
 	uint8_t version2 = stream_getc(circuit->rcv_stream);
+
 	stream_forward_getp(circuit->rcv_stream, 1); /* reserved */
 	uint8_t max_area_addrs = stream_getc(circuit->rcv_stream);
 
@@ -1509,6 +1516,11 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 			"maximumAreaAddressesMismatch: maximumAreaAdresses in a received PDU %" PRIu8
 			" while the parameter for this IS is %u",
 			max_area_addrs, isis->max_area_addrs);
+#ifndef FABRICD
+		/* send northbound notification */
+		isis_notif_max_area_addr_mismatch(circuit, max_area_addrs,
+						  raw_pdu);
+#endif /* ifndef FABRICD */
 		return ISIS_ERROR;
 	}
 
