@@ -1274,6 +1274,12 @@ int lsp_generate(struct isis_area *area, int level)
 		"ISIS (%s): Built L%d LSP. Set triggered regenerate to non-pending.",
 		area->area_tag, level);
 
+#ifndef FABRICD
+	/* send northbound notification */
+	isis_notif_lsp_gen(area, rawlspid_print(newlsp->hdr.lsp_id),
+			   newlsp->hdr.seqno, newlsp->last_generated);
+#endif /* ifndef FABRICD */
+
 	return ISIS_OK;
 }
 
