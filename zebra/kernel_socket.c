@@ -278,6 +278,11 @@ static const struct message rtm_flag_str[] = {{RTF_UP, "UP"},
 /* Kernel routing update socket. */
 int routing_sock = -1;
 
+/* Kernel dataplane routing update socket, used in the dataplane pthread
+ * context.
+ */
+int dplane_routing_sock = -1;
+
 /* Yes I'm checking ugly routing socket behavior. */
 /* #define DEBUG */
 
@@ -1136,7 +1141,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 		char buf[512];
 	} msg;
 
-	if (routing_sock < 0)
+	if (dplane_routing_sock < 0)
 		return ZEBRA_ERR_EPERM;
 
 	/* Clear and set rt_msghdr values */
@@ -1243,7 +1248,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 
 	msg.rtm.rtm_msglen = pnt - (caddr_t)&msg;
 
-	ret = write(routing_sock, &msg, msg.rtm.rtm_msglen);
+	ret = write(dplane_routing_sock, &msg, msg.rtm.rtm_msglen);
 
 	if (ret != msg.rtm.rtm_msglen) {
 		if (errno == EEXIST)
@@ -1390,10 +1395,19 @@ static void routing_socket(struct zebra_ns *zns)
 {
 	frr_elevate_privs(&zserv_privs) {
 		routing_sock = ns_socket(AF_ROUTE, SOCK_RAW, 0, zns->ns_id);
+
+		dplane_routing_sock =
+			ns_socket(AF_ROUTE, SOCK_RAW, 0, zns->ns_id);
 	}
 
 	if (routing_sock < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "Can't init kernel routing socket");
+		return;
+	}
+
+	if (dplane_routing_sock < 0) {
+		flog_err_sys(EC_LIB_SOCKET,
+			     "Can't init kernel dataplane routing socket");
 		return;
 	}
 
