@@ -1611,6 +1611,99 @@ void cli_show_ip_isis_psnp_interval(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/multi-topology
+ */
+DEFPY(circuit_topology, circuit_topology_cmd,
+      "[no] isis topology"
+      "<ipv4-unicast"
+      "|ipv4-mgmt"
+      "|ipv6-unicast"
+      "|ipv4-multicast"
+      "|ipv6-multicast"
+      "|ipv6-mgmt"
+      "|ipv6-dstsrc"
+      ">$topology",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Configure interface IS-IS topologies\n"
+      "IPv4 unicast topology\n"
+      "IPv4 management topology\n"
+      "IPv6 unicast topology\n"
+      "IPv4 multicast topology\n"
+      "IPv6 multicast topology\n"
+      "IPv6 management topology\n"
+      "IPv6 dst-src topology\n")
+{
+	nb_cli_enqueue_change(vty, ".", NB_OP_MODIFY, no ? "false" : "true");
+
+	if (strmatch(topology, "ipv4-mgmt"))
+		return nb_cli_apply_changes(
+			vty, "./frr-isisd:isis/multi-topology/ipv4-management");
+	else if (strmatch(topology, "ipv6-mgmt"))
+		return nb_cli_apply_changes(
+			vty, "./frr-isisd:isis/multi-topology/ipv6-management");
+	else
+		return nb_cli_apply_changes(
+			vty, "./frr-isisd:isis/multi-topology/%s", topology);
+}
+
+void cli_show_ip_isis_mt_ipv4_unicast(struct vty *vty, struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " isis topology ipv4-unicast\n");
+}
+
+void cli_show_ip_isis_mt_ipv4_multicast(struct vty *vty, struct lyd_node *dnode,
+					bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " isis topology ipv4-multicast\n");
+}
+
+void cli_show_ip_isis_mt_ipv4_mgmt(struct vty *vty, struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " isis topology ipv4-mgmt\n");
+}
+
+void cli_show_ip_isis_mt_ipv6_unicast(struct vty *vty, struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " isis topology ipv6-unicast\n");
+}
+
+void cli_show_ip_isis_mt_ipv6_multicast(struct vty *vty, struct lyd_node *dnode,
+					bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " isis topology ipv6-multicast\n");
+}
+
+void cli_show_ip_isis_mt_ipv6_mgmt(struct vty *vty, struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " isis topology ipv6-mgmt\n");
+}
+
+void cli_show_ip_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " isis topology ipv6-dstsrc\n");
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -1686,6 +1779,8 @@ void isis_cli_init(void)
 
 	install_element(INTERFACE_NODE, &psnp_interval_cmd);
 	install_element(INTERFACE_NODE, &no_psnp_interval_cmd);
+
+	install_element(INTERFACE_NODE, &circuit_topology_cmd);
 }
 
 #endif /* ifndef FABRICD */

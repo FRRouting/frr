@@ -99,5 +99,19 @@ void cli_show_ip_isis_csnp_interval(struct vty *vty, struct lyd_node *dnode,
 				    bool show_defaults);
 void cli_show_ip_isis_psnp_interval(struct vty *vty, struct lyd_node *dnode,
 				    bool show_defaults);
+void cli_show_ip_isis_mt_ipv4_unicast(struct vty *vty, struct lyd_node *dnode,
+				      bool show_defaults);
+void cli_show_ip_isis_mt_ipv4_multicast(struct vty *vty, struct lyd_node *dnode,
+					bool show_defaults);
+void cli_show_ip_isis_mt_ipv4_mgmt(struct vty *vty, struct lyd_node *dnode,
+				   bool show_defaults);
+void cli_show_ip_isis_mt_ipv6_unicast(struct vty *vty, struct lyd_node *dnode,
+				      bool show_defaults);
+void cli_show_ip_isis_mt_ipv6_multicast(struct vty *vty, struct lyd_node *dnode,
+					bool show_defaults);
+void cli_show_ip_isis_mt_ipv6_mgmt(struct vty *vty, struct lyd_node *dnode,
+				   bool show_defaults);
+void cli_show_ip_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
+				     bool show_defaults);
 
 #endif /* ISISD_ISIS_CLI_H_ */

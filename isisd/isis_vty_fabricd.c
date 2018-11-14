@@ -32,6 +32,7 @@
 #include "isisd/isis_csm.h"
 #include "isisd/isis_circuit.h"
 #include "lib/spf_backoff.h"
+#include "isisd/isis_mt.h"
 
 DEFUN (fabric_tier,
        fabric_tier_cmd,
@@ -977,6 +978,61 @@ DEFUN (no_psnp_interval,
 	return CMD_SUCCESS;
 }
 
+DEFUN (circuit_topology,
+       circuit_topology_cmd,
+       PROTO_NAME " topology " ISIS_MT_NAMES,
+       PROTO_HELP
+       "Configure interface IS-IS topologies\n"
+       ISIS_MT_DESCRIPTIONS)
+{
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	if (!circuit)
+		return CMD_ERR_NO_MATCH;
+	const char *arg = argv[2]->arg;
+	uint16_t mtid = isis_str2mtid(arg);
+
+	if (circuit->area && circuit->area->oldmetric) {
+		vty_out(vty,
+			"Multi topology IS-IS can only be used with wide metrics\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (mtid == (uint16_t)-1) {
+		vty_out(vty, "Don't know topology '%s'\n", arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return isis_circuit_mt_enabled_set(circuit, mtid, true);
+}
+
+DEFUN (no_circuit_topology,
+       no_circuit_topology_cmd,
+       "no " PROTO_NAME " topology " ISIS_MT_NAMES,
+       NO_STR
+       PROTO_HELP
+       "Configure interface IS-IS topologies\n"
+       ISIS_MT_DESCRIPTIONS)
+{
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	if (!circuit)
+		return CMD_ERR_NO_MATCH;
+	const char *arg = argv[3]->arg;
+	uint16_t mtid = isis_str2mtid(arg);
+
+	if (circuit->area && circuit->area->oldmetric) {
+		vty_out(vty,
+			"Multi topology IS-IS can only be used with wide metrics\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (mtid == (uint16_t)-1) {
+		vty_out(vty, "Don't know topology '%s'\n", arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return isis_circuit_mt_enabled_set(circuit, mtid, false);
+}
+
 void isis_vty_daemon_init(void)
 {
 	install_element(ROUTER_NODE, &fabric_tier_cmd);
@@ -1036,4 +1092,7 @@ void isis_vty_daemon_init(void)
 
 	install_element(INTERFACE_NODE, &psnp_interval_cmd);
 	install_element(INTERFACE_NODE, &no_psnp_interval_cmd);
+
+	install_element(INTERFACE_NODE, &circuit_topology_cmd);
+	install_element(INTERFACE_NODE, &no_circuit_topology_cmd);
 }

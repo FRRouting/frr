@@ -2273,12 +2273,41 @@ static int lib_interface_isis_disable_three_way_handshake_delete(
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-unicast
  */
+static int lib_interface_isis_multi_topology_common(
+	enum nb_event event, const struct lyd_node *dnode, uint16_t mtid)
+{
+	struct isis_circuit *circuit;
+	bool value;
+
+	switch (event) {
+	case NB_EV_VALIDATE:
+		circuit = yang_dnode_get_entry(dnode, false);
+		if (circuit && circuit->area && circuit->area->oldmetric) {
+			flog_warn(
+				EC_LIB_NB_CB_CONFIG_VALIDATE,
+				"Multi topology IS-IS can only be used with wide metrics");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		circuit = yang_dnode_get_entry(dnode, true);
+		value = yang_dnode_get_bool(dnode, NULL);
+		isis_circuit_mt_enabled_set(circuit, mtid, value);
+		break;
+	}
+
+	return NB_OK;
+}
+
 static int lib_interface_isis_multi_topology_ipv4_unicast_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return lib_interface_isis_multi_topology_common(event, dnode,
+							ISIS_MT_IPV4_UNICAST);
 }
 
 /*
@@ -2289,8 +2318,8 @@ static int lib_interface_isis_multi_topology_ipv4_multicast_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return lib_interface_isis_multi_topology_common(event, dnode,
+							ISIS_MT_IPV4_MULTICAST);
 }
 
 /*
@@ -2301,8 +2330,8 @@ static int lib_interface_isis_multi_topology_ipv4_management_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return lib_interface_isis_multi_topology_common(event, dnode,
+							ISIS_MT_IPV4_MGMT);
 }
 
 /*
@@ -2313,8 +2342,8 @@ static int lib_interface_isis_multi_topology_ipv6_unicast_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return lib_interface_isis_multi_topology_common(event, dnode,
+							ISIS_MT_IPV6_UNICAST);
 }
 
 /*
@@ -2325,8 +2354,8 @@ static int lib_interface_isis_multi_topology_ipv6_multicast_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return lib_interface_isis_multi_topology_common(event, dnode,
+							ISIS_MT_IPV6_MULTICAST);
 }
 
 /*
@@ -2337,8 +2366,8 @@ static int lib_interface_isis_multi_topology_ipv6_management_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return lib_interface_isis_multi_topology_common(event, dnode,
+							ISIS_MT_IPV6_MGMT);
 }
 
 /*
@@ -2348,8 +2377,8 @@ static int lib_interface_isis_multi_topology_ipv6_dstsrc_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return lib_interface_isis_multi_topology_common(event, dnode,
+							ISIS_MT_IPV6_DSTSRC);
 }
 
 /* clang-format off */
@@ -2813,30 +2842,37 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-unicast",
 			.cbs.modify = lib_interface_isis_multi_topology_ipv4_unicast_modify,
+			.cbs.cli_show = cli_show_ip_isis_mt_ipv4_unicast,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-multicast",
 			.cbs.modify = lib_interface_isis_multi_topology_ipv4_multicast_modify,
+			.cbs.cli_show = cli_show_ip_isis_mt_ipv4_multicast,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv4-management",
 			.cbs.modify = lib_interface_isis_multi_topology_ipv4_management_modify,
+			.cbs.cli_show = cli_show_ip_isis_mt_ipv4_mgmt,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv6-unicast",
 			.cbs.modify = lib_interface_isis_multi_topology_ipv6_unicast_modify,
+			.cbs.cli_show = cli_show_ip_isis_mt_ipv6_unicast,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv6-multicast",
 			.cbs.modify = lib_interface_isis_multi_topology_ipv6_multicast_modify,
+			.cbs.cli_show = cli_show_ip_isis_mt_ipv6_multicast,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv6-management",
 			.cbs.modify = lib_interface_isis_multi_topology_ipv6_management_modify,
+			.cbs.cli_show = cli_show_ip_isis_mt_ipv6_mgmt,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/multi-topology/ipv6-dstsrc",
 			.cbs.modify = lib_interface_isis_multi_topology_ipv6_dstsrc_modify,
+			.cbs.cli_show = cli_show_ip_isis_mt_ipv6_dstsrc,
 		},
 		{
 			.xpath = NULL,
