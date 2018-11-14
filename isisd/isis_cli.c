@@ -899,6 +899,69 @@ void cli_show_isis_purge_origin(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " purge-originator\n");
 }
 
+/*
+ * XPath: /frr-isisd:isis/mpls-te
+ */
+DEFPY(isis_mpls_te_on, isis_mpls_te_on_cmd, "mpls-te on",
+      MPLS_TE_STR "Enable the MPLS-TE functionality\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-isisd:isis/mpls-te", NB_OP_CREATE,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_isis_mpls_te_on, no_isis_mpls_te_on_cmd, "no mpls-te [on]",
+      NO_STR
+      "Disable the MPLS-TE functionality\n"
+      "Enable the MPLS-TE functionality\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-isisd:isis/mpls-te", NB_OP_DELETE,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_mpls_te(struct vty *vty, struct lyd_node *dnode,
+			   bool show_defaults)
+{
+	vty_out(vty, "  mpls-te on\n");
+}
+
+/*
+ * XPath: /frr-isisd:isis/mpls-te/router-address
+ */
+DEFPY(isis_mpls_te_router_addr, isis_mpls_te_router_addr_cmd,
+      "mpls-te router-address A.B.C.D",
+      MPLS_TE_STR
+      "Stable IP address of the advertising router\n"
+      "MPLS-TE router address in IPv4 address format\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-isisd:isis/mpls-te/router-address",
+			      NB_OP_MODIFY, router_address_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_mpls_te_router_addr(struct vty *vty, struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	vty_out(vty, "  mpls-te router-address %s\n",
+		yang_dnode_get_string(dnode, NULL));
+}
+
+DEFPY(isis_mpls_te_inter_as, isis_mpls_te_inter_as_cmd,
+      "[no] mpls-te inter-as [level-1|level-1-2|level-2-only]",
+      NO_STR MPLS_TE_STR
+      "Configure MPLS-TE Inter-AS support\n"
+      "AREA native mode self originate INTER-AS LSP with L1 only flooding scope\n"
+      "AREA native mode self originate INTER-AS LSP with L1 and L2 flooding scope\n"
+      "AS native mode self originate INTER-AS LSP with L2 only flooding scope\n")
+{
+	vty_out(vty, "MPLS-TE Inter-AS is not yet supported.");
+	return CMD_SUCCESS;
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -940,6 +1003,11 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_spf_delay_ietf_cmd);
 
 	install_element(ISIS_NODE, &area_purge_originator_cmd);
+
+	install_element(ISIS_NODE, &isis_mpls_te_on_cmd);
+	install_element(ISIS_NODE, &no_isis_mpls_te_on_cmd);
+	install_element(ISIS_NODE, &isis_mpls_te_router_addr_cmd);
+	install_element(ISIS_NODE, &isis_mpls_te_inter_as_cmd);
 }
 
 #endif /* ifndef FABRICD */
