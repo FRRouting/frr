@@ -1849,7 +1849,14 @@ lib_interface_isis_csnp_interval_level_1_modify(enum nb_event event,
 						const struct lyd_node *dnode,
 						union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	circuit->csnp_interval[0] = yang_dnode_get_uint16(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -1861,7 +1868,14 @@ lib_interface_isis_csnp_interval_level_2_modify(enum nb_event event,
 						const struct lyd_node *dnode,
 						union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	circuit->csnp_interval[1] = yang_dnode_get_uint16(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -1873,7 +1887,14 @@ lib_interface_isis_psnp_interval_level_1_modify(enum nb_event event,
 						const struct lyd_node *dnode,
 						union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	circuit->psnp_interval[0] = yang_dnode_get_uint16(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -1885,7 +1906,14 @@ lib_interface_isis_psnp_interval_level_2_modify(enum nb_event event,
 						const struct lyd_node *dnode,
 						union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	circuit->psnp_interval[1] = yang_dnode_get_uint16(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -2679,12 +2707,20 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.cbs.cli_show = cli_show_ip_isis_ipv6,
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/csnp-interval",
+			.cbs.cli_show = cli_show_ip_isis_csnp_interval,
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/csnp-interval/level-1",
 			.cbs.modify = lib_interface_isis_csnp_interval_level_1_modify,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/csnp-interval/level-2",
 			.cbs.modify = lib_interface_isis_csnp_interval_level_2_modify,
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/psnp-interval",
+			.cbs.cli_show = cli_show_ip_isis_psnp_interval,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/psnp-interval/level-1",

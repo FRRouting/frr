@@ -219,84 +219,6 @@ DEFUN (no_isis_priority_level,
 	return CMD_SUCCESS;
 }
 
-DEFUN (csnp_interval_level,
-       csnp_interval_level_cmd,
-       "isis csnp-interval (1-600) <level-1|level-2>",
-       "IS-IS routing protocol\n"
-       "Set CSNP interval in seconds\n"
-       "CSNP interval value\n"
-       "Specify interval for level-1 CSNPs\n"
-       "Specify interval for level-2 CSNPs\n")
-{
-	uint16_t interval = atoi(argv[2]->arg);
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	circuit->csnp_interval[level_for_arg(argv[3]->text)] = interval;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_csnp_interval_level,
-       no_csnp_interval_level_cmd,
-       "no isis csnp-interval [(1-600)] <level-1|level-2>",
-       NO_STR
-       "IS-IS routing protocol\n"
-       "Set CSNP interval in seconds\n"
-       "CSNP interval value\n"
-       "Specify interval for level-1 CSNPs\n"
-       "Specify interval for level-2 CSNPs\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	int level = level_for_arg(argv[argc - 1]->text);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	circuit->csnp_interval[level] = DEFAULT_CSNP_INTERVAL;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (psnp_interval_level,
-       psnp_interval_level_cmd,
-       "isis psnp-interval (1-120) <level-1|level-2>",
-       "IS-IS routing protocol\n"
-       "Set PSNP interval in seconds\n"
-       "PSNP interval value\n"
-       "Specify interval for level-1 PSNPs\n"
-       "Specify interval for level-2 PSNPs\n")
-{
-	uint16_t interval = atoi(argv[2]->arg);
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	circuit->psnp_interval[level_for_arg(argv[3]->text)] = (uint16_t)interval;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_psnp_interval_level,
-       no_psnp_interval_level_cmd,
-       "no isis psnp-interval [(1-120)] <level-1|level-2>",
-       NO_STR
-       "IS-IS routing protocol\n"
-       "Set PSNP interval in seconds\n"
-       "PSNP interval value\n"
-       "Specify interval for level-1 PSNPs\n"
-       "Specify interval for level-2 PSNPs\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	int level = level_for_arg(argv[argc - 1]->text);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	circuit->psnp_interval[level] = DEFAULT_PSNP_INTERVAL;
-
-	return CMD_SUCCESS;
-}
-
 void isis_vty_daemon_init(void)
 {
 	install_element(INTERFACE_NODE, &isis_circuit_type_cmd);
@@ -309,10 +231,4 @@ void isis_vty_daemon_init(void)
 	install_element(INTERFACE_NODE, &no_isis_priority_cmd);
 	install_element(INTERFACE_NODE, &isis_priority_level_cmd);
 	install_element(INTERFACE_NODE, &no_isis_priority_level_cmd);
-
-	install_element(INTERFACE_NODE, &csnp_interval_level_cmd);
-	install_element(INTERFACE_NODE, &no_csnp_interval_level_cmd);
-
-	install_element(INTERFACE_NODE, &psnp_interval_level_cmd);
-	install_element(INTERFACE_NODE, &no_psnp_interval_level_cmd);
 }

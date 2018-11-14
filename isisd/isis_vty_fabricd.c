@@ -905,6 +905,78 @@ DEFUN (no_isis_hello_multiplier,
 	return CMD_SUCCESS;
 }
 
+DEFUN (csnp_interval,
+       csnp_interval_cmd,
+       PROTO_NAME " csnp-interval (1-600)",
+       PROTO_HELP
+       "Set CSNP interval in seconds\n"
+       "CSNP interval value\n")
+{
+	uint16_t interval = atoi(argv[2]->arg);
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	if (!circuit)
+		return CMD_ERR_NO_MATCH;
+
+	circuit->csnp_interval[0] = interval;
+	circuit->csnp_interval[1] = interval;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_csnp_interval,
+       no_csnp_interval_cmd,
+       "no " PROTO_NAME " csnp-interval [(1-600)]",
+       NO_STR
+       PROTO_HELP
+       "Set CSNP interval in seconds\n"
+       "CSNP interval value\n")
+{
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	if (!circuit)
+		return CMD_ERR_NO_MATCH;
+
+	circuit->csnp_interval[0] = DEFAULT_CSNP_INTERVAL;
+	circuit->csnp_interval[1] = DEFAULT_CSNP_INTERVAL;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (psnp_interval,
+       psnp_interval_cmd,
+       PROTO_NAME " psnp-interval (1-120)",
+       PROTO_HELP
+       "Set PSNP interval in seconds\n"
+       "PSNP interval value\n")
+{
+	uint16_t interval = atoi(argv[2]->arg);
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	if (!circuit)
+		return CMD_ERR_NO_MATCH;
+
+	circuit->psnp_interval[0] = interval;
+	circuit->psnp_interval[1] = interval;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_psnp_interval,
+       no_psnp_interval_cmd,
+       "no " PROTO_NAME " psnp-interval [(1-120)]",
+       NO_STR
+       PROTO_HELP
+       "Set PSNP interval in seconds\n"
+       "PSNP interval value\n")
+{
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	if (!circuit)
+		return CMD_ERR_NO_MATCH;
+
+	circuit->psnp_interval[0] = DEFAULT_PSNP_INTERVAL;
+	circuit->psnp_interval[1] = DEFAULT_PSNP_INTERVAL;
+
+	return CMD_SUCCESS;
+}
+
 void isis_vty_daemon_init(void)
 {
 	install_element(ROUTER_NODE, &fabric_tier_cmd);
@@ -958,4 +1030,10 @@ void isis_vty_daemon_init(void)
 
 	install_element(INTERFACE_NODE, &isis_hello_multiplier_cmd);
 	install_element(INTERFACE_NODE, &no_isis_hello_multiplier_cmd);
+
+	install_element(INTERFACE_NODE, &csnp_interval_cmd);
+	install_element(INTERFACE_NODE, &no_csnp_interval_cmd);
+
+	install_element(INTERFACE_NODE, &psnp_interval_cmd);
+	install_element(INTERFACE_NODE, &no_psnp_interval_cmd);
 }

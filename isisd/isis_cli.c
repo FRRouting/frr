@@ -1495,6 +1495,122 @@ void cli_show_ip_isis_hello_padding(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " isis hello padding\n");
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/csnp-interval
+ */
+DEFPY(csnp_interval, csnp_interval_cmd,
+      "isis csnp-interval (1-600)$intv [level-1|level-2]$level",
+      "IS-IS routing protocol\n"
+      "Set CSNP interval in seconds\n"
+      "CSNP interval value\n"
+      "Specify interval for level-1 CSNPs\n"
+      "Specify interval for level-2 CSNPs\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/csnp-interval/level-1",
+				      NB_OP_MODIFY, intv_str);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/csnp-interval/level-2",
+				      NB_OP_MODIFY, intv_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_csnp_interval, no_csnp_interval_cmd,
+      "no isis csnp-interval [(1-600)] [level-1|level-2]$level",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Set CSNP interval in seconds\n"
+      "CSNP interval value\n"
+      "Specify interval for level-1 CSNPs\n"
+      "Specify interval for level-2 CSNPs\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/csnp-interval/level-1",
+				      NB_OP_MODIFY, NULL);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/csnp-interval/level-2",
+				      NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_csnp_interval(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
+	const char *l2 = yang_dnode_get_string(dnode, "./level-2");
+
+	if (strmatch(l1, l2))
+		vty_out(vty, " isis csnp-interval %s\n", l1);
+	else {
+		vty_out(vty, " isis csnp-interval %s level-1\n", l1);
+		vty_out(vty, " isis csnp-interval %s level-2\n", l2);
+	}
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/psnp-interval
+ */
+DEFPY(psnp_interval, psnp_interval_cmd,
+      "isis psnp-interval (1-120)$intv [level-1|level-2]$level",
+      "IS-IS routing protocol\n"
+      "Set PSNP interval in seconds\n"
+      "PSNP interval value\n"
+      "Specify interval for level-1 PSNPs\n"
+      "Specify interval for level-2 PSNPs\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/psnp-interval/level-1",
+				      NB_OP_MODIFY, intv_str);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/psnp-interval/level-2",
+				      NB_OP_MODIFY, intv_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_psnp_interval, no_psnp_interval_cmd,
+      "no isis psnp-interval [(1-120)] [level-1|level-2]$level",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Set PSNP interval in seconds\n"
+      "PSNP interval value\n"
+      "Specify interval for level-1 PSNPs\n"
+      "Specify interval for level-2 PSNPs\n")
+{
+	if (!level || strmatch(level, "level-1"))
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/psnp-interval/level-1",
+				      NB_OP_MODIFY, NULL);
+	if (!level || strmatch(level, "level-2"))
+		nb_cli_enqueue_change(vty,
+				      "./frr-isisd:isis/psnp-interval/level-2",
+				      NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_psnp_interval(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
+	const char *l2 = yang_dnode_get_string(dnode, "./level-2");
+
+	if (strmatch(l1, l2))
+		vty_out(vty, " isis psnp-interval %s\n", l1);
+	else {
+		vty_out(vty, " isis psnp-interval %s level-1\n", l1);
+		vty_out(vty, " isis psnp-interval %s level-2\n", l2);
+	}
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -1564,6 +1680,12 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &isis_threeway_adj_cmd);
 
 	install_element(INTERFACE_NODE, &isis_hello_padding_cmd);
+
+	install_element(INTERFACE_NODE, &csnp_interval_cmd);
+	install_element(INTERFACE_NODE, &no_csnp_interval_cmd);
+
+	install_element(INTERFACE_NODE, &psnp_interval_cmd);
+	install_element(INTERFACE_NODE, &no_psnp_interval_cmd);
 }
 
 #endif /* ifndef FABRICD */
