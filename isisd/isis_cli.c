@@ -1471,6 +1471,30 @@ void cli_show_ip_isis_threeway_shake(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " no isis three-way-handshake\n");
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/hello/padding
+ */
+DEFPY(isis_hello_padding, isis_hello_padding_cmd, "[no] isis hello padding",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Add padding to IS-IS hello packets\n"
+      "Pad hello packets\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/hello/padding",
+			      NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_hello_padding(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " isis hello padding\n");
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -1538,6 +1562,8 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &no_isis_hello_multiplier_cmd);
 
 	install_element(INTERFACE_NODE, &isis_threeway_adj_cmd);
+
+	install_element(INTERFACE_NODE, &isis_hello_padding_cmd);
 }
 
 #endif /* ifndef FABRICD */

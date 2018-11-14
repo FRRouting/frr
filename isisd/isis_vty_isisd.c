@@ -219,39 +219,6 @@ DEFUN (no_isis_priority_level,
 	return CMD_SUCCESS;
 }
 
-DEFUN (isis_hello_padding,
-       isis_hello_padding_cmd,
-       "isis hello padding",
-       "IS-IS routing protocol\n"
-       "Add padding to IS-IS hello packets\n"
-       "Pad hello packets\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	circuit->pad_hellos = 1;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_isis_hello_padding,
-       no_isis_hello_padding_cmd,
-       "no isis hello padding",
-       NO_STR
-       "IS-IS routing protocol\n"
-       "Add padding to IS-IS hello packets\n"
-       "Pad hello packets\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	circuit->pad_hellos = 0;
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (csnp_interval_level,
        csnp_interval_level_cmd,
        "isis csnp-interval (1-600) <level-1|level-2>",
@@ -342,9 +309,6 @@ void isis_vty_daemon_init(void)
 	install_element(INTERFACE_NODE, &no_isis_priority_cmd);
 	install_element(INTERFACE_NODE, &isis_priority_level_cmd);
 	install_element(INTERFACE_NODE, &no_isis_priority_level_cmd);
-
-	install_element(INTERFACE_NODE, &isis_hello_padding_cmd);
-	install_element(INTERFACE_NODE, &no_isis_hello_padding_cmd);
 
 	install_element(INTERFACE_NODE, &csnp_interval_level_cmd);
 	install_element(INTERFACE_NODE, &no_csnp_interval_level_cmd);
