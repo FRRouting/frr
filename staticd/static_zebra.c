@@ -189,6 +189,7 @@ struct static_nht_data {
 	struct prefix *nh;
 
 	vrf_id_t nh_vrf_id;
+	vrf_id_t route_vrf_id;
 
 	uint32_t refcount;
 	uint8_t nh_num;
@@ -212,6 +213,7 @@ static int static_zebra_nexthop_update(int command, struct zclient *zclient,
 	memset(&lookup, 0, sizeof(lookup));
 	lookup.nh = &nhr.prefix;
 	lookup.nh_vrf_id = vrf_id;
+	lookup.route_vrf_id = nhr.vrf_id_route;
 
 	nhtd = hash_lookup(static_nht_hash, &lookup);
 
@@ -237,7 +239,8 @@ static unsigned int static_nht_hash_key(void *data)
 	unsigned int key = 0;
 
 	key = prefix_hash_key(nhtd->nh);
-	return jhash_1word(nhtd->nh_vrf_id, key);
+	key = jhash_1word(nhtd->nh_vrf_id, key);
+	return jhash_1word(nhtd->route_vrf_id, key);
 }
 
 static bool static_nht_hash_cmp(const void *d1, const void *d2)
@@ -246,6 +249,9 @@ static bool static_nht_hash_cmp(const void *d1, const void *d2)
 	const struct static_nht_data *nhtd2 = d2;
 
 	if (nhtd1->nh_vrf_id != nhtd2->nh_vrf_id)
+		return false;
+
+	if (nhtd1->route_vrf_id != nhtd2->route_vrf_id)
 		return false;
 
 	return prefix_same(nhtd1->nh, nhtd2->nh);
@@ -263,6 +269,7 @@ static void *static_nht_hash_alloc(void *data)
 	new->refcount = 0;
 	new->nh_num = 0;
 	new->nh_vrf_id = copy->nh_vrf_id;
+	new->route_vrf_id = copy->route_vrf_id;
 
 	return new;
 }
@@ -315,6 +322,7 @@ void static_zebra_nht_register(struct static_route *si, bool reg)
 	memset(&lookup, 0, sizeof(lookup));
 	lookup.nh = &p;
 	lookup.nh_vrf_id = si->nh_vrf_id;
+	lookup.route_vrf_id = si->vrf_id;
 
 	si->nh_registered = reg;
 
