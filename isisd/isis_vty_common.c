@@ -56,37 +56,6 @@ struct isis_circuit *isis_circuit_lookup(struct vty *vty)
 	return circuit;
 }
 
-DEFUN (isis_passive,
-       isis_passive_cmd,
-       PROTO_NAME " passive",
-       PROTO_HELP
-       "Configure the passive mode for interface\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	CMD_FERR_RETURN(isis_circuit_passive_set(circuit, 1),
-			"Cannot set passive: $ERR");
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_isis_passive,
-       no_isis_passive_cmd,
-       "no " PROTO_NAME " passive",
-       NO_STR
-       PROTO_HELP
-       "Configure the passive mode for interface\n")
-{
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	CMD_FERR_RETURN(isis_circuit_passive_set(circuit, 0),
-			"Cannot set no passive: $ERR");
-	return CMD_SUCCESS;
-}
-
 DEFUN (isis_passwd,
        isis_passwd_cmd,
        PROTO_NAME " password <md5|clear> WORD",
@@ -441,9 +410,6 @@ DEFUN (no_isis_bfd,
 
 void isis_vty_init(void)
 {
-	install_element(INTERFACE_NODE, &isis_passive_cmd);
-	install_element(INTERFACE_NODE, &no_isis_passive_cmd);
-
 	install_element(INTERFACE_NODE, &isis_passwd_cmd);
 	install_element(INTERFACE_NODE, &no_isis_passwd_cmd);
 

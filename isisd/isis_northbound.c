@@ -2021,14 +2021,62 @@ static int lib_interface_isis_passive_create(enum nb_event event,
 					     const struct lyd_node *dnode,
 					     union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+	struct isis_area *area;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = yang_dnode_get_entry(dnode, true);
+	if (circuit->state != C_STATE_UP) {
+		circuit->is_passive = true;
+	} else {
+		area = circuit->area;
+		isis_csm_state_change(ISIS_DISABLE, circuit, area);
+		circuit->is_passive = true;
+		isis_csm_state_change(ISIS_ENABLE, circuit, area);
+	}
+
 	return NB_OK;
 }
 
 static int lib_interface_isis_passive_delete(enum nb_event event,
 					     const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct isis_circuit *circuit;
+	struct isis_area *area;
+	struct interface *ifp;
+
+	switch (event) {
+	case NB_EV_VALIDATE:
+		circuit = yang_dnode_get_entry(dnode, false);
+		if (!circuit)
+			break;
+		ifp = circuit->interface;
+		if (!ifp)
+			break;
+		if (if_is_loopback(ifp)) {
+			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
+				  "Loopback is always passive");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		circuit = yang_dnode_get_entry(dnode, true);
+		if (circuit->state != C_STATE_UP) {
+			circuit->is_passive = false;
+		} else {
+			area = circuit->area;
+			isis_csm_state_change(ISIS_DISABLE, circuit, area);
+			circuit->is_passive = false;
+			isis_csm_state_change(ISIS_ENABLE, circuit, area);
+		}
+		break;
+	}
+
 	return NB_OK;
 }
 
@@ -2591,6 +2639,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/passive",
 			.cbs.create = lib_interface_isis_passive_create,
 			.cbs.delete = lib_interface_isis_passive_delete,
+			.cbs.cli_show = cli_show_ip_isis_passive,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/password",

@@ -692,6 +692,37 @@ DEFUN (area_purge_originator,
 	return CMD_SUCCESS;
 }
 
+DEFUN (isis_passive,
+       isis_passive_cmd,
+       PROTO_NAME " passive",
+       PROTO_HELP
+       "Configure the passive mode for interface\n")
+{
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	if (!circuit)
+		return CMD_ERR_NO_MATCH;
+
+	CMD_FERR_RETURN(isis_circuit_passive_set(circuit, 1),
+			"Cannot set passive: $ERR");
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_isis_passive,
+       no_isis_passive_cmd,
+       "no " PROTO_NAME " passive",
+       NO_STR
+       PROTO_HELP
+       "Configure the passive mode for interface\n")
+{
+	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	if (!circuit)
+		return CMD_ERR_NO_MATCH;
+
+	CMD_FERR_RETURN(isis_circuit_passive_set(circuit, 0),
+			"Cannot set no passive: $ERR");
+	return CMD_SUCCESS;
+}
+
 void isis_vty_daemon_init(void)
 {
 	install_element(ROUTER_NODE, &fabric_tier_cmd);
@@ -730,4 +761,7 @@ void isis_vty_daemon_init(void)
 	install_element(ROUTER_NODE, &no_spf_delay_ietf_cmd);
 
 	install_element(ROUTER_NODE, &area_purge_originator_cmd);
+
+	install_element(INTERFACE_NODE, &isis_passive_cmd);
+	install_element(INTERFACE_NODE, &no_isis_passive_cmd);
 }

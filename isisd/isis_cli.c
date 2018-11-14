@@ -1216,6 +1216,26 @@ void cli_show_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/passive
+ */
+DEFPY(isis_passive, isis_passive_cmd, "[no] isis passive",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Configure the passive mode for interface\n")
+{
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
+			      no ? NB_OP_DELETE : NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_passive(struct vty *vty, struct lyd_node *dnode,
+			      bool show_defaults)
+{
+	vty_out(vty, " isis passive\n");
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -1267,6 +1287,8 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &isis_redistribute_cmd);
 
 	install_element(ISIS_NODE, &isis_topology_cmd);
+
+	install_element(INTERFACE_NODE, &isis_passive_cmd);
 }
 
 #endif /* ifndef FABRICD */
