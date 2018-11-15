@@ -137,12 +137,14 @@ struct zebra_vrf {
 	 */
 	enum vxlan_flood_control vxlan_flood_ctrl;
 
-	/* Route Installs */
+	/* Install stats */
 	uint64_t installs;
 	uint64_t removals;
 	uint64_t installs_queued;
 	uint64_t removals_queued;
 	uint64_t neigh_updates;
+	uint64_t lsp_installs_queued;
+	uint64_t lsp_removals_queued;
 	uint64_t lsp_installs;
 	uint64_t lsp_removals;
 };

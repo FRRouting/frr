@@ -22,6 +22,7 @@
 
 #ifdef HAVE_NETLINK
 
+#include "zebra/debug.h"
 #include "zebra/rt.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/zebra_mpls.h"
@@ -98,9 +99,38 @@ enum zebra_dplane_result kernel_del_lsp(zebra_lsp_t *lsp)
 	return ZEBRA_DPLANE_REQUEST_SUCCESS;
 }
 
+/*
+ * LSP forwarding update using dataplane context information.
+ */
 enum zebra_dplane_result kernel_lsp_update(struct zebra_dplane_ctx *ctx)
 {
-	return ZEBRA_DPLANE_REQUEST_FAILURE;
+	int cmd, ret = -1;
+
+	/* Call to netlink layer based on type of update */
+	if (dplane_ctx_get_op(ctx) == DPLANE_OP_LSP_DELETE) {
+		cmd = RTM_DELROUTE;
+	} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_LSP_INSTALL ||
+		   dplane_ctx_get_op(ctx) == DPLANE_OP_LSP_UPDATE) {
+
+		/* Validate */
+		if (dplane_ctx_get_best_nhlfe(ctx) == NULL) {
+			if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_MPLS)
+				zlog_debug("LSP in-label %u: update fails, no best NHLFE",
+					   dplane_ctx_get_in_label(ctx));
+			goto done;
+		}
+
+		cmd = RTM_NEWROUTE;
+	} else
+		/* Invalid op? */
+		goto done;
+
+	ret = netlink_mpls_multipath_ctx(cmd, ctx);
+
+done:
+
+	return (ret == 0 ?
+		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
 }
 
 int mpls_kernel_init(void)

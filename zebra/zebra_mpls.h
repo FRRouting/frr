@@ -342,6 +342,14 @@ int zebra_mpls_static_lsp_del(struct zebra_vrf *zvrf, mpls_label_t in_label,
 			      ifindex_t ifindex);
 
 /*
+ * Process LSP update results from zebra dataplane.
+ */
+/* Forward ref of dplane update context type */
+struct zebra_dplane_ctx;
+
+void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx);
+
+/*
  * Schedule all MPLS label forwarding entries for processing.
  * Called upon changes that may affect one or more of them such as
  * interface or nexthop state changes.
