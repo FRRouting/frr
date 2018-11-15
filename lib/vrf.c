@@ -1022,3 +1022,10 @@ int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id,
 	}
 	return ret;
 }
+
+vrf_id_t vrf_generate_id(void)
+{
+	static int vrf_id_local;
+
+	return ++vrf_id_local;
+}

@@ -293,5 +293,6 @@ extern int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
 extern void vrf_disable(struct vrf *vrf);
 extern int vrf_enable(struct vrf *vrf);
 extern void vrf_delete(struct vrf *vrf);
+extern vrf_id_t vrf_generate_id(void);
 
 #endif /*_ZEBRA_VRF_H*/
