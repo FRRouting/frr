@@ -43,66 +43,6 @@ static int level_for_arg(const char *arg)
 		return IS_LEVEL_2;
 }
 
-DEFUN (isis_circuit_type,
-       isis_circuit_type_cmd,
-       "isis circuit-type <level-1|level-1-2|level-2-only>",
-       "IS-IS routing protocol\n"
-       "Configure circuit type for interface\n"
-       "Level-1 only adjacencies are formed\n"
-       "Level-1-2 adjacencies are formed\n"
-       "Level-2 only adjacencies are formed\n")
-{
-	int idx_level = 2;
-	int is_type;
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	is_type = string2circuit_t(argv[idx_level]->arg);
-	if (!is_type) {
-		vty_out(vty, "Unknown circuit-type \n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (circuit->state == C_STATE_UP
-	    && circuit->area->is_type != IS_LEVEL_1_AND_2
-	    && circuit->area->is_type != is_type) {
-		vty_out(vty, "Invalid circuit level for area %s.\n",
-			circuit->area->area_tag);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	isis_circuit_is_type_set(circuit, is_type);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_isis_circuit_type,
-       no_isis_circuit_type_cmd,
-       "no isis circuit-type <level-1|level-1-2|level-2-only>",
-       NO_STR
-       "IS-IS routing protocol\n"
-       "Configure circuit type for interface\n"
-       "Level-1 only adjacencies are formed\n"
-       "Level-1-2 adjacencies are formed\n"
-       "Level-2 only adjacencies are formed\n")
-{
-	int is_type;
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
-
-	/*
-	 * Set the circuits level to its default value
-	 */
-	if (circuit->state == C_STATE_UP)
-		is_type = circuit->area->is_type;
-	else
-		is_type = IS_LEVEL_1_AND_2;
-	isis_circuit_is_type_set(circuit, is_type);
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (isis_network,
        isis_network_cmd,
        "isis network point-to-point",
@@ -221,9 +161,6 @@ DEFUN (no_isis_priority_level,
 
 void isis_vty_daemon_init(void)
 {
-	install_element(INTERFACE_NODE, &isis_circuit_type_cmd);
-	install_element(INTERFACE_NODE, &no_isis_circuit_type_cmd);
-
 	install_element(INTERFACE_NODE, &isis_network_cmd);
 	install_element(INTERFACE_NODE, &no_isis_network_cmd);
 

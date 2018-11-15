@@ -2722,6 +2722,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/circuit-type",
 			.cbs.modify = lib_interface_isis_circuit_type_modify,
+			.cbs.cli_show = cli_show_ip_isis_circ_type,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/ipv4-routing",

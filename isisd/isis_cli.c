@@ -1704,6 +1704,101 @@ void cli_show_ip_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " isis topology ipv6-dstsrc\n");
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/circuit-type
+ */
+DEFPY(isis_circuit_type, isis_circuit_type_cmd,
+      "isis circuit-type <level-1|level-1-2|level-2-only>$type",
+      "IS-IS routing protocol\n"
+      "Configure circuit type for interface\n"
+      "Level-1 only adjacencies are formed\n"
+      "Level-1-2 adjacencies are formed\n"
+      "Level-2 only adjacencies are formed\n")
+{
+	nb_cli_enqueue_change(
+		vty, "./frr-isisd:isis/circuit-type", NB_OP_MODIFY,
+		strmatch(type, "level-2-only") ? "level-2" : type);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_isis_circuit_type, no_isis_circuit_type_cmd,
+      "no isis circuit-type [level-1|level-1-2|level-2-only]",
+      NO_STR
+      "IS-IS routing protocol\n"
+      "Configure circuit type for interface\n"
+      "Level-1 only adjacencies are formed\n"
+      "Level-1-2 adjacencies are formed\n"
+      "Level-2 only adjacencies are formed\n")
+{
+	const struct lyd_node *dnode;
+	struct interface *ifp;
+	struct isis_circuit *circuit;
+	int is_type;
+	const char *circ_type;
+
+	/*
+	 * Default value depends on whether the circuit is part of an area,
+	 * and the is-type of the area if there is one. So we need to do this
+	 * here.
+	 */
+	dnode = yang_dnode_get(running_config->dnode, VTY_CURR_XPATH);
+	ifp = yang_dnode_get_entry(dnode, false);
+	if (!ifp)
+		goto def_val;
+
+	circuit = circuit_scan_by_ifp(ifp);
+	if (!circuit)
+		goto def_val;
+
+	if (circuit->state == C_STATE_UP)
+		is_type = circuit->area->is_type;
+	else
+		goto def_val;
+
+	switch (is_type) {
+	case IS_LEVEL_1:
+		circ_type = "level-1";
+		break;
+	case IS_LEVEL_2:
+		circ_type = "level-2";
+		break;
+	case IS_LEVEL_1_AND_2:
+		circ_type = "level-1-2";
+		break;
+	default:
+		return CMD_ERR_NO_MATCH;
+	}
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
+			      NB_OP_MODIFY, circ_type);
+
+	return nb_cli_apply_changes(vty, NULL);
+
+def_val:
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
+			      NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ip_isis_circ_type(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults)
+{
+	int level = yang_dnode_get_enum(dnode, NULL);
+
+	switch (level) {
+	case IS_LEVEL_1:
+		vty_out(vty, " isis circuit-type level-1\n");
+		break;
+	case IS_LEVEL_2:
+		vty_out(vty, " isis circuit-type level-2-only\n");
+		break;
+	case IS_LEVEL_1_AND_2:
+		vty_out(vty, " isis circuit-type level-1-2\n");
+		break;
+	}
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -1781,6 +1876,9 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &no_psnp_interval_cmd);
 
 	install_element(INTERFACE_NODE, &circuit_topology_cmd);
+
+	install_element(INTERFACE_NODE, &isis_circuit_type_cmd);
+	install_element(INTERFACE_NODE, &no_isis_circuit_type_cmd);
 }
 
 #endif /* ifndef FABRICD */
