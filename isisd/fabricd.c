@@ -585,17 +585,19 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 	while (!skiplist_next(f->neighbors, NULL, (void **)&n, &cursor)) {
 		n->present = true;
 
-		struct isis_lsp *lsp = lsp_for_vertex(f->spftree, n->vertex);
-		if (!lsp || !lsp->tlvs || !lsp->tlvs->spine_leaf)
+		struct isis_lsp *node_lsp = lsp_for_vertex(f->spftree,
+							   n->vertex);
+		if (!node_lsp
+		    || !node_lsp->tlvs
+		    || !node_lsp->tlvs->spine_leaf
+		    || !node_lsp->tlvs->spine_leaf->has_tier
+		    || node_lsp->tlvs->spine_leaf->tier != 0) {
 			continue;
-
-		if (!lsp->tlvs->spine_leaf->has_tier
-		    || lsp->tlvs->spine_leaf->tier != 0)
-			continue;
+		}
 
 		if (isis->debugs & DEBUG_FABRICD_FLOODING) {
 			zlog_debug("Moving %s to DNR because it's T0",
-			           rawlspid_print(lsp->hdr.lsp_id));
+			           rawlspid_print(node_lsp->hdr.lsp_id));
 		}
 
 		move_to_dnr(lsp, n);
