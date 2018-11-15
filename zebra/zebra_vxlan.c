@@ -1195,6 +1195,35 @@ static void zl3vni_print_hash(struct hash_backet *backet, void *ctx[])
 	}
 }
 
+/* Private Structure to pass callback data for hash iterator */
+struct zvni_evpn_show {
+	struct vty *vty;
+	json_object *json;
+	struct zebra_vrf *zvrf;
+};
+
+/* print a L3 VNI hash entry in detail*/
+static void zl3vni_print_hash_detail(struct hash_backet *backet, void *data)
+{
+	struct vty *vty = NULL;
+	zebra_l3vni_t *zl3vni = NULL;
+	json_object *json = NULL;
+	bool use_json = false;
+	struct zvni_evpn_show *zes = data;
+
+	vty = zes->vty;
+	json = zes->json;
+
+	if (json)
+		use_json = true;
+
+	zl3vni = (zebra_l3vni_t *)backet->data;
+
+	zebra_vxlan_print_vni(vty, zes->zvrf, zl3vni->vni, use_json);
+	vty_out(vty, "\n");
+}
+
+
 /*
  * Print a VNI hash entry - called for display of all VNIs.
  */
@@ -1257,6 +1286,29 @@ static void zvni_print_hash(struct hash_backet *backet, void *ctxt[])
 		}
 		json_object_object_add(json, vni_str, json_vni);
 	}
+}
+
+/*
+ * Print a VNI hash entry in detail - called for display of all VNIs.
+ */
+static void zvni_print_hash_detail(struct hash_backet *backet, void *data)
+{
+	struct vty *vty;
+	zebra_vni_t *zvni;
+	json_object *json = NULL;
+	bool use_json = false;
+	struct zvni_evpn_show *zes = data;
+
+	vty = zes->vty;
+	json = zes->json;
+
+	if (json)
+		use_json = true;
+
+	zvni = (zebra_vni_t *)backet->data;
+
+	zebra_vxlan_print_vni(vty, zes->zvrf, zvni->vni, use_json);
+	vty_out(vty, "\n");
 }
 
 /*
@@ -5418,6 +5470,49 @@ void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 	hash_iterate(zrouter.l3vni_table,
 		     (void (*)(struct hash_backet *, void *))zl3vni_print_hash,
 		     args);
+
+	if (use_json) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+}
+
+/*
+ * Display VNI hash table in detail(VTY command handler).
+ */
+void zebra_vxlan_print_vnis_detail(struct vty *vty, struct zebra_vrf *zvrf,
+				   bool use_json)
+{
+	json_object *json = NULL;
+	struct zebra_ns *zns = NULL;
+	struct zvni_evpn_show zes;
+
+	if (!is_evpn_enabled())
+		return;
+
+	zns = zebra_ns_lookup(NS_DEFAULT);
+	if (!zns)
+		return;
+
+
+	if (use_json)
+		json = json_object_new_object();
+
+	zes.vty = vty;
+	zes.json = json;
+	zes.zvrf = zvrf;
+
+	/* Display all L2-VNIs */
+	hash_iterate(zvrf->vni_table, (void (*)(struct hash_backet *,
+						void *))zvni_print_hash_detail,
+		     &zes);
+
+	/* Display all L3-VNIs */
+	hash_iterate(zrouter.l3vni_table,
+		     (void (*)(struct hash_backet *,
+			       void *))zl3vni_print_hash_detail,
+		     &zes);
 
 	if (use_json) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(

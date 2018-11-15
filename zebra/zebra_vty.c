@@ -1782,7 +1782,7 @@ DEFUN (show_evpn_vni,
        "show evpn vni [json]",
        SHOW_STR
        "EVPN\n"
-       "VxLAN information\n"
+       "VxLAN Network Identifier\n"
        JSON_STR)
 {
 	struct zebra_vrf *zvrf;
@@ -1790,6 +1790,22 @@ DEFUN (show_evpn_vni,
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	zebra_vxlan_print_vnis(vty, zvrf, uj);
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_vni_detail, show_evpn_vni_detail_cmd,
+       "show evpn vni detail [json]",
+       SHOW_STR
+       "EVPN\n"
+       "VxLAN Network Identifier\n"
+       "Detailed Information On Each VNI\n"
+       JSON_STR)
+{
+	struct zebra_vrf *zvrf;
+	bool uj = use_json(argc, argv);
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zebra_vxlan_print_vnis_detail(vty, zvrf, uj);
 	return CMD_SUCCESS;
 }
 
@@ -2743,6 +2759,7 @@ void zebra_vty_init(void)
 
 	install_element(VIEW_NODE, &show_evpn_global_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_vni_detail_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_rmac_vni_mac_cmd);
 	install_element(VIEW_NODE, &show_evpn_rmac_vni_cmd);

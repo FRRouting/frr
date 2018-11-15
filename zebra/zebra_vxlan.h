@@ -117,6 +117,9 @@ extern void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf,
 				  vni_t vni, bool use_json);
 extern void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 				   bool use_json);
+extern void zebra_vxlan_print_vnis_detail(struct vty *vty,
+					  struct zebra_vrf *zvrf,
+					  bool use_json);
 extern void zebra_vxlan_print_rmacs_l3vni(struct vty *vty, vni_t vni,
 					  bool use_json);
 extern void zebra_vxlan_print_rmacs_all_l3vni(struct vty *vty, bool use_json);
