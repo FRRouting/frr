@@ -42,7 +42,7 @@ DEFINE_MTYPE_STATIC(LIB, IDALLOC_POOL, "ID Number temporary holding pool entry")
 
 #define DIR_MASK    ((1<<IDALLOC_DIR_BITS)-1)
 #define SUBDIR_MASK ((1<<IDALLOC_SUBDIR_BITS)-1)
-#define PAGE_MASK   ((1<<IDALLOC_PAGE_BITS)-1)
+#define FRR_ID_PAGE_MASK ((1<<IDALLOC_PAGE_BITS)-1)
 #define WORD_MASK   ((1<<IDALLOC_WORD_BITS)-1)
 #define OFFSET_MASK ((1<<IDALLOC_OFFSET_BITS)-1)
 
@@ -50,13 +50,13 @@ DEFINE_MTYPE_STATIC(LIB, IDALLOC_POOL, "ID Number temporary holding pool entry")
 		      IDALLOC_PAGE_BITS + IDALLOC_SUBDIR_BITS)
 #define SUBDIR_SHIFT (IDALLOC_OFFSET_BITS + IDALLOC_WORD_BITS + \
 		      IDALLOC_PAGE_BITS)
-#define PAGE_SHIFT   (IDALLOC_OFFSET_BITS + IDALLOC_WORD_BITS)
+#define FRR_ID_PAGE_SHIFT (IDALLOC_OFFSET_BITS + IDALLOC_WORD_BITS)
 #define WORD_SHIFT   (IDALLOC_OFFSET_BITS)
 #define OFFSET_SHIFT (0)
 
 #define ID_DIR(id)    ((id >> DIR_SHIFT)    & DIR_MASK)
 #define ID_SUBDIR(id) ((id >> SUBDIR_SHIFT) & SUBDIR_MASK)
-#define ID_PAGE(id)   ((id >> PAGE_SHIFT)   & PAGE_MASK)
+#define ID_PAGE(id)   ((id >> FRR_ID_PAGE_SHIFT) & FRR_ID_PAGE_MASK)
 #define ID_WORD(id)   ((id >> WORD_SHIFT)   & WORD_MASK)
 #define ID_OFFSET(id) ((id >> OFFSET_SHIFT) & OFFSET_MASK)
 
@@ -98,7 +98,7 @@ static struct id_alloc_page *find_or_create_page(struct id_alloc *alloc,
 		page->base_value = id;
 		subdir->sublevels[ID_PAGE(id)] = page;
 
-		alloc->capacity += 1 << PAGE_SHIFT;
+		alloc->capacity += 1 << FRR_ID_PAGE_SHIFT;
 		page->next_has_free = alloc->has_free;
 		alloc->has_free = page;
 	} else if (page != NULL && create) {
