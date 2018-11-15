@@ -2530,8 +2530,8 @@ DEFUN (show_ip_ospf_mpls_te_link,
        "Interface name\n")
 {
 	struct vrf *vrf;
-	int idx_interface = 5;
-	struct interface *ifp;
+	int idx_interface = 0;
+	struct interface *ifp = NULL;
 	struct listnode *node;
 	char *vrf_name = NULL;
 	bool all_vrf;
@@ -2543,7 +2543,7 @@ DEFUN (show_ip_ospf_mpls_te_link,
 		vrf_name = argv[idx_vrf + 1]->arg;
 		all_vrf = strmatch(vrf_name, "all");
 	}
-
+	argv_find(argv, argc, "INTERFACE", &idx_interface);
 	/* vrf input is provided could be all or specific vrf*/
 	if (vrf_name) {
 		if (all_vrf) {
@@ -2557,32 +2557,31 @@ DEFUN (show_ip_ospf_mpls_te_link,
 			return CMD_SUCCESS;
 		}
 		ospf = ospf_lookup_by_inst_name(inst, vrf_name);
-		if (ospf == NULL || !ospf->oi_running)
+	} else
+		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	if (ospf == NULL || !ospf->oi_running)
+		return CMD_SUCCESS;
+
+	vrf = vrf_lookup_by_id(ospf->vrf_id);
+	if (!vrf)
+		return CMD_SUCCESS;
+	if (idx_interface) {
+		ifp = if_lookup_by_name(
+					argv[idx_interface]->arg,
+					ospf->vrf_id);
+		if (ifp == NULL) {
+			vty_out(vty, "No such interface name in vrf %s\n",
+				vrf->name);
 			return CMD_SUCCESS;
-		vrf = vrf_lookup_by_id(ospf->vrf_id);
+		}
+	}
+	if (!ifp) {
 		FOR_ALL_INTERFACES (vrf, ifp)
 			show_mpls_te_link_sub(vty, ifp);
 		return CMD_SUCCESS;
 	}
-	/* Show All Interfaces. */
-	if (argc == 5) {
-		for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
-			if (!ospf->oi_running)
-				continue;
-			vrf = vrf_lookup_by_id(ospf->vrf_id);
-			FOR_ALL_INTERFACES (vrf, ifp)
-				show_mpls_te_link_sub(vty, ifp);
-		}
-	}
-	/* Interface name is specified. */
-	else {
-		ifp = if_lookup_by_name_all_vrf(argv[idx_interface]->arg);
-		if (ifp == NULL)
-			vty_out(vty, "No such interface name\n");
-		else
-			show_mpls_te_link_sub(vty, ifp);
-	}
 
+	show_mpls_te_link_sub(vty, ifp);
 	return CMD_SUCCESS;
 }
 
