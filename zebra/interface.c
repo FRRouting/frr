@@ -806,19 +806,6 @@ static void ipv6_ll_address_to_mac(struct in6_addr *address, uint8_t *mac)
 	mac[5] = address->s6_addr[15];
 }
 
-static bool mac_is_same(char *mac1, char *mac2)
-{
-	if (mac1[0] == mac2[0] &&
-	    mac1[1] == mac2[1] &&
-	    mac1[2] == mac2[2] &&
-	    mac1[3] == mac2[3] &&
-	    mac1[4] == mac2[4] &&
-	    mac1[5] == mac2[5])
-		return true;
-	else
-		return false;
-}
-
 void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *ifp,
 				       char mac[6],
 				       struct in6_addr *address,
@@ -835,19 +822,23 @@ void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *ifp,
 	ns_id = zvrf->zns->ns_id;
 
 	/*
-	 * Remove existed arp record for the interface as netlink
-	 * protocol does not have update message types
-	 *
-	 * supported message types are RTM_NEWNEIGH and RTM_DELNEIGH
+	 * Remove and re-add any existing neighbor entry for this address,
+	 * since Netlink doesn't currently offer update message types.
 	 */
-	if (!mac_is_same(zif->neigh_mac, mac)) {
-		kernel_neigh_update(0, ifp->ifindex, ipv4_ll.s_addr,
-				    mac, 6, ns_id);
+	kernel_neigh_update(0, ifp->ifindex, ipv4_ll.s_addr, mac, 6, ns_id);
 
-		/* Add arp record */
-		kernel_neigh_update(add, ifp->ifindex, ipv4_ll.s_addr,
-				    mac, 6, ns_id);
-	}
+	/* Add new neighbor entry.
+	 *
+	 * We force installation even if current neighbor entry is the same.
+	 * Since this function is used to refresh our MAC entries after an
+	 * interface flap, if we don't force in our custom entries with their
+	 * state set to PERMANENT or REACHABLE then the kernel will attempt to
+	 * resolve our leftover entries, fail, mark them unreachable and then
+	 * they'll be useless to us.
+	 */
+	if (add)
+		kernel_neigh_update(add, ifp->ifindex, ipv4_ll.s_addr, mac, 6,
+				    ns_id);
 
 	memcpy(&zif->neigh_mac[0], &mac[0], 6);
 
