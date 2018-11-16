@@ -356,13 +356,14 @@ static inline void bgp_node_set_bgp_static_info(struct bgp_node *node,
 }
 
 static inline struct bgp_connected_ref *
-bgp_connected_get_node_info(struct bgp_node *node)
+bgp_node_get_bgp_connected_ref_info(struct bgp_node *node)
 {
 	return node->info;
 }
 
-static inline void bgp_connected_set_node_info(struct bgp_node *node,
-					       struct bgp_connected_ref *bc)
+static inline void
+bgp_node_set_bgp_connected_ref_info(struct bgp_node *node,
+				    struct bgp_connected_ref *bc)
 {
 	node->info = bc;
 }
