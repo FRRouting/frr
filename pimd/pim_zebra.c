@@ -1048,6 +1048,10 @@ void igmp_source_forward_start(struct pim_instance *pim,
 				   __PRETTY_FUNCTION__,
 				   pim_str_sg_dump(&sg),
 				   group->group_igmp_sock->interface->name);
+
+		pim_channel_del_oif(source->source_channel_oil,
+				    group->group_igmp_sock->interface,
+				    PIM_OIF_FLAG_PROTO_IGMP);
 		return;
 	}
 	/*
@@ -1059,6 +1063,10 @@ void igmp_source_forward_start(struct pim_instance *pim,
 		if (PIM_DEBUG_MROUTE)
 			zlog_warn("%s: Failure to add local membership for %s",
 				  __PRETTY_FUNCTION__, pim_str_sg_dump(&sg));
+
+		pim_channel_del_oif(source->source_channel_oil,
+				    group->group_igmp_sock->interface,
+				    PIM_OIF_FLAG_PROTO_IGMP);
 		return;
 	}
 
