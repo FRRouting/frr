@@ -1627,7 +1627,7 @@ dnl ---------------
 dnl confd
 dnl ---------------
 if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
-   AC_CHECK_PROG([CONFD], [confd], [confd], [/bin/false])
+   AC_CHECK_PROG([CONFD], [confd], [confd], [/bin/false], "${enable_confd}/bin")
    if test "x$CONFD" = "x/bin/false"; then
       AC_MSG_ERROR([confd was not found on your system.])]
    fi
