@@ -4076,6 +4076,11 @@ DEFUN (no_set_aspath_exclude,
 	return ret;
 }
 
+ALIAS(no_set_aspath_exclude, no_set_aspath_exclude_all_cmd,
+      "no set as-path exclude",
+      NO_STR SET_STR
+      "Transform BGP AS_PATH attribute\n"
+      "Exclude from the as-path\n")
 
 DEFUN (set_community,
        set_community_cmd,
@@ -4965,6 +4970,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_aspath_exclude_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_prepend_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_exclude_cmd);
+	install_element(RMAP_NODE, &no_set_aspath_exclude_all_cmd);
 	install_element(RMAP_NODE, &set_origin_cmd);
 	install_element(RMAP_NODE, &no_set_origin_cmd);
 	install_element(RMAP_NODE, &set_atomic_aggregate_cmd);
