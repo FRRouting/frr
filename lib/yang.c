@@ -609,13 +609,13 @@ void yang_init(void)
 	ly_log_options(LY_LOLOG | LY_LOSTORE);
 
 	/* Initialize libyang container for native models. */
-	ly_native_ctx = ly_ctx_new(NULL, LY_CTX_DISABLE_SEARCHDIR_CWD);
+	ly_native_ctx =
+		ly_ctx_new(YANG_MODELS_PATH, LY_CTX_DISABLE_SEARCHDIR_CWD);
 	if (!ly_native_ctx) {
 		flog_err(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		exit(1);
 	}
 	ly_ctx_set_module_imp_clb(ly_native_ctx, yang_module_imp_clb, NULL);
-	ly_ctx_set_searchdir(ly_native_ctx, YANG_MODELS_PATH);
 	ly_ctx_set_priv_dup_clb(ly_native_ctx, ly_dup_cb);
 
 	/* Detect if the required libyang plugin(s) were loaded successfully. */
