@@ -86,7 +86,6 @@ struct isis_circuit {
 	struct thread *t_read;
 	struct thread *t_send_csnp[2];
 	struct thread *t_send_psnp[2];
-	struct thread *t_send_lsp;
 	struct isis_tx_queue *tx_queue;
 	struct isis_circuit_arg level_arg[2]; /* used as argument for threads */
 
