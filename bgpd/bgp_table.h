@@ -331,13 +331,14 @@ bgp_node_set_bgp_aggregate_info(struct bgp_node *node,
 	node->info = aggregate;
 }
 
-static inline struct bgp_distance *bgp_distance_get_node(struct bgp_node *node)
+static inline struct bgp_distance *
+bgp_node_get_bgp_distance_info(struct bgp_node *node)
 {
 	return node->info;
 }
 
-static inline void bgp_distance_set_node_info(struct bgp_node *node,
-					      struct bgp_distance *distance)
+static inline void bgp_node_set_bgp_distance_info(struct bgp_node *node,
+						  struct bgp_distance *distance)
 {
 	node->info = distance;
 }
