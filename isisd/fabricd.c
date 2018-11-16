@@ -502,7 +502,7 @@ static void move_to_dnr(struct isis_lsp *lsp, struct neighbor_entry *n)
 
 	n->present = false;
 
-	if (isis->debugs & DEBUG_FABRICD_FLOODING) {
+	if (isis->debugs & DEBUG_FLOODING) {
 		char buff[PREFIX2STR_BUFFER];
 		zlog_debug("OpenFabric: Adding %s to DNR",
 			   vid2string(n->vertex, buff, sizeof(buff)));
@@ -520,7 +520,7 @@ static void move_to_rf(struct isis_lsp *lsp, struct neighbor_entry *n)
 
 	n->present = false;
 
-	if (isis->debugs & DEBUG_FABRICD_FLOODING) {
+	if (isis->debugs & DEBUG_FLOODING) {
 		char buff[PREFIX2STR_BUFFER];
 		zlog_debug("OpenFabric: Adding %s to RF",
 			   vid2string(n->vertex, buff, sizeof(buff)));
@@ -549,7 +549,7 @@ static void handle_firsthops(struct hash_backet *backet, void *arg)
 
 	n = neighbor_entry_lookup_list(f->neighbors, vertex->N.id);
 	if (n) {
-		if (isis->debugs & DEBUG_FABRICD_FLOODING) {
+		if (isis->debugs & DEBUG_FLOODING) {
 			char buff[PREFIX2STR_BUFFER];
 			zlog_debug("Removing %s from NL as its in the reverse path",
 				   vid2string(vertex, buff, sizeof(buff)));
@@ -559,7 +559,7 @@ static void handle_firsthops(struct hash_backet *backet, void *arg)
 
 	n = neighbor_entry_lookup_hash(f->neighbors_neighbors, vertex->N.id);
 	if (n) {
-		if (isis->debugs & DEBUG_FABRICD_FLOODING) {
+		if (isis->debugs & DEBUG_FLOODING) {
 			char buff[PREFIX2STR_BUFFER];
 			zlog_debug("Removing %s from NN as its in the reverse path",
 				   vid2string(vertex, buff, sizeof(buff)));
@@ -576,11 +576,6 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 	void *cursor = NULL;
 	struct neighbor_entry *n;
 
-	if (isis->debugs & DEBUG_FABRICD_FLOODING) {
-		zlog_debug("OpenFabric: Flooding LSP %s",
-			   rawlspid_print(lsp->hdr.lsp_id));
-	}
-
 	/* Mark all elements in NL as present and move T0s into DNR */
 	while (!skiplist_next(f->neighbors, NULL, (void **)&n, &cursor)) {
 		n->present = true;
@@ -595,7 +590,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 			continue;
 		}
 
-		if (isis->debugs & DEBUG_FABRICD_FLOODING) {
+		if (isis->debugs & DEBUG_FLOODING) {
 			zlog_debug("Moving %s to DNR because it's T0",
 			           rawlspid_print(node_lsp->hdr.lsp_id));
 		}
@@ -623,7 +618,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 
 		struct isis_lsp *nlsp = lsp_for_vertex(f->spftree, n->vertex);
 		if (!nlsp || !nlsp->tlvs) {
-			if (isis->debugs & DEBUG_FABRICD_FLOODING) {
+			if (isis->debugs & DEBUG_FLOODING) {
 				char buff[PREFIX2STR_BUFFER];
 				zlog_debug("Moving %s to DNR as it has no LSP",
 					   vid2string(n->vertex, buff, sizeof(buff)));
@@ -633,7 +628,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 			continue;
 		}
 
-		if (isis->debugs & DEBUG_FABRICD_FLOODING) {
+		if (isis->debugs & DEBUG_FLOODING) {
 			char buff[PREFIX2STR_BUFFER];
 			zlog_debug("Considering %s from NL...",
 				   vid2string(n->vertex, buff, sizeof(buff)));
@@ -651,7 +646,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 							er->id);
 
 			if (nn) {
-				if (isis->debugs & DEBUG_FABRICD_FLOODING) {
+				if (isis->debugs & DEBUG_FLOODING) {
 					char buff[PREFIX2STR_BUFFER];
 					zlog_debug("Found neighbor %s in NN, removing it from NN and setting reflood.",
 						   vid2string(nn->vertex, buff, sizeof(buff)));
@@ -668,7 +663,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 			move_to_dnr(lsp, n);
 	}
 
-	if (isis->debugs & DEBUG_FABRICD_FLOODING) {
+	if (isis->debugs & DEBUG_FLOODING) {
 		zlog_debug("OpenFabric: Flooding algorithm complete.");
 	}
 }

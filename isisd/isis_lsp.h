@@ -105,7 +105,11 @@ void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost);
 int lsp_print_all(struct vty *vty, dict_t *lspdb, char detail, char dynhost);
 /* sets SRMflags for all active circuits of an lsp */
 void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set);
-void lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit);
+
+#define lsp_flood(lsp, circuit) \
+	_lsp_flood((lsp), (circuit), __func__, __FILE__, __LINE__)
+void _lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit,
+		const char *func, const char *file, int line);
 void lsp_init(void);
 
 #endif /* ISIS_LSP */

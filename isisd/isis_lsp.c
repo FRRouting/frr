@@ -1997,8 +1997,17 @@ void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set)
 	}
 }
 
-void lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
+void _lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit,
+		const char *func, const char *file, int line)
 {
+	if (isis->debugs & DEBUG_FLOODING) {
+		zlog_debug("Flooding LSP %s%s%s (From %s %s:%d)",
+			   rawlspid_print(lsp->hdr.lsp_id),
+			   circuit ? " except on " : "",
+			   circuit ? circuit->interface->name : "",
+			   func, file, line);
+	}
+
 	if (!fabricd)
 		lsp_set_all_srmflags(lsp, true);
 	else
