@@ -342,13 +342,14 @@ static inline void bgp_distance_set_node_info(struct bgp_node *node,
 	node->info = distance;
 }
 
-static inline struct bgp_static *bgp_static_get_node_info(struct bgp_node *node)
+static inline struct bgp_static *
+bgp_node_get_bgp_static_info(struct bgp_node *node)
 {
 	return node->info;
 }
 
-static inline void bgp_static_set_node_info(struct bgp_node *node,
-					    struct bgp_static *bgp_static)
+static inline void bgp_node_set_bgp_static_info(struct bgp_node *node,
+						struct bgp_static *bgp_static)
 {
 	node->info = bgp_static;
 }

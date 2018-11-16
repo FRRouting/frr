@@ -3227,7 +3227,7 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 		/* For network route-map updates. */
 		for (bn = bgp_table_top(bgp->route[afi][safi]); bn;
 		     bn = bgp_route_next(bn)) {
-			bgp_static = bgp_static_get_node_info(bn);
+			bgp_static = bgp_node_get_bgp_static_info(bn);
 			if (!bgp_static)
 				continue;
 
