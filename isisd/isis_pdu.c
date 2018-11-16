@@ -2182,9 +2182,9 @@ int send_l2_psnp(struct thread *thread)
 /*
  * ISO 10589 - 7.3.14.3
  */
-void send_lsp(void *arg, struct isis_lsp *lsp, enum isis_tx_type tx_type)
+void send_lsp(struct isis_circuit *circuit, struct isis_lsp *lsp,
+	      enum isis_tx_type tx_type)
 {
-	struct isis_circuit *circuit = arg;
 	int clear_srm = 1;
 	int retval = ISIS_OK;
 
@@ -2233,10 +2233,13 @@ void send_lsp(void *arg, struct isis_lsp *lsp, enum isis_tx_type tx_type)
 	}
 
 	if (isis->debugs & DEBUG_UPDATE_PACKETS) {
-		zlog_debug("ISIS-Upd (%s): Sending L%d LSP %s, seq 0x%08" PRIx32
+		zlog_debug("ISIS-Upd (%s): Sending %sL%d LSP %s, seq 0x%08" PRIx32
 			   ", cksum 0x%04" PRIx16 ", lifetime %" PRIu16
 			   "s on %s",
-			   circuit->area->area_tag, lsp->level,
+			   circuit->area->area_tag,
+			   (tx_type == TX_LSP_CIRCUIT_SCOPED)
+				? "Circuit scoped " : "",
+			   lsp->level,
 			   rawlspid_print(lsp->hdr.lsp_id), lsp->hdr.seqno,
 			   lsp->hdr.checksum, lsp->hdr.rem_lifetime,
 			   circuit->interface->name);

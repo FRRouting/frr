@@ -720,6 +720,9 @@ void print_debug(struct vty *vty, int flags, int onoff)
 		vty_out(vty,
 			"IS-IS Adjacency related packets debugging is %s\n",
 			onoffs);
+	if (flags & DEBUG_TX_QUEUE)
+		vty_out(vty, "IS-IS TX queue debugging is %s\n",
+			onoffs);
 	if (flags & DEBUG_SNP_PACKETS)
 		vty_out(vty, "IS-IS CSNP/PSNP packets debugging is %s\n",
 			onoffs);
@@ -769,6 +772,10 @@ static int config_write_debug(struct vty *vty)
 
 	if (flags & DEBUG_ADJ_PACKETS) {
 		vty_out(vty, "debug " PROTO_NAME " adj-packets\n");
+		write++;
+	}
+	if (flags & DEBUG_TX_QUEUE) {
+		vty_out(vty, "debug " PROTO_NAME " tx-queue\n");
 		write++;
 	}
 	if (flags & DEBUG_SNP_PACKETS) {
@@ -839,6 +846,33 @@ DEFUN (no_debug_isis_adj,
 {
 	isis->debugs &= ~DEBUG_ADJ_PACKETS;
 	print_debug(vty, DEBUG_ADJ_PACKETS, 0);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (debug_isis_tx_queue,
+       debug_isis_tx_queue_cmd,
+       "debug " PROTO_NAME " tx-queue",
+       DEBUG_STR
+       PROTO_HELP
+       "IS-IS TX queues\n")
+{
+	isis->debugs |= DEBUG_TX_QUEUE;
+	print_debug(vty, DEBUG_TX_QUEUE, 1);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_isis_tx_queue,
+       no_debug_isis_tx_queue_cmd,
+       "no debug " PROTO_NAME " tx-queue",
+       NO_STR
+       UNDEBUG_STR
+       PROTO_HELP
+       "IS-IS TX queues\n")
+{
+	isis->debugs &= ~DEBUG_TX_QUEUE;
+	print_debug(vty, DEBUG_TX_QUEUE, 0);
 
 	return CMD_SUCCESS;
 }
@@ -2061,6 +2095,8 @@ void isis_init()
 
 	install_element(ENABLE_NODE, &debug_isis_adj_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_adj_cmd);
+	install_element(ENABLE_NODE, &debug_isis_tx_queue_cmd);
+	install_element(ENABLE_NODE, &no_debug_isis_tx_queue_cmd);
 	install_element(ENABLE_NODE, &debug_isis_snp_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_snp_cmd);
 	install_element(ENABLE_NODE, &debug_isis_upd_cmd);
@@ -2082,6 +2118,8 @@ void isis_init()
 
 	install_element(CONFIG_NODE, &debug_isis_adj_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_adj_cmd);
+	install_element(CONFIG_NODE, &debug_isis_tx_queue_cmd);
+	install_element(CONFIG_NODE, &no_debug_isis_tx_queue_cmd);
 	install_element(CONFIG_NODE, &debug_isis_snp_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_snp_cmd);
 	install_element(CONFIG_NODE, &debug_isis_upd_cmd);
