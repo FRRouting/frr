@@ -187,6 +187,12 @@ static int remote_neigh_count(zebra_mac_t *zmac);
 static void zvni_deref_ip2mac(zebra_vni_t *zvni, zebra_mac_t *mac);
 static int zebra_vxlan_dad_mac_auto_recovery_exp(struct thread *t);
 static int zebra_vxlan_dad_ip_auto_recovery_exp(struct thread *t);
+static void zebra_vxlan_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
+						  zebra_neigh_t *nbr,
+						  struct in_addr vtep_ip,
+						  bool do_dad,
+						  bool *is_dup_detect,
+						  bool is_local);
 
 /* Private functions */
 static int host_rb_entry_compare(const struct host_rb_entry *hle1,
@@ -362,6 +368,134 @@ static int zebra_vxlan_ip_inherit_dad_from_mac(struct zebra_vrf *zvrf,
 		nbr->detect_start_time.tv_usec = 0;
 	}
 	return 0;
+}
+
+static void zebra_vxlan_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
+						  zebra_neigh_t *nbr,
+						  struct in_addr vtep_ip,
+						  bool do_dad,
+						  bool *is_dup_detect,
+						  bool is_local)
+{
+
+	struct timeval elapsed = {0, 0};
+	char buf[ETHER_ADDR_STRLEN];
+	char buf1[INET6_ADDRSTRLEN];
+	bool reset_params = false;
+
+	if (!zvrf->dup_addr_detect)
+		return;
+
+	/* IP is detected as duplicate or inherit dup
+	 * state, hold on to install as remote entry
+	 * only if freeze is enabled.
+	 */
+	if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE)) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				   "%s: duplicate addr MAC %s IP %s flags 0x%x skip installing, learn count %u recover time %u",
+					   __PRETTY_FUNCTION__,
+				prefix_mac2str(&nbr->emac, buf, sizeof(buf)),
+				ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
+				nbr->flags, nbr->dad_count,
+				zvrf->dad_freeze_time);
+
+		if (zvrf->dad_freeze)
+			*is_dup_detect = true;
+		/* warn-only action, neigh will be installed.
+		 * freeze action, it wil not be installed.
+		 */
+		return;
+	}
+
+	if (!do_dad)
+		return;
+
+	/* Check if detection time (M-secs) expired.
+	 * Reset learn count and detection start time.
+	 * During remote mac add, count should already be 1
+	 * via local learning.
+	 */
+	monotime_since(&nbr->detect_start_time, &elapsed);
+	reset_params = (elapsed.tv_sec > zvrf->dad_time);
+
+	if (is_local && !reset_params) {
+		/* RFC-7432: A PE/VTEP that detects a MAC mobility
+		 * event via LOCAL learning starts an M-second timer.
+		 *
+		 * NOTE: This is the START of the probe with count is
+		 * 0 during LOCAL learn event.
+		 */
+		reset_params = !nbr->dad_count;
+	}
+
+	if (reset_params) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"%s: duplicate addr MAC %s IP %s flags 0x%x detection time passed, reset learn count %u",
+				__PRETTY_FUNCTION__,
+				prefix_mac2str(&nbr->emac, buf, sizeof(buf)),
+				ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
+				nbr->flags, nbr->dad_count);
+		/* Reset learn count but do not start detection
+		 * during REMOTE learn event.
+		 */
+		nbr->dad_count = 0;
+		/* Start dup. addr detection (DAD) start time,
+		 * ONLY during LOCAL learn.
+		 */
+		if (is_local)
+			monotime(&nbr->detect_start_time);
+
+	} else if (!is_local) {
+		/* For REMOTE IP/Neigh, increment detection count
+		 * ONLY while in probe window, once window passed,
+		 * next local learn event should trigger DAD.
+		 */
+		nbr->dad_count++;
+	}
+
+	/* For LOCAL IP/Neigh learn event, once count is reset above via either
+	 * initial/start detection time or passed the probe time, the count
+	 * needs to be incremented.
+	 */
+	if (is_local)
+		nbr->dad_count++;
+
+	if (nbr->dad_count >= zvrf->dad_max_moves) {
+		flog_warn(EC_ZEBRA_DUP_IP_DETECTED,
+			  "VNI %u: MAC %s IP %s detected as duplicate during %s VTEP %s",
+			  nbr->zvni->vni,
+			  prefix_mac2str(&nbr->emac, buf, sizeof(buf)),
+			  ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
+			  is_local ? "local update, last" :
+			  "remote update, from",
+			  inet_ntoa(vtep_ip));
+
+		SET_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE);
+
+		/* Capture Duplicate detection time */
+		nbr->dad_dup_detect_time = monotime(NULL);
+
+		/* Start auto recovery timer for this IP */
+		THREAD_OFF(nbr->dad_ip_auto_recovery_timer);
+		if (zvrf->dad_freeze && zvrf->dad_freeze_time) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug(
+					"%s: duplicate addr MAC %s IP %s flags 0x%x auto recovery time %u start",
+				   __PRETTY_FUNCTION__,
+				   prefix_mac2str(&nbr->emac, buf, sizeof(buf)),
+				   ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
+				   nbr->flags, zvrf->dad_freeze_time);
+
+			thread_add_timer(zebrad.master,
+				zebra_vxlan_dad_ip_auto_recovery_exp,
+				nbr, zvrf->dad_freeze_time,
+				&nbr->dad_ip_auto_recovery_timer);
+		}
+		if (zvrf->dad_freeze)
+			*is_dup_detect = true;
+	}
 }
 
 /*
@@ -2314,8 +2448,8 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 	bool neigh_mac_change = false;
 	bool neigh_on_hold = false;
 	bool neigh_was_remote = false;
+	bool do_dad = false;
 	struct in_addr vtep_ip = {.s_addr = 0};
-	struct timeval elapsed = {0, 0};
 
 	/* Check if the MAC exists. */
 	zmac = zvni_mac_lookup(zvni, macaddr);
@@ -2507,102 +2641,16 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 			ipaddr2str(&n->ip, buf2, sizeof(buf2)));
 	}
 
-	/* Duplicate Address Detection (DAD) is enabled.
-	 * Based on Mobility event Scenario-B from the
-	 * draft, IP/Neigh's MAC binding changed and
-	 * neigh's previous state was remote, trigger DAD.
+	/* For IP Duplicate Address Detection (DAD) is trigger,
+	 * when the event is extended mobility based on scenario-B
+	 * from the draft, IP/Neigh's MAC binding changed and
+	 * neigh's previous state was remote.
 	 */
-	if (zvrf->dup_addr_detect) {
-		/* Neigh could have inherit dup flag or IP DAD
-		 * detected earlier
-		 */
-		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE)) {
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug(
-					   "%s: duplicate addr MAC %s IP %s skip update to client, learn count %u recover time %u",
-					   __PRETTY_FUNCTION__,
-					   prefix_mac2str(macaddr,
-							  buf, sizeof(buf)),
-					   ipaddr2str(ip, buf2, sizeof(buf2)),
-					   n->dad_count,
-					   zvrf->dad_freeze_time);
+	if (neigh_mac_change && neigh_was_remote)
+		do_dad = true;
 
-			/* In case of warn-only, inform client and update neigh
-			 */
-			if (zvrf->dad_freeze)
-				neigh_on_hold = true;
-
-			goto send_notif;
-		}
-
-		/* MAC binding changed and previous state was remote */
-		if (!(neigh_mac_change && neigh_was_remote))
-			goto send_notif;
-
-		/* First check if neigh is already marked duplicate via
-		 * MAC dup detection, before firing M Seconds
-		 * duplicate detection.
-		 * RFC-7432: A PE/VTEP that detects a MAC mobility
-		 * event via local learning starts an M-second timer.
-		 *
-		 * Check if detection time (M-secs) expired.
-		 * Reset learn count and detection start time.
-		 */
-		monotime_since(&n->detect_start_time, &elapsed);
-		if (n->dad_count == 0 || elapsed.tv_sec > zvrf->dad_time) {
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug("%s: duplicate addr MAC %s detection time passed, reset learn count %u",
-					   __PRETTY_FUNCTION__,
-					   prefix_mac2str(macaddr, buf,
-							  sizeof(buf)),
-					   n->dad_count);
-			n->dad_count = 0;
-			/* Start dup. detection time */
-			monotime(&n->detect_start_time);
-		}
-
-		n->dad_count++;
-
-		if (n->dad_count >= zvrf->dad_max_moves) {
-			flog_warn(EC_ZEBRA_DUP_IP_DETECTED,
-				  "VNI %u: MAC %s IP %s detected as duplicate during local update, last VTEP %s",
-				  zvni->vni,
-				  prefix_mac2str(&n->emac, buf, sizeof(buf)),
-				  ipaddr2str(ip, buf2, sizeof(buf2)),
-				  inet_ntoa(vtep_ip));
-
-			/* Mark Duplicate */
-			SET_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE);
-
-			/* Capture Duplicate detection time */
-			n->dad_dup_detect_time = monotime(NULL);
-
-			/* Start auto recovery timer for this IP */
-			THREAD_OFF(n->dad_ip_auto_recovery_timer);
-			if (zvrf->dad_freeze && zvrf->dad_freeze_time) {
-				if (IS_ZEBRA_DEBUG_VXLAN)
-					zlog_debug(
-						"%s: duplicate addr MAC %s IP %s flags 0x%x auto recovery time %u start",
-					__PRETTY_FUNCTION__,
-					prefix_mac2str(macaddr, buf,
-						       sizeof(buf)),
-					ipaddr2str(ip, buf2, sizeof(buf2)),
-					n->flags,
-					zvrf->dad_freeze_time);
-
-				thread_add_timer(zebrad.master,
-					zebra_vxlan_dad_ip_auto_recovery_exp,
-					n,
-					zvrf->dad_freeze_time,
-					&n->dad_ip_auto_recovery_timer);
-			}
-
-			if (zvrf->dad_freeze)
-				neigh_on_hold = true;
-		}
-	}
-
-send_notif:
+	zebra_vxlan_dup_addr_detect_for_neigh(zvrf, n, vtep_ip, do_dad,
+					      &neigh_on_hold, true);
 
 	/* Before we program this in BGP, we need to check if MAC is locally
 	 * learnt. If not, force neighbor to be inactive and reset its seq.
@@ -4960,102 +5008,12 @@ process_neigh:
 				ipaddr2str(&n->ip, buf1, sizeof(buf1)));
 		}
 
-		if (zvrf->dup_addr_detect) {
-			/* IP is detected as duplicate or inherit dup
-			 * state, hold on to install as remote entry
-			 * only if freeze is enabled.
-			 */
-			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE)) {
-				if (IS_ZEBRA_DEBUG_VXLAN)
-					zlog_debug(
-						   "%s: duplicate addr MAC %s IP %s skip installing, learn count %u recover time %u",
-							   __PRETTY_FUNCTION__,
-						prefix_mac2str(macaddr,
-							buf, sizeof(buf)),
-						ipaddr2str(ipaddr, buf1,
-							   sizeof(buf1)),
-						n->dad_count,
-						zvrf->dad_freeze_time);
-
-				if (zvrf->dad_freeze)
-					is_dup_detect = true;
-				/* warn-only action, neigh will be installed.
-				 * freeze action, it wil not be installed.
-				 */
-				goto install_neigh;
-			}
-
-			if (!do_dad)
-				goto install_neigh;
-
-			/* Check if detection time (M-secs) expired.
-			 * Reset learn count and detection start time.
-			 * During remote mac add, count should already be 1
-			 * via local learning.
-			 */
-			monotime_since(&n->detect_start_time, &elapsed);
-			if (elapsed.tv_sec > zvrf->dad_time) {
-				if (IS_ZEBRA_DEBUG_VXLAN)
-					zlog_debug("%s: duplicate addr MAC %s IP %s flags 0x%x detection time passed, reset learn count %u",
-						   __PRETTY_FUNCTION__,
-						   prefix_mac2str(macaddr, buf,
-								  sizeof(buf)),
-						   ipaddr2str(ipaddr, buf1,
-							      sizeof(buf1)),
-						   n->flags,
-						   n->dad_count);
-				/* Reset learn count but do not start detection
-				 * during remote learn event.
-				 */
-				n->dad_count = 0;
-			} else {
-				/* Increment detection count while in probe
-				 * window
-				 */
-				n->dad_count++;
-			}
-
-			if (n->dad_count >= zvrf->dad_max_moves) {
-				flog_warn(EC_ZEBRA_DUP_IP_DETECTED,
-					  "VNI %u: MAC %s IP %s detected as duplicate during remote update, from VTEP %s",
-					  zvni->vni,
-					  prefix_mac2str(&mac->macaddr,
-							buf, sizeof(buf)),
-					  ipaddr2str(ipaddr, buf1,
-							   sizeof(buf1)),
-					  inet_ntoa(n->r_vtep_ip));
-
-				SET_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE);
-
-				/* Capture Duplicate detection time */
-				n->dad_dup_detect_time = monotime(NULL);
-
-				/* Start auto recovery timer for this IP */
-				THREAD_OFF(n->dad_ip_auto_recovery_timer);
-				if (zvrf->dad_freeze && zvrf->dad_freeze_time) {
-					if (IS_ZEBRA_DEBUG_VXLAN)
-						zlog_debug(
-							"%s: duplicate addr MAC %s IP %s flags 0x%x auto recovery time %u start",
-						   __PRETTY_FUNCTION__,
-						   prefix_mac2str(&mac->macaddr,
-								  buf,
-								  sizeof(buf)),
-						   ipaddr2str(ipaddr, buf1,
-							      sizeof(buf1)),
-						   mac->flags,
-						   zvrf->dad_freeze_time);
-
-					thread_add_timer(zebrad.master,
-					zebra_vxlan_dad_ip_auto_recovery_exp,
-					n,
-					zvrf->dad_freeze_time,
-					&n->dad_ip_auto_recovery_timer);
-				}
-				if (zvrf->dad_freeze)
-					is_dup_detect = true;
-			}
-		}
-install_neigh:
+		/* Check duplicate address detection for IP */
+		zebra_vxlan_dup_addr_detect_for_neigh(zvrf, n,
+						      n->r_vtep_ip,
+						      do_dad,
+						      &is_dup_detect,
+						      false);
 		/* Install the entry. */
 		if (!is_dup_detect)
 			zvni_neigh_install(zvni, n);
