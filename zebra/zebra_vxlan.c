@@ -321,7 +321,8 @@ static int advertise_gw_macip_enabled(zebra_vni_t *zvni)
 }
 
 /* As part Duplicate Address Detection (DAD) for IP mobility
- * MAC binding changes, ensure to inheirt duplicate flag
+ * MAC binding changes, ensure to inherit duplicate flag
+ * from MAC.
  */
 static int zebra_vxlan_ip_inherit_dad_from_mac(struct zebra_vrf *zvrf,
 					       zebra_mac_t *old_zmac,
@@ -395,10 +396,13 @@ static void zvni_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json)
 	const char *type_str;
 	const char *state_str;
 	bool flags_present = false;
-	struct zebra_vrf *zvrf;
+	struct zebra_vrf *zvrf = NULL;
 	struct timeval detect_start_time = {0, 0};
 
 	zvrf = zebra_vrf_lookup_by_id(n->zvni->vrf_id);
+	if (!zvrf)
+		return;
+
 	ipaddr2str(&n->ip, buf2, sizeof(buf2));
 	prefix_mac2str(&n->emac, buf1, sizeof(buf1));
 	type_str = CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL) ?
@@ -8644,15 +8648,15 @@ static int zebra_vxlan_dad_ip_auto_recovery_exp(struct thread *t)
 	/* since this is asynchronous we need sanity checks*/
 	zvrf = vrf_info_lookup(nbr->zvni->vrf_id);
 	if (!zvrf)
-		goto exit;
+		return 0;
 
 	zvni = zvni_lookup(nbr->zvni->vni);
 	if (!zvni)
-		goto exit;
+		return 0;
 
 	nbr = zvni_neigh_lookup(zvni, &nbr->ip);
 	if (!nbr)
-		goto exit;
+		return 0;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("%s: duplicate addr MAC %s IP %s flags 0x%x learn count %u vni %u auto recovery expired",
@@ -8677,7 +8681,6 @@ static int zebra_vxlan_dad_ip_auto_recovery_exp(struct thread *t)
 		zvni_neigh_install(zvni, nbr);
 	}
 
-exit:
 	return 0;
 }
 
@@ -8695,15 +8698,15 @@ static int zebra_vxlan_dad_mac_auto_recovery_exp(struct thread *t)
 	/* since this is asynchronous we need sanity checks*/
 	zvrf = vrf_info_lookup(mac->zvni->vrf_id);
 	if (!zvrf)
-		goto exit;
+		return 0;
 
 	zvni = zvni_lookup(mac->zvni->vni);
 	if (!zvni)
-		goto exit;
+		return 0;
 
 	mac = zvni_mac_lookup(zvni, &mac->macaddr);
 	if (!mac)
-		goto exit;
+		return 0;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("%s: duplicate addr mac %s flags 0x%x learn count %u host count %u auto recovery expired",
@@ -8751,6 +8754,5 @@ static int zebra_vxlan_dad_mac_auto_recovery_exp(struct thread *t)
 		zvni_mac_install(zvni, mac);
 	}
 
-exit:
 	return 0;
 }

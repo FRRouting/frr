@@ -3003,7 +3003,7 @@ DEFPY (dup_addr_detection,
        dup_addr_detection_cmd,
        "dup-addr-detection [max-moves (2-1000)$max_moves_val time (2-1800)$time_val]",
        "Duplicate address detection\n"
-       "Max allowed moved before address detected as duplicate\n"
+       "Max allowed moves before address detected as duplicate\n"
        "Num of max allowed moves (2-1000) default 5\n"
        "Duplicate address detection time\n"
        "Time in seconds (2-1800) default 180\n")
@@ -3053,7 +3053,7 @@ DEFPY (no_dup_addr_detection,
        "no dup-addr-detection [max-moves (2-1000)$max_moves_val time (2-1800)$time_val | freeze <permanent$permanent_val | (30-3600)$freeze_time_val>]",
        NO_STR
        "Duplicate address detection\n"
-       "Max allowed moved before address detected as duplicate\n"
+       "Max allowed moves before address detected as duplicate\n"
        "Num of max allowed moves (2-1000) default 5\n"
        "Duplicate address detection time\n"
        "Time in seconds (2-1800) default 180\n"
