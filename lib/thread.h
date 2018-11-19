@@ -125,7 +125,7 @@ struct cpu_thread_history {
 		_Atomic unsigned long total, max;
 	} real;
 	struct time_stats cpu;
-	_Atomic uint8_t types;
+	_Atomic uint32_t types;
 	const char *funcname;
 };
 

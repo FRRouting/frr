@@ -135,8 +135,8 @@ struct zebra_dplane_provider {
 
 	dplane_provider_fini_fp dp_fini;
 
-	_Atomic uint64_t dp_in_counter;
-	_Atomic uint64_t dp_error_counter;
+	_Atomic uint32_t dp_in_counter;
+	_Atomic uint32_t dp_error_counter;
 
 	/* Embedded list linkage */
 	TAILQ_ENTRY(zebra_dplane_provider) dp_q_providers;
@@ -171,10 +171,10 @@ static struct zebra_dplane_globals {
 	/* Limit number of pending, unprocessed updates */
 	_Atomic uint32_t dg_max_queued_updates;
 
-	_Atomic uint64_t dg_routes_in;
+	_Atomic uint32_t dg_routes_in;
 	_Atomic uint32_t dg_routes_queued;
 	_Atomic uint32_t dg_routes_queued_max;
-	_Atomic uint64_t dg_route_errors;
+	_Atomic uint32_t dg_route_errors;
 
 	/* Event-delivery context 'master' for the dplane */
 	struct thread_master *dg_master;

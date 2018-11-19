@@ -1004,7 +1004,7 @@ struct peer {
 	struct thread *t_process_packet;
 
 	/* Thread flags. */
-	_Atomic uint16_t thread_flags;
+	_Atomic uint32_t thread_flags;
 #define PEER_THREAD_WRITES_ON         (1 << 0)
 #define PEER_THREAD_READS_ON          (1 << 1)
 #define PEER_THREAD_KEEPALIVES_ON     (1 << 2)
