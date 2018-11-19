@@ -542,6 +542,9 @@ struct bgp {
 	/* local esi hash table */
 	struct hash *esihash;
 
+	/* Count of peers in established state */
+	uint32_t established_peers;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(bgp)
@@ -1886,5 +1889,4 @@ extern void bgp_update_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
 
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp);
-
 #endif /* _QUAGGA_BGPD_H */
