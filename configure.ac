@@ -334,6 +334,12 @@ _LT_CONFIG_LIBTOOL([
 ])
 if test "$enable_static_bin" = "yes"; then
   AC_LDFLAGS="-static"
+  if test "$enable_static" != "yes"; then
+    AC_MSG_ERROR([The --enable-static-bin option must be combined with --enable-static.])
+  fi
+fi
+if test "$enable_shared" != "yes"; then
+  AC_MSG_ERROR([FRR cannot be built with --disable-shared.  If you want statically linked daemons, use --enable-shared --enable-static --enable-static-bin])
 fi
 AC_SUBST([AC_LDFLAGS])
 AM_CONDITIONAL([STATIC_BIN], [test "x$enable_static_bin" = "xyes"])
