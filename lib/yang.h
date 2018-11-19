@@ -44,6 +44,13 @@ DECLARE_MTYPE(YANG_DATA)
 /* Maximum string length of an YANG value. */
 #define YANG_VALUE_MAXLEN 1024
 
+struct yang_module_embed {
+	struct yang_module_embed *next;
+	const char *mod_name, *mod_rev;
+	const char *data;
+	LYS_INFORMAT format;
+};
+
 struct yang_module {
 	RB_ENTRY(yang_module) entry;
 	const char *name;
@@ -131,6 +138,16 @@ extern struct yang_module *yang_module_load(const char *module_name);
  *    Pointer to YANG module if found, NULL otherwise.
  */
 extern struct yang_module *yang_module_find(const char *module_name);
+
+/*
+ * Register a YANG module embedded in the binary file.  Should be called
+ * from a constructor function.
+ *
+ * embed
+ *    YANG module embedding structure to register.  (static global provided
+ *    by caller.)
+ */
+extern void yang_module_embed(struct yang_module_embed *embed);
 
 /*
  * Iterate over all libyang schema nodes from the given YANG module.

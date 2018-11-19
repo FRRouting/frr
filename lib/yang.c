@@ -32,6 +32,45 @@ DEFINE_MTYPE(LIB, YANG_DATA, "YANG data structure")
 /* libyang container. */
 struct ly_ctx *ly_native_ctx;
 
+static struct yang_module_embed *embeds, **embedupd = &embeds;
+
+void yang_module_embed(struct yang_module_embed *embed)
+{
+	embed->next = NULL;
+	*embedupd = embed;
+	embedupd = &embed->next;
+}
+
+static const char *yang_module_imp_clb(const char *mod_name,
+				       const char *mod_rev,
+				       const char *submod_name,
+				       const char *submod_rev,
+				       void *user_data,
+				       LYS_INFORMAT *format,
+				       void (**free_module_data)
+						(void *, void*))
+{
+	struct yang_module_embed *e;
+
+	if (submod_name || submod_rev)
+		return NULL;
+
+	for (e = embeds; e; e = e->next) {
+		if (strcmp(e->mod_name, mod_name))
+			continue;
+		if (mod_rev && strcmp(e->mod_rev, mod_rev))
+			continue;
+
+		*format = e->format;
+		return e->data;
+	}
+
+	flog_warn(EC_LIB_YANG_MODULE_LOAD,
+		  "YANG model \"%s@%s\" not embedded, trying external file",
+		  mod_name, mod_rev ? mod_rev : "*");
+	return NULL;
+}
+
 /* Generate the yang_modules tree. */
 static inline int yang_module_compare(const struct yang_module *a,
 				      const struct yang_module *b)
@@ -575,6 +614,7 @@ void yang_init(void)
 		flog_err(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		exit(1);
 	}
+	ly_ctx_set_module_imp_clb(ly_native_ctx, yang_module_imp_clb, NULL);
 	ly_ctx_set_searchdir(ly_native_ctx, YANG_MODELS_PATH);
 	ly_ctx_set_priv_dup_clb(ly_native_ctx, ly_dup_cb);
 
