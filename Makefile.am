@@ -147,6 +147,7 @@ include staticd/subdir.am
 include bfdd/subdir.am
 include yang/subdir.am
 include yang/libyang_plugins/subdir.am
+include vrrpd/subdir.am
 
 include vtysh/subdir.am
 include tests/subdir.am
@@ -188,7 +189,6 @@ EXTRA_DIST += \
 	snapcraft/defaults \
 	snapcraft/helpers \
 	snapcraft/snap \
-	\
 	babeld/Makefile \
 	bgpd/Makefile \
 	bgpd/rfp-example/librfp/Makefile \
@@ -218,6 +218,7 @@ EXTRA_DIST += \
 	vtysh/Makefile \
 	watchfrr/Makefile \
 	zebra/Makefile \
+	vrrpd/Makefile \
 	# end
 
 noinst_HEADERS += defaults.h
