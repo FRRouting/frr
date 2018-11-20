@@ -253,7 +253,8 @@ int lsp_compare(char *areatag, struct isis_lsp *lsp, uint32_t seqno,
 	if (seqno > lsp->hdr.seqno
 	    || (seqno == lsp->hdr.seqno
 		&& ((lsp->hdr.rem_lifetime != 0 && rem_lifetime == 0)
-		    || lsp->hdr.checksum != checksum))) {
+		    || (lsp->hdr.checksum != checksum
+			&& lsp->hdr.rem_lifetime)))) {
 		if (isis->debugs & DEBUG_SNP_PACKETS) {
 			zlog_debug(
 				"ISIS-Snp (%s): Compare LSP %s seq 0x%08" PRIx32
