@@ -1696,10 +1696,10 @@ static void evpn_unconfigure_import_rt(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* Delete all import RTs */
 	if (ecomdel == NULL) {
-		for (ALL_LIST_ELEMENTS(vpn->import_rtl, node, nnode, ecom))
+		for (ALL_LIST_ELEMENTS(vpn->import_rtl, node, nnode, ecom)) {
 			ecommunity_free(&ecom);
-
-		list_delete_all_node(vpn->import_rtl);
+			list_delete_node(vpn->import_rtl, node);
+		}
 	}
 
 	/* Delete a specific import RT */
@@ -1764,10 +1764,10 @@ static void evpn_unconfigure_export_rt(struct bgp *bgp, struct bgpevpn *vpn,
 	/* Delete all export RTs */
 	if (ecomdel == NULL) {
 		/* Reset to default and process all routes. */
-		for (ALL_LIST_ELEMENTS(vpn->export_rtl, node, nnode, ecom))
+		for (ALL_LIST_ELEMENTS(vpn->export_rtl, node, nnode, ecom)) {
 			ecommunity_free(&ecom);
-
-		list_delete_all_node(vpn->export_rtl);
+			list_delete_node(vpn->export_rtl, node);
+		}
 	}
 
 	/* Delete a specific export RT */
