@@ -475,25 +475,25 @@ int _rb_check(const struct rb_type *, void *, unsigned long);
 	__attribute__((__unused__)) static inline void _name##_RB_SET_LEFT(    \
 		struct _type *elm, struct _type *left)                         \
 	{                                                                      \
-		return _rb_set_left(_name##_RB_TYPE, elm, left);               \
+		_rb_set_left(_name##_RB_TYPE, elm, left);                      \
 	}                                                                      \
                                                                                \
 	__attribute__((__unused__)) static inline void _name##_RB_SET_RIGHT(   \
 		struct _type *elm, struct _type *right)                        \
 	{                                                                      \
-		return _rb_set_right(_name##_RB_TYPE, elm, right);             \
+		_rb_set_right(_name##_RB_TYPE, elm, right);                    \
 	}                                                                      \
                                                                                \
 	__attribute__((__unused__)) static inline void _name##_RB_SET_PARENT(  \
 		struct _type *elm, struct _type *parent)                       \
 	{                                                                      \
-		return _rb_set_parent(_name##_RB_TYPE, elm, parent);           \
+		_rb_set_parent(_name##_RB_TYPE, elm, parent);                  \
 	}                                                                      \
                                                                                \
 	__attribute__((__unused__)) static inline void _name##_RB_POISON(      \
 		struct _type *elm, unsigned long poison)                       \
 	{                                                                      \
-		return _rb_poison(_name##_RB_TYPE, elm, poison);               \
+		_rb_poison(_name##_RB_TYPE, elm, poison);                      \
 	}                                                                      \
                                                                                \
 	__attribute__((__unused__)) static inline int _name##_RB_CHECK(        \

@@ -3495,8 +3495,8 @@ void bgp_packet_mpunreach_prefix(struct stream *s, struct prefix *p, afi_t afi,
 		num_labels = 1;
 	}
 
-	return bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels,
-					addpath_encode, addpath_tx_id, attr);
+	bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels,
+				 addpath_encode, addpath_tx_id, attr);
 }
 
 void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt)

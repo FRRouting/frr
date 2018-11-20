@@ -492,7 +492,7 @@ static void _isis_route_verify_table(struct isis_area *area,
 
 void isis_route_verify_table(struct isis_area *area, struct route_table *table)
 {
-	return _isis_route_verify_table(area, table, NULL);
+	_isis_route_verify_table(area, table, NULL);
 }
 
 /* Function to validate route tables for L1L2 areas. In this case we can't use
