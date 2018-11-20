@@ -6367,6 +6367,13 @@ sub process {
 			ERROR("NONSTANDARD_INTEGRAL_TYPES",
 			      "Please, no nonstandard integer types in new code.\n" . $herecurr)
 		}
+
+# check for usage of non-32 bit atomics
+		if ($line =~ /_Atomic [u]?int(?!32)[0-9]+_t/) {
+			WARN("NON_32BIT_ATOMIC",
+			     "Please, only use 32 bit atomics.\n" . $herecurr);
+		}
+
 	}
 
 	# If we have no input at all, then there is nothing to report on

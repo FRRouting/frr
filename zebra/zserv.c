@@ -875,7 +875,7 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 	char cbuf[ZEBRA_TIME_BUF], rbuf[ZEBRA_TIME_BUF];
 	char wbuf[ZEBRA_TIME_BUF], nhbuf[ZEBRA_TIME_BUF], mbuf[ZEBRA_TIME_BUF];
 	time_t connect_time, last_read_time, last_write_time;
-	uint16_t last_read_cmd, last_write_cmd;
+	uint32_t last_read_cmd, last_write_cmd;
 
 	vty_out(vty, "Client: %s", zebra_route_string(client->proto));
 	if (client->instance)

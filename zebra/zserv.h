@@ -157,9 +157,9 @@ struct zserv {
 	/* monotime of last message sent */
 	_Atomic uint32_t last_write_time;
 	/* command code of last message read */
-	_Atomic uint16_t last_read_cmd;
+	_Atomic uint32_t last_read_cmd;
 	/* command code of last message written */
-	_Atomic uint16_t last_write_cmd;
+	_Atomic uint32_t last_write_cmd;
 };
 
 #define ZAPI_HANDLER_ARGS                                                      \
