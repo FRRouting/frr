@@ -145,7 +145,7 @@ set -- --rm -ti \
 	$TOPOTEST_OPTIONS \
 	frrouting/topotests "$@"
 
-if [ -n "TOPOTEST_PATH" ]; then
+if [ -n "$TOPOTEST_PATH" ]; then
 	set -- -v "$TOPOTEST_PATH:/root/topotests:ro" "$@"
 fi
 
