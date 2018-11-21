@@ -256,6 +256,7 @@ int main(int argc, char **argv)
 {
 	// int batch_mode = 0;
 	char *zserv_path = NULL;
+	char *vrf_default_name_configured = NULL;
 	/* Socket to external label manager */
 	char *lblmgr_path = NULL;
 	struct sockaddr_storage dummy;
@@ -336,7 +337,7 @@ int main(int argc, char **argv)
 			}
 			break;
 		case 'o':
-			vrf_set_default_name(optarg, true);
+			vrf_default_name_configured = optarg;
 			break;
 		case 'z':
 			zserv_path = optarg;
@@ -402,7 +403,9 @@ int main(int argc, char **argv)
 	 * Initialize NS( and implicitly the VRF module), and make kernel
 	 * routing socket. */
 	zebra_ns_init();
-
+	if (vrf_default_name_configured)
+		vrf_set_default_name(vrf_default_name_configured,
+				     true);
 	zebra_vty_init();
 	access_list_init();
 	prefix_list_init();
