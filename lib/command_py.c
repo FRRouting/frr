@@ -92,7 +92,7 @@ static PyMemberDef members_graph_node[] = {
 	member(deprecated, T_BOOL),  member(hidden, T_BOOL),
 	member(text, T_STRING),      member(desc, T_STRING),
 	member(min, T_LONGLONG),     member(max, T_LONGLONG),
-	member(varname, T_STRING),   {},
+	member(varname, T_STRING),   {0},
 };
 #undef member
 
@@ -137,7 +137,7 @@ static PyObject *graph_node_join(PyObject *self, PyObject *args)
 static PyMethodDef methods_graph_node[] = {
 	{"next", graph_node_next, METH_NOARGS, "outbound graph edge list"},
 	{"join", graph_node_join, METH_NOARGS, "outbound join node"},
-	{}};
+	{0}};
 
 static void graph_node_wrap_free(void *arg)
 {
@@ -228,7 +228,7 @@ static PyObject *graph_to_pyobj(struct wrap_graph *wgraph,
 	}
 static PyMemberDef members_graph[] = {
 	member(definition, T_STRING),
-	{},
+	{0},
 };
 #undef member
 
@@ -242,7 +242,7 @@ static PyObject *graph_first(PyObject *self, PyObject *args)
 
 static PyMethodDef methods_graph[] = {
 	{"first", graph_first, METH_NOARGS, "first graph node"},
-	{}};
+	{0}};
 
 static PyObject *graph_parse(PyTypeObject *type, PyObject *args,
 			     PyObject *kwds);
