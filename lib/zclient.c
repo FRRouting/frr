@@ -1370,7 +1370,7 @@ static void zclient_vrf_add(struct zclient *zclient, vrf_id_t vrf_id)
 	memcpy(vrf->data.l.netns_name, data.l.netns_name, NS_NAMSIZ);
 	/* overwrite default vrf */
 	if (vrf_id == VRF_DEFAULT)
-		vrf_set_default_name(vrfname_tmp);
+		vrf_set_default_name(vrfname_tmp, false);
 	vrf_enable(vrf);
 }
 

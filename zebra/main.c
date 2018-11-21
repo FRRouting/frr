@@ -336,7 +336,7 @@ int main(int argc, char **argv)
 			}
 			break;
 		case 'o':
-			vrf_set_default_name(optarg);
+			vrf_set_default_name(optarg, true);
 			break;
 		case 'z':
 			zserv_path = optarg;
