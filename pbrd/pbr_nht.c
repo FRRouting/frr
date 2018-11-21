@@ -232,9 +232,9 @@ void pbr_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 				const struct nexthop *nhop)
 {
 	char debugstr[256];
-	struct pbr_nexthop_group_cache pnhgc_find = {};
+	struct pbr_nexthop_group_cache pnhgc_find = {0};
 	struct pbr_nexthop_group_cache *pnhgc;
-	struct pbr_nexthop_cache pnhc_find = {};
+	struct pbr_nexthop_cache pnhc_find = {0};
 	struct pbr_nexthop_cache *pnhc;
 
 	if (!pbr_nht_get_next_tableid(true)) {
@@ -270,9 +270,9 @@ void pbr_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 				const struct nexthop *nhop)
 {
 	char debugstr[256];
-	struct pbr_nexthop_group_cache pnhgc_find = {};
+	struct pbr_nexthop_group_cache pnhgc_find = {0};
 	struct pbr_nexthop_group_cache *pnhgc;
-	struct pbr_nexthop_cache pnhc_find = {};
+	struct pbr_nexthop_cache pnhc_find = {0};
 	struct pbr_nexthop_cache *pnhc;
 	enum nexthop_types_t nh_afi = nhop->type;
 
