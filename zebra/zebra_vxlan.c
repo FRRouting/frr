@@ -1126,10 +1126,6 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 		}
 
 		json_object_object_add(json, buf1, json_mac);
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
 	} else {
 		vty_out(vty, "MAC: %s\n", buf1);
 
@@ -1327,6 +1323,43 @@ static void zvni_print_dad_mac_hash(struct hash_backet *backet, void *ctxt)
 }
 
 /*
+ * Print MAC hash entry in detail - called for display of all MACs.
+ */
+static void zvni_print_mac_hash_detail(struct hash_backet *backet, void *ctxt)
+{
+	struct vty *vty;
+	json_object *json_mac_hdr = NULL;
+	zebra_mac_t *mac;
+	struct mac_walk_ctx *wctx = ctxt;
+	char buf1[20];
+
+	vty = wctx->vty;
+	json_mac_hdr = wctx->json;
+	mac = (zebra_mac_t *)backet->data;
+	if (!mac)
+		return;
+
+	wctx->count++;
+	prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1));
+
+	zvni_print_mac(mac, vty, json_mac_hdr);
+}
+
+/* Print Duplicate MAC in detail */
+static void zvni_print_dad_mac_hash_detail(struct hash_backet *backet,
+					   void *ctxt)
+{
+	zebra_mac_t *mac;
+
+	mac = (zebra_mac_t *)backet->data;
+	if (!mac)
+		return;
+
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE))
+		zvni_print_mac_hash_detail(backet, ctxt);
+}
+
+/*
  * Print MACs for all VNI.
  */
 static void zvni_print_mac_hash_all_vni(struct hash_backet *backet, void *ctxt)
@@ -1388,6 +1421,72 @@ static void zvni_print_mac_hash_all_vni(struct hash_backet *backet, void *ctxt)
 		hash_iterate(zvni->mac_table, zvni_print_dad_mac_hash, wctx);
 	else
 		hash_iterate(zvni->mac_table, zvni_print_mac_hash, wctx);
+	wctx->json = json;
+	if (json) {
+		if (wctx->count)
+			json_object_object_add(json_vni, "macs", json_mac);
+		json_object_object_add(json, vni_str, json_vni);
+	}
+}
+
+/*
+ * Print MACs in detail for all VNI.
+ */
+static void zvni_print_mac_hash_all_vni_detail(struct hash_backet *backet,
+					       void *ctxt)
+{
+	struct vty *vty;
+	json_object *json = NULL, *json_vni = NULL;
+	json_object *json_mac = NULL;
+	zebra_vni_t *zvni;
+	uint32_t num_macs;
+	struct mac_walk_ctx *wctx = ctxt;
+	char vni_str[VNI_STR_LEN];
+
+	vty = (struct vty *)wctx->vty;
+	json = (struct json_object *)wctx->json;
+
+	zvni = (zebra_vni_t *)backet->data;
+	if (!zvni) {
+		if (json)
+			vty_out(vty, "{}\n");
+		return;
+	}
+	wctx->zvni = zvni;
+
+	/*We are iterating over a new VNI, set the count to 0*/
+	wctx->count = 0;
+
+	num_macs = num_valid_macs(zvni);
+	if (!num_macs)
+		return;
+
+	if (wctx->print_dup && (num_dup_detected_macs(zvni) == 0))
+		return;
+
+	if (json) {
+		json_vni = json_object_new_object();
+		json_mac = json_object_new_object();
+		snprintf(vni_str, VNI_STR_LEN, "%u", zvni->vni);
+	}
+
+	if (!CHECK_FLAG(wctx->flags, SHOW_REMOTE_MAC_FROM_VTEP)) {
+		if (json == NULL) {
+			vty_out(vty, "\nVNI %u #MACs (local and remote) %u\n\n",
+				zvni->vni, num_macs);
+		} else
+			json_object_int_add(json_vni, "numMacs", num_macs);
+	}
+	/* assign per-vni to wctx->json object to fill macs
+	 * under the vni. Re-assign primary json object to fill
+	 * next vni information.
+	 */
+	wctx->json = json_mac;
+	if (wctx->print_dup)
+		hash_iterate(zvni->mac_table, zvni_print_dad_mac_hash_detail,
+			     wctx);
+	else
+		hash_iterate(zvni->mac_table, zvni_print_mac_hash_detail, wctx);
 	wctx->json = json;
 	if (json) {
 		if (wctx->count)
@@ -5901,6 +6000,38 @@ void zebra_vxlan_print_macs_all_vni(struct vty *vty, struct zebra_vrf *zvrf,
 }
 
 /*
+ * Display MACs in detail for all VNIs (VTY command handler).
+ */
+void zebra_vxlan_print_macs_all_vni_detail(struct vty *vty,
+					   struct zebra_vrf *zvrf,
+					   bool print_dup, bool use_json)
+{
+	struct mac_walk_ctx wctx;
+	json_object *json = NULL;
+
+	if (!is_evpn_enabled()) {
+		if (use_json)
+			vty_out(vty, "{}\n");
+		return;
+	}
+	if (use_json)
+		json = json_object_new_object();
+
+	memset(&wctx, 0, sizeof(struct mac_walk_ctx));
+	wctx.vty = vty;
+	wctx.json = json;
+	wctx.print_dup = print_dup;
+	hash_iterate(zvrf->vni_table, zvni_print_mac_hash_all_vni_detail,
+		     &wctx);
+
+	if (use_json) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+}
+
+/*
  * Display MACs for all VNIs (VTY command handler).
  */
 void zebra_vxlan_print_macs_all_vni_vtep(struct vty *vty,
@@ -5967,6 +6098,11 @@ void zebra_vxlan_print_specific_mac_vni(struct vty *vty, struct zebra_vrf *zvrf,
 		json = json_object_new_object();
 
 	zvni_print_mac(mac, vty, json);
+	if (use_json) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
 }
 
 /* Print Duplicate MACs per VNI */
