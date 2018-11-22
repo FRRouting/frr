@@ -2181,6 +2181,23 @@ DEFUN (show_evpn_neigh_vni_all,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_evpn_neigh_vni_all_detail, show_evpn_neigh_vni_all_detail_cmd,
+       "show evpn arp-cache vni all detail [json]",
+       SHOW_STR
+       "EVPN\n"
+       "ARP and ND cache\n"
+       "VxLAN Network Identifier\n"
+       "All VNIs\n"
+       "Neighbor details for all vnis in detail\n" JSON_STR)
+{
+	struct zebra_vrf *zvrf;
+	bool uj = use_json(argc, argv);
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zebra_vxlan_print_neigh_all_vni_detail(vty, zvrf, false, uj);
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_evpn_neigh_vni_neigh,
        show_evpn_neigh_vni_neigh_cmd,
        "show evpn arp-cache vni " CMD_VNI_RANGE " ip WORD [json]",
@@ -2892,6 +2909,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_mac_vni_all_dad_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_all_cmd);
+	install_element(VIEW_NODE, &show_evpn_neigh_vni_all_detail_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_neigh_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_vtep_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_dad_cmd);
