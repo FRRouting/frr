@@ -43,6 +43,7 @@ noinst_HEADERS += \
 	isisd/isis_mt.h \
 	isisd/isis_network.h \
 	isisd/isis_pdu.h \
+	isisd/isis_pdu_counter.h \
 	isisd/isis_redist.h \
 	isisd/isis_route.h \
 	isisd/isis_routemap.h \
@@ -74,6 +75,7 @@ LIBISIS_SOURCES = \
 	isisd/isis_misc.c \
 	isisd/isis_mt.c \
 	isisd/isis_pdu.c \
+	isisd/isis_pdu_counter.c \
 	isisd/isis_redist.c \
 	isisd/isis_route.c \
 	isisd/isis_routemap.c \

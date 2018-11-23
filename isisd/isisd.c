@@ -1258,6 +1258,11 @@ DEFUN (show_isis_summary,
 			}
 		}
 
+		vty_out(vty, "  TX counters per PDU type:\n");
+		pdu_counter_print(vty, "    ", area->pdu_tx_counters);
+		vty_out(vty, "  RX counters per PDU type:\n");
+		pdu_counter_print(vty, "    ", area->pdu_rx_counters);
+
 		for (level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
 			if ((area->is_type & level) == 0)
 				continue;

@@ -28,6 +28,7 @@
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_redist.h"
+#include "isisd/isis_pdu_counter.h"
 #include "isis_flags.h"
 #include "dict.h"
 #include "isis_memory.h"
@@ -167,6 +168,9 @@ struct isis_area {
 	struct thread *spf_timer[ISIS_LEVELS];
 
 	struct lsp_refresh_arg lsp_refresh_arg[ISIS_LEVELS];
+
+	pdu_counter_t pdu_tx_counters;
+	pdu_counter_t pdu_rx_counters;
 
 	QOBJ_FIELDS
 };
