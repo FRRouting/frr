@@ -65,6 +65,9 @@ struct fabricd {
 	uint8_t tier_pending;
 	struct thread *tier_calculation_timer;
 	struct thread *tier_set_timer;
+
+	int csnp_delay;
+	bool always_send_csnp;
 };
 
 /* Code related to maintaining the neighbor lists */
@@ -211,6 +214,8 @@ struct fabricd *fabricd_new(struct isis_area *area)
 					      "Fabricd Neighbors");
 
 	rv->tier = rv->tier_config = ISIS_TIER_UNDEFINED;
+
+	rv->csnp_delay = FABRICD_DEFAULT_CSNP_DELAY;
 	return rv;
 };
 
@@ -506,6 +511,12 @@ int fabricd_write_settings(struct isis_area *area, struct vty *vty)
 		written++;
 	}
 
+	if (f->csnp_delay != FABRICD_DEFAULT_CSNP_DELAY
+	    || f->always_send_csnp) {
+		vty_out(vty, " triggered-csnp-delay %d%s\n", f->csnp_delay,
+			f->always_send_csnp ? " always" : "");
+	}
+
 	return written;
 }
 
@@ -707,11 +718,14 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 	}
 }
 
-void fabricd_trigger_csnp(struct isis_area *area)
+void fabricd_trigger_csnp(struct isis_area *area, bool circuit_scoped)
 {
 	struct fabricd *f = area->fabricd;
 
 	if (!f)
+		return;
+
+	if (!circuit_scoped && !f->always_send_csnp)
 		return;
 
 	struct listnode *node;
@@ -723,7 +737,7 @@ void fabricd_trigger_csnp(struct isis_area *area)
 
 		thread_cancel(circuit->t_send_csnp[ISIS_LEVEL2 - 1]);
 		thread_add_timer_msec(master, send_l2_csnp, circuit,
-				      isis_jitter(500, CSNP_JITTER),
+				      isis_jitter(f->csnp_delay, CSNP_JITTER),
 				      &circuit->t_send_csnp[ISIS_LEVEL2 - 1]);
 	}
 }
@@ -772,4 +786,16 @@ void fabricd_update_lsp_no_flood(struct isis_lsp *lsp,
 
 	fabricd_lsp_reset_flooding_info(lsp, circuit);
 	lsp->flooding_circuit_scoped = true;
+}
+
+void fabricd_configure_triggered_csnp(struct isis_area *area, int delay,
+				      bool always_send_csnp)
+{
+	struct fabricd *f = area->fabricd;
+
+	if (!f)
+		return;
+
+	f->csnp_delay = delay;
+	f->always_send_csnp = always_send_csnp;
 }

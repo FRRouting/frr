@@ -1105,9 +1105,7 @@ dontcheckadj:
 	retval = ISIS_OK;
 
 out:
-	if (circuit_scoped) {
-		fabricd_trigger_csnp(circuit->area);
-	}
+	fabricd_trigger_csnp(circuit->area, circuit_scoped);
 
 	isis_free_tlvs(tlvs);
 	return retval;

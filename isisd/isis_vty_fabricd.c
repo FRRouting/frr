@@ -57,6 +57,37 @@ DEFUN (no_fabric_tier,
 	return CMD_SUCCESS;
 }
 
+DEFUN (triggered_csnp,
+       triggered_csnp_cmd,
+       "triggered-csnp-delay (100-10000) [always]",
+       "Configure the delay for triggered CSNPs\n"
+       "Delay in milliseconds\n"
+       "Trigger CSNP for all LSPs, not only circuit-scoped\n")
+{
+	VTY_DECLVAR_CONTEXT(isis_area, area);
+
+	int csnp_delay = atoi(argv[1]->arg);
+	bool always_send_csnp = (argc == 3);
+
+	fabricd_configure_triggered_csnp(area, csnp_delay, always_send_csnp);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_triggered_csnp,
+       no_triggered_csnp_cmd,
+       "no triggered-csnp-delay [(100-10000) [always]]",
+       NO_STR
+       "Configure the delay for triggered CSNPs\n"
+       "Delay in milliseconds\n"
+       "Trigger CSNP for all LSPs, not only circuit-scoped\n")
+{
+	VTY_DECLVAR_CONTEXT(isis_area, area);
+
+	fabricd_configure_triggered_csnp(area, FABRICD_DEFAULT_CSNP_DELAY,
+					 false);
+	return CMD_SUCCESS;
+}
+
 static void lsp_print_flooding(struct vty *vty, struct isis_lsp *lsp)
 {
 	char lspid[255];
@@ -154,6 +185,8 @@ void isis_vty_daemon_init(void)
 {
 	install_element(ROUTER_NODE, &fabric_tier_cmd);
 	install_element(ROUTER_NODE, &no_fabric_tier_cmd);
+	install_element(ROUTER_NODE, &triggered_csnp_cmd);
+	install_element(ROUTER_NODE, &no_triggered_csnp_cmd);
 
 	install_element(ENABLE_NODE, &show_lsp_flooding_cmd);
 }
