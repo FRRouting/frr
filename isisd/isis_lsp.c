@@ -1240,6 +1240,7 @@ int lsp_generate(struct isis_area *area, int level)
 	lsp_seqno_update(newlsp);
 	newlsp->last_generated = time(NULL);
 	lsp_flood(newlsp, NULL);
+	area->lsp_gen_count[level - 1]++;
 
 	refresh_time = lsp_refresh_time(newlsp, rem_lifetime);
 
@@ -1300,6 +1301,7 @@ static int lsp_regenerate(struct isis_area *area, int level)
 	lsp->hdr.rem_lifetime = rem_lifetime;
 	lsp->last_generated = time(NULL);
 	lsp_flood(lsp, NULL);
+	area->lsp_gen_count[level - 1]++;
 	for (ALL_LIST_ELEMENTS_RO(lsp->lspu.frags, node, frag)) {
 		if (!frag->tlvs) {
 			/* Updating and flooding should only affect fragments
