@@ -31,6 +31,7 @@
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_spf_private.h"
 #include "isisd/isis_tx_queue.h"
+#include "isisd/isis_csm.h"
 
 DEFINE_MTYPE_STATIC(ISISD, FABRICD_STATE, "ISIS OpenFabric")
 DEFINE_MTYPE_STATIC(ISISD, FABRICD_NEIGHBOR, "ISIS OpenFabric Neighbor Entry")
@@ -68,15 +69,19 @@ struct fabricd {
 /* Code related to maintaining the neighbor lists */
 
 struct neighbor_entry {
-	struct isis_vertex *vertex;
+	uint8_t id[ISIS_SYS_ID_LEN];
+	struct isis_adjacency *adj;
 	bool present;
 };
 
-static struct neighbor_entry *neighbor_entry_new(struct isis_vertex *vertex)
+static struct neighbor_entry *neighbor_entry_new(const uint8_t *id,
+						 struct isis_adjacency *adj)
 {
 	struct neighbor_entry *rv = XMALLOC(MTYPE_FABRICD_NEIGHBOR, sizeof(*rv));
 
-	rv->vertex = vertex;
+	memcpy(rv->id, id, sizeof(rv->id));
+	rv->adj = adj;
+
 	return rv;
 }
 
@@ -102,32 +107,29 @@ static unsigned neighbor_entry_hash_key(void *np)
 {
 	struct neighbor_entry *n = np;
 
-	return jhash(n->vertex->N.id, ISIS_SYS_ID_LEN, 0x55aa5a5a);
+	return jhash(n->id, sizeof(n->id), 0x55aa5a5a);
 }
 
 static bool neighbor_entry_hash_cmp(const void *a, const void *b)
 {
 	const struct neighbor_entry *na = a, *nb = b;
 
-	return memcmp(na->vertex->N.id, nb->vertex->N.id, ISIS_SYS_ID_LEN) == 0;
+	return memcmp(na->id, nb->id, sizeof(na->id)) == 0;
 }
 
 static int neighbor_entry_list_cmp(void *a, void *b)
 {
 	struct neighbor_entry *na = a, *nb = b;
 
-	return -memcmp(na->vertex->N.id, nb->vertex->N.id, ISIS_SYS_ID_LEN);
+	return -memcmp(na->id, nb->id, sizeof(na->id));
 }
 
 static struct neighbor_entry *neighbor_entry_lookup_list(struct skiplist *list,
 							 const uint8_t *id)
 {
-	struct isis_vertex querier;
-	isis_vertex_id_init(&querier, id, VTYPE_NONPSEUDO_TE_IS);
+	struct neighbor_entry n = {{0}};
 
-	struct neighbor_entry n = {
-		.vertex = &querier
-	};
+	memcpy(n.id, id, sizeof(n.id));
 
 	struct neighbor_entry *rv;
 
@@ -143,12 +145,9 @@ static struct neighbor_entry *neighbor_entry_lookup_list(struct skiplist *list,
 static struct neighbor_entry *neighbor_entry_lookup_hash(struct hash *hash,
 							 const uint8_t *id)
 {
-	struct isis_vertex querier;
-	isis_vertex_id_init(&querier, id, VTYPE_NONPSEUDO_TE_IS);
+	struct neighbor_entry n = {{0}};
 
-	struct neighbor_entry n = {
-		.vertex = &querier
-	};
+	memcpy(n.id, id, sizeof(n.id));
 
 	struct neighbor_entry *rv = hash_lookup(hash, &n);
 
@@ -163,23 +162,36 @@ static void neighbor_lists_update(struct fabricd *f)
 	neighbor_lists_clear(f);
 
 	struct listnode *node;
+	struct isis_circuit *circuit;
+
+	for (ALL_LIST_ELEMENTS_RO(f->area->circuit_list, node, circuit)) {
+		if (circuit->state != C_STATE_UP)
+			continue;
+
+		struct isis_adjacency *adj = circuit->u.p2p.neighbor;
+
+		if (!adj || adj->adj_state != ISIS_ADJ_UP)
+			continue;
+
+		struct neighbor_entry *n = neighbor_entry_new(adj->sysid, adj);
+
+		skiplist_insert(f->neighbors, n, n);
+	}
+
 	struct isis_vertex *v;
 
 	for (ALL_QUEUE_ELEMENTS_RO(&f->spftree->paths, node, v)) {
-		if (!v->d_N || !VTYPE_IS(v->type))
+		if (v->d_N < 2 || !VTYPE_IS(v->type))
 			continue;
 
 		if (v->d_N > 2)
 			break;
 
-		struct neighbor_entry *n = neighbor_entry_new(v);
-		if (v->d_N == 1) {
-			skiplist_insert(f->neighbors, n, n);
-		} else {
-			struct neighbor_entry *inserted;
-			inserted = hash_get(f->neighbors_neighbors, n, hash_alloc_intern);
-			assert(inserted == n);
-		}
+		struct neighbor_entry *n = neighbor_entry_new(v->N.id, NULL);
+		struct neighbor_entry *inserted;
+		inserted = hash_get(f->neighbors_neighbors, n,
+				    hash_alloc_intern);
+		assert(inserted == n);
 	}
 }
 
@@ -496,40 +508,19 @@ int fabricd_write_settings(struct isis_area *area, struct vty *vty)
 	return written;
 }
 
-static void move_to_dnr(struct isis_lsp *lsp, struct neighbor_entry *n)
+static void move_to_queue(struct isis_lsp *lsp, struct neighbor_entry *n,
+			  enum isis_tx_type type)
 {
-	struct isis_adjacency *adj = listnode_head(n->vertex->Adj_N);
-
 	n->present = false;
 
 	if (isis->debugs & DEBUG_FLOODING) {
-		char buff[PREFIX2STR_BUFFER];
-		zlog_debug("OpenFabric: Adding %s to DNR",
-			   vid2string(n->vertex, buff, sizeof(buff)));
+		zlog_debug("OpenFabric: Adding %s to %s",
+			   print_sys_hostname(n->id),
+			   (type == TX_LSP_NORMAL) ? "RF" : "DNR");
 	}
 
-	if (adj) {
-		isis_tx_queue_add(adj->circuit->tx_queue, lsp,
-				  TX_LSP_CIRCUIT_SCOPED);
-	}
-}
-
-static void move_to_rf(struct isis_lsp *lsp, struct neighbor_entry *n)
-{
-	struct isis_adjacency *adj = listnode_head(n->vertex->Adj_N);
-
-	n->present = false;
-
-	if (isis->debugs & DEBUG_FLOODING) {
-		char buff[PREFIX2STR_BUFFER];
-		zlog_debug("OpenFabric: Adding %s to RF",
-			   vid2string(n->vertex, buff, sizeof(buff)));
-	}
-
-	if (adj) {
-		isis_tx_queue_add(adj->circuit->tx_queue, lsp,
-				  TX_LSP_NORMAL);
-	}
+	if (n->adj)
+		isis_tx_queue_add(n->adj->circuit->tx_queue, lsp, type);
 }
 
 static void mark_neighbor_as_present(struct hash_backet *backet, void *arg)
@@ -550,9 +541,8 @@ static void handle_firsthops(struct hash_backet *backet, void *arg)
 	n = neighbor_entry_lookup_list(f->neighbors, vertex->N.id);
 	if (n) {
 		if (isis->debugs & DEBUG_FLOODING) {
-			char buff[PREFIX2STR_BUFFER];
 			zlog_debug("Removing %s from NL as its in the reverse path",
-				   vid2string(vertex, buff, sizeof(buff)));
+				   print_sys_hostname(n->id));
 		}
 		n->present = false;
 	}
@@ -560,12 +550,25 @@ static void handle_firsthops(struct hash_backet *backet, void *arg)
 	n = neighbor_entry_lookup_hash(f->neighbors_neighbors, vertex->N.id);
 	if (n) {
 		if (isis->debugs & DEBUG_FLOODING) {
-			char buff[PREFIX2STR_BUFFER];
 			zlog_debug("Removing %s from NN as its in the reverse path",
-				   vid2string(vertex, buff, sizeof(buff)));
+				   print_sys_hostname(n->id));
 		}
 		n->present = false;
 	}
+}
+
+static struct isis_lsp *lsp_for_neighbor(struct fabricd *f,
+					 struct neighbor_entry *n)
+{
+	uint8_t id[ISIS_SYS_ID_LEN + 1] = {0};
+
+	memcpy(id, n->id, sizeof(n->id));
+
+	struct isis_vertex vertex = {0};
+
+	isis_vertex_id_init(&vertex, id, VTYPE_NONPSEUDO_TE_IS);
+
+	return lsp_for_vertex(f->spftree, &vertex);
 }
 
 void fabricd_lsp_flood(struct isis_lsp *lsp)
@@ -580,8 +583,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 	while (!skiplist_next(f->neighbors, NULL, (void **)&n, &cursor)) {
 		n->present = true;
 
-		struct isis_lsp *node_lsp = lsp_for_vertex(f->spftree,
-							   n->vertex);
+		struct isis_lsp *node_lsp = lsp_for_neighbor(f, n);
 		if (!node_lsp
 		    || !node_lsp->tlvs
 		    || !node_lsp->tlvs->spine_leaf
@@ -595,7 +597,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 			           rawlspid_print(node_lsp->hdr.lsp_id));
 		}
 
-		move_to_dnr(lsp, n);
+		move_to_queue(lsp, n, TX_LSP_CIRCUIT_SCOPED);
 	}
 
 	/* Mark all elements in NN as present */
@@ -616,22 +618,20 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 		if (!n->present)
 			continue;
 
-		struct isis_lsp *nlsp = lsp_for_vertex(f->spftree, n->vertex);
+		struct isis_lsp *nlsp = lsp_for_neighbor(f, n);
 		if (!nlsp || !nlsp->tlvs) {
 			if (isis->debugs & DEBUG_FLOODING) {
-				char buff[PREFIX2STR_BUFFER];
 				zlog_debug("Moving %s to DNR as it has no LSP",
-					   vid2string(n->vertex, buff, sizeof(buff)));
+					   print_sys_hostname(n->id));
 			}
 
-			move_to_dnr(lsp, n);
+			move_to_queue(lsp, n, TX_LSP_CIRCUIT_SCOPED);
 			continue;
 		}
 
 		if (isis->debugs & DEBUG_FLOODING) {
-			char buff[PREFIX2STR_BUFFER];
 			zlog_debug("Considering %s from NL...",
-				   vid2string(n->vertex, buff, sizeof(buff)));
+				   print_sys_hostname(n->id));
 		}
 
 		/* For all neighbors of the NL IS check whether they are present
@@ -647,9 +647,8 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 
 			if (nn) {
 				if (isis->debugs & DEBUG_FLOODING) {
-					char buff[PREFIX2STR_BUFFER];
 					zlog_debug("Found neighbor %s in NN, removing it from NN and setting reflood.",
-						   vid2string(nn->vertex, buff, sizeof(buff)));
+						   print_sys_hostname(nn->id));
 				}
 
 				nn->present = false;
@@ -657,10 +656,8 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 			}
 		}
 
-		if (need_reflood)
-			move_to_rf(lsp, n);
-		else
-			move_to_dnr(lsp, n);
+		move_to_queue(lsp, n, need_reflood ?
+			      TX_LSP_NORMAL : TX_LSP_CIRCUIT_SCOPED);
 	}
 
 	if (isis->debugs & DEBUG_FLOODING) {
