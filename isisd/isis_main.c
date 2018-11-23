@@ -58,6 +58,7 @@
 #include "isisd/isis_bfd.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_mt.h"
+#include "isisd/fabricd.h"
 
 /* Default configuration file name */
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
@@ -228,6 +229,7 @@ int main(int argc, char **argv, char **envp)
 
 	isis_zebra_init(master);
 	isis_bfd_init();
+	fabricd_init();
 
 	frr_config_fork();
 	frr_run(master);

@@ -161,9 +161,15 @@ static struct neighbor_entry *neighbor_entry_lookup_hash(struct hash *hash,
 	return rv;
 }
 
-static void neighbor_lists_update(struct fabricd *f)
+static int fabricd_handle_adj_state_change(struct isis_adjacency *arg)
 {
-	neighbor_lists_clear(f);
+	struct fabricd *f = arg->circuit->area->fabricd;
+
+	if (!f)
+		return 0;
+
+	while (!skiplist_empty(f->neighbors))
+		skiplist_delete_first(f->neighbors);
 
 	struct listnode *node;
 	struct isis_circuit *circuit;
@@ -182,6 +188,14 @@ static void neighbor_lists_update(struct fabricd *f)
 		skiplist_insert(f->neighbors, n, n);
 	}
 
+	return 0;
+}
+
+static void neighbors_neighbors_update(struct fabricd *f)
+{
+	hash_clean(f->neighbors_neighbors, neighbor_entry_del_void);
+
+	struct listnode *node;
 	struct isis_vertex *v;
 
 	for (ALL_QUEUE_ELEMENTS_RO(&f->spftree->paths, node, v)) {
@@ -463,7 +477,7 @@ void fabricd_run_spf(struct isis_area *area)
 		return;
 
 	isis_run_hopcount_spf(area, isis->sysid, f->spftree);
-	neighbor_lists_update(f);
+	neighbors_neighbors_update(f);
 	fabricd_bump_tier_calculation_timer(f);
 }
 
@@ -798,4 +812,10 @@ void fabricd_configure_triggered_csnp(struct isis_area *area, int delay,
 
 	f->csnp_delay = delay;
 	f->always_send_csnp = always_send_csnp;
+}
+
+void fabricd_init(void)
+{
+	hook_register(isis_adj_state_change_hook,
+		      fabricd_handle_adj_state_change);
 }
