@@ -100,6 +100,7 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 		struct isis_tlvs *tlvs, struct stream *stream,
 		struct isis_area *area, int level, bool confusion);
 void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno);
+void lspid_print(uint8_t *lsp_id, char *dest, char dynhost, char frag);
 void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost);
 void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost);
 int lsp_print_all(struct vty *vty, dict_t *lspdb, char detail, char dynhost);

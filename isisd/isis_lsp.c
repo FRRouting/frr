@@ -611,7 +611,7 @@ static void lsp_set_time(struct isis_lsp *lsp)
 		stream_putw_at(lsp->pdu, 10, lsp->hdr.rem_lifetime);
 }
 
-static void lspid_print(uint8_t *lsp_id, uint8_t *trg, char dynhost, char frag)
+void lspid_print(uint8_t *lsp_id, char *dest, char dynhost, char frag)
 {
 	struct isis_dynhn *dyn = NULL;
 	uint8_t id[SYSID_STRLEN];
@@ -628,10 +628,10 @@ static void lspid_print(uint8_t *lsp_id, uint8_t *trg, char dynhost, char frag)
 	else
 		memcpy(id, sysid_print(lsp_id), 15);
 	if (frag)
-		sprintf((char *)trg, "%s.%02x-%02x", id, LSP_PSEUDO_ID(lsp_id),
+		sprintf(dest, "%s.%02x-%02x", id, LSP_PSEUDO_ID(lsp_id),
 			LSP_FRAGMENT(lsp_id));
 	else
-		sprintf((char *)trg, "%s.%02x", id, LSP_PSEUDO_ID(lsp_id));
+		sprintf(dest, "%s.%02x", id, LSP_PSEUDO_ID(lsp_id));
 }
 
 /* Convert the lsp attribute bits to attribute string */
@@ -660,7 +660,7 @@ static const char *lsp_bits2string(uint8_t lsp_bits, char *buf, size_t buf_size)
 /* this function prints the lsp on show isis database */
 void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost)
 {
-	uint8_t LSPid[255];
+	char LSPid[255];
 	char age_out[8];
 	char b[200];
 
