@@ -143,6 +143,8 @@ static void lsp_destroy(struct isis_lsp *lsp)
 
 	if (lsp->pdu)
 		stream_free(lsp->pdu);
+
+	fabricd_lsp_free(lsp);
 	XFREE(MTYPE_ISIS_LSP, lsp);
 }
 
@@ -2011,7 +2013,7 @@ void _lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit,
 	if (!fabricd)
 		lsp_set_all_srmflags(lsp, true);
 	else
-		fabricd_lsp_flood(lsp);
+		fabricd_lsp_flood(lsp, circuit);
 
 	if (circuit)
 		isis_tx_queue_del(circuit->tx_queue, lsp);

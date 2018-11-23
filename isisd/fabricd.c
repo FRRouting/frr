@@ -35,6 +35,7 @@
 
 DEFINE_MTYPE_STATIC(ISISD, FABRICD_STATE, "ISIS OpenFabric")
 DEFINE_MTYPE_STATIC(ISISD, FABRICD_NEIGHBOR, "ISIS OpenFabric Neighbor Entry")
+DEFINE_MTYPE_STATIC(ISISD, FABRICD_FLOODING_INFO, "ISIS OpenFabric Flooding Log")
 
 /* Tracks initial synchronization as per section 2.4
  *
@@ -509,9 +510,12 @@ int fabricd_write_settings(struct isis_area *area, struct vty *vty)
 }
 
 static void move_to_queue(struct isis_lsp *lsp, struct neighbor_entry *n,
-			  enum isis_tx_type type)
+			  enum isis_tx_type type, struct isis_circuit *circuit)
 {
 	n->present = false;
+
+	if (n->adj && n->adj->circuit == circuit)
+		return;
 
 	if (isis->debugs & DEBUG_FLOODING) {
 		zlog_debug("OpenFabric: Adding %s to %s",
@@ -521,6 +525,11 @@ static void move_to_queue(struct isis_lsp *lsp, struct neighbor_entry *n,
 
 	if (n->adj)
 		isis_tx_queue_add(n->adj->circuit->tx_queue, lsp, type);
+
+	uint8_t *neighbor_id = XMALLOC(MTYPE_FABRICD_FLOODING_INFO, sizeof(n->id));
+
+	memcpy(neighbor_id, n->id, sizeof(n->id));
+	listnode_add(lsp->flooding_neighbors[type], neighbor_id);
 }
 
 static void mark_neighbor_as_present(struct hash_backet *backet, void *arg)
@@ -571,10 +580,38 @@ static struct isis_lsp *lsp_for_neighbor(struct fabricd *f,
 	return lsp_for_vertex(f->spftree, &vertex);
 }
 
-void fabricd_lsp_flood(struct isis_lsp *lsp)
+static void fabricd_free_lsp_flooding_info(void *val)
+{
+	XFREE(MTYPE_FABRICD_FLOODING_INFO, val);
+}
+
+static void fabricd_lsp_reset_flooding_info(struct isis_lsp *lsp,
+					    struct isis_circuit *circuit)
+{
+	XFREE(MTYPE_FABRICD_FLOODING_INFO, lsp->flooding_interface);
+	for (enum isis_tx_type type = TX_LSP_NORMAL;
+	     type <= TX_LSP_CIRCUIT_SCOPED; type++) {
+		if (lsp->flooding_neighbors[type]) {
+			list_delete_all_node(lsp->flooding_neighbors[type]);
+			continue;
+		}
+
+		lsp->flooding_neighbors[type] = list_new();
+		lsp->flooding_neighbors[type]->del = fabricd_free_lsp_flooding_info;
+	}
+
+	if (circuit) {
+		lsp->flooding_interface = XSTRDUP(MTYPE_FABRICD_FLOODING_INFO,
+						  circuit->interface->name);
+	}
+}
+
+void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 {
 	struct fabricd *f = lsp->area->fabricd;
 	assert(f);
+
+	fabricd_lsp_reset_flooding_info(lsp, circuit);
 
 	void *cursor = NULL;
 	struct neighbor_entry *n;
@@ -597,7 +634,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 			           rawlspid_print(node_lsp->hdr.lsp_id));
 		}
 
-		move_to_queue(lsp, n, TX_LSP_CIRCUIT_SCOPED);
+		move_to_queue(lsp, n, TX_LSP_CIRCUIT_SCOPED, circuit);
 	}
 
 	/* Mark all elements in NN as present */
@@ -625,7 +662,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 					   print_sys_hostname(n->id));
 			}
 
-			move_to_queue(lsp, n, TX_LSP_CIRCUIT_SCOPED);
+			move_to_queue(lsp, n, TX_LSP_CIRCUIT_SCOPED, circuit);
 			continue;
 		}
 
@@ -657,7 +694,8 @@ void fabricd_lsp_flood(struct isis_lsp *lsp)
 		}
 
 		move_to_queue(lsp, n, need_reflood ?
-			      TX_LSP_NORMAL : TX_LSP_CIRCUIT_SCOPED);
+			      TX_LSP_NORMAL : TX_LSP_CIRCUIT_SCOPED,
+			      circuit);
 	}
 
 	if (isis->debugs & DEBUG_FLOODING) {
@@ -708,4 +746,16 @@ struct list *fabricd_ip_addrs(struct isis_circuit *circuit)
 	}
 
 	return NULL;
+}
+
+void fabricd_lsp_free(struct isis_lsp *lsp)
+{
+	XFREE(MTYPE_FABRICD_FLOODING_INFO, lsp->flooding_interface);
+	for (enum isis_tx_type type = TX_LSP_NORMAL;
+	     type <= TX_LSP_CIRCUIT_SCOPED; type++) {
+		if (!lsp->flooding_neighbors[type])
+			continue;
+
+		list_delete(&lsp->flooding_neighbors[type]);
+	}
 }

@@ -47,6 +47,9 @@ struct isis_lsp {
 	int age_out;
 	struct isis_area *area;
 	struct isis_tlvs *tlvs;
+
+	struct list *flooding_neighbors[TX_LSP_CIRCUIT_SCOPED + 1];
+	char *flooding_interface;
 };
 
 dict_t *lsp_db_init(void);

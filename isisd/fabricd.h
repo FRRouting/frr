@@ -42,8 +42,9 @@ struct isis_spftree *fabricd_spftree(struct isis_area *area);
 void fabricd_configure_tier(struct isis_area *area, uint8_t tier);
 uint8_t fabricd_tier(struct isis_area *area);
 int fabricd_write_settings(struct isis_area *area, struct vty *vty);
-void fabricd_lsp_flood(struct isis_lsp *lsp);
+void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit);
 void fabricd_trigger_csnp(struct isis_area *area);
 struct list *fabricd_ip_addrs(struct isis_circuit *circuit);
+void fabricd_lsp_free(struct isis_lsp *lsp);
 
 #endif
