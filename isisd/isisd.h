@@ -178,6 +178,7 @@ struct isis_area *isis_area_create(const char *);
 struct isis_area *isis_area_lookup(const char *);
 int isis_area_get(struct vty *vty, const char *area_tag);
 void print_debug(struct vty *, int, int);
+struct isis_lsp *lsp_for_arg(const char *argv, dict_t *lspdb);
 
 void isis_area_invalidate_routes(struct isis_area *area, int levels);
 void isis_area_verify_routes(struct isis_area *area);

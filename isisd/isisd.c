@@ -1293,6 +1293,66 @@ DEFUN (show_isis_summary,
 	return CMD_SUCCESS;
 }
 
+struct isis_lsp *lsp_for_arg(const char *argv, dict_t *lspdb)
+{
+	char sysid[255] = {0};
+	uint8_t number[3];
+	const char *pos;
+	uint8_t lspid[ISIS_SYS_ID_LEN + 2] = {0};
+	struct isis_dynhn *dynhn;
+	struct isis_lsp *lsp = NULL;
+
+	if (!argv)
+		return NULL;
+
+	/*
+	 * extract fragment and pseudo id from the string argv
+	 * in the forms:
+	 * (a) <systemid/hostname>.<pseudo-id>-<framenent> or
+	 * (b) <systemid/hostname>.<pseudo-id> or
+	 * (c) <systemid/hostname> or
+	 * Where systemid is in the form:
+	 * xxxx.xxxx.xxxx
+	 */
+	if (argv)
+		strncpy(sysid, argv, 254);
+	if (argv && strlen(argv) > 3) {
+		pos = argv + strlen(argv) - 3;
+		if (strncmp(pos, "-", 1) == 0) {
+			memcpy(number, ++pos, 2);
+			lspid[ISIS_SYS_ID_LEN + 1] =
+				(uint8_t)strtol((char *)number, NULL, 16);
+			pos -= 4;
+			if (strncmp(pos, ".", 1) != 0)
+				return NULL;
+		}
+		if (strncmp(pos, ".", 1) == 0) {
+			memcpy(number, ++pos, 2);
+			lspid[ISIS_SYS_ID_LEN] =
+				(uint8_t)strtol((char *)number, NULL, 16);
+			sysid[pos - argv - 1] = '\0';
+		}
+	}
+
+	/*
+	 * Try to find the lsp-id if the argv
+	 * string is in
+	 * the form
+	 * hostname.<pseudo-id>-<fragment>
+	 */
+	if (sysid2buff(lspid, sysid)) {
+		lsp = lsp_search(lspid, lspdb);
+	} else if ((dynhn = dynhn_find_by_name(sysid))) {
+		memcpy(lspid, dynhn->id, ISIS_SYS_ID_LEN);
+		lsp = lsp_search(lspid, lspdb);
+	} else if (strncmp(cmd_hostname_get(), sysid, 15) == 0) {
+		memcpy(lspid, isis->sysid, ISIS_SYS_ID_LEN);
+		lsp = lsp_search(lspid, lspdb);
+	}
+
+	return lsp;
+}
+
 /*
  * This function supports following display options:
  * [ show isis database [detail] ]
@@ -1314,47 +1374,10 @@ static int show_isis_database(struct vty *vty, const char *argv, int ui_level)
 	struct listnode *node;
 	struct isis_area *area;
 	struct isis_lsp *lsp;
-	struct isis_dynhn *dynhn;
-	const char *pos;
-	uint8_t lspid[ISIS_SYS_ID_LEN + 2];
-	char sysid[255];
-	uint8_t number[3];
 	int level, lsp_count;
 
 	if (isis->area_list->count == 0)
 		return CMD_SUCCESS;
-
-	memset(&lspid, 0, ISIS_SYS_ID_LEN);
-	memset(&sysid, 0, 255);
-
-	/*
-	 * extract fragment and pseudo id from the string argv
-	 * in the forms:
-	 * (a) <systemid/hostname>.<pseudo-id>-<framenent> or
-	 * (b) <systemid/hostname>.<pseudo-id> or
-	 * (c) <systemid/hostname> or
-	 * Where systemid is in the form:
-	 * xxxx.xxxx.xxxx
-	 */
-	if (argv)
-		strncpy(sysid, argv, 254);
-	if (argv && strlen(argv) > 3) {
-		pos = argv + strlen(argv) - 3;
-		if (strncmp(pos, "-", 1) == 0) {
-			memcpy(number, ++pos, 2);
-			lspid[ISIS_SYS_ID_LEN + 1] =
-				(uint8_t)strtol((char *)number, NULL, 16);
-			pos -= 4;
-			if (strncmp(pos, ".", 1) != 0)
-				return CMD_WARNING;
-		}
-		if (strncmp(pos, ".", 1) == 0) {
-			memcpy(number, ++pos, 2);
-			lspid[ISIS_SYS_ID_LEN] =
-				(uint8_t)strtol((char *)number, NULL, 16);
-			sysid[pos - argv - 1] = '\0';
-		}
-	}
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 		vty_out(vty, "Area %s:\n",
@@ -1363,35 +1386,7 @@ static int show_isis_database(struct vty *vty, const char *argv, int ui_level)
 		for (level = 0; level < ISIS_LEVELS; level++) {
 			if (area->lspdb[level]
 			    && dict_count(area->lspdb[level]) > 0) {
-				lsp = NULL;
-				if (argv != NULL) {
-					/*
-					 * Try to find the lsp-id if the argv
-					 * string is in
-					 * the form
-					 * hostname.<pseudo-id>-<fragment>
-					 */
-					if (sysid2buff(lspid, sysid)) {
-						lsp = lsp_search(
-							lspid,
-							area->lspdb[level]);
-					} else if ((dynhn = dynhn_find_by_name(
-							    sysid))) {
-						memcpy(lspid, dynhn->id,
-						       ISIS_SYS_ID_LEN);
-						lsp = lsp_search(
-							lspid,
-							area->lspdb[level]);
-					} else if (strncmp(cmd_hostname_get(),
-							   sysid, 15)
-						   == 0) {
-						memcpy(lspid, isis->sysid,
-						       ISIS_SYS_ID_LEN);
-						lsp = lsp_search(
-							lspid,
-							area->lspdb[level]);
-					}
-				}
+				lsp = lsp_for_arg(argv, area->lspdb[level]);
 
 				if (lsp != NULL || argv == NULL) {
 					vty_out(vty,
