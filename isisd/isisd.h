@@ -150,6 +150,7 @@ struct isis_area {
 	/* the percentage of LSP mtu size used, before generating a new frag */
 	int lsp_frag_threshold;
 	uint64_t lsp_gen_count[ISIS_LEVELS];
+	uint64_t lsp_purge_count[ISIS_LEVELS];
 	int ip_circuits;
 	/* logging adjacency changes? */
 	uint8_t log_adj_changes;

@@ -1274,6 +1274,9 @@ DEFUN (show_isis_summary,
 			vty_out(vty, "    LSP0 regenerated: %" PRIu64 "\n",
 				area->lsp_gen_count[level - 1]);
 
+			vty_out(vty, "         LSPs purged: %" PRIu64 "\n",
+				area->lsp_purge_count[level - 1]);
+
 			if (area->spf_timer[level - 1])
 				vty_out(vty, "    SPF: (pending)\n");
 			else
