@@ -1260,6 +1260,8 @@ DEFUN (show_isis_summary,
 
 		vty_out(vty, "  TX counters per PDU type:\n");
 		pdu_counter_print(vty, "    ", area->pdu_tx_counters);
+		vty_out(vty, "   LSP RXMT: %" PRIu64 "\n",
+			area->lsp_rxmt_count);
 		vty_out(vty, "  RX counters per PDU type:\n");
 		pdu_counter_print(vty, "    ", area->pdu_rx_counters);
 

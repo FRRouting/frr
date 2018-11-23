@@ -46,6 +46,7 @@ struct isis_tx_queue {
 struct isis_tx_queue_entry {
 	struct isis_lsp *lsp;
 	enum isis_tx_type type;
+	bool is_retry;
 	struct thread *retry;
 	struct isis_tx_queue *queue;
 };
@@ -124,6 +125,11 @@ static int tx_queue_send_event(struct thread *thread)
 	e->retry = NULL;
 	thread_add_timer(master, tx_queue_send_event, e, 5, &e->retry);
 
+	if (e->is_retry) {
+		queue->circuit->area->lsp_rxmt_count++;
+	} else {
+		e->is_retry = true;
+	}
 	queue->send_event(queue->circuit, e->lsp, e->type);
 	/* Don't access e here anymore, send_event might have destroyed it */
 
@@ -164,6 +170,8 @@ void _isis_tx_queue_add(struct isis_tx_queue *queue,
 	if (e->retry)
 		thread_cancel(e->retry);
 	thread_add_event(master, tx_queue_send_event, e, 0, &e->retry);
+
+	e->is_retry = false;
 }
 
 void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
