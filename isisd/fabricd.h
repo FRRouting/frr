@@ -46,5 +46,7 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit);
 void fabricd_trigger_csnp(struct isis_area *area);
 struct list *fabricd_ip_addrs(struct isis_circuit *circuit);
 void fabricd_lsp_free(struct isis_lsp *lsp);
+void fabricd_update_lsp_no_flood(struct isis_lsp *lsp,
+				 struct isis_circuit *circuit);
 
 #endif

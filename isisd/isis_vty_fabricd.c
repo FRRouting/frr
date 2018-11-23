@@ -65,13 +65,33 @@ static void lsp_print_flooding(struct vty *vty, struct isis_lsp *lsp)
 	vty_out(vty, "Flooding information for %s\n", lspid);
 
 	if (!lsp->flooding_neighbors[TX_LSP_NORMAL]) {
-		vty_out(vty, "    Never flooded.\n");
+		vty_out(vty, "    Never received.\n");
 		return;
 	}
 
-	vty_out(vty, "    Last received on: %s\n",
+	vty_out(vty, "    Last received on: %s (",
 		lsp->flooding_interface ?
 		lsp->flooding_interface : "(null)");
+
+	time_t uptime = time(NULL) - lsp->flooding_time;
+	struct tm *tm = gmtime(&uptime);
+
+	if (uptime < ONE_DAY_SECOND)
+		vty_out(vty, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
+			tm->tm_sec);
+	else if (uptime < ONE_WEEK_SECOND)
+		vty_out(vty, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
+			tm->tm_min);
+	else
+		vty_out(vty, "%02dw%dd%02dh", tm->tm_yday / 7,
+			tm->tm_yday - ((tm->tm_yday / 7) * 7),
+			tm->tm_hour);
+	vty_out(vty, " ago)\n");
+
+	if (lsp->flooding_circuit_scoped) {
+		vty_out(vty, "    Received as circuit-scoped LSP, so not flooded.\n");
+		return;
+	}
 
 	for (enum isis_tx_type type = TX_LSP_NORMAL;
 	     type <= TX_LSP_CIRCUIT_SCOPED; type++) {

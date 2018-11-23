@@ -702,6 +702,17 @@ out:
 	return retval;
 }
 
+static void lsp_flood_or_update(struct isis_lsp *lsp,
+				struct isis_circuit *circuit,
+				bool circuit_scoped)
+{
+	if (!circuit_scoped) {
+		lsp_flood(lsp, circuit);
+	} else {
+		fabricd_update_lsp_no_flood(lsp, circuit);
+	}
+}
+
 /*
  * Process Level 1/2 Link State
  * ISO - 10589
@@ -931,8 +942,8 @@ dontcheckadj:
 						   lsp_confusion);
 					tlvs = NULL;
 					/* ii */
-					if (!circuit_scoped)
-						lsp_flood(lsp, NULL);
+					lsp_flood_or_update(lsp, NULL,
+							    circuit_scoped);
 					/* v */
 					ISIS_FLAGS_CLEAR_ALL(
 						lsp->SSNflags); /* FIXME:
@@ -977,8 +988,7 @@ dontcheckadj:
 				/* our own LSP -> 7.3.16.4 c) */
 				if (comp == LSP_NEWER) {
 					lsp_inc_seqno(lsp, hdr.seqno);
-					if (!circuit_scoped)
-						lsp_flood(lsp, NULL);
+					lsp_flood_or_update(lsp, NULL, circuit_scoped);
 				} else {
 					isis_tx_queue_add(circuit->tx_queue,
 							  lsp, TX_LSP_NORMAL);
@@ -1068,8 +1078,7 @@ dontcheckadj:
 					   circuit->area, level, false);
 				tlvs = NULL;
 			}
-			if (!circuit_scoped)
-				lsp_flood(lsp, circuit);
+			lsp_flood_or_update(lsp, circuit, circuit_scoped);
 
 			/* iv */
 			if (circuit->circ_type != CIRCUIT_T_BROADCAST)

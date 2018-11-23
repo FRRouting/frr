@@ -48,8 +48,10 @@ struct isis_lsp {
 	struct isis_area *area;
 	struct isis_tlvs *tlvs;
 
+	time_t flooding_time;
 	struct list *flooding_neighbors[TX_LSP_CIRCUIT_SCOPED + 1];
 	char *flooding_interface;
+	bool flooding_circuit_scoped;
 };
 
 dict_t *lsp_db_init(void);

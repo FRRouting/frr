@@ -588,6 +588,8 @@ static void fabricd_free_lsp_flooding_info(void *val)
 static void fabricd_lsp_reset_flooding_info(struct isis_lsp *lsp,
 					    struct isis_circuit *circuit)
 {
+	lsp->flooding_time = time(NULL);
+
 	XFREE(MTYPE_FABRICD_FLOODING_INFO, lsp->flooding_interface);
 	for (enum isis_tx_type type = TX_LSP_NORMAL;
 	     type <= TX_LSP_CIRCUIT_SCOPED; type++) {
@@ -604,6 +606,8 @@ static void fabricd_lsp_reset_flooding_info(struct isis_lsp *lsp,
 		lsp->flooding_interface = XSTRDUP(MTYPE_FABRICD_FLOODING_INFO,
 						  circuit->interface->name);
 	}
+
+	lsp->flooding_circuit_scoped = false;
 }
 
 void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
@@ -758,4 +762,14 @@ void fabricd_lsp_free(struct isis_lsp *lsp)
 
 		list_delete(&lsp->flooding_neighbors[type]);
 	}
+}
+
+void fabricd_update_lsp_no_flood(struct isis_lsp *lsp,
+				 struct isis_circuit *circuit)
+{
+	if (!fabricd)
+		return;
+
+	fabricd_lsp_reset_flooding_info(lsp, circuit);
+	lsp->flooding_circuit_scoped = true;
 }
