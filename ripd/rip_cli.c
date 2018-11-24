@@ -231,7 +231,11 @@ DEFPY (no_rip_distance,
 void cli_show_rip_distance(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults)
 {
-	vty_out(vty, " distance %s\n", yang_dnode_get_string(dnode, NULL));
+	if (yang_dnode_is_default(dnode, NULL))
+		vty_out(vty, " no distance\n");
+	else
+		vty_out(vty, " distance %s\n",
+			yang_dnode_get_string(dnode, NULL));
 }
 
 /*
