@@ -285,6 +285,22 @@ extern void yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
 				size_t xpath_len);
 
 /*
+ * Return the schema name of the given libyang data node.
+ *
+ * dnode
+ *    libyang data node.
+ *
+ * xpath_fmt
+ *    Optional XPath expression (absolute or relative) to specify a different
+ *    data node to operate on in the same data tree.
+ *
+ * Returns:
+ *    Schema name of the libyang data node.
+ */
+extern const char *yang_dnode_get_schema_name(const struct lyd_node *dnode,
+					      const char *xpath_fmt, ...);
+
+/*
  * Find a libyang data node by its YANG data path.
  *
  * dnode

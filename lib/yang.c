@@ -344,6 +344,29 @@ void yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
 	free(xpath_ptr);
 }
 
+const char *yang_dnode_get_schema_name(const struct lyd_node *dnode,
+				       const char *xpath_fmt, ...)
+{
+	if (xpath_fmt) {
+		va_list ap;
+		char xpath[XPATH_MAXLEN];
+
+		va_start(ap, xpath_fmt);
+		vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
+		va_end(ap);
+
+		dnode = yang_dnode_get(dnode, xpath);
+		if (!dnode) {
+			flog_err(EC_LIB_YANG_DNODE_NOT_FOUND,
+				 "%s: couldn't find %s", __func__, xpath);
+			zlog_backtrace(LOG_ERR);
+			abort();
+		}
+	}
+
+	return dnode->schema->name;
+}
+
 struct lyd_node *yang_dnode_get(const struct lyd_node *dnode,
 				const char *xpath_fmt, ...)
 {
