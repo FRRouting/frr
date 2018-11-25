@@ -1338,7 +1338,7 @@ static int lib_interface_delete(enum nb_event event,
 {
 	struct interface *ifp;
 
-	ifp = yang_dnode_get_entry(dnode);
+	ifp = yang_dnode_get_entry(dnode, true);
 
 	switch (event) {
 	case NB_EV_VALIDATE:
@@ -1372,7 +1372,7 @@ static int lib_interface_description_modify(enum nb_event event,
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = yang_dnode_get_entry(dnode);
+	ifp = yang_dnode_get_entry(dnode, true);
 	if (ifp->desc)
 		XFREE(MTYPE_TMP, ifp->desc);
 	description = yang_dnode_get_string(dnode, NULL);
@@ -1389,7 +1389,7 @@ static int lib_interface_description_delete(enum nb_event event,
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = yang_dnode_get_entry(dnode);
+	ifp = yang_dnode_get_entry(dnode, true);
 	if (ifp->desc)
 		XFREE(MTYPE_TMP, ifp->desc);
 

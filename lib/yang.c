@@ -493,7 +493,8 @@ void yang_dnode_set_entry(const struct lyd_node *dnode, void *entry)
 	lyd_set_private(dnode, entry);
 }
 
-void *yang_dnode_get_entry(const struct lyd_node *dnode)
+void *yang_dnode_get_entry(const struct lyd_node *dnode,
+			   bool abort_if_not_found)
 {
 	const struct lyd_node *orig_dnode = dnode;
 	char xpath[XPATH_MAXLEN];
@@ -511,6 +512,9 @@ void *yang_dnode_get_entry(const struct lyd_node *dnode)
 
 		dnode = dnode->parent;
 	}
+
+	if (!abort_if_not_found)
+		return NULL;
 
 	yang_dnode_get_path(orig_dnode, xpath, sizeof(xpath));
 	flog_err(EC_LIB_YANG_DNODE_NOT_FOUND,
