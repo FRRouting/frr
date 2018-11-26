@@ -236,13 +236,28 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 	return ret;
 }
 
-static int kernel_lsp_cmd(int action, zebra_lsp_t *lsp)
+static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 {
 	zebra_nhlfe_t *nhlfe;
 	struct nexthop *nexthop = NULL;
 	unsigned int nexthop_num = 0;
+	int action;
 
-	for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
+	switch (dplane_ctx_get_op(ctx)) {
+	case DPLANE_OP_LSP_DELETE:
+		action = RTM_DELETE;
+		break;
+	case DPLANE_OP_LSP_INSTALL:
+		action = RTM_ADD;
+		break;
+	case DPLANE_OP_LSP_UPDATE:
+		action = RTM_CHANGE;
+		break;
+	default:
+		return -1;
+	}
+
+	for (nhlfe = dplane_ctx_get_nhlfe(ctx); nhlfe; nhlfe = nhlfe->next) {
 		nexthop = nhlfe->nexthop;
 		if (!nexthop)
 			continue;
@@ -269,12 +284,16 @@ static int kernel_lsp_cmd(int action, zebra_lsp_t *lsp)
 
 			switch (NHLFE_FAMILY(nhlfe)) {
 			case AF_INET:
-				kernel_send_rtmsg_v4(action, lsp->ile.in_label,
-						     nhlfe);
+				kernel_send_rtmsg_v4(
+					action,
+					dplane_ctx_get_in_label(ctx),
+					nhlfe);
 				break;
 			case AF_INET6:
-				kernel_send_rtmsg_v6(action, lsp->ile.in_label,
-						     nhlfe);
+				kernel_send_rtmsg_v6(
+					action,
+					dplane_ctx_get_in_label(ctx),
+					nhlfe);
 				break;
 			default:
 				break;
@@ -285,67 +304,14 @@ static int kernel_lsp_cmd(int action, zebra_lsp_t *lsp)
 	return (0);
 }
 
-enum zebra_dplane_result kernel_add_lsp(zebra_lsp_t *lsp)
-{
-	int ret;
-
-	if (!lsp || !lsp->best_nhlfe) { // unexpected
-		kernel_lsp_pass_fail(lsp, ZEBRA_DPLANE_INSTALL_FAILURE);
-		return ZEBRA_DPLANE_REQUEST_FAILURE;
-	}
-
-	ret = kernel_lsp_cmd(RTM_ADD, lsp);
-
-	kernel_lsp_pass_fail(lsp,
-			     (!ret) ? ZEBRA_DPLANE_INSTALL_SUCCESS
-				    : ZEBRA_DPLANE_INSTALL_FAILURE);
-
-	return ZEBRA_DPLANE_REQUEST_SUCCESS;
-}
-
-enum zebra_dplane_result kernel_upd_lsp(zebra_lsp_t *lsp)
-{
-	int ret;
-
-	if (!lsp || !lsp->best_nhlfe) { // unexpected
-		kernel_lsp_pass_fail(lsp, ZEBRA_DPLANE_INSTALL_FAILURE);
-		return ZEBRA_DPLANE_REQUEST_FAILURE;
-	}
-
-	ret = kernel_lsp_cmd(RTM_CHANGE, lsp);
-
-	kernel_lsp_pass_fail(lsp,
-			     (!ret) ? ZEBRA_DPLANE_INSTALL_SUCCESS
-				    : ZEBRA_DPLANE_INSTALL_FAILURE);
-	return ZEBRA_DPLANE_REQUEST_SUCCESS;
-}
-
-enum zebra_dplane_result kernel_del_lsp(zebra_lsp_t *lsp)
-{
-	int ret;
-
-	if (!lsp) { // unexpected
-		kernel_lsp_pass_fail(lsp, ZEBRA_DPLANE_DELETE_FAILURE);
-		return ZEBRA_DPLANE_REQUEST_FAILURE;
-	}
-
-	if (!CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)) {
-		kernel_lsp_pass_fail(lsp, ZEBRA_DPLANE_DELETE_FAILURE);
-		return ZEBRA_DPLANE_REQUEST_FAILURE;
-	}
-
-	ret = kernel_lsp_cmd(RTM_DELETE, lsp);
-
-	kernel_lsp_pass_fail(lsp,
-			     (!ret) ? ZEBRA_DPLANE_DELETE_SUCCESS
-				    : ZEBRA_DPLANE_DELETE_FAILURE);
-
-	return ZEBRA_DPLANE_REQUEST_SUCCESS;
-}
-
 enum zebra_dplane_result kernel_lsp_update(struct zebra_dplane_ctx *ctx)
 {
-	return ZEBRA_DPLANE_REQUEST_FAILURE;
+	int ret;
+
+	ret = kernel_lsp_cmd(ctx);
+
+	return (ret == 0 ?
+		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
 }
 
 static int kmpw_install(struct zebra_pw *pw)

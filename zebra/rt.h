@@ -50,21 +50,6 @@ extern int kernel_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 extern int kernel_interface_set_master(struct interface *master,
 				       struct interface *slave);
 
-extern enum zebra_dplane_result kernel_add_lsp(zebra_lsp_t *lsp);
-extern enum zebra_dplane_result kernel_upd_lsp(zebra_lsp_t *lsp);
-extern enum zebra_dplane_result kernel_del_lsp(zebra_lsp_t *lsp);
-
-/*
- * Add the ability to pass back up the lsp install/delete
- * success/failure.
- *
- * This functions goal is similiar to kernel_route_rib_pass_fail
- * in that we are separating out the mechanics for
- * the install/failure to set/unset flags and to notify
- * as needed.
- */
-extern void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum zebra_dplane_status res);
-
 extern int mpls_kernel_init(void);
 
 extern uint32_t kernel_get_speed(struct interface *ifp);

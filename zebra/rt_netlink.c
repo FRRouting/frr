@@ -2616,161 +2616,10 @@ int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip)
 }
 
 /*
- * MPLS label forwarding table change via netlink interface.
- */
-int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
-{
-	mpls_lse_t lse;
-	zebra_nhlfe_t *nhlfe;
-	struct nexthop *nexthop = NULL;
-	unsigned int nexthop_num;
-	const char *routedesc;
-	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
-	int route_type;
-
-	struct {
-		struct nlmsghdr n;
-		struct rtmsg r;
-		char buf[NL_PKT_BUF_SIZE];
-	} req;
-
-	memset(&req, 0, sizeof req - NL_PKT_BUF_SIZE);
-
-	/*
-	 * Count # nexthops so we can decide whether to use singlepath
-	 * or multipath case.
-	 */
-	nexthop_num = 0;
-	for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
-		nexthop = nhlfe->nexthop;
-		if (!nexthop)
-			continue;
-		if (cmd == RTM_NEWROUTE) {
-			/* Count all selected NHLFEs */
-			if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)
-			    && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-				nexthop_num++;
-		} else /* DEL */
-		{
-			/* Count all installed NHLFEs */
-			if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED)
-			    && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
-				nexthop_num++;
-		}
-	}
-
-	if ((nexthop_num == 0) || (!lsp->best_nhlfe && (cmd != RTM_DELROUTE)))
-		return 0;
-
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
-	req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
-	req.n.nlmsg_type = cmd;
-	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
-
-	req.r.rtm_family = AF_MPLS;
-	req.r.rtm_table = RT_TABLE_MAIN;
-	req.r.rtm_dst_len = MPLS_LABEL_LEN_BITS;
-	req.r.rtm_scope = RT_SCOPE_UNIVERSE;
-	req.r.rtm_type = RTN_UNICAST;
-
-	if (cmd == RTM_NEWROUTE) {
-		/* We do a replace to handle update. */
-		req.n.nlmsg_flags |= NLM_F_REPLACE;
-
-		/* set the protocol value if installing */
-		route_type = re_type_from_lsp_type(lsp->best_nhlfe->type);
-		req.r.rtm_protocol = zebra2proto(route_type);
-	}
-
-	/* Fill destination */
-	lse = mpls_lse_encode(lsp->ile.in_label, 0, 0, 1);
-	addattr_l(&req.n, sizeof req, RTA_DST, &lse, sizeof(mpls_lse_t));
-
-	/* Fill nexthops (paths) based on single-path or multipath. The paths
-	 * chosen depend on the operation.
-	 */
-	if (nexthop_num == 1) {
-		routedesc = "single-path";
-		_netlink_mpls_debug(cmd, lsp->ile.in_label, routedesc);
-
-		nexthop_num = 0;
-		for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
-			nexthop = nhlfe->nexthop;
-			if (!nexthop)
-				continue;
-
-			if ((cmd == RTM_NEWROUTE
-			     && (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)
-				 && CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_ACTIVE)))
-			    || (cmd == RTM_DELROUTE
-				&& (CHECK_FLAG(nhlfe->flags,
-					       NHLFE_FLAG_INSTALLED)
-				    && CHECK_FLAG(nexthop->flags,
-						  NEXTHOP_FLAG_FIB)))) {
-				/* Add the gateway */
-				_netlink_mpls_build_singlepath(routedesc, nhlfe,
-							       &req.n, &req.r,
-							       sizeof req, cmd);
-				nexthop_num++;
-				break;
-			}
-		}
-	} else /* Multipath case */
-	{
-		char buf[NL_PKT_BUF_SIZE];
-		struct rtattr *rta = (void *)buf;
-		struct rtnexthop *rtnh;
-		union g_addr *src1 = NULL;
-
-		rta->rta_type = RTA_MULTIPATH;
-		rta->rta_len = RTA_LENGTH(0);
-		rtnh = RTA_DATA(rta);
-
-		routedesc = "multipath";
-		_netlink_mpls_debug(cmd, lsp->ile.in_label, routedesc);
-
-		nexthop_num = 0;
-		for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
-			nexthop = nhlfe->nexthop;
-			if (!nexthop)
-				continue;
-
-			if ((cmd == RTM_NEWROUTE
-			     && (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)
-				 && CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_ACTIVE)))
-			    || (cmd == RTM_DELROUTE
-				&& (CHECK_FLAG(nhlfe->flags,
-					       NHLFE_FLAG_INSTALLED)
-				    && CHECK_FLAG(nexthop->flags,
-						  NEXTHOP_FLAG_FIB)))) {
-				nexthop_num++;
-
-				/* Build the multipath */
-				_netlink_mpls_build_multipath(routedesc, nhlfe,
-							      rta, rtnh, &req.r,
-							      &src1);
-				rtnh = RTNH_NEXT(rtnh);
-			}
-		}
-
-		/* Add the multipath */
-		if (rta->rta_len > RTA_LENGTH(0))
-			addattr_l(&req.n, NL_PKT_BUF_SIZE, RTA_MULTIPATH,
-				  RTA_DATA(rta), RTA_PAYLOAD(rta));
-	}
-
-	/* Talk to netlink socket. */
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    0);
-}
-
-/*
  * MPLS label forwarding table change via netlink interface, using dataplane
  * context information.
  */
-int netlink_mpls_multipath_ctx(int cmd, struct zebra_dplane_ctx *ctx)
+int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 {
 	mpls_lse_t lse;
 	zebra_nhlfe_t *nhlfe;
@@ -2841,7 +2690,7 @@ int netlink_mpls_multipath_ctx(int cmd, struct zebra_dplane_ctx *ctx)
 	/* Fill nexthops (paths) based on single-path or multipath. The paths
 	 * chosen depend on the operation.
 	 */
-	if (nexthop_num == 1 || multipath_num == 1) {
+	if (nexthop_num == 1) {
 		routedesc = "single-path";
 		_netlink_mpls_debug(cmd, dplane_ctx_get_in_label(ctx),
 				    routedesc);
@@ -2892,9 +2741,6 @@ int netlink_mpls_multipath_ctx(int cmd, struct zebra_dplane_ctx *ctx)
 			nexthop = nhlfe->nexthop;
 			if (!nexthop)
 				continue;
-
-			if (nexthop_num >= multipath_num)
-				break;
 
 			if ((cmd == RTM_NEWROUTE
 			     && (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)
