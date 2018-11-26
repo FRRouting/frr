@@ -933,6 +933,10 @@ class Router(Node):
         for daemon in self.daemons:
             if (self.daemons[daemon] == 1) and not (daemon in daemonsRunning):
                 sys.stderr.write("%s: Daemon %s not running\n" % (self.name, daemon))
+                if daemon is "staticd":
+                    sys.stderr.write("You may have a copy of staticd installed but are attempting to test against\n")
+                    sys.stderr.write("a version of FRR that does not have staticd, please cleanup the install dir\n")
+
                 # Look for core file
                 corefiles = glob.glob('{}/{}/{}_core*.dmp'.format(
                     self.logdir, self.name, daemon))
