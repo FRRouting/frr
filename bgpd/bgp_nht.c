@@ -866,6 +866,8 @@ void bgp_nht_register_enhe_capability_interfaces(struct peer *peer)
 	if (p.family != AF_INET6)
 		return;
 	rn = bgp_node_lookup(bgp->nexthop_cache_table[AFI_IP6], &p);
+	if (!rn)
+		return;
 
 	bnc = bgp_nexthop_get_node_info(rn);
 	if (!bnc)
