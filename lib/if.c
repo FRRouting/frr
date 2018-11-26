@@ -1086,12 +1086,6 @@ DEFPY_NOSH (interface,
        VRF_CMD_HELP_STR)
 {
 	char xpath_list[XPATH_MAXLEN];
-	struct cli_config_change changes[] = {
-		{
-			.xpath = ".",
-			.operation = NB_OP_CREATE,
-		},
-	};
 	vrf_id_t vrf_id;
 	struct interface *ifp;
 	int ret;
@@ -1136,7 +1130,8 @@ DEFPY_NOSH (interface,
 		 "/frr-interface:lib/interface[name='%s'][vrf='%s']", ifname,
 		 vrfname);
 
-	ret = nb_cli_cfg_change(vty, xpath_list, changes, array_size(changes));
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	ret = nb_cli_apply_changes(vty, xpath_list);
 	if (ret == CMD_SUCCESS) {
 		VTY_PUSH_XPATH(INTERFACE_NODE, xpath_list);
 
@@ -1162,22 +1157,14 @@ DEFPY (no_interface,
        "Interface's name\n"
        VRF_CMD_HELP_STR)
 {
-	char xpath_list[XPATH_MAXLEN];
-	struct cli_config_change changes[] = {
-		{
-			.xpath = ".",
-			.operation = NB_OP_DELETE,
-		},
-	};
-
 	if (!vrfname)
 		vrfname = VRF_DEFAULT_NAME;
 
-	snprintf(xpath_list, sizeof(xpath_list),
-		 "/frr-interface:lib/interface[name='%s'][vrf='%s']", ifname,
-		 vrfname);
+	nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
 
-	return nb_cli_cfg_change(vty, xpath_list, changes, array_size(changes));
+	return nb_cli_apply_changes(
+		vty, "/frr-interface:lib/interface[name='%s'][vrf='%s']",
+		ifname, vrfname);
 }
 
 static void cli_show_interface(struct vty *vty, struct lyd_node *dnode,
@@ -1203,18 +1190,12 @@ DEFPY (interface_desc,
        "Interface specific description\n"
        "Characters describing this interface\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./description",
-			.operation = NB_OP_MODIFY,
-		},
-	};
 	char *desc;
 	int ret;
 
 	desc = argv_concat(argv, argc, 1);
-	changes[0].value = desc;
-	ret = nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	nb_cli_enqueue_change(vty, "./description", NB_OP_MODIFY, desc);
+	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, desc);
 
 	return ret;
@@ -1226,14 +1207,9 @@ DEFPY  (no_interface_desc,
 	NO_STR
 	"Interface specific description\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./description",
-			.operation = NB_OP_DELETE,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./description", NB_OP_DELETE, NULL);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 static void cli_show_interface_desc(struct vty *vty, struct lyd_node *dnode,
