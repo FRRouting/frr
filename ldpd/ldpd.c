@@ -335,7 +335,6 @@ main(int argc, char *argv[])
 
 	master = frr_init();
 
-	vty_config_lockless();
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	access_list_init();
 	ldp_vty_init();

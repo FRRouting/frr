@@ -86,10 +86,6 @@ static vector Vvty_serv_thread;
 /* Current directory. */
 char *vty_cwd = NULL;
 
-/* Configure lock. */
-static int vty_config;
-static int vty_config_is_lockless = 0;
-
 /* Exclusive configuration lock. */
 struct vty *vty_exclusive_lock;
 
@@ -824,7 +820,7 @@ static void vty_end_config(struct vty *vty)
 	case BGP_EVPN_VNI_NODE:
 	case BFD_NODE:
 	case BFD_PEER_NODE:
-		vty_config_unlock(vty);
+		vty_config_exit(vty);
 		vty->node = ENABLE_NODE;
 		break;
 	default:
@@ -1225,7 +1221,7 @@ static void vty_stop_input(struct vty *vty)
 	case VTY_NODE:
 	case BFD_NODE:
 	case BFD_PEER_NODE:
-		vty_config_unlock(vty);
+		vty_config_exit(vty);
 		vty->node = ENABLE_NODE;
 		break;
 	default:
@@ -2351,7 +2347,7 @@ void vty_close(struct vty *vty)
 	}
 
 	/* Check configure. */
-	vty_config_unlock(vty);
+	vty_config_exit(vty);
 
 	/* OK free vty. */
 	XFREE(MTYPE_VTY, vty);
@@ -2690,18 +2686,33 @@ void vty_log_fixed(char *buf, size_t len)
 	}
 }
 
-int vty_config_lock(struct vty *vty)
+int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 {
-	if (vty_config_is_lockless)
-		return 1;
-	if (vty_config == 0) {
-		vty->config = 1;
-		vty_config = 1;
+	if (exclusive && !vty_config_exclusive_lock(vty)) {
+		vty_out(vty, "VTY configuration is locked by other VTY\n");
+		return CMD_WARNING;
 	}
-	return vty->config;
+
+	vty->node = CONFIG_NODE;
+	vty->config = true;
+	vty->private_config = private_config;
+
+	if (private_config) {
+		vty->candidate_config = nb_config_dup(running_config);
+		vty->candidate_config_base = nb_config_dup(running_config);
+		vty_out(vty,
+			"Warning: uncommitted changes will be discarded on exit.\n\n");
+	} else {
+		vty->candidate_config = vty_shared_candidate_config;
+		if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL)
+			vty->candidate_config_base =
+				nb_config_dup(running_config);
+	}
+
+	return CMD_SUCCESS;
 }
 
-int vty_config_unlock(struct vty *vty)
+void vty_config_exit(struct vty *vty)
 {
 	vty_config_exclusive_unlock(vty);
 
@@ -2714,19 +2725,6 @@ int vty_config_unlock(struct vty *vty)
 		nb_config_free(vty->candidate_config_base);
 		vty->candidate_config_base = NULL;
 	}
-
-	if (vty_config_is_lockless)
-		return 0;
-	if (vty_config == 1 && vty->config == 1) {
-		vty->config = 0;
-		vty_config = 0;
-	}
-	return vty->config;
-}
-
-void vty_config_lockless(void)
-{
-	vty_config_is_lockless = 1;
 }
 
 int vty_config_exclusive_lock(struct vty *vty)

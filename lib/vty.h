@@ -102,6 +102,9 @@ struct vty {
 	int xpath_index;
 	char xpath[VTY_MAXDEPTH][XPATH_MAXLEN];
 
+	/* In configure mode. */
+	bool config;
+
 	/* Private candidate configuration mode. */
 	bool private_config;
 
@@ -148,9 +151,6 @@ struct vty {
 
 	/* Terminal monitor. */
 	int monitor;
-
-	/* In configure mode. */
-	int config;
 
 	/* Read and write thread. */
 	struct thread *t_read;
@@ -299,9 +299,9 @@ extern void vty_close(struct vty *);
 extern char *vty_get_cwd(void);
 extern void vty_log(const char *level, const char *proto, const char *fmt,
 		    struct timestamp_control *, va_list);
-extern int vty_config_lock(struct vty *);
-extern int vty_config_unlock(struct vty *);
-extern void vty_config_lockless(void);
+extern int vty_config_enter(struct vty *vty, bool private_config,
+			    bool exclusive);
+extern void vty_config_exit(struct vty *);
 extern int vty_config_exclusive_lock(struct vty *vty);
 extern void vty_config_exclusive_unlock(struct vty *vty);
 extern int vty_shell(struct vty *);

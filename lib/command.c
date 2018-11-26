@@ -1386,19 +1386,7 @@ DEFUN (config_terminal,
        "Configuration from vty interface\n"
        "Configuration terminal\n")
 {
-	if (vty_config_lock(vty))
-		vty->node = CONFIG_NODE;
-	else {
-		vty_out(vty, "VTY configuration is locked by other VTY\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	vty->private_config = false;
-	vty->candidate_config = vty_shared_candidate_config;
-	if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL)
-		vty->candidate_config_base = nb_config_dup(running_config);
-
-	return CMD_SUCCESS;
+	return vty_config_enter(vty, false, false);
 }
 
 /* Enable command */
@@ -1450,7 +1438,7 @@ void cmd_exit(struct vty *vty)
 		break;
 	case CONFIG_NODE:
 		vty->node = ENABLE_NODE;
-		vty_config_unlock(vty);
+		vty_config_exit(vty);
 		break;
 	case INTERFACE_NODE:
 	case PW_NODE:
@@ -1594,7 +1582,7 @@ DEFUN (config_end,
 	case LINK_PARAMS_NODE:
 	case BFD_NODE:
 	case BFD_PEER_NODE:
-		vty_config_unlock(vty);
+		vty_config_exit(vty);
 		vty->node = ENABLE_NODE;
 		break;
 	default:

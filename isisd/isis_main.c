@@ -203,7 +203,6 @@ int main(int argc, char **argv, char **envp)
 		}
 	}
 
-	vty_config_lockless();
 	/* thread master */
 	master = frr_init();
 

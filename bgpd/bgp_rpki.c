@@ -1282,7 +1282,7 @@ DEFUN_NOSH (rpki_end,
 {
 	int ret = reset(false);
 
-	vty_config_unlock(vty);
+	vty_config_exit(vty);
 	vty->node = ENABLE_NODE;
 	return ret == SUCCESS ? CMD_SUCCESS : CMD_WARNING;
 }

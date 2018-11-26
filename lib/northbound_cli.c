@@ -492,20 +492,7 @@ DEFUN (config_exclusive,
        "Configuration from vty interface\n"
        "Configure exclusively from this terminal\n")
 {
-	if (vty_config_exclusive_lock(vty))
-		vty->node = CONFIG_NODE;
-	else {
-		vty_out(vty, "VTY configuration is locked by other VTY\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	vty->private_config = true;
-	vty->candidate_config = nb_config_dup(running_config);
-	vty->candidate_config_base = nb_config_dup(running_config);
-	vty_out(vty,
-		"Warning: uncommitted changes will be discarded on exit.\n\n");
-
-	return CMD_SUCCESS;
+	return vty_config_enter(vty, true, true);
 }
 
 /* Configure using a private candidate configuration. */
@@ -515,20 +502,7 @@ DEFUN (config_private,
        "Configuration from vty interface\n"
        "Configure using a private candidate configuration\n")
 {
-	if (vty_config_lock(vty))
-		vty->node = CONFIG_NODE;
-	else {
-		vty_out(vty, "VTY configuration is locked by other VTY\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	vty->private_config = true;
-	vty->candidate_config = nb_config_dup(running_config);
-	vty->candidate_config_base = nb_config_dup(running_config);
-	vty_out(vty,
-		"Warning: uncommitted changes will be discarded on exit.\n\n");
-
-	return CMD_SUCCESS;
+	return vty_config_enter(vty, true, false);
 }
 
 DEFPY (config_commit,
