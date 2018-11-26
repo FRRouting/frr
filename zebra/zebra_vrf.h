@@ -125,6 +125,13 @@ struct zebra_vrf {
 	/* l3-vni info */
 	vni_t l3vni;
 
+	bool dup_addr_detect;
+
+	int dad_time;
+	uint32_t dad_max_moves;
+	bool dad_freeze;
+	uint32_t dad_freeze_time;
+
 	/*
 	 * Flooding mechanism for BUM packets for VxLAN-EVPN.
 	 */

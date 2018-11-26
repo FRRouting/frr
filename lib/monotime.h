@@ -80,4 +80,15 @@ static inline int64_t monotime_until(const struct timeval *ref,
 	return (int64_t)tv.tv_sec * 1000000LL + tv.tv_usec;
 }
 
+static inline char *time_to_string(time_t ts)
+{
+	struct timeval tv;
+	time_t tbuf;
+
+	monotime(&tv);
+	tbuf = time(NULL) - (tv.tv_sec - ts);
+
+	return ctime(&tbuf);
+}
+
 #endif /* _FRR_MONOTIME_H */

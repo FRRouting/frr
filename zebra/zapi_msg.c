@@ -2443,6 +2443,7 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_REMOTE_VTEP_DEL] = zebra_vxlan_remote_vtep_del,
 	[ZEBRA_REMOTE_MACIP_ADD] = zebra_vxlan_remote_macip_add,
 	[ZEBRA_REMOTE_MACIP_DEL] = zebra_vxlan_remote_macip_del,
+	[ZEBRA_DUPLICATE_ADDR_DETECTION] = zebra_vxlan_dup_addr_detection,
 	[ZEBRA_INTERFACE_SET_MASTER] = zread_interface_set_master,
 	[ZEBRA_PW_ADD] = zread_pseudowire,
 	[ZEBRA_PW_DELETE] = zread_pseudowire,
