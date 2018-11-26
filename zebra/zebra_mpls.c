@@ -862,7 +862,7 @@ static void lsp_uninstall_from_kernel(struct hash_backet *backet, void *ctxt)
 
 	lsp = (zebra_lsp_t *)backet->data;
 	if (CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED))
-		(void)kernel_del_lsp(lsp);
+		(void)dplane_lsp_delete(lsp);
 }
 
 /*

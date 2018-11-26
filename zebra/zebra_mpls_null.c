@@ -24,21 +24,6 @@
 
 #if !defined(HAVE_NETLINK) && !defined(OPEN_BSD)
 
-enum zebra_dplane_result kernel_add_lsp(zebra_lsp_t *lsp)
-{
-	return ZEBRA_DPLANE_REQUEST_SUCCESS;
-}
-
-enum zebra_dplane_result kernel_upd_lsp(zebra_lsp_t *lsp)
-{
-	return ZEBRA_DPLANE_REQUEST_SUCCESS;
-}
-
-enum zebra_dplane_result kernel_del_lsp(zebra_lsp_t *lsp)
-{
-	return ZEBRA_DPLANE_REQUEST_SUCCESS;
-}
-
 int mpls_kernel_init(void)
 {
 	return -1;
