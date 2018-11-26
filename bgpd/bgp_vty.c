@@ -602,7 +602,7 @@ static int bgp_clear(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 			bgp->update_delay_over = 0;
 
 		if (!found)
-			vty_out(vty, "%%BGP: No %s peer configured",
+			vty_out(vty, "%%BGP: No %s peer configured\n",
 				afi_safi_print(afi, safi));
 
 		return CMD_SUCCESS;
@@ -972,6 +972,7 @@ DEFUN_NOSH (router_bgp,
 	int idx_asn = 2;
 	int idx_view_vrf = 3;
 	int idx_vrf = 4;
+	int is_new_bgp = 0;
 	int ret;
 	as_t as;
 	struct bgp *bgp;
@@ -1011,6 +1012,9 @@ DEFUN_NOSH (router_bgp,
 				inst_type = BGP_INSTANCE_TYPE_VIEW;
 		}
 
+		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+			is_new_bgp = (bgp_lookup(as, name) == NULL);
+
 		ret = bgp_get(&bgp, &as, name, inst_type);
 		switch (ret) {
 		case BGP_ERR_MULTIPLE_INSTANCE_NOT_SET:
@@ -1034,7 +1038,7 @@ DEFUN_NOSH (router_bgp,
 		 * any pending VRF-VPN leaking that was configured via
 		 * earlier "router bgp X vrf FOO" blocks.
 		 */
-		if (inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+		if (is_new_bgp && inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			vpn_leak_postchange_all();
 
 		/* Pending: handle when user tries to change a view to vrf n vv.
