@@ -240,6 +240,20 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 			}
 		}
 
+		if (route->path.origin.type ==
+		    htons(OSPF6_LSTYPE_INTRA_PREFIX)) {
+			if (!CHECK_FLAG(route->flag, OSPF6_ROUTE_BEST)) {
+				if (is_debug) {
+					prefix2str(&route->prefix, buf,
+						   sizeof(buf));
+					zlog_debug("%s: intra-prefix route %s with cost %u is not best, ignore."
+					   , __PRETTY_FUNCTION__, buf,
+					   route->path.cost);
+				}
+				return 0;
+			}
+		}
+
 		if (is_debug) {
 			prefix2str(&route->prefix, buf, sizeof(buf));
 			zlog_debug("Originating summary in area %s for %s cost %u",
@@ -271,9 +285,10 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 				ospf6_abr_delete_route(route, summary,
 						       summary_table, old);
 			}
-		} else if (old)
+		} else if (old) {
+			ospf6_route_remove(summary, summary_table);
 			ospf6_lsa_purge(old);
-
+		}
 		return 0;
 	}
 
