@@ -3407,7 +3407,7 @@ static void tlvs_protocols_supported_to_adj(struct isis_tlvs *tlvs,
 		reduced.nlpids[0] = NLPID_IP;
 	} else if (ipv6_supported) {
 		reduced.count = 1;
-		reduced.nlpids[1] = NLPID_IPV6;
+		reduced.nlpids[0] = NLPID_IPV6;
 	} else {
 		reduced.count = 0;
 	}
