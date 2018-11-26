@@ -51,6 +51,9 @@ ripd_ripd_LDADD = ripd/librip.a lib/libfrr.la @LIBCAP@
 ripd_ripd_SOURCES = \
 	ripd/rip_main.c \
 	# end
+nodist_ripd_ripd_SOURCES = \
+	yang/frr-ripd.yang.c \
+	# end
 
 ripd_ripd_snmp_la_SOURCES = ripd/rip_snmp.c
 ripd_ripd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
