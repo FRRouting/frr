@@ -688,9 +688,23 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 			/* Low-order octet of type. */
 			sub_type = *pnt++;
 			if (sub_type != ECOMMUNITY_ROUTE_TARGET
-			    && sub_type != ECOMMUNITY_SITE_ORIGIN)
-				unk_ecom = 1;
-			else
+			    && sub_type != ECOMMUNITY_SITE_ORIGIN) {
+				if (sub_type ==
+				    ECOMMUNITY_FLOWSPEC_REDIRECT_IPV4 &&
+				    type == ECOMMUNITY_ENCODE_IP) {
+					struct in_addr *ipv4 =
+						(struct in_addr *)pnt;
+					char ipv4str[INET_ADDRSTRLEN];
+
+					inet_ntop(AF_INET, ipv4,
+						  ipv4str,
+						  INET_ADDRSTRLEN);
+					len = sprintf(str_buf + str_pnt,
+						      "NH:%s:%d",
+						      ipv4str, pnt[5]);
+				} else
+					unk_ecom = 1;
+			} else
 				len = ecommunity_rt_soo_str(str_buf + str_pnt,
 							    pnt, type, sub_type,
 							    format);

@@ -41,6 +41,10 @@
 #define ECOMMUNITY_REDIRECT_VRF             0x08
 #define ECOMMUNITY_TRAFFIC_MARKING          0x09
 #define ECOMMUNITY_REDIRECT_IP_NH           0x00
+/* from IANA: bgp-extended-communities/bgp-extended-communities.xhtml
+ * 0x0c Flow-spec Redirect to IPv4 - draft-ietf-idr-flowspec-redirect
+ */
+#define ECOMMUNITY_FLOWSPEC_REDIRECT_IPV4   0x0c
 
 /* Low-order octet of the Extended Communities type field for EVPN types */
 #define ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY  0x00
