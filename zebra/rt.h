@@ -86,7 +86,7 @@ extern int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip);
  */
 extern void interface_list(struct zebra_ns *zns);
 extern void kernel_init(struct zebra_ns *zns);
-extern void kernel_terminate(struct zebra_ns *zns);
+extern void kernel_terminate(struct zebra_ns *zns, bool complete);
 extern void macfdb_read(struct zebra_ns *zns);
 extern void macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 				   struct interface *br_if);

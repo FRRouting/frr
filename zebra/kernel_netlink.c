@@ -396,7 +396,7 @@ static int kernel_read(struct thread *thread)
 
 /*
  * Filter out messages from self that occur on listener socket,
- * caused by our actions on the command socket
+ * caused by our actions on the command socket(s)
  *
  * When we add new Netlink message types we probably
  * do not need to add them here as that we are filtering
@@ -407,7 +407,7 @@ static int kernel_read(struct thread *thread)
  * so that we only had to write one way to handle incoming
  * address add/delete changes.
  */
-static void netlink_install_filter(int sock, __u32 pid)
+static void netlink_install_filter(int sock, __u32 pid, __u32 dplane_pid)
 {
 	/*
 	 * BPF_JUMP instructions and where you jump to are based upon
@@ -418,7 +418,8 @@ static void netlink_install_filter(int sock, __u32 pid)
 	struct sock_filter filter[] = {
 		/*
 		 * Logic:
-		 *   if (nlmsg_pid == pid) {
+		 *   if (nlmsg_pid == pid ||
+		 *       nlmsg_pid == dplane_pid) {
 		 *       if (the incoming nlmsg_type ==
 		 *           RTM_NEWADDR | RTM_DELADDR)
 		 *           keep this message
@@ -435,26 +436,30 @@ static void netlink_install_filter(int sock, __u32 pid)
 		/*
 		 * 1: Compare to pid
 		 */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htonl(pid), 0, 4),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htonl(pid), 1, 0),
 		/*
-		 * 2: Load the nlmsg_type into BPF register
+		 * 2: Compare to dplane pid
+		 */
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htonl(dplane_pid), 0, 4),
+		/*
+		 * 3: Load the nlmsg_type into BPF register
 		 */
 		BPF_STMT(BPF_LD | BPF_ABS | BPF_H,
 			 offsetof(struct nlmsghdr, nlmsg_type)),
 		/*
-		 * 3: Compare to RTM_NEWADDR
+		 * 4: Compare to RTM_NEWADDR
 		 */
 		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_NEWADDR), 2, 0),
 		/*
-		 * 4: Compare to RTM_DELADDR
+		 * 5: Compare to RTM_DELADDR
 		 */
 		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_DELADDR), 1, 0),
 		/*
-		 * 5: This is the end state of we want to skip the
+		 * 6: This is the end state of we want to skip the
 		 *    message
 		 */
 		BPF_STMT(BPF_RET | BPF_K, 0),
-		/* 6: This is the end state of we want to keep
+		/* 7: This is the end state of we want to keep
 		 *     the message
 		 */
 		BPF_STMT(BPF_RET | BPF_K, 0xffff),
@@ -1102,6 +1107,15 @@ void kernel_init(struct zebra_ns *zns)
 		exit(-1);
 	}
 
+	snprintf(zns->netlink_dplane.name, sizeof(zns->netlink_dplane.name),
+		 "netlink-dp (NS %u)", zns->ns_id);
+	zns->netlink_dplane.sock = -1;
+	if (netlink_socket(&zns->netlink_dplane, 0, zns->ns_id) < 0) {
+		zlog_err("Failure to create %s socket",
+			 zns->netlink_dplane.name);
+		exit(-1);
+	}
+
 	/*
 	 * SOL_NETLINK is not available on all platforms yet
 	 * apparently.  It's in bits/socket.h which I am not
@@ -1110,14 +1124,22 @@ void kernel_init(struct zebra_ns *zns)
 #if defined SOL_NETLINK
 	/*
 	 * Let's tell the kernel that we want to receive extended
-	 * ACKS over our command socket
+	 * ACKS over our command socket(s)
 	 */
 	one = 1;
 	ret = setsockopt(zns->netlink_cmd.sock, SOL_NETLINK, NETLINK_EXT_ACK,
 			 &one, sizeof(one));
 
 	if (ret < 0)
-		zlog_notice("Registration for extended ACK failed : %d %s",
+		zlog_notice("Registration for extended cmd ACK failed : %d %s",
+			    errno, safe_strerror(errno));
+
+	one = 1;
+	ret = setsockopt(zns->netlink_dplane.sock, SOL_NETLINK, NETLINK_EXT_ACK,
+			 &one, sizeof(one));
+
+	if (ret < 0)
+		zlog_notice("Registration for extended dp ACK failed : %d %s",
 			    errno, safe_strerror(errno));
 #endif
 
@@ -1130,12 +1152,18 @@ void kernel_init(struct zebra_ns *zns)
 		zlog_err("Can't set %s socket error: %s(%d)",
 			 zns->netlink_cmd.name, safe_strerror(errno), errno);
 
+	if (fcntl(zns->netlink_dplane.sock, F_SETFL, O_NONBLOCK) < 0)
+		zlog_err("Can't set %s socket error: %s(%d)",
+			 zns->netlink_dplane.name, safe_strerror(errno), errno);
+
 	/* Set receive buffer size if it's set from command line */
 	if (nl_rcvbufsize)
 		netlink_recvbuf(&zns->netlink, nl_rcvbufsize);
 
 	netlink_install_filter(zns->netlink.sock,
-			       zns->netlink_cmd.snl.nl_pid);
+			       zns->netlink_cmd.snl.nl_pid,
+			       zns->netlink_dplane.snl.nl_pid);
+
 	zns->t_netlink = NULL;
 
 	thread_add_read(zebrad.master, kernel_read, zns,
@@ -1144,7 +1172,7 @@ void kernel_init(struct zebra_ns *zns)
 	rt_netlink_init();
 }
 
-void kernel_terminate(struct zebra_ns *zns)
+void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
 	THREAD_READ_OFF(zns->t_netlink);
 
@@ -1157,6 +1185,15 @@ void kernel_terminate(struct zebra_ns *zns)
 		close(zns->netlink_cmd.sock);
 		zns->netlink_cmd.sock = -1;
 	}
-}
 
+	/* During zebra shutdown, we need to leave the dataplane socket
+	 * around until all work is done.
+	 */
+	if (complete) {
+		if (zns->netlink_dplane.sock >= 0) {
+			close(zns->netlink_dplane.sock);
+			zns->netlink_dplane.sock = -1;
+		}
+	}
+}
 #endif /* HAVE_NETLINK */
