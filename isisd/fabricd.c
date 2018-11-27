@@ -645,25 +645,9 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 	void *cursor = NULL;
 	struct neighbor_entry *n;
 
-	/* Mark all elements in NL as present and move T0s into DNR */
+	/* Mark all elements in NL as present */
 	while (!skiplist_next(f->neighbors, NULL, (void **)&n, &cursor)) {
 		n->present = true;
-
-		struct isis_lsp *node_lsp = lsp_for_neighbor(f, n);
-		if (!node_lsp
-		    || !node_lsp->tlvs
-		    || !node_lsp->tlvs->spine_leaf
-		    || !node_lsp->tlvs->spine_leaf->has_tier
-		    || node_lsp->tlvs->spine_leaf->tier != 0) {
-			continue;
-		}
-
-		if (isis->debugs & DEBUG_FLOODING) {
-			zlog_debug("Moving %s to DNR because it's T0",
-			           rawlspid_print(node_lsp->hdr.lsp_id));
-		}
-
-		move_to_queue(lsp, n, TX_LSP_CIRCUIT_SCOPED, circuit);
 	}
 
 	/* Mark all elements in NN as present */
