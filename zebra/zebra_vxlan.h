@@ -111,6 +111,10 @@ extern void zebra_vxlan_print_neigh_all_vni(struct vty *vty,
 					    struct zebra_vrf *zvrf,
 					    bool print_dup,
 					    bool use_json);
+extern void zebra_vxlan_print_neigh_all_vni_detail(struct vty *vty,
+						   struct zebra_vrf *zvrf,
+						   bool print_dup,
+						   bool use_json);
 extern void zebra_vxlan_print_specific_neigh_vni(struct vty *vty,
 						 struct zebra_vrf *zvrf,
 						 vni_t vni, struct ipaddr *ip,
