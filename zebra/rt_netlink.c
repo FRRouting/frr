@@ -2274,6 +2274,25 @@ static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
 			    0);
 }
 
+/*
+ * In the event the kernel deletes ipv4 link-local neighbor entries created for
+ * 5549 support, re-install them.
+ */
+static void netlink_handle_5549(struct ndmsg *ndm, struct zebra_if *zif,
+				struct interface *ifp, struct ipaddr *ip)
+{
+	if (ndm->ndm_family != AF_INET)
+		return;
+
+	if (!zif->v6_2_v4_ll_neigh_entry)
+		return;
+
+	if (ipv4_ll.s_addr != ip->ip._v4_addr.s_addr)
+		return;
+
+	if_nbr_ipv6ll_to_ipv4ll_neigh_update(ifp, &zif->v6_2_v4_ll_addr6, true);
+}
+
 #define NUD_VALID                                                              \
 	(NUD_PERMANENT | NUD_NOARP | NUD_REACHABLE | NUD_PROBE | NUD_STALE     \
 	 | NUD_DELAY)
@@ -2319,28 +2338,15 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	ip.ipa_type = (ndm->ndm_family == AF_INET) ? IPADDR_V4 : IPADDR_V6;
 	memcpy(&ip.ip.addr, RTA_DATA(tb[NDA_DST]), RTA_PAYLOAD(tb[NDA_DST]));
 
-	/* Drop some "permanent" entries. */
-	if (ndm->ndm_state & NUD_PERMANENT) {
-		char b[16] = "169.254.0.1";
-		struct in_addr ipv4_ll;
-
-		if (ndm->ndm_family != AF_INET)
-			return 0;
-
-		if (!zif->v6_2_v4_ll_neigh_entry)
-			return 0;
-
-		if (h->nlmsg_type != RTM_DELNEIGH)
-			return 0;
-
-		inet_pton(AF_INET, b, &ipv4_ll);
-		if (ipv4_ll.s_addr != ip.ip._v4_addr.s_addr)
-			return 0;
-
-		if_nbr_ipv6ll_to_ipv4ll_neigh_update(
-			ifp, &zif->v6_2_v4_ll_addr6, true);
+	/* if kernel deletes our rfc5549 neighbor entry, re-install it */
+	if (h->nlmsg_type == RTM_DELNEIGH && (ndm->ndm_state & NUD_PERMANENT)) {
+		netlink_handle_5549(ndm, zif, ifp, &ip);
 		return 0;
 	}
+
+	/* if kernel marks our rfc5549 neighbor entry invalid, re-install it */
+	if (h->nlmsg_type == RTM_NEWNEIGH && !(ndm->ndm_state & NUD_VALID))
+		netlink_handle_5549(ndm, zif, ifp, &ip);
 
 	/* The neighbor is present on an SVI. From this, we locate the
 	 * underlying
