@@ -151,6 +151,16 @@ LDP Configuration
    HOLDTIME value ranges from 1 to 65535 seconds. Default value is 15 seconds.
    That value is added as a TLV in the LDP messages.
 
+.. index:: [no] dual-stack transport-connection prefer ipv4
+.. clicmd:: [no] dual-stack transport-connection prefer ipv4
+
+   When *ldpd* is configured for dual-stack operation, the transport connection
+   preference is IPv6 by default (as specified by :rfc:`7552`). On such
+   circumstances, *ldpd* will refuse to establish TCP connections over IPv4.
+   You can use above command to change the transport connection preference to
+   IPv4. In this case, it will be possible to distribute label mappings for
+   IPv6 FECs over TCPv4 connections.
+
 .. _show-ldp-information:
 
 Show LDP Information
