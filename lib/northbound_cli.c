@@ -56,10 +56,30 @@ static void vty_show_libyang_errors(struct vty *vty, struct ly_ctx *ly_ctx)
 	ly_err_clean(ly_ctx, NULL);
 }
 
-int nb_cli_cfg_change(struct vty *vty, char *xpath_base,
-		      struct cli_config_change changes[], size_t size)
+void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
+			   enum nb_operation operation, const char *value)
+{
+	struct vty_cfg_change *change;
+
+	if (vty->num_cfg_changes == VTY_MAXCFGCHANGES) {
+		/* Not expected to happen. */
+		vty_out(vty,
+			"%% Exceeded the maximum number of changes (%u) for a single command\n\n",
+			VTY_MAXCFGCHANGES);
+		return;
+	}
+
+	change = &vty->cfg_changes[vty->num_cfg_changes++];
+	change->xpath = xpath;
+	change->operation = operation;
+	change->value = value;
+}
+
+int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 {
 	struct nb_config *candidate_transitory;
+	char xpath_base[XPATH_MAXLEN];
+	va_list ap;
 	bool error = false;
 	int ret;
 
@@ -72,9 +92,14 @@ int nb_cli_cfg_change(struct vty *vty, char *xpath_base,
 	 */
 	candidate_transitory = nb_config_dup(vty->candidate_config);
 
+	/* Parse the base XPath format string. */
+	va_start(ap, xpath_base_fmt);
+	vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
+	va_end(ap);
+
 	/* Edit candidate configuration. */
-	for (size_t i = 0; i < size; i++) {
-		struct cli_config_change *change = &changes[i];
+	for (size_t i = 0; i < vty->num_cfg_changes; i++) {
+		struct vty_cfg_change *change = &vty->cfg_changes[i];
 		struct nb_node *nb_node;
 		char xpath[XPATH_MAXLEN];
 		struct yang_data *data;
@@ -82,19 +107,21 @@ int nb_cli_cfg_change(struct vty *vty, char *xpath_base,
 		/* Handle relative XPaths. */
 		memset(xpath, 0, sizeof(xpath));
 		if (vty->xpath_index > 0
-		    && ((xpath_base && xpath_base[0] == '.')
+		    && ((xpath_base_fmt && xpath_base[0] == '.')
 			|| change->xpath[0] == '.'))
 			strlcpy(xpath, VTY_CURR_XPATH, sizeof(xpath));
-		if (xpath_base) {
+		if (xpath_base_fmt) {
 			if (xpath_base[0] == '.')
-				xpath_base++;
-			strlcat(xpath, xpath_base, sizeof(xpath));
+				strlcat(xpath, xpath_base + 1, sizeof(xpath));
+			else
+				strlcat(xpath, xpath_base, sizeof(xpath));
 		}
 		if (change->xpath[0] == '.')
 			strlcat(xpath, change->xpath + 1, sizeof(xpath));
 		else
 			strlcpy(xpath, change->xpath, sizeof(xpath));
 
+		/* Find the northbound node associated to the data path. */
 		nb_node = nb_node_find(xpath);
 		if (!nb_node) {
 			flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,

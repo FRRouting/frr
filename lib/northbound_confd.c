@@ -951,9 +951,11 @@ static int frr_confd_dp_read(struct thread *thread)
 	ret = confd_fd_ready(dctx, fd);
 	if (ret == CONFD_EOF) {
 		flog_err_confd("confd_fd_ready");
+		frr_confd_finish();
 		return -1;
 	} else if (ret == CONFD_ERR && confd_errno != CONFD_ERR_EXTERNAL) {
 		flog_err_confd("confd_fd_ready");
+		frr_confd_finish();
 		return -1;
 	}
 

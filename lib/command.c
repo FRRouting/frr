@@ -1051,8 +1051,13 @@ static int cmd_execute_command_real(vector vline, enum filter_type filter,
 	int ret;
 	if (matched_element->daemon)
 		ret = CMD_SUCCESS_DAEMON;
-	else
+	else {
+		/* Clear enqueued configuration changes. */
+		vty->num_cfg_changes = 0;
+		memset(&vty->cfg_changes, 0, sizeof(vty->cfg_changes));
+
 		ret = matched_element->func(matched_element, vty, argc, argv);
+	}
 
 	// delete list and cmd_token's in it
 	list_delete(&argv_list);

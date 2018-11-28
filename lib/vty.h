@@ -35,9 +35,17 @@
 #define VTY_MAXHIST 20
 #define VTY_MAXDEPTH 8
 
+#define VTY_MAXCFGCHANGES 8
+
 struct vty_error {
 	char error_buf[VTY_BUFSIZ];
 	uint32_t line_num;
+};
+
+struct vty_cfg_change {
+	const char *xpath;
+	enum nb_operation operation;
+	const char *value;
 };
 
 /* VTY struct. */
@@ -97,6 +105,10 @@ struct vty {
 
 	/* History insert end point */
 	int hindex;
+
+	/* Changes enqueued to be applied in the candidate configuration. */
+	size_t num_cfg_changes;
+	struct vty_cfg_change cfg_changes[VTY_MAXCFGCHANGES];
 
 	/* XPath of the current node */
 	int xpath_index;

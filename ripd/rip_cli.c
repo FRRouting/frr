@@ -45,17 +45,12 @@ DEFPY_NOSH (router_rip,
 {
 	int ret;
 
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "/frr-ripd:ripd/instance",
-			.operation = NB_OP_CREATE,
-			.value = NULL,
-		},
-	};
+	nb_cli_enqueue_change(vty, "/frr-ripd:ripd/instance", NB_OP_CREATE,
+			      NULL);
 
-	ret = nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	ret = nb_cli_apply_changes(vty, NULL);
 	if (ret == CMD_SUCCESS)
-		VTY_PUSH_XPATH(RIP_NODE, changes[0].xpath);
+		VTY_PUSH_XPATH(RIP_NODE, "/frr-ripd:ripd/instance");
 
 	return ret;
 }
@@ -67,15 +62,10 @@ DEFPY (no_router_rip,
        "Enable a routing process\n"
        "Routing Information Protocol (RIP)\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "/frr-ripd:ripd/instance",
-			.operation = NB_OP_DELETE,
-			.value = NULL,
-		},
-	};
+	nb_cli_enqueue_change(vty, "/frr-ripd:ripd/instance", NB_OP_DELETE,
+			      NULL);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void cli_show_router_rip(struct vty *vty, struct lyd_node *dnode,
@@ -94,15 +84,10 @@ DEFPY (rip_allow_ecmp,
        NO_STR
        "Allow Equal Cost MultiPath\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./allow-ecmp",
-			.operation = NB_OP_MODIFY,
-			.value = no ? "false" : "true",
-		},
-	};
+	nb_cli_enqueue_change(vty, "./allow-ecmp", NB_OP_MODIFY,
+			      no ? "false" : "true");
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void cli_show_rip_allow_ecmp(struct vty *vty, struct lyd_node *dnode,
@@ -124,15 +109,10 @@ DEFPY (rip_default_information_originate,
        "Control distribution of default route\n"
        "Distribute a default route\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./default-information-originate",
-			.operation = NB_OP_MODIFY,
-			.value = no ? "false" : "true",
-		},
-	};
+	nb_cli_enqueue_change(vty, "./default-information-originate",
+			      NB_OP_MODIFY, no ? "false" : "true");
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void cli_show_rip_default_information_originate(struct vty *vty,
@@ -154,15 +134,10 @@ DEFPY (rip_default_metric,
        "Set a metric of redistribute routes\n"
        "Default metric\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./default-metric",
-			.operation = NB_OP_MODIFY,
-			.value = default_metric_str,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./default-metric", NB_OP_MODIFY,
+			      default_metric_str);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY (no_rip_default_metric,
@@ -172,15 +147,9 @@ DEFPY (no_rip_default_metric,
        "Set a metric of redistribute routes\n"
        "Default metric\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./default-metric",
-			.operation = NB_OP_MODIFY,
-			.value = NULL,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./default-metric", NB_OP_MODIFY, NULL);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void cli_show_rip_default_metric(struct vty *vty, struct lyd_node *dnode,
@@ -199,15 +168,10 @@ DEFPY (rip_distance,
        "Administrative distance\n"
        "Distance value\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./distance/default",
-			.operation = NB_OP_MODIFY,
-			.value = distance_str,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./distance/default", NB_OP_MODIFY,
+			      distance_str);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY (no_rip_distance,
@@ -217,21 +181,19 @@ DEFPY (no_rip_distance,
        "Administrative distance\n"
        "Distance value\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./distance/default",
-			.operation = NB_OP_MODIFY,
-			.value = NULL,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./distance/default", NB_OP_MODIFY, NULL);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void cli_show_rip_distance(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults)
 {
-	vty_out(vty, " distance %s\n", yang_dnode_get_string(dnode, NULL));
+	if (yang_dnode_is_default(dnode, NULL))
+		vty_out(vty, " no distance\n");
+	else
+		vty_out(vty, " distance %s\n",
+			yang_dnode_get_string(dnode, NULL));
 }
 
 /*
@@ -239,57 +201,23 @@ void cli_show_rip_distance(struct vty *vty, struct lyd_node *dnode,
  */
 DEFPY (rip_distance_source,
        rip_distance_source_cmd,
-       "distance (1-255) A.B.C.D/M$prefix [WORD$acl]",
-       "Administrative distance\n"
-       "Distance value\n"
-       "IP source prefix\n"
-       "Access list name\n")
-{
-	char xpath_list[XPATH_MAXLEN];
-	struct cli_config_change changes[] = {
-		{
-			.xpath = ".",
-			.operation = NB_OP_CREATE,
-		},
-		{
-			.xpath = "./distance",
-			.operation = NB_OP_MODIFY,
-			.value = distance_str,
-		},
-		{
-			.xpath = "./access-list",
-			.operation = acl ? NB_OP_MODIFY : NB_OP_DELETE,
-			.value = acl,
-		},
-	};
-
-	snprintf(xpath_list, sizeof(xpath_list),
-		 "./distance/source[prefix='%s']", prefix_str);
-
-	return nb_cli_cfg_change(vty, xpath_list, changes, array_size(changes));
-}
-
-DEFPY (no_rip_distance_source,
-       no_rip_distance_source_cmd,
-       "no distance (1-255) A.B.C.D/M$prefix [WORD$acl]",
+       "[no] distance (1-255) A.B.C.D/M$prefix [WORD$acl]",
        NO_STR
        "Administrative distance\n"
        "Distance value\n"
        "IP source prefix\n"
        "Access list name\n")
 {
-	char xpath_list[XPATH_MAXLEN];
-	struct cli_config_change changes[] = {
-		{
-			.xpath = ".",
-			.operation = NB_OP_DELETE,
-		},
-	};
+	if (!no) {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./distance", NB_OP_MODIFY, NULL);
+		nb_cli_enqueue_change(vty, "./access-list",
+				      acl ? NB_OP_MODIFY : NB_OP_DELETE, acl);
+	} else
+		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
 
-	snprintf(xpath_list, sizeof(xpath_list),
-		 "./distance/source[prefix='%s']", prefix_str);
-
-	return nb_cli_cfg_change(vty, xpath_list, changes, 1);
+	return nb_cli_apply_changes(vty, "./distance/source[prefix='%s']",
+				    prefix_str);
 }
 
 void cli_show_rip_distance_source(struct vty *vty, struct lyd_node *dnode,
@@ -314,15 +242,10 @@ DEFPY (rip_neighbor,
        "Specify a neighbor router\n"
        "Neighbor address\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./explicit-neighbor",
-			.operation = no ? NB_OP_DELETE : NB_OP_CREATE,
-			.value = neighbor_str,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./explicit-neighbor",
+			      no ? NB_OP_DELETE : NB_OP_CREATE, neighbor_str);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void cli_show_rip_neighbor(struct vty *vty, struct lyd_node *dnode,
@@ -341,15 +264,10 @@ DEFPY (rip_network_prefix,
        "Enable routing on an IP network\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./network",
-			.operation = no ? NB_OP_DELETE : NB_OP_CREATE,
-			.value = network_str,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./network",
+			      no ? NB_OP_DELETE : NB_OP_CREATE, network_str);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void cli_show_rip_network_prefix(struct vty *vty, struct lyd_node *dnode,
@@ -368,15 +286,10 @@ DEFPY (rip_network_if,
        "Enable routing on an IP network\n"
        "Interface name\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./interface",
-			.operation = no ? NB_OP_DELETE : NB_OP_CREATE,
-			.value = network,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./interface",
+			      no ? NB_OP_DELETE : NB_OP_CREATE, network);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void cli_show_rip_network_interface(struct vty *vty, struct lyd_node *dnode,
@@ -390,42 +303,7 @@ void cli_show_rip_network_interface(struct vty *vty, struct lyd_node *dnode,
  */
 DEFPY (rip_offset_list,
        rip_offset_list_cmd,
-       "offset-list WORD$acl <in|out>$direction (0-16)$metric [IFNAME]",
-       "Modify RIP metric\n"
-       "Access-list name\n"
-       "For incoming updates\n"
-       "For outgoing updates\n"
-       "Metric value\n"
-       "Interface to match\n")
-{
-	char xpath_list[XPATH_MAXLEN];
-	struct cli_config_change changes[] = {
-		{
-			.xpath = ".",
-			.operation = NB_OP_CREATE,
-		},
-		{
-			.xpath = "./access-list",
-			.operation = NB_OP_MODIFY,
-			.value = acl,
-		},
-		{
-			.xpath = "./metric",
-			.operation = NB_OP_MODIFY,
-			.value = metric_str,
-		},
-	};
-
-	snprintf(xpath_list, sizeof(xpath_list),
-		 "./offset-list[interface='%s'][direction='%s']",
-		 ifname ? ifname : "*", direction);
-
-	return nb_cli_cfg_change(vty, xpath_list, changes, array_size(changes));
-}
-
-DEFPY (no_rip_offset_list,
-       no_rip_offset_list_cmd,
-       "no offset-list WORD$acl <in|out>$direction (0-16)$metric [IFNAME]",
+       "[no] offset-list WORD$acl <in|out>$direction (0-16)$metric [IFNAME]",
        NO_STR
        "Modify RIP metric\n"
        "Access-list name\n"
@@ -434,19 +312,17 @@ DEFPY (no_rip_offset_list,
        "Metric value\n"
        "Interface to match\n")
 {
-	char xpath_list[XPATH_MAXLEN];
-	struct cli_config_change changes[] = {
-		{
-			.xpath = ".",
-			.operation = NB_OP_DELETE,
-		},
-	};
+	if (!no) {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./access-list", NB_OP_MODIFY, acl);
+		nb_cli_enqueue_change(vty, "./metric", NB_OP_MODIFY,
+				      metric_str);
+	} else
+		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
 
-	snprintf(xpath_list, sizeof(xpath_list),
-		 "./offset-list[interface='%s'][direction='%s']",
-		 ifname ? ifname : "*", direction);
-
-	return nb_cli_cfg_change(vty, xpath_list, changes, array_size(changes));
+	return nb_cli_apply_changes(
+		vty, "./offset-list[interface='%s'][direction='%s']",
+		ifname ? ifname : "*", direction);
 }
 
 void cli_show_rip_offset_list(struct vty *vty, struct lyd_node *dnode,
@@ -475,15 +351,10 @@ DEFPY (rip_passive_default,
        "Suppress routing updates on an interface\n"
        "default for all interfaces\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./passive-default",
-			.operation = NB_OP_MODIFY,
-			.value = no ? "false" : "true",
-		},
-	};
+	nb_cli_enqueue_change(vty, "./passive-default", NB_OP_MODIFY,
+			      no ? "false" : "true");
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void cli_show_rip_passive_default(struct vty *vty, struct lyd_node *dnode,
@@ -506,20 +377,12 @@ DEFPY (rip_passive_interface,
        "Suppress routing updates on an interface\n"
        "Interface name\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./passive-interface",
-			.operation = no ? NB_OP_DELETE : NB_OP_CREATE,
-			.value = ifname,
-		},
-		{
-			.xpath = "./non-passive-interface",
-			.operation = no ? NB_OP_CREATE : NB_OP_DELETE,
-			.value = ifname,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./passive-interface",
+			      no ? NB_OP_DELETE : NB_OP_CREATE, ifname);
+	nb_cli_enqueue_change(vty, "./non-passive-interface",
+			      no ? NB_OP_CREATE : NB_OP_DELETE, ifname);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void cli_show_rip_passive_interface(struct vty *vty, struct lyd_node *dnode,
@@ -541,41 +404,7 @@ void cli_show_rip_non_passive_interface(struct vty *vty, struct lyd_node *dnode,
  */
 DEFPY (rip_redistribute,
        rip_redistribute_cmd,
-       "redistribute " FRR_REDIST_STR_RIPD "$protocol [{metric (0-16)|route-map WORD}]",
-       REDIST_STR
-       FRR_REDIST_HELP_STR_RIPD
-       "Metric\n"
-       "Metric value\n"
-       "Route map reference\n"
-       "Pointer to route-map entries\n")
-{
-	char xpath_list[XPATH_MAXLEN];
-	struct cli_config_change changes[] = {
-		{
-			.xpath = ".",
-			.operation = NB_OP_CREATE,
-		},
-		{
-			.xpath = "./route-map",
-			.operation = route_map ? NB_OP_MODIFY : NB_OP_DELETE,
-			.value = route_map,
-		},
-		{
-			.xpath = "./metric",
-			.operation = metric_str ? NB_OP_MODIFY : NB_OP_DELETE,
-			.value = metric_str,
-		},
-	};
-
-	snprintf(xpath_list, sizeof(xpath_list),
-		 "./redistribute[protocol='%s']", protocol);
-
-	return nb_cli_cfg_change(vty, xpath_list, changes, array_size(changes));
-}
-
-DEFPY (no_rip_redistribute,
-       no_rip_redistribute_cmd,
-       "no redistribute " FRR_REDIST_STR_RIPD "$protocol [{metric (0-16)|route-map WORD}]",
+       "[no] redistribute " FRR_REDIST_STR_RIPD "$protocol [{metric (0-16)|route-map WORD}]",
        NO_STR
        REDIST_STR
        FRR_REDIST_HELP_STR_RIPD
@@ -584,18 +413,19 @@ DEFPY (no_rip_redistribute,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
-	char xpath_list[XPATH_MAXLEN];
-	struct cli_config_change changes[] = {
-		{
-			.xpath = ".",
-			.operation = NB_OP_DELETE,
-		},
-	};
+	if (!no) {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./route-map",
+				      route_map ? NB_OP_MODIFY : NB_OP_DELETE,
+				      route_map);
+		nb_cli_enqueue_change(vty, "./metric",
+				      metric_str ? NB_OP_MODIFY : NB_OP_DELETE,
+				      metric_str);
+	} else
+		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
 
-	snprintf(xpath_list, sizeof(xpath_list),
-		 "./redistribute[protocol='%s']", protocol);
-
-	return nb_cli_cfg_change(vty, xpath_list, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, "./redistribute[protocol='%s']",
+				    protocol);
 }
 
 void cli_show_rip_redistribute(struct vty *vty, struct lyd_node *dnode,
@@ -622,15 +452,10 @@ DEFPY (rip_route,
        "RIP static route configuration\n"
        "IP prefix <network>/<length>\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./static-route",
-			.operation = no ? NB_OP_DELETE : NB_OP_CREATE,
-			.value = route_str,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./static-route",
+			      no ? NB_OP_DELETE : NB_OP_CREATE, route_str);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void cli_show_rip_route(struct vty *vty, struct lyd_node *dnode,
@@ -651,25 +476,14 @@ DEFPY (rip_timers,
        "Routing information timeout timer. Default is 180.\n"
        "Garbage collection timer. Default is 120.\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./timers/update-interval",
-			.operation = NB_OP_MODIFY,
-			.value = update_str,
-		},
-		{
-			.xpath = "./timers/holddown-interval",
-			.operation = NB_OP_MODIFY,
-			.value = timeout_str,
-		},
-		{
-			.xpath = "./timers/flush-interval",
-			.operation = NB_OP_MODIFY,
-			.value = garbage_str,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./update-interval", NB_OP_MODIFY,
+			      update_str);
+	nb_cli_enqueue_change(vty, "./holddown-interval", NB_OP_MODIFY,
+			      timeout_str);
+	nb_cli_enqueue_change(vty, "./flush-interval", NB_OP_MODIFY,
+			      garbage_str);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, "./timers");
 }
 
 DEFPY (no_rip_timers,
@@ -682,25 +496,11 @@ DEFPY (no_rip_timers,
        "Routing information timeout timer. Default is 180.\n"
        "Garbage collection timer. Default is 120.\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./timers/update-interval",
-			.operation = NB_OP_MODIFY,
-			.value =  NULL,
-		},
-		{
-			.xpath = "./timers/holddown-interval",
-			.operation = NB_OP_MODIFY,
-			.value =  NULL,
-		},
-		{
-			.xpath = "./timers/flush-interval",
-			.operation = NB_OP_MODIFY,
-			.value =  NULL,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./update-interval", NB_OP_MODIFY, NULL);
+	nb_cli_enqueue_change(vty, "./holddown-interval", NB_OP_MODIFY, NULL);
+	nb_cli_enqueue_change(vty, "./flush-interval", NB_OP_MODIFY, NULL);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, "./timers");
 }
 
 void cli_show_rip_timers(struct vty *vty, struct lyd_node *dnode,
@@ -721,20 +521,11 @@ DEFPY (rip_version,
        "Set routing protocol version\n"
        "version\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./version/receive",
-			.operation = NB_OP_MODIFY,
-			.value = version_str,
-		},
-		{
-			.xpath = "./version/send",
-			.operation = NB_OP_MODIFY,
-			.value = version_str,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./version/receive", NB_OP_MODIFY,
+			      version_str);
+	nb_cli_enqueue_change(vty, "./version/send", NB_OP_MODIFY, version_str);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY (no_rip_version,
@@ -744,18 +535,10 @@ DEFPY (no_rip_version,
        "Set routing protocol version\n"
        "version\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./version/receive",
-			.operation = NB_OP_MODIFY,
-		},
-		{
-			.xpath = "./version/send",
-			.operation = NB_OP_MODIFY,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./version/receive", NB_OP_MODIFY, NULL);
+	nb_cli_enqueue_change(vty, "./version/send", NB_OP_MODIFY, NULL);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void cli_show_rip_version(struct vty *vty, struct lyd_node *dnode,
@@ -790,21 +573,18 @@ DEFPY (ip_rip_split_horizon,
        "Perform split horizon\n"
        "With poisoned-reverse\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./frr-ripd:rip/split-horizon",
-			.operation = NB_OP_MODIFY,
-		},
-	};
+	const char *value;
 
 	if (no)
-		changes[0].value = "disabled";
+		value = "disabled";
 	else if (poisoned_reverse)
-		changes[0].value = "poison-reverse";
+		value = "poison-reverse";
 	else
-		changes[0].value = "simple";
+		value = "simple";
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	nb_cli_enqueue_change(vty, "./split-horizon", NB_OP_MODIFY, value);
+
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
 void cli_show_ip_rip_split_horizon(struct vty *vty, struct lyd_node *dnode,
@@ -837,15 +617,10 @@ DEFPY (ip_rip_v2_broadcast,
        "Routing Information Protocol\n"
        "Send ip broadcast v2 update\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./frr-ripd:rip/v2-broadcast",
-			.operation = NB_OP_MODIFY,
-			.value = no ? "false" : "true",
-		},
-	};
+	nb_cli_enqueue_change(vty, "./v2-broadcast", NB_OP_MODIFY,
+			      no ? "false" : "true");
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
 void cli_show_ip_rip_v2_broadcast(struct vty *vty, struct lyd_node *dnode,
@@ -871,23 +646,20 @@ DEFPY (ip_rip_receive_version,
        "RIP version 2\n"
        "None\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./frr-ripd:rip/version-receive",
-			.operation = NB_OP_MODIFY,
-		},
-	};
+	const char *value;
 
 	if (v1 && v2)
-		changes[0].value = "both";
+		value = "both";
 	else if (v1)
-		changes[0].value = "1";
+		value = "1";
 	else if (v2)
-		changes[0].value = "2";
+		value = "2";
 	else
-		changes[0].value = "none";
+		value = "none";
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	nb_cli_enqueue_change(vty, "./version-receive", NB_OP_MODIFY, value);
+
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
 DEFPY (no_ip_rip_receive_version,
@@ -902,15 +674,9 @@ DEFPY (no_ip_rip_receive_version,
        "RIP version 2\n"
        "None\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./frr-ripd:rip/version-receive",
-			.operation = NB_OP_MODIFY,
-			.value = NULL,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./version-receive", NB_OP_MODIFY, NULL);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
 void cli_show_ip_rip_receive_version(struct vty *vty, struct lyd_node *dnode,
@@ -949,23 +715,20 @@ DEFPY (ip_rip_send_version,
        "RIP version 2\n"
        "None\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./frr-ripd:rip/version-send",
-			.operation = NB_OP_MODIFY,
-		},
-	};
+	const char *value;
 
 	if (v1 && v2)
-		changes[0].value = "both";
+		value = "both";
 	else if (v1)
-		changes[0].value = "1";
+		value = "1";
 	else if (v2)
-		changes[0].value = "2";
+		value = "2";
 	else
-		changes[0].value = "none";
+		value = "none";
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	nb_cli_enqueue_change(vty, "./version-send", NB_OP_MODIFY, value);
+
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
 DEFPY (no_ip_rip_send_version,
@@ -980,15 +743,9 @@ DEFPY (no_ip_rip_send_version,
        "RIP version 2\n"
        "None\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./frr-ripd:rip/version-send",
-			.operation = NB_OP_MODIFY,
-			.value = NULL,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./version-send", NB_OP_MODIFY, NULL);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
 void cli_show_ip_rip_send_version(struct vty *vty, struct lyd_node *dnode,
@@ -1029,26 +786,21 @@ DEFPY (ip_rip_authentication_mode,
        "Old ripd compatible\n"
        "Clear text authentication\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./frr-ripd:rip/authentication-scheme/mode",
-			.operation = NB_OP_MODIFY,
-			.value = strmatch(mode, "md5") ? "md5" : "plain-text",
-		},
-		{
-			.xpath = "./frr-ripd:rip/authentication-scheme/md5-auth-length",
-			.operation = NB_OP_MODIFY,
-		},
-	};
+	const char *value = NULL;
 
 	if (auth_length) {
 		if (strmatch(auth_length, "rfc"))
-			changes[1].value = "16";
+			value = "16";
 		else
-			changes[1].value = "20";
+			value = "20";
 	}
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	nb_cli_enqueue_change(vty, "./authentication-scheme/mode", NB_OP_MODIFY,
+			      strmatch(mode, "md5") ? "md5" : "plain-text");
+	nb_cli_enqueue_change(vty, "./authentication-scheme/md5-auth-length",
+			      NB_OP_MODIFY, value);
+
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
 DEFPY (no_ip_rip_authentication_mode,
@@ -1065,18 +817,12 @@ DEFPY (no_ip_rip_authentication_mode,
        "Old ripd compatible\n"
        "Clear text authentication\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./frr-ripd:rip/authentication-scheme/mode",
-			.operation = NB_OP_MODIFY,
-		},
-		{
-			.xpath = "./frr-ripd:rip/authentication-scheme/md5-auth-length",
-			.operation = NB_OP_MODIFY,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./authentication-scheme/mode", NB_OP_MODIFY,
+			      NULL);
+	nb_cli_enqueue_change(vty, "./authentication-scheme/md5-auth-length",
+			      NB_OP_MODIFY, NULL);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
 void cli_show_ip_rip_authentication_scheme(struct vty *vty,
@@ -1117,14 +863,6 @@ DEFPY (ip_rip_authentication_string,
        "Authentication string\n"
        "Authentication string\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./frr-ripd:rip/authentication-password",
-			.operation = NB_OP_MODIFY,
-			.value = password,
-		},
-	};
-
 	if (strlen(password) > 16) {
 		vty_out(vty,
 			"%% RIPv2 authentication string must be shorter than 16\n");
@@ -1138,7 +876,10 @@ DEFPY (ip_rip_authentication_string,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	nb_cli_enqueue_change(vty, "./authentication-password", NB_OP_MODIFY,
+			      password);
+
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
 DEFPY (no_ip_rip_authentication_string,
@@ -1151,14 +892,10 @@ DEFPY (no_ip_rip_authentication_string,
        "Authentication string\n"
        "Authentication string\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./frr-ripd:rip/authentication-password",
-			.operation = NB_OP_DELETE,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./authentication-password", NB_OP_MODIFY,
+			      NULL);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
 void cli_show_ip_rip_authentication_string(struct vty *vty,
@@ -1181,14 +918,6 @@ DEFPY (ip_rip_authentication_key_chain,
        "Authentication key-chain\n"
        "name of key-chain\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./frr-ripd:rip/authentication-key-chain",
-			.operation = NB_OP_MODIFY,
-			.value = keychain,
-		},
-	};
-
 	if (yang_dnode_exists(vty->candidate_config->dnode, "%s%s",
 			      VTY_CURR_XPATH,
 			      "/frr-ripd:rip/authentication-password")) {
@@ -1196,7 +925,10 @@ DEFPY (ip_rip_authentication_key_chain,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	nb_cli_enqueue_change(vty, "./authentication-key-chain", NB_OP_MODIFY,
+			      keychain);
+
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
 DEFPY (no_ip_rip_authentication_key_chain,
@@ -1209,14 +941,10 @@ DEFPY (no_ip_rip_authentication_key_chain,
        "Authentication key-chain\n"
        "name of key-chain\n")
 {
-	struct cli_config_change changes[] = {
-		{
-			.xpath = "./frr-ripd:rip/authentication-key-chain",
-			.operation = NB_OP_DELETE,
-		},
-	};
+	nb_cli_enqueue_change(vty, "./authentication-key-chain", NB_OP_DELETE,
+			      NULL);
 
-	return nb_cli_cfg_change(vty, NULL, changes, array_size(changes));
+	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
 }
 
 void cli_show_ip_rip_authentication_key_chain(struct vty *vty,
@@ -1252,16 +980,13 @@ void rip_cli_init(void)
 	install_element(RIP_NODE, &rip_distance_cmd);
 	install_element(RIP_NODE, &no_rip_distance_cmd);
 	install_element(RIP_NODE, &rip_distance_source_cmd);
-	install_element(RIP_NODE, &no_rip_distance_source_cmd);
 	install_element(RIP_NODE, &rip_neighbor_cmd);
 	install_element(RIP_NODE, &rip_network_prefix_cmd);
 	install_element(RIP_NODE, &rip_network_if_cmd);
 	install_element(RIP_NODE, &rip_offset_list_cmd);
-	install_element(RIP_NODE, &no_rip_offset_list_cmd);
 	install_element(RIP_NODE, &rip_passive_default_cmd);
 	install_element(RIP_NODE, &rip_passive_interface_cmd);
 	install_element(RIP_NODE, &rip_redistribute_cmd);
-	install_element(RIP_NODE, &no_rip_redistribute_cmd);
 	install_element(RIP_NODE, &rip_route_cmd);
 	install_element(RIP_NODE, &rip_timers_cmd);
 	install_element(RIP_NODE, &no_rip_timers_cmd);
