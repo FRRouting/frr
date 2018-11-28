@@ -215,8 +215,23 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 	}
 	if (!listnode_lookup(rnh->client_list, client)) {
 		listnode_add(rnh->client_list, client);
-		send_client(rnh, client, type, vrf_id);
 	}
+        /* 
+         * Zebra was not responding to re-registration messages from bgp due to 
+         * which the next hop (which was reset in BGP) was not getting resolved
+         * So bgp was not preceding ahead with this next hop and there was a deadlock
+         * created for this next hop. 
+         * If similar scenario happens in the neighbour FRR router. As a result of that 
+         * both the neighbour would NOT try to connect each other and will depend on 
+         * each other to initiate the connection ,which is never going to happen
+         * if both the neighbours are having this same bug, it’s a deadlock.
+         *                                                                                                                                                                               
+         * So, inorder to avoid this deadlock Zebra would respond to the client registration request,
+         * even if next-hop is already registered. This change is needed as bgp's neighbour 
+         * machine, for this particular neighbour goes into dead lock state, and never send 
+         * any connect request to this neighbour. 
+         */ 
+	send_client(rnh, client, type, vrf_id);
 }
 
 void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
