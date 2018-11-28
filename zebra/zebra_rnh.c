@@ -225,10 +225,14 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 			   zebra_route_string(client->proto),
 			   rnh_str(rnh, buf, sizeof(buf)), type);
 	}
-	if (!listnode_lookup(rnh->client_list, client)) {
+	if (!listnode_lookup(rnh->client_list, client))
 		listnode_add(rnh->client_list, client);
-		send_client(rnh, client, type, vrf_id);
-	}
+
+	/*
+	 * We always need to respond with known information,
+	 * currently multiple daemons expect this behavior
+	 */
+	send_client(rnh, client, type, vrf_id);
 }
 
 void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
