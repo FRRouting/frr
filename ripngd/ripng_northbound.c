@@ -445,14 +445,33 @@ static int ripngd_instance_static_route_create(enum nb_event event,
 					       const struct lyd_node *dnode,
 					       union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct prefix_ipv6 p;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	yang_dnode_get_ipv6p(&p, dnode, NULL);
+	apply_mask_ipv6(&p);
+
+	ripng_redistribute_add(ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_STATIC, &p, 0,
+			       NULL, 0);
+
 	return NB_OK;
 }
 
 static int ripngd_instance_static_route_delete(enum nb_event event,
 					       const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	struct prefix_ipv6 p;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	yang_dnode_get_ipv6p(&p, dnode, NULL);
+	apply_mask_ipv6(&p);
+
+	ripng_redistribute_delete(ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_STATIC, &p, 0);
+
 	return NB_OK;
 }
 
@@ -752,6 +771,7 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.xpath = "/frr-ripngd:ripngd/instance/static-route",
 			.cbs.create = ripngd_instance_static_route_create,
 			.cbs.delete = ripngd_instance_static_route_delete,
+			.cbs.cli_show = cli_show_ripng_route,
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/aggregate-address",

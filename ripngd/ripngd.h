@@ -111,9 +111,6 @@ struct ripng {
 	/* RIPng routing information base. */
 	struct agg_table *table;
 
-	/* RIPng only static route information. */
-	struct agg_table *route;
-
 	/* RIPng aggregate route information. */
 	struct agg_table *aggregate;
 

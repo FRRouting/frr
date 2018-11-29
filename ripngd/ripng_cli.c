@@ -312,6 +312,28 @@ void cli_show_ripng_redistribute(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
+/*
+ * XPath: /frr-ripngd:ripngd/instance/static-route
+ */
+DEFPY (ripng_route,
+       ripng_route_cmd,
+       "[no] route X:X::X:X/M",
+       NO_STR
+       "Static route setup\n"
+       "Set static RIPng route announcement\n")
+{
+	nb_cli_enqueue_change(vty, "./static-route",
+			      no ? NB_OP_DELETE : NB_OP_CREATE, route_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ripng_route(struct vty *vty, struct lyd_node *dnode,
+			  bool show_defaults)
+{
+	vty_out(vty, " route %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 void ripng_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_ripng_cmd);
@@ -326,4 +348,5 @@ void ripng_cli_init(void)
 	install_element(RIPNG_NODE, &ripng_offset_list_cmd);
 	install_element(RIPNG_NODE, &ripng_passive_interface_cmd);
 	install_element(RIPNG_NODE, &ripng_redistribute_cmd);
+	install_element(RIPNG_NODE, &ripng_route_cmd);
 }

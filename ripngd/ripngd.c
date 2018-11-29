@@ -1805,7 +1805,6 @@ int ripng_create(int socket)
 
 	/* Initialize RIPng routig table. */
 	ripng->table = agg_table_init();
-	ripng->route = agg_table_init();
 	ripng->aggregate = agg_table_init();
 
 	/* Make socket. */
@@ -2157,74 +2156,6 @@ DEFUN (clear_ipv6_rip,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ripng_route,
-       ripng_route_cmd,
-       "route IPV6ADDR",
-       "Static route setup\n"
-       "Set static RIPng route announcement\n")
-{
-	int idx_ipv6addr = 1;
-	int ret;
-	struct prefix_ipv6 p;
-	struct agg_node *rp;
-
-	ret = str2prefix_ipv6(argv[idx_ipv6addr]->arg,
-			      (struct prefix_ipv6 *)&p);
-	if (ret <= 0) {
-		vty_out(vty, "Malformed address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	apply_mask_ipv6(&p);
-
-	rp = agg_node_get(ripng->route, (struct prefix *)&p);
-	if (rp->info) {
-		vty_out(vty, "There is already same static route.\n");
-		agg_unlock_node(rp);
-		return CMD_WARNING;
-	}
-	rp->info = (void *)1;
-
-	ripng_redistribute_add(ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_STATIC, &p, 0,
-			       NULL, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ripng_route,
-       no_ripng_route_cmd,
-       "no route IPV6ADDR",
-       NO_STR
-       "Static route setup\n"
-       "Delete static RIPng route announcement\n")
-{
-	int idx_ipv6addr = 2;
-	int ret;
-	struct prefix_ipv6 p;
-	struct agg_node *rp;
-
-	ret = str2prefix_ipv6(argv[idx_ipv6addr]->arg,
-			      (struct prefix_ipv6 *)&p);
-	if (ret <= 0) {
-		vty_out(vty, "Malformed address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	apply_mask_ipv6(&p);
-
-	rp = agg_node_lookup(ripng->route, (struct prefix *)&p);
-	if (!rp) {
-		vty_out(vty, "Can't find static route.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ripng_redistribute_delete(ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_STATIC, &p, 0);
-	agg_unlock_node(rp);
-
-	rp->info = NULL;
-	agg_unlock_node(rp);
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (ripng_aggregate_address,
        ripng_aggregate_address_cmd,
        "aggregate-address X:X::X:X/M",
@@ -2530,14 +2461,6 @@ static int ripng_config_write(struct vty *vty)
 					inet6_ntoa(rp->p.u.prefix6),
 					rp->p.prefixlen);
 
-		/* RIPng static routes. */
-		for (rp = agg_route_top(ripng->route); rp;
-		     rp = agg_route_next(rp))
-			if (rp->info != NULL)
-				vty_out(vty, " route %s/%d\n",
-					inet6_ntoa(rp->p.u.prefix6),
-					rp->p.prefixlen);
-
 		/* RIPng timers configuration. */
 		if (ripng->update_time != RIPNG_UPDATE_TIMER_DEFAULT
 		    || ripng->timeout_time != RIPNG_TIMEOUT_TIMER_DEFAULT
@@ -2706,14 +2629,6 @@ void ripng_clean()
 			ripng->sock = -1;
 		}
 
-		/* Static RIPng route configuration. */
-		for (rp = agg_route_top(ripng->route); rp;
-		     rp = agg_route_next(rp))
-			if (rp->info) {
-				rp->info = NULL;
-				agg_unlock_node(rp);
-			}
-
 		/* RIPng aggregated prefixes */
 		for (rp = agg_route_top(ripng->aggregate); rp;
 		     rp = agg_route_next(rp))
@@ -2727,7 +2642,6 @@ void ripng_clean()
 				free(ripng->route_map[i].name);
 
 		XFREE(MTYPE_ROUTE_TABLE, ripng->table);
-		XFREE(MTYPE_ROUTE_TABLE, ripng->route);
 		XFREE(MTYPE_ROUTE_TABLE, ripng->aggregate);
 
 		stream_free(ripng->ibuf);
@@ -2841,8 +2755,6 @@ void ripng_init()
 	install_element(ENABLE_NODE, &clear_ipv6_rip_cmd);
 
 	install_default(RIPNG_NODE);
-	install_element(RIPNG_NODE, &ripng_route_cmd);
-	install_element(RIPNG_NODE, &no_ripng_route_cmd);
 	install_element(RIPNG_NODE, &ripng_aggregate_address_cmd);
 	install_element(RIPNG_NODE, &no_ripng_aggregate_address_cmd);
 
