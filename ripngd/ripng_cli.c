@@ -334,6 +334,30 @@ void cli_show_ripng_route(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " route %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
+/*
+ * XPath: /frr-ripngd:ripngd/instance/aggregate-addres
+ */
+DEFPY (ripng_aggregate_address,
+       ripng_aggregate_address_cmd,
+       "[no] aggregate-address X:X::X:X/M",
+       NO_STR
+       "Set aggregate RIPng route announcement\n"
+       "Aggregate network\n")
+{
+	nb_cli_enqueue_change(vty, "./aggregate-address",
+			      no ? NB_OP_DELETE : NB_OP_CREATE,
+			      aggregate_address_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ripng_aggregate_address(struct vty *vty, struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	vty_out(vty, " aggregate-address %s\n",
+		yang_dnode_get_string(dnode, NULL));
+}
+
 void ripng_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_ripng_cmd);
@@ -349,4 +373,5 @@ void ripng_cli_init(void)
 	install_element(RIPNG_NODE, &ripng_passive_interface_cmd);
 	install_element(RIPNG_NODE, &ripng_redistribute_cmd);
 	install_element(RIPNG_NODE, &ripng_route_cmd);
+	install_element(RIPNG_NODE, &ripng_aggregate_address_cmd);
 }

@@ -1805,7 +1805,6 @@ int ripng_create(int socket)
 
 	/* Initialize RIPng routig table. */
 	ripng->table = agg_table_init();
-	ripng->aggregate = agg_table_init();
 
 	/* Make socket. */
 	ripng->sock = socket;
@@ -2156,71 +2155,6 @@ DEFUN (clear_ipv6_rip,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ripng_aggregate_address,
-       ripng_aggregate_address_cmd,
-       "aggregate-address X:X::X:X/M",
-       "Set aggregate RIPng route announcement\n"
-       "Aggregate network\n")
-{
-	int idx_ipv6_prefixlen = 1;
-	int ret;
-	struct prefix p;
-	struct agg_node *node;
-
-	ret = str2prefix_ipv6(argv[idx_ipv6_prefixlen]->arg,
-			      (struct prefix_ipv6 *)&p);
-	if (ret <= 0) {
-		vty_out(vty, "Malformed address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* Check aggregate alredy exist or not. */
-	node = agg_node_get(ripng->aggregate, &p);
-	if (node->info) {
-		vty_out(vty, "There is already same aggregate route.\n");
-		agg_unlock_node(node);
-		return CMD_WARNING;
-	}
-	node->info = (void *)1;
-
-	ripng_aggregate_add(&p);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ripng_aggregate_address,
-       no_ripng_aggregate_address_cmd,
-       "no aggregate-address X:X::X:X/M",
-       NO_STR
-       "Delete aggregate RIPng route announcement\n"
-       "Aggregate network\n")
-{
-	int idx_ipv6_prefixlen = 2;
-	int ret;
-	struct prefix p;
-	struct agg_node *rn;
-
-	ret = str2prefix_ipv6(argv[idx_ipv6_prefixlen]->arg,
-			      (struct prefix_ipv6 *)&p);
-	if (ret <= 0) {
-		vty_out(vty, "Malformed address\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	rn = agg_node_lookup(ripng->aggregate, &p);
-	if (!rn) {
-		vty_out(vty, "Can't find aggregate route.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	agg_unlock_node(rn);
-	rn->info = NULL;
-	agg_unlock_node(rn);
-
-	ripng_aggregate_delete(&p);
-
-	return CMD_SUCCESS;
-}
-
 #if 0
 /* RIPng update timer setup. */
 DEFUN (ripng_update_timer,
@@ -2446,20 +2380,11 @@ static int ripng_config_write(struct vty *vty)
 {
 	struct lyd_node *dnode;
 	int write = 0;
-	struct agg_node *rp;
 
 	dnode = yang_dnode_get(running_config->dnode,
 			       "/frr-ripngd:ripngd/instance");
 	if (dnode) {
 		nb_cli_show_dnode_cmds(vty, dnode, false);
-
-		/* RIPng aggregate routes. */
-		for (rp = agg_route_top(ripng->aggregate); rp;
-		     rp = agg_route_next(rp))
-			if (rp->info != NULL)
-				vty_out(vty, " aggregate-address %s/%d\n",
-					inet6_ntoa(rp->p.u.prefix6),
-					rp->p.prefixlen);
 
 		/* RIPng timers configuration. */
 		if (ripng->update_time != RIPNG_UPDATE_TIMER_DEFAULT
@@ -2629,20 +2554,11 @@ void ripng_clean()
 			ripng->sock = -1;
 		}
 
-		/* RIPng aggregated prefixes */
-		for (rp = agg_route_top(ripng->aggregate); rp;
-		     rp = agg_route_next(rp))
-			if (rp->info) {
-				rp->info = NULL;
-				agg_unlock_node(rp);
-			}
-
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
 			if (ripng->route_map[i].name)
 				free(ripng->route_map[i].name);
 
 		XFREE(MTYPE_ROUTE_TABLE, ripng->table);
-		XFREE(MTYPE_ROUTE_TABLE, ripng->aggregate);
 
 		stream_free(ripng->ibuf);
 		stream_free(ripng->obuf);
@@ -2755,8 +2671,6 @@ void ripng_init()
 	install_element(ENABLE_NODE, &clear_ipv6_rip_cmd);
 
 	install_default(RIPNG_NODE);
-	install_element(RIPNG_NODE, &ripng_aggregate_address_cmd);
-	install_element(RIPNG_NODE, &no_ripng_aggregate_address_cmd);
 
 	install_element(RIPNG_NODE, &ripng_timers_cmd);
 	install_element(RIPNG_NODE, &no_ripng_timers_cmd);

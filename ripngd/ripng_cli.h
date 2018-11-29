@@ -46,5 +46,8 @@ extern void cli_show_ripng_redistribute(struct vty *vty, struct lyd_node *dnode,
 					bool show_defaults);
 extern void cli_show_ripng_route(struct vty *vty, struct lyd_node *dnode,
 				 bool show_defaults);
+extern void cli_show_ripng_aggregate_address(struct vty *vty,
+					     struct lyd_node *dnode,
+					     bool show_defaults);
 
 #endif /* _FRR_RIPNG_CLI_H_ */

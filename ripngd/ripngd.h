@@ -111,9 +111,6 @@ struct ripng {
 	/* RIPng routing information base. */
 	struct agg_table *table;
 
-	/* RIPng aggregate route information. */
-	struct agg_table *aggregate;
-
 	/* RIPng threads. */
 	struct thread *t_read;
 	struct thread *t_write;
