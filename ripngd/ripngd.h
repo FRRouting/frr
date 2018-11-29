@@ -325,6 +325,20 @@ enum ripng_event {
 		}                                                              \
 	} while (0)
 
+#define RIPNG_OFFSET_LIST_IN  0
+#define RIPNG_OFFSET_LIST_OUT 1
+#define RIPNG_OFFSET_LIST_MAX 2
+
+struct ripng_offset_list {
+	char *ifname;
+
+	struct {
+		char *alist_name;
+		/* struct access_list *alist; */
+		uint8_t metric;
+	} direct[RIPNG_OFFSET_LIST_MAX];
+};
+
 /* Extern variables. */
 extern struct ripng *ripng;
 extern struct zebra_privs_t ripngd_privs;
@@ -350,9 +364,6 @@ extern void ripng_terminate(void);
 extern void zebra_init(struct thread_master *);
 extern void ripng_zebra_stop(void);
 extern void ripng_zclient_reset(void);
-extern void ripng_offset_init(void);
-
-extern int config_write_ripng_offset_list(struct vty *);
 
 extern void ripng_peer_init(void);
 extern void ripng_peer_update(struct sockaddr_in6 *, uint8_t);
@@ -362,10 +373,15 @@ extern void ripng_peer_display(struct vty *);
 extern struct ripng_peer *ripng_peer_lookup(struct in6_addr *);
 extern struct ripng_peer *ripng_peer_lookup_next(struct in6_addr *);
 
+extern struct ripng_offset_list *ripng_offset_list_new(const char *ifname);
+extern void ripng_offset_list_del(struct ripng_offset_list *offset);
+extern struct ripng_offset_list *ripng_offset_list_lookup(const char *ifname);
+extern struct ripng_offset_list *ripng_offset_list_lookup(const char *ifname);
 extern int ripng_offset_list_apply_in(struct prefix_ipv6 *, struct interface *,
 				      uint8_t *);
 extern int ripng_offset_list_apply_out(struct prefix_ipv6 *, struct interface *,
 				       uint8_t *);
+extern void ripng_offset_init(void);
 extern void ripng_offset_clean(void);
 
 extern struct ripng_info *ripng_info_new(void);

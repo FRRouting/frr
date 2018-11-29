@@ -203,6 +203,49 @@ void cli_show_ripng_network_interface(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " network %s\n", yang_dnode_get_string(dnode, NULL));
 }
 
+/*
+ * XPath: /frr-ripngd:ripngd/instance/offset-list
+ */
+DEFPY (ripng_offset_list,
+       ripng_offset_list_cmd,
+       "[no] offset-list WORD$acl <in|out>$direction (0-16)$metric [IFNAME]",
+       NO_STR
+       "Modify RIPng metric\n"
+       "Access-list name\n"
+       "For incoming updates\n"
+       "For outgoing updates\n"
+       "Metric value\n"
+       "Interface to match\n")
+{
+	if (!no) {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./access-list", NB_OP_MODIFY, acl);
+		nb_cli_enqueue_change(vty, "./metric", NB_OP_MODIFY,
+				      metric_str);
+	} else
+		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+
+	return nb_cli_apply_changes(
+		vty, "./offset-list[interface='%s'][direction='%s']",
+		ifname ? ifname : "*", direction);
+}
+
+void cli_show_ripng_offset_list(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults)
+{
+	const char *interface;
+
+	interface = yang_dnode_get_string(dnode, "./interface");
+
+	vty_out(vty, " offset-list %s %s %s",
+		yang_dnode_get_string(dnode, "./access-list"),
+		yang_dnode_get_string(dnode, "./direction"),
+		yang_dnode_get_string(dnode, "./metric"));
+	if (!strmatch(interface, "*"))
+		vty_out(vty, " %s", interface);
+	vty_out(vty, "\n");
+}
+
 void ripng_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_ripng_cmd);
@@ -214,4 +257,5 @@ void ripng_cli_init(void)
 	install_element(RIPNG_NODE, &no_ripng_default_metric_cmd);
 	install_element(RIPNG_NODE, &ripng_network_prefix_cmd);
 	install_element(RIPNG_NODE, &ripng_network_if_cmd);
+	install_element(RIPNG_NODE, &ripng_offset_list_cmd);
 }

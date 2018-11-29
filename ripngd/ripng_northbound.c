@@ -202,14 +202,40 @@ static int ripngd_instance_offset_list_create(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	const char *ifname;
+	struct ripng_offset_list *offset;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifname = yang_dnode_get_string(dnode, "./interface");
+
+	offset = ripng_offset_list_new(ifname);
+	yang_dnode_set_entry(dnode, offset);
+
 	return NB_OK;
 }
 
 static int ripngd_instance_offset_list_delete(enum nb_event event,
 					      const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	int direct;
+	struct ripng_offset_list *offset;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	direct = yang_dnode_get_enum(dnode, "./direction");
+
+	offset = yang_dnode_get_entry(dnode, true);
+	if (offset->direct[direct].alist_name) {
+		free(offset->direct[direct].alist_name);
+		offset->direct[direct].alist_name = NULL;
+	}
+	if (offset->direct[RIPNG_OFFSET_LIST_IN].alist_name == NULL
+	    && offset->direct[RIPNG_OFFSET_LIST_OUT].alist_name == NULL)
+		ripng_offset_list_del(offset);
+
 	return NB_OK;
 }
 
@@ -221,7 +247,21 @@ ripngd_instance_offset_list_access_list_modify(enum nb_event event,
 					       const struct lyd_node *dnode,
 					       union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	int direct;
+	struct ripng_offset_list *offset;
+	const char *alist_name;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	direct = yang_dnode_get_enum(dnode, "../direction");
+	alist_name = yang_dnode_get_string(dnode, NULL);
+
+	offset = yang_dnode_get_entry(dnode, true);
+	if (offset->direct[direct].alist_name)
+		free(offset->direct[direct].alist_name);
+	offset->direct[direct].alist_name = strdup(alist_name);
+
 	return NB_OK;
 }
 
@@ -233,7 +273,19 @@ ripngd_instance_offset_list_metric_modify(enum nb_event event,
 					  const struct lyd_node *dnode,
 					  union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	int direct;
+	uint8_t metric;
+	struct ripng_offset_list *offset;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	direct = yang_dnode_get_enum(dnode, "../direction");
+	metric = yang_dnode_get_uint8(dnode, NULL);
+
+	offset = yang_dnode_get_entry(dnode, true);
+	offset->direct[direct].metric = metric;
+
 	return NB_OK;
 }
 
@@ -592,6 +644,7 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.xpath = "/frr-ripngd:ripngd/instance/offset-list",
 			.cbs.create = ripngd_instance_offset_list_create,
 			.cbs.delete = ripngd_instance_offset_list_delete,
+			.cbs.cli_show = cli_show_ripng_offset_list,
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/offset-list/access-list",

@@ -2524,9 +2524,6 @@ static int ripng_config_write(struct vty *vty)
 
 		ripng_redistribute_write(vty, 1);
 
-		/* RIP offset-list configuration. */
-		config_write_ripng_offset_list(vty);
-
 		/* RIPng aggregate routes. */
 		for (rp = agg_route_top(ripng->aggregate); rp;
 		     rp = agg_route_next(rp))
