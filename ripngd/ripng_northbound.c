@@ -27,6 +27,7 @@
 #include "table.h"
 #include "command.h"
 #include "routemap.h"
+#include "agg_table.h"
 #include "northbound.h"
 #include "libfrr.h"
 
@@ -717,7 +718,40 @@ ripngd_state_routes_route_metric_get_elem(const char *xpath,
 static int clear_ripng_route_rpc(const char *xpath, const struct list *input,
 				 struct list *output)
 {
-	/* TODO: implement me. */
+	struct agg_node *rp;
+	struct ripng_info *rinfo;
+	struct list *list;
+	struct listnode *listnode;
+
+	/* Clear received RIPng routes */
+	for (rp = agg_route_top(ripng->table); rp; rp = agg_route_next(rp)) {
+		list = rp->info;
+		if (list == NULL)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
+			if (!ripng_route_rte(rinfo))
+				continue;
+
+			if (CHECK_FLAG(rinfo->flags, RIPNG_RTF_FIB))
+				ripng_zebra_ipv6_delete(rp);
+			break;
+		}
+
+		if (rinfo) {
+			RIPNG_TIMER_OFF(rinfo->t_timeout);
+			RIPNG_TIMER_OFF(rinfo->t_garbage_collect);
+			listnode_delete(list, rinfo);
+			ripng_info_free(rinfo);
+		}
+
+		if (list_isempty(list)) {
+			list_delete(&list);
+			rp->info = NULL;
+			agg_unlock_node(rp);
+		}
+	}
+
 	return NB_OK;
 }
 

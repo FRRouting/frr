@@ -372,6 +372,7 @@ extern int ripng_offset_list_apply_out(struct prefix_ipv6 *, struct interface *,
 extern void ripng_offset_init(void);
 extern void ripng_offset_clean(void);
 
+extern int ripng_route_rte(struct ripng_info *rinfo);
 extern struct ripng_info *ripng_info_new(void);
 extern void ripng_info_free(struct ripng_info *rinfo);
 extern void ripng_event(enum ripng_event, int);

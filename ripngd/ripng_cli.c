@@ -451,6 +451,19 @@ void cli_show_ipv6_ripng_split_horizon(struct vty *vty, struct lyd_node *dnode,
 	}
 }
 
+/*
+ * XPath: /frr-ripngd:clear-ripng-route
+ */
+DEFPY (clear_ipv6_rip,
+       clear_ipv6_rip_cmd,
+       "clear ipv6 ripng",
+       CLEAR_STR
+       IPV6_STR
+       "Clear IPv6 RIP database\n")
+{
+	return nb_cli_rpc("/frr-ripngd:clear-ripng-route", NULL, NULL);
+}
+
 void ripng_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_ripng_cmd);
@@ -471,4 +484,6 @@ void ripng_cli_init(void)
 	install_element(RIPNG_NODE, &no_ripng_timers_cmd);
 
 	install_element(INTERFACE_NODE, &ipv6_ripng_split_horizon_cmd);
+
+	install_element(ENABLE_NODE, &clear_ipv6_rip_cmd);
 }

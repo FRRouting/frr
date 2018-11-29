@@ -66,7 +66,7 @@ struct ripng_nexthop {
 	struct in6_addr address;
 };
 
-static int ripng_route_rte(struct ripng_info *rinfo)
+int ripng_route_rte(struct ripng_info *rinfo)
 {
 	return (rinfo->type == ZEBRA_ROUTE_RIPNG
 		&& rinfo->sub_type == RIPNG_ROUTE_RTE);
@@ -2111,50 +2111,6 @@ DEFUN (show_ipv6_ripng_status,
 	return CMD_SUCCESS;
 }
 
-DEFUN (clear_ipv6_rip,
-       clear_ipv6_rip_cmd,
-       "clear ipv6 ripng",
-       CLEAR_STR
-       IPV6_STR
-       "Clear IPv6 RIP database\n")
-{
-	struct agg_node *rp;
-	struct ripng_info *rinfo;
-	struct list *list;
-	struct listnode *listnode;
-
-	/* Clear received RIPng routes */
-	for (rp = agg_route_top(ripng->table); rp; rp = agg_route_next(rp)) {
-		list = rp->info;
-		if (list == NULL)
-			continue;
-
-		for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
-			if (!ripng_route_rte(rinfo))
-				continue;
-
-			if (CHECK_FLAG(rinfo->flags, RIPNG_RTF_FIB))
-				ripng_zebra_ipv6_delete(rp);
-			break;
-		}
-
-		if (rinfo) {
-			RIPNG_TIMER_OFF(rinfo->t_timeout);
-			RIPNG_TIMER_OFF(rinfo->t_garbage_collect);
-			listnode_delete(list, rinfo);
-			ripng_info_free(rinfo);
-		}
-
-		if (list_isempty(list)) {
-			list_delete(&list);
-			rp->info = NULL;
-			agg_unlock_node(rp);
-		}
-	}
-
-	return CMD_SUCCESS;
-}
-
 #if 0
 /* RIPng update timer setup. */
 DEFUN (ripng_update_timer,
@@ -2579,8 +2535,6 @@ void ripng_init()
 	/* Install ripng commands. */
 	install_element(VIEW_NODE, &show_ipv6_ripng_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ripng_status_cmd);
-
-	install_element(ENABLE_NODE, &clear_ipv6_rip_cmd);
 
 	install_default(RIPNG_NODE);
 
