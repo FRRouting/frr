@@ -61,9 +61,6 @@ if [[ "$1" = "-h" ]] || [[ "$1" = "--help" ]]; then
 	TOPOTEST_OPTIONS        These options are appended to the docker-run
 	                        command for starting the tests.
 
-	TOPOTEST_PATH           If set, don't use the tests built into the image
-	                        but the ones at the given path.
-
 	TOPOTEST_SANITIZER      Controls whether to use the address sanitizer.
 	                        Enabled by default, set to 0 to disable.
 
@@ -136,6 +133,7 @@ fi
 set -- --rm -ti \
 	-v "$TOPOTEST_LOGS:/tmp" \
 	-v "$TOPOTEST_FRR:/root/host-frr:ro" \
+	-v "$TOPOTEST_FRR/tests/topotests:/root/topotests:ro" \
 	-v "$TOPOTEST_BUILDCACHE:/root/persist" \
 	-e "TOPOTEST_CLEAN=$TOPOTEST_CLEAN" \
 	-e "TOPOTEST_VERBOSE=$TOPOTEST_VERBOSE" \
@@ -143,10 +141,6 @@ set -- --rm -ti \
 	-e "TOPOTEST_SANITIZER=$TOPOTEST_SANITIZER" \
 	--privileged \
 	$TOPOTEST_OPTIONS \
-	frrouting/topotests "$@"
-
-if [ -n "$TOPOTEST_PATH" ]; then
-	set -- -v "$TOPOTEST_PATH:/root/topotests:ro" "$@"
-fi
+	frrouting/frr:topotests-latest "$@"
 
 exec docker run "$@"

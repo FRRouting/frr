@@ -71,7 +71,6 @@ RUN echo "" >> /etc/security/limits.conf; \
 
 # Copy run scripts to facilitate users wanting to run the tests
 COPY docker/inner /opt/topotests
-COPY . /root/topotests
 
 WORKDIR /root/topotests
 ENV PATH "$PATH:/opt/topotests"
