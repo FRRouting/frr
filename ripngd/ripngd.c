@@ -2290,33 +2290,6 @@ DEFUN (no_ripng_aggregate_address,
 	return CMD_SUCCESS;
 }
 
-DEFUN (ripng_default_metric,
-       ripng_default_metric_cmd,
-       "default-metric (1-16)",
-       "Set a metric of redistribute routes\n"
-       "Default metric\n")
-{
-	int idx_number = 1;
-	if (ripng) {
-		ripng->default_metric = atoi(argv[idx_number]->arg);
-	}
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ripng_default_metric,
-       no_ripng_default_metric_cmd,
-       "no default-metric [(1-16)]",
-       NO_STR
-       "Set a metric of redistribute routes\n"
-       "Default metric\n")
-{
-	if (ripng) {
-		ripng->default_metric = RIPNG_DEFAULT_METRIC_DEFAULT;
-	}
-	return CMD_SUCCESS;
-}
-
-
 #if 0
 /* RIPng update timer setup. */
 DEFUN (ripng_update_timer,
@@ -2550,11 +2523,6 @@ static int ripng_config_write(struct vty *vty)
 		nb_cli_show_dnode_cmds(vty, dnode, false);
 
 		ripng_network_write(vty, 1);
-
-		/* RIPng default metric configuration */
-		if (ripng->default_metric != RIPNG_DEFAULT_METRIC_DEFAULT)
-			vty_out(vty, " default-metric %d\n",
-				ripng->default_metric);
 
 		ripng_redistribute_write(vty, 1);
 
@@ -2884,9 +2852,6 @@ void ripng_init()
 	install_element(RIPNG_NODE, &no_ripng_route_cmd);
 	install_element(RIPNG_NODE, &ripng_aggregate_address_cmd);
 	install_element(RIPNG_NODE, &no_ripng_aggregate_address_cmd);
-
-	install_element(RIPNG_NODE, &ripng_default_metric_cmd);
-	install_element(RIPNG_NODE, &no_ripng_default_metric_cmd);
 
 	install_element(RIPNG_NODE, &ripng_timers_cmd);
 	install_element(RIPNG_NODE, &no_ripng_timers_cmd);

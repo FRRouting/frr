@@ -125,6 +125,40 @@ void cli_show_ripng_default_information_originate(struct vty *vty,
 	vty_out(vty, " default-information originate\n");
 }
 
+/*
+ * XPath: /frr-ripngd:ripngd/instance/default-metric
+ */
+DEFPY (ripng_default_metric,
+       ripng_default_metric_cmd,
+       "default-metric (1-16)",
+       "Set a metric of redistribute routes\n"
+       "Default metric\n")
+{
+	nb_cli_enqueue_change(vty, "./default-metric", NB_OP_MODIFY,
+			      default_metric_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY (no_ripng_default_metric,
+       no_ripng_default_metric_cmd,
+       "no default-metric [(1-16)]",
+       NO_STR
+       "Set a metric of redistribute routes\n"
+       "Default metric\n")
+{
+	nb_cli_enqueue_change(vty, "./default-metric", NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ripng_default_metric(struct vty *vty, struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	vty_out(vty, " default-metric %s\n",
+		yang_dnode_get_string(dnode, NULL));
+}
+
 void ripng_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_ripng_cmd);
@@ -132,4 +166,6 @@ void ripng_cli_init(void)
 
 	install_element(RIPNG_NODE, &ripng_allow_ecmp_cmd);
 	install_element(RIPNG_NODE, &ripng_default_information_originate_cmd);
+	install_element(RIPNG_NODE, &ripng_default_metric_cmd);
+	install_element(RIPNG_NODE, &no_ripng_default_metric_cmd);
 }

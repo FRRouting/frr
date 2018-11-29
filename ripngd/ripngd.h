@@ -77,9 +77,6 @@
 #define RIPNG_DEFAULT_ACCEPT_NONE        1
 #define RIPNG_DEFAULT_ACCEPT             2
 
-/* Default value for "default-metric" command. */
-#define RIPNG_DEFAULT_METRIC_DEFAULT     1
-
 /* For max RTE calculation. */
 #ifndef IPV6_HDRLEN
 #define IPV6_HDRLEN 40
@@ -105,7 +102,7 @@ struct ripng {
 	unsigned long timeout_time;
 	unsigned long garbage_time;
 	int max_mtu;
-	int default_metric;
+	uint8_t default_metric;
 
 	/* Input/output buffer of RIPng. */
 	struct stream *ibuf;

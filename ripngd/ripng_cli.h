@@ -28,5 +28,8 @@ extern void cli_show_ripng_allow_ecmp(struct vty *vty, struct lyd_node *dnode,
 extern void cli_show_ripng_default_information_originate(struct vty *vty,
 							 struct lyd_node *dnode,
 							 bool show_defaults);
+extern void cli_show_ripng_default_metric(struct vty *vty,
+					  struct lyd_node *dnode,
+					  bool show_defaults);
 
 #endif /* _FRR_RIPNG_CLI_H_ */
