@@ -376,17 +376,14 @@ extern void rip_init(void);
 extern void rip_clean(void);
 extern void rip_clean_network(void);
 extern void rip_interfaces_clean(void);
-extern void rip_interfaces_reset(void);
 extern int rip_passive_nondefault_set(const char *ifname);
 extern int rip_passive_nondefault_unset(const char *ifname);
 extern void rip_passive_nondefault_clean(void);
 extern void rip_if_init(void);
 extern void rip_if_down_all(void);
 extern void rip_route_map_init(void);
-extern void rip_route_map_reset(void);
 extern void rip_zclient_init(struct thread_master *);
 extern void rip_zclient_stop(void);
-extern void rip_zclient_reset(void);
 extern int if_check_address(struct in_addr addr);
 extern int rip_create(int socket);
 
