@@ -159,6 +159,50 @@ void cli_show_ripng_default_metric(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, NULL));
 }
 
+/*
+ * XPath: /frr-ripngd:ripngd/instance/network
+ */
+DEFPY (ripng_network_prefix,
+       ripng_network_prefix_cmd,
+       "[no] network X:X::X:X/M",
+       NO_STR
+       "RIPng enable on specified interface or network.\n"
+       "IPv6 network\n")
+{
+	nb_cli_enqueue_change(vty, "./network",
+			      no ? NB_OP_DELETE : NB_OP_CREATE, network_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ripng_network_prefix(struct vty *vty, struct lyd_node *dnode,
+				   bool show_defaults)
+{
+	vty_out(vty, " network %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * XPath: /frr-ripngd:ripngd/instance/interface
+ */
+DEFPY (ripng_network_if,
+       ripng_network_if_cmd,
+       "[no] network WORD",
+       NO_STR
+       "RIPng enable on specified interface or network.\n"
+       "Interface name\n")
+{
+	nb_cli_enqueue_change(vty, "./interface",
+			      no ? NB_OP_DELETE : NB_OP_CREATE, network);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ripng_network_interface(struct vty *vty, struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	vty_out(vty, " network %s\n", yang_dnode_get_string(dnode, NULL));
+}
+
 void ripng_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_ripng_cmd);
@@ -168,4 +212,6 @@ void ripng_cli_init(void)
 	install_element(RIPNG_NODE, &ripng_default_information_originate_cmd);
 	install_element(RIPNG_NODE, &ripng_default_metric_cmd);
 	install_element(RIPNG_NODE, &no_ripng_default_metric_cmd);
+	install_element(RIPNG_NODE, &ripng_network_prefix_cmd);
+	install_element(RIPNG_NODE, &ripng_network_if_cmd);
 }

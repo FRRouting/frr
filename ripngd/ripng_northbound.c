@@ -140,15 +140,29 @@ static int ripngd_instance_network_create(enum nb_event event,
 					  const struct lyd_node *dnode,
 					  union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	struct prefix p;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	yang_dnode_get_ipv6p(&p, dnode, NULL);
+	apply_mask_ipv6((struct prefix_ipv6 *)&p);
+
+	return ripng_enable_network_add(&p);
 }
 
 static int ripngd_instance_network_delete(enum nb_event event,
 					  const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	struct prefix p;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	yang_dnode_get_ipv6p(&p, dnode, NULL);
+	apply_mask_ipv6((struct prefix_ipv6 *)&p);
+
+	return ripng_enable_network_delete(&p);
 }
 
 /*
@@ -158,15 +172,27 @@ static int ripngd_instance_interface_create(enum nb_event event,
 					    const struct lyd_node *dnode,
 					    union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	const char *ifname;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifname = yang_dnode_get_string(dnode, NULL);
+
+	return ripng_enable_if_add(ifname);
 }
 
 static int ripngd_instance_interface_delete(enum nb_event event,
 					    const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	const char *ifname;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifname = yang_dnode_get_string(dnode, NULL);
+
+	return ripng_enable_if_delete(ifname);
 }
 
 /*
@@ -554,11 +580,13 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.xpath = "/frr-ripngd:ripngd/instance/network",
 			.cbs.create = ripngd_instance_network_create,
 			.cbs.delete = ripngd_instance_network_delete,
+			.cbs.cli_show = cli_show_ripng_network_prefix,
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/interface",
 			.cbs.create = ripngd_instance_interface_create,
 			.cbs.delete = ripngd_instance_interface_delete,
+			.cbs.cli_show = cli_show_ripng_network_interface,
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/offset-list",

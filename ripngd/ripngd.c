@@ -2522,8 +2522,6 @@ static int ripng_config_write(struct vty *vty)
 	if (dnode) {
 		nb_cli_show_dnode_cmds(vty, dnode, false);
 
-		ripng_network_write(vty, 1);
-
 		ripng_redistribute_write(vty, 1);
 
 		/* RIP offset-list configuration. */

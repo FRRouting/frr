@@ -543,7 +543,7 @@ static int ripng_enable_network_lookup2(struct connected *connected)
 }
 
 /* Add RIPng enable network. */
-static int ripng_enable_network_add(struct prefix *p)
+int ripng_enable_network_add(struct prefix *p)
 {
 	struct agg_node *node;
 
@@ -551,18 +551,18 @@ static int ripng_enable_network_add(struct prefix *p)
 
 	if (node->info) {
 		agg_unlock_node(node);
-		return -1;
+		return NB_ERR_INCONSISTENCY;
 	} else
 		node->info = (void *)1;
 
 	/* XXX: One should find a better solution than a generic one */
 	ripng_enable_apply_all();
 
-	return 1;
+	return NB_OK;
 }
 
 /* Delete RIPng enable network. */
-static int ripng_enable_network_delete(struct prefix *p)
+int ripng_enable_network_delete(struct prefix *p)
 {
 	struct agg_node *node;
 
@@ -576,9 +576,10 @@ static int ripng_enable_network_delete(struct prefix *p)
 		/* Unlock lookup lock. */
 		agg_unlock_node(node);
 
-		return 1;
+		return NB_OK;
 	}
-	return -1;
+
+	return NB_ERR_INCONSISTENCY;
 }
 
 /* Lookup function. */
@@ -595,30 +596,30 @@ static int ripng_enable_if_lookup(const char *ifname)
 }
 
 /* Add interface to ripng_enable_if. */
-static int ripng_enable_if_add(const char *ifname)
+int ripng_enable_if_add(const char *ifname)
 {
 	int ret;
 
 	ret = ripng_enable_if_lookup(ifname);
 	if (ret >= 0)
-		return -1;
+		return NB_ERR_INCONSISTENCY;
 
 	vector_set(ripng_enable_if, strdup(ifname));
 
 	ripng_enable_apply_all();
 
-	return 1;
+	return NB_OK;
 }
 
 /* Delete interface from ripng_enable_if. */
-static int ripng_enable_if_delete(const char *ifname)
+int ripng_enable_if_delete(const char *ifname)
 {
 	int index;
 	char *str;
 
 	index = ripng_enable_if_lookup(ifname);
 	if (index < 0)
-		return -1;
+		return NB_ERR_INCONSISTENCY;
 
 	str = vector_slot(ripng_enable_if, index);
 	free(str);
@@ -626,7 +627,7 @@ static int ripng_enable_if_delete(const char *ifname)
 
 	ripng_enable_apply_all();
 
-	return 1;
+	return NB_OK;
 }
 
 /* Wake up interface. */
@@ -909,63 +910,6 @@ int ripng_network_write(struct vty *vty, int config_mode)
 	return 0;
 }
 
-/* RIPng enable on specified interface or matched network. */
-DEFUN (ripng_network,
-       ripng_network_cmd,
-       "network IF_OR_ADDR",
-       "RIPng enable on specified interface or network.\n"
-       "Interface or address\n")
-{
-	int idx_if_or_addr = 1;
-	int ret;
-	struct prefix p;
-
-	ret = str2prefix(argv[idx_if_or_addr]->arg, &p);
-
-	/* Given string is IPv6 network or interface name. */
-	if (ret)
-		ret = ripng_enable_network_add(&p);
-	else
-		ret = ripng_enable_if_add(argv[idx_if_or_addr]->arg);
-
-	if (ret < 0) {
-		vty_out(vty, "There is same network configuration %s\n",
-			argv[idx_if_or_addr]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
-/* RIPng enable on specified interface or matched network. */
-DEFUN (no_ripng_network,
-       no_ripng_network_cmd,
-       "no network IF_OR_ADDR",
-       NO_STR
-       "RIPng enable on specified interface or network.\n"
-       "Interface or address\n")
-{
-	int idx_if_or_addr = 2;
-	int ret;
-	struct prefix p;
-
-	ret = str2prefix(argv[idx_if_or_addr]->arg, &p);
-
-	/* Given string is interface name. */
-	if (ret)
-		ret = ripng_enable_network_delete(&p);
-	else
-		ret = ripng_enable_if_delete(argv[idx_if_or_addr]->arg);
-
-	if (ret < 0) {
-		vty_out(vty, "can't find network %s\n",
-			argv[idx_if_or_addr]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (ipv6_ripng_split_horizon,
        ipv6_ripng_split_horizon_cmd,
        "ipv6 ripng split-horizon",
@@ -1138,8 +1082,6 @@ void ripng_if_init()
 	install_node(&interface_node, interface_config_write);
 	if_cmd_init();
 
-	install_element(RIPNG_NODE, &ripng_network_cmd);
-	install_element(RIPNG_NODE, &no_ripng_network_cmd);
 	install_element(RIPNG_NODE, &ripng_passive_interface_cmd);
 	install_element(RIPNG_NODE, &no_ripng_passive_interface_cmd);
 
