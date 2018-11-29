@@ -906,7 +906,7 @@ static void bgp_pbr_action_free(void *arg)
 
 	if (bpa->refcnt == 0) {
 		if (bpa->installed && bpa->table_id != 0) {
-			bgp_send_pbr_rule_action(bpa, false);
+			bgp_send_pbr_rule_action(bpa, NULL, false);
 			bgp_zebra_announce_default(bpa->bgp, &(bpa->nh),
 						   AFI_IP,
 						   bpa->table_id,
@@ -1414,7 +1414,7 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 	}
 	if (bpa->refcnt == 0) {
 		if (bpa->installed && bpa->table_id != 0) {
-			bgp_send_pbr_rule_action(bpa, false);
+			bgp_send_pbr_rule_action(bpa, NULL, false);
 			bgp_zebra_announce_default(bpa->bgp, &(bpa->nh),
 						   AFI_IP,
 						   bpa->table_id,
@@ -2020,7 +2020,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	 */
 	/* ip rule add */
 	if (!bpa->installed && !bpa->install_in_progress) {
-		bgp_send_pbr_rule_action(bpa, true);
+		bgp_send_pbr_rule_action(bpa, NULL, true);
 		bgp_zebra_announce_default(bgp, nh,
 					   AFI_IP, bpa->table_id, true);
 	}
