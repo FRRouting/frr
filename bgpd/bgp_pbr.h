@@ -158,6 +158,17 @@ struct bgp_pbr_config {
 
 extern struct bgp_pbr_config *bgp_pbr_cfg;
 
+struct bgp_pbr_rule {
+	uint32_t flags;
+	struct prefix src;
+	struct prefix dst;
+	struct bgp_pbr_action *action;
+	vrf_id_t vrf_id;
+	uint32_t unique;
+	bool installed;
+	bool install_in_progress;
+};
+
 struct bgp_pbr_match {
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 
@@ -257,6 +268,9 @@ extern struct bgp_pbr_match *bgp_pbr_match_iptable_lookup(vrf_id_t vrf_id,
 extern void bgp_pbr_cleanup(struct bgp *bgp);
 extern void bgp_pbr_init(struct bgp *bgp);
 
+extern uint32_t bgp_pbr_rule_hash_key(void *arg);
+extern bool bgp_pbr_rule_hash_equal(const void *arg1,
+				   const void *arg2);
 extern uint32_t bgp_pbr_action_hash_key(void *arg);
 extern bool bgp_pbr_action_hash_equal(const void *arg1,
 				     const void *arg2);
