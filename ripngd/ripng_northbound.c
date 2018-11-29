@@ -515,6 +515,15 @@ ripngd_instance_aggregate_address_delete(enum nb_event event,
 }
 
 /*
+ * XPath: /frr-ripngd:ripngd/instance/timers
+ */
+static void ripngd_instance_timers_apply_finish(const struct lyd_node *dnode)
+{
+	/* Reset update timer thread. */
+	ripng_event(RIPNG_UPDATE_EVENT, 0);
+}
+
+/*
  * XPath: /frr-ripngd:ripngd/instance/timers/flush-interval
  */
 static int
@@ -522,7 +531,11 @@ ripngd_instance_timers_flush_interval_modify(enum nb_event event,
 					     const struct lyd_node *dnode,
 					     union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	ripng->garbage_time = yang_dnode_get_uint16(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -534,7 +547,11 @@ ripngd_instance_timers_holddown_interval_modify(enum nb_event event,
 						const struct lyd_node *dnode,
 						union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	ripng->timeout_time = yang_dnode_get_uint16(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -546,7 +563,11 @@ ripngd_instance_timers_update_interval_modify(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	ripng->update_time = yang_dnode_get_uint16(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -797,6 +818,11 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.cbs.create = ripngd_instance_aggregate_address_create,
 			.cbs.delete = ripngd_instance_aggregate_address_delete,
 			.cbs.cli_show = cli_show_ripng_aggregate_address,
+		},
+		{
+			.xpath = "/frr-ripngd:ripngd/instance/timers",
+			.cbs.apply_finish = ripngd_instance_timers_apply_finish,
+			.cbs.cli_show = cli_show_ripng_timers,
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/timers/flush-interval",

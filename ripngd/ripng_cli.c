@@ -358,6 +358,54 @@ void cli_show_ripng_aggregate_address(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, NULL));
 }
 
+/*
+ * XPath: /frr-ripngd:ripngd/instance/timers
+ */
+DEFPY (ripng_timers,
+       ripng_timers_cmd,
+       "timers basic (1-65535)$update (1-65535)$timeout (1-65535)$garbage",
+       "RIPng timers setup\n"
+       "Basic timer\n"
+       "Routing table update timer value in second. Default is 30.\n"
+       "Routing information timeout timer. Default is 180.\n"
+       "Garbage collection timer. Default is 120.\n")
+{
+	nb_cli_enqueue_change(vty, "./update-interval", NB_OP_MODIFY,
+			      update_str);
+	nb_cli_enqueue_change(vty, "./holddown-interval", NB_OP_MODIFY,
+			      timeout_str);
+	nb_cli_enqueue_change(vty, "./flush-interval", NB_OP_MODIFY,
+			      garbage_str);
+
+	return nb_cli_apply_changes(vty, "./timers");
+}
+
+DEFPY (no_ripng_timers,
+       no_ripng_timers_cmd,
+       "no timers basic [(1-65535) (1-65535) (1-65535)]",
+       NO_STR
+       "RIPng timers setup\n"
+       "Basic timer\n"
+       "Routing table update timer value in second. Default is 30.\n"
+       "Routing information timeout timer. Default is 180.\n"
+       "Garbage collection timer. Default is 120.\n")
+{
+	nb_cli_enqueue_change(vty, "./update-interval", NB_OP_MODIFY, NULL);
+	nb_cli_enqueue_change(vty, "./holddown-interval", NB_OP_MODIFY, NULL);
+	nb_cli_enqueue_change(vty, "./flush-interval", NB_OP_MODIFY, NULL);
+
+	return nb_cli_apply_changes(vty, "./timers");
+}
+
+void cli_show_ripng_timers(struct vty *vty, struct lyd_node *dnode,
+			   bool show_defaults)
+{
+	vty_out(vty, " timers basic %s %s %s\n",
+		yang_dnode_get_string(dnode, "./update-interval"),
+		yang_dnode_get_string(dnode, "./holddown-interval"),
+		yang_dnode_get_string(dnode, "./flush-interval"));
+}
+
 void ripng_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_ripng_cmd);
@@ -374,4 +422,6 @@ void ripng_cli_init(void)
 	install_element(RIPNG_NODE, &ripng_redistribute_cmd);
 	install_element(RIPNG_NODE, &ripng_route_cmd);
 	install_element(RIPNG_NODE, &ripng_aggregate_address_cmd);
+	install_element(RIPNG_NODE, &ripng_timers_cmd);
+	install_element(RIPNG_NODE, &no_ripng_timers_cmd);
 }

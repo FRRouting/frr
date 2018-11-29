@@ -2062,12 +2062,12 @@ DEFUN (show_ipv6_ripng_status,
 		return CMD_SUCCESS;
 
 	vty_out(vty, "Routing Protocol is \"RIPng\"\n");
-	vty_out(vty, "  Sending updates every %ld seconds with +/-50%%,",
+	vty_out(vty, "  Sending updates every %u seconds with +/-50%%,",
 		ripng->update_time);
 	vty_out(vty, " next due in %lu seconds\n",
 		thread_timer_remain_second(ripng->t_update));
-	vty_out(vty, "  Timeout after %ld seconds,", ripng->timeout_time);
-	vty_out(vty, " garbage collect after %ld seconds\n",
+	vty_out(vty, "  Timeout after %u seconds,", ripng->timeout_time);
+	vty_out(vty, " garbage collect after %u seconds\n",
 		ripng->garbage_time);
 
 	/* Filtering status show. */
@@ -2258,58 +2258,6 @@ DEFUN (no_ripng_garbage_timer,
 }
 #endif /* 0 */
 
-DEFUN (ripng_timers,
-       ripng_timers_cmd,
-       "timers basic (0-65535) (0-65535) (0-65535)",
-       "RIPng timers setup\n"
-       "Basic timer\n"
-       "Routing table update timer value in second. Default is 30.\n"
-       "Routing information timeout timer. Default is 180.\n"
-       "Garbage collection timer. Default is 120.\n")
-{
-	int idx_number = 2;
-	int idx_number_2 = 3;
-	int idx_number_3 = 4;
-	unsigned long update;
-	unsigned long timeout;
-	unsigned long garbage;
-
-	update = strtoul(argv[idx_number]->arg, NULL, 10);
-	timeout = strtoul(argv[idx_number_2]->arg, NULL, 10);
-	garbage = strtoul(argv[idx_number_3]->arg, NULL, 10);
-
-	/* Set each timer value. */
-	ripng->update_time = update;
-	ripng->timeout_time = timeout;
-	ripng->garbage_time = garbage;
-
-	/* Reset update timer thread. */
-	ripng_event(RIPNG_UPDATE_EVENT, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ripng_timers,
-       no_ripng_timers_cmd,
-       "no timers basic [(0-65535) (0-65535) (0-65535)]",
-       NO_STR
-       "RIPng timers setup\n"
-       "Basic timer\n"
-       "Routing table update timer value in second. Default is 30.\n"
-       "Routing information timeout timer. Default is 180.\n"
-       "Garbage collection timer. Default is 120.\n")
-{
-	/* Set each timer value to the default. */
-	ripng->update_time = RIPNG_UPDATE_TIMER_DEFAULT;
-	ripng->timeout_time = RIPNG_TIMEOUT_TIMER_DEFAULT;
-	ripng->garbage_time = RIPNG_GARBAGE_TIMER_DEFAULT;
-
-	/* Reset update timer thread. */
-	ripng_event(RIPNG_UPDATE_EVENT, 0);
-
-	return CMD_SUCCESS;
-}
-
 #if 0
 DEFUN (show_ipv6_protocols,
        show_ipv6_protocols_cmd,
@@ -2385,23 +2333,6 @@ static int ripng_config_write(struct vty *vty)
 			       "/frr-ripngd:ripngd/instance");
 	if (dnode) {
 		nb_cli_show_dnode_cmds(vty, dnode, false);
-
-		/* RIPng timers configuration. */
-		if (ripng->update_time != RIPNG_UPDATE_TIMER_DEFAULT
-		    || ripng->timeout_time != RIPNG_TIMEOUT_TIMER_DEFAULT
-		    || ripng->garbage_time != RIPNG_GARBAGE_TIMER_DEFAULT) {
-			vty_out(vty, " timers basic %ld %ld %ld\n",
-				ripng->update_time, ripng->timeout_time,
-				ripng->garbage_time);
-		}
-#if 0
-      if (ripng->update_time != RIPNG_UPDATE_TIMER_DEFAULT)
-	vty_out (vty, " update-timer %d\n", ripng->update_time);
-      if (ripng->timeout_time != RIPNG_TIMEOUT_TIMER_DEFAULT)
-	vty_out (vty, " timeout-timer %d\n", ripng->timeout_time);
-      if (ripng->garbage_time != RIPNG_GARBAGE_TIMER_DEFAULT)
-	vty_out (vty, " garbage-timer %d\n", ripng->garbage_time);
-#endif /* 0 */
 
 		config_write_distribute(vty);
 
@@ -2672,8 +2603,6 @@ void ripng_init()
 
 	install_default(RIPNG_NODE);
 
-	install_element(RIPNG_NODE, &ripng_timers_cmd);
-	install_element(RIPNG_NODE, &no_ripng_timers_cmd);
 #if 0
   install_element (VIEW_NODE, &show_ipv6_protocols_cmd);
   install_element (RIPNG_NODE, &ripng_update_timer_cmd);

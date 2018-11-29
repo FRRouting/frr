@@ -43,11 +43,6 @@
 #define RIPNG_METRIC_NEXTHOP          0xff
 #define RIPNG_GROUP              "ff02::9"
 
-/* RIPng timers. */
-#define RIPNG_UPDATE_TIMER_DEFAULT      30
-#define RIPNG_TIMEOUT_TIMER_DEFAULT    180
-#define RIPNG_GARBAGE_TIMER_DEFAULT    120
-
 /* RIPng peer timeout value. */
 #define RIPNG_PEER_TIMER_DEFAULT       180
 
@@ -98,9 +93,9 @@ struct ripng {
 	/* RIPng Parameters.*/
 	uint8_t command;
 	uint8_t version;
-	unsigned long update_time;
-	unsigned long timeout_time;
-	unsigned long garbage_time;
+	uint16_t update_time;
+	uint16_t timeout_time;
+	uint16_t garbage_time;
 	int max_mtu;
 	uint8_t default_metric;
 
