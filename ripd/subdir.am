@@ -9,9 +9,6 @@ dist_examples_DATA += ripd/ripd.conf.sample
 vtysh_scan += \
 	$(top_srcdir)/ripd/rip_cli.c \
 	$(top_srcdir)/ripd/rip_debug.c \
-	$(top_srcdir)/ripd/rip_interface.c \
-	$(top_srcdir)/ripd/rip_offset.c \
-	$(top_srcdir)/ripd/rip_zebra.c \
 	$(top_srcdir)/ripd/ripd.c \
 	# end
 
