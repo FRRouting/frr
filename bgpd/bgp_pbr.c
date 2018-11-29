@@ -613,13 +613,47 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 				 " too complex. ignoring.");
 		return 0;
 	}
-	if (!(api->match_bitmask & PREFIX_SRC_PRESENT) &&
-	    !(api->match_bitmask & PREFIX_DST_PRESENT)) {
+	/* iprule only supports redirect IP */
+	if (api->type == BGP_PBR_IPRULE) {
+		int i;
+
+		for (i = 0; i < api->action_num; i++) {
+			if (api->actions[i].action == ACTION_TRAFFICRATE &&
+			    api->actions[i].u.r.rate == 0) {
+				if (BGP_DEBUG(pbr, PBR)) {
+					bgp_pbr_print_policy_route(api);
+					zlog_debug("BGP: iprule match drop"
+						   " action not supported");
+				}
+				return 0;
+			}
+			if (api->actions[i].action == ACTION_MARKING) {
+				if (BGP_DEBUG(pbr, PBR)) {
+					bgp_pbr_print_policy_route(api);
+					zlog_warn("PBR: iprule set DSCP"
+						  " %u not supported",
+						  api->actions[i].
+						  u.marking_dscp);
+				}
+			}
+			if (api->actions[i].action == ACTION_REDIRECT) {
+				if (BGP_DEBUG(pbr, PBR)) {
+					bgp_pbr_print_policy_route(api);
+					zlog_warn("PBR: iprule redirect "
+						  "VRF %u not supported",
+						  api->actions[i].
+						  u.redirect_vrf);
+				}
+			}
+		}
+
+	} else if (!(api->match_bitmask & PREFIX_SRC_PRESENT) &&
+		   !(api->match_bitmask & PREFIX_DST_PRESENT)) {
 		if (BGP_DEBUG(pbr, PBR)) {
 			bgp_pbr_print_policy_route(api);
 			zlog_debug("BGP: match actions without src"
-				 " or dst address can not operate."
-				 " ignoring.");
+				   " or dst address can not operate."
+				   " ignoring.");
 		}
 		return 0;
 	}
