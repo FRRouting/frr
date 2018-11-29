@@ -2247,12 +2247,19 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 			}
 		}
 
-		if (!is_default_prefix(&zpr.rule.filter.src_ip))
-			zpr.rule.filter.filter_bm |= PBR_FILTER_SRC_IP;
+		if (zpr.rule.filter.fwmark || ifindex) {
+			if (!is_default_prefix(&zpr.rule.filter.src_ip))
+				zpr.rule.filter.filter_bm |= PBR_FILTER_SRC_IP;
 
-		if (!is_default_prefix(&zpr.rule.filter.dst_ip))
-			zpr.rule.filter.filter_bm |= PBR_FILTER_DST_IP;
+			if (!is_default_prefix(&zpr.rule.filter.dst_ip))
+				zpr.rule.filter.filter_bm |= PBR_FILTER_DST_IP;
+		} else {
+			if (zpr.rule.filter.src_ip.family == AF_INET)
+				zpr.rule.filter.filter_bm |= PBR_FILTER_SRC_IP;
+			if (zpr.rule.filter.dst_ip.family == AF_INET)
+				zpr.rule.filter.filter_bm |= PBR_FILTER_DST_IP;
 
+		}
 		if (zpr.rule.filter.src_port)
 			zpr.rule.filter.filter_bm |= PBR_FILTER_SRC_PORT;
 
