@@ -106,7 +106,6 @@ struct ripng {
 	unsigned long garbage_time;
 	int max_mtu;
 	int default_metric;
-	int default_information;
 
 	/* Input/output buffer of RIPng. */
 	struct stream *ibuf;

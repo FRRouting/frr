@@ -99,7 +99,22 @@ static int ripngd_instance_default_information_originate_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	bool default_information;
+	struct prefix_ipv6 p;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	default_information = yang_dnode_get_bool(dnode, NULL);
+	str2prefix_ipv6("::/0", &p);
+	if (default_information) {
+		ripng_redistribute_add(ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_DEFAULT,
+				       &p, 0, NULL, 0);
+	} else {
+		ripng_redistribute_delete(ZEBRA_ROUTE_RIPNG,
+					  RIPNG_ROUTE_DEFAULT, &p, 0);
+	}
+
 	return NB_OK;
 }
 
@@ -524,6 +539,7 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/default-information-originate",
 			.cbs.modify = ripngd_instance_default_information_originate_modify,
+			.cbs.cli_show = cli_show_ripng_default_information_originate,
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/default-metric",

@@ -2499,46 +2499,6 @@ DEFUN (show_ipv6_protocols,
 }
 #endif
 
-/* Please be carefull to use this command. */
-DEFUN (ripng_default_information_originate,
-       ripng_default_information_originate_cmd,
-       "default-information originate",
-       "Default route information\n"
-       "Distribute default route\n")
-{
-	struct prefix_ipv6 p;
-
-	if (!ripng->default_information) {
-		ripng->default_information = 1;
-
-		str2prefix_ipv6("::/0", &p);
-		ripng_redistribute_add(ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_DEFAULT,
-				       &p, 0, NULL, 0);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ripng_default_information_originate,
-       no_ripng_default_information_originate_cmd,
-       "no default-information originate",
-       NO_STR
-       "Default route information\n"
-       "Distribute default route\n")
-{
-	struct prefix_ipv6 p;
-
-	if (ripng->default_information) {
-		ripng->default_information = 0;
-
-		str2prefix_ipv6("::/0", &p);
-		ripng_redistribute_delete(ZEBRA_ROUTE_RIPNG,
-					  RIPNG_ROUTE_DEFAULT, &p, 0);
-	}
-
-	return CMD_SUCCESS;
-}
-
 /* Update ECMP routes to zebra when ECMP is disabled. */
 void ripng_ecmp_disable(void)
 {
@@ -2588,9 +2548,6 @@ static int ripng_config_write(struct vty *vty)
 			       "/frr-ripngd:ripngd/instance");
 	if (dnode) {
 		nb_cli_show_dnode_cmds(vty, dnode, false);
-
-		if (ripng->default_information)
-			vty_out(vty, " default-information originate\n");
 
 		ripng_network_write(vty, 1);
 
@@ -2942,10 +2899,6 @@ void ripng_init()
   install_element (RIPNG_NODE, &ripng_garbage_timer_cmd);
   install_element (RIPNG_NODE, &no_ripng_garbage_timer_cmd);
 #endif /* 0 */
-
-	install_element(RIPNG_NODE, &ripng_default_information_originate_cmd);
-	install_element(RIPNG_NODE,
-			&no_ripng_default_information_originate_cmd);
 
 	ripng_if_init();
 	ripng_debug_init();

@@ -99,10 +99,37 @@ void cli_show_ripng_allow_ecmp(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " allow-ecmp\n");
 }
 
+/*
+ * XPath: /frr-ripngd:ripngd/instance/default-information-originate
+ */
+DEFPY (ripng_default_information_originate,
+       ripng_default_information_originate_cmd,
+       "[no] default-information originate",
+       NO_STR
+       "Default route information\n"
+       "Distribute default route\n")
+{
+	nb_cli_enqueue_change(vty, "./default-information-originate",
+			      NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ripng_default_information_originate(struct vty *vty,
+						  struct lyd_node *dnode,
+						  bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " default-information originate\n");
+}
+
 void ripng_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_ripng_cmd);
 	install_element(CONFIG_NODE, &no_router_ripng_cmd);
 
 	install_element(RIPNG_NODE, &ripng_allow_ecmp_cmd);
+	install_element(RIPNG_NODE, &ripng_default_information_originate_cmd);
 }
