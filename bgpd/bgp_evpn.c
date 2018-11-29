@@ -3396,9 +3396,19 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
  */
 static void delete_withdraw_vrf_routes(struct bgp *bgp_vrf)
 {
+	/* Delete ipv4 default route and withdraw from peers */
+	if (evpn_default_originate_set(bgp_vrf, AFI_IP, SAFI_UNICAST))
+		bgp_evpn_install_uninstall_default_route(bgp_vrf, AFI_IP,
+							 SAFI_UNICAST, false);
+
 	/* delete all ipv4 routes and withdraw from peers */
 	if (advertise_type5_routes(bgp_vrf, AFI_IP))
 		bgp_evpn_withdraw_type5_routes(bgp_vrf, AFI_IP, SAFI_UNICAST);
+
+	/* Delete ipv6 default route and withdraw from peers */
+	if (evpn_default_originate_set(bgp_vrf, AFI_IP6, SAFI_UNICAST))
+		bgp_evpn_install_uninstall_default_route(bgp_vrf, AFI_IP6,
+							 SAFI_UNICAST, false);
 
 	/* delete all ipv6 routes and withdraw from peers */
 	if (advertise_type5_routes(bgp_vrf, AFI_IP6))
@@ -3415,9 +3425,20 @@ static void update_advertise_vrf_routes(struct bgp *bgp_vrf)
 	if (advertise_type5_routes(bgp_vrf, AFI_IP))
 		bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP, SAFI_UNICAST);
 
+	/* update ipv4 default route and withdraw from peers */
+	if (evpn_default_originate_set(bgp_vrf, AFI_IP, SAFI_UNICAST))
+		bgp_evpn_install_uninstall_default_route(bgp_vrf, AFI_IP,
+							 SAFI_UNICAST, true);
+
 	/* update all ipv6 routes */
 	if (advertise_type5_routes(bgp_vrf, AFI_IP6))
 		bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP6, SAFI_UNICAST);
+
+	/* update ipv6 default route and withdraw from peers */
+	if (evpn_default_originate_set(bgp_vrf, AFI_IP6, SAFI_UNICAST))
+		bgp_evpn_install_uninstall_default_route(bgp_vrf, AFI_IP6,
+							 SAFI_UNICAST, true);
+
 }
 
 /*
@@ -4217,6 +4238,28 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 		}
 	}
 }
+
+/*
+ * evpn - enable advertisement of default g/w
+ */
+void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf, afi_t afi,
+					      safi_t safi, bool add)
+{
+	struct prefix ip_prefix;
+
+	/* form the default prefix 0.0.0.0/0 */
+	memset(&ip_prefix, 0, sizeof(struct prefix));
+	ip_prefix.family = afi2family(afi);
+
+	if (add) {
+		bgp_evpn_advertise_type5_route(bgp_vrf, &ip_prefix,
+					       NULL, afi, safi);
+	} else {
+		bgp_evpn_withdraw_type5_route(bgp_vrf, &ip_prefix,
+					      afi, safi);
+	}
+}
+
 
 /*
  * Advertise IP prefix as type-5 route. The afi/safi and src_attr passed
