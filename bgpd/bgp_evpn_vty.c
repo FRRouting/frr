@@ -2661,15 +2661,9 @@ static void evpn_unset_advertise_default_gw(struct bgp *bgp,
  * evpn - enable advertisement of default g/w
  */
 static void evpn_process_default_originate_cmd(struct bgp *bgp_vrf,
-					       afi_t afi, int add)
+					       afi_t afi, bool add)
 {
-	struct prefix ip_prefix;
 	safi_t safi = SAFI_UNICAST; /* ipv4/ipv6 unicast */
-
-	/* form the default prefix 0.0.0.0/0 */
-	memset(&ip_prefix, 0, sizeof(struct prefix));
-	ip_prefix.family = afi2family(afi);
-	ip_prefix.prefixlen = 0;
 
 	if (add) {
 		/* bail if we are already advertising default route */
@@ -2682,8 +2676,6 @@ static void evpn_process_default_originate_cmd(struct bgp *bgp_vrf,
 		else if (afi == AFI_IP6)
 			SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
 				 BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6);
-		bgp_evpn_advertise_type5_route(bgp_vrf, &ip_prefix,
-					       NULL, afi, safi);
 	} else {
 		/* bail out if we havent advertised the default route */
 		if (!evpn_default_originate_set(bgp_vrf, afi, safi))
@@ -2694,9 +2686,9 @@ static void evpn_process_default_originate_cmd(struct bgp *bgp_vrf,
 		else if (afi == AFI_IP6)
 			UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
 				   BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6);
-		bgp_evpn_withdraw_type5_route(bgp_vrf, &ip_prefix,
-					      afi, safi);
 	}
+
+	bgp_evpn_install_uninstall_default_route(bgp_vrf, afi, safi, add);
 }
 
 /*
@@ -2976,7 +2968,7 @@ DEFUN (bgp_evpn_default_originate,
 	if (!bgp_vrf)
 		return CMD_WARNING;
 	argv_find_and_parse_afi(argv, argc, &idx_afi, &afi);
-	evpn_process_default_originate_cmd(bgp_vrf, afi, 1);
+	evpn_process_default_originate_cmd(bgp_vrf, afi, true);
 	return CMD_SUCCESS;
 }
 
@@ -2995,7 +2987,7 @@ DEFUN (no_bgp_evpn_default_originate,
 	if (!bgp_vrf)
 		return CMD_WARNING;
 	argv_find_and_parse_afi(argv, argc, &idx_afi, &afi);
-	evpn_process_default_originate_cmd(bgp_vrf, afi, 0);
+	evpn_process_default_originate_cmd(bgp_vrf, afi, false);
 	return CMD_SUCCESS;
 }
 
