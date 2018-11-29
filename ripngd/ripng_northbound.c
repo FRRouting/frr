@@ -729,7 +729,16 @@ lib_interface_ripng_split_horizon_modify(enum nb_event event,
 					 const struct lyd_node *dnode,
 					 union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	struct interface *ifp;
+	struct ripng_interface *ri;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = yang_dnode_get_entry(dnode, true);
+	ri = ifp->info;
+	ri->split_horizon = yang_dnode_get_enum(dnode, NULL);
+
 	return NB_OK;
 }
 
@@ -887,6 +896,7 @@ const struct frr_yang_module_info frr_ripngd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-ripngd:ripng/split-horizon",
 			.cbs.modify = lib_interface_ripng_split_horizon_modify,
+			.cbs.cli_show = cli_show_ipv6_ripng_split_horizon,
 		},
 		{
 			.xpath = NULL,

@@ -51,5 +51,8 @@ extern void cli_show_ripng_aggregate_address(struct vty *vty,
 					     bool show_defaults);
 extern void cli_show_ripng_timers(struct vty *vty, struct lyd_node *dnode,
 				  bool show_defaults);
+extern void cli_show_ipv6_ripng_split_horizon(struct vty *vty,
+					      struct lyd_node *dnode,
+					      bool show_defaults);
 
 #endif /* _FRR_RIPNG_CLI_H_ */

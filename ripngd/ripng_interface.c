@@ -36,6 +36,7 @@
 #include "privs.h"
 #include "vrf.h"
 #include "lib_errors.h"
+#include "northbound_cli.h"
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_debug.h"
@@ -336,8 +337,8 @@ void ripng_interface_reset(void)
 		ri->enable_interface = 0;
 		ri->running = 0;
 
-		ri->split_horizon = RIPNG_NO_SPLIT_HORIZON;
-		ri->split_horizon_default = RIPNG_NO_SPLIT_HORIZON;
+		ri->split_horizon =
+			yang_get_default_enum("%s/split-horizon", RIPNG_IFACE);
 
 		ri->list[RIPNG_FILTER_IN] = NULL;
 		ri->list[RIPNG_FILTER_OUT] = NULL;
@@ -901,57 +902,6 @@ int ripng_network_write(struct vty *vty)
 	return 0;
 }
 
-DEFUN (ipv6_ripng_split_horizon,
-       ipv6_ripng_split_horizon_cmd,
-       "ipv6 ripng split-horizon",
-       IPV6_STR
-       "Routing Information Protocol\n"
-       "Perform split horizon\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct ripng_interface *ri;
-
-	ri = ifp->info;
-
-	ri->split_horizon = RIPNG_SPLIT_HORIZON;
-	return CMD_SUCCESS;
-}
-
-DEFUN (ipv6_ripng_split_horizon_poisoned_reverse,
-       ipv6_ripng_split_horizon_poisoned_reverse_cmd,
-       "ipv6 ripng split-horizon poisoned-reverse",
-       IPV6_STR
-       "Routing Information Protocol\n"
-       "Perform split horizon\n"
-       "With poisoned-reverse\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct ripng_interface *ri;
-
-	ri = ifp->info;
-
-	ri->split_horizon = RIPNG_SPLIT_HORIZON_POISONED_REVERSE;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_ripng_split_horizon,
-       no_ipv6_ripng_split_horizon_cmd,
-       "no ipv6 ripng split-horizon [poisoned-reverse]",
-       NO_STR
-       IPV6_STR
-       "Routing Information Protocol\n"
-       "Perform split horizon\n"
-       "With poisoned-reverse\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct ripng_interface *ri;
-
-	ri = ifp->info;
-
-	ri->split_horizon = RIPNG_NO_SPLIT_HORIZON;
-	return CMD_SUCCESS;
-}
-
 static struct ripng_interface *ri_new(void)
 {
 	struct ripng_interface *ri;
@@ -961,8 +911,8 @@ static struct ripng_interface *ri_new(void)
 	   Relay or SMDS is enabled, the default value for split-horizon is
 	   off.  But currently Zebra does detect Frame Relay or SMDS
 	   interface.  So all interface is set to split horizon.  */
-	ri->split_horizon_default = RIPNG_SPLIT_HORIZON;
-	ri->split_horizon = ri->split_horizon_default;
+	ri->split_horizon =
+		yang_get_default_enum("%s/split-horizon", RIPNG_IFACE);
 
 	return ri;
 }
@@ -986,44 +936,22 @@ static int interface_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
-	struct ripng_interface *ri;
 	int write = 0;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		ri = ifp->info;
+		struct lyd_node *dnode;
 
-		/* Do not display the interface if there is no
-		 * configuration about it.
-		 **/
-		if ((!ifp->desc)
-		    && (ri->split_horizon == ri->split_horizon_default))
+		dnode = yang_dnode_get(
+			running_config->dnode,
+			"/frr-interface:lib/interface[name='%s'][vrf='%s']",
+			ifp->name, vrf->name);
+		if (dnode == NULL)
 			continue;
 
-		vty_frame(vty, "interface %s\n", ifp->name);
-		if (ifp->desc)
-			vty_out(vty, " description %s\n", ifp->desc);
-
-		/* Split horizon. */
-		if (ri->split_horizon != ri->split_horizon_default) {
-			switch (ri->split_horizon) {
-			case RIPNG_SPLIT_HORIZON:
-				vty_out(vty, " ipv6 ripng split-horizon\n");
-				break;
-			case RIPNG_SPLIT_HORIZON_POISONED_REVERSE:
-				vty_out(vty,
-					" ipv6 ripng split-horizon poisoned-reverse\n");
-				break;
-			case RIPNG_NO_SPLIT_HORIZON:
-			default:
-				vty_out(vty, " no ipv6 ripng split-horizon\n");
-				break;
-			}
-		}
-
-		vty_endframe(vty, "!\n");
-
-		write++;
+		write = 1;
+		nb_cli_show_dnode_cmds(vty, dnode, false);
 	}
+
 	return write;
 }
 
@@ -1051,9 +979,4 @@ void ripng_if_init()
 	/* Install interface node. */
 	install_node(&interface_node, interface_config_write);
 	if_cmd_init();
-
-	install_element(INTERFACE_NODE, &ipv6_ripng_split_horizon_cmd);
-	install_element(INTERFACE_NODE,
-			&ipv6_ripng_split_horizon_poisoned_reverse_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_ripng_split_horizon_cmd);
 }

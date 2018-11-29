@@ -406,6 +406,51 @@ void cli_show_ripng_timers(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, "./flush-interval"));
 }
 
+/*
+ * XPath: /frr-interface:lib/interface/frr-ripngd:ripng/split-horizon
+ */
+DEFPY (ipv6_ripng_split_horizon,
+       ipv6_ripng_split_horizon_cmd,
+       "[no] ipv6 ripng split-horizon [poisoned-reverse$poisoned_reverse]",
+       NO_STR
+       IPV6_STR
+       "Routing Information Protocol\n"
+       "Perform split horizon\n"
+       "With poisoned-reverse\n")
+{
+	const char *value;
+
+	if (no)
+		value = "disabled";
+	else if (poisoned_reverse)
+		value = "poison-reverse";
+	else
+		value = "simple";
+
+	nb_cli_enqueue_change(vty, "./split-horizon", NB_OP_MODIFY, value);
+
+	return nb_cli_apply_changes(vty, "./frr-ripngd:ripng");
+}
+
+void cli_show_ipv6_ripng_split_horizon(struct vty *vty, struct lyd_node *dnode,
+				       bool show_defaults)
+{
+	int value;
+
+	value = yang_dnode_get_enum(dnode, NULL);
+	switch (value) {
+	case RIPNG_NO_SPLIT_HORIZON:
+		vty_out(vty, " no ipv6 ripng split-horizon\n");
+		break;
+	case RIPNG_SPLIT_HORIZON:
+		vty_out(vty, " ipv6 ripng split-horizon\n");
+		break;
+	case RIPNG_SPLIT_HORIZON_POISONED_REVERSE:
+		vty_out(vty, " ipv6 ripng split-horizon poisoned-reverse\n");
+		break;
+	}
+}
+
 void ripng_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_ripng_cmd);
@@ -424,4 +469,6 @@ void ripng_cli_init(void)
 	install_element(RIPNG_NODE, &ripng_aggregate_address_cmd);
 	install_element(RIPNG_NODE, &ripng_timers_cmd);
 	install_element(RIPNG_NODE, &no_ripng_timers_cmd);
+
+	install_element(INTERFACE_NODE, &ipv6_ripng_split_horizon_cmd);
 }

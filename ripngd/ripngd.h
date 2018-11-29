@@ -236,7 +236,6 @@ struct ripng_interface {
 
 	/* Split horizon flag. */
 	split_horizon_policy_t split_horizon;
-	split_horizon_policy_t split_horizon_default;
 
 /* For filter type slot. */
 #define RIPNG_FILTER_IN  0
