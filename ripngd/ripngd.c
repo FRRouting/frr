@@ -2505,25 +2505,6 @@ void ripng_clean()
 	ripng_redistribute_clean();
 }
 
-/* Reset all values to the default settings. */
-void ripng_reset()
-{
-	/* Call ripd related reset functions. */
-	ripng_debug_reset();
-	ripng_route_map_reset();
-
-	/* Call library reset functions. */
-	vty_reset();
-	access_list_reset();
-	prefix_list_reset();
-
-	distribute_list_reset();
-
-	ripng_interface_reset();
-
-	ripng_zclient_reset();
-}
-
 static void ripng_if_rmap_update(struct if_rmap *if_rmap)
 {
 	struct interface *ifp;

@@ -72,13 +72,9 @@ static struct frr_daemon_info ripngd_di;
 static void sighup(void)
 {
 	zlog_info("SIGHUP received");
-	ripng_clean();
-	ripng_reset();
 
 	/* Reload config file. */
 	vty_read_config(NULL, ripngd_di.config_file, config_default);
-
-	/* Try to return to normal operation. */
 }
 
 /* SIGINT handler. */

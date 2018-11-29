@@ -324,37 +324,6 @@ void ripng_interface_clean(void)
 	}
 }
 
-void ripng_interface_reset(void)
-{
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	struct interface *ifp;
-	struct ripng_interface *ri;
-
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		ri = ifp->info;
-
-		ri->enable_network = 0;
-		ri->enable_interface = 0;
-		ri->running = 0;
-
-		ri->split_horizon =
-			yang_get_default_enum("%s/split-horizon", RIPNG_IFACE);
-
-		ri->list[RIPNG_FILTER_IN] = NULL;
-		ri->list[RIPNG_FILTER_OUT] = NULL;
-
-		ri->prefix[RIPNG_FILTER_IN] = NULL;
-		ri->prefix[RIPNG_FILTER_OUT] = NULL;
-
-		if (ri->t_wakeup) {
-			thread_cancel(ri->t_wakeup);
-			ri->t_wakeup = NULL;
-		}
-
-		ri->passive = 0;
-	}
-}
-
 static void ripng_apply_address_add(struct connected *ifc)
 {
 	struct prefix_ipv6 address;

@@ -334,11 +334,9 @@ extern struct thread_master *master;
 
 /* Prototypes. */
 extern void ripng_init(void);
-extern void ripng_reset(void);
 extern void ripng_clean(void);
 extern void ripng_clean_network(void);
 extern void ripng_interface_clean(void);
-extern void ripng_interface_reset(void);
 extern int ripng_enable_network_add(struct prefix *p);
 extern int ripng_enable_network_delete(struct prefix *p);
 extern int ripng_enable_if_add(const char *ifname);
@@ -348,12 +346,10 @@ extern int ripng_passive_interface_unset(const char *ifname);
 extern void ripng_passive_interface_clean(void);
 extern void ripng_if_init(void);
 extern void ripng_route_map_init(void);
-extern void ripng_route_map_reset(void);
 extern void ripng_terminate(void);
 /* zclient_init() is done by ripng_zebra.c:zebra_init() */
 extern void zebra_init(struct thread_master *);
 extern void ripng_zebra_stop(void);
-extern void ripng_zclient_reset(void);
 extern void ripng_redistribute_conf_update(int type);
 extern void ripng_redistribute_conf_delete(int type);
 

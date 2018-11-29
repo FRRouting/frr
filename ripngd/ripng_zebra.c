@@ -141,11 +141,6 @@ static int ripng_zebra_read_route(int command, struct zclient *zclient,
 	return 0;
 }
 
-void ripng_zclient_reset(void)
-{
-	zclient_reset(zclient);
-}
-
 void ripng_redistribute_conf_update(int type)
 {
 	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0,
