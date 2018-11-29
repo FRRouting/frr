@@ -84,9 +84,11 @@ extern bool bgp_zebra_nexthop_set(union sockunion *, union sockunion *,
 
 struct bgp_pbr_action;
 struct bgp_pbr_match;
+struct bgp_pbr_rule;
 struct bgp_pbr_match_entry;
 extern void bgp_send_pbr_rule_action(struct bgp_pbr_action *pbra,
-				bool install);
+				     struct bgp_pbr_rule *pbr,
+				     bool install);
 extern void bgp_send_pbr_ipset_match(struct bgp_pbr_match *pbrim,
 				     bool install);
 extern void bgp_send_pbr_ipset_entry_match(struct bgp_pbr_match_entry *pbrime,
