@@ -67,6 +67,25 @@ struct bgp_pbr_action_unique {
 	struct bgp_pbr_action *bpa_found;
 };
 
+struct bgp_pbr_rule_unique {
+	uint32_t unique;
+	struct bgp_pbr_rule *bpr_found;
+};
+
+static int bgp_pbr_rule_walkcb(struct hash_backet *backet, void *arg)
+{
+	struct bgp_pbr_rule *bpr = (struct bgp_pbr_rule *)backet->data;
+	struct bgp_pbr_rule_unique *bpru = (struct bgp_pbr_rule_unique *)
+		arg;
+	uint32_t unique = bpru->unique;
+
+	if (bpr->unique == unique) {
+		bpru->bpr_found = bpr;
+		return HASHWALK_ABORT;
+	}
+	return HASHWALK_CONTINUE;
+}
+
 static int bgp_pbr_action_walkcb(struct hash_backet *backet, void *arg)
 {
 	struct bgp_pbr_action *bpa = (struct bgp_pbr_action *)backet->data;
@@ -1121,6 +1140,20 @@ bool bgp_pbr_action_hash_equal(const void *arg1, const void *arg2)
 		return false;
 
 	return true;
+}
+
+struct bgp_pbr_rule *bgp_pbr_rule_lookup(vrf_id_t vrf_id,
+					 uint32_t unique)
+{
+	struct bgp *bgp = bgp_lookup_by_vrf_id(vrf_id);
+	struct bgp_pbr_rule_unique bpru;
+
+	if (!bgp || unique == 0)
+		return NULL;
+	bpru.unique = unique;
+	bpru.bpr_found = NULL;
+	hash_walk(bgp->pbr_rule_hash, bgp_pbr_rule_walkcb, &bpru);
+	return bpru.bpr_found;
 }
 
 struct bgp_pbr_action *bgp_pbr_action_rule_lookup(vrf_id_t vrf_id,

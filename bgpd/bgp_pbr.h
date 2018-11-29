@@ -253,6 +253,9 @@ struct bgp_pbr_action {
 	struct bgp *bgp;
 };
 
+extern struct bgp_pbr_rule *bgp_pbr_rule_lookup(vrf_id_t vrf_id,
+						uint32_t unique);
+
 extern struct bgp_pbr_action *bgp_pbr_action_rule_lookup(vrf_id_t vrf_id,
 							 uint32_t unique);
 
