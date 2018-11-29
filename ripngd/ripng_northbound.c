@@ -328,15 +328,31 @@ static int ripngd_instance_redistribute_create(enum nb_event event,
 					       const struct lyd_node *dnode,
 					       union nb_resource *resource)
 {
-	/* TODO: implement me. */
 	return NB_OK;
 }
 
 static int ripngd_instance_redistribute_delete(enum nb_event event,
 					       const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	int type;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	type = yang_dnode_get_enum(dnode, "./protocol");
+
+	ripng_redistribute_conf_delete(type);
+
 	return NB_OK;
+}
+
+static void
+ripngd_instance_redistribute_apply_finish(const struct lyd_node *dnode)
+{
+	int type;
+
+	type = yang_dnode_get_enum(dnode, "./protocol");
+	ripng_redistribute_conf_update(type);
 }
 
 /*
@@ -347,7 +363,20 @@ ripngd_instance_redistribute_route_map_modify(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	int type;
+	const char *rmap_name;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	type = yang_dnode_get_enum(dnode, "../protocol");
+	rmap_name = yang_dnode_get_string(dnode, NULL);
+
+	if (ripng->route_map[type].name)
+		free(ripng->route_map[type].name);
+	ripng->route_map[type].name = strdup(rmap_name);
+	ripng->route_map[type].map = route_map_lookup_by_name(rmap_name);
+
 	return NB_OK;
 }
 
@@ -355,7 +384,17 @@ static int
 ripngd_instance_redistribute_route_map_delete(enum nb_event event,
 					      const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	int type;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	type = yang_dnode_get_enum(dnode, "../protocol");
+
+	free(ripng->route_map[type].name);
+	ripng->route_map[type].name = NULL;
+	ripng->route_map[type].map = NULL;
+
 	return NB_OK;
 }
 
@@ -367,7 +406,18 @@ ripngd_instance_redistribute_metric_modify(enum nb_event event,
 					   const struct lyd_node *dnode,
 					   union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	int type;
+	uint8_t metric;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	type = yang_dnode_get_enum(dnode, "../protocol");
+	metric = yang_dnode_get_uint8(dnode, NULL);
+
+	ripng->route_map[type].metric_config = true;
+	ripng->route_map[type].metric = metric;
+
 	return NB_OK;
 }
 
@@ -375,7 +425,16 @@ static int
 ripngd_instance_redistribute_metric_delete(enum nb_event event,
 					   const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	int type;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	type = yang_dnode_get_enum(dnode, "../protocol");
+
+	ripng->route_map[type].metric_config = false;
+	ripng->route_map[type].metric = 0;
+
 	return NB_OK;
 }
 
@@ -676,6 +735,8 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.xpath = "/frr-ripngd:ripngd/instance/redistribute",
 			.cbs.create = ripngd_instance_redistribute_create,
 			.cbs.delete = ripngd_instance_redistribute_delete,
+			.cbs.apply_finish = ripngd_instance_redistribute_apply_finish,
+			.cbs.cli_show = cli_show_ripng_redistribute,
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/redistribute/route-map",

@@ -2081,7 +2081,7 @@ DEFUN (show_ipv6_ripng_status,
 
 	/* Redistribute information. */
 	vty_out(vty, "  Redistributing:");
-	ripng_redistribute_write(vty, 0);
+	ripng_redistribute_write(vty);
 	vty_out(vty, "\n");
 
 	vty_out(vty, "  Default version control: send version %d,",
@@ -2521,8 +2521,6 @@ static int ripng_config_write(struct vty *vty)
 			       "/frr-ripngd:ripngd/instance");
 	if (dnode) {
 		nb_cli_show_dnode_cmds(vty, dnode, false);
-
-		ripng_redistribute_write(vty, 1);
 
 		/* RIPng aggregate routes. */
 		for (rp = agg_route_top(ripng->aggregate); rp;

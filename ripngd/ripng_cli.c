@@ -269,6 +269,49 @@ void cli_show_ripng_passive_interface(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, NULL));
 }
 
+/*
+ * XPath: /frr-ripngd:ripngd/instance/redistribute
+ */
+DEFPY (ripng_redistribute,
+       ripng_redistribute_cmd,
+       "[no] redistribute " FRR_REDIST_STR_RIPNGD "$protocol [{metric (0-16)|route-map WORD}]",
+       NO_STR
+       REDIST_STR
+       FRR_REDIST_HELP_STR_RIPNGD
+       "Metric\n"
+       "Metric value\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
+{
+	if (!no) {
+		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, "./route-map",
+				      route_map ? NB_OP_MODIFY : NB_OP_DELETE,
+				      route_map);
+		nb_cli_enqueue_change(vty, "./metric",
+				      metric_str ? NB_OP_MODIFY : NB_OP_DELETE,
+				      metric_str);
+	} else
+		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+
+	return nb_cli_apply_changes(vty, "./redistribute[protocol='%s']",
+				    protocol);
+}
+
+void cli_show_ripng_redistribute(struct vty *vty, struct lyd_node *dnode,
+				 bool show_defaults)
+{
+	vty_out(vty, " redistribute %s",
+		yang_dnode_get_string(dnode, "./protocol"));
+	if (yang_dnode_exists(dnode, "./metric"))
+		vty_out(vty, " metric %s",
+			yang_dnode_get_string(dnode, "./metric"));
+	if (yang_dnode_exists(dnode, "./route-map"))
+		vty_out(vty, " route-map %s",
+			yang_dnode_get_string(dnode, "./route-map"));
+	vty_out(vty, "\n");
+}
+
 void ripng_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_ripng_cmd);
@@ -282,4 +325,5 @@ void ripng_cli_init(void)
 	install_element(RIPNG_NODE, &ripng_network_if_cmd);
 	install_element(RIPNG_NODE, &ripng_offset_list_cmd);
 	install_element(RIPNG_NODE, &ripng_passive_interface_cmd);
+	install_element(RIPNG_NODE, &ripng_redistribute_cmd);
 }

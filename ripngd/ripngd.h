@@ -136,8 +136,8 @@ struct ripng {
 	struct {
 		char *name;
 		struct route_map *map;
-		int metric_config;
-		uint32_t metric;
+		bool metric_config;
+		uint8_t metric;
 	} route_map[ZEBRA_ROUTE_MAX];
 };
 
@@ -366,6 +366,8 @@ extern void ripng_terminate(void);
 extern void zebra_init(struct thread_master *);
 extern void ripng_zebra_stop(void);
 extern void ripng_zclient_reset(void);
+extern void ripng_redistribute_conf_update(int type);
+extern void ripng_redistribute_conf_delete(int type);
 
 extern void ripng_peer_init(void);
 extern void ripng_peer_update(struct sockaddr_in6 *, uint8_t);
@@ -405,7 +407,7 @@ extern void ripng_zebra_ipv6_delete(struct agg_node *node);
 
 extern void ripng_redistribute_clean(void);
 extern int ripng_redistribute_check(int);
-extern void ripng_redistribute_write(struct vty *, int);
+extern void ripng_redistribute_write(struct vty *);
 
 extern int ripng_write_rte(int num, struct stream *s, struct prefix_ipv6 *p,
 			   struct in6_addr *nexthop, uint16_t tag,
