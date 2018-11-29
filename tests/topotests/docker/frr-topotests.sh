@@ -130,7 +130,7 @@ if [ -z "$TOPOTEST_BUILDCACHE" ]; then
 		|| docker volume create "${TOPOTEST_BUILDCACHE}"
 fi
 
-set -- --rm -ti \
+set -- --rm -i \
 	-v "$TOPOTEST_LOGS:/tmp" \
 	-v "$TOPOTEST_FRR:/root/host-frr:ro" \
 	-v "$TOPOTEST_FRR/tests/topotests:/root/topotests:ro" \
@@ -142,5 +142,9 @@ set -- --rm -ti \
 	--privileged \
 	$TOPOTEST_OPTIONS \
 	frrouting/frr:topotests-latest "$@"
+
+if [ -t 0 ]; then
+	set -- -t "$@"
+fi
 
 exec docker run "$@"
