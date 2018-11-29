@@ -88,11 +88,6 @@ struct bgp_pbr_entry_action {
 /* BGP Policy Route structure */
 struct bgp_pbr_entry_main {
 	uint8_t type;
-	uint16_t instance;
-
-	uint32_t flags;
-
-	uint8_t message;
 
 	/*
 	 * This is an enum but we are going to treat it as a uint8_t
@@ -136,14 +131,6 @@ struct bgp_pbr_entry_main {
 
 	uint16_t action_num;
 	struct bgp_pbr_entry_action actions[ACTIONS_MAX_NUM];
-
-	uint8_t distance;
-
-	uint32_t metric;
-
-	route_tag_t tag;
-
-	uint32_t mtu;
 
 	vrf_id_t vrf_id;
 };
