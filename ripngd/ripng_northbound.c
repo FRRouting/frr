@@ -677,14 +677,29 @@ static const void *
 ripngd_state_routes_route_get_next(const void *parent_list_entry,
 				   const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	struct agg_node *rn;
+
+	if (ripng == NULL)
+		return NULL;
+
+	if (list_entry == NULL)
+		rn = agg_route_top(ripng->table);
+	else
+		rn = agg_route_next((struct agg_node *)list_entry);
+	while (rn && rn->info == NULL)
+		rn = agg_route_next(rn);
+
+	return rn;
 }
 
 static int ripngd_state_routes_route_get_keys(const void *list_entry,
 					      struct yang_list_keys *keys)
 {
-	/* TODO: implement me. */
+	const struct agg_node *rn = list_entry;
+
+	keys->num = 1;
+	(void)prefix2str(&rn->p, keys->key[0], sizeof(keys->key[0]));
+
 	return NB_OK;
 }
 
@@ -692,8 +707,18 @@ static const void *
 ripngd_state_routes_route_lookup_entry(const void *parent_list_entry,
 				       const struct yang_list_keys *keys)
 {
-	/* TODO: implement me. */
-	return NULL;
+	struct prefix prefix;
+	struct agg_node *rn;
+
+	yang_str2ipv6p(keys->key[0], &prefix);
+
+	rn = agg_node_lookup(ripng->table, &prefix);
+	if (!rn || !rn->info)
+		return NULL;
+
+	agg_unlock_node(rn);
+
+	return rn;
 }
 
 /*
@@ -703,8 +728,10 @@ static struct yang_data *
 ripngd_state_routes_route_prefix_get_elem(const char *xpath,
 					  const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct agg_node *rn = list_entry;
+	const struct ripng_info *rinfo = listnode_head(rn->info);
+
+	return yang_data_new_ipv6p(xpath, &rinfo->rp->p);
 }
 
 /*
@@ -714,8 +741,10 @@ static struct yang_data *
 ripngd_state_routes_route_next_hop_get_elem(const char *xpath,
 					    const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct agg_node *rn = list_entry;
+	const struct ripng_info *rinfo = listnode_head(rn->info);
+
+	return yang_data_new_ipv6(xpath, &rinfo->nexthop);
 }
 
 /*
@@ -725,8 +754,11 @@ static struct yang_data *
 ripngd_state_routes_route_interface_get_elem(const char *xpath,
 					     const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct agg_node *rn = list_entry;
+	const struct ripng_info *rinfo = listnode_head(rn->info);
+
+	return yang_data_new_string(
+		xpath, ifindex2ifname(rinfo->ifindex, VRF_DEFAULT));
 }
 
 /*
@@ -736,8 +768,10 @@ static struct yang_data *
 ripngd_state_routes_route_metric_get_elem(const char *xpath,
 					  const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct agg_node *rn = list_entry;
+	const struct ripng_info *rinfo = listnode_head(rn->info);
+
+	return yang_data_new_uint8(xpath, rinfo->metric);
 }
 
 /*
