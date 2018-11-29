@@ -255,6 +255,24 @@ options to the configuration script.
    Configure zebra to use `dir` for local state files, such as pid files and
    unix sockets.
 
+.. option:: --with-yangmodelsdir <dir>
+
+   Look for YANG modules in `dir` [`prefix`/share/yang]. Note that the FRR
+   YANG modules will be installed here.
+
+.. option:: --with-libyang-pluginsdir <dir>
+
+   Look for libyang plugins in `dir` [`prefix`/lib/frr/libyang_plugins].
+   Note that the FRR libyang plugins will be installed here.
+
+When it's desired to run FRR without installing it in the system, it's possible
+to configure it as follows to look for YANG modules and libyang plugins in the
+compile directory:
+.. code-block:: shell
+
+   ./configure --with-libyang-pluginsdir="`pwd`/yang/libyang_plugins/.libs" \
+               --with-yangmodelsdir="`pwd`/yang"
+
 .. _least-privilege-support:
 
 Least-Privilege Support
@@ -367,7 +385,7 @@ Additional kernel modules are also needed to support MPLS forwarding.
    appropriate value.
 
 :makevar:`VRF forwarding`
-   General information on Linux VRF support can be found in 
+   General information on Linux VRF support can be found in
    https://www.kernel.org/doc/Documentation/networking/vrf.txt. Kernel
    support for VRFs was introduced in 4.3 and improved upon through
    4.13, which is the version most used in FRR testing (as of June
@@ -403,7 +421,7 @@ Additional kernel modules are also needed to support MPLS forwarding.
    included in future kernel versions so upgrading your kernel may also
    address this issue.
 
-   
+
 Building
 ^^^^^^^^
 

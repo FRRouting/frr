@@ -87,12 +87,6 @@ static int isis_zebra_if_add(int command, struct zclient *zclient,
 
 	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
 
-	if (isis->debugs & DEBUG_ZEBRA)
-		zlog_debug(
-			"Zebra I/F add: %s index %d flags %ld metric %d mtu %d",
-			ifp->name, ifp->ifindex, (long)ifp->flags, ifp->metric,
-			ifp->mtu);
-
 	if (if_is_operative(ifp))
 		isis_csm_state_change(IF_UP_FROM_Z, circuit_scan_by_ifp(ifp),
 				      ifp);
@@ -115,12 +109,6 @@ static int isis_zebra_if_del(int command, struct zclient *zclient,
 	if (if_is_operative(ifp))
 		zlog_warn("Zebra: got delete of %s, but interface is still up",
 			  ifp->name);
-
-	if (isis->debugs & DEBUG_ZEBRA)
-		zlog_debug(
-			"Zebra I/F delete: %s index %d flags %ld metric %d mtu %d",
-			ifp->name, ifp->ifindex, (long)ifp->flags, ifp->metric,
-			ifp->mtu);
 
 	isis_csm_state_change(IF_DOWN_FROM_Z, circuit_scan_by_ifp(ifp), ifp);
 
@@ -425,7 +413,7 @@ static void isis_zebra_connected(struct zclient *zclient)
 
 void isis_zebra_init(struct thread_master *master)
 {
-	zclient = zclient_new_notify(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default);
 	zclient_init(zclient, PROTO_TYPE, 0, &isisd_privs);
 	zclient->zebra_connected = isis_zebra_connected;
 	zclient->router_id_update = isis_router_id_update_zebra;

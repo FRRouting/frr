@@ -113,5 +113,7 @@ extern int static_delete_route(afi_t afi, safi_t safi, uint8_t type,
 
 extern void static_cleanup_vrf_ids(struct static_vrf *disable_svrf);
 
+extern void static_install_intf_nh(struct interface *ifp);
+
 extern void static_ifindex_update(struct interface *ifp, bool up);
 #endif

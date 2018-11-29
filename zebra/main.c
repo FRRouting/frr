@@ -172,7 +172,7 @@ static void sigint(void)
 		work_queue_free_and_null(&zebrad.lsp_process_q);
 	vrf_terminate();
 
-	ns_walk_func(zebra_ns_disabled);
+	ns_walk_func(zebra_ns_early_shutdown);
 	zebra_ns_notify_close();
 
 	access_list_reset();
@@ -195,6 +195,9 @@ static void sigint(void)
 int zebra_finalize(struct thread *dummy)
 {
 	zlog_info("Zebra final shutdown");
+
+	/* Final shutdown of ns resources */
+	ns_walk_func(zebra_ns_final_shutdown);
 
 	/* Stop dplane thread and finish any cleanup */
 	zebra_dplane_shutdown();
@@ -390,6 +393,9 @@ int main(int argc, char **argv)
 	vty_config_lockless();
 	zebrad.master = frr_init();
 
+	/* Initialize pthread library */
+	frr_pthread_init();
+
 	/* Zebra related initialize. */
 	zebra_router_init();
 	zserv_init();
@@ -445,8 +451,8 @@ int main(int argc, char **argv)
 	/* Needed for BSD routing socket. */
 	pid = getpid();
 
-	/* Intialize pthread library */
-	frr_pthread_init();
+	/* Start dataplane system */
+	zebra_dplane_start();
 
 	/* Start Zebra API server */
 	zserv_start(zserv_path);

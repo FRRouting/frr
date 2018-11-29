@@ -746,7 +746,7 @@ static void pim_zebra_connected(struct zclient *zclient)
 void pim_zebra_init(void)
 {
 	/* Socket for receiving updates from Zebra daemon */
-	zclient = zclient_new_notify(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default);
 
 	zclient->zebra_connected = pim_zebra_connected;
 	zclient->router_id_update = pim_router_id_update_zebra;
@@ -1048,6 +1048,10 @@ void igmp_source_forward_start(struct pim_instance *pim,
 				   __PRETTY_FUNCTION__,
 				   pim_str_sg_dump(&sg),
 				   group->group_igmp_sock->interface->name);
+
+		pim_channel_del_oif(source->source_channel_oil,
+				    group->group_igmp_sock->interface,
+				    PIM_OIF_FLAG_PROTO_IGMP);
 		return;
 	}
 	/*
@@ -1059,6 +1063,10 @@ void igmp_source_forward_start(struct pim_instance *pim,
 		if (PIM_DEBUG_MROUTE)
 			zlog_warn("%s: Failure to add local membership for %s",
 				  __PRETTY_FUNCTION__, pim_str_sg_dump(&sg));
+
+		pim_channel_del_oif(source->source_channel_oil,
+				    group->group_igmp_sock->interface,
+				    PIM_OIF_FLAG_PROTO_IGMP);
 		return;
 	}
 

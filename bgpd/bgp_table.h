@@ -25,6 +25,7 @@
 #include "table.h"
 #include "queue.h"
 #include "linklist.h"
+#include "bgpd.h"
 
 struct bgp_table {
 	/* table belongs to this instance */
@@ -67,6 +68,8 @@ struct bgp_node {
 #define BGP_NODE_USER_CLEAR             (1 << 1)
 #define BGP_NODE_LABEL_CHANGED          (1 << 2)
 #define BGP_NODE_REGISTERED_FOR_LABEL   (1 << 3)
+
+	struct bgp_addpath_node_data tx_addpath;
 };
 
 /*

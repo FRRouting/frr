@@ -398,7 +398,7 @@ bool tlvs_to_adj_mt_set(struct isis_tlvs *tlvs, bool v4_usable, bool v6_usable,
 		    && !tlvs->mt_router_info_empty) {
 			/* Other end does not have MT enabled */
 			if (mt_settings[i]->mtid == ISIS_MT_IPV4_UNICAST
-			    && v4_usable)
+			    && (v4_usable || v6_usable))
 				adj_mt_set(adj, intersect_count++,
 					   ISIS_MT_IPV4_UNICAST);
 		} else {

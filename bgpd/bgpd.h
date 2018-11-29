@@ -39,6 +39,7 @@
 #include "bitfield.h"
 #include "vxlan.h"
 #include "bgp_labelpool.h"
+#include "bgp_addpath_types.h"
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 #define BGP_PEER_MAX_HASH_SIZE 16384
@@ -130,6 +131,7 @@ struct bgp_master {
 #define BGP_OPT_MULTIPLE_INSTANCE        (1 << 1)
 #define BGP_OPT_CONFIG_CISCO             (1 << 2)
 #define BGP_OPT_NO_LISTEN                (1 << 3)
+#define BGP_OPT_NO_ZEBRA                 (1 << 4)
 
 	uint64_t updgrp_idspace;
 	uint64_t subgrp_idspace;
@@ -368,7 +370,6 @@ struct bgp {
 /* vrf-route leaking flags */
 #define BGP_CONFIG_VRF_TO_VRF_IMPORT			(1 << 7)
 #define BGP_CONFIG_VRF_TO_VRF_EXPORT			(1 << 8)
-#define BGP_DEFAULT_NAME		"default"
 
 	/* Route table for next-hop lookup cache. */
 	struct bgp_table *nexthop_cache_table[AFI_MAX];
@@ -463,8 +464,7 @@ struct bgp {
 	/* Auto-shutdown new peers */
 	bool autoshutdown;
 
-	uint32_t addpath_tx_id;
-	int addpath_tx_used[AFI_MAX][SAFI_MAX];
+	struct bgp_addpath_bgp_data tx_addpath;
 
 #if ENABLE_BGP_VNC
 	struct rfapi_cfg *rfapi_cfg;
@@ -481,6 +481,8 @@ struct bgp {
 
 	/* EVPN enable - advertise local VNIs and their MACs etc. */
 	int advertise_all_vni;
+
+	struct bgp_evpn_info *evpn_info;
 
 	/* EVPN - use RFC 8365 to auto-derive RT */
 	int advertise_autort_rfc8365;
@@ -541,6 +543,9 @@ struct bgp {
 
 	/* local esi hash table */
 	struct hash *esihash;
+
+	/* Count of peers in established state */
+	uint32_t established_peers;
 
 	QOBJ_FIELDS
 };
@@ -939,11 +944,11 @@ struct peer {
 #define PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE (1 << 19) /* remove-private-as replace-as */
 #define PEER_FLAG_AS_OVERRIDE               (1 << 20) /* as-override */
 #define PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE (1 << 21) /* remove-private-as all replace-as */
-#define PEER_FLAG_ADDPATH_TX_ALL_PATHS      (1 << 22) /* addpath-tx-all-paths */
-#define PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS (1 << 23) /* addpath-tx-bestpath-per-AS */
 #define PEER_FLAG_WEIGHT                    (1 << 24) /* weight */
 #define PEER_FLAG_ALLOWAS_IN_ORIGIN         (1 << 25) /* allowas-in origin */
 #define PEER_FLAG_SEND_LARGE_COMMUNITY      (1 << 26) /* Send large Communities */
+
+	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
 
 	/* MD5 password */
 	char *password;
@@ -1004,7 +1009,7 @@ struct peer {
 	struct thread *t_process_packet;
 
 	/* Thread flags. */
-	_Atomic uint16_t thread_flags;
+	_Atomic uint32_t thread_flags;
 #define PEER_THREAD_WRITES_ON         (1 << 0)
 #define PEER_THREAD_READS_ON          (1 << 1)
 #define PEER_THREAD_KEEPALIVES_ON     (1 << 2)
@@ -1467,6 +1472,14 @@ typedef enum {
 	BGP_POLICY_DISTRIBUTE_LIST,
 } bgp_policy_type_e;
 
+/* peer_flag_change_type. */
+enum peer_change_type {
+	peer_change_none,
+	peer_change_reset,
+	peer_change_reset_in,
+	peer_change_reset_out,
+};
+
 extern struct bgp_master *bm;
 extern unsigned int multipath_num;
 
@@ -1598,6 +1611,8 @@ extern int peer_af_flag_unset(struct peer *, afi_t, safi_t, uint32_t);
 extern int peer_af_flag_check(struct peer *, afi_t, safi_t, uint32_t);
 extern void peer_af_flag_inherit(struct peer *peer, afi_t afi, safi_t safi,
 				 uint32_t flag);
+extern void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
+			       enum peer_change_type type);
 
 extern int peer_ebgp_multihop_set(struct peer *, int);
 extern int peer_ebgp_multihop_unset(struct peer *);
@@ -1876,5 +1891,4 @@ extern void bgp_update_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
 
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp);
-
 #endif /* _QUAGGA_BGPD_H */

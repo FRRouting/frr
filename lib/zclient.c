@@ -58,8 +58,8 @@ int zclient_debug = 0;
 struct zclient_options zclient_options_default = {.receive_notify = false};
 
 /* Allocate zclient structure. */
-struct zclient *zclient_new_notify(struct thread_master *master,
-				   struct zclient_options *opt)
+struct zclient *zclient_new(struct thread_master *master,
+			    struct zclient_options *opt)
 {
 	struct zclient *zclient;
 	zclient = XCALLOC(MTYPE_ZCLIENT, sizeof(struct zclient));
@@ -199,7 +199,7 @@ void zclient_reset(struct zclient *zclient)
  * @param zclient a pointer to zclient structure
  * @return socket fd just to make sure that connection established
  * @see zclient_init
- * @see zclient_new_notify
+ * @see zclient_new
  */
 int zclient_socket_connect(struct zclient *zclient)
 {

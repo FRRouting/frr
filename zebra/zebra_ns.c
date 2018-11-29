@@ -47,6 +47,7 @@ DEFINE_MTYPE(ZEBRA, ZEBRA_NS, "Zebra Name Space")
 static struct zebra_ns *dzns;
 
 static int logicalrouter_config_write(struct vty *vty);
+static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete);
 
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id)
 {
@@ -111,7 +112,7 @@ int zebra_ns_disabled(struct ns *ns)
 		zlog_info("ZNS %s with id %u (disabled)", ns->name, ns->ns_id);
 	if (!zns)
 		return 0;
-	return zebra_ns_disable(ns->ns_id, (void **)&zns);
+	return zebra_ns_disable_internal(zns, true);
 }
 
 /* Do global enable actions - open sockets, read kernel config etc. */
@@ -135,17 +136,18 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 	return 0;
 }
 
-int zebra_ns_disable(ns_id_t ns_id, void **info)
+/* Common handler for ns disable - this can be called during ns config,
+ * or during zebra shutdown.
+ */
+static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete)
 {
-	struct zebra_ns *zns = (struct zebra_ns *)(*info);
-
 	route_table_finish(zns->if_table);
 	zebra_vxlan_ns_disable(zns);
 #if defined(HAVE_RTADV)
 	rtadv_terminate(zns);
 #endif
 
-	kernel_terminate(zns);
+	kernel_terminate(zns, complete);
 
 	table_manager_disable(zns->ns_id);
 
@@ -154,6 +156,33 @@ int zebra_ns_disable(ns_id_t ns_id, void **info)
 	return 0;
 }
 
+/* During zebra shutdown, do partial cleanup while the async dataplane
+ * is still running.
+ */
+int zebra_ns_early_shutdown(struct ns *ns)
+{
+	struct zebra_ns *zns = ns->info;
+
+	if (zns == NULL)
+		return 0;
+
+	return zebra_ns_disable_internal(zns, false);
+}
+
+/* During zebra shutdown, do final cleanup
+ * after all dataplane work is complete.
+ */
+int zebra_ns_final_shutdown(struct ns *ns)
+{
+	struct zebra_ns *zns = ns->info;
+
+	if (zns == NULL)
+		return 0;
+
+	kernel_terminate(zns, true);
+
+	return 0;
+}
 
 int zebra_ns_init(void)
 {

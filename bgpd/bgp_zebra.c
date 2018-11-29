@@ -58,6 +58,7 @@
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_labelpool.h"
 #include "bgpd/bgp_pbr.h"
+#include "bgpd/bgp_evpn_private.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -1217,9 +1218,10 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	if (bgp_debug_zebra(p))
 		prefix2str(p, buf_prefix, sizeof(buf_prefix));
 
-	if (safi == SAFI_FLOWSPEC)
-		return bgp_pbr_update_entry(bgp, &rn->p,
-					    info, afi, safi, true);
+	if (safi == SAFI_FLOWSPEC) {
+		bgp_pbr_update_entry(bgp, &rn->p, info, afi, safi, true);
+		return;
+	}
 
 	/*
 	 * vrf leaking support (will have only one nexthop)
@@ -1505,8 +1507,8 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_path_info *info,
 
 	if (safi == SAFI_FLOWSPEC) {
 		peer = info->peer;
-		return bgp_pbr_update_entry(peer->bgp, p,
-					    info, AFI_IP, safi, false);
+		bgp_pbr_update_entry(peer->bgp, p, info, AFI_IP, safi, false);
+		return;
 	}
 
 	memset(&api, 0, sizeof(api));
@@ -1993,6 +1995,42 @@ int bgp_zebra_advertise_all_vni(struct bgp *bgp, int advertise)
 	 * relevant only when 'advertise' is set.
 	 */
 	stream_putc(s, bgp->vxlan_flood_ctrl);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
+int bgp_zebra_dup_addr_detection(struct bgp *bgp)
+{
+	struct stream *s;
+
+	/* Check socket. */
+	if (!zclient || zclient->sock < 0)
+		return 0;
+
+	/* Don't try to register if Zebra doesn't know of this instance. */
+	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+		return 0;
+
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("dup addr detect %s max_moves %u time %u freeze %s freeze_time %u",
+			   bgp->evpn_info->dup_addr_detect ?
+			   "enable" : "disable",
+			   bgp->evpn_info->dad_max_moves,
+			   bgp->evpn_info->dad_time,
+			   bgp->evpn_info->dad_freeze ?
+			   "enable" : "disable",
+			   bgp->evpn_info->dad_freeze_time);
+
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_DUPLICATE_ADDR_DETECTION,
+			      bgp->vrf_id);
+	stream_putl(s, bgp->evpn_info->dup_addr_detect);
+	stream_putl(s, bgp->evpn_info->dad_time);
+	stream_putl(s, bgp->evpn_info->dad_max_moves);
+	stream_putl(s, bgp->evpn_info->dad_freeze);
+	stream_putl(s, bgp->evpn_info->dad_freeze_time);
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	return zclient_send_message(zclient);
@@ -2501,19 +2539,19 @@ static void bgp_zebra_process_local_ip_prefix(int cmd, struct zclient *zclient,
 	if (cmd == ZEBRA_IP_PREFIX_ROUTE_ADD) {
 
 		if (p.family == AF_INET)
-			return bgp_evpn_advertise_type5_route(
-				bgp_vrf, &p, NULL, AFI_IP, SAFI_UNICAST);
+			bgp_evpn_advertise_type5_route(bgp_vrf, &p, NULL,
+						       AFI_IP, SAFI_UNICAST);
 		else
-			return bgp_evpn_advertise_type5_route(
-				bgp_vrf, &p, NULL, AFI_IP6, SAFI_UNICAST);
+			bgp_evpn_advertise_type5_route(bgp_vrf, &p, NULL,
+						       AFI_IP6, SAFI_UNICAST);
 
 	} else {
 		if (p.family == AF_INET)
-			return bgp_evpn_withdraw_type5_route(
-				bgp_vrf, &p, AFI_IP, SAFI_UNICAST);
+			bgp_evpn_withdraw_type5_route(bgp_vrf, &p, AFI_IP,
+						      SAFI_UNICAST);
 		else
-			return bgp_evpn_withdraw_type5_route(
-				bgp_vrf, &p, AFI_IP6, SAFI_UNICAST);
+			bgp_evpn_withdraw_type5_route(bgp_vrf, &p, AFI_IP6,
+						      SAFI_UNICAST);
 	}
 }
 
@@ -2574,7 +2612,7 @@ void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient_num_connects = 0;
 
 	/* Set default values. */
-	zclient = zclient_new_notify(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default);
 	zclient_init(zclient, ZEBRA_ROUTE_BGP, 0, &bgpd_privs);
 	zclient->zebra_connected = bgp_zebra_connected;
 	zclient->router_id_update = bgp_router_id_update;

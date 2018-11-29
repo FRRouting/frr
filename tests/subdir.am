@@ -24,6 +24,7 @@ TESTS_ISISD =
 else
 TESTS_ISISD = \
 	tests/isisd/test_fuzz_isis_tlv \
+	tests/isisd/test_isis_lspdb \
 	tests/isisd/test_isis_vertex_queue \
 	# end
 endif
@@ -50,6 +51,7 @@ check_PROGRAMS = \
 	tests/lib/test_heavy_thread \
 	tests/lib/test_heavy_wq \
 	tests/lib/test_heavy \
+	tests/lib/test_idalloc \
 	tests/lib/test_memory \
 	tests/lib/test_nexthop_iter \
 	tests/lib/test_privs \
@@ -155,6 +157,10 @@ tests_isisd_test_fuzz_isis_tlv_CPPFLAGS = $(TESTS_CPPFLAGS) -I$(top_builddir)/te
 tests_isisd_test_fuzz_isis_tlv_LDADD = $(ISISD_TEST_LDADD)
 tests_isisd_test_fuzz_isis_tlv_SOURCES = tests/isisd/test_fuzz_isis_tlv.c
 nodist_tests_isisd_test_fuzz_isis_tlv_SOURCES = tests/isisd/test_fuzz_isis_tlv_tests.h
+tests_isisd_test_isis_lspdb_CFLAGS = $(TESTS_CFLAGS)
+tests_isisd_test_isis_lspdb_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_isisd_test_isis_lspdb_LDADD = $(ISISD_TEST_LDADD)
+tests_isisd_test_isis_lspdb_SOURCES = tests/isisd/test_isis_lspdb.c
 tests_isisd_test_isis_vertex_queue_CFLAGS = $(TESTS_CFLAGS)
 tests_isisd_test_isis_vertex_queue_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_isisd_test_isis_vertex_queue_LDADD = $(ISISD_TEST_LDADD)
@@ -193,6 +199,9 @@ tests_lib_test_heavy_wq_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_heavy_wq_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_heavy_wq_LDADD = $(ALL_TESTS_LDADD) -lm
 tests_lib_test_heavy_wq_SOURCES = tests/lib/test_heavy_wq.c tests/helpers/c/main.c
+tests_lib_test_idalloc_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_idalloc_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_idalloc_SOURCES = tests/lib/test_idalloc.c
 tests_lib_test_memory_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_memory_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_memory_LDADD = $(ALL_TESTS_LDADD)
@@ -267,6 +276,7 @@ EXTRA_DIST += \
 	tests/helpers/python/frrtest.py \
 	tests/isisd/test_fuzz_isis_tlv.py \
 	tests/isisd/test_fuzz_isis_tlv_tests.h.gz \
+	tests/isisd/test_isis_lspdb.py \
 	tests/isisd/test_isis_vertex_queue.py \
 	tests/lib/cli/test_commands.in \
 	tests/lib/cli/test_commands.py \

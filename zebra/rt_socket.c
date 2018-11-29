@@ -410,7 +410,7 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 		goto done;
 	}
 
-	frr_elevate_privs(ZPRIVS_RAISE) {
+	frr_elevate_privs(&zserv_privs) {
 
 		if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE)
 			kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),

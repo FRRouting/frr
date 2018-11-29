@@ -853,7 +853,7 @@ int str2prefix_ipv4(const char *str, struct prefix_ipv4 *p)
 	/* String doesn't contail slash. */
 	if (pnt == NULL) {
 		/* Convert string to prefix. */
-		ret = inet_aton(str, &p->prefix);
+		ret = inet_pton(AF_INET, str, &p->prefix);
 		if (ret == 0)
 			return 0;
 

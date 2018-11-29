@@ -96,6 +96,7 @@ struct route_table *zebra_router_get_table(struct zebra_vrf *zvrf,
 	zrt = XCALLOC(MTYPE_ZEBRA_NS, sizeof(*zrt));
 	zrt->tableid = tableid;
 	zrt->afi = afi;
+	zrt->safi = safi;
 	zrt->ns_id = zvrf->zns->ns_id;
 	zrt->table =
 		(afi == AFI_IP6) ? srcdest_table_init() : route_table_init();

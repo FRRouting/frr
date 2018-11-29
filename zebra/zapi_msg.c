@@ -248,7 +248,7 @@ int zsend_interface_link_params(struct zserv *client, struct interface *ifp)
  *      RTM_IFANNOUNCE or AF_NETLINK sockets is available), or when
  *      an interface is marked IFF_UP (i.e., an RTM_IFINFO message is
  *      received)
- *    - for the vty commands "ip address A.B.C.D/M [<secondary>|<label LINE>]"
+ *    - for the vty commands "ip address A.B.C.D/M [<label LINE>]"
  *      and "no bandwidth <1-10000000>", "ipv6 address X:X::X:X/M"
  *    - when an RTM_NEWADDR message is received from the kernel,
  *
@@ -269,7 +269,7 @@ int zsend_interface_link_params(struct zserv *client, struct interface *ifp)
  *             |
  *         vty commands:
  *     "no ip address A.B.C.D/M [label LINE]"
- *     "no ip address A.B.C.D/M secondary"
+ *     "no ip address A.B.C.D/M"
  *     ["no ipv6 address X:X::X:X/M"]
  *
  */
@@ -2443,6 +2443,7 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_REMOTE_VTEP_DEL] = zebra_vxlan_remote_vtep_del,
 	[ZEBRA_REMOTE_MACIP_ADD] = zebra_vxlan_remote_macip_add,
 	[ZEBRA_REMOTE_MACIP_DEL] = zebra_vxlan_remote_macip_del,
+	[ZEBRA_DUPLICATE_ADDR_DETECTION] = zebra_vxlan_dup_addr_detection,
 	[ZEBRA_INTERFACE_SET_MASTER] = zread_interface_set_master,
 	[ZEBRA_PW_ADD] = zread_pseudowire,
 	[ZEBRA_PW_DELETE] = zread_pseudowire,

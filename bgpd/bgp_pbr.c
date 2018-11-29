@@ -1508,9 +1508,10 @@ static void bgp_pbr_policyroute_remove_from_zebra_recursive(
 	struct list *orig_list;
 	struct bgp_pbr_val_mask **target_val;
 
-	if (type_entry == 0)
-		return bgp_pbr_policyroute_remove_from_zebra_unit(bgp, path,
-								  bpf);
+	if (type_entry == 0) {
+		bgp_pbr_policyroute_remove_from_zebra_unit(bgp, path, bpf);
+		return;
+	}
 	next_type_entry = bgp_pbr_next_type_entry(type_entry);
 	if (type_entry == FLOWSPEC_TCP_FLAGS && bpof->tcpflags) {
 		orig_list = bpof->tcpflags;
@@ -1530,8 +1531,9 @@ static void bgp_pbr_policyroute_remove_from_zebra_recursive(
 		bgp_pbr_icmp_action(bgp, path, bpf, bpof, false, NULL, NULL);
 		return;
 	} else {
-		return bgp_pbr_policyroute_remove_from_zebra_recursive(
+		bgp_pbr_policyroute_remove_from_zebra_recursive(
 			bgp, path, bpf, bpof, next_type_entry);
+		return;
 	}
 	for (ALL_LIST_ELEMENTS(orig_list, node, nnode, valmask)) {
 		*target_val = valmask;
@@ -1544,9 +1546,10 @@ static void bgp_pbr_policyroute_remove_from_zebra(
 	struct bgp *bgp, struct bgp_path_info *path, struct bgp_pbr_filter *bpf,
 	struct bgp_pbr_or_filter *bpof)
 {
-	if (!bpof)
-		return bgp_pbr_policyroute_remove_from_zebra_unit(bgp, path,
-								  bpf);
+	if (!bpof) {
+		bgp_pbr_policyroute_remove_from_zebra_unit(bgp, path, bpf);
+		return;
+	}
 	if (bpof->tcpflags)
 		bgp_pbr_policyroute_remove_from_zebra_recursive(
 			bgp, path, bpf, bpof, FLOWSPEC_TCP_FLAGS);
@@ -1903,9 +1906,10 @@ static void bgp_pbr_policyroute_add_to_zebra_recursive(
 	struct list *orig_list;
 	struct bgp_pbr_val_mask **target_val;
 
-	if (type_entry == 0)
-		return bgp_pbr_policyroute_add_to_zebra_unit(bgp, path, bpf, nh,
-							     rate);
+	if (type_entry == 0) {
+		bgp_pbr_policyroute_add_to_zebra_unit(bgp, path, bpf, nh, rate);
+		return;
+	}
 	next_type_entry = bgp_pbr_next_type_entry(type_entry);
 	if (type_entry == FLOWSPEC_TCP_FLAGS && bpof->tcpflags) {
 		orig_list = bpof->tcpflags;
@@ -1925,8 +1929,9 @@ static void bgp_pbr_policyroute_add_to_zebra_recursive(
 		bgp_pbr_icmp_action(bgp, path, bpf, bpof, true, nh, rate);
 		return;
 	} else {
-		return bgp_pbr_policyroute_add_to_zebra_recursive(
+		bgp_pbr_policyroute_add_to_zebra_recursive(
 			bgp, path, bpf, bpof, nh, rate, next_type_entry);
+		return;
 	}
 	for (ALL_LIST_ELEMENTS(orig_list, node, nnode, valmask)) {
 		*target_val = valmask;
@@ -1941,9 +1946,10 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 					     struct bgp_pbr_or_filter *bpof,
 					     struct nexthop *nh, float *rate)
 {
-	if (!bpof)
-		return bgp_pbr_policyroute_add_to_zebra_unit(bgp, path, bpf, nh,
-							     rate);
+	if (!bpof) {
+		bgp_pbr_policyroute_add_to_zebra_unit(bgp, path, bpf, nh, rate);
+		return;
+	}
 	if (bpof->tcpflags)
 		bgp_pbr_policyroute_add_to_zebra_recursive(
 			bgp, path, bpf, bpof, nh, rate, FLOWSPEC_TCP_FLAGS);
@@ -2112,9 +2118,10 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 	bpf.protocol = proto;
 	bpf.src_port = srcp;
 	bpf.dst_port = dstp;
-	if (!add)
-		return bgp_pbr_policyroute_remove_from_zebra(bgp, path, &bpf,
-							     &bpof);
+	if (!add) {
+		bgp_pbr_policyroute_remove_from_zebra(bgp, path, &bpf, &bpof);
+		return;
+	}
 	/* no action for add = true */
 	for (i = 0; i < api->action_num; i++) {
 		switch (api->actions[i].action) {

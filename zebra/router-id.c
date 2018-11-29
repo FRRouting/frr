@@ -132,8 +132,7 @@ void router_id_add_address(struct connected *ifc)
 
 	router_id_get(&before, zvrf_id(zvrf));
 
-	if (!strncmp(ifc->ifp->name, "lo", 2)
-	    || !strncmp(ifc->ifp->name, "dummy", 5))
+	if (if_is_loopback(ifc->ifp))
 		l = zvrf->rid_lo_sorted_list;
 	else
 		l = zvrf->rid_all_sorted_list;
@@ -165,8 +164,7 @@ void router_id_del_address(struct connected *ifc)
 
 	router_id_get(&before, zvrf_id(zvrf));
 
-	if (!strncmp(ifc->ifp->name, "lo", 2)
-	    || !strncmp(ifc->ifp->name, "dummy", 5))
+	if (if_is_loopback(ifc->ifp))
 		l = zvrf->rid_lo_sorted_list;
 	else
 		l = zvrf->rid_all_sorted_list;

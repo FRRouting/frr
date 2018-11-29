@@ -188,9 +188,8 @@ DEFUN (agentx_enable,
 		events = list_new();
 		agentx_events_update();
 		agentx_enabled = 1;
-		return CMD_SUCCESS;
 	}
-	vty_out(vty, "SNMP AgentX already enabled\n");
+
 	return CMD_SUCCESS;
 }
 

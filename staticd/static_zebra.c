@@ -122,11 +122,17 @@ static int interface_state_up(int command, struct zclient *zclient,
 
 	ifp = zebra_interface_if_lookup(zclient->ibuf);
 
-	if (ifp && if_is_vrf(ifp)) {
-		struct static_vrf *svrf = static_vrf_lookup_by_id(vrf_id);
+	if (ifp) {
+		if (if_is_vrf(ifp)) {
+			struct static_vrf *svrf =
+					static_vrf_lookup_by_id(vrf_id);
 
-		static_fixup_vrf_ids(svrf);
-		static_config_install_delayed_routes(svrf);
+			static_fixup_vrf_ids(svrf);
+			static_config_install_delayed_routes(svrf);
+		}
+
+		/* Install any static reliant on this interface coming up */
+		static_install_intf_nh(ifp);
 	}
 
 	return 0;
@@ -465,7 +471,7 @@ void static_zebra_init(void)
 {
 	struct zclient_options opt = { .receive_notify = true };
 
-	zclient = zclient_new_notify(master, &opt);
+	zclient = zclient_new(master, &opt);
 
 	zclient_init(zclient, ZEBRA_ROUTE_STATIC, 0, &static_privs);
 	zclient->zebra_capabilities = static_zebra_capabilities;

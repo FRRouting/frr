@@ -747,7 +747,7 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 				       stream_get_endp(circuit->rcv_stream));
 	}
 
-	struct isis_lsp_hdr hdr = {};
+	struct isis_lsp_hdr hdr = {0};
 
 	hdr.pdu_len = stream_getw(circuit->rcv_stream);
 	hdr.rem_lifetime = stream_getw(circuit->rcv_stream);
@@ -1011,19 +1011,26 @@ dontcheckadj:
 		 * is
 		 * "greater" than that held by S, ... */
 
-		if (hdr.seqno > lsp->hdr.seqno) {
+		if (comp == LSP_NEWER) {
 			/* 7.3.16.1  */
 			lsp_inc_seqno(lsp, hdr.seqno);
-			if (isis->debugs & DEBUG_UPDATE_PACKETS)
+			if (isis->debugs & DEBUG_UPDATE_PACKETS) {
 				zlog_debug(
 					"ISIS-Upd (%s): (2) re-originating LSP %s new seq 0x%08" PRIx32,
 					circuit->area->area_tag,
 					rawlspid_print(hdr.lsp_id),
 					lsp->hdr.seqno);
+			}
+			lsp_flood(lsp, NULL);
+		} else if (comp == LSP_EQUAL) {
+			isis_tx_queue_del(circuit->tx_queue, lsp);
+			if (circuit->circ_type != CIRCUIT_T_BROADCAST)
+				ISIS_SET_FLAG(lsp->SSNflags, circuit);
+		} else {
+			isis_tx_queue_add(circuit->tx_queue, lsp,
+					  TX_LSP_NORMAL);
+			ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
 		}
-		/* If the received LSP is older or equal,
-		 * resend the LSP which will act as ACK */
-		lsp_flood(lsp, NULL);
 	} else {
 		/* 7.3.15.1 e) - This lsp originated on another system */
 
@@ -1119,8 +1126,8 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 	stream_get(rem_sys_id, circuit->rcv_stream, ISIS_SYS_ID_LEN);
 	stream_forward_getp(circuit->rcv_stream, 1); /* Circuit ID - unused */
 
-	uint8_t start_lsp_id[ISIS_SYS_ID_LEN + 2] = {};
-	uint8_t stop_lsp_id[ISIS_SYS_ID_LEN + 2] = {};
+	uint8_t start_lsp_id[ISIS_SYS_ID_LEN + 2] = {0};
+	uint8_t stop_lsp_id[ISIS_SYS_ID_LEN + 2] = {0};
 
 	if (is_csnp) {
 		stream_get(start_lsp_id, circuit->rcv_stream,

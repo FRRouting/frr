@@ -720,24 +720,11 @@ void print_debug(struct vty *vty, int flags, int onoff)
 		vty_out(vty,
 			"IS-IS Adjacency related packets debugging is %s\n",
 			onoffs);
-	if (flags & DEBUG_CHECKSUM_ERRORS)
-		vty_out(vty, "IS-IS checksum errors debugging is %s\n", onoffs);
-	if (flags & DEBUG_LOCAL_UPDATES)
-		vty_out(vty, "IS-IS local updates debugging is %s\n", onoffs);
-	if (flags & DEBUG_PROTOCOL_ERRORS)
-		vty_out(vty, "IS-IS protocol errors debugging is %s\n", onoffs);
 	if (flags & DEBUG_SNP_PACKETS)
 		vty_out(vty, "IS-IS CSNP/PSNP packets debugging is %s\n",
 			onoffs);
 	if (flags & DEBUG_SPF_EVENTS)
 		vty_out(vty, "IS-IS SPF events debugging is %s\n", onoffs);
-	if (flags & DEBUG_SPF_STATS)
-		vty_out(vty,
-			"IS-IS SPF Timing and Statistics Data debugging is %s\n",
-			onoffs);
-	if (flags & DEBUG_SPF_TRIGGERS)
-		vty_out(vty, "IS-IS SPF triggering events debugging is %s\n",
-			onoffs);
 	if (flags & DEBUG_UPDATE_PACKETS)
 		vty_out(vty, "IS-IS Update related packet debugging is %s\n",
 			onoffs);
@@ -784,32 +771,12 @@ static int config_write_debug(struct vty *vty)
 		vty_out(vty, "debug " PROTO_NAME " adj-packets\n");
 		write++;
 	}
-	if (flags & DEBUG_CHECKSUM_ERRORS) {
-		vty_out(vty, "debug " PROTO_NAME " checksum-errors\n");
-		write++;
-	}
-	if (flags & DEBUG_LOCAL_UPDATES) {
-		vty_out(vty, "debug " PROTO_NAME " local-updates\n");
-		write++;
-	}
-	if (flags & DEBUG_PROTOCOL_ERRORS) {
-		vty_out(vty, "debug " PROTO_NAME " protocol-errors\n");
-		write++;
-	}
 	if (flags & DEBUG_SNP_PACKETS) {
 		vty_out(vty, "debug " PROTO_NAME " snp-packets\n");
 		write++;
 	}
 	if (flags & DEBUG_SPF_EVENTS) {
 		vty_out(vty, "debug " PROTO_NAME " spf-events\n");
-		write++;
-	}
-	if (flags & DEBUG_SPF_STATS) {
-		vty_out(vty, "debug " PROTO_NAME " spf-statistics\n");
-		write++;
-	}
-	if (flags & DEBUG_SPF_TRIGGERS) {
-		vty_out(vty, "debug " PROTO_NAME " spf-triggers\n");
 		write++;
 	}
 	if (flags & DEBUG_UPDATE_PACKETS) {
@@ -872,87 +839,6 @@ DEFUN (no_debug_isis_adj,
 {
 	isis->debugs &= ~DEBUG_ADJ_PACKETS;
 	print_debug(vty, DEBUG_ADJ_PACKETS, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_isis_csum,
-       debug_isis_csum_cmd,
-       "debug " PROTO_NAME " checksum-errors",
-       DEBUG_STR
-       PROTO_HELP
-       "IS-IS LSP checksum errors\n")
-{
-	isis->debugs |= DEBUG_CHECKSUM_ERRORS;
-	print_debug(vty, DEBUG_CHECKSUM_ERRORS, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_isis_csum,
-       no_debug_isis_csum_cmd,
-       "no debug " PROTO_NAME " checksum-errors",
-       NO_STR
-       UNDEBUG_STR
-       PROTO_HELP
-       "IS-IS LSP checksum errors\n")
-{
-	isis->debugs &= ~DEBUG_CHECKSUM_ERRORS;
-	print_debug(vty, DEBUG_CHECKSUM_ERRORS, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_isis_lupd,
-       debug_isis_lupd_cmd,
-       "debug " PROTO_NAME " local-updates",
-       DEBUG_STR
-       PROTO_HELP
-       "IS-IS local update packets\n")
-{
-	isis->debugs |= DEBUG_LOCAL_UPDATES;
-	print_debug(vty, DEBUG_LOCAL_UPDATES, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_isis_lupd,
-       no_debug_isis_lupd_cmd,
-       "no debug " PROTO_NAME " local-updates",
-       NO_STR
-       UNDEBUG_STR
-       PROTO_HELP
-       "IS-IS local update packets\n")
-{
-	isis->debugs &= ~DEBUG_LOCAL_UPDATES;
-	print_debug(vty, DEBUG_LOCAL_UPDATES, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_isis_err,
-       debug_isis_err_cmd,
-       "debug " PROTO_NAME " protocol-errors",
-       DEBUG_STR
-       PROTO_HELP
-       "IS-IS LSP protocol errors\n")
-{
-	isis->debugs |= DEBUG_PROTOCOL_ERRORS;
-	print_debug(vty, DEBUG_PROTOCOL_ERRORS, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_isis_err,
-       no_debug_isis_err_cmd,
-       "no debug " PROTO_NAME " protocol-errors",
-       NO_STR
-       UNDEBUG_STR
-       PROTO_HELP
-       "IS-IS LSP protocol errors\n")
-{
-	isis->debugs &= ~DEBUG_PROTOCOL_ERRORS;
-	print_debug(vty, DEBUG_PROTOCOL_ERRORS, 0);
 
 	return CMD_SUCCESS;
 }
@@ -1034,60 +920,6 @@ DEFUN (no_debug_isis_spfevents,
 {
 	isis->debugs &= ~DEBUG_SPF_EVENTS;
 	print_debug(vty, DEBUG_SPF_EVENTS, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_isis_spfstats,
-       debug_isis_spfstats_cmd,
-       "debug " PROTO_NAME " spf-statistics ",
-       DEBUG_STR
-       PROTO_HELP
-       "IS-IS SPF Timing and Statistic Data\n")
-{
-	isis->debugs |= DEBUG_SPF_STATS;
-	print_debug(vty, DEBUG_SPF_STATS, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_isis_spfstats,
-       no_debug_isis_spfstats_cmd,
-       "no debug " PROTO_NAME " spf-statistics",
-       NO_STR
-       UNDEBUG_STR
-       PROTO_HELP
-       "IS-IS SPF Timing and Statistic Data\n")
-{
-	isis->debugs &= ~DEBUG_SPF_STATS;
-	print_debug(vty, DEBUG_SPF_STATS, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_isis_spftrigg,
-       debug_isis_spftrigg_cmd,
-       "debug " PROTO_NAME " spf-triggers",
-       DEBUG_STR
-       PROTO_HELP
-       "IS-IS SPF triggering events\n")
-{
-	isis->debugs |= DEBUG_SPF_TRIGGERS;
-	print_debug(vty, DEBUG_SPF_TRIGGERS, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_isis_spftrigg,
-       no_debug_isis_spftrigg_cmd,
-       "no debug " PROTO_NAME " spf-triggers",
-       NO_STR
-       UNDEBUG_STR
-       PROTO_HELP
-       "IS-IS SPF triggering events\n")
-{
-	isis->debugs &= ~DEBUG_SPF_TRIGGERS;
-	print_debug(vty, DEBUG_SPF_TRIGGERS, 0);
 
 	return CMD_SUCCESS;
 }
@@ -2229,22 +2061,12 @@ void isis_init()
 
 	install_element(ENABLE_NODE, &debug_isis_adj_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_adj_cmd);
-	install_element(ENABLE_NODE, &debug_isis_csum_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_csum_cmd);
-	install_element(ENABLE_NODE, &debug_isis_lupd_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_lupd_cmd);
-	install_element(ENABLE_NODE, &debug_isis_err_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_err_cmd);
 	install_element(ENABLE_NODE, &debug_isis_snp_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_snp_cmd);
 	install_element(ENABLE_NODE, &debug_isis_upd_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_upd_cmd);
 	install_element(ENABLE_NODE, &debug_isis_spfevents_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_spfevents_cmd);
-	install_element(ENABLE_NODE, &debug_isis_spfstats_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_spfstats_cmd);
-	install_element(ENABLE_NODE, &debug_isis_spftrigg_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_spftrigg_cmd);
 	install_element(ENABLE_NODE, &debug_isis_rtevents_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_rtevents_cmd);
 	install_element(ENABLE_NODE, &debug_isis_events_cmd);
@@ -2260,22 +2082,12 @@ void isis_init()
 
 	install_element(CONFIG_NODE, &debug_isis_adj_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_adj_cmd);
-	install_element(CONFIG_NODE, &debug_isis_csum_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_csum_cmd);
-	install_element(CONFIG_NODE, &debug_isis_lupd_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_lupd_cmd);
-	install_element(CONFIG_NODE, &debug_isis_err_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_err_cmd);
 	install_element(CONFIG_NODE, &debug_isis_snp_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_snp_cmd);
 	install_element(CONFIG_NODE, &debug_isis_upd_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_upd_cmd);
 	install_element(CONFIG_NODE, &debug_isis_spfevents_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_spfevents_cmd);
-	install_element(CONFIG_NODE, &debug_isis_spfstats_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_spfstats_cmd);
-	install_element(CONFIG_NODE, &debug_isis_spftrigg_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_spftrigg_cmd);
 	install_element(CONFIG_NODE, &debug_isis_rtevents_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_rtevents_cmd);
 	install_element(CONFIG_NODE, &debug_isis_events_cmd);

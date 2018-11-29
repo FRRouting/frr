@@ -249,6 +249,10 @@ struct zebra_mac_t_ {
 #define ZEBRA_MAC_DEF_GW  0x20
 /* remote VTEP advertised MAC as default GW */
 #define ZEBRA_MAC_REMOTE_DEF_GW	0x40
+#define ZEBRA_MAC_DUPLICATE 0x80
+
+	/* back pointer to zvni */
+	zebra_vni_t     *zvni;
 
 	/* Local or remote info. */
 	union {
@@ -269,6 +273,15 @@ struct zebra_mac_t_ {
 
 	/* list of hosts pointing to this remote RMAC */
 	struct host_rb_tree_entry host_rb;
+
+	/* Duplicate mac detection */
+	uint32_t dad_count;
+
+	struct thread *dad_mac_auto_recovery_timer;
+
+	struct timeval detect_start_time;
+
+	time_t dad_dup_detect_time;
 };
 
 /*
@@ -292,6 +305,7 @@ struct mac_walk_ctx {
 	struct vty *vty;	  /* Used by VTY handlers */
 	uint32_t count;		  /* Used by VTY handlers */
 	struct json_object *json; /* Used for JSON Output */
+	bool print_dup; /* Used to print dup addr list */
 };
 
 struct rmac_walk_ctx {
@@ -330,12 +344,15 @@ struct zebra_neigh_t_ {
 	/* Underlying interface. */
 	ifindex_t ifindex;
 
+	zebra_vni_t *zvni;
+
 	uint32_t flags;
 #define ZEBRA_NEIGH_LOCAL     0x01
 #define ZEBRA_NEIGH_REMOTE    0x02
 #define ZEBRA_NEIGH_REMOTE_NH    0x04 /* neigh entry for remote vtep */
 #define ZEBRA_NEIGH_DEF_GW    0x08
 #define ZEBRA_NEIGH_ROUTER_FLAG 0x10
+#define ZEBRA_NEIGH_DUPLICATE 0x20
 
 	enum zebra_neigh_state state;
 
@@ -354,6 +371,15 @@ struct zebra_neigh_t_ {
 
 	/* list of hosts pointing to this remote NH entry */
 	struct host_rb_tree_entry host_rb;
+
+	/* Duplicate ip detection */
+	uint32_t dad_count;
+
+	struct thread *dad_ip_auto_recovery_timer;
+
+	struct timeval detect_start_time;
+
+	time_t dad_dup_detect_time;
 };
 
 /*

@@ -162,12 +162,12 @@ struct yang_translator *yang_translator_load(const char *path)
 	RB_INSERT(yang_translators, &yang_translators, translator);
 
 	/* Initialize the translator libyang context. */
-	translator->ly_ctx = ly_ctx_new(NULL, LY_CTX_DISABLE_SEARCHDIR_CWD);
+	translator->ly_ctx =
+		ly_ctx_new(YANG_MODELS_PATH, LY_CTX_DISABLE_SEARCHDIR_CWD);
 	if (!translator->ly_ctx) {
 		flog_warn(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		goto error;
 	}
-	ly_ctx_set_searchdir(translator->ly_ctx, YANG_MODELS_PATH);
 
 	/* Load modules and deviations. */
 	set = lyd_find_path(dnode, "./module");
@@ -515,12 +515,12 @@ static void str_replace(char *o_string, const char *s_string,
 
 void yang_translator_init(void)
 {
-	ly_translator_ctx = ly_ctx_new(NULL, LY_CTX_DISABLE_SEARCHDIR_CWD);
+	ly_translator_ctx =
+		ly_ctx_new(YANG_MODELS_PATH, LY_CTX_DISABLE_SEARCHDIR_CWD);
 	if (!ly_translator_ctx) {
 		flog_err(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		exit(1);
 	}
-	ly_ctx_set_searchdir(ly_translator_ctx, YANG_MODELS_PATH);
 
 	if (!ly_ctx_load_module(ly_translator_ctx, "frr-module-translator",
 				NULL)) {

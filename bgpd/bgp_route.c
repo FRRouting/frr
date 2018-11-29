@@ -65,6 +65,7 @@
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_label.h"
+#include "bgpd/bgp_addpath.h"
 
 #if ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -247,6 +248,8 @@ static void bgp_path_info_free(struct bgp_path_info *path)
 	bgp_unlink_nexthop(path);
 	bgp_path_info_extra_free(&path->extra);
 	bgp_path_info_mpath_free(&path->mpath);
+	bgp_addpath_free_info_data(&path->tx_addpath,
+				 path->net ? &path->net->tx_addpath : NULL);
 
 	peer_unlock(path->peer); /* bgp_path_info peer reference */
 
@@ -453,6 +456,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	char exist_buf[PATH_ADDPATH_STR_BUFFER];
 	uint32_t new_mm_seq;
 	uint32_t exist_mm_seq;
+	int nh_cmp;
 
 	*paths_eq = 0;
 
@@ -543,6 +547,28 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 					"%s: %s loses to %s due to MM seq %u < %u",
 					pfx_buf, new_buf, exist_buf, new_mm_seq,
 					exist_mm_seq);
+			return 0;
+		}
+
+		/*
+		 * if sequence numbers are the same path with the lowest IP
+		 * wins
+		 */
+		nh_cmp = bgp_path_info_nexthop_cmp(new, exist);
+		if (nh_cmp < 0) {
+			if (debug)
+				zlog_debug(
+					"%s: %s wins over %s due to same MM seq %u and lower IP %s",
+					pfx_buf, new_buf, exist_buf, new_mm_seq,
+					inet_ntoa(new->attr->nexthop));
+			return 1;
+		}
+		if (nh_cmp > 0) {
+			if (debug)
+				zlog_debug(
+					"%s: %s loses to %s due to same MM seq %u and higher IP %s",
+					pfx_buf, new_buf, exist_buf, new_mm_seq,
+					inet_ntoa(new->attr->nexthop));
 			return 0;
 		}
 	}
@@ -1449,7 +1475,7 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 	 * addpath
 	 * feature that requires us to advertise it */
 	if (!CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
-		if (!bgp_addpath_tx_path(peer, afi, safi, pi)) {
+		if (!bgp_addpath_tx_path(peer->addpath_type[afi][safi], pi)) {
 			return 0;
 		}
 	}
@@ -2055,6 +2081,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 	bgp_path_info_mpath_aggregate_update(new_select, old_select);
 	bgp_mp_list_clear(&mp_list);
 
+	bgp_addpath_update_ids(bgp, rn, afi, safi);
+
 	result->old = old_select;
 	result->new = new_select;
 
@@ -2104,7 +2132,7 @@ int subgroup_process_announce_selected(struct update_subgroup *subgrp,
 			bgp_adj_out_set_subgroup(rn, subgrp, &attr, selected);
 		else
 			bgp_adj_out_unset_subgroup(rn, subgrp, 1,
-						   selected->addpath_tx_id);
+						   addpath_tx_id);
 	}
 
 	/* If selected is NULL we must withdraw the path using addpath_tx_id */
@@ -2280,7 +2308,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 	if (old_select && old_select == new_select
 	    && !CHECK_FLAG(rn->flags, BGP_NODE_USER_CLEAR)
 	    && !CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED)
-	    && !bgp->addpath_tx_used[afi][safi]) {
+	    && !bgp_addpath_is_addpath_used(&bgp->tx_addpath, afi, safi)) {
 		if (bgp_zebra_has_route_changed(rn, old_select)) {
 #if ENABLE_BGP_VNC
 			vnc_import_bgp_add_route(bgp, p, old_select);
@@ -2753,7 +2781,6 @@ struct bgp_path_info *info_make(int type, int sub_type, unsigned short instance,
 	new->attr = attr;
 	new->uptime = bgp_clock();
 	new->net = rn;
-	new->addpath_tx_id = ++peer->bgp->addpath_tx_id;
 	return new;
 }
 
@@ -7463,6 +7490,18 @@ static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
 	}
 }
 
+static void route_vty_out_tx_ids(struct vty *vty,
+				 struct bgp_addpath_info_data *d)
+{
+	int i;
+
+	for (i = 0; i < BGP_ADDPATH_MAX; i++) {
+		vty_out(vty, "TX-%s %u%s", bgp_addpath_names(i)->human_name,
+			d->addpath_tx_id[i],
+			i < BGP_ADDPATH_MAX - 1 ? " " : "\n");
+	}
+}
+
 void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 			  struct bgp_path_info *path, afi_t afi, safi_t safi,
 			  json_object *json_paths)
@@ -7494,6 +7533,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 	unsigned int first_as;
 	bool nexthop_self =
 		CHECK_FLAG(path->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
+	int i;
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -8205,29 +8245,53 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		}
 
 		/* Line 8 display Addpath IDs */
-		if (path->addpath_rx_id || path->addpath_tx_id) {
+		if (path->addpath_rx_id
+		    || bgp_addpath_info_has_ids(&path->tx_addpath)) {
 			if (json_paths) {
 				json_object_int_add(json_path, "addpathRxId",
 						    path->addpath_rx_id);
-				json_object_int_add(json_path, "addpathTxId",
-						    path->addpath_tx_id);
+
+				/* Keep backwards compatibility with the old API
+				 * by putting TX All's ID in the old field
+				 */
+				json_object_int_add(
+					json_path, "addpathTxId",
+					path->tx_addpath.addpath_tx_id
+						[BGP_ADDPATH_ALL]);
+
+				/* ... but create a specific field for each
+				 * strategy
+				 */
+				for (i = 0; i < BGP_ADDPATH_MAX; i++) {
+					json_object_int_add(
+						json_path,
+						bgp_addpath_names(i)
+							->id_json_name,
+						path->tx_addpath
+							.addpath_tx_id[i]);
+				}
 			} else {
-				vty_out(vty, "      AddPath ID: RX %u, TX %u\n",
-					path->addpath_rx_id,
-					path->addpath_tx_id);
+				vty_out(vty, "      AddPath ID: RX %u, ",
+					path->addpath_rx_id);
+
+				route_vty_out_tx_ids(vty, &path->tx_addpath);
 			}
 		}
 
 		/* If we used addpath to TX a non-bestpath we need to display
-		 * "Advertised to" on a path-by-path basis */
-		if (bgp->addpath_tx_used[afi][safi]) {
+		 * "Advertised to" on a path-by-path basis
+		 */
+		if (bgp_addpath_is_addpath_used(&bgp->tx_addpath, afi, safi)) {
 			first = 1;
 
 			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 				addpath_capable =
 					bgp_addpath_encode_tx(peer, afi, safi);
 				has_adj = bgp_adj_out_lookup(
-					peer, path->net, path->addpath_tx_id);
+					peer, path->net,
+					bgp_addpath_id_for_peer(
+						peer, afi, safi,
+						&path->tx_addpath));
 
 				if ((addpath_capable && has_adj)
 				    || (!addpath_capable && has_adj
@@ -8365,8 +8429,9 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			"{\n \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64
 			",\n \"routerId\": \"%s\",\n \"routes\": { ",
 			bgp->vrf_id == VRF_UNKNOWN ? -1 : (int)bgp->vrf_id,
-			bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ? "Default"
-								    : bgp->name,
+			bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
+						? VRF_DEFAULT_NAME
+						: bgp->name,
 			table->version, inet_ntoa(bgp->router_id));
 		*json_header_depth = 2;
 		if (rd) {
@@ -8742,12 +8807,12 @@ static void bgp_show_all_instances_routes_vty(struct vty *vty, afi_t afi,
 
 			vty_out(vty, "\"%s\":",
 				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-					? "Default"
+					? VRF_DEFAULT_NAME
 					: bgp->name);
 		} else {
 			vty_out(vty, "\nInstance %s:\n",
 				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-					? "Default"
+					? VRF_DEFAULT_NAME
 					: bgp->name);
 		}
 		bgp_show(vty, bgp, afi, safi, bgp_show_type_normal, NULL,
@@ -8882,7 +8947,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 				vty_out(vty, ", table %s",
 					(bgp->inst_type
 					 == BGP_INSTANCE_TYPE_DEFAULT)
-						? "Default-IP-Routing-Table"
+						? VRF_DEFAULT_NAME
 						: bgp->name);
 		} else
 			vty_out(vty, ", no best path");
@@ -8934,7 +8999,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	 * show what peers we advertised the bestpath to.  If we are using
 	 * addpath
 	 * though then we must display Advertised to on a path-by-path basis. */
-	if (!bgp->addpath_tx_used[afi][safi]) {
+	if (!bgp_addpath_is_addpath_used(&bgp->tx_addpath, afi, safi)) {
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			if (bgp_adj_out_lookup(peer, rn, 0)) {
 				if (json && !json_adv_to)

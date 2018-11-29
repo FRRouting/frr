@@ -1,3 +1,4 @@
+
 /* Interface function header.
  * Copyright (C) 1999 Kunihiro Ishiguro
  *
@@ -192,6 +193,8 @@ typedef enum {
 	ZEBRA_IF_VLAN,      /* VLAN sub-interface */
 	ZEBRA_IF_MACVLAN,   /* MAC VLAN interface*/
 	ZEBRA_IF_VETH,      /* VETH interface*/
+	ZEBRA_IF_BOND,	    /* Bond */
+	ZEBRA_IF_BOND_SLAVE,	    /* Bond */
 } zebra_iftype_t;
 
 /* Zebra "slave" interface type */
@@ -199,6 +202,7 @@ typedef enum {
 	ZEBRA_IF_SLAVE_NONE,   /* Not a slave */
 	ZEBRA_IF_SLAVE_VRF,    /* Member of a VRF */
 	ZEBRA_IF_SLAVE_BRIDGE, /* Member of a bridge */
+	ZEBRA_IF_SLAVE_BOND,   /* Bond member */
 	ZEBRA_IF_SLAVE_OTHER,  /* Something else - e.g., bond slave */
 } zebra_slave_iftype_t;
 
@@ -268,6 +272,8 @@ struct zebra_if {
 	 */
 	struct zebra_l2info_brslave brslave_info;
 
+	struct zebra_l2info_bondslave bondslave_info;
+
 	/* Link fields - for sub-interfaces. */
 	ifindex_t link_ifindex;
 	struct interface *link;
@@ -323,6 +329,10 @@ static inline void zebra_if_set_ziftype(struct interface *ifp,
 
 #define IS_ZEBRA_IF_VRF_SLAVE(ifp)                                             \
 	(((struct zebra_if *)(ifp->info))->zif_slave_type == ZEBRA_IF_SLAVE_VRF)
+
+#define IS_ZEBRA_IF_BOND_SLAVE(ifp)					\
+	(((struct zebra_if *)(ifp->info))->zif_slave_type                      \
+	 == ZEBRA_IF_SLAVE_BOND)
 
 extern void zebra_if_init(void);
 

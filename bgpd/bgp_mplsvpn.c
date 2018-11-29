@@ -578,7 +578,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		return bpi;
 	}
 
-	new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_IMPORTED, 0,
+	new = info_make(bpi_ultimate->type, bpi_ultimate->sub_type, 0,
 		bgp->peer_self, new_attr, bn);
 
 	if (nexthop_self_flag)
@@ -1492,7 +1492,7 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 	struct ecommunity *ecom;
 	bool first_export = false;
 
-	export_name = to_bgp->name ? to_bgp->name : BGP_DEFAULT_NAME;
+	export_name = to_bgp->name ? to_bgp->name : VRF_DEFAULT_NAME;
 	idir = BGP_VPN_POLICY_DIR_FROMVPN;
 	edir = BGP_VPN_POLICY_DIR_TOVPN;
 
@@ -1501,7 +1501,7 @@ void vrf_import_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 	 * any VRF is importing from "import_vrf".
 	 */
 	vname = (from_bgp->name ? XSTRDUP(MTYPE_TMP, from_bgp->name)
-			       : XSTRDUP(MTYPE_TMP, BGP_DEFAULT_NAME));
+			       : XSTRDUP(MTYPE_TMP, VRF_DEFAULT_NAME));
 
 	listnode_add(to_bgp->vpn_policy[afi].import_vrf, vname);
 
@@ -1557,8 +1557,8 @@ void vrf_unimport_from_vrf(struct bgp *to_bgp, struct bgp *from_bgp,
 	struct ecommunity *ecom;
 	struct listnode *node;
 
-	export_name = to_bgp->name ? to_bgp->name : BGP_DEFAULT_NAME;
-	tmp_name = from_bgp->name ? from_bgp->name : BGP_DEFAULT_NAME;
+	export_name = to_bgp->name ? to_bgp->name : VRF_DEFAULT_NAME;
+	tmp_name = from_bgp->name ? from_bgp->name : VRF_DEFAULT_NAME;
 	idir = BGP_VPN_POLICY_DIR_FROMVPN;
 	edir = BGP_VPN_POLICY_DIR_TOVPN;
 

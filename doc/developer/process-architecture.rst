@@ -118,7 +118,7 @@ The following diagram illustrates a simplified version of this infrastructure.
 .. todo: replace these with SVG
 .. figure:: ../figures/threadmaster-single.png
    :align: center
-   
+
    Lifecycle of a program using a single threadmaster.
 
 The series of "task" boxes represents the current ready task queue. The various
@@ -183,7 +183,7 @@ running their own ``threadmaster``-based event loop.
 .. todo: replace these with SVG
 .. figure:: ../figures/threadmaster-multiple.png
    :align: center
-   
+
    Lifecycle of a program using multiple pthreads, each running their own
    ``threadmaster``
 

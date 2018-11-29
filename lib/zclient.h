@@ -135,6 +135,7 @@ typedef enum {
 	ZEBRA_IP_PREFIX_ROUTE_DEL,
 	ZEBRA_REMOTE_MACIP_ADD,
 	ZEBRA_REMOTE_MACIP_DEL,
+	ZEBRA_DUPLICATE_ADDR_DETECTION,
 	ZEBRA_PW_ADD,
 	ZEBRA_PW_DELETE,
 	ZEBRA_PW_SET,
@@ -422,23 +423,10 @@ struct zclient_options {
 	bool receive_notify;
 };
 
-/* Prototypes of zebra client service functions. */
-extern struct zclient *zclient_new(struct thread_master *);
-
-/* clang-format off */
-#if CONFDATE > 20181101
-CPP_NOTICE("zclient_new_notify can take over or zclient_new now");
-#endif
-/* clang-format on */
-
 extern struct zclient_options zclient_options_default;
 
-extern struct zclient *zclient_new_notify(struct thread_master *m,
-					  struct zclient_options *opt);
-
-#define zclient_new(A)                                                         \
-	zclient_new_notify((A), &zclient_options_default);                     \
-	CPP_WARN("Please transition to using zclient_new_notify");
+extern struct zclient *zclient_new(struct thread_master *m,
+				   struct zclient_options *opt);
 
 extern void zclient_init(struct zclient *, int, unsigned short,
 			 struct zebra_privs_t *privs);

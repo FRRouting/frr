@@ -935,8 +935,28 @@ static void bgp_update_delay_process_status_change(struct peer *peer)
    read/write and timer thread. */
 void bgp_fsm_change_status(struct peer *peer, int status)
 {
+	struct bgp *bgp;
+	uint32_t peer_count;
 
 	bgp_dump_state(peer, peer->status, status);
+
+	bgp = peer->bgp;
+	peer_count = bgp->established_peers;
+
+	if (status == Established)
+		bgp->established_peers++;
+	else if ((peer->status == Established) && (status != Established))
+		bgp->established_peers--;
+
+	if (BGP_DEBUG(neighbor_events, NEIGHBOR_EVENTS))
+		zlog_debug("%s : vrf %u, established_peers %u", __func__,
+				bgp->vrf_id, bgp->established_peers);
+	/* Set to router ID to the value provided by RIB if there are no peers
+	 * in the established state and peer count did not change
+	 */
+	if ((peer_count != bgp->established_peers) &&
+	    (bgp->established_peers == 0))
+		bgp_router_id_zebra_bump(bgp->vrf_id, NULL);
 
 	/* Transition into Clearing or Deleted must /always/ clear all routes..
 	 * (and must do so before actually changing into Deleted..
@@ -1043,8 +1063,9 @@ int bgp_stop(struct peer *peer)
 				"%%ADJCHANGE: neighbor %s(%s) in vrf %s Down %s",
 				peer->host,
 				(peer->hostname) ? peer->hostname : "Unknown",
-				vrf ? ((vrf->vrf_id != VRF_DEFAULT) ? vrf->name
-								    : "Default")
+				vrf ? ((vrf->vrf_id != VRF_DEFAULT)
+						? vrf->name
+						: VRF_DEFAULT_NAME)
 				    : "",
 				peer_down_str[(int)peer->last_reset]);
 		}
@@ -1564,8 +1585,9 @@ static int bgp_establish(struct peer *peer)
 		zlog_info("%%ADJCHANGE: neighbor %s(%s) in vrf %s Up",
 			  peer->host,
 			  (peer->hostname) ? peer->hostname : "Unknown",
-			  vrf ? ((vrf->vrf_id != VRF_DEFAULT) ? vrf->name
-							      : "Default")
+			  vrf ? ((vrf->vrf_id != VRF_DEFAULT)
+					? vrf->name
+					: VRF_DEFAULT_NAME)
 			      : "");
 	}
 	/* assign update-group/subgroup */

@@ -215,6 +215,7 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 	}
 	if (!listnode_lookup(rnh->client_list, client)) {
 		listnode_add(rnh->client_list, client);
+
 	}
         /* 
          * Zebra was not responding to re-registration messages from bgp due to 
@@ -231,7 +232,7 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
          * machine, for this particular neighbour goes into dead lock state, and never send 
          * any connect request to this neighbour. 
          */ 
-	send_client(rnh, client, type, vrf_id);
+	  send_client(rnh, client, type, vrf_id);
 }
 
 void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,

@@ -2458,8 +2458,6 @@ static void vty_read_file(struct nb_config *config, FILE *confp)
 	 */
 	if (config == NULL && vty->candidate_config
 	    && frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL) {
-		int ret;
-
 		ret = nb_candidate_commit(vty->candidate_config, NB_CLIENT_CLI,
 					  true, "Read configuration file",
 					  NULL);

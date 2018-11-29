@@ -577,7 +577,7 @@ static int vtysh_execute_func(const char *line, int pager)
 				    && (cmd->daemon == vtysh_client[i].flag)) {
 					for (vc = &vtysh_client[i]; vc;
 					     vc = vc->next)
-						if (vc->fd < 0)
+						if (vc->fd == VTYSH_WAS_ACTIVE)
 							vtysh_reconnect(vc);
 				}
 				if (vtysh_client[i].fd < 0
@@ -1458,7 +1458,7 @@ DEFUNSH_HIDDEN(VTYSH_BGPD, address_family_evpn2, address_family_evpn2_cmd,
 }
 #endif
 
-DEFUNSH(VTYSH_BGPD, bgp_evpn_vni, bgp_evpn_vni_cmd, "vni (1-16777215)",
+DEFUNSH(VTYSH_BGPD, bgp_evpn_vni, bgp_evpn_vni_cmd, "vni " CMD_VNI_RANGE,
 	"VXLAN Network Identifier\n"
 	"VNI number\n")
 {

@@ -32,6 +32,45 @@ DEFINE_MTYPE(LIB, YANG_DATA, "YANG data structure")
 /* libyang container. */
 struct ly_ctx *ly_native_ctx;
 
+static struct yang_module_embed *embeds, **embedupd = &embeds;
+
+void yang_module_embed(struct yang_module_embed *embed)
+{
+	embed->next = NULL;
+	*embedupd = embed;
+	embedupd = &embed->next;
+}
+
+static const char *yang_module_imp_clb(const char *mod_name,
+				       const char *mod_rev,
+				       const char *submod_name,
+				       const char *submod_rev,
+				       void *user_data,
+				       LYS_INFORMAT *format,
+				       void (**free_module_data)
+						(void *, void*))
+{
+	struct yang_module_embed *e;
+
+	if (submod_name || submod_rev)
+		return NULL;
+
+	for (e = embeds; e; e = e->next) {
+		if (strcmp(e->mod_name, mod_name))
+			continue;
+		if (mod_rev && strcmp(e->mod_rev, mod_rev))
+			continue;
+
+		*format = e->format;
+		return e->data;
+	}
+
+	flog_warn(EC_LIB_YANG_MODULE_LOAD,
+		  "YANG model \"%s@%s\" not embedded, trying external file",
+		  mod_name, mod_rev ? mod_rev : "*");
+	return NULL;
+}
+
 /* Generate the yang_modules tree. */
 static inline int yang_module_compare(const struct yang_module *a,
 				      const struct yang_module *b)
@@ -305,6 +344,29 @@ void yang_dnode_get_path(const struct lyd_node *dnode, char *xpath,
 	free(xpath_ptr);
 }
 
+const char *yang_dnode_get_schema_name(const struct lyd_node *dnode,
+				       const char *xpath_fmt, ...)
+{
+	if (xpath_fmt) {
+		va_list ap;
+		char xpath[XPATH_MAXLEN];
+
+		va_start(ap, xpath_fmt);
+		vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
+		va_end(ap);
+
+		dnode = yang_dnode_get(dnode, xpath);
+		if (!dnode) {
+			flog_err(EC_LIB_YANG_DNODE_NOT_FOUND,
+				 "%s: couldn't find %s", __func__, xpath);
+			zlog_backtrace(LOG_ERR);
+			abort();
+		}
+	}
+
+	return dnode->schema->name;
+}
+
 struct lyd_node *yang_dnode_get(const struct lyd_node *dnode,
 				const char *xpath_fmt, ...)
 {
@@ -431,7 +493,8 @@ void yang_dnode_set_entry(const struct lyd_node *dnode, void *entry)
 	lyd_set_private(dnode, entry);
 }
 
-void *yang_dnode_get_entry(const struct lyd_node *dnode)
+void *yang_dnode_get_entry(const struct lyd_node *dnode,
+			   bool abort_if_not_found)
 {
 	const struct lyd_node *orig_dnode = dnode;
 	char xpath[XPATH_MAXLEN];
@@ -449,6 +512,9 @@ void *yang_dnode_get_entry(const struct lyd_node *dnode)
 
 		dnode = dnode->parent;
 	}
+
+	if (!abort_if_not_found)
+		return NULL;
 
 	yang_dnode_get_path(orig_dnode, xpath, sizeof(xpath));
 	flog_err(EC_LIB_YANG_DNODE_NOT_FOUND,
@@ -570,12 +636,13 @@ void yang_init(void)
 	ly_log_options(LY_LOLOG | LY_LOSTORE);
 
 	/* Initialize libyang container for native models. */
-	ly_native_ctx = ly_ctx_new(NULL, LY_CTX_DISABLE_SEARCHDIR_CWD);
+	ly_native_ctx =
+		ly_ctx_new(YANG_MODELS_PATH, LY_CTX_DISABLE_SEARCHDIR_CWD);
 	if (!ly_native_ctx) {
 		flog_err(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		exit(1);
 	}
-	ly_ctx_set_searchdir(ly_native_ctx, YANG_MODELS_PATH);
+	ly_ctx_set_module_imp_clb(ly_native_ctx, yang_module_imp_clb, NULL);
 	ly_ctx_set_priv_dup_clb(ly_native_ctx, ly_dup_cb);
 
 	/* Detect if the required libyang plugin(s) were loaded successfully. */
