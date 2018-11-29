@@ -448,6 +448,11 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 {
 	bool enumerate_icmp = false;
 
+	if (api->type ==  BGP_PBR_UNDEFINED) {
+		if (BGP_DEBUG(pbr, PBR))
+			zlog_debug("BGP: pbr entry undefined. cancel.");
+		return 0;
+	}
 	/* because bgp pbr entry may contain unsupported
 	 * combinations, a message will be displayed here if
 	 * not supported.
