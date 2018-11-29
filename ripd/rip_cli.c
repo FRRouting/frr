@@ -210,7 +210,8 @@ DEFPY (rip_distance_source,
 {
 	if (!no) {
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-		nb_cli_enqueue_change(vty, "./distance", NB_OP_MODIFY, NULL);
+		nb_cli_enqueue_change(vty, "./distance", NB_OP_MODIFY,
+				      distance_str);
 		nb_cli_enqueue_change(vty, "./access-list",
 				      acl ? NB_OP_MODIFY : NB_OP_DELETE, acl);
 	} else
