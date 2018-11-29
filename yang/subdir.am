@@ -27,3 +27,7 @@ dist_yangmodels_DATA += yang/frr-route-types.yang
 if RIPD
 dist_yangmodels_DATA += yang/frr-ripd.yang
 endif
+
+if RIPNGD
+dist_yangmodels_DATA += yang/frr-ripngd.yang
+endif

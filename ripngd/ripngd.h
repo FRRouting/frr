@@ -89,6 +89,10 @@
 #define IFMINMTU    576
 #endif /* IFMINMTU */
 
+/* YANG paths */
+#define RIPNG_INSTANCE	"/frr-ripngd:ripngd/instance"
+#define RIPNG_IFACE	"/frr-interface:lib/interface/frr-ripngd:ripng"
+
 /* RIPng structure. */
 struct ripng {
 	/* RIPng socket. */
@@ -411,5 +415,9 @@ extern int ripng_network_write(struct vty *, int);
 extern struct ripng_info *ripng_ecmp_add(struct ripng_info *);
 extern struct ripng_info *ripng_ecmp_replace(struct ripng_info *);
 extern struct ripng_info *ripng_ecmp_delete(struct ripng_info *);
+
+/* Northbound. */
+extern void ripng_cli_init(void);
+extern const struct frr_yang_module_info frr_ripngd_info;
 
 #endif /* _ZEBRA_RIPNG_RIPNGD_H */
