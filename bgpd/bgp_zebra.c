@@ -2043,6 +2043,7 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 	uint32_t seqno, priority, unique;
 	enum zapi_rule_notify_owner note;
 	struct bgp_pbr_action *bgp_pbra;
+	struct bgp_pbr_rule *bgp_pbr = NULL;
 	ifindex_t ifi;
 
 	if (!zapi_rule_notify_decode(zclient->ibuf, &seqno, &priority, &unique,
@@ -2051,10 +2052,14 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 
 	bgp_pbra = bgp_pbr_action_rule_lookup(vrf_id, unique);
 	if (!bgp_pbra) {
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: Fail to look BGP rule (%u)",
-				   __PRETTY_FUNCTION__, unique);
-		return 0;
+		/* look in bgp pbr rule */
+		bgp_pbr = bgp_pbr_rule_lookup(vrf_id, unique);
+		if (!bgp_pbr) {
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_debug("%s: Fail to look BGP rule (%u)",
+					   __PRETTY_FUNCTION__, unique);
+			return 0;
+		}
 	}
 
 	switch (note) {
@@ -2062,12 +2067,23 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Received RULE_FAIL_INSTALL",
 				   __PRETTY_FUNCTION__);
-		bgp_pbra->installed = false;
-		bgp_pbra->install_in_progress = false;
+		if (bgp_pbra) {
+			bgp_pbra->installed = false;
+			bgp_pbra->install_in_progress = false;
+		} else {
+			bgp_pbr->installed = false;
+			bgp_pbr->install_in_progress = false;
+		}
 		break;
 	case ZAPI_RULE_INSTALLED:
-		bgp_pbra->installed = true;
-		bgp_pbra->install_in_progress = false;
+		if (bgp_pbra) {
+			bgp_pbra->installed = true;
+			bgp_pbra->install_in_progress = false;
+		} else {
+			bgp_pbr->installed = true;
+			bgp_pbr->install_in_progress = false;
+			bgp_pbr->action->refcnt++;
+		}
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Received RULE_INSTALLED",
 				   __PRETTY_FUNCTION__);
