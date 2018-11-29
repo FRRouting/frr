@@ -295,7 +295,7 @@ static uint16_t bgp_write(struct peer *peer)
 		int writenum;
 		do {
 			writenum = stream_get_endp(s) - stream_get_getp(s);
-			num = write(peer->fd, STREAM_PNT(s), writenum);
+			num = write(peer->fd, stream_pnt(s), writenum);
 
 			if (num < 0) {
 				if (!ERRNO_IO_RETRY(errno)) {
