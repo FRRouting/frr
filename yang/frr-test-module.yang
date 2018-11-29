@@ -1,0 +1,59 @@
+module frr-test-module {
+  yang-version 1.1;
+  namespace "urn:frr-test-module";
+  prefix frr-test-module;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+  import ietf-yang-types {
+    prefix yang;
+  }
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  revision 2018-11-26 {
+    description
+      "Initial revision.";
+  }
+
+  container frr-test-module {
+    config false;
+    container vrfs {
+      list vrf {
+        key "name";
+
+        leaf name {
+          type string;
+        }
+        container interfaces {
+          leaf-list interface {
+            type string;
+          }
+        }
+        container routes {
+          list route {
+            key "prefix";
+
+            leaf prefix {
+              type inet:ipv4-prefix;
+            }
+            leaf next-hop {
+              type inet:ipv4-address;
+            }
+            leaf interface {
+              type string;
+            }
+            leaf metric {
+              type uint8;
+            }
+            leaf active {
+              type empty;
+            }
+          }
+        }
+      }
+    }
+  }
+}

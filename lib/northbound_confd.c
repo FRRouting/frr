@@ -91,22 +91,61 @@ static int frr_confd_val2str(const char *xpath, const confd_value_t *value,
 	return 0;
 }
 
-/* Obtain list keys from ConfD hashed keypath. */
-static void frr_confd_hkeypath_get_keys(const confd_hkeypath_t *kp,
-					struct yang_list_keys *keys)
+/* Obtain list entry from ConfD hashed keypath. */
+static int frr_confd_hkeypath_get_list_entry(const confd_hkeypath_t *kp,
+					     struct nb_node *nb_node,
+					     const void **list_entry)
 {
-	memset(keys, 0, sizeof(*keys));
-	for (int i = 0; i < kp->len; i++) {
+	struct nb_node *nb_node_list;
+	int parent_lists = 0;
+	int curr_list = 0;
+
+	*list_entry = NULL;
+
+	/*
+	 * Count the number of YANG lists in the path, disconsidering the
+	 * last element.
+	 */
+	nb_node_list = nb_node;
+	while (nb_node_list->parent_list) {
+		nb_node_list = nb_node_list->parent_list;
+		parent_lists++;
+	}
+	if (nb_node->snode->nodetype != LYS_LIST && parent_lists == 0)
+		return 0;
+
+	/* Start from the beginning and move down the tree. */
+	for (int i = kp->len; i >= 0; i--) {
+		struct yang_list_keys keys;
+
+		/* Not a YANG list. */
 		if (kp->v[i][0].type != C_BUF)
 			continue;
 
+		/* Obtain list keys. */
+		memset(&keys, 0, sizeof(keys));
 		for (int j = 0; kp->v[i][j].type != C_NOEXISTS; j++) {
-			strlcpy(keys->key[keys->num].value,
+			strlcpy(keys.key[keys.num],
 				(char *)kp->v[i][j].val.buf.ptr,
-				sizeof(keys->key[keys->num].value));
-			keys->num++;
+				sizeof(keys.key[keys.num]));
+			keys.num++;
 		}
+
+		/* Obtain northbound node associated to the YANG list. */
+		nb_node_list = nb_node;
+		for (int j = curr_list; j < parent_lists; j++)
+			nb_node_list = nb_node_list->parent_list;
+
+		/* Obtain list entry. */
+		*list_entry =
+			nb_node_list->cbs.lookup_entry(*list_entry, &keys);
+		if (*list_entry == NULL)
+			return -1;
+
+		curr_list++;
 	}
+
+	return 0;
 }
 
 /* Fill the current date and time into a confd_datetime structure. */
@@ -430,6 +469,9 @@ static int frr_confd_init_cdb(void)
 				continue;
 			}
 
+			if (CHECK_FLAG(snode->flags, LYS_CONFIG_R))
+				continue;
+
 			nb_node = snode->priv;
 			if (debug_northbound)
 				zlog_debug("%s: subscribing to '%s'", __func__,
@@ -490,12 +532,13 @@ static int frr_confd_transaction_init(struct confd_trans_ctx *tctx)
 	return CONFD_OK;
 }
 
+#define CONFD_MAX_CHILD_NODES 32
+
 static int frr_confd_data_get_elem(struct confd_trans_ctx *tctx,
 				   confd_hkeypath_t *kp)
 {
-	struct nb_node *nb_node, *parent_list;
+	struct nb_node *nb_node;
 	char xpath[BUFSIZ];
-	struct yang_list_keys keys;
 	struct yang_data *data;
 	confd_value_t v;
 	const void *list_entry = NULL;
@@ -510,17 +553,9 @@ static int frr_confd_data_get_elem(struct confd_trans_ctx *tctx,
 		return CONFD_OK;
 	}
 
-	parent_list = nb_node->parent_list;
-	if (parent_list) {
-		frr_confd_hkeypath_get_keys(kp, &keys);
-		list_entry = parent_list->cbs.lookup_entry(&keys);
-		if (!list_entry) {
-			flog_warn(EC_LIB_NB_CB_STATE,
-				  "%s: list entry not found: %s", __func__,
-				  xpath);
-			confd_data_reply_not_found(tctx);
-			return CONFD_OK;
-		}
+	if (frr_confd_hkeypath_get_list_entry(kp, nb_node, &list_entry) != 0) {
+		confd_data_reply_not_found(tctx);
+		return CONFD_OK;
 	}
 
 	data = nb_node->cbs.get_elem(xpath, list_entry);
@@ -543,7 +578,8 @@ static int frr_confd_data_get_next(struct confd_trans_ctx *tctx,
 	struct nb_node *nb_node;
 	char xpath[BUFSIZ];
 	struct yang_list_keys keys;
-	const void *nb_next;
+	struct yang_data *data;
+	const void *parent_list_entry, *nb_next;
 	confd_value_t v[LIST_MAXKEYS];
 
 	frr_confd_get_xpath(kp, xpath, sizeof(xpath));
@@ -556,24 +592,51 @@ static int frr_confd_data_get_next(struct confd_trans_ctx *tctx,
 		return CONFD_OK;
 	}
 
-	nb_next = nb_node->cbs.get_next(xpath,
-					(next == -1) ? NULL : (void *)next);
-	if (!nb_next) {
-		/* End of the list. */
-		confd_data_reply_next_key(tctx, NULL, -1, -1);
-		return CONFD_OK;
-	}
-	if (nb_node->cbs.get_keys(nb_next, &keys) != NB_OK) {
-		flog_warn(EC_LIB_NB_CB_STATE, "%s: failed to get list keys",
-			  __func__);
+	if (frr_confd_hkeypath_get_list_entry(kp, nb_node, &parent_list_entry)
+	    != 0) {
+		/* List entry doesn't exist anymore. */
 		confd_data_reply_next_key(tctx, NULL, -1, -1);
 		return CONFD_OK;
 	}
 
-	/* Feed keys to ConfD. */
-	for (size_t i = 0; i < keys.num; i++)
-		CONFD_SET_STR(&v[i], keys.key[i].value);
-	confd_data_reply_next_key(tctx, v, keys.num, (long)nb_next);
+	nb_next = nb_node->cbs.get_next(parent_list_entry,
+					(next == -1) ? NULL : (void *)next);
+	if (!nb_next) {
+		/* End of the list or leaf-list. */
+		confd_data_reply_next_key(tctx, NULL, -1, -1);
+		return CONFD_OK;
+	}
+
+	switch (nb_node->snode->nodetype) {
+	case LYS_LIST:
+		memset(&keys, 0, sizeof(keys));
+		if (nb_node->cbs.get_keys(nb_next, &keys) != NB_OK) {
+			flog_warn(EC_LIB_NB_CB_STATE,
+				  "%s: failed to get list keys", __func__);
+			confd_data_reply_next_key(tctx, NULL, -1, -1);
+			return CONFD_OK;
+		}
+
+		/* Feed keys to ConfD. */
+		for (size_t i = 0; i < keys.num; i++)
+			CONFD_SET_STR(&v[i], keys.key[i]);
+		confd_data_reply_next_key(tctx, v, keys.num, (long)nb_next);
+		break;
+	case LYS_LEAFLIST:
+		data = nb_node->cbs.get_elem(xpath, nb_next);
+		if (data) {
+			if (data->value) {
+				CONFD_SET_STR(&v[0], data->value);
+				confd_data_reply_next_key(tctx, v, 1,
+							  (long)nb_next);
+			}
+			yang_data_free(data);
+		} else
+			confd_data_reply_next_key(tctx, NULL, -1, -1);
+		break;
+	default:
+		break;
+	}
 
 	return CONFD_OK;
 }
@@ -585,15 +648,14 @@ static int frr_confd_data_get_object(struct confd_trans_ctx *tctx,
 				     confd_hkeypath_t *kp)
 {
 	struct nb_node *nb_node;
+	const struct lys_node *child;
 	char xpath[BUFSIZ];
-	char xpath_children[XPATH_MAXLEN];
 	char xpath_child[XPATH_MAXLEN];
-	struct yang_list_keys keys;
 	struct list *elements;
 	struct yang_data *data;
 	const void *list_entry;
-	struct ly_set *set;
-	confd_value_t *values;
+	confd_value_t values[CONFD_MAX_CHILD_NODES];
+	size_t nvalues = 0;
 
 	frr_confd_get_xpath(kp, xpath, sizeof(xpath));
 
@@ -602,57 +664,53 @@ static int frr_confd_data_get_object(struct confd_trans_ctx *tctx,
 		flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
 			  "%s: unknown data path: %s", __func__, xpath);
 		confd_data_reply_not_found(tctx);
-		return CONFD_OK;
+		return CONFD_ERR;
 	}
 
-	frr_confd_hkeypath_get_keys(kp, &keys);
-	list_entry = nb_node->cbs.lookup_entry(&keys);
-	if (!list_entry) {
-		flog_warn(EC_LIB_NB_CB_STATE, "%s: list entry not found: %s",
-			  __func__, xpath);
+	if (frr_confd_hkeypath_get_list_entry(kp, nb_node, &list_entry) != 0) {
 		confd_data_reply_not_found(tctx);
 		return CONFD_OK;
 	}
 
-	/* Find list child nodes. */
-	snprintf(xpath_children, sizeof(xpath_children), "%s/*", xpath);
-	set = lys_find_path(nb_node->snode->module, NULL, xpath_children);
-	if (!set) {
-		flog_warn(EC_LIB_LIBYANG, "%s: lys_find_path() failed",
-			  __func__);
-		return CONFD_ERR;
-	}
-
 	elements = yang_data_list_new();
-	values = XMALLOC(MTYPE_CONFD, set->number * sizeof(*values));
 
 	/* Loop through list child nodes. */
-	for (size_t i = 0; i < set->number; i++) {
-		struct lys_node *child;
-		struct nb_node *nb_node_child;
+	LY_TREE_FOR (nb_node->snode->child, child) {
+		struct nb_node *nb_node_child = child->priv;
+		confd_value_t *v;
 
-		child = set->set.s[i];
-		nb_node_child = child->priv;
+		if (nvalues > CONFD_MAX_CHILD_NODES)
+			break;
+
+		v = &values[nvalues++];
+
+		/* Non-presence containers, lists and leaf-lists. */
+		if (!nb_node_child->cbs.get_elem) {
+			CONFD_SET_NOEXISTS(v);
+			continue;
+		}
 
 		snprintf(xpath_child, sizeof(xpath_child), "%s/%s", xpath,
 			 child->name);
-
 		data = nb_node_child->cbs.get_elem(xpath_child, list_entry);
 		if (data) {
 			if (data->value)
-				CONFD_SET_STR(&values[i], data->value);
-			else
-				CONFD_SET_NOEXISTS(&values[i]);
+				CONFD_SET_STR(v, data->value);
+			else {
+				/* Presence containers and empty leafs. */
+				CONFD_SET_XMLTAG(
+					v, nb_node_child->confd_hash,
+					confd_str2hash(nb_node_child->snode
+							       ->module->ns));
+			}
 			listnode_add(elements, data);
 		} else
-			CONFD_SET_NOEXISTS(&values[i]);
+			CONFD_SET_NOEXISTS(v);
 	}
 
-	confd_data_reply_value_array(tctx, values, set->number);
+	confd_data_reply_value_array(tctx, values, nvalues);
 
 	/* Release memory. */
-	ly_set_free(set);
-	XFREE(MTYPE_CONFD, values);
 	list_delete(&elements);
 
 	return CONFD_OK;
@@ -665,10 +723,9 @@ static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 					  confd_hkeypath_t *kp, long next)
 {
 	char xpath[BUFSIZ];
-	char xpath_children[XPATH_MAXLEN];
 	struct nb_node *nb_node;
-	struct ly_set *set;
 	struct list *elements;
+	const void *parent_list_entry;
 	const void *nb_next;
 #define CONFD_OBJECTS_PER_TIME 100
 	struct confd_next_object objects[CONFD_OBJECTS_PER_TIME + 1];
@@ -684,13 +741,10 @@ static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 		return CONFD_OK;
 	}
 
-	/* Find list child nodes. */
-	snprintf(xpath_children, sizeof(xpath_children), "%s/*", xpath);
-	set = lys_find_path(nb_node->snode->module, NULL, xpath_children);
-	if (!set) {
-		flog_warn(EC_LIB_LIBYANG, "%s: lys_find_path() failed",
-			  __func__);
-		return CONFD_ERR;
+	if (frr_confd_hkeypath_get_list_entry(kp, nb_node, &parent_list_entry)
+	    != 0) {
+		confd_data_reply_next_object_array(tctx, NULL, 0, 0);
+		return CONFD_OK;
 	}
 
 	elements = yang_data_list_new();
@@ -699,62 +753,76 @@ static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 	memset(objects, 0, sizeof(objects));
 	for (int j = 0; j < CONFD_OBJECTS_PER_TIME; j++) {
 		struct confd_next_object *object;
-		struct yang_list_keys keys;
+		struct lys_node *child;
 		struct yang_data *data;
-		const void *list_entry;
+		size_t nvalues = 0;
 
 		object = &objects[j];
 
-		nb_next = nb_node->cbs.get_next(xpath, nb_next);
+		nb_next = nb_node->cbs.get_next(parent_list_entry, nb_next);
 		if (!nb_next)
 			/* End of the list. */
 			break;
 
-		if (nb_node->cbs.get_keys(nb_next, &keys) != NB_OK) {
-			flog_warn(EC_LIB_NB_CB_STATE,
-				  "%s: failed to get list keys", __func__);
-			continue;
-		}
 		object->next = (long)nb_next;
 
-		list_entry = nb_node->cbs.lookup_entry(&keys);
-		if (!list_entry) {
-			flog_warn(EC_LIB_NB_CB_STATE,
-				  "%s: failed to lookup list entry", __func__);
-			continue;
+		/* Leaf-lists require special handling. */
+		if (nb_node->snode->nodetype == LYS_LEAFLIST) {
+			object->v = XMALLOC(MTYPE_CONFD, sizeof(confd_value_t));
+			data = nb_node->cbs.get_elem(xpath, nb_next);
+			assert(data && data->value);
+			CONFD_SET_STR(object->v, data->value);
+			nvalues++;
+			listnode_add(elements, data);
+			goto next;
 		}
 
-		object->v = XMALLOC(MTYPE_CONFD,
-				    set->number * sizeof(confd_value_t));
+		object->v =
+			XMALLOC(MTYPE_CONFD,
+				CONFD_MAX_CHILD_NODES * sizeof(confd_value_t));
 
 		/* Loop through list child nodes. */
-		for (unsigned int i = 0; i < set->number; i++) {
-			struct lys_node *child;
-			struct nb_node *nb_node_child;
+		LY_TREE_FOR (nb_node->snode->child, child) {
+			struct nb_node *nb_node_child = child->priv;
 			char xpath_child[XPATH_MAXLEN];
-			confd_value_t *v = &object->v[i];
+			confd_value_t *v;
 
-			child = set->set.s[i];
-			nb_node_child = child->priv;
+			if (nvalues > CONFD_MAX_CHILD_NODES)
+				break;
+
+			v = &object->v[nvalues++];
+
+			/* Non-presence containers, lists and leaf-lists. */
+			if (!nb_node_child->cbs.get_elem) {
+				CONFD_SET_NOEXISTS(v);
+				continue;
+			}
 
 			snprintf(xpath_child, sizeof(xpath_child), "%s/%s",
 				 xpath, child->name);
-
 			data = nb_node_child->cbs.get_elem(xpath_child,
-							   list_entry);
+							   nb_next);
 			if (data) {
 				if (data->value)
 					CONFD_SET_STR(v, data->value);
-				else
-					CONFD_SET_NOEXISTS(v);
+				else {
+					/*
+					 * Presence containers and empty leafs.
+					 */
+					CONFD_SET_XMLTAG(
+						v, nb_node_child->confd_hash,
+						confd_str2hash(
+							nb_node_child->snode
+								->module->ns));
+				}
 				listnode_add(elements, data);
 			} else
 				CONFD_SET_NOEXISTS(v);
 		}
-		object->n = set->number;
+	next:
+		object->n = nvalues;
 		nobjects++;
 	}
-	ly_set_free(set);
 
 	if (nobjects == 0) {
 		confd_data_reply_next_object_array(tctx, NULL, 0, 0);
@@ -816,10 +884,18 @@ static int frr_confd_notification_send(const char *xpath,
 	CONFD_SET_TAG_XMLBEGIN(&values[i++], nb_node->confd_hash,
 			       module->confd_hash);
 	for (ALL_LIST_ELEMENTS_RO(arguments, node, data)) {
-		struct nb_node *option_arg;
+		struct nb_node *nb_node_arg;
 
-		option_arg = data->snode->priv;
-		CONFD_SET_TAG_STR(&values[i++], option_arg->confd_hash,
+		nb_node_arg = nb_node_find(data->xpath);
+		if (!nb_node_arg) {
+			flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
+				  "%s: unknown data path: %s", __func__,
+				  data->xpath);
+			XFREE(MTYPE_CONFD, values);
+			return NB_ERR;
+		}
+
+		CONFD_SET_TAG_STR(&values[i++], nb_node_arg->confd_hash,
 				  data->value);
 	}
 	CONFD_SET_TAG_XMLEND(&values[i++], nb_node->confd_hash,
@@ -921,9 +997,18 @@ static int frr_confd_action_execute(struct confd_user_info *uinfo,
 				listcount(output) * sizeof(*reply));
 
 		for (ALL_LIST_ELEMENTS_RO(output, node, data)) {
+			struct nb_node *nb_node_output;
 			int hash;
 
-			hash = confd_str2hash(data->snode->name);
+			nb_node_output = nb_node_find(data->xpath);
+			if (!nb_node_output) {
+				flog_warn(EC_LIB_YANG_UNKNOWN_DATA_PATH,
+					  "%s: unknown data path: %s", __func__,
+					  data->xpath);
+				goto exit;
+			}
+
+			hash = confd_str2hash(nb_node_output->snode->name);
 			CONFD_SET_TAG_STR(&reply[i++], hash, data->value);
 		}
 		confd_action_reply_values(uinfo, reply, listcount(output));
@@ -962,17 +1047,16 @@ static int frr_confd_dp_read(struct thread *thread)
 	return 0;
 }
 
-static void frr_confd_subscribe_state(const struct lys_node *snode, void *arg1,
-				      void *arg2)
+static int frr_confd_subscribe_state(const struct lys_node *snode, void *arg)
 {
 	struct nb_node *nb_node = snode->priv;
-	struct confd_data_cbs *data_cbs = arg1;
+	struct confd_data_cbs *data_cbs = arg;
 
-	if (!(snode->flags & LYS_CONFIG_R))
-		return;
+	if (!CHECK_FLAG(snode->flags, LYS_CONFIG_R))
+		return YANG_ITER_CONTINUE;
 	/* We only need to subscribe to the root of the state subtrees. */
-	if (snode->parent && (snode->parent->flags & LYS_CONFIG_R))
-		return;
+	if (snode->parent && CHECK_FLAG(snode->parent->flags, LYS_CONFIG_R))
+		return YANG_ITER_CONTINUE;
 
 	if (debug_northbound)
 		zlog_debug("%s: providing data to '%s' (callpoint %s)",
@@ -981,6 +1065,8 @@ static void frr_confd_subscribe_state(const struct lys_node *snode, void *arg1,
 	strlcpy(data_cbs->callpoint, snode->name, sizeof(data_cbs->callpoint));
 	if (confd_register_data_cb(dctx, data_cbs) != CONFD_OK)
 		flog_err_confd("confd_register_data_cb");
+
+	return YANG_ITER_CONTINUE;
 }
 
 static int frr_confd_init_dp(const char *program_name)
@@ -1053,7 +1139,7 @@ static int frr_confd_init_dp(const char *program_name)
 	 * Iterate over all loaded YANG modules and subscribe to the paths
 	 * referent to state data.
 	 */
-	yang_all_snodes_iterate(frr_confd_subscribe_state, 0, &data_cbs, NULL);
+	yang_snodes_iterate_all(frr_confd_subscribe_state, 0, &data_cbs);
 
 	/* Register notification stream. */
 	memset(&ncbs, 0, sizeof(ncbs));
@@ -1117,12 +1203,14 @@ static void frr_confd_finish_dp(void)
 
 /* ------------ Main ------------ */
 
-static void frr_confd_calculate_snode_hash(const struct lys_node *snode,
-					   void *arg1, void *arg2)
+static int frr_confd_calculate_snode_hash(const struct lys_node *snode,
+					  void *arg)
 {
 	struct nb_node *nb_node = snode->priv;
 
 	nb_node->confd_hash = confd_str2hash(snode->name);
+
+	return YANG_ITER_CONTINUE;
 }
 
 static int frr_confd_init(const char *program_name)
@@ -1153,7 +1241,7 @@ static int frr_confd_init(const char *program_name)
 		goto error;
 	}
 
-	yang_all_snodes_iterate(frr_confd_calculate_snode_hash, 0, NULL, NULL);
+	yang_snodes_iterate_all(frr_confd_calculate_snode_hash, 0, NULL);
 
 	hook_register(nb_notification_send, frr_confd_notification_send);
 

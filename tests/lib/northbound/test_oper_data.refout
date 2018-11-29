@@ -1,0 +1,119 @@
+test# show yang operational-data /frr-test-module:frr-test-module
+{
+  "frr-test-module:frr-test-module": {
+    "vrfs": {
+      "vrf": [
+        {
+          "name": "vrf0",
+          "interfaces": {
+            "interface": [
+              "eth0",
+              "eth1",
+              "eth2",
+              "eth3"
+            ]
+          },
+          "routes": {
+            "route": [
+              {
+                "prefix": "10.0.0.0/32",
+                "next-hop": "172.16.0.0",
+                "interface": "eth0",
+                "metric": 0,
+                "active": [null]
+              },
+              {
+                "prefix": "10.0.0.1/32",
+                "next-hop": "172.16.0.1",
+                "interface": "eth1",
+                "metric": 1
+              },
+              {
+                "prefix": "10.0.0.2/32",
+                "next-hop": "172.16.0.2",
+                "interface": "eth2",
+                "metric": 2,
+                "active": [null]
+              },
+              {
+                "prefix": "10.0.0.3/32",
+                "next-hop": "172.16.0.3",
+                "interface": "eth3",
+                "metric": 3
+              },
+              {
+                "prefix": "10.0.0.4/32",
+                "next-hop": "172.16.0.4",
+                "interface": "eth4",
+                "metric": 4,
+                "active": [null]
+              },
+              {
+                "prefix": "10.0.0.5/32",
+                "next-hop": "172.16.0.5",
+                "interface": "eth5",
+                "metric": 5
+              }
+            ]
+          }
+        },
+        {
+          "name": "vrf1",
+          "interfaces": {
+            "interface": [
+              "eth0",
+              "eth1",
+              "eth2",
+              "eth3"
+            ]
+          },
+          "routes": {
+            "route": [
+              {
+                "prefix": "10.0.0.0/32",
+                "next-hop": "172.16.0.0",
+                "interface": "eth0",
+                "metric": 0,
+                "active": [null]
+              },
+              {
+                "prefix": "10.0.0.1/32",
+                "next-hop": "172.16.0.1",
+                "interface": "eth1",
+                "metric": 1
+              },
+              {
+                "prefix": "10.0.0.2/32",
+                "next-hop": "172.16.0.2",
+                "interface": "eth2",
+                "metric": 2,
+                "active": [null]
+              },
+              {
+                "prefix": "10.0.0.3/32",
+                "next-hop": "172.16.0.3",
+                "interface": "eth3",
+                "metric": 3
+              },
+              {
+                "prefix": "10.0.0.4/32",
+                "next-hop": "172.16.0.4",
+                "interface": "eth4",
+                "metric": 4,
+                "active": [null]
+              },
+              {
+                "prefix": "10.0.0.5/32",
+                "next-hop": "172.16.0.5",
+                "interface": "eth5",
+                "metric": 5
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+test# 
+end.

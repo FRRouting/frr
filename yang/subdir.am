@@ -20,6 +20,7 @@ EXTRA_DIST += yang/embedmodel.py
 # without problems, as seen in libfrr.
 
 dist_yangmodels_DATA += yang/frr-module-translator.yang
+dist_yangmodels_DATA += yang/frr-test-module.yang
 dist_yangmodels_DATA += yang/frr-interface.yang
 dist_yangmodels_DATA += yang/frr-route-types.yang
 

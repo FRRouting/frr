@@ -127,7 +127,7 @@ extern void yang_get_default_ipv4(struct in_addr *var, const char *xpath_fmt,
 /* ipv4p */
 extern void yang_str2ipv4p(const char *value, union prefixptr prefix);
 extern struct yang_data *yang_data_new_ipv4p(const char *xpath,
-					     const union prefixptr prefix);
+					     union prefixconstptr prefix);
 extern void yang_dnode_get_ipv4p(union prefixptr prefix,
 				 const struct lyd_node *dnode,
 				 const char *xpath_fmt, ...);
@@ -147,7 +147,7 @@ extern void yang_get_default_ipv6(struct in6_addr *var, const char *xpath_fmt,
 /* ipv6p */
 extern void yang_str2ipv6p(const char *value, union prefixptr prefix);
 extern struct yang_data *yang_data_new_ipv6p(const char *xpath,
-					     const union prefixptr prefix);
+					     union prefixconstptr prefix);
 extern void yang_dnode_get_ipv6p(union prefixptr prefix,
 				 const struct lyd_node *dnode,
 				 const char *xpath_fmt, ...);

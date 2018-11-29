@@ -135,6 +135,12 @@ static struct log_ref ferr_lib_warn[] = {
 		.suggestion = "This is a bug; please report it"
 	},
 	{
+		.code = EC_LIB_NB_OPERATIONAL_DATA,
+		.title = "Failure to obtain operational data",
+		.description = "The northbound subsystem failed to obtain YANG-modeled operational data",
+		.suggestion = "This is a bug; please report it"
+	},
+	{
 		.code = EC_LIB_NB_TRANSACTION_CREATION_FAILED,
 		.title = "Failure to create a configuration transaction",
 		.description = "The northbound subsystem failed to create a configuration transaction",

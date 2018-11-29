@@ -84,19 +84,22 @@ static struct nb_callback_info {
 		.operation = NB_OP_GET_NEXT,
 		.return_type = "const void *",
 		.return_value = "NULL",
-		.arguments = "const char *xpath, const void *list_entry",
+		.arguments =
+			"const void *parent_list_entry, const void *list_entry",
 	},
 	{
 		.operation = NB_OP_GET_KEYS,
 		.return_type = "int ",
 		.return_value = "NB_OK",
-		.arguments = "const void *list_entry, struct yang_list_keys *keys",
+		.arguments =
+			"const void *list_entry, struct yang_list_keys *keys",
 	},
 	{
 		.operation = NB_OP_LOOKUP_ENTRY,
 		.return_type = "const void *",
 		.return_value = "NULL",
-		.arguments = "const struct yang_list_keys *keys",
+		.arguments =
+			"const void *parent_list_entry, const struct yang_list_keys *keys",
 	},
 	{
 		.operation = NB_OP_RPC,
@@ -130,9 +133,9 @@ static void generate_callback_name(struct lys_node *snode,
 	snodes = list_new();
 	for (; snode; snode = lys_parent(snode)) {
 		/* Skip schema-only snodes. */
-		if (snode->nodetype
-		    & (LYS_USES | LYS_CHOICE | LYS_CASE | LYS_INPUT
-		       | LYS_OUTPUT))
+		if (CHECK_FLAG(snode->nodetype, LYS_USES | LYS_CHOICE | LYS_CASE
+							| LYS_INPUT
+							| LYS_OUTPUT))
 			continue;
 
 		listnode_add_head(snodes, snode);
@@ -149,8 +152,7 @@ static void generate_callback_name(struct lys_node *snode,
 	replace_hyphens_by_underscores(buffer);
 }
 
-static void generate_callbacks(const struct lys_node *snode, void *arg1,
-			       void *arg2)
+static int generate_callbacks(const struct lys_node *snode, void *arg)
 {
 	bool first = true;
 
@@ -163,7 +165,7 @@ static void generate_callbacks(const struct lys_node *snode, void *arg1,
 	case LYS_RPC:
 		break;
 	default:
-		return;
+		return YANG_ITER_CONTINUE;
 	}
 
 	for (struct nb_callback_info *cb = &nb_callbacks[0];
@@ -198,10 +200,11 @@ static void generate_callbacks(const struct lys_node *snode, void *arg1,
 		       nb_callbacks[cb->operation].arguments,
 		       nb_callbacks[cb->operation].return_value);
 	}
+
+	return YANG_ITER_CONTINUE;
 }
 
-static void generate_nb_nodes(const struct lys_node *snode, void *arg1,
-			      void *arg2)
+static int generate_nb_nodes(const struct lys_node *snode, void *arg)
 {
 	bool first = true;
 
@@ -214,7 +217,7 @@ static void generate_nb_nodes(const struct lys_node *snode, void *arg1,
 	case LYS_RPC:
 		break;
 	default:
-		return;
+		return YANG_ITER_CONTINUE;
 	}
 
 	for (struct nb_callback_info *cb = &nb_callbacks[0];
@@ -245,6 +248,8 @@ static void generate_nb_nodes(const struct lys_node *snode, void *arg1,
 
 	if (!first)
 		printf("\t\t},\n");
+
+	return YANG_ITER_CONTINUE;
 }
 
 int main(int argc, char *argv[])
@@ -270,12 +275,18 @@ int main(int argc, char *argv[])
 
 	yang_init();
 
-	/* Load YANG module. */
-	module = yang_module_load(argv[0]);
+	/* Load all FRR native models to ensure all augmentations are loaded. */
+	yang_module_load_all();
+	module = yang_module_find(argv[0]);
+	if (!module)
+		/* Non-native FRR module (e.g. modules from unit tests). */
+		module = yang_module_load(argv[0]);
+
+	/* Create a nb_node for all YANG schema nodes. */
+	nb_nodes_create();
 
 	/* Generate callback functions. */
-	yang_module_snodes_iterate(module->info, generate_callbacks, 0, NULL,
-				   NULL);
+	yang_snodes_iterate_module(module->info, generate_callbacks, 0, NULL);
 
 	strlcpy(module_name_underscores, module->name,
 		sizeof(module_name_underscores));
@@ -287,8 +298,7 @@ int main(int argc, char *argv[])
 	       "\t.name = \"%s\",\n"
 	       "\t.nodes = {\n",
 	       module_name_underscores, module->name);
-	yang_module_snodes_iterate(module->info, generate_nb_nodes, 0, NULL,
-				   NULL);
+	yang_snodes_iterate_module(module->info, generate_nb_nodes, 0, NULL);
 	printf("\t\t{\n"
 	       "\t\t\t.xpath = NULL,\n"
 	       "\t\t},\n");
@@ -296,6 +306,7 @@ int main(int argc, char *argv[])
 	       "};\n");
 
 	/* Cleanup and exit. */
+	nb_nodes_delete();
 	yang_terminate();
 
 	return 0;

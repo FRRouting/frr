@@ -102,7 +102,7 @@ static unsigned int log_key(void *data)
 	return hash;
 }
 
-static int log_cmp(const void *a, const void *b)
+static bool log_cmp(const void *a, const void *b)
 {
 	if (a == NULL || b == NULL)
 		return 0;
