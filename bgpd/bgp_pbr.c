@@ -38,6 +38,7 @@
 DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH_ENTRY, "PBR match entry")
 DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH, "PBR match")
 DEFINE_MTYPE_STATIC(BGPD, PBR_ACTION, "PBR action")
+DEFINE_MTYPE_STATIC(BGPD, PBR_RULE, "PBR rule")
 DEFINE_MTYPE_STATIC(BGPD, PBR, "BGP PBR Context")
 DEFINE_MTYPE_STATIC(BGPD, PBR_VALMASK, "BGP PBR Val Mask Value")
 
@@ -837,6 +838,34 @@ static void *bgp_pbr_match_alloc_intern(void *arg)
 	return new;
 }
 
+static void bgp_pbr_rule_free(void *arg)
+{
+	struct bgp_pbr_rule *bpr;
+
+	bpr = (struct bgp_pbr_rule *)arg;
+
+	/* delete iprule */
+	if (bpr->installed) {
+		bgp_send_pbr_rule_action(bpr->action, bpr, false);
+		bpr->installed = false;
+		bpr->action->refcnt--;
+		bpr->action = NULL;
+	}
+	XFREE(MTYPE_PBR_RULE, bpr);
+}
+
+static void *bgp_pbr_rule_alloc_intern(void *arg)
+{
+	struct bgp_pbr_rule *bpr, *new;
+
+	bpr = (struct bgp_pbr_rule *)arg;
+
+	new = XCALLOC(MTYPE_PBR_RULE, sizeof(*new));
+	memcpy(new, bpr, sizeof(*bpr));
+
+	return new;
+}
+
 static void bgp_pbr_action_free(void *arg)
 {
 	struct bgp_pbr_action *bpa;
@@ -934,6 +963,44 @@ bool bgp_pbr_match_hash_equal(const void *arg1, const void *arg2)
 
 	if (r1->fragment != r2->fragment)
 		return false;
+	return true;
+}
+
+uint32_t bgp_pbr_rule_hash_key(void *arg)
+{
+	struct bgp_pbr_rule *pbr = (struct bgp_pbr_rule *)arg;
+	uint32_t key;
+
+	key = prefix_hash_key(&pbr->src);
+	key = jhash_1word(pbr->vrf_id, key);
+	key = jhash_1word(pbr->flags, key);
+	return jhash_1word(prefix_hash_key(&pbr->dst), key);
+}
+
+bool bgp_pbr_rule_hash_equal(const void *arg1, const void *arg2)
+{
+	const struct bgp_pbr_rule *r1, *r2;
+
+	r1 = (const struct bgp_pbr_rule *)arg1;
+	r2 = (const struct bgp_pbr_rule *)arg2;
+
+	if (r1->vrf_id != r2->vrf_id)
+		return false;
+
+	if (r1->flags != r2->flags)
+		return false;
+
+	if (r1->action != r2->action)
+		return false;
+
+	if ((r1->flags & MATCH_IP_SRC_SET) &&
+	    !prefix_same(&r1->src, &r2->src))
+		return false;
+
+	if ((r1->flags & MATCH_IP_DST_SET) &&
+	    !prefix_same(&r1->dst, &r2->dst))
+		return false;
+
 	return true;
 }
 
@@ -1095,6 +1162,11 @@ void bgp_pbr_cleanup(struct bgp *bgp)
 		hash_free(bgp->pbr_match_hash);
 		bgp->pbr_match_hash = NULL;
 	}
+	if (bgp->pbr_rule_hash) {
+		hash_clean(bgp->pbr_rule_hash, bgp_pbr_rule_free);
+		hash_free(bgp->pbr_rule_hash);
+		bgp->pbr_rule_hash = NULL;
+	}
 	if (bgp->pbr_action_hash) {
 		hash_clean(bgp->pbr_action_hash, bgp_pbr_action_free);
 		hash_free(bgp->pbr_action_hash);
@@ -1117,6 +1189,11 @@ void bgp_pbr_init(struct bgp *bgp)
 		hash_create_size(8, bgp_pbr_action_hash_key,
 				 bgp_pbr_action_hash_equal,
 				 "Match Hash Entry");
+
+	bgp->pbr_rule_hash =
+		hash_create_size(8, bgp_pbr_rule_hash_key,
+				 bgp_pbr_rule_hash_equal,
+				 "Match Rule");
 
 	bgp->bgp_pbr_cfg = XCALLOC(MTYPE_PBR, sizeof(struct bgp_pbr_config));
 	bgp->bgp_pbr_cfg->pbr_interface_any_ipv4 = true;
