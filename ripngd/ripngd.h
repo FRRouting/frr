@@ -134,7 +134,7 @@ struct ripng {
 	struct thread *t_triggered_interval;
 
 	/* RIPng ECMP flag */
-	unsigned int ecmp;
+	bool ecmp;
 
 	/* For redistribute route map. */
 	struct {
@@ -378,6 +378,7 @@ extern void ripng_redistribute_delete(int, int, struct prefix_ipv6 *,
 				      ifindex_t);
 extern void ripng_redistribute_withdraw(int type);
 
+extern void ripng_ecmp_disable(void);
 extern void ripng_distribute_update_interface(struct interface *);
 extern void ripng_if_rmap_update_interface(struct interface *);
 

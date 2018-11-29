@@ -75,8 +75,34 @@ void cli_show_router_ripng(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "router ripng\n");
 }
 
+/*
+ * XPath: /frr-ripngd:ripngd/instance/allow-ecmp
+ */
+DEFPY (ripng_allow_ecmp,
+       ripng_allow_ecmp_cmd,
+       "[no] allow-ecmp",
+       NO_STR
+       "Allow Equal Cost MultiPath\n")
+{
+	nb_cli_enqueue_change(vty, "./allow-ecmp", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ripng_allow_ecmp(struct vty *vty, struct lyd_node *dnode,
+			       bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " allow-ecmp\n");
+}
+
 void ripng_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_ripng_cmd);
 	install_element(CONFIG_NODE, &no_router_ripng_cmd);
+
+	install_element(RIPNG_NODE, &ripng_allow_ecmp_cmd);
 }

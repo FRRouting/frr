@@ -2540,7 +2540,7 @@ DEFUN (no_ripng_default_information_originate,
 }
 
 /* Update ECMP routes to zebra when ECMP is disabled. */
-static void ripng_ecmp_disable(void)
+void ripng_ecmp_disable(void)
 {
 	struct agg_node *rp;
 	struct ripng_info *rinfo, *tmp_rinfo;
@@ -2577,38 +2577,6 @@ static void ripng_ecmp_disable(void)
 		}
 }
 
-DEFUN (ripng_allow_ecmp,
-       ripng_allow_ecmp_cmd,
-       "allow-ecmp",
-       "Allow Equal Cost MultiPath\n")
-{
-	if (ripng->ecmp) {
-		vty_out(vty, "ECMP is already enabled.\n");
-		return CMD_WARNING;
-	}
-
-	ripng->ecmp = 1;
-	zlog_info("ECMP is enabled.");
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ripng_allow_ecmp,
-       no_ripng_allow_ecmp_cmd,
-       "no allow-ecmp",
-       NO_STR
-       "Allow Equal Cost MultiPath\n")
-{
-	if (!ripng->ecmp) {
-		vty_out(vty, "ECMP is already disabled.\n");
-		return CMD_WARNING;
-	}
-
-	ripng->ecmp = 0;
-	zlog_info("ECMP is disabled.");
-	ripng_ecmp_disable();
-	return CMD_SUCCESS;
-}
-
 /* RIPng configuration write function. */
 static int ripng_config_write(struct vty *vty)
 {
@@ -2643,10 +2611,6 @@ static int ripng_config_write(struct vty *vty)
 				vty_out(vty, " aggregate-address %s/%d\n",
 					inet6_ntoa(rp->p.u.prefix6),
 					rp->p.prefixlen);
-
-		/* ECMP configuration. */
-		if (ripng->ecmp)
-			vty_out(vty, " allow-ecmp\n");
 
 		/* RIPng static routes. */
 		for (rp = agg_route_top(ripng->route); rp;
@@ -2982,9 +2946,6 @@ void ripng_init()
 	install_element(RIPNG_NODE, &ripng_default_information_originate_cmd);
 	install_element(RIPNG_NODE,
 			&no_ripng_default_information_originate_cmd);
-
-	install_element(RIPNG_NODE, &ripng_allow_ecmp_cmd);
-	install_element(RIPNG_NODE, &no_ripng_allow_ecmp_cmd);
 
 	ripng_if_init();
 	ripng_debug_init();
