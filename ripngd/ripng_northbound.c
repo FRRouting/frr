@@ -579,14 +579,26 @@ static const void *
 ripngd_state_neighbors_neighbor_get_next(const void *parent_list_entry,
 					 const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	struct listnode *node;
+
+	if (list_entry == NULL)
+		node = listhead(peer_list);
+	else
+		node = listnextnode((struct listnode *)list_entry);
+
+	return node;
 }
 
 static int ripngd_state_neighbors_neighbor_get_keys(const void *list_entry,
 						    struct yang_list_keys *keys)
 {
-	/* TODO: implement me. */
+	const struct listnode *node = list_entry;
+	const struct ripng_peer *peer = listgetdata(node);
+
+	keys->num = 1;
+	(void)inet_ntop(AF_INET6, &peer->addr, keys->key[0],
+			sizeof(keys->key[0]));
+
 	return NB_OK;
 }
 
@@ -594,7 +606,17 @@ static const void *
 ripngd_state_neighbors_neighbor_lookup_entry(const void *parent_list_entry,
 					     const struct yang_list_keys *keys)
 {
-	/* TODO: implement me. */
+	struct in6_addr address;
+	struct ripng_peer *peer;
+	struct listnode *node;
+
+	yang_str2ipv6(keys->key[0], &address);
+
+	for (ALL_LIST_ELEMENTS_RO(peer_list, node, peer)) {
+		if (IPV6_ADDR_SAME(&peer->addr, &address))
+			return node;
+	}
+
 	return NULL;
 }
 
@@ -605,8 +627,10 @@ static struct yang_data *
 ripngd_state_neighbors_neighbor_address_get_elem(const char *xpath,
 						 const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct listnode *node = list_entry;
+	const struct ripng_peer *peer = listgetdata(node);
+
+	return yang_data_new_ipv6(xpath, &peer->addr);
 }
 
 /*
@@ -616,7 +640,7 @@ static struct yang_data *
 ripngd_state_neighbors_neighbor_last_update_get_elem(const char *xpath,
 						     const void *list_entry)
 {
-	/* TODO: implement me. */
+	/* TODO: yang:date-and-time is tricky */
 	return NULL;
 }
 
@@ -627,8 +651,10 @@ static struct yang_data *
 ripngd_state_neighbors_neighbor_bad_packets_rcvd_get_elem(
 	const char *xpath, const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct listnode *node = list_entry;
+	const struct ripng_peer *peer = listgetdata(node);
+
+	return yang_data_new_uint32(xpath, peer->recv_badpackets);
 }
 
 /*
@@ -638,8 +664,10 @@ static struct yang_data *
 ripngd_state_neighbors_neighbor_bad_routes_rcvd_get_elem(const char *xpath,
 							 const void *list_entry)
 {
-	/* TODO: implement me. */
-	return NULL;
+	const struct listnode *node = list_entry;
+	const struct ripng_peer *peer = listgetdata(node);
+
+	return yang_data_new_uint32(xpath, peer->recv_badroutes);
 }
 
 /*
