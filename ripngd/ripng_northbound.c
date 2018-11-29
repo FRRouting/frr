@@ -40,14 +40,38 @@ static int ripngd_instance_create(enum nb_event event,
 				  const struct lyd_node *dnode,
 				  union nb_resource *resource)
 {
-	/* TODO: implement me. */
+	int socket;
+
+	switch (event) {
+	case NB_EV_VALIDATE:
+		break;
+	case NB_EV_PREPARE:
+		socket = ripng_make_socket();
+		if (socket < 0)
+			return NB_ERR_RESOURCE;
+		resource->fd = socket;
+		break;
+	case NB_EV_ABORT:
+		socket = resource->fd;
+		close(socket);
+		break;
+	case NB_EV_APPLY:
+		socket = resource->fd;
+		ripng_create(socket);
+		break;
+	}
+
 	return NB_OK;
 }
 
 static int ripngd_instance_delete(enum nb_event event,
 				  const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	ripng_clean();
+
 	return NB_OK;
 }
 
@@ -484,6 +508,7 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.xpath = "/frr-ripngd:ripngd/instance",
 			.cbs.create = ripngd_instance_create,
 			.cbs.delete = ripngd_instance_delete,
+			.cbs.cli_show = cli_show_router_ripng,
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/allow-ecmp",

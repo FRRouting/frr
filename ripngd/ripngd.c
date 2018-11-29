@@ -36,6 +36,7 @@
 #include "if_rmap.h"
 #include "privs.h"
 #include "lib_errors.h"
+#include "northbound_cli.h"
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_route.h"
@@ -87,7 +88,7 @@ void ripng_info_free(struct ripng_info *rinfo)
 }
 
 /* Create ripng socket. */
-static int ripng_make_socket(void)
+int ripng_make_socket(void)
 {
 	int ret;
 	int sock;
@@ -1778,7 +1779,7 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 }
 
 /* Create new RIPng instance and set it to global variable. */
-static int ripng_create(void)
+int ripng_create(int socket)
 {
 	/* ripng should be NULL. */
 	assert(ripng == NULL);
@@ -1788,10 +1789,15 @@ static int ripng_create(void)
 
 	/* Default version and timer values. */
 	ripng->version = RIPNG_V1;
-	ripng->update_time = RIPNG_UPDATE_TIMER_DEFAULT;
-	ripng->timeout_time = RIPNG_TIMEOUT_TIMER_DEFAULT;
-	ripng->garbage_time = RIPNG_GARBAGE_TIMER_DEFAULT;
-	ripng->default_metric = RIPNG_DEFAULT_METRIC_DEFAULT;
+	ripng->update_time = yang_get_default_uint32(
+		"%s/timers/update-interval", RIPNG_INSTANCE);
+	ripng->timeout_time = yang_get_default_uint32(
+		"%s/timers/holddown-interval", RIPNG_INSTANCE);
+	ripng->garbage_time = yang_get_default_uint32(
+		"%s/timers/flush-interval", RIPNG_INSTANCE);
+	ripng->default_metric =
+		yang_get_default_uint8("%s/default-metric", RIPNG_INSTANCE);
+	ripng->ecmp = yang_get_default_bool("%s/allow-ecmp", RIPNG_INSTANCE);
 
 	/* Make buffer.  */
 	ripng->ibuf = stream_new(RIPNG_MAX_PACKET_SIZE * 5);
@@ -1803,9 +1809,7 @@ static int ripng_create(void)
 	ripng->aggregate = agg_table_init();
 
 	/* Make socket. */
-	ripng->sock = ripng_make_socket();
-	if (ripng->sock < 0)
-		return ripng->sock;
+	ripng->sock = socket;
 
 	/* Threads. */
 	ripng_event(RIPNG_READ, ripng->sock);
@@ -2150,41 +2154,6 @@ DEFUN (clear_ipv6_rip,
 		}
 	}
 
-	return CMD_SUCCESS;
-}
-
-DEFUN_NOSH (router_ripng,
-       router_ripng_cmd,
-       "router ripng",
-       "Enable a routing process\n"
-       "Make RIPng instance command\n")
-{
-	int ret;
-
-	vty->node = RIPNG_NODE;
-
-	if (!ripng) {
-		ret = ripng_create();
-
-		/* Notice to user we couldn't create RIPng. */
-		if (ret < 0) {
-			zlog_warn("can't create RIPng");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_router_ripng,
-       no_router_ripng_cmd,
-       "no router ripng",
-       NO_STR
-       "Enable a routing process\n"
-       "Make RIPng instance command\n")
-{
-	if (ripng)
-		ripng_clean();
 	return CMD_SUCCESS;
 }
 
@@ -2643,15 +2612,14 @@ DEFUN (no_ripng_allow_ecmp,
 /* RIPng configuration write function. */
 static int ripng_config_write(struct vty *vty)
 {
-	int ripng_network_write(struct vty *, int);
-	void ripng_redistribute_write(struct vty *, int);
+	struct lyd_node *dnode;
 	int write = 0;
 	struct agg_node *rp;
 
-	if (ripng) {
-
-		/* RIPng router. */
-		vty_out(vty, "router ripng\n");
+	dnode = yang_dnode_get(running_config->dnode,
+			       "/frr-ripngd:ripngd/instance");
+	if (dnode) {
+		nb_cli_show_dnode_cmds(vty, dnode, false);
 
 		if (ripng->default_information)
 			vty_out(vty, " default-information originate\n");
@@ -2705,12 +2673,13 @@ static int ripng_config_write(struct vty *vty)
 	vty_out (vty, " garbage-timer %d\n", ripng->garbage_time);
 #endif /* 0 */
 
-		write += config_write_distribute(vty);
+		config_write_distribute(vty);
 
-		write += config_write_if_rmap(vty);
+		config_write_if_rmap(vty);
 
-		write++;
+		write = 1;
 	}
+
 	return write;
 }
 
@@ -2988,9 +2957,6 @@ void ripng_init()
 	install_element(VIEW_NODE, &show_ipv6_ripng_status_cmd);
 
 	install_element(ENABLE_NODE, &clear_ipv6_rip_cmd);
-
-	install_element(CONFIG_NODE, &router_ripng_cmd);
-	install_element(CONFIG_NODE, &no_router_ripng_cmd);
 
 	install_default(RIPNG_NODE);
 	install_element(RIPNG_NODE, &ripng_route_cmd);

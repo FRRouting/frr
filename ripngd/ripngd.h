@@ -410,6 +410,8 @@ extern int ripng_interface_address_add(int command, struct zclient *,
 extern int ripng_interface_address_delete(int command, struct zclient *,
 					  zebra_size_t, vrf_id_t);
 
+extern int ripng_create(int socket);
+extern int ripng_make_socket(void);
 extern int ripng_network_write(struct vty *, int);
 
 extern struct ripng_info *ripng_ecmp_add(struct ripng_info *);

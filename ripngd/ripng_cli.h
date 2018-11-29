@@ -21,4 +21,7 @@
 #ifndef _FRR_RIPNG_CLI_H_
 #define _FRR_RIPNG_CLI_H_
 
+extern void cli_show_router_ripng(struct vty *vty, struct lyd_node *dnode,
+				  bool show_defaults);
+
 #endif /* _FRR_RIPNG_CLI_H_ */
