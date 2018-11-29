@@ -2103,7 +2103,7 @@ DEFUN (show_ipv6_ripng_status,
 	}
 
 	vty_out(vty, "  Routing for Networks:\n");
-	ripng_network_write(vty, 0);
+	ripng_network_write(vty);
 
 	vty_out(vty, "  Routing Information Sources:\n");
 	vty_out(vty,

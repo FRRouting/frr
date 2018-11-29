@@ -355,6 +355,8 @@ extern int ripng_enable_network_add(struct prefix *p);
 extern int ripng_enable_network_delete(struct prefix *p);
 extern int ripng_enable_if_add(const char *ifname);
 extern int ripng_enable_if_delete(const char *ifname);
+extern int ripng_passive_interface_set(const char *ifname);
+extern int ripng_passive_interface_unset(const char *ifname);
 extern void ripng_passive_interface_clean(void);
 extern void ripng_if_init(void);
 extern void ripng_route_map_init(void);
@@ -429,7 +431,7 @@ extern int ripng_interface_address_delete(int command, struct zclient *,
 
 extern int ripng_create(int socket);
 extern int ripng_make_socket(void);
-extern int ripng_network_write(struct vty *, int);
+extern int ripng_network_write(struct vty *);
 
 extern struct ripng_info *ripng_ecmp_add(struct ripng_info *);
 extern struct ripng_info *ripng_ecmp_replace(struct ripng_info *);

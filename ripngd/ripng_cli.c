@@ -246,6 +246,29 @@ void cli_show_ripng_offset_list(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
+/*
+ * XPath: /frr-ripngd:ripngd/instance/passive-interface
+ */
+DEFPY (ripng_passive_interface,
+       ripng_passive_interface_cmd,
+       "[no] passive-interface IFNAME",
+       NO_STR
+       "Suppress routing updates on an interface\n"
+       "Interface name\n")
+{
+	nb_cli_enqueue_change(vty, "./passive-interface",
+			      no ? NB_OP_DELETE : NB_OP_CREATE, ifname);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_ripng_passive_interface(struct vty *vty, struct lyd_node *dnode,
+				      bool show_defaults)
+{
+	vty_out(vty, " passive-interface %s\n",
+		yang_dnode_get_string(dnode, NULL));
+}
+
 void ripng_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_ripng_cmd);
@@ -258,4 +281,5 @@ void ripng_cli_init(void)
 	install_element(RIPNG_NODE, &ripng_network_prefix_cmd);
 	install_element(RIPNG_NODE, &ripng_network_if_cmd);
 	install_element(RIPNG_NODE, &ripng_offset_list_cmd);
+	install_element(RIPNG_NODE, &ripng_passive_interface_cmd);
 }

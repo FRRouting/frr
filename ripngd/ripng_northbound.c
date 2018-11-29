@@ -297,16 +297,28 @@ ripngd_instance_passive_interface_create(enum nb_event event,
 					 const struct lyd_node *dnode,
 					 union nb_resource *resource)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	const char *ifname;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifname = yang_dnode_get_string(dnode, NULL);
+
+	return ripng_passive_interface_set(ifname);
 }
 
 static int
 ripngd_instance_passive_interface_delete(enum nb_event event,
 					 const struct lyd_node *dnode)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	const char *ifname;
+
+	if (event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifname = yang_dnode_get_string(dnode, NULL);
+
+	return ripng_passive_interface_unset(ifname);
 }
 
 /*
@@ -658,6 +670,7 @@ const struct frr_yang_module_info frr_ripngd_info = {
 			.xpath = "/frr-ripngd:ripngd/instance/passive-interface",
 			.cbs.create = ripngd_instance_passive_interface_create,
 			.cbs.delete = ripngd_instance_passive_interface_delete,
+			.cbs.cli_show = cli_show_ripng_passive_interface,
 		},
 		{
 			.xpath = "/frr-ripngd:ripngd/instance/redistribute",

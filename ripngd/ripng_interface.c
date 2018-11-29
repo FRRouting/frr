@@ -831,26 +831,26 @@ static void ripng_passive_interface_apply_all(void)
 }
 
 /* Passive interface. */
-static int ripng_passive_interface_set(struct vty *vty, const char *ifname)
+int ripng_passive_interface_set(const char *ifname)
 {
 	if (ripng_passive_interface_lookup(ifname) >= 0)
-		return CMD_WARNING_CONFIG_FAILED;
+		return NB_ERR_INCONSISTENCY;
 
 	vector_set(Vripng_passive_interface, strdup(ifname));
 
 	ripng_passive_interface_apply_all();
 
-	return CMD_SUCCESS;
+	return NB_OK;
 }
 
-static int ripng_passive_interface_unset(struct vty *vty, const char *ifname)
+int ripng_passive_interface_unset(const char *ifname)
 {
 	int i;
 	char *str;
 
 	i = ripng_passive_interface_lookup(ifname);
 	if (i < 0)
-		return CMD_WARNING_CONFIG_FAILED;
+		return NB_ERR_INCONSISTENCY;
 
 	str = vector_slot(Vripng_passive_interface, i);
 	free(str);
@@ -858,7 +858,7 @@ static int ripng_passive_interface_unset(struct vty *vty, const char *ifname)
 
 	ripng_passive_interface_apply_all();
 
-	return CMD_SUCCESS;
+	return NB_OK;
 }
 
 /* Free all configured RIP passive-interface settings. */
@@ -876,7 +876,7 @@ void ripng_passive_interface_clean(void)
 }
 
 /* Write RIPng enable network and interface to the vty. */
-int ripng_network_write(struct vty *vty, int config_mode)
+int ripng_network_write(struct vty *vty)
 {
 	unsigned int i;
 	const char *ifname;
@@ -888,8 +888,7 @@ int ripng_network_write(struct vty *vty, int config_mode)
 	     node = agg_route_next(node))
 		if (node->info) {
 			struct prefix *p = &node->p;
-			vty_out(vty, "%s%s/%d\n",
-				config_mode ? " network " : "    ",
+			vty_out(vty, "    %s/%d\n",
 				inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
 				p->prefixlen);
 		}
@@ -897,15 +896,7 @@ int ripng_network_write(struct vty *vty, int config_mode)
 	/* Write enable interface. */
 	for (i = 0; i < vector_active(ripng_enable_if); i++)
 		if ((ifname = vector_slot(ripng_enable_if, i)) != NULL)
-			vty_out(vty, "%s%s\n",
-				config_mode ? " network " : "    ", ifname);
-
-	/* Write passive interface. */
-	if (config_mode)
-		for (i = 0; i < vector_active(Vripng_passive_interface); i++)
-			if ((ifname = vector_slot(Vripng_passive_interface, i))
-			    != NULL)
-				vty_out(vty, " passive-interface %s\n", ifname);
+			vty_out(vty, "    %s\n", ifname);
 
 	return 0;
 }
@@ -959,27 +950,6 @@ DEFUN (no_ipv6_ripng_split_horizon,
 
 	ri->split_horizon = RIPNG_NO_SPLIT_HORIZON;
 	return CMD_SUCCESS;
-}
-
-DEFUN (ripng_passive_interface,
-       ripng_passive_interface_cmd,
-       "passive-interface IFNAME",
-       "Suppress routing updates on an interface\n"
-       "Interface name\n")
-{
-	int idx_ifname = 1;
-	return ripng_passive_interface_set(vty, argv[idx_ifname]->arg);
-}
-
-DEFUN (no_ripng_passive_interface,
-       no_ripng_passive_interface_cmd,
-       "no passive-interface IFNAME",
-       NO_STR
-       "Suppress routing updates on an interface\n"
-       "Interface name\n")
-{
-	int idx_ifname = 2;
-	return ripng_passive_interface_unset(vty, argv[idx_ifname]->arg);
 }
 
 static struct ripng_interface *ri_new(void)
@@ -1081,9 +1051,6 @@ void ripng_if_init()
 	/* Install interface node. */
 	install_node(&interface_node, interface_config_write);
 	if_cmd_init();
-
-	install_element(RIPNG_NODE, &ripng_passive_interface_cmd);
-	install_element(RIPNG_NODE, &no_ripng_passive_interface_cmd);
 
 	install_element(INTERFACE_NODE, &ipv6_ripng_split_horizon_cmd);
 	install_element(INTERFACE_NODE,
