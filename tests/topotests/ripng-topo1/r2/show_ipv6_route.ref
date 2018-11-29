@@ -1,0 +1,2 @@
+R>* fc00:7::/64 [120/2] via fe80::XXXX:XXXX:XXXX:XXXX, r2-eth1
+R>* fc00:7:1111::/64 [120/2] via fe80::XXXX:XXXX:XXXX:XXXX, r2-eth1

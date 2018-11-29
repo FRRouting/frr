@@ -1,0 +1,4 @@
+AF   ID              State       Remote Address    Uptime
+ipv4 1.1.1.1         OPERATIONAL 1.1.1.1         xx:xx:xx
+ipv4 3.3.3.3         OPERATIONAL 3.3.3.3         xx:xx:xx
+ipv4 4.4.4.4         OPERATIONAL 4.4.4.4         xx:xx:xx

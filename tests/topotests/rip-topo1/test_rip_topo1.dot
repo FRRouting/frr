@@ -1,0 +1,61 @@
+## GraphViz file for test_rip_topo1
+##
+## Color coding:
+#########################
+##  Main FRR: #f08080  red
+##  Switches: #d0e0d0  gray
+##  RIP:      #19e3d9  Cyan
+##  RIPng:    #fcb314  dark yellow
+##  OSPFv2:   #32b835  Green
+##  OSPFv3:   #19e3d9  Cyan
+##  ISIS IPv4 #fcb314  dark yellow
+##  ISIS IPv6 #9a81ec  purple
+##  BGP IPv4  #eee3d3  beige
+##  BGP IPv6  #fdff00  yellow
+##### Colors (see http://www.color-hex.com/)
+
+graph test_rip_topo1 {
+	overlap=false;
+	constraint=false;
+
+    // title
+    labelloc="t";
+    label="Test Topologoy RIP Topo1";
+
+	######################
+	# Routers	
+	######################
+
+	# Main FRR Router with all protocols
+	R1 [shape=doubleoctagon, label="R1 FRR\nMain Router", fillcolor="#f08080", style=filled];
+	
+	# RIP Routers
+	R2 [shape=doubleoctagon, label="R2 FRR\nRIP Router", fillcolor="#19e3d9", style=filled];
+	R3 [shape=doubleoctagon, label="R3 FRR\nRIP Router", fillcolor="#19e3d9", style=filled];
+
+	######################
+	# Network Lists
+	######################
+
+    SW1_R1_stub [label="SW1\n192.168.1.0/24", fillcolor="#d0e0d0", style=filled];
+
+	# RIP Networks
+    SW2_R1_R2 [label="SW2\nRIPv2\n193.1.1.0/26", fillcolor="#d0e0d0", style=filled];
+    SW3_R2_R3 [label="SW3\nRIPv1\n193.1.2.0/24", fillcolor="#d0e0d0", style=filled];
+    SW4_R3 [label="SW4\n192.168.3.0/24", fillcolor="#d0e0d0", style=filled];
+    Net_R3_remote [label="Static Net\n192.168.2.0/24"];
+
+	######################
+	# Network Connections
+	######################
+    R1 -- SW1_R1_stub [label = "eth0\n.1\n::1"];
+
+    # RIP Network
+    R1 -- SW2_R1_R2 [label = "eth1\n.1"];
+    SW2_R1_R2 -- R2 [label = "eth0\n.2"];
+    R2 -- SW3_R2_R3 [label = "eth1\n.1"];
+    SW3_R2_R3 -- R3 [label = "eth1\n.2"];
+    R3 -- SW4_R3 [label = "eth0\n.1"];
+    SW4_R3 -- Net_R3_remote [label = ".10"];
+	
+}

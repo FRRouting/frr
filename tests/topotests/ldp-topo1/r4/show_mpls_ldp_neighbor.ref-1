@@ -1,0 +1,17 @@
+Peer LDP Identifier: 2.2.2.2:0
+  TCP connection: 4.4.4.4:xxx - 2.2.2.2:xxx
+  Session Holdtime: 180 sec
+  State: OPERATIONAL; Downstream-Unsolicited
+  Up time: xx:xx:xx
+  LDP Discovery Sources:
+    IPv4:
+      Interface: r4-eth0
+
+Peer LDP Identifier: 3.3.3.3:0
+  TCP connection: 4.4.4.4:xxx - 3.3.3.3:xxx
+  Session Holdtime: 180 sec
+  State: OPERATIONAL; Downstream-Unsolicited
+  Up time: xx:xx:xx
+  LDP Discovery Sources:
+    IPv4:
+      Interface: r4-eth0

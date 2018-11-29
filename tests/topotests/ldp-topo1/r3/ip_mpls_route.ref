@@ -1,0 +1,4 @@
+xx proto xx nexthopvia inet 10.0.2.2 dev r3-eth0 nexthopvia inet 10.0.3.2 dev r3-eth1
+xx proto xx nexthopvia inet 10.0.2.2 dev r3-eth0 nexthopvia inet 10.0.3.2 dev r3-eth1
+xx proto xx nexthopvia inet 10.0.2.2 dev r3-eth0 nexthopvia inet 10.0.3.2 dev r3-eth1
+xx via inet 10.0.2.4 dev r3-eth0 proto xx

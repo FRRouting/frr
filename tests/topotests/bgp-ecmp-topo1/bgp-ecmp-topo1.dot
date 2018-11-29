@@ -1,0 +1,206 @@
+## Color coding:
+#########################
+##  Main FRR: #f08080  red
+##  Switches: #d0e0d0  gray
+##  RIP:      #19e3d9  Cyan
+##  RIPng:    #fcb314  dark yellow
+##  OSPFv2:   #32b835  Green
+##  OSPFv3:   #19e3d9  Cyan
+##  ISIS IPv4 #fcb314  dark yellow
+##  ISIS IPv6 #9a81ec  purple
+##  BGP IPv4  #eee3d3  beige
+##  BGP IPv6  #fdff00  yellow
+##### Colors (see http://www.color-hex.com/)
+
+graph ospf_ecmp_iBGP_topo1 {
+	label="bgp ecmp topo1 - eBGP with different AS numbers";
+    labelloc="t";
+
+	# Routers
+	r1 [
+		label="r1\nrtr-id 10.0.255.1/32",
+		shape=doubleoctagon,
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+	# 4 Switches for eBGP Peers
+	s1 [
+		label="s1\n10.0.1.0/24",
+		shape=oval,
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s2 [
+		label="s2\n10.0.2.0/24",
+		shape=oval,
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s3 [
+		label="s3\n10.0.3.0/24",
+		shape=oval,
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s4 [
+		label="s4\n10.0.4.0/24",
+		shape=oval,
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+
+	# 20 ExaBGP Peers AS 101...120
+	peer1 [
+		label="eBGP peer1\nAS99\nrtr-id 10.0.1.101/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer2 [
+		label="eBGP peer2\nAS99\nrtr-id 10.0.1.102/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer3 [
+		label="eBGP peer3\nAS99\nrtr-id 10.0.1.103/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer4 [
+		label="eBGP peer4\nAS99\nrtr-id 10.0.1.104/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer5 [
+		label="eBGP peer5\nAS99\nrtr-id 10.0.1.105/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer6 [
+		label="eBGP peer6\nAS99\nrtr-id 10.0.2.106/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer7 [
+		label="eBGP peer7\nAS99\nrtr-id 10.0.2.107/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer8 [
+		label="eBGP peer8\nAS99\nrtr-id 10.0.2.108/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer9 [
+		label="eBGP peer9\nAS99\nrtr-id 10.0.2.109/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer10 [
+		label="eBGP peer10\nAS99\nrtr-id 10.0.2.110/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer11 [
+		label="eBGP peer11\nAS111\nrtr-id 10.0.3.111/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer12 [
+		label="eBGP peer12\nAS112\nrtr-id 10.0.3.112/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer13 [
+		label="eBGP peer13\nAS113\nrtr-id 10.0.3.113/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer14 [
+		label="eBGP peer14\nAS114\nrtr-id 10.0.3.114/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer15 [
+		label="eBGP peer15\nAS115\nrtr-id 10.0.3.115/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer16 [
+		label="eBGP peer16\nAS116\nrtr-id 10.0.4.116/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer17 [
+		label="eBGP peer17\nAS117\nrtr-id 10.0.4.117/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer18 [
+		label="eBGP peer18\nAS118\nrtr-id 10.0.4.118/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer19 [
+		label="eBGP peer19\nAS119\nrtr-id 10.0.4.119/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+	peer20 [
+		label="eBGP peer20\nAS120\nrtr-id 10.0.4.120/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+
+	# Connections
+	r1 -- s1 [label="eth0\n.1"];
+	r1 -- s2 [label="eth1\n.1"];
+	r1 -- s3 [label="eth2\n.1"];
+	r1 -- s4 [label="eth3\n.1"];
+
+	peer1 -- s1 [label="eth0\n.101"];
+	peer2 -- s1 [label="eth0\n.102"];
+	peer3 -- s1 [label="eth0\n.103"];
+	peer4 -- s1 [label="eth0\n.104"];
+	peer5 -- s1 [label="eth0\n.105"];
+	peer6 -- s2 [label="eth0\n.106"];
+	peer7 -- s2 [label="eth0\n.107"];
+	peer8 -- s2 [label="eth0\n.108"];
+	peer9 -- s2 [label="eth0\n.109"];
+	peer10 -- s2 [label="eth0\n.110"];
+	peer11 -- s3 [label="eth0\n.111"];
+	peer12 -- s3 [label="eth0\n.112"];
+	peer13 -- s3 [label="eth0\n.113"];
+	peer14 -- s3 [label="eth0\n.114"];
+	peer15 -- s3 [label="eth0\n.115"];
+	peer16 -- s4 [label="eth0\n.116"];
+	peer17 -- s4 [label="eth0\n.117"];
+	peer18 -- s4 [label="eth0\n.118"];
+	peer19 -- s4 [label="eth0\n.119"];
+	peer20 -- s4 [label="eth0\n.120"];
+
+	# Arrange network to make cleaner diagram
+	{ rank=same peer1 peer2 peer3 peer4 peer5 } -- s1 -- { rank=same peer6 peer7 peer8 peer9 peer10 } -- s2
+		-- { rank=same peer11 peer12 peer13 peer14 peer15 } -- s3 -- { rank=same peer16 peer17 peer18 peer19 peer20 } -- s4
+		-- { rank=same r1 } [style=invis]
+}

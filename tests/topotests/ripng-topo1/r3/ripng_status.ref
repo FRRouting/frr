@@ -1,0 +1,16 @@
+Routing Protocol is "RIPng"
+  Sending updates every 30 seconds with +/-50%, next due in XX seconds
+  Timeout after 180 seconds, garbage collect after 120 seconds
+  Outgoing update filter list for all interface is not set
+  Incoming update filter list for all interface is not set
+  Default redistribution metric is 1
+  Redistributing:    connected    static
+  Default version control: send version 1, receive version 1 
+    Interface        Send  Recv
+    r3-eth1          1     1  
+  Routing for Networks:
+    fc00:6::/62
+  Routing Information Sources:
+    Gateway          BadPackets BadRoutes  Distance Last Update
+    fe80::XXXX:XXXX:XXXX:XXXX 
+                        0          0        120      XX:XX:XX

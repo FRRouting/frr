@@ -1,0 +1,13 @@
+============ OSPF network routing table ============
+N    10.0.10.0/24          [10] area: 0.0.0.0
+                           directly attached to r3-eth1
+N    172.16.0.0/24         [10] area: 0.0.0.1
+                           directly attached to r3-eth2
+N    172.16.1.0/24         [20] area: 0.0.0.1
+                           via 172.16.0.1, r3-eth2
+
+============ OSPF router routing table =============
+R    10.0.255.4            [10] area: 0.0.0.1, ASBR
+                           via 172.16.0.1, r3-eth2
+
+============ OSPF external routing table ===========

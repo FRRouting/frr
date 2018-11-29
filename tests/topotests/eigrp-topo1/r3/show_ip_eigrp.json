@@ -1,0 +1,32 @@
+{
+    "P": {
+        "192.168.1.0/24": {
+            "fd": "33280",
+            "interface": " r3-eth1",
+            "serno": "0",
+            "successors": "1",
+            "via": "193.1.2.1 (33280/30720)"
+        },
+        "192.168.3.0/24": {
+            "fd": "28160",
+            "interface": " r3-eth0",
+            "serno": "0",
+            "successors": "1",
+            "via": "Connected"
+        },
+        "193.1.1.0/26": {
+            "fd": "30720",
+            "interface": " r3-eth1",
+            "serno": "0",
+            "successors": "1",
+            "via": "193.1.2.1 (30720/28160)"
+        },
+        "193.1.2.0/24": {
+            "fd": "28160",
+            "interface": " r3-eth1",
+            "serno": "0",
+            "successors": "1",
+            "via": "Connected"
+        }
+    }
+}

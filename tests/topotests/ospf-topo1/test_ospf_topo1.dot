@@ -1,0 +1,104 @@
+## Color coding:
+#########################
+##  Main FRR: #f08080  red
+##  Switches: #d0e0d0  gray
+##  RIP:      #19e3d9  Cyan
+##  RIPng:    #fcb314  dark yellow
+##  OSPFv2:   #32b835  Green
+##  OSPFv3:   #19e3d9  Cyan
+##  ISIS IPv4 #fcb314  dark yellow
+##  ISIS IPv6 #9a81ec  purple
+##  BGP IPv4  #eee3d3  beige
+##  BGP IPv6  #fdff00  yellow
+##### Colors (see http://www.color-hex.com/)
+
+graph ospf_topo1 {
+	label="ospf topo1";
+
+	# Routers
+	r1 [
+		label="r1\nrtr-id 10.0.255.1/32",
+		shape=doubleoctagon,
+		fillcolor="#f08080",
+		style=filled,
+	];
+	r2 [
+		label="r2\nrtr-id 10.0.255.2/32",
+		shape=doubleoctagon,
+		fillcolor="#f08080",
+		style=filled,
+	];
+	r3 [
+		label="r3\nrtr-id 10.0.255.3/32",
+		shape=doubleoctagon,
+		fillcolor="#f08080",
+		style=filled,
+	];
+	r4 [
+		label="r4\nrtr-id 10.0.255.4/32",
+		shape=doubleoctagon,
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+	# Switches
+	s1 [
+		label="s1\n10.0.1.0/24\n2001:db8:1::/64",
+		shape=oval,
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s2 [
+		label="s2\n10.0.2.0/24\n2001:db8:2::/64",
+		shape=oval,
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s3 [
+		label="s3\n10.0.3.0/24\n2001:db8:3::/64",
+		shape=oval,
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s4 [
+		label="s4\n10.0.10.0/24\n2001:db8:100::/64",
+		shape=oval,
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s5 [
+		label="s5\n172.16.0.0/24\n2001:db8:200::/64",
+		shape=oval,
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+	s6 [
+		label="s6\n172.16.1.0/24\n2001:db8:300::/64",
+		shape=oval,
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+
+	# Connections
+  subgraph cluster0 {
+    label="area 0"
+
+	  r1 -- s1 [label="eth0\n.1\n::1"];
+	  r1 -- s3 [label="eth1\n.2\n::2"];
+
+	  r2 -- s2 [label="eth0\n.1\n::1"];
+	  r2 -- s3 [label="eth1\n.3\n::3"];
+
+	  r3 -- s3 [label="eth0\n.1\n::1"];
+	  r3 -- s4 [label="eth1\n.1\n::1"];
+  }
+
+  subgraph cluster1 {
+    label="area 1"
+
+	  r3 -- s5 [label="eth2\n.2\n::2"];
+
+	  r4 -- s5 [label="eth0\n.1\n::1"];
+	  r4 -- s6 [label="eth1\n.100\n::100"];
+  }
+}

@@ -1,0 +1,28 @@
+Area test:
+  Interface: r1-eth5, State: Up, Active, Circuit Id: 0xXX
+    Type: lan, Level: L1, SNPA: XXXX.XXXX.XXXX
+    Level-1 Information:
+      Metric: 10, Active neighbors: 0
+      Hello interval: 3, Holddown count: 10 (pad)
+      CNSP interval: 10, PSNP interval: 2
+      LAN Priority: 64, is not DIS
+    IP Prefix(es):
+      192.168.5.1/26
+    IPv6 Link-Locals:
+      fe80::XXXX:XXXX:XXXX:XXXX/64
+    IPv6 Prefixes:
+      fc00:0:0:5::1/64
+
+  Interface: r1-eth6, State: Up, Active, Circuit Id: 0xXX
+    Type: lan, Level: L2, SNPA: XXXX.XXXX.XXXX
+    Level-2 Information:
+      Metric: 10, Active neighbors: 0
+      Hello interval: 3, Holddown count: 10 (pad)
+      CNSP interval: 10, PSNP interval: 2
+      LAN Priority: 64, is not DIS
+    IP Prefix(es):
+      192.168.6.1/26
+    IPv6 Link-Locals:
+      fe80::XXXX:XXXX:XXXX:XXXX/64
+    IPv6 Prefixes:
+      fc00:0:0:6::1/64
