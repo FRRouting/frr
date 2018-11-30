@@ -147,8 +147,10 @@ struct bgp_path_info_extra {
 	 * Set nexthop_orig.family to 0 if not valid.
 	 */
 	struct prefix nexthop_orig;
-	/* presence of FS pbr entry */
+	/* presence of FS pbr firewall based entry */
 	struct list *bgp_fs_pbr;
+	/* presence of FS pbr iprule based entry */
+	struct list *bgp_fs_iprule;
 };
 
 struct bgp_path_info {

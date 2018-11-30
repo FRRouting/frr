@@ -173,6 +173,8 @@ static struct bgp_path_info_extra *bgp_path_info_extra_new(void)
 		      sizeof(struct bgp_path_info_extra));
 	new->label[0] = MPLS_INVALID_LABEL;
 	new->num_labels = 0;
+	new->bgp_fs_pbr = list_new();
+	new->bgp_fs_iprule = list_new();
 	return new;
 }
 
@@ -216,8 +218,10 @@ static void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 	if (e->bgp_orig)
 		bgp_unlock(e->bgp_orig);
 
-	if ((*extra)->bgp_fs_pbr)
-		list_delete(&((*extra)->bgp_fs_pbr));
+	if (e->bgp_fs_iprule)
+		list_delete(&(e->bgp_fs_iprule));
+	if (e->bgp_fs_pbr)
+		list_delete(&(e->bgp_fs_pbr));
 	XFREE(MTYPE_BGP_ROUTE_EXTRA, *extra);
 
 	*extra = NULL;
