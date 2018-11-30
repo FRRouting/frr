@@ -73,7 +73,7 @@ typedef enum {
 } restart_phase_t;
 
 static const char *phase_str[] = {
-	"None",
+	"Idle",
 	"Startup",
 	"Stop jobs running",
 	"Waiting for other daemons to come down",
@@ -968,6 +968,31 @@ bool check_all_up(void)
 		if (dmn->state != DAEMON_UP)
 			return false;
 	return true;
+}
+
+void watchfrr_status(struct vty *vty)
+{
+	struct daemon *dmn;
+	struct timeval delay;
+
+	vty_out(vty, "watchfrr global phase: %s\n", phase_str[gs.phase]);
+	if (gs.restart.pid)
+		vty_out(vty, "    global restart running, pid %ld\n",
+			(long)gs.restart.pid);
+
+	for (dmn = gs.daemons; dmn; dmn = dmn->next) {
+		vty_out(vty, "  %-20s %s\n", dmn->name, state_str[dmn->state]);
+		if (dmn->restart.pid)
+			vty_out(vty, "      restart running, pid %ld\n",
+				(long)dmn->restart.pid);
+		else if (dmn->state == DAEMON_DOWN &&
+			time_elapsed(&delay, &dmn->restart.time)->tv_sec
+				< dmn->restart.interval)
+			vty_out(vty, "      restarting in %ld seconds"
+				" (%lds backoff interval)\n",
+				dmn->restart.interval - delay.tv_sec,
+				dmn->restart.interval);
+	}
 }
 
 static void sigint(void)

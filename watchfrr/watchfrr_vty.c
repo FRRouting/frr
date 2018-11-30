@@ -124,6 +124,16 @@ DEFUN_NOSH (show_debugging_watchfrr,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_watchfrr,
+       show_watchfrr_cmd,
+       "show watchfrr",
+       SHOW_STR
+       WATCHFRR_STR)
+{
+	watchfrr_status(vty);
+	return CMD_SUCCESS;
+}
+
 void integrated_write_sigchld(int status)
 {
 	uint8_t reply[4] = {0, 0, 0, CMD_WARNING};
@@ -159,4 +169,5 @@ void watchfrr_vty_init(void)
 	install_element(ENABLE_NODE, &config_write_integrated_cmd);
 	install_element(ENABLE_NODE, &show_debugging_watchfrr_cmd);
 	install_element(CONFIG_NODE, &show_debugging_watchfrr_cmd);
+	install_element(VIEW_NODE, &show_watchfrr_cmd);
 }
