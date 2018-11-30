@@ -11,18 +11,20 @@ man8 += $(MANBUILD)/vrrpd.8
 endif
 
 vrrpd_libvrrp_a_SOURCES = \
-	vrrpd/vrrp_memory.c \
-	vrrpd/vrrp_zebra.c \
-	vrrpd/vrrp_vty.c \
-	vrrpd/vrrp_packet.c \
 	vrrpd/vrrp.c \
+	vrrpd/vrrp_arp.c \
+	vrrpd/vrrp_memory.c \
+	vrrpd/vrrp_packet.c \
+	vrrpd/vrrp_vty.c \
+	vrrpd/vrrp_zebra.c \
 	# end
 
 noinst_HEADERS += \
-	vrrpd/vrrp_memory.h \
-	vrrpd/vrrp_zebra.h \
-	vrrpd/vrrp_vty.h \
 	vrrpd/vrrp.h \
+	vrrpd/vrrp_arp.h \
+	vrrpd/vrrp_memory.h \
+	vrrpd/vrrp_vty.h \
+	vrrpd/vrrp_zebra.h \
 	# end
 
 vrrpd/vrrp_vty_clippy.c: $(CLIPPY_DEPS)

@@ -17,8 +17,8 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-#ifndef __VRRP_H__
-#define __VRRP_H_
+#ifndef _VRRP_H
+#define _VRRP_H
 
 #include <zebra.h>
 #include "linklist.h"
@@ -159,4 +159,4 @@ struct vrrp_vrouter *vrrp_lookup(uint8_t vrid);
  */
 void vrrp_event(struct vrrp_vrouter *vr, int event);
 
-#endif
+#endif /* _VRRP_H */
