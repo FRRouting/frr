@@ -2019,6 +2019,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	if (bpf->type == BGP_PBR_IPRULE) {
 		memset(&temp4, 0, sizeof(temp4));
 		temp4.vrf_id = bpf->vrf_id;
+		temp4.priority = 1;
 		if (bpf->src) {
 			temp4.flags |= MATCH_IP_SRC_SET;
 			prefix_copy(&temp4.src, bpf->src);

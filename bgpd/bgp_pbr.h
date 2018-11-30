@@ -165,6 +165,7 @@ struct bgp_pbr_rule {
 	struct bgp_pbr_action *action;
 	vrf_id_t vrf_id;
 	uint32_t unique;
+	uint32_t priority;
 	bool installed;
 	bool install_in_progress;
 };
