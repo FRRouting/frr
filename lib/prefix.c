@@ -705,6 +705,9 @@ int prefix_same(const struct prefix *p1, const struct prefix *p2)
 				    p2->u.prefix_flowspec.prefixlen))
 				return 1;
 		}
+		if (!memcmp(p1, p2,
+			    sizeof(struct prefix)))
+			return 1;
 	}
 	return 0;
 }
