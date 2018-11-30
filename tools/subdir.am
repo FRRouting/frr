@@ -13,6 +13,10 @@ sbin_SCRIPTS += \
 	tools/frr-reload \
 	tools/frr-reload.py \
 	tools/frr \
+	\
+	tools/frrcommon.sh \
+	tools/frrinit.sh \
+	tools/watchfrr.sh \
 	# end
 
 tools_permutations_SOURCES = tools/permutations.c

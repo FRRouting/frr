@@ -178,6 +178,8 @@ override_dh_auto_test:
 override_dh_auto_install:
 	dh_auto_install
 
+	cp tools/frrinit.sh debian/frr.init
+
 	# installed in frr-pythontools
 	rm debian/tmp/usr/lib/frr/frr-reload.py
 

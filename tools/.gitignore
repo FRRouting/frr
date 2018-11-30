@@ -3,3 +3,6 @@
 /gen_yang_deviations
 /permutations
 /ssd
+/watchfrr.sh
+/frrinit.sh
+/frrcommon.sh
