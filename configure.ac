@@ -1610,8 +1610,8 @@ AC_CHECK_MEMBER([struct lyd_node.priv], [], [
   ])
 ], [[#include <libyang/libyang.h>]])
 
-ac_ld_flag_save="$LDFLAGS"
-LDFLAGS="$LDFLAGS $libyang_LIBS"
+ac_libs_save="$LIBS"
+LIBS="$LIBS $libyang_LIBS"
 AC_CHECK_FUNC([ly_register_types], [
   libyang_ext_builtin=true
   AC_DEFINE([LIBYANG_EXT_BUILTIN], [1], [have ly_register_types()])
@@ -1626,7 +1626,7 @@ AC_CHECK_FUNC([ly_register_types], [
   AC_MSG_WARN([===== old libyang (before 0.16.74) detected =====])
 ])
 AM_CONDITIONAL([LIBYANG_EXT_BUILTIN], [$libyang_ext_builtin])
-LDFLAGS="$ac_ld_flag_save"
+LIBS="$ac_libs_save"
 
 dnl ---------------
 dnl configuration rollbacks
