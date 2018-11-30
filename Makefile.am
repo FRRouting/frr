@@ -149,6 +149,7 @@ include yang/libyang_plugins/subdir.am
 
 include vtysh/subdir.am
 include tests/subdir.am
+include tests/topotests/subdir.am
 
 if PKGSRC
 rcdir=@pkgsrcrcdir@

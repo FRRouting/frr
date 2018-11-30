@@ -1,0 +1,7 @@
+TOPOTESTS_DIR = tests/topotests
+
+topotests-build: ## Builds docker images for topotests
+	$(TOPOTESTS_DIR)/docker/build.sh
+
+topotests: ## Runs topotests
+	$(TOPOTESTS_DIR)/docker/frr-topotests.sh

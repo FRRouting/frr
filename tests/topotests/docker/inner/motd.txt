@@ -1,0 +1,15 @@
+Welcome to the topotests container.
+
+Here are some useful tips:
+* After changing the FRR/Topotests sources, you may rebuild them
+  using the command `compile_frr.sh`. The build command has the
+  following environment variables:
+  - TOPOTEST_CLEAN: whether we should distclean or not (disabled by default)
+  - TOPOTEST_VERBOSE: show build messages (enabled by default)
+  - TOPOTEST_DOC: whether we should build docs or not (disabled by default)
+  - TOPOTEST_SANITIZER: whether we should use the address sanitizer (enabled by default)
+
+  Usage example: env TOPOTEST_CLEAN=1 compile_frr.sh
+
+* The topotests log directory can be found on your host machine on
+  `/tmp/topotests_logs`.
