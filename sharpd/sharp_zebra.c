@@ -223,7 +223,9 @@ void sharp_zebra_nexthop_watch(struct prefix *p, bool watch)
 	if (!watch)
 		command = ZEBRA_NEXTHOP_UNREGISTER;
 
-	zclient_send_rnh(zclient, command, p, true, VRF_DEFAULT);
+	if (zclient_send_rnh(zclient, command, p, true, VRF_DEFAULT) < 0)
+		zlog_warn("%s: Failure to send nexthop to zebra",
+			  __PRETTY_FUNCTION__);
 }
 
 static int sharp_nexthop_update(int command, struct zclient *zclient,
