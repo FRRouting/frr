@@ -638,6 +638,7 @@ static int bgp_pbr_build_and_validate_entry(struct prefix *p,
 	struct prefix *src = NULL, *dst = NULL;
 	int valid_prefix = 0;
 	afi_t afi = AFI_IP;
+	struct bgp_pbr_entry_action *api_action_redirect_ip = NULL;
 
 	/* extract match from flowspec entries */
 	ret = bgp_flowspec_match_rules_fill((uint8_t *)p->u.prefix_flowspec.ptr,
@@ -688,10 +689,55 @@ static int bgp_pbr_build_and_validate_entry(struct prefix *p,
 				    (char)ECOMMUNITY_ENCODE_REDIRECT_IP_NH) &&
 				   (ecom_eval->val[1] ==
 				    (char)ECOMMUNITY_REDIRECT_IP_NH)) {
-				api_action->action = ACTION_REDIRECT_IP;
-				api_action->u.zr.redirect_ip_v4.s_addr =
-					path->attr->nexthop.s_addr;
-				api_action->u.zr.duplicate = ecom_eval->val[7];
+				/* in case the 2 ecom present,
+				 * do not overwrite
+				 * draft-ietf-idr-flowspec-redirect
+				 */
+				if (api_action_redirect_ip) {
+					if (api_action_redirect_ip->u
+					    .zr.redirect_ip_v4.s_addr)
+						continue;
+					if (!path->attr->nexthop.s_addr)
+						continue;
+					api_action_redirect_ip->u
+						.zr.redirect_ip_v4.s_addr =
+						path->attr->nexthop.s_addr;
+					api_action_redirect_ip->u.zr.duplicate
+						= ecom_eval->val[7];
+					continue;
+				} else {
+					api_action->action = ACTION_REDIRECT_IP;
+					api_action->u.zr.redirect_ip_v4.s_addr =
+						path->attr->nexthop.s_addr;
+					api_action->u.zr.duplicate =
+						ecom_eval->val[7];
+					api_action_redirect_ip = api_action;
+				}
+			} else if ((ecom_eval->val[0] ==
+				    (char)ECOMMUNITY_ENCODE_IP) &&
+				   (ecom_eval->val[1] ==
+				    (char)ECOMMUNITY_FLOWSPEC_REDIRECT_IPV4)) {
+				/* in case the 2 ecom present,
+				 * overwrite simpson draft
+				 * update redirect ip fields
+				 */
+				if (api_action_redirect_ip) {
+					memcpy(&(api_action_redirect_ip->u
+						 .zr.redirect_ip_v4.s_addr),
+					       (ecom_eval->val+2), 4);
+					api_action_redirect_ip->u
+						.zr.duplicate =
+						ecom_eval->val[7];
+					continue;
+				} else {
+					api_action->action = ACTION_REDIRECT_IP;
+					memcpy(&(api_action->u
+						 .zr.redirect_ip_v4.s_addr),
+					       (ecom_eval->val+2), 4);
+					api_action->u.zr.duplicate =
+						ecom_eval->val[7];
+					api_action_redirect_ip = api_action;
+				}
 			} else {
 				if (ecom_eval->val[0] !=
 				    (char)ECOMMUNITY_ENCODE_TRANS_EXP)
