@@ -215,7 +215,6 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 	}
 	if (!listnode_lookup(rnh->client_list, client)) {
 		listnode_add(rnh->client_list, client);
-
 	}
 	/* 
 	* Zebra was not responding to re-registration messages from bgp due to 
