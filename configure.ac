@@ -1608,6 +1608,24 @@ AC_CHECK_MEMBER([struct lyd_node.priv], [], [
   ])
 ], [[#include <libyang/libyang.h>]])
 
+ac_libs_save="$LIBS"
+LIBS="$LIBS $libyang_LIBS"
+AC_CHECK_FUNC([ly_register_types], [
+  libyang_ext_builtin=true
+  AC_DEFINE([LIBYANG_EXT_BUILTIN], [1], [have ly_register_types()])
+], [
+  libyang_ext_builtin=false
+  AC_MSG_WARN([===== old libyang (before 0.16.74) detected =====])
+  AC_MSG_WARN([The available version of libyang does not seem to support])
+  AC_MSG_WARN([built-in YANG extension modules.  This will cause "make check"])
+  AC_MSG_WARN([to fail and may create installation and version mismatch issues.])
+  AC_MSG_WARN([Support for the old mechanism will be removed at some point.])
+  AC_MSG_WARN([Please update libyang to version 0.16.74 or newer.])
+  AC_MSG_WARN([===== old libyang (before 0.16.74) detected =====])
+])
+AM_CONDITIONAL([LIBYANG_EXT_BUILTIN], [$libyang_ext_builtin])
+LIBS="$ac_libs_save"
+
 dnl ---------------
 dnl configuration rollbacks
 dnl ---------------
