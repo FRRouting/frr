@@ -390,7 +390,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	vty_config_lockless();
 	zebrad.master = frr_init();
 
 	/* Initialize pthread library */

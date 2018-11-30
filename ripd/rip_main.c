@@ -165,8 +165,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	vty_config_lockless();
-
 	/* Prepare master thread. */
 	master = frr_init();
 
