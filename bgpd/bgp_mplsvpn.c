@@ -578,7 +578,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		return bpi;
 	}
 
-	new = info_make(bpi_ultimate->type, bpi_ultimate->sub_type, 0,
+	new = info_make(bpi_ultimate->type, BGP_ROUTE_IMPORTED, 0,
 		bgp->peer_self, new_attr, bn);
 
 	if (nexthop_self_flag)
