@@ -179,6 +179,7 @@ static int try_connect(struct daemon *dmn);
 static int wakeup_send_echo(struct thread *t_wakeup);
 static void try_restart(struct daemon *dmn);
 static void phase_check(void);
+static void restart_done(struct daemon *dmn);
 
 static const char *progname;
 static void printhelp(FILE *target)
@@ -335,6 +336,7 @@ static void sigchild(void)
 	const char *name;
 	const char *what;
 	struct restart_info *restart;
+	struct daemon *dmn;
 
 	switch (child = waitpid(-1, &status, WNOHANG)) {
 	case -1:
@@ -380,9 +382,18 @@ static void sigchild(void)
 			zlog_warn(
 				"%s %s process %d exited with non-zero status %d",
 				what, name, (int)child, WEXITSTATUS(status));
-		else
+		else {
 			zlog_debug("%s %s process %d exited normally", what,
 				   name, (int)child);
+
+			if (restart && restart != &gs.restart) {
+				dmn = container_of(restart, struct daemon,
+						   restart);
+				restart_done(dmn);
+			} else if (restart)
+				for (dmn = gs.daemons; dmn; dmn = dmn->next)
+					restart_done(dmn);
+		}
 	} else
 		flog_err_sys(
 			LIB_ERR_SYSTEM_CALL,
@@ -503,6 +514,18 @@ static int wakeup_init(struct thread *t_wakeup)
 	}
 	phase_check();
 	return 0;
+}
+
+static void restart_done(struct daemon *dmn)
+{
+	if (dmn->state != DAEMON_DOWN) {
+		zlog_warn("wtf?");
+		return;
+	}
+	if (dmn->t_wakeup)
+		THREAD_OFF(dmn->t_wakeup);
+	if (try_connect(dmn) < 0)
+		SET_WAKEUP_DOWN(dmn);
 }
 
 static void daemon_down(struct daemon *dmn, const char *why)
