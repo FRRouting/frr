@@ -65,6 +65,7 @@ static bool watch_only = false;
 
 typedef enum {
 	PHASE_NONE = 0,
+	PHASE_INIT,
 	PHASE_STOPS_PENDING,
 	PHASE_WAITING_DOWN,
 	PHASE_ZEBRA_RESTART_PENDING,
@@ -73,6 +74,7 @@ typedef enum {
 
 static const char *phase_str[] = {
 	"None",
+	"Startup",
 	"Stop jobs running",
 	"Waiting for other daemons to come down",
 	"Zebra restart job running",
@@ -112,7 +114,7 @@ static struct global_state {
 	int numpids;
 	int numdown; /* # of daemons that are not UP or UNRESPONSIVE */
 } gs = {
-	.phase = PHASE_NONE,
+	.phase = PHASE_INIT,
 	.vtydir = frr_vtydir,
 	.period = 1000 * DEFAULT_PERIOD,
 	.timeout = DEFAULT_TIMEOUT,
@@ -494,12 +496,12 @@ static int wakeup_init(struct thread *t_wakeup)
 
 	dmn->t_wakeup = NULL;
 	if (try_connect(dmn) < 0) {
-		SET_WAKEUP_DOWN(dmn);
 		flog_err(EC_WATCHFRR_CONNECTION,
 			 "%s state -> down : initial connection attempt failed",
 			 dmn->name);
 		dmn->state = DAEMON_DOWN;
 	}
+	phase_check();
 	return 0;
 }
 
@@ -773,8 +775,24 @@ static void set_phase(restart_phase_t new_phase)
 
 static void phase_check(void)
 {
+	struct daemon *dmn;
+
 	switch (gs.phase) {
 	case PHASE_NONE:
+		break;
+
+	case PHASE_INIT:
+		for (dmn = gs.daemons; dmn; dmn = dmn->next)
+			if (dmn->state == DAEMON_INIT)
+				return;
+
+		/* startup complete, everything out of INIT */
+		gs.phase = PHASE_NONE;
+		for (dmn = gs.daemons; dmn; dmn = dmn->next)
+			if (dmn->state == DAEMON_DOWN) {
+				SET_WAKEUP_DOWN(dmn);
+				try_restart(dmn);
+			}
 		break;
 	case PHASE_STOPS_PENDING:
 		if (gs.numpids)
@@ -980,8 +998,7 @@ static void watchfrr_init(int argc, char **argv)
 		gs.numdown++;
 		dmn->fd = -1;
 		dmn->t_wakeup = NULL;
-		thread_add_timer_msec(master, wakeup_init, dmn,
-				      100 + (random() % 900),
+		thread_add_timer_msec(master, wakeup_init, dmn, 0,
 				      &dmn->t_wakeup);
 		dmn->restart.interval = gs.min_restart_interval;
 		*add = dmn;
