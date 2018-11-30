@@ -2270,8 +2270,16 @@ static void bgp_encode_pbr_rule_action(struct stream *s,
 	struct prefix pfx;
 
 	stream_putl(s, 0); /* seqno unused */
-	stream_putl(s, 0); /* ruleno unused */
-
+	if (pbr)
+		stream_putl(s, pbr->priority);
+	else
+		stream_putl(s, 0);
+	/* ruleno unused - priority change
+	 * ruleno permits distinguishing various FS PBR entries
+	 * - FS PBR entries based on ipset/iptables
+	 * - FS PBR entries based on iprule
+	 * the latter may contain default routing information injected by FS
+	 */
 	if (pbr)
 		stream_putl(s, pbr->unique);
 	else

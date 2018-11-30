@@ -2030,6 +2030,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	if (bpf->type == BGP_PBR_IPRULE) {
 		memset(&pbr_rule, 0, sizeof(pbr_rule));
 		pbr_rule.vrf_id = bpf->vrf_id;
+		pbr_rule.priority = 20;
 		if (bpf->src) {
 			pbr_rule.flags |= MATCH_IP_SRC_SET;
 			prefix_copy(&pbr_rule.src, bpf->src);
