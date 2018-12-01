@@ -37,7 +37,7 @@ want = [
     {'p':'5.4.3.0/24', 'n':'99.0.0.4'},
     {'p':'99.0.0.4/32', 'n':'0.0.0.0'},
 ]
-bgpribRequireUnicastRoutes('ce4','ipv4','','Cust 4 routes in ce1',want)
+bgpribRequireUnicastRoutes('ce4','ipv4','ce4-cust2','Cust 4 routes in ce1',want)
 
 
 ########################################################################
@@ -307,12 +307,12 @@ want = [
 ]
 bgpribRequireUnicastRoutes('ce3','ipv4','','Cust 1 routes from remote',want)
 
-luCommand('ce4','vtysh -c "show bgp ipv4 uni"','10 routes and 10','wait','Local and remote routes', 10)
+luCommand('ce4','vtysh -c "show bgp vrf ce4-cust2 ipv4 uni"','10 routes and 10','wait','Local and remote routes', 10)
 want = [
     {'p':'5.1.0.0/24', 'n':'192.168.2.1'},
     {'p':'5.1.1.0/24', 'n':'192.168.2.1'},
     {'p':'5.1.2.0/24', 'n':'192.168.2.1'},
     {'p':'5.1.3.0/24', 'n':'192.168.2.1'},
 ]
-bgpribRequireUnicastRoutes('ce4','ipv4','','Cust 2 routes from remote',want)
+bgpribRequireUnicastRoutes('ce4','ipv4','ce4-cust2','Cust 2 routes from remote',want)
 
