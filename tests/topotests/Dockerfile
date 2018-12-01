@@ -70,7 +70,7 @@ RUN echo "" >> /etc/security/limits.conf; \
     echo "root hard core unlimited" >> /etc/security/limits.conf
 
 # Copy run scripts to facilitate users wanting to run the tests
-COPY docker/inner /opt/topotests
+COPY tests/topotests/docker/inner /opt/topotests
 
 WORKDIR /root/topotests
 ENV PATH "$PATH:/opt/topotests"

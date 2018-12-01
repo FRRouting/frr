@@ -22,9 +22,10 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-cd "$(dirname "$0")"/..
+cd "$(dirname "$0")"/../../..
 
 exec docker build --pull \
 		  --compress \
 		  -t frrouting/frr:topotests-latest \
+		  -f tests/topotests/Dockerfile \
 		  .
