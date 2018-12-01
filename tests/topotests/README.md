@@ -1,5 +1,10 @@
 # FRRouting Topology Tests with Mininet
 
+## Running tests with docker
+
+There is a docker image which allows to run topotests. Instructions can be
+found [here](docker/README.md).
+
 ## Guidelines
 
 Instructions for  use, write or debug topologies can be found in the
@@ -10,11 +15,6 @@ Before creating a new topology, make sure that there isn't one already
 that does what you need. If nothing is similar, then you may create a
 new topology, preferably, using the newest
 [template](example-test/test_template.py).
-
-## Running tests with docker
-
-There is a docker image which allows to run topotests. Instructions can be
-found [here](docker/README.md).
 
 ## Installation of Mininet for running tests
 Only tested with Ubuntu 16.04 and Ubuntu 18.04 (which uses Mininet 2.2.x)
