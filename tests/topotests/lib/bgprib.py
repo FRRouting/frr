@@ -123,7 +123,16 @@ class BgpRib:
                 return
             luResult(target, True, title, logstr)
 	rib = json.loads(ret)
-	table = rib['routes']
+        try:
+	    table = rib['routes']
+        # KeyError: 'routes' probably means missing/bad VRF
+        except KeyError as err:
+	    if vrf != '':
+                errstr = '-script ERROR: check if wrong vrf (%s)' % (vrf)
+            else:
+                errstr = '-script ERROR: check if vrf missing'
+	    luResult(target, False, title + errstr, logstr)
+	    return
 	for want in wantroutes:
 	    if not self.routes_include_wanted(table,want,debug):
 		luResult(target, False, title, logstr)
