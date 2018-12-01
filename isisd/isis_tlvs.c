@@ -171,7 +171,8 @@ static int unpack_item_prefix_sid(uint16_t mtid, uint8_t len, struct stream *s,
 				  struct sbuf *log, void *dest, int indent)
 {
 	struct isis_subtlvs *subtlvs = dest;
-	struct isis_prefix_sid sid = {0};
+	struct isis_prefix_sid sid = {
+	};
 
 	sbuf_push(log, indent, "Unpacking SR Prefix-SID...\n");
 
@@ -2051,7 +2052,7 @@ static int unpack_tlv_purge_originator(enum isis_tlv_context context,
 				       void *dest, int indent)
 {
 	struct isis_tlvs *tlvs = dest;
-	struct isis_purge_originator poi = {0};
+	struct isis_purge_originator poi = {};
 
 	sbuf_push(log, indent, "Unpacking Purge Originator Identification TLV...\n");
 	if (tlv_len < 7) {
@@ -3130,7 +3131,7 @@ static const struct tlv_ops *tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 		[ISIS_TLV_IPV6_REACH] = &tlv_ipv6_reach_ops,
 		[ISIS_TLV_MT_IPV6_REACH] = &tlv_ipv6_reach_ops,
 	},
-	[ISIS_CONTEXT_SUBTLV_NE_REACH] = {0},
+	[ISIS_CONTEXT_SUBTLV_NE_REACH] = {},
 	[ISIS_CONTEXT_SUBTLV_IP_REACH] = {
 		[ISIS_SUBTLV_PREFIX_SID] = &tlv_prefix_sid_ops,
 	},
@@ -3396,7 +3397,7 @@ static void tlvs_protocols_supported_to_adj(struct isis_tlvs *tlvs,
 			ipv6_supported = true;
 	}
 
-	struct nlpids reduced = {0};
+	struct nlpids reduced = {};
 
 	if (ipv4_supported && ipv6_supported) {
 		reduced.count = 2;
