@@ -747,7 +747,7 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 				       stream_get_endp(circuit->rcv_stream));
 	}
 
-	struct isis_lsp_hdr hdr = {0};
+	struct isis_lsp_hdr hdr = {};
 
 	hdr.pdu_len = stream_getw(circuit->rcv_stream);
 	hdr.rem_lifetime = stream_getw(circuit->rcv_stream);
@@ -1126,8 +1126,8 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 	stream_get(rem_sys_id, circuit->rcv_stream, ISIS_SYS_ID_LEN);
 	stream_forward_getp(circuit->rcv_stream, 1); /* Circuit ID - unused */
 
-	uint8_t start_lsp_id[ISIS_SYS_ID_LEN + 2] = {0};
-	uint8_t stop_lsp_id[ISIS_SYS_ID_LEN + 2] = {0};
+	uint8_t start_lsp_id[ISIS_SYS_ID_LEN + 2] = {};
+	uint8_t stop_lsp_id[ISIS_SYS_ID_LEN + 2] = {};
 
 	if (is_csnp) {
 		stream_get(start_lsp_id, circuit->rcv_stream,

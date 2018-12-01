@@ -655,7 +655,7 @@ static int ospf_write(struct thread *thread)
 	int pkt_count = 0;
 
 #ifdef GNU_LINUX
-	unsigned char cmsgbuf[64] = {0};
+	unsigned char cmsgbuf[64] = {};
 	struct cmsghdr *cm = (struct cmsghdr *)cmsgbuf;
 	struct in_pktinfo *pi;
 #endif

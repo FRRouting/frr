@@ -67,19 +67,19 @@ class PrefixBase(RenderHandler):
     deref = '&'
 class Prefix4Handler(PrefixBase):
     argtype = 'const struct prefix_ipv4 *'
-    decl = Template('struct prefix_ipv4 $varname = {0};')
+    decl = Template('struct prefix_ipv4 $varname = { };')
     code = Template('_fail = !str2prefix_ipv4(argv[_i]->arg, &$varname);')
 class Prefix6Handler(PrefixBase):
     argtype = 'const struct prefix_ipv6 *'
-    decl = Template('struct prefix_ipv6 $varname = {0};')
+    decl = Template('struct prefix_ipv6 $varname = { };')
     code = Template('_fail = !str2prefix_ipv6(argv[_i]->arg, &$varname);')
 class PrefixEthHandler(PrefixBase):
     argtype = 'struct prefix_eth *'
-    decl = Template('struct prefix_eth $varname = {0};')
+    decl = Template('struct prefix_eth $varname = { };')
     code = Template('_fail = !str2prefix_eth(argv[_i]->arg, &$varname);')
 class PrefixGenHandler(PrefixBase):
     argtype = 'const struct prefix *'
-    decl = Template('struct prefix $varname = {0};')
+    decl = Template('struct prefix $varname = { };')
     code = Template('_fail = !str2prefix(argv[_i]->arg, &$varname);')
 
 # same for IP addresses.  result is union sockunion.
@@ -96,7 +96,7 @@ class IP4Handler(IPBase):
     code = Template('_fail = !inet_aton(argv[_i]->arg, &$varname);')
 class IP6Handler(IPBase):
     argtype = 'struct in6_addr'
-    decl = Template('struct in6_addr $varname = {0};')
+    decl = Template('struct in6_addr $varname = {};')
     code = Template('_fail = !inet_pton(AF_INET6, argv[_i]->arg, &$varname);')
 class IPGenHandler(IPBase):
     argtype = 'const union sockunion *'
