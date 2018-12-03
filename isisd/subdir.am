@@ -113,7 +113,10 @@ isisd/isis_cli.$(OBJEXT): isisd/isis_cli_clippy.c
 
 isisd_isisd_LDADD = isisd/libisis.a $(ISIS_LDADD_COMMON)
 isisd_isisd_SOURCES = $(ISIS_SOURCES)
-
+nodist_isisd_isisd_SOURCES = \
+	yang/frr-isisd.yang.c \
+	# end
+	
 # Building fabricd
 
 FABRICD_CPPFLAGS = -DFABRICD=1 $(AM_CPPFLAGS)
