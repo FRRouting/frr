@@ -894,14 +894,20 @@ void vrf_cmd_init(int (*writefunc)(struct vty *vty),
 	}
 }
 
-void vrf_set_default_name(const char *default_name)
+void vrf_set_default_name(const char *default_name, bool force)
 {
 	struct vrf *def_vrf;
 	struct vrf *vrf_with_default_name = NULL;
+	static bool def_vrf_forced;
 
 	def_vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	assert(default_name);
-	vrf_with_default_name = vrf_lookup_by_name(default_name);
+	if (def_vrf && !force && def_vrf_forced) {
+		zlog_debug("VRF: %s, avoid changing name to %s, previously forced (%u)",
+			   def_vrf->name, default_name,
+			   def_vrf->vrf_id);
+		return;
+	}
 	if (vrf_with_default_name && vrf_with_default_name != def_vrf) {
 		/* vrf name already used by an other VRF */
 		zlog_debug("VRF: %s, avoid changing name to %s, same name exists (%u)",
@@ -911,6 +917,8 @@ void vrf_set_default_name(const char *default_name)
 	}
 	snprintf(vrf_default_name, VRF_NAMSIZ, "%s", default_name);
 	if (def_vrf) {
+		if (force)
+			def_vrf_forced = true;
 		RB_REMOVE(vrf_name_head, &vrfs_by_name, def_vrf);
 		strlcpy(def_vrf->data.l.netns_name,
 			vrf_default_name, NS_NAMSIZ);

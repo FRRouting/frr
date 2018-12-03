@@ -236,7 +236,7 @@ extern vrf_id_t vrf_get_default_id(void);
 /* The default VRF ID */
 #define VRF_DEFAULT vrf_get_default_id()
 
-extern void vrf_set_default_name(const char *default_name);
+extern void vrf_set_default_name(const char *default_name, bool force);
 extern const char *vrf_get_default_name(void);
 #define VRF_DEFAULT_NAME    vrf_get_default_name()
 
