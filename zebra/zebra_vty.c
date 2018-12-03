@@ -2313,6 +2313,7 @@ DEFPY (clear_evpn_dup_addr,
 	vni_t vni = 0;
 	struct ipaddr host_ip = {.ipa_type = IPADDR_NONE };
 	struct ethaddr mac_addr;
+	int ret = CMD_SUCCESS;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	if (vni_val) {
@@ -2320,9 +2321,10 @@ DEFPY (clear_evpn_dup_addr,
 
 		if (mac_val) {
 			prefix_str2mac(mac_val, &mac_addr);
-			zebra_vxlan_clear_dup_detect_vni_mac(vty, zvrf, vni,
-							&mac_addr);
-		} else if (ip) {
+			ret = zebra_vxlan_clear_dup_detect_vni_mac(vty, zvrf,
+								   vni,
+								   &mac_addr);
+	        } else if (ip) {
 			if (sockunion_family(ip) == AF_INET) {
 				host_ip.ipa_type = IPADDR_V4;
 				host_ip.ipaddr_v4.s_addr = sockunion2ip(ip);
@@ -2331,16 +2333,17 @@ DEFPY (clear_evpn_dup_addr,
 				memcpy(&host_ip.ipaddr_v6, &ip->sin6.sin6_addr,
 				       sizeof(struct in6_addr));
 			}
-			zebra_vxlan_clear_dup_detect_vni_ip(vty, zvrf, vni,
-							    &host_ip);
+			ret = zebra_vxlan_clear_dup_detect_vni_ip(vty, zvrf,
+								  vni,
+								  &host_ip);
 		} else
-			zebra_vxlan_clear_dup_detect_vni(vty, zvrf, vni);
+			ret = zebra_vxlan_clear_dup_detect_vni(vty, zvrf, vni);
 
 	} else {
-		zebra_vxlan_clear_dup_detect_vni_all(vty, zvrf);
+		ret = zebra_vxlan_clear_dup_detect_vni_all(vty, zvrf);
 	}
 
-	return CMD_SUCCESS;
+	return ret;
 }
 
 /* Static ip route configuration write function. */

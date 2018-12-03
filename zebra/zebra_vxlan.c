@@ -6159,9 +6159,9 @@ void zebra_vxlan_print_macs_vni_dad(struct vty *vty,
 
 }
 
-void zebra_vxlan_clear_dup_detect_vni_mac(struct vty *vty,
-					  struct zebra_vrf *zvrf,
-					  vni_t vni, struct ethaddr *macaddr)
+int zebra_vxlan_clear_dup_detect_vni_mac(struct vty *vty,
+					 struct zebra_vrf *zvrf,
+					 vni_t vni, struct ethaddr *macaddr)
 {
 	zebra_vni_t *zvni;
 	zebra_mac_t *mac;
@@ -6169,23 +6169,24 @@ void zebra_vxlan_clear_dup_detect_vni_mac(struct vty *vty,
 	zebra_neigh_t *nbr = NULL;
 
 	if (!is_evpn_enabled())
-		return;
+		return CMD_SUCCESS;
+
 	zvni = zvni_lookup(vni);
 	if (!zvni) {
 		vty_out(vty, "%% VNI %u does not exist\n", vni);
-		return;
+		return CMD_WARNING;
 	}
 
 	mac = zvni_mac_lookup(zvni, macaddr);
 	if (!mac) {
 		vty_out(vty, "%% Requested MAC does not exist in VNI %u\n",
 			vni);
-		return;
+		return CMD_WARNING;
 	}
 
 	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE)) {
 		vty_out(vty, "%% Requested MAC is not duplicate detected\n");
-		return;
+		return CMD_WARNING;
 	}
 
 	/* Remove all IPs as duplicate associcated with this MAC */
@@ -6224,7 +6225,7 @@ void zebra_vxlan_clear_dup_detect_vni_mac(struct vty *vty,
 					&mac->macaddr,
 					mac->flags,
 					mac->loc_seq))
-			return;
+			return CMD_SUCCESS;
 
 		/* Process all neighbors associated with this MAC. */
 		zvni_process_neigh_on_local_mac_change(zvni, mac, 0);
@@ -6236,11 +6237,12 @@ void zebra_vxlan_clear_dup_detect_vni_mac(struct vty *vty,
 		zvni_mac_install(zvni, mac);
 	}
 
+	return CMD_SUCCESS;
 }
 
-void zebra_vxlan_clear_dup_detect_vni_ip(struct vty *vty,
-					 struct zebra_vrf *zvrf,
-					 vni_t vni, struct ipaddr *ip)
+int zebra_vxlan_clear_dup_detect_vni_ip(struct vty *vty,
+					struct zebra_vrf *zvrf,
+					vni_t vni, struct ipaddr *ip)
 {
 	zebra_vni_t *zvni;
 	zebra_neigh_t *nbr;
@@ -6249,12 +6251,12 @@ void zebra_vxlan_clear_dup_detect_vni_ip(struct vty *vty,
 	char buf2[ETHER_ADDR_STRLEN];
 
 	if (!is_evpn_enabled())
-		return;
+		return CMD_SUCCESS;
 
 	zvni = zvni_lookup(vni);
 	if (!zvni) {
 		vty_out(vty, "%% VNI %u does not exist\n", vni);
-		return;
+		return CMD_WARNING;
 	}
 
 	nbr = zvni_neigh_lookup(zvni, ip);
@@ -6262,7 +6264,7 @@ void zebra_vxlan_clear_dup_detect_vni_ip(struct vty *vty,
 		vty_out(vty,
 			"%% Requested host IP does not exist in VNI %u\n",
 			vni);
-		return;
+		return CMD_WARNING;
 	}
 
 	ipaddr2str(&nbr->ip, buf, sizeof(buf));
@@ -6271,7 +6273,7 @@ void zebra_vxlan_clear_dup_detect_vni_ip(struct vty *vty,
 		vty_out(vty,
 			"%% Requsted host IP %s is not duplicate detected\n",
 			buf);
-		return;
+		return CMD_WARNING;
 	}
 
 	mac = zvni_mac_lookup(zvni, &nbr->emac);
@@ -6280,7 +6282,7 @@ void zebra_vxlan_clear_dup_detect_vni_ip(struct vty *vty,
 		vty_out(vty,
 			"%% Requested IP's associated MAC %s is still in duplicate state\n",
 			prefix_mac2str(&nbr->emac, buf2, sizeof(buf2)));
-		return;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
@@ -6303,6 +6305,7 @@ void zebra_vxlan_clear_dup_detect_vni_ip(struct vty *vty,
 		zvni_neigh_install(zvni, nbr);
 	}
 
+	return CMD_SUCCESS;
 }
 
 static void zvni_clear_dup_mac_hash(struct hash_backet *backet, void *ctxt)
@@ -6435,13 +6438,13 @@ static void zvni_clear_dup_detect_hash_vni_all(struct hash_backet *backet,
 
 }
 
-void zebra_vxlan_clear_dup_detect_vni_all(struct vty *vty,
+int zebra_vxlan_clear_dup_detect_vni_all(struct vty *vty,
 					  struct zebra_vrf *zvrf)
 {
 	void *args[2];
 
 	if (!is_evpn_enabled())
-		return;
+		return CMD_SUCCESS;
 
 	args[0] = vty;
 	args[1] = zvrf;
@@ -6450,9 +6453,10 @@ void zebra_vxlan_clear_dup_detect_vni_all(struct vty *vty,
 		     (void (*)(struct hash_backet *, void *))
 		     zvni_clear_dup_detect_hash_vni_all, args);
 
+	return CMD_SUCCESS;
 }
 
-void zebra_vxlan_clear_dup_detect_vni(struct vty *vty,
+int  zebra_vxlan_clear_dup_detect_vni(struct vty *vty,
 				      struct zebra_vrf *zvrf,
 				      vni_t vni)
 {
@@ -6461,12 +6465,12 @@ void zebra_vxlan_clear_dup_detect_vni(struct vty *vty,
 	struct neigh_walk_ctx n_wctx;
 
 	if (!is_evpn_enabled())
-		return;
+		return CMD_SUCCESS;
 
 	zvni = zvni_lookup(vni);
 	if (!zvni) {
 		vty_out(vty, "%% VNI %u does not exist\n", vni);
-		return;
+		return CMD_WARNING;
 	}
 
 	if (hashcount(zvni->neigh_table)) {
@@ -6486,6 +6490,7 @@ void zebra_vxlan_clear_dup_detect_vni(struct vty *vty,
 		hash_iterate(zvni->mac_table, zvni_clear_dup_mac_hash, &m_wctx);
 	}
 
+	return CMD_SUCCESS;
 }
 
 /*
