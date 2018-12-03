@@ -361,7 +361,10 @@ static int pbr_zebra_nexthop_update(int command, struct zclient *zclient,
 	char buf[PREFIX2STR_BUFFER];
 	uint32_t i;
 
-	zapi_nexthop_update_decode(zclient->ibuf, &nhr);
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
+		zlog_warn("Failure to decode Nexthop update message");
+		return 0;
+	}
 
 	if (DEBUG_MODE_CHECK(&pbr_dbg_zebra, DEBUG_MODE_ALL)) {
 
