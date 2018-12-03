@@ -135,7 +135,6 @@ struct vrrp_vrouter {
 #define VRRP_EVENT_SHUTDOWN 2
 
 DECLARE_HOOK(vrrp_change_state_hook, (struct vrrp_vrouter *vr, int to), (vr, to));
-void vrrp_event(struct vrrp_vrouter *vr, int event);
 /* End state machine */
 
 
@@ -157,6 +156,6 @@ struct vrrp_vrouter *vrrp_lookup(uint8_t vrid);
 /*
  * Trigger VRRP event
  */
-void vrrp_event(struct vrrp_vrouter *vr, int event);
+int vrrp_event(struct vrrp_vrouter *vr, int event);
 
 #endif /* _VRRP_H */

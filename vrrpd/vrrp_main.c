@@ -31,6 +31,7 @@
 #include "vrf.h"
 #include "nexthop.h"
 #include "filter.h"
+#include "if.h"
 
 #include "vrrp.h"
 #include "vrrp_zebra.h"
@@ -98,6 +99,7 @@ struct quagga_signal_t vrrp_signals[] = {
 };
 
 static const struct frr_yang_module_info *vrrp_yang_modules[] = {
+	&frr_interface_info,
 };
 
 #define VRRP_VTY_PORT 2617

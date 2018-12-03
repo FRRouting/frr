@@ -149,6 +149,7 @@ static int vrrp_socket(struct vrrp_vrouter *vr)
 {
 	struct ip_mreqn req;
 	int ret;
+	struct connected *c;
 
 	vr->sock = socket(AF_INET, SOCK_RAW, IPPROTO_VRRP);
 
@@ -159,7 +160,10 @@ static int vrrp_socket(struct vrrp_vrouter *vr)
 	/* Join the multicast group.*/
 
 	 /* FIXME: Use first address on the interface and for imr_interface */
-	struct connected *c = listhead(vr->ifp->connected)->data;
+	if (!listcount(vr->ifp->connected))
+		return -1;
+
+	c = listhead(vr->ifp->connected)->data;
 	struct in_addr v4 = c->address->u.prefix4;
 
 	memset(&req, 0, sizeof(req));
@@ -277,10 +281,14 @@ static int vrrp_master_down_timer_expire(struct thread *thread)
  * vr
  *    Virtual Router on which to apply Startup event
  */
-static void vrrp_startup(struct vrrp_vrouter *vr)
+static int vrrp_startup(struct vrrp_vrouter *vr)
 {
 	/* Create socket */
-	vrrp_socket(vr);
+	int ret = vrrp_socket(vr);
+	if (ret < 0) {
+		zlog_warn("Cannot create VRRP socket\n");
+		return ret;
+	}
 
 	/* Schedule listener */
 	/* ... */
@@ -301,14 +309,17 @@ static void vrrp_startup(struct vrrp_vrouter *vr)
 				      &vr->t_master_down_timer);
 		vrrp_change_state(vr, VRRP_STATE_BACKUP);
 	}
+
+	return 0;
 }
 
-static void vrrp_shutdown(struct vrrp_vrouter *vr)
+static int vrrp_shutdown(struct vrrp_vrouter *vr)
 {
 	/* NOTHING */
+	return 0;
 }
 
-static void (*vrrp_event_handlers[])(struct vrrp_vrouter *vr) = {
+static int (*vrrp_event_handlers[])(struct vrrp_vrouter *vr) = {
 	[VRRP_EVENT_STARTUP] = vrrp_startup,
 	[VRRP_EVENT_SHUTDOWN] = vrrp_shutdown,
 };
@@ -322,9 +333,9 @@ static void (*vrrp_event_handlers[])(struct vrrp_vrouter *vr) = {
  * event
  *    The event to spawn
  */
-void vrrp_event(struct vrrp_vrouter *vr, int event)
+int vrrp_event(struct vrrp_vrouter *vr, int event)
 {
-	vrrp_event_handlers[event](vr);
+	return vrrp_event_handlers[event](vr);
 }
 
 

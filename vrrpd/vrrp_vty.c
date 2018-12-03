@@ -61,7 +61,11 @@ DEFUN(vrrp_vrid,
 	vrid = strtoul(argv[idx]->arg, NULL, 10);
 
 	struct vrrp_vrouter *vr = vrrp_vrouter_create(ifp, vrid);
-	vrrp_event(vr, VRRP_EVENT_STARTUP);
+	int ret = vrrp_event(vr, VRRP_EVENT_STARTUP);
+	if (ret < 0) {
+		vty_out(vty, "%% Failed to start VRRP instance\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	return CMD_SUCCESS;
 }
@@ -76,5 +80,6 @@ void vrrp_vty_init(void)
 	install_node(&interface_node, NULL);
 	if_cmd_init();
 	install_element(VIEW_NODE, &show_debugging_vrrpd_cmd);
+	install_element(ENABLE_NODE, &show_debugging_vrrpd_cmd);
 	install_element(INTERFACE_NODE, &vrrp_vrid_cmd);
 }
