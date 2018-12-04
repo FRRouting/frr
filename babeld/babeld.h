@@ -111,6 +111,8 @@ struct babel
     /* Babel threads. */
     struct thread *t_read;    /* on Babel protocol's socket */
     struct thread *t_update;  /* timers */
+    /* distribute_ctx */
+    struct distribute_ctx *distribute_ctx;
 };
 
 extern struct zebra_privs_t babeld_privs;
@@ -125,6 +127,6 @@ extern int redistribute_filter(const unsigned char *prefix, unsigned short plen,
                                unsigned int ifindex, int proto);
 extern int resize_receive_buffer(int size);
 extern void schedule_neighbours_check(int msecs, int override);
-
+extern struct babel *babel_lookup(void);
 
 #endif /* BABEL_BABELD_H */

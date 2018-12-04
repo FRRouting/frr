@@ -44,6 +44,7 @@
 #include "keychain.h"
 #include "libfrr.h"
 #include "lib_errors.h"
+#include "distribute.h"
 
 #include "eigrpd/eigrp_structs.h"
 #include "eigrpd/eigrpd.h"
@@ -55,6 +56,7 @@
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_memory.h"
+#include "eigrpd/eigrp_filter.h"
 
 DEFINE_QOBJ_TYPE(eigrp)
 
@@ -197,6 +199,13 @@ static struct eigrp *eigrp_new(const char *AS)
 	eigrp->routemap[EIGRP_FILTER_IN] = NULL;
 	eigrp->routemap[EIGRP_FILTER_OUT] = NULL;
 
+	/* Distribute list install. */
+	eigrp->distribute_ctx = distribute_list_ctx_create(
+					   vrf_lookup_by_id(VRF_DEFAULT));
+	distribute_list_add_hook(eigrp->distribute_ctx,
+				 eigrp_distribute_update);
+	distribute_list_delete_hook(eigrp->distribute_ctx,
+				    eigrp_distribute_update);
 	QOBJ_REG(eigrp, eigrp);
 	return eigrp;
 }
@@ -279,6 +288,7 @@ void eigrp_finish_final(struct eigrp *eigrp)
 	listnode_delete(eigrp_om->eigrp, eigrp);
 
 	stream_free(eigrp->ibuf);
+	distribute_list_delete(&eigrp->distribute_ctx);
 	XFREE(MTYPE_EIGRP_TOP, eigrp);
 }
 

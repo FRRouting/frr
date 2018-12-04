@@ -27,16 +27,12 @@
 #include "distribute.h"
 #include "memory.h"
 
+DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_CTX, "Distribute ctx")
 DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE, "Distribute list")
 DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_IFNAME, "Dist-list ifname")
 DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_NAME, "Dist-list name")
 
-/* Hash of distribute list. */
-struct hash *disthash;
-
-/* Hook functions. */
-void (*distribute_add_hook)(struct distribute *);
-void (*distribute_delete_hook)(struct distribute *);
+struct list *dist_ctx_list;
 
 static struct distribute *distribute_new(void)
 {
@@ -62,7 +58,8 @@ static void distribute_free(struct distribute *dist)
 	XFREE(MTYPE_DISTRIBUTE, dist);
 }
 
-static void distribute_free_if_empty(struct distribute *dist)
+static void distribute_free_if_empty(struct distribute_ctx *ctx,
+				     struct distribute *dist)
 {
 	int i;
 
@@ -70,12 +67,13 @@ static void distribute_free_if_empty(struct distribute *dist)
 		if (dist->list[i] != NULL || dist->prefix[i] != NULL)
 			return;
 
-	hash_release(disthash, dist);
+	hash_release(ctx->disthash, dist);
 	distribute_free(dist);
 }
 
 /* Lookup interface's distribute list. */
-struct distribute *distribute_lookup(const char *ifname)
+struct distribute *distribute_lookup(struct distribute_ctx *ctx,
+				     const char *ifname)
 {
 	struct distribute key;
 	struct distribute *dist;
@@ -83,7 +81,7 @@ struct distribute *distribute_lookup(const char *ifname)
 	/* temporary reference */
 	key.ifname = (ifname) ? XSTRDUP(MTYPE_DISTRIBUTE_IFNAME, ifname) : NULL;
 
-	dist = hash_lookup(disthash, &key);
+	dist = hash_lookup(ctx->disthash, &key);
 
 	if (key.ifname)
 		XFREE(MTYPE_DISTRIBUTE_IFNAME, key.ifname);
@@ -91,14 +89,18 @@ struct distribute *distribute_lookup(const char *ifname)
 	return dist;
 }
 
-void distribute_list_add_hook(void (*func)(struct distribute *))
+void distribute_list_add_hook(struct distribute_ctx *ctx,
+			      void (*func)(struct distribute_ctx *ctx,
+					   struct distribute *))
 {
-	distribute_add_hook = func;
+	ctx->distribute_add_hook = func;
 }
 
-void distribute_list_delete_hook(void (*func)(struct distribute *))
+void distribute_list_delete_hook(struct distribute_ctx *ctx,
+				 void (*func)(struct distribute_ctx *ctx,
+					      struct distribute *))
 {
-	distribute_delete_hook = func;
+	ctx->distribute_delete_hook = func;
 }
 
 static void *distribute_hash_alloc(struct distribute *arg)
@@ -114,7 +116,8 @@ static void *distribute_hash_alloc(struct distribute *arg)
 }
 
 /* Make new distribute list and push into hash. */
-static struct distribute *distribute_get(const char *ifname)
+static struct distribute *distribute_get(struct distribute_ctx *ctx,
+					 const char *ifname)
 {
 	struct distribute key;
 	struct distribute *ret;
@@ -122,7 +125,7 @@ static struct distribute *distribute_get(const char *ifname)
 	/* temporary reference */
 	key.ifname = (ifname) ? XSTRDUP(MTYPE_DISTRIBUTE_IFNAME, ifname) : NULL;
 
-	ret = hash_get(disthash, &key,
+	ret = hash_get(ctx->disthash, &key,
 		       (void *(*)(void *))distribute_hash_alloc);
 
 	if (key.ifname)
@@ -152,29 +155,32 @@ static bool distribute_cmp(const struct distribute *dist1,
 }
 
 /* Set access-list name to the distribute list. */
-static void distribute_list_set(const char *ifname, enum distribute_type type,
+static void distribute_list_set(struct distribute_ctx *ctx,
+				const char *ifname, enum distribute_type type,
 				const char *alist_name)
 {
 	struct distribute *dist;
 
-	dist = distribute_get(ifname);
+	dist = distribute_get(ctx, ifname);
 
 	if (dist->list[type])
 		XFREE(MTYPE_DISTRIBUTE_NAME, dist->list[type]);
 	dist->list[type] = XSTRDUP(MTYPE_DISTRIBUTE_NAME, alist_name);
 
 	/* Apply this distribute-list to the interface. */
-	(*distribute_add_hook)(dist);
+	(ctx->distribute_add_hook)(ctx, dist);
 }
 
 /* Unset distribute-list.  If matched distribute-list exist then
    return 1. */
-static int distribute_list_unset(const char *ifname, enum distribute_type type,
+static int distribute_list_unset(struct distribute_ctx *ctx,
+				 const char *ifname,
+				 enum distribute_type type,
 				 const char *alist_name)
 {
 	struct distribute *dist;
 
-	dist = distribute_lookup(ifname);
+	dist = distribute_lookup(ctx, ifname);
 	if (!dist)
 		return 0;
 
@@ -187,39 +193,41 @@ static int distribute_list_unset(const char *ifname, enum distribute_type type,
 	dist->list[type] = NULL;
 
 	/* Apply this distribute-list to the interface. */
-	(*distribute_delete_hook)(dist);
+	(ctx->distribute_delete_hook)(ctx, dist);
 
 	/* If all dist are NULL, then free distribute list. */
-	distribute_free_if_empty(dist);
+	distribute_free_if_empty(ctx, dist);
 	return 1;
 }
 
 /* Set access-list name to the distribute list. */
-static void distribute_list_prefix_set(const char *ifname,
+static void distribute_list_prefix_set(struct distribute_ctx *ctx,
+				       const char *ifname,
 				       enum distribute_type type,
 				       const char *plist_name)
 {
 	struct distribute *dist;
 
-	dist = distribute_get(ifname);
+	dist = distribute_get(ctx, ifname);
 
 	if (dist->prefix[type])
 		XFREE(MTYPE_DISTRIBUTE_NAME, dist->prefix[type]);
 	dist->prefix[type] = XSTRDUP(MTYPE_DISTRIBUTE_NAME, plist_name);
 
 	/* Apply this distribute-list to the interface. */
-	(*distribute_add_hook)(dist);
+	(ctx->distribute_add_hook)(ctx, dist);
 }
 
 /* Unset distribute-list.  If matched distribute-list exist then
    return 1. */
-static int distribute_list_prefix_unset(const char *ifname,
+static int distribute_list_prefix_unset(struct distribute_ctx *ctx,
+					const char *ifname,
 					enum distribute_type type,
 					const char *plist_name)
 {
 	struct distribute *dist;
 
-	dist = distribute_lookup(ifname);
+	dist = distribute_lookup(ctx, ifname);
 	if (!dist)
 		return 0;
 
@@ -232,10 +240,10 @@ static int distribute_list_prefix_unset(const char *ifname,
 	dist->prefix[type] = NULL;
 
 	/* Apply this distribute-list to the interface. */
-	(*distribute_delete_hook)(dist);
+	(ctx->distribute_delete_hook)(ctx, dist);
 
 	/* If all dist are NULL, then free distribute list. */
-	distribute_free_if_empty(dist);
+	distribute_free_if_empty(ctx, dist);
 	return 1;
 }
 
@@ -250,15 +258,17 @@ DEFUN (distribute_list,
        "Interface name\n")
 {
 	int prefix = (argv[1]->type == WORD_TKN) ? 1 : 0;
-
 	/* Check of distribute list type. */
 	enum distribute_type type = argv[2 + prefix]->arg[0] == 'i'
 					    ? DISTRIBUTE_V4_IN
 					    : DISTRIBUTE_V4_OUT;
 
 	/* Set appropriate function call */
-	void (*distfn)(const char *, enum distribute_type, const char *) =
+	void (*distfn)(struct distribute_ctx *, const char *,
+		       enum distribute_type, const char *) =
 		prefix ? &distribute_list_prefix_set : &distribute_list_set;
+	struct distribute_ctx *ctx =
+		(struct distribute_ctx *)listnode_head(dist_ctx_list);
 
 	/* if interface is present, get name */
 	const char *ifname = NULL;
@@ -266,7 +276,7 @@ DEFUN (distribute_list,
 		ifname = argv[argc - 1]->arg;
 
 	/* Get interface name corresponding distribute list. */
-	distfn(ifname, type, argv[1 + prefix]->arg);
+	distfn(ctx, ifname, type, argv[1 + prefix]->arg);
 
 	return CMD_SUCCESS;
 }
@@ -283,15 +293,16 @@ DEFUN (ipv6_distribute_list,
        "Interface name\n")
 {
 	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
-
 	/* Check of distribute list type. */
 	enum distribute_type type = argv[3 + prefix]->arg[0] == 'i'
 					    ? DISTRIBUTE_V6_IN
 					    : DISTRIBUTE_V6_OUT;
 
 	/* Set appropriate function call */
-	void (*distfn)(const char *, enum distribute_type, const char *) =
+	void (*distfn)(struct distribute_ctx *, const char *,
+		       enum distribute_type, const char *) =
 		prefix ? &distribute_list_prefix_set : &distribute_list_set;
+	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
 
 	/* if interface is present, get name */
 	const char *ifname = NULL;
@@ -299,7 +310,7 @@ DEFUN (ipv6_distribute_list,
 		ifname = argv[argc - 1]->arg;
 
 	/* Get interface name corresponding distribute list. */
-	distfn(ifname, type, argv[2 + prefix]->arg);
+	distfn(ctx, ifname, type, argv[2 + prefix]->arg);
 
 	return CMD_SUCCESS;
 }
@@ -316,7 +327,6 @@ DEFUN (no_distribute_list,
        "Interface name\n")
 {
 	int prefix = (argv[2]->type == WORD_TKN) ? 1 : 0;
-
 	int idx_alname = 2 + prefix;
 	int idx_disttype = idx_alname + 1;
 	enum distribute_type type =
@@ -324,16 +334,17 @@ DEFUN (no_distribute_list,
 		DISTRIBUTE_V4_IN : DISTRIBUTE_V4_OUT;
 
 	/* Set appropriate function call */
-	int (*distfn)(const char *, enum distribute_type,
-		      const char *) =
+	int (*distfn)(struct distribute_ctx *, const char *,
+		       enum distribute_type, const char *) =
 		prefix ? &distribute_list_prefix_unset : &distribute_list_unset;
+	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
 
 	/* if interface is present, get name */
 	const char *ifname = NULL;
 	if (argv[argc - 1]->type == VARIABLE_TKN)
 		ifname = argv[argc - 1]->arg;
 	/* Get interface name corresponding distribute list. */
-	int ret = distfn(ifname, type, argv[2 + prefix]->arg);
+	int ret = distfn(ctx, ifname, type, argv[2 + prefix]->arg);
 
 	if (!ret) {
 		vty_out(vty, "distribute list doesn't exist\n");
@@ -355,16 +366,17 @@ DEFUN (no_ipv6_distribute_list,
        "Interface name\n")
 {
 	int prefix = (argv[3]->type == WORD_TKN) ? 1 : 0;
-
 	int idx_alname = 3 + prefix;
 	int idx_disttype = idx_alname + 1;
 
 	enum distribute_type type =
 		argv[idx_disttype]->arg[0] == 'i' ?
 		DISTRIBUTE_V6_IN : DISTRIBUTE_V6_OUT;
+	struct distribute_ctx *ctx = listnode_head(dist_ctx_list);
 
 	/* Set appropriate function call */
-	int (*distfn)(const char *, enum distribute_type, const char *) =
+	int (*distfn)(struct distribute_ctx *, const char *,
+		       enum distribute_type, const char *) =
 		prefix ? &distribute_list_prefix_unset : &distribute_list_unset;
 
 	/* if interface is present, get name */
@@ -373,7 +385,7 @@ DEFUN (no_ipv6_distribute_list,
 	if (argv[argc - 1]->type == VARIABLE_TKN)
 		ifname = argv[argc - 1]->arg;
 	/* Get interface name corresponding distribute list. */
-	int ret = distfn(ifname, type, argv[3 + prefix]->arg);
+	int ret = distfn(ctx, ifname, type, argv[3 + prefix]->arg);
 
 	if (!ret) {
 		vty_out(vty, "distribute list doesn't exist\n");
@@ -393,7 +405,7 @@ static int distribute_print(struct vty *vty, char *tab[], int is_prefix,
 	return has_print;
 }
 
-int config_show_distribute(struct vty *vty)
+int config_show_distribute(struct vty *vty, struct distribute_ctx *dist_ctxt)
 {
 	unsigned int i;
 	int has_print = 0;
@@ -401,7 +413,7 @@ int config_show_distribute(struct vty *vty)
 	struct distribute *dist;
 
 	/* Output filter configuration. */
-	dist = distribute_lookup(NULL);
+	dist = distribute_lookup(dist_ctxt, NULL);
 	vty_out(vty, "  Outgoing update filter list for all interface is");
 	has_print = 0;
 	if (dist) {
@@ -419,8 +431,8 @@ int config_show_distribute(struct vty *vty)
 	else
 		vty_out(vty, " not set\n");
 
-	for (i = 0; i < disthash->size; i++)
-		for (mp = disthash->index[i]; mp; mp = mp->next) {
+	for (i = 0; i < dist_ctxt->disthash->size; i++)
+		for (mp = dist_ctxt->disthash->index[i]; mp; mp = mp->next) {
 			dist = mp->data;
 			if (dist->ifname) {
 				vty_out(vty, "    %s filtered by",
@@ -447,7 +459,7 @@ int config_show_distribute(struct vty *vty)
 
 
 	/* Input filter configuration. */
-	dist = distribute_lookup(NULL);
+	dist = distribute_lookup(dist_ctxt, NULL);
 	vty_out(vty, "  Incoming update filter list for all interface is");
 	has_print = 0;
 	if (dist) {
@@ -465,8 +477,8 @@ int config_show_distribute(struct vty *vty)
 	else
 		vty_out(vty, " not set\n");
 
-	for (i = 0; i < disthash->size; i++)
-		for (mp = disthash->index[i]; mp; mp = mp->next) {
+	for (i = 0; i < dist_ctxt->disthash->size; i++)
+		for (mp = dist_ctxt->disthash->index[i]; mp; mp = mp->next) {
 			dist = mp->data;
 			if (dist->ifname) {
 				vty_out(vty, "    %s filtered by",
@@ -494,7 +506,8 @@ int config_show_distribute(struct vty *vty)
 }
 
 /* Configuration write function. */
-int config_write_distribute(struct vty *vty)
+int config_write_distribute(struct vty *vty,
+			    struct distribute_ctx *dist_ctxt)
 {
 	unsigned int i;
 	int j;
@@ -502,8 +515,8 @@ int config_write_distribute(struct vty *vty)
 	struct hash_backet *mp;
 	int write = 0;
 
-	for (i = 0; i < disthash->size; i++)
-		for (mp = disthash->index[i]; mp; mp = mp->next) {
+	for (i = 0; i < dist_ctxt->disthash->size; i++)
+		for (mp = dist_ctxt->disthash->index[i]; mp; mp = mp->next) {
 			struct distribute *dist;
 
 			dist = mp->data;
@@ -543,19 +556,38 @@ int config_write_distribute(struct vty *vty)
 	return write;
 }
 
-/* Clear all distribute list. */
-void distribute_list_reset()
+void distribute_list_delete(struct distribute_ctx **ctx)
 {
-	hash_clean(disthash, (void (*)(void *))distribute_free);
+	if ((*ctx)->disthash) {
+		hash_clean((*ctx)->disthash, (void (*)(void *))distribute_free);
+	}
+	if (!dist_ctx_list)
+		dist_ctx_list = list_new();
+	listnode_delete(dist_ctx_list, *ctx);
+	if (list_isempty(dist_ctx_list))
+		list_delete(&dist_ctx_list);
+	XFREE(MTYPE_DISTRIBUTE_CTX, (*ctx));
 }
 
-/* Initialize distribute list related hash. */
-void distribute_list_init(int node)
+/* Initialize distribute list container */
+struct distribute_ctx *distribute_list_ctx_create(struct vrf *vrf)
 {
-	disthash = hash_create(
+	struct distribute_ctx *ctx;
+
+	ctx = XCALLOC(MTYPE_DISTRIBUTE_CTX, sizeof(struct distribute_ctx));
+	ctx->vrf = vrf;
+	ctx->disthash = hash_create(
 		distribute_hash_make,
 		(bool (*)(const void *, const void *))distribute_cmp, NULL);
+	if (!dist_ctx_list)
+		dist_ctx_list = list_new();
+	listnode_add(dist_ctx_list, ctx);
+	return ctx;
+}
 
+/* Initialize distribute list vty commands */
+void distribute_list_init(int node)
+{
 	/* vtysh command-extraction doesn't grok install_element(node, ) */
 	if (node == RIP_NODE) {
 		install_element(RIP_NODE, &distribute_list_cmd);
@@ -563,10 +595,7 @@ void distribute_list_init(int node)
 	} else if (node == RIPNG_NODE) {
 		install_element(RIPNG_NODE, &distribute_list_cmd);
 		install_element(RIPNG_NODE, &no_distribute_list_cmd);
-	}
-
-	/* install v6 */
-	if (node == RIPNG_NODE) {
+		/* install v6 */
 		install_element(RIPNG_NODE, &ipv6_distribute_list_cmd);
 		install_element(RIPNG_NODE, &no_ipv6_distribute_list_cmd);
 	}

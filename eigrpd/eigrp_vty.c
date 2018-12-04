@@ -174,7 +174,7 @@ static int config_write_eigrp_distribute(struct vty *vty, struct eigrp *eigrp)
 	int write = 0;
 
 	/* Distribute configuration. */
-	write += config_write_distribute(vty);
+	write += config_write_distribute(vty, eigrp->distribute_ctx);
 
 	return write;
 }
