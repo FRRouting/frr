@@ -42,6 +42,7 @@
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_flowspec_util.h"
 
 extern struct zclient *zclient;
 
@@ -533,7 +534,15 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 			     && (pi->sub_type == BGP_ROUTE_STATIC))
 				    ? 1
 				    : 0;
+	struct bgp_node *net = pi->net;
+	struct prefix *p_orig = &net->p;
 
+	if (p_orig->family == AF_FLOWSPEC) {
+		if (!pi->peer)
+			return -1;
+		return bgp_flowspec_get_first_nh(pi->peer->bgp,
+						 pi, p);
+	}
 	memset(p, 0, sizeof(struct prefix));
 	switch (afi) {
 	case AFI_IP:

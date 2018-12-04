@@ -290,4 +290,7 @@ extern void bgp_pbr_reset(struct bgp *bgp, afi_t afi);
 extern struct bgp_pbr_interface *bgp_pbr_interface_lookup(const char *name,
 				   struct bgp_pbr_interface_head *head);
 
+extern int bgp_pbr_build_and_validate_entry(struct prefix *p,
+					    struct bgp_path_info *path,
+					    struct bgp_pbr_entry_main *api);
 #endif /* __BGP_PBR_H__ */
