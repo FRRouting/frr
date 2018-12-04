@@ -67,9 +67,6 @@ struct vrrp_vrouter {
 	 */
 	struct list *v6;
 
-	/* Time between ADVERTISEMENTS (centiseconds) */
-	int advint;
-
 	/* Whether this VRRP Router is currently the master */
 	bool is_master;
 
@@ -150,6 +147,52 @@ void vrrp_init(void);
  * Create and register a new VRRP Virtual Router.
  */
 struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid);
+
+/*
+ * Destroy a VRRP Virtual Router.
+ */
+void vrrp_vrouter_destroy(struct vrrp_vrouter *vr);
+
+/*
+ * Sets advertisement_interval and master_adver_interval on a Virtual Router,
+ * then recalculates and sets skew_time and master_down_interval based on these
+ * values.
+ *
+ * vr
+ *    Virtual Router to operate on
+ *
+ * advertisement_interval
+ *    Advertisement_Interval to set
+ *
+ * master_adver_interval
+ *    Master_Adver_Interval to set
+ */
+void vrrp_update_times(struct vrrp_vrouter *vr, uint16_t advertisement_interval,
+		       uint16_t master_adver_interval);
+
+/*
+ * Change the priority of a VRRP Virtual Router.
+ *
+ * Recalculates timers using new priority.
+ *
+ * vr
+ *    Virtual Router to change priority of
+ *
+ * priority
+ *    New priority
+ */
+void vrrp_update_priority(struct vrrp_vrouter *vr, uint8_t priority);
+
+/*
+ * Add IPv4 address to a VRRP Virtual Router
+ *
+ * vr
+ *    Virtual Router to add IPv4 address to
+ *
+ * v4
+ *    Address to add
+ */
+void vrrp_add_ip(struct vrrp_vrouter *vr, struct in_addr v4);
 
 /*
  * Find VRRP Virtual Router by Virtual Router ID

@@ -58,21 +58,7 @@ static void vrrp_mac_set(struct ethaddr *mac, bool v6, uint8_t vrid)
 	mac->octet[5] = vrid;
 }
 
-/*
- * Sets advertisement_interval and master_adver_interval on a Virtual Router,
- * then recalculates and sets skew_time and master_down_interval based on these
- * values.
- *
- * vr
- *    Virtual Router to operate on
- *
- * advertisement_interval
- *    Advertisement_Interval to set
- *
- * master_adver_interval
- *    Master_Adver_Interval to set
- */
-static void vrrp_update_times(struct vrrp_vrouter *vr, uint16_t advertisement_interval,
+void vrrp_update_times(struct vrrp_vrouter *vr, uint16_t advertisement_interval,
 		       uint16_t master_adver_interval)
 {
 	vr->advertisement_interval = advertisement_interval;
@@ -81,6 +67,25 @@ static void vrrp_update_times(struct vrrp_vrouter *vr, uint16_t advertisement_in
 	vr->skew_time /= 256;
 	vr->master_down_interval = (3 * vr->master_adver_interval);
 	vr->master_down_interval /= 256;
+}
+
+void vrrp_update_priority(struct vrrp_vrouter *vr, uint8_t priority)
+{
+	if (vr->priority == priority)
+		return;
+
+	vr->priority = priority;
+	/* Timers depend on priority value, need to recalculate them */
+	vrrp_update_times(vr, vr->advertisement_interval,
+			  vr->master_adver_interval);
+}
+
+void vrrp_add_ip(struct vrrp_vrouter *vr, struct in_addr v4)
+{
+	struct in_addr *v4_ins = XCALLOC(MTYPE_TMP, sizeof(struct in_addr));
+
+	*v4_ins = v4;
+	listnode_add(vr->v4, v4_ins);
 }
 
 struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid)
@@ -93,7 +98,6 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid)
 	vr->vrid = vrid;
 	vr->v4 = list_new();
 	vr->v6 = list_new();
-	vr->advint = VRRP_DEFAULT_ADVINT;
 	vr->is_master = false;
 	vr->priority = VRRP_DEFAULT_PRIORITY;
 	vr->advertisement_interval = VRRP_DEFAULT_ADVINT;
@@ -109,6 +113,17 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid)
 	hash_get(vrrp_vrouters_hash, vr, hash_alloc_intern);
 
 	return vr;
+}
+
+void vrrp_vrouter_destroy(struct vrrp_vrouter *vr)
+{
+	if (vr->sock >= 0)
+		close(vr->sock);
+	vr->ifp = NULL;
+	list_delete(&vr->v4);
+	list_delete(&vr->v6);
+	hash_release(vrrp_vrouters_hash, vr);
+	XFREE(MTYPE_TMP, vr);
 }
 
 struct vrrp_vrouter *vrrp_lookup(uint8_t vrid)
@@ -302,7 +317,7 @@ static int vrrp_startup(struct vrrp_vrouter *vr)
 
 	if (vr->priority == VRRP_PRIO_MASTER) {
 		vrrp_send_advertisement(vr);
-		/* vrrp_garp_send(vr); */
+		vrrp_garp_send_all(vr);
 
 		thread_add_timer_msec(master, vrrp_adver_timer_expire, vr,
 				      vr->advertisement_interval * 10,
@@ -360,7 +375,7 @@ static bool vrrp_hash_cmp(const void *arg1, const void *arg2)
 	const struct vrrp_vrouter *vr1 = arg1;
 	const struct vrrp_vrouter *vr2 = arg2;
 
-	return vr1->vrid > vr2->vrid;
+	return vr1->vrid == vr2->vrid;
 }
 
 void vrrp_init(void)

@@ -93,18 +93,18 @@ static ssize_t vrrp_build_garp(uint8_t *buf, struct interface *ifp,
 	arph->ar_hln = ifp->hw_addr_len;
 	arph->ar_pln = sizeof(struct in_addr);
 	arph->ar_op = htons(ARPOP_REQUEST);
-	arp_ptr = (uint8_t *)(arph + sizeof(struct arphdr));
+	arp_ptr = (uint8_t *)(arph + 1);
 	/* Source MAC: us */
 	memcpy(arp_ptr, ifp->hw_addr, ifp->hw_addr_len);
 	arp_ptr += ifp->hw_addr_len;
 	/* Source IP: us */
-	memcpy(arp_ptr, &v4, sizeof(struct in_addr));
+	memcpy(arp_ptr, v4, sizeof(struct in_addr));
 	arp_ptr += sizeof(struct in_addr);
 	/* Dest MAC: broadcast */
 	memset(arp_ptr, 0xFF, ETH_ALEN);
 	arp_ptr += ifp->hw_addr_len;
 	/* Dest IP: us */
-	memcpy(arp_ptr, &v4, sizeof(struct in_addr));
+	memcpy(arp_ptr, v4, sizeof(struct in_addr));
 	arp_ptr += sizeof(struct in_addr);
 
 	return arp_ptr - buf;
