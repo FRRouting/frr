@@ -163,11 +163,16 @@ void vrrp_garp_init(void)
 {
 	/* Create the socket descriptor */
 	/* FIXME: why ETH_P_RARP? */
-	garp_fd = socket(PF_PACKET, SOCK_RAW | SOCK_CLOEXEC, htons(ETH_P_RARP));
+	errno = 0;
+	frr_elevate_privs(&vrrp_privs) {
+		garp_fd = socket(PF_PACKET, SOCK_RAW | SOCK_CLOEXEC,
+				 htons(ETH_P_RARP));
+	}
 
 	if (garp_fd > 0)
 		zlog_info("Initialized gratuitous ARP socket");
 	else {
+		perror("Error initializing gratuitous ARP socket");
 		zlog_err("Error initializing gratuitous ARP socket");
 		return;
 	}
@@ -177,4 +182,9 @@ void vrrp_garp_fini(void)
 {
 	close(garp_fd);
 	garp_fd = -1;
+}
+
+bool vrrp_garp_is_init(void)
+{
+	return garp_fd > 0;
 }

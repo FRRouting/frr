@@ -80,6 +80,5 @@ void vrrp_vty_init(void)
 	install_node(&interface_node, NULL);
 	if_cmd_init();
 	install_element(VIEW_NODE, &show_debugging_vrrpd_cmd);
-	install_element(ENABLE_NODE, &show_debugging_vrrpd_cmd);
 	install_element(INTERFACE_NODE, &vrrp_vrid_cmd);
 }

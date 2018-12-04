@@ -40,6 +40,7 @@
 char backup_config_file[256];
 
 zebra_capabilities_t _caps_p[] = {
+	ZCAP_NET_RAW,
 };
 
 struct zebra_privs_t vrrp_privs = {

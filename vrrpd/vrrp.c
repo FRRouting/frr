@@ -19,15 +19,16 @@
  */
 #include <zebra.h>
 
-#include "memory.h"
-#include "if.h"
-#include "linklist.h"
-#include "prefix.h"
-#include "hash.h"
-#include "vrf.h"
-#include "hook.h"
+#include "lib/memory.h"
+#include "lib/if.h"
+#include "lib/linklist.h"
+#include "lib/prefix.h"
+#include "lib/hash.h"
+#include "lib/vrf.h"
+#include "lib/hook.h"
 
 #include "vrrp.h"
+#include "vrrp_arp.h"
 
 /* Utility functions ------------------------------------------------------- */
 
@@ -151,11 +152,13 @@ static int vrrp_socket(struct vrrp_vrouter *vr)
 	int ret;
 	struct connected *c;
 
-	vr->sock = socket(AF_INET, SOCK_RAW, IPPROTO_VRRP);
-
-	if (vr->sock < 0) {
-		/* FIXME */
+	errno = 0;
+	frr_elevate_privs(&vrrp_privs) {
+		vr->sock = socket(AF_INET, SOCK_RAW, IPPROTO_VRRP);
 	}
+
+	if (vr->sock < 0)
+		perror("Error opening VRRP socket");
 
 	/* Join the multicast group.*/
 
@@ -283,6 +286,10 @@ static int vrrp_master_down_timer_expire(struct thread *thread)
  */
 static int vrrp_startup(struct vrrp_vrouter *vr)
 {
+	/* Initialize global gratuitous ARP socket if necessary */
+	if (!vrrp_garp_is_init())
+		vrrp_garp_init();
+
 	/* Create socket */
 	int ret = vrrp_socket(vr);
 	if (ret < 0) {
@@ -295,7 +302,7 @@ static int vrrp_startup(struct vrrp_vrouter *vr)
 
 	if (vr->priority == VRRP_PRIO_MASTER) {
 		vrrp_send_advertisement(vr);
-		/* FIXME: vrrp_send_gratuitous_arp(vr); */
+		/* vrrp_garp_send(vr); */
 
 		thread_add_timer_msec(master, vrrp_adver_timer_expire, vr,
 				      vr->advertisement_interval * 10,
