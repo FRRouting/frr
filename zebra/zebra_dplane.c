@@ -102,6 +102,23 @@ struct dplane_route_info {
 };
 
 /*
+ * Pseudowire info for the dataplane
+ */
+struct dplane_pw_info {
+	char ifname[IF_NAMESIZE];
+	ifindex_t ifindex;
+	int type;
+	int af;
+	int status;
+	uint32_t flags;
+	union g_addr nexthop;
+	mpls_label_t local_label;
+	mpls_label_t remote_label;
+
+	union pw_protocol_fields fields;
+};
+
+/*
  * The context block used to exchange info about route updates across
  * the boundary between the zebra main context (and pthread) and the
  * dataplane layer (and pthread).
@@ -136,6 +153,7 @@ struct zebra_dplane_ctx {
 	union {
 		struct dplane_route_info rinfo;
 		zebra_lsp_t lsp;
+		struct dplane_pw_info pw;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -733,6 +751,71 @@ uint32_t dplane_ctx_get_lsp_num_ecmp(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.lsp.num_ecmp;
+}
+
+const char *dplane_ctx_get_pw_ifname(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.pw.ifname;
+}
+
+mpls_label_t dplane_ctx_get_pw_local_label(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.pw.local_label;
+}
+
+mpls_label_t dplane_ctx_get_pw_remote_label(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.pw.remote_label;
+}
+
+int dplane_ctx_get_pw_type(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.pw.type;
+}
+
+int dplane_ctx_get_pw_af(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.pw.af;
+}
+
+uint32_t dplane_ctx_get_pw_flags(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.pw.flags;
+}
+
+int dplane_ctx_get_pw_status(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.pw.status;
+}
+
+const union g_addr *dplane_ctx_get_pw_nexthop(
+	const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.pw.nexthop);
+}
+
+const union pw_protocol_fields *dplane_ctx_get_pw_proto(
+	const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.pw.fields);
 }
 
 /*
