@@ -71,7 +71,7 @@ void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
 	}
 
 	change = &vty->cfg_changes[vty->num_cfg_changes++];
-	change->xpath = xpath;
+	strlcpy(change->xpath, xpath, sizeof(change->xpath));
 	change->operation = operation;
 	change->value = value;
 }

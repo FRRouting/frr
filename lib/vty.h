@@ -43,7 +43,7 @@ struct vty_error {
 };
 
 struct vty_cfg_change {
-	const char *xpath;
+	char xpath[XPATH_MAXLEN];
 	enum nb_operation operation;
 	const char *value;
 };
