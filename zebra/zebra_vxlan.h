@@ -90,6 +90,10 @@ extern void zebra_vxlan_print_macs_all_vni(struct vty *vty,
 					   struct zebra_vrf *zvrf,
 					   bool print_dup,
 					   bool use_json);
+extern void zebra_vxlan_print_macs_all_vni_detail(struct vty *vty,
+						  struct zebra_vrf *zvrf,
+						  bool print_dup,
+						  bool use_json);
 extern void zebra_vxlan_print_macs_all_vni_vtep(struct vty *vty,
 						struct zebra_vrf *zvrf,
 						struct in_addr vtep_ip,
