@@ -76,10 +76,19 @@ Overview of changes
 The changes are in both BGP and Zebra modules.  The short summary is
 the following:
 
+- Nexthop information is indexed per (nexthop VRF, prefix VRF,
+  AF) tuple. The reason is that it permits for a defined prefix VRF
+  to know which path to use when crossing vrf route leak, to reach its
+  nexthop. Actually, when vrf backend is not Linux vrf-lite, the
+  nexthop information is calculated from the prefix vrf table.
+
 - Zebra implements a registration mechanism by which clients can
   register for next hop notification. Consequently, it maintains a
-  separate table, per (VRF, AF) pair, of next hops and interested
-  client-list per next hop.
+  separate table, per (VRF nexthop prefix, VRF prefix, AF) tuple,
+  of next hops and interested client-list per next hop.
+
+- BGP implements separate table, per (VRF nexthop prefix, VRF prefix,
+  AF) tuple, of next hops.
 
 - When the main routing table changes in Zebra, it evaluates the next
   hop table: for each next hop, it checks if the route table
@@ -193,6 +202,8 @@ encoded in the following way:
     .      Nexthop prefix                                           .
     .                                                               .
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    . VRF ID from prefix  |
+    +-+-+-+-+-+-+-+-+-+-+-+
     .                                                               .
     .                                                               .
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -201,6 +212,8 @@ encoded in the following way:
     .      Nexthop prefix                                           .
     .                                                               .
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    . VRF ID from prefix  |
+    +-+-+-+-+-+-+-+-+-+-+-+
 
 
 ``ZEBRA_NEXTHOP_UPDATE`` message is encoded as follows:
@@ -215,7 +228,7 @@ encoded in the following way:
     .      Nexthop prefix getting resolved                          .
     .                                                               .
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |        metric                                                 |
+    | VRF ID from prefix  | type, instance, metric, distance        |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |  #nexthops    |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
