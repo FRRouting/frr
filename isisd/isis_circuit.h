@@ -67,6 +67,11 @@ struct isis_p2p_info {
 
 struct bfd_info;
 
+struct isis_circuit_arg {
+	int level;
+	struct isis_circuit *circuit;
+};
+
 struct isis_circuit {
 	int state;
 	uint8_t circuit_id;	  /* l1/l2 bcast CircuitID */
@@ -83,6 +88,7 @@ struct isis_circuit {
 	struct thread *t_send_psnp[2];
 	struct thread *t_send_lsp;
 	struct isis_tx_queue *tx_queue;
+	struct isis_circuit_arg level_arg[2]; /* used as argument for threads */
 
 	/* there is no real point in two streams, just for programming kicker */
 	int (*rx)(struct isis_circuit *circuit, uint8_t *ssnpa);

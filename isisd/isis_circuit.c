@@ -89,6 +89,8 @@ struct isis_circuit *isis_circuit_new()
 		circuit->priority[i] = DEFAULT_PRIORITY;
 		circuit->metric[i] = DEFAULT_CIRCUIT_METRIC;
 		circuit->te_metric[i] = DEFAULT_CIRCUIT_METRIC;
+		circuit->level_arg[i].level = i + 1;
+		circuit->level_arg[i].circuit = circuit;
 	}
 
 	circuit->mtc = mpls_te_circuit_new();
@@ -613,37 +615,27 @@ int isis_circuit_up(struct isis_circuit *circuit)
 
 		/* 8.4.1 a) commence sending of IIH PDUs */
 
-		if (circuit->is_type & IS_LEVEL_1) {
-			thread_add_event(master, send_lan_l1_hello, circuit, 0,
-					 NULL);
-			circuit->u.bc.lan_neighs[0] = list_new();
-		}
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+			if (!(circuit->is_type & level))
+				continue;
 
-		if (circuit->is_type & IS_LEVEL_2) {
-			thread_add_event(master, send_lan_l2_hello, circuit, 0,
-					 NULL);
-			circuit->u.bc.lan_neighs[1] = list_new();
+			send_hello_sched(circuit, level, TRIGGERED_IIH_DELAY);
+			circuit->u.bc.lan_neighs[level - 1] = list_new();
+
+			thread_add_timer(master, isis_run_dr,
+					 &circuit->level_arg[level - 1],
+					 2 * circuit->hello_interval[level - 1],
+					 &circuit->u.bc.t_run_dr[level - 1]);
 		}
 
 		/* 8.4.1 b) FIXME: solicit ES - 8.4.6 */
 		/* 8.4.1 c) FIXME: listen for ESH PDUs */
-
-		/* 8.4.1 d) */
-		/* dr election will commence in... */
-		if (circuit->is_type & IS_LEVEL_1)
-			thread_add_timer(master, isis_run_dr_l1, circuit,
-					 2 * circuit->hello_interval[0],
-					 &circuit->u.bc.t_run_dr[0]);
-		if (circuit->is_type & IS_LEVEL_2)
-			thread_add_timer(master, isis_run_dr_l2, circuit,
-					 2 * circuit->hello_interval[1],
-					 &circuit->u.bc.t_run_dr[1]);
 	} else if (circuit->circ_type == CIRCUIT_T_P2P) {
 		/* initializing the hello send threads
 		 * for a ptp IF
 		 */
 		circuit->u.p2p.neighbor = NULL;
-		thread_add_event(master, send_p2p_hello, circuit, 0, NULL);
+		send_hello_sched(circuit, 0, TRIGGERED_IIH_DELAY);
 	}
 
 	/* initializing PSNP timers */

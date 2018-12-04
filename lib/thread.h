@@ -217,6 +217,7 @@ extern struct thread *thread_fetch(struct thread_master *, struct thread *);
 extern void thread_call(struct thread *);
 extern unsigned long thread_timer_remain_second(struct thread *);
 extern struct timeval thread_timer_remain(struct thread *);
+extern unsigned long thread_timer_remain_msec(struct thread *);
 extern int thread_should_yield(struct thread *);
 /* set yield time for thread */
 extern void thread_set_yield_time(struct thread *, unsigned long);

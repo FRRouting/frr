@@ -77,47 +77,29 @@ void isis_event_circuit_state_change(struct isis_circuit *circuit,
 
 static void circuit_commence_level(struct isis_circuit *circuit, int level)
 {
-	if (level == 1) {
-		if (!circuit->is_passive)
+	if (!circuit->is_passive) {
+		if (level == 1) {
 			thread_add_timer(master, send_l1_psnp, circuit,
 					 isis_jitter(circuit->psnp_interval[0],
 						     PSNP_JITTER),
 					 &circuit->t_send_psnp[0]);
-
-		if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-			thread_add_timer(master, isis_run_dr_l1, circuit,
-					 2 * circuit->hello_interval[0],
-					 &circuit->u.bc.t_run_dr[0]);
-
-			thread_add_timer(master, send_lan_l1_hello, circuit,
-					 isis_jitter(circuit->hello_interval[0],
-						     IIH_JITTER),
-					 &circuit->u.bc.t_send_lan_hello[0]);
-
-			circuit->u.bc.lan_neighs[0] = list_new();
-		}
-	} else {
-		if (!circuit->is_passive)
+		} else {
 			thread_add_timer(master, send_l2_psnp, circuit,
 					 isis_jitter(circuit->psnp_interval[1],
 						     PSNP_JITTER),
 					 &circuit->t_send_psnp[1]);
-
-		if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-			thread_add_timer(master, isis_run_dr_l2, circuit,
-					 2 * circuit->hello_interval[1],
-					 &circuit->u.bc.t_run_dr[1]);
-
-			thread_add_timer(master, send_lan_l2_hello, circuit,
-					 isis_jitter(circuit->hello_interval[1],
-						     IIH_JITTER),
-					 &circuit->u.bc.t_send_lan_hello[1]);
-
-			circuit->u.bc.lan_neighs[1] = list_new();
 		}
 	}
 
-	return;
+	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+		thread_add_timer(master, isis_run_dr,
+				 &circuit->level_arg[level - 1],
+				 2 * circuit->hello_interval[level - 1],
+				 &circuit->u.bc.t_run_dr[level - 1]);
+
+		send_hello_sched(circuit, level, TRIGGERED_IIH_DELAY);
+		circuit->u.bc.lan_neighs[level - 1] = list_new();
+	}
 }
 
 static void circuit_resign_level(struct isis_circuit *circuit, int level)

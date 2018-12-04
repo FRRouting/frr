@@ -60,6 +60,9 @@ class json_cmp_result(object):
         "Returns True if there were errors, otherwise False."
         return len(self.errors) > 0
 
+    def __str__(self):
+        return '\n'.join(self.errors)
+
 def get_test_logdir(node=None, init=False):
     """
     Return the current test log directory based on PYTEST_CURRENT_TEST

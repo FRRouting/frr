@@ -62,35 +62,28 @@ const char *isis_disflag2string(int disflag)
 	return NULL; /* not reached */
 }
 
-int isis_run_dr_l1(struct thread *thread)
+int isis_run_dr(struct thread *thread)
 {
-	struct isis_circuit *circuit;
+	struct isis_circuit_arg *arg = THREAD_ARG(thread);
 
-	circuit = THREAD_ARG(thread);
+	assert(arg);
+
+	struct isis_circuit *circuit = arg->circuit;
+	int level = arg->level;
+
 	assert(circuit);
 
-	if (circuit->u.bc.run_dr_elect[0])
-		zlog_warn("isis_run_dr(): run_dr_elect already set for l1");
+	if (circuit->circ_type != CIRCUIT_T_BROADCAST) {
+		zlog_warn("%s: scheduled for non broadcast circuit from %s:%d",
+			  __func__, thread->schedfrom, thread->schedfrom_line);
+		return ISIS_WARNING;
+	}
 
-	circuit->u.bc.t_run_dr[0] = NULL;
-	circuit->u.bc.run_dr_elect[0] = 1;
+	if (circuit->u.bc.run_dr_elect[level - 1])
+		zlog_warn("isis_run_dr(): run_dr_elect already set for l%d", level);
 
-	return ISIS_OK;
-}
-
-int isis_run_dr_l2(struct thread *thread)
-{
-	struct isis_circuit *circuit;
-
-	circuit = THREAD_ARG(thread);
-	assert(circuit);
-
-	if (circuit->u.bc.run_dr_elect[1])
-		zlog_warn("isis_run_dr(): run_dr_elect already set for l2");
-
-
-	circuit->u.bc.t_run_dr[1] = NULL;
-	circuit->u.bc.run_dr_elect[1] = 1;
+	circuit->u.bc.t_run_dr[level - 1] = NULL;
+	circuit->u.bc.run_dr_elect[level - 1] = 1;
 
 	return ISIS_OK;
 }
@@ -241,12 +234,6 @@ int isis_dr_resign(struct isis_circuit *circuit, int level)
 	if (level == 1) {
 		memset(circuit->u.bc.l1_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 
-		THREAD_TIMER_OFF(circuit->t_send_csnp[0]);
-
-		thread_add_timer(master, isis_run_dr_l1, circuit,
-				 2 * circuit->hello_interval[0],
-				 &circuit->u.bc.t_run_dr[0]);
-
 		thread_add_timer(master, send_l1_psnp, circuit,
 				 isis_jitter(circuit->psnp_interval[level - 1],
 					     PSNP_JITTER),
@@ -254,17 +241,19 @@ int isis_dr_resign(struct isis_circuit *circuit, int level)
 	} else {
 		memset(circuit->u.bc.l2_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 
-		THREAD_TIMER_OFF(circuit->t_send_csnp[1]);
-
-		thread_add_timer(master, isis_run_dr_l2, circuit,
-				 2 * circuit->hello_interval[1],
-				 &circuit->u.bc.t_run_dr[1]);
-
 		thread_add_timer(master, send_l2_psnp, circuit,
 				 isis_jitter(circuit->psnp_interval[level - 1],
 					     PSNP_JITTER),
 				 &circuit->t_send_psnp[1]);
 	}
+
+	THREAD_TIMER_OFF(circuit->t_send_csnp[level - 1]);
+
+	thread_add_timer(master, isis_run_dr,
+			 &circuit->level_arg[level - 1],
+			 2 * circuit->hello_interval[level - 1],
+			 &circuit->u.bc.t_run_dr[level - 1]);
+
 
 	thread_add_event(master, isis_event_dis_status_change, circuit, 0,
 			 NULL);
@@ -281,14 +270,6 @@ int isis_dr_commence(struct isis_circuit *circuit, int level)
 
 	/* Lets keep a pause in DR election */
 	circuit->u.bc.run_dr_elect[level - 1] = 0;
-	if (level == 1)
-		thread_add_timer(master, isis_run_dr_l1, circuit,
-				 2 * circuit->hello_interval[0],
-				 &circuit->u.bc.t_run_dr[0]);
-	else
-		thread_add_timer(master, isis_run_dr_l2, circuit,
-				 2 * circuit->hello_interval[1],
-				 &circuit->u.bc.t_run_dr[1]);
 	circuit->u.bc.is_dr[level - 1] = 1;
 
 	if (level == 1) {
@@ -306,11 +287,6 @@ int isis_dr_commence(struct isis_circuit *circuit, int level)
 		/*    if (circuit->t_send_l1_psnp)
 		   thread_cancel (circuit->t_send_l1_psnp); */
 		lsp_generate_pseudo(circuit, 1);
-
-		THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[0]);
-		thread_add_timer(master, isis_run_dr_l1, circuit,
-				 2 * circuit->hello_interval[0],
-				 &circuit->u.bc.t_run_dr[0]);
 
 		thread_add_timer(master, send_l1_csnp, circuit,
 				 isis_jitter(circuit->csnp_interval[level - 1],
@@ -333,17 +309,16 @@ int isis_dr_commence(struct isis_circuit *circuit, int level)
 		   thread_cancel (circuit->t_send_l1_psnp); */
 		lsp_generate_pseudo(circuit, 2);
 
-		THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[1]);
-		thread_add_timer(master, isis_run_dr_l2, circuit,
-				 2 * circuit->hello_interval[1],
-				 &circuit->u.bc.t_run_dr[1]);
-
 		thread_add_timer(master, send_l2_csnp, circuit,
 				 isis_jitter(circuit->csnp_interval[level - 1],
 					     CSNP_JITTER),
 				 &circuit->t_send_csnp[1]);
 	}
 
+	thread_add_timer(master, isis_run_dr,
+			 &circuit->level_arg[level - 1],
+			 2 * circuit->hello_interval[level - 1],
+			 &circuit->u.bc.t_run_dr[level - 1]);
 	thread_add_event(master, isis_event_dis_status_change, circuit, 0,
 			 NULL);
 
