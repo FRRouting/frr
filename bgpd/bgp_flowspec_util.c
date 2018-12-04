@@ -23,6 +23,7 @@
 #include "prefix.h"
 #include "lib_errors.h"
 
+#include "bgp_route.h"
 #include "bgp_table.h"
 #include "bgp_flowspec_util.h"
 #include "bgp_flowspec_private.h"
@@ -580,4 +581,28 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 		}
 	}
 	return error;
+}
+
+/* return 1 if FS entry invalid or no NH IP */
+int bgp_flowspec_get_first_nh(struct bgp *bgp, struct bgp_path_info *pi,
+			      struct prefix *p)
+{
+	struct bgp_pbr_entry_main api;
+	int i;
+	struct bgp_node *rn = pi->net;
+	struct bgp_pbr_entry_action *api_action;
+
+	memset(&api, 0, sizeof(struct bgp_pbr_entry_main));
+	if (bgp_pbr_build_and_validate_entry(&rn->p, pi, &api) < 0)
+		return 1;
+	for (i = 0; i < api.action_num; i++) {
+		api_action = &api.actions[i];
+		if (api_action->action != ACTION_REDIRECT_IP)
+			continue;
+		p->family = AF_INET;
+		p->prefixlen = IPV4_MAX_BITLEN;
+		p->u.prefix4 = api_action->u.zr.redirect_ip_v4;
+		return 0;
+	}
+	return 1;
 }
