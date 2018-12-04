@@ -38,6 +38,9 @@
 /* threadmaster */
 extern struct thread_master *master;
 
+/* privileges */
+extern struct zebra_privs_t vrrp_privs;
+
 /* Global hash of all Virtual Routers */
 struct hash *vrrp_vrouters_hash;
 
