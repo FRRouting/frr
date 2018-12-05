@@ -415,7 +415,8 @@ void if_get_flags(struct interface *ifp)
 		strncpy(ifmr.ifm_name, ifp->name, IFNAMSIZ);
 
 		/* Seems not all interfaces implement this ioctl */
-		if (if_ioctl(SIOCGIFMEDIA, (caddr_t)&ifmr) < 0)
+		if (if_ioctl(SIOCGIFMEDIA, (caddr_t)&ifmr) == -1 &&
+		    errno != EINVAL)
 			flog_err_sys(EC_LIB_SYSTEM_CALL,
 				     "if_ioctl(SIOCGIFMEDIA) failed: %s",
 				     safe_strerror(errno));
