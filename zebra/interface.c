@@ -954,6 +954,7 @@ void if_up(struct interface *ifp)
 		if (link_if)
 			zebra_vxlan_svi_up(ifp, link_if);
 	}
+	zebra_vrf_route_leak_interface_updated(zvrf, ifp);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -1001,6 +1002,8 @@ void if_down(struct interface *ifp)
 
 	/* Delete all neighbor addresses learnt through IPv6 RA */
 	if_down_del_nbr_connected(ifp);
+
+	zebra_vrf_route_leak_interface_updated(zvrf, ifp);
 }
 
 void if_refresh(struct interface *ifp)

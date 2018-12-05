@@ -40,6 +40,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_netns_notify.h"
+#include "zebra/zebra_rnh.h"
 
 extern struct zebra_t zebrad;
 
@@ -560,4 +561,21 @@ void zebra_vrf_init(void)
 		 zebra_vrf_delete);
 
 	vrf_cmd_init(vrf_config_write, &zserv_privs);
+}
+
+void zebra_vrf_route_leak_interface_updated(struct zebra_vrf *zvrf,
+					    struct interface *ifp)
+{
+	if (!zvrf->vrf)
+		return;
+	if (ROUTE_LEAK_VRF_NETNS_MAYBE ==
+	    vrf_route_leak_possible(zvrf->vrf->vrf_id,
+				    VRF_UNKNOWN, ifp, NULL)) {
+		zebra_evaluate_rnh(zvrf_id(zvrf), AF_INET,
+				   0, RNH_NEXTHOP_TYPE,
+				   NULL);
+		zebra_evaluate_rnh(zvrf_id(zvrf), AF_INET6,
+				   0, RNH_NEXTHOP_TYPE,
+				   NULL);
+	}
 }
