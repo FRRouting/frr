@@ -550,11 +550,8 @@ static void rfapiBgpInfoFree(struct bgp_path_info *goner)
 	if (goner->attr) {
 		bgp_attr_unintern(&goner->attr);
 	}
-	if (goner->extra) {
-		assert(!goner->extra->damp_info); /* Not used in import tbls */
-		XFREE(MTYPE_BGP_ROUTE_EXTRA, goner->extra);
-		goner->extra = NULL;
-	}
+	if (goner->extra)
+		bgp_path_info_extra_free(&goner->extra);
 	XFREE(MTYPE_BGP_ROUTE, goner);
 }
 
