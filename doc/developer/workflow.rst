@@ -216,6 +216,12 @@ License for Contributions
 FRR is under a “GPLv2 or later” license. Any code submitted must be released
 under the same license (preferred) or any license which allows redistribution
 under this GPLv2 license (eg MIT License).
+It is forbidden to push any code that prevents from using GPLv3 license. This
+becomes a community rule, as FRR produces binaries that links with Apache 2.0
+libraries. Apache 2.0 and GPLv2 license are incompatible, if put together.
+Please see `<http://www.apache.org/licenses/GPL-compatibility.html>`_ for
+more information. This rule guarantees the user to distribute FRR binary code
+without any licensing issues.
 
 Pre-submission Checklist
 ------------------------
