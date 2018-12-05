@@ -746,15 +746,14 @@ static void vty_show_ip_route_detail_json(struct vty *vty,
 	char buf[BUFSIZ];
 
 	json = json_object_new_object();
+	json_prefix = json_object_new_array();
 
 	RNODE_FOREACH_RE (rn, re) {
-		json_prefix = json_object_new_array();
 		vty_show_ip_route(vty, rn, re, json_prefix);
-		prefix2str(&rn->p, buf, sizeof buf);
-		json_object_object_add(json, buf, json_prefix);
-		json_prefix = NULL;
 	}
 
+	prefix2str(&rn->p, buf, sizeof(buf));
+	json_object_object_add(json, buf, json_prefix);
 	vty_out(vty, "%s\n", json_object_to_json_string_ext(
 					     json, JSON_C_TO_STRING_PRETTY));
 	json_object_free(json);
