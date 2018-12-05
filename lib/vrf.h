@@ -250,6 +250,8 @@ int vrf_is_mapped_on_netns(struct vrf *vrf);
 int vrf_route_leak_possible(vrf_id_t vrf_id_orig,
 			    vrf_id_t vrf_id_target,
 			    ifindex_t *ifindex);
+int vrf_route_leak_interface_possible(vrf_id_t vrf_id_orig,
+				      struct interface *ifp);
 
 /* VRF switch from NETNS */
 extern int vrf_switch_to_netns(vrf_id_t vrf_id);

@@ -41,6 +41,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_netns_notify.h"
 #include "zebra/zebra_routemap.h"
+#include "zebra/zebra_rnh.h"
 
 extern struct zebra_t zebrad;
 
@@ -503,4 +504,25 @@ void zebra_vrf_init(void)
 		 zebra_vrf_delete, zebra_vrf_update);
 
 	vrf_cmd_init(vrf_config_write, &zserv_privs);
+}
+
+void zebra_vrf_route_leak_interface_updated(struct zebra_vrf *zvrf,
+					    struct interface *ifp)
+{
+	int ret;
+
+	if (!IS_ZEBRA_IF_VETH(ifp))
+		return;
+	if (!zvrf->vrf)
+		return;
+	ret = vrf_route_leak_interface_possible(zvrf->vrf->vrf_id, ifp);
+	if (ret == ROUTE_LEAK_VRF_NETNS_MAYBE ||
+	    ret == ROUTE_LEAK_VRF_NETNS_POSSIBLE) {
+		zebra_evaluate_rnh(zvrf_id(zvrf), AF_INET,
+				   0, RNH_NEXTHOP_TYPE,
+				   NULL);
+		zebra_evaluate_rnh(zvrf_id(zvrf), AF_INET6,
+				   0, RNH_NEXTHOP_TYPE,
+				   NULL);
+	}
 }

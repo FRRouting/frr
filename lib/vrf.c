@@ -848,6 +848,24 @@ int vrf_route_leak_possible(vrf_id_t vrf_id_orig,
 	return ret;
 }
 
+/* checks if an interface possibly can be used for crossing vrfs
+ * if vrf backend is netns based vrf
+ * return:
+ * - ROUTE_LEAK_VRF_LITE_POSSIBLE
+ *    if vrf route leak is possible, because it is vrf lite
+ * - ROUTE_LEAK_VRF_NETNS_POSSIBLE
+ *    if vrf is netns based and virtual ethernet is available and up
+ * - ROUTE_LEAK_VRF_NETNS_MAYBE
+ *    if interfaces for veth are present, but status of interface is not up
+ * - ROUTE_LEAK_VRF_NOT_POSSIBLE on other cases
+ */
+int vrf_route_leak_interface_possible(vrf_id_t vrf_id_orig,
+				      struct interface *ifp)
+{
+	return vrf_route_leak_internal_possible(vrf_id_orig, VRF_UNKNOWN,
+				       ifp, NULL);
+}
+
 int vrf_is_mapped_on_netns(struct vrf *vrf)
 {
 	if (!vrf || vrf->data.l.netns_name[0] == '\0')
