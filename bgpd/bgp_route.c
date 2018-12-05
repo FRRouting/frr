@@ -176,7 +176,7 @@ static struct bgp_path_info_extra *bgp_path_info_extra_new(void)
 	return new;
 }
 
-static void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
+void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 {
 	struct bgp_path_info_extra *e;
 
