@@ -64,17 +64,18 @@ extern struct zebra_privs_t zserv_privs;
  * 0).  We follow this practice without questioning it, but it is a
  * bug if quagga calls ROUNDUP with 0.
  */
+#ifdef __APPLE__
+#define ROUNDUP_TYPE	int
+#else
+#define ROUNDUP_TYPE	long
+#endif
 
 /*
  * Because of these varying conventions, the only sane approach is for
  * the <net/route.h> header to define some flavor of ROUNDUP macro.
  */
 
-#if defined(SA_SIZE)
-/* SAROUNDUP is the only thing we need, and SA_SIZE provides that */
-#define SAROUNDUP(a)	SA_SIZE(a)
-#else /* !SA_SIZE */
-
+/* OS X (Xcode as of 2014-12) is known not to define RT_ROUNDUP */
 #if defined(RT_ROUNDUP)
 #define ROUNDUP(a)	RT_ROUNDUP(a)
 #endif /* defined(RT_ROUNDUP) */
@@ -96,20 +97,17 @@ extern struct zebra_privs_t zserv_privs;
  * have it in its headers, this will break rather obviously and you'll
  * have to fix it here.
  */
-
-/* OS X (Xcode as of 2014-12) is known not to define RT_ROUNDUP */
-#ifdef __APPLE__
-#define ROUNDUP_TYPE	int
-#else
-#define ROUNDUP_TYPE	long
-#endif
-
 #define ROUNDUP(a)                                                             \
 	((a) > 0 ? (1 + (((a)-1) | (sizeof(ROUNDUP_TYPE) - 1)))                \
 		 : sizeof(ROUNDUP_TYPE))
 
 #endif /* defined(ROUNDUP) */
 
+
+#if defined(SA_SIZE)
+/* SAROUNDUP is the only thing we need, and SA_SIZE provides that */
+#define SAROUNDUP(a)	SA_SIZE(a)
+#else /* !SA_SIZE */
 /*
  * Given a pointer (sockaddr or void *), return the number of bytes
  * taken up by the sockaddr and any padding needed for alignment.
