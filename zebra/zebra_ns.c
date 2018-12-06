@@ -76,7 +76,6 @@ static int zebra_ns_new(struct ns *ns)
 
 	/* Do any needed per-NS data structure allocation. */
 	zns->if_table = route_table_init();
-	zebra_vxlan_ns_init(zns);
 
 	return 0;
 }
@@ -142,7 +141,6 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete)
 {
 	route_table_finish(zns->if_table);
-	zebra_vxlan_ns_disable(zns);
 #if defined(HAVE_RTADV)
 	rtadv_terminate(zns);
 #endif
@@ -201,7 +199,6 @@ int zebra_ns_init(void)
 
 	/* Do any needed per-NS data structure allocation. */
 	dzns->if_table = route_table_init();
-	zebra_vxlan_ns_init(dzns);
 
 	/* Register zebra VRF callbacks, create and activate default VRF. */
 	zebra_vrf_init();
