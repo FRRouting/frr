@@ -1,5 +1,5 @@
 /*
- * VRRPD global definitions
+ * VRRPD global definitions and state machine
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Quentin Young
  *
@@ -58,18 +58,42 @@ static void vrrp_mac_set(struct ethaddr *mac, bool v6, uint8_t vrid)
 	mac->octet[5] = vrid;
 }
 
-void vrrp_update_times(struct vrrp_vrouter *vr, uint16_t advertisement_interval,
-		       uint16_t master_adver_interval)
+/*
+ * Sets advertisement_interval and master_adver_interval on a Virtual Router,
+ * then recalculates and sets skew_time and master_down_interval based on these
+ * values.
+ *
+ * vr
+ *    Virtual Router to operate on
+ *
+ * advertisement_interval
+ *    Advertisement_Interval to set
+ *
+ * master_adver_interval
+ *    Master_Adver_Interval to set
+ */
+static void vrrp_update_times(struct vrrp_vrouter *vr,
+			      uint16_t advertisement_interval,
+			      uint16_t master_adver_interval)
 {
 	vr->advertisement_interval = advertisement_interval;
 	vr->master_adver_interval = master_adver_interval;
 	vr->skew_time = (256 - vr->priority) * vr->master_adver_interval;
 	vr->skew_time /= 256;
 	vr->master_down_interval = (3 * vr->master_adver_interval);
-	vr->master_down_interval /= 256;
+	vr->master_down_interval /= 256 + vr->skew_time;
 }
 
-void vrrp_update_priority(struct vrrp_vrouter *vr, uint8_t priority)
+/*
+ */
+static void vrrp_reset_times(struct vrrp_vrouter *vr)
+{
+	vrrp_update_times(vr, vr->advertisement_interval, 0);
+}
+
+/* Configuration controllers ----------------------------------------------- */
+
+void vrrp_set_priority(struct vrrp_vrouter *vr, uint8_t priority)
 {
 	if (vr->priority == priority)
 		return;
@@ -80,6 +104,15 @@ void vrrp_update_priority(struct vrrp_vrouter *vr, uint8_t priority)
 			  vr->master_adver_interval);
 }
 
+void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
+				     uint16_t advertisement_interval)
+{
+	if (vr->advertisement_interval == advertisement_interval)
+		return;
+
+	vrrp_update_times(vr, advertisement_interval, vr->master_adver_interval);
+}
+
 void vrrp_add_ip(struct vrrp_vrouter *vr, struct in_addr v4)
 {
 	struct in_addr *v4_ins = XCALLOC(MTYPE_TMP, sizeof(struct in_addr));
@@ -87,6 +120,9 @@ void vrrp_add_ip(struct vrrp_vrouter *vr, struct in_addr v4)
 	*v4_ins = v4;
 	listnode_add(vr->v4, v4_ins);
 }
+
+
+/* Creation and destruction ------------------------------------------------ */
 
 struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid)
 {
@@ -100,15 +136,12 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid)
 	vr->v6 = list_new();
 	vr->is_master = false;
 	vr->priority = VRRP_DEFAULT_PRIORITY;
-	vr->advertisement_interval = VRRP_DEFAULT_ADVINT;
-	vr->master_adver_interval = 0;
-	vr->skew_time = 0;
-	vr->master_down_interval = 0;
 	vr->preempt_mode = true;
 	vr->accept_mode = false;
 	vrrp_mac_set(&vr->vr_mac_v4, false, vrid);
 	vrrp_mac_set(&vr->vr_mac_v6, true, vrid);
 	vr->fsm.state = VRRP_STATE_INITIALIZE;
+	vrrp_reset_times(vr);
 
 	hash_get(vrrp_vrouters_hash, vr, hash_alloc_intern);
 
@@ -236,6 +269,8 @@ static void vrrp_change_state_backup(struct vrrp_vrouter *vr)
  */
 static void vrrp_change_state_initialize(struct vrrp_vrouter *vr)
 {
+	/* Reset timers */
+	vrrp_reset_times(vr);
 }
 
 void (*vrrp_change_state_handlers[])(struct vrrp_vrouter *vr) = {
@@ -294,13 +329,25 @@ static int vrrp_master_down_timer_expire(struct thread *thread)
  * Event handler for Startup event.
  *
  * Creates sockets, sends advertisements and ARP requests, starts timers,
- * updates state machine.
+ * and transitions the Virtual Router to either Master or Backup states.
+ *
+ * This function will also initialize the program's global ARP subsystem if it
+ * has not yet been initialized.
  *
  * vr
  *    Virtual Router on which to apply Startup event
+ *
+ * Returns:
+ *    < 0 if the session socket could not be created, or the state is not
+ *        Initialize
+ *      0 on success
  */
 static int vrrp_startup(struct vrrp_vrouter *vr)
 {
+	/* May only be called when the state is Initialize */
+	if (vr->fsm.state != VRRP_STATE_INITIALIZE)
+		return -1;
+
 	/* Initialize global gratuitous ARP socket if necessary */
 	if (!vrrp_garp_is_init())
 		vrrp_garp_init();
@@ -335,9 +382,23 @@ static int vrrp_startup(struct vrrp_vrouter *vr)
 	return 0;
 }
 
+/*
+ * Shuts down a Virtual Router and transitions it to Initialize.
+ *
+ * This call must be idempotent; it is safe to call multiple times on the same
+ * Virtual Router.
+ */
 static int vrrp_shutdown(struct vrrp_vrouter *vr)
 {
-	/* NOTHING */
+	/* close socket */
+	if (vr->sock >= 0)
+		close(vr->sock);
+
+	/* cancel all threads */
+	/* ... */
+
+	vrrp_change_state(vr, VRRP_STATE_INITIALIZE);
+
 	return 0;
 }
 

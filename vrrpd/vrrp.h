@@ -1,5 +1,5 @@
 /*
- * VRRPD global definitions
+ * VRRPD global definitions and state machine
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Quentin Young
  *
@@ -21,11 +21,13 @@
 #define _VRRP_H
 
 #include <zebra.h>
-#include "linklist.h"
-#include "hash.h"
-#include "if.h"
-#include "thread.h"
-#include "hook.h"
+
+#include "lib/hash.h"
+#include "lib/hook.h"
+#include "lib/if.h"
+#include "lib/linklist.h"
+#include "lib/privs.h"
+#include "lib/thread.h"
 
 /* Global definitions */
 #define VRRP_DEFAULT_ADVINT 100
@@ -127,24 +129,22 @@ struct vrrp_vrouter {
 	} fsm;
 };
 
-/* State machine */
-#define VRRP_STATE_INITIALIZE 1
-#define VRRP_STATE_MASTER 2
-#define VRRP_STATE_BACKUP 3
-#define VRRP_EVENT_STARTUP 1
-#define VRRP_EVENT_SHUTDOWN 2
-
-DECLARE_HOOK(vrrp_change_state_hook, (struct vrrp_vrouter *vr, int to), (vr, to));
-/* End state machine */
-
-
 /*
  * Initialize VRRP global datastructures.
  */
 void vrrp_init(void);
 
+
+/* Creation and destruction ------------------------------------------------ */
+
 /*
  * Create and register a new VRRP Virtual Router.
+ *
+ * ifp
+ *    Base interface to configure VRRP on
+ *
+ * vrid
+ *    Virtual Router Identifier
  */
 struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid);
 
@@ -153,27 +153,13 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid);
  */
 void vrrp_vrouter_destroy(struct vrrp_vrouter *vr);
 
-/*
- * Sets advertisement_interval and master_adver_interval on a Virtual Router,
- * then recalculates and sets skew_time and master_down_interval based on these
- * values.
- *
- * vr
- *    Virtual Router to operate on
- *
- * advertisement_interval
- *    Advertisement_Interval to set
- *
- * master_adver_interval
- *    Master_Adver_Interval to set
- */
-void vrrp_update_times(struct vrrp_vrouter *vr, uint16_t advertisement_interval,
-		       uint16_t master_adver_interval);
+
+/* Configuration controllers ----------------------------------------------- */
 
 /*
  * Change the priority of a VRRP Virtual Router.
  *
- * Recalculates timers using new priority.
+ * Also recalculates timers using new priority.
  *
  * vr
  *    Virtual Router to change priority of
@@ -181,10 +167,22 @@ void vrrp_update_times(struct vrrp_vrouter *vr, uint16_t advertisement_interval,
  * priority
  *    New priority
  */
-void vrrp_update_priority(struct vrrp_vrouter *vr, uint8_t priority);
+void vrrp_set_priority(struct vrrp_vrouter *vr, uint8_t priority);
 
 /*
- * Add IPv4 address to a VRRP Virtual Router
+ * Set Advertisement Interval on this Virtual Router.
+ *
+ * vr
+ *    Virtual Router to change priority of
+ *
+ * advertisement_interval
+ *    New advertisement interval
+ */
+void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
+				     uint16_t advertisement_interval);
+
+/*
+ * Add IPv4 address to a VRRP Virtual Router.
  *
  * vr
  *    Virtual Router to add IPv4 address to
@@ -194,14 +192,46 @@ void vrrp_update_priority(struct vrrp_vrouter *vr, uint8_t priority);
  */
 void vrrp_add_ip(struct vrrp_vrouter *vr, struct in_addr v4);
 
+
+/* State machine ----------------------------------------------------------- */
+
+#define VRRP_STATE_INITIALIZE 1
+#define VRRP_STATE_MASTER 2
+#define VRRP_STATE_BACKUP 3
+#define VRRP_EVENT_STARTUP 1
+#define VRRP_EVENT_SHUTDOWN 2
+
+/*
+ * This hook called whenever the state of a Virtual Router changes, after the
+ * specific internal state handlers have run.
+ *
+ * Use this if you need to react to state changes to perform non-critical
+ * tasks. Critical tasks should go in the internal state change handlers.
+ */
+DECLARE_HOOK(vrrp_change_state_hook, (struct vrrp_vrouter *vr, int to), (vr, to));
+
+/*
+ * Trigger a VRRP event on a given Virtual Router..
+ *
+ * vr
+ *    Virtual Router to operate on
+ *
+ * event
+ *    Event to kick off. All event related processing will have completed upon
+ *    return of this function.
+ *
+ * Returns:
+ *    < 0 if the event created an error
+ *      0 otherwise
+ */
+int vrrp_event(struct vrrp_vrouter *vr, int event);
+
+
+/* Other ------------------------------------------------------------------- */
+
 /*
  * Find VRRP Virtual Router by Virtual Router ID
  */
 struct vrrp_vrouter *vrrp_lookup(uint8_t vrid);
-
-/*
- * Trigger VRRP event
- */
-int vrrp_event(struct vrrp_vrouter *vr, int event);
 
 #endif /* _VRRP_H */

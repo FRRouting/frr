@@ -70,29 +70,60 @@ DEFPY(vrrp_vrid,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-	struct vrrp_vrouter *vr = vrrp_vrouter_create(ifp, vrid);
-	int ret = vrrp_event(vr, VRRP_EVENT_STARTUP);
-	if (ret < 0) {
-		vty_out(vty, "%% Failed to start VRRP instance\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	vrrp_vrouter_create(ifp, vrid);
 
 	return CMD_SUCCESS;
 }
 
 DEFPY(vrrp_priority,
       vrrp_priority_cmd,
-      "[no] vrrp (1-255)$vrid priority (1-254)",
+      "[no] vrrp (1-255)$vrid priority (1-255)",
       NO_STR
       VRRP_STR
       VRRP_VRID_STR
       VRRP_PRIORITY_STR
-      "Priority value\n")
+      "Priority value; set 255 to designate this Virtual Router as Master\n")
+{
+	struct vrrp_vrouter *vr;
+	bool need_restart = false;
+	int ret = CMD_SUCCESS;
+
+	VROUTER_GET_VTY(vty, vrid, vr);
+
+	need_restart = (vr->fsm.state != VRRP_STATE_INITIALIZE);
+
+	if (need_restart) {
+		vty_out(vty,
+			"%% WARNING: Restarting Virtual Router %ld to update priority\n",
+			vrid);
+		(void) vrrp_event(vr, VRRP_EVENT_SHUTDOWN);
+	}
+
+	vrrp_set_priority(vr, priority);
+
+	if (need_restart) {
+		ret = vrrp_event(vr, VRRP_EVENT_STARTUP);
+		if (ret < 0)
+			vty_out(vty, "%% Failed to start Virtual Router %ld\n",
+				vrid);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(vrrp_advertisement_interval,
+      vrrp_advertisement_interval_cmd,
+      "[no] vrrp (1-255)$vrid advertisement-interval (1-4096)",
+      NO_STR
+      VRRP_STR
+      VRRP_VRID_STR
+      VRRP_PRIORITY_STR
+      "Priority value; set 255 to designate this Virtual Router as Master\n")
 {
 	struct vrrp_vrouter *vr;
 
 	VROUTER_GET_VTY(vty, vrid, vr);
-	vrrp_update_priority(vr, priority);
+	vrrp_set_advertisement_interval(vr, advertisement_interval);
 
 	return CMD_SUCCESS;
 }
@@ -107,26 +138,31 @@ DEFPY(vrrp_ip,
       VRRP_IP_STR)
 {
 	struct vrrp_vrouter *vr;
+	int ret;
 
 	VROUTER_GET_VTY(vty, vrid, vr);
 	vrrp_add_ip(vr, ip);
 
-	return CMD_SUCCESS;
+	if (vr->fsm.state == VRRP_STATE_INITIALIZE) {
+		vty_out(vty, "%% Activating Virtual Router %ld\n", vrid);
+		ret = vrrp_event(vr, VRRP_EVENT_STARTUP);
+		ret = ret < 0 ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+
+		if (ret == CMD_WARNING_CONFIG_FAILED)
+			vty_out(vty, "%% Failed to start Virtual Router %ld\n",
+				vrid);
+	} else {
+		ret = CMD_SUCCESS;
+	}
+
+	return ret;
 }
 
-DEFPY(vrrp_vrid_show,
-      vrrp_vrid_show_cmd,
-      "show vrrp [(1-255)$vrid]",
-      SHOW_STR
-      VRRP_STR
-      VRRP_VRID_STR)
+static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 {
-	struct vrrp_vrouter *vr;
 	char ethstr[ETHER_ADDR_STRLEN];
 	char ipstr[INET_ADDRSTRLEN];
 	const char *stastr;
-
-	VROUTER_GET_VTY(vty, vrid, vr);
 
 	switch (vr->fsm.state) {
 	case VRRP_STATE_INITIALIZE:
@@ -177,6 +213,27 @@ DEFPY(vrrp_vrid_show,
 		}
 		vty_out(vty, "\n");
 	}
+}
+
+DEFPY(vrrp_vrid_show,
+      vrrp_vrid_show_cmd,
+      "show vrrp [(1-255)$vrid]",
+      SHOW_STR
+      VRRP_STR
+      VRRP_VRID_STR)
+{
+	struct vrrp_vrouter *vr;
+
+	if (vrid) {
+		VROUTER_GET_VTY(vty, vrid, vr);
+		vrrp_show(vty, vr);
+	} else {
+		struct list *ll = hash_to_list(vrrp_vrouters_hash);
+		struct listnode *ln;
+
+		for (ALL_LIST_ELEMENTS_RO(ll, ln, vr))
+			vrrp_show(vty, vr);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -194,5 +251,6 @@ void vrrp_vty_init(void)
 	install_element(VIEW_NODE, &vrrp_vrid_show_cmd);
 	install_element(INTERFACE_NODE, &vrrp_vrid_cmd);
 	install_element(INTERFACE_NODE, &vrrp_priority_cmd);
+	install_element(INTERFACE_NODE, &vrrp_advertisement_interval_cmd);
 	install_element(INTERFACE_NODE, &vrrp_ip_cmd);
 }
