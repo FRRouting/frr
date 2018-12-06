@@ -83,7 +83,7 @@ into the kernel.
 =====================================================================
 
 If this message occurs the receive buffer should be increased by adding the
-following to /etc/sysctl.conf and "--nl-bufsize" to /etc/frr/daemons.conf.
+following to /etc/sysctl.conf and "--nl-bufsize" to /etc/frr/daemons.
 > net.core.rmem_default = 262144
 > net.core.rmem_max = 262144
 See message #4525 from 2005-05-09 in the quagga-users mailing list.
