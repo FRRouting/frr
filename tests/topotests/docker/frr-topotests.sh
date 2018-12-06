@@ -80,6 +80,8 @@ fi
 # them from the host however, they can be used just fine.
 #
 
+export PATH="$PATH:/sbin:/usr/sbin:/usr/local/sbin"
+
 for module in mpls-router mpls-iptunnel; do
 	if modprobe -n $module 2> /dev/null; then
 		:
