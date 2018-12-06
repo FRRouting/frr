@@ -78,10 +78,9 @@ static void vrrp_update_times(struct vrrp_vrouter *vr,
 {
 	vr->advertisement_interval = advertisement_interval;
 	vr->master_adver_interval = master_adver_interval;
-	vr->skew_time = (256 - vr->priority) * vr->master_adver_interval;
-	vr->skew_time /= 256;
-	vr->master_down_interval = (3 * vr->master_adver_interval);
-	vr->master_down_interval /= 256 + vr->skew_time;
+	vr->skew_time = ((256 - vr->priority) * master_adver_interval) / 256;
+	vr->master_down_interval = (3 * master_adver_interval);
+	vr->master_down_interval += vr->skew_time;
 }
 
 /*
@@ -141,6 +140,7 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid)
 	vrrp_mac_set(&vr->vr_mac_v4, false, vrid);
 	vrrp_mac_set(&vr->vr_mac_v6, true, vrid);
 	vr->fsm.state = VRRP_STATE_INITIALIZE;
+	vrrp_set_advertisement_interval(vr, VRRP_DEFAULT_ADVINT);
 	vrrp_reset_times(vr);
 
 	hash_get(vrrp_vrouters_hash, vr, hash_alloc_intern);
