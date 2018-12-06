@@ -35,16 +35,16 @@ struct vrrp_pkt *vrrp_pkt_build(uint8_t vrid, uint8_t prio,
 	struct vrrp_pkt *pkt =
 		XCALLOC(MTYPE_TMP, sizeof(struct vrrp_pkt) + addrsz * numip);
 
-	pkt->version = VRRP_VERSION;
-	pkt->type = VRRP_TYPE_ADVERTISEMENT;
-	pkt->vrid = vrid;
-	pkt->priority = prio;
-	pkt->rsvd = 0;
-	pkt->max_adver_int = max_adver_int;
+	pkt->hdr.version = VRRP_VERSION;
+	pkt->hdr.type = VRRP_TYPE_ADVERTISEMENT;
+	pkt->hdr.vrid = vrid;
+	pkt->hdr.priority = prio;
+	pkt->hdr.v3.rsvd = 0;
+	pkt->hdr.v3.adver_int = max_adver_int;
 	for (uint8_t i = 0; i < numip; i++)
 		memcpy(&pkt->addrs[i].v4, ips[i], addrsz);
 	/* FIXME */
-	pkt->cksum = 0;
+	pkt->hdr.chksum = 0;
 
 	return pkt;
 }
