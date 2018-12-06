@@ -41,7 +41,7 @@ Daemons Configuration File
 --------------------------
 There is another file that controls the default options passed to daemons when
 starting FRR as a service. This file is located in your configuration
-directory, usually at :file:`/etc/frr/daemons.conf`.
+directory, usually at :file:`/etc/frr/daemons`.
 
 This file has several parts. Here is an example:
 
