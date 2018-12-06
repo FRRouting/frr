@@ -412,7 +412,7 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 /* If force flag is not set, do not modify falgs at all for uninstall
    the route from FIB. */
 static int nexthop_active(afi_t afi, struct route_entry *re,
-			  struct nexthop *nexthop, int set,
+			  struct nexthop *nexthop, bool set,
 			  struct route_node *top)
 {
 	struct prefix p;
@@ -904,7 +904,7 @@ int rib_lookup_ipv4_route(struct prefix_ipv4 *p, union sockunion *qgate,
 
 static unsigned nexthop_active_check(struct route_node *rn,
 				     struct route_entry *re,
-				     struct nexthop *nexthop, int set)
+				     struct nexthop *nexthop, bool set)
 {
 	struct interface *ifp;
 	route_map_result_t ret = RMAP_MATCH;
@@ -1031,7 +1031,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
  */
 
 static int nexthop_active_update(struct route_node *rn, struct route_entry *re,
-				 int set)
+				 bool set)
 {
 	struct nexthop *nexthop;
 	union g_addr prev_src;
@@ -1322,7 +1322,7 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	/* Update real nexthop. This may actually determine if nexthop is active
 	 * or not. */
-	if (!nexthop_active_update(rn, new, 1)) {
+	if (!nexthop_active_update(rn, new, true)) {
 		UNSET_FLAG(new->status, ROUTE_ENTRY_CHANGED);
 		return;
 	}
@@ -1383,7 +1383,7 @@ static void rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 	 * down, causing the kernel to delete routes without sending DELROUTE
 	 * notifications
 	 */
-	if (!nexthop_active_update(rn, old, 1) &&
+	if (!nexthop_active_update(rn, old, true) &&
 	    (RIB_KERNEL_ROUTE(old)))
 		SET_FLAG(old->status, ROUTE_ENTRY_REMOVED);
 	else
@@ -1408,7 +1408,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 
 		/* Update the nexthop; we could determine here that nexthop is
 		 * inactive. */
-		if (nexthop_active_update(rn, new, 1))
+		if (nexthop_active_update(rn, new, true))
 			nh_active = 1;
 
 		/* If nexthop is active, install the selected route, if
@@ -1533,7 +1533,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 	/* Update prior route. */
 	if (new != old) {
 		/* Set real nexthop. */
-		nexthop_active_update(rn, old, 1);
+		nexthop_active_update(rn, old, true);
 		UNSET_FLAG(old->status, ROUTE_ENTRY_CHANGED);
 	}
 
@@ -1682,7 +1682,7 @@ static void rib_process(struct route_node *rn)
 		 * recursive NHs.
 		 */
 		if (!CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)
-		    && !nexthop_active_update(rn, re, 0)) {
+		    && !nexthop_active_update(rn, re, false)) {
 			if (re->type == ZEBRA_ROUTE_TABLE) {
 				/* XXX: HERE BE DRAGONS!!!!!
 				 * In all honesty, I have not yet figured out
@@ -1774,7 +1774,7 @@ static void rib_process(struct route_node *rn)
 	if (old_selected != new_selected || selected_changed) {
 
 		if (new_selected && new_selected != new_fib) {
-			nexthop_active_update(rn, new_selected, 1);
+			nexthop_active_update(rn, new_selected, true);
 			UNSET_FLAG(new_selected->status, ROUTE_ENTRY_CHANGED);
 		}
 
