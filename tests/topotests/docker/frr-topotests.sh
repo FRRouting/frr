@@ -133,7 +133,6 @@ fi
 set -- --rm -i \
 	-v "$TOPOTEST_LOGS:/tmp" \
 	-v "$TOPOTEST_FRR:/root/host-frr:ro" \
-	-v "$TOPOTEST_FRR/tests/topotests:/root/topotests:ro" \
 	-v "$TOPOTEST_BUILDCACHE:/root/persist" \
 	-e "TOPOTEST_CLEAN=$TOPOTEST_CLEAN" \
 	-e "TOPOTEST_VERBOSE=$TOPOTEST_VERBOSE" \
