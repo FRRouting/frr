@@ -255,8 +255,8 @@ static int rfp_cfg_write_cb(struct vty *vty, void *rfp_start_val)
 			rfi->rfapi_config.holddown_factor);
 		write++;
 	}
-	if (rfi->rfapi_config.download_type != RFAPI_RFP_DOWNLOAD_FULL) {
-		vty_out(vty, " rfp full-table-download off\n");
+	if (rfi->rfapi_config.download_type == RFAPI_RFP_DOWNLOAD_FULL) {
+		vty_out(vty, " rfp full-table-download on\n");
 		write++;
 	}
 	return write;
