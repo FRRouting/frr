@@ -156,7 +156,7 @@ int main(int argc, char **argv)
 	vty_init(master);
 	memory_init();
 	yang_init();
-	nb_init(NULL, 0);
+	nb_init(master, NULL, 0);
 
 	/* OSPF vty inits. */
 	test_vty_init();

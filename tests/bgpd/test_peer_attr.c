@@ -1384,10 +1384,10 @@ static void bgp_startup(void)
 		 LOG_DAEMON);
 	zprivs_preinit(&bgpd_privs);
 	zprivs_init(&bgpd_privs);
-	yang_init();
-	nb_init(NULL, 0);
 
 	master = thread_master_create(NULL);
+	yang_init();
+	nb_init(master, NULL, 0);
 	bgp_master_init(master);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	vrf_init(NULL, NULL, NULL, NULL, NULL);

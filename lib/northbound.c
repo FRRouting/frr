@@ -1539,7 +1539,8 @@ static void nb_load_callbacks(const struct frr_yang_module_info *module)
 	}
 }
 
-void nb_init(const struct frr_yang_module_info *modules[], size_t nmodules)
+void nb_init(struct thread_master *tm,
+	     const struct frr_yang_module_info *modules[], size_t nmodules)
 {
 	unsigned int errors = 0;
 
@@ -1574,7 +1575,7 @@ void nb_init(const struct frr_yang_module_info *modules[], size_t nmodules)
 	running_config = nb_config_new(NULL);
 
 	/* Initialize the northbound CLI. */
-	nb_cli_init();
+	nb_cli_init(tm);
 }
 
 void nb_terminate(void)

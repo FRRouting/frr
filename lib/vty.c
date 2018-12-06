@@ -2714,6 +2714,14 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 
 void vty_config_exit(struct vty *vty)
 {
+	/* Check if there's a pending confirmed commit. */
+	if (vty->t_confirmed_commit_timeout) {
+		vty_out(vty,
+			"WARNING: exiting with a pending confirmed commit. Rolling back to previous configuration.\n\n");
+		nb_cli_confirmed_commit_rollback(vty);
+		nb_cli_confirmed_commit_clean(vty);
+	}
+
 	vty_config_exclusive_unlock(vty);
 
 	if (vty->candidate_config) {

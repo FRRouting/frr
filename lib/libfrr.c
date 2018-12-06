@@ -653,7 +653,7 @@ struct thread_master *frr_init(void)
 	lib_error_init();
 
 	yang_init();
-	nb_init(di->yang_modules, di->n_yang_modules);
+	nb_init(master, di->yang_modules, di->n_yang_modules);
 
 	return master;
 }

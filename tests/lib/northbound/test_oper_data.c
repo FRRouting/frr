@@ -449,7 +449,7 @@ int main(int argc, char **argv)
 	vty_init(master);
 	memory_init();
 	yang_init();
-	nb_init(modules, array_size(modules));
+	nb_init(master, modules, array_size(modules));
 
 	/* Create artificial data. */
 	create_data(num_vrfs, num_interfaces, num_routes);

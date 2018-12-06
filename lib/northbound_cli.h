@@ -105,8 +105,10 @@ extern void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *dnode,
 				   bool show_defaults);
 
 /* Prototypes of internal functions. */
+extern void nb_cli_confirmed_commit_clean(struct vty *vty);
+extern int nb_cli_confirmed_commit_rollback(struct vty *vty);
 extern void nb_cli_install_default(int node);
-extern void nb_cli_init(void);
+extern void nb_cli_init(struct thread_master *tm);
 extern void nb_cli_terminate(void);
 
 #endif /* _FRR_NORTHBOUND_CLI_H_ */

@@ -36,6 +36,7 @@
 
 int debug_northbound;
 struct nb_config *vty_shared_candidate_config;
+static struct thread_master *master;
 
 static void vty_show_libyang_errors(struct vty *vty, struct ly_ctx *ly_ctx)
 {
@@ -213,22 +214,96 @@ int nb_cli_rpc(const char *xpath, struct list *input, struct list *output)
 	}
 }
 
-static int nb_cli_commit(struct vty *vty, bool force, char *comment)
+void nb_cli_confirmed_commit_clean(struct vty *vty)
+{
+	THREAD_TIMER_OFF(vty->t_confirmed_commit_timeout);
+	nb_config_free(vty->confirmed_commit_rollback);
+	vty->confirmed_commit_rollback = NULL;
+}
+
+int nb_cli_confirmed_commit_rollback(struct vty *vty)
 {
 	uint32_t transaction_id;
 	int ret;
+
+	/* Perform the rollback. */
+	ret = nb_candidate_commit(
+		vty->confirmed_commit_rollback, NB_CLIENT_CLI, true,
+		"Rollback to previous configuration - confirmed commit has timed out",
+		&transaction_id);
+	if (ret == NB_OK)
+		vty_out(vty,
+			"Rollback performed successfully (Transaction ID #%u).\n",
+			transaction_id);
+	else
+		vty_out(vty, "Failed to rollback to previous configuration.\n");
+
+	return ret;
+}
+
+static int nb_cli_confirmed_commit_timeout(struct thread *thread)
+{
+	struct vty *vty = THREAD_ARG(thread);
+
+	/* XXX: broadcast this message to all logged-in users? */
+	vty_out(vty,
+		"\nConfirmed commit has timed out, rolling back to previous configuration.\n\n");
+
+	nb_cli_confirmed_commit_rollback(vty);
+	nb_cli_confirmed_commit_clean(vty);
+
+	return 0;
+}
+
+static int nb_cli_commit(struct vty *vty, bool force,
+			 unsigned int confirmed_timeout, char *comment)
+{
+	uint32_t transaction_id;
+	int ret;
+
+	/* Check if there's a pending confirmed commit. */
+	if (vty->t_confirmed_commit_timeout) {
+		if (confirmed_timeout) {
+			/* Reset timeout if "commit confirmed" is used again. */
+			vty_out(vty,
+				"%% Resetting confirmed-commit timeout to %u minute(s)\n\n",
+				confirmed_timeout);
+
+			THREAD_TIMER_OFF(vty->t_confirmed_commit_timeout);
+			thread_add_timer(master,
+					 nb_cli_confirmed_commit_timeout, vty,
+					 confirmed_timeout * 60,
+					 &vty->t_confirmed_commit_timeout);
+		} else {
+			/* Accept commit confirmation. */
+			vty_out(vty, "%% Commit complete.\n\n");
+			nb_cli_confirmed_commit_clean(vty);
+		}
+		return CMD_SUCCESS;
+	}
 
 	if (vty_exclusive_lock != NULL && vty_exclusive_lock != vty) {
 		vty_out(vty, "%% Configuration is locked by another VTY.\n\n");
 		return CMD_WARNING;
 	}
 
+	/* "force" parameter. */
 	if (!force && nb_candidate_needs_update(vty->candidate_config)) {
 		vty_out(vty,
 			"%% Candidate configuration needs to be updated before commit.\n\n");
 		vty_out(vty,
 			"Use the \"update\" command or \"commit force\".\n");
 		return CMD_WARNING;
+	}
+
+	/* "confirm" parameter. */
+	if (confirmed_timeout) {
+		vty->confirmed_commit_rollback = nb_config_dup(running_config);
+
+		vty->t_confirmed_commit_timeout = NULL;
+		thread_add_timer(master, nb_cli_confirmed_commit_timeout, vty,
+				 confirmed_timeout * 60,
+				 &vty->t_confirmed_commit_timeout);
 	}
 
 	ret = nb_candidate_commit(vty->candidate_config, NB_CLIENT_CLI, true,
@@ -534,18 +609,22 @@ DEFUN (config_private,
 
 DEFPY (config_commit,
        config_commit_cmd,
-       "commit [force$force]",
+       "commit [{force$force|confirmed (1-60)}]",
        "Commit changes into the running configuration\n"
-       "Force commit even if the candidate is outdated\n")
+       "Force commit even if the candidate is outdated\n"
+       "Rollback this commit unless there is a confirming commit\n"
+       "Timeout in minutes for the commit to be confirmed\n")
 {
-	return nb_cli_commit(vty, !!force, NULL);
+	return nb_cli_commit(vty, !!force, confirmed, NULL);
 }
 
 DEFPY (config_commit_comment,
        config_commit_comment_cmd,
-       "commit [force$force] comment LINE...",
+       "commit [{force$force|confirmed (1-60)}] comment LINE...",
        "Commit changes into the running configuration\n"
        "Force commit even if the candidate is outdated\n"
+       "Rollback this commit unless there is a confirming commit\n"
+       "Timeout in minutes for the commit to be confirmed\n"
        "Assign a comment to this commit\n"
        "Comment for this commit (Max 80 characters)\n")
 {
@@ -555,7 +634,7 @@ DEFPY (config_commit_comment,
 
 	argv_find(argv, argc, "LINE", &idx);
 	comment = argv_concat(argv, argc, idx);
-	ret = nb_cli_commit(vty, !!force, comment);
+	ret = nb_cli_commit(vty, !!force, confirmed, comment);
 	XFREE(MTYPE_TMP, comment);
 
 	return ret;
@@ -1517,8 +1596,10 @@ static const struct cmd_variable_handler yang_var_handlers[] = {
 	 .completions = yang_translator_autocomplete},
 	{.completions = NULL}};
 
-void nb_cli_init(void)
+void nb_cli_init(struct thread_master *tm)
 {
+	master = tm;
+
 	/* Initialize the shared candidate configuration. */
 	vty_shared_candidate_config = nb_config_new(NULL);
 
