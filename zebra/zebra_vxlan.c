@@ -8866,6 +8866,11 @@ void zebra_vxlan_close_tables(struct zebra_vrf *zvrf)
 /* init the l3vni table */
 void zebra_vxlan_ns_init(struct zebra_ns *zns)
 {
+	static int inited;
+
+	if (inited)
+		return;
+	inited++;
 	zrouter.l3vni_table = hash_create(l3vni_hash_keymake, l3vni_hash_cmp,
 					  "Zebra VRF L3 VNI table");
 }
@@ -8873,6 +8878,11 @@ void zebra_vxlan_ns_init(struct zebra_ns *zns)
 /* free l3vni table */
 void zebra_vxlan_ns_disable(struct zebra_ns *zns)
 {
+	static int deleted;
+
+	if (deleted)
+		return;
+	deleted++;
 	hash_free(zrouter.l3vni_table);
 }
 
