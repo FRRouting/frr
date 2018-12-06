@@ -187,12 +187,12 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 		       vr->preempt_mode ? "Yes" : "No");
 	ttable_add_row(tt, "%s|%s", "Accept Mode",
 		       vr->accept_mode ? "Yes" : "No");
-	ttable_add_row(tt, "%s|%" PRIu16, "Advertisement Interval",
+	ttable_add_row(tt, "%s|%" PRIu16" cs", "Advertisement Interval",
 		       vr->advertisement_interval);
-	ttable_add_row(tt, "%s|%" PRIu16, "Master Advertisement Interval",
+	ttable_add_row(tt, "%s|%" PRIu16" cs", "Master Advertisement Interval",
 		       vr->master_adver_interval);
-	ttable_add_row(tt, "%s|%" PRIu16, "Skew Time", vr->skew_time);
-	ttable_add_row(tt, "%s|%" PRIu16, "Master Down Interval",
+	ttable_add_row(tt, "%s|%" PRIu16" cs", "Skew Time", vr->skew_time);
+	ttable_add_row(tt, "%s|%" PRIu16" cs", "Master Down Interval",
 		       vr->master_down_interval);
 	ttable_add_row(tt, "%s|%u", "IPv4 Addresses", vr->v4->count);
 
