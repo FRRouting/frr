@@ -34,6 +34,8 @@ set -e
 "${CDIR}/compile_frr.sh"
 "${CDIR}/openvswitch.sh"
 
+cd "${FRR_BUILD_DIR}/tests/topotests"
+
 log_info "Setting permissions on /tmp so we can generate logs"
 chmod 1777 /tmp
 
@@ -42,7 +44,6 @@ if [ $# -eq 0 ] || ([[ "$1" != /* ]] && [[ "$1" != ./* ]]); then
 	export TOPOTESTS_CHECK_STDERR=Yes
 	set -- pytest \
 		--junitxml /tmp/topotests.xml \
-		-o cache_dir=/tmp \
 		"$@"
 fi
 
