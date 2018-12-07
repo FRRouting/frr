@@ -30,8 +30,12 @@
  * Shared header for VRRPv2/v3 packets.
  */
 struct vrrp_hdr {
-	uint8_t version : 4;
-	uint8_t type : 4;
+	/*
+	 * H  L H  L
+	 * 0000 0000
+	 * ver  type
+	 */
+	uint8_t vertype;
 	uint8_t vrid;
 	uint8_t priority;
 	uint8_t naddr;
@@ -42,9 +46,13 @@ struct vrrp_hdr {
 			uint8_t adver_int;
 		} v2;
 		struct {
-			/* advertisement interval (in centiseconds) */
-			uint16_t rsvd : 4;
-			uint16_t adver_int : 12;
+			/*
+			 * advertisement interval (in centiseconds)
+			 * H  L H          L
+			 * 0000 000000000000
+			 * rsvd adver_int
+			 */
+			uint16_t adver_int;
 		} v3;
 	};
 	uint16_t chksum;
@@ -60,7 +68,29 @@ struct vrrp_pkt {
 
 /*
  * Builds a VRRP packet.
+ *
+ * pkt
+ *    Pointer to store pointer to result buffer in
+ *
+ * vrid
+ *    Virtual Router Identifier
+ *
+ * prio
+ *    Virtual Router Priority
+ *
+ * max_adver_int
+ *    time between ADVERTISEMENTs
+ *
+ * v6
+ *    whether 'ips' is an array of v4 or v6 addresses
+ *
+ * numip
+ *    number of IPvX addresses in 'ips'
+ *
+ * ips
+ *    array of pointer to either struct in_addr (v6 = false) or struct in6_addr
+ *    (v6 = true)
  */
-struct vrrp_pkt *vrrp_pkt_build(uint8_t vrid, uint8_t prio,
-				uint16_t max_adver_int, bool v6, uint8_t numip,
-				void **ips);
+ssize_t vrrp_pkt_build(struct vrrp_pkt **pkt, uint8_t vrid, uint8_t prio,
+		       uint16_t max_adver_int, bool v6, uint8_t numip,
+		       void **ips);
