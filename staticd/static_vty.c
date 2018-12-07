@@ -1211,7 +1211,7 @@ DEFPY(ipv6_route_address_interface,
 {
 	struct static_vrf *svrf;
 	struct static_vrf *nh_svrf;
-	const char *flag;
+	const char *flag = NULL;
 
 	if (table_str && vrf && !vrf_is_mapped_on_netns(vrf_lookup_by_name(vrf))) {
 		vty_out(vty,
@@ -1280,7 +1280,7 @@ DEFPY(ipv6_route_address_interface_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	struct static_vrf *svrf = vrf->info;
 	struct static_vrf *nh_svrf;
-	const char *flag;
+	const char *flag = NULL;
 
 	if (table_str && !vrf_is_mapped_on_netns(vrf)) {
 		vty_out(vty,
@@ -1341,7 +1341,7 @@ DEFPY(ipv6_route,
 {
 	struct static_vrf *svrf;
 	struct static_vrf *nh_svrf;
-	const char *flag;
+	const char *flag = NULL;
 
 	if (table_str && vrf && !vrf_is_mapped_on_netns(vrf_lookup_by_name(vrf))) {
 		vty_out(vty,
@@ -1407,7 +1407,7 @@ DEFPY(ipv6_route_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	struct static_vrf *svrf = vrf->info;
 	struct static_vrf *nh_svrf;
-	const char *flag;
+	const char *flag = NULL;
 
 	if (table_str && !vrf_is_mapped_on_netns(vrf)) {
 		vty_out(vty,
