@@ -6,6 +6,7 @@ EXTRA_DIST += \
 	debianpkg/README.Debian \
 	debianpkg/README.Maintainer \
 	debianpkg/changelog \
+	debianpkg/changelog-auto \
 	debianpkg/compat \
 	debianpkg/control \
 	debianpkg/copyright \
