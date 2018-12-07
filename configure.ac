@@ -2198,7 +2198,7 @@ AC_CONFIG_FILES([
 	  config.version
 	  redhat/frr.spec
 	  solaris/Makefile
-	  debianpkg/changelog
+	  debianpkg/changelog-auto
 	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
