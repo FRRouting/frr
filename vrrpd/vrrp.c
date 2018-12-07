@@ -29,6 +29,7 @@
 
 #include "vrrp.h"
 #include "vrrp_arp.h"
+#include "vrrp_packet.h"
 
 /* Utility functions ------------------------------------------------------- */
 
@@ -177,6 +178,29 @@ struct vrrp_vrouter *vrrp_lookup(uint8_t vrid)
  */
 static void vrrp_send_advertisement(struct vrrp_vrouter *vr)
 {
+	struct vrrp_pkt *pkt;
+	ssize_t pktlen;
+	struct in_addr *v4[vr->v4->count];
+	struct in6_addr *v6[vr->v6->count];
+	struct sockaddr_in dest;
+
+	list_to_array(vr->v4, (void **)v4, vr->v4->count);
+	list_to_array(vr->v6, (void **)v6, vr->v6->count);
+
+	pktlen = vrrp_pkt_build(&pkt, vr->vrid, vr->priority,
+				vr->advertisement_interval, false,
+				vr->v4->count, (void **)&v4);
+
+	if (pktlen > 0)
+		zlog_hexdump(pkt, (size_t) pktlen);
+	else
+		zlog_warn("Could not build VRRP packet");
+
+	dest.sin_family = AF_INET;
+	dest.sin_addr.s_addr = htonl(VRRP_MCAST_GROUP_HEX);
+
+	ssize_t sent = sendto(vr->sock, pkt, (size_t)pktlen, 0, &dest,
+			      sizeof(struct sockaddr_in));
 }
 
 /* FIXME:
