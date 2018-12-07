@@ -41,6 +41,7 @@ static struct confd_daemon_ctx *dctx;
 static struct confd_notification_ctx *live_ctx;
 static bool confd_connected;
 static struct list *confd_spoints;
+static struct nb_transaction *transaction;
 
 static void frr_confd_finish_cdb(void);
 static void frr_confd_finish_dp(void);
@@ -270,40 +271,11 @@ frr_confd_cdb_diff_iter(confd_hkeypath_t *kp, enum cdb_iter_op cdb_op,
 	return ITER_RECURSE;
 }
 
-static int frr_confd_cdb_read_cb(struct thread *thread)
+static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 {
-	int fd = THREAD_FD(thread);
-	int *subp = NULL;
-	enum cdb_sub_notification cdb_ev;
-	int flags;
-	int reslen = 0;
 	struct nb_config *candidate;
 	struct cdb_iter_args iter_args;
 	int ret;
-
-	thread = NULL;
-	thread_add_read(master, frr_confd_cdb_read_cb, NULL, fd, &thread);
-
-	if (cdb_read_subscription_socket2(fd, &cdb_ev, &flags, &subp, &reslen)
-	    != CONFD_OK) {
-		flog_err_confd("cdb_read_subscription_socket2");
-		return -1;
-	}
-
-	/*
-	 * Ignore CDB_SUB_ABORT and CDB_SUB_COMMIT. We'll leverage the
-	 * northbound layer itself to abort or apply the configuration changes
-	 * when a transaction is created.
-	 */
-	if (cdb_ev != CDB_SUB_PREPARE) {
-		free(subp);
-		if (cdb_sync_subscription_socket(fd, CDB_DONE_PRIORITY)
-		    != CONFD_OK) {
-			flog_err_confd("cdb_sync_subscription_socket");
-			return -1;
-		}
-		return 0;
-	}
 
 	candidate = nb_config_dup(running_config);
 
@@ -332,8 +304,13 @@ static int frr_confd_cdb_read_cb(struct thread *thread)
 		return 0;
 	}
 
-	ret = nb_candidate_commit(candidate, NB_CLIENT_CONFD, true, NULL, NULL);
-	nb_config_free(candidate);
+	/*
+	 * Validate the configuration changes and allocate all resources
+	 * required to apply them.
+	 */
+	transaction = NULL;
+	ret = nb_candidate_commit_prepare(candidate, NB_CLIENT_CONFD, NULL,
+					  &transaction);
 	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
 		enum confd_errcode errcode;
 		const char *errmsg;
@@ -353,6 +330,7 @@ static int frr_confd_cdb_read_cb(struct thread *thread)
 			break;
 		}
 
+		/* Reject the configuration changes. */
 		if (cdb_sub_abort_trans(cdb_sub_sock, errcode, 0, 0, "%s",
 					errmsg)
 		    != CONFD_OK) {
@@ -360,14 +338,99 @@ static int frr_confd_cdb_read_cb(struct thread *thread)
 			return -1;
 		}
 	} else {
+		/* Acknowledge the notification. */
 		if (cdb_sync_subscription_socket(fd, CDB_DONE_PRIORITY)
 		    != CONFD_OK) {
 			flog_err_confd("cdb_sync_subscription_socket");
 			return -1;
 		}
+
+		/* No configuration changes. */
+		if (!transaction)
+			nb_config_free(candidate);
 	}
 
 	return 0;
+}
+
+static int frr_confd_cdb_read_cb_commit(int fd, int *subp, int reslen)
+{
+	/*
+	 * No need to process the configuration changes again as we're already
+	 * keeping track of them in the "transaction" variable.
+	 */
+	free(subp);
+
+	/* Apply the transaction. */
+	if (transaction) {
+		struct nb_config *candidate = transaction->config;
+
+		nb_candidate_commit_apply(transaction, true, NULL);
+		nb_config_free(candidate);
+	}
+
+	/* Acknowledge the notification. */
+	if (cdb_sync_subscription_socket(fd, CDB_DONE_PRIORITY) != CONFD_OK) {
+		flog_err_confd("cdb_sync_subscription_socket");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int frr_confd_cdb_read_cb_abort(int fd, int *subp, int reslen)
+{
+	/*
+	 * No need to process the configuration changes again as we're already
+	 * keeping track of them in the "transaction" variable.
+	 */
+	free(subp);
+
+	/* Abort the transaction. */
+	if (transaction) {
+		struct nb_config *candidate = transaction->config;
+
+		nb_candidate_commit_abort(transaction);
+		nb_config_free(candidate);
+	}
+
+	/* Acknowledge the notification. */
+	if (cdb_sync_subscription_socket(fd, CDB_DONE_PRIORITY) != CONFD_OK) {
+		flog_err_confd("cdb_sync_subscription_socket");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int frr_confd_cdb_read_cb(struct thread *thread)
+{
+	int fd = THREAD_FD(thread);
+	enum cdb_sub_notification cdb_ev;
+	int flags;
+	int *subp = NULL;
+	int reslen = 0;
+
+	thread = NULL;
+	thread_add_read(master, frr_confd_cdb_read_cb, NULL, fd, &thread);
+
+	if (cdb_read_subscription_socket2(fd, &cdb_ev, &flags, &subp, &reslen)
+	    != CONFD_OK) {
+		flog_err_confd("cdb_read_subscription_socket2");
+		return -1;
+	}
+
+	switch (cdb_ev) {
+	case CDB_SUB_PREPARE:
+		return frr_confd_cdb_read_cb_prepare(fd, subp, reslen);
+	case CDB_SUB_COMMIT:
+		return frr_confd_cdb_read_cb_commit(fd, subp, reslen);
+	case CDB_SUB_ABORT:
+		return frr_confd_cdb_read_cb_abort(fd, subp, reslen);
+	default:
+		flog_err_confd("unknown CDB event");
+		return -1;
+	}
 }
 
 /* Trigger CDB subscriptions to read the startup configuration. */
