@@ -9722,7 +9722,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 								json_object_string_add(
 									json_nxt,
 									print_store,
-									"received");
+									"recieved"); /* misspelled for compatibility */
 							}
 						}
 						json_object_object_add(
