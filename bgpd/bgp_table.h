@@ -26,6 +26,7 @@
 #include "queue.h"
 #include "linklist.h"
 #include "bgpd.h"
+#include "bgp_advertise.h"
 
 struct bgp_table {
 	/* table belongs to this instance */
@@ -52,7 +53,7 @@ struct bgp_node {
 	 */
 	ROUTE_NODE_FIELDS
 
-	struct bgp_adj_out *adj_out;
+	struct bgp_adj_out_rb adj_out;
 
 	struct bgp_adj_in *adj_in;
 
