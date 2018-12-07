@@ -40,6 +40,7 @@
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_aspath.h"
+#include "bgpd/bgp_clist.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_lcommunity.h"
@@ -14271,10 +14272,7 @@ DEFUN (show_community_list,
 	if (!cm)
 		return CMD_SUCCESS;
 
-	for (list = cm->num.head; list; list = list->next)
-		community_list_show(vty, list);
-
-	for (list = cm->str.head; list; list = list->next)
+	RB_FOREACH (list, community_list_rb, &cm->str)
 		community_list_show(vty, list);
 
 	return CMD_SUCCESS;
@@ -14796,10 +14794,7 @@ DEFUN (show_lcommunity_list,
 	if (!cm)
 		return CMD_SUCCESS;
 
-	for (list = cm->num.head; list; list = list->next)
-		lcommunity_list_show(vty, list);
-
-	for (list = cm->str.head; list; list = list->next)
+	RB_FOREACH (list, community_list_rb, &cm->str)
 		lcommunity_list_show(vty, list);
 
 	return CMD_SUCCESS;
@@ -15197,10 +15192,7 @@ DEFUN (show_extcommunity_list,
 	if (!cm)
 		return CMD_SUCCESS;
 
-	for (list = cm->num.head; list; list = list->next)
-		extcommunity_list_show(vty, list);
-
-	for (list = cm->str.head; list; list = list->next)
+	RB_FOREACH (list, community_list_rb, &cm->str)
 		extcommunity_list_show(vty, list);
 
 	return CMD_SUCCESS;
@@ -15264,68 +15256,88 @@ static int community_list_config_write(struct vty *vty)
 	/* Community-list.  */
 	cm = community_list_master_lookup(bgp_clist, COMMUNITY_LIST_MASTER);
 
-	for (list = cm->num.head; list; list = list->next)
-		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty, "bgp community-list %s %s %s\n", list->name,
-				community_direct_str(entry->direct),
-				community_list_config_str(entry));
-			write++;
+	RB_FOREACH (list, community_list_rb, &cm->str) {
+		if (list->sort == COMMUNITY_LIST_NUMBER) {
+			for (entry = list->head; entry; entry = entry->next) {
+				vty_out(vty, "bgp community-list %s %s %s\n",
+					list->name,
+					community_direct_str(entry->direct),
+					community_list_config_str(entry));
+				write++;
+			}
 		}
-	for (list = cm->str.head; list; list = list->next)
-		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty, "bgp community-list %s %s %s %s\n",
-				entry->style == COMMUNITY_LIST_STANDARD
-					? "standard"
-					: "expanded",
-				list->name, community_direct_str(entry->direct),
-				community_list_config_str(entry));
-			write++;
+		if (list->sort == COMMUNITY_LIST_STRING) {
+			for (entry = list->head; entry; entry = entry->next) {
+				vty_out(vty, "bgp community-list %s %s %s %s\n",
+					entry->style == COMMUNITY_LIST_STANDARD
+						? "standard"
+						: "expanded",
+					list->name,
+					community_direct_str(entry->direct),
+					community_list_config_str(entry));
+				write++;
+			}
 		}
+	}
 
 	/* Extcommunity-list.  */
 	cm = community_list_master_lookup(bgp_clist, EXTCOMMUNITY_LIST_MASTER);
 
-	for (list = cm->num.head; list; list = list->next)
-		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty, "bgp extcommunity-list %s %s %s\n",
-				list->name, community_direct_str(entry->direct),
-				community_list_config_str(entry));
-			write++;
+	RB_FOREACH (list, community_list_rb, &cm->str) {
+		if (list->sort == COMMUNITY_LIST_NUMBER) {
+			for (entry = list->head; entry; entry = entry->next) {
+				vty_out(vty, "bgp extcommunity-list %s %s %s\n",
+					list->name,
+					community_direct_str(entry->direct),
+					community_list_config_str(entry));
+				write++;
+			}
 		}
-	for (list = cm->str.head; list; list = list->next)
-		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty, "bgp extcommunity-list %s %s %s %s\n",
-				entry->style == EXTCOMMUNITY_LIST_STANDARD
-					? "standard"
-					: "expanded",
-				list->name, community_direct_str(entry->direct),
-				community_list_config_str(entry));
-			write++;
+		if (list->sort == COMMUNITY_LIST_STRING) {
+			for (entry = list->head; entry; entry = entry->next) {
+				vty_out(vty,
+					"bgp extcommunity-list %s %s %s %s\n",
+					entry->style == EXTCOMMUNITY_LIST_STANDARD
+						? "standard"
+						: "expanded",
+					list->name,
+					community_direct_str(entry->direct),
+					community_list_config_str(entry));
+				write++;
+			}
 		}
+	}
 
 
 	/* lcommunity-list.  */
 	cm = community_list_master_lookup(bgp_clist,
 					  LARGE_COMMUNITY_LIST_MASTER);
 
-	for (list = cm->num.head; list; list = list->next)
-		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty, "bgp large-community-list %s %s %s\n",
-				list->name, community_direct_str(entry->direct),
-				community_list_config_str(entry));
-			write++;
+	RB_FOREACH (list, community_list_rb, &cm->str) {
+		if (list->sort == COMMUNITY_LIST_NUMBER) {
+			for (entry = list->head; entry; entry = entry->next) {
+				vty_out(vty,
+					"bgp large-community-list %s %s %s\n",
+					list->name,
+					community_direct_str(entry->direct),
+					community_list_config_str(entry));
+				write++;
+			}
 		}
-	for (list = cm->str.head; list; list = list->next)
-		for (entry = list->head; entry; entry = entry->next) {
-			vty_out(vty, "bgp large-community-list %s %s %s %s\n",
-				entry->style == LARGE_COMMUNITY_LIST_STANDARD
-					? "standard"
-					: "expanded",
-				list->name, community_direct_str(entry->direct),
-				community_list_config_str(entry));
-			write++;
+		if (list->sort == COMMUNITY_LIST_STRING) {
+			for (entry = list->head; entry; entry = entry->next) {
+				vty_out(vty,
+					"bgp large-community-list %s %s %s %s\n",
+					entry->style == LARGE_COMMUNITY_LIST_STANDARD
+						? "standard"
+						: "expanded",
+					list->name,
+					community_direct_str(entry->direct),
+					community_list_config_str(entry));
+				write++;
+			}
 		}
-
+	}
 	return write;
 }
 

@@ -26,6 +26,7 @@
 #include "queue.h"
 #include "filter.h"
 #include "stream.h"
+#include "openbsd-tree.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_community.h"
@@ -34,6 +35,38 @@
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_regex.h"
 #include "bgpd/bgp_clist.h"
+
+static int community_string(const char *name)
+{
+	size_t i;
+	size_t len = strlen(name);
+	for (i = 0; i < len; i++)
+		if (!isdigit((int)name[i]))
+			break;
+
+	if (i == len)
+		return COMMUNITY_LIST_NUMBER;
+
+	return COMMUNITY_LIST_STRING;
+}
+
+static int community_list_compare(const struct community_list *c1,
+				  const struct community_list *c2)
+{
+	if (c1->sort == COMMUNITY_LIST_NUMBER) {
+		if (c2->sort == COMMUNITY_LIST_STRING)
+			return -1;
+
+		return strcmp(c1->name, c2->name);
+	}
+
+	if (c2->sort == COMMUNITY_LIST_NUMBER)
+		return 1;
+
+	return strcmp(c1->name, c2->name);
+}
+RB_GENERATE(community_list_rb, community_list, rb_entry,
+	    community_list_compare);
 
 /* Lookup master structure for community-list or
    extcommunity-list.  */
@@ -110,11 +143,7 @@ static struct community_list *
 community_list_insert(struct community_list_handler *ch, const char *name,
 		      int master)
 {
-	size_t i;
-	long number;
 	struct community_list *new;
-	struct community_list *point;
-	struct community_list_list *list;
 	struct community_list_master *cm;
 
 	/* Lookup community-list master.  */
@@ -128,75 +157,19 @@ community_list_insert(struct community_list_handler *ch, const char *name,
 
 	/* If name is made by all digit character.  We treat it as
 	   number. */
-	for (number = 0, i = 0; i < strlen(name); i++) {
-		if (isdigit((int)name[i]))
-			number = (number * 10) + (name[i] - '0');
-		else
-			break;
-	}
-
-	/* In case of name is all digit character */
-	if (i == strlen(name)) {
-		new->sort = COMMUNITY_LIST_NUMBER;
-
-		/* Set access_list to number list. */
-		list = &cm->num;
-
-		for (point = list->head; point; point = point->next)
-			if (atol(point->name) >= number)
-				break;
-	} else {
-		new->sort = COMMUNITY_LIST_STRING;
-
-		/* Set access_list to string list. */
-		list = &cm->str;
-
-		/* Set point to insertion point. */
-		for (point = list->head; point; point = point->next)
-			if (strcmp(point->name, name) >= 0)
-				break;
-	}
+	new->sort = community_string(name);
 
 	/* Link to upper list.  */
-	new->parent = list;
+	new->parent = cm;
 
-	/* In case of this is the first element of master. */
-	if (list->head == NULL) {
-		list->head = list->tail = new;
-		return new;
-	}
-
-	/* In case of insertion is made at the tail of access_list. */
-	if (point == NULL) {
-		new->prev = list->tail;
-		list->tail->next = new;
-		list->tail = new;
-		return new;
-	}
-
-	/* In case of insertion is made at the head of access_list. */
-	if (point == list->head) {
-		new->next = list->head;
-		list->head->prev = new;
-		list->head = new;
-		return new;
-	}
-
-	/* Insertion is made at middle of the access_list. */
-	new->next = point;
-	new->prev = point->prev;
-
-	if (point->prev)
-		point->prev->next = new;
-	point->prev = new;
-
+	RB_INSERT(community_list_rb, &cm->str, new);
 	return new;
 }
 
 struct community_list *community_list_lookup(struct community_list_handler *ch,
 					     const char *name, int master)
 {
-	struct community_list *list;
+	struct community_list *list, lookup;
 	struct community_list_master *cm;
 
 	if (!name)
@@ -206,14 +179,11 @@ struct community_list *community_list_lookup(struct community_list_handler *ch,
 	if (!cm)
 		return NULL;
 
-	for (list = cm->num.head; list; list = list->next)
-		if (strcmp(list->name, name) == 0)
-			return list;
-	for (list = cm->str.head; list; list = list->next)
-		if (strcmp(list->name, name) == 0)
-			return list;
+	lookup.name = (char *)name;
+	lookup.sort = community_string(name);
+	list = RB_FIND(community_list_rb, &cm->str, &lookup);
 
-	return NULL;
+	return list;
 }
 
 static struct community_list *
@@ -230,25 +200,16 @@ community_list_get(struct community_list_handler *ch, const char *name,
 
 static void community_list_delete(struct community_list *list)
 {
-	struct community_list_list *clist;
 	struct community_entry *entry, *next;
+	struct community_list_master *cm;
 
 	for (entry = list->head; entry; entry = next) {
 		next = entry->next;
 		community_entry_free(entry);
 	}
 
-	clist = list->parent;
-
-	if (list->next)
-		list->next->prev = list->prev;
-	else
-		clist->tail = list->prev;
-
-	if (list->prev)
-		list->prev->next = list->next;
-	else
-		clist->head = list->next;
+	cm = list->parent;
+	RB_REMOVE(community_list_rb, &cm->str, list);
 
 	community_list_free(list);
 }
@@ -1197,22 +1158,22 @@ void community_list_terminate(struct community_list_handler *ch)
 	struct community_list *list;
 
 	cm = &ch->community_list;
-	while ((list = cm->num.head) != NULL)
+	while (!RB_EMPTY(community_list_rb, &cm->str)) {
+		list = RB_ROOT(community_list_rb, &cm->str);
 		community_list_delete(list);
-	while ((list = cm->str.head) != NULL)
-		community_list_delete(list);
+	}
 
 	cm = &ch->lcommunity_list;
-	while ((list = cm->num.head) != NULL)
+	while (!RB_EMPTY(community_list_rb, &cm->str)) {
+		list = RB_ROOT(community_list_rb, &cm->str);
 		community_list_delete(list);
-	while ((list = cm->str.head) != NULL)
-		community_list_delete(list);
+	}
 
 	cm = &ch->extcommunity_list;
-	while ((list = cm->num.head) != NULL)
+	while (!RB_EMPTY(community_list_rb, &cm->str)) {
+		list = RB_ROOT(community_list_rb, &cm->str);
 		community_list_delete(list);
-	while ((list = cm->str.head) != NULL)
-		community_list_delete(list);
+	}
 
 	XFREE(MTYPE_COMMUNITY_LIST_HANDLER, ch);
 }

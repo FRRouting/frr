@@ -51,16 +51,18 @@ struct community_list {
 	int sort;
 
 	/* Link to upper list.  */
-	struct community_list_list *parent;
+	struct community_list_master *parent;
 
-	/* Linked list for other community-list.  */
-	struct community_list *next;
-	struct community_list *prev;
+	/* RB Tree of community lists */
+	RB_ENTRY(community_list) rb_entry;
 
 	/* Community-list entry in this community-list.  */
 	struct community_entry *head;
 	struct community_entry *tail;
 };
+RB_HEAD(community_list_rb, community_list);
+RB_PROTOTYPE(community_list_rb, community_list, rb_entry,
+	     community_list_string_compare);
 
 /* Each entry in community-list.  */
 struct community_entry {
@@ -98,8 +100,7 @@ struct community_list_list {
 
 /* Master structure of community-list and extcommunity-list.  */
 struct community_list_master {
-	struct community_list_list num;
-	struct community_list_list str;
+	struct community_list_rb str;
 };
 
 /* Community-list handler.  community_list_init() returns this
@@ -151,7 +152,8 @@ extern struct community_list_master *
 community_list_master_lookup(struct community_list_handler *, int);
 
 extern struct community_list *
-community_list_lookup(struct community_list_handler *, const char *, int);
+community_list_lookup(struct community_list_handler *ch, const char *name,
+		      int master);
 
 extern int community_list_match(struct community *, struct community_list *);
 extern int ecommunity_list_match(struct ecommunity *, struct community_list *);
