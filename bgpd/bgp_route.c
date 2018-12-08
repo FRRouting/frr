@@ -10560,7 +10560,7 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 				output_count++;
 			}
 		} else if (type == bgp_show_adj_route_advertised) {
-			for (adj = rn->adj_out; adj; adj = adj->next)
+			RB_FOREACH (adj, bgp_adj_out_rb, &rn->adj_out)
 				SUBGRP_FOREACH_PEER (adj->subgroup, paf) {
 					if (paf->peer != peer || !adj->attr)
 						continue;

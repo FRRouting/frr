@@ -55,12 +55,24 @@
 /********************
  * PRIVATE FUNCTIONS
  ********************/
+static int bgp_adj_out_compare(const struct bgp_adj_out *o1,
+			       const struct bgp_adj_out *o2)
+{
+	if (o1->subgroup < o2->subgroup)
+		return -1;
+
+	if (o1->subgroup > o2->subgroup)
+		return 1;
+
+	return 0;
+}
+RB_GENERATE(bgp_adj_out_rb, bgp_adj_out, adj_entry, bgp_adj_out_compare);
 
 static inline struct bgp_adj_out *adj_lookup(struct bgp_node *rn,
 					     struct update_subgroup *subgrp,
 					     uint32_t addpath_tx_id)
 {
-	struct bgp_adj_out *adj;
+	struct bgp_adj_out *adj, lookup;
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
@@ -76,19 +88,16 @@ static inline struct bgp_adj_out *adj_lookup(struct bgp_node *rn,
 
 	/* update-groups that do not support addpath will pass 0 for
 	 * addpath_tx_id so do not both matching against it */
-	for (adj = rn->adj_out; adj; adj = adj->next) {
-		if (adj->subgroup == subgrp) {
-			if (addpath_capable) {
-				if (adj->addpath_tx_id == addpath_tx_id) {
-					break;
-				}
-			} else {
-				break;
-			}
-		}
+	lookup.subgroup = subgrp;
+	adj = RB_FIND(bgp_adj_out_rb, &rn->adj_out, &lookup);
+	if (adj) {
+		if (addpath_capable) {
+			if (adj->addpath_tx_id == addpath_tx_id)
+				return adj;
+		} else
+			return adj;
 	}
-
-	return adj;
+	return NULL;
 }
 
 static void adj_free(struct bgp_adj_out *adj)
@@ -110,8 +119,7 @@ static void subgrp_withdraw_stale_addpath(struct updwalk_context *ctx,
 
 	/* Look through all of the paths we have advertised for this rn and send
 	 * a withdraw for the ones that are no longer present */
-	for (adj = ctx->rn->adj_out; adj; adj = adj_next) {
-		adj_next = adj->next;
+	RB_FOREACH_SAFE (adj, bgp_adj_out_rb, &ctx->rn->adj_out, adj_next) {
 
 		if (adj->subgroup == subgrp) {
 			for (pi = ctx->rn->info; pi; pi = pi->next) {
@@ -204,10 +212,9 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 					/* Find the addpath_tx_id of the path we
 					 * had advertised and
 					 * send a withdraw */
-					for (adj = ctx->rn->adj_out; adj;
-					     adj = adj_next) {
-						adj_next = adj->next;
-
+					RB_FOREACH_SAFE (adj, bgp_adj_out_rb,
+							 &ctx->rn->adj_out,
+							 adj_next) {
 						if (adj->subgroup == subgrp) {
 							subgroup_process_announce_selected(
 								subgrp, NULL,
@@ -243,7 +250,7 @@ static void subgrp_show_adjq_vty(struct update_subgroup *subgrp,
 	output_count = 0;
 
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
-		for (adj = rn->adj_out; adj; adj = adj->next)
+		RB_FOREACH (adj, bgp_adj_out_rb, &rn->adj_out)
 			if (adj->subgroup == subgrp) {
 				if (header1) {
 					vty_out(vty,
@@ -394,7 +401,7 @@ struct bgp_adj_out *bgp_adj_out_alloc(struct update_subgroup *subgrp,
 	adj = XCALLOC(MTYPE_BGP_ADJ_OUT, sizeof(struct bgp_adj_out));
 	adj->subgroup = subgrp;
 	if (rn) {
-		BGP_ADJ_OUT_ADD(rn, adj);
+		RB_INSERT(bgp_adj_out_rb, &rn->adj_out, adj);
 		bgp_lock_node(rn);
 		adj->rn = rn;
 	}
@@ -551,7 +558,7 @@ void bgp_adj_out_unset_subgroup(struct bgp_node *rn,
 				subgroup_trigger_write(subgrp);
 		} else {
 			/* Remove myself from adjacency. */
-			BGP_ADJ_OUT_DEL(rn, adj);
+			RB_REMOVE(bgp_adj_out_rb, &rn->adj_out, adj);
 
 			/* Free allocated information.  */
 			adj_free(adj);
@@ -572,7 +579,7 @@ void bgp_adj_out_remove_subgroup(struct bgp_node *rn, struct bgp_adj_out *adj,
 	if (adj->adv)
 		bgp_advertise_clean_subgroup(subgrp, adj);
 
-	BGP_ADJ_OUT_DEL(rn, adj);
+	RB_REMOVE(bgp_adj_out_rb, &rn->adj_out, adj);
 	adj_free(adj);
 }
 

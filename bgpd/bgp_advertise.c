@@ -154,7 +154,7 @@ int bgp_adj_out_lookup(struct peer *peer, struct bgp_node *rn,
 	safi_t safi;
 	int addpath_capable;
 
-	for (adj = rn->adj_out; adj; adj = adj->next)
+	RB_FOREACH (adj, bgp_adj_out_rb, &rn->adj_out)
 		SUBGRP_FOREACH_PEER (adj->subgroup, paf)
 			if (paf->peer == peer) {
 				afi = SUBGRP_AFI(adj->subgroup);
