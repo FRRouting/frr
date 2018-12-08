@@ -254,7 +254,8 @@ struct nb_callbacks {
 	 * Operational data callback for YANG lists.
 	 *
 	 * The callback function should fill the 'keys' parameter based on the
-	 * given list_entry.
+	 * given list_entry. Keyless lists don't need to implement this
+	 * callback.
 	 *
 	 * list_entry
 	 *    Pointer to list entry.
@@ -272,7 +273,8 @@ struct nb_callbacks {
 	 * Operational data callback for YANG lists.
 	 *
 	 * The callback function should return a list entry based on the list
-	 * keys given as a parameter.
+	 * keys given as a parameter. Keyless lists don't need to implement this
+	 * callback.
 	 *
 	 * parent_list_entry
 	 *    Pointer to parent list entry.
@@ -367,6 +369,8 @@ struct nb_node {
 };
 /* The YANG container or list contains only config data. */
 #define F_NB_NODE_CONFIG_ONLY 0x01
+/* The YANG list doesn't contain key leafs. */
+#define F_NB_NODE_KEYLESS_LIST 0x02
 
 struct frr_yang_module_info {
 	/* YANG module name. */

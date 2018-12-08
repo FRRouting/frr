@@ -95,6 +95,13 @@ static int nb_node_new_cb(const struct lys_node *snode, void *arg)
 		if (config_only)
 			SET_FLAG(nb_node->flags, F_NB_NODE_CONFIG_ONLY);
 	}
+	if (CHECK_FLAG(snode->nodetype, LYS_LIST)) {
+		struct lys_node_list *slist;
+
+		slist = (struct lys_node_list *)snode;
+		if (slist->keys_size == 0)
+			SET_FLAG(nb_node->flags, F_NB_NODE_KEYLESS_LIST);
+	}
 
 	/*
 	 * Link the northbound node and the libyang schema node with one
@@ -1056,6 +1063,7 @@ static int nb_oper_data_iter_list(const struct nb_node *nb_node,
 {
 	struct lys_node_list *slist = (struct lys_node_list *)nb_node->snode;
 	const void *list_entry = NULL;
+	uint32_t position = 1;
 
 	if (CHECK_FLAG(nb_node->flags, F_NB_NODE_CONFIG_ONLY))
 		return NB_OK;
@@ -1073,19 +1081,31 @@ static int nb_oper_data_iter_list(const struct nb_node *nb_node,
 			/* End of the list. */
 			break;
 
-		/* Obtain the list entry keys. */
-		if (nb_node->cbs.get_keys(list_entry, &list_keys) != NB_OK) {
-			flog_warn(EC_LIB_NB_CB_STATE,
-				  "%s: failed to get list keys", __func__);
-			return NB_ERR;
-		}
+		if (!CHECK_FLAG(nb_node->flags, F_NB_NODE_KEYLESS_LIST)) {
+			/* Obtain the list entry keys. */
+			if (nb_node->cbs.get_keys(list_entry, &list_keys)
+			    != NB_OK) {
+				flog_warn(EC_LIB_NB_CB_STATE,
+					  "%s: failed to get list keys",
+					  __func__);
+				return NB_ERR;
+			}
 
-		/* Build XPath of the list entry. */
-		strlcpy(xpath, xpath_list, sizeof(xpath));
-		for (unsigned int i = 0; i < list_keys.num; i++) {
-			snprintf(xpath + strlen(xpath),
-				 sizeof(xpath) - strlen(xpath), "[%s='%s']",
-				 slist->keys[i]->name, list_keys.key[i]);
+			/* Build XPath of the list entry. */
+			strlcpy(xpath, xpath_list, sizeof(xpath));
+			for (unsigned int i = 0; i < list_keys.num; i++) {
+				snprintf(xpath + strlen(xpath),
+					 sizeof(xpath) - strlen(xpath),
+					 "[%s='%s']", slist->keys[i]->name,
+					 list_keys.key[i]);
+			}
+		} else {
+			/*
+			 * Keyless list - build XPath using a positional index.
+			 */
+			snprintf(xpath, sizeof(xpath), "%s[%u]", xpath_list,
+				 position);
+			position++;
 		}
 
 		/* Iterate over the child nodes. */
@@ -1399,6 +1419,8 @@ bool nb_operation_is_valid(enum nb_operation operation,
 		switch (snode->nodetype) {
 		case LYS_LIST:
 			if (CHECK_FLAG(nb_node->flags, F_NB_NODE_CONFIG_ONLY))
+				return false;
+			if (CHECK_FLAG(nb_node->flags, F_NB_NODE_KEYLESS_LIST))
 				return false;
 			break;
 		default:
