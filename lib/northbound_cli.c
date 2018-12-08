@@ -754,6 +754,30 @@ DEFPY (show_config_candidate,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_config_candidate_section,
+       show_config_candidate_section_cmd,
+       "show",
+       SHOW_STR)
+{
+	struct lyd_node *dnode;
+
+	/* Top-level configuration node, display everything. */
+	if (vty->xpath_index == 0)
+		return nb_cli_show_config(vty, vty->candidate_config,
+					  NB_CFG_FMT_CMDS, NULL, false);
+
+	/* Display only the current section of the candidate configuration. */
+	dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
+	if (!dnode)
+		/* Shouldn't happen. */
+		return CMD_WARNING;
+
+	nb_cli_show_dnode_cmds(vty, dnode, 0);
+	vty_out(vty, "!\n");
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (show_config_compare,
        show_config_compare_cmd,
        "show configuration compare\
@@ -1468,6 +1492,8 @@ static struct cmd_node nb_debug_node = {NORTHBOUND_DEBUG_NODE, "", 1};
 
 void nb_cli_install_default(int node)
 {
+	install_element(node, &show_config_candidate_section_cmd);
+
 	if (frr_get_cli_mode() != FRR_CLI_TRANSACTIONAL)
 		return;
 
