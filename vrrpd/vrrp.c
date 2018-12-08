@@ -31,6 +31,20 @@
 #include "vrrp_arp.h"
 #include "vrrp_packet.h"
 
+#define VRRP_LOGPFX "[CORE] "
+
+const char *vrrp_state_names[3] = {
+	[VRRP_STATE_INITIALIZE] = "Initialize",
+	[VRRP_STATE_MASTER] = "Master",
+	[VRRP_STATE_BACKUP] = "Backup",
+};
+
+const char *vrrp_event_names[2] = {
+	[VRRP_EVENT_STARTUP] = "Startup",
+	[VRRP_EVENT_SHUTDOWN] = "Shutdown",
+};
+
+
 /* Utility functions ------------------------------------------------------- */
 
 /*
@@ -201,6 +215,12 @@ static void vrrp_send_advertisement(struct vrrp_vrouter *vr)
 
 	ssize_t sent = sendto(vr->sock, pkt, (size_t)pktlen, 0, &dest,
 			      sizeof(struct sockaddr_in));
+
+	if (sent < 0) {
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Failed to send VRRP Advertisement",
+			  vr->vrid);
+	}
 }
 
 /* FIXME:
@@ -224,13 +244,16 @@ static int vrrp_socket(struct vrrp_vrouter *vr)
 	int ret;
 	struct connected *c;
 
-	errno = 0;
 	frr_elevate_privs(&vrrp_privs) {
 		vr->sock = socket(AF_INET, SOCK_RAW, IPPROTO_VRRP);
 	}
 
-	if (vr->sock < 0)
-		perror("Error opening VRRP socket");
+	if (vr->sock < 0) {
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Can't create VRRP socket",
+			  vr->vrid);
+		return errno;
+	}
 
 	/* Join the multicast group.*/
 
@@ -248,9 +271,10 @@ static int vrrp_socket(struct vrrp_vrouter *vr)
 	ret = setsockopt(vr->sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&req,
 			 sizeof(struct ip_mreq));
 	if (ret < 0) {
-		// int err = errno;
-		/* VRRP_LOG(("cant do IP_ADD_MEMBERSHIP errno=%d\n", err)); */
-		return -1;
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Can't join VRRP multicast group",
+			  vr->vrid);
+		return errno;
 	}
 	return 0;
 }
@@ -318,6 +342,8 @@ static void vrrp_change_state(struct vrrp_vrouter *vr, int to)
 	/* Call our handlers, then any subscribers */
 	vrrp_change_state_handlers[to](vr);
 	hook_call(vrrp_change_state_hook, vr, to);
+	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "%s -> %s", vr->vrid,
+		  vrrp_state_names[vr->fsm.state], vrrp_state_names[to]);
 	vr->fsm.state = to;
 }
 
@@ -327,6 +353,8 @@ static void vrrp_change_state(struct vrrp_vrouter *vr, int to)
 static int vrrp_adver_timer_expire(struct thread *thread)
 {
 	struct vrrp_vrouter *vr = thread->arg;
+
+	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Adver_Timer expired", vr->vrid);
 
 	if (vr->fsm.state == VRRP_STATE_BACKUP) {
 		vrrp_send_advertisement(vr);
@@ -340,11 +368,14 @@ static int vrrp_adver_timer_expire(struct thread *thread)
 }
 
 /*
- * Called when Master_Down timer expires.
+ * Called when Master_Down_Timer expires.
  */
 static int vrrp_master_down_timer_expire(struct thread *thread)
 {
-	/* struct vrrp_vrouter *vr = thread->arg; */
+	struct vrrp_vrouter *vr = thread->arg;
+
+	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Master_Down_Timer expired",
+		  vr->vrid);
 
 	return 0;
 }
@@ -378,10 +409,8 @@ static int vrrp_startup(struct vrrp_vrouter *vr)
 
 	/* Create socket */
 	int ret = vrrp_socket(vr);
-	if (ret < 0) {
-		zlog_warn("Cannot create VRRP socket\n");
+	if (ret < 0)
 		return ret;
-	}
 
 	/* Schedule listener */
 	/* ... */
@@ -442,6 +471,8 @@ static int (*vrrp_event_handlers[])(struct vrrp_vrouter *vr) = {
  */
 int vrrp_event(struct vrrp_vrouter *vr, int event)
 {
+	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "'%s' event", vr->vrid,
+		  vrrp_event_names[vr->fsm.state]);
 	return vrrp_event_handlers[event](vr);
 }
 

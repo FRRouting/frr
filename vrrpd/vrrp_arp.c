@@ -36,6 +36,8 @@
 #include "vrrp.h"
 #include "vrrp_arp.h"
 
+#define VRRP_LOGPFX "[ARP] "
+
 /*
  * The size of the garp packet buffer should be the large enough to hold the
  * largest arp packet to be sent + the size of the link layer header for the
@@ -121,8 +123,9 @@ void vrrp_garp_send(struct vrrp_vrouter *vr, struct in_addr *v4)
 	/* If the interface doesn't support ARP, don't try sending */
 	if (ifp->flags & IFF_NOARP) {
 		zlog_warn(
+			VRRP_LOGPFX VRRP_LOGPFX_VRID
 			"Unable to send gratuitous ARP on %s; has IFF_NOARP\n",
-			ifp->name);
+			vr->vrid, ifp->name);
 		return;
 	}
 
@@ -131,12 +134,15 @@ void vrrp_garp_send(struct vrrp_vrouter *vr, struct in_addr *v4)
 
 	/* Send garp */
 	inet_ntop(AF_INET, v4, astr, sizeof(astr));
-	zlog_info("Sending gratuitous ARP on %s for %s", ifp->name, astr);
+	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
+		  "Sending gratuitous ARP on %s for %s",
+		  vr->vrid, ifp->name, astr);
 	sent_len = vrrp_send_garp(ifp, garpbuf, garpbuf_len);
 
 	if (sent_len < 0)
-		zlog_warn("Error sending gratuitous ARP on %s for %s",
-			  ifp->name, astr);
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Error sending gratuitous ARP on %s for %s",
+			  vr->vrid, ifp->name, astr);
 }
 
 void vrrp_garp_send_all(struct vrrp_vrouter *vr)
@@ -146,8 +152,9 @@ void vrrp_garp_send_all(struct vrrp_vrouter *vr)
 	/* If the interface doesn't support ARP, don't try sending */
 	if (ifp->flags & IFF_NOARP) {
 		zlog_warn(
+			VRRP_LOGPFX VRRP_LOGPFX_VRID
 			"Unable to send gratuitous ARP on %s; has IFF_NOARP\n",
-			ifp->name);
+			vr->vrid, ifp->name);
 		return;
 	}
 
@@ -170,10 +177,10 @@ void vrrp_garp_init(void)
 	}
 
 	if (garp_fd > 0)
-		zlog_info("Initialized gratuitous ARP socket");
+		zlog_info(VRRP_LOGPFX "Initialized gratuitous ARP socket");
 	else {
-		perror("Error initializing gratuitous ARP socket");
-		zlog_err("Error initializing gratuitous ARP socket");
+		zlog_err(VRRP_LOGPFX
+			 "Error initializing gratuitous ARP socket");
 		return;
 	}
 }

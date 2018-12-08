@@ -37,6 +37,8 @@
 #define VRRP_MCAST_GROUP_HEX 0xe0000012
 #define IPPROTO_VRRP 112
 
+#define VRRP_LOGPFX_VRID "[VRID: %u] "
+
 /* threadmaster */
 extern struct thread_master *master;
 
@@ -195,11 +197,14 @@ void vrrp_add_ip(struct vrrp_vrouter *vr, struct in_addr v4);
 
 /* State machine ----------------------------------------------------------- */
 
-#define VRRP_STATE_INITIALIZE 1
-#define VRRP_STATE_MASTER 2
-#define VRRP_STATE_BACKUP 3
-#define VRRP_EVENT_STARTUP 1
-#define VRRP_EVENT_SHUTDOWN 2
+#define VRRP_STATE_INITIALIZE 0
+#define VRRP_STATE_MASTER 1
+#define VRRP_STATE_BACKUP 2
+#define VRRP_EVENT_STARTUP 0
+#define VRRP_EVENT_SHUTDOWN 1
+
+extern const char *vrrp_state_names[3];
+extern const char *vrrp_event_names[2];
 
 /*
  * This hook called whenever the state of a Virtual Router changes, after the

@@ -162,19 +162,7 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 {
 	char ethstr[ETHER_ADDR_STRLEN];
 	char ipstr[INET_ADDRSTRLEN];
-	const char *stastr;
-
-	switch (vr->fsm.state) {
-	case VRRP_STATE_INITIALIZE:
-		stastr = "Initialize";
-		break;
-	case VRRP_STATE_MASTER:
-		stastr = "Master";
-		break;
-	case VRRP_STATE_BACKUP:
-		stastr = "Backup";
-		break;
-	}
+	const char *stastr = vrrp_state_names[vr->fsm.state];
 
 	struct ttable *tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
 
