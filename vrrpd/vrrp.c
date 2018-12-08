@@ -356,14 +356,20 @@ static int vrrp_adver_timer_expire(struct thread *thread)
 
 	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Adver_Timer expired", vr->vrid);
 
-	if (vr->fsm.state == VRRP_STATE_BACKUP) {
+	if (vr->fsm.state == VRRP_STATE_MASTER) {
+		/* Send an ADVERTISEMENT */
 		vrrp_send_advertisement(vr);
-		/* FIXME: vrrp_send_gratuitous_arp(vr); */
-	} else if (vr->fsm.state == VRRP_STATE_MASTER) {
 
-	} else if (vr->fsm.state == VRRP_STATE_INITIALIZE) {
-		assert(!"FUCK");
+		/* Reset the Adver_Timer to Advertisement_Interval */
+		thread_add_timer_msec(master, vrrp_adver_timer_expire, vr,
+				      vr->advertisement_interval * 10,
+				      &vr->t_adver_timer);
+	} else {
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Adver_Timer expired in state '%s'; this is a bug",
+			  vr->vrid, vrrp_state_names[vr->fsm.state]);
 	}
+
 	return 0;
 }
 
@@ -443,13 +449,34 @@ static int vrrp_startup(struct vrrp_vrouter *vr)
  */
 static int vrrp_shutdown(struct vrrp_vrouter *vr)
 {
+	switch (vr->fsm.state) {
+		case VRRP_STATE_MASTER:
+			/* Cancel the Adver_Timer */
+			THREAD_OFF(vr->t_adver_timer);
+			/* Send an ADVERTISEMENT with Priority = 0 */
+			uint8_t saved_prio = vr->priority;
+			vr->priority = 0;
+			vrrp_send_advertisement(vr);
+			vr->priority = saved_prio;
+			break;
+		case VRRP_STATE_BACKUP:
+			/* Cancel the Master_Down_Timer */
+			THREAD_OFF(vr->t_master_down_timer);
+			break;
+		case VRRP_STATE_INITIALIZE:
+			zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
+				  "Received '%s' event in '%s' state; ignoring",
+				  vr->vrid,
+				  vrrp_event_names[VRRP_EVENT_SHUTDOWN],
+				  vrrp_state_names[VRRP_STATE_INITIALIZE]);
+			break;
+	}
+
 	/* close socket */
 	if (vr->sock >= 0)
 		close(vr->sock);
 
-	/* cancel all threads */
-	/* ... */
-
+	/* Transition to the Initialize state */
 	vrrp_change_state(vr, VRRP_STATE_INITIALIZE);
 
 	return 0;
