@@ -863,7 +863,6 @@ class Router(Node):
             ))
             self.waitOutput()
             logger.debug('{}: {} staticd started'.format(self, self.routertype))
-            sleep(1, '{}: waiting for staticd to start'.format(self.name))
        # Fix Link-Local Addresses
         # Somehow (on Mininet only), Zebra removes the IPv6 Link-Local addresses on start. Fix this
         self.cmd('for i in `ls /sys/class/net/` ; do mac=`cat /sys/class/net/$i/address`; IFS=\':\'; set $mac; unset IFS; ip address add dev $i scope link fe80::$(printf %02x $((0x$1 ^ 2)))$2:${3}ff:fe$4:$5$6/64; done')

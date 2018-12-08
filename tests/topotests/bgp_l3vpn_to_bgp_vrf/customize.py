@@ -196,7 +196,18 @@ def ltemplatePreRouterStartHook():
         for intf in intfs:
             cc.doCmd(tgen, rtr, 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
         logger.info('setup {0} vrf {0}-cust2, {0}-eth5. enabled mpls input.'.format(rtr))
-    if cc.getOutput() != 3:
+    #put ce4-eth0 into a VRF (no default instance!)
+    rtrs = ['ce4']
+    cmds = ['ip link add {0}-cust2 type vrf table 20',
+            'ip ru add oif {0}-cust2 table 20',
+            'ip ru add iif {0}-cust2 table 20',
+            'ip link set dev {0}-cust2 up',
+            'sysctl -w net.ipv4.udp_l3mdev_accept={}'.format(l3mdev_accept)]
+    for rtr in rtrs:
+        for cmd in cmds:
+            cc.doCmd(tgen, rtr, cmd.format(rtr))
+        cc.doCmd(tgen, rtr, 'ip link set dev {0}-eth0 master {0}-cust2'.format(rtr))
+    if cc.getOutput() != 4:
         InitSuccess = False
         logger.info('Unexpected output seen ({} times, tests will be skipped'.format(cc.getOutput()))
     else:
