@@ -107,22 +107,28 @@ check_daemon()
 # The Frr daemons creates the pidfile when starting.
 start()
 {
+    local dmn inst
+    dmn="$1"
+    inst="$2"
+
     ulimit -n $MAX_FDS > /dev/null 2> /dev/null
-    if [ "$1" = "watchfrr" ]; then
+    if [ "$dmn" = "watchfrr" ]; then
 
         # We may need to restart watchfrr if new daemons are added and/or
         # removed
-        if started "$1" ; then
+        if started "$dmn" ; then
             stop watchfrr
         else
             # Echo only once. watchfrr is printed in the stop above
-            echo -n " $1"
+            echo -n " $dmn"
         fi
 
         if [ -e /var/run/frr/watchfrr.started ] ; then
             rm /var/run/frr/watchfrr.started
         fi
-        daemon --pidfile=`pidfile $1` "$D_PATH/$1" -d "${watchfrr_options[@]}"
+        # redhat /etc/init.d/functions daemon() re-expands args :(
+        # eval "set - $watchfrr_options"
+        daemon --pidfile=`pidfile $dmn` "$D_PATH/$dmn" -d "$watchfrr_options"
         RETVAL=$?
         [ $RETVAL -ne 0 ] && break
         for i in `seq 1 10`;
@@ -135,25 +141,25 @@ start()
             fi
         done
         RETVAL=1
-    elif [ -n "$2" ]; then
-        echo -n " $1-$2"
-        if ! check_daemon $1 $2 ; then
+    elif [ -n "$inst" ]; then
+        echo -n " $dmn-$inst"
+        if ! check_daemon $dmn $inst ; then
             echo -n " (binary does not exist)"
             return;
         fi
-        daemon --pidfile=`pidfile $1-$2` "$D_PATH/$1" -d `eval echo "$""$1""_options"` -n "$2"
+        daemon --pidfile=`pidfile $dmn-$inst` "$D_PATH/$dmn" -d `eval echo "$""$dmn""_options"` -n "$inst"
         RETVAL=$?
     else
-        echo -n " $1 "
-        if ! check_daemon $1; then
+        echo -n " $dmn "
+        if ! check_daemon $dmn; then
             echo " (binary does not exist)"
             return;
         fi
-        daemon --pidfile=`pidfile $1` "$D_PATH/$1" -d `eval echo "$""$1""_options"`
+        daemon --pidfile=`pidfile $dmn` "$D_PATH/$dmn" -d `eval echo "$""$dmn""_options"`
         RETVAL=$?
     fi
     echo
-    [ $RETVAL -eq 0 ] && touch /var/lock/subsys/$1
+    [ $RETVAL -eq 0 ] && touch /var/lock/subsys/$dmn
     return $RETVAL
 }
 
@@ -223,11 +229,9 @@ start_watchfrr()
     fi
 
     # Check variable type
-    if ! declare -p watchfrr_options | grep -q '^declare \-a'; then
-        echo
-        echo "ERROR: The variable watchfrr_options from /etc/frr/daemons must be a BASH array!"
-        echo "ERROR: Please convert config file and restart!"
-        exit 1
+    if declare -p watchfrr_options | grep -q '^declare \-a'; then
+        # old array support
+        watchfrr_options="${watchfrr_options[@]}"
     fi
 
     # Which daemons have been started?
@@ -241,13 +245,13 @@ start_watchfrr()
                     eval "inst_disable=\${${daemon_name}_${inst}}"
                     if [ -z ${inst_disable} ] || [ ${inst_disable} != 0 ]; then
                         if check_daemon $daemon_name $inst; then
-                            watchfrr_options+=("${daemon_name}-${inst}")
+                            watchfrr_options="$watchfrr_options ${daemon_name}-${inst}"
                         fi
                     fi
                 done
             else
                 if check_daemon $daemon_name; then
-                    watchfrr_options+=($daemon_name)
+                    watchfrr_options="$watchfrr_options $daemon_name"
                 fi
             fi
             found_one=1

@@ -23,18 +23,8 @@ EXTRA_DIST += \
 	debianpkg/backports/debian9/debian/source/format \
 	debianpkg/backports/debian9/exclude \
 	debianpkg/backports/debian9/versionext \
-	debianpkg/backports/ubuntu12.04/debian/control \
-	debianpkg/backports/ubuntu12.04/debian/frr.install \
-	debianpkg/backports/ubuntu12.04/debian/frr.postinst \
-	debianpkg/backports/ubuntu12.04/debian/frr.postrm \
-	debianpkg/backports/ubuntu12.04/debian/rules \
-	debianpkg/backports/ubuntu12.04/debian/source/format \
-	debianpkg/backports/ubuntu12.04/exclude \
-	debianpkg/backports/ubuntu12.04/versionext \
 	debianpkg/backports/ubuntu14.04/debian/control \
 	debianpkg/backports/ubuntu14.04/debian/frr.install \
-	debianpkg/backports/ubuntu14.04/debian/frr.postinst \
-	debianpkg/backports/ubuntu14.04/debian/frr.postrm \
 	debianpkg/backports/ubuntu14.04/debian/rules \
 	debianpkg/backports/ubuntu14.04/debian/source/format \
 	debianpkg/backports/ubuntu14.04/exclude \

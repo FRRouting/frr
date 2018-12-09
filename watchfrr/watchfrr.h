@@ -21,10 +21,18 @@
 #ifndef FRR_WATCHFRR_H
 #define FRR_WATCHFRR_H
 
+#include "lib/memory.h"
+
+DECLARE_MGROUP(WATCHFRR)
+
 extern void watchfrr_vty_init(void);
 
 extern pid_t integrated_write_pid;
 extern void integrated_write_sigchld(int status);
+
+struct vty;
+extern void watchfrr_status(struct vty *vty);
+
 /*
  * Check if all daemons we are monitoring are in the DAEMON_UP state.
  *
