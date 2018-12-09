@@ -3,7 +3,6 @@ usr/bin/vtysh
 usr/bin/mtracebis
 usr/include/frr/
 usr/lib/
-tools/frr etc/init.d/
 usr/share/doc/frr/
 usr/share/snmp/mibs/
 usr/share/yang/

@@ -115,41 +115,45 @@ check_daemon()
 # The Frr daemons creates the pidfile when starting.
 start()
 {
-	ulimit -n $MAX_FDS
-	if [ "$1" = "watchfrr" ]; then
+	local dmn inst
+	dmn="$1"
+	inst="$2"
+
+	ulimit -n $MAX_FDS > /dev/null 2> /dev/null
+	if [ "$dmn" = "watchfrr" ]; then
 
 		# We may need to restart watchfrr if new daemons are added and/or
 		# removed
-		if started "$1" ; then
+		if started "$dmn" ; then
 			stop watchfrr
 		else
 			# Echo only once. watchfrr is printed in the stop above
-			echo -n " $1"
+			echo -n " $dmn"
 		fi
 
-
+		eval "set - $watchfrr_options"
 		${SSD} \
 			--start \
-			--pidfile=`pidfile $1` \
-			--exec "$D_PATH/$1" \
+			--pidfile=`pidfile $dmn` \
+			--exec "$D_PATH/$dmn" \
 			-- \
-			"${watchfrr_options[@]}"
+			"$@"
 
-	elif [ -n "$2" ]; then
-		echo -n " $1-$2"
-		if ! check_daemon $1 $2 ; then
+	elif [ -n "$inst" ]; then
+		echo -n " $dmn-$inst"
+		if ! check_daemon $dmn $inst ; then
 			echo -n " (binary does not exist)"
 			return;
 		fi
 
 		${SSD} \
 			--start \
-			--pidfile=`pidfile $1-$2` \
-			--exec "$D_PATH/$1" \
+			--pidfile=`pidfile $dmn-$inst` \
+			--exec "$D_PATH/$dmn" \
 			-- \
-			`eval echo "$""$1""_options"` -n "$2"
+			`eval echo "$""$dmn""_options"` -n "$inst"
 	else
-		if ! check_daemon $1; then
+		if ! check_daemon $dmn; then
 			echo -n " (binary does not exist)"
 			return;
 		fi
@@ -157,22 +161,22 @@ start()
 		if [ "$valgrind_enable" = "yes" ]; then
 			${SSD} \
 				--start \
-				--pidfile=`pidfile $1` \
+				--pidfile=`pidfile $dmn` \
 				--exec "$valgrind" \
-				-- --trace-children=no --leak-check=full --log-file=/var/log/frr/$1-valgrind.log $D_PATH/$1 \
-				`eval echo "$""$1""_options"`
+				-- --trace-children=no --leak-check=full --log-file=/var/log/frr/$dmn-valgrind.log $D_PATH/$dmn \
+				`eval echo "$""$dmn""_options"`
 		else
 			${SSD} \
 				--start \
-				--pidfile=`pidfile $1` \
-				--exec "$D_PATH/$1" \
+				--pidfile=`pidfile $dmn` \
+				--exec "$D_PATH/$dmn" \
 				-- \
-				`eval echo "$""$1""_options"`
+				`eval echo "$""$dmn""_options"`
 		fi
 	fi
 
 	# Start the staticd automatically
-	if [ "$1" = "zebra" ]; then
+	if [ "$dmn" = "zebra" ]; then
 		echo -n "starting staticd since zebra is running"
 		if ! check_daemon staticd ; then
 			echo -n " (binary does not exist)"
@@ -269,11 +273,9 @@ start_watchfrr()
 	fi
 
 	# Check variable type
-	if ! declare -p watchfrr_options | grep -q '^declare \-a'; then
-		echo
-		echo "ERROR: The variable watchfrr_options from /etc/frr/debian.cnf must be a BASH array!"
-		echo "ERROR: Please convert config file and restart!"
-		exit 1
+	if declare -p watchfrr_options | grep -q '^declare \-a'; then
+		# old array support
+		watchfrr_options="${watchfrr_options[@]}"
 	fi
 
 	# Which daemons have been started?
@@ -287,13 +289,13 @@ start_watchfrr()
 					eval "inst_disable=\${${daemon_name}_${inst}}"
 					if [ -z ${inst_disable} ] || [ ${inst_disable} != 0 ]; then
 						if check_daemon $daemon_name $inst; then
-							watchfrr_options+=("${daemon_name}-${inst}")
+							watchfrr_options="$watchfrr_options ${daemon_name}-${inst}"
 						fi
 					fi
 				done
 			else
 				if check_daemon $daemon_name; then
-					watchfrr_options+=($daemon_name)
+					watchfrr_options="$watchfrr_options $daemon_name"
 				fi
 			fi
 			found_one=1

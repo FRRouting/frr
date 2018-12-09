@@ -23,7 +23,7 @@ makedepends="ncurses-dev net-snmp-dev gawk texinfo perl
 checkdepends="pytest py-setuptools"
 install="$pkgname.pre-install $pkgname.pre-deinstall $pkgname.post-deinstall"
 subpackages="$pkgname-dev $pkgname-doc $pkgname-dbg"
-source="$pkgname-$pkgver.tar.gz docker-start daemons daemons.conf"
+source="$pkgname-$pkgver.tar.gz docker-start daemons"
 
 builddir="$srcdir"/$pkgname-$pkgver
 
@@ -62,7 +62,6 @@ package() {
 
 	install -Dm755 "$srcdir"/docker-start "$pkgdir"$_sbindir
 	install -Dm644 "$srcdir"/daemons "$pkgdir"$_sysconfdir
-	install -Dm644 "$srcdir"/daemons.conf "$pkgdir"$_sysconfdir
 	install -d "$pkgdir"/etc/init.d
 	ln -s ${_sbindir}/frr "$pkgdir"/etc/init.d/frr
 }

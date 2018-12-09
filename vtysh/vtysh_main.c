@@ -675,8 +675,6 @@ int main(int argc, char **argv, char **env)
 			exit(0);
 	}
 
-	vtysh_pager_init();
-
 	vtysh_readline_init();
 
 	vty_hello(vty);

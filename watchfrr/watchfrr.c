@@ -65,6 +65,7 @@ static bool watch_only = false;
 
 typedef enum {
 	PHASE_NONE = 0,
+	PHASE_INIT,
 	PHASE_STOPS_PENDING,
 	PHASE_WAITING_DOWN,
 	PHASE_ZEBRA_RESTART_PENDING,
@@ -72,7 +73,8 @@ typedef enum {
 } restart_phase_t;
 
 static const char *phase_str[] = {
-	"None",
+	"Idle",
+	"Startup",
 	"Stop jobs running",
 	"Waiting for other daemons to come down",
 	"Zebra restart job running",
@@ -112,7 +114,7 @@ static struct global_state {
 	int numpids;
 	int numdown; /* # of daemons that are not UP or UNRESPONSIVE */
 } gs = {
-	.phase = PHASE_NONE,
+	.phase = PHASE_INIT,
 	.vtydir = frr_vtydir,
 	.period = 1000 * DEFAULT_PERIOD,
 	.timeout = DEFAULT_TIMEOUT,
@@ -177,6 +179,7 @@ static int try_connect(struct daemon *dmn);
 static int wakeup_send_echo(struct thread *t_wakeup);
 static void try_restart(struct daemon *dmn);
 static void phase_check(void);
+static void restart_done(struct daemon *dmn);
 
 static const char *progname;
 static void printhelp(FILE *target)
@@ -333,6 +336,7 @@ static void sigchild(void)
 	const char *name;
 	const char *what;
 	struct restart_info *restart;
+	struct daemon *dmn;
 
 	switch (child = waitpid(-1, &status, WNOHANG)) {
 	case -1:
@@ -378,9 +382,18 @@ static void sigchild(void)
 			zlog_warn(
 				"%s %s process %d exited with non-zero status %d",
 				what, name, (int)child, WEXITSTATUS(status));
-		else
+		else {
 			zlog_debug("%s %s process %d exited normally", what,
 				   name, (int)child);
+
+			if (restart && restart != &gs.restart) {
+				dmn = container_of(restart, struct daemon,
+						   restart);
+				restart_done(dmn);
+			} else if (restart)
+				for (dmn = gs.daemons; dmn; dmn = dmn->next)
+					restart_done(dmn);
+		}
 	} else
 		flog_err_sys(
 			EC_LIB_SYSTEM_CALL,
@@ -494,13 +507,25 @@ static int wakeup_init(struct thread *t_wakeup)
 
 	dmn->t_wakeup = NULL;
 	if (try_connect(dmn) < 0) {
-		SET_WAKEUP_DOWN(dmn);
 		flog_err(EC_WATCHFRR_CONNECTION,
 			 "%s state -> down : initial connection attempt failed",
 			 dmn->name);
 		dmn->state = DAEMON_DOWN;
 	}
+	phase_check();
 	return 0;
+}
+
+static void restart_done(struct daemon *dmn)
+{
+	if (dmn->state != DAEMON_DOWN) {
+		zlog_warn("wtf?");
+		return;
+	}
+	if (dmn->t_wakeup)
+		THREAD_OFF(dmn->t_wakeup);
+	if (try_connect(dmn) < 0)
+		SET_WAKEUP_DOWN(dmn);
 }
 
 static void daemon_down(struct daemon *dmn, const char *why)
@@ -773,8 +798,24 @@ static void set_phase(restart_phase_t new_phase)
 
 static void phase_check(void)
 {
+	struct daemon *dmn;
+
 	switch (gs.phase) {
 	case PHASE_NONE:
+		break;
+
+	case PHASE_INIT:
+		for (dmn = gs.daemons; dmn; dmn = dmn->next)
+			if (dmn->state == DAEMON_INIT)
+				return;
+
+		/* startup complete, everything out of INIT */
+		gs.phase = PHASE_NONE;
+		for (dmn = gs.daemons; dmn; dmn = dmn->next)
+			if (dmn->state == DAEMON_DOWN) {
+				SET_WAKEUP_DOWN(dmn);
+				try_restart(dmn);
+			}
 		break;
 	case PHASE_STOPS_PENDING:
 		if (gs.numpids)
@@ -929,6 +970,31 @@ bool check_all_up(void)
 	return true;
 }
 
+void watchfrr_status(struct vty *vty)
+{
+	struct daemon *dmn;
+	struct timeval delay;
+
+	vty_out(vty, "watchfrr global phase: %s\n", phase_str[gs.phase]);
+	if (gs.restart.pid)
+		vty_out(vty, "    global restart running, pid %ld\n",
+			(long)gs.restart.pid);
+
+	for (dmn = gs.daemons; dmn; dmn = dmn->next) {
+		vty_out(vty, "  %-20s %s\n", dmn->name, state_str[dmn->state]);
+		if (dmn->restart.pid)
+			vty_out(vty, "      restart running, pid %ld\n",
+				(long)dmn->restart.pid);
+		else if (dmn->state == DAEMON_DOWN &&
+			time_elapsed(&delay, &dmn->restart.time)->tv_sec
+				< dmn->restart.interval)
+			vty_out(vty, "      restarting in %ld seconds"
+				" (%lds backoff interval)\n",
+				dmn->restart.interval - delay.tv_sec,
+				dmn->restart.interval);
+	}
+}
+
 static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
@@ -980,8 +1046,7 @@ static void watchfrr_init(int argc, char **argv)
 		gs.numdown++;
 		dmn->fd = -1;
 		dmn->t_wakeup = NULL;
-		thread_add_timer_msec(master, wakeup_init, dmn,
-				      100 + (random() % 900),
+		thread_add_timer_msec(master, wakeup_init, dmn, 0,
 				      &dmn->t_wakeup);
 		dmn->restart.interval = gs.min_restart_interval;
 		*add = dmn;

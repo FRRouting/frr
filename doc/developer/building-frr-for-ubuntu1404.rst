@@ -112,7 +112,6 @@ Install the init.d service
 
     sudo install -m 755 tools/frr /etc/init.d/frr
     sudo install -m 644 tools/etc/frr/daemons /etc/frr/daemons
-    sudo install -m 644 tools/etc/frr/daemons.conf /etc/frr/daemons.conf
     sudo install -m 644 -o frr -g frr tools/etc/frr/vtysh.conf /etc/frr/vtysh.conf
 
 Enable daemons
