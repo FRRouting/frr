@@ -37,6 +37,7 @@ static struct thread_master *master;
 static struct list *sysrepo_threads;
 static sr_session_ctx_t *session;
 static sr_conn_ctx_t *connection;
+static struct nb_transaction *transaction;
 
 static int frr_sr_read_cb(struct thread *thread);
 static int frr_sr_write_cb(struct thread *thread);
@@ -232,10 +233,9 @@ static int frr_sr_process_change(struct nb_config *candidate,
 	return NB_OK;
 }
 
-/* Callback for changes in the running configuration. */
-static int frr_sr_config_change_cb(sr_session_ctx_t *session,
-				   const char *module_name,
-				   sr_notif_event_t sr_ev, void *private_ctx)
+static int frr_sr_config_change_cb_verify(sr_session_ctx_t *session,
+					  const char *module_name,
+					  bool startup_config)
 {
 	sr_change_iter_t *it;
 	int ret;
@@ -243,14 +243,6 @@ static int frr_sr_config_change_cb(sr_session_ctx_t *session,
 	sr_val_t *sr_old_val, *sr_new_val;
 	char xpath[XPATH_MAXLEN];
 	struct nb_config *candidate;
-
-	/*
-	 * Ignore SR_EV_ABORT and SR_EV_APPLY. We'll leverage the northbound
-	 * layer itself to abort or apply the configuration changes when a
-	 * transaction is created.
-	 */
-	if (sr_ev != SR_EV_ENABLED && sr_ev != SR_EV_VERIFY)
-		return SR_ERR_OK;
 
 	snprintf(xpath, sizeof(xpath), "/%s:*", module_name);
 	ret = sr_get_changes_iter(session, xpath, &it);
@@ -280,15 +272,30 @@ static int frr_sr_config_change_cb(sr_session_ctx_t *session,
 		return SR_ERR_INTERNAL;
 	}
 
-	/* Commit changes. */
-	ret = nb_candidate_commit(candidate, NB_CLIENT_SYSREPO, true, NULL,
-				  NULL);
-	nb_config_free(candidate);
+	transaction = NULL;
+	if (startup_config) {
+		/*
+		 * sysrepod sends the entire startup configuration using a
+		 * single event (SR_EV_ENABLED). This means we need to perform
+		 * the full two-phase commit protocol in one go here.
+		 */
+		ret = nb_candidate_commit(candidate, NB_CLIENT_SYSREPO, true,
+					  NULL, NULL);
+	} else {
+		/*
+		 * Validate the configuration changes and allocate all resources
+		 * required to apply them.
+		 */
+		ret = nb_candidate_commit_prepare(candidate, NB_CLIENT_SYSREPO,
+						  NULL, &transaction);
+	}
 
 	/* Map northbound return code to sysrepo return code. */
 	switch (ret) {
 	case NB_OK:
+		return SR_ERR_OK;
 	case NB_ERR_NO_CHANGES:
+		nb_config_free(candidate);
 		return SR_ERR_OK;
 	case NB_ERR_LOCKED:
 		return SR_ERR_LOCKED;
@@ -296,6 +303,57 @@ static int frr_sr_config_change_cb(sr_session_ctx_t *session,
 		return SR_ERR_NOMEM;
 	default:
 		return SR_ERR_VALIDATION_FAILED;
+	}
+}
+
+static int frr_sr_config_change_cb_apply(sr_session_ctx_t *session,
+					 const char *module_name)
+{
+	/* Apply the transaction. */
+	if (transaction) {
+		struct nb_config *candidate = transaction->config;
+
+		nb_candidate_commit_apply(transaction, true, NULL);
+		nb_config_free(candidate);
+	}
+
+	return SR_ERR_OK;
+}
+
+static int frr_sr_config_change_cb_abort(sr_session_ctx_t *session,
+					 const char *module_name)
+{
+	/* Abort the transaction. */
+	if (transaction) {
+		struct nb_config *candidate = transaction->config;
+
+		nb_candidate_commit_abort(transaction);
+		nb_config_free(candidate);
+	}
+
+	return SR_ERR_OK;
+}
+
+/* Callback for changes in the running configuration. */
+static int frr_sr_config_change_cb(sr_session_ctx_t *session,
+				   const char *module_name,
+				   sr_notif_event_t sr_ev, void *private_ctx)
+{
+	switch (sr_ev) {
+	case SR_EV_ENABLED:
+		return frr_sr_config_change_cb_verify(session, module_name,
+						      true);
+	case SR_EV_VERIFY:
+		return frr_sr_config_change_cb_verify(session, module_name,
+						      false);
+	case SR_EV_APPLY:
+		return frr_sr_config_change_cb_apply(session, module_name);
+	case SR_EV_ABORT:
+		return frr_sr_config_change_cb_abort(session, module_name);
+	default:
+		flog_err(EC_LIB_LIBSYSREPO, "%s: unknown sysrepo event: %u",
+			 __func__, sr_ev);
+		return SR_ERR_INTERNAL;
 	}
 }
 
