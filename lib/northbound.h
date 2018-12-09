@@ -20,6 +20,7 @@
 #ifndef _FRR_NORTHBOUND_H_
 #define _FRR_NORTHBOUND_H_
 
+#include "thread.h"
 #include "hook.h"
 #include "linklist.h"
 #include "openbsd-tree.h"
@@ -825,7 +826,7 @@ extern const char *nb_client_name(enum nb_client client);
  * nmodules
  *    Size of the modules array.
  */
-extern void nb_init(const struct frr_yang_module_info *modules[],
+extern void nb_init(struct thread_master *tm, const struct frr_yang_module_info *modules[],
 		    size_t nmodules);
 
 /*

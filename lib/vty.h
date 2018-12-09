@@ -126,6 +126,10 @@ struct vty {
 	/* Base candidate configuration. */
 	struct nb_config *candidate_config_base;
 
+	/* Confirmed-commit timeout and rollback configuration. */
+	struct thread *t_confirmed_commit_timeout;
+	struct nb_config *confirmed_commit_rollback;
+
 	/* qobj object ID (replacement for "index") */
 	uint64_t qobj_index;
 
