@@ -1286,7 +1286,7 @@ static bgp_attr_parse_ret_t bgp_attr_nexthop(struct bgp_attr_parser_args *args)
 	nexthop_n = stream_get_ipv4(peer->curr);
 	nexthop_h = ntohl(nexthop_n);
 	if ((IPV4_NET0(nexthop_h) || IPV4_NET127(nexthop_h)
-	     || IPV4_CLASS_DE(nexthop_h))
+	     || IPV4_CLASS_D(nexthop_h) || IPV4_BROADCAST(nexthop_h))
 	    && !BGP_DEBUG(
 		       allow_martians,
 		       ALLOW_MARTIANS)) /* loopbacks may be used in testing */

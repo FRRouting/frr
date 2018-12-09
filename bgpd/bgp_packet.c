@@ -1149,7 +1149,8 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	}
 
 	/* remote router-id check. */
-	if (remote_id.s_addr == 0 || IPV4_CLASS_DE(ntohl(remote_id.s_addr))
+	if (remote_id.s_addr == 0 || IPV4_CLASS_D(ntohl(remote_id.s_addr))
+	    || IPV4_BROADCAST(remote_id.s_addr)
 	    || ntohl(peer->local_id.s_addr) == ntohl(remote_id.s_addr)) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s bad OPEN, wrong router identifier %s",

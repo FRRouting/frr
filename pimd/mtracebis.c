@@ -456,7 +456,8 @@ int main(int argc, char *const argv[])
 	if (argc == 3) {
 		if (inet_pton(AF_INET, argv[2], &mc_group) != 1)
 			not_group = true;
-		if (!not_group && !IPV4_CLASS_DE(ntohl(mc_group.s_addr)))
+		if (!not_group && !(IPV4_CLASS_D(ntohl(mc_group.s_addr))
+					|| IPV4_BROADCAST(mc_group.s_addr)))
 			not_group = true;
 	}
 

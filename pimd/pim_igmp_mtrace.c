@@ -322,7 +322,7 @@ static int mtrace_send_packet(struct interface *ifp,
 		goto close_fd;
 	}
 
-	if (IPV4_CLASS_DE(ntohl(dst_addr.s_addr))) {
+	if (IPV4_CLASS_D(ntohl(dst_addr.s_addr))) {
 		if (IPV4_MC_LINKLOCAL(ntohl(dst_addr.s_addr))) {
 			ttl = 1;
 		} else {
@@ -506,7 +506,7 @@ static int mtrace_mc_forward_packet(struct pim_instance *pim, struct ip *ip_hdr)
 
 static int mtrace_forward_packet(struct pim_instance *pim, struct ip *ip_hdr)
 {
-	if (IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr)))
+	if (IPV4_CLASS_D(ntohl(ip_hdr->ip_dst.s_addr)))
 		return mtrace_mc_forward_packet(pim, ip_hdr);
 	else
 		return mtrace_un_forward_packet(pim, ip_hdr, NULL);
@@ -568,7 +568,7 @@ static int mtrace_send_response(struct pim_instance *pim,
 	mtracep->checksum = 0;
 	mtracep->checksum = in_cksum((char *)mtracep, mtrace_len);
 
-	if (IPV4_CLASS_DE(ntohl(mtracep->rsp_addr.s_addr))) {
+	if (IPV4_CLASS_D(ntohl(mtracep->rsp_addr.s_addr))) {
 		struct pim_rpf *p_rpf;
 		char grp_str[INET_ADDRSTRLEN];
 
@@ -639,7 +639,8 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	 * Check if mtrace packet is addressed elsewhere and forward,
 	 * if applicable
 	 */
-	if (!IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr)))
+	if (!(IPV4_CLASS_D(ntohl(ip_hdr->ip_dst.s_addr))
+		|| IPV4_BROADCAST(ip_hdr->ip_dst.s_addr)))
 		if (!if_lookup_exact_address(&ip_hdr->ip_dst, AF_INET,
 					     pim->vrf_id))
 			return mtrace_forward_packet(pim, ip_hdr);
@@ -687,7 +688,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 
 		/* 6.1.1  Packet verification */
 		if (!pim_if_connected_to_source(ifp, mtracep->dst_addr)) {
-			if (IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr))) {
+			if (IPV4_CLASS_D(ntohl(ip_hdr->ip_dst.s_addr))) {
 				if (PIM_DEBUG_MTRACE)
 					zlog_debug(
 						"Dropping multicast query "
@@ -730,7 +731,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	}
 
 	/* 6.2.1 Packet Verification - drop not link-local multicast */
-	if (IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr))
+	if (IPV4_CLASS_D(ntohl(ip_hdr->ip_dst.s_addr))
 	    && !IPV4_MC_LINKLOCAL(ntohl(ip_hdr->ip_dst.s_addr))) {
 		if (PIM_DEBUG_MTRACE)
 			zlog_warn(

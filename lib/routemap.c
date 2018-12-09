@@ -2357,9 +2357,10 @@ DEFUN (set_ip_nexthop,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if (su.sin.sin_addr.s_addr == 0
-	    || IPV4_CLASS_DE(ntohl(su.sin.sin_addr.s_addr))) {
+	    || IPV4_BROADCAST(su.sin.sin_addr.s_addr)
+	    || IPV4_CLASS_D(ntohl(su.sin.sin_addr.s_addr))) {
 		vty_out(vty,
-			"%% nexthop address cannot be 0.0.0.0, multicast or reserved\n");
+			"%% nexthop address cannot be 0.0.0.0, or multicast\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 

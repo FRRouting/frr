@@ -2867,7 +2867,8 @@ static int bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 	/* If NEXT_HOP is present, validate it. */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)) {
 		if (attr->nexthop.s_addr == 0
-		    || IPV4_CLASS_DE(ntohl(attr->nexthop.s_addr))
+		    || IPV4_CLASS_D(ntohl(attr->nexthop.s_addr))
+		    || IPV4_BROADCAST(attr->nexthop.s_addr)
 		    || bgp_nexthop_self(bgp, attr->nexthop))
 			return 1;
 	}
@@ -2882,7 +2883,9 @@ static int bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 		case BGP_ATTR_NHLEN_IPV4:
 		case BGP_ATTR_NHLEN_VPNV4:
 			ret = (attr->mp_nexthop_global_in.s_addr == 0
-			       || IPV4_CLASS_DE(ntohl(
+			       || IPV4_BROADCAST(
+					  attr->mp_nexthop_global_in.s_addr)
+			       || IPV4_CLASS_D(ntohl(
 					  attr->mp_nexthop_global_in.s_addr))
 			       || bgp_nexthop_self(bgp,
 						   attr->mp_nexthop_global_in));
