@@ -1,0 +1,45 @@
+#
+# debian
+#
+
+EXTRA_DIST += \
+	debian/README.Debian \
+	debian/README.Maintainer \
+	debian/changelog \
+	debian/changelog-auto \
+	debian/compat \
+	debian/control \
+	debian/copyright \
+	debian/rules \
+	debian/source/format \
+	debian/source/lintian-overrides \
+	debian/tests/control \
+	debian/tests/daemons \
+	debian/watchfrr.rc \
+	debian/watch \
+	\
+	debian/frr-dbg.lintian-overrides \
+	debian/frr-doc.doc-base \
+	debian/frr-doc.info \
+	debian/frr-doc.install \
+	debian/frr-doc.lintian-overrides \
+	debian/frr-pythontools.install \
+	debian/frr-pythontools.lintian-overrides \
+	debian/frr-rpki-rtrlib.install \
+	debian/frr-rpki-rtrlib.lintian-overrides \
+	debian/frr-snmp.install \
+	debian/frr-snmp.lintian-overrides \
+	debian/frr.conf \
+	debian/frr.dirs \
+	debian/frr.docs \
+	debian/frr.install \
+	debian/frr.lintian-overrides \
+	debian/frr.logrotate \
+	debian/frr.manpages \
+	debian/frr.pam \
+	debian/frr.postinst \
+	debian/frr.postrm \
+	debian/frr.preinst \
+	debian/frr.prerm \
+	debian/not-installed \
+	# end

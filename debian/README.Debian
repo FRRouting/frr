@@ -22,8 +22,8 @@ which itself is a fork of Zebra.
 Zebra was developed by Kunihiro Ishiguro.
 
 
-* Build Profiles used in the upstream debianpkg/
-================================================
+* Build Profiles used in the upstream debian/
+=============================================
 
 The following Build Profiles have been added:
 
