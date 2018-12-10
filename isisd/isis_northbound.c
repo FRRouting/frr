@@ -253,31 +253,19 @@ static int isis_instance_dynamic_hostname_modify(enum nb_event event,
 /*
  * XPath: /frr-isisd:isis/instance/attached
  */
-static int isis_instance_attached_create(enum nb_event event,
+static int isis_instance_attached_modify(enum nb_event event,
 					 const struct lyd_node *dnode,
 					 union nb_resource *resource)
 {
 	struct isis_area *area;
+	bool attached;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
 	area = yang_dnode_get_entry(dnode, true);
-	isis_area_attached_bit_set(area, true);
-
-	return NB_OK;
-}
-
-static int isis_instance_attached_delete(enum nb_event event,
-					 const struct lyd_node *dnode)
-{
-	struct isis_area *area;
-
-	if (event != NB_EV_APPLY)
-		return NB_OK;
-
-	area = yang_dnode_get_entry(dnode, true);
-	isis_area_attached_bit_set(area, false);
+	attached = yang_dnode_get_bool(dnode, NULL);
+	isis_area_attached_bit_set(area, attached);
 
 	return NB_OK;
 }
@@ -285,31 +273,19 @@ static int isis_instance_attached_delete(enum nb_event event,
 /*
  * XPath: /frr-isisd:isis/instance/overload
  */
-static int isis_instance_overload_create(enum nb_event event,
+static int isis_instance_overload_modify(enum nb_event event,
 					 const struct lyd_node *dnode,
 					 union nb_resource *resource)
 {
 	struct isis_area *area;
+	bool overload;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
 	area = yang_dnode_get_entry(dnode, true);
-	isis_area_overload_bit_set(area, true);
-
-	return NB_OK;
-}
-
-static int isis_instance_overload_delete(enum nb_event event,
-					 const struct lyd_node *dnode)
-{
-	struct isis_area *area;
-
-	if (event != NB_EV_APPLY)
-		return NB_OK;
-
-	area = yang_dnode_get_entry(dnode, true);
-	isis_area_overload_bit_set(area, false);
+	overload = yang_dnode_get_bool(dnode, NULL);
+	isis_area_overload_bit_set(area, overload);
 
 	return NB_OK;
 }
@@ -339,7 +315,7 @@ static int isis_instance_metric_style_modify(enum nb_event event,
 /*
  * XPath: /frr-isisd:isis/instance/purge-originator
  */
-static int isis_instance_purge_originator_create(enum nb_event event,
+static int isis_instance_purge_originator_modify(enum nb_event event,
 						 const struct lyd_node *dnode,
 						 union nb_resource *resource)
 {
@@ -349,21 +325,7 @@ static int isis_instance_purge_originator_create(enum nb_event event,
 		return NB_OK;
 
 	area = yang_dnode_get_entry(dnode, true);
-	area->purge_originator = true;
-
-	return NB_OK;
-}
-
-static int isis_instance_purge_originator_delete(enum nb_event event,
-						 const struct lyd_node *dnode)
-{
-	struct isis_area *area;
-
-	if (event != NB_EV_APPLY)
-		return NB_OK;
-
-	area = yang_dnode_get_entry(dnode, true);
-	area->purge_originator = false;
+	area->purge_originator = yang_dnode_get_bool(dnode, NULL);
 
 	return NB_OK;
 }
@@ -854,7 +816,7 @@ static void default_info_origin_apply_finish(const struct lyd_node *dnode,
 	struct isis_area *area = yang_dnode_get_entry(dnode, true);
 	int level = yang_dnode_get_enum(dnode, "./level");
 
-	if (yang_dnode_exists(dnode, "./always")) {
+	if (yang_dnode_get_bool(dnode, "./always")) {
 		originate_type = DEFAULT_ORIGINATE_ALWAYS;
 	} else if (family == AF_INET6) {
 		zlog_warn(
@@ -908,16 +870,9 @@ static int isis_instance_default_information_originate_ipv4_delete(
 /*
  * XPath: /frr-isisd:isis/instance/default-information-originate/ipv4/always
  */
-static int isis_instance_default_information_originate_ipv4_always_create(
+static int isis_instance_default_information_originate_ipv4_always_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
-{
-	/* It's all done by default_info_origin_apply_finish */
-	return NB_OK;
-}
-
-static int isis_instance_default_information_originate_ipv4_always_delete(
-	enum nb_event event, const struct lyd_node *dnode)
 {
 	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
@@ -989,16 +944,9 @@ static int isis_instance_default_information_originate_ipv6_delete(
 /*
  * XPath: /frr-isisd:isis/instance/default-information-originate/ipv6/always
  */
-static int isis_instance_default_information_originate_ipv6_always_create(
+static int isis_instance_default_information_originate_ipv6_always_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
-{
-	/* It's all done by default_info_origin_apply_finish */
-	return NB_OK;
-}
-
-static int isis_instance_default_information_originate_ipv6_always_delete(
-	enum nb_event event, const struct lyd_node *dnode)
 {
 	/* It's all done by default_info_origin_apply_finish */
 	return NB_OK;
@@ -1241,8 +1189,7 @@ static int isis_multi_topology_common(enum nb_event event,
 
 static int isis_multi_topology_overload_common(enum nb_event event,
 					       const struct lyd_node *dnode,
-					       const char *topology,
-					       bool create)
+					       const char *topology)
 {
 	struct isis_area *area;
 	struct isis_area_mt_setting *setting;
@@ -1254,7 +1201,7 @@ static int isis_multi_topology_overload_common(enum nb_event event,
 
 	area = yang_dnode_get_entry(dnode, true);
 	setting = area_get_mt_setting(area, mtid);
-	setting->overload = create;
+	setting->overload = yang_dnode_get_bool(dnode, NULL);
 	if (setting->enabled)
 		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 0);
 
@@ -1280,19 +1227,12 @@ isis_instance_multi_topology_ipv4_multicast_delete(enum nb_event event,
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv4-multicast/overload
  */
-static int isis_instance_multi_topology_ipv4_multicast_overload_create(
+static int isis_instance_multi_topology_ipv4_multicast_overload_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
 	return isis_multi_topology_overload_common(event, dnode,
-						   "ipv4-multicast", true);
-}
-
-static int isis_instance_multi_topology_ipv4_multicast_overload_delete(
-	enum nb_event event, const struct lyd_node *dnode)
-{
-	return isis_multi_topology_overload_common(event, dnode,
-						   "ipv4-multicast", false);
+						   "ipv4-multicast");
 }
 
 /*
@@ -1314,19 +1254,11 @@ static int isis_instance_multi_topology_ipv4_management_delete(
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv4-management/overload
  */
-static int isis_instance_multi_topology_ipv4_management_overload_create(
+static int isis_instance_multi_topology_ipv4_management_overload_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	return isis_multi_topology_overload_common(event, dnode, "ipv4-mgmt",
-						   true);
-}
-
-static int isis_instance_multi_topology_ipv4_management_overload_delete(
-	enum nb_event event, const struct lyd_node *dnode)
-{
-	return isis_multi_topology_overload_common(event, dnode, "ipv4-mgmt",
-						   false);
+	return isis_multi_topology_overload_common(event, dnode, "ipv4-mgmt");
 }
 
 /*
@@ -1350,19 +1282,12 @@ isis_instance_multi_topology_ipv6_unicast_delete(enum nb_event event,
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv6-unicast/overload
  */
-static int isis_instance_multi_topology_ipv6_unicast_overload_create(
+static int isis_instance_multi_topology_ipv6_unicast_overload_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	return isis_multi_topology_overload_common(event, dnode, "ipv6-unicast",
-						   true);
-}
-
-static int isis_instance_multi_topology_ipv6_unicast_overload_delete(
-	enum nb_event event, const struct lyd_node *dnode)
-{
-	return isis_multi_topology_overload_common(event, dnode, "ipv6-unicast",
-						   false);
+	return isis_multi_topology_overload_common(event, dnode,
+						   "ipv6-unicast");
 }
 
 /*
@@ -1387,19 +1312,12 @@ isis_instance_multi_topology_ipv6_multicast_delete(enum nb_event event,
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv6-multicast/overload
  */
-static int isis_instance_multi_topology_ipv6_multicast_overload_create(
+static int isis_instance_multi_topology_ipv6_multicast_overload_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
 	return isis_multi_topology_overload_common(event, dnode,
-						   "ipv6-multicast", true);
-}
-
-static int isis_instance_multi_topology_ipv6_multicast_overload_delete(
-	enum nb_event event, const struct lyd_node *dnode)
-{
-	return isis_multi_topology_overload_common(event, dnode,
-						   "ipv6-multicast", false);
+						   "ipv6-multicast");
 }
 
 /*
@@ -1421,19 +1339,11 @@ static int isis_instance_multi_topology_ipv6_management_delete(
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv6-management/overload
  */
-static int isis_instance_multi_topology_ipv6_management_overload_create(
+static int isis_instance_multi_topology_ipv6_management_overload_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	return isis_multi_topology_overload_common(event, dnode, "ipv6-mgmt",
-						   true);
-}
-
-static int isis_instance_multi_topology_ipv6_management_overload_delete(
-	enum nb_event event, const struct lyd_node *dnode)
-{
-	return isis_multi_topology_overload_common(event, dnode, "ipv6-mgmt",
-						   false);
+	return isis_multi_topology_overload_common(event, dnode, "ipv6-mgmt");
 }
 
 /*
@@ -1457,51 +1367,29 @@ isis_instance_multi_topology_ipv6_dstsrc_delete(enum nb_event event,
 /*
  * XPath: /frr-isisd:isis/instance/multi-topology/ipv6-dstsrc/overload
  */
-static int isis_instance_multi_topology_ipv6_dstsrc_overload_create(
+static int isis_instance_multi_topology_ipv6_dstsrc_overload_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
-	return isis_multi_topology_overload_common(event, dnode, "ipv6-dstsrc",
-						   true);
-}
-
-static int isis_instance_multi_topology_ipv6_dstsrc_overload_delete(
-	enum nb_event event, const struct lyd_node *dnode)
-{
-	return isis_multi_topology_overload_common(event, dnode, "ipv6-dstsrc",
-						   false);
+	return isis_multi_topology_overload_common(event, dnode, "ipv6-dstsrc");
 }
 
 /*
  * XPath: /frr-isisd:isis/instance/log-adjacency-changes
  */
 static int
-isis_instance_log_adjacency_changes_create(enum nb_event event,
+isis_instance_log_adjacency_changes_modify(enum nb_event event,
 					   const struct lyd_node *dnode,
 					   union nb_resource *resource)
 {
 	struct isis_area *area;
+	bool log = yang_dnode_get_bool(dnode, NULL);
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
 	area = yang_dnode_get_entry(dnode, true);
-	area->log_adj_changes = 1;
-
-	return NB_OK;
-}
-
-static int
-isis_instance_log_adjacency_changes_delete(enum nb_event event,
-					   const struct lyd_node *dnode)
-{
-	struct isis_area *area;
-
-	if (event != NB_EV_APPLY)
-		return NB_OK;
-
-	area = yang_dnode_get_entry(dnode, true);
-	area->log_adj_changes = 0;
+	area->log_adj_changes = log ? 1 : 0;
 
 	return NB_OK;
 }
@@ -1782,37 +1670,20 @@ static int lib_interface_isis_circuit_type_modify(enum nb_event event,
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/ipv4-routing
  */
-static int lib_interface_isis_ipv4_routing_create(enum nb_event event,
+static int lib_interface_isis_ipv4_routing_modify(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
-	bool ipv6;
+	bool ipv4, ipv6;
 	struct isis_circuit *circuit;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
 	circuit = yang_dnode_get_entry(dnode, true);
-	ipv6 = yang_dnode_exists(dnode, "../ipv6-routing");
-	isis_circuit_af_set(circuit, true, ipv6);
-
-	return NB_OK;
-}
-
-static int lib_interface_isis_ipv4_routing_delete(enum nb_event event,
-						  const struct lyd_node *dnode)
-{
-	bool ipv6;
-	struct isis_circuit *circuit;
-
-	if (event != NB_EV_APPLY)
-		return NB_OK;
-
-	circuit = yang_dnode_get_entry(dnode, true);
-	if (circuit && circuit->area) {
-		ipv6 = yang_dnode_exists(dnode, "../ipv6-routing");
-		isis_circuit_af_set(circuit, false, ipv6);
-	}
+	ipv4 = yang_dnode_get_bool(dnode, NULL);
+	ipv6 = yang_dnode_get_bool(dnode, "../ipv6-routing");
+	isis_circuit_af_set(circuit, ipv4, ipv6);
 
 	return NB_OK;
 }
@@ -1820,37 +1691,20 @@ static int lib_interface_isis_ipv4_routing_delete(enum nb_event event,
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/ipv6-routing
  */
-static int lib_interface_isis_ipv6_routing_create(enum nb_event event,
+static int lib_interface_isis_ipv6_routing_modify(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
-	bool ipv4;
+	bool ipv4, ipv6;
 	struct isis_circuit *circuit;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
 	circuit = yang_dnode_get_entry(dnode, true);
-	ipv4 = yang_dnode_exists(dnode, "../ipv6-routing");
-	isis_circuit_af_set(circuit, ipv4, true);
-
-	return NB_OK;
-}
-
-static int lib_interface_isis_ipv6_routing_delete(enum nb_event event,
-						  const struct lyd_node *dnode)
-{
-	bool ipv4;
-	struct isis_circuit *circuit;
-
-	if (event != NB_EV_APPLY)
-		return NB_OK;
-
-	circuit = yang_dnode_get_entry(dnode, true);
-	if (circuit->area) {
-		ipv4 = yang_dnode_exists(dnode, "../ipv4-routing");
-		isis_circuit_af_set(circuit, ipv4, false);
-	}
+	ipv4 = yang_dnode_exists(dnode, "../ipv4-routing");
+	ipv6 = yang_dnode_get_bool(dnode, NULL);
+	isis_circuit_af_set(circuit, ipv4, ipv6);
 
 	return NB_OK;
 }
@@ -2168,64 +2022,41 @@ static int lib_interface_isis_network_type_delete(enum nb_event event,
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/passive
  */
-static int lib_interface_isis_passive_create(enum nb_event event,
+static int lib_interface_isis_passive_modify(enum nb_event event,
 					     const struct lyd_node *dnode,
 					     union nb_resource *resource)
 {
 	struct isis_circuit *circuit;
 	struct isis_area *area;
+	struct interface *ifp;
+	bool passive = yang_dnode_get_bool(dnode, NULL);
+
+	/* validation only applies if we are setting passive to false */
+	if (!passive && event == NB_EV_VALIDATE) {
+		circuit = yang_dnode_get_entry(dnode, false);
+		if (!circuit)
+			return NB_OK;
+		ifp = circuit->interface;
+		if (!ifp)
+			return NB_OK;
+		if (if_is_loopback(ifp)) {
+			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
+				  "Loopback is always passive");
+			return NB_ERR_VALIDATION;
+		}
+	}
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
 	circuit = yang_dnode_get_entry(dnode, true);
 	if (circuit->state != C_STATE_UP) {
-		circuit->is_passive = true;
+		circuit->is_passive = passive;
 	} else {
 		area = circuit->area;
 		isis_csm_state_change(ISIS_DISABLE, circuit, area);
-		circuit->is_passive = true;
+		circuit->is_passive = passive;
 		isis_csm_state_change(ISIS_ENABLE, circuit, area);
-	}
-
-	return NB_OK;
-}
-
-static int lib_interface_isis_passive_delete(enum nb_event event,
-					     const struct lyd_node *dnode)
-{
-	struct isis_circuit *circuit;
-	struct isis_area *area;
-	struct interface *ifp;
-
-	switch (event) {
-	case NB_EV_VALIDATE:
-		circuit = yang_dnode_get_entry(dnode, false);
-		if (!circuit)
-			break;
-		ifp = circuit->interface;
-		if (!ifp)
-			break;
-		if (if_is_loopback(ifp)) {
-			flog_warn(EC_LIB_NB_CB_CONFIG_VALIDATE,
-				  "Loopback is always passive");
-			return NB_ERR_VALIDATION;
-		}
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		circuit = yang_dnode_get_entry(dnode, true);
-		if (circuit->state != C_STATE_UP) {
-			circuit->is_passive = false;
-		} else {
-			area = circuit->area;
-			isis_csm_state_change(ISIS_DISABLE, circuit, area);
-			circuit->is_passive = false;
-			isis_csm_state_change(ISIS_ENABLE, circuit, area);
-		}
-		break;
 	}
 
 	return NB_OK;
@@ -2302,7 +2133,7 @@ lib_interface_isis_password_password_type_modify(enum nb_event event,
  * XPath:
  * /frr-interface:lib/interface/frr-isisd:isis/disable-three-way-handshake
  */
-static int lib_interface_isis_disable_three_way_handshake_create(
+static int lib_interface_isis_disable_three_way_handshake_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
@@ -2312,21 +2143,7 @@ static int lib_interface_isis_disable_three_way_handshake_create(
 		return NB_OK;
 
 	circuit = yang_dnode_get_entry(dnode, true);
-	circuit->disable_threeway_adj = true;
-
-	return NB_OK;
-}
-
-static int lib_interface_isis_disable_three_way_handshake_delete(
-	enum nb_event event, const struct lyd_node *dnode)
-{
-	struct isis_circuit *circuit;
-
-	if (event != NB_EV_APPLY)
-		return NB_OK;
-
-	circuit = yang_dnode_get_entry(dnode, true);
-	circuit->disable_threeway_adj = false;
+	circuit->disable_threeway_adj = yang_dnode_get_bool(dnode, NULL);
 
 	return NB_OK;
 }
@@ -2964,14 +2781,12 @@ const struct frr_yang_module_info frr_isisd_info = {
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/attached",
-			.cbs.create = isis_instance_attached_create,
-			.cbs.delete = isis_instance_attached_delete,
+			.cbs.modify = isis_instance_attached_modify,
 			.cbs.cli_show = cli_show_isis_attached,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/overload",
-			.cbs.create = isis_instance_overload_create,
-			.cbs.delete = isis_instance_overload_delete,
+			.cbs.modify = isis_instance_overload_modify,
 			.cbs.cli_show = cli_show_isis_overload,
 		},
 		{
@@ -2981,8 +2796,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/purge-originator",
-			.cbs.create = isis_instance_purge_originator_create,
-			.cbs.delete = isis_instance_purge_originator_delete,
+			.cbs.modify = isis_instance_purge_originator_modify,
 			.cbs.cli_show = cli_show_isis_purge_origin,
 		},
 		{
@@ -3112,8 +2926,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv4/always",
-			.cbs.create = isis_instance_default_information_originate_ipv4_always_create,
-			.cbs.delete = isis_instance_default_information_originate_ipv4_always_delete,
+			.cbs.modify = isis_instance_default_information_originate_ipv4_always_modify,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv4/route-map",
@@ -3134,8 +2947,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv6/always",
-			.cbs.create = isis_instance_default_information_originate_ipv6_always_create,
-			.cbs.delete = isis_instance_default_information_originate_ipv6_always_delete,
+			.cbs.modify = isis_instance_default_information_originate_ipv6_always_modify,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv6/route-map",
@@ -3189,8 +3001,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv4-multicast/overload",
-			.cbs.create = isis_instance_multi_topology_ipv4_multicast_overload_create,
-			.cbs.delete = isis_instance_multi_topology_ipv4_multicast_overload_delete,
+			.cbs.modify = isis_instance_multi_topology_ipv4_multicast_overload_modify,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv4-management",
@@ -3200,8 +3011,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv4-management/overload",
-			.cbs.create = isis_instance_multi_topology_ipv4_management_overload_create,
-			.cbs.delete = isis_instance_multi_topology_ipv4_management_overload_delete,
+			.cbs.modify = isis_instance_multi_topology_ipv4_management_overload_modify,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-unicast",
@@ -3211,8 +3021,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-unicast/overload",
-			.cbs.create = isis_instance_multi_topology_ipv6_unicast_overload_create,
-			.cbs.delete = isis_instance_multi_topology_ipv6_unicast_overload_delete,
+			.cbs.modify = isis_instance_multi_topology_ipv6_unicast_overload_modify,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-multicast",
@@ -3222,8 +3031,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-multicast/overload",
-			.cbs.create = isis_instance_multi_topology_ipv6_multicast_overload_create,
-			.cbs.delete = isis_instance_multi_topology_ipv6_multicast_overload_delete,
+			.cbs.modify = isis_instance_multi_topology_ipv6_multicast_overload_modify,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-management",
@@ -3233,8 +3041,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-management/overload",
-			.cbs.create = isis_instance_multi_topology_ipv6_management_overload_create,
-			.cbs.delete = isis_instance_multi_topology_ipv6_management_overload_delete,
+			.cbs.modify = isis_instance_multi_topology_ipv6_management_overload_modify,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-dstsrc",
@@ -3244,13 +3051,11 @@ const struct frr_yang_module_info frr_isisd_info = {
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv6-dstsrc/overload",
-			.cbs.create = isis_instance_multi_topology_ipv6_dstsrc_overload_create,
-			.cbs.delete = isis_instance_multi_topology_ipv6_dstsrc_overload_delete,
+			.cbs.modify = isis_instance_multi_topology_ipv6_dstsrc_overload_modify,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/log-adjacency-changes",
-			.cbs.create = isis_instance_log_adjacency_changes_create,
-			.cbs.delete = isis_instance_log_adjacency_changes_delete,
+			.cbs.modify = isis_instance_log_adjacency_changes_modify,
 			.cbs.cli_show = cli_show_isis_log_adjacency,
 		},
 		{
@@ -3281,14 +3086,12 @@ const struct frr_yang_module_info frr_isisd_info = {
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/ipv4-routing",
-			.cbs.create = lib_interface_isis_ipv4_routing_create,
-			.cbs.delete = lib_interface_isis_ipv4_routing_delete,
+			.cbs.modify = lib_interface_isis_ipv4_routing_modify,
 			.cbs.cli_show = cli_show_ip_isis_ipv4,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/ipv6-routing",
-			.cbs.create = lib_interface_isis_ipv6_routing_create,
-			.cbs.delete = lib_interface_isis_ipv6_routing_delete,
+			.cbs.modify = lib_interface_isis_ipv6_routing_modify,
 			.cbs.cli_show = cli_show_ip_isis_ipv6,
 		},
 		{
@@ -3376,8 +3179,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/passive",
-			.cbs.create = lib_interface_isis_passive_create,
-			.cbs.delete = lib_interface_isis_passive_delete,
+			.cbs.modify = lib_interface_isis_passive_modify,
 			.cbs.cli_show = cli_show_ip_isis_passive,
 		},
 		{
@@ -3396,8 +3198,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/disable-three-way-handshake",
-			.cbs.create = lib_interface_isis_disable_three_way_handshake_create,
-			.cbs.delete = lib_interface_isis_disable_three_way_handshake_delete,
+			.cbs.modify = lib_interface_isis_disable_three_way_handshake_modify,
 			.cbs.cli_show = cli_show_ip_isis_threeway_shake,
 		},
 		{

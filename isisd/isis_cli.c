@@ -133,6 +133,9 @@ DEFPY(ip_router_isis, ip_router_isis_cmd, "ip router isis WORD$tag",
 	char temp_xpath[XPATH_MAXLEN];
 	const char *circ_type;
 	struct isis_area *area;
+	struct interface *ifp;
+	const struct lyd_node *dnode =
+		yang_dnode_get(running_config->dnode, VTY_CURR_XPATH);
 
 	/* area will be created if it is not present. make sure the yang model
 	 * is synced with FRR and call the appropriate NB cb.
@@ -153,7 +156,7 @@ DEFPY(ip_router_isis, ip_router_isis_cmd, "ip router isis WORD$tag",
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag",
 				      NB_OP_MODIFY, tag);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv4-routing",
-				      NB_OP_CREATE, NULL);
+				      NB_OP_MODIFY, "true");
 		nb_cli_enqueue_change(
 			vty, "./frr-isisd:isis/circuit-type", NB_OP_MODIFY,
 			listcount(isis->area_list) == 0 ? "level-1-2"
@@ -176,10 +179,16 @@ DEFPY(ip_router_isis, ip_router_isis_cmd, "ip router isis WORD$tag",
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag",
 				      NB_OP_MODIFY, tag);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv4-routing",
-				      NB_OP_CREATE, NULL);
+				      NB_OP_MODIFY, "true");
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
 				      NB_OP_MODIFY, circ_type);
 	}
+
+	/* check if the interface is a loopback and if so set it as passive */
+	ifp = yang_dnode_get_entry(dnode, false);
+	if (ifp && if_is_loopback(ifp))
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
+				      NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -193,6 +202,9 @@ DEFPY(ip6_router_isis, ip6_router_isis_cmd, "ipv6 router isis WORD$tag",
 	char temp_xpath[XPATH_MAXLEN];
 	const char *circ_type;
 	struct isis_area *area;
+	struct interface *ifp;
+	const struct lyd_node *dnode =
+		yang_dnode_get(running_config->dnode, VTY_CURR_XPATH);
 
 	/* area will be created if it is not present. make sure the yang model
 	 * is synced with FRR and call the appropriate NB cb.
@@ -213,7 +225,7 @@ DEFPY(ip6_router_isis, ip6_router_isis_cmd, "ipv6 router isis WORD$tag",
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag",
 				      NB_OP_MODIFY, tag);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv6-routing",
-				      NB_OP_CREATE, NULL);
+				      NB_OP_MODIFY, "true");
 		nb_cli_enqueue_change(
 			vty, "./frr-isisd:isis/circuit-type", NB_OP_MODIFY,
 			listcount(isis->area_list) == 0 ? "level-1-2"
@@ -236,10 +248,16 @@ DEFPY(ip6_router_isis, ip6_router_isis_cmd, "ipv6 router isis WORD$tag",
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag",
 				      NB_OP_MODIFY, tag);
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv6-routing",
-				      NB_OP_CREATE, NULL);
+				      NB_OP_MODIFY, "true");
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
 				      NB_OP_MODIFY, circ_type);
 	}
+
+	/* check if the interface is a loopback and if so set it as passive */
+	ifp = yang_dnode_get_entry(dnode, false);
+	if (ifp && if_is_loopback(ifp))
+		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
+				      NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -274,7 +292,7 @@ DEFPY(no_ip_router_isis, no_ip_router_isis_cmd,
 		else
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/ipv6-routing",
-					      NB_OP_DELETE, NULL);
+					      NB_OP_MODIFY, "false");
 	} else { /* no ipv4  */
 		if (circuit && !circuit->ipv6_router)
 			nb_cli_enqueue_change(vty, "./frr-isisd:isis",
@@ -282,7 +300,7 @@ DEFPY(no_ip_router_isis, no_ip_router_isis_cmd,
 		else
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/ipv4-routing",
-					      NB_OP_DELETE, NULL);
+					      NB_OP_MODIFY, "false");
 	}
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -291,6 +309,8 @@ DEFPY(no_ip_router_isis, no_ip_router_isis_cmd,
 void cli_show_ip_isis_ipv4(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults)
 {
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
 	vty_out(vty, " ip router isis %s\n",
 		yang_dnode_get_string(dnode, "../area-tag"));
 }
@@ -298,6 +318,8 @@ void cli_show_ip_isis_ipv4(struct vty *vty, struct lyd_node *dnode,
 void cli_show_ip_isis_ipv6(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults)
 {
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
 	vty_out(vty, " ipv6 router isis %s\n",
 		yang_dnode_get_string(dnode, "../area-tag"));
 }
@@ -413,8 +435,8 @@ DEFPY(set_overload_bit, set_overload_bit_cmd, "[no] set-overload-bit",
       "Reset overload bit to accept transit traffic\n"
       "Set overload bit to avoid any transit traffic\n")
 {
-	nb_cli_enqueue_change(vty, "./overload",
-			      no ? NB_OP_DELETE : NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./overload", NB_OP_MODIFY,
+			      no ? "false" : "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -422,6 +444,8 @@ DEFPY(set_overload_bit, set_overload_bit_cmd, "[no] set-overload-bit",
 void cli_show_isis_overload(struct vty *vty, struct lyd_node *dnode,
 			    bool show_defaults)
 {
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
 	vty_out(vty, " set-overload-bit\n");
 }
 
@@ -432,8 +456,8 @@ DEFPY(set_attached_bit, set_attached_bit_cmd, "[no] set-attached-bit",
       "Reset attached bit\n"
       "Set attached bit to identify as L1/L2 router for inter-area traffic\n")
 {
-	nb_cli_enqueue_change(vty, "./attached",
-			      no ? NB_OP_DELETE : NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./attached", NB_OP_MODIFY,
+			      no ? "false" : "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -441,6 +465,8 @@ DEFPY(set_attached_bit, set_attached_bit_cmd, "[no] set-attached-bit",
 void cli_show_isis_attached(struct vty *vty, struct lyd_node *dnode,
 			    bool show_defaults)
 {
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
 	vty_out(vty, " set-attached-bit\n");
 }
 
@@ -887,8 +913,8 @@ void cli_show_isis_spf_ietf_backoff(struct vty *vty, struct lyd_node *dnode,
 DEFPY(area_purge_originator, area_purge_originator_cmd, "[no] purge-originator",
       NO_STR "Use the RFC 6232 purge-originator\n")
 {
-	nb_cli_enqueue_change(vty, "./purge-originator",
-			      no ? NB_OP_DELETE : NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./purge-originator", NB_OP_MODIFY,
+			      no ? "false" : "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -896,6 +922,8 @@ DEFPY(area_purge_originator, area_purge_originator_cmd, "[no] purge-originator",
 void cli_show_isis_purge_origin(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults)
 {
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
 	vty_out(vty, " purge-originator\n");
 }
 
@@ -986,9 +1014,8 @@ DEFPY(isis_default_originate, isis_default_originate_cmd,
 		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
 	else {
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-		nb_cli_enqueue_change(vty, "./always",
-				      always ? NB_OP_CREATE : NB_OP_DELETE,
-				      NULL);
+		nb_cli_enqueue_change(vty, "./always", NB_OP_MODIFY,
+				      always ? "true" : "false");
 		nb_cli_enqueue_change(vty, "./route-map",
 				      rmap ? NB_OP_MODIFY : NB_OP_DELETE,
 				      rmap ? rmap : NULL);
@@ -1014,7 +1041,7 @@ static void vty_print_def_origin(struct vty *vty, struct lyd_node *dnode,
 	const char *metric;
 
 	vty_out(vty, " default-information originate %s %s", family, level);
-	if (yang_dnode_exists(dnode, "./always"))
+	if (yang_dnode_get_bool(dnode, "./always"))
 		vty_out(vty, " always");
 
 	if (yang_dnode_exists(dnode, "./route-map"))
@@ -1154,9 +1181,8 @@ DEFPY(isis_topology, isis_topology_cmd,
 		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
 	else {
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-		nb_cli_enqueue_change(vty, "./overload",
-				      overload ? NB_OP_CREATE : NB_OP_DELETE,
-				      NULL);
+		nb_cli_enqueue_change(vty, "./overload", NB_OP_MODIFY,
+				      overload ? "true" : "false");
 	}
 
 	return nb_cli_apply_changes(vty, base_xpath);
@@ -1166,7 +1192,7 @@ void cli_show_isis_mt_ipv4_multicast(struct vty *vty, struct lyd_node *dnode,
 				     bool show_defaults)
 {
 	vty_out(vty, " topology ipv4-multicast");
-	if (yang_dnode_exists(dnode, "./overload"))
+	if (yang_dnode_get_bool(dnode, "./overload"))
 		vty_out(vty, " overload");
 	vty_out(vty, "\n");
 }
@@ -1175,7 +1201,7 @@ void cli_show_isis_mt_ipv4_mgmt(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults)
 {
 	vty_out(vty, " topology ipv4-mgmt");
-	if (yang_dnode_exists(dnode, "./overload"))
+	if (yang_dnode_get_bool(dnode, "./overload"))
 		vty_out(vty, " overload");
 	vty_out(vty, "\n");
 }
@@ -1184,7 +1210,7 @@ void cli_show_isis_mt_ipv6_unicast(struct vty *vty, struct lyd_node *dnode,
 				   bool show_defaults)
 {
 	vty_out(vty, " topology ipv6-unicast");
-	if (yang_dnode_exists(dnode, "./overload"))
+	if (yang_dnode_get_bool(dnode, "./overload"))
 		vty_out(vty, " overload");
 	vty_out(vty, "\n");
 }
@@ -1193,7 +1219,7 @@ void cli_show_isis_mt_ipv6_multicast(struct vty *vty, struct lyd_node *dnode,
 				     bool show_defaults)
 {
 	vty_out(vty, " topology ipv6-multicast");
-	if (yang_dnode_exists(dnode, "./overload"))
+	if (yang_dnode_get_bool(dnode, "./overload"))
 		vty_out(vty, " overload");
 	vty_out(vty, "\n");
 }
@@ -1202,7 +1228,7 @@ void cli_show_isis_mt_ipv6_mgmt(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults)
 {
 	vty_out(vty, " topology ipv6-mgmt");
-	if (yang_dnode_exists(dnode, "./overload"))
+	if (yang_dnode_get_bool(dnode, "./overload"))
 		vty_out(vty, " overload");
 	vty_out(vty, "\n");
 }
@@ -1211,7 +1237,7 @@ void cli_show_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
 				  bool show_defaults)
 {
 	vty_out(vty, " topology ipv6-dstsrc");
-	if (yang_dnode_exists(dnode, "./overload"))
+	if (yang_dnode_get_bool(dnode, "./overload"))
 		vty_out(vty, " overload");
 	vty_out(vty, "\n");
 }
@@ -1224,8 +1250,8 @@ DEFPY(isis_passive, isis_passive_cmd, "[no] isis passive",
       "IS-IS routing protocol\n"
       "Configure the passive mode for interface\n")
 {
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
-			      no ? NB_OP_DELETE : NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive", NB_OP_MODIFY,
+			      no ? "false" : "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -1233,6 +1259,8 @@ DEFPY(isis_passive, isis_passive_cmd, "[no] isis passive",
 void cli_show_ip_isis_passive(struct vty *vty, struct lyd_node *dnode,
 			      bool show_defaults)
 {
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
 	vty_out(vty, " isis passive\n");
 }
 
@@ -1460,7 +1488,7 @@ DEFPY(isis_threeway_adj, isis_threeway_adj_cmd, "[no] isis three-way-handshake",
 {
 	nb_cli_enqueue_change(vty,
 			      "./frr-isisd:isis/disable-three-way-handshake",
-			      no ? NB_OP_CREATE : NB_OP_DELETE, NULL);
+			      NB_OP_MODIFY, no ? "true" : "false");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -1468,7 +1496,9 @@ DEFPY(isis_threeway_adj, isis_threeway_adj_cmd, "[no] isis three-way-handshake",
 void cli_show_ip_isis_threeway_shake(struct vty *vty, struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	vty_out(vty, " no isis three-way-handshake\n");
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " isis three-way-handshake\n");
 }
 
 /*
@@ -1884,8 +1914,8 @@ void cli_show_ip_isis_priority(struct vty *vty, struct lyd_node *dnode,
 DEFPY(log_adj_changes, log_adj_changes_cmd, "[no] log-adjacency-changes",
       NO_STR "Log changes in adjacency state\n")
 {
-	nb_cli_enqueue_change(vty, "./log-adjacency-changes",
-			      no ? NB_OP_DELETE : NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./log-adjacency-changes", NB_OP_MODIFY,
+			      no ? "false" : "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -1893,6 +1923,8 @@ DEFPY(log_adj_changes, log_adj_changes_cmd, "[no] log-adjacency-changes",
 void cli_show_isis_log_adjacency(struct vty *vty, struct lyd_node *dnode,
 				 bool show_defaults)
 {
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
 	vty_out(vty, " log-adjacency-changes\n");
 }
 

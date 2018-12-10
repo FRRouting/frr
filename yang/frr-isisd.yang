@@ -205,7 +205,8 @@ module frr-isisd {
     description
       "Redistribution of default route within a level.";
     leaf always {
-      type empty;
+      type boolean;
+      default "false";
       description
         "Always advertise default route.";
     }
@@ -350,15 +351,17 @@ module frr-isisd {
       }
 
       leaf attached {
-        type empty;
+        type boolean;
+        default "false";
         description
-          "If present, identify as L1/L2 router for inter-area traffic.";
+          "If true, identify as L1/L2 router for inter-area traffic.";
       }
 
       leaf overload {
-        type empty;
+        type boolean;
+        default "false";
         description
-          "If present, avoid any transit traffic.";
+          "If true, avoid any transit traffic.";
       }
 
       leaf metric-style {
@@ -370,7 +373,8 @@ module frr-isisd {
       }
 
       leaf purge-originator {
-        type empty;
+        type boolean;
+        default "false";
         description
           "Use the RFC 6232 purge-originator.";
         reference
@@ -643,7 +647,8 @@ module frr-isisd {
           description
             "IPv4 multicast topology.";
           leaf overload {
-            type empty;
+            type boolean;
+            default "false";
           }
         }
 
@@ -652,7 +657,8 @@ module frr-isisd {
           description
             "IPv4 management topology.";
           leaf overload {
-            type empty;
+            type boolean;
+            default "false";
           }
         }
 
@@ -661,7 +667,8 @@ module frr-isisd {
           description
             "IPv6 unicast topology.";
           leaf overload {
-            type empty;
+            type boolean;
+            default "false";
           }
         }
 
@@ -670,7 +677,8 @@ module frr-isisd {
           description
             "IPv6 multicast topology.";
           leaf overload {
-            type empty;
+            type boolean;
+            default "false";
           }
         }
 
@@ -679,7 +687,8 @@ module frr-isisd {
           description
             "IPv6 management topology.";
           leaf overload {
-            type empty;
+            type boolean;
+            default "false";
           }
         }
 
@@ -688,13 +697,15 @@ module frr-isisd {
           description
             "IPv6 destination-source topology.";
           leaf overload {
-            type empty;
+            type boolean;
+            default "false";
           }
         }
       }
 
       leaf log-adjacency-changes {
-        type empty;
+        type boolean;
+        default "false";
         description
           "Log changes to the IS-IS adjacencies in this area.";
       }
@@ -734,13 +745,15 @@ module frr-isisd {
       }
 
       leaf ipv4-routing {
-        type empty;
+        type boolean;
+        default "false";
         description
           "Routing IS-IS IPv4 traffic over this circuit.";
       }
 
       leaf ipv6-routing {
-        type empty;
+        type boolean;
+        default "false";
         description
           "Routing IS-IS IPv6 traffic over this circuit.";
       }
@@ -904,7 +917,8 @@ module frr-isisd {
       }
 
       leaf passive {
-        type empty;
+        type boolean;
+        default "false";
         description
           "Interface is in passive mode.";
       }
@@ -915,7 +929,8 @@ module frr-isisd {
       }
 
       leaf disable-three-way-handshake {
-        type empty;
+        type boolean;
+        default "false";
         description
           "Disables three-way handshake when creating new adjacencies.";
       }
