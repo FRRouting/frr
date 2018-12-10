@@ -471,7 +471,7 @@ void cli_show_isis_attached(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-isisd:isis/instance/metric-style
  */
 DEFPY(metric_style, metric_style_cmd,
-	  "metric-style <narrow|transition|wide>$style",
+      "metric-style <narrow|transition|wide>$style",
       "Use old-style (ISO 10589) or new-style packet formats\n"
       "Use old style of TLVs with narrow metric\n"
       "Send and accept both styles of TLVs during transition\n"
@@ -483,9 +483,9 @@ DEFPY(metric_style, metric_style_cmd,
 }
 
 DEFPY(no_metric_style, no_metric_style_cmd,
-	  "no metric-style [narrow|transition|wide]",
-	  NO_STR
-	  "Use old-style (ISO 10589) or new-style packet formats\n"
+      "no metric-style [narrow|transition|wide]",
+      NO_STR
+      "Use old-style (ISO 10589) or new-style packet formats\n"
       "Use old style of TLVs with narrow metric\n"
       "Send and accept both styles of TLVs during transition\n"
       "Use new style of TLVs to carry wider metric\n")
@@ -874,7 +874,7 @@ DEFPY(spf_delay_ietf, spf_delay_ietf_cmd,
 DEFPY(no_spf_delay_ietf, no_spf_delay_ietf_cmd,
       "no spf-delay-ietf [init-delay (0-60000) short-delay (0-60000) long-delay (0-60000) holddown (0-60000) time-to-learn (0-60000)]",
       NO_STR
-	  "IETF SPF delay algorithm\n"
+      "IETF SPF delay algorithm\n"
       "Delay used while in QUIET state\n"
       "Delay used while in QUIET state in milliseconds\n"
       "Delay used while in SHORT_WAIT state\n"
@@ -1033,7 +1033,8 @@ DEFPY(isis_default_originate, isis_default_originate_cmd,
 }
 
 static void vty_print_def_origin(struct vty *vty, struct lyd_node *dnode,
-				 const char *family, const char *level, bool show_defaults)
+				 const char *family, const char *level,
+				 bool show_defaults)
 {
 	const char *metric;
 
