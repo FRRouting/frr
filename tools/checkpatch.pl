@@ -5886,27 +5886,6 @@ sub process {
 			     "unchecked sscanf return value\n" . "$here\n$stat_real\n");
 		}
 
-# check for simple sscanf that should be kstrto<foo>
-		if ($^V && $^V ge 5.10.0 &&
-		    defined $stat &&
-		    $line =~ /\bsscanf\b/) {
-			my $lc = $stat =~ tr@\n@@;
-			$lc = $lc + $linenr;
-			my $stat_real = raw_line($linenr, 0);
-		        for (my $count = $linenr + 1; $count <= $lc; $count++) {
-				$stat_real = $stat_real . "\n" . raw_line($count, 0);
-			}
-			if ($stat_real =~ /\bsscanf\b\s*\(\s*$FuncArg\s*,\s*("[^"]+")/) {
-				my $format = $6;
-				my $count = $format =~ tr@%@%@;
-				if ($count == 1 &&
-				    $format =~ /^"\%(?i:ll[udxi]|[udxi]ll|ll|[hl]h?[udxi]|[udxi][hl]h?|[hl]h?|[udxi])"$/) {
-					WARN("SSCANF_TO_KSTRTO",
-					     "Prefer kstrto<type> to single variable sscanf\n" . "$here\n$stat_real\n");
-				}
-			}
-		}
-
 # check for new externs in .h files.
 		if ($realfile =~ /\.h$/ &&
 		    $line =~ /^\+\s*(extern\s+)$Type\s*$Ident\s*\(/s) {
@@ -6175,12 +6154,6 @@ sub process {
 		if ($line =~ /^.\s*sema_init.+,\W?0\W?\)/) {
 			WARN("CONSIDER_COMPLETION",
 			     "consider using a completion\n" . $herecurr);
-		}
-
-# recommend kstrto* over simple_strto* and strict_strto*
-		if ($line =~ /\b((simple|strict)_(strto(l|ll|ul|ull)))\s*\(/) {
-			WARN("CONSIDER_KSTRTO",
-			     "$1 is obsolete, use k$3 instead\n" . $herecurr);
 		}
 
 # check for __initcall(), use device_initcall() explicitly or more appropriate function please

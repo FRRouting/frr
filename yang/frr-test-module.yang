@@ -34,8 +34,6 @@ module frr-test-module {
         }
         container routes {
           list route {
-            key "prefix";
-
             leaf prefix {
               type inet:ipv4-prefix;
             }

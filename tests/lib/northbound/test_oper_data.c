@@ -153,39 +153,6 @@ frr_test_module_vrfs_vrf_routes_route_get_next(const void *parent_list_entry,
 	return node;
 }
 
-static int
-frr_test_module_vrfs_vrf_routes_route_get_keys(const void *list_entry,
-					       struct yang_list_keys *keys)
-{
-	const struct troute *route;
-
-	route = listgetdata((struct listnode *)list_entry);
-
-	keys->num = 1;
-	(void)prefix2str(&route->prefix, keys->key[0], sizeof(keys->key[0]));
-
-	return NB_OK;
-}
-
-static const void *frr_test_module_vrfs_vrf_routes_route_lookup_entry(
-	const void *parent_list_entry, const struct yang_list_keys *keys)
-{
-	const struct tvrf *vrf;
-	const struct troute *route;
-	struct listnode *node;
-	struct prefix prefix;
-
-	yang_str2ipv4p(keys->key[0], &prefix);
-
-	vrf = listgetdata((struct listnode *)parent_list_entry);
-	for (ALL_LIST_ELEMENTS_RO(vrf->routes, node, route)) {
-		if (prefix_same((struct prefix *)&route->prefix, &prefix))
-			return node;
-	}
-
-	return NULL;
-}
-
 /*
  * XPath: /frr-test-module:frr-test-module/vrfs/vrf/routes/route/prefix
  */
@@ -276,8 +243,6 @@ const struct frr_yang_module_info frr_test_module_info = {
 		{
 			.xpath = "/frr-test-module:frr-test-module/vrfs/vrf/routes/route",
 			.cbs.get_next = frr_test_module_vrfs_vrf_routes_route_get_next,
-			.cbs.get_keys = frr_test_module_vrfs_vrf_routes_route_get_keys,
-			.cbs.lookup_entry = frr_test_module_vrfs_vrf_routes_route_lookup_entry,
 		},
 		{
 			.xpath = "/frr-test-module:frr-test-module/vrfs/vrf/routes/route/prefix",

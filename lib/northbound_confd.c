@@ -138,10 +138,19 @@ static int frr_confd_hkeypath_get_list_entry(const confd_hkeypath_t *kp,
 			nb_node_list = nb_node_list->parent_list;
 
 		/* Obtain list entry. */
-		*list_entry =
-			nb_node_list->cbs.lookup_entry(*list_entry, &keys);
-		if (*list_entry == NULL)
-			return -1;
+		if (!CHECK_FLAG(nb_node_list->flags, F_NB_NODE_KEYLESS_LIST)) {
+			*list_entry = nb_node_list->cbs.lookup_entry(
+				*list_entry, &keys);
+			if (*list_entry == NULL)
+				return -1;
+		} else {
+			unsigned long ptr_ulong;
+
+			/* Retrieve list entry from pseudo-key (string). */
+			if (sscanf(keys.key[0], "%lu", &ptr_ulong) != 1)
+				return -1;
+			*list_entry = (const void *)ptr_ulong;
+		}
 
 		curr_list++;
 	}
@@ -640,7 +649,6 @@ static int frr_confd_data_get_next(struct confd_trans_ctx *tctx,
 {
 	struct nb_node *nb_node;
 	char xpath[BUFSIZ];
-	struct yang_list_keys keys;
 	struct yang_data *data;
 	const void *parent_list_entry, *nb_next;
 	confd_value_t v[LIST_MAXKEYS];
@@ -672,18 +680,53 @@ static int frr_confd_data_get_next(struct confd_trans_ctx *tctx,
 
 	switch (nb_node->snode->nodetype) {
 	case LYS_LIST:
-		memset(&keys, 0, sizeof(keys));
-		if (nb_node->cbs.get_keys(nb_next, &keys) != NB_OK) {
-			flog_warn(EC_LIB_NB_CB_STATE,
-				  "%s: failed to get list keys", __func__);
-			confd_data_reply_next_key(tctx, NULL, -1, -1);
-			return CONFD_OK;
-		}
+		if (!CHECK_FLAG(nb_node->flags, F_NB_NODE_KEYLESS_LIST)) {
+			struct yang_list_keys keys;
 
-		/* Feed keys to ConfD. */
-		for (size_t i = 0; i < keys.num; i++)
-			CONFD_SET_STR(&v[i], keys.key[i]);
-		confd_data_reply_next_key(tctx, v, keys.num, (long)nb_next);
+			memset(&keys, 0, sizeof(keys));
+			if (nb_node->cbs.get_keys(nb_next, &keys) != NB_OK) {
+				flog_warn(EC_LIB_NB_CB_STATE,
+					  "%s: failed to get list keys",
+					  __func__);
+				confd_data_reply_next_key(tctx, NULL, -1, -1);
+				return CONFD_OK;
+			}
+
+			/* Feed keys to ConfD. */
+			for (size_t i = 0; i < keys.num; i++)
+				CONFD_SET_STR(&v[i], keys.key[i]);
+			confd_data_reply_next_key(tctx, v, keys.num,
+						  (long)nb_next);
+		} else {
+			char pointer_str[16];
+
+			/*
+			 * ConfD 6.6 user guide, chapter 6.11 (Operational data
+			 * lists without keys):
+			 * "To support this without having completely separate
+			 * APIs, we use a "pseudo" key in the ConfD APIs for
+			 * this type of list. This key is not part of the data
+			 * model, and completely hidden in the northbound agent
+			 * interfaces, but is used with e.g. the get_next() and
+			 * get_elem() callbacks as if it were a normal key. This
+			 * "pseudo" key is always a single signed 64-bit
+			 * integer, i.e. the confd_value_t type is C_INT64. The
+			 * values can be chosen arbitrarily by the application,
+			 * as long as a key value returned by get_next() can be
+			 * used to get the data for the corresponding list entry
+			 * with get_elem() or get_object() as usual. It could
+			 * e.g. be an index into an array that holds the data,
+			 * or even a memory address in integer form".
+			 *
+			 * Since we're using the CONFD_DAEMON_FLAG_STRINGSONLY
+			 * option, we must convert our pseudo-key (a void
+			 * pointer) to a string before sending it to confd.
+			 */
+			snprintf(pointer_str, sizeof(pointer_str), "%lu",
+				 (unsigned long)nb_next);
+			CONFD_SET_STR(&v[0], pointer_str);
+			confd_data_reply_next_key(tctx, v, 1, (long)nb_next);
+		}
 		break;
 	case LYS_LEAFLIST:
 		data = nb_node->cbs.get_elem(xpath, nb_next);
@@ -792,6 +835,7 @@ static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 	const void *nb_next;
 #define CONFD_OBJECTS_PER_TIME 100
 	struct confd_next_object objects[CONFD_OBJECTS_PER_TIME + 1];
+	char pseudo_keys[CONFD_OBJECTS_PER_TIME][16];
 	int nobjects = 0;
 
 	frr_confd_get_xpath(kp, xpath, sizeof(xpath));
@@ -843,6 +887,26 @@ static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 		object->v =
 			XMALLOC(MTYPE_CONFD,
 				CONFD_MAX_CHILD_NODES * sizeof(confd_value_t));
+
+		/*
+		 * ConfD 6.6 user guide, chapter 6.11 (Operational data lists
+		 * without keys):
+		 * "In the response to the get_next_object() callback, the data
+		 * provider is expected to provide the key values along with the
+		 * other leafs in an array that is populated according to the
+		 * data model. This must be done also for this type of list,
+		 * even though the key isn't actually in the data model. The
+		 * "pseudo" key must always be the first element in the array".
+		 */
+		if (CHECK_FLAG(nb_node->flags, F_NB_NODE_KEYLESS_LIST)) {
+			confd_value_t *v;
+
+			snprintf(pseudo_keys[j], sizeof(pseudo_keys[j]), "%lu",
+				 (unsigned long)nb_next);
+
+			v = &object->v[nvalues++];
+			CONFD_SET_STR(v, pseudo_keys[j]);
+		}
 
 		/* Loop through list child nodes. */
 		LY_TREE_FOR (nb_node->snode->child, child) {
