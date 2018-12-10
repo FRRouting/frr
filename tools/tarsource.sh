@@ -165,7 +165,7 @@ if test -d "$src/.git"; then
 	# if there have been changes to packaging or tests, it's still the
 	# same release
 	changes="`git diff --name-only "$gittag" $commit | \
-		egrep -v '\.git|^m4/|^config|^README|^alpine/|^debianpkg/|^pkgsrc/|^ports/|^redhat/|^snapcraft/|^solaris/|^tests/|^gdb/|^docker/|^\.' | \
+		egrep -v '\.git|^m4/|^config|^README|^alpine/|^debian/|^pkgsrc/|^ports/|^redhat/|^snapcraft/|^solaris/|^tests/|^tools/|^gdb/|^docker/|^\.' | \
 		wc -l`"
 	if test "$changes" -eq 0; then
 		adjchangelog=true
@@ -206,7 +206,7 @@ if test -d "$src/.git"; then
 		test $extraset = false -a -f "$tmpdir/.gitpr" && extraver="-PR`cat \"$tmpdir/.gitpr\"`$extraver"
 	fi
 
-	debsrc="( git ls-files debianpkg/; echo debianpkg/changelog )"
+	debsrc="git ls-files debian/"
 else
 	if $nongit; then
 		echo -e "\033[31;1mWARNING: this script should be executed from a git tree\033[m" >&2
@@ -214,7 +214,7 @@ else
 		echo -e "\033[31;1mERROR: this script should be executed from a git tree\033[m" >&2
 		exit 1
 	fi
-	debsrc="echo debianpkg"
+	debsrc="echo debian"
 fi
 
 if $writeversion; then
@@ -265,22 +265,21 @@ lsfiles="frr-${PACKAGE_VERSION}.tar.$zip"
 
 if $debian; then
 	mkdir -p "$tmpdir/debian/source"
-	cp debianpkg/changelog "$tmpdir/debian/changelog"
+	cat debian/changelog > "$tmpdir/debian/changelog"
 	if $adjchangelog; then
-		if grep -q 'autoconf changelog entry' debianpkg/changelog; then
-			tail -n +9 debianpkg/changelog > "$tmpdir/debian/changelog"
+		if grep -q 'autoconf changelog entry' debian/changelog; then
+			tail -n +9 debian/changelog > "$tmpdir/debian/changelog"
 		fi
 	fi
 	echo '3.0 (quilt)' > "$tmpdir/debian/source/format"
 	DEBVER="`dpkg-parsechangelog -l\"$tmpdir/debian/changelog\" -SVersion`"
 
-	# rename debianpkg to debian while tar'ing
 	eval $debsrc | tar -cho $taropt \
-		--exclude-vcs --exclude debianpkg/source/format \
-		--exclude debianpkg/changelog \
-		--exclude debianpkg/changelog.in \
-		--exclude debianpkg/subdir.am \
-		--transform 's%^debianpkg%debian%' \
+		--exclude-vcs --exclude debian/source/format \
+		--exclude debian/changelog \
+		--exclude debian/changelog-auto \
+		--exclude debian/changelog-auto.in \
+		--exclude debian/subdir.am \
 		-T - -f ../frr_${DEBVER}.debian.tar
 	# add specially prepared files from above
 	tar -uf ../frr_${DEBVER}.debian.tar $taropt -C "$tmpdir" debian/source/format debian/changelog
@@ -290,7 +289,7 @@ if $debian; then
 
 	# pack up debian files proper
 	ln -s "$outdir/frr-${PACKAGE_VERSION}.tar.$zip" ../frr_${PACKAGE_VERSION}.orig.tar.$zip
-	dpkg-source -l"$tmpdir/debian/changelog" -c"`pwd`/debianpkg/control" \
+	dpkg-source -l"$tmpdir/debian/changelog" \
 		--format='3.0 (custom)' --target-format='3.0 (quilt)' \
 		-b . frr_${PACKAGE_VERSION}.orig.tar.$zip frr_${DEBVER}.debian.tar.$zip
 
