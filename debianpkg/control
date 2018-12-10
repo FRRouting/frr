@@ -21,9 +21,9 @@ Build-Depends:
  libpcre3-dev,
  libpython3-dev,
  libreadline-dev,
- librtr-dev <pkg.frr.rtrlib>,
+ librtr-dev <!pkg.frr.nortrlib>,
  libsnmp-dev,
- libssh-dev <pkg.frr.rtrlib>,
+ libssh-dev <!pkg.frr.nortrlib>,
  libsystemd-dev <!pkg.frr.nosystemd>,
  pkg-config,
  python3,
@@ -85,7 +85,7 @@ Description: FRRouting suite - BGP RPKI support (rtrlib)
  used to prevent hijacking of networks on the wider internet.  It is only
  relevant to internet service providers using their own autonomous system
  number.
-Build-Profiles: <pkg.frr.rtrlib>
+Build-Profiles: <!pkg.frr.nortrlib>
 
 Package: frr-doc
 Section: doc

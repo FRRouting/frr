@@ -27,11 +27,11 @@ Zebra was developed by Kunihiro Ishiguro.
 
 The following Build Profiles have been added:
 
-- pkg.frr.rtrlib (pkg.frr.nortrlib)
+- pkg.frr.nortrlib (pkg.frr.rtrlib)
   controls whether the RPKI module is built.
   Will be enabled by default at some point, adds some extra dependencies.
 
-- pkg.frr.snmp (pkg.frr.nosnmp)
+- pkg.frr.nosnmp (pkg.frr.snmp)
   controls whether the SNMP module is built, see below for license issues.
   Will remain default-off as long as the license issue persists.
 

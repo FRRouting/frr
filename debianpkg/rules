@@ -15,10 +15,10 @@ endif
 
 # package-specific build profiles
 
-ifeq ($(filter pkg.frr.rtrlib,$(DEB_BUILD_PROFILES)),)
-  CONF_RPKI=--disable-rpki
-else
+ifeq ($(filter pkg.frr.nortrlib,$(DEB_BUILD_PROFILES)),)
   CONF_RPKI=--enable-rpki
+else
+  CONF_RPKI=--disable-rpki
 endif
 
 ifeq ($(filter pkg.frr.nosystemd,$(DEB_BUILD_PROFILES)),)
