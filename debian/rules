@@ -76,7 +76,8 @@ override_dh_auto_install:
 ifeq ($(filter pkg.frr.nosystemd,$(DEB_BUILD_PROFILES)),)
 	cp tools/frr.service debian/frr.service
 endif
-	cp tools/frr debian/frr.init
+	cp tools/frrinit.sh debian/frr.init
+	-rm -f debian/tmp/usr/lib/frr/frr
 
 # install config files
 	mkdir -p debian/tmp/etc/frr/
