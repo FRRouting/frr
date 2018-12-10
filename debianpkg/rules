@@ -53,7 +53,8 @@ override_dh_auto_configure:
 		--enable-doc \
 		--enable-doc-html \
 		--enable-snmp \
-		--disable-fpm \
+		--enable-fpm \
+		--disable-protobuf \
 		--disable-zeromq \
 		--enable-ospfapi \
 		--enable-bgp-vnc \
