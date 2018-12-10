@@ -232,6 +232,9 @@ DIST_PACKAGE_VERSION="$pkgver$extraver"
 gitts="$gitts"
 taropt="$taropt"
 EOF
+	sed -e "s%@VERSION@%$pkgver$extraver%" \
+		< debian/changelog-auto.in \
+		> debian/changelog-auto
 	exit 0
 fi
 

@@ -31,21 +31,15 @@ buster.)
 
       sudo mk-build-deps --install debian/control
 
-5. Run ``bootstrap.sh``:
-
-   (This step should be omitted if you are using a "debian" branch, as opposed
-   to the "master", a "stable/X.X" or any other non-"debian" branch.)
+5. Run ``tools/tarsource.sh -V``:
 
    .. code-block:: shell
 
-      ./bootstrap.sh
-      ./configure --with-pkg-extra-version=-MyDebPkgVersion
+      ./tools/tarsource.sh -V
 
-   .. note::
-
-      Configure parameters are not important for the Debian Package building -
-      except the `with-pkg-extra-version` if you want to give the Debian
-      package a specific name to mark your own unoffical build.
+   This script sets up the `debian/changelog-auto` file with proper version
+   information.  If you want to append a local build identifier, look at the
+   `-e` option.
 
 6. Build Debian Package
 
