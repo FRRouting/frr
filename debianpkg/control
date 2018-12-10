@@ -35,7 +35,7 @@ Vcs-Browser: https://github.com/FRRouting/frr/
 Vcs-Git: https://github.com/FRRouting/frr.git
 
 Package: frr
-Architecture: any
+Architecture: linux-any
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
@@ -62,7 +62,7 @@ Description: FRRouting suite of internet protocols (BGP, OSPF, IS-IS, ...)
  is commonly abbreviated as "FRR."
 
 Package: frr-snmp
-Architecture: any
+Architecture: linux-any
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
@@ -74,7 +74,7 @@ Description: FRRouting suite - SNMP support
  routing state through standard SNMP MIBs.
 
 Package: frr-rpki-rtrlib
-Architecture: any
+Architecture: linux-any
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
