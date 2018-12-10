@@ -3191,6 +3191,34 @@ void rib_close_table(struct route_table *table)
 }
 
 /*
+ * Handler for async dataplane results after a pseudowire installation
+ */
+static int handle_pw_result(struct zebra_dplane_ctx *ctx)
+{
+	int ret = 0;
+	struct zebra_pw *pw;
+	struct zebra_vrf *vrf;
+
+	/* The pseudowire code assumes success - we act on an error
+	 * result for installation attempts here.
+	 */
+	if (dplane_ctx_get_op(ctx) != DPLANE_OP_PW_INSTALL)
+		goto done;
+
+	if (dplane_ctx_get_status(ctx) != ZEBRA_DPLANE_REQUEST_SUCCESS) {
+		vrf = zebra_vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
+		pw = zebra_pw_find(vrf, dplane_ctx_get_pw_ifname(ctx));
+		if (pw)
+			zebra_pw_install_failure(pw);
+	}
+
+done:
+
+	return ret;
+}
+
+
+/*
  * Handle results from the dataplane system. Dequeue update context
  * structs, dispatch to appropriate internal handlers.
  */
@@ -3200,8 +3228,6 @@ static int rib_process_dplane_results(struct thread *thread)
 	struct dplane_ctx_q ctxlist;
 
 	/* Dequeue a list of completed updates with one lock/unlock cycle */
-
-	/* TODO -- dequeue a list with one lock/unlock cycle? */
 
 	do {
 		TAILQ_INIT(&ctxlist);
@@ -3233,6 +3259,11 @@ static int rib_process_dplane_results(struct thread *thread)
 			case DPLANE_OP_LSP_UPDATE:
 			case DPLANE_OP_LSP_DELETE:
 				zebra_mpls_lsp_dplane_result(ctx);
+				break;
+
+			case DPLANE_OP_PW_INSTALL:
+			case DPLANE_OP_PW_UNINSTALL:
+				handle_pw_result(ctx);
 				break;
 
 			default:

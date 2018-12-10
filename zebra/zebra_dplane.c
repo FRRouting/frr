@@ -1058,6 +1058,7 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 
 	/* This name appears to be c-string, so we use string copy. */
 	strlcpy(ctx->u.pw.ifname, pw->ifname, sizeof(ctx->u.pw.ifname));
+	ctx->zd_vrf_id = pw->vrf_id;
 	ctx->u.pw.ifindex = pw->ifindex;
 	ctx->u.pw.type = pw->type;
 	ctx->u.pw.af = pw->af;
