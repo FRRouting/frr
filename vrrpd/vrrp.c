@@ -105,17 +105,44 @@ static void vrrp_reset_times(struct vrrp_vrouter *vr)
 	vrrp_update_times(vr, vr->advertisement_interval, 0);
 }
 
+/*
+ * Determines if a VRRP router is the owner of the specified address.
+ *
+ * vr
+ *    VRRP router
+ *
+ * Returns:
+ *    whether or not vr owns the specified address
+ */
+static bool vrrp_is_owner(struct vrrp_vrouter *vr, struct ipaddr *addr)
+{
+	struct prefix *p;
+	struct prefix_ipv4 p4;
+	struct prefix_ipv6 p6;
+
+	if (IS_IPADDR_V4(addr)) {
+		p4.family = AF_INET;
+		p4.prefixlen = IPV4_MAX_BITLEN;
+		p4.prefix = addr->ipaddr_v4;
+		p = (struct prefix *)&p4;
+	} else {
+		p6.family = AF_INET6;
+		p6.prefixlen = IPV6_MAX_BITLEN;
+		memcpy(&p6.prefix, &addr->ipaddr_v6, sizeof(struct in6_addr));
+		p = (struct prefix *)&p6;
+	}
+
+	return !!connected_lookup_prefix_exact(vr->ifp, p);
+}
+
 /* Configuration controllers ----------------------------------------------- */
 
 void vrrp_set_priority(struct vrrp_vrouter *vr, uint8_t priority)
 {
-	if (vr->priority == priority)
+	if (vr->priority_conf == priority)
 		return;
 
-	vr->priority = priority;
-	/* Timers depend on priority value, need to recalculate them */
-	vrrp_update_times(vr, vr->advertisement_interval,
-			  vr->master_adver_interval);
+	vr->priority_conf = priority;
 }
 
 void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
@@ -148,7 +175,7 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid)
 	vr->vrid = vrid;
 	vr->v4 = list_new();
 	vr->v6 = list_new();
-	vr->is_master = false;
+	vr->priority_conf = VRRP_DEFAULT_PRIORITY;
 	vr->priority = VRRP_DEFAULT_PRIORITY;
 	vr->preempt_mode = true;
 	vr->accept_mode = false;
@@ -420,6 +447,26 @@ static int vrrp_startup(struct vrrp_vrouter *vr)
 
 	/* Schedule listener */
 	/* ... */
+
+	/* configure effective priority */
+	struct in_addr *primary = (struct in_addr *) listhead(vr->v4)->data;
+	struct ipaddr primary_ipaddr;
+	primary_ipaddr.ipa_type = IPADDR_V4;
+	primary_ipaddr.ipaddr_v4 = *primary;
+
+	char ipbuf[INET_ADDRSTRLEN];
+	inet_ntop(AF_INET, primary, ipbuf, sizeof(ipbuf));
+
+	if (vrrp_is_owner(vr, &primary_ipaddr)) {
+		vr->priority = VRRP_PRIO_MASTER;
+		/* Timers depend on priority value, need to recalculate them */
+		vrrp_update_times(vr, vr->advertisement_interval,
+				  vr->master_adver_interval);
+		zlog_info(
+			VRRP_LOGPFX VRRP_LOGPFX_VRID
+			"%s owns primary Virtual Router IP %s; electing self as Master",
+			vr->vrid, vr->ifp->name, ipbuf);
+	}
 
 	if (vr->priority == VRRP_PRIO_MASTER) {
 		vrrp_send_advertisement(vr);

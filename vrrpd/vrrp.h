@@ -71,10 +71,14 @@ struct vrrp_vrouter {
 	 */
 	struct list *v6;
 
-	/* Whether this VRRP Router is currently the master */
-	bool is_master;
+	/* Configured priority */
+	uint8_t priority_conf;
 
-	/* Priority */
+	/*
+	 * Effective priority
+	 *    => priority if we are Backup
+	 *    => 255 if we are Master
+	 */
 	uint8_t priority;
 
 	/*
@@ -159,9 +163,12 @@ void vrrp_vrouter_destroy(struct vrrp_vrouter *vr);
 /* Configuration controllers ----------------------------------------------- */
 
 /*
- * Change the priority of a VRRP Virtual Router.
+ * Change the configured priority of a VRRP Virtual Router.
  *
- * Also recalculates timers using new priority.
+ * Note that this only changes the configured priority of the Virtual Router.
+ * The currently effective priority will not be changed; to change the
+ * effective priority, the Virtual Router must be restarted by issuing a
+ * VRRP_EVENT_SHUTDOWN followed by a VRRP_EVENT_STARTUP.
  *
  * vr
  *    Virtual Router to change priority of
