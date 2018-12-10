@@ -82,14 +82,16 @@ DEFPY(no_router_isis, no_router_isis_cmd, "no router isis WORD$tag",
 	struct isis_circuit *circuit = NULL;
 	struct isis_area *area = NULL;
 
-	area = isis_area_lookup(tag);
-	if (!area) {
+	if (!yang_dnode_exists(vty->candidate_config->dnode,
+			       "/frr-isisd:isis/instance[area-tag='%s']",
+			       tag)) {
 		vty_out(vty, "ISIS area %s not found.\n", tag);
 		return CMD_ERR_NOTHING_TODO;
 	}
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
-	if (area->circuit_list && listcount(area->circuit_list)) {
+	area = isis_area_lookup(tag);
+	if (area && area->circuit_list && listcount(area->circuit_list)) {
 		for (ALL_LIST_ELEMENTS(area->circuit_list, node, nnode,
 				       circuit)) {
 			/* add callbacks to delete each of the circuits listed
@@ -273,20 +275,13 @@ DEFPY(no_ip_router_isis, no_ip_router_isis_cmd,
 {
 	const struct lyd_node *dnode =
 		yang_dnode_get(running_config->dnode, VTY_CURR_XPATH);
-	struct interface *ifp;
-	struct isis_circuit *circuit = NULL;
-
-	/* check for the existance of a circuit */
-	if (dnode) {
-		ifp = yang_dnode_get_entry(dnode, false);
-		if (ifp)
-			circuit = circuit_scan_by_ifp(ifp);
-	}
 
 	/* if both ipv4 and ipv6 are off delete the interface isis container too
 	 */
 	if (!strncmp(ip, "ipv6", strlen("ipv6"))) {
-		if (circuit && !circuit->ip_router)
+		if (dnode
+		    && !yang_dnode_get_bool(dnode,
+					    "./frr-isisd:isis/ipv4-routing"))
 			nb_cli_enqueue_change(vty, "./frr-isisd:isis",
 					      NB_OP_DELETE, NULL);
 		else
@@ -294,7 +289,9 @@ DEFPY(no_ip_router_isis, no_ip_router_isis_cmd,
 					      "./frr-isisd:isis/ipv6-routing",
 					      NB_OP_MODIFY, "false");
 	} else { /* no ipv4  */
-		if (circuit && !circuit->ipv6_router)
+		if (dnode
+		    && !yang_dnode_get_bool(dnode,
+					    "./frr-isisd:isis/ipv6-routing"))
 			nb_cli_enqueue_change(vty, "./frr-isisd:isis",
 					      NB_OP_DELETE, NULL);
 		else
