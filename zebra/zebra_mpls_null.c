@@ -29,6 +29,15 @@ int mpls_kernel_init(void)
 	return -1;
 };
 
+/*
+ * Pseudowire update api - note that the default has been
+ * to report 'success' for pw updates on unsupported platforms.
+ */
+enum zebra_dplane_result kernel_pw_update(struct zebra_dplane_ctx *ctx)
+{
+	return ZEBRA_DPLANE_REQUEST_SUCCESS;
+}
+
 enum zebra_dplane_result kernel_lsp_update(struct zebra_dplane_ctx *ctx)
 {
 	return ZEBRA_DPLANE_REQUEST_FAILURE;

@@ -314,16 +314,17 @@ enum zebra_dplane_result kernel_lsp_update(struct zebra_dplane_ctx *ctx)
 		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
 }
 
-static int kmpw_install(struct zebra_pw *pw)
+static enum zebra_dplane_result kmpw_install(struct zebra_dplane_ctx *ctx)
 {
 	struct ifreq ifr;
 	struct ifmpwreq imr;
 	struct sockaddr_storage ss;
 	struct sockaddr_in *sa_in = (struct sockaddr_in *)&ss;
 	struct sockaddr_in6 *sa_in6 = (struct sockaddr_in6 *)&ss;
+	const union g_addr *gaddr;
 
 	memset(&imr, 0, sizeof(imr));
-	switch (pw->type) {
+	switch (dplane_ctx_get_pw_type(ctx)) {
 	case PW_TYPE_ETHERNET:
 		imr.imr_type = IMR_TYPE_ETHERNET;
 		break;
@@ -332,67 +333,91 @@ static int kmpw_install(struct zebra_pw *pw)
 		break;
 	default:
 		zlog_debug("%s: unhandled pseudowire type (%#X)", __func__,
-			   pw->type);
-		return -1;
+			   dplane_ctx_get_pw_type(ctx));
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
-	if (pw->flags & F_PSEUDOWIRE_CWORD)
+	if (dplane_ctx_get_pw_flags(ctx) & F_PSEUDOWIRE_CWORD)
 		imr.imr_flags |= IMR_FLAG_CONTROLWORD;
 
 	/* pseudowire nexthop */
 	memset(&ss, 0, sizeof(ss));
-	switch (pw->af) {
+	gaddr = dplane_ctx_get_pw_nexthop(ctx);
+	switch (dplane_ctx_get_pw_af(ctx)) {
 	case AF_INET:
 		sa_in->sin_family = AF_INET;
 		sa_in->sin_len = sizeof(struct sockaddr_in);
-		sa_in->sin_addr = pw->nexthop.ipv4;
+		sa_in->sin_addr = gaddr->ipv4;
 		break;
 	case AF_INET6:
 		sa_in6->sin6_family = AF_INET6;
 		sa_in6->sin6_len = sizeof(struct sockaddr_in6);
-		sa_in6->sin6_addr = pw->nexthop.ipv6;
+		sa_in6->sin6_addr = gaddr->ipv6;
 		break;
 	default:
 		zlog_debug("%s: unhandled pseudowire address-family (%u)",
-			   __func__, pw->af);
-		return -1;
+			   __func__, dplane_ctx_get_pw_af(ctx));
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 	memcpy(&imr.imr_nexthop, (struct sockaddr *)&ss,
 	       sizeof(imr.imr_nexthop));
 
 	/* pseudowire local/remote labels */
-	imr.imr_lshim.shim_label = pw->local_label;
-	imr.imr_rshim.shim_label = pw->remote_label;
+	imr.imr_lshim.shim_label = dplane_ctx_get_pw_local_label(ctx);
+	imr.imr_rshim.shim_label = dplane_ctx_get_pw_remote_label(ctx);
 
 	/* ioctl */
 	memset(&ifr, 0, sizeof(ifr));
-	strlcpy(ifr.ifr_name, pw->ifname, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, dplane_ctx_get_pw_ifname(ctx),
+		sizeof(ifr.ifr_name));
 	ifr.ifr_data = (caddr_t)&imr;
 	if (ioctl(kr_state.ioctl_fd, SIOCSETMPWCFG, &ifr) == -1) {
 		flog_err_sys(EC_LIB_SYSTEM_CALL, "ioctl SIOCSETMPWCFG: %s",
 			     safe_strerror(errno));
-		return -1;
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
-	return 0;
+	return ZEBRA_DPLANE_REQUEST_SUCCESS;
 }
 
-static int kmpw_uninstall(struct zebra_pw *pw)
+static enum zebra_dplane_result kmpw_uninstall(struct zebra_dplane_ctx *ctx)
 {
 	struct ifreq ifr;
 	struct ifmpwreq imr;
 
 	memset(&ifr, 0, sizeof(ifr));
 	memset(&imr, 0, sizeof(imr));
-	strlcpy(ifr.ifr_name, pw->ifname, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, dplane_ctx_get_pw_ifname(ctx),
+		sizeof(ifr.ifr_name));
 	ifr.ifr_data = (caddr_t)&imr;
 	if (ioctl(kr_state.ioctl_fd, SIOCSETMPWCFG, &ifr) == -1) {
 		flog_err_sys(EC_LIB_SYSTEM_CALL, "ioctl SIOCSETMPWCFG: %s",
 			     safe_strerror(errno));
-		return -1;
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
-	return 0;
+	return ZEBRA_DPLANE_REQUEST_SUCCESS;
+}
+
+/*
+ * Pseudowire update api for openbsd.
+ */
+enum zebra_dplane_result kernel_pw_update(struct zebra_dplane_ctx *ctx)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	switch (dplane_ctx_get_op(ctx)) {
+	case DPLANE_OP_PW_INSTALL:
+		result = kmpw_install(ctx);
+		break;
+	case DPLANE_OP_PW_UNINSTALL:
+		result = kmpw_uninstall(ctx);
+		break;
+	default:
+		break;
+	};
+
+	return result;
 }
 
 #define MAX_RTSOCK_BUF	128 * 1024
@@ -430,10 +455,6 @@ int mpls_kernel_init(void)
 			; /* nothing */
 
 	kr_state.rtseq = 1;
-
-	/* register hook to install/uninstall pseudowires */
-	hook_register(pw_install, kmpw_install);
-	hook_register(pw_uninstall, kmpw_uninstall);
 
 	return 0;
 }
