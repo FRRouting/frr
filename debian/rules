@@ -105,3 +105,5 @@ override_dh_auto_clean:
 # we generally do NOT want a full distclean since that wipes both
 # debian/changelog and config.version
 	if test -f Makefile; then make redistclean; fi
+	-rm -f debian/frr.init
+	-rm -f debian/frr.service
