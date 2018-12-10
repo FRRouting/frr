@@ -61,6 +61,9 @@ if [[ "$1" = "-h" ]] || [[ "$1" = "--help" ]]; then
 	TOPOTEST_OPTIONS        These options are appended to the docker-run
 	                        command for starting the tests.
 
+	TOPOTEST_PULL           If set to 0, don't try to pull the most recent
+	                        version of the docker image from dockerhub.
+
 	TOPOTEST_SANITIZER      Controls whether to use the address sanitizer.
 	                        Enabled by default, set to 0 to disable.
 
@@ -130,6 +133,10 @@ if [ -z "$TOPOTEST_BUILDCACHE" ]; then
 	TOPOTEST_BUILDCACHE=topotest-buildcache
 	docker volume inspect "${TOPOTEST_BUILDCACHE}" &> /dev/null \
 		|| docker volume create "${TOPOTEST_BUILDCACHE}"
+fi
+
+if [ "${TOPOTEST_PULL:-1}" = "1" ]; then
+	docker pull frrouting/frr:topotests-latest
 fi
 
 set -- --rm -i \

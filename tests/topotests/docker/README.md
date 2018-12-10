@@ -10,19 +10,15 @@ Your current user needs to have access to the Docker daemon. Alternatively
 you can run these commands as root.
 
 ```console
-make topotests-build
 make topotests
 ```
 
-The first command will build a docker image with all the dependencies needed
-to run the topotests.
-
-The second command will spawn an instance of this image, compile FRR inside
+This command will pull the most recent topotests image from dockerhub, compile FRR inside
 of it, and run the topotests.
 
 ## Advanced Usage
 
-Internally, the topotests make target uses a shell script to spawn the docker
+Internally, the topotests make target uses a shell script to pull the image and spawn the docker
 container.
 
 There are several environment variables which can be used to modify the behavior
@@ -54,4 +50,23 @@ And to compile FRR but drop into a shell instead of running pytest:
 
 ```console
 ./tests/topotests/docker/frr-topotests.sh /bin/bash
+```
+
+## Development
+
+The docker image just includes all the components to run the topotests, but not the topotests
+themselves. So if you just want to write tests and don't want to make changes to the environment
+provided by the docker image. You don't need to build your own docker image if you do not want to.
+
+When developing new tests, there is one caveat though: The startup script of the container will
+run a `git-clean` on its copy of the FRR tree to avoid any pollution of the container with build
+artefacts from the host. This will also result in your newly written tests being unavailable in the
+container unless at least added to the index with `git-add`.
+
+If you do want to test changes to the docker image, you can locally build the image and run the tests
+without pulling from the registry using the following commands:
+
+```console
+make topotests-build
+TOPOTEST_PULL=0 make topotests
 ```
