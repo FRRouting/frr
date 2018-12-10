@@ -79,6 +79,47 @@ struct isis_circuit *isis_circuit_new()
 	/*
 	 * Default values
 	 */
+#ifndef FABRICD
+	circuit->is_type = yang_get_default_enum(
+		"/frr-interface:lib/interface/frr-isisd:isis/circuit-type");
+	circuit->flags = 0;
+
+	circuit->pad_hellos = yang_get_default_bool(
+		"/frr-interface:lib/interface/frr-isisd:isis/hello/padding");
+	circuit->hello_interval[0] = yang_get_default_uint32(
+		"/frr-interface:lib/interface/frr-isisd:isis/hello/interval/level-1");
+	circuit->hello_interval[1] = yang_get_default_uint32(
+		"/frr-interface:lib/interface/frr-isisd:isis/hello/interval/level-2");
+	circuit->hello_multiplier[0] = yang_get_default_uint32(
+		"/frr-interface:lib/interface/frr-isisd:isis/hello/multiplier/level-1");
+	circuit->hello_multiplier[1] = yang_get_default_uint32(
+		"/frr-interface:lib/interface/frr-isisd:isis/hello/multiplier/level-2");
+	circuit->csnp_interval[0] = yang_get_default_uint16(
+		"/frr-interface:lib/interface/frr-isisd:isis/csnp-interval/level-1");
+	circuit->csnp_interval[1] = yang_get_default_uint16(
+		"/frr-interface:lib/interface/frr-isisd:isis/csnp-interval/level-2");
+	circuit->psnp_interval[0] = yang_get_default_uint16(
+		"/frr-interface:lib/interface/frr-isisd:isis/psnp-interval/level-1");
+	circuit->psnp_interval[1] = yang_get_default_uint16(
+		"/frr-interface:lib/interface/frr-isisd:isis/psnp-interval/level-2");
+	circuit->priority[0] = yang_get_default_uint8(
+		"/frr-interface:lib/interface/frr-isisd:isis/priority/level-1");
+	circuit->priority[1] = yang_get_default_uint8(
+		"/frr-interface:lib/interface/frr-isisd:isis/priority/level-2");
+	circuit->metric[0] = yang_get_default_uint32(
+		"/frr-interface:lib/interface/frr-isisd:isis/metric/level-1");
+	circuit->metric[1] = yang_get_default_uint32(
+		"/frr-interface:lib/interface/frr-isisd:isis/metric/level-2");
+	circuit->te_metric[0] = yang_get_default_uint32(
+		"/frr-interface:lib/interface/frr-isisd:isis/metric/level-1");
+	circuit->te_metric[1] = yang_get_default_uint32(
+		"/frr-interface:lib/interface/frr-isisd:isis/metric/level-2");
+
+	for (i = 0; i < 2; i++) {
+		circuit->level_arg[i].level = i + 1;
+		circuit->level_arg[i].circuit = circuit;
+	}
+#else
 	circuit->is_type = IS_LEVEL_1_AND_2;
 	circuit->flags = 0;
 	circuit->pad_hellos = 1;
@@ -93,6 +134,7 @@ struct isis_circuit *isis_circuit_new()
 		circuit->level_arg[i].level = i + 1;
 		circuit->level_arg[i].circuit = circuit;
 	}
+#endif /* ifndef FABRICD */
 
 	circuit->mtc = mpls_te_circuit_new();
 

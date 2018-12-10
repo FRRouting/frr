@@ -113,10 +113,11 @@ struct isis_area *isis_area_create(const char *area_tag)
 	 */
 	if (fabricd) {
 		area->is_type = IS_LEVEL_2;
-	} else if (listcount(isis->area_list) > 0)
-		area->is_type = IS_LEVEL_1;
-	else
+	} else if (listcount(isis->area_list) == 0)
 		area->is_type = IS_LEVEL_1_AND_2;
+	else
+		area->is_type = yang_get_default_enum(
+			"/frr-isisd:isis/instance/is-type");
 
 	/*
 	 * intialize the databases
@@ -138,6 +139,35 @@ struct isis_area *isis_area_create(const char *area_tag)
 	/*
 	 * Default values
 	 */
+#ifndef FABRICD
+	enum isis_metric_style default_style;
+
+	area->max_lsp_lifetime[0] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/maximum-lifetime/level-1");
+	area->max_lsp_lifetime[1] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/maximum-lifetime/level-2");
+	area->lsp_refresh[0] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/refresh-interval/level-1");
+	area->lsp_refresh[1] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/refresh-interval/level-2");
+	area->lsp_gen_interval[0] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/generation-interval/level-1");
+	area->lsp_gen_interval[1] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/generation-interval/level-2");
+	area->min_spf_interval[0] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/spf/minimum-interval/level-1");
+	area->min_spf_interval[1] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/spf/minimum-interval/level-1");
+	area->dynhostname = yang_get_default_bool(
+		"/frr-isisd:isis/instance/dynamic-hostname");
+	default_style =
+		yang_get_default_enum("/frr-isisd:isis/instance/metric-style");
+	area->oldmetric = default_style == ISIS_WIDE_METRIC ? 0 : 1;
+	area->newmetric = default_style == ISIS_NARROW_METRIC ? 0 : 1;
+	area->lsp_frag_threshold = 90; /* not currently configurable */
+	area->lsp_mtu =
+		yang_get_default_uint16("/frr-isisd:isis/instance/lsp/mtu");
+#else
 	area->max_lsp_lifetime[0] = DEFAULT_LSP_LIFETIME;    /* 1200 */
 	area->max_lsp_lifetime[1] = DEFAULT_LSP_LIFETIME;    /* 1200 */
 	area->lsp_refresh[0] = DEFAULT_MAX_LSP_GEN_INTERVAL; /* 900 */
@@ -151,6 +181,7 @@ struct isis_area *isis_area_create(const char *area_tag)
 	area->newmetric = 1;
 	area->lsp_frag_threshold = 90;
 	area->lsp_mtu = DEFAULT_LSP_MTU;
+#endif /* ifndef FABRICD */
 
 	area_mt_init(area);
 
@@ -2119,8 +2150,10 @@ int isis_config_write(struct vty *vty)
 	struct lyd_node *dnode;
 
 	dnode = yang_dnode_get(running_config->dnode, "/frr-isisd:isis");
-	if (dnode)
+	if (dnode) {
 		nb_cli_show_dnode_cmds(vty, dnode, false);
+		write++;
+	}
 
 	return write;
 }
