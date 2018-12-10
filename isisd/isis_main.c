@@ -107,12 +107,23 @@ static __attribute__((__noreturn__)) void terminate(int i)
 /*
  * Signal handlers
  */
-
+#ifdef FABRICD
 void sighup(void)
 {
-	zlog_notice("SIGHUP/reload is not implemented for isisd");
+	zlog_notice("SIGHUP/reload is not implemented for fabricd");
 	return;
 }
+#else
+static struct frr_daemon_info isisd_di;
+void sighup(void)
+{
+	zlog_info("SIGHUP received");
+
+	/* Reload config file. */
+	vty_read_config(NULL, isisd_di.config_file, config_default);
+}
+
+#endif
 
 __attribute__((__noreturn__)) void sigint(void)
 {
