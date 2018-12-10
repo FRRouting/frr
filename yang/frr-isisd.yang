@@ -911,6 +911,7 @@ module frr-isisd {
 
       leaf network-type {
         type network-type;
+        default "broadcast";
         must "(. = \"point-to-point\") or (. = \"broadcast\")";
         description
           "Explicitly configured type of IS-IS circuit (broadcast or point-to-point).";

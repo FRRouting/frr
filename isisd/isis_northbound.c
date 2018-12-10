@@ -2010,15 +2010,6 @@ static int lib_interface_isis_network_type_modify(enum nb_event event,
 	return NB_OK;
 }
 
-static int lib_interface_isis_network_type_delete(enum nb_event event,
-						  const struct lyd_node *dnode)
-{
-	/* FIXME: This cannot be done in FRR. Not sure what the intended
-	 * behavior is.
-	 */
-	return NB_OK;
-}
-
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/passive
  */
@@ -3174,7 +3165,6 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-isisd:isis/network-type",
 			.cbs.modify = lib_interface_isis_network_type_modify,
-			.cbs.delete = lib_interface_isis_network_type_delete,
 			.cbs.cli_show = cli_show_ip_isis_network_type,
 		},
 		{
