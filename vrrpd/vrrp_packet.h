@@ -92,5 +92,5 @@ struct vrrp_pkt {
  *    (v6 = true)
  */
 ssize_t vrrp_pkt_build(struct vrrp_pkt **pkt, uint8_t vrid, uint8_t prio,
-		       uint16_t max_adver_int, bool v6, uint8_t numip,
-		       void **ips);
+		       uint16_t max_adver_int, uint8_t numip,
+		       struct ipaddr **ips);

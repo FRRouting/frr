@@ -19,13 +19,14 @@
  */
 #include <zebra.h>
 
-#include "lib/memory.h"
+#include "lib/hash.h"
+#include "lib/hook.h"
 #include "lib/if.h"
 #include "lib/linklist.h"
+#include "lib/memory.h"
 #include "lib/prefix.h"
-#include "lib/hash.h"
+#include "lib/sockopt.h"
 #include "lib/vrf.h"
-#include "lib/hook.h"
 
 #include "vrrp.h"
 #include "vrrp_arp.h"
@@ -74,42 +75,25 @@ static void vrrp_mac_set(struct ethaddr *mac, bool v6, uint8_t vrid)
 }
 
 /*
- * Sets advertisement_interval and master_adver_interval on a Virtual Router,
- * then recalculates and sets skew_time and master_down_interval based on these
+ * Recalculates and sets skew_time and master_down_interval based
  * values.
  *
- * vr
- *    Virtual Router to operate on
- *
- * advertisement_interval
- *    Advertisement_Interval to set
- *
- * master_adver_interval
- *    Master_Adver_Interval to set
+ * r
+ *   VRRP Router to operate on
  */
-static void vrrp_update_times(struct vrrp_vrouter *vr,
-			      uint16_t advertisement_interval,
-			      uint16_t master_adver_interval)
+static void vrrp_recalculate_timers(struct vrrp_router *r)
 {
-	vr->advertisement_interval = advertisement_interval;
-	vr->master_adver_interval = master_adver_interval;
-	vr->skew_time = ((256 - vr->priority) * master_adver_interval) / 256;
-	vr->master_down_interval = (3 * master_adver_interval);
-	vr->master_down_interval += vr->skew_time;
-}
-
-/*
- */
-static void vrrp_reset_times(struct vrrp_vrouter *vr)
-{
-	vrrp_update_times(vr, vr->advertisement_interval, 0);
+	r->skew_time =
+		((256 - r->vr->priority) * r->master_adver_interval) / 256;
+	r->master_down_interval = (3 * r->master_adver_interval);
+	r->master_down_interval += r->skew_time;
 }
 
 /*
  * Determines if a VRRP router is the owner of the specified address.
  *
  * vr
- *    VRRP router
+ *    Virtual Router
  *
  * Returns:
  *    whether or not vr owns the specified address
@@ -139,10 +123,10 @@ static bool vrrp_is_owner(struct vrrp_vrouter *vr, struct ipaddr *addr)
 
 void vrrp_set_priority(struct vrrp_vrouter *vr, uint8_t priority)
 {
-	if (vr->priority_conf == priority)
+	if (vr->priority == priority)
 		return;
 
-	vr->priority_conf = priority;
+	vr->priority = priority;
 }
 
 void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
@@ -151,39 +135,80 @@ void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
 	if (vr->advertisement_interval == advertisement_interval)
 		return;
 
-	vrrp_update_times(vr, advertisement_interval, vr->master_adver_interval);
+	vr->advertisement_interval = advertisement_interval;
+	vrrp_recalculate_timers(vr->v4);
+	vrrp_recalculate_timers(vr->v6);
 }
 
-void vrrp_add_ip(struct vrrp_vrouter *vr, struct in_addr v4)
+void vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
 {
-	struct in_addr *v4_ins = XCALLOC(MTYPE_TMP, sizeof(struct in_addr));
+	struct ipaddr *v4_ins = XCALLOC(MTYPE_TMP, sizeof(struct ipaddr));
 
-	*v4_ins = v4;
-	listnode_add(vr->v4, v4_ins);
+	v4_ins->ipa_type = IPADDR_V4;
+	v4_ins->ipaddr_v4 = v4;
+	listnode_add(vr->v4->addrs, v4_ins);
+}
+
+void vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
+{
+	struct ipaddr *v6_ins = XCALLOC(MTYPE_TMP, sizeof(struct ipaddr));
+
+	v6_ins->ipa_type = IPADDR_V6;
+	memcpy(&v6_ins->ipaddr_v6, &v6, sizeof(struct in6_addr));
+	listnode_add(vr->v6->addrs, v6_ins);
+}
+
+void vrrp_add_ip(struct vrrp_vrouter *vr, struct ipaddr ip)
+{
+	if (ip.ipa_type == IPADDR_V4)
+		vrrp_add_ipv4(vr, ip.ipaddr_v4);
+	else if (ip.ipa_type == IPADDR_V6)
+		vrrp_add_ipv6(vr, ip.ipaddr_v6);
 }
 
 
 /* Creation and destruction ------------------------------------------------ */
+
+static struct vrrp_router *vrrp_router_create(struct vrrp_vrouter *vr,
+					      int family)
+{
+	struct vrrp_router *r = XCALLOC(MTYPE_TMP, sizeof(struct vrrp_router));
+
+	r->sock = -1;
+	r->family = family;
+	r->vr = vr;
+	r->addrs = list_new();
+	r->priority = vr->priority;
+	r->fsm.state = VRRP_STATE_INITIALIZE;
+	vrrp_mac_set(&r->vmac, family == AF_INET6, vr->vrid);
+
+	return r;
+}
+
+static void vrrp_router_destroy(struct vrrp_router *r)
+{
+	if (r->sock >= 0)
+		close(r->sock);
+	/* FIXME: also delete list elements */
+	list_delete(&r->addrs);
+	XFREE(MTYPE_TMP, r);
+}
 
 struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid)
 {
 	struct vrrp_vrouter *vr =
 		XCALLOC(MTYPE_TMP, sizeof(struct vrrp_vrouter));
 
-	vr->sock = -1;
 	vr->ifp = ifp;
 	vr->vrid = vrid;
-	vr->v4 = list_new();
-	vr->v6 = list_new();
-	vr->priority_conf = VRRP_DEFAULT_PRIORITY;
 	vr->priority = VRRP_DEFAULT_PRIORITY;
 	vr->preempt_mode = true;
 	vr->accept_mode = false;
-	vrrp_mac_set(&vr->vr_mac_v4, false, vrid);
-	vrrp_mac_set(&vr->vr_mac_v6, true, vrid);
-	vr->fsm.state = VRRP_STATE_INITIALIZE;
+
+	vr->v4 = vrrp_router_create(vr, AF_INET);
+	vr->v6 = vrrp_router_create(vr, AF_INET6);
+
 	vrrp_set_advertisement_interval(vr, VRRP_DEFAULT_ADVINT);
-	vrrp_reset_times(vr);
 
 	hash_get(vrrp_vrouters_hash, vr, hash_alloc_intern);
 
@@ -192,11 +217,9 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid)
 
 void vrrp_vrouter_destroy(struct vrrp_vrouter *vr)
 {
-	if (vr->sock >= 0)
-		close(vr->sock);
 	vr->ifp = NULL;
-	list_delete(&vr->v4);
-	list_delete(&vr->v6);
+	vrrp_router_destroy(vr->v4);
+	vrrp_router_destroy(vr->v6);
 	hash_release(vrrp_vrouters_hash, vr);
 	XFREE(MTYPE_TMP, vr);
 }
@@ -214,39 +237,38 @@ struct vrrp_vrouter *vrrp_lookup(uint8_t vrid)
 /*
  * Create and broadcast VRRP ADVERTISEMENT message.
  *
- * vr
- *    Virtual Router for which to send ADVERTISEMENT
+ * r
+ *    VRRP Router for which to send ADVERTISEMENT
  */
-static void vrrp_send_advertisement(struct vrrp_vrouter *vr)
+static void vrrp_send_advertisement(struct vrrp_router *r)
 {
 	struct vrrp_pkt *pkt;
 	ssize_t pktlen;
-	struct in_addr *v4[vr->v4->count];
-	struct in6_addr *v6[vr->v6->count];
-	struct sockaddr_in dest;
+	struct ipaddr *addrs[r->addrs->count];
+	union sockunion dest;
 
-	list_to_array(vr->v4, (void **)v4, vr->v4->count);
-	list_to_array(vr->v6, (void **)v6, vr->v6->count);
+	list_to_array(r->addrs, (void **)addrs, r->addrs->count);
 
-	pktlen = vrrp_pkt_build(&pkt, vr->vrid, vr->priority,
-				vr->advertisement_interval, false,
-				vr->v4->count, (void **)&v4);
+	pktlen = vrrp_pkt_build(&pkt, r->vr->vrid, r->priority,
+				r->vr->advertisement_interval, r->addrs->count,
+				(struct ipaddr **)&addrs);
 
 	if (pktlen > 0)
 		zlog_hexdump(pkt, (size_t) pktlen);
 	else
 		zlog_warn("Could not build VRRP packet");
 
-	dest.sin_family = AF_INET;
-	dest.sin_addr.s_addr = htonl(VRRP_MCAST_GROUP_HEX);
+	const char *group =
+		r->family == AF_INET ? VRRP_MCASTV4_GROUP_STR : VRRP_MCASTV6_GROUP_STR;
+	str2sockunion(group, &dest);
 
-	ssize_t sent = sendto(vr->sock, pkt, (size_t)pktlen, 0, &dest,
-			      sizeof(struct sockaddr_in));
+	ssize_t sent = sendto(r->sock, pkt, (size_t)pktlen, 0, &dest.sa,
+			      sockunion_sizeof(&dest));
 
 	if (sent < 0) {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
 			  "Failed to send VRRP Advertisement",
-			  vr->vrid);
+			  r->vr->vrid);
 	}
 }
 
@@ -262,46 +284,73 @@ static void vrrp_recv_advertisement(struct thread *thread)
  * The first connected address on the Virtual Router's interface is used as the
  * interface address.
  *
- * vr
- *    Virtual Router for which to create listen socket
+ * r
+ *    VRRP Router for which to create listen socket
  */
-static int vrrp_socket(struct vrrp_vrouter *vr)
+static int vrrp_socket(struct vrrp_router *r)
 {
-	struct ip_mreqn req;
 	int ret;
 	struct connected *c;
 
 	frr_elevate_privs(&vrrp_privs) {
-		vr->sock = socket(AF_INET, SOCK_RAW, IPPROTO_VRRP);
+		r->sock = socket(r->family, SOCK_RAW, IPPROTO_VRRP);
 	}
 
-	if (vr->sock < 0) {
+	if (r->sock < 0) {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Can't create VRRP socket",
-			  vr->vrid);
+			  "Can't create %s VRRP socket",
+			  r->vr->vrid, r->family == AF_INET ? "v4" : "v6");
 		return errno;
 	}
 
-	/* Join the multicast group.*/
+	/*
+	 * Configure V4 minimum TTL or V6 minimum Hop Limit for rx; packets not
+	 * having at least these values will be dropped
+	 *
+	 * RFC 5798 5.1.1.3:
+	 * 
+	 *    The TTL MUST be set to 255.  A VRRP router receiving a packet
+	 *    with the TTL not equal to 255 MUST discard the packet.
+	 *
+	 * RFC 5798 5.1.2.3:
+	 *
+	 *    The Hop Limit MUST be set to 255.  A VRRP router receiving a
+	 *    packet with the Hop Limit not equal to 255 MUST discard the
+	 *    packet.
+	 */
+	sockopt_minttl(r->family, r->sock, 255);
 
-	 /* FIXME: Use first address on the interface and for imr_interface */
-	if (!listcount(vr->ifp->connected))
+	if (!listcount(r->vr->ifp->connected)) {
+		zlog_warn(
+			VRRP_LOGPFX VRRP_LOGPFX_VRID
+			"No address on interface %s; cannot configure multicast",
+			r->vr->vrid, r->vr->ifp->name);
+		close(r->sock);
 		return -1;
+	}
 
-	c = listhead(vr->ifp->connected)->data;
+	c = listhead(r->vr->ifp->connected)->data;
 	struct in_addr v4 = c->address->u.prefix4;
 
-	memset(&req, 0, sizeof(req));
-	req.imr_multiaddr.s_addr = htonl(VRRP_MCAST_GROUP_HEX);
-	req.imr_address = v4;
-	req.imr_ifindex = 0; // FIXME: vr->ifp->ifindex ?
-	ret = setsockopt(vr->sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&req,
-			 sizeof(struct ip_mreq));
+	/* Join the multicast group.*/
+	if (r->family == AF_INET)
+		ret = setsockopt_ipv4_multicast(r->sock, IP_ADD_MEMBERSHIP, v4,
+						htonl(VRRP_MCASTV4_GROUP),
+						r->vr->ifp->ifindex);
+	else if (r->family == AF_INET6) {
+		struct ipv6_mreq mreq;
+		inet_pton(AF_INET6, VRRP_MCASTV6_GROUP_STR, &mreq.ipv6mr_multiaddr);
+		mreq.ipv6mr_interface = r->vr->ifp->ifindex;
+		ret = setsockopt(r->sock, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mreq,
+			   sizeof(mreq));
+	}
+
 	if (ret < 0) {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
 			  "Can't join VRRP multicast group",
-			  vr->vrid);
-		return errno;
+			  r->vr->vrid);
+		close(r->sock);
+		return -1;
 	}
 	return 0;
 }
@@ -309,27 +358,28 @@ static int vrrp_socket(struct vrrp_vrouter *vr)
 
 /* State machine ----------------------------------------------------------- */
 
-DEFINE_HOOK(vrrp_change_state_hook, (struct vrrp_vrouter *vr, int to), (vr, to));
+DEFINE_HOOK(vrrp_change_state_hook, (struct vrrp_router * r, int to), (r, to));
 
 /*
  * Handle any necessary actions during state change to MASTER state.
  *
- * vr
- *    Virtual Router to operate on
+ * r
+ *    VRRP Router to operate on
  */
-static void vrrp_change_state_master(struct vrrp_vrouter *vr)
+static void vrrp_change_state_master(struct vrrp_router *r)
 {
+	/* NOTHING */
 }
 
 /*
  * Handle any necessary actions during state change to BACKUP state.
  *
- * vr
+ * r
  *    Virtual Router to operate on
  */
-static void vrrp_change_state_backup(struct vrrp_vrouter *vr)
+static void vrrp_change_state_backup(struct vrrp_router *r)
 {
-	/* Uninstall ARP entry for vrouter MAC */
+	/* Uninstall ARP entry for router MAC */
 	/* ... */
 }
 
@@ -339,16 +389,17 @@ static void vrrp_change_state_backup(struct vrrp_vrouter *vr)
  * This is not called for initial startup, only when transitioning from MASTER
  * or BACKUP.
  *
- * vr
- *    Virtual Router to operate on
+ * r
+ *    VRRP Router to operate on
  */
-static void vrrp_change_state_initialize(struct vrrp_vrouter *vr)
+static void vrrp_change_state_initialize(struct vrrp_router *r)
 {
-	/* Reset timers */
-	vrrp_reset_times(vr);
+	r->vr->advertisement_interval = r->vr->advertisement_interval;
+	r->master_adver_interval = 0;
+	vrrp_recalculate_timers(r);
 }
 
-void (*vrrp_change_state_handlers[])(struct vrrp_vrouter *vr) = {
+void (*vrrp_change_state_handlers[])(struct vrrp_router *vr) = {
 	[VRRP_STATE_MASTER] = vrrp_change_state_master,
 	[VRRP_STATE_BACKUP] = vrrp_change_state_backup,
 	[VRRP_STATE_INITIALIZE] = vrrp_change_state_initialize,
@@ -358,20 +409,20 @@ void (*vrrp_change_state_handlers[])(struct vrrp_vrouter *vr) = {
  * Change Virtual Router FSM position. Handles transitional actions and calls
  * any subscribers to the state change hook.
  *
- * vr
+ * r
  *    Virtual Router for which to change state
  *
  * to
  *    State to change to
  */
-static void vrrp_change_state(struct vrrp_vrouter *vr, int to)
+static void vrrp_change_state(struct vrrp_router *r, int to)
 {
 	/* Call our handlers, then any subscribers */
-	vrrp_change_state_handlers[to](vr);
-	hook_call(vrrp_change_state_hook, vr, to);
-	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "%s -> %s", vr->vrid,
-		  vrrp_state_names[vr->fsm.state], vrrp_state_names[to]);
-	vr->fsm.state = to;
+	vrrp_change_state_handlers[to](r);
+	hook_call(vrrp_change_state_hook, r, to);
+	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "%s -> %s", r->vr->vrid,
+		  vrrp_state_names[r->fsm.state], vrrp_state_names[to]);
+	r->fsm.state = to;
 }
 
 /*
@@ -379,22 +430,23 @@ static void vrrp_change_state(struct vrrp_vrouter *vr, int to)
  */
 static int vrrp_adver_timer_expire(struct thread *thread)
 {
-	struct vrrp_vrouter *vr = thread->arg;
+	struct vrrp_router *r = thread->arg;
 
-	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Adver_Timer expired", vr->vrid);
+	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Adver_Timer expired",
+		  r->vr->vrid);
 
-	if (vr->fsm.state == VRRP_STATE_MASTER) {
+	if (r->fsm.state == VRRP_STATE_MASTER) {
 		/* Send an ADVERTISEMENT */
-		vrrp_send_advertisement(vr);
+		vrrp_send_advertisement(r);
 
 		/* Reset the Adver_Timer to Advertisement_Interval */
-		thread_add_timer_msec(master, vrrp_adver_timer_expire, vr,
-				      vr->advertisement_interval * 10,
-				      &vr->t_adver_timer);
+		thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
+				      r->vr->advertisement_interval * 10,
+				      &r->t_adver_timer);
 	} else {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
 			  "Adver_Timer expired in state '%s'; this is a bug",
-			  vr->vrid, vrrp_state_names[vr->fsm.state]);
+			  r->vr->vrid, vrrp_state_names[r->fsm.state]);
 	}
 
 	return 0;
@@ -405,10 +457,10 @@ static int vrrp_adver_timer_expire(struct thread *thread)
  */
 static int vrrp_master_down_timer_expire(struct thread *thread)
 {
-	struct vrrp_vrouter *vr = thread->arg;
+	struct vrrp_router *r = thread->arg;
 
 	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Master_Down_Timer expired",
-		  vr->vrid);
+		  r->vr->vrid);
 
 	return 0;
 }
@@ -422,68 +474,70 @@ static int vrrp_master_down_timer_expire(struct thread *thread)
  * This function will also initialize the program's global ARP subsystem if it
  * has not yet been initialized.
  *
- * vr
- *    Virtual Router on which to apply Startup event
+ * r
+ *    VRRP Router on which to apply Startup event
  *
  * Returns:
  *    < 0 if the session socket could not be created, or the state is not
  *        Initialize
  *      0 on success
  */
-static int vrrp_startup(struct vrrp_vrouter *vr)
+static int vrrp_startup(struct vrrp_router *r)
 {
 	/* May only be called when the state is Initialize */
-	if (vr->fsm.state != VRRP_STATE_INITIALIZE)
+	if (r->fsm.state != VRRP_STATE_INITIALIZE)
 		return -1;
 
 	/* Initialize global gratuitous ARP socket if necessary */
-	if (!vrrp_garp_is_init())
+	if (r->family == AF_INET && !vrrp_garp_is_init())
 		vrrp_garp_init();
 
 	/* Create socket */
-	int ret = vrrp_socket(vr);
-	if (ret < 0)
-		return ret;
+	if (r->sock < 0) {
+		int ret = vrrp_socket(r);
+		if (ret < 0)
+			return ret;
+	}
 
 	/* Schedule listener */
 	/* ... */
 
 	/* configure effective priority */
-	struct in_addr *primary = (struct in_addr *) listhead(vr->v4)->data;
-	struct ipaddr primary_ipaddr;
-	primary_ipaddr.ipa_type = IPADDR_V4;
-	primary_ipaddr.ipaddr_v4 = *primary;
+	struct ipaddr *primary = (struct ipaddr *)listhead(r->addrs)->data;
 
-	char ipbuf[INET_ADDRSTRLEN];
-	inet_ntop(AF_INET, primary, ipbuf, sizeof(ipbuf));
+	char ipbuf[INET6_ADDRSTRLEN];
+	inet_ntop(r->family, &primary->ip.addr, ipbuf, sizeof(ipbuf));
 
-	if (vrrp_is_owner(vr, &primary_ipaddr)) {
-		vr->priority = VRRP_PRIO_MASTER;
-		/* Timers depend on priority value, need to recalculate them */
-		vrrp_update_times(vr, vr->advertisement_interval,
-				  vr->master_adver_interval);
+	if (vrrp_is_owner(r->vr, primary)) {
+		r->priority = VRRP_PRIO_MASTER;
+		vrrp_recalculate_timers(r);
+
 		zlog_info(
 			VRRP_LOGPFX VRRP_LOGPFX_VRID
 			"%s owns primary Virtual Router IP %s; electing self as Master",
-			vr->vrid, vr->ifp->name, ipbuf);
+			r->vr->vrid, r->vr->ifp->name, ipbuf);
 	}
 
-	if (vr->priority == VRRP_PRIO_MASTER) {
-		vrrp_send_advertisement(vr);
-		vrrp_garp_send_all(vr);
+	if (r->priority == VRRP_PRIO_MASTER) {
+		vrrp_send_advertisement(r);
 
-		thread_add_timer_msec(master, vrrp_adver_timer_expire, vr,
-				      vr->advertisement_interval * 10,
-				      &vr->t_adver_timer);
-		vrrp_change_state(vr, VRRP_STATE_MASTER);
+		if (r->family == AF_INET)
+			vrrp_garp_send_all(r);
+
+		thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
+				      r->vr->advertisement_interval * 10,
+				      &r->t_adver_timer);
+		vrrp_change_state(r, VRRP_STATE_MASTER);
 	} else {
-		vrrp_update_times(vr, vr->advertisement_interval,
-				  vr->advertisement_interval);
-		thread_add_timer_msec(master, vrrp_master_down_timer_expire, vr,
-				      vr->master_down_interval * 10,
-				      &vr->t_master_down_timer);
-		vrrp_change_state(vr, VRRP_STATE_BACKUP);
+		r->master_adver_interval = r->vr->advertisement_interval;
+		vrrp_recalculate_timers(r);
+		thread_add_timer_msec(master, vrrp_master_down_timer_expire, r,
+				      r->master_down_interval * 10,
+				      &r->t_master_down_timer);
+		vrrp_change_state(r, VRRP_STATE_BACKUP);
 	}
+
+	r->is_active = true;
 
 	return 0;
 }
@@ -492,62 +546,57 @@ static int vrrp_startup(struct vrrp_vrouter *vr)
  * Shuts down a Virtual Router and transitions it to Initialize.
  *
  * This call must be idempotent; it is safe to call multiple times on the same
- * Virtual Router.
+ * VRRP Router.
  */
-static int vrrp_shutdown(struct vrrp_vrouter *vr)
+static int vrrp_shutdown(struct vrrp_router *r)
 {
-	switch (vr->fsm.state) {
-		case VRRP_STATE_MASTER:
-			/* Cancel the Adver_Timer */
-			THREAD_OFF(vr->t_adver_timer);
-			/* Send an ADVERTISEMENT with Priority = 0 */
-			uint8_t saved_prio = vr->priority;
-			vr->priority = 0;
-			vrrp_send_advertisement(vr);
-			vr->priority = saved_prio;
-			break;
-		case VRRP_STATE_BACKUP:
-			/* Cancel the Master_Down_Timer */
-			THREAD_OFF(vr->t_master_down_timer);
-			break;
-		case VRRP_STATE_INITIALIZE:
-			zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
-				  "Received '%s' event in '%s' state; ignoring",
-				  vr->vrid,
-				  vrrp_event_names[VRRP_EVENT_SHUTDOWN],
-				  vrrp_state_names[VRRP_STATE_INITIALIZE]);
-			break;
+	switch (r->fsm.state) {
+	case VRRP_STATE_MASTER:
+		/* Cancel the Adver_Timer */
+		THREAD_OFF(r->t_adver_timer);
+		/* Send an ADVERTISEMENT with Priority = 0 */
+		uint8_t saved_prio = r->priority;
+		r->priority = 0;
+		vrrp_send_advertisement(r);
+		r->priority = saved_prio;
+		break;
+	case VRRP_STATE_BACKUP:
+		/* Cancel the Master_Down_Timer */
+		THREAD_OFF(r->t_master_down_timer);
+		break;
+	case VRRP_STATE_INITIALIZE:
+		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Received '%s' event in '%s' state; ignoring",
+			  r->vr->vrid, vrrp_event_names[VRRP_EVENT_SHUTDOWN],
+			  vrrp_state_names[VRRP_STATE_INITIALIZE]);
+		break;
 	}
 
-	/* close socket */
-	if (vr->sock >= 0)
-		close(vr->sock);
-
 	/* Transition to the Initialize state */
-	vrrp_change_state(vr, VRRP_STATE_INITIALIZE);
+	vrrp_change_state(r, VRRP_STATE_INITIALIZE);
 
 	return 0;
 }
 
-static int (*vrrp_event_handlers[])(struct vrrp_vrouter *vr) = {
+static int (*vrrp_event_handlers[])(struct vrrp_router *r) = {
 	[VRRP_EVENT_STARTUP] = vrrp_startup,
 	[VRRP_EVENT_SHUTDOWN] = vrrp_shutdown,
 };
 
 /*
- * Spawn a VRRP FSM event on a Virtual Router.
+ * Spawn a VRRP FSM event on a VRRP Router.
  *
  * vr
- *    Virtual Router on which to spawn event
+ *    VRRP Router on which to spawn event
  *
  * event
  *    The event to spawn
  */
-int vrrp_event(struct vrrp_vrouter *vr, int event)
+int vrrp_event(struct vrrp_router *r, int event)
 {
-	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "'%s' event", vr->vrid,
-		  vrrp_event_names[vr->fsm.state]);
-	return vrrp_event_handlers[event](vr);
+	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "'%s' event", r->vr->vrid,
+		  vrrp_event_names[r->fsm.state]);
+	return vrrp_event_handlers[event](r);
 }
 
 

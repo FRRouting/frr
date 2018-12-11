@@ -33,8 +33,10 @@
 #define VRRP_DEFAULT_ADVINT 100
 #define VRRP_DEFAULT_PRIORITY 100
 #define VRRP_PRIO_MASTER 255
-#define VRRP_MCAST_GROUP "224.0.0.18"
-#define VRRP_MCAST_GROUP_HEX 0xe0000012
+#define VRRP_MCASTV4_GROUP_STR "224.0.0.18"
+#define VRRP_MCASTV6_GROUP_STR "ff02:0:0:0:0:0:0:12"
+#define VRRP_MCASTV4_GROUP 0xe0000012
+#define VRRP_MCASTV6_GROUP 0xff020000000000000000000000000012
 #define IPPROTO_VRRP 112
 
 #define VRRP_LOGPFX_VRID "[VRID: %u] "
@@ -49,43 +51,48 @@ extern struct zebra_privs_t vrrp_privs;
 struct hash *vrrp_vrouters_hash;
 
 /*
- * VRRP Virtual Router
+ * VRRP Router.
+ *
+ * This struct contains all state for a particular VRRP Router operating in a
+ * Virtual Router for either IPv4 or IPv6.
  */
-struct vrrp_vrouter {
+struct vrrp_router {
+	/*
+	 * Whether this VRRP Router is active.
+	 */
+	bool is_active;
+
 	/* Socket */
 	int sock;
 
-	/* Interface */
-	struct interface *ifp;
-
-	/* Virtual Router Identifier */
-	uint32_t vrid;
-
-	/* One or more IPv4 addresses associated with this Virtual Router. */
-	struct list *v4;
+	/*
+	 * Address family of this Virtual Router.
+	 * Either AF_INET or AF_INET6.
+	 */
+	int family;
 
 	/*
-	 * One ore more IPv6 addresses associated with this Virtual Router. The
-	 * first address must be the Link-Local address associated with the
-	 * virtual router.
+	 * Virtual Router this VRRP Router is participating in.
 	 */
-	struct list *v6;
+	struct vrrp_vrouter *vr;
 
-	/* Configured priority */
-	uint8_t priority_conf;
+	/*
+	 * One or more IPvX addresses associated with this Virtual
+	 * Router. The first address must be the "primary" address this
+	 * Virtual Router is backing up in the case of IPv4. In the case of
+	 * IPv6 it must be the link-local address of vr->ifp.
+	 *
+	 * Type: struct ipaddr *
+	 */
+	struct list *addrs;
 
 	/*
 	 * Effective priority
-	 *    => priority if we are Backup
+	 *    => vr->priority if we are Backup
 	 *    => 255 if we are Master
 	 */
 	uint8_t priority;
 
-	/*
-	 * Time interval between ADVERTISEMENTS (centiseconds). Default is 100
-	 * centiseconds (1 second).
-	 */
-	uint16_t advertisement_interval;
 	/*
 	 * Advertisement interval contained in ADVERTISEMENTS received from the
 	 * Master (centiseconds)
@@ -106,6 +113,54 @@ struct vrrp_vrouter {
 	uint16_t master_down_interval;
 
 	/*
+	 * The MAC address used for the source MAC address in VRRP
+	 * advertisements, advertised in ARP requests/responses, and advertised
+	 * in ND Neighbor Advertisements.
+	 */
+	struct ethaddr vmac;
+
+	struct {
+		int state;
+	} fsm;
+
+	struct thread *t_master_down_timer;
+	struct thread *t_adver_timer;
+};
+
+/*
+ * VRRP Virtual Router.
+ *
+ * This struct contains all state and configuration for a given Virtual Router
+ * Identifier on a given interface, both v4 and v6.
+ *
+ * RFC5798 s. 1 states:
+ *    "Within a VRRP router, the virtual routers in each of the IPv4 and IPv6
+ *    address families are a domain unto themselves and do not overlap."
+ *
+ * This implementation has chosen the tuple (interface, VRID) as the key for a
+ * particular VRRP Router, and the rest of the program is designed around this
+ * assumption. Additionally, base protocol configuration parameters such as the
+ * advertisement interval and (configured) priority are shared between v4 and
+ * v6 instances. This corresponds to the choice made by other industrial
+ * implementations.
+ */
+struct vrrp_vrouter {
+	/* Interface */
+	struct interface *ifp;
+
+	/* Virtual Router Identifier */
+	uint32_t vrid;
+
+	/* Configured priority */
+	uint8_t priority;
+
+	/*
+	 * Time interval between ADVERTISEMENTS (centiseconds). Default is 100
+	 * centiseconds (1 second).
+	 */
+	uint16_t advertisement_interval;
+
+	/*
 	 * Controls whether a (starting or restarting) higher-priority Backup
 	 * router preempts a lower-priority Master router. Values are True to
 	 * allow preemption and False to prohibit preemption. Default is True.
@@ -119,20 +174,8 @@ struct vrrp_vrouter {
 	 */
 	bool accept_mode;
 
-	/*
-	 * The MAC address used for the source MAC address in VRRP
-	 * advertisements and advertised in ARP responses as the MAC address to
-	 * use for IP_Addresses.
-	 */
-	struct ethaddr vr_mac_v4;
-	struct ethaddr vr_mac_v6;
-
-	struct thread *t_master_down_timer;
-	struct thread *t_adver_timer;
-
-	struct {
-		int state;
-	} fsm;
+	struct vrrp_router *v4;
+	struct vrrp_router *v6;
 };
 
 /*
@@ -191,7 +234,18 @@ void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
 				     uint16_t advertisement_interval);
 
 /*
- * Add IPv4 address to a VRRP Virtual Router.
+ * Add an IPvX address to a VRRP Virtual Router.
+ *
+ * vr
+ *    Virtual Router to add IPvx address to
+ *
+ * ip
+ *    Address to add
+ */
+void vrrp_add_ip(struct vrrp_vrouter *vr, struct ipaddr ip);
+
+/*
+ * Add an IPv4 address to a VRRP Virtual Router.
  *
  * vr
  *    Virtual Router to add IPv4 address to
@@ -199,7 +253,18 @@ void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
  * v4
  *    Address to add
  */
-void vrrp_add_ip(struct vrrp_vrouter *vr, struct in_addr v4);
+void vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4);
+
+/*
+ * Add an IPv6 address to a VRRP Virtual Router.
+ *
+ * vr
+ *    Virtual Router to add IPv6 address to
+ *
+ * v6
+ *    Address to add
+ */
+void vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
 
 
 /* State machine ----------------------------------------------------------- */
@@ -220,7 +285,7 @@ extern const char *vrrp_event_names[2];
  * Use this if you need to react to state changes to perform non-critical
  * tasks. Critical tasks should go in the internal state change handlers.
  */
-DECLARE_HOOK(vrrp_change_state_hook, (struct vrrp_vrouter *vr, int to), (vr, to));
+DECLARE_HOOK(vrrp_change_state_hook, (struct vrrp_router * r, int to), (r, to));
 
 /*
  * Trigger a VRRP event on a given Virtual Router..
@@ -236,7 +301,7 @@ DECLARE_HOOK(vrrp_change_state_hook, (struct vrrp_vrouter *vr, int to), (vr, to)
  *    < 0 if the event created an error
  *      0 otherwise
  */
-int vrrp_event(struct vrrp_vrouter *vr, int event);
+int vrrp_event(struct vrrp_router *r, int event);
 
 
 /* Other ------------------------------------------------------------------- */

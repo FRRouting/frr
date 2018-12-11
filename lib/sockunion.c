@@ -163,7 +163,7 @@ int sockunion_accept(int sock, union sockunion *su)
 }
 
 /* Return sizeof union sockunion.  */
-static int sockunion_sizeof(const union sockunion *su)
+int sockunion_sizeof(const union sockunion *su)
 {
 	int ret;
 

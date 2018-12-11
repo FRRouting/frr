@@ -19,11 +19,12 @@
  */
 #include <zebra.h>
 
-#include "command.h"
-#include "vty.h"
-#include "if.h"
-#include "termtable.h"
-#include "prefix.h"
+#include "lib/command.h"
+#include "lib/if.h"
+#include "lib/ipaddr.h"
+#include "lib/prefix.h"
+#include "lib/termtable.h"
+#include "lib/vty.h"
 
 #include "vrrp.h"
 #include "vrrp_vty.h"
@@ -85,27 +86,36 @@ DEFPY(vrrp_priority,
       "Priority value; set 255 to designate this Virtual Router as Master\n")
 {
 	struct vrrp_vrouter *vr;
-	bool need_restart = false;
+	struct vrrp_router *r;
+	bool nr[2] = { false, false };
 	int ret = CMD_SUCCESS;
 
 	VROUTER_GET_VTY(vty, vrid, vr);
 
-	need_restart = (vr->fsm.state != VRRP_STATE_INITIALIZE);
-
-	if (need_restart) {
-		vty_out(vty,
-			"%% WARNING: Restarting Virtual Router %ld to update priority\n",
-			vrid);
-		(void) vrrp_event(vr, VRRP_EVENT_SHUTDOWN);
+	r = vr->v4;
+	for (int i = 0; i < 2; i++) {
+		nr[i] = r->is_active && r->fsm.state != VRRP_STATE_INITIALIZE;
+		if (nr[i]) {
+			vty_out(vty,
+				"%% WARNING: Restarting Virtual Router %ld (%s) to update priority\n",
+				vrid, r->family == AF_INET ? "v4" : "v6");
+			(void)vrrp_event(r, VRRP_EVENT_SHUTDOWN);
+		}
+		r = vr->v6;
 	}
 
 	vrrp_set_priority(vr, priority);
 
-	if (need_restart) {
-		ret = vrrp_event(vr, VRRP_EVENT_STARTUP);
-		if (ret < 0)
-			vty_out(vty, "%% Failed to start Virtual Router %ld\n",
-				vrid);
+	r = vr->v4;
+	for (int i = 0; i < 2; i++) {
+		if (nr[i]) {
+			ret = vrrp_event(r, VRRP_EVENT_STARTUP);
+			if (ret < 0)
+				vty_out(vty,
+					"%% Failed to start Virtual Router %ld (%s)\n",
+					vrid, r->family == AF_INET ? "v4" : "v6");
+		}
+		r = vr->v6;
 	}
 
 	return CMD_SUCCESS;
@@ -130,22 +140,52 @@ DEFPY(vrrp_advertisement_interval,
 
 DEFPY(vrrp_ip,
       vrrp_ip_cmd,
-      "[no] vrrp (1-255)$vrid ip A.B.C.D$ip",
+      "[no] vrrp (1-255)$vrid ip A.B.C.D",
       NO_STR
       VRRP_STR
       VRRP_VRID_STR
-      "Add IP address\n"
+      "Add IPv4 address\n"
       VRRP_IP_STR)
 {
 	struct vrrp_vrouter *vr;
 	int ret;
 
 	VROUTER_GET_VTY(vty, vrid, vr);
-	vrrp_add_ip(vr, ip);
+	vrrp_add_ipv4(vr, ip);
 
-	if (vr->fsm.state == VRRP_STATE_INITIALIZE) {
+	if (vr->v4->fsm.state == VRRP_STATE_INITIALIZE) {
 		vty_out(vty, "%% Activating Virtual Router %ld\n", vrid);
-		ret = vrrp_event(vr, VRRP_EVENT_STARTUP);
+		ret = vrrp_event(vr->v4, VRRP_EVENT_STARTUP);
+		ret = ret < 0 ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+
+		if (ret == CMD_WARNING_CONFIG_FAILED)
+			vty_out(vty, "%% Failed to start Virtual Router %ld\n",
+				vrid);
+	} else {
+		ret = CMD_SUCCESS;
+	}
+
+	return ret;
+}
+
+DEFPY(vrrp_ip6,
+      vrrp_ip6_cmd,
+      "[no] vrrp (1-255)$vrid ipv6 X:X::X:X",
+      NO_STR
+      VRRP_STR
+      VRRP_VRID_STR
+      "Add IPv6 address\n"
+      VRRP_IP_STR)
+{
+	struct vrrp_vrouter *vr;
+	int ret;
+
+	VROUTER_GET_VTY(vty, vrid, vr);
+	vrrp_add_ipv6(vr, ipv6);
+
+	if (vr->v6->fsm.state == VRRP_STATE_INITIALIZE) {
+		vty_out(vty, "%% Activating Virtual Router %ld\n", vrid);
+		ret = vrrp_event(vr->v6, VRRP_EVENT_STARTUP);
 		ret = ret < 0 ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
 
 		if (ret == CMD_WARNING_CONFIG_FAILED)
@@ -160,43 +200,69 @@ DEFPY(vrrp_ip,
 
 static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 {
-	char ethstr[ETHER_ADDR_STRLEN];
-	char ipstr[INET_ADDRSTRLEN];
-	const char *stastr = vrrp_state_names[vr->fsm.state];
+	char ethstr4[ETHER_ADDR_STRLEN];
+	char ethstr6[ETHER_ADDR_STRLEN];
+	char ipstr[INET6_ADDRSTRLEN];
+	const char *stastr4 = vrrp_state_names[vr->v4->fsm.state];
+	const char *stastr6 = vrrp_state_names[vr->v6->fsm.state];
+	struct listnode *ln;
+	struct ipaddr *ip;
 
 	struct ttable *tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
 
 	ttable_add_row(tt, "%s|%" PRIu32, "Virtual Router ID", vr->vrid);
-	prefix_mac2str(&vr->vr_mac_v4, ethstr, sizeof(ethstr));
-	ttable_add_row(tt, "%s|%s", "Virtual MAC", ethstr);
-	ttable_add_row(tt, "%s|%s", "Status", stastr);
+	prefix_mac2str(&vr->v4->vmac, ethstr4, sizeof(ethstr4));
+	prefix_mac2str(&vr->v6->vmac, ethstr6, sizeof(ethstr6));
+	ttable_add_row(tt, "%s|%s", "Virtual MAC (v4)", ethstr4);
+	ttable_add_row(tt, "%s|%s", "Virtual MAC (v6)", ethstr6);
+	ttable_add_row(tt, "%s|%s", "Status (v4)", stastr4);
+	ttable_add_row(tt, "%s|%s", "Status (v6)", stastr6);
 	ttable_add_row(tt, "%s|%" PRIu8, "Priority", vr->priority);
+	ttable_add_row(tt, "%s|%" PRIu8, "Effective Priority (v4)",
+		       vr->v4->priority);
+	ttable_add_row(tt, "%s|%" PRIu8, "Effective Priority (v6)",
+		       vr->v6->priority);
 	ttable_add_row(tt, "%s|%s", "Preempt Mode",
 		       vr->preempt_mode ? "Yes" : "No");
 	ttable_add_row(tt, "%s|%s", "Accept Mode",
 		       vr->accept_mode ? "Yes" : "No");
 	ttable_add_row(tt, "%s|%" PRIu16" cs", "Advertisement Interval",
 		       vr->advertisement_interval);
-	ttable_add_row(tt, "%s|%" PRIu16" cs", "Master Advertisement Interval",
-		       vr->master_adver_interval);
-	ttable_add_row(tt, "%s|%" PRIu16" cs", "Skew Time", vr->skew_time);
-	ttable_add_row(tt, "%s|%" PRIu16" cs", "Master Down Interval",
-		       vr->master_down_interval);
-	ttable_add_row(tt, "%s|%u", "IPv4 Addresses", vr->v4->count);
+	ttable_add_row(tt, "%s|%" PRIu16" cs", "Master Advertisement Interval (v4)",
+		       vr->v4->master_adver_interval);
+	ttable_add_row(tt, "%s|%" PRIu16" cs", "Master Advertisement Interval (v6)",
+		       vr->v6->master_adver_interval);
+	ttable_add_row(tt, "%s|%" PRIu16" cs", "Skew Time (v4)", vr->v4->skew_time);
+	ttable_add_row(tt, "%s|%" PRIu16" cs", "Skew Time (v6)", vr->v6->skew_time);
+	ttable_add_row(tt, "%s|%" PRIu16" cs", "Master Down Interval (v4)",
+		       vr->v4->master_down_interval);
+	ttable_add_row(tt, "%s|%" PRIu16" cs", "Master Down Interval (v6)",
+		       vr->v6->master_down_interval);
+	ttable_add_row(tt, "%s|%u", "IPv4 Addresses", vr->v4->addrs->count);
+	ttable_add_row(tt, "%s|%u", "IPv6 Addresses", vr->v6->addrs->count);
 
 	char *table = ttable_dump(tt, "\n");
 	vty_out(vty, "\n%s\n", table);
 	XFREE(MTYPE_TMP, table);
 	ttable_del(tt);
 
-	/* Dump IPv4 Addresses */
-	if (vr->v4->count) {
+	if (vr->v4->addrs->count) {
 		vty_out(vty, " IPv4 Addresses\n");
 		vty_out(vty, " --------------\n");
-		struct listnode *ln;
-		struct in_addr *v4;
-		for (ALL_LIST_ELEMENTS_RO(vr->v4, ln, v4)) {
-			inet_ntop(AF_INET, v4, ipstr, sizeof(ipstr));
+		for (ALL_LIST_ELEMENTS_RO(vr->v4->addrs, ln, ip)) {
+			inet_ntop(vr->v4->family, &ip->ipaddr_v4, ipstr,
+				  sizeof(ipstr));
+			vty_out(vty, " %s\n", ipstr);
+		}
+		vty_out(vty, "\n");
+	}
+
+	if (vr->v6->addrs->count) {
+		vty_out(vty, " IPv6 Addresses\n");
+		vty_out(vty, " --------------\n");
+		for (ALL_LIST_ELEMENTS_RO(vr->v6->addrs, ln, ip)) {
+			inet_ntop(vr->v6->family, &ip->ipaddr_v6, ipstr,
+				  sizeof(ipstr));
 			vty_out(vty, " %s\n", ipstr);
 		}
 		vty_out(vty, "\n");
@@ -241,4 +307,5 @@ void vrrp_vty_init(void)
 	install_element(INTERFACE_NODE, &vrrp_priority_cmd);
 	install_element(INTERFACE_NODE, &vrrp_advertisement_interval_cmd);
 	install_element(INTERFACE_NODE, &vrrp_ip_cmd);
+	install_element(INTERFACE_NODE, &vrrp_ip6_cmd);
 }
