@@ -71,6 +71,11 @@ extern int netlink_macfdb_read_for_bridge(struct zebra_ns *zns,
 extern int netlink_neigh_read(struct zebra_ns *zns);
 extern int netlink_neigh_read_for_vlan(struct zebra_ns *zns,
 				       struct interface *vlan_if);
+extern int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
+					    struct interface *br_if,
+					    struct ethaddr *mac, uint16_t vid);
+extern int netlink_neigh_read_specific_ip(struct ipaddr *ip,
+					  struct interface *vlan_if);
 
 #endif /* HAVE_NETLINK */
 
