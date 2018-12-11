@@ -30,6 +30,9 @@ DECLARE_MTYPE(WORK_QUEUE)
 /* Hold time for the initial schedule of a queue run, in  millisec */
 #define WORK_QUEUE_DEFAULT_HOLD 50
 
+/* Retry for queue that is 'blocked' or 'retry later' */
+#define WORK_QUEUE_DEFAULT_RETRY 0
+
 /* action value, for use by item processor and item error handlers */
 typedef enum {
 	WQ_SUCCESS = 0,
@@ -90,6 +93,8 @@ struct work_queue {
 
 		unsigned long
 			yield; /* yield time in us for associated thread */
+
+		uint32_t retry; /* Optional retry timeout if queue is blocked */
 	} spec;
 
 	/* remaining fields should be opaque to users */

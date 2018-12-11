@@ -91,9 +91,10 @@ struct work_queue *work_queue_new(struct thread_master *m,
 
 	new->cycles.granularity = WORK_QUEUE_MIN_GRANULARITY;
 
-	/* Default values, can be overriden by caller */
+	/* Default values, can be overridden by caller */
 	new->spec.hold = WORK_QUEUE_DEFAULT_HOLD;
 	new->spec.yield = THREAD_YIELD_TIME_SLOT;
+	new->spec.retry = WORK_QUEUE_DEFAULT_RETRY;
 
 	return new;
 }
@@ -133,8 +134,17 @@ static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 	if (CHECK_FLAG(wq->flags, WQ_UNPLUGGED) && (wq->thread == NULL)
 	    && !work_queue_empty(wq)) {
 		wq->thread = NULL;
-		thread_add_timer_msec(wq->master, work_queue_run, wq, delay,
-				      &wq->thread);
+
+		/* Schedule timer if there's a delay, otherwise just schedule
+		 * as an 'event'
+		 */
+		if (delay > 0)
+			thread_add_timer_msec(wq->master, work_queue_run, wq,
+					      delay, &wq->thread);
+		else
+			thread_add_event(wq->master, work_queue_run, wq, 0,
+					 &wq->thread);
+
 		/* set thread yield time, if needed */
 		if (wq->thread && wq->spec.yield != THREAD_YIELD_TIME_SLOT)
 			thread_set_yield_time(wq->thread, wq->spec.yield);
@@ -234,7 +244,7 @@ int work_queue_run(struct thread *thread)
 {
 	struct work_queue *wq;
 	struct work_queue_item *item, *titem;
-	wq_item_status ret;
+	wq_item_status ret = WQ_SUCCESS;
 	unsigned int cycles = 0;
 	char yielded = 0;
 
@@ -376,9 +386,14 @@ stats:
 #endif
 
 	/* Is the queue done yet? If it is, call the completion callback. */
-	if (!work_queue_empty(wq))
-		work_queue_schedule(wq, 0);
-	else if (wq->spec.completion_func)
+	if (!work_queue_empty(wq)) {
+		if (ret == WQ_RETRY_LATER ||
+		    ret == WQ_QUEUE_BLOCKED)
+			work_queue_schedule(wq, wq->spec.retry);
+		else
+			work_queue_schedule(wq, 0);
+
+	} else if (wq->spec.completion_func)
 		wq->spec.completion_func(wq);
 
 	return 0;
