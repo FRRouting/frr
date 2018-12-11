@@ -1,39 +1,74 @@
-#!/bin/bash
-
+#!/bin/sh
 set -e
 
-######################
-PASSWDFILE=/etc/passwd
-GROUPFILE=/etc/group
+# most of this file makes sense to execute regardless of whether this is any
+# of normal "configure" or error-handling "abort-upgrade", "abort-remove" or
+# "abort-deconfigure"
 
-frruid=`egrep "^frr:" $PASSWDFILE | awk -F ":" '{ print $3 }'`
-frrgid=`egrep "^frr:" $GROUPFILE | awk -F ":" '{ print $3 }'`
-frrvtygid=`egrep "^frrvty:" $GROUPFILE | awk -F ":" '{ print $3 }'`
+addgroup --system frrvty
+addgroup --system frr
+adduser \
+	--system \
+	--ingroup frr \
+	--home /nonexistent \
+	--gecos "Frr routing suite" \
+	frr
+usermod -a -G frrvty frr
 
-[ -n ${frruid} ]    || (echo "No uid for frr in ${PASSWDFILE}"   && /bin/false)
-[ -n ${frrgid} ]    || (echo "No gid for frr in ${GROUPFILE}"    && /bin/false)
-[ -n ${frrVTYgid} ] || (echo "No gid for frrvty in ${GROUPFILE}" && /bin/false)
+mkdir -p /var/log/frr
+mkdir -p /etc/frr
 
-chown ${frruid}:${frrgid} /etc/frr
-chown ${frruid}:${frrgid} /etc/frr/*
-touch /etc/frr/vtysh.conf
-chgrp ${frrvtygid} /etc/frr/vtysh*
-chmod 644 /etc/frr/*
 
-ENVIRONMENTFILE=/etc/environment
-if ! egrep --quiet '^VTYSH_PAGER=' ${ENVIRONMENTFILE}; then
-    echo "VTYSH_PAGER=/bin/cat"  >> ${ENVIRONMENTFILE}
-fi
-##################################################
+# only change ownership of files when they were previously owned by root or
+# quagga; this is to ensure we don't trample over some custom user setup.
+#
+# if we are on a freshly installed package (or we added new configfiles),
+# the files should be owned by root by default so we should end up with "frr"
+# owned configfiles.
 
-if [ -n "$DEBIAN_SCRIPT_DEBUG" ]; then set -v -x; DEBIAN_SCRIPT_TRACE=1; fi
-${DEBIAN_SCRIPT_TRACE:+ echo "#42#DEBUG# RUNNING $0 $*"}
+quaggauid=`id -u quagga 2>/dev/null || echo 0`
+quaggagid=`id -g quagga 2>/dev/null || echo 0`
 
-# This is most likely due to the answer "no" to the "really stop the server"
-# question in the prerm script.
-if [ "$1" = "abort-upgrade" ]; then
-  exit 0
-fi
+find \
+	/etc/frr \
+	/var/log/frr \
+		\( -uid 0 -o -uid $quaggauid \) -a \
+		\( -gid 0 -o -gid $quaggauid \) | \
+	while read filename; do
+
+	# don't chown anything that has ACLs (but don't fail if we don't
+	# have getfacl)
+	if { getfacl -c "$filename" 2>/dev/null || true; } \
+		| egrep -q -v '^((user|group|other)::|$)'; then
+		:
+	else
+		chown frr: "$filename"
+		chmod o-rwx "$filename"
+	fi
+done
+
+# fix misconfigured vtysh.conf & frr.conf ownership set up by some inofficial
+# ("pre"-Debian) packages
+find /etc/frr -maxdepth 1 \( -name vtysh.conf -o -name frr.conf \) \
+	-group frrvty -exec chgrp frr {} \;
+
+check_old_config() {
+	oldcfg="$1"
+	[ -r "$oldcfg" ] || return 0
+	[ -s "$oldcfg" ] || return 0
+	grep -v '^[[:blank:]]*\(#\|$\)' "$oldcfg" > /dev/null || return 0
+
+	cat >&2 <<EOF
+Note: deprecated $oldcfg is present. This file is still read by
+the FRR service but its contents should be migrated to /etc/frr/daemons.
+EOF
+}
+
+case "$1" in
+configure)
+	check_old_config /etc/frr/daemons.conf
+	check_old_config /etc/default/frr
+	;;
+esac
 
 #DEBHELPER#
-
