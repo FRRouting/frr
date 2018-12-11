@@ -175,6 +175,9 @@ DEFPY(ip_router_isis, ip_router_isis_cmd, "ip router isis WORD$tag",
 		case IS_LEVEL_1_AND_2:
 			circ_type = "level-1-2";
 			break;
+		default:
+			/* just to silence compiler warnings */
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE,
 				      NULL);
@@ -244,6 +247,9 @@ DEFPY(ip6_router_isis, ip6_router_isis_cmd, "ipv6 router isis WORD$tag",
 		case IS_LEVEL_1_AND_2:
 			circ_type = "level-1-2";
 			break;
+		default:
+			/* just to silence compiler warnings */
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE,
 				      NULL);
