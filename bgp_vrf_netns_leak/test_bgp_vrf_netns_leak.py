@@ -122,7 +122,15 @@ def setup_module(module):
             'ip netns add {0}-cust2',
             'ip link set dev {0}-eth1 netns {0}-cust2',
             'ip netns exec {0}-cust2 ifconfig {0}-eth1 up',
-            'ip netns exec {0}-cust2 ip li set dev lo up']
+            'ip netns exec {0}-cust2 ip li set dev lo up',
+            'ip link add loop1 type dummy',
+            'ip link set dev loop1 netns r1-cust1',
+            'ip netns exec {0}-cust1 ip li set dev loop1 up',
+            'ip netns exec {0}-cust1 ip a a 10.50.0.1/24 dev loop1',
+            'ip link add loop2 type dummy',
+            'ip link set dev loop2 netns r1-cust2',
+            'ip netns exec {0}-cust2 ip li set dev loop2 up',
+            'ip netns exec {0}-cust2 ip a a 10.75.0.1/24 dev loop2']
     for cmd in cmds:
         cmd = cmd.format('r1')
         logger.info('cmd: '+cmd);
@@ -331,6 +339,29 @@ def test_bgp_vrf_netns_leak():
         assertmsg = "unexpected nh interface namen vrf for 10.101.{}.0/24: {}".format(i, ifacename)
         assert ifacename == "r1-cust1", assertmsg
         assert fib == True, "FIB entry 10.101.{}.0/24 not present".format(i)
+
+    output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ping 10.75.0.1 -f -c 1000')
+    logger.info(output)
+    if '1000 packets transmitted, 1000 received' not in output:
+         assertmsg = 'expected ping from r1-cust1(10.50.0.1) to R1-cust2 (10.75.0.1) should be ok'
+         assert 0, assertmsg
+    else:
+        logger.info('Check Ping from r1-cust1(10.50.0.1) to R1-cust2 (10.75.0.1) OK')
+
+    # disable redistribute connected
+    logger.info('Disabling redistribute connected in BGP VRF')
+    cmd = 'vtysh -c \"configure terminal\" -c \"router bgp 100 vrf r1-cust{0}\" -c \"address-family ipv4 unicast\" -c \"no redistribute connected\"'
+    output = tgen.net['r1'].cmd(cmd.format('1'))
+    output = tgen.net['r1'].cmd(cmd.format('2'))
+    # tgen.mininet_cli()
+    topotest.sleep(1)
+    output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ping 10.75.0.1 -f -c 1000')
+    logger.info(output)
+    if 'connect: Network is unreachable' not in output:
+         assertmsg = 'expected ping from r1-cust1(10.50.0.1) to R1-cust2 (10.75.0.1) should fail'
+         assert 0, assertmsg
+    else:
+        logger.info('Check Ping fail from r1-cust1(10.50.0.1) to R1-cust2 (10.75.0.1) OK')
 
 if __name__ == '__main__':
 
