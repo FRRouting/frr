@@ -73,6 +73,9 @@ struct zserv {
 	struct thread *t_read;
 	struct thread *t_write;
 
+	/* Event for message processing, for the main pthread */
+	struct thread *t_process;
+
 	/* Threads for the main pthread */
 	struct thread *t_cleanup;
 
