@@ -44,8 +44,6 @@
 #include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_vty.h"
-#include "zebra/rib.h"
-#include "zebra/zserv.h" /* For ZEBRA_SERV_PATH. */
 
 DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Address Intf String");
 
@@ -83,7 +81,7 @@ static void bgp_nexthop_cache_reset(struct bgp_table *table)
 	struct bgp_nexthop_cache *bnc;
 
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		bnc = bgp_nexthop_get_node_info(rn);
+		bnc = bgp_node_get_bgp_nexthop_info(rn);
 		if (!bnc)
 			continue;
 
@@ -94,7 +92,7 @@ static void bgp_nexthop_cache_reset(struct bgp_table *table)
 		}
 
 		bnc_free(bnc);
-		bgp_nexthop_set_node_info(rn, NULL);
+		bgp_node_set_bgp_nexthop_info(rn, NULL);
 		bgp_unlock_node(rn);
 	}
 }
@@ -351,14 +349,14 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 
 		rn = bgp_node_get(bgp->connected_table[AFI_IP],
 				  (struct prefix *)&p);
-		bc = bgp_connected_get_node_info(rn);
+		bc = bgp_node_get_bgp_connected_ref_info(rn);
 		if (bc)
 			bc->refcnt++;
 		else {
 			bc = XCALLOC(MTYPE_BGP_CONN,
 				     sizeof(struct bgp_connected_ref));
 			bc->refcnt = 1;
-			bgp_connected_set_node_info(rn, bc);
+			bgp_node_set_bgp_connected_ref_info(rn, bc);
 		}
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
@@ -384,14 +382,14 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 		rn = bgp_node_get(bgp->connected_table[AFI_IP6],
 				  (struct prefix *)&p);
 
-		bc = bgp_connected_get_node_info(rn);
+		bc = bgp_node_get_bgp_connected_ref_info(rn);
 		if (bc)
 			bc->refcnt++;
 		else {
 			bc = XCALLOC(MTYPE_BGP_CONN,
 				     sizeof(struct bgp_connected_ref));
 			bc->refcnt = 1;
-			bgp_connected_set_node_info(rn, bc);
+			bgp_node_set_bgp_connected_ref_info(rn, bc);
 		}
 	}
 }
@@ -428,11 +426,11 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 	if (!rn)
 		return;
 
-	bc = bgp_connected_get_node_info(rn);
+	bc = bgp_node_get_bgp_connected_ref_info(rn);
 	bc->refcnt--;
 	if (bc->refcnt == 0) {
 		XFREE(MTYPE_BGP_CONN, bc);
-		bgp_connected_set_node_info(rn, NULL);
+		bgp_node_set_bgp_connected_ref_info(rn, NULL);
 	}
 	bgp_unlock_node(rn);
 	bgp_unlock_node(rn);
@@ -444,14 +442,14 @@ static void bgp_connected_cleanup(struct route_table *table,
 	struct bgp_connected_ref *bc;
 	struct bgp_node *bn = bgp_node_from_rnode(rn);
 
-	bc = bgp_connected_get_node_info(bn);
+	bc = bgp_node_get_bgp_connected_ref_info(bn);
 	if (!bc)
 		return;
 
 	bc->refcnt--;
 	if (bc->refcnt == 0) {
 		XFREE(MTYPE_BGP_CONN, bc);
-		bgp_connected_set_node_info(bn, NULL);
+		bgp_node_set_bgp_connected_ref_info(bn, NULL);
 	}
 }
 
@@ -603,7 +601,7 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail)
 
 		for (rn = bgp_table_top(bgp->nexthop_cache_table[afi]); rn;
 		     rn = bgp_route_next(rn)) {
-			bnc = bgp_nexthop_get_node_info(rn);
+			bnc = bgp_node_get_bgp_nexthop_info(rn);
 			if (!bnc)
 				continue;
 

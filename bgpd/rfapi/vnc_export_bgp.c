@@ -256,7 +256,7 @@ void vnc_direct_bgp_add_route_ce(struct bgp *bgp, struct agg_node *rn,
 	 */
 	urn = bgp_afi_node_get(bgp->rib[afi][SAFI_UNICAST], afi, SAFI_UNICAST,
 			       prefix, NULL);
-	for (ubpi = urn->info; ubpi; ubpi = ubpi->next) {
+	for (ubpi = bgp_node_get_bgp_path_info(urn); ubpi; ubpi = ubpi->next) {
 		struct prefix unicast_nexthop;
 
 		if (CHECK_FLAG(ubpi->flags, BGP_PATH_REMOVED))
@@ -483,7 +483,8 @@ static void vnc_direct_bgp_vpn_disable_ce(struct bgp *bgp, afi_t afi)
 		struct bgp_path_info *ri;
 		struct bgp_path_info *next;
 
-		for (ri = rn->info, next = NULL; ri; ri = next) {
+		for (ri = bgp_node_get_bgp_path_info(rn), next = NULL;
+		     ri; ri = next) {
 
 			next = ri->next;
 
@@ -1846,7 +1847,7 @@ void vnc_direct_bgp_rh_vpn_enable(struct bgp *bgp, afi_t afi)
 		memcpy(prd.val, prn->p.u.val, 8);
 
 		/* This is the per-RD table of prefixes */
-		table = prn->info;
+		table = bgp_node_get_bgp_table_info(prn);
 
 		if (!table)
 			continue;
@@ -1856,7 +1857,7 @@ void vnc_direct_bgp_rh_vpn_enable(struct bgp *bgp, afi_t afi)
 			/*
 			 * skip prefix list check if no routes here
 			 */
-			if (!rn->info)
+			if (!bgp_node_has_bgp_path_info_data(rn))
 				continue;
 
 			{
@@ -1883,7 +1884,8 @@ void vnc_direct_bgp_rh_vpn_enable(struct bgp *bgp, afi_t afi)
 				}
 			}
 
-			for (ri = rn->info; ri; ri = ri->next) {
+			for (ri = bgp_node_get_bgp_path_info(rn);
+			     ri; ri = ri->next) {
 
 				vnc_zlog_debug_verbose("%s: ri->sub_type: %d",
 						       __func__, ri->sub_type);
@@ -2003,7 +2005,7 @@ void vnc_direct_bgp_rh_vpn_disable(struct bgp *bgp, afi_t afi)
 		struct bgp_path_info *ri;
 		struct bgp_path_info *next;
 
-		for (ri = rn->info, next = NULL; ri; ri = next) {
+		for (ri = bgp_node_get_bgp_path_info(rn), next = NULL; ri; ri = next) {
 
 			next = ri->next;
 

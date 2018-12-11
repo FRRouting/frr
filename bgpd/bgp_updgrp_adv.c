@@ -122,7 +122,8 @@ static void subgrp_withdraw_stale_addpath(struct updwalk_context *ctx,
 	RB_FOREACH_SAFE (adj, bgp_adj_out_rb, &ctx->rn->adj_out, adj_next) {
 
 		if (adj->subgroup == subgrp) {
-			for (pi = ctx->rn->info; pi; pi = pi->next) {
+			for (pi = bgp_node_get_bgp_path_info(ctx->rn);
+			     pi; pi = pi->next) {
 				id = bgp_addpath_id_for_peer(peer, afi, safi,
 					&pi->tx_addpath);
 
@@ -176,7 +177,8 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 			if (addpath_capable) {
 				subgrp_withdraw_stale_addpath(ctx, subgrp);
 
-				for (pi = ctx->rn->info; pi; pi = pi->next) {
+				for (pi = bgp_node_get_bgp_path_info(ctx->rn);
+				     pi; pi = pi->next) {
 					/* Skip the bestpath for now */
 					if (pi == ctx->pi)
 						continue;
@@ -629,7 +631,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 		subgroup_default_originate(subgrp, 0);
 
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
-		for (ri = rn->info; ri; ri = ri->next)
+		for (ri = bgp_node_get_bgp_path_info(rn); ri; ri = ri->next)
 
 			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)
 			    || (addpath_capable
@@ -695,9 +697,12 @@ void subgroup_announce_route(struct update_subgroup *subgrp)
 		subgroup_announce_table(subgrp, NULL);
 	else
 		for (rn = bgp_table_top(update_subgroup_rib(subgrp)); rn;
-		     rn = bgp_route_next(rn))
-			if ((table = (rn->info)) != NULL)
-				subgroup_announce_table(subgrp, table);
+		     rn = bgp_route_next(rn)) {
+			table = bgp_node_get_bgp_table_info(rn);
+			if (!table)
+				continue;
+			subgroup_announce_table(subgrp, table);
+		}
 }
 
 void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
@@ -752,7 +757,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 		SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_DEFAULT);
 		for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
 		     rn = bgp_route_next(rn)) {
-			for (ri = rn->info; ri; ri = ri->next) {
+			for (ri = bgp_node_get_bgp_path_info(rn);
+			     ri; ri = ri->next) {
 				struct attr dummy_attr;
 
 				/* Provide dummy so the route-map can't modify

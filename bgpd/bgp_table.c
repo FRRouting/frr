@@ -158,7 +158,8 @@ void bgp_table_range_lookup(const struct bgp_table *table, struct prefix *p,
 
 	while (node && node->p.prefixlen <= p->prefixlen
 	       && prefix_match(&node->p, p)) {
-		if (node->info && node->p.prefixlen == p->prefixlen) {
+		if (bgp_node_has_bgp_path_info_data(node)
+		    && node->p.prefixlen == p->prefixlen) {
 			matched = node;
 			break;
 		}
@@ -174,14 +175,14 @@ void bgp_table_range_lookup(const struct bgp_table *table, struct prefix *p,
 	else if (matched == NULL)
 		matched = node = bgp_node_from_rnode(node->parent);
 
-	if (matched->info) {
+	if (bgp_node_has_bgp_path_info_data(matched)) {
 		bgp_lock_node(matched);
 		listnode_add(matches, matched);
 	}
 
 	while ((node = bgp_route_next_until_maxlen(node, matched, maxlen))) {
 		if (prefix_match(p, &node->p)) {
-			if (node->info) {
+			if (bgp_node_has_bgp_path_info_data(node)) {
 				bgp_lock_node(node);
 				listnode_add(matches, node);
 			}
