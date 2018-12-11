@@ -731,6 +731,7 @@ static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
 	/* Form the request, specifying filter (rtattr) if needed. */
 	memset(&req, 0, sizeof(req));
 	req.n.nlmsg_type = type;
+	req.n.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
 	req.ifm.ifi_family = family;
 

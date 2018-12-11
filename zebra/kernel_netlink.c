@@ -1039,7 +1039,6 @@ int netlink_request(struct nlsock *nl, struct nlmsghdr *n)
 	}
 
 	/* Fill common fields for all requests. */
-	n->nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
 	n->nlmsg_pid = nl->snl.nl_pid;
 	n->nlmsg_seq = ++nl->seq;
 
