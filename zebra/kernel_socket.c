@@ -967,6 +967,12 @@ void rtm_read(struct rt_msghdr *rtm)
 		nh.bh_type = BLACKHOLE_NULL;
 	}
 
+	/*
+	 * Ignore our own messages.
+	 */
+	if (rtm->rtm_type != RTM_GET && rtm->rtm_pid == pid)
+		return;
+
 	if (dest.sa.sa_family == AF_INET) {
 		struct prefix p;
 
@@ -976,114 +982,6 @@ void rtm_read(struct rt_msghdr *rtm)
 			p.prefixlen = IPV4_MAX_PREFIXLEN;
 		else
 			p.prefixlen = ip_masklen(mask.sin.sin_addr);
-
-		/* Catch self originated messages and match them against our
-		 * current RIB.
-		 * At the same time, ignore unconfirmed messages, they should be
-		 * tracked
-		 * by rtm_write() and kernel_rtm_ipv4().
-		 */
-		if (rtm->rtm_type != RTM_GET && rtm->rtm_pid == pid) {
-			char buf[PREFIX_STRLEN], gate_buf[INET_ADDRSTRLEN];
-			int ret;
-			if (!IS_ZEBRA_DEBUG_RIB)
-				return;
-			ret = rib_lookup_ipv4_route((struct prefix_ipv4 *)&p,
-						    &gate, VRF_DEFAULT);
-			prefix2str(&p, buf, sizeof(buf));
-			switch (rtm->rtm_type) {
-			case RTM_ADD:
-			case RTM_GET:
-			case RTM_CHANGE:
-				/* The kernel notifies us about a new route in
-				   FIB created by us.
-				   Do we have a correspondent entry in our RIB?
-				   */
-				switch (ret) {
-				case ZEBRA_RIB_NOTFOUND:
-					zlog_debug(
-						"%s: %s %s: desync: RR isn't yet in RIB, while already in FIB",
-						__func__,
-						lookup_msg(rtm_type_str,
-							   rtm->rtm_type, NULL),
-						buf);
-					break;
-				case ZEBRA_RIB_FOUND_CONNECTED:
-				case ZEBRA_RIB_FOUND_NOGATE:
-					inet_ntop(AF_INET, &gate.sin.sin_addr,
-						  gate_buf, INET_ADDRSTRLEN);
-					zlog_debug(
-						"%s: %s %s: desync: RR is in RIB, but gate differs (ours is %s)",
-						__func__,
-						lookup_msg(rtm_type_str,
-							   rtm->rtm_type, NULL),
-						buf, gate_buf);
-					break;
-				case ZEBRA_RIB_FOUND_EXACT: /* RIB RR == FIB RR
-							       */
-					zlog_debug(
-						"%s: %s %s: done Ok", __func__,
-						lookup_msg(rtm_type_str,
-							   rtm->rtm_type, NULL),
-						buf);
-					rib_lookup_and_dump(
-						(struct prefix_ipv4 *)&p,
-						VRF_DEFAULT);
-					return;
-					break;
-				}
-				break;
-			case RTM_DELETE:
-				/* The kernel notifies us about a route deleted
-				   by us. Do we still
-				   have it in the RIB? Do we have anything
-				   instead? */
-				switch (ret) {
-				case ZEBRA_RIB_FOUND_EXACT:
-					zlog_debug(
-						"%s: %s %s: desync: RR is still in RIB, while already not in FIB",
-						__func__,
-						lookup_msg(rtm_type_str,
-							   rtm->rtm_type, NULL),
-						buf);
-					rib_lookup_and_dump(
-						(struct prefix_ipv4 *)&p,
-						VRF_DEFAULT);
-					break;
-				case ZEBRA_RIB_FOUND_CONNECTED:
-				case ZEBRA_RIB_FOUND_NOGATE:
-					zlog_debug(
-						"%s: %s %s: desync: RR is still in RIB, plus gate differs",
-						__func__,
-						lookup_msg(rtm_type_str,
-							   rtm->rtm_type, NULL),
-						buf);
-					rib_lookup_and_dump(
-						(struct prefix_ipv4 *)&p,
-						VRF_DEFAULT);
-					break;
-				case ZEBRA_RIB_NOTFOUND: /* RIB RR == FIB RR */
-					zlog_debug(
-						"%s: %s %s: done Ok", __func__,
-						lookup_msg(rtm_type_str,
-							   rtm->rtm_type, NULL),
-						buf);
-					rib_lookup_and_dump(
-						(struct prefix_ipv4 *)&p,
-						VRF_DEFAULT);
-					return;
-					break;
-				}
-				break;
-			default:
-				zlog_debug(
-					"%s: %s: warning: loopback RTM of type %s received",
-					__func__, buf,
-					lookup_msg(rtm_type_str, rtm->rtm_type,
-						   NULL));
-			}
-			return;
-		}
 
 		/* Change, delete the old prefix, we have no further information
 		 * to specify the route really
@@ -1109,11 +1007,6 @@ void rtm_read(struct rt_msghdr *rtm)
 				   &nh, 0, 0, 0, true);
 	}
 	if (dest.sa.sa_family == AF_INET6) {
-		/* One day we might have a debug section here like one in the
-		 * IPv4 case above. Just ignore own messages at the moment.
-		 */
-		if (rtm->rtm_type != RTM_GET && rtm->rtm_pid == pid)
-			return;
 		struct prefix p;
 		ifindex_t ifindex = 0;
 

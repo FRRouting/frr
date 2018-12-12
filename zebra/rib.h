@@ -282,8 +282,6 @@ extern enum multicast_mode multicast_mode_ipv4_get(void);
 extern void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id);
 extern void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id);
 
-extern int rib_lookup_ipv4_route(struct prefix_ipv4 *p, union sockunion *qgate,
-				 vrf_id_t vrf_id);
 #define ZEBRA_RIB_LOOKUP_ERROR -1
 #define ZEBRA_RIB_FOUND_EXACT 0
 #define ZEBRA_RIB_FOUND_NOGATE 1
