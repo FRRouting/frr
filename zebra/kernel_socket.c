@@ -918,6 +918,9 @@ void rtm_read(struct rt_msghdr *rtm)
 	char ifname[INTERFACE_NAMSIZ + 1];
 	short ifnlen = 0;
 	struct nexthop nh;
+	struct prefix p;
+	ifindex_t ifindex = 0;
+	afi_t afi;
 
 	zebra_flags = 0;
 
@@ -974,8 +977,7 @@ void rtm_read(struct rt_msghdr *rtm)
 		return;
 
 	if (dest.sa.sa_family == AF_INET) {
-		struct prefix p;
-
+		afi = AFI_IP;
 		p.family = AF_INET;
 		p.u.prefix4 = dest.sin.sin_addr;
 		if (flags & RTF_HOST)
@@ -983,33 +985,12 @@ void rtm_read(struct rt_msghdr *rtm)
 		else
 			p.prefixlen = ip_masklen(mask.sin.sin_addr);
 
-		/* Change, delete the old prefix, we have no further information
-		 * to specify the route really
-		 */
-		if (rtm->rtm_type == RTM_CHANGE)
-			rib_delete(AFI_IP, SAFI_UNICAST, VRF_DEFAULT,
-				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				   NULL, 0, 0, 0, true);
-
 		if (!nh.type) {
 			nh.type = NEXTHOP_TYPE_IPV4;
 			nh.gate.ipv4 = gate.sin.sin_addr;
 		}
-
-		if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
-		    || rtm->rtm_type == RTM_CHANGE)
-			rib_add(AFI_IP, SAFI_UNICAST, VRF_DEFAULT,
-				ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				&nh, 0, 0, 0, 0, 0);
-		else
-			rib_delete(AFI_IP, SAFI_UNICAST, VRF_DEFAULT,
-				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				   &nh, 0, 0, 0, true);
-	}
-	if (dest.sa.sa_family == AF_INET6) {
-		struct prefix p;
-		ifindex_t ifindex = 0;
-
+	} else if (dest.sa.sa_family == AF_INET6) {
+		afi = AFI_IP6;
 		p.family = AF_INET6;
 		p.u.prefix6 = dest.sin6.sin6_addr;
 		if (flags & RTF_HOST)
@@ -1024,31 +1005,29 @@ void rtm_read(struct rt_msghdr *rtm)
 		}
 #endif /* KAME */
 
-		/* CHANGE: delete the old prefix, we have no further information
-		 * to specify the route really
-		 */
-		if (rtm->rtm_type == RTM_CHANGE)
-			rib_delete(AFI_IP6, SAFI_UNICAST, VRF_DEFAULT,
-				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				   NULL, 0, 0, 0, true);
-
 		if (!nh.type) {
 			nh.type = ifindex ? NEXTHOP_TYPE_IPV6_IFINDEX
 					  : NEXTHOP_TYPE_IPV6;
 			nh.gate.ipv6 = gate.sin6.sin6_addr;
 			nh.ifindex = ifindex;
 		}
+	} else
+		return;
 
-		if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
-		    || rtm->rtm_type == RTM_CHANGE)
-			rib_add(AFI_IP6, SAFI_UNICAST, VRF_DEFAULT,
-				ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				&nh, 0, 0, 0, 0, 0);
-		else
-			rib_delete(AFI_IP6, SAFI_UNICAST, VRF_DEFAULT,
-				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				   &nh, 0, 0, 0, true);
-	}
+	/*
+	 * CHANGE: delete the old prefix, we have no further information
+	 * to specify the route really
+	 */
+	if (rtm->rtm_type == RTM_CHANGE)
+		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
+			   0, zebra_flags, &p, NULL, NULL, 0, 0, 0, true);
+	if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
+	    || rtm->rtm_type == RTM_CHANGE)
+		rib_add(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL, 0,
+			zebra_flags, &p, NULL, &nh, 0, 0, 0, 0, 0);
+	else
+		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
+			   0, zebra_flags, &p, NULL, &nh, 0, 0, 0, true);
 }
 
 /* Interface function for the kernel routing table updates.  Support
