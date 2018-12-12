@@ -1071,7 +1071,7 @@ static int nb_oper_data_iter_list(const struct nb_node *nb_node,
 	/* Iterate over all list entries. */
 	do {
 		struct yang_list_keys list_keys;
-		char xpath[XPATH_MAXLEN];
+		char xpath[XPATH_MAXLEN * 2];
 		int ret;
 
 		/* Obtain list entry. */
