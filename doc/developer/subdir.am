@@ -19,7 +19,6 @@ dev_RSTFILES = \
 	doc/developer/building-frr-on-netbsd7.rst \
 	doc/developer/building-frr-on-omnios.rst \
 	doc/developer/building-frr-on-openbsd6.rst \
-	doc/developer/building-frr-on-ubuntu1204.rst \
 	doc/developer/building-frr-on-ubuntu1404.rst \
 	doc/developer/building-frr-on-ubuntu1604.rst \
 	doc/developer/building-frr-on-ubuntu1804.rst \
