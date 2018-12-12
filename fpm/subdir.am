@@ -1,5 +1,7 @@
 if FPM
+if HAVE_PROTOBUF
 lib_LTLIBRARIES += fpm/libfrrfpm_pb.la
+endif
 endif
 
 fpm_libfrrfpm_pb_la_LDFLAGS = -version-info 0:0:0
@@ -10,11 +12,9 @@ fpm_libfrrfpm_pb_la_SOURCES = \
 	fpm/fpm_pb.c \
 	# end
 
-if HAVE_PROTOBUF
 nodist_fpm_libfrrfpm_pb_la_SOURCES = \
 	fpm/fpm.pb-c.c \
 	# end
-endif
 
 CLEANFILES += \
 	fpm/fpm.pb-c.c \
