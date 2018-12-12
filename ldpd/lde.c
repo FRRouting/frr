@@ -1643,7 +1643,7 @@ static void zclient_sync_init(unsigned short instance)
 	sock_set_nonblock(zclient_sync->sock);
 
 	/* Connect to label manager */
-	while (lm_label_manager_connect(zclient_sync) != 0) {
+	while (lm_label_manager_connect(zclient_sync, 0) != 0) {
 		log_warnx("Error connecting to label manager!");
 		sleep(1);
 	}

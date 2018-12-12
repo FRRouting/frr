@@ -1822,9 +1822,10 @@ static void zread_label_manager_connect(struct zserv *client,
 	/* accept only dynamic routing protocols */
 	if ((proto >= ZEBRA_ROUTE_MAX) || (proto <= ZEBRA_ROUTE_STATIC)) {
 		flog_err(ZEBRA_ERR_TM_WRONG_PROTO,
-			  "client %d has wrong protocol %s", client->sock,
-			  zebra_route_string(proto));
-		zsend_label_manager_connect_response(client, vrf_id, 1);
+			 "client %d has wrong protocol %s", client->sock,
+			 zebra_route_string(proto));
+		if (client->is_synchronous)
+			zsend_label_manager_connect_response(client, vrf_id, 1);
 		return;
 	}
 	zlog_notice("client %d with vrf %u instance %u connected as %s",
@@ -1842,32 +1843,11 @@ static void zread_label_manager_connect(struct zserv *client,
 		" Label Manager client connected: sock %d, proto %s, vrf %u instance %u",
 		client->sock, zebra_route_string(proto), vrf_id, instance);
 	/* send response back */
-	zsend_label_manager_connect_response(client, vrf_id, 0);
+	if (client->is_synchronous)
+		zsend_label_manager_connect_response(client, vrf_id, 0);
 
 stream_failure:
 	return;
-}
-static int msg_client_id_mismatch(const char *op, struct zserv *client,
-				  uint8_t proto, unsigned int instance)
-{
-	if (proto != client->proto) {
-		flog_err(ZEBRA_ERR_PROTO_OR_INSTANCE_MISMATCH,
-			  "%s: msg vs client proto mismatch, client=%u msg=%u",
-			  op, client->proto, proto);
-		/* TODO: fail when BGP sets proto and instance */
-		/* return 1; */
-	}
-
-	if (instance != client->instance) {
-		flog_err(
-			ZEBRA_ERR_PROTO_OR_INSTANCE_MISMATCH,
-			"%s: msg vs client instance mismatch, client=%u msg=%u",
-			op, client->instance, instance);
-		/* TODO: fail when BGP sets proto and instance */
-		/* return 1; */
-	}
-
-	return 0;
 }
 
 static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
@@ -1889,21 +1869,16 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 	STREAM_GETC(s, keep);
 	STREAM_GETL(s, size);
 
-	/* detect client vs message (proto,instance) mismatch */
-	if (msg_client_id_mismatch("Get-label-chunk", client, proto, instance))
-		return;
-
-	lmc = assign_label_chunk(client->proto, client->instance, keep, size);
+	lmc = assign_label_chunk(proto, instance, keep, size);
 	if (!lmc)
 		flog_err(
 			ZEBRA_ERR_LM_CANNOT_ASSIGN_CHUNK,
 			"Unable to assign Label Chunk of size %u to %s instance %u",
-			size, zebra_route_string(client->proto),
-			client->instance);
+			size, zebra_route_string(proto), instance);
 	else
 		zlog_debug("Assigned Label Chunk %u - %u to %s instance %u",
 			   lmc->start, lmc->end,
-			   zebra_route_string(client->proto), client->instance);
+			   zebra_route_string(proto), instance);
 	/* send response back */
 	zsend_assign_label_chunk_response(client, vrf_id, lmc);
 
@@ -1927,12 +1902,7 @@ static void zread_release_label_chunk(struct zserv *client, struct stream *msg)
 	STREAM_GETL(s, start);
 	STREAM_GETL(s, end);
 
-	/* detect client vs message (proto,instance) mismatch */
-	if (msg_client_id_mismatch("Release-label-chunk", client, proto,
-				   instance))
-		return;
-
-	release_label_chunk(client->proto, client->instance, start, end);
+	release_label_chunk(proto, instance, start, end);
 
 stream_failure:
 	return;
@@ -1940,8 +1910,8 @@ stream_failure:
 static void zread_label_manager_request(ZAPI_HANDLER_ARGS)
 {
 	/* to avoid sending other messages like ZERBA_INTERFACE_UP */
-	if (hdr->command == ZEBRA_LABEL_MANAGER_CONNECT)
-		client->is_synchronous = 1;
+	client->is_synchronous = hdr->command ==
+				 ZEBRA_LABEL_MANAGER_CONNECT;
 
 	/* external label manager */
 	if (lm_is_external)
@@ -1949,16 +1919,10 @@ static void zread_label_manager_request(ZAPI_HANDLER_ARGS)
 						  zvrf_id(zvrf));
 	/* this is a label manager */
 	else {
-		if (hdr->command == ZEBRA_LABEL_MANAGER_CONNECT)
+		if (hdr->command == ZEBRA_LABEL_MANAGER_CONNECT ||
+		    hdr->command == ZEBRA_LABEL_MANAGER_CONNECT_ASYNC)
 			zread_label_manager_connect(client, msg, zvrf_id(zvrf));
 		else {
-			/* Sanity: don't allow 'unidentified' requests */
-			if (!client->proto) {
-				flog_err(
-					ZEBRA_ERR_LM_ALIENS,
-					"Got label request from an unidentified client");
-				return;
-			}
 			if (hdr->command == ZEBRA_GET_LABEL_CHUNK)
 				zread_get_label_chunk(client, msg,
 						      zvrf_id(zvrf));
@@ -2440,6 +2404,7 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_MPLS_LABELS_DELETE] = zread_mpls_labels,
 	[ZEBRA_IPMR_ROUTE_STATS] = zebra_ipmr_route_stats,
 	[ZEBRA_LABEL_MANAGER_CONNECT] = zread_label_manager_request,
+	[ZEBRA_LABEL_MANAGER_CONNECT_ASYNC] = zread_label_manager_request,
 	[ZEBRA_GET_LABEL_CHUNK] = zread_label_manager_request,
 	[ZEBRA_RELEASE_LABEL_CHUNK] = zread_label_manager_request,
 	[ZEBRA_FEC_REGISTER] = zread_fec_register,

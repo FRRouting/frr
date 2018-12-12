@@ -55,7 +55,7 @@ static int zebra_send_label_manager_connect()
 
 	printf("Connect to Label Manager\n");
 
-	ret = lm_label_manager_connect(zclient);
+	ret = lm_label_manager_connect(zclient, 0);
 	printf("Label Manager connection result: %u \n", ret);
 	if (ret != 0) {
 		fprintf(stderr, "Error %d connecting to Label Manager %s\n",
