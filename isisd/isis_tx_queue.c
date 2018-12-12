@@ -125,11 +125,11 @@ static int tx_queue_send_event(struct thread *thread)
 	e->retry = NULL;
 	thread_add_timer(master, tx_queue_send_event, e, 5, &e->retry);
 
-	if (e->is_retry) {
+	if (e->is_retry)
 		queue->circuit->area->lsp_rxmt_count++;
-	} else {
+	else
 		e->is_retry = true;
-	}
+
 	queue->send_event(queue->circuit, e->lsp, e->type);
 	/* Don't access e here anymore, send_event might have destroyed it */
 

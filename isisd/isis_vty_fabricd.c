@@ -120,7 +120,8 @@ static void lsp_print_flooding(struct vty *vty, struct isis_lsp *lsp)
 	vty_out(vty, " ago)\n");
 
 	if (lsp->flooding_circuit_scoped) {
-		vty_out(vty, "    Received as circuit-scoped LSP, so not flooded.\n");
+		vty_out(vty, "    Received as circuit-scoped LSP, so not "
+			"flooded.\n");
 		return;
 	}
 
@@ -149,9 +150,8 @@ DEFUN (show_lsp_flooding,
 {
 	const char *lspid = NULL;
 
-	if (argc == 4) {
+	if (argc == 4)
 		lspid = argv[3]->arg;
-	}
 
 	struct listnode *node;
 	struct isis_area *area;

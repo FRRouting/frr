@@ -42,8 +42,8 @@ void isis_tx_queue_free(struct isis_tx_queue *queue);
 	_isis_tx_queue_add((queue), (lsp), (type), \
 			   __func__, __FILE__, __LINE__)
 void _isis_tx_queue_add(struct isis_tx_queue *queue, struct isis_lsp *lsp,
-		        enum isis_tx_type type, const char *func,
-		        const char *file, int line);
+			enum isis_tx_type type, const char *func,
+			const char *file, int line);
 
 #define isis_tx_queue_del(queue, lsp) \
 	_isis_tx_queue_del((queue), (lsp), __func__, __FILE__, __LINE__)

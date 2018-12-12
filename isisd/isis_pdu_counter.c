@@ -56,7 +56,7 @@ static int pdu_type_to_counter_index(uint8_t pdu_type)
 
 static const char *pdu_counter_index_to_name(enum pdu_counter_index index)
 {
-	switch(index) {
+	switch (index) {
 	case L1_LAN_HELLO_INDEX:
 		return " L1 IIH";
 	case L2_LAN_HELLO_INDEX:

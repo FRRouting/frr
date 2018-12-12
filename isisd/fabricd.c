@@ -81,7 +81,8 @@ struct neighbor_entry {
 static struct neighbor_entry *neighbor_entry_new(const uint8_t *id,
 						 struct isis_adjacency *adj)
 {
-	struct neighbor_entry *rv = XMALLOC(MTYPE_FABRICD_NEIGHBOR, sizeof(*rv));
+	struct neighbor_entry *rv = XMALLOC(MTYPE_FABRICD_NEIGHBOR,
+					    sizeof(*rv));
 
 	memcpy(rv->id, id, sizeof(rv->id));
 	rv->adj = adj;
@@ -131,7 +132,7 @@ static int neighbor_entry_list_cmp(void *a, void *b)
 static struct neighbor_entry *neighbor_entry_lookup_list(struct skiplist *list,
 							 const uint8_t *id)
 {
-	struct neighbor_entry n = {{0}};
+	struct neighbor_entry n = { {0} };
 
 	memcpy(n.id, id, sizeof(n.id));
 
@@ -551,7 +552,8 @@ static void move_to_queue(struct isis_lsp *lsp, struct neighbor_entry *n,
 	if (n->adj)
 		isis_tx_queue_add(n->adj->circuit->tx_queue, lsp, type);
 
-	uint8_t *neighbor_id = XMALLOC(MTYPE_FABRICD_FLOODING_INFO, sizeof(n->id));
+	uint8_t *neighbor_id = XMALLOC(MTYPE_FABRICD_FLOODING_INFO,
+				       sizeof(n->id));
 
 	memcpy(neighbor_id, n->id, sizeof(n->id));
 	listnode_add(lsp->flooding_neighbors[type], neighbor_id);
@@ -624,7 +626,8 @@ static void fabricd_lsp_reset_flooding_info(struct isis_lsp *lsp,
 		}
 
 		lsp->flooding_neighbors[type] = list_new();
-		lsp->flooding_neighbors[type]->del = fabricd_free_lsp_flooding_info;
+		lsp->flooding_neighbors[type]->del =
+			fabricd_free_lsp_flooding_info;
 	}
 
 	if (circuit) {
@@ -646,16 +649,16 @@ void fabricd_lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit)
 	struct neighbor_entry *n;
 
 	/* Mark all elements in NL as present */
-	while (!skiplist_next(f->neighbors, NULL, (void **)&n, &cursor)) {
+	while (!skiplist_next(f->neighbors, NULL, (void **)&n, &cursor))
 		n->present = true;
-	}
 
 	/* Mark all elements in NN as present */
 	hash_iterate(f->neighbors_neighbors, mark_neighbor_as_present, NULL);
 
-	struct isis_vertex *originator = isis_find_vertex(&f->spftree->paths,
-							  lsp->hdr.lsp_id,
-							  VTYPE_NONPSEUDO_TE_IS);
+	struct isis_vertex *originator =
+		isis_find_vertex(&f->spftree->paths,
+				 lsp->hdr.lsp_id,
+				 VTYPE_NONPSEUDO_TE_IS);
 
 	/* Remove all IS from NL and NN in the shortest path
 	 * to the IS that originated the LSP */
