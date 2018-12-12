@@ -28,6 +28,7 @@
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_redist.h"
+#include "isisd/isis_pdu_counter.h"
 #include "isis_flags.h"
 #include "dict.h"
 #include "isis_memory.h"
@@ -148,6 +149,8 @@ struct isis_area {
 	uint16_t min_spf_interval[ISIS_LEVELS];
 	/* the percentage of LSP mtu size used, before generating a new frag */
 	int lsp_frag_threshold;
+	uint64_t lsp_gen_count[ISIS_LEVELS];
+	uint64_t lsp_purge_count[ISIS_LEVELS];
 	int ip_circuits;
 	/* logging adjacency changes? */
 	uint8_t log_adj_changes;
@@ -168,6 +171,10 @@ struct isis_area {
 
 	struct lsp_refresh_arg lsp_refresh_arg[ISIS_LEVELS];
 
+	pdu_counter_t pdu_tx_counters;
+	pdu_counter_t pdu_rx_counters;
+	uint64_t lsp_rxmt_count;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(isis_area)
@@ -178,6 +185,7 @@ struct isis_area *isis_area_create(const char *);
 struct isis_area *isis_area_lookup(const char *);
 int isis_area_get(struct vty *vty, const char *area_tag);
 void print_debug(struct vty *, int, int);
+struct isis_lsp *lsp_for_arg(const char *argv, dict_t *lspdb);
 
 void isis_area_invalidate_routes(struct isis_area *area, int levels);
 void isis_area_verify_routes(struct isis_area *area);
@@ -212,8 +220,9 @@ extern struct thread_master *master;
 #define DEBUG_PACKET_DUMP                (1<<6)
 #define DEBUG_LSP_GEN                    (1<<7)
 #define DEBUG_LSP_SCHED                  (1<<8)
-#define DEBUG_FABRICD_FLOODING           (1<<9)
+#define DEBUG_FLOODING                   (1<<9)
 #define DEBUG_BFD                        (1<<10)
+#define DEBUG_TX_QUEUE                   (1<<11)
 
 #define lsp_debug(...)                                                         \
 	do {                                                                   \

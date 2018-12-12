@@ -58,6 +58,7 @@
 #include "isisd/isis_errors.h"
 #include "isisd/fabricd.h"
 #include "isisd/isis_tx_queue.h"
+#include "isisd/isis_pdu_counter.h"
 
 static int ack_lsp(struct isis_lsp_hdr *hdr, struct isis_circuit *circuit,
 		   int level)
@@ -88,6 +89,7 @@ static int ack_lsp(struct isis_lsp_hdr *hdr, struct isis_circuit *circuit,
 	/* Update PDU length */
 	stream_putw_at(circuit->snd_stream, lenp, length);
 
+	pdu_counter_count(circuit->area->pdu_tx_counters, pdu_type);
 	retval = circuit->tx(circuit, level);
 	if (retval != ISIS_OK)
 		flog_err(EC_ISIS_PACKET,
@@ -702,6 +704,16 @@ out:
 	return retval;
 }
 
+static void lsp_flood_or_update(struct isis_lsp *lsp,
+				struct isis_circuit *circuit,
+				bool circuit_scoped)
+{
+	if (!circuit_scoped)
+		lsp_flood(lsp, circuit);
+	else
+		fabricd_update_lsp_no_flood(lsp, circuit);
+}
+
 /*
  * Process Level 1/2 Link State
  * ISO - 10589
@@ -931,8 +943,8 @@ dontcheckadj:
 						   lsp_confusion);
 					tlvs = NULL;
 					/* ii */
-					if (!circuit_scoped)
-						lsp_flood(lsp, NULL);
+					lsp_flood_or_update(lsp, NULL,
+							    circuit_scoped);
 					/* v */
 					ISIS_FLAGS_CLEAR_ALL(
 						lsp->SSNflags); /* FIXME:
@@ -977,8 +989,8 @@ dontcheckadj:
 				/* our own LSP -> 7.3.16.4 c) */
 				if (comp == LSP_NEWER) {
 					lsp_inc_seqno(lsp, hdr.seqno);
-					if (!circuit_scoped)
-						lsp_flood(lsp, NULL);
+					lsp_flood_or_update(lsp, NULL,
+							    circuit_scoped);
 				} else {
 					isis_tx_queue_add(circuit->tx_queue,
 							  lsp, TX_LSP_NORMAL);
@@ -986,7 +998,9 @@ dontcheckadj:
 				}
 				if (isis->debugs & DEBUG_UPDATE_PACKETS)
 					zlog_debug(
-						"ISIS-Upd (%s): (1) re-originating LSP %s new seq 0x%08" PRIx32,
+						"ISIS-Upd (%s): (1) "
+						"re-originating LSP %s new seq "
+						"0x%08" PRIx32,
 						circuit->area->area_tag,
 						rawlspid_print(hdr.lsp_id),
 						lsp->hdr.seqno);
@@ -1068,8 +1082,7 @@ dontcheckadj:
 					   circuit->area, level, false);
 				tlvs = NULL;
 			}
-			if (!circuit_scoped)
-				lsp_flood(lsp, circuit);
+			lsp_flood_or_update(lsp, circuit, circuit_scoped);
 
 			/* iv */
 			if (circuit->circ_type != CIRCUIT_T_BROADCAST)
@@ -1096,9 +1109,7 @@ dontcheckadj:
 	retval = ISIS_OK;
 
 out:
-	if (circuit_scoped) {
-		fabricd_trigger_csnp(circuit->area);
-	}
+	fabricd_trigger_csnp(circuit->area, circuit_scoped);
 
 	isis_free_tlvs(tlvs);
 	return retval;
@@ -1429,6 +1440,8 @@ int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa)
 	stream_forward_getp(circuit->rcv_stream, 1); /* reserved */
 	uint8_t max_area_addrs = stream_getc(circuit->rcv_stream);
 
+	pdu_counter_count(circuit->area->pdu_rx_counters, pdu_type);
+
 	if (idrp == ISO9542_ESIS) {
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "No support for ES-IS packet IDRP=%" PRIx8, idrp);
@@ -1581,15 +1594,18 @@ void fill_fixed_hdr(uint8_t pdu_type, struct stream *stream)
 	stream_putc(stream, 0); /* Max Area Addresses 0 => 3 */
 }
 
+static uint8_t hello_pdu_type(struct isis_circuit *circuit, int level)
+{
+	if (circuit->circ_type == CIRCUIT_T_BROADCAST)
+		return (level == IS_LEVEL_1) ? L1_LAN_HELLO : L2_LAN_HELLO;
+	else
+		return P2P_HELLO;
+}
+
 static void put_hello_hdr(struct isis_circuit *circuit, int level,
 			  size_t *len_pointer)
 {
-	uint8_t pdu_type;
-
-	if (circuit->circ_type == CIRCUIT_T_BROADCAST)
-		pdu_type = (level == IS_LEVEL_1) ? L1_LAN_HELLO : L2_LAN_HELLO;
-	else
-		pdu_type = P2P_HELLO;
+	uint8_t pdu_type = hello_pdu_type(circuit, level);
 
 	isis_circuit_stream(circuit, &circuit->snd_stream);
 	fill_fixed_hdr(pdu_type, circuit->snd_stream);
@@ -1732,6 +1748,8 @@ int send_hello(struct isis_circuit *circuit, int level)
 
 	isis_free_tlvs(tlvs);
 
+	pdu_counter_count(circuit->area->pdu_tx_counters,
+			  hello_pdu_type(circuit, level));
 	retval = circuit->tx(circuit, level);
 	if (retval != ISIS_OK)
 		flog_err(EC_ISIS_PACKET,
@@ -1745,9 +1763,8 @@ int send_hello(struct isis_circuit *circuit, int level)
 static int send_hello_cb(struct thread *thread)
 {
 	struct isis_circuit_arg *arg = THREAD_ARG(thread);
-	
 	assert(arg);
-	
+
 	struct isis_circuit *circuit = arg->circuit;
 	int level = arg->level;
 
@@ -1858,10 +1875,11 @@ int send_csnp(struct isis_circuit *circuit, int level)
 	    || dict_count(circuit->area->lspdb[level - 1]) == 0)
 		return ISIS_OK;
 
+	uint8_t pdu_type = (level == ISIS_LEVEL1) ? L1_COMPLETE_SEQ_NUM
+						  : L2_COMPLETE_SEQ_NUM;
+
 	isis_circuit_stream(circuit, &circuit->snd_stream);
-	fill_fixed_hdr((level == ISIS_LEVEL1) ? L1_COMPLETE_SEQ_NUM
-					      : L2_COMPLETE_SEQ_NUM,
-		       circuit->snd_stream);
+	fill_fixed_hdr(pdu_type, circuit->snd_stream);
 
 	size_t len_pointer = stream_get_endp(circuit->snd_stream);
 	stream_putw(circuit->snd_stream, 0);
@@ -1943,6 +1961,7 @@ int send_csnp(struct isis_circuit *circuit, int level)
 					stream_get_endp(circuit->snd_stream));
 		}
 
+		pdu_counter_count(circuit->area->pdu_tx_counters, pdu_type);
 		int retval = circuit->tx(circuit, level);
 		if (retval != ISIS_OK) {
 			flog_err(EC_ISIS_PACKET,
@@ -2036,10 +2055,11 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 	if (!circuit->snd_stream)
 		return ISIS_ERROR;
 
+	uint8_t pdu_type = (level == ISIS_LEVEL1) ? L1_PARTIAL_SEQ_NUM
+						  : L2_PARTIAL_SEQ_NUM;
+
 	isis_circuit_stream(circuit, &circuit->snd_stream);
-	fill_fixed_hdr((level == ISIS_LEVEL1) ? L1_PARTIAL_SEQ_NUM
-					      : L2_PARTIAL_SEQ_NUM,
-		       circuit->snd_stream);
+	fill_fixed_hdr(pdu_type, circuit->snd_stream);
 
 	size_t len_pointer = stream_get_endp(circuit->snd_stream);
 	stream_putw(circuit->snd_stream, 0); /* length is filled in later */
@@ -2110,6 +2130,7 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 					stream_get_endp(circuit->snd_stream));
 		}
 
+		pdu_counter_count(circuit->area->pdu_tx_counters, pdu_type);
 		int retval = circuit->tx(circuit, level);
 		if (retval != ISIS_OK) {
 			flog_err(EC_ISIS_PACKET,
@@ -2182,9 +2203,9 @@ int send_l2_psnp(struct thread *thread)
 /*
  * ISO 10589 - 7.3.14.3
  */
-void send_lsp(void *arg, struct isis_lsp *lsp, enum isis_tx_type tx_type)
+void send_lsp(struct isis_circuit *circuit, struct isis_lsp *lsp,
+	      enum isis_tx_type tx_type)
 {
-	struct isis_circuit *circuit = arg;
 	int clear_srm = 1;
 	int retval = ISIS_OK;
 
@@ -2229,14 +2250,18 @@ void send_lsp(void *arg, struct isis_lsp *lsp, enum isis_tx_type tx_type)
 
 	if (tx_type == TX_LSP_CIRCUIT_SCOPED) {
 		stream_putc_at(circuit->snd_stream, 4, FS_LINK_STATE);
-		stream_putc_at(circuit->snd_stream, 7, L2_CIRCUIT_FLOODING_SCOPE);
+		stream_putc_at(circuit->snd_stream, 7,
+			       L2_CIRCUIT_FLOODING_SCOPE);
 	}
 
 	if (isis->debugs & DEBUG_UPDATE_PACKETS) {
-		zlog_debug("ISIS-Upd (%s): Sending L%d LSP %s, seq 0x%08" PRIx32
+		zlog_debug("ISIS-Upd (%s): Sending %sL%d LSP %s, seq 0x%08" PRIx32
 			   ", cksum 0x%04" PRIx16 ", lifetime %" PRIu16
 			   "s on %s",
-			   circuit->area->area_tag, lsp->level,
+			   circuit->area->area_tag,
+			   (tx_type == TX_LSP_CIRCUIT_SCOPED)
+				? "Circuit scoped " : "",
+			   lsp->level,
 			   rawlspid_print(lsp->hdr.lsp_id), lsp->hdr.seqno,
 			   lsp->hdr.checksum, lsp->hdr.rem_lifetime,
 			   circuit->interface->name);
@@ -2245,7 +2270,12 @@ void send_lsp(void *arg, struct isis_lsp *lsp, enum isis_tx_type tx_type)
 				       stream_get_endp(circuit->snd_stream));
 	}
 
+	uint8_t pdu_type = (tx_type == TX_LSP_CIRCUIT_SCOPED) ? FS_LINK_STATE
+			 : (lsp->level == ISIS_LEVEL1) ? L1_LINK_STATE
+						       : L2_LINK_STATE;
+
 	clear_srm = 0;
+	pdu_counter_count(circuit->area->pdu_tx_counters, pdu_type);
 	retval = circuit->tx(circuit, lsp->level);
 	if (retval != ISIS_OK) {
 		flog_err(EC_ISIS_PACKET,
