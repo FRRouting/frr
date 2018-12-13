@@ -528,8 +528,7 @@ static void zebra_rnh_process_pbr_tables(int family,
  */
 static bool rnh_nexthop_valid(const struct nexthop *nh)
 {
-	return ((CHECK_FLAG(nh->flags, NEXTHOP_FLAG_FIB)
-		 || CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))
+	return (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_FIB)
 		&& CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE));
 }
 
@@ -581,8 +580,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, int family,
 			/* Just being SELECTED isn't quite enough - must
 			 * have an installed nexthop to be useful.
 			 */
-			for (nexthop = re->ng.nexthop; nexthop;
-			     nexthop = nexthop->next) {
+			for (ALL_NEXTHOPS(re->ng, nexthop)) {
 				if (rnh_nexthop_valid(nexthop))
 					break;
 			}
@@ -915,7 +913,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		num = 0;
 		nump = stream_get_endp(s);
 		stream_putc(s, 0);
-		for (nh = re->ng.nexthop; nh; nh = nh->next)
+		for (ALL_NEXTHOPS(re->ng, nh))
 			if (rnh_nexthop_valid(nh)) {
 				stream_putl(s, nh->vrf_id);
 				stream_putc(s, nh->type);
