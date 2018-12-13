@@ -98,6 +98,12 @@ endif
 override_dh_auto_build:
 	dh_auto_build -- $(MAKE_SILENT)
 
+override_dh_installinit:
+	dh_installinit -r
+
+override_dh_installsystemd:
+	dh_installsystemd -r
+
 override_dh_makeshlibs:
 	dh_makeshlibs -n
 
