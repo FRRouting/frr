@@ -1,3 +1,12 @@
+# HOW TO GET YOUR ISSUE ADDRESSED FASTER
+
+* When reporting a crash provide a backtrace
+* When pasting configs, logs, shell output, backtraces, and other large chunks
+  of text [use Markdown code blocks](https://github.github.com/gfm/#fenced-code-blocks)
+* Include the FRR version; if you built from Git, please provide the commit
+  hash
+* Write your issue in English
+
 ### How to submit an issue
 Please use this text as a template and replace text in the sections or remove
 the entire section if it does not apply to your issue. For example in case of
