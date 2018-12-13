@@ -971,7 +971,18 @@ static int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 		prev_src = nexthop->rmap_src;
 		prev_active = CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		prev_index = nexthop->ifindex;
-		if ((new_active = nexthop_active_check(rn, re, nexthop, set)))
+		/*
+		 * We need to respect the multipath_num here
+		 * as that what we should be able to install from
+		 * a multipath perpsective should not be a data plane
+		 * decision point.
+		 */
+		new_active = nexthop_active_check(rn, re, nexthop, set);
+		if (new_active && re->nexthop_active_num >= multipath_num) {
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+			new_active = 0;
+		}
+		if (new_active)
 			re->nexthop_active_num++;
 		/* Don't allow src setting on IPv6 addr for now */
 		if (prev_active != new_active || prev_index != nexthop->ifindex
