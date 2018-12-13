@@ -410,18 +410,47 @@ extern const char *zserv_command_string(unsigned int command);
 #define strmatch(a,b) (!strcmp((a), (b)))
 
 /* Zebra message flags */
+
+/*
+ * Cause Zebra to consider this routes nexthops recursively
+ */
 #define ZEBRA_FLAG_ALLOW_RECURSION    0x01
+/*
+ * This is a route that is read in on startup that was left around
+ * from a previous run of FRR
+ */
 #define ZEBRA_FLAG_SELFROUTE          0x02
-#define ZEBRA_FLAG_IBGP               0x08
-#define ZEBRA_FLAG_SELECTED           0x10
-#define ZEBRA_FLAG_STATIC             0x40
-#define ZEBRA_FLAG_SCOPE_LINK         0x100
-#define ZEBRA_FLAG_FIB_OVERRIDE       0x200
-#define ZEBRA_FLAG_EVPN_ROUTE         0x400
-#define ZEBRA_FLAG_RR_USE_DISTANCE    0x800
-#define ZEBRA_FLAG_ONLINK             0x1000
-/* ZEBRA_FLAG_BLACKHOLE was 0x04 */
-/* ZEBRA_FLAG_REJECT was 0x80 */
+/*
+ * This flag is used to tell Zebra that the BGP route being passed
+ * down is a IBGP route
+ */
+#define ZEBRA_FLAG_IBGP               0x04
+/*
+ * This is a route that has been selected for FIB installation.
+ * This flag is set in zebra and can be passed up to routing daemons
+ */
+#define ZEBRA_FLAG_SELECTED           0x08
+/*
+ * This is a route that we are telling Zebra that this route *must*
+ * win and will be installed even over ZEBRA_FLAG_SELECTED
+ */
+#define ZEBRA_FLAG_FIB_OVERRIDE       0x10
+/*
+ * This flag tells Zebra that the route is a EVPN route and should
+ * be treated specially
+ */
+#define ZEBRA_FLAG_EVPN_ROUTE         0x20
+/*
+ * This flag tells Zebra that it should treat the distance passed
+ * down as an additional discriminator for route selection of the
+ * route entry.  This mainly is used for backup static routes.
+ */
+#define ZEBRA_FLAG_RR_USE_DISTANCE    0x40
+/*
+ * This flag tells Zebra that the passed down route is ONLINK and the
+ * kernel install flag for it should be turned on
+ */
+#define ZEBRA_FLAG_ONLINK             0x80
 
 /* Zebra FEC flags. */
 #define ZEBRA_FEC_REGISTER_LABEL_INDEX        0x1
