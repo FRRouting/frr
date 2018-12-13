@@ -535,6 +535,9 @@ static int bgp_update_source(struct peer *peer)
 /* BGP try to connect to the peer.  */
 int bgp_connect(struct peer *peer)
 {
+	zlog_debug("%s: Peer %s", __PRETTY_FUNCTION__,
+		   peer->host);
+	zlog_backtrace(LOG_DEBUG);
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON));
 	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_READS_ON));
 	ifindex_t ifindex = 0;
