@@ -123,7 +123,6 @@ include watchfrr/subdir.am
 include qpb/subdir.am
 include fpm/subdir.am
 include tools/subdir.am
-include debian/subdir.am
 include solaris/subdir.am
 
 include bgpd/subdir.am
@@ -169,6 +168,8 @@ EXTRA_DIST += \
 	m4/README.txt \
 	m4/libtool-whole-archive.patch \
 	config.version \
+	changelog-auto \
+	changelog-auto.in \
 	\
 	python/clidef.py \
 	python/clippy/__init__.py \
