@@ -1883,7 +1883,7 @@ static void rib_process_after(struct zebra_dplane_ctx *ctx)
 				zvrf->removals++;
 		} else {
 			zsend_route_notify_owner_ctx(ctx,
-						     ZAPI_ROUTE_FAIL_INSTALL);
+						     ZAPI_ROUTE_REMOVE_FAIL);
 
 			zlog_warn("%u:%s: Route Deletion failure",
 				  dplane_ctx_get_vrf(ctx),
