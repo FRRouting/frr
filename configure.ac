@@ -2196,9 +2196,9 @@ AC_CONFIG_FILES([Makefile],[sed -e 's/^#AUTODERP# //' -i Makefile])
 
 AC_CONFIG_FILES([
 	  config.version
+	  changelog-auto
 	  redhat/frr.spec
 	  solaris/Makefile
-	  debian/changelog-auto
 	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
