@@ -2295,6 +2295,7 @@ static void rib_queue_init(struct zebra_t *zebra)
 	/* XXX: TODO: These should be runtime configurable via vty */
 	zebra->ribq->spec.max_retries = 3;
 	zebra->ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
+	zebra->ribq->spec.retry = ZEBRA_RIB_PROCESS_RETRY_TIME;
 
 	if (!(zebra->mq = meta_queue_new())) {
 		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
