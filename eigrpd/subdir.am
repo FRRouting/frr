@@ -66,5 +66,3 @@ noinst_HEADERS += \
 
 eigrpd_eigrpd_SOURCES = eigrpd/eigrp_main.c
 eigrpd_eigrpd_LDADD = eigrpd/libeigrp.a lib/libfrr.la @LIBCAP@
-
-EXTRA_DIST += eigrpd/EIGRP-MIB.txt

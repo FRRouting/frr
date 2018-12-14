@@ -222,5 +222,3 @@ bgpd/bgp_debug.$(OBJEXT): bgpd/bgp_debug_clippy.c
 bgpd/bgp_rpki_clippy.c: $(CLIPPY_DEPS)
 $(AUTOMAKE_DUMMY)bgpd/bgpd_bgpd_rpki_la-bgp_rpki.lo: bgpd/bgp_rpki_clippy.c
 $(AUTOMAKE_DUMMY)bgpd/bgpd_rpki_la-bgp_rpki.lo: bgpd/bgp_rpki_clippy.c
-
-EXTRA_DIST += bgpd/BGP4-MIB.txt
