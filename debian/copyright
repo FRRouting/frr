@@ -1,5 +1,5 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: Frr
+Upstream-Name: FRR
 Upstream-Contact: maintainers@frrouting.org, security@frrouting.org
 Source: https://www.frrouting.org/
 
@@ -239,6 +239,117 @@ Copyright: 1996-2003 by the original Zebra authors:
     vize                           2007
     高鹏                           2012
 License: GPL-2+
+
+Files: lib/strl*.c
+License: LGPL-2.1+
+Copyright: Copyright (C) 2016 Free Software Foundation, Inc.
+
+Files: lib/skiplist.*
+License: BSD-0-clause
+Copyright: Copyright 1990 William Pugh
+
+Files: lib/sha256.*
+License: BSD-2-clause
+Copyright: Copyright 2005,2007,2009 Colin Percival
+
+Files: lib/qobj.h lib/monotime.h lib/memory.* lib/hook.* lib/frratomic.h lib/ferr.* lib/compiler.h lib/module.*
+License: ISC
+Copyright: Copyright (c) 2015-18  David Lamparter, for NetDEF, Inc.
+
+Files: nhrpd/nhrp_protocol.h
+License: MIT
+Copyright: Copyright (c) 2007-2012 Timo Teräs <timo.teras@iki.fi>
+
+Files: babeld/*
+License: MIT
+Copyright:
+ Copyright 2011 by Matthieu Boutier and Juliusz Chroboczek
+ Copyright 2007, 2008 by Grégoire Henry, Julien Cristau and Juliusz Chroboczek
+
+Files: babeld/babel_errors.* babeld/babel_memory.*
+License: GPL-2+
+Copyright: Copyright (C) 2017-2018 Donald Sharp, Cumulus Networks, Inc.
+
+Files: ldpd/*
+License: ISC
+Copyright:
+ Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
+ Copyright (c) 2003, 2004 Markus Friedl <markus@openbsd.org>
+ Copyright (c) 2004, 2005, 2008 Esben Norby <norby@openbsd.org>
+ Copyright (c) 2004, 2005, 2012 Claudio Jeker <claudio@openbsd.org>
+ Copyright (c) 2009 Michele Marchetto <michele@openbsd.org>
+ Copyright (c) 2012 Alexander Bluhm <bluhm@openbsd.org>
+ Copyright (c) 2013-2016 Renato Westphal <renato@openbsd.org>
+ Copyright (C) 2016 by Open Source Routing.
+
+Files: ldpd/ldp_debug.* ldpd/ldp_vty* ldpd/ldp_zebra.c
+License: GPL-2+
+Copyright:
+ Copyright (C) 2016 by Open Source Routing.
+
+Files: doc/user/*.rst doc/figures/fig*
+Copyright: Copyright (c) 1996-2018 Kunihiro Ishiguro, et al.
+License: FRR-docs
+ Permission is granted to make and distribute verbatim copies of this
+ manual provided the copyright notice and this permission notice are
+ preserved on all copies.
+ .
+ Permission is granted to copy and distribute modified versions of this
+ manual under the conditions for verbatim copying, provided that the
+ entire resulting derived work is distributed under the terms of a
+ permission notice identical to this one.
+ .
+ Permission is granted to copy and distribute translations of this manual
+ into another language, under the above conditions for modified versions,
+ except that this permission notice may be stated in a translation
+ approved by Kunihiro Ishiguro.
+
+Files: lib/freebsd-queue.h lib/openbsd-queue.h lib/md5.*
+License: BSD-3-clause
+Copyright:
+ Copyright (c) 1991, 1993 The Regents of the University of California.
+ Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
+ Copyright (C) 2004 6WIND <Vincent.Jardin@6WIND.com>
+
+Files: lib/openbsd-tree.*
+License: BSD-2-clause
+Copyright:
+ Copyright 2002 Niels Provos <provos@citi.umich.edu>
+ Copyright (c) 2016 David Gwynne <dlg@openbsd.org>
+
+Files: lib/imsg*
+License: ISC
+Copyright:
+ Copyright (c) 2003, 2004 Henning Brauer <henning@openbsd.org>
+ Copyright (c) 2006, 2007 Pierre-Yves Ritschard <pyr@openbsd.org>
+ Copyright (c) 2006, 2007, 2008 Reyk Floeter <reyk@openbsd.org>
+
+Files: isisd/dict.*
+Copyright: Copyright (C) 1997 Kaz Kylheku <kaz@ashi.footprints.net>
+License: custom-BSD-like
+ All rights are reserved by the author, with the following exceptions:
+ Permission is granted to freely reproduce and distribute this software,
+ possibly in exchange for a fee, provided that this copyright notice appears
+ intact. Permission is also granted to adapt this software to produce
+ derivative works, as long as the modified versions carry this copyright
+ notice and additional notices stating that the work has been modified.
+ This source code may be translated into executable form and incorporated
+ into proprietary software; there is no requirement for such software to
+ contain a copyright notice related to this source.
+
+Files: qpb/qpb.proto fpm/fpm.proto
+License: ISC
+Copyright: Copyright (C) 2016 Sproute Networks, Inc.
+
+Files: doc/extra/frrlexer.py
+License: ISC
+Copyright: Copyright (c) 2017 Vincent Bernat <bernat@luffy.cx>
+
+Files: tests/helpers/python/frrsix.py
+License: MIT
+Copyright: Copyright (c) 2010-2017 Benjamin Peterson
+
+License: GPL-2+
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation; either version 2 of the License, or
@@ -256,3 +367,118 @@ License: GPL-2+
  On Debian systems, the full text of the GNU General Public
  License version 2 can be found in the file
  `/usr/share/common-licenses/GPL-2'.
+
+License: LGPL-2.1+
+ The GNU C Library is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Lesser General Public
+ License as published by the Free Software Foundation; either
+ version 2.1 of the License, or (at your option) any later version.
+ .
+ The GNU C Library is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Lesser General Public License for more details.
+ .
+ You should have received a copy of the GNU Lesser General Public
+ License along with the GNU C Library; if not, see
+ <http://www.gnu.org/licenses/>.
+ .
+ On Debian systems, the full text of the GNU Lesser General Public
+ License version 2.1 can be found in the file
+ `/usr/share/common-licenses/LGPL-2.1'.
+
+License: BSD-0-clause
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS''
+ AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR
+ CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+ USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ SUCH DAMAGE.
+
+License: BSD-2-clause
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions
+ are met:
+ 1. Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+ 2. Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ SUCH DAMAGE.
+
+License: BSD-3-clause
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions
+ are met:
+ 1. Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+ 2. Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+ 4. Neither the name of the University nor the names of its contributors
+    may be used to endorse or promote products derived from this software
+    without specific prior written permission.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ SUCH DAMAGE.
+
+License: ISC
+ Permission to use, copy, modify, and distribute this software for any
+ purpose with or without fee is hereby granted, provided that the above
+ copyright notice and this permission notice appear in all copies.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+License: MIT
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+ .
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+ .
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ THE SOFTWARE.
