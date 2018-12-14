@@ -917,7 +917,7 @@ static void bgp_update_delay_process_status_change(struct peer *peer)
 	}
 }
 
-/* Called after event occured, this function change status and reset
+/* Called after event occurred, this function change status and reset
    read/write and timer thread. */
 void bgp_fsm_change_status(struct peer *peer, int status)
 {

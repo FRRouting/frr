@@ -266,7 +266,7 @@ DEFUN (show_zebra,
 		return CMD_SUCCESS;
 	}
 
-	vty_out(vty, "Zebra Infomation\n");
+	vty_out(vty, "Zebra Information\n");
 	vty_out(vty, "  fail: %d\n", zclient->fail);
 	vty_out(vty, "  redistribute default: %d\n",
 		vrf_bitmap_check(zclient->default_information, VRF_DEFAULT));

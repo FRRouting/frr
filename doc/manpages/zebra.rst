@@ -33,7 +33,7 @@ OPTIONS available for the |DAEMON| command:
 
    Set netlink receive buffer size. There are cases where zebra daemon can't handle flood of netlink messages from kernel. If you ever see "recvmsg overrun" messages in zebra log, you are in trouble.
 
-   Solution is to increase receive buffer of netlink socket. Note that kernel < 2.6.14 doesn't allow to increase it over maximum value defined in /proc/sys/net/core/rmem_max. If you want to do it, you have to increase maximum before starting zebra.
+   Solution is to increase receive buffer of netlink socket. Note that kernel < 2.6.14 doesn't allow increasing it over maximum value defined in /proc/sys/net/core/rmem_max. If you want to do it, you have to increase maximum before starting zebra.
 
    Note that this affects Linux only.
 

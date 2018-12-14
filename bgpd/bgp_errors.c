@@ -29,43 +29,43 @@ static struct log_ref ferr_bgp_err[] = {
 		.code = BGP_ERR_ATTR_FLAG,
 		.title = "BGP attribute flag is incorrect",
 		.description = "BGP attribute flag is set to the wrong value (Optional/Transitive/Partial)",
-		.suggestion = "Determine the soure of the attribute and determine why the attribute flag has been set incorrectly"
+		.suggestion = "Determine the source of the attribute and determine why the attribute flag has been set incorrectly"
 	},
 	{
 		.code = BGP_ERR_ATTR_LEN,
 		.title = "BGP attribute length is incorrect",
 		.description = "BGP attribute length is incorrect",
-		.suggestion = "Determine the soure of the attribute and determine why the attribute length has been set incorrectly"
+		.suggestion = "Determine the source of the attribute and determine why the attribute length has been set incorrectly"
 	},
 	{
 		.code = BGP_ERR_ATTR_ORIGIN,
 		.title = "BGP attribute origin value invalid",
 		.description = "BGP attribute origin value is invalid",
-		.suggestion = "Determine the soure of the attribute and determine why the origin attribute has been set incorrectly"
+		.suggestion = "Determine the source of the attribute and determine why the origin attribute has been set incorrectly"
 	},
 	{
 		.code = BGP_ERR_ATTR_MAL_AS_PATH,
 		.title = "BGP as path is invalid",
 		.description = "BGP as path has been malformed",
-		.suggestion = "Determine the soure of the update and determine why the as path has been set incorrectly"
+		.suggestion = "Determine the source of the update and determine why the as path has been set incorrectly"
 	},
 	{
 		.code = BGP_ERR_ATTR_FIRST_AS,
 		.title = "BGP as path first as is invalid",
 		.description = "BGP update has invalid first as in as path",
-		.suggestion = "Determine the soure of the update and determine why the as path first as value has been set incorrectly"
+		.suggestion = "Determine the source of the update and determine why the as path first as value has been set incorrectly"
 	},
 	{
 		.code = BGP_ERR_ATTR_PMSI_TYPE,
 		.title = "BGP PMSI tunnel attribute type is invalid",
 		.description = "BGP update has invalid type for PMSI tunnel",
-		.suggestion = "Determine the soure of the update and determine why the PMSI tunnel attribute type has been set incorrectly"
+		.suggestion = "Determine the source of the update and determine why the PMSI tunnel attribute type has been set incorrectly"
 	},
 	{
 		.code = BGP_ERR_ATTR_PMSI_LEN,
 		.title = "BGP PMSI tunnel attribute length is invalid",
 		.description = "BGP update has invalid length for PMSI tunnel",
-		.suggestion = "Determine the soure of the update and determine why the PMSI tunnel attribute length has been set incorrectly"
+		.suggestion = "Determine the source of the update and determine why the PMSI tunnel attribute length has been set incorrectly"
 	},
 	{
 		.code = BGP_ERR_PEER_GROUP,
@@ -101,7 +101,7 @@ static struct log_ref ferr_bgp_err[] = {
 		.code = BGP_ERR_JSON_MEM_ERROR,
 		.title = "BGP unable to allocate memory for JSON output",
 		.description = "BGP attempted to generate JSON output and was unable to allocate the memory required",
-		.suggestion = "Ensure that the device has adequate memory to suport the required functions"
+		.suggestion = "Ensure that the device has adequate memory to support the required functions"
 	},
 	{
 		.code = BGP_ERR_UPDGRP_ATTR_LEN,

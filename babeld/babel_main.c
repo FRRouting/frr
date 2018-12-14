@@ -385,7 +385,7 @@ show_babel_main_configuration (struct vty *vty)
     vty_out (vty,
             "state file              = %s\n"
             "configuration file      = %s\n"
-            "protocol informations:\n"
+            "protocol information:\n"
             "  multicast address     = %s\n"
             "  port                  = %d\n"
             "vty address             = %s\n"

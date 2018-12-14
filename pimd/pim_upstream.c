@@ -464,7 +464,7 @@ static int pim_upstream_could_register(struct pim_upstream *up)
 	return 0;
 }
 
-/* Source registration is supressed for SSM groups. When the SSM range changes
+/* Source registration is suppressed for SSM groups. When the SSM range changes
  * we re-revaluate register setup for existing upstream entries */
 void pim_upstream_register_reevaluate(struct pim_instance *pim)
 {

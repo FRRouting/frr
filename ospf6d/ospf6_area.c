@@ -771,7 +771,7 @@ DEFUN (show_ipv6_ospf6_spf_tree,
        SHOW_STR
        IP6_STR
        OSPF6_STR
-       "Shortest Path First caculation\n"
+       "Shortest Path First calculation\n"
        "Show SPF tree\n")
 {
 	struct listnode *node;
@@ -806,7 +806,7 @@ DEFUN (show_ipv6_ospf6_area_spf_tree,
        OSPF6_STR
        OSPF6_AREA_STR
        OSPF6_AREA_ID_STR
-       "Shortest Path First caculation\n"
+       "Shortest Path First calculation\n"
        "Show SPF tree\n")
 {
 	int idx_ipv4 = 4;

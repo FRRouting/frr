@@ -2399,7 +2399,7 @@ DEFUN (no_ospf_mpls_te_inter_as,
 				ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
 	}
 
-	/* Deregister the Callbacks for Inter-AS suport */
+	/* Deregister the Callbacks for Inter-AS support */
 	ospf_mpls_te_unregister();
 
 	return CMD_SUCCESS;

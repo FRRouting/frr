@@ -222,9 +222,9 @@ static const char *fsm_state2str(enum eigrp_fsm_events event)
 	case EIGRP_FSM_EVENT_LR:
 		return "Last Reply Event";
 	case EIGRP_FSM_EVENT_Q_FCN:
-		return "Query Event Feasability not satisified";
+		return "Query Event Feasability not satisfied";
 	case EIGRP_FSM_EVENT_LR_FCS:
-		return "Last Reply Event Feasability satisified";
+		return "Last Reply Event Feasability satisfied";
 	case EIGRP_FSM_EVENT_DINC:
 		return "Distance Increase Event";
 	case EIGRP_FSM_EVENT_QACT:
