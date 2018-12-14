@@ -262,7 +262,7 @@ PACKAGE_VERSION="$DIST_PACKAGE_VERSION"
 
 echo -e "\033[33;1mpacking up \033[36;1mfrr-$PACKAGE_VERSION\033[m"
 
-make GZIP_ENV="--best -n" am__tar="tar -chof - $taropt \"\$\$tardir\"" $ziptarget
+make GZIP_ENV="-n9" am__tar="tar -chof - $taropt \"\$\$tardir\"" $ziptarget
 mv frr-${PACKAGE_VERSION}.tar.$zip "$outdir" || true
 lsfiles="frr-${PACKAGE_VERSION}.tar.$zip"
 
