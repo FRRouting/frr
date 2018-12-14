@@ -233,8 +233,8 @@ gitts="$gitts"
 taropt="$taropt"
 EOF
 	sed -e "s%@VERSION@%$pkgver$extraver%" \
-		< debian/changelog-auto.in \
-		> debian/changelog-auto
+		< changelog-auto.in \
+		> changelog-auto
 	exit 0
 fi
 
