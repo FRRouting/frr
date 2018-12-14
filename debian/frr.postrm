@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+rm -f /etc/frr/.pkg.frr.nointegrated
+
 if [ "$1" = "purge" ]; then
 	rm -rf /run/frr || true
 
