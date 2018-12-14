@@ -6,21 +6,21 @@ if RIPNGD
 noinst_LIBRARIES += ripngd/libripng.a
 sbin_PROGRAMS += ripngd/ripngd
 vtysh_scan += \
+	$(top_srcdir)/ripngd/ripng_cli.c \
 	$(top_srcdir)/ripngd/ripng_debug.c \
-	$(top_srcdir)/ripngd/ripng_interface.c \
-	$(top_srcdir)/ripngd/ripng_offset.c \
-	$(top_srcdir)/ripngd/ripng_zebra.c \
 	$(top_srcdir)/ripngd/ripngd.c \
 	# end
 man8 += $(MANBUILD)/ripngd.8
 endif
 
 ripngd_libripng_a_SOURCES = \
+	ripngd/ripng_cli.c \
 	ripngd/ripng_debug.c \
 	ripngd/ripng_interface.c \
 	ripngd/ripng_memory.c \
 	ripngd/ripng_nexthop.c \
 	ripngd/ripng_offset.c \
+	ripngd/ripng_northbound.c \
 	ripngd/ripng_peer.c \
 	ripngd/ripng_route.c \
 	ripngd/ripng_routemap.c \
@@ -28,7 +28,11 @@ ripngd_libripng_a_SOURCES = \
 	ripngd/ripngd.c \
 	# end
 
+ripngd/ripng_cli_clippy.c: $(CLIPPY_DEPS)
+ripngd/ripng_cli.$(OBJEXT): ripngd/ripng_cli_clippy.c
+
 noinst_HEADERS += \
+	ripngd/ripng_cli.h \
 	ripngd/ripng_debug.h \
 	ripngd/ripng_memory.h \
 	ripngd/ripng_nexthop.h \
@@ -39,6 +43,9 @@ noinst_HEADERS += \
 ripngd_ripngd_LDADD = ripngd/libripng.a lib/libfrr.la @LIBCAP@
 ripngd_ripngd_SOURCES = \
 	ripngd/ripng_main.c \
+	# end
+nodist_ripngd_ripngd_SOURCES = \
+	yang/frr-ripngd.yang.c \
 	# end
 
 dist_examples_DATA += ripngd/ripngd.conf.sample

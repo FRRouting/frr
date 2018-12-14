@@ -204,13 +204,6 @@ static int config_write_debug(struct vty *vty)
 	return write;
 }
 
-void rip_debug_reset(void)
-{
-	rip_debug_event = 0;
-	rip_debug_packet = 0;
-	rip_debug_zebra = 0;
-}
-
 void rip_debug_init(void)
 {
 	rip_debug_event = 0;

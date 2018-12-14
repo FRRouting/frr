@@ -517,11 +517,6 @@ static struct route_map_rule_cmd route_set_tag_cmd = {
 #define MATCH_STR "Match values from routing table\n"
 #define SET_STR "Set values in destination routing protocol\n"
 
-void rip_route_map_reset()
-{
-	;
-}
-
 /* Route-map init */
 void rip_route_map_init()
 {

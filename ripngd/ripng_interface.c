@@ -36,6 +36,7 @@
 #include "privs.h"
 #include "vrf.h"
 #include "lib_errors.h"
+#include "northbound_cli.h"
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_debug.h"
@@ -323,37 +324,6 @@ void ripng_interface_clean(void)
 	}
 }
 
-void ripng_interface_reset(void)
-{
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	struct interface *ifp;
-	struct ripng_interface *ri;
-
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		ri = ifp->info;
-
-		ri->enable_network = 0;
-		ri->enable_interface = 0;
-		ri->running = 0;
-
-		ri->split_horizon = RIPNG_NO_SPLIT_HORIZON;
-		ri->split_horizon_default = RIPNG_NO_SPLIT_HORIZON;
-
-		ri->list[RIPNG_FILTER_IN] = NULL;
-		ri->list[RIPNG_FILTER_OUT] = NULL;
-
-		ri->prefix[RIPNG_FILTER_IN] = NULL;
-		ri->prefix[RIPNG_FILTER_OUT] = NULL;
-
-		if (ri->t_wakeup) {
-			thread_cancel(ri->t_wakeup);
-			ri->t_wakeup = NULL;
-		}
-
-		ri->passive = 0;
-	}
-}
-
 static void ripng_apply_address_add(struct connected *ifc)
 {
 	struct prefix_ipv6 address;
@@ -543,7 +513,7 @@ static int ripng_enable_network_lookup2(struct connected *connected)
 }
 
 /* Add RIPng enable network. */
-static int ripng_enable_network_add(struct prefix *p)
+int ripng_enable_network_add(struct prefix *p)
 {
 	struct agg_node *node;
 
@@ -551,18 +521,18 @@ static int ripng_enable_network_add(struct prefix *p)
 
 	if (node->info) {
 		agg_unlock_node(node);
-		return -1;
+		return NB_ERR_INCONSISTENCY;
 	} else
 		node->info = (void *)1;
 
 	/* XXX: One should find a better solution than a generic one */
 	ripng_enable_apply_all();
 
-	return 1;
+	return NB_OK;
 }
 
 /* Delete RIPng enable network. */
-static int ripng_enable_network_delete(struct prefix *p)
+int ripng_enable_network_delete(struct prefix *p)
 {
 	struct agg_node *node;
 
@@ -576,9 +546,10 @@ static int ripng_enable_network_delete(struct prefix *p)
 		/* Unlock lookup lock. */
 		agg_unlock_node(node);
 
-		return 1;
+		return NB_OK;
 	}
-	return -1;
+
+	return NB_ERR_INCONSISTENCY;
 }
 
 /* Lookup function. */
@@ -595,30 +566,30 @@ static int ripng_enable_if_lookup(const char *ifname)
 }
 
 /* Add interface to ripng_enable_if. */
-static int ripng_enable_if_add(const char *ifname)
+int ripng_enable_if_add(const char *ifname)
 {
 	int ret;
 
 	ret = ripng_enable_if_lookup(ifname);
 	if (ret >= 0)
-		return -1;
+		return NB_ERR_INCONSISTENCY;
 
 	vector_set(ripng_enable_if, strdup(ifname));
 
 	ripng_enable_apply_all();
 
-	return 1;
+	return NB_OK;
 }
 
 /* Delete interface from ripng_enable_if. */
-static int ripng_enable_if_delete(const char *ifname)
+int ripng_enable_if_delete(const char *ifname)
 {
 	int index;
 	char *str;
 
 	index = ripng_enable_if_lookup(ifname);
 	if (index < 0)
-		return -1;
+		return NB_ERR_INCONSISTENCY;
 
 	str = vector_slot(ripng_enable_if, index);
 	free(str);
@@ -626,7 +597,7 @@ static int ripng_enable_if_delete(const char *ifname)
 
 	ripng_enable_apply_all();
 
-	return 1;
+	return NB_OK;
 }
 
 /* Wake up interface. */
@@ -830,26 +801,26 @@ static void ripng_passive_interface_apply_all(void)
 }
 
 /* Passive interface. */
-static int ripng_passive_interface_set(struct vty *vty, const char *ifname)
+int ripng_passive_interface_set(const char *ifname)
 {
 	if (ripng_passive_interface_lookup(ifname) >= 0)
-		return CMD_WARNING_CONFIG_FAILED;
+		return NB_ERR_INCONSISTENCY;
 
 	vector_set(Vripng_passive_interface, strdup(ifname));
 
 	ripng_passive_interface_apply_all();
 
-	return CMD_SUCCESS;
+	return NB_OK;
 }
 
-static int ripng_passive_interface_unset(struct vty *vty, const char *ifname)
+int ripng_passive_interface_unset(const char *ifname)
 {
 	int i;
 	char *str;
 
 	i = ripng_passive_interface_lookup(ifname);
 	if (i < 0)
-		return CMD_WARNING_CONFIG_FAILED;
+		return NB_ERR_INCONSISTENCY;
 
 	str = vector_slot(Vripng_passive_interface, i);
 	free(str);
@@ -857,7 +828,7 @@ static int ripng_passive_interface_unset(struct vty *vty, const char *ifname)
 
 	ripng_passive_interface_apply_all();
 
-	return CMD_SUCCESS;
+	return NB_OK;
 }
 
 /* Free all configured RIP passive-interface settings. */
@@ -875,7 +846,7 @@ void ripng_passive_interface_clean(void)
 }
 
 /* Write RIPng enable network and interface to the vty. */
-int ripng_network_write(struct vty *vty, int config_mode)
+int ripng_network_write(struct vty *vty)
 {
 	unsigned int i;
 	const char *ifname;
@@ -887,8 +858,7 @@ int ripng_network_write(struct vty *vty, int config_mode)
 	     node = agg_route_next(node))
 		if (node->info) {
 			struct prefix *p = &node->p;
-			vty_out(vty, "%s%s/%d\n",
-				config_mode ? " network " : "    ",
+			vty_out(vty, "    %s/%d\n",
 				inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
 				p->prefixlen);
 		}
@@ -896,146 +866,9 @@ int ripng_network_write(struct vty *vty, int config_mode)
 	/* Write enable interface. */
 	for (i = 0; i < vector_active(ripng_enable_if); i++)
 		if ((ifname = vector_slot(ripng_enable_if, i)) != NULL)
-			vty_out(vty, "%s%s\n",
-				config_mode ? " network " : "    ", ifname);
-
-	/* Write passive interface. */
-	if (config_mode)
-		for (i = 0; i < vector_active(Vripng_passive_interface); i++)
-			if ((ifname = vector_slot(Vripng_passive_interface, i))
-			    != NULL)
-				vty_out(vty, " passive-interface %s\n", ifname);
+			vty_out(vty, "    %s\n", ifname);
 
 	return 0;
-}
-
-/* RIPng enable on specified interface or matched network. */
-DEFUN (ripng_network,
-       ripng_network_cmd,
-       "network IF_OR_ADDR",
-       "RIPng enable on specified interface or network.\n"
-       "Interface or address\n")
-{
-	int idx_if_or_addr = 1;
-	int ret;
-	struct prefix p;
-
-	ret = str2prefix(argv[idx_if_or_addr]->arg, &p);
-
-	/* Given string is IPv6 network or interface name. */
-	if (ret)
-		ret = ripng_enable_network_add(&p);
-	else
-		ret = ripng_enable_if_add(argv[idx_if_or_addr]->arg);
-
-	if (ret < 0) {
-		vty_out(vty, "There is same network configuration %s\n",
-			argv[idx_if_or_addr]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
-/* RIPng enable on specified interface or matched network. */
-DEFUN (no_ripng_network,
-       no_ripng_network_cmd,
-       "no network IF_OR_ADDR",
-       NO_STR
-       "RIPng enable on specified interface or network.\n"
-       "Interface or address\n")
-{
-	int idx_if_or_addr = 2;
-	int ret;
-	struct prefix p;
-
-	ret = str2prefix(argv[idx_if_or_addr]->arg, &p);
-
-	/* Given string is interface name. */
-	if (ret)
-		ret = ripng_enable_network_delete(&p);
-	else
-		ret = ripng_enable_if_delete(argv[idx_if_or_addr]->arg);
-
-	if (ret < 0) {
-		vty_out(vty, "can't find network %s\n",
-			argv[idx_if_or_addr]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (ipv6_ripng_split_horizon,
-       ipv6_ripng_split_horizon_cmd,
-       "ipv6 ripng split-horizon",
-       IPV6_STR
-       "Routing Information Protocol\n"
-       "Perform split horizon\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct ripng_interface *ri;
-
-	ri = ifp->info;
-
-	ri->split_horizon = RIPNG_SPLIT_HORIZON;
-	return CMD_SUCCESS;
-}
-
-DEFUN (ipv6_ripng_split_horizon_poisoned_reverse,
-       ipv6_ripng_split_horizon_poisoned_reverse_cmd,
-       "ipv6 ripng split-horizon poisoned-reverse",
-       IPV6_STR
-       "Routing Information Protocol\n"
-       "Perform split horizon\n"
-       "With poisoned-reverse\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct ripng_interface *ri;
-
-	ri = ifp->info;
-
-	ri->split_horizon = RIPNG_SPLIT_HORIZON_POISONED_REVERSE;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_ripng_split_horizon,
-       no_ipv6_ripng_split_horizon_cmd,
-       "no ipv6 ripng split-horizon [poisoned-reverse]",
-       NO_STR
-       IPV6_STR
-       "Routing Information Protocol\n"
-       "Perform split horizon\n"
-       "With poisoned-reverse\n")
-{
-	VTY_DECLVAR_CONTEXT(interface, ifp);
-	struct ripng_interface *ri;
-
-	ri = ifp->info;
-
-	ri->split_horizon = RIPNG_NO_SPLIT_HORIZON;
-	return CMD_SUCCESS;
-}
-
-DEFUN (ripng_passive_interface,
-       ripng_passive_interface_cmd,
-       "passive-interface IFNAME",
-       "Suppress routing updates on an interface\n"
-       "Interface name\n")
-{
-	int idx_ifname = 1;
-	return ripng_passive_interface_set(vty, argv[idx_ifname]->arg);
-}
-
-DEFUN (no_ripng_passive_interface,
-       no_ripng_passive_interface_cmd,
-       "no passive-interface IFNAME",
-       NO_STR
-       "Suppress routing updates on an interface\n"
-       "Interface name\n")
-{
-	int idx_ifname = 2;
-	return ripng_passive_interface_unset(vty, argv[idx_ifname]->arg);
 }
 
 static struct ripng_interface *ri_new(void)
@@ -1047,8 +880,8 @@ static struct ripng_interface *ri_new(void)
 	   Relay or SMDS is enabled, the default value for split-horizon is
 	   off.  But currently Zebra does detect Frame Relay or SMDS
 	   interface.  So all interface is set to split horizon.  */
-	ri->split_horizon_default = RIPNG_SPLIT_HORIZON;
-	ri->split_horizon = ri->split_horizon_default;
+	ri->split_horizon =
+		yang_get_default_enum("%s/split-horizon", RIPNG_IFACE);
 
 	return ri;
 }
@@ -1072,44 +905,22 @@ static int interface_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
-	struct ripng_interface *ri;
 	int write = 0;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		ri = ifp->info;
+		struct lyd_node *dnode;
 
-		/* Do not display the interface if there is no
-		 * configuration about it.
-		 **/
-		if ((!ifp->desc)
-		    && (ri->split_horizon == ri->split_horizon_default))
+		dnode = yang_dnode_get(
+			running_config->dnode,
+			"/frr-interface:lib/interface[name='%s'][vrf='%s']",
+			ifp->name, vrf->name);
+		if (dnode == NULL)
 			continue;
 
-		vty_frame(vty, "interface %s\n", ifp->name);
-		if (ifp->desc)
-			vty_out(vty, " description %s\n", ifp->desc);
-
-		/* Split horizon. */
-		if (ri->split_horizon != ri->split_horizon_default) {
-			switch (ri->split_horizon) {
-			case RIPNG_SPLIT_HORIZON:
-				vty_out(vty, " ipv6 ripng split-horizon\n");
-				break;
-			case RIPNG_SPLIT_HORIZON_POISONED_REVERSE:
-				vty_out(vty,
-					" ipv6 ripng split-horizon poisoned-reverse\n");
-				break;
-			case RIPNG_NO_SPLIT_HORIZON:
-			default:
-				vty_out(vty, " no ipv6 ripng split-horizon\n");
-				break;
-			}
-		}
-
-		vty_endframe(vty, "!\n");
-
-		write++;
+		write = 1;
+		nb_cli_show_dnode_cmds(vty, dnode, false);
 	}
+
 	return write;
 }
 
@@ -1137,14 +948,4 @@ void ripng_if_init()
 	/* Install interface node. */
 	install_node(&interface_node, interface_config_write);
 	if_cmd_init();
-
-	install_element(RIPNG_NODE, &ripng_network_cmd);
-	install_element(RIPNG_NODE, &no_ripng_network_cmd);
-	install_element(RIPNG_NODE, &ripng_passive_interface_cmd);
-	install_element(RIPNG_NODE, &no_ripng_passive_interface_cmd);
-
-	install_element(INTERFACE_NODE, &ipv6_ripng_split_horizon_cmd);
-	install_element(INTERFACE_NODE,
-			&ipv6_ripng_split_horizon_poisoned_reverse_cmd);
-	install_element(INTERFACE_NODE, &no_ipv6_ripng_split_horizon_cmd);
 }

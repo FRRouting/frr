@@ -45,6 +45,5 @@ extern unsigned long ripng_debug_packet;
 extern unsigned long ripng_debug_zebra;
 
 extern void ripng_debug_init(void);
-extern void ripng_debug_reset(void);
 
 #endif /* _ZEBRA_RIPNG_DEBUG_H */

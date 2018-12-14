@@ -72,13 +72,9 @@ static struct frr_daemon_info ripngd_di;
 static void sighup(void)
 {
 	zlog_info("SIGHUP received");
-	ripng_clean();
-	ripng_reset();
 
 	/* Reload config file. */
 	vty_read_config(NULL, ripngd_di.config_file, config_default);
-
-	/* Try to return to normal operation. */
 }
 
 /* SIGINT handler. */
@@ -120,6 +116,7 @@ struct quagga_signal_t ripng_signals[] = {
 
 static const struct frr_yang_module_info *ripngd_yang_modules[] = {
 	&frr_interface_info,
+	&frr_ripngd_info,
 };
 
 FRR_DAEMON_INFO(ripngd, RIPNG, .vty_port = RIPNG_VTY_PORT,
@@ -177,6 +174,7 @@ int main(int argc, char **argv)
 
 	/* RIPngd inits. */
 	ripng_init();
+	ripng_cli_init();
 	zebra_init(master);
 	ripng_peer_init();
 

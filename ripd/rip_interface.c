@@ -531,15 +531,6 @@ static void rip_interface_reset(struct rip_interface *ri)
 	rip_interface_clean(ri);
 }
 
-void rip_interfaces_reset(void)
-{
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	struct interface *ifp;
-
-	FOR_ALL_INTERFACES (vrf, ifp)
-		rip_interface_reset(ifp->info);
-}
-
 int rip_if_down(struct interface *ifp)
 {
 	struct route_node *rp;

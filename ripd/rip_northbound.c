@@ -170,6 +170,7 @@ static int ripd_instance_distance_source_create(enum nb_event event,
 		return NB_OK;
 
 	yang_dnode_get_ipv4p(&prefix, dnode, "./prefix");
+	apply_mask_ipv4(&prefix);
 
 	/* Get RIP distance node. */
 	rn = route_node_get(rip_distance_table, (struct prefix *)&prefix);
@@ -317,6 +318,7 @@ static int ripd_instance_network_create(enum nb_event event,
 		return NB_OK;
 
 	yang_dnode_get_ipv4p(&p, dnode, NULL);
+	apply_mask_ipv4((struct prefix_ipv4 *)&p);
 
 	return rip_enable_network_add(&p);
 }
@@ -330,6 +332,7 @@ static int ripd_instance_network_delete(enum nb_event event,
 		return NB_OK;
 
 	yang_dnode_get_ipv4p(&p, dnode, NULL);
+	apply_mask_ipv4((struct prefix_ipv4 *)&p);
 
 	return rip_enable_network_delete(&p);
 }
@@ -605,10 +608,9 @@ ripd_instance_redistribute_route_map_delete(enum nb_event event,
 
 	type = yang_dnode_get_enum(dnode, "../protocol");
 
-	if (rip->route_map[type].name) {
-		free(rip->route_map[type].name);
-		rip->route_map[type].name = NULL;
-	}
+	free(rip->route_map[type].name);
+	rip->route_map[type].name = NULL;
+	rip->route_map[type].map = NULL;
 
 	return NB_OK;
 }
@@ -667,6 +669,7 @@ static int ripd_instance_static_route_create(enum nb_event event,
 		return NB_OK;
 
 	yang_dnode_get_ipv4p(&p, dnode, NULL);
+	apply_mask_ipv4(&p);
 
 	memset(&nh, 0, sizeof(nh));
 	nh.type = NEXTHOP_TYPE_IPV4;
@@ -685,6 +688,7 @@ static int ripd_instance_static_route_delete(enum nb_event event,
 		return NB_OK;
 
 	yang_dnode_get_ipv4p(&p, dnode, NULL);
+	apply_mask_ipv4(&p);
 
 	rip_redistribute_delete(ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0);
 
