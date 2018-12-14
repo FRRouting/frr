@@ -1,5 +1,2 @@
-# these are for build-compatibility on older distros (e.g. Ubuntu 14.04)
-frr source: alternatively-build-depends-on-python-sphinx-and-python3-sphinx
-
 # Debian Jessie and Ubuntu 16.04 need dh-systemd
 frr source: ored-build-depends-on-obsolete-package
