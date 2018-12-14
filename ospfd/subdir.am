@@ -108,6 +108,4 @@ ospfd_ospfd_snmp_la_LIBADD = lib/libfrrsnmp.la
 
 EXTRA_DIST += \
 	ospfd/ChangeLog.opaque.txt \
-	ospfd/OSPF-MIB.txt \
-	ospfd/OSPF-TRAP-MIB.txt \
 	# end
