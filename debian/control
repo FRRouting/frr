@@ -32,8 +32,8 @@ Build-Depends:
  texinfo (>= 4.7)
 Standards-Version: 4.2.1
 Homepage: https://www.frrouting.org/
-Vcs-Browser: https://github.com/FRRouting/frr/
-Vcs-Git: https://github.com/FRRouting/frr.git
+Vcs-Browser: https://github.com/FRRouting/frr/tree/debian/master
+Vcs-Git: https://github.com/FRRouting/frr.git -b debian/master
 
 Package: frr
 Architecture: linux-any
