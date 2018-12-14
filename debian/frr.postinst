@@ -64,10 +64,28 @@ the FRR service but its contents should be migrated to /etc/frr/daemons.
 EOF
 }
 
+rmsum() {
+	fname="$1"
+	test -f "$1" || return 0
+	fhash="`sha1sum \"$fname\"`"
+	fhash="${fhash%% *}"
+	if test "$fhash" = "$2"; then
+		rm "$fname"
+	fi
+}
+
 case "$1" in
 configure)
 	check_old_config /etc/frr/daemons.conf
 	check_old_config /etc/default/frr
+	if test -f /etc/frr/.pkg.frr.nointegrated; then
+		# remove integrated config setup
+		# (if checksums match, the files match freshly installed
+		# defaults, but the user has split config in place)
+		rmsum /etc/frr/vtysh.conf 5e7e3a488c51751e1ff98f27c9ad6085e1ad9cbb
+		rmsum /etc/frr/frr.conf   dac6f2af4fca9919ba40eb338885a5d1773195c8
+		rm /etc/frr/.pkg.frr.nointegrated
+	fi
 	;;
 esac
 
