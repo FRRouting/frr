@@ -492,8 +492,8 @@ static int zserv_process_messages(struct thread *thread)
 	struct zserv *client = THREAD_ARG(thread);
 	struct stream *msg;
 	struct stream_fifo *cache = stream_fifo_new();
-
 	uint32_t p2p = zebrad.packets_to_process;
+	bool need_resched = false;
 
 	pthread_mutex_lock(&client->ibuf_mtx);
 	{
@@ -505,6 +505,12 @@ static int zserv_process_messages(struct thread *thread)
 		}
 
 		msg = NULL;
+
+		/* Need to reschedule processing work if there are still
+		 * packets in the fifo.
+		 */
+		if (stream_fifo_head(client->ibuf_fifo))
+			need_resched = true;
 	}
 	pthread_mutex_unlock(&client->ibuf_mtx);
 
@@ -515,6 +521,10 @@ static int zserv_process_messages(struct thread *thread)
 	}
 
 	stream_fifo_free(cache);
+
+	/* Reschedule ourselves if necessary */
+	if (need_resched)
+		zserv_event(client, ZSERV_PROCESS_MESSAGES);
 
 	return 0;
 }
@@ -628,6 +638,7 @@ void zserv_close_client(struct zserv *client)
 
 	thread_cancel_event(zebrad.master, client);
 	THREAD_OFF(client->t_cleanup);
+	THREAD_OFF(client->t_process);
 
 	/* destroy pthread */
 	frr_pthread_destroy(client->pthread);
@@ -828,7 +839,7 @@ void zserv_event(struct zserv *client, enum zserv_event event)
 		break;
 	case ZSERV_PROCESS_MESSAGES:
 		thread_add_event(zebrad.master, zserv_process_messages, client,
-				 0, NULL);
+				 0, &client->t_process);
 		break;
 	case ZSERV_HANDLE_CLIENT_FAIL:
 		thread_add_event(zebrad.master, zserv_handle_client_fail,
