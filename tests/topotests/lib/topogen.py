@@ -908,7 +908,7 @@ class TopoExaBGP(TopoHost):
 
 # Disable linter branch warning. It is expected to have these here.
 # pylint: disable=R0912
-def diagnose_env():
+def diagnose_env_linux():
     """
     Run diagnostics in the running environment. Returns `True` when everything
     is ok, otherwise `False`.
@@ -1066,3 +1066,14 @@ def diagnose_env():
     logger.removeHandler(fhandler)
 
     return ret
+
+def diagnose_env_freebsd():
+    return True
+
+def diagnose_env():
+    if sys.platform.startswith("linux"):
+        return diagnose_env_linux()
+    elif sys.platform.startswith("freebsd"):
+        return diagnose_env_freebsd()
+
+    return False
