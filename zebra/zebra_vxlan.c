@@ -6381,7 +6381,8 @@ int zebra_vxlan_clear_dup_detect_vni_mac(struct vty *vty,
 		 * to BGP. Similarly remote macip update, neigh needs to be
 		 * installed locally.
 		 */
-		if (nbr->dad_count) {
+		if (zvrf->dad_freeze &&
+		    CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE)) {
 			if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL))
 				ZEBRA_NEIGH_SET_INACTIVE(nbr);
 			else if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_REMOTE))
@@ -6400,6 +6401,10 @@ int zebra_vxlan_clear_dup_detect_vni_mac(struct vty *vty,
 	mac->detect_start_time.tv_usec = 0;
 	mac->dad_dup_detect_time = 0;
 	THREAD_OFF(mac->dad_mac_auto_recovery_timer);
+
+	/* warn-only action return */
+	if (!zvrf->dad_freeze)
+		return CMD_SUCCESS;
 
 	/* Local: Notify Peer VTEPs, Remote: Install the entry */
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
