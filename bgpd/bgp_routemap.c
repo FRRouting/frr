@@ -4200,6 +4200,13 @@ DEFUN (no_set_community,
 				  "community", NULL);
 }
 
+ALIAS (no_set_community,
+       no_set_community_short_cmd,
+       "no set community",
+       NO_STR
+       SET_STR
+       "BGP community attribute\n")
+
 
 DEFUN (set_community_delete,
        set_community_delete_cmd,
@@ -4976,6 +4983,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_community_cmd);
 	install_element(RMAP_NODE, &set_community_none_cmd);
 	install_element(RMAP_NODE, &no_set_community_cmd);
+	install_element(RMAP_NODE, &no_set_community_short_cmd);
 	install_element(RMAP_NODE, &set_community_delete_cmd);
 	install_element(RMAP_NODE, &no_set_community_delete_cmd);
 	install_element(RMAP_NODE, &set_lcommunity_cmd);
