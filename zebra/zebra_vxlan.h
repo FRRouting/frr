@@ -183,8 +183,8 @@ extern int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 extern void zebra_vxlan_init_tables(struct zebra_vrf *zvrf);
 extern void zebra_vxlan_close_tables(struct zebra_vrf *);
 extern void zebra_vxlan_cleanup_tables(struct zebra_vrf *);
-extern void zebra_vxlan_ns_init(struct zebra_ns *zns);
-extern void zebra_vxlan_ns_disable(struct zebra_ns *zns);
+extern void zebra_vxlan_init(void);
+extern void zebra_vxlan_disable(void);
 extern void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id,
 					   struct ethaddr *rmac,
 					   struct ipaddr *ip,

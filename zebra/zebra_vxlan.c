@@ -8864,14 +8864,14 @@ void zebra_vxlan_close_tables(struct zebra_vrf *zvrf)
 }
 
 /* init the l3vni table */
-void zebra_vxlan_ns_init(struct zebra_ns *zns)
+void zebra_vxlan_init(void)
 {
 	zrouter.l3vni_table = hash_create(l3vni_hash_keymake, l3vni_hash_cmp,
 					  "Zebra VRF L3 VNI table");
 }
 
 /* free l3vni table */
-void zebra_vxlan_ns_disable(struct zebra_ns *zns)
+void zebra_vxlan_disable(void)
 {
 	hash_free(zrouter.l3vni_table);
 }
