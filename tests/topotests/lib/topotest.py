@@ -357,9 +357,9 @@ def module_present_freebsd(module, load):
 
 def module_present(module, load=True):
     if sys.platform.startswith("linux"):
-        module_present_linux(module, load)
+        return module_present_linux(module, load)
     elif sys.platform.startswith("freebsd"):
-        module_present_freebsd(module, load)
+        return module_present_freebsd(module, load)
 
 def version_cmp(v1, v2):
     """
