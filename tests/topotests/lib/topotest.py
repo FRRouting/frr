@@ -581,7 +581,7 @@ def addRouter(topo, name):
                          '/var/run/frr',
                          '/var/run/quagga',
                          '/var/log']
-    return topo.addNode(name, cls=Router, privateDirs=MyPrivateDirs)
+    return topo.addNode(name, cls=LinuxRouter, privateDirs=MyPrivateDirs)
 
 def set_sysctl(node, sysctl, value):
     "Set a sysctl value and return None on success or an error string"
@@ -603,21 +603,6 @@ def assert_sysctl(node, sysctl, value):
     "Set and assert that the sysctl is set with the specified value."
     assert set_sysctl(node, sysctl, value) is None
 
-class LinuxRouter(Node):
-    "A Node with IPv4/IPv6 forwarding enabled."
-
-    def config(self, **params):
-        super(LinuxRouter, self).config(**params)
-        # Enable forwarding on the router
-        assert_sysctl(self, 'net.ipv4.ip_forward', 1)
-        assert_sysctl(self, 'net.ipv6.conf.all.forwarding', 1)
-    def terminate(self):
-        """
-        Terminate generic LinuxRouter Mininet instance
-        """
-        set_sysctl(self, 'net.ipv4.ip_forward', 0)
-        set_sysctl(self, 'net.ipv6.conf.all.forwarding', 0)
-        super(LinuxRouter, self).terminate()
 
 class Router(Node):
     "A Node with IPv4/IPv6 forwarding enabled and Quagga as Routing Engine"
@@ -1084,6 +1069,24 @@ class Router(Node):
         if leakfound:
             leakfile.close()
 
+class LinuxRouter(Router):
+    "A Node with IPv4/IPv6 forwarding enabled."
+
+    def __init__(self, name, **params):
+        Router.__init__(self, name, **params)
+
+    def config(self, **params):
+        Router.config(self, **params)
+        # Enable forwarding on the router
+        assert_sysctl(self, 'net.ipv4.ip_forward', 1)
+        assert_sysctl(self, 'net.ipv6.conf.all.forwarding', 1)
+    def terminate(self):
+        """
+        Terminate generic LinuxRouter Mininet instance
+        """
+        set_sysctl(self, 'net.ipv4.ip_forward', 0)
+        set_sysctl(self, 'net.ipv6.conf.all.forwarding', 0)
+        Router.terminate(self)
 
 class LegacySwitch(OVSSwitch):
     "A Legacy Switch without OpenFlow"
