@@ -663,17 +663,6 @@ class Router(Node):
             if params.get('routertype') is not None:
                 self.routertype = self.params.get('routertype')
 
-        # Enable forwarding on the router
-        assert_sysctl(self, 'net.ipv4.ip_forward', 1)
-        assert_sysctl(self, 'net.ipv6.conf.all.forwarding', 1)
-        # Enable coredumps
-        assert_sysctl(self, 'kernel.core_uses_pid', 1)
-        assert_sysctl(self, 'fs.suid_dumpable', 1)
-        #this applies to the kernel not the namespace...
-        #original on ubuntu 17.x, but apport won't save as in namespace
-        # |/usr/share/apport/apport %p %s %c %d %P
-        corefile = '%e_core-sig_%s-pid_%p.dmp'
-        assert_sysctl(self, 'kernel.core_pattern', corefile)
         self.cmd('ulimit -c unlimited')
         # Set ownership of config files
         self.cmd('chown {0}:{0}vty /etc/{0}'.format(self.routertype))
@@ -1080,6 +1069,15 @@ class LinuxRouter(Router):
         # Enable forwarding on the router
         assert_sysctl(self, 'net.ipv4.ip_forward', 1)
         assert_sysctl(self, 'net.ipv6.conf.all.forwarding', 1)
+        # Enable coredumps
+        assert_sysctl(self, 'kernel.core_uses_pid', 1)
+        assert_sysctl(self, 'fs.suid_dumpable', 1)
+        #this applies to the kernel not the namespace...
+        #original on ubuntu 17.x, but apport won't save as in namespace
+        # |/usr/share/apport/apport %p %s %c %d %P
+        corefile = '%e_core-sig_%s-pid_%p.dmp'
+        assert_sysctl(self, 'kernel.core_pattern', corefile)
+
     def terminate(self):
         """
         Terminate generic LinuxRouter Mininet instance
