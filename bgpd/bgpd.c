@@ -7474,7 +7474,7 @@ int bgp_config_write(struct vty *vty)
 
 		/* Confederation identifier*/
 		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
-			vty_out(vty, " bgp confederation identifier %i\n",
+			vty_out(vty, " bgp confederation identifier %u\n",
 				bgp->confed_id);
 
 		/* Confederation peer */
