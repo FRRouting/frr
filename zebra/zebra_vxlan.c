@@ -412,7 +412,7 @@ static void zebra_vxlan_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 		 * this MAC update.
 		 */
 		if (zvrf->dad_freeze)
-			*is_dup_detect = false;
+			*is_dup_detect = true;
 
 		return;
 	}
@@ -463,11 +463,6 @@ static void zebra_vxlan_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 	 */
 	if (is_local)
 		mac->dad_count++;
-
-	zlog_debug("%s: MAC DAD %s dad_count %u ",
-		   __PRETTY_FUNCTION__,
-		   prefix_mac2str(&mac->macaddr, buf, sizeof(buf)),
-		   mac->dad_count);
 
 	if (mac->dad_count >= zvrf->dad_max_moves) {
 		flog_warn(EC_ZEBRA_DUP_MAC_DETECTED,
@@ -521,11 +516,11 @@ static void zebra_vxlan_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 					 &mac->dad_mac_auto_recovery_timer);
 		}
 
-		/* Do not inform to client (BGPd),
+		/* In case of local update, do not inform to client (BGPd),
 		 * upd_neigh for neigh sequence change.
 		 */
 		if (zvrf->dad_freeze)
-			*is_dup_detect = false;
+			*is_dup_detect = true;
 	}
 }
 
@@ -5176,11 +5171,11 @@ static void process_remote_macip_add(vni_t vni,
 						    do_dad, &is_dup_detect,
 						    false);
 
-		zvni_process_neigh_on_remote_mac_add(zvni, mac);
-
-		/* Install the entry. */
-		if (!is_dup_detect)
+		if (!is_dup_detect) {
+			zvni_process_neigh_on_remote_mac_add(zvni, mac);
+			/* Install the entry. */
 			zvni_mac_install(zvni, mac);
+		}
 	}
 
 	/* Update seq number. */
@@ -7412,6 +7407,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 	bool mac_sticky = false;
 	bool inform_client = false;
 	bool upd_neigh = false;
+	bool is_dup_detect = false;
 	struct in_addr vtep_ip = {.s_addr = 0};
 
 	/* We are interested in MACs only on ports or (port, VLAN) that
@@ -7559,8 +7555,12 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 
 			zebra_vxlan_dup_addr_detect_for_mac(zvrf, mac, vtep_ip,
 							    do_dad,
-							    &inform_client,
+							    &is_dup_detect,
 							    true);
+			if (is_dup_detect) {
+				inform_client = false;
+				upd_neigh = false;
+			}
 		}
 	}
 
@@ -8971,7 +8971,7 @@ static int zebra_vxlan_dad_mac_auto_recovery_exp(struct thread *t)
 
 	/* Remove all IPs as duplicate associcated with this MAC */
 	for (ALL_LIST_ELEMENTS_RO(mac->neigh_list, node, nbr)) {
-		if (nbr->dad_count) {
+		if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE)) {
 			if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL))
 				ZEBRA_NEIGH_SET_INACTIVE(nbr);
 			else if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_REMOTE))
