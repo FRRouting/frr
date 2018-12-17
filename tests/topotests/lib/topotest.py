@@ -631,7 +631,7 @@ class Router(Node):
         self.daemons = {'zebra': 0, 'ripd': 0, 'ripngd': 0, 'ospfd': 0,
                         'ospf6d': 0, 'isisd': 0, 'bgpd': 0, 'pimd': 0,
                         'ldpd': 0, 'eigrpd': 0, 'nhrpd': 0, 'staticd': 0,
-                        'bfdd': 0}
+                        'bfdd': 0, 'sharpd': 0}
         self.daemons_options = {'zebra': ''}
         self.reportCores = True
         self.version = None
