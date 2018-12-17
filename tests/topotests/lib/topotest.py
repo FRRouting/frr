@@ -581,7 +581,10 @@ def addRouter(topo, name):
                          '/var/run/frr',
                          '/var/run/quagga',
                          '/var/log']
-    return topo.addNode(name, cls=LinuxRouter, privateDirs=MyPrivateDirs)
+    if sys.platform.startswith("linux"):
+        return topo.addNode(name, cls=LinuxRouter, privateDirs=MyPrivateDirs)
+    elif sys.platform.startswith("freebsd"):
+        return topo.addNode(name, cls=FreeBSDRouter, privateDirs=MyPrivateDirs)
 
 def set_sysctl(node, sysctl, value):
     "Set a sysctl value and return None on success or an error string"
@@ -1059,7 +1062,7 @@ class Router(Node):
             leakfile.close()
 
 class LinuxRouter(Router):
-    "A Node with IPv4/IPv6 forwarding enabled."
+    "A Linux Router Node with IPv4/IPv6 forwarding enabled."
 
     def __init__(self, name, **params):
         Router.__init__(self, name, **params)
@@ -1085,6 +1088,13 @@ class LinuxRouter(Router):
         set_sysctl(self, 'net.ipv4.ip_forward', 0)
         set_sysctl(self, 'net.ipv6.conf.all.forwarding', 0)
         Router.terminate(self)
+
+class FreeBSDRouter(Router):
+    "A FreeBSD Router Node with IPv4/IPv6 forwarding enabled."
+
+    def __init__(eslf, name, **params):
+        Router.__init__(Self, name, **params)
+
 
 class LegacySwitch(OVSSwitch):
     "A Legacy Switch without OpenFlow"
