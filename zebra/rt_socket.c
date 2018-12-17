@@ -118,7 +118,6 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		      const struct nexthop_group *ng, uint32_t metric)
 
 {
-	union sockunion *mask = NULL;
 	union sockunion sin_dest, sin_mask, sin_gate;
 #ifdef __OpenBSD__
 	struct sockaddr_mpls smpls;
@@ -237,32 +236,20 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 
 		switch (p->family) {
 		case AF_INET:
-			if (gate && p->prefixlen == 32)
-				mask = NULL;
-			else {
-				masklen2ip(p->prefixlen,
-					   &sin_mask.sin.sin_addr);
-				sin_mask.sin.sin_family = AF_INET;
+			masklen2ip(p->prefixlen, &sin_mask.sin.sin_addr);
+			sin_mask.sin.sin_family = AF_INET;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-				sin_mask.sin.sin_len = sin_masklen(
-					sin_mask.sin.sin_addr);
+			sin_mask.sin.sin_len = sin_masklen(
+				sin_mask.sin.sin_addr);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-				mask = &sin_mask;
-			}
 			break;
 		case AF_INET6:
-			if (gate && p->prefixlen == 128)
-				mask = NULL;
-			else {
-				masklen2ip6(p->prefixlen,
-					    &sin_mask.sin6.sin6_addr);
-				sin_mask.sin6.sin6_family = AF_INET6;
+			masklen2ip6(p->prefixlen, &sin_mask.sin6.sin6_addr);
+			sin_mask.sin6.sin6_family = AF_INET6;
 #ifdef SIN6_LEN
-				sin_mask.sin6.sin6_len = sin6_masklen(
-					sin_mask.sin6.sin6_addr);
+			sin_mask.sin6.sin6_len = sin6_masklen(
+				sin_mask.sin6.sin6_addr);
 #endif /* SIN6_LEN */
-				mask = &sin_mask;
-			}
 			break;
 		}
 
@@ -272,7 +259,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 			continue;
 		smplsp = (union sockunion *)&smpls;
 #endif
-		error = rtm_write(cmd, &sin_dest, mask,
+		error = rtm_write(cmd, &sin_dest, &sin_mask,
 				  gate ? &sin_gate : NULL, smplsp,
 				  ifindex, bh_type, metric);
 
