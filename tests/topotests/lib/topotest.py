@@ -357,9 +357,9 @@ def module_present_freebsd(module, load):
 
 def module_present(module, load=True):
     if sys.platform.startswith("linux"):
-        module_present_linux(module, load)
+        return module_present_linux(module, load)
     elif sys.platform.startswith("freebsd"):
-        module_present_freebsd(module, load)
+        return module_present_freebsd(module, load)
 
 def version_cmp(v1, v2):
     """
@@ -631,7 +631,7 @@ class Router(Node):
         self.daemons = {'zebra': 0, 'ripd': 0, 'ripngd': 0, 'ospfd': 0,
                         'ospf6d': 0, 'isisd': 0, 'bgpd': 0, 'pimd': 0,
                         'ldpd': 0, 'eigrpd': 0, 'nhrpd': 0, 'staticd': 0,
-                        'bfdd': 0}
+                        'bfdd': 0, 'sharpd': 0}
         self.daemons_options = {'zebra': ''}
         self.reportCores = True
         self.version = None
