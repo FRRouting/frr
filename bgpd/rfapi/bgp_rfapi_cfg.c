@@ -1601,8 +1601,10 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
 	idx += 2; /* skip afi and keyword */
 
 	if (is_bgp) {
-		if (idx == argc || strmatch(argv[idx]->arg,
-					    rfg->plist_export_bgp_name[afi])) {
+		if (idx == argc
+		    || (rfg->plist_export_bgp_name[afi]
+			&& strmatch(argv[idx]->arg,
+				    rfg->plist_export_bgp_name[afi]))) {
 			if (rfg->plist_export_bgp_name[afi])
 				free(rfg->plist_export_bgp_name[afi]);
 			rfg->plist_export_bgp_name[afi] = NULL;
@@ -1612,8 +1614,9 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
 		}
 	} else {
 		if (idx == argc
-		    || strmatch(argv[idx]->arg,
-				rfg->plist_export_zebra_name[afi])) {
+		    || (rfg->plist_export_zebra_name[afi]
+			&& strmatch(argv[idx]->arg,
+				    rfg->plist_export_zebra_name[afi]))) {
 			if (rfg->plist_export_zebra_name[afi])
 				free(rfg->plist_export_zebra_name[afi]);
 			rfg->plist_export_zebra_name[afi] = NULL;
@@ -1732,8 +1735,10 @@ DEFUN (vnc_nve_group_export_no_routemap,
 	}
 
 	if (is_bgp) {
-		if (idx == argc || strmatch(argv[idx]->arg,
-					    rfg->routemap_export_bgp_name)) {
+		if (idx == argc
+		    || (rfg->routemap_export_bgp_name
+			&& strmatch(argv[idx]->arg,
+				    rfg->routemap_export_bgp_name))) {
 			if (rfg->routemap_export_bgp_name)
 				free(rfg->routemap_export_bgp_name);
 			rfg->routemap_export_bgp_name = NULL;
@@ -1743,8 +1748,10 @@ DEFUN (vnc_nve_group_export_no_routemap,
 			vnc_direct_bgp_reexport_group_afi(bgp, rfg, AFI_IP6);
 		}
 	} else {
-		if (idx == argc || strmatch(argv[idx]->arg,
-					    rfg->routemap_export_zebra_name)) {
+		if (idx == argc
+		    || (rfg->routemap_export_zebra_name
+			&& strmatch(argv[idx]->arg,
+				    rfg->routemap_export_zebra_name))) {
 			if (rfg->routemap_export_zebra_name)
 				free(rfg->routemap_export_zebra_name);
 			rfg->routemap_export_zebra_name = NULL;
@@ -3468,7 +3475,7 @@ DEFUN (vnc_l2_group_lni,
 
 DEFUN (vnc_l2_group_labels,
        vnc_l2_group_labels_cmd,
-       "labels LABELLIST...",
+       "labels (0-1048575)...",
        "Specify label values associated with group\n"
        "Space separated list of label values <0-1048575>\n")
 {
@@ -3502,7 +3509,7 @@ DEFUN (vnc_l2_group_labels,
 
 DEFUN (vnc_l2_group_no_labels,
        vnc_l2_group_no_labels_cmd,
-       "no labels LABELLIST...",
+       "no labels (0-1048575)...",
        NO_STR
        "Specify label values associated with L2 group\n"
        "Space separated list of label values <0-1048575>\n")
