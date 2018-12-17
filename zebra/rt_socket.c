@@ -126,7 +126,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	struct nexthop *nexthop;
 	int nexthop_num = 0;
 	ifindex_t ifindex = 0;
-	int gate = 0;
+	bool gate = false;
 	int error;
 	char prefix_buf[PREFIX_STRLEN];
 	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
@@ -183,7 +183,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		    !CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;
 
-		gate = 0;
+		gate = false;
 		char gate_buf[INET_ADDRSTRLEN] = "NULL";
 
 		switch (nexthop->type) {
@@ -192,7 +192,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 			sin_gate.sin.sin_addr = nexthop->gate.ipv4;
 			sin_gate.sin.sin_family = AF_INET;
 			ifindex = nexthop->ifindex;
-			gate = 1;
+			gate = true;
 			break;
 		case NEXTHOP_TYPE_IPV6:
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -214,7 +214,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 					ifindex);
 #endif /* KAME */
 
-			gate = 1;
+			gate = true;
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
 			ifindex = nexthop->ifindex;
@@ -226,7 +226,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 				struct in_addr loopback;
 				loopback.s_addr = htonl(INADDR_LOOPBACK);
 				sin_gate.sin.sin_addr = loopback;
-				gate = 1;
+				gate = true;
 			}
 				break;
 			case AFI_IP6:
