@@ -246,6 +246,9 @@ echo -e "\033[33;1mpreparing source tree\033[m"
 if test -f config.version; then
 	# never executed for clean git build
 	. ./config.version
+	if $nongit; then
+		$extraset || extraver="$EXTRAVERSION"
+	fi
 fi
 if test \! -f configure; then
 	# always executed for clean git build
