@@ -135,6 +135,10 @@ daemon_start() {
 
 	ulimit -n $MAX_FDS > /dev/null 2> /dev/null
 	daemon_prep "$daemon" "$inst" || return 1
+	if test ! -d "$V_PATH"; then
+		mkdir -p "$V_PATH"
+		chown frr "$V_PATH"
+	fi
 
 	eval wrap="\$${daemon}_wrap"
 	bin="$D_PATH/$daemon"
