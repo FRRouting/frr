@@ -114,8 +114,8 @@ static int sin6_masklen(struct in6_addr mask)
 #endif /* SIN6_LEN */
 
 /* Interface between zebra message and rtm message. */
-static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
-			   const struct nexthop_group *ng, uint32_t metric)
+static int kernel_rtm(int cmd, const struct prefix *p,
+		      const struct nexthop_group *ng, uint32_t metric)
 
 {
 	union sockunion *mask = NULL;
@@ -134,20 +134,33 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 
 	if (IS_ZEBRA_DEBUG_RIB)
 		prefix2str(p, prefix_buf, sizeof(prefix_buf));
-	memset(&sin_dest, 0, sizeof(sin_dest));
-	sin_dest.sin.sin_family = AF_INET;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	sin_dest.sin.sin_len = sizeof(sin_dest);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-	sin_dest.sin.sin_addr = p->u.prefix4;
 
+	memset(&sin_dest, 0, sizeof(sin_dest));
+	memset(&sin_gate, 0, sizeof(sin_gate));
 	memset(&sin_mask, 0, sizeof(sin_mask));
 
-	memset(&sin_gate, 0, sizeof(sin_gate));
-	sin_gate.sin.sin_family = AF_INET;
+	switch (p->family) {
+	case AF_INET:
+		sin_dest.sin.sin_family = AF_INET;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	sin_gate.sin.sin_len = sizeof(sin_gate);
+		sin_dest.sin.sin_len = sizeof(sin_dest);
+		sin_gate.sin.sin_len = sizeof(sin_gate);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+		sin_dest.sin.sin_addr = p->u.prefix4;
+		sin_gate.sin.sin_family = AF_INET;
+		break;
+	case AF_INET6:
+		sin_dest.sin6.sin6_family = AF_INET6;
+#ifdef SIN6_LEN
+		sin_dest.sin6.sin6_len = sizeof(sin_dest);
+#endif /* SIN6_LEN */
+		sin_dest.sin6.sin6_addr = p->u.prefix6;
+		sin_gate.sin6.sin6_family = AF_INET6;
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+		sin_gate.sin6.sin6_len = sizeof(sin_gate);
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+		break;
+	}
 
 	/* Make gateway. */
 	for (ALL_NEXTHOPS_PTR(ng, nexthop)) {
@@ -164,33 +177,85 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 		 */
 		if ((cmd == RTM_ADD && NEXTHOP_IS_ACTIVE(nexthop->flags))
 		    || (cmd == RTM_DELETE)) {
-			if (nexthop->type == NEXTHOP_TYPE_IPV4
-			    || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
+			switch (nexthop->type) {
+			case NEXTHOP_TYPE_IPV4:
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
 				sin_gate.sin.sin_addr = nexthop->gate.ipv4;
-				gate = 1;
-			}
-			if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-			    || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
+				sin_gate.sin.sin_family = AF_INET;
 				ifindex = nexthop->ifindex;
-			if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
-				struct in_addr loopback;
-				loopback.s_addr = htonl(INADDR_LOOPBACK);
-				sin_gate.sin.sin_addr = loopback;
-				bh_type = nexthop->bh_type;
 				gate = 1;
+				break;
+			case NEXTHOP_TYPE_IPV6:
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				sin_gate.sin6.sin6_addr = nexthop->gate.ipv6;
+				sin_gate.sin6.sin6_family = AF_INET6;
+				ifindex = nexthop->ifindex;
+/* Under kame set interface index to link local address */
+#ifdef KAME
+
+#define SET_IN6_LINKLOCAL_IFINDEX(a, i)                                        \
+        do {                                                                   \
+                (a).s6_addr[2] = ((i) >> 8) & 0xff;                            \
+                (a).s6_addr[3] = (i)&0xff;                                     \
+        } while (0)
+
+                                if (IN6_IS_ADDR_LINKLOCAL(
+                                               &sin_gate.sin6.sin6_addr))
+                                        SET_IN6_LINKLOCAL_IFINDEX(
+                                                sin_gate.sin6.sin6_addr,
+                                                ifindex);
+#endif /* KAME */
+
+				gate = 1;
+				break;
+			case NEXTHOP_TYPE_IFINDEX:
+				ifindex = nexthop->ifindex;
+				break;
+			case NEXTHOP_TYPE_BLACKHOLE:
+				bh_type = nexthop->bh_type;
+				switch (p->family) {
+				case AFI_IP: {
+					struct in_addr loopback;
+					loopback.s_addr =
+						htonl(INADDR_LOOPBACK);
+					sin_gate.sin.sin_addr = loopback;
+					gate = 1;
+				}
+					break;
+				case AFI_IP6:
+					break;
+				}
 			}
 
-			if (gate && p->prefixlen == 32)
-				mask = NULL;
-			else {
-				masklen2ip(p->prefixlen,
-					   &sin_mask.sin.sin_addr);
-				sin_mask.sin.sin_family = AF_INET;
+			switch (p->family) {
+			case AF_INET:
+				if (gate && p->prefixlen == 32)
+					mask = NULL;
+				else {
+					masklen2ip(p->prefixlen,
+						   &sin_mask.sin.sin_addr);
+					sin_mask.sin.sin_family = AF_INET;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-				sin_mask.sin.sin_len =
-					sin_masklen(sin_mask.sin.sin_addr);
+					sin_mask.sin.sin_len = sin_masklen(
+						sin_mask.sin.sin_addr);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-				mask = &sin_mask;
+					mask = &sin_mask;
+				}
+				break;
+			case AF_INET6:
+				if (gate && p->prefixlen == 128)
+					mask = NULL;
+				else {
+					masklen2ip6(p->prefixlen,
+						    &sin_mask.sin6.sin6_addr);
+					sin_mask.sin6.sin6_family = AF_INET6;
+#ifdef SIN6_LEN
+					sin_mask.sin6.sin6_len = sin6_masklen(
+						sin_mask.sin6.sin6_addr);
+#endif /* SIN6_LEN */
+					mask = &sin_mask;
+				}
+				break;
 			}
 
 #ifdef __OpenBSD__
@@ -200,7 +265,6 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 				continue;
 			smplsp = (union sockunion *)&smpls;
 #endif
-
 			error = rtm_write(cmd, &sin_dest, mask,
 					  gate ? &sin_gate : NULL, smplsp,
 					  ifindex, bh_type, metric);
@@ -211,33 +275,31 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 						"%s: %s: attention! gate not found for re",
 						__func__, prefix_buf);
 				} else
-					inet_ntop(AF_INET,
+					inet_ntop(p->family == AFI_IP ? AF_INET
+								     : AF_INET6,
 						  &sin_gate.sin.sin_addr,
 						  gate_buf, INET_ADDRSTRLEN);
 			}
-
 			switch (error) {
-			/* We only flag nexthops as being in FIB if rtm_write()
-			 * did its work. */
+				/* We only flag nexthops as being in FIB if
+				 * rtm_write() did its work. */
 			case ZEBRA_ERR_NOERROR:
 				nexthop_num++;
 				if (IS_ZEBRA_DEBUG_KERNEL)
 					zlog_debug(
 						"%s: %s: successfully did NH %s",
 						__func__, prefix_buf, gate_buf);
-
 				if (cmd == RTM_ADD)
-					SET_FLAG(nexthop->flags,
-						 NEXTHOP_FLAG_FIB);
-
+					SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 				break;
 
-			/* The only valid case for this error is kernel's
-			 * failure to install
-			 * a multipath route, which is common for FreeBSD. This
-			 * should be
-			 * ignored silently, but logged as an error otherwise.
-			 */
+				/* The only valid case for this error is
+				 * kernel's failure to install a multipath
+				 * route, which is common for FreeBSD. This
+				 * should be
+				 * ignored silently, but logged as an error
+				 * otherwise.
+				 */
 			case ZEBRA_ERR_RTEXIST:
 				if (cmd != RTM_ADD)
 					flog_err(
@@ -246,7 +308,7 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 						__func__, error, cmd);
 				continue;
 
-			/* Note any unexpected status returns */
+				/* Note any unexpected status returns */
 			default:
 				flog_err(
 					EC_LIB_SYSTEM_CALL,
@@ -275,125 +337,6 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 	}
 
 	return 0; /*XXX*/
-}
-
-/* Interface between zebra message and rtm message. */
-static int kernel_rtm_ipv6(int cmd, const struct prefix *p,
-			   const struct nexthop_group *ng, uint32_t metric)
-{
-	union sockunion *mask;
-	union sockunion sin_dest, sin_mask, sin_gate;
-#ifdef __OpenBSD__
-	struct sockaddr_mpls smpls;
-#endif
-	union sockunion *smplsp = NULL;
-	struct nexthop *nexthop;
-	int nexthop_num = 0;
-	ifindex_t ifindex = 0;
-	int gate = 0;
-	int error;
-	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
-
-	memset(&sin_dest, 0, sizeof(sin_dest));
-	sin_dest.sin6.sin6_family = AF_INET6;
-#ifdef SIN6_LEN
-	sin_dest.sin6.sin6_len = sizeof(sin_dest);
-#endif /* SIN6_LEN */
-	sin_dest.sin6.sin6_addr = p->u.prefix6;
-
-	memset(&sin_mask, 0, sizeof(sin_mask));
-
-	memset(&sin_gate, 0, sizeof(sin_gate));
-	sin_gate.sin6.sin6_family = AF_INET6;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	sin_gate.sin6.sin6_len = sizeof(sin_gate);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-
-	/* Make gateway. */
-	for (ALL_NEXTHOPS_PTR(ng, nexthop)) {
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-			continue;
-
-		gate = 0;
-
-		if ((cmd == RTM_ADD && NEXTHOP_IS_ACTIVE(nexthop->flags))
-		    || (cmd == RTM_DELETE)) {
-			if (nexthop->type == NEXTHOP_TYPE_IPV6
-			    || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
-				sin_gate.sin6.sin6_addr = nexthop->gate.ipv6;
-				gate = 1;
-			}
-			if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-			    || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
-				ifindex = nexthop->ifindex;
-
-			if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
-				bh_type = nexthop->bh_type;
-		}
-
-/* Under kame set interface index to link local address. */
-#ifdef KAME
-
-#define SET_IN6_LINKLOCAL_IFINDEX(a, i)                                        \
-	do {                                                                   \
-		(a).s6_addr[2] = ((i) >> 8) & 0xff;                            \
-		(a).s6_addr[3] = (i)&0xff;                                     \
-	} while (0)
-
-		if (gate && IN6_IS_ADDR_LINKLOCAL(&sin_gate.sin6.sin6_addr))
-			SET_IN6_LINKLOCAL_IFINDEX(sin_gate.sin6.sin6_addr,
-						  ifindex);
-#endif /* KAME */
-
-		if (gate && p->prefixlen == 128)
-			mask = NULL;
-		else {
-			masklen2ip6(p->prefixlen, &sin_mask.sin6.sin6_addr);
-			sin_mask.sin6.sin6_family = AF_INET6;
-#ifdef SIN6_LEN
-			sin_mask.sin6.sin6_len =
-				sin6_masklen(sin_mask.sin6.sin6_addr);
-#endif /* SIN6_LEN */
-			mask = &sin_mask;
-		}
-
-#ifdef __OpenBSD__
-		if (nexthop->nh_label
-		    && !kernel_rtm_add_labels(nexthop->nh_label, &smpls))
-			continue;
-		smplsp = (union sockunion *)&smpls;
-#endif
-
-		error = rtm_write(cmd, &sin_dest, mask, gate ? &sin_gate : NULL,
-				  smplsp, ifindex, bh_type, metric);
-
-		/* Update installed nexthop info on success */
-		if ((cmd == RTM_ADD) && (error == ZEBRA_ERR_NOERROR))
-			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-
-		nexthop_num++;
-	}
-
-	/* If there is no useful nexthop then return. */
-	if (nexthop_num == 0) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("kernel_rtm_ipv6(): No useful nexthop.");
-		return 1;
-	}
-
-	return 0; /*XXX*/
-}
-
-static int kernel_rtm(int cmd, const struct prefix *p,
-		      const struct nexthop_group *ng, uint32_t metric)
-{
-	switch (PREFIX_FAMILY(p)) {
-	case AF_INET:
-		return kernel_rtm_ipv4(cmd, p, ng, metric);
-	case AF_INET6:
-		return kernel_rtm_ipv6(cmd, p, ng, metric);
-	}
-	return 0;
 }
 
 /*
