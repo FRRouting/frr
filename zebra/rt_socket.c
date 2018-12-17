@@ -89,6 +89,30 @@ static int kernel_rtm_add_labels(struct mpls_label_stack *nh_label,
 }
 #endif
 
+#ifdef SIN6_LEN
+/* Calculate sin6_len value for netmask socket value. */
+static int sin6_masklen(struct in6_addr mask)
+{
+	struct sockaddr_in6 sin6;
+	char *p, *lim;
+	int len;
+
+	if (IN6_IS_ADDR_UNSPECIFIED(&mask))
+		return sizeof(long);
+
+	sin6.sin6_addr = mask;
+	len = sizeof(struct sockaddr_in6);
+
+	lim = (char *)&sin6.sin6_addr;
+	p = lim + sizeof(sin6.sin6_addr);
+
+	while (*--p == 0 && p >= lim)
+		len--;
+
+	return len;
+}
+#endif /* SIN6_LEN */
+
 /* Interface between zebra message and rtm message. */
 static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 			   const struct nexthop_group *ng, uint32_t metric)
@@ -252,30 +276,6 @@ static int kernel_rtm_ipv4(int cmd, const struct prefix *p,
 
 	return 0; /*XXX*/
 }
-
-#ifdef SIN6_LEN
-/* Calculate sin6_len value for netmask socket value. */
-static int sin6_masklen(struct in6_addr mask)
-{
-	struct sockaddr_in6 sin6;
-	char *p, *lim;
-	int len;
-
-	if (IN6_IS_ADDR_UNSPECIFIED(&mask))
-		return sizeof(long);
-
-	sin6.sin6_addr = mask;
-	len = sizeof(struct sockaddr_in6);
-
-	lim = (char *)&sin6.sin6_addr;
-	p = lim + sizeof(sin6.sin6_addr);
-
-	while (*--p == 0 && p >= lim)
-		len--;
-
-	return len;
-}
-#endif /* SIN6_LEN */
 
 /* Interface between zebra message and rtm message. */
 static int kernel_rtm_ipv6(int cmd, const struct prefix *p,
