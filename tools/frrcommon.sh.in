@@ -83,7 +83,7 @@ daemon_list() {
 	for daemon in $DAEMONS; do
 		eval cfg=\$$daemon
 		eval inst=\$${daemon}_instances
-		[ "$daemon" = zebra ] && cfg=yes
+		[ "$daemon" = zebra -o "$daemon" = staticd ] && cfg=yes
 		if [ -n "$cfg" -a "$cfg" != "no" -a "$cfg" != "0" ]; then
 			debug "$daemon enabled"
 			enabled="$enabled $daemon"
