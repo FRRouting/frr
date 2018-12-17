@@ -330,7 +330,7 @@ DEFUN (ripng_redistribute_type_routemap,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ripng_redistribute_routemap_set(type, argv[idx_word]->text);
+	ripng_redistribute_routemap_set(type, argv[idx_word]->arg);
 	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0,
 			     VRF_DEFAULT);
 	return CMD_SUCCESS;
@@ -361,7 +361,7 @@ DEFUN (ripng_redistribute_type_metric_routemap,
 	}
 
 	ripng_redistribute_metric_set(type, metric);
-	ripng_redistribute_routemap_set(type, argv[idx_word]->text);
+	ripng_redistribute_routemap_set(type, argv[idx_word]->arg);
 	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0,
 			     VRF_DEFAULT);
 	return CMD_SUCCESS;
