@@ -7863,7 +7863,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				if (path->extra->bgp_orig->inst_type
 				    == BGP_INSTANCE_TYPE_DEFAULT)
 
-					vn = "Default";
+					vn = VRF_DEFAULT_NAME;
 				else
 					vn = path->extra->bgp_orig->name;
 
