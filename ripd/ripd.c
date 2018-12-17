@@ -3364,8 +3364,8 @@ void rip_clean(void)
 			if (rip->route_map[i].name)
 				free(rip->route_map[i].name);
 
-		XFREE(MTYPE_ROUTE_TABLE, rip->table);
-		XFREE(MTYPE_ROUTE_TABLE, rip->neighbor);
+		route_table_finish(rip->table);
+		route_table_finish(rip->neighbor);
 
 		XFREE(MTYPE_RIP, rip);
 		rip = NULL;
