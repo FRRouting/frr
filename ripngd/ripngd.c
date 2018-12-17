@@ -2445,7 +2445,7 @@ void ripng_clean()
 			if (ripng->route_map[i].name)
 				free(ripng->route_map[i].name);
 
-		XFREE(MTYPE_ROUTE_TABLE, ripng->table);
+		agg_table_finish(ripng->table);
 
 		stream_free(ripng->ibuf);
 		stream_free(ripng->obuf);
