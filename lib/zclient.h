@@ -36,6 +36,8 @@
 /* For union pw_protocol_fields */
 #include "pw.h"
 
+#include "mlag.h"
+
 /* For input/output buffer to zebra. */
 #define ZEBRA_MAX_PACKET_SIZ          16384
 
@@ -171,6 +173,7 @@ struct redist_proto {
 struct zclient_capabilities {
 	uint32_t ecmp;
 	bool mpls_enabled;
+	enum mlag_role role;
 };
 
 /* Structure for the zebra client. */
