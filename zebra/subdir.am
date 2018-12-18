@@ -64,6 +64,7 @@ zebra_zebra_SOURCES = \
 	zebra/rtread_sysctl.c \
 	zebra/rule_netlink.c \
 	zebra/rule_socket.c \
+	zebra/zebra_mlag.c \
 	zebra/zebra_l2.c \
 	zebra/zebra_memory.c \
 	zebra/zebra_dplane.c \
@@ -119,6 +120,7 @@ noinst_HEADERS += \
 	zebra/rt_netlink.h \
 	zebra/rtadv.h \
 	zebra/rule_netlink.h \
+	zebra/zebra_mlag.h \
 	zebra/zebra_fpm_private.h \
 	zebra/zebra_l2.h \
 	zebra/zebra_dplane.h \
