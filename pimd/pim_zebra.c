@@ -743,11 +743,19 @@ static void pim_zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, pimg->vrf_id);
 }
 
+static void pim_zebra_capabilities(struct zclient_capabilities *cap)
+{
+	/*
+	 * Don't do anything with this data yet
+	 */
+}
+
 void pim_zebra_init(void)
 {
 	/* Socket for receiving updates from Zebra daemon */
 	zclient = zclient_new(master, &zclient_options_default);
 
+	zclient->zebra_capabilities = pim_zebra_capabilities;
 	zclient->zebra_connected = pim_zebra_connected;
 	zclient->router_id_update = pim_router_id_update_zebra;
 	zclient->interface_add = pim_zebra_if_add;
