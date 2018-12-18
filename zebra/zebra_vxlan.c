@@ -8395,7 +8395,7 @@ int zebra_vxlan_if_add(struct interface *ifp)
 				"Add L2-VNI %u VRF %s intf %s(%u) VLAN %u local IP %s master %u",
 				vni,
 				vlan_if ? vrf_id_to_name(vlan_if->vrf_id)
-					: "Default",
+					: VRF_DEFAULT_NAME,
 				ifp->name, ifp->ifindex, vxl->access_vlan,
 				inet_ntoa(vxl->vtep_ip),
 				zif->brslave_info.bridge_ifindex);

@@ -6581,7 +6581,7 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 		CHECK_FLAG(path->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
 	bool nexthop_othervrf = false;
 	vrf_id_t nexthop_vrfid = VRF_DEFAULT;
-	const char *nexthop_vrfname = "Default";
+	const char *nexthop_vrfname = VRF_DEFAULT_NAME;
 
 	if (json_paths)
 		json_path = json_object_new_object();
@@ -7863,7 +7863,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				if (path->extra->bgp_orig->inst_type
 				    == BGP_INSTANCE_TYPE_DEFAULT)
 
-					vn = "Default";
+					vn = VRF_DEFAULT_NAME;
 				else
 					vn = path->extra->bgp_orig->name;
 
