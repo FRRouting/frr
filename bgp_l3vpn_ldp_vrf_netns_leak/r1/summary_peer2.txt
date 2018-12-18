@@ -1,0 +1,18 @@
+
+{
+"ipv4Unicast":{
+  "routerId":"2.2.2.2",
+  "as":100,
+  "vrfName":"r1-cust2",
+  "peerCount":1,
+  "peers":{
+    "2.2.2.3":{
+      "outq":0,
+      "inq":0,
+      "prefixReceivedCount":10,
+      "state":"Established"
+    }
+  },
+  "totalPeers":1
+}
+}

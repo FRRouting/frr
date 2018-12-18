@@ -1,0 +1,58 @@
+## Color coding:
+#########################
+##  Main FRR: #f08080  red
+##  Switches: #d0e0d0  gray
+##  RIP:      #19e3d9  Cyan
+##  RIPng:    #fcb314  dark yellow
+##  OSPFv2:   #32b835  Green
+##  OSPFv3:   #19e3d9  Cyan
+##  ISIS IPv4 #fcb314  dark yellow
+##  ISIS IPv6 #9a81ec  purple
+##  BGP IPv4  #eee3d3  beige
+##  BGP IPv6  #fdff00  yellow
+##### Colors (see http://www.color-hex.com/)
+
+graph bgp_vrf_netns_eBGP_topo1 {
+	label="bgp vrf netns topo1 - eBGP with different AS numbers";
+    labelloc="t";
+
+	# Routers
+	r1-vrf-cust1 [
+		label="r1\nrtr-id 1.1.1.1/32",
+		shape=doubleoctagon,
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+        r1-vrf-cust2 [
+		label="r1\nrtr-id 2.2.2.2/32",
+		shape=doubleoctagon,
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+	r2-vrf-cust1 [
+		label="r1\nrtr-id 3.3.3.3/32",
+		shape=doubleoctagon,
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+        r2-vrf-cust2 [
+		label="r1\nrtr-id 4.4.4.4/32",
+		shape=doubleoctagon,
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+        # Connections
+	r1-vrf-cust1 -- s1 [label="eth0\n.1"];
+	r1-vrf-cust2 -- s2 [label="eth1\n.1"];
+	r2-vrf-cust1 -- s3 [label="eth0\n.1"];
+	r2-vrf-cust2 -- s4 [label="eth1\n.1"];
+        r1 -- s5 [label="eth2\n.1"];
+        r2 -- s5 [label="eth2\n.1"];
+
+	# Arrange network to make cleaner diagram
+	{ rank=same r1 } -- s5 -- { rank=same r2} [style=invis]
+}
