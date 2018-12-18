@@ -134,6 +134,7 @@ pkginclude_HEADERS += \
 	lib/bitfield.h \
 	lib/buffer.h \
 	lib/checksum.h \
+	lib/mlag.h \
 	lib/command.h \
 	lib/command_graph.h \
 	lib/command_match.h \
