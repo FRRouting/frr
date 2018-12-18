@@ -10,6 +10,7 @@ vtysh_scan += \
 	$(top_srcdir)/zebra/interface.c \
 	$(top_srcdir)/zebra/router-id.c \
 	$(top_srcdir)/zebra/rtadv.c \
+	$(top_srcdir)/zebra/zebra_mlag.c \
 	$(top_srcdir)/zebra/zebra_mpls_vty.c \
 	$(top_srcdir)/zebra/zebra_ptm.c \
 	$(top_srcdir)/zebra/zebra_pw.c \
@@ -94,9 +95,11 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_errors.c \
 	# end
 
+zebra/zebra_mlag_clippy.c: $(CLIPPY_DEPS)
+zebra/zebra_mlag.$(OBJEXT): zebra/zebra_mlag_clippy.c
+
 zebra/zebra_vty_clippy.c: $(CLIPPY_DEPS)
 zebra/zebra_vty.$(OBJEXT): zebra/zebra_vty_clippy.c
-
 
 zebra/zebra_routemap_clippy.c: $(CLIPPY_DEPS)
 zebra/zebra_routemap.$(OBJEXT): zebra/zebra_routemap_clippy.c
