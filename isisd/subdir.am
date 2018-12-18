@@ -7,12 +7,12 @@ noinst_LIBRARIES += isisd/libisis.a
 sbin_PROGRAMS += isisd/isisd
 dist_examples_DATA += isisd/isisd.conf.sample
 vtysh_scan += \
+	$(top_srcdir)/isisd/isis_cli.c \
 	$(top_srcdir)/isisd/isis_redist.c \
 	$(top_srcdir)/isisd/isis_spf.c \
 	$(top_srcdir)/isisd/isis_te.c \
 	$(top_srcdir)/isisd/isis_vty_common.c \
 	$(top_srcdir)/isisd/isis_vty_fabricd.c \
-	$(top_srcdir)/isisd/isis_vty_isisd.c \
 	$(top_srcdir)/isisd/isisd.c \
 	# end
 man8 += $(MANBUILD)/isisd.8
@@ -57,6 +57,7 @@ noinst_HEADERS += \
 	isisd/isisd.h \
 	isisd/iso_checksum.h \
 	isisd/fabricd.h \
+	isisd/isis_cli.h \
 	# end
 
 LIBISIS_SOURCES = \
@@ -103,11 +104,19 @@ ISIS_LDADD_COMMON = lib/libfrr.la @LIBCAP@
 
 isisd_libisis_a_SOURCES = \
 	$(LIBISIS_SOURCES) \
-	isisd/isis_vty_isisd.c \
+	isisd/isis_northbound.c \
+	isisd/isis_cli.c \
 	#end
+
+isisd/isis_cli_clippy.c: $(CLIPPY_DEPS)
+isisd/isis_cli.$(OBJEXT): isisd/isis_cli_clippy.c
+
 isisd_isisd_LDADD = isisd/libisis.a $(ISIS_LDADD_COMMON)
 isisd_isisd_SOURCES = $(ISIS_SOURCES)
-
+nodist_isisd_isisd_SOURCES = \
+	yang/frr-isisd.yang.c \
+	# end
+	
 # Building fabricd
 
 FABRICD_CPPFLAGS = -DFABRICD=1 $(AM_CPPFLAGS)

@@ -36,6 +36,7 @@
 #include "table.h"
 #include "qobj.h"
 #include "spf_backoff.h"
+#include "lib/northbound_cli.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
@@ -67,7 +68,6 @@ DEFINE_QOBJ_TYPE(isis_area)
  * Prototypes.
  */
 int isis_area_get(struct vty *, const char *);
-int isis_area_destroy(struct vty *, const char *);
 int area_net_title(struct vty *, const char *);
 int area_clear_net_title(struct vty *, const char *);
 int show_isis_interface_common(struct vty *, const char *ifname, char);
@@ -113,10 +113,11 @@ struct isis_area *isis_area_create(const char *area_tag)
 	 */
 	if (fabricd) {
 		area->is_type = IS_LEVEL_2;
-	} else if (listcount(isis->area_list) > 0)
-		area->is_type = IS_LEVEL_1;
-	else
+	} else if (listcount(isis->area_list) == 0)
 		area->is_type = IS_LEVEL_1_AND_2;
+	else
+		area->is_type = yang_get_default_enum(
+			"/frr-isisd:isis/instance/is-type");
 
 	/*
 	 * intialize the databases
@@ -138,6 +139,35 @@ struct isis_area *isis_area_create(const char *area_tag)
 	/*
 	 * Default values
 	 */
+#ifndef FABRICD
+	enum isis_metric_style default_style;
+
+	area->max_lsp_lifetime[0] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/maximum-lifetime/level-1");
+	area->max_lsp_lifetime[1] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/maximum-lifetime/level-2");
+	area->lsp_refresh[0] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/refresh-interval/level-1");
+	area->lsp_refresh[1] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/refresh-interval/level-2");
+	area->lsp_gen_interval[0] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/generation-interval/level-1");
+	area->lsp_gen_interval[1] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/generation-interval/level-2");
+	area->min_spf_interval[0] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/spf/minimum-interval/level-1");
+	area->min_spf_interval[1] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/spf/minimum-interval/level-1");
+	area->dynhostname = yang_get_default_bool(
+		"/frr-isisd:isis/instance/dynamic-hostname");
+	default_style =
+		yang_get_default_enum("/frr-isisd:isis/instance/metric-style");
+	area->oldmetric = default_style == ISIS_WIDE_METRIC ? 0 : 1;
+	area->newmetric = default_style == ISIS_NARROW_METRIC ? 0 : 1;
+	area->lsp_frag_threshold = 90; /* not currently configurable */
+	area->lsp_mtu =
+		yang_get_default_uint16("/frr-isisd:isis/instance/lsp/mtu");
+#else
 	area->max_lsp_lifetime[0] = DEFAULT_LSP_LIFETIME;    /* 1200 */
 	area->max_lsp_lifetime[1] = DEFAULT_LSP_LIFETIME;    /* 1200 */
 	area->lsp_refresh[0] = DEFAULT_MAX_LSP_GEN_INTERVAL; /* 900 */
@@ -151,6 +181,7 @@ struct isis_area *isis_area_create(const char *area_tag)
 	area->newmetric = 1;
 	area->lsp_frag_threshold = 90;
 	area->lsp_mtu = DEFAULT_LSP_MTU;
+#endif /* ifndef FABRICD */
 
 	area_mt_init(area);
 
@@ -207,7 +238,7 @@ int isis_area_get(struct vty *vty, const char *area_tag)
 	return CMD_SUCCESS;
 }
 
-int isis_area_destroy(struct vty *vty, const char *area_tag)
+int isis_area_destroy(const char *area_tag)
 {
 	struct isis_area *area;
 	struct listnode *node, *nnode;
@@ -217,7 +248,8 @@ int isis_area_destroy(struct vty *vty, const char *area_tag)
 	area = isis_area_lookup(area_tag);
 
 	if (area == NULL) {
-		vty_out(vty, "Can't find ISIS instance \n");
+		zlog_warn("%s: could not find area with area-tag %s",
+				__func__, area_tag);
 		return CMD_ERR_NO_MATCH;
 	}
 
@@ -287,6 +319,7 @@ int isis_area_destroy(struct vty *vty, const char *area_tag)
 	return CMD_SUCCESS;
 }
 
+#ifdef FABRICD
 static void area_set_mt_enabled(struct isis_area *area, uint16_t mtid,
 				bool enabled)
 {
@@ -312,6 +345,7 @@ static void area_set_mt_overload(struct isis_area *area, uint16_t mtid,
 						0);
 	}
 }
+#endif /* ifdef FABRICD */
 
 int area_net_title(struct vty *vty, const char *net_title)
 {
@@ -1452,12 +1486,13 @@ DEFUN (show_database,
 	return show_isis_database(vty, id, uilevel);
 }
 
+#ifdef FABRICD
 /*
- * 'router isis' command
+ * 'router openfabric' command
  */
-DEFUN_NOSH (router_isis,
-       router_isis_cmd,
-       "router " PROTO_NAME " WORD",
+DEFUN_NOSH (router_openfabric,
+       router_openfabric_cmd,
+       "router openfabric WORD",
        ROUTER_STR
        PROTO_HELP
        "ISO Routing area tag\n")
@@ -1467,20 +1502,21 @@ DEFUN_NOSH (router_isis,
 }
 
 /*
- *'no router isis' command
+ *'no router openfabric' command
  */
-DEFUN (no_router_isis,
-       no_router_isis_cmd,
-       "no router " PROTO_NAME " WORD",
+DEFUN (no_router_openfabric,
+       no_router_openfabric_cmd,
+       "no router openfabric WORD",
        NO_STR
        ROUTER_STR
        PROTO_HELP
        "ISO Routing area tag\n")
 {
 	int idx_word = 3;
-	return isis_area_destroy(vty, argv[idx_word]->arg);
+	return isis_area_destroy(argv[idx_word]->arg);
 }
-
+#endif /* ifdef FABRICD */
+#ifdef FABRICD
 /*
  * 'net' command
  */
@@ -1507,7 +1543,8 @@ DEFUN (no_net,
 	int idx_word = 2;
 	return area_clear_net_title(vty, argv[idx_word]->arg);
 }
-
+#endif /* ifdef FABRICD */
+#ifdef FABRICD
 DEFUN (isis_topology,
        isis_topology_cmd,
        "topology " ISIS_MT_NAMES " [overload]",
@@ -1572,6 +1609,7 @@ DEFUN (no_isis_topology,
 	area_set_mt_overload(area, mtid, false);
 	return CMD_SUCCESS;
 }
+#endif /* ifdef FABRICD */
 
 void isis_area_lsp_mtu_set(struct isis_area *area, unsigned int lsp_mtu)
 {
@@ -1743,11 +1781,9 @@ void isis_area_is_type_set(struct isis_area *area, int is_type)
 void isis_area_metricstyle_set(struct isis_area *area, bool old_metric,
 			       bool new_metric)
 {
-	if (area->oldmetric != old_metric || area->newmetric != new_metric) {
-		area->oldmetric = old_metric;
-		area->newmetric = new_metric;
-		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-	}
+	area->oldmetric = old_metric;
+	area->newmetric = new_metric;
+	lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
 }
 
 void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
@@ -1758,6 +1794,9 @@ void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 		area->overload_bit = new_overload_bit;
 		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
 	}
+#ifndef FABRICD
+	isis_notif_db_overload(area, overload_bit);
+#endif /* ifndef FABRICD */
 }
 
 void isis_area_attached_bit_set(struct isis_area *area, bool attached_bit)
@@ -1802,6 +1841,7 @@ void isis_area_lsp_refresh_set(struct isis_area *area, int level,
 	lsp_regenerate_schedule(area, level, 1);
 }
 
+#ifdef FABRICD
 DEFUN (log_adj_changes,
        log_adj_changes_cmd,
        "log-adjacency-changes",
@@ -1826,7 +1866,8 @@ DEFUN (no_log_adj_changes,
 
 	return CMD_SUCCESS;
 }
-
+#endif /* ifdef FABRICD */
+#ifdef FABRICD
 /* IS-IS configuration write function */
 int isis_config_write(struct vty *vty)
 {
@@ -2101,6 +2142,23 @@ int isis_config_write(struct vty *vty)
 	return write;
 }
 
+#else
+/* IS-IS configuration write function */
+int isis_config_write(struct vty *vty)
+{
+	int write = 0;
+	struct lyd_node *dnode;
+
+	dnode = yang_dnode_get(running_config->dnode, "/frr-isisd:isis");
+	if (dnode) {
+		nb_cli_show_dnode_cmds(vty, dnode, false);
+		write++;
+	}
+
+	return write;
+}
+#endif /* ifdef FABRICD */
+
 struct cmd_node router_node = {ROUTER_NODE, "%s(config-router)# ", 1};
 
 void isis_init()
@@ -2179,10 +2237,11 @@ void isis_init()
 	install_element(CONFIG_NODE, &debug_isis_bfd_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_bfd_cmd);
 
-	install_element(CONFIG_NODE, &router_isis_cmd);
-	install_element(CONFIG_NODE, &no_router_isis_cmd);
-
 	install_default(ROUTER_NODE);
+
+#ifdef FABRICD
+	install_element(CONFIG_NODE, &router_openfabric_cmd);
+	install_element(CONFIG_NODE, &no_router_openfabric_cmd);
 
 	install_element(ROUTER_NODE, &net_cmd);
 	install_element(ROUTER_NODE, &no_net_cmd);
@@ -2192,6 +2251,7 @@ void isis_init()
 
 	install_element(ROUTER_NODE, &log_adj_changes_cmd);
 	install_element(ROUTER_NODE, &no_log_adj_changes_cmd);
+#endif /* ifdef FABRICD */
 
 	spf_backoff_cmd_init();
 }

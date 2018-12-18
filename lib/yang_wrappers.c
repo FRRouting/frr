@@ -171,6 +171,7 @@ int yang_str2enum(const char *xpath, const char *value)
 {
 	const struct lys_node *snode;
 	const struct lys_node_leaf *sleaf;
+	const struct lys_type *type;
 	const struct lys_type_info_enums *enums;
 
 	snode = ly_ctx_get_node(ly_native_ctx, NULL, xpath, 0);
@@ -182,7 +183,12 @@ int yang_str2enum(const char *xpath, const char *value)
 	}
 
 	sleaf = (const struct lys_node_leaf *)snode;
-	enums = &sleaf->type.info.enums;
+	type = &sleaf->type;
+	enums = &type->info.enums;
+	while (enums->count == 0 && type->der) {
+		type = &type->der->type;
+		enums = &type->info.enums;
+	}
 	for (unsigned int i = 0; i < enums->count; i++) {
 		const struct lys_type_enum *enm = &enums->enm[i];
 

@@ -26,12 +26,6 @@
 
 struct isis_circuit *isis_circuit_lookup(struct vty *vty);
 
-int isis_vty_max_lsp_lifetime_set(struct vty *vty, int level, uint16_t interval);
-int isis_vty_lsp_refresh_set(struct vty *vty, int level, uint16_t interval);
-int isis_vty_lsp_gen_interval_set(struct vty *vty, int level, uint16_t interval);
-int isis_vty_password_set(struct vty *vty, int argc,
-			  struct cmd_token *argv[], int level);
-
 void isis_vty_daemon_init(void);
 void isis_vty_init(void);
 

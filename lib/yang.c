@@ -71,10 +71,11 @@ static const char *yang_module_imp_clb(const char *mod_name,
 	return NULL;
 }
 
-static const char * const frr_native_modules[] = {
+static const char *const frr_native_modules[] = {
 	"frr-interface",
 	"frr-ripd",
 	"frr-ripngd",
+	"frr-isisd",
 };
 
 /* Generate the yang_modules tree. */

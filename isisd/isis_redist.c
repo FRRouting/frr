@@ -388,9 +388,8 @@ static void isis_redist_update_zebra_subscriptions(struct isis *isis)
 		}
 }
 
-static void isis_redist_set(struct isis_area *area, int level, int family,
-			    int type, uint32_t metric, const char *routemap,
-			    int originate_type)
+void isis_redist_set(struct isis_area *area, int level, int family, int type,
+		     uint32_t metric, const char *routemap, int originate_type)
 {
 	int protocol = redist_protocol(family);
 	struct isis_redist *redist =
@@ -445,8 +444,7 @@ static void isis_redist_set(struct isis_area *area, int level, int family,
 	}
 }
 
-static void isis_redist_unset(struct isis_area *area, int level, int family,
-			      int type)
+void isis_redist_unset(struct isis_area *area, int level, int family, int type)
 {
 	struct isis_redist *redist =
 		get_redist_settings(area, family, type, level);
@@ -513,21 +511,15 @@ void isis_redist_area_finish(struct isis_area *area)
 	isis_redist_update_zebra_subscriptions(area->isis);
 }
 
+#ifdef FABRICD
 DEFUN (isis_redistribute,
        isis_redistribute_cmd,
        "redistribute <ipv4|ipv6> " PROTO_REDIST_STR
-#ifndef FABRICD
-       " <level-1|level-2>"
-#endif
        " [<metric (0-16777215)|route-map WORD>]",
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
        PROTO_REDIST_HELP
-#ifndef FABRICD
-       "Redistribute into level-1\n"
-       "Redistribute into level-2\n"
-#endif
        "Metric for redistributed routes\n"
        "ISIS default metric\n"
        "Route map reference\n"
@@ -535,7 +527,6 @@ DEFUN (isis_redistribute,
 {
 	int idx_afi = 1;
 	int idx_protocol = 2;
-	int idx_level = 3;
 	int idx_metric_rmap = fabricd ? 3 : 4;
 	VTY_DECLVAR_CONTEXT(isis_area, area);
 	int family;
@@ -557,14 +548,7 @@ DEFUN (isis_redistribute,
 	if (type < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (fabricd)
-		level = 2;
-	else if (!strcmp("level-1", argv[idx_level]->arg))
-		level = 1;
-	else if (!strcmp("level-2", argv[idx_level]->arg))
-		level = 2;
-	else
-		return CMD_WARNING_CONFIG_FAILED;
+	level = 2;
 
 	if ((area->is_type & level) != level) {
 		vty_out(vty, "Node is not a level-%d IS\n", level);
@@ -593,24 +577,15 @@ DEFUN (isis_redistribute,
 
 DEFUN (no_isis_redistribute,
        no_isis_redistribute_cmd,
-       "no redistribute <ipv4|ipv6> " PROTO_REDIST_STR
-#ifndef FABRICD
-       " <level-1|level-2>"
-#endif
-       , NO_STR
+       "no redistribute <ipv4|ipv6> " PROTO_REDIST_STR,
+       NO_STR
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
-       PROTO_REDIST_HELP
-#ifndef FABRICD
-       "Redistribute into level-1\n"
-       "Redistribute into level-2\n"
-#endif
-       )
+       PROTO_REDIST_HELP)
 {
 	int idx_afi = 2;
 	int idx_protocol = 3;
-	int idx_level = 4;
 	VTY_DECLVAR_CONTEXT(isis_area, area);
 	int type;
 	int level;
@@ -629,10 +604,7 @@ DEFUN (no_isis_redistribute,
 	if (type < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (fabricd)
-		level = 2;
-	else
-		level = strmatch("level-1", argv[idx_level]->text) ? 1 : 2;
+	level = 2;
 
 	isis_redist_unset(area, level, family, type);
 	return 0;
@@ -641,18 +613,11 @@ DEFUN (no_isis_redistribute,
 DEFUN (isis_default_originate,
        isis_default_originate_cmd,
        "default-information originate <ipv4|ipv6>"
-#ifndef FABRICD
-       " <level-1|level-2>"
-#endif
        " [always] [<metric (0-16777215)|route-map WORD>]",
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Distribute default route for IPv4\n"
        "Distribute default route for IPv6\n"
-#ifndef FABRICD
-       "Distribute default route into level-1\n"
-       "Distribute default route into level-2\n"
-#endif
        "Always advertise default route\n"
        "Metric for default route\n"
        "ISIS default metric\n"
@@ -660,7 +625,6 @@ DEFUN (isis_default_originate,
        "Pointer to route-map entries\n")
 {
 	int idx_afi = 2;
-	int idx_level = 3;
 	int idx_always = fabricd ? 3 : 4;
 	int idx_metric_rmap = fabricd ? 3 : 4;
 	VTY_DECLVAR_CONTEXT(isis_area, area);
@@ -674,10 +638,7 @@ DEFUN (isis_default_originate,
 	if (family < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (fabricd)
-		level = 2;
-	else
-		level = strmatch("level-1", argv[idx_level]->text) ? 1 : 2;
+	level = 2;
 
 	if ((area->is_type & level) != level) {
 		vty_out(vty, "Node is not a level-%d IS\n", level);
@@ -711,23 +672,14 @@ DEFUN (isis_default_originate,
 
 DEFUN (no_isis_default_originate,
        no_isis_default_originate_cmd,
-       "no default-information originate <ipv4|ipv6>"
-#ifndef FABRICD
-       " <level-1|level-2>"
-#endif
-       , NO_STR
+       "no default-information originate <ipv4|ipv6>",
+       NO_STR
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Distribute default route for IPv4\n"
-       "Distribute default route for IPv6\n"
-#ifndef FABRICD
-       "Distribute default route into level-1\n"
-       "Distribute default route into level-2\n"
-#endif
-       )
+       "Distribute default route for IPv6\n")
 {
 	int idx_afi = 3;
-	int idx_level = 4;
 	VTY_DECLVAR_CONTEXT(isis_area, area);
 	int family;
 	int level;
@@ -736,18 +688,12 @@ DEFUN (no_isis_default_originate,
 	if (family < 0)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	if (fabricd)
-		level = 2;
-	else if (strmatch("level-1", argv[idx_level]->text))
-		level = 1;
-	else if (strmatch("level-2", argv[idx_level]->text))
-		level = 2;
-	else
-		return CMD_WARNING_CONFIG_FAILED;
+	level = 2;
 
 	isis_redist_unset(area, level, family, DEFAULT_ROUTE);
 	return 0;
 }
+#endif /* ifdef FABRICD */
 
 int isis_redist_config_write(struct vty *vty, struct isis_area *area,
 			     int family)
@@ -810,8 +756,11 @@ int isis_redist_config_write(struct vty *vty, struct isis_area *area,
 
 void isis_redist_init(void)
 {
+#ifdef FABRICD
 	install_element(ROUTER_NODE, &isis_redistribute_cmd);
 	install_element(ROUTER_NODE, &no_isis_redistribute_cmd);
+
 	install_element(ROUTER_NODE, &isis_default_originate_cmd);
 	install_element(ROUTER_NODE, &no_isis_default_originate_cmd);
+#endif /* ifdef FABRICD */
 }

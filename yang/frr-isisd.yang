@@ -1,0 +1,1404 @@
+module frr-isisd {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/isisd";
+  prefix frr-isisd;
+
+  import ietf-yang-types {
+    prefix yang;
+  }
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import frr-interface {
+    prefix frr-interface;
+  }
+
+  import frr-route-types {
+    prefix frr-route-types;
+  }
+
+  organization
+    "Free Range Routing";
+  contact
+    "FRR Users List: <mailto:frog@lists.frrouting.org> FRR Development
+     List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR isisd daemon.";
+
+  revision 2018-07-26 {
+    description
+      "Initial revision.";
+    reference
+      "ISO/IEC 10589:2002.";
+  }
+
+  typedef level {
+    type enumeration {
+      enum "level-1" {
+        value 1;
+        description
+          "This enum indicates L1-only capability.";
+      }
+      enum "level-2" {
+        value 2;
+        description
+          "This enum indicates L2-only capability.";
+      }
+      enum "level-1-2" {
+        value 3;
+        description
+          "This enum indicates capability for both levels.";
+      }
+    }
+    description
+      "This type defines IS-IS level of an object.";
+  }
+
+  typedef network-type {
+    type enumeration {
+      enum "unknown" {
+        value 0;
+        description
+          "Unknown network type. Only valid as a state.";
+      }
+      enum "broadcast" {
+        value 1;
+        description
+          "Broadcast circuit network-type.";
+      }
+      enum "point-to-point" {
+        value 2;
+        description
+          "Point-to-point circuit network-type.";
+      }
+      enum "loopback" {
+        value 3;
+        description
+          "Loopback circuit network-type. Only valid as a state.";
+      }
+    }
+  }
+
+  typedef lsp-id {
+    type string {
+      pattern "[0-9A-Fa-f]{4}\\.[0-9A-Fa-f]{4}\\.[0-9A-Fa-f]{4}\\.[0-9][0-9]-[0-9][0-9]";
+    }
+    description
+      "This type defines the IS-IS LSP ID format using a
+       pattern, An example LSP ID is 0143.0438.AeF0.02-01";
+  }
+
+  typedef system-id {
+    type string {
+      pattern "[0-9A-Fa-f]{4}\\.[0-9A-Fa-f]{4}\\.[0-9A-Fa-f]{4}";
+    }
+    description
+      "This type defines IS-IS system-id using a pattern,
+       An example system-id is 0143.0438.AeF0";
+  }
+
+  typedef net-address {
+    type string {
+      pattern "[a-fA-F0-9]{2}(\\.[a-fA-F0-9]{4}){3,9}\\.[a-fA-F0-9]{2}";
+    }
+    description
+      "This type defines an OSI NET address using a pattern,
+       An example net-address is 49.0123.6452.1972.00";
+  }
+
+  typedef if-state-type {
+    type enumeration {
+      enum "up" {
+        value 0;
+        description
+          "Up state.";
+      }
+      enum "down" {
+        value 1;
+        description
+          "Down state";
+      }
+    }
+    description
+      "This type defines the state of an interface";
+  }
+
+  typedef adj-state-type {
+    type enumeration {
+      enum "up" {
+        value 0;
+        description
+          "State indicates the adjacency is established.";
+      }
+      enum "down" {
+        value 1;
+        description
+          "State indicates the adjacency is NOT established.";
+      }
+      enum "init" {
+        value 2;
+        description
+          "State indicates the adjacency is establishing.";
+      }
+      enum "failed" {
+        value 3;
+        description
+          "State indicates the adjacency is failed.";
+      }
+    }
+    description
+      "This type defines states of an adjacency";
+  }
+
+  typedef metric-style-type {
+    type enumeration {
+      enum "narrow" {
+        value 0;
+        description
+          "This enum describes narrow metric style";
+        reference
+          "RFC1195";
+      }
+      enum "wide" {
+        value 1;
+        description
+          "This enum describes wide metric style";
+        reference
+          "RFC5305";
+      }
+      enum "transition" {
+        value 2;
+        description
+          "This enum describes transition metric style";
+      }
+    }
+  }
+
+  grouping redistribute-attributes {
+    description
+      "Common optional attributes of any redistribute entry.";
+    choice attribute {
+      leaf route-map {
+        type string {
+          length "1..max";
+        }
+        description
+          "Applies the conditions of the specified route-map to routes that
+           are redistributed into this routing instance.";
+      }
+
+      leaf metric {
+        type uint32 {
+          range "0..16777215";
+        }
+        default "0";
+        description
+          "Metric used for the redistributed route. If 0,
+           the default-metric attribute is used instead.";
+      }
+    }
+  }
+
+  grouping redistribute-default {
+    description
+      "Redistribution of default route within a level.";
+    leaf always {
+      type boolean;
+      default "false";
+      description
+        "Always advertise default route.";
+    }
+
+    uses redistribute-attributes;
+  }
+
+  grouping isis-password {
+    description
+      "Authentication attributes or an IS-IS area or domain.";
+    leaf password {
+      type string {
+        length "1..254";
+      }
+      mandatory true;
+      description
+        "Actual password.";
+    }
+
+    leaf password-type {
+      type enumeration {
+        enum "clear" {
+          value 1;
+          description
+            "Clear-text password type.";
+        }
+        enum "md5" {
+          value 54;
+          description
+            "MD5 password type.";
+        }
+      }
+      mandatory true;
+      description
+        "Type of password used.";
+    }
+  }
+
+  grouping isis-area-password {
+    uses isis-password;
+
+    leaf authenticate-snp {
+      type enumeration {
+        enum "none" {
+          value 0;
+          description
+            "No SNP authentication.";
+        }
+        enum "send-only" {
+          value 1;
+          description
+            "Send authenticated PDUs but do not check on receiving.";
+        }
+        enum "validate" {
+          value 3;
+          description
+            "Send authenticated PDUs and check on receiving.";
+        }
+      }
+      default "none";
+      description
+        "SNP PDUs authentication.";
+    }
+  }
+
+  grouping notification-instance-hdr {
+    description
+      "Instance specific IS-IS notification data grouping";
+    leaf routing-instance {
+      type string;
+      description
+        "Name of the routing-instance instance.";
+    }
+
+    leaf routing-protocol-name {
+      type string;
+      description
+        "Name of the IS-IS instance.";
+    }
+
+    leaf isis-level {
+      type level;
+      description
+        "IS-IS level of the instance.";
+    }
+  }
+
+  grouping notification-interface-hdr {
+    description
+      "Interface specific IS-IS notification data grouping";
+    leaf interface-name {
+      type string;
+      description
+        "IS-IS interface name";
+    }
+
+    leaf interface-level {
+      type level;
+      description
+        "IS-IS level of the interface.";
+    }
+
+    leaf extended-circuit-id {
+      type uint32;
+      description
+        "Eextended circuit-id of the interface.";
+    }
+  }
+
+  container isis {
+    description
+      "Configuration of the IS-IS routing daemon.";
+    list instance {
+      key "area-tag";
+      description
+        "IS-IS routing instance.";
+      leaf area-tag {
+        type string;
+        description
+          "Area-tag associated to this routing instance.";
+      }
+
+      leaf is-type {
+        type level;
+        default "level-1";
+        description
+          "Level of the IS-IS routing instance (OSI only).";
+      }
+
+      leaf-list area-address {
+        type net-address;
+        max-elements 3;
+        description
+          "List of OSI NET addresses for this protocol instance.";
+      }
+
+      leaf dynamic-hostname {
+        type boolean;
+        default "true";
+        description
+          "Dynamic hostname support for IS-IS.";
+      }
+
+      leaf attached {
+        type boolean;
+        default "false";
+        description
+          "If true, identify as L1/L2 router for inter-area traffic.";
+      }
+
+      leaf overload {
+        type boolean;
+        default "false";
+        description
+          "If true, avoid any transit traffic.";
+      }
+
+      leaf metric-style {
+        type metric-style-type;
+        must ". = 'wide' or count(../multi-topology/*) = 0";
+        default "wide";
+        description
+          "Define the style of TLVs metric supported.";
+      }
+
+      leaf purge-originator {
+        type boolean;
+        default "false";
+        description
+          "Use the RFC 6232 purge-originator.";
+        reference
+          "RFC6232";
+      }
+
+      container lsp {
+        description
+          "Configuration of Link-State Packets (LSP) parameters";
+        leaf mtu {
+          type uint16 {
+            range "128..4352";
+          }
+          default "1497";
+          description
+            "MTU of an LSP.";
+        }
+
+        container refresh-interval {
+          description
+            "";
+          leaf level-1 {
+            type uint16;
+            units "seconds";
+            default "900";
+            description
+              "LSP refresh interval for level-1.";
+          }
+
+          leaf level-2 {
+            type uint16;
+            units "seconds";
+            default "900";
+            description
+              "LSP refresh interval for level-2.";
+          }
+        }
+
+        container maximum-lifetime {
+          description
+            "Maximum LSP lifetime.";
+          leaf level-1 {
+            type uint16 {
+              range "350..65535";
+            }
+            units "seconds";
+            must ". >= ../../refresh-interval/level-1 + 300";
+            default "1200";
+            description
+              "Maximum LSP lifetime for level-1.";
+          }
+
+          leaf level-2 {
+            type uint16 {
+              range "350..65535";
+            }
+            units "seconds";
+            must ". >= ../../refresh-interval/level-2 + 300";
+            default "1200";
+            description
+              "Maximum LSP lifetime for level-2.";
+          }
+        }
+
+        container generation-interval {
+          description
+            "Minimum LSP regeneration interval.";
+          leaf level-1 {
+            type uint16 {
+              range "1..120";
+            }
+            units "seconds";
+            must ". < ../../refresh-interval/level-1";
+            default "30";
+            description
+              "Minimum time allowed before level-1 LSP retransmissions.";
+          }
+
+          leaf level-2 {
+            type uint16 {
+              range "1..120";
+            }
+            units "seconds";
+            must ". < ../../refresh-interval/level-2";
+            default "30";
+            description
+              "Minimum time allowed before level-2 LSP retransmissions.";
+          }
+        }
+      }
+
+      container spf {
+        description
+          "Parameters related to the Shortest Path First algorithm.";
+        container ietf-backoff-delay {
+          presence "Present if IETF SPF back-off delay is enabled.";
+          description
+            "SPF back-off delay algorithm parameters (see RFC 8405).";
+          leaf init-delay {
+            type uint16 {
+              range "0..60000";
+            }
+            units "msec";
+            mandatory true;
+            description
+              "Delay used while in QUIET state";
+          }
+
+          leaf short-delay {
+            type uint16 {
+              range "0..60000";
+            }
+            units "msec";
+            mandatory true;
+            description
+              "Delay used while in SHORT_WAIT state";
+          }
+
+          leaf long-delay {
+            type uint16 {
+              range "0..60000";
+            }
+            units "msec";
+            mandatory true;
+            description
+              "Delay used while in LONG_WAIT state";
+          }
+
+          leaf hold-down {
+            type uint16 {
+              range "0..60000";
+            }
+            units "msec";
+            mandatory true;
+            description
+              "Time with no received IGP events before considering IGP stable";
+          }
+
+          leaf time-to-learn {
+            type uint16 {
+              range "0..60000";
+            }
+            units "msec";
+            mandatory true;
+            description
+              "Maximum duration needed to learn all the events related to a
+               single failure";
+          }
+        }
+
+        container minimum-interval {
+          description
+            "Minimum interval between consecutive executions of the
+             SPF algorithm.";
+          leaf level-1 {
+            type uint16 {
+              range "1..120";
+            }
+            units "seconds";
+            default "1";
+            description
+              "Minimum time between consecutive level-1 SPFs.";
+          }
+
+          leaf level-2 {
+            type uint16 {
+              range "1..120";
+            }
+            units "seconds";
+            default "1";
+            description
+              "Minimum time between consecutive level-2 SPFs.";
+          }
+        }
+      }
+
+      container area-password {
+        presence "Present if authentication is required for IS level-1.";
+        description
+          "Authentication password for an IS-IS area.";
+        uses isis-area-password;
+      }
+
+      container domain-password {
+        presence "Present if authentication is required for IS level-2.";
+        description
+          "Authentication password for an IS-IS domain.";
+        uses isis-area-password;
+      }
+
+      container default-information-originate {
+        description
+          "Distribution of default information.";
+        list ipv4 {
+          key "level";
+          description
+            "Distribute default route for IPv4.";
+          leaf level {
+            type level;
+            must "(. != \"level-1-2\") and ((../../../is-type = \"level-1-2\") or (. = ../../../is-type))";
+          }
+
+          uses redistribute-default;
+        }
+
+        list ipv6 {
+          key "level";
+          description
+            "Distribute default route for IPv6.";
+          leaf level {
+            type level;
+            must "(. != \"level-1-2\") and ((../../../is-type = \"level-1-2\") or (. = ../../../is-type))";
+          }
+
+          uses redistribute-default;
+        }
+      }
+
+      container redistribute {
+        description
+          "Redistributes routes learned from other routing protocols.";
+        list ipv4 {
+          key "protocol level";
+          description
+            "IPv4 route redistribution.";
+          leaf protocol {
+            type frr-route-types:frr-route-types-v4;
+            must ". != \"isis\"";
+            description
+              "Originating routing protocol for the IPv4 routes.";
+          }
+
+          leaf level {
+            type level;
+            must "(. != \"level-1-2\") and ((../../../is-type = \"level-1-2\") or (. = ../../../is-type))";
+            description
+              "IS-IS level into which the routes should be redistributed.";
+          }
+
+          uses redistribute-attributes;
+        }
+
+        list ipv6 {
+          key "protocol level";
+          description
+            "IPv6 route redistribution.";
+          leaf protocol {
+            type frr-route-types:frr-route-types-v6;
+            must ". != \"isis\"";
+            description
+              "Originating routing protocol for the IPv6 routes.";
+          }
+
+          leaf level {
+            type level;
+            must "(. != \"level-1-2\") and ((../../../is-type = \"level-1-2\") or (. = ../../../is-type))";
+            description
+              "IS-IS level into which the routes should be redistributed.";
+          }
+
+          uses redistribute-attributes;
+        }
+      }
+
+      container multi-topology {
+        description
+          "IS-IS topologies configured for this area.";
+        container ipv4-multicast {
+          presence "Present if a separate IPv4-multicast topology is configured for this area.";
+          description
+            "IPv4 multicast topology.";
+          leaf overload {
+            type boolean;
+            default "false";
+          }
+        }
+
+        container ipv4-management {
+          presence "Present if a separate IPv4-management topology is configured for this area.";
+          description
+            "IPv4 management topology.";
+          leaf overload {
+            type boolean;
+            default "false";
+          }
+        }
+
+        container ipv6-unicast {
+          presence "Present if a separate IPv6-unicast topology is configured for this area.";
+          description
+            "IPv6 unicast topology.";
+          leaf overload {
+            type boolean;
+            default "false";
+          }
+        }
+
+        container ipv6-multicast {
+          presence "Present if a separate IPv6-multicast topology is configured for this area.";
+          description
+            "IPv6 multicast topology.";
+          leaf overload {
+            type boolean;
+            default "false";
+          }
+        }
+
+        container ipv6-management {
+          presence "Present if a separate IPv6-management topology is configured for this area.";
+          description
+            "IPv6 management topology.";
+          leaf overload {
+            type boolean;
+            default "false";
+          }
+        }
+
+        container ipv6-dstsrc {
+          presence "Present if a separate IPv6 destination-source topology is configured for this area.";
+          description
+            "IPv6 destination-source topology.";
+          leaf overload {
+            type boolean;
+            default "false";
+          }
+        }
+      }
+
+      leaf log-adjacency-changes {
+        type boolean;
+        default "false";
+        description
+          "Log changes to the IS-IS adjacencies in this area.";
+      }
+    }
+
+    container mpls-te {
+      presence "Present if MPLS-TE is enabled.";
+      description
+        "Enable MPLS-TE functionality.";
+      leaf router-address {
+        type inet:ipv4-address;
+        description
+          "Stable IP address of the advertising router.";
+      }
+    }
+  }
+
+  augment "/frr-interface:lib/frr-interface:interface" {
+    description
+      "Extends interface model with IS-IS related parameters.";
+    container isis {
+      presence "Present if an IS-IS circuit is defined for this interface.";
+      description
+        "IS-IS interface parameters.";
+      leaf area-tag {
+        type string;
+        mandatory true;
+        description
+          "Area-tag associated to this circuit.";
+      }
+
+      leaf circuit-type {
+        type level;
+        default "level-1-2";
+        description
+          "IS-type of this circuit.";
+      }
+
+      leaf ipv4-routing {
+        type boolean;
+        default "false";
+        description
+          "Routing IS-IS IPv4 traffic over this circuit.";
+      }
+
+      leaf ipv6-routing {
+        type boolean;
+        default "false";
+        description
+          "Routing IS-IS IPv6 traffic over this circuit.";
+      }
+
+      container csnp-interval {
+        description
+          "Complete Sequence Number PDU (CSNP) generation interval.";
+        leaf level-1 {
+          type uint16 {
+            range "1..600";
+          }
+          units "seconds";
+          default "10";
+          description
+            "CNSP interval for level-1";
+        }
+
+        leaf level-2 {
+          type uint16 {
+            range "1..600";
+          }
+          units "seconds";
+          default "10";
+          description
+            "CNSP interval for level-2";
+        }
+      }
+
+      container psnp-interval {
+        description
+          "Partial Sequence Number PDU (PSNP) generation interval.";
+        leaf level-1 {
+          type uint16 {
+            range "1..120";
+          }
+          units "seconds";
+          default "2";
+          description
+            "PNSP interval for level-1";
+        }
+
+        leaf level-2 {
+          type uint16 {
+            range "1..120";
+          }
+          units "seconds";
+          default "2";
+          description
+            "PCNSP interval for level-2";
+        }
+      }
+
+      container hello {
+        description
+          "Parameters related to IS-IS hello PDUs.";
+        leaf padding {
+          type boolean;
+          default "true";
+          description
+            "Add padding to IS-IS hello PDUs.";
+        }
+
+        container interval {
+          description
+            "Interval between consecutive hello messages.";
+          leaf level-1 {
+            type uint32 {
+              range "1..600";
+            }
+            units "seconds";
+            default "3";
+            description
+              "Holding time for level-1; interval will depend on multiplier.";
+          }
+
+          leaf level-2 {
+            type uint32 {
+              range "1..600";
+            }
+            units "seconds";
+            default "3";
+            description
+              "Holding time for level-2; interval will depend on multiplier.";
+          }
+        }
+
+        container multiplier {
+          description
+            "Multiplier for the hello messages holding time.";
+          leaf level-1 {
+            type uint16 {
+              range "2..100";
+            }
+            default "10";
+            description
+              "Multiplier for the hello holding time.";
+          }
+
+          leaf level-2 {
+            type uint16 {
+              range "2..100";
+            }
+            default "10";
+            description
+              "Multiplier for the hello holding time.";
+          }
+        }
+      }
+
+      container metric {
+        description
+          "Default metric for this IS-IS circuit.";
+        leaf level-1 {
+          type uint32 {
+            range "0..16777215";
+          }
+          must ". < 64 or /frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style = 'wide'";
+          default "10";
+          description
+            "Default level-1 metric for this IS-IS circuit.";
+        }
+
+        leaf level-2 {
+          type uint32 {
+            range "0..16777215";
+          }
+          must ". < 64 or /frr-isisd:isis/instance[area-tag = current()/../../area-tag]/metric-style = 'wide'";
+          default "10";
+          description
+            "Default level-2 metric for this IS-IS circuit.";
+        }
+      }
+
+      container priority {
+        description
+          "Priority for Designated Router election.";
+        leaf level-1 {
+          type uint8 {
+            range "0..127";
+          }
+          default "64";
+          description
+            "Level-1 priority for this IS-IS circuit.";
+        }
+
+        leaf level-2 {
+          type uint8 {
+            range "0..127";
+          }
+          default "64";
+          description
+            "Level-2 priority for this IS-IS circuit.";
+        }
+      }
+
+      leaf network-type {
+        type network-type;
+        default "broadcast";
+        must "(. = \"point-to-point\") or (. = \"broadcast\")";
+        description
+          "Explicitly configured type of IS-IS circuit (broadcast or point-to-point).";
+      }
+
+      leaf passive {
+        type boolean;
+        default "false";
+        description
+          "Interface is in passive mode.";
+      }
+
+      container password {
+        presence "Present if a password is set for this IS interface.";
+        uses isis-password;
+      }
+
+      leaf disable-three-way-handshake {
+        type boolean;
+        default "false";
+        description
+          "Disables three-way handshake when creating new adjacencies.";
+      }
+
+      container multi-topology {
+        description
+          "IS-IS topologies configured on this circuit.";
+        leaf ipv4-unicast {
+          type boolean;
+          default "true";
+          description
+            "IPv4 unicast topology.";
+        }
+
+        leaf ipv4-multicast {
+          type boolean;
+          default "true";
+          description
+            "IPv4 multicast topology.";
+        }
+
+        leaf ipv4-management {
+          type boolean;
+          default "true";
+          description
+            "IPv4 management topology.";
+        }
+
+        leaf ipv6-unicast {
+          type boolean;
+          default "true";
+          description
+            "IPv6 unicast topology.";
+        }
+
+        leaf ipv6-multicast {
+          type boolean;
+          default "true";
+          description
+            "IPv6 multicast topology.";
+        }
+
+        leaf ipv6-management {
+          type boolean;
+          default "true";
+          description
+            "IPv6 management topology.";
+        }
+
+        leaf ipv6-dstsrc {
+          type boolean;
+          default "true";
+          description
+            "IPv6 destination-source topology.";
+        }
+      }
+    }
+  }
+
+  notification database-overload {
+    description
+      "This notification is sent when an IS-IS instance
+       overload state changes.";
+    uses notification-instance-hdr;
+
+    leaf overload {
+      type enumeration {
+        enum "off" {
+          value 0;
+          description
+            "Indicates IS-IS instance has left overload state";
+        }
+        enum "on" {
+          value 1;
+          description
+            "Indicates IS-IS instance has entered overload state";
+        }
+      }
+      description
+        "New overload state of the IS-IS instance";
+    }
+  }
+
+  notification lsp-too-large {
+    description
+      "This notification is sent when we attempt to propagate
+       an LSP that is larger than the dataLinkBlockSize for the
+       circuit.  The notification generation must be throttled
+       with at least 5 seconds betweeen successive
+       notifications.";
+    uses notification-instance-hdr;
+
+    uses notification-interface-hdr;
+
+    leaf pdu-size {
+      type uint32;
+      description
+        "Size of the LSP PDU";
+    }
+
+    leaf lsp-id {
+      type lsp-id;
+      description
+        "LSP ID";
+    }
+  }
+
+  notification if-state-change {
+    description
+      "This notification is sent when an interface
+       state change is detected.";
+    uses notification-instance-hdr;
+
+    uses notification-interface-hdr;
+
+    leaf state {
+      type if-state-type;
+      description
+        "Interface state.";
+    }
+  }
+
+  notification corrupted-lsp-detected {
+    description
+      "This notification is sent when we find that
+       an LSP that was stored in memory has become
+       corrupted.";
+    uses notification-instance-hdr;
+
+    leaf lsp-id {
+      type lsp-id;
+      description
+        "LSP ID";
+    }
+  }
+
+  notification attempt-to-exceed-max-sequence {
+    description
+      "This notification is sent when the system
+       wraps the 32-bit sequence counter of an LSP.";
+    uses notification-instance-hdr;
+
+    leaf lsp-id {
+      type lsp-id;
+      description
+        "LSP ID";
+    }
+  }
+
+  notification id-len-mismatch {
+    description
+      "This notification is sent when we receive a PDU
+       with a different value for the System ID length.
+       The notification generation must be throttled
+       with at least 5 seconds betweeen successive
+       notifications.";
+    uses notification-instance-hdr;
+
+    uses notification-interface-hdr;
+
+    leaf pdu-field-len {
+      type uint8;
+      description
+        "Size of the ID length in the received PDU";
+    }
+
+    leaf raw-pdu {
+      type binary;
+      description
+        "Received raw PDU.";
+    }
+  }
+
+  notification max-area-addresses-mismatch {
+    description
+      "This notification is sent when we receive a PDU
+       with a different value for the Maximum Area Addresses.
+       The notification generation must be throttled
+       with at least 5 seconds betweeen successive
+       notifications.";
+    uses notification-instance-hdr;
+
+    uses notification-interface-hdr;
+
+    leaf max-area-addresses {
+      type uint8;
+      description
+        "Received number of supported areas";
+    }
+
+    leaf raw-pdu {
+      type binary;
+      description
+        "Received raw PDU.";
+    }
+  }
+
+  notification own-lsp-purge {
+    description
+      "This notification is sent when the system receives
+       a PDU with its own system ID and zero age.";
+    uses notification-instance-hdr;
+
+    uses notification-interface-hdr;
+
+    leaf lsp-id {
+      type lsp-id;
+      description
+        "LSP ID";
+    }
+  }
+
+  notification sequence-number-skipped {
+    description
+      "This notification is sent when the system receives a
+       PDU with its own system ID and different contents. The
+       system has to reoriginate the LSP with a higher sequence
+       number.";
+    uses notification-instance-hdr;
+
+    uses notification-interface-hdr;
+
+    leaf lsp-id {
+      type lsp-id;
+      description
+        "LSP ID";
+    }
+  }
+
+  notification authentication-type-failure {
+    description
+      "This notification is sent when the system receives a
+       PDU with the wrong authentication type field.
+       The notification generation must be throttled
+       with at least 5 seconds betweeen successive
+       notifications.";
+    uses notification-instance-hdr;
+
+    uses notification-interface-hdr;
+
+    leaf raw-pdu {
+      type binary;
+      description
+        "Received raw PDU.";
+    }
+  }
+
+  notification authentication-failure {
+    description
+      "This notification is sent when the system receives
+       a PDU with the wrong authentication information.
+       The notification generation must be throttled with
+       with at least 5 seconds betweeen successive
+       notifications.";
+    uses notification-instance-hdr;
+
+    uses notification-interface-hdr;
+
+    leaf raw-pdu {
+      type binary;
+      description
+        "Received raw PDU.";
+    }
+  }
+
+  notification version-skew {
+    description
+      "This notification is sent when the system receives a
+       PDU with a different protocol version number.
+       The notification generation must be throttled
+       with at least 5 seconds betweeen successive
+       notifications.";
+    uses notification-instance-hdr;
+
+    uses notification-interface-hdr;
+
+    leaf protocol-version {
+      type uint8;
+      description
+        "Protocol version received in the PDU.";
+    }
+
+    leaf raw-pdu {
+      type binary;
+      description
+        "Received raw PDU.";
+    }
+  }
+
+  notification area-mismatch {
+    description
+      "This notification is sent when the system receives a
+       Hello PDU from an IS that does not share any area
+       address. The notification generation must be throttled
+       with at least 5 seconds betweeen successive
+       notifications.";
+    uses notification-instance-hdr;
+
+    uses notification-interface-hdr;
+
+    leaf raw-pdu {
+      type binary;
+      description
+        "Received raw PDU.";
+    }
+  }
+
+  notification rejected-adjacency {
+    description
+      "This notification is sent when the system receives a
+       Hello PDU from an IS but does not establish an adjacency
+       for some reason. The notification generation must be
+       throttled with at least 5 seconds betweeen successive
+       notifications.";
+    uses notification-instance-hdr;
+
+    uses notification-interface-hdr;
+
+    leaf raw-pdu {
+      type binary;
+      description
+        "Received raw PDU.";
+    }
+
+    leaf reason {
+      type string;
+      description
+        "The system may provide a reason to reject the
+         adjacency. If the reason is not available,
+         an empty string will be returned.";
+    }
+  }
+
+  notification lsp-error-detected {
+    description
+      "This notification is sent when the system  receives an
+       LSP with a parse error. The notification generation must
+       be throttled with at least 5 seconds betweeen successive
+       notifications.";
+    uses notification-instance-hdr;
+
+    uses notification-interface-hdr;
+
+    leaf lsp-id {
+      type lsp-id;
+      description
+        "LSP ID.";
+    }
+
+    leaf raw-pdu {
+      type binary;
+      description
+        "Received raw PDU.";
+    }
+
+    leaf error-offset {
+      type uint32;
+      description
+        "If the problem is a malformed TLV, the error-offset
+         points to the start of the TLV. If the problem is with
+         the LSP header, the error-offset points to the errant
+         byte";
+    }
+
+    leaf tlv-type {
+      type uint8;
+      description
+        "If the problem is a malformed TLV, the tlv-type is set
+         to the type value of the suspicious TLV. Otherwise,
+         this leaf is not present.";
+    }
+  }
+
+  notification adjacency-state-change {
+    description
+      "This notification is sent when an IS-IS adjacency
+       moves to Up state or to Down state.";
+    uses notification-instance-hdr;
+
+    uses notification-interface-hdr;
+
+    leaf neighbor {
+      type string;
+      description
+        "Name of the neighbor. If the name of the neighbor is
+         not available, it is not returned.";
+    }
+
+    leaf neighbor-system-id {
+      type system-id;
+      description
+        "Neighbor system-id";
+    }
+
+    leaf state {
+      type adj-state-type;
+      description
+        "New state of the IS-IS adjacency.";
+    }
+
+    leaf reason {
+      type string;
+      description
+        "If the adjacency is going to DOWN,  this leaf provides
+         a reason for the adjacency going down. The reason is
+         provided as a text. If the adjacency is going to UP, no
+         reason is provided.";
+    }
+  }
+
+  notification lsp-received {
+    description
+      "This notification is sent when an LSP is received.
+       The notification generation must be throttled with at
+       least 5 seconds betweeen successive notifications.";
+    uses notification-instance-hdr;
+
+    uses notification-interface-hdr;
+
+    leaf lsp-id {
+      type lsp-id;
+      description
+        "LSP ID";
+    }
+
+    leaf sequence {
+      type uint32;
+      description
+        "Sequence number of the received LSP.";
+    }
+
+    leaf received-timestamp {
+      type yang:timestamp;
+      description
+        "Timestamp when the LSP was received.";
+    }
+
+    leaf neighbor-system-id {
+      type system-id;
+      description
+        "Neighbor system-id of LSP sender";
+    }
+  }
+
+  notification lsp-generation {
+    description
+      "This notification is sent when an LSP is regenerated.
+       The notification generation must be throttled with at
+       least 5 seconds betweeen successive notifications.";
+    uses notification-instance-hdr;
+
+    leaf lsp-id {
+      type lsp-id;
+      description
+        "LSP ID";
+    }
+
+    leaf sequence {
+      type uint32;
+      description
+        "Sequence number of the received LSP.";
+    }
+
+    leaf send-timestamp {
+      type yang:timestamp;
+      description
+        "Timestamp when our LSP was regenerated.";
+    }
+  }
+}

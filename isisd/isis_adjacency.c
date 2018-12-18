@@ -258,6 +258,11 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 			reason ? reason : "unspecified");
 	}
 
+#ifndef FABRICD
+	/* send northbound notification */
+	isis_notif_adj_state_change(adj, new_state, reason);
+#endif /* ifndef FABRICD */
+
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 		del = false;
 		for (int level = IS_LEVEL_1; level <= IS_LEVEL_2; level++) {
