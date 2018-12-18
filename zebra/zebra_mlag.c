@@ -25,6 +25,13 @@
 
 #include "zebra/zebra_mlag.h"
 
+enum mlag_role role = MLAG_ROLE_NONE;
+
+enum mlag_role zebra_mlag_get_role(void)
+{
+	return role;
+}
+
 void zebra_mlag_init(void)
 {
 }
