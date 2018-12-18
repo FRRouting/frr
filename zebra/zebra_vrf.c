@@ -360,8 +360,15 @@ void zebra_rtable_node_cleanup(struct route_table *table,
 static void zebra_rnhtable_node_cleanup(struct route_table *table,
 					struct route_node *node)
 {
+	struct listnode *nn, *next;
+	struct rnh *rnh;
+
+	for (ALL_LIST_ELEMENTS((struct list *)node->info,
+			       nn, next, rnh))
+		if (rnh)
+			zebra_free_rnh(rnh);
 	if (node->info)
-		zebra_free_rnh(node->info);
+		list_delete((struct list **)&node->info);
 }
 
 /*
