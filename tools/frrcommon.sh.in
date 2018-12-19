@@ -83,7 +83,7 @@ daemon_list() {
 	for daemon in $DAEMONS; do
 		eval cfg=\$$daemon
 		eval inst=\$${daemon}_instances
-		[ "$daemon" = zebra ] && cfg=yes
+		[ "$daemon" = zebra -o "$daemon" = staticd ] && cfg=yes
 		if [ -n "$cfg" -a "$cfg" != "no" -a "$cfg" != "0" ]; then
 			debug "$daemon enabled"
 			enabled="$enabled $daemon"
@@ -135,6 +135,10 @@ daemon_start() {
 
 	ulimit -n $MAX_FDS > /dev/null 2> /dev/null
 	daemon_prep "$daemon" "$inst" || return 1
+	if test ! -d "$V_PATH"; then
+		mkdir -p "$V_PATH"
+		chown frr "$V_PATH"
+	fi
 
 	eval wrap="\$${daemon}_wrap"
 	bin="$D_PATH/$daemon"
