@@ -24,7 +24,7 @@
 #include "lib/prefix.h"
 #include "lib/nexthop.h"
 #include "lib/nexthop_group.h"
-#include "lib/openbsd-queue.h"
+#include "lib/queue.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
