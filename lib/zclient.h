@@ -303,6 +303,7 @@ struct zapi_nexthop {
 	/* MPLS labels for BGP-LU or Segment Routing */
 	uint8_t label_num;
 	mpls_label_t labels[MPLS_MAX_LABELS];
+	ifindex_t recursive_iface_ifindex;
 };
 
 /*
