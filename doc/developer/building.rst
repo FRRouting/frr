@@ -21,7 +21,6 @@ Building FRR
    building-frr-on-netbsd7
    building-frr-on-omnios
    building-frr-on-openbsd6
-   building-frr-on-ubuntu1204
    building-frr-on-ubuntu1404
    building-frr-on-ubuntu1604
    building-frr-on-ubuntu1804

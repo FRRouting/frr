@@ -118,7 +118,6 @@ include watchfrr/subdir.am
 include qpb/subdir.am
 include fpm/subdir.am
 include tools/subdir.am
-include debianpkg/subdir.am
 include solaris/subdir.am
 
 include bgpd/subdir.am
@@ -160,6 +159,8 @@ EXTRA_DIST += \
 	README.md \
 	m4/README.txt \
 	config.version \
+	changelog-auto \
+	changelog-auto.in \
 	\
 	python/clidef.py \
 	python/clippy/__init__.py \

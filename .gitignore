@@ -27,6 +27,7 @@
 /conftest.err
 /aclocal.m4
 /libtool
+/changelog-auto
 
 /Makefile
 /Makefile.in
