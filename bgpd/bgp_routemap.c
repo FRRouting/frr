@@ -4301,6 +4301,13 @@ DEFUN (no_set_lcommunity1,
 				  "large-community", NULL);
 }
 
+ALIAS (no_set_lcommunity1,
+       no_set_lcommunity1_short_cmd,
+       "no set large-community",
+       NO_STR
+       SET_STR
+       "BGP large community attribute\n")
+
 DEFUN (set_lcommunity_delete,
        set_lcommunity_delete_cmd,
        "set large-comm-list <(1-99)|(100-500)|WORD> delete",
@@ -4338,6 +4345,13 @@ DEFUN (no_set_lcommunity_delete,
 	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
 				  "large-comm-list", NULL);
 }
+
+ALIAS (no_set_lcommunity_delete,
+       no_set_lcommunity_delete_short_cmd,
+       "no set large-comm-list",
+       NO_STR
+       SET_STR
+       "set BGP large community list (for deletion)\n")
 
 DEFUN (set_ecommunity_rt,
        set_ecommunity_rt_cmd,
@@ -5004,8 +5018,10 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_lcommunity_none_cmd);
 	install_element(RMAP_NODE, &no_set_lcommunity_cmd);
 	install_element(RMAP_NODE, &no_set_lcommunity1_cmd);
+	install_element(RMAP_NODE, &no_set_lcommunity1_short_cmd);
 	install_element(RMAP_NODE, &set_lcommunity_delete_cmd);
 	install_element(RMAP_NODE, &no_set_lcommunity_delete_cmd);
+	install_element(RMAP_NODE, &no_set_lcommunity_delete_short_cmd);
 	install_element(RMAP_NODE, &set_ecommunity_rt_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_rt_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_rt_short_cmd);
