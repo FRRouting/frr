@@ -24,6 +24,7 @@
 #include "lib/if.h"
 #include "lib/linklist.h"
 #include "lib/memory.h"
+#include "lib/network.h"
 #include "lib/prefix.h"
 #include "lib/sockopt.h"
 #include "lib/vrf.h"
@@ -174,8 +175,8 @@ static struct vrrp_router *vrrp_router_create(struct vrrp_vrouter *vr,
 {
 	struct vrrp_router *r = XCALLOC(MTYPE_TMP, sizeof(struct vrrp_router));
 
-	r->sock = -1;
 	r->family = family;
+	r->sock = -1;
 	r->vr = vr;
 	r->addrs = list_new();
 	r->priority = vr->priority;
@@ -235,7 +236,7 @@ struct vrrp_vrouter *vrrp_lookup(uint8_t vrid)
 /* Network ----------------------------------------------------------------- */
 
 /*
- * Create and broadcast VRRP ADVERTISEMENT message.
+ * Create and multicast a VRRP ADVERTISEMENT message.
  *
  * r
  *    VRRP Router for which to send ADVERTISEMENT
@@ -272,11 +273,77 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 	}
 }
 
-/* FIXME:
-static void vrrp_recv_advertisement(struct thread *thread)
+static void vrrp_recv_advertisement(struct vrrp_router *r, struct vrrp_pkt *pkt,
+				    size_t pktsize)
 {
+	char dumpbuf[BUFSIZ];
+	vrrp_pkt_dump(dumpbuf, sizeof(dumpbuf), pkt);
+	zlog_debug("Received VRRP Advertisement:\n%s", dumpbuf);
 }
-*/
+
+/*
+ * Read and process next IPvX datagram.
+ */
+static int vrrp_read(struct thread *thread)
+{
+	struct vrrp_router *r = thread->arg;
+
+	struct vrrp_pkt *pkt;
+	ssize_t pktsize;
+	ssize_t nbytes;
+	bool resched;
+	char errbuf[BUFSIZ];
+	uint8_t control[64];
+
+	struct msghdr m;
+	struct iovec iov;
+	iov.iov_base = r->ibuf;
+	iov.iov_len = sizeof(r->ibuf);
+	m.msg_name = NULL;
+	m.msg_namelen = 0;
+	m.msg_iov = &iov;
+	m.msg_iovlen = 1;
+	m.msg_control = control;
+	m.msg_controllen = sizeof(control);
+
+	nbytes = recvmsg(r->sock, &m, MSG_DONTWAIT);
+
+	if ((nbytes < 0 && ERRNO_IO_RETRY(errno))) {
+		resched = true;
+		goto done;
+	} else if (nbytes <= 0) {
+		vrrp_event(r, VRRP_EVENT_SHUTDOWN);
+		resched = false;
+		goto done;
+	}
+
+	zlog_debug(VRRP_LOGPFX VRRP_LOGPFX_VRID "Received %s datagram: ",
+		   r->vr->vrid, family2str(r->family));
+	zlog_hexdump(r->ibuf, nbytes);
+
+	pktsize = vrrp_parse_datagram(r->family, &m, nbytes, &pkt, errbuf,
+				      sizeof(errbuf));
+
+	if (pktsize < 0) {
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "%s datagram invalid: %s",
+			  r->vr->vrid, family2str(r->family), errbuf);
+	} else {
+		zlog_debug(VRRP_LOGPFX VRRP_LOGPFX_VRID "Packet looks good",
+			   r->vr->vrid);
+		vrrp_recv_advertisement(r, pkt, pktsize);
+	}
+
+	resched = true;
+
+done:
+	memset(r->ibuf, 0x00, sizeof(r->ibuf));
+
+	if (resched)
+		thread_add_read(master, vrrp_read, r, r->sock, &r->t_read);
+
+	return 0;
+}
 
 /*
  * Create Virtual Router listen socket and join it to the VRRP multicast group.
@@ -290,6 +357,7 @@ static void vrrp_recv_advertisement(struct thread *thread)
 static int vrrp_socket(struct vrrp_router *r)
 {
 	int ret;
+	bool failed = false;
 	struct connected *c;
 
 	frr_elevate_privs(&vrrp_privs) {
@@ -300,44 +368,55 @@ static int vrrp_socket(struct vrrp_router *r)
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
 			  "Can't create %s VRRP socket",
 			  r->vr->vrid, r->family == AF_INET ? "v4" : "v6");
-		return errno;
+		failed = true;
+		goto done;
 	}
-
-	/*
-	 * Configure V4 minimum TTL or V6 minimum Hop Limit for rx; packets not
-	 * having at least these values will be dropped
-	 *
-	 * RFC 5798 5.1.1.3:
-	 * 
-	 *    The TTL MUST be set to 255.  A VRRP router receiving a packet
-	 *    with the TTL not equal to 255 MUST discard the packet.
-	 *
-	 * RFC 5798 5.1.2.3:
-	 *
-	 *    The Hop Limit MUST be set to 255.  A VRRP router receiving a
-	 *    packet with the Hop Limit not equal to 255 MUST discard the
-	 *    packet.
-	 */
-	sockopt_minttl(r->family, r->sock, 255);
 
 	if (!listcount(r->vr->ifp->connected)) {
 		zlog_warn(
 			VRRP_LOGPFX VRRP_LOGPFX_VRID
 			"No address on interface %s; cannot configure multicast",
 			r->vr->vrid, r->vr->ifp->name);
-		close(r->sock);
-		return -1;
+		failed = true;
+		goto done;
 	}
 
-	c = listhead(r->vr->ifp->connected)->data;
-	struct in_addr v4 = c->address->u.prefix4;
+	if (r->family == AF_INET) {
+		int ttl = 255;
+		ret = setsockopt(r->sock, IPPROTO_IP, IP_MULTICAST_TTL, &ttl,
+				 sizeof(ttl));
+		if (ret < 0) {
+			zlog_warn(
+				VRRP_LOGPFX VRRP_LOGPFX_VRID
+				"Failed to set outgoing multicast TTL count to 255; RFC 5798 compliant implementations will drop our packets",
+				r->vr->vrid);
+		}
 
-	/* Join the multicast group.*/
-	if (r->family == AF_INET)
+		c = listhead(r->vr->ifp->connected)->data;
+		struct in_addr v4 = c->address->u.prefix4;
+
+		/* Join VRRP IPv4 multicast group */
 		ret = setsockopt_ipv4_multicast(r->sock, IP_ADD_MEMBERSHIP, v4,
 						htonl(VRRP_MCASTV4_GROUP),
 						r->vr->ifp->ifindex);
-	else if (r->family == AF_INET6) {
+	} else if (r->family == AF_INET6) {
+		ret = setsockopt_ipv6_multicast_hops(r->sock, 255);
+		if (ret < 0) {
+			zlog_warn(
+				VRRP_LOGPFX VRRP_LOGPFX_VRID
+				"Failed to set outgoing multicast hop count to 255; RFC 5798 compliant implementations will drop our packets",
+				r->vr->vrid);
+		}
+		ret = setsockopt_ipv6_hoplimit(r->sock, 1);
+		if (ret < 0) {
+			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+				  "Failed to request IPv6 Hop Limit delivery",
+				  r->vr->vrid);
+			failed = true;
+			goto done;
+		}
+
+		/* Join VRRP IPv6 multicast group */
 		struct ipv6_mreq mreq;
 		inet_pton(AF_INET6, VRRP_MCASTV6_GROUP_STR, &mreq.ipv6mr_multiaddr);
 		mreq.ipv6mr_interface = r->vr->ifp->ifindex;
@@ -347,12 +426,22 @@ static int vrrp_socket(struct vrrp_router *r)
 
 	if (ret < 0) {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Can't join VRRP multicast group",
-			  r->vr->vrid);
-		close(r->sock);
-		return -1;
+			  "Failed to join VRRP %s multicast group",
+			  r->vr->vrid, family2str(r->family));
+		failed = true;
 	}
-	return 0;
+done:
+	ret = 0;
+	if (failed) {
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Failed to initialize VRRP %s router",
+			  r->vr->vrid, family2str(r->family));
+		if (r->sock >= 0)
+			close(r->sock);
+		ret = -1;
+	}
+
+	return ret;
 }
 
 
@@ -495,14 +584,14 @@ static int vrrp_startup(struct vrrp_router *r)
 	/* Create socket */
 	if (r->sock < 0) {
 		int ret = vrrp_socket(r);
-		if (ret < 0)
+		if (ret < 0 || r->sock < 0)
 			return ret;
 	}
 
 	/* Schedule listener */
-	/* ... */
+	thread_add_read(master, vrrp_read, r, r->sock, &r->t_read);
 
-	/* configure effective priority */
+	/* Configure effective priority */
 	struct ipaddr *primary = (struct ipaddr *)listhead(r->addrs)->data;
 
 	char ipbuf[INET6_ADDRSTRLEN];

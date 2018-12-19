@@ -26,6 +26,8 @@
 #define VRRP_VERSION 3
 #define VRRP_TYPE_ADVERTISEMENT 1
 
+extern const char *vrrp_packet_names[16];
+
 /*
  * Shared header for VRRPv2/v3 packets.
  */
@@ -56,15 +58,37 @@ struct vrrp_hdr {
 		} v3;
 	};
 	uint16_t chksum;
-};
+} __attribute__((packed));
+
+#define VRRP_HDR_SIZE sizeof(struct vrrp_hdr)
 
 struct vrrp_pkt {
 	struct vrrp_hdr hdr;
+	/*
+	 * When used, this is actually an array of one or the other, not an
+	 * array of union. If N v4 addresses are stored then
+	 * sizeof(addrs) == N * sizeof(struct in_addr).
+	 */
 	union {
 		struct in_addr v4;
 		struct in6_addr v6;
 	} addrs[];
-} __attribute((packed, aligned(1)));
+} __attribute__((packed));
+
+#define VRRP_PKT_SIZE(_f, _naddr)                                              \
+	({                                                                     \
+		size_t _asz = ((_f) == AF_INET) ? sizeof(struct in_addr)       \
+						: sizeof(struct in6_addr);     \
+		sizeof(struct vrrp_hdr) + (_asz * (_naddr));                   \
+	})
+
+#define VRRP_MIN_PKT_SIZE_V4 VRRP_PKT_SIZE(AF_INET, 1)
+#define VRRP_MAX_PKT_SIZE_V4 VRRP_PKT_SIZE(AF_INET, 255)
+#define VRRP_MIN_PKT_SIZE_V6 VRRP_PKT_SIZE(AF_INET6, 1)
+#define VRRP_MAX_PKT_SIZE_V6 VRRP_PKT_SIZE(AF_INET6, 255)
+
+#define VRRP_MIN_PKT_SIZE VRRP_MIN_PKT_SIZE_V4
+#define VRRP_MAX_PKT_SIZE VRRP_MAX_PKT_SIZE_V6
 
 /*
  * Builds a VRRP packet.
@@ -94,3 +118,55 @@ struct vrrp_pkt {
 ssize_t vrrp_pkt_build(struct vrrp_pkt **pkt, uint8_t vrid, uint8_t prio,
 		       uint16_t max_adver_int, uint8_t numip,
 		       struct ipaddr **ips);
+
+/*
+ * Dumps a VRRP packet to a string.
+ *
+ * Currently only dumps the header.
+ *
+ * buf
+ *    Buffer to store string representation
+ *
+ * buflen
+ *    Size of buf
+ *
+ * pkt
+ *    Packet to dump to a string
+ *
+ * Returns:
+ *    # bytes written to buf
+ */
+size_t vrrp_pkt_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt);
+
+
+/*
+ * Parses a VRRP packet, checking for illegal or invalid data.
+ *
+ * This function does not check that the local router is not the IPvX owner for
+ * the addresses received; that should be done by the caller.
+ *
+ * family
+ *    Address family of received packet
+ *
+ * m
+ *    msghdr containing results of recvmsg() on VRRP router socket
+ *
+ * read
+ *    return value of recvmsg() on VRRP router socket; must be non-negative
+ *
+ * pkt
+ *    Pointer to pointer to set to location of VRRP packet within buf
+ *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error; may be
+ *    NULL, in which case no message will be stored
+ *
+ * errmsg_len
+ *    Size of errmsg
+ *
+ * Returns:
+ *    Size of VRRP packet, or -1 upon error
+ */
+ssize_t vrrp_parse_datagram(int family, struct msghdr *m, size_t read,
+			    struct vrrp_pkt **pkt, char *errmsg,
+			    size_t errmsg_len);

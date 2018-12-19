@@ -21,12 +21,14 @@
 #define _VRRP_H
 
 #include <zebra.h>
+#include <netinet/ip.h>
 
 #include "lib/hash.h"
 #include "lib/hook.h"
 #include "lib/if.h"
 #include "lib/linklist.h"
 #include "lib/privs.h"
+#include "lib/stream.h"
 #include "lib/thread.h"
 
 /* Global definitions */
@@ -64,6 +66,9 @@ struct vrrp_router {
 
 	/* Socket */
 	int sock;
+
+	/* Socket read buffer */
+	uint8_t ibuf[IP_MAXPACKET];
 
 	/*
 	 * Address family of this Virtual Router.
@@ -125,6 +130,8 @@ struct vrrp_router {
 
 	struct thread *t_master_down_timer;
 	struct thread *t_adver_timer;
+	struct thread *t_read;
+	struct thread *t_write;
 };
 
 /*
@@ -147,6 +154,9 @@ struct vrrp_router {
 struct vrrp_vrouter {
 	/* Interface */
 	struct interface *ifp;
+
+	/* Version */
+	uint8_t version;
 
 	/* Virtual Router Identifier */
 	uint32_t vrid;
