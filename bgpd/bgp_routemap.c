@@ -4200,6 +4200,13 @@ DEFUN (no_set_community,
 				  "community", NULL);
 }
 
+ALIAS (no_set_community,
+       no_set_community_short_cmd,
+       "no set community",
+       NO_STR
+       SET_STR
+       "BGP community attribute\n")
+
 
 DEFUN (set_community_delete,
        set_community_delete_cmd,
@@ -4294,6 +4301,13 @@ DEFUN (no_set_lcommunity1,
 				  "large-community", NULL);
 }
 
+ALIAS (no_set_lcommunity1,
+       no_set_lcommunity1_short_cmd,
+       "no set large-community",
+       NO_STR
+       SET_STR
+       "BGP large community attribute\n")
+
 DEFUN (set_lcommunity_delete,
        set_lcommunity_delete_cmd,
        "set large-comm-list <(1-99)|(100-500)|WORD> delete",
@@ -4332,6 +4346,13 @@ DEFUN (no_set_lcommunity_delete,
 				  "large-comm-list", NULL);
 }
 
+ALIAS (no_set_lcommunity_delete,
+       no_set_lcommunity_delete_short_cmd,
+       "no set large-comm-list",
+       NO_STR
+       SET_STR
+       "set BGP large community list (for deletion)\n")
+
 DEFUN (set_ecommunity_rt,
        set_ecommunity_rt_cmd,
        "set extcommunity rt ASN:NN_OR_IP-ADDRESS:NN...",
@@ -4365,6 +4386,13 @@ DEFUN (no_set_ecommunity_rt,
 				  "extcommunity rt", NULL);
 }
 
+ALIAS (no_set_ecommunity_rt,
+       no_set_ecommunity_rt_short_cmd,
+       "no set extcommunity rt",
+       NO_STR
+       SET_STR
+       "BGP extended community attribute\n"
+       "Route Target extended community\n")
 
 DEFUN (set_ecommunity_soo,
        set_ecommunity_soo_cmd,
@@ -4399,6 +4427,13 @@ DEFUN (no_set_ecommunity_soo,
 				  "extcommunity soo", NULL);
 }
 
+ALIAS (no_set_ecommunity_soo,
+       no_set_ecommunity_soo_short_cmd,
+       "no set extcommunity soo",
+       NO_STR
+       SET_STR
+       "GP extended community attribute\n"
+       "Site-of-Origin extended community\n")
 
 DEFUN (set_origin,
        set_origin_cmd,
@@ -4976,18 +5011,23 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_community_cmd);
 	install_element(RMAP_NODE, &set_community_none_cmd);
 	install_element(RMAP_NODE, &no_set_community_cmd);
+	install_element(RMAP_NODE, &no_set_community_short_cmd);
 	install_element(RMAP_NODE, &set_community_delete_cmd);
 	install_element(RMAP_NODE, &no_set_community_delete_cmd);
 	install_element(RMAP_NODE, &set_lcommunity_cmd);
 	install_element(RMAP_NODE, &set_lcommunity_none_cmd);
 	install_element(RMAP_NODE, &no_set_lcommunity_cmd);
 	install_element(RMAP_NODE, &no_set_lcommunity1_cmd);
+	install_element(RMAP_NODE, &no_set_lcommunity1_short_cmd);
 	install_element(RMAP_NODE, &set_lcommunity_delete_cmd);
 	install_element(RMAP_NODE, &no_set_lcommunity_delete_cmd);
+	install_element(RMAP_NODE, &no_set_lcommunity_delete_short_cmd);
 	install_element(RMAP_NODE, &set_ecommunity_rt_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_rt_cmd);
+	install_element(RMAP_NODE, &no_set_ecommunity_rt_short_cmd);
 	install_element(RMAP_NODE, &set_ecommunity_soo_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_soo_cmd);
+	install_element(RMAP_NODE, &no_set_ecommunity_soo_short_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
 	install_element(RMAP_NODE, &set_vpn_nexthop_cmd);
 	install_element(RMAP_NODE, &no_set_vpn_nexthop_cmd);
