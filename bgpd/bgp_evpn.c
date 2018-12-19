@@ -5459,11 +5459,16 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *rmac,
 	if (filter)
 		SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY);
 
-	/* auto derive RD/RT */
+	/* Map auto derive or configured RTs */
 	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD))
 		evpn_auto_rt_import_add_for_vrf(bgp_vrf);
+	else
+		bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
+
 	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD))
 		evpn_auto_rt_export_add_for_vrf(bgp_vrf);
+
+	/* auto derive RD */
 	bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
 
 	/* link all corresponding l2vnis */
@@ -5531,12 +5536,16 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 	/* remove the Rmac from the BGP vrf */
 	memset(&bgp_vrf->rmac, 0, sizeof(struct ethaddr));
 
-	/* delete RD/RT */
+	/* remove default import RT or Unmap non-default import RT */
 	if (!list_isempty(bgp_vrf->vrf_import_rtl)) {
 		bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
-		list_delete_all_node(bgp_vrf->vrf_import_rtl);
+		if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD))
+			list_delete_all_node(bgp_vrf->vrf_import_rtl);
 	}
-	if (!list_isempty(bgp_vrf->vrf_export_rtl)) {
+
+	/* remove default export RT */
+	if (!list_isempty(bgp_vrf->vrf_export_rtl) &&
+	    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD)) {
 		list_delete_all_node(bgp_vrf->vrf_export_rtl);
 	}
 
