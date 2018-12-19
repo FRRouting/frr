@@ -183,6 +183,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		    !CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;
 
+		smplsp = NULL;
 		gate = false;
 		char gate_buf[INET_ADDRSTRLEN] = "NULL";
 
