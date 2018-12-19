@@ -72,6 +72,21 @@ int nexthop_same_no_recurse(const struct nexthop *next1,
 	return 1;
 }
 
+/* check if nexthops recurse information is same
+ * the recurse part is taken into account
+ */
+int nexthop_same_recurse(const struct nexthop *next1,
+			 const struct nexthop *next2)
+{
+	if (!next1->resolved && !next2->resolved)
+		return 1;
+	if (next1->resolved && !next2->resolved)
+		return 0;
+	if (next2->resolved && !next1->resolved)
+		return 0;
+	return 1;
+}
+
 int nexthop_same_firsthop(struct nexthop *next1, struct nexthop *next2)
 {
 	int type1 = NEXTHOP_FIRSTHOPTYPE(next1->type);
