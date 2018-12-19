@@ -316,6 +316,8 @@ struct zapi_nexthop {
 	mpls_label_t labels[MPLS_MAX_LABELS];
 
 	struct ethaddr rmac;
+
+	ifindex_t recursive_iface_ifindex;
 };
 
 /*

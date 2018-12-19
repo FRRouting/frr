@@ -1257,6 +1257,7 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 			STREAM_GET(&nhr->nexthops[i].labels[0], s,
 				   nhr->nexthops[i].label_num
 					   * sizeof(mpls_label_t));
+		STREAM_GETL(s, nhr->nexthops[i].recursive_iface_ifindex);
 	}
 
 	return true;

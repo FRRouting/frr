@@ -996,6 +996,12 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 								* sizeof(mpls_label_t));
 				} else
 					stream_putc(s, 0);
+				if (CHECK_FLAG(nh->flags,
+					       NEXTHOP_FLAG_RECURSIVE)
+				    && nh->resolved && nh->resolved->ifindex) {
+					stream_putl(s, nh->resolved->ifindex);
+				} else
+					stream_putl(s, 0);
 				num++;
 			}
 		stream_putc_at(s, nump, num);
