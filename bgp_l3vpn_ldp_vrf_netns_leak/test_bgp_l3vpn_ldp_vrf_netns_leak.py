@@ -486,6 +486,54 @@ def test_bgp_vrf_ldp_netns_leak():
     else:
             logger.info('Check Ping from r1-cust1(10.101.51.1) to remote r2-cust2 (10.201.52.4) OK')
 
+    logger.info('Disabling vrf0 interface on r1-cust1')
+    output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ip link set dev vrf0 down')
+    logger.info(output)
+    topotest.sleep(3)
+    name = 'r1'
+    donna = tgen.gears[name].vtysh_cmd('show ip route vrf {0}-cust1 json'.format(name), isjson=True)
+    for i in list_values:
+        j = int(i) + 11
+        if '10.201.{}.0/24'.format(j) in donna.keys():
+            assert 0, "{0}, route 10.201.{1}.0/24 found in RIB".format(name, j)
+
+    #tgen.mininet_cli()
+    donna = tgen.gears[name].vtysh_cmd('show bgp vrf {0}-cust1 ipv4 json'.format(name), isjson=True)
+    routes = donna['routes']
+    for i in list_values:
+        j = int(i) + 11
+        if '10.201.{}.0/24'.format(j) not in routes.keys():
+            assert 0, "{0}, route 10.201.{1}.0/24 not found in BGP RIB".format(name, j)
+        routeid = routes['10.101.{}.0/24'.format(j)]
+        if 'valid' in routeid[0].keys():
+            assert 0, "{0}, route 10.201.{1}.0/24 found in BGP RIB is valid".format(name, j)
+        if 'bestpath' in routeid[0].keys():
+            assert 0, "{0}, route 10.201.{1}.0/24 found in BGP RIB is bestpath".format(name, j)
+
+    output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ping 10.201.52.4 -I 10.101.51.1 -f -c 1000')
+    logger.info(output)
+    if '1000 packets transmitted, 0 received, 100% packet loss' in output:
+        logger.info('Check Ping fail from r1-cust1(10.101.51.1) to r2-cust1 (10.101.51.3) OK')
+    else:
+        if 'connect: Network is unreachable' in output:
+            logger.info('Check Ping fail from r1-cust1(10.101.51.1) to r2-cust1 (10.101.51.3) OK')
+        else:
+            assertmsg = 'expected ping from r1-cust1(10.101.51.1) to r2-cust1 (10.101.51.3) should fail'
+            assert 0, assertmsg
+
+    logger.info('Reenabling vrf0 interface on r1-cust1')
+    output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ip link set dev vrf0 up')
+    logger.info(output)
+    topotest.sleep(3)
+
+    output = tgen.net['r1'].cmd('ip netns exec r1-cust1 ping 10.101.51.3 -I 10.101.51.1 -f -c 1000')
+    logger.info(output)
+    if '1000 packets transmitted, 1000 received' not in output:
+        assertmsg = 'expected ping from r1-cust1(10.101.51.1) to r2-cust1 (10.101.51.3) should be ok'
+        assert 0, assertmsg
+    else:
+            logger.info('Check Ping from r1-cust1(10.101.51.1) to r2-cust1 (10.101.51.3) OK')
+
 if __name__ == '__main__':
 
     args = ["-s"] + sys.argv[1:]
