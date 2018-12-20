@@ -33,6 +33,9 @@
 #include "pim_zebra.h"
 #include "pim_oil.h"
 
+DEFINE_HOOK(pimd_igmpv3_add, (struct igmp_group *group, struct in_addr src_addr), (group, src_addr))
+DEFINE_HOOK(pimd_igmpv3_del, (struct igmp_group *group, struct in_addr src_addr), (group, src_addr))
+
 static void group_retransmit_timer_on(struct igmp_group *group);
 static long igmp_group_timer_remain_msec(struct igmp_group *group);
 static long igmp_source_timer_remain_msec(struct igmp_source *source);
@@ -367,6 +370,8 @@ void igmp_source_delete(struct igmp_source *source)
 	source_timer_off(group, source);
 	igmp_source_forward_stop(source);
 
+	hook_call(pimd_igmpv3_del, group, source->source_addr);
+
 	/* sanity check that forwarding has been disabled */
 	if (IGMP_SOURCE_TEST_FORWARDING(source->source_flags)) {
 		char group_str[INET_ADDRSTRLEN];
@@ -471,6 +476,8 @@ struct igmp_source *source_new(struct igmp_group *group,
 
 	/* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
 	igmp_anysource_forward_stop(group);
+
+	hook_call(pimd_igmpv3_add, group, src_addr);
 
 	return src;
 }
