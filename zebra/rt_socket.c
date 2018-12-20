@@ -84,8 +84,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	char prefix_buf[PREFIX_STRLEN];
 	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
 
-	if (IS_ZEBRA_DEBUG_RIB || IS_ZEBRA_DEBUG_KERNEL)
-		prefix2str(p, prefix_buf, sizeof(prefix_buf));
+	prefix2str(p, prefix_buf, sizeof(prefix_buf));
 
 	/*
 	 * We only have the ability to ADD or DELETE at this point
