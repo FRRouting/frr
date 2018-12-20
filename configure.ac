@@ -487,6 +487,8 @@ AC_ARG_ENABLE([pcreposix],
   AS_HELP_STRING([--enable-pcreposix], [enable using PCRE Posix libs for regex functions]))
 AC_ARG_ENABLE([fpm],
   AS_HELP_STRING([--enable-fpm], [enable Forwarding Plane Manager support]))
+AC_ARG_ENABLE([zmqw],
+  AS_HELP_STRING([--enable-zmqw], [enable the zmq event writer module]))
 AC_ARG_ENABLE([systemd],
   AS_HELP_STRING([--enable-systemd], [enable Systemd support]))
 AC_ARG_ENABLE([werror],
@@ -591,6 +593,8 @@ if test "${enable_shell_access}" = "yes"; then
 fi
 
 AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
+
+AM_CONDITIONAL([ZMQW], [test "x$enable_zmqw" = "xyes"])
 
 #
 # Python for clippy
