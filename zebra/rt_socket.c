@@ -213,10 +213,12 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		}
 
 #ifdef __OpenBSD__
-		if (nexthop->nh_label
-		    && !kernel_rtm_add_labels(nexthop->nh_label, &smpls))
-			continue;
-		smplsp = (union sockunion *)&smpls;
+		if (nexthop->nh_label) {
+			if (kernel_rtm_add_labels(nexthop->nh_label,
+						  &smpls) != 0)
+				continue;
+			smplsp = (union sockunion *)&smpls;
+		}
 #endif
 		error = rtm_write(cmd, &sin_dest, &sin_mask,
 				  gate ? &sin_gate : NULL, smplsp,
