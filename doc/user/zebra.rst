@@ -276,6 +276,12 @@ Link Parameters Commands
    After setting TABLENO with this command, static routes defined after this
    are added to the specified table.
 
+.. index:: ip nht resolve-via-default
+.. clicmd:: ip nht resolve-via-default
+
+   Allows nexthop tracking to resolve via the default route. This is useful
+   when e.g. you want to allow BGP to peer across the default route.
+
 .. _zebra-vrf:
 
 Virtual Routing and Forwarding
