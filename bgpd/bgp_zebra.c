@@ -1170,6 +1170,72 @@ static int update_ipv6nh_for_route_install(int nh_othervrf,
 	return 1;
 }
 
+/* fill in zapi_route structure with optional
+ * cross vrf information
+ * return 1 if nexthop info is inserted, 0 otherwise
+ */
+static int bgp_zebra_handle_nexthop_vrf(struct bgp *bgp,
+					 struct bgp_info *info,
+					 struct bgp_info *mpinfo,
+					 struct zapi_route *api,
+					 struct zapi_nexthop *api_nh)
+{
+	ifindex_t xvrf_ifindex = 0;
+
+	/* not in case other vrf */
+	if (!info->extra || !info->extra->bgp_orig) {
+		api_nh->vrf_id = bgp->vrf_id;
+		return 0;
+	}
+	api_nh->vrf_id = info->extra->bgp_orig->vrf_id;
+
+	/* route resolved with intermediate */
+	if (info->nexthop) {
+		if (info->nexthop->flags & BGP_NEXTHOP_RECURSION_IFACE) {
+			SET_FLAG(api->flags, ZEBRA_FLAG_CROSS_VRF_IFACE);
+			SET_FLAG(api->flags, ZEBRA_FLAG_ALLOW_RECURSION);
+			if (info->nexthop->nexthop &&
+			    info->nexthop->nexthop->resolved) {
+				struct nexthop *res =
+					info->nexthop->nexthop->resolved;
+
+				xvrf_ifindex = res->ifindex;
+			}
+		}
+	} else if (vrf_route_leak_possible(api->vrf_id,
+					   info->extra->bgp_orig->vrf_id,
+					   NULL, &xvrf_ifindex)
+		   == ROUTE_LEAK_VRF_NETNS_POSSIBLE) {
+		SET_FLAG(api->flags, ZEBRA_FLAG_CROSS_VRF_IFACE);
+		SET_FLAG(api->flags, ZEBRA_FLAG_ALLOW_RECURSION);
+	}
+
+	if (!xvrf_ifindex) {
+		api_nh->vrf_id = info->extra->bgp_orig->vrf_id;
+		return 0;
+	}
+
+	/* insert a nexthop rule through interface */
+	api_nh->vrf_id = bgp->vrf_id;
+	api_nh->type = NEXTHOP_TYPE_IFINDEX;
+	api_nh->ifindex = xvrf_ifindex;
+
+	if (mpinfo->extra
+	    && bgp_is_valid_label(&mpinfo->extra->label[0])
+	    && !CHECK_FLAG(api->flags, ZEBRA_FLAG_EVPN_ROUTE)
+	    && mpinfo->extra->label_route_leak
+	    && bgp_is_valid_label(&mpinfo->extra->label_route_leak)) {
+		if (!(CHECK_FLAG(api->flags, ZEBRA_FLAG_EVPN_ROUTE)))
+			SET_FLAG(api->message, ZAPI_MESSAGE_LABEL);
+
+		api_nh->label_num = 2;
+		api_nh->labels[1] = label_pton(&mpinfo->extra->label[0]);
+		api_nh->labels[0] =
+			label_pton(&mpinfo->extra->label_route_leak);
+	}
+	return 1;
+}
+
 void
 bgp_zebra_send_mpls_label(int cmd, mpls_label_t in_label,
 			  mpls_label_t out_label,
@@ -1328,8 +1394,12 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			continue;
 
 		api_nh = &api.nexthops[valid_nh_count];
-		api_nh->vrf_id = nh_othervrf ? info->extra->bgp_orig->vrf_id
-					     : bgp->vrf_id;
+		if (bgp_zebra_handle_nexthop_vrf(bgp, info, mpinfo,
+						 &api, api_nh)) {
+			valid_nh_count++;
+			api_nh = &api.nexthops[valid_nh_count];
+			api_nh->vrf_id = info->extra->bgp_orig->vrf_id;
+		}
 		if (nh_family == AF_INET) {
 			if (bgp_debug_zebra(&api.prefix)) {
 				if (mpinfo->extra) {
@@ -1348,7 +1418,8 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 			if (bgp->table_map[afi][safi].name || nh_othervrf) {
 				/* Copy info and attributes, so the route-map
-				   apply doesn't modify the BGP route info. */
+				 * apply doesn't modify the BGP route info.
+				 */
 				local_attr = *mpinfo->attr;
 				mpinfo_cp->attr = &local_attr;
 				if (nh_othervrf) {
