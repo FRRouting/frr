@@ -308,7 +308,7 @@ void join_timer_start(struct pim_upstream *up)
 		if (PIM_DEBUG_PIM_EVENTS) {
 			zlog_debug(
 				"%s: starting %d sec timer for upstream (S,G)=%s",
-				__PRETTY_FUNCTION__, qpim_t_periodic,
+				__PRETTY_FUNCTION__, router->t_periodic,
 				up->sg_str);
 		}
 	}
@@ -318,7 +318,7 @@ void join_timer_start(struct pim_upstream *up)
 	else {
 		THREAD_OFF(up->t_join_timer);
 		thread_add_timer(router->master, on_join_timer, up,
-				 qpim_t_periodic, &up->t_join_timer);
+				 router->t_periodic, &up->t_join_timer);
 	}
 	pim_jp_agg_upstream_verification(up, true);
 }

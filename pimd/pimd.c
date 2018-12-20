@@ -51,8 +51,6 @@ DEFINE_MTYPE_STATIC(PIMD, ROUTER, "PIM Router information");
 
 struct pim_router *router = NULL;
 
-int qpim_t_periodic =
-	PIM_DEFAULT_T_PERIODIC; /* Period between Join/Prune Messages */
 struct pim_assert_metric qpim_infinite_assert_metric;
 long qpim_rpf_cache_refresh_delay_msec = 50;
 int qpim_packet_process = PIM_DEFAULT_PACKET_PROCESS;
@@ -90,6 +88,7 @@ void pim_router_init(void)
 
 	router->debugs = 0;
 	router->master = frr_init();
+	router->t_periodic = PIM_DEFAULT_T_PERIODIC;
 }
 
 void pim_router_terminate(void)

@@ -4428,7 +4428,7 @@ static void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
 	vty_out(vty, "Maximum highest VifIndex: %d\n", PIM_MAX_USABLE_VIFS);
 
 	vty_out(vty, "\n");
-	vty_out(vty, "Upstream Join Timer: %d secs\n", qpim_t_periodic);
+	vty_out(vty, "Upstream Join Timer: %d secs\n", router->t_periodic);
 	vty_out(vty, "Join/Prune Holdtime: %d secs\n", PIM_JP_HOLDTIME);
 	vty_out(vty, "PIM ECMP: %s\n", pim->ecmp_enable ? "Enable" : "Disable");
 	vty_out(vty, "PIM ECMP Rebalance: %s\n",
@@ -5229,7 +5229,7 @@ DEFUN (ip_pim_joinprune_time,
        "Seconds\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	qpim_t_periodic = atoi(argv[3]->arg);
+	router->t_periodic = atoi(argv[3]->arg);
 	return CMD_SUCCESS;
 }
 
@@ -5243,7 +5243,7 @@ DEFUN (no_ip_pim_joinprune_time,
        "Seconds\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	qpim_t_periodic = PIM_DEFAULT_T_PERIODIC;
+	router->t_periodic = PIM_DEFAULT_T_PERIODIC;
 	return CMD_SUCCESS;
 }
 

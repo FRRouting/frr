@@ -46,6 +46,8 @@ struct pim_router {
 	struct thread_master *master;
 
 	uint32_t debugs;
+
+	int t_periodic;
 };
 
 /* Per VRF PIM DB */

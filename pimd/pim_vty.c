@@ -178,9 +178,9 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 			qpim_register_suppress_time);
 		++writes;
 	}
-	if (qpim_t_periodic != PIM_DEFAULT_T_PERIODIC) {
+	if (router->t_periodic != PIM_DEFAULT_T_PERIODIC) {
 		vty_out(vty, "%sip pim join-prune-interval %d\n", spaces,
-			qpim_t_periodic);
+			router->t_periodic);
 		++writes;
 	}
 	if (pim->keep_alive_time != PIM_KEEPALIVE_PERIOD) {
