@@ -1407,6 +1407,17 @@ struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh)
 				   znh->labels);
 	}
 
+	/*
+	 * This function appends a resolved entry
+	 */
+	if (znh->recursive_iface_ifindex) {
+		struct nexthop *resolved_n = nexthop_new();
+
+		resolved_n->ifindex = znh->recursive_iface_ifindex;
+		resolved_n->type = NEXTHOP_TYPE_IFINDEX;
+		resolved_n->rparent = n;
+		n->resolved = resolved_n;
+	}
 	return n;
 }
 
