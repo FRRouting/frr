@@ -421,6 +421,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 
 	if (nhr.nexthop_num) {
 		struct peer *peer = bnc->nht_info;
+		bool recursive = false;
 
 		/* notify bgp fsm if nbr ip goes from invalid->valid */
 		if (!bnc->nexthop_num)
@@ -454,6 +455,12 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 					zclient, nexthop->vrf_id, ifp, true,
 					BGP_UNNUM_DEFAULT_RA_INTERVAL);
 			}
+
+			/* recursion through interface */
+			if (nexthop->resolved &&
+			    nexthop->resolved->type == NEXTHOP_TYPE_IFINDEX)
+				recursive = true;
+
 			/* There is at least one label-switched path */
 			if (nexthop->nh_label &&
 				nexthop->nh_label->num_labels) {
@@ -468,6 +475,13 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 					"    nhop via %s (%d labels)",
 					nexthop2str(nexthop, buf, sizeof(buf)),
 					num_labels);
+				if ((bnc->flags & BGP_NEXTHOP_RECURSION_IFACE)
+				    && nexthop->resolved)
+					zlog_debug(
+						   "    recursive via %s",
+						   nexthop2str(
+							 nexthop->resolved,
+							 buf, sizeof(buf)));
 			}
 
 			if (nhlist_tail) {
@@ -487,12 +501,18 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 
 			for (oldnh = bnc->nexthop; oldnh; oldnh = oldnh->next)
 				if (nexthop_same_no_recurse(oldnh, nexthop) &&
+				    nexthop_same_recurse(oldnh, nexthop) &&
 				    nexthop_labels_match(oldnh, nexthop))
 					break;
 
 			if (!oldnh)
 				bnc->change_flags |= BGP_NEXTHOP_CHANGED;
 		}
+		if (recursive)
+			bnc->flags |= BGP_NEXTHOP_RECURSION_IFACE;
+		else
+			bnc->flags &= ~BGP_NEXTHOP_RECURSION_IFACE;
+
 		bnc_nexthop_free(bnc);
 		bnc->nexthop = nhlist_head;
 	} else {
@@ -501,6 +521,8 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 
 		/* notify bgp fsm if nbr ip goes from valid->invalid */
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
+
+		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_RECURSION_IFACE);
 
 		bnc_nexthop_free(bnc);
 		bnc->nexthop = NULL;
