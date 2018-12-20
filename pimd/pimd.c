@@ -51,7 +51,6 @@ DEFINE_MTYPE_STATIC(PIMD, ROUTER, "PIM Router information");
 
 struct pim_router *router = NULL;
 
-struct pim_assert_metric qpim_infinite_assert_metric;
 long qpim_rpf_cache_refresh_delay_msec = 50;
 int qpim_packet_process = PIM_DEFAULT_PACKET_PROCESS;
 struct pim_instance *pimg = NULL;
@@ -89,6 +88,21 @@ void pim_router_init(void)
 	router->debugs = 0;
 	router->master = frr_init();
 	router->t_periodic = PIM_DEFAULT_T_PERIODIC;
+
+	/*
+	  RFC 4601: 4.6.3.  Assert Metrics
+
+	  assert_metric
+	  infinite_assert_metric() {
+	  return {1,infinity,infinity,0}
+	  }
+	*/
+	router->infinite_assert_metric.rpt_bit_flag = 1;
+	router->infinite_assert_metric.metric_preference =
+		PIM_ASSERT_METRIC_PREFERENCE_MAX;
+	router->infinite_assert_metric.route_metric =
+		PIM_ASSERT_ROUTE_METRIC_MAX;
+	router->infinite_assert_metric.ip_address.s_addr = INADDR_ANY;
 }
 
 void pim_router_terminate(void)
@@ -107,20 +121,6 @@ void pim_init(void)
 		zassert(0);
 		return;
 	}
-
-	/*
-	  RFC 4601: 4.6.3.  Assert Metrics
-
-	  assert_metric
-	  infinite_assert_metric() {
-	  return {1,infinity,infinity,0}
-	  }
-	*/
-	qpim_infinite_assert_metric.rpt_bit_flag = 1;
-	qpim_infinite_assert_metric.metric_preference =
-		PIM_ASSERT_METRIC_PREFERENCE_MAX;
-	qpim_infinite_assert_metric.route_metric = PIM_ASSERT_ROUTE_METRIC_MAX;
-	qpim_infinite_assert_metric.ip_address.s_addr = INADDR_ANY;
 
 	pim_cmd_init();
 }

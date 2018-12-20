@@ -415,7 +415,7 @@ void reset_ifassert_state(struct pim_ifchannel *ch)
 	THREAD_OFF(ch->t_ifassert_timer);
 
 	pim_ifassert_winner_set(ch, PIM_IFASSERT_NOINFO, any,
-				qpim_infinite_assert_metric);
+				router->infinite_assert_metric);
 }
 
 struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,

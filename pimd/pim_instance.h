@@ -23,6 +23,7 @@
 
 #include "pim_str.h"
 #include "pim_msdp.h"
+#include "pim_assert.h"
 
 #if defined(HAVE_LINUX_MROUTE_H)
 #include <linux/mroute.h>
@@ -35,6 +36,7 @@
 #define MAXVIFS (256)
 #endif
 #endif
+
 extern struct pim_instance *pimg; // Pim Global Instance
 
 enum pim_spt_switchover {
@@ -48,6 +50,7 @@ struct pim_router {
 	uint32_t debugs;
 
 	int t_periodic;
+	struct pim_assert_metric infinite_assert_metric;
 };
 
 /* Per VRF PIM DB */

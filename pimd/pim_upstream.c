@@ -647,9 +647,9 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =
 		PIM_NET_INADDR_ANY;
 	up->rpf.source_nexthop.mrib_metric_preference =
-		qpim_infinite_assert_metric.metric_preference;
+		router->infinite_assert_metric.metric_preference;
 	up->rpf.source_nexthop.mrib_route_metric =
-		qpim_infinite_assert_metric.route_metric;
+		router->infinite_assert_metric.route_metric;
 	up->rpf.rpf_addr.family = AF_INET;
 	up->rpf.rpf_addr.u.prefix4.s_addr = PIM_NET_INADDR_ANY;
 
