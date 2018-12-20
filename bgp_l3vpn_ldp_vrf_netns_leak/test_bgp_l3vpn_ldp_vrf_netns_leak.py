@@ -377,7 +377,20 @@ def test_bgp_convergence():
         _, res = topotest.run_and_expect(test_func, None, count=25, wait=2)
         assertmsg = 'BGP router network for {0} L3VPN did not converge'.format(name)
         assert res is None, assertmsg
-        
+        logger.info('cmd: peering information with {}'.format(name));
+        output = tgen.gears[name].vtysh_cmd('show bgp neighbors'.format(name), isjson=False)
+        logger.info(output)
+        output = tgen.gears[name].vtysh_cmd('show bgp ipv4 vpn'.format(name), isjson=False)
+        logger.info(output)
+        output = tgen.gears[name].vtysh_cmd('show bgp vrf {0}-cust1 ipv4'.format(name), isjson=False)
+        logger.info(output)
+        output = tgen.gears[name].vtysh_cmd('show bgp vrf {0}-cust2 ipv4'.format(name), isjson=False)
+        logger.info(output)
+        output = tgen.gears[name].vtysh_cmd('show ip route vrf {0}-cust1'.format(name), isjson=False)
+        logger.info(output)
+        output = tgen.gears[name].vtysh_cmd('show ip route vrf {0}-cust2'.format(name), isjson=False)
+        logger.info(output)
+
 def test_bgp_vrf_ldp_netns_leak():
     tgen = get_topogen()
 
