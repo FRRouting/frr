@@ -2265,20 +2265,26 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 
 	/* Do we need to allocate or free labels?
 	 * Right now, since we only deal with per-prefix labels, it is not
-	 * necessary to do this upon changes to best path except if the label
-	 * index changes
+	 * necessary to do this upon changes to best path. Exceptions:
+	 * - label index has changed -> recalculate resulting label
+	 * - path_info sub_type changed -> switch to/from implicit-null
+	 * - no valid label (due to removed static label binding) -> get new one
 	 */
 	if (bgp->allocate_mpls_labels[afi][safi]) {
 		if (new_select) {
 			if (!old_select
 			    || bgp_label_index_differs(new_select, old_select)
-			    || new_select->sub_type != old_select->sub_type) {
+			    || new_select->sub_type != old_select->sub_type
+			    || !bgp_is_valid_label(&rn->local_label)) {
+				/* Enforced penultimate hop popping:
+				 * implicit-null for local routes, aggregate
+				 * and redistributed routes
+				 */
 				if (new_select->sub_type == BGP_ROUTE_STATIC
-				    && new_select->attr->flag
-					       & ATTR_FLAG_BIT(
-							 BGP_ATTR_PREFIX_SID)
-				    && new_select->attr->label_index
-					       != BGP_INVALID_LABEL_INDEX) {
+				    || new_select->sub_type
+						== BGP_ROUTE_AGGREGATE
+				    || new_select->sub_type
+						== BGP_ROUTE_REDISTRIBUTE) {
 					if (CHECK_FLAG(
 						    rn->flags,
 						    BGP_NODE_REGISTERED_FOR_LABEL))

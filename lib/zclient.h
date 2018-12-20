@@ -58,6 +58,10 @@
 #define ZEBRA_IPTABLES_FORWARD 0
 #define ZEBRA_IPTABLES_DROP    1
 
+/* Zebra FEC register command flags. */
+#define ZEBRA_FEC_REGISTER_LABEL          0x1
+#define ZEBRA_FEC_REGISTER_LABEL_INDEX    0x2
+
 extern struct sockaddr_storage zclient_addr;
 extern socklen_t zclient_addr_len;
 

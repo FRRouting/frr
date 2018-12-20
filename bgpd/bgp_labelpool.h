@@ -29,6 +29,7 @@
  * Types used in bgp_lp_get for debug tracking; add more as needed
  */
 #define LP_TYPE_VRF	0x00000001
+#define LP_TYPE_BGP_LU	0x00000002
 
 struct labelpool {
 	struct skiplist		*ledger;	/* all requests */
