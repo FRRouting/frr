@@ -51,7 +51,6 @@ DEFINE_MTYPE_STATIC(PIMD, ROUTER, "PIM Router information");
 
 struct pim_router *router = NULL;
 
-uint32_t qpim_debugs = 0;
 int qpim_t_periodic =
 	PIM_DEFAULT_T_PERIODIC; /* Period between Join/Prune Messages */
 struct pim_assert_metric qpim_infinite_assert_metric;
@@ -89,6 +88,7 @@ void pim_router_init(void)
 {
 	router = XCALLOC(MTYPE_ROUTER, sizeof(*router));
 
+	router->debugs = 0;
 	router->master = frr_init();
 }
 

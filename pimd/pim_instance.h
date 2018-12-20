@@ -44,6 +44,8 @@ enum pim_spt_switchover {
 
 struct pim_router {
 	struct thread_master *master;
+
+	uint32_t debugs;
 };
 
 /* Per VRF PIM DB */
