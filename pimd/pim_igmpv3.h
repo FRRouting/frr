@@ -24,10 +24,10 @@
 #include "if.h"
 
 DECLARE_HOOK(pimd_igmpv3_add,
-	     (struct igmp_group * group, struct in_addr src_addr),
+	     (struct igmp_group *group, struct in_addr src_addr),
 	     (group, src_addr))
 DECLARE_HOOK(pimd_igmpv3_del,
-	     (struct igmp_group * group, struct in_addr src_addr),
+	     (struct igmp_group *group, struct in_addr src_addr),
 	     (group, src_addr))
 
 #define IGMP_V3_CHECKSUM_OFFSET            (2)
