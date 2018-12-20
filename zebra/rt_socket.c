@@ -179,6 +179,8 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		/*
 		 * We only want to use the actual good nexthops
 		 */
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_INFO_ONLY))
+			continue;
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE) ||
 		    !CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			continue;

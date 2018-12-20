@@ -71,7 +71,7 @@ struct nexthop {
 
 	enum nexthop_types_t type;
 
-	uint8_t flags;
+	uint16_t flags;
 #define NEXTHOP_FLAG_ACTIVE     (1 << 0) /* This nexthop is alive. */
 #define NEXTHOP_FLAG_FIB        (1 << 1) /* FIB nexthop. */
 #define NEXTHOP_FLAG_RECURSIVE  (1 << 2) /* Recursive nexthop. */
@@ -80,6 +80,7 @@ struct nexthop {
 #define NEXTHOP_FLAG_FILTERED   (1 << 5) /* rmap filtered, used by static only */
 #define NEXTHOP_FLAG_DUPLICATE  (1 << 6) /* nexthop duplicates another active one */
 #define NEXTHOP_FLAG_EVPN_RVTEP (1 << 7) /* EVPN remote vtep nexthop */
+#define NEXTHOP_FLAG_INFO_ONLY  (1 << 8) /* nexthop display only value */
 #define NEXTHOP_IS_ACTIVE(flags)                                               \
 	(CHECK_FLAG(flags, NEXTHOP_FLAG_ACTIVE)                                \
 	 && !CHECK_FLAG(flags, NEXTHOP_FLAG_DUPLICATE))

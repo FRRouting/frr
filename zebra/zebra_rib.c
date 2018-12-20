@@ -407,6 +407,12 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 				   &newhop->nh_label->label[0]);
 
 	resolved_hop->rparent = nexthop;
+	/* crossing vrf interface does not need to take into account
+	 * other nexthops.
+	 */
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_INFO_ONLY))
+		SET_FLAG(resolved_hop->flags, NEXTHOP_FLAG_INFO_ONLY);
+
 	nexthop_add(&nexthop->resolved, resolved_hop);
 }
 
@@ -477,7 +483,11 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			return 0;
 		}
 	}
-
+	/* crossing vrf interface does not need to take into account
+	 * other nexthops. */
+	if (CHECK_FLAG(re->flags, ZEBRA_FLAG_CROSS_VRF_IFACE) &&
+	    nexthop->vrf_id != re->vrf_id)
+		SET_FLAG(nexthop->flags, NEXTHOP_FLAG_INFO_ONLY);
 	/* Make lookup prefix. */
 	memset(&p, 0, sizeof(struct prefix));
 	switch (afi) {
@@ -851,6 +861,9 @@ static unsigned nexthop_active_check(struct route_node *rn,
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_CROSS_VRF_IFACE) &&
+		    nexthop->vrf_id != re->vrf_id)
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_INFO_ONLY);
 		break;
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
