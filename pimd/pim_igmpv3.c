@@ -34,10 +34,10 @@
 #include "pim_oil.h"
 
 DEFINE_HOOK(pimd_igmpv3_add,
-	    (struct igmp_group * group, struct in_addr src_addr),
+	    (struct igmp_group *group, struct in_addr src_addr),
 	    (group, src_addr))
 DEFINE_HOOK(pimd_igmpv3_del,
-	    (struct igmp_group * group, struct in_addr src_addr),
+	    (struct igmp_group *group, struct in_addr src_addr),
 	    (group, src_addr))
 
 static void group_retransmit_timer_on(struct igmp_group *group);
