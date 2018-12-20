@@ -451,6 +451,12 @@ extern const char *zserv_command_string(unsigned int command);
  * kernel install flag for it should be turned on
  */
 #define ZEBRA_FLAG_ONLINK             0x80
+/*
+ * This flag tells Zebra that the passed down route is a vrf route
+ * leak route through interface. Today, this applies to
+ * netns based vrfs, to avoid injecting in kernel all routes
+ */
+#define ZEBRA_FLAG_CROSS_VRF_IFACE    0x100
 
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
