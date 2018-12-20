@@ -1007,6 +1007,34 @@ static int vty_show_route_map(struct vty *vty, const char *name)
 	return CMD_SUCCESS;
 }
 
+/* Unused route map details */
+static int vty_show_unused_route_map(struct vty *vty)
+{
+	struct list *maplist = list_new();
+	struct listnode *ln;
+	struct route_map *map;
+
+	for (map = route_map_master.head; map; map = map->next) {
+		/* If use_count is zero, No protocol is using this routemap.
+		 * so adding to the list.
+		 */
+		if (!map->use_count)
+			listnode_add(maplist, map);
+	}
+
+	if (maplist->count > 0) {
+		vty_out(vty, "\n%s:\n", frr_protonameinst);
+		list_sort(maplist, sort_route_map);
+
+		for (ALL_LIST_ELEMENTS_RO(maplist, ln, map))
+			vty_show_route_map_entry(vty, map);
+	} else {
+		vty_out(vty, "\n%s: None\n", frr_protonameinst);
+	}
+
+	list_delete(&maplist);
+	return CMD_SUCCESS;
+}
 
 /* New route map allocation. Please note route map's name must be
    specified. */
@@ -2759,6 +2787,15 @@ DEFUN (rmap_show_name,
 	return vty_show_route_map(vty, name);
 }
 
+DEFUN (rmap_show_unused,
+       rmap_show_unused_cmd,
+       "show route-map-unused",
+       SHOW_STR
+       "unused route-map information\n")
+{
+	return vty_show_unused_route_map(vty);
+}
+
 DEFUN (rmap_call,
        rmap_call_cmd,
        "call WORD",
@@ -2949,6 +2986,23 @@ static void rmap_autocomplete(vector comps, struct cmd_token *token)
 		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, map->name));
 }
 
+/* Increment the use_count counter while attaching the route map */
+void route_map_counter_increment(struct route_map *map)
+{
+	if (map)
+		map->use_count++;
+}
+
+/* Decrement the use_count counter while detaching the route map. */
+void route_map_counter_decrement(struct route_map *map)
+{
+	if (map) {
+		if (map->use_count <= 0)
+			return;
+		map->use_count--;
+	}
+}
+
 static const struct cmd_variable_handler rmap_var_handlers[] = {
 	{/* "route-map WORD" */
 	 .varname = "route_map",
@@ -3006,6 +3060,7 @@ void route_map_init(void)
 
 	/* Install show command */
 	install_element(ENABLE_NODE, &rmap_show_name_cmd);
+	install_element(ENABLE_NODE, &rmap_show_unused_cmd);
 
 	install_element(RMAP_NODE, &match_interface_cmd);
 	install_element(RMAP_NODE, &no_match_interface_cmd);
