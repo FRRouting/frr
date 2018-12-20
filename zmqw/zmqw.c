@@ -25,7 +25,8 @@ static int pimd_igmpv3_add(struct igmp_group *group, struct in_addr src_addr)
 	json_object_string_add(out, "group", g);
 	json_object_string_add(out, "source", s);
 
-	jsonOut = XSTRDUP(MTYPE_TMP, json_object_to_json_string_ext(out, JSON_C_TO_STRING_PRETTY));
+	jsonOut = XSTRDUP(MTYPE_TMP, 
+		json_object_to_json_string_ext(out, JSON_C_TO_STRING_PRETTY));
 	zmq_send(zmqsock, jsonOut, strlen(jsonOut)+1, 0);
 	XFREE(MTYPE_TMP, jsonOut);
 	json_object_free(out);
@@ -46,7 +47,8 @@ static int pimd_igmpv3_del(struct igmp_group *group, struct in_addr src_addr)
 	json_object_string_add(out, "group", g);
 	json_object_string_add(out, "source", s);
 
-	jsonOut = XSTRDUP(MTYPE_TMP, json_object_to_json_string_ext(out, JSON_C_TO_STRING_PRETTY));
+	jsonOut = XSTRDUP(MTYPE_TMP,
+		json_object_to_json_string_ext(out, JSON_C_TO_STRING_PRETTY));
 	zmq_send(zmqsock, jsonOut, strlen(jsonOut)+1, 0);
 	XFREE(MTYPE_TMP, jsonOut);
 	json_object_free(out);
@@ -59,10 +61,10 @@ static int zmqw_late_init(struct thread_master *tm)
 	const char *format = THIS_MODULE->load_args;
 	/* c doesn't like initializers on dynamic length stack variables */
 	#define ZMQCONNECTSTRLEN 14
-	char zmqConnectStr[ZMQCONNECTSTRLEN] = {0,}; // tcp://*:65536
-
+	char zmqConnectStr[ZMQCONNECTSTRLEN] = {0,}; /* tcp:XX*:65536 */
 	vector formatVector = frrstr_split_vec(format, ";");
-	for(size_t x=0;x<vector_active(formatVector);x++) {
+
+	for( size_t x = 0; x < vector_active(formatVector); x++) {
 		vector parameterVector = frrstr_split_vec(vector_lookup(formatVector, x), "=");
 		char *parameter = vector_lookup(parameterVector, 0);
 		if (strcmp(parameter, "port") == 0) {
