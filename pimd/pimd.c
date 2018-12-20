@@ -47,7 +47,10 @@ const char *const PIM_ALL_ROUTERS = MCAST_ALL_ROUTERS;
 const char *const PIM_ALL_PIM_ROUTERS = MCAST_ALL_PIM_ROUTERS;
 const char *const PIM_ALL_IGMP_ROUTERS = MCAST_ALL_IGMP_ROUTERS;
 
-struct thread_master *master = NULL;
+DEFINE_MTYPE_STATIC(PIMD, ROUTER, "PIM Router information");
+
+struct pim_router *router = NULL;
+
 uint32_t qpim_debugs = 0;
 int qpim_t_periodic =
 	PIM_DEFAULT_T_PERIODIC; /* Period between Join/Prune Messages */
@@ -82,7 +85,19 @@ static void pim_free()
 	zclient_lookup_free();
 }
 
-void pim_init()
+void pim_router_init(void)
+{
+	router = XCALLOC(MTYPE_ROUTER, sizeof(*router));
+
+	router->master = frr_init();
+}
+
+void pim_router_terminate(void)
+{
+	XFREE(MTYPE_ROUTER, router);
+}
+
+void pim_init(void)
 {
 	if (!inet_aton(PIM_ALL_PIM_ROUTERS, &qpim_all_pim_routers_addr)) {
 		flog_err(
@@ -130,5 +145,6 @@ void pim_terminate()
 		zclient_free(zclient);
 	}
 
+	pim_router_terminate();
 	frr_fini();
 }

@@ -132,7 +132,7 @@ const char *const PIM_ALL_ROUTERS;
 const char *const PIM_ALL_PIM_ROUTERS;
 const char *const PIM_ALL_IGMP_ROUTERS;
 
-extern struct thread_master *master;
+extern struct pim_router *router;
 extern struct zebra_privs_t pimd_privs;
 uint32_t qpim_debugs;
 struct in_addr qpim_all_pim_routers_addr;
@@ -236,6 +236,9 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DONT_DEBUG_PIM_NHT             (qpim_debugs &= ~PIM_MASK_PIM_NHT)
 #define PIM_DONT_DEBUG_PIM_NHT_RP          (qpim_debugs &= ~PIM_MASK_PIM_NHT_RP)
 #define PIM_DONT_DEBUG_MTRACE              (qpim_debugs &= ~PIM_MASK_MTRACE)
+
+void pim_router_init(void);
+void pim_router_terminate(void);
 
 void pim_init(void);
 void pim_terminate(void);

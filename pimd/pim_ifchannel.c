@@ -889,8 +889,8 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 	}
 
 	if (holdtime != 0xFFFF) {
-		thread_add_timer(master, on_ifjoin_expiry_timer, ch, holdtime,
-				 &ch->t_ifjoin_expiry_timer);
+		thread_add_timer(router->master, on_ifjoin_expiry_timer, ch,
+				 holdtime, &ch->t_ifjoin_expiry_timer);
 	}
 }
 
@@ -945,11 +945,12 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 			THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
 			THREAD_OFF(ch->t_ifjoin_expiry_timer);
 			thread_add_timer_msec(
-				master, on_ifjoin_prune_pending_timer, ch,
-				jp_override_interval_msec,
+				router->master, on_ifjoin_prune_pending_timer,
+				ch, jp_override_interval_msec,
 				&ch->t_ifjoin_prune_pending_timer);
-			thread_add_timer(master, on_ifjoin_expiry_timer, ch,
-					 holdtime, &ch->t_ifjoin_expiry_timer);
+			thread_add_timer(router->master, on_ifjoin_expiry_timer,
+					 ch, holdtime,
+					 &ch->t_ifjoin_expiry_timer);
 			pim_upstream_update_join_desired(pim_ifp->pim,
 							 ch->upstream);
 		}
@@ -973,31 +974,35 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 		   be taken not to use "ch" afterwards since it would be
 		   deleted. */
 		THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
-		thread_add_timer_msec(master, on_ifjoin_prune_pending_timer, ch,
+		thread_add_timer_msec(router->master,
+				      on_ifjoin_prune_pending_timer, ch,
 				      jp_override_interval_msec,
 				      &ch->t_ifjoin_prune_pending_timer);
 		break;
 	case PIM_IFJOIN_PRUNE:
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
 			THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
-			thread_add_timer(master, on_ifjoin_expiry_timer, ch,
-					 holdtime, &ch->t_ifjoin_expiry_timer);
+			thread_add_timer(router->master, on_ifjoin_expiry_timer,
+					 ch, holdtime,
+					 &ch->t_ifjoin_expiry_timer);
 		}
 		break;
 	case PIM_IFJOIN_PRUNE_TMP:
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
 			ch->ifjoin_state = PIM_IFJOIN_PRUNE;
 			THREAD_OFF(ch->t_ifjoin_expiry_timer);
-			thread_add_timer(master, on_ifjoin_expiry_timer, ch,
-					 holdtime, &ch->t_ifjoin_expiry_timer);
+			thread_add_timer(router->master, on_ifjoin_expiry_timer,
+					 ch, holdtime,
+					 &ch->t_ifjoin_expiry_timer);
 		}
 		break;
 	case PIM_IFJOIN_PRUNE_PENDING_TMP:
 		if (source_flags & PIM_ENCODE_RPT_BIT) {
 			ch->ifjoin_state = PIM_IFJOIN_PRUNE_PENDING;
 			THREAD_OFF(ch->t_ifjoin_expiry_timer);
-			thread_add_timer(master, on_ifjoin_expiry_timer, ch,
-					 holdtime, &ch->t_ifjoin_expiry_timer);
+			thread_add_timer(router->master, on_ifjoin_expiry_timer,
+					 ch, holdtime,
+					 &ch->t_ifjoin_expiry_timer);
 		}
 		break;
 	}

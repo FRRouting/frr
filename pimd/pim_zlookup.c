@@ -71,7 +71,7 @@ static int zclient_lookup_connect(struct thread *t)
 /* Schedule connection with delay. */
 static void zclient_lookup_sched(struct zclient *zlookup, int delay)
 {
-	thread_add_timer(master, zclient_lookup_connect, zlookup, delay,
+	thread_add_timer(router->master, zclient_lookup_connect, zlookup, delay,
 			 &zlookup->t_connect);
 
 	zlog_notice("%s: zclient lookup connection scheduled for %d seconds",
@@ -81,7 +81,7 @@ static void zclient_lookup_sched(struct zclient *zlookup, int delay)
 /* Schedule connection for now. */
 static void zclient_lookup_sched_now(struct zclient *zlookup)
 {
-	thread_add_event(master, zclient_lookup_connect, zlookup, 0,
+	thread_add_event(router->master, zclient_lookup_connect, zlookup, 0,
 			 &zlookup->t_connect);
 
 	zlog_notice("%s: zclient lookup immediate connection scheduled",
@@ -120,7 +120,7 @@ void zclient_lookup_free(void)
 
 void zclient_lookup_new(void)
 {
-	zlookup = zclient_new(master, &zclient_options_default);
+	zlookup = zclient_new(router->master, &zclient_options_default);
 	if (!zlookup) {
 		flog_err(EC_LIB_ZAPI_SOCKET, "%s: zclient_new() failure",
 			 __PRETTY_FUNCTION__);

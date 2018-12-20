@@ -42,6 +42,10 @@ enum pim_spt_switchover {
 	PIM_SPT_INFINITY,
 };
 
+struct pim_router {
+	struct thread_master *master;
+};
+
 /* Per VRF PIM DB */
 struct pim_instance {
 	vrf_id_t vrf_id;

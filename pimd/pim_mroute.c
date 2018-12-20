@@ -720,7 +720,7 @@ done:
 
 static void mroute_read_on(struct pim_instance *pim)
 {
-	thread_add_read(master, mroute_read, pim, pim->mroute_socket,
+	thread_add_read(router->master, mroute_read, pim, pim->mroute_socket,
 			&pim->thread);
 }
 

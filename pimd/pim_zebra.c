@@ -730,7 +730,7 @@ void sched_rpf_cache_refresh(struct pim_instance *pim)
 			   qpim_rpf_cache_refresh_delay_msec);
 	}
 
-	thread_add_timer_msec(master, on_rpf_cache_refresh, pim,
+	thread_add_timer_msec(router->master, on_rpf_cache_refresh, pim,
 			      qpim_rpf_cache_refresh_delay_msec,
 			      &pim->rpf_cache_refresher);
 }
@@ -753,7 +753,7 @@ static void pim_zebra_capabilities(struct zclient_capabilities *cap)
 void pim_zebra_init(void)
 {
 	/* Socket for receiving updates from Zebra daemon */
-	zclient = zclient_new(master, &zclient_options_default);
+	zclient = zclient_new(router->master, &zclient_options_default);
 
 	zclient->zebra_capabilities = pim_zebra_capabilities;
 	zclient->zebra_connected = pim_zebra_connected;
