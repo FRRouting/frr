@@ -1447,6 +1447,8 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	 * or multipath case. */
 	nexthop_num = 0;
 	for (ALL_NEXTHOPS(re->ng, nexthop)) {
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_INFO_ONLY))
+			continue;
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			continue;
 		if (cmd == RTM_NEWROUTE && !NEXTHOP_IS_ACTIVE(nexthop->flags))
@@ -1462,6 +1464,9 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	if (nexthop_num == 1 || multipath_num == 1) {
 		nexthop_num = 0;
 		for (ALL_NEXTHOPS(re->ng, nexthop)) {
+			if (CHECK_FLAG(nexthop->flags,
+				       NEXTHOP_FLAG_INFO_ONLY))
+				continue;
 			/*
 			 * So we want to cover 2 types of blackhole
 			 * routes here:

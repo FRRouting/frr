@@ -124,6 +124,8 @@ static int kernel_rtm_ipv4(int cmd, struct prefix *p, struct route_entry *re)
 
 	/* Make gateway. */
 	for (ALL_NEXTHOPS(re->ng, nexthop)) {
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_INFO_ONLY))
+			continue;
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			continue;
 
