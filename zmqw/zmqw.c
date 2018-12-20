@@ -89,6 +89,7 @@ static int zmqw_late_init(struct thread_master *tm)
 		vector parameterVector =
 			frrstr_split_vec(vector_lookup(formatVector, x), "=");
 		char *parameter = vector_lookup(parameterVector, 0);
+
 		if (strcmp(parameter, "port") == 0) {
 			snprintf(zmqConnectStr, ZMQCONNECTSTRLEN, "tcp://*:%s",
 				 (char *)vector_lookup(parameterVector, 1));
@@ -125,4 +126,4 @@ static int zmqw_init(void)
 }
 
 FRR_MODULE_SETUP(.name = "zmqw", .version = "zmqw", .description = "zmqw",
-		 .init = zmqw_init, )
+		 .init = zmqw_init,)
