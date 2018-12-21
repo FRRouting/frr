@@ -1,4 +1,4 @@
-/* mlag header.
+/* mlag generic code.
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *                    Donald Sharp
  *
@@ -19,14 +19,23 @@
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
  * 02111-1307, USA.
  */
-#ifndef __MLAG_H__
-#define __MLAG_H__
+#include <zebra.h>
 
-enum mlag_role {
-	MLAG_ROLE_NONE,
-	MLAG_ROLE_PRIMARY,
-	MLAG_ROLE_SECONDARY
-};
+#include <mlag.h>
 
-extern char *mlag_role2str(enum mlag_role role, char *buf, size_t size);
-#endif
+char *mlag_role2str(enum mlag_role role, char *buf, size_t size)
+{
+	switch (role) {
+	case MLAG_ROLE_NONE:
+		snprintf(buf, size, "NONE");
+		break;
+	case MLAG_ROLE_PRIMARY:
+		snprintf(buf, size, "PRIMARY");
+		break;
+	case MLAG_ROLE_SECONDARY:
+		snprintf(buf, size, "SECONDARY");
+		break;
+	}
+
+	return buf;
+}
