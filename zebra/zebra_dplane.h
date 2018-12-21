@@ -250,21 +250,6 @@ enum dplane_provider_prio {
 	DPLANE_PRIO_LAST
 };
 
-/* Provider's entry-point for incoming work, called in the context of the
- * dataplane pthread. The dataplane pthread enqueues any new work to the
- * provider's 'inbound' queue, then calls the callback. The dataplane
- * then checks the provider's outbound queue.
- */
-typedef int (*dplane_provider_process_fp)(struct zebra_dplane_provider *prov);
-
-/* Provider's entry-point for shutdown and cleanup. Called with 'early'
- * during shutdown, to indicate that the dataplane subsystem is allowing
- * work to move through the providers and finish. When called without 'early',
- * the provider should release all resources (if it has any allocated).
- */
-typedef int (*dplane_provider_fini_fp)(struct zebra_dplane_provider *prov,
-				       bool early);
-
 /* Flags values used during provider registration. */
 #define DPLANE_PROV_FLAGS_DEFAULT  0x0
 
@@ -275,11 +260,25 @@ typedef int (*dplane_provider_fini_fp)(struct zebra_dplane_provider *prov,
 /* Provider registration: ordering or priority value, callbacks, and optional
  * opaque data value.
  */
+
+/* Providers offer an entry-point for incoming work, called in the context of
+ * the dataplane pthread. The dataplane pthread enqueues any new work to the
+ * provider's 'inbound' queue, then calls the callback. The dataplane
+ * then checks the provider's outbound queue for completed work.
+ */
+
+/* Providers offer an entry-point for shutdown and cleanup. This is called
+ * with 'early' during shutdown, to indicate that the dataplane subsystem
+ * is allowing work to move through the providers and finish.
+ * When called without 'early', the provider should release
+ * all resources (if it has any allocated).
+ */
 int dplane_provider_register(const char *name,
 			     enum dplane_provider_prio prio,
 			     int flags,
-			     dplane_provider_process_fp fp,
-			     dplane_provider_fini_fp fini_fp,
+			     int (*fp)(struct zebra_dplane_provider *),
+			     int (*fini_fp)(struct zebra_dplane_provider *,
+					    bool early),
 			     void *data);
 
 /* Accessors for provider attributes */
@@ -318,20 +317,13 @@ void dplane_provider_enqueue_out_ctx(struct zebra_dplane_provider *prov,
 				     struct zebra_dplane_ctx *ctx);
 
 /*
- * Zebra registers a results callback with the dataplane. The callback is
- * called in the dataplane pthread context, so the expectation is that the
- * context is queued for the zebra main pthread or that processing
- * is very limited.
- */
-typedef int (*dplane_results_fp)(struct zebra_dplane_ctx *ctx);
-
-int dplane_results_register(dplane_results_fp fp);
-
-/*
  * Initialize the dataplane modules at zebra startup. This is currently called
- * by the rib module.
+ * by the rib module. Zebra registers a results callback with the dataplane.
+ * The callback is called in the dataplane pthread context,
+ * so the expectation is that the contexts are queued for the zebra
+ * main pthread.
  */
-void zebra_dplane_init(void);
+void zebra_dplane_init(int (*) (struct dplane_ctx_q *));
 
 /*
  * Start the dataplane pthread. This step needs to be run later than the

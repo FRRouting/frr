@@ -157,9 +157,9 @@ struct zebra_dplane_provider {
 	/* Flags */
 	int dp_flags;
 
-	dplane_provider_process_fp dp_fp;
+	int (*dp_fp)(struct zebra_dplane_provider *prov);
 
-	dplane_provider_fini_fp dp_fini;
+	int (*dp_fini)(struct zebra_dplane_provider *prov, bool early_p);
 
 	_Atomic uint32_t dp_in_counter;
 	_Atomic uint32_t dp_in_queued;
@@ -189,7 +189,7 @@ static struct zebra_dplane_globals {
 	pthread_mutex_t dg_mutex;
 
 	/* Results callback registered by zebra 'core' */
-	dplane_results_fp dg_results_cb;
+	int (*dg_results_cb)(struct dplane_ctx_q *ctxlist);
 
 	/* Sentinel for beginning of shutdown */
 	volatile bool dg_is_shutdown;
@@ -988,8 +988,9 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 int dplane_provider_register(const char *name,
 			     enum dplane_provider_prio prio,
 			     int flags,
-			     dplane_provider_process_fp fp,
-			     dplane_provider_fini_fp fini_fp,
+			     int (*fp)(struct zebra_dplane_provider *),
+			     int (*fini_fp)(struct zebra_dplane_provider *,
+					    bool early),
 			     void *data)
 {
 	int ret = 0;
@@ -1206,15 +1207,6 @@ int dplane_provider_work_ready(void)
 				 &zdplane_info.dg_t_update);
 	}
 
-	return AOK;
-}
-
-/*
- * Zebra registers a results callback with the dataplane system
- */
-int dplane_results_register(dplane_results_fp fp)
-{
-	zdplane_info.dg_results_cb = fp;
 	return AOK;
 }
 
@@ -1677,27 +1669,20 @@ static int dplane_thread_loop(struct thread *event)
 			   counter, error_counter);
 
 	/*
-	 * TODO -- I'd rather hand lists through the api to zebra main,
+	 * Hand lists through the api to zebra main,
 	 * to reduce the number of lock/unlock cycles
 	 */
-	for (ctx = TAILQ_FIRST(&error_list); ctx; ) {
-		TAILQ_REMOVE(&error_list, ctx, zd_q_entries);
 
-		/* Call through to zebra main */
-		(*zdplane_info.dg_results_cb)(ctx);
+	/* Call through to zebra main */
+	(zdplane_info.dg_results_cb)(&error_list);
 
-		ctx = TAILQ_FIRST(&error_list);
-	}
+	TAILQ_INIT(&error_list);
 
 
-	for (ctx = TAILQ_FIRST(&work_list); ctx; ) {
-		TAILQ_REMOVE(&work_list, ctx, zd_q_entries);
+	/* Call through to zebra main */
+	(zdplane_info.dg_results_cb)(&work_list);
 
-		/* Call through to zebra main */
-		(*zdplane_info.dg_results_cb)(ctx);
-
-		ctx = TAILQ_FIRST(&work_list);
-	}
+	TAILQ_INIT(&work_list);
 
 done:
 	return 0;
@@ -1782,7 +1767,8 @@ void zebra_dplane_start(void)
 /*
  * Initialize the dataplane module at startup; called by zebra rib_init()
  */
-void zebra_dplane_init(void)
+void zebra_dplane_init(int (*results_fp)(struct dplane_ctx_q *))
 {
 	zebra_dplane_init_internal(&zebrad);
+	zdplane_info.dg_results_cb = results_fp;
 }

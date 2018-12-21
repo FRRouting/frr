@@ -3194,20 +3194,33 @@ void rib_close_table(struct route_table *table)
 static int rib_process_dplane_results(struct thread *thread)
 {
 	struct zebra_dplane_ctx *ctx;
+	struct dplane_ctx_q ctxlist;
+
+	/* Dequeue a list of completed updates with one lock/unlock cycle */
 
 	do {
+		TAILQ_INIT(&ctxlist);
+
 		/* Take lock controlling queue of results */
 		pthread_mutex_lock(&dplane_mutex);
 		{
 			/* Dequeue context block */
-			ctx = dplane_ctx_dequeue(&rib_dplane_q);
+			dplane_ctx_list_append(&ctxlist, &rib_dplane_q);
 		}
 		pthread_mutex_unlock(&dplane_mutex);
 
-		if (ctx)
-			rib_process_after(ctx);
-		else
+		/* Dequeue context block */
+		ctx = dplane_ctx_dequeue(&ctxlist);
+
+		/* If we've emptied the results queue, we're done */
+		if (ctx == NULL)
 			break;
+
+		while (ctx) {
+			rib_process_after(ctx);
+
+			ctx = dplane_ctx_dequeue(&ctxlist);
+		}
 
 	} while (1);
 
@@ -3222,17 +3235,17 @@ static int rib_process_dplane_results(struct thread *thread)
  * the dataplane pthread. We enqueue the results here for processing by
  * the main thread later.
  */
-static int rib_dplane_results(struct zebra_dplane_ctx *ctx)
+static int rib_dplane_results(struct dplane_ctx_q *ctxlist)
 {
 	/* Take lock controlling queue of results */
 	pthread_mutex_lock(&dplane_mutex);
 	{
-		/* Enqueue context block */
-		dplane_ctx_enqueue_tail(&rib_dplane_q, ctx);
+		/* Enqueue context blocks */
+		dplane_ctx_list_append(&rib_dplane_q, ctxlist);
 	}
 	pthread_mutex_unlock(&dplane_mutex);
 
-	/* Ensure event is signalled to zebra main thread */
+	/* Ensure event is signalled to zebra main pthread */
 	thread_add_event(zebrad.master, rib_process_dplane_results, NULL, 0,
 			 &t_dplane);
 
@@ -3247,8 +3260,7 @@ void rib_init(void)
 	/* Init dataplane, and register for results */
 	pthread_mutex_init(&dplane_mutex, NULL);
 	TAILQ_INIT(&rib_dplane_q);
-	zebra_dplane_init();
-	dplane_results_register(rib_dplane_results);
+	zebra_dplane_init(rib_dplane_results);
 }
 
 /*
