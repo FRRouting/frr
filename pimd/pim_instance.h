@@ -21,6 +21,8 @@
 #ifndef __PIM_INSTANCE_H__
 #define __PIM_INSTANCE_H__
 
+#include <mlag.h>
+
 #include "pim_str.h"
 #include "pim_msdp.h"
 #include "pim_assert.h"
@@ -58,6 +60,8 @@ struct pim_router {
 	 * What is the default vrf that we work in
 	 */
 	vrf_id_t vrf_id;
+
+	enum mlag_role role;
 };
 
 /* Per VRF PIM DB */

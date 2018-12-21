@@ -745,9 +745,7 @@ static void pim_zebra_connected(struct zclient *zclient)
 
 static void pim_zebra_capabilities(struct zclient_capabilities *cap)
 {
-	/*
-	 * Don't do anything with this data yet
-	 */
+	router->role = cap->role;
 }
 
 void pim_zebra_init(void)
