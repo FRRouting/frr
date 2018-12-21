@@ -4408,9 +4408,12 @@ static void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
 	struct vrf *vrf = pim->vrf;
 	time_t now = pim_time_monotonic_sec();
 	char uptime[10];
+	char mlag_role[80];
 
 	pim = vrf->info;
 
+	vty_out(vty, "Router MLAG Role: %s\n",
+		mlag_role2str(router->role, mlag_role, sizeof(mlag_role)));
 	vty_out(vty, "Mroute socket descriptor:");
 
 	vty_out(vty, " %d(%s)\n", pim->mroute_socket, vrf->name);
