@@ -54,6 +54,7 @@ struct pim_router {
 	long rpf_cache_refresh_delay_msec;
 	int32_t register_suppress_time;
 	int packet_process;
+	int32_t register_probe_time;
 };
 
 /* Per VRF PIM DB */

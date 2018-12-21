@@ -53,8 +53,6 @@ struct pim_router *router = NULL;
 
 struct pim_instance *pimg = NULL;
 
-int32_t qpim_register_probe_time = PIM_REGISTER_PROBE_TIME_DEFAULT;
-
 void pim_prefix_list_update(struct prefix_list *plist)
 {
 	struct pim_instance *pim;
@@ -103,6 +101,7 @@ void pim_router_init(void)
 	router->rpf_cache_refresh_delay_msec = 50;
 	router->register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
 	router->packet_process = PIM_DEFAULT_PACKET_PROCESS;
+	router->register_probe_time = PIM_REGISTER_PROBE_TIME_DEFAULT;
 }
 
 void pim_router_terminate(void)
