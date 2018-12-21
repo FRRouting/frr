@@ -10,17 +10,7 @@ buster.)
 
       sudo apt install fakeroot debhelper devscripts
 
-2. Install build dependencies using the  `mk-build-deps` tool from the
-   `devscripts` package:
-
-   .. code-block:: shell
-
-      sudo mk-build-deps --install debianpkg/control
-
-   Alternatively, you can manually install build dependencies for your
-   platform as outlined in :ref:`building`.
-
-3. Checkout FRR under an **unprivileged** user account:
+2. Checkout FRR under an **unprivileged** user account:
 
    .. code-block:: shell
 
@@ -32,6 +22,16 @@ buster.)
    .. code-block:: shell
 
       git checkout <branch>
+
+3. Install build dependencies using the  `mk-build-deps` tool from the
+   `devscripts` package:
+
+   .. code-block:: shell
+
+      sudo mk-build-deps --install debian/control
+
+   Alternatively, you can manually install build dependencies for your
+   platform as outlined in :ref:`building`.
 
 4. Run ``tools/tarsource.sh -V``:
 
