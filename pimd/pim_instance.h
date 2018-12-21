@@ -37,8 +37,6 @@
 #endif
 #endif
 
-extern struct pim_instance *pimg; // Pim Global Instance
-
 enum pim_spt_switchover {
 	PIM_SPT_IMMEDIATE,
 	PIM_SPT_INFINITY,
@@ -55,6 +53,11 @@ struct pim_router {
 	int32_t register_suppress_time;
 	int packet_process;
 	int32_t register_probe_time;
+
+	/*
+	 * What is the default vrf that we work in
+	 */
+	vrf_id_t vrf_id;
 };
 
 /* Per VRF PIM DB */

@@ -101,9 +101,6 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 
 	pim->send_v6_secondary = 1;
 
-	if (vrf->vrf_id == VRF_DEFAULT)
-		pimg = pim;
-
 	pim_rp_init(pim);
 
 	pim_oil_init(pim);
@@ -131,9 +128,6 @@ static int pim_vrf_new(struct vrf *vrf)
 	zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
 
 	vrf->info = (void *)pim;
-
-	if (vrf->vrf_id == VRF_DEFAULT)
-		pimg = pim;
 
 	pim_ssmpingd_init(pim);
 	return 0;

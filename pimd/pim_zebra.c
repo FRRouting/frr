@@ -740,7 +740,7 @@ static void pim_zebra_connected(struct zclient *zclient)
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 
-	zclient_send_reg_requests(zclient, pimg->vrf_id);
+	zclient_send_reg_requests(zclient, router->vrf_id);
 }
 
 static void pim_zebra_capabilities(struct zclient_capabilities *cap)
