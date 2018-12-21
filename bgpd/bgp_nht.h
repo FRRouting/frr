@@ -74,4 +74,8 @@ extern void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer);
  */
 extern void bgp_cleanup_nexthops(struct bgp *bgp);
 
+extern void path_nh_map(struct bgp_info *path,
+			struct bgp_nexthop_cache *bnc,
+			int keep);
+
 #endif /* _BGP_NHT_H */

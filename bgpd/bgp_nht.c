@@ -50,8 +50,6 @@ static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc,
 				 int is_bgp_static_route);
 static void evaluate_paths(struct bgp_nexthop_cache *bnc);
 static int make_prefix(int afi, struct bgp_info *ri, struct prefix *p);
-static void path_nh_map(struct bgp_info *path, struct bgp_nexthop_cache *bnc,
-			int keep);
 
 static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 {
@@ -764,8 +762,8 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
  *   make - if set, make the association. if unset, just break the existing
  *          association.
  */
-static void path_nh_map(struct bgp_info *path, struct bgp_nexthop_cache *bnc,
-			int make)
+void path_nh_map(struct bgp_info *path, struct bgp_nexthop_cache *bnc,
+		 int make)
 {
 	if (path->nexthop) {
 		LIST_REMOVE(path, nh_thread);
