@@ -54,7 +54,6 @@ struct pim_router *router = NULL;
 int qpim_packet_process = PIM_DEFAULT_PACKET_PROCESS;
 struct pim_instance *pimg = NULL;
 
-int32_t qpim_register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
 int32_t qpim_register_probe_time = PIM_REGISTER_PROBE_TIME_DEFAULT;
 
 void pim_prefix_list_update(struct prefix_list *plist)
@@ -103,6 +102,7 @@ void pim_router_init(void)
 		PIM_ASSERT_ROUTE_METRIC_MAX;
 	router->infinite_assert_metric.ip_address.s_addr = INADDR_ANY;
 	router->rpf_cache_refresh_delay_msec = 50;
+	router->register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
 }
 
 void pim_router_terminate(void)

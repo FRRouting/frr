@@ -147,7 +147,6 @@ extern uint8_t qpim_ecmp_rebalance_enable;
  * Register-Stop Timer (RST(S,G))
  * Default values
  */
-extern int32_t qpim_register_suppress_time;
 extern int32_t qpim_register_probe_time;
 #define PIM_REGISTER_SUPPRESSION_TIME_DEFAULT      (60)
 #define PIM_REGISTER_PROBE_TIME_DEFAULT            (5)

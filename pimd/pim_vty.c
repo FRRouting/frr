@@ -172,10 +172,10 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 
 	writes += pim_rp_config_write(pim, vty, spaces);
 
-	if (qpim_register_suppress_time
+	if (router->register_suppress_time
 	    != PIM_REGISTER_SUPPRESSION_TIME_DEFAULT) {
 		vty_out(vty, "%sip pim register-suppress-time %d\n", spaces,
-			qpim_register_suppress_time);
+			router->register_suppress_time);
 		++writes;
 	}
 	if (router->t_periodic != PIM_DEFAULT_T_PERIODIC) {
