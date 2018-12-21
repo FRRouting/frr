@@ -163,7 +163,7 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	else
 		sprintf(spaces, "%s", " ");
 
-	writes += pim_msdp_config_write_helper(pim, vty, spaces);
+	writes += pim_msdp_config_write(pim, vty, spaces);
 
 	if (!pim->send_v6_secondary) {
 		vty_out(vty, "%sno ip pim send-v6-secondary\n", spaces);
