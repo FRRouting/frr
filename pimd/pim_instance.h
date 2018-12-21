@@ -51,6 +51,7 @@ struct pim_router {
 
 	int t_periodic;
 	struct pim_assert_metric infinite_assert_metric;
+	long rpf_cache_refresh_delay_msec;
 };
 
 /* Per VRF PIM DB */

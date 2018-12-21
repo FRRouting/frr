@@ -2646,7 +2646,7 @@ static void show_rpf_refresh_stats(struct vty *vty, struct pim_instance *pim,
 
 	if (json) {
 		json_object_int_add(json, "rpfCacheRefreshDelayMsecs",
-				    qpim_rpf_cache_refresh_delay_msec);
+				    router->rpf_cache_refresh_delay_msec);
 		json_object_int_add(
 			json, "rpfCacheRefreshTimer",
 			pim_time_timer_remain_msec(pim->rpf_cache_refresher));
@@ -2669,7 +2669,7 @@ static void show_rpf_refresh_stats(struct vty *vty, struct pim_instance *pim,
 			"RPF Cache Refresh Last:     %s\n"
 			"Nexthop Lookups:            %lld\n"
 			"Nexthop Lookups Avoided:    %lld\n",
-			qpim_rpf_cache_refresh_delay_msec,
+			router->rpf_cache_refresh_delay_msec,
 			pim_time_timer_remain_msec(pim->rpf_cache_refresher),
 			(long long)pim->rpf_cache_refresh_requests,
 			(long long)pim->rpf_cache_refresh_events,

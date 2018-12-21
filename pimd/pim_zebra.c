@@ -727,11 +727,11 @@ void sched_rpf_cache_refresh(struct pim_instance *pim)
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug("%s: triggering %ld msec timer", __PRETTY_FUNCTION__,
-			   qpim_rpf_cache_refresh_delay_msec);
+			   router->rpf_cache_refresh_delay_msec);
 	}
 
 	thread_add_timer_msec(router->master, on_rpf_cache_refresh, pim,
-			      qpim_rpf_cache_refresh_delay_msec,
+			      router->rpf_cache_refresh_delay_msec,
 			      &pim->rpf_cache_refresher);
 }
 
