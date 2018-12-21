@@ -12,6 +12,7 @@ adduser \
 	--ingroup frr \
 	--home /nonexistent \
 	--gecos "Frr routing suite" \
+	--no-create-home \
 	frr
 usermod -a -G frrvty frr
 
