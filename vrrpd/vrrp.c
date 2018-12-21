@@ -266,6 +266,8 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 	ssize_t sent = sendto(r->sock, pkt, (size_t)pktlen, 0, &dest.sa,
 			      sockunion_sizeof(&dest));
 
+	XFREE(MTYPE_TMP, pkt);
+
 	if (sent < 0) {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
 			  "Failed to send VRRP Advertisement",
