@@ -5339,7 +5339,7 @@ DEFUN (ip_pim_packets,
        "Number of packets\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	qpim_packet_process = atoi(argv[3]->arg);
+	router->packet_process = atoi(argv[3]->arg);
 	return CMD_SUCCESS;
 }
 
@@ -5353,7 +5353,7 @@ DEFUN (no_ip_pim_packets,
        "Number of packets\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	qpim_packet_process = PIM_DEFAULT_PACKET_PROCESS;
+	router->packet_process = PIM_DEFAULT_PACKET_PROCESS;
 	return CMD_SUCCESS;
 }
 

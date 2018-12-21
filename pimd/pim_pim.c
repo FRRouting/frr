@@ -346,7 +346,7 @@ static int pim_sock_read(struct thread *t)
 		}
 
 		count++;
-		if (count % qpim_packet_process == 0)
+		if (count % router->packet_process == 0)
 			cont = 0;
 	}
 

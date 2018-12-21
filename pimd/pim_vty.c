@@ -193,9 +193,9 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 			pim->rp_keep_alive_time);
 		++writes;
 	}
-	if (qpim_packet_process != PIM_DEFAULT_PACKET_PROCESS) {
+	if (router->packet_process != PIM_DEFAULT_PACKET_PROCESS) {
 		vty_out(vty, "%sip pim packets %d\n", spaces,
-			qpim_packet_process);
+			router->packet_process);
 		++writes;
 	}
 	if (ssm->plist_name) {

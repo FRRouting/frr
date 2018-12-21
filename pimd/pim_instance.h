@@ -53,6 +53,7 @@ struct pim_router {
 	struct pim_assert_metric infinite_assert_metric;
 	long rpf_cache_refresh_delay_msec;
 	int32_t register_suppress_time;
+	int packet_process;
 };
 
 /* Per VRF PIM DB */

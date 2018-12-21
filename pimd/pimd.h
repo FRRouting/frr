@@ -135,7 +135,6 @@ const char *const PIM_ALL_IGMP_ROUTERS;
 extern struct pim_router *router;
 extern struct zebra_privs_t pimd_privs;
 struct in_addr qpim_all_pim_routers_addr;
-extern int qpim_packet_process;
 extern uint8_t qpim_ecmp_enable;
 extern uint8_t qpim_ecmp_rebalance_enable;
 

@@ -51,7 +51,6 @@ DEFINE_MTYPE_STATIC(PIMD, ROUTER, "PIM Router information");
 
 struct pim_router *router = NULL;
 
-int qpim_packet_process = PIM_DEFAULT_PACKET_PROCESS;
 struct pim_instance *pimg = NULL;
 
 int32_t qpim_register_probe_time = PIM_REGISTER_PROBE_TIME_DEFAULT;
@@ -103,6 +102,7 @@ void pim_router_init(void)
 	router->infinite_assert_metric.ip_address.s_addr = INADDR_ANY;
 	router->rpf_cache_refresh_delay_msec = 50;
 	router->register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
+	router->packet_process = PIM_DEFAULT_PACKET_PROCESS;
 }
 
 void pim_router_terminate(void)
