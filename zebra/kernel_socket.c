@@ -139,7 +139,9 @@ const struct message rtm_type_str[] = {{RTM_ADD, "RTM_ADD"},
 				       {RTM_LOSING, "RTM_LOSING"},
 				       {RTM_REDIRECT, "RTM_REDIRECT"},
 				       {RTM_MISS, "RTM_MISS"},
+#ifdef RTM_LOCK
 				       {RTM_LOCK, "RTM_LOCK"},
+#endif /* RTM_LOCK */
 #ifdef OLDADD
 				       {RTM_OLDADD, "RTM_OLDADD"},
 #endif /* RTM_OLDADD */
