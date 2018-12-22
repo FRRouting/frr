@@ -126,4 +126,4 @@ static int zmqw_init(void)
 }
 
 FRR_MODULE_SETUP(.name = "zmqw", .version = "zmqw", .description = "zmqw",
-		 .init = zmqw_init,)
+		 .init = zmqw_init)
