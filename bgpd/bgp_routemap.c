@@ -1048,7 +1048,7 @@ static route_map_result_t route_match_community(void *rule,
 {
 	struct community_list *list;
 	struct bgp_path_info *path;
-	struct rmap_community *rcom;
+	struct rmap_community *rcom = rule;
 
 	if (type == RMAP_BGP) {
 		path = object;
@@ -1115,11 +1115,10 @@ static route_map_result_t route_match_lcommunity(void *rule,
 {
 	struct community_list *list;
 	struct bgp_path_info *path;
-	struct rmap_community *rcom;
+	struct rmap_community *rcom = rule;
 
 	if (type == RMAP_BGP) {
 		path = object;
-		rcom = rule;
 
 		list = community_list_lookup(bgp_clist, rcom->name,
 					     LARGE_COMMUNITY_LIST_MASTER);
@@ -1176,11 +1175,12 @@ static route_map_result_t route_match_ecommunity(void *rule,
 {
 	struct community_list *list;
 	struct bgp_path_info *path;
+	struct rmap_community *rcom = rule;
 
 	if (type == RMAP_BGP) {
 		path = object;
 
-		list = community_list_lookup(bgp_clist, (char *)rule,
+		list = community_list_lookup(bgp_clist, rcom->name,
 					     EXTCOMMUNITY_LIST_MASTER);
 		if (!list)
 			return RMAP_NOMATCH;
@@ -1194,13 +1194,21 @@ static route_map_result_t route_match_ecommunity(void *rule,
 /* Compile function for extcommunity match. */
 static void *route_match_ecommunity_compile(const char *arg)
 {
-	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+	struct rmap_community *rcom;
+
+	rcom = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_community));
+	rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+
+	return rcom;
 }
 
 /* Compile function for extcommunity match. */
 static void route_match_ecommunity_free(void *rule)
 {
-	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+	struct rmap_community *rcom = rule;
+
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcom->name);
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcom);
 }
 
 /* Route map commands for community matching. */
@@ -1932,13 +1940,14 @@ static route_map_result_t route_set_lcommunity_delete(void *rule,
 	struct lcommunity *new;
 	struct lcommunity *old;
 	struct bgp_path_info *path;
+	struct rmap_community *rcom = rule;
 
 	if (type == RMAP_BGP) {
-		if (!rule)
+		if (!rcom)
 			return RMAP_OKAY;
 
 		path = object;
-		list = community_list_lookup(bgp_clist, rule,
+		list = community_list_lookup(bgp_clist, rcom->name,
 					     LARGE_COMMUNITY_LIST_MASTER);
 		old = path->attr->lcommunity;
 
@@ -1975,9 +1984,12 @@ static route_map_result_t route_set_lcommunity_delete(void *rule,
 /* Compile function for set lcommunity. */
 static void *route_set_lcommunity_delete_compile(const char *arg)
 {
+	struct rmap_community *rcom;
 	char *p;
 	char *str;
 	int len;
+
+	rcom = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_community));
 
 	p = strchr(arg, ' ');
 	if (p) {
@@ -1987,13 +1999,17 @@ static void *route_set_lcommunity_delete_compile(const char *arg)
 	} else
 		str = NULL;
 
-	return str;
+	rcom->name = str;
+	return rcom;
 }
 
 /* Free function for set lcommunity. */
 static void route_set_lcommunity_delete_free(void *rule)
 {
-	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+	struct rmap_community *rcom = rule;
+
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcom->name);
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcom);
 }
 
 /* Set lcommunity rule structure. */
@@ -2017,13 +2033,14 @@ static route_map_result_t route_set_community_delete(
 	struct community *new;
 	struct community *old;
 	struct bgp_path_info *path;
+	struct rmap_community *rcom = rule;
 
 	if (type == RMAP_BGP) {
-		if (!rule)
+		if (!rcom)
 			return RMAP_OKAY;
 
 		path = object;
-		list = community_list_lookup(bgp_clist, rule,
+		list = community_list_lookup(bgp_clist, rcom->name,
 					     COMMUNITY_LIST_MASTER);
 		old = path->attr->community;
 
@@ -2060,9 +2077,12 @@ static route_map_result_t route_set_community_delete(
 /* Compile function for set community. */
 static void *route_set_community_delete_compile(const char *arg)
 {
+	struct rmap_community *rcom;
 	char *p;
 	char *str;
 	int len;
+
+	rcom = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_community));
 
 	p = strchr(arg, ' ');
 	if (p) {
@@ -2072,13 +2092,17 @@ static void *route_set_community_delete_compile(const char *arg)
 	} else
 		str = NULL;
 
-	return str;
+	rcom->name = str;
+	return rcom;
 }
 
 /* Free function for set community. */
 static void route_set_community_delete_free(void *rule)
 {
-	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+	struct rmap_community *rcom = rule;
+
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcom->name);
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcom);
 }
 
 /* Set community rule structure. */
