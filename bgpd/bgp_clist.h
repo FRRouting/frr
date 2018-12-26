@@ -100,6 +100,7 @@ struct community_list_list {
 struct community_list_master {
 	struct community_list_list num;
 	struct community_list_list str;
+	struct hash *hash;
 };
 
 /* Community-list handler.  community_list_init() returns this
