@@ -1001,7 +1001,26 @@ static inline bgp_peer_sort_t peer_calc_sort(struct peer *peer)
 
 		return BGP_PEER_EBGP;
 	} else {
-		if (peer->as_type != AS_SPECIFIED)
+		if (peer->as_type == AS_UNSPECIFIED) {
+			/* check if in peer-group with AS information */
+			if (peer->group
+			    && (peer->group->conf->as_type != AS_UNSPECIFIED)) {
+				if (peer->group->conf->as_type
+				    == AS_SPECIFIED) {
+					if (peer->local_as
+					    == peer->group->conf->as)
+						return BGP_PEER_IBGP;
+					else
+						return BGP_PEER_EBGP;
+				} else if (peer->group->conf->as_type
+					   == AS_INTERNAL)
+					return BGP_PEER_IBGP;
+				else
+					return BGP_PEER_EBGP;
+			}
+			/* no AS information anywhere, let caller know */
+			return BGP_PEER_UNSPECIFIED;
+		} else if (peer->as_type != AS_SPECIFIED)
 			return (peer->as_type == AS_INTERNAL ? BGP_PEER_IBGP
 							     : BGP_PEER_EBGP);
 
@@ -1711,20 +1730,32 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 
 		/* When this peer is a member of peer-group.  */
 		if (peer->group) {
-			if (peer->group->conf->as) {
+			/* peer-group already has AS number/internal/external */
+			if (peer->group->conf->as
+			    || peer->group->conf->as_type) {
 				/* Return peer group's AS number.  */
 				*as = peer->group->conf->as;
 				return BGP_ERR_PEER_GROUP_MEMBER;
 			}
-			if (peer_sort(peer->group->conf) == BGP_PEER_IBGP) {
-				if ((as_type != AS_INTERNAL)
-				    && (bgp->as != *as)) {
+
+			bgp_peer_sort_t peer_sort_type =
+						peer_sort(peer->group->conf);
+
+			/* Explicit AS numbers used, compare AS numbers */
+			if (as_type == AS_SPECIFIED) {
+				if (((peer_sort_type == BGP_PEER_IBGP)
+				    && (bgp->as != *as))
+				    || ((peer_sort_type == BGP_PEER_EBGP)
+				    && (bgp->as == *as))) {
 					*as = peer->as;
 					return BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;
 				}
 			} else {
-				if ((as_type != AS_EXTERNAL)
-				    && (bgp->as == *as)) {
+				/* internal/external used, compare as-types */
+				if (((peer_sort_type == BGP_PEER_IBGP)
+				    && (as_type != AS_INTERNAL))
+				    || ((peer_sort_type == BGP_PEER_EBGP)
+				    && (as_type != AS_EXTERNAL)))  {
 					*as = peer->as;
 					return BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;
 				}
@@ -2688,6 +2719,7 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 		if (peer->as_type == AS_UNSPECIFIED) {
 			peer->as_type = group->conf->as_type;
 			peer->as = group->conf->as;
+			peer->sort = group->conf->sort;
 		}
 
 		if (!group->conf->as) {
