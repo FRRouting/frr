@@ -105,6 +105,13 @@ the following:
   corresponding destination. This may result in re-announcing those
   destinations to peers.
 
+- In case a VRF route leak is requested to be resolved, the next hop
+  notification contains an additional in the resolved field of the
+  nexthop structure filled in. That field contains a nexthop interface
+  index structure containing the interface index to use, when crossing
+  vrf. In BGP case, upon presence of that interface index, the flag
+  `BGP_NEXTHOP_RECURSION_IFACE` is appended to the nexthop flags.
+
 Design
 ------
 

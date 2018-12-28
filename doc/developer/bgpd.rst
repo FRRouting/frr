@@ -8,4 +8,5 @@ BGPD
    :maxdepth: 2
 
    next-hop-tracking
+   vrf-netns-route-leak
    bgp-typecodes
