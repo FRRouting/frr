@@ -215,6 +215,12 @@ static int zebra_ns_ready_read(struct thread *t)
 	if (err < 0)
 		return zebra_ns_continue_read(zns_info, stop_retry);
 
+	/* check default name is not already set */
+	if (strmatch(VRF_DEFAULT_NAME, basename(netnspath))) {
+		zlog_warn("NS notify : NS %s is already default VRF."
+			  "Cancel VRF Creation", basename(netnspath));
+		return zebra_ns_continue_read(zns_info, 1);
+	}
 	if (zebra_ns_notify_is_default_netns(basename(netnspath))) {
 		zlog_warn(
 			  "NS notify : NS %s is default VRF."
@@ -310,6 +316,12 @@ void zebra_ns_notify_parse(void)
 		if (S_ISDIR(st.st_mode)) {
 			zlog_debug("NS parsing init: %s is not a NS",
 				   dent->d_name);
+			continue;
+		}
+		/* check default name is not already set */
+		if (strmatch(VRF_DEFAULT_NAME, basename(dent->d_name))) {
+			zlog_warn("NS notify : NS %s is already default VRF."
+				  "Cancel VRF Creation", dent->d_name);
 			continue;
 		}
 		if (zebra_ns_notify_is_default_netns(dent->d_name)) {
