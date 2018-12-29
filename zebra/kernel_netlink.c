@@ -784,7 +784,8 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 
 				if (h->nlmsg_len
 				    < NLMSG_LENGTH(sizeof(struct nlmsgerr))) {
-					zlog_err("%s error: message truncated",
+					flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
+						 "%s error: message truncated",
 						 nl->name);
 					return -1;
 				}
