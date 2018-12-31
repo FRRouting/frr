@@ -5162,12 +5162,15 @@ DEFUN (show_ip_ospf_neighbor_id,
 	bool uj = use_json(argc, argv);
 	struct listnode *node = NULL;
 	int ret = CMD_SUCCESS;
+	int idx_router_id = 0;
+
+	argv_find(argv, argc, "A.B.C.D", &idx_router_id);
 
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 		if (!ospf->oi_running)
 			continue;
-		ret = show_ip_ospf_neighbor_id_common(vty, ospf, 0, argv, uj,
-						      0);
+		ret = show_ip_ospf_neighbor_id_common(vty, ospf, idx_router_id,
+						      argv, uj, 0);
 	}
 
 	return ret;
