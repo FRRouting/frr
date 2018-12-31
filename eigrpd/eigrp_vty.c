@@ -191,9 +191,6 @@ static int config_write_eigrp_router(struct vty *vty, struct eigrp *eigrp)
 
 	write++;
 
-	if (!eigrp->networks)
-		return write;
-
 	/* Router ID print. */
 	if (eigrp->router_id_static != 0) {
 		struct in_addr router_id_static;
