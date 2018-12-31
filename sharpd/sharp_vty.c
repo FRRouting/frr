@@ -28,6 +28,7 @@
 #include "log.h"
 #include "vrf.h"
 #include "zclient.h"
+#include "nexthop_group.h"
 
 #include "sharpd/sharp_zebra.h"
 #include "sharpd/sharp_vty.h"
@@ -96,6 +97,7 @@ DEFPY (install_routes,
 	int i;
 	struct prefix p;
 	struct nexthop nhop;
+	struct nexthop_group nhg;
 	uint32_t temp;
 
 	total_routes = routes;
@@ -103,6 +105,7 @@ DEFPY (install_routes,
 
 	memset(&p, 0, sizeof(p));
 	memset(&nhop, 0, sizeof(nhop));
+	memset(&nhg, 0, sizeof(nhg));
 
 	p.family = AF_INET;
 	p.prefixlen = 32;
@@ -116,11 +119,12 @@ DEFPY (install_routes,
 		nhop.type = NEXTHOP_TYPE_IPV6;
 	}
 
+	nhg.nexthop = &nhop;
 	zlog_debug("Inserting %ld routes", routes);
 
 	temp = ntohl(p.u.prefix4.s_addr);
 	for (i = 0; i < routes; i++) {
-		route_add(&p, (uint8_t)instance, &nhop);
+		route_add(&p, (uint8_t)instance, &nhg);
 		p.u.prefix4.s_addr = htonl(++temp);
 	}
 

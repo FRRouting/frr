@@ -42,6 +42,7 @@
 #include "distribute.h"
 #include "libfrr.h"
 #include "routemap.h"
+#include "nexthop_group.h"
 
 #include "sharp_zebra.h"
 #include "sharp_vty.h"
