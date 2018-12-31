@@ -122,6 +122,26 @@ class BGPVRFNETNS_Topo(Topo):
         switch.add_link(tgen.gears['r3'])
         switch.add_link(tgen.gears['r4'])
         
+        # Setup Routers r5 and peer
+        tgen.add_router('r5')
+        # Setup Switches
+        switch = tgen.add_switch('s8')
+        switch.add_link(tgen.gears['r5'])
+        # Add eBGP ExaBGP neighbors
+        peer_ip = '1.1.1.21'
+        peer_route = 'via 1.1.1.21'
+        peer = tgen.add_exabgp_peer('peer5',
+                                    ip=peer_ip, defaultRoute=peer_route)
+        switch.add_link(peer)
+
+        # provisioning for peer2
+        switch = tgen.add_switch('s9')
+        switch.add_link(tgen.gears['r5'])
+
+        switch = tgen.add_switch('s10')
+        switch.add_link(tgen.gears['r5'])
+        switch.add_link(tgen.gears['r4'])
+
         
 #####################################################
 ##
@@ -147,7 +167,7 @@ def setup_module(module):
     if CustomizeVrfWithNetns == True:
         logger.info('Testing with VRF Namespace support')
 
-    router_list = ["r1","r2"]
+    router_list = ["r1","r2", "r5"]
     # sanity check - del previous vrf if any
     cmds = ['ip netns delete {0}-cust1',
             'ip netns delete {0}-cust2']
@@ -239,8 +259,12 @@ def setup_module(module):
             output = router.run(cmd.format(name))
             logger.info('cmd: '+cmd + 'result: ' +output);
 
+    cmd = 'echo 1 > /proc/sys/net/mpls/conf/r4-eth2/input'
+    tgen.net['r4'].cmd(cmd)
+    logger.info('cmd: '+cmd);
+
     #run daemons
-    router_list = ["r1","r2","r3","r4"]
+    router_list = ["r1","r2","r3","r4","r5"]
     for name in router_list:
         router = tgen.gears[name]
         logger.info('running {0}/<file>.conf'.format(name))
@@ -267,7 +291,7 @@ def setup_module(module):
         # BGP and ZEBRA and LDP start without underlying VRF
 
     logger.info('Launching BGP, OSPF, ZEBRA and LDP')
-    router_list = ["r1","r2","r3","r4"]
+    router_list = ["r1","r2","r3","r4","r5"]
     for name in router_list:
         router = tgen.gears[name]
         router.start()
@@ -285,7 +309,7 @@ def teardown_module(module):
     tgen = get_topogen()
     # move back r1-eth0 to default VRF
     # delete veth pairs
-    router_list = ["r1","r2"]
+    router_list = ["r1","r2","r5"]
     cmds = ['ip link del {0}-cust1',
             'ip link del {0}-cust2',
             'ip link set netns exec {0}-cust1 ip link set dev {0}-cust2 netns 1',
@@ -316,7 +340,7 @@ def test_bgp_vrf_ldp_netns_leak__learn():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router_list = ['r1','r2']
+    router_list = ['r1','r2','r5']
     for name in router_list:
         # Expected result
         output = tgen.gears[name].vtysh_cmd("show vrf", isjson=False)
@@ -546,6 +570,66 @@ def test_bgp_vrf_ldp_netns_leak():
         assert 0, assertmsg
     else:
             logger.info('Check Ping from r1-cust1(10.101.51.1) to r2-cust1 (10.101.51.3) OK')
+
+    logger.info('r1 : peering with r5. Testing multipath')
+    cmd = 'vtysh -c \"configure terminal\" -c \"router bgp 100\" -c \"neighbor 15.15.15.15\" -c \"neighbor 15.15.15.15 update-source 5.5.5.5\" -c \"address-family ipv4 vpn\" -c \"neighbor 15.15.15.15 activate\"'
+    tgen.net['r1'].cmd(cmd)
+    topotest.sleep(3)
+    output = tgen.gears[name].vtysh_cmd('show bgp ipv4 vpn'.format(name), isjson=False)
+    logger.info(output)
+    output = tgen.gears[name].vtysh_cmd('show bgp vrf {0}-cust1 ipv4'.format(name), isjson=False)
+    logger.info(output)
+    # tgen.mininet_cli()
+
+    # activate mpath , then peer with r5
+    logger.info('r1 : peering with r5. Testing multipath')
+    cmd = 'vtysh -c \"configure terminal\" -c \"router bgp 100 vrf r1-cust1\" -c \"address-family ipv4 unicast\" -c \"maximum-paths 4\" -c \"maximum-paths ibgp 4\"'
+    name = 'r1'
+    tgen.net[name].cmd(cmd)
+    cmd = 'vtysh -c \"configure terminal\" -c \"router bgp 100\" -c \"neighbor 15.15.15.15 remote-as 100\" -c \"neighbor 15.15.15.15 update-source 5.5.5.5\" -c \"address-family ipv4 vpn\" -c \"neighbor 15.15.15.15 activate\"'
+    tgen.net[name].cmd(cmd)
+    topotest.sleep(3)
+    output = tgen.gears[name].vtysh_cmd('show bgp ipv4 vpn'.format(name), isjson=False)
+    logger.info(output)
+    output = tgen.gears[name].vtysh_cmd('show bgp vrf {0}-cust1 ipv4'.format(name), isjson=False)
+    logger.info(output)
+
+    donna = tgen.gears[name].vtysh_cmd('show bgp vrf {0}-cust1 ipv4 json'.format(name), isjson=True)
+    routes = donna['routes']
+    ecmp_values = {'9.9.9.9','15.15.15.15'}
+    ecmp_entries_values = {0,1}
+    for i in list_values:
+        j = int(i) + 11
+        routeid = routes['10.101.{}.0/24'.format(j)]
+        assert routeid is not None, "{0}, route 10.101.{1}.0/24 not found".format(name, j)
+        val_to_check = 'multipath'
+        for k in ecmp_entries_values:
+            if val_to_check in routeid[k].keys():
+                logger.info("{0}, route 10.101.{1}.0/24 mpath entry found".format(name, j))
+                assert routeid[k][val_to_check] is True, "{0}, route 10.101.{1}.0/24 {2} not True".format(name, j, val_to_check)
+            else:
+                val_to_check = 'bestpath'
+                if val_to_check in routeid[k].keys():
+                    logger.info("{0}, route 10.101.{1}.0/24 bestpath entry found".format(name, j))
+                    assert routeid[k][val_to_check] is True, "{0}, route 10.101.{1}.0/24 {2} not True".format(name, j, val_to_check)
+            nexthopid = routeid[k]['nexthops']
+            assert nexthopid is not None, "{0}, nexthop for 10.101.{1}.0/24 not found".format(name, j)
+            nh = nexthopid[0]['ip']
+            assert nh in ecmp_values, "{0}, nexthop {1} not expected".format(name, nh)
+
+    donna = tgen.gears[name].vtysh_cmd('show ip route vrf {0}-cust1 json'.format(name), isjson=True)
+    for i in list_values:
+        j = int(i) + 11
+        routeid = donna['10.101.{}.0/24'.format(j)]
+        assert routeid is not None, "{0}, route 10.101.{1}.0/24 not found".format(name, j)
+        nexthopid = routeid[0]['nexthops']
+        assert nexthopid is not None, "{0}, nexthop for 10.101.{1}.0/24 not found".format(name, j)
+        if 'fib' not in nexthopid[0].keys():
+            assert 0, "{0}, First FIB entry 10.101.{1}.0/24 not present".format(name, j)
+        if 'fib' not in nexthopid[3].keys():
+            assert 0, "{0}, Second FIB entry 10.101.{1}.0/24 not present".format(name, j)
+
+    #tgen.mininet_cli()
 
 if __name__ == '__main__':
 
