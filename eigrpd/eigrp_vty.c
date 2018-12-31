@@ -192,11 +192,9 @@ static int config_write_eigrp_router(struct vty *vty, struct eigrp *eigrp)
 	write++;
 
 	/* Router ID print. */
-	if (eigrp->router_id_static != 0) {
-		struct in_addr router_id_static;
-		router_id_static.s_addr = htonl(eigrp->router_id_static);
+	if (eigrp->router_id_static.s_addr != 0) {
 		vty_out(vty, " eigrp router-id %s\n",
-			inet_ntoa(router_id_static));
+			inet_ntoa(eigrp->router_id_static));
 	}
 
 	/* Network area print. */

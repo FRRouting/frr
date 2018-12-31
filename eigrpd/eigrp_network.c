@@ -227,7 +227,7 @@ int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 	rn->info = (void *)pref;
 
 	/* Schedule Router ID Update. */
-	if (eigrp->router_id == 0)
+	if (eigrp->router_id.s_addr == 0)
 		eigrp_router_id_update(eigrp);
 	/* Run network config now. */
 	/* Get target interface. */
@@ -293,7 +293,7 @@ void eigrp_if_update(struct interface *ifp)
 	 */
 	for (ALL_LIST_ELEMENTS(eigrp_om->eigrp, node, nnode, eigrp)) {
 		/* EIGRP must be on and Router-ID must be configured. */
-		if (!eigrp || eigrp->router_id == 0)
+		if (!eigrp || eigrp->router_id.s_addr == 0)
 			continue;
 
 		/* Run each network for this interface. */
