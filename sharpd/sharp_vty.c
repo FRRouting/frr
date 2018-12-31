@@ -82,7 +82,7 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 
 DEFPY (install_routes,
        install_routes_cmd,
-       "sharp install routes A.B.C.D$start nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6> (1-1000000)$routes [instance (0-255)$instance]",
+       "sharp install routes A.B.C.D$start <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|nexthop-group NAME$nexthop_group> (1-1000000)$routes [instance (0-255)$instance]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
@@ -90,6 +90,8 @@ DEFPY (install_routes,
        "Nexthop to use(Can be an IPv4 or IPv6 address)\n"
        "V4 Nexthop address to use\n"
        "V6 Nexthop address to use\n"
+       "Nexthop-Group to use\n"
+       "The Name of the nexthop-group\n"
        "How many to create\n"
        "Instance to use\n"
        "Instance\n")
@@ -111,15 +113,27 @@ DEFPY (install_routes,
 	p.prefixlen = 32;
 	p.u.prefix4 = start;
 
-	if (nexthop4.s_addr != INADDR_ANY) {
-		nhop.gate.ipv4 = nexthop4;
-		nhop.type = NEXTHOP_TYPE_IPV4;
-	} else {
-		memcpy(&nhop.gate.ipv6, &nexthop6, IPV6_MAX_BYTELEN);
-		nhop.type = NEXTHOP_TYPE_IPV6;
-	}
+	if (nexthop_group) {
+		struct nexthop_group_cmd *nhgc = nhgc_find(nexthop_group);
+		if (!nhgc) {
+			vty_out(vty,
+				"Specified Nexthop Group: %s does not exist\n",
+				nexthop_group);
+			return CMD_WARNING;
+		}
 
-	nhg.nexthop = &nhop;
+		nhg.nexthop = nhgc->nhg.nexthop;
+	} else {
+		if (nexthop4.s_addr != INADDR_ANY) {
+			nhop.gate.ipv4 = nexthop4;
+			nhop.type = NEXTHOP_TYPE_IPV4;
+		} else {
+			nhop.gate.ipv6 = nexthop6;
+			nhop.type = NEXTHOP_TYPE_IPV6;
+		}
+
+		nhg.nexthop = &nhop;
+	}
 	zlog_debug("Inserting %ld routes", routes);
 
 	temp = ntohl(p.u.prefix4.s_addr);
