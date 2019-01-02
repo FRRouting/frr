@@ -432,8 +432,8 @@ int zsend_interface_vrf_update(struct zserv *client, struct interface *ifp,
 
 	zclient_create_header(s, ZEBRA_INTERFACE_VRF_UPDATE, ifp->vrf_id);
 
-	/* Fill in the ifIndex of the interface and its new VRF (id) */
-	stream_putl(s, ifp->ifindex);
+	/* Fill in the name of the interface and its new VRF (id) */
+	stream_put(s, ifp->name, INTERFACE_NAMSIZ);
 	stream_putl(s, vrf_id);
 
 	/* Write packet size. */
