@@ -23,6 +23,7 @@
 
 #include "hook.h"
 #include "nexthop.h"
+#include "distribute.h"
 #include "rip_memory.h"
 
 /* RIP version number. */
@@ -150,6 +151,9 @@ struct rip {
 		bool metric_config;
 		uint8_t metric;
 	} route_map[ZEBRA_ROUTE_MAX];
+
+	/* For distribute-list container */
+	struct distribute_ctx *distribute_ctx;
 };
 
 /* RIP routing table entry which belong to rip_packet. */

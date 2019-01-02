@@ -330,6 +330,8 @@ vrf_id_t vrf_name_to_id(const char *name)
 	vrf_id_t vrf_id = VRF_DEFAULT; // Pending: need a way to return invalid
 				       // id/ routine not used.
 
+	if (!name)
+		return vrf_id;
 	vrf = vrf_lookup_by_name(name);
 	if (vrf)
 		vrf_id = vrf->vrf_id;

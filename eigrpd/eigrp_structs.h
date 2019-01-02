@@ -131,6 +131,9 @@ struct eigrp {
 		uint32_t metric;
 	} route_map[ZEBRA_ROUTE_MAX];
 
+	/* distribute_ctx */
+	struct distribute_ctx *distribute_ctx;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(eigrp)

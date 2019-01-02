@@ -62,7 +62,8 @@
 /*
  * Distribute-list update functions.
  */
-void eigrp_distribute_update(struct distribute *dist)
+void eigrp_distribute_update(struct distribute_ctx *ctx,
+			     struct distribute *dist)
 {
 	struct interface *ifp;
 	struct eigrp_interface *ei = NULL;
@@ -285,10 +286,15 @@ void eigrp_distribute_update(struct distribute *dist)
 void eigrp_distribute_update_interface(struct interface *ifp)
 {
 	struct distribute *dist;
+	struct eigrp *eigrp;
 
-	dist = distribute_lookup(ifp->name);
+	eigrp = eigrp_lookup();
+	if (!eigrp)
+		return;
+	dist = distribute_lookup(eigrp->distribute_ctx, ifp->name);
 	if (dist)
-		eigrp_distribute_update(dist);
+		eigrp_distribute_update(eigrp->distribute_ctx,
+					dist);
 }
 
 /* Update all interface's distribute list.
