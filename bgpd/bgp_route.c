@@ -11046,9 +11046,8 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 				if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 					vty_out(vty, ", table %s",
 						VRF_DEFAULT_NAME);
-				else
-					vty_out(vty, ", vrf %s",
-						bgp->name);
+				vty_out(vty, ", vrf %s",
+					bgp->name);
 			}
 		} else
 			vty_out(vty, ", no best path");
