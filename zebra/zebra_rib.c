@@ -1070,9 +1070,16 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 				if (prev == nexthop)
 					break;
 				if (nexthop_same_firsthop(nexthop, prev)) {
-					SET_FLAG(nexthop->flags,
-						 NEXTHOP_FLAG_DUPLICATE);
-					break;
+					if (!nexthop->nh_label && !prev->nh_label) {
+						SET_FLAG(nexthop->flags,
+							 NEXTHOP_FLAG_DUPLICATE);
+						break;
+					}
+					if (nexthop_labels_match(nexthop, prev)) {
+						SET_FLAG(nexthop->flags,
+							 NEXTHOP_FLAG_DUPLICATE);
+						break;
+					}
 				}
 			}
 		}
