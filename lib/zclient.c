@@ -1770,19 +1770,19 @@ struct interface *zebra_interface_vrf_update_read(struct stream *s,
 						  vrf_id_t vrf_id,
 						  vrf_id_t *new_vrf_id)
 {
-	unsigned int ifindex;
+	char ifname[INTERFACE_NAMSIZ];
 	struct interface *ifp;
 	vrf_id_t new_id;
 
-	/* Get interface index. */
-	ifindex = stream_getl(s);
+	/* Read interface name. */
+	stream_get(ifname, s, INTERFACE_NAMSIZ);
 
 	/* Lookup interface. */
-	ifp = if_lookup_by_index(ifindex, vrf_id);
+	ifp = if_lookup_by_name(ifname, vrf_id);
 	if (ifp == NULL) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
-			 "INTERFACE_VRF_UPDATE: Cannot find IF %u in VRF %d",
-			 ifindex, vrf_id);
+			 "INTERFACE_VRF_UPDATE: Cannot find IF %s in VRF %d",
+			 ifname, vrf_id);
 		return NULL;
 	}
 
