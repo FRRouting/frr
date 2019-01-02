@@ -9529,8 +9529,15 @@ DEFUN (show_ip_bgp_json,
 	}
 
 	if (argv_find(argv, argc, "community", &idx)) {
-		char *maybecomm = idx + 1 < argc ? argv[idx + 1]->text : NULL;
+		char *maybecomm = NULL;
 		char *community = NULL;
+
+		if (idx + 1 < argc) {
+			if (argv[idx + 1]->type == VARIABLE_TKN)
+				maybecomm = argv[idx + 1]->arg;
+			else
+				maybecomm = argv[idx + 1]->text;
+		}
 
 		if (maybecomm && !strmatch(maybecomm, "json")
 		    && !strmatch(maybecomm, "exact-match"))
