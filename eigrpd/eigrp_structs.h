@@ -79,8 +79,8 @@ struct eigrp {
 	char *name;
 
 	/* EIGRP Router ID. */
-	uint32_t router_id;	/* Configured automatically. */
-	uint32_t router_id_static; /* Configured manually. */
+	struct in_addr router_id;	/* Configured automatically. */
+	struct in_addr router_id_static; /* Configured manually. */
 
 	struct list *eiflist;		  /* eigrp interfaces */
 	uint8_t passive_interface_default; /* passive-interface default */

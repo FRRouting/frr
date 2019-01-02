@@ -276,11 +276,8 @@ void show_ip_eigrp_neighbor_sub(struct vty *vty, struct eigrp_neighbor *nbr,
  */
 void show_ip_eigrp_topology_header(struct vty *vty, struct eigrp *eigrp)
 {
-	struct in_addr router_id;
-	router_id.s_addr = eigrp->router_id;
-
 	vty_out(vty, "\nEIGRP Topology Table for AS(%d)/ID(%s)\n\n", eigrp->AS,
-		inet_ntoa(router_id));
+		inet_ntoa(eigrp->router_id));
 	vty_out(vty,
 		"Codes: P - Passive, A - Active, U - Update, Q - Query, "
 		"R - Reply\n       r - reply Status, s - sia Status\n\n");

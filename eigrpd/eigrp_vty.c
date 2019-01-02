@@ -191,15 +191,10 @@ static int config_write_eigrp_router(struct vty *vty, struct eigrp *eigrp)
 
 	write++;
 
-	if (!eigrp->networks)
-		return write;
-
 	/* Router ID print. */
-	if (eigrp->router_id_static != 0) {
-		struct in_addr router_id_static;
-		router_id_static.s_addr = htonl(eigrp->router_id_static);
+	if (eigrp->router_id_static.s_addr != 0) {
 		vty_out(vty, " eigrp router-id %s\n",
-			inet_ntoa(router_id_static));
+			inet_ntoa(eigrp->router_id_static));
 	}
 
 	/* Network area print. */
@@ -255,29 +250,31 @@ DEFUN (no_router_eigrp,
 	return CMD_SUCCESS;
 }
 
-DEFUN (eigrp_router_id,
+DEFPY (eigrp_router_id,
        eigrp_router_id_cmd,
-       "eigrp router-id A.B.C.D",
+       "eigrp router-id A.B.C.D$addr",
        "EIGRP specific commands\n"
        "Router ID for this EIGRP process\n"
        "EIGRP Router-ID in IP address format\n")
 {
-	// struct eigrp *eigrp = vty->index;
-	/*TODO: */
+	VTY_DECLVAR_CONTEXT(eigrp, eigrp);
+
+	eigrp->router_id_static = addr;
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_eigrp_router_id,
+DEFPY (no_eigrp_router_id,
        no_eigrp_router_id_cmd,
-       "no eigrp router-id A.B.C.D",
+       "no eigrp router-id [A.B.C.D$addr]",
        NO_STR
        "EIGRP specific commands\n"
        "Router ID for this EIGRP process\n"
        "EIGRP Router-ID in IP address format\n")
 {
-	// struct eigrp *eigrp = vty->index;
-	/*TODO: */
+	VTY_DECLVAR_CONTEXT(eigrp, eigrp);
+
+	eigrp->router_id_static.s_addr = 0;
 
 	return CMD_SUCCESS;
 }
