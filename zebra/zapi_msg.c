@@ -1395,147 +1395,150 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	else
 		re->table = zvrf->table_id;
 
+	if (!CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)
+	    || api.nexthop_num == 0) {
+		char buf_prefix[PREFIX_STRLEN];
+
+		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
+		flog_warn(EC_ZEBRA_RX_ROUTE_NO_NEXTHOPS,
+			  "%s: received a route without nexthops for prefix %s",
+			  __func__, buf_prefix);
+		XFREE(MTYPE_RE, re);
+		return;
+	}
+
 	/*
 	 * TBD should _all_ of the nexthop add operations use
 	 * api_nh->vrf_id instead of re->vrf_id ? I only changed
 	 * for cases NEXTHOP_TYPE_IPV4 and NEXTHOP_TYPE_IPV6.
 	 */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP))
-		for (i = 0; i < api.nexthop_num; i++) {
-			api_nh = &api.nexthops[i];
-			ifindex_t ifindex = 0;
+	for (i = 0; i < api.nexthop_num; i++) {
+		api_nh = &api.nexthops[i];
+		ifindex_t ifindex = 0;
 
-			if (IS_ZEBRA_DEBUG_RECV)
-				zlog_debug("nh type %d", api_nh->type);
+		if (IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("nh type %d", api_nh->type);
 
-			switch (api_nh->type) {
-			case NEXTHOP_TYPE_IFINDEX:
-				nexthop = route_entry_nexthop_ifindex_add(
-					re, api_nh->ifindex, api_nh->vrf_id);
-				break;
-			case NEXTHOP_TYPE_IPV4:
-				if (IS_ZEBRA_DEBUG_RECV) {
-					char nhbuf[INET6_ADDRSTRLEN] = {0};
+		switch (api_nh->type) {
+		case NEXTHOP_TYPE_IFINDEX:
+			nexthop = route_entry_nexthop_ifindex_add(
+				re, api_nh->ifindex, api_nh->vrf_id);
+			break;
+		case NEXTHOP_TYPE_IPV4:
+			if (IS_ZEBRA_DEBUG_RECV) {
+				char nhbuf[INET6_ADDRSTRLEN] = {0};
 
-					inet_ntop(AF_INET, &api_nh->gate.ipv4,
-						  nhbuf, INET6_ADDRSTRLEN);
-					zlog_debug("%s: nh=%s, vrf_id=%d",
-						   __func__, nhbuf,
-						   api_nh->vrf_id);
-				}
-				nexthop = route_entry_nexthop_ipv4_add(
-					re, &api_nh->gate.ipv4, NULL,
-					api_nh->vrf_id);
-				break;
-			case NEXTHOP_TYPE_IPV4_IFINDEX:
+				inet_ntop(AF_INET, &api_nh->gate.ipv4, nhbuf,
+					  INET6_ADDRSTRLEN);
+				zlog_debug("%s: nh=%s, vrf_id=%d", __func__,
+					   nhbuf, api_nh->vrf_id);
+			}
+			nexthop = route_entry_nexthop_ipv4_add(
+				re, &api_nh->gate.ipv4, NULL, api_nh->vrf_id);
+			break;
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
 
-				memset(&vtep_ip, 0, sizeof(struct ipaddr));
-				if (CHECK_FLAG(api.flags,
-					       ZEBRA_FLAG_EVPN_ROUTE)) {
-					ifindex = get_l3vni_svi_ifindex(vrf_id);
-				} else {
-					ifindex = api_nh->ifindex;
-				}
-
-				if (IS_ZEBRA_DEBUG_RECV) {
-					char nhbuf[INET6_ADDRSTRLEN] = {0};
-
-					inet_ntop(AF_INET, &api_nh->gate.ipv4,
-						  nhbuf, INET6_ADDRSTRLEN);
-					zlog_debug(
-						"%s: nh=%s, vrf_id=%d (re->vrf_id=%d), ifindex=%d",
-						__func__, nhbuf, api_nh->vrf_id,
-						re->vrf_id, ifindex);
-				}
-				nexthop = route_entry_nexthop_ipv4_ifindex_add(
-					re, &api_nh->gate.ipv4, NULL, ifindex,
-					api_nh->vrf_id);
-
-				/* if this an EVPN route entry,
-				 * program the nh as neigh
-				 */
-				if (CHECK_FLAG(api.flags,
-					       ZEBRA_FLAG_EVPN_ROUTE)) {
-					SET_FLAG(nexthop->flags,
-						 NEXTHOP_FLAG_EVPN_RVTEP);
-					vtep_ip.ipa_type = IPADDR_V4;
-					memcpy(&(vtep_ip.ipaddr_v4),
-					       &(api_nh->gate.ipv4),
-					       sizeof(struct in_addr));
-					zebra_vxlan_evpn_vrf_route_add(
-						vrf_id, &api_nh->rmac, &vtep_ip,
-						&api.prefix);
-				}
-				break;
-			case NEXTHOP_TYPE_IPV6:
-				nexthop = route_entry_nexthop_ipv6_add(
-					re, &api_nh->gate.ipv6, api_nh->vrf_id);
-				break;
-			case NEXTHOP_TYPE_IPV6_IFINDEX:
-				memset(&vtep_ip, 0, sizeof(struct ipaddr));
-				if (CHECK_FLAG(api.flags,
-					       ZEBRA_FLAG_EVPN_ROUTE)) {
-					ifindex = get_l3vni_svi_ifindex(vrf_id);
-				} else {
-					ifindex = api_nh->ifindex;
-				}
-
-				nexthop = route_entry_nexthop_ipv6_ifindex_add(
-					re, &api_nh->gate.ipv6, ifindex,
-					api_nh->vrf_id);
-
-				/* if this an EVPN route entry,
-				 * program the nh as neigh
-				 */
-				if (CHECK_FLAG(api.flags,
-					       ZEBRA_FLAG_EVPN_ROUTE)) {
-					SET_FLAG(nexthop->flags,
-						 NEXTHOP_FLAG_EVPN_RVTEP);
-					vtep_ip.ipa_type = IPADDR_V6;
-					memcpy(&vtep_ip.ipaddr_v6,
-					       &(api_nh->gate.ipv6),
-					       sizeof(struct in6_addr));
-					zebra_vxlan_evpn_vrf_route_add(
-						vrf_id, &api_nh->rmac, &vtep_ip,
-						&api.prefix);
-				}
-				break;
-			case NEXTHOP_TYPE_BLACKHOLE:
-				nexthop = route_entry_nexthop_blackhole_add(
-					re, api_nh->bh_type);
-				break;
+			memset(&vtep_ip, 0, sizeof(struct ipaddr));
+			if (CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+				ifindex = get_l3vni_svi_ifindex(vrf_id);
+			} else {
+				ifindex = api_nh->ifindex;
 			}
 
-			if (!nexthop) {
-				flog_warn(
-					EC_ZEBRA_NEXTHOP_CREATION_FAILED,
-					"%s: Nexthops Specified: %d but we failed to properly create one",
-					__PRETTY_FUNCTION__, api.nexthop_num);
-				nexthops_free(re->ng.nexthop);
-				XFREE(MTYPE_RE, re);
-				return;
+			if (IS_ZEBRA_DEBUG_RECV) {
+				char nhbuf[INET6_ADDRSTRLEN] = {0};
+
+				inet_ntop(AF_INET, &api_nh->gate.ipv4, nhbuf,
+					  INET6_ADDRSTRLEN);
+				zlog_debug(
+					"%s: nh=%s, vrf_id=%d (re->vrf_id=%d), ifindex=%d",
+					__func__, nhbuf, api_nh->vrf_id,
+					re->vrf_id, ifindex);
 			}
-			/* MPLS labels for BGP-LU or Segment Routing */
-			if (CHECK_FLAG(api.message, ZAPI_MESSAGE_LABEL)
-			    && api_nh->type != NEXTHOP_TYPE_IFINDEX
-			    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
-				enum lsp_types_t label_type;
+			nexthop = route_entry_nexthop_ipv4_ifindex_add(
+				re, &api_nh->gate.ipv4, NULL, ifindex,
+				api_nh->vrf_id);
 
-				label_type =
-					lsp_type_from_re_type(client->proto);
-
-				if (IS_ZEBRA_DEBUG_RECV) {
-					zlog_debug(
-						"%s: adding %d labels of type %d (1st=%u)",
-						__func__, api_nh->label_num,
-						label_type, api_nh->labels[0]);
-				}
-
-				nexthop_add_labels(nexthop, label_type,
-						   api_nh->label_num,
-						   &api_nh->labels[0]);
+			/* if this an EVPN route entry,
+			 * program the nh as neigh
+			 */
+			if (CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+				SET_FLAG(nexthop->flags,
+					 NEXTHOP_FLAG_EVPN_RVTEP);
+				vtep_ip.ipa_type = IPADDR_V4;
+				memcpy(&(vtep_ip.ipaddr_v4),
+				       &(api_nh->gate.ipv4),
+				       sizeof(struct in_addr));
+				zebra_vxlan_evpn_vrf_route_add(
+					vrf_id, &api_nh->rmac, &vtep_ip,
+					&api.prefix);
 			}
+			break;
+		case NEXTHOP_TYPE_IPV6:
+			nexthop = route_entry_nexthop_ipv6_add(
+				re, &api_nh->gate.ipv6, api_nh->vrf_id);
+			break;
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			memset(&vtep_ip, 0, sizeof(struct ipaddr));
+			if (CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+				ifindex = get_l3vni_svi_ifindex(vrf_id);
+			} else {
+				ifindex = api_nh->ifindex;
+			}
+
+			nexthop = route_entry_nexthop_ipv6_ifindex_add(
+				re, &api_nh->gate.ipv6, ifindex,
+				api_nh->vrf_id);
+
+			/* if this an EVPN route entry,
+			 * program the nh as neigh
+			 */
+			if (CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+				SET_FLAG(nexthop->flags,
+					 NEXTHOP_FLAG_EVPN_RVTEP);
+				vtep_ip.ipa_type = IPADDR_V6;
+				memcpy(&vtep_ip.ipaddr_v6, &(api_nh->gate.ipv6),
+				       sizeof(struct in6_addr));
+				zebra_vxlan_evpn_vrf_route_add(
+					vrf_id, &api_nh->rmac, &vtep_ip,
+					&api.prefix);
+			}
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			nexthop = route_entry_nexthop_blackhole_add(
+				re, api_nh->bh_type);
+			break;
 		}
+
+		if (!nexthop) {
+			flog_warn(
+				EC_ZEBRA_NEXTHOP_CREATION_FAILED,
+				"%s: Nexthops Specified: %d but we failed to properly create one",
+				__PRETTY_FUNCTION__, api.nexthop_num);
+			nexthops_free(re->ng.nexthop);
+			XFREE(MTYPE_RE, re);
+			return;
+		}
+		/* MPLS labels for BGP-LU or Segment Routing */
+		if (CHECK_FLAG(api.message, ZAPI_MESSAGE_LABEL)
+		    && api_nh->type != NEXTHOP_TYPE_IFINDEX
+		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
+			enum lsp_types_t label_type;
+
+			label_type = lsp_type_from_re_type(client->proto);
+
+			if (IS_ZEBRA_DEBUG_RECV) {
+				zlog_debug(
+					"%s: adding %d labels of type %d (1st=%u)",
+					__func__, api_nh->label_num, label_type,
+					api_nh->labels[0]);
+			}
+
+			nexthop_add_labels(nexthop, label_type,
+					   api_nh->label_num,
+					   &api_nh->labels[0]);
+		}
+	}
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE))
 		re->distance = api.distance;
