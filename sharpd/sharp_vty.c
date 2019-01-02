@@ -80,6 +80,8 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 	return CMD_SUCCESS;
 }
 
+
+
 DEFPY (install_routes,
        install_routes_cmd,
        "sharp install routes A.B.C.D$start <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|nexthop-group NAME$nexthop_group> (1-1000000)$routes [instance (0-255)$instance]",
@@ -96,11 +98,9 @@ DEFPY (install_routes,
        "Instance to use\n"
        "Instance\n")
 {
-	int i;
 	struct prefix p;
 	struct nexthop nhop;
 	struct nexthop_group nhg;
-	uint32_t temp;
 
 	total_routes = routes;
 	installed_routes = 0;
@@ -134,13 +134,8 @@ DEFPY (install_routes,
 
 		nhg.nexthop = &nhop;
 	}
-	zlog_debug("Inserting %ld routes", routes);
 
-	temp = ntohl(p.u.prefix4.s_addr);
-	for (i = 0; i < routes; i++) {
-		route_add(&p, (uint8_t)instance, &nhg);
-		p.u.prefix4.s_addr = htonl(++temp);
-	}
+	sharp_install_routes_helper(&p, instance, &nhg, routes);
 
 	return CMD_SUCCESS;
 }
@@ -186,9 +181,7 @@ DEFPY (remove_routes,
        "instance to use\n"
        "Value of instance\n")
 {
-	int i;
 	struct prefix p;
-	uint32_t temp;
 	total_routes = routes;
 	removed_routes = 0;
 
@@ -198,13 +191,7 @@ DEFPY (remove_routes,
 	p.prefixlen = 32;
 	p.u.prefix4 = start;
 
-	zlog_debug("Removing %ld routes", routes);
-
-	temp = ntohl(p.u.prefix4.s_addr);
-	for (i = 0; i < routes; i++) {
-		route_delete(&p, (uint8_t)instance);
-		p.u.prefix4.s_addr = htonl(++temp);
-	}
+	sharp_remove_routes_helper(&p, instance, routes);
 
 	return CMD_SUCCESS;
 }
