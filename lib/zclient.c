@@ -749,10 +749,24 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 	stream_reset(s);
 	zclient_create_header(s, cmd, api->vrf_id);
 
+	if (api->type >= ZEBRA_ROUTE_MAX) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: Specified route type (%u) is not a legal value\n",
+			 __PRETTY_FUNCTION__, api->type);
+		return -1;
+	}
 	stream_putc(s, api->type);
+
 	stream_putw(s, api->instance);
 	stream_putl(s, api->flags);
 	stream_putc(s, api->message);
+
+	if (api->safi < SAFI_UNICAST || api->safi >= SAFI_MAX) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: Specified route SAFI (%u) is not a legal value\n",
+			 __PRETTY_FUNCTION__, api->safi);
+		return -1;
+	}
 	stream_putc(s, api->safi);
 
 	/* Put prefix information. */
@@ -868,7 +882,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 
 	/* Type, flags, message. */
 	STREAM_GETC(s, api->type);
-	if (api->type > ZEBRA_ROUTE_MAX) {
+	if (api->type >= ZEBRA_ROUTE_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "%s: Specified route type: %d is not a legal value\n",
 			 __PRETTY_FUNCTION__, api->type);
@@ -879,6 +893,12 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	STREAM_GETL(s, api->flags);
 	STREAM_GETC(s, api->message);
 	STREAM_GETC(s, api->safi);
+	if (api->safi < SAFI_UNICAST || api->safi >= SAFI_MAX) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: Specified route SAFI (%u) is not a legal value\n",
+			 __PRETTY_FUNCTION__, api->safi);
+		return -1;
+	}
 
 	/* Prefix. */
 	STREAM_GETC(s, api->prefix.family);
