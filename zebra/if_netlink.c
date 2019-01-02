@@ -399,7 +399,7 @@ static int get_iflink_speed(struct interface *interface)
 			       (char *)&ifdata);
 	}
 	if (rc < 0) {
-		if (IS_ZEBRA_DEBUG_KERNEL)
+		if (errno != EOPNOTSUPP && IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"IOCTL failure to read interface %s speed: %d %s",
 				ifname, errno, safe_strerror(errno));
