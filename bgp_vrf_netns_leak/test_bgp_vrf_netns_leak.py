@@ -79,6 +79,13 @@ class BGPVRFNETNS_LEAKTopo(Topo):
         peer = tgen.add_exabgp_peer('peer2',
                                     ip=peer_ip, defaultRoute=peer_route)
         switch.add_link(peer)
+        switch = tgen.add_switch('s3')
+        switch.add_link(tgen.gears['r1'])
+        peer_ip = '3.3.3.4'
+        peer_route = 'via 3.3.3.4'
+        peer = tgen.add_exabgp_peer('peer3',
+                                    ip=peer_ip, defaultRoute=peer_route)
+        switch.add_link(peer)
 
 #####################################################
 ##
@@ -108,7 +115,8 @@ def setup_module(module):
 
     # sanity check - del previous vrf if any
     cmds = ['ip netns del {0}-cust1',
-            'ip netns del {0}-cust2']
+            'ip netns del {0}-cust2',
+            'ip netns del {0}-cust3']
     for cmd in cmds:
         cmd = cmd.format('r1')
         logger.info('cmd: '+cmd);
@@ -123,6 +131,10 @@ def setup_module(module):
             'ip link set dev {0}-eth1 netns {0}-cust2',
             'ip netns exec {0}-cust2 ifconfig {0}-eth1 up',
             'ip netns exec {0}-cust2 ip li set dev lo up',
+            'ip netns add {0}-cust3',
+            'ip link set dev {0}-eth2 netns {0}-cust3',
+            'ip netns exec {0}-cust3 ifconfig {0}-eth2 up',
+            'ip netns exec {0}-cust3 ip li set dev lo up',
             'ip link add loop1 type dummy',
             'ip link set dev loop1 netns r1-cust1',
             'ip netns exec {0}-cust1 ip li set dev loop1 up',
@@ -130,7 +142,11 @@ def setup_module(module):
             'ip link add loop2 type dummy',
             'ip link set dev loop2 netns r1-cust2',
             'ip netns exec {0}-cust2 ip li set dev loop2 up',
-            'ip netns exec {0}-cust2 ip a a 10.75.0.1/24 dev loop2']
+            'ip netns exec {0}-cust2 ip a a 10.75.0.1/24 dev loop2',
+            'ip link add loop3 type dummy',
+            'ip link set dev loop3 netns r1-cust3',
+            'ip netns exec {0}-cust3 ip li set dev loop3 up',
+            'ip netns exec {0}-cust3 ip a a 10.75.0.1/24 dev loop3']
     for cmd in cmds:
         cmd = cmd.format('r1')
         logger.info('cmd: '+cmd);
@@ -150,6 +166,16 @@ def setup_module(module):
             'ip link set r1-cust2 netns r1-cust1',
             'ip netns exec r1-cust1 ip link set dev r1-cust2 up',
             'ip netns exec r1-cust2 ip link set dev r1-cust1 up',
+            # pair between r1-cust1 and r1-cust3
+            'ip link add r1-cust3 type veth peer name r1-cust1',
+            'ip link set dev r1-cust1 arp off',
+            'ip link set dev r1-cust3 arp off',
+            'ip link set dev r1-cust1 address 00:80:ed:01:01:04',
+            'ip link set dev r1-cust3 address 00:80:ed:01:01:04',
+            'ip link set r1-cust1 netns r1-cust3',
+            'ip link set r1-cust3 netns r1-cust1',
+            'ip netns exec r1-cust1 ip link set dev r1-cust3 up',
+            'ip netns exec r1-cust3 ip link set dev r1-cust1 up',
             # pair between vrf0 and r1-cust1
             'ip link add r1-cust1 type veth peer name vrf0',
             'ip link set dev r1-cust1 arp off',
@@ -207,18 +233,27 @@ def teardown_module(module):
     # delete veth pairs
     cmds = ['ip link del r1-cust1',
             'ip link del r1-cust2',
-            'ip link set netns exec r1-cust1 ip link set dev r1-cust2 netns 1',
+            'ip link del r1-cust3',
+            'ip netns exec r1-cust1 ip link set dev r1-cust2 netns 1',
+            'ip netns exec r1-cust1 ip link set dev r1-cust3 netns 1',
             'ip link del r1-cust2',
+            'ip link del r1-cust3',
+            'ip netns exec r1-cust3 ip link set dev r1-cust1 netns 1',
+            'ip link del r1-cust1',
             # move back r1-eth0 and r1-eth1 to default vrf
             'ip netns exec r1-cust1 ip link set dev r1-eth0 netns 1',
             'ip netns exec r1-cust2 ip link set dev r1-eth1 netns 1',
+            'ip netns exec r1-cust3 ip link set dev r1-eth2 netns 1',
             # move back loopx interfaces to default vrf
             'ip netns exec r1-cust1 ip link set dev loop1 netns 1',
             'ip netns exec r1-cust2 ip link set dev loop2 netns 1',
+            'ip netns exec r1-cust3 ip link set dev loop3 netns 1',
             'ip netns del r1-cust1',
             'ip netns del r1-cust2',
+            'ip netns del r1-cust3',
             'ip link del loop1',
-            'ip link del loop2']
+            'ip link del loop2',
+            'ip link del loop3']
     for cmd in cmds:
         tgen.net['r1'].cmd(cmd.format('r1'))
 
@@ -362,6 +397,40 @@ def test_bgp_vrf_netns_leak():
          assert 0, assertmsg
     else:
         logger.info('Check Ping fail from r1-cust1(10.50.0.1) to R1-cust2 (10.75.0.1) OK')
+
+    logger.info('Testing multipath in BGP VRF')
+    cmd = 'vtysh -c \"configure terminal\" -c \"router bgp 100 vrf {0}-cust2\" -c \"address-family ipv4 unicast\" -c \"redistribute connected\"'
+    tgen.net['r1'].cmd(cmd.format('r1'))
+    cmd = 'vtysh -c \"configure terminal\" -c \"router bgp 100 vrf {0}-cust1\" -c \"address-family ipv4 unicast\" -c \"rt vpn import 2:55 1:55 3:55\" -c \"maximum-paths ibgp 4\" -c \"maximum-paths 4\"'
+    tgen.net['r1'].cmd(cmd.format('r1'))
+    cmd = 'vtysh -c \"configure terminal\" -c \"router bgp 100 vrf {0}-cust3\" -c \"neighbor 3.3.3.4 remote-as 100\" -c \"address-family ipv4 unicast\" -c \"redistribute connected\" -c \"rd vpn export 3:55\" -c \"rt vpn import 1:55\" -c \"rt vpn export 3:55\" -c \"import vpn\" -c \"export vpn\"'
+    tgen.net['r1'].cmd(cmd.format('r1'))
+
+    ecmp_entries_values = {0, 2}
+    interface_values = {'r1-cust2', 'r1-cust3'}
+    topotest.sleep(6)
+    logger.info('Dumping Routing contexts from r1-cust1')
+    output = tgen.gears['r1'].vtysh_cmd('show bgp vrf r1-cust1 ipv4', isjson=False)
+    logger.info(output)
+    output = tgen.gears['r1'].vtysh_cmd('show ip route vrf r1-cust1', isjson=False)
+    logger.info(output)
+    donna = tgen.gears['r1'].vtysh_cmd('show ip route vrf r1-cust1 json', isjson=True)
+    for i in list_values:
+        j = int(i)
+        routeid = donna['10.201.{}.0/24'.format(j)]
+        assert routeid is not None, "r1, route 10.201.{0}.0/24 not found".format(j)
+        nexthopid = routeid[0]['nexthops']
+        assert nexthopid is not None, "nexthop for 10.201.{0}.0/24 not found".format(j)
+        logger.info(nexthopid)
+        for k in ecmp_entries_values:
+            if 'fib' not in nexthopid[k].keys():
+                assert 0, "r1, FIB entry {0} 10.201.{1}.0/24 not present".format(k, j)
+            if nexthopid[k]['fib'] == 'False':
+                assert 0, "r1, FIB entry {0} 10.201.{1}.0/24 not created".format(k, j)
+            if 'interfaceName' not in nexthopid[k].keys():
+                assert 0, "r1, FIB entry {0} 10.201.{1}.0/24 not using interfaceName".format(k, j)
+            if nexthopid[k]['interfaceName'] not in interface_values:
+                assert 0, "r1, FIB entry {0} 10.201.{1}.0/24 ; wrong interface {2}".format(k, j, nexthopid[k]['interfaceName'])
 
 if __name__ == '__main__':
 
