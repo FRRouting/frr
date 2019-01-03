@@ -60,7 +60,7 @@ extern void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
  *
  * xpath_base_fmt
  *    Prepend the given XPath (absolute or relative) to all enqueued
- *    configuration changes.
+ *    configuration changes. This is an optional parameter.
  *
  * Returns:
  *    CMD_SUCCESS on success, CMD_WARNING_CONFIG_FAILED otherwise.
