@@ -1956,7 +1956,7 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 		json = json_object_new_object();
 	} else {
 		vty_out(vty,
-			"Codes: J -> Pim Join, I -> IGMP Report, S -> Source, * -> Inherited from (*,G)");
+			"Codes: J -> Pim Join, I -> IGMP Report, S -> Source, * -> Inherited from (*,G), V -> VxLAN");
 		vty_out(vty,
 			"\nInstalled Source           Group            IIF               OIL\n");
 	}
@@ -2085,7 +2085,7 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 			} else {
 				if (first_oif) {
 					first_oif = 0;
-					vty_out(vty, "%s(%c%c%c%c)", out_ifname,
+					vty_out(vty, "%s(%c%c%c%c%c)", out_ifname,
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_IGMP)
 							? 'I'
@@ -2093,6 +2093,10 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_PIM)
 							? 'J'
+							: ' ',
+						(c_oil->oif_flags[oif_vif_index]
+						 & PIM_OIF_FLAG_PROTO_VXLAN)
+							? 'V'
 							: ' ',
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_SOURCE)
@@ -2103,7 +2107,7 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 							? '*'
 							: ' ');
 				} else
-					vty_out(vty, ", %s(%c%c%c%c)",
+					vty_out(vty, ", %s(%c%c%c%c%c)",
 						out_ifname,
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_IGMP)
@@ -2112,6 +2116,10 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_PIM)
 							? 'J'
+							: ' ',
+						(c_oil->oif_flags[oif_vif_index]
+						 & PIM_OIF_FLAG_PROTO_VXLAN)
+							? 'V'
 							: ' ',
 						(c_oil->oif_flags[oif_vif_index]
 						 & PIM_OIF_FLAG_PROTO_SOURCE)
@@ -4617,6 +4625,11 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty, bool fill,
 						json_ifp_out, "protocolIgmp");
 
 				if (c_oil->oif_flags[oif_vif_index]
+				    & PIM_OIF_FLAG_PROTO_VXLAN)
+					json_object_boolean_true_add(
+						json_ifp_out, "protocolVxlan");
+
+				if (c_oil->oif_flags[oif_vif_index]
 				    & PIM_OIF_FLAG_PROTO_SOURCE)
 					json_object_boolean_true_add(
 						json_ifp_out, "protocolSource");
@@ -4656,6 +4669,11 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty, bool fill,
 				if (c_oil->oif_flags[oif_vif_index]
 				    & PIM_OIF_FLAG_PROTO_IGMP) {
 					strcpy(proto, "IGMP");
+				}
+
+				if (c_oil->oif_flags[oif_vif_index]
+				    & PIM_OIF_FLAG_PROTO_VXLAN) {
+					strcpy(proto, "VxLAN");
 				}
 
 				if (c_oil->oif_flags[oif_vif_index]
