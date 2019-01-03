@@ -1871,31 +1871,6 @@ static void rib_process_after(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_get_vrf(ctx), dest_str, ctx,
 			   dplane_op2str(op), dplane_res2str(status));
 
-	if (op == DPLANE_OP_ROUTE_DELETE) {
-		/*
-		 * In the delete case, the zebra core datastructs were
-		 * updated (or removed) at the time the delete was issued,
-		 * so we're just notifying the route owner.
-		 */
-		if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
-			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_REMOVED);
-
-			if (zvrf)
-				zvrf->removals++;
-		} else {
-			zsend_route_notify_owner_ctx(ctx,
-						     ZAPI_ROUTE_REMOVE_FAIL);
-
-			zlog_warn("%u:%s: Route Deletion failure",
-				  dplane_ctx_get_vrf(ctx),
-				  prefix2str(dest_pfx,
-					     dest_str, sizeof(dest_str)));
-		}
-
-		/* Nothing more to do in delete case */
-		goto done;
-	}
-
 	/*
 	 * Update is a bit of a special case, where we may have both old and new
 	 * routes to post-process.
@@ -1955,59 +1930,92 @@ static void rib_process_after(struct zebra_dplane_ctx *ctx)
 		goto done;
 	}
 
-	if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
-		/* Update zebra nexthop FIB flag for each
-		 * nexthop that was installed.
-		 */
-		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), ctx_nexthop)) {
+	switch (op) {
+	case DPLANE_OP_NONE:
+		break;
+	case DPLANE_OP_ROUTE_INSTALL:
+	case DPLANE_OP_ROUTE_UPDATE:
+		if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
+			/* Update zebra nexthop FIB flag for each
+			 * nexthop that was installed.
+			 */
+			for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx),
+					      ctx_nexthop)) {
 
-			for (ALL_NEXTHOPS(re->ng, nexthop)) {
-				if (nexthop_same(ctx_nexthop, nexthop))
-					break;
+				for (ALL_NEXTHOPS(re->ng, nexthop)) {
+					if (nexthop_same(ctx_nexthop, nexthop))
+						break;
+				}
+
+				if (nexthop == NULL)
+					continue;
+
+				if (CHECK_FLAG(nexthop->flags,
+					       NEXTHOP_FLAG_RECURSIVE))
+					continue;
+
+				if (CHECK_FLAG(ctx_nexthop->flags,
+					       NEXTHOP_FLAG_FIB))
+					SET_FLAG(nexthop->flags,
+						 NEXTHOP_FLAG_FIB);
+				else
+					UNSET_FLAG(nexthop->flags,
+						   NEXTHOP_FLAG_FIB);
 			}
 
-			if (nexthop == NULL)
-				continue;
+			if (zvrf) {
+				zvrf->installs++;
+				/* Set flag for nexthop tracking processing */
+				zvrf->flags |= ZEBRA_VRF_RIB_SCHEDULED;
+			}
 
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-				continue;
+			/* Redistribute */
+			/*
+			 * TODO -- still calling the redist api using the
+			 * route_entries, and there's a corner-case here:
+			 * if there's no client for the 'new' route, a redist
+			 * deleting the 'old' route will be sent. But if the
+			 * 'old' context info was stale, 'old_re' will be
+			 * NULL here and that delete will not be sent.
+			 */
+			redistribute_update(dest_pfx, src_pfx, re, old_re);
 
-			if (CHECK_FLAG(ctx_nexthop->flags,
-				       NEXTHOP_FLAG_FIB))
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-			else
-				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+			/* Notify route owner */
+			zsend_route_notify_owner(re, dest_pfx,
+						 ZAPI_ROUTE_INSTALLED);
+
+		} else {
+			zsend_route_notify_owner(re, dest_pfx,
+						 ZAPI_ROUTE_FAIL_INSTALL);
+
+			zlog_warn("%u:%s: Route install failed",
+				  dplane_ctx_get_vrf(ctx),
+				  prefix2str(dest_pfx,
+					     dest_str, sizeof(dest_str)));
 		}
-
-		if (zvrf) {
-			zvrf->installs++;
-			/* Set flag for nexthop tracking processing */
-			zvrf->flags |= ZEBRA_VRF_RIB_SCHEDULED;
-		}
-
-		/* Redistribute */
-		/* TODO -- still calling the redist api using the route_entries,
-		 * and there's a corner-case here: if there's no client
-		 * for the 'new' route, a redist deleting the 'old' route
-		 * will be sent. But if the 'old' context info was stale,
-		 * 'old_re' will be NULL here and that delete will not be sent.
+		break;
+	case DPLANE_OP_ROUTE_DELETE:
+		/*
+		 * In the delete case, the zebra core datastructs were
+		 * updated (or removed) at the time the delete was issued,
+		 * so we're just notifying the route owner.
 		 */
-		redistribute_update(dest_pfx, src_pfx, re, old_re);
+		if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
+			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_REMOVED);
 
-		/* Notify route owner */
-		zsend_route_notify_owner(re,
-					 dest_pfx, ZAPI_ROUTE_INSTALLED);
+			if (zvrf)
+				zvrf->removals++;
+		} else {
+			zsend_route_notify_owner_ctx(ctx,
+						     ZAPI_ROUTE_REMOVE_FAIL);
 
-	} else {
-		zsend_route_notify_owner(re, dest_pfx,
-					 ZAPI_ROUTE_FAIL_INSTALL);
-
-		zlog_warn("%u:%s: Route install failed",
-			  dplane_ctx_get_vrf(ctx),
-			  prefix2str(dest_pfx,
-				     dest_str, sizeof(dest_str)));
+			zlog_warn("%u:%s: Route Deletion failure",
+				  dplane_ctx_get_vrf(ctx),
+				  prefix2str(dest_pfx,
+					     dest_str, sizeof(dest_str)));
+		}
+		break;
 	}
-
 done:
 
 	/* Return context to dataplane module */
