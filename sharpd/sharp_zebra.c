@@ -132,6 +132,10 @@ static int interface_state_down(int command, struct zclient *zclient,
 extern uint32_t total_routes;
 extern uint32_t installed_routes;
 extern uint32_t removed_routes;
+extern int32_t repeat;
+extern struct prefix orig_prefix;
+extern struct nexthop_group nhop_group;
+extern uint8_t inst;
 
 void sharp_install_routes_helper(struct prefix *p, uint8_t instance,
 				 struct nexthop_group *nhg,
@@ -162,8 +166,9 @@ void sharp_remove_routes_helper(struct prefix *p, uint8_t instance,
 	}
 }
 
-static int handle_repeated(bool installed)
+static void handle_repeated(bool installed)
 {
+	struct prefix p = orig_prefix;
 	repeat--;
 
 	if (repeat <= 0)
@@ -171,12 +176,13 @@ static int handle_repeated(bool installed)
 
 	if (installed) {
 		removed_routes = 0;
-		sharp_remove_routes_helper(&prefix, inst, total_routes);
+		sharp_remove_routes_helper(&p, inst, total_routes);
 	}
 
 	if (!installed) {
 		installed_routes = 0;
-		sharp_remove_routes
+		sharp_install_routes_helper(&p, inst, &nhop_group,
+					    total_routes);
 	}
 }
 
