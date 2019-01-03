@@ -2144,43 +2144,66 @@ static wq_item_status meta_queue_process(struct work_queue *dummy, void *data)
 	return mq->size ? WQ_REQUEUE : WQ_SUCCESS;
 }
 
-/* Look into the RN and queue it into one or more priority queues,
- * increasing the size for each data push done.
+
+/*
+ * Look into the RN and queue it into the highest priority queue
+ * at this point in time for processing.
+ *
+ * We will enqueue a route node only once per invocation.
+ *
+ * There are two possibilities here that should be kept in mind.
+ * If the original invocation has not been pulled off for processing
+ * yet, A subsuquent invocation can have a route entry with a better
+ * meta queue index value and we can have a situation where
+ * we might have the same node enqueued 2 times.  Not necessarily
+ * an optimal situation but it should be ok.
+ *
+ * The other possibility is that the original invocation has not
+ * been pulled off for processing yet, A subsusquent invocation
+ * doesn't have a route_entry with a better meta-queue and the
+ * original metaqueue index value will win and we'll end up with
+ * the route node enqueued once.
  */
 static void rib_meta_queue_add(struct meta_queue *mq, struct route_node *rn)
 {
-	struct route_entry *re;
+	struct route_entry *re = NULL, *curr_re = NULL;
+	uint8_t qindex = MQ_SIZE, curr_qindex = MQ_SIZE;
+	struct zebra_vrf *zvrf;
 
-	RNODE_FOREACH_RE (rn, re) {
-		uint8_t qindex = route_info[re->type].meta_q_map;
-		struct zebra_vrf *zvrf;
+	RNODE_FOREACH_RE (rn, curr_re) {
+		curr_qindex = route_info[curr_re->type].meta_q_map;
 
-		/* Invariant: at this point we always have rn->info set. */
-		if (CHECK_FLAG(rib_dest_from_rnode(rn)->flags,
-			       RIB_ROUTE_QUEUED(qindex))) {
-			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-				rnode_debug(
-					rn, re->vrf_id,
-					"rn %p is already queued in sub-queue %u",
-					(void *)rn, qindex);
-			continue;
+		if (curr_qindex <= qindex) {
+			re = curr_re;
+			qindex = curr_qindex;
 		}
+	}
 
-		SET_FLAG(rib_dest_from_rnode(rn)->flags,
-			 RIB_ROUTE_QUEUED(qindex));
-		listnode_add(mq->subq[qindex], rn);
-		route_lock_node(rn);
-		mq->size++;
+	if (!re)
+		return;
 
+	/* Invariant: at this point we always have rn->info set. */
+	if (CHECK_FLAG(rib_dest_from_rnode(rn)->flags,
+		       RIB_ROUTE_QUEUED(qindex))) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			rnode_debug(rn, re->vrf_id,
-				    "queued rn %p into sub-queue %u",
+				    "rn %p is already queued in sub-queue %u",
 				    (void *)rn, qindex);
-
-		zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
-		if (zvrf)
-			zvrf->flags |= ZEBRA_VRF_RIB_SCHEDULED;
+		return;
 	}
+
+	SET_FLAG(rib_dest_from_rnode(rn)->flags, RIB_ROUTE_QUEUED(qindex));
+	listnode_add(mq->subq[qindex], rn);
+	route_lock_node(rn);
+	mq->size++;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		rnode_debug(rn, re->vrf_id, "queued rn %p into sub-queue %u",
+			    (void *)rn, qindex);
+
+	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
+	if (zvrf)
+		zvrf->flags |= ZEBRA_VRF_RIB_SCHEDULED;
 }
 
 /* Add route_node to work queue and schedule processing */
