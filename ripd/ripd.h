@@ -156,6 +156,9 @@ struct rip {
 	/* Vector to store passive-interface name. */
 	vector passive_nondefault;
 
+	/* RIP offset-lists. */
+	struct list *offset_list_master;
+
 	/* For redistribute route map. */
 	struct {
 		char *name;
@@ -462,8 +465,8 @@ extern int rip_offset_list_apply_in(struct prefix_ipv4 *, struct interface *,
 				    uint32_t *);
 extern int rip_offset_list_apply_out(struct prefix_ipv4 *, struct interface *,
 				     uint32_t *);
-extern void rip_offset_init(void);
-extern void rip_offset_clean(void);
+extern int offset_list_cmp(struct rip_offset_list *o1,
+			   struct rip_offset_list *o2);
 
 /* YANG notifications */
 extern void ripd_notif_send_auth_type_failure(const char *ifname);

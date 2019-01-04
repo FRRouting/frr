@@ -2697,6 +2697,9 @@ int rip_create(int socket)
 	rip->enable_interface = vector_init(1);
 	rip->enable_network = route_table_init();
 	rip->passive_nondefault = vector_init(1);
+	rip->offset_list_master = list_new();
+	rip->offset_list_master->cmp = (int (*)(void *, void *))offset_list_cmp;
+	rip->offset_list_master->del = (void (*)(void *))offset_list_del;
 
 	/* Distribute list install. */
 	rip->distribute_ctx =
@@ -3381,7 +3384,7 @@ void rip_clean(void)
 	vector_free(rip->enable_interface);
 	route_table_finish(rip->enable_network);
 	vector_free(rip->passive_nondefault);
-	rip_offset_clean();
+	list_delete(&rip->offset_list_master);
 	rip_interfaces_clean();
 	rip_distance_reset();
 	rip_redistribute_clean();
@@ -3484,7 +3487,6 @@ void rip_init(void)
 
 	/* Route-map */
 	rip_route_map_init();
-	rip_offset_init();
 
 	route_map_add_hook(rip_routemap_update);
 	route_map_delete_hook(rip_routemap_update);
