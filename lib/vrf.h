@@ -215,12 +215,12 @@ extern void vrf_terminate(void);
 
 /* Create a socket serving for the given VRF */
 extern int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
-		      char *name);
+		      const char *name);
 
 extern int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id,
-				char *name);
+				const char *name);
 
-extern int vrf_bind(vrf_id_t vrf_id, int fd, char *name);
+extern int vrf_bind(vrf_id_t vrf_id, int fd, const char *name);
 
 /* VRF ioctl operations */
 extern int vrf_getaddrinfo(const char *node, const char *service,

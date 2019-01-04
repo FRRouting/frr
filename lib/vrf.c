@@ -572,7 +572,7 @@ static int vrf_default_accepts_vrf(int type)
 
 /* Create a socket for the VRF. */
 int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
-	       char *interfacename)
+	       const char *interfacename)
 {
 	int ret, save_errno, ret2;
 
@@ -947,7 +947,7 @@ vrf_id_t vrf_get_default_id(void)
 		return VRF_DEFAULT_INTERNAL;
 }
 
-int vrf_bind(vrf_id_t vrf_id, int fd, char *name)
+int vrf_bind(vrf_id_t vrf_id, int fd, const char *name)
 {
 	int ret = 0;
 
@@ -1006,7 +1006,7 @@ int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *params)
 }
 
 int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id,
-			 char *interfacename)
+			 const char *interfacename)
 {
 	int ret, save_errno, ret2;
 
