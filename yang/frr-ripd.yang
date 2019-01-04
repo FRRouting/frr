@@ -552,6 +552,19 @@ module frr-ripd {
     description
       "Clears RIP routes from the IP routing table and routes
        redistributed into the RIP protocol.";
+
+    input {
+      leaf vrf {
+        type string;
+        description
+          "VRF name identifying a specific RIP instance.
+           This leaf is optional for the rpc.
+           If it is specified, the rpc will clear all routes in the
+           specified RIP instance;
+           if it is not specified, the rpc will clear all routes in
+           all RIP instances.";
+      }
+    }
   }
 
   /*

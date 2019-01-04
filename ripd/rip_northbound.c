@@ -31,6 +31,7 @@
 #include "libfrr.h"
 
 #include "ripd/ripd.h"
+#include "ripd/rip_debug.h"
 #include "ripd/rip_cli.h"
 
 /*
@@ -1351,21 +1352,19 @@ ripd_instance_state_routes_route_metric_get_elem(const char *xpath,
 /*
  * XPath: /frr-ripd:clear-rip-route
  */
-static int clear_rip_route_rpc(const char *xpath, const struct list *input,
-			       struct list *output)
+static void clear_rip_route(struct rip *rip)
 {
-	struct rip *rip;
 	struct route_node *rp;
-	struct rip_info *rinfo;
-	struct list *list;
-	struct listnode *listnode;
 
-	rip = rip_lookup_by_vrf_id(VRF_DEFAULT);
-	if (!rip)
-		return NB_OK;
+	if (IS_RIP_DEBUG_EVENT)
+		zlog_debug("Clearing all RIP routes (VRF %s)", rip->vrf_name);
 
 	/* Clear received RIP routes */
 	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
+		struct list *list;
+		struct listnode *listnode;
+		struct rip_info *rinfo;
+
 		list = rp->info;
 		if (!list)
 			continue;
@@ -1390,6 +1389,30 @@ static int clear_rip_route_rpc(const char *xpath, const struct list *input,
 			list_delete(&list);
 			rp->info = NULL;
 			route_unlock_node(rp);
+		}
+	}
+}
+
+static int clear_rip_route_rpc(const char *xpath, const struct list *input,
+			       struct list *output)
+{
+	struct rip *rip;
+	struct yang_data *yang_vrf;
+
+	yang_vrf = yang_data_list_find(input, "%s/%s", xpath, "input/vrf");
+	if (yang_vrf) {
+		rip = rip_lookup_by_vrf_name(yang_vrf->value);
+		if (rip)
+			clear_rip_route(rip);
+	} else {
+		struct vrf *vrf;
+
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			rip = vrf->info;
+			if (!rip)
+				continue;
+
+			clear_rip_route(rip);
 		}
 	}
 

@@ -983,12 +983,24 @@ void cli_show_ip_rip_authentication_key_chain(struct vty *vty,
  */
 DEFPY (clear_ip_rip,
        clear_ip_rip_cmd,
-       "clear ip rip",
+       "clear ip rip [vrf WORD]",
        CLEAR_STR
        IP_STR
-       "Clear IP RIP database\n")
+       "Clear IP RIP database\n"
+       VRF_CMD_HELP_STR)
 {
-	return nb_cli_rpc("/frr-ripd:clear-rip-route", NULL, NULL);
+	struct list *input;
+
+	input = list_new();
+	if (vrf) {
+		struct yang_data *yang_vrf;
+
+		yang_vrf = yang_data_new("/frr-ripd:clear-rip-route/input/vrf",
+					 vrf);
+		listnode_add(input, yang_vrf);
+	}
+
+	return nb_cli_rpc("/frr-ripd:clear-rip-route", input, NULL);
 }
 
 void rip_cli_init(void)
