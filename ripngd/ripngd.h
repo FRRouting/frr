@@ -372,6 +372,7 @@ struct ripng_offset_list {
 /* Extern variables. */
 extern struct zebra_privs_t ripngd_privs;
 extern struct thread_master *master;
+extern struct ripng_instance_head ripng_instances;
 
 /* Prototypes. */
 extern void ripng_init(void);
