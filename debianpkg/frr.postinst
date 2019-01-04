@@ -1,16 +1,13 @@
 #!/bin/bash -e
 
 ######################
-PASSWDFILE=/etc/passwd
-GROUPFILE=/etc/group
+frruid=`getent passwd frr | awk -F ":" '{ print $3 }'`
+frrgid=`getent group frr | awk -F ":" '{ print $3 }'`
+frrvtygid=`getent group frrvty | awk -F ":" '{ print $3 }'`
 
-frruid=`egrep "^frr:" $PASSWDFILE | awk -F ":" '{ print $3 }'`
-frrgid=`egrep "^frr:" $GROUPFILE | awk -F ":" '{ print $3 }'`
-frrvtygid=`egrep "^frrvty:" $GROUPFILE | awk -F ":" '{ print $3 }'`
-
-[ -n ${frruid} ]    || (echo "No uid for frr in ${PASSWDFILE}"   && /bin/false)
-[ -n ${frrgid} ]    || (echo "No gid for frr in ${GROUPFILE}"    && /bin/false)
-[ -n ${frrVTYgid} ] || (echo "No gid for frrvty in ${GROUPFILE}" && /bin/false)
+[ -n ${frruid} ]    || (echo "No uid for frr"    && /bin/false)
+[ -n ${frrgid} ]    || (echo "No gid for frr"    && /bin/false)
+[ -n ${frrVTYgid} ] || (echo "No gid for frrvty" && /bin/false)
 
 chown ${frruid}:${frrgid} /etc/frr
 chown ${frruid}:${frrgid} /etc/frr/*
