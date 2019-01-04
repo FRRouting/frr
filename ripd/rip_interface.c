@@ -60,9 +60,6 @@ const struct message ri_version_msg[] = {{RI_RIP_VERSION_1, "1"},
 					 {RI_RIP_VERSION_NONE, "none"},
 					 {0}};
 
-/* Vector to store passive-interface name. */
-vector Vrip_passive_nondefault;
-
 /* Join to the RIP version 2 multicast group. */
 static int ipv4_multicast_join(int sock, struct in_addr group,
 			       struct in_addr ifa, ifindex_t ifindex)
@@ -1056,8 +1053,8 @@ static int rip_passive_nondefault_lookup(const char *ifname)
 	unsigned int i;
 	char *str;
 
-	for (i = 0; i < vector_active(Vrip_passive_nondefault); i++)
-		if ((str = vector_slot(Vrip_passive_nondefault, i)) != NULL)
+	for (i = 0; i < vector_active(rip->passive_nondefault); i++)
+		if ((str = vector_slot(rip->passive_nondefault, i)) != NULL)
 			if (strcmp(str, ifname) == 0)
 				return i;
 	return -1;
@@ -1100,7 +1097,7 @@ int rip_passive_nondefault_set(const char *ifname)
 		 */
 		return NB_OK;
 
-	vector_set(Vrip_passive_nondefault,
+	vector_set(rip->passive_nondefault,
 		   XSTRDUP(MTYPE_RIP_INTERFACE_STRING, ifname));
 
 	rip_passive_interface_apply_all();
@@ -1121,9 +1118,9 @@ int rip_passive_nondefault_unset(const char *ifname)
 		 */
 		return NB_OK;
 
-	str = vector_slot(Vrip_passive_nondefault, i);
+	str = vector_slot(rip->passive_nondefault, i);
 	XFREE(MTYPE_RIP_INTERFACE_STRING, str);
-	vector_unset(Vrip_passive_nondefault, i);
+	vector_unset(rip->passive_nondefault, i);
 
 	rip_passive_interface_apply_all();
 
@@ -1136,10 +1133,10 @@ void rip_passive_nondefault_clean(void)
 	unsigned int i;
 	char *str;
 
-	for (i = 0; i < vector_active(Vrip_passive_nondefault); i++)
-		if ((str = vector_slot(Vrip_passive_nondefault, i)) != NULL) {
+	for (i = 0; i < vector_active(rip->passive_nondefault); i++)
+		if ((str = vector_slot(rip->passive_nondefault, i)) != NULL) {
 			XFREE(MTYPE_RIP_INTERFACE_STRING, str);
-			vector_slot(Vrip_passive_nondefault, i) = NULL;
+			vector_slot(rip->passive_nondefault, i) = NULL;
 		}
 	rip_passive_interface_apply_all();
 }
@@ -1221,9 +1218,6 @@ void rip_if_init(void)
 	/* Default initial size of interface vector. */
 	hook_register_prio(if_add, 0, rip_interface_new_hook);
 	hook_register_prio(if_del, 0, rip_interface_delete_hook);
-
-	/* RIP passive interface. */
-	Vrip_passive_nondefault = vector_init(1);
 
 	/* Install interface node. */
 	install_node(&interface_node, rip_interface_config_write);
