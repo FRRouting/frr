@@ -111,6 +111,9 @@ struct ripng {
 	/* RIPng enabled interfaces. */
 	vector enable_if;
 
+	/* RIPng enabled networks. */
+	struct agg_table *enable_network;
+
 	/* RIPng threads. */
 	struct thread *t_read;
 	struct thread *t_write;

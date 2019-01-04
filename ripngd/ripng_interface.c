@@ -446,17 +446,17 @@ int ripng_interface_address_delete(int command, struct zclient *zclient,
 	return 0;
 }
 
-/* RIPng enable network table. */
-struct agg_table *ripng_enable_network;
-
 /* Lookup RIPng enable network. */
 /* Check wether the interface has at least a connected prefix that
- * is within the ripng_enable_network table. */
+ * is within the ripng->enable_network table. */
 static int ripng_enable_network_lookup_if(struct interface *ifp)
 {
 	struct listnode *node;
 	struct connected *connected;
 	struct prefix_ipv6 address;
+
+	if (!ripng)
+		return -1;
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
 		struct prefix *p;
@@ -469,7 +469,7 @@ static int ripng_enable_network_lookup_if(struct interface *ifp)
 			address.prefix = p->u.prefix6;
 			address.prefixlen = IPV6_MAX_BITLEN;
 
-			n = agg_node_match(ripng_enable_network,
+			n = agg_node_match(ripng->enable_network,
 					   (struct prefix *)&address);
 			if (n) {
 				agg_unlock_node(n);
@@ -480,11 +480,14 @@ static int ripng_enable_network_lookup_if(struct interface *ifp)
 	return -1;
 }
 
-/* Check wether connected is within the ripng_enable_network table. */
+/* Check wether connected is within the ripng->enable_network table. */
 static int ripng_enable_network_lookup2(struct connected *connected)
 {
 	struct prefix_ipv6 address;
 	struct prefix *p;
+
+	if (!ripng)
+		return -1;
 
 	p = connected->address;
 
@@ -496,8 +499,8 @@ static int ripng_enable_network_lookup2(struct connected *connected)
 		address.prefixlen = IPV6_MAX_BITLEN;
 
 		/* LPM on p->family, p->u.prefix6/IPV6_MAX_BITLEN within
-		 * ripng_enable_network */
-		node = agg_node_match(ripng_enable_network,
+		 * ripng->enable_network */
+		node = agg_node_match(ripng->enable_network,
 				      (struct prefix *)&address);
 
 		if (node) {
@@ -514,7 +517,7 @@ int ripng_enable_network_add(struct prefix *p)
 {
 	struct agg_node *node;
 
-	node = agg_node_get(ripng_enable_network, p);
+	node = agg_node_get(ripng->enable_network, p);
 
 	if (node->info) {
 		agg_unlock_node(node);
@@ -533,7 +536,7 @@ int ripng_enable_network_delete(struct prefix *p)
 {
 	struct agg_node *node;
 
-	node = agg_node_lookup(ripng_enable_network, p);
+	node = agg_node_lookup(ripng->enable_network, p);
 	if (node) {
 		node->info = NULL;
 
@@ -743,8 +746,8 @@ void ripng_clean_network()
 	char *str;
 	struct agg_node *rn;
 
-	/* ripng_enable_network */
-	for (rn = agg_route_top(ripng_enable_network); rn;
+	/* ripng->enable_network */
+	for (rn = agg_route_top(ripng->enable_network); rn;
 	     rn = agg_route_next(rn))
 		if (rn->info) {
 			rn->info = NULL;
@@ -852,7 +855,7 @@ int ripng_network_write(struct vty *vty)
 	char buf[BUFSIZ];
 
 	/* Write enable network. */
-	for (node = agg_route_top(ripng_enable_network); node;
+	for (node = agg_route_top(ripng->enable_network); node;
 	     node = agg_route_next(node))
 		if (node->info) {
 			struct prefix *p = &node->p;
@@ -933,9 +936,6 @@ void ripng_if_init()
 	/* Interface initialize. */
 	hook_register_prio(if_add, 0, ripng_if_new_hook);
 	hook_register_prio(if_del, 0, ripng_if_delete_hook);
-
-	/* RIPng enable network init. */
-	ripng_enable_network = agg_table_init();
 
 	/* RIPng passive interface. */
 	Vripng_passive_interface = vector_init(1);
