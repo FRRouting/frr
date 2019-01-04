@@ -41,6 +41,7 @@ static struct ripng_peer *ripng_peer_new(void)
 
 static void ripng_peer_free(struct ripng_peer *peer)
 {
+	RIPNG_TIMER_OFF(peer->t_timeout);
 	XFREE(MTYPE_RIPNG_PEER, peer);
 }
 
@@ -177,4 +178,9 @@ void ripng_peer_display(struct vty *vty)
 int ripng_peer_list_cmp(struct ripng_peer *p1, struct ripng_peer *p2)
 {
 	return memcmp(&p1->addr, &p2->addr, sizeof(struct in6_addr));
+}
+
+void ripng_peer_list_del(void *arg)
+{
+	ripng_peer_free(arg);
 }

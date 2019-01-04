@@ -1807,6 +1807,7 @@ int ripng_create(int socket)
 	ripng->table = agg_table_init();
 	ripng->peer_list = list_new();
 	ripng->peer_list->cmp = (int (*)(void *, void *))ripng_peer_list_cmp;
+	ripng->peer_list->del = ripng_peer_list_del;
 	ripng->enable_if = vector_init(1);
 	ripng->enable_network = agg_table_init();
 	ripng->passive_interface = vector_init(1);
@@ -2459,6 +2460,7 @@ void ripng_clean()
 			free(ripng->route_map[i].name);
 
 	agg_table_finish(ripng->table);
+	list_delete(&ripng->peer_list);
 	distribute_list_delete(&ripng->distribute_ctx);
 
 	stream_free(ripng->ibuf);

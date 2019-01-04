@@ -377,6 +377,7 @@ extern void ripng_peer_display(struct vty *);
 extern struct ripng_peer *ripng_peer_lookup(struct in6_addr *);
 extern struct ripng_peer *ripng_peer_lookup_next(struct in6_addr *);
 extern int ripng_peer_list_cmp(struct ripng_peer *p1, struct ripng_peer *p2);
+extern void ripng_peer_list_del(void *arg);
 
 extern struct ripng_offset_list *ripng_offset_list_new(const char *ifname);
 extern void ripng_offset_list_del(struct ripng_offset_list *offset);
