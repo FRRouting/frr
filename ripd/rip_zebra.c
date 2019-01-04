@@ -101,7 +101,7 @@ static void rip_zebra_ipv4_send(struct route_node *rp, uint8_t cmd)
 				   inet_ntoa(rp->p.u.prefix4), rp->p.prefixlen);
 	}
 
-	rip_global_route_changes++;
+	rip->counters.route_changes++;
 }
 
 /* Add/update ECMP routes to zebra. */

@@ -169,6 +169,15 @@ struct rip {
 
 	/* For distribute-list container */
 	struct distribute_ctx *distribute_ctx;
+
+	/* Counters for SNMP. */
+	struct {
+		/* RIP route changes. */
+		long route_changes;
+
+		/* RIP queries. */
+		long queries;
+	} counters;
 };
 
 /* RIP routing table entry which belong to rip_packet. */
@@ -473,10 +482,6 @@ extern struct zebra_privs_t ripd_privs;
 
 /* Master thread strucutre. */
 extern struct thread_master *master;
-
-/* RIP statistics for SNMP. */
-extern long rip_global_route_changes;
-extern long rip_global_queries;
 
 DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc))
 DECLARE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc))

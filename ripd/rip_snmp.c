@@ -160,13 +160,16 @@ static uint8_t *rip2Globals(struct variable *v, oid name[], size_t *length,
 	    == MATCH_FAILED)
 		return NULL;
 
+	if (!rip)
+		return NULL;
+
 	/* Retrun global counter. */
 	switch (v->magic) {
 	case RIP2GLOBALROUTECHANGES:
-		return SNMP_INTEGER(rip_global_route_changes);
+		return SNMP_INTEGER(rip->counters.route_changes);
 		break;
 	case RIP2GLOBALQUERIES:
-		return SNMP_INTEGER(rip_global_queries);
+		return SNMP_INTEGER(rip->counters.queries);
 		break;
 	default:
 		return NULL;

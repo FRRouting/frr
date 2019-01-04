@@ -53,12 +53,6 @@
 /* RIP Structure. */
 struct rip *rip = NULL;
 
-/* RIP route changes. */
-long rip_global_route_changes = 0;
-
-/* RIP queries. */
-long rip_global_queries = 0;
-
 /* Prototypes. */
 static void rip_output_process(struct connected *, struct sockaddr_in *, int,
 			       uint8_t);
@@ -1633,7 +1627,7 @@ static void rip_request_process(struct rip_packet *packet, int size,
 
 		(void)rip_send_packet((uint8_t *)packet, size, from, ifc);
 	}
-	rip_global_queries++;
+	rip->counters.queries++;
 }
 
 /* First entry point of RIP packet. */
