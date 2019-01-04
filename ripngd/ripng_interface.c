@@ -52,12 +52,12 @@
 /* Static utility function. */
 static void ripng_enable_apply(struct interface *);
 static void ripng_passive_interface_apply(struct interface *);
-static int ripng_enable_if_lookup(const char *);
+static int ripng_enable_if_lookup(struct ripng *ripng, const char *ifname);
 static int ripng_enable_network_lookup2(struct connected *);
-static void ripng_enable_apply_all(void);
+static void ripng_enable_apply_all(struct ripng *ripng);
 
 /* Join to the all rip routers multicast group. */
-static int ripng_multicast_join(struct interface *ifp)
+static int ripng_multicast_join(struct interface *ifp, int sock)
 {
 	int ret;
 	struct ipv6_mreq mreq;
@@ -75,8 +75,7 @@ static int ripng_multicast_join(struct interface *ifp)
 		 */
 		frr_elevate_privs(&ripngd_privs) {
 
-			ret = setsockopt(ripng->sock, IPPROTO_IPV6,
-					 IPV6_JOIN_GROUP,
+			ret = setsockopt(sock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
 					 (char *)&mreq, sizeof(mreq));
 			save_errno = errno;
 
@@ -111,7 +110,7 @@ static int ripng_multicast_join(struct interface *ifp)
 }
 
 /* Leave from the all rip routers multicast group. */
-static int ripng_multicast_leave(struct interface *ifp)
+static int ripng_multicast_leave(struct interface *ifp, int sock)
 {
 	int ret;
 	struct ipv6_mreq mreq;
@@ -121,7 +120,7 @@ static int ripng_multicast_leave(struct interface *ifp)
 		inet_pton(AF_INET6, RIPNG_GROUP, &mreq.ipv6mr_multiaddr);
 		mreq.ipv6mr_interface = ifp->ifindex;
 
-		ret = setsockopt(ripng->sock, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
+		ret = setsockopt(sock, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
 				 (char *)&mreq, sizeof(mreq));
 		if (ret < 0)
 			zlog_warn("can't setsockopt IPV6_LEAVE_GROUP: %s\n",
@@ -163,8 +162,12 @@ static int ripng_if_down(struct interface *ifp)
 	struct agg_node *rp;
 	struct ripng_info *rinfo;
 	struct ripng_interface *ri;
+	struct ripng *ripng;
 	struct list *list = NULL;
 	struct listnode *listnode = NULL, *nextnode = NULL;
+
+	ri = ifp->info;
+	ripng = ri->ripng;
 
 	if (ripng)
 		for (rp = agg_route_top(ripng->table); rp;
@@ -173,16 +176,15 @@ static int ripng_if_down(struct interface *ifp)
 				for (ALL_LIST_ELEMENTS(list, listnode, nextnode,
 						       rinfo))
 					if (rinfo->ifindex == ifp->ifindex)
-						ripng_ecmp_delete(rinfo);
+						ripng_ecmp_delete(ripng, rinfo);
 
-	ri = ifp->info;
 
 	if (ri->running) {
 		if (IS_RIPNG_DEBUG_EVENT)
 			zlog_debug("turn off %s", ifp->name);
 
 		/* Leave from multicast group. */
-		ripng_multicast_leave(ifp);
+		ripng_multicast_leave(ifp, ripng->sock);
 
 		ri->running = 0;
 	}
@@ -304,9 +306,9 @@ int ripng_interface_delete(int command, struct zclient *zclient,
 	return 0;
 }
 
-void ripng_interface_clean(void)
+void ripng_interface_clean(struct ripng *ripng)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(ripng->vrf_id);
 	struct interface *ifp;
 	struct ripng_interface *ri;
 
@@ -326,6 +328,8 @@ void ripng_interface_clean(void)
 
 static void ripng_apply_address_add(struct connected *ifc)
 {
+	struct ripng_interface *ri = ifc->ifp->info;
+	struct ripng *ripng = ri->ripng;
 	struct prefix_ipv6 address;
 	struct prefix *p;
 
@@ -345,9 +349,9 @@ static void ripng_apply_address_add(struct connected *ifc)
 
 	/* Check if this interface is RIP enabled or not
 	   or  Check if this address's prefix is RIP enabled */
-	if ((ripng_enable_if_lookup(ifc->ifp->name) >= 0)
+	if ((ripng_enable_if_lookup(ripng, ifc->ifp->name) >= 0)
 	    || (ripng_enable_network_lookup2(ifc) >= 0))
-		ripng_redistribute_add(ZEBRA_ROUTE_CONNECT,
+		ripng_redistribute_add(ripng, ZEBRA_ROUTE_CONNECT,
 				       RIPNG_ROUTE_INTERFACE, &address,
 				       ifc->ifp->ifindex, NULL, 0);
 }
@@ -395,6 +399,8 @@ int ripng_interface_address_add(int command, struct zclient *zclient,
 
 static void ripng_apply_address_del(struct connected *ifc)
 {
+	struct ripng_interface *ri = ifc->ifp->info;
+	struct ripng *ripng = ri->ripng;
 	struct prefix_ipv6 address;
 	struct prefix *p;
 
@@ -412,8 +418,9 @@ static void ripng_apply_address_del(struct connected *ifc)
 	address.prefixlen = p->prefixlen;
 	apply_mask_ipv6(&address);
 
-	ripng_redistribute_delete(ZEBRA_ROUTE_CONNECT, RIPNG_ROUTE_INTERFACE,
-				  &address, ifc->ifp->ifindex);
+	ripng_redistribute_delete(ripng, ZEBRA_ROUTE_CONNECT,
+				  RIPNG_ROUTE_INTERFACE, &address,
+				  ifc->ifp->ifindex);
 }
 
 int ripng_interface_address_delete(int command, struct zclient *zclient,
@@ -451,6 +458,8 @@ int ripng_interface_address_delete(int command, struct zclient *zclient,
  * is within the ripng->enable_network table. */
 static int ripng_enable_network_lookup_if(struct interface *ifp)
 {
+	struct ripng_interface *ri = ifp->info;
+	struct ripng *ripng = ri->ripng;
 	struct listnode *node;
 	struct connected *connected;
 	struct prefix_ipv6 address;
@@ -483,6 +492,8 @@ static int ripng_enable_network_lookup_if(struct interface *ifp)
 /* Check wether connected is within the ripng->enable_network table. */
 static int ripng_enable_network_lookup2(struct connected *connected)
 {
+	struct ripng_interface *ri = connected->ifp->info;
+	struct ripng *ripng = ri->ripng;
 	struct prefix_ipv6 address;
 	struct prefix *p;
 
@@ -513,7 +524,7 @@ static int ripng_enable_network_lookup2(struct connected *connected)
 }
 
 /* Add RIPng enable network. */
-int ripng_enable_network_add(struct prefix *p)
+int ripng_enable_network_add(struct ripng *ripng, struct prefix *p)
 {
 	struct agg_node *node;
 
@@ -526,13 +537,13 @@ int ripng_enable_network_add(struct prefix *p)
 		node->info = (void *)1;
 
 	/* XXX: One should find a better solution than a generic one */
-	ripng_enable_apply_all();
+	ripng_enable_apply_all(ripng);
 
 	return NB_OK;
 }
 
 /* Delete RIPng enable network. */
-int ripng_enable_network_delete(struct prefix *p)
+int ripng_enable_network_delete(struct ripng *ripng, struct prefix *p)
 {
 	struct agg_node *node;
 
@@ -553,7 +564,7 @@ int ripng_enable_network_delete(struct prefix *p)
 }
 
 /* Lookup function. */
-static int ripng_enable_if_lookup(const char *ifname)
+static int ripng_enable_if_lookup(struct ripng *ripng, const char *ifname)
 {
 	unsigned int i;
 	char *str;
@@ -568,27 +579,27 @@ static int ripng_enable_if_lookup(const char *ifname)
 	return -1;
 }
 
-int ripng_enable_if_add(const char *ifname)
+int ripng_enable_if_add(struct ripng *ripng, const char *ifname)
 {
 	int ret;
 
-	ret = ripng_enable_if_lookup(ifname);
+	ret = ripng_enable_if_lookup(ripng, ifname);
 	if (ret >= 0)
 		return NB_ERR_INCONSISTENCY;
 
 	vector_set(ripng->enable_if, strdup(ifname));
 
-	ripng_enable_apply_all();
+	ripng_enable_apply_all(ripng);
 
 	return NB_OK;
 }
 
-int ripng_enable_if_delete(const char *ifname)
+int ripng_enable_if_delete(struct ripng *ripng, const char *ifname)
 {
 	int index;
 	char *str;
 
-	index = ripng_enable_if_lookup(ifname);
+	index = ripng_enable_if_lookup(ripng, ifname);
 	if (index < 0)
 		return NB_ERR_INCONSISTENCY;
 
@@ -596,7 +607,7 @@ int ripng_enable_if_delete(const char *ifname)
 	free(str);
 	vector_unset(ripng->enable_if, index);
 
-	ripng_enable_apply_all();
+	ripng_enable_apply_all(ripng);
 
 	return NB_OK;
 }
@@ -614,7 +625,7 @@ static int ripng_interface_wakeup(struct thread *t)
 	ri->t_wakeup = NULL;
 
 	/* Join to multicast group. */
-	if (ripng_multicast_join(ifp) < 0) {
+	if (ripng_multicast_join(ifp, ri->ripng->sock) < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "multicast join failed, interface %s not running",
 			     ifp->name);
@@ -632,6 +643,8 @@ static int ripng_interface_wakeup(struct thread *t)
 
 static void ripng_connect_set(struct interface *ifp, int set)
 {
+	struct ripng_interface *ri = ifp->info;
+	struct ripng *ripng = ri->ripng;
 	struct listnode *node, *nnode;
 	struct connected *connected;
 	struct prefix_ipv6 address;
@@ -651,19 +664,22 @@ static void ripng_connect_set(struct interface *ifp, int set)
 		if (set) {
 			/* Check once more wether this prefix is within a
 			 * "network IF_OR_PREF" one */
-			if ((ripng_enable_if_lookup(connected->ifp->name) >= 0)
+			if ((ripng_enable_if_lookup(ripng, connected->ifp->name)
+			     >= 0)
 			    || (ripng_enable_network_lookup2(connected) >= 0))
 				ripng_redistribute_add(
-					ZEBRA_ROUTE_CONNECT,
+					ripng, ZEBRA_ROUTE_CONNECT,
 					RIPNG_ROUTE_INTERFACE, &address,
 					connected->ifp->ifindex, NULL, 0);
 		} else {
-			ripng_redistribute_delete(
-				ZEBRA_ROUTE_CONNECT, RIPNG_ROUTE_INTERFACE,
-				&address, connected->ifp->ifindex);
-			if (ripng_redistribute_check(ZEBRA_ROUTE_CONNECT))
+			ripng_redistribute_delete(ripng, ZEBRA_ROUTE_CONNECT,
+						  RIPNG_ROUTE_INTERFACE,
+						  &address,
+						  connected->ifp->ifindex);
+			if (ripng_redistribute_check(ripng,
+						     ZEBRA_ROUTE_CONNECT))
 				ripng_redistribute_add(
-					ZEBRA_ROUTE_CONNECT,
+					ripng, ZEBRA_ROUTE_CONNECT,
 					RIPNG_ROUTE_REDISTRIBUTE, &address,
 					connected->ifp->ifindex, NULL, 0);
 		}
@@ -692,7 +708,7 @@ void ripng_enable_apply(struct interface *ifp)
 		ri->enable_network = 0;
 
 	/* Check interface name configuration. */
-	ret = ripng_enable_if_lookup(ifp->name);
+	ret = ripng_enable_if_lookup(ri->ripng, ifp->name);
 	if (ret >= 0)
 		ri->enable_interface = 1;
 	else
@@ -730,9 +746,9 @@ void ripng_enable_apply(struct interface *ifp)
 }
 
 /* Set distribute list to all interfaces. */
-static void ripng_enable_apply_all(void)
+static void ripng_enable_apply_all(struct ripng *ripng)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(ripng->vrf_id);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
@@ -740,7 +756,7 @@ static void ripng_enable_apply_all(void)
 }
 
 /* Clear all network and neighbor configuration */
-void ripng_clean_network()
+void ripng_clean_network(struct ripng *ripng)
 {
 	unsigned int i;
 	char *str;
@@ -763,13 +779,11 @@ void ripng_clean_network()
 }
 
 /* Utility function for looking up passive interface settings. */
-static int ripng_passive_interface_lookup(const char *ifname)
+static int ripng_passive_interface_lookup(struct ripng *ripng,
+					  const char *ifname)
 {
 	unsigned int i;
 	char *str;
-
-	if (!ripng)
-		return -1;
 
 	for (i = 0; i < vector_active(ripng->passive_interface); i++)
 		if ((str = vector_slot(ripng->passive_interface, i)) != NULL)
@@ -782,19 +796,23 @@ void ripng_passive_interface_apply(struct interface *ifp)
 {
 	int ret;
 	struct ripng_interface *ri;
+	struct ripng *ripng;
 
 	ri = ifp->info;
+	ripng = ri->ripng;
+	if (!ripng)
+		return;
 
-	ret = ripng_passive_interface_lookup(ifp->name);
+	ret = ripng_passive_interface_lookup(ripng, ifp->name);
 	if (ret < 0)
 		ri->passive = 0;
 	else
 		ri->passive = 1;
 }
 
-static void ripng_passive_interface_apply_all(void)
+static void ripng_passive_interface_apply_all(struct ripng *ripng)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(ripng->vrf_id);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
@@ -802,24 +820,24 @@ static void ripng_passive_interface_apply_all(void)
 }
 
 /* Passive interface. */
-int ripng_passive_interface_set(const char *ifname)
+int ripng_passive_interface_set(struct ripng *ripng, const char *ifname)
 {
-	if (ripng_passive_interface_lookup(ifname) >= 0)
+	if (ripng_passive_interface_lookup(ripng, ifname) >= 0)
 		return NB_ERR_INCONSISTENCY;
 
 	vector_set(ripng->passive_interface, strdup(ifname));
 
-	ripng_passive_interface_apply_all();
+	ripng_passive_interface_apply_all(ripng);
 
 	return NB_OK;
 }
 
-int ripng_passive_interface_unset(const char *ifname)
+int ripng_passive_interface_unset(struct ripng *ripng, const char *ifname)
 {
 	int i;
 	char *str;
 
-	i = ripng_passive_interface_lookup(ifname);
+	i = ripng_passive_interface_lookup(ripng, ifname);
 	if (i < 0)
 		return NB_ERR_INCONSISTENCY;
 
@@ -827,13 +845,13 @@ int ripng_passive_interface_unset(const char *ifname)
 	free(str);
 	vector_unset(ripng->passive_interface, i);
 
-	ripng_passive_interface_apply_all();
+	ripng_passive_interface_apply_all(ripng);
 
 	return NB_OK;
 }
 
 /* Free all configured RIP passive-interface settings. */
-void ripng_passive_interface_clean(void)
+void ripng_passive_interface_clean(struct ripng *ripng)
 {
 	unsigned int i;
 	char *str;
@@ -843,11 +861,11 @@ void ripng_passive_interface_clean(void)
 			free(str);
 			vector_slot(ripng->passive_interface, i) = NULL;
 		}
-	ripng_passive_interface_apply_all();
+	ripng_passive_interface_apply_all(ripng);
 }
 
 /* Write RIPng enable network and interface to the vty. */
-int ripng_network_write(struct vty *vty)
+int ripng_network_write(struct vty *vty, struct ripng *ripng)
 {
 	unsigned int i;
 	const char *ifname;
@@ -872,10 +890,16 @@ int ripng_network_write(struct vty *vty)
 	return 0;
 }
 
-static struct ripng_interface *ri_new(void)
+static struct ripng_interface *ri_new(struct interface *ifp)
 {
+	struct vrf *vrf;
 	struct ripng_interface *ri;
+
 	ri = XCALLOC(MTYPE_IF, sizeof(struct ripng_interface));
+
+	vrf = vrf_lookup_by_id(ifp->vrf_id);
+	if (vrf)
+		ri->ripng = vrf->info;
 
 	/* Set default split-horizon behavior.  If the interface is Frame
 	   Relay or SMDS is enabled, the default value for split-horizon is
@@ -889,7 +913,7 @@ static struct ripng_interface *ri_new(void)
 
 static int ripng_if_new_hook(struct interface *ifp)
 {
-	ifp->info = ri_new();
+	ifp->info = ri_new(ifp);
 	return 0;
 }
 

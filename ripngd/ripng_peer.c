@@ -45,7 +45,7 @@ static void ripng_peer_free(struct ripng_peer *peer)
 	XFREE(MTYPE_RIPNG_PEER, peer);
 }
 
-struct ripng_peer *ripng_peer_lookup(struct in6_addr *addr)
+struct ripng_peer *ripng_peer_lookup(struct ripng *ripng, struct in6_addr *addr)
 {
 	struct ripng_peer *peer;
 	struct listnode *node, *nnode;
@@ -57,7 +57,8 @@ struct ripng_peer *ripng_peer_lookup(struct in6_addr *addr)
 	return NULL;
 }
 
-struct ripng_peer *ripng_peer_lookup_next(struct in6_addr *addr)
+struct ripng_peer *ripng_peer_lookup_next(struct ripng *ripng,
+					  struct in6_addr *addr)
 {
 	struct ripng_peer *peer;
 	struct listnode *node, *nnode;
@@ -77,25 +78,27 @@ static int ripng_peer_timeout(struct thread *t)
 	struct ripng_peer *peer;
 
 	peer = THREAD_ARG(t);
-	listnode_delete(ripng->peer_list, peer);
+	listnode_delete(peer->ripng->peer_list, peer);
 	ripng_peer_free(peer);
 
 	return 0;
 }
 
 /* Get RIPng peer.  At the same time update timeout thread. */
-static struct ripng_peer *ripng_peer_get(struct in6_addr *addr)
+static struct ripng_peer *ripng_peer_get(struct ripng *ripng,
+					 struct in6_addr *addr)
 {
 	struct ripng_peer *peer;
 
-	peer = ripng_peer_lookup(addr);
+	peer = ripng_peer_lookup(ripng, addr);
 
 	if (peer) {
 		if (peer->t_timeout)
 			thread_cancel(peer->t_timeout);
 	} else {
 		peer = ripng_peer_new();
-		peer->addr = *addr; /* XXX */
+		peer->ripng = ripng;
+		peer->addr = *addr;
 		listnode_add_sort(ripng->peer_list, peer);
 	}
 
@@ -110,24 +113,25 @@ static struct ripng_peer *ripng_peer_get(struct in6_addr *addr)
 	return peer;
 }
 
-void ripng_peer_update(struct sockaddr_in6 *from, uint8_t version)
+void ripng_peer_update(struct ripng *ripng, struct sockaddr_in6 *from,
+		       uint8_t version)
 {
 	struct ripng_peer *peer;
-	peer = ripng_peer_get(&from->sin6_addr);
+	peer = ripng_peer_get(ripng, &from->sin6_addr);
 	peer->version = version;
 }
 
-void ripng_peer_bad_route(struct sockaddr_in6 *from)
+void ripng_peer_bad_route(struct ripng *ripng, struct sockaddr_in6 *from)
 {
 	struct ripng_peer *peer;
-	peer = ripng_peer_get(&from->sin6_addr);
+	peer = ripng_peer_get(ripng, &from->sin6_addr);
 	peer->recv_badroutes++;
 }
 
-void ripng_peer_bad_packet(struct sockaddr_in6 *from)
+void ripng_peer_bad_packet(struct ripng *ripng, struct sockaddr_in6 *from)
 {
 	struct ripng_peer *peer;
-	peer = ripng_peer_get(&from->sin6_addr);
+	peer = ripng_peer_get(ripng, &from->sin6_addr);
 	peer->recv_badpackets++;
 }
 
@@ -160,7 +164,7 @@ static char *ripng_peer_uptime(struct ripng_peer *peer, char *buf, size_t len)
 	return buf;
 }
 
-void ripng_peer_display(struct vty *vty)
+void ripng_peer_display(struct vty *vty, struct ripng *ripng)
 {
 	struct ripng_peer *peer;
 	struct listnode *node, *nnode;

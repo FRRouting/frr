@@ -42,6 +42,8 @@ static int ripngd_instance_create(enum nb_event event,
 				  const struct lyd_node *dnode,
 				  union nb_resource *resource)
 {
+	struct ripng *ripng;
+	struct vrf *vrf;
 	int socket;
 
 	switch (event) {
@@ -58,8 +60,10 @@ static int ripngd_instance_create(enum nb_event event,
 		close(socket);
 		break;
 	case NB_EV_APPLY:
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 		socket = resource->fd;
-		ripng_create(socket);
+		ripng = ripng_create(vrf, socket);
+		yang_dnode_set_entry(dnode, ripng);
 		break;
 	}
 
@@ -69,10 +73,13 @@ static int ripngd_instance_create(enum nb_event event,
 static int ripngd_instance_delete(enum nb_event event,
 				  const struct lyd_node *dnode)
 {
+	struct ripng *ripng;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
-	ripng_clean();
+	ripng = yang_dnode_get_entry(dnode, true);
+	ripng_clean(ripng);
 
 	return NB_OK;
 }
@@ -84,12 +91,15 @@ static int ripngd_instance_allow_ecmp_modify(enum nb_event event,
 					     const struct lyd_node *dnode,
 					     union nb_resource *resource)
 {
+	struct ripng *ripng;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	ripng->ecmp = yang_dnode_get_bool(dnode, NULL);
 	if (!ripng->ecmp)
-		ripng_ecmp_disable();
+		ripng_ecmp_disable(ripng);
 
 	return NB_OK;
 }
@@ -101,19 +111,22 @@ static int ripngd_instance_default_information_originate_modify(
 	enum nb_event event, const struct lyd_node *dnode,
 	union nb_resource *resource)
 {
+	struct ripng *ripng;
 	bool default_information;
 	struct prefix_ipv6 p;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	default_information = yang_dnode_get_bool(dnode, NULL);
+
 	str2prefix_ipv6("::/0", &p);
 	if (default_information) {
-		ripng_redistribute_add(ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_DEFAULT,
-				       &p, 0, NULL, 0);
+		ripng_redistribute_add(ripng, ZEBRA_ROUTE_RIPNG,
+				       RIPNG_ROUTE_DEFAULT, &p, 0, NULL, 0);
 	} else {
-		ripng_redistribute_delete(ZEBRA_ROUTE_RIPNG,
+		ripng_redistribute_delete(ripng, ZEBRA_ROUTE_RIPNG,
 					  RIPNG_ROUTE_DEFAULT, &p, 0);
 	}
 
@@ -127,9 +140,12 @@ static int ripngd_instance_default_metric_modify(enum nb_event event,
 						 const struct lyd_node *dnode,
 						 union nb_resource *resource)
 {
+	struct ripng *ripng;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	ripng->default_metric = yang_dnode_get_uint8(dnode, NULL);
 
 	return NB_OK;
@@ -142,29 +158,33 @@ static int ripngd_instance_network_create(enum nb_event event,
 					  const struct lyd_node *dnode,
 					  union nb_resource *resource)
 {
+	struct ripng *ripng;
 	struct prefix p;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	yang_dnode_get_ipv6p(&p, dnode, NULL);
 	apply_mask_ipv6((struct prefix_ipv6 *)&p);
 
-	return ripng_enable_network_add(&p);
+	return ripng_enable_network_add(ripng, &p);
 }
 
 static int ripngd_instance_network_delete(enum nb_event event,
 					  const struct lyd_node *dnode)
 {
+	struct ripng *ripng;
 	struct prefix p;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	yang_dnode_get_ipv6p(&p, dnode, NULL);
 	apply_mask_ipv6((struct prefix_ipv6 *)&p);
 
-	return ripng_enable_network_delete(&p);
+	return ripng_enable_network_delete(ripng, &p);
 }
 
 /*
@@ -174,27 +194,31 @@ static int ripngd_instance_interface_create(enum nb_event event,
 					    const struct lyd_node *dnode,
 					    union nb_resource *resource)
 {
+	struct ripng *ripng;
 	const char *ifname;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	ifname = yang_dnode_get_string(dnode, NULL);
 
-	return ripng_enable_if_add(ifname);
+	return ripng_enable_if_add(ripng, ifname);
 }
 
 static int ripngd_instance_interface_delete(enum nb_event event,
 					    const struct lyd_node *dnode)
 {
+	struct ripng *ripng;
 	const char *ifname;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	ifname = yang_dnode_get_string(dnode, NULL);
 
-	return ripng_enable_if_delete(ifname);
+	return ripng_enable_if_delete(ripng, ifname);
 }
 
 /*
@@ -204,15 +228,17 @@ static int ripngd_instance_offset_list_create(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
+	struct ripng *ripng;
 	const char *ifname;
 	struct ripng_offset_list *offset;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	ifname = yang_dnode_get_string(dnode, "./interface");
 
-	offset = ripng_offset_list_new(ifname);
+	offset = ripng_offset_list_new(ripng, ifname);
 	yang_dnode_set_entry(dnode, offset);
 
 	return NB_OK;
@@ -299,28 +325,32 @@ ripngd_instance_passive_interface_create(enum nb_event event,
 					 const struct lyd_node *dnode,
 					 union nb_resource *resource)
 {
+	struct ripng *ripng;
 	const char *ifname;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	ifname = yang_dnode_get_string(dnode, NULL);
 
-	return ripng_passive_interface_set(ifname);
+	return ripng_passive_interface_set(ripng, ifname);
 }
 
 static int
 ripngd_instance_passive_interface_delete(enum nb_event event,
 					 const struct lyd_node *dnode)
 {
+	struct ripng *ripng;
 	const char *ifname;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	ifname = yang_dnode_get_string(dnode, NULL);
 
-	return ripng_passive_interface_unset(ifname);
+	return ripng_passive_interface_unset(ripng, ifname);
 }
 
 /*
@@ -336,14 +366,16 @@ static int ripngd_instance_redistribute_create(enum nb_event event,
 static int ripngd_instance_redistribute_delete(enum nb_event event,
 					       const struct lyd_node *dnode)
 {
+	struct ripng *ripng;
 	int type;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	type = yang_dnode_get_enum(dnode, "./protocol");
 
-	ripng_redistribute_conf_delete(type);
+	ripng_redistribute_conf_delete(ripng, type);
 
 	return NB_OK;
 }
@@ -351,10 +383,13 @@ static int ripngd_instance_redistribute_delete(enum nb_event event,
 static void
 ripngd_instance_redistribute_apply_finish(const struct lyd_node *dnode)
 {
+	struct ripng *ripng;
 	int type;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	type = yang_dnode_get_enum(dnode, "./protocol");
-	ripng_redistribute_conf_update(type);
+
+	ripng_redistribute_conf_update(ripng, type);
 }
 
 /*
@@ -365,12 +400,14 @@ ripngd_instance_redistribute_route_map_modify(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
+	struct ripng *ripng;
 	int type;
 	const char *rmap_name;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	type = yang_dnode_get_enum(dnode, "../protocol");
 	rmap_name = yang_dnode_get_string(dnode, NULL);
 
@@ -386,11 +423,13 @@ static int
 ripngd_instance_redistribute_route_map_delete(enum nb_event event,
 					      const struct lyd_node *dnode)
 {
+	struct ripng *ripng;
 	int type;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	type = yang_dnode_get_enum(dnode, "../protocol");
 
 	free(ripng->route_map[type].name);
@@ -408,12 +447,14 @@ ripngd_instance_redistribute_metric_modify(enum nb_event event,
 					   const struct lyd_node *dnode,
 					   union nb_resource *resource)
 {
+	struct ripng *ripng;
 	int type;
 	uint8_t metric;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	type = yang_dnode_get_enum(dnode, "../protocol");
 	metric = yang_dnode_get_uint8(dnode, NULL);
 
@@ -427,11 +468,13 @@ static int
 ripngd_instance_redistribute_metric_delete(enum nb_event event,
 					   const struct lyd_node *dnode)
 {
+	struct ripng *ripng;
 	int type;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	type = yang_dnode_get_enum(dnode, "../protocol");
 
 	ripng->route_map[type].metric_config = false;
@@ -447,16 +490,18 @@ static int ripngd_instance_static_route_create(enum nb_event event,
 					       const struct lyd_node *dnode,
 					       union nb_resource *resource)
 {
+	struct ripng *ripng;
 	struct prefix_ipv6 p;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	yang_dnode_get_ipv6p(&p, dnode, NULL);
 	apply_mask_ipv6(&p);
 
-	ripng_redistribute_add(ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_STATIC, &p, 0,
-			       NULL, 0);
+	ripng_redistribute_add(ripng, ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_STATIC, &p,
+			       0, NULL, 0);
 
 	return NB_OK;
 }
@@ -464,15 +509,18 @@ static int ripngd_instance_static_route_create(enum nb_event event,
 static int ripngd_instance_static_route_delete(enum nb_event event,
 					       const struct lyd_node *dnode)
 {
+	struct ripng *ripng;
 	struct prefix_ipv6 p;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	yang_dnode_get_ipv6p(&p, dnode, NULL);
 	apply_mask_ipv6(&p);
 
-	ripng_redistribute_delete(ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_STATIC, &p, 0);
+	ripng_redistribute_delete(ripng, ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_STATIC,
+				  &p, 0);
 
 	return NB_OK;
 }
@@ -485,15 +533,17 @@ ripngd_instance_aggregate_address_create(enum nb_event event,
 					 const struct lyd_node *dnode,
 					 union nb_resource *resource)
 {
+	struct ripng *ripng;
 	struct prefix_ipv6 p;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	yang_dnode_get_ipv6p(&p, dnode, NULL);
 	apply_mask_ipv6(&p);
 
-	ripng_aggregate_add((struct prefix *)&p);
+	ripng_aggregate_add(ripng, (struct prefix *)&p);
 
 	return NB_OK;
 }
@@ -502,15 +552,17 @@ static int
 ripngd_instance_aggregate_address_delete(enum nb_event event,
 					 const struct lyd_node *dnode)
 {
+	struct ripng *ripng;
 	struct prefix_ipv6 p;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	yang_dnode_get_ipv6p(&p, dnode, NULL);
 	apply_mask_ipv6(&p);
 
-	ripng_aggregate_delete((struct prefix *)&p);
+	ripng_aggregate_delete(ripng, (struct prefix *)&p);
 
 	return NB_OK;
 }
@@ -520,8 +572,12 @@ ripngd_instance_aggregate_address_delete(enum nb_event event,
  */
 static void ripngd_instance_timers_apply_finish(const struct lyd_node *dnode)
 {
+	struct ripng *ripng;
+
+	ripng = yang_dnode_get_entry(dnode, true);
+
 	/* Reset update timer thread. */
-	ripng_event(RIPNG_UPDATE_EVENT, 0);
+	ripng_event(ripng, RIPNG_UPDATE_EVENT, 0);
 }
 
 /*
@@ -532,9 +588,12 @@ ripngd_instance_timers_flush_interval_modify(enum nb_event event,
 					     const struct lyd_node *dnode,
 					     union nb_resource *resource)
 {
+	struct ripng *ripng;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	ripng->garbage_time = yang_dnode_get_uint16(dnode, NULL);
 
 	return NB_OK;
@@ -548,9 +607,12 @@ ripngd_instance_timers_holddown_interval_modify(enum nb_event event,
 						const struct lyd_node *dnode,
 						union nb_resource *resource)
 {
+	struct ripng *ripng;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	ripng->timeout_time = yang_dnode_get_uint16(dnode, NULL);
 
 	return NB_OK;
@@ -564,9 +626,12 @@ ripngd_instance_timers_update_interval_modify(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
+	struct ripng *ripng;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	ripng = yang_dnode_get_entry(dnode, true);
 	ripng->update_time = yang_dnode_get_uint16(dnode, NULL);
 
 	return NB_OK;
@@ -579,8 +644,10 @@ static const void *
 ripngd_state_neighbors_neighbor_get_next(const void *parent_list_entry,
 					 const void *list_entry)
 {
+	struct ripng *ripng;
 	struct listnode *node;
 
+	ripng = ripng_lookup_by_vrf_id(VRF_DEFAULT);
 	if (!ripng)
 		return NULL;
 
@@ -609,12 +676,14 @@ static const void *
 ripngd_state_neighbors_neighbor_lookup_entry(const void *parent_list_entry,
 					     const struct yang_list_keys *keys)
 {
+	struct ripng *ripng;
 	struct in6_addr address;
 	struct ripng_peer *peer;
 	struct listnode *node;
 
 	yang_str2ipv6(keys->key[0], &address);
 
+	ripng = ripng_lookup_by_vrf_id(VRF_DEFAULT);
 	if (!ripng)
 		return NULL;
 
@@ -683,8 +752,10 @@ static const void *
 ripngd_state_routes_route_get_next(const void *parent_list_entry,
 				   const void *list_entry)
 {
+	struct ripng *ripng;
 	struct agg_node *rn;
 
+	ripng = ripng_lookup_by_vrf_id(VRF_DEFAULT);
 	if (ripng == NULL)
 		return NULL;
 
@@ -713,10 +784,15 @@ static const void *
 ripngd_state_routes_route_lookup_entry(const void *parent_list_entry,
 				       const struct yang_list_keys *keys)
 {
+	struct ripng *ripng;
 	struct prefix prefix;
 	struct agg_node *rn;
 
 	yang_str2ipv6p(keys->key[0], &prefix);
+
+	ripng = ripng_lookup_by_vrf_id(VRF_DEFAULT);
+	if (!ripng)
+		return NULL;
 
 	rn = agg_node_lookup(ripng->table, &prefix);
 	if (!rn || !rn->info)
@@ -786,11 +862,13 @@ ripngd_state_routes_route_metric_get_elem(const char *xpath,
 static int clear_ripng_route_rpc(const char *xpath, const struct list *input,
 				 struct list *output)
 {
+	struct ripng *ripng;
 	struct agg_node *rp;
 	struct ripng_info *rinfo;
 	struct list *list;
 	struct listnode *listnode;
 
+	ripng = ripng_lookup_by_vrf_id(VRF_DEFAULT);
 	if (!ripng)
 		return NB_OK;
 
@@ -805,7 +883,7 @@ static int clear_ripng_route_rpc(const char *xpath, const struct list *input,
 				continue;
 
 			if (CHECK_FLAG(rinfo->flags, RIPNG_RTF_FIB))
-				ripng_zebra_ipv6_delete(rp);
+				ripng_zebra_ipv6_delete(ripng, rp);
 			break;
 		}
 

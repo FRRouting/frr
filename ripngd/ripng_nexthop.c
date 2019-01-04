@@ -114,7 +114,8 @@ void ripng_rte_add(struct list *ripng_rte_list, struct prefix_ipv6 *p,
 void ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
 		    struct sockaddr_in6 *to)
 {
-
+	struct ripng_interface *ri = ifp->info;
+	struct ripng *ripng = ri->ripng;
 	struct ripng_rte_data *data;
 	struct listnode *node, *nnode;
 

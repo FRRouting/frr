@@ -39,12 +39,14 @@
 #define OFFSET_LIST_OUT_NAME(O)  ((O)->direct[RIPNG_OFFSET_LIST_OUT].alist_name)
 #define OFFSET_LIST_OUT_METRIC(O)  ((O)->direct[RIPNG_OFFSET_LIST_OUT].metric)
 
-struct ripng_offset_list *ripng_offset_list_new(const char *ifname)
+struct ripng_offset_list *ripng_offset_list_new(struct ripng *ripng,
+						const char *ifname)
 {
 	struct ripng_offset_list *new;
 
 	new = XCALLOC(MTYPE_RIPNG_OFFSET_LIST,
 		      sizeof(struct ripng_offset_list));
+	new->ripng = ripng;
 	new->ifname = strdup(ifname);
 	listnode_add_sort(ripng->offset_list_master, new);
 
@@ -53,7 +55,7 @@ struct ripng_offset_list *ripng_offset_list_new(const char *ifname)
 
 void ripng_offset_list_del(struct ripng_offset_list *offset)
 {
-	listnode_delete(ripng->offset_list_master, offset);
+	listnode_delete(offset->ripng->offset_list_master, offset);
 	if (OFFSET_LIST_IN_NAME(offset))
 		free(OFFSET_LIST_IN_NAME(offset));
 	if (OFFSET_LIST_OUT_NAME(offset))
@@ -62,7 +64,8 @@ void ripng_offset_list_del(struct ripng_offset_list *offset)
 	XFREE(MTYPE_RIPNG_OFFSET_LIST, offset);
 }
 
-struct ripng_offset_list *ripng_offset_list_lookup(const char *ifname)
+struct ripng_offset_list *ripng_offset_list_lookup(struct ripng *ripng,
+						   const char *ifname)
 {
 	struct ripng_offset_list *offset;
 	struct listnode *node, *nnode;
@@ -76,14 +79,14 @@ struct ripng_offset_list *ripng_offset_list_lookup(const char *ifname)
 }
 
 /* If metric is modifed return 1. */
-int ripng_offset_list_apply_in(struct prefix_ipv6 *p, struct interface *ifp,
-			       uint8_t *metric)
+int ripng_offset_list_apply_in(struct ripng *ripng, struct prefix_ipv6 *p,
+			       struct interface *ifp, uint8_t *metric)
 {
 	struct ripng_offset_list *offset;
 	struct access_list *alist;
 
 	/* Look up offset-list with interface name. */
-	offset = ripng_offset_list_lookup(ifp->name);
+	offset = ripng_offset_list_lookup(ripng, ifp->name);
 	if (offset && OFFSET_LIST_IN_NAME(offset)) {
 		alist = access_list_lookup(AFI_IP6,
 					   OFFSET_LIST_IN_NAME(offset));
@@ -97,7 +100,7 @@ int ripng_offset_list_apply_in(struct prefix_ipv6 *p, struct interface *ifp,
 		return 0;
 	}
 	/* Look up offset-list without interface name. */
-	offset = ripng_offset_list_lookup("*");
+	offset = ripng_offset_list_lookup(ripng, "*");
 	if (offset && OFFSET_LIST_IN_NAME(offset)) {
 		alist = access_list_lookup(AFI_IP6,
 					   OFFSET_LIST_IN_NAME(offset));
@@ -114,14 +117,14 @@ int ripng_offset_list_apply_in(struct prefix_ipv6 *p, struct interface *ifp,
 }
 
 /* If metric is modifed return 1. */
-int ripng_offset_list_apply_out(struct prefix_ipv6 *p, struct interface *ifp,
-				uint8_t *metric)
+int ripng_offset_list_apply_out(struct ripng *ripng, struct prefix_ipv6 *p,
+				struct interface *ifp, uint8_t *metric)
 {
 	struct ripng_offset_list *offset;
 	struct access_list *alist;
 
 	/* Look up offset-list with interface name. */
-	offset = ripng_offset_list_lookup(ifp->name);
+	offset = ripng_offset_list_lookup(ripng, ifp->name);
 	if (offset && OFFSET_LIST_OUT_NAME(offset)) {
 		alist = access_list_lookup(AFI_IP6,
 					   OFFSET_LIST_OUT_NAME(offset));
@@ -136,7 +139,7 @@ int ripng_offset_list_apply_out(struct prefix_ipv6 *p, struct interface *ifp,
 	}
 
 	/* Look up offset-list without interface name. */
-	offset = ripng_offset_list_lookup("*");
+	offset = ripng_offset_list_lookup(ripng, "*");
 	if (offset && OFFSET_LIST_OUT_NAME(offset)) {
 		alist = access_list_lookup(AFI_IP6,
 					   OFFSET_LIST_OUT_NAME(offset));
