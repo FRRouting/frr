@@ -1347,7 +1347,7 @@ int rip_create_socket(void)
 	if (sock < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "Cannot create UDP socket: %s",
 			     safe_strerror(errno));
-		exit(1);
+		return -1;
 	}
 
 	sockopt_broadcast(sock);
