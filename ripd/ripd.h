@@ -486,8 +486,6 @@ extern struct thread_master *master;
 DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc))
 DECLARE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc))
 
-extern struct route_table *rip_distance_table;
-
 /* Northbound. */
 extern void rip_cli_init(void);
 extern const struct frr_yang_module_info frr_ripd_info;

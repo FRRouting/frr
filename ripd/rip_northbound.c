@@ -173,7 +173,7 @@ static int ripd_instance_distance_source_create(enum nb_event event,
 	apply_mask_ipv4(&prefix);
 
 	/* Get RIP distance node. */
-	rn = route_node_get(rip_distance_table, (struct prefix *)&prefix);
+	rn = route_node_get(rip->distance_table, (struct prefix *)&prefix);
 	rn->info = rip_distance_new();
 	yang_dnode_set_entry(dnode, rn);
 
@@ -191,10 +191,7 @@ static int ripd_instance_distance_source_delete(enum nb_event event,
 
 	rn = yang_dnode_get_entry(dnode, true);
 	rdistance = rn->info;
-	if (rdistance->access_list)
-		free(rdistance->access_list);
 	rip_distance_free(rdistance);
-
 	rn->info = NULL;
 	route_unlock_node(rn);
 

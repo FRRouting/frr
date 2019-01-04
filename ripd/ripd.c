@@ -58,6 +58,8 @@ static void rip_output_process(struct connected *, struct sockaddr_in *, int,
 			       uint8_t);
 static int rip_triggered_update(struct thread *);
 static int rip_update_jitter(unsigned long);
+static void rip_distance_table_node_cleanup(struct route_table *table,
+					    struct route_node *node);
 
 static void rip_distribute_update(struct distribute_ctx *ctx,
 				  struct distribute *dist);
@@ -2607,6 +2609,8 @@ int rip_create(int socket)
 	rip->neighbor = route_table_init();
 	rip->peer_list = list_new();
 	rip->peer_list->cmp = (int (*)(void *, void *))rip_peer_list_cmp;
+	rip->distance_table = route_table_init();
+	rip->distance_table->cleanup = rip_distance_table_node_cleanup;
 	rip->enable_interface = vector_init(1);
 	rip->enable_network = route_table_init();
 	rip->passive_nondefault = vector_init(1);
@@ -2744,9 +2748,6 @@ rip_update_default_metric (void)
 }
 #endif
 
-
-struct route_table *rip_distance_table;
-
 struct rip_distance *rip_distance_new(void)
 {
 	return XCALLOC(MTYPE_RIP_DISTANCE, sizeof(struct rip_distance));
@@ -2754,22 +2755,19 @@ struct rip_distance *rip_distance_new(void)
 
 void rip_distance_free(struct rip_distance *rdistance)
 {
+	if (rdistance->access_list)
+		free(rdistance->access_list);
 	XFREE(MTYPE_RIP_DISTANCE, rdistance);
 }
 
-static void rip_distance_reset(void)
+static void rip_distance_table_node_cleanup(struct route_table *table,
+					    struct route_node *node)
 {
-	struct route_node *rn;
 	struct rip_distance *rdistance;
 
-	for (rn = route_top(rip_distance_table); rn; rn = route_next(rn))
-		if ((rdistance = rn->info) != NULL) {
-			if (rdistance->access_list)
-				free(rdistance->access_list);
-			rip_distance_free(rdistance);
-			rn->info = NULL;
-			route_unlock_node(rn);
-		}
+	rdistance = node->info;
+	if (rdistance)
+		rip_distance_free(rdistance);
 }
 
 /* Apply RIP information to distance method. */
@@ -2789,7 +2787,7 @@ uint8_t rip_distance_apply(struct rip_info *rinfo)
 	p.prefixlen = IPV4_MAX_BITLEN;
 
 	/* Check source address. */
-	rn = route_node_match(rip_distance_table, (struct prefix *)&p);
+	rn = route_node_match(rip->distance_table, (struct prefix *)&p);
 	if (rn) {
 		rdistance = rn->info;
 		route_unlock_node(rn);
@@ -2824,7 +2822,7 @@ static void rip_distance_show(struct vty *vty)
 	vty_out(vty, "  Distance: (default is %u)\n",
 		rip->distance ? rip->distance : ZEBRA_RIP_DISTANCE_DEFAULT);
 
-	for (rn = route_top(rip_distance_table); rn; rn = route_next(rn))
+	for (rn = route_top(rip->distance_table); rn; rn = route_next(rn))
 		if ((rdistance = rn->info) != NULL) {
 			if (header) {
 				vty_out(vty,
@@ -3299,7 +3297,7 @@ void rip_clean(void)
 	vector_free(rip->passive_nondefault);
 	list_delete(&rip->offset_list_master);
 	rip_interfaces_clean();
-	rip_distance_reset();
+	route_table_finish(rip->distance_table);
 	rip_redistribute_clean();
 
 	XFREE(MTYPE_RIP, rip);
@@ -3407,7 +3405,4 @@ void rip_init(void)
 	if_rmap_init(RIP_NODE);
 	if_rmap_hook_add(rip_if_rmap_update);
 	if_rmap_hook_delete(rip_if_rmap_update);
-
-	/* Distance control. */
-	rip_distance_table = route_table_init();
 }
