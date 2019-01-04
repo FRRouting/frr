@@ -105,7 +105,7 @@ struct route_table *zebra_router_get_table(struct zebra_vrf *zvrf,
 	info = XCALLOC(MTYPE_RIB_TABLE_INFO, sizeof(*info));
 	info->zvrf = zvrf;
 	info->afi = afi;
-	info->safi = SAFI_UNICAST;
+	info->safi = safi;
 	route_table_set_info(zrt->table, info);
 	zrt->table->cleanup = zebra_rtable_node_cleanup;
 
