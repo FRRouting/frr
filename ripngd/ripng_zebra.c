@@ -48,7 +48,7 @@ static void ripng_zebra_ipv6_send(struct ripng *ripng, struct agg_node *rp,
 	int count = 0;
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = ripng->vrf_id;
+	api.vrf_id = ripng->vrf->vrf_id;
 	api.type = ZEBRA_ROUTE_RIPNG;
 	api.safi = SAFI_UNICAST;
 	api.prefix = rp->p;
@@ -58,7 +58,7 @@ static void ripng_zebra_ipv6_send(struct ripng *ripng, struct agg_node *rp,
 		if (count >= MULTIPATH_NUM)
 			break;
 		api_nh = &api.nexthops[count];
-		api_nh->vrf_id = ripng->vrf_id;
+		api_nh->vrf_id = ripng->vrf->vrf_id;
 		api_nh->gate.ipv6 = rinfo->nexthop;
 		api_nh->ifindex = rinfo->ifindex;
 		api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
@@ -151,36 +151,38 @@ static int ripng_zebra_read_route(int command, struct zclient *zclient,
 void ripng_redistribute_conf_update(struct ripng *ripng, int type)
 {
 	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0,
-			     ripng->vrf_id);
+			     ripng->vrf->vrf_id);
 }
 
 void ripng_redistribute_conf_delete(struct ripng *ripng, int type)
 {
 	if (zclient->sock > 0)
 		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
-					AFI_IP6, type, 0, ripng->vrf_id);
+					AFI_IP6, type, 0, ripng->vrf->vrf_id);
 
 	ripng_redistribute_withdraw(ripng, type);
 }
 
 int ripng_redistribute_check(struct ripng *ripng, int type)
 {
-	return vrf_bitmap_check(zclient->redist[AFI_IP6][type], ripng->vrf_id);
+	return vrf_bitmap_check(zclient->redist[AFI_IP6][type],
+				ripng->vrf->vrf_id);
 }
 
 void ripng_redistribute_clean(struct ripng *ripng)
 {
 	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (!vrf_bitmap_check(zclient->redist[AFI_IP6][i],
-				      ripng->vrf_id))
+				      ripng->vrf->vrf_id))
 			continue;
 
 		if (zclient->sock > 0)
 			zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE,
 						zclient, AFI_IP6, i, 0,
-						ripng->vrf_id);
+						ripng->vrf->vrf_id);
 
-		vrf_bitmap_unset(zclient->redist[AFI_IP6][i], ripng->vrf_id);
+		vrf_bitmap_unset(zclient->redist[AFI_IP6][i],
+				 ripng->vrf->vrf_id);
 	}
 }
 
@@ -191,11 +193,35 @@ void ripng_redistribute_write(struct vty *vty, struct ripng *ripng)
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (i == zclient->redist_default
 		    || !vrf_bitmap_check(zclient->redist[AFI_IP6][i],
-					 ripng->vrf_id))
+					 ripng->vrf->vrf_id))
 			continue;
 
 		vty_out(vty, "    %s", zebra_route_string(i));
 	}
+}
+
+void ripng_zebra_vrf_register(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+
+	if (IS_RIPNG_DEBUG_EVENT)
+		zlog_debug("%s: register VRF %s(%u) to zebra", __func__,
+			   vrf->name, vrf->vrf_id);
+
+	zclient_send_reg_requests(zclient, vrf->vrf_id);
+}
+
+void ripng_zebra_vrf_deregister(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return;
+
+	if (IS_RIPNG_DEBUG_EVENT)
+		zlog_debug("%s: deregister VRF %s(%u) from zebra.", __func__,
+			   vrf->name, vrf->vrf_id);
+
+	zclient_send_dereg_requests(zclient, vrf->vrf_id);
 }
 
 static void ripng_zebra_connected(struct zclient *zclient)
@@ -217,6 +243,7 @@ void zebra_init(struct thread_master *master)
 	zclient->interface_delete = ripng_interface_delete;
 	zclient->interface_address_add = ripng_interface_address_add;
 	zclient->interface_address_delete = ripng_interface_address_delete;
+	zclient->interface_vrf_update = ripng_interface_vrf_update;
 	zclient->redistribute_route_add = ripng_zebra_read_route;
 	zclient->redistribute_route_del = ripng_zebra_read_route;
 }

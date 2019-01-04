@@ -1526,8 +1526,8 @@ DEFUNSH(VTYSH_RIPD, router_rip, router_rip_cmd, "router rip [vrf NAME]",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_RIPNGD, router_ripng, router_ripng_cmd, "router ripng",
-	ROUTER_STR "RIPng\n")
+DEFUNSH(VTYSH_RIPNGD, router_ripng, router_ripng_cmd, "router ripng [vrf NAME]",
+	ROUTER_STR "RIPng\n" VRF_CMD_HELP_STR)
 {
 	vty->node = RIPNG_NODE;
 	return CMD_SUCCESS;

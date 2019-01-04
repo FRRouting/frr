@@ -89,8 +89,16 @@
 
 /* RIPng structure. */
 struct ripng {
-	/* VRF ID. */
-	vrf_id_t vrf_id;
+	RB_ENTRY(ripng) entry;
+
+	/* VRF this routing instance is associated with. */
+	char *vrf_name;
+
+	/* VRF backpointer (might be NULL if the VRF doesn't exist). */
+	struct vrf *vrf;
+
+	/* Status of the routing instance. */
+	bool enabled;
 
 	/* RIPng socket. */
 	int sock;
@@ -152,6 +160,8 @@ struct ripng {
 	/* For distribute-list container */
 	struct distribute_ctx *distribute_ctx;
 };
+RB_HEAD(ripng_instance_head, ripng);
+RB_PROTOTYPE(ripng_instance_head, ripng, entry, ripng_instance_compare)
 
 /* Routing table entry. */
 struct rte {
@@ -378,6 +388,8 @@ extern int ripng_passive_interface_unset(struct ripng *ripng,
 extern void ripng_passive_interface_clean(struct ripng *ripng);
 extern void ripng_if_init(void);
 extern void ripng_route_map_init(void);
+extern void ripng_zebra_vrf_register(struct vrf *vrf);
+extern void ripng_zebra_vrf_deregister(struct vrf *vrf);
 extern void ripng_terminate(void);
 /* zclient_init() is done by ripng_zebra.c:zebra_init() */
 extern void zebra_init(struct thread_master *);
@@ -459,10 +471,15 @@ extern int ripng_interface_address_add(int command, struct zclient *,
 				       zebra_size_t, vrf_id_t);
 extern int ripng_interface_address_delete(int command, struct zclient *,
 					  zebra_size_t, vrf_id_t);
+extern int ripng_interface_vrf_update(int command, struct zclient *zclient,
+				      zebra_size_t length, vrf_id_t vrf_id);
+extern void ripng_interface_sync(struct interface *ifp);
 
 extern struct ripng *ripng_lookup_by_vrf_id(vrf_id_t vrf_id);
-extern struct ripng *ripng_create(struct vrf *vrf, int socket);
-extern int ripng_make_socket(void);
+extern struct ripng *ripng_lookup_by_vrf_name(const char *vrf_name);
+extern struct ripng *ripng_create(const char *vrf_name, struct vrf *vrf,
+				  int socket);
+extern int ripng_make_socket(struct vrf *vrf);
 extern int ripng_network_write(struct vty *vty, struct ripng *ripng);
 
 extern struct ripng_info *ripng_ecmp_add(struct ripng *ripng,
@@ -471,6 +488,9 @@ extern struct ripng_info *ripng_ecmp_replace(struct ripng *ripng,
 					     struct ripng_info *rinfo);
 extern struct ripng_info *ripng_ecmp_delete(struct ripng *ripng,
 					    struct ripng_info *rinfo);
+
+extern void ripng_vrf_init(void);
+extern void ripng_vrf_terminate(void);
 
 /* Northbound. */
 extern void ripng_cli_init(void);

@@ -46,7 +46,7 @@
 struct option longopts[] = {{"retain", no_argument, NULL, 'r'}, {0}};
 
 /* ripngd privileges */
-zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND};
+zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
 
 struct zebra_privs_t ripngd_privs = {
 #if defined(FRR_USER)
@@ -59,7 +59,7 @@ struct zebra_privs_t ripngd_privs = {
 	.vty_group = VTY_GROUP,
 #endif
 	.caps_p = _caps_p,
-	.cap_num_p = 2,
+	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0};
 
 
@@ -80,18 +80,9 @@ static void sighup(void)
 /* SIGINT handler. */
 static void sigint(void)
 {
-	struct vrf *vrf;
-
 	zlog_notice("Terminating on signal");
 
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		struct ripng *ripng;
-
-		ripng = vrf->info;
-		if (ripng)
-			ripng_clean(ripng);
-	}
-
+	ripng_vrf_terminate();
 	ripng_zebra_stop();
 	frr_fini();
 	exit(0);
@@ -178,7 +169,7 @@ int main(int argc, char **argv)
 	master = frr_init();
 
 	/* Library inits. */
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	ripng_vrf_init();
 
 	/* RIPngd inits. */
 	ripng_init();

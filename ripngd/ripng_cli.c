@@ -39,31 +39,46 @@
  */
 DEFPY_NOSH (router_ripng,
        router_ripng_cmd,
-       "router ripng",
+       "router ripng [vrf NAME]",
        "Enable a routing process\n"
-       "Make RIPng instance command\n")
+       "Make RIPng instance command\n"
+       VRF_CMD_HELP_STR)
 {
+	char xpath[XPATH_MAXLEN];
 	int ret;
 
-	nb_cli_enqueue_change(vty, "/frr-ripngd:ripngd/instance", NB_OP_CREATE,
-			      NULL);
+	/* Build RIPng instance XPath. */
+	if (!vrf)
+		vrf = VRF_DEFAULT_NAME;
+	snprintf(xpath, sizeof(xpath), "/frr-ripngd:ripngd/instance[vrf='%s']",
+		 vrf);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	ret = nb_cli_apply_changes(vty, NULL);
 	if (ret == CMD_SUCCESS)
-		VTY_PUSH_XPATH(RIPNG_NODE, "/frr-ripngd:ripngd/instance");
+		VTY_PUSH_XPATH(RIPNG_NODE, xpath);
 
 	return ret;
 }
 
 DEFPY (no_router_ripng,
        no_router_ripng_cmd,
-       "no router ripng",
+       "no router ripng [vrf NAME]",
        NO_STR
        "Enable a routing process\n"
-       "Make RIPng instance command\n")
+       "Make RIPng instance command\n"
+       VRF_CMD_HELP_STR)
 {
-	nb_cli_enqueue_change(vty, "/frr-ripngd:ripngd/instance", NB_OP_DELETE,
-			      NULL);
+	char xpath[XPATH_MAXLEN];
+
+	/* Build RIPng instance XPath. */
+	if (!vrf)
+		vrf = VRF_DEFAULT_NAME;
+	snprintf(xpath, sizeof(xpath), "/frr-ripngd:ripngd/instance[vrf='%s']",
+		 vrf);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DELETE, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -71,8 +86,15 @@ DEFPY (no_router_ripng,
 void cli_show_router_ripng(struct vty *vty, struct lyd_node *dnode,
 			 bool show_defaults)
 {
+	const char *vrf_name;
+
+	vrf_name = yang_dnode_get_string(dnode, "./vrf");
+
 	vty_out(vty, "!\n");
-	vty_out(vty, "router ripng\n");
+	vty_out(vty, "router ripng");
+	if (!strmatch(vrf_name, VRF_DEFAULT_NAME))
+		vty_out(vty, " vrf %s", vrf_name);
+	vty_out(vty, "\n");
 }
 
 /*

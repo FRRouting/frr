@@ -44,25 +44,42 @@ static int ripngd_instance_create(enum nb_event event,
 {
 	struct ripng *ripng;
 	struct vrf *vrf;
+	const char *vrf_name;
 	int socket;
 
+	vrf_name = yang_dnode_get_string(dnode, "./vrf");
+	vrf = vrf_lookup_by_name(vrf_name);
+
+	/*
+	 * Try to create a RIPng socket only if the VRF is enabled, otherwise
+	 * create a disabled RIPng instance and wait for the VRF to be enabled.
+	 */
 	switch (event) {
 	case NB_EV_VALIDATE:
 		break;
 	case NB_EV_PREPARE:
-		socket = ripng_make_socket();
+		if (!vrf || !vrf_is_enabled(vrf))
+			break;
+
+		socket = ripng_make_socket(vrf);
 		if (socket < 0)
 			return NB_ERR_RESOURCE;
 		resource->fd = socket;
 		break;
 	case NB_EV_ABORT:
+		if (!vrf || !vrf_is_enabled(vrf))
+			break;
+
 		socket = resource->fd;
 		close(socket);
 		break;
 	case NB_EV_APPLY:
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
-		socket = resource->fd;
-		ripng = ripng_create(vrf, socket);
+		if (vrf && vrf_is_enabled(vrf))
+			socket = resource->fd;
+		else
+			socket = -1;
+
+		ripng = ripng_create(vrf_name, vrf, socket);
 		yang_dnode_set_entry(dnode, ripng);
 		break;
 	}

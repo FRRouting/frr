@@ -209,9 +209,11 @@ int ripng_interface_up(int command, struct zclient *zclient,
 
 	if (IS_RIPNG_DEBUG_ZEBRA)
 		zlog_debug(
-			"interface up %s index %d flags %llx metric %d mtu %d",
-			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
-			ifp->metric, ifp->mtu6);
+			"interface up %s vrf %u index %d flags %llx metric %d mtu %d",
+			ifp->name, ifp->vrf_id, ifp->ifindex,
+			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
+
+	ripng_interface_sync(ifp);
 
 	/* Check if this interface is RIPng enabled or not. */
 	ripng_enable_apply(ifp);
@@ -240,13 +242,14 @@ int ripng_interface_down(int command, struct zclient *zclient,
 	if (ifp == NULL)
 		return 0;
 
+	ripng_interface_sync(ifp);
 	ripng_if_down(ifp);
 
 	if (IS_RIPNG_DEBUG_ZEBRA)
 		zlog_debug(
-			"interface down %s index %d flags %#llx metric %d mtu %d",
-			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
-			ifp->metric, ifp->mtu6);
+			"interface down %s vrf %u index %d flags %#llx metric %d mtu %d",
+			ifp->name, ifp->vrf_id, ifp->ifindex,
+			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
 
 	return 0;
 }
@@ -258,12 +261,13 @@ int ripng_interface_add(int command, struct zclient *zclient,
 	struct interface *ifp;
 
 	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
+	ripng_interface_sync(ifp);
 
 	if (IS_RIPNG_DEBUG_ZEBRA)
 		zlog_debug(
-			"RIPng interface add %s index %d flags %#llx metric %d mtu %d",
-			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
-			ifp->metric, ifp->mtu6);
+			"RIPng interface add %s vrf %u index %d flags %#llx metric %d mtu %d",
+			ifp->name, ifp->vrf_id, ifp->ifindex,
+			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
 
 	/* Check is this interface is RIP enabled or not.*/
 	ripng_enable_apply(ifp);
@@ -291,13 +295,15 @@ int ripng_interface_delete(int command, struct zclient *zclient,
 	if (ifp == NULL)
 		return 0;
 
+	ripng_interface_sync(ifp);
 	if (if_is_up(ifp)) {
 		ripng_if_down(ifp);
 	}
 
-	zlog_info("interface delete %s index %d flags %#llx metric %d mtu %d",
-		  ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
-		  ifp->metric, ifp->mtu6);
+	zlog_info(
+		"interface delete %s vrf %u index %d flags %#llx metric %d mtu %d",
+		ifp->name, ifp->vrf_id, ifp->ifindex,
+		(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
 
 	/* To support pseudo interface do not free interface structure.  */
 	/* if_delete(ifp); */
@@ -306,13 +312,34 @@ int ripng_interface_delete(int command, struct zclient *zclient,
 	return 0;
 }
 
+/* VRF update for an interface. */
+int ripng_interface_vrf_update(int command, struct zclient *zclient,
+			       zebra_size_t length, vrf_id_t vrf_id)
+{
+	struct interface *ifp;
+	vrf_id_t new_vrf_id;
+
+	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
+					      &new_vrf_id);
+	if (!ifp)
+		return 0;
+
+	if (IS_RIPNG_DEBUG_ZEBRA)
+		zlog_debug("interface %s VRF change vrf_id %u new vrf id %u",
+			   ifp->name, vrf_id, new_vrf_id);
+
+	if_update_to_new_vrf(ifp, new_vrf_id);
+	ripng_interface_sync(ifp);
+
+	return 0;
+}
+
 void ripng_interface_clean(struct ripng *ripng)
 {
-	struct vrf *vrf = vrf_lookup_by_id(ripng->vrf_id);
 	struct interface *ifp;
 	struct ripng_interface *ri;
 
-	FOR_ALL_INTERFACES (vrf, ifp) {
+	FOR_ALL_INTERFACES (ripng->vrf, ifp) {
 		ri = ifp->info;
 
 		ri->enable_network = 0;
@@ -748,10 +775,9 @@ void ripng_enable_apply(struct interface *ifp)
 /* Set distribute list to all interfaces. */
 static void ripng_enable_apply_all(struct ripng *ripng)
 {
-	struct vrf *vrf = vrf_lookup_by_id(ripng->vrf_id);
 	struct interface *ifp;
 
-	FOR_ALL_INTERFACES (vrf, ifp)
+	FOR_ALL_INTERFACES (ripng->vrf, ifp)
 		ripng_enable_apply(ifp);
 }
 
@@ -812,10 +838,9 @@ void ripng_passive_interface_apply(struct interface *ifp)
 
 static void ripng_passive_interface_apply_all(struct ripng *ripng)
 {
-	struct vrf *vrf = vrf_lookup_by_id(ripng->vrf_id);
 	struct interface *ifp;
 
-	FOR_ALL_INTERFACES (vrf, ifp)
+	FOR_ALL_INTERFACES (ripng->vrf, ifp)
 		ripng_passive_interface_apply(ifp);
 }
 
@@ -890,16 +915,11 @@ int ripng_network_write(struct vty *vty, struct ripng *ripng)
 	return 0;
 }
 
-static struct ripng_interface *ri_new(struct interface *ifp)
+static struct ripng_interface *ri_new(void)
 {
-	struct vrf *vrf;
 	struct ripng_interface *ri;
 
 	ri = XCALLOC(MTYPE_IF, sizeof(struct ripng_interface));
-
-	vrf = vrf_lookup_by_id(ifp->vrf_id);
-	if (vrf)
-		ri->ripng = vrf->info;
 
 	/* Set default split-horizon behavior.  If the interface is Frame
 	   Relay or SMDS is enabled, the default value for split-horizon is
@@ -911,9 +931,25 @@ static struct ripng_interface *ri_new(struct interface *ifp)
 	return ri;
 }
 
+void ripng_interface_sync(struct interface *ifp)
+{
+	struct vrf *vrf;
+
+	vrf = vrf_lookup_by_id(ifp->vrf_id);
+	if (vrf) {
+		struct ripng_interface *ri;
+
+		ri = ifp->info;
+		if (ri)
+			ri->ripng = vrf->info;
+	}
+}
+
 static int ripng_if_new_hook(struct interface *ifp)
 {
-	ifp->info = ri_new(ifp);
+	ifp->info = ri_new();
+	ripng_interface_sync(ifp);
+
 	return 0;
 }
 
@@ -928,22 +964,25 @@ static int ripng_if_delete_hook(struct interface *ifp)
 /* Configuration write function for ripngd. */
 static int interface_config_write(struct vty *vty)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	struct interface *ifp;
+	struct vrf *vrf;
 	int write = 0;
 
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		struct lyd_node *dnode;
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		struct interface *ifp;
 
-		dnode = yang_dnode_get(
-			running_config->dnode,
-			"/frr-interface:lib/interface[name='%s'][vrf='%s']",
-			ifp->name, vrf->name);
-		if (dnode == NULL)
-			continue;
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			struct lyd_node *dnode;
 
-		write = 1;
-		nb_cli_show_dnode_cmds(vty, dnode, false);
+			dnode = yang_dnode_get(
+				running_config->dnode,
+				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
+				ifp->name, vrf->name);
+			if (dnode == NULL)
+				continue;
+
+			write = 1;
+			nb_cli_show_dnode_cmds(vty, dnode, false);
+		}
 	}
 
 	return write;

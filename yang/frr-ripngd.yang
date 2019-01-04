@@ -33,13 +33,18 @@ module frr-ripngd {
 
   container ripngd {
     /*
-     * Global configuration data
+     * Routing instance configuration.
      */
-    container instance {
-      presence "Present if the RIPng protocol is enabled.";
+    list instance {
+      key "vrf";
       description
         "RIPng routing instance.";
 
+      leaf vrf {
+        type string;
+        description
+          "VRF name.";
+      }
       leaf allow-ecmp {
         type boolean;
         default "false";
