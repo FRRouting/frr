@@ -510,6 +510,21 @@ extern void yang_data_free(struct yang_data *data);
 extern struct list *yang_data_list_new(void);
 
 /*
+ * Find the yang_data structure corresponding to an XPath in a list.
+ *
+ * list
+ *    list of yang_data structures to operate on.
+ *
+ * xpath_fmt
+ *    XPath to search for (format string).
+ *
+ * Returns:
+ *    Pointer to yang_data if found, NULL otherwise.
+ */
+extern struct yang_data *yang_data_list_find(const struct list *list,
+					     const char *xpath_fmt, ...);
+
+/*
  * Initialize the YANG subsystem. Should be called only once during the
  * daemon initialization process.
  */
