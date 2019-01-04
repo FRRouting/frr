@@ -915,7 +915,7 @@ DEFPY (no_ip_rip_authentication_string,
        "Authentication string\n"
        "Authentication string\n")
 {
-	nb_cli_enqueue_change(vty, "./authentication-password", NB_OP_MODIFY,
+	nb_cli_enqueue_change(vty, "./authentication-password", NB_OP_DELETE,
 			      NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
