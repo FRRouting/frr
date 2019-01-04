@@ -144,6 +144,9 @@ struct rip {
 	/* Are we in passive-interface default mode? */
 	bool passive_default;
 
+	/* RIP enabled interfaces. */
+	vector enable_interface;
+
 	/* For redistribute route map. */
 	struct {
 		char *name;

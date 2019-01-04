@@ -60,9 +60,6 @@ const struct message ri_version_msg[] = {{RI_RIP_VERSION_1, "1"},
 					 {RI_RIP_VERSION_NONE, "none"},
 					 {0}};
 
-/* RIP enabled network vector. */
-vector rip_enable_interface;
-
 /* RIP enabled interface table. */
 struct route_table *rip_enable_network;
 
@@ -794,8 +791,11 @@ static int rip_enable_if_lookup(const char *ifname)
 	unsigned int i;
 	char *str;
 
-	for (i = 0; i < vector_active(rip_enable_interface); i++)
-		if ((str = vector_slot(rip_enable_interface, i)) != NULL)
+	if (!rip)
+		return -1;
+
+	for (i = 0; i < vector_active(rip->enable_interface); i++)
+		if ((str = vector_slot(rip->enable_interface, i)) != NULL)
 			if (strcmp(str, ifname) == 0)
 				return i;
 	return -1;
@@ -810,7 +810,7 @@ int rip_enable_if_add(const char *ifname)
 	if (ret >= 0)
 		return NB_ERR_INCONSISTENCY;
 
-	vector_set(rip_enable_interface,
+	vector_set(rip->enable_interface,
 		   XSTRDUP(MTYPE_RIP_INTERFACE_STRING, ifname));
 
 	rip_enable_apply_all(); /* TODOVJ */
@@ -828,9 +828,9 @@ int rip_enable_if_delete(const char *ifname)
 	if (index < 0)
 		return NB_ERR_INCONSISTENCY;
 
-	str = vector_slot(rip_enable_interface, index);
+	str = vector_slot(rip->enable_interface, index);
 	XFREE(MTYPE_RIP_INTERFACE_STRING, str);
-	vector_unset(rip_enable_interface, index);
+	vector_unset(rip->enable_interface, index);
 
 	rip_enable_apply_all(); /* TODOVJ */
 
@@ -1042,11 +1042,11 @@ void rip_clean_network()
 			route_unlock_node(rn);
 		}
 
-	/* rip_enable_interface. */
-	for (i = 0; i < vector_active(rip_enable_interface); i++)
-		if ((str = vector_slot(rip_enable_interface, i)) != NULL) {
+	/* rip->enable_interface. */
+	for (i = 0; i < vector_active(rip->enable_interface); i++)
+		if ((str = vector_slot(rip->enable_interface, i)) != NULL) {
 			XFREE(MTYPE_RIP_INTERFACE_STRING, str);
-			vector_slot(rip_enable_interface, i) = NULL;
+			vector_slot(rip->enable_interface, i) = NULL;
 		}
 }
 
@@ -1183,8 +1183,8 @@ int rip_show_network_config(struct vty *vty)
 				node->p.prefixlen);
 
 	/* Interface name RIP enable statement. */
-	for (i = 0; i < vector_active(rip_enable_interface); i++)
-		if ((ifname = vector_slot(rip_enable_interface, i)) != NULL)
+	for (i = 0; i < vector_active(rip->enable_interface); i++)
+		if ((ifname = vector_slot(rip->enable_interface, i)) != NULL)
 			vty_out(vty, "    %s\n", ifname);
 
 	/* RIP neighbors listing. */
@@ -1223,7 +1223,6 @@ void rip_if_init(void)
 	hook_register_prio(if_del, 0, rip_interface_delete_hook);
 
 	/* RIP network init. */
-	rip_enable_interface = vector_init(1);
 	rip_enable_network = route_table_init();
 
 	/* RIP passive interface. */
