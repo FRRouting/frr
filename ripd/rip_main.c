@@ -179,7 +179,6 @@ int main(int argc, char **argv)
 	rip_if_init();
 	rip_cli_init();
 	rip_zclient_init(master);
-	rip_peer_init();
 
 	frr_config_fork();
 	frr_run(master);

@@ -29,9 +29,6 @@
 
 #include "ripd/ripd.h"
 
-/* Linked list of RIP peer. */
-struct list *peer_list;
-
 static struct rip_peer *rip_peer_new(void)
 {
 	return XCALLOC(MTYPE_RIP_PEER, sizeof(struct rip_peer));
@@ -47,7 +44,7 @@ struct rip_peer *rip_peer_lookup(struct in_addr *addr)
 	struct rip_peer *peer;
 	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(peer_list, node, nnode, peer)) {
+	for (ALL_LIST_ELEMENTS(rip->peer_list, node, nnode, peer)) {
 		if (IPV4_ADDR_SAME(&peer->addr, addr))
 			return peer;
 	}
@@ -59,7 +56,7 @@ struct rip_peer *rip_peer_lookup_next(struct in_addr *addr)
 	struct rip_peer *peer;
 	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(peer_list, node, nnode, peer)) {
+	for (ALL_LIST_ELEMENTS(rip->peer_list, node, nnode, peer)) {
 		if (htonl(peer->addr.s_addr) > htonl(addr->s_addr))
 			return peer;
 	}
@@ -72,7 +69,7 @@ static int rip_peer_timeout(struct thread *t)
 	struct rip_peer *peer;
 
 	peer = THREAD_ARG(t);
-	listnode_delete(peer_list, peer);
+	listnode_delete(rip->peer_list, peer);
 	rip_peer_free(peer);
 
 	return 0;
@@ -91,7 +88,7 @@ static struct rip_peer *rip_peer_get(struct in_addr *addr)
 	} else {
 		peer = rip_peer_new();
 		peer->addr = *addr;
-		listnode_add_sort(peer_list, peer);
+		listnode_add_sort(rip->peer_list, peer);
 	}
 
 	/* Update timeout thread. */
@@ -162,7 +159,7 @@ void rip_peer_display(struct vty *vty)
 #define RIP_UPTIME_LEN 25
 	char timebuf[RIP_UPTIME_LEN];
 
-	for (ALL_LIST_ELEMENTS(peer_list, node, nnode, peer)) {
+	for (ALL_LIST_ELEMENTS(rip->peer_list, node, nnode, peer)) {
 		vty_out(vty, "    %-16s %9d %9d %9d   %s\n",
 			inet_ntoa(peer->addr), peer->recv_badpackets,
 			peer->recv_badroutes, ZEBRA_RIP_DISTANCE_DEFAULT,
@@ -170,16 +167,10 @@ void rip_peer_display(struct vty *vty)
 	}
 }
 
-static int rip_peer_list_cmp(struct rip_peer *p1, struct rip_peer *p2)
+int rip_peer_list_cmp(struct rip_peer *p1, struct rip_peer *p2)
 {
 	if (p2->addr.s_addr == p1->addr.s_addr)
 		return 0;
 
 	return (htonl(p1->addr.s_addr) < htonl(p2->addr.s_addr)) ? -1 : 1;
-}
-
-void rip_peer_init(void)
-{
-	peer_list = list_new();
-	peer_list->cmp = (int (*)(void *, void *))rip_peer_list_cmp;
 }

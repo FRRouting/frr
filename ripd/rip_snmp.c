@@ -284,6 +284,9 @@ static struct rip_peer *rip2PeerLookup(struct variable *v, oid name[],
 	int len;
 	struct rip_peer *peer;
 
+	if (!rip)
+		return NULL;
+
 	if (exact) {
 		/* Check the length. */
 		if (*length - v->namelen != sizeof(struct in_addr) + 1)

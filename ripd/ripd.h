@@ -112,8 +112,11 @@ struct rip {
 	/* RIP routing information base. */
 	struct route_table *table;
 
-	/* RIP neighbor. */
+	/* RIP static neighbors. */
 	struct route_table *neighbor;
+
+	/* Linked list of RIP peers. */
+	struct list *peer_list;
 
 	/* RIP threads. */
 	struct thread *t_read;
@@ -433,13 +436,13 @@ extern void rip_if_rmap_update_interface(struct interface *);
 extern int rip_show_network_config(struct vty *);
 extern void rip_show_redistribute_config(struct vty *);
 
-extern void rip_peer_init(void);
 extern void rip_peer_update(struct sockaddr_in *, uint8_t);
 extern void rip_peer_bad_route(struct sockaddr_in *);
 extern void rip_peer_bad_packet(struct sockaddr_in *);
 extern void rip_peer_display(struct vty *);
 extern struct rip_peer *rip_peer_lookup(struct in_addr *);
 extern struct rip_peer *rip_peer_lookup_next(struct in_addr *);
+extern int rip_peer_list_cmp(struct rip_peer *p1, struct rip_peer *p2);
 
 extern void rip_info_free(struct rip_info *);
 extern struct rip_distance *rip_distance_new(void);
@@ -481,7 +484,6 @@ extern long rip_global_queries;
 DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc))
 DECLARE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc))
 
-extern struct list *peer_list;
 extern struct route_table *rip_distance_table;
 
 /* Northbound. */

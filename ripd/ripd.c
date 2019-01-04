@@ -2692,6 +2692,8 @@ int rip_create(int socket)
 	/* Initialize RIP data structures. */
 	rip->table = route_table_init();
 	rip->neighbor = route_table_init();
+	rip->peer_list = list_new();
+	rip->peer_list->cmp = (int (*)(void *, void *))rip_peer_list_cmp;
 	rip->enable_interface = vector_init(1);
 	rip->enable_network = route_table_init();
 	rip->passive_nondefault = vector_init(1);
