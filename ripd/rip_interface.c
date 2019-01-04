@@ -553,16 +553,6 @@ int rip_if_down(struct interface *ifp)
 	return 0;
 }
 
-/* Needed for stop RIP process. */
-void rip_if_down_all()
-{
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	struct interface *ifp;
-
-	FOR_ALL_INTERFACES (vrf, ifp)
-		rip_if_down(ifp);
-}
-
 static void rip_apply_address_add(struct connected *ifc)
 {
 	struct prefix_ipv4 address;

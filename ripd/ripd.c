@@ -53,9 +53,6 @@
 /* RIP Structure. */
 struct rip *rip = NULL;
 
-/* RIP neighbor address table. */
-struct route_table *rip_neighbor_table;
-
 /* RIP route changes. */
 long rip_global_route_changes = 0;
 
@@ -1350,9 +1347,6 @@ int rip_create_socket(void)
 	sockopt_reuseaddr(sock);
 	sockopt_reuseport(sock);
 	setsockopt_ipv4_multicast_loop(sock, 0);
-#ifdef RIP_RECVMSG
-	setsockopt_pktinfo(sock);
-#endif /* RIP_RECVMSG */
 #ifdef IPTOS_PREC_INTERNETCONTROL
 	setsockopt_ipv4_tos(sock, IPTOS_PREC_INTERNETCONTROL);
 #endif
@@ -1641,81 +1635,6 @@ static void rip_request_process(struct rip_packet *packet, int size,
 	}
 	rip_global_queries++;
 }
-
-#if RIP_RECVMSG
-/* Set IPv6 packet info to the socket. */
-static int setsockopt_pktinfo(int sock)
-{
-	int ret;
-	int val = 1;
-
-	ret = setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &val, sizeof(val));
-	if (ret < 0)
-		zlog_warn("Can't setsockopt IP_PKTINFO : %s",
-			  safe_strerror(errno));
-	return ret;
-}
-
-/* Read RIP packet by recvmsg function. */
-int rip_recvmsg(int sock, uint8_t *buf, int size, struct sockaddr_in *from,
-		ifindex_t *ifindex)
-{
-	int ret;
-	struct msghdr msg;
-	struct iovec iov;
-	struct cmsghdr *ptr;
-	char adata[1024];
-
-	memset(&msg, 0, sizeof(msg));
-	msg.msg_name = (void *)from;
-	msg.msg_namelen = sizeof(struct sockaddr_in);
-	msg.msg_iov = &iov;
-	msg.msg_iovlen = 1;
-	msg.msg_control = (void *)adata;
-	msg.msg_controllen = sizeof adata;
-	iov.iov_base = buf;
-	iov.iov_len = size;
-
-	ret = recvmsg(sock, &msg, 0);
-	if (ret < 0)
-		return ret;
-
-	for (ptr = ZCMSG_FIRSTHDR(&msg); ptr != NULL;
-	     ptr = CMSG_NXTHDR(&msg, ptr))
-		if (ptr->cmsg_level == IPPROTO_IP
-		    && ptr->cmsg_type == IP_PKTINFO) {
-			struct in_pktinfo *pktinfo;
-			int i;
-
-			pktinfo = (struct in_pktinfo *)CMSG_DATA(ptr);
-			i = pktinfo->ipi_ifindex;
-		}
-	return ret;
-}
-
-/* RIP packet read function. */
-int rip_read_new(struct thread *t)
-{
-	int ret;
-	int sock;
-	char buf[RIP_PACKET_MAXSIZ];
-	struct sockaddr_in from;
-	ifindex_t ifindex;
-
-	/* Fetch socket then register myself. */
-	sock = THREAD_FD(t);
-	rip_event(RIP_READ, sock);
-
-	/* Read RIP packet. */
-	ret = rip_recvmsg(sock, buf, RIP_PACKET_MAXSIZ, &from, (int *)&ifindex);
-	if (ret < 0) {
-		zlog_warn("Can't read RIP packet: %s", safe_strerror(errno));
-		return ret;
-	}
-
-	return ret;
-}
-#endif /* RIP_RECVMSG */
 
 /* First entry point of RIP packet. */
 static int rip_read(struct thread *t)
