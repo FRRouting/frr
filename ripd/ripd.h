@@ -99,8 +99,16 @@
 
 /* RIP structure. */
 struct rip {
-	/* VRF ID. */
-	vrf_id_t vrf_id;
+	RB_ENTRY(rip) entry;
+
+	/* VRF this routing instance is associated with. */
+	char *vrf_name;
+
+	/* VRF backpointer (might be NULL if the VRF doesn't exist). */
+	struct vrf *vrf;
+
+	/* Status of the routing instance. */
+	bool enabled;
 
 	/* RIP socket. */
 	int sock;
@@ -182,6 +190,8 @@ struct rip {
 		long queries;
 	} counters;
 };
+RB_HEAD(rip_instance_head, rip);
+RB_PROTOTYPE(rip_instance_head, rip, entry, rip_instance_compare)
 
 /* RIP routing table entry which belong to rip_packet. */
 struct rte {
@@ -416,11 +426,15 @@ extern int rip_passive_nondefault_unset(struct rip *rip, const char *ifname);
 extern void rip_passive_nondefault_clean(struct rip *rip);
 extern void rip_if_init(void);
 extern void rip_route_map_init(void);
+extern void rip_zebra_vrf_register(struct vrf *vrf);
+extern void rip_zebra_vrf_deregister(struct vrf *vrf);
 extern void rip_zclient_init(struct thread_master *);
 extern void rip_zclient_stop(void);
 extern int if_check_address(struct rip *rip, struct in_addr addr);
 extern struct rip *rip_lookup_by_vrf_id(vrf_id_t vrf_id);
-extern struct rip *rip_create(struct vrf *vrf, int socket);
+extern struct rip *rip_lookup_by_vrf_name(const char *vrf_name);
+extern struct rip *rip_create(const char *vrf_name, struct vrf *vrf,
+			      int socket);
 
 extern int rip_request_send(struct sockaddr_in *, struct interface *, uint8_t,
 			    struct connected *);
@@ -436,7 +450,7 @@ extern int rip_enable_if_delete(struct rip *rip, const char *ifname);
 extern void rip_event(struct rip *rip, enum rip_event event, int sock);
 extern void rip_ecmp_disable(struct rip *rip);
 
-extern int rip_create_socket(void);
+extern int rip_create_socket(struct vrf *vrf);
 
 extern int rip_redistribute_check(struct rip *rip, int type);
 extern void rip_redistribute_conf_update(struct rip *rip, int type);
@@ -494,6 +508,9 @@ extern int rip_offset_list_apply_out(struct prefix_ipv4 *, struct interface *,
 				     uint32_t *);
 extern int offset_list_cmp(struct rip_offset_list *o1,
 			   struct rip_offset_list *o2);
+
+extern void rip_vrf_init(void);
+extern void rip_vrf_terminate(void);
 
 /* YANG notifications */
 extern void ripd_notif_send_auth_type_failure(const char *ifname);

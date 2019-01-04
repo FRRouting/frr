@@ -39,31 +39,46 @@
  */
 DEFPY_NOSH (router_rip,
        router_rip_cmd,
-       "router rip",
+       "router rip [vrf NAME]",
        "Enable a routing process\n"
-       "Routing Information Protocol (RIP)\n")
+       "Routing Information Protocol (RIP)\n"
+       VRF_CMD_HELP_STR)
 {
+	char xpath[XPATH_MAXLEN];
 	int ret;
 
-	nb_cli_enqueue_change(vty, "/frr-ripd:ripd/instance", NB_OP_CREATE,
-			      NULL);
+	/* Build RIP instance XPath. */
+	if (!vrf)
+		vrf = VRF_DEFAULT_NAME;
+	snprintf(xpath, sizeof(xpath), "/frr-ripd:ripd/instance[vrf='%s']",
+		 vrf);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
 	ret = nb_cli_apply_changes(vty, NULL);
 	if (ret == CMD_SUCCESS)
-		VTY_PUSH_XPATH(RIP_NODE, "/frr-ripd:ripd/instance");
+		VTY_PUSH_XPATH(RIP_NODE, xpath);
 
 	return ret;
 }
 
 DEFPY (no_router_rip,
        no_router_rip_cmd,
-       "no router rip",
+       "no router rip [vrf NAME]",
        NO_STR
        "Enable a routing process\n"
-       "Routing Information Protocol (RIP)\n")
+       "Routing Information Protocol (RIP)\n"
+       VRF_CMD_HELP_STR)
 {
-	nb_cli_enqueue_change(vty, "/frr-ripd:ripd/instance", NB_OP_DELETE,
-			      NULL);
+	char xpath[XPATH_MAXLEN];
+
+	/* Build RIP instance XPath. */
+	if (!vrf)
+		vrf = VRF_DEFAULT_NAME;
+	snprintf(xpath, sizeof(xpath), "/frr-ripd:ripd/instance[vrf='%s']",
+		 vrf);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DELETE, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -71,8 +86,15 @@ DEFPY (no_router_rip,
 void cli_show_router_rip(struct vty *vty, struct lyd_node *dnode,
 			 bool show_defaults)
 {
+	const char *vrf_name;
+
+	vrf_name = yang_dnode_get_string(dnode, "./vrf");
+
 	vty_out(vty, "!\n");
-	vty_out(vty, "router rip\n");
+	vty_out(vty, "router rip");
+	if (!strmatch(vrf_name, VRF_DEFAULT_NAME))
+		vty_out(vty, " vrf %s", vrf_name);
+	vty_out(vty, "\n");
 }
 
 /*

@@ -34,13 +34,18 @@ module frr-ripd {
 
   container ripd {
     /*
-     * Global configuration data
+     * Routing instance configuration.
      */
-    container instance {
-      presence "Present if the RIP protocol is enabled.";
+    list instance {
+      key "vrf";
       description
         "RIP routing instance.";
 
+      leaf vrf {
+        type string;
+        description
+          "VRF name.";
+      }
       leaf allow-ecmp {
         type boolean;
         default "false";

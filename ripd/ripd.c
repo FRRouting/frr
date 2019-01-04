@@ -46,6 +46,7 @@
 #include "ripd/ripd.h"
 #include "ripd/rip_debug.h"
 #include "ripd/rip_errors.h"
+#include "ripd/rip_interface.h"
 
 /* UDP receive buffer size */
 #define RIP_UDP_RCV_BUF 41600
@@ -57,6 +58,8 @@ static int rip_triggered_update(struct thread *);
 static int rip_update_jitter(unsigned long);
 static void rip_distance_table_node_cleanup(struct route_table *table,
 					    struct route_node *node);
+static void rip_instance_enable(struct rip *rip, struct vrf *vrf, int sock);
+static void rip_instance_disable(struct rip *rip);
 
 static void rip_distribute_update(struct distribute_ctx *ctx,
 				  struct distribute *dist);
@@ -72,6 +75,15 @@ static const struct message rip_msg[] = {{RIP_REQUEST, "REQUEST"},
 					 {RIP_POLL, "POLL"},
 					 {RIP_POLL_ENTRY, "POLL ENTRY"},
 					 {0}};
+
+/* Generate rb-tree of RIP instances. */
+static inline int rip_instance_compare(const struct rip *a, const struct rip *b)
+{
+	return strcmp(a->vrf_name, b->vrf_name);
+}
+RB_GENERATE(rip_instance_head, rip, entry, rip_instance_compare)
+
+struct rip_instance_head rip_instances = RB_INITIALIZER(&rip_instances);
 
 /* Utility function to set boradcast option to the socket. */
 static int sockopt_broadcast(int sock)
@@ -372,7 +384,6 @@ static int rip_filter(int rip_distribute, struct prefix_ipv4 *p,
 /* Check nexthop address validity. */
 static int rip_nexthop_check(struct rip *rip, struct in_addr *addr)
 {
-	struct vrf *vrf = vrf_lookup_by_id(rip->vrf_id);
 	struct interface *ifp;
 	struct listnode *cnode;
 	struct connected *ifc;
@@ -381,7 +392,7 @@ static int rip_nexthop_check(struct rip *rip, struct in_addr *addr)
 	/* If nexthop address matches local configured address then it is
 	   invalid nexthop. */
 
-	FOR_ALL_INTERFACES (vrf, ifp) {
+	FOR_ALL_INTERFACES (rip->vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, ifc)) {
 			p = ifc->address;
 
@@ -1114,7 +1125,8 @@ static void rip_response_process(struct rip_packet *packet, int size,
 	   whether the datagram is from a valid neighbor; the source of the
 	   datagram must be on a directly connected network (RFC2453 - Sec.
 	   3.9.2) */
-	if (if_lookup_address((void *)&from->sin_addr, AF_INET, rip->vrf_id)
+	if (if_lookup_address((void *)&from->sin_addr, AF_INET,
+			      rip->vrf->vrf_id)
 	    == NULL) {
 		zlog_info(
 			"This datagram doesn't came from a valid neighbor: %s",
@@ -1197,7 +1209,7 @@ static void rip_response_process(struct rip_packet *packet, int size,
 			}
 
 			if (!if_lookup_address((void *)&rte->nexthop, AF_INET,
-					       rip->vrf_id)) {
+					       rip->vrf->vrf_id)) {
 				struct route_node *rn;
 				struct rip_info *rinfo;
 
@@ -1327,11 +1339,12 @@ static void rip_response_process(struct rip_packet *packet, int size,
 }
 
 /* Make socket for RIP protocol. */
-int rip_create_socket(void)
+int rip_create_socket(struct vrf *vrf)
 {
 	int ret;
 	int sock;
 	struct sockaddr_in addr;
+	const char *vrf_dev = NULL;
 
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = AF_INET;
@@ -1343,11 +1356,17 @@ int rip_create_socket(void)
 	addr.sin_port = htons(RIP_PORT_DEFAULT);
 
 	/* Make datagram socket. */
-	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if (sock < 0) {
-		flog_err_sys(EC_LIB_SOCKET, "Cannot create UDP socket: %s",
-			     safe_strerror(errno));
-		return -1;
+	if (vrf->vrf_id != VRF_DEFAULT)
+		vrf_dev = vrf->name;
+	frr_elevate_privs(&ripd_privs) {
+		sock = vrf_socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, vrf->vrf_id,
+				  vrf_dev);
+		if (sock < 0) {
+			flog_err_sys(EC_LIB_SOCKET,
+				     "Cannot create UDP socket: %s",
+				     safe_strerror(errno));
+			return -1;
+		}
 	}
 
 	sockopt_broadcast(sock);
@@ -1586,8 +1605,9 @@ void rip_redistribute_delete(struct rip *rip, int type, int sub_type,
 						"infinity metric [delete]",
 						inet_ntoa(p->prefix),
 						p->prefixlen,
-						ifindex2ifname(ifindex,
-							       rip->vrf_id));
+						ifindex2ifname(
+							ifindex,
+							rip->vrf->vrf_id));
 
 				rip_event(rip, RIP_TRIGGERED_UPDATE, 0);
 			}
@@ -1708,33 +1728,37 @@ static int rip_read(struct thread *t)
 	len = recvfrom(sock, (char *)&rip_buf.buf, sizeof(rip_buf.buf), 0,
 		       (struct sockaddr *)&from, &fromlen);
 	if (len < 0) {
-		zlog_info("recvfrom failed: %s", safe_strerror(errno));
+		zlog_info("recvfrom failed (VRF %s): %s", rip->vrf_name,
+			  safe_strerror(errno));
 		return len;
 	}
 
 	/* Check is this packet comming from myself? */
 	if (if_check_address(rip, from.sin_addr)) {
 		if (IS_RIP_DEBUG_PACKET)
-			zlog_debug("ignore packet comes from myself");
+			zlog_debug("ignore packet comes from myself (VRF %s)",
+				   rip->vrf_name);
 		return -1;
 	}
 
 	/* Which interface is this packet comes from. */
-	ifc = if_lookup_address((void *)&from.sin_addr, AF_INET, rip->vrf_id);
+	ifc = if_lookup_address((void *)&from.sin_addr, AF_INET,
+				rip->vrf->vrf_id);
 	if (ifc)
 		ifp = ifc->ifp;
 
 	/* RIP packet received */
 	if (IS_RIP_DEBUG_EVENT)
-		zlog_debug("RECV packet from %s port %d on %s",
+		zlog_debug("RECV packet from %s port %d on %s (VRF %s)",
 			   inet_ntoa(from.sin_addr), ntohs(from.sin_port),
-			   ifp ? ifp->name : "unknown");
+			   ifp ? ifp->name : "unknown", rip->vrf_name);
 
 	/* If this packet come from unknown interface, ignore it. */
 	if (ifp == NULL) {
 		zlog_info(
-			"rip_read: cannot find interface for packet from %s port %d",
-			inet_ntoa(from.sin_addr), ntohs(from.sin_port));
+			"rip_read: cannot find interface for packet from %s port %d (VRF %s)",
+			inet_ntoa(from.sin_addr), ntohs(from.sin_port),
+			rip->vrf_name);
 		return -1;
 	}
 
@@ -1747,9 +1771,9 @@ static int rip_read(struct thread *t)
 	if (ifc == NULL) {
 		zlog_info(
 			"rip_read: cannot find connected address for packet from %s "
-			"port %d on interface %s",
+			"port %d on interface %s (VRF %s)",
 			inet_ntoa(from.sin_addr), ntohs(from.sin_port),
-			ifp->name);
+			ifp->name, rip->vrf_name);
 		return -1;
 	}
 
@@ -2415,7 +2439,6 @@ static void rip_update_interface(struct connected *ifc, uint8_t version,
 /* Update send to all interface and neighbor. */
 static void rip_update_process(struct rip *rip, int route_type)
 {
-	struct vrf *vrf = vrf_lookup_by_id(rip->vrf_id);
 	struct listnode *ifnode, *ifnnode;
 	struct connected *connected;
 	struct interface *ifp;
@@ -2425,7 +2448,7 @@ static void rip_update_process(struct rip *rip, int route_type)
 	struct prefix *p;
 
 	/* Send RIP update to each interface. */
-	FOR_ALL_INTERFACES (vrf, ifp) {
+	FOR_ALL_INTERFACES (rip->vrf, ifp) {
 		if (if_is_loopback(ifp))
 			continue;
 
@@ -2478,7 +2501,7 @@ static void rip_update_process(struct rip *rip, int route_type)
 			p = &rp->p;
 
 			connected = if_lookup_address(&p->u.prefix4, AF_INET,
-						      rip->vrf_id);
+						      rip->vrf->vrf_id);
 			if (!connected) {
 				zlog_warn(
 					"Neighbor %s doesn't have connected interface!",
@@ -2622,7 +2645,7 @@ void rip_redistribute_withdraw(struct rip *rip, int type)
 						p->prefixlen,
 						ifindex2ifname(
 							rinfo->nh.ifindex,
-							rip->vrf_id));
+							rip->vrf->vrf_id));
 				}
 
 				rip_event(rip, RIP_TRIGGERED_UPDATE, 0);
@@ -2641,13 +2664,22 @@ struct rip *rip_lookup_by_vrf_id(vrf_id_t vrf_id)
 	return vrf->info;
 }
 
+struct rip *rip_lookup_by_vrf_name(const char *vrf_name)
+{
+	struct rip rip;
+
+	rip.vrf_name = (char *)vrf_name;
+
+	return RB_FIND(rip_instance_head, &rip_instances, &rip);
+}
+
 /* Create new RIP instance and set it to global variable. */
-struct rip *rip_create(struct vrf *vrf, int socket)
+struct rip *rip_create(const char *vrf_name, struct vrf *vrf, int socket)
 {
 	struct rip *rip;
-	struct interface *ifp;
 
 	rip = XCALLOC(MTYPE_RIP, sizeof(struct rip));
+	rip->vrf_name = XSTRDUP(MTYPE_RIP_VRF_NAME, vrf_name);
 
 	/* Set initial value. */
 	rip->ecmp = yang_get_default_bool("%s/allow-ecmp", RIP_INSTANCE);
@@ -2685,30 +2717,22 @@ struct rip *rip_create(struct vrf *vrf, int socket)
 	rip->offset_list_master->del = (void (*)(void *))offset_list_del;
 
 	/* Distribute list install. */
-	rip->distribute_ctx =
-		distribute_list_ctx_create(vrf_lookup_by_id(VRF_DEFAULT));
+	rip->distribute_ctx = distribute_list_ctx_create(vrf);
 	distribute_list_add_hook(rip->distribute_ctx, rip_distribute_update);
 	distribute_list_delete_hook(rip->distribute_ctx, rip_distribute_update);
 
 	/* Make output stream. */
 	rip->obuf = stream_new(1500);
 
-	/* Set socket. */
-	rip->sock = socket;
-
-	/* Create read and timer thread. */
-	rip_event(rip, RIP_READ, rip->sock);
-	rip_event(rip, RIP_UPDATE_EVENT, 1);
-
-	/* Link RIP instance to VRF. */
-	rip->vrf_id = vrf->vrf_id;
-	vrf->info = rip;
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		struct rip_interface *ri;
-
-		ri = ifp->info;
-		ri->rip = rip;
+	/* Enable the routing instance if possible. */
+	if (vrf && vrf_is_enabled(vrf))
+		rip_instance_enable(rip, vrf, socket);
+	else {
+		rip->vrf = NULL;
+		rip->sock = -1;
 	}
+
+	RB_INSERT(rip_instance_head, &rip_instances, rip);
 
 	return rip;
 }
@@ -2988,20 +3012,34 @@ static const char *rip_route_type_print(int sub_type)
 
 DEFUN (show_ip_rip,
        show_ip_rip_cmd,
-       "show ip rip",
+       "show ip rip [vrf NAME]",
        SHOW_STR
        IP_STR
-       "Show RIP routes\n")
+       "Show RIP routes\n"
+       VRF_CMD_HELP_STR)
 {
 	struct rip *rip;
 	struct route_node *np;
 	struct rip_info *rinfo = NULL;
 	struct list *list = NULL;
 	struct listnode *listnode = NULL;
+	const char *vrf_name;
+	int idx = 0;
 
-	rip = rip_lookup_by_vrf_id(VRF_DEFAULT);
-	if (!rip)
+	if (argv_find(argv, argc, "vrf", &idx))
+		vrf_name = argv[idx + 1]->arg;
+	else
+		vrf_name = VRF_DEFAULT_NAME;
+
+	rip = rip_lookup_by_vrf_name(vrf_name);
+	if (!rip) {
+		vty_out(vty, "%% RIP instance not found\n");
 		return CMD_SUCCESS;
+	}
+	if (!rip->enabled) {
+		vty_out(vty, "%% RIP instance is disabled\n");
+		return CMD_SUCCESS;
+	}
 
 	vty_out(vty,
 		"Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP\n"
@@ -3093,23 +3131,36 @@ DEFUN (show_ip_rip,
 /* Vincent: formerly, it was show_ip_protocols_rip: "show ip protocols" */
 DEFUN (show_ip_rip_status,
        show_ip_rip_status_cmd,
-       "show ip rip status",
+       "show ip rip [vrf NAME] status",
        SHOW_STR
        IP_STR
        "Show RIP routes\n"
+       VRF_CMD_HELP_STR
        "IP routing protocol process parameters and statistics\n")
 {
 	struct rip *rip;
-	struct vrf *vrf;
 	struct interface *ifp;
 	struct rip_interface *ri;
 	extern const struct message ri_version_msg[];
 	const char *send_version;
 	const char *receive_version;
+	const char *vrf_name;
+	int idx = 0;
 
-	rip = rip_lookup_by_vrf_id(VRF_DEFAULT);
-	if (!rip)
+	if (argv_find(argv, argc, "vrf", &idx))
+		vrf_name = argv[idx + 1]->arg;
+	else
+		vrf_name = VRF_DEFAULT_NAME;
+
+	rip = rip_lookup_by_vrf_name(vrf_name);
+	if (!rip) {
+		vty_out(vty, "%% RIP instance not found\n");
 		return CMD_SUCCESS;
+	}
+	if (!rip->enabled) {
+		vty_out(vty, "%% RIP instance is disabled\n");
+		return CMD_SUCCESS;
+	}
 
 	vty_out(vty, "Routing Protocol is \"rip\"\n");
 	vty_out(vty, "  Sending updates every %u seconds with +/-50%%,",
@@ -3141,8 +3192,7 @@ DEFUN (show_ip_rip_status,
 
 	vty_out(vty, "    Interface        Send  Recv   Key-chain\n");
 
-	vrf = vrf_lookup_by_id(rip->vrf_id);
-	FOR_ALL_INTERFACES (vrf, ifp) {
+	FOR_ALL_INTERFACES (rip->vrf, ifp) {
 		ri = ifp->info;
 
 		if (!ri->running)
@@ -3176,7 +3226,7 @@ DEFUN (show_ip_rip_status,
 
 	{
 		int found_passive = 0;
-		FOR_ALL_INTERFACES (vrf, ifp) {
+		FOR_ALL_INTERFACES (rip->vrf, ifp) {
 			ri = ifp->info;
 
 			if ((ri->enable_network || ri->enable_interface)
@@ -3204,28 +3254,31 @@ DEFUN (show_ip_rip_status,
 /* RIP configuration write function. */
 static int config_write_rip(struct vty *vty)
 {
+	struct rip *rip;
 	int write = 0;
-	struct lyd_node *dnode;
 
-	dnode = yang_dnode_get(running_config->dnode,
-			       "/frr-ripd:ripd/instance");
-	if (dnode) {
-		struct rip *rip;
+	RB_FOREACH(rip, rip_instance_head, &rip_instances) {
+		char xpath[XPATH_MAXLEN];
+		struct lyd_node *dnode;
 
-		write++;
+		snprintf(xpath, sizeof(xpath),
+			 "/frr-ripd:ripd/instance[vrf='%s']", rip->vrf_name);
+
+		dnode = yang_dnode_get(running_config->dnode, xpath);
+		assert(dnode);
 
 		nb_cli_show_dnode_cmds(vty, dnode, false);
 
-		rip = rip_lookup_by_vrf_id(VRF_DEFAULT);
-		if (rip) {
-			/* Distribute configuration. */
-			write += config_write_distribute(vty,
-							 rip->distribute_ctx);
+		/* Distribute configuration. */
+		config_write_distribute(vty, rip->distribute_ctx);
 
-			/* Interface routemap configuration */
-			write += config_write_if_rmap(vty);
-		}
+		/* Interface routemap configuration */
+		if (strmatch(rip->vrf_name, VRF_DEFAULT_NAME))
+			config_write_if_rmap(vty);
+
+		write = 1;
 	}
+
 	return write;
 }
 
@@ -3241,10 +3294,10 @@ static void rip_distribute_update(struct distribute_ctx *ctx,
 	struct access_list *alist;
 	struct prefix_list *plist;
 
-	if (!dist->ifname)
+	if (!ctx->vrf || !dist->ifname)
 		return;
 
-	ifp = if_lookup_by_name(dist->ifname, VRF_DEFAULT);
+	ifp = if_lookup_by_name(dist->ifname, ctx->vrf->vrf_id);
 	if (ifp == NULL)
 		return;
 
@@ -3323,46 +3376,8 @@ static void rip_distribute_update_all_wrapper(struct access_list *notused)
 /* Delete all added rip route. */
 void rip_clean(struct rip *rip)
 {
-	struct vrf *vrf;
-	struct interface *ifp;
-	struct route_node *rp;
-
-	/* Clear RIP routes */
-	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
-		struct rip_info *rinfo;
-		struct list *list;
-		struct listnode *listnode;
-
-		if ((list = rp->info) == NULL)
-			continue;
-
-		rinfo = listgetdata(listhead(list));
-		if (rip_route_rte(rinfo))
-			rip_zebra_ipv4_delete(rip, rp);
-
-		for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
-			RIP_TIMER_OFF(rinfo->t_timeout);
-			RIP_TIMER_OFF(rinfo->t_garbage_collect);
-			rip_info_free(rinfo);
-		}
-		list_delete(&list);
-		rp->info = NULL;
-		route_unlock_node(rp);
-	}
-
-	/* Cancel RIP related timers. */
-	RIP_TIMER_OFF(rip->t_update);
-	RIP_TIMER_OFF(rip->t_triggered_update);
-	RIP_TIMER_OFF(rip->t_triggered_interval);
-
-	/* Cancel read thread. */
-	THREAD_READ_OFF(rip->t_read);
-
-	/* Close RIP socket. */
-	if (rip->sock >= 0) {
-		close(rip->sock);
-		rip->sock = -1;
-	}
+	if (rip->enabled)
+		rip_instance_disable(rip);
 
 	stream_free(rip->obuf);
 
@@ -3385,16 +3400,8 @@ void rip_clean(struct rip *rip)
 	route_table_finish(rip->distance_table);
 	rip_redistribute_clean(rip);
 
-	vrf = vrf_lookup_by_id(rip->vrf_id);
-	vrf->info = NULL;
-
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		struct rip_interface *ri;
-
-		ri = ifp->info;
-		ri->rip = NULL;
-	}
-
+	RB_REMOVE(rip_instance_head, &rip_instances, rip);
+	XFREE(MTYPE_RIP_VRF_NAME, rip->vrf_name);
 	XFREE(MTYPE_RIP, rip);
 }
 
@@ -3459,6 +3466,168 @@ static void rip_routemap_update(const char *notused)
 	rip = vrf->info;
 	if (rip)
 		rip_routemap_update_redistribute(rip);
+}
+
+/* Link RIP instance to VRF. */
+static void rip_vrf_link(struct rip *rip, struct vrf *vrf)
+{
+	struct interface *ifp;
+
+	rip->vrf = vrf;
+	rip->distribute_ctx->vrf = vrf;
+	vrf->info = rip;
+
+	FOR_ALL_INTERFACES (vrf, ifp)
+		rip_interface_sync(ifp);
+}
+
+/* Unlink RIP instance from VRF. */
+static void rip_vrf_unlink(struct rip *rip, struct vrf *vrf)
+{
+	struct interface *ifp;
+
+	rip->vrf = NULL;
+	rip->distribute_ctx->vrf = NULL;
+	vrf->info = NULL;
+
+	FOR_ALL_INTERFACES (vrf, ifp)
+		rip_interface_sync(ifp);
+}
+
+static void rip_instance_enable(struct rip *rip, struct vrf *vrf, int sock)
+{
+	rip->sock = sock;
+
+	rip_vrf_link(rip, vrf);
+	rip->enabled = true;
+
+	/* Create read and timer thread. */
+	rip_event(rip, RIP_READ, rip->sock);
+	rip_event(rip, RIP_UPDATE_EVENT, 1);
+
+	rip_zebra_vrf_register(vrf);
+}
+
+static void rip_instance_disable(struct rip *rip)
+{
+	struct vrf *vrf = rip->vrf;
+	struct route_node *rp;
+
+	/* Clear RIP routes */
+	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
+		struct rip_info *rinfo;
+		struct list *list;
+		struct listnode *listnode;
+
+		if ((list = rp->info) == NULL)
+			continue;
+
+		rinfo = listgetdata(listhead(list));
+		if (rip_route_rte(rinfo))
+			rip_zebra_ipv4_delete(rip, rp);
+
+		for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
+			RIP_TIMER_OFF(rinfo->t_timeout);
+			RIP_TIMER_OFF(rinfo->t_garbage_collect);
+			rip_info_free(rinfo);
+		}
+		list_delete(&list);
+		rp->info = NULL;
+		route_unlock_node(rp);
+	}
+
+	/* Cancel RIP related timers. */
+	RIP_TIMER_OFF(rip->t_update);
+	RIP_TIMER_OFF(rip->t_triggered_update);
+	RIP_TIMER_OFF(rip->t_triggered_interval);
+
+	/* Cancel read thread. */
+	THREAD_READ_OFF(rip->t_read);
+
+	/* Close RIP socket. */
+	close(rip->sock);
+	rip->sock = -1;
+
+	/* Clear existing peers. */
+	list_delete_all_node(rip->peer_list);
+
+	rip_zebra_vrf_deregister(vrf);
+
+	rip_vrf_unlink(rip, vrf);
+	rip->enabled = false;
+}
+
+static int rip_vrf_new(struct vrf *vrf)
+{
+	if (IS_RIP_DEBUG_EVENT)
+		zlog_debug("%s: VRF created: %s(%u)", __func__, vrf->name,
+			   vrf->vrf_id);
+
+	return 0;
+}
+
+static int rip_vrf_delete(struct vrf *vrf)
+{
+	if (IS_RIP_DEBUG_EVENT)
+		zlog_debug("%s: VRF deleted: %s(%u)", __func__, vrf->name,
+			   vrf->vrf_id);
+
+	return 0;
+}
+
+static int rip_vrf_enable(struct vrf *vrf)
+{
+	struct rip *rip;
+	int socket;
+
+	rip = rip_lookup_by_vrf_name(vrf->name);
+	if (!rip || rip->enabled)
+		return 0;
+
+	if (IS_RIP_DEBUG_EVENT)
+		zlog_debug("%s: VRF %s(%u) enabled", __func__, vrf->name,
+			   vrf->vrf_id);
+
+	/* Activate the VRF RIP instance. */
+	if (!rip->enabled) {
+		socket = rip_create_socket(vrf);
+		if (socket < 0)
+			return -1;
+
+		rip_instance_enable(rip, vrf, socket);
+	}
+
+	return 0;
+}
+
+static int rip_vrf_disable(struct vrf *vrf)
+{
+	struct rip *rip;
+
+	rip = rip_lookup_by_vrf_name(vrf->name);
+	if (!rip || !rip->enabled)
+		return 0;
+
+	if (IS_RIP_DEBUG_EVENT)
+		zlog_debug("%s: VRF %s(%u) disabled", __func__, vrf->name,
+			   vrf->vrf_id);
+
+	/* Deactivate the VRF RIP instance. */
+	if (rip->enabled)
+		rip_instance_disable(rip);
+
+	return 0;
+}
+
+void rip_vrf_init(void)
+{
+	vrf_init(rip_vrf_new, rip_vrf_enable, rip_vrf_disable, rip_vrf_delete,
+		 NULL);
+}
+
+void rip_vrf_terminate(void)
+{
+	vrf_terminate();
 }
 
 /* Allocate new rip structure and set default value. */
