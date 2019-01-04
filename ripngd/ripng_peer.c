@@ -34,10 +34,6 @@
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_nexthop.h"
 
-
-/* Linked list of RIPng peer. */
-struct list *peer_list;
-
 static struct ripng_peer *ripng_peer_new(void)
 {
 	return XCALLOC(MTYPE_RIPNG_PEER, sizeof(struct ripng_peer));
@@ -53,7 +49,7 @@ struct ripng_peer *ripng_peer_lookup(struct in6_addr *addr)
 	struct ripng_peer *peer;
 	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(peer_list, node, nnode, peer)) {
+	for (ALL_LIST_ELEMENTS(ripng->peer_list, node, nnode, peer)) {
 		if (IPV6_ADDR_SAME(&peer->addr, addr))
 			return peer;
 	}
@@ -65,7 +61,7 @@ struct ripng_peer *ripng_peer_lookup_next(struct in6_addr *addr)
 	struct ripng_peer *peer;
 	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(peer_list, node, nnode, peer)) {
+	for (ALL_LIST_ELEMENTS(ripng->peer_list, node, nnode, peer)) {
 		if (addr6_cmp(&peer->addr, addr) > 0)
 			return peer;
 	}
@@ -80,7 +76,7 @@ static int ripng_peer_timeout(struct thread *t)
 	struct ripng_peer *peer;
 
 	peer = THREAD_ARG(t);
-	listnode_delete(peer_list, peer);
+	listnode_delete(ripng->peer_list, peer);
 	ripng_peer_free(peer);
 
 	return 0;
@@ -99,7 +95,7 @@ static struct ripng_peer *ripng_peer_get(struct in6_addr *addr)
 	} else {
 		peer = ripng_peer_new();
 		peer->addr = *addr; /* XXX */
-		listnode_add_sort(peer_list, peer);
+		listnode_add_sort(ripng->peer_list, peer);
 	}
 
 	/* Update timeout thread. */
@@ -170,7 +166,7 @@ void ripng_peer_display(struct vty *vty)
 #define RIPNG_UPTIME_LEN 25
 	char timebuf[RIPNG_UPTIME_LEN];
 
-	for (ALL_LIST_ELEMENTS(peer_list, node, nnode, peer)) {
+	for (ALL_LIST_ELEMENTS(ripng->peer_list, node, nnode, peer)) {
 		vty_out(vty, "    %s \n%14s %10d %10d %10d      %s\n",
 			inet6_ntoa(peer->addr), " ", peer->recv_badpackets,
 			peer->recv_badroutes, ZEBRA_RIPNG_DISTANCE_DEFAULT,
@@ -178,13 +174,7 @@ void ripng_peer_display(struct vty *vty)
 	}
 }
 
-static int ripng_peer_list_cmp(struct ripng_peer *p1, struct ripng_peer *p2)
+int ripng_peer_list_cmp(struct ripng_peer *p1, struct ripng_peer *p2)
 {
 	return memcmp(&p1->addr, &p2->addr, sizeof(struct in6_addr));
-}
-
-void ripng_peer_init()
-{
-	peer_list = list_new();
-	peer_list->cmp = (int (*)(void *, void *))ripng_peer_list_cmp;
 }

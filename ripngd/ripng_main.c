@@ -177,7 +177,6 @@ int main(int argc, char **argv)
 	ripng_init();
 	ripng_cli_init();
 	zebra_init(master);
-	ripng_peer_init();
 
 	frr_config_fork();
 	frr_run(master);

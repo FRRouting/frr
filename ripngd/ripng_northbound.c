@@ -581,8 +581,11 @@ ripngd_state_neighbors_neighbor_get_next(const void *parent_list_entry,
 {
 	struct listnode *node;
 
+	if (!ripng)
+		return NULL;
+
 	if (list_entry == NULL)
-		node = listhead(peer_list);
+		node = listhead(ripng->peer_list);
 	else
 		node = listnextnode((struct listnode *)list_entry);
 
@@ -612,7 +615,10 @@ ripngd_state_neighbors_neighbor_lookup_entry(const void *parent_list_entry,
 
 	yang_str2ipv6(keys->key[0], &address);
 
-	for (ALL_LIST_ELEMENTS_RO(peer_list, node, peer)) {
+	if (!ripng)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(ripng->peer_list, node, peer)) {
 		if (IPV6_ADDR_SAME(&peer->addr, &address))
 			return node;
 	}

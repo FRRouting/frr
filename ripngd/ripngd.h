@@ -108,6 +108,9 @@ struct ripng {
 	/* RIPng routing information base. */
 	struct agg_table *table;
 
+	/* Linked list of RIPng peers. */
+	struct list *peer_list;
+
 	/* RIPng enabled interfaces. */
 	vector enable_if;
 
@@ -343,7 +346,6 @@ struct ripng_offset_list {
 
 /* Extern variables. */
 extern struct ripng *ripng;
-extern struct list *peer_list;
 extern struct zebra_privs_t ripngd_privs;
 extern struct thread_master *master;
 
@@ -368,13 +370,13 @@ extern void ripng_zebra_stop(void);
 extern void ripng_redistribute_conf_update(int type);
 extern void ripng_redistribute_conf_delete(int type);
 
-extern void ripng_peer_init(void);
 extern void ripng_peer_update(struct sockaddr_in6 *, uint8_t);
 extern void ripng_peer_bad_route(struct sockaddr_in6 *);
 extern void ripng_peer_bad_packet(struct sockaddr_in6 *);
 extern void ripng_peer_display(struct vty *);
 extern struct ripng_peer *ripng_peer_lookup(struct in6_addr *);
 extern struct ripng_peer *ripng_peer_lookup_next(struct in6_addr *);
+extern int ripng_peer_list_cmp(struct ripng_peer *p1, struct ripng_peer *p2);
 
 extern struct ripng_offset_list *ripng_offset_list_new(const char *ifname);
 extern void ripng_offset_list_del(struct ripng_offset_list *offset);

@@ -1805,6 +1805,8 @@ int ripng_create(int socket)
 
 	/* Initialize RIPng data structures. */
 	ripng->table = agg_table_init();
+	ripng->peer_list = list_new();
+	ripng->peer_list->cmp = (int (*)(void *, void *))ripng_peer_list_cmp;
 	ripng->enable_if = vector_init(1);
 	ripng->enable_network = agg_table_init();
 	ripng->passive_interface = vector_init(1);
