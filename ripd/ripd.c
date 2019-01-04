@@ -1386,6 +1386,13 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 	struct rip *rip;
 	int ret;
 	struct sockaddr_in sin;
+	struct msghdr msg;
+	struct iovec iov;
+#ifdef GNU_LINUX
+	struct cmsghdr *cmsgptr;
+	char adata[256] = {};
+	struct in_pktinfo *pkt;
+#endif /* GNU_LINUX */
 
 	assert(ifc != NULL);
 	ri = ifc->ifp->info;
@@ -1448,8 +1455,27 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 		rip_interface_multicast_set(rip->sock, ifc);
 	}
 
-	ret = sendto(rip->sock, buf, size, 0, (struct sockaddr *)&sin,
-		     sizeof(struct sockaddr_in));
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_name = (void *)&sin;
+	msg.msg_namelen = sizeof(struct sockaddr_in);
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+	iov.iov_base = buf;
+	iov.iov_len = size;
+
+#ifdef GNU_LINUX
+	msg.msg_control = (void *)adata;
+	msg.msg_controllen = CMSG_SPACE(sizeof(struct in_pktinfo));
+
+	cmsgptr = (struct cmsghdr *)adata;
+	cmsgptr->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
+	cmsgptr->cmsg_level = IPPROTO_IP;
+	cmsgptr->cmsg_type = IP_PKTINFO;
+	pkt = (struct in_pktinfo *)CMSG_DATA(cmsgptr);
+	pkt->ipi_ifindex = ifc->ifp->ifindex;
+#endif /* GNU_LINUX */
+
+	ret = sendmsg(rip->sock, &msg, 0);
 
 	if (IS_RIP_DEBUG_EVENT)
 		zlog_debug("SEND to  %s.%d", inet_ntoa(sin.sin_addr),
