@@ -152,7 +152,7 @@ int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 	struct msghdr msg;
 	struct iovec iov;
 	struct cmsghdr *cmsgptr;
-	char adata[256];
+	char adata[256] = {};
 	struct in6_pktinfo *pkt;
 	struct sockaddr_in6 addr;
 
