@@ -147,6 +147,9 @@ struct rip {
 	/* RIP enabled interfaces. */
 	vector enable_interface;
 
+	/* RIP enabled networks. */
+	struct route_table *enable_network;
+
 	/* For redistribute route map. */
 	struct {
 		char *name;

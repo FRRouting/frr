@@ -60,9 +60,6 @@ const struct message ri_version_msg[] = {{RI_RIP_VERSION_1, "1"},
 					 {RI_RIP_VERSION_NONE, "none"},
 					 {0}};
 
-/* RIP enabled interface table. */
-struct route_table *rip_enable_network;
-
 /* Vector to store passive-interface name. */
 vector Vrip_passive_nondefault;
 
@@ -692,6 +689,9 @@ static int rip_enable_network_lookup_if(struct interface *ifp)
 	struct connected *connected;
 	struct prefix_ipv4 address;
 
+	if (!rip)
+		return -1;
+
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, connected)) {
 		struct prefix *p;
 		struct route_node *n;
@@ -703,7 +703,7 @@ static int rip_enable_network_lookup_if(struct interface *ifp)
 			address.prefix = p->u.prefix4;
 			address.prefixlen = IPV4_MAX_BITLEN;
 
-			n = route_node_match(rip_enable_network,
+			n = route_node_match(rip->enable_network,
 					     (struct prefix *)&address);
 			if (n) {
 				route_unlock_node(n);
@@ -730,8 +730,8 @@ int rip_enable_network_lookup2(struct connected *connected)
 		address.prefixlen = IPV4_MAX_BITLEN;
 
 		/* LPM on p->family, p->u.prefix4/IPV4_MAX_BITLEN within
-		 * rip_enable_network */
-		node = route_node_match(rip_enable_network,
+		 * rip->enable_network */
+		node = route_node_match(rip->enable_network,
 					(struct prefix *)&address);
 
 		if (node) {
@@ -747,7 +747,7 @@ int rip_enable_network_add(struct prefix *p)
 {
 	struct route_node *node;
 
-	node = route_node_get(rip_enable_network, p);
+	node = route_node_get(rip->enable_network, p);
 
 	if (node->info) {
 		route_unlock_node(node);
@@ -766,7 +766,7 @@ int rip_enable_network_delete(struct prefix *p)
 {
 	struct route_node *node;
 
-	node = route_node_lookup(rip_enable_network, p);
+	node = route_node_lookup(rip->enable_network, p);
 	if (node) {
 		node->info = NULL;
 
@@ -1035,8 +1035,8 @@ void rip_clean_network()
 	char *str;
 	struct route_node *rn;
 
-	/* rip_enable_network. */
-	for (rn = route_top(rip_enable_network); rn; rn = route_next(rn))
+	/* rip->enable_network. */
+	for (rn = route_top(rip->enable_network); rn; rn = route_next(rn))
 		if (rn->info) {
 			rn->info = NULL;
 			route_unlock_node(rn);
@@ -1175,7 +1175,7 @@ int rip_show_network_config(struct vty *vty)
 	struct route_node *node;
 
 	/* Network type RIP enable interface statement. */
-	for (node = route_top(rip_enable_network); node;
+	for (node = route_top(rip->enable_network); node;
 	     node = route_next(node))
 		if (node->info)
 			vty_out(vty, "    %s/%u\n",
@@ -1221,9 +1221,6 @@ void rip_if_init(void)
 	/* Default initial size of interface vector. */
 	hook_register_prio(if_add, 0, rip_interface_new_hook);
 	hook_register_prio(if_del, 0, rip_interface_delete_hook);
-
-	/* RIP network init. */
-	rip_enable_network = route_table_init();
 
 	/* RIP passive interface. */
 	Vrip_passive_nondefault = vector_init(1);

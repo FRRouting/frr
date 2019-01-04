@@ -2693,6 +2693,7 @@ int rip_create(int socket)
 	rip->table = route_table_init();
 	rip->neighbor = route_table_init();
 	rip->enable_interface = vector_init(1);
+	rip->enable_network = route_table_init();
 
 	/* Distribute list install. */
 	rip->distribute_ctx =
@@ -3375,6 +3376,7 @@ void rip_clean(void)
 	rip_clean_network();
 	rip_passive_nondefault_clean();
 	vector_free(rip->enable_interface);
+	route_table_finish(rip->enable_network);
 	rip_offset_clean();
 	rip_interfaces_clean();
 	rip_distance_reset();
