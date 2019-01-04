@@ -81,7 +81,8 @@ static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
-	rip_clean();
+	if (rip)
+		rip_clean();
 
 	rip_zclient_stop();
 	frr_fini();

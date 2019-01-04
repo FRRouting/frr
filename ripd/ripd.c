@@ -2634,9 +2634,6 @@ void rip_redistribute_withdraw(int type)
 	struct rip_info *rinfo = NULL;
 	struct list *list = NULL;
 
-	if (!rip)
-		return;
-
 	for (rp = route_top(rip->table); rp; rp = route_next(rp))
 		if ((list = rp->info) != NULL) {
 			rinfo = listgetdata(listhead(list));
@@ -2696,6 +2693,12 @@ int rip_create(int socket)
 	rip->table = route_table_init();
 	rip->neighbor = route_table_init();
 
+	/* Distribute list install. */
+	rip->distribute_ctx =
+		distribute_list_ctx_create(vrf_lookup_by_id(VRF_DEFAULT));
+	distribute_list_add_hook(rip->distribute_ctx, rip_distribute_update);
+	distribute_list_delete_hook(rip->distribute_ctx, rip_distribute_update);
+
 	/* Make output stream. */
 	rip->obuf = stream_new(1500);
 
@@ -2705,13 +2708,7 @@ int rip_create(int socket)
 	/* Create read and timer thread. */
 	rip_event(RIP_READ, rip->sock);
 	rip_event(RIP_UPDATE_EVENT, 1);
-	/* Distribute list install. */
-	rip->distribute_ctx = distribute_list_ctx_create(
-					 vrf_lookup_by_id(VRF_DEFAULT));
-	distribute_list_add_hook(rip->distribute_ctx,
-				 rip_distribute_update);
-	distribute_list_delete_hook(rip->distribute_ctx,
-				    rip_distribute_update);
+
 	return 0;
 }
 
@@ -3325,65 +3322,54 @@ static void rip_distribute_update_all_wrapper(struct access_list *notused)
 /* Delete all added rip route. */
 void rip_clean(void)
 {
-	int i;
 	struct route_node *rp;
-	struct rip_info *rinfo = NULL;
-	struct list *list = NULL;
-	struct listnode *listnode = NULL;
 
-	if (rip) {
-		/* Clear RIP routes */
-		for (rp = route_top(rip->table); rp; rp = route_next(rp))
-			if ((list = rp->info) != NULL) {
-				rinfo = listgetdata(listhead(list));
-				if (rip_route_rte(rinfo))
-					rip_zebra_ipv4_delete(rp);
+	/* Clear RIP routes */
+	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
+		struct rip_info *rinfo;
+		struct list *list;
+		struct listnode *listnode;
 
-				for (ALL_LIST_ELEMENTS_RO(list, listnode,
-							  rinfo)) {
-					RIP_TIMER_OFF(rinfo->t_timeout);
-					RIP_TIMER_OFF(rinfo->t_garbage_collect);
-					rip_info_free(rinfo);
-				}
-				list_delete(&list);
-				rp->info = NULL;
-				route_unlock_node(rp);
-			}
+		if ((list = rp->info) == NULL)
+			continue;
 
-		/* Cancel RIP related timers. */
-		RIP_TIMER_OFF(rip->t_update);
-		RIP_TIMER_OFF(rip->t_triggered_update);
-		RIP_TIMER_OFF(rip->t_triggered_interval);
+		rinfo = listgetdata(listhead(list));
+		if (rip_route_rte(rinfo))
+			rip_zebra_ipv4_delete(rp);
 
-		/* Cancel read thread. */
-		THREAD_READ_OFF(rip->t_read);
-
-		/* Close RIP socket. */
-		if (rip->sock >= 0) {
-			close(rip->sock);
-			rip->sock = -1;
+		for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
+			RIP_TIMER_OFF(rinfo->t_timeout);
+			RIP_TIMER_OFF(rinfo->t_garbage_collect);
+			rip_info_free(rinfo);
 		}
-
-		stream_free(rip->obuf);
-
-		/* RIP neighbor configuration. */
-		for (rp = route_top(rip->neighbor); rp; rp = route_next(rp))
-			if (rp->info) {
-				rp->info = NULL;
-				route_unlock_node(rp);
-			}
-
-		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			if (rip->route_map[i].name)
-				free(rip->route_map[i].name);
-
-		route_table_finish(rip->table);
-		route_table_finish(rip->neighbor);
-
-		distribute_list_delete(&rip->distribute_ctx);
-		XFREE(MTYPE_RIP, rip);
-		rip = NULL;
+		list_delete(&list);
+		rp->info = NULL;
+		route_unlock_node(rp);
 	}
+
+	/* Cancel RIP related timers. */
+	RIP_TIMER_OFF(rip->t_update);
+	RIP_TIMER_OFF(rip->t_triggered_update);
+	RIP_TIMER_OFF(rip->t_triggered_interval);
+
+	/* Cancel read thread. */
+	THREAD_READ_OFF(rip->t_read);
+
+	/* Close RIP socket. */
+	if (rip->sock >= 0) {
+		close(rip->sock);
+		rip->sock = -1;
+	}
+
+	stream_free(rip->obuf);
+
+	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++)
+		if (rip->route_map[i].name)
+			free(rip->route_map[i].name);
+
+	route_table_finish(rip->table);
+	route_table_finish(rip->neighbor);
+	distribute_list_delete(&rip->distribute_ctx);
 
 	rip_clean_network();
 	rip_passive_nondefault_clean();
@@ -3391,6 +3377,8 @@ void rip_clean(void)
 	rip_interfaces_clean();
 	rip_distance_reset();
 	rip_redistribute_clean();
+
+	XFREE(MTYPE_RIP, rip);
 }
 
 static void rip_if_rmap_update(struct if_rmap *if_rmap)
