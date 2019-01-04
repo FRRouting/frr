@@ -446,9 +446,6 @@ int ripng_interface_address_delete(int command, struct zclient *zclient,
 	return 0;
 }
 
-/* RIPng enable interface vector. */
-vector ripng_enable_if;
-
 /* RIPng enable network table. */
 struct agg_table *ripng_enable_network;
 
@@ -558,14 +555,16 @@ static int ripng_enable_if_lookup(const char *ifname)
 	unsigned int i;
 	char *str;
 
-	for (i = 0; i < vector_active(ripng_enable_if); i++)
-		if ((str = vector_slot(ripng_enable_if, i)) != NULL)
+	if (!ripng)
+		return -1;
+
+	for (i = 0; i < vector_active(ripng->enable_if); i++)
+		if ((str = vector_slot(ripng->enable_if, i)) != NULL)
 			if (strcmp(str, ifname) == 0)
 				return i;
 	return -1;
 }
 
-/* Add interface to ripng_enable_if. */
 int ripng_enable_if_add(const char *ifname)
 {
 	int ret;
@@ -574,14 +573,13 @@ int ripng_enable_if_add(const char *ifname)
 	if (ret >= 0)
 		return NB_ERR_INCONSISTENCY;
 
-	vector_set(ripng_enable_if, strdup(ifname));
+	vector_set(ripng->enable_if, strdup(ifname));
 
 	ripng_enable_apply_all();
 
 	return NB_OK;
 }
 
-/* Delete interface from ripng_enable_if. */
 int ripng_enable_if_delete(const char *ifname)
 {
 	int index;
@@ -591,9 +589,9 @@ int ripng_enable_if_delete(const char *ifname)
 	if (index < 0)
 		return NB_ERR_INCONSISTENCY;
 
-	str = vector_slot(ripng_enable_if, index);
+	str = vector_slot(ripng->enable_if, index);
 	free(str);
-	vector_unset(ripng_enable_if, index);
+	vector_unset(ripng->enable_if, index);
 
 	ripng_enable_apply_all();
 
@@ -753,11 +751,11 @@ void ripng_clean_network()
 			agg_unlock_node(rn);
 		}
 
-	/* ripng_enable_if */
-	for (i = 0; i < vector_active(ripng_enable_if); i++)
-		if ((str = vector_slot(ripng_enable_if, i)) != NULL) {
+	/* ripng->enable_if */
+	for (i = 0; i < vector_active(ripng->enable_if); i++)
+		if ((str = vector_slot(ripng->enable_if, i)) != NULL) {
 			free(str);
-			vector_slot(ripng_enable_if, i) = NULL;
+			vector_slot(ripng->enable_if, i) = NULL;
 		}
 }
 
@@ -864,8 +862,8 @@ int ripng_network_write(struct vty *vty)
 		}
 
 	/* Write enable interface. */
-	for (i = 0; i < vector_active(ripng_enable_if); i++)
-		if ((ifname = vector_slot(ripng_enable_if, i)) != NULL)
+	for (i = 0; i < vector_active(ripng->enable_if); i++)
+		if ((ifname = vector_slot(ripng->enable_if, i)) != NULL)
 			vty_out(vty, "    %s\n", ifname);
 
 	return 0;
@@ -938,9 +936,6 @@ void ripng_if_init()
 
 	/* RIPng enable network init. */
 	ripng_enable_network = agg_table_init();
-
-	/* RIPng enable interface init. */
-	ripng_enable_if = vector_init(1);
 
 	/* RIPng passive interface. */
 	Vripng_passive_interface = vector_init(1);
