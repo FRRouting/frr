@@ -36,6 +36,7 @@ static struct rip_peer *rip_peer_new(void)
 
 static void rip_peer_free(struct rip_peer *peer)
 {
+	RIP_TIMER_OFF(peer->t_timeout);
 	XFREE(MTYPE_RIP_PEER, peer);
 }
 
@@ -173,4 +174,9 @@ int rip_peer_list_cmp(struct rip_peer *p1, struct rip_peer *p2)
 		return 0;
 
 	return (htonl(p1->addr.s_addr) < htonl(p2->addr.s_addr)) ? -1 : 1;
+}
+
+void rip_peer_list_del(void *arg)
+{
+	rip_peer_free(arg);
 }

@@ -449,6 +449,7 @@ extern void rip_peer_display(struct vty *);
 extern struct rip_peer *rip_peer_lookup(struct in_addr *);
 extern struct rip_peer *rip_peer_lookup_next(struct in_addr *);
 extern int rip_peer_list_cmp(struct rip_peer *p1, struct rip_peer *p2);
+extern void rip_peer_list_del(void *arg);
 
 extern void rip_info_free(struct rip_info *);
 extern struct rip_distance *rip_distance_new(void);

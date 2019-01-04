@@ -2609,6 +2609,7 @@ int rip_create(int socket)
 	rip->neighbor = route_table_init();
 	rip->peer_list = list_new();
 	rip->peer_list->cmp = (int (*)(void *, void *))rip_peer_list_cmp;
+	rip->peer_list->del = rip_peer_list_del;
 	rip->distance_table = route_table_init();
 	rip->distance_table->cleanup = rip_distance_table_node_cleanup;
 	rip->enable_interface = vector_init(1);
@@ -3288,6 +3289,7 @@ void rip_clean(void)
 
 	route_table_finish(rip->table);
 	route_table_finish(rip->neighbor);
+	list_delete(&rip->peer_list);
 	distribute_list_delete(&rip->distribute_ctx);
 
 	rip_clean_network();
