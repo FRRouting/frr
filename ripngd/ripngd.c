@@ -1807,6 +1807,7 @@ int ripng_create(int socket)
 	ripng->table = agg_table_init();
 	ripng->enable_if = vector_init(1);
 	ripng->enable_network = agg_table_init();
+	ripng->passive_interface = vector_init(1);
 
 	/* Distribute list install. */
 	ripng->distribute_ctx = distribute_list_ctx_create(
@@ -2465,6 +2466,7 @@ void ripng_clean()
 	ripng_passive_interface_clean();
 	vector_free(ripng->enable_if);
 	agg_table_finish(ripng->enable_network);
+	vector_free(ripng->passive_interface);
 	ripng_offset_clean();
 	ripng_interface_clean();
 	ripng_redistribute_clean();

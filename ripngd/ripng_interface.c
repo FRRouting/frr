@@ -762,17 +762,17 @@ void ripng_clean_network()
 		}
 }
 
-/* Vector to store passive-interface name. */
-vector Vripng_passive_interface;
-
 /* Utility function for looking up passive interface settings. */
 static int ripng_passive_interface_lookup(const char *ifname)
 {
 	unsigned int i;
 	char *str;
 
-	for (i = 0; i < vector_active(Vripng_passive_interface); i++)
-		if ((str = vector_slot(Vripng_passive_interface, i)) != NULL)
+	if (!ripng)
+		return -1;
+
+	for (i = 0; i < vector_active(ripng->passive_interface); i++)
+		if ((str = vector_slot(ripng->passive_interface, i)) != NULL)
 			if (strcmp(str, ifname) == 0)
 				return i;
 	return -1;
@@ -807,7 +807,7 @@ int ripng_passive_interface_set(const char *ifname)
 	if (ripng_passive_interface_lookup(ifname) >= 0)
 		return NB_ERR_INCONSISTENCY;
 
-	vector_set(Vripng_passive_interface, strdup(ifname));
+	vector_set(ripng->passive_interface, strdup(ifname));
 
 	ripng_passive_interface_apply_all();
 
@@ -823,9 +823,9 @@ int ripng_passive_interface_unset(const char *ifname)
 	if (i < 0)
 		return NB_ERR_INCONSISTENCY;
 
-	str = vector_slot(Vripng_passive_interface, i);
+	str = vector_slot(ripng->passive_interface, i);
 	free(str);
-	vector_unset(Vripng_passive_interface, i);
+	vector_unset(ripng->passive_interface, i);
 
 	ripng_passive_interface_apply_all();
 
@@ -838,10 +838,10 @@ void ripng_passive_interface_clean(void)
 	unsigned int i;
 	char *str;
 
-	for (i = 0; i < vector_active(Vripng_passive_interface); i++)
-		if ((str = vector_slot(Vripng_passive_interface, i)) != NULL) {
+	for (i = 0; i < vector_active(ripng->passive_interface); i++)
+		if ((str = vector_slot(ripng->passive_interface, i)) != NULL) {
 			free(str);
-			vector_slot(Vripng_passive_interface, i) = NULL;
+			vector_slot(ripng->passive_interface, i) = NULL;
 		}
 	ripng_passive_interface_apply_all();
 }
@@ -936,9 +936,6 @@ void ripng_if_init()
 	/* Interface initialize. */
 	hook_register_prio(if_add, 0, ripng_if_new_hook);
 	hook_register_prio(if_del, 0, ripng_if_delete_hook);
-
-	/* RIPng passive interface. */
-	Vripng_passive_interface = vector_init(1);
 
 	/* Install interface node. */
 	install_node(&interface_node, interface_config_write);

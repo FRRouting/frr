@@ -114,6 +114,9 @@ struct ripng {
 	/* RIPng enabled networks. */
 	struct agg_table *enable_network;
 
+	/* Vector to store passive-interface name. */
+	vector passive_interface;
+
 	/* RIPng threads. */
 	struct thread *t_read;
 	struct thread *t_write;
