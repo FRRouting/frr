@@ -517,6 +517,7 @@ extern void ripd_notif_send_auth_type_failure(const char *ifname);
 extern void ripd_notif_send_auth_failure(const char *ifname);
 
 extern struct zebra_privs_t ripd_privs;
+extern struct rip_instance_head rip_instances;
 
 /* Master thread strucutre. */
 extern struct thread_master *master;

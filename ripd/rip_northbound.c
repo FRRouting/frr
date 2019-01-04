@@ -99,6 +99,38 @@ static int ripd_instance_delete(enum nb_event event,
 	return NB_OK;
 }
 
+static const void *ripd_instance_get_next(const void *parent_list_entry,
+					  const void *list_entry)
+{
+	const struct rip *rip = list_entry;
+
+	if (list_entry == NULL)
+		rip = RB_MIN(rip_instance_head, &rip_instances);
+	else
+		rip = RB_NEXT(rip_instance_head, (struct rip *)rip);
+
+	return rip;
+}
+
+static int ripd_instance_get_keys(const void *list_entry,
+				  struct yang_list_keys *keys)
+{
+	const struct rip *rip = list_entry;
+
+	keys->num = 1;
+	strlcpy(keys->key[0], rip->vrf_name, sizeof(keys->key[0]));
+
+	return NB_OK;
+}
+
+static const void *ripd_instance_lookup_entry(const void *parent_list_entry,
+					      const struct yang_list_keys *keys)
+{
+	const char *vrf_name = keys->key[0];
+
+	return rip_lookup_by_vrf_name(vrf_name);
+}
+
 /*
  * XPath: /frr-ripd:ripd/instance/allow-ecmp
  */
@@ -1099,18 +1131,14 @@ lib_interface_rip_authentication_key_chain_delete(enum nb_event event,
 }
 
 /*
- * XPath: /frr-ripd:ripd/state/neighbors/neighbor
+ * XPath: /frr-ripd:ripd/instance/state/neighbors/neighbor
  */
 static const void *
-ripd_state_neighbors_neighbor_get_next(const void *parent_list_entry,
-				       const void *list_entry)
+ripd_instance_state_neighbors_neighbor_get_next(const void *parent_list_entry,
+						const void *list_entry)
 {
-	struct rip *rip;
+	const struct rip *rip = parent_list_entry;
 	struct listnode *node;
-
-	rip = rip_lookup_by_vrf_id(VRF_DEFAULT);
-	if (rip == NULL)
-		return NULL;
 
 	if (list_entry == NULL)
 		node = listhead(rip->peer_list);
@@ -1120,8 +1148,9 @@ ripd_state_neighbors_neighbor_get_next(const void *parent_list_entry,
 	return node;
 }
 
-static int ripd_state_neighbors_neighbor_get_keys(const void *list_entry,
-						  struct yang_list_keys *keys)
+static int
+ripd_instance_state_neighbors_neighbor_get_keys(const void *list_entry,
+						struct yang_list_keys *keys)
 {
 	const struct listnode *node = list_entry;
 	const struct rip_peer *peer = listgetdata(node);
@@ -1133,20 +1162,15 @@ static int ripd_state_neighbors_neighbor_get_keys(const void *list_entry,
 	return NB_OK;
 }
 
-static const void *
-ripd_state_neighbors_neighbor_lookup_entry(const void *parent_list_entry,
-					   const struct yang_list_keys *keys)
+static const void *ripd_instance_state_neighbors_neighbor_lookup_entry(
+	const void *parent_list_entry, const struct yang_list_keys *keys)
 {
-	struct rip *rip;
+	const struct rip *rip = parent_list_entry;
 	struct in_addr address;
 	struct rip_peer *peer;
 	struct listnode *node;
 
 	yang_str2ipv4(keys->key[0], &address);
-
-	rip = rip_lookup_by_vrf_id(VRF_DEFAULT);
-	if (rip == NULL)
-		return NULL;
 
 	for (ALL_LIST_ELEMENTS_RO(rip->peer_list, node, peer)) {
 		if (IPV4_ADDR_SAME(&peer->addr, &address))
@@ -1157,11 +1181,11 @@ ripd_state_neighbors_neighbor_lookup_entry(const void *parent_list_entry,
 }
 
 /*
- * XPath: /frr-ripd:ripd/state/neighbors/neighbor/address
+ * XPath: /frr-ripd:ripd/instance/state/neighbors/neighbor/address
  */
 static struct yang_data *
-ripd_state_neighbors_neighbor_address_get_elem(const char *xpath,
-					       const void *list_entry)
+ripd_instance_state_neighbors_neighbor_address_get_elem(const char *xpath,
+							const void *list_entry)
 {
 	const struct listnode *node = list_entry;
 	const struct rip_peer *peer = listgetdata(node);
@@ -1170,22 +1194,22 @@ ripd_state_neighbors_neighbor_address_get_elem(const char *xpath,
 }
 
 /*
- * XPath: /frr-ripd:ripd/state/neighbors/neighbor/last-update
+ * XPath: /frr-ripd:ripd/instance/state/neighbors/neighbor/last-update
  */
 static struct yang_data *
-ripd_state_neighbors_neighbor_last_update_get_elem(const char *xpath,
-						   const void *list_entry)
+ripd_instance_state_neighbors_neighbor_last_update_get_elem(
+	const char *xpath, const void *list_entry)
 {
 	/* TODO: yang:date-and-time is tricky */
 	return NULL;
 }
 
 /*
- * XPath: /frr-ripd:ripd/state/neighbors/neighbor/bad-packets-rcvd
+ * XPath: /frr-ripd:ripd/instance/state/neighbors/neighbor/bad-packets-rcvd
  */
 static struct yang_data *
-ripd_state_neighbors_neighbor_bad_packets_rcvd_get_elem(const char *xpath,
-							const void *list_entry)
+ripd_instance_state_neighbors_neighbor_bad_packets_rcvd_get_elem(
+	const char *xpath, const void *list_entry)
 {
 	const struct listnode *node = list_entry;
 	const struct rip_peer *peer = listgetdata(node);
@@ -1194,11 +1218,11 @@ ripd_state_neighbors_neighbor_bad_packets_rcvd_get_elem(const char *xpath,
 }
 
 /*
- * XPath: /frr-ripd:ripd/state/neighbors/neighbor/bad-routes-rcvd
+ * XPath: /frr-ripd:ripd/instance/state/neighbors/neighbor/bad-routes-rcvd
  */
 static struct yang_data *
-ripd_state_neighbors_neighbor_bad_routes_rcvd_get_elem(const char *xpath,
-						       const void *list_entry)
+ripd_instance_state_neighbors_neighbor_bad_routes_rcvd_get_elem(
+	const char *xpath, const void *list_entry)
 {
 	const struct listnode *node = list_entry;
 	const struct rip_peer *peer = listgetdata(node);
@@ -1207,18 +1231,14 @@ ripd_state_neighbors_neighbor_bad_routes_rcvd_get_elem(const char *xpath,
 }
 
 /*
- * XPath: /frr-ripd:ripd/state/routes/route
+ * XPath: /frr-ripd:ripd/instance/state/routes/route
  */
 static const void *
-ripd_state_routes_route_get_next(const void *parent_list_entry,
-				 const void *list_entry)
+ripd_instance_state_routes_route_get_next(const void *parent_list_entry,
+					  const void *list_entry)
 {
-	struct rip *rip;
+	const struct rip *rip = parent_list_entry;
 	struct route_node *rn;
-
-	rip = rip_lookup_by_vrf_id(VRF_DEFAULT);
-	if (rip == NULL)
-		return NULL;
 
 	if (list_entry == NULL)
 		rn = route_top(rip->table);
@@ -1230,8 +1250,9 @@ ripd_state_routes_route_get_next(const void *parent_list_entry,
 	return rn;
 }
 
-static int ripd_state_routes_route_get_keys(const void *list_entry,
-					    struct yang_list_keys *keys)
+static int
+ripd_instance_state_routes_route_get_keys(const void *list_entry,
+					  struct yang_list_keys *keys)
 {
 	const struct route_node *rn = list_entry;
 
@@ -1242,18 +1263,14 @@ static int ripd_state_routes_route_get_keys(const void *list_entry,
 }
 
 static const void *
-ripd_state_routes_route_lookup_entry(const void *parent_list_entry,
-				     const struct yang_list_keys *keys)
+ripd_instance_state_routes_route_lookup_entry(const void *parent_list_entry,
+					      const struct yang_list_keys *keys)
 {
-	struct rip *rip;
+	const struct rip *rip = parent_list_entry;
 	struct prefix prefix;
 	struct route_node *rn;
 
 	yang_str2ipv4p(keys->key[0], &prefix);
-
-	rip = rip_lookup_by_vrf_id(VRF_DEFAULT);
-	if (rip == NULL)
-		return NULL;
 
 	rn = route_node_lookup(rip->table, &prefix);
 	if (!rn || !rn->info)
@@ -1265,11 +1282,11 @@ ripd_state_routes_route_lookup_entry(const void *parent_list_entry,
 }
 
 /*
- * XPath: /frr-ripd:ripd/state/routes/route/prefix
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/prefix
  */
 static struct yang_data *
-ripd_state_routes_route_prefix_get_elem(const char *xpath,
-					const void *list_entry)
+ripd_instance_state_routes_route_prefix_get_elem(const char *xpath,
+						 const void *list_entry)
 {
 	const struct route_node *rn = list_entry;
 	const struct rip_info *rinfo = listnode_head(rn->info);
@@ -1278,11 +1295,11 @@ ripd_state_routes_route_prefix_get_elem(const char *xpath,
 }
 
 /*
- * XPath: /frr-ripd:ripd/state/routes/route/next-hop
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/next-hop
  */
 static struct yang_data *
-ripd_state_routes_route_next_hop_get_elem(const char *xpath,
-					  const void *list_entry)
+ripd_instance_state_routes_route_next_hop_get_elem(const char *xpath,
+						   const void *list_entry)
 {
 	const struct route_node *rn = list_entry;
 	const struct rip_info *rinfo = listnode_head(rn->info);
@@ -1297,31 +1314,33 @@ ripd_state_routes_route_next_hop_get_elem(const char *xpath,
 }
 
 /*
- * XPath: /frr-ripd:ripd/state/routes/route/interface
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/interface
  */
 static struct yang_data *
-ripd_state_routes_route_interface_get_elem(const char *xpath,
-					   const void *list_entry)
+ripd_instance_state_routes_route_interface_get_elem(const char *xpath,
+						    const void *list_entry)
 {
 	const struct route_node *rn = list_entry;
 	const struct rip_info *rinfo = listnode_head(rn->info);
+	const struct rip *rip = rip_info_get_instance(rinfo);
 
 	switch (rinfo->nh.type) {
 	case NEXTHOP_TYPE_IFINDEX:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		return yang_data_new_string(
-			xpath, ifindex2ifname(rinfo->nh.ifindex, VRF_DEFAULT));
+			xpath,
+			ifindex2ifname(rinfo->nh.ifindex, rip->vrf->vrf_id));
 	default:
 		return NULL;
 	}
 }
 
 /*
- * XPath: /frr-ripd:ripd/state/routes/route/metric
+ * XPath: /frr-ripd:ripd/instance/state/routes/route/metric
  */
 static struct yang_data *
-ripd_state_routes_route_metric_get_elem(const char *xpath,
-					const void *list_entry)
+ripd_instance_state_routes_route_metric_get_elem(const char *xpath,
+						 const void *list_entry)
 {
 	const struct route_node *rn = list_entry;
 	const struct rip_info *rinfo = listnode_head(rn->info);
@@ -1423,6 +1442,9 @@ const struct frr_yang_module_info frr_ripd_info = {
 			.xpath = "/frr-ripd:ripd/instance",
 			.cbs.create = ripd_instance_create,
 			.cbs.delete = ripd_instance_delete,
+			.cbs.get_next = ripd_instance_get_next,
+			.cbs.get_keys = ripd_instance_get_keys,
+			.cbs.lookup_entry = ripd_instance_lookup_entry,
 			.cbs.cli_show = cli_show_router_rip,
 		},
 		{
@@ -1607,48 +1629,48 @@ const struct frr_yang_module_info frr_ripd_info = {
 			.cbs.cli_show = cli_show_ip_rip_authentication_key_chain,
 		},
 		{
-			.xpath = "/frr-ripd:ripd/state/neighbors/neighbor",
-			.cbs.get_next = ripd_state_neighbors_neighbor_get_next,
-			.cbs.get_keys = ripd_state_neighbors_neighbor_get_keys,
-			.cbs.lookup_entry = ripd_state_neighbors_neighbor_lookup_entry,
+			.xpath = "/frr-ripd:ripd/instance/state/neighbors/neighbor",
+			.cbs.get_next = ripd_instance_state_neighbors_neighbor_get_next,
+			.cbs.get_keys = ripd_instance_state_neighbors_neighbor_get_keys,
+			.cbs.lookup_entry = ripd_instance_state_neighbors_neighbor_lookup_entry,
 		},
 		{
-			.xpath = "/frr-ripd:ripd/state/neighbors/neighbor/address",
-			.cbs.get_elem = ripd_state_neighbors_neighbor_address_get_elem,
+			.xpath = "/frr-ripd:ripd/instance/state/neighbors/neighbor/address",
+			.cbs.get_elem = ripd_instance_state_neighbors_neighbor_address_get_elem,
 		},
 		{
-			.xpath = "/frr-ripd:ripd/state/neighbors/neighbor/last-update",
-			.cbs.get_elem = ripd_state_neighbors_neighbor_last_update_get_elem,
+			.xpath = "/frr-ripd:ripd/instance/state/neighbors/neighbor/last-update",
+			.cbs.get_elem = ripd_instance_state_neighbors_neighbor_last_update_get_elem,
 		},
 		{
-			.xpath = "/frr-ripd:ripd/state/neighbors/neighbor/bad-packets-rcvd",
-			.cbs.get_elem = ripd_state_neighbors_neighbor_bad_packets_rcvd_get_elem,
+			.xpath = "/frr-ripd:ripd/instance/state/neighbors/neighbor/bad-packets-rcvd",
+			.cbs.get_elem = ripd_instance_state_neighbors_neighbor_bad_packets_rcvd_get_elem,
 		},
 		{
-			.xpath = "/frr-ripd:ripd/state/neighbors/neighbor/bad-routes-rcvd",
-			.cbs.get_elem = ripd_state_neighbors_neighbor_bad_routes_rcvd_get_elem,
+			.xpath = "/frr-ripd:ripd/instance/state/neighbors/neighbor/bad-routes-rcvd",
+			.cbs.get_elem = ripd_instance_state_neighbors_neighbor_bad_routes_rcvd_get_elem,
 		},
 		{
-			.xpath = "/frr-ripd:ripd/state/routes/route",
-			.cbs.get_next = ripd_state_routes_route_get_next,
-			.cbs.get_keys = ripd_state_routes_route_get_keys,
-			.cbs.lookup_entry = ripd_state_routes_route_lookup_entry,
+			.xpath = "/frr-ripd:ripd/instance/state/routes/route",
+			.cbs.get_next = ripd_instance_state_routes_route_get_next,
+			.cbs.get_keys = ripd_instance_state_routes_route_get_keys,
+			.cbs.lookup_entry = ripd_instance_state_routes_route_lookup_entry,
 		},
 		{
-			.xpath = "/frr-ripd:ripd/state/routes/route/prefix",
-			.cbs.get_elem = ripd_state_routes_route_prefix_get_elem,
+			.xpath = "/frr-ripd:ripd/instance/state/routes/route/prefix",
+			.cbs.get_elem = ripd_instance_state_routes_route_prefix_get_elem,
 		},
 		{
-			.xpath = "/frr-ripd:ripd/state/routes/route/next-hop",
-			.cbs.get_elem = ripd_state_routes_route_next_hop_get_elem,
+			.xpath = "/frr-ripd:ripd/instance/state/routes/route/next-hop",
+			.cbs.get_elem = ripd_instance_state_routes_route_next_hop_get_elem,
 		},
 		{
-			.xpath = "/frr-ripd:ripd/state/routes/route/interface",
-			.cbs.get_elem = ripd_state_routes_route_interface_get_elem,
+			.xpath = "/frr-ripd:ripd/instance/state/routes/route/interface",
+			.cbs.get_elem = ripd_instance_state_routes_route_interface_get_elem,
 		},
 		{
-			.xpath = "/frr-ripd:ripd/state/routes/route/metric",
-			.cbs.get_elem = ripd_state_routes_route_metric_get_elem,
+			.xpath = "/frr-ripd:ripd/instance/state/routes/route/metric",
+			.cbs.get_elem = ripd_instance_state_routes_route_metric_get_elem,
 		},
 		{
 			.xpath = "/frr-ripd:clear-rip-route",
