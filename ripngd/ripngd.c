@@ -1811,6 +1811,11 @@ int ripng_create(int socket)
 	ripng->enable_if = vector_init(1);
 	ripng->enable_network = agg_table_init();
 	ripng->passive_interface = vector_init(1);
+	ripng->offset_list_master = list_new();
+	ripng->offset_list_master->cmp =
+		(int (*)(void *, void *))offset_list_cmp;
+	ripng->offset_list_master->del =
+		(void (*)(void *))ripng_offset_list_del;
 
 	/* Distribute list install. */
 	ripng->distribute_ctx = distribute_list_ctx_create(
@@ -2471,7 +2476,7 @@ void ripng_clean()
 	vector_free(ripng->enable_if);
 	agg_table_finish(ripng->enable_network);
 	vector_free(ripng->passive_interface);
-	ripng_offset_clean();
+	list_delete(&ripng->offset_list_master);
 	ripng_interface_clean();
 	ripng_redistribute_clean();
 
@@ -2583,7 +2588,6 @@ void ripng_init()
 
 	/* Route-map for interface. */
 	ripng_route_map_init();
-	ripng_offset_init();
 
 	route_map_add_hook(ripng_routemap_update);
 	route_map_delete_hook(ripng_routemap_update);

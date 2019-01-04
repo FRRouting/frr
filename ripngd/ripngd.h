@@ -120,6 +120,9 @@ struct ripng {
 	/* Vector to store passive-interface name. */
 	vector passive_interface;
 
+	/* RIPng offset-lists. */
+	struct list *offset_list_master;
+
 	/* RIPng threads. */
 	struct thread *t_read;
 	struct thread *t_write;
@@ -387,8 +390,8 @@ extern int ripng_offset_list_apply_in(struct prefix_ipv6 *, struct interface *,
 				      uint8_t *);
 extern int ripng_offset_list_apply_out(struct prefix_ipv6 *, struct interface *,
 				       uint8_t *);
-extern void ripng_offset_init(void);
-extern void ripng_offset_clean(void);
+extern int offset_list_cmp(struct ripng_offset_list *o1,
+			   struct ripng_offset_list *o2);
 
 extern int ripng_route_rte(struct ripng_info *rinfo);
 extern struct ripng_info *ripng_info_new(void);

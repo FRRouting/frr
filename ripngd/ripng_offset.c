@@ -33,8 +33,6 @@
 
 #include "ripngd/ripngd.h"
 
-static struct list *ripng_offset_list_master;
-
 #define OFFSET_LIST_IN_NAME(O)  ((O)->direct[RIPNG_OFFSET_LIST_IN].alist_name)
 #define OFFSET_LIST_IN_METRIC(O)  ((O)->direct[RIPNG_OFFSET_LIST_IN].metric)
 
@@ -48,14 +46,14 @@ struct ripng_offset_list *ripng_offset_list_new(const char *ifname)
 	new = XCALLOC(MTYPE_RIPNG_OFFSET_LIST,
 		      sizeof(struct ripng_offset_list));
 	new->ifname = strdup(ifname);
-	listnode_add_sort(ripng_offset_list_master, new);
+	listnode_add_sort(ripng->offset_list_master, new);
 
 	return new;
 }
 
 void ripng_offset_list_del(struct ripng_offset_list *offset)
 {
-	listnode_delete(ripng_offset_list_master, offset);
+	listnode_delete(ripng->offset_list_master, offset);
 	if (OFFSET_LIST_IN_NAME(offset))
 		free(OFFSET_LIST_IN_NAME(offset));
 	if (OFFSET_LIST_OUT_NAME(offset))
@@ -69,7 +67,8 @@ struct ripng_offset_list *ripng_offset_list_lookup(const char *ifname)
 	struct ripng_offset_list *offset;
 	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(ripng_offset_list_master, node, nnode, offset)) {
+	for (ALL_LIST_ELEMENTS(ripng->offset_list_master, node, nnode,
+			       offset)) {
 		if (strcmp(offset->ifname, ifname) == 0)
 			return offset;
 	}
@@ -153,26 +152,7 @@ int ripng_offset_list_apply_out(struct prefix_ipv6 *p, struct interface *ifp,
 	return 0;
 }
 
-static int offset_list_cmp(struct ripng_offset_list *o1,
-			   struct ripng_offset_list *o2)
+int offset_list_cmp(struct ripng_offset_list *o1, struct ripng_offset_list *o2)
 {
 	return strcmp(o1->ifname, o2->ifname);
-}
-
-void ripng_offset_init(void)
-{
-	ripng_offset_list_master = list_new();
-	ripng_offset_list_master->cmp =
-		(int (*)(void *, void *))offset_list_cmp;
-	ripng_offset_list_master->del = (void (*)(void *))ripng_offset_list_del;
-}
-
-void ripng_offset_clean(void)
-{
-	list_delete(&ripng_offset_list_master);
-
-	ripng_offset_list_master = list_new();
-	ripng_offset_list_master->cmp =
-		(int (*)(void *, void *))offset_list_cmp;
-	ripng_offset_list_master->del = (void (*)(void *))ripng_offset_list_del;
 }
