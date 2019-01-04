@@ -478,12 +478,24 @@ void cli_show_ipv6_ripng_split_horizon(struct vty *vty, struct lyd_node *dnode,
  */
 DEFPY (clear_ipv6_rip,
        clear_ipv6_rip_cmd,
-       "clear ipv6 ripng",
+       "clear ipv6 ripng [vrf WORD]",
        CLEAR_STR
        IPV6_STR
-       "Clear IPv6 RIP database\n")
+       "Clear IPv6 RIP database\n"
+       VRF_CMD_HELP_STR)
 {
-	return nb_cli_rpc("/frr-ripngd:clear-ripng-route", NULL, NULL);
+	struct list *input;
+
+	input = list_new();
+	if (vrf) {
+		struct yang_data *yang_vrf;
+
+		yang_vrf = yang_data_new(
+			"/frr-ripngd:clear-ripng-route/input/vrf", vrf);
+		listnode_add(input, yang_vrf);
+	}
+
+	return nb_cli_rpc("/frr-ripngd:clear-ripng-route", input, NULL);
 }
 
 void ripng_cli_init(void)

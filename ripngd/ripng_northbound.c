@@ -32,6 +32,7 @@
 #include "libfrr.h"
 
 #include "ripngd/ripngd.h"
+#include "ripngd/ripng_debug.h"
 #include "ripngd/ripng_route.h"
 #include "ripngd/ripng_cli.h"
 
@@ -894,21 +895,20 @@ ripngd_instance_state_routes_route_metric_get_elem(const char *xpath,
 /*
  * XPath: /frr-ripngd:clear-ripng-route
  */
-static int clear_ripng_route_rpc(const char *xpath, const struct list *input,
-				 struct list *output)
+static void clear_ripng_route(struct ripng *ripng)
 {
-	struct ripng *ripng;
 	struct agg_node *rp;
-	struct ripng_info *rinfo;
-	struct list *list;
-	struct listnode *listnode;
 
-	ripng = ripng_lookup_by_vrf_id(VRF_DEFAULT);
-	if (!ripng)
-		return NB_OK;
+	if (IS_RIPNG_DEBUG_EVENT)
+		zlog_debug("Clearing all RIPng routes (VRF %s)",
+			   ripng->vrf_name);
 
 	/* Clear received RIPng routes */
 	for (rp = agg_route_top(ripng->table); rp; rp = agg_route_next(rp)) {
+		struct list *list;
+		struct listnode *listnode;
+		struct ripng_info *rinfo;
+
 		list = rp->info;
 		if (list == NULL)
 			continue;
@@ -933,6 +933,30 @@ static int clear_ripng_route_rpc(const char *xpath, const struct list *input,
 			list_delete(&list);
 			rp->info = NULL;
 			agg_unlock_node(rp);
+		}
+	}
+}
+
+static int clear_ripng_route_rpc(const char *xpath, const struct list *input,
+				 struct list *output)
+{
+	struct ripng *ripng;
+	struct yang_data *yang_vrf;
+
+	yang_vrf = yang_data_list_find(input, "%s/%s", xpath, "input/vrf");
+	if (yang_vrf) {
+		ripng = ripng_lookup_by_vrf_name(yang_vrf->value);
+		if (ripng)
+			clear_ripng_route(ripng);
+	} else {
+		struct vrf *vrf;
+
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			ripng = vrf->info;
+			if (!ripng)
+				continue;
+
+			clear_ripng_route(ripng);
 		}
 	}
 

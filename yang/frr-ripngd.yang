@@ -322,5 +322,18 @@ module frr-ripngd {
     description
       "Clears RIPng routes from the IPv6 routing table and routes
        redistributed into the RIPng protocol.";
+
+    input {
+      leaf vrf {
+        type string;
+        description
+          "VRF name identifying a specific RIPng instance.
+           This leaf is optional for the rpc.
+           If it is specified, the rpc will clear all routes in the
+           specified RIPng instance;
+           if it is not specified, the rpc will clear all routes in
+           all RIPng instances.";
+      }
+    }
   }
 }
