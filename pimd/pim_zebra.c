@@ -727,11 +727,11 @@ void sched_rpf_cache_refresh(struct pim_instance *pim)
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug("%s: triggering %ld msec timer", __PRETTY_FUNCTION__,
-			   qpim_rpf_cache_refresh_delay_msec);
+			   router->rpf_cache_refresh_delay_msec);
 	}
 
-	thread_add_timer_msec(master, on_rpf_cache_refresh, pim,
-			      qpim_rpf_cache_refresh_delay_msec,
+	thread_add_timer_msec(router->master, on_rpf_cache_refresh, pim,
+			      router->rpf_cache_refresh_delay_msec,
 			      &pim->rpf_cache_refresher);
 }
 
@@ -740,14 +740,20 @@ static void pim_zebra_connected(struct zclient *zclient)
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 
-	zclient_send_reg_requests(zclient, pimg->vrf_id);
+	zclient_send_reg_requests(zclient, router->vrf_id);
+}
+
+static void pim_zebra_capabilities(struct zclient_capabilities *cap)
+{
+	router->role = cap->role;
 }
 
 void pim_zebra_init(void)
 {
 	/* Socket for receiving updates from Zebra daemon */
-	zclient = zclient_new(master, &zclient_options_default);
+	zclient = zclient_new(router->master, &zclient_options_default);
 
+	zclient->zebra_capabilities = pim_zebra_capabilities;
 	zclient->zebra_connected = pim_zebra_connected;
 	zclient->router_id_update = pim_router_id_update_zebra;
 	zclient->interface_add = pim_zebra_if_add;

@@ -569,7 +569,7 @@ static void pim_assert_timer_set(struct pim_ifchannel *ch, int interval)
 			   ch->interface->name);
 	}
 
-	thread_add_timer(master, on_assert_timer, ch, interval,
+	thread_add_timer(router->master, on_assert_timer, ch, interval,
 			 &ch->t_ifassert_timer);
 }
 

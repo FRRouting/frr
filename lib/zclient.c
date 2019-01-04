@@ -2355,6 +2355,7 @@ static void zclient_capability_decode(int command, struct zclient *zclient,
 	STREAM_GETC(s, mpls_enabled);
 	cap.mpls_enabled = !!mpls_enabled;
 	STREAM_GETL(s, cap.ecmp);
+	STREAM_GETC(s, cap.role);
 
 	if (zclient->zebra_capabilities)
 		(*zclient->zebra_capabilities)(&cap);

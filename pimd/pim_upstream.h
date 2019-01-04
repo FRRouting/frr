@@ -126,13 +126,14 @@ struct pim_upstream {
 	 */
 	struct thread *t_ka_timer;
 #define PIM_KEEPALIVE_PERIOD  (210)
-#define PIM_RP_KEEPALIVE_PERIOD ( 3 * qpim_register_suppress_time + qpim_register_probe_time )
+#define PIM_RP_KEEPALIVE_PERIOD                                                \
+	(3 * router->register_suppress_time + router->register_probe_time)
 
 	/* on the RP we restart a timer to indicate if registers are being rxed
 	 * for
 	 * SG. This is needed by MSDP to determine its local SA cache */
 	struct thread *t_msdp_reg_timer;
-#define PIM_MSDP_REG_RXED_PERIOD (3 * (1.5 * qpim_register_suppress_time))
+#define PIM_MSDP_REG_RXED_PERIOD (3 * (1.5 * router->register_suppress_time))
 
 	int64_t state_transition; /* Record current state uptime */
 };

@@ -708,7 +708,7 @@ static int mroute_read(struct thread *t)
 		result = pim_mroute_msg(pim, buf, rd, ifindex);
 
 		count++;
-		if (count % qpim_packet_process == 0)
+		if (count % router->packet_process == 0)
 			cont = 0;
 	}
 /* Keep reading */
@@ -720,7 +720,7 @@ done:
 
 static void mroute_read_on(struct pim_instance *pim)
 {
-	thread_add_read(master, mroute_read, pim, pim->mroute_socket,
+	thread_add_read(router->master, mroute_read, pim, pim->mroute_socket,
 			&pim->thread);
 }
 

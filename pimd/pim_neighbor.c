@@ -255,8 +255,8 @@ void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime)
 			   neigh->interface->name);
 	}
 
-	thread_add_timer(master, on_neighbor_timer, neigh, neigh->holdtime,
-			 &neigh->t_expire_timer);
+	thread_add_timer(router->master, on_neighbor_timer, neigh,
+			 neigh->holdtime, &neigh->t_expire_timer);
 }
 
 static int on_neighbor_jp_timer(struct thread *t)
@@ -277,8 +277,8 @@ static int on_neighbor_jp_timer(struct thread *t)
 	rpf.rpf_addr.u.prefix4 = neigh->source_addr;
 	pim_joinprune_send(&rpf, neigh->upstream_jp_agg);
 
-	thread_add_timer(master, on_neighbor_jp_timer, neigh, qpim_t_periodic,
-			 &neigh->jp_timer);
+	thread_add_timer(router->master, on_neighbor_jp_timer, neigh,
+			 router->t_periodic, &neigh->jp_timer);
 
 	return 0;
 }
@@ -286,8 +286,8 @@ static int on_neighbor_jp_timer(struct thread *t)
 static void pim_neighbor_start_jp_timer(struct pim_neighbor *neigh)
 {
 	THREAD_TIMER_OFF(neigh->jp_timer);
-	thread_add_timer(master, on_neighbor_jp_timer, neigh, qpim_t_periodic,
-			 &neigh->jp_timer);
+	thread_add_timer(router->master, on_neighbor_jp_timer, neigh,
+			 router->t_periodic, &neigh->jp_timer);
 }
 
 static struct pim_neighbor *

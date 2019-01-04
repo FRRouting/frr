@@ -63,6 +63,7 @@
 #include "zebra/table_manager.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/zebra_mlag.h"
 
 /* Encoding helpers -------------------------------------------------------- */
 
@@ -1657,6 +1658,7 @@ static void zsend_capabilities(struct zserv *client, struct zebra_vrf *zvrf)
 	zclient_create_header(s, ZEBRA_CAPABILITIES, zvrf->vrf->vrf_id);
 	stream_putc(s, mpls_enabled);
 	stream_putl(s, multipath_num);
+	stream_putc(s, zebra_mlag_get_role());
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zserv_send_message(client, s);

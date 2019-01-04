@@ -109,7 +109,7 @@ int main(int argc, char **argv, char **envp)
 		}
 	}
 
-	master = frr_init();
+	pim_router_init();
 
 	/*
 	 * Initializations
@@ -157,7 +157,7 @@ int main(int argc, char **argv, char **envp)
 		"PIM_UNEXPECTED_KERNEL_UPCALL: report unexpected kernel upcall");
 #endif
 
-	frr_run(master);
+	frr_run(router->master);
 
 	/* never reached */
 	return 0;

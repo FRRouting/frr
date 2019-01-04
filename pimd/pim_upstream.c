@@ -308,7 +308,7 @@ void join_timer_start(struct pim_upstream *up)
 		if (PIM_DEBUG_PIM_EVENTS) {
 			zlog_debug(
 				"%s: starting %d sec timer for upstream (S,G)=%s",
-				__PRETTY_FUNCTION__, qpim_t_periodic,
+				__PRETTY_FUNCTION__, router->t_periodic,
 				up->sg_str);
 		}
 	}
@@ -317,8 +317,8 @@ void join_timer_start(struct pim_upstream *up)
 		pim_jp_agg_add_group(nbr->upstream_jp_agg, up, 1);
 	else {
 		THREAD_OFF(up->t_join_timer);
-		thread_add_timer(master, on_join_timer, up, qpim_t_periodic,
-				 &up->t_join_timer);
+		thread_add_timer(router->master, on_join_timer, up,
+				 router->t_periodic, &up->t_join_timer);
 	}
 	pim_jp_agg_upstream_verification(up, true);
 }
@@ -346,7 +346,7 @@ static void pim_upstream_join_timer_restart_msec(struct pim_upstream *up,
 	}
 
 	THREAD_OFF(up->t_join_timer);
-	thread_add_timer_msec(master, on_join_timer, up, interval_msec,
+	thread_add_timer_msec(router->master, on_join_timer, up, interval_msec,
 			      &up->t_join_timer);
 }
 
@@ -647,9 +647,9 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =
 		PIM_NET_INADDR_ANY;
 	up->rpf.source_nexthop.mrib_metric_preference =
-		qpim_infinite_assert_metric.metric_preference;
+		router->infinite_assert_metric.metric_preference;
 	up->rpf.source_nexthop.mrib_route_metric =
-		qpim_infinite_assert_metric.route_metric;
+		router->infinite_assert_metric.route_metric;
 	up->rpf.rpf_addr.family = AF_INET;
 	up->rpf.rpf_addr.u.prefix4.s_addr = PIM_NET_INADDR_ANY;
 
@@ -1124,8 +1124,8 @@ void pim_upstream_keep_alive_timer_start(struct pim_upstream *up, uint32_t time)
 				   up->sg_str);
 	}
 	THREAD_OFF(up->t_ka_timer);
-	thread_add_timer(master, pim_upstream_keep_alive_timer, up, time,
-			 &up->t_ka_timer);
+	thread_add_timer(router->master, pim_upstream_keep_alive_timer, up,
+			 time, &up->t_ka_timer);
 
 	/* any time keepalive is started against a SG we will have to
 	 * re-evaluate our active source database */
@@ -1145,7 +1145,7 @@ static int pim_upstream_msdp_reg_timer(struct thread *t)
 void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
 {
 	THREAD_OFF(up->t_msdp_reg_timer);
-	thread_add_timer(master, pim_upstream_msdp_reg_timer, up,
+	thread_add_timer(router->master, pim_upstream_msdp_reg_timer, up,
 			 PIM_MSDP_REG_RXED_PERIOD, &up->t_msdp_reg_timer);
 
 	pim_msdp_sa_local_update(up);
@@ -1406,8 +1406,8 @@ void pim_upstream_start_register_stop_timer(struct pim_upstream *up,
 			"%s: (S,G)=%s Starting upstream register stop timer %d",
 			__PRETTY_FUNCTION__, up->sg_str, time);
 	}
-	thread_add_timer(master, pim_upstream_register_stop_timer, up, time,
-			 &up->t_rs_timer);
+	thread_add_timer(router->master, pim_upstream_register_stop_timer, up,
+			 time, &up->t_rs_timer);
 }
 
 int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
@@ -1768,7 +1768,7 @@ void pim_upstream_init(struct pim_instance *pim)
 	snprintf(name, 64, "PIM %s Timer Wheel",
 		 pim->vrf->name);
 	pim->upstream_sg_wheel =
-		wheel_init(master, 31000, 100, pim_upstream_hash_key,
+		wheel_init(router->master, 31000, 100, pim_upstream_hash_key,
 			   pim_upstream_sg_running, name);
 
 	snprintf(name, 64, "PIM %s Upstream Hash",

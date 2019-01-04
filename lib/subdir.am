@@ -44,6 +44,7 @@ lib_libfrr_la_SOURCES = \
 	lib/md5.c \
 	lib/memory.c \
 	lib/memory_vty.c \
+	lib/mlag.c \
 	lib/module.c \
 	lib/mpls.c \
 	lib/network.c \
@@ -134,6 +135,7 @@ pkginclude_HEADERS += \
 	lib/bitfield.h \
 	lib/buffer.h \
 	lib/checksum.h \
+	lib/mlag.h \
 	lib/command.h \
 	lib/command_graph.h \
 	lib/command_match.h \
