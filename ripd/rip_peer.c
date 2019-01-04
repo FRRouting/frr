@@ -40,7 +40,7 @@ static void rip_peer_free(struct rip_peer *peer)
 	XFREE(MTYPE_RIP_PEER, peer);
 }
 
-struct rip_peer *rip_peer_lookup(struct in_addr *addr)
+struct rip_peer *rip_peer_lookup(struct rip *rip, struct in_addr *addr)
 {
 	struct rip_peer *peer;
 	struct listnode *node, *nnode;
@@ -52,7 +52,7 @@ struct rip_peer *rip_peer_lookup(struct in_addr *addr)
 	return NULL;
 }
 
-struct rip_peer *rip_peer_lookup_next(struct in_addr *addr)
+struct rip_peer *rip_peer_lookup_next(struct rip *rip, struct in_addr *addr)
 {
 	struct rip_peer *peer;
 	struct listnode *node, *nnode;
@@ -70,24 +70,25 @@ static int rip_peer_timeout(struct thread *t)
 	struct rip_peer *peer;
 
 	peer = THREAD_ARG(t);
-	listnode_delete(rip->peer_list, peer);
+	listnode_delete(peer->rip->peer_list, peer);
 	rip_peer_free(peer);
 
 	return 0;
 }
 
 /* Get RIP peer.  At the same time update timeout thread. */
-static struct rip_peer *rip_peer_get(struct in_addr *addr)
+static struct rip_peer *rip_peer_get(struct rip *rip, struct in_addr *addr)
 {
 	struct rip_peer *peer;
 
-	peer = rip_peer_lookup(addr);
+	peer = rip_peer_lookup(rip, addr);
 
 	if (peer) {
 		if (peer->t_timeout)
 			thread_cancel(peer->t_timeout);
 	} else {
 		peer = rip_peer_new();
+		peer->rip = rip;
 		peer->addr = *addr;
 		listnode_add_sort(rip->peer_list, peer);
 	}
@@ -103,24 +104,24 @@ static struct rip_peer *rip_peer_get(struct in_addr *addr)
 	return peer;
 }
 
-void rip_peer_update(struct sockaddr_in *from, uint8_t version)
+void rip_peer_update(struct rip *rip, struct sockaddr_in *from, uint8_t version)
 {
 	struct rip_peer *peer;
-	peer = rip_peer_get(&from->sin_addr);
+	peer = rip_peer_get(rip, &from->sin_addr);
 	peer->version = version;
 }
 
-void rip_peer_bad_route(struct sockaddr_in *from)
+void rip_peer_bad_route(struct rip *rip, struct sockaddr_in *from)
 {
 	struct rip_peer *peer;
-	peer = rip_peer_get(&from->sin_addr);
+	peer = rip_peer_get(rip, &from->sin_addr);
 	peer->recv_badroutes++;
 }
 
-void rip_peer_bad_packet(struct sockaddr_in *from)
+void rip_peer_bad_packet(struct rip *rip, struct sockaddr_in *from)
 {
 	struct rip_peer *peer;
-	peer = rip_peer_get(&from->sin_addr);
+	peer = rip_peer_get(rip, &from->sin_addr);
 	peer->recv_badpackets++;
 }
 
@@ -153,7 +154,7 @@ static char *rip_peer_uptime(struct rip_peer *peer, char *buf, size_t len)
 	return buf;
 }
 
-void rip_peer_display(struct vty *vty)
+void rip_peer_display(struct vty *vty, struct rip *rip)
 {
 	struct rip_peer *peer;
 	struct listnode *node, *nnode;

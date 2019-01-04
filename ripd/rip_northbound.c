@@ -40,6 +40,8 @@ static int ripd_instance_create(enum nb_event event,
 				const struct lyd_node *dnode,
 				union nb_resource *resource)
 {
+	struct rip *rip;
+	struct vrf *vrf;
 	int socket;
 
 	switch (event) {
@@ -56,8 +58,10 @@ static int ripd_instance_create(enum nb_event event,
 		close(socket);
 		break;
 	case NB_EV_APPLY:
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 		socket = resource->fd;
-		rip_create(socket);
+		rip = rip_create(vrf, socket);
+		yang_dnode_set_entry(dnode, rip);
 		break;
 	}
 
@@ -67,10 +71,13 @@ static int ripd_instance_create(enum nb_event event,
 static int ripd_instance_delete(enum nb_event event,
 				const struct lyd_node *dnode)
 {
+	struct rip *rip;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
-	rip_clean();
+	rip = yang_dnode_get_entry(dnode, true);
+	rip_clean(rip);
 
 	return NB_OK;
 }
@@ -82,12 +89,15 @@ static int ripd_instance_allow_ecmp_modify(enum nb_event event,
 					   const struct lyd_node *dnode,
 					   union nb_resource *resource)
 {
+	struct rip *rip;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	rip->ecmp = yang_dnode_get_bool(dnode, NULL);
 	if (!rip->ecmp)
-		rip_ecmp_disable();
+		rip_ecmp_disable(rip);
 
 	return NB_OK;
 }
@@ -100,12 +110,14 @@ ripd_instance_default_information_originate_modify(enum nb_event event,
 						   const struct lyd_node *dnode,
 						   union nb_resource *resource)
 {
+	struct rip *rip;
 	bool default_information;
 	struct prefix_ipv4 p;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	default_information = yang_dnode_get_bool(dnode, NULL);
 
 	memset(&p, 0, sizeof(struct prefix_ipv4));
@@ -115,11 +127,11 @@ ripd_instance_default_information_originate_modify(enum nb_event event,
 
 		memset(&nh, 0, sizeof(nh));
 		nh.type = NEXTHOP_TYPE_IPV4;
-		rip_redistribute_add(ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT, &p,
-				     &nh, 0, 0, 0);
+		rip_redistribute_add(rip, ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT,
+				     &p, &nh, 0, 0, 0);
 	} else {
-		rip_redistribute_delete(ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT, &p,
-					0);
+		rip_redistribute_delete(rip, ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT,
+					&p, 0);
 	}
 
 	return NB_OK;
@@ -132,9 +144,12 @@ static int ripd_instance_default_metric_modify(enum nb_event event,
 					       const struct lyd_node *dnode,
 					       union nb_resource *resource)
 {
+	struct rip *rip;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	rip->default_metric = yang_dnode_get_uint8(dnode, NULL);
 	/* rip_update_default_metric (); */
 
@@ -148,9 +163,12 @@ static int ripd_instance_distance_default_modify(enum nb_event event,
 						 const struct lyd_node *dnode,
 						 union nb_resource *resource)
 {
+	struct rip *rip;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	rip->distance = yang_dnode_get_uint8(dnode, NULL);
 
 	return NB_OK;
@@ -163,6 +181,7 @@ static int ripd_instance_distance_source_create(enum nb_event event,
 						const struct lyd_node *dnode,
 						union nb_resource *resource)
 {
+	struct rip *rip;
 	struct prefix_ipv4 prefix;
 	struct route_node *rn;
 
@@ -173,6 +192,7 @@ static int ripd_instance_distance_source_create(enum nb_event event,
 	apply_mask_ipv4(&prefix);
 
 	/* Get RIP distance node. */
+	rip = yang_dnode_get_entry(dnode, true);
 	rn = route_node_get(rip->distance_table, (struct prefix *)&prefix);
 	rn->info = rip_distance_new();
 	yang_dnode_set_entry(dnode, rn);
@@ -275,31 +295,35 @@ static int ripd_instance_explicit_neighbor_create(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
+	struct rip *rip;
 	struct prefix_ipv4 p;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	yang_dnode_get_ipv4(&p.prefix, dnode, NULL);
 
-	return rip_neighbor_add(&p);
+	return rip_neighbor_add(rip, &p);
 }
 
 static int ripd_instance_explicit_neighbor_delete(enum nb_event event,
 						  const struct lyd_node *dnode)
 {
+	struct rip *rip;
 	struct prefix_ipv4 p;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	yang_dnode_get_ipv4(&p.prefix, dnode, NULL);
 
-	return rip_neighbor_delete(&p);
+	return rip_neighbor_delete(rip, &p);
 }
 
 /*
@@ -309,29 +333,33 @@ static int ripd_instance_network_create(enum nb_event event,
 					const struct lyd_node *dnode,
 					union nb_resource *resource)
 {
+	struct rip *rip;
 	struct prefix p;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	yang_dnode_get_ipv4p(&p, dnode, NULL);
 	apply_mask_ipv4((struct prefix_ipv4 *)&p);
 
-	return rip_enable_network_add(&p);
+	return rip_enable_network_add(rip, &p);
 }
 
 static int ripd_instance_network_delete(enum nb_event event,
 					const struct lyd_node *dnode)
 {
+	struct rip *rip;
 	struct prefix p;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	yang_dnode_get_ipv4p(&p, dnode, NULL);
 	apply_mask_ipv4((struct prefix_ipv4 *)&p);
 
-	return rip_enable_network_delete(&p);
+	return rip_enable_network_delete(rip, &p);
 }
 
 /*
@@ -341,27 +369,31 @@ static int ripd_instance_interface_create(enum nb_event event,
 					  const struct lyd_node *dnode,
 					  union nb_resource *resource)
 {
+	struct rip *rip;
 	const char *ifname;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	ifname = yang_dnode_get_string(dnode, NULL);
 
-	return rip_enable_if_add(ifname);
+	return rip_enable_if_add(rip, ifname);
 }
 
 static int ripd_instance_interface_delete(enum nb_event event,
 					  const struct lyd_node *dnode)
 {
+	struct rip *rip;
 	const char *ifname;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	ifname = yang_dnode_get_string(dnode, NULL);
 
-	return rip_enable_if_delete(ifname);
+	return rip_enable_if_delete(rip, ifname);
 }
 
 /*
@@ -371,15 +403,17 @@ static int ripd_instance_offset_list_create(enum nb_event event,
 					    const struct lyd_node *dnode,
 					    union nb_resource *resource)
 {
+	struct rip *rip;
 	const char *ifname;
 	struct rip_offset_list *offset;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	ifname = yang_dnode_get_string(dnode, "./interface");
 
-	offset = rip_offset_list_new(ifname);
+	offset = rip_offset_list_new(rip, ifname);
 	yang_dnode_set_entry(dnode, offset);
 
 	return NB_OK;
@@ -464,11 +498,14 @@ static int ripd_instance_passive_default_modify(enum nb_event event,
 						const struct lyd_node *dnode,
 						union nb_resource *resource)
 {
+	struct rip *rip;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	rip->passive_default = yang_dnode_get_bool(dnode, NULL);
-	rip_passive_nondefault_clean();
+	rip_passive_nondefault_clean(rip);
 
 	return NB_OK;
 }
@@ -480,27 +517,31 @@ static int ripd_instance_passive_interface_create(enum nb_event event,
 						  const struct lyd_node *dnode,
 						  union nb_resource *resource)
 {
+	struct rip *rip;
 	const char *ifname;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	ifname = yang_dnode_get_string(dnode, NULL);
 
-	return rip_passive_nondefault_set(ifname);
+	return rip_passive_nondefault_set(rip, ifname);
 }
 
 static int ripd_instance_passive_interface_delete(enum nb_event event,
 						  const struct lyd_node *dnode)
 {
+	struct rip *rip;
 	const char *ifname;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	ifname = yang_dnode_get_string(dnode, NULL);
 
-	return rip_passive_nondefault_unset(ifname);
+	return rip_passive_nondefault_unset(rip, ifname);
 }
 
 /*
@@ -511,28 +552,32 @@ ripd_instance_non_passive_interface_create(enum nb_event event,
 					   const struct lyd_node *dnode,
 					   union nb_resource *resource)
 {
+	struct rip *rip;
 	const char *ifname;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	ifname = yang_dnode_get_string(dnode, NULL);
 
-	return rip_passive_nondefault_unset(ifname);
+	return rip_passive_nondefault_unset(rip, ifname);
 }
 
 static int
 ripd_instance_non_passive_interface_delete(enum nb_event event,
 					   const struct lyd_node *dnode)
 {
+	struct rip *rip;
 	const char *ifname;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	ifname = yang_dnode_get_string(dnode, NULL);
 
-	return rip_passive_nondefault_set(ifname);
+	return rip_passive_nondefault_set(rip, ifname);
 }
 
 /*
@@ -548,14 +593,16 @@ static int ripd_instance_redistribute_create(enum nb_event event,
 static int ripd_instance_redistribute_delete(enum nb_event event,
 					     const struct lyd_node *dnode)
 {
+	struct rip *rip;
 	int type;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	type = yang_dnode_get_enum(dnode, "./protocol");
 
-	rip_redistribute_conf_delete(type);
+	rip_redistribute_conf_delete(rip, type);
 
 	return NB_OK;
 }
@@ -563,10 +610,13 @@ static int ripd_instance_redistribute_delete(enum nb_event event,
 static void
 ripd_instance_redistribute_apply_finish(const struct lyd_node *dnode)
 {
+	struct rip *rip;
 	int type;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	type = yang_dnode_get_enum(dnode, "./protocol");
-	rip_redistribute_conf_update(type);
+
+	rip_redistribute_conf_update(rip, type);
 }
 
 /*
@@ -577,12 +627,14 @@ ripd_instance_redistribute_route_map_modify(enum nb_event event,
 					    const struct lyd_node *dnode,
 					    union nb_resource *resource)
 {
+	struct rip *rip;
 	int type;
 	const char *rmap_name;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	type = yang_dnode_get_enum(dnode, "../protocol");
 	rmap_name = yang_dnode_get_string(dnode, NULL);
 
@@ -598,11 +650,13 @@ static int
 ripd_instance_redistribute_route_map_delete(enum nb_event event,
 					    const struct lyd_node *dnode)
 {
+	struct rip *rip;
 	int type;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	type = yang_dnode_get_enum(dnode, "../protocol");
 
 	free(rip->route_map[type].name);
@@ -620,12 +674,14 @@ ripd_instance_redistribute_metric_modify(enum nb_event event,
 					 const struct lyd_node *dnode,
 					 union nb_resource *resource)
 {
+	struct rip *rip;
 	int type;
 	uint8_t metric;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	type = yang_dnode_get_enum(dnode, "../protocol");
 	metric = yang_dnode_get_uint8(dnode, NULL);
 
@@ -639,11 +695,13 @@ static int
 ripd_instance_redistribute_metric_delete(enum nb_event event,
 					 const struct lyd_node *dnode)
 {
+	struct rip *rip;
 	int type;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	type = yang_dnode_get_enum(dnode, "../protocol");
 
 	rip->route_map[type].metric_config = false;
@@ -659,19 +717,21 @@ static int ripd_instance_static_route_create(enum nb_event event,
 					     const struct lyd_node *dnode,
 					     union nb_resource *resource)
 {
+	struct rip *rip;
 	struct nexthop nh;
 	struct prefix_ipv4 p;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	yang_dnode_get_ipv4p(&p, dnode, NULL);
 	apply_mask_ipv4(&p);
 
 	memset(&nh, 0, sizeof(nh));
 	nh.type = NEXTHOP_TYPE_IPV4;
-	rip_redistribute_add(ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, &nh, 0, 0,
-			     0);
+	rip_redistribute_add(rip, ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, &nh, 0,
+			     0, 0);
 
 	return NB_OK;
 }
@@ -679,15 +739,17 @@ static int ripd_instance_static_route_create(enum nb_event event,
 static int ripd_instance_static_route_delete(enum nb_event event,
 					     const struct lyd_node *dnode)
 {
+	struct rip *rip;
 	struct prefix_ipv4 p;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	yang_dnode_get_ipv4p(&p, dnode, NULL);
 	apply_mask_ipv4(&p);
 
-	rip_redistribute_delete(ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0);
+	rip_redistribute_delete(rip, ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0);
 
 	return NB_OK;
 }
@@ -697,8 +759,12 @@ static int ripd_instance_static_route_delete(enum nb_event event,
  */
 static void ripd_instance_timers_apply_finish(const struct lyd_node *dnode)
 {
+	struct rip *rip;
+
+	rip = yang_dnode_get_entry(dnode, true);
+
 	/* Reset update timer thread. */
-	rip_event(RIP_UPDATE_EVENT, 0);
+	rip_event(rip, RIP_UPDATE_EVENT, 0);
 }
 
 /*
@@ -709,9 +775,12 @@ ripd_instance_timers_flush_interval_modify(enum nb_event event,
 					   const struct lyd_node *dnode,
 					   union nb_resource *resource)
 {
+	struct rip *rip;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	rip->garbage_time = yang_dnode_get_uint32(dnode, NULL);
 
 	return NB_OK;
@@ -725,9 +794,12 @@ ripd_instance_timers_holddown_interval_modify(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
+	struct rip *rip;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	rip->timeout_time = yang_dnode_get_uint32(dnode, NULL);
 
 	return NB_OK;
@@ -741,9 +813,12 @@ ripd_instance_timers_update_interval_modify(enum nb_event event,
 					    const struct lyd_node *dnode,
 					    union nb_resource *resource)
 {
+	struct rip *rip;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	rip->update_time = yang_dnode_get_uint32(dnode, NULL);
 
 	return NB_OK;
@@ -756,9 +831,12 @@ static int ripd_instance_version_receive_modify(enum nb_event event,
 						const struct lyd_node *dnode,
 						union nb_resource *resource)
 {
+	struct rip *rip;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	rip->version_recv = yang_dnode_get_enum(dnode, NULL);
 
 	return NB_OK;
@@ -771,9 +849,12 @@ static int ripd_instance_version_send_modify(enum nb_event event,
 					     const struct lyd_node *dnode,
 					     union nb_resource *resource)
 {
+	struct rip *rip;
+
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
+	rip = yang_dnode_get_entry(dnode, true);
 	rip->version_send = yang_dnode_get_enum(dnode, NULL);
 
 	return NB_OK;
@@ -1007,8 +1088,10 @@ static const void *
 ripd_state_neighbors_neighbor_get_next(const void *parent_list_entry,
 				       const void *list_entry)
 {
+	struct rip *rip;
 	struct listnode *node;
 
+	rip = rip_lookup_by_vrf_id(VRF_DEFAULT);
 	if (rip == NULL)
 		return NULL;
 
@@ -1037,12 +1120,14 @@ static const void *
 ripd_state_neighbors_neighbor_lookup_entry(const void *parent_list_entry,
 					   const struct yang_list_keys *keys)
 {
+	struct rip *rip;
 	struct in_addr address;
 	struct rip_peer *peer;
 	struct listnode *node;
 
 	yang_str2ipv4(keys->key[0], &address);
 
+	rip = rip_lookup_by_vrf_id(VRF_DEFAULT);
 	if (rip == NULL)
 		return NULL;
 
@@ -1111,8 +1196,10 @@ static const void *
 ripd_state_routes_route_get_next(const void *parent_list_entry,
 				 const void *list_entry)
 {
+	struct rip *rip;
 	struct route_node *rn;
 
+	rip = rip_lookup_by_vrf_id(VRF_DEFAULT);
 	if (rip == NULL)
 		return NULL;
 
@@ -1141,10 +1228,15 @@ static const void *
 ripd_state_routes_route_lookup_entry(const void *parent_list_entry,
 				     const struct yang_list_keys *keys)
 {
+	struct rip *rip;
 	struct prefix prefix;
 	struct route_node *rn;
 
 	yang_str2ipv4p(keys->key[0], &prefix);
+
+	rip = rip_lookup_by_vrf_id(VRF_DEFAULT);
+	if (rip == NULL)
+		return NULL;
 
 	rn = route_node_lookup(rip->table, &prefix);
 	if (!rn || !rn->info)
@@ -1226,11 +1318,13 @@ ripd_state_routes_route_metric_get_elem(const char *xpath,
 static int clear_rip_route_rpc(const char *xpath, const struct list *input,
 			       struct list *output)
 {
+	struct rip *rip;
 	struct route_node *rp;
 	struct rip_info *rinfo;
 	struct list *list;
 	struct listnode *listnode;
 
+	rip = rip_lookup_by_vrf_id(VRF_DEFAULT);
 	if (!rip)
 		return NB_OK;
 
@@ -1245,7 +1339,7 @@ static int clear_rip_route_rpc(const char *xpath, const struct list *input,
 				continue;
 
 			if (CHECK_FLAG(rinfo->flags, RIP_RTF_FIB))
-				rip_zebra_ipv4_delete(rp);
+				rip_zebra_ipv4_delete(rip, rp);
 			break;
 		}
 

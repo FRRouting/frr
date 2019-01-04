@@ -35,11 +35,12 @@
 #define OFFSET_LIST_OUT_NAME(O)  ((O)->direct[RIP_OFFSET_LIST_OUT].alist_name)
 #define OFFSET_LIST_OUT_METRIC(O)  ((O)->direct[RIP_OFFSET_LIST_OUT].metric)
 
-struct rip_offset_list *rip_offset_list_new(const char *ifname)
+struct rip_offset_list *rip_offset_list_new(struct rip *rip, const char *ifname)
 {
 	struct rip_offset_list *offset;
 
 	offset = XCALLOC(MTYPE_RIP_OFFSET_LIST, sizeof(struct rip_offset_list));
+	offset->rip = rip;
 	offset->ifname = strdup(ifname);
 	listnode_add_sort(rip->offset_list_master, offset);
 
@@ -48,7 +49,7 @@ struct rip_offset_list *rip_offset_list_new(const char *ifname)
 
 void offset_list_del(struct rip_offset_list *offset)
 {
-	listnode_delete(rip->offset_list_master, offset);
+	listnode_delete(offset->rip->offset_list_master, offset);
 	if (OFFSET_LIST_IN_NAME(offset))
 		free(OFFSET_LIST_IN_NAME(offset));
 	if (OFFSET_LIST_OUT_NAME(offset))
@@ -57,7 +58,8 @@ void offset_list_del(struct rip_offset_list *offset)
 	XFREE(MTYPE_RIP_OFFSET_LIST, offset);
 }
 
-struct rip_offset_list *rip_offset_list_lookup(const char *ifname)
+struct rip_offset_list *rip_offset_list_lookup(struct rip *rip,
+					       const char *ifname)
 {
 	struct rip_offset_list *offset;
 	struct listnode *node, *nnode;
@@ -73,11 +75,12 @@ struct rip_offset_list *rip_offset_list_lookup(const char *ifname)
 int rip_offset_list_apply_in(struct prefix_ipv4 *p, struct interface *ifp,
 			     uint32_t *metric)
 {
+	struct rip_interface *ri = ifp->info;
 	struct rip_offset_list *offset;
 	struct access_list *alist;
 
 	/* Look up offset-list with interface name. */
-	offset = rip_offset_list_lookup(ifp->name);
+	offset = rip_offset_list_lookup(ri->rip, ifp->name);
 	if (offset && OFFSET_LIST_IN_NAME(offset)) {
 		alist = access_list_lookup(AFI_IP, OFFSET_LIST_IN_NAME(offset));
 
@@ -90,7 +93,7 @@ int rip_offset_list_apply_in(struct prefix_ipv4 *p, struct interface *ifp,
 		return 0;
 	}
 	/* Look up offset-list without interface name. */
-	offset = rip_offset_list_lookup("*");
+	offset = rip_offset_list_lookup(ri->rip, "*");
 	if (offset && OFFSET_LIST_IN_NAME(offset)) {
 		alist = access_list_lookup(AFI_IP, OFFSET_LIST_IN_NAME(offset));
 
@@ -109,11 +112,12 @@ int rip_offset_list_apply_in(struct prefix_ipv4 *p, struct interface *ifp,
 int rip_offset_list_apply_out(struct prefix_ipv4 *p, struct interface *ifp,
 			      uint32_t *metric)
 {
+	struct rip_interface *ri = ifp->info;
 	struct rip_offset_list *offset;
 	struct access_list *alist;
 
 	/* Look up offset-list with interface name. */
-	offset = rip_offset_list_lookup(ifp->name);
+	offset = rip_offset_list_lookup(ri->rip, ifp->name);
 	if (offset && OFFSET_LIST_OUT_NAME(offset)) {
 		alist = access_list_lookup(AFI_IP,
 					   OFFSET_LIST_OUT_NAME(offset));
@@ -128,7 +132,7 @@ int rip_offset_list_apply_out(struct prefix_ipv4 *p, struct interface *ifp,
 	}
 
 	/* Look up offset-list without interface name. */
-	offset = rip_offset_list_lookup("*");
+	offset = rip_offset_list_lookup(ri->rip, "*");
 	if (offset && OFFSET_LIST_OUT_NAME(offset)) {
 		alist = access_list_lookup(AFI_IP,
 					   OFFSET_LIST_OUT_NAME(offset));

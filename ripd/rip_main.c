@@ -79,10 +79,17 @@ static void sighup(void)
 /* SIGINT handler. */
 static void sigint(void)
 {
+	struct vrf *vrf;
+
 	zlog_notice("Terminating on signal");
 
-	if (rip)
-		rip_clean();
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		struct rip *rip;
+
+		rip = vrf->info;
+		if (rip)
+			rip_clean(rip);
+	}
 
 	rip_zclient_stop();
 	frr_fini();
