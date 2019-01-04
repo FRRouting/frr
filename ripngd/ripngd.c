@@ -1682,10 +1682,11 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 			}
 
 			/* Redistribute route-map. */
-			if (ripng->route_map[rinfo->type].name) {
-				ret = route_map_apply(
-					ripng->route_map[rinfo->type].map,
-					(struct prefix *)p, RMAP_RIPNG, rinfo);
+			if (ripng->redist[rinfo->type].route_map.name) {
+				ret = route_map_apply(ripng->redist[rinfo->type]
+							      .route_map.map,
+						      (struct prefix *)p,
+						      RMAP_RIPNG, rinfo);
 
 				if (ret == RMAP_DENYMATCH) {
 					if (IS_RIPNG_DEBUG_PACKET)
@@ -1700,10 +1701,10 @@ void ripng_output_process(struct interface *ifp, struct sockaddr_in6 *to,
 			/* When the route-map does not set metric. */
 			if (!rinfo->metric_set) {
 				/* If the redistribute metric is set. */
-				if (ripng->route_map[rinfo->type].metric_config
+				if (ripng->redist[rinfo->type].metric_config
 				    && rinfo->metric != RIPNG_METRIC_INFINITY) {
 					rinfo->metric_out =
-						ripng->route_map[rinfo->type]
+						ripng->redist[rinfo->type]
 							.metric;
 				} else {
 					/* If the route is not connected or
@@ -2531,8 +2532,8 @@ void ripng_clean(struct ripng *ripng)
 		ripng_instance_disable(ripng);
 
 	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++)
-		if (ripng->route_map[i].name)
-			free(ripng->route_map[i].name);
+		if (ripng->redist[i].route_map.name)
+			free(ripng->redist[i].route_map.name);
 
 	agg_table_finish(ripng->table);
 	list_delete(&ripng->peer_list);
@@ -2548,7 +2549,6 @@ void ripng_clean(struct ripng *ripng)
 	vector_free(ripng->passive_interface);
 	list_delete(&ripng->offset_list_master);
 	ripng_interface_clean(ripng);
-	ripng_redistribute_clean(ripng);
 
 	RB_REMOVE(ripng_instance_head, &ripng_instances, ripng);
 	XFREE(MTYPE_RIPNG_VRF_NAME, ripng->vrf_name);
@@ -2598,9 +2598,10 @@ void ripng_if_rmap_update_interface(struct interface *ifp)
 static void ripng_routemap_update_redistribute(struct ripng *ripng)
 {
 	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (ripng->route_map[i].name)
-			ripng->route_map[i].map = route_map_lookup_by_name(
-				ripng->route_map[i].name);
+		if (ripng->redist[i].route_map.name)
+			ripng->redist[i].route_map.map =
+				route_map_lookup_by_name(
+					ripng->redist[i].route_map.name);
 	}
 }
 
@@ -2652,6 +2653,9 @@ static void ripng_instance_enable(struct ripng *ripng, struct vrf *vrf,
 	ripng_vrf_link(ripng, vrf);
 	ripng->enabled = true;
 
+	/* Resend all redistribute requests. */
+	ripng_redistribute_enable(ripng);
+
 	/* Create read and timer thread. */
 	ripng_event(ripng, RIPNG_READ, ripng->sock);
 	ripng_event(ripng, RIPNG_UPDATE_EVENT, 1);
@@ -2693,6 +2697,9 @@ static void ripng_instance_disable(struct ripng *ripng)
 			agg_unlock_node(rp);
 		}
 	}
+
+	/* Flush all redistribute requests. */
+	ripng_redistribute_disable(ripng);
 
 	/* Cancel the RIPng timers */
 	RIPNG_TIMER_OFF(ripng->t_update);

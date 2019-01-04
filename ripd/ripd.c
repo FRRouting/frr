@@ -2239,10 +2239,10 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			}
 
 			/* Apply redistribute route map - continue, if deny */
-			if (rip->route_map[rinfo->type].name
+			if (rip->redist[rinfo->type].route_map.name
 			    && rinfo->sub_type != RIP_ROUTE_INTERFACE) {
 				ret = route_map_apply(
-					rip->route_map[rinfo->type].map,
+					rip->redist[rinfo->type].route_map.map,
 					(struct prefix *)p, RMAP_RIP, rinfo);
 
 				if (ret == RMAP_DENYMATCH) {
@@ -2258,11 +2258,10 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			/* When route-map does not set metric. */
 			if (!rinfo->metric_set) {
 				/* If redistribute metric is set. */
-				if (rip->route_map[rinfo->type].metric_config
+				if (rip->redist[rinfo->type].metric_config
 				    && rinfo->metric != RIP_METRIC_INFINITY) {
 					rinfo->metric_out =
-						rip->route_map[rinfo->type]
-							.metric;
+						rip->redist[rinfo->type].metric;
 				} else {
 					/* If the route is not connected or
 					   localy generated
@@ -3382,8 +3381,8 @@ void rip_clean(struct rip *rip)
 	stream_free(rip->obuf);
 
 	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++)
-		if (rip->route_map[i].name)
-			free(rip->route_map[i].name);
+		if (rip->redist[i].route_map.name)
+			free(rip->redist[i].route_map.name);
 
 	route_table_finish(rip->table);
 	route_table_finish(rip->neighbor);
@@ -3398,7 +3397,6 @@ void rip_clean(struct rip *rip)
 	list_delete(&rip->offset_list_master);
 	rip_interfaces_clean(rip);
 	route_table_finish(rip->distance_table);
-	rip_redistribute_clean(rip);
 
 	RB_REMOVE(rip_instance_head, &rip_instances, rip);
 	XFREE(MTYPE_RIP_VRF_NAME, rip->vrf_name);
@@ -3447,9 +3445,9 @@ void rip_if_rmap_update_interface(struct interface *ifp)
 static void rip_routemap_update_redistribute(struct rip *rip)
 {
 	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (rip->route_map[i].name)
-			rip->route_map[i].map = route_map_lookup_by_name(
-				rip->route_map[i].name);
+		if (rip->redist[i].route_map.name)
+			rip->redist[i].route_map.map = route_map_lookup_by_name(
+				rip->redist[i].route_map.name);
 	}
 }
 
@@ -3501,6 +3499,9 @@ static void rip_instance_enable(struct rip *rip, struct vrf *vrf, int sock)
 	rip_vrf_link(rip, vrf);
 	rip->enabled = true;
 
+	/* Resend all redistribute requests. */
+	rip_redistribute_enable(rip);
+
 	/* Create read and timer thread. */
 	rip_event(rip, RIP_READ, rip->sock);
 	rip_event(rip, RIP_UPDATE_EVENT, 1);
@@ -3535,6 +3536,9 @@ static void rip_instance_disable(struct rip *rip)
 		rp->info = NULL;
 		route_unlock_node(rp);
 	}
+
+	/* Flush all redistribute requests. */
+	rip_redistribute_disable(rip);
 
 	/* Cancel RIP related timers. */
 	RIP_TIMER_OFF(rip->t_update);

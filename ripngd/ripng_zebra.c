@@ -165,24 +165,28 @@ void ripng_redistribute_conf_delete(struct ripng *ripng, int type)
 
 int ripng_redistribute_check(struct ripng *ripng, int type)
 {
-	return vrf_bitmap_check(zclient->redist[AFI_IP6][type],
-				ripng->vrf->vrf_id);
+	return ripng->redist[type].enabled;
 }
 
-void ripng_redistribute_clean(struct ripng *ripng)
+void ripng_redistribute_enable(struct ripng *ripng)
 {
 	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (!vrf_bitmap_check(zclient->redist[AFI_IP6][i],
-				      ripng->vrf->vrf_id))
+		if (!ripng_redistribute_check(ripng, i))
 			continue;
 
-		if (zclient->sock > 0)
-			zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE,
-						zclient, AFI_IP6, i, 0,
-						ripng->vrf->vrf_id);
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient,
+					AFI_IP6, i, 0, ripng->vrf->vrf_id);
+	}
+}
 
-		vrf_bitmap_unset(zclient->redist[AFI_IP6][i],
-				 ripng->vrf->vrf_id);
+void ripng_redistribute_disable(struct ripng *ripng)
+{
+	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+		if (!ripng_redistribute_check(ripng, i))
+			continue;
+
+		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
+					AFI_IP6, i, 0, ripng->vrf->vrf_id);
 	}
 }
 
@@ -192,8 +196,7 @@ void ripng_redistribute_write(struct vty *vty, struct ripng *ripng)
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (i == zclient->redist_default
-		    || !vrf_bitmap_check(zclient->redist[AFI_IP6][i],
-					 ripng->vrf->vrf_id))
+		    || !ripng_redistribute_check(ripng, i))
 			continue;
 
 		vty_out(vty, "    %s", zebra_route_string(i));

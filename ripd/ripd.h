@@ -170,13 +170,16 @@ struct rip {
 	/* RIP offset-lists. */
 	struct list *offset_list_master;
 
-	/* For redistribute route map. */
+	/* RIP redistribute configuration. */
 	struct {
-		char *name;
-		struct route_map *map;
+		bool enabled;
+		struct {
+			char *name;
+			struct route_map *map;
+		} route_map;
 		bool metric_config;
 		uint8_t metric;
-	} route_map[ZEBRA_ROUTE_MAX];
+	} redist[ZEBRA_ROUTE_MAX];
 
 	/* For distribute-list container */
 	struct distribute_ctx *distribute_ctx;
@@ -487,7 +490,8 @@ extern struct rip *rip_info_get_instance(const struct rip_info *rinfo);
 extern struct rip_distance *rip_distance_new(void);
 extern void rip_distance_free(struct rip_distance *rdistance);
 extern uint8_t rip_distance_apply(struct rip *rip, struct rip_info *rinfo);
-extern void rip_redistribute_clean(struct rip *rip);
+extern void rip_redistribute_enable(struct rip *rip);
+extern void rip_redistribute_disable(struct rip *rip);
 
 extern int rip_route_rte(struct rip_info *rinfo);
 extern struct rip_info *rip_ecmp_add(struct rip *rip,

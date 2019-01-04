@@ -149,13 +149,16 @@ struct ripng {
 	/* RIPng ECMP flag */
 	bool ecmp;
 
-	/* For redistribute route map. */
+	/* RIPng redistribute configuration. */
 	struct {
-		char *name;
-		struct route_map *map;
+		bool enabled;
+		struct {
+			char *name;
+			struct route_map *map;
+		} route_map;
 		bool metric_config;
 		uint8_t metric;
-	} route_map[ZEBRA_ROUTE_MAX];
+	} redist[ZEBRA_ROUTE_MAX];
 
 	/* For distribute-list container */
 	struct distribute_ctx *distribute_ctx;
@@ -447,7 +450,8 @@ extern void ripng_if_rmap_update_interface(struct interface *);
 extern void ripng_zebra_ipv6_add(struct ripng *ripng, struct agg_node *node);
 extern void ripng_zebra_ipv6_delete(struct ripng *ripng, struct agg_node *node);
 
-extern void ripng_redistribute_clean(struct ripng *ripng);
+extern void ripng_redistribute_enable(struct ripng *ripng);
+extern void ripng_redistribute_disable(struct ripng *ripng);
 extern int ripng_redistribute_check(struct ripng *ripng, int type);
 extern void ripng_redistribute_write(struct vty *vty, struct ripng *ripng);
 
