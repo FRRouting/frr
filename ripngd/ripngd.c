@@ -1026,9 +1026,6 @@ void ripng_redistribute_withdraw(int type)
 	struct ripng_info *rinfo = NULL;
 	struct list *list = NULL;
 
-	if (!ripng)
-		return;
-
 	for (rp = agg_route_top(ripng->table); rp; rp = agg_route_next(rp))
 		if ((list = rp->info) != NULL) {
 			rinfo = listgetdata(listhead(list));
@@ -2403,77 +2400,72 @@ static void ripng_distribute_update_all_wrapper(struct access_list *notused)
 /* delete all the added ripng routes. */
 void ripng_clean()
 {
-	int i;
 	struct agg_node *rp;
-	struct ripng_info *rinfo;
-	struct ripng_aggregate *aggregate;
-	struct list *list = NULL;
-	struct listnode *listnode = NULL;
 
-	if (ripng) {
-		/* Clear RIPng routes */
-		for (rp = agg_route_top(ripng->table); rp;
-		     rp = agg_route_next(rp)) {
-			if ((list = rp->info) != NULL) {
-				rinfo = listgetdata(listhead(list));
-				if (ripng_route_rte(rinfo))
-					ripng_zebra_ipv6_delete(rp);
+	/* Clear RIPng routes */
+	for (rp = agg_route_top(ripng->table); rp; rp = agg_route_next(rp)) {
+		struct ripng_aggregate *aggregate;
+		struct list *list;
 
-				for (ALL_LIST_ELEMENTS_RO(list, listnode,
-							  rinfo)) {
-					RIPNG_TIMER_OFF(rinfo->t_timeout);
-					RIPNG_TIMER_OFF(
-						rinfo->t_garbage_collect);
-					ripng_info_free(rinfo);
-				}
-				list_delete(&list);
-				rp->info = NULL;
-				agg_unlock_node(rp);
+		if ((list = rp->info) != NULL) {
+			struct ripng_info *rinfo;
+			struct listnode *listnode;
+
+			rinfo = listgetdata(listhead(list));
+			if (ripng_route_rte(rinfo))
+				ripng_zebra_ipv6_delete(rp);
+
+			for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
+				RIPNG_TIMER_OFF(rinfo->t_timeout);
+				RIPNG_TIMER_OFF(rinfo->t_garbage_collect);
+				ripng_info_free(rinfo);
 			}
-
-			if ((aggregate = rp->aggregate) != NULL) {
-				ripng_aggregate_free(aggregate);
-				rp->aggregate = NULL;
-				agg_unlock_node(rp);
-			}
+			list_delete(&list);
+			rp->info = NULL;
+			agg_unlock_node(rp);
 		}
 
-		/* Cancel the RIPng timers */
-		RIPNG_TIMER_OFF(ripng->t_update);
-		RIPNG_TIMER_OFF(ripng->t_triggered_update);
-		RIPNG_TIMER_OFF(ripng->t_triggered_interval);
-
-		/* Cancel the read thread */
-		if (ripng->t_read) {
-			thread_cancel(ripng->t_read);
-			ripng->t_read = NULL;
+		if ((aggregate = rp->aggregate) != NULL) {
+			ripng_aggregate_free(aggregate);
+			rp->aggregate = NULL;
+			agg_unlock_node(rp);
 		}
+	}
 
-		/* Close the RIPng socket */
-		if (ripng->sock >= 0) {
-			close(ripng->sock);
-			ripng->sock = -1;
-		}
+	/* Cancel the RIPng timers */
+	RIPNG_TIMER_OFF(ripng->t_update);
+	RIPNG_TIMER_OFF(ripng->t_triggered_update);
+	RIPNG_TIMER_OFF(ripng->t_triggered_interval);
 
-		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			if (ripng->route_map[i].name)
-				free(ripng->route_map[i].name);
+	/* Cancel the read thread */
+	if (ripng->t_read) {
+		thread_cancel(ripng->t_read);
+		ripng->t_read = NULL;
+	}
 
-		agg_table_finish(ripng->table);
+	/* Close the RIPng socket */
+	if (ripng->sock >= 0) {
+		close(ripng->sock);
+		ripng->sock = -1;
+	}
 
-		stream_free(ripng->ibuf);
-		stream_free(ripng->obuf);
+	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++)
+		if (ripng->route_map[i].name)
+			free(ripng->route_map[i].name);
 
-		distribute_list_delete(&ripng->distribute_ctx);
-		XFREE(MTYPE_RIPNG, ripng);
-		ripng = NULL;
-	} /* if (ripng) */
+	agg_table_finish(ripng->table);
+	distribute_list_delete(&ripng->distribute_ctx);
+
+	stream_free(ripng->ibuf);
+	stream_free(ripng->obuf);
 
 	ripng_clean_network();
 	ripng_passive_interface_clean();
 	ripng_offset_clean();
 	ripng_interface_clean();
 	ripng_redistribute_clean();
+
+	XFREE(MTYPE_RIPNG, ripng);
 }
 
 static void ripng_if_rmap_update(struct if_rmap *if_rmap)

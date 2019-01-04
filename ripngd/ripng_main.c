@@ -82,7 +82,8 @@ static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
-	ripng_clean();
+	if (ripng)
+		ripng_clean();
 
 	ripng_zebra_stop();
 	frr_fini();

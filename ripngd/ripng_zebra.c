@@ -173,9 +173,6 @@ void ripng_redistribute_clean()
 						VRF_DEFAULT);
 
 		vrf_bitmap_unset(zclient->redist[AFI_IP6][i], VRF_DEFAULT);
-
-		/* Remove the routes from RIP table. */
-		ripng_redistribute_withdraw(i);
 	}
 }
 
