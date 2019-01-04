@@ -1228,6 +1228,9 @@ static int clear_rip_route_rpc(const char *xpath, const struct list *input,
 	struct list *list;
 	struct listnode *listnode;
 
+	if (!rip)
+		return NB_OK;
+
 	/* Clear received RIP routes */
 	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
 		list = rp->info;

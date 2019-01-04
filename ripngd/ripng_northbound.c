@@ -785,6 +785,9 @@ static int clear_ripng_route_rpc(const char *xpath, const struct list *input,
 	struct list *list;
 	struct listnode *listnode;
 
+	if (!ripng)
+		return NB_OK;
+
 	/* Clear received RIPng routes */
 	for (rp = agg_route_top(ripng->table); rp; rp = agg_route_next(rp)) {
 		list = rp->info;
