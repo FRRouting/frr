@@ -81,4 +81,6 @@ extern int zebra_router_config_write(struct vty *vty);
 extern unsigned long zebra_router_score_proto(uint8_t proto,
 					      unsigned short instance);
 extern void zebra_router_sweep_route(void);
+
+extern void zebra_router_show_table_summary(struct vty *vty);
 #endif
