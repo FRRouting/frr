@@ -178,7 +178,7 @@ void zebra_free_rnh(struct rnh *rnh)
 	XFREE(MTYPE_RNH, rnh);
 }
 
-void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type)
+static void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type)
 {
 	struct route_node *rn;
 
