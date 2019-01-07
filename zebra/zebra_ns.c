@@ -73,6 +73,7 @@ static int zebra_ns_new(struct ns *ns)
 	zns = zebra_ns_alloc();
 	ns->info = zns;
 	zns->ns = ns;
+	zns->ns_id = ns->ns_id;
 
 	/* Do any needed per-NS data structure allocation. */
 	zns->if_table = route_table_init();
