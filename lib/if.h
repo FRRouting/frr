@@ -482,6 +482,8 @@ extern struct connected *if_lookup_address(void *matchaddr, int family,
 					   vrf_id_t vrf_id);
 extern struct interface *if_lookup_prefix(struct prefix *prefix,
 					  vrf_id_t vrf_id);
+size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
+			   struct interface ***result, vrf_id_t vrf_id);
 
 /* These 3 functions are to be used when the ifname argument is terminated
    by a '\0' character: */

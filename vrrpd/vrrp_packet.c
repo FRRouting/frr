@@ -149,7 +149,9 @@ ssize_t vrrp_parse_datagram(int family, struct msghdr *m, size_t read,
 			ntohs(ip->ip_len), read);
 
 		/* TTL check */
-		VRRP_PKT_VCHECK(ip->ip_ttl == 255, "IPv4 TTL is not 255");
+		VRRP_PKT_VCHECK(ip->ip_ttl == 255,
+				"IPv4 TTL is %" PRIu8 "; should be 255",
+				ip->ip_ttl);
 
 		*pkt = (struct vrrp_pkt *)(buf + (ip->ip_hl << 2));
 		pktsize = read - (ip->ip_hl << 2);
@@ -167,7 +169,9 @@ ssize_t vrrp_parse_datagram(int family, struct msghdr *m, size_t read,
 		VRRP_PKT_VCHECK(!!c, "IPv6 Hop Limit not received");
 
 		uint8_t *hoplimit = CMSG_DATA(c);
-		VRRP_PKT_VCHECK(*hoplimit == 255, "IPv6 Hop Limit is not 255");
+		VRRP_PKT_VCHECK(*hoplimit == 255,
+				"IPv6 Hop Limit is %" PRIu8 "; should be 255",
+				*hoplimit);
 
 		*pkt = (struct vrrp_pkt *)buf;
 		pktsize = read;

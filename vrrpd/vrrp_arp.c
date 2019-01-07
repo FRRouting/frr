@@ -114,7 +114,7 @@ static ssize_t vrrp_build_garp(uint8_t *buf, struct interface *ifp,
 
 void vrrp_garp_send(struct vrrp_router *r, struct in_addr *v4)
 {
-	struct interface *ifp = r->vr->ifp;
+	struct interface *ifp = r->mvl_ifp;
 	uint8_t garpbuf[GARP_BUFFER_SIZE];
 	ssize_t garpbuf_len;
 	ssize_t sent_len;
@@ -149,7 +149,7 @@ void vrrp_garp_send_all(struct vrrp_router *r)
 {
 	assert(r->family == AF_INET);
 
-	struct interface *ifp = r->vr->ifp;
+	struct interface *ifp = r->mvl_ifp;
 
 	/* If the interface doesn't support ARP, don't try sending */
 	if (ifp->flags & IFF_NOARP) {

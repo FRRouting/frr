@@ -27,6 +27,7 @@
 #include "lib/network.h"
 #include "lib/prefix.h"
 #include "lib/sockopt.h"
+#include "lib/sockunion.h"
 #include "lib/vrf.h"
 
 #include "vrrp.h"
@@ -93,6 +94,13 @@ static void vrrp_recalculate_timers(struct vrrp_router *r)
 /*
  * Determines if a VRRP router is the owner of the specified address.
  *
+ * The determining factor for whether an interface is the address owner is
+ * simply whether the address is assigned to the VRRP subinterface by someone
+ * other than vrrpd.
+ *
+ * This function should always return the correct answer regardless of
+ * master/backup status.
+ *
  * vr
  *    Virtual Router
  *
@@ -104,20 +112,30 @@ static bool vrrp_is_owner(struct vrrp_vrouter *vr, struct ipaddr *addr)
 	struct prefix *p;
 	struct prefix_ipv4 p4;
 	struct prefix_ipv6 p6;
+	struct vrrp_router *r;
 
 	if (IS_IPADDR_V4(addr)) {
 		p4.family = AF_INET;
 		p4.prefixlen = IPV4_MAX_BITLEN;
 		p4.prefix = addr->ipaddr_v4;
 		p = (struct prefix *)&p4;
+		r = vr->v4;
 	} else {
 		p6.family = AF_INET6;
 		p6.prefixlen = IPV6_MAX_BITLEN;
 		memcpy(&p6.prefix, &addr->ipaddr_v6, sizeof(struct in6_addr));
 		p = (struct prefix *)&p6;
+		r = vr->v6;
 	}
 
-	return !!connected_lookup_prefix_exact(vr->ifp, p);
+	bool have_addr = !!connected_lookup_prefix_exact(r->mvl_ifp, p);
+
+	/* did we assign it? */
+	/* FIXME: this check is wrong, we need a flag to set when we install
+	 * addresses on an interface when assuming master status; then
+	 * ownership status is determined by (have_addr && !flag) in master
+	 * state */
+	return have_addr;
 }
 
 /* Configuration controllers ----------------------------------------------- */
@@ -176,20 +194,70 @@ static struct vrrp_router *vrrp_router_create(struct vrrp_vrouter *vr,
 	struct vrrp_router *r = XCALLOC(MTYPE_TMP, sizeof(struct vrrp_router));
 
 	r->family = family;
-	r->sock = -1;
+	r->sock_rx = -1;
+	r->sock_tx = -1;
 	r->vr = vr;
 	r->addrs = list_new();
 	r->priority = vr->priority;
 	r->fsm.state = VRRP_STATE_INITIALIZE;
 	vrrp_mac_set(&r->vmac, family == AF_INET6, vr->vrid);
 
+	/* Search for existing interface with computed MAC address */
+	struct interface **ifps;
+	size_t ifps_cnt = if_lookup_by_hwaddr(
+		r->vmac.octet, sizeof(r->vmac.octet), &ifps, VRF_DEFAULT);
+
+	/*
+	 * Filter to only those interfaces whose names begin with VRRP
+	 * interface name. E.g. if this VRRP instance was configured on eth0,
+	 * then we filter the list to only keep interfaces matching ^eth0.*
+	 *
+	 * If there are still multiple interfaces we just select the first one,
+	 * as it should be functionally identical to the others.
+	 */
+	unsigned int candidates = 0;
+	struct interface *selection = NULL;
+	for (unsigned int i = 0; i < ifps_cnt; i++) {
+		zlog_info("Found VRRP interface %s", ifps[i]->name);
+		if (strncmp(ifps[i]->name, r->vr->ifp->name,
+			    strlen(r->vr->ifp->name)))
+			ifps[i] = NULL;
+		else {
+			selection = selection ? selection : ifps[i];
+			candidates++;
+		}
+	}
+
+	XFREE(MTYPE_TMP, ifps);
+
+	char ethstr[ETHER_ADDR_STRLEN];
+	prefix_mac2str(&r->vmac, ethstr, sizeof(ethstr));
+
+	assert(!!selection == !!candidates);
+
+	if (candidates == 0)
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "No interface found w/ MAC %s; using default",
+			  r->vr->vrid, ethstr);
+	else if (candidates > 1)
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Multiple VRRP interfaces found; using %s",
+			  r->vr->vrid, selection->name);
+	else
+		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Selected %s",
+			  r->vr->vrid, selection->name);
+
+	r->mvl_ifp = selection ? selection : r->vr->ifp;
+
 	return r;
 }
 
 static void vrrp_router_destroy(struct vrrp_router *r)
 {
-	if (r->sock >= 0)
-		close(r->sock);
+	if (r->sock_rx >= 0)
+		close(r->sock_rx);
+	if (r->sock_tx >= 0)
+		close(r->sock_tx);
 	/* FIXME: also delete list elements */
 	list_delete(&r->addrs);
 	XFREE(MTYPE_TMP, r);
@@ -263,7 +331,7 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 		r->family == AF_INET ? VRRP_MCASTV4_GROUP_STR : VRRP_MCASTV6_GROUP_STR;
 	str2sockunion(group, &dest);
 
-	ssize_t sent = sendto(r->sock, pkt, (size_t)pktlen, 0, &dest.sa,
+	ssize_t sent = sendto(r->sock_tx, pkt, (size_t)pktlen, 0, &dest.sa,
 			      sockunion_sizeof(&dest));
 
 	XFREE(MTYPE_TMP, pkt);
@@ -308,7 +376,7 @@ static int vrrp_read(struct thread *thread)
 	m.msg_control = control;
 	m.msg_controllen = sizeof(control);
 
-	nbytes = recvmsg(r->sock, &m, MSG_DONTWAIT);
+	nbytes = recvmsg(r->sock_rx, &m, MSG_DONTWAIT);
 
 	if ((nbytes < 0 && ERRNO_IO_RETRY(errno))) {
 		resched = true;
@@ -342,38 +410,123 @@ done:
 	memset(r->ibuf, 0x00, sizeof(r->ibuf));
 
 	if (resched)
-		thread_add_read(master, vrrp_read, r, r->sock, &r->t_read);
+		thread_add_read(master, vrrp_read, r, r->sock_rx, &r->t_read);
 
 	return 0;
 }
 
 /*
- * Create Virtual Router listen socket and join it to the VRRP multicast group.
+ * Finds the first connected address of the appropriate family on a VRRP
+ * router's interface and binds the Tx socket of the VRRP router to that
+ * address.
+ *
+ * r
+ *    VRRP router to operate on
+ *
+ * Returns:
+ *     0 on success
+ *    -1 on failure
+ */
+static int vrrp_bind_to_primary_connected(struct vrrp_router *r)
+{
+	char ipstr[INET6_ADDRSTRLEN];
+
+	struct listnode *ln;
+	struct connected *c = NULL;
+	for (ALL_LIST_ELEMENTS_RO(r->mvl_ifp->connected, ln, c))
+		if (c->address->family == r->family)
+			break;
+
+	if (c == NULL) {
+		zlog_err(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			 "Failed to find %s address to bind on %s",
+			 r->vr->vrid, family2str(r->family), r->mvl_ifp->name);
+		return -1;
+	}
+
+	struct sockaddr_in sa4 = {
+		.sin_family = AF_INET,
+		.sin_addr = c->address->u.prefix4,
+	};
+	struct sockaddr_in6 sa6 = {
+		.sin6_family = AF_INET6,
+		.sin6_addr = c->address->u.prefix6,
+	};
+
+	struct sockaddr *sa = r->family == AF_INET ? (struct sockaddr *)&sa4
+						   : (struct sockaddr *)&sa6;
+
+	sockopt_reuseaddr(r->sock_tx);
+	if (bind(r->sock_tx, sa, sizeof(struct sockaddr)) < 0) {
+		zlog_err(
+			VRRP_LOGPFX VRRP_LOGPFX_VRID
+			"Failed to bind Tx socket to primary IP address %s: %s",
+			r->vr->vrid,
+			inet_ntop(r->family,
+				  (const void *)&c->address->u.prefix, ipstr,
+				  sizeof(ipstr)),
+			safe_strerror(errno));
+		return -1;
+	} else {
+		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Bound Tx socket to primary IP address %s",
+			  r->vr->vrid,
+			  inet_ntop(r->family,
+				    (const void *)&c->address->u.prefix, ipstr,
+				    sizeof(ipstr)));
+	}
+
+	return 0;
+}
+
+/*
+ * Creates and configures VRRP router sockets.
+ *
+ * This function:
+ * - Creates two sockets, one for Tx, one for Rx
+ * - Joins the Rx socket to the appropriate VRRP multicast group
+ * - Sets the Tx socket to set the TTL (v4) or Hop Limit (v6) field to 255 for
+ *   all transmitted IPvX packets
+ * - Requests the kernel to deliver IPv6 header values needed to validate VRRP
+ *   packets
+ * - FIXME: Binds the Tx socket to the first address on the macvlan
+ *   subinterface.
+ *
+ * If any of the above fail, the sockets are closed. The only exception is if
+ * the TTL / Hop Limit settings fail; these are logged, but configuration
+ * proceeds.
  *
  * The first connected address on the Virtual Router's interface is used as the
  * interface address.
  *
  * r
  *    VRRP Router for which to create listen socket
+ *
+ * Returns:
+ *     0 on success
+ *    -1 on failure
  */
 static int vrrp_socket(struct vrrp_router *r)
 {
 	int ret;
 	bool failed = false;
-	struct connected *c;
 
-	frr_elevate_privs(&vrrp_privs) {
-		r->sock = socket(r->family, SOCK_RAW, IPPROTO_VRRP);
+	frr_elevate_privs(&vrrp_privs)
+	{
+		r->sock_rx = socket(r->family, SOCK_RAW, IPPROTO_VRRP);
+		r->sock_tx = socket(r->family, SOCK_RAW, IPPROTO_VRRP);
 	}
 
-	if (r->sock < 0) {
+	if (r->sock_rx < 0 || r->sock_tx < 0) {
+		const char *rxtx = r->sock_rx < 0 ? "Rx" : "Tx";
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Can't create %s VRRP socket",
-			  r->vr->vrid, r->family == AF_INET ? "v4" : "v6");
+			  "Can't create %s VRRP %s socket",
+			  r->vr->vrid, family2str(r->family), rxtx);
 		failed = true;
 		goto done;
 	}
 
+	/* Configure sockets */
 	if (!listcount(r->vr->ifp->connected)) {
 		zlog_warn(
 			VRRP_LOGPFX VRRP_LOGPFX_VRID
@@ -384,8 +537,9 @@ static int vrrp_socket(struct vrrp_router *r)
 	}
 
 	if (r->family == AF_INET) {
+		/* Set Tx socket to always Tx with TTL set to 255 */
 		int ttl = 255;
-		ret = setsockopt(r->sock, IPPROTO_IP, IP_MULTICAST_TTL, &ttl,
+		ret = setsockopt(r->sock_tx, IPPROTO_IP, IP_MULTICAST_TTL, &ttl,
 				 sizeof(ttl));
 		if (ret < 0) {
 			zlog_warn(
@@ -394,22 +548,22 @@ static int vrrp_socket(struct vrrp_router *r)
 				r->vr->vrid);
 		}
 
-		c = listhead(r->vr->ifp->connected)->data;
+		/* Join Rx socket to VRRP IPv4 multicast group */
+		struct connected *c = listhead(r->vr->ifp->connected)->data;
 		struct in_addr v4 = c->address->u.prefix4;
-
-		/* Join VRRP IPv4 multicast group */
-		ret = setsockopt_ipv4_multicast(r->sock, IP_ADD_MEMBERSHIP, v4,
-						htonl(VRRP_MCASTV4_GROUP),
+		ret = setsockopt_ipv4_multicast(r->sock_rx, IP_ADD_MEMBERSHIP,
+						v4, htonl(VRRP_MCASTV4_GROUP),
 						r->vr->ifp->ifindex);
 	} else if (r->family == AF_INET6) {
-		ret = setsockopt_ipv6_multicast_hops(r->sock, 255);
+		/* Always transmit IPv6 packets with hop limit set to 255 */
+		ret = setsockopt_ipv6_multicast_hops(r->sock_tx, 255);
 		if (ret < 0) {
 			zlog_warn(
 				VRRP_LOGPFX VRRP_LOGPFX_VRID
 				"Failed to set outgoing multicast hop count to 255; RFC 5798 compliant implementations will drop our packets",
 				r->vr->vrid);
 		}
-		ret = setsockopt_ipv6_hoplimit(r->sock, 1);
+		ret = setsockopt_ipv6_hoplimit(r->sock_rx, 1);
 		if (ret < 0) {
 			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
 				  "Failed to request IPv6 Hop Limit delivery",
@@ -420,10 +574,11 @@ static int vrrp_socket(struct vrrp_router *r)
 
 		/* Join VRRP IPv6 multicast group */
 		struct ipv6_mreq mreq;
-		inet_pton(AF_INET6, VRRP_MCASTV6_GROUP_STR, &mreq.ipv6mr_multiaddr);
+		inet_pton(AF_INET6, VRRP_MCASTV6_GROUP_STR,
+			  &mreq.ipv6mr_multiaddr);
 		mreq.ipv6mr_interface = r->vr->ifp->ifindex;
-		ret = setsockopt(r->sock, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mreq,
-			   sizeof(mreq));
+		ret = setsockopt(r->sock_rx, IPPROTO_IPV6, IPV6_JOIN_GROUP,
+				 &mreq, sizeof(mreq));
 	}
 
 	if (ret < 0) {
@@ -431,15 +586,29 @@ static int vrrp_socket(struct vrrp_router *r)
 			  "Failed to join VRRP %s multicast group",
 			  r->vr->vrid, family2str(r->family));
 		failed = true;
+		goto done;
+	} else {
+		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Joined %s VRRP multicast group",
+			  r->vr->vrid, family2str(r->family));
 	}
+
+	/* Bind Tx socket to link-local address */
+	if (vrrp_bind_to_primary_connected(r) < 0) {
+		failed = true;
+		goto done;
+	}
+
 done:
 	ret = 0;
 	if (failed) {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
 			  "Failed to initialize VRRP %s router",
 			  r->vr->vrid, family2str(r->family));
-		if (r->sock >= 0)
-			close(r->sock);
+		if (r->sock_rx >= 0)
+			close(r->sock_rx);
+		if (r->sock_tx >= 0)
+			close(r->sock_tx);
 		ret = -1;
 	}
 
@@ -584,14 +753,14 @@ static int vrrp_startup(struct vrrp_router *r)
 		vrrp_garp_init();
 
 	/* Create socket */
-	if (r->sock < 0) {
+	if (r->sock_rx < 0 || r->sock_tx < 0) {
 		int ret = vrrp_socket(r);
-		if (ret < 0 || r->sock < 0)
+		if (ret < 0 || r->sock_tx < 0 || r->sock_rx < 0)
 			return ret;
 	}
 
 	/* Schedule listener */
-	thread_add_read(master, vrrp_read, r, r->sock, &r->t_read);
+	thread_add_read(master, vrrp_read, r, r->sock_rx, &r->t_read);
 
 	/* Configure effective priority */
 	struct ipaddr *primary = (struct ipaddr *)listhead(r->addrs)->data;
