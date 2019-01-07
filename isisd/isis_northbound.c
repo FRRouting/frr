@@ -1982,11 +1982,10 @@ static int lib_interface_isis_network_type_modify(enum nb_event event,
 		circuit = yang_dnode_get_entry(dnode, false);
 		if (!circuit)
 			break;
-		if (circuit->circ_type == CIRCUIT_T_LOOPBACK
-		    || circuit->circ_type == CIRCUIT_T_UNKNOWN) {
+		if (circuit->circ_type == CIRCUIT_T_LOOPBACK) {
 			flog_warn(
 				EC_LIB_NB_CB_CONFIG_VALIDATE,
-				"Cannot change network type on unknown or loopback interface");
+				"Cannot change network type on loopback interface");
 			return NB_ERR_VALIDATION;
 		}
 		if (net_type == CIRCUIT_T_BROADCAST
