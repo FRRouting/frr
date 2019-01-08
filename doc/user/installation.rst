@@ -324,7 +324,7 @@ GNU/Linux, make sure that the current kernel configuration is what you want.
 FRR will run with any kernel configuration but some recommendations do exist.
 
 :makevar:`CONFIG_NETLINK`
-   Kernel/User Netlink socket. This is a enables an advanced interface between
+   Kernel/User Netlink socket. This enables an advanced interface between
    the Linux kernel and *zebra* (:ref:`kernel-interface`).
 
 :makevar:`CONFIG_RTNETLINK`
@@ -356,9 +356,9 @@ Additional kernel modules are also needed to support MPLS forwarding.
       net.ipv6.conf.all.forwarding=1
 
 :makevar:`MPLS forwarding`
-   Basic MPLS kernel support was introduced 4.1, additional capability
-   was introduced in 4.3 and 4.5. For some general information on Linux
-   MPLS support see
+   Basic MPLS support was introduced in the kernel in version 4.1 and
+   additional capability was introduced in 4.3 and 4.5.
+   For some general information on Linux MPLS support, see
    https://www.netdevconf.org/1.1/proceedings/slides/prabhu-mpls-tutorial.pdf.
    The following modules should be loaded to support MPLS forwarding,
    and are generally added to a configuration file such as
@@ -418,7 +418,7 @@ Additional kernel modules are also needed to support MPLS forwarding.
    running these kernel versions, if unable to establish any VRF BGP
    adjacencies, either downgrade to 4.13 or set
    'net.ipv4.tcp_l3mdev_accept=1'. The fix for this issue is planned to be
-   included in future kernel versions so upgrading your kernel may also
+   included in future kernel versions. So upgrading your kernel may also
    address this issue.
 
 
@@ -440,7 +440,7 @@ the options you chose:
        --enable-watchfrr \
        ...
 
-After configuring the software, you are ready to build and install it for your
+After configuring the software, you are ready to build and install it in your
 system.
 
 .. code-block:: shell
