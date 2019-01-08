@@ -29,4 +29,10 @@ extern void route_add(struct prefix *p, uint8_t instance,
 		      struct nexthop_group *nhg);
 extern void route_delete(struct prefix *p, uint8_t instance);
 extern void sharp_zebra_nexthop_watch(struct prefix *p, bool watch);
+
+extern void sharp_install_routes_helper(struct prefix *p, uint8_t instance,
+					 struct nexthop_group *nhg,
+					 uint32_t routes);
+extern void sharp_remove_routes_helper(struct prefix *p, uint8_t instance,
+				       uint32_t routes);
 #endif
