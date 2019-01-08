@@ -621,7 +621,19 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Sun May 20 2018 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Tue Jan  8 2019 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Security Issue (Denial of Service): Fix BGP Attribute 255 (experimental VNC)
+  handling
+- Fix for large AS paths
+- Add json support to "show ip route" command
+- bgpd: fix rpki segfault
+- bgpd: fix rpki validation for ipv6
+- Fix for crash with p2p interfaces on *BSD
+- Fix for crash with some IPv6 tunnels
+- Run WatchFRR by default on systems with systemd
+- isisd: Fixed the way isis reads from bpf
+
+* Sun May 20 2018 Martin Winter <mwinter@opensourcerouting.org> - 4.0
 - Fixed RPKI RPM build
 
 * Sun Mar 11 2018 Martin Winter <mwinter@opensourcerouting.org>

@@ -1,5 +1,20 @@
 frr (@VERSION@) RELEASED; urgency=medium
 
+  * Security Issue (Denial of Service): Fix BGP Attribute 255 (experimental VNC) handling
+  * Fix for large AS paths
+  * Add json support to "show ip route" command
+  * bgpd: fix rpki segfault
+  * bgpd: fix rpki validation for ipv6
+  * Fix for crash with p2p interfaces on *BSD
+  * Fix for crash with some IPv6 tunnels
+  * Run WatchFRR by default on systems with systemd
+  * isisd: Fixed the way isis reads from bpf
+  * Add backport to build FRR on Sonic Debian
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Tue,  8 Jan 2019 09:48:00 +0100
+
+frr (4.0-1) RELEASED; urgency=medium
+
   * ISIS-MT - https://tools.ietf.org/html/rfc5120
   * BGP - RPKI (RFC 6810)
   * BGP - v4 labeled unicast as per RFC 3107
