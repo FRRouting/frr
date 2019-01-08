@@ -641,7 +641,16 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Thu Jul  5 2018 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Tue Jan  8 2019 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Security Issue (Denial of Service): Fix BGP Attribute 255 (experimental VNC)
+  handling
+- Fix for large AS paths
+- PIM fixes
+- BGP flowspec fixes
+- PBR fixes
+- Fix for ISIS crash
+
+* Thu Jul  5 2018 Martin Winter <mwinter@opensourcerouting.org> - 5.0.1
 - Support Automake 1.16.1
 - BGPd: Support for flowspec ICMP, DSCP, packet length, fragment and tcp flags
 - BGPd: fix rpki validation for ipv6

@@ -1,5 +1,17 @@
 frr (@VERSION@) RELEASED; urgency=medium
 
+  * Security Issue (Denial of Service): Fix BGP Attribute 255 (experimental VNC) handling
+  * Fix for large AS paths
+  * PIM fixes
+  * BGP flowspec fixes
+  * PBR fixes
+  * Fix for ISIS crash
+  * Add backport to build FRR on Sonic Debian
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Tue,  8 Jan 2019 09:48:00 +0100
+
+frr (5.0.1-0) RELEASED; urgency=medium
+
   * Support Automake 1.16.1
   * BGPd: Support for flowspec ICMP, DSCP, packet length, fragment and tcp flags
   * BGPd: fix rpki validation for ipv6
