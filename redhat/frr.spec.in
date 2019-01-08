@@ -663,7 +663,11 @@ fi
 
 
 %changelog
-* Sat Dec 29 2018 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Tue Jan  8 2019 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Security Issue (Denial of Service): Fix BGP Attribute 255 (experimental VNC)
+  handling
+
+* Sat Dec 29 2018 Martin Winter <mwinter@opensourcerouting.org> - 6.0.1
 - Various fixes for label manager
 - Fix BGP unnumbered peer setup
 - Various other fixes
