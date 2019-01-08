@@ -250,6 +250,7 @@ static inline int af_check(int family)
 size_t _rta_get(caddr_t sap, void *destp, size_t destlen, bool checkaf)
 {
 	struct sockaddr *sa = (struct sockaddr *)sap;
+	struct sockaddr_dl *sdl;
 	uint8_t *dest = destp;
 	size_t tlen, copylen;
 
@@ -263,6 +264,17 @@ size_t _rta_get(caddr_t sap, void *destp, size_t destlen, bool checkaf)
 	if (copylen > 0 && dest != NULL) {
 		if (checkaf && af_check(sa->sa_family) == 0)
 			return tlen;
+		/*
+		 * Handle sockaddr_dl corner case:
+		 * RTA_NETMASK might be AF_LINK, but it doesn't anything
+		 * relevant (e.g. zeroed out fields). Check for this
+		 * case and avoid warning log message.
+		 */
+		if (sa->sa_family == AF_LINK) {
+			sdl = (struct sockaddr_dl *)sa;
+			if (sdl->sdl_index == 0 || sdl->sdl_nlen == 0)
+				copylen = sizeof(*sdl) - sizeof(sdl->sdl_data);
+		}
 
 		if (copylen > destlen) {
 			zlog_warn("%s: destination buffer too small (%lu vs %lu)",
