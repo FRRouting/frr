@@ -578,7 +578,14 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Tue Jan  9 2018 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+%changelog
+* Tue Jan  8 2019 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Security Issue (Denial of Service): Fix BGP Attribute 255 (experimental VNC)
+  handling
+- redhat: Fix missing lib_fpm in rpm packaging
+- ospfd: allow multiple options in the redistribute command
+
+* Tue Jan  9 2018 Martin Winter <mwinter@opensourcerouting.org> - 3.0.3
 - Fixes for GCC 7.0
 - Always enable watchfrr on new installation (req for systemd operation)
 - Add 'no password' command (with warning)

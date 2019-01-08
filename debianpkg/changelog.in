@@ -1,5 +1,12 @@
 frr (@VERSION@) RELEASED; urgency=medium
 
+  * Security Issue (Denial of Service): Fix BGP Attribute 255 (experimental VNC) handling
+  * ospfd: allow multiple options in the redistribute command
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Tue,  8 Jan 2019 09:48:00 +0100
+
+frr (3.0.3-0) RELEASED; urgency=medium
+
   * Added Ubuntu 17.10 Backport
   * Fixes for GCC 7.0
   * Always enable watchfrr on new installation (req for systemd operation)
