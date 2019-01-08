@@ -158,6 +158,7 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json);
  */
 void log_ref_init(void);
 void log_ref_fini(void);
+void log_ref_vty_init(void);
 
 /* get error details.
  *

@@ -681,6 +681,7 @@ struct thread_master *frr_init(void)
 	log_filter_cmd_init();
 
 	log_ref_init();
+	log_ref_vty_init();
 	lib_error_init();
 
 	yang_init();

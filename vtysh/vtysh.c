@@ -46,6 +46,7 @@
 #include "command_graph.h"
 #include "frrstr.h"
 #include "json.h"
+#include "ferr.h"
 
 DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy")
 
@@ -2394,17 +2395,28 @@ DEFUN (vtysh_show_error_code,
        "Information on all errors\n"
        JSON_STR)
 {
-	char *fcmd = argv_concat(argv, argc, 0);
-	char cmd[256];
-	int rv;
+	uint32_t arg = 0;
 
-	snprintf(cmd, sizeof(cmd), "do %s", fcmd);
+	if (!strmatch(argv[2]->text, "all"))
+		arg = strtoul(argv[2]->arg, NULL, 10);
 
-	/* FIXME: Needs to determine which daemon to send to via code ranges */
-	rv = show_per_daemon(cmd, "");
+	/* If it's not a shared code, send it to all the daemons */
+	if (arg < LIB_FERR_START || arg > LIB_FERR_END) {
+		char *fcmd = argv_concat(argv, argc, 0);
+		char cmd[256];
+		snprintf(cmd, sizeof(cmd), "do %s", fcmd);
+		show_per_daemon(cmd, "");
+		XFREE(MTYPE_TMP, fcmd);
+		/* Otherwise, print it ourselves to avoid duplication */
+	} else {
+		bool json = strmatch(argv[argc - 1]->text, "json");
+		if (!strmatch(argv[2]->text, "all"))
+			arg = strtoul(argv[2]->arg, NULL, 10);
 
-	XFREE(MTYPE_TMP, fcmd);
-	return rv;
+		log_ref_display(vty, arg, json);
+	}
+
+	return CMD_SUCCESS;
 }
 
 /* Memory */
