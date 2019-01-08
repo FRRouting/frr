@@ -232,7 +232,9 @@ int dplane_routing_sock = -1;
 /* Yes I'm checking ugly routing socket behavior. */
 /* #define DEBUG */
 
+size_t _rta_get(caddr_t sap, void *destp, size_t destlen, bool checkaf);
 size_t rta_get(caddr_t sap, void *dest, size_t destlen);
+size_t rta_getattr(caddr_t sap, void *destp, size_t destlen);
 size_t rta_getsdlname(caddr_t sap, void *dest, short *destlen);
 
 /* Supported address family check. */
@@ -245,7 +247,7 @@ static inline int af_check(int family)
 	return 0;
 }
 
-size_t rta_get(caddr_t sap, void *destp, size_t destlen)
+size_t _rta_get(caddr_t sap, void *destp, size_t destlen, bool checkaf)
 {
 	struct sockaddr *sa = (struct sockaddr *)sap;
 	uint8_t *dest = destp;
@@ -258,7 +260,10 @@ size_t rta_get(caddr_t sap, void *destp, size_t destlen)
 	copylen = tlen = SAROUNDUP(sap);
 #endif /* !HAVE_STRUCT_SOCKADDR_SA_LEN */
 
-	if (copylen > 0 && dest != NULL && af_check(sa->sa_family)) {
+	if (copylen > 0 && dest != NULL) {
+		if (checkaf && af_check(sa->sa_family) == 0)
+			return tlen;
+
 		if (copylen > destlen) {
 			zlog_warn("%s: destination buffer too small (%lu vs %lu)",
 				  __func__, copylen, destlen);
@@ -268,6 +273,16 @@ size_t rta_get(caddr_t sap, void *destp, size_t destlen)
 	}
 
 	return tlen;
+}
+
+size_t rta_get(caddr_t sap, void *destp, size_t destlen)
+{
+	return _rta_get(sap, destp, destlen, true);
+}
+
+size_t rta_getattr(caddr_t sap, void *destp, size_t destlen)
+{
+	return _rta_get(sap, destp, destlen, false);
 }
 
 size_t rta_getsdlname(caddr_t sap, void *destp, short *destlen)
@@ -684,7 +699,7 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 			pnt += rta_get(pnt, &gateway, sizeof(gateway));
 			break;
 		case RTA_NETMASK:
-			pnt += rta_get(pnt, mask, sizeof(*mask));
+			pnt += rta_getattr(pnt, mask, sizeof(*mask));
 			break;
 		case RTA_IFP:
 			pnt += rta_getsdlname(pnt, ifname, ifnlen);
