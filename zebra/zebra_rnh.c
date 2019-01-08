@@ -178,11 +178,15 @@ void zebra_free_rnh(struct rnh *rnh)
 	XFREE(MTYPE_RNH, rnh);
 }
 
-void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type)
+static void zebra_delete_rnh(struct rnh *rnh, rnh_type_t type)
 {
 	struct route_node *rn;
 
-	if (!rnh || (rnh->flags & ZEBRA_NHT_DELETED) || !(rn = rnh->node))
+	if (!list_isempty(rnh->client_list)
+	    || !list_isempty(rnh->zebra_pseudowire_list))
+		return;
+
+	if ((rnh->flags & ZEBRA_NHT_DELETED) || !(rn = rnh->node))
 		return;
 
 	if (IS_ZEBRA_DEBUG_NHT) {
@@ -233,9 +237,7 @@ void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
 			   rnh_str(rnh, buf, sizeof(buf)), type);
 	}
 	listnode_delete(rnh->client_list, client);
-	if (list_isempty(rnh->client_list)
-	    && list_isempty(rnh->zebra_pseudowire_list))
-		zebra_delete_rnh(rnh, type);
+	zebra_delete_rnh(rnh, type);
 }
 
 /* XXX move this utility function elsewhere? */
@@ -291,9 +293,7 @@ void zebra_deregister_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
 	listnode_delete(rnh->zebra_pseudowire_list, pw);
 	pw->rnh = NULL;
 
-	if (list_isempty(rnh->client_list)
-	    && list_isempty(rnh->zebra_pseudowire_list))
-		zebra_delete_rnh(rnh, RNH_NEXTHOP_TYPE);
+	zebra_delete_rnh(rnh, RNH_NEXTHOP_TYPE);
 }
 
 /* Apply the NHT route-map for a client to the route (and nexthops)
