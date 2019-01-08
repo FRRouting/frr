@@ -769,7 +769,7 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 
 	/* Assert read up end point matches to end point */
 	pnt = (caddr_t)ROUNDUP((size_t)pnt);
-	if (pnt != end)
+	if (pnt != (caddr_t)ROUNDUP((size_t)end))
 		zlog_debug("ifam_read() doesn't read all socket data");
 }
 
