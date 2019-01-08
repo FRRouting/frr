@@ -290,7 +290,7 @@ struct vty_arg {
 #endif
 
 /* Prototypes. */
-extern void vty_init(struct thread_master *);
+extern void vty_init(struct thread_master *, bool do_command_logging);
 extern void vty_init_vtysh(void);
 extern void vty_terminate(void);
 extern void vty_reset(void);

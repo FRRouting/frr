@@ -46,6 +46,10 @@
 #include <arpa/telnet.h>
 #include <termios.h>
 
+#ifndef VTYSH_EXTRACT_PL
+#include "lib/vty_clippy.c"
+#endif
+
 DEFINE_MTYPE_STATIC(LIB, VTY, "VTY")
 DEFINE_MTYPE_STATIC(LIB, VTY_OUT_BUF, "VTY output buffer")
 DEFINE_MTYPE_STATIC(LIB, VTY_HIST, "VTY history")
@@ -92,7 +96,8 @@ static int no_password_check = 0;
 /* Integrated configuration file path */
 static char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 
-static int do_log_commands = 0;
+static bool do_log_commands;
+static bool do_log_commands_perm;
 
 void vty_frame(struct vty *vty, const char *format, ...)
 {
@@ -2975,13 +2980,24 @@ DEFUN_NOSH (show_history,
 }
 
 /* vty login. */
-DEFUN (log_commands,
+DEFPY (log_commands,
        log_commands_cmd,
-       "log commands",
+       "[no] log commands",
+       NO_STR
        "Logging control\n"
-       "Log all commands (can't be unset without restart)\n")
+       "Log all commands\n")
 {
-	do_log_commands = 1;
+	if (no) {
+		if (do_log_commands_perm) {
+			vty_out(vty,
+				"Daemon started with permanent logging turned on for commands, ignoring\n");
+			return CMD_WARNING;
+		}
+
+		do_log_commands = false;
+	} else
+		do_log_commands = true;
+
 	return CMD_SUCCESS;
 }
 
@@ -3101,7 +3117,7 @@ void vty_init_vtysh(void)
 }
 
 /* Install vty's own commands like `who' command. */
-void vty_init(struct thread_master *master_thread)
+void vty_init(struct thread_master *master_thread, bool do_command_logging)
 {
 	/* For further configuration read, preserve current directory. */
 	vty_save_cwd();
@@ -3125,6 +3141,12 @@ void vty_init(struct thread_master *master_thread)
 	install_element(CONFIG_NODE, &no_service_advanced_vty_cmd);
 	install_element(CONFIG_NODE, &show_history_cmd);
 	install_element(CONFIG_NODE, &log_commands_cmd);
+
+	if (do_command_logging) {
+		do_log_commands = true;
+		do_log_commands_perm = true;
+	}
+
 	install_element(ENABLE_NODE, &terminal_monitor_cmd);
 	install_element(ENABLE_NODE, &terminal_no_monitor_cmd);
 	install_element(ENABLE_NODE, &no_terminal_monitor_cmd);

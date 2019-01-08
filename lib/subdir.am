@@ -131,6 +131,8 @@ lib/nexthop_group_clippy.c: $(CLIPPY_DEPS)
 lib/nexthop_group.lo: lib/nexthop_group_clippy.c
 lib/northbound_cli_clippy.c: $(CLIPPY_DEPS)
 lib/northbound_cli.lo: lib/northbound_cli_clippy.c
+lib/vty_clippy.c: $(CLIPPY_DEPS)
+lib/vty.lo: lib/vty_clippy.c
 
 pkginclude_HEADERS += \
 	lib/agg_table.h \

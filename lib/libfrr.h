@@ -97,6 +97,8 @@ struct frr_daemon_info {
 
 	const struct frr_yang_module_info **yang_modules;
 	size_t n_yang_modules;
+
+	bool log_always;
 };
 
 /* execname is the daemon's executable (and pidfile and configfile) name,
