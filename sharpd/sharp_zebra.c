@@ -142,13 +142,22 @@ void sharp_install_routes_helper(struct prefix *p, uint8_t instance,
 				 uint32_t routes)
 {
 	uint32_t temp, i;
+	bool v4 = false;
 
 	zlog_debug("Inserting %u routes", routes);
 
-	temp = ntohl(p->u.prefix4.s_addr);
+	if (p->family == AF_INET) {
+		v4 = true;
+		temp = ntohl(p->u.prefix4.s_addr);
+	} else
+		temp = ntohl(p->u.val32[3]);
+
 	for (i = 0; i < routes; i++) {
 		route_add(p, (uint8_t)instance, nhg);
-		p->u.prefix4.s_addr = htonl(++temp);
+		if (v4)
+			p->u.prefix4.s_addr = htonl(++temp);
+		else
+			p->u.val32[3] = htonl(++temp);
 	}
 }
 
@@ -156,13 +165,22 @@ void sharp_remove_routes_helper(struct prefix *p, uint8_t instance,
 				uint32_t routes)
 {
 	uint32_t temp, i;
+	bool v4 = false;
 
 	zlog_debug("Removing %u routes", routes);
 
-	temp = ntohl(p->u.prefix4.s_addr);
+	if (p->family == AF_INET) {
+		v4 = true;
+		temp = ntohl(p->u.prefix4.s_addr);
+	} else
+		temp = ntohl(p->u.val32[3]);
+
 	for (i = 0; i < routes; i++) {
 		route_delete(p, (uint8_t)instance);
-		p->u.prefix4.s_addr = htonl(++temp);
+		if (v4)
+			p->u.prefix4.s_addr = htonl(++temp);
+		else
+			p->u.val32[3] = htonl(++temp);
 	}
 }
 
