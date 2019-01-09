@@ -1572,8 +1572,13 @@ void thread_set_yield_time(struct thread *thread, unsigned long yield_time)
 
 void thread_getrusage(RUSAGE_T *r)
 {
+#if defined RUSAGE_THREAD
+#define FRR_RUSAGE RUSAGE_THREAD
+#else
+#define FRR_RUSAGE RUSAGE_SELF
+#endif
 	monotime(&r->real);
-	getrusage(RUSAGE_SELF, &(r->cpu));
+	getrusage(FRR_RUSAGE, &(r->cpu));
 }
 
 /*
