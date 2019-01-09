@@ -275,8 +275,15 @@ static void *fpt_run(void *arg)
 
 	fpt->master->handle_signals = false;
 
-	if (fpt->os_name[0])
-		frr_pthread_set_name(fpt, NULL, fpt->os_name);
+#ifdef HAVE_PTHREAD_SETNAME_NP
+# ifdef GNU_LINUX
+	pthread_setname_np(fpt->thread, fpt->os_name);
+# else /* NetBSD */
+	pthread_setname_np(fpt->thread, fpt->os_name, NULL);
+# endif
+#elif defined(HAVE_PTHREAD_SET_NAME_NP)
+	pthread_set_name_np(fpt->thread, fpt->os_name);
+#endif
 
 	frr_pthread_notify_running(fpt);
 
