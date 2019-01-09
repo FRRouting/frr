@@ -40,13 +40,20 @@ static uint32_t bgp_clist_hash_key_community_list(void *data)
 {
 	struct community_list *cl = data;
 
-	return jhash(cl->name, sizeof(cl->name), 0xdeadbeaf);
+	if (cl->name_hash)
+		return cl->name_hash;
+
+	cl->name_hash = bgp_clist_hash_key(cl->name);
+	return cl->name_hash;
 }
 
 static bool bgp_clist_hash_cmp_community_list(const void *a1, const void *a2)
 {
 	const struct community_list *cl1 = a1;
 	const struct community_list *cl2 = a2;
+
+	if (cl1->name_hash != cl2->name_hash)
+		return false;
 
 	if (strcmp(cl1->name, cl2->name) == 0)
 		return true;
@@ -144,6 +151,7 @@ community_list_insert(struct community_list_handler *ch, const char *name,
 	/* Allocate new community_list and copy given name. */
 	new = community_list_new();
 	new->name = XSTRDUP(MTYPE_COMMUNITY_LIST_NAME, name);
+	new->name_hash = bgp_clist_hash_key_community_list(new);
 
 	/* Save for later */
 	hash_get(cm->hash, new, hash_alloc_intern);
@@ -216,7 +224,9 @@ community_list_insert(struct community_list_handler *ch, const char *name,
 }
 
 struct community_list *community_list_lookup(struct community_list_handler *ch,
-					     const char *name, int master)
+					     const char *name,
+					     uint32_t name_hash,
+					     int master)
 {
 	struct community_list lookup;
 	struct community_list_master *cm;
@@ -229,6 +239,7 @@ struct community_list *community_list_lookup(struct community_list_handler *ch,
 		return NULL;
 
 	lookup.name = (char *)name;
+	lookup.name_hash = name_hash;
 	return hash_get(cm->hash, &lookup, NULL);
 }
 
@@ -238,7 +249,7 @@ community_list_get(struct community_list_handler *ch, const char *name,
 {
 	struct community_list *list;
 
-	list = community_list_lookup(ch, name, master);
+	list = community_list_lookup(ch, name, 0, master);
 	if (!list)
 		list = community_list_insert(ch, name, master);
 	return list;
@@ -907,7 +918,7 @@ int community_list_unset(struct community_list_handler *ch, const char *name,
 	struct community *com = NULL;
 
 	/* Lookup community list.  */
-	list = community_list_lookup(ch, name, COMMUNITY_LIST_MASTER);
+	list = community_list_lookup(ch, name, 0, COMMUNITY_LIST_MASTER);
 	if (list == NULL)
 		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 
@@ -1059,7 +1070,7 @@ int lcommunity_list_unset(struct community_list_handler *ch, const char *name,
 	regex_t *regex = NULL;
 
 	/* Lookup community list.  */
-	list = community_list_lookup(ch, name, LARGE_COMMUNITY_LIST_MASTER);
+	list = community_list_lookup(ch, name, 0, LARGE_COMMUNITY_LIST_MASTER);
 	if (list == NULL)
 		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 
@@ -1176,7 +1187,7 @@ int extcommunity_list_unset(struct community_list_handler *ch, const char *name,
 	struct ecommunity *ecom = NULL;
 
 	/* Lookup extcommunity list.  */
-	list = community_list_lookup(ch, name, EXTCOMMUNITY_LIST_MASTER);
+	list = community_list_lookup(ch, name, 0, EXTCOMMUNITY_LIST_MASTER);
 	if (list == NULL)
 		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 

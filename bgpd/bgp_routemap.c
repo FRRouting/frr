@@ -1037,6 +1037,7 @@ struct route_map_rule_cmd route_match_aspath_cmd = {
 /* `match community COMMUNIY' */
 struct rmap_community {
 	char *name;
+	uint32_t name_hash;
 	int exact;
 };
 
@@ -1055,6 +1056,7 @@ static route_map_result_t route_match_community(void *rule,
 		rcom = rule;
 
 		list = community_list_lookup(bgp_clist, rcom->name,
+					     rcom->name_hash,
 					     COMMUNITY_LIST_MASTER);
 		if (!list)
 			return RMAP_NOMATCH;
@@ -1090,6 +1092,8 @@ static void *route_match_community_compile(const char *arg)
 		rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 		rcom->exact = 0;
 	}
+
+	rcom->name_hash = bgp_clist_hash_key(rcom->name);
 	return rcom;
 }
 
@@ -1121,6 +1125,7 @@ static route_map_result_t route_match_lcommunity(void *rule,
 		path = object;
 
 		list = community_list_lookup(bgp_clist, rcom->name,
+					     rcom->name_hash,
 					     LARGE_COMMUNITY_LIST_MASTER);
 		if (!list)
 			return RMAP_NOMATCH;
@@ -1149,6 +1154,8 @@ static void *route_match_lcommunity_compile(const char *arg)
 		rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 		rcom->exact = 0;
 	}
+
+	rcom->name_hash = bgp_clist_hash_key(rcom->name);
 	return rcom;
 }
 
@@ -1181,6 +1188,7 @@ static route_map_result_t route_match_ecommunity(void *rule,
 		path = object;
 
 		list = community_list_lookup(bgp_clist, rcom->name,
+					     rcom->name_hash,
 					     EXTCOMMUNITY_LIST_MASTER);
 		if (!list)
 			return RMAP_NOMATCH;
@@ -1198,6 +1206,7 @@ static void *route_match_ecommunity_compile(const char *arg)
 
 	rcom = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_community));
 	rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+	rcom->name_hash = bgp_clist_hash_key(rcom->name);
 
 	return rcom;
 }
@@ -1948,6 +1957,7 @@ static route_map_result_t route_set_lcommunity_delete(void *rule,
 
 		path = object;
 		list = community_list_lookup(bgp_clist, rcom->name,
+					     rcom->name_hash,
 					     LARGE_COMMUNITY_LIST_MASTER);
 		old = path->attr->lcommunity;
 
@@ -2000,6 +2010,7 @@ static void *route_set_lcommunity_delete_compile(const char *arg)
 		str = NULL;
 
 	rcom->name = str;
+	rcom->name_hash = bgp_clist_hash_key(rcom->name);
 	return rcom;
 }
 
@@ -2041,6 +2052,7 @@ static route_map_result_t route_set_community_delete(
 
 		path = object;
 		list = community_list_lookup(bgp_clist, rcom->name,
+					     rcom->name_hash,
 					     COMMUNITY_LIST_MASTER);
 		old = path->attr->community;
 
@@ -2093,6 +2105,7 @@ static void *route_set_community_delete_compile(const char *arg)
 		str = NULL;
 
 	rcom->name = str;
+	rcom->name_hash = bgp_clist_hash_key(rcom->name);
 	return rcom;
 }
 

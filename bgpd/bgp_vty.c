@@ -14309,7 +14309,7 @@ DEFUN (show_community_list_arg,
 		vty_out(vty, "'show bgp community-list <(1-500)|WORD>'\n");
 		zlog_warn("Deprecated option: 'ip show community-list <(1-500)|WORD>' being used");
 	}
-	list = community_list_lookup(bgp_clist, argv[idx_comm_list]->arg,
+	list = community_list_lookup(bgp_clist, argv[idx_comm_list]->arg, 0,
 				     COMMUNITY_LIST_MASTER);
 	if (!list) {
 		vty_out(vty, "%% Can't find community-list\n");
@@ -14834,7 +14834,7 @@ DEFUN (show_lcommunity_list_arg,
 		zlog_warn("Deprecated option: 'ip show large-community-list <(1-500)|WORD>' being used");
 	}
 
-	list = community_list_lookup(bgp_clist, argv[3]->arg,
+	list = community_list_lookup(bgp_clist, argv[3]->arg, 0,
 				     LARGE_COMMUNITY_LIST_MASTER);
 	if (!list) {
 		vty_out(vty, "%% Can't find extcommunity-list\n");
@@ -15235,7 +15235,7 @@ DEFUN (show_extcommunity_list_arg,
 		vty_out(vty, "'show bgp extcommunity-list <(1-500)|WORD>'\n");
 		zlog_warn("Deprecated option: 'ip show extcommunity-list <(1-500)|WORD>' being used");
 	}
-	list = community_list_lookup(bgp_clist, argv[idx_comm_list]->arg,
+	list = community_list_lookup(bgp_clist, argv[idx_comm_list]->arg, 0,
 				     EXTCOMMUNITY_LIST_MASTER);
 	if (!list) {
 		vty_out(vty, "%% Can't find extcommunity-list\n");

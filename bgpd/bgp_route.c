@@ -9266,7 +9266,7 @@ static int bgp_show_lcommunity_list(struct vty *vty, struct bgp *bgp,
 {
 	struct community_list *list;
 
-	list = community_list_lookup(bgp_clist, lcom,
+	list = community_list_lookup(bgp_clist, lcom, 0,
 				     LARGE_COMMUNITY_LIST_MASTER);
 	if (list == NULL) {
 		vty_out(vty, "%% %s is not a valid large-community-list name\n",
@@ -9787,7 +9787,7 @@ static int bgp_show_community_list(struct vty *vty, struct bgp *bgp,
 {
 	struct community_list *list;
 
-	list = community_list_lookup(bgp_clist, com, COMMUNITY_LIST_MASTER);
+	list = community_list_lookup(bgp_clist, com, 0, COMMUNITY_LIST_MASTER);
 	if (list == NULL) {
 		vty_out(vty, "%% %s is not a valid community-list name\n", com);
 		return CMD_WARNING;
