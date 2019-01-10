@@ -114,6 +114,10 @@ enum dplane_op_e {
 	/* Pseudowire update */
 	DPLANE_OP_PW_INSTALL,
 	DPLANE_OP_PW_UNINSTALL,
+
+	/* Interface address update */
+	DPLANE_OP_ADDR_INSTALL,
+	DPLANE_OP_ADDR_UNINSTALL,
 };
 
 /*
@@ -227,6 +231,21 @@ const union pw_protocol_fields *dplane_ctx_get_pw_proto(
 const struct nexthop_group *dplane_ctx_get_pw_nhg(
 	const struct zebra_dplane_ctx *ctx);
 
+/* Accessors for interface information */
+const char *dplane_ctx_get_ifname(const struct zebra_dplane_ctx *ctx);
+ifindex_t dplane_ctx_get_ifindex(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_intf_metric(const struct zebra_dplane_ctx *ctx);
+/* Is interface addr p2p? */
+bool dplane_ctx_intf_is_connected(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_intf_is_secondary(const struct zebra_dplane_ctx *ctx);
+const struct prefix *dplane_ctx_get_intf_addr(
+	const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_intf_has_dest(const struct zebra_dplane_ctx *ctx);
+const struct prefix *dplane_ctx_get_intf_dest(
+	const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_intf_has_label(const struct zebra_dplane_ctx *ctx);
+const char *dplane_ctx_get_intf_label(const struct zebra_dplane_ctx *ctx);
+
 /* Namespace info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
 	const struct zebra_dplane_ctx *ctx);
@@ -261,6 +280,15 @@ enum zebra_dplane_result dplane_lsp_delete(zebra_lsp_t *lsp);
  */
 enum zebra_dplane_result dplane_pw_install(struct zebra_pw *pw);
 enum zebra_dplane_result dplane_pw_uninstall(struct zebra_pw *pw);
+
+/*
+ * Enqueue interface address changes for the dataplane.
+ */
+enum zebra_dplane_result dplane_intf_addr_set(const struct interface *ifp,
+					      const struct connected *ifc);
+enum zebra_dplane_result dplane_intf_addr_unset(const struct interface *ifp,
+						const struct connected *ifc);
+
 
 /* Retrieve the limit on the number of pending, unprocessed updates. */
 uint32_t dplane_get_in_queue_limit(void);
