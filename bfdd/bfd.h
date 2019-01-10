@@ -31,6 +31,7 @@
 #include "lib/libfrr.h"
 #include "lib/qobj.h"
 #include "lib/queue.h"
+#include "lib/vrf.h"
 
 #include "bfdctl.h"
 
@@ -237,7 +238,7 @@ struct bfd_session {
 
 	struct sockaddr_any local_address;
 	struct sockaddr_any local_ip;
-	int ifindex;
+	struct interface *ifp;
 	uint8_t local_mac[ETHERNET_ADDRESS_LENGTH];
 	uint8_t peer_mac[ETHERNET_ADDRESS_LENGTH];
 
