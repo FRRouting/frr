@@ -122,6 +122,32 @@ struct dplane_pw_info {
 };
 
 /*
+ * Interface/prefix info for the dataplane
+ */
+struct dplane_intf_info {
+
+	char ifname[INTERFACE_NAMSIZ];
+	ifindex_t ifindex;
+
+	uint32_t metric;
+	uint32_t flags;
+
+#define DPLANE_INTF_CONNECTED   (1 << 0) /* Connected peer, p2p */
+#define DPLANE_INTF_SECONDARY   (1 << 1)
+#define DPLANE_INTF_HAS_DEST    (1 << 2)
+#define DPLANE_INTF_HAS_LABEL   (1 << 3)
+
+	/* Interface address/prefix */
+	struct prefix prefix;
+
+	/* Dest address, for p2p, or broadcast prefix */
+	struct prefix dest_prefix;
+
+	char *label;
+	char label_buf[32];
+};
+
+/*
  * The context block used to exchange info about route updates across
  * the boundary between the zebra main context (and pthread) and the
  * dataplane layer (and pthread).
@@ -152,11 +178,12 @@ struct zebra_dplane_ctx {
 	vrf_id_t zd_vrf_id;
 	uint32_t zd_table_id;
 
-	/* Support info for either route or LSP update */
+	/* Support info for different kinds of updates */
 	union {
 		struct dplane_route_info rinfo;
 		zebra_lsp_t lsp;
 		struct dplane_pw_info pw;
+		struct dplane_intf_info intf;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -398,6 +425,8 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 		}
 		break;
 
+	case DPLANE_OP_ADDR_INSTALL:
+	case DPLANE_OP_ADDR_UNINSTALL:
 	case DPLANE_OP_NONE:
 		break;
 	}
@@ -530,6 +559,13 @@ const char *dplane_op2str(enum dplane_op_e op)
 		break;
 	case DPLANE_OP_PW_UNINSTALL:
 		ret = "PW_UNINSTALL";
+		break;
+
+	case DPLANE_OP_ADDR_INSTALL:
+		ret = "ADDR_INSTALL";
+		break;
+	case DPLANE_OP_ADDR_UNINSTALL:
+		ret = "ADDR_UNINSTALL";
 		break;
 
 	}
@@ -849,6 +885,83 @@ dplane_ctx_get_pw_nhg(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return &(ctx->u.pw.nhg);
+}
+
+/* Accessors for interface information */
+const char *dplane_ctx_get_ifname(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.ifname;
+}
+
+ifindex_t dplane_ctx_get_ifindex(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.ifindex;
+}
+
+uint32_t dplane_ctx_get_intf_metric(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.metric;
+}
+
+/* Is interface addr p2p? */
+bool dplane_ctx_intf_is_connected(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->u.intf.flags & DPLANE_INTF_CONNECTED);
+}
+
+bool dplane_ctx_intf_is_secondary(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->u.intf.flags & DPLANE_INTF_SECONDARY);
+}
+
+const struct prefix *dplane_ctx_get_intf_addr(
+	const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.intf.prefix);
+}
+
+bool dplane_ctx_intf_has_dest(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->u.intf.flags & DPLANE_INTF_HAS_DEST);
+}
+
+const struct prefix *dplane_ctx_get_intf_dest(
+	const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	if (ctx->u.intf.flags & DPLANE_INTF_HAS_DEST)
+		return &(ctx->u.intf.dest_prefix);
+	else
+		return NULL;
+}
+
+bool dplane_ctx_intf_has_label(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->u.intf.flags & DPLANE_INTF_HAS_LABEL);
+}
+
+const char *dplane_ctx_get_intf_label(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.label;
 }
 
 /*
@@ -1422,6 +1535,24 @@ done:
 	}
 
 	return result;
+}
+
+/*
+ * Enqueue interface address add for the dataplane.
+ */
+enum zebra_dplane_result dplane_intf_addr_set(const struct interface *ifp,
+					      const struct connected *ifc)
+{
+	return ZEBRA_DPLANE_REQUEST_FAILURE;
+}
+
+/*
+ * Enqueue interface address remove/uninstall for the dataplane.
+ */
+enum zebra_dplane_result dplane_intf_addr_unset(const struct interface *ifp,
+						const struct connected *ifc)
+{
+	return ZEBRA_DPLANE_REQUEST_FAILURE;
 }
 
 /*
