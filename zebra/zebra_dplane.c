@@ -991,7 +991,8 @@ int dplane_provider_register(const char *name,
 			     int (*fp)(struct zebra_dplane_provider *),
 			     int (*fini_fp)(struct zebra_dplane_provider *,
 					    bool early),
-			     void *data)
+			     void *data,
+			     struct zebra_dplane_provider **prov_p)
 {
 	int ret = 0;
 	struct zebra_dplane_provider *p, *last;
@@ -1055,6 +1056,9 @@ int dplane_provider_register(const char *name,
 			   p->dp_name, p->dp_id, p->dp_priority);
 
 done:
+	if (prov_p)
+		*prov_p = p;
+
 	return ret;
 }
 
@@ -1349,7 +1353,7 @@ static void dplane_provider_init(void)
 				       DPLANE_PROV_FLAGS_DEFAULT,
 				       kernel_dplane_process_func,
 				       NULL,
-				       NULL);
+				       NULL, NULL);
 
 	if (ret != AOK)
 		zlog_err("Unable to register kernel dplane provider: %d",
@@ -1362,7 +1366,7 @@ static void dplane_provider_init(void)
 				       DPLANE_PROV_FLAGS_DEFAULT,
 				       test_dplane_process_func,
 				       test_dplane_shutdown_func,
-				       NULL /* data */);
+				       NULL /* data */, NULL);
 
 	if (ret != AOK)
 		zlog_err("Unable to register test dplane provider: %d",

@@ -258,7 +258,8 @@ enum dplane_provider_prio {
 
 
 /* Provider registration: ordering or priority value, callbacks, and optional
- * opaque data value.
+ * opaque data value. If 'prov_p', return the newly-allocated provider object
+ * on success.
  */
 
 /* Providers offer an entry-point for incoming work, called in the context of
@@ -279,7 +280,8 @@ int dplane_provider_register(const char *name,
 			     int (*fp)(struct zebra_dplane_provider *),
 			     int (*fini_fp)(struct zebra_dplane_provider *,
 					    bool early),
-			     void *data);
+			     void *data,
+			     struct zebra_dplane_provider **prov_p);
 
 /* Accessors for provider attributes */
 const char *dplane_provider_get_name(const struct zebra_dplane_provider *prov);
