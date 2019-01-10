@@ -37,6 +37,7 @@
 #include "frrstr.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_attr_evpn.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_aspath.h"
@@ -62,6 +63,7 @@
 #include "bgpd/bgp_io.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_addpath.h"
+#include "bgpd/bgp_mac.h"
 
 static struct peer_group *listen_range_exists(struct bgp *bgp,
 					      struct prefix *range, int exact);
@@ -7244,13 +7246,15 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<soft [<in|out>]|in [prefix-filter]|out>]",
+       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|l2vpn> [<unicast|multicast|vpn|labeled-unicast|flowspec|evpn>]] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<soft [<in|out>]|in [prefix-filter]|out>]",
        CLEAR_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
+       "Address Family\n"
        BGP_SAFI_WITH_LABEL_HELP_STR
+       "Address Family modifier\n"
        "Clear all peers\n"
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
@@ -7574,6 +7578,18 @@ DEFUN (show_bgp_vrfs,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_bgp_mac_hash,
+       show_bgp_mac_hash_cmd,
+       "show bgp mac hash",
+       SHOW_STR
+       BGP_STR
+       "Mac Address\n"
+       "Mac Address database\n")
+{
+	bgp_mac_dump_table(vty);
+
+	return CMD_SUCCESS;
+}
 
 static void show_tip_entry(struct hash_backet *backet, void *args)
 {
@@ -12999,6 +13015,8 @@ void bgp_vty_init(void)
 			&neighbor_soft_reconfiguration_cmd);
 	install_element(BGP_FLOWSPECV6_NODE,
 			&no_neighbor_soft_reconfiguration_cmd);
+	install_element(BGP_EVPN_NODE, &neighbor_soft_reconfiguration_cmd);
+	install_element(BGP_EVPN_NODE, &no_neighbor_soft_reconfiguration_cmd);
 
 	/* "neighbor attribute-unchanged" commands.  */
 	install_element(BGP_NODE, &neighbor_attr_unchanged_hidden_cmd);
@@ -13831,6 +13849,8 @@ void bgp_vty_init(void)
 
 	/* "show bgp martian next-hop" */
 	install_element(VIEW_NODE, &show_bgp_martian_nexthop_db_cmd);
+
+	install_element(VIEW_NODE, &show_bgp_mac_hash_cmd);
 
 	/* "show [ip] bgp views" commands. */
 	install_element(VIEW_NODE, &show_bgp_views_cmd);

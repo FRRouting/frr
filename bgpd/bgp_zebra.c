@@ -59,6 +59,7 @@
 #include "bgpd/bgp_labelpool.h"
 #include "bgpd/bgp_pbr.h"
 #include "bgpd/bgp_evpn_private.h"
+#include "bgpd/bgp_mac.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -221,6 +222,8 @@ static int bgp_interface_add(int command, struct zclient *zclient,
 	if (!bgp)
 		return 0;
 
+	bgp_mac_add_mac_entry(ifp);
+
 	bgp_update_interface_nbrs(bgp, ifp, ifp);
 	return 0;
 }
@@ -245,6 +248,8 @@ static int bgp_interface_delete(int command, struct zclient *zclient,
 	if (bgp)
 		bgp_update_interface_nbrs(bgp, ifp, NULL);
 
+	bgp_mac_del_mac_entry(ifp);
+
 	if_set_index(ifp, IFINDEX_INTERNAL);
 	return 0;
 }
@@ -266,6 +271,8 @@ static int bgp_interface_up(int command, struct zclient *zclient,
 
 	if (!ifp)
 		return 0;
+
+	bgp_mac_add_mac_entry(ifp);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx Intf up VRF %u IF %s", vrf_id, ifp->name);
@@ -299,6 +306,8 @@ static int bgp_interface_down(int command, struct zclient *zclient,
 	ifp = zebra_interface_state_read(s, vrf_id);
 	if (!ifp)
 		return 0;
+
+	bgp_mac_del_mac_entry(ifp);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx Intf down VRF %u IF %s", vrf_id, ifp->name);

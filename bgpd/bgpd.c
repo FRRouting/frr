@@ -87,6 +87,7 @@
 #include "bgpd/bgp_pbr.h"
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_evpn_private.h"
+#include "bgpd/bgp_mac.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_INFO, "BGP EVPN instance information");
@@ -7775,6 +7776,7 @@ void bgp_master_init(struct thread_master *master)
 
 	bgp_process_queue_init();
 
+	bgp_mac_init();
 	/* init the rd id space.
 	   assign 0th index in the bitfield,
 	   so that we start with id 1
@@ -7964,4 +7966,5 @@ void bgp_terminate(void)
 	if (bm->t_rmap_update)
 		BGP_TIMER_OFF(bm->t_rmap_update);
 
+	bgp_mac_finish();
 }

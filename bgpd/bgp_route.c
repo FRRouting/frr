@@ -66,6 +66,7 @@
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_addpath.h"
+#include "bgpd/bgp_mac.h"
 
 #if ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -3057,6 +3058,11 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		goto filtered;
 	}
 
+	if (bgp_mac_entry_exists(p)) {
+		reason = "self mac;";
+		goto filtered;
+	}
+
 	attr_new = bgp_attr_intern(&new_attr);
 
 	/* If the update is implicit withdraw. */
@@ -3778,16 +3784,22 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 				bgp_node_get_bgp_path_info(rn);
 			uint32_t num_labels = 0;
 			mpls_label_t *label_pnt = NULL;
+			struct bgp_route_evpn evpn;
 
 			if (pi && pi->extra)
 				num_labels = pi->extra->num_labels;
 			if (num_labels)
 				label_pnt = &pi->extra->label[0];
+			if (pi)
+				memcpy(&evpn, &pi->attr->evpn_overlay,
+				       sizeof(evpn));
+			else
+				memset(&evpn, 0, sizeof(evpn));
 
 			ret = bgp_update(peer, &rn->p, ain->addpath_rx_id,
 					 ain->attr, afi, safi, ZEBRA_ROUTE_BGP,
 					 BGP_ROUTE_NORMAL, prd, label_pnt,
-					 num_labels, 1, NULL);
+					 num_labels, 1, &evpn);
 
 			if (ret < 0) {
 				bgp_unlock_node(rn);
