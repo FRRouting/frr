@@ -647,7 +647,7 @@ void zserv_close_client(struct zserv *client)
 	client->pthread = NULL;
 
 	/* remove from client list */
-	listnode_delete(zebrad.client_list, client);
+	listnode_delete(zrouter.client_list, client);
 
 	/* delete client */
 	zserv_client_free(client);
@@ -714,7 +714,7 @@ static struct zserv *zserv_client_create(int sock)
 	client->is_synchronous = 0;
 
 	/* Add this client to linked list. */
-	listnode_add(zebrad.client_list, client);
+	listnode_add(zrouter.client_list, client);
 
 	struct frr_pthread_attr zclient_pthr_attrs = {
 		.start = frr_pthread_attr_default.start,
@@ -1003,7 +1003,7 @@ struct zserv *zserv_find_client(uint8_t proto, unsigned short instance)
 	struct listnode *node, *nnode;
 	struct zserv *client;
 
-	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		if (client->proto == proto && client->instance == instance)
 			return client;
 	}
@@ -1022,7 +1022,7 @@ DEFUN (show_zebra_client,
 	struct listnode *node;
 	struct zserv *client;
 
-	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client))
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
 		zebra_show_client_detail(vty, client);
 
 	return CMD_SUCCESS;
@@ -1045,7 +1045,7 @@ DEFUN (show_zebra_client_summary,
 	vty_out(vty,
 		"--------------------------------------------------------------------------------\n");
 
-	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client))
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
 		zebra_show_client_brief(vty, client);
 
 	vty_out(vty, "Routes column shows (added+updated)/deleted\n");
@@ -1068,7 +1068,7 @@ void zserv_read_file(char *input)
 void zserv_init(void)
 {
 	/* Client list init. */
-	zebrad.client_list = list_new();
+	zrouter.client_list = list_new();
 
 	/* Misc init. */
 	zebrad.sock = -1;

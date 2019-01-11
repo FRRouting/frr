@@ -41,7 +41,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/zebra_ptm_redistribute.h"
-#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra_vrf.h"
 
 /*
@@ -1276,7 +1276,7 @@ static void zebra_ptm_send_bfdd(struct stream *msg)
 	}
 
 	/* Send message to all running BFDd daemons. */
-	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		if (client->proto != ZEBRA_ROUTE_BFD)
 			continue;
 
@@ -1308,7 +1308,7 @@ static void zebra_ptm_send_clients(struct stream *msg)
 	}
 
 	/* Send message to all running client daemons. */
-	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		if (!IS_BFD_ENABLED_PROTOCOL(client->proto))
 			continue;
 

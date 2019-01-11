@@ -48,6 +48,9 @@ struct zebra_router {
 	/* Thread master */
 	struct thread_master *master;
 
+	/* Lists of clients who have connected to us */
+	struct list *client_list;
+
 	struct zebra_router_table_head tables;
 
 	/* L3-VNI hash table (for EVPN). Only in default instance */

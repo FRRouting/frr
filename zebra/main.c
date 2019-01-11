@@ -156,10 +156,10 @@ static void sigint(void)
 
 	zebra_dplane_pre_finish();
 
-	for (ALL_LIST_ELEMENTS(zebrad.client_list, ln, nn, client))
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, ln, nn, client))
 		zserv_close_client(client);
 
-	list_delete_all_node(zebrad.client_list);
+	list_delete_all_node(zrouter.client_list);
 	zebra_ptm_finish();
 
 	if (retain_mode)
@@ -179,7 +179,7 @@ static void sigint(void)
 	prefix_list_reset();
 	route_map_finish();
 
-	list_delete(&zebrad.client_list);
+	list_delete(&zrouter.client_list);
 
 	/* Indicate that all new dplane work has been enqueued. When that
 	 * work is complete, the dataplane will enqueue an event

@@ -42,6 +42,7 @@
 #include "lib/libfrr.h"
 #include "lib/sockopt.h"
 
+#include "zebra/zebra_router.h"
 #include "zebra/rib.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_ns.h"
@@ -365,7 +366,7 @@ static void zebra_interface_nbr_address_add_update(struct interface *ifp,
 			p->prefixlen, ifc->ifp->name);
 	}
 
-	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client))
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client))
 		zsend_interface_nbr_address(ZEBRA_INTERFACE_NBR_ADDRESS_ADD,
 					    client, ifp, ifc);
 }
@@ -389,7 +390,7 @@ static void zebra_interface_nbr_address_delete_update(struct interface *ifp,
 			p->prefixlen, ifc->ifp->name);
 	}
 
-	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client))
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client))
 		zsend_interface_nbr_address(ZEBRA_INTERFACE_NBR_ADDRESS_DELETE,
 					    client, ifp, ifc);
 }
@@ -768,7 +769,7 @@ void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
 		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
 			   rule->rule.unique);
 
-	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		if (rule->sock == client->sock)
 			break;
 	}
@@ -804,7 +805,7 @@ void zsend_ipset_notify_owner(struct zebra_pbr_ipset *ipset,
 		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
 			   ipset->unique);
 
-	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		if (ipset->sock == client->sock)
 			break;
 	}
@@ -834,7 +835,7 @@ void zsend_ipset_entry_notify_owner(struct zebra_pbr_ipset_entry *ipset,
 		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
 			   ipset->unique);
 
-	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		if (ipset->sock == client->sock)
 			break;
 	}
@@ -864,7 +865,7 @@ void zsend_iptable_notify_owner(struct zebra_pbr_iptable *iptable,
 		zlog_debug("%s: Notifying %u", __PRETTY_FUNCTION__,
 			   iptable->unique);
 
-	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		if (iptable->sock == client->sock)
 			break;
 	}

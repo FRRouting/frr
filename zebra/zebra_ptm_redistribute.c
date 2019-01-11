@@ -22,7 +22,7 @@
 #include "prefix.h"
 #include "vty.h"
 #include "stream.h"
-#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/zebra_ptm_redistribute.h"
@@ -76,7 +76,7 @@ void zebra_interface_bfd_update(struct interface *ifp, struct prefix *dp,
 	struct listnode *node, *nnode;
 	struct zserv *client;
 
-	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		if (!IS_BFD_ENABLED_PROTOCOL(client->proto))
 			continue;
 
@@ -106,7 +106,7 @@ void zebra_bfd_peer_replay_req(void)
 	struct listnode *node, *nnode;
 	struct zserv *client;
 
-	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		if (!IS_BFD_ENABLED_PROTOCOL(client->proto))
 			continue;
 
