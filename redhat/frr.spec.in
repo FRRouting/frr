@@ -663,7 +663,16 @@ fi
 
 
 %changelog
-* Sun Oct  7 2018 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Tue Jan  8 2019 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Security Issue (Denial of Service): Fix BGP Attribute 255 (experimental VNC)
+  handling
+
+* Sat Dec 29 2018 Martin Winter <mwinter@opensourcerouting.org> - 6.0.1
+- Various fixes for label manager
+- Fix BGP unnumbered peer setup
+- Various other fixes
+
+* Sun Oct  7 2018 Martin Winter <mwinter@opensourcerouting.org> - 6.0
 - Staticd: New daemon responsible for management of static routes
 - ISISd: Implement dst-src routing as per draft-ietf-isis-ipv6-dst-src-routing
 - BFDd: new daemon for BFD (Bidrectional Forwarding Detection). Responsiblei

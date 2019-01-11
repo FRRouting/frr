@@ -83,6 +83,7 @@ static const char *phase_str[] = {
 };
 
 #define PHASE_TIMEOUT (3*gs.restart_timeout)
+#define STARTUP_TIMEOUT	55 * 1000
 
 struct restart_info {
 	const char *name;
@@ -97,6 +98,7 @@ struct restart_info {
 static struct global_state {
 	restart_phase_t phase;
 	struct thread *t_phase_hanging;
+	struct thread *t_startup_timeout;
 	const char *vtydir;
 	long period;
 	long timeout;
@@ -630,23 +632,38 @@ static int handle_read(struct thread *t_read)
  * Wait till we notice that all daemons are ready before
  * we send we are ready to systemd
  */
-static void daemon_send_ready(void)
+static void daemon_send_ready(int exitcode)
 {
+	FILE *fp;
 	static int sent = 0;
-	if (!sent && gs.numdown == 0) {
-		FILE *fp;
 
+	if (sent)
+		return;
+
+	if (exitcode == 0)
 		zlog_notice("all daemons up, doing startup-complete notify");
-		frr_detach();
+	else if (gs.numdown < gs.numdaemons)
+		flog_err(WATCHFRR_ERR_CONNECTION,
+			 "startup did not complete within timeout"
+			 " (%d/%d daemons running)",
+			 gs.numdaemons - gs.numdown, gs.numdaemons);
+	else {
+		flog_err(WATCHFRR_ERR_CONNECTION,
+			 "all configured daemons failed to start"
+			 " -- exiting watchfrr");
+		exit(exitcode);
 
-		fp = fopen(DAEMON_VTY_DIR "/watchfrr.started", "w");
-		if (fp)
-			fclose(fp);
-#if defined HAVE_SYSTEMD
-		systemd_send_started(master, 0);
-#endif
-		sent = 1;
 	}
+
+	frr_detach();
+
+	fp = fopen(DAEMON_VTY_DIR "/watchfrr.started", "w");
+	if (fp)
+		fclose(fp);
+#if defined HAVE_SYSTEMD
+	systemd_send_started(master, 0);
+#endif
+	sent = 1;
 }
 
 static void daemon_up(struct daemon *dmn, const char *why)
@@ -655,7 +672,8 @@ static void daemon_up(struct daemon *dmn, const char *why)
 	gs.numdown--;
 	dmn->connect_tries = 0;
 	zlog_notice("%s state -> up : %s", dmn->name, why);
-	daemon_send_ready();
+	if (gs.numdown == 0)
+		daemon_send_ready(0);
 	SET_WAKEUP_ECHO(dmn);
 	phase_check();
 }
@@ -1030,12 +1048,21 @@ static char *translate_blanks(const char *cmd, const char *blankstr)
 	return res;
 }
 
+static int startup_timeout(struct thread *t_wakeup)
+{
+	daemon_send_ready(1);
+	return 0;
+}
+
 static void watchfrr_init(int argc, char **argv)
 {
 	const char *special = "zebra";
 	int i;
 	struct daemon *dmn, **add = &gs.daemons;
 	char alldaemons[512] = "", *p = alldaemons;
+
+	thread_add_timer_msec(master, startup_timeout, NULL, STARTUP_TIMEOUT,
+			      &gs.t_startup_timeout);
 
 	for (i = optind; i < argc; i++) {
 		dmn = XCALLOC(MTYPE_WATCHFRR_DAEMON, sizeof(*dmn));
