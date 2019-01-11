@@ -2581,7 +2581,7 @@ DEFUN (show_table,
        SHOW_STR
        "default routing table to use for all clients\n")
 {
-	vty_out(vty, "table %d\n", zebrad.rtm_table_default);
+	vty_out(vty, "table %d\n", zrouter.rtm_table_default);
 	return CMD_SUCCESS;
 }
 
@@ -2591,7 +2591,7 @@ DEFUN (config_table,
        "Configure target kernel routing table\n"
        "TABLE integer\n")
 {
-	zebrad.rtm_table_default = strtol(argv[1]->arg, (char **)0, 10);
+	zrouter.rtm_table_default = strtol(argv[1]->arg, (char **)0, 10);
 	return CMD_SUCCESS;
 }
 
@@ -2602,7 +2602,7 @@ DEFUN (no_config_table,
        "Configure target kernel routing table\n"
        "TABLE integer\n")
 {
-	zebrad.rtm_table_default = 0;
+	zrouter.rtm_table_default = 0;
 	return CMD_SUCCESS;
 }
 #endif
@@ -2850,8 +2850,8 @@ DEFUN (zebra_show_routing_tables_summary,
 /* Table configuration write function. */
 static int config_write_table(struct vty *vty)
 {
-	if (zebrad.rtm_table_default)
-		vty_out(vty, "table %d\n", zebrad.rtm_table_default);
+	if (zrouter.rtm_table_default)
+		vty_out(vty, "table %d\n", zrouter.rtm_table_default);
 	return 0;
 }
 

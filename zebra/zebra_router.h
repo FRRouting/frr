@@ -70,6 +70,9 @@ struct zebra_router {
 
 	/* A sequence number used for tracking routes */
 	_Atomic uint32_t sequence_num;
+
+	/* The default table used for this router */
+	uint32_t rtm_table_default;
 };
 
 extern struct zebra_router zrouter;

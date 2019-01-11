@@ -699,7 +699,7 @@ static struct zserv *zserv_client_create(int sock)
 	client->wb = buffer_new(0);
 
 	/* Set table number. */
-	client->rtm_table = zebrad.rtm_table_default;
+	client->rtm_table = zrouter.rtm_table_default;
 
 	atomic_store_explicit(&client->connect_time, (uint32_t) monotime(NULL),
 			      memory_order_relaxed);

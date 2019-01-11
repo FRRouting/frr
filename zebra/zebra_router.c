@@ -206,6 +206,8 @@ void zebra_router_init(void)
 {
 	zrouter.sequence_num = 0;
 
+	zrouter.rtm_table_default = 0;
+
 	zebra_vxlan_init();
 	zebra_mlag_init();
 
