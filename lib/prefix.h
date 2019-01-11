@@ -162,6 +162,7 @@ struct prefix {
 		} lp;
 		struct ethaddr prefix_eth; /* AF_ETHERNET */
 		uint8_t val[16];
+		uint32_t val32[4];
 		uintptr_t ptr;
 		struct evpn_addr prefix_evpn; /* AF_EVPN */
 		struct flowspec_prefix prefix_flowspec; /* AF_FLOWSPEC */

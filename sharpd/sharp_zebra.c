@@ -129,6 +129,8 @@ static int interface_state_down(int command, struct zclient *zclient,
 	return 0;
 }
 
+static struct timeval t_start;
+static struct timeval t_end;
 extern uint32_t total_routes;
 extern uint32_t installed_routes;
 extern uint32_t removed_routes;
@@ -142,13 +144,23 @@ void sharp_install_routes_helper(struct prefix *p, uint8_t instance,
 				 uint32_t routes)
 {
 	uint32_t temp, i;
+	bool v4 = false;
 
 	zlog_debug("Inserting %u routes", routes);
 
-	temp = ntohl(p->u.prefix4.s_addr);
+	if (p->family == AF_INET) {
+		v4 = true;
+		temp = ntohl(p->u.prefix4.s_addr);
+	} else
+		temp = ntohl(p->u.val32[3]);
+
+	monotime(&t_start);
 	for (i = 0; i < routes; i++) {
 		route_add(p, (uint8_t)instance, nhg);
-		p->u.prefix4.s_addr = htonl(++temp);
+		if (v4)
+			p->u.prefix4.s_addr = htonl(++temp);
+		else
+			p->u.val32[3] = htonl(++temp);
 	}
 }
 
@@ -156,13 +168,23 @@ void sharp_remove_routes_helper(struct prefix *p, uint8_t instance,
 				uint32_t routes)
 {
 	uint32_t temp, i;
+	bool v4 = false;
 
 	zlog_debug("Removing %u routes", routes);
 
-	temp = ntohl(p->u.prefix4.s_addr);
+	if (p->family == AF_INET) {
+		v4 = true;
+		temp = ntohl(p->u.prefix4.s_addr);
+	} else
+		temp = ntohl(p->u.val32[3]);
+
+	monotime(&t_start);
 	for (i = 0; i < routes; i++) {
 		route_delete(p, (uint8_t)instance);
-		p->u.prefix4.s_addr = htonl(++temp);
+		if (v4)
+			p->u.prefix4.s_addr = htonl(++temp);
+		else
+			p->u.val32[3] = htonl(++temp);
 	}
 }
 
@@ -189,6 +211,7 @@ static void handle_repeated(bool installed)
 static int route_notify_owner(int command, struct zclient *zclient,
 			      zebra_size_t length, vrf_id_t vrf_id)
 {
+	struct timeval r;
 	struct prefix p;
 	enum zapi_route_notify_owner note;
 	uint32_t table;
@@ -200,7 +223,10 @@ static int route_notify_owner(int command, struct zclient *zclient,
 	case ZAPI_ROUTE_INSTALLED:
 		installed_routes++;
 		if (total_routes == installed_routes) {
-			zlog_debug("Installed All Items");
+			monotime(&t_end);
+			timersub(&t_end, &t_start, &r);
+			zlog_debug("Installed All Items %ld.%ld", r.tv_sec,
+				   r.tv_usec);
 			handle_repeated(true);
 		}
 		break;
@@ -213,7 +239,10 @@ static int route_notify_owner(int command, struct zclient *zclient,
 	case ZAPI_ROUTE_REMOVED:
 		removed_routes++;
 		if (total_routes == removed_routes) {
-			zlog_debug("Removed all Items");
+			monotime(&t_end);
+			timersub(&t_end, &t_start, &r);
+			zlog_debug("Removed all Items %ld.%ld", r.tv_sec,
+				   r.tv_usec);
 			handle_repeated(false);
 		}
 		break;
