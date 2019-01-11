@@ -175,9 +175,6 @@ DECLARE_KOOH(zserv_client_close, (struct zserv *client), (client));
 
 /* Zebra instance */
 struct zebra_t {
-	/* Socket */
-	int sock;
-
 	/* default table */
 	uint32_t rtm_table_default;
 

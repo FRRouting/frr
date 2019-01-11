@@ -68,6 +68,9 @@
 /* privileges */
 extern struct zebra_privs_t zserv_privs;
 
+/* The listener socket for clients connecting to us */
+static int zsock;
+
 /*
  * Client thread events.
  *
@@ -784,16 +787,16 @@ void zserv_start(char *path)
 	old_mask = umask(0077);
 
 	/* Make UNIX domain socket. */
-	zebrad.sock = socket(sa.ss_family, SOCK_STREAM, 0);
-	if (zebrad.sock < 0) {
+	zsock = socket(sa.ss_family, SOCK_STREAM, 0);
+	if (zsock < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "Can't create zserv socket: %s",
 			     safe_strerror(errno));
 		return;
 	}
 
 	if (sa.ss_family != AF_UNIX) {
-		sockopt_reuseaddr(zebrad.sock);
-		sockopt_reuseport(zebrad.sock);
+		sockopt_reuseaddr(zsock);
+		sockopt_reuseport(zsock);
 	} else {
 		struct sockaddr_un *suna = (struct sockaddr_un *)&sa;
 		if (suna->sun_path[0])
@@ -801,28 +804,28 @@ void zserv_start(char *path)
 	}
 
 	frr_elevate_privs(&zserv_privs) {
-		setsockopt_so_recvbuf(zebrad.sock, 1048576);
-		setsockopt_so_sendbuf(zebrad.sock, 1048576);
+		setsockopt_so_recvbuf(zsock, 1048576);
+		setsockopt_so_sendbuf(zsock, 1048576);
 	}
 
 	frr_elevate_privs((sa.ss_family != AF_UNIX) ? &zserv_privs : NULL) {
-		ret = bind(zebrad.sock, (struct sockaddr *)&sa, sa_len);
+		ret = bind(zsock, (struct sockaddr *)&sa, sa_len);
 	}
 	if (ret < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "Can't bind zserv socket on %s: %s",
 			     path, safe_strerror(errno));
-		close(zebrad.sock);
-		zebrad.sock = -1;
+		close(zsock);
+		zsock = -1;
 		return;
 	}
 
-	ret = listen(zebrad.sock, 5);
+	ret = listen(zsock, 5);
 	if (ret < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "Can't listen to zserv socket %s: %s", path,
 			     safe_strerror(errno));
-		close(zebrad.sock);
-		zebrad.sock = -1;
+		close(zsock);
+		zsock = -1;
 		return;
 	}
 
@@ -835,7 +838,7 @@ void zserv_event(struct zserv *client, enum zserv_event event)
 {
 	switch (event) {
 	case ZSERV_ACCEPT:
-		thread_add_read(zrouter.master, zserv_accept, NULL, zebrad.sock,
+		thread_add_read(zrouter.master, zserv_accept, NULL, zsock,
 				NULL);
 		break;
 	case ZSERV_PROCESS_MESSAGES:
@@ -1071,7 +1074,7 @@ void zserv_init(void)
 	zrouter.client_list = list_new();
 
 	/* Misc init. */
-	zebrad.sock = -1;
+	zsock = -1;
 
 	install_element(ENABLE_NODE, &show_zebra_client_cmd);
 	install_element(ENABLE_NODE, &show_zebra_client_summary_cmd);
