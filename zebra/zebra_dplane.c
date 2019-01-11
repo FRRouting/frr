@@ -995,7 +995,7 @@ int dplane_provider_register(const char *name,
 			     struct zebra_dplane_provider **prov_p)
 {
 	int ret = 0;
-	struct zebra_dplane_provider *p, *last;
+	struct zebra_dplane_provider *p = NULL, *last;
 
 	/* Validate */
 	if (fp == NULL) {
