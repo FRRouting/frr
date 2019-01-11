@@ -2485,7 +2485,7 @@ DEFUN_HIDDEN (zebra_workqueue_timer,
 	      "Time in milliseconds\n")
 {
 	uint32_t timer = strtoul(argv[2]->arg, NULL, 10);
-	zebrad.ribq->spec.hold = timer;
+	zrouter.ribq->spec.hold = timer;
 
 	return CMD_SUCCESS;
 }
@@ -2498,7 +2498,7 @@ DEFUN_HIDDEN (no_zebra_workqueue_timer,
 	      "Work Queue\n"
 	      "Time in milliseconds\n")
 {
-	zebrad.ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
+	zrouter.ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
 
 	return CMD_SUCCESS;
 }
@@ -2548,8 +2548,8 @@ static int config_write_protocol(struct vty *vty)
 	if (zebra_rnh_ipv6_default_route)
 		vty_out(vty, "ipv6 nht resolve-via-default\n");
 
-	if (zebrad.ribq->spec.hold != ZEBRA_RIB_PROCESS_HOLD_TIME)
-		vty_out(vty, "zebra work-queue %u\n", zebrad.ribq->spec.hold);
+	if (zrouter.ribq->spec.hold != ZEBRA_RIB_PROCESS_HOLD_TIME)
+		vty_out(vty, "zebra work-queue %u\n", zrouter.ribq->spec.hold);
 
 	if (zebrad.packets_to_process != ZEBRA_ZAPI_PACKETS_TO_PROCESS)
 		vty_out(vty, "zebra zapi-packets %u\n",

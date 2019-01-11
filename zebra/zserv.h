@@ -175,10 +175,6 @@ DECLARE_KOOH(zserv_client_close, (struct zserv *client), (client));
 
 /* Zebra instance */
 struct zebra_t {
-/* rib work queue */
-#define ZEBRA_RIB_PROCESS_HOLD_TIME 10
-#define ZEBRA_RIB_PROCESS_RETRY_TIME 1
-	struct work_queue *ribq;
 	struct meta_queue *mq;
 
 	/* LSP work queue */

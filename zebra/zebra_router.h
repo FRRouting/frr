@@ -73,6 +73,11 @@ struct zebra_router {
 
 	/* The default table used for this router */
 	uint32_t rtm_table_default;
+
+	/* rib work queue */
+#define ZEBRA_RIB_PROCESS_HOLD_TIME 10
+#define ZEBRA_RIB_PROCESS_RETRY_TIME 1
+	struct work_queue *ribq;
 };
 
 extern struct zebra_router zrouter;

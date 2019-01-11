@@ -201,9 +201,6 @@ int zebra_finalize(struct thread *dummy)
 	/* Stop dplane thread and finish any cleanup */
 	zebra_dplane_shutdown();
 
-	work_queue_free_and_null(&zebrad.ribq);
-	meta_queue_free(zebrad.mq);
-
 	zebra_router_terminate();
 
 	frr_fini();

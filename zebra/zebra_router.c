@@ -188,6 +188,9 @@ void zebra_router_terminate(void)
 		zebra_router_free_table(zrt);
 	}
 
+	work_queue_free_and_null(&zrouter.ribq);
+	meta_queue_free(zebrad.mq);
+
 	zebra_vxlan_disable();
 	zebra_mlag_terminate();
 
