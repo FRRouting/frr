@@ -1075,13 +1075,13 @@ static int lsp_processq_add(zebra_lsp_t *lsp)
 	if (CHECK_FLAG(lsp->flags, LSP_FLAG_SCHEDULED))
 		return 0;
 
-	if (zebrad.lsp_process_q == NULL) {
+	if (zrouter.lsp_process_q == NULL) {
 		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
 			 "%s: work_queue does not exist!", __func__);
 		return -1;
 	}
 
-	work_queue_add(zebrad.lsp_process_q, lsp);
+	work_queue_add(zrouter.lsp_process_q, lsp);
 	SET_FLAG(lsp->flags, LSP_FLAG_SCHEDULED);
 	return 0;
 }
@@ -1717,19 +1717,19 @@ static char *snhlfe2str(zebra_snhlfe_t *snhlfe, char *buf, int size)
  */
 static int mpls_processq_init(struct zebra_t *zebra)
 {
-	zebra->lsp_process_q = work_queue_new(zrouter.master, "LSP processing");
-	if (!zebra->lsp_process_q) {
+	zrouter.lsp_process_q = work_queue_new(zrouter.master, "LSP processing");
+	if (!zrouter.lsp_process_q) {
 		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
 			 "%s: could not initialise work queue!", __func__);
 		return -1;
 	}
 
-	zebra->lsp_process_q->spec.workfunc = &lsp_process;
-	zebra->lsp_process_q->spec.del_item_data = &lsp_processq_del;
-	zebra->lsp_process_q->spec.errorfunc = NULL;
-	zebra->lsp_process_q->spec.completion_func = &lsp_processq_complete;
-	zebra->lsp_process_q->spec.max_retries = 0;
-	zebra->lsp_process_q->spec.hold = 10;
+	zrouter.lsp_process_q->spec.workfunc = &lsp_process;
+	zrouter.lsp_process_q->spec.del_item_data = &lsp_processq_del;
+	zrouter.lsp_process_q->spec.errorfunc = NULL;
+	zrouter.lsp_process_q->spec.completion_func = &lsp_processq_complete;
+	zrouter.lsp_process_q->spec.max_retries = 0;
+	zrouter.lsp_process_q->spec.hold = 10;
 
 	return 0;
 }

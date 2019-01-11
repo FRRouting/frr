@@ -167,8 +167,8 @@ static void sigint(void)
 			if (zvrf)
 				SET_FLAG(zvrf->flags, ZEBRA_VRF_RETAIN);
 		}
-	if (zebrad.lsp_process_q)
-		work_queue_free_and_null(&zebrad.lsp_process_q);
+	if (zrouter.lsp_process_q)
+		work_queue_free_and_null(&zrouter.lsp_process_q);
 	vrf_terminate();
 
 	ns_walk_func(zebra_ns_early_shutdown);

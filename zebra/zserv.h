@@ -175,9 +175,6 @@ DECLARE_KOOH(zserv_client_close, (struct zserv *client), (client));
 
 /* Zebra instance */
 struct zebra_t {
-	/* LSP work queue */
-	struct work_queue *lsp_process_q;
-
 #define ZEBRA_ZAPI_PACKETS_TO_PROCESS 1000
 	_Atomic uint32_t packets_to_process;
 };
