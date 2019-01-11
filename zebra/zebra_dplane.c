@@ -26,7 +26,7 @@
 #include "lib/zebra.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_memory.h"
-#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/rt.h"
 #include "zebra/debug.h"
@@ -1802,7 +1802,7 @@ static int dplane_check_shutdown_status(struct thread *event)
 		/* We appear to be done - schedule a final callback event
 		 * for the zebra main pthread.
 		 */
-		thread_add_event(zebrad.master, zebra_finalize, NULL, 0, NULL);
+		thread_add_event(zrouter.master, zebra_finalize, NULL, 0, NULL);
 	}
 
 	return 0;

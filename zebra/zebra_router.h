@@ -45,6 +45,8 @@ RB_PROTOTYPE(zebra_router_table_head, zebra_router_table,
 	     zebra_router_table_entry, zebra_router_table_entry_compare)
 
 struct zebra_router {
+	/* Thread master */
+	struct thread_master *master;
 
 	struct zebra_router_table_head tables;
 

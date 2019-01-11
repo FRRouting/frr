@@ -1698,9 +1698,9 @@ static void rtadv_event(struct zebra_ns *zns, enum rtadv_event event, int val)
 
 	switch (event) {
 	case RTADV_START:
-		thread_add_read(zebrad.master, rtadv_read, zns, val,
+		thread_add_read(zrouter.master, rtadv_read, zns, val,
 				&rtadv->ra_read);
-		thread_add_event(zebrad.master, rtadv_timer, zns, 0,
+		thread_add_event(zrouter.master, rtadv_timer, zns, 0,
 				 &rtadv->ra_timer);
 		break;
 	case RTADV_STOP:
@@ -1714,15 +1714,15 @@ static void rtadv_event(struct zebra_ns *zns, enum rtadv_event event, int val)
 		}
 		break;
 	case RTADV_TIMER:
-		thread_add_timer(zebrad.master, rtadv_timer, zns, val,
+		thread_add_timer(zrouter.master, rtadv_timer, zns, val,
 				 &rtadv->ra_timer);
 		break;
 	case RTADV_TIMER_MSEC:
-		thread_add_timer_msec(zebrad.master, rtadv_timer, zns, val,
+		thread_add_timer_msec(zrouter.master, rtadv_timer, zns, val,
 				      &rtadv->ra_timer);
 		break;
 	case RTADV_READ:
-		thread_add_read(zebrad.master, rtadv_read, zns, val,
+		thread_add_read(zrouter.master, rtadv_read, zns, val,
 				&rtadv->ra_read);
 		break;
 	default:

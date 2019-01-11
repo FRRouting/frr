@@ -391,7 +391,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	zebrad.master = frr_init();
+	zrouter.master = frr_init();
 
 	/* Initialize pthread library */
 	frr_pthread_init();
@@ -479,7 +479,7 @@ int main(int argc, char **argv)
 #endif /* HANDLE_NETLINK_FUZZING */
 
 
-	frr_run(zebrad.master);
+	frr_run(zrouter.master);
 
 	/* Not reached... */
 	return 0;

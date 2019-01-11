@@ -43,7 +43,7 @@
 
 #include "zebra/rt.h"
 #include "zebra/interface.h"
-#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/debug.h"
 #include "zebra/kernel_socket.h"
 #include "zebra/rib.h"
@@ -1372,7 +1372,7 @@ static int kernel_read(struct thread *thread)
 		return 0;
 	}
 
-	thread_add_read(zebrad.master, kernel_read, NULL, sock, NULL);
+	thread_add_read(zrouter.master, kernel_read, NULL, sock, NULL);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		rtmsg_debug(&buf.r.rtm);
@@ -1445,7 +1445,7 @@ static void routing_socket(struct zebra_ns *zns)
 	  zlog_warn ("Can't set O_NONBLOCK to routing socket");*/
 
 	/* kernel_read needs rewrite. */
-	thread_add_read(zebrad.master, kernel_read, NULL, routing_sock, NULL);
+	thread_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
 }
 
 /* Exported interface function.  This function simply calls

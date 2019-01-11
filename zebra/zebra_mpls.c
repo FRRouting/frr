@@ -40,6 +40,7 @@
 #include "zebra/rt.h"
 #include "zebra/interface.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_memory.h"
@@ -1716,7 +1717,7 @@ static char *snhlfe2str(zebra_snhlfe_t *snhlfe, char *buf, int size)
  */
 static int mpls_processq_init(struct zebra_t *zebra)
 {
-	zebra->lsp_process_q = work_queue_new(zebra->master, "LSP processing");
+	zebra->lsp_process_q = work_queue_new(zrouter.master, "LSP processing");
 	if (!zebra->lsp_process_q) {
 		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
 			 "%s: could not initialise work queue!", __func__);

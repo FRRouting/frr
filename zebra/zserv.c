@@ -61,6 +61,7 @@
 #include "zebra/zapi_msg.h"       /* for zserv_handle_commands */
 #include "zebra/zebra_vrf.h"      /* for zebra_vrf_lookup_by_id, zvrf */
 #include "zebra/zserv.h"          /* for zserv */
+#include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"   /* for error messages */
 /* clang-format on */
 
@@ -637,7 +638,7 @@ void zserv_close_client(struct zserv *client)
 		zlog_debug("Closing client '%s'",
 			   zebra_route_string(client->proto));
 
-	thread_cancel_event(zebrad.master, client);
+	thread_cancel_event(zrouter.master, client);
 	THREAD_OFF(client->t_cleanup);
 	THREAD_OFF(client->t_process);
 
@@ -834,15 +835,15 @@ void zserv_event(struct zserv *client, enum zserv_event event)
 {
 	switch (event) {
 	case ZSERV_ACCEPT:
-		thread_add_read(zebrad.master, zserv_accept, NULL, zebrad.sock,
+		thread_add_read(zrouter.master, zserv_accept, NULL, zebrad.sock,
 				NULL);
 		break;
 	case ZSERV_PROCESS_MESSAGES:
-		thread_add_event(zebrad.master, zserv_process_messages, client,
+		thread_add_event(zrouter.master, zserv_process_messages, client,
 				 0, &client->t_process);
 		break;
 	case ZSERV_HANDLE_CLIENT_FAIL:
-		thread_add_event(zebrad.master, zserv_handle_client_fail,
+		thread_add_event(zrouter.master, zserv_handle_client_fail,
 				 client, 0, &client->t_cleanup);
 	}
 }

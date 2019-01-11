@@ -175,8 +175,6 @@ DECLARE_KOOH(zserv_client_close, (struct zserv *client), (client));
 
 /* Zebra instance */
 struct zebra_t {
-	/* Thread master */
-	struct thread_master *master;
 	struct list *client_list;
 
 	/* Socket */

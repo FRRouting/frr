@@ -27,7 +27,7 @@
 
 #include "zebra/debug.h"
 #include "zebra/rib.h"
-#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_vrf.h"
@@ -213,7 +213,7 @@ void zebra_pw_install_failure(struct zebra_pw *pw)
 
 	/* schedule to retry later */
 	THREAD_TIMER_OFF(pw->install_retry_timer);
-	thread_add_timer(zebrad.master, zebra_pw_install_retry, pw,
+	thread_add_timer(zrouter.master, zebra_pw_install_retry, pw,
 			 PW_INSTALL_RETRY_INTERVAL, &pw->install_retry_timer);
 
 	zebra_pw_update_status(pw, PW_STATUS_DOWN);
