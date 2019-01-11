@@ -81,12 +81,20 @@ struct route_entry {
 	uint32_t flags;
 
 	/* RIB internal status */
-	uint8_t status;
+	uint32_t status;
 #define ROUTE_ENTRY_REMOVED          0x1
 /* to simplify NHT logic when NHs change, instead of doing a NH by NH cmp */
 #define ROUTE_ENTRY_NEXTHOPS_CHANGED 0x2
+/* The Route Entry has changed */
 #define ROUTE_ENTRY_CHANGED          0x4
+/* The Label has changed on the Route entry */
 #define ROUTE_ENTRY_LABELS_CHANGED   0x8
+/* Route is queued for Installation into the Data Plane */
+#define ROUTE_ENTRY_QUEUED   0x10
+/* Route is installed into the Data Plane */
+#define ROUTE_ENTRY_INSTALLED        0x20
+/* Route has Failed installation into the Data Plane in some manner */
+#define ROUTE_ENTRY_FAILED           0x40
 
 	/* Nexthop information. */
 	uint8_t nexthop_num;
