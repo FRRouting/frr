@@ -1702,10 +1702,11 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 	int i;
 	afi_t afi;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
 			vrf_bitmap_unset(client->redist[afi][i], zvrf_id(zvrf));
-	vrf_bitmap_unset(client->redist_default, zvrf_id(zvrf));
+		vrf_bitmap_unset(client->redist_default[afi], zvrf_id(zvrf));
+	}
 	vrf_bitmap_unset(client->ifinfo, zvrf_id(zvrf));
 	vrf_bitmap_unset(client->ridinfo, zvrf_id(zvrf));
 }

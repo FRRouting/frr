@@ -87,7 +87,7 @@ struct zserv {
 	vrf_bitmap_t redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 
 	/* Redistribute default route flag. */
-	vrf_bitmap_t redist_default;
+	vrf_bitmap_t redist_default[AFI_MAX];
 
 	/* Interface information. */
 	vrf_bitmap_t ifinfo;
