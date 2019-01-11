@@ -64,7 +64,6 @@
 
 /* Zebra instance */
 struct zebra_t zebrad = {
-	.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS,
 };
 
 /* process id. */

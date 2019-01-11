@@ -316,7 +316,7 @@ static int zserv_read(struct thread *thread)
 	uint32_t p2p;
 	struct zmsghdr hdr;
 
-	p2p_orig = atomic_load_explicit(&zebrad.packets_to_process,
+	p2p_orig = atomic_load_explicit(&zrouter.packets_to_process,
 					memory_order_relaxed);
 	cache = stream_fifo_new();
 	p2p = p2p_orig;
@@ -496,7 +496,7 @@ static int zserv_process_messages(struct thread *thread)
 	struct zserv *client = THREAD_ARG(thread);
 	struct stream *msg;
 	struct stream_fifo *cache = stream_fifo_new();
-	uint32_t p2p = zebrad.packets_to_process;
+	uint32_t p2p = zrouter.packets_to_process;
 	bool need_resched = false;
 
 	pthread_mutex_lock(&client->ibuf_mtx);

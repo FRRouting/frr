@@ -84,6 +84,9 @@ struct zebra_router {
 
 	/* LSP work queue */
 	struct work_queue *lsp_process_q;
+
+#define ZEBRA_ZAPI_PACKETS_TO_PROCESS 1000
+	_Atomic uint32_t packets_to_process;
 };
 
 extern struct zebra_router zrouter;

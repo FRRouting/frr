@@ -175,8 +175,6 @@ DECLARE_KOOH(zserv_client_close, (struct zserv *client), (client));
 
 /* Zebra instance */
 struct zebra_t {
-#define ZEBRA_ZAPI_PACKETS_TO_PROCESS 1000
-	_Atomic uint32_t packets_to_process;
 };
 extern struct zebra_t zebrad;
 extern unsigned int multipath_num;
