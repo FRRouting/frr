@@ -42,8 +42,6 @@
 #include "zebra/zebra_netns_notify.h"
 #include "zebra/zebra_routemap.h"
 
-extern struct zebra_t zebrad;
-
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 				   safi_t safi);
 static void zebra_rnhtable_node_cleanup(struct route_table *table,

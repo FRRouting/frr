@@ -173,10 +173,6 @@ struct zserv {
 DECLARE_HOOK(zserv_client_connect, (struct zserv *client), (client));
 DECLARE_KOOH(zserv_client_close, (struct zserv *client), (client));
 
-/* Zebra instance */
-struct zebra_t {
-};
-extern struct zebra_t zebrad;
 extern unsigned int multipath_num;
 
 /*

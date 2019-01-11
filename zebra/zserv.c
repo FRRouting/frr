@@ -485,9 +485,9 @@ static void zserv_client_event(struct zserv *client,
  * with the message is executed. This proceeds until there are no more messages,
  * an error occurs, or the processing limit is reached.
  *
- * The client's I/O thread can push at most zebrad.packets_to_process messages
+ * The client's I/O thread can push at most zrouter.packets_to_process messages
  * onto the input buffer before notifying us there are packets to read. As long
- * as we always process zebrad.packets_to_process messages here, then we can
+ * as we always process zrouter.packets_to_process messages here, then we can
  * rely on the read thread to handle queuing this task enough times to process
  * everything on the input queue.
  */

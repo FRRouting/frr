@@ -42,8 +42,6 @@ DEFINE_HOOK(pw_uninstall, (struct zebra_pw * pw), (pw))
 
 #define MPLS_NO_LABEL MPLS_INVALID_LABEL
 
-extern struct zebra_t zebrad;
-
 static int zebra_pw_enabled(struct zebra_pw *);
 static void zebra_pw_install(struct zebra_pw *);
 static void zebra_pw_uninstall(struct zebra_pw *);

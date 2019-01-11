@@ -2052,7 +2052,7 @@ void zebra_dplane_shutdown(void)
 /*
  * Initialize the dataplane module during startup, internal/private version
  */
-static void zebra_dplane_init_internal(struct zebra_t *zebra)
+static void zebra_dplane_init_internal(void)
 {
 	memset(&zdplane_info, 0, sizeof(zdplane_info));
 
@@ -2101,6 +2101,6 @@ void zebra_dplane_start(void)
  */
 void zebra_dplane_init(int (*results_fp)(struct dplane_ctx_q *))
 {
-	zebra_dplane_init_internal(&zebrad);
+	zebra_dplane_init_internal();
 	zdplane_info.dg_results_cb = results_fp;
 }

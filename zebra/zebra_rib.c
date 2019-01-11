@@ -2321,10 +2321,8 @@ void meta_queue_free(struct meta_queue *mq)
 }
 
 /* initialise zebra rib work queue */
-static void rib_queue_init(struct zebra_t *zebra)
+static void rib_queue_init(void)
 {
-	assert(zebra);
-
 	if (!(zrouter.ribq = work_queue_new(zrouter.master,
 					    "route_node processing"))) {
 		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
@@ -3322,7 +3320,7 @@ static int rib_dplane_results(struct dplane_ctx_q *ctxlist)
 /* Routing information base initialize. */
 void rib_init(void)
 {
-	rib_queue_init(&zebrad);
+	rib_queue_init();
 
 	/* Init dataplane, and register for results */
 	pthread_mutex_init(&dplane_mutex, NULL);

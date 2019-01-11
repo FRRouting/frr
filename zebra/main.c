@@ -62,10 +62,6 @@
 
 #define ZEBRA_PTM_SUPPORT
 
-/* Zebra instance */
-struct zebra_t zebrad = {
-};
-
 /* process id. */
 pid_t pid;
 
