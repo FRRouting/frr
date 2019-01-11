@@ -25,16 +25,15 @@
 #include "hook.h"
 
 #include "zebra/zebra_mlag.h"
+#include "zebra/zebra_router.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_mlag_clippy.c"
 #endif
 
-enum mlag_role role = MLAG_ROLE_NONE;
-
 enum mlag_role zebra_mlag_get_role(void)
 {
-	return role;
+	return zrouter.mlag_info.role;
 }
 
 DEFUN_HIDDEN (show_mlag,
@@ -47,7 +46,7 @@ DEFUN_HIDDEN (show_mlag,
 	char buf[80];
 
 	vty_out(vty, "MLag is configured to: %s\n",
-		mlag_role2str(role, buf, sizeof(buf)));
+		mlag_role2str(zrouter.mlag_info.role, buf, sizeof(buf)));
 
 	return CMD_SUCCESS;
 }
@@ -63,11 +62,11 @@ DEFPY_HIDDEN (test_mlag,
 	      "Mlag is setup to be the secondary\n")
 {
 	if (none)
-		role = MLAG_ROLE_NONE;
+		zrouter.mlag_info.role = MLAG_ROLE_NONE;
 	if (primary)
-		role = MLAG_ROLE_PRIMARY;
+		zrouter.mlag_info.role = MLAG_ROLE_PRIMARY;
 	if (secondary)
-		role = MLAG_ROLE_SECONDARY;
+		zrouter.mlag_info.role = MLAG_ROLE_SECONDARY;
 
 	return CMD_SUCCESS;
 }

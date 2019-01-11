@@ -22,6 +22,8 @@
 #ifndef __ZEBRA_ROUTER_H__
 #define __ZEBRA_ROUTER_H__
 
+#include "lib/mlag.h"
+
 #include "zebra/zebra_ns.h"
 
 /*
@@ -43,6 +45,18 @@ struct zebra_router_table {
 RB_HEAD(zebra_router_table_head, zebra_router_table);
 RB_PROTOTYPE(zebra_router_table_head, zebra_router_table,
 	     zebra_router_table_entry, zebra_router_table_entry_compare)
+
+struct zebra_mlag_info {
+	/* Role this zebra router is playing */
+	enum mlag_role role;
+
+	/* The peerlink being used for mlag */
+	char *peerlink;
+	ifindex_t peerlink_ifindex;
+
+	/* The system mac being used */
+	struct ethaddr mac;
+};
 
 struct zebra_router {
 	/* Thread master */
@@ -87,6 +101,9 @@ struct zebra_router {
 
 #define ZEBRA_ZAPI_PACKETS_TO_PROCESS 1000
 	_Atomic uint32_t packets_to_process;
+
+	/* Mlag information for the router */
+	struct zebra_mlag_info mlag_info;
 };
 
 extern struct zebra_router zrouter;
