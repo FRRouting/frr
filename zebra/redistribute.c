@@ -177,7 +177,8 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 		send_redistribute = 0;
 
 		if (is_default_prefix(p)
-		    && vrf_bitmap_check(client->redist_default, re->vrf_id))
+		    && vrf_bitmap_check(client->redist_default[afi],
+					re->vrf_id))
 			send_redistribute = 1;
 		else if (vrf_bitmap_check(client->redist[afi][ZEBRA_ROUTE_ALL],
 					  re->vrf_id))
@@ -246,7 +247,8 @@ void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {
 		if ((is_default_prefix(p)
-		     && vrf_bitmap_check(client->redist_default, re->vrf_id))
+		     && vrf_bitmap_check(client->redist_default[afi],
+					 re->vrf_id))
 		    || vrf_bitmap_check(client->redist[afi][ZEBRA_ROUTE_ALL],
 					re->vrf_id)
 		    || (re->instance
@@ -354,13 +356,41 @@ stream_failure:
 
 void zebra_redistribute_default_add(ZAPI_HANDLER_ARGS)
 {
-	vrf_bitmap_set(client->redist_default, zvrf_id(zvrf));
+	afi_t afi = 0;
+
+	STREAM_GETC(msg, afi);
+
+	if (afi == 0 || afi >= AFI_MAX) {
+		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
+			  "%s: Specified afi %u does not exist",
+			  __PRETTY_FUNCTION__, afi);
+		return;
+	}
+
+	vrf_bitmap_set(client->redist_default[afi], zvrf_id(zvrf));
 	zebra_redistribute_default(client, zvrf_id(zvrf));
+
+stream_failure:
+	return;
 }
 
 void zebra_redistribute_default_delete(ZAPI_HANDLER_ARGS)
 {
-	vrf_bitmap_unset(client->redist_default, zvrf_id(zvrf));
+	afi_t afi = 0;
+
+	STREAM_GETC(msg, afi);
+
+	if (afi == 0 || afi >= AFI_MAX) {
+		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
+			  "%s: Specified afi %u does not exist",
+			  __PRETTY_FUNCTION__, afi);
+		return;
+	}
+
+	vrf_bitmap_unset(client->redist_default[afi], zvrf_id(zvrf));
+
+stream_failure:
+	return;
 }
 
 /* Interface up information. */

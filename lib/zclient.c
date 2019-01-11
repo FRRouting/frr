@@ -173,10 +173,10 @@ void zclient_stop(struct zclient *zclient)
 		redist_del_instance(
 			&zclient->mi_redist[afi][zclient->redist_default],
 			zclient->instance);
-	}
 
-	vrf_bitmap_free(zclient->default_information);
-	zclient->default_information = VRF_BITMAP_NULL;
+		vrf_bitmap_free(zclient->default_information[afi]);
+		zclient->default_information[afi] = VRF_BITMAP_NULL;
+	}
 }
 
 void zclient_reset(struct zclient *zclient)
@@ -447,7 +447,7 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 	}
 
 	/* Resend all redistribute request. */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
 			if (i != zclient->redist_default
 			    && vrf_bitmap_check(zclient->redist[afi][i],
@@ -456,10 +456,13 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 							zclient, afi, i, 0,
 							vrf_id);
 
-	/* If default information is needed. */
-	if (vrf_bitmap_check(zclient->default_information, VRF_DEFAULT))
-		zebra_message_send(zclient, ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
-				   vrf_id);
+		/* If default information is needed. */
+		if (vrf_bitmap_check(zclient->default_information[afi],
+				     VRF_DEFAULT))
+			zebra_redistribute_default_send(
+				ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient, afi,
+				vrf_id);
+	}
 }
 
 /* Send unregister requests to zebra daemon for the information in a VRF. */
@@ -512,7 +515,7 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 	}
 
 	/* Flush all redistribute request. */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
 			if (i != zclient->redist_default
 			    && vrf_bitmap_check(zclient->redist[afi][i],
@@ -521,10 +524,13 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 					ZEBRA_REDISTRIBUTE_DELETE, zclient, afi,
 					i, 0, vrf_id);
 
-	/* If default information is needed. */
-	if (vrf_bitmap_check(zclient->default_information, VRF_DEFAULT))
-		zebra_message_send(zclient, ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
-				   vrf_id);
+		/* If default information is needed. */
+		if (vrf_bitmap_check(zclient->default_information[afi],
+				     VRF_DEFAULT))
+			zebra_redistribute_default_send(
+				ZEBRA_REDISTRIBUTE_DEFAULT_DELETE, zclient, afi,
+				vrf_id);
+	}
 }
 
 /* Send request to zebra daemon to start or stop RA. */
@@ -620,12 +626,13 @@ void zclient_init(struct zclient *zclient, int redist_default,
 	zclient->redist_default = redist_default;
 	zclient->instance = instance;
 	/* Pending: make afi(s) an arg. */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		redist_add_instance(&zclient->mi_redist[afi][redist_default],
 				    instance);
 
-	/* Set default-information redistribute to zero. */
-	zclient->default_information = vrf_bitmap_init();
+		/* Set default-information redistribute to zero. */
+		zclient->default_information[afi] = vrf_bitmap_init();
+	}
 
 	if (zclient_debug)
 		zlog_debug("zclient_start is called");
@@ -1274,6 +1281,22 @@ int zebra_redistribute_send(int command, struct zclient *zclient, afi_t afi,
 	stream_putc(s, afi);
 	stream_putc(s, type);
 	stream_putw(s, instance);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
+int zebra_redistribute_default_send(int command, struct zclient *zclient,
+				    afi_t afi, vrf_id_t vrf_id)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, command, vrf_id);
+	stream_putc(s, afi);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -2708,21 +2731,22 @@ void zclient_redistribute(int command, struct zclient *zclient, afi_t afi,
 
 
 void zclient_redistribute_default(int command, struct zclient *zclient,
-				  vrf_id_t vrf_id)
+				  afi_t afi, vrf_id_t vrf_id)
 {
 
 	if (command == ZEBRA_REDISTRIBUTE_DEFAULT_ADD) {
-		if (vrf_bitmap_check(zclient->default_information, vrf_id))
+		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
 			return;
-		vrf_bitmap_set(zclient->default_information, vrf_id);
+		vrf_bitmap_set(zclient->default_information[afi], vrf_id);
 	} else {
-		if (!vrf_bitmap_check(zclient->default_information, vrf_id))
+		if (!vrf_bitmap_check(zclient->default_information[afi],
+				      vrf_id))
 			return;
-		vrf_bitmap_unset(zclient->default_information, vrf_id);
+		vrf_bitmap_unset(zclient->default_information[afi], vrf_id);
 	}
 
 	if (zclient->sock > 0)
-		zebra_message_send(zclient, command, vrf_id);
+		zebra_redistribute_default_send(command, zclient, afi, vrf_id);
 }
 
 static void zclient_event(enum event event, struct zclient *zclient)
