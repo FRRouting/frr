@@ -78,6 +78,9 @@ struct zebra_router {
 #define ZEBRA_RIB_PROCESS_HOLD_TIME 10
 #define ZEBRA_RIB_PROCESS_RETRY_TIME 1
 	struct work_queue *ribq;
+
+	/* Meta Queue Information */
+	struct meta_queue *mq;
 };
 
 extern struct zebra_router zrouter;

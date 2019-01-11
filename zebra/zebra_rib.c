@@ -2181,7 +2181,7 @@ static wq_item_status meta_queue_process(struct work_queue *dummy, void *data)
 
 		/* Ensure that the meta-queue is actually enqueued */
 		if (work_queue_empty(zrouter.ribq))
-			work_queue_add(zrouter.ribq, zebrad.mq);
+			work_queue_add(zrouter.ribq, zrouter.mq);
 
 		return WQ_QUEUE_BLOCKED;
 	}
@@ -2285,9 +2285,9 @@ void rib_queue_add(struct route_node *rn)
 	 * This semantics was introduced after 0.99.9 release.
 	 */
 	if (work_queue_empty(zrouter.ribq))
-		work_queue_add(zrouter.ribq, zebrad.mq);
+		work_queue_add(zrouter.ribq, zrouter.mq);
 
-	rib_meta_queue_add(zebrad.mq, rn);
+	rib_meta_queue_add(zrouter.mq, rn);
 
 	return;
 }
@@ -2341,7 +2341,7 @@ static void rib_queue_init(struct zebra_t *zebra)
 	zrouter.ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
 	zrouter.ribq->spec.retry = ZEBRA_RIB_PROCESS_RETRY_TIME;
 
-	if (!(zebra->mq = meta_queue_new())) {
+	if (!(zrouter.mq = meta_queue_new())) {
 		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
 			 "%s: could not initialise meta queue!", __func__);
 		return;

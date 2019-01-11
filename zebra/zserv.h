@@ -175,8 +175,6 @@ DECLARE_KOOH(zserv_client_close, (struct zserv *client), (client));
 
 /* Zebra instance */
 struct zebra_t {
-	struct meta_queue *mq;
-
 	/* LSP work queue */
 	struct work_queue *lsp_process_q;
 

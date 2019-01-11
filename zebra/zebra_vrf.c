@@ -189,13 +189,13 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		struct route_node *rnode;
 		rib_dest_t *dest;
 
-		for (ALL_LIST_ELEMENTS(zebrad.mq->subq[i], lnode, nnode,
+		for (ALL_LIST_ELEMENTS(zrouter.mq->subq[i], lnode, nnode,
 				       rnode)) {
 			dest = rib_dest_from_rnode(rnode);
 			if (dest && rib_dest_vrf(dest) == zvrf) {
 				route_unlock_node(rnode);
-				list_delete_node(zebrad.mq->subq[i], lnode);
-				zebrad.mq->size--;
+				list_delete_node(zrouter.mq->subq[i], lnode);
+				zrouter.mq->size--;
 			}
 		}
 	}
@@ -241,13 +241,13 @@ static int zebra_vrf_delete(struct vrf *vrf)
 		struct route_node *rnode;
 		rib_dest_t *dest;
 
-		for (ALL_LIST_ELEMENTS(zebrad.mq->subq[i], lnode, nnode,
+		for (ALL_LIST_ELEMENTS(zrouter.mq->subq[i], lnode, nnode,
 				       rnode)) {
 			dest = rib_dest_from_rnode(rnode);
 			if (dest && rib_dest_vrf(dest) == zvrf) {
 				route_unlock_node(rnode);
-				list_delete_node(zebrad.mq->subq[i], lnode);
-				zebrad.mq->size--;
+				list_delete_node(zrouter.mq->subq[i], lnode);
+				zrouter.mq->size--;
 			}
 		}
 	}
