@@ -196,8 +196,9 @@ DEFPY (remove_routes,
        "Sharp Routing Protocol\n"
        "Remove some routes\n"
        "Routes to remove\n"
-       "Starting spot\n"
-       "Routes to uniinstall\n"
+       "v4 Starting spot\n"
+       "v6 Starting spot\n"
+       "Routes to uninstall\n"
        "instance to use\n"
        "Value of instance\n")
 {
