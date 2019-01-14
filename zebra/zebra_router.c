@@ -106,7 +106,7 @@ struct route_table *zebra_router_get_table(struct zebra_vrf *zvrf,
 	info = XCALLOC(MTYPE_RIB_TABLE_INFO, sizeof(*info));
 	info->zvrf = zvrf;
 	info->afi = afi;
-	info->safi = SAFI_UNICAST;
+	info->safi = safi;
 	route_table_set_info(zrt->table, info);
 	zrt->table->cleanup = zebra_rtable_node_cleanup;
 
@@ -125,6 +125,25 @@ unsigned long zebra_router_score_proto(uint8_t proto, unsigned short instance)
 		cnt += rib_score_proto_table(proto, instance, zrt->table);
 	}
 	return cnt;
+}
+
+void zebra_router_show_table_summary(struct vty *vty)
+{
+	struct zebra_router_table *zrt;
+
+	vty_out(vty,
+		"VRF             NS ID    VRF ID     AFI            SAFI    Table      Count\n");
+	vty_out(vty,
+		"---------------------------------------------------------------------------\n");
+	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
+		rib_table_info_t *info = route_table_get_info(zrt->table);
+
+		vty_out(vty, "%-16s%5d %9d %7s %15s %8d %10lu\n", info->zvrf->vrf->name,
+			zrt->ns_id, info->zvrf->vrf->vrf_id,
+			afi2str(zrt->afi), safi2str(zrt->safi),
+			zrt->tableid,
+			zrt->table->count);
+	}
 }
 
 void zebra_router_sweep_route(void)

@@ -370,22 +370,10 @@ static void zebra_rnhtable_node_cleanup(struct route_table *table,
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 				   safi_t safi)
 {
-	rib_table_info_t *info;
-	struct route_table *table;
-
 	assert(!zvrf->table[afi][safi]);
 
-	table = zebra_router_get_table(zvrf, zvrf->table_id, afi, safi);
-
-	table->cleanup = zebra_rtable_node_cleanup;
-	zvrf->table[afi][safi] = table;
-
-	XFREE(MTYPE_RIB_TABLE_INFO, table->info);
-	info = XCALLOC(MTYPE_RIB_TABLE_INFO, sizeof(*info));
-	info->zvrf = zvrf;
-	info->afi = afi;
-	info->safi = safi;
-	route_table_set_info(table, info);
+	zvrf->table[afi][safi] =
+		zebra_router_get_table(zvrf, zvrf->table_id, afi, safi);
 }
 
 /* Allocate new zebra VRF. */

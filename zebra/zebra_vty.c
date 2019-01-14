@@ -2857,6 +2857,20 @@ DEFUN (no_zebra_dplane_queue_limit,
 	return CMD_SUCCESS;
 }
 
+DEFUN (zebra_show_routing_tables_summary,
+       zebra_show_routing_tables_summary_cmd,
+       "show zebra router table summary",
+       SHOW_STR
+       ZEBRA_STR
+       "The Zebra Router Information\n"
+       "Table Information about this Zebra Router\n"
+       "Summary Information\n")
+{
+	zebra_router_show_table_summary(vty);
+
+	return CMD_SUCCESS;
+}
+
 /* Table configuration write function. */
 static int config_write_table(struct vty *vty)
 {
@@ -3000,4 +3014,6 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
 	install_element(CONFIG_NODE, &zebra_dplane_queue_limit_cmd);
 	install_element(CONFIG_NODE, &no_zebra_dplane_queue_limit_cmd);
+
+	install_element(VIEW_NODE, &zebra_show_routing_tables_summary_cmd);
 }
