@@ -161,6 +161,18 @@ DEFUN (show_ip_rpf_addr,
 	return CMD_SUCCESS;
 }
 
+static char re_status_output_char(struct route_entry *re, struct nexthop *nhop)
+{
+	if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_FIB)) {
+		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_DUPLICATE))
+			return ' ';
+		else
+			return '*';
+	}
+
+	return ' ';
+}
+
 /* New RIB.  Detailed information for IPv4 route. */
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast)
@@ -229,12 +241,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			char addrstr[32];
 
 			vty_out(vty, "  %c%s",
-				CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)
-					? CHECK_FLAG(nexthop->flags,
-						     NEXTHOP_FLAG_DUPLICATE)
-						  ? ' '
-						  : '*'
-					: ' ',
+				re_status_output_char(re, nexthop),
 				nexthop->rparent ? "  " : "");
 
 			switch (nexthop->type) {
@@ -594,9 +601,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)
 					? '>'
 					: ' ',
-				CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)
-					? '*'
-					: ' ',
+				re_status_output_char(re, nexthop),
 				srcdest_rnode2str(rn, buf, sizeof buf));
 
 			/* Distance and metric display. */
@@ -607,12 +612,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 					       re->metric);
 		} else {
 			vty_out(vty, "  %c%*c",
-				CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)
-					? CHECK_FLAG(nexthop->flags,
-						     NEXTHOP_FLAG_DUPLICATE)
-						  ? ' '
-						  : '*'
-					: ' ',
+				re_status_output_char(re, nexthop),
 				len - 3 + (2 * nexthop_level(nexthop)), ' ');
 		}
 
