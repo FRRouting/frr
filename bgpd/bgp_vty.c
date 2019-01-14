@@ -22,6 +22,7 @@
 
 #include "command.h"
 #include "lib/json.h"
+#include "lib/zclient.h"
 #include "prefix.h"
 #include "plist.h"
 #include "buffer.h"
@@ -897,7 +898,7 @@ DEFUN_HIDDEN (no_bgp_local_mac,
 		return CMD_WARNING;
 	}
 
-	rv = bgp_evpn_local_macip_del(bgp, vni, &mac, &ip);
+	rv = bgp_evpn_local_macip_del(bgp, vni, &mac, &ip, ZEBRA_NEIGH_ACTIVE);
 	if (rv < 0) {
 		vty_out(vty, "Internal error\n");
 		return CMD_WARNING;
