@@ -102,7 +102,7 @@ static struct log_ref ferr_lib_warn[] = {
 		.code = EC_LIB_NB_CB_UNNEEDED,
 		.title = "Unneeded northbound callback",
 		.description = "The northbound subsystem, during initialization, has detected a callback that doesn't need to be implemented",
-		.suggestion = "Check if the installed FRR YANG modules are in sync with the FRR binaries",
+		.suggestion = "This is a bug; please report it"
 	},
 	{
 		.code = EC_LIB_NB_CB_CONFIG_VALIDATE,
@@ -270,19 +270,19 @@ static struct log_ref ferr_lib_err[] = {
 		.code = EC_LIB_NB_CB_MISSING,
 		.title = "Missing northbound callback",
 		.description = "The northbound subsystem, during initialization, has detected a missing callback for one node of the loaded YANG modules",
-		.suggestion = "Check if the installed FRR YANG modules are in sync with the FRR binaries",
+		.suggestion = "This is a bug; please report it"
 	},
 	{
 		.code = EC_LIB_NB_CB_INVALID_PRIO,
 		.title = "Norhtbound callback has an invalid priority",
 		.description = "The northbound subsystem, during initialization, has detected a callback whose priority is invalid",
-		.suggestion = "Check if the installed FRR YANG modules are in sync with the FRR binaries",
+		.suggestion = "This is a bug; please report it"
 	},
 	{
 		.code = EC_LIB_NB_CBS_VALIDATION,
 		.title = "Failure to validate the northbound callbacks",
 		.description = "The northbound subsystem, during initialization, has detected one or more errors while loading the northbound callbacks",
-		.suggestion = "Check if the installed FRR YANG modules are in sync with the FRR binaries",
+		.suggestion = "This is a bug; please report it"
 	},
 	{
 		.code = EC_LIB_LIBYANG,
