@@ -1675,6 +1675,18 @@ static void zsend_capabilities(struct zserv *client, struct zebra_vrf *zvrf)
 	zserv_send_message(client, s);
 }
 
+void zsend_capabilities_all_clients(void)
+{
+	struct listnode *node, *nnode;
+	struct zebra_vrf *zvrf;
+	struct zserv *client;
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+		zsend_capabilities(client, zvrf);
+	}
+}
+
 /* Tie up route-type and client->sock */
 static void zread_hello(ZAPI_HANDLER_ARGS)
 {

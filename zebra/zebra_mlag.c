@@ -26,6 +26,8 @@
 
 #include "zebra/zebra_mlag.h"
 #include "zebra/zebra_router.h"
+#include "zebra/zapi_msg.h"
+#include "zebra/debug.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_mlag_clippy.c"
@@ -61,12 +63,23 @@ DEFPY_HIDDEN (test_mlag,
 	      "Mlag is setup to be primary\n"
 	      "Mlag is setup to be the secondary\n")
 {
+	enum mlag_role orig = zrouter.mlag_info.role;
+	char buf1[80], buf2[80];
+
 	if (none)
 		zrouter.mlag_info.role = MLAG_ROLE_NONE;
 	if (primary)
 		zrouter.mlag_info.role = MLAG_ROLE_PRIMARY;
 	if (secondary)
 		zrouter.mlag_info.role = MLAG_ROLE_SECONDARY;
+
+	if (IS_ZEBRA_DEBUG_MLAG)
+		zlog_debug("Test: Changing role from %s to %s",
+			   mlag_role2str(orig, buf1, sizeof(buf1)),
+			   mlag_role2str(orig, buf2, sizeof(buf2)));
+
+	if (orig != zrouter.mlag_info.role)
+		zsend_capabilities_all_clients();
 
 	return CMD_SUCCESS;
 }

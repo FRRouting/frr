@@ -84,3 +84,5 @@ extern void zsend_iptable_notify_owner(struct zebra_pbr_iptable *iptable,
 				       enum zapi_iptable_notify_owner note);
 extern void zserv_nexthop_num_warn(const char *caller, const struct prefix *p,
 				   const unsigned int nexthop_num);
+
+extern void zsend_capabilities_all_clients(void);
