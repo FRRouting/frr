@@ -241,6 +241,7 @@ ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 		      size_t vrfnamelen, struct sockaddr_any *local,
 		      struct sockaddr_any *peer)
 {
+	struct interface *ifp;
 	struct cmsghdr *cm;
 	int ifindex;
 	ssize_t mlen;
@@ -307,8 +308,14 @@ ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 			local->sa_sin.sin_len = sizeof(local->sa_sin);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
-			fetch_portname_from_ifindex(pi->ipi_ifindex, port,
-						    portlen);
+
+			ifp = if_lookup_by_index(pi->ipi_ifindex, VRF_DEFAULT);
+			if (ifp == NULL)
+				break;
+
+			if (strlcpy(port, ifp->name, portlen) >= portlen)
+				log_debug(
+					"ipv4-recv: interface name truncated");
 			break;
 		}
 #endif /* BFD_LINUX */
@@ -345,8 +352,15 @@ ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 	/* OS agnostic way of getting interface name. */
 	if (port[0] == 0) {
 		ifindex = getsockopt_ifindex(AF_INET, &msghdr);
-		if (ifindex > 0)
-			fetch_portname_from_ifindex(ifindex, port, portlen);
+		if (ifindex <= 0)
+			return mlen;
+
+		ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+		if (ifp == NULL)
+			return mlen;
+
+		if (strlcpy(port, ifp->name, portlen) >= portlen)
+			log_debug("ipv4-recv: interface name truncated");
 	}
 
 	return mlen;
@@ -357,6 +371,7 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 		      size_t vrfnamelen, struct sockaddr_any *local,
 		      struct sockaddr_any *peer)
 {
+	struct interface *ifp;
 	struct cmsghdr *cm;
 	struct in6_pktinfo *pi6 = NULL;
 	int ifindex = 0;
@@ -413,9 +428,16 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 				local->sa_sin6.sin6_len = sizeof(local->sa_sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
-				fetch_portname_from_ifindex(pi6->ipi6_ifindex,
-							    port, portlen);
+
 				ifindex = pi6->ipi6_ifindex;
+				ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+				if (ifp == NULL)
+					break;
+
+				if (strlcpy(port, ifp->name, portlen)
+				    >= portlen)
+					log_debug(
+						"ipv6-recv: interface name truncated");
 			}
 		}
 	}
@@ -610,8 +632,8 @@ int bfd_recv_cb(struct thread *t)
 	 * If no interface was detected, save the interface where the
 	 * packet came in.
 	 */
-	if (bfd->ifindex == 0)
-		bfd->ifindex = ptm_bfd_fetch_ifindex(port);
+	if (bfd->ifp == NULL)
+		bfd->ifp = if_lookup_by_name(port, VRF_DEFAULT);
 
 	/* Log remote discriminator changes. */
 	if ((bfd->discrs.remote_discr != 0)
@@ -1046,7 +1068,8 @@ int bp_peer_socket(struct bfd_peer_cfg *bpc)
 
 int bp_peer_socketv6(struct bfd_peer_cfg *bpc)
 {
-	int sd, pcount, ifindex;
+	struct interface *ifp;
+	int sd, pcount;
 	struct sockaddr_in6 sin6;
 	static int srcPort = BFD_SRCPORTINIT;
 
@@ -1076,9 +1099,11 @@ int bp_peer_socketv6(struct bfd_peer_cfg *bpc)
 	sin6.sin6_len = sizeof(sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 	sin6 = bpc->bpc_local.sa_sin6;
-	ifindex = ptm_bfd_fetch_ifindex(bpc->bpc_localif);
-	if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
-		sin6.sin6_scope_id = ifindex;
+	if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr)) {
+		ifp = if_lookup_by_name(bpc->bpc_localif, VRF_DEFAULT);
+		sin6.sin6_scope_id =
+			(ifp != NULL) ? ifp->ifindex : IFINDEX_INTERNAL;
+	}
 
 	if (bpc->bpc_has_localif) {
 		if (bp_bind_dev(sd, bpc->bpc_localif) != 0) {

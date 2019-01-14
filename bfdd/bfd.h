@@ -31,6 +31,7 @@
 #include "lib/libfrr.h"
 #include "lib/qobj.h"
 #include "lib/queue.h"
+#include "lib/vrf.h"
 
 #include "bfdctl.h"
 
@@ -237,7 +238,7 @@ struct bfd_session {
 
 	struct sockaddr_any local_address;
 	struct sockaddr_any local_ip;
-	int ifindex;
+	struct interface *ifp;
 	uint8_t local_mac[ETHERNET_ADDRESS_LENGTH];
 	uint8_t peer_mac[ETHERNET_ADDRESS_LENGTH];
 
@@ -512,7 +513,6 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc);
 int ptm_bfd_ses_del(struct bfd_peer_cfg *bpc);
 void ptm_bfd_ses_dn(struct bfd_session *bfd, uint8_t diag);
 void ptm_bfd_ses_up(struct bfd_session *bfd);
-void fetch_portname_from_ifindex(int ifindex, char *ifname, size_t ifnamelen);
 void ptm_bfd_echo_stop(struct bfd_session *bfd, int polling);
 void ptm_bfd_echo_start(struct bfd_session *bfd);
 void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit);
@@ -583,21 +583,5 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv);
 void bfdd_zclient_stop(void);
 
 int ptm_bfd_notify(struct bfd_session *bs);
-
-
-/*
- * OS compatibility functions.
- */
-#if defined(BFD_LINUX) || defined(BFD_BSD)
-int ptm_bfd_fetch_ifindex(const char *ifname);
-void ptm_bfd_fetch_local_mac(const char *ifname, uint8_t *mac);
-void fetch_portname_from_ifindex(int ifindex, char *ifname, size_t ifnamelen);
-#endif /* BFD_LINUX || BFD_BSD */
-
-#ifdef BFD_BSD
-ssize_t bsd_echo_sock_read(int sd, uint8_t *buf, ssize_t *buflen,
-			   struct sockaddr_storage *ss, socklen_t *sslen,
-			   uint8_t *ttl, uint32_t *id);
-#endif /* BFD_BSD */
 
 #endif /* _BFD_H_ */
