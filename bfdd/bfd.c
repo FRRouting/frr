@@ -791,10 +791,10 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 	int rv;
 
 #define MINUTES (60)
-#define HOURS (24 * MINUTES)
-#define DAYS (30 * HOURS)
-#define MONTHS (12 * DAYS)
-#define YEARS (MONTHS)
+#define HOURS (60 * MINUTES)
+#define DAYS (24 * HOURS)
+#define MONTHS (30 * DAYS)
+#define YEARS (12 * MONTHS)
 	if (time >= YEARS) {
 		year = time / YEARS;
 		time -= year * YEARS;
