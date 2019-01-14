@@ -1278,8 +1278,12 @@ int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 			n++;
 		}
 		list_keys.num = n;
-		assert(list_keys.num
-		       == ((struct lys_node_list *)dn->schema)->keys_size);
+		if (list_keys.num
+		    != ((struct lys_node_list *)dn->schema)->keys_size) {
+			list_delete(&list_dnodes);
+			yang_dnode_free(dnode);
+			return NB_ERR_NOT_FOUND;
+		}
 
 		/* Find the list entry pointer. */
 		nn = dn->schema->priv;
