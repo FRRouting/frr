@@ -276,7 +276,7 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 		if ((cmd == RTM_NEWROUTE
 		     && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 		    || (cmd == RTM_DELROUTE
-			&& CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))) {
+			&& CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))) {
 			netlink_route_info_add_nh(ri, nexthop);
 		}
 	}

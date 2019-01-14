@@ -163,12 +163,22 @@ DEFUN (show_ip_rpf_addr,
 
 static char re_status_output_char(struct route_entry *re, struct nexthop *nhop)
 {
-	if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_FIB)) {
-		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_DUPLICATE))
-			return ' ';
-		else
+	if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)) {
+		if (!CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_DUPLICATE))
 			return '*';
+		else
+			return ' ';
 	}
+
+	if (CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED)) {
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED))
+			return 'q';
+
+		return 'f';
+	}
+
+	if (CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED))
+		return 'q';
 
 	return ' ';
 }
@@ -399,6 +409,21 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		json_object_int_add(json_route, "distance",
 				    re->distance);
 		json_object_int_add(json_route, "metric", re->metric);
+
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
+			json_object_boolean_true_add(json_route, "installed");
+
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED))
+			json_object_boolean_true_add(json_route, "failed");
+
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED))
+			json_object_boolean_true_add(json_route, "queued");
+
+		if (re->type != ZEBRA_ROUTE_CONNECT) {
+			json_object_int_add(json_route, "distance",
+					    re->distance);
+			json_object_int_add(json_route, "metric", re->metric);
+		}
 
 		if (re->tag)
 			json_object_int_add(json_route, "tag", re->tag);
@@ -1409,21 +1434,20 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 			 * In case of ECMP, count only once.
 			 */
 			cnt = 0;
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)) {
+				fib_cnt[ZEBRA_ROUTE_TOTAL]++;
+				fib_cnt[re->type]++;
+			}
 			for (nexthop = re->ng.nexthop; (!cnt && nexthop);
 			     nexthop = nexthop->next) {
 				cnt++;
 				rib_cnt[ZEBRA_ROUTE_TOTAL]++;
 				rib_cnt[re->type]++;
-				if (CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_FIB)) {
-					fib_cnt[ZEBRA_ROUTE_TOTAL]++;
-					fib_cnt[re->type]++;
-				}
 				if (re->type == ZEBRA_ROUTE_BGP
 				    && CHECK_FLAG(re->flags, ZEBRA_FLAG_IBGP)) {
 					rib_cnt[ZEBRA_ROUTE_IBGP]++;
-					if (CHECK_FLAG(nexthop->flags,
-						       NEXTHOP_FLAG_FIB))
+					if (CHECK_FLAG(re->status,
+						       ROUTE_ENTRY_INSTALLED))
 						fib_cnt[ZEBRA_ROUTE_IBGP]++;
 				}
 			}
