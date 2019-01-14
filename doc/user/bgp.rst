@@ -968,6 +968,13 @@ Configuring Peers
    and will not be displayed as part of a `show run`.  The no form
    of the command turns off this ability.
 
+.. index:: [no] bgp default ipv4-unicast
+.. clicmd:: [no] bgp default ipv4-unicast
+
+   This command allows the user to specify that v4 peering is turned
+   on by default or not.  This command defaults to on and is not displayed.
+   The `no bgp default ipv4-unicast` form of the command is displayed.
+
 .. _bgp-peer-filtering:
 
 Peer Filtering
