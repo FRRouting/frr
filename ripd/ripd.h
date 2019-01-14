@@ -154,6 +154,9 @@ struct rip {
 
 	/* For distribute-list container */
 	struct distribute_ctx *distribute_ctx;
+
+	/* For if_rmap container */
+	struct if_rmap_ctx *if_rmap_ctx;
 };
 
 /* RIP routing table entry which belong to rip_packet. */
@@ -419,8 +422,7 @@ extern void rip_zebra_ipv4_add(struct route_node *);
 extern void rip_zebra_ipv4_delete(struct route_node *);
 extern void rip_interface_multicast_set(int, struct connected *);
 extern void rip_distribute_update_interface(struct interface *);
-extern void rip_if_rmap_update_interface(struct interface *);
-
+extern void rip_if_rmap_update_interface(struct interface *ifp);
 extern int rip_show_network_config(struct vty *);
 extern void rip_show_redistribute_config(struct vty *);
 
