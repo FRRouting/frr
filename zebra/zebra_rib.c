@@ -1080,6 +1080,9 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 
 	switch (ret) {
 	case ZEBRA_DPLANE_REQUEST_QUEUED:
+		SET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
+		if (old)
+			SET_FLAG(old->status, ROUTE_ENTRY_QUEUED);
 		if (zvrf)
 			zvrf->installs_queued++;
 		break;
@@ -1818,8 +1821,6 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	enum dplane_op_e op;
 	enum zebra_dplane_result status;
 	const struct prefix *dest_pfx, *src_pfx;
-	bool re_stale = false;
-	bool old_re_stale = false;
 
 	/* Locate rn and re(s) from ctx */
 
@@ -1899,32 +1900,24 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	/*
 	 * Check sequence number(s) to detect stale results before continuing
 	 */
-	if (re && (re->dplane_sequence != dplane_ctx_get_seq(ctx))) {
-		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
-			zlog_debug("%u:%s Stale dplane result for re %p",
-				   dplane_ctx_get_vrf(ctx), dest_str, re);
-		}
-		re_stale = true;
+	if (re) {
+		if (re->dplane_sequence != dplane_ctx_get_seq(ctx)) {
+			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+				zlog_debug("%u:%s Stale dplane result for re %p",
+					   dplane_ctx_get_vrf(ctx),
+					   dest_str, re);
+		} else
+			UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
 	}
 
-	if (old_re &&
-	    (old_re->dplane_sequence != dplane_ctx_get_old_seq(ctx))) {
-		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
-			zlog_debug("%u:%s Stale dplane result for old_re %p",
-				   dplane_ctx_get_vrf(ctx), dest_str, old_re);
-		}
-		old_re_stale = true;
-	}
-
-	/*
-	 * Here's sort of a tough one: the route update result is stale.
-	 * Is it better to use the context block info to generate
-	 * redist and owner notification, or is it better to wait
-	 * for the up-to-date result to arrive?
-	 */
-	if (re == NULL) {
-		/* TODO -- for now, only expose up-to-date results */
-		goto done;
+	if (old_re) {
+		if (old_re->dplane_sequence != dplane_ctx_get_old_seq(ctx)) {
+			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+				zlog_debug("%u:%s Stale dplane result for old_re %p",
+					   dplane_ctx_get_vrf(ctx),
+					   dest_str, old_re);
+		} else
+			UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
 	}
 
 	switch (op) {
