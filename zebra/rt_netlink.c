@@ -773,7 +773,7 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 	if (tb[RTA_DST])
 		m->sg.grp = *(struct in_addr *)RTA_DATA(tb[RTA_DST]);
 
-	if ((RTA_EXPIRES <= RTA_MAX) && tb[RTA_EXPIRES])
+	if (tb[RTA_EXPIRES])
 		m->lastused = *(unsigned long long *)RTA_DATA(tb[RTA_EXPIRES]);
 
 	if (tb[RTA_MULTIPATH]) {
