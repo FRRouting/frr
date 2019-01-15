@@ -275,12 +275,15 @@ static inline struct route_node *route_table_iter_next(route_table_iter_t *iter)
 		break;
 
 	case RT_ITER_STATE_PAUSED:
+	{
+		union prefixconstptr cp = {.p = &iter->pause_prefix};
 
 		/*
 		 * Start with the node following pause_prefix.
 		 */
-		node = route_table_get_next(iter->table, &iter->pause_prefix);
-		break;
+		node = route_table_get_next(iter->table, cp);
+	}
+	break;
 
 	case RT_ITER_STATE_DONE:
 		return NULL;

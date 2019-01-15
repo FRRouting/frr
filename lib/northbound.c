@@ -185,7 +185,7 @@ static unsigned int nb_node_validate_cbs(const struct nb_node *nb_node)
 	error += nb_node_validate_cb(nb_node, NB_OP_MODIFY,
 				     !!nb_node->cbs.modify, false);
 	error += nb_node_validate_cb(nb_node, NB_OP_DELETE,
-				     !!nb_node->cbs.delete, false);
+				     !!nb_node->cbs.destroy, false);
 	error += nb_node_validate_cb(nb_node, NB_OP_MOVE, !!nb_node->cbs.move,
 				     false);
 	error += nb_node_validate_cb(nb_node, NB_OP_APPLY_FINISH,
@@ -742,7 +742,7 @@ static int nb_configuration_callback(const enum nb_event event,
 		ret = (*nb_node->cbs.modify)(event, dnode, resource);
 		break;
 	case NB_OP_DELETE:
-		ret = (*nb_node->cbs.delete)(event, dnode);
+		ret = (*nb_node->cbs.destroy)(event, dnode);
 		break;
 	case NB_OP_MOVE:
 		ret = (*nb_node->cbs.move)(event, dnode);

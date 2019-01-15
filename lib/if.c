@@ -1379,13 +1379,13 @@ const struct frr_yang_module_info frr_interface_info = {
 		{
 			.xpath = "/frr-interface:lib/interface",
 			.cbs.create = lib_interface_create,
-			.cbs.delete = lib_interface_delete,
+			.cbs.destroy = lib_interface_delete,
 			.cbs.cli_show = cli_show_interface,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/description",
 			.cbs.modify = lib_interface_description_modify,
-			.cbs.delete = lib_interface_description_delete,
+			.cbs.destroy = lib_interface_description_delete,
 			.cbs.cli_show = cli_show_interface_desc,
 		},
 		{

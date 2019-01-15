@@ -200,7 +200,7 @@ extern int vrf_bitmap_check(vrf_bitmap_t, vrf_id_t);
  *           the system ( 2 and 3 ) above.
  */
 extern void vrf_init(int (*create)(struct vrf *vrf), int (*enable)(struct vrf *vrf),
-		     int (*disable)(struct vrf *vrf), int (*delete)(struct vrf *vrf),
+		     int (*disable)(struct vrf *vrf), int (*destroy)(struct vrf *vrf),
 		     int (*update)(struct vrf *vrf));
 
 /*

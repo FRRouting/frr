@@ -92,12 +92,12 @@ DECLARE_QOBJ_TYPE(nexthop_group_cmd)
  * code
  */
 void nexthop_group_init(
-	void (*new)(const char *name),
+	void (*create)(const char *name),
 	void (*add_nexthop)(const struct nexthop_group_cmd *nhgc,
 			    const struct nexthop *nhop),
 	void (*del_nexthop)(const struct nexthop_group_cmd *nhgc,
 			    const struct nexthop *nhop),
-	void (*delete)(const char *name));
+	void (*destroy)(const char *name));
 
 void nexthop_group_enable_vrf(struct vrf *vrf);
 void nexthop_group_disable_vrf(struct vrf *vrf);

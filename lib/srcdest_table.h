@@ -84,7 +84,8 @@ static inline int rnode_is_srcnode(struct route_node *rn)
 static inline struct route_table *srcdest_rnode_table(struct route_node *rn)
 {
 	if (rnode_is_srcnode(rn)) {
-		struct route_node *dst_rn = route_table_get_info(rn->table);
+		struct route_node *dst_rn =
+			(struct route_node *)route_table_get_info(rn->table);
 		return dst_rn->table;
 	} else {
 		return rn->table;

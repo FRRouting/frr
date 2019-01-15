@@ -168,7 +168,7 @@ struct nb_callbacks {
 	 *    - NB_ERR_INCONSISTENCY when an inconsistency was detected.
 	 *    - NB_ERR for other errors.
 	 */
-	int (*delete)(enum nb_event event, const struct lyd_node *dnode);
+	int (*destroy)(enum nb_event event, const struct lyd_node *dnode);
 
 	/*
 	 * Configuration callback.
