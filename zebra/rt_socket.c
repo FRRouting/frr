@@ -308,8 +308,7 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 
 	if (dplane_ctx_get_src(ctx) != NULL) {
 		zlog_err("route add: IPv6 sourcedest routes unsupported!");
-		res = ZEBRA_DPLANE_REQUEST_FAILURE;
-		goto done;
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
 	frr_elevate_privs(&zserv_privs) {
@@ -340,8 +339,6 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 			res = ZEBRA_DPLANE_REQUEST_FAILURE;
 		}
 	} /* Elevated privs */
-
-done:
 
 	return res;
 }
