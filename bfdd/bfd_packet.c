@@ -668,29 +668,8 @@ int bfd_recv_cb(struct thread *t)
 	/* Save remote diagnostics before state switch. */
 	bfd->remote_diag = cp->diag & BFD_DIAGMASK;
 
-	/* State switch from section 6.8.6 */
-	if (BFD_GETSTATE(cp->flags) == PTM_BFD_ADM_DOWN) {
-		if (bfd->ses_state != PTM_BFD_DOWN)
-			ptm_bfd_ses_dn(bfd, BD_NEIGHBOR_DOWN);
-	} else {
-		switch (bfd->ses_state) {
-		case (PTM_BFD_DOWN):
-			if (BFD_GETSTATE(cp->flags) == PTM_BFD_INIT)
-				ptm_bfd_ses_up(bfd);
-			else if (BFD_GETSTATE(cp->flags) == PTM_BFD_DOWN)
-				bfd->ses_state = PTM_BFD_INIT;
-			break;
-		case (PTM_BFD_INIT):
-			if (BFD_GETSTATE(cp->flags) == PTM_BFD_INIT
-			    || BFD_GETSTATE(cp->flags) == PTM_BFD_UP)
-				ptm_bfd_ses_up(bfd);
-			break;
-		case (PTM_BFD_UP):
-			if (BFD_GETSTATE(cp->flags) == PTM_BFD_DOWN)
-				ptm_bfd_ses_dn(bfd, BD_NEIGHBOR_DOWN);
-			break;
-		}
-	}
+	/* State switch from section 6.2. */
+	bs_state_handler(bfd, BFD_GETSTATE(cp->flags));
 
 	/*
 	 * Handle echo packet status:

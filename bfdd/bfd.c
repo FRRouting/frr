@@ -694,6 +694,129 @@ void bfd_set_polling(struct bfd_session *bs)
 	bs->polling = 1;
 }
 
+/*
+ * bs_<state>_handler() functions implement the BFD state machine
+ * transition mechanism. `<state>` is the current session state and
+ * the parameter `nstate` is the peer new state.
+ */
+void bs_admin_down_handler(struct bfd_session *bs, int nstate);
+void bs_down_handler(struct bfd_session *bs, int nstate);
+void bs_init_handler(struct bfd_session *bs, int nstate);
+void bs_up_handler(struct bfd_session *bs, int nstate);
+
+void bs_admin_down_handler(struct bfd_session *bs __attribute__((__unused__)),
+			   int nstate __attribute__((__unused__)))
+{
+	/*
+	 * We are administratively down, there is no state machine
+	 * handling.
+	 */
+}
+
+void bs_down_handler(struct bfd_session *bs, int nstate)
+{
+	switch (nstate) {
+	case PTM_BFD_ADM_DOWN:
+		/*
+		 * Remote peer doesn't want to talk, so lets keep the
+		 * connection down.
+		 */
+	case PTM_BFD_UP:
+		/* Peer can't be up yet, wait it go to 'init' or 'down'. */
+		break;
+
+	case PTM_BFD_DOWN:
+		/*
+		 * Remote peer agreed that the path is down, lets try to
+		 * bring it up.
+		 */
+		bs->ses_state = PTM_BFD_INIT;
+		break;
+
+	case PTM_BFD_INIT:
+		/*
+		 * Remote peer told us his path is up, lets turn
+		 * activate the session.
+		 */
+		ptm_bfd_ses_up(bs);
+		break;
+
+	default:
+		log_debug("state-change: unhandled neighbor state: %d", nstate);
+		break;
+	}
+}
+
+void bs_init_handler(struct bfd_session *bs, int nstate)
+{
+	switch (nstate) {
+	case PTM_BFD_ADM_DOWN:
+		/*
+		 * Remote peer doesn't want to talk, so lets make the
+		 * connection down.
+		 */
+		bs->ses_state = PTM_BFD_DOWN;
+		break;
+
+	case PTM_BFD_DOWN:
+		/* Remote peer hasn't moved to first stage yet. */
+		break;
+
+	case PTM_BFD_INIT:
+	case PTM_BFD_UP:
+		/* We agreed on the settings and the path is up. */
+		ptm_bfd_ses_up(bs);
+		break;
+
+	default:
+		log_debug("state-change: unhandled neighbor state: %d", nstate);
+		break;
+	}
+}
+
+void bs_up_handler(struct bfd_session *bs, int nstate)
+{
+	switch (nstate) {
+	case PTM_BFD_ADM_DOWN:
+	case PTM_BFD_DOWN:
+		/* Peer lost or asked to shutdown connection. */
+		ptm_bfd_ses_dn(bs, BD_NEIGHBOR_DOWN);
+		break;
+
+	case PTM_BFD_INIT:
+	case PTM_BFD_UP:
+		/* Path is up and working. */
+		break;
+
+	default:
+		log_debug("state-change: unhandled neighbor state: %d", nstate);
+		break;
+	}
+}
+
+void bs_state_handler(struct bfd_session *bs, int nstate)
+{
+	switch (bs->ses_state) {
+	case PTM_BFD_ADM_DOWN:
+		bs_admin_down_handler(bs, nstate);
+		break;
+	case PTM_BFD_DOWN:
+		bs_down_handler(bs, nstate);
+		break;
+	case PTM_BFD_INIT:
+		bs_init_handler(bs, nstate);
+		break;
+	case PTM_BFD_UP:
+		bs_up_handler(bs, nstate);
+		break;
+
+	default:
+		log_debug("state-change: [%s] is in invalid state: %d",
+			  bs_to_string(bs), nstate);
+		break;
+	}
+}
+
 
 /*
  * Helper functions.
