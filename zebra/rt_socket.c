@@ -92,10 +92,9 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	 */
 	if (cmd != RTM_ADD && cmd != RTM_DELETE) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: %s odd command %s for flags %d",
+			zlog_debug("%s: %s odd command %s",
 				   __func__, prefix_buf,
-				   lookup_msg(rtm_type_str, cmd, NULL),
-				   nexthop->flags);
+				   lookup_msg(rtm_type_str, cmd, NULL));
 		return 0;
 	}
 
