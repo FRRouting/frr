@@ -107,35 +107,15 @@ static void vrrp_recalculate_timers(struct vrrp_router *r)
  * Returns:
  *    whether or not vr owns the specified address
  */
-static bool vrrp_is_owner(struct vrrp_vrouter *vr, struct ipaddr *addr)
+static bool vrrp_is_owner(struct interface *ifp, struct ipaddr *addr)
 {
-	struct prefix *p;
-	struct prefix_ipv4 p4;
-	struct prefix_ipv6 p6;
-	struct vrrp_router *r;
+	struct prefix p;
 
-	if (IS_IPADDR_V4(addr)) {
-		p4.family = AF_INET;
-		p4.prefixlen = IPV4_MAX_BITLEN;
-		p4.prefix = addr->ipaddr_v4;
-		p = (struct prefix *)&p4;
-		r = vr->v4;
-	} else {
-		p6.family = AF_INET6;
-		p6.prefixlen = IPV6_MAX_BITLEN;
-		memcpy(&p6.prefix, &addr->ipaddr_v6, sizeof(struct in6_addr));
-		p = (struct prefix *)&p6;
-		r = vr->v6;
-	}
+	p.family = IS_IPADDR_V4(addr) ? AF_INET : AF_INET6;
+	p.prefixlen = IS_IPADDR_V4(addr) ? IPV4_MAX_BITLEN : IPV6_MAX_BITLEN;
+	memcpy(&p.u, &addr->ip, sizeof(addr->ip));
 
-	bool have_addr = !!connected_lookup_prefix_exact(r->mvl_ifp, p);
-
-	/* did we assign it? */
-	/* FIXME: this check is wrong, we need a flag to set when we install
-	 * addresses on an interface when assuming master status; then
-	 * ownership status is determined by (have_addr && !flag) in master
-	 * state */
-	return have_addr;
+	return !!connected_lookup_prefix_exact(ifp, &p);
 }
 
 /* Configuration controllers ----------------------------------------------- */
@@ -166,7 +146,7 @@ void vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
 	v4_ins->ipa_type = IPADDR_V4;
 	v4_ins->ipaddr_v4 = v4;
 
-	if (!vrrp_is_owner(vr, v4_ins) && vr->v4->is_owner) {
+	if (!vrrp_is_owner(vr->ifp, v4_ins) && vr->v4->is_owner) {
 		char ipbuf[INET6_ADDRSTRLEN];
 		ipaddr2str(v4_ins, ipbuf, sizeof(ipbuf));
 		zlog_err(
@@ -187,7 +167,7 @@ void vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
 	v6_ins->ipa_type = IPADDR_V6;
 	memcpy(&v6_ins->ipaddr_v6, &v6, sizeof(struct in6_addr));
 
-	if (!vrrp_is_owner(vr, v6_ins) && vr->v6->is_owner) {
+	if (!vrrp_is_owner(vr->ifp, v6_ins) && vr->v6->is_owner) {
 		char ipbuf[INET6_ADDRSTRLEN];
 		ipaddr2str(v6_ins, ipbuf, sizeof(ipbuf));
 		zlog_err(
@@ -271,7 +251,7 @@ static struct vrrp_router *vrrp_router_create(struct vrrp_vrouter *vr,
 		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Selected %s",
 			  r->vr->vrid, selection->name);
 
-	r->mvl_ifp = selection ? selection : r->vr->ifp;
+	r->mvl_ifp = selection;
 
 	return r;
 }
@@ -553,34 +533,44 @@ done:
 static int vrrp_bind_to_primary_connected(struct vrrp_router *r)
 {
 	char ipstr[INET6_ADDRSTRLEN];
+	struct interface *ifp;
+
+	/*
+	 * A slight quirk: the RFC specifies that advertisements under IPv6 must
+	 * be transmitted using the link local address of the source interface
+	 */
+	ifp = r->family == AF_INET ? r->vr->ifp : r->mvl_ifp;
 
 	struct listnode *ln;
 	struct connected *c = NULL;
-	for (ALL_LIST_ELEMENTS_RO(r->mvl_ifp->connected, ln, c))
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, ln, c))
 		if (c->address->family == r->family)
 			break;
 
 	if (c == NULL) {
 		zlog_err(VRRP_LOGPFX VRRP_LOGPFX_VRID
 			 "Failed to find %s address to bind on %s",
-			 r->vr->vrid, family2str(r->family), r->mvl_ifp->name);
+			 r->vr->vrid, family2str(r->family), ifp->name);
 		return -1;
 	}
 
-	struct sockaddr_in sa4 = {
-		.sin_family = AF_INET,
-		.sin_addr = c->address->u.prefix4,
-	};
-	struct sockaddr_in6 sa6 = {
-		.sin6_family = AF_INET6,
-		.sin6_addr = c->address->u.prefix6,
-	};
+	union sockunion su;
+	memset(&su, 0x00, sizeof(su));
 
-	struct sockaddr *sa = r->family == AF_INET ? (struct sockaddr *)&sa4
-						   : (struct sockaddr *)&sa6;
+	switch (r->family) {
+	case AF_INET:
+		su.sin.sin_family = AF_INET;
+		su.sin.sin_addr = c->address->u.prefix4;
+		break;
+	case AF_INET6:
+		su.sin6.sin6_family = AF_INET6;
+		su.sin6.sin6_scope_id = ifp->ifindex;
+		su.sin6.sin6_addr = c->address->u.prefix6;
+		break;
+	}
 
 	sockopt_reuseaddr(r->sock_tx);
-	if (bind(r->sock_tx, sa, sizeof(struct sockaddr)) < 0) {
+	if (bind(r->sock_tx, (const struct sockaddr *)&su, sizeof(su)) < 0) {
 		zlog_err(
 			VRRP_LOGPFX VRRP_LOGPFX_VRID
 			"Failed to bind Tx socket to primary IP address %s: %s",
@@ -677,6 +667,23 @@ static int vrrp_socket(struct vrrp_router *r)
 		ret = setsockopt_ipv4_multicast(r->sock_rx, IP_ADD_MEMBERSHIP,
 						v4, htonl(VRRP_MCASTV4_GROUP),
 						r->vr->ifp->ifindex);
+
+		/* Set outgoing interface for advertisements */
+		struct ip_mreqn mreqn = {};
+		mreqn.imr_ifindex = r->mvl_ifp->ifindex;
+		ret = setsockopt(r->sock_tx, IPPROTO_IP, IP_MULTICAST_IF,
+				 (void *)&mreqn, sizeof(mreqn));
+		if (ret < 0) {
+			zlog_warn(
+				VRRP_LOGPFX VRRP_LOGPFX_VRID
+				"Could not set %s as outgoing multicast interface",
+				r->vr->vrid, r->mvl_ifp->name);
+			failed = true;
+			goto done;
+		}
+		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Set %s as outgoing multicast interface",
+			  r->vr->vrid, r->mvl_ifp->name);
 	} else if (r->family == AF_INET6) {
 		/* Always transmit IPv6 packets with hop limit set to 255 */
 		ret = setsockopt_ipv6_multicast_hops(r->sock_tx, 255);
@@ -702,6 +709,21 @@ static int vrrp_socket(struct vrrp_router *r)
 		mreq.ipv6mr_interface = r->vr->ifp->ifindex;
 		ret = setsockopt(r->sock_rx, IPPROTO_IPV6, IPV6_JOIN_GROUP,
 				 &mreq, sizeof(mreq));
+
+		/* Set outgoing interface for advertisements */
+		ret = setsockopt(r->sock_tx, IPPROTO_IPV6, IPV6_MULTICAST_IF,
+				 &r->mvl_ifp->ifindex, sizeof(ifindex_t));
+		if (ret < 0) {
+			zlog_warn(
+				VRRP_LOGPFX VRRP_LOGPFX_VRID
+				"Could not set %s as outgoing multicast interface",
+				r->vr->vrid, r->mvl_ifp->name);
+			failed = true;
+			goto done;
+		}
+		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Set %s as outgoing multicast interface",
+			  r->vr->vrid, r->mvl_ifp->name);
 	}
 
 	if (ret < 0) {
@@ -879,6 +901,14 @@ static int vrrp_startup(struct vrrp_router *r)
 	if (r->fsm.state != VRRP_STATE_INITIALIZE)
 		return -1;
 
+	/* Must have a valid macvlan interface available */
+	if (r->mvl_ifp == NULL) {
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "No appropriate interface for %s VRRP found",
+			  r->vr->vrid, family2str(r->family));
+		return -1;
+	}
+
 	/* Initialize global gratuitous ARP socket if necessary */
 	if (r->family == AF_INET && !vrrp_garp_is_init())
 		vrrp_garp_init();
@@ -899,7 +929,7 @@ static int vrrp_startup(struct vrrp_router *r)
 	char ipbuf[INET6_ADDRSTRLEN];
 	inet_ntop(r->family, &primary->ip.addr, ipbuf, sizeof(ipbuf));
 
-	if (vrrp_is_owner(r->vr, primary)) {
+	if (vrrp_is_owner(r->vr->ifp, primary)) {
 		r->priority = VRRP_PRIO_MASTER;
 		vrrp_recalculate_timers(r);
 
