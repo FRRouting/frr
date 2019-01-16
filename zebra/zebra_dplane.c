@@ -290,6 +290,9 @@ static struct zebra_dplane_globals {
 	_Atomic uint32_t dg_pws_in;
 	_Atomic uint32_t dg_pw_errors;
 
+	_Atomic uint32_t dg_intf_addrs_in;
+	_Atomic uint32_t dg_intf_addr_errors;
+
 	_Atomic uint32_t dg_update_yields;
 
 	/* Dataplane pthread */
@@ -327,6 +330,9 @@ static enum zebra_dplane_result lsp_update_internal(zebra_lsp_t *lsp,
 						    enum dplane_op_e op);
 static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
 						   enum dplane_op_e op);
+static enum zebra_dplane_result intf_addr_update_internal(
+	const struct interface *ifp, const struct connected *ifc,
+	enum dplane_op_e op);
 
 /*
  * Public APIs
@@ -427,6 +433,14 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 
 	case DPLANE_OP_ADDR_INSTALL:
 	case DPLANE_OP_ADDR_UNINSTALL:
+		/* Maybe free label string, if allocated */
+		if ((*pctx)->u.intf.label != NULL &&
+		    (*pctx)->u.intf.label != (*pctx)->u.intf.label_buf) {
+			free((*pctx)->u.intf.label);
+			(*pctx)->u.intf.label = NULL;
+		}
+		break;
+
 	case DPLANE_OP_NONE:
 		break;
 	}
@@ -1543,7 +1557,7 @@ done:
 enum zebra_dplane_result dplane_intf_addr_set(const struct interface *ifp,
 					      const struct connected *ifc)
 {
-	return ZEBRA_DPLANE_REQUEST_FAILURE;
+	return intf_addr_update_internal(ifp, ifc, DPLANE_OP_ADDR_INSTALL);
 }
 
 /*
@@ -1552,7 +1566,96 @@ enum zebra_dplane_result dplane_intf_addr_set(const struct interface *ifp,
 enum zebra_dplane_result dplane_intf_addr_unset(const struct interface *ifp,
 						const struct connected *ifc)
 {
-	return ZEBRA_DPLANE_REQUEST_FAILURE;
+	return intf_addr_update_internal(ifp, ifc, DPLANE_OP_ADDR_UNINSTALL);
+}
+
+static enum zebra_dplane_result intf_addr_update_internal(
+	const struct interface *ifp, const struct connected *ifc,
+	enum dplane_op_e op)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	int ret = EINVAL;
+	struct zebra_dplane_ctx *ctx = NULL;
+	struct zebra_ns *zns;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		char addr_str[PREFIX_STRLEN];
+
+		prefix2str(ifc->address, addr_str, sizeof(addr_str));
+
+		zlog_debug("init intf ctx %s: idx %d, addr %u:%s",
+			   dplane_op2str(op), ifp->ifindex, ifp->vrf_id,
+			   addr_str);
+	}
+
+	ctx = dplane_ctx_alloc();
+	if (ctx == NULL) {
+		ret = ENOMEM;
+		goto done;
+	}
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_vrf_id = ifp->vrf_id;
+
+	zns = zebra_ns_lookup(ifp->vrf_id);
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	/* Init the interface-addr-specific area */
+	memset(&ctx->u.intf, 0, sizeof(ctx->u.intf));
+
+	strncpy(ctx->u.intf.ifname, ifp->name, sizeof(ctx->u.intf.ifname));
+	ctx->u.intf.ifindex = ifp->ifindex;
+	ctx->u.intf.prefix = *(ifc->address);
+
+	if (CONNECTED_PEER(ifc)) {
+		ctx->u.intf.dest_prefix = *(ifc->destination);
+		ctx->u.intf.flags |=
+			(DPLANE_INTF_CONNECTED | DPLANE_INTF_HAS_DEST);
+	} else if (ifc->destination) {
+		ctx->u.intf.dest_prefix = *(ifc->destination);
+		ctx->u.intf.flags |= DPLANE_INTF_HAS_DEST;
+	}
+
+	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
+		ctx->u.intf.flags |= DPLANE_INTF_SECONDARY;
+
+	if (ifc->label) {
+		size_t len;
+
+		ctx->u.intf.flags |= DPLANE_INTF_HAS_LABEL;
+
+		/* Use embedded buffer if it's adequate; else allocate. */
+		len = strlen(ifc->label);
+
+		if (len < sizeof(ctx->u.intf.label_buf)) {
+			strncpy(ctx->u.intf.label_buf, ifc->label,
+				sizeof(ctx->u.intf.label_buf));
+			ctx->u.intf.label = ctx->u.intf.label_buf;
+		} else {
+			ctx->u.intf.label = strdup(ifc->label);
+		}
+	}
+
+	ret = dplane_route_enqueue(ctx);
+
+done:
+
+	/* Increment counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_intf_addrs_in, 1,
+				  memory_order_relaxed);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		/* Error counter */
+		atomic_fetch_add_explicit(&zdplane_info.dg_intf_addr_errors,
+					  1, memory_order_relaxed);
+		if (ctx)
+			dplane_ctx_free(&ctx);
+	}
+
+	return result;
 }
 
 /*
@@ -1939,6 +2042,35 @@ kernel_dplane_route_update(struct zebra_dplane_ctx *ctx)
 }
 
 /*
+ * Handler for kernel-facing interface address updates
+ */
+static enum zebra_dplane_result
+kernel_dplane_address_update(struct zebra_dplane_ctx *ctx)
+{
+	enum zebra_dplane_result res;
+
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		char dest_str[PREFIX_STRLEN];
+
+		prefix2str(dplane_ctx_get_intf_addr(ctx), dest_str,
+			   sizeof(dest_str));
+
+		zlog_debug("Dplane intf %s, idx %u, addr %s",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_ifindex(ctx), dest_str);
+	}
+
+	res = kernel_address_update_ctx(ctx);
+
+	if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+		atomic_fetch_add_explicit(&zdplane_info.dg_intf_addr_errors,
+					  1, memory_order_relaxed);
+
+	return res;
+}
+
+/*
  * Kernel provider callback
  */
 static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
@@ -1977,6 +2109,11 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 		case DPLANE_OP_PW_INSTALL:
 		case DPLANE_OP_PW_UNINSTALL:
 			res = kernel_dplane_pw_update(ctx);
+			break;
+
+		case DPLANE_OP_ADDR_INSTALL:
+		case DPLANE_OP_ADDR_UNINSTALL:
+			res = kernel_dplane_address_update(ctx);
 			break;
 
 		default:

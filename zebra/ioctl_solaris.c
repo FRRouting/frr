@@ -183,6 +183,14 @@ void if_get_mtu(struct interface *ifp)
 		zebra_interface_up_update(ifp);
 }
 
+/*
+ * Stub for new dataplane interface-address modification path.
+ */
+enum zebra_dplane_result kernel_address_update_ctx(struct zebra_dplane_ctx *ctx)
+{
+	return ZEBRA_DPLANE_REQUEST_FAILURE;
+}
+
 /* Set up interface's address, netmask (and broadcast? ).
    Solaris uses ifname:number semantics to set IP address aliases. */
 int if_set_prefix(struct interface *ifp, struct connected *ifc)

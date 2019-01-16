@@ -180,6 +180,20 @@ void if_get_mtu(struct interface *ifp)
 #endif
 }
 
+/*
+ * TODO -- stub handler for interface address programming via the zebra dplane,
+ *         for non-netlink platforms.
+ */
+#ifndef HAVE_NETLINK
+
+enum zebra_dplane_result kernel_address_update_ctx(
+	struct zebra_dplane_ctx *ctx)
+{
+	return -1;
+}
+
+#endif	/* !HAVE_NETLINK */
+
 #ifdef HAVE_NETLINK
 /* Interface address setting via netlink interface. */
 int if_set_prefix(struct interface *ifp, struct connected *ifc)
