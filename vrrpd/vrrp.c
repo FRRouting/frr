@@ -845,6 +845,14 @@ static int vrrp_master_down_timer_expire(struct thread *thread)
 	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Master_Down_Timer expired",
 		  r->vr->vrid);
 
+	vrrp_send_advertisement(r);
+	if (r->family == AF_INET)
+		vrrp_garp_send_all(r);
+	thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
+			      r->vr->advertisement_interval * 10,
+			      &r->t_adver_timer);
+	vrrp_change_state(r, VRRP_STATE_MASTER);
+
 	return 0;
 }
 
