@@ -165,6 +165,18 @@ void vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
 
 	v4_ins->ipa_type = IPADDR_V4;
 	v4_ins->ipaddr_v4 = v4;
+
+	if (!vrrp_is_owner(vr, v4_ins) && vr->v4->is_owner) {
+		char ipbuf[INET6_ADDRSTRLEN];
+		ipaddr2str(v4_ins, ipbuf, sizeof(ipbuf));
+		zlog_err(
+			VRRP_LOGPFX VRRP_LOGPFX_VRID
+			"This VRRP router is not the address owner of %s, but is the address owner of other addresses; this config is unsupported.",
+			vr->vrid, ipbuf);
+		/* FIXME: indicate failure with rc */
+		return;
+	}
+
 	listnode_add(vr->v4->addrs, v4_ins);
 }
 
@@ -174,6 +186,18 @@ void vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
 
 	v6_ins->ipa_type = IPADDR_V6;
 	memcpy(&v6_ins->ipaddr_v6, &v6, sizeof(struct in6_addr));
+
+	if (!vrrp_is_owner(vr, v6_ins) && vr->v6->is_owner) {
+		char ipbuf[INET6_ADDRSTRLEN];
+		ipaddr2str(v6_ins, ipbuf, sizeof(ipbuf));
+		zlog_err(
+			VRRP_LOGPFX VRRP_LOGPFX_VRID
+			"This VRRP router is not the address owner of %s, but is the address owner of other addresses; this config is unsupported.",
+			vr->vrid, ipbuf);
+		/* FIXME: indicate failure with rc */
+		return;
+	}
+
 	listnode_add(vr->v6->addrs, v6_ins);
 }
 
@@ -303,6 +327,11 @@ struct vrrp_vrouter *vrrp_lookup(uint8_t vrid)
 
 /* Network ----------------------------------------------------------------- */
 
+/* Forward decls */
+static void vrrp_change_state(struct vrrp_router *r, int to);
+static int vrrp_adver_timer_expire(struct thread *thread);
+static int vrrp_master_down_timer_expire(struct thread *thread);
+
 /*
  * Create and multicast a VRRP ADVERTISEMENT message.
  *
@@ -343,12 +372,104 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 	}
 }
 
-static void vrrp_recv_advertisement(struct vrrp_router *r, struct vrrp_pkt *pkt,
+/*
+ * Receive and parse VRRP advertisement.
+ *
+ * By the time we get here all fields have been validated for basic correctness
+ * and the packet is a valid VRRP packet.
+ *
+ * However, we have not validated whether the VRID is correct for this virtual
+ * router, nor whether the priority is correct (i.e. is not 255 when we are the
+ * address owner).
+ */
+static int vrrp_recv_advertisement(struct vrrp_router *r, struct vrrp_pkt *pkt,
 				    size_t pktsize)
 {
 	char dumpbuf[BUFSIZ];
 	vrrp_pkt_dump(dumpbuf, sizeof(dumpbuf), pkt);
 	zlog_debug("Received VRRP Advertisement:\n%s", dumpbuf);
+
+	/* Check that VRID matches our configured VRID */
+	if (pkt->hdr.vrid != r->vr->vrid) {
+		zlog_warn(
+			VRRP_LOGPFX VRRP_LOGPFX_VRID
+			"%s datagram invalid: Advertisement contains VRID %" PRIu8
+			" which does not match our instance",
+			r->vr->vrid, family2str(r->family), pkt->hdr.vrid);
+		return -1;
+	}
+
+	/* Verify that we are not the IPvX address owner */
+	if (r->is_owner) {
+		zlog_warn(
+			VRRP_LOGPFX VRRP_LOGPFX_VRID
+			"%s datagram invalid: Received advertisement but we are the address owner",
+			r->vr->vrid, family2str(r->family));
+		return -1;
+	}
+
+	/* Check that # IPs received matches our # configured IPs */
+	if (pkt->hdr.naddr != r->addrs->count) {
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "%s datagram has %" PRIu8
+			  " addresses, but this VRRP instance has %u",
+			  r->vr->vrid, family2str(r->family), pkt->hdr.naddr,
+			  r->addrs->count);
+	}
+
+	switch (r->fsm.state) {
+	case VRRP_STATE_MASTER:
+		if (pkt->hdr.priority == 0) {
+			vrrp_send_advertisement(r);
+			THREAD_OFF(r->t_adver_timer);
+			thread_add_timer_msec(
+				master, vrrp_adver_timer_expire, r,
+				r->vr->advertisement_interval * 10,
+				&r->t_adver_timer);
+			/* FIXME: 6.4.3 mandates checking sender IP address */
+		} else if (pkt->hdr.priority > r->priority) {
+			zlog_err("NOT IMPLEMENTED");
+			THREAD_OFF(r->t_adver_timer);
+			r->master_adver_interval = ntohs(pkt->hdr.v3.adver_int);
+			vrrp_recalculate_timers(r);
+			THREAD_OFF(r->t_master_down_timer);
+			thread_add_timer_msec(master,
+					      vrrp_master_down_timer_expire, r,
+					      r->master_down_interval * 10,
+					      &r->t_master_down_timer);
+			vrrp_change_state(r, VRRP_STATE_BACKUP);
+		} else {
+			/* Discard advertisement */
+		}
+		break;
+	case VRRP_STATE_BACKUP:
+		if (pkt->hdr.priority == 0) {
+			THREAD_OFF(r->t_master_down_timer);
+			thread_add_timer_msec(
+				master, vrrp_master_down_timer_expire, r,
+				r->skew_time * 10, &r->t_master_down_timer);
+		} else if (r->vr->preempt_mode == false
+			   || pkt->hdr.priority >= r->priority) {
+			r->master_adver_interval = ntohs(pkt->hdr.v3.adver_int);
+			vrrp_recalculate_timers(r);
+			THREAD_OFF(r->t_master_down_timer);
+			thread_add_timer_msec(master,
+					      vrrp_master_down_timer_expire, r,
+					      r->master_down_interval * 10,
+					      &r->t_master_down_timer);
+		} else if (r->vr->preempt_mode == true
+			   && pkt->hdr.priority < r->priority) {
+			/* Discard advertisement */
+		}
+		break;
+	case VRRP_STATE_INITIALIZE:
+		zlog_err(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			 "Received ADVERTISEMENT in state %s; this is a bug",
+			 r->vr->vrid, vrrp_state_names[r->fsm.state]);
+		break;
+	}
+
+	return 0;
 }
 
 /*
@@ -403,6 +524,8 @@ static int vrrp_read(struct thread *thread)
 			   r->vr->vrid);
 		vrrp_recv_advertisement(r, pkt, pktsize);
 	}
+
+	XFREE(MTYPE_TMP, pkt);
 
 	resched = true;
 

@@ -64,6 +64,9 @@ struct vrrp_router {
 	 */
 	bool is_active;
 
+	/* Whether we are the address owner */
+	bool is_owner;
+
 	/* Rx socket: Rx from parent of mvl_ifp */
 	int sock_rx;
 	/* Tx socket; Tx from mvl_ifp */
