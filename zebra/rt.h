@@ -54,6 +54,10 @@ extern int kernel_address_add_ipv4(struct interface *, struct connected *);
 extern int kernel_address_delete_ipv4(struct interface *, struct connected *);
 extern int kernel_address_add_ipv6(struct interface *, struct connected *);
 extern int kernel_address_delete_ipv6(struct interface *, struct connected *);
+
+enum zebra_dplane_result kernel_address_update_ctx(
+	struct zebra_dplane_ctx *ctx);
+
 extern int kernel_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 			       int llalen, ns_id_t ns_id);
 extern int kernel_interface_set_master(struct interface *master,
