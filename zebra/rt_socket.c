@@ -128,6 +128,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	ifindex_t ifindex = 0;
 	bool gate = false;
 	int error;
+	char gate_buf[INET6_BUFSIZ];
 	char prefix_buf[PREFIX_STRLEN];
 	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
 
@@ -185,7 +186,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 
 		smplsp = NULL;
 		gate = false;
-		char gate_buf[INET_ADDRSTRLEN] = "NULL";
+		snprintf(gate_buf, sizeof(gate_buf), "NULL");
 
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_IPV4:
@@ -266,13 +267,29 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 
 		if (IS_ZEBRA_DEBUG_KERNEL) {
 			if (!gate) {
-				zlog_debug("%s: %s: attention! gate not found for re",
-					   __func__, prefix_buf);
-			} else
-				inet_ntop(p->family == AFI_IP ? AF_INET
-					  : AF_INET6,
-					  &sin_gate.sin.sin_addr,
-					  gate_buf, INET_ADDRSTRLEN);
+				zlog_debug(
+					"%s: %s: attention! gate not found for re",
+					__func__, prefix_buf);
+			} else {
+				switch (p->family) {
+				case AFI_IP:
+					inet_ntop(AF_INET,
+						  &sin_gate.sin.sin_addr,
+						  gate_buf, sizeof(gate_buf));
+					break;
+
+				case AFI_IP6:
+					inet_ntop(AF_INET6,
+						  &sin_gate.sin6.sin6_addr,
+						  gate_buf, sizeof(gate_buf));
+					break;
+
+				default:
+					snprintf(gate_buf, sizeof(gate_buf),
+						 "(invalid-af)");
+					break;
+				}
+			}
 		}
 		switch (error) {
 			/* We only flag nexthops as being in FIB if
