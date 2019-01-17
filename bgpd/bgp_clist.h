@@ -173,7 +173,7 @@ lcommunity_list_match_delete(struct lcommunity *lcom,
 
 static inline uint32_t bgp_clist_hash_key(char *name)
 {
-	return jhash(name, sizeof(name), 0xdeadbeaf);
+	return jhash(name, strlen(name), 0xdeadbeaf);
 }
 
 #endif /* _QUAGGA_BGP_CLIST_H */
