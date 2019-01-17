@@ -83,7 +83,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	char prefix_buf[PREFIX_STRLEN];
 	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
 
-	if (IS_ZEBRA_DEBUG_RIB)
+	if (IS_ZEBRA_DEBUG_RIB || IS_ZEBRA_DEBUG_KERNEL)
 		prefix2str(p, prefix_buf, sizeof(prefix_buf));
 
 	/*
@@ -259,12 +259,11 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 
 			/* Note any unexpected status returns */
 		default:
-			flog_err(EC_LIB_SYSTEM_CALL,
-				 "%s: %s: rtm_write() unexpectedly returned %d for command %s",
-				 __func__,
-				 prefix2str(p, prefix_buf,
-					    sizeof(prefix_buf)),
-				 error, lookup_msg(rtm_type_str, cmd, NULL));
+			flog_err(
+				EC_LIB_SYSTEM_CALL,
+				"%s: %s: rtm_write() unexpectedly returned %d for command %s",
+				__func__, prefix_buf, error,
+				lookup_msg(rtm_type_str, cmd, NULL));
 			break;
 		}
 	} /* for (ALL_NEXTHOPS(...))*/
@@ -272,9 +271,9 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	/* If there was no useful nexthop, then complain. */
 	if (nexthop_num == 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: No useful nexthops were found in RIB prefix %s",
-				   __func__, prefix2str(p, prefix_buf,
-							sizeof(prefix_buf)));
+			zlog_debug(
+				"%s: No useful nexthops were found in RIB prefix %s",
+				__func__, prefix_buf);
 		return 1;
 	}
 
