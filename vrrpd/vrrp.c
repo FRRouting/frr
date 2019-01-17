@@ -602,8 +602,6 @@ static int vrrp_bind_to_primary_connected(struct vrrp_router *r)
  *   all transmitted IPvX packets
  * - Requests the kernel to deliver IPv6 header values needed to validate VRRP
  *   packets
- * - FIXME: Binds the Tx socket to the first address on the macvlan
- *   subinterface.
  *
  * If any of the above fail, the sockets are closed. The only exception is if
  * the TTL / Hop Limit settings fail; these are logged, but configuration
@@ -661,12 +659,58 @@ static int vrrp_socket(struct vrrp_router *r)
 				r->vr->vrid);
 		}
 
+		/* Bind Rx socket to exact interface */
+		vrrp_privs.change(ZPRIVS_RAISE);
+		{
+			ret = setsockopt(r->sock_rx, SOL_SOCKET,
+					 SO_BINDTODEVICE, r->vr->ifp->name,
+					 strlen(r->vr->ifp->name));
+		}
+		vrrp_privs.change(ZPRIVS_LOWER);
+		if (ret) {
+			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+				  "Failed to bind Rx socket to %s: %s",
+				  r->vr->vrid, r->vr->ifp->name,
+				  safe_strerror(errno));
+			failed = true;
+			goto done;
+		}
+		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Bound Rx socket to %s",
+			  r->vr->vrid, r->vr->ifp->name);
+
+		/* Bind Rx socket to v4 multicast address */
+		struct sockaddr_in sa = {0};
+		sa.sin_family = AF_INET;
+		sa.sin_addr.s_addr = htonl(VRRP_MCASTV4_GROUP);
+		if (bind(r->sock_rx, (struct sockaddr *)&sa, sizeof(sa))) {
+			zlog_err(
+				VRRP_LOGPFX VRRP_LOGPFX_VRID
+				"Failed to bind Rx socket to VRRP %s multicast group: %s",
+				r->vr->vrid, family2str(r->family),
+				safe_strerror(errno));
+			failed = true;
+			goto done;
+		}
+		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Bound Rx socket to VRRP %s multicast group",
+			  r->vr->vrid, family2str(r->family));
+
 		/* Join Rx socket to VRRP IPv4 multicast group */
 		struct connected *c = listhead(r->vr->ifp->connected)->data;
 		struct in_addr v4 = c->address->u.prefix4;
 		ret = setsockopt_ipv4_multicast(r->sock_rx, IP_ADD_MEMBERSHIP,
 						v4, htonl(VRRP_MCASTV4_GROUP),
 						r->vr->ifp->ifindex);
+		if (ret < 0) {
+			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+				  "Failed to join VRRP %s multicast group",
+				  r->vr->vrid, family2str(r->family));
+			failed = true;
+			goto done;
+		}
+		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Joined %s VRRP multicast group",
+			  r->vr->vrid, family2str(r->family));
 
 		/* Set outgoing interface for advertisements */
 		struct ip_mreqn mreqn = {};
@@ -702,6 +746,42 @@ static int vrrp_socket(struct vrrp_router *r)
 			goto done;
 		}
 
+		/* Bind Rx socket to exact interface */
+		vrrp_privs.change(ZPRIVS_RAISE);
+		{
+			ret = setsockopt(r->sock_rx, SOL_SOCKET,
+					 SO_BINDTODEVICE, r->vr->ifp->name,
+					 strlen(r->vr->ifp->name));
+		}
+		vrrp_privs.change(ZPRIVS_LOWER);
+		if (ret) {
+			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+				  "Failed to bind Rx socket to %s: %s",
+				  r->vr->vrid, r->vr->ifp->name,
+				  safe_strerror(errno));
+			failed = true;
+			goto done;
+		}
+		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Bound Rx socket to %s",
+			  r->vr->vrid, r->vr->ifp->name);
+
+		/* Bind Rx socket to v6 multicast address */
+		struct sockaddr_in6 sa = {0};
+		sa.sin6_family = AF_INET6;
+		inet_pton(AF_INET6, VRRP_MCASTV6_GROUP_STR, &sa.sin6_addr);
+		if (bind(r->sock_rx, (struct sockaddr *)&sa, sizeof(sa))) {
+			zlog_err(
+				VRRP_LOGPFX VRRP_LOGPFX_VRID
+				"Failed to bind Rx socket to VRRP %s multicast group: %s",
+				r->vr->vrid, family2str(r->family),
+				safe_strerror(errno));
+			failed = true;
+			goto done;
+		}
+		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Bound Rx socket to VRRP %s multicast group",
+			  r->vr->vrid, family2str(r->family));
+
 		/* Join VRRP IPv6 multicast group */
 		struct ipv6_mreq mreq;
 		inet_pton(AF_INET6, VRRP_MCASTV6_GROUP_STR,
@@ -709,6 +789,16 @@ static int vrrp_socket(struct vrrp_router *r)
 		mreq.ipv6mr_interface = r->vr->ifp->ifindex;
 		ret = setsockopt(r->sock_rx, IPPROTO_IPV6, IPV6_JOIN_GROUP,
 				 &mreq, sizeof(mreq));
+		if (ret < 0) {
+			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+				  "Failed to join VRRP %s multicast group",
+				  r->vr->vrid, family2str(r->family));
+			failed = true;
+			goto done;
+		}
+		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Joined %s VRRP multicast group",
+			  r->vr->vrid, family2str(r->family));
 
 		/* Set outgoing interface for advertisements */
 		ret = setsockopt(r->sock_tx, IPPROTO_IPV6, IPV6_MULTICAST_IF,
@@ -724,18 +814,6 @@ static int vrrp_socket(struct vrrp_router *r)
 		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
 			  "Set %s as outgoing multicast interface",
 			  r->vr->vrid, r->mvl_ifp->name);
-	}
-
-	if (ret < 0) {
-		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Failed to join VRRP %s multicast group",
-			  r->vr->vrid, family2str(r->family));
-		failed = true;
-		goto done;
-	} else {
-		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Joined %s VRRP multicast group",
-			  r->vr->vrid, family2str(r->family));
 	}
 
 	/* Bind Tx socket to link-local address */
