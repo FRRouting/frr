@@ -154,23 +154,21 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	switch (p->family) {
 	case AF_INET:
 		sin_dest.sin.sin_family = AF_INET;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-		sin_dest.sin.sin_len = sizeof(sin_dest);
-		sin_gate.sin.sin_len = sizeof(sin_gate);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 		sin_dest.sin.sin_addr = p->u.prefix4;
 		sin_gate.sin.sin_family = AF_INET;
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+		sin_dest.sin.sin_len = sizeof(struct sockaddr_in);
+		sin_gate.sin.sin_len = sizeof(struct sockaddr_in);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 		break;
 	case AF_INET6:
 		sin_dest.sin6.sin6_family = AF_INET6;
-#ifdef SIN6_LEN
-		sin_dest.sin6.sin6_len = sizeof(sin_dest);
-#endif /* SIN6_LEN */
 		sin_dest.sin6.sin6_addr = p->u.prefix6;
 		sin_gate.sin6.sin6_family = AF_INET6;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-		sin_gate.sin6.sin6_len = sizeof(sin_gate);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+		sin_dest.sin6.sin6_len = sizeof(struct sockaddr_in6);
+		sin_gate.sin6.sin6_len = sizeof(struct sockaddr_in6);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 		break;
 	}
 
@@ -192,6 +190,9 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 			sin_gate.sin.sin_addr = nexthop->gate.ipv4;
 			sin_gate.sin.sin_family = AF_INET;
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+			sin_gate.sin.sin_len = sizeof(struct sockaddr_in);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 			ifindex = nexthop->ifindex;
 			gate = true;
 			break;
@@ -199,6 +200,9 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			sin_gate.sin6.sin6_addr = nexthop->gate.ipv6;
 			sin_gate.sin6.sin6_family = AF_INET6;
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+			sin_gate.sin6.sin6_len = sizeof(struct sockaddr_in6);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 			ifindex = nexthop->ifindex;
 /* Under kame set interface index to link local address */
 #ifdef KAME
@@ -227,6 +231,10 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 				struct in_addr loopback;
 				loopback.s_addr = htonl(INADDR_LOOPBACK);
 				sin_gate.sin.sin_addr = loopback;
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+				sin_gate.sin.sin_len =
+					sizeof(struct sockaddr_in);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 				gate = true;
 			}
 				break;
@@ -239,18 +247,16 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		case AF_INET:
 			masklen2ip(p->prefixlen, &sin_mask.sin.sin_addr);
 			sin_mask.sin.sin_family = AF_INET;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-			sin_mask.sin.sin_len = sin_masklen(
-				sin_mask.sin.sin_addr);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+			sin_mask.sin.sin_len = sizeof(struct sockaddr_in);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 			break;
 		case AF_INET6:
 			masklen2ip6(p->prefixlen, &sin_mask.sin6.sin6_addr);
 			sin_mask.sin6.sin6_family = AF_INET6;
-#ifdef SIN6_LEN
-			sin_mask.sin6.sin6_len = sin6_masklen(
-				sin_mask.sin6.sin6_addr);
-#endif /* SIN6_LEN */
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+			sin_mask.sin6.sin6_len = sizeof(struct sockaddr_in6);
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 			break;
 		}
 
