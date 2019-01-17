@@ -958,7 +958,7 @@ DEFPY (show_ip_import_check,
        VRF_CMD_HELP_STR
        VRF_ALL_CMD_HELP_STR)
 {
-	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
+	int family = ipv4 ? AF_INET : AF_INET6;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 
 	if (vrf_all) {
@@ -970,15 +970,15 @@ DEFPY (show_ip_import_check,
 				vty_out(vty, "\nVRF %s:\n",
 					zvrf_name(zvrf));
 				zebra_print_rnh_table(zvrf_id(zvrf),
-						      afi, vty,
-						      RNH_NEXTHOP_TYPE);
+						      family, vty,
+						      RNH_IMPORT_CHECK_TYPE);
 			}
 		return CMD_SUCCESS;
 	}
 	if (vrf_name)
 		VRF_GET_ID(vrf_id, vrf_name, false);
 
-	zebra_print_rnh_table(vrf_id, afi, vty, RNH_IMPORT_CHECK_TYPE);
+	zebra_print_rnh_table(vrf_id, family, vty, RNH_IMPORT_CHECK_TYPE);
 	return CMD_SUCCESS;
 }
 
