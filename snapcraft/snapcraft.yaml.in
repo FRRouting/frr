@@ -272,7 +272,6 @@ parts:
            - iproute2
            - logrotate
            - libcap2
-           - libc6
            - libtinfo5
            - libreadline6
            - libjson-c2
