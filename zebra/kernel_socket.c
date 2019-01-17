@@ -736,11 +736,14 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL) {
-		int family = sockunion_family(addr);
-		switch (family) {
+		switch (sockunion_family(addr)) {
 		case AF_INET:
 		case AF_INET6: {
 			char buf[4][INET6_ADDRSTRLEN];
+			int masklen =
+				(sockunion_family(addr) == AF_INET)
+					? ip_masklen(mask->sin.sin_addr)
+					: ip6_masklen(mask->sin6.sin6_addr);
 			zlog_debug(
 				"%s: ifindex %d, ifname %s, ifam_addrs 0x%x, "
 				"ifam_flags 0x%x, addr %s/%d broad %s dst %s "
@@ -748,15 +751,12 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 				__func__, ifm->ifam_index,
 				(ifnlen ? ifname : "(nil)"), ifm->ifam_addrs,
 				ifm->ifam_flags,
-				inet_ntop(family, &addr->sin.sin_addr, buf[0],
-					  sizeof(buf[0])),
-				ip_masklen(mask->sin.sin_addr),
-				inet_ntop(family, &brd->sin.sin_addr, buf[1],
-					  sizeof(buf[1])),
-				inet_ntop(family, &dst.sin.sin_addr, buf[2],
-					  sizeof(buf[2])),
-				inet_ntop(family, &gateway.sin.sin_addr, buf[3],
-					  sizeof(buf[3])));
+				sockunion2str(addr, buf[0], sizeof(buf[0])),
+				masklen,
+				sockunion2str(brd, buf[1], sizeof(buf[1])),
+				sockunion2str(&dst, buf[2], sizeof(buf[2])),
+				sockunion2str(&gateway, buf[2],
+					      sizeof(buf[2])));
 		} break;
 		default:
 			zlog_debug("%s: ifindex %d, ifname %s, ifam_addrs 0x%x",
