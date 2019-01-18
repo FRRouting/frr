@@ -222,6 +222,8 @@ if $writeversion; then
 	pkgver="${pkgver#*,}"
 	pkgver="${pkgver%,*}"
 	pkgver="`echo $pkgver`" # strip whitespace
+	pkgver="${pkgver#[}"
+	pkgver="${pkgver%]}"
 
 	echo -e "\033[32;1mwriting version ID \033[36;1mfrr-$pkgver$extraver\033[m"
 
