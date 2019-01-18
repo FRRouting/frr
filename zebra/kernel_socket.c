@@ -909,7 +909,7 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 			pnt += rta_get(pnt, gate, sizeof(*gate));
 			break;
 		case RTA_NETMASK:
-			pnt += rta_get(pnt, mask, sizeof(*mask));
+			pnt += rta_getattr(pnt, mask, sizeof(*mask));
 			break;
 		case RTA_IFP:
 			pnt += rta_getsdlname(pnt, ifname, ifnlen);
