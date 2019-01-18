@@ -1324,6 +1324,7 @@ static void zread_interface_add(ZAPI_HANDLER_ARGS)
 				continue;
 
 			zsend_interface_add(client, ifp);
+			zsend_interface_link_params(client, ifp);
 			zsend_interface_addresses(client, ifp);
 		}
 	}
