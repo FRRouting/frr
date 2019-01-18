@@ -133,7 +133,7 @@ onexit() {
 trap onexit EXIT
 tmpdir="`mktemp -d -t frrtar.XXXXXX`"
 
-if test -d "$src/.git"; then
+if test -e "$src/.git"; then
 	commit="`git -C \"$src\" rev-parse \"${commit:-HEAD}\"`"
 
 	if $dirty; then
