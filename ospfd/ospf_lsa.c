@@ -2249,6 +2249,22 @@ void ospf_external_lsa_refresh_default(struct ospf *ospf)
 	}
 }
 
+void ospf_default_originate_lsa_update(struct ospf *ospf)
+{
+	struct prefix_ipv4 p;
+	struct ospf_lsa *lsa;
+
+	p.family = AF_INET;
+	p.prefixlen = 0;
+	p.prefix.s_addr = 0;
+
+	lsa = ospf_external_info_find_lsa(ospf, &p);
+	if (lsa && IS_LSA_MAXAGE(lsa)) {
+		ospf_discard_from_db(ospf, lsa->lsdb, lsa);
+		ospf_lsdb_delete(lsa->lsdb, lsa);
+	}
+}
+
 void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type,
 				    unsigned short instance, int force)
 {
