@@ -405,7 +405,7 @@ void zebra_interface_up_update(struct interface *ifp)
 
 	if (ifp->ptm_status || !ifp->ptm_enable) {
 		for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client))
-			if (client->ifinfo) {
+			if (vrf_bitmap_check(client->ifinfo, ifp->vrf_id)) {
 				zsend_interface_update(ZEBRA_INTERFACE_UP,
 						       client, ifp);
 				zsend_interface_link_params(client, ifp);
@@ -439,7 +439,7 @@ void zebra_interface_add_update(struct interface *ifp)
 			   ifp->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client))
-		if (client->ifinfo) {
+		if (vrf_bitmap_check(client->ifinfo, ifp->vrf_id)) {
 			client->ifadd_cnt++;
 			zsend_interface_add(client, ifp);
 			zsend_interface_link_params(client, ifp);
@@ -812,6 +812,6 @@ void zebra_interface_parameters_update(struct interface *ifp)
 			   ifp->name, ifp->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client))
-		if (client->ifinfo)
+		if (vrf_bitmap_check(client->ifinfo, ifp->vrf_id))
 			zsend_interface_link_params(client, ifp);
 }
