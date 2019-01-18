@@ -457,8 +457,7 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 							vrf_id);
 
 		/* If default information is needed. */
-		if (vrf_bitmap_check(zclient->default_information[afi],
-				     VRF_DEFAULT))
+		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
 			zebra_redistribute_default_send(
 				ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient, afi,
 				vrf_id);
@@ -525,8 +524,7 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 					i, 0, vrf_id);
 
 		/* If default information is needed. */
-		if (vrf_bitmap_check(zclient->default_information[afi],
-				     VRF_DEFAULT))
+		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
 			zebra_redistribute_default_send(
 				ZEBRA_REDISTRIBUTE_DEFAULT_DELETE, zclient, afi,
 				vrf_id);
