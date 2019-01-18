@@ -1495,7 +1495,8 @@ static void link_params_set_value(struct stream *s, struct if_link_params *iflp)
 	iflp->use_bw = stream_getf(s);
 }
 
-struct interface *zebra_interface_link_params_read(struct stream *s)
+struct interface *zebra_interface_link_params_read(struct stream *s,
+						   vrf_id_t vrf_id)
 {
 	struct if_link_params *iflp;
 	ifindex_t ifindex;
@@ -1504,7 +1505,7 @@ struct interface *zebra_interface_link_params_read(struct stream *s)
 
 	ifindex = stream_getl(s);
 
-	struct interface *ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	struct interface *ifp = if_lookup_by_index(ifindex, vrf_id);
 
 	if (ifp == NULL) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
@@ -2581,7 +2582,7 @@ static int zclient_read(struct thread *thread)
 	case ZEBRA_INTERFACE_LINK_PARAMS:
 		if (zclient->interface_link_params)
 			(*zclient->interface_link_params)(command, zclient,
-							  length);
+							  length, vrf_id);
 		break;
 	case ZEBRA_FEC_UPDATE:
 		if (zclient_debug)
