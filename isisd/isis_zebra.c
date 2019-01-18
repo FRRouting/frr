@@ -219,11 +219,11 @@ static int isis_zebra_if_address_del(int command, struct zclient *client,
 }
 
 static int isis_zebra_link_params(int command, struct zclient *zclient,
-				  zebra_size_t length)
+				  zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 
-	ifp = zebra_interface_link_params_read(zclient->ibuf);
+	ifp = zebra_interface_link_params_read(zclient->ibuf, vrf_id);
 
 	if (ifp == NULL)
 		return 0;
