@@ -1199,14 +1199,17 @@ DEFUN (no_ospf_area_vlink,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	vl_data = ospf_vl_lookup(ospf, area, vl_config.vl_peer);
+	if (!vl_data) {
+		vty_out(vty, "Virtual link does not exist\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (argc <= 5) {
 		/* Basic VLink no command */
 		/* Thats all folks! - BUGS B. strikes again!!!*/
-		if ((vl_data = ospf_vl_lookup(ospf, area, vl_config.vl_peer)))
-			ospf_vl_delete(ospf, vl_data);
-
+		ospf_vl_delete(ospf, vl_data);
 		ospf_area_check_free(ospf, vl_config.area_id);
-
 		return CMD_SUCCESS;
 	}
 
