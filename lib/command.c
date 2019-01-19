@@ -1594,8 +1594,6 @@ DEFUN (config_end,
 		break;
 	}
 
-	vty->xpath_index = 0;
-
 	return CMD_SUCCESS;
 }
 
