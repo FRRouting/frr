@@ -1656,6 +1656,7 @@ static void zsend_capabilities(struct zserv *client, struct zebra_vrf *zvrf)
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_CAPABILITIES, zvrf->vrf->vrf_id);
+	stream_putl(s, vrf_get_backend());
 	stream_putc(s, mpls_enabled);
 	stream_putl(s, multipath_num);
 
@@ -1691,6 +1692,7 @@ static void zread_hello(ZAPI_HANDLER_ARGS)
 	}
 
 	zsend_capabilities(client, zvrf);
+	zebra_vrf_update_all(client);
 stream_failure:
 	return;
 }
