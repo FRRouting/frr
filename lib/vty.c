@@ -828,8 +828,6 @@ static void vty_end_config(struct vty *vty)
 		break;
 	}
 
-	vty->xpath_index = 0;
-
 	vty_prompt(vty);
 	vty->cp = 0;
 }
@@ -2696,6 +2694,7 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 	vty->node = CONFIG_NODE;
 	vty->config = true;
 	vty->private_config = private_config;
+	vty->xpath_index = 0;
 
 	if (private_config) {
 		vty->candidate_config = nb_config_dup(running_config);
