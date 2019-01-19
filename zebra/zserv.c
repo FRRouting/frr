@@ -723,8 +723,6 @@ static struct zserv *zserv_client_create(int sock)
 		frr_pthread_new(&zclient_pthr_attrs, "Zebra API client thread",
 				"zebra_apic");
 
-	zebra_vrf_update_all(client);
-
 	/* start read loop */
 	zserv_client_event(client, ZSERV_CLIENT_READ);
 

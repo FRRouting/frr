@@ -2372,7 +2372,11 @@ static void zclient_capability_decode(int command, struct zclient *zclient,
 {
 	struct zclient_capabilities cap;
 	struct stream *s = zclient->ibuf;
+	int vrf_backend;
 	uint8_t mpls_enabled;
+
+	STREAM_GETL(s, vrf_backend);
+	vrf_configure_backend(vrf_backend);
 
 	memset(&cap, 0, sizeof(cap));
 	STREAM_GETC(s, mpls_enabled);
