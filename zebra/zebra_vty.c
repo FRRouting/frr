@@ -944,7 +944,7 @@ DEFUN (show_ip_nht,
 	if (argc == 5)
 		VRF_GET_ID(vrf_id, argv[idx_vrf]->arg, false);
 
-	zebra_print_rnh_table(vrf_id, AF_INET, vty, RNH_NEXTHOP_TYPE);
+	zebra_print_rnh_table(vrf_id, AFI_IP, vty, RNH_NEXTHOP_TYPE);
 	return CMD_SUCCESS;
 }
 
@@ -958,7 +958,7 @@ DEFPY (show_ip_import_check,
        VRF_CMD_HELP_STR
        VRF_ALL_CMD_HELP_STR)
 {
-	int family = ipv4 ? AF_INET : AF_INET6;
+	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 
 	if (vrf_all) {
@@ -969,8 +969,7 @@ DEFPY (show_ip_import_check,
 			if ((zvrf = vrf->info) != NULL) {
 				vty_out(vty, "\nVRF %s:\n",
 					zvrf_name(zvrf));
-				zebra_print_rnh_table(zvrf_id(zvrf),
-						      family, vty,
+				zebra_print_rnh_table(zvrf_id(zvrf), afi, vty,
 						      RNH_IMPORT_CHECK_TYPE);
 			}
 		return CMD_SUCCESS;
@@ -978,7 +977,7 @@ DEFPY (show_ip_import_check,
 	if (vrf_name)
 		VRF_GET_ID(vrf_id, vrf_name, false);
 
-	zebra_print_rnh_table(vrf_id, family, vty, RNH_IMPORT_CHECK_TYPE);
+	zebra_print_rnh_table(vrf_id, afi, vty, RNH_IMPORT_CHECK_TYPE);
 	return CMD_SUCCESS;
 }
 
@@ -996,7 +995,7 @@ DEFUN (show_ip_nht_vrf_all,
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
 		if ((zvrf = vrf->info) != NULL) {
 			vty_out(vty, "\nVRF %s:\n", zvrf_name(zvrf));
-			zebra_print_rnh_table(zvrf_id(zvrf), AF_INET, vty,
+			zebra_print_rnh_table(zvrf_id(zvrf), AFI_IP, vty,
 					      RNH_NEXTHOP_TYPE);
 		}
 
@@ -1017,7 +1016,7 @@ DEFUN (show_ipv6_nht,
 	if (argc == 5)
 		VRF_GET_ID(vrf_id, argv[idx_vrf]->arg, false);
 
-	zebra_print_rnh_table(vrf_id, AF_INET6, vty, RNH_NEXTHOP_TYPE);
+	zebra_print_rnh_table(vrf_id, AFI_IP6, vty, RNH_NEXTHOP_TYPE);
 	return CMD_SUCCESS;
 }
 
@@ -1036,7 +1035,7 @@ DEFUN (show_ipv6_nht_vrf_all,
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
 		if ((zvrf = vrf->info) != NULL) {
 			vty_out(vty, "\nVRF %s:\n", zvrf_name(zvrf));
-			zebra_print_rnh_table(zvrf_id(zvrf), AF_INET6, vty,
+			zebra_print_rnh_table(zvrf_id(zvrf), AFI_IP6, vty,
 					      RNH_NEXTHOP_TYPE);
 		}
 
@@ -1060,7 +1059,7 @@ DEFUN (ip_nht_default_route,
 
 	zebra_rnh_ip_default_route = 1;
 
-	zebra_evaluate_rnh(zvrf, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1081,7 +1080,7 @@ DEFUN (no_ip_nht_default_route,
 		return CMD_SUCCESS;
 
 	zebra_rnh_ip_default_route = 0;
-	zebra_evaluate_rnh(zvrf, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1101,7 +1100,7 @@ DEFUN (ipv6_nht_default_route,
 		return CMD_SUCCESS;
 
 	zebra_rnh_ipv6_default_route = 1;
-	zebra_evaluate_rnh(zvrf, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AFI_IP6, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1123,7 +1122,7 @@ DEFUN (no_ipv6_nht_default_route,
 		return CMD_SUCCESS;
 
 	zebra_rnh_ipv6_default_route = 0;
-	zebra_evaluate_rnh(zvrf, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AFI_IP6, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
