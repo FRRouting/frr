@@ -54,16 +54,6 @@ static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 		       struct route_node *rn);
 static void copy_state(struct rnh *rnh, struct route_entry *re,
 		       struct route_node *rn);
-#define lookup_rnh_table(v, f)                                                 \
-	({                                                                     \
-		struct zebra_vrf *zvrf;                                        \
-		struct route_table *t = NULL;                                  \
-		zvrf = zebra_vrf_lookup_by_id(v);                              \
-		if (zvrf)                                                      \
-			t = zvrf->rnh_table[family2afi(f)];                    \
-		t;                                                             \
-	})
-
 static int compare_state(struct route_entry *r1, struct route_entry *r2);
 static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		       vrf_id_t vrf_id);
