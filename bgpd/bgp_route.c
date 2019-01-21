@@ -5081,6 +5081,9 @@ void bgp_static_delete(struct bgp *bgp)
 					bgp_static =
 						bgp_node_get_bgp_static_info(
 							rm);
+					if (!bgp_static)
+						continue;
+
 					bgp_static_withdraw_safi(
 						bgp, &rm->p, AFI_IP, safi,
 						(struct prefix_rd *)&rn->p);
@@ -5257,8 +5260,6 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 	if (!bgp_node_has_bgp_path_info_data(prn))
 		bgp_node_set_bgp_table_info(prn,
 					    bgp_table_init(bgp, afi, safi));
-	else
-		bgp_unlock_node(prn);
 	table = bgp_node_get_bgp_table_info(prn);
 
 	rn = bgp_node_get(table, &p);
