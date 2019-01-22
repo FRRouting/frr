@@ -327,7 +327,7 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 
 	list_to_array(r->addrs, (void **)addrs, r->addrs->count);
 
-	pktlen = vrrp_pkt_build(&pkt, r->vr->vrid, r->priority,
+	pktlen = vrrp_pkt_build(&pkt, &r->src, r->vr->vrid, r->priority,
 				r->vr->advertisement_interval, r->addrs->count,
 				(struct ipaddr **)&addrs);
 
@@ -347,8 +347,8 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 
 	if (sent < 0) {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Failed to send VRRP Advertisement",
-			  r->vr->vrid);
+			  "Failed to send VRRP Advertisement: %s",
+			  r->vr->vrid, safe_strerror(errno));
 	}
 }
 
@@ -523,6 +523,8 @@ done:
  * router's interface and binds the Tx socket of the VRRP router to that
  * address.
  *
+ * Also sets src field of vrrp_router.
+ *
  * r
  *    VRRP router to operate on
  *
@@ -559,10 +561,14 @@ static int vrrp_bind_to_primary_connected(struct vrrp_router *r)
 
 	switch (r->family) {
 	case AF_INET:
+		r->src.ipa_type = IPADDR_V4;
+		r->src.ipaddr_v4 = c->address->u.prefix4;
 		su.sin.sin_family = AF_INET;
 		su.sin.sin_addr = c->address->u.prefix4;
 		break;
 	case AF_INET6:
+		r->src.ipa_type = IPADDR_V6;
+		r->src.ipaddr_v6 = c->address->u.prefix6;
 		su.sin6.sin6_family = AF_INET6;
 		su.sin6.sin6_scope_id = ifp->ifindex;
 		su.sin6.sin6_addr = c->address->u.prefix6;

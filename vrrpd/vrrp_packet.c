@@ -26,6 +26,7 @@
 #include "lib/ipaddr.h"
 #include "lib/memory.h"
 
+#include "vrrp.h"
 #include "vrrp_packet.h"
 
 /* clang-format off */
@@ -49,8 +50,8 @@ const char *vrrp_packet_names[16] = {
 };
 /* clang-format on */
 
-ssize_t vrrp_pkt_build(struct vrrp_pkt **pkt, uint8_t vrid, uint8_t prio,
-		       uint16_t max_adver_int, uint8_t numip,
+ssize_t vrrp_pkt_build(struct vrrp_pkt **pkt, struct ipaddr *src, uint8_t vrid,
+		       uint8_t prio, uint16_t max_adver_int, uint8_t numip,
 		       struct ipaddr **ips)
 {
 	bool v6 = IS_IPADDR_V6(ips[0]);
@@ -72,11 +73,24 @@ ssize_t vrrp_pkt_build(struct vrrp_pkt **pkt, uint8_t vrid, uint8_t prio,
 		memcpy(aptr, &ips[i]->ip.addr, addrsz);
 		aptr += addrsz;
 	}
+
 	(*pkt)->hdr.chksum = 0;
 
-	/* FIXME: v6 checksum */
-	uint16_t chksum = in_cksum(*pkt, pktsize);
-	(*pkt)->hdr.chksum = htons(chksum);
+	if (v6) {
+		struct ipv6_ph ph = {};
+		ph.src = src->ipaddr_v6;
+		inet_pton(AF_INET6, VRRP_MCASTV6_GROUP_STR, &ph.dst);
+		ph.ulpl = htons(pktsize);
+		ph.next_hdr = 112;
+		(*pkt)->hdr.chksum = in_cksum_with_ph6(&ph, *pkt, pktsize);
+	} else {
+		struct ipv4_ph ph = {};
+		ph.src = src->ipaddr_v4;
+		inet_pton(AF_INET, VRRP_MCASTV4_GROUP_STR, &ph.dst);
+		ph.proto = 112;
+		ph.len = htons(pktsize);
+		(*pkt)->hdr.chksum = in_cksum_with_ph4(&ph, *pkt, pktsize);
+	}
 
 	return pktsize;
 }

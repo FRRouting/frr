@@ -115,8 +115,8 @@ struct vrrp_pkt {
  *    array of pointer to either struct in_addr (v6 = false) or struct in6_addr
  *    (v6 = true)
  */
-ssize_t vrrp_pkt_build(struct vrrp_pkt **pkt, uint8_t vrid, uint8_t prio,
-		       uint16_t max_adver_int, uint8_t numip,
+ssize_t vrrp_pkt_build(struct vrrp_pkt **pkt, struct ipaddr *src, uint8_t vrid,
+		       uint8_t prio, uint16_t max_adver_int, uint8_t numip,
 		       struct ipaddr **ips);
 
 /*

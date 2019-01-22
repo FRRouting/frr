@@ -75,6 +75,9 @@ struct vrrp_router {
 	/* macvlan interface */
 	struct interface *mvl_ifp;
 
+	/* Source address for advertisements */
+	struct ipaddr src;
+
 	/* Socket read buffer */
 	uint8_t ibuf[IP_MAXPACKET];
 
