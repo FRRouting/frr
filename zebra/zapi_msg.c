@@ -209,7 +209,7 @@ int zsend_interface_link_params(struct zserv *client, struct interface *ifp)
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	/* Check this client need interface information. */
-	if (!client->ifinfo) {
+	if (!vrf_bitmap_check(client->ifinfo, ifp->vrf_id)) {
 		stream_free(s);
 		return 0;
 	}
@@ -1324,6 +1324,7 @@ static void zread_interface_add(ZAPI_HANDLER_ARGS)
 				continue;
 
 			zsend_interface_add(client, ifp);
+			zsend_interface_link_params(client, ifp);
 			zsend_interface_addresses(client, ifp);
 		}
 	}

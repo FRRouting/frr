@@ -457,8 +457,7 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 							vrf_id);
 
 		/* If default information is needed. */
-		if (vrf_bitmap_check(zclient->default_information[afi],
-				     VRF_DEFAULT))
+		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
 			zebra_redistribute_default_send(
 				ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient, afi,
 				vrf_id);
@@ -525,8 +524,7 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 					i, 0, vrf_id);
 
 		/* If default information is needed. */
-		if (vrf_bitmap_check(zclient->default_information[afi],
-				     VRF_DEFAULT))
+		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
 			zebra_redistribute_default_send(
 				ZEBRA_REDISTRIBUTE_DEFAULT_DELETE, zclient, afi,
 				vrf_id);
@@ -1497,7 +1495,8 @@ static void link_params_set_value(struct stream *s, struct if_link_params *iflp)
 	iflp->use_bw = stream_getf(s);
 }
 
-struct interface *zebra_interface_link_params_read(struct stream *s)
+struct interface *zebra_interface_link_params_read(struct stream *s,
+						   vrf_id_t vrf_id)
 {
 	struct if_link_params *iflp;
 	ifindex_t ifindex;
@@ -1506,7 +1505,7 @@ struct interface *zebra_interface_link_params_read(struct stream *s)
 
 	ifindex = stream_getl(s);
 
-	struct interface *ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	struct interface *ifp = if_lookup_by_index(ifindex, vrf_id);
 
 	if (ifp == NULL) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
@@ -2583,7 +2582,7 @@ static int zclient_read(struct thread *thread)
 	case ZEBRA_INTERFACE_LINK_PARAMS:
 		if (zclient->interface_link_params)
 			(*zclient->interface_link_params)(command, zclient,
-							  length);
+							  length, vrf_id);
 		break;
 	case ZEBRA_FEC_UPDATE:
 		if (zclient_debug)
