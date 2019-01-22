@@ -346,7 +346,7 @@ AM_CONDITIONAL([STATIC_BIN], [test "x$enable_static_bin" = "xyes"])
 
 dnl $AR and $RANLIB are set by LT_INIT above
 AC_MSG_CHECKING([whether $AR supports D option])
-if $AR crD conftest.a; then
+if $AR crD conftest.a >/dev/null 2>/dev/null; then
   AC_MSG_RESULT([yes])
   dnl ARFLAGS is for automake, AR_FLAGS for libtool m-(
   ARFLAGS="crD"
