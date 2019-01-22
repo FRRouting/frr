@@ -41,7 +41,7 @@ class RenderHandler(object):
 class StringHandler(RenderHandler):
     argtype = 'const char *'
     decl = Template('const char *$varname = NULL;')
-    code = Template('$varname = argv[_i]->arg;')
+    code = Template('$varname = (argv[_i]->type == WORD_TKN) ? argv[_i]->text : argv[_i]->arg;')
     drop_str = True
     canfail = False
 
