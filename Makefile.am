@@ -226,8 +226,8 @@ noinst_HEADERS += defaults.h
 clean-local: clean-python
 .PHONY: clean-python
 clean-python:
-	find -name __pycache__ -o -name .pytest_cache | xargs rm -rf
-	find -name "*.pyc" -o -name "*_clippy.c" | xargs rm -f
+	find . -name __pycache__ -o -name .pytest_cache | xargs rm -rf
+	find . -name "*.pyc" -o -name "*_clippy.c" | xargs rm -f
 
 redistclean:
 	$(MAKE) distclean CONFIG_CLEAN_FILES="$(filter-out $(EXTRA_DIST), $(CONFIG_CLEAN_FILES))"
