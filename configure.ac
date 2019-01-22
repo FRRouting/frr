@@ -360,7 +360,7 @@ AC_SUBST([ARFLAGS])
 AC_SUBST([AR_FLAGS])
 
 AC_MSG_CHECKING([whether $RANLIB supports D option])
-if $RANLIB -D conftest.a; then
+if $RANLIB -D conftest.a >/dev/null 2>/dev/null; then
   AC_MSG_RESULT([yes])
   RANLIB="$RANLIB -D"
 else
