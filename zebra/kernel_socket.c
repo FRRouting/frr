@@ -274,7 +274,7 @@ size_t _rta_get(caddr_t sap, void *destp, size_t destlen, bool checkaf)
 		if (sa->sa_family == AF_LINK) {
 			sdl = (struct sockaddr_dl *)sa;
 			if (sdl->sdl_index == 0 || sdl->sdl_nlen == 0)
-				copylen = sizeof(*sdl) - sizeof(sdl->sdl_data);
+				copylen = destlen;
 		}
 
 		if (copylen > destlen) {
@@ -994,7 +994,7 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 			pnt += rta_get(pnt, gate, sizeof(*gate));
 			break;
 		case RTA_NETMASK:
-			pnt += rta_get(pnt, mask, sizeof(*mask));
+			pnt += rta_getattr(pnt, mask, sizeof(*mask));
 			break;
 		case RTA_IFP:
 			pnt += rta_getsdlname(pnt, ifname, ifnlen);
