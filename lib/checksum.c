@@ -46,6 +46,24 @@ int /* return checksum in low-order 16 bits */
 	return (answer);
 }
 
+int in_cksum_with_ph4(struct ipv4_ph *ph, void *data, int nbytes)
+{
+	uint8_t dat[sizeof(struct ipv4_ph) + nbytes];
+
+	memcpy(dat, ph, sizeof(struct ipv4_ph));
+	memcpy(dat + sizeof(struct ipv4_ph), data, nbytes);
+	return in_cksum(dat, sizeof(dat));
+}
+
+int in_cksum_with_ph6(struct ipv6_ph *ph, void *data, int nbytes)
+{
+	uint8_t dat[sizeof(struct ipv6_ph) + nbytes];
+
+	memcpy(dat, ph, sizeof(struct ipv6_ph));
+	memcpy(dat + sizeof(struct ipv6_ph), data, nbytes);
+	return in_cksum(dat, sizeof(dat));
+}
+
 /* Fletcher Checksum -- Refer to RFC1008. */
 #define MODX                 4102U   /* 5802 should be fine */
 
