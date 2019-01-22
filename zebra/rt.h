@@ -32,10 +32,13 @@
 #include "zebra/zebra_dplane.h"
 
 /*
- * Update or delete a prefix from the kernel,
+ * Update or delete a route or LSP from the kernel,
  * using info from a dataplane context.
  */
 extern enum zebra_dplane_result kernel_route_update(
+	struct zebra_dplane_ctx *ctx);
+
+extern enum zebra_dplane_result kernel_lsp_update(
 	struct zebra_dplane_ctx *ctx);
 
 extern int kernel_address_add_ipv4(struct interface *, struct connected *);
@@ -46,21 +49,6 @@ extern int kernel_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 			       int llalen, ns_id_t ns_id);
 extern int kernel_interface_set_master(struct interface *master,
 				       struct interface *slave);
-
-extern enum zebra_dplane_result kernel_add_lsp(zebra_lsp_t *lsp);
-extern enum zebra_dplane_result kernel_upd_lsp(zebra_lsp_t *lsp);
-extern enum zebra_dplane_result kernel_del_lsp(zebra_lsp_t *lsp);
-
-/*
- * Add the ability to pass back up the lsp install/delete
- * success/failure.
- *
- * This functions goal is similiar to kernel_route_rib_pass_fail
- * in that we are separating out the mechanics for
- * the install/failure to set/unset flags and to notify
- * as needed.
- */
-extern void kernel_lsp_pass_fail(zebra_lsp_t *lsp, enum zebra_dplane_status res);
 
 extern int mpls_kernel_init(void);
 

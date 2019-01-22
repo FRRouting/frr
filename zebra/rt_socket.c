@@ -84,8 +84,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	char prefix_buf[PREFIX_STRLEN];
 	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
 
-	if (IS_ZEBRA_DEBUG_RIB || IS_ZEBRA_DEBUG_KERNEL)
-		prefix2str(p, prefix_buf, sizeof(prefix_buf));
+	prefix2str(p, prefix_buf, sizeof(prefix_buf));
 
 	/*
 	 * We only have the ability to ADD or DELETE at this point
@@ -214,10 +213,12 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		}
 
 #ifdef __OpenBSD__
-		if (nexthop->nh_label
-		    && !kernel_rtm_add_labels(nexthop->nh_label, &smpls))
-			continue;
-		smplsp = (union sockunion *)&smpls;
+		if (nexthop->nh_label) {
+			if (kernel_rtm_add_labels(nexthop->nh_label,
+						  &smpls) != 0)
+				continue;
+			smplsp = (union sockunion *)&smpls;
+		}
 #endif
 		error = rtm_write(cmd, &sin_dest, &sin_mask,
 				  gate ? &sin_gate : NULL, smplsp,

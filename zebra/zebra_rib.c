@@ -1811,7 +1811,7 @@ done:
 /*
  * Route-update results processing after async dataplane update.
  */
-static void rib_process_after(struct zebra_dplane_ctx *ctx)
+static void rib_process_result(struct zebra_dplane_ctx *ctx)
 {
 	struct route_table *table = NULL;
 	struct zebra_vrf *zvrf = NULL;
@@ -1931,8 +1931,6 @@ static void rib_process_after(struct zebra_dplane_ctx *ctx)
 	}
 
 	switch (op) {
-	case DPLANE_OP_NONE:
-		break;
 	case DPLANE_OP_ROUTE_INSTALL:
 	case DPLANE_OP_ROUTE_UPDATE:
 		if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
@@ -2014,6 +2012,8 @@ static void rib_process_after(struct zebra_dplane_ctx *ctx)
 				  prefix2str(dest_pfx,
 					     dest_str, sizeof(dest_str)));
 		}
+		break;
+	default:
 		break;
 	}
 done:
@@ -3191,7 +3191,8 @@ void rib_close_table(struct route_table *table)
 }
 
 /*
- *
+ * Handle results from the dataplane system. Dequeue update context
+ * structs, dispatch to appropriate internal handlers.
  */
 static int rib_process_dplane_results(struct thread *thread)
 {
@@ -3200,13 +3201,15 @@ static int rib_process_dplane_results(struct thread *thread)
 
 	/* Dequeue a list of completed updates with one lock/unlock cycle */
 
+	/* TODO -- dequeue a list with one lock/unlock cycle? */
+
 	do {
 		TAILQ_INIT(&ctxlist);
 
 		/* Take lock controlling queue of results */
 		pthread_mutex_lock(&dplane_mutex);
 		{
-			/* Dequeue context block */
+			/* Dequeue list of context structs */
 			dplane_ctx_list_append(&ctxlist, &rib_dplane_q);
 		}
 		pthread_mutex_unlock(&dplane_mutex);
@@ -3219,7 +3222,24 @@ static int rib_process_dplane_results(struct thread *thread)
 			break;
 
 		while (ctx) {
-			rib_process_after(ctx);
+			switch (dplane_ctx_get_op(ctx)) {
+			case DPLANE_OP_ROUTE_INSTALL:
+			case DPLANE_OP_ROUTE_UPDATE:
+			case DPLANE_OP_ROUTE_DELETE:
+				rib_process_result(ctx);
+				break;
+
+			case DPLANE_OP_LSP_INSTALL:
+			case DPLANE_OP_LSP_UPDATE:
+			case DPLANE_OP_LSP_DELETE:
+				zebra_mpls_lsp_dplane_result(ctx);
+				break;
+
+			default:
+				/* Don't expect this: just return the struct? */
+				dplane_ctx_fini(&ctx);
+				break;
+			} /* Dispatch by op code */
 
 			ctx = dplane_ctx_dequeue(&ctxlist);
 		}
