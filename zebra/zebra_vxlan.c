@@ -5337,6 +5337,9 @@ static void process_remote_macip_del(vni_t vni,
 	zebra_neigh_t *n = NULL;
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
+	struct zebra_ns *zns;
+	struct zebra_l2info_vxlan *vxl;
+	struct zebra_vrf *zvrf;
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
 
@@ -5360,6 +5363,8 @@ static void process_remote_macip_del(vni_t vni,
 				   vni);
 		return;
 	}
+	zns = zebra_ns_lookup(NS_DEFAULT);
+	vxl = &zif->l2info.vxl;
 
 	/* The remote VTEP specified is normally expected to exist, but
 	 * it is possible that the peer may delete the VTEP before deleting
@@ -5386,9 +5391,10 @@ static void process_remote_macip_del(vni_t vni,
 	if (!mac && !n)
 		return;
 
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
+
 	/* Ignore the delete if this mac is a gateway mac-ip */
-	if (mac
-	    && CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)
 	    && CHECK_FLAG(mac->flags, ZEBRA_MAC_DEF_GW)) {
 		zlog_warn(
 			"Ignore remote MACIP DEL VNI %u MAC %s%s%s as MAC is already configured as gateway MAC",
@@ -5402,6 +5408,23 @@ static void process_remote_macip_del(vni_t vni,
 
 	/* Uninstall remote neighbor or MAC. */
 	if (n) {
+		if (zvrf->dad_freeze &&
+		    CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE) &&
+		    CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) &&
+		    (memcmp(n->emac.octet, macaddr->octet, ETH_ALEN) == 0)) {
+			struct interface *vlan_if;
+
+			vlan_if = zvni_map_to_svi(vxl->access_vlan,
+					zif->brslave_info.br_if);
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("%s: IP %s (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
+					   __PRETTY_FUNCTION__,
+					   ipaddr2str(ipaddr, buf1,
+						      sizeof(buf1)), n->flags,
+					   vlan_if->name);
+			neigh_read_specific_ip(ipaddr, vlan_if);
+		}
+
 		/* When the MAC changes for an IP, it is possible the
 		 * client may update the new MAC before trying to delete the
 		 * "old" neighbor (as these are two different MACIP routes).
@@ -5414,6 +5437,25 @@ static void process_remote_macip_del(vni_t vni,
 			zvni_deref_ip2mac(zvni, mac);
 		}
 	} else {
+		/* DAD: when MAC is freeze state as remote learn event,
+		 * remote mac-ip delete event is received will result in freeze
+		 * entry removal, first fetch kernel for the same entry present
+		 * as LOCAL and reachable, avoid deleting this entry instead
+		 * use kerenel local entry to update during unfreeze time.
+		 */
+		if (zvrf->dad_freeze &&
+		    CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE) &&
+		    CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("%s: MAC %s (flags 0x%x) is remote and duplicate, read kernel for local entry",
+					   __PRETTY_FUNCTION__,
+					   prefix_mac2str(macaddr, buf,
+							  sizeof(buf)),
+					   mac->flags);
+			macfdb_read_specific_mac(zns, zif->brslave_info.br_if,
+						 macaddr, vxl->access_vlan);
+		}
+
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 			zvni_process_neigh_on_remote_mac_del(zvni, mac);
 			/*

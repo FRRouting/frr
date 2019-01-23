@@ -879,6 +879,7 @@ static int netlink_request_route(struct zebra_ns *zns, int family, int type)
 	/* Form the request, specifying filter (rtattr) if needed. */
 	memset(&req, 0, sizeof(req));
 	req.n.nlmsg_type = type;
+	req.n.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
 	req.rtm.rtm_family = family;
 
@@ -2127,6 +2128,7 @@ static int netlink_request_macs(struct nlsock *netlink_cmd, int family,
 	/* Form the request, specifying filter (rtattr) if needed. */
 	memset(&req, 0, sizeof(req));
 	req.n.nlmsg_type = type;
+	req.n.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
 	req.ifm.ifi_family = family;
 	if (master_ifindex)
@@ -2195,6 +2197,70 @@ int netlink_macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 	return ret;
 }
 
+
+/* Request for MAC FDB for a specific MAC address in VLAN from the kernel */
+static int netlink_request_specific_mac_in_bridge(struct zebra_ns *zns,
+						  int family,
+						  int type,
+						  struct interface *br_if,
+						  struct ethaddr *mac,
+						  vlanid_t vid)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ndmsg ndm;
+		char buf[256];
+	} req;
+	struct zebra_if *br_zif;
+	char buf[ETHER_ADDR_STRLEN];
+
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
+	req.n.nlmsg_type = type;	/* RTM_GETNEIGH */
+	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req.ndm.ndm_family = family;	/* AF_BRIDGE */
+	/* req.ndm.ndm_state = NUD_REACHABLE; */
+
+	addattr_l(&req.n, sizeof(req), NDA_LLADDR, mac, 6);
+
+	br_zif = (struct zebra_if *)br_if->info;
+	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif) && vid > 0)
+		addattr16(&req.n, sizeof(req), NDA_VLAN, vid);
+
+	addattr32(&req.n, sizeof(req), NDA_MASTER, br_if->ifindex);
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s: Tx family %s IF %s(%u) MAC %s vid %u",
+			   __PRETTY_FUNCTION__,
+			   nl_family_to_str(req.ndm.ndm_family), br_if->name,
+			   br_if->ifindex,
+			   prefix_mac2str(mac, buf, sizeof(buf)), vid);
+
+	return netlink_request(&zns->netlink_cmd, &req.n);
+}
+
+int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
+				     struct interface *br_if,
+				     struct ethaddr *mac, vlanid_t vid)
+{
+	int ret = 0;
+	struct zebra_dplane_info dp_info;
+
+	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
+
+	/* Get bridge FDB table for specific bridge - we do the VLAN filtering.
+	 */
+	ret = netlink_request_specific_mac_in_bridge(zns, AF_BRIDGE,
+						     RTM_GETNEIGH,
+						     br_if, mac, vid);
+	if (ret < 0)
+		return ret;
+
+	ret = netlink_parse_info(netlink_macfdb_table, &zns->netlink_cmd,
+				 &dp_info, 1, 0);
+
+	return ret;
+}
 static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
 				 struct ethaddr *mac, struct in_addr vtep_ip,
 				 int cmd, bool sticky)
@@ -2454,6 +2520,7 @@ static int netlink_request_neigh(struct nlsock *netlink_cmd, int family,
 	/* Form the request, specifying filter (rtattr) if needed. */
 	memset(&req, 0, sizeof(req));
 	req.n.nlmsg_type = type;
+	req.n.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
 	req.ndm.ndm_family = family;
 	if (ifindex)
@@ -2501,6 +2568,73 @@ int netlink_neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
 		return ret;
 	ret = netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
 				 &dp_info, 0, 0);
+
+	return ret;
+}
+
+/*
+ * Request for a specific IP in VLAN (SVI) device from IP Neighbor table,
+ * read using netlink interface.
+ */
+static int netlink_request_specific_neigh_in_vlan(struct zebra_ns *zns,
+						  int type, struct ipaddr *ip,
+						  ifindex_t ifindex)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ndmsg ndm;
+		char buf[256];
+	} req;
+	int ipa_len;
+
+	/* Form the request, specifying filter (rtattr) if needed. */
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req.n.nlmsg_type = type; /* RTM_GETNEIGH */
+	req.ndm.ndm_ifindex = ifindex;
+
+	if (IS_IPADDR_V4(ip)) {
+		ipa_len = IPV4_MAX_BYTELEN;
+		req.ndm.ndm_family = AF_INET;
+
+	} else {
+		ipa_len = IPV6_MAX_BYTELEN;
+		req.ndm.ndm_family = AF_INET6;
+	}
+
+	addattr_l(&req.n, sizeof(req), NDA_DST, &ip->ip.addr, ipa_len);
+
+	return netlink_request(&zns->netlink_cmd, &req.n);
+}
+
+int netlink_neigh_read_specific_ip(struct ipaddr *ip,
+				  struct interface *vlan_if)
+{
+	int ret = 0;
+	struct zebra_ns *zns;
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(vlan_if->vrf_id);
+	char buf[INET6_ADDRSTRLEN];
+	struct zebra_dplane_info dp_info;
+
+	zns = zvrf->zns;
+
+	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s: neigh request IF %s(%u) IP %s vrf_id %u",
+			   __PRETTY_FUNCTION__, vlan_if->name,
+			   vlan_if->ifindex,
+			   ipaddr2str(ip, buf, sizeof(buf)),
+			   vlan_if->vrf_id);
+
+	ret = netlink_request_specific_neigh_in_vlan(zns, RTM_GETNEIGH, ip,
+					    vlan_if->ifindex);
+	if (ret < 0)
+		return ret;
+
+	ret = netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
+				 &dp_info, 1, 0);
 
 	return ret;
 }
