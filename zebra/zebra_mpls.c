@@ -1748,7 +1748,7 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 	zebra_nhlfe_t *nhlfe;
 	struct nexthop *nexthop;
 	enum dplane_op_e op;
-	enum zebra_dplane_status status;
+	enum zebra_dplane_result status;
 
 	op = dplane_ctx_get_op(ctx);
 	status = dplane_ctx_get_status(ctx);
@@ -1780,8 +1780,7 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 
 		/* TODO -- Confirm that this result is still 'current' */
 
-		if (dplane_ctx_get_status(ctx) ==
-		    ZEBRA_DPLANE_REQUEST_SUCCESS) {
+		if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
 			/* Update zebra object */
 			SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 			for (nhlfe = lsp->nhlfe_list; nhlfe;
