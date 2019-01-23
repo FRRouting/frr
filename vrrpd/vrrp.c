@@ -232,7 +232,8 @@ static struct vrrp_router *vrrp_router_create(struct vrrp_vrouter *vr,
 		}
 	}
 
-	XFREE(MTYPE_TMP, ifps);
+	if (ifps_cnt)
+		XFREE(MTYPE_TMP, ifps);
 
 	char ethstr[ETHER_ADDR_STRLEN];
 	prefix_mac2str(&r->vmac, ethstr, sizeof(ethstr));
@@ -504,8 +505,6 @@ static int vrrp_read(struct thread *thread)
 			   r->vr->vrid);
 		vrrp_recv_advertisement(r, pkt, pktsize);
 	}
-
-	XFREE(MTYPE_TMP, pkt);
 
 	resched = true;
 
