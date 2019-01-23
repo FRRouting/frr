@@ -211,10 +211,6 @@ ssize_t vrrp_parse_datagram(int family, struct msghdr *m, size_t read,
 	/* Type check */
 	VRRP_PKT_VCHECK(((*pkt)->hdr.vertype & 0x0F) == 1, "Bad type %u",
 			(*pkt)->hdr.vertype & 0x0f);
-	/* Priority check */
-	VRRP_PKT_VCHECK((*pkt)->hdr.priority == 255
-				|| (*pkt)->hdr.priority == 0,
-			"Bad priority %u", (*pkt)->hdr.priority);
 	/* # addresses check */
 	size_t ves = VRRP_PKT_SIZE(family, (*pkt)->hdr.naddr);
 	VRRP_PKT_VCHECK(pktsize == ves, "Packet has incorrect # addresses");
