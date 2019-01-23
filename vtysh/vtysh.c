@@ -104,7 +104,7 @@ static int vty_close_pager(struct vty *vty)
 	return 0;
 }
 
-static void vtysh_pager_envdef(void)
+static void vtysh_pager_envdef(bool fallback)
 {
 	char *pager_defined;
 
@@ -112,7 +112,7 @@ static void vtysh_pager_envdef(void)
 
 	if (pager_defined)
 		vtysh_pager_name = strdup(pager_defined);
-	else
+	else if (fallback)
 		vtysh_pager_name = strdup(VTYSH_PAGER);
 }
 
@@ -2858,7 +2858,7 @@ DEFUN (vtysh_terminal_paginate,
 	vtysh_pager_name = NULL;
 
 	if (strcmp(argv[0]->text, "no"))
-		vtysh_pager_envdef();
+		vtysh_pager_envdef(true);
 	return CMD_SUCCESS;
 }
 
@@ -2878,7 +2878,7 @@ DEFUN (vtysh_terminal_length,
 
 	if (!strcmp(argv[0]->text, "no") || !strcmp(argv[1]->text, "no")) {
 		/* "terminal no length" = use VTYSH_PAGER */
-		vtysh_pager_envdef();
+		vtysh_pager_envdef(true);
 		return CMD_SUCCESS;
 	}
 
@@ -2887,7 +2887,7 @@ DEFUN (vtysh_terminal_length,
 		vty_out(vty,
 			"%% The \"terminal length\" command is deprecated and its value is ignored.\n"
 			"%% Please use \"terminal paginate\" instead with OS TTY length handling.\n");
-		vtysh_pager_envdef();
+		vtysh_pager_envdef(true);
 	}
 
 	return CMD_SUCCESS;
@@ -3445,6 +3445,7 @@ void vtysh_init_vty(void)
 
 	/* set default output */
 	vty->of = stdout;
+	vtysh_pager_envdef(false);
 
 	/* Initialize commands. */
 	cmd_init(0);
@@ -3773,6 +3774,7 @@ void vtysh_init_vty(void)
 	/* "write memory" command. */
 	install_element(ENABLE_NODE, &vtysh_write_memory_cmd);
 
+	install_element(CONFIG_NODE, &vtysh_terminal_paginate_cmd);
 	install_element(VIEW_NODE, &vtysh_terminal_paginate_cmd);
 	install_element(VIEW_NODE, &vtysh_terminal_length_cmd);
 	install_element(VIEW_NODE, &vtysh_terminal_no_length_cmd);
