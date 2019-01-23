@@ -2090,11 +2090,11 @@ static void do_nht_processing(void)
 				   zvrf_name(zvrf));
 
 		zvrf->flags &= ~ZEBRA_VRF_RIB_SCHEDULED;
-		zebra_evaluate_rnh(zvrf, AF_INET, 0, RNH_NEXTHOP_TYPE, NULL);
-		zebra_evaluate_rnh(zvrf, AF_INET, 0, RNH_IMPORT_CHECK_TYPE,
+		zebra_evaluate_rnh(zvrf, AFI_IP, 0, RNH_NEXTHOP_TYPE, NULL);
+		zebra_evaluate_rnh(zvrf, AFI_IP, 0, RNH_IMPORT_CHECK_TYPE,
 				   NULL);
-		zebra_evaluate_rnh(zvrf, AF_INET6, 0, RNH_NEXTHOP_TYPE, NULL);
-		zebra_evaluate_rnh(zvrf, AF_INET6, 0, RNH_IMPORT_CHECK_TYPE,
+		zebra_evaluate_rnh(zvrf, AFI_IP6, 0, RNH_NEXTHOP_TYPE, NULL);
+		zebra_evaluate_rnh(zvrf, AFI_IP6, 0, RNH_IMPORT_CHECK_TYPE,
 				   NULL);
 	}
 

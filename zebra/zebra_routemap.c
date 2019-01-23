@@ -389,7 +389,7 @@ static int ip_nht_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 		route_map_lookup_by_name(NHT_RM_NAME(zvrf, afi, rtype));
 
 	if (NHT_RM_MAP(zvrf, afi, rtype))
-		zebra_evaluate_rnh(zvrf, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+		zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE, NULL);
 
 	return CMD_SUCCESS;
 }
@@ -409,7 +409,7 @@ static int ip_nht_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 					zvrf->vrf->vrf_id, rtype);
 			NHT_RM_MAP(zvrf, afi, rtype) = NULL;
 
-			zebra_evaluate_rnh(zvrf, AF_INET, 1, RNH_NEXTHOP_TYPE,
+			zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE,
 					   NULL);
 		}
 		XFREE(MTYPE_ROUTE_MAP_NAME, NHT_RM_NAME(zvrf, afi, rtype));
@@ -1556,7 +1556,7 @@ static void zebra_nht_rm_update(const char *rmap)
 						afi_ip = 1;
 
 						zebra_evaluate_rnh(
-							zvrf, AF_INET, 1,
+							zvrf, AFI_IP, 1,
 							RNH_NEXTHOP_TYPE, NULL);
 					}
 				}
@@ -1582,7 +1582,7 @@ static void zebra_nht_rm_update(const char *rmap)
 						afi_ipv6 = 1;
 
 						zebra_evaluate_rnh(
-							zvrf, AF_INET, 1,
+							zvrf, AFI_IP, 1,
 							RNH_NEXTHOP_TYPE, NULL);
 					}
 				}
@@ -1713,7 +1713,7 @@ zebra_import_table_route_map_check(int family, int re_type, uint8_t instance,
 	return (ret);
 }
 
-route_map_result_t zebra_nht_route_map_check(int family, int client_proto,
+route_map_result_t zebra_nht_route_map_check(afi_t afi, int client_proto,
 					     const struct prefix *p,
 					     struct zebra_vrf *zvrf,
 					     struct route_entry *re,
@@ -1731,9 +1731,9 @@ route_map_result_t zebra_nht_route_map_check(int family, int client_proto,
 	nh_obj.tag = re->tag;
 
 	if (client_proto >= 0 && client_proto < ZEBRA_ROUTE_MAX)
-		rmap = NHT_RM_MAP(zvrf, family, client_proto);
-	if (!rmap && NHT_RM_MAP(zvrf, family, ZEBRA_ROUTE_MAX))
-		rmap = NHT_RM_MAP(zvrf, family, ZEBRA_ROUTE_MAX);
+		rmap = NHT_RM_MAP(zvrf, afi, client_proto);
+	if (!rmap && NHT_RM_MAP(zvrf, afi, ZEBRA_ROUTE_MAX))
+		rmap = NHT_RM_MAP(zvrf, afi, ZEBRA_ROUTE_MAX);
 	if (rmap)
 		ret = route_map_apply(rmap, p, RMAP_ZEBRA, &nh_obj);
 
