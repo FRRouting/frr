@@ -381,9 +381,9 @@ void ospf6_interface_state_update(struct interface *ifp)
 	if (if_is_operative(ifp)
 	    && (ospf6_interface_get_linklocal_address(oi->interface)
 		|| if_is_loopback(oi->interface)))
-		thread_add_event(master, interface_up, oi, 0, NULL);
+		thread_execute(master, interface_up, oi, 0);
 	else
-		thread_add_event(master, interface_down, oi, 0, NULL);
+		thread_execute(master, interface_down, oi, 0);
 
 	return;
 }
@@ -1791,8 +1791,8 @@ DEFUN (ipv6_ospf6_network,
 	}
 
 	/* Reset the interface */
-	thread_add_event(master, interface_down, oi, 0, NULL);
-	thread_add_event(master, interface_up, oi, 0, NULL);
+	thread_execute(master, interface_down, oi, 0);
+	thread_execute(master, interface_up, oi, 0);
 
 	return CMD_SUCCESS;
 }
@@ -1825,8 +1825,8 @@ DEFUN (no_ipv6_ospf6_network,
 	oi->type = type;
 
 	/* Reset the interface */
-	thread_add_event(master, interface_down, oi, 0, NULL);
-	thread_add_event(master, interface_up, oi, 0, NULL);
+	thread_execute(master, interface_down, oi, 0);
+	thread_execute(master, interface_up, oi, 0);
 
 	return CMD_SUCCESS;
 }
@@ -1969,8 +1969,8 @@ static void ospf6_interface_clear(struct vty *vty, struct interface *ifp)
 		zlog_debug("Interface %s: clear by reset", ifp->name);
 
 	/* Reset the interface */
-	thread_add_event(master, interface_down, oi, 0, NULL);
-	thread_add_event(master, interface_up, oi, 0, NULL);
+	thread_execute(master, interface_down, oi, 0);
+	thread_execute(master, interface_up, oi, 0);
 }
 
 /* Clear interface */
