@@ -246,6 +246,7 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	THREAD_OFF(oi->thread_send_hello);
 	THREAD_OFF(oi->thread_send_lsupdate);
 	THREAD_OFF(oi->thread_send_lsack);
+	THREAD_OFF(oi->thread_sso);
 
 	ospf6_lsdb_remove_all(oi->lsdb);
 	ospf6_lsdb_remove_all(oi->lsupdate_list);
@@ -291,6 +292,7 @@ void ospf6_interface_disable(struct ospf6_interface *oi)
 	THREAD_OFF(oi->thread_send_hello);
 	THREAD_OFF(oi->thread_send_lsupdate);
 	THREAD_OFF(oi->thread_send_lsack);
+	THREAD_OFF(oi->thread_sso);
 
 	THREAD_OFF(oi->thread_network_lsa);
 	THREAD_OFF(oi->thread_link_lsa);
@@ -679,6 +681,12 @@ int interface_up(struct thread *thread)
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 	assert(oi && oi->interface);
 
+	/*
+	 * Remove old pointer. If this thread wasn't a timer this
+	 * operation won't make a difference, because it is already NULL.
+	 */
+	oi->thread_sso = NULL;
+
 	if (IS_OSPF6_DEBUG_INTERFACE)
 		zlog_debug("Interface Event %s: [InterfaceUp]",
 			   oi->interface->name);
@@ -729,7 +737,8 @@ int interface_up(struct thread *thread)
 				"Scheduling %s for sso retry, trial count: %d",
 				oi->interface->name, oi->sso_try_cnt);
 			thread_add_timer(master, interface_up, oi,
-					 OSPF6_INTERFACE_SSO_RETRY_INT, NULL);
+					 OSPF6_INTERFACE_SSO_RETRY_INT,
+					 &oi->thread_sso);
 		}
 		return 0;
 	}
@@ -829,6 +838,9 @@ int interface_down(struct thread *thread)
 
 	/* Stop Hellos */
 	THREAD_OFF(oi->thread_send_hello);
+
+	/* Stop trying to set socket options. */
+	THREAD_OFF(oi->thread_sso);
 
 	/* Leave AllSPFRouters */
 	if (oi->state > OSPF6_INTERFACE_DOWN)
@@ -1602,6 +1614,7 @@ DEFUN (ipv6_ospf6_passive,
 
 	SET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
 	THREAD_OFF(oi->thread_send_hello);
+	THREAD_OFF(oi->thread_sso);
 
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
 		THREAD_OFF(on->inactivity_timer);
@@ -1631,7 +1644,7 @@ DEFUN (no_ipv6_ospf6_passive,
 
 	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
 	THREAD_OFF(oi->thread_send_hello);
-	oi->thread_send_hello = NULL;
+	THREAD_OFF(oi->thread_sso);
 	thread_add_event(master, ospf6_hello_send, oi, 0,
 			 &oi->thread_send_hello);
 
