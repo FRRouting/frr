@@ -2515,8 +2515,6 @@ DEFUN (config_log_syslog,
 {
 	int idx_log_levels = 2;
 
-	disable_log_file();
-
 	if (argc == 3) {
 		int level;
 		if ((level = level_match(argv[idx_log_levels]->arg))
