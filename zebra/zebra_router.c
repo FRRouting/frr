@@ -253,4 +253,8 @@ void zebra_router_init(void)
 	zrouter.iptable_hash = hash_create_size(8, zebra_pbr_iptable_hash_key,
 						zebra_pbr_iptable_hash_equal,
 						"IPtable Hash Entry");
+
+	zrouter.nhgs =
+		hash_create_size(8, zebra_nhg_hash_key, zebra_nhg_hash_equal,
+				 "Zebra Router Nexthop Groups");
 }

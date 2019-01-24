@@ -132,6 +132,11 @@ struct zebra_router {
 	 * Time for when we sweep the rib from old routes
 	 */
 	time_t startup_time;
+
+	/*
+	 * The hash of nexthop groups associated with this router
+	 */
+	struct hash *nhgs;
 };
 
 #define GRACEFUL_RESTART_TIME 60

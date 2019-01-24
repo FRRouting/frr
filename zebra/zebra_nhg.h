@@ -24,6 +24,25 @@
 #define __ZEBRA_NHG_H__
 
 #include "zebra/rib.h"
+#include "lib/nexthop_group.h"
 
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re);
+
+struct nhg_hash_entry {
+	afi_t afi;
+	vrf_id_t vrf_id;
+
+	struct nexthop_group nhg;
+
+	uint32_t refcnt;
+	uint32_t dplane_ref;
+};
+
+void zebra_nhg_init(void);
+void zebra_nhg_terminate(void);
+
+extern uint32_t zebra_nhg_hash_key(const void *arg);
+
+extern bool zebra_nhg_hash_equal(const void *arg1, const void *arg2);
+
 #endif
