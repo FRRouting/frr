@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # This is a "library" of sorts for use by the other FRR shell scripts.  It
 # has most of the daemon start/stop logic, but expects the following shell
@@ -287,6 +287,13 @@ load_old_config() {
 load_old_config "$C_PATH/daemons.conf"
 load_old_config "/etc/default/frr"
 load_old_config "/etc/sysconfig/frr"
+
+if declare -p watchfrr_options | grep -q '^declare \-a'; then
+	log_warning_msg "watchfrr_options contains a bash array value." \
+		"The configured value is intentionally ignored since it is likely wrong." \
+		"Please remove or fix the setting."
+	unset watchfrr_options
+fi
 
 #
 # other defaults and dispatch
