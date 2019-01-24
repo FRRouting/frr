@@ -7839,7 +7839,7 @@ static const struct cmd_variable_handler bgp_viewvrf_var_handlers[] = {
 struct frr_pthread *bgp_pth_io;
 struct frr_pthread *bgp_pth_ka;
 
-static void bgp_pthreads_init()
+static void bgp_pthreads_init(void)
 {
 	assert(!bgp_pth_io);
 	assert(!bgp_pth_ka);
@@ -7858,7 +7858,7 @@ static void bgp_pthreads_init()
 	bgp_pth_ka = frr_pthread_new(&ka, "BGP Keepalives thread", "bgpd_ka");
 }
 
-void bgp_pthreads_run()
+void bgp_pthreads_run(void)
 {
 	frr_pthread_run(bgp_pth_io, NULL);
 	frr_pthread_run(bgp_pth_ka, NULL);
@@ -7868,7 +7868,7 @@ void bgp_pthreads_run()
 	frr_pthread_wait_running(bgp_pth_ka);
 }
 
-void bgp_pthreads_finish()
+void bgp_pthreads_finish(void)
 {
 	frr_pthread_stop_all();
 	frr_pthread_finish();

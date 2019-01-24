@@ -37,7 +37,7 @@ void pim_static_route_free(struct static_route *s_route)
 	XFREE(MTYPE_PIM_STATIC_ROUTE, s_route);
 }
 
-static struct static_route *static_route_alloc()
+static struct static_route *static_route_alloc(void)
 {
 	return XCALLOC(MTYPE_PIM_STATIC_ROUTE, sizeof(struct static_route));
 }

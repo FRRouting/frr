@@ -1831,7 +1831,7 @@ void zebra_routemap_config_write_protocol(struct vty *vty,
 			zebra_rmap_update_timer);
 }
 
-void zebra_route_map_init()
+void zebra_route_map_init(void)
 {
 	install_element(CONFIG_NODE, &ip_protocol_cmd);
 	install_element(CONFIG_NODE, &no_ip_protocol_cmd);

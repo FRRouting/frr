@@ -2212,14 +2212,14 @@ static void access_list_init_ipv6(void)
 	install_element(CONFIG_NODE, &no_ipv6_access_list_remark_comment_cmd);
 }
 
-void access_list_init()
+void access_list_init(void)
 {
 	access_list_init_ipv4();
 	access_list_init_ipv6();
 	access_list_init_mac();
 }
 
-void access_list_reset()
+void access_list_reset(void)
 {
 	access_list_reset_ipv4();
 	access_list_reset_ipv6();

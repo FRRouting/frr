@@ -248,8 +248,7 @@ foreach (sort keys %live) {
 
 # Output install_element
 print <<EOF;
-void
-vtysh_init_cmd ()
+void vtysh_init_cmd(void)
 {
 EOF
 

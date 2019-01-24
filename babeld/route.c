@@ -248,7 +248,7 @@ flush_route(struct babel_route *route)
 }
 
 void
-flush_all_routes()
+flush_all_routes(void)
 {
     int i;
 

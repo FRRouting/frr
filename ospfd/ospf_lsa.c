@@ -150,7 +150,7 @@ int ospf_lsa_checksum_valid(struct lsa_header *lsa)
 
 
 /* Create OSPF LSA. */
-struct ospf_lsa *ospf_lsa_new()
+struct ospf_lsa *ospf_lsa_new(void)
 {
 	struct ospf_lsa *new;
 

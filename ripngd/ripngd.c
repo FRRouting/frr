@@ -76,7 +76,7 @@ int ripng_route_rte(struct ripng_info *rinfo)
 }
 
 /* Allocate new ripng information. */
-struct ripng_info *ripng_info_new()
+struct ripng_info *ripng_info_new(void)
 {
 	struct ripng_info *new;
 
@@ -2401,7 +2401,7 @@ static void ripng_distribute_update_all_wrapper(struct access_list *notused)
 }
 
 /* delete all the added ripng routes. */
-void ripng_clean()
+void ripng_clean(void)
 {
 	int i;
 	struct agg_node *rp;
@@ -2542,7 +2542,7 @@ static void ripng_routemap_update(const char *unused)
 }
 
 /* Initialize ripng structure and set commands. */
-void ripng_init()
+void ripng_init(void)
 {
 	/* Install RIPNG_NODE. */
 	install_node(&cmd_ripng_node, ripng_config_write);

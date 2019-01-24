@@ -4964,7 +4964,7 @@ DEFUN (clear_vrf_all,
 	return vnc_clear_vrf(vty, NULL, arg_vrf, NULL, NULL);
 }
 
-void rfapi_vty_init()
+void rfapi_vty_init(void)
 {
 	install_element(ENABLE_NODE, &add_vnc_prefix_cost_life_lnh_cmd);
 	install_element(ENABLE_NODE, &add_vnc_prefix_life_cost_lnh_cmd);

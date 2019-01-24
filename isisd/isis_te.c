@@ -68,7 +68,7 @@ const char *mode2text[] = {"Disable", "Area", "AS", "Emulate"};
  *------------------------------------------------------------------------*/
 
 /* Create new MPLS TE Circuit context */
-struct mpls_te_circuit *mpls_te_circuit_new()
+struct mpls_te_circuit *mpls_te_circuit_new(void)
 {
 	struct mpls_te_circuit *mtc;
 

@@ -480,7 +480,7 @@ int release_label_chunk(uint8_t proto, unsigned short instance, uint32_t start,
 }
 
 
-void label_manager_close()
+void label_manager_close(void)
 {
 	list_delete(&lbl_mgr.lc_list);
 	stream_free(obuf);

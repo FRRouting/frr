@@ -150,7 +150,7 @@ static int ospf_mpls_te_register(enum inter_as_mode mode)
 	return rc;
 }
 
-static int ospf_mpls_te_unregister()
+static int ospf_mpls_te_unregister(void)
 {
 	uint8_t scope;
 

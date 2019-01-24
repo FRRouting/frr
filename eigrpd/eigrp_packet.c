@@ -1101,7 +1101,7 @@ struct eigrp_packet *eigrp_packet_duplicate(struct eigrp_packet *old,
 	return new;
 }
 
-static struct TLV_IPv4_Internal_type *eigrp_IPv4_InternalTLV_new()
+static struct TLV_IPv4_Internal_type *eigrp_IPv4_InternalTLV_new(void)
 {
 	struct TLV_IPv4_Internal_type *new;
 
@@ -1327,7 +1327,7 @@ uint16_t eigrp_add_authTLV_SHA256_to_stream(struct stream *s,
 	return 0;
 }
 
-struct TLV_MD5_Authentication_Type *eigrp_authTLV_MD5_new()
+struct TLV_MD5_Authentication_Type *eigrp_authTLV_MD5_new(void)
 {
 	struct TLV_MD5_Authentication_Type *new;
 
@@ -1342,7 +1342,7 @@ void eigrp_authTLV_MD5_free(struct TLV_MD5_Authentication_Type *authTLV)
 	XFREE(MTYPE_EIGRP_AUTH_TLV, authTLV);
 }
 
-struct TLV_SHA256_Authentication_Type *eigrp_authTLV_SHA256_new()
+struct TLV_SHA256_Authentication_Type *eigrp_authTLV_SHA256_new(void)
 {
 	struct TLV_SHA256_Authentication_Type *new;
 
@@ -1363,7 +1363,7 @@ void eigrp_IPv4_InternalTLV_free(
 	XFREE(MTYPE_EIGRP_IPV4_INT_TLV, IPv4_InternalTLV);
 }
 
-struct TLV_Sequence_Type *eigrp_SequenceTLV_new()
+struct TLV_Sequence_Type *eigrp_SequenceTLV_new(void)
 {
 	struct TLV_Sequence_Type *new;
 

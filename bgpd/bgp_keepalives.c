@@ -288,7 +288,7 @@ void bgp_keepalives_off(struct peer *peer)
 	pthread_mutex_unlock(peerhash_mtx);
 }
 
-void bgp_keepalives_wake()
+void bgp_keepalives_wake(void)
 {
 	pthread_mutex_lock(peerhash_mtx);
 	{

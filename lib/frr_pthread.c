@@ -47,7 +47,7 @@ static struct list *frr_pthread_list;
 
 /* ------------------------------------------------------------------------ */
 
-void frr_pthread_init()
+void frr_pthread_init(void)
 {
 	pthread_mutex_lock(&frr_pthread_list_mtx);
 	{
@@ -57,7 +57,7 @@ void frr_pthread_init()
 	pthread_mutex_unlock(&frr_pthread_list_mtx);
 }
 
-void frr_pthread_finish()
+void frr_pthread_finish(void)
 {
 	pthread_mutex_lock(&frr_pthread_list_mtx);
 	{
@@ -178,7 +178,7 @@ int frr_pthread_stop(struct frr_pthread *fpt, void **result)
 	return ret;
 }
 
-void frr_pthread_stop_all()
+void frr_pthread_stop_all(void)
 {
 	pthread_mutex_lock(&frr_pthread_list_mtx);
 	{

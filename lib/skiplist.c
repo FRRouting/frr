@@ -88,7 +88,7 @@ static struct skiplist *skiplist_last_created; /* debugging hack */
 #endif
 
 
-static int randomLevel()
+static int randomLevel(void)
 {
 	register int level = 0;
 	register int b;

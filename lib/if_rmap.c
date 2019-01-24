@@ -287,7 +287,7 @@ int config_write_if_rmap(struct vty *vty)
 	return write;
 }
 
-void if_rmap_reset()
+void if_rmap_reset(void)
 {
 	hash_clean(ifrmaphash, (void (*)(void *))if_rmap_free);
 }

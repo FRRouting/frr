@@ -135,7 +135,7 @@ update_source(struct source *src,
 }
 
 void
-expire_sources()
+expire_sources(void)
 {
     struct source *src;
 

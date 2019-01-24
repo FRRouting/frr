@@ -3464,7 +3464,7 @@ static const struct cmd_variable_handler vtysh_var_handler[] = {
 	 .completions = vtysh_autocomplete},
 	{.completions = NULL}};
 
-void vtysh_uninit()
+void vtysh_uninit(void)
 {
 	if (vty->of != stdout)
 		fclose(vty->of);

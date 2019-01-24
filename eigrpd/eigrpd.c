@@ -122,7 +122,7 @@ void eigrp_router_id_update(struct eigrp *eigrp)
 	}
 }
 
-void eigrp_master_init()
+void eigrp_master_init(void)
 {
 	struct timeval tv;
 
