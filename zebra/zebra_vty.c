@@ -1118,8 +1118,11 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 		if (nhe->vrf_id != zvrf->vrf->vrf_id)
 			continue;
 
-		vty_out(vty, "Group: %u RefCnt: %u afi: %d\n", nhe->dplane_ref,
-			nhe->refcnt, nhe->afi);
+		vty_out(vty,
+			"Group: %u RefCnt: %u afi: %d Valid: %d Installed: %d\n",
+			nhe->dplane_ref, nhe->refcnt, nhe->afi,
+			nhe->flags & NEXTHOP_GROUP_VALID,
+			nhe->flags & NEXTHOP_GROUP_INSTALLED);
 
 		for (ALL_NEXTHOPS(nhe->nhg, nhop)) {
 			vty_out(vty, "  ");

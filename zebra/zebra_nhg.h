@@ -36,6 +36,21 @@ struct nhg_hash_entry {
 
 	uint32_t refcnt;
 	uint32_t dplane_ref;
+
+	uint32_t flags;
+/*
+ * Is this nexthop group valid, ie all nexthops are fully resolved.
+ * What is fully resolved?  It's a nexthop that is either self contained
+ * and correct( ie no recursive pointer ) or a nexthop that is recursively
+ * resolved and correct.
+ */
+#define NEXTHOP_GROUP_VALID 0x1
+/*
+ * Has this nexthop group been installed?  At this point in time, this
+ * means that the data-plane has been told about this nexthop group
+ * and it's possible usage by a route entry.
+ */
+#define NEXTHOP_GROUP_INSTALLED 0x2
 };
 
 void zebra_nhg_init(void);
