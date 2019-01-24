@@ -53,6 +53,10 @@
 #define DEFAULT_MIN_RESTART	60
 #define DEFAULT_MAX_RESTART	600
 
+#define DEFAULT_RESTART_CMD	WATCHFRR_SH_PATH " restart %s"
+#define DEFAULT_START_CMD	WATCHFRR_SH_PATH " start %s"
+#define DEFAULT_STOP_CMD	WATCHFRR_SH_PATH " stop %s"
+
 #define PING_TOKEN	"PING"
 
 DEFINE_MGROUP(WATCHFRR, "watchfrr")
@@ -124,6 +128,9 @@ static struct global_state {
 	.loglevel = DEFAULT_LOGLEVEL,
 	.min_restart_interval = DEFAULT_MIN_RESTART,
 	.max_restart_interval = DEFAULT_MAX_RESTART,
+	.restart_command = DEFAULT_RESTART_CMD,
+	.start_command = DEFAULT_START_CMD,
+	.stop_command = DEFAULT_STOP_CMD,
 };
 
 typedef enum {
@@ -227,14 +234,17 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 -r, --restart	Supply a Bourne shell command to use to restart a single\n\
 		daemon.  The command string should include '%%s' where the\n\
 		name of the daemon should be substituted.\n\
+		(default: '%s')\n\
 -s, --start-command\n\
 		Supply a Bourne shell to command to use to start a single\n\
 		daemon.  The command string should include '%%s' where the\n\
 		name of the daemon should be substituted.\n\
+		(default: '%s')\n\
 -k, --kill-command\n\
 		Supply a Bourne shell to command to use to stop a single\n\
 		daemon.  The command string should include '%%s' where the\n\
 		name of the daemon should be substituted.\n\
+		(default: '%s')\n\
     --dry	Do not start or restart anything, just log.\n\
 -p, --pid-file	Set process identifier file name\n\
 		(default is %s/watchfrr.pid).\n\
@@ -247,7 +257,9 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 -h, --help	Display this help and exit\n",
 		frr_vtydir, DEFAULT_LOGLEVEL, LOG_EMERG, LOG_DEBUG, LOG_DEBUG,
 		DEFAULT_MIN_RESTART, DEFAULT_MAX_RESTART, DEFAULT_PERIOD,
-		DEFAULT_TIMEOUT, DEFAULT_RESTART_TIMEOUT, frr_vtydir);
+		DEFAULT_TIMEOUT, DEFAULT_RESTART_TIMEOUT,
+		DEFAULT_RESTART_CMD, DEFAULT_START_CMD, DEFAULT_STOP_CMD,
+		frr_vtydir);
 }
 
 static pid_t run_background(char *shell_cmd)
