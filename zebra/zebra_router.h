@@ -62,6 +62,9 @@ struct zebra_router {
 #if defined(HAVE_RTADV)
 	struct rtadv rtadv;
 #endif /* HAVE_RTADV */
+
+	/* A sequence number used for tracking routes */
+	_Atomic uint32_t sequence_num;
 };
 
 extern struct zebra_router zrouter;
@@ -83,4 +86,6 @@ extern unsigned long zebra_router_score_proto(uint8_t proto,
 extern void zebra_router_sweep_route(void);
 
 extern void zebra_router_show_table_summary(struct vty *vty);
+
+extern uint32_t zebra_router_get_next_sequence(void);
 #endif

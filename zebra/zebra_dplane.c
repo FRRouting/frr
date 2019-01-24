@@ -24,6 +24,7 @@
 #include "lib/memory.h"
 #include "lib/queue.h"
 #include "lib/zebra.h"
+#include "zebra/zebra_router.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_dplane.h"
@@ -863,7 +864,7 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 	/* Trying out the sequence number idea, so we can try to detect
 	 * when a result is stale.
 	 */
-	re->dplane_sequence++;
+	re->dplane_sequence = zebra_router_get_next_sequence();
 	ctx->zd_seq = re->dplane_sequence;
 
 	ret = AOK;
@@ -1012,7 +1013,8 @@ dplane_route_update_internal(struct route_node *rn,
 		    old_re && (old_re != re)) {
 			ctx->zd_is_update = true;
 
-			old_re->dplane_sequence++;
+			old_re->dplane_sequence =
+				zebra_router_get_next_sequence();
 			ctx->zd_old_seq = old_re->dplane_sequence;
 
 			ctx->u.rinfo.zd_old_tag = old_re->tag;
