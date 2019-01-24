@@ -52,6 +52,7 @@
 #include "zebra/ipforward.h"
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_pbr.h"
+#include "zebra/zebra_nhg.h"
 
 extern int allow_delete;
 
@@ -1098,6 +1099,78 @@ DEFUN (ip_nht_default_route,
 	zvrf->zebra_rnh_ip_default_route = 1;
 
 	zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE, NULL);
+	return CMD_SUCCESS;
+}
+
+static void show_nexthop_group_cmd_helper(struct vty *vty,
+					  struct zebra_vrf *zvrf, afi_t afi)
+{
+	struct list *list = hash_to_list(zrouter.nhgs);
+	struct nhg_hash_entry *nhe;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(list, node, nhe)) {
+		struct nexthop *nhop;
+
+		if (nhe->afi != afi)
+			continue;
+
+		if (nhe->vrf_id != zvrf->vrf->vrf_id)
+			continue;
+
+		vty_out(vty, "Group: %u RefCnt: %u afi: %d\n", nhe->dplane_ref,
+			nhe->refcnt, nhe->afi);
+
+		for (ALL_NEXTHOPS(nhe->nhg, nhop)) {
+			vty_out(vty, "  ");
+			nexthop_group_write_nexthop(vty, nhop);
+		}
+	}
+
+	list_delete(&list);
+}
+
+DEFPY (show_nexthop_group,
+       show_nexthop_group_cmd,
+       "show nexthop-group <ipv4$v4|ipv6$v6> [vrf <NAME$vrf_name|all$vrf_all>]",
+       SHOW_STR
+       IP_STR
+       IP6_STR
+       "Show Nexthop Groups\n"
+       VRF_FULL_CMD_HELP_STR)
+{
+	afi_t afi = v4 ? AFI_IP : AFI_IP6;
+	struct zebra_vrf *zvrf;
+
+	if (vrf_all) {
+		struct vrf *vrf;
+
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			struct zebra_vrf *zvrf;
+
+			zvrf = vrf->info;
+			if (!zvrf)
+				continue;
+
+			vty_out(vty, "VRF: %s\n", vrf->name);
+			show_nexthop_group_cmd_helper(vty, zvrf, afi);
+		}
+
+		return CMD_SUCCESS;
+	}
+
+	if (vrf_name)
+		zvrf = zebra_vrf_lookup_by_name(vrf_name);
+	else
+		zvrf = zebra_vrf_lookup_by_name(VRF_DEFAULT_NAME);
+
+	if (!zvrf) {
+		vty_out(vty, "VRF %s specified does not exist", vrf_name);
+		return CMD_SUCCESS;
+	}
+
+	show_nexthop_group_cmd_helper(vty, zvrf, afi);
+
 	return CMD_SUCCESS;
 }
 
@@ -3032,6 +3105,8 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &no_zebra_workqueue_timer_cmd);
 	install_element(CONFIG_NODE, &zebra_packet_process_cmd);
 	install_element(CONFIG_NODE, &no_zebra_packet_process_cmd);
+
+	install_element(VIEW_NODE, &show_nexthop_group_cmd);
 
 	install_element(VIEW_NODE, &show_vrf_cmd);
 	install_element(VIEW_NODE, &show_vrf_vni_cmd);
