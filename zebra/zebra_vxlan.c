@@ -556,6 +556,7 @@ static void zebra_vxlan_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
 
 		if (zvrf->dad_freeze)
 			*is_dup_detect = true;
+
 		/* warn-only action, neigh will be installed.
 		 * freeze action, it wil not be installed.
 		 */
@@ -5140,11 +5141,15 @@ static void process_remote_macip_add(vni_t vni,
 		 * RFC-7432: A PE/VTEP that detects a MAC mobility
 		 * event via local learning starts an M-second timer.
 		 *
-		 * VTEP-IP or seq. change along is not considered
+		 * VTEP-IP or seq. change alone is not considered
 		 * for dup. detection.
+		 *
+		 * MAC is already marked duplicate set dad, then
+		 * is_dup_detect will be set to not install the entry.
 		 */
-		if ((!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) &&
-		    mac->dad_count)
+		if ((!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) &&
+		    mac->dad_count) ||
+		    CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE))
 			do_dad = true;
 
 		/* Remove local MAC from BGP. */
