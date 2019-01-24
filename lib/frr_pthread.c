@@ -124,7 +124,7 @@ int frr_pthread_set_name(struct frr_pthread *fpt)
 #ifdef HAVE_PTHREAD_SETNAME_NP
 # ifdef GNU_LINUX
 	ret = pthread_setname_np(fpt->thread, fpt->os_name);
-# else /* NetBSD */
+# elif defined(__NetBSD__)
 	ret = pthread_setname_np(fpt->thread, fpt->os_name, NULL);
 # endif
 #elif defined(HAVE_PTHREAD_SET_NAME_NP)

@@ -346,7 +346,7 @@ AM_CONDITIONAL([STATIC_BIN], [test "x$enable_static_bin" = "xyes"])
 
 dnl $AR and $RANLIB are set by LT_INIT above
 AC_MSG_CHECKING([whether $AR supports D option])
-if $AR crD conftest.a; then
+if $AR crD conftest.a >/dev/null 2>/dev/null; then
   AC_MSG_RESULT([yes])
   dnl ARFLAGS is for automake, AR_FLAGS for libtool m-(
   ARFLAGS="crD"
@@ -360,7 +360,7 @@ AC_SUBST([ARFLAGS])
 AC_SUBST([AR_FLAGS])
 
 AC_MSG_CHECKING([whether $RANLIB supports D option])
-if $RANLIB -D conftest.a; then
+if $RANLIB -D conftest.a >/dev/null 2>/dev/null; then
   AC_MSG_RESULT([yes])
   RANLIB="$RANLIB -D"
 else
@@ -817,15 +817,17 @@ fi
 AM_CONDITIONAL([GIT_VERSION], [test "x$with_pkg_git_version" = "xyes"])
 
 AC_CHECK_TOOL([OBJCOPY], [objcopy], [:])
-AC_CACHE_CHECK([for .interp value to use], [frr_cv_interp], [
-  frr_cv_interp=""
-  AC_LINK_IFELSE([AC_LANG_SOURCE([[int main() { return 0; }]])], [
-    if $OBJCOPY -j.interp -Obinary conftest conftest.interp; then
-      frr_cv_interp="`xargs -0 echo < conftest.interp`"
-    fi
-    test -f conftest.interp && rm conftest.interp
+if test "x${OBJCOPY}" != "x:"; then
+  AC_CACHE_CHECK([for .interp value to use], [frr_cv_interp], [
+    frr_cv_interp=""
+    AC_LINK_IFELSE([AC_LANG_SOURCE([[int main() { return 0; }]])], [
+      if $OBJCOPY -j.interp -Obinary conftest conftest.interp; then
+        frr_cv_interp="`xargs -0 echo < conftest.interp`"
+      fi
+      test -f conftest.interp && rm conftest.interp
+    ])
   ])
-])
+fi
 if test -n "$frr_cv_interp"; then
   AC_DEFINE_UNQUOTED([INTERP], ["$frr_cv_interp"], [.interp value])
 fi
