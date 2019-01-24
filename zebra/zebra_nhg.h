@@ -60,4 +60,7 @@ extern uint32_t zebra_nhg_hash_key(const void *arg);
 
 extern bool zebra_nhg_hash_equal(const void *arg1, const void *arg2);
 
+extern void zebra_nhg_find(afi_t afi, struct nexthop_group *nhg,
+			   struct route_entry *re);
+void zebra_nhg_release(afi_t afi, struct route_entry *re);
 #endif
