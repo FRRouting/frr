@@ -78,12 +78,12 @@ DEFPY(vrrp_vrid,
 
 DEFPY(vrrp_priority,
       vrrp_priority_cmd,
-      "[no] vrrp (1-255)$vrid priority (1-255)",
+      "[no] vrrp (1-255)$vrid priority (1-254)",
       NO_STR
       VRRP_STR
       VRRP_VRID_STR
       VRRP_PRIORITY_STR
-      "Priority value; set 255 to designate this Virtual Router as Master\n")
+      "Priority value")
 {
 	struct vrrp_vrouter *vr;
 	struct vrrp_router *r;

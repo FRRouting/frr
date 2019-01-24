@@ -126,6 +126,8 @@ void vrrp_set_priority(struct vrrp_vrouter *vr, uint8_t priority)
 		return;
 
 	vr->priority = priority;
+	vr->v4->priority = priority;
+	vr->v6->priority = priority;
 }
 
 void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
