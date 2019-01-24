@@ -1040,7 +1040,7 @@ static int keychain_config_write(struct vty *vty)
 	return 0;
 }
 
-void keychain_init()
+void keychain_init(void)
 {
 	keychain_list = list_new();
 

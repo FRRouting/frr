@@ -163,7 +163,7 @@ static zebra_vni_t *zvni_add(vni_t vni);
 static int zvni_del(zebra_vni_t *zvni);
 static int zvni_send_add_to_client(zebra_vni_t *zvni);
 static int zvni_send_del_to_client(vni_t vni);
-static void zvni_build_hash_table();
+static void zvni_build_hash_table(void);
 static int zvni_vtep_match(struct in_addr *vtep_ip, zebra_vtep_t *zvtep);
 static zebra_vtep_t *zvni_vtep_find(zebra_vni_t *zvni, struct in_addr *vtep_ip);
 static zebra_vtep_t *zvni_vtep_add(zebra_vni_t *zvni, struct in_addr *vtep_ip);
@@ -3841,7 +3841,7 @@ static int zvni_send_del_to_client(vni_t vni)
  * Build the VNI hash table by going over the VxLAN interfaces. This
  * is called when EVPN (advertise-all-vni) is enabled.
  */
-static void zvni_build_hash_table()
+static void zvni_build_hash_table(void)
 {
 	struct zebra_ns *zns;
 	struct route_node *rn;

@@ -1605,7 +1605,7 @@ static int vty_flush(struct thread *thread)
 }
 
 /* Allocate new vty struct. */
-struct vty *vty_new()
+struct vty *vty_new(void)
 {
 	struct vty *new = XCALLOC(MTYPE_VTY, sizeof(struct vty));
 
@@ -3035,7 +3035,7 @@ struct cmd_node vty_node = {
 };
 
 /* Reset all VTY status. */
-void vty_reset()
+void vty_reset(void)
 {
 	unsigned int i;
 	struct vty *vty;
@@ -3100,7 +3100,7 @@ static void vty_save_cwd(void)
 	strcpy(vty_cwd, cwd);
 }
 
-char *vty_get_cwd()
+char *vty_get_cwd(void)
 {
 	return vty_cwd;
 }
@@ -3115,7 +3115,7 @@ int vty_shell_serv(struct vty *vty)
 	return vty->type == VTY_SHELL_SERV ? 1 : 0;
 }
 
-void vty_init_vtysh()
+void vty_init_vtysh(void)
 {
 	vtyvec = vector_init(VECTOR_MIN_SIZE);
 }

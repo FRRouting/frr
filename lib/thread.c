@@ -400,7 +400,7 @@ static void cancelreq_del(void *cr)
 }
 
 /* initializer, only ever called once */
-static void initializer()
+static void initializer(void)
 {
 	pthread_key_create(&thread_current, NULL);
 }

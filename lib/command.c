@@ -2883,7 +2883,7 @@ void cmd_init(int terminal)
 #endif
 }
 
-void cmd_terminate()
+void cmd_terminate(void)
 {
 	struct cmd_node *cmd_node;
 

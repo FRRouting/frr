@@ -402,7 +402,7 @@ static void verify_prefix_iter_cmp(const char *p1, const char *p2,
  *
  * Tests comparision of prefixes according to order of iteration.
  */
-static void test_prefix_iter_cmp()
+static void test_prefix_iter_cmp(void)
 {
 	printf("\n\nTesting route_table_prefix_iter_cmp()\n");
 

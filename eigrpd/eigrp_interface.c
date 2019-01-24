@@ -122,7 +122,7 @@ int eigrp_if_delete_hook(struct interface *ifp)
 
 struct list *eigrp_iflist;
 
-void eigrp_if_init()
+void eigrp_if_init(void)
 {
 	/* Initialize Zebra interface data structure. */
 	// hook_register_prio(if_add, 0, eigrp_if_new);

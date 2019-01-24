@@ -739,7 +739,7 @@ static void ripng_enable_apply_all(void)
 }
 
 /* Clear all network and neighbor configuration */
-void ripng_clean_network()
+void ripng_clean_network(void)
 {
 	unsigned int i;
 	char *str;
@@ -930,7 +930,7 @@ static struct cmd_node interface_node = {
 };
 
 /* Initialization of interface. */
-void ripng_if_init()
+void ripng_if_init(void)
 {
 	/* Interface initialize. */
 	hook_register_prio(if_add, 0, ripng_if_new_hook);

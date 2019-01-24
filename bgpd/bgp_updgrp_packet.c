@@ -65,7 +65,7 @@
 /********************
  * PUBLIC FUNCTIONS
  ********************/
-struct bpacket *bpacket_alloc()
+struct bpacket *bpacket_alloc(void)
 {
 	struct bpacket *pkt;
 

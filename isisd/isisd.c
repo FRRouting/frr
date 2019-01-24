@@ -2161,7 +2161,7 @@ int isis_config_write(struct vty *vty)
 
 struct cmd_node router_node = {ROUTER_NODE, "%s(config-router)# ", 1};
 
-void isis_init()
+void isis_init(void)
 {
 	/* Install IS-IS top node */
 	install_node(&router_node, isis_config_write);

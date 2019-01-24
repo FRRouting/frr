@@ -280,7 +280,7 @@ static void add_namespace(const char *path)
 #endif
 
 #ifdef HAVE_LXC
-static void set_namespaces()
+static void set_namespaces(void)
 {
 	struct namespace *namespace;
 	int fd;
@@ -294,7 +294,7 @@ static void set_namespaces()
 	}
 }
 #else
-static void set_namespaces()
+static void set_namespaces(void)
 {
 	if (!LIST_EMPTY(&namespace_head))
 		fatal("LCX namespaces not supported");

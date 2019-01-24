@@ -300,7 +300,7 @@ uint32_t msg_get_seq(struct msg *msg)
  * -----------------------------------------------------------
  */
 
-struct msg_fifo *msg_fifo_new()
+struct msg_fifo *msg_fifo_new(void)
 {
 	return XCALLOC(MTYPE_OSPF_API_FIFO, sizeof(struct msg_fifo));
 }

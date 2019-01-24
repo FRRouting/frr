@@ -148,7 +148,7 @@ void ospf_packet_free(struct ospf_packet *op)
 	XFREE(MTYPE_OSPF_PACKET, op);
 }
 
-struct ospf_fifo *ospf_fifo_new()
+struct ospf_fifo *ospf_fifo_new(void)
 {
 	struct ospf_fifo *new;
 

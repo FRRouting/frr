@@ -146,7 +146,7 @@ static int ospf_router_info_register(uint8_t scope)
 	return rc;
 }
 
-static int ospf_router_info_unregister()
+static int ospf_router_info_unregister(void)
 {
 
 	if ((OspfRI.scope != OSPF_OPAQUE_AS_LSA)

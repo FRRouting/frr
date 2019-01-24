@@ -61,7 +61,7 @@ static int eigrp_nexthop_entry_cmp(struct eigrp_nexthop_entry *,
  * del - assigned function executed before deleting topology node by list
  * function
  */
-struct route_table *eigrp_topology_new()
+struct route_table *eigrp_topology_new(void)
 {
 	return route_table_init();
 }
@@ -70,7 +70,7 @@ struct route_table *eigrp_topology_new()
  * Returns new created toplogy node
  * cmp - assigned function for comparing topology entry
  */
-struct eigrp_prefix_entry *eigrp_prefix_entry_new()
+struct eigrp_prefix_entry *eigrp_prefix_entry_new(void)
 {
 	struct eigrp_prefix_entry *new;
 	new = XCALLOC(MTYPE_EIGRP_PREFIX_ENTRY,
@@ -102,7 +102,7 @@ static int eigrp_nexthop_entry_cmp(struct eigrp_nexthop_entry *entry1,
  * Returns new topology entry
  */
 
-struct eigrp_nexthop_entry *eigrp_nexthop_entry_new()
+struct eigrp_nexthop_entry *eigrp_nexthop_entry_new(void)
 {
 	struct eigrp_nexthop_entry *new;
 

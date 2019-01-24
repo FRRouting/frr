@@ -1897,7 +1897,7 @@ int config_write_ospf6_debug_asbr(struct vty *vty)
 	return 0;
 }
 
-void install_element_ospf6_debug_asbr()
+void install_element_ospf6_debug_asbr(void)
 {
 	install_element(ENABLE_NODE, &debug_ospf6_asbr_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf6_asbr_cmd);

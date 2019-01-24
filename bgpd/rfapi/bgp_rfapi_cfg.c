@@ -575,7 +575,7 @@ static struct rfapi_l2_group_cfg *rfapi_l2_group_lookup_byname(struct bgp *bgp,
 	return NULL;
 }
 
-static struct rfapi_l2_group_cfg *rfapi_l2_group_new()
+static struct rfapi_l2_group_cfg *rfapi_l2_group_new(void)
 {
 	struct rfapi_l2_group_cfg *rfg;
 
@@ -1396,7 +1396,7 @@ DEFUN (vnc_export_mode,
 	return CMD_SUCCESS;
 }
 
-static struct rfapi_rfg_name *rfgn_new()
+static struct rfapi_rfg_name *rfgn_new(void)
 {
 	return XCALLOC(MTYPE_RFAPI_RFG_NAME, sizeof(struct rfapi_rfg_name));
 }

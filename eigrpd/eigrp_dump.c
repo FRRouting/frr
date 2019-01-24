@@ -605,7 +605,7 @@ static struct cmd_node eigrp_debug_node = {
 };
 
 /* Initialize debug commands. */
-void eigrp_debug_init()
+void eigrp_debug_init(void)
 {
 	install_node(&eigrp_debug_node, config_write_debug);
 
