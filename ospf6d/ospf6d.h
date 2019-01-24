@@ -30,6 +30,12 @@ DECLARE_MGROUP(OSPF6D);
 /* global variables */
 extern struct thread_master *master;
 
+/* Debug option */
+extern unsigned char conf_debug_ospf6_event;
+#define OSPF6_DEBUG_EVENT_ON() (conf_debug_ospf6_event = 1)
+#define OSPF6_DEBUG_EVENT_OFF() (conf_debug_ospf6_event = 0)
+#define IS_OSPF6_DEBUG_EVENT (conf_debug_ospf6_event)
+
 /* Historical for KAME.  */
 #ifndef IPV6_JOIN_GROUP
 #ifdef IPV6_ADD_MEMBERSHIP

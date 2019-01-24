@@ -51,6 +51,8 @@ DEFINE_MGROUP(OSPF6D, "ospf6d");
 
 static int config_write_ospf6_debug_event(struct vty *vty);
 
+unsigned char conf_debug_ospf6_event = 0;
+
 struct route_node *route_prev(struct route_node *node)
 {
 	struct route_node *end;
@@ -1371,6 +1373,29 @@ DEFUN(show_ipv6_ospf6_linkstate_detail, show_ipv6_ospf6_linkstate_detail_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFUN (debug_ospf6_event,
+       debug_ospf6_event_cmd,
+       "debug ospf6 event",
+       DEBUG_STR
+       OSPF6_STR
+       "Debug OSPFv3 Events\n")
+{
+	OSPF6_DEBUG_EVENT_ON();
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_ospf6_event,
+       no_debug_ospf6_event_cmd,
+       "no debug ospf6 event",
+       NO_STR
+       DEBUG_STR
+       OSPF6_STR
+       "Debug OSPFv3 Events\n")
+{
+	OSPF6_DEBUG_EVENT_OFF();
+	return CMD_SUCCESS;
+}
+
 static int config_write_ospf6_debug_event(struct vty *vty)
 {
 	if (IS_OSPF6_DEBUG_EVENT)
@@ -1461,4 +1486,10 @@ void ospf6_init(struct thread_master *master)
 		VIEW_NODE,
 		&show_ipv6_ospf6_database_type_self_originated_linkstate_id_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_database_aggr_router_cmd);
+
+	install_element(ENABLE_NODE, &debug_ospf6_event_cmd);
+	install_element(ENABLE_NODE, &no_debug_ospf6_event_cmd);
+	install_element(CONFIG_NODE, &debug_ospf6_event_cmd);
+	install_element(CONFIG_NODE, &no_debug_ospf6_event_cmd);
+
 }
