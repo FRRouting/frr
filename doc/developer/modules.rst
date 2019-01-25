@@ -59,7 +59,7 @@ Basic boilerplate:
     static int module_late_init(struct thread_master *master)
     {
         /* Do initialization stuff here */
-	return 0;
+        return 0;
     }
 
     static int
