@@ -129,7 +129,8 @@ extern int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
 				   struct prefix *p, struct bgp_path_info *ri);
 extern int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp);
 extern int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni,
-				    struct ethaddr *mac, struct ipaddr *ip);
+				    struct ethaddr *mac, struct ipaddr *ip,
+					int state);
 extern int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni,
 				    struct ethaddr *mac, struct ipaddr *ip,
 				    uint8_t flags, uint32_t seq);
