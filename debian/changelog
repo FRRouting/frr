@@ -1,3 +1,9 @@
+frr (6.0.2-2) UNRELEASED; urgency=medium
+
+  * fix compat/upgrade path issues regarding watchfrr_options & VTYSH_PAGER
+
+ -- David Lamparter <equinox-debian@diac24.net>  Fri, 25 Jan 2019 12:27:23 +0100
+
 frr (6.0.2-1) unstable; urgency=medium
 
   * Packaging has been more or less completely reworked, based off the old
