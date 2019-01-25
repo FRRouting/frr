@@ -441,7 +441,6 @@ static void if_addr_wakeup(struct interface *ifp)
 	struct listnode *node, *nnode;
 	struct connected *ifc;
 	struct prefix *p;
-	int ret;
 	enum zebra_dplane_result dplane_res;
 
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, ifc)) {
@@ -504,12 +503,14 @@ static void if_addr_wakeup(struct interface *ifp)
 					if_refresh(ifp);
 				}
 
-				ret = if_prefix_add_ipv6(ifp, ifc);
-				if (ret < 0) {
+
+				dplane_res = dplane_intf_addr_set(ifp, ifc);
+				if (dplane_res ==
+				    ZEBRA_DPLANE_REQUEST_FAILURE) {
 					flog_err_sys(
 						EC_ZEBRA_IFACE_ADDR_ADD_FAILED,
 						"Can't set interface's address: %s",
-						safe_strerror(errno));
+						dplane_res2str(dplane_res));
 					continue;
 				}
 
@@ -2881,6 +2882,7 @@ static int ipv6_address_install(struct vty *vty, struct interface *ifp,
 	struct connected *ifc;
 	struct prefix_ipv6 *p;
 	int ret;
+	enum zebra_dplane_result dplane_res;
 
 	if_data = ifp->info;
 
@@ -2927,11 +2929,10 @@ static int ipv6_address_install(struct vty *vty, struct interface *ifp,
 			if_refresh(ifp);
 		}
 
-		ret = if_prefix_add_ipv6(ifp, ifc);
-
-		if (ret < 0) {
+		dplane_res = dplane_intf_addr_set(ifp, ifc);
+		if (dplane_res == ZEBRA_DPLANE_REQUEST_FAILURE) {
 			vty_out(vty, "%% Can't set interface IP address: %s.\n",
-				safe_strerror(errno));
+				dplane_res2str(dplane_res));
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
@@ -2965,6 +2966,7 @@ static int ipv6_address_uninstall(struct vty *vty, struct interface *ifp,
 	struct prefix_ipv6 cp;
 	struct connected *ifc;
 	int ret;
+	enum zebra_dplane_result dplane_res;
 
 	/* Convert to prefix structure. */
 	ret = str2prefix_ipv6(addr_str, &cp);
@@ -2995,10 +2997,10 @@ static int ipv6_address_uninstall(struct vty *vty, struct interface *ifp,
 	}
 
 	/* This is real route. */
-	ret = if_prefix_delete_ipv6(ifp, ifc);
-	if (ret < 0) {
+	dplane_res = dplane_intf_addr_unset(ifp, ifc);
+	if (dplane_res == ZEBRA_DPLANE_REQUEST_FAILURE) {
 		vty_out(vty, "%% Can't unset interface IP address: %s.\n",
-			safe_strerror(errno));
+			dplane_res2str(dplane_res));
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
