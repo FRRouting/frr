@@ -1565,6 +1565,30 @@ done:
 enum zebra_dplane_result dplane_intf_addr_set(const struct interface *ifp,
 					      const struct connected *ifc)
 {
+#if !defined(HAVE_NETLINK) && defined(HAVE_STRUCT_IFALIASREQ)
+	/* Extra checks for this OS path. */
+
+	/* Don't configure PtP addresses on broadcast ifs or reverse */
+	if (!(ifp->flags & IFF_POINTOPOINT) != !CONNECTED_PEER(ifc)) {
+		if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_DPLANE)
+			zlog_debug("Failed to set intf addr: mismatch p2p and connected");
+
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
+	}
+
+	/* Ensure that no existing installed v4 route conflicts with
+	 * the new interface prefix. This check must be done in the
+	 * zebra pthread context, and any route delete (if needed)
+	 * is enqueued before the interface address programming attempt.
+	 */
+	if (ifc->address->family == AF_INET) {
+		struct prefix_ipv4 *p;
+
+		p = (struct prefix_ipv4 *)ifc->address;
+		rib_lookup_and_pushup(p, ifp->vrf_id);
+	}
+#endif
+
 	return intf_addr_update_internal(ifp, ifc, DPLANE_OP_ADDR_INSTALL);
 }
 
