@@ -37,6 +37,7 @@
 #define VRRP_STR "Virtual Router Redundancy Protocol\n"
 #define VRRP_VRID_STR "Virtual Router ID\n"
 #define VRRP_PRIORITY_STR "Virtual Router Priority\n"
+#define VRRP_ADVINT_STR "Virtual Router Advertisement Interval\n"
 #define VRRP_IP_STR "Virtual Router IPv4 address\n"
 
 #define VROUTER_GET_VTY(_vty, _vrid, _vr)                                      \
@@ -71,7 +72,18 @@ DEFPY(vrrp_vrid,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-	vrrp_vrouter_create(ifp, vrid);
+	struct vrrp_vrouter *vr = vrrp_lookup(vrid);
+
+	if (no && vr)
+		vrrp_vrouter_destroy(vr);
+	else if (no && !vr)
+		vty_out(vty, "%% VRRP instance %ld does not exist on %s\n",
+			vrid, ifp->name);
+	else if (!vr)
+		vrrp_vrouter_create(ifp, vrid);
+	else if (vr)
+		vty_out(vty, "%% VRRP instance %ld already exists on %s\n",
+			vrid, ifp->name);
 
 	return CMD_SUCCESS;
 }
@@ -89,22 +101,24 @@ DEFPY(vrrp_priority,
 	struct vrrp_router *r;
 	bool nr[2] = { false, false };
 	int ret = CMD_SUCCESS;
+	uint8_t newprio = no ? VRRP_DEFAULT_PRIORITY : priority;
 
 	VROUTER_GET_VTY(vty, vrid, vr);
 
 	r = vr->v4;
 	for (int i = 0; i < 2; i++) {
-		nr[i] = r->is_active && r->fsm.state != VRRP_STATE_INITIALIZE;
+		nr[i] = r->is_active && r->fsm.state != VRRP_STATE_INITIALIZE
+			&& vr->priority != newprio;
 		if (nr[i]) {
 			vty_out(vty,
-				"%% WARNING: Restarting Virtual Router %ld (%s) to update priority\n",
-				vrid, r->family == AF_INET ? "v4" : "v6");
+				"%% WARNING: Restarting %s Virtual Router %ld to update priority\n",
+				family2str(r->family), vrid);
 			(void)vrrp_event(r, VRRP_EVENT_SHUTDOWN);
 		}
 		r = vr->v6;
 	}
 
-	vrrp_set_priority(vr, priority);
+	vrrp_set_priority(vr, newprio);
 
 	r = vr->v4;
 	for (int i = 0; i < 2; i++) {
@@ -113,7 +127,7 @@ DEFPY(vrrp_priority,
 			if (ret < 0)
 				vty_out(vty,
 					"%% Failed to start Virtual Router %ld (%s)\n",
-					vrid, r->family == AF_INET ? "v4" : "v6");
+					vrid, family2str(r->family));
 		}
 		r = vr->v6;
 	}
@@ -124,16 +138,14 @@ DEFPY(vrrp_priority,
 DEFPY(vrrp_advertisement_interval,
       vrrp_advertisement_interval_cmd,
       "[no] vrrp (1-255)$vrid advertisement-interval (1-4096)",
-      NO_STR
-      VRRP_STR
-      VRRP_VRID_STR
-      VRRP_PRIORITY_STR
-      "Priority value; set 255 to designate this Virtual Router as Master\n")
+      NO_STR VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
+      "Advertisement interval in centiseconds")
 {
 	struct vrrp_vrouter *vr;
+	uint16_t newadvint = no ? VRRP_DEFAULT_ADVINT : advertisement_interval;
 
 	VROUTER_GET_VTY(vty, vrid, vr);
-	vrrp_set_advertisement_interval(vr, advertisement_interval);
+	vrrp_set_advertisement_interval(vr, newadvint);
 
 	return CMD_SUCCESS;
 }

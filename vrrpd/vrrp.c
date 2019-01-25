@@ -194,6 +194,12 @@ void vrrp_add_ip(struct vrrp_vrouter *vr, struct ipaddr ip)
 
 /* Creation and destruction ------------------------------------------------ */
 
+static void vrrp_router_addr_list_del_cb(void *val)
+{
+	struct ipaddr *ip = val;
+	XFREE(MTYPE_TMP, ip);
+}
+
 static struct vrrp_router *vrrp_router_create(struct vrrp_vrouter *vr,
 					      int family)
 {
@@ -204,6 +210,7 @@ static struct vrrp_router *vrrp_router_create(struct vrrp_vrouter *vr,
 	r->sock_tx = -1;
 	r->vr = vr;
 	r->addrs = list_new();
+	r->addrs->del = vrrp_router_addr_list_del_cb;
 	r->priority = vr->priority;
 	r->fsm.state = VRRP_STATE_INITIALIZE;
 	vrrp_mac_set(&r->vmac, family == AF_INET6, vr->vrid);
@@ -261,10 +268,14 @@ static struct vrrp_router *vrrp_router_create(struct vrrp_vrouter *vr,
 
 static void vrrp_router_destroy(struct vrrp_router *r)
 {
+	if (r->is_active)
+		vrrp_event(r, VRRP_EVENT_SHUTDOWN);
+
 	if (r->sock_rx >= 0)
 		close(r->sock_rx);
 	if (r->sock_tx >= 0)
 		close(r->sock_tx);
+
 	/* FIXME: also delete list elements */
 	list_delete(&r->addrs);
 	XFREE(MTYPE_TMP, r);
@@ -272,8 +283,12 @@ static void vrrp_router_destroy(struct vrrp_router *r)
 
 struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid)
 {
-	struct vrrp_vrouter *vr =
-		XCALLOC(MTYPE_TMP, sizeof(struct vrrp_vrouter));
+	struct vrrp_vrouter *vr = vrrp_lookup(vrid);
+
+	if (vr)
+		return vr;
+
+	vr = XCALLOC(MTYPE_TMP, sizeof(struct vrrp_vrouter));
 
 	vr->ifp = ifp;
 	vr->vrid = vrid;
@@ -293,9 +308,9 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid)
 
 void vrrp_vrouter_destroy(struct vrrp_vrouter *vr)
 {
-	vr->ifp = NULL;
 	vrrp_router_destroy(vr->v4);
 	vrrp_router_destroy(vr->v6);
+	vr->ifp = NULL;
 	hash_release(vrrp_vrouters_hash, vr);
 	XFREE(MTYPE_TMP, vr);
 }
@@ -913,6 +928,9 @@ void (*vrrp_change_state_handlers[])(struct vrrp_router *vr) = {
  */
 static void vrrp_change_state(struct vrrp_router *r, int to)
 {
+	if (r->fsm.state == to)
+		return;
+
 	/* Call our handlers, then any subscribers */
 	vrrp_change_state_handlers[to](r);
 	hook_call(vrrp_change_state_hook, r, to);
