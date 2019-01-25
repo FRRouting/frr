@@ -42,7 +42,7 @@ static struct static_route *static_route_alloc(void)
 	return XCALLOC(MTYPE_PIM_STATIC_ROUTE, sizeof(struct static_route));
 }
 
-static struct static_route *static_route_new(unsigned int iif, unsigned int oif,
+static struct static_route *static_route_new(ifindex_t iif, ifindex_t oif,
 					     struct in_addr group,
 					     struct in_addr source)
 {
