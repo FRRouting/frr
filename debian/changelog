@@ -5,4 +5,4 @@ frr (6.0.2-1) unstable; urgency=medium
     in the source root directory for the old changelog.
   * Initial release of FRR for Debian. (closes: #863249)
 
- -- David Lamparter <equinox-debian@diac24.net>  Fri, 14 Dec 2018 22:55:41 +0100
+ -- David Lamparter <equinox-debian@diac24.net>  Fri, 11 Jan 2019 05:26:25 +0100
