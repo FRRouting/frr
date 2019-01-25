@@ -126,12 +126,15 @@ dnl Check CC and friends
 dnl --------------------
 dnl note orig_cflags is also used further down
 orig_cflags="$CFLAGS"
+orig_cxxflags="$CXXFLAGS"
 AC_LANG([C])
 AC_PROG_CC
 AC_PROG_CPP
+AC_PROG_CXX
 AM_PROG_CC_C_O
 dnl remove autoconf default "-g -O2"
 CFLAGS="$orig_cflags"
+CXXFLAGS="$orig_cxxflags"
 AC_PROG_CC_C99
 dnl NB: see C11 below
 
@@ -447,6 +450,8 @@ AC_ARG_ENABLE([confd],
   AS_HELP_STRING([--enable-confd=ARG], [enable confd integration]))
 AC_ARG_ENABLE([sysrepo],
   AS_HELP_STRING([--enable-sysrepo], [enable sysrepo integration]))
+AC_ARG_ENABLE([grpc],
+  AS_HELP_STRING([--enable-grpc], [enable the gRPC northbound plugin]))
 AC_ARG_ENABLE([zeromq],
   AS_HELP_STRING([--enable-zeromq], [enable ZeroMQ handler (libfrrzmq)]))
 AC_ARG_WITH([libpam],
@@ -1677,6 +1682,25 @@ if test "$enable_sysrepo" = "yes"; then
   )
 fi
 AM_CONDITIONAL([SYSREPO], [test "x$enable_sysrepo" = "xyes"])
+
+dnl ---------------
+dnl gRPC
+dnl ---------------
+if test "$enable_grpc" = "yes"; then
+  PKG_CHECK_MODULES([GRPC], [grpc grpc++ protobuf], [
+    AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
+    if test "$PROTOC" = "/bin/false"; then
+      AC_MSG_FAILURE([grpc requested but protoc not found.])
+    fi
+
+    AC_DEFINE([HAVE_GRPC], [1], [Enable the gRPC northbound plugin])
+    GRPC=true
+  ], [
+    GRPC=false
+    AC_MSG_ERROR([grpc/grpc++ were not found on your system.])
+  ])
+fi
+AM_CONDITIONAL([GRPC], [test "x$enable_grpc" = "xyes"])
 
 dnl ---------------
 dnl math
