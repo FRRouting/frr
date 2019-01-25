@@ -200,21 +200,18 @@ static void vrrp_router_addr_list_del_cb(void *val)
 	XFREE(MTYPE_TMP, ip);
 }
 
-static struct vrrp_router *vrrp_router_create(struct vrrp_vrouter *vr,
-					      int family)
+/*
+ * Search for a suitable macvlan subinterface we can attach to, and if found,
+ * attach to it.
+ *
+ * r
+ *    Router to attach to interface
+ *
+ * Returns:
+ *    Whether an interface was successfully attached
+ */
+static bool vrrp_attach_interface(struct vrrp_router *r)
 {
-	struct vrrp_router *r = XCALLOC(MTYPE_TMP, sizeof(struct vrrp_router));
-
-	r->family = family;
-	r->sock_rx = -1;
-	r->sock_tx = -1;
-	r->vr = vr;
-	r->addrs = list_new();
-	r->addrs->del = vrrp_router_addr_list_del_cb;
-	r->priority = vr->priority;
-	r->fsm.state = VRRP_STATE_INITIALIZE;
-	vrrp_mac_set(&r->vmac, family == AF_INET6, vr->vrid);
-
 	/* Search for existing interface with computed MAC address */
 	struct interface **ifps;
 	size_t ifps_cnt = if_lookup_by_hwaddr(
@@ -231,7 +228,6 @@ static struct vrrp_router *vrrp_router_create(struct vrrp_vrouter *vr,
 	unsigned int candidates = 0;
 	struct interface *selection = NULL;
 	for (unsigned int i = 0; i < ifps_cnt; i++) {
-		zlog_info("Found VRRP interface %s", ifps[i]->name);
 		if (strncmp(ifps[i]->name, r->vr->ifp->name,
 			    strlen(r->vr->ifp->name)))
 			ifps[i] = NULL;
@@ -251,7 +247,7 @@ static struct vrrp_router *vrrp_router_create(struct vrrp_vrouter *vr,
 
 	if (candidates == 0)
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "No interface found w/ MAC %s; using default",
+			  "No interface found w/ MAC %s",
 			  r->vr->vrid, ethstr);
 	else if (candidates > 1)
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
@@ -262,6 +258,27 @@ static struct vrrp_router *vrrp_router_create(struct vrrp_vrouter *vr,
 			  r->vr->vrid, selection->name);
 
 	r->mvl_ifp = selection;
+
+	return !!r->mvl_ifp;
+
+}
+
+static struct vrrp_router *vrrp_router_create(struct vrrp_vrouter *vr,
+					      int family)
+{
+	struct vrrp_router *r = XCALLOC(MTYPE_TMP, sizeof(struct vrrp_router));
+
+	r->family = family;
+	r->sock_rx = -1;
+	r->sock_tx = -1;
+	r->vr = vr;
+	r->addrs = list_new();
+	r->addrs->del = vrrp_router_addr_list_del_cb;
+	r->priority = vr->priority;
+	r->fsm.state = VRRP_STATE_INITIALIZE;
+	vrrp_mac_set(&r->vmac, family == AF_INET6, vr->vrid);
+
+	vrrp_attach_interface(r);
 
 	return r;
 }
@@ -1011,7 +1028,7 @@ static int vrrp_startup(struct vrrp_router *r)
 		return -1;
 
 	/* Must have a valid macvlan interface available */
-	if (r->mvl_ifp == NULL) {
+	if (r->mvl_ifp == NULL && !vrrp_attach_interface(r)) {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
 			  "No appropriate interface for %s VRRP found",
 			  r->vr->vrid, family2str(r->family));
