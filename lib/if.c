@@ -904,6 +904,19 @@ struct connected *connected_add_by_prefix(struct interface *ifp,
 	return ifc;
 }
 
+struct connected *connected_get_linklocal(struct interface *ifp)
+{
+	struct listnode *n;
+	struct connected *c = NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, n, c)) {
+		if (c->address->family == AF_INET6
+		    && IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
+			break;
+	}
+	return c;
+}
+
 #if 0  /* this route_table of struct connected's is unused                     \
 	* however, it would be good to use a route_table rather than           \
 	* a list..                                                             \
