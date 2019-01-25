@@ -76,7 +76,7 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 	ifindex_t iif_index = pim_iif ? pim_iif->mroute_vif_index : 0;
 	ifindex_t oif_index = pim_oif ? pim_oif->mroute_vif_index : 0;
 
-	if (!iif_index || !oif_index) {
+	if (!iif_index || !oif_index || iif_index == -1 || oif_index == -1) {
 		zlog_warn(
 			"%s %s: Unable to add static route: Invalid interface index(iif=%d,oif=%d)",
 			__FILE__, __PRETTY_FUNCTION__, iif_index, oif_index);
