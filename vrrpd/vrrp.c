@@ -1087,6 +1087,8 @@ static int vrrp_shutdown(struct vrrp_router *r)
 	/* Transition to the Initialize state */
 	vrrp_change_state(r, VRRP_STATE_INITIALIZE);
 
+	r->is_active = false;
+
 	return 0;
 }
 
