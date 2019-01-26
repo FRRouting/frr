@@ -729,6 +729,22 @@ int interface_up(struct thread *thread)
 		return 0;
 	}
 
+#ifdef __FreeBSD__
+	/*
+	 * XXX: Schedule IPv6 group join for later, otherwise we might
+	 * lose the multicast group registration caused by IPv6 group
+	 * leave race.
+	 */
+	if (oi->sso_try_cnt == 0) {
+		oi->sso_try_cnt++;
+		zlog_info("Scheduling %s for sso", oi->interface->name);
+		thread_add_timer(master, interface_up, oi,
+				 OSPF6_INTERFACE_SSO_RETRY_INT,
+				 &oi->thread_sso);
+		return 0;
+	}
+#endif /* __FreeBSD__ */
+
 	/* Join AllSPFRouters */
 	if (ospf6_sso(oi->interface->ifindex, &allspfrouters6, IPV6_JOIN_GROUP)
 	    < 0) {
