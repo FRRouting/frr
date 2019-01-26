@@ -135,6 +135,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 		rtadv->DefaultPreference = RTADV_PREF_MEDIUM;
 
 		rtadv->AdvPrefixList = list_new();
+		rtadv->AdvRDNSSList = list_new();
+		rtadv->AdvDNSSLList = list_new();
 	}
 #endif /* HAVE_RTADV */
 
@@ -175,6 +177,8 @@ static int if_zebra_delete_hook(struct interface *ifp)
 
 		rtadv = &zebra_if->rtadv;
 		list_delete(&rtadv->AdvPrefixList);
+		list_delete(&rtadv->AdvRDNSSList);
+		list_delete(&rtadv->AdvDNSSLList);
 #endif /* HAVE_RTADV */
 
 		THREAD_OFF(zebra_if->speed_update);
