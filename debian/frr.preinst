@@ -3,6 +3,14 @@ set -e
 # bash is required since /etc/frr/daemons.conf used a bash array in some
 # previous versions.
 
+# NOTE: this code exists specifically to make migrations from Quagga to
+# FRR easier.  FRR is able to load most Quagga configurations, but the
+# config handling itself has changed with the move towards the "integrated"
+# /etc/frr/frr.conf approach instead of separate per-daemon config files.
+#
+# That said, with this in place there's a good chance users can use a
+# preexisting Quagga config with little hassle.
+
 case "$1" in
 install|upgrade)
 	(
