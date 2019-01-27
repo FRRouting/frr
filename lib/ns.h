@@ -174,4 +174,9 @@ extern int ns_enable(struct ns *ns, void (*func)(ns_id_t, void *));
 extern struct ns *ns_get_created(struct ns *ns, char *name, ns_id_t ns_id);
 extern void ns_disable(struct ns *ns);
 
+/*
+ * Find the current namespace we are actually assigned to
+ * and return the name of it in the name string.
+ */
+extern bool netns_get_name(char *name, int len);
 #endif /*_ZEBRA_NS_H*/

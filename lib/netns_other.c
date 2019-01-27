@@ -167,4 +167,11 @@ void ns_disable(struct ns *ns)
 {
 }
 
+bool netns_get_name(char *name, int len)
+{
+	name[0] = '\0';
+
+	return true;
+}
+
 #endif /* !GNU_LINUX */

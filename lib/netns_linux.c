@@ -28,6 +28,8 @@
 #include <sched.h>
 #endif
 
+#include <dirent.h>
+
 /* for basename */
 #include <libgen.h>
 
@@ -589,4 +591,65 @@ ns_id_t ns_get_default_id(void)
 	if (default_ns)
 		return default_ns->ns_id;
 	return NS_DEFAULT_INTERNAL;
+}
+
+bool netns_get_name(char *name, int len)
+{
+	char net_path[PATH_MAX];
+	int netns;
+	struct stat netst;
+	DIR *dir;
+	struct dirent *entry;
+
+	name[0] = '\0';
+
+	snprintf(net_path, sizeof(net_path), "/proc/%d/ns/net", getpid());
+	netns = open(net_path, O_RDONLY);
+	if (netns < 0) {
+		flog_warn(EC_LIB_SYSTEM_CALL,
+			  "Cannot open network namespace: %s\n",
+			  strerror(errno));
+		return false;
+	}
+	if (fstat(netns, &netst) < 0) {
+		flog_warn(EC_LIB_SYSTEM_CALL, "Stat of netns failed: %s\n",
+			  strerror(errno));
+		return false;
+	}
+	dir = opendir(NS_RUN_DIR);
+	if (!dir) {
+		/* Succeed treat a missing directory as an empty directory */
+		if (errno == ENOENT)
+			return false;
+
+		flog_warn(EC_LIB_SYSTEM_CALL,
+			  "Failed to open directory %s:%s\n", NS_RUN_DIR,
+			  strerror(errno));
+		return false;
+	}
+
+	while ((entry = readdir(dir))) {
+		char name_path[PATH_MAX];
+		struct stat st;
+
+		if (strcmp(entry->d_name, ".") == 0)
+			continue;
+		if (strcmp(entry->d_name, "..") == 0)
+			continue;
+
+		snprintf(name_path, sizeof(name_path), "%s/%s", NS_RUN_DIR,
+			 entry->d_name);
+
+		if (stat(name_path, &st) != 0)
+			continue;
+
+		if ((st.st_dev == netst.st_dev)
+		    && (st.st_ino == netst.st_ino)) {
+			strlcpy(name, entry->d_name, len);
+			closedir(dir);
+			return true;
+		}
+	}
+	closedir(dir);
+	return true;
 }
