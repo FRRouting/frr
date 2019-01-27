@@ -95,14 +95,14 @@ DEFUN_NOSH (logicalrouter,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_logicalrouter,
-       no_logicalrouter_cmd,
-       "no logical-router (1-65535) ns NAME",
-       NO_STR
-       "Enable a Logical-Router\n"
-       "Specify the Logical-Router identifier\n"
-       "The Name Space\n"
-       "The file name in " NS_RUN_DIR ", or a full pathname\n")
+DEFUN_NOSH (no_logicalrouter,
+	    no_logicalrouter_cmd,
+	    "no logical-router (1-65535) ns NAME",
+	    NO_STR
+	    "Enable a Logical-Router\n"
+	    "Specify the Logical-Router identifier\n"
+	    "The Name Space\n"
+	    "The file name in " NS_RUN_DIR ", or a full pathname\n")
 {
 	int idx_number = 2;
 	int idx_name = 4;
