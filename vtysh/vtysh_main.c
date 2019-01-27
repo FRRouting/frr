@@ -47,6 +47,7 @@
 #include "linklist.h"
 #include "memory_vty.h"
 #include "libfrr.h"
+#include "ns.h"
 
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_user.h"
@@ -318,6 +319,8 @@ int main(int argc, char **argv, char **env)
 	char sysconfdir[MAXPATHLEN];
 	const char *pathspace_arg = NULL;
 	char pathspace[MAXPATHLEN] = "";
+	char nsname[256];
+	bool ns_found;
 
 	/* SUID: drop down to calling user & go back up when needed */
 	elevuid = geteuid();
@@ -409,6 +412,19 @@ int main(int argc, char **argv, char **env)
 			break;
 		}
 	}
+
+	ns_found = netns_get_name(nsname, sizeof(nsname));
+	if (pathspace_arg) {
+		if (!ns_found)
+			printf("Specified `-N %s` and we are unable to determine the namespace vtysh is running in\n",
+			       pathspace_arg);
+		else if (nsname[0] != '\0' &&
+			 strcmp(nsname, pathspace_arg) != 0)
+			printf("Specified `-N %s` but we are in %s namespace, continuing with %s namespace\n",
+			       pathspace_arg, nsname, pathspace_arg);
+	} else if (ns_found && nsname[0] != '\0')
+		printf("vtysh is being run in %s namespace, but we are connecting to the default namespace\n",
+			nsname);
 
 	if (ditch_suid) {
 		elevuid = realuid;
