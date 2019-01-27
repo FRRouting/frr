@@ -48,10 +48,13 @@ find \
 	fi
 done
 
-# fix misconfigured vtysh.conf & frr.conf ownership set up by some inofficial
-# ("pre"-Debian) packages
+# fix misconfigured vtysh.conf & frr.conf ownership caused by config save
+# mishandling in earlier FRR (and Quagga) versions
 find /etc/frr -maxdepth 1 \( -name vtysh.conf -o -name frr.conf \) \
 	-group frrvty -exec chgrp frr {} \;
+
+# more Quagga -> FRR upgrade smoothing.  Not technically needed, but let's
+# at least do the straightforward pieces.
 
 check_old_config() {
 	oldcfg="$1"
