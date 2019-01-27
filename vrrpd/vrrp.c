@@ -32,6 +32,7 @@
 
 #include "vrrp.h"
 #include "vrrp_arp.h"
+#include "vrrp_ndisc.h"
 #include "vrrp_packet.h"
 
 #define VRRP_LOGPFX "[CORE] "
@@ -181,6 +182,9 @@ void vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
 	}
 
 	listnode_add(vr->v6->addrs, v6_ins);
+
+	if (vr->v6->fsm.state == VRRP_STATE_MASTER)
+		vrrp_ndisc_una_send(vr->v6, v6_ins);
 }
 
 void vrrp_add_ip(struct vrrp_vrouter *vr, struct ipaddr ip)
@@ -996,6 +1000,8 @@ static int vrrp_master_down_timer_expire(struct thread *thread)
 	vrrp_send_advertisement(r);
 	if (r->family == AF_INET)
 		vrrp_garp_send_all(r);
+	if (r->family == AF_INET6)
+		vrrp_ndisc_una_send_all(r);
 	thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
 			      r->vr->advertisement_interval * 10,
 			      &r->t_adver_timer);
@@ -1038,6 +1044,8 @@ static int vrrp_startup(struct vrrp_router *r)
 	/* Initialize global gratuitous ARP socket if necessary */
 	if (r->family == AF_INET && !vrrp_garp_is_init())
 		vrrp_garp_init();
+	if (r->family == AF_INET6 && !vrrp_ndisc_is_init())
+		vrrp_ndisc_init();
 
 	/* Create socket */
 	if (r->sock_rx < 0 || r->sock_tx < 0) {
@@ -1070,6 +1078,8 @@ static int vrrp_startup(struct vrrp_router *r)
 
 		if (r->family == AF_INET)
 			vrrp_garp_send_all(r);
+		if (r->family == AF_INET6)
+			vrrp_ndisc_una_send_all(r);
 
 		thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
 				      r->vr->advertisement_interval * 10,
