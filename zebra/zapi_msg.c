@@ -1521,6 +1521,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			XFREE(MTYPE_RE, re);
 			return;
 		}
+		if (api_nh->onlink)
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
+
 		/* MPLS labels for BGP-LU or Segment Routing */
 		if (CHECK_FLAG(api.message, ZAPI_MESSAGE_LABEL)
 		    && api_nh->type != NEXTHOP_TYPE_IFINDEX

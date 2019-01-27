@@ -306,6 +306,7 @@ struct zapi_nexthop {
 	enum nexthop_types_t type;
 	vrf_id_t vrf_id;
 	ifindex_t ifindex;
+	bool onlink;
 	union {
 		union g_addr gate;
 		enum blackhole_type bh_type;
