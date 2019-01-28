@@ -306,6 +306,7 @@ void	ldpe_l2vpn_init(struct l2vpn *);
 void	ldpe_l2vpn_exit(struct l2vpn *);
 void	ldpe_l2vpn_pw_init(struct l2vpn_pw *);
 void	ldpe_l2vpn_pw_exit(struct l2vpn_pw *);
+extern void ldpe_interface_set_mpls(struct iface *iface, bool val);
 
 DECLARE_HOOK(ldp_nbr_state_change, (struct nbr * nbr, int old_state),
 	     (nbr, old_state));

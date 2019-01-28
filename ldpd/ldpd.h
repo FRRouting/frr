@@ -151,6 +151,7 @@ enum imsg_type {
 	IMSG_RLFA_UNREG_ALL,
 	IMSG_RLFA_LABELS,
 	IMSG_AGENTX_ENABLED,
+	IMSG_LDP_CONFIGURE_IF_MPLS,
 };
 
 struct ldpd_init {
@@ -890,6 +891,7 @@ extern char			 ctl_sock_path[MAXPATHLEN];
 void ldp_zebra_init(struct event_loop *m);
 void		 ldp_zebra_destroy(void);
 int		 ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *);
+int ldp_sync_zebra_send_configure_if_mpls(struct ldp_igp_configure_if_mpls *);
 int		 ldp_zebra_send_rlfa_labels(struct zapi_rlfa_response *
 		    rlfa_labels);
 
