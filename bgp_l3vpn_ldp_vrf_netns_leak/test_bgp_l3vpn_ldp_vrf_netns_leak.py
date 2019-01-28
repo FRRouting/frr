@@ -216,7 +216,6 @@ def setup_module(module):
             'ip link set vrf0 netns {0}-cust1',
             'ip netns exec {0}-cust1 ip link set dev vrf0 up',
             'ip link set dev {0}-cust1 up',
-            'echo 1 > /proc/sys/net/mpls/conf/{0}-cust1/input',
             # pair between vrf0 and {0}-cust2
             'ip link add {0}-cust2 type veth peer name vrf0',
             'ip link set dev {0}-cust2 arp off',
@@ -226,8 +225,6 @@ def setup_module(module):
             'ip link set vrf0 netns {0}-cust2',
             'ip netns exec {0}-cust2 ip link set dev vrf0 up',
             'ip link set dev {0}-cust2 up',
-            'echo 1 > /proc/sys/net/mpls/conf/{0}-cust2/input',
-            'echo 1 > /proc/sys/net/mpls/conf/{0}-eth2/input',
             # loopback interface config
             'ip link add {0}-loop1 type dummy',
             'ip link set {0}-loop1 netns {0}-cust1',
@@ -247,9 +244,7 @@ def setup_module(module):
     # MPLS configuration
     router_list = ["r3","r4"]
     cmds = [# config mpls for r3 and r4
-        'ip link set dev lo up',
-        'echo 1 > /proc/sys/net/mpls/conf/{0}-eth0/input',
-        'echo 1 > /proc/sys/net/mpls/conf/{0}-eth1/input'
+        'ip link set dev lo up'
         ]
     for name in router_list:
         router = tgen.gears[name]
@@ -258,10 +253,6 @@ def setup_module(module):
             logger.info('cmd: '+cmd);
             output = router.run(cmd.format(name))
             logger.info('cmd: '+cmd + 'result: ' +output);
-
-    cmd = 'echo 1 > /proc/sys/net/mpls/conf/r4-eth2/input'
-    tgen.net['r4'].cmd(cmd)
-    logger.info('cmd: '+cmd);
 
     #run daemons
     router_list = ["r1","r2","r3","r4","r5"]
