@@ -67,6 +67,8 @@ extern int kernel_del_mac(struct interface *ifp, vlanid_t vid,
 extern int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
 			    struct ethaddr *mac, uint8_t flags);
 extern int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip);
+extern int kernel_upd_neigh(struct interface *ifp, struct ipaddr *ip,
+                           struct ethaddr *mac, uint8_t flags, uint16_t state);
 
 /*
  * Southbound Initialization routines to get initial starting
