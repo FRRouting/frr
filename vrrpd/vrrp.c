@@ -34,6 +34,7 @@
 #include "vrrp_arp.h"
 #include "vrrp_ndisc.h"
 #include "vrrp_packet.h"
+#include "vrrp_zebra.h"
 
 #define VRRP_LOGPFX "[CORE] "
 
@@ -900,7 +901,9 @@ DEFINE_HOOK(vrrp_change_state_hook, (struct vrrp_router * r, int to), (r, to));
  */
 static void vrrp_change_state_master(struct vrrp_router *r)
 {
-	/* NOTHING */
+	/* Enable ND Router Advertisements */
+	if (r->family == AF_INET6)
+		vrrp_zebra_radv_set(r, true);
 }
 
 /*
@@ -911,8 +914,9 @@ static void vrrp_change_state_master(struct vrrp_router *r)
  */
 static void vrrp_change_state_backup(struct vrrp_router *r)
 {
-	/* Uninstall ARP entry for router MAC */
-	/* ... */
+	/* Disable ND Router Advertisements */
+	if (r->family == AF_INET6)
+		vrrp_zebra_radv_set(r, false);
 }
 
 /*
@@ -929,6 +933,10 @@ static void vrrp_change_state_initialize(struct vrrp_router *r)
 	r->vr->advertisement_interval = r->vr->advertisement_interval;
 	r->master_adver_interval = 0;
 	vrrp_recalculate_timers(r);
+
+	/* Disable ND Router Advertisements */
+	if (r->family == AF_INET6)
+		vrrp_zebra_radv_set(r, false);
 }
 
 void (*vrrp_change_state_handlers[])(struct vrrp_router *vr) = {

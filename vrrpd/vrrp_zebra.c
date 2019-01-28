@@ -220,6 +220,12 @@ static int vrrp_zebra_if_address_del(int command, struct zclient *client,
 	return 0;
 }
 
+void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable)
+{
+	zclient_send_interface_radv_req(zclient, VRF_DEFAULT, r->mvl_ifp,
+					enable, VRRP_RADV_INT);
+}
+
 void vrrp_zebra_init(void)
 {
 	/* Socket for receiving updates from Zebra daemon */

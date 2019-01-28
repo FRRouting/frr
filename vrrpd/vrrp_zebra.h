@@ -21,4 +21,5 @@
 #define __VRRP_ZEBRA_H__
 
 extern void vrrp_zebra_init(void);
+extern void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable);
 #endif
