@@ -219,6 +219,9 @@ int mpls_str2label(const char *label_str, uint8_t *num_labels,
 char *mpls_label2str(uint8_t num_labels, const mpls_label_t *labels, char *buf,
 		     int len, int pretty);
 
+/* this function is used to disable or enable mpls per interface */
+extern void mpls_interface_set(const char *name, bool val);
+
 #ifdef __cplusplus
 }
 #endif

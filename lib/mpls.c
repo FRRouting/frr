@@ -21,6 +21,7 @@
 #include <zebra.h>
 #include <mpls.h>
 #include <memory.h>
+#include <log.h>
 
 /*
  * String to label conversion, labels separated by '/'.
@@ -97,4 +98,21 @@ char *mpls_label2str(uint8_t num_labels, const mpls_label_t *labels, char *buf,
 	}
 
 	return buf;
+}
+
+void mpls_interface_set(const char *name, bool val)
+{
+	char buf[BUFSIZ];
+	FILE *fp;
+
+	snprintf(buf, BUFSIZ,
+		 "/proc/sys/net/mpls/conf/%s/input", name);
+	fp = fopen(buf, "w");
+	if (fp == NULL)
+		return;
+	if (val)
+		fputs("1",fp);
+	else
+		fputs("0",fp);
+	fclose(fp);
 }
