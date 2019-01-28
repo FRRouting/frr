@@ -3908,6 +3908,7 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_BFD_CLIENT_REGISTER] = zebra_ptm_bfd_client_register,
 	[ZEBRA_INTERFACE_ENABLE_RADV] = zebra_interface_radv_enable,
 	[ZEBRA_INTERFACE_DISABLE_RADV] = zebra_interface_radv_disable,
+	[ZEBRA_INTERFACE_MPLS_SET] = zebra_interface_mpls_set,
 	[ZEBRA_SR_POLICY_SET] = zread_sr_policy_set,
 	[ZEBRA_SR_POLICY_DELETE] = zread_sr_policy_delete,
 	[ZEBRA_MPLS_LABELS_ADD] = zread_mpls_labels_add,

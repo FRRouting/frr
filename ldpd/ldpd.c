@@ -610,6 +610,15 @@ static void main_dispatch_ldpe(struct event *thread)
 
 			ldp_sync_zebra_send_state_update((struct ldp_igp_sync_if_state *)imsg.data);
 			break;
+		case IMSG_LDP_CONFIGURE_IF_MPLS:
+			if (imsg.hdr.len !=
+			    IMSG_HEADER_SIZE +
+				    sizeof(struct ldp_igp_configure_if_mpls))
+				fatalx("IMSG_LDP_CONFIGURE_IF_MPLS imsg with wrong len");
+
+			ldp_sync_zebra_send_configure_if_mpls(
+				(struct ldp_igp_configure_if_mpls *)imsg.data);
+			break;
 		default:
 			log_debug("%s: error handling imsg %d", __func__,
 			    imsg.hdr.type);
@@ -1524,6 +1533,7 @@ merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		if (if_lookup_name(xconf, iface->name) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDP_ENGINE:
+				ldpe_interface_set_mpls(iface, false);
 				ldpe_if_exit(iface);
 				break;
 			case PROC_LDE_ENGINE:

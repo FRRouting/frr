@@ -2867,6 +2867,51 @@ size_t zebra_interface_link_params_write(struct stream *s,
 	return w;
 }
 
+int zebra_send_interface_mpls_set(struct zclient *zclient, vrf_id_t vrf_id,
+				  ifindex_t ifindex, bool set)
+{
+	struct stream *s;
+
+	if (!zclient->obuf)
+		return 0;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_INTERFACE_MPLS_SET, VRF_DEFAULT);
+
+	stream_putl(s, ifindex);
+	stream_putc(s, set);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
+struct interface *zebra_interface_mpls_set_read(struct stream *s,
+						vrf_id_t vrf_id,
+						bool *value_to_set)
+{
+	ifindex_t ifindex;
+	struct interface *ifp = NULL;
+
+	STREAM_GETL(s, ifindex);
+
+	ifp = if_lookup_by_index(ifindex, vrf_id);
+
+	if (ifp == NULL) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: unknown ifindex %u, shouldn't happen", __func__,
+			 ifindex);
+		return NULL;
+	}
+	if (value_to_set)
+		STREAM_GETC(s, *value_to_set);
+
+stream_failure:
+	return ifp;
+}
+
 /*
  * format of message for address addition is:
  *    0

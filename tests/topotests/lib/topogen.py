@@ -907,9 +907,13 @@ class TopoRouter(TopoGear):
                     daemon=daemon,
                 )
 
+        if nrouter.daemons["ldpd"] == 1 and not os.environ.get("TOPOTESTS_MPLS_AUTO"):
+            need_mpls_for_ldp = True
+        else:
+            need_mpls_for_ldp = False
         if result != "":
             self.tgen.set_error(result)
-        elif nrouter.daemons["ldpd"] == 1 or nrouter.daemons["pathd"] == 1:
+        elif need_mpls_for_ldp or nrouter.daemons["pathd"] == 1:
             # Enable MPLS processing on all interfaces.
             for interface in self.links:
                 topotest.sysctl_assure(

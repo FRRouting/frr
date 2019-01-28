@@ -3974,6 +3974,23 @@ void mpls_auto_interface_data_off(struct interface *ifp)
 	mpls_auto_interface_data_internal(ifp, false);
 }
 
+void zebra_interface_mpls_set(ZAPI_HANDLER_ARGS)
+{
+	struct interface *ifp;
+	bool mpls = false;
+	struct stream *s;
+
+	s = msg;
+	ifp = zebra_interface_mpls_set_read(s, zvrf->vrf->vrf_id, &mpls);
+	if (!ifp)
+		return;
+
+	if (mpls)
+		mpls_auto_interface_data_on(ifp);
+	else
+		mpls_auto_interface_data_off(ifp);
+}
+
 /* Allocate and initialize interface vector. */
 void zebra_if_init(void)
 {

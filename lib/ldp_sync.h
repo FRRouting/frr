@@ -56,6 +56,11 @@ struct ldp_igp_sync_if_state {
 	bool sync_start;
 };
 
+struct ldp_igp_configure_if_mpls {
+	ifindex_t ifindex;
+	bool enabled;
+};
+
 struct ldp_igp_sync_if_state_req {
 	int proto;
 	ifindex_t ifindex;

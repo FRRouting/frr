@@ -17,6 +17,7 @@
 #include "zebra/zebra_nhg_private.h"
 #include "zebra/zebra_router.h"
 #include "zebra/rtadv.h"
+#include "zebra/zserv.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -354,6 +355,8 @@ extern const char *zebra_protodown_rc_str(uint32_t protodown_rc, char *pd_buf,
 					  uint32_t pd_buf_len);
 extern void mpls_auto_interface_data_off(struct interface *ifp);
 extern void mpls_auto_interface_data_on(struct interface *ifp);
+extern void zebra_interface_mpls_set(struct zserv *client, struct zmsghdr *hdr,
+				     struct stream *msg, struct zebra_vrf *zvrf);
 void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx);
 
 #ifdef HAVE_PROC_NET_DEV
