@@ -150,8 +150,13 @@ ldpe_init(struct ldpd_init *init)
 #endif
 
 	/* drop privileges */
-	ldpe_privs.user = init->user;
-	ldpe_privs.group = init->group;
+	/* skip run as */
+	if (init->skip_runas)
+		memset(&ldpe_privs, 0, sizeof(ldpe_privs));
+	else {
+		ldpe_privs.user = init->user;
+		ldpe_privs.group = init->group;
+	}
 	zprivs_preinit(&ldpe_privs);
 	zprivs_init(&ldpe_privs);
 

@@ -160,6 +160,7 @@ struct ldpd_init {
 	char		 ctl_sock_path[MAXPATHLEN];
 	char		 zclient_serv_path[MAXPATHLEN];
 	unsigned short instance;
+	bool skip_runas;
 };
 
 union ldpd_addr {

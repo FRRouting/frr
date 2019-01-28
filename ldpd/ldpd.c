@@ -124,6 +124,7 @@ static struct option longopts[] =
 {
 	{ "ctl_socket",  required_argument, NULL, OPTION_CTLSOCK},
 	{ "instance",    required_argument, NULL, 'n'},
+	{ "skip_runas",  no_argument, NULL, 'S'},
 	{ 0 }
 };
 
@@ -219,6 +220,7 @@ main(int argc, char *argv[])
 	int			 pipe_parent2lde[2], pipe_parent2lde_sync[2];
 	char			*ctl_sock_name;
 	struct thread           *thread = NULL;
+	bool			 skip_runas = false;
 
 	ldpd_process = PROC_MAIN;
 	log_procname = log_procnames[ldpd_process];
@@ -228,8 +230,9 @@ main(int argc, char *argv[])
 		saved_argv0 = (char *)"ldpd";
 
 	frr_preinit(&ldpd_di, argc, argv);
-	frr_opt_add("LEn:", longopts,
+	frr_opt_add("LESn:", longopts,
 		"      --ctl_socket   Override ctl socket path\n"
+		"  -S, --skip_runas   Skip capabilities checks, and changing user and group IDs.\n"
 		"  -n, --instance     Instance id\n");
 
 	while (1) {
@@ -265,6 +268,9 @@ main(int argc, char *argv[])
 			if (init.instance < 1)
 				exit(0);
 			break;
+		case 'S':
+			skip_runas = true;
+			break;
 		case 'L':
 			lflag = 1;
 			break;
@@ -276,9 +282,13 @@ main(int argc, char *argv[])
 			break;
 		}
 	}
-
-	strlcpy(init.user, ldpd_privs.user, sizeof(init.user));
-	strlcpy(init.group, ldpd_privs.group, sizeof(init.group));
+	init.skip_runas = skip_runas;
+	if (skip_runas) {
+		memset(&ldpd_privs, 0, sizeof(ldpd_privs));
+	} else {
+		strlcpy(init.user, ldpd_privs.user, sizeof(init.user));
+		strlcpy(init.group, ldpd_privs.group, sizeof(init.group));
+	}
 	strlcpy(init.ctl_sock_path, ctl_sock_path, sizeof(init.ctl_sock_path));
 	strlcpy(init.zclient_serv_path, frr_zclientpath,
 	    sizeof(init.zclient_serv_path));

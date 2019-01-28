@@ -163,8 +163,12 @@ void
 lde_init(struct ldpd_init *init)
 {
 	/* drop privileges */
-	lde_privs.user = init->user;
-	lde_privs.group = init->group;
+	if (init->skip_runas)
+		memset(&lde_privs, 0, sizeof(lde_privs));
+	else {
+		lde_privs.user = init->user;
+		lde_privs.group = init->group;
+	}
 	zprivs_preinit(&lde_privs);
 	zprivs_init(&lde_privs);
 
