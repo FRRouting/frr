@@ -3252,6 +3252,10 @@ int bgp_delete(struct bgp *bgp)
 	/* unmap from RT list */
 	bgp_evpn_vrf_delete(bgp);
 
+	/* unmap bgp vrf label */
+	vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP);
+	vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP6);
+
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval) {
 		BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
