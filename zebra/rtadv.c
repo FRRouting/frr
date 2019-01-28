@@ -355,14 +355,31 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 		len += sizeof(struct nd_opt_mtu);
 	}
 
+	/*
+	 * There is no limit on the number of configurable recursive DNS
+	 * servers or search list entries. We don't want the RA message
+	 * to exceed the link's MTU (risking fragmentation) or even
+	 * blow the stack buffer allocated for it.
+	 */
+	size_t max_len = MIN(ifp->mtu6 - 40, sizeof(buf));
+
 	/* Recursive DNS servers */
 	struct rtadv_rdnss *rdnss;
 
 	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvRDNSSList, node, rdnss)) {
+		size_t opt_len =
+			sizeof(struct nd_opt_rdnss) + sizeof(struct in6_addr);
+
+		if (len + opt_len > max_len) {
+			zlog_warn(
+				"%s(%u): Tx RA: RDNSS option would exceed MTU, omitting it",
+				ifp->name, ifp->ifindex);
+			goto no_more_opts;
+		}
 		struct nd_opt_rdnss *opt = (struct nd_opt_rdnss *)(buf + len);
 
 		opt->nd_opt_rdnss_type = ND_OPT_RDNSS;
-		opt->nd_opt_rdnss_len = 3;
+		opt->nd_opt_rdnss_len = opt_len / 8;
 		opt->nd_opt_rdnss_reserved = 0;
 		opt->nd_opt_rdnss_lifetime = htonl(
 			rdnss->lifetime_set
@@ -370,6 +387,7 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 				: MAX(1, 0.003 * zif->rtadv.MaxRtrAdvInterval));
 
 		len += sizeof(struct nd_opt_rdnss);
+
 		IPV6_ADDR_COPY(buf + len, &rdnss->addr);
 		len += sizeof(struct in6_addr);
 	}
@@ -378,11 +396,19 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 	struct rtadv_dnssl *dnssl;
 
 	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvDNSSLList, node, dnssl)) {
-		size_t names_start;
+		size_t opt_len = sizeof(struct nd_opt_dnssl)
+				 + ((dnssl->encoded_len + 7) & ~7);
+
+		if (len + opt_len > max_len) {
+			zlog_warn(
+				"%s(%u): Tx RA: DNSSL option would exceed MTU, omitting it",
+				ifp->name, ifp->ifindex);
+			goto no_more_opts;
+		}
 		struct nd_opt_dnssl *opt = (struct nd_opt_dnssl *)(buf + len);
 
 		opt->nd_opt_dnssl_type = ND_OPT_DNSSL;
-		opt->nd_opt_dnssl_len = 1;
+		opt->nd_opt_dnssl_len = opt_len / 8;
 		opt->nd_opt_dnssl_reserved = 0;
 		opt->nd_opt_dnssl_lifetime = htonl(
 			dnssl->lifetime_set
@@ -391,16 +417,15 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 
 		len += sizeof(struct nd_opt_dnssl);
 
-		names_start = len;
 		memcpy(buf + len, dnssl->encoded_name, dnssl->encoded_len);
 		len += dnssl->encoded_len;
 
 		/* Zero-pad to 8-octet boundary */
 		while (len % 8)
 			buf[len++] = '\0';
-
-		opt->nd_opt_dnssl_len += (len - names_start) / 8;
 	}
+
+no_more_opts:
 
 	msg.msg_name = (void *)&addr;
 	msg.msg_namelen = sizeof(struct sockaddr_in6);
