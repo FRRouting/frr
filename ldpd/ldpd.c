@@ -1511,6 +1511,7 @@ merge_ifaces(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 		if (if_lookup_name(xconf, iface->name) == NULL) {
 			switch (ldpd_process) {
 			case PROC_LDP_ENGINE:
+				ldpe_interface_set_mpls(iface, false);
 				ldpe_if_exit(iface);
 				break;
 			case PROC_LDE_ENGINE:
