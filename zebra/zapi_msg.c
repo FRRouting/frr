@@ -67,6 +67,8 @@ DEFINE_MTYPE_STATIC(ZEBRA, OPAQUE, "Opaque Data");
 
 static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
 
+extern struct zebra_privs_t zserv_privs;
+
 /* Encoding helpers -------------------------------------------------------- */
 
 static void zserv_encode_interface(struct stream *s, struct interface *ifp)
@@ -3024,13 +3026,27 @@ static void zread_vrf_label(ZAPI_HANDLER_ARGS)
 			}
 		}
 
-		if (really_remove)
+		if (really_remove) {
 			mpls_lsp_uninstall(def_zvrf, ltype, zvrf->label[afi],
 					   NEXTHOP_TYPE_IFINDEX, NULL,
 					   ifp->ifindex, false /*backup*/);
+			zlog_info("Disabling mpls input in interface %s",
+				   ifp->name);
+			frr_with_privs(&zserv_privs) {
+				mpls_interface_set(ifp->name, false);
+			}
+		}
 	}
 
 	if (nlabel != MPLS_LABEL_NONE) {
+		zlog_info("Enabling mpls input in interface %s",
+			  ifp->name);
+		if (zserv_privs.change(ZPRIVS_RAISE))
+			zlog_err("Can't raise privileges");
+		mpls_interface_set(ifp->name, true);
+		if (zserv_privs.change(ZPRIVS_LOWER))
+			zlog_err("Can't lower privileges");
+
 		mpls_label_t out_label = MPLS_LABEL_IMPLICIT_NULL;
 		mpls_lsp_install(def_zvrf, ltype, nlabel, 1, &out_label,
 				 NEXTHOP_TYPE_IFINDEX, NULL, ifp->ifindex);
