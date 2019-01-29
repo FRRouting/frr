@@ -2974,7 +2974,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 	if (!CHECK_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE)) {
 		SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE);
 		SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE);
-		UNSET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE);
+		SET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE);
 	}
 
 	if (peer_group_name) {
@@ -11007,6 +11007,7 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 			bgp_show_neighbor(vty, bgp, show_all, NULL, NULL,
 					  use_json, json);
 		}
+		json_object_free(json);
 	}
 
 	if (use_json) {
