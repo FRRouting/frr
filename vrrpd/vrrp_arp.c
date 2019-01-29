@@ -1,10 +1,9 @@
 /*
- * VRRP ARP primitives.
- *
+ * VRRP ARP handling.
  * Copyright (C) 2001-2017 Alexandre Cassen
  * Portions:
- *     Copyright (C) 2018 Cumulus Networks
- *                        Quentin Young
+ *     Copyright (C) 2018-2019 Cumulus Networks, Inc.
+ *     Quentin Young
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -20,11 +19,10 @@
  * this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-
 #include <zebra.h>
 
-#include <net/if_arp.h>
 #include <linux/if_packet.h>
+#include <net/if_arp.h>
 #include <netinet/if_ether.h>
 
 #include "lib/if.h"

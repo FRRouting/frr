@@ -1,7 +1,8 @@
 /*
  * VRRP Neighbor Discovery.
  * Copyright (C) 2019 Cumulus Networks, Inc.
- *               Quentin Young
+ * Quentin Young
+ *
  * Portions:
  * 	Copyright (C) 2001-2017 Alexandre Cassen
  *

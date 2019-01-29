@@ -1,7 +1,7 @@
 /*
- * VRRPD memory types
- * Copyright (C) 2018 Cumulus Networks, Inc.
- *               Quentin Young
+ * VRRP memory types.
+ * Copyright (C) 2018-2019 Cumulus Networks, Inc.
+ * Quentin Young
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -20,8 +20,8 @@
 #ifndef __VRRP_MEMORY_H__
 #define __VRRP_MEMORY_H__
 
-#include "memory.h"
+#include "lib/memory.h"
 
 DECLARE_MGROUP(VRRP)
 
-#endif
+#endif /* __VRRP_MEMORY_H__ */

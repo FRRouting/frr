@@ -1,7 +1,7 @@
 /*
  * VRRP Neighbor Discovery.
  * Copyright (C) 2019 Cumulus Networks, Inc.
- *               Quentin Young
+ * Quentin Young
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -17,8 +17,8 @@
  * this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-#ifndef _VRRP_NDISC_H
-#define _VRRP_NDISC_H
+#ifndef __VRRP_NDISC_H__
+#define __VRRP_NDISC_H__
 
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
@@ -71,4 +71,4 @@ extern int vrrp_ndisc_una_send(struct vrrp_router *r, struct ipaddr *ip);
  */
 extern int vrrp_ndisc_una_send_all(struct vrrp_router *r);
 
-#endif
+#endif /* __VRRP_NDISC_H__ */

@@ -1,7 +1,7 @@
 /*
- * VRRP
- * Copyright (C) 2018 Cumulus Networks, Inc.
- *               Quentin Young
+ * VRRP entry point.
+ * Copyright (C) 2018-2019 Cumulus Networks, Inc.
+ * Quentin Young
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -20,22 +20,23 @@
 #include <zebra.h>
 
 #include <lib/version.h>
-#include "getopt.h"
-#include "thread.h"
-#include "command.h"
-#include "log.h"
-#include "memory.h"
-#include "privs.h"
-#include "sigevent.h"
-#include "libfrr.h"
-#include "vrf.h"
-#include "nexthop.h"
-#include "filter.h"
-#include "if.h"
+
+#include "lib/command.h"
+#include "lib/filter.h"
+#include "lib/getopt.h"
+#include "lib/if.h"
+#include "lib/libfrr.h"
+#include "lib/log.h"
+#include "lib/memory.h"
+#include "lib/nexthop.h"
+#include "lib/privs.h"
+#include "lib/sigevent.h"
+#include "lib/thread.h"
+#include "lib/vrf.h"
 
 #include "vrrp.h"
-#include "vrrp_zebra.h"
 #include "vrrp_vty.h"
+#include "vrrp_zebra.h"
 
 char backup_config_file[256];
 

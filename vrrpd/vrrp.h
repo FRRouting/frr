@@ -1,7 +1,7 @@
 /*
- * VRRPD global definitions and state machine
- * Copyright (C) 2018 Cumulus Networks, Inc.
- *               Quentin Young
+ * VRRP global definitions and state machine.
+ * Copyright (C) 2018-2019 Cumulus Networks, Inc.
+ * Quentin Young
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -17,8 +17,8 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-#ifndef _VRRP_H
-#define _VRRP_H
+#ifndef __VRRP_H__
+#define __VRRP_H__
 
 #include <zebra.h>
 #include <netinet/ip.h>
@@ -335,4 +335,4 @@ int vrrp_event(struct vrrp_router *r, int event);
  */
 struct vrrp_vrouter *vrrp_lookup(uint8_t vrid);
 
-#endif /* _VRRP_H */
+#endif /* __VRRP_H__ */

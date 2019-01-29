@@ -1,7 +1,7 @@
 /*
- * VRRPD packet crafting
- * Copyright (C) 2018 Cumulus Networks, Inc.
- *               Quentin Young
+ * VRRP packet crafting.
+ * Copyright (C) 2018-2019 Cumulus Networks, Inc.
+ * Quentin Young
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -17,11 +17,14 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
+#ifndef __VRRP_PACKET_H__
+#define __VRRP_PACKET_H__
+
 #include <zebra.h>
 
-#include "memory.h"
-#include "ipaddr.h"
-#include "prefix.h"
+#include "lib/ipaddr.h"
+#include "lib/memory.h"
+#include "lib/prefix.h"
 
 #define VRRP_VERSION 3
 #define VRRP_TYPE_ADVERTISEMENT 1
@@ -170,3 +173,5 @@ size_t vrrp_pkt_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt);
 ssize_t vrrp_parse_datagram(int family, struct msghdr *m, size_t read,
 			    struct vrrp_pkt **pkt, char *errmsg,
 			    size_t errmsg_len);
+
+#endif /* __VRRP_PACKET_H__ */

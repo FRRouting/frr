@@ -1,7 +1,7 @@
 /*
- * Zebra interfacing
- * Copyright (C) 2018 Cumulus Networks, Inc.
- *               Quentin Young
+ * VRRP Zebra interfacing.
+ * Copyright (C) 2018-2019 Cumulus Networks, Inc.
+ * Quentin Young
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -20,11 +20,11 @@
 #include <zebra.h>
 
 #include "lib/if.h"
+#include "lib/linklist.h"
 #include "lib/log.h"
 #include "lib/prefix.h"
-#include "lib/zclient.h"
 #include "lib/vty.h"
-#include "lib/linklist.h"
+#include "lib/zclient.h"
 
 #include "vrrp.h"
 #include "vrrp_zebra.h"
