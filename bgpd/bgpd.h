@@ -414,6 +414,7 @@ struct bgp {
 	 *
 	 *  pbr_action a <----- pbr_match i <--- pbr_match_entry 1..n
 	 *              <----- pbr_match j <--- pbr_match_entry 1..m
+	 *              <----- pbr_rule k
 	 *
 	 * - here in BGP structure, the list of match and actions will
 	 * stand for the list of ipset sets, and table_ids in the kernel
@@ -423,6 +424,7 @@ struct bgp {
 	 * contained in match, that lists the whole set of entries
 	 */
 	struct hash *pbr_match_hash;
+	struct hash *pbr_rule_hash;
 	struct hash *pbr_action_hash;
 
 	/* timer to re-evaluate neighbor default-originate route-maps */
