@@ -925,6 +925,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	char *label = NULL;
 	struct zebra_ns *zns;
 	uint32_t metric = METRIC_MAX;
+	uint32_t kernel_flags = 0;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifa = NLMSG_DATA(h);
@@ -961,12 +962,18 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return -1;
 	}
 
+	/* Flags passed through */
+	if (tb[IFA_FLAGS])
+		kernel_flags = *(int *)RTA_DATA(tb[IFA_FLAGS]);
+	else
+		kernel_flags = ifa->ifa_flags;
+
 	if (IS_ZEBRA_DEBUG_KERNEL) /* remove this line to see initial ifcfg */
 	{
 		char buf[BUFSIZ];
 		zlog_debug("netlink_interface_addr %s %s flags 0x%x:",
 			   nl_msg_type_to_str(h->nlmsg_type), ifp->name,
-			   ifa->ifa_flags);
+			   kernel_flags);
 		if (tb[IFA_LOCAL])
 			zlog_debug("  IFA_LOCAL     %s/%d",
 				   inet_ntop(ifa->ifa_family,
@@ -1023,7 +1030,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	}
 
 	/* Flags. */
-	if (ifa->ifa_flags & IFA_F_SECONDARY)
+	if (kernel_flags & IFA_F_SECONDARY)
 		SET_FLAG(flags, ZEBRA_IFA_SECONDARY);
 
 	/* Label */
@@ -1070,7 +1077,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			 * time, Quagga
 			 * does query for and will receive all addresses.
 			 */
-			if (!(ifa->ifa_flags
+			if (!(kernel_flags
 			      & (IFA_F_DADFAILED | IFA_F_TENTATIVE)))
 				connected_add_ipv6(ifp, flags,
 						   (struct in6_addr *)addr,
