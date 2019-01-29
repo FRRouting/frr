@@ -370,14 +370,10 @@ static void zebra_rnh_eval_import_check_entry(vrf_id_t vrfid, afi_t afi,
 	struct zserv *client;
 	char bufn[INET6_ADDRSTRLEN];
 	struct listnode *node;
-	struct nexthop *nexthop;
 
 	if (re && (rnh->state == NULL)) {
-		for (ALL_NEXTHOPS(re->ng, nexthop))
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)) {
-				state_changed = 1;
-				break;
-			}
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
+			state_changed = 1;
 	} else if (!re && (rnh->state != NULL))
 		state_changed = 1;
 
@@ -511,9 +507,10 @@ static void zebra_rnh_process_pbr_tables(afi_t afi, struct route_node *nrn,
  * check in a couple of places, so this is a single home for the logic we
  * use.
  */
-static bool rnh_nexthop_valid(const struct nexthop *nh)
+static bool rnh_nexthop_valid(const struct route_entry *re,
+			      const struct nexthop *nh)
 {
-	return (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_FIB)
+	return (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)
 		&& CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE));
 }
 
@@ -566,7 +563,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			 * have an installed nexthop to be useful.
 			 */
 			for (ALL_NEXTHOPS(re->ng, nexthop)) {
-				if (rnh_nexthop_valid(nexthop))
+				if (rnh_nexthop_valid(re, nexthop))
 					break;
 			}
 
@@ -820,6 +817,7 @@ static void copy_state(struct rnh *rnh, struct route_entry *re,
 	state->distance = re->distance;
 	state->metric = re->metric;
 	state->vrf_id = re->vrf_id;
+	state->status = re->status;
 
 	route_entry_copy_nexthops(state, re->ng.nexthop);
 	rnh->state = state;
@@ -895,7 +893,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		nump = stream_get_endp(s);
 		stream_putc(s, 0);
 		for (ALL_NEXTHOPS(re->ng, nh))
-			if (rnh_nexthop_valid(nh)) {
+			if (rnh_nexthop_valid(re, nh)) {
 				stream_putl(s, nh->vrf_id);
 				stream_putc(s, nh->type);
 				switch (nh->type) {
