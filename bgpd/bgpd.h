@@ -646,7 +646,8 @@ struct bgp_filter {
 /* IBGP/EBGP identifier.  We also have a CONFED peer, which is to say,
    a peer who's AS is part of our Confederation.  */
 typedef enum {
-	BGP_PEER_IBGP = 1,
+	BGP_PEER_UNSPECIFIED,
+	BGP_PEER_IBGP,
 	BGP_PEER_EBGP,
 	BGP_PEER_INTERNAL,
 	BGP_PEER_CONFED,

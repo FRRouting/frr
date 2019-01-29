@@ -2847,13 +2847,11 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 	switch (ret) {
 	case BGP_ERR_PEER_GROUP_MEMBER:
 		vty_out(vty,
-			"%% Peer-group AS %u. Cannot configure remote-as for member\n",
-			as);
+			"%% Peer-group member cannot override remote-as of peer-group\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	case BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT:
 		vty_out(vty,
-			"%% The AS# can not be changed from %u to %s, peer-group members must be all internal or all external\n",
-			as, as_str);
+			"%% Peer-group members must be all internal or all external\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	return bgp_vty_return(vty, ret);
@@ -9213,8 +9211,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				? " replace-as"
 				: "");
 	}
-	/* peer type internal, external, confed-internal or confed-external */
-	if (p->as == p->local_as) {
+	/* peer type internal or confed-internal */
+	if ((p->as == p->local_as) || (p->as_type == AS_INTERNAL)) {
 		if (use_json) {
 			if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
 				json_object_boolean_true_add(
@@ -9228,7 +9226,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			else
 				vty_out(vty, "internal link\n");
 		}
-	} else {
+	/* peer type external or confed-external */
+	} else if (p->as || (p->as_type == AS_EXTERNAL)) {
 		if (use_json) {
 			if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
 				json_object_boolean_true_add(
@@ -9242,6 +9241,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			else
 				vty_out(vty, "external link\n");
 		}
+	} else {
+		if (use_json)
+			json_object_boolean_true_add(json_neigh,
+						     "nbrUnspecifiedLink");
+		else
+			vty_out(vty, "unspecified link\n");
 	}
 
 	/* Description. */
