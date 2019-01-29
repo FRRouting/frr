@@ -40,9 +40,9 @@
 #define VRRP_ADVINT_STR "Virtual Router Advertisement Interval\n"
 #define VRRP_IP_STR "Virtual Router IPv4 address\n"
 
-#define VROUTER_GET_VTY(_vty, _vrid, _vr)                                      \
+#define VROUTER_GET_VTY(_vty, _ifp, _vrid, _vr)                                \
 	do {                                                                   \
-		_vr = vrrp_lookup(_vrid);                                      \
+		_vr = vrrp_lookup(_ifp, _vrid);                                \
 		if (!_vr) {                                                    \
 			vty_out(_vty,                                          \
 				"%% Please configure VRRP instance %u\n",      \
@@ -72,7 +72,7 @@ DEFPY(vrrp_vrid,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-	struct vrrp_vrouter *vr = vrrp_lookup(vrid);
+	struct vrrp_vrouter *vr = vrrp_lookup(ifp, vrid);
 
 	if (no && vr)
 		vrrp_vrouter_destroy(vr);
@@ -97,13 +97,15 @@ DEFPY(vrrp_priority,
       VRRP_PRIORITY_STR
       "Priority value")
 {
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
 	struct vrrp_vrouter *vr;
 	struct vrrp_router *r;
 	bool nr[2] = { false, false };
 	int ret = CMD_SUCCESS;
 	uint8_t newprio = no ? VRRP_DEFAULT_PRIORITY : priority;
 
-	VROUTER_GET_VTY(vty, vrid, vr);
+	VROUTER_GET_VTY(vty, ifp, vrid, vr);
 
 	r = vr->v4;
 	for (int i = 0; i < 2; i++) {
@@ -141,10 +143,12 @@ DEFPY(vrrp_advertisement_interval,
       NO_STR VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
       "Advertisement interval in centiseconds")
 {
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
 	struct vrrp_vrouter *vr;
 	uint16_t newadvint = no ? VRRP_DEFAULT_ADVINT : advertisement_interval;
 
-	VROUTER_GET_VTY(vty, vrid, vr);
+	VROUTER_GET_VTY(vty, ifp, vrid, vr);
 	vrrp_set_advertisement_interval(vr, newadvint);
 
 	return CMD_SUCCESS;
@@ -159,10 +163,12 @@ DEFPY(vrrp_ip,
       "Add IPv4 address\n"
       VRRP_IP_STR)
 {
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
 	struct vrrp_vrouter *vr;
 	int ret;
 
-	VROUTER_GET_VTY(vty, vrid, vr);
+	VROUTER_GET_VTY(vty, ifp, vrid, vr);
 	vrrp_add_ipv4(vr, ip);
 
 	if (vr->v4->fsm.state == VRRP_STATE_INITIALIZE) {
@@ -189,10 +195,12 @@ DEFPY(vrrp_ip6,
       "Add IPv6 address\n"
       VRRP_IP_STR)
 {
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
 	struct vrrp_vrouter *vr;
 	int ret;
 
-	VROUTER_GET_VTY(vty, vrid, vr);
+	VROUTER_GET_VTY(vty, ifp, vrid, vr);
 	vrrp_add_ipv6(vr, ipv6);
 
 	if (vr->v6->fsm.state == VRRP_STATE_INITIALIZE) {
@@ -287,25 +295,27 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 
 DEFPY(vrrp_vrid_show,
       vrrp_vrid_show_cmd,
-      "show vrrp [(1-255)$vrid]",
+      "show vrrp [interface INTERFACE$ifn] [(1-255)$vrid]",
       SHOW_STR
       VRRP_STR
+      INTERFACE_STR
+      "Only show VRRP instances on this interface\n"
       VRRP_VRID_STR)
 {
 	struct vrrp_vrouter *vr;
+	struct listnode *ln;
+	struct list *ll = hash_to_list(vrrp_vrouters_hash);
 
-	if (vrid) {
-		VROUTER_GET_VTY(vty, vrid, vr);
+	for (ALL_LIST_ELEMENTS_RO(ll, ln, vr)) {
+		if (ifn && !strmatch(ifn, vr->ifp->name))
+			continue;
+		if (vrid && vrid != vr->vrid)
+			continue;
+
 		vrrp_show(vty, vr);
-	} else {
-		struct list *ll = hash_to_list(vrrp_vrouters_hash);
-		struct listnode *ln;
-
-		for (ALL_LIST_ELEMENTS_RO(ll, ln, vr))
-			vrrp_show(vty, vr);
-
-		list_delete_and_null(&ll);
 	}
+
+	list_delete(&ll);
 
 	return CMD_SUCCESS;
 }

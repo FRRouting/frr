@@ -333,6 +333,6 @@ int vrrp_event(struct vrrp_router *r, int event);
 /*
  * Find VRRP Virtual Router by Virtual Router ID
  */
-struct vrrp_vrouter *vrrp_lookup(uint8_t vrid);
+struct vrrp_vrouter *vrrp_lookup(struct interface *ifp, uint8_t vrid);
 
 #endif /* __VRRP_H__ */

@@ -305,7 +305,7 @@ static void vrrp_router_destroy(struct vrrp_router *r)
 
 struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid)
 {
-	struct vrrp_vrouter *vr = vrrp_lookup(vrid);
+	struct vrrp_vrouter *vr = vrrp_lookup(ifp, vrid);
 
 	if (vr)
 		return vr;
@@ -332,15 +332,15 @@ void vrrp_vrouter_destroy(struct vrrp_vrouter *vr)
 {
 	vrrp_router_destroy(vr->v4);
 	vrrp_router_destroy(vr->v6);
-	vr->ifp = NULL;
 	hash_release(vrrp_vrouters_hash, vr);
 	XFREE(MTYPE_TMP, vr);
 }
 
-struct vrrp_vrouter *vrrp_lookup(uint8_t vrid)
+struct vrrp_vrouter *vrrp_lookup(struct interface *ifp, uint8_t vrid)
 {
 	struct vrrp_vrouter vr;
 	vr.vrid = vrid;
+	vr.ifp = ifp;
 
 	return hash_lookup(vrrp_vrouters_hash, &vr);
 }
@@ -1173,7 +1173,11 @@ static unsigned int vrrp_hash_key(void *arg)
 {
 	struct vrrp_vrouter *vr = arg;
 
-	return vr->vrid;
+	char key[IFNAMSIZ + 64];
+	snprintf(key, sizeof(key), "%d%s%u", vr->ifp->ifindex, vr->ifp->name,
+		 vr->vrid);
+
+	return string_hash_make(key);
 }
 
 static bool vrrp_hash_cmp(const void *arg1, const void *arg2)
@@ -1181,7 +1185,12 @@ static bool vrrp_hash_cmp(const void *arg1, const void *arg2)
 	const struct vrrp_vrouter *vr1 = arg1;
 	const struct vrrp_vrouter *vr2 = arg2;
 
-	return vr1->vrid == vr2->vrid;
+	if (vr1->ifp != vr2->ifp)
+		return 0;
+	if (vr1->vrid != vr2->vrid)
+		return 0;
+
+	return 1;
 }
 
 void vrrp_init(void)
