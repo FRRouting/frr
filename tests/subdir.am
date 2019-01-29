@@ -3,6 +3,7 @@
 #
 
 PYTHON ?= python
+export ASAN_OPTIONS=detect_leaks=0
 
 if BGPD
 TESTS_BGPD = \
