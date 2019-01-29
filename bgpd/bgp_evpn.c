@@ -5279,7 +5279,7 @@ int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp)
 
 				if (bgp_nexthop_self(bgp, pi->attr->nexthop)) {
 
-					char attr_str[BUFSIZ];
+					char attr_str[BUFSIZ] = {0};
 					char pbuf[PREFIX_STRLEN];
 
 					bgp_dump_attr(pi->attr, attr_str,
