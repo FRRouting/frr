@@ -116,10 +116,11 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug(
-			"Tx %s family %s IF %s(%u) Pref %u Src %s Dst %s Table %u",
+			"Tx %s family %s IF %s(%u) Pref %u Fwmark %u Src %s Dst %s Table %u",
 			nl_msg_type_to_str(cmd), nl_family_to_str(family),
 			rule->ifp ? rule->ifp->name : "Unknown",
 			rule->ifp ? rule->ifp->ifindex : 0, rule->rule.priority,
+			rule->rule.filter.fwmark,
 			prefix2str(&rule->rule.filter.src_ip, buf1,
 				   sizeof(buf1)),
 			prefix2str(&rule->rule.filter.dst_ip, buf2,
