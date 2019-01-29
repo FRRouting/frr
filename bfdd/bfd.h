@@ -526,6 +526,8 @@ struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc);
 int bfd_session_update_label(struct bfd_session *bs, const char *nlabel);
 void bfd_set_polling(struct bfd_session *bs);
 void bs_state_handler(struct bfd_session *, int);
+void bs_echo_timer_handler(struct bfd_session *);
+void bs_final_handler(struct bfd_session *);
 const char *satostr(struct sockaddr_any *sa);
 const char *diag2str(uint8_t diag);
 int strtosa(const char *addr, struct sockaddr_any *sa);

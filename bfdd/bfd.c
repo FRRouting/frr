@@ -172,17 +172,13 @@ void ptm_bfd_ses_up(struct bfd_session *bfd)
 
 	bfd->local_diag = 0;
 	bfd->ses_state = PTM_BFD_UP;
-	bfd->polling = 1;
 	monotime(&bfd->uptime);
 
-	/* If the peer is capable to receiving Echo pkts */
-	if (bfd->echo_xmt_TO && !BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH)) {
-		ptm_bfd_echo_start(bfd);
-	} else {
-		bfd->new_timers.desired_min_tx = bfd->up_min_tx;
-		bfd->new_timers.required_min_rx = bfd->timers.required_min_rx;
-		ptm_bfd_snd(bfd, 0);
-	}
+	/* Connection is up, lets negotiate timers. */
+	bfd_set_polling(bfd);
+
+	/* Start sending control packets with poll bit immediately. */
+	ptm_bfd_snd(bfd, 0);
 
 	control_notify(bfd);
 
@@ -688,9 +684,17 @@ int ptm_bfd_ses_del(struct bfd_peer_cfg *bpc)
 
 void bfd_set_polling(struct bfd_session *bs)
 {
+	/*
+	 * Start polling procedure: the only timers that require polling
+	 * to change value without losing connection are:
+	 *
+	 *   - Desired minimum transmission interval;
+	 *   - Required minimum receive interval;
+	 *
+	 * RFC 5880, Section 6.8.3.
+	 */
 	bs->new_timers.desired_min_tx = bs->up_min_tx;
 	bs->new_timers.required_min_rx = bs->timers.required_min_rx;
-	bs->new_timers.required_min_echo = bs->timers.required_min_echo;
 	bs->polling = 1;
 }
 
@@ -815,6 +819,123 @@ void bs_state_handler(struct bfd_session *bs, int nstate)
 			  bs_to_string(bs), nstate);
 		break;
 	}
+}
+
+/*
+ * Handles echo timer manipulation after updating timer.
+ */
+void bs_echo_timer_handler(struct bfd_session *bs)
+{
+	uint32_t old_timer;
+
+	/*
+	 * Before doing any echo handling, check if it is possible to
+	 * use it.
+	 *
+	 *   - Check for `echo-mode` configuration.
+	 *   - Check that we are not using multi hop (RFC 5883,
+	 *     Section 3).
+	 *   - Check that we are already at the up state.
+	 */
+	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO) == 0
+	    || BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
+	    || bs->ses_state != PTM_BFD_UP)
+		return;
+
+	/* Remote peer asked to stop echo. */
+	if (bs->remote_timers.required_min_echo == 0) {
+		if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
+			ptm_bfd_echo_stop(bs, 0);
+
+		return;
+	}
+
+	/*
+	 * Calculate the echo transmission timer: we must not send
+	 * echo packets faster than the minimum required time
+	 * announced by the remote system.
+	 *
+	 * RFC 5880, Section 6.8.9.
+	 */
+	old_timer = bs->echo_xmt_TO;
+	if (bs->remote_timers.required_min_echo > bs->timers.required_min_echo)
+		bs->echo_xmt_TO = bs->remote_timers.required_min_echo;
+	else
+		bs->echo_xmt_TO = bs->timers.required_min_echo;
+
+	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO_ACTIVE) == 0
+	    || old_timer != bs->echo_xmt_TO)
+		ptm_bfd_echo_start(bs);
+}
+
+/*
+ * RFC 5880 Section 6.5.
+ *
+ * When a BFD control packet with the final bit is received, we must
+ * update the session parameters.
+ */
+void bs_final_handler(struct bfd_session *bs)
+{
+	/* Start using our new timers. */
+	bs->timers.desired_min_tx = bs->new_timers.desired_min_tx;
+	bs->timers.required_min_rx = bs->new_timers.required_min_rx;
+	bs->new_timers.desired_min_tx = 0;
+	bs->new_timers.required_min_rx = 0;
+
+	/*
+	 * TODO: demand mode. See RFC 5880 Section 6.1.
+	 *
+	 * When using demand mode we must disable the detection timer
+	 * for lost control packets.
+	 */
+	if (bs->demand_mode) {
+		/* Notify watchers about changed timers. */
+		control_notify_config(BCM_NOTIFY_CONFIG_UPDATE, bs);
+		return;
+	}
+
+	/*
+	 * Calculate detection time based on new timers.
+	 *
+	 * Transmission calculation:
+	 * We must respect the RequiredMinRxInterval from the remote
+	 * system: if our desired transmission timer is more than the
+	 * minimum receive rate, then we must lower it to at least the
+	 * minimum receive interval.
+	 *
+	 * RFC 5880, Section 6.8.3.
+	 */
+	if (bs->timers.desired_min_tx > bs->remote_timers.required_min_rx)
+		bs->xmt_TO = bs->remote_timers.required_min_rx;
+	else
+		bs->xmt_TO = bs->timers.desired_min_tx;
+
+	/* Apply new transmission timer immediately. */
+	ptm_bfd_start_xmt_timer(bs, false);
+
+	/*
+	 * Detection timeout calculation:
+	 * The minimum detection timeout is the remote detection
+	 * multipler (number of packets to be missed) times the agreed
+	 * transmission interval.
+	 *
+	 * RFC 5880, Section 6.8.4.
+	 *
+	 * TODO: support sending/counting more packets inside detection
+	 * timeout.
+	 */
+	if (bs->remote_timers.required_min_rx > bs->timers.desired_min_tx)
+		bs->detect_TO = bs->remote_detect_mult
+				* bs->remote_timers.required_min_rx;
+	else
+		bs->detect_TO = bs->remote_detect_mult
+				* bs->timers.desired_min_tx;
+
+	/* Apply new receive timer immediately. */
+	bfd_recvtimer_update(bs);
+
+	/* Notify watchers about changed timers. */
+	control_notify_config(BCM_NOTIFY_CONFIG_UPDATE, bs);
 }
 
 

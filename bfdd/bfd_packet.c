@@ -523,7 +523,6 @@ int bfd_recv_cb(struct thread *t)
 	struct bfd_pkt *cp;
 	bool is_mhop;
 	ssize_t mlen = 0;
-	uint32_t oldEchoXmt_TO, oldXmtTime;
 	uint8_t ttl;
 	struct sockaddr_any local, peer;
 	char port[MAXNAMELEN + 1], vrfname[MAXNAMELEN + 1];
@@ -644,106 +643,42 @@ int bfd_recv_cb(struct thread *t)
 
 	bfd->discrs.remote_discr = ntohl(cp->discrs.my_discr);
 
-	/* If received the Final bit, the new values should take effect */
-	if (bfd->polling && BFD_GETFBIT(cp->flags)) {
-		bfd->timers.desired_min_tx = bfd->new_timers.desired_min_tx;
-		bfd->timers.required_min_rx = bfd->new_timers.required_min_rx;
-		bfd->new_timers.desired_min_tx = 0;
-		bfd->new_timers.required_min_rx = 0;
-		bfd->polling = 0;
-	}
-
-	if (!bfd->demand_mode) {
-		/* Compute detect time */
-		bfd->detect_TO = cp->detect_mult
-				 * ((bfd->timers.required_min_rx
-				     > ntohl(cp->timers.desired_min_tx))
-					    ? bfd->timers.required_min_rx
-					    : ntohl(cp->timers.desired_min_tx));
-		bfd->remote_detect_mult = cp->detect_mult;
-	} else
-		cp_debug(is_mhop, &peer, &local, port, vrfname,
-			 "unsupported demand mode");
-
 	/* Save remote diagnostics before state switch. */
 	bfd->remote_diag = cp->diag & BFD_DIAGMASK;
+
+	/* Update remote timers settings. */
+	bfd->remote_timers.desired_min_tx = ntohl(cp->timers.desired_min_tx);
+	bfd->remote_timers.required_min_rx = ntohl(cp->timers.required_min_rx);
+	bfd->remote_timers.required_min_echo =
+		ntohl(cp->timers.required_min_echo);
+	bfd->remote_detect_mult = cp->detect_mult;
 
 	/* State switch from section 6.2. */
 	bs_state_handler(bfd, BFD_GETSTATE(cp->flags));
 
-	/*
-	 * Handle echo packet status:
-	 * - Start echo packets if configured and permitted
-	 *   (required_min_echo > 0);
-	 * - Stop echo packets if not allowed (required_min_echo == 0);
-	 * - Recalculate echo packet interval;
-	 */
-	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO)) {
-		if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE)) {
-			if (!ntohl(cp->timers.required_min_echo)) {
-				ptm_bfd_echo_stop(bfd, 1);
-			} else {
-				oldEchoXmt_TO = bfd->echo_xmt_TO;
-				bfd->echo_xmt_TO =
-					bfd->timers.required_min_echo;
-				if (ntohl(cp->timers.required_min_echo)
-				    > bfd->echo_xmt_TO)
-					bfd->echo_xmt_TO = ntohl(
-						cp->timers.required_min_echo);
-				if (oldEchoXmt_TO != bfd->echo_xmt_TO)
-					ptm_bfd_echo_start(bfd);
-			}
-		} else if (ntohl(cp->timers.required_min_echo)) {
-			bfd->echo_xmt_TO = bfd->timers.required_min_echo;
-			if (ntohl(cp->timers.required_min_echo)
-			    > bfd->echo_xmt_TO)
-				bfd->echo_xmt_TO =
-					ntohl(cp->timers.required_min_echo);
-			ptm_bfd_echo_start(bfd);
-		}
-	}
+	/* RFC 5880, Section 6.5: handle POLL/FINAL negotiation sequence. */
+	if (bfd->polling && BFD_GETFBIT(cp->flags)) {
+		/* Disable pooling. */
+		bfd->polling = 0;
 
-	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE)) {
-		bfd->echo_xmt_TO = bfd->timers.required_min_echo;
-		if (ntohl(cp->timers.required_min_echo) > bfd->echo_xmt_TO)
-			bfd->echo_xmt_TO = ntohl(cp->timers.required_min_echo);
-	}
-
-	/* Calculate new transmit time */
-	oldXmtTime = bfd->xmt_TO;
-	bfd->xmt_TO =
-		(bfd->timers.desired_min_tx > ntohl(cp->timers.required_min_rx))
-			? bfd->timers.desired_min_tx
-			: ntohl(cp->timers.required_min_rx);
-
-	/* If transmit time has changed, and too much time until next xmt,
-	 * restart
-	 */
-	if (BFD_GETPBIT(cp->flags)) {
-		ptm_bfd_xmt_TO(bfd, 1);
-	} else if (oldXmtTime != bfd->xmt_TO) {
-		/* XXX add some skid to this as well */
-		ptm_bfd_start_xmt_timer(bfd, false);
-	}
-
-	/* Restart detection timer (packet received) */
-	if (!bfd->demand_mode)
+		/* Handle poll finalization. */
+		bs_final_handler(bfd);
+	} else {
+		/* Received a packet, lets update the receive timer. */
 		bfd_recvtimer_update(bfd);
+	}
+
+	/* Handle echo timers changes. */
+	bs_echo_timer_handler(bfd);
 
 	/*
-	 * Save the timers and state sent by the remote end
-	 * for debugging and statistics.
+	 * We've received a packet with the POLL bit set, we must send
+	 * a control packet back with the FINAL bit set.
+	 *
+	 * RFC 5880, Section 6.5.
 	 */
-	if (BFD_GETFBIT(cp->flags)) {
-		bfd->remote_timers.desired_min_tx =
-			ntohl(cp->timers.desired_min_tx);
-		bfd->remote_timers.required_min_rx =
-			ntohl(cp->timers.required_min_rx);
-		bfd->remote_timers.required_min_echo =
-			ntohl(cp->timers.required_min_echo);
-
-		control_notify_config(BCM_NOTIFY_CONFIG_UPDATE, bfd);
-	}
+	if (BFD_GETPBIT(cp->flags))
+		ptm_bfd_snd(bfd, 1);
 
 	return 0;
 }
