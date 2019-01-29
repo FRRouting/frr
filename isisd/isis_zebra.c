@@ -249,8 +249,6 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 		return;
 
 	memset(&api, 0, sizeof(api));
-	if (fabricd)
-		api.flags |= ZEBRA_FLAG_ONLINK;
 	api.vrf_id = VRF_DEFAULT;
 	api.type = PROTO_TYPE;
 	api.safi = SAFI_UNICAST;
@@ -275,6 +273,8 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 			if (count >= MULTIPATH_NUM)
 				break;
 			api_nh = &api.nexthops[count];
+			if (fabricd)
+				api_nh->onlink = true;
 			api_nh->vrf_id = VRF_DEFAULT;
 			/* FIXME: can it be ? */
 			if (nexthop->ip.s_addr != INADDR_ANY) {
@@ -298,6 +298,8 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 			}
 
 			api_nh = &api.nexthops[count];
+			if (fabricd)
+				api_nh->onlink = true;
 			api_nh->vrf_id = VRF_DEFAULT;
 			api_nh->gate.ipv6 = nexthop6->ip6;
 			api_nh->ifindex = nexthop6->ifindex;

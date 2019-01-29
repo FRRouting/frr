@@ -807,6 +807,7 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 
 			stream_putl(s, api_nh->vrf_id);
 			stream_putc(s, api_nh->type);
+			stream_putc(s, api_nh->onlink);
 			switch (api_nh->type) {
 			case NEXTHOP_TYPE_BLACKHOLE:
 				stream_putc(s, api_nh->bh_type);
@@ -973,6 +974,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 
 			STREAM_GETL(s, api_nh->vrf_id);
 			STREAM_GETC(s, api_nh->type);
+			STREAM_GETC(s, api_nh->onlink);
 			switch (api_nh->type) {
 			case NEXTHOP_TYPE_BLACKHOLE:
 				STREAM_GETC(s, api_nh->bh_type);
