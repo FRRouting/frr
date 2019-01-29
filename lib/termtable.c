@@ -163,7 +163,7 @@ static struct ttable_cell *ttable_insert_row_va(struct ttable *tt, int i,
 
 	orig = res;
 
-	while (res) {
+	while (res && col < tt->ncols) {
 		section = strsep(&res, "|");
 		row[col].text = XSTRDUP(MTYPE_TTABLE, section);
 		row[col].style = tt->style.cell;
