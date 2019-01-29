@@ -223,8 +223,13 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	struct ttable *tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
 
 	ttable_add_row(tt, "%s|%" PRIu32, "Virtual Router ID", vr->vrid);
+	ttable_add_row(tt, "%s|%s", "Interface", vr->ifp->name);
 	prefix_mac2str(&vr->v4->vmac, ethstr4, sizeof(ethstr4));
 	prefix_mac2str(&vr->v6->vmac, ethstr6, sizeof(ethstr6));
+	ttable_add_row(tt, "%s|%s", "VRRP interface (v4)",
+		       vr->v4->mvl_ifp ? vr->v4->mvl_ifp->name : "None");
+	ttable_add_row(tt, "%s|%s", "VRRP interface (v6)",
+		       vr->v6->mvl_ifp ? vr->v6->mvl_ifp->name : "None");
 	ttable_add_row(tt, "%s|%s", "Virtual MAC (v4)", ethstr4);
 	ttable_add_row(tt, "%s|%s", "Virtual MAC (v6)", ethstr6);
 	ttable_add_row(tt, "%s|%s", "Status (v4)", stastr4);
@@ -251,34 +256,33 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	ttable_add_row(tt, "%s|%" PRIu16" cs", "Master Down Interval (v6)",
 		       vr->v6->master_down_interval);
 	ttable_add_row(tt, "%s|%u", "IPv4 Addresses", vr->v4->addrs->count);
+
+	char fill[37];
+	memset(fill, '.', sizeof(fill));
+	fill[sizeof(fill) - 1] = 0x00;
+	if (vr->v4->addrs->count) {
+		for (ALL_LIST_ELEMENTS_RO(vr->v4->addrs, ln, ip)) {
+			inet_ntop(vr->v4->family, &ip->ipaddr_v4, ipstr,
+				  sizeof(ipstr));
+			ttable_add_row(tt, "%s|%s", fill, ipstr);
+		}
+	}
+
 	ttable_add_row(tt, "%s|%u", "IPv6 Addresses", vr->v6->addrs->count);
+
+	if (vr->v6->addrs->count) {
+		for (ALL_LIST_ELEMENTS_RO(vr->v6->addrs, ln, ip)) {
+			inet_ntop(vr->v6->family, &ip->ipaddr_v6, ipstr,
+				  sizeof(ipstr));
+			ttable_add_row(tt, "%s|%s", fill, ipstr);
+		}
+	}
 
 	char *table = ttable_dump(tt, "\n");
 	vty_out(vty, "\n%s\n", table);
 	XFREE(MTYPE_TMP, table);
 	ttable_del(tt);
 
-	if (vr->v4->addrs->count) {
-		vty_out(vty, " IPv4 Addresses\n");
-		vty_out(vty, " --------------\n");
-		for (ALL_LIST_ELEMENTS_RO(vr->v4->addrs, ln, ip)) {
-			inet_ntop(vr->v4->family, &ip->ipaddr_v4, ipstr,
-				  sizeof(ipstr));
-			vty_out(vty, " %s\n", ipstr);
-		}
-		vty_out(vty, "\n");
-	}
-
-	if (vr->v6->addrs->count) {
-		vty_out(vty, " IPv6 Addresses\n");
-		vty_out(vty, " --------------\n");
-		for (ALL_LIST_ELEMENTS_RO(vr->v6->addrs, ln, ip)) {
-			inet_ntop(vr->v6->family, &ip->ipaddr_v6, ipstr,
-				  sizeof(ipstr));
-			vty_out(vty, " %s\n", ipstr);
-		}
-		vty_out(vty, "\n");
-	}
 }
 
 DEFPY(vrrp_vrid_show,
@@ -299,6 +303,8 @@ DEFPY(vrrp_vrid_show,
 
 		for (ALL_LIST_ELEMENTS_RO(ll, ln, vr))
 			vrrp_show(vty, vr);
+
+		list_delete_and_null(&ll);
 	}
 
 	return CMD_SUCCESS;
