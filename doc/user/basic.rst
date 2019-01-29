@@ -180,13 +180,14 @@ Basic Config Commands
    In this example, the precision is set to provide timestamps with
    millisecond accuracy.
 
-.. index:: log commands
-.. clicmd:: log commands
+.. index:: [no] log commands
+.. clicmd:: [no] log commands
 
    This command enables the logging of all commands typed by a user to all
    enabled log destinations. The note that logging includes full command lines,
-   including passwords. Once set, command logging can only be turned off by
-   restarting the daemon.
+   including passwords. If the daemon startup option `--command-log-always`
+   is used to start the daemon then this command is turned on by default
+   and cannot be turned off and the [no] form of the command is dissallowed.
 
 .. index:: service password-encryption
 .. clicmd:: service password-encryption
@@ -481,6 +482,13 @@ These options apply to all |PACKAGE_NAME| daemons.
 .. option:: -v, --version
 
    Print program version.
+
+.. option:: --command-log-always
+
+   Cause the daemon to always log commands entered to the specified log file.
+   This also makes the `no log commands` command dissallowed.  Enabling this
+   is suggested if you have need to track what the operator is doing on
+   this router.
 
 .. option:: --log <stdout|syslog|file:/path/to/log/file>
 
