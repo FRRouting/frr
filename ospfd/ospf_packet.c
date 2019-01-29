@@ -3309,6 +3309,16 @@ static int ospf_make_hello(struct ospf_interface *oi, struct stream *s)
 										.prefix4))
 								flag = 1;
 
+							/* Hello packet overflows interface MTU. */
+							if (length + sizeof(uint32_t)
+								> ospf_packet_max(oi)) {
+								flog_err(
+									EC_OSPF_LARGE_HELLO,
+									"Oversized Hello packet!"
+									" Larger than MTU. Not sending it out");
+								return 0;
+							}
+
 							stream_put_ipv4(
 								s,
 								nbr->router_id
@@ -3578,6 +3588,11 @@ static void ospf_hello_send_sub(struct ospf_interface *oi, in_addr_t addr)
 
 	/* Prepare OSPF Hello body. */
 	length += ospf_make_hello(oi, op->s);
+	if (length == OSPF_HEADER_SIZE) {
+		/* Hello overshooting MTU */
+		ospf_packet_free(op);
+		return;
+	}
 
 	/* Fill OSPF header. */
 	ospf_fill_header(oi, op->s, length);
