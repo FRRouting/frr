@@ -143,57 +143,118 @@ void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
 	vrrp_recalculate_timers(vr->v6);
 }
 
-void vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
+static bool vrrp_has_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 {
-	struct ipaddr *v4_ins = XCALLOC(MTYPE_TMP, sizeof(struct ipaddr));
+	size_t cmpsz = ip->ipa_type == IPADDR_V4 ? sizeof(struct in_addr)
+						 : sizeof(struct in6_addr);
+	struct vrrp_router *r = ip->ipa_type == IPADDR_V4 ? vr->v4 : vr->v6;
+	struct listnode *ln;
+	struct ipaddr *iter;
 
-	v4_ins->ipa_type = IPADDR_V4;
-	v4_ins->ipaddr_v4 = v4;
+	for (ALL_LIST_ELEMENTS_RO(r->addrs, ln, iter))
+		if (!memcmp(&iter->ip, &ip->ip, cmpsz))
+			return true;
 
-	if (!vrrp_is_owner(vr->ifp, v4_ins) && vr->v4->is_owner) {
+	return false;
+}
+
+int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip, bool activate)
+{
+	if (vrrp_has_ip(r->vr, ip))
+		return 0;
+
+	if (!vrrp_is_owner(r->vr->ifp, ip) && r->is_owner) {
 		char ipbuf[INET6_ADDRSTRLEN];
-		ipaddr2str(v4_ins, ipbuf, sizeof(ipbuf));
+		inet_ntop(r->family, &ip->ip, ipbuf, sizeof(ipbuf));
 		zlog_err(
 			VRRP_LOGPFX VRRP_LOGPFX_VRID
 			"This VRRP router is not the address owner of %s, but is the address owner of other addresses; this config is unsupported.",
-			vr->vrid, ipbuf);
-		/* FIXME: indicate failure with rc */
-		return;
+			r->vr->vrid, ipbuf);
+		return -1;
 	}
 
-	listnode_add(vr->v4->addrs, v4_ins);
-}
+	struct ipaddr *new = XCALLOC(MTYPE_TMP, sizeof(struct ipaddr));
 
-void vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
-{
-	struct ipaddr *v6_ins = XCALLOC(MTYPE_TMP, sizeof(struct ipaddr));
+	*new = *ip;
+	listnode_add(r->addrs, new);
 
-	v6_ins->ipa_type = IPADDR_V6;
-	memcpy(&v6_ins->ipaddr_v6, &v6, sizeof(struct in6_addr));
+	bool do_activate = (activate && r->fsm.state == VRRP_STATE_INITIALIZE);
+	int ret = 0;
 
-	if (!vrrp_is_owner(vr->ifp, v6_ins) && vr->v6->is_owner) {
-		char ipbuf[INET6_ADDRSTRLEN];
-		ipaddr2str(v6_ins, ipbuf, sizeof(ipbuf));
-		zlog_err(
-			VRRP_LOGPFX VRRP_LOGPFX_VRID
-			"This VRRP router is not the address owner of %s, but is the address owner of other addresses; this config is unsupported.",
-			vr->vrid, ipbuf);
-		/* FIXME: indicate failure with rc */
-		return;
+	if (do_activate)
+		ret = vrrp_event(r, VRRP_EVENT_STARTUP);
+	else if (r->fsm.state == VRRP_STATE_MASTER) {
+		switch (r->family) {
+		case AF_INET:
+			vrrp_garp_send(r, &new->ipaddr_v4);
+			break;
+		case AF_INET6:
+			vrrp_ndisc_una_send(r, new);
+			break;
+		}
 	}
 
-	listnode_add(vr->v6->addrs, v6_ins);
-
-	if (vr->v6->fsm.state == VRRP_STATE_MASTER)
-		vrrp_ndisc_una_send(vr->v6, v6_ins);
+	return ret;
 }
 
-void vrrp_add_ip(struct vrrp_vrouter *vr, struct ipaddr ip)
+int vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4, bool activate)
 {
-	if (ip.ipa_type == IPADDR_V4)
-		vrrp_add_ipv4(vr, ip.ipaddr_v4);
-	else if (ip.ipa_type == IPADDR_V6)
-		vrrp_add_ipv6(vr, ip.ipaddr_v6);
+	struct ipaddr ip;
+	ip.ipa_type = IPADDR_V4;
+	ip.ipaddr_v4 = v4;
+	return vrrp_add_ip(vr->v4, &ip, activate);
+}
+
+int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6, bool activate)
+{
+	struct ipaddr ip;
+	ip.ipa_type = IPADDR_V6;
+	ip.ipaddr_v6 = v6;
+	return vrrp_add_ip(vr->v6, &ip, activate);
+}
+
+int vrrp_del_ip(struct vrrp_router *r, struct ipaddr *ip, bool deactivate)
+{
+	size_t cmpsz = ip->ipa_type == IPADDR_V4 ? sizeof(struct in_addr)
+						 : sizeof(struct in6_addr);
+	struct listnode *ln, *nn;
+	struct ipaddr *iter;
+	int ret = 0;
+
+	if (!vrrp_has_ip(r->vr, ip))
+		return 0;
+
+	if (deactivate && r->addrs->count == 1
+	    && r->fsm.state != VRRP_STATE_INITIALIZE)
+		ret = vrrp_event(r, VRRP_EVENT_SHUTDOWN);
+
+	/*
+	 * Don't delete IP if we failed to deactivate, otherwise we'll run into
+	 * issues later trying to build a VRRP advertisement with no IPs
+	 */
+	if (ret == 0) {
+		for (ALL_LIST_ELEMENTS(r->addrs, ln, nn, iter))
+			if (!memcmp(&iter->ip, &ip->ip, cmpsz))
+				list_delete_node(r->addrs, ln);
+	}
+
+	return ret;
+}
+
+int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6, bool deactivate)
+{
+	struct ipaddr ip;
+	ip.ipa_type = IPADDR_V6;
+	ip.ipaddr_v6 = v6;
+	return vrrp_del_ip(vr->v6, &ip, deactivate);
+}
+
+int vrrp_del_ipv4(struct vrrp_vrouter *vr, struct in_addr v4, bool deactivate)
+{
+	struct ipaddr ip;
+	ip.ipa_type = IPADDR_V4;
+	ip.ipaddr_v4 = v4;
+	return vrrp_del_ip(vr->v4, &ip, deactivate);
 }
 
 

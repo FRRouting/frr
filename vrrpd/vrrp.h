@@ -260,13 +260,21 @@ void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
 /*
  * Add an IPvX address to a VRRP Virtual Router.
  *
- * vr
+ * r
  *    Virtual Router to add IPvx address to
  *
  * ip
  *    Address to add
+ *
+ * activate
+ *    Whether to automatically start the VRRP router if this is the first IP
+ *    address added.
+ *
+ * Returns:
+ *    -1 on error
+ *     0 otherwise
  */
-void vrrp_add_ip(struct vrrp_vrouter *vr, struct ipaddr ip);
+int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip, bool activate);
 
 /*
  * Add an IPv4 address to a VRRP Virtual Router.
@@ -276,8 +284,16 @@ void vrrp_add_ip(struct vrrp_vrouter *vr, struct ipaddr ip);
  *
  * v4
  *    Address to add
+ *
+ * activate
+ *    Whether to automatically start the VRRP router if this is the first IP
+ *    address added.
+ *
+ * Returns:
+ *    -1 on error
+ *     0 otherwise
  */
-void vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4);
+int vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4, bool activate);
 
 /*
  * Add an IPv6 address to a VRRP Virtual Router.
@@ -287,9 +303,79 @@ void vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4);
  *
  * v6
  *    Address to add
+ *
+ * activate
+ *    Whether to automatically start the VRRP router if this is the first IP
+ *    address added.
+ *
+ * Returns:
+ *    -1 on error
+ *     0 otherwise
  */
-void vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
+int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6, bool activate);
 
+/*
+ * Remove an IP address from a VRRP Virtual Router.
+ *
+ * r
+ *    Virtual Router to remove IP address from
+ *
+ * ip
+ *    Address to remove
+ *
+ * deactivate
+ *    Whether to automatically stop the VRRP router if removing v4 would leave
+ *    us with an empty address list. If this is not true and ip is the only IP
+ *    address backed up by this virtual router, this function will not remove
+ *    the address and return failure.
+ *
+ * Returns:
+ *    -1 on error
+ *     0 otherwise
+ */
+int vrrp_del_ip(struct vrrp_router *r, struct ipaddr *ip, bool deactivate);
+
+/*
+ * Remove an IPv4 address from a VRRP Virtual Router.
+ *
+ * vr
+ *    Virtual Router to remove IPv4 address from
+ *
+ * v4
+ *    Address to remove
+ *
+ * deactivate
+ *    Whether to automatically stop the VRRP router if removing v4 would leave
+ *    us with an empty address list. If this is not true and v4 is the only
+ *    IPv4 address backed up by this virtual router, this function will not
+ *    remove the address and return failure.
+ *
+ * Returns:
+ *    -1 on error
+ *     0 otherwise
+ */
+int vrrp_del_ipv4(struct vrrp_vrouter *vr, struct in_addr v4, bool deactivate);
+
+/*
+ * Remove an IPv6 address from a VRRP Virtual Router.
+ *
+ * vr
+ *    Virtual Router to remove IPv6 address from
+ *
+ * v6
+ *    Address to remove
+ *
+ * deactivate
+ *    Whether to automatically stop the VRRP router if removing v5 would leave
+ *    us with an empty address list. If this is not true and v4 is the only
+ *    IPv6 address backed up by this virtual router, this function will not
+ *    remove the address and return failure.
+ *
+ * Returns:
+ *    -1 on error
+ *     0 otherwise
+ */
+int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6, bool deactivate);
 
 /* State machine ----------------------------------------------------------- */
 

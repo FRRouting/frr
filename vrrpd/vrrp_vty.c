@@ -166,21 +166,40 @@ DEFPY(vrrp_ip,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	struct vrrp_vrouter *vr;
-	int ret;
+	bool deactivated = false;
+	bool activated = false;
+	bool failed = false;
+	int ret = CMD_SUCCESS;
 
 	VROUTER_GET_VTY(vty, ifp, vrid, vr);
-	vrrp_add_ipv4(vr, ip);
 
-	if (vr->v4->fsm.state == VRRP_STATE_INITIALIZE) {
-		vty_out(vty, "%% Activating Virtual Router %ld\n", vrid);
-		ret = vrrp_event(vr->v4, VRRP_EVENT_STARTUP);
-		ret = ret < 0 ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+	bool will_activate = (vr->v4->fsm.state == VRRP_STATE_INITIALIZE);
 
-		if (ret == CMD_WARNING_CONFIG_FAILED)
-			vty_out(vty, "%% Failed to start Virtual Router %ld\n",
-				vrid);
+	if (no) {
+		int oldstate = vr->v4->fsm.state;
+		failed = vrrp_del_ipv4(vr, ip, true);
+		deactivated = (vr->v4->fsm.state == VRRP_STATE_INITIALIZE
+			       && oldstate != VRRP_STATE_INITIALIZE);
 	} else {
-		ret = CMD_SUCCESS;
+		int oldstate = vr->v4->fsm.state;
+		failed = vrrp_add_ipv4(vr, ip, true);
+		activated = (vr->v4->fsm.state != VRRP_STATE_INITIALIZE
+			     && oldstate == VRRP_STATE_INITIALIZE);
+	}
+
+	if (activated)
+		vty_out(vty, "%% Activated IPv4 Virtual Router %ld\n", vrid);
+	if (deactivated)
+		vty_out(vty, "%% Deactivated IPv4 Virtual Router %ld\n", vrid);
+	if (failed) {
+		vty_out(vty, "%% Failed to %s virtual IP",
+			no ? "remove" : "add");
+		ret = CMD_WARNING_CONFIG_FAILED;
+		if (will_activate && !activated) {
+			vty_out(vty,
+				"%% Failed to activate IPv4 Virtual Router %ld\n",
+				vrid);
+		}
 	}
 
 	return ret;
@@ -198,21 +217,40 @@ DEFPY(vrrp_ip6,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	struct vrrp_vrouter *vr;
-	int ret;
+	bool deactivated = false;
+	bool activated = false;
+	bool failed = false;
+	int ret = CMD_SUCCESS;
 
 	VROUTER_GET_VTY(vty, ifp, vrid, vr);
-	vrrp_add_ipv6(vr, ipv6);
 
-	if (vr->v6->fsm.state == VRRP_STATE_INITIALIZE) {
-		vty_out(vty, "%% Activating Virtual Router %ld\n", vrid);
-		ret = vrrp_event(vr->v6, VRRP_EVENT_STARTUP);
-		ret = ret < 0 ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+	bool will_activate = (vr->v6->fsm.state == VRRP_STATE_INITIALIZE);
 
-		if (ret == CMD_WARNING_CONFIG_FAILED)
-			vty_out(vty, "%% Failed to start Virtual Router %ld\n",
-				vrid);
+	if (no) {
+		int oldstate = vr->v6->fsm.state;
+		failed = vrrp_del_ipv6(vr, ipv6, true);
+		deactivated = (vr->v6->fsm.state == VRRP_STATE_INITIALIZE
+			       && oldstate != VRRP_STATE_INITIALIZE);
 	} else {
-		ret = CMD_SUCCESS;
+		int oldstate = vr->v6->fsm.state;
+		failed = vrrp_add_ipv6(vr, ipv6, true);
+		activated = (vr->v6->fsm.state != VRRP_STATE_INITIALIZE
+			     && oldstate == VRRP_STATE_INITIALIZE);
+	}
+
+	if (activated)
+		vty_out(vty, "%% Activated IPv6 Virtual Router %ld\n", vrid);
+	if (deactivated)
+		vty_out(vty, "%% Deactivated IPv6 Virtual Router %ld\n", vrid);
+	if (failed) {
+		vty_out(vty, "%% Failed to %s virtual IP",
+			no ? "remove" : "add");
+		ret = CMD_WARNING_CONFIG_FAILED;
+		if (will_activate && !activated) {
+			vty_out(vty,
+				"%% Failed to activate IPv4 Virtual Router %ld\n",
+				vrid);
+		}
 	}
 
 	return ret;
