@@ -159,10 +159,10 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 
 	if (IS_ZEBRA_DEBUG_RIB) {
 		zlog_debug(
-			"%u:%s: Redist update re %p (type %d), old %p (type %d)",
+			"%u:%s: Redist update re %p (%s), old %p (%s)",
 			re->vrf_id, prefix2str(p, buf, sizeof(buf)),
-			re, re->type, prev_re,
-			prev_re ? prev_re->type : -1);
+			re, zebra_route_string(re->type), prev_re,
+			prev_re ? zebra_route_string(prev_re->type) : "None");
 	}
 
 	afi = family2afi(p->family);
@@ -229,8 +229,9 @@ void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
 
 	if (IS_ZEBRA_DEBUG_RIB) {
 		inet_ntop(p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
-		zlog_debug("%u:%s/%d: Redist delete re %p (type %d)",
-			   re->vrf_id, buf, p->prefixlen, re, re->type);
+		zlog_debug("%u:%s/%d: Redist delete re %p (%s)",
+			   re->vrf_id, buf, p->prefixlen, re,
+			   zebra_route_string(re->type));
 	}
 
 	/* Add DISTANCE_INFINITY check. */
