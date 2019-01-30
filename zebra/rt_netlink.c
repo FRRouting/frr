@@ -1150,23 +1150,6 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 				"nexthop via if %u(%u)",
 				routedesc, nexthop->ifindex, nexthop->vrf_id);
 	}
-
-	if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
-		if (cmd == RTM_NEWROUTE) {
-			if (!IN6_IS_ADDR_UNSPECIFIED(&nexthop->rmap_src.ipv6))
-				addattr_l(nlmsg, req_size, RTA_PREFSRC,
-					  &nexthop->rmap_src.ipv6, bytelen);
-			else if (!IN6_IS_ADDR_UNSPECIFIED(&nexthop->src.ipv6))
-				addattr_l(nlmsg, req_size, RTA_PREFSRC,
-					  &nexthop->src.ipv6, bytelen);
-		}
-
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug(
-				"netlink_route_multipath() (%s): "
-				"nexthop via if %u(%u)",
-				routedesc, nexthop->ifindex, nexthop->vrf_id);
-	}
 }
 
 /* This function takes a nexthop as argument and
