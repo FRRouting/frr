@@ -513,7 +513,7 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc);
 int ptm_bfd_ses_del(struct bfd_peer_cfg *bpc);
 void ptm_bfd_ses_dn(struct bfd_session *bfd, uint8_t diag);
 void ptm_bfd_ses_up(struct bfd_session *bfd);
-void ptm_bfd_echo_stop(struct bfd_session *bfd, int polling);
+void ptm_bfd_echo_stop(struct bfd_session *bfd);
 void ptm_bfd_echo_start(struct bfd_session *bfd);
 void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit);
 void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo);

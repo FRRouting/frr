@@ -283,7 +283,7 @@ DEFPY(bfd_peer_echo, bfd_peer_echo_cmd, "[no] echo-mode",
 			return CMD_SUCCESS;
 
 		BFD_UNSET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
-		ptm_bfd_echo_stop(bs, 0);
+		ptm_bfd_echo_stop(bs);
 	} else {
 		if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
 			return CMD_SUCCESS;

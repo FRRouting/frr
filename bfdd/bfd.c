@@ -137,7 +137,7 @@ void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit)
 	ptm_bfd_start_xmt_timer(bfd, false);
 }
 
-void ptm_bfd_echo_stop(struct bfd_session *bfd, int polling)
+void ptm_bfd_echo_stop(struct bfd_session *bfd)
 {
 	bfd->echo_xmt_TO = 0;
 	bfd->echo_detect_TO = 0;
@@ -145,13 +145,6 @@ void ptm_bfd_echo_stop(struct bfd_session *bfd, int polling)
 
 	bfd_echo_xmttimer_delete(bfd);
 	bfd_echo_recvtimer_delete(bfd);
-
-	if (polling) {
-		bfd->polling = polling;
-		bfd->new_timers.desired_min_tx = bfd->up_min_tx;
-		bfd->new_timers.required_min_rx = bfd->timers.required_min_rx;
-		ptm_bfd_snd(bfd, 0);
-	}
 }
 
 void ptm_bfd_echo_start(struct bfd_session *bfd)
@@ -159,11 +152,6 @@ void ptm_bfd_echo_start(struct bfd_session *bfd)
 	bfd->echo_detect_TO = (bfd->remote_detect_mult * bfd->echo_xmt_TO);
 	if (bfd->echo_detect_TO > 0)
 		ptm_bfd_echo_xmt_TO(bfd);
-
-	bfd->polling = 1;
-	bfd->new_timers.desired_min_tx = bfd->up_min_tx;
-	bfd->new_timers.required_min_rx = bfd->timers.required_min_rx;
-	ptm_bfd_snd(bfd, 0);
 }
 
 void ptm_bfd_ses_up(struct bfd_session *bfd)
@@ -209,7 +197,7 @@ void ptm_bfd_ses_dn(struct bfd_session *bfd, uint8_t diag)
 
 	/* Stop echo packet transmission if they are active */
 	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
-		ptm_bfd_echo_stop(bfd, 0);
+		ptm_bfd_echo_stop(bfd);
 
 	if (old_state != bfd->ses_state) {
 		bfd->stats.session_down++;
@@ -440,7 +428,7 @@ static void _bfd_session_update(struct bfd_session *bs,
 			goto skip_echo;
 
 		BFD_UNSET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
-		ptm_bfd_echo_stop(bs, 0);
+		ptm_bfd_echo_stop(bs);
 	}
 
 skip_echo:
@@ -845,7 +833,7 @@ void bs_echo_timer_handler(struct bfd_session *bs)
 	/* Remote peer asked to stop echo. */
 	if (bs->remote_timers.required_min_echo == 0) {
 		if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO_ACTIVE))
-			ptm_bfd_echo_stop(bs, 0);
+			ptm_bfd_echo_stop(bs);
 
 		return;
 	}
