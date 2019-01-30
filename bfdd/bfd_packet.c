@@ -213,8 +213,16 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 	cp.flags = 0;
 	BFD_SETSTATE(cp.flags, bfd->ses_state);
 	BFD_SETDEMANDBIT(cp.flags, BFD_DEF_DEMAND);
-	BFD_SETPBIT(cp.flags, bfd->polling);
+
+	/*
+	 * Polling and Final can't be set at the same time.
+	 *
+	 * RFC 5880, Section 6.5.
+	 */
 	BFD_SETFBIT(cp.flags, fbit);
+	if (fbit == 0)
+		BFD_SETPBIT(cp.flags, bfd->polling);
+
 	cp.detect_mult = bfd->detect_mult;
 	cp.len = BFD_PKT_LEN;
 	cp.discrs.my_discr = htonl(bfd->discrs.my_discr);
