@@ -1160,7 +1160,7 @@ DEFPY (no_interface,
 	if (!vrfname)
 		vrfname = VRF_DEFAULT_NAME;
 
-	nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(
 		vty, "/frr-interface:lib/interface[name='%s'][vrf='%s']",
@@ -1207,7 +1207,7 @@ DEFPY  (no_interface_desc,
 	NO_STR
 	"Interface specific description\n")
 {
-	nb_cli_enqueue_change(vty, "./description", NB_OP_DELETE, NULL);
+	nb_cli_enqueue_change(vty, "./description", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }

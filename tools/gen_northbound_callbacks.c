@@ -54,7 +54,7 @@ static struct nb_callback_info {
 			"enum nb_event event, const struct lyd_node *dnode, union nb_resource *resource",
 	},
 	{
-		.operation = NB_OP_DELETE,
+		.operation = NB_OP_DESTROY,
 		.return_type = "int ",
 		.return_value = "NB_OK",
 		.arguments =

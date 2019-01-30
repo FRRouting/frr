@@ -65,7 +65,7 @@ enum nb_event {
 enum nb_operation {
 	NB_OP_CREATE,
 	NB_OP_MODIFY,
-	NB_OP_DELETE,
+	NB_OP_DESTROY,
 	NB_OP_MOVE,
 	NB_OP_APPLY_FINISH,
 	NB_OP_GET_ELEM,

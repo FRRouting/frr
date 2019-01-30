@@ -228,7 +228,7 @@ frr_confd_cdb_diff_iter(confd_hkeypath_t *kp, enum cdb_iter_op cdb_op,
 		nb_op = NB_OP_CREATE;
 		break;
 	case MOP_DELETED:
-		nb_op = NB_OP_DELETE;
+		nb_op = NB_OP_DESTROY;
 		break;
 	case MOP_VALUE_SET:
 		if (nb_operation_is_valid(NB_OP_MODIFY, nb_node->snode))
