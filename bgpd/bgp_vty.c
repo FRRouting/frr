@@ -1962,7 +1962,7 @@ DEFUN (bgp_graceful_restart_stalepath_time,
 
 DEFUN (bgp_graceful_restart_restart_time,
        bgp_graceful_restart_restart_time_cmd,
-       "bgp graceful-restart restart-time (1-3600)",
+       "bgp graceful-restart restart-time (1-4095)",
        "BGP specific commands\n"
        "Graceful restart capability parameters\n"
        "Set the time to wait to delete stale routes before a BGP open message is received\n"
@@ -1994,7 +1994,7 @@ DEFUN (no_bgp_graceful_restart_stalepath_time,
 
 DEFUN (no_bgp_graceful_restart_restart_time,
        no_bgp_graceful_restart_restart_time_cmd,
-       "no bgp graceful-restart restart-time [(1-3600)]",
+       "no bgp graceful-restart restart-time [(1-4095)]",
        NO_STR
        "BGP specific commands\n"
        "Graceful restart capability parameters\n"
