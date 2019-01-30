@@ -24,5 +24,5 @@ sharpd/sharp_vty_clippy.c: $(CLIPPY_DEPS)
 sharpd/sharp_vty.$(OBJEXT): sharpd/sharp_vty_clippy.c
 
 sharpd_sharpd_SOURCES = sharpd/sharp_main.c
-sharpd_sharpd_LDADD = sharpd/libsharp.a lib/libfrr.la @LIBCAP@
+sharpd_sharpd_LDADD = sharpd/libsharp.a lib/libfrr.la $(LIBCAP)
 

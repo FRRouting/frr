@@ -44,7 +44,7 @@ noinst_HEADERS += \
 	ripd/ripd.h \
 	# end
 
-ripd_ripd_LDADD = ripd/librip.a lib/libfrr.la @LIBCAP@
+ripd_ripd_LDADD = ripd/librip.a lib/libfrr.la $(LIBCAP)
 ripd_ripd_SOURCES = \
 	ripd/rip_main.c \
 	# end

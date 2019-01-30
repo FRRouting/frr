@@ -3,7 +3,7 @@
 #
 lib_LTLIBRARIES += lib/libfrr.la
 lib_libfrr_la_LDFLAGS = -version-info 0:0:0 -Xlinker -e_libfrr_version
-lib_libfrr_la_LIBADD = @LIBCAP@ $(UNWIND_LIBS) -lyang
+lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS)
 
 lib_libfrr_la_SOURCES = \
 	lib/agg_table.c \
@@ -116,7 +116,7 @@ vtysh_scan += \
 vtysh_scan += $(top_srcdir)/lib/agentx.c
 
 if SQLITE3
-lib_libfrr_la_LIBADD += -lsqlite3
+lib_libfrr_la_LIBADD += $(SQLITE3_LIBS)
 lib_libfrr_la_SOURCES += lib/db.c
 endif
 
@@ -289,7 +289,7 @@ endif
 
 lib_confd_la_CFLAGS = $(WERROR) $(CONFD_CFLAGS)
 lib_confd_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
-lib_confd_la_LIBADD = lib/libfrr.la -lconfd
+lib_confd_la_LIBADD = lib/libfrr.la $(CONFD_LIBS)
 lib_confd_la_SOURCES = lib/northbound_confd.c
 
 #
@@ -299,9 +299,9 @@ if SYSREPO
 module_LTLIBRARIES += lib/sysrepo.la
 endif
 
-lib_sysrepo_la_CFLAGS = $(WERROR)
+lib_sysrepo_la_CFLAGS = $(WERROR) $(SYSREPO_CFLAGS)
 lib_sysrepo_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
-lib_sysrepo_la_LIBADD = lib/libfrr.la -lsysrepo
+lib_sysrepo_la_LIBADD = lib/libfrr.la $(SYSREPO_LIBS)
 lib_sysrepo_la_SOURCES = lib/northbound_sysrepo.c
 
 #
@@ -387,11 +387,13 @@ lib/command_lex.h: lib/command_lex.c
 	@if test ! -f $@; then $(MAKE) $(AM_MAKEFLAGS) "lib/command_lex.c"; else :; fi
 lib/command_lex.lo: lib/command_parse.h
 lib/command_parse.lo: lib/command_lex.h
+lib/clippy-command_lex.$(OBJEXT): lib/command_parse.h
+lib/clippy-command_parse.$(OBJEXT): lib/command_lex.h
 lib/lib_clippy-command_lex.$(OBJEXT): lib/command_parse.h
 lib/lib_clippy-command_parse.$(OBJEXT): lib/command_lex.h
 
 lib/route_types.h: $(top_srcdir)/lib/route_types.txt $(top_srcdir)/lib/route_types.pl
-	@PERL@ $(top_srcdir)/lib/route_types.pl < $(top_srcdir)/lib/route_types.txt > $@
+	$(PERL) $(top_srcdir)/lib/route_types.pl < $(top_srcdir)/lib/route_types.txt > $@
 DISTCLEANFILES += lib/route_types.h
 
 if GIT_VERSION
@@ -405,7 +407,7 @@ PHONY_GITVERSION=lib/gitversion.h.tmp
 .SILENT: lib/gitversion.h lib/gitversion.h.tmp
 GITH=lib/gitversion.h
 lib/gitversion.h.tmp: $(top_srcdir)/.git
-	@PERL@ $(top_srcdir)/lib/gitversion.pl $(top_srcdir) > ${GITH}.tmp
+	$(PERL) $(top_srcdir)/lib/gitversion.pl $(top_srcdir) > ${GITH}.tmp
 lib/gitversion.h: lib/gitversion.h.tmp
 	{ test -f ${GITH} && diff -s -q ${GITH}.tmp ${GITH}; } || cp ${GITH}.tmp ${GITH}
 

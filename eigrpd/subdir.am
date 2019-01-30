@@ -65,4 +65,4 @@ noinst_HEADERS += \
 	# end
 
 eigrpd_eigrpd_SOURCES = eigrpd/eigrp_main.c
-eigrpd_eigrpd_LDADD = eigrpd/libeigrp.a lib/libfrr.la @LIBCAP@
+eigrpd_eigrpd_LDADD = eigrpd/libeigrp.a lib/libfrr.la $(LIBCAP)
