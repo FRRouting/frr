@@ -21,6 +21,8 @@
 #include <stdlib.h>
 #include <stddef.h>
 
+#include "typesafe.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -69,6 +71,8 @@ struct qobj_nodetype_capnp {
 };
 #endif
 
+#include "typesafe.h"
+
 /* each different kind of object will have a global variable of this type,
  * which can be used by various other pieces to store type-related bits.
  * type equality can be tested as pointer equality. (cf. QOBJ_GET_TYPESAFE)
@@ -79,9 +83,12 @@ struct qobj_nodetype {
 	RESERVED_SPACE_STRUCT(qobj_nodetype_capnp, capnp, 256)
 };
 
+PREDECL_HASH(qobj_nodes)
+
 /* anchor to be embedded somewhere in the object's struct */
 struct qobj_node {
 	uint64_t nid;
+	struct qobj_nodes_item nodehash;
 	struct qobj_nodetype *type;
 };
 

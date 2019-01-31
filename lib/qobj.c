@@ -27,20 +27,26 @@
 #include "qobj.h"
 #include "jhash.h"
 
+static uint32_t qobj_hash(const struct qobj_node *node)
+{
+	return (uint32_t)node->nid;
+}
+
+static int qobj_cmp(const struct qobj_node *na, const struct qobj_node *nb)
+{
+	if (na->nid < nb->nid)
+		return -1;
+	if (na->nid > nb->nid)
+		return 1;
+	return 0;
+}
+
+DECLARE_HASH(qobj_nodes, struct qobj_node, nodehash,
+			qobj_cmp, qobj_hash)
+
 static pthread_rwlock_t nodes_lock;
-static struct hash *nodes = NULL;
+static struct qobj_nodes_head nodes = { };
 
-static unsigned int qobj_key(void *data)
-{
-	struct qobj_node *node = data;
-	return (unsigned int)node->nid;
-}
-
-static bool qobj_cmp(const void *a, const void *b)
-{
-	const struct qobj_node *na = a, *nb = b;
-	return na->nid == nb->nid;
-}
 
 void qobj_reg(struct qobj_node *node, struct qobj_nodetype *type)
 {
@@ -49,15 +55,15 @@ void qobj_reg(struct qobj_node *node, struct qobj_nodetype *type)
 	do {
 		node->nid = (uint64_t)random();
 		node->nid ^= (uint64_t)random() << 32;
-	} while (!node->nid
-		 || hash_get(nodes, node, hash_alloc_intern) != node);
+	} while (!node->nid || qobj_nodes_find(&nodes, node));
+	qobj_nodes_add(&nodes, node);
 	pthread_rwlock_unlock(&nodes_lock);
 }
 
 void qobj_unreg(struct qobj_node *node)
 {
 	pthread_rwlock_wrlock(&nodes_lock);
-	hash_release(nodes, node);
+	qobj_nodes_del(&nodes, node);
 	pthread_rwlock_unlock(&nodes_lock);
 }
 
@@ -65,7 +71,7 @@ struct qobj_node *qobj_get(uint64_t id)
 {
 	struct qobj_node dummy = {.nid = id}, *rv;
 	pthread_rwlock_rdlock(&nodes_lock);
-	rv = hash_lookup(nodes, &dummy);
+	rv = qobj_nodes_find(&nodes, &dummy);
 	pthread_rwlock_unlock(&nodes_lock);
 	return rv;
 }
@@ -77,7 +83,7 @@ void *qobj_get_typed(uint64_t id, struct qobj_nodetype *type)
 	void *rv;
 
 	pthread_rwlock_rdlock(&nodes_lock);
-	node = hash_lookup(nodes, &dummy);
+	node = qobj_nodes_find(&nodes, &dummy);
 
 	/* note: we explicitly hold the lock until after we have checked the
 	 * type.
@@ -96,16 +102,14 @@ void *qobj_get_typed(uint64_t id, struct qobj_nodetype *type)
 
 void qobj_init(void)
 {
-	if (!nodes) {
-		pthread_rwlock_init(&nodes_lock, NULL);
-		nodes = hash_create_size(16, qobj_key, qobj_cmp, "QOBJ Hash");
-	}
+	pthread_rwlock_init(&nodes_lock, NULL);
+	qobj_nodes_init(&nodes);
 }
 
 void qobj_finish(void)
 {
-	hash_clean(nodes, NULL);
-	hash_free(nodes);
-	nodes = NULL;
+	struct qobj_node *node;
+	while ((node = qobj_nodes_pop(&nodes)))
+		qobj_nodes_del(&nodes, node);
 	pthread_rwlock_destroy(&nodes_lock);
 }
