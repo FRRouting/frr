@@ -23,10 +23,10 @@ tools_permutations_SOURCES = tools/permutations.c
 tools_permutations_LDADD = lib/libfrr.la
 
 tools_gen_northbound_callbacks_SOURCES = tools/gen_northbound_callbacks.c
-tools_gen_northbound_callbacks_LDADD = lib/libfrr.la -lyang
+tools_gen_northbound_callbacks_LDADD = lib/libfrr.la $(LIBYANG_LIBS)
 
 tools_gen_yang_deviations_SOURCES = tools/gen_yang_deviations.c
-tools_gen_yang_deviations_LDADD = lib/libfrr.la -lyang
+tools_gen_yang_deviations_LDADD = lib/libfrr.la $(LIBYANG_LIBS)
 
 tools_ssd_SOURCES = tools/start-stop-daemon.c
 

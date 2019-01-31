@@ -55,4 +55,4 @@ noinst_HEADERS += \
 	# end
 
 ldpd_ldpd_SOURCES = ldpd/ldpd.c
-ldpd_ldpd_LDADD = ldpd/libldp.a lib/libfrr.la @LIBCAP@
+ldpd_ldpd_LDADD = ldpd/libldp.a lib/libfrr.la $(LIBCAP)

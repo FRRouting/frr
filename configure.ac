@@ -1600,18 +1600,21 @@ AC_SUBST([SNMP_CFLAGS])
 dnl ---------------
 dnl libyang
 dnl ---------------
-PKG_CHECK_MODULES([libyang], [libyang >= 0.16.7], , [
+PKG_CHECK_MODULES([LIBYANG], [libyang >= 0.16.7], , [
   AC_MSG_ERROR([libyang (>= 0.16.7) was not found on your system.])
 ])
+ac_cflags_save="$CFLAGS"
+CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
 AC_CHECK_MEMBER([struct lyd_node.priv], [], [
   AC_MSG_ERROR([m4_normalize([
     libyang needs to be compiled with ENABLE_LYD_PRIV=ON.
     See http://docs.frrouting.org/projects/dev-guide/en/latest/building-libyang.html for details.])
   ])
 ], [[#include <libyang/libyang.h>]])
+CFLAGS="$ac_cflags_save"
 
-ac_ld_flag_save="$LDFLAGS"
-LDFLAGS="$LDFLAGS $libyang_LIBS"
+ac_libs_save="$LIBS"
+LIBS="$LIBS $LIBYANG_LIBS"
 AC_CHECK_FUNC([ly_register_types], [
   libyang_ext_builtin=true
   AC_DEFINE([LIBYANG_EXT_BUILTIN], [1], [have ly_register_types()])
@@ -1626,14 +1629,14 @@ AC_CHECK_FUNC([ly_register_types], [
   AC_MSG_WARN([===== old libyang (before 0.16.74) detected =====])
 ])
 AM_CONDITIONAL([LIBYANG_EXT_BUILTIN], [$libyang_ext_builtin])
-LDFLAGS="$ac_ld_flag_save"
+LIBS="$ac_libs_save"
 
 dnl ---------------
 dnl configuration rollbacks
 dnl ---------------
 SQLITE3=false
 if test "$enable_config_rollbacks" = "yes"; then
-  PKG_CHECK_MODULES([sqlite3], [sqlite3], [
+  PKG_CHECK_MODULES([SQLITE3], [sqlite3], [
     AC_DEFINE([HAVE_CONFIG_ROLLBACKS], [1], [Enable configuration rollbacks])
     AC_DEFINE([HAVE_SQLITE3], [1], [Enable sqlite3 database])
     SQLITE3=true
@@ -1661,7 +1664,7 @@ dnl ---------------
 dnl sysrepo
 dnl ---------------
 if test "$enable_sysrepo" = "yes"; then
-  PKG_CHECK_MODULES([sysrepo], [libsysrepo],
+  PKG_CHECK_MODULES([SYSREPO], [libsysrepo],
       [AC_DEFINE([HAVE_SYSREPO], [1], [Enable sysrepo integration])
       SYSREPO=true],
       [SYSREPO=false
