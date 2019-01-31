@@ -171,7 +171,6 @@ DEFPY(bfd_peer_detectmultiplier, bfd_peer_detectmultiplier_cmd,
 		return CMD_SUCCESS;
 
 	bs->detect_mult = multiplier;
-	bfd_set_polling(bs);
 
 	return CMD_SUCCESS;
 }
@@ -222,7 +221,6 @@ DEFPY(bfd_peer_echointerval, bfd_peer_echointerval_cmd,
 		return CMD_SUCCESS;
 
 	bs->timers.required_min_echo = interval * 1000;
-	bfd_set_polling(bs);
 
 	return CMD_SUCCESS;
 }
