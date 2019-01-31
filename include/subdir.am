@@ -4,7 +4,6 @@ noinst_HEADERS += \
 	include/linux/if_link.h \
 	include/linux/lwtunnel.h \
 	include/linux/mpls_iptunnel.h \
-	include/linux/mroute.h \
 	include/linux/neighbour.h \
 	include/linux/netlink.h \
 	include/linux/rtnetlink.h \
