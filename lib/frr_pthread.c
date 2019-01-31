@@ -83,9 +83,9 @@ struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
 	name = (name ? name : "Anonymous thread");
 	fpt->name = XSTRDUP(MTYPE_FRR_PTHREAD, name);
 	if (os_name)
-		snprintf(fpt->os_name, OS_THREAD_NAMELEN, "%s", os_name);
+		strlcpy(fpt->os_name, os_name, OS_THREAD_NAMELEN);
 	else
-		snprintf(fpt->os_name, OS_THREAD_NAMELEN, "%s", name);
+		strlcpy(fpt->os_name, name, OS_THREAD_NAMELEN);
 	/* initialize startup synchronization primitives */
 	fpt->running_cond_mtx = XCALLOC(
 		MTYPE_PTHREAD_PRIM, sizeof(pthread_mutex_t));
