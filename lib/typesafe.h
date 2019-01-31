@@ -637,4 +637,9 @@ extern void typesafe_skiplist_del(struct sskip_head *head,
 			const struct sskip_item *a,
 			const struct sskip_item *b));
 
+/* this needs to stay at the end because both files include each other.
+ * the resolved order is typesafe.h before typerb.h
+ */
+#include "typerb.h"
+
 #endif /* _FRR_TYPESAFE_H */

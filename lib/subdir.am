@@ -80,6 +80,7 @@ lib_libfrr_la_SOURCES = \
 	lib/table.c \
 	lib/termtable.c \
 	lib/thread.c \
+	lib/typerb.c \
 	lib/typesafe.c \
 	lib/vector.c \
 	lib/vrf.c \
@@ -209,6 +210,7 @@ pkginclude_HEADERS += \
 	lib/table.h \
 	lib/termtable.h \
 	lib/thread.h \
+	lib/typerb.h \
 	lib/typesafe.h \
 	lib/vector.h \
 	lib/vlan.h \
