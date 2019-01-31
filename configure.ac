@@ -1974,6 +1974,7 @@ AC_SUBST(CFG_SBIN)
 AC_SUBST(CFG_STATE)
 AC_SUBST(CFG_MODULE)
 AC_DEFINE_UNQUOTED(MODULE_PATH, "$CFG_MODULE", path to modules)
+AC_DEFINE_UNQUOTED(WATCHFRR_SH_PATH, "${CFG_SBIN%/}/watchfrr.sh", path to watchfrr.sh)
 
 dnl ------------------------------------
 dnl Enable RPKI and add librtr to libs
