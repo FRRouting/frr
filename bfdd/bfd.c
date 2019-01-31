@@ -418,10 +418,9 @@ static void _bfd_session_update(struct bfd_session *bs,
 			goto skip_echo;
 
 		BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
-		ptm_bfd_echo_start(bs);
 
 		/* Activate/update echo receive timeout timer. */
-		bfd_echo_recvtimer_update(bs);
+		bs_echo_timer_handler(bs);
 	} else {
 		/* Check if echo mode is already disabled. */
 		if (!BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
