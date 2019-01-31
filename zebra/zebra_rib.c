@@ -437,6 +437,14 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN_RVTEP))
 		return 1;
 
+	/*
+	 * If the kernel has sent us a route, then
+	 * by golly gee whiz it's a good route.
+	 */
+	if (re->type == ZEBRA_ROUTE_KERNEL ||
+	    re->type == ZEBRA_ROUTE_SYSTEM)
+		return 1;
+
 	/* Skip nexthops that have been filtered out due to route-map */
 	/* The nexthops are specific to this route and so the same */
 	/* nexthop for a different route may not have this flag set */
@@ -1266,8 +1274,9 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 	if (IS_ZEBRA_DEBUG_RIB) {
 		char buf[SRCDEST2STR_BUFFER];
 		srcdest_rnode2str(rn, buf, sizeof(buf));
-		zlog_debug("%u:%s: Adding route rn %p, re %p (type %d)",
-			   zvrf_id(zvrf), buf, rn, new, new->type);
+		zlog_debug("%u:%s: Adding route rn %p, re %p (%s)",
+			   zvrf_id(zvrf), buf, rn, new,
+			   zebra_route_string(new->type));
 	}
 
 	/* If labeled-unicast route, install transit LSP. */
@@ -1292,8 +1301,9 @@ static void rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 	if (IS_ZEBRA_DEBUG_RIB) {
 		char buf[SRCDEST2STR_BUFFER];
 		srcdest_rnode2str(rn, buf, sizeof(buf));
-		zlog_debug("%u:%s: Deleting route rn %p, re %p (type %d)",
-			   zvrf_id(zvrf), buf, rn, old, old->type);
+		zlog_debug("%u:%s: Deleting route rn %p, re %p (%s)",
+			   zvrf_id(zvrf), buf, rn, old,
+			   zebra_route_string(old->type));
 	}
 
 	/* If labeled-unicast route, uninstall transit LSP. */
@@ -1360,15 +1370,16 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 				srcdest_rnode2str(rn, buf, sizeof(buf));
 				if (new != old)
 					zlog_debug(
-						"%u:%s: Updating route rn %p, re %p (type %d) "
-						"old %p (type %d)",
+						"%u:%s: Updating route rn %p, re %p (%s) old %p (%s)",
 						zvrf_id(zvrf), buf, rn, new,
-						new->type, old, old->type);
+						zebra_route_string(new->type),
+						old,
+						zebra_route_string(old->type));
 				else
 					zlog_debug(
-						"%u:%s: Updating route rn %p, re %p (type %d)",
+						"%u:%s: Updating route rn %p, re %p (%s)",
 						zvrf_id(zvrf), buf, rn, new,
-						new->type);
+						zebra_route_string(new->type));
 			}
 
 			/* If labeled-unicast route, uninstall transit LSP. */
@@ -1430,15 +1441,16 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 				srcdest_rnode2str(rn, buf, sizeof(buf));
 				if (new != old)
 					zlog_debug(
-						"%u:%s: Deleting route rn %p, re %p (type %d) "
-						"old %p (type %d) - nexthop inactive",
+						"%u:%s: Deleting route rn %p, re %p (%s) old %p (%s) - nexthop inactive",
 						zvrf_id(zvrf), buf, rn, new,
-						new->type, old, old->type);
+						zebra_route_string(new->type),
+						old,
+						zebra_route_string(old->type));
 				else
 					zlog_debug(
-						"%u:%s: Deleting route rn %p, re %p (type %d) - nexthop inactive",
+						"%u:%s: Deleting route rn %p, re %p (%s) - nexthop inactive",
 						zvrf_id(zvrf), buf, rn, new,
-						new->type);
+						zebra_route_string(new->type));
 			}
 
 			/* If labeled-unicast route, uninstall transit LSP. */
@@ -1583,10 +1595,10 @@ static void rib_process(struct route_node *rn)
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
-				"%u:%s: Examine re %p (type %d) status %x flags %x "
-				"dist %d metric %d",
-				vrf_id, buf, re, re->type, re->status,
-				re->flags, re->distance, re->metric);
+				"%u:%s: Examine re %p (%s) status %x flags %x dist %d metric %d",
+				vrf_id, buf, re, zebra_route_string(re->type),
+				re->status, re->flags, re->distance,
+				re->metric);
 
 		UNSET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
 
@@ -2484,9 +2496,9 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 		if (IS_ZEBRA_DEBUG_RIB) {
 			char buf[SRCDEST2STR_BUFFER];
 			srcdest_rnode2str(rn, buf, sizeof(buf));
-			zlog_debug(
-				"%u:%s: Freeing route rn %p, re %p (type %d)",
-				re->vrf_id, buf, rn, re, re->type);
+			zlog_debug("%u:%s: Freeing route rn %p, re %p (%s)",
+				   re->vrf_id, buf, rn, re,
+				   zebra_route_string(re->type));
 		}
 
 		rib_unlink(rn, re);
@@ -2746,10 +2758,9 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 
 	/* Link new re to node.*/
 	if (IS_ZEBRA_DEBUG_RIB) {
-		rnode_debug(
-			rn, re->vrf_id,
-			"Inserting route rn %p, re %p (type %d) existing %p",
-			(void *)rn, (void *)re, re->type, (void *)same);
+		rnode_debug(rn, re->vrf_id,
+			    "Inserting route rn %p, re %p (%s) existing %p",
+			    rn, re, zebra_route_string(re->type), same);
 
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			route_entry_dump(p, src_p, re);
@@ -2873,10 +2884,10 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		 */
 		if (fib && CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE)) {
 			if (IS_ZEBRA_DEBUG_RIB) {
-				rnode_debug(
-					rn, vrf_id,
-					"rn %p, re %p (type %d) was deleted from kernel, adding",
-					rn, fib, fib->type);
+				rnode_debug(rn, vrf_id,
+					    "rn %p, re %p (%s) was deleted from kernel, adding",
+					    rn, fib,
+					    zebra_route_string(fib->type));
 			}
 			if (allow_delete) {
 				UNSET_FLAG(fib->status, ROUTE_ENTRY_INSTALLED);

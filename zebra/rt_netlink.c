@@ -556,6 +556,9 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 					parse_encap_mpls(tb[RTA_ENCAP], labels);
 			}
 
+			if (rtm->rtm_flags & RTNH_F_ONLINK)
+				SET_FLAG(nh.flags, NEXTHOP_FLAG_ONLINK);
+
 			if (num_labels)
 				nexthop_add_labels(&nh, ZEBRA_LSP_STATIC,
 						   num_labels, labels);
@@ -662,6 +665,10 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 				if (nh && num_labels)
 					nexthop_add_labels(nh, ZEBRA_LSP_STATIC,
 							   num_labels, labels);
+
+				if (nh && (rtnh->rtnh_flags & RTNH_F_ONLINK))
+					SET_FLAG(nh->flags,
+						 NEXTHOP_FLAG_ONLINK);
 
 				if (rtnh->rtnh_len == 0)
 					break;
