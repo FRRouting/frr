@@ -932,13 +932,15 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
  *
  * filter   -> The filter to read final results from kernel
  * nlmsghdr -> The data to send to the kernel
- * dp_info -> The dataplane and netlink socket information
+ * dp_info  -> The dataplane and netlink socket information
+ * ctx      -> The dataplane ctx
  * startup  -> Are we reading in under startup conditions
  *             This is passed through eventually to filter.
  */
 int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 		      struct nlmsghdr *n,
-		      const struct zebra_dplane_info *dp_info, int startup)
+		      const struct zebra_dplane_info *dp_info,
+		      struct zebra_dplane_ctx *ctx, int startup)
 {
 	int status = 0;
 	struct sockaddr_nl snl;
@@ -1013,7 +1015,7 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	/* Capture info in intermediate info struct */
 	zebra_dplane_info_from_zns(&dp_info, zns, (nl == &(zns->netlink_cmd)));
 
-	return netlink_talk_info(filter, n, &dp_info, startup);
+	return netlink_talk_info(filter, n, &dp_info, NULL, startup);
 }
 
 /* Issue request message to kernel via netlink socket. GET messages

@@ -62,8 +62,8 @@ extern int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 /* Version with 'info' struct only */
 int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 		      struct nlmsghdr *n,
-		      const struct zebra_dplane_info *dp_info, int startup);
-
+		      const struct zebra_dplane_info *dp_info,
+		      struct zebra_dplane_ctx *ctx, int startup);
 extern int netlink_request(struct nlsock *nl, struct nlmsghdr *n);
 
 #endif /* HAVE_NETLINK */

@@ -1774,7 +1774,7 @@ skip:
 
 	/* Talk to netlink socket. */
 	return netlink_talk_info(netlink_talk_filter, &req.n,
-				 dplane_ctx_get_ns(ctx), 0);
+				 dplane_ctx_get_ns(ctx), ctx, 0);
 }
 
 int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
@@ -2910,6 +2910,6 @@ int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 
 	/* Talk to netlink socket. */
 	return netlink_talk_info(netlink_talk_filter, &req.n,
-				 dplane_ctx_get_ns(ctx), 0);
+				 dplane_ctx_get_ns(ctx), ctx, 0);
 }
 #endif /* HAVE_NETLINK */
