@@ -306,7 +306,7 @@ struct bfd_iface {
 #define BFD_DEFDESIREDMINTX (300 * MSEC_PER_SEC)
 #define BFD_DEFREQUIREDMINRX (300 * MSEC_PER_SEC)
 #define BFD_DEF_REQ_MIN_ECHO (50 * MSEC_PER_SEC)
-#define BFD_DEF_SLOWTX (2000 * MSEC_PER_SEC)
+#define BFD_DEF_SLOWTX (1000 * MSEC_PER_SEC)
 #define BFD_DEF_MHOP_TTL 5
 #define BFD_PKT_LEN 24 /* Length of control packet */
 #define BFD_TTL_VAL 255
