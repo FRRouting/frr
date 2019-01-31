@@ -495,10 +495,6 @@ skip_echo:
 		/* Enable all timers. */
 		bfd_recvtimer_update(bs);
 		bfd_xmttimer_update(bs, bs->xmt_TO);
-		if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO)) {
-			bfd_echo_recvtimer_update(bs);
-			bfd_echo_xmttimer_update(bs, bs->echo_xmt_TO);
-		}
 	}
 }
 
