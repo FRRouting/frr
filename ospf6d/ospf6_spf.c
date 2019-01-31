@@ -27,7 +27,6 @@
 #include "command.h"
 #include "vty.h"
 #include "prefix.h"
-#include "pqueue.h"
 #include "linklist.h"
 #include "thread.h"
 #include "lib_errors.h"
@@ -76,16 +75,18 @@ static unsigned int ospf6_spf_get_ifindex_from_nh(struct ospf6_vertex *v)
 	return 0;
 }
 
-static int ospf6_vertex_cmp(void *a, void *b)
+static int ospf6_vertex_cmp(const struct ospf6_vertex *va,
+		const struct ospf6_vertex *vb)
 {
-	struct ospf6_vertex *va = (struct ospf6_vertex *)a;
-	struct ospf6_vertex *vb = (struct ospf6_vertex *)b;
-
 	/* ascending order */
 	if (va->cost != vb->cost)
 		return (va->cost - vb->cost);
-	return (va->hops - vb->hops);
+	if (va->hops != vb->hops)
+		return (va->hops - vb->hops);
+	return 0;
 }
+DECLARE_SKIPLIST_NONUNIQ(vertex_pqueue, struct ospf6_vertex, pqi,
+		ospf6_vertex_cmp)
 
 static int ospf6_vertex_id_cmp(void *a, void *b)
 {
@@ -461,7 +462,7 @@ void ospf6_spf_calculation(uint32_t router_id,
 			   struct ospf6_route_table *result_table,
 			   struct ospf6_area *oa)
 {
-	struct pqueue *candidate_list;
+	struct vertex_pqueue_head candidate_list;
 	struct ospf6_vertex *root, *v, *w;
 	int size;
 	caddr_t lsdesc;
@@ -481,8 +482,7 @@ void ospf6_spf_calculation(uint32_t router_id,
 	}
 
 	/* initialize */
-	candidate_list = pqueue_create();
-	candidate_list->cmp = ospf6_vertex_cmp;
+	vertex_pqueue_init(&candidate_list);
 
 	root = ospf6_vertex_create(lsa);
 	root->area = oa;
@@ -492,13 +492,10 @@ void ospf6_spf_calculation(uint32_t router_id,
 	inet_pton(AF_INET6, "::1", &address);
 
 	/* Actually insert root to the candidate-list as the only candidate */
-	pqueue_enqueue(root, candidate_list);
+	vertex_pqueue_add(&candidate_list, root);
 
 	/* Iterate until candidate-list becomes empty */
-	while (candidate_list->size) {
-		/* get closest candidate from priority queue */
-		v = pqueue_dequeue(candidate_list);
-
+	while ((v = vertex_pqueue_pop(&candidate_list))) {
 		/* installing may result in merging or rejecting of the vertex
 		 */
 		if (ospf6_spf_install(v, result_table) < 0)
@@ -557,12 +554,11 @@ void ospf6_spf_calculation(uint32_t router_id,
 				zlog_debug(
 					"  New candidate: %s hops %d cost %d",
 					w->name, w->hops, w->cost);
-			pqueue_enqueue(w, candidate_list);
+			vertex_pqueue_add(&candidate_list, w);
 		}
 	}
 
-
-	pqueue_delete(candidate_list);
+	//vertex_pqueue_fini(&candidate_list);
 
 	ospf6_remove_temp_router_lsa(oa);
 
