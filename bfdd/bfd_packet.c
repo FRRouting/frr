@@ -229,12 +229,20 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 	cp.discrs.remote_discr = htonl(bfd->discrs.remote_discr);
 	if (bfd->polling) {
 		cp.timers.desired_min_tx =
-			htonl(bfd->new_timers.desired_min_tx);
+			htonl(bfd->timers.desired_min_tx);
 		cp.timers.required_min_rx =
-			htonl(bfd->new_timers.required_min_rx);
+			htonl(bfd->timers.required_min_rx);
 	} else {
-		cp.timers.desired_min_tx = htonl(bfd->timers.desired_min_tx);
-		cp.timers.required_min_rx = htonl(bfd->timers.required_min_rx);
+		/*
+		 * We can only announce current setting on poll, this
+		 * avoids timing mismatch with our peer and give it
+		 * the oportunity to learn. See `bs_final_handler` for
+		 * more information.
+		 */
+		cp.timers.desired_min_tx =
+			htonl(bfd->cur_timers.desired_min_tx);
+		cp.timers.required_min_rx =
+			htonl(bfd->cur_timers.required_min_rx);
 	}
 	cp.timers.required_min_echo = htonl(bfd->timers.required_min_echo);
 

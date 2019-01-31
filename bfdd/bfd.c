@@ -363,11 +363,28 @@ static struct bfd_session *bfd_session_new(int sd)
 
 	QOBJ_REG(bs, bfd_session);
 
-	bs->up_min_tx = BFD_DEFDESIREDMINTX;
+	bs->timers.desired_min_tx = BFD_DEFDESIREDMINTX;
 	bs->timers.required_min_rx = BFD_DEFREQUIREDMINRX;
 	bs->timers.required_min_echo = BFD_DEF_REQ_MIN_ECHO;
 	bs->detect_mult = BFD_DEFDETECTMULT;
 	bs->mh_ttl = BFD_DEF_MHOP_TTL;
+
+	/*
+	 * BFD connection startup must use slow timer.
+	 *
+	 * RFC 5880, Section 6.8.3.
+	 */
+	bs->cur_timers.desired_min_tx = BFD_DEF_SLOWTX;
+	bs->cur_timers.required_min_rx = BFD_DEF_SLOWTX;
+	bs->cur_timers.required_min_echo = 0;
+
+	/* Set the appropriated timeouts for slow connection. */
+	bs->detect_TO = (BFD_DEFDETECTMULT * BFD_DEF_SLOWTX);
+	bs->xmt_TO = BFD_DEF_SLOWTX;
+
+	/* Initiate remote settings as well. */
+	bs->remote_timers = bs->cur_timers;
+	bs->remote_detect_mult = BFD_DEFDETECTMULT;
 
 	bs->sock = sd;
 	monotime(&bs->uptime);
@@ -432,7 +449,7 @@ static void _bfd_session_update(struct bfd_session *bs,
 
 skip_echo:
 	if (bpc->bpc_has_txinterval)
-		bs->up_min_tx = bpc->bpc_txinterval * 1000;
+		bs->timers.desired_min_tx = bpc->bpc_txinterval * 1000;
 
 	if (bpc->bpc_has_recvinterval)
 		bs->timers.required_min_rx = bpc->bpc_recvinterval * 1000;
@@ -599,12 +616,10 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 	bfd->discrs.remote_discr = 0;
 	bfd->local_ip = bpc->bpc_local;
 	bfd->local_address = bpc->bpc_local;
-	bfd->timers.desired_min_tx = bfd->up_min_tx;
-	bfd->detect_TO = (bfd->detect_mult * BFD_DEF_SLOWTX);
-
-	/* Use detect_TO first for slow detection, then use recvtimer_update. */
 	bfd_recvtimer_update(bfd);
+	ptm_bfd_start_xmt_timer(bfd, false);
 
+	/* Registrate session into data structures. */
 	bfd_id_insert(bfd);
 
 	if (bpc->bpc_mhop) {
@@ -625,16 +640,7 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 		bfd_shop_insert(bfd);
 	}
 
-	/*
-	 * XXX: session update triggers echo start, so we must have our
-	 * discriminator ID set first.
-	 */
 	_bfd_session_update(bfd, bpc);
-
-	/* Start transmitting with slow interval until peer responds */
-	bfd->xmt_TO = BFD_DEF_SLOWTX;
-
-	ptm_bfd_xmt_TO(bfd, 0);
 
 	log_info("session-new: %s", bs_to_string(bfd));
 
@@ -680,8 +686,6 @@ void bfd_set_polling(struct bfd_session *bs)
 	 *
 	 * RFC 5880, Section 6.8.3.
 	 */
-	bs->new_timers.desired_min_tx = bs->up_min_tx;
-	bs->new_timers.required_min_rx = bs->timers.required_min_rx;
 	bs->polling = 1;
 }
 
@@ -864,10 +868,8 @@ void bs_echo_timer_handler(struct bfd_session *bs)
 void bs_final_handler(struct bfd_session *bs)
 {
 	/* Start using our new timers. */
-	bs->timers.desired_min_tx = bs->new_timers.desired_min_tx;
-	bs->timers.required_min_rx = bs->new_timers.required_min_rx;
-	bs->new_timers.desired_min_tx = 0;
-	bs->new_timers.required_min_rx = 0;
+	bs->cur_timers.desired_min_tx = bs->timers.desired_min_tx;
+	bs->cur_timers.required_min_rx = bs->timers.required_min_rx;
 
 	/*
 	 * TODO: demand mode. See RFC 5880 Section 6.1.

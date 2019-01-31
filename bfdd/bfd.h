@@ -214,8 +214,7 @@ struct bfd_session {
 
 	/* Timers */
 	struct bfd_timers timers;
-	struct bfd_timers new_timers;
-	uint32_t up_min_tx;
+	struct bfd_timers cur_timers;
 	uint64_t detect_TO;
 	struct thread *echo_recvtimer_ev;
 	struct thread *recvtimer_ev;

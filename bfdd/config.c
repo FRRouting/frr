@@ -471,7 +471,8 @@ char *config_notify_config(const char *op, struct bfd_session *bs)
 	json_object_int_add(resp, "detect-multiplier", bs->detect_mult);
 	json_object_int_add(resp, "receive-interval",
 			    bs->timers.required_min_rx / 1000);
-	json_object_int_add(resp, "transmit-interval", bs->up_min_tx / 1000);
+	json_object_int_add(resp, "transmit-interval",
+			    bs->timers.desired_min_tx / 1000);
 	json_object_int_add(resp, "echo-interval",
 			    bs->timers.required_min_echo / 1000);
 
