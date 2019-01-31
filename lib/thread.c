@@ -27,7 +27,6 @@
 #include "memory.h"
 #include "log.h"
 #include "hash.h"
-#include "pqueue.h"
 #include "command.h"
 #include "sigevent.h"
 #include "network.h"
@@ -41,6 +40,22 @@ DEFINE_MTYPE_STATIC(LIB, THREAD_POLL, "Thread Poll Info")
 DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats")
 
 DECLARE_LIST(thread_list, struct thread, threaditem)
+
+static int thread_timer_cmp(const struct thread *a, const struct thread *b)
+{
+	if (a->u.sands.tv_sec < b->u.sands.tv_sec)
+		return -1;
+	if (a->u.sands.tv_sec > b->u.sands.tv_sec)
+		return 1;
+	if (a->u.sands.tv_usec < b->u.sands.tv_usec)
+		return -1;
+	if (a->u.sands.tv_usec > b->u.sands.tv_usec)
+		return 1;
+	return 0;
+}
+
+DECLARE_HEAP(thread_timer_list, struct thread, timeritem,
+		thread_timer_cmp)
 
 #if defined(__APPLE__)
 #include <mach/mach.h>
@@ -401,25 +416,6 @@ void thread_cmd_init(void)
 /* CLI end ------------------------------------------------------------------ */
 
 
-static int thread_timer_cmp(void *a, void *b)
-{
-	struct thread *thread_a = a;
-	struct thread *thread_b = b;
-
-	if (timercmp(&thread_a->u.sands, &thread_b->u.sands, <))
-		return -1;
-	if (timercmp(&thread_a->u.sands, &thread_b->u.sands, >))
-		return 1;
-	return 0;
-}
-
-static void thread_timer_update(void *node, int actual_position)
-{
-	struct thread *thread = node;
-
-	thread->index = actual_position;
-}
-
 static void cancelreq_del(void *cr)
 {
 	XFREE(MTYPE_TMP, cr);
@@ -464,11 +460,7 @@ struct thread_master *thread_master_create(const char *name)
 	thread_list_init(&rv->event);
 	thread_list_init(&rv->ready);
 	thread_list_init(&rv->unuse);
-
-	/* Initialize the timer queues */
-	rv->timer = pqueue_create();
-	rv->timer->cmp = thread_timer_cmp;
-	rv->timer->update = thread_timer_update;
+	thread_timer_list_init(&rv->timer);
 
 	/* Initialize thread_fetch() settings */
 	rv->spin = true;
@@ -566,16 +558,6 @@ static void thread_array_free(struct thread_master *m,
 	XFREE(MTYPE_THREAD_POLL, thread_array);
 }
 
-static void thread_queue_free(struct thread_master *m, struct pqueue *queue)
-{
-	int i;
-
-	for (i = 0; i < queue->size; i++)
-		thread_free(m, queue->array[i]);
-
-	pqueue_delete(queue);
-}
-
 /*
  * thread_master_free_unused
  *
@@ -598,6 +580,8 @@ void thread_master_free_unused(struct thread_master *m)
 /* Stop thread scheduler. */
 void thread_master_free(struct thread_master *m)
 {
+	struct thread *t;
+
 	pthread_mutex_lock(&masters_mtx);
 	{
 		listnode_delete(masters, m);
@@ -609,7 +593,8 @@ void thread_master_free(struct thread_master *m)
 
 	thread_array_free(m, m->read);
 	thread_array_free(m, m->write);
-	thread_queue_free(m, m->timer);
+	while ((t = thread_timer_list_pop(&m->timer)))
+		thread_free(m, t);
 	thread_list_free(m, &m->event);
 	thread_list_free(m, &m->ready);
 	thread_list_free(m, &m->unuse);
@@ -683,7 +668,6 @@ static struct thread *thread_get(struct thread_master *m, uint8_t type,
 	thread->add_type = type;
 	thread->master = m;
 	thread->arg = arg;
-	thread->index = -1;
 	thread->yield = THREAD_YIELD_TIME_SLOT; /* default */
 	thread->ref = NULL;
 
@@ -854,7 +838,6 @@ funcname_thread_add_timer_timeval(struct thread_master *m,
 				  struct thread **t_ptr, debugargdef)
 {
 	struct thread *thread;
-	struct pqueue *queue;
 
 	assert(m != NULL);
 
@@ -870,7 +853,6 @@ funcname_thread_add_timer_timeval(struct thread_master *m,
 			return NULL;
 		}
 
-		queue = m->timer;
 		thread = thread_get(m, type, func, arg, debugargpass);
 
 		pthread_mutex_lock(&thread->mtx);
@@ -878,7 +860,7 @@ funcname_thread_add_timer_timeval(struct thread_master *m,
 			monotime(&thread->u.sands);
 			timeradd(&thread->u.sands, time_relative,
 				 &thread->u.sands);
-			pqueue_enqueue(thread, queue);
+			thread_timer_list_add(&m->timer, thread);
 			if (t_ptr) {
 				*t_ptr = thread;
 				thread->ref = t_ptr;
@@ -1055,7 +1037,6 @@ static void thread_cancel_rw(struct thread_master *master, int fd, short state)
 static void do_thread_cancel(struct thread_master *master)
 {
 	struct thread_list_head *list = NULL;
-	struct pqueue *queue = NULL;
 	struct thread **thread_array = NULL;
 	struct thread *thread;
 
@@ -1111,7 +1092,7 @@ static void do_thread_cancel(struct thread_master *master)
 			thread_array = master->write;
 			break;
 		case THREAD_TIMER:
-			queue = master->timer;
+			thread_timer_list_del(&master->timer, thread);
 			break;
 		case THREAD_EVENT:
 			list = &master->event;
@@ -1124,16 +1105,10 @@ static void do_thread_cancel(struct thread_master *master)
 			break;
 		}
 
-		if (queue) {
-			assert(thread->index >= 0);
-			assert(thread == queue->array[thread->index]);
-			pqueue_remove_at(thread->index, queue);
-		} else if (list) {
+		if (list) {
 			thread_list_del(list, thread);
 		} else if (thread_array) {
 			thread_array[thread->u.fd] = NULL;
-		} else {
-			assert(!"Thread should be either in queue or list or array!");
 		}
 
 		if (thread->ref)
@@ -1251,15 +1226,15 @@ void thread_cancel_async(struct thread_master *master, struct thread **thread,
 }
 /* ------------------------------------------------------------------------- */
 
-static struct timeval *thread_timer_wait(struct pqueue *queue,
+static struct timeval *thread_timer_wait(struct thread_timer_list_head *timers,
 					 struct timeval *timer_val)
 {
-	if (queue->size) {
-		struct thread *next_timer = queue->array[0];
-		monotime_until(&next_timer->u.sands, timer_val);
-		return timer_val;
-	}
-	return NULL;
+	if (!thread_timer_list_count(timers))
+		return NULL;
+
+	struct thread *next_timer = thread_timer_list_first(timers);
+	monotime_until(&next_timer->u.sands, timer_val);
+	return timer_val;
 }
 
 static struct thread *thread_run(struct thread_master *m, struct thread *thread,
@@ -1369,17 +1344,16 @@ static void thread_process_io(struct thread_master *m, unsigned int num)
 }
 
 /* Add all timers that have popped to the ready list. */
-static unsigned int thread_process_timers(struct pqueue *queue,
+static unsigned int thread_process_timers(struct thread_timer_list_head *timers,
 					  struct timeval *timenow)
 {
 	struct thread *thread;
 	unsigned int ready = 0;
 
-	while (queue->size) {
-		thread = queue->array[0];
+	while ((thread = thread_timer_list_first(timers))) {
 		if (timercmp(timenow, &thread->u.sands, <))
 			return ready;
-		pqueue_dequeue(queue);
+		thread_timer_list_pop(timers);
 		thread->type = THREAD_READY;
 		thread_list_add_tail(&thread->master->ready, thread);
 		ready++;
@@ -1461,7 +1435,7 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 		 * once per loop to avoid starvation by events
 		 */
 		if (!thread_list_count(&m->ready))
-			tw = thread_timer_wait(m->timer, &tv);
+			tw = thread_timer_wait(&m->timer, &tv);
 
 		if (thread_list_count(&m->ready) ||
 				(tw && !timercmp(tw, &zerotime, >)))
@@ -1506,7 +1480,7 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 
 		/* Post timers to ready queue. */
 		monotime(&now);
-		thread_process_timers(m->timer, &now);
+		thread_process_timers(&m->timer, &now);
 
 		/* Post I/O to ready queue. */
 		if (num > 0)
