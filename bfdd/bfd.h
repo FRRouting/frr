@@ -527,6 +527,7 @@ void bfd_set_polling(struct bfd_session *bs);
 void bs_state_handler(struct bfd_session *, int);
 void bs_echo_timer_handler(struct bfd_session *);
 void bs_final_handler(struct bfd_session *);
+void bs_set_slow_timers(struct bfd_session *bs);
 const char *satostr(struct sockaddr_any *sa);
 const char *diag2str(uint8_t diag);
 int strtosa(const char *addr, struct sockaddr_any *sa);

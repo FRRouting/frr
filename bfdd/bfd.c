@@ -191,6 +191,9 @@ void ptm_bfd_ses_dn(struct bfd_session *bfd, uint8_t diag)
 
 	ptm_bfd_snd(bfd, 0);
 
+	/* Slow down the control packets, the connection is down. */
+	bs_set_slow_timers(bfd);
+
 	/* only signal clients when going from up->down state */
 	if (old_state == PTM_BFD_UP)
 		control_notify(bfd);
@@ -369,18 +372,8 @@ static struct bfd_session *bfd_session_new(int sd)
 	bs->detect_mult = BFD_DEFDETECTMULT;
 	bs->mh_ttl = BFD_DEF_MHOP_TTL;
 
-	/*
-	 * BFD connection startup must use slow timer.
-	 *
-	 * RFC 5880, Section 6.8.3.
-	 */
-	bs->cur_timers.desired_min_tx = BFD_DEF_SLOWTX;
-	bs->cur_timers.required_min_rx = BFD_DEF_SLOWTX;
-	bs->cur_timers.required_min_echo = 0;
-
-	/* Set the appropriated timeouts for slow connection. */
-	bs->detect_TO = (BFD_DEFDETECTMULT * BFD_DEF_SLOWTX);
-	bs->xmt_TO = BFD_DEF_SLOWTX;
+	/* Initiate connection with slow timers. */
+	bs_set_slow_timers(bs);
 
 	/* Initiate remote settings as well. */
 	bs->remote_timers = bs->cur_timers;
@@ -923,6 +916,22 @@ void bs_final_handler(struct bfd_session *bs)
 	control_notify_config(BCM_NOTIFY_CONFIG_UPDATE, bs);
 }
 
+void bs_set_slow_timers(struct bfd_session *bs)
+{
+	/*
+	 * BFD connection must use slow timers before going up or after
+	 * losing connectivity to avoid wasting bandwidth.
+	 *
+	 * RFC 5880, Section 6.8.3.
+	 */
+	bs->cur_timers.desired_min_tx = BFD_DEF_SLOWTX;
+	bs->cur_timers.required_min_rx = BFD_DEF_SLOWTX;
+	bs->cur_timers.required_min_echo = 0;
+
+	/* Set the appropriated timeouts for slow connection. */
+	bs->detect_TO = (BFD_DEFDETECTMULT * BFD_DEF_SLOWTX);
+	bs->xmt_TO = BFD_DEF_SLOWTX;
+}
 
 /*
  * Helper functions.
