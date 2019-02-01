@@ -279,16 +279,6 @@ struct bfd_state_str_list {
 	int type;
 };
 
-struct bfd_vrf {
-	int vrf_id;
-	char name[MAXNAMELEN + 1];
-} bfd_vrf;
-
-struct bfd_iface {
-	int vrf_id;
-	char ifname[MAXNAMELEN + 1];
-} bfd_iface;
-
 
 /* States defined per 4.1 */
 #define PTM_BFD_ADM_DOWN 0

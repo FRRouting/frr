@@ -1121,24 +1121,17 @@ const char *bs_to_string(struct bfd_session *bs)
 static struct hash *bfd_id_hash;
 static struct hash *bfd_shop_hash;
 static struct hash *bfd_mhop_hash;
-static struct hash *bfd_vrf_hash;
-static struct hash *bfd_iface_hash;
 
 static unsigned int bfd_id_hash_do(void *p);
 static unsigned int bfd_shop_hash_do(void *p);
 static unsigned int bfd_mhop_hash_do(void *p);
-static unsigned int bfd_vrf_hash_do(void *p);
-static unsigned int bfd_iface_hash_do(void *p);
 
 static void _shop_key(struct bfd_session *bs, const struct bfd_shop_key *shop);
 static void _shop_key2(struct bfd_session *bs, const struct bfd_shop_key *shop);
 static void _mhop_key(struct bfd_session *bs, const struct bfd_mhop_key *mhop);
-static int _iface_key(struct bfd_iface *iface, const char *ifname);
 
 static void _bfd_free(struct hash_backet *hb,
 		      void *arg __attribute__((__unused__)));
-static void _vrf_free(void *arg);
-static void _iface_free(void *arg);
 
 /* BFD hash for our discriminator. */
 static unsigned int bfd_id_hash_do(void *p)
@@ -1185,36 +1178,6 @@ static bool bfd_mhop_hash_cmp(const void *n1, const void *n2)
 	return memcmp(&bs1->mhop, &bs2->mhop, sizeof(bs1->mhop)) == 0;
 }
 
-/* BFD hash for VRFs. */
-static unsigned int bfd_vrf_hash_do(void *p)
-{
-	struct bfd_vrf *vrf = p;
-
-	return jhash_1word(vrf->vrf_id, 0);
-}
-
-static bool bfd_vrf_hash_cmp(const void *n1, const void *n2)
-{
-	const struct bfd_vrf *v1 = n1, *v2 = n2;
-
-	return v1->vrf_id == v2->vrf_id;
-}
-
-/* BFD hash for interfaces. */
-static unsigned int bfd_iface_hash_do(void *p)
-{
-	struct bfd_iface *iface = p;
-
-	return string_hash_make(iface->ifname);
-}
-
-static bool bfd_iface_hash_cmp(const void *n1, const void *n2)
-{
-	const struct bfd_iface *i1 = n1, *i2 = n2;
-
-	return strcmp(i1->ifname, i2->ifname) == 0;
-}
-
 /* Helper functions */
 static void _shop_key(struct bfd_session *bs, const struct bfd_shop_key *shop)
 {
@@ -1252,17 +1215,6 @@ static void _mhop_key(struct bfd_session *bs, const struct bfd_mhop_key *mhop)
 		bs->mhop.local.sa_sin6.sin6_port = 0;
 		break;
 	}
-}
-
-static int _iface_key(struct bfd_iface *iface, const char *ifname)
-{
-	size_t slen = sizeof(iface->ifname);
-
-	memset(iface->ifname, 0, slen);
-	if (strlcpy(iface->ifname, ifname, slen) >= slen)
-		return -1;
-
-	return 0;
 }
 
 /*
@@ -1305,25 +1257,6 @@ struct bfd_session *bfd_mhop_lookup(struct bfd_mhop_key mhop)
 	_mhop_key(&bs, &mhop);
 
 	return hash_lookup(bfd_mhop_hash, &bs);
-}
-
-struct bfd_vrf *bfd_vrf_lookup(int vrf_id)
-{
-	struct bfd_vrf vrf;
-
-	vrf.vrf_id = vrf_id;
-
-	return hash_lookup(bfd_vrf_hash, &vrf);
-}
-
-struct bfd_iface *bfd_iface_lookup(const char *ifname)
-{
-	struct bfd_iface iface;
-
-	if (_iface_key(&iface, ifname) != 0)
-		return NULL;
-
-	return hash_lookup(bfd_iface_hash, &iface);
 }
 
 /*
@@ -1372,25 +1305,6 @@ struct bfd_session *bfd_mhop_delete(struct bfd_mhop_key mhop)
 	return hash_release(bfd_mhop_hash, &bs);
 }
 
-struct bfd_vrf *bfd_vrf_delete(int vrf_id)
-{
-	struct bfd_vrf vrf;
-
-	vrf.vrf_id = vrf_id;
-
-	return hash_release(bfd_vrf_hash, &vrf);
-}
-
-struct bfd_iface *bfd_iface_delete(const char *ifname)
-{
-	struct bfd_iface iface;
-
-	if (_iface_key(&iface, ifname) != 0)
-		return NULL;
-
-	return hash_release(bfd_iface_hash, &iface);
-}
-
 /* Iteration functions. */
 void bfd_id_iterate(hash_iter_func hif, void *arg)
 {
@@ -1405,16 +1319,6 @@ void bfd_shop_iterate(hash_iter_func hif, void *arg)
 void bfd_mhop_iterate(hash_iter_func hif, void *arg)
 {
 	hash_iterate(bfd_mhop_hash, hif, arg);
-}
-
-void bfd_vrf_iterate(hash_iter_func hif, void *arg)
-{
-	hash_iterate(bfd_vrf_hash, hif, arg);
-}
-
-void bfd_iface_iterate(hash_iter_func hif, void *arg)
-{
-	hash_iterate(bfd_iface_hash, hif, arg);
 }
 
 /*
@@ -1438,16 +1342,6 @@ bool bfd_mhop_insert(struct bfd_session *bs)
 	return (hash_get(bfd_mhop_hash, bs, hash_alloc_intern) == bs);
 }
 
-bool bfd_vrf_insert(struct bfd_vrf *vrf)
-{
-	return (hash_get(bfd_vrf_hash, vrf, hash_alloc_intern) == vrf);
-}
-
-bool bfd_iface_insert(struct bfd_iface *iface)
-{
-	return (hash_get(bfd_iface_hash, iface, hash_alloc_intern) == iface);
-}
-
 void bfd_initialize(void)
 {
 	bfd_id_hash = hash_create(bfd_id_hash_do, bfd_id_hash_cmp,
@@ -1456,10 +1350,6 @@ void bfd_initialize(void)
 				    "BFD single hop hash");
 	bfd_mhop_hash = hash_create(bfd_mhop_hash_do, bfd_mhop_hash_cmp,
 				    "BFD multihop hop hash");
-	bfd_vrf_hash =
-		hash_create(bfd_vrf_hash_do, bfd_vrf_hash_cmp, "BFD VRF hash");
-	bfd_iface_hash = hash_create(bfd_iface_hash_do, bfd_iface_hash_cmp,
-				     "BFD interface hash");
 }
 
 static void _bfd_free(struct hash_backet *hb,
@@ -1468,20 +1358,6 @@ static void _bfd_free(struct hash_backet *hb,
 	struct bfd_session *bs = hb->data;
 
 	bfd_session_free(bs);
-}
-
-static void _vrf_free(void *arg)
-{
-	struct bfd_vrf *vrf = arg;
-
-	XFREE(MTYPE_BFDD_CONFIG, vrf);
-}
-
-static void _iface_free(void *arg)
-{
-	struct bfd_iface *iface = arg;
-
-	XFREE(MTYPE_BFDD_CONFIG, iface);
 }
 
 void bfd_shutdown(void)
@@ -1497,14 +1373,8 @@ void bfd_shutdown(void)
 	assert(bfd_shop_hash->count == 0);
 	assert(bfd_mhop_hash->count == 0);
 
-	/* Clean the VRF and interface hashes. */
-	hash_clean(bfd_vrf_hash, _vrf_free);
-	hash_clean(bfd_iface_hash, _iface_free);
-
 	/* Now free the hashes themselves. */
 	hash_free(bfd_id_hash);
 	hash_free(bfd_shop_hash);
 	hash_free(bfd_mhop_hash);
-	hash_free(bfd_vrf_hash);
-	hash_free(bfd_iface_hash);
 }
