@@ -26,7 +26,6 @@
 #include "lib/memory.h"
 #include "lib/prefix.h"
 
-#define VRRP_VERSION 3
 #define VRRP_TYPE_ADVERTISEMENT 1
 
 extern const char *vrrp_packet_names[16];
@@ -94,10 +93,18 @@ struct vrrp_pkt {
 #define VRRP_MAX_PKT_SIZE VRRP_MAX_PKT_SIZE_V6
 
 /*
- * Builds a VRRP packet.
+ * Builds a VRRP ADVERTISEMENT packet.
  *
  * pkt
  *    Pointer to store pointer to result buffer in
+ *
+ * src
+ *    Source address packet will be transmitted from. This is needed to compute
+ *    the VRRP checksum. The returned packet must be sent in an IP datagram with
+ *    the source address equal to this field, or the checksum will be invalid.
+ *
+ * version
+ *    VRRP version; must be 2 or 3
  *
  * vrid
  *    Virtual Router Identifier
@@ -118,12 +125,13 @@ struct vrrp_pkt {
  *    array of pointer to either struct in_addr (v6 = false) or struct in6_addr
  *    (v6 = true)
  */
-ssize_t vrrp_pkt_build(struct vrrp_pkt **pkt, struct ipaddr *src, uint8_t vrid,
-		       uint8_t prio, uint16_t max_adver_int, uint8_t numip,
-		       struct ipaddr **ips);
+ssize_t vrrp_pkt_adver_build(struct vrrp_pkt **pkt, struct ipaddr *src,
+			     uint8_t version, uint8_t vrid, uint8_t prio,
+			     uint16_t max_adver_int, uint8_t numip,
+			     struct ipaddr **ips);
 
 /*
- * Dumps a VRRP packet to a string.
+ * Dumps a VRRP ADVERTISEMENT packet to a string.
  *
  * Currently only dumps the header.
  *
@@ -139,7 +147,7 @@ ssize_t vrrp_pkt_build(struct vrrp_pkt **pkt, struct ipaddr *src, uint8_t vrid,
  * Returns:
  *    # bytes written to buf
  */
-size_t vrrp_pkt_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt);
+size_t vrrp_pkt_adver_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt);
 
 
 /*
@@ -170,8 +178,8 @@ size_t vrrp_pkt_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt);
  * Returns:
  *    Size of VRRP packet, or -1 upon error
  */
-ssize_t vrrp_parse_datagram(int family, struct msghdr *m, size_t read,
-			    struct vrrp_pkt **pkt, char *errmsg,
-			    size_t errmsg_len);
+ssize_t vrrp_pkt_parse_datagram(int family, struct msghdr *m, size_t read,
+				struct vrrp_pkt **pkt, char *errmsg,
+				size_t errmsg_len);
 
 #endif /* __VRRP_PACKET_H__ */

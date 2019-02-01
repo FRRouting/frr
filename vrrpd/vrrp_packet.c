@@ -51,17 +51,67 @@ const char *vrrp_packet_names[16] = {
 };
 /* clang-format on */
 
-ssize_t vrrp_pkt_build(struct vrrp_pkt **pkt, struct ipaddr *src, uint8_t vrid,
-		       uint8_t prio, uint16_t max_adver_int, uint8_t numip,
-		       struct ipaddr **ips)
+/*
+ * Compute the VRRP checksum.
+ *
+ * Checksum is not set in the packet, just computed.
+ *
+ * pkt
+ *    VRRP packet, fully filled out except for checksum field.
+ *
+ * pktsize
+ *    sizeof(*pkt)
+ *
+ * src
+ *    IP address that pkt will be transmitted from.
+ *
+ * Returns:
+ *    VRRP checksum in network byte order.
+ */
+static uint16_t vrrp_pkt_checksum(struct vrrp_pkt *pkt, size_t pktsize,
+				  struct ipaddr *src)
 {
+	uint16_t chksum;
+	bool v6 = (src->ipa_type == IPADDR_V6);
+
+	uint16_t chksum_pre = pkt->hdr.chksum;
+	pkt->hdr.chksum = 0;
+
+	if (v6) {
+		struct ipv6_ph ph = {};
+		ph.src = src->ipaddr_v6;
+		inet_pton(AF_INET6, VRRP_MCASTV6_GROUP_STR, &ph.dst);
+		ph.ulpl = htons(pktsize);
+		ph.next_hdr = 112;
+		chksum = in_cksum_with_ph6(&ph, pkt, pktsize);
+	} else {
+		struct ipv4_ph ph = {};
+		ph.src = src->ipaddr_v4;
+		inet_pton(AF_INET, VRRP_MCASTV4_GROUP_STR, &ph.dst);
+		ph.proto = 112;
+		ph.len = htons(pktsize);
+		chksum = in_cksum_with_ph4(&ph, pkt, pktsize);
+	}
+
+	pkt->hdr.chksum = chksum_pre;
+
+	return chksum;
+}
+
+ssize_t vrrp_pkt_adver_build(struct vrrp_pkt **pkt, struct ipaddr *src,
+			     uint8_t version, uint8_t vrid, uint8_t prio,
+			     uint16_t max_adver_int, uint8_t numip,
+			     struct ipaddr **ips)
+{
+	assert(version >= 2 && version <= 3);
+
 	bool v6 = IS_IPADDR_V6(ips[0]);
 
 	size_t addrsz = v6 ? sizeof(struct in6_addr) : sizeof(struct in_addr);
 	size_t pktsize = VRRP_PKT_SIZE(v6 ? AF_INET6 : AF_INET, numip);
 	*pkt = XCALLOC(MTYPE_VRRP_PKT, pktsize);
 
-	(*pkt)->hdr.vertype |= VRRP_VERSION << 4;
+	(*pkt)->hdr.vertype |= version << 4;
 	(*pkt)->hdr.vertype |= VRRP_TYPE_ADVERTISEMENT;
 	(*pkt)->hdr.vrid = vrid;
 	(*pkt)->hdr.priority = prio;
@@ -75,28 +125,12 @@ ssize_t vrrp_pkt_build(struct vrrp_pkt **pkt, struct ipaddr *src, uint8_t vrid,
 		aptr += addrsz;
 	}
 
-	(*pkt)->hdr.chksum = 0;
-
-	if (v6) {
-		struct ipv6_ph ph = {};
-		ph.src = src->ipaddr_v6;
-		inet_pton(AF_INET6, VRRP_MCASTV6_GROUP_STR, &ph.dst);
-		ph.ulpl = htons(pktsize);
-		ph.next_hdr = 112;
-		(*pkt)->hdr.chksum = in_cksum_with_ph6(&ph, *pkt, pktsize);
-	} else {
-		struct ipv4_ph ph = {};
-		ph.src = src->ipaddr_v4;
-		inet_pton(AF_INET, VRRP_MCASTV4_GROUP_STR, &ph.dst);
-		ph.proto = 112;
-		ph.len = htons(pktsize);
-		(*pkt)->hdr.chksum = in_cksum_with_ph4(&ph, *pkt, pktsize);
-	}
+	(*pkt)->hdr.chksum = vrrp_pkt_checksum(*pkt, pktsize, src);
 
 	return pktsize;
 }
 
-size_t vrrp_pkt_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt)
+size_t vrrp_pkt_adver_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt)
 {
 	if (buflen < 1)
 		return 0;
@@ -127,9 +161,9 @@ size_t vrrp_pkt_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt)
 	return rs;
 }
 
-ssize_t vrrp_parse_datagram(int family, struct msghdr *m, size_t read,
-			    struct vrrp_pkt **pkt, char *errmsg,
-			    size_t errmsg_len)
+ssize_t vrrp_pkt_parse_datagram(int family, struct msghdr *m, size_t read,
+				struct vrrp_pkt **pkt, char *errmsg,
+				size_t errmsg_len)
 {
 	/* Source (MAC & IP), Dest (MAC & IP) TTL validation done by kernel */
 	size_t addrsz = (family == AF_INET) ? sizeof(struct in_addr)

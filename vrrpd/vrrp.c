@@ -424,18 +424,18 @@ static int vrrp_master_down_timer_expire(struct thread *thread);
 static void vrrp_send_advertisement(struct vrrp_router *r)
 {
 	struct vrrp_pkt *pkt;
-	ssize_t pktlen;
+	ssize_t pktsz;
 	struct ipaddr *addrs[r->addrs->count];
 	union sockunion dest;
 
 	list_to_array(r->addrs, (void **)addrs, r->addrs->count);
 
-	pktlen = vrrp_pkt_build(&pkt, &r->src, r->vr->vrid, r->priority,
-				r->vr->advertisement_interval, r->addrs->count,
-				(struct ipaddr **)&addrs);
+	pktsz = vrrp_pkt_adver_build(&pkt, &r->src, 3, r->vr->vrid, r->priority,
+				     r->vr->advertisement_interval,
+				     r->addrs->count, (struct ipaddr **)&addrs);
 
-	if (pktlen > 0)
-		zlog_hexdump(pkt, (size_t) pktlen);
+	if (pktsz > 0)
+		zlog_hexdump(pkt, (size_t) pktsz);
 	else
 		zlog_warn("Could not build VRRP packet");
 
@@ -443,7 +443,7 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 		r->family == AF_INET ? VRRP_MCASTV4_GROUP_STR : VRRP_MCASTV6_GROUP_STR;
 	str2sockunion(group, &dest);
 
-	ssize_t sent = sendto(r->sock_tx, pkt, (size_t)pktlen, 0, &dest.sa,
+	ssize_t sent = sendto(r->sock_tx, pkt, (size_t)pktsz, 0, &dest.sa,
 			      sockunion_sizeof(&dest));
 
 	XFREE(MTYPE_VRRP_PKT, pkt);
@@ -469,7 +469,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct vrrp_pkt *pkt,
 				    size_t pktsize)
 {
 	char dumpbuf[BUFSIZ];
-	vrrp_pkt_dump(dumpbuf, sizeof(dumpbuf), pkt);
+	vrrp_pkt_adver_dump(dumpbuf, sizeof(dumpbuf), pkt);
 	zlog_debug("Received VRRP Advertisement:\n%s", dumpbuf);
 
 	/* Check that VRID matches our configured VRID */
@@ -595,8 +595,8 @@ static int vrrp_read(struct thread *thread)
 		   r->vr->vrid, family2str(r->family));
 	zlog_hexdump(r->ibuf, nbytes);
 
-	pktsize = vrrp_parse_datagram(r->family, &m, nbytes, &pkt, errbuf,
-				      sizeof(errbuf));
+	pktsize = vrrp_pkt_parse_datagram(r->family, &m, nbytes, &pkt, errbuf,
+					  sizeof(errbuf));
 
 	if (pktsize < 0) {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
