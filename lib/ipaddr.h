@@ -56,6 +56,9 @@ struct ipaddr {
 #define SET_IPADDR_V4(p)  (p)->ipa_type = IPADDR_V4
 #define SET_IPADDR_V6(p)  (p)->ipa_type = IPADDR_V6
 
+#define IPADDRSZ(p)                                                            \
+	IS_IPADDR_V4((p)) ? sizeof(struct in_addr) : sizeof(struct in6_addr)
+
 static inline int str2ipaddr(const char *str, struct ipaddr *ip)
 {
 	int ret;
