@@ -176,13 +176,13 @@ enum bfd_session_flags {
 /* BFD session hash keys */
 struct bfd_shop_key {
 	struct sockaddr_any peer;
-	char port_name[MAXNAMELEN + 1];
+	ifindex_t ifindex;
 };
 
 struct bfd_mhop_key {
 	struct sockaddr_any peer;
 	struct sockaddr_any local;
-	char vrf_name[MAXNAMELEN + 1];
+	vrf_id_t vrfid;
 };
 
 struct bfd_session_stats {
@@ -238,6 +238,7 @@ struct bfd_session {
 	struct sockaddr_any local_address;
 	struct sockaddr_any local_ip;
 	struct interface *ifp;
+	struct vrf *vrf;
 	uint8_t local_mac[ETHERNET_ADDRESS_LENGTH];
 	uint8_t peer_mac[ETHERNET_ADDRESS_LENGTH];
 
@@ -516,10 +517,9 @@ void ptm_bfd_echo_stop(struct bfd_session *bfd);
 void ptm_bfd_echo_start(struct bfd_session *bfd);
 void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit);
 void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo);
-struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp, char *port_name,
-				      struct sockaddr_any *peer,
-				      struct sockaddr_any *local,
-				      char *vrf_name, bool is_mhop);
+struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *, struct sockaddr_any *,
+				      struct sockaddr_any *, ifindex_t,
+				      vrf_id_t, bool);
 
 struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc);
 int bfd_session_update_label(struct bfd_session *bs, const char *nlabel);

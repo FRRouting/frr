@@ -47,12 +47,10 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 
 static void bfd_sd_reschedule(int sd);
 ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
-		      char *port, size_t portlen, char *vrfname,
-		      size_t vrfnamelen, struct sockaddr_any *local,
+		      ifindex_t *ifindex, struct sockaddr_any *local,
 		      struct sockaddr_any *peer);
 ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
-		      char *port, size_t portlen, char *vrfname,
-		      size_t vrfnamelen, struct sockaddr_any *local,
+		      ifindex_t *ifindex, struct sockaddr_any *local,
 		      struct sockaddr_any *peer);
 int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
 		struct sockaddr *to, socklen_t tolen);
@@ -253,20 +251,15 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 }
 
 ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
-		      char *port, size_t portlen, char *vrfname,
-		      size_t vrfnamelen, struct sockaddr_any *local,
+		      ifindex_t *ifindex, struct sockaddr_any *local,
 		      struct sockaddr_any *peer)
 {
-	struct interface *ifp;
 	struct cmsghdr *cm;
-	int ifindex;
 	ssize_t mlen;
 	struct sockaddr_in msgaddr;
 	struct msghdr msghdr;
 	struct iovec iov[1];
 	uint8_t cmsgbuf[255];
-
-	port[0] = '\0';
 
 	/* Prepare the recvmsg params. */
 	iov[0].iov_base = msgbuf;
@@ -325,13 +318,7 @@ ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 			local->sa_sin.sin_len = sizeof(local->sa_sin);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 
-			ifp = if_lookup_by_index(pi->ipi_ifindex, VRF_DEFAULT);
-			if (ifp == NULL)
-				break;
-
-			if (strlcpy(port, ifp->name, portlen) >= portlen)
-				log_debug(
-					"ipv4-recv: interface name truncated");
+			*ifindex = pi->ipi_ifindex;
 			break;
 		}
 #endif /* BFD_LINUX */
@@ -366,31 +353,18 @@ ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 	}
 
 	/* OS agnostic way of getting interface name. */
-	if (port[0] == 0) {
-		ifindex = getsockopt_ifindex(AF_INET, &msghdr);
-		if (ifindex <= 0)
-			return mlen;
-
-		ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
-		if (ifp == NULL)
-			return mlen;
-
-		if (strlcpy(port, ifp->name, portlen) >= portlen)
-			log_debug("ipv4-recv: interface name truncated");
-	}
+	if (*ifindex == IFINDEX_INTERNAL)
+		*ifindex = getsockopt_ifindex(AF_INET, &msghdr);
 
 	return mlen;
 }
 
 ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
-		      char *port, size_t portlen, char *vrfname,
-		      size_t vrfnamelen, struct sockaddr_any *local,
+		      ifindex_t *ifindex, struct sockaddr_any *local,
 		      struct sockaddr_any *peer)
 {
-	struct interface *ifp;
 	struct cmsghdr *cm;
 	struct in6_pktinfo *pi6 = NULL;
-	int ifindex = 0;
 	ssize_t mlen;
 	uint32_t ttlval;
 	struct sockaddr_in6 msgaddr6;
@@ -445,24 +419,16 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 				local->sa_sin6.sin6_len = sizeof(local->sa_sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 
-				ifindex = pi6->ipi6_ifindex;
-				ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
-				if (ifp == NULL)
-					break;
-
-				if (strlcpy(port, ifp->name, portlen)
-				    >= portlen)
-					log_debug(
-						"ipv6-recv: interface name truncated");
+				*ifindex = pi6->ipi6_ifindex;
 			}
 		}
 	}
 
 	/* Set scope ID for link local addresses. */
 	if (IN6_IS_ADDR_LINKLOCAL(&peer->sa_sin6.sin6_addr))
-		peer->sa_sin6.sin6_scope_id = ifindex;
+		peer->sa_sin6.sin6_scope_id = *ifindex;
 	if (IN6_IS_ADDR_LINKLOCAL(&local->sa_sin6.sin6_addr))
-		local->sa_sin6.sin6_scope_id = ifindex;
+		local->sa_sin6.sin6_scope_id = *ifindex;
 
 	return mlen;
 }
@@ -497,8 +463,8 @@ static void bfd_sd_reschedule(int sd)
 }
 
 static void cp_debug(bool mhop, struct sockaddr_any *peer,
-		     struct sockaddr_any *local, const char *port,
-		     const char *vrf, const char *fmt, ...)
+		     struct sockaddr_any *local, ifindex_t ifindex,
+		     vrf_id_t vrfid, const char *fmt, ...)
 {
 	char buf[512], peerstr[128], localstr[128], portstr[64], vrfstr[64];
 	va_list vl;
@@ -514,13 +480,13 @@ static void cp_debug(bool mhop, struct sockaddr_any *peer,
 	else
 		localstr[0] = 0;
 
-	if (port[0])
-		snprintf(portstr, sizeof(portstr), " port:%s", port);
+	if (ifindex != IFINDEX_INTERNAL)
+		snprintf(portstr, sizeof(portstr), " port:%u", ifindex);
 	else
 		portstr[0] = 0;
 
-	if (vrf[0])
-		snprintf(vrfstr, sizeof(vrfstr), " vrf:%s", port);
+	if (vrfid != VRF_DEFAULT)
+		snprintf(vrfstr, sizeof(vrfstr), " vrf:%u", vrfid);
 	else
 		vrfstr[0] = 0;
 
@@ -540,8 +506,9 @@ int bfd_recv_cb(struct thread *t)
 	bool is_mhop;
 	ssize_t mlen = 0;
 	uint8_t ttl;
+	vrf_id_t vrfid = VRF_DEFAULT;
+	ifindex_t ifindex = IFINDEX_INTERNAL;
 	struct sockaddr_any local, peer;
-	char port[MAXNAMELEN + 1], vrfname[MAXNAMELEN + 1];
 	uint8_t msgbuf[1516];
 
 	/* Schedule next read. */
@@ -554,8 +521,6 @@ int bfd_recv_cb(struct thread *t)
 	}
 
 	/* Sanitize input/output. */
-	memset(port, 0, sizeof(port));
-	memset(vrfname, 0, sizeof(vrfname));
 	memset(&local, 0, sizeof(local));
 	memset(&peer, 0, sizeof(peer));
 
@@ -563,26 +528,24 @@ int bfd_recv_cb(struct thread *t)
 	is_mhop = false;
 	if (sd == bglobal.bg_shop || sd == bglobal.bg_mhop) {
 		is_mhop = sd == bglobal.bg_mhop;
-		mlen = bfd_recv_ipv4(sd, msgbuf, sizeof(msgbuf), &ttl, port,
-				     sizeof(port), vrfname, sizeof(vrfname),
+		mlen = bfd_recv_ipv4(sd, msgbuf, sizeof(msgbuf), &ttl, &ifindex,
 				     &local, &peer);
 	} else if (sd == bglobal.bg_shop6 || sd == bglobal.bg_mhop6) {
 		is_mhop = sd == bglobal.bg_mhop6;
-		mlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), &ttl, port,
-				     sizeof(port), vrfname, sizeof(vrfname),
+		mlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), &ttl, &ifindex,
 				     &local, &peer);
 	}
 
 	/* Implement RFC 5880 6.8.6 */
 	if (mlen < BFD_PKT_LEN) {
-		cp_debug(is_mhop, &peer, &local, port, vrfname,
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "too small (%ld bytes)", mlen);
 		return 0;
 	}
 
 	/* Validate packet TTL. */
 	if ((is_mhop == false) && (ttl != BFD_TTL_VAL)) {
-		cp_debug(is_mhop, &peer, &local, port, vrfname,
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "invalid TTL: %d expected %d", ttl, BFD_TTL_VAL);
 		return 0;
 	}
@@ -596,32 +559,32 @@ int bfd_recv_cb(struct thread *t)
 	 */
 	cp = (struct bfd_pkt *)(msgbuf);
 	if (BFD_GETVER(cp->diag) != BFD_VERSION) {
-		cp_debug(is_mhop, &peer, &local, port, vrfname,
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "bad version %d", BFD_GETVER(cp->diag));
 		return 0;
 	}
 
 	if (cp->detect_mult == 0) {
-		cp_debug(is_mhop, &peer, &local, port, vrfname,
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "detect multiplier set to zero");
 		return 0;
 	}
 
 	if ((cp->len < BFD_PKT_LEN) || (cp->len > mlen)) {
-		cp_debug(is_mhop, &peer, &local, port, vrfname, "too small");
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid, "too small");
 		return 0;
 	}
 
 	if (cp->discrs.my_discr == 0) {
-		cp_debug(is_mhop, &peer, &local, port, vrfname,
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "'my discriminator' is zero");
 		return 0;
 	}
 
 	/* Find the session that this packet belongs. */
-	bfd = ptm_bfd_sess_find(cp, port, &peer, &local, vrfname, is_mhop);
+	bfd = ptm_bfd_sess_find(cp, &peer, &local, ifindex, vrfid, is_mhop);
 	if (bfd == NULL) {
-		cp_debug(is_mhop, &peer, &local, port, vrfname,
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "no session found");
 		return 0;
 	}
@@ -634,7 +597,7 @@ int bfd_recv_cb(struct thread *t)
 	 */
 	if (is_mhop) {
 		if ((BFD_TTL_VAL - bfd->mh_ttl) > BFD_TTL_VAL) {
-			cp_debug(is_mhop, &peer, &local, port, vrfname,
+			cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 				 "exceeded max hop count (expected %d, got %d)",
 				 bfd->mh_ttl, BFD_TTL_VAL);
 			return 0;
@@ -648,12 +611,12 @@ int bfd_recv_cb(struct thread *t)
 	 * packet came in.
 	 */
 	if (bfd->ifp == NULL)
-		bfd->ifp = if_lookup_by_name(port, VRF_DEFAULT);
+		bfd->ifp = if_lookup_by_index(ifindex, vrfid);
 
 	/* Log remote discriminator changes. */
 	if ((bfd->discrs.remote_discr != 0)
 	    && (bfd->discrs.remote_discr != ntohl(cp->discrs.my_discr)))
-		cp_debug(is_mhop, &peer, &local, port, vrfname,
+		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "remote discriminator mismatch (expected %d, got %d)",
 			 bfd->discrs.remote_discr, ntohl(cp->discrs.my_discr));
 
@@ -711,21 +674,20 @@ int bp_bfd_echo_in(int sd, uint8_t *ttl, uint32_t *my_discr)
 	struct bfd_echo_pkt *bep;
 	ssize_t rlen;
 	struct sockaddr_any local, peer;
-	char port[MAXNAMELEN + 1], vrfname[MAXNAMELEN + 1];
+	ifindex_t ifindex = IFINDEX_INTERNAL;
+	vrf_id_t vrfid = VRF_DEFAULT;
 	uint8_t msgbuf[1516];
 
 	if (sd == bglobal.bg_echo)
-		rlen = bfd_recv_ipv4(sd, msgbuf, sizeof(msgbuf), ttl, port,
-				     sizeof(port), vrfname, sizeof(vrfname),
+		rlen = bfd_recv_ipv4(sd, msgbuf, sizeof(msgbuf), ttl, &ifindex,
 				     &local, &peer);
 	else
-		rlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), ttl, port,
-				     sizeof(port), vrfname, sizeof(vrfname),
+		rlen = bfd_recv_ipv6(sd, msgbuf, sizeof(msgbuf), ttl, &ifindex,
 				     &local, &peer);
 
 	/* Short packet, better not risk reading it. */
 	if (rlen < (ssize_t)sizeof(*bep)) {
-		cp_debug(false, &peer, &local, port, vrfname,
+		cp_debug(false, &peer, &local, ifindex, vrfid,
 			 "small echo packet");
 		return -1;
 	}
@@ -743,7 +705,7 @@ int bp_bfd_echo_in(int sd, uint8_t *ttl, uint32_t *my_discr)
 	bep = (struct bfd_echo_pkt *)msgbuf;
 	*my_discr = ntohl(bep->my_discr);
 	if (*my_discr == 0) {
-		cp_debug(false, &peer, &local, port, vrfname,
+		cp_debug(false, &peer, &local, ifindex, vrfid,
 			 "invalid echo packet discriminator (zero)");
 		return -1;
 	}

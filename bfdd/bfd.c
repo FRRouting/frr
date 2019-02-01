@@ -53,6 +53,8 @@ struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
 {
 	struct bfd_session *bs;
 	struct peer_label *pl;
+	struct interface *ifp;
+	struct vrf *vrf;
 	struct bfd_mhop_key mhop;
 	struct bfd_shop_key shop;
 
@@ -70,17 +72,25 @@ struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
 		memset(&mhop, 0, sizeof(mhop));
 		mhop.peer = bpc->bpc_peer;
 		mhop.local = bpc->bpc_local;
-		if (bpc->bpc_has_vrfname)
-			strlcpy(mhop.vrf_name, bpc->bpc_vrfname,
-				sizeof(mhop.vrf_name));
+		if (bpc->bpc_has_vrfname) {
+			vrf = vrf_lookup_by_name(bpc->bpc_vrfname);
+			if (vrf == NULL)
+				return NULL;
+
+			mhop.vrfid = vrf->vrf_id;
+		}
 
 		bs = bfd_mhop_lookup(mhop);
 	} else {
 		memset(&shop, 0, sizeof(shop));
 		shop.peer = bpc->bpc_peer;
-		if (bpc->bpc_has_localif)
-			strlcpy(shop.port_name, bpc->bpc_localif,
-				sizeof(shop.port_name));
+		if (bpc->bpc_has_localif) {
+			ifp = if_lookup_by_name_all_vrf(bpc->bpc_localif);
+			if (ifp == NULL)
+				return NULL;
+
+			shop.ifindex = ifp->ifindex;
+		}
 
 		bs = bfd_shop_lookup(shop);
 	}
@@ -211,25 +221,6 @@ void ptm_bfd_ses_dn(struct bfd_session *bfd, uint8_t diag)
 	}
 }
 
-static int ptm_bfd_get_vrf_name(char *port_name, char *vrf_name)
-{
-	struct bfd_iface *iface;
-	struct bfd_vrf *vrf;
-
-	if ((port_name == NULL) || (vrf_name == NULL))
-		return -1;
-
-	iface = bfd_iface_lookup(port_name);
-	if (iface) {
-		vrf = bfd_vrf_lookup(iface->vrf_id);
-		if (vrf) {
-			strlcpy(vrf_name, vrf->name, sizeof(vrf->name));
-			return 0;
-		}
-	}
-	return -1;
-}
-
 static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
 					 uint32_t ldisc)
 {
@@ -256,15 +247,15 @@ static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
 	return NULL;
 }
 
-struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp, char *port_name,
+struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 				      struct sockaddr_any *peer,
 				      struct sockaddr_any *local,
-				      char *vrf_name, bool is_mhop)
+				      ifindex_t ifindex, vrf_id_t vrfid,
+				      bool is_mhop)
 {
 	struct bfd_session *l_bfd = NULL;
 	struct bfd_mhop_key mhop;
 	struct bfd_shop_key shop;
-	char vrf_buf[MAXNAMELEN];
 
 	/* Find our session using the ID signaled by the remote end. */
 	if (cp->discrs.remote_discr)
@@ -275,22 +266,13 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp, char *port_name,
 		memset(&mhop, 0, sizeof(mhop));
 		mhop.peer = *peer;
 		mhop.local = *local;
-		if (vrf_name && vrf_name[0]) {
-			strlcpy(mhop.vrf_name, vrf_name, sizeof(mhop.vrf_name));
-		} else if (port_name && port_name[0]) {
-			memset(vrf_buf, 0, sizeof(vrf_buf));
-			if (ptm_bfd_get_vrf_name(port_name, vrf_buf) != -1)
-				strlcpy(mhop.vrf_name, vrf_buf,
-					sizeof(mhop.vrf_name));
-		}
+		mhop.vrfid = vrfid;
 
 		l_bfd = bfd_mhop_lookup(mhop);
 	} else {
 		memset(&shop, 0, sizeof(shop));
 		shop.peer = *peer;
-		if (port_name && port_name[0])
-			strlcpy(shop.port_name, port_name,
-				sizeof(shop.port_name));
+		shop.ifindex = ifindex;
 
 		l_bfd = bfd_shop_lookup(shop);
 	}
@@ -530,6 +512,7 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 {
 	struct bfd_session *bfd, *l_bfd;
 	struct interface *ifp = NULL;
+	struct vrf *vrf = NULL;
 	int psock;
 
 	/* check to see if this needs a new session */
@@ -548,14 +531,29 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 	 * First a few critical checks:
 	 *
 	 *   * Check that the specified interface exists.
+	 *   * Check that the specified VRF exists.
 	 *   * Attempt to create the UDP socket (might fail if we exceed
 	 *     our limits).
 	 */
 	if (bpc->bpc_has_localif) {
-		ifp = if_lookup_by_name(bpc->bpc_localif, VRF_DEFAULT);
+		ifp = if_lookup_by_name_all_vrf(bpc->bpc_localif);
 		if (ifp == NULL) {
 			log_error(
 				"session-new: specified interface doesn't exists.");
+			return NULL;
+		}
+
+		vrf = vrf_lookup_by_id(ifp->vrf_id);
+		if (vrf == NULL) {
+			log_error("session-new: specified VRF doesn't exists.");
+			return NULL;
+		}
+	}
+
+	if (bpc->bpc_has_vrfname) {
+		vrf = vrf_lookup_by_name(bpc->bpc_vrfname);
+		if (vrf == NULL) {
+			log_error("session-new: specified VRF doesn't exists.");
 			return NULL;
 		}
 	}
@@ -581,6 +579,11 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 		log_error("session-new: allocation failed");
 		return NULL;
 	}
+
+	/* Assign VRF pointer. */
+	bfd->vrf = vrf;
+	if (bfd->vrf == NULL)
+		bfd->vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
 	if (bpc->bpc_has_localif && !bpc->bpc_mhop)
 		bfd->ifp = ifp;
@@ -615,16 +618,18 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_MH);
 		bfd->mhop.peer = bpc->bpc_peer;
 		bfd->mhop.local = bpc->bpc_local;
-		if (bpc->bpc_has_vrfname)
-			strlcpy(bfd->mhop.vrf_name, bpc->bpc_vrfname,
-				sizeof(bfd->mhop.vrf_name));
+		if (vrf != NULL)
+			bfd->mhop.vrfid = vrf->vrf_id;
+		else
+			bfd->mhop.vrfid = VRF_DEFAULT;
 
 		bfd_mhop_insert(bfd);
 	} else {
 		bfd->shop.peer = bpc->bpc_peer;
-		if (bpc->bpc_has_localif)
-			strlcpy(bfd->shop.port_name, bpc->bpc_localif,
-				sizeof(bfd->shop.port_name));
+		if (ifp != NULL)
+			bfd->shop.ifindex = ifp->ifindex;
+		else
+			bfd->shop.ifindex = IFINDEX_INTERNAL;
 
 		bfd_shop_insert(bfd);
 	}
@@ -1089,9 +1094,9 @@ const char *bs_to_string(struct bfd_session *bs)
 				" peer:%s local:%s", satostr(&bs->mhop.peer),
 				satostr(&bs->mhop.local));
 
-		if (bs->mhop.vrf_name[0])
-			snprintf(buf + pos, sizeof(buf) - pos, " vrf:%s",
-				 bs->mhop.vrf_name);
+		if (bs->mhop.vrfid != VRF_DEFAULT)
+			snprintf(buf + pos, sizeof(buf) - pos, " vrf:%u",
+				 bs->mhop.vrfid);
 	} else {
 		pos += snprintf(buf + pos, sizeof(buf) - pos, " peer:%s",
 				satostr(&bs->shop.peer));
@@ -1101,9 +1106,9 @@ const char *bs_to_string(struct bfd_session *bs)
 					" local:%s",
 					satostr(&bs->local_address));
 
-		if (bs->shop.port_name[0])
-			snprintf(buf + pos, sizeof(buf) - pos, " interface:%s",
-				 bs->shop.port_name);
+		if (bs->shop.ifindex)
+			snprintf(buf + pos, sizeof(buf) - pos, " ifindex:%u",
+				 bs->shop.ifindex);
 	}
 
 	return buf;
@@ -1229,7 +1234,7 @@ static void _shop_key(struct bfd_session *bs, const struct bfd_shop_key *shop)
 static void _shop_key2(struct bfd_session *bs, const struct bfd_shop_key *shop)
 {
 	_shop_key(bs, shop);
-	memset(bs->shop.port_name, 0, sizeof(bs->shop.port_name));
+	bs->shop.ifindex = IFINDEX_INTERNAL;
 }
 
 static void _mhop_key(struct bfd_session *bs, const struct bfd_mhop_key *mhop)
@@ -1281,7 +1286,7 @@ struct bfd_session *bfd_shop_lookup(struct bfd_shop_key shop)
 	_shop_key(&bs, &shop);
 
 	bsp = hash_lookup(bfd_shop_hash, &bs);
-	if (bsp == NULL && bs.shop.port_name[0] != 0) {
+	if (bsp == NULL && bs.shop.ifindex != 0) {
 		/*
 		 * Since the local interface spec is optional, try
 		 * searching the key without it as well.
@@ -1346,7 +1351,7 @@ struct bfd_session *bfd_shop_delete(struct bfd_shop_key shop)
 
 	_shop_key(&bs, &shop);
 	bsp = hash_release(bfd_shop_hash, &bs);
-	if (bsp == NULL && shop.port_name[0] != 0) {
+	if (bsp == NULL && shop.ifindex != 0) {
 		/*
 		 * Since the local interface spec is optional, try
 		 * searching the key without it as well.

@@ -618,6 +618,24 @@ static int bfdd_interface_update(int cmd, struct zclient *zc, uint16_t len,
 	return 0;
 }
 
+static int bfdd_interface_vrf_update(int command __attribute__((__unused__)),
+				     struct zclient *zclient,
+				     zebra_size_t length
+				     __attribute__((__unused__)),
+				     vrf_id_t vrfid)
+{
+	struct interface *ifp;
+	vrf_id_t nvrfid;
+
+	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrfid, &nvrfid);
+	if (ifp == NULL)
+		return 0;
+
+	if_update_to_new_vrf(ifp, nvrfid);
+
+	return 0;
+}
+
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 {
 	zclient = zclient_new(master, &zclient_options_default);
@@ -637,6 +655,9 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 	/* Learn interfaces from zebra instead of the OS. */
 	zclient->interface_add = bfdd_interface_update;
 	zclient->interface_delete = bfdd_interface_update;
+
+	/* Learn about interface VRF. */
+	zclient->interface_vrf_update = bfdd_interface_vrf_update;
 }
 
 void bfdd_zclient_stop(void)

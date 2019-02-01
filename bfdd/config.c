@@ -314,16 +314,16 @@ static int parse_peer_label_config(struct json_object *jo,
 	if (bpc->bpc_mhop) {
 		bpc->bpc_peer = pl->pl_bs->mhop.peer;
 		bpc->bpc_local = pl->pl_bs->mhop.local;
-		if (pl->pl_bs->mhop.vrf_name[0]) {
+		if (pl->pl_bs->mhop.vrfid != VRF_DEFAULT) {
 			bpc->bpc_has_vrfname = true;
-			strlcpy(bpc->bpc_vrfname, pl->pl_bs->mhop.vrf_name,
+			strlcpy(bpc->bpc_vrfname, pl->pl_bs->vrf->name,
 				sizeof(bpc->bpc_vrfname));
 		}
 	} else {
 		bpc->bpc_peer = pl->pl_bs->shop.peer;
-		if (pl->pl_bs->shop.port_name[0]) {
+		if (pl->pl_bs->shop.ifindex != IFINDEX_INTERNAL) {
 			bpc->bpc_has_localif = true;
-			strlcpy(bpc->bpc_localif, pl->pl_bs->shop.port_name,
+			strlcpy(bpc->bpc_localif, pl->pl_bs->ifp->name,
 				sizeof(bpc->bpc_localif));
 		}
 	}
@@ -531,9 +531,8 @@ static int json_object_add_peer(struct json_object *jo, struct bfd_session *bs)
 				       satostr(&bs->mhop.peer));
 		json_object_string_add(jo, "local-address",
 				       satostr(&bs->mhop.local));
-		if (strlen(bs->mhop.vrf_name) > 0)
-			json_object_string_add(jo, "vrf-name",
-					       bs->mhop.vrf_name);
+		if (bs->mhop.vrfid != VRF_DEFAULT)
+			json_object_string_add(jo, "vrf-name", bs->vrf->name);
 	} else {
 		json_object_boolean_false_add(jo, "multihop");
 		json_object_string_add(jo, "peer-address",
@@ -541,9 +540,9 @@ static int json_object_add_peer(struct json_object *jo, struct bfd_session *bs)
 		if (bs->local_address.sa_sin.sin_family != AF_UNSPEC)
 			json_object_string_add(jo, "local-address",
 					       satostr(&bs->local_address));
-		if (strlen(bs->shop.port_name) > 0)
+		if (bs->shop.ifindex != IFINDEX_INTERNAL)
 			json_object_string_add(jo, "local-interface",
-					       bs->shop.port_name);
+					       bs->ifp->name);
 	}
 
 	if (bs->pl)
