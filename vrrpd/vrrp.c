@@ -568,6 +568,7 @@ static int vrrp_read(struct thread *thread)
 	bool resched;
 	char errbuf[BUFSIZ];
 	uint8_t control[64];
+	struct ipaddr src = {};
 
 	struct msghdr m;
 	struct iovec iov;
@@ -595,8 +596,8 @@ static int vrrp_read(struct thread *thread)
 		   r->vr->vrid, family2str(r->family));
 	zlog_hexdump(r->ibuf, nbytes);
 
-	pktsize = vrrp_pkt_parse_datagram(r->family, &m, nbytes, &pkt, errbuf,
-					  sizeof(errbuf));
+	pktsize = vrrp_pkt_parse_datagram(r->family, &m, nbytes, &src, &pkt,
+					  errbuf, sizeof(errbuf));
 
 	if (pktsize < 0) {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
@@ -847,7 +848,9 @@ static int vrrp_socket(struct vrrp_router *r)
 				"Failed to set outgoing multicast hop count to 255; RFC 5798 compliant implementations will drop our packets",
 				r->vr->vrid);
 		}
-		ret = setsockopt_ipv6_hoplimit(r->sock_rx, 1);
+
+		/* Request hop limit delivery */
+		setsockopt_ipv6_hoplimit(r->sock_rx, 1);
 		if (ret < 0) {
 			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
 				  "Failed to request IPv6 Hop Limit delivery",

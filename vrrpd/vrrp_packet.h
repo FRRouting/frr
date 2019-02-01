@@ -165,6 +165,9 @@ size_t vrrp_pkt_adver_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt);
  * read
  *    return value of recvmsg() on VRRP router socket; must be non-negative
  *
+ * src
+ *    Pointer to struct ipaddr to store address of datagram sender
+ *
  * pkt
  *    Pointer to pointer to set to location of VRRP packet within buf
  *
@@ -179,7 +182,7 @@ size_t vrrp_pkt_adver_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt);
  *    Size of VRRP packet, or -1 upon error
  */
 ssize_t vrrp_pkt_parse_datagram(int family, struct msghdr *m, size_t read,
-				struct vrrp_pkt **pkt, char *errmsg,
-				size_t errmsg_len);
+				struct ipaddr *src, struct vrrp_pkt **pkt,
+				char *errmsg, size_t errmsg_len);
 
 #endif /* __VRRP_PACKET_H__ */

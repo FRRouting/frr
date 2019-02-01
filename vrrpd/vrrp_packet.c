@@ -162,8 +162,8 @@ size_t vrrp_pkt_adver_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt)
 }
 
 ssize_t vrrp_pkt_parse_datagram(int family, struct msghdr *m, size_t read,
-				struct vrrp_pkt **pkt, char *errmsg,
-				size_t errmsg_len)
+				struct ipaddr *src, struct vrrp_pkt **pkt,
+				char *errmsg, size_t errmsg_len)
 {
 	/* Source (MAC & IP), Dest (MAC & IP) TTL validation done by kernel */
 	size_t addrsz = (family == AF_INET) ? sizeof(struct in_addr)
@@ -207,6 +207,10 @@ ssize_t vrrp_pkt_parse_datagram(int family, struct msghdr *m, size_t read,
 
 		/* IP empty packet check */
 		VRRP_PKT_VCHECK(pktsize > 0, "IPv4 packet has no payload");
+
+		/* Extract source address */
+		src->ipa_type = IPADDR_V4;
+		src->ipaddr_v4 = ip->ip_src;
 	} else if (family == AF_INET6) {
 		struct cmsghdr *c;
 		for (c = CMSG_FIRSTHDR(m); c != NULL; CMSG_NXTHDR(m, c)) {
@@ -224,6 +228,12 @@ ssize_t vrrp_pkt_parse_datagram(int family, struct msghdr *m, size_t read,
 
 		*pkt = (struct vrrp_pkt *)buf;
 		pktsize = read;
+
+		/* Extract source address */
+		src->ipa_type = IPADDR_V6;
+		struct sockaddr_in6 *sa = m->msg_name;
+		memcpy(&src->ipaddr_v6, &sa->sin6_addr,
+		       sizeof(struct in6_addr));
 	} else {
 		assert(!"Unknown address family");
 	}
@@ -239,6 +249,13 @@ ssize_t vrrp_pkt_parse_datagram(int family, struct msghdr *m, size_t read,
 	VRRP_PKT_VCHECK(pktsize <= maxsize,
 			"VRRP packet is oversized (%lu > %lu)", pktsize,
 			VRRP_MAX_PKT_SIZE);
+
+	/* Checksum check */
+	uint16_t chksum = vrrp_pkt_checksum(*pkt, pktsize, src);
+	VRRP_PKT_VCHECK((*pkt)->hdr.chksum == chksum,
+			"Bad VRRP checksum %" PRIu16 "; should be %" PRIu16 "",
+			(*pkt)->hdr.chksum, chksum);
+
 	/* Version check */
 	VRRP_PKT_VCHECK(((*pkt)->hdr.vertype >> 4) != 2, "VRPPv2 unsupported");
 	VRRP_PKT_VCHECK(((*pkt)->hdr.vertype >> 4) == 3, "Bad version %u",
@@ -249,8 +266,6 @@ ssize_t vrrp_pkt_parse_datagram(int family, struct msghdr *m, size_t read,
 	/* # addresses check */
 	size_t ves = VRRP_PKT_SIZE(family, (*pkt)->hdr.naddr);
 	VRRP_PKT_VCHECK(pktsize == ves, "Packet has incorrect # addresses");
-	/* FIXME: checksum check */
-	/* ... */
 
 	/* Addresses check */
 	char vbuf[INET6_ADDRSTRLEN];
