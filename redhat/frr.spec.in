@@ -170,6 +170,7 @@ BuildRequires:  python27-sphinx
 BuildRequires:  python-devel >= 2.7
 BuildRequires:  python-sphinx
 %endif
+Requires:       initscripts
 %if %{with_pam}
 BuildRequires:  pam-devel
 %endif
@@ -187,7 +188,6 @@ Requires(post):     chkconfig
 Requires(preun):    chkconfig
 # Initscripts > 5.60 is required for IPv6 support
 Requires(pre):      initscripts >= 5.60
-Requires:           initscripts
 %endif
 Provides:           routingdaemon = %{version}-%{release}
 Obsoletes:          gated mrt zebra frr-sysvinit
