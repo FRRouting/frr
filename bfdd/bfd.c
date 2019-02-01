@@ -100,9 +100,18 @@ struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
 
 static uint32_t ptm_bfd_gen_ID(void)
 {
-	static uint32_t sessionID = 1;
+	uint32_t session_id;
 
-	return (sessionID++);
+	/*
+	 * RFC 5880, Section 6.8.1. recommends that we should generate
+	 * random session identification numbers.
+	 */
+	do {
+		session_id = ((random() << 16) & 0xFFFF0000)
+			     | (random() & 0x0000FFFF);
+	} while (session_id == 0 || bfd_id_lookup(session_id) != NULL);
+
+	return session_id;
 }
 
 void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo)
