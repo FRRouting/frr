@@ -541,35 +541,6 @@ void vrf_terminate(void)
 	}
 }
 
-static int vrf_default_accepts_vrf(int type)
-{
-	const char *fname = NULL;
-	char buf[32] = {0x0};
-	int ret = 0;
-	FILE *fd = NULL;
-
-	/*
-	 * TCP & UDP services running in the default VRF context (ie., not bound
-	 * to any VRF device) can work across all VRF domains by enabling the
-	 * tcp_l3mdev_accept and udp_l3mdev_accept sysctl options:
-	 * sysctl -w net.ipv4.tcp_l3mdev_accept=1
-	 * sysctl -w net.ipv4.udp_l3mdev_accept=1
-	 */
-	if (type == SOCK_STREAM)
-		fname = "/proc/sys/net/ipv4/tcp_l3mdev_accept";
-	else if (type == SOCK_DGRAM)
-		fname = "/proc/sys/net/ipv4/udp_l3mdev_accept";
-	else
-		return ret;
-	fd = fopen(fname, "r");
-	if (fd == NULL)
-		return ret;
-	fgets(buf, 32, fd);
-	ret = atoi(buf);
-	fclose(fd);
-	return ret;
-}
-
 /* Create a socket for the VRF. */
 int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
 	       char *interfacename)
@@ -580,13 +551,6 @@ int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
 	if (ret < 0)
 		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
 			     __func__, vrf_id, safe_strerror(errno));
-
-	if (ret > 0 && interfacename && vrf_default_accepts_vrf(type)) {
-		zlog_err("VRF socket not used since net.ipv4.%s_l3mdev_accept != 0",
-			  (type == SOCK_STREAM ? "tcp" : "udp"));
-		errno = EEXIST; /* not sure if this is the best error... */
-		return -2;
-	}
 
 	ret = socket(domain, type, protocol);
 	save_errno = errno;
