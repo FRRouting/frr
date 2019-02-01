@@ -107,7 +107,7 @@ ssize_t vrrp_pkt_adver_build(struct vrrp_pkt **pkt, struct ipaddr *src,
 
 	bool v6 = IS_IPADDR_V6(ips[0]);
 
-	size_t addrsz = v6 ? sizeof(struct in6_addr) : sizeof(struct in_addr);
+	size_t addrsz = IPADDRSZ(ips[0]);
 	size_t pktsize = VRRP_PKT_SIZE(v6 ? AF_INET6 : AF_INET, numip);
 	*pkt = XCALLOC(MTYPE_VRRP_PKT, pktsize);
 
