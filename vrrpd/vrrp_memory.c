@@ -18,8 +18,12 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
-#include <memory.h>
+
+#include "lib/memory.h"
 
 #include "vrrp_memory.h"
 
-DEFINE_MGROUP(VRRP, "vrrpd")
+DEFINE_MGROUP(VRRPD, "vrrpd");
+DEFINE_MTYPE(VRRPD, VRRP_IP, "VRRP IP address");
+DEFINE_MTYPE(VRRPD, VRRP_PKT, "VRRP packet");
+DEFINE_MTYPE(VRRPD, VRRP_RTR, "VRRP Router");

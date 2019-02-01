@@ -20,8 +20,13 @@
 #ifndef __VRRP_MEMORY_H__
 #define __VRRP_MEMORY_H__
 
+#include <zebra.h>
+
 #include "lib/memory.h"
 
-DECLARE_MGROUP(VRRP)
+DECLARE_MGROUP(VRRPD);
+DECLARE_MTYPE(VRRP_IP);
+DECLARE_MTYPE(VRRP_PKT);
+DECLARE_MTYPE(VRRP_RTR);
 
 #endif /* __VRRP_MEMORY_H__ */

@@ -32,6 +32,7 @@
 
 #include "vrrp.h"
 #include "vrrp_arp.h"
+#include "vrrp_memory.h"
 #include "vrrp_ndisc.h"
 #include "vrrp_packet.h"
 #include "vrrp_zebra.h"
@@ -173,7 +174,7 @@ int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip, bool activate)
 		return -1;
 	}
 
-	struct ipaddr *new = XCALLOC(MTYPE_TMP, sizeof(struct ipaddr));
+	struct ipaddr *new = XCALLOC(MTYPE_VRRP_IP, sizeof(struct ipaddr));
 
 	*new = *ip;
 	listnode_add(r->addrs, new);
@@ -263,7 +264,7 @@ int vrrp_del_ipv4(struct vrrp_vrouter *vr, struct in_addr v4, bool deactivate)
 static void vrrp_router_addr_list_del_cb(void *val)
 {
 	struct ipaddr *ip = val;
-	XFREE(MTYPE_TMP, ip);
+	XFREE(MTYPE_VRRP_IP, ip);
 }
 
 /*
@@ -332,7 +333,8 @@ static bool vrrp_attach_interface(struct vrrp_router *r)
 static struct vrrp_router *vrrp_router_create(struct vrrp_vrouter *vr,
 					      int family)
 {
-	struct vrrp_router *r = XCALLOC(MTYPE_TMP, sizeof(struct vrrp_router));
+	struct vrrp_router *r =
+		XCALLOC(MTYPE_VRRP_RTR, sizeof(struct vrrp_router));
 
 	r->family = family;
 	r->sock_rx = -1;
@@ -361,7 +363,7 @@ static void vrrp_router_destroy(struct vrrp_router *r)
 
 	/* FIXME: also delete list elements */
 	list_delete(&r->addrs);
-	XFREE(MTYPE_TMP, r);
+	XFREE(MTYPE_VRRP_RTR, r);
 }
 
 struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid)
@@ -371,7 +373,7 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid)
 	if (vr)
 		return vr;
 
-	vr = XCALLOC(MTYPE_TMP, sizeof(struct vrrp_vrouter));
+	vr = XCALLOC(MTYPE_VRRP_RTR, sizeof(struct vrrp_vrouter));
 
 	vr->ifp = ifp;
 	vr->vrid = vrid;
@@ -394,7 +396,7 @@ void vrrp_vrouter_destroy(struct vrrp_vrouter *vr)
 	vrrp_router_destroy(vr->v4);
 	vrrp_router_destroy(vr->v6);
 	hash_release(vrrp_vrouters_hash, vr);
-	XFREE(MTYPE_TMP, vr);
+	XFREE(MTYPE_VRRP_RTR, vr);
 }
 
 struct vrrp_vrouter *vrrp_lookup(struct interface *ifp, uint8_t vrid)
@@ -444,7 +446,7 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 	ssize_t sent = sendto(r->sock_tx, pkt, (size_t)pktlen, 0, &dest.sa,
 			      sockunion_sizeof(&dest));
 
-	XFREE(MTYPE_TMP, pkt);
+	XFREE(MTYPE_VRRP_PKT, pkt);
 
 	if (sent < 0) {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID

@@ -27,6 +27,7 @@
 #include "lib/memory.h"
 
 #include "vrrp.h"
+#include "vrrp_memory.h"
 #include "vrrp_packet.h"
 
 /* clang-format off */
@@ -58,7 +59,7 @@ ssize_t vrrp_pkt_build(struct vrrp_pkt **pkt, struct ipaddr *src, uint8_t vrid,
 
 	size_t addrsz = v6 ? sizeof(struct in6_addr) : sizeof(struct in_addr);
 	size_t pktsize = VRRP_PKT_SIZE(v6 ? AF_INET6 : AF_INET, numip);
-	*pkt = XCALLOC(MTYPE_TMP, pktsize);
+	*pkt = XCALLOC(MTYPE_VRRP_PKT, pktsize);
 
 	(*pkt)->hdr.vertype |= VRRP_VERSION << 4;
 	(*pkt)->hdr.vertype |= VRRP_TYPE_ADVERTISEMENT;
