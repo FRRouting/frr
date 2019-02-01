@@ -464,9 +464,25 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
  * However, we have not validated whether the VRID is correct for this virtual
  * router, nor whether the priority is correct (i.e. is not 255 when we are the
  * address owner).
+ *
+ * r
+ *    VRRP Router associated with the socket this advertisement was received on
+ *
+ * src
+ *    Source address of sender
+ *
+ * pkt
+ *    The advertisement they sent
+ *
+ * pktsize
+ *    Size of advertisement
+ *
+ * Returns:
+ *    -1 if advertisement is invalid
+ *     0 otherwise
  */
-static int vrrp_recv_advertisement(struct vrrp_router *r, struct vrrp_pkt *pkt,
-				    size_t pktsize)
+static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
+				   struct vrrp_pkt *pkt, size_t pktsize)
 {
 	char dumpbuf[BUFSIZ];
 	vrrp_pkt_adver_dump(dumpbuf, sizeof(dumpbuf), pkt);
@@ -500,8 +516,14 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct vrrp_pkt *pkt,
 			  r->addrs->count);
 	}
 
+	int addrcmp;
+	size_t cmpsz = IS_IPADDR_V6(src) ? sizeof(struct in6_addr)
+					 : sizeof(struct in_addr);
+
 	switch (r->fsm.state) {
 	case VRRP_STATE_MASTER:
+		addrcmp = memcmp(&src->ip, &r->src.ip, cmpsz);
+
 		if (pkt->hdr.priority == 0) {
 			vrrp_send_advertisement(r);
 			THREAD_OFF(r->t_adver_timer);
@@ -509,9 +531,8 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct vrrp_pkt *pkt,
 				master, vrrp_adver_timer_expire, r,
 				r->vr->advertisement_interval * 10,
 				&r->t_adver_timer);
-			/* FIXME: 6.4.3 mandates checking sender IP address */
-		} else if (pkt->hdr.priority > r->priority) {
-			zlog_err("NOT IMPLEMENTED");
+		} else if (pkt->hdr.priority > r->priority
+			   || ((pkt->hdr.priority == r->priority) && addrcmp > 0)) {
 			THREAD_OFF(r->t_adver_timer);
 			r->master_adver_interval = ntohs(pkt->hdr.v3.adver_int);
 			vrrp_recalculate_timers(r);
@@ -606,7 +627,7 @@ static int vrrp_read(struct thread *thread)
 	} else {
 		zlog_debug(VRRP_LOGPFX VRRP_LOGPFX_VRID "Packet looks good",
 			   r->vr->vrid);
-		vrrp_recv_advertisement(r, pkt, pktsize);
+		vrrp_recv_advertisement(r, &src, pkt, pktsize);
 	}
 
 	resched = true;
