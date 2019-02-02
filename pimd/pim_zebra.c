@@ -267,6 +267,27 @@ static int pim_zebra_if_state_down(int command, struct zclient *zclient,
 	return 0;
 }
 
+static int pim_zebra_interface_vrf_update(int command, struct zclient *zclient,
+					  zebra_size_t length, vrf_id_t vrf_id)
+{
+	struct interface *ifp;
+	vrf_id_t new_vrf_id;
+
+	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
+					      &new_vrf_id);
+	if (!ifp)
+		return 0;
+
+	if (PIM_DEBUG_ZEBRA)
+		zlog_debug("%s: %s updating from %u to %u",
+			   __PRETTY_FUNCTION__,
+			   ifp->name, vrf_id, new_vrf_id);
+
+	if_update_to_new_vrf(ifp, new_vrf_id);
+
+	return 0;
+}
+
 #ifdef PIM_DEBUG_IFADDR_DUMP
 static void dump_if_address(struct interface *ifp)
 {
@@ -762,6 +783,7 @@ void pim_zebra_init(void)
 	zclient->interface_down = pim_zebra_if_state_down;
 	zclient->interface_address_add = pim_zebra_if_address_add;
 	zclient->interface_address_delete = pim_zebra_if_address_del;
+	zclient->interface_vrf_update = pim_zebra_interface_vrf_update;
 	zclient->nexthop_update = pim_parse_nexthop_update;
 
 	zclient_init(zclient, ZEBRA_ROUTE_PIM, 0, &pimd_privs);
