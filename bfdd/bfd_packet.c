@@ -887,7 +887,7 @@ int bp_udp_mhop(void)
 	return sd;
 }
 
-int bp_peer_socket(struct bfd_peer_cfg *bpc)
+int bp_peer_socket(const struct bfd_session *bs)
 {
 	int sd, pcount;
 	struct sockaddr_in sin;
@@ -912,28 +912,26 @@ int bp_peer_socket(struct bfd_peer_cfg *bpc)
 		return -1;
 	}
 
-	if (bpc->bpc_has_localif) {
-		if (bp_bind_dev(sd, bpc->bpc_localif) != 0) {
+	if (bs->shop.ifindex != IFINDEX_INTERNAL) {
+		if (bp_bind_dev(sd, bs->ifp->name) != 0) {
 			close(sd);
 			return -1;
 		}
-	} else if (bpc->bpc_mhop && bpc->bpc_has_vrfname) {
-		if (bp_bind_dev(sd, bpc->bpc_vrfname) != 0) {
+	} else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) &&
+		   bs->mhop.vrfid != VRF_DEFAULT) {
+		if (bp_bind_dev(sd, bs->vrf->name) != 0) {
 			close(sd);
 			return -1;
 		}
 	}
 
 	/* Find an available source port in the proper range */
-	memset(&sin, 0, sizeof(sin));
-	sin = bpc->bpc_local.sa_sin;
+	sin = bs->local_ip.sa_sin;
 	sin.sin_family = AF_INET;
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 	sin.sin_len = sizeof(sin);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
-	if (bpc->bpc_mhop)
-		sin.sin_addr = bpc->bpc_local.sa_sin.sin_addr;
-	else
+	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) == 0)
 		sin.sin_addr.s_addr = INADDR_ANY;
 
 	pcount = 0;
@@ -958,9 +956,8 @@ int bp_peer_socket(struct bfd_peer_cfg *bpc)
  * IPv6 sockets
  */
 
-int bp_peer_socketv6(struct bfd_peer_cfg *bpc)
+int bp_peer_socketv6(const struct bfd_session *bs)
 {
-	struct interface *ifp;
 	int sd, pcount;
 	struct sockaddr_in6 sin6;
 	static int srcPort = BFD_SRCPORTINIT;
@@ -985,25 +982,20 @@ int bp_peer_socketv6(struct bfd_peer_cfg *bpc)
 	}
 
 	/* Find an available source port in the proper range */
-	memset(&sin6, 0, sizeof(sin6));
+	sin6 = bs->local_ip.sa_sin6;
 	sin6.sin6_family = AF_INET6;
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 	sin6.sin6_len = sizeof(sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
-	sin6 = bpc->bpc_local.sa_sin6;
-	if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr)) {
-		ifp = if_lookup_by_name(bpc->bpc_localif, VRF_DEFAULT);
-		sin6.sin6_scope_id =
-			(ifp != NULL) ? ifp->ifindex : IFINDEX_INTERNAL;
-	}
 
-	if (bpc->bpc_has_localif) {
-		if (bp_bind_dev(sd, bpc->bpc_localif) != 0) {
+	if (bs->shop.ifindex != IFINDEX_INTERNAL) {
+		if (bp_bind_dev(sd, bs->ifp->name) != 0) {
 			close(sd);
 			return -1;
 		}
-	} else if (bpc->bpc_mhop && bpc->bpc_has_vrfname) {
-		if (bp_bind_dev(sd, bpc->bpc_vrfname) != 0) {
+	} else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) &&
+		   bs->mhop.vrfid != VRF_DEFAULT) {
+		if (bp_bind_dev(sd, bs->vrf->name) != 0) {
 			close(sd);
 			return -1;
 		}

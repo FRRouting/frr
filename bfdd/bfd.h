@@ -48,6 +48,7 @@ DECLARE_MTYPE(BFDD_TMP);
 DECLARE_MTYPE(BFDD_CONFIG);
 DECLARE_MTYPE(BFDD_LABEL);
 DECLARE_MTYPE(BFDD_CONTROL);
+DECLARE_MTYPE(BFDD_SESSION_OBSERVER);
 DECLARE_MTYPE(BFDD_NOTIFICATION);
 
 struct bfd_timers {
@@ -239,6 +240,8 @@ struct bfd_session {
 	struct sockaddr_any local_ip;
 	struct interface *ifp;
 	struct vrf *vrf;
+	char ifname[MAXNAMELEN];
+	char vrfname[MAXNAMELEN];
 	uint8_t local_mac[ETHERNET_ADDRESS_LENGTH];
 	uint8_t peer_mac[ETHERNET_ADDRESS_LENGTH];
 
@@ -278,6 +281,15 @@ struct bfd_state_str_list {
 	const char *str;
 	int type;
 };
+
+struct bfd_session_observer {
+	struct bfd_session *bso_bs;
+	bool bso_isinterface;
+	char bso_entryname[MAXNAMELEN];
+
+	TAILQ_ENTRY(bfd_session_observer) bso_entry;
+};
+TAILQ_HEAD(obslist, bfd_session_observer);
 
 
 /* States defined per 4.1 */
@@ -392,6 +404,8 @@ struct bfd_global {
 	struct bcslist bg_bcslist;
 
 	struct pllist bg_pllist;
+
+	struct obslist bg_obslist;
 };
 extern struct bfd_global bglobal;
 extern struct bfd_diag_str_list diag_list[];
@@ -460,8 +474,8 @@ int bp_udp_shop(void);
 int bp_udp_mhop(void);
 int bp_udp6_shop(void);
 int bp_udp6_mhop(void);
-int bp_peer_socket(struct bfd_peer_cfg *bpc);
-int bp_peer_socketv6(struct bfd_peer_cfg *bpc);
+int bp_peer_socket(const struct bfd_session *);
+int bp_peer_socketv6(const struct bfd_session *);
 int bp_echo_socket(void);
 int bp_echov6_socket(void);
 
@@ -499,6 +513,8 @@ void bfd_echo_xmttimer_assign(struct bfd_session *bs, bfd_ev_cb cb);
  *
  * BFD protocol specific code.
  */
+int bfd_session_enable(struct bfd_session *);
+void bfd_session_disable(struct bfd_session *);
 struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc);
 int ptm_bfd_ses_del(struct bfd_peer_cfg *bpc);
 void ptm_bfd_ses_dn(struct bfd_session *bfd, uint8_t diag);
@@ -523,6 +539,9 @@ const char *diag2str(uint8_t diag);
 int strtosa(const char *addr, struct sockaddr_any *sa);
 void integer2timestr(uint64_t time, char *buf, size_t buflen);
 const char *bs_to_string(struct bfd_session *bs);
+
+int bs_observer_add(struct bfd_session *);
+void bs_observer_del(struct bfd_session_observer *);
 
 /* BFD hash data structures interface */
 void bfd_initialize(void);

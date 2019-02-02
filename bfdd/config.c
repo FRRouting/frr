@@ -321,9 +321,9 @@ static int parse_peer_label_config(struct json_object *jo,
 		}
 	} else {
 		bpc->bpc_peer = pl->pl_bs->shop.peer;
-		if (pl->pl_bs->shop.ifindex != IFINDEX_INTERNAL) {
+		if (pl->pl_bs->ifname[0]) {
 			bpc->bpc_has_localif = true;
-			strlcpy(bpc->bpc_localif, pl->pl_bs->ifp->name,
+			strlcpy(bpc->bpc_localif, pl->pl_bs->ifname,
 				sizeof(bpc->bpc_localif));
 		}
 	}
@@ -531,8 +531,8 @@ static int json_object_add_peer(struct json_object *jo, struct bfd_session *bs)
 				       satostr(&bs->mhop.peer));
 		json_object_string_add(jo, "local-address",
 				       satostr(&bs->mhop.local));
-		if (bs->mhop.vrfid != VRF_DEFAULT)
-			json_object_string_add(jo, "vrf-name", bs->vrf->name);
+		if (bs->vrfname[0])
+			json_object_string_add(jo, "vrf-name", bs->vrfname);
 	} else {
 		json_object_boolean_false_add(jo, "multihop");
 		json_object_string_add(jo, "peer-address",
@@ -540,9 +540,9 @@ static int json_object_add_peer(struct json_object *jo, struct bfd_session *bs)
 		if (bs->local_address.sa_sin.sin_family != AF_UNSPEC)
 			json_object_string_add(jo, "local-address",
 					       satostr(&bs->local_address));
-		if (bs->shop.ifindex != IFINDEX_INTERNAL)
+		if (bs->ifname[0])
 			json_object_string_add(jo, "local-interface",
-					       bs->ifp->name);
+					       bs->ifname);
 	}
 
 	if (bs->pl)

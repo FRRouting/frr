@@ -51,7 +51,8 @@
  */
 static int bfdd_write_config(struct vty *vty);
 static int bfdd_peer_write_config(struct vty *vty);
-static void _bfdd_peer_write_config(struct hash_backet *hb, void *arg);
+static void _bfdd_peer_write_config(struct vty *vty, struct bfd_session *bs);
+static void _bfdd_peer_write_config_iter(struct hash_backet *hb, void *arg);
 static int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 			      const struct sockaddr_any *peer,
 			      const struct sockaddr_any *local,
@@ -369,16 +370,16 @@ static void _display_peer_header(struct vty *vty, struct bfd_session *bs)
 		vty_out(vty, "\tpeer %s", satostr(&bs->mhop.peer));
 		vty_out(vty, " multihop");
 		vty_out(vty, " local-address %s", satostr(&bs->mhop.local));
-		if (bs->mhop.vrfid != VRF_DEFAULT)
-			vty_out(vty, " vrf %s", bs->vrf->name);
+		if (bs->vrfname[0])
+			vty_out(vty, " vrf %s", bs->vrfname);
 		vty_out(vty, "\n");
 	} else {
 		vty_out(vty, "\tpeer %s", satostr(&bs->shop.peer));
 		if (bs->local_address.sa_sin.sin_family != AF_UNSPEC)
 			vty_out(vty, " local-address %s",
 				satostr(&bs->local_address));
-		if (bs->shop.ifindex != IFINDEX_INTERNAL)
-			vty_out(vty, " interface %s", bs->ifp->name);
+		if (bs->ifname[0])
+			vty_out(vty, " interface %s", bs->ifname);
 		vty_out(vty, "\n");
 	}
 
@@ -454,16 +455,16 @@ static struct json_object *_peer_json_header(struct bfd_session *bs)
 		json_object_boolean_true_add(jo, "multihop");
 		json_object_string_add(jo, "peer", satostr(&bs->mhop.peer));
 		json_object_string_add(jo, "local", satostr(&bs->mhop.local));
-		if (bs->mhop.vrfid != VRF_DEFAULT)
-			json_object_string_add(jo, "vrf", bs->vrf->name);
+		if (bs->vrfname[0])
+			json_object_string_add(jo, "vrf", bs->vrfname);
 	} else {
 		json_object_boolean_false_add(jo, "multihop");
 		json_object_string_add(jo, "peer", satostr(&bs->shop.peer));
 		if (bs->local_address.sa_sin.sin_family != AF_UNSPEC)
 			json_object_string_add(jo, "local",
 					       satostr(&bs->local_address));
-		if (bs->shop.ifindex != IFINDEX_INTERNAL)
-			json_object_string_add(jo, "interface", bs->ifp->name);
+		if (bs->ifname[0])
+			json_object_string_add(jo, "interface", bs->ifname);
 	}
 
 	if (bs->pl)
@@ -910,27 +911,27 @@ static int bfdd_write_config(struct vty *vty)
 	return 0;
 }
 
-static void _bfdd_peer_write_config(struct hash_backet *hb, void *arg)
+static void _bfdd_peer_write_config(struct vty *vty, struct bfd_session *bs)
 {
-	struct vty *vty = arg;
-	struct bfd_session *bs = hb->data;
-
 	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
 		vty_out(vty, " peer %s", satostr(&bs->mhop.peer));
 		vty_out(vty, " multihop");
 		vty_out(vty, " local-address %s", satostr(&bs->mhop.local));
-		if (bs->mhop.vrfid != VRF_DEFAULT)
-			vty_out(vty, " vrf %s", bs->vrf->name);
+		if (bs->vrfname[0])
+			vty_out(vty, " vrf %s", bs->vrfname);
 		vty_out(vty, "\n");
 	} else {
 		vty_out(vty, " peer %s", satostr(&bs->shop.peer));
 		if (bs->local_address.sa_sin.sin_family != AF_UNSPEC)
 			vty_out(vty, " local-address %s",
 				satostr(&bs->local_address));
-		if (bs->shop.ifindex != IFINDEX_INTERNAL)
-			vty_out(vty, " interface %s", bs->ifp->name);
+		if (bs->ifname[0])
+			vty_out(vty, " interface %s", bs->ifname);
 		vty_out(vty, "\n");
 	}
+
+	if (bs->sock == -1)
+		vty_out(vty, "  ! vrf or interface doesn't exist\n");
 
 	if (bs->detect_mult != BPC_DEF_DETECTMULTIPLIER)
 		vty_out(vty, "  detect-multiplier %d\n", bs->detect_mult);
@@ -966,9 +967,27 @@ DEFUN_NOSH(show_debugging_bfd,
 	return CMD_SUCCESS;
 }
 
+static void _bfdd_peer_write_config_iter(struct hash_backet *hb, void *arg)
+{
+	struct vty *vty = arg;
+	struct bfd_session *bs = hb->data;
+
+	_bfdd_peer_write_config(vty, bs);
+}
+
 static int bfdd_peer_write_config(struct vty *vty)
 {
-	bfd_id_iterate(_bfdd_peer_write_config, vty);
+	struct bfd_session_observer *bso;
+
+	bfd_id_iterate(_bfdd_peer_write_config_iter, vty);
+	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
+		/* Only print disabled sessions here. */
+		if (bso->bso_bs->sock != -1)
+			continue;
+
+		_bfdd_peer_write_config(vty, bso->bso_bs);
+	}
+
 	return 1;
 }
 
