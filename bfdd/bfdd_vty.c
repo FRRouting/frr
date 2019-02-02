@@ -131,6 +131,10 @@ DEFUN_NOSH(
 		vty_out(vty, "%% VRF is not mixable with interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+	if (vrfname && !mhop) {
+		vty_out(vty, "%% VRF only applies with multihop.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	strtosa(peer, &psa);
 	if (local) {
