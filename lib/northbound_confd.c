@@ -322,7 +322,7 @@ static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 	 */
 	transaction = NULL;
 	ret = nb_candidate_commit_prepare(candidate, NB_CLIENT_CONFD, NULL,
-					  &transaction);
+					  NULL, &transaction);
 	if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
 		enum confd_errcode errcode;
 		const char *errmsg;

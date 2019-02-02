@@ -40,6 +40,21 @@ struct nb_config *running_config;
 /* Hash table of user pointers associated with configuration entries. */
 static struct hash *running_config_entries;
 
+/* Management lock for the running configuration. */
+static struct {
+	/* Mutex protecting this structure. */
+	pthread_mutex_t mtx;
+
+	/* Actual lock. */
+	bool locked;
+
+	/* Northbound client who owns this lock. */
+	enum nb_client owner_client;
+
+	/* Northbound user who owns this lock. */
+	const void *owner_user;
+} running_config_mgmt_lock;
+
 /*
  * Global lock used to prevent multiple configuration transactions from
  * happening concurrently.
@@ -51,6 +66,7 @@ static int nb_callback_configuration(const enum nb_event event,
 static struct nb_transaction *nb_transaction_new(struct nb_config *config,
 						 struct nb_config_cbs *changes,
 						 enum nb_client client,
+						 const void *user,
 						 const char *comment);
 static void nb_transaction_free(struct nb_transaction *transaction);
 static int nb_transaction_process(enum nb_event event,
@@ -583,7 +599,8 @@ int nb_candidate_validate(struct nb_config *candidate)
 }
 
 int nb_candidate_commit_prepare(struct nb_config *candidate,
-				enum nb_client client, const char *comment,
+				enum nb_client client, const void *user,
+				const char *comment,
 				struct nb_transaction **transaction)
 {
 	struct nb_config_cbs changes;
@@ -608,7 +625,8 @@ int nb_candidate_commit_prepare(struct nb_config *candidate,
 		return NB_ERR_VALIDATION;
 	}
 
-	*transaction = nb_transaction_new(candidate, &changes, client, comment);
+	*transaction =
+		nb_transaction_new(candidate, &changes, client, user, comment);
 	if (*transaction == NULL) {
 		flog_warn(EC_LIB_NB_TRANSACTION_CREATION_FAILED,
 			  "%s: failed to create transaction", __func__);
@@ -645,13 +663,13 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 }
 
 int nb_candidate_commit(struct nb_config *candidate, enum nb_client client,
-			bool save_transaction, const char *comment,
-			uint32_t *transaction_id)
+			const void *user, bool save_transaction,
+			const char *comment, uint32_t *transaction_id)
 {
 	struct nb_transaction *transaction = NULL;
 	int ret;
 
-	ret = nb_candidate_commit_prepare(candidate, client, comment,
+	ret = nb_candidate_commit_prepare(candidate, client, user, comment,
 					  &transaction);
 	/*
 	 * Apply the changes if the preparation phase succeeded. Otherwise abort
@@ -662,6 +680,60 @@ int nb_candidate_commit(struct nb_config *candidate, enum nb_client client,
 					  transaction_id);
 	else if (transaction != NULL)
 		nb_candidate_commit_abort(transaction);
+
+	return ret;
+}
+
+int nb_running_lock(enum nb_client client, const void *user)
+{
+	int ret = -1;
+
+	pthread_mutex_lock(&running_config_mgmt_lock.mtx);
+	{
+		if (!running_config_mgmt_lock.locked) {
+			running_config_mgmt_lock.locked = true;
+			running_config_mgmt_lock.owner_client = client;
+			running_config_mgmt_lock.owner_user = user;
+			ret = 0;
+		}
+	}
+	pthread_mutex_unlock(&running_config_mgmt_lock.mtx);
+
+	return ret;
+}
+
+int nb_running_unlock(enum nb_client client, const void *user)
+{
+	int ret = -1;
+
+	pthread_mutex_lock(&running_config_mgmt_lock.mtx);
+	{
+		if (running_config_mgmt_lock.locked
+		    && running_config_mgmt_lock.owner_client == client
+		    && running_config_mgmt_lock.owner_user == user) {
+			running_config_mgmt_lock.locked = false;
+			running_config_mgmt_lock.owner_client = NB_CLIENT_NONE;
+			running_config_mgmt_lock.owner_user = NULL;
+			ret = 0;
+		}
+	}
+	pthread_mutex_unlock(&running_config_mgmt_lock.mtx);
+
+	return ret;
+}
+
+int nb_running_lock_check(enum nb_client client, const void *user)
+{
+	int ret = -1;
+
+	pthread_mutex_lock(&running_config_mgmt_lock.mtx);
+	{
+		if (!running_config_mgmt_lock.locked
+		    || (running_config_mgmt_lock.owner_client == client
+			&& running_config_mgmt_lock.owner_user == user))
+			ret = 0;
+	}
+	pthread_mutex_unlock(&running_config_mgmt_lock.mtx);
 
 	return ret;
 }
@@ -812,12 +884,19 @@ int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
 	return nb_node->cbs.rpc(xpath, input, output);
 }
 
-static struct nb_transaction *nb_transaction_new(struct nb_config *config,
-						 struct nb_config_cbs *changes,
-						 enum nb_client client,
-						 const char *comment)
+static struct nb_transaction *
+nb_transaction_new(struct nb_config *config, struct nb_config_cbs *changes,
+		   enum nb_client client, const void *user, const char *comment)
 {
 	struct nb_transaction *transaction;
+
+	if (nb_running_lock_check(client, user)) {
+		flog_warn(
+			EC_LIB_NB_TRANSACTION_CREATION_FAILED,
+			"%s: running configuration is locked by another client",
+			__func__);
+		return NULL;
+	}
 
 	if (transaction_in_progress) {
 		flog_warn(
@@ -1761,6 +1840,7 @@ void nb_init(struct thread_master *tm,
 	running_config_entries = hash_create(running_config_entry_key_make,
 					     running_config_entry_cmp,
 					     "Running Configuration Entries");
+	pthread_mutex_init(&running_config_mgmt_lock.mtx, NULL);
 
 	/* Initialize the northbound CLI. */
 	nb_cli_init(tm);
@@ -1778,4 +1858,5 @@ void nb_terminate(void)
 	hash_clean(running_config_entries, running_config_entry_free);
 	hash_free(running_config_entries);
 	nb_config_free(running_config);
+	pthread_mutex_destroy(&running_config_mgmt_lock.mtx);
 }

@@ -185,7 +185,7 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 	/* Do an implicit "commit" when using the classic CLI mode. */
 	if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
 		ret = nb_candidate_commit(vty->candidate_config, NB_CLIENT_CLI,
-					  false, NULL, NULL);
+					  vty, false, NULL, NULL);
 		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES) {
 			vty_out(vty, "%% Configuration failed: %s.\n\n",
 				nb_err_name(ret));
@@ -237,7 +237,7 @@ int nb_cli_confirmed_commit_rollback(struct vty *vty)
 
 	/* Perform the rollback. */
 	ret = nb_candidate_commit(
-		vty->confirmed_commit_rollback, NB_CLIENT_CLI, true,
+		vty->confirmed_commit_rollback, NB_CLIENT_CLI, vty, true,
 		"Rollback to previous configuration - confirmed commit has timed out",
 		&transaction_id);
 	if (ret == NB_OK)
@@ -291,11 +291,6 @@ static int nb_cli_commit(struct vty *vty, bool force,
 		return CMD_SUCCESS;
 	}
 
-	if (vty_exclusive_lock != NULL && vty_exclusive_lock != vty) {
-		vty_out(vty, "%% Configuration is locked by another VTY.\n\n");
-		return CMD_WARNING;
-	}
-
 	/* "force" parameter. */
 	if (!force && nb_candidate_needs_update(vty->candidate_config)) {
 		vty_out(vty,
@@ -315,8 +310,8 @@ static int nb_cli_commit(struct vty *vty, bool force,
 				 &vty->t_confirmed_commit_timeout);
 	}
 
-	ret = nb_candidate_commit(vty->candidate_config, NB_CLIENT_CLI, true,
-				  comment, &transaction_id);
+	ret = nb_candidate_commit(vty->candidate_config, NB_CLIENT_CLI, vty,
+				  true, comment, &transaction_id);
 
 	/* Map northbound return code to CLI return code. */
 	switch (ret) {
@@ -1509,7 +1504,7 @@ static int nb_cli_rollback_configuration(struct vty *vty,
 	snprintf(comment, sizeof(comment), "Rollback to transaction %u",
 		 transaction_id);
 
-	ret = nb_candidate_commit(candidate, NB_CLIENT_CLI, true, comment,
+	ret = nb_candidate_commit(candidate, NB_CLIENT_CLI, vty, true, comment,
 				  NULL);
 	nb_config_free(candidate);
 	switch (ret) {

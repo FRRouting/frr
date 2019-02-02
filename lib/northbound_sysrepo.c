@@ -282,15 +282,15 @@ static int frr_sr_config_change_cb_verify(sr_session_ctx_t *session,
 		 * single event (SR_EV_ENABLED). This means we need to perform
 		 * the full two-phase commit protocol in one go here.
 		 */
-		ret = nb_candidate_commit(candidate, NB_CLIENT_SYSREPO, true,
-					  NULL, NULL);
+		ret = nb_candidate_commit(candidate, NB_CLIENT_SYSREPO, NULL,
+					  true, NULL, NULL);
 	} else {
 		/*
 		 * Validate the configuration changes and allocate all resources
 		 * required to apply them.
 		 */
 		ret = nb_candidate_commit_prepare(candidate, NB_CLIENT_SYSREPO,
-						  NULL, &transaction);
+						  NULL, NULL, &transaction);
 	}
 
 	/* Map northbound return code to sysrepo return code. */
