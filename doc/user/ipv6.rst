@@ -179,10 +179,17 @@ Router Advertisement
    hosts in proper interface configuration. The announced value is not verified
    to be consistent with router interface MTU.
 
-   Default: don't advertise any MTU option.::
-           interface eth0
-            no ipv6 nd suppress-ra
-            ipv6 nd prefix 2001:0DB8:5009::/64
+   Default: don't advertise any MTU option.
+
+Router Advertisement Configuration Example
+==========================================
+A small example:
+
+.. code-block:: frr
+
+   interface eth0
+    no ipv6 nd suppress-ra
+    ipv6 nd prefix 2001:0DB8:5009::/64
 
 
 .. seealso::
