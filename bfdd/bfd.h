@@ -35,8 +35,6 @@
 
 #include "bfdctl.h"
 
-#define ETHERNET_ADDRESS_LENGTH 6
-
 #ifdef BFD_DEBUG
 #define BFDD_JSON_CONV_OPTIONS (JSON_C_TO_STRING_PRETTY)
 #else
@@ -242,8 +240,6 @@ struct bfd_session {
 	struct vrf *vrf;
 	char ifname[MAXNAMELEN];
 	char vrfname[MAXNAMELEN];
-	uint8_t local_mac[ETHERNET_ADDRESS_LENGTH];
-	uint8_t peer_mac[ETHERNET_ADDRESS_LENGTH];
 
 	/* BFD session flags */
 	enum bfd_session_flags flags;
@@ -301,15 +297,12 @@ TAILQ_HEAD(obslist, bfd_session_observer);
 
 /* Various constants */
 /* Retrieved from ptm_timer.h from Cumulus PTM sources. */
-#define MSEC_PER_SEC 1000L
-#define NSEC_PER_MSEC 1000000L
-
 #define BFD_DEF_DEMAND 0
 #define BFD_DEFDETECTMULT 3
-#define BFD_DEFDESIREDMINTX (300 * MSEC_PER_SEC)
-#define BFD_DEFREQUIREDMINRX (300 * MSEC_PER_SEC)
-#define BFD_DEF_REQ_MIN_ECHO (50 * MSEC_PER_SEC)
-#define BFD_DEF_SLOWTX (1000 * MSEC_PER_SEC)
+#define BFD_DEFDESIREDMINTX (300 * 1000) /* microseconds. */
+#define BFD_DEFREQUIREDMINRX (300 * 1000) /* microseconds. */
+#define BFD_DEF_REQ_MIN_ECHO (50 * 1000) /* microseconds. */
+#define BFD_DEF_SLOWTX (1000 * 1000) /* microseconds. */
 #define BFD_DEF_MHOP_TTL 5
 #define BFD_PKT_LEN 24 /* Length of control packet */
 #define BFD_TTL_VAL 255
@@ -323,8 +316,6 @@ TAILQ_HEAD(obslist, bfd_session_observer);
 #define BFD_DEFDESTPORT 3784
 #define BFD_DEF_ECHO_PORT 3785
 #define BFD_DEF_MHOP_DEST_PORT 4784
-#define BFD_CMD_STRING_LEN (MAXNAMELEN + 50)
-#define BFD_BUFFER_LEN (BFD_CMD_STRING_LEN + MAXNAMELEN + 1)
 
 /*
  * control.c
