@@ -479,9 +479,9 @@ static void eigrp_vty_display_prefix_entry(struct vty *vty,
 	}
 }
 
-DEFUN (show_ip_eigrp_topology,
-       show_ip_eigrp_topology_cmd,
-       "show ip eigrp topology [all-links]",
+DEFPY (show_ip_eigrp_topology_all,
+       show_ip_eigrp_topology_all_cmd,
+       "show ip eigrp topology [all-links$all]",
        SHOW_STR
        IP_STR
        "IP-EIGRP show commands\n"
@@ -505,21 +505,62 @@ DEFUN (show_ip_eigrp_topology,
 			continue;
 
 		tn = rn->info;
-		eigrp_vty_display_prefix_entry(vty, eigrp, tn, argc == 5);
+		eigrp_vty_display_prefix_entry(vty, eigrp, tn,
+					       all ? true : false);
 	}
 
 	return CMD_SUCCESS;
+
 }
 
-ALIAS(show_ip_eigrp_topology, show_ip_eigrp_topology_detail_cmd,
-      "show ip eigrp topology <A.B.C.D|A.B.C.D/M|detail|summary>",
-      SHOW_STR IP_STR
-      "IP-EIGRP show commands\n"
-      "IP-EIGRP topology\n"
-      "Netwok to display information about\n"
-      "IP prefix <network>/<length>, e.g., 192.168.0.0/16\n"
-      "Show all links in topology table\n"
-      "Show a summary of the topology table\n")
+DEFPY (show_ip_eigrp_topology,
+       show_ip_eigrp_topology_cmd,
+       "show ip eigrp topology <A.B.C.D$address|A.B.C.D/M$prefix>",
+       SHOW_STR
+       IP_STR
+       "IP-EIGRP show commands\n"
+       "IP-EIGRP topology\n"
+       "For a specific address\n"
+       "For a specific prefix\n")
+{
+	struct eigrp *eigrp;
+	struct eigrp_prefix_entry *tn;
+	struct route_node *rn;
+	struct prefix cmp;
+
+	eigrp = eigrp_lookup();
+	if (eigrp == NULL) {
+		vty_out(vty, " EIGRP Routing Process not enabled\n");
+		return CMD_SUCCESS;
+	}
+
+	show_ip_eigrp_topology_header(vty, eigrp);
+
+	if (address_str)
+		prefix_str = address_str;
+
+	if (str2prefix(prefix_str, &cmp) < 0) {
+		vty_out(vty, "%% Malformed address\n");
+		return CMD_WARNING;
+	}
+
+	rn = route_node_match(eigrp->topology_table, &cmp);
+	if (!rn) {
+		vty_out(vty, "%% Network not in table\n");
+		return CMD_WARNING;
+	}
+
+	if (!rn->info) {
+		vty_out(vty, "%% Network not in table\n");
+		route_unlock_node(rn);
+		return CMD_WARNING;
+	}
+
+	tn = rn->info;
+	eigrp_vty_display_prefix_entry(vty, eigrp, tn, argc == 5);
+
+	return CMD_SUCCESS;
+}
 
 DEFUN (show_ip_eigrp_interfaces,
        show_ip_eigrp_interfaces_cmd,
@@ -1493,8 +1534,7 @@ void eigrp_vty_show_init(void)
 	install_element(VIEW_NODE, &show_ip_eigrp_neighbors_cmd);
 
 	install_element(VIEW_NODE, &show_ip_eigrp_topology_cmd);
-
-	install_element(VIEW_NODE, &show_ip_eigrp_topology_detail_cmd);
+	install_element(VIEW_NODE, &show_ip_eigrp_topology_all_cmd);
 }
 
 /* eigrpd's interface node. */
