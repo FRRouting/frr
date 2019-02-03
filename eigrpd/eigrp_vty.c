@@ -469,7 +469,7 @@ DEFUN (show_ip_eigrp_topology,
 	struct eigrp_prefix_entry *tn;
 	struct eigrp_nexthop_entry *te;
 	struct route_node *rn;
-	int first;
+	bool first;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -484,7 +484,7 @@ DEFUN (show_ip_eigrp_topology,
 			continue;
 
 		tn = rn->info;
-		first = 1;
+		first = true;
 		for (ALL_LIST_ELEMENTS_RO(tn->entries, node, te)) {
 			if (argc == 5
 			    || (((te->flags
