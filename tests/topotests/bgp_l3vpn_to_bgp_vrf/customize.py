@@ -141,7 +141,10 @@ class ThisTestTopo(Topo):
         switch[1].add_link(tgen.gears['r2'], nodeif='r2-eth2')
         switch[1].add_link(tgen.gears['r3'], nodeif='r3-eth1')
 
+l3mdev_accept = 0
+
 def ltemplatePreRouterStartHook():
+    global l3mdev_accept
     cc = ltemplateRtrCmd()
     krel = platform.release()
     tgen = get_topogen()
