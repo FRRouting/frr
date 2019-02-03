@@ -455,6 +455,30 @@ DEFUN (no_eigrp_neighbor,
 	return CMD_SUCCESS;
 }
 
+static void eigrp_vty_display_prefix_entry(struct vty *vty,
+					   struct eigrp *eigrp,
+					   struct eigrp_prefix_entry *pe,
+					   bool all)
+{
+	bool first = true;
+	struct eigrp_nexthop_entry *te;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(pe->entries, node, te)) {
+		if (all
+		    || (((te->flags
+			  & EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)
+			 == EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)
+			|| ((te->flags
+			     & EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG)
+			    == EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG))) {
+			show_ip_eigrp_nexthop_entry(vty, eigrp, te,
+						    &first);
+			first = false;
+		}
+	}
+}
+
 DEFUN (show_ip_eigrp_topology,
        show_ip_eigrp_topology_cmd,
        "show ip eigrp topology [all-links]",
@@ -465,11 +489,8 @@ DEFUN (show_ip_eigrp_topology,
        "Show all links in topology table\n")
 {
 	struct eigrp *eigrp;
-	struct listnode *node;
 	struct eigrp_prefix_entry *tn;
-	struct eigrp_nexthop_entry *te;
 	struct route_node *rn;
-	bool first;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -484,20 +505,7 @@ DEFUN (show_ip_eigrp_topology,
 			continue;
 
 		tn = rn->info;
-		first = true;
-		for (ALL_LIST_ELEMENTS_RO(tn->entries, node, te)) {
-			if (argc == 5
-			    || (((te->flags
-				  & EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)
-				 == EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)
-				|| ((te->flags
-				     & EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG)
-				    == EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG))) {
-				show_ip_eigrp_nexthop_entry(vty, eigrp, te,
-							    &first);
-				first = 0;
-			}
-		}
+		eigrp_vty_display_prefix_entry(vty, eigrp, tn, argc == 5);
 	}
 
 	return CMD_SUCCESS;
