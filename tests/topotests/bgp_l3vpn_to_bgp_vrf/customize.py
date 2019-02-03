@@ -172,7 +172,7 @@ def ltemplatePreRouterStartHook():
             'ip ru add oif {0}-cust1 table 10',
             'ip ru add iif {0}-cust1 table 10',
             'ip link set dev {0}-cust1 up',
-            'sysctl -w net.ipv4.udp_l3mdev_accept={}'.format(l3mdev_accept)]
+            'sysctl -w net.ipv4.tcp_l3mdev_accept={}'.format(l3mdev_accept)]
     for rtr in rtrs:
         router = tgen.gears[rtr]
         for cmd in cmds:
@@ -202,7 +202,7 @@ def ltemplatePreRouterStartHook():
             'ip ru add oif {0}-cust2 table 20',
             'ip ru add iif {0}-cust2 table 20',
             'ip link set dev {0}-cust2 up',
-            'sysctl -w net.ipv4.udp_l3mdev_accept={}'.format(l3mdev_accept)]
+            'sysctl -w net.ipv4.tcp_l3mdev_accept={}'.format(l3mdev_accept)]
     for rtr in rtrs:
         for cmd in cmds:
             cc.doCmd(tgen, rtr, cmd.format(rtr))
