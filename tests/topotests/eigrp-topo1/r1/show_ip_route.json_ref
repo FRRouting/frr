@@ -3,7 +3,7 @@
     {
       "prefix":"192.168.1.0/24",
       "protocol":"eigrp",
-      "metric":0,
+      "metric":28160,
       "nexthops":[
         {
           "directlyConnected":true,
@@ -31,7 +31,7 @@
       "prefix":"192.168.3.0/24",
       "protocol":"eigrp",
       "selected":true,
-      "metric":0,
+      "metric":33280,
       "nexthops":[
         {
           "fib":true,
@@ -47,7 +47,7 @@
     {
       "prefix":"193.1.1.0/26",
       "protocol":"eigrp",
-      "metric":0,
+      "metric":28160,
       "nexthops":[
         {
           "directlyConnected":true,
@@ -75,7 +75,7 @@
       "prefix":"193.1.2.0/24",
       "protocol":"eigrp",
       "selected":true,
-      "metric":0,
+      "metric":30720,
       "nexthops":[
         {
           "fib":true,

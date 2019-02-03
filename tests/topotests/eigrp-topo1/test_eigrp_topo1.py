@@ -153,7 +153,6 @@ def test_eigrp_routes():
         assertmsg = '"show ip eigrp topo" mismatches on {}'.format(router.name)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
-
 def test_zebra_ipv4_routingTable():
     "Test 'show ip route'"
 
