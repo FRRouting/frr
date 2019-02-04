@@ -3250,6 +3250,15 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 		if (bgp->table_map[afi][safi].name
 		    && (strcmp(rmap_name, bgp->table_map[afi][safi].name)
 			== 0)) {
+
+			/* bgp->table_map[afi][safi].map  is NULL.
+			 * i.e Route map creation event.
+			 * So update applied_counter.
+			 * If it is not NULL, i.e It may be routemap updation or
+			 * deletion. so no need to update the counter.
+			 */
+			if (!bgp->table_map[afi][safi].map)
+				route_map_counter_increment(map);
 			bgp->table_map[afi][safi].map = map;
 
 			if (BGP_DEBUG(zebra, ZEBRA))
@@ -3271,6 +3280,9 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 			if (!bgp_static->rmap.name
 			    || (strcmp(rmap_name, bgp_static->rmap.name) != 0))
 				continue;
+
+			if (!bgp_static->rmap.map)
+				route_map_counter_increment(map);
 
 			bgp_static->rmap.map = map;
 
@@ -3302,6 +3314,9 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 				if (!red->rmap.name
 				    || (strcmp(rmap_name, red->rmap.name) != 0))
 					continue;
+
+				if (!red->rmap.map)
+					route_map_counter_increment(map);
 
 				red->rmap.map = map;
 
