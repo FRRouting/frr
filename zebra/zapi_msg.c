@@ -209,12 +209,6 @@ int zsend_interface_link_params(struct zserv *client, struct interface *ifp)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	/* Check this client need interface information. */
-	if (!vrf_bitmap_check(client->ifinfo, ifp->vrf_id)) {
-		stream_free(s);
-		return 0;
-	}
-
 	if (!ifp->link_params) {
 		stream_free(s);
 		return 0;
@@ -1317,9 +1311,6 @@ static void zread_interface_add(ZAPI_HANDLER_ARGS)
 	struct vrf *vrf;
 	struct interface *ifp;
 
-	/* Interface information is needed. */
-	vrf_bitmap_set(client->ifinfo, zvrf_id(zvrf));
-
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			/* Skip pseudo interface. */
@@ -1336,7 +1327,6 @@ static void zread_interface_add(ZAPI_HANDLER_ARGS)
 /* Unregister zebra server interface information. */
 static void zread_interface_delete(ZAPI_HANDLER_ARGS)
 {
-	vrf_bitmap_unset(client->ifinfo, zvrf_id(zvrf));
 }
 
 void zserv_nexthop_num_warn(const char *caller, const struct prefix *p,
@@ -1731,7 +1721,6 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 			vrf_bitmap_unset(client->redist[afi][i], zvrf_id(zvrf));
 		vrf_bitmap_unset(client->redist_default[afi], zvrf_id(zvrf));
 	}
-	vrf_bitmap_unset(client->ifinfo, zvrf_id(zvrf));
 	vrf_bitmap_unset(client->ridinfo, zvrf_id(zvrf));
 }
 
