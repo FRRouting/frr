@@ -11405,10 +11405,10 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 	conf = group->conf;
 
 	if (conf->as_type == AS_SPECIFIED || conf->as_type == AS_EXTERNAL) {
-		vty_out(vty, "\nBGP peer-group %s, remote AS %d\n", group->name,
+		vty_out(vty, "\nBGP peer-group %s, remote AS %u\n", group->name,
 			conf->as);
 	} else if (conf->as_type == AS_INTERNAL) {
-		vty_out(vty, "\nBGP peer-group %s, remote AS %d\n", group->name,
+		vty_out(vty, "\nBGP peer-group %s, remote AS %u\n", group->name,
 			group->bgp->as);
 	} else {
 		vty_out(vty, "\nBGP peer-group %s\n", group->name);
