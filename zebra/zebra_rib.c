@@ -2152,14 +2152,6 @@ static void do_nht_processing(void)
 	}
 }
 
-/*
- * All meta queues have been processed. Trigger next-hop evaluation.
- */
-static void meta_queue_process_complete(struct work_queue *dummy)
-{
-	do_nht_processing();
-}
-
 /* Dispatch the meta queue by picking, processing and unlocking the next RN from
  * a non-empty sub-queue with lowest priority. wq is equal to zebra->ribq and
  * data
@@ -2333,7 +2325,7 @@ static void rib_queue_init(void)
 	/* fill in the work queue spec */
 	zrouter.ribq->spec.workfunc = &meta_queue_process;
 	zrouter.ribq->spec.errorfunc = NULL;
-	zrouter.ribq->spec.completion_func = &meta_queue_process_complete;
+	zrouter.ribq->spec.completion_func = NULL;
 	/* XXX: TODO: These should be runtime configurable via vty */
 	zrouter.ribq->spec.max_retries = 3;
 	zrouter.ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
