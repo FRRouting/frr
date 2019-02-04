@@ -46,7 +46,19 @@ Depends:
 Pre-Depends: adduser
 Recommends: frr-pythontools
 Suggests: frr-doc
-Conflicts: zebra, zebra-pj, quagga
+Conflicts:
+ zebra,
+ zebra-pj,
+ pimd,
+ quagga,
+ quagga-bgpd,
+ quagga-core,
+ quagga-isisd,
+ quagga-ospf6d,
+ quagga-ospfd,
+ quagga-pimd,
+ quagga-ripd,
+ quagga-ripngd
 Replaces: zebra, zebra-pj
 Description: FRRouting suite of internet protocols (BGP, OSPF, IS-IS, ...)
  FRRouting implements the routing protocols commonly used in the
@@ -97,6 +109,7 @@ Depends:
  libjs-jquery,
  libjs-underscore
 Suggests: frr
+Conflicts: quagga-doc
 Description: FRRouting suite - user manual
  This provides the FRR user manual in HTML form.  This is the official
  manual maintained as part of the package and is also available online
