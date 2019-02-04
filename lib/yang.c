@@ -649,6 +649,29 @@ CPP_NOTICE("lib/yang: time to remove non-LIBYANG_EXT_BUILTIN support")
 extern struct lytype_plugin_list frr_user_types[];
 #endif
 
+struct ly_ctx *yang_ctx_new_setup(void)
+{
+	struct ly_ctx *ctx;
+	const char *yang_models_path = YANG_MODELS_PATH;
+
+	if (access(yang_models_path, R_OK | X_OK)) {
+		yang_models_path = NULL;
+		if (errno == ENOENT)
+			zlog_info("yang model directory \"%s\" does not exist",
+				  YANG_MODELS_PATH);
+		else
+			flog_err_sys(EC_LIB_LIBYANG,
+				     "cannot access yang model directory \"%s\"",
+				     YANG_MODELS_PATH);
+	}
+
+	ctx = ly_ctx_new(yang_models_path, LY_CTX_DISABLE_SEARCHDIR_CWD);
+	if (!ctx)
+		return NULL;
+	ly_ctx_set_module_imp_clb(ctx, yang_module_imp_clb, NULL);
+	return ctx;
+}
+
 void yang_init(void)
 {
 #ifndef LIBYANG_EXT_BUILTIN
@@ -677,13 +700,11 @@ CPP_NOTICE("lib/yang: deprecated libyang <0.16.74 extension loading in use!")
 #endif
 
 	/* Initialize libyang container for native models. */
-	ly_native_ctx =
-		ly_ctx_new(YANG_MODELS_PATH, LY_CTX_DISABLE_SEARCHDIR_CWD);
+	ly_native_ctx = yang_ctx_new_setup();
 	if (!ly_native_ctx) {
 		flog_err(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		exit(1);
 	}
-	ly_ctx_set_module_imp_clb(ly_native_ctx, yang_module_imp_clb, NULL);
 	ly_ctx_set_priv_dup_clb(ly_native_ctx, ly_dup_cb);
 
 #ifndef LIBYANG_EXT_BUILTIN
