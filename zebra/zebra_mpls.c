@@ -40,6 +40,7 @@
 #include "zebra/rt.h"
 #include "zebra/interface.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_memory.h"
@@ -55,9 +56,6 @@ DEFINE_MTYPE_STATIC(ZEBRA, SNHLFE, "MPLS static nexthop object")
 DEFINE_MTYPE_STATIC(ZEBRA, SNHLFE_IFNAME, "MPLS static nexthop ifname")
 
 int mpls_enabled;
-
-/* Default rtm_table for all clients */
-extern struct zebra_t zebrad;
 
 /* static function declarations */
 
@@ -126,7 +124,6 @@ static zebra_snhlfe_t *snhlfe_add(zebra_slsp_t *slsp,
 static int snhlfe_del(zebra_snhlfe_t *snhlfe);
 static int snhlfe_del_all(zebra_slsp_t *slsp);
 static char *snhlfe2str(zebra_snhlfe_t *snhlfe, char *buf, int size);
-static int mpls_processq_init(struct zebra_t *zebra);
 
 
 /* Static functions */
@@ -1074,13 +1071,13 @@ static int lsp_processq_add(zebra_lsp_t *lsp)
 	if (CHECK_FLAG(lsp->flags, LSP_FLAG_SCHEDULED))
 		return 0;
 
-	if (zebrad.lsp_process_q == NULL) {
+	if (zrouter.lsp_process_q == NULL) {
 		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
 			 "%s: work_queue does not exist!", __func__);
 		return -1;
 	}
 
-	work_queue_add(zebrad.lsp_process_q, lsp);
+	work_queue_add(zrouter.lsp_process_q, lsp);
 	SET_FLAG(lsp->flags, LSP_FLAG_SCHEDULED);
 	return 0;
 }
@@ -1714,21 +1711,21 @@ static char *snhlfe2str(zebra_snhlfe_t *snhlfe, char *buf, int size)
 /*
  * Initialize work queue for processing changed LSPs.
  */
-static int mpls_processq_init(struct zebra_t *zebra)
+static int mpls_processq_init(void)
 {
-	zebra->lsp_process_q = work_queue_new(zebra->master, "LSP processing");
-	if (!zebra->lsp_process_q) {
+	zrouter.lsp_process_q = work_queue_new(zrouter.master, "LSP processing");
+	if (!zrouter.lsp_process_q) {
 		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
 			 "%s: could not initialise work queue!", __func__);
 		return -1;
 	}
 
-	zebra->lsp_process_q->spec.workfunc = &lsp_process;
-	zebra->lsp_process_q->spec.del_item_data = &lsp_processq_del;
-	zebra->lsp_process_q->spec.errorfunc = NULL;
-	zebra->lsp_process_q->spec.completion_func = &lsp_processq_complete;
-	zebra->lsp_process_q->spec.max_retries = 0;
-	zebra->lsp_process_q->spec.hold = 10;
+	zrouter.lsp_process_q->spec.workfunc = &lsp_process;
+	zrouter.lsp_process_q->spec.del_item_data = &lsp_processq_del;
+	zrouter.lsp_process_q->spec.errorfunc = NULL;
+	zrouter.lsp_process_q->spec.completion_func = &lsp_processq_complete;
+	zrouter.lsp_process_q->spec.max_retries = 0;
+	zrouter.lsp_process_q->spec.hold = 10;
 
 	return 0;
 }
@@ -3062,7 +3059,7 @@ void zebra_mpls_init(void)
 		return;
 	}
 
-	if (!mpls_processq_init(&zebrad))
+	if (!mpls_processq_init())
 		mpls_enabled = 1;
 
 	hook_register(zserv_client_close, zebra_mpls_cleanup_fecs_for_client);

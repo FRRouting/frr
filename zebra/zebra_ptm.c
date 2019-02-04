@@ -41,7 +41,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/zebra_ptm_redistribute.h"
-#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra_vrf.h"
 
 /*
@@ -187,12 +187,12 @@ static int zebra_ptm_flush_messages(struct thread *thread)
 		ptm_cb.ptm_sock = -1;
 		zebra_ptm_reset_status(0);
 		ptm_cb.t_timer = NULL;
-		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
+		thread_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return (-1);
 	case BUFFER_PENDING:
 		ptm_cb.t_write = NULL;
-		thread_add_write(zebrad.master, zebra_ptm_flush_messages, NULL,
+		thread_add_write(zrouter.master, zebra_ptm_flush_messages, NULL,
 				 ptm_cb.ptm_sock, &ptm_cb.t_write);
 		break;
 	case BUFFER_EMPTY:
@@ -213,14 +213,14 @@ static int zebra_ptm_send_message(char *data, int size)
 		ptm_cb.ptm_sock = -1;
 		zebra_ptm_reset_status(0);
 		ptm_cb.t_timer = NULL;
-		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
+		thread_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return -1;
 	case BUFFER_EMPTY:
 		THREAD_OFF(ptm_cb.t_write);
 		break;
 	case BUFFER_PENDING:
-		thread_add_write(zebrad.master, zebra_ptm_flush_messages, NULL,
+		thread_add_write(zrouter.master, zebra_ptm_flush_messages, NULL,
 				 ptm_cb.ptm_sock, &ptm_cb.t_write);
 		break;
 	}
@@ -240,7 +240,7 @@ int zebra_ptm_connect(struct thread *t)
 	if (ptm_cb.ptm_sock != -1) {
 		if (init) {
 			ptm_cb.t_read = NULL;
-			thread_add_read(zebrad.master, zebra_ptm_sock_read,
+			thread_add_read(zrouter.master, zebra_ptm_sock_read,
 					NULL, ptm_cb.ptm_sock, &ptm_cb.t_read);
 			zebra_bfd_peer_replay_req();
 		}
@@ -252,7 +252,7 @@ int zebra_ptm_connect(struct thread *t)
 			ptm_cb.reconnect_time = ZEBRA_PTM_RECONNECT_TIME_MAX;
 
 		ptm_cb.t_timer = NULL;
-		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
+		thread_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
 	} else if (ptm_cb.reconnect_time >= ZEBRA_PTM_RECONNECT_TIME_MAX) {
 		ptm_cb.reconnect_time = ZEBRA_PTM_RECONNECT_TIME_INITIAL;
@@ -657,14 +657,14 @@ int zebra_ptm_sock_read(struct thread *thread)
 		ptm_cb.ptm_sock = -1;
 		zebra_ptm_reset_status(0);
 		ptm_cb.t_timer = NULL;
-		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
+		thread_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time,
 				 &ptm_cb.t_timer);
 		return (-1);
 	}
 
 	ptm_cb.t_read = NULL;
-	thread_add_read(zebrad.master, zebra_ptm_sock_read, NULL,
+	thread_add_read(zrouter.master, zebra_ptm_sock_read, NULL,
 			ptm_cb.ptm_sock, &ptm_cb.t_read);
 
 	return 0;
@@ -700,7 +700,7 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 
 	if (ptm_cb.ptm_sock == -1) {
 		ptm_cb.t_timer = NULL;
-		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
+		thread_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return;
 	}
@@ -854,7 +854,7 @@ void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS)
 
 	if (ptm_cb.ptm_sock == -1) {
 		ptm_cb.t_timer = NULL;
-		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
+		thread_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return;
 	}
@@ -981,7 +981,7 @@ void zebra_ptm_bfd_client_register(ZAPI_HANDLER_ARGS)
 
 	if (ptm_cb.ptm_sock == -1) {
 		ptm_cb.t_timer = NULL;
-		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
+		thread_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return;
 	}
@@ -1039,7 +1039,7 @@ int zebra_ptm_bfd_client_deregister(struct zserv *client)
 
 	if (ptm_cb.ptm_sock == -1) {
 		ptm_cb.t_timer = NULL;
-		thread_add_timer(zebrad.master, zebra_ptm_connect, NULL,
+		thread_add_timer(zrouter.master, zebra_ptm_connect, NULL,
 				 ptm_cb.reconnect_time, &ptm_cb.t_timer);
 		return 0;
 	}
@@ -1276,7 +1276,7 @@ static void zebra_ptm_send_bfdd(struct stream *msg)
 	}
 
 	/* Send message to all running BFDd daemons. */
-	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		if (client->proto != ZEBRA_ROUTE_BFD)
 			continue;
 
@@ -1308,7 +1308,7 @@ static void zebra_ptm_send_clients(struct stream *msg)
 	}
 
 	/* Send message to all running client daemons. */
-	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		if (!IS_BFD_ENABLED_PROTOCOL(client->proto))
 			continue;
 

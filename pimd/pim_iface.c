@@ -170,6 +170,8 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp->sec_addr_list->cmp =
 		(int (*)(void *, void *))pim_sec_addr_comp;
 
+	pim_ifp->activeactive = false;
+
 	RB_INIT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
 
 	ifp->info = pim_ifp;

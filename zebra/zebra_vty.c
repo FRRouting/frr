@@ -2456,7 +2456,7 @@ DEFUN_HIDDEN (zebra_packet_process,
 {
 	uint32_t packets = strtoul(argv[2]->arg, NULL, 10);
 
-	atomic_store_explicit(&zebrad.packets_to_process, packets,
+	atomic_store_explicit(&zrouter.packets_to_process, packets,
 			      memory_order_relaxed);
 
 	return CMD_SUCCESS;
@@ -2470,7 +2470,7 @@ DEFUN_HIDDEN (no_zebra_packet_process,
 	      "Zapi Protocol\n"
 	      "Number of packets to process before relinquishing thread\n")
 {
-	atomic_store_explicit(&zebrad.packets_to_process,
+	atomic_store_explicit(&zrouter.packets_to_process,
 			      ZEBRA_ZAPI_PACKETS_TO_PROCESS,
 			      memory_order_relaxed);
 
@@ -2485,7 +2485,7 @@ DEFUN_HIDDEN (zebra_workqueue_timer,
 	      "Time in milliseconds\n")
 {
 	uint32_t timer = strtoul(argv[2]->arg, NULL, 10);
-	zebrad.ribq->spec.hold = timer;
+	zrouter.ribq->spec.hold = timer;
 
 	return CMD_SUCCESS;
 }
@@ -2498,7 +2498,7 @@ DEFUN_HIDDEN (no_zebra_workqueue_timer,
 	      "Work Queue\n"
 	      "Time in milliseconds\n")
 {
-	zebrad.ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
+	zrouter.ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
 
 	return CMD_SUCCESS;
 }
@@ -2548,12 +2548,12 @@ static int config_write_protocol(struct vty *vty)
 	if (zebra_rnh_ipv6_default_route)
 		vty_out(vty, "ipv6 nht resolve-via-default\n");
 
-	if (zebrad.ribq->spec.hold != ZEBRA_RIB_PROCESS_HOLD_TIME)
-		vty_out(vty, "zebra work-queue %u\n", zebrad.ribq->spec.hold);
+	if (zrouter.ribq->spec.hold != ZEBRA_RIB_PROCESS_HOLD_TIME)
+		vty_out(vty, "zebra work-queue %u\n", zrouter.ribq->spec.hold);
 
-	if (zebrad.packets_to_process != ZEBRA_ZAPI_PACKETS_TO_PROCESS)
+	if (zrouter.packets_to_process != ZEBRA_ZAPI_PACKETS_TO_PROCESS)
 		vty_out(vty, "zebra zapi-packets %u\n",
-			zebrad.packets_to_process);
+			zrouter.packets_to_process);
 
 	enum multicast_mode ipv4_multicast_mode = multicast_mode_ipv4_get();
 
@@ -2581,7 +2581,7 @@ DEFUN (show_table,
        SHOW_STR
        "default routing table to use for all clients\n")
 {
-	vty_out(vty, "table %d\n", zebrad.rtm_table_default);
+	vty_out(vty, "table %d\n", zrouter.rtm_table_default);
 	return CMD_SUCCESS;
 }
 
@@ -2591,7 +2591,7 @@ DEFUN (config_table,
        "Configure target kernel routing table\n"
        "TABLE integer\n")
 {
-	zebrad.rtm_table_default = strtol(argv[1]->arg, (char **)0, 10);
+	zrouter.rtm_table_default = strtol(argv[1]->arg, (char **)0, 10);
 	return CMD_SUCCESS;
 }
 
@@ -2602,7 +2602,7 @@ DEFUN (no_config_table,
        "Configure target kernel routing table\n"
        "TABLE integer\n")
 {
-	zebrad.rtm_table_default = 0;
+	zrouter.rtm_table_default = 0;
 	return CMD_SUCCESS;
 }
 #endif
@@ -2850,8 +2850,8 @@ DEFUN (zebra_show_routing_tables_summary,
 /* Table configuration write function. */
 static int config_write_table(struct vty *vty)
 {
-	if (zebrad.rtm_table_default)
-		vty_out(vty, "table %d\n", zebrad.rtm_table_default);
+	if (zrouter.rtm_table_default)
+		vty_out(vty, "table %d\n", zrouter.rtm_table_default);
 	return 0;
 }
 

@@ -362,6 +362,9 @@ int pim_interface_config_write(struct vty *vty)
 					}
 				}
 
+				if (pim_ifp->activeactive)
+					vty_out(vty, " ip pim active-active\n");
+
 				/* boundary */
 				if (pim_ifp->boundary_oil_plist) {
 					vty_out(vty,

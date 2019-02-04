@@ -26,7 +26,7 @@
 #include "lib/zebra.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_memory.h"
-#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/rt.h"
 #include "zebra/debug.h"
@@ -1802,7 +1802,7 @@ static int dplane_check_shutdown_status(struct thread *event)
 		/* We appear to be done - schedule a final callback event
 		 * for the zebra main pthread.
 		 */
-		thread_add_event(zebrad.master, zebra_finalize, NULL, 0, NULL);
+		thread_add_event(zrouter.master, zebra_finalize, NULL, 0, NULL);
 	}
 
 	return 0;
@@ -2052,7 +2052,7 @@ void zebra_dplane_shutdown(void)
 /*
  * Initialize the dataplane module during startup, internal/private version
  */
-static void zebra_dplane_init_internal(struct zebra_t *zebra)
+static void zebra_dplane_init_internal(void)
 {
 	memset(&zdplane_info, 0, sizeof(zdplane_info));
 
@@ -2101,6 +2101,6 @@ void zebra_dplane_start(void)
  */
 void zebra_dplane_init(int (*results_fp)(struct dplane_ctx_q *))
 {
-	zebra_dplane_init_internal(&zebrad);
+	zebra_dplane_init_internal();
 	zdplane_info.dg_results_cb = results_fp;
 }

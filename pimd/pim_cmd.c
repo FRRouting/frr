@@ -62,6 +62,10 @@
 #include "pim_bfd.h"
 #include "bfd.h"
 
+#ifndef VTYSH_EXTRACT_PL
+#include "pimd/pim_cmd_clippy.c"
+#endif
+
 static struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1 /* vtysh ? yes */
 };
@@ -6394,6 +6398,31 @@ static int pim_cmd_interface_add(struct interface *ifp)
 	return 1;
 }
 
+DEFPY_HIDDEN (interface_ip_pim_activeactive,
+	      interface_ip_pim_activeactive_cmd,
+	      "[no$no] ip pim active-active",
+	      NO_STR
+	      IP_STR
+	      PIM_STR
+	      "Mark interface as Active-Active for MLAG operations, Hidden because not finished yet\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp;
+
+	if (!no && !pim_cmd_interface_add(ifp)) {
+		vty_out(vty, "Could not enable PIM SM active-active on interface\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	pim_ifp = ifp->info;
+	if (no)
+		pim_ifp->activeactive = false;
+	else
+		pim_ifp->activeactive = true;
+
+	return CMD_SUCCESS;
+}
+
 DEFUN_HIDDEN (interface_ip_pim_ssm,
        interface_ip_pim_ssm_cmd,
        "ip pim ssm",
@@ -8722,6 +8751,7 @@ void pim_cmd_init(void)
 			&interface_ip_igmp_query_max_response_time_dsec_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ip_igmp_query_max_response_time_dsec_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_activeactive_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_sm_cmd);

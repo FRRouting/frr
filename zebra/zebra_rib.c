@@ -163,7 +163,7 @@ int is_zebra_valid_kernel_table(uint32_t table_id)
 int is_zebra_main_routing_table(uint32_t table_id)
 {
 	if ((table_id == RT_TABLE_MAIN)
-	    || (table_id == zebrad.rtm_table_default))
+	    || (table_id == zrouter.rtm_table_default))
 		return 1;
 	return 0;
 }
@@ -2180,8 +2180,8 @@ static wq_item_status meta_queue_process(struct work_queue *dummy, void *data)
 				   queue_len, queue_limit);
 
 		/* Ensure that the meta-queue is actually enqueued */
-		if (work_queue_empty(zebrad.ribq))
-			work_queue_add(zebrad.ribq, zebrad.mq);
+		if (work_queue_empty(zrouter.ribq))
+			work_queue_add(zrouter.ribq, zrouter.mq);
 
 		return WQ_QUEUE_BLOCKED;
 	}
@@ -2270,7 +2270,7 @@ void rib_queue_add(struct route_node *rn)
 		return;
 	}
 
-	if (zebrad.ribq == NULL) {
+	if (zrouter.ribq == NULL) {
 		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
 			 "%s: work_queue does not exist!", __func__);
 		return;
@@ -2284,10 +2284,10 @@ void rib_queue_add(struct route_node *rn)
 	 * holder, if necessary, then push the work into it in any case.
 	 * This semantics was introduced after 0.99.9 release.
 	 */
-	if (work_queue_empty(zebrad.ribq))
-		work_queue_add(zebrad.ribq, zebrad.mq);
+	if (work_queue_empty(zrouter.ribq))
+		work_queue_add(zrouter.ribq, zrouter.mq);
 
-	rib_meta_queue_add(zebrad.mq, rn);
+	rib_meta_queue_add(zrouter.mq, rn);
 
 	return;
 }
@@ -2321,27 +2321,25 @@ void meta_queue_free(struct meta_queue *mq)
 }
 
 /* initialise zebra rib work queue */
-static void rib_queue_init(struct zebra_t *zebra)
+static void rib_queue_init(void)
 {
-	assert(zebra);
-
-	if (!(zebra->ribq =
-		      work_queue_new(zebra->master, "route_node processing"))) {
+	if (!(zrouter.ribq = work_queue_new(zrouter.master,
+					    "route_node processing"))) {
 		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
 			 "%s: could not initialise work queue!", __func__);
 		return;
 	}
 
 	/* fill in the work queue spec */
-	zebra->ribq->spec.workfunc = &meta_queue_process;
-	zebra->ribq->spec.errorfunc = NULL;
-	zebra->ribq->spec.completion_func = &meta_queue_process_complete;
+	zrouter.ribq->spec.workfunc = &meta_queue_process;
+	zrouter.ribq->spec.errorfunc = NULL;
+	zrouter.ribq->spec.completion_func = &meta_queue_process_complete;
 	/* XXX: TODO: These should be runtime configurable via vty */
-	zebra->ribq->spec.max_retries = 3;
-	zebra->ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
-	zebra->ribq->spec.retry = ZEBRA_RIB_PROCESS_RETRY_TIME;
+	zrouter.ribq->spec.max_retries = 3;
+	zrouter.ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
+	zrouter.ribq->spec.retry = ZEBRA_RIB_PROCESS_RETRY_TIME;
 
-	if (!(zebra->mq = meta_queue_new())) {
+	if (!(zrouter.mq = meta_queue_new())) {
 		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
 			 "%s: could not initialise meta queue!", __func__);
 		return;
@@ -3313,7 +3311,7 @@ static int rib_dplane_results(struct dplane_ctx_q *ctxlist)
 	pthread_mutex_unlock(&dplane_mutex);
 
 	/* Ensure event is signalled to zebra main pthread */
-	thread_add_event(zebrad.master, rib_process_dplane_results, NULL, 0,
+	thread_add_event(zrouter.master, rib_process_dplane_results, NULL, 0,
 			 &t_dplane);
 
 	return 0;
@@ -3322,7 +3320,7 @@ static int rib_dplane_results(struct dplane_ctx_q *ctxlist)
 /* Routing information base initialize. */
 void rib_init(void)
 {
-	rib_queue_init(&zebrad);
+	rib_queue_init();
 
 	/* Init dataplane, and register for results */
 	pthread_mutex_init(&dplane_mutex, NULL);

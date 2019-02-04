@@ -43,7 +43,8 @@
 #include "mpls.h"
 #include "lib_errors.h"
 
-#include "zebra/zserv.h"
+//#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/rt.h"
@@ -388,7 +389,7 @@ static int kernel_read(struct thread *thread)
 	netlink_parse_info(netlink_information_fetch, &zns->netlink, &dp_info,
 			   5, 0);
 	zns->t_netlink = NULL;
-	thread_add_read(zebrad.master, kernel_read, zns, zns->netlink.sock,
+	thread_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
 			&zns->t_netlink);
 
 	return 0;
@@ -1158,7 +1159,7 @@ void kernel_init(struct zebra_ns *zns)
 
 	zns->t_netlink = NULL;
 
-	thread_add_read(zebrad.master, kernel_read, zns,
+	thread_add_read(zrouter.master, kernel_read, zns,
 			zns->netlink.sock, &zns->t_netlink);
 
 	rt_netlink_init();

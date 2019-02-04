@@ -42,8 +42,6 @@
 #include "zebra/zebra_netns_notify.h"
 #include "zebra/zebra_routemap.h"
 
-extern struct zebra_t zebrad;
-
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 				   safi_t safi);
 static void zebra_rnhtable_node_cleanup(struct route_table *table,
@@ -58,7 +56,7 @@ static void zebra_vrf_add_update(struct zebra_vrf *zvrf)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("MESSAGE: ZEBRA_VRF_ADD %s", zvrf_name(zvrf));
 
-	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client))
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client))
 		zsend_vrf_add(client, zvrf);
 }
 
@@ -70,7 +68,7 @@ static void zebra_vrf_delete_update(struct zebra_vrf *zvrf)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("MESSAGE: ZEBRA_VRF_DELETE %s", zvrf_name(zvrf));
 
-	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client))
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client))
 		zsend_vrf_delete(client, zvrf);
 }
 
@@ -189,13 +187,13 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		struct route_node *rnode;
 		rib_dest_t *dest;
 
-		for (ALL_LIST_ELEMENTS(zebrad.mq->subq[i], lnode, nnode,
+		for (ALL_LIST_ELEMENTS(zrouter.mq->subq[i], lnode, nnode,
 				       rnode)) {
 			dest = rib_dest_from_rnode(rnode);
 			if (dest && rib_dest_vrf(dest) == zvrf) {
 				route_unlock_node(rnode);
-				list_delete_node(zebrad.mq->subq[i], lnode);
-				zebrad.mq->size--;
+				list_delete_node(zrouter.mq->subq[i], lnode);
+				zrouter.mq->size--;
 			}
 		}
 	}
@@ -241,13 +239,13 @@ static int zebra_vrf_delete(struct vrf *vrf)
 		struct route_node *rnode;
 		rib_dest_t *dest;
 
-		for (ALL_LIST_ELEMENTS(zebrad.mq->subq[i], lnode, nnode,
+		for (ALL_LIST_ELEMENTS(zrouter.mq->subq[i], lnode, nnode,
 				       rnode)) {
 			dest = rib_dest_from_rnode(rnode);
 			if (dest && rib_dest_vrf(dest) == zvrf) {
 				route_unlock_node(rnode);
-				list_delete_node(zebrad.mq->subq[i], lnode);
-				zebrad.mq->size--;
+				list_delete_node(zrouter.mq->subq[i], lnode);
+				zrouter.mq->size--;
 			}
 		}
 	}
@@ -326,14 +324,14 @@ struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 
 	if (vrf_id == VRF_DEFAULT) {
 		if (table_id == RT_TABLE_MAIN
-		    || table_id == zebrad.rtm_table_default)
+		    || table_id == zrouter.rtm_table_default)
 			table = zebra_vrf_table(afi, safi, vrf_id);
 		else
 			table = zebra_vrf_other_route_table(afi, table_id,
 							    vrf_id);
 	} else if (vrf_is_backend_netns()) {
 		if (table_id == RT_TABLE_MAIN
-		    || table_id == zebrad.rtm_table_default)
+		    || table_id == zrouter.rtm_table_default)
 			table = zebra_vrf_table(afi, safi, vrf_id);
 		else
 			table = zebra_vrf_other_route_table(afi, table_id,
@@ -439,9 +437,9 @@ struct route_table *zebra_vrf_other_route_table(afi_t afi, uint32_t table_id,
 		return NULL;
 
 	if ((table_id != RT_TABLE_MAIN)
-	    && (table_id != zebrad.rtm_table_default)) {
+	    && (table_id != zrouter.rtm_table_default)) {
 		if (zvrf->table_id == RT_TABLE_MAIN ||
-		    zvrf->table_id == zebrad.rtm_table_default) {
+		    zvrf->table_id == zrouter.rtm_table_default) {
 			/* this VRF use default table
 			 * so in all cases, it does not use specific table
 			 * so it is possible to configure tables in this VRF

@@ -95,6 +95,9 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_errors.c \
 	# end
 
+zebra/debug_clippy.c: $(CLIPPY_DEPS)
+zebra/debug.$(OBJEXT): zebra/debug_clippy.c
+
 zebra/zebra_mlag_clippy.c: $(CLIPPY_DEPS)
 zebra/zebra_mlag.$(OBJEXT): zebra/zebra_mlag_clippy.c
 

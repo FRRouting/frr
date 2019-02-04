@@ -50,7 +50,7 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_vxlan_private.h"
-#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, HOST_PREFIX, "host prefix");
 DEFINE_MTYPE_STATIC(ZEBRA, ZVNI, "VNI hash");
@@ -510,7 +510,7 @@ static void zebra_vxlan_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 						       sizeof(buf)),
 					mac->flags, zvrf->dad_freeze_time);
 
-			thread_add_timer(zebrad.master,
+			thread_add_timer(zrouter.master,
 					 zebra_vxlan_dad_mac_auto_recovery_exp,
 					 mac, zvrf->dad_freeze_time,
 					 &mac->dad_mac_auto_recovery_timer);
@@ -643,7 +643,7 @@ static void zebra_vxlan_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
 				   ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
 				   nbr->flags, zvrf->dad_freeze_time);
 
-			thread_add_timer(zebrad.master,
+			thread_add_timer(zrouter.master,
 				zebra_vxlan_dad_ip_auto_recovery_exp,
 				nbr, zvrf->dad_freeze_time,
 				&nbr->dad_ip_auto_recovery_timer);
