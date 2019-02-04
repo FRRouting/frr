@@ -2,6 +2,7 @@ frr (6.0.2-2) UNRELEASED; urgency=medium
 
   * remove bogus libjson0 build-dep (closes: #921349)
   * fix broken systemd dependency spec
+  * add proper Conflicts: for quagga and pimd (closes: #921376)
 
  -- David Lamparter <equinox-debian@diac24.net>  Mon, 04 Feb 2019 04:51:00 +0100
 
