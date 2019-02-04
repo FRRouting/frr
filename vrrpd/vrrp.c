@@ -480,9 +480,14 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 				   struct vrrp_pkt *pkt, size_t pktsize)
 {
+	char sipstr[INET6_ADDRSTRLEN];
+	ipaddr2str(src, sipstr, sizeof(sipstr));
+
 	char dumpbuf[BUFSIZ];
 	vrrp_pkt_adver_dump(dumpbuf, sizeof(dumpbuf), pkt);
-	zlog_debug("Received VRRP Advertisement:\n%s", dumpbuf);
+	zlog_debug(VRRP_LOGPFX VRRP_LOGPFX_VRID
+		   "Received VRRP Advertisement from %s:\n%s",
+		   r->vr->vrid, sipstr, dumpbuf);
 
 	/* Check that VRID matches our configured VRID */
 	if (pkt->hdr.vrid != r->vr->vrid) {
@@ -527,6 +532,11 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 				&r->t_adver_timer);
 		} else if (pkt->hdr.priority > r->priority
 			   || ((pkt->hdr.priority == r->priority) && addrcmp > 0)) {
+			zlog_info(
+				VRRP_LOGPFX VRRP_LOGPFX_VRID
+				"Received advertisement from %s w/ priority %" PRIu8
+				"; switching to Backup",
+				r->vr->vrid, sipstr, pkt->hdr.priority);
 			THREAD_OFF(r->t_adver_timer);
 			r->master_adver_interval = ntohs(pkt->hdr.v3.adver_int);
 			vrrp_recalculate_timers(r);
@@ -538,6 +548,9 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			vrrp_change_state(r, VRRP_STATE_BACKUP);
 		} else {
 			/* Discard advertisement */
+			zlog_debug(VRRP_LOGPFX VRRP_LOGPFX_VRID
+				   "Discarding advertisement from %s",
+				   r->vr->vrid, sipstr);
 		}
 		break;
 	case VRRP_STATE_BACKUP:
@@ -558,6 +571,9 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 		} else if (r->vr->preempt_mode == true
 			   && pkt->hdr.priority < r->priority) {
 			/* Discard advertisement */
+			zlog_debug(VRRP_LOGPFX VRRP_LOGPFX_VRID
+				   "Discarding advertisement from %s",
+				   r->vr->vrid, sipstr);
 		}
 		break;
 	case VRRP_STATE_INITIALIZE:
