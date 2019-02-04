@@ -656,8 +656,13 @@ int bfd_recv_cb(struct thread *t)
 	 *
 	 * RFC 5880, Section 6.5.
 	 */
-	if (BFD_GETPBIT(cp->flags))
+	if (BFD_GETPBIT(cp->flags)) {
+		/* We are finalizing a poll negotiation. */
+		bs_final_handler(bfd);
+
+		/* Send the control packet with the final bit immediately. */
 		ptm_bfd_snd(bfd, 1);
+	}
 
 	return 0;
 }
