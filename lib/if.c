@@ -439,13 +439,13 @@ void if_set_index(struct interface *ifp, ifindex_t ifindex)
 }
 
 /* Does interface up ? */
-int if_is_up(struct interface *ifp)
+int if_is_up(const struct interface *ifp)
 {
 	return ifp->flags & IFF_UP;
 }
 
 /* Is interface running? */
-int if_is_running(struct interface *ifp)
+int if_is_running(const struct interface *ifp)
 {
 	return ifp->flags & IFF_RUNNING;
 }
@@ -453,7 +453,7 @@ int if_is_running(struct interface *ifp)
 /* Is the interface operative, eg. either UP & RUNNING
    or UP & !ZEBRA_INTERFACE_LINK_DETECTION and
    if ptm checking is enabled, then ptm check has passed */
-int if_is_operative(struct interface *ifp)
+int if_is_operative(const struct interface *ifp)
 {
 	return ((ifp->flags & IFF_UP)
 		&& (((ifp->flags & IFF_RUNNING)
@@ -464,7 +464,7 @@ int if_is_operative(struct interface *ifp)
 
 /* Is the interface operative, eg. either UP & RUNNING
    or UP & !ZEBRA_INTERFACE_LINK_DETECTION, without PTM check */
-int if_is_no_ptm_operative(struct interface *ifp)
+int if_is_no_ptm_operative(const struct interface *ifp)
 {
 	return ((ifp->flags & IFF_UP)
 		&& ((ifp->flags & IFF_RUNNING)
@@ -473,7 +473,7 @@ int if_is_no_ptm_operative(struct interface *ifp)
 }
 
 /* Is this loopback interface ? */
-int if_is_loopback(struct interface *ifp)
+int if_is_loopback(const struct interface *ifp)
 {
 	/* XXX: Do this better, eg what if IFF_WHATEVER means X on platform M
 	 * but Y on platform N?
@@ -482,12 +482,12 @@ int if_is_loopback(struct interface *ifp)
 }
 
 /* Check interface is VRF */
-int if_is_vrf(struct interface *ifp)
+int if_is_vrf(const struct interface *ifp)
 {
 	return CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 }
 
-bool if_is_loopback_or_vrf(struct interface *ifp)
+bool if_is_loopback_or_vrf(const struct interface *ifp)
 {
 	if (if_is_loopback(ifp) || if_is_vrf(ifp))
 		return true;
@@ -496,19 +496,19 @@ bool if_is_loopback_or_vrf(struct interface *ifp)
 }
 
 /* Does this interface support broadcast ? */
-int if_is_broadcast(struct interface *ifp)
+int if_is_broadcast(const struct interface *ifp)
 {
 	return ifp->flags & IFF_BROADCAST;
 }
 
 /* Does this interface support broadcast ? */
-int if_is_pointopoint(struct interface *ifp)
+int if_is_pointopoint(const struct interface *ifp)
 {
 	return ifp->flags & IFF_POINTOPOINT;
 }
 
 /* Does this interface support multicast ? */
-int if_is_multicast(struct interface *ifp)
+int if_is_multicast(const struct interface *ifp)
 {
 	return ifp->flags & IFF_MULTICAST;
 }
