@@ -39,7 +39,6 @@
 #include "isis_constants.h"
 #include "isis_common.h"
 #include "isis_flags.h"
-#include "dict.h"
 #include "isisd.h"
 #include "isis_misc.h"
 #include "isis_adjacency.h"
@@ -313,7 +312,7 @@ static struct isis_lsp *isis_root_system_lsp(struct isis_area *area, int level,
 	memcpy(lspid, sysid, ISIS_SYS_ID_LEN);
 	LSP_PSEUDO_ID(lspid) = 0;
 	LSP_FRAGMENT(lspid) = 0;
-	lsp = lsp_search(lspid, area->lspdb[level - 1]);
+	lsp = lsp_search(&area->lspdb[level - 1], lspid);
 	if (lsp && lsp->hdr.rem_lifetime != 0)
 		return lsp;
 	return NULL;
@@ -870,10 +869,8 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 							[spftree->level - 1],
 						parent);
 					lsp = lsp_search(
-						lsp_id,
-						spftree->area
-							->lspdb[spftree->level
-								- 1]);
+						&spftree->area->lspdb[spftree->level- 1],
+						lsp_id);
 					if (lsp == NULL
 					    || lsp->hdr.rem_lifetime == 0)
 						zlog_warn(
@@ -923,8 +920,8 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 				continue;
 			}
 			lsp = lsp_search(
-				lsp_id,
-				spftree->area->lspdb[spftree->level - 1]);
+				&spftree->area->lspdb[spftree->level - 1],
+				lsp_id);
 			if (lsp == NULL || lsp->hdr.rem_lifetime == 0) {
 				zlog_warn(
 					"ISIS-Spf: No lsp (%p) found from root "

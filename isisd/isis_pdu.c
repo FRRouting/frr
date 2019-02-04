@@ -36,7 +36,6 @@
 #include "md5.h"
 #include "lib_errors.h"
 
-#include "isisd/dict.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"
@@ -959,7 +958,7 @@ static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
 	/* Find the LSP in our database and compare it to this Link State header
 	 */
 	struct isis_lsp *lsp =
-		lsp_search(hdr.lsp_id, circuit->area->lspdb[level - 1]);
+		lsp_search(&circuit->area->lspdb[level - 1], hdr.lsp_id);
 	int comp = 0;
 	if (lsp)
 		comp = lsp_compare(circuit->area->area_tag, lsp, hdr.seqno,
@@ -1186,7 +1185,7 @@ dontcheckadj:
 				memcpy(lspid, hdr.lsp_id, ISIS_SYS_ID_LEN + 1);
 				LSP_FRAGMENT(lspid) = 0;
 				lsp0 = lsp_search(
-					lspid, circuit->area->lspdb[level - 1]);
+					&circuit->area->lspdb[level - 1], lspid);
 				if (!lsp0) {
 					zlog_debug(
 						"Got lsp frag, while zero lsp not in database");
@@ -1199,8 +1198,8 @@ dontcheckadj:
 					&hdr, tlvs, circuit->rcv_stream, lsp0,
 					circuit->area, level);
 				tlvs = NULL;
-				lsp_insert(lsp,
-					   circuit->area->lspdb[level - 1]);
+				lsp_insert(&circuit->area->lspdb[level - 1],
+					   lsp);
 			} else /* exists, so we overwrite */
 			{
 				lsp_update(lsp, &hdr, tlvs, circuit->rcv_stream,
@@ -1416,7 +1415,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 	for (struct isis_lsp_entry *entry = entry_head; entry;
 	     entry = entry->next) {
 		struct isis_lsp *lsp =
-			lsp_search(entry->id, circuit->area->lspdb[level - 1]);
+			lsp_search(&circuit->area->lspdb[level - 1], entry->id);
 		bool own_lsp = !memcmp(entry->id, isis->sysid, ISIS_SYS_ID_LEN);
 		if (lsp) {
 			/* 7.3.15.2 b) 1) is this LSP newer */
@@ -1467,8 +1466,8 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 					       ISIS_SYS_ID_LEN + 1);
 					LSP_FRAGMENT(lspid) = 0;
 					lsp0 = lsp_search(
-						  lspid,
-						  circuit->area->lspdb[level - 1]);
+						  &circuit->area->lspdb[level - 1],
+						  lspid);
 					if (!lsp0) {
 						zlog_debug("Got lsp frag in snp, while zero not in database");
 						continue;
@@ -1477,8 +1476,8 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 				lsp = lsp_new(circuit->area, entry->id,
 						entry->rem_lifetime, 0, 0,
 						entry->checksum, lsp0, level);
-				lsp_insert(lsp,
-					   circuit->area->lspdb[level - 1]);
+				lsp_insert(&circuit->area->lspdb[level - 1],
+					   lsp);
 
 				lsp_set_all_srmflags(lsp, false);
 				ISIS_SET_FLAG(lsp->SSNflags, circuit);
@@ -1495,8 +1494,8 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		 * start_lsp_id and stop_lsp_id
 		 */
 		struct list *lsp_list = list_new();
-		lsp_build_list_nonzero_ht(start_lsp_id, stop_lsp_id, lsp_list,
-					  circuit->area->lspdb[level - 1]);
+		lsp_build_list_nonzero_ht(&circuit->area->lspdb[level - 1],
+					  start_lsp_id, stop_lsp_id, lsp_list);
 
 		/* Fixme: Find a better solution */
 		struct listnode *node, *nnode;
@@ -2040,8 +2039,7 @@ static uint16_t get_max_lsp_count(uint16_t size)
 
 int send_csnp(struct isis_circuit *circuit, int level)
 {
-	if (circuit->area->lspdb[level - 1] == NULL
-	    || dict_count(circuit->area->lspdb[level - 1]) == 0)
+	if (lspdb_count(&circuit->area->lspdb[level - 1]) == 0)
 		return ISIS_OK;
 
 	uint8_t pdu_type = (level == ISIS_LEVEL1) ? L1_COMPLETE_SEQ_NUM
@@ -2094,7 +2092,7 @@ int send_csnp(struct isis_circuit *circuit, int level)
 
 		struct isis_lsp *last_lsp;
 		isis_tlvs_add_csnp_entries(tlvs, start, stop, num_lsps,
-					   circuit->area->lspdb[level - 1],
+					   &circuit->area->lspdb[level - 1],
 					   &last_lsp);
 		/*
 		 * Update the stop lsp_id before encoding this CSNP.
@@ -2215,8 +2213,7 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 	    && circuit->u.bc.is_dr[level - 1])
 		return ISIS_OK;
 
-	if (circuit->area->lspdb[level - 1] == NULL
-	    || dict_count(circuit->area->lspdb[level - 1]) == 0)
+	if (lspdb_count(&circuit->area->lspdb[level - 1]) == 0)
 		return ISIS_OK;
 
 	if (!circuit->snd_stream)
@@ -2254,16 +2251,13 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 		get_max_lsp_count(STREAM_WRITEABLE(circuit->snd_stream));
 
 	while (1) {
+		struct isis_lsp *lsp;
+
 		tlvs = isis_alloc_tlvs();
 		if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
 			isis_tlvs_add_auth(tlvs, passwd);
 
-		for (dnode_t *dnode =
-			     dict_first(circuit->area->lspdb[level - 1]);
-		     dnode; dnode = dict_next(circuit->area->lspdb[level - 1],
-					      dnode)) {
-			struct isis_lsp *lsp = dnode_get(dnode);
-
+		for_each (lspdb, &circuit->area->lspdb[level - 1], lsp) {
 			if (ISIS_CHECK_FLAG(lsp->SSNflags, circuit))
 				isis_tlvs_add_lsp_entry(tlvs, lsp);
 

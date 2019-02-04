@@ -31,7 +31,7 @@
 #include "isisd/isis_pdu_counter.h"
 #include "isisd/isis_circuit.h"
 #include "isis_flags.h"
-#include "dict.h"
+#include "isis_lsp.h"
 #include "isis_memory.h"
 #include "qobj.h"
 
@@ -107,7 +107,7 @@ enum isis_metric_style {
 
 struct isis_area {
 	struct isis *isis;			       /* back pointer */
-	dict_t *lspdb[ISIS_LEVELS];		       /* link-state dbs */
+	struct lspdb_head lspdb[ISIS_LEVELS];	       /* link-state dbs */
 	struct isis_spftree *spftree[SPFTREE_COUNT][ISIS_LEVELS];
 #define DEFAULT_LSP_MTU 1497
 	unsigned int lsp_mtu;      /* Size of LSPs to generate */
@@ -195,7 +195,7 @@ struct isis_area *isis_area_lookup(const char *);
 int isis_area_get(struct vty *vty, const char *area_tag);
 int isis_area_destroy(const char *area_tag);
 void print_debug(struct vty *, int, int);
-struct isis_lsp *lsp_for_arg(const char *argv, dict_t *lspdb);
+struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv);
 
 void isis_area_invalidate_routes(struct isis_area *area, int levels);
 void isis_area_verify_routes(struct isis_area *area);

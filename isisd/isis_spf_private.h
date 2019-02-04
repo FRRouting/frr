@@ -347,8 +347,8 @@ static struct isis_lsp *lsp_for_vertex(struct isis_spftree *spftree,
 	memcpy(lsp_id, vertex->N.id, ISIS_SYS_ID_LEN + 1);
 	LSP_FRAGMENT(lsp_id) = 0;
 
-	dict_t *lspdb = spftree->area->lspdb[spftree->level - 1];
-	struct isis_lsp *lsp = lsp_search(lsp_id, lspdb);
+	struct lspdb_head *lspdb = &spftree->area->lspdb[spftree->level - 1];
+	struct isis_lsp *lsp = lsp_search(lspdb, lsp_id);
 
 	if (lsp && lsp->hdr.rem_lifetime != 0)
 		return lsp;

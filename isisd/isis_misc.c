@@ -30,7 +30,6 @@
 #include "command.h"
 #include "log_int.h"
 
-#include "isisd/dict.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"
