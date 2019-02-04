@@ -238,6 +238,7 @@ uint32_t dplane_ctx_get_intf_metric(const struct zebra_dplane_ctx *ctx);
 /* Is interface addr p2p? */
 bool dplane_ctx_intf_is_connected(const struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_intf_is_secondary(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_intf_is_broadcast(const struct zebra_dplane_ctx *ctx);
 const struct prefix *dplane_ctx_get_intf_addr(
 	const struct zebra_dplane_ctx *ctx);
 bool dplane_ctx_intf_has_dest(const struct zebra_dplane_ctx *ctx);
