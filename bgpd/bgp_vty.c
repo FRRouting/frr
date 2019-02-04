@@ -9001,7 +9001,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, uint8_t use_json,
 	} else {
 		if ((p->as_type == AS_SPECIFIED) || (p->as_type == AS_EXTERNAL)
 		    || (p->as_type == AS_INTERNAL))
-			vty_out(vty, "remote AS %u, ", p->as);
+			vty_out(vty, "remote AS %" PRIu32 ", ", p->as);
 		else
 			vty_out(vty, "remote AS Unspecified, ");
 		vty_out(vty, "local AS %u%s%s, ",
@@ -11405,11 +11405,11 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 	conf = group->conf;
 
 	if (conf->as_type == AS_SPECIFIED || conf->as_type == AS_EXTERNAL) {
-		vty_out(vty, "\nBGP peer-group %s, remote AS %d\n", group->name,
-			conf->as);
+		vty_out(vty, "\nBGP peer-group %s, remote AS %" PRIu32 "\n",
+			group->name, conf->as);
 	} else if (conf->as_type == AS_INTERNAL) {
-		vty_out(vty, "\nBGP peer-group %s, remote AS %d\n", group->name,
-			group->bgp->as);
+		vty_out(vty, "\nBGP peer-group %s, remote AS %" PRIu32 "\n",
+			group->name, group->bgp->as);
 	} else {
 		vty_out(vty, "\nBGP peer-group %s\n", group->name);
 	}
