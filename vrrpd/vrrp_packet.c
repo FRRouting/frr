@@ -84,13 +84,17 @@ static uint16_t vrrp_pkt_checksum(struct vrrp_pkt *pkt, size_t pktsize,
 		ph.ulpl = htons(pktsize);
 		ph.next_hdr = 112;
 		chksum = in_cksum_with_ph6(&ph, pkt, pktsize);
-	} else {
+	} else if (!v6 && ((pkt->hdr.vertype >> 4) == 3)) {
 		struct ipv4_ph ph = {};
 		ph.src = src->ipaddr_v4;
 		inet_pton(AF_INET, VRRP_MCASTV4_GROUP_STR, &ph.dst);
 		ph.proto = 112;
 		ph.len = htons(pktsize);
 		chksum = in_cksum_with_ph4(&ph, pkt, pktsize);
+	} else if (!v6 && ((pkt->hdr.vertype >> 4) == 2)) {
+		chksum = in_cksum(pkt, pktsize);
+	} else {
+		assert(!"Invalid VRRP protocol version");
 	}
 
 	pkt->hdr.chksum = chksum_pre;
@@ -103,9 +107,10 @@ ssize_t vrrp_pkt_adver_build(struct vrrp_pkt **pkt, struct ipaddr *src,
 			     uint16_t max_adver_int, uint8_t numip,
 			     struct ipaddr **ips)
 {
-	assert(version >= 2 && version <= 3);
-
 	bool v6 = IS_IPADDR_V6(ips[0]);
+
+	assert(version >= 2 && version <= 3);
+	assert(!(version == 2 && v6));
 
 	size_t addrsz = IPADDRSZ(ips[0]);
 	size_t pktsize = VRRP_PKT_SIZE(v6 ? AF_INET6 : AF_INET, numip);
@@ -116,7 +121,12 @@ ssize_t vrrp_pkt_adver_build(struct vrrp_pkt **pkt, struct ipaddr *src,
 	(*pkt)->hdr.vrid = vrid;
 	(*pkt)->hdr.priority = prio;
 	(*pkt)->hdr.naddr = numip;
-	(*pkt)->hdr.v3.adver_int = htons(max_adver_int);
+	if (version == 3)
+		(*pkt)->hdr.v3.adver_int = htons(max_adver_int);
+	else if (version == 2) {
+		(*pkt)->hdr.v2.auth_type = 0;
+		(*pkt)->hdr.v2.adver_int = MAX(max_adver_int / 100, 1);
+	}
 
 	uint8_t *aptr = (void *)(*pkt)->addrs;
 
@@ -257,15 +267,21 @@ ssize_t vrrp_pkt_parse_datagram(int family, struct msghdr *m, size_t read,
 			(*pkt)->hdr.chksum, chksum);
 
 	/* Version check */
-	VRRP_PKT_VCHECK(((*pkt)->hdr.vertype >> 4) != 2, "VRPPv2 unsupported");
-	VRRP_PKT_VCHECK(((*pkt)->hdr.vertype >> 4) == 3, "Bad version %u",
-			(*pkt)->hdr.vertype >> 4);
+	uint8_t version = (*pkt)->hdr.vertype >> 4;
+	VRRP_PKT_VCHECK(version == 3 || version == 2, "Bad version %u",
+			version);
 	/* Type check */
 	VRRP_PKT_VCHECK(((*pkt)->hdr.vertype & 0x0F) == 1, "Bad type %u",
 			(*pkt)->hdr.vertype & 0x0f);
 	/* # addresses check */
 	size_t ves = VRRP_PKT_SIZE(family, (*pkt)->hdr.naddr);
 	VRRP_PKT_VCHECK(pktsize == ves, "Packet has incorrect # addresses");
+
+	/* auth type check */
+	if (version == 2)
+		VRRP_PKT_VCHECK((*pkt)->hdr.v2.auth_type == 0,
+				"Bad authentication type %" PRIu8,
+				(*pkt)->hdr.v2.auth_type);
 
 	/* Addresses check */
 	char vbuf[INET6_ADDRSTRLEN];

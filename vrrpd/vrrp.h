@@ -217,7 +217,8 @@ void vrrp_init(void);
  * vrid
  *    Virtual Router Identifier
  */
-struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid);
+struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid,
+					 uint8_t version);
 
 /*
  * Destroy a VRRP Virtual Router, freeing all its resources.

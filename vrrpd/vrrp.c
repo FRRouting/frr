@@ -88,8 +88,8 @@ static void vrrp_mac_set(struct ethaddr *mac, bool v6, uint8_t vrid)
  */
 static void vrrp_recalculate_timers(struct vrrp_router *r)
 {
-	r->skew_time =
-		((256 - r->vr->priority) * r->master_adver_interval) / 256;
+	uint16_t skmai = (r->vr->version - 2) * r->master_adver_interval;
+	r->skew_time = ((256 - r->vr->priority) * skmai) / 256;
 	r->master_down_interval = (3 * r->master_adver_interval);
 	r->master_down_interval += r->skew_time;
 }
@@ -362,16 +362,21 @@ static void vrrp_router_destroy(struct vrrp_router *r)
 	XFREE(MTYPE_VRRP_RTR, r);
 }
 
-struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid)
+struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid,
+					 uint8_t version)
 {
 	struct vrrp_vrouter *vr = vrrp_lookup(ifp, vrid);
 
 	if (vr)
 		return vr;
 
+	if (version != 2 && version != 3)
+		return NULL;
+
 	vr = XCALLOC(MTYPE_VRRP_RTR, sizeof(struct vrrp_vrouter));
 
 	vr->ifp = ifp;
+	vr->version = version;
 	vr->vrid = vrid;
 	vr->priority = VRRP_DEFAULT_PRIORITY;
 	vr->preempt_mode = true;
@@ -426,8 +431,8 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 
 	list_to_array(r->addrs, (void **)addrs, r->addrs->count);
 
-	pktsz = vrrp_pkt_adver_build(&pkt, &r->src, 3, r->vr->vrid, r->priority,
-				     r->vr->advertisement_interval,
+	pktsz = vrrp_pkt_adver_build(&pkt, &r->src, r->vr->version, r->vr->vrid,
+				     r->priority, r->vr->advertisement_interval,
 				     r->addrs->count, (struct ipaddr **)&addrs);
 
 	if (pktsz > 0)
@@ -459,7 +464,8 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
  *
  * However, we have not validated whether the VRID is correct for this virtual
  * router, nor whether the priority is correct (i.e. is not 255 when we are the
- * address owner).
+ * address owner), nor whether the advertisement interval equals our own
+ * configured value (this check is only performed in VRRPv2).
  *
  * r
  *    VRRP Router associated with the socket this advertisement was received on
@@ -508,6 +514,21 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 		return -1;
 	}
 
+	/* If v2, verify that adver time matches ours */
+	bool adveq = (pkt->hdr.v2.adver_int
+		      == MAX(r->vr->advertisement_interval / 100, 1));
+	if (r->vr->version == 2 && !adveq) {
+		zlog_warn(
+			VRRP_LOGPFX VRRP_LOGPFX_VRID
+			"%s datagram invalid: Received advertisement with advertisement interval %" PRIu8
+			" unequal to our configured value %u",
+			r->vr->vrid, family2str(r->family),
+			pkt->hdr.v2.adver_int,
+			MAX(r->vr->advertisement_interval / 100, 1));
+		return -1;
+	}
+
+
 	/* Check that # IPs received matches our # configured IPs */
 	if (pkt->hdr.naddr != r->addrs->count) {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
@@ -515,7 +536,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			  " addresses, but this VRRP instance has %u",
 			  r->vr->vrid, family2str(r->family), pkt->hdr.naddr,
 			  r->addrs->count);
-	}
+		}
 
 	int addrcmp;
 
@@ -538,7 +559,10 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 				"; switching to Backup",
 				r->vr->vrid, sipstr, pkt->hdr.priority);
 			THREAD_OFF(r->t_adver_timer);
-			r->master_adver_interval = ntohs(pkt->hdr.v3.adver_int);
+			if (r->vr->version == 3) {
+				r->master_adver_interval =
+					htons(pkt->hdr.v3.adver_int);
+			}
 			vrrp_recalculate_timers(r);
 			THREAD_OFF(r->t_master_down_timer);
 			thread_add_timer_msec(master,
@@ -561,7 +585,10 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 				r->skew_time * 10, &r->t_master_down_timer);
 		} else if (r->vr->preempt_mode == false
 			   || pkt->hdr.priority >= r->priority) {
-			r->master_adver_interval = ntohs(pkt->hdr.v3.adver_int);
+			if (r->vr->version == 3) {
+				r->master_adver_interval =
+					ntohs(pkt->hdr.v3.adver_int);
+			}
 			vrrp_recalculate_timers(r);
 			THREAD_OFF(r->t_master_down_timer);
 			thread_add_timer_msec(master,

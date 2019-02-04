@@ -39,6 +39,7 @@
 #define VRRP_PRIORITY_STR "Virtual Router Priority\n"
 #define VRRP_ADVINT_STR "Virtual Router Advertisement Interval\n"
 #define VRRP_IP_STR "Virtual Router IPv4 address\n"
+#define VRRP_VERSION_STR "VRRP protocol version\n"
 
 #define VROUTER_GET_VTY(_vty, _ifp, _vrid, _vr)                                \
 	do {                                                                   \
@@ -65,14 +66,19 @@ DEFUN_NOSH (show_debugging_vrrpd,
 
 DEFPY(vrrp_vrid,
       vrrp_vrid_cmd,
-      "[no] vrrp (1-255)$vrid",
+      "[no] vrrp (1-255)$vrid [version (2-3)]",
       NO_STR
       VRRP_STR
-      VRRP_VRID_STR)
+      VRRP_VRID_STR
+      VRRP_VERSION_STR
+      VRRP_VERSION_STR)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	struct vrrp_vrouter *vr = vrrp_lookup(ifp, vrid);
+
+	if (version == 0)
+		version = 3;
 
 	if (no && vr)
 		vrrp_vrouter_destroy(vr);
@@ -80,7 +86,7 @@ DEFPY(vrrp_vrid,
 		vty_out(vty, "%% VRRP instance %ld does not exist on %s\n",
 			vrid, ifp->name);
 	else if (!vr)
-		vrrp_vrouter_create(ifp, vrid);
+		vrrp_vrouter_create(ifp, vrid, version);
 	else if (vr)
 		vty_out(vty, "%% VRRP instance %ld already exists on %s\n",
 			vrid, ifp->name);
@@ -224,6 +230,12 @@ DEFPY(vrrp_ip6,
 
 	VROUTER_GET_VTY(vty, ifp, vrid, vr);
 
+	if (vr->version != 3) {
+		vty_out(vty,
+			"%% Cannot add IPv6 address to VRRPv2 virtual router\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	bool will_activate = (vr->v6->fsm.state == VRRP_STATE_INITIALIZE);
 
 	if (no) {
@@ -269,6 +281,7 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	struct ttable *tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
 
 	ttable_add_row(tt, "%s|%" PRIu32, "Virtual Router ID", vr->vrid);
+	ttable_add_row(tt, "%s|%" PRIu8, "Protocol Version", vr->version);
 	ttable_add_row(tt, "%s|%s", "Interface", vr->ifp->name);
 	prefix_mac2str(&vr->v4->vmac, ethstr4, sizeof(ethstr4));
 	prefix_mac2str(&vr->v6->vmac, ethstr6, sizeof(ethstr6));
