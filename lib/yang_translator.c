@@ -162,8 +162,7 @@ struct yang_translator *yang_translator_load(const char *path)
 	RB_INSERT(yang_translators, &yang_translators, translator);
 
 	/* Initialize the translator libyang context. */
-	translator->ly_ctx =
-		ly_ctx_new(YANG_MODELS_PATH, LY_CTX_DISABLE_SEARCHDIR_CWD);
+	translator->ly_ctx = yang_ctx_new_setup();
 	if (!translator->ly_ctx) {
 		flog_warn(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		goto error;
@@ -525,8 +524,7 @@ static void str_replace(char *o_string, const char *s_string,
 
 void yang_translator_init(void)
 {
-	ly_translator_ctx =
-		ly_ctx_new(YANG_MODELS_PATH, LY_CTX_DISABLE_SEARCHDIR_CWD);
+	ly_translator_ctx = yang_ctx_new_setup();
 	if (!ly_translator_ctx) {
 		flog_err(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		exit(1);

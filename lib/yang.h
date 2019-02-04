@@ -514,6 +514,11 @@ extern void yang_data_free(struct yang_data *data);
 extern struct list *yang_data_list_new(void);
 
 /*
+ * Create and set up a libyang context (for use by the translator)
+ */
+extern struct ly_ctx *yang_ctx_new_setup(void);
+
+/*
  * Initialize the YANG subsystem. Should be called only once during the
  * daemon initialization process.
  */
