@@ -1,0 +1,29 @@
+Author: David Lamparter <equinox@diac24.net>
+Subject: fix systemd install & dependencies
+Last-Update: 2019-02-04
+
+cf. https://github.com/FRRouting/frr/pull/3715
+(This does _not_ match the change currently proposed there, instead imitating
+what NetworkManager has in its service file.)
+
+diff --git a/tools/frr.service b/tools/frr.service
+index c7568593b36d..aa45f420fea3 100644
+--- a/tools/frr.service
++++ b/tools/frr.service
+@@ -1,7 +1,9 @@
+ [Unit]
+ Description=FRRouting
+ Documentation=https://frrouting.readthedocs.io/en/latest/setup.html
+-After=networking.service
++Wants=network.target
++After=network-pre.target systemd-sysctl.service
++Before=network.target
+ OnFailure=heartbeat-failed@%n.service
+ 
+ [Service]
+@@ -20,4 +22,4 @@ ExecStop=/usr/lib/frr/frrinit.sh stop
+ ExecReload=/usr/lib/frr/frrinit.sh reload
+ 
+ [Install]
+-WantedBy=network-online.target
++WantedBy=multi-user.target
