@@ -1936,6 +1936,29 @@ int bgp_zebra_advertise_subnet(struct bgp *bgp, int advertise, vni_t vni)
 	return zclient_send_message(zclient);
 }
 
+int bgp_zebra_advertise_svi_macip(struct bgp *bgp, int advertise, vni_t vni)
+{
+	struct stream *s = NULL;
+
+	/* Check socket. */
+	if (!zclient || zclient->sock < 0)
+		return 0;
+
+	/* Don't try to register if Zebra doesn't know of this instance. */
+	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+		return 0;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_ADVERTISE_SVI_MACIP, bgp->vrf_id);
+	stream_putc(s, advertise);
+	stream_putl(s, vni);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
 int bgp_zebra_advertise_gw_macip(struct bgp *bgp, int advertise, vni_t vni)
 {
 	struct stream *s = NULL;
