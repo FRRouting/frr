@@ -617,7 +617,7 @@ int bfd_recv_cb(struct thread *t)
 	if ((bfd->discrs.remote_discr != 0)
 	    && (bfd->discrs.remote_discr != ntohl(cp->discrs.my_discr)))
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
-			 "remote discriminator mismatch (expected %d, got %d)",
+			 "remote discriminator mismatch (expected %u, got %u)",
 			 bfd->discrs.remote_discr, ntohl(cp->discrs.my_discr));
 
 	bfd->discrs.remote_discr = ntohl(cp->discrs.my_discr);
