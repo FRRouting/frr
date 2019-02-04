@@ -1,3 +1,11 @@
+frr (6.0.2-2) unstable; urgency=medium
+
+  * remove bogus libjson0 build-dep (closes: #921349)
+  * fix broken systemd dependency spec
+  * add proper Conflicts: for quagga and pimd (closes: #921376)
+
+ -- David Lamparter <equinox-debian@diac24.net>  Mon, 04 Feb 2019 22:16:07 +0100
+
 frr (6.0.2-1) unstable; urgency=medium
 
   * Packaging has been more or less completely reworked, based off the old
