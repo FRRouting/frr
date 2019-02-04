@@ -134,8 +134,9 @@ struct dplane_intf_info {
 
 #define DPLANE_INTF_CONNECTED   (1 << 0) /* Connected peer, p2p */
 #define DPLANE_INTF_SECONDARY   (1 << 1)
-#define DPLANE_INTF_HAS_DEST    (1 << 2)
-#define DPLANE_INTF_HAS_LABEL   (1 << 3)
+#define DPLANE_INTF_BROADCAST   (1 << 2)
+#define DPLANE_INTF_HAS_DEST    (1 << 3)
+#define DPLANE_INTF_HAS_LABEL   (1 << 4)
 
 	/* Interface address/prefix */
 	struct prefix prefix;
@@ -938,6 +939,13 @@ bool dplane_ctx_intf_is_secondary(const struct zebra_dplane_ctx *ctx)
 	return (ctx->u.intf.flags & DPLANE_INTF_SECONDARY);
 }
 
+bool dplane_ctx_intf_is_broadcast(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return (ctx->u.intf.flags & DPLANE_INTF_BROADCAST);
+}
+
 const struct prefix *dplane_ctx_get_intf_addr(
 	const struct zebra_dplane_ctx *ctx)
 {
@@ -1607,6 +1615,9 @@ static enum zebra_dplane_result intf_addr_update_internal(
 	strncpy(ctx->u.intf.ifname, ifp->name, sizeof(ctx->u.intf.ifname));
 	ctx->u.intf.ifindex = ifp->ifindex;
 	ctx->u.intf.prefix = *(ifc->address);
+
+	if (if_is_broadcast(ifp))
+		ctx->u.intf.flags |= DPLANE_INTF_BROADCAST;
 
 	if (CONNECTED_PEER(ifc)) {
 		ctx->u.intf.dest_prefix = *(ifc->destination);
