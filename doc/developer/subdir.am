@@ -38,6 +38,9 @@ dev_RSTFILES = \
 	doc/developer/ospf-api.rst \
 	doc/developer/ospf-sr.rst \
 	doc/developer/ospf.rst \
+	doc/developer/testing.rst \
+	doc/developer/topotests-snippets.rst \
+	doc/developer/topotests.rst \
 	doc/developer/workflow.rst \
 	doc/developer/zebra.rst \
 	# end
