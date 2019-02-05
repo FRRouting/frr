@@ -122,6 +122,8 @@ struct zebra_vrf {
 	 */
 	int advertise_gw_macip;
 
+	int advertise_svi_macip;
+
 	/* l3-vni info */
 	vni_t l3vni;
 
