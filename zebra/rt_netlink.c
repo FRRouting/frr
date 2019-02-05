@@ -1140,8 +1140,7 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 	if (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
 		addattr32(nlmsg, req_size, RTA_OIF, nexthop->ifindex);
 
-	if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-	    || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
+	if (nexthop->type == NEXTHOP_TYPE_IFINDEX) {
 		if (cmd == RTM_NEWROUTE) {
 			if (nexthop->rmap_src.ipv4.s_addr)
 				addattr_l(nlmsg, req_size, RTA_PREFSRC,
@@ -1149,23 +1148,6 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 			else if (nexthop->src.ipv4.s_addr)
 				addattr_l(nlmsg, req_size, RTA_PREFSRC,
 					  &nexthop->src.ipv4, bytelen);
-		}
-
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug(
-				"netlink_route_multipath() (%s): "
-				"nexthop via if %u(%u)",
-				routedesc, nexthop->ifindex, nexthop->vrf_id);
-	}
-
-	if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
-		if (cmd == RTM_NEWROUTE) {
-			if (!IN6_IS_ADDR_UNSPECIFIED(&nexthop->rmap_src.ipv6))
-				addattr_l(nlmsg, req_size, RTA_PREFSRC,
-					  &nexthop->rmap_src.ipv6, bytelen);
-			else if (!IN6_IS_ADDR_UNSPECIFIED(&nexthop->src.ipv6))
-				addattr_l(nlmsg, req_size, RTA_PREFSRC,
-					  &nexthop->src.ipv6, bytelen);
 		}
 
 		if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1345,8 +1327,7 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 		rtnh->rtnh_ifindex = nexthop->ifindex;
 
 	/* ifindex */
-	if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX
-	    || nexthop->type == NEXTHOP_TYPE_IFINDEX) {
+	if (nexthop->type == NEXTHOP_TYPE_IFINDEX) {
 		if (nexthop->rmap_src.ipv4.s_addr)
 			*src = &nexthop->rmap_src;
 		else if (nexthop->src.ipv4.s_addr)

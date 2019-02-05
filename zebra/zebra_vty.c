@@ -174,7 +174,7 @@ static char re_status_output_char(struct route_entry *re, struct nexthop *nhop)
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED))
 			return 'q';
 
-		return 'f';
+		return 'r';
 	}
 
 	if (CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED))
