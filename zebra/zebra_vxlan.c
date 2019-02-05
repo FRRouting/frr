@@ -7029,6 +7029,7 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 	zebra_vni_t *zvni = NULL;
 	zebra_mac_t *zmac = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_vrf *zvrf;
 
 	/* check if this is a remote neigh entry corresponding to remote
 	 * next-hop
@@ -7081,9 +7082,23 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 		return 0;
 	}
 
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
+	if (!zvrf) {
+		zlog_debug("%s: VNI %u vrf lookup failed.",
+				   __PRETTY_FUNCTION__, zvni->vni);
+		return -1;
+	}
+
+	/* In case of feeze action, if local neigh is in duplicate state,
+	 * Mark the Neigh as inactive before sending delete request to BGPd,
+	 * If BGPd has remote entry, it will re-install
+	 */
+	if (zvrf->dad_freeze &&
+	    CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE))
+	    ZEBRA_NEIGH_SET_INACTIVE(n);
+
 	/* Remove neighbor from BGP. */
-	zvni_neigh_send_del_to_client(zvni->vni, &n->ip, &n->emac,
-			0, n->state);
+	zvni_neigh_send_del_to_client(zvni->vni, &n->ip, &n->emac, 0, n->state);
 
 	/* Delete this neighbor entry. */
 	zvni_neigh_del(zvni, n);
