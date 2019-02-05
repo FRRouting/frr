@@ -36,7 +36,7 @@ DEFINE_QOBJ_TYPE(bfd_session);
 /*
  * Prototypes
  */
-struct bfd_session *bs_peer_waiting_find(struct bfd_peer_cfg *);
+static struct bfd_session *bs_peer_waiting_find(struct bfd_peer_cfg *bpc);
 
 static uint32_t ptm_bfd_gen_ID(void);
 static void ptm_bfd_echo_xmt_TO(struct bfd_session *bfd);
@@ -47,11 +47,16 @@ static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
 static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc);
 static const char *get_diag_str(int diag);
 
+static void bs_admin_down_handler(struct bfd_session *bs, int nstate);
+static void bs_down_handler(struct bfd_session *bs, int nstate);
+static void bs_init_handler(struct bfd_session *bs, int nstate);
+static void bs_up_handler(struct bfd_session *bs, int nstate);
+
 
 /*
  * Functions
  */
-struct bfd_session *bs_peer_waiting_find(struct bfd_peer_cfg *bpc)
+static struct bfd_session *bs_peer_waiting_find(struct bfd_peer_cfg *bpc)
 {
 	struct bfd_session_observer *bso;
 	struct bfd_session *bs = NULL;
@@ -826,13 +831,9 @@ void bfd_set_polling(struct bfd_session *bs)
  * transition mechanism. `<state>` is the current session state and
  * the parameter `nstate` is the peer new state.
  */
-void bs_admin_down_handler(struct bfd_session *bs, int nstate);
-void bs_down_handler(struct bfd_session *bs, int nstate);
-void bs_init_handler(struct bfd_session *bs, int nstate);
-void bs_up_handler(struct bfd_session *bs, int nstate);
-
-void bs_admin_down_handler(struct bfd_session *bs __attribute__((__unused__)),
-			   int nstate __attribute__((__unused__)))
+static void bs_admin_down_handler(struct bfd_session *bs
+				  __attribute__((__unused__)),
+				  int nstate __attribute__((__unused__)))
 {
 	/*
 	 * We are administratively down, there is no state machine
@@ -840,7 +841,7 @@ void bs_admin_down_handler(struct bfd_session *bs __attribute__((__unused__)),
 	 */
 }
 
-void bs_down_handler(struct bfd_session *bs, int nstate)
+static void bs_down_handler(struct bfd_session *bs, int nstate)
 {
 	switch (nstate) {
 	case PTM_BFD_ADM_DOWN:
@@ -874,7 +875,7 @@ void bs_down_handler(struct bfd_session *bs, int nstate)
 	}
 }
 
-void bs_init_handler(struct bfd_session *bs, int nstate)
+static void bs_init_handler(struct bfd_session *bs, int nstate)
 {
 	switch (nstate) {
 	case PTM_BFD_ADM_DOWN:
@@ -901,7 +902,7 @@ void bs_init_handler(struct bfd_session *bs, int nstate)
 	}
 }
 
-void bs_up_handler(struct bfd_session *bs, int nstate)
+static void bs_up_handler(struct bfd_session *bs, int nstate)
 {
 	switch (nstate) {
 	case PTM_BFD_ADM_DOWN:

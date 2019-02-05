@@ -465,8 +465,8 @@ int bp_udp_shop(void);
 int bp_udp_mhop(void);
 int bp_udp6_shop(void);
 int bp_udp6_mhop(void);
-int bp_peer_socket(const struct bfd_session *);
-int bp_peer_socketv6(const struct bfd_session *);
+int bp_peer_socket(const struct bfd_session *bs);
+int bp_peer_socketv6(const struct bfd_session *bs);
 int bp_echo_socket(void);
 int bp_echov6_socket(void);
 
@@ -504,8 +504,8 @@ void bfd_echo_xmttimer_assign(struct bfd_session *bs, bfd_ev_cb cb);
  *
  * BFD protocol specific code.
  */
-int bfd_session_enable(struct bfd_session *);
-void bfd_session_disable(struct bfd_session *);
+int bfd_session_enable(struct bfd_session *bs);
+void bfd_session_disable(struct bfd_session *bs);
 struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc);
 int ptm_bfd_ses_del(struct bfd_peer_cfg *bpc);
 void ptm_bfd_ses_dn(struct bfd_session *bfd, uint8_t diag);
@@ -514,16 +514,18 @@ void ptm_bfd_echo_stop(struct bfd_session *bfd);
 void ptm_bfd_echo_start(struct bfd_session *bfd);
 void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit);
 void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo);
-struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *, struct sockaddr_any *,
-				      struct sockaddr_any *, ifindex_t,
-				      vrf_id_t, bool);
+struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
+				      struct sockaddr_any *peer,
+				      struct sockaddr_any *local,
+				      ifindex_t ifindex, vrf_id_t vrfid,
+				      bool is_mhop);
 
 struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc);
 int bfd_session_update_label(struct bfd_session *bs, const char *nlabel);
 void bfd_set_polling(struct bfd_session *bs);
-void bs_state_handler(struct bfd_session *, int);
-void bs_echo_timer_handler(struct bfd_session *);
-void bs_final_handler(struct bfd_session *);
+void bs_state_handler(struct bfd_session *bs, int nstate);
+void bs_echo_timer_handler(struct bfd_session *bs);
+void bs_final_handler(struct bfd_session *bs);
 void bs_set_slow_timers(struct bfd_session *bs);
 const char *satostr(struct sockaddr_any *sa);
 const char *diag2str(uint8_t diag);
@@ -531,8 +533,8 @@ int strtosa(const char *addr, struct sockaddr_any *sa);
 void integer2timestr(uint64_t time, char *buf, size_t buflen);
 const char *bs_to_string(struct bfd_session *bs);
 
-int bs_observer_add(struct bfd_session *);
-void bs_observer_del(struct bfd_session_observer *);
+int bs_observer_add(struct bfd_session *bs);
+void bs_observer_del(struct bfd_session_observer *bso);
 
 /* BFD hash data structures interface */
 void bfd_initialize(void);

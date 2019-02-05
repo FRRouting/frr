@@ -293,9 +293,8 @@ DEFPY(bfd_peer_echo, bfd_peer_echo_cmd, "[no] echo-mode",
 
 		BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_ECHO);
 		/* Apply setting immediately. */
-		if (!BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN)) {
+		if (!BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN))
 			bs_echo_timer_handler(bs);
-		}
 	}
 
 	return CMD_SUCCESS;

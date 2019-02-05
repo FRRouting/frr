@@ -505,7 +505,7 @@ int bfd_recv_cb(struct thread *t)
 	struct bfd_pkt *cp;
 	bool is_mhop;
 	ssize_t mlen = 0;
-	uint8_t ttl;
+	uint8_t ttl = 0;
 	vrf_id_t vrfid = VRF_DEFAULT;
 	ifindex_t ifindex = IFINDEX_INTERNAL;
 	struct sockaddr_any local, peer;
