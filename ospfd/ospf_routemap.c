@@ -70,11 +70,19 @@ static void ospf_route_map_update(const char *name)
 					/* Keep old route-map. */
 					struct route_map *old = ROUTEMAP(red);
 
-					/* Update route-map. */
-					ROUTEMAP(red) =
-						route_map_lookup_by_name(
-							ROUTEMAP_NAME(red));
+					if (!old) {
+						/* Route-map creation */
+						/* Update route-map. */
+						ROUTEMAP(red) =
+							route_map_lookup_by_name(
+								ROUTEMAP_NAME(red));
 
+							route_map_counter_increment(
+								ROUTEMAP(red));
+					} else {
+						/* Route-map deletion */
+						ROUTEMAP(red) = NULL;
+					}
 					/* No update for this distribute type.
 					 */
 					if (old == NULL

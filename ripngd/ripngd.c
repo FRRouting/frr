@@ -2522,10 +2522,13 @@ static void ripng_routemap_update_redistribute(void)
 
 	if (ripng) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (ripng->route_map[i].name)
+			if (ripng->route_map[i].name) {
 				ripng->route_map[i].map =
 					route_map_lookup_by_name(
 						ripng->route_map[i].name);
+				route_map_counter_increment(
+					ripng->route_map[i].map);
+			}
 		}
 	}
 }

@@ -3438,10 +3438,13 @@ static void rip_routemap_update_redistribute(void)
 
 	if (rip) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (rip->route_map[i].name)
+			if (rip->route_map[i].name) {
 				rip->route_map[i].map =
 					route_map_lookup_by_name(
 						rip->route_map[i].name);
+				route_map_counter_increment(
+					rip->route_map[i].map);
+			}
 		}
 	}
 }

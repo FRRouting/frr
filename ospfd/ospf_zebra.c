@@ -983,17 +983,22 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 /* OSPF route-map set for redistribution */
 void ospf_routemap_set(struct ospf_redist *red, const char *name)
 {
-	if (ROUTEMAP_NAME(red))
+	if (ROUTEMAP_NAME(red)) {
+		route_map_counter_decrement(ROUTEMAP(red));
 		free(ROUTEMAP_NAME(red));
+	}
 
 	ROUTEMAP_NAME(red) = strdup(name);
 	ROUTEMAP(red) = route_map_lookup_by_name(name);
+	route_map_counter_increment(ROUTEMAP(red));
 }
 
 void ospf_routemap_unset(struct ospf_redist *red)
 {
-	if (ROUTEMAP_NAME(red))
+	if (ROUTEMAP_NAME(red)) {
+		route_map_counter_decrement(ROUTEMAP(red));
 		free(ROUTEMAP_NAME(red));
+	}
 
 	ROUTEMAP_NAME(red) = NULL;
 	ROUTEMAP(red) = NULL;

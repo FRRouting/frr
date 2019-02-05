@@ -4417,6 +4417,8 @@ static void bgp_static_free(struct bgp_static *bgp_static)
 {
 	if (bgp_static->rmap.name)
 		XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
+	route_map_counter_decrement(bgp_static->rmap.map);
+
 	if (bgp_static->eth_s_id)
 		XFREE(MTYPE_ATTR, bgp_static->eth_s_id);
 	XFREE(MTYPE_BGP_STATIC, bgp_static);
@@ -4981,14 +4983,20 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 				if (bgp_static->rmap.name)
 					XFREE(MTYPE_ROUTE_MAP_NAME,
 					      bgp_static->rmap.name);
+				route_map_counter_decrement(
+					bgp_static->rmap.map);
 				bgp_static->rmap.name =
 					XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
 				bgp_static->rmap.map =
 					route_map_lookup_by_name(rmap);
+				route_map_counter_increment(
+					bgp_static->rmap.map);
 			} else {
 				if (bgp_static->rmap.name)
 					XFREE(MTYPE_ROUTE_MAP_NAME,
 					      bgp_static->rmap.name);
+				route_map_counter_decrement(
+					bgp_static->rmap.map);
 				bgp_static->rmap.name = NULL;
 				bgp_static->rmap.map = NULL;
 				bgp_static->valid = 0;
@@ -5007,10 +5015,14 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 				if (bgp_static->rmap.name)
 					XFREE(MTYPE_ROUTE_MAP_NAME,
 					      bgp_static->rmap.name);
+				route_map_counter_decrement(
+					bgp_static->rmap.map);
 				bgp_static->rmap.name =
 					XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
 				bgp_static->rmap.map =
 					route_map_lookup_by_name(rmap);
+				route_map_counter_increment(
+					bgp_static->rmap.map);
 			}
 			bgp_node_set_bgp_static_info(rn, bgp_static);
 		}
@@ -5289,10 +5301,12 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 			if (bgp_static->rmap.name)
 				XFREE(MTYPE_ROUTE_MAP_NAME,
 				      bgp_static->rmap.name);
+			route_map_counter_decrement(bgp_static->rmap.map);
 			bgp_static->rmap.name =
 				XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
 			bgp_static->rmap.map =
 				route_map_lookup_by_name(rmap_str);
+			route_map_counter_increment(bgp_static->rmap.map);
 		}
 
 		if (safi == SAFI_EVPN) {
@@ -5395,11 +5409,14 @@ static int bgp_table_map_set(struct vty *vty, afi_t afi, safi_t safi,
 	if (rmap_name) {
 		if (rmap->name)
 			XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
+		route_map_counter_decrement(rmap->map);
 		rmap->name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
 		rmap->map = route_map_lookup_by_name(rmap_name);
+		route_map_counter_increment(rmap->map);
 	} else {
 		if (rmap->name)
 			XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
+		route_map_counter_decrement(rmap->map);
 		rmap->name = NULL;
 		rmap->map = NULL;
 	}
@@ -5419,6 +5436,7 @@ static int bgp_table_map_unset(struct vty *vty, afi_t afi, safi_t safi,
 	rmap = &bgp->table_map[afi][safi];
 	if (rmap->name)
 		XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
+	route_map_counter_decrement(rmap->map);
 	rmap->name = NULL;
 	rmap->map = NULL;
 

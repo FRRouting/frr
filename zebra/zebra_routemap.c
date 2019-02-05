@@ -327,10 +327,11 @@ static int ip_protocol_rm_add(struct zebra_vrf *zvrf, const char *rmap,
 
 		XFREE(MTYPE_ROUTE_MAP_NAME, PROTO_RM_NAME(zvrf, afi, rtype));
 	}
-
+	route_map_counter_decrement(PROTO_RM_MAP(zvrf, afi, rtype));
 	PROTO_RM_NAME(zvrf, afi, rtype) = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
 	PROTO_RM_MAP(zvrf, afi, rtype) =
 		route_map_lookup_by_name(PROTO_RM_NAME(zvrf, afi, rtype));
+	route_map_counter_increment(PROTO_RM_MAP(zvrf, afi, rtype));
 
 	if (PROTO_RM_MAP(zvrf, afi, rtype)) {
 
@@ -356,6 +357,8 @@ static int ip_protocol_rm_del(struct zebra_vrf *zvrf, const char *rmap,
 		return CMD_SUCCESS;
 
 	if (!rmap || strcmp(rmap, PROTO_RM_NAME(zvrf, afi, rtype)) == 0) {
+
+		route_map_counter_decrement(PROTO_RM_MAP(zvrf, afi, rtype));
 		if (PROTO_RM_MAP(zvrf, afi, rtype)) {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
@@ -383,10 +386,11 @@ static int ip_nht_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 
 		XFREE(MTYPE_ROUTE_MAP_NAME, NHT_RM_NAME(zvrf, afi, rtype));
 	}
-
+	route_map_counter_decrement(NHT_RM_MAP(zvrf, afi, rtype));
 	NHT_RM_NAME(zvrf, afi, rtype) = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
 	NHT_RM_MAP(zvrf, afi, rtype) =
 		route_map_lookup_by_name(NHT_RM_NAME(zvrf, afi, rtype));
+	route_map_counter_increment(NHT_RM_MAP(zvrf, afi, rtype));
 
 	if (NHT_RM_MAP(zvrf, afi, rtype))
 		zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE, NULL);
@@ -402,6 +406,7 @@ static int ip_nht_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 		return CMD_SUCCESS;
 
 	if (!rmap || strcmp(rmap, NHT_RM_NAME(zvrf, afi, rtype)) == 0) {
+		route_map_counter_decrement(NHT_RM_MAP(zvrf, afi, rtype));
 		if (NHT_RM_MAP(zvrf, afi, rtype)) {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
@@ -1459,6 +1464,7 @@ static void zebra_rib_table_rm_update(const char *rmap)
 	char *rmap_name;
 	char afi_ip = 0;
 	char afi_ipv6 = 0;
+	struct route_map *old = NULL;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		zvrf = vrf->info;
@@ -1473,8 +1479,19 @@ static void zebra_rib_table_rm_update(const char *rmap)
 						__func__, rmap,
 						zebra_route_string(i));
 
+				old = PROTO_RM_MAP(zvrf, AFI_IP, i);
+
 				PROTO_RM_MAP(zvrf, AFI_IP, i) =
 					route_map_lookup_by_name(rmap_name);
+				/* old is NULL. i.e Route map creation event.
+				 * So update applied_counter.
+				 * If Old is not NULL, i.e It may be routemap
+				 * updation or deletion.
+				 * So no need to update the counter.
+				 */
+				if (!old)
+					route_map_counter_increment(
+						PROTO_RM_MAP(zvrf, AFI_IP, i));
 				/* There is single rib table for all protocols
 				 */
 				if (afi_ip == 0) {
@@ -1497,8 +1514,13 @@ static void zebra_rib_table_rm_update(const char *rmap)
 						__func__, rmap,
 						zebra_route_string(i));
 
+				old = PROTO_RM_MAP(zvrf, AFI_IP6, i);
+
 				PROTO_RM_MAP(zvrf, AFI_IP6, i) =
 					route_map_lookup_by_name(rmap_name);
+				if (!old)
+					route_map_counter_increment(
+						PROTO_RM_MAP(zvrf, AFI_IP6, i));
 				/* There is single rib table for all protocols
 				 */
 				if (afi_ipv6 == 0) {
@@ -1530,6 +1552,7 @@ static void zebra_nht_rm_update(const char *rmap)
 	char *rmap_name;
 	char afi_ip = 0;
 	char afi_ipv6 = 0;
+	struct route_map *old = NULL;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		zvrf = vrf->info;
@@ -1544,8 +1567,13 @@ static void zebra_nht_rm_update(const char *rmap)
 						__func__, rmap,
 						zebra_route_string(i));
 
+				old = NHT_RM_MAP(zvrf, AFI_IP, i);
+
 				NHT_RM_MAP(zvrf, AFI_IP, i) =
 					route_map_lookup_by_name(rmap_name);
+				if (!old)
+					route_map_counter_increment(
+						NHT_RM_MAP(zvrf, AFI_IP, i));
 				/* There is single rib table for all protocols
 				 */
 				if (afi_ip == 0) {
@@ -1570,8 +1598,13 @@ static void zebra_nht_rm_update(const char *rmap)
 						__func__, rmap,
 						zebra_route_string(i));
 
+				old = NHT_RM_MAP(zvrf, AFI_IP6, i);
+
 				NHT_RM_MAP(zvrf, AFI_IP6, i) =
 					route_map_lookup_by_name(rmap_name);
+				if (!old)
+					route_map_counter_increment(
+						NHT_RM_MAP(zvrf, AFI_IP6, i));
 				/* There is single rib table for all protocols
 				 */
 				if (afi_ipv6 == 0) {
