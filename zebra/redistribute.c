@@ -406,12 +406,11 @@ void zebra_interface_up_update(struct interface *ifp)
 
 	if (ifp->ptm_status || !ifp->ptm_enable) {
 		for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode,
-				       client))
-			if (vrf_bitmap_check(client->ifinfo, ifp->vrf_id)) {
-				zsend_interface_update(ZEBRA_INTERFACE_UP,
-						       client, ifp);
-				zsend_interface_link_params(client, ifp);
-			}
+				       client)) {
+			zsend_interface_update(ZEBRA_INTERFACE_UP,
+					       client, ifp);
+			zsend_interface_link_params(client, ifp);
+		}
 	}
 }
 
@@ -440,12 +439,11 @@ void zebra_interface_add_update(struct interface *ifp)
 		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADD %s(%u)", ifp->name,
 			   ifp->vrf_id);
 
-	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client))
-		if (vrf_bitmap_check(client->ifinfo, ifp->vrf_id)) {
-			client->ifadd_cnt++;
-			zsend_interface_add(client, ifp);
-			zsend_interface_link_params(client, ifp);
-		}
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
+		client->ifadd_cnt++;
+		zsend_interface_add(client, ifp);
+		zsend_interface_link_params(client, ifp);
+	}
 }
 
 void zebra_interface_delete_update(struct interface *ifp)
@@ -814,6 +812,5 @@ void zebra_interface_parameters_update(struct interface *ifp)
 			   ifp->name, ifp->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client))
-		if (vrf_bitmap_check(client->ifinfo, ifp->vrf_id))
-			zsend_interface_link_params(client, ifp);
+		zsend_interface_link_params(client, ifp);
 }
