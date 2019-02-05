@@ -2701,12 +2701,12 @@ static int netlink_neigh_update2(struct interface *ifp, struct ipaddr *ip,
 		addattr_l(&req.n, sizeof(req), NDA_LLADDR, mac, 6);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("Tx %s family %s IF %s(%u) Neigh %s MAC %s flags 0x%x",
+		zlog_debug("Tx %s family %s IF %s(%u) Neigh %s MAC %s flags 0x%x state 0x%x",
 			   nl_msg_type_to_str(cmd),
 			   nl_family_to_str(req.ndm.ndm_family), ifp->name,
 			   ifp->ifindex, ipaddr2str(ip, buf, sizeof(buf)),
 			   mac ? prefix_mac2str(mac, buf2, sizeof(buf2))
-			       : "null", flags);
+			       : "null", flags, state);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    0);
@@ -2735,6 +2735,13 @@ int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
 int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip)
 {
 	return netlink_neigh_update2(ifp, ip, NULL, 0, 0, RTM_DELNEIGH);
+}
+
+int kernel_upd_neigh(struct interface *ifp, struct ipaddr *ip,
+		     struct ethaddr *mac, uint8_t flags, uint16_t state)
+{
+	return netlink_neigh_update2(ifp, ip, mac, flags,
+				     state, RTM_NEWNEIGH);
 }
 
 /*
