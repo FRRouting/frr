@@ -61,6 +61,16 @@ done:
 		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
 }
 
+/*
+ * Pseudowire update api - not supported by netlink as of 12/18,
+ * but note that the default has been to report 'success' for pw updates
+ * on unsupported platforms.
+ */
+enum zebra_dplane_result kernel_pw_update(struct zebra_dplane_ctx *ctx)
+{
+	return ZEBRA_DPLANE_REQUEST_SUCCESS;
+}
+
 int mpls_kernel_init(void)
 {
 	struct stat st;

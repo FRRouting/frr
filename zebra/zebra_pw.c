@@ -96,9 +96,10 @@ void zebra_pw_del(struct zebra_vrf *zvrf, struct zebra_pw *pw)
 	zebra_deregister_rnh_pseudowire(pw->vrf_id, pw);
 
 	/* uninstall */
-	if (pw->status == PW_STATUS_UP)
+	if (pw->status == PW_STATUS_UP) {
 		hook_call(pw_uninstall, pw);
-	else if (pw->install_retry_timer)
+		dplane_pw_uninstall(pw);
+	} else if (pw->install_retry_timer)
 		THREAD_TIMER_OFF(pw->install_retry_timer);
 
 	/* unlink and release memory */
@@ -169,7 +170,8 @@ static void zebra_pw_install(struct zebra_pw *pw)
 			   pw->vrf_id, pw->ifname,
 			   zebra_route_string(pw->protocol));
 
-	if (hook_call(pw_install, pw)) {
+	hook_call(pw_install, pw);
+	if (dplane_pw_install(pw) == ZEBRA_DPLANE_REQUEST_FAILURE) {
 		zebra_pw_install_failure(pw);
 		return;
 	}
@@ -190,6 +192,7 @@ static void zebra_pw_uninstall(struct zebra_pw *pw)
 
 	/* ignore any possible error */
 	hook_call(pw_uninstall, pw);
+	dplane_pw_uninstall(pw);
 
 	if (zebra_pw_enabled(pw))
 		zebra_pw_update_status(pw, PW_STATUS_DOWN);

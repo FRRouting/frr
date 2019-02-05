@@ -105,7 +105,11 @@ enum dplane_op_e {
 	/* LSP update */
 	DPLANE_OP_LSP_INSTALL,
 	DPLANE_OP_LSP_UPDATE,
-	DPLANE_OP_LSP_DELETE
+	DPLANE_OP_LSP_DELETE,
+
+	/* Pseudowire update */
+	DPLANE_OP_PW_INSTALL,
+	DPLANE_OP_PW_UNINSTALL,
 };
 
 /*
@@ -203,6 +207,19 @@ zebra_nhlfe_t *dplane_ctx_get_nhlfe(struct zebra_dplane_ctx *ctx);
 zebra_nhlfe_t *dplane_ctx_get_best_nhlfe(struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_lsp_num_ecmp(const struct zebra_dplane_ctx *ctx);
 
+/* Accessors for pseudowire information */
+const char *dplane_ctx_get_pw_ifname(const struct zebra_dplane_ctx *ctx);
+mpls_label_t dplane_ctx_get_pw_local_label(const struct zebra_dplane_ctx *ctx);
+mpls_label_t dplane_ctx_get_pw_remote_label(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_get_pw_type(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_get_pw_af(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_pw_flags(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_get_pw_status(const struct zebra_dplane_ctx *ctx);
+const union g_addr *dplane_ctx_get_pw_nexthop(
+	const struct zebra_dplane_ctx *ctx);
+const union pw_protocol_fields *dplane_ctx_get_pw_proto(
+	const struct zebra_dplane_ctx *ctx);
+
 /* Namespace info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
 	const struct zebra_dplane_ctx *ctx);
@@ -231,6 +248,12 @@ enum zebra_dplane_result dplane_route_delete(struct route_node *rn,
 enum zebra_dplane_result dplane_lsp_add(zebra_lsp_t *lsp);
 enum zebra_dplane_result dplane_lsp_update(zebra_lsp_t *lsp);
 enum zebra_dplane_result dplane_lsp_delete(zebra_lsp_t *lsp);
+
+/*
+ * Enqueue pseudowire operations for the dataplane.
+ */
+enum zebra_dplane_result dplane_pw_install(struct zebra_pw *pw);
+enum zebra_dplane_result dplane_pw_uninstall(struct zebra_pw *pw);
 
 /* Retrieve the limit on the number of pending, unprocessed updates. */
 uint32_t dplane_get_in_queue_limit(void);

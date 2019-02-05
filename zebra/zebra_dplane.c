@@ -102,6 +102,23 @@ struct dplane_route_info {
 };
 
 /*
+ * Pseudowire info for the dataplane
+ */
+struct dplane_pw_info {
+	char ifname[IF_NAMESIZE];
+	ifindex_t ifindex;
+	int type;
+	int af;
+	int status;
+	uint32_t flags;
+	union g_addr nexthop;
+	mpls_label_t local_label;
+	mpls_label_t remote_label;
+
+	union pw_protocol_fields fields;
+};
+
+/*
  * The context block used to exchange info about route updates across
  * the boundary between the zebra main context (and pthread) and the
  * dataplane layer (and pthread).
@@ -136,6 +153,7 @@ struct zebra_dplane_ctx {
 	union {
 		struct dplane_route_info rinfo;
 		zebra_lsp_t lsp;
+		struct dplane_pw_info pw;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -237,9 +255,10 @@ static struct zebra_dplane_globals {
 	_Atomic uint32_t dg_other_errors;
 
 	_Atomic uint32_t dg_lsps_in;
-	_Atomic uint32_t dg_lsps_queued;
-	_Atomic uint32_t dg_lsps_queued_max;
 	_Atomic uint32_t dg_lsp_errors;
+
+	_Atomic uint32_t dg_pws_in;
+	_Atomic uint32_t dg_pw_errors;
 
 	_Atomic uint32_t dg_update_yields;
 
@@ -276,6 +295,8 @@ static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
 				 struct zebra_ns *zns);
 static enum zebra_dplane_result lsp_update_internal(zebra_lsp_t *lsp,
 						    enum dplane_op_e op);
+static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
+						   enum dplane_op_e op);
 
 /*
  * Public APIs
@@ -363,6 +384,8 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 		break;
 	}
 
+	case DPLANE_OP_PW_INSTALL:
+	case DPLANE_OP_PW_UNINSTALL:
 	case DPLANE_OP_NONE:
 		break;
 	}
@@ -488,6 +511,13 @@ const char *dplane_op2str(enum dplane_op_e op)
 		break;
 	case DPLANE_OP_LSP_DELETE:
 		ret = "LSP_DELETE";
+		break;
+
+	case DPLANE_OP_PW_INSTALL:
+		ret = "PW_INSTALL";
+		break;
+	case DPLANE_OP_PW_UNINSTALL:
+		ret = "PW_UNINSTALL";
 		break;
 
 	};
@@ -735,6 +765,71 @@ uint32_t dplane_ctx_get_lsp_num_ecmp(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.lsp.num_ecmp;
 }
 
+const char *dplane_ctx_get_pw_ifname(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.pw.ifname;
+}
+
+mpls_label_t dplane_ctx_get_pw_local_label(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.pw.local_label;
+}
+
+mpls_label_t dplane_ctx_get_pw_remote_label(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.pw.remote_label;
+}
+
+int dplane_ctx_get_pw_type(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.pw.type;
+}
+
+int dplane_ctx_get_pw_af(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.pw.af;
+}
+
+uint32_t dplane_ctx_get_pw_flags(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.pw.flags;
+}
+
+int dplane_ctx_get_pw_status(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.pw.status;
+}
+
+const union g_addr *dplane_ctx_get_pw_nexthop(
+	const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.pw.nexthop);
+}
+
+const union pw_protocol_fields *dplane_ctx_get_pw_proto(
+	const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.pw.fields);
+}
+
 /*
  * End of dplane context accessors
  */
@@ -933,6 +1028,47 @@ static int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx,
 	/* On error the ctx will be cleaned-up, so we don't need to
 	 * deal with any allocated nhlfe or nexthop structs here.
 	 */
+
+	return ret;
+}
+
+/*
+ * Capture information for an LSP update in a dplane context.
+ */
+static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
+			      enum dplane_op_e op,
+			      struct zebra_pw *pw)
+{
+	int ret = AOK;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+		zlog_debug("init dplane ctx %s: pw '%s', loc %u, rem %u",
+			   dplane_op2str(op), pw->ifname, pw->local_label,
+			   pw->remote_label);
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	/* Capture namespace info: no netlink support as of 12/18,
+	 * but just in case...
+	 */
+	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT), false);
+
+	memset(&ctx->u.pw, 0, sizeof(ctx->u.pw));
+
+	/* This name appears to be c-string, so we use string copy. */
+	strlcpy(ctx->u.pw.ifname, pw->ifname, sizeof(ctx->u.pw.ifname));
+	ctx->zd_vrf_id = pw->vrf_id;
+	ctx->u.pw.ifindex = pw->ifindex;
+	ctx->u.pw.type = pw->type;
+	ctx->u.pw.af = pw->af;
+	ctx->u.pw.local_label = pw->local_label;
+	ctx->u.pw.remote_label = pw->remote_label;
+	ctx->u.pw.flags = pw->flags;
+
+	ctx->u.pw.nexthop = pw->nexthop;
+
+	ctx->u.pw.fields = pw->data;
 
 	return ret;
 }
@@ -1141,6 +1277,22 @@ enum zebra_dplane_result dplane_lsp_delete(zebra_lsp_t *lsp)
 }
 
 /*
+ * Enqueue pseudowire install for the dataplane.
+ */
+enum zebra_dplane_result dplane_pw_install(struct zebra_pw *pw)
+{
+	return pw_update_internal(pw, DPLANE_OP_PW_INSTALL);
+}
+
+/*
+ * Enqueue pseudowire un-install for the dataplane.
+ */
+enum zebra_dplane_result dplane_pw_uninstall(struct zebra_pw *pw)
+{
+	return pw_update_internal(pw, DPLANE_OP_PW_UNINSTALL);
+}
+
+/*
  * Common internal LSP update utility
  */
 static enum zebra_dplane_result lsp_update_internal(zebra_lsp_t *lsp,
@@ -1172,6 +1324,45 @@ done:
 		result = ZEBRA_DPLANE_REQUEST_QUEUED;
 	else {
 		atomic_fetch_add_explicit(&zdplane_info.dg_lsp_errors, 1,
+					  memory_order_relaxed);
+		if (ctx)
+			dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+
+/*
+ * Internal, common handler for pseudowire updates.
+ */
+static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
+						   enum dplane_op_e op)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	int ret;
+	struct zebra_dplane_ctx *ctx = NULL;
+
+	ctx = dplane_ctx_alloc();
+	if (ctx == NULL) {
+		ret = ENOMEM;
+		goto done;
+	}
+
+	ret = dplane_ctx_pw_init(ctx, op, pw);
+	if (ret != AOK)
+		goto done;
+
+	ret = dplane_route_enqueue(ctx);
+
+done:
+	/* Update counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_pws_in, 1,
+				  memory_order_relaxed);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_pw_errors, 1,
 					  memory_order_relaxed);
 		if (ctx)
 			dplane_ctx_free(&ctx);
@@ -1512,6 +1703,32 @@ kernel_dplane_lsp_update(struct zebra_dplane_ctx *ctx)
 }
 
 /*
+ * Handler for kernel pseudowire updates
+ */
+static enum zebra_dplane_result
+kernel_dplane_pw_update(struct zebra_dplane_ctx *ctx)
+{
+	enum zebra_dplane_result res;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+		zlog_debug("Dplane pw %s: op %s af %d loc: %u rem: %u",
+			   dplane_ctx_get_pw_ifname(ctx),
+			   dplane_op2str(ctx->zd_op),
+			   dplane_ctx_get_pw_af(ctx),
+			   dplane_ctx_get_pw_local_label(ctx),
+			   dplane_ctx_get_pw_remote_label(ctx));
+
+	res = kernel_pw_update(ctx);
+
+	if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+		atomic_fetch_add_explicit(
+			&zdplane_info.dg_pw_errors, 1,
+			memory_order_relaxed);
+
+	return res;
+}
+
+/*
  * Handler for kernel route updates
  */
 static enum zebra_dplane_result
@@ -1575,6 +1792,11 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 		case DPLANE_OP_LSP_UPDATE:
 		case DPLANE_OP_LSP_DELETE:
 			res = kernel_dplane_lsp_update(ctx);
+			break;
+
+		case DPLANE_OP_PW_INSTALL:
+		case DPLANE_OP_PW_UNINSTALL:
+			res = kernel_dplane_pw_update(ctx);
 			break;
 
 		default:
