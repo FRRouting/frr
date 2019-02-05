@@ -301,14 +301,14 @@ void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
 }
 
 void show_ip_eigrp_nexthop_entry(struct vty *vty, struct eigrp *eigrp,
-				 struct eigrp_nexthop_entry *te, int *first)
+				 struct eigrp_nexthop_entry *te, bool *first)
 {
 	if (te->reported_distance == EIGRP_MAX_METRIC)
 		return;
 
 	if (*first) {
 		show_ip_eigrp_prefix_entry(vty, te->prefix);
-		*first = 0;
+		*first = false;
 	}
 
 	if (te->adv_router == eigrp->neighbor_self)

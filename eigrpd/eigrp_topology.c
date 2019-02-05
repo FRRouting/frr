@@ -161,7 +161,7 @@ void eigrp_nexthop_entry_add(struct eigrp_prefix_entry *node,
 		listnode_add_sort(node->entries, entry);
 		entry->prefix = node;
 
-		eigrp_zebra_route_add(node->destination, l);
+		eigrp_zebra_route_add(node->destination, l, node->fdistance);
 	}
 
 	list_delete(&l);
@@ -477,7 +477,8 @@ void eigrp_update_routing_table(struct eigrp_prefix_entry *prefix)
 	successors = eigrp_topology_get_successor_max(prefix, eigrp->max_paths);
 
 	if (successors) {
-		eigrp_zebra_route_add(prefix->destination, successors);
+		eigrp_zebra_route_add(prefix->destination, successors,
+				      prefix->fdistance);
 		for (ALL_LIST_ELEMENTS_RO(successors, node, entry))
 			entry->flags |= EIGRP_NEXTHOP_ENTRY_INTABLE_FLAG;
 
