@@ -1336,6 +1336,30 @@ static void zread_interface_delete(ZAPI_HANDLER_ARGS)
 {
 }
 
+/*
+ * Handle message requesting interface be set up or down.
+ */
+static void zread_interface_set_protodown(ZAPI_HANDLER_ARGS)
+{
+	ifindex_t ifindex;
+	struct interface *ifp;
+	char down;
+
+	STREAM_GETL(msg, ifindex);
+	STREAM_GETC(msg, down);
+
+	/* set ifdown */
+	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT), ifindex);
+	zlog_info("Setting interface %s (%u): protodown %s", ifp->name, ifindex,
+		  down ? "on" : "off");
+
+	zebra_if_set_protodown(ifp, down);
+
+stream_failure:
+	return;
+}
+
+
 void zserv_nexthop_num_warn(const char *caller, const struct prefix *p,
 			    const unsigned int nexthop_num)
 {
@@ -2412,6 +2436,7 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_ROUTER_ID_DELETE] = zread_router_id_delete,
 	[ZEBRA_INTERFACE_ADD] = zread_interface_add,
 	[ZEBRA_INTERFACE_DELETE] = zread_interface_delete,
+	[ZEBRA_INTERFACE_SET_PROTODOWN] = zread_interface_set_protodown,
 	[ZEBRA_ROUTE_ADD] = zread_route_add,
 	[ZEBRA_ROUTE_DELETE] = zread_route_del,
 	[ZEBRA_REDISTRIBUTE_ADD] = zebra_redistribute_add,

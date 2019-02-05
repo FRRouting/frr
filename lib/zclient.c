@@ -555,6 +555,25 @@ void zclient_send_interface_radv_req(struct zclient *zclient, vrf_id_t vrf_id,
 	zclient_send_message(zclient);
 }
 
+int zclient_send_interface_protodown(struct zclient *zclient, vrf_id_t vrf_id,
+				     struct interface *ifp, bool down)
+{
+	struct stream *s;
+
+	if (zclient->sock < 0)
+		return -1;
+
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_INTERFACE_SET_PROTODOWN, vrf_id);
+	stream_putl(s, ifp->ifindex);
+	stream_putc(s, !!down);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(zclient);
+
+	return 0;
+}
+
 /* Make connection to zebra daemon. */
 int zclient_start(struct zclient *zclient)
 {

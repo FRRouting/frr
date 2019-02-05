@@ -1028,6 +1028,8 @@ static void vrrp_change_state_master(struct vrrp_router *r)
 	/* Enable ND Router Advertisements */
 	if (r->family == AF_INET6)
 		vrrp_zebra_radv_set(r, true);
+
+	vrrp_zclient_send_interface_protodown(r->mvl_ifp, false);
 }
 
 /*
@@ -1041,6 +1043,8 @@ static void vrrp_change_state_backup(struct vrrp_router *r)
 	/* Disable ND Router Advertisements */
 	if (r->family == AF_INET6)
 		vrrp_zebra_radv_set(r, false);
+
+	vrrp_zclient_send_interface_protodown(r->mvl_ifp, true);
 }
 
 /*

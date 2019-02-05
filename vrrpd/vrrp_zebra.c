@@ -226,6 +226,12 @@ void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable)
 					enable, VRRP_RADV_INT);
 }
 
+int vrrp_zclient_send_interface_protodown(struct interface *ifp, bool down)
+{
+	return zclient_send_interface_protodown(zclient, VRF_DEFAULT, ifp,
+						down);
+}
+
 void vrrp_zebra_init(void)
 {
 	/* Socket for receiving updates from Zebra daemon */

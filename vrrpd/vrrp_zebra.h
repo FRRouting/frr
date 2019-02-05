@@ -20,7 +20,13 @@
 #ifndef __VRRP_ZEBRA_H__
 #define __VRRP_ZEBRA_H__
 
+#include <zebra.h>
+
+#include "lib/if.h"
+
 extern void vrrp_zebra_init(void);
 extern void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable);
+extern int vrrp_zclient_send_interface_protodown(struct interface *ifp,
+						 bool down);
 
 #endif /* __VRRP_ZEBRA_H__ */
