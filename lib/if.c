@@ -134,10 +134,8 @@ static int if_cmp_index_func(const struct interface *ifp1,
 	return ifp1->ifindex - ifp2->ifindex;
 }
 
-/* Create new interface structure. */
-struct interface *if_create(const char *name, vrf_id_t vrf_id)
+static struct interface *_if_create(const char *name)
 {
-	struct vrf *vrf = vrf_get(vrf_id, NULL);
 	struct interface *ifp;
 
 	ifp = XCALLOC(MTYPE_IF, sizeof(struct interface));
@@ -145,8 +143,6 @@ struct interface *if_create(const char *name, vrf_id_t vrf_id)
 
 	assert(name);
 	strlcpy(ifp->name, name, sizeof(ifp->name));
-	ifp->vrf_id = vrf_id;
-	IFNAME_RB_INSERT(vrf, ifp);
 	ifp->connected = list_new();
 	ifp->connected->del = (void (*)(void *))connected_free;
 
@@ -157,6 +153,36 @@ struct interface *if_create(const char *name, vrf_id_t vrf_id)
 	SET_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION);
 
 	QOBJ_REG(ifp, interface);
+
+	return ifp;
+
+}
+
+/* Create new interface structure. */
+static struct interface *if_create_vrf(const char *name,
+				       struct vrf *vrf)
+{
+	struct interface *ifp;
+
+	ifp = _if_create(name);
+	if (ifp)
+		ifp->vrf_id = vrf->vrf_id;
+	IFNAME_RB_INSERT(vrf, ifp);
+
+	hook_call(if_add, ifp);
+	return ifp;
+}
+
+/* Create new interface structure. */
+struct interface *if_create(const char *name, vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_get(vrf_id, NULL);
+	struct interface *ifp;
+
+	ifp = _if_create(name);
+	ifp->vrf_id = vrf_id;
+	IFNAME_RB_INSERT(vrf, ifp);
+
 	hook_call(if_add, ifp);
 	return ifp;
 }
@@ -199,6 +225,22 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 			running_config->version++;
 		}
 	}
+}
+
+/* Create new interface structure. */
+void if_update_to_new_vrf_vrf(struct interface *ifp, struct vrf *vrf)
+{
+	if (vrf) {
+		IFNAME_RB_REMOVE(vrf, ifp);
+		if (ifp->ifindex != IFINDEX_INTERNAL)
+			IFINDEX_RB_REMOVE(vrf, ifp);
+	}
+
+	ifp->vrf_id = vrf->vrf_id;
+
+	IFNAME_RB_INSERT(vrf, ifp);
+	if (ifp->ifindex != IFINDEX_INTERNAL)
+		IFINDEX_RB_INSERT(vrf, ifp);
 }
 
 
@@ -276,6 +318,19 @@ ifindex_t ifname2ifindex(const char *name, vrf_id_t vrf_id)
 struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	struct interface if_tmp;
+
+	if (!vrf || !name
+	    || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+		return NULL;
+
+	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
+	return RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+}
+
+/* Interface existance check by interface name. */
+struct interface *if_lookup_by_name_vrf(const char *name, struct vrf *vrf)
+{
 	struct interface if_tmp;
 
 	if (!vrf || !name
@@ -387,6 +442,38 @@ struct interface *if_lookup_prefix(struct prefix *prefix, vrf_id_t vrf_id)
 			}
 		}
 	}
+	return NULL;
+}
+
+/* Get interface by name if given name interface doesn't exist create
+   one. */
+struct interface *if_get_by_name_vrf(const char *name, struct vrf *vrf)
+{
+	struct interface *ifp;
+
+	if (!vrf)
+		return NULL;
+	switch (vrf_get_backend()) {
+	case VRF_BACKEND_NETNS:
+		ifp = if_lookup_by_name(name, vrf_id);
+		if (ifp)
+			return ifp;
+		return if_create(name, vrf_id);
+	case VRF_BACKEND_VRF_LITE:
+		ifp = if_lookup_by_name_all_vrf(name);
+		if (ifp) {
+			if ((ifp->vrf_id == vrf->vrf_id) &&
+			    (vrf->vrf_id != VRF_UNKNOWN))
+				return ifp;
+			/* If it came from the kernel or by way of zclient,
+			 * believe it and update the ifp accordingly.
+			 */
+			if_update_to_new_vrf_vrf(ifp, vrf);
+			return ifp;
+		}
+		return if_create_vrf(name, vrf);
+	}
+
 	return NULL;
 }
 
