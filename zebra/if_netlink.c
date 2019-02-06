@@ -981,7 +981,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifp = if_get_by_ifindex(ifi->ifi_index, vrf_id);
 	set_ifindex(ifp, ifi->ifi_index, zns); /* add it to ns struct */
 
-	if_set_name(ifp, name);
+	if_set_name(ifp, name, NULL);
 
 	ifp->flags = ifi->ifi_flags & 0x0000fffff;
 	ifp->mtu6 = ifp->mtu = *(uint32_t *)RTA_DATA(tb[IFLA_MTU]);
