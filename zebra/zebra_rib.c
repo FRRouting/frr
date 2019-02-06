@@ -1225,6 +1225,77 @@ static int rib_can_delete_dest(rib_dest_t *dest)
 	return 1;
 }
 
+void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
+{
+	rib_dest_t *dest = rib_dest_from_rnode(rn);
+	struct listnode *node, *nnode;
+	struct rnh *rnh;
+
+	/*
+	 * We are storing the rnh's associated with
+	 * the tracked nexthop as a list of the rn's.
+	 * Unresolved rnh's are placed at the top
+	 * of the tree list.( 0.0.0.0/0 for v4 and 0::0/0 for v6 )
+	 * As such for each rn we need to walk up the tree
+	 * and see if any rnh's need to see if they
+	 * would match a more specific route
+	 */
+	while (rn) {
+		if (!dest) {
+			rn = rn->parent;
+			if (rn)
+				dest = rib_dest_from_rnode(rn);
+			continue;
+		}
+		/*
+		 * If we have any rnh's stored in the nht list
+		 * then we know that this route node was used for
+		 * nht resolution and as such we need to call the
+		 * nexthop tracking evaluation code
+		 */
+		for (ALL_LIST_ELEMENTS(dest->nht, node, nnode, rnh)) {
+			struct zebra_vrf *zvrf =
+				zebra_vrf_lookup_by_id(rnh->vrf_id);
+			struct prefix *p = &rnh->node->p;
+
+			if (IS_ZEBRA_DEBUG_NHT) {
+				char buf1[PREFIX_STRLEN];
+				char buf2[PREFIX_STRLEN];
+
+				zlog_debug("%u:%s has Nexthop(%s) depending on it, evaluating %u:%u",
+					   zvrf->vrf->vrf_id,
+					   prefix2str(&rn->p, buf1,
+						      sizeof(buf1)),
+					   prefix2str(p, buf2, sizeof(buf2)),
+					   seq, rnh->seqno);
+			}
+
+			/*
+			 * If we have evaluated this node on this pass
+			 * already, due to following the tree up
+			 * then we know that we can move onto the next
+			 * rnh to process.
+			 *
+			 * Additionally we call zebra_evaluate_rnh
+			 * when we gc the dest.  In this case we know
+			 * that there must be no other re's where
+			 * we were originally as such we know that
+			 * that sequence number is ok to respect.
+			 */
+			if (rnh->seqno == seq)
+				continue;
+
+			rnh->seqno = seq;
+			zebra_evaluate_rnh(zvrf, family2afi(p->family), 0,
+					   rnh->type, p);
+		}
+
+		rn = rn->parent;
+		if (rn)
+			dest = rib_dest_from_rnode(rn);
+	}
+}
+
 /*
  * rib_gc_dest
  *
@@ -1251,7 +1322,10 @@ int rib_gc_dest(struct route_node *rn)
 		rnode_debug(rn, zvrf_id(zvrf), "removing dest from table");
 	}
 
+	zebra_rib_evaluate_rn_nexthops(rn, zebra_router_get_next_sequence());
+
 	dest->rnode = NULL;
+	list_delete(&dest->nht);
 	XFREE(MTYPE_RIB_DEST, dest);
 	rn->info = NULL;
 
@@ -1797,6 +1871,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	enum dplane_op_e op;
 	enum zebra_dplane_result status;
 	const struct prefix *dest_pfx, *src_pfx;
+	uint32_t seq;
 
 	/* Locate rn and re(s) from ctx */
 
@@ -1873,11 +1948,13 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			break;
 	}
 
+	seq = dplane_ctx_get_seq(ctx);
+
 	/*
 	 * Check sequence number(s) to detect stale results before continuing
 	 */
 	if (re) {
-		if (re->dplane_sequence != dplane_ctx_get_seq(ctx)) {
+		if (re->dplane_sequence != seq) {
 			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 				zlog_debug("%u:%s Stale dplane result for re %p",
 					   dplane_ctx_get_vrf(ctx),
@@ -2040,6 +2117,8 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	default:
 		break;
 	}
+
+	zebra_rib_evaluate_rn_nexthops(rn, seq);
 done:
 
 	if (rn)
@@ -2099,31 +2178,7 @@ static unsigned int process_subq(struct list *subq, uint8_t qindex)
  */
 static void do_nht_processing(void)
 {
-	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
-
-	/* Evaluate nexthops for those VRFs which underwent route processing.
-	 * This
-	 * should limit the evaluation to the necessary VRFs in most common
-	 * situations.
-	 */
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		zvrf = vrf->info;
-		if (zvrf == NULL || !(zvrf->flags & ZEBRA_VRF_RIB_SCHEDULED))
-			continue;
-
-		if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHT)
-			zlog_debug("NHT processing check for zvrf %s",
-				   zvrf_name(zvrf));
-
-		zvrf->flags &= ~ZEBRA_VRF_RIB_SCHEDULED;
-		zebra_evaluate_rnh(zvrf, AFI_IP, 0, RNH_NEXTHOP_TYPE, NULL);
-		zebra_evaluate_rnh(zvrf, AFI_IP, 0, RNH_IMPORT_CHECK_TYPE,
-				   NULL);
-		zebra_evaluate_rnh(zvrf, AFI_IP6, 0, RNH_NEXTHOP_TYPE, NULL);
-		zebra_evaluate_rnh(zvrf, AFI_IP6, 0, RNH_IMPORT_CHECK_TYPE,
-				   NULL);
-	}
 
 	/* Schedule LSPs for processing, if needed. */
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -2329,6 +2384,7 @@ rib_dest_t *zebra_rib_create_dest(struct route_node *rn)
 	rib_dest_t *dest;
 
 	dest = XCALLOC(MTYPE_RIB_DEST, sizeof(rib_dest_t));
+	dest->nht = list_new();
 	route_lock_node(rn); /* rn route table reference */
 	rn->info = dest;
 	dest->rnode = rn;
