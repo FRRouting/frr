@@ -31,6 +31,8 @@
 extern "C" {
 #endif
 
+struct vrf;
+
 DECLARE_MTYPE(CONNECTED_LABEL);
 
 /* Interface link-layer type, if known. Derived from:
@@ -532,13 +534,16 @@ struct vrf;
 extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
 extern struct interface *if_lookup_by_name_vrf(const char *name, struct vrf *vrf);
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_name_vrf(const char *ifname,
+					       struct vrf *vrf);
 extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id);
 extern struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);
-
+extern struct interface *if_get_by_name_vrf(const char *name, struct vrf *vrf);
 /* Sets the index and adds to index list */
 extern int if_set_index(struct interface *ifp, ifindex_t ifindex);
 /* Sets the name and adds to name list */
-extern void if_set_name(struct interface *ifp, const char *name);
+extern void if_set_name(struct interface *ifp, const char *name,
+			struct vrf *vrf);
 
 /* Delete the interface, but do not free the structure, and leave it in the
    interface list.  It is often advisable to leave the pseudo interface
