@@ -1173,13 +1173,26 @@ DEFPY_NOSH (interface,
        VRF_CMD_HELP_STR)
 {
 	char xpath_list[XPATH_MAXLEN];
-	vrf_id_t vrf_id;
-	struct interface *ifp;
+	struct vrf *vrf;
+	struct interface *ifp = NULL;
 	int ret;
 
 	if (!vrfname)
 		vrfname = VRF_DEFAULT_NAME;
 
+	vrf = vrf_get(VRF_UNKNOWN, vrfname);
+	if (!vrf) {
+		vty_out(vty, "%% failed to get vrf %s \n", vrfname);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	/* vrf context is searched. if not present, create it.
+	 * within vrf contesxt, vrf_id may be unknown
+	 * this happens on daemons relying on zebra
+	 * on this specific case, interface creation may
+	 * be forced
+	 */
+	if (vrf && vrf->vrf_id == VRF_UNKNOWN)
+		ifp = if_get_by_name_vrf(ifname, vrf);
 	/*
 	 * This command requires special handling to maintain backward
 	 * compatibility. If a VRF name is not specified, it means we're willing
@@ -1187,29 +1200,26 @@ DEFPY_NOSH (interface,
 	 * interface is found, then a new one should be created on the default
 	 * VRF.
 	 */
-	VRF_GET_ID(vrf_id, vrfname, false);
-	ifp = if_lookup_by_name_all_vrf(ifname);
-	if (ifp && ifp->vrf_id != vrf_id) {
-		struct vrf *vrf;
-
+	else
+		ifp = if_lookup_by_name_all_vrf(ifname);
+	if (ifp && ifp->vrf_id != vrf->vrf_id) {
 		/*
 		 * Special case 1: a VRF name was specified, but the found
 		 * interface is associated to different VRF. Reject the command.
 		 */
-		if (vrf_id != VRF_DEFAULT) {
+		if (vrf->vrf_id != VRF_DEFAULT) {
 			vty_out(vty, "%% interface %s not in %s vrf\n", ifname,
 				vrfname);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
 		/*
-		 * Special case 2: a VRF name was *not* specified, and the found
+		 * Special case 3: a VRF name was *not* specified, and the found
 		 * interface is associated to a VRF other than the default one.
 		 * Update vrf_id and vrfname to account for that.
 		 */
 		vrf = vrf_lookup_by_id(ifp->vrf_id);
 		assert(vrf);
-		vrf_id = ifp->vrf_id;
 		vrfname = vrf->name;
 	}
 
@@ -1228,7 +1238,7 @@ DEFPY_NOSH (interface,
 		 * all interface-level commands are converted to the new
 		 * northbound model.
 		 */
-		ifp = if_lookup_by_name(ifname, vrf_id);
+		ifp = if_lookup_by_name_vrf(ifname, vrf);
 		if (ifp)
 			VTY_PUSH_CONTEXT(INTERFACE_NODE, ifp);
 	}
