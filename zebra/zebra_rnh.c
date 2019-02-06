@@ -101,12 +101,13 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type,
 	struct route_node *rn;
 	struct rnh *rnh = NULL;
 	char buf[PREFIX2STR_BUFFER];
+	afi_t afi = family2afi(p->family);
 
 	if (IS_ZEBRA_DEBUG_NHT) {
 		prefix2str(p, buf, sizeof(buf));
 		zlog_debug("%u: Add RNH %s type %d", vrfid, buf, type);
 	}
-	table = get_rnh_table(vrfid, family2afi(PREFIX_FAMILY(p)), type);
+	table = get_rnh_table(vrfid, afi, type);
 	if (!table) {
 		prefix2str(p, buf, sizeof(buf));
 		flog_warn(EC_ZEBRA_RNH_NO_TABLE,
@@ -127,6 +128,7 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type,
 		rnh->client_list = list_new();
 		rnh->vrf_id = vrfid;
 		rnh->type = type;
+		rnh->afi = afi;
 		rnh->zebra_pseudowire_list = list_new();
 		route_lock_node(rn);
 		rn->info = rnh;

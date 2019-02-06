@@ -42,6 +42,8 @@ struct rnh {
 	/* VRF identifier. */
 	vrf_id_t vrf_id;
 
+	afi_t afi;
+
 	rnh_type_t type;
 
 	struct route_entry *state;
