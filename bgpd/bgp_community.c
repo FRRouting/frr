@@ -910,3 +910,112 @@ void community_finish(void)
 	hash_free(comhash);
 	comhash = NULL;
 }
+
+static struct community *bgp_aggr_community_lookup(
+						struct bgp_aggregate *aggregate,
+						struct community *community)
+{
+	return hash_lookup(aggregate->community_hash, community);
+}
+
+static void *bgp_aggr_communty_hash_alloc(void *p)
+{
+	struct community *ref = (struct community *)p;
+	struct community *community = NULL;
+
+	community = community_dup(ref);
+	return community;
+}
+
+static void bgp_aggr_community_prepare(struct hash_backet *hb, void *arg)
+{
+	struct community *commerge = NULL;
+	struct community *hb_community = hb->data;
+	struct community **aggr_community = arg;
+
+	if (*aggr_community) {
+		commerge = community_merge(*aggr_community, hb_community);
+		*aggr_community = community_uniq_sort(commerge);
+		community_free(&commerge);
+	} else
+		*aggr_community = community_dup(hb_community);
+}
+
+void bgp_aggr_community_remove(void *arg)
+{
+	struct community *community = arg;
+
+	community_free(&community);
+}
+
+void bgp_compute_aggregate_community(struct bgp_aggregate *aggregate,
+				     struct community *community)
+{
+	struct community *aggr_community = NULL;
+
+	if ((aggregate == NULL) || (community == NULL))
+		return;
+
+	/* Create hash if not already created.
+	 */
+	if (aggregate->community_hash == NULL)
+		aggregate->community_hash = hash_create(
+			(unsigned int (*)(void *))community_hash_make,
+			(bool (*)(const void *, const void *))community_cmp,
+			"BGP Aggregator community hash");
+
+	aggr_community = bgp_aggr_community_lookup(aggregate, community);
+	if (aggr_community == NULL) {
+		/* Insert community into hash.
+		 */
+		aggr_community = hash_get(aggregate->community_hash, community,
+					  bgp_aggr_communty_hash_alloc);
+
+		/* Re-compute aggregate's community.
+		 */
+		if (aggregate->community)
+			community_free(&aggregate->community);
+
+		hash_iterate(aggregate->community_hash,
+			     bgp_aggr_community_prepare,
+			     &aggregate->community);
+	}
+
+	/* Increment refernce counter.
+	 */
+	aggr_community->refcnt++;
+}
+
+void bgp_remove_community_from_aggregate(struct bgp_aggregate *aggregate,
+					 struct community *community)
+{
+	struct community *aggr_community = NULL;
+	struct community *ret_comm = NULL;
+
+	if ((aggregate == NULL) || (community == NULL))
+		return;
+
+	if (aggregate->community_hash == NULL)
+		return;
+
+	/* Look-up the community in the hash.
+	 */
+	aggr_community = bgp_aggr_community_lookup(aggregate, community);
+	if (aggr_community) {
+		aggr_community->refcnt--;
+
+		if (aggr_community->refcnt == 0) {
+			ret_comm = hash_release(aggregate->community_hash,
+						aggr_community);
+			community_free(&ret_comm);
+
+			community_free(&aggregate->community);
+
+			/* Compute aggregate's community.
+			 */
+			hash_iterate(aggregate->community_hash,
+				     bgp_aggr_community_prepare,
+				     &aggregate->community);
+		}
+	}
+}

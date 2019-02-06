@@ -22,6 +22,7 @@
 #define _QUAGGA_BGP_COMMUNITY_H
 
 #include "lib/json.h"
+#include "bgpd/bgp_route.h"
 
 /* Communities attribute.  */
 struct community {
@@ -89,5 +90,10 @@ extern void community_del_val(struct community *, uint32_t *);
 extern unsigned long community_count(void);
 extern struct hash *community_hash(void);
 extern uint32_t community_val_get(struct community *com, int i);
+extern void bgp_compute_aggregate_community(struct bgp_aggregate *aggregate,
+					    struct community *community);
+extern void bgp_remove_community_from_aggregate(struct bgp_aggregate *aggregate,
+						struct community *community);
+extern void bgp_aggr_community_remove(void *arg);
 
 #endif /* _QUAGGA_BGP_COMMUNITY_H */
