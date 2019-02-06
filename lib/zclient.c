@@ -1979,20 +1979,23 @@ static int zclient_interface_add(struct zclient *zclient, vrf_id_t vrf_id)
 	struct interface *ifp;
 	char ifname_tmp[INTERFACE_NAMSIZ + 1] = {};
 	struct stream *s = zclient->ibuf;
+	struct vrf *vrf;
 
 	/* Read interface name. */
 	STREAM_GET(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* Lookup/create interface by name. */
-	if (!vrf_get(vrf_id, NULL)) {
+	vrf = vrf_get(vrf_id, NULL);
+	if (!vrf) {
 		zlog_debug(
 			"Rx'd interface add from Zebra, but VRF %u does not exist",
 			vrf_id);
 		return -1;
 	}
 
-	ifp = if_get_by_name(ifname_tmp, vrf_id);
-
+	ifp = if_get_by_name_vrf(ifname_tmp, vrf);
+	if (ifp->vrf_id == VRF_UNKNOWN)
+		ifp->vrf_id = vrf->vrf_id;
 	zebra_interface_if_set_value(s, ifp);
 
 	if_new_via_zapi(ifp);
