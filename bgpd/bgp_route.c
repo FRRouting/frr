@@ -5638,8 +5638,7 @@ static void bgp_aggregate_install(struct bgp *bgp, afi_t afi, safi_t safi,
 
 /* Update an aggregate as routes are added/removed from the BGP table */
 static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
-				struct bgp_path_info *pinew, afi_t afi,
-				safi_t safi, struct bgp_path_info *del,
+				afi_t afi, safi_t safi,
 				struct bgp_aggregate *aggregate)
 {
 	struct bgp_table *table;
@@ -5647,13 +5646,9 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 	struct bgp_node *rn;
 	uint8_t origin;
 	struct aspath *aspath = NULL;
-	struct aspath *asmerge = NULL;
 	struct community *community = NULL;
-	struct community *commerge = NULL;
 	struct ecommunity *ecommunity = NULL;
-	struct ecommunity *ecommerge = NULL;
 	struct lcommunity *lcommunity = NULL;
-	struct lcommunity *lcommerge = NULL;
 	struct bgp_path_info *pi;
 	unsigned long match = 0;
 	uint8_t atomic_aggregate = 0;
@@ -5680,9 +5675,6 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 
 		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
 			if (BGP_PATH_HOLDDOWN(pi))
-				continue;
-
-			if (del && pi == del)
 				continue;
 
 			if (pi->attr->flag
@@ -5715,8 +5707,18 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
                         * route MUST have the ORIGIN attribute with the value
                         * EGP.
                         */
-			if (origin < pi->attr->origin)
-				origin = pi->attr->origin;
+			switch (pi->attr->origin) {
+			case BGP_ORIGIN_INCOMPLETE:
+				aggregate->incomplete_origin_count++;
+			break;
+			case BGP_ORIGIN_EGP:
+				aggregate->egp_origin_count++;
+			break;
+			default:
+				/*Do nothing.
+				 */
+			break;
+			}
 
 			if (!aggregate->as_set)
 				continue;
@@ -5725,130 +5727,68 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 			 * as-set aggregate route generate origin, as path,
 			 * and community aggregation.
 			 */
-			if (aspath) {
-				asmerge = aspath_aggregate(aspath,
-							   pi->attr->aspath);
-				aspath_free(aspath);
-				aspath = asmerge;
-			} else
-				aspath = aspath_dup(pi->attr->aspath);
+			/* Compute aggregate route's as-path.
+			 */
+			bgp_compute_aggregate_aspath(aggregate,
+						     pi->attr->aspath);
 
-			if (pi->attr->community) {
-				if (community) {
-					commerge = community_merge(
-						community, pi->attr->community);
-					community =
-						community_uniq_sort(commerge);
-					community_free(&commerge);
-				} else
-					community = community_dup(
-						pi->attr->community);
-			}
+			/* Compute aggregate route's community.
+			 */
+			if (pi->attr->community)
+				bgp_compute_aggregate_community(
+							aggregate,
+							pi->attr->community);
 
-			if (pi->attr->ecommunity) {
-				if (ecommunity) {
-					ecommerge = ecommunity_merge(
-						ecommunity,
-						pi->attr->ecommunity);
-					ecommunity =
-						ecommunity_uniq_sort(ecommerge);
-					ecommunity_free(&ecommerge);
-				} else
-					ecommunity = ecommunity_dup(
-						pi->attr->ecommunity);
-			}
+			/* Compute aggregate route's extended community.
+			 */
+			if (pi->attr->ecommunity)
+				bgp_compute_aggregate_ecommunity(
+							aggregate,
+							pi->attr->ecommunity);
 
-			if (pi->attr->lcommunity) {
-				if (lcommunity) {
-					lcommerge = lcommunity_merge(
-						lcommunity,
-						pi->attr->lcommunity);
-					lcommunity =
-						lcommunity_uniq_sort(lcommerge);
-					lcommunity_free(&lcommerge);
-				} else
-					lcommunity = lcommunity_dup(
-						pi->attr->lcommunity);
-			}
+			/* Compute aggregate route's large community.
+			 */
+			if (pi->attr->lcommunity)
+				bgp_compute_aggregate_lcommunity(
+							aggregate,
+							pi->attr->lcommunity);
 		}
 		if (match)
 			bgp_process(bgp, rn, afi, safi);
 	}
 	bgp_unlock_node(top);
 
-	if (pinew) {
-		aggregate->count++;
 
-		if (aggregate->summary_only)
-			(bgp_path_info_extra_get(pinew))->suppress++;
+	if (aggregate->incomplete_origin_count > 0)
+		origin = BGP_ORIGIN_INCOMPLETE;
+	else if (aggregate->egp_origin_count > 0)
+		origin = BGP_ORIGIN_EGP;
 
-		if (origin < pinew->attr->origin)
-			origin = pinew->attr->origin;
+	if (aggregate->as_set) {
+		if (aggregate->aspath)
+			/* Retrieve aggregate route's as-path.
+			 */
+			aspath = aspath_dup(aggregate->aspath);
 
-		if (aggregate->as_set) {
-			if (aspath) {
-				asmerge = aspath_aggregate(aspath,
-							   pinew->attr->aspath);
-				aspath_free(aspath);
-				aspath = asmerge;
-			} else
-				aspath = aspath_dup(pinew->attr->aspath);
+		if (aggregate->community)
+			/* Retrieve aggregate route's community.
+			 */
+			community = community_dup(aggregate->community);
 
-			if (pinew->attr->community) {
-				if (community) {
-					commerge = community_merge(
-						community,
-						pinew->attr->community);
-					community =
-						community_uniq_sort(commerge);
-					community_free(&commerge);
-				} else
-					community = community_dup(
-						pinew->attr->community);
-			}
+		if (aggregate->ecommunity)
+			/* Retrieve aggregate route's ecommunity.
+			 */
+			ecommunity = ecommunity_dup(aggregate->ecommunity);
 
-			if (pinew->attr->ecommunity) {
-				if (ecommunity) {
-					ecommerge = ecommunity_merge(
-						ecommunity,
-						pinew->attr->ecommunity);
-					ecommunity =
-						ecommunity_uniq_sort(ecommerge);
-					ecommunity_free(&ecommerge);
-				} else
-					ecommunity = ecommunity_dup(
-						pinew->attr->ecommunity);
-			}
-
-			if (pinew->attr->lcommunity) {
-				if (lcommunity) {
-					lcommerge = lcommunity_merge(
-						lcommunity,
-						pinew->attr->lcommunity);
-					lcommunity =
-						lcommunity_uniq_sort(lcommerge);
-					lcommunity_free(&lcommerge);
-				} else
-					lcommunity = lcommunity_dup(
-						pinew->attr->lcommunity);
-			}
-		}
+		if (aggregate->lcommunity)
+			/* Retrieve aggregate route's lcommunity.
+			 */
+			lcommunity = lcommunity_dup(aggregate->lcommunity);
 	}
 
 	bgp_aggregate_install(bgp, afi, safi, p, origin, aspath, community,
 			      ecommunity, lcommunity, atomic_aggregate,
 			      aggregate);
-
-	if (aggregate->count == 0) {
-		if (aspath)
-			aspath_free(aspath);
-		if (community)
-			community_free(&community);
-		if (ecommunity)
-			ecommunity_free(&ecommunity);
-		if (lcommunity)
-			lcommunity_free(&lcommunity);
-	}
 }
 
 static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
@@ -5887,6 +5827,41 @@ static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 				}
 			}
 			aggregate->count--;
+
+			if (pi->attr->origin == BGP_ORIGIN_INCOMPLETE)
+				aggregate->incomplete_origin_count--;
+			else if (pi->attr->origin == BGP_ORIGIN_EGP)
+				aggregate->egp_origin_count--;
+
+			if (aggregate->as_set) {
+				/* Remove as-path from aggregate.
+				 */
+				bgp_remove_aspath_from_aggregate(
+							aggregate,
+							pi->attr->aspath);
+
+				if (pi->attr->community)
+					/* Remove community from aggregate.
+					 */
+					bgp_remove_community_from_aggregate(
+							aggregate,
+							pi->attr->community);
+
+				if (pi->attr->ecommunity)
+					/* Remove ecommunity from aggregate.
+					 */
+					bgp_remove_ecommunity_from_aggregate(
+							aggregate,
+							pi->attr->ecommunity);
+
+				if (pi->attr->lcommunity)
+					/* Remove lcommunity from aggregate.
+					 */
+					bgp_remove_lcommunity_from_aggregate(
+							aggregate,
+							pi->attr->lcommunity);
+			}
+
 		}
 
 		/* If this node was suppressed, process the change. */
@@ -5894,6 +5869,210 @@ static void bgp_aggregate_delete(struct bgp *bgp, struct prefix *p, afi_t afi,
 			bgp_process(bgp, rn, afi, safi);
 	}
 	bgp_unlock_node(top);
+}
+
+static void bgp_add_route_to_aggregate(struct bgp *bgp, struct prefix *aggr_p,
+				       struct bgp_path_info *pinew, afi_t afi,
+				       safi_t safi,
+				       struct bgp_aggregate *aggregate)
+{
+	uint8_t origin;
+	struct aspath *aspath = NULL;
+	uint8_t atomic_aggregate = 0;
+	struct community *community = NULL;
+	struct ecommunity *ecommunity = NULL;
+	struct lcommunity *lcommunity = NULL;
+
+	/* ORIGIN attribute: If at least one route among routes that are
+	 * aggregated has ORIGIN with the value INCOMPLETE, then the
+	 * aggregated route must have the ORIGIN attribute with the value
+	 * INCOMPLETE. Otherwise, if at least one route among routes that
+	 * are aggregated has ORIGIN with the value EGP, then the aggregated
+	 * route must have the origin attribute with the value EGP. In all
+	 * other case the value of the ORIGIN attribute of the aggregated
+	 * route is INTERNAL.
+	 */
+	origin = BGP_ORIGIN_IGP;
+
+	aggregate->count++;
+
+	if (aggregate->summary_only)
+		(bgp_path_info_extra_get(pinew))->suppress++;
+
+	switch (pinew->attr->origin) {
+	case BGP_ORIGIN_INCOMPLETE:
+		aggregate->incomplete_origin_count++;
+	break;
+	case BGP_ORIGIN_EGP:
+		aggregate->egp_origin_count++;
+	break;
+	default:
+		/* Do nothing.
+		 */
+	break;
+	}
+
+	if (aggregate->incomplete_origin_count > 0)
+		origin = BGP_ORIGIN_INCOMPLETE;
+	else if (aggregate->egp_origin_count > 0)
+		origin = BGP_ORIGIN_EGP;
+
+	if (aggregate->as_set) {
+		/* Compute aggregate route's as-path.
+		 */
+		bgp_compute_aggregate_aspath(aggregate,
+					     pinew->attr->aspath);
+
+		/* Compute aggregate route's community.
+		 */
+		if (pinew->attr->community)
+			bgp_compute_aggregate_community(
+						aggregate,
+						pinew->attr->community);
+
+		/* Compute aggregate route's extended community.
+		 */
+		if (pinew->attr->ecommunity)
+			bgp_compute_aggregate_ecommunity(
+					aggregate,
+					pinew->attr->ecommunity);
+
+		/* Compute aggregate route's large community.
+		 */
+		if (pinew->attr->lcommunity)
+			bgp_compute_aggregate_lcommunity(
+					aggregate,
+					pinew->attr->lcommunity);
+
+		/* Retrieve aggregate route's as-path.
+		 */
+		if (aggregate->aspath)
+			aspath = aspath_dup(aggregate->aspath);
+
+		/* Retrieve aggregate route's community.
+		 */
+		if (aggregate->community)
+			community = community_dup(aggregate->community);
+
+		/* Retrieve aggregate route's ecommunity.
+		 */
+		if (aggregate->ecommunity)
+			ecommunity = ecommunity_dup(aggregate->ecommunity);
+
+		/* Retrieve aggregate route's lcommunity.
+		 */
+		if (aggregate->lcommunity)
+			lcommunity = lcommunity_dup(aggregate->lcommunity);
+	}
+
+	bgp_aggregate_install(bgp, afi, safi, aggr_p, origin,
+			      aspath, community, ecommunity,
+			      lcommunity, atomic_aggregate, aggregate);
+}
+
+static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
+					    safi_t safi,
+					    struct bgp_path_info *pi,
+					    struct bgp_aggregate *aggregate,
+					    struct prefix *aggr_p)
+{
+	uint8_t origin;
+	struct aspath *aspath = NULL;
+	uint8_t atomic_aggregate = 0;
+	struct community *community = NULL;
+	struct ecommunity *ecommunity = NULL;
+	struct lcommunity *lcommunity = NULL;
+	unsigned long match = 0;
+
+	if (BGP_PATH_HOLDDOWN(pi))
+		return;
+
+	if (pi->sub_type == BGP_ROUTE_AGGREGATE)
+		return;
+
+	if (aggregate->summary_only
+		&& pi->extra
+		&& pi->extra->suppress > 0) {
+		pi->extra->suppress--;
+
+		if (pi->extra->suppress == 0) {
+			bgp_path_info_set_flag(pi->net, pi,
+					       BGP_PATH_ATTR_CHANGED);
+			match++;
+		}
+	}
+
+	if (aggregate->count > 0)
+		aggregate->count--;
+
+	if (pi->attr->origin == BGP_ORIGIN_INCOMPLETE)
+		aggregate->incomplete_origin_count--;
+	else if (pi->attr->origin == BGP_ORIGIN_EGP)
+		aggregate->egp_origin_count--;
+
+	if (aggregate->as_set) {
+		/* Remove as-path from aggregate.
+		 */
+		bgp_remove_aspath_from_aggregate(aggregate,
+						 pi->attr->aspath);
+
+		if (pi->attr->community)
+			/* Remove community from aggregate.
+			 */
+			bgp_remove_community_from_aggregate(
+							aggregate,
+							pi->attr->community);
+
+		if (pi->attr->ecommunity)
+			/* Remove ecommunity from aggregate.
+			 */
+			bgp_remove_ecommunity_from_aggregate(
+							aggregate,
+							pi->attr->ecommunity);
+
+		if (pi->attr->lcommunity)
+			/* Remove lcommunity from aggregate.
+			 */
+			bgp_remove_lcommunity_from_aggregate(
+							aggregate,
+							pi->attr->lcommunity);
+	}
+
+	/* If this node was suppressed, process the change. */
+	if (match)
+		bgp_process(bgp, pi->net, afi, safi);
+
+	origin = BGP_ORIGIN_IGP;
+	if (aggregate->incomplete_origin_count > 0)
+		origin = BGP_ORIGIN_INCOMPLETE;
+	else if (aggregate->egp_origin_count > 0)
+		origin = BGP_ORIGIN_EGP;
+
+	if (aggregate->as_set) {
+		/* Retrieve aggregate route's as-path.
+		 */
+		if (aggregate->aspath)
+			aspath = aspath_dup(aggregate->aspath);
+
+		/* Retrieve aggregate route's community.
+		 */
+		if (aggregate->community)
+			community = community_dup(aggregate->community);
+
+		/* Retrieve aggregate route's ecommunity.
+		 */
+		if (aggregate->ecommunity)
+			ecommunity = ecommunity_dup(aggregate->ecommunity);
+
+		/* Retrieve aggregate route's lcommunity.
+		 */
+		if (aggregate->lcommunity)
+			lcommunity = lcommunity_dup(aggregate->lcommunity);
+	}
+
+	bgp_aggregate_install(bgp, afi, safi, aggr_p, origin,
+			      aspath, community, ecommunity,
+			      lcommunity, atomic_aggregate, aggregate);
 }
 
 void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
@@ -5922,9 +6101,8 @@ void bgp_aggregate_increment(struct bgp *bgp, struct prefix *p,
 	for (rn = child; rn; rn = bgp_node_parent_nolock(rn)) {
 		aggregate = bgp_node_get_bgp_aggregate_info(rn);
 		if (aggregate != NULL && rn->p.prefixlen < p->prefixlen) {
-			bgp_aggregate_delete(bgp, &rn->p, afi, safi, aggregate);
-			bgp_aggregate_route(bgp, &rn->p, pi, afi, safi, NULL,
-					    aggregate);
+			bgp_add_route_to_aggregate(bgp, &rn->p, pi, afi,
+						   safi, aggregate);
 		}
 	}
 	bgp_unlock_node(child);
@@ -5953,9 +6131,8 @@ void bgp_aggregate_decrement(struct bgp *bgp, struct prefix *p,
 	for (rn = child; rn; rn = bgp_node_parent_nolock(rn)) {
 		aggregate = bgp_node_get_bgp_aggregate_info(rn);
 		if (aggregate != NULL && rn->p.prefixlen < p->prefixlen) {
-			bgp_aggregate_delete(bgp, &rn->p, afi, safi, aggregate);
-			bgp_aggregate_route(bgp, &rn->p, NULL, afi, safi, del,
-					    aggregate);
+			bgp_remove_route_from_aggregate(bgp, afi, safi,
+							del, aggregate, &rn->p);
 		}
 	}
 	bgp_unlock_node(child);
@@ -5997,6 +6174,59 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 
 	/* Unlock aggregate address configuration. */
 	bgp_node_set_bgp_aggregate_info(rn, NULL);
+
+	if (aggregate->community)
+		community_free(&aggregate->community);
+
+	if (aggregate->community_hash) {
+		/* Delete all communities in the hash.
+		 */
+		hash_clean(aggregate->community_hash,
+			   bgp_aggr_community_remove);
+		/* Free up the community_hash.
+		 */
+		hash_free(aggregate->community_hash);
+	}
+
+	if (aggregate->ecommunity)
+		ecommunity_free(&aggregate->ecommunity);
+
+	if (aggregate->ecommunity_hash) {
+		/* Delete all ecommunities in the hash.
+		 */
+		hash_clean(aggregate->ecommunity_hash,
+			   bgp_aggr_ecommunity_remove);
+		/* Free up the ecommunity_hash.
+		 */
+		hash_free(aggregate->ecommunity_hash);
+	}
+
+	if (aggregate->lcommunity)
+		lcommunity_free(&aggregate->lcommunity);
+
+	if (aggregate->lcommunity_hash) {
+		/* Delete all lcommunities in the hash.
+		 */
+		hash_clean(aggregate->lcommunity_hash,
+			   bgp_aggr_lcommunity_remove);
+		/* Free up the lcommunity_hash.
+		 */
+		hash_free(aggregate->lcommunity_hash);
+	}
+
+	if (aggregate->aspath)
+		aspath_free(aggregate->aspath);
+
+	if (aggregate->aspath_hash) {
+		/* Delete all as-paths in the hash.
+		 */
+		hash_clean(aggregate->aspath_hash,
+			   bgp_aggr_aspath_remove);
+		/* Free up the aspath_hash.
+		 */
+		hash_free(aggregate->aspath_hash);
+	}
+
 	bgp_aggregate_free(aggregate);
 	bgp_unlock_node(rn);
 	bgp_unlock_node(rn);
@@ -6050,7 +6280,7 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	bgp_node_set_bgp_aggregate_info(rn, aggregate);
 
 	/* Aggregate address insert into BGP routing table. */
-	bgp_aggregate_route(bgp, &p, NULL, afi, safi, NULL, aggregate);
+	bgp_aggregate_route(bgp, &p, afi, safi, aggregate);
 
 	return CMD_SUCCESS;
 }
