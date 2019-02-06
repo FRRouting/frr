@@ -213,7 +213,19 @@ struct interface *if_create_name(const char *name, vrf_id_t vrf_id)
 
 	ifp = if_new(vrf_id);
 
-	if_set_name(ifp, name);
+	if_set_name(ifp, name, NULL);
+
+	hook_call(if_add, ifp);
+	return ifp;
+}
+
+static struct interface *if_create_name_vrf(const char *name, struct vrf *vrf)
+{
+	struct interface *ifp;
+
+	ifp = if_new(vrf->vrf_id);
+
+	if_set_name(ifp, name, vrf);
 
 	hook_call(if_add, ifp);
 	return ifp;
@@ -285,7 +297,6 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 		vty_update_xpath(oldpath, newpath);
 	}
 }
-
 
 /* Delete interface structure. */
 void if_delete_retain(struct interface *ifp)
@@ -582,6 +593,18 @@ size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 
 /* Get interface by name if given name interface doesn't exist create
    one. */
+struct interface *if_get_by_name_vrf(const char *name, struct vrf *vrf)
+{
+	struct interface *ifp = NULL;
+
+	ifp = if_lookup_by_name_vrf(name, vrf);
+	if (ifp)
+		return ifp;
+	return if_create_name_vrf(name, vrf);
+}
+
+/* Get interface by name if given name interface doesn't exist create
+   one. */
 struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
@@ -673,11 +696,14 @@ int if_set_index(struct interface *ifp, ifindex_t ifindex)
 	return 0;
 }
 
-void if_set_name(struct interface *ifp, const char *name)
+void if_set_name(struct interface *ifp, const char *name, struct vrf *vrf_param)
 {
 	struct vrf *vrf;
 
-	vrf = vrf_get(ifp->vrf_id, NULL);
+	if (vrf_param)
+		vrf = vrf_param;
+	else
+		vrf = vrf_get(ifp->vrf_id, NULL);
 	assert(vrf);
 
 	if (if_cmp_name_func(ifp->name, name) == 0)
