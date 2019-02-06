@@ -455,10 +455,10 @@ struct interface *if_get_by_name_vrf(const char *name, struct vrf *vrf)
 		return NULL;
 	switch (vrf_get_backend()) {
 	case VRF_BACKEND_NETNS:
-		ifp = if_lookup_by_name(name, vrf_id);
+		ifp = if_lookup_by_name_vrf(name, vrf);
 		if (ifp)
 			return ifp;
-		return if_create(name, vrf_id);
+		return if_create_vrf(name, vrf);
 	case VRF_BACKEND_VRF_LITE:
 		ifp = if_lookup_by_name_all_vrf(name);
 		if (ifp) {

@@ -1435,13 +1435,18 @@ struct interface *zebra_interface_add_read(struct stream *s, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 	char ifname_tmp[INTERFACE_NAMSIZ];
+	struct vrf *vrf;
 
+	vrf = vrf_lookup_by_id(vrf_id);
 	/* Read interface name. */
 	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* Lookup/create interface by name. */
-	ifp = if_get_by_name(ifname_tmp, vrf_id);
 
+	ifp = if_get_by_name_vrf(ifname_tmp, vrf);
+	if (ifp->vrf_id == VRF_UNKNOWN &&
+	    vrf->vrf_id != VRF_UNKNOWN)
+		ifp->vrf_id = vrf_id;
 	zebra_interface_if_set_value(s, ifp);
 
 	return ifp;
