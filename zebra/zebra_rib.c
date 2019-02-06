@@ -1205,6 +1205,16 @@ static int rib_can_delete_dest(rib_dest_t *dest)
 	}
 
 	/*
+	 * Unresolved rnh's are stored on the default route's list
+	 *
+	 * dest->rnode can also be the source prefix node in an
+	 * ipv6 sourcedest table.  Fortunately the prefix of a
+	 * source prefix node can never be the default prefix.
+	 */
+	if (is_default_prefix(&dest->rnode->p))
+		return 0;
+
+	/*
 	 * Don't delete the dest if we have to update the FPM about this
 	 * prefix.
 	 */
