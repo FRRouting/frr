@@ -5513,33 +5513,6 @@ DEFPY(ipv6_bgp_network,
 		label_index ? (uint32_t)label_index : BGP_INVALID_LABEL_INDEX);
 }
 
-/* Aggreagete address:
-
-  advertise-map  Set condition to advertise attribute
-  as-set         Generate AS set path information
-  attribute-map  Set attributes of aggregate
-  route-map      Set parameters of aggregate
-  summary-only   Filter more specific routes from updates
-  suppress-map   Conditionally filter more specific routes from updates
-  <cr>
- */
-struct bgp_aggregate {
-	/* Summary-only flag. */
-	uint8_t summary_only;
-
-	/* AS set generation. */
-	uint8_t as_set;
-
-	/* Route-map for aggregated route. */
-	struct route_map *map;
-
-	/* Suppress-count. */
-	unsigned long count;
-
-	/* SAFI configuration. */
-	safi_t safi;
-};
-
 static struct bgp_aggregate *bgp_aggregate_new(void)
 {
 	return XCALLOC(MTYPE_BGP_AGGREGATE, sizeof(struct bgp_aggregate));
