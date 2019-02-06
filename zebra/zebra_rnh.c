@@ -632,7 +632,7 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	 * the resolving route has some change (e.g., metric), there is a state
 	 * change.
 	 */
-	if (!prefix_same(&rnh->resolved_route, &prn->p)) {
+	if (!prefix_same(&rnh->resolved_route, prn ? NULL : &prn->p)) {
 		if (prn)
 			prefix_copy(&rnh->resolved_route, &prn->p);
 		else
