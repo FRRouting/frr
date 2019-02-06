@@ -431,6 +431,11 @@ static inline struct zebra_vrf *rib_dest_vrf(rib_dest_t *dest)
 }
 
 /*
+ * Create the rib_dest_t and attach it to the specified node
+ */
+extern rib_dest_t *zebra_rib_create_dest(struct route_node *rn);
+
+/*
  * rib_tables_iter_init
  */
 static inline void rib_tables_iter_init(rib_tables_iter_t *iter)

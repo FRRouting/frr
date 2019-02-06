@@ -2314,6 +2314,18 @@ static void rib_queue_init(void)
 	return;
 }
 
+rib_dest_t *zebra_rib_create_dest(struct route_node *rn)
+{
+	rib_dest_t *dest;
+
+	dest = XCALLOC(MTYPE_RIB_DEST, sizeof(rib_dest_t));
+	route_lock_node(rn); /* rn route table reference */
+	rn->info = dest;
+	dest->rnode = rn;
+
+	return dest;
+}
+
 /* RIB updates are processed via a queue of pointers to route_nodes.
  *
  * The queue length is bounded by the maximal size of the routing table,
@@ -2366,10 +2378,7 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			rnode_debug(rn, re->vrf_id, "rn %p adding dest", rn);
 
-		dest = XCALLOC(MTYPE_RIB_DEST, sizeof(rib_dest_t));
-		route_lock_node(rn); /* rn route table reference */
-		rn->info = dest;
-		dest->rnode = rn;
+		dest = zebra_rib_create_dest(rn);
 	}
 
 	head = dest->routes;
