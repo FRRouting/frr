@@ -125,6 +125,14 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type,
 
 	if (!rn->info) {
 		rnh = XCALLOC(MTYPE_RNH, sizeof(struct rnh));
+
+		/*
+		 * The resolved route is already 0.0.0.0/0 or
+		 * 0::0/0 due to the calloc right above, but
+		 * we should set the family so that future
+		 * comparisons can just be done
+		 */
+		rnh->resolved_route.family = p->family;
 		rnh->client_list = list_new();
 		rnh->vrf_id = vrfid;
 		rnh->type = type;
@@ -375,14 +383,24 @@ static void zebra_rnh_eval_import_check_entry(struct zebra_vrf *zvrf, afi_t afi,
 	char bufn[INET6_ADDRSTRLEN];
 	struct listnode *node;
 
+	if (prn)
+		prefix_copy(&rnh->resolved_route, &prn->p);
+	else {
+		int family = rnh->resolved_route.family;
+
+		memset(&rnh->resolved_route.family, 0, sizeof(struct prefix));
+		rnh->resolved_route.family = family;
+	}
+
 	if (re && (rnh->state == NULL)) {
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
 			state_changed = 1;
 	} else if (!re && (rnh->state != NULL))
 		state_changed = 1;
 
-	if (compare_state(re, rnh->state))
+	if (compare_state(re, rnh->state)) {
 		copy_state(rnh, re, nrn);
+	}
 
 	if (state_changed || force) {
 		if (IS_ZEBRA_DEBUG_NHT) {
@@ -638,8 +656,16 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	if (!prefix_same(&rnh->resolved_route, prn ? NULL : &prn->p)) {
 		if (prn)
 			prefix_copy(&rnh->resolved_route, &prn->p);
-		else
+		else {
+			/*
+			 * Just quickly store the family of the resolved
+			 * route so that we can reset it in a second here
+			 */
+			int family = rnh->resolved_route.family;
+
 			memset(&rnh->resolved_route, 0, sizeof(struct prefix));
+			rnh->resolved_route.family = family;
+		}
 
 		copy_state(rnh, re, nrn);
 		state_changed = 1;
