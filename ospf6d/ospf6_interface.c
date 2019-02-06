@@ -284,6 +284,10 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 
 void ospf6_interface_enable(struct ospf6_interface *oi)
 {
+	if (oi->interface->vrf_id == VRF_UNKNOWN)
+		return;
+	if (oi->interface->ifindex == IFINDEX_INTERNAL)
+		return;
 	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE);
 	ospf6_interface_state_update(oi->interface);
 }
