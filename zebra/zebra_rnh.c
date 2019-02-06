@@ -361,9 +361,10 @@ zebra_rnh_resolve_import_entry(struct zebra_vrf *zvrf, afi_t afi,
  * See if a tracked route entry for import (by BGP) has undergone any
  * change, and if so, notify the client.
  */
-static void zebra_rnh_eval_import_check_entry(vrf_id_t vrfid, afi_t afi,
+static void zebra_rnh_eval_import_check_entry(struct zebra_vrf *zvrf, afi_t afi,
 					      int force, struct route_node *nrn,
 					      struct rnh *rnh,
+					      struct route_node *prn,
 					      struct route_entry *re)
 {
 	int state_changed = 0;
@@ -383,13 +384,15 @@ static void zebra_rnh_eval_import_check_entry(vrf_id_t vrfid, afi_t afi,
 	if (state_changed || force) {
 		if (IS_ZEBRA_DEBUG_NHT) {
 			prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
-			zlog_debug("%u:%s: Route import check %s %s", vrfid,
+			zlog_debug("%u:%s: Route import check %s %s",
+				   zvrf->vrf->vrf_id,
 				   bufn, rnh->state ? "passed" : "failed",
 				   state_changed ? "(state changed)" : "");
 		}
 		/* state changed, notify clients */
 		for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client)) {
-			send_client(rnh, client, RNH_IMPORT_CHECK_TYPE, vrfid);
+			send_client(rnh, client,
+				    RNH_IMPORT_CHECK_TYPE, zvrf->vrf->vrf_id);
 		}
 	}
 }
@@ -689,8 +692,8 @@ static void zebra_rnh_evaluate_entry(struct zebra_vrf *zvrf, afi_t afi,
 
 	/* Process based on type of entry. */
 	if (type == RNH_IMPORT_CHECK_TYPE)
-		zebra_rnh_eval_import_check_entry(zvrf->vrf->vrf_id, afi, force,
-						  nrn, rnh, re);
+		zebra_rnh_eval_import_check_entry(zvrf, afi, force, nrn, rnh,
+						  prn, re);
 	else
 		zebra_rnh_eval_nexthop_entry(zvrf, afi, force, nrn, rnh, prn,
 					     re);
