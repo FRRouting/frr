@@ -654,8 +654,8 @@ static int vrrp_read(struct thread *thread)
 		   r->vr->vrid, family2str(r->family));
 	zlog_hexdump(r->ibuf, nbytes);
 
-	pktsize = vrrp_pkt_parse_datagram(r->family, &m, nbytes, &src, &pkt,
-					  errbuf, sizeof(errbuf));
+	pktsize = vrrp_pkt_parse_datagram(r->family, r->vr->version, &m, nbytes,
+					  &src, &pkt, errbuf, sizeof(errbuf));
 
 	if (pktsize < 0) {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID

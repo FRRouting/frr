@@ -153,17 +153,25 @@ size_t vrrp_pkt_adver_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt);
 /*
  * Parses a VRRP packet, checking for illegal or invalid data.
  *
- * This function does not check that the local router is not the IPvX owner for
- * the addresses received; that should be done by the caller.
+ * This function parses both VRRPv2 and VRRPv3 packets. Which version is
+ * expected is determined by the version argument. For example, if version is 3
+ * and the received packet has version field 2 it will fail to parse.
+ *
+ * Note that this function only checks whether the packet itself is a valid
+ * VRRP packet. It is up to the caller to validate whether the VRID is correct,
+ * priority and timer values are correct, etc.
  *
  * family
  *    Address family of received packet
+ *
+ * version
+ *   VRRP version to use for validation
  *
  * m
  *    msghdr containing results of recvmsg() on VRRP router socket
  *
  * read
- *    return value of recvmsg() on VRRP router socket; must be non-negative
+ *    Return value of recvmsg() on VRRP router socket; must be non-negative
  *
  * src
  *    Pointer to struct ipaddr to store address of datagram sender
@@ -181,8 +189,9 @@ size_t vrrp_pkt_adver_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt);
  * Returns:
  *    Size of VRRP packet, or -1 upon error
  */
-ssize_t vrrp_pkt_parse_datagram(int family, struct msghdr *m, size_t read,
-				struct ipaddr *src, struct vrrp_pkt **pkt,
-				char *errmsg, size_t errmsg_len);
+ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
+				size_t read, struct ipaddr *src,
+				struct vrrp_pkt **pkt, char *errmsg,
+				size_t errmsg_len);
 
 #endif /* __VRRP_PACKET_H__ */

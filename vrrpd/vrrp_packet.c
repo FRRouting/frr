@@ -171,9 +171,10 @@ size_t vrrp_pkt_adver_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt)
 	return rs;
 }
 
-ssize_t vrrp_pkt_parse_datagram(int family, struct msghdr *m, size_t read,
-				struct ipaddr *src, struct vrrp_pkt **pkt,
-				char *errmsg, size_t errmsg_len)
+ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
+				size_t read, struct ipaddr *src,
+				struct vrrp_pkt **pkt, char *errmsg,
+				size_t errmsg_len)
 {
 	/* Source (MAC & IP), Dest (MAC & IP) TTL validation done by kernel */
 	size_t addrsz = (family == AF_INET) ? sizeof(struct in_addr)
@@ -260,19 +261,20 @@ ssize_t vrrp_pkt_parse_datagram(int family, struct msghdr *m, size_t read,
 			"VRRP packet is oversized (%lu > %lu)", pktsize,
 			VRRP_MAX_PKT_SIZE);
 
+	/* Version check */
+	uint8_t pktver = (*pkt)->hdr.vertype >> 4;
+	VRRP_PKT_VCHECK(pktver == version, "Bad version %u", pktver);
+
 	/* Checksum check */
 	uint16_t chksum = vrrp_pkt_checksum(*pkt, pktsize, src);
 	VRRP_PKT_VCHECK((*pkt)->hdr.chksum == chksum,
 			"Bad VRRP checksum %" PRIu16 "; should be %" PRIu16 "",
 			(*pkt)->hdr.chksum, chksum);
 
-	/* Version check */
-	uint8_t version = (*pkt)->hdr.vertype >> 4;
-	VRRP_PKT_VCHECK(version == 3 || version == 2, "Bad version %u",
-			version);
 	/* Type check */
 	VRRP_PKT_VCHECK(((*pkt)->hdr.vertype & 0x0F) == 1, "Bad type %u",
 			(*pkt)->hdr.vertype & 0x0f);
+
 	/* # addresses check */
 	size_t ves = VRRP_PKT_SIZE(family, (*pkt)->hdr.naddr);
 	VRRP_PKT_VCHECK(pktsize == ves, "Packet has incorrect # addresses");
