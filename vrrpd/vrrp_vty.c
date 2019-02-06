@@ -268,6 +268,25 @@ DEFPY(vrrp_ip6,
 	return ret;
 }
 
+DEFPY(vrrp_preempt,
+      vrrp_preempt_cmd,
+      "[no] vrrp (1-255)$vrid preempt",
+      NO_STR
+      VRRP_STR
+      VRRP_VRID_STR
+      "Preempt mode\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	struct vrrp_vrouter *vr;
+
+	VROUTER_GET_VTY(vty, ifp, vrid, vr);
+
+	vr->preempt_mode = !no;
+
+	return CMD_SUCCESS;
+}
+
 static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 {
 	char ethstr4[ETHER_ADDR_STRLEN];
@@ -387,4 +406,5 @@ void vrrp_vty_init(void)
 	install_element(INTERFACE_NODE, &vrrp_advertisement_interval_cmd);
 	install_element(INTERFACE_NODE, &vrrp_ip_cmd);
 	install_element(INTERFACE_NODE, &vrrp_ip6_cmd);
+	install_element(INTERFACE_NODE, &vrrp_preempt_cmd);
 }
