@@ -504,7 +504,7 @@ static int vrf_config_write(struct vty *vty)
 			if (zvrf->zebra_rnh_ipv6_default_route)
 				vty_out(vty, "ipv6 nht resolve-via-default\n");
 		} else {
-			vty_frame(vty, "vrf %s\n", zvrf_name(zvrf));
+			vty_out(vty, "vrf %s\n", zvrf_name(zvrf));
 			if (zvrf->l3vni)
 				vty_out(vty, " vni %u%s\n", zvrf->l3vni,
 					is_l3vni_for_prefix_routes_only(
@@ -524,7 +524,7 @@ static int vrf_config_write(struct vty *vty)
 		router_id_write(vty, zvrf);
 
 		if (zvrf_id(zvrf) != VRF_DEFAULT)
-			vty_endframe(vty, "exit-vrf\n!\n");
+			vty_out(vty, "exit-vrf\n!\n");
 		else
 			vty_out(vty, "!\n");
 	}

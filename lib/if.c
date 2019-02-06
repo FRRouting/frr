@@ -1216,14 +1216,14 @@ void if_link_params_free(struct interface *ifp)
  */
 DEFPY_YANG_NOSH (interface,
        interface_cmd,
-       "interface IFNAME [vrf NAME$vrf_name]",
+       "interface IFNAME$ifname [vrf NAME$vrf_name]",
        "Select an interface to configure\n"
        "Interface's name\n"
        VRF_CMD_HELP_STR)
 {
 	char xpath_list[XPATH_MAXLEN];
-	vrf_id_t vrf_id;
-	struct interface *ifp;
+	struct interface *ifp = NULL;
+	struct vrf *vrf = NULL;
 	int ret;
 
 	if (!vrf_name)
@@ -1236,16 +1236,19 @@ DEFPY_YANG_NOSH (interface,
 	 * interface is found, then a new one should be created on the default
 	 * VRF.
 	 */
-	VRF_GET_ID(vrf_id, vrf_name, false);
-	ifp = if_lookup_by_name_all_vrf(ifname);
-	if (ifp && ifp->vrf_id != vrf_id) {
-		struct vrf *vrf;
-
+	vrf = vrf_lookup_by_name(vrf_name);
+	if (vrf_get_backend() == VRF_BACKEND_VRF_LITE)
+		ifp = if_lookup_by_name_all_vrf_by_name(ifname, NULL);
+	else if (vrf)
+		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
+	if (ifp && vrf && ifp->vrf_id != vrf->vrf_id) {
 		/*
 		 * Special case 1: a VRF name was specified, but the found
 		 * interface is associated to different VRF. Reject the command.
 		 */
-		if (vrf_id != VRF_DEFAULT) {
+		if (vrf->vrf_id != VRF_DEFAULT) {
+			zlog_err("%s: interface %s not in %s vrf\n", __func__, ifname,
+				vrf_name);
 			vty_out(vty, "%% interface %s not in %s vrf\n", ifname,
 				vrf_name);
 			return CMD_WARNING_CONFIG_FAILED;
@@ -1258,7 +1261,6 @@ DEFPY_YANG_NOSH (interface,
 		 */
 		vrf = vrf_lookup_by_id(ifp->vrf_id);
 		assert(vrf);
-		vrf_id = ifp->vrf_id;
 		vrf_name = vrf->name;
 	}
 
@@ -1277,7 +1279,10 @@ DEFPY_YANG_NOSH (interface,
 		 * all interface-level commands are converted to the new
 		 * northbound model.
 		 */
-		ifp = if_lookup_by_name(ifname, vrf_id);
+		if (!vrf)
+			vrf = vrf_lookup_by_name(vrf_name);
+		if (!ifp)
+			ifp = if_lookup_by_name_vrf(ifname, vrf);
 		if (ifp)
 			VTY_PUSH_CONTEXT(INTERFACE_NODE, ifp);
 	}
