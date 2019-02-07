@@ -338,6 +338,7 @@ parts:
             pbrd.conf.default: etc/frr/pbrd.conf.default
             bfdd.conf.default: etc/frr/bfdd.conf.default
             vtysh.conf.default: etc/frr/vtysh.conf.default
+            staticd.conf.default: etc/frr/staticd.conf.default
     frr-scripts:
         plugin: make
         source: scripts
