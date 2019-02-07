@@ -1,6 +1,6 @@
 /*
- * Zebra connect library for SHARP
- * Copyright (C) Cumulus Networks, Inc.
+ * SHARP - code to track globals
+ * Copyright (C) 2019 Cumulus Networks, Inc.
  *               Donald Sharp
  *
  * This file is part of FRR.
@@ -19,21 +19,37 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-#ifndef __SHARP_ZEBRA_H__
-#define __SHARP_ZEBRA_H__
+#ifndef __SHARP_GLOBAL_H__
+#define __SHARP_GLOBAL_H__
 
-extern void sharp_zebra_init(void);
+DECLARE_MGROUP(SHARPD)
 
-extern void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label);
-extern void route_add(struct prefix *p, uint8_t instance,
-		      struct nexthop_group *nhg);
-extern void route_delete(struct prefix *p, uint8_t instance);
-extern void sharp_zebra_nexthop_watch(struct prefix *p, bool watch,
-				      bool connected);
+struct sharp_routes {
+	/* The original prefix for route installation */
+	struct prefix orig_prefix;
 
-extern void sharp_install_routes_helper(struct prefix *p, uint8_t instance,
-					 struct nexthop_group *nhg,
-					 uint32_t routes);
-extern void sharp_remove_routes_helper(struct prefix *p, uint8_t instance,
-				       uint32_t routes);
+	/* The nexthop group we are using for installation */
+	struct nexthop nhop;
+	struct nexthop_group nhop_group;
+
+	uint32_t total_routes;
+	uint32_t installed_routes;
+	uint32_t removed_routes;
+	int32_t repeat;
+
+	uint8_t inst;
+
+	struct timeval t_start;
+	struct timeval t_end;
+};
+
+struct sharp_global {
+	/* Global data about route install/deletions */
+	struct sharp_routes r;
+
+	/* The list of nexthops that we are watching and data about them */
+	struct list *nhs;
+};
+
+extern struct sharp_global sg;
 #endif

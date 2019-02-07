@@ -1,5 +1,5 @@
 /*
- * Zebra connect library for SHARP
+ * SHARP - code to track nexthops
  * Copyright (C) Cumulus Networks, Inc.
  *               Donald Sharp
  *
@@ -19,21 +19,20 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-#ifndef __SHARP_ZEBRA_H__
-#define __SHARP_ZEBRA_H__
+#ifndef __SHARP_NHT_H__
+#define __SHARP_NHT_H__
 
-extern void sharp_zebra_init(void);
+struct sharp_nh_tracker {
+	/* What are we watching */
+	struct prefix p;
 
-extern void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label);
-extern void route_add(struct prefix *p, uint8_t instance,
-		      struct nexthop_group *nhg);
-extern void route_delete(struct prefix *p, uint8_t instance);
-extern void sharp_zebra_nexthop_watch(struct prefix *p, bool watch,
-				      bool connected);
+	/* Number of valid nexthops */
+	uint32_t nhop_num;
 
-extern void sharp_install_routes_helper(struct prefix *p, uint8_t instance,
-					 struct nexthop_group *nhg,
-					 uint32_t routes);
-extern void sharp_remove_routes_helper(struct prefix *p, uint8_t instance,
-				       uint32_t routes);
+	uint32_t updates;
+};
+
+extern struct sharp_nh_tracker *sharp_nh_tracker_get(struct prefix *p);
+
+extern void sharp_nh_tracker_dump(struct vty *vty);
 #endif
