@@ -1860,6 +1860,29 @@ DEFUN (no_bgp_always_compare_med,
 	return CMD_SUCCESS;
 }
 
+
+DEFUN(bgp_ebgp_requires_policy, bgp_ebgp_requires_policy_cmd,
+      "bgp ebgp-requires-policy",
+      "BGP specific commands\n"
+      "Require in and out policy for eBGP peers (RFC8212)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	bgp->ebgp_requires_policy = DEFAULT_EBGP_POLICY_ENABLED;
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_bgp_ebgp_requires_policy, no_bgp_ebgp_requires_policy_cmd,
+      "no bgp ebgp-requires-policy",
+      NO_STR
+      "BGP specific commands\n"
+      "Require in and out policy for eBGP peers (RFC8212)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	bgp->ebgp_requires_policy = DEFAULT_EBGP_POLICY_DISABLED;
+	return CMD_SUCCESS;
+}
+
+
 /* "bgp deterministic-med" configuration. */
 DEFUN (bgp_deterministic_med,
        bgp_deterministic_med_cmd,
@@ -8829,6 +8852,20 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				json_addr, "routeMapForOutgoingAdvertisements",
 				filter->map[RMAP_OUT].name);
 
+		/* ebgp-requires-policy (inbound) */
+		if (p->bgp->ebgp_requires_policy == DEFAULT_EBGP_POLICY_ENABLED
+		    && !bgp_inbound_policy_exists(p, filter))
+			json_object_string_add(
+				json_addr, "inboundEbgpRequiresPolicy",
+				"Inbound updates discarded due to missing policy");
+
+		/* ebgp-requires-policy (outbound) */
+		if (p->bgp->ebgp_requires_policy == DEFAULT_EBGP_POLICY_ENABLED
+		    && (!bgp_outbound_policy_exists(p, filter)))
+			json_object_string_add(
+				json_addr, "outboundEbgpRequiresPolicy",
+				"Outbound updates discarded due to missing policy");
+
 		/* unsuppress-map */
 		if (filter->usmap.name)
 			json_object_string_add(json_addr,
@@ -9104,6 +9141,18 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				"  Route map for outgoing advertisements is %s%s\n",
 				filter->map[RMAP_OUT].map ? "*" : "",
 				filter->map[RMAP_OUT].name);
+
+		/* ebgp-requires-policy (inbound) */
+		if (p->bgp->ebgp_requires_policy == DEFAULT_EBGP_POLICY_ENABLED
+		    && !bgp_inbound_policy_exists(p, filter))
+			vty_out(vty,
+				"  Inbound updates discarded due to missing policy\n");
+
+		/* ebgp-requires-policy (outbound) */
+		if (p->bgp->ebgp_requires_policy == DEFAULT_EBGP_POLICY_ENABLED
+		    && !bgp_outbound_policy_exists(p, filter))
+			vty_out(vty,
+				"  Outbound updates discarded due to missing policy\n");
 
 		/* unsuppress-map */
 		if (filter->usmap.name)
@@ -12822,6 +12871,10 @@ void bgp_vty_init(void)
 	/* "bgp always-compare-med" commands */
 	install_element(BGP_NODE, &bgp_always_compare_med_cmd);
 	install_element(BGP_NODE, &no_bgp_always_compare_med_cmd);
+
+	/* bgp ebgp-requires-policy */
+	install_element(BGP_NODE, &bgp_ebgp_requires_policy_cmd);
+	install_element(BGP_NODE, &no_bgp_ebgp_requires_policy_cmd);
 
 	/* "bgp deterministic-med" commands */
 	install_element(BGP_NODE, &bgp_deterministic_med_cmd);
