@@ -49,11 +49,12 @@ uint32_t rts;
 int32_t repeat;
 
 DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
-      "sharp watch nexthop X:X::X:X$nhop",
+      "sharp watch nexthop X:X::X:X$nhop [connected$connected]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "Watch for nexthop changes\n"
-      "The v6 nexthop to signal for watching\n")
+      "The v6 nexthop to signal for watching\n"
+      "Should the route be connected\n")
 {
 	struct prefix p;
 
@@ -63,17 +64,18 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 	memcpy(&p.u.prefix6, &nhop, 16);
 	p.family = AF_INET6;
 
-	sharp_zebra_nexthop_watch(&p, true);
+	sharp_zebra_nexthop_watch(&p, true, !!connected);
 
 	return CMD_SUCCESS;
 }
 
 DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
-      "sharp watch nexthop A.B.C.D$nhop",
+      "sharp watch nexthop A.B.C.D$nhop [connected$connected]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "Watch for nexthop changes\n"
-      "The v4 nexthop to signal for watching\n")
+      "The v4 nexthop to signal for watching\n"
+      "Should the route be connected\n")
 {
 	struct prefix p;
 
@@ -83,7 +85,7 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 	p.u.prefix4 = nhop;
 	p.family = AF_INET;
 
-	sharp_zebra_nexthop_watch(&p, true);
+	sharp_zebra_nexthop_watch(&p, true, !!connected);
 
 	return CMD_SUCCESS;
 }
