@@ -66,6 +66,8 @@ depend on them). These are mainly intended to debug the Snap
         Starts staticd daemon in foreground
 - `frr.bfdd-debug`:
         Starts bfdd daemon in foreground
+- `frr.fabricd-debug`:
+        Starts fabricd daemon in foreground
 
 MPLS (LDP)
 ----------
