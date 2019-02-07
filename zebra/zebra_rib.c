@@ -608,6 +608,9 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				if (!CHECK_FLAG(match->status,
 						ROUTE_ENTRY_INSTALLED))
 					continue;
+				if (CHECK_FLAG(newhop->flags,
+					       NEXTHOP_FLAG_RECURSIVE))
+					continue;
 
 				if (set) {
 					SET_FLAG(nexthop->flags,

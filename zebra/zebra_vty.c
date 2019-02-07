@@ -164,7 +164,8 @@ DEFUN (show_ip_rpf_addr,
 static char re_status_output_char(struct route_entry *re, struct nexthop *nhop)
 {
 	if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)) {
-		if (!CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_DUPLICATE))
+		if (!CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_DUPLICATE) &&
+		    !CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_RECURSIVE))
 			return '*';
 		else
 			return ' ';
