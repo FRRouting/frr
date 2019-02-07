@@ -30,6 +30,7 @@
 #include "lib_errors.h"
 
 DEFINE_MTYPE_STATIC(LIB, PREFIX, "Prefix")
+DEFINE_MTYPE_STATIC(LIB, PREFIX_FLOWSPEC, "Prefix Flowspec")
 
 /* Maskbit. */
 static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
