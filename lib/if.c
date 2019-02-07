@@ -312,12 +312,15 @@ void if_delete_retain(struct interface *ifp)
 }
 
 /* Delete and free interface structure. */
-void if_delete(struct interface **ifp)
+static void if_delete_vrf(struct interface **ifp, struct vrf *vrf_param)
 {
 	struct interface *ptr = *ifp;
 	struct vrf *vrf;
 
-	vrf = vrf_lookup_by_id(ptr->vrf_id);
+	if (vrf_param)
+		vrf = vrf_param;
+	else
+		vrf = vrf_lookup_by_id(ptr->vrf_id);
 	assert(vrf);
 
 	IFNAME_RB_REMOVE(vrf, ptr);
@@ -335,6 +338,11 @@ void if_delete(struct interface **ifp)
 
 	XFREE(MTYPE_IF, ptr);
 	*ifp = NULL;
+}
+
+void if_delete(struct interface **ifp)
+{
+	if_delete_vrf(ifp, NULL);
 }
 
 /* Used only internally to check within VRF only */
@@ -1106,7 +1114,7 @@ void if_terminate(struct vrf *vrf)
 				ifp->node->info = NULL;
 				route_unlock_node(ifp->node);
 			}
-			if_delete(&ifp);
+			if_delete_vrf(&ifp, vrf);
 		} else {
 			if_update_to_new_vrf(ifp, VRF_DEFAULT);
 		}
