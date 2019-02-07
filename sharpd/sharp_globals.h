@@ -42,6 +42,7 @@ struct sharp_routes {
 };
 
 struct sharp_global {
+	/* Global data about route install/deletions */
 	struct sharp_routes r;
 };
 

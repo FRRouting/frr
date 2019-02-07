@@ -56,6 +56,14 @@ keyword. At present, no sharp commands will be preserved in the config.
    log and when all routes have been successfully deleted the debug log will be
    updated with this information as well.
 
+.. index:: sharp data route
+.. clicmd:: sharp data route
+
+   Allow end user doing route install and deletion to get timing information
+   from the vty or vtysh instead of having to read the log file.  This command
+   is informational only and you should look at sharp_vty.c for explanation
+   of the output as that it may change.
+
 .. index:: sharp label
 .. clicmd:: sharp label <ipv4|ipv6> vrf NAME label (0-1000000)
 

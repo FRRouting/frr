@@ -79,6 +79,27 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY (install_routes_data_dump,
+       install_routes_data_dump_cmd,
+       "sharp data route",
+       "Sharp routing Protocol\n"
+       "Data about what is going on\n"
+       "Route Install/Removal Information\n")
+{
+	char buf[PREFIX_STRLEN];
+	struct timeval r;
+
+	timersub(&sg.r.t_end, &sg.r.t_start, &r);
+	vty_out(vty, "Prefix: %s Total: %u %u %u Time: %ld.%ld\n",
+		prefix2str(&sg.r.orig_prefix, buf, sizeof(buf)),
+		sg.r.total_routes,
+		sg.r.installed_routes,
+		sg.r.removed_routes,
+		r.tv_sec, r.tv_usec);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (install_routes,
        install_routes_cmd,
        "sharp install routes <A.B.C.D$start4|X:X::X:X$start6> <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|nexthop-group NAME$nexthop_group> (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt]",
@@ -235,6 +256,7 @@ DEFUN_NOSH (show_debugging_sharpd,
 
 void sharp_vty_init(void)
 {
+	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
 	install_element(ENABLE_NODE, &install_routes_cmd);
 	install_element(ENABLE_NODE, &remove_routes_cmd);
 	install_element(ENABLE_NODE, &vrf_label_cmd);
