@@ -53,13 +53,17 @@ extern struct zebra_privs_t vrrp_privs;
 /* Global hash of all Virtual Routers */
 struct hash *vrrp_vrouters_hash;
 
-/*
- * VRRP Router.
- *
- * This struct contains all state for a particular VRRP Router operating in a
- * Virtual Router for either IPv4 or IPv6.
- */
-struct vrrp_router {
+/* Whether to automatically configure VRRP instances */
+static bool vrrp_autoconfig_on;
+static int vrrp_autoconfig_version;
+
+	/*
+	 * VRRP Router.
+	 *
+	 * This struct contains all state for a particular VRRP Router operating
+	 * in a Virtual Router for either IPv4 or IPv6.
+	 */
+	struct vrrp_router {
 	/*
 	 * Whether this VRRP Router is active.
 	 */
@@ -164,6 +168,9 @@ struct vrrp_router {
  * implementations.
  */
 struct vrrp_vrouter {
+	/* Whether this instance was automatically configured */
+	bool autoconf;
+
 	/* Interface */
 	struct interface *ifp;
 
@@ -416,6 +423,23 @@ int vrrp_event(struct vrrp_router *r, int event);
 
 
 /* Other ------------------------------------------------------------------- */
+
+/*
+ * Search for and automatically configure VRRP instances on interfaces.
+ *
+ * ifp
+ *    Interface to autoconfig. If it is a macvlan interface and has a VRRP MAC,
+ *    a VRRP instance corresponding to VMAC assigned to macvlan will be created
+ *    on the parent interface and all addresses on the macvlan interface except
+ *    the v6 link local will be configured as VRRP addresses. If NULL, this
+ *    treatment will be applied to all existing interfaces matching the above
+ *    criterion.
+ *
+ * Returns:
+ *    -1 on failure
+ *     0 otherwise
+ */
+int vrrp_autoconfig(struct interface *ifp);
 
 /*
  * Find VRRP Virtual Router by Virtual Router ID

@@ -225,6 +225,10 @@ struct interface {
 	   not work as expected.
 	 */
 	ifindex_t ifindex;
+	/*
+	 * ifindex of parent interface, if any
+	 */
+	ifindex_t link_ifindex;
 #define IFINDEX_INTERNAL	0
 
 	/* Zebra internal interface status */

@@ -61,7 +61,8 @@ static int vrrp_zebra_if_add(int command, struct zclient *zclient,
 	if (!ifp)
 		return 0;
 
-	/* FIXME: handle subinterface creation here */
+	if (vrrp_autoconfig_on)
+		vrrp_autoconfig(ifp);
 
 	return 0;
 }

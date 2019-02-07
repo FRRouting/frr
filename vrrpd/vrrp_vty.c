@@ -287,6 +287,26 @@ DEFPY(vrrp_preempt,
 	return CMD_SUCCESS;
 }
 
+DEFPY(vrrp_autoconf,
+      vrrp_autoconf_cmd,
+      "[no] vrrp autoconfig [version (2-3)]",
+      NO_STR
+      VRRP_STR
+      "Automatically set up VRRP instances on VRRP-compatible interfaces\n"
+      "Version for automatically configured instances\n"
+      VRRP_VERSION_STR)
+{
+	vrrp_autoconfig_on = !no;
+	version = version ? version : 3;
+
+	if (vrrp_autoconfig_on)
+		vrrp_autoconfig(NULL);
+
+	vrrp_autoconfig_version = !no ? version : vrrp_autoconfig_version;
+
+	return CMD_SUCCESS;
+}
+
 static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 {
 	char ethstr4[ETHER_ADDR_STRLEN];
@@ -401,6 +421,7 @@ void vrrp_vty_init(void)
 	if_cmd_init();
 	install_element(VIEW_NODE, &show_debugging_vrrpd_cmd);
 	install_element(VIEW_NODE, &vrrp_vrid_show_cmd);
+	install_element(CONFIG_NODE, &vrrp_autoconf_cmd);
 	install_element(INTERFACE_NODE, &vrrp_vrid_cmd);
 	install_element(INTERFACE_NODE, &vrrp_priority_cmd);
 	install_element(INTERFACE_NODE, &vrrp_advertisement_interval_cmd);

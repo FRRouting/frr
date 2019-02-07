@@ -1400,6 +1400,8 @@ stream_failure:
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  bandwidth                                                    |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |  parent ifindex                                               |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  Link Layer Type                                              |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  Harware Address Length                                       |
@@ -1580,6 +1582,7 @@ void zebra_interface_if_set_value(struct stream *s, struct interface *ifp)
 	ifp->mtu = stream_getl(s);
 	ifp->mtu6 = stream_getl(s);
 	ifp->bandwidth = stream_getl(s);
+	ifp->link_ifindex = stream_getl(s);
 	ifp->ll_type = stream_getl(s);
 	ifp->hw_addr_len = stream_getl(s);
 	if (ifp->hw_addr_len)

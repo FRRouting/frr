@@ -1297,6 +1297,81 @@ int vrrp_event(struct vrrp_router *r, int event)
 
 /* Other ------------------------------------------------------------------- */
 
+static struct vrrp_vrouter *
+vrrp_autoconfig_autocreate(struct interface *mvl_ifp)
+{
+	struct interface *p;
+	struct vrrp_vrouter *vr;
+
+	p = if_lookup_by_index(mvl_ifp->link_ifindex, VRF_DEFAULT);
+	uint8_t vrid = mvl_ifp->hw_addr[5];
+
+	zlog_info(VRRP_LOGPFX "Autoconfiguring VRRP on %s", p->name);
+
+	/* If it already exists, skip it */
+	vr = vrrp_lookup(p, vrid);
+	if (vr) {
+		zlog_info(VRRP_LOGPFX "VRRP instance %" PRIu8
+				      "already configured on %s",
+			  vrid, p->name);
+		return vr;
+	}
+
+	/* create a new one */
+	vr = vrrp_vrouter_create(p, vrid, vrrp_autoconfig_version);
+
+	if (!vr)
+		return NULL;
+
+	/* add connected addresses as vips */
+	struct listnode *ln;
+	struct connected *c = NULL;
+	for (ALL_LIST_ELEMENTS_RO(mvl_ifp->connected, ln, c))
+		if (c->address->family == AF_INET)
+			vrrp_add_ipv4(vr, c->address->u.prefix4, false);
+		else if (c->address->family == AF_INET6) {
+			if (!IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
+				vrrp_add_ipv6(vr, c->address->u.prefix6, false);
+		}
+
+	if (vr->v4->addrs->count)
+		vrrp_event(vr->v4, VRRP_EVENT_STARTUP);
+	if (vr->v6->addrs->count)
+		vrrp_event(vr->v6, VRRP_EVENT_STARTUP);
+
+	vr->autoconf = true;
+
+	return vr;
+}
+
+static bool vrrp_ifp_is_mvl(struct interface *ifp)
+{
+	struct ethaddr vmac4;
+	struct ethaddr vmac6;
+	vrrp_mac_set(&vmac4, 0, 0x00);
+	vrrp_mac_set(&vmac6, 1, 0x00);
+
+	return !memcmp(ifp->hw_addr, vmac4.octet, sizeof(vmac4.octet) - 1)
+	       || !memcmp(ifp->hw_addr, vmac6.octet, sizeof(vmac6.octet) - 1);
+}
+
+int vrrp_autoconfig(struct interface *ifp)
+{
+	if (ifp && vrrp_ifp_is_mvl(ifp)) {
+		vrrp_autoconfig_autocreate(ifp);
+		return 0;
+	}
+
+	/* Loop through interfaces, looking for compatible macvlan devices. */
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+
+	FOR_ALL_INTERFACES (vrf, ifp)
+		if (vrrp_ifp_is_mvl(ifp))
+			vrrp_autoconfig_autocreate(ifp);
+
+	return 0;
+}
+
 static unsigned int vrrp_hash_key(void *arg)
 {
 	struct vrrp_vrouter *vr = arg;
@@ -1323,6 +1398,7 @@ static bool vrrp_hash_cmp(const void *arg1, const void *arg2)
 
 void vrrp_init(void)
 {
+	vrrp_autoconfig_version = 3;
 	vrrp_vrouters_hash = hash_create(&vrrp_hash_key, vrrp_hash_cmp,
 					 "VRRP virtual router hash");
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
