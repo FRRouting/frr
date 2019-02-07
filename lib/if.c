@@ -456,10 +456,15 @@ struct interface *if_lookup_prefix(struct prefix *prefix, vrf_id_t vrf_id)
 struct interface *if_get_by_name_vrf(const char *name, struct vrf *vrf)
 {
 	struct interface *ifp;
+	int mode;
 
 	if (!vrf)
 		return NULL;
-	switch (vrf_get_backend()) {
+	if (!vrf_is_backend_configured())
+		mode = VRF_BACKEND_NETNS;
+	else
+		mode = vrf_get_backend();
+	switch (mode) {
 	case VRF_BACKEND_NETNS:
 		ifp = if_lookup_by_name_vrf(name, vrf);
 		if (ifp)
@@ -488,8 +493,14 @@ struct interface *if_get_by_name_vrf(const char *name, struct vrf *vrf)
 struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
+	int mode;
 
-	switch (vrf_get_backend()) {
+	if (!vrf_is_backend_configured())
+		mode = VRF_BACKEND_NETNS;
+	else
+		mode = vrf_get_backend();
+
+	switch (mode) {
 	case VRF_BACKEND_NETNS:
 		ifp = if_lookup_by_name(name, vrf_id);
 		if (ifp)
@@ -1206,8 +1217,16 @@ DEFPY_NOSH (interface,
 	 * interface is found, then a new one should be created on the default
 	 * VRF.
 	 */
-	else
-		ifp = if_lookup_by_name_all_vrf(ifname);
+	else {
+		/* at startup, sync with zebra may not have been done
+		 * for that, check the mode is configured or not
+		 * if not, look for exact interface
+		 */
+		if (vrf_is_backend_configured())
+			ifp = if_lookup_by_name_all_vrf(ifname);
+		else
+			ifp = if_get_by_name_vrf(ifname, vrf);
+	}
 	if (ifp && ifp->vrf_id != vrf->vrf_id) {
 		/*
 		 * Special case 1: a VRF name was specified, but the found
@@ -1367,6 +1386,7 @@ static int lib_interface_create(enum nb_event event,
 	const char *vrfname;
 	struct vrf *vrf;
 	struct interface *ifp;
+	int mode;
 
 	ifname = yang_dnode_get_string(dnode, "./name");
 	vrfname = yang_dnode_get_string(dnode, "./vrf");
@@ -1384,7 +1404,12 @@ static int lib_interface_create(enum nb_event event,
 				  vrf->name);
 			return NB_ERR_VALIDATION;
 		}
-		if (vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
+
+		if (!vrf_is_backend_configured())
+			mode = VRF_BACKEND_NETNS;
+		else
+			mode = vrf_get_backend();
+		if (mode == VRF_BACKEND_VRF_LITE) {
 			ifp = if_lookup_by_name_all_vrf(ifname);
 			if (ifp && ifp->vrf_id != vrf->vrf_id) {
 				zlog_warn(

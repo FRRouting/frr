@@ -56,6 +56,7 @@ struct vrf_id_head vrfs_by_id = RB_INITIALIZER(&vrfs_by_id);
 struct vrf_name_head vrfs_by_name = RB_INITIALIZER(&vrfs_by_name);
 
 static int vrf_backend;
+static int vrf_backend_configured;
 static struct zebra_privs_t *vrf_daemon_privs;
 static char vrf_default_name[VRF_NAMSIZ] = VRF_DEFAULT_NAME_INTERNAL;
 
@@ -606,6 +607,11 @@ int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
 	return ret;
 }
 
+int vrf_is_backend_configured(void)
+{
+	return vrf_backend_configured;
+}
+
 int vrf_is_backend_netns(void)
 {
 	return (vrf_backend == VRF_BACKEND_NETNS);
@@ -619,6 +625,7 @@ int vrf_get_backend(void)
 void vrf_configure_backend(int vrf_backend_netns)
 {
 	vrf_backend = vrf_backend_netns;
+	vrf_backend_configured = 1;
 }
 
 int vrf_handler_create(struct vty *vty, const char *vrfname,

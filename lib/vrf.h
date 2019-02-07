@@ -268,6 +268,7 @@ extern void vrf_install_commands(void);
 extern void vrf_configure_backend(int vrf_backend_netns);
 extern int vrf_get_backend(void);
 extern int vrf_is_backend_netns(void);
+extern int vrf_is_backend_configured(void);
 
 
 /* API to create a VRF. either from vty
