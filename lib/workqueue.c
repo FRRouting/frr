@@ -99,7 +99,10 @@ struct work_queue *work_queue_new(struct thread_master *m,
 	return new;
 }
 
-void work_queue_free_original(struct work_queue *wq)
+/*
+ * Internal helper api; used to be public.
+ */
+static void work_queue_free_original(struct work_queue *wq)
 {
 	if (wq->thread != NULL)
 		thread_cancel(wq->thread);
