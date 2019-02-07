@@ -48,6 +48,8 @@
 #include "sharp_vty.h"
 #include "sharp_globals.h"
 
+DEFINE_MGROUP(SHARPD, "sharpd")
+
 zebra_capabilities_t _caps_p[] = {
 };
 
@@ -127,6 +129,7 @@ struct sharp_global sg;
 static void sharp_global_init(void)
 {
 	memset(&sg, 0, sizeof(sg));
+	sg.nhs = list_new();
 }
 
 int main(int argc, char **argv, char **envp)

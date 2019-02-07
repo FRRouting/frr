@@ -75,3 +75,9 @@ keyword. At present, no sharp commands will be preserved in the config.
 
    Instruct zebra to monitor and notify sharp when the specified nexthop is
    changed. The notification from zebra is written into the debug log.
+
+.. index:: sharp data nexthop
+.. clicmd:: sharp data nexthop
+
+   Allow end user to dump associated data with the nexthop tracking that
+   may have been turned on.

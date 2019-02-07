@@ -32,6 +32,7 @@
 
 #include "sharpd/sharp_globals.h"
 #include "sharpd/sharp_zebra.h"
+#include "sharpd/sharp_nht.h"
 #include "sharpd/sharp_vty.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "sharpd/sharp_vty_clippy.c"
@@ -53,6 +54,7 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 	memcpy(&p.u.prefix6, &nhop, 16);
 	p.family = AF_INET6;
 
+	sharp_nh_tracker_get(&p);
 	sharp_zebra_nexthop_watch(&p, true, !!connected);
 
 	return CMD_SUCCESS;
@@ -74,7 +76,20 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 	p.u.prefix4 = nhop;
 	p.family = AF_INET;
 
+	sharp_nh_tracker_get(&p);
 	sharp_zebra_nexthop_watch(&p, true, !!connected);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(sharp_nht_data_dump,
+      sharp_nht_data_dump_cmd,
+      "sharp data nexthop",
+      "Sharp routing Protocol\n"
+      "Nexthop information\n"
+      "Data Dump\n")
+{
+	sharp_nh_tracker_dump(vty);
 
 	return CMD_SUCCESS;
 }
@@ -260,6 +275,7 @@ void sharp_vty_init(void)
 	install_element(ENABLE_NODE, &install_routes_cmd);
 	install_element(ENABLE_NODE, &remove_routes_cmd);
 	install_element(ENABLE_NODE, &vrf_label_cmd);
+	install_element(ENABLE_NODE, &sharp_nht_data_dump_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v6_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v4_cmd);
 

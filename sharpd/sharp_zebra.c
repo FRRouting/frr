@@ -37,6 +37,7 @@
 #include "nexthop_group.h"
 
 #include "sharp_globals.h"
+#include "sharp_nht.h"
 #include "sharp_zebra.h"
 
 /* Zebra structure to hold current status. */
@@ -334,6 +335,7 @@ void sharp_zebra_nexthop_watch(struct prefix *p, bool watch, bool connected)
 static int sharp_nexthop_update(int command, struct zclient *zclient,
 				zebra_size_t length, vrf_id_t vrf_id)
 {
+	struct sharp_nh_tracker *nht;
 	struct zapi_route nhr;
 	char buf[PREFIX_STRLEN];
 	int i;
@@ -346,6 +348,11 @@ static int sharp_nexthop_update(int command, struct zclient *zclient,
 
 	zlog_debug("Received update for %s",
 		   prefix2str(&nhr.prefix, buf, sizeof(buf)));
+
+	nht = sharp_nh_tracker_get(&nhr.prefix);
+	nht->nhop_num = nhr.nexthop_num;
+	nht->updates++;
+
 	for (i = 0; i < nhr.nexthop_num; i++) {
 		struct zapi_nexthop *znh = &nhr.nexthops[i];
 

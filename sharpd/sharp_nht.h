@@ -1,6 +1,6 @@
 /*
- * SHARP - code to track globals
- * Copyright (C) 2019 Cumulus Networks, Inc.
+ * SHARP - code to track nexthops
+ * Copyright (C) Cumulus Networks, Inc.
  *               Donald Sharp
  *
  * This file is part of FRR.
@@ -19,37 +19,20 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-#ifndef __SHARP_GLOBAL_H__
-#define __SHARP_GLOBAL_H__
+#ifndef __SHARP_NHT_H__
+#define __SHARP_NHT_H__
 
-DECLARE_MGROUP(SHARPD)
+struct sharp_nh_tracker {
+	/* What are we watching */
+	struct prefix p;
 
-struct sharp_routes {
-	/* The original prefix for route installation */
-	struct prefix orig_prefix;
+	/* Number of valid nexthops */
+	uint32_t nhop_num;
 
-	/* The nexthop group we are using for installation */
-	struct nexthop nhop;
-	struct nexthop_group nhop_group;
-
-	uint32_t total_routes;
-	uint32_t installed_routes;
-	uint32_t removed_routes;
-	int32_t repeat;
-
-	uint8_t inst;
-
-	struct timeval t_start;
-	struct timeval t_end;
+	uint32_t updates;
 };
 
-struct sharp_global {
-	/* Global data about route install/deletions */
-	struct sharp_routes r;
+extern struct sharp_nh_tracker *sharp_nh_tracker_get(struct prefix *p);
 
-	/* The list of nexthops that we are watching and data about them */
-	struct list *nhs;
-};
-
-extern struct sharp_global sg;
+extern void sharp_nh_tracker_dump(struct vty *vty);
 #endif
