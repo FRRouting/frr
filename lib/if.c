@@ -1402,7 +1402,6 @@ static int lib_interface_create(enum nb_event event,
 		if (vrf->vrf_id == VRF_UNKNOWN) {
 			zlog_warn("%s: VRF %s is not active", __func__,
 				  vrf->name);
-			return NB_ERR_VALIDATION;
 		}
 
 		if (!vrf_is_backend_configured())
@@ -1428,7 +1427,7 @@ static int lib_interface_create(enum nb_event event,
 #ifdef SUNOS_5
 		ifp = if_sunwzebra_get(ifname, vrf->vrf_id);
 #else
-		ifp = if_get_by_name(ifname, vrf->vrf_id);
+		ifp = if_get_by_name_vrf(ifname, vrf);
 #endif /* SUNOS_5 */
 		yang_dnode_set_entry(dnode, ifp);
 		break;
