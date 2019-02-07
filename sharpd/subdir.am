@@ -17,6 +17,7 @@ sharpd_libsharp_a_SOURCES = \
 
 noinst_HEADERS += \
 	sharpd/sharp_vty.h \
+	sharpd/sharp_globals.h \
 	sharpd/sharp_zebra.h \
 	# end
 
