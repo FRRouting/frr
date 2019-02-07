@@ -48,10 +48,6 @@
 #include "sharp_vty.h"
 #include "sharp_globals.h"
 
-uint32_t total_routes = 0;
-uint32_t installed_routes = 0;
-uint32_t removed_routes = 0;
-
 zebra_capabilities_t _caps_p[] = {
 };
 

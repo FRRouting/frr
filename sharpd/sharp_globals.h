@@ -22,7 +22,28 @@
 #ifndef __SHARP_GLOBAL_H__
 #define __SHARP_GLOBAL_H__
 
-struct sharp_global {
+struct sharp_routes {
+	/* The original prefix for route installation */
+	struct prefix orig_prefix;
+
+	/* The nexthop group we are using for installation */
+	struct nexthop nhop;
+	struct nexthop_group nhop_group;
+
+	uint32_t total_routes;
+	uint32_t installed_routes;
+	uint32_t removed_routes;
+	int32_t repeat;
+
+	uint8_t inst;
+
+	struct timeval t_start;
+	struct timeval t_end;
 };
 
+struct sharp_global {
+	struct sharp_routes r;
+};
+
+extern struct sharp_global sg;
 #endif
