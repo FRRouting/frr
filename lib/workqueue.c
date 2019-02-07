@@ -99,11 +99,10 @@ struct work_queue *work_queue_new(struct thread_master *m,
 	return new;
 }
 
-/*
- * Internal helper api; used to be public.
- */
-static void work_queue_free_original(struct work_queue *wq)
+void work_queue_free_and_null(struct work_queue **wqp)
 {
+	struct work_queue *wq = *wqp;
+
 	if (wq->thread != NULL)
 		thread_cancel(wq->thread);
 
@@ -117,13 +116,8 @@ static void work_queue_free_original(struct work_queue *wq)
 
 	XFREE(MTYPE_WORK_QUEUE_NAME, wq->name);
 	XFREE(MTYPE_WORK_QUEUE, wq);
-	return;
-}
 
-void work_queue_free_and_null(struct work_queue **wq)
-{
-	work_queue_free_original(*wq);
-	*wq = NULL;
+	*wqp = NULL;
 }
 
 bool work_queue_is_scheduled(struct work_queue *wq)
