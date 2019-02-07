@@ -32,6 +32,10 @@
 #include "vector.h"
 #include "graph.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MTYPE(CMD_ARG)
 
 struct vty;
@@ -132,5 +136,9 @@ extern void cmd_graph_node_print_cb(struct graph_node *gn, struct buffer *buf);
  *    String allocated with MTYPE_TMP representing this graph
  */
 char *cmd_graph_dump_dot(struct graph *cmdgraph);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_COMMAND_GRAPH_H */

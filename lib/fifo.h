@@ -20,6 +20,10 @@
 #ifndef __LIB_FIFO_H__
 #define __LIB_FIFO_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* FIFO -- first in first out structure and macros.  */
 struct fifo {
 	struct fifo *next;
@@ -54,5 +58,9 @@ struct fifo {
 #define FIFO_EMPTY(F) (((struct fifo *)(F))->next == (struct fifo *)(F))
 
 #define FIFO_TOP(F) (FIFO_EMPTY(F) ? NULL : ((struct fifo *)(F))->next)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __LIB_FIFO_H__ */

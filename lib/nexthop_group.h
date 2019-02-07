@@ -23,6 +23,10 @@
 
 #include <vty.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * What is a nexthop group?
  *
@@ -110,4 +114,9 @@ extern struct nexthop *nexthop_exists(struct nexthop_group *nhg,
 extern struct nexthop_group_cmd *nhgc_find(const char *name);
 
 extern void nexthop_group_write_nexthop(struct vty *vty, struct nexthop *nh);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

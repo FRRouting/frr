@@ -28,6 +28,10 @@
 #include "vty.h"
 #include "ns.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* The default VRF ID */
 #define VRF_UNKNOWN UINT32_MAX
 
@@ -291,5 +295,9 @@ extern void vrf_disable(struct vrf *vrf);
 extern int vrf_enable(struct vrf *vrf);
 extern void vrf_delete(struct vrf *vrf);
 extern vrf_id_t vrf_generate_id(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /*_ZEBRA_VRF_H*/

@@ -27,6 +27,10 @@
 #ifndef _SYS_TREE_H_
 #define	_SYS_TREE_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * This file defines data structures for different types of trees:
  * splay trees and red-black trees.
@@ -566,5 +570,9 @@ int _rb_check(const struct rb_type *, void *, unsigned long);
 #define RB_FOREACH_REVERSE_SAFE(_e, _name, _head, _n)                          \
 	for ((_e) = RB_MAX(_name, (_head));                                    \
 	     (_e) != NULL && ((_n) = RB_PREV(_name, (_e)), 1); (_e) = (_n))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _SYS_TREE_H_ */

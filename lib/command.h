@@ -30,6 +30,10 @@
 #include "hash.h"
 #include "command_graph.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MTYPE(HOST)
 DECLARE_MTYPE(COMPLETION)
 
@@ -488,4 +492,9 @@ cmd_variable_handler_register(const struct cmd_variable_handler *cvh);
 extern char *cmd_variable_comp2str(vector comps, unsigned short cols);
 
 extern void command_setup_early_logging(const char *dest, const char *level);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* _ZEBRA_COMMAND_H */

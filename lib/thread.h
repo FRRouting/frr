@@ -27,6 +27,10 @@
 #include "monotime.h"
 #include "frratomic.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct rusage_t {
 	struct rusage cpu;
 	struct timeval real;
@@ -232,5 +236,9 @@ extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
 
 /* only for use in logging functions! */
 extern pthread_key_t thread_current;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_THREAD_H */

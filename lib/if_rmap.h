@@ -21,6 +21,10 @@
 #ifndef _ZEBRA_IF_RMAP_H
 #define _ZEBRA_IF_RMAP_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum if_rmap_type { IF_RMAP_IN, IF_RMAP_OUT, IF_RMAP_MAX };
 
 struct if_rmap {
@@ -36,5 +40,9 @@ extern void if_rmap_hook_add(void (*)(struct if_rmap *));
 extern void if_rmap_hook_delete(void (*)(struct if_rmap *));
 extern struct if_rmap *if_rmap_lookup(const char *);
 extern int config_write_if_rmap(struct vty *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_IF_RMAP_H */

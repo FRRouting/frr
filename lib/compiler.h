@@ -17,6 +17,10 @@
 #ifndef _FRR_COMPILER_H
 #define _FRR_COMPILER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* function attributes, use like
  *   void prototype(void) __attribute__((_CONSTRUCTOR(100)));
  */
@@ -86,6 +90,10 @@
 #else
 #define CPP_WARN(text)
 #define CPP_NOTICE(text)
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif /* _FRR_COMPILER_H */

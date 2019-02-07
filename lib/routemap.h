@@ -26,6 +26,10 @@
 #include "qobj.h"
 #include "vty.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MTYPE(ROUTE_MAP_NAME)
 DECLARE_MTYPE(ROUTE_MAP_RULE)
 DECLARE_MTYPE(ROUTE_MAP_COMPILED)
@@ -387,5 +391,9 @@ extern void route_map_counter_increment(struct route_map *map);
 
 /* Decrement the route-map used counter */
 extern void route_map_counter_decrement(struct route_map *map);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_ROUTEMAP_H */

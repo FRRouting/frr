@@ -24,6 +24,10 @@
 #include <limits.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define IDALLOC_INVALID 0
 
 #define IDALLOC_DIR_BITS     8
@@ -86,5 +90,9 @@ uint32_t idalloc_allocate_prefer_pool(struct id_alloc *alloc,
 uint32_t idalloc_reserve(struct id_alloc *alloc, uint32_t id);
 struct id_alloc *idalloc_new(const char *name);
 void idalloc_destroy(struct id_alloc *alloc);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

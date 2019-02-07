@@ -29,6 +29,10 @@
 
 #include "yang_wrappers.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MTYPE(YANG_MODULE)
 DECLARE_MTYPE(YANG_DATA)
 
@@ -520,5 +524,9 @@ extern void yang_init(void);
  * is exiting.
  */
 extern void yang_terminate(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_YANG_H_ */

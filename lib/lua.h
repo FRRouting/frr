@@ -29,6 +29,10 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * These functions are helper functions that
  * try to glom some of the lua_XXX functionality
@@ -75,5 +79,10 @@ enum lua_rm_status lua_run_rm_rule(lua_State *L, const char *rule);
  */
 const char *get_string(lua_State *L, const char *key);
 int get_integer(lua_State *L, const char *key);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
 #endif

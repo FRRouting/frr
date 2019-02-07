@@ -29,6 +29,10 @@
 #include <stdarg.h>
 #include "lib/hook.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Hook for external logging function */
 DECLARE_HOOK(zebra_ext_log, (int priority, const char *format, va_list args),
 	     (priority, format, args));
@@ -195,5 +199,9 @@ struct timestamp_control {
 	"Local use\n"                                                          \
 	"Local use\n"                                                          \
 	"Local use\n"
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_LOG_H */

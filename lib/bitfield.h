@@ -44,6 +44,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef unsigned int word_t;
 #define WORD_MAX 0xFFFFFFFF
 #define WORD_SIZE (sizeof(word_t) * 8)
@@ -152,5 +156,9 @@ typedef unsigned int word_t;
 			free((v).data);                                        \
 		}                                                              \
 	} while (0)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

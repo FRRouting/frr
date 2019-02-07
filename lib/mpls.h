@@ -25,6 +25,10 @@
 #include <zebra.h>
 #include <arpa/inet.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef MPLS_LABEL_MAX
 #undef MPLS_LABEL_MAX
 #endif
@@ -208,5 +212,9 @@ int mpls_str2label(const char *label_str, uint8_t *num_labels,
  */
 char *mpls_label2str(uint8_t num_labels, mpls_label_t *labels, char *buf,
 		     int len, int pretty);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

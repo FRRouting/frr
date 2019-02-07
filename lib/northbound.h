@@ -27,6 +27,10 @@
 #include "yang.h"
 #include "yang_translator.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Forward declaration(s). */
 struct vty;
 
@@ -838,5 +842,9 @@ extern void nb_init(struct thread_master *tm, const struct frr_yang_module_info 
  * is exiting.
  */
 extern void nb_terminate(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_NORTHBOUND_H_ */

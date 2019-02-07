@@ -27,6 +27,10 @@
 #include "qobj.h"
 #include "hook.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MTYPE(IF)
 DECLARE_MTYPE(CONNECTED_LABEL)
 
@@ -544,5 +548,9 @@ void if_link_params_free(struct interface *);
 /* Northbound. */
 extern void if_cmd_init(void);
 extern const struct frr_yang_module_info frr_interface_info;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_IF_H */

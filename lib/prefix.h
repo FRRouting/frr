@@ -35,6 +35,10 @@
 #include "ipaddr.h"
 #include "compiler.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef ETH_ALEN
 #define ETH_ALEN 6
 #endif
@@ -506,4 +510,9 @@ static inline int is_host_route(struct prefix *p)
 		return (p->prefixlen == IPV6_MAX_BITLEN);
 	return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* _ZEBRA_PREFIX_H */

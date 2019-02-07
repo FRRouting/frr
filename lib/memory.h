@@ -22,6 +22,10 @@
 #include <frratomic.h>
 #include "compiler.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define array_size(ar) (sizeof(ar) / sizeof(ar[0]))
 
 #if defined(HAVE_MALLOC_SIZE) && !defined(HAVE_MALLOC_USABLE_SIZE)
@@ -175,5 +179,9 @@ extern int log_memstats(FILE *fp, const char *);
 #define log_memstats_stderr(prefix) log_memstats(stderr, prefix)
 
 extern void memory_oom(size_t size, const char *name);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _QUAGGA_MEMORY_H */

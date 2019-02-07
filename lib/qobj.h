@@ -21,6 +21,10 @@
 #include <stdlib.h>
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* reserve a specific amount of bytes for a struct, which can grow up to
  * that size (or be dummy'd out if not needed)
  *
@@ -132,5 +136,9 @@ void *qobj_get_typed(uint64_t id, struct qobj_nodetype *type);
 
 void qobj_init(void);
 void qobj_finish(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _QOBJ_H */

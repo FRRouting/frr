@@ -20,6 +20,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if !defined(__GNUC__)
 #error module code needs GCC visibility extensions
 #elif __GNUC__ < 4
@@ -93,6 +97,10 @@ extern struct frrmod_runtime *frrmod_load(const char *spec, const char *dir,
 #if 0
 /* not implemented yet */
 extern void frrmod_unload(struct frrmod_runtime *module);
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif /* _FRR_MODULE_H */

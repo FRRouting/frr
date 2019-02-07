@@ -21,6 +21,10 @@
 #ifndef _ZEBRA_LINKLIST_H
 #define _ZEBRA_LINKLIST_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* listnodes must always contain data to be valid. Adding an empty node
  * to a list is invalid
  */
@@ -335,5 +339,9 @@ extern void list_add_list(struct list *list, struct list *add);
 			(L)->tail = (N)->prev;                                 \
 		(L)->count--;                                                  \
 	} while (0)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_LINKLIST_H */

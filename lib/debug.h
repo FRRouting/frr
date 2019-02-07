@@ -24,6 +24,10 @@
 #include "command.h"
 #include "frratomic.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * Debugging modes.
  *
@@ -230,5 +234,9 @@ struct debug_callbacks {
  * MT-Safe
  */
 void debug_init(const struct debug_callbacks *cb);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRRDEBUG_H */
