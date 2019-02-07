@@ -136,7 +136,7 @@ apps:
             - network-bind
             - network-control
     bgpd-debug:
-        command: sbin/bgpd -f $SNAP_DATA/bgpd.conf --pid_file $SNAP_DATA/bgpd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA --moduledir $SNAP/lib/frr/modules `cat $SNAP_DATA/rpki.conf 2> /dev/null`
+        command: sbin/bgpd -f $SNAP_DATA/bgpd.conf --pid_file $SNAP_DATA/bgpd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA --moduledir $SNAP/lib/frr/modules
         plugs:
             - network
             - network-bind
@@ -230,7 +230,7 @@ parts:
         stage-packages:
            - libssh-4
         prime:
-           - lib/x86_64-linux-gnu/librtr.so*
+           - lib/librtr.so*
            - usr/lib/x86_64-linux-gnu/libssh.so*
         source: https://github.com/rtrlib/rtrlib.git
         source-type: git
