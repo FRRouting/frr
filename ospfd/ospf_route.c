@@ -39,7 +39,7 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_dump.h"
 
-struct ospf_route *ospf_route_new()
+struct ospf_route *ospf_route_new(void)
 {
 	struct ospf_route *new;
 
@@ -51,7 +51,7 @@ struct ospf_route *ospf_route_new()
 	return new;
 }
 
-void ospf_route_free(struct ospf_route * or)
+void ospf_route_free(struct ospf_route *or)
 {
 	if (or->paths)
 		list_delete(& or->paths);
@@ -59,7 +59,7 @@ void ospf_route_free(struct ospf_route * or)
 	XFREE(MTYPE_OSPF_ROUTE, or);
 }
 
-struct ospf_path *ospf_path_new()
+struct ospf_path *ospf_path_new(void)
 {
 	struct ospf_path *new;
 

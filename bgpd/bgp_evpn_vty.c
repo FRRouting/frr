@@ -2883,6 +2883,12 @@ DEFUN (bgp_evpn_advertise_default_gw,
 	if (!bgp)
 		return CMD_WARNING;
 
+	if (bgp->vrf_id != VRF_DEFAULT) {
+		vty_out(vty,
+			"This command is only supported under Default VRF\n");
+		return CMD_WARNING;
+	}
+
 	evpn_set_advertise_default_gw(bgp, NULL);
 
 	return CMD_SUCCESS;
@@ -2898,6 +2904,12 @@ DEFUN (no_bgp_evpn_advertise_default_gw,
 
 	if (!bgp)
 		return CMD_WARNING;
+
+	if (bgp->vrf_id != VRF_DEFAULT) {
+		vty_out(vty,
+			"This command is only supported under Default VRF\n");
+		return CMD_WARNING;
+	}
 
 	evpn_unset_advertise_default_gw(bgp, NULL);
 
@@ -3011,6 +3023,12 @@ DEFPY (dup_addr_detection,
 	if (!bgp_vrf)
 		return CMD_WARNING;
 
+	if (bgp_vrf->vrf_id != VRF_DEFAULT) {
+		vty_out(vty,
+			"This command is only supported under Default VRF\n");
+		return CMD_WARNING;
+	}
+
 	bgp_vrf->evpn_info->dup_addr_detect = true;
 
 	if (time_val)
@@ -3036,6 +3054,12 @@ DEFPY (dup_addr_detection_auto_recovery,
 
 	if (!bgp_vrf)
 		return CMD_WARNING;
+
+	if (bgp_vrf->vrf_id != VRF_DEFAULT) {
+		vty_out(vty,
+			"This command is only supported under Default VRF\n");
+		return CMD_WARNING;
+	}
 
 	bgp_vrf->evpn_info->dup_addr_detect = true;
 	bgp_vrf->evpn_info->dad_freeze = true;
@@ -3065,6 +3089,12 @@ DEFPY (no_dup_addr_detection,
 
 	if (!bgp_vrf)
 		return CMD_WARNING;
+
+	if (bgp_vrf->vrf_id != VRF_DEFAULT) {
+		vty_out(vty,
+			"This command is only supported under Default VRF\n");
+		return CMD_WARNING;
+	}
 
 	if (argc == 2) {
 		if (!bgp_vrf->evpn_info->dup_addr_detect)
@@ -3230,6 +3260,8 @@ DEFUN (bgp_evpn_advertise_type5,
 		if (bgp_vrf->adv_cmd_rmap[afi][safi].name) {
 			XFREE(MTYPE_ROUTE_MAP_NAME,
 			      bgp_vrf->adv_cmd_rmap[afi][safi].name);
+			route_map_counter_decrement(
+					bgp_vrf->adv_cmd_rmap[afi][safi].map);
 			bgp_vrf->adv_cmd_rmap[afi][safi].name = NULL;
 			bgp_vrf->adv_cmd_rmap[afi][safi].map = NULL;
 		}
@@ -3241,6 +3273,8 @@ DEFUN (bgp_evpn_advertise_type5,
 			XSTRDUP(MTYPE_ROUTE_MAP_NAME, argv[idx_rmap + 1]->arg);
 		bgp_vrf->adv_cmd_rmap[afi][safi].map =
 			route_map_lookup_by_name(argv[idx_rmap + 1]->arg);
+		route_map_counter_increment(
+				bgp_vrf->adv_cmd_rmap[afi][safi].map);
 	}
 
 	/* advertise type-5 routes */

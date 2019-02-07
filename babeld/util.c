@@ -441,7 +441,7 @@ uchar_to_in6addr(struct in6_addr *dest, const unsigned char *src)
 }
 
 int
-daemonise()
+daemonise(void)
 {
     int rc;
 

@@ -1205,14 +1205,17 @@ DEFUN (no_ospf_area_vlink,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	vl_data = ospf_vl_lookup(ospf, area, vl_config.vl_peer);
+	if (!vl_data) {
+		vty_out(vty, "Virtual link does not exist\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (argc <= 5) {
 		/* Basic VLink no command */
 		/* Thats all folks! - BUGS B. strikes again!!!*/
-		if ((vl_data = ospf_vl_lookup(ospf, area, vl_config.vl_peer)))
-			ospf_vl_delete(ospf, vl_data);
-
+		ospf_vl_delete(ospf, vl_data);
 		ospf_area_check_free(ospf, vl_config.area_id);
-
 		return CMD_SUCCESS;
 	}
 
@@ -5096,15 +5099,12 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 }
 
 static int show_ip_ospf_neighbor_id_common(struct vty *vty, struct ospf *ospf,
-					   int arg_base,
-					   struct cmd_token **argv,
+					   struct in_addr *router_id,
 					   bool use_json, uint8_t use_vrf)
 {
 	struct listnode *node;
 	struct ospf_neighbor *nbr;
 	struct ospf_interface *oi;
-	struct in_addr router_id;
-	int ret;
 	json_object *json = NULL;
 
 	if (use_json)
@@ -5120,19 +5120,8 @@ static int show_ip_ospf_neighbor_id_common(struct vty *vty, struct ospf *ospf,
 
 	ospf_show_vrf_name(ospf, vty, json, use_vrf);
 
-	ret = inet_aton(argv[arg_base]->arg, &router_id);
-	if (!ret) {
-		if (!use_json)
-			vty_out(vty, "Please specify Neighbor ID by A.B.C.D\n");
-		else {
-			vty_out(vty, "{}\n");
-			json_object_free(json);
-		}
-		return CMD_WARNING;
-	}
-
 	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
-		if ((nbr = ospf_nbr_lookup_by_routerid(oi->nbrs, &router_id))) {
+		if ((nbr = ospf_nbr_lookup_by_routerid(oi->nbrs, router_id))) {
 			show_ip_ospf_neighbor_detail_sub(vty, oi, nbr, json,
 							 use_json);
 		}
@@ -5148,9 +5137,9 @@ static int show_ip_ospf_neighbor_id_common(struct vty *vty, struct ospf *ospf,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_ospf_neighbor_id,
+DEFPY (show_ip_ospf_neighbor_id,
        show_ip_ospf_neighbor_id_cmd,
-       "show ip ospf neighbor A.B.C.D [json]",
+       "show ip ospf neighbor A.B.C.D$router_id [json$json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -5159,23 +5148,22 @@ DEFUN (show_ip_ospf_neighbor_id,
        JSON_STR)
 {
 	struct ospf *ospf;
-	bool uj = use_json(argc, argv);
-	struct listnode *node = NULL;
+	struct listnode *node;
 	int ret = CMD_SUCCESS;
 
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 		if (!ospf->oi_running)
 			continue;
-		ret = show_ip_ospf_neighbor_id_common(vty, ospf, 0, argv, uj,
-						      0);
+		ret = show_ip_ospf_neighbor_id_common(vty, ospf, &router_id,
+						      !!json, 0);
 	}
 
 	return ret;
 }
 
-DEFUN (show_ip_ospf_instance_neighbor_id,
+DEFPY (show_ip_ospf_instance_neighbor_id,
        show_ip_ospf_instance_neighbor_id_cmd,
-       "show ip ospf (1-65535) neighbor A.B.C.D [json]",
+       "show ip ospf (1-65535)$instance neighbor A.B.C.D$router_id [json$json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -5184,13 +5172,8 @@ DEFUN (show_ip_ospf_instance_neighbor_id,
        "Neighbor ID\n"
        JSON_STR)
 {
-	int idx_number = 3;
-	int idx_router_id = 5;
 	struct ospf *ospf;
-	unsigned short instance = 0;
-	bool uj = use_json(argc, argv);
 
-	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	ospf = ospf_lookup_instance(instance);
 	if (ospf == NULL)
 		return CMD_NOT_MY_INSTANCE;
@@ -5198,8 +5181,8 @@ DEFUN (show_ip_ospf_instance_neighbor_id,
 	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_neighbor_id_common(vty, ospf, idx_router_id, argv,
-					       uj, 0);
+	return show_ip_ospf_neighbor_id_common(vty, ospf, &router_id, !!json,
+					       0);
 }
 
 static int show_ip_ospf_neighbor_detail_common(struct vty *vty,

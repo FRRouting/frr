@@ -719,7 +719,6 @@ static int nb_configuration_callback(const enum nb_event event,
 	const struct lyd_node *dnode = change->cb.dnode;
 	union nb_resource *resource;
 	int ret = NB_ERR;
-	enum lib_log_refs ref;
 
 	if (debug_northbound) {
 		const char *value = "(none)";
@@ -753,6 +752,8 @@ static int nb_configuration_callback(const enum nb_event event,
 	}
 
 	if (ret != NB_OK) {
+		enum lib_log_refs ref = 0;
+
 		switch (event) {
 		case NB_EV_VALIDATE:
 			ref = EC_LIB_NB_CB_CONFIG_VALIDATE;
@@ -1277,8 +1278,12 @@ int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 			n++;
 		}
 		list_keys.num = n;
-		assert(list_keys.num
-		       == ((struct lys_node_list *)dn->schema)->keys_size);
+		if (list_keys.num
+		    != ((struct lys_node_list *)dn->schema)->keys_size) {
+			list_delete(&list_dnodes);
+			yang_dnode_free(dnode);
+			return NB_ERR_NOT_FOUND;
+		}
 
 		/* Find the list entry pointer. */
 		nn = dn->schema->priv;

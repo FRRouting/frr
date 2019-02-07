@@ -37,7 +37,7 @@
 
 /* Is EVPN enabled? */
 #define EVPN_ENABLED(zvrf)  (zvrf)->advertise_all_vni
-static inline int is_evpn_enabled()
+static inline int is_evpn_enabled(void)
 {
 	struct zebra_vrf *zvrf = NULL;
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
@@ -45,7 +45,7 @@ static inline int is_evpn_enabled()
 }
 
 static inline int
-is_vxlan_flooding_head_end()
+is_vxlan_flooding_head_end(void)
 {
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 

@@ -47,7 +47,7 @@ static int gettime_monotonic(struct timeval *tv)
   pim_time_monotonic_sec():
   number of seconds since some unspecified starting point
 */
-int64_t pim_time_monotonic_sec()
+int64_t pim_time_monotonic_sec(void)
 {
 	struct timeval now_tv;
 
@@ -65,7 +65,7 @@ int64_t pim_time_monotonic_sec()
   pim_time_monotonic_dsec():
   number of deciseconds since some unspecified starting point
 */
-int64_t pim_time_monotonic_dsec()
+int64_t pim_time_monotonic_dsec(void)
 {
 	struct timeval now_tv;
 	int64_t now_dsec;

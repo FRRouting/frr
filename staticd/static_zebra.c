@@ -154,10 +154,10 @@ static int route_notify_owner(int command, struct zclient *zclient,
 	uint32_t table_id;
 	char buf[PREFIX_STRLEN];
 
-	prefix2str(&p, buf, sizeof(buf));
-
 	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note))
 		return -1;
+
+	prefix2str(&p, buf, sizeof(buf));
 
 	switch (note) {
 	case ZAPI_ROUTE_FAIL_INSTALL:
@@ -370,8 +370,6 @@ extern void static_zebra_route_add(struct route_node *rn,
 		memcpy(&api.src_prefix, src_pp, sizeof(api.src_prefix));
 	}
 	SET_FLAG(api.flags, ZEBRA_FLAG_RR_USE_DISTANCE);
-	if (si_changed->onlink)
-		SET_FLAG(api.flags, ZEBRA_FLAG_ONLINK);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	if (si_changed->distance) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
@@ -397,6 +395,8 @@ extern void static_zebra_route_add(struct route_node *rn,
 			continue;
 
 		api_nh->vrf_id = si->nh_vrf_id;
+		api_nh->onlink = si->onlink;
+
 		switch (si->type) {
 		case STATIC_IFNAME:
 			if (si->ifindex == IFINDEX_INTERNAL)

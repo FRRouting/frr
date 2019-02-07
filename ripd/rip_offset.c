@@ -152,14 +152,14 @@ static int offset_list_cmp(struct rip_offset_list *o1,
 	return strcmp(o1->ifname, o2->ifname);
 }
 
-void rip_offset_init()
+void rip_offset_init(void)
 {
 	rip_offset_list_master = list_new();
 	rip_offset_list_master->cmp = (int (*)(void *, void *))offset_list_cmp;
 	rip_offset_list_master->del = (void (*)(void *))offset_list_del;
 }
 
-void rip_offset_clean()
+void rip_offset_clean(void)
 {
 	list_delete(&rip_offset_list_master);
 

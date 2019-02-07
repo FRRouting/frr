@@ -170,6 +170,8 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp->sec_addr_list->cmp =
 		(int (*)(void *, void *))pim_sec_addr_comp;
 
+	pim_ifp->activeactive = false;
+
 	RB_INIT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
 
 	ifp->info = pim_ifp;
@@ -1157,7 +1159,7 @@ long pim_if_t_suppressed_msec(struct interface *ifp)
 
 	/* t_suppressed = t_periodic * rand(1.1, 1.4) */
 	ramount = 1100 + (random() % (1400 - 1100 + 1));
-	t_suppressed_msec = qpim_t_periodic * ramount;
+	t_suppressed_msec = router->t_periodic * ramount;
 
 	return t_suppressed_msec;
 }

@@ -31,7 +31,7 @@
 #include "ospfd/ospf_lsa.h"
 #include "ospfd/ospf_lsdb.h"
 
-struct ospf_lsdb *ospf_lsdb_new()
+struct ospf_lsdb *ospf_lsdb_new(void)
 {
 	struct ospf_lsdb *new;
 

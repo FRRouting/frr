@@ -66,6 +66,7 @@
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_addpath.h"
+#include "bgpd/bgp_mac.h"
 
 #if ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -174,6 +175,8 @@ static struct bgp_path_info_extra *bgp_path_info_extra_new(void)
 		      sizeof(struct bgp_path_info_extra));
 	new->label[0] = MPLS_INVALID_LABEL;
 	new->num_labels = 0;
+	new->bgp_fs_pbr = list_new();
+	new->bgp_fs_iprule = list_new();
 	return new;
 }
 
@@ -217,6 +220,8 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 	if (e->bgp_orig)
 		bgp_unlock(e->bgp_orig);
 
+	if ((*extra)->bgp_fs_iprule)
+		list_delete(&((*extra)->bgp_fs_iprule));
 	if ((*extra)->bgp_fs_pbr)
 		list_delete(&((*extra)->bgp_fs_pbr));
 	XFREE(MTYPE_BGP_ROUTE_EXTRA, *extra);
@@ -3057,6 +3062,11 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		goto filtered;
 	}
 
+	if (bgp_mac_entry_exists(p)) {
+		reason = "self mac;";
+		goto filtered;
+	}
+
 	attr_new = bgp_attr_intern(&new_attr);
 
 	/* If the update is implicit withdraw. */
@@ -3239,9 +3249,11 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		/* Update MPLS label */
 		if (has_valid_label) {
 			extra = bgp_path_info_extra_get(pi);
-			memcpy(&extra->label, label,
-			       num_labels * sizeof(mpls_label_t));
-			extra->num_labels = num_labels;
+			if (extra->label != label) {
+				memcpy(&extra->label, label,
+						num_labels * sizeof(mpls_label_t));
+				extra->num_labels = num_labels;
+			}
 			if (!(afi == AFI_L2VPN && safi == SAFI_EVPN))
 				bgp_set_valid_label(&extra->label[0]);
 		}
@@ -3410,8 +3422,10 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	/* Update MPLS label */
 	if (has_valid_label) {
 		extra = bgp_path_info_extra_get(new);
-		memcpy(&extra->label, label, num_labels * sizeof(mpls_label_t));
-		extra->num_labels = num_labels;
+		if (extra->label != label) {
+			memcpy(&extra->label, label, num_labels * sizeof(mpls_label_t));
+			extra->num_labels = num_labels;
+		}
 		if (!(afi == AFI_L2VPN && safi == SAFI_EVPN))
 			bgp_set_valid_label(&extra->label[0]);
 	}
@@ -3778,16 +3792,22 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
 				bgp_node_get_bgp_path_info(rn);
 			uint32_t num_labels = 0;
 			mpls_label_t *label_pnt = NULL;
+			struct bgp_route_evpn evpn;
 
 			if (pi && pi->extra)
 				num_labels = pi->extra->num_labels;
 			if (num_labels)
 				label_pnt = &pi->extra->label[0];
+			if (pi)
+				memcpy(&evpn, &pi->attr->evpn_overlay,
+				       sizeof(evpn));
+			else
+				memset(&evpn, 0, sizeof(evpn));
 
 			ret = bgp_update(peer, &rn->p, ain->addpath_rx_id,
 					 ain->attr, afi, safi, ZEBRA_ROUTE_BGP,
 					 BGP_ROUTE_NORMAL, prd, label_pnt,
-					 num_labels, 1, NULL);
+					 num_labels, 1, &evpn);
 
 			if (ret < 0) {
 				bgp_unlock_node(rn);
@@ -4397,6 +4417,8 @@ static void bgp_static_free(struct bgp_static *bgp_static)
 {
 	if (bgp_static->rmap.name)
 		XFREE(MTYPE_ROUTE_MAP_NAME, bgp_static->rmap.name);
+	route_map_counter_decrement(bgp_static->rmap.map);
+
 	if (bgp_static->eth_s_id)
 		XFREE(MTYPE_ATTR, bgp_static->eth_s_id);
 	XFREE(MTYPE_BGP_STATIC, bgp_static);
@@ -4961,14 +4983,20 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 				if (bgp_static->rmap.name)
 					XFREE(MTYPE_ROUTE_MAP_NAME,
 					      bgp_static->rmap.name);
+				route_map_counter_decrement(
+					bgp_static->rmap.map);
 				bgp_static->rmap.name =
 					XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
 				bgp_static->rmap.map =
 					route_map_lookup_by_name(rmap);
+				route_map_counter_increment(
+					bgp_static->rmap.map);
 			} else {
 				if (bgp_static->rmap.name)
 					XFREE(MTYPE_ROUTE_MAP_NAME,
 					      bgp_static->rmap.name);
+				route_map_counter_decrement(
+					bgp_static->rmap.map);
 				bgp_static->rmap.name = NULL;
 				bgp_static->rmap.map = NULL;
 				bgp_static->valid = 0;
@@ -4987,10 +5015,14 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 				if (bgp_static->rmap.name)
 					XFREE(MTYPE_ROUTE_MAP_NAME,
 					      bgp_static->rmap.name);
+				route_map_counter_decrement(
+					bgp_static->rmap.map);
 				bgp_static->rmap.name =
 					XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
 				bgp_static->rmap.map =
 					route_map_lookup_by_name(rmap);
+				route_map_counter_increment(
+					bgp_static->rmap.map);
 			}
 			bgp_node_set_bgp_static_info(rn, bgp_static);
 		}
@@ -5069,6 +5101,9 @@ void bgp_static_delete(struct bgp *bgp)
 					bgp_static =
 						bgp_node_get_bgp_static_info(
 							rm);
+					if (!bgp_static)
+						continue;
+
 					bgp_static_withdraw_safi(
 						bgp, &rm->p, AFI_IP, safi,
 						(struct prefix_rd *)&rn->p);
@@ -5245,8 +5280,6 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 	if (!bgp_node_has_bgp_path_info_data(prn))
 		bgp_node_set_bgp_table_info(prn,
 					    bgp_table_init(bgp, afi, safi));
-	else
-		bgp_unlock_node(prn);
 	table = bgp_node_get_bgp_table_info(prn);
 
 	rn = bgp_node_get(table, &p);
@@ -5268,10 +5301,12 @@ int bgp_static_set_safi(afi_t afi, safi_t safi, struct vty *vty,
 			if (bgp_static->rmap.name)
 				XFREE(MTYPE_ROUTE_MAP_NAME,
 				      bgp_static->rmap.name);
+			route_map_counter_decrement(bgp_static->rmap.map);
 			bgp_static->rmap.name =
 				XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
 			bgp_static->rmap.map =
 				route_map_lookup_by_name(rmap_str);
+			route_map_counter_increment(bgp_static->rmap.map);
 		}
 
 		if (safi == SAFI_EVPN) {
@@ -5374,11 +5409,14 @@ static int bgp_table_map_set(struct vty *vty, afi_t afi, safi_t safi,
 	if (rmap_name) {
 		if (rmap->name)
 			XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
+		route_map_counter_decrement(rmap->map);
 		rmap->name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
 		rmap->map = route_map_lookup_by_name(rmap_name);
+		route_map_counter_increment(rmap->map);
 	} else {
 		if (rmap->name)
 			XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
+		route_map_counter_decrement(rmap->map);
 		rmap->name = NULL;
 		rmap->map = NULL;
 	}
@@ -5398,6 +5436,7 @@ static int bgp_table_map_unset(struct vty *vty, afi_t afi, safi_t safi,
 	rmap = &bgp->table_map[afi][safi];
 	if (rmap->name)
 		XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
+	route_map_counter_decrement(rmap->map);
 	rmap->name = NULL;
 	rmap->map = NULL;
 
@@ -9266,7 +9305,7 @@ static int bgp_show_lcommunity_list(struct vty *vty, struct bgp *bgp,
 {
 	struct community_list *list;
 
-	list = community_list_lookup(bgp_clist, lcom,
+	list = community_list_lookup(bgp_clist, lcom, 0,
 				     LARGE_COMMUNITY_LIST_MASTER);
 	if (list == NULL) {
 		vty_out(vty, "%% %s is not a valid large-community-list name\n",
@@ -9529,8 +9568,15 @@ DEFUN (show_ip_bgp_json,
 	}
 
 	if (argv_find(argv, argc, "community", &idx)) {
-		char *maybecomm = idx + 1 < argc ? argv[idx + 1]->text : NULL;
+		char *maybecomm = NULL;
 		char *community = NULL;
+
+		if (idx + 1 < argc) {
+			if (argv[idx + 1]->type == VARIABLE_TKN)
+				maybecomm = argv[idx + 1]->arg;
+			else
+				maybecomm = argv[idx + 1]->text;
+		}
 
 		if (maybecomm && !strmatch(maybecomm, "json")
 		    && !strmatch(maybecomm, "exact-match"))
@@ -9780,7 +9826,7 @@ static int bgp_show_community_list(struct vty *vty, struct bgp *bgp,
 {
 	struct community_list *list;
 
-	list = community_list_lookup(bgp_clist, com, COMMUNITY_LIST_MASTER);
+	list = community_list_lookup(bgp_clist, com, 0, COMMUNITY_LIST_MASTER);
 	if (list == NULL) {
 		vty_out(vty, "%% %s is not a valid community-list name\n", com);
 		return CMD_WARNING;

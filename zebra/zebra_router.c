@@ -21,10 +21,14 @@
  */
 #include "zebra.h"
 
+#include <pthread.h>
+#include "lib/frratomic.h"
+
 #include "zebra_router.h"
 #include "zebra_memory.h"
 #include "zebra_pbr.h"
 #include "zebra_vxlan.h"
+#include "zebra_mlag.h"
 
 struct zebra_router zrouter;
 
@@ -105,7 +109,7 @@ struct route_table *zebra_router_get_table(struct zebra_vrf *zvrf,
 	info = XCALLOC(MTYPE_RIB_TABLE_INFO, sizeof(*info));
 	info->zvrf = zvrf;
 	info->afi = afi;
-	info->safi = SAFI_UNICAST;
+	info->safi = safi;
 	route_table_set_info(zrt->table, info);
 	zrt->table->cleanup = zebra_rtable_node_cleanup;
 
@@ -124,6 +128,25 @@ unsigned long zebra_router_score_proto(uint8_t proto, unsigned short instance)
 		cnt += rib_score_proto_table(proto, instance, zrt->table);
 	}
 	return cnt;
+}
+
+void zebra_router_show_table_summary(struct vty *vty)
+{
+	struct zebra_router_table *zrt;
+
+	vty_out(vty,
+		"VRF             NS ID    VRF ID     AFI            SAFI    Table      Count\n");
+	vty_out(vty,
+		"---------------------------------------------------------------------------\n");
+	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
+		rib_table_info_t *info = route_table_get_info(zrt->table);
+
+		vty_out(vty, "%-16s%5d %9d %7s %15s %8d %10lu\n", info->zvrf->vrf->name,
+			zrt->ns_id, info->zvrf->vrf->vrf_id,
+			afi2str(zrt->afi), safi2str(zrt->safi),
+			zrt->tableid,
+			zrt->table->count);
+	}
 }
 
 void zebra_router_sweep_route(void)
@@ -149,6 +172,13 @@ static void zebra_router_free_table(struct zebra_router_table *zrt)
 	XFREE(MTYPE_ZEBRA_NS, zrt);
 }
 
+uint32_t zebra_router_get_next_sequence(void)
+{
+	return 1
+	       + atomic_fetch_add_explicit(&zrouter.sequence_num, 1,
+					   memory_order_relaxed);
+}
+
 void zebra_router_terminate(void)
 {
 	struct zebra_router_table *zrt, *tmp;
@@ -158,7 +188,12 @@ void zebra_router_terminate(void)
 		zebra_router_free_table(zrt);
 	}
 
+	work_queue_free_and_null(&zrouter.ribq);
+	meta_queue_free(zrouter.mq);
+
 	zebra_vxlan_disable();
+	zebra_mlag_terminate();
+
 	hash_clean(zrouter.rules_hash, zebra_pbr_rules_free);
 	hash_free(zrouter.rules_hash);
 
@@ -172,7 +207,14 @@ void zebra_router_terminate(void)
 
 void zebra_router_init(void)
 {
+	zrouter.sequence_num = 0;
+
+	zrouter.rtm_table_default = 0;
+	zrouter.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS;
+
 	zebra_vxlan_init();
+	zebra_mlag_init();
+
 	zrouter.rules_hash = hash_create_size(8, zebra_pbr_rules_hash_key,
 					      zebra_pbr_rules_hash_equal,
 					      "Rules Hash");

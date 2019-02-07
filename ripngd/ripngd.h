@@ -24,6 +24,7 @@
 
 #include <zclient.h>
 #include <vty.h>
+#include <distribute.h>
 
 #include "ripng_memory.h"
 
@@ -128,6 +129,9 @@ struct ripng {
 		bool metric_config;
 		uint8_t metric;
 	} route_map[ZEBRA_ROUTE_MAX];
+
+	/* For distribute-list container */
+	struct distribute_ctx *distribute_ctx;
 };
 
 /* Routing table entry. */

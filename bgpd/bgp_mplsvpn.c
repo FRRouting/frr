@@ -289,6 +289,8 @@ void vpn_leak_zebra_vrf_label_update(struct bgp *bgp, afi_t afi)
 			   bgp->vrf_id);
 	}
 
+	if (label == BGP_PREVENT_VRF_2_VRF_LEAK)
+		label = MPLS_LABEL_NONE;
 	zclient_send_vrf_label(zclient, bgp->vrf_id, afi, label, ZEBRA_LSP_BGP);
 	bgp->vpn_policy[afi].tovpn_zebra_vrf_label_last_sent = label;
 }
@@ -315,6 +317,9 @@ void vpn_leak_zebra_vrf_label_withdraw(struct bgp *bgp, afi_t afi)
 		zlog_debug("%s: deleting label for vrf %s (id=%d)", __func__,
 			   bgp->name_pretty, bgp->vrf_id);
 	}
+
+	if (label == BGP_PREVENT_VRF_2_VRF_LEAK)
+		label = MPLS_LABEL_NONE;
 
 	zclient_send_vrf_label(zclient, bgp->vrf_id, afi, label, ZEBRA_LSP_BGP);
 	bgp->vpn_policy[afi].tovpn_zebra_vrf_label_last_sent = label;

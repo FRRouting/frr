@@ -169,6 +169,9 @@ struct route_map {
 	/* How many times have we applied this route-map */
 	uint64_t applied;
 
+	/* Counter to track active usage of this route-map */
+	uint16_t use_count;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(route_map)
@@ -378,5 +381,11 @@ extern void route_map_no_set_tag_hook(int (*func)(struct vty *vty,
 
 extern void *route_map_rule_tag_compile(const char *arg);
 extern void route_map_rule_tag_free(void *rule);
+
+/* Increment the route-map used counter */
+extern void route_map_counter_increment(struct route_map *map);
+
+/* Decrement the route-map used counter */
+extern void route_map_counter_decrement(struct route_map *map);
 
 #endif /* _ZEBRA_ROUTEMAP_H */

@@ -1248,16 +1248,21 @@ DEFUN (show_babel_parameters,
        "Babel information\n"
        "Configuration information\n")
 {
+    struct babel *babel_ctx;
+
     vty_out (vty, "    -- Babel running configuration --\n");
     show_babel_main_configuration(vty);
-    vty_out (vty, "    -- distribution lists --\n");
-    config_show_distribute(vty);
 
+    babel_ctx = babel_lookup();
+    if (babel_ctx) {
+        vty_out (vty, "    -- distribution lists --\n");
+        config_show_distribute(vty, babel_ctx->distribute_ctx);
+    }
     return CMD_SUCCESS;
 }
 
 void
-babel_if_init ()
+babel_if_init(void)
 {
     /* initialize interface list */
     hook_register_prio(if_add, 0, babel_if_new_hook);

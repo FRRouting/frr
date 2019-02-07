@@ -85,7 +85,7 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim->spt.switchover = PIM_SPT_IMMEDIATE;
 	pim->spt.plist = NULL;
 
-	pim_msdp_init(pim, master);
+	pim_msdp_init(pim, router->master);
 
 	snprintf(hash_name, 64, "PIM %s RPF Hash", vrf->name);
 	pim->rpf_hash = hash_create_size(256, pim_rpf_hash_key, pim_rpf_equal,
@@ -100,9 +100,6 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim->static_routes->del = (void (*)(void *))pim_static_route_free;
 
 	pim->send_v6_secondary = 1;
-
-	if (vrf->vrf_id == VRF_DEFAULT)
-		pimg = pim;
 
 	pim_rp_init(pim);
 
@@ -131,9 +128,6 @@ static int pim_vrf_new(struct vrf *vrf)
 	zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
 
 	vrf->info = (void *)pim;
-
-	if (vrf->vrf_id == VRF_DEFAULT)
-		pimg = pim;
 
 	pim_ssmpingd_init(pim);
 	return 0;

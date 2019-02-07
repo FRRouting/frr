@@ -775,60 +775,10 @@ static void vty_end_config(struct vty *vty)
 {
 	vty_out(vty, "\n");
 
-	switch (vty->node) {
-	case VIEW_NODE:
-	case ENABLE_NODE:
-		/* Nothing to do. */
-		break;
-	case CONFIG_NODE:
-	case INTERFACE_NODE:
-	case PW_NODE:
-	case ZEBRA_NODE:
-	case RIP_NODE:
-	case RIPNG_NODE:
-	case EIGRP_NODE:
-	case BGP_NODE:
-	case BGP_VPNV4_NODE:
-	case BGP_VPNV6_NODE:
-	case BGP_VRF_POLICY_NODE:
-	case BGP_VNC_DEFAULTS_NODE:
-	case BGP_VNC_NVE_GROUP_NODE:
-	case BGP_VNC_L2_GROUP_NODE:
-	case BGP_IPV4_NODE:
-	case BGP_IPV4M_NODE:
-	case BGP_IPV4L_NODE:
-	case BGP_IPV6_NODE:
-	case BGP_IPV6M_NODE:
-	case BGP_EVPN_NODE:
-	case BGP_IPV6L_NODE:
-	case RMAP_NODE:
-	case PBRMAP_NODE:
-	case OSPF_NODE:
-	case OSPF6_NODE:
-	case LDP_NODE:
-	case LDP_IPV4_NODE:
-	case LDP_IPV6_NODE:
-	case LDP_IPV4_IFACE_NODE:
-	case LDP_IPV6_IFACE_NODE:
-	case LDP_L2VPN_NODE:
-	case LDP_PSEUDOWIRE_NODE:
-	case ISIS_NODE:
-	case OPENFABRIC_NODE:
-	case KEYCHAIN_NODE:
-	case KEYCHAIN_KEY_NODE:
-	case VTY_NODE:
-	case BGP_EVPN_VNI_NODE:
-	case BFD_NODE:
-	case BFD_PEER_NODE:
+	if (vty->config) {
 		vty_config_exit(vty);
 		vty->node = ENABLE_NODE;
-		break;
-	default:
-		/* Unknown node, we have to ignore it. */
-		break;
 	}
-
-	vty->xpath_index = 0;
 
 	vty_prompt(vty);
 	vty->cp = 0;
@@ -1190,44 +1140,11 @@ static void vty_stop_input(struct vty *vty)
 	vty_clear_buf(vty);
 	vty_out(vty, "\n");
 
-	switch (vty->node) {
-	case VIEW_NODE:
-	case ENABLE_NODE:
-		/* Nothing to do. */
-		break;
-	case CONFIG_NODE:
-	case INTERFACE_NODE:
-	case PW_NODE:
-	case ZEBRA_NODE:
-	case RIP_NODE:
-	case RIPNG_NODE:
-	case EIGRP_NODE:
-	case BGP_NODE:
-	case RMAP_NODE:
-	case PBRMAP_NODE:
-	case OSPF_NODE:
-	case OSPF6_NODE:
-	case LDP_NODE:
-	case LDP_IPV4_NODE:
-	case LDP_IPV6_NODE:
-	case LDP_IPV4_IFACE_NODE:
-	case LDP_IPV6_IFACE_NODE:
-	case LDP_L2VPN_NODE:
-	case LDP_PSEUDOWIRE_NODE:
-	case ISIS_NODE:
-	case OPENFABRIC_NODE:
-	case KEYCHAIN_NODE:
-	case KEYCHAIN_KEY_NODE:
-	case VTY_NODE:
-	case BFD_NODE:
-	case BFD_PEER_NODE:
+	if (vty->config) {
 		vty_config_exit(vty);
 		vty->node = ENABLE_NODE;
-		break;
-	default:
-		/* Unknown node, we have to ignore it. */
-		break;
 	}
+
 	vty_prompt(vty);
 
 	/* Set history pointer to the latest one. */
@@ -1688,7 +1605,7 @@ static int vty_flush(struct thread *thread)
 }
 
 /* Allocate new vty struct. */
-struct vty *vty_new()
+struct vty *vty_new(void)
 {
 	struct vty *new = XCALLOC(MTYPE_VTY, sizeof(struct vty));
 
@@ -2696,6 +2613,7 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 	vty->node = CONFIG_NODE;
 	vty->config = true;
 	vty->private_config = private_config;
+	vty->xpath_index = 0;
 
 	if (private_config) {
 		vty->candidate_config = nb_config_dup(running_config);
@@ -2733,6 +2651,8 @@ void vty_config_exit(struct vty *vty)
 		nb_config_free(vty->candidate_config_base);
 		vty->candidate_config_base = NULL;
 	}
+
+	vty->config = false;
 }
 
 int vty_config_exclusive_lock(struct vty *vty)
@@ -3115,7 +3035,7 @@ struct cmd_node vty_node = {
 };
 
 /* Reset all VTY status. */
-void vty_reset()
+void vty_reset(void)
 {
 	unsigned int i;
 	struct vty *vty;
@@ -3180,7 +3100,7 @@ static void vty_save_cwd(void)
 	strcpy(vty_cwd, cwd);
 }
 
-char *vty_get_cwd()
+char *vty_get_cwd(void)
 {
 	return vty_cwd;
 }
@@ -3195,7 +3115,7 @@ int vty_shell_serv(struct vty *vty)
 	return vty->type == VTY_SHELL_SERV ? 1 : 0;
 }
 
-void vty_init_vtysh()
+void vty_init_vtysh(void)
 {
 	vtyvec = vector_init(VECTOR_MIN_SIZE);
 }

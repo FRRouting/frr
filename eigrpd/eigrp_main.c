@@ -217,8 +217,6 @@ int main(int argc, char **argv, char **envp)
 
 	/* Distribute list install. */
 	distribute_list_init(EIGRP_NODE);
-	distribute_list_add_hook(eigrp_distribute_update);
-	distribute_list_delete_hook(eigrp_distribute_update);
 
 	frr_config_fork();
 	frr_run(master);

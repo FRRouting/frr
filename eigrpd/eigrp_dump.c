@@ -276,11 +276,8 @@ void show_ip_eigrp_neighbor_sub(struct vty *vty, struct eigrp_neighbor *nbr,
  */
 void show_ip_eigrp_topology_header(struct vty *vty, struct eigrp *eigrp)
 {
-	struct in_addr router_id;
-	router_id.s_addr = eigrp->router_id;
-
 	vty_out(vty, "\nEIGRP Topology Table for AS(%d)/ID(%s)\n\n", eigrp->AS,
-		inet_ntoa(router_id));
+		inet_ntoa(eigrp->router_id));
 	vty_out(vty,
 		"Codes: P - Passive, A - Active, U - Update, Q - Query, "
 		"R - Reply\n       r - reply Status, s - sia Status\n\n");
@@ -304,14 +301,14 @@ void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
 }
 
 void show_ip_eigrp_nexthop_entry(struct vty *vty, struct eigrp *eigrp,
-				 struct eigrp_nexthop_entry *te, int *first)
+				 struct eigrp_nexthop_entry *te, bool *first)
 {
 	if (te->reported_distance == EIGRP_MAX_METRIC)
 		return;
 
 	if (*first) {
 		show_ip_eigrp_prefix_entry(vty, te->prefix);
-		*first = 0;
+		*first = false;
 	}
 
 	if (te->adv_router == eigrp->neighbor_self)
@@ -608,7 +605,7 @@ static struct cmd_node eigrp_debug_node = {
 };
 
 /* Initialize debug commands. */
-void eigrp_debug_init()
+void eigrp_debug_init(void)
 {
 	install_node(&eigrp_debug_node, config_write_debug);
 

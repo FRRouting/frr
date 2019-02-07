@@ -69,7 +69,7 @@ int isis_interface_config_write(struct vty *);
 int isis_if_new_hook(struct interface *);
 int isis_if_delete_hook(struct interface *);
 
-struct isis_circuit *isis_circuit_new()
+struct isis_circuit *isis_circuit_new(void)
 {
 	struct isis_circuit *circuit;
 	int i;
@@ -1393,7 +1393,7 @@ int isis_if_delete_hook(struct interface *ifp)
 	return 0;
 }
 
-void isis_circuit_init()
+void isis_circuit_init(void)
 {
 	/* Initialize Zebra interface data structure */
 	hook_register_prio(if_add, 0, isis_if_new_hook);

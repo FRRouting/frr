@@ -2110,7 +2110,7 @@ DEFSH(VTYSH_ZEBRA, vtysh_no_logicalrouter_cmd,
       "The Name Space\n"
       "The file name in " NS_RUN_DIR ", or a full pathname\n")
 
-DEFUNSH(VTYSH_PBRD, vtysh_nexthop_group, vtysh_nexthop_group_cmd,
+DEFUNSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_nexthop_group, vtysh_nexthop_group_cmd,
 	"nexthop-group NAME",
 	"Nexthop Group configuration\n"
 	"Name of the Nexthop Group\n")
@@ -2119,7 +2119,8 @@ DEFUNSH(VTYSH_PBRD, vtysh_nexthop_group, vtysh_nexthop_group_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFSH(VTYSH_PBRD, vtysh_no_nexthop_group_cmd, "no nexthop-group NAME",
+DEFSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_no_nexthop_group_cmd,
+      "no nexthop-group NAME",
       NO_STR
       "Nexthop Group Configuration\n"
       "Name of the Nexthop Group\n")
@@ -3463,7 +3464,7 @@ static const struct cmd_variable_handler vtysh_var_handler[] = {
 	 .completions = vtysh_autocomplete},
 	{.completions = NULL}};
 
-void vtysh_uninit()
+void vtysh_uninit(void)
 {
 	if (vty->of != stdout)
 		fclose(vty->of);

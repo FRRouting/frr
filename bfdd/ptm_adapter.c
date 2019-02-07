@@ -189,7 +189,10 @@ int ptm_bfd_notify(struct bfd_session *bs)
 	stream_putl(msg, ZEBRA_INTERFACE_BFD_DEST_UPDATE);
 
 	/* NOTE: Interface is a shortcut to avoid comparing source address. */
-	stream_putl(msg, bs->ifindex);
+	if (bs->ifp != NULL)
+		stream_putl(msg, bs->ifp->ifindex);
+	else
+		stream_putl(msg, IFINDEX_INTERNAL);
 
 	/* BFD destination prefix information. */
 	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
@@ -287,6 +290,7 @@ stream_failure:
 static int _ptm_msg_read(struct stream *msg, int command,
 			 struct bfd_peer_cfg *bpc, struct ptm_client **pc)
 {
+	struct interface *ifp;
 	uint32_t pid;
 	uint8_t ttl __attribute__((unused));
 	size_t ifnamelen;
@@ -393,9 +397,19 @@ static int _ptm_msg_read(struct stream *msg, int command,
 			 */
 			if (bpc->bpc_ipv4 == false
 			    && IN6_IS_ADDR_LINKLOCAL(
-				       &bpc->bpc_peer.sa_sin6.sin6_addr))
+				       &bpc->bpc_peer.sa_sin6.sin6_addr)) {
+				ifp = if_lookup_by_name_all_vrf(
+					bpc->bpc_localif);
+				if (ifp == NULL) {
+					log_error(
+						"ptm-read: interface %s doesn't exists",
+						bpc->bpc_localif);
+					return -1;
+				}
+
 				bpc->bpc_peer.sa_sin6.sin6_scope_id =
-					ptm_bfd_fetch_ifindex(bpc->bpc_localif);
+					ifp->ifindex;
+			}
 		}
 	}
 
@@ -576,7 +590,32 @@ static void bfdd_zebra_connected(struct zclient *zc)
 	stream_putl(msg, ZEBRA_BFD_DEST_REPLAY);
 	stream_putw_at(msg, 0, stream_get_endp(msg));
 
+	/* Ask for interfaces information. */
+	zclient_create_header(msg, ZEBRA_INTERFACE_ADD, VRF_DEFAULT);
+
+	/* Send requests. */
 	zclient_send_message(zclient);
+}
+
+static int bfdd_interface_update(int cmd, struct zclient *zc, uint16_t len,
+				 vrf_id_t vrfid)
+{
+	/*
+	 * `zebra_interface_add_read` will handle the interface creation
+	 * on `lib/if.c`. We'll use that data structure instead of
+	 * rolling our own.
+	 */
+	if (cmd == ZEBRA_INTERFACE_ADD) {
+		zebra_interface_add_read(zc->ibuf, vrfid);
+		return 0;
+	}
+
+	/* Update interface information. */
+	zebra_interface_state_read(zc->ibuf, vrfid);
+
+	/* TODO: stop all sessions using this interface. */
+
+	return 0;
 }
 
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
@@ -594,6 +633,10 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 
 	/* Send replay request on zebra connect. */
 	zclient->zebra_connected = bfdd_zebra_connected;
+
+	/* Learn interfaces from zebra instead of the OS. */
+	zclient->interface_add = bfdd_interface_update;
+	zclient->interface_delete = bfdd_interface_update;
 }
 
 void bfdd_zclient_stop(void)

@@ -161,7 +161,7 @@ int ripng_redistribute_check(int type)
 	return vrf_bitmap_check(zclient->redist[AFI_IP6][type], VRF_DEFAULT);
 }
 
-void ripng_redistribute_clean()
+void ripng_redistribute_clean(void)
 {
 	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (!vrf_bitmap_check(zclient->redist[AFI_IP6][i], VRF_DEFAULT))

@@ -353,7 +353,8 @@ static struct interface *zebra_interface_if_lookup(struct stream *s)
 	return if_lookup_by_name(ifname_tmp, VRF_DEFAULT);
 }
 
-void eigrp_zebra_route_add(struct prefix *p, struct list *successors)
+void eigrp_zebra_route_add(struct prefix *p, struct list *successors,
+			   uint32_t distance)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -368,9 +369,11 @@ void eigrp_zebra_route_add(struct prefix *p, struct list *successors)
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_EIGRP;
 	api.safi = SAFI_UNICAST;
+	api.metric = distance;
 	memcpy(&api.prefix, p, sizeof(*p));
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
 
 	/* Nexthop, ifindex, distance and metric information. */
 	for (ALL_LIST_ELEMENTS_RO(successors, node, te)) {
@@ -425,7 +428,7 @@ void eigrp_zebra_route_delete(struct prefix *p)
 int eigrp_is_type_redistributed(int type)
 {
 	return ((DEFAULT_ROUTE_TYPE(type))
-			? vrf_bitmap_check(zclient->default_information,
+			? vrf_bitmap_check(zclient->default_information[AFI_IP],
 					   VRF_DEFAULT)
 			: vrf_bitmap_check(zclient->redist[AFI_IP][type],
 					   VRF_DEFAULT));

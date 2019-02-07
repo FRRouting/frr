@@ -123,7 +123,7 @@ void rfapiDebugBacktrace(void)
  * Count remote routes and compare with actively-maintained values.
  * Abort if they disagree.
  */
-void rfapiCheckRouteCount()
+void rfapiCheckRouteCount(void)
 {
 	struct bgp *bgp = bgp_get_default();
 	struct rfapi *h;

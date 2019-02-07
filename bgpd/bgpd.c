@@ -87,6 +87,7 @@
 #include "bgpd/bgp_pbr.h"
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_evpn_private.h"
+#include "bgpd/bgp_mac.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_INFO, "BGP EVPN instance information");
@@ -1000,7 +1001,26 @@ static inline bgp_peer_sort_t peer_calc_sort(struct peer *peer)
 
 		return BGP_PEER_EBGP;
 	} else {
-		if (peer->as_type != AS_SPECIFIED)
+		if (peer->as_type == AS_UNSPECIFIED) {
+			/* check if in peer-group with AS information */
+			if (peer->group
+			    && (peer->group->conf->as_type != AS_UNSPECIFIED)) {
+				if (peer->group->conf->as_type
+				    == AS_SPECIFIED) {
+					if (peer->local_as
+					    == peer->group->conf->as)
+						return BGP_PEER_IBGP;
+					else
+						return BGP_PEER_EBGP;
+				} else if (peer->group->conf->as_type
+					   == AS_INTERNAL)
+					return BGP_PEER_IBGP;
+				else
+					return BGP_PEER_EBGP;
+			}
+			/* no AS information anywhere, let caller know */
+			return BGP_PEER_UNSPECIFIED;
+		} else if (peer->as_type != AS_SPECIFIED)
 			return (peer->as_type == AS_INTERNAL ? BGP_PEER_IBGP
 							     : BGP_PEER_EBGP);
 
@@ -1710,20 +1730,32 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 
 		/* When this peer is a member of peer-group.  */
 		if (peer->group) {
-			if (peer->group->conf->as) {
+			/* peer-group already has AS number/internal/external */
+			if (peer->group->conf->as
+			    || peer->group->conf->as_type) {
 				/* Return peer group's AS number.  */
 				*as = peer->group->conf->as;
 				return BGP_ERR_PEER_GROUP_MEMBER;
 			}
-			if (peer_sort(peer->group->conf) == BGP_PEER_IBGP) {
-				if ((as_type != AS_INTERNAL)
-				    && (bgp->as != *as)) {
+
+			bgp_peer_sort_t peer_sort_type =
+						peer_sort(peer->group->conf);
+
+			/* Explicit AS numbers used, compare AS numbers */
+			if (as_type == AS_SPECIFIED) {
+				if (((peer_sort_type == BGP_PEER_IBGP)
+				    && (bgp->as != *as))
+				    || ((peer_sort_type == BGP_PEER_EBGP)
+				    && (bgp->as == *as))) {
 					*as = peer->as;
 					return BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;
 				}
 			} else {
-				if ((as_type != AS_EXTERNAL)
-				    && (bgp->as == *as)) {
+				/* internal/external used, compare as-types */
+				if (((peer_sort_type == BGP_PEER_IBGP)
+				    && (as_type != AS_INTERNAL))
+				    || ((peer_sort_type == BGP_PEER_EBGP)
+				    && (as_type != AS_EXTERNAL)))  {
 					*as = peer->as;
 					return BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT;
 				}
@@ -2687,6 +2719,7 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 		if (peer->as_type == AS_UNSPECIFIED) {
 			peer->as_type = group->conf->as_type;
 			peer->as = group->conf->as;
+			peer->sort = group->conf->sort;
 		}
 
 		if (!group->conf->as) {
@@ -3250,6 +3283,10 @@ int bgp_delete(struct bgp *bgp)
 
 	/* unmap from RT list */
 	bgp_evpn_vrf_delete(bgp);
+
+	/* unmap bgp vrf label */
+	vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP);
+	vpn_leak_zebra_vrf_label_withdraw(bgp, AFI_IP6);
 
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval) {
@@ -4557,15 +4594,18 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 				XFREE(MTYPE_ROUTE_MAP_NAME,
 				      peer->default_rmap[afi][safi].name);
 
+			route_map_counter_decrement(peer->default_rmap[afi][safi].map);
 			peer->default_rmap[afi][safi].name =
 				XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
 			peer->default_rmap[afi][safi].map = route_map;
+			route_map_counter_increment(route_map);
 		}
 	} else if (!rmap) {
 		if (peer->default_rmap[afi][safi].name)
 			XFREE(MTYPE_ROUTE_MAP_NAME,
 			      peer->default_rmap[afi][safi].name);
 
+		route_map_counter_decrement(peer->default_rmap[afi][safi].map);
 		peer->default_rmap[afi][safi].name = NULL;
 		peer->default_rmap[afi][safi].map = NULL;
 	}
@@ -4600,10 +4640,12 @@ int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 			if (member->default_rmap[afi][safi].name)
 				XFREE(MTYPE_ROUTE_MAP_NAME,
 				      member->default_rmap[afi][safi].name);
-
+			route_map_counter_decrement(
+					member->default_rmap[afi][safi].map);
 			member->default_rmap[afi][safi].name =
 				XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
 			member->default_rmap[afi][safi].map = route_map;
+			route_map_counter_increment(route_map);
 		}
 
 		/* Update peer route announcements. */
@@ -4640,6 +4682,7 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 		if (peer->default_rmap[afi][safi].name)
 			XFREE(MTYPE_ROUTE_MAP_NAME,
 			      peer->default_rmap[afi][safi].name);
+		route_map_counter_decrement(peer->default_rmap[afi][safi].map);
 		peer->default_rmap[afi][safi].name = NULL;
 		peer->default_rmap[afi][safi].map = NULL;
 	}
@@ -4673,6 +4716,7 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 		if (peer->default_rmap[afi][safi].name)
 			XFREE(MTYPE_ROUTE_MAP_NAME,
 			      peer->default_rmap[afi][safi].name);
+		route_map_counter_decrement(peer->default_rmap[afi][safi].map);
 		peer->default_rmap[afi][safi].name = NULL;
 		peer->default_rmap[afi][safi].map = NULL;
 
@@ -6081,8 +6125,10 @@ int peer_route_map_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 	filter = &peer->filter[afi][safi];
 	if (filter->map[direct].name)
 		XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
+	route_map_counter_decrement(filter->map[direct].map);
 	filter->map[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 	filter->map[direct].map = route_map;
+	route_map_counter_increment(route_map);
 
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
@@ -6110,8 +6156,10 @@ int peer_route_map_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 		filter = &member->filter[afi][safi];
 		if (filter->map[direct].name)
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
+		route_map_counter_decrement(filter->map[direct].map);
 		filter->map[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 		filter->map[direct].map = route_map;
+		route_map_counter_increment(route_map);
 
 		/* Process peer route updates. */
 		peer_on_policy_change(member, afi, safi,
@@ -6145,6 +6193,7 @@ int peer_route_map_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
 		filter = &peer->filter[afi][safi];
 		if (filter->map[direct].name)
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
+		route_map_counter_decrement(filter->map[direct].map);
 		filter->map[direct].name = NULL;
 		filter->map[direct].map = NULL;
 	}
@@ -6173,6 +6222,7 @@ int peer_route_map_unset(struct peer *peer, afi_t afi, safi_t safi, int direct)
 		filter = &member->filter[afi][safi];
 		if (filter->map[direct].name)
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
+		route_map_counter_decrement(filter->map[direct].map);
 		filter->map[direct].name = NULL;
 		filter->map[direct].map = NULL;
 
@@ -6196,8 +6246,10 @@ int peer_unsuppress_map_set(struct peer *peer, afi_t afi, safi_t safi,
 	filter = &peer->filter[afi][safi];
 	if (filter->usmap.name)
 		XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
+	route_map_counter_decrement(filter->usmap.map);
 	filter->usmap.name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 	filter->usmap.map = route_map;
+	route_map_counter_increment(route_map);
 
 	/* Check if handling a regular peer. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
@@ -6224,8 +6276,10 @@ int peer_unsuppress_map_set(struct peer *peer, afi_t afi, safi_t safi,
 		filter = &member->filter[afi][safi];
 		if (filter->usmap.name)
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
+		route_map_counter_decrement(filter->usmap.map);
 		filter->usmap.name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 		filter->usmap.map = route_map;
+		route_map_counter_increment(route_map);
 
 		/* Process peer route updates. */
 		peer_on_policy_change(member, afi, safi, 1);
@@ -6256,6 +6310,7 @@ int peer_unsuppress_map_unset(struct peer *peer, afi_t afi, safi_t safi)
 		filter = &peer->filter[afi][safi];
 		if (filter->usmap.name)
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
+		route_map_counter_decrement(filter->usmap.map);
 		filter->usmap.name = NULL;
 		filter->usmap.map = NULL;
 	}
@@ -6283,6 +6338,7 @@ int peer_unsuppress_map_unset(struct peer *peer, afi_t afi, safi_t safi)
 		filter = &member->filter[afi][safi];
 		if (filter->usmap.name)
 			XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
+		route_map_counter_decrement(filter->usmap.map);
 		filter->usmap.name = NULL;
 		filter->usmap.map = NULL;
 
@@ -7019,14 +7075,17 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 
 	/* capability extended-nexthop */
 	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_ENHE)) {
-		if (CHECK_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE))
-			vty_out(vty,
-				" no neighbor %s capability extended-nexthop\n",
-				addr);
-		else
-			vty_out(vty,
-				" neighbor %s capability extended-nexthop\n",
-				addr);
+		if (!peer->conf_if) {
+			if (CHECK_FLAG(peer->flags_invert,
+				       PEER_FLAG_CAPABILITY_ENHE))
+				vty_out(vty,
+					" no neighbor %s capability extended-nexthop\n",
+					addr);
+			else
+				vty_out(vty,
+					" neighbor %s capability extended-nexthop\n",
+					addr);
+		}
 	}
 
 	/* dont-capability-negotiation */
@@ -7775,6 +7834,7 @@ void bgp_master_init(struct thread_master *master)
 
 	bgp_process_queue_init();
 
+	bgp_mac_init();
 	/* init the rd id space.
 	   assign 0th index in the bitfield,
 	   so that we start with id 1
@@ -7837,7 +7897,7 @@ static const struct cmd_variable_handler bgp_viewvrf_var_handlers[] = {
 struct frr_pthread *bgp_pth_io;
 struct frr_pthread *bgp_pth_ka;
 
-static void bgp_pthreads_init()
+static void bgp_pthreads_init(void)
 {
 	assert(!bgp_pth_io);
 	assert(!bgp_pth_ka);
@@ -7856,7 +7916,7 @@ static void bgp_pthreads_init()
 	bgp_pth_ka = frr_pthread_new(&ka, "BGP Keepalives thread", "bgpd_ka");
 }
 
-void bgp_pthreads_run()
+void bgp_pthreads_run(void)
 {
 	frr_pthread_run(bgp_pth_io, NULL);
 	frr_pthread_run(bgp_pth_ka, NULL);
@@ -7866,7 +7926,7 @@ void bgp_pthreads_run()
 	frr_pthread_wait_running(bgp_pth_ka);
 }
 
-void bgp_pthreads_finish()
+void bgp_pthreads_finish(void)
 {
 	frr_pthread_stop_all();
 	frr_pthread_finish();
@@ -7964,4 +8024,5 @@ void bgp_terminate(void)
 	if (bm->t_rmap_update)
 		BGP_TIMER_OFF(bm->t_rmap_update);
 
+	bgp_mac_finish();
 }

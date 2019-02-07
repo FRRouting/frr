@@ -42,6 +42,7 @@
 #include "distribute.h"
 #include "libfrr.h"
 #include "routemap.h"
+#include "nexthop_group.h"
 
 #include "sharp_zebra.h"
 #include "sharp_vty.h"
@@ -150,6 +151,7 @@ int main(int argc, char **argv, char **envp)
 
 	master = frr_init();
 
+	nexthop_group_init(NULL, NULL, NULL, NULL);
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
 
 	access_list_init();

@@ -56,7 +56,7 @@
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
 #include "zebra/rib.h"
-#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/redistribute.h"
 #include "zebra/irdp.h"
 #include "zebra/zebra_errors.h"
@@ -113,7 +113,7 @@ int irdp_sock_init(void)
 	};
 
 	t_irdp_raw = NULL;
-	thread_add_read(zebrad.master, irdp_read_raw, NULL, sock, &t_irdp_raw);
+	thread_add_read(zrouter.master, irdp_read_raw, NULL, sock, &t_irdp_raw);
 
 	return sock;
 }
@@ -245,7 +245,7 @@ int irdp_send_thread(struct thread *t_advert)
 			   timer);
 
 	irdp->t_advertise = NULL;
-	thread_add_timer(zebrad.master, irdp_send_thread, ifp, timer,
+	thread_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
 			 &irdp->t_advertise);
 	return 0;
 }
@@ -306,7 +306,7 @@ void process_solicit(struct interface *ifp)
 	timer = (random() % MAX_RESPONSE_DELAY) + 1;
 
 	irdp->t_advertise = NULL;
-	thread_add_timer(zebrad.master, irdp_send_thread, ifp, timer,
+	thread_add_timer(zrouter.master, irdp_send_thread, ifp, timer,
 			 &irdp->t_advertise);
 }
 

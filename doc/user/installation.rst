@@ -79,9 +79,23 @@ options from the list below.
 
 .. program:: configure
 
+.. option:: --enable-tcmalloc
+
+   Enable the alternate malloc library.  In some cases this is faster and more efficient,
+   in some cases it is not.
+
+.. option:: --disable-doc
+
+   Do not build any documentation, including this one.
+
+.. option:: --enable-doc-html
+
+   From the documentation build html docs as well in addition to the normal output.
+
 .. option:: --disable-zebra
 
-   Do not build zebra daemon.
+   Do not build zebra daemon.  This generally only be useful in a scenario where
+   you are building bgp as a standalone server.
 
 .. option:: --disable-ripd
 
@@ -103,6 +117,52 @@ options from the list below.
 
    Do not build bgpd.
 
+.. option:: --disable-ldpd
+
+   Do not build ldpd.
+
+.. option:: --disable-nhrpd
+
+   Do not build nhrpd.
+
+.. option:: --disable-eigrpd
+
+   Do not build eigrpd.
+
+.. option:: --disable-babeld
+
+   Do not build babeld.
+
+.. option:: --disable-watchfrr
+
+   Do not build watchfrr.  Watchfrr is used to integrate daemons into startup/shutdown
+   software available on your machine.  This is needed for systemd integration, if you
+   disable watchfrr you cannot have any systemd integration.
+
+.. option:: --enable-systemd
+
+   Build watchfrr with systemd integration, this will allow FRR to communicate with
+   systemd to tell systemd if FRR has come up properly.
+
+.. option:: --disable-pimd
+
+   Turn off building of pimd.  On some BSD platforms pimd will not build properly due
+   to lack of kernel support.
+
+.. option:: --disable-pbrd
+
+   Turn off building of pbrd.  This daemon currently requires linux in order to function
+   properly.
+
+.. option:: --enable-sharpd
+
+   Turn on building of sharpd.  This daemon facilitates testing of FRR and can also
+   be used as a quick and easy route generator.
+
+.. option:: --disable-staticd
+
+   Do not build staticd.  This daemon is necessary if you want static routes.
+
 .. option:: --disable-bfdd
 
    Do not build bfdd.
@@ -111,6 +171,10 @@ options from the list below.
 
    Make *bgpd* which does not make bgp announcements at all.  This
    feature is good for using *bgpd* as a BGP announcement listener.
+
+.. option:: --disable-bgp-vnc
+
+   Turn off bgpd's ability to use VNC.
 
 .. option:: --enable-datacenter
 
@@ -213,6 +277,12 @@ options from the list below.
    hardcoded arrays that FRR builds towards, so we need to know how big to
    make these arrays at build time.
 
+.. option:: --enable-shell-access
+
+   Turn on the ability of FRR to access some shell options( telnet/ssh/bash/etc. )
+   from vtysh itself.  This option is considered extremely unsecure and should only
+   be considered for usage if you really really know what you are doing.
+
 .. option:: --enable-gcov
 
    Code coverage reports from gcov require adjustments to the C and LD flags.
@@ -264,6 +334,9 @@ options to the configuration script.
 
    Look for libyang plugins in `dir` [`prefix`/lib/frr/libyang_plugins].
    Note that the FRR libyang plugins will be installed here.
+
+   This option is meaningless with libyang 0.16.74 or newer and will be
+   removed once support for older libyang versions is dropped.
 
 When it's desired to run FRR without installing it in the system, it's possible
 to configure it as follows to look for YANG modules and libyang plugins in the
@@ -324,7 +397,7 @@ GNU/Linux, make sure that the current kernel configuration is what you want.
 FRR will run with any kernel configuration but some recommendations do exist.
 
 :makevar:`CONFIG_NETLINK`
-   Kernel/User Netlink socket. This is a enables an advanced interface between
+   Kernel/User Netlink socket. This enables an advanced interface between
    the Linux kernel and *zebra* (:ref:`kernel-interface`).
 
 :makevar:`CONFIG_RTNETLINK`
@@ -356,9 +429,9 @@ Additional kernel modules are also needed to support MPLS forwarding.
       net.ipv6.conf.all.forwarding=1
 
 :makevar:`MPLS forwarding`
-   Basic MPLS kernel support was introduced 4.1, additional capability
-   was introduced in 4.3 and 4.5. For some general information on Linux
-   MPLS support see
+   Basic MPLS support was introduced in the kernel in version 4.1 and
+   additional capability was introduced in 4.3 and 4.5.
+   For some general information on Linux MPLS support, see
    https://www.netdevconf.org/1.1/proceedings/slides/prabhu-mpls-tutorial.pdf.
    The following modules should be loaded to support MPLS forwarding,
    and are generally added to a configuration file such as
@@ -418,7 +491,7 @@ Additional kernel modules are also needed to support MPLS forwarding.
    running these kernel versions, if unable to establish any VRF BGP
    adjacencies, either downgrade to 4.13 or set
    'net.ipv4.tcp_l3mdev_accept=1'. The fix for this issue is planned to be
-   included in future kernel versions so upgrading your kernel may also
+   included in future kernel versions. So upgrading your kernel may also
    address this issue.
 
 
@@ -440,7 +513,7 @@ the options you chose:
        --enable-watchfrr \
        ...
 
-After configuring the software, you are ready to build and install it for your
+After configuring the software, you are ready to build and install it in your
 system.
 
 .. code-block:: shell

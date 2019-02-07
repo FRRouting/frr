@@ -73,6 +73,7 @@ static int zebra_ns_new(struct ns *ns)
 	zns = zebra_ns_alloc();
 	ns->info = zns;
 	zns->ns = ns;
+	zns->ns_id = ns->ns_id;
 
 	/* Do any needed per-NS data structure allocation. */
 	zns->if_table = route_table_init();
@@ -182,7 +183,7 @@ int zebra_ns_final_shutdown(struct ns *ns)
 	return 0;
 }
 
-int zebra_ns_init(void)
+int zebra_ns_init(const char *optional_default_name)
 {
 	ns_id_t ns_id;
 	ns_id_t ns_id_external;
@@ -205,6 +206,10 @@ int zebra_ns_init(void)
 
 	/* Default NS is activated */
 	zebra_ns_enable(ns_id_external, (void **)&dzns);
+
+	if (optional_default_name)
+		vrf_set_default_name(optional_default_name,
+				     true);
 
 	if (vrf_is_backend_netns()) {
 		ns_add_hook(NS_NEW_HOOK, zebra_ns_new);

@@ -47,7 +47,7 @@ static struct list *frr_pthread_list;
 
 /* ------------------------------------------------------------------------ */
 
-void frr_pthread_init()
+void frr_pthread_init(void)
 {
 	pthread_mutex_lock(&frr_pthread_list_mtx);
 	{
@@ -57,7 +57,7 @@ void frr_pthread_init()
 	pthread_mutex_unlock(&frr_pthread_list_mtx);
 }
 
-void frr_pthread_finish()
+void frr_pthread_finish(void)
 {
 	pthread_mutex_lock(&frr_pthread_list_mtx);
 	{
@@ -83,7 +83,9 @@ struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
 	name = (name ? name : "Anonymous thread");
 	fpt->name = XSTRDUP(MTYPE_FRR_PTHREAD, name);
 	if (os_name)
-		snprintf(fpt->os_name, OS_THREAD_NAMELEN, "%s", os_name);
+		strlcpy(fpt->os_name, os_name, OS_THREAD_NAMELEN);
+	else
+		strlcpy(fpt->os_name, name, OS_THREAD_NAMELEN);
 	/* initialize startup synchronization primitives */
 	fpt->running_cond_mtx = XCALLOC(
 		MTYPE_PTHREAD_PRIM, sizeof(pthread_mutex_t));
@@ -115,36 +117,19 @@ void frr_pthread_destroy(struct frr_pthread *fpt)
 	XFREE(MTYPE_FRR_PTHREAD, fpt);
 }
 
-int frr_pthread_set_name(struct frr_pthread *fpt, const char *name,
-			 const char *os_name)
+int frr_pthread_set_name(struct frr_pthread *fpt)
 {
 	int ret = 0;
 
-	if (name) {
-		pthread_mutex_lock(&fpt->mtx);
-		{
-			if (fpt->name)
-				XFREE(MTYPE_FRR_PTHREAD, fpt->name);
-			fpt->name = XSTRDUP(MTYPE_FRR_PTHREAD, name);
-		}
-		pthread_mutex_unlock(&fpt->mtx);
-		thread_master_set_name(fpt->master, name);
-	}
-
-	if (os_name) {
-		pthread_mutex_lock(&fpt->mtx);
-		snprintf(fpt->os_name, OS_THREAD_NAMELEN, "%s", os_name);
-		pthread_mutex_unlock(&fpt->mtx);
 #ifdef HAVE_PTHREAD_SETNAME_NP
 # ifdef GNU_LINUX
-		ret = pthread_setname_np(fpt->thread, fpt->os_name);
-# else /* NetBSD */
-		ret = pthread_setname_np(fpt->thread, fpt->os_name, NULL);
+	ret = pthread_setname_np(fpt->thread, fpt->os_name);
+# elif defined(__NetBSD__)
+	ret = pthread_setname_np(fpt->thread, fpt->os_name, NULL);
 # endif
 #elif defined(HAVE_PTHREAD_SET_NAME_NP)
-		pthread_set_name_np(fpt->thread, fpt->os_name);
+	pthread_set_name_np(fpt->thread, fpt->os_name);
 #endif
-	}
 
 	return ret;
 }
@@ -193,7 +178,7 @@ int frr_pthread_stop(struct frr_pthread *fpt, void **result)
 	return ret;
 }
 
-void frr_pthread_stop_all()
+void frr_pthread_stop_all(void)
 {
 	pthread_mutex_lock(&frr_pthread_list_mtx);
 	{
@@ -273,8 +258,7 @@ static void *fpt_run(void *arg)
 
 	fpt->master->handle_signals = false;
 
-	if (fpt->os_name[0])
-		frr_pthread_set_name(fpt, NULL, fpt->os_name);
+	frr_pthread_set_name(fpt);
 
 	frr_pthread_notify_running(fpt);
 

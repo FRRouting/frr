@@ -1471,7 +1471,7 @@ DEFUN (show_isis_topology,
 	return CMD_SUCCESS;
 }
 
-void isis_spf_cmds_init()
+void isis_spf_cmds_init(void)
 {
 	install_element(VIEW_NODE, &show_isis_topology_cmd);
 }

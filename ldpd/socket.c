@@ -268,9 +268,19 @@ sock_set_bindany(int fd, int enable)
 		return (-1);
 	}
 	return (0);
+#elif defined(IP_BINDANY)
+	frr_elevate_privs(&ldpd_privs) {
+		if (setsockopt(fd, IPPROTO_IP, IP_BINDANY, &enable, sizeof(int))
+		    < 0) {
+			log_warn("%s: error setting IP_BINDANY", __func__);
+			return (-1);
+		}
+	}
+	return (0);
 #else
-	log_warnx("%s: missing SO_BINDANY and IP_FREEBIND, unable to bind "
-	    "to a nonlocal IP address", __func__);
+	log_warnx(
+		"%s: missing SO_BINDANY, IP_FREEBIND and IP_BINDANY, unable to bind to a nonlocal IP address",
+		__func__);
 	return (-1);
 #endif /* HAVE_SO_BINDANY */
 }

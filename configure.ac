@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.60])
 
-AC_INIT([frr], [6.1-dev], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [7.1-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -346,7 +346,7 @@ AM_CONDITIONAL([STATIC_BIN], [test "x$enable_static_bin" = "xyes"])
 
 dnl $AR and $RANLIB are set by LT_INIT above
 AC_MSG_CHECKING([whether $AR supports D option])
-if $AR crD conftest.a; then
+if $AR crD conftest.a >/dev/null 2>/dev/null; then
   AC_MSG_RESULT([yes])
   dnl ARFLAGS is for automake, AR_FLAGS for libtool m-(
   ARFLAGS="crD"
@@ -360,7 +360,7 @@ AC_SUBST([ARFLAGS])
 AC_SUBST([AR_FLAGS])
 
 AC_MSG_CHECKING([whether $RANLIB supports D option])
-if $RANLIB -D conftest.a; then
+if $RANLIB -D conftest.a >/dev/null 2>/dev/null; then
   AC_MSG_RESULT([yes])
   RANLIB="$RANLIB -D"
 else
@@ -589,7 +589,7 @@ AC_SUBST([DFLT_NAME])
 AC_DEFINE_UNQUOTED([DFLT_NAME], ["$DFLT_NAME"], [Name of the configuration default set])
 
 if test "${enable_shell_access}" = "yes"; then
-   AC_DEFINE([HAVE_SHELL_ACCESS], [1], [Allow user to use ssh/telnet/bash])
+   AC_DEFINE([HAVE_SHELL_ACCESS], [1], [Allow user to use ssh/telnet/bash, be aware this is considered insecure])
 fi
 
 AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
@@ -821,15 +821,17 @@ fi
 AM_CONDITIONAL([GIT_VERSION], [test "x$with_pkg_git_version" = "xyes"])
 
 AC_CHECK_TOOL([OBJCOPY], [objcopy], [:])
-AC_CACHE_CHECK([for .interp value to use], [frr_cv_interp], [
-  frr_cv_interp=""
-  AC_LINK_IFELSE([AC_LANG_SOURCE([[int main() { return 0; }]])], [
-    if $OBJCOPY -j.interp -Obinary conftest conftest.interp; then
-      frr_cv_interp="`xargs -0 echo < conftest.interp`"
-    fi
-    test -f conftest.interp && rm conftest.interp
+if test "x${OBJCOPY}" != "x:"; then
+  AC_CACHE_CHECK([for .interp value to use], [frr_cv_interp], [
+    frr_cv_interp=""
+    AC_LINK_IFELSE([AC_LANG_SOURCE([[int main() { return 0; }]])], [
+      if $OBJCOPY -j.interp -Obinary conftest conftest.interp; then
+        frr_cv_interp="`xargs -0 echo < conftest.interp`"
+      fi
+      test -f conftest.interp && rm conftest.interp
+    ])
   ])
-])
+fi
 if test -n "$frr_cv_interp"; then
   AC_DEFINE_UNQUOTED([INTERP], ["$frr_cv_interp"], [.interp value])
 fi
@@ -1602,22 +1604,43 @@ AC_SUBST([SNMP_CFLAGS])
 dnl ---------------
 dnl libyang
 dnl ---------------
-PKG_CHECK_MODULES([libyang], [libyang >= 0.16.7], , [
+PKG_CHECK_MODULES([LIBYANG], [libyang >= 0.16.7], , [
   AC_MSG_ERROR([libyang (>= 0.16.7) was not found on your system.])
 ])
+ac_cflags_save="$CFLAGS"
+CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
 AC_CHECK_MEMBER([struct lyd_node.priv], [], [
   AC_MSG_ERROR([m4_normalize([
     libyang needs to be compiled with ENABLE_LYD_PRIV=ON.
     See http://docs.frrouting.org/projects/dev-guide/en/latest/building-libyang.html for details.])
   ])
 ], [[#include <libyang/libyang.h>]])
+CFLAGS="$ac_cflags_save"
+
+ac_libs_save="$LIBS"
+LIBS="$LIBS $LIBYANG_LIBS"
+AC_CHECK_FUNC([ly_register_types], [
+  libyang_ext_builtin=true
+  AC_DEFINE([LIBYANG_EXT_BUILTIN], [1], [have ly_register_types()])
+], [
+  libyang_ext_builtin=false
+  AC_MSG_WARN([===== old libyang (before 0.16.74) detected =====])
+  AC_MSG_WARN([The available version of libyang does not seem to support])
+  AC_MSG_WARN([built-in YANG extension modules.  This will cause "make check"])
+  AC_MSG_WARN([to fail and may create installation and version mismatch issues.])
+  AC_MSG_WARN([Support for the old mechanism will be removed at some point.])
+  AC_MSG_WARN([Please update libyang to version 0.16.74 or newer.])
+  AC_MSG_WARN([===== old libyang (before 0.16.74) detected =====])
+])
+AM_CONDITIONAL([LIBYANG_EXT_BUILTIN], [$libyang_ext_builtin])
+LIBS="$ac_libs_save"
 
 dnl ---------------
 dnl configuration rollbacks
 dnl ---------------
 SQLITE3=false
 if test "$enable_config_rollbacks" = "yes"; then
-  PKG_CHECK_MODULES([sqlite3], [sqlite3], [
+  PKG_CHECK_MODULES([SQLITE3], [sqlite3], [
     AC_DEFINE([HAVE_CONFIG_ROLLBACKS], [1], [Enable configuration rollbacks])
     AC_DEFINE([HAVE_SQLITE3], [1], [Enable sqlite3 database])
     SQLITE3=true
@@ -1645,7 +1668,7 @@ dnl ---------------
 dnl sysrepo
 dnl ---------------
 if test "$enable_sysrepo" = "yes"; then
-  PKG_CHECK_MODULES([sysrepo], [libsysrepo],
+  PKG_CHECK_MODULES([SYSREPO], [libsysrepo],
       [AC_DEFINE([HAVE_SYSREPO], [1], [Enable sysrepo integration])
       SYSREPO=true],
       [SYSREPO=false

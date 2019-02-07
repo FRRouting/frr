@@ -563,7 +563,7 @@ int rip_if_down(struct interface *ifp)
 }
 
 /* Needed for stop RIP process. */
-void rip_if_down_all()
+void rip_if_down_all(void)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
@@ -964,7 +964,7 @@ void rip_enable_apply(struct interface *ifp)
 }
 
 /* Apply network configuration to all interface. */
-void rip_enable_apply_all()
+void rip_enable_apply_all(void)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
@@ -1029,7 +1029,7 @@ int rip_neighbor_delete(struct prefix_ipv4 *p)
 }
 
 /* Clear all network and neighbor configuration. */
-void rip_clean_network()
+void rip_clean_network(void)
 {
 	unsigned int i;
 	char *str;

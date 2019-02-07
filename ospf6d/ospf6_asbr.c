@@ -856,16 +856,22 @@ void ospf6_asbr_lsentry_remove(struct ospf6_route *asbr_entry)
 
 static void ospf6_asbr_routemap_set(int type, const char *mapname)
 {
-	if (ospf6->rmap[type].name)
+	if (ospf6->rmap[type].name) {
+		route_map_counter_decrement(ospf6->rmap[type].map);
 		free(ospf6->rmap[type].name);
+	}
 	ospf6->rmap[type].name = strdup(mapname);
 	ospf6->rmap[type].map = route_map_lookup_by_name(mapname);
+	route_map_counter_increment(ospf6->rmap[type].map);
 }
 
 static void ospf6_asbr_routemap_unset(int type)
 {
 	if (ospf6->rmap[type].name)
 		free(ospf6->rmap[type].name);
+
+	route_map_counter_decrement(ospf6->rmap[type].map);
+
 	ospf6->rmap[type].name = NULL;
 	ospf6->rmap[type].map = NULL;
 }
@@ -939,6 +945,10 @@ static void ospf6_asbr_routemap_update(const char *mapname)
 						"%s: route-map %s update, reset redist %s",
 						__PRETTY_FUNCTION__, mapname,
 						ZROUTE_NAME(type));
+
+				route_map_counter_increment(
+					ospf6->rmap[type].map);
+
 				ospf6_asbr_distribute_list_update(type);
 			}
 		} else
@@ -1897,7 +1907,7 @@ int config_write_ospf6_debug_asbr(struct vty *vty)
 	return 0;
 }
 
-void install_element_ospf6_debug_asbr()
+void install_element_ospf6_debug_asbr(void)
 {
 	install_element(ENABLE_NODE, &debug_ospf6_asbr_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf6_asbr_cmd);

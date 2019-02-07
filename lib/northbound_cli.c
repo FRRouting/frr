@@ -79,8 +79,7 @@ void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
 int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 {
 	struct nb_config *candidate_transitory;
-	char xpath_base[XPATH_MAXLEN];
-	va_list ap;
+	char xpath_base[XPATH_MAXLEN] = {};
 	bool error = false;
 	int ret;
 
@@ -94,9 +93,13 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 	candidate_transitory = nb_config_dup(vty->candidate_config);
 
 	/* Parse the base XPath format string. */
-	va_start(ap, xpath_base_fmt);
-	vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
-	va_end(ap);
+	if (xpath_base_fmt) {
+		va_list ap;
+
+		va_start(ap, xpath_base_fmt);
+		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
+		va_end(ap);
+	}
 
 	/* Edit candidate configuration. */
 	for (size_t i = 0; i < vty->num_cfg_changes; i++) {
@@ -258,7 +261,7 @@ static int nb_cli_confirmed_commit_timeout(struct thread *thread)
 static int nb_cli_commit(struct vty *vty, bool force,
 			 unsigned int confirmed_timeout, char *comment)
 {
-	uint32_t transaction_id;
+	uint32_t transaction_id = 0;
 	int ret;
 
 	/* Check if there's a pending confirmed commit. */

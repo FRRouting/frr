@@ -122,7 +122,7 @@ static struct vtysh_user *user_lookup(const char *name)
 	return NULL;
 }
 
-void user_config_write()
+void user_config_write(void)
 {
 	struct listnode *node, *nnode;
 	struct vtysh_user *user;

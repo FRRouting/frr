@@ -52,6 +52,9 @@ enum { ripng_all_route,
        ripng_changed_route,
 };
 
+static void ripng_distribute_update(struct distribute_ctx *ctx,
+				    struct distribute *dist);
+
 /* Prototypes. */
 void ripng_output_process(struct interface *, struct sockaddr_in6 *, int);
 
@@ -73,7 +76,7 @@ int ripng_route_rte(struct ripng_info *rinfo)
 }
 
 /* Allocate new ripng information. */
-struct ripng_info *ripng_info_new()
+struct ripng_info *ripng_info_new(void)
 {
 	struct ripng_info *new;
 
@@ -619,7 +622,7 @@ static int ripng_filter(int ripng_distribute, struct prefix_ipv6 *p,
 	}
 
 	/* All interface filter check. */
-	dist = distribute_lookup(NULL);
+	dist = distribute_lookup(ripng->distribute_ctx, NULL);
 	if (dist) {
 		if (dist->list[distribute]) {
 			alist = access_list_lookup(AFI_IP6,
@@ -1806,6 +1809,13 @@ int ripng_create(int socket)
 	/* Initialize RIPng routig table. */
 	ripng->table = agg_table_init();
 
+	/* Distribute list install. */
+	ripng->distribute_ctx = distribute_list_ctx_create(
+					   vrf_lookup_by_id(VRF_DEFAULT));
+	distribute_list_add_hook(ripng->distribute_ctx,
+				 ripng_distribute_update);
+	distribute_list_delete_hook(ripng->distribute_ctx,
+				    ripng_distribute_update);
 	/* Make socket. */
 	ripng->sock = socket;
 
@@ -2071,7 +2081,7 @@ DEFUN (show_ipv6_ripng_status,
 		ripng->garbage_time);
 
 	/* Filtering status show. */
-	config_show_distribute(vty);
+	config_show_distribute(vty, ripng->distribute_ctx);
 
 	/* Default metric information. */
 	vty_out(vty, "  Default redistribution metric is %d\n",
@@ -2290,7 +2300,8 @@ static int ripng_config_write(struct vty *vty)
 	if (dnode) {
 		nb_cli_show_dnode_cmds(vty, dnode, false);
 
-		config_write_distribute(vty);
+		config_write_distribute(vty,
+					ripng->distribute_ctx);
 
 		config_write_if_rmap(vty);
 
@@ -2305,7 +2316,8 @@ static struct cmd_node cmd_ripng_node = {
 	RIPNG_NODE, "%s(config-router)# ", 1,
 };
 
-static void ripng_distribute_update(struct distribute *dist)
+static void ripng_distribute_update(struct distribute_ctx *ctx,
+				    struct distribute *dist)
 {
 	struct interface *ifp;
 	struct ripng_interface *ri;
@@ -2366,9 +2378,11 @@ void ripng_distribute_update_interface(struct interface *ifp)
 {
 	struct distribute *dist;
 
-	dist = distribute_lookup(ifp->name);
+	if (!ripng)
+		return;
+	dist = distribute_lookup(ripng->distribute_ctx, ifp->name);
 	if (dist)
-		ripng_distribute_update(dist);
+		ripng_distribute_update(ripng->distribute_ctx, dist);
 }
 
 /* Update all interface's distribute list. */
@@ -2387,7 +2401,7 @@ static void ripng_distribute_update_all_wrapper(struct access_list *notused)
 }
 
 /* delete all the added ripng routes. */
-void ripng_clean()
+void ripng_clean(void)
 {
 	int i;
 	struct agg_node *rp;
@@ -2450,6 +2464,7 @@ void ripng_clean()
 		stream_free(ripng->ibuf);
 		stream_free(ripng->obuf);
 
+		distribute_list_delete(&ripng->distribute_ctx);
 		XFREE(MTYPE_RIPNG, ripng);
 		ripng = NULL;
 	} /* if (ripng) */
@@ -2507,10 +2522,13 @@ static void ripng_routemap_update_redistribute(void)
 
 	if (ripng) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (ripng->route_map[i].name)
+			if (ripng->route_map[i].name) {
 				ripng->route_map[i].map =
 					route_map_lookup_by_name(
 						ripng->route_map[i].name);
+				route_map_counter_increment(
+					ripng->route_map[i].map);
+			}
 		}
 	}
 }
@@ -2527,7 +2545,7 @@ static void ripng_routemap_update(const char *unused)
 }
 
 /* Initialize ripng structure and set commands. */
-void ripng_init()
+void ripng_init(void)
 {
 	/* Install RIPNG_NODE. */
 	install_node(&cmd_ripng_node, ripng_config_write);
@@ -2563,8 +2581,6 @@ void ripng_init()
 
 	/* Distribute list install. */
 	distribute_list_init(RIPNG_NODE);
-	distribute_list_add_hook(ripng_distribute_update);
-	distribute_list_delete_hook(ripng_distribute_update);
 
 	/* Route-map for interface. */
 	ripng_route_map_init();

@@ -368,6 +368,8 @@ int bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 	if (!attr)
 		return 0;
 
+	buf[0] = '\0';
+
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)))
 		snprintf(buf, size, "nexthop %s", inet_ntoa(attr->nexthop));
 

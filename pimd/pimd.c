@@ -47,17 +47,9 @@ const char *const PIM_ALL_ROUTERS = MCAST_ALL_ROUTERS;
 const char *const PIM_ALL_PIM_ROUTERS = MCAST_ALL_PIM_ROUTERS;
 const char *const PIM_ALL_IGMP_ROUTERS = MCAST_ALL_IGMP_ROUTERS;
 
-struct thread_master *master = NULL;
-uint32_t qpim_debugs = 0;
-int qpim_t_periodic =
-	PIM_DEFAULT_T_PERIODIC; /* Period between Join/Prune Messages */
-struct pim_assert_metric qpim_infinite_assert_metric;
-long qpim_rpf_cache_refresh_delay_msec = 50;
-int qpim_packet_process = PIM_DEFAULT_PACKET_PROCESS;
-struct pim_instance *pimg = NULL;
+DEFINE_MTYPE_STATIC(PIMD, ROUTER, "PIM Router information");
 
-int32_t qpim_register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
-int32_t qpim_register_probe_time = PIM_REGISTER_PROBE_TIME_DEFAULT;
+struct pim_router *router = NULL;
 
 void pim_prefix_list_update(struct prefix_list *plist)
 {
@@ -75,14 +67,48 @@ void pim_prefix_list_update(struct prefix_list *plist)
 	}
 }
 
-static void pim_free()
+static void pim_free(void)
 {
 	pim_route_map_terminate();
 
 	zclient_lookup_free();
 }
 
-void pim_init()
+void pim_router_init(void)
+{
+	router = XCALLOC(MTYPE_ROUTER, sizeof(*router));
+
+	router->debugs = 0;
+	router->master = frr_init();
+	router->t_periodic = PIM_DEFAULT_T_PERIODIC;
+
+	/*
+	  RFC 4601: 4.6.3.  Assert Metrics
+
+	  assert_metric
+	  infinite_assert_metric() {
+	  return {1,infinity,infinity,0}
+	  }
+	*/
+	router->infinite_assert_metric.rpt_bit_flag = 1;
+	router->infinite_assert_metric.metric_preference =
+		PIM_ASSERT_METRIC_PREFERENCE_MAX;
+	router->infinite_assert_metric.route_metric =
+		PIM_ASSERT_ROUTE_METRIC_MAX;
+	router->infinite_assert_metric.ip_address.s_addr = INADDR_ANY;
+	router->rpf_cache_refresh_delay_msec = 50;
+	router->register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
+	router->packet_process = PIM_DEFAULT_PACKET_PROCESS;
+	router->register_probe_time = PIM_REGISTER_PROBE_TIME_DEFAULT;
+	router->vrf_id = VRF_DEFAULT;
+}
+
+void pim_router_terminate(void)
+{
+	XFREE(MTYPE_ROUTER, router);
+}
+
+void pim_init(void)
 {
 	if (!inet_aton(PIM_ALL_PIM_ROUTERS, &qpim_all_pim_routers_addr)) {
 		flog_err(
@@ -94,24 +120,10 @@ void pim_init()
 		return;
 	}
 
-	/*
-	  RFC 4601: 4.6.3.  Assert Metrics
-
-	  assert_metric
-	  infinite_assert_metric() {
-	  return {1,infinity,infinity,0}
-	  }
-	*/
-	qpim_infinite_assert_metric.rpt_bit_flag = 1;
-	qpim_infinite_assert_metric.metric_preference =
-		PIM_ASSERT_METRIC_PREFERENCE_MAX;
-	qpim_infinite_assert_metric.route_metric = PIM_ASSERT_ROUTE_METRIC_MAX;
-	qpim_infinite_assert_metric.ip_address.s_addr = INADDR_ANY;
-
 	pim_cmd_init();
 }
 
-void pim_terminate()
+void pim_terminate(void)
 {
 	struct zclient *zclient;
 
@@ -130,5 +142,6 @@ void pim_terminate()
 		zclient_free(zclient);
 	}
 
+	pim_router_terminate();
 	frr_fini();
 }

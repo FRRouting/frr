@@ -78,7 +78,7 @@ static const struct message attr_str[] = {
 	{BGP_ATTR_AS_PATHLIMIT, "AS_PATHLIMIT"},
 	{BGP_ATTR_PMSI_TUNNEL, "PMSI_TUNNEL_ATTRIBUTE"},
 	{BGP_ATTR_ENCAP, "ENCAP"},
-#if ENABLE_BGP_VNC
+#if ENABLE_BGP_VNC_ATTR
 	{BGP_ATTR_VNC, "VNC"},
 #endif
 	{BGP_ATTR_LARGE_COMMUNITIES, "LARGE_COMMUNITY"},
@@ -392,7 +392,7 @@ static bool overlay_index_same(const struct attr *a1, const struct attr *a2)
 	if (!a1 && !a2)
 		return true;
 	return !memcmp(&(a1->evpn_overlay), &(a2->evpn_overlay),
-		       sizeof(struct overlay_index));
+		       sizeof(struct bgp_route_evpn));
 }
 
 /* Unknown transit attribute. */
@@ -2593,7 +2593,7 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 		case BGP_ATTR_EXT_COMMUNITIES:
 			ret = bgp_attr_ext_communities(&attr_args);
 			break;
-#if ENABLE_BGP_VNC
+#if ENABLE_BGP_VNC_ATTR
 		case BGP_ATTR_VNC:
 #endif
 		case BGP_ATTR_ENCAP:
@@ -2946,7 +2946,7 @@ static void bgp_packet_mpattr_tea(struct bgp *bgp, struct peer *peer,
 		attrhdrlen = 1 + 1;   /* subTLV T + L */
 		break;
 
-#if ENABLE_BGP_VNC
+#if ENABLE_BGP_VNC_ATTR
 	case BGP_ATTR_VNC:
 		attrname = "VNC";
 		subtlvs = attr->vnc_subtlvs;
@@ -3433,7 +3433,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		/* Tunnel Encap attribute */
 		bgp_packet_mpattr_tea(bgp, peer, s, attr, BGP_ATTR_ENCAP);
 
-#if ENABLE_BGP_VNC
+#if ENABLE_BGP_VNC_ATTR
 		/* VNC attribute */
 		bgp_packet_mpattr_tea(bgp, peer, s, attr, BGP_ATTR_VNC);
 #endif

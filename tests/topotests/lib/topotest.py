@@ -581,7 +581,10 @@ def addRouter(topo, name):
                          '/var/run/frr',
                          '/var/run/quagga',
                          '/var/log']
-    return topo.addNode(name, cls=Router, privateDirs=MyPrivateDirs)
+    if sys.platform.startswith("linux"):
+        return topo.addNode(name, cls=LinuxRouter, privateDirs=MyPrivateDirs)
+    elif sys.platform.startswith("freebsd"):
+        return topo.addNode(name, cls=FreeBSDRouter, privateDirs=MyPrivateDirs)
 
 def set_sysctl(node, sysctl, value):
     "Set a sysctl value and return None on success or an error string"
@@ -603,21 +606,6 @@ def assert_sysctl(node, sysctl, value):
     "Set and assert that the sysctl is set with the specified value."
     assert set_sysctl(node, sysctl, value) is None
 
-class LinuxRouter(Node):
-    "A Node with IPv4/IPv6 forwarding enabled."
-
-    def config(self, **params):
-        super(LinuxRouter, self).config(**params)
-        # Enable forwarding on the router
-        assert_sysctl(self, 'net.ipv4.ip_forward', 1)
-        assert_sysctl(self, 'net.ipv6.conf.all.forwarding', 1)
-    def terminate(self):
-        """
-        Terminate generic LinuxRouter Mininet instance
-        """
-        set_sysctl(self, 'net.ipv4.ip_forward', 0)
-        set_sysctl(self, 'net.ipv6.conf.all.forwarding', 0)
-        super(LinuxRouter, self).terminate()
 
 class Router(Node):
     "A Node with IPv4/IPv6 forwarding enabled and Quagga as Routing Engine"
@@ -678,17 +666,6 @@ class Router(Node):
             if params.get('routertype') is not None:
                 self.routertype = self.params.get('routertype')
 
-        # Enable forwarding on the router
-        assert_sysctl(self, 'net.ipv4.ip_forward', 1)
-        assert_sysctl(self, 'net.ipv6.conf.all.forwarding', 1)
-        # Enable coredumps
-        assert_sysctl(self, 'kernel.core_uses_pid', 1)
-        assert_sysctl(self, 'fs.suid_dumpable', 1)
-        #this applies to the kernel not the namespace...
-        #original on ubuntu 17.x, but apport won't save as in namespace
-        # |/usr/share/apport/apport %p %s %c %d %P
-        corefile = '%e_core-sig_%s-pid_%p.dmp'
-        assert_sysctl(self, 'kernel.core_pattern', corefile)
         self.cmd('ulimit -c unlimited')
         # Set ownership of config files
         self.cmd('chown {0}:{0}vty /etc/{0}'.format(self.routertype))
@@ -1083,6 +1060,40 @@ class Router(Node):
                     leakfile.write("\n")
         if leakfound:
             leakfile.close()
+
+class LinuxRouter(Router):
+    "A Linux Router Node with IPv4/IPv6 forwarding enabled."
+
+    def __init__(self, name, **params):
+        Router.__init__(self, name, **params)
+
+    def config(self, **params):
+        Router.config(self, **params)
+        # Enable forwarding on the router
+        assert_sysctl(self, 'net.ipv4.ip_forward', 1)
+        assert_sysctl(self, 'net.ipv6.conf.all.forwarding', 1)
+        # Enable coredumps
+        assert_sysctl(self, 'kernel.core_uses_pid', 1)
+        assert_sysctl(self, 'fs.suid_dumpable', 1)
+        #this applies to the kernel not the namespace...
+        #original on ubuntu 17.x, but apport won't save as in namespace
+        # |/usr/share/apport/apport %p %s %c %d %P
+        corefile = '%e_core-sig_%s-pid_%p.dmp'
+        assert_sysctl(self, 'kernel.core_pattern', corefile)
+
+    def terminate(self):
+        """
+        Terminate generic LinuxRouter Mininet instance
+        """
+        set_sysctl(self, 'net.ipv4.ip_forward', 0)
+        set_sysctl(self, 'net.ipv6.conf.all.forwarding', 0)
+        Router.terminate(self)
+
+class FreeBSDRouter(Router):
+    "A FreeBSD Router Node with IPv4/IPv6 forwarding enabled."
+
+    def __init__(eslf, name, **params):
+        Router.__init__(Self, name, **params)
 
 
 class LegacySwitch(OVSSwitch):

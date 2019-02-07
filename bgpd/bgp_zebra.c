@@ -36,6 +36,7 @@
 #include "filter.h"
 #include "mpls.h"
 #include "vxlan.h"
+#include "pbr.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
@@ -59,6 +60,7 @@
 #include "bgpd/bgp_labelpool.h"
 #include "bgpd/bgp_pbr.h"
 #include "bgpd/bgp_evpn_private.h"
+#include "bgpd/bgp_mac.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -221,6 +223,8 @@ static int bgp_interface_add(int command, struct zclient *zclient,
 	if (!bgp)
 		return 0;
 
+	bgp_mac_add_mac_entry(ifp);
+
 	bgp_update_interface_nbrs(bgp, ifp, ifp);
 	return 0;
 }
@@ -245,6 +249,8 @@ static int bgp_interface_delete(int command, struct zclient *zclient,
 	if (bgp)
 		bgp_update_interface_nbrs(bgp, ifp, NULL);
 
+	bgp_mac_del_mac_entry(ifp);
+
 	if_set_index(ifp, IFINDEX_INTERNAL);
 	return 0;
 }
@@ -266,6 +272,8 @@ static int bgp_interface_up(int command, struct zclient *zclient,
 
 	if (!ifp)
 		return 0;
+
+	bgp_mac_add_mac_entry(ifp);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx Intf up VRF %u IF %s", vrf_id, ifp->name);
@@ -299,6 +307,8 @@ static int bgp_interface_down(int command, struct zclient *zclient,
 	ifp = zebra_interface_state_read(s, vrf_id);
 	if (!ifp)
 		return 0;
+
+	bgp_mac_del_mac_entry(ifp);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx Intf down VRF %u IF %s", vrf_id, ifp->name);
@@ -1673,8 +1683,13 @@ int bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name,
 
 	if (red->rmap.name)
 		XFREE(MTYPE_ROUTE_MAP_NAME, red->rmap.name);
+	/* Decrement the count for existing routemap and
+	 * increment the count for new route map.
+	 */
+	route_map_counter_decrement(red->rmap.map);
 	red->rmap.name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, name);
 	red->rmap.map = route_map;
+	route_map_counter_increment(red->rmap.map);
 
 	return 1;
 }
@@ -1782,6 +1797,7 @@ int bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
 	/* Unset route-map. */
 	if (red->rmap.name)
 		XFREE(MTYPE_ROUTE_MAP_NAME, red->rmap.name);
+	route_map_counter_decrement(red->rmap.map);
 	red->rmap.name = NULL;
 	red->rmap.map = NULL;
 
@@ -2042,6 +2058,7 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 	uint32_t seqno, priority, unique;
 	enum zapi_rule_notify_owner note;
 	struct bgp_pbr_action *bgp_pbra;
+	struct bgp_pbr_rule *bgp_pbr = NULL;
 	ifindex_t ifi;
 
 	if (!zapi_rule_notify_decode(zclient->ibuf, &seqno, &priority, &unique,
@@ -2050,10 +2067,14 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 
 	bgp_pbra = bgp_pbr_action_rule_lookup(vrf_id, unique);
 	if (!bgp_pbra) {
-		if (BGP_DEBUG(zebra, ZEBRA))
-			zlog_debug("%s: Fail to look BGP rule (%u)",
-				   __PRETTY_FUNCTION__, unique);
-		return 0;
+		/* look in bgp pbr rule */
+		bgp_pbr = bgp_pbr_rule_lookup(vrf_id, unique);
+		if (!bgp_pbr && note != ZAPI_RULE_REMOVED) {
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_debug("%s: Fail to look BGP rule (%u)",
+					   __PRETTY_FUNCTION__, unique);
+			return 0;
+		}
 	}
 
 	switch (note) {
@@ -2061,12 +2082,30 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Received RULE_FAIL_INSTALL",
 				   __PRETTY_FUNCTION__);
-		bgp_pbra->installed = false;
-		bgp_pbra->install_in_progress = false;
+		if (bgp_pbra) {
+			bgp_pbra->installed = false;
+			bgp_pbra->install_in_progress = false;
+		} else {
+			bgp_pbr->installed = false;
+			bgp_pbr->install_in_progress = false;
+		}
 		break;
 	case ZAPI_RULE_INSTALLED:
-		bgp_pbra->installed = true;
-		bgp_pbra->install_in_progress = false;
+		if (bgp_pbra) {
+			bgp_pbra->installed = true;
+			bgp_pbra->install_in_progress = false;
+		} else {
+			struct bgp_path_info *path;
+			struct bgp_path_info_extra *extra;
+
+			bgp_pbr->installed = true;
+			bgp_pbr->install_in_progress = false;
+			bgp_pbr->action->refcnt++;
+			/* link bgp_info to bgp_pbr */
+			path = (struct bgp_path_info *)bgp_pbr->path;
+			extra = bgp_path_info_extra_get(path);
+			listnode_add(extra->bgp_fs_iprule, bgp_pbr);
+		}
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Received RULE_INSTALLED",
 				   __PRETTY_FUNCTION__);
@@ -2173,8 +2212,6 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 		/* link bgp_path_info to bpme */
 		path = (struct bgp_path_info *)bgp_pbime->path;
 		extra = bgp_path_info_extra_get(path);
-		if (extra->bgp_fs_pbr == NULL)
-			extra->bgp_fs_pbr = list_new();
 		listnode_add(extra->bgp_fs_pbr, bgp_pbime);
 		}
 		break;
@@ -2233,31 +2270,60 @@ static int iptable_notify_owner(int command, struct zclient *zclient,
 	return 0;
 }
 
+/* this function is used to forge ip rule,
+ * - either for iptable/ipset using fwmark id
+ * - or for sample ip rule command
+ */
 static void bgp_encode_pbr_rule_action(struct stream *s,
-				  struct bgp_pbr_action *pbra)
+				       struct bgp_pbr_action *pbra,
+				       struct bgp_pbr_rule *pbr)
 {
-	struct prefix any;
+	struct prefix pfx;
 
 	stream_putl(s, 0); /* seqno unused */
-	stream_putl(s, 0); /* ruleno unused */
-
-	stream_putl(s, pbra->unique);
-
-	memset(&any, 0, sizeof(any));
-	any.family = AF_INET;
-	stream_putc(s, any.family);
-	stream_putc(s, any.prefixlen);
-	stream_put(s, &any.u.prefix, prefix_blen(&any));
+	if (pbr)
+		stream_putl(s, pbr->priority);
+	else
+		stream_putl(s, 0);
+	/* ruleno unused - priority change
+	 * ruleno permits distinguishing various FS PBR entries
+	 * - FS PBR entries based on ipset/iptables
+	 * - FS PBR entries based on iprule
+	 * the latter may contain default routing information injected by FS
+	 */
+	if (pbr)
+		stream_putl(s, pbr->unique);
+	else
+		stream_putl(s, pbra->unique);
+	if (pbr && pbr->flags & MATCH_IP_SRC_SET)
+		memcpy(&pfx, &(pbr->src), sizeof(struct prefix));
+	else {
+		memset(&pfx, 0, sizeof(pfx));
+		pfx.family = AF_INET;
+	}
+	stream_putc(s, pfx.family);
+	stream_putc(s, pfx.prefixlen);
+	stream_put(s, &pfx.u.prefix, prefix_blen(&pfx));
 
 	stream_putw(s, 0);  /* src port */
 
-	stream_putc(s, any.family);
-	stream_putc(s, any.prefixlen);
-	stream_put(s, &any.u.prefix, prefix_blen(&any));
+	if (pbr && pbr->flags & MATCH_IP_DST_SET)
+		memcpy(&pfx, &(pbr->dst), sizeof(struct prefix));
+	else {
+		memset(&pfx, 0, sizeof(pfx));
+		pfx.family = AF_INET;
+	}
+	stream_putc(s, pfx.family);
+	stream_putc(s, pfx.prefixlen);
+	stream_put(s, &pfx.u.prefix, prefix_blen(&pfx));
 
 	stream_putw(s, 0);  /* dst port */
 
-	stream_putl(s, pbra->fwmark);  /* fwmark */
+	/* if pbr present, fwmark is not used */
+	if (pbr)
+		stream_putl(s, 0);
+	else
+		stream_putl(s, pbra->fwmark);  /* fwmark */
 
 	stream_putl(s, pbra->table_id);
 
@@ -2471,6 +2537,7 @@ static int bgp_zebra_process_local_macip(int command, struct zclient *zclient,
 	char buf1[INET6_ADDRSTRLEN];
 	uint8_t flags = 0;
 	uint32_t seqnum = 0;
+	int state = 0;
 
 	memset(&ip, 0, sizeof(ip));
 	s = zclient->ibuf;
@@ -2494,6 +2561,8 @@ static int bgp_zebra_process_local_macip(int command, struct zclient *zclient,
 	if (command == ZEBRA_MACIP_ADD) {
 		flags = stream_getc(s);
 		seqnum = stream_getl(s);
+	} else {
+		state = stream_getl(s);
 	}
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
@@ -2501,16 +2570,17 @@ static int bgp_zebra_process_local_macip(int command, struct zclient *zclient,
 		return 0;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("%u:Recv MACIP %s flags 0x%x MAC %s IP %s VNI %u seq %u",
+		zlog_debug("%u:Recv MACIP %s flags 0x%x MAC %s IP %s VNI %u seq %u state %d",
 			   vrf_id, (command == ZEBRA_MACIP_ADD) ? "Add" : "Del",
 			   flags, prefix_mac2str(&mac, buf, sizeof(buf)),
-			   ipaddr2str(&ip, buf1, sizeof(buf1)), vni, seqnum);
+			   ipaddr2str(&ip, buf1, sizeof(buf1)), vni, seqnum,
+			   state);
 
 	if (command == ZEBRA_MACIP_ADD)
 		return bgp_evpn_local_macip_add(bgp, vni, &mac, &ip,
 						flags, seqnum);
 	else
-		return bgp_evpn_local_macip_del(bgp, vni, &mac, &ip);
+		return bgp_evpn_local_macip_del(bgp, vni, &mac, &ip, state);
 }
 
 static void bgp_zebra_process_local_ip_prefix(int cmd, struct zclient *zclient,
@@ -2663,16 +2733,26 @@ int bgp_zebra_num_connects(void)
 	return zclient_num_connects;
 }
 
-void bgp_send_pbr_rule_action(struct bgp_pbr_action *pbra, bool install)
+void bgp_send_pbr_rule_action(struct bgp_pbr_action *pbra,
+			      struct bgp_pbr_rule *pbr,
+			      bool install)
 {
 	struct stream *s;
 
-	if (pbra->install_in_progress)
+	if (pbra->install_in_progress && !pbr)
 		return;
-	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("%s: table %d fwmark %d %d",
-			   __PRETTY_FUNCTION__,
-			   pbra->table_id, pbra->fwmark, install);
+	if (pbr && pbr->install_in_progress)
+		return;
+	if (BGP_DEBUG(zebra, ZEBRA)) {
+		if (pbr)
+			zlog_debug("%s: table %d (ip rule) %d",
+				   __PRETTY_FUNCTION__,
+				   pbra->table_id, install);
+		else
+			zlog_debug("%s: table %d fwmark %d %d",
+				   __PRETTY_FUNCTION__,
+				   pbra->table_id, pbra->fwmark, install);
+	}
 	s = zclient->obuf;
 	stream_reset(s);
 
@@ -2681,11 +2761,15 @@ void bgp_send_pbr_rule_action(struct bgp_pbr_action *pbra, bool install)
 			      VRF_DEFAULT);
 	stream_putl(s, 1); /* send one pbr action */
 
-	bgp_encode_pbr_rule_action(s, pbra);
+	bgp_encode_pbr_rule_action(s, pbra, pbr);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
-	if (!zclient_send_message(zclient) && install)
-		pbra->install_in_progress = true;
+	if (!zclient_send_message(zclient) && install) {
+		if (!pbr)
+			pbra->install_in_progress = true;
+		else
+			pbr->install_in_progress = true;
+	}
 }
 
 void bgp_send_pbr_ipset_match(struct bgp_pbr_match *pbrim, bool install)

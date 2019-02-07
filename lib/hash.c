@@ -445,7 +445,7 @@ DEFUN_NOSH(show_hash_stats,
 	return CMD_SUCCESS;
 }
 
-void hash_cmd_init()
+void hash_cmd_init(void)
 {
 	install_element(ENABLE_NODE, &show_hash_stats_cmd);
 }

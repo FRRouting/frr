@@ -887,17 +887,26 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 
 /* Install EVPN route into zebra. */
 static int evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn,
-			      struct prefix_evpn *p,
-			      struct in_addr remote_vtep_ip, uint8_t flags,
-			      uint32_t seq)
+			      struct prefix_evpn *p, struct bgp_path_info *pi)
 {
 	int ret;
+	uint8_t flags;
 
-	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
-		ret = bgp_zebra_send_remote_macip(bgp, vpn, p, remote_vtep_ip,
-						  1, flags, seq);
-	else
+	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
+		flags = 0;
+		if (pi->attr->sticky)
+			SET_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
+		if (pi->attr->default_gw)
+			SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
+		if (is_evpn_prefix_ipaddr_v6(p) &&
+		    pi->attr->router_flag)
+			SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
+		ret = bgp_zebra_send_remote_macip(
+			bgp, vpn, p, pi->attr->nexthop, 1, flags,
+			mac_mobility_seqnum(pi->attr));
+	} else {
 		ret = bgp_zebra_send_remote_vtep(bgp, vpn, p, 1);
+	}
 
 	return ret;
 }
@@ -1121,11 +1130,9 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 {
 	struct bgp_path_info *old_select, *new_select;
 	struct bgp_path_info_pair old_and_new;
-	struct prefix_evpn *evp;
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
 	int ret = 0;
-	uint8_t flags = 0;
 
 	/* Compute the best path. */
 	bgp_best_selection(bgp, rn, &bgp->maxpaths[afi][safi], &old_and_new,
@@ -1133,7 +1140,6 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 	old_select = old_and_new.old;
 	new_select = old_and_new.new;
 
-	evp = (struct prefix_evpn *)&rn->p;
 	/* If the best path hasn't changed - see if there is still something to
 	 * update
 	 * to zebra RIB.
@@ -1144,20 +1150,10 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 	    && !CHECK_FLAG(rn->flags, BGP_NODE_USER_CLEAR)
 	    && !CHECK_FLAG(old_select->flags, BGP_PATH_ATTR_CHANGED)
 	    && !bgp_addpath_is_addpath_used(&bgp->tx_addpath, afi, safi)) {
-		if (bgp_zebra_has_route_changed(rn, old_select)) {
-			if (old_select->attr->sticky)
-				SET_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
-			if (old_select->attr->default_gw)
-				SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
-			if (is_evpn_prefix_ipaddr_v6(evp) &&
-			    old_select->attr->router_flag)
-				SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
-
+		if (bgp_zebra_has_route_changed(rn, old_select))
 			ret = evpn_zebra_install(
 				bgp, vpn, (struct prefix_evpn *)&rn->p,
-				old_select->attr->nexthop, flags,
-				mac_mobility_seqnum(old_select->attr));
-		}
+				old_select);
 		UNSET_FLAG(old_select->flags, BGP_PATH_MULTIPATH_CHG);
 		bgp_zebra_clear_route_change_flags(rn);
 		return ret;
@@ -1182,18 +1178,9 @@ static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 
 	if (new_select && new_select->type == ZEBRA_ROUTE_BGP
 	    && new_select->sub_type == BGP_ROUTE_IMPORTED) {
-		flags = 0;
-		if (new_select->attr->sticky)
-			SET_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
-		if (new_select->attr->default_gw)
-			SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
-		if (is_evpn_prefix_ipaddr_v6(evp) &&
-		    new_select->attr->router_flag)
-			SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
-
 		ret = evpn_zebra_install(bgp, vpn, (struct prefix_evpn *)&rn->p,
-					 new_select->attr->nexthop, flags,
-					 mac_mobility_seqnum(new_select->attr));
+					 new_select);
+
 		/* If an old best existed and it was a "local" route, the only
 		 * reason
 		 * it would be supplanted is due to MAC mobility procedures. So,
@@ -1698,6 +1685,27 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	return route_change;
 }
 
+static void evpn_zebra_reinstall_best_route(struct bgp *bgp,
+		struct bgpevpn *vpn, struct bgp_node *rn)
+{
+	struct bgp_path_info *tmp_ri;
+	struct bgp_path_info *curr_select = NULL;
+
+	for (tmp_ri = bgp_node_get_bgp_path_info(rn);
+	     tmp_ri; tmp_ri = tmp_ri->next) {
+		if (CHECK_FLAG(tmp_ri->flags, BGP_PATH_SELECTED)) {
+			curr_select = tmp_ri;
+			break;
+		}
+	}
+
+	if (curr_select && curr_select->type == ZEBRA_ROUTE_BGP
+			&& curr_select->sub_type == BGP_ROUTE_IMPORTED)
+		evpn_zebra_install(bgp, vpn,
+				(struct prefix_evpn *)&rn->p,
+				curr_select);
+}
+
 /*
  * If the local route was not selected evict it and tell zebra to re-add
  * the best remote dest.
@@ -1717,9 +1725,6 @@ static void evpn_cleanup_local_non_best_route(struct bgp *bgp,
 					      struct bgp_node *rn,
 					      struct bgp_path_info *local_pi)
 {
-	struct bgp_path_info *tmp_pi;
-	struct bgp_path_info *curr_select = NULL;
-	uint8_t flags = 0;
 	char buf[PREFIX_STRLEN];
 
 	/* local path was not picked as the winner; kick it out */
@@ -1731,24 +1736,7 @@ static void evpn_cleanup_local_non_best_route(struct bgp *bgp,
 	bgp_path_info_reap(rn, local_pi);
 
 	/* tell zebra to re-add the best remote path */
-	for (tmp_pi = bgp_node_get_bgp_path_info(rn);
-	     tmp_pi; tmp_pi = tmp_pi->next) {
-		if (CHECK_FLAG(tmp_pi->flags, BGP_PATH_SELECTED)) {
-			curr_select = tmp_pi;
-			break;
-		}
-	}
-	if (curr_select &&
-	    curr_select->type == ZEBRA_ROUTE_BGP
-	    && curr_select->sub_type == BGP_ROUTE_IMPORTED) {
-		if (curr_select->attr->sticky)
-			SET_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
-		if (curr_select->attr->default_gw)
-			SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
-		evpn_zebra_install(bgp, vpn, (struct prefix_evpn *)&rn->p,
-				   curr_select->attr->nexthop, flags,
-				   mac_mobility_seqnum(curr_select->attr));
-	}
+	evpn_zebra_reinstall_best_route(bgp, vpn, rn);
 }
 
 /*
@@ -5291,7 +5279,7 @@ int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp)
 
 				if (bgp_nexthop_self(bgp, pi->attr->nexthop)) {
 
-					char attr_str[BUFSIZ];
+					char attr_str[BUFSIZ] = {0};
 					char pbuf[PREFIX_STRLEN];
 
 					bgp_dump_attr(pi->attr, attr_str,
@@ -5324,10 +5312,11 @@ int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp)
  * Handle del of a local MACIP.
  */
 int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
-			     struct ipaddr *ip)
+			     struct ipaddr *ip, int state)
 {
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
+	struct bgp_node *rn;
 
 	/* Lookup VNI hash - should exist. */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
@@ -5338,9 +5327,16 @@ int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 		return -1;
 	}
 
-	/* Remove EVPN type-2 route and schedule for processing. */
 	build_evpn_type2_prefix(&p, mac, ip);
-	delete_evpn_route(bgp, vpn, &p);
+	if (state == ZEBRA_NEIGH_ACTIVE) {
+		/* Remove EVPN type-2 route and schedule for processing. */
+		delete_evpn_route(bgp, vpn, &p);
+	} else {
+		/* Re-instate the current remote best path if any */
+		rn = bgp_node_lookup(vpn->route_table, (struct prefix *)&p);
+		if (rn)
+			evpn_zebra_reinstall_best_route(bgp, vpn, rn);
+	}
 
 	return 0;
 }

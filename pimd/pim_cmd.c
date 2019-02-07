@@ -62,6 +62,10 @@
 #include "pim_bfd.h"
 #include "bfd.h"
 
+#ifndef VTYSH_EXTRACT_PL
+#include "pimd/pim_cmd_clippy.c"
+#endif
+
 static struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1 /* vtysh ? yes */
 };
@@ -2646,7 +2650,7 @@ static void show_rpf_refresh_stats(struct vty *vty, struct pim_instance *pim,
 
 	if (json) {
 		json_object_int_add(json, "rpfCacheRefreshDelayMsecs",
-				    qpim_rpf_cache_refresh_delay_msec);
+				    router->rpf_cache_refresh_delay_msec);
 		json_object_int_add(
 			json, "rpfCacheRefreshTimer",
 			pim_time_timer_remain_msec(pim->rpf_cache_refresher));
@@ -2669,7 +2673,7 @@ static void show_rpf_refresh_stats(struct vty *vty, struct pim_instance *pim,
 			"RPF Cache Refresh Last:     %s\n"
 			"Nexthop Lookups:            %lld\n"
 			"Nexthop Lookups Avoided:    %lld\n",
-			qpim_rpf_cache_refresh_delay_msec,
+			router->rpf_cache_refresh_delay_msec,
 			pim_time_timer_remain_msec(pim->rpf_cache_refresher),
 			(long long)pim->rpf_cache_refresh_requests,
 			(long long)pim->rpf_cache_refresh_events,
@@ -4408,9 +4412,12 @@ static void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
 	struct vrf *vrf = pim->vrf;
 	time_t now = pim_time_monotonic_sec();
 	char uptime[10];
+	char mlag_role[80];
 
 	pim = vrf->info;
 
+	vty_out(vty, "Router MLAG Role: %s\n",
+		mlag_role2str(router->role, mlag_role, sizeof(mlag_role)));
 	vty_out(vty, "Mroute socket descriptor:");
 
 	vty_out(vty, " %d(%s)\n", pim->mroute_socket, vrf->name);
@@ -4428,7 +4435,7 @@ static void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
 	vty_out(vty, "Maximum highest VifIndex: %d\n", PIM_MAX_USABLE_VIFS);
 
 	vty_out(vty, "\n");
-	vty_out(vty, "Upstream Join Timer: %d secs\n", qpim_t_periodic);
+	vty_out(vty, "Upstream Join Timer: %d secs\n", router->t_periodic);
 	vty_out(vty, "Join/Prune Holdtime: %d secs\n", PIM_JP_HOLDTIME);
 	vty_out(vty, "PIM ECMP: %s\n", pim->ecmp_enable ? "Enable" : "Disable");
 	vty_out(vty, "PIM ECMP Rebalance: %s\n",
@@ -5229,7 +5236,7 @@ DEFUN (ip_pim_joinprune_time,
        "Seconds\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	qpim_t_periodic = atoi(argv[3]->arg);
+	router->t_periodic = atoi(argv[3]->arg);
 	return CMD_SUCCESS;
 }
 
@@ -5243,7 +5250,7 @@ DEFUN (no_ip_pim_joinprune_time,
        "Seconds\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	qpim_t_periodic = PIM_DEFAULT_T_PERIODIC;
+	router->t_periodic = PIM_DEFAULT_T_PERIODIC;
 	return CMD_SUCCESS;
 }
 
@@ -5256,7 +5263,7 @@ DEFUN (ip_pim_register_suppress,
        "Seconds\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	qpim_register_suppress_time = atoi(argv[3]->arg);
+	router->register_suppress_time = atoi(argv[3]->arg);
 	return CMD_SUCCESS;
 }
 
@@ -5270,7 +5277,7 @@ DEFUN (no_ip_pim_register_suppress,
        "Seconds\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	qpim_register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
+	router->register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
 	return CMD_SUCCESS;
 }
 
@@ -5339,7 +5346,7 @@ DEFUN (ip_pim_packets,
        "Number of packets\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	qpim_packet_process = atoi(argv[3]->arg);
+	router->packet_process = atoi(argv[3]->arg);
 	return CMD_SUCCESS;
 }
 
@@ -5353,7 +5360,7 @@ DEFUN (no_ip_pim_packets,
        "Number of packets\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	qpim_packet_process = PIM_DEFAULT_PACKET_PROCESS;
+	router->packet_process = PIM_DEFAULT_PACKET_PROCESS;
 	return CMD_SUCCESS;
 }
 
@@ -6389,6 +6396,31 @@ static int pim_cmd_interface_add(struct interface *ifp)
 	pim_if_addr_add_all(ifp);
 	pim_if_membership_refresh(ifp);
 	return 1;
+}
+
+DEFPY_HIDDEN (interface_ip_pim_activeactive,
+	      interface_ip_pim_activeactive_cmd,
+	      "[no$no] ip pim active-active",
+	      NO_STR
+	      IP_STR
+	      PIM_STR
+	      "Mark interface as Active-Active for MLAG operations, Hidden because not finished yet\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp;
+
+	if (!no && !pim_cmd_interface_add(ifp)) {
+		vty_out(vty, "Could not enable PIM SM active-active on interface\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	pim_ifp = ifp->info;
+	if (no)
+		pim_ifp->activeactive = false;
+	else
+		pim_ifp->activeactive = true;
+
+	return CMD_SUCCESS;
 }
 
 DEFUN_HIDDEN (interface_ip_pim_ssm,
@@ -8719,6 +8751,7 @@ void pim_cmd_init(void)
 			&interface_ip_igmp_query_max_response_time_dsec_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ip_igmp_query_max_response_time_dsec_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_activeactive_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_sm_cmd);

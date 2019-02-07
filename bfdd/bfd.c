@@ -540,6 +540,7 @@ static void bfd_session_free(struct bfd_session *bs)
 struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 {
 	struct bfd_session *bfd, *l_bfd;
+	struct interface *ifp = NULL;
 	int psock;
 
 	/* check to see if this needs a new session */
@@ -550,6 +551,24 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 			return l_bfd;
 		else
 			return NULL;
+	}
+
+	/*
+	 * No session found, we have to allocate a new one.
+	 *
+	 * First a few critical checks:
+	 *
+	 *   * Check that the specified interface exists.
+	 *   * Attempt to create the UDP socket (might fail if we exceed
+	 *     our limits).
+	 */
+	if (bpc->bpc_has_localif) {
+		ifp = if_lookup_by_name(bpc->bpc_localif, VRF_DEFAULT);
+		if (ifp == NULL) {
+			log_error(
+				"session-new: specified interface doesn't exists.");
+			return NULL;
+		}
 	}
 
 	/*
@@ -574,19 +593,21 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 		return NULL;
 	}
 
-	if (bpc->bpc_has_localif && !bpc->bpc_mhop) {
-		bfd->ifindex = ptm_bfd_fetch_ifindex(bpc->bpc_localif);
-		ptm_bfd_fetch_local_mac(bpc->bpc_localif, bfd->local_mac);
-	}
+	if (bpc->bpc_has_localif && !bpc->bpc_mhop)
+		bfd->ifp = ifp;
 
 	if (bpc->bpc_ipv4 == false) {
 		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6);
 
 		/* Set the IPv6 scope id for link-local addresses. */
 		if (IN6_IS_ADDR_LINKLOCAL(&bpc->bpc_local.sa_sin6.sin6_addr))
-			bpc->bpc_local.sa_sin6.sin6_scope_id = bfd->ifindex;
+			bpc->bpc_local.sa_sin6.sin6_scope_id =
+				bfd->ifp != NULL ? bfd->ifp->ifindex
+						 : IFINDEX_INTERNAL;
 		if (IN6_IS_ADDR_LINKLOCAL(&bpc->bpc_peer.sa_sin6.sin6_addr))
-			bpc->bpc_peer.sa_sin6.sin6_scope_id = bfd->ifindex;
+			bpc->bpc_peer.sa_sin6.sin6_scope_id =
+				bfd->ifp != NULL ? bfd->ifp->ifindex
+						 : IFINDEX_INTERNAL;
 	}
 
 	/* Initialize the session */
@@ -770,10 +791,10 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 	int rv;
 
 #define MINUTES (60)
-#define HOURS (24 * MINUTES)
-#define DAYS (30 * HOURS)
-#define MONTHS (12 * DAYS)
-#define YEARS (MONTHS)
+#define HOURS (60 * MINUTES)
+#define DAYS (24 * HOURS)
+#define MONTHS (30 * DAYS)
+#define YEARS (12 * MONTHS)
 	if (time >= YEARS) {
 		year = time / YEARS;
 		time -= year * YEARS;

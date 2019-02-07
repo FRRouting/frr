@@ -114,6 +114,8 @@ int eigrp_if_delete_hook(struct interface *ifp)
 	eigrp = ei->eigrp;
 	listnode_delete(eigrp->eiflist, ei);
 
+	eigrp_fifo_free(ei->obuf);
+
 	XFREE(MTYPE_EIGRP_IF_INFO, ifp->info);
 	ifp->info = NULL;
 
@@ -122,7 +124,7 @@ int eigrp_if_delete_hook(struct interface *ifp)
 
 struct list *eigrp_iflist;
 
-void eigrp_if_init()
+void eigrp_if_init(void)
 {
 	/* Initialize Zebra interface data structure. */
 	// hook_register_prio(if_add, 0, eigrp_if_new);
@@ -265,16 +267,11 @@ void eigrp_if_stream_unset(struct eigrp_interface *ei)
 {
 	struct eigrp *eigrp = ei->eigrp;
 
-	if (ei->obuf) {
-		eigrp_fifo_free(ei->obuf);
-		ei->obuf = NULL;
-
-		if (ei->on_write_q) {
-			listnode_delete(eigrp->oi_write_q, ei);
-			if (list_isempty(eigrp->oi_write_q))
-				thread_cancel(eigrp->t_write);
-			ei->on_write_q = 0;
-		}
+	if (ei->on_write_q) {
+		listnode_delete(eigrp->oi_write_q, ei);
+		if (list_isempty(eigrp->oi_write_q))
+			thread_cancel(eigrp->t_write);
+		ei->on_write_q = 0;
 	}
 }
 
@@ -351,7 +348,6 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 
 	eigrp_if_down(ei);
 
-	list_delete(&ei->nbrs);
 	listnode_delete(ei->eigrp->eiflist, ei);
 }
 

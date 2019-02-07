@@ -73,7 +73,7 @@ noinst_HEADERS += \
 	ospf6d/ospf6d.h \
 	# end
 
-ospf6d_ospf6d_LDADD = ospf6d/libospf6.a lib/libfrr.la @LIBCAP@
+ospf6d_ospf6d_LDADD = ospf6d/libospf6.a lib/libfrr.la $(LIBCAP)
 ospf6d_ospf6d_SOURCES = \
 	ospf6d/ospf6_main.c \
 	# end

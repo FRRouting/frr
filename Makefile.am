@@ -4,6 +4,8 @@ AUTOMAKE_OPTIONS = subdir-objects 1.12
 ACLOCAL_AMFLAGS = -I m4
 
 AM_CFLAGS = \
+	$(LIBYANG_CFLAGS) \
+	$(SQLITE3_CFLAGS) \
 	$(UNWIND_CFLAGS) \
 	$(SAN_FLAGS) \
 	$(WERROR) \
@@ -17,7 +19,6 @@ AM_LDFLAGS = \
 	$(SAN_FLAGS) \
 	# end
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE)
-LIBCAP = @LIBCAP@
 
 AR_FLAGS = @AR_FLAGS@
 ARFLAGS = @ARFLAGS@
@@ -228,8 +229,8 @@ noinst_HEADERS += defaults.h
 clean-local: clean-python
 .PHONY: clean-python
 clean-python:
-	find -name __pycache__ -o -name .pytest_cache | xargs rm -rf
-	find -name "*.pyc" -o -name "*_clippy.c" | xargs rm -f
+	find . -name __pycache__ -o -name .pytest_cache | xargs rm -rf
+	find . -name "*.pyc" -o -name "*_clippy.c" | xargs rm -f
 
 redistclean:
 	$(MAKE) distclean CONFIG_CLEAN_FILES="$(filter-out $(EXTRA_DIST), $(CONFIG_CLEAN_FILES))"

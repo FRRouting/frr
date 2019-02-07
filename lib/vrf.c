@@ -330,6 +330,8 @@ vrf_id_t vrf_name_to_id(const char *name)
 	vrf_id_t vrf_id = VRF_DEFAULT; // Pending: need a way to return invalid
 				       // id/ routine not used.
 
+	if (!name)
+		return vrf_id;
 	vrf = vrf_lookup_by_name(name);
 	if (vrf)
 		vrf_id = vrf->vrf_id;
@@ -714,13 +716,6 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 	return CMD_SUCCESS;
 }
 
-int vrf_is_mapped_on_netns(struct vrf *vrf)
-{
-	if (!vrf || vrf->data.l.netns_name[0] == '\0')
-		return 0;
-	return 1;
-}
-
 /* vrf CLI commands */
 DEFUN_NOSH(vrf_exit,
            vrf_exit_cmd,
@@ -951,7 +946,7 @@ int vrf_bind(vrf_id_t vrf_id, int fd, char *name)
 
 	if (fd < 0 || name == NULL)
 		return fd;
-	if (vrf_is_mapped_on_netns(vrf_lookup_by_id(vrf_id)))
+	if (vrf_is_backend_netns())
 		return fd;
 #ifdef SO_BINDTODEVICE
 	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, name, strlen(name)+1);

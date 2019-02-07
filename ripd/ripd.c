@@ -68,6 +68,9 @@ static void rip_output_process(struct connected *, struct sockaddr_in *, int,
 static int rip_triggered_update(struct thread *);
 static int rip_update_jitter(unsigned long);
 
+static void rip_distribute_update(struct distribute_ctx *ctx,
+				  struct distribute *dist);
+
 /* RIP output routes type. */
 enum { rip_all_route, rip_changed_route };
 
@@ -328,7 +331,7 @@ static int rip_filter(int rip_distribute, struct prefix_ipv4 *p,
 	}
 
 	/* All interface filter check. */
-	dist = distribute_lookup(NULL);
+	dist = distribute_lookup(rip->distribute_ctx, NULL);
 	if (dist) {
 		if (dist->list[distribute]) {
 			alist = access_list_lookup(AFI_IP,
@@ -2702,7 +2705,13 @@ int rip_create(int socket)
 	/* Create read and timer thread. */
 	rip_event(RIP_READ, rip->sock);
 	rip_event(RIP_UPDATE_EVENT, 1);
-
+	/* Distribute list install. */
+	rip->distribute_ctx = distribute_list_ctx_create(
+					 vrf_lookup_by_id(VRF_DEFAULT));
+	distribute_list_add_hook(rip->distribute_ctx,
+				 rip_distribute_update);
+	distribute_list_delete_hook(rip->distribute_ctx,
+				    rip_distribute_update);
 	return 0;
 }
 
@@ -3121,7 +3130,7 @@ DEFUN (show_ip_rip_status,
 	vty_out(vty, " garbage collect after %u seconds\n", rip->garbage_time);
 
 	/* Filtering status show. */
-	config_show_distribute(vty);
+	config_show_distribute(vty, rip->distribute_ctx);
 
 	/* Default metric information. */
 	vty_out(vty, "  Default redistribution metric is %u\n",
@@ -3215,7 +3224,8 @@ static int config_write_rip(struct vty *vty)
 		nb_cli_show_dnode_cmds(vty, dnode, false);
 
 		/* Distribute configuration. */
-		write += config_write_distribute(vty);
+		write += config_write_distribute(vty,
+						 rip->distribute_ctx);
 
 		/* Interface routemap configuration */
 		write += config_write_if_rmap(vty);
@@ -3227,7 +3237,8 @@ static int config_write_rip(struct vty *vty)
 static struct cmd_node rip_node = {RIP_NODE, "%s(config-router)# ", 1};
 
 /* Distribute-list update functions. */
-static void rip_distribute_update(struct distribute *dist)
+static void rip_distribute_update(struct distribute_ctx *ctx,
+				  struct distribute *dist)
 {
 	struct interface *ifp;
 	struct rip_interface *ri;
@@ -3288,9 +3299,11 @@ void rip_distribute_update_interface(struct interface *ifp)
 {
 	struct distribute *dist;
 
-	dist = distribute_lookup(ifp->name);
+	if (!rip)
+		return;
+	dist = distribute_lookup(rip->distribute_ctx, ifp->name);
 	if (dist)
-		rip_distribute_update(dist);
+		rip_distribute_update(rip->distribute_ctx, dist);
 }
 
 /* Update all interface's distribute list. */
@@ -3367,6 +3380,7 @@ void rip_clean(void)
 		route_table_finish(rip->table);
 		route_table_finish(rip->neighbor);
 
+		distribute_list_delete(&rip->distribute_ctx);
 		XFREE(MTYPE_RIP, rip);
 		rip = NULL;
 	}
@@ -3390,7 +3404,6 @@ static void rip_if_rmap_update(struct if_rmap *if_rmap)
 		return;
 
 	ri = ifp->info;
-
 	if (if_rmap->routemap[IF_RMAP_IN]) {
 		rmap = route_map_lookup_by_name(if_rmap->routemap[IF_RMAP_IN]);
 		if (rmap)
@@ -3425,10 +3438,13 @@ static void rip_routemap_update_redistribute(void)
 
 	if (rip) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (rip->route_map[i].name)
+			if (rip->route_map[i].name) {
 				rip->route_map[i].map =
 					route_map_lookup_by_name(
 						rip->route_map[i].name);
+				route_map_counter_increment(
+					rip->route_map[i].map);
+			}
 		}
 	}
 }
@@ -3472,8 +3488,6 @@ void rip_init(void)
 
 	/* Distribute list install. */
 	distribute_list_init(RIP_NODE);
-	distribute_list_add_hook(rip_distribute_update);
-	distribute_list_delete_hook(rip_distribute_update);
 
 	/* Route-map */
 	rip_route_map_init();

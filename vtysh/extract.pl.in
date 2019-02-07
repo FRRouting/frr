@@ -109,7 +109,7 @@ sub scan_file {
             $protocol = "VTYSH_ZEBRA";
         }
 	elsif ($file =~ /lib\/nexthop_group\.c$/) {
-	    $protocol = "VTYSH_PBRD";
+	    $protocol = "VTYSH_PBRD | VTYSH_SHARPD";
 	}
         elsif ($file =~ /lib\/plist\.c$/) {
             if ($defun_array[1] =~ m/ipv6/) {
@@ -248,8 +248,7 @@ foreach (sort keys %live) {
 
 # Output install_element
 print <<EOF;
-void
-vtysh_init_cmd ()
+void vtysh_init_cmd(void)
 {
 EOF
 

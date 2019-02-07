@@ -267,13 +267,13 @@ extern int bgp_build_evpn_prefix(int evpn_type, uint32_t eth_tag,
 			memcpy(&p_evpn_p->prefix_addr.ip.ipaddr_v4,
 			       &src->u.prefix4,
 			       sizeof(struct in_addr));
-			dst->prefixlen = (uint8_t)PREFIX_LEN_ROUTE_TYPE_5_IPV4;
+			dst->prefixlen = (uint16_t)PREFIX_LEN_ROUTE_TYPE_5_IPV4;
 		} else {
 			SET_IPADDR_V6(&p_evpn_p->prefix_addr.ip);
 			memcpy(&p_evpn_p->prefix_addr.ip.ipaddr_v6,
 			       &src->u.prefix6,
 			       sizeof(struct in6_addr));
-			dst->prefixlen = (uint8_t)PREFIX_LEN_ROUTE_TYPE_5_IPV6;
+			dst->prefixlen = (uint16_t)PREFIX_LEN_ROUTE_TYPE_5_IPV6;
 		}
 	} else
 		return -1;

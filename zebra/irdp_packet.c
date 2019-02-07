@@ -58,7 +58,7 @@
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
 #include "zebra/rib.h"
-#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/redistribute.h"
 #include "zebra/irdp.h"
 #include "zebra/zebra_errors.h"
@@ -230,7 +230,7 @@ int irdp_read_raw(struct thread *r)
 
 	int irdp_sock = THREAD_FD(r);
 	t_irdp_raw = NULL;
-	thread_add_read(zebrad.master, irdp_read_raw, NULL, irdp_sock,
+	thread_add_read(zrouter.master, irdp_read_raw, NULL, irdp_sock,
 			&t_irdp_raw);
 
 	ret = irdp_recvmsg(irdp_sock, (uint8_t *)buf, IRDP_RX_BUF, &ifindex);

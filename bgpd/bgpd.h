@@ -122,6 +122,9 @@ struct bgp_master {
 	/* Listener address */
 	char *address;
 
+	/* The Mac table */
+	struct hash *self_mac_hash;
+
 	/* BGP start time.  */
 	time_t start_time;
 
@@ -411,6 +414,7 @@ struct bgp {
 	 *
 	 *  pbr_action a <----- pbr_match i <--- pbr_match_entry 1..n
 	 *              <----- pbr_match j <--- pbr_match_entry 1..m
+	 *              <----- pbr_rule k
 	 *
 	 * - here in BGP structure, the list of match and actions will
 	 * stand for the list of ipset sets, and table_ids in the kernel
@@ -420,6 +424,7 @@ struct bgp {
 	 * contained in match, that lists the whole set of entries
 	 */
 	struct hash *pbr_match_hash;
+	struct hash *pbr_rule_hash;
 	struct hash *pbr_action_hash;
 
 	/* timer to re-evaluate neighbor default-originate route-maps */
@@ -643,7 +648,8 @@ struct bgp_filter {
 /* IBGP/EBGP identifier.  We also have a CONFED peer, which is to say,
    a peer who's AS is part of our Confederation.  */
 typedef enum {
-	BGP_PEER_IBGP = 1,
+	BGP_PEER_UNSPECIFIED,
+	BGP_PEER_IBGP,
 	BGP_PEER_EBGP,
 	BGP_PEER_INTERNAL,
 	BGP_PEER_CONFED,
@@ -1280,7 +1286,7 @@ struct bgp_nlri {
 #define BGP_ATTR_ENCAP                          23
 #define BGP_ATTR_LARGE_COMMUNITIES              32
 #define BGP_ATTR_PREFIX_SID                     40
-#if ENABLE_BGP_VNC
+#if ENABLE_BGP_VNC_ATTR
 #define BGP_ATTR_VNC                           255
 #endif
 
