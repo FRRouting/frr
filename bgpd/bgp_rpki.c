@@ -1134,7 +1134,7 @@ DEFPY (no_rpki_cache,
 {
 	struct cache *cache_p = find_cache(preference);
 
-	if (!cache) {
+	if (!cache_p) {
 		vty_out(vty, "Could not find cache %ld\n", preference);
 		return CMD_WARNING;
 	}
