@@ -1281,6 +1281,7 @@ static int lib_interface_create(enum nb_event event,
 				  vrf->name);
 			return NB_ERR_VALIDATION;
 		}
+
 		if (vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
 			ifp = if_lookup_by_name_all_vrf(ifname);
 			if (ifp && ifp->vrf_id != vrf->vrf_id) {
