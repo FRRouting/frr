@@ -180,6 +180,7 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 			     struct ipaddr *ip);
 struct interface *zebra_get_vrr_intf_for_svi(struct interface *ifp);
 static int advertise_gw_macip_enabled(zebra_vni_t *zvni);
+static int advertise_svi_macip_enabled(zebra_vni_t *zvni);
 static int zebra_vxlan_ip_inherit_dad_from_mac(struct zebra_vrf *zvrf,
 					       zebra_mac_t *old_zmac,
 					       zebra_mac_t *new_zmac,
@@ -328,6 +329,20 @@ static int advertise_gw_macip_enabled(zebra_vni_t *zvni)
 		return 1;
 
 	if (zvni && zvni->advertise_gw_macip)
+		return 1;
+
+	return 0;
+}
+
+static int advertise_svi_macip_enabled(zebra_vni_t *zvni)
+{
+	struct zebra_vrf *zvrf;
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (zvrf && zvrf->advertise_svi_macip)
+		return 1;
+
+	if (zvni && zvni->advertise_svi_macip)
 		return 1;
 
 	return 0;
@@ -2874,10 +2889,48 @@ static void zvni_gw_macip_add_for_vni_hash(struct hash_backet *backet,
 	/* Add primary SVI MAC-IP */
 	zvni_add_macip_for_intf(vlan_if, zvni);
 
-	/* Add VRR MAC-IP - if any*/
-	vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
-	if (vrr_if)
-		zvni_add_macip_for_intf(vrr_if, zvni);
+	if (advertise_gw_macip_enabled(zvni)) {
+		/* Add VRR MAC-IP - if any*/
+		vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
+		if (vrr_if)
+			zvni_add_macip_for_intf(vrr_if, zvni);
+	}
+
+	return;
+}
+
+static void zvni_svi_macip_del_for_vni_hash(struct hash_backet *backet,
+					   void *ctxt)
+{
+	zebra_vni_t *zvni = NULL;
+	struct zebra_if *zif = NULL;
+	struct zebra_l2info_vxlan zl2_info;
+	struct interface *vlan_if = NULL;
+	struct interface *ifp;
+
+	/* Add primary SVI MAC*/
+	zvni = (zebra_vni_t *)backet->data;
+	if (!zvni)
+		return;
+
+	ifp = zvni->vxlan_if;
+	if (!ifp)
+		return;
+	zif = ifp->info;
+
+	/* If down or not mapped to a bridge, we're done. */
+	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+		return;
+
+	zl2_info = zif->l2info.vxl;
+
+	vlan_if = zvni_map_to_svi(zl2_info.access_vlan,
+				  zif->brslave_info.br_if);
+	if (!vlan_if)
+		return;
+
+	/* Del primary MAC-IP */
+	zvni_del_macip_for_intf(vlan_if, zvni);
 
 	return;
 }
@@ -6909,6 +6962,8 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 		vty_out(vty, "L3 VNIs: %u\n", num_l3vnis);
 		vty_out(vty, "Advertise gateway mac-ip: %s\n",
 			zvrf->advertise_gw_macip ? "Yes" : "No");
+		vty_out(vty, "Advertise svi mac-ip: %s\n",
+			zvrf->advertise_svi_macip ? "Yes" : "No");
 		vty_out(vty, "Duplicate address detection: %s\n",
 			zvrf->dup_addr_detect ? "Enable" : "Disable");
 		vty_out(vty, "  Detection max-moves %u, time %d\n",
@@ -8706,6 +8761,102 @@ void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS)
 	 */
 	hash_iterate(zvrf->vni_table, zvni_handle_flooding_remote_vteps,
 		     zvrf);
+
+stream_failure:
+	return;
+}
+
+/*
+ * Handle message from client to enable/disable advertisement of svi macip
+ * routes
+ */
+void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	int advertise;
+	vni_t vni = 0;
+	zebra_vni_t *zvni = NULL;
+	struct interface *ifp = NULL;
+
+	if (zvrf_id(zvrf) != VRF_DEFAULT) {
+		zlog_debug("EVPN GW-MACIP Adv for non-default VRF %u",
+			   zvrf_id(zvrf));
+		return;
+	}
+
+	s = msg;
+	STREAM_GETC(s, advertise);
+	STREAM_GETL(s, vni);
+
+	if (!vni) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN gateway macip Adv %s, currently %s",
+				   advertise ? "enabled" : "disabled",
+				   advertise_gw_macip_enabled(NULL)
+					   ? "enabled"
+					   : "disabled");
+
+		if (zvrf->advertise_svi_macip == advertise)
+			return;
+
+
+		if (advertise) {
+			zvrf->advertise_svi_macip = advertise;
+			hash_iterate(zvrf->vni_table,
+				     zvni_gw_macip_add_for_vni_hash, NULL);
+		} else {
+			hash_iterate(zvrf->vni_table,
+				     zvni_svi_macip_del_for_vni_hash, NULL);
+			zvrf->advertise_svi_macip = advertise;
+		}
+
+	} else {
+		struct zebra_if *zif = NULL;
+		struct zebra_l2info_vxlan zl2_info;
+		struct interface *vlan_if = NULL;
+
+		zvni = zvni_lookup(vni);
+		if (!zvni)
+			return;
+
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"EVPN SVI macip Adv %s on VNI %d , currently %s",
+				advertise ? "enabled" : "disabled", vni,
+				advertise_svi_macip_enabled(zvni)
+					? "enabled"
+					: "disabled");
+
+		if (zvni->advertise_svi_macip == advertise)
+			return;
+
+		ifp = zvni->vxlan_if;
+		if (!ifp)
+			return;
+
+		zif = ifp->info;
+
+		/* If down or not mapped to a bridge, we're done. */
+		if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+			return;
+
+		zl2_info = zif->l2info.vxl;
+
+		vlan_if = zvni_map_to_svi(zl2_info.access_vlan,
+					  zif->brslave_info.br_if);
+		if (!vlan_if)
+			return;
+
+		if (advertise) {
+			zvni->advertise_svi_macip = advertise;
+			/* Add primary SVI MAC-IP */
+			zvni_add_macip_for_intf(vlan_if, zvni);
+		} else {
+			/* Del primary MAC-IP */
+			zvni_del_macip_for_intf(vlan_if, zvni);
+			zvni->advertise_svi_macip = advertise;
+		}
+	}
 
 stream_failure:
 	return;

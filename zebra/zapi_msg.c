@@ -2457,6 +2457,7 @@ void (*zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_FEC_REGISTER] = zread_fec_register,
 	[ZEBRA_FEC_UNREGISTER] = zread_fec_unregister,
 	[ZEBRA_ADVERTISE_DEFAULT_GW] = zebra_vxlan_advertise_gw_macip,
+	[ZEBRA_ADVERTISE_SVI_MACIP] = zebra_vxlan_advertise_svi_macip,
 	[ZEBRA_ADVERTISE_SUBNET] = zebra_vxlan_advertise_subnet,
 	[ZEBRA_ADVERTISE_ALL_VNI] = zebra_vxlan_advertise_all_vni,
 	[ZEBRA_REMOTE_VTEP_ADD] = zebra_vxlan_remote_vtep_add,
