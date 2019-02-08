@@ -125,9 +125,6 @@ static bool vrrp_is_owner(struct interface *ifp, struct ipaddr *addr)
 
 void vrrp_set_priority(struct vrrp_vrouter *vr, uint8_t priority)
 {
-	if (vr->priority == priority)
-		return;
-
 	vr->priority = priority;
 	vr->v4->priority = priority;
 	vr->v6->priority = priority;

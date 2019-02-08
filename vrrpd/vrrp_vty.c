@@ -106,39 +106,11 @@ DEFPY(vrrp_priority,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	struct vrrp_vrouter *vr;
-	struct vrrp_router *r;
-	bool nr[2] = { false, false };
-	int ret = CMD_SUCCESS;
 	uint8_t newprio = no ? VRRP_DEFAULT_PRIORITY : priority;
 
 	VROUTER_GET_VTY(vty, ifp, vrid, vr);
 
-	r = vr->v4;
-	for (int i = 0; i < 2; i++) {
-		nr[i] = r->is_active && r->fsm.state != VRRP_STATE_INITIALIZE
-			&& vr->priority != newprio;
-		if (nr[i]) {
-			vty_out(vty,
-				"%% WARNING: Restarting %s Virtual Router %ld to update priority\n",
-				family2str(r->family), vrid);
-			(void)vrrp_event(r, VRRP_EVENT_SHUTDOWN);
-		}
-		r = vr->v6;
-	}
-
 	vrrp_set_priority(vr, newprio);
-
-	r = vr->v4;
-	for (int i = 0; i < 2; i++) {
-		if (nr[i]) {
-			ret = vrrp_event(r, VRRP_EVENT_STARTUP);
-			if (ret < 0)
-				vty_out(vty,
-					"%% Failed to start Virtual Router %ld (%s)\n",
-					vrid, family2str(r->family));
-		}
-		r = vr->v6;
-	}
 
 	return CMD_SUCCESS;
 }
