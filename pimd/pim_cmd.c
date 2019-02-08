@@ -5142,6 +5142,12 @@ static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (result == PIM_GROUP_BAD_ADDR_MASK_COMBO) {
+		vty_out(vty, "%% Inconsistent address and mask: %s\n",
+			group);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	return CMD_SUCCESS;
 }
 

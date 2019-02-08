@@ -345,6 +345,7 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 	struct rp_info *tmp_rp_info;
 	char buffer[BUFSIZ];
 	struct prefix nht_p;
+	struct prefix temp;
 	struct pim_nexthop_cache pnc;
 	struct route_node *rn;
 
@@ -352,8 +353,17 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 
 	if (group_range == NULL)
 		result = str2prefix("224.0.0.0/4", &rp_info->group);
-	else
+	else {
 		result = str2prefix(group_range, &rp_info->group);
+		if (result) {
+			prefix_copy(&temp, &rp_info->group);
+			apply_mask(&temp);
+			if (!prefix_same(&rp_info->group, &temp)) {
+				XFREE(MTYPE_PIM_RP, rp_info);
+				return PIM_GROUP_BAD_ADDR_MASK_COMBO;
+			}
+		}
+	}
 
 	if (!result) {
 		XFREE(MTYPE_PIM_RP, rp_info);
