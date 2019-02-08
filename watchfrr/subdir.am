@@ -13,7 +13,7 @@ noinst_HEADERS += \
 	watchfrr/watchfrr_errors.h \
 	# end
 
-watchfrr_watchfrr_LDADD = lib/libfrr.la @LIBCAP@
+watchfrr_watchfrr_LDADD = lib/libfrr.la $(LIBCAP)
 watchfrr_watchfrr_SOURCES = \
 	watchfrr/watchfrr.c \
 	watchfrr/watchfrr_errors.c \

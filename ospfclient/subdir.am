@@ -23,7 +23,7 @@ endif
 
 ospfclient_ospfclient_LDADD = \
 	ospfclient/libfrrospfapiclient.la \
-	@LIBCAP@ \
+	$(LIBCAP) \
 	# end
 
 if STATIC_BIN
