@@ -877,6 +877,20 @@ struct connected *connected_add_by_prefix(struct interface *ifp,
 	return ifc;
 }
 
+int if_is_unnumbered(struct interface *ifp)
+{
+	struct connected *connected;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
+		    && connected->address->family == AF_INET)
+			return CHECK_FLAG(connected->flags,
+					ZEBRA_IFA_UNNUMBERED);
+	}
+	return 0;
+}
+
 #if 0  /* this route_table of struct connected's is unused                     \
 	* however, it would be good to use a route_table rather than           \
 	* a list..                                                             \

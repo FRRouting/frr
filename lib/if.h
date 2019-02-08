@@ -540,7 +540,7 @@ extern struct connected *connected_lookup_prefix_exact(struct interface *,
 extern struct nbr_connected *nbr_connected_new(void);
 extern void nbr_connected_free(struct nbr_connected *);
 struct nbr_connected *nbr_connected_check(struct interface *, struct prefix *);
-
+int if_is_unnumbered(struct interface *);
 /* link parameters */
 struct if_link_params *if_link_params_get(struct interface *);
 void if_link_params_free(struct interface *);

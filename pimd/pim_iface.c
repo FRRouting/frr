@@ -844,8 +844,6 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	struct connected *ifc;
 	struct listnode *node;
 	struct in_addr addr = {0};
-	int v4_addrs = 0;
-	int v6_addrs = 0;
 	struct pim_interface *pim_ifp = ifp->info;
 	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 
@@ -859,10 +857,8 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 		struct prefix *p = ifc->address;
 
-		if (p->family != AF_INET) {
-			v6_addrs++;
+		if (p->family != AF_INET)
 			continue;
-		}
 
 		if (PIM_INADDR_IS_ANY(p->u.prefix4)) {
 			zlog_warn(
@@ -871,8 +867,6 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 			continue;
 		}
 
-		v4_addrs++;
-
 		if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
 			continue;
 
@@ -880,12 +874,11 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	}
 
 	/*
-	 * If we have no v4_addrs and v6 is configured
-	 * We probably are using unnumbered
+	 * If we are using unnumbered
 	 * So let's grab the loopbacks v4 address
 	 * and use that as the primary address
 	 */
-	if (!v4_addrs && v6_addrs && !if_is_loopback(ifp)) {
+	if (if_is_unnumbered(ifp)) {
 		struct interface *lo_ifp;
 		// DBS - Come back and check here
 		if (ifp->vrf_id == VRF_DEFAULT)

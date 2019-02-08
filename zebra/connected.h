@@ -56,6 +56,4 @@ extern void connected_delete_ipv6(struct interface *ifp,
 				  struct in6_addr *address,
 				  struct in6_addr *broad, uint16_t prefixlen);
 
-extern int connected_is_unnumbered(struct interface *);
-
 #endif /*_ZEBRA_CONNECTED_H */

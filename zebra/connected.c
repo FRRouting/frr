@@ -582,17 +582,3 @@ void connected_delete_ipv6(struct interface *ifp, struct in6_addr *address,
 
 	connected_delete_helper(ifc, &p);
 }
-
-int connected_is_unnumbered(struct interface *ifp)
-{
-	struct connected *connected;
-	struct listnode *node;
-
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
-		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
-		    && connected->address->family == AF_INET)
-			return CHECK_FLAG(connected->flags,
-					  ZEBRA_IFA_UNNUMBERED);
-	}
-	return 0;
-}
