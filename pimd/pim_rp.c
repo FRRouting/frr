@@ -341,19 +341,43 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 	struct pim_rpf old_rpf;
 	enum pim_rpf_result rpf_result;
 	struct in_addr old_upstream_addr;
+	struct in_addr new_upstream_addr;
+	struct prefix nht_p;
 
 	old_upstream_addr = up->upstream_addr;
-	pim_rp_set_upstream_addr(pim, &up->upstream_addr, up->sg.src,
+	pim_rp_set_upstream_addr(pim, &new_upstream_addr, up->sg.src,
 				 up->sg.grp);
 
 	if (PIM_DEBUG_TRACE)
-		zlog_debug("%s: pim upstream update for  old upstream %s new upstream %s",
-			    inet_ntoa(old_upstream_addr),
-			    inet_ntoa(up->upstream_addr),
-			    __PRETTY_FUNCTION__);
+		zlog_debug("%s: pim upstream update for  old upstream %s",
+			   __PRETTY_FUNCTION__,
+			   inet_ntoa(old_upstream_addr));
 
-	if (old_upstream_addr.s_addr == up->upstream_addr.s_addr)
+	if (old_upstream_addr.s_addr == new_upstream_addr.s_addr)
 		return;
+
+	/* Lets consider a case, where a PIM upstream has a better RP as a
+	 * result of a new RP configuration with more precise group range.
+	 * This upstream has to be added to the upstream hash of new RP's
+	 * NHT(pnc) and has to be removed from old RP's NHT upstream hash
+	 */
+	if (old_upstream_addr.s_addr != INADDR_ANY) {
+		/* Deregister addr with Zebra NHT */
+		nht_p.family = AF_INET;
+		nht_p.prefixlen = IPV4_MAX_BITLEN;
+		nht_p.u.prefix4 = old_upstream_addr;
+		if (PIM_DEBUG_TRACE) {
+			char buf[PREFIX2STR_BUFFER];
+
+			prefix2str(&nht_p, buf, sizeof(buf));
+			zlog_debug("%s: Deregister upstream %s addr %s with Zebra NHT",
+				__PRETTY_FUNCTION__, up->sg_str, buf);
+		}
+		pim_delete_tracked_nexthop(pim, &nht_p, up, NULL);
+	}
+
+	/* Update the upstream address */
+	up->upstream_addr = new_upstream_addr;
 
 	old_rpf.source_nexthop.interface = up->rpf.source_nexthop.interface;
 
