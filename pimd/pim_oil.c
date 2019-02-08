@@ -392,8 +392,10 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	if (channel_oil->oif_flags[pim_ifp->mroute_vif_index]
 	    & PIM_OIF_FLAG_PROTO_ANY) {
 
-		channel_oil->oif_creation[pim_ifp->mroute_vif_index] =
-			pim_time_monotonic_sec();
+		/* Updating time here is not required as this time has to
+		 * indicate when the interface is added
+		 */
+
 		channel_oil->oif_flags[pim_ifp->mroute_vif_index] |= proto_mask;
 		/* Check the OIF really exists before returning, and only log
 		   warning otherwise */
