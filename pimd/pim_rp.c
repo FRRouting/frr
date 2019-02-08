@@ -338,14 +338,26 @@ static void pim_rp_check_interfaces(struct pim_instance *pim,
 
 void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 {
-	struct pim_rpf old;
+	struct pim_rpf old_rpf;
 	enum pim_rpf_result rpf_result;
+	struct in_addr old_upstream_addr;
 
+	old_upstream_addr = up->upstream_addr;
 	pim_rp_set_upstream_addr(pim, &up->upstream_addr, up->sg.src,
 				 up->sg.grp);
-	old.source_nexthop.interface = up->rpf.source_nexthop.interface;
 
-	rpf_result = pim_rpf_update(pim, up, &old, 1);
+	if (PIM_DEBUG_TRACE)
+		zlog_debug("%s: pim upstream update for  old upstream %s new upstream %s",
+			    inet_ntoa(old_upstream_addr),
+			    inet_ntoa(up->upstream_addr),
+			    __PRETTY_FUNCTION__);
+
+	if (old_upstream_addr.s_addr == up->upstream_addr.s_addr)
+		return;
+
+	old_rpf.source_nexthop.interface = up->rpf.source_nexthop.interface;
+
+	rpf_result = pim_rpf_update(pim, up, &old_rpf, 1);
 	if (rpf_result == PIM_RPF_FAILURE)
 		pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
 
@@ -366,7 +378,7 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 	}
 
 	if (rpf_result == PIM_RPF_CHANGED)
-		pim_zebra_upstream_rpf_changed(pim, up, &old);
+		pim_zebra_upstream_rpf_changed(pim, up, &old_rpf);
 
 	pim_zebra_update_all_interfaces(pim);
 }
@@ -586,6 +598,21 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 			   rn->lock);
 	}
 
+	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+		if (up->sg.src.s_addr == INADDR_ANY) {
+			struct prefix grp;
+			struct rp_info *trp_info;
+
+			grp.family = AF_INET;
+			grp.prefixlen = IPV4_MAX_BITLEN;
+			grp.u.prefix4 = up->sg.grp;
+			trp_info = pim_rp_find_match_group(pim, &grp);
+
+			if (trp_info == rp_info)
+				pim_upstream_update(pim, up);
+		}
+	}
+
 	/* Register addr with Zebra NHT */
 	nht_p.family = AF_INET;
 	nht_p.prefixlen = IPV4_MAX_BITLEN;
@@ -613,19 +640,6 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 
 	pim_rp_check_interfaces(pim, rp_info);
 	pim_rp_refresh_group_to_rp_mapping(pim);
-
-	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
-		struct prefix grp;
-		struct rp_info *trp_info;
-
-		grp.family = AF_INET;
-		grp.prefixlen = IPV4_MAX_BITLEN;
-		grp.u.prefix4 = up->sg.grp;
-		trp_info = pim_rp_find_match_group(pim, &grp);
-
-		if (trp_info == rp_info)
-			pim_upstream_update(pim, up);
-	}
 
 	return PIM_SUCCESS;
 }

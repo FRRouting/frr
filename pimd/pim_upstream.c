@@ -214,22 +214,29 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 
 	listnode_delete(pim->upstream_list, up);
 	hash_release(pim->upstream_hash, up);
-
 	if (notify_msdp) {
 		pim_msdp_up_del(pim, &up->sg);
 	}
 
-	/* Deregister addr with Zebra NHT */
-	nht_p.family = AF_INET;
-	nht_p.prefixlen = IPV4_MAX_BITLEN;
-	nht_p.u.prefix4 = up->upstream_addr;
-	if (PIM_DEBUG_TRACE) {
-		char buf[PREFIX2STR_BUFFER];
-		prefix2str(&nht_p, buf, sizeof(buf));
-		zlog_debug("%s: Deregister upstream %s addr %s with Zebra NHT",
+	/* When RP gets deleted, pim_rp_del() deregister addr with Zebra NHT
+	 * and assign up->upstream_addr as INADDR_ANY.
+	 * So before de-registering the upstream address, check if is not equal
+	 * to INADDR_ANY. This is done in order to avoid de-registering for
+	 * 255.255.255.255 which is maintained for some reason..
+	 */
+	if (up->upstream_addr.s_addr != INADDR_ANY) {
+		/* Deregister addr with Zebra NHT */
+		nht_p.family = AF_INET;
+		nht_p.prefixlen = IPV4_MAX_BITLEN;
+		nht_p.u.prefix4 = up->upstream_addr;
+		if (PIM_DEBUG_TRACE) {
+			char buf[PREFIX2STR_BUFFER];
+			prefix2str(&nht_p, buf, sizeof(buf));
+			zlog_debug("%s: Deregister upstream %s addr %s with Zebra NHT",
 			   __PRETTY_FUNCTION__, up->sg_str, buf);
+		}
+		pim_delete_tracked_nexthop(pim, &nht_p, up, NULL);
 	}
-	pim_delete_tracked_nexthop(pim, &nht_p, up, NULL);
 
 	XFREE(MTYPE_PIM_UPSTREAM, up);
 
@@ -666,7 +673,6 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		ch->upstream = up;
 
 	up = hash_get(pim->upstream_hash, up, hash_alloc_intern);
-
 	/* Set up->upstream_addr as INADDR_ANY, if RP is not
 	 * configured ans retain the upstream data structure
 	 */
