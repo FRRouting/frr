@@ -181,6 +181,8 @@ typedef struct rib_dest_t_ {
  */
 #define RIB_DEST_UPDATE_FPM    (1 << (ZEBRA_MAX_QINDEX + 2))
 
+#define RIB_DEST_UPDATE_LSPS   (1 << (ZEBRA_MAX_QINDEX + 3))
+
 /*
  * Macro to iterate over each route for a destination (prefix).
  */

@@ -510,28 +510,41 @@ static inline const char *nhlfe_type2str(enum lsp_types_t lsp_type)
 	return "Unknown";
 }
 
-static inline void mpls_mark_lsps_for_processing(struct zebra_vrf *zvrf)
+static inline void mpls_mark_lsps_for_processing(struct zebra_vrf *zvrf,
+						 struct prefix *p)
 {
+	struct route_table *table;
+	struct route_node *rn;
+	rib_dest_t *dest;
+
 	if (!zvrf)
 		return;
 
-	zvrf->mpls_flags |= MPLS_FLAG_SCHEDULE_LSPS;
-}
-
-static inline void mpls_unmark_lsps_for_processing(struct zebra_vrf *zvrf)
-{
-	if (!zvrf)
+	table = zvrf->table[family2afi(p->family)][SAFI_UNICAST];
+	if (!table)
 		return;
 
-	zvrf->mpls_flags &= ~MPLS_FLAG_SCHEDULE_LSPS;
+	rn = route_node_match(table, p);
+	if (!rn)
+		return;
+
+
+	dest = rib_dest_from_rnode(rn);
+	SET_FLAG(dest->flags, RIB_DEST_UPDATE_LSPS);
 }
 
-static inline int mpls_should_lsps_be_processed(struct zebra_vrf *zvrf)
+static inline void mpls_unmark_lsps_for_processing(struct route_node *rn)
 {
-	if (!zvrf)
-		return 0;
+	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
-	return ((zvrf->mpls_flags & MPLS_FLAG_SCHEDULE_LSPS) ? 1 : 0);
+	UNSET_FLAG(dest->flags, RIB_DEST_UPDATE_LSPS);
+}
+
+static inline int mpls_should_lsps_be_processed(struct route_node *rn)
+{
+	rib_dest_t *dest = rib_dest_from_rnode(rn);
+
+	return !!CHECK_FLAG(dest->flags, RIB_DEST_UPDATE_LSPS);
 }
 
 /* Global variables. */

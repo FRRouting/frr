@@ -1785,6 +1785,24 @@ static void rib_process(struct route_node *rn)
 	rib_gc_dest(rn);
 }
 
+static void zebra_rib_evaluate_mpls(struct route_node *rn)
+{
+	rib_dest_t *dest = rib_dest_from_rnode(rn);
+	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
+
+	if (!dest)
+		return;
+
+	if (CHECK_FLAG(dest->flags, RIB_DEST_UPDATE_LSPS)) {
+		if (IS_ZEBRA_DEBUG_MPLS)
+			zlog_debug(
+				"%u: Scheduling all LSPs upon RIB completion",
+				zvrf_id(zvrf));
+		zebra_mpls_lsp_schedule(zvrf);
+		mpls_unmark_lsps_for_processing(rn);
+	}
+}
+
 /*
  * Utility to match route with dplane context data
  */
@@ -2130,6 +2148,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	}
 
 	zebra_rib_evaluate_rn_nexthops(rn, seq);
+	zebra_rib_evaluate_mpls(rn);
 done:
 
 	if (rn)
@@ -2184,23 +2203,12 @@ static unsigned int process_subq(struct list *subq, uint8_t qindex)
 	return 1;
 }
 
+
 /*
  * Perform next-hop tracking processing after RIB updates.
  */
 static void do_nht_processing(void)
 {
-	struct zebra_vrf *zvrf;
-
-	/* Schedule LSPs for processing, if needed. */
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (mpls_should_lsps_be_processed(zvrf)) {
-		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug(
-				"%u: Scheduling all LSPs upon RIB completion",
-				zvrf_id(zvrf));
-		zebra_mpls_lsp_schedule(zvrf);
-		mpls_unmark_lsps_for_processing(zvrf);
-	}
 }
 
 /* Dispatch the meta queue by picking, processing and unlocking the next RN from

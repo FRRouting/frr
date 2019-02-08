@@ -272,7 +272,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 				ifp->vrf_id, ifp->name,
 				prefix2str(&p, buf, sizeof(buf)));
 		}
-		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));
+		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id), &p);
 	}
 }
 
@@ -437,7 +437,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 				ifp->vrf_id, ifp->name,
 				prefix2str(&p, buf, sizeof(buf)));
 		}
-		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));
+		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id), &p);
 	}
 }
 
@@ -471,7 +471,7 @@ static void connected_delete_helper(struct connected *ifc, struct prefix *p)
 				ifp->vrf_id, ifp->name,
 				prefix2str(p, buf, sizeof(buf)));
 		}
-		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));
+		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id), p);
 	}
 }
 
