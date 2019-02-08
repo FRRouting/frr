@@ -2372,7 +2372,7 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		/*
 		 * If we have a J/P timer for the neighbor display that
 		 */
-		if (!up->t_join_timer) {
+		if (!up->t_join_timer && up->rpf.source_nexthop.interface) {
 			struct pim_neighbor *nbr;
 
 			nbr = pim_neighbor_find(
@@ -2412,8 +2412,10 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 			json_row = json_object_new_object();
 			json_object_pim_upstream_add(json_row, up);
 			json_object_string_add(
-				json_row, "inboundInterface",
-				up->rpf.source_nexthop.interface->name);
+			    json_row, "inboundInterface",
+			    up->rpf.source_nexthop.interface
+				? up->rpf.source_nexthop.interface->name
+				: "Unknown");
 
 			/*
 			 * The RPF address we use is slightly different
@@ -2463,8 +2465,10 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		} else {
 			vty_out(vty,
 				"%-10s%-15s %-15s %-11s %-8s %-9s %-9s %-9s %6d\n",
-				up->rpf.source_nexthop.interface->name, src_str,
-				grp_str, state_str, uptime, join_timer,
+				up->rpf.source_nexthop.interface
+				    ? up->rpf.source_nexthop.interface->name
+				    : "Unknown",
+				src_str, grp_str, state_str, uptime, join_timer,
 				rs_timer, ka_timer, up->ref_count);
 		}
 	}

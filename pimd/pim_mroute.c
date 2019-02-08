@@ -234,7 +234,8 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	up->channel_oil->cc.pktcnt++;
 	PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
 	// resolve mfcc_parent prior to mroute_add in channel_add_oif
-	if (up->channel_oil->oil.mfcc_parent >= MAXVIFS) {
+	if (up->rpf.source_nexthop.interface &&
+	    up->channel_oil->oil.mfcc_parent >= MAXVIFS) {
 		int vif_index = 0;
 		vif_index = pim_if_find_vifindex_by_ifindex(
 			pim_ifp->pim,
@@ -298,6 +299,13 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 				"%s: Unable to find upstream channel WHOLEPKT%s",
 				__PRETTY_FUNCTION__, pim_str_sg_dump(&sg));
 		}
+		return 0;
+	}
+
+	if (!up->rpf.source_nexthop.interface) {
+		if (PIM_DEBUG_TRACE)
+			zlog_debug("%s: up %s RPF is not present",
+				    __PRETTY_FUNCTION__, up->sg_str);
 		return 0;
 	}
 

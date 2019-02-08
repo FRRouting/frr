@@ -39,6 +39,7 @@
 #include "pim_jp_agg.h"
 #include "pim_zebra.h"
 #include "pim_zlookup.h"
+#include "pim_rp.h"
 
 /**
  * pim_sendmsg_zebra_rnh -- Format and send a nexthop register/Unregister
@@ -207,6 +208,17 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 	}
 }
 
+void pim_rp_nexthop_del(struct rp_info *rp_info)
+{
+	rp_info->rp.source_nexthop.interface = NULL;
+	rp_info->rp.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =
+		PIM_NET_INADDR_ANY;
+	rp_info->rp.source_nexthop.mrib_metric_preference =
+		router->infinite_assert_metric.metric_preference;
+	rp_info->rp.source_nexthop.mrib_route_metric =
+		router->infinite_assert_metric.route_metric;
+}
+
 /* Update RP nexthop info based on Nexthop update received from Zebra.*/
 static void pim_update_rp_nh(struct pim_instance *pim,
 			     struct pim_nexthop_cache *pnc)
@@ -220,9 +232,11 @@ static void pim_update_rp_nh(struct pim_instance *pim,
 			continue;
 
 		// Compute PIM RPF using cached nexthop
-		pim_ecmp_nexthop_search(pim, pnc, &rp_info->rp.source_nexthop,
-					&rp_info->rp.rpf_addr, &rp_info->group,
-					1);
+		if (!pim_ecmp_nexthop_search(pim, pnc,
+		    &rp_info->rp.source_nexthop,
+		    &rp_info->rp.rpf_addr, &rp_info->group,
+		    1))
+			pim_rp_nexthop_del(rp_info);
 	}
 }
 
@@ -278,12 +292,12 @@ static int pim_update_upstream_nh_helper(struct hash_backet *backet, void *arg)
 	old.source_nexthop.interface = up->rpf.source_nexthop.interface;
 	rpf_result = pim_rpf_update(pim, up, &old, 0);
 	if (rpf_result == PIM_RPF_FAILURE) {
-		pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
+		pim_upstream_rpf_clear(pim, up);
 		return HASHWALK_CONTINUE;
 	}
 
 	/* update kernel multicast forwarding cache (MFC) */
-	if (up->channel_oil) {
+	if (up->rpf.source_nexthop.interface) {
 		ifindex_t ifindex = up->rpf.source_nexthop.interface->ifindex;
 
 		vif_index = pim_if_find_vifindex_by_ifindex(pim, ifindex);
@@ -303,12 +317,12 @@ static int pim_update_upstream_nh_helper(struct hash_backet *backet, void *arg)
 	if (rpf_result == PIM_RPF_CHANGED)
 		pim_zebra_upstream_rpf_changed(pim, up, &old);
 
-
 	if (PIM_DEBUG_PIM_NHT) {
 		zlog_debug("%s: NHT upstream %s(%s) old ifp %s new ifp %s",
-			   __PRETTY_FUNCTION__, up->sg_str, pim->vrf->name,
-			   old.source_nexthop.interface->name,
-			   up->rpf.source_nexthop.interface->name);
+		    __PRETTY_FUNCTION__, up->sg_str, pim->vrf->name,
+		    old.source_nexthop.interface
+		    ? old.source_nexthop.interface->name : "Unknwon",
+		    up->rpf.source_nexthop.interface->name);
 	}
 
 	return HASHWALK_CONTINUE;
