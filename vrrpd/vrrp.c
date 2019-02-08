@@ -281,9 +281,8 @@ static bool vrrp_attach_interface(struct vrrp_router *r)
 		r->vmac.octet, sizeof(r->vmac.octet), &ifps, VRF_DEFAULT);
 
 	/*
-	 * Filter to only those interfaces whose names begin with VRRP
-	 * interface name. E.g. if this VRRP instance was configured on eth0,
-	 * then we filter the list to only keep interfaces matching ^eth0.*
+	 * Filter to only those macvlan interfaces whose parent is the base
+	 * interface this VRRP router is configured on.
 	 *
 	 * If there are still multiple interfaces we just select the first one,
 	 * as it should be functionally identical to the others.
@@ -291,8 +290,8 @@ static bool vrrp_attach_interface(struct vrrp_router *r)
 	unsigned int candidates = 0;
 	struct interface *selection = NULL;
 	for (unsigned int i = 0; i < ifps_cnt; i++) {
-		if (strncmp(ifps[i]->name, r->vr->ifp->name,
-			    strlen(r->vr->ifp->name)))
+		if (ifps[i]->link_ifindex != r->vr->ifp->ifindex
+		    || !CHECK_FLAG(ifps[i]->flags, IFF_UP))
 			ifps[i] = NULL;
 		else {
 			selection = selection ? selection : ifps[i];
