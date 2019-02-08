@@ -1232,7 +1232,7 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 	struct rnh *rnh;
 
 	/*
-	 * We are storing the rnh's associated with
+	 * We are storing the rnh's associated withb
 	 * the tracked nexthop as a list of the rn's.
 	 * Unresolved rnh's are placed at the top
 	 * of the tree list.( 0.0.0.0/0 for v4 and 0::0/0 for v6 )
@@ -1241,6 +1241,13 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 	 * would match a more specific route
 	 */
 	while (rn) {
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+			char buf[PREFIX_STRLEN];
+
+			zlog_debug("%s: %s Being examined for Nexthop Tracking",
+				   __PRETTY_FUNCTION__,
+				   srcdest_rnode2str(rn, buf, sizeof(buf)));
+		}
 		if (!dest) {
 			rn = rn->parent;
 			if (rn)
@@ -1258,13 +1265,13 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 				zebra_vrf_lookup_by_id(rnh->vrf_id);
 			struct prefix *p = &rnh->node->p;
 
-			if (IS_ZEBRA_DEBUG_NHT) {
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
 				char buf1[PREFIX_STRLEN];
 				char buf2[PREFIX_STRLEN];
 
 				zlog_debug("%u:%s has Nexthop(%s) depending on it, evaluating %u:%u",
 					   zvrf->vrf->vrf_id,
-					   prefix2str(&rn->p, buf1,
+					   srcdest_rnode2str(rn, buf1,
 						      sizeof(buf1)),
 					   prefix2str(p, buf2, sizeof(buf2)),
 					   seq, rnh->seqno);
@@ -1282,8 +1289,12 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 			 * we were originally as such we know that
 			 * that sequence number is ok to respect.
 			 */
-			if (rnh->seqno == seq)
+			if (rnh->seqno == seq) {
+				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+					zlog_debug(
+						"\tNode processed and moved already");
 				continue;
+			}
 
 			rnh->seqno = seq;
 			zebra_evaluate_rnh(zvrf, family2afi(p->family), 0,

@@ -108,6 +108,16 @@ static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 	if (!rn)
 		return;
 
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+		char buf[PREFIX_STRLEN];
+		char buf1[PREFIX_STRLEN];
+
+		zlog_debug("%s: %u:%s removed from tracking on %s",
+			   __PRETTY_FUNCTION__, rnh->vrf_id,
+			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
+			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
+	}
+
 	dest = rib_dest_from_rnode(rn);
 	listnode_delete(dest->nht, rnh);
 	route_unlock_node(rn);
@@ -123,6 +133,16 @@ static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
 	rn = route_node_match(table, &rnh->resolved_route);
 	if (!rn)
 		return;
+
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+		char buf[PREFIX_STRLEN];
+		char buf1[PREFIX_STRLEN];
+
+		zlog_debug("%s: %u:%s added for tracking on %s",
+			   __PRETTY_FUNCTION__, rnh->vrf_id,
+			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
+			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
+	}
 
 	dest = rib_dest_from_rnode(rn);
 	listnode_add(dest->nht, rnh);
@@ -414,6 +434,16 @@ zebra_rnh_resolve_import_entry(struct zebra_vrf *zvrf, afi_t afi,
 	    && !prefix_same(&nrn->p, &rn->p))
 		return NULL;
 
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+		char buf[PREFIX_STRLEN];
+		char buf1[PREFIX_STRLEN];
+
+		zlog_debug("%s: %u:%s Resolved Import Entry to %s",
+			   __PRETTY_FUNCTION__, rnh->vrf_id,
+			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
+			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
+	}
+
 	/* Identify appropriate route entry. */
 	RNODE_FOREACH_RE (rn, re) {
 		if (!CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)
@@ -424,6 +454,10 @@ zebra_rnh_resolve_import_entry(struct zebra_vrf *zvrf, afi_t afi,
 
 	if (re)
 		*prn = rn;
+
+	if (!re && IS_ZEBRA_DEBUG_NHT_DETAILED)
+		zlog_debug("\tRejected due to removed or is a bgp route");
+
 	return re;
 }
 
@@ -497,7 +531,7 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 	if (IS_ZEBRA_DEBUG_NHT) {
 		prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
 		if (prn && re) {
-			prefix2str(&prn->p, bufp, INET6_ADDRSTRLEN);
+			srcdest_rnode2str(prn, bufp, INET6_ADDRSTRLEN);
 			zlog_debug("%u:%s: NH resolved over route %s",
 				   zvrf->vrf->vrf_id, bufn, bufp);
 		} else
@@ -630,19 +664,43 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	 * most-specific match. Do similar logic as in zebra_rib.c
 	 */
 	while (rn) {
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+			char buf[PREFIX_STRLEN];
+			char buf1[PREFIX_STRLEN];
+
+			zlog_debug("%s: %u:%s Possible Match to %s",
+				   __PRETTY_FUNCTION__, rnh->vrf_id,
+				   prefix2str(&rnh->node->p, buf, sizeof(buf)),
+				   srcdest_rnode2str(rn, buf1, sizeof(buf)));
+		}
+
 		/* Do not resolve over default route unless allowed &&
 		 * match route to be exact if so specified
 		 */
 		if (is_default_prefix(&rn->p)
-		    && !rnh_resolve_via_default(rn->p.family))
+		    && !rnh_resolve_via_default(rn->p.family)) {
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+				zlog_debug(
+					"\tNot allowed to resolve through default prefix");
 			return NULL;
+		}
 
 		/* Identify appropriate route entry. */
 		RNODE_FOREACH_RE (rn, re) {
-			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
+				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+					zlog_debug(
+						"\tRoute Entry %s removed",
+						zebra_route_string(re->type));
 				continue;
-			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
+			}
+			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
+				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+					zlog_debug(
+						"\tRoute Entry %s !selected",
+						zebra_route_string(re->type));
 				continue;
+			}
 
 			/* Just being SELECTED isn't quite enough - must
 			 * have an installed nexthop to be useful.
@@ -652,8 +710,13 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 					break;
 			}
 
-			if (nexthop == NULL)
+			if (nexthop == NULL) {
+				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+					zlog_debug(
+						"\tRoute Entry %s no nexthops",
+						zebra_route_string(re->type));
 				continue;
+			}
 
 			if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)) {
 				if ((re->type == ZEBRA_ROUTE_CONNECT)
@@ -681,8 +744,12 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 
 		if (!CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
 			rn = rn->parent;
-		else
+		else {
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+				zlog_debug(
+					"\tNexthop must be connected, cannot recurse up");
 			return NULL;
+		}
 	}
 
 	return NULL;

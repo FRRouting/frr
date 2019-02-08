@@ -87,7 +87,9 @@ DEFUN_NOSH (show_debugging_zebra,
 
 	if (IS_ZEBRA_DEBUG_FPM)
 		vty_out(vty, "  Zebra FPM debugging is on\n");
-	if (IS_ZEBRA_DEBUG_NHT)
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+		vty_out(vty, "  Zebra detailed next-hop tracking debugging is on\n");
+	else if (IS_ZEBRA_DEBUG_NHT)
 		vty_out(vty, "  Zebra next-hop tracking debugging is on\n");
 	if (IS_ZEBRA_DEBUG_MPLS)
 		vty_out(vty, "  Zebra MPLS debugging is on\n");
@@ -119,12 +121,19 @@ DEFUN (debug_zebra_events,
 
 DEFUN (debug_zebra_nht,
        debug_zebra_nht_cmd,
-       "debug zebra nht",
+       "debug zebra nht [detailed]",
        DEBUG_STR
        "Zebra configuration\n"
-       "Debug option set for zebra next hop tracking\n")
+       "Debug option set for zebra next hop tracking\n"
+       "Debug option set for detailed info\n")
 {
+	int idx = 0;
+
 	zebra_debug_nht = ZEBRA_DEBUG_NHT;
+
+	if (argv_find(argv, argc, "detailed", &idx))
+		zebra_debug_nht |= ZEBRA_DEBUG_NHT_DETAILED;
+
 	return CMD_SUCCESS;
 }
 
@@ -320,11 +329,12 @@ DEFUN (no_debug_zebra_events,
 
 DEFUN (no_debug_zebra_nht,
        no_debug_zebra_nht_cmd,
-       "no debug zebra nht",
+       "no debug zebra nht [detailed]",
        NO_STR
        DEBUG_STR
        "Zebra configuration\n"
-       "Debug option set for zebra next hop tracking\n")
+       "Debug option set for zebra next hop tracking\n"
+       "Debug option set for detailed info\n")
 {
 	zebra_debug_nht = 0;
 	return CMD_SUCCESS;
@@ -490,10 +500,15 @@ static int config_write_debug(struct vty *vty)
 		vty_out(vty, "debug zebra fpm\n");
 		write++;
 	}
-	if (IS_ZEBRA_DEBUG_NHT) {
+
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+		vty_out(vty, "debug zebra nht detailed\n");
+		write++;
+	} else if (IS_ZEBRA_DEBUG_NHT) {
 		vty_out(vty, "debug zebra nht\n");
 		write++;
 	}
+
 	if (IS_ZEBRA_DEBUG_MPLS) {
 		vty_out(vty, "debug zebra mpls\n");
 		write++;
@@ -530,6 +545,7 @@ void zebra_debug_init(void)
 	zebra_debug_pw = 0;
 	zebra_debug_dplane = 0;
 	zebra_debug_mlag = 0;
+	zebra_debug_nht = 0;
 
 	install_node(&debug_node, config_write_debug);
 
