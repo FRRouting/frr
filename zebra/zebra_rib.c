@@ -1175,10 +1175,7 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 		if (zebra_rib_labeled_unicast(re))
 			zebra_mpls_lsp_uninstall(info->zvrf, rn, re);
 
-		if (!RIB_SYSTEM_ROUTE(re))
-			rib_uninstall_kernel(rn, re);
-		else
-			UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+		rib_uninstall_kernel(rn, re);
 
 		dest->selected_fib = NULL;
 
@@ -1258,8 +1255,6 @@ int rib_gc_dest(struct route_node *rn)
 static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 				struct route_entry *new)
 {
-	rib_dest_t *dest = rib_dest_from_rnode(rn);
-
 	hook_call(rib_update, rn, "new route selected");
 
 	/* Update real nexthop. This may actually determine if nexthop is active
@@ -1281,10 +1276,7 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 	if (zebra_rib_labeled_unicast(new))
 		zebra_mpls_lsp_install(zvrf, rn, new);
 
-	if (!RIB_SYSTEM_ROUTE(new))
-		rib_install_kernel(rn, new, NULL);
-	else
-		dest->selected_fib = new;
+	rib_install_kernel(rn, new, NULL);
 
 	UNSET_FLAG(new->status, ROUTE_ENTRY_CHANGED);
 }
@@ -1292,7 +1284,6 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 static void rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 				struct route_entry *old)
 {
-	rib_dest_t *dest = rib_dest_from_rnode(rn);
 	hook_call(rib_update, rn, "removing existing route");
 
 	/* Uninstall from kernel. */
@@ -1308,20 +1299,7 @@ static void rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 	if (zebra_rib_labeled_unicast(old))
 		zebra_mpls_lsp_uninstall(zvrf, rn, old);
 
-	if (!RIB_SYSTEM_ROUTE(old))
-		rib_uninstall_kernel(rn, old);
-	else {
-		UNSET_FLAG(old->status, ROUTE_ENTRY_INSTALLED);
-		/*
-		 * We are setting this to NULL here
-		 * because that is what we traditionally
-		 * have been doing.  I am not positive
-		 * that this is the right thing to do
-		 * but let's leave the code alone
-		 * for the RIB_SYSTEM_ROUTE case
-		 */
-		dest->selected_fib = NULL;
-	}
+	rib_uninstall_kernel(rn, old);
 
 	/* Update nexthop for route, reset changed flag. */
 	/* Note: this code also handles the Linux case when an interface goes
@@ -1340,9 +1318,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 				   struct route_entry *old,
 				   struct route_entry *new)
 {
-	struct nexthop *nexthop = NULL;
 	int nh_active = 0;
-	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
 	/*
 	 * We have to install or update if a new route has been selected or
@@ -1384,48 +1360,15 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 			if (zebra_rib_labeled_unicast(old))
 				zebra_mpls_lsp_uninstall(zvrf, rn, old);
 
-			/* Non-system route should be installed. */
-			if (!RIB_SYSTEM_ROUTE(new)) {
-				/* If labeled-unicast route, install transit
-				 * LSP. */
-				if (zebra_rib_labeled_unicast(new))
-					zebra_mpls_lsp_install(zvrf, rn, new);
+			/*
+			 * Non-system route should be installed.
+			 * If labeled-unicast route, install transit
+			 * LSP.
+			 */
+			if (zebra_rib_labeled_unicast(new))
+				zebra_mpls_lsp_install(zvrf, rn, new);
 
-				rib_install_kernel(rn, new, old);
-			} else {
-				UNSET_FLAG(new->status, ROUTE_ENTRY_INSTALLED);
-				/*
-				 * We do not need to install the
-				 * selected route because it
-				 * is already isntalled by
-				 * the system( ie not us )
-				 * so just mark it as winning
-				 * we do need to ensure that
-				 * if we uninstall a route
-				 * from ourselves we don't
-				 * over write this pointer
-				 */
-				dest->selected_fib = new;
-			}
-			/* If install succeeded or system route, cleanup flags
-			 * for prior route. */
-			if (new != old) {
-				if (RIB_SYSTEM_ROUTE(new)) {
-					if (!RIB_SYSTEM_ROUTE(old))
-						rib_uninstall_kernel(rn, old);
-					else
-						UNSET_FLAG(
-							old->status,
-							ROUTE_ENTRY_INSTALLED);
-				} else {
-					UNSET_FLAG(old->status,
-						   ROUTE_ENTRY_INSTALLED);
-					for (nexthop = old->ng.nexthop; nexthop;
-					     nexthop = nexthop->next)
-						UNSET_FLAG(nexthop->flags,
-							   NEXTHOP_FLAG_FIB);
-				}
-			}
+			rib_install_kernel(rn, new, old);
 		}
 
 		/*
@@ -1455,25 +1398,18 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 			if (zebra_rib_labeled_unicast(old))
 				zebra_mpls_lsp_uninstall(zvrf, rn, old);
 
-			if (!RIB_SYSTEM_ROUTE(old))
-				rib_uninstall_kernel(rn, old);
-			else {
-				UNSET_FLAG(old->status, ROUTE_ENTRY_INSTALLED);
-				dest->selected_fib = NULL;
-			}
+			rib_uninstall_kernel(rn, old);
 		}
 	} else {
 		/*
 		 * Same route selected; check if in the FIB and if not,
-		 * re-install. This
-		 * is housekeeping code to deal with race conditions in kernel
-		 * with linux
-		 * netlink reporting interface up before IPv4 or IPv6 protocol
-		 * is ready
+		 * re-install. This is housekeeping code to deal with
+		 * race conditions in kernel with linux netlink reporting
+		 * interface up before IPv4 or IPv6 protocol is ready
 		 * to add routes.
 		 */
-		if (!RIB_SYSTEM_ROUTE(new)
-		    && !CHECK_FLAG(new->status, ROUTE_ENTRY_INSTALLED))
+		if (!CHECK_FLAG(new->status, ROUTE_ENTRY_INSTALLED) ||
+		    RIB_SYSTEM_ROUTE(new))
 			rib_install_kernel(rn, new, NULL);
 	}
 
@@ -1725,17 +1661,8 @@ static void rib_process(struct route_node *rn)
 			UNSET_FLAG(new_selected->status, ROUTE_ENTRY_CHANGED);
 		}
 
-		if (new_selected) {
+		if (new_selected)
 			SET_FLAG(new_selected->flags, ZEBRA_FLAG_SELECTED);
-
-			/* Special case: new route is system route, so
-			 * dataplane update will not be done - ensure we
-			 * redistribute the route.
-			 */
-			if (RIB_SYSTEM_ROUTE(new_selected))
-				redistribute_update(p, src_p, new_selected,
-						    old_selected);
-		}
 
 		if (old_selected) {
 			if (!new_selected)
@@ -1819,6 +1746,30 @@ static bool rib_route_match_ctx(const struct route_entry *re,
 done:
 
 	return (result);
+}
+
+static void zebra_rib_fixup_system(struct route_node *rn)
+{
+	struct route_entry *re;
+
+	RNODE_FOREACH_RE(rn, re) {
+		struct nexthop *nhop;
+
+		if (!RIB_SYSTEM_ROUTE(re))
+			continue;
+
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
+			continue;
+
+		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+
+		for (ALL_NEXTHOPS(re->ng, nhop)) {
+			if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_RECURSIVE))
+				continue;
+
+			SET_FLAG(nhop->flags, NEXTHOP_FLAG_FIB);
+		}
+	}
 }
 
 /*
@@ -1987,6 +1938,17 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 						   NEXTHOP_FLAG_FIB);
 			}
 
+			/*
+			 * System routes are weird in that they
+			 * allow multiple to be installed that match
+			 * to the same prefix, so after we get the
+			 * result we need to clean them up so that
+			 * we can actually use them.
+			 */
+			if ((re && RIB_SYSTEM_ROUTE(re)) ||
+			    (old_re && RIB_SYSTEM_ROUTE(old_re)))
+				zebra_rib_fixup_system(rn);
+
 			if (zvrf) {
 				zvrf->installs++;
 				/* Set flag for nexthop tracking processing */
@@ -2053,6 +2015,17 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 				  prefix2str(dest_pfx,
 					     dest_str, sizeof(dest_str)));
 		}
+
+		/*
+		 * System routes are weird in that they
+		 * allow multiple to be installed that match
+		 * to the same prefix, so after we get the
+		 * result we need to clean them up so that
+		 * we can actually use them.
+		 */
+		if ((re && RIB_SYSTEM_ROUTE(re)) ||
+		    (old_re && RIB_SYSTEM_ROUTE(old_re)))
+			zebra_rib_fixup_system(rn);
 		break;
 	default:
 		break;
@@ -2655,7 +2628,7 @@ void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	 * revalidation
 	 * of the rest of the RE.
 	 */
-	if (dest->selected_fib && !RIB_SYSTEM_ROUTE(dest->selected_fib)) {
+	if (dest->selected_fib) {
 		changed = 1;
 		if (IS_ZEBRA_DEBUG_RIB) {
 			char buf[PREFIX_STRLEN];
@@ -2677,7 +2650,6 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	struct route_table *table;
 	struct route_node *rn;
 	struct route_entry *same = NULL;
-	struct nexthop *nexthop;
 	int ret = 0;
 
 	if (!re)
@@ -2739,13 +2711,6 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		 */
 		if (same->type != ZEBRA_ROUTE_CONNECT)
 			break;
-	}
-
-	/* If this route is kernel route, set FIB flag to the route. */
-	if (RIB_SYSTEM_ROUTE(re)) {
-		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
-		for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
-			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 	}
 
 	/* Link new re to node.*/
@@ -3223,10 +3188,8 @@ void rib_close_table(struct route_table *table)
 			if (info->safi == SAFI_UNICAST)
 				hook_call(rib_update, rn, NULL);
 
-			if (!RIB_SYSTEM_ROUTE(dest->selected_fib)) {
-				rib_uninstall_kernel(rn, dest->selected_fib);
-				dest->selected_fib = NULL;
-			}
+			rib_uninstall_kernel(rn, dest->selected_fib);
+			dest->selected_fib = NULL;
 		}
 	}
 }
