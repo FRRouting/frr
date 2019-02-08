@@ -2156,6 +2156,8 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 			/* link bgp_info to bgp_pbr */
 			path = (struct bgp_path_info *)bgp_pbr->path;
 			extra = bgp_path_info_extra_get(path);
+			if (!extra->bgp_fs_iprule)
+				extra->bgp_fs_iprule = list_new();
 			listnode_add(extra->bgp_fs_iprule, bgp_pbr);
 		}
 		if (BGP_DEBUG(zebra, ZEBRA))
@@ -2264,6 +2266,8 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 		/* link bgp_path_info to bpme */
 		path = (struct bgp_path_info *)bgp_pbime->path;
 		extra = bgp_path_info_extra_get(path);
+		if (!extra->bgp_fs_pbr)
+			extra->bgp_fs_pbr = list_new();
 		listnode_add(extra->bgp_fs_pbr, bgp_pbime);
 		}
 		break;

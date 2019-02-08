@@ -175,8 +175,8 @@ static struct bgp_path_info_extra *bgp_path_info_extra_new(void)
 		      sizeof(struct bgp_path_info_extra));
 	new->label[0] = MPLS_INVALID_LABEL;
 	new->num_labels = 0;
-	new->bgp_fs_pbr = list_new();
-	new->bgp_fs_iprule = list_new();
+	new->bgp_fs_pbr = NULL;
+	new->bgp_fs_iprule = NULL;
 	return new;
 }
 
