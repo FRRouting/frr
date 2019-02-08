@@ -1644,6 +1644,15 @@ static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 	char expire[10];
 	char prune[10];
 
+	/* The below check is added in order to avoid printing the pim join
+	 * entry if it is in NOINFO state.
+	 *
+	 * NOINFO state maintained when the pim join entry gets created because
+	 * of IGMP report received.
+	 */
+	if (ch->ifjoin_state == PIM_IFJOIN_NOINFO)
+		return;
+
 	ifaddr = pim_ifp->primary_address;
 
 	pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str, sizeof(ch_src_str));
