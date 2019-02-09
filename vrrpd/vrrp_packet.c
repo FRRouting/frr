@@ -255,11 +255,11 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 	size_t maxsize = (family == AF_INET) ? VRRP_MAX_PKT_SIZE_V4
 					     : VRRP_MAX_PKT_SIZE_V6;
 	VRRP_PKT_VCHECK(pktsize >= minsize,
-			"VRRP packet is undersized (%lu < %lu)", pktsize,
-			VRRP_MIN_PKT_SIZE);
+			"VRRP packet is undersized (%zu < %zu)", pktsize,
+			minsize);
 	VRRP_PKT_VCHECK(pktsize <= maxsize,
-			"VRRP packet is oversized (%lu > %lu)", pktsize,
-			VRRP_MAX_PKT_SIZE);
+			"VRRP packet is oversized (%zu > %zu)", pktsize,
+			maxsize);
 
 	/* Version check */
 	uint8_t pktver = (*pkt)->hdr.vertype >> 4;
@@ -268,11 +268,11 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 	/* Checksum check */
 	uint16_t chksum = vrrp_pkt_checksum(*pkt, pktsize, src);
 	VRRP_PKT_VCHECK((*pkt)->hdr.chksum == chksum,
-			"Bad VRRP checksum %" PRIu16 "; should be %" PRIu16 "",
+			"Bad VRRP checksum %" PRIx16 "; should be %" PRIx16 "",
 			(*pkt)->hdr.chksum, chksum);
 
 	/* Type check */
-	VRRP_PKT_VCHECK(((*pkt)->hdr.vertype & 0x0F) == 1, "Bad type %u",
+	VRRP_PKT_VCHECK(((*pkt)->hdr.vertype & 0x0F) == 1, "Bad type %" PRIu8,
 			(*pkt)->hdr.vertype & 0x0f);
 
 	/* # addresses check */
@@ -290,7 +290,7 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 	uint8_t *p = (uint8_t *)(*pkt)->addrs;
 	for (uint8_t i = 0; i < (*pkt)->hdr.naddr; i++) {
 		VRRP_PKT_VCHECK(inet_ntop(family, p, vbuf, sizeof(vbuf)),
-				"Bad IP address, #%u", i);
+				"Bad IP address, #%" PRIu8, i);
 		p += addrsz;
 	}
 
