@@ -2010,9 +2010,10 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_INSTALLED);
 
 		} else {
-			if (re)
+			if (re) {
 				SET_FLAG(re->status, ROUTE_ENTRY_FAILED);
-			if (old_re)
+				UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+			} if (old_re)
 				SET_FLAG(old_re->status, ROUTE_ENTRY_FAILED);
 			if (re)
 				zsend_route_notify_owner(re, dest_pfx,
