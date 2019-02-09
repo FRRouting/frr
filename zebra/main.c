@@ -153,7 +153,9 @@ static void sigint(void)
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, ln, nn, client))
 		zserv_close_client(client);
 
+	zserv_close();
 	list_delete_all_node(zrouter.client_list);
+
 	zebra_ptm_finish();
 
 	if (retain_mode)

@@ -184,6 +184,13 @@ extern unsigned int multipath_num;
 extern void zserv_init(void);
 
 /*
+ * Stop the Zebra API server.
+ *
+ * closes the socket
+ */
+extern void zserv_close(void);
+
+/*
  * Start Zebra API server.
  *
  * Allocates resources, creates the server socket and begins listening on the

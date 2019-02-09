@@ -773,6 +773,18 @@ static int zserv_accept(struct thread *thread)
 	return 0;
 }
 
+void zserv_close(void)
+{
+	/*
+	 * On shutdown, let's close the socket down
+	 * so that long running processes of killing the
+	 * routing table doesn't leave us in a bad
+	 * state where a client tries to reconnect
+	 */
+	close(zsock);
+	zsock = -1;
+}
+
 void zserv_start(char *path)
 {
 	int ret;
