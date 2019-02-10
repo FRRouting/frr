@@ -164,8 +164,6 @@ static void zebra_router_free_table(struct zebra_router_table *zrt)
 {
 	void *table_info;
 
-	rib_close_table(zrt->table);
-
 	table_info = route_table_get_info(zrt->table);
 	route_table_finish(zrt->table);
 	RB_REMOVE(zebra_router_table_head, &zrouter.tables, zrt);
