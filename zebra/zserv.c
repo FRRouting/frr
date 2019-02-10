@@ -405,10 +405,10 @@ static int zserv_read(struct thread *thread)
 		}
 
 		/* Debug packet information. */
-		if (IS_ZEBRA_DEBUG_EVENT)
+		if (IS_ZEBRA_DEBUG_PACKET)
 			zlog_debug("zebra message[%s:%u:%u] comes from socket [%d]",
 				   zserv_command_string(hdr.command),
-				   hdr.vrfid, hdr.length,
+				   hdr.vrf_id, hdr.length,
 				   sock);
 
 		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
@@ -444,7 +444,8 @@ static int zserv_read(struct thread *thread)
 	}
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("Read %d packets", p2p_orig - p2p);
+		zlog_debug("Read %d packets from client: %s", p2p_orig - p2p,
+			   zebra_route_string(client->proto));
 
 	/* Reschedule ourselves */
 	zserv_client_event(client, ZSERV_CLIENT_READ);
