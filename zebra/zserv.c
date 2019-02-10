@@ -406,7 +406,8 @@ static int zserv_read(struct thread *thread)
 
 		/* Debug packet information. */
 		if (IS_ZEBRA_DEBUG_EVENT)
-			zlog_debug("zebra message comes from socket [%d]",
+			zlog_debug("zebra message[%s] comes from socket [%d]",
+				   zserv_command_string(hdr.command),
 				   sock);
 
 		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
