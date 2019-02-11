@@ -34,6 +34,8 @@ extern "C" {
 DECLARE_MTYPE(IF)
 DECLARE_MTYPE(CONNECTED_LABEL)
 
+struct vrf;
+
 /* Interface link-layer type, if known. Derived from:
  *
  * net/if_arp.h on various platforms - Linux especially.
@@ -493,7 +495,7 @@ size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
    by a '\0' character: */
 extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
-extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id);
+extern struct interface *if_get_by_name(const char *ifname, struct vrf *vrf);
 extern void if_set_index(struct interface *ifp, ifindex_t ifindex);
 
 /* Delete the interface, but do not free the structure, and leave it in the
