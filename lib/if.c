@@ -1436,6 +1436,10 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 			ifp = if_get_by_name_vrf(ifname, vrf);
 			nb_running_set_entry(args->dnode, ifp);
 		}
+		/* if VRF is netns or not yet known - init for instance
+		 * then assumption is that passed config is exact
+		 * then the user intent was not to use an other iface
+		 */
 		if (!ifp && vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
 			ifp = if_lookup_by_name_all_vrf(ifname);
 			if (ifp && ifp->vrf_id != vrf->vrf_id) {
