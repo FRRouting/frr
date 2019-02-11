@@ -291,7 +291,7 @@ static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 			   __PRETTY_FUNCTION__,
 			   ifp->name, vrf_id, new_vrf_id);
 
-	if_update_to_new_vrf(ifp, new_vrf_id);
+	if_update_to_new_vrf(ifp, vrf_lookup_by_id(new_vrf_id));
 
 	return 0;
 }
