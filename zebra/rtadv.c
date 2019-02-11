@@ -66,6 +66,9 @@ extern struct zebra_privs_t zserv_privs;
 #define ALLNODE   "ff02::1"
 #define ALLROUTER "ff02::2"
 
+DEFINE_MTYPE_STATIC(ZEBRA, RTADV_RDNSS, "Router Advertisement RDNSS")
+DEFINE_MTYPE_STATIC(ZEBRA, RTADV_DNSSL, "Router Advertisement DNSSL")
+
 /* Order is intentional.  Matches RFC4191.  This array is also used for
    command matching, so only modify with care. */
 const char *rtadv_pref_strs[] = {"medium", "high", "INVALID", "low", 0};
