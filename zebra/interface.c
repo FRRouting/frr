@@ -1571,17 +1571,15 @@ DEFPY(show_interface, show_interface_cmd,
       VRF_CMD_HELP_STR
       "Interface status and configuration summary\n")
 {
-	struct vrf *vrf;
+	struct vrf *vrf = NULL;
 	struct interface *ifp;
-	vrf_id_t vrf_id = VRF_DEFAULT;
 
 	interface_update_stats();
 
 	if (name)
-		VRF_GET_ID(vrf_id, name, false);
+		VRF_GET_INSTANCE(vrf, name, false);
 
 	/* All interface print. */
-	vrf = vrf_lookup_by_id(vrf_id);
 	if (brief) {
 		ifs_dump_brief_vty(vty, vrf);
 	} else {
@@ -1628,15 +1626,14 @@ DEFUN (show_interface_name_vrf,
 	int idx_ifname = 2;
 	int idx_name = 4;
 	struct interface *ifp;
-	vrf_id_t vrf_id;
+	struct vrf *vrf;
 
 	interface_update_stats();
 
-	VRF_GET_ID(vrf_id, argv[idx_name]->arg, false);
+	VRF_GET_INSTANCE(vrf, argv[idx_name]->arg, false);
 
 	/* Specified interface print. */
-	ifp = if_lookup_by_name(argv[idx_ifname]->arg,
-				vrf_lookup_by_id(vrf_id));
+	ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf);
 	if (ifp == NULL) {
 		vty_out(vty, "%% Can't find interface %s\n",
 			argv[idx_ifname]->arg);
@@ -1683,9 +1680,8 @@ DEFUN (show_interface_name_vrf_all,
 }
 
 
-static void if_show_description(struct vty *vty, vrf_id_t vrf_id)
+static void if_show_description(struct vty *vty, struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface *ifp;
 
 	vty_out(vty, "Interface       Status  Protocol  Description\n");
@@ -1724,12 +1720,14 @@ DEFUN (show_interface_desc,
        "Interface description\n"
        VRF_CMD_HELP_STR)
 {
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	struct vrf *vrf;
 
 	if (argc > 3)
-		VRF_GET_ID(vrf_id, argv[4]->arg, false);
+		VRF_GET_INSTANCE(vrf, argv[4]->arg, false);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
-	if_show_description(vty, vrf_id);
+	if_show_description(vty, vrf);
 
 	return CMD_SUCCESS;
 }
@@ -1748,7 +1746,7 @@ DEFUN (show_interface_desc_vrf_all,
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
 		if (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
 			vty_out(vty, "\n\tVRF %u\n\n", vrf->vrf_id);
-			if_show_description(vty, vrf->vrf_id);
+			if_show_description(vty, vrf);
 		}
 
 	return CMD_SUCCESS;

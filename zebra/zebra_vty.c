@@ -941,10 +941,9 @@ DEFPY (show_route_table_vrf,
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	struct zebra_vrf *zvrf;
 	struct route_table *t;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	vrf_id_t vrf_id;
 
-	if (vrf_name)
-		VRF_GET_ID(vrf_id, vrf_name, !!json);
+	VRF_GET_ID(vrf_id, vrf_name, !!json);
 	zvrf = zebra_vrf_lookup_by_id(vrf_id);
 
 	t = zebra_router_find_table(zvrf, table, afi, SAFI_UNICAST);

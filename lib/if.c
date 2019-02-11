@@ -1081,8 +1081,7 @@ DEFPY_NOSH (interface,
        VRF_CMD_HELP_STR)
 {
 	char xpath_list[XPATH_MAXLEN];
-	vrf_id_t vrf_id;
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	int ret;
 	struct vrf *vrf;
 
@@ -1096,14 +1095,24 @@ DEFPY_NOSH (interface,
 	 * interface is found, then a new one should be created on the default
 	 * VRF.
 	 */
-	VRF_GET_ID(vrf_id, vrfname, false);
-	ifp = if_lookup_by_name_all_vrf(ifname);
-	if (ifp && ifp->vrf_id != vrf_id) {
+	VRF_GET_INSTANCE(vrf, vrfname, false);
+	/*
+	 * within vrf context, vrf_id may be unknown
+	 * this happens on daemons relying on zebra
+	 * on this specific case, interface creation may
+	 * be forced
+	 */
+	if (vrf && (vrf->vrf_id == VRF_UNKNOWN ||
+		    vrf_get_backend() == VRF_BACKEND_UNKNOWN))
+		ifp = if_lookup_by_name(ifname, vrf);
+	else
+		ifp = if_lookup_by_name_all_vrf(ifname);
+	if (ifp && ifp->vrf_id != vrf->vrf_id) {
 		/*
 		 * Special case 1: a VRF name was specified, but the found
 		 * interface is associated to different VRF. Reject the command.
 		 */
-		if (vrf_id != VRF_DEFAULT) {
+		if (vrf->vrf_id != VRF_DEFAULT) {
 			vty_out(vty, "%% interface %s not in %s vrf\n", ifname,
 				vrfname);
 			return CMD_WARNING_CONFIG_FAILED;
@@ -1117,8 +1126,7 @@ DEFPY_NOSH (interface,
 		vrf = vrf_lookup_by_id(ifp->vrf_id);
 		assert(vrf);
 		vrfname = vrf->name;
-	} else
-		vrf = vrf_lookup_by_id(vrf_id);
+	}
 
 	snprintf(xpath_list, sizeof(xpath_list),
 		 "/frr-interface:lib/interface[name='%s'][vrf='%s']", ifname,
@@ -1257,7 +1265,7 @@ static int lib_interface_create(enum nb_event event,
 	const char *ifname;
 	const char *vrfname;
 	struct vrf *vrf;
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 
 	ifname = yang_dnode_get_string(dnode, "./name");
 	vrfname = yang_dnode_get_string(dnode, "./vrf");
@@ -1270,11 +1278,9 @@ static int lib_interface_create(enum nb_event event,
 				  vrfname);
 			return NB_ERR_VALIDATION;
 		}
-		if (vrf->vrf_id == VRF_UNKNOWN) {
-			zlog_warn("%s: VRF %s is not active", __func__,
-				  vrf->name);
-			return NB_ERR_VALIDATION;
-		}
+		if (vrf->vrf_id == VRF_UNKNOWN)
+			zlog_warn("%s: VRF %s is not active. Using interface however.",
+				  __func__, vrf->name);
 
 		/* if VRF is netns or not yet known - init for instance
 		 * then assumption is that passed config is exact
