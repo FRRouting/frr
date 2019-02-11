@@ -141,10 +141,10 @@ void eigrp_prefix_entry_add(struct route_table *topology,
 				__PRETTY_FUNCTION__,
 				prefix2str(pe->destination, buf, sizeof(buf)));
 		}
+		route_unlock_node(rn);
 	}
 
 	rn->info = pe;
-	route_lock_node(rn);
 }
 
 /*

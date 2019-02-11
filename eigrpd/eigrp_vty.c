@@ -559,6 +559,7 @@ DEFPY (show_ip_eigrp_topology,
 	tn = rn->info;
 	eigrp_vty_display_prefix_entry(vty, eigrp, tn, argc == 5);
 
+	route_unlock_node(rn);
 	return CMD_SUCCESS;
 }
 
