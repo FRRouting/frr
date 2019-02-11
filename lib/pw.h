@@ -48,9 +48,6 @@ union pw_protocol_fields {
 		uint32_t pwid;
 		char vpn_name[L2VPN_NAME_LEN];
 	} ldp;
-	struct {
-		/* TODO */
-	} bgp;
 };
 
 #ifdef __cplusplus

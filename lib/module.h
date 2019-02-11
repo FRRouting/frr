@@ -82,9 +82,10 @@ extern union _frrmod_runtime_u _frrmod_this_module;
 
 #define FRR_COREMOD_SETUP(...)                                                 \
 	static const struct frrmod_info _frrmod_info = {__VA_ARGS__};          \
-	DSO_LOCAL union _frrmod_runtime_u _frrmod_this_module = {              \
-		.r.info = &_frrmod_info,                                       \
-	};
+	DSO_LOCAL union _frrmod_runtime_u _frrmod_this_module = {{             \
+		NULL,                                                          \
+		&_frrmod_info,                                                 \
+	}};
 #define FRR_MODULE_SETUP(...)                                                  \
 	FRR_COREMOD_SETUP(__VA_ARGS__)                                         \
 	DSO_SELF struct frrmod_runtime *frr_module = &_frrmod_this_module.r;
