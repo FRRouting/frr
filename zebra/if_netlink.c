@@ -598,6 +598,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
 	ifindex_t bond_ifindex = IFINDEX_INTERNAL;
 	struct zebra_if *zif;
+	struct vrf *vrf;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
@@ -677,12 +678,14 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (vrf_is_backend_netns())
 		vrf_id = (vrf_id_t)ns_id;
 
+	vrf = vrf_lookup_by_id(vrf_id);
+
 	/* If linking to another interface, note it. */
 	if (tb[IFLA_LINK])
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
 	/* Add interface. */
-	ifp = if_get_by_name(name, vrf_id);
+	ifp = if_get_by_name(name, vrf);
 	set_ifindex(ifp, ifi->ifi_index, zns);
 	ifp->flags = ifi->ifi_flags & 0x0000fffff;
 	ifp->mtu6 = ifp->mtu = *(uint32_t *)RTA_DATA(tb[IFLA_MTU]);
@@ -1109,6 +1112,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
 	uint8_t old_hw_addr[INTERFACE_HWADDR_MAX];
 	struct zebra_if *zif;
+	struct vrf *vrf;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
@@ -1209,6 +1213,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		}
 		if (vrf_is_backend_netns())
 			vrf_id = (vrf_id_t)ns_id;
+
+		vrf = vrf_lookup_by_id(vrf_id);
+
 		if (ifp == NULL
 		    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 			/* Add interface notification from kernel */
@@ -1222,7 +1229,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 			if (ifp == NULL) {
 				/* unknown interface */
-				ifp = if_get_by_name(name, vrf_id);
+				ifp = if_get_by_name(name, vrf);
 			} else {
 				/* pre-configured interface, learnt now */
 				if (ifp->vrf_id != vrf_id)
