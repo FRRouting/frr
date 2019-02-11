@@ -132,9 +132,8 @@ static int if_cmp_index_func(const struct interface *ifp1,
 }
 
 /* Create new interface structure. */
-struct interface *if_create(const char *name, vrf_id_t vrf_id)
+struct interface *if_create(const char *name, struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_get(vrf_id, NULL);
 	struct interface *ifp;
 
 	ifp = XCALLOC(MTYPE_IF, sizeof(struct interface));
@@ -142,7 +141,7 @@ struct interface *if_create(const char *name, vrf_id_t vrf_id)
 
 	assert(name);
 	strlcpy(ifp->name, name, sizeof(ifp->name));
-	ifp->vrf_id = vrf_id;
+	ifp->vrf_id = vrf->vrf_id;
 	IFNAME_RB_INSERT(vrf, ifp);
 	ifp->connected = list_new();
 	ifp->connected->del = (void (*)(void *))connected_free;
@@ -398,7 +397,7 @@ struct interface *if_get_by_name(const char *name, struct vrf *vrf)
 		ifp = if_lookup_by_name(name, vrf->vrf_id);
 		if (ifp)
 			return ifp;
-		return if_create(name, vrf->vrf_id);
+		return if_create(name, vrf);
 	case VRF_BACKEND_VRF_LITE:
 		ifp = if_lookup_by_name_all_vrf(name);
 		if (ifp) {
@@ -410,7 +409,7 @@ struct interface *if_get_by_name(const char *name, struct vrf *vrf)
 			if_update_to_new_vrf(ifp, vrf->vrf_id);
 			return ifp;
 		}
-		return if_create(name, vrf->vrf_id);
+		return if_create(name, vrf);
 	}
 
 	return NULL;
