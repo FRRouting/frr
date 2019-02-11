@@ -115,9 +115,9 @@ struct stream_fifo {
 	pthread_mutex_t mtx;
 
 	/* number of streams in this fifo */
-	_Atomic size_t count;
+	atomic_size_t count;
 #if defined DEV_BUILD
-	_Atomic size_t max_count;
+	atomic_size_t max_count;
 #endif
 
 	struct stream *head;

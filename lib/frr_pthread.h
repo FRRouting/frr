@@ -73,7 +73,7 @@ struct frr_pthread {
 	 */
 	pthread_cond_t *running_cond;
 	pthread_mutex_t *running_cond_mtx;
-	_Atomic bool running;
+	atomic_bool running;
 
 	/*
 	 * Fake thread-specific storage. No constraints on usage. Helpful when

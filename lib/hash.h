@@ -54,9 +54,9 @@ struct hash_backet {
 
 struct hashstats {
 	/* number of empty hash buckets */
-	_Atomic uint_fast32_t empty;
+	atomic_uint_fast32_t empty;
 	/* sum of squares of bucket length */
-	_Atomic uint_fast32_t ssq;
+	atomic_uint_fast32_t ssq;
 };
 
 struct hash {

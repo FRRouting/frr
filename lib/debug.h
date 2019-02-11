@@ -76,7 +76,7 @@
  *    Human-readable description of this debugging record.
  */
 struct debug {
-	_Atomic uint32_t flags;
+	atomic_uint_fast32_t flags;
 	const char *desc;
 };
 

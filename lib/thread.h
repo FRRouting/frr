@@ -119,13 +119,13 @@ struct thread {
 
 struct cpu_thread_history {
 	int (*func)(struct thread *);
-	_Atomic unsigned int total_calls;
-	_Atomic unsigned int total_active;
+	atomic_uint_fast32_t total_calls;
+	atomic_uint_fast32_t total_active;
 	struct time_stats {
-		_Atomic unsigned long total, max;
+		atomic_size_t total, max;
 	} real;
 	struct time_stats cpu;
-	_Atomic uint32_t types;
+	atomic_uint_fast32_t types;
 	const char *funcname;
 };
 
