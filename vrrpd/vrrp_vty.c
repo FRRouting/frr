@@ -170,7 +170,7 @@ DEFPY(vrrp_ip,
 	if (deactivated)
 		vty_out(vty, "%% Deactivated IPv4 Virtual Router %ld\n", vrid);
 	if (failed) {
-		vty_out(vty, "%% Failed to %s virtual IP",
+		vty_out(vty, "%% Failed to %s virtual IP\n",
 			no ? "remove" : "add");
 		ret = CMD_WARNING_CONFIG_FAILED;
 		if (will_activate && !activated) {
