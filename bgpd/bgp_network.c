@@ -310,7 +310,8 @@ static int bgp_get_instance_for_inc_conn(int sock, struct bgp **bgp_inst)
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
 			continue;
 
-		ifp = if_lookup_by_name(name, bgp->vrf_id);
+		ifp = if_lookup_by_name(name,
+					vrf_lookup_by_id(bgp->vrf_id));
 		if (ifp) {
 			*bgp_inst = bgp;
 			return 0;
@@ -570,7 +571,8 @@ static int bgp_update_source(struct peer *peer)
 
 	/* Source is specified with interface name.  */
 	if (peer->update_if) {
-		ifp = if_lookup_by_name(peer->update_if, peer->bgp->vrf_id);
+		ifp = if_lookup_by_name(peer->update_if,
+					vrf_lookup_by_id(peer->bgp->vrf_id));
 		if (!ifp)
 			return -1;
 

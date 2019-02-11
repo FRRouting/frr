@@ -1175,7 +1175,8 @@ DEFUN (show_isis_mpls_te_interface,
 		}
 	} else {
 		/* Interface name is specified. */
-		ifp = if_lookup_by_name(argv[idx_interface]->arg, VRF_DEFAULT);
+		ifp = if_lookup_by_name(argv[idx_interface]->arg,
+					vrf_lookup_by_id(VRF_DEFAULT));
 		if (ifp == NULL)
 			vty_out(vty, "No such interface name\n");
 		else {

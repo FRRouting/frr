@@ -2454,7 +2454,7 @@ static void ripng_distribute_update(struct distribute_ctx *ctx,
 	if (!ctx->vrf || !dist->ifname)
 		return;
 
-	ifp = if_lookup_by_name(dist->ifname, ctx->vrf->vrf_id);
+	ifp = if_lookup_by_name(dist->ifname, ctx->vrf);
 	if (ifp == NULL)
 		return;
 
@@ -2571,7 +2571,7 @@ static void ripng_if_rmap_update(struct if_rmap_ctx *ctx,
 	if (ctx->name)
 		vrf = vrf_lookup_by_name(ctx->name);
 	if (vrf)
-		ifp = if_lookup_by_name(if_rmap->ifname, vrf->vrf_id);
+		ifp = if_lookup_by_name(if_rmap->ifname, vrf);
 	if (ifp == NULL)
 		return;
 
