@@ -1001,10 +1001,14 @@ done:
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
 			  "Failed to initialize VRRP %s router",
 			  r->vr->vrid, family2str(r->family));
-		if (r->sock_rx >= 0)
+		if (r->sock_rx >= 0) {
 			close(r->sock_rx);
-		if (r->sock_tx >= 0)
+			r->sock_rx = -1;
+		}
+		if (r->sock_tx >= 0) {
 			close(r->sock_tx);
+			r->sock_tx = -1;
+		}
 		ret = -1;
 	}
 
