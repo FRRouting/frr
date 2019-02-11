@@ -388,29 +388,29 @@ struct interface *if_lookup_prefix(struct prefix *prefix, vrf_id_t vrf_id)
 
 /* Get interface by name if given name interface doesn't exist create
    one. */
-struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id)
+struct interface *if_get_by_name(const char *name, struct vrf *vrf)
 {
 	struct interface *ifp;
 
 	switch (vrf_get_backend()) {
 	case VRF_BACKEND_UNKNOWN:
 	case VRF_BACKEND_NETNS:
-		ifp = if_lookup_by_name(name, vrf_id);
+		ifp = if_lookup_by_name(name, vrf->vrf_id);
 		if (ifp)
 			return ifp;
-		return if_create(name, vrf_id);
+		return if_create(name, vrf->vrf_id);
 	case VRF_BACKEND_VRF_LITE:
 		ifp = if_lookup_by_name_all_vrf(name);
 		if (ifp) {
-			if (ifp->vrf_id == vrf_id)
+			if (ifp->vrf_id == vrf->vrf_id)
 				return ifp;
 			/* If it came from the kernel or by way of zclient,
 			 * believe it and update the ifp accordingly.
 			 */
-			if_update_to_new_vrf(ifp, vrf_id);
+			if_update_to_new_vrf(ifp, vrf->vrf_id);
 			return ifp;
 		}
-		return if_create(name, vrf_id);
+		return if_create(name, vrf->vrf_id);
 	}
 
 	return NULL;
@@ -600,12 +600,12 @@ void if_dump_all(void)
  *     if not:
  *     - no idea, just get the name in its entirety.
  */
-static struct interface *if_sunwzebra_get(const char *name, vrf_id_t vrf_id)
+static struct interface *if_sunwzebra_get(const char *name, struct vrf *vrf)
 {
 	struct interface *ifp;
 	char *cp;
 
-	if ((ifp = if_lookup_by_name(name, vrf_id)) != NULL)
+	if ((ifp = if_lookup_by_name(name, vrf->vrf_id)) != NULL)
 		return ifp;
 
 	/* hunt the primary interface name... */
@@ -613,7 +613,7 @@ static struct interface *if_sunwzebra_get(const char *name, vrf_id_t vrf_id)
 	if (cp)
 		*cp = '\0';
 
-	return if_get_by_name(name, vrf_id);
+	return if_get_by_name(name, vrf);
 }
 #endif /* SUNOS_5 */
 
@@ -1299,9 +1299,9 @@ static int lib_interface_create(enum nb_event event,
 		vrf = vrf_lookup_by_name(vrfname);
 		assert(vrf);
 #ifdef SUNOS_5
-		ifp = if_sunwzebra_get(ifname, vrf->vrf_id);
+		ifp = if_sunwzebra_get(ifname, vrf);
 #else
-		ifp = if_get_by_name(ifname, vrf->vrf_id);
+		ifp = if_get_by_name(ifname, vrf);
 #endif /* SUNOS_5 */
 		yang_dnode_set_entry(dnode, ifp);
 		break;

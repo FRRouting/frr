@@ -434,6 +434,7 @@ static void rtm_flag_dump(int flag)
 static int ifan_read(struct if_announcemsghdr *ifan)
 {
 	struct interface *ifp;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
 	ifp = if_lookup_by_index(ifan->ifan_index, VRF_DEFAULT);
 
@@ -449,7 +450,7 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 				__func__, ifan->ifan_index, ifan->ifan_name);
 
 		/* Create Interface */
-		ifp = if_get_by_name(ifan->ifan_name, VRF_DEFAULT);
+		ifp = if_get_by_name(ifan->ifan_name, vrf);
 		if_set_index(ifp, ifan->ifan_index);
 
 		if_get_metric(ifp);
