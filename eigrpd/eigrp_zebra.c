@@ -258,7 +258,8 @@ static int eigrp_interface_address_delete(int command, struct zclient *zclient,
 		return 0;
 
 	/* Call interface hook functions to clean up */
-	eigrp_if_free(ei, INTERFACE_DOWN_BY_ZEBRA);
+	if (prefix_cmp(&ei->address, c->address) == 0)
+		eigrp_if_free(ei, INTERFACE_DOWN_BY_ZEBRA);
 
 	connected_free(c);
 
