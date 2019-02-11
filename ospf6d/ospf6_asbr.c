@@ -1404,7 +1404,8 @@ ospf6_routemap_rule_match_interface(void *rule, const struct prefix *prefix,
 
 	if (type == RMAP_OSPF6) {
 		ei = ((struct ospf6_route *)object)->route_option;
-		ifp = if_lookup_by_name((char *)rule, VRF_DEFAULT);
+		ifp = if_lookup_by_name((char *)rule,
+					vrf_lookup_by_id(VRF_DEFAULT));
 
 		if (ifp != NULL && ei->ifindex == ifp->ifindex)
 			return RMAP_MATCH;
