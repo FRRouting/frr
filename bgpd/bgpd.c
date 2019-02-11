@@ -7857,8 +7857,10 @@ void bgp_master_init(struct thread_master *master)
  */
 static void bgp_if_finish(struct bgp *bgp)
 {
-	struct vrf *vrf = vrf_lookup_by_id(bgp->vrf_id);
+	struct vrf *vrf;
 	struct interface *ifp;
+
+	vrf = bgp_vrf_lookup_by_instance_type(bgp);
 
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW || !vrf)
 		return;
