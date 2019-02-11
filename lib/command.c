@@ -1009,7 +1009,7 @@ enum node_type node_parent(enum node_type node)
 }
 
 /* Execute command by argument vline vector. */
-static int cmd_execute_command_real(vector vline, enum filter_type filter,
+static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 				    struct vty *vty,
 				    const struct cmd_element **cmd)
 {

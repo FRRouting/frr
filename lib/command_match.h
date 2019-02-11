@@ -35,7 +35,7 @@ extern "C" {
 /* These definitions exist in command.c in the current engine but should be
  * relocated here in the new engine
  */
-enum filter_type { FILTER_RELAXED, FILTER_STRICT };
+enum cmd_filter_type { FILTER_RELAXED, FILTER_STRICT };
 
 /* matcher result value */
 enum matcher_rv {
