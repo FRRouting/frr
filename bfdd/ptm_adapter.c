@@ -625,13 +625,14 @@ static int bfdd_interface_vrf_update(int command __attribute__((__unused__)),
 				     vrf_id_t vrfid)
 {
 	struct interface *ifp;
+	struct vrf *nvrf;
 	vrf_id_t nvrfid;
 
 	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrfid, &nvrfid);
 	if (ifp == NULL)
 		return 0;
-
-	if_update_to_new_vrf(ifp, nvrfid);
+	nvrf = vrf_lookup_by_id(nvrfid);
+	if_update_to_new_vrf(ifp, nvrf);
 
 	return 0;
 }

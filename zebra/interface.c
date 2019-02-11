@@ -763,6 +763,7 @@ void if_delete_update(struct interface *ifp)
 void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 {
 	vrf_id_t old_vrf_id;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
 	old_vrf_id = ifp->vrf_id;
 
@@ -780,7 +781,7 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 	zebra_interface_vrf_update_del(ifp, vrf_id);
 
 	/* update VRF */
-	if_update_to_new_vrf(ifp, vrf_id);
+	if_update_to_new_vrf(ifp, vrf);
 
 	/* Send out notification on interface VRF change. */
 	/* This is to issue an ADD, if needed. */

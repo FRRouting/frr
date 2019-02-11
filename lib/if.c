@@ -157,11 +157,18 @@ struct interface *if_create(const char *name, struct vrf *vrf)
 	return ifp;
 }
 
-/* Create new interface structure. */
-void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
+/* Create new interface structure.
+ * vrf must be created outside of this routing
+ */
+void if_update_to_new_vrf(struct interface *ifp, struct vrf *vrf)
 {
-	struct vrf *old_vrf, *vrf;
+	struct vrf *old_vrf;
 
+	if (!vrf) {
+		flog_err(EC_LIB_INTERFACE, "interface %s. Unknown VRF",
+			 ifp->name);
+		return;
+	}
 	/* remove interface from old master vrf list */
 	old_vrf = vrf_lookup_by_id(ifp->vrf_id);
 	if (old_vrf) {
@@ -170,8 +177,7 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 			IFINDEX_RB_REMOVE(old_vrf, ifp);
 	}
 
-	ifp->vrf_id = vrf_id;
-	vrf = vrf_get(ifp->vrf_id, NULL);
+	ifp->vrf_id = vrf->vrf_id;
 
 	IFNAME_RB_INSERT(vrf, ifp);
 	if (ifp->ifindex != IFINDEX_INTERNAL)
@@ -408,7 +414,7 @@ struct interface *if_get_by_name(const char *name, struct vrf *vrf)
 			/* If it came from the kernel or by way of zclient,
 			 * believe it and update the ifp accordingly.
 			 */
-			if_update_to_new_vrf(ifp, vrf->vrf_id);
+			if_update_to_new_vrf(ifp, vrf);
 			return ifp;
 		}
 		return if_create(name, vrf);

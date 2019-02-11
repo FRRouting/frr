@@ -318,17 +318,20 @@ int ripng_interface_vrf_update(int command, struct zclient *zclient,
 {
 	struct interface *ifp;
 	vrf_id_t new_vrf_id;
+	struct vrf *new_vrf;
 
 	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
 					      &new_vrf_id);
 	if (!ifp)
 		return 0;
 
+	new_vrf = vrf_lookup_by_id(new_vrf_id);
+
 	if (IS_RIPNG_DEBUG_ZEBRA)
 		zlog_debug("interface %s VRF change vrf_id %u new vrf id %u",
 			   ifp->name, vrf_id, new_vrf_id);
 
-	if_update_to_new_vrf(ifp, new_vrf_id);
+	if_update_to_new_vrf(ifp, new_vrf);
 	ripng_interface_sync(ifp);
 
 	return 0;

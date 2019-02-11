@@ -1243,7 +1243,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			} else {
 				/* pre-configured interface, learnt now */
 				if (ifp->vrf_id != vrf_id)
-					if_update_to_new_vrf(ifp, vrf_id);
+					if_update_to_new_vrf(ifp, vrf);
 			}
 
 			/* Update interface information. */
