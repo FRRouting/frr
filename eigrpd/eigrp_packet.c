@@ -281,7 +281,7 @@ int eigrp_make_sha256_digest(struct eigrp_interface *ei, struct stream *s,
 		return 0;
 	}
 
-	inet_ntop(AF_INET, &ei->address->u.prefix4, source_ip, PREFIX_STRLEN);
+	inet_ntop(AF_INET, &ei->address.u.prefix4, source_ip, PREFIX_STRLEN);
 
 	memset(&ctx, 0, sizeof(ctx));
 	buffer[0] = '\n';
@@ -362,7 +362,7 @@ int eigrp_write(struct thread *thread)
 	}
 
 	if (ep->dst.s_addr == htonl(EIGRP_MULTICAST_ADDRESS))
-		eigrp_if_ipmulticast(eigrp, ei->address, ei->ifp->ifindex);
+		eigrp_if_ipmulticast(eigrp, &ei->address, ei->ifp->ifindex);
 
 	memset(&iph, 0, sizeof(struct ip));
 	memset(&sa_dst, 0, sizeof(sa_dst));
@@ -418,7 +418,7 @@ int eigrp_write(struct thread *thread)
 	iph.ip_ttl = EIGRP_IP_TTL;
 	iph.ip_p = IPPROTO_EIGRPIGP;
 	iph.ip_sum = 0;
-	iph.ip_src.s_addr = ei->address->u.prefix4.s_addr;
+	iph.ip_src.s_addr = ei->address.u.prefix4.s_addr;
 	iph.ip_dst.s_addr = ep->dst.s_addr;
 
 	memset(&msg, 0, sizeof(msg));
@@ -547,7 +547,7 @@ int eigrp_read(struct thread *thread)
 
 	/* Self-originated packet should be discarded silently. */
 	if (eigrp_if_lookup_by_local_addr(eigrp, NULL, iph->ip_src)
-	    || (IPV4_ADDR_SAME(&iph->ip_src, &ei->address->u.prefix4))) {
+	    || (IPV4_ADDR_SAME(&iph->ip_src, &ei->address.u.prefix4))) {
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
 			zlog_debug(
 				"eigrp_read[%s]: Dropping self-originated packet",
@@ -581,7 +581,7 @@ int eigrp_read(struct thread *thread)
 					  sizeof(buf[0])),
 				inet_ntop(AF_INET, &iph->ip_dst, buf[1],
 					  sizeof(buf[1])),
-				inet_ntop(AF_INET, &ei->address->u.prefix4,
+				inet_ntop(AF_INET, &ei->address.u.prefix4,
 					  buf[2], sizeof(buf[2])));
 
 		if (iph->ip_dst.s_addr == htonl(EIGRP_MULTICAST_ADDRESS)) {
@@ -981,9 +981,9 @@ static int eigrp_check_network_mask(struct eigrp_interface *ei,
 	if (ei->type == EIGRP_IFTYPE_POINTOPOINT)
 		return 1;
 
-	masklen2ip(ei->address->prefixlen, &mask);
+	masklen2ip(ei->address.prefixlen, &mask);
 
-	me.s_addr = ei->address->u.prefix4.s_addr & mask.s_addr;
+	me.s_addr = ei->address.u.prefix4.s_addr & mask.s_addr;
 	him.s_addr = ip_src.s_addr & mask.s_addr;
 
 	if (IPV4_ADDR_SAME(&me, &him))

@@ -333,7 +333,7 @@ int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 			if (rn->info == NULL)
 				continue;
 
-			if (eigrp_network_match_iface(ei->address, &rn->p)) {
+			if (eigrp_network_match_iface(&ei->address, &rn->p)) {
 				found = true;
 				route_unlock_node(rn);
 				break;
