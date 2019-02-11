@@ -295,7 +295,8 @@ extern void list_add_list(struct list *list, struct list *add);
 #define ALL_LIST_ELEMENTS(list, node, nextnode, data)                          \
 	(node) = listhead(list), ((data) = NULL);                              \
 	(node) != NULL                                                         \
-		&& ((data) = listgetdata(node), (nextnode) = node->next, 1);   \
+		&& ((data) = static_cast(data, listgetdata(node)),             \
+		    (nextnode) = node->next, 1);                               \
 	(node) = (nextnode), ((data) = NULL)
 
 /* read-only list iteration macro.
@@ -306,7 +307,7 @@ extern void list_add_list(struct list *list, struct list *add);
  */
 #define ALL_LIST_ELEMENTS_RO(list, node, data)                                 \
 	(node) = listhead(list), ((data) = NULL);                              \
-	(node) != NULL && ((data) = listgetdata(node), 1);                     \
+	(node) != NULL && ((data) = static_cast(data, listgetdata(node)), 1);  \
 	(node) = listnextnode(node), ((data) = NULL)
 
 /* these *do not* cleanup list nodes and referenced data, as the functions
