@@ -435,11 +435,22 @@ end
                 self.save_contexts(ctx_keys, current_context_lines)
                 new_ctx = True
 
-            elif line in ["end", "exit-vrf"]:
+            elif line == "end":
                 self.save_contexts(ctx_keys, current_context_lines)
                 log.debug('LINE %-50s: exiting old context, %-50s', line, ctx_keys)
 
                 # Start a new context
+                new_ctx = True
+                main_ctx_key = []
+                ctx_keys = []
+                current_context_lines = []
+
+            elif line == "exit-vrf":
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines.append(line)
+                log.debug('LINE %-50s: append to current_context_lines, %-50s', line, ctx_keys)
+
+                #Start a new context
                 new_ctx = True
                 main_ctx_key = []
                 ctx_keys = []
