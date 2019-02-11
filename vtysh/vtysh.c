@@ -3330,7 +3330,7 @@ static void vtysh_client_sorted_insert(struct vtysh_client *head_client,
 
 #define MAXIMUM_INSTANCES 10
 
-static void vtysh_update_all_insances(struct vtysh_client *head_client)
+static void vtysh_update_all_instances(struct vtysh_client *head_client)
 {
 	struct vtysh_client *client;
 	DIR *dir;
@@ -3373,7 +3373,7 @@ static int vtysh_connect_all_instances(struct vtysh_client *head_client)
 	struct vtysh_client *client;
 	int rc = 0;
 
-	vtysh_update_all_insances(head_client);
+	vtysh_update_all_instances(head_client);
 
 	client = head_client->next;
 	while (client) {
