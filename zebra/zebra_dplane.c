@@ -1916,7 +1916,7 @@ enum zebra_dplane_result dplane_intf_addr_set(const struct interface *ifp,
 		struct prefix_ipv4 *p;
 
 		p = (struct prefix_ipv4 *)ifc->address;
-		rib_lookup_and_pushup(p, ifp->vrf_id);
+		rib_lookup_and_pushup(p, ifp->vrf->vrf_id);
 	}
 #endif
 
@@ -1947,7 +1947,7 @@ static enum zebra_dplane_result intf_addr_update_internal(
 		prefix2str(ifc->address, addr_str, sizeof(addr_str));
 
 		zlog_debug("init intf ctx %s: idx %d, addr %u:%s",
-			   dplane_op2str(op), ifp->ifindex, ifp->vrf_id,
+			   dplane_op2str(op), ifp->ifindex, ifp->vrf->vrf_id,
 			   addr_str);
 	}
 
@@ -1955,9 +1955,9 @@ static enum zebra_dplane_result intf_addr_update_internal(
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	ctx->zd_vrf_id = ifp->vrf_id;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
 
-	zns = zebra_ns_lookup(ifp->vrf_id);
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	/* Init the interface-addr-specific area */

@@ -165,7 +165,7 @@ int zsend_interface_add(struct zserv *client, struct interface *ifp)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, ZEBRA_INTERFACE_ADD, ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_INTERFACE_ADD, vrf_to_id(ifp->vrf));
 	zserv_encode_interface(s, ifp);
 
 	client->ifadd_cnt++;
@@ -177,7 +177,7 @@ int zsend_interface_delete(struct zserv *client, struct interface *ifp)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, ZEBRA_INTERFACE_DELETE, ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_INTERFACE_DELETE, vrf_to_id(ifp->vrf));
 	zserv_encode_interface(s, ifp);
 
 	client->ifdel_cnt++;
@@ -217,7 +217,8 @@ int zsend_interface_link_params(struct zserv *client, struct interface *ifp)
 		return 0;
 	}
 
-	zclient_create_header(s, ZEBRA_INTERFACE_LINK_PARAMS, ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_INTERFACE_LINK_PARAMS,
+			      vrf_to_id(ifp->vrf));
 
 	/* Add Interface Index */
 	stream_putl(s, ifp->ifindex);
@@ -279,7 +280,7 @@ int zsend_interface_address(int cmd, struct zserv *client,
 	struct prefix *p;
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, cmd, ifp->vrf_id);
+	zclient_create_header(s, cmd, vrf_to_id(ifp->vrf));
 	stream_putl(s, ifp->ifindex);
 
 	/* Interface address flag. */
@@ -321,7 +322,7 @@ static int zsend_interface_nbr_address(int cmd, struct zserv *client,
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	struct prefix *p;
 
-	zclient_create_header(s, cmd, ifp->vrf_id);
+	zclient_create_header(s, cmd, vrf_to_id(ifp->vrf));
 	stream_putl(s, ifp->ifindex);
 
 	/* Prefix information. */
@@ -429,7 +430,8 @@ int zsend_interface_vrf_update(struct zserv *client, struct interface *ifp,
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, ZEBRA_INTERFACE_VRF_UPDATE, ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_INTERFACE_VRF_UPDATE,
+			      vrf_to_id(ifp->vrf));
 
 	/* Fill in the name of the interface and its new VRF (id) */
 	stream_put(s, ifp->name, INTERFACE_NAMSIZ);
@@ -504,7 +506,7 @@ int zsend_interface_update(int cmd, struct zserv *client, struct interface *ifp)
 {
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, cmd, ifp->vrf_id);
+	zclient_create_header(s, cmd, vrf_to_id(ifp->vrf));
 	zserv_encode_interface(s, ifp);
 
 	if (cmd == ZEBRA_INTERFACE_UP)

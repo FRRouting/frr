@@ -142,7 +142,8 @@ void if_get_metric(struct interface *ifp)
 
 	ifreq_set_name(&ifreq, ifp);
 
-	if (vrf_if_ioctl(SIOCGIFMETRIC, (caddr_t)&ifreq, ifp->vrf_id) < 0)
+	if (vrf_if_ioctl(SIOCGIFMETRIC, (caddr_t)&ifreq,
+			 vrf_to_id(ifp->vrf)) < 0)
 		return;
 	ifp->metric = ifreq.ifr_metric;
 	if (ifp->metric == 0)
@@ -160,7 +161,8 @@ void if_get_mtu(struct interface *ifp)
 	ifreq_set_name(&ifreq, ifp);
 
 #if defined(SIOCGIFMTU)
-	if (vrf_if_ioctl(SIOCGIFMTU, (caddr_t)&ifreq, ifp->vrf_id) < 0) {
+	if (vrf_if_ioctl(SIOCGIFMTU, (caddr_t)&ifreq,
+			 vrf_to_id(ifp->vrf)) < 0) {
 		zlog_info("Can't lookup mtu by ioctl(SIOCGIFMTU)");
 		ifp->mtu6 = ifp->mtu = -1;
 		return;
@@ -427,7 +429,7 @@ void if_get_flags(struct interface *ifp)
 
 	ifreq_set_name(&ifreq, ifp);
 
-	ret = vrf_if_ioctl(SIOCGIFFLAGS, (caddr_t)&ifreq, ifp->vrf_id);
+	ret = vrf_if_ioctl(SIOCGIFFLAGS, (caddr_t)&ifreq, vrf_to_id(ifp->vrf));
 	if (ret < 0) {
 		flog_err_sys(EC_LIB_SYSTEM_CALL,
 			     "vrf_if_ioctl(SIOCGIFFLAGS) failed: %s",
@@ -477,7 +479,7 @@ int if_set_flags(struct interface *ifp, uint64_t flags)
 	ifreq.ifr_flags = ifp->flags;
 	ifreq.ifr_flags |= flags;
 
-	ret = vrf_if_ioctl(SIOCSIFFLAGS, (caddr_t)&ifreq, ifp->vrf_id);
+	ret = vrf_if_ioctl(SIOCSIFFLAGS, (caddr_t)&ifreq, vrf_to_id(ifp->vrf));
 
 	if (ret < 0) {
 		zlog_info("can't set interface flags");
@@ -498,7 +500,7 @@ int if_unset_flags(struct interface *ifp, uint64_t flags)
 	ifreq.ifr_flags = ifp->flags;
 	ifreq.ifr_flags &= ~flags;
 
-	ret = vrf_if_ioctl(SIOCSIFFLAGS, (caddr_t)&ifreq, ifp->vrf_id);
+	ret = vrf_if_ioctl(SIOCSIFFLAGS, (caddr_t)&ifreq, vrf_to_id(ifp->vrf));
 
 	if (ret < 0) {
 		zlog_info("can't unset interface flags");

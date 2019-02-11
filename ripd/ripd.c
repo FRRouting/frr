@@ -3451,6 +3451,8 @@ void rip_if_rmap_update_interface(struct interface *ifp)
 
 	if (!rip)
 		return;
+	if (ifp->vrf && ifp->vrf->vrf_id == VRF_UNKNOWN)
+		return;
 	ctx = rip->if_rmap_ctx;
 	if (!ctx)
 		return;

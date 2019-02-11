@@ -532,7 +532,7 @@ static int rtadv_timer(struct thread *thread)
 
 static void rtadv_process_solicit(struct interface *ifp)
 {
-	struct zebra_vrf *zvrf = vrf_info_lookup(ifp->vrf_id);
+	struct zebra_vrf *zvrf = zvrf_info_lookup(ifp->vrf);
 
 	assert(zvrf);
 	rtadv_send_packet(rtadv_get_socket(zvrf), ifp);
@@ -882,7 +882,7 @@ static void ipv6_nd_suppress_ra_set(struct interface *ifp,
 	struct zebra_vrf *zvrf;
 
 	zif = ifp->info;
-	zvrf = vrf_info_lookup(ifp->vrf_id);
+	zvrf = zvrf_info_lookup(ifp->vrf);
 
 	if (status == RA_SUPPRESS) {
 		/* RA is currently enabled */
@@ -955,11 +955,11 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 			  zebra_route_string(client->proto));
 		return;
 	}
-	if (ifp->vrf_id != zvrf_id(zvrf)) {
+	if (ifp->vrf != zvrf->vrf) {
 		zlog_debug(
 			"%u: IF %u RA %s client %s - VRF mismatch, IF VRF %u",
 			zvrf_id(zvrf), ifindex, enable ? "enable" : "disable",
-			zebra_route_string(client->proto), ifp->vrf_id);
+			zebra_route_string(client->proto), vrf_to_id(ifp->vrf));
 		return;
 	}
 
@@ -1056,7 +1056,7 @@ DEFUN (ipv6_nd_ra_interval_msec,
 	struct zebra_if *zif = ifp->info;
 	struct zebra_vrf *zvrf;
 
-	zvrf = vrf_info_lookup(ifp->vrf_id);
+	zvrf = zvrf_info_lookup(ifp->vrf);
 
 	interval = strtoul(argv[idx_number]->arg, NULL, 10);
 	if ((zif->rtadv.AdvDefaultLifetime != -1
@@ -1094,7 +1094,7 @@ DEFUN (ipv6_nd_ra_interval,
 	struct zebra_if *zif = ifp->info;
 	struct zebra_vrf *zvrf;
 
-	zvrf = vrf_info_lookup(ifp->vrf_id);
+	zvrf = zvrf_info_lookup(ifp->vrf);
 
 	interval = strtoul(argv[idx_number]->arg, NULL, 10);
 	if ((zif->rtadv.AdvDefaultLifetime != -1
@@ -1133,7 +1133,7 @@ DEFUN (no_ipv6_nd_ra_interval,
 	struct zebra_if *zif = ifp->info;
 	struct zebra_vrf *zvrf = NULL;
 
-	zvrf = vrf_info_lookup(ifp->vrf_id);
+	zvrf = zvrf_info_lookup(ifp->vrf);
 
 	if (zif->rtadv.MaxRtrAdvInterval % 1000)
 		zvrf->rtadv.adv_msec_if_count--;

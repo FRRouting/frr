@@ -802,7 +802,7 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 								 peer->bgp->vrf_id));
 		} else if (peer->update_if)
 			ifp = if_lookup_by_name(peer->update_if,
-						vrf_lookup_by_id(peer->bgp->vrf_id));
+					vrf_lookup_by_id(peer->bgp->vrf_id));
 		else
 			ifp = if_lookup_by_ipv6_exact(&local->sin6.sin6_addr,
 						      local->sin6.sin6_scope_id,

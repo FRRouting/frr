@@ -139,7 +139,7 @@ int bfd_session_enable(struct bfd_session *bs)
 
 	if (bs->key.ifname[0]) {
 		if (vrf)
-			ifp = if_lookup_by_name(bs->key.ifname, vrf->vrf_id);
+			ifp = if_lookup_by_name(bs->key.ifname, vrf);
 		else
 			ifp = if_lookup_by_name_all_vrf(bs->key.ifname);
 		if (ifp == NULL) {
@@ -148,7 +148,7 @@ int bfd_session_enable(struct bfd_session *bs)
 			return 0;
 		}
 		if (bs->key.ifname[0] && !vrf) {
-			vrf = vrf_lookup_by_id(ifp->vrf_id);
+			vrf = ifp->vrf;
 			if (vrf == NULL) {
 				log_error(
 					  "session-enable: specified VRF doesn't exists.");

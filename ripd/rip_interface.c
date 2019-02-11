@@ -364,7 +364,7 @@ int rip_interface_down(ZAPI_CALLBACK_ARGS)
 	if (IS_RIP_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface %s vrf %u index %d flags %llx metric %d mtu %d is down",
-			ifp->name, ifp->vrf_id, ifp->ifindex,
+			ifp->name, ifp->vrf->vrf_id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
 
 	return 0;
@@ -385,7 +385,7 @@ int rip_interface_up(ZAPI_CALLBACK_ARGS)
 	if (IS_RIP_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface %s vrf %u index %d flags %#llx metric %d mtu %d is up",
-			ifp->name, ifp->vrf_id, ifp->ifindex,
+			ifp->name, ifp->vrf->vrf_id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
 
 	rip_interface_sync(ifp);
@@ -413,7 +413,7 @@ int rip_interface_add(ZAPI_CALLBACK_ARGS)
 	if (IS_RIP_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface add %s vrf %u index %d flags %#llx metric %d mtu %d",
-			ifp->name, ifp->vrf_id, ifp->ifindex,
+			ifp->name, ifp->vrf->vrf_id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
 
 	/* Check if this interface is RIP enabled or not.*/
@@ -453,7 +453,7 @@ int rip_interface_delete(ZAPI_CALLBACK_ARGS)
 
 	zlog_info(
 		"interface delete %s vrf %u index %d flags %#llx metric %d mtu %d",
-		ifp->name, ifp->vrf_id, ifp->ifindex,
+		ifp->name, ifp->vrf->vrf_id, ifp->ifindex,
 		(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
 
 	/* To support pseudo interface do not free interface structure.  */
@@ -482,6 +482,7 @@ int rip_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 			   ifp->name, vrf_id, new_vrf_id);
 
 	if_update_to_new_vrf(ifp, new_vrf);
+
 	rip_interface_sync(ifp);
 
 	return 0;
@@ -1226,7 +1227,7 @@ void rip_interface_sync(struct interface *ifp)
 {
 	struct vrf *vrf;
 
-	vrf = vrf_lookup_by_id(ifp->vrf_id);
+	vrf = ifp->vrf;
 	if (vrf) {
 		struct rip_interface *ri;
 

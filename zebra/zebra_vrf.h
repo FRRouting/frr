@@ -193,6 +193,15 @@ static inline vrf_id_t zvrf_id(struct zebra_vrf *zvrf)
 	return zvrf->vrf->vrf_id;
 }
 
+static inline struct zebra_vrf *zvrf_info_lookup(struct vrf *vrf)
+{
+	struct zebra_vrf *zvrf = NULL;
+
+	if (vrf)
+		zvrf = (struct zebra_vrf *)vrf->info;
+	return zvrf;
+}
+
 static inline const char *zvrf_ns_name(struct zebra_vrf *zvrf)
 {
 	if (!zvrf->vrf || !zvrf->vrf->ns_ctxt)

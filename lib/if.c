@@ -141,7 +141,7 @@ struct interface *if_create(const char *name, struct vrf *vrf)
 
 	assert(name);
 	strlcpy(ifp->name, name, sizeof(ifp->name));
-	ifp->vrf_id = vrf->vrf_id;
+	ifp->vrf = vrf;
 	IFNAME_RB_INSERT(vrf, ifp);
 	ifp->connected = list_new();
 	ifp->connected->del = (void (*)(void *))connected_free;
@@ -170,14 +170,14 @@ void if_update_to_new_vrf(struct interface *ifp, struct vrf *vrf)
 		return;
 	}
 	/* remove interface from old master vrf list */
-	old_vrf = vrf_lookup_by_id(ifp->vrf_id);
+	old_vrf = ifp->vrf;
 	if (old_vrf) {
 		IFNAME_RB_REMOVE(old_vrf, ifp);
 		if (ifp->ifindex != IFINDEX_INTERNAL)
 			IFINDEX_RB_REMOVE(old_vrf, ifp);
 	}
 
-	ifp->vrf_id = vrf->vrf_id;
+	ifp->vrf = vrf;
 
 	IFNAME_RB_INSERT(vrf, ifp);
 	if (ifp->ifindex != IFINDEX_INTERNAL)
@@ -225,9 +225,8 @@ void if_delete_retain(struct interface *ifp)
 /* Delete and free interface structure. */
 void if_delete(struct interface *ifp)
 {
-	struct vrf *vrf;
+	struct vrf *vrf = ifp->vrf;
 
-	vrf = vrf_lookup_by_id(ifp->vrf_id);
 	assert(vrf);
 
 	IFNAME_RB_REMOVE(vrf, ifp);
@@ -440,7 +439,7 @@ struct interface *if_get_by_name(const char *name, struct vrf *vrf)
 	case VRF_BACKEND_VRF_LITE:
 		ifp = if_lookup_by_name_all_vrf(name);
 		if (ifp) {
-			if (ifp->vrf_id == vrf->vrf_id)
+			if (ifp->vrf == vrf)
 				return ifp;
 			/* If it came from the kernel or by way of zclient,
 			 * believe it and update the ifp accordingly.
@@ -458,7 +457,7 @@ void if_set_index(struct interface *ifp, ifindex_t ifindex)
 {
 	struct vrf *vrf;
 
-	vrf = vrf_lookup_by_id(ifp->vrf_id);
+	vrf = ifp->vrf;
 	assert(vrf);
 
 	if (ifp->ifindex == ifindex)
@@ -602,7 +601,8 @@ static void if_dump(const struct interface *ifp)
 		zlog_info(
 			"Interface %s vrf %u index %d metric %d mtu %d "
 			"mtu6 %d %s",
-			ifp->name, ifp->vrf_id, ifp->ifindex, ifp->metric,
+			ifp->name, vrf_to_id(ifp->vrf),
+			ifp->ifindex, ifp->metric,
 			ifp->mtu, ifp->mtu6, if_flag_dump(ifp->flags));
 }
 
@@ -784,7 +784,8 @@ connected_log(struct connected *connected, char *str)
 	p = connected->address;
 
 	snprintf(logbuf, BUFSIZ, "%s interface %s vrf %u %s %s/%d ", str,
-		 ifp->name, ifp->vrf_id, prefix_family_str(p),
+		 ifp->name, vrf_to_id(ifp->vrf),
+		 prefix_family_str(p),
 		 inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
 
 	p = connected->destination;
@@ -1159,7 +1160,7 @@ DEFPY_NOSH (interface,
 		ifp = if_lookup_by_name(ifname, vrf);
 	else
 		ifp = if_lookup_by_name_all_vrf(ifname);
-	if (ifp && ifp->vrf_id != vrf->vrf_id) {
+	if (ifp && ifp->vrf != vrf) {
 		/*
 		 * Special case 1: a VRF name was specified, but the found
 		 * interface is associated to different VRF. Reject the command.
@@ -1175,7 +1176,7 @@ DEFPY_NOSH (interface,
 		 * interface is associated to a VRF other than the default one.
 		 * Update vrf_id and vrfname to account for that.
 		 */
-		vrf = vrf_lookup_by_id(ifp->vrf_id);
+		vrf = ifp->vrf;
 		assert(vrf);
 		vrfname = vrf->name;
 	}
@@ -1340,7 +1341,7 @@ static int lib_interface_create(enum nb_event event,
 		 */
 		if (vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
 			ifp = if_lookup_by_name_all_vrf(ifname);
-			if (ifp && ifp->vrf_id != vrf->vrf_id) {
+			if (ifp && ifp->vrf != vrf) {
 				zlog_warn(
 					"%s: interface %s already exists in another VRF",
 					__func__, ifp->name);
