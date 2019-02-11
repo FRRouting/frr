@@ -293,7 +293,7 @@ struct interface {
 #endif /* HAVE_NET_RT_IFLIST */
 
 	struct route_node *node;
-	vrf_id_t vrf_id;
+	struct vrf *vrf;
 
 	QOBJ_FIELDS
 };
@@ -304,33 +304,37 @@ RB_HEAD(if_index_head, interface);
 RB_PROTOTYPE(if_index_head, interface, index_entry, if_cmp_func)
 DECLARE_QOBJ_TYPE(interface)
 
-#define IFNAME_RB_INSERT(vrf, ifp)                                             \
-	if (RB_INSERT(if_name_head, &vrf->ifaces_by_name, (ifp)))              \
+#define IFNAME_RB_INSERT(_vrf, _ifp)                                           \
+	if (RB_INSERT(if_name_head, &(_vrf)->ifaces_by_name, (_ifp)))	       \
 		flog_err(EC_LIB_INTERFACE,                                     \
 			 "%s(%s): corruption detected -- interface with this " \
 			 "name exists already in VRF %u!",                     \
-			 __func__, (ifp)->name, (ifp)->vrf_id);
+			 __func__, (_ifp)->name, (_ifp)->vrf ?                 \
+			 (_ifp)->vrf->vrf_id : VRF_UNKNOWN);
 
-#define IFNAME_RB_REMOVE(vrf, ifp)                                             \
-	if (RB_REMOVE(if_name_head, &vrf->ifaces_by_name, (ifp)) == NULL)      \
+#define IFNAME_RB_REMOVE(_vrf, _ifp)                                           \
+	if (RB_REMOVE(if_name_head, &(_vrf)->ifaces_by_name, (_ifp)) == NULL)  \
 		flog_err(EC_LIB_INTERFACE,                                     \
 			 "%s(%s): corruption detected -- interface with this " \
 			 "name doesn't exist in VRF %u!",                      \
-			 __func__, (ifp)->name, (ifp)->vrf_id);
+			 __func__, (_ifp)->name, (_ifp)->vrf ?                 \
+			 (_ifp)->vrf->vrf_id : VRF_UNKNOWN);
 
-#define IFINDEX_RB_INSERT(vrf, ifp)                                            \
-	if (RB_INSERT(if_index_head, &vrf->ifaces_by_index, (ifp)))            \
+#define IFINDEX_RB_INSERT(_vrf, _ifp)                                          \
+	if (RB_INSERT(if_index_head, &(_vrf)->ifaces_by_index, (_ifp)))        \
 		flog_err(EC_LIB_INTERFACE,                                     \
 			 "%s(%u): corruption detected -- interface with this " \
 			 "ifindex exists already in VRF %u!",                  \
-			 __func__, (ifp)->ifindex, (ifp)->vrf_id);
+			 __func__, (_ifp)->ifindex, (_ifp)->vrf ?              \
+			 (_ifp)->vrf->vrf_id : VRF_UNKNOWN);
 
-#define IFINDEX_RB_REMOVE(vrf, ifp)                                            \
-	if (RB_REMOVE(if_index_head, &vrf->ifaces_by_index, (ifp)) == NULL)    \
+#define IFINDEX_RB_REMOVE(_vrf, _ifp)                                          \
+	if (RB_REMOVE(if_index_head, &(_vrf)->ifaces_by_index, (_ifp)) == NULL)\
 		flog_err(EC_LIB_INTERFACE,                                     \
 			 "%s(%u): corruption detected -- interface with this " \
 			 "ifindex doesn't exist in VRF %u!",                   \
-			 __func__, (ifp)->ifindex, (ifp)->vrf_id);
+			 __func__, (_ifp)->ifindex, (_ifp)->vrf ?              \
+			 (_ifp)->vrf->vrf_id : VRF_UNKNOWN);
 
 #define FOR_ALL_INTERFACES(vrf, ifp)                                           \
 	if (vrf)                                                               \

@@ -2608,6 +2608,8 @@ void ripng_if_rmap_update_interface(struct interface *ifp)
 	struct if_rmap *if_rmap;
 	struct if_rmap_ctx *ctx;
 
+	if (ifp->vrf && ifp->vrf->vrf_id == VRF_UNKNOWN)
+		return;
 	if (!ripng)
 		return;
 	ctx = ripng->if_rmap_ctx;

@@ -923,14 +923,15 @@ int vrf_bind(vrf_id_t vrf_id, int fd, const char *name)
 {
 	int ret = 0;
 	struct interface *ifp;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
-	if (fd < 0 || name == NULL)
+	if (fd < 0 || name == NULL || !vrf)
 		return fd;
 	/* the device should exist
 	 * otherwise we should return
 	 * case ifname = vrf in netns mode => return
 	 */
-	ifp = if_lookup_by_name(name, vrf_id);
+	ifp = if_lookup_by_name(name, vrf);
 	if (!ifp)
 		return fd;
 #ifdef SO_BINDTODEVICE
@@ -1016,4 +1017,14 @@ vrf_id_t vrf_generate_id(void)
 	static int vrf_id_local;
 
 	return ++vrf_id_local;
+}
+
+vrf_id_t vrf_to_id(struct vrf *vrf)
+{
+	return vrf ? vrf->vrf_id : VRF_UNKNOWN;
+}
+
+const char *vrf_to_name(struct vrf *vrf)
+{
+	return vrf ? vrf->name : "NIL";
 }

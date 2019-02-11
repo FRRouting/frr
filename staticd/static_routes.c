@@ -516,7 +516,7 @@ static void static_fixup_intf_nh(struct route_table *stable,
 
 	for (rn = route_top(stable); rn; rn = route_next(rn)) {
 		for (si = rn->info; si; si = si->next) {
-			if (si->nh_vrf_id != ifp->vrf_id)
+			if (si->nh_vrf_id != vrf_to_id(ifp->vrf))
 				continue;
 
 			if (si->ifindex != ifp->ifindex)
@@ -542,7 +542,7 @@ void static_install_intf_nh(struct interface *ifp)
 		struct static_vrf *svrf = vrf->info;
 
 		/* Not needed if same vrf since happens naturally */
-		if (vrf->vrf_id == ifp->vrf_id)
+		if (vrf == ifp->vrf)
 			continue;
 
 		/* Install any static routes configured for this interface. */

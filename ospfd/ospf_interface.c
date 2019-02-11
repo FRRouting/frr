@@ -349,8 +349,8 @@ void ospf_if_free(struct ospf_interface *oi)
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf interface %s vrf %s id %u deleted",
 			   __PRETTY_FUNCTION__, oi->ifp->name,
-			   ospf_vrf_id_to_name(oi->ifp->vrf_id),
-			   oi->ifp->vrf_id);
+			   vrf_to_name(oi->ifp->vrf),
+			   vrf_to_id(oi->ifp->vrf));
 
 	ospf_delete_from_if(oi->ifp, oi);
 

@@ -214,7 +214,7 @@ static int pim_zebra_if_state_up(ZAPI_CALLBACK_ARGS)
 
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((table_id == vrf->data.l.table_id)
-			    && (ifp->vrf_id != vrf->vrf_id)) {
+			    && (ifp->vrf != vrf)) {
 				struct interface *master = if_lookup_by_name(
 							     vrf->name, vrf);
 

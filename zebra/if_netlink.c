@@ -387,7 +387,7 @@ static int get_iflink_speed(struct interface *interface)
 	/* use ioctl to get IP address of an interface */
 	frr_elevate_privs(&zserv_privs) {
 		sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP,
-				interface->vrf_id,
+				vrf_to_id(interface->vrf),
 				NULL);
 		if (sd < 0) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
@@ -396,7 +396,7 @@ static int get_iflink_speed(struct interface *interface)
 			return 0;
 		}
 	/* Get the current link state for the interface */
-		rc = vrf_ioctl(interface->vrf_id, sd, SIOCETHTOOL,
+		rc = vrf_ioctl(vrf_to_id(interface->vrf), sd, SIOCETHTOOL,
 			       (char *)&ifdata);
 	}
 	if (rc < 0) {
@@ -1232,7 +1232,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				ifp = if_get_by_name(name, vrf);
 			} else {
 				/* pre-configured interface, learnt now */
-				if (ifp->vrf_id != vrf_id)
+				if (ifp->vrf != vrf)
 					if_update_to_new_vrf(ifp, vrf);
 			}
 
@@ -1272,16 +1272,16 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 							       bridge_ifindex);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex);
-		} else if (ifp->vrf_id != vrf_id) {
+		} else if (ifp->vrf != vrf) {
 			/* VRF change for an interface. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
 					"RTM_NEWLINK vrf-change for %s(%u) "
 					"vrf_id %u -> %u flags 0x%x",
-					name, ifp->ifindex, ifp->vrf_id, vrf_id,
-					ifi->ifi_flags);
+					name, ifp->ifindex, vrf_to_id(ifp->vrf),
+					vrf_id, ifi->ifi_flags);
 
-			if_handle_vrf_change(ifp, vrf_id);
+			if_handle_vrf_change(ifp, vrf->vrf_id);
 		} else {
 			bool was_bridge_slave, was_bond_slave;
 

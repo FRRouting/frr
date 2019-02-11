@@ -110,8 +110,8 @@ static int ospf_interface_add(ZAPI_CALLBACK_ARGS)
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug(
 			"Zebra: interface add %s vrf %s[%u] index %d flags %llx metric %d mtu %d speed %u",
-			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
-			ifp->vrf_id, ifp->ifindex,
+			ifp->name, vrf_to_name(ifp->vrf),
+			vrf_to_id(ifp->vrf), ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu,
 			ifp->speed);
 
@@ -152,8 +152,8 @@ static int ospf_interface_delete(ZAPI_CALLBACK_ARGS)
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug(
 			"Zebra: interface delete %s vrf %s[%u] index %d flags %llx metric %d mtu %d",
-			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
-			ifp->vrf_id, ifp->ifindex,
+			ifp->name, vrf_to_name(ifp->vrf),
+			vrf_to_id(ifp->vrf), ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
 
 	hook_call(ospf_if_delete, ifp);

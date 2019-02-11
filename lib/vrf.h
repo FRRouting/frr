@@ -113,6 +113,8 @@ extern struct vrf *vrf_lookup_by_name(const char *);
 extern struct vrf *vrf_get(vrf_id_t, const char *);
 extern const char *vrf_id_to_name(vrf_id_t vrf_id);
 extern vrf_id_t vrf_name_to_id(const char *);
+extern vrf_id_t vrf_to_id(struct vrf *vrf);
+extern const char *vrf_to_name(struct vrf *vrf);
 
 /* vrf context is searched and created
  */

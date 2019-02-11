@@ -572,7 +572,10 @@ static void bfdd_sessions_enable_interface(struct interface *ifp)
 {
 	struct bfd_session_observer *bso;
 	struct bfd_session *bs;
-	struct vrf *vrf;
+	struct vrf *vrf = ifp->vrf;
+
+	if (!vrf)
+		return;
 
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
 		bs = bso->bso_bs;
@@ -580,9 +583,6 @@ static void bfdd_sessions_enable_interface(struct interface *ifp)
 			continue;
 		/* Interface name mismatch. */
 		if (strcmp(ifp->name, bs->key.ifname))
-			continue;
-		vrf = vrf_lookup_by_id(ifp->vrf_id);
-		if (!vrf)
 			continue;
 		if (bs->key.vrfname[0] &&
 		    strcmp(vrf->name, bs->key.vrfname))

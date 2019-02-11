@@ -507,6 +507,7 @@ extern struct ospf *ospf_get_instance(unsigned short);
 extern struct ospf *ospf_lookup_by_inst_name(unsigned short instance,
 					     const char *name);
 extern struct ospf *ospf_lookup_by_vrf_id(vrf_id_t vrf_id);
+extern struct ospf *ospf_lookup_by_vrf(struct vrf *vrf);
 extern void ospf_finish(struct ospf *);
 extern void ospf_router_id_update(struct ospf *ospf);
 extern int ospf_network_set(struct ospf *, struct prefix_ipv4 *, struct in_addr,
