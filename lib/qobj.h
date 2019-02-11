@@ -28,11 +28,17 @@
  * this is intentional to prevent the struct from growing beyond the allocated
  * space.
  */
+#ifndef __cplusplus
 #define RESERVED_SPACE_STRUCT(name, fieldname, size)                           \
 	struct {                                                               \
 		struct name fieldname;                                         \
 		char padding##fieldname[size - sizeof(struct name)];           \
 	};
+#else
+#define RESERVED_SPACE_STRUCT(name, fieldname, size)                           \
+	struct name fieldname;                                                 \
+	char padding##fieldname[size - sizeof(struct name)];
+#endif
 
 /* don't need struct definitions for these here.  code actually using
  * these needs to define the struct *before* including this header.
