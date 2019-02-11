@@ -1466,7 +1466,8 @@ struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* Lookup this by interface index. */
-	ifp = if_lookup_by_name(ifname_tmp, vrf_id);
+	ifp = if_lookup_by_name(ifname_tmp,
+				vrf_lookup_by_id(vrf_id));
 	if (ifp == NULL) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "INTERFACE_STATE: Cannot find IF %s in VRF %d",
@@ -1526,7 +1527,8 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 
 	ifindex = stream_getl(s);
 
-	struct interface *ifp = if_lookup_by_index(ifindex, vrf_id);
+	struct interface *ifp = if_lookup_by_index(ifindex,
+						   vrf_id);
 
 	if (ifp == NULL) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
@@ -1821,7 +1823,8 @@ struct interface *zebra_interface_vrf_update_read(struct stream *s,
 	stream_get(ifname, s, INTERFACE_NAMSIZ);
 
 	/* Lookup interface. */
-	ifp = if_lookup_by_name(ifname, vrf_id);
+	ifp = if_lookup_by_name(ifname,
+				vrf_lookup_by_id(vrf_id));
 	if (ifp == NULL) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "INTERFACE_VRF_UPDATE: Cannot find IF %s in VRF %d",

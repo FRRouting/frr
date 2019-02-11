@@ -888,9 +888,9 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 		struct interface *lo_ifp;
 		// DBS - Come back and check here
 		if (ifp->vrf_id == VRF_DEFAULT)
-			lo_ifp = if_lookup_by_name("lo", vrf->vrf_id);
+			lo_ifp = if_lookup_by_name("lo", vrf);
 		else
-			lo_ifp = if_lookup_by_name(vrf->name, vrf->vrf_id);
+			lo_ifp = if_lookup_by_name(vrf->name, vrf);
 
 		if (lo_ifp)
 			return pim_find_primary_addr(lo_ifp);

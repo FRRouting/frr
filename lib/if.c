@@ -261,16 +261,16 @@ const char *ifindex2ifname(ifindex_t ifindex, vrf_id_t vrf_id)
 ifindex_t ifname2ifindex(const char *name, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
-	return ((ifp = if_lookup_by_name(name, vrf_id)) != NULL)
+	return ((ifp = if_lookup_by_name(name, vrf)) != NULL)
 		       ? ifp->ifindex
 		       : IFINDEX_INTERNAL;
 }
 
 /* Interface existance check by interface name. */
-struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
+struct interface *if_lookup_by_name(const char *name, struct vrf *vrf)
 {
-	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface if_tmp;
 
 	if (!vrf || !name
@@ -290,7 +290,7 @@ struct interface *if_lookup_by_name_all_vrf(const char *name)
 		return NULL;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		ifp = if_lookup_by_name(name, vrf->vrf_id);
+		ifp = if_lookup_by_name(name, vrf);
 		if (ifp)
 			return ifp;
 	}
@@ -394,7 +394,7 @@ struct interface *if_get_by_name(const char *name, struct vrf *vrf)
 	switch (vrf_get_backend()) {
 	case VRF_BACKEND_UNKNOWN:
 	case VRF_BACKEND_NETNS:
-		ifp = if_lookup_by_name(name, vrf->vrf_id);
+		ifp = if_lookup_by_name(name, vrf);
 		if (ifp)
 			return ifp;
 		return if_create(name, vrf);
@@ -604,7 +604,7 @@ static struct interface *if_sunwzebra_get(const char *name, struct vrf *vrf)
 	struct interface *ifp;
 	char *cp;
 
-	if ((ifp = if_lookup_by_name(name, vrf->vrf_id)) != NULL)
+	if ((ifp = if_lookup_by_name(name, vrf)) != NULL)
 		return ifp;
 
 	/* hunt the primary interface name... */
@@ -1084,6 +1084,7 @@ DEFPY_NOSH (interface,
 	vrf_id_t vrf_id;
 	struct interface *ifp;
 	int ret;
+	struct vrf *vrf;
 
 	if (!vrfname)
 		vrfname = VRF_DEFAULT_NAME;
@@ -1098,8 +1099,6 @@ DEFPY_NOSH (interface,
 	VRF_GET_ID(vrf_id, vrfname, false);
 	ifp = if_lookup_by_name_all_vrf(ifname);
 	if (ifp && ifp->vrf_id != vrf_id) {
-		struct vrf *vrf;
-
 		/*
 		 * Special case 1: a VRF name was specified, but the found
 		 * interface is associated to different VRF. Reject the command.
@@ -1117,9 +1116,9 @@ DEFPY_NOSH (interface,
 		 */
 		vrf = vrf_lookup_by_id(ifp->vrf_id);
 		assert(vrf);
-		vrf_id = ifp->vrf_id;
 		vrfname = vrf->name;
-	}
+	} else
+		vrf = vrf_lookup_by_id(vrf_id);
 
 	snprintf(xpath_list, sizeof(xpath_list),
 		 "/frr-interface:lib/interface[name='%s'][vrf='%s']", ifname,
@@ -1136,7 +1135,7 @@ DEFPY_NOSH (interface,
 		 * all interface-level commands are converted to the new
 		 * northbound model.
 		 */
-		ifp = if_lookup_by_name(ifname, vrf_id);
+		ifp = if_lookup_by_name(ifname, vrf);
 		if (ifp)
 			VTY_PUSH_CONTEXT(INTERFACE_NODE, ifp);
 	}

@@ -3741,7 +3741,8 @@ static int show_ip_ospf_interface_common(struct vty *vty, struct ospf *ospf,
 					       json_interface);
 	} else {
 		/* Interface name is specified. */
-		ifp = if_lookup_by_name(intf_name, ospf->vrf_id);
+		ifp = if_lookup_by_name(intf_name,
+					vrf_lookup_by_id(ospf->vrf_id));
 		if (ifp == NULL) {
 			if (use_json)
 				json_object_boolean_true_add(json_vrf,
@@ -3881,7 +3882,8 @@ static int show_ip_ospf_interface_traffic_common(
 		}
 	} else {
 		/* Interface name is specified. */
-		ifp = if_lookup_by_name(intf_name, ospf->vrf_id);
+		ifp = if_lookup_by_name(intf_name,
+					vrf_lookup_by_id(ospf->vrf_id));
 		if (ifp != NULL) {
 			struct route_node *rn;
 			struct ospf_interface *oi;
@@ -4691,7 +4693,8 @@ static int show_ip_ospf_neighbor_int_common(struct vty *vty, struct ospf *ospf,
 
 	ospf_show_vrf_name(ospf, vty, json, use_vrf);
 
-	ifp = if_lookup_by_name(argv[arg_base]->arg, ospf->vrf_id);
+	ifp = if_lookup_by_name(argv[arg_base]->arg,
+				vrf_lookup_by_id(ospf->vrf_id));
 	if (!ifp) {
 		if (use_json)
 			json_object_boolean_true_add(json, "noSuchIface");
@@ -4759,7 +4762,8 @@ DEFUN (show_ip_ospf_neighbor_int,
 
 	argv_find(argv, argc, "IFNAME", &idx_ifname);
 
-	ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id);
+	ifp = if_lookup_by_name(argv[idx_ifname]->arg,
+				vrf_lookup_by_id(vrf_id));
 	if (!ifp)
 		return ret;
 
@@ -5576,7 +5580,8 @@ static int show_ip_ospf_neighbor_int_detail_common(struct vty *vty,
 			vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
 	}
 
-	ifp = if_lookup_by_name(argv[arg_base]->arg, ospf->vrf_id);
+	ifp = if_lookup_by_name(argv[arg_base]->arg,
+				vrf_lookup_by_id(ospf->vrf_id));
 	if (!ifp) {
 		if (!use_json)
 			vty_out(vty, "No such interface.\n");
@@ -10684,7 +10689,8 @@ DEFUN (clear_ip_ospf_interface,
 		}
 	} else {
 		/* Interface name is specified. */
-		ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id);
+		ifp = if_lookup_by_name(argv[idx_ifname]->arg,
+					vrf_lookup_by_id(vrf_id));
 		if (ifp == NULL)
 			vty_out(vty, "No such interface name\n");
 		else

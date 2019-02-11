@@ -1574,7 +1574,7 @@ static int lib_interface_isis_area_tag_modify(enum nb_event event,
 		vrfname = yang_dnode_get_string(dnode->parent->parent, "./vrf");
 		vrf = vrf_lookup_by_name(vrfname);
 		assert(vrf);
-		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
+		ifp = if_lookup_by_name(ifname, vrf);
 		if (!ifp)
 			return NB_OK;
 		circuit = circuit_lookup_by_ifp(ifp, isis->init_circ_list);
@@ -1612,7 +1612,7 @@ static int lib_interface_isis_circuit_type_modify(enum nb_event event,
 		vrfname = yang_dnode_get_string(dnode->parent->parent, "./vrf");
 		vrf = vrf_lookup_by_name(vrfname);
 		assert(vrf);
-		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
+		ifp = if_lookup_by_name(ifname, vrf);
 		if (!ifp)
 			break;
 		circuit = circuit_lookup_by_ifp(ifp, isis->init_circ_list);

@@ -46,7 +46,7 @@ struct zclient *zclient = NULL;
 /* For registering threads. */
 extern struct thread_master *master;
 
-static struct interface *zebra_interface_if_lookup(struct stream *s)
+static struct interface *zebra_interface_if_lookup(struct stream *s, vrf_id_t vrf_id)
 {
 	char ifname_tmp[INTERFACE_NAMSIZ];
 
@@ -54,7 +54,8 @@ static struct interface *zebra_interface_if_lookup(struct stream *s)
 	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* And look it up. */
-	return if_lookup_by_name(ifname_tmp, VRF_DEFAULT);
+	return if_lookup_by_name(ifname_tmp,
+				 vrf_lookup_by_id(vrf_id));
 }
 
 /* Inteface addition message from zebra. */
@@ -117,7 +118,7 @@ static int interface_state_up(int command, struct zclient *zclient,
 			      zebra_size_t length, vrf_id_t vrf_id)
 {
 
-	zebra_interface_if_lookup(zclient->ibuf);
+	zebra_interface_if_lookup(zclient->ibuf, vrf_id);
 
 	return 0;
 }

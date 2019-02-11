@@ -243,7 +243,7 @@ babel_enable_if_add (const char *ifname)
 
     vector_set (babel_enable_if, strdup (ifname));
 
-    ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
+    ifp = if_lookup_by_name(ifname, vrf_lookup_by_id(VRF_DEFAULT));
     if (ifp != NULL)
         interface_recalculate(ifp);
 
@@ -266,7 +266,7 @@ babel_enable_if_delete (const char *ifname)
     free (str);
     vector_unset (babel_enable_if, babel_enable_if_index);
 
-    ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
+    ifp = if_lookup_by_name(ifname, vrf_lookup_by_id(VRF_DEFAULT));
     if (ifp != NULL)
         interface_reset(ifp);
 
@@ -909,7 +909,8 @@ DEFUN (show_babel_interface,
       show_babel_interface_sub (vty, ifp);
     return CMD_SUCCESS;
   }
-  if ((ifp = if_lookup_by_name (argv[3]->arg, VRF_DEFAULT)) == NULL)
+  if ((ifp = if_lookup_by_name (argv[3]->arg,
+				vrf_lookup_by_id(VRF_DEFAULT))) == NULL)
   {
     vty_out (vty, "No such interface name\n");
     return CMD_WARNING;
@@ -951,7 +952,8 @@ DEFUN (show_babel_neighbour,
         }
         return CMD_SUCCESS;
     }
-    if ((ifp = if_lookup_by_name (argv[3]->arg, VRF_DEFAULT)) == NULL)
+    if ((ifp = if_lookup_by_name (argv[3]->arg,
+				  vrf_lookup_by_id(VRF_DEFAULT))) == NULL)
     {
         vty_out (vty, "No such interface name\n");
         return CMD_WARNING;

@@ -2568,7 +2568,7 @@ DEFUN (show_ip_ospf_mpls_te_link,
 	if (idx_interface) {
 		ifp = if_lookup_by_name(
 					argv[idx_interface]->arg,
-					ospf->vrf_id);
+					vrf_lookup_by_id(ospf->vrf_id));
 		if (ifp == NULL) {
 			vty_out(vty, "No such interface name in vrf %s\n",
 				vrf->name);

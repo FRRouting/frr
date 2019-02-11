@@ -1635,7 +1635,8 @@ DEFUN (show_interface_name_vrf,
 	VRF_GET_ID(vrf_id, argv[idx_name]->arg, false);
 
 	/* Specified interface print. */
-	ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id);
+	ifp = if_lookup_by_name(argv[idx_ifname]->arg,
+				vrf_lookup_by_id(vrf_id));
 	if (ifp == NULL) {
 		vty_out(vty, "%% Can't find interface %s\n",
 			argv[idx_ifname]->arg);
@@ -1665,7 +1666,7 @@ DEFUN (show_interface_name_vrf_all,
 	/* All interface print. */
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		/* Specified interface print. */
-		ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf->vrf_id);
+		ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf);
 		if (ifp) {
 			if_dump_vty(vty, ifp);
 			found++;

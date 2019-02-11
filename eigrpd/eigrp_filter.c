@@ -174,7 +174,8 @@ void eigrp_distribute_update(struct distribute_ctx *ctx,
 		return;
 	}
 
-	ifp = if_lookup_by_name(dist->ifname, VRF_DEFAULT);
+	ifp = if_lookup_by_name(dist->ifname,
+				vrf_lookup_by_id(VRF_DEFAULT));
 	if (ifp == NULL)
 		return;
 

@@ -204,11 +204,12 @@ static int pim_zebra_if_state_up(int command, struct zclient *zclient,
 	 */
 	if (sscanf(ifp->name, "pimreg%" SCNu32, &table_id) == 1) {
 		struct vrf *vrf;
+
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((table_id == vrf->data.l.table_id)
 			    && (ifp->vrf_id != vrf->vrf_id)) {
 				struct interface *master = if_lookup_by_name(
-					vrf->name, vrf->vrf_id);
+							     vrf->name, vrf);
 
 				if (!master) {
 					zlog_debug(

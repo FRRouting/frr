@@ -2171,9 +2171,9 @@ static void zread_vrf_label(ZAPI_HANDLER_ARGS)
 	STREAM_GETC(s, ltype);
 
 	if (zvrf->vrf->vrf_id != VRF_DEFAULT)
-		ifp = if_lookup_by_name(zvrf->vrf->name, zvrf->vrf->vrf_id);
+		ifp = if_lookup_by_name(zvrf->vrf->name, zvrf->vrf);
 	else
-		ifp = if_lookup_by_name("lo", VRF_DEFAULT);
+		ifp = if_lookup_by_name("lo", vrf_lookup_by_id(VRF_DEFAULT));
 
 	if (!ifp) {
 		zlog_debug("Unable to find specified Interface for %s",
