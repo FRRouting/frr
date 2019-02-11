@@ -259,22 +259,21 @@ DEFPY(vrrp_preempt,
 	return CMD_SUCCESS;
 }
 
-DEFPY(vrrp_autoconf,
-      vrrp_autoconf_cmd,
-      "[no] vrrp autoconfig [version (2-3)]",
+DEFPY(vrrp_autoconfigure,
+      vrrp_autoconfigure_cmd,
+      "[no] vrrp autoconfigure [version (2-3)]",
       NO_STR
       VRRP_STR
       "Automatically set up VRRP instances on VRRP-compatible interfaces\n"
       "Version for automatically configured instances\n"
       VRRP_VERSION_STR)
 {
-	vrrp_autoconfig_on = !no;
 	version = version ? version : 3;
 
-	if (vrrp_autoconfig_on)
-		vrrp_autoconfig(NULL);
-
-	vrrp_autoconfig_version = !no ? version : vrrp_autoconfig_version;
+	if (!no)
+		vrrp_autoconfig_on(version);
+	else
+		vrrp_autoconfig_off();
 
 	return CMD_SUCCESS;
 }
@@ -293,6 +292,8 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 
 	ttable_add_row(tt, "%s|%" PRIu32, "Virtual Router ID", vr->vrid);
 	ttable_add_row(tt, "%s|%" PRIu8, "Protocol Version", vr->version);
+	ttable_add_row(tt, "%s|%s", "Autoconfigured",
+		       vr->autoconf ? "Yes" : "No");
 	ttable_add_row(tt, "%s|%s", "Interface", vr->ifp->name);
 	prefix_mac2str(&vr->v4->vmac, ethstr4, sizeof(ethstr4));
 	prefix_mac2str(&vr->v6->vmac, ethstr6, sizeof(ethstr6));
@@ -393,7 +394,7 @@ void vrrp_vty_init(void)
 	if_cmd_init();
 	install_element(VIEW_NODE, &show_debugging_vrrpd_cmd);
 	install_element(VIEW_NODE, &vrrp_vrid_show_cmd);
-	install_element(CONFIG_NODE, &vrrp_autoconf_cmd);
+	install_element(CONFIG_NODE, &vrrp_autoconfigure_cmd);
 	install_element(INTERFACE_NODE, &vrrp_vrid_cmd);
 	install_element(INTERFACE_NODE, &vrrp_priority_cmd);
 	install_element(INTERFACE_NODE, &vrrp_advertisement_interval_cmd);

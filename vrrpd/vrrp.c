@@ -39,6 +39,11 @@
 
 #define VRRP_LOGPFX "[CORE] "
 
+/* statics */
+struct hash *vrrp_vrouters_hash;
+bool vrrp_autoconfig_is_on;
+int vrrp_autoconfig_version;
+
 const char *vrrp_state_names[3] = {
 	[VRRP_STATE_INITIALIZE] = "Initialize",
 	[VRRP_STATE_MASTER] = "Master",
@@ -156,6 +161,10 @@ static bool vrrp_has_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 
 int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip, bool activate)
 {
+	int af = (ip->ipa_type == IPADDR_V6) ? AF_INET6 : AF_INET;
+
+	assert(r->family == af);
+
 	if (vrrp_has_ip(r->vr, ip))
 		return 0;
 
@@ -177,8 +186,11 @@ int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip, bool activate)
 	bool do_activate = (activate && r->fsm.state == VRRP_STATE_INITIALIZE);
 	int ret = 0;
 
-	if (do_activate)
+	if (do_activate) {
 		ret = vrrp_event(r, VRRP_EVENT_STARTUP);
+		if (ret)
+			listnode_delete(r->addrs, new);
+	}
 	else if (r->fsm.state == VRRP_STATE_MASTER) {
 		switch (r->family) {
 		case AF_INET:
@@ -800,15 +812,6 @@ static int vrrp_socket(struct vrrp_router *r)
 	}
 
 	/* Configure sockets */
-	if (!listcount(r->vr->ifp->connected)) {
-		zlog_warn(
-			VRRP_LOGPFX VRRP_LOGPFX_VRID
-			"No address on interface %s; cannot configure multicast",
-			r->vr->vrid, r->vr->ifp->name);
-		failed = true;
-		goto done;
-	}
-
 	if (r->family == AF_INET) {
 		/* Set Tx socket to always Tx with TTL set to 255 */
 		int ttl = 255;
@@ -1282,6 +1285,10 @@ static int (*vrrp_event_handlers[])(struct vrrp_router *r) = {
  *
  * event
  *    The event to spawn
+ *
+ * Returns:
+ *    -1 on failure
+ *     0 otherwise
  */
 int vrrp_event(struct vrrp_router *r, int event)
 {
@@ -1291,7 +1298,41 @@ int vrrp_event(struct vrrp_router *r, int event)
 }
 
 
-/* Other ------------------------------------------------------------------- */
+/* Autoconfig -------------------------------------------------------------- */
+
+/*
+ * Set the configured addresses for this VRRP instance to exactly the addresses
+ * present on its macvlan subinterface(s).
+ *
+ * vr
+ *    VRRP router to act on
+ */
+static void vrrp_autoconfig_autoaddrupdate(struct vrrp_vrouter *vr)
+{
+	list_delete_all_node(vr->v4->addrs);
+	list_delete_all_node(vr->v6->addrs);
+
+	struct listnode *ln;
+	struct connected *c = NULL;
+
+	if (vr->v4->mvl_ifp)
+		for (ALL_LIST_ELEMENTS_RO(vr->v4->mvl_ifp->connected, ln, c))
+			if (c->address->family == AF_INET)
+				vrrp_add_ipv4(vr, c->address->u.prefix4, true);
+
+	if (vr->v6->mvl_ifp)
+		for (ALL_LIST_ELEMENTS_RO(vr->v6->mvl_ifp->connected, ln, c))
+			if (c->address->family == AF_INET6
+			    && !IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
+				vrrp_add_ipv6(vr, c->address->u.prefix6, true);
+
+	if (vr->v4->addrs->count == 0
+	    && vr->v4->fsm.state != VRRP_STATE_INITIALIZE)
+		vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
+	if (vr->v6->addrs->count == 0
+	    && vr->v6->fsm.state != VRRP_STATE_INITIALIZE)
+		vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
+}
 
 static struct vrrp_vrouter *
 vrrp_autoconfig_autocreate(struct interface *mvl_ifp)
@@ -1300,47 +1341,32 @@ vrrp_autoconfig_autocreate(struct interface *mvl_ifp)
 	struct vrrp_vrouter *vr;
 
 	p = if_lookup_by_index(mvl_ifp->link_ifindex, VRF_DEFAULT);
+
+	if (!p)
+		return NULL;
+
 	uint8_t vrid = mvl_ifp->hw_addr[5];
 
 	zlog_info(VRRP_LOGPFX "Autoconfiguring VRRP on %s", p->name);
 
-	/* If it already exists, skip it */
-	vr = vrrp_lookup(p, vrid);
-	if (vr) {
-		zlog_info(VRRP_LOGPFX "VRRP instance %" PRIu8
-				      "already configured on %s",
-			  vrid, p->name);
-		return vr;
-	}
-
-	/* create a new one */
 	vr = vrrp_vrouter_create(p, vrid, vrrp_autoconfig_version);
 
-	if (!vr)
+	if (!vr) {
+		zlog_warn(VRRP_LOGPFX
+			  "Failed to autoconfigure VRRP instance %" PRIu8
+			  " on %s",
+			  vrid, p->name);
 		return NULL;
+	}
 
-	/* add connected addresses as vips */
-	struct listnode *ln;
-	struct connected *c = NULL;
-	for (ALL_LIST_ELEMENTS_RO(mvl_ifp->connected, ln, c))
-		if (c->address->family == AF_INET)
-			vrrp_add_ipv4(vr, c->address->u.prefix4, false);
-		else if (c->address->family == AF_INET6) {
-			if (!IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
-				vrrp_add_ipv6(vr, c->address->u.prefix6, false);
-		}
-
-	if (vr->v4->addrs->count)
-		vrrp_event(vr->v4, VRRP_EVENT_STARTUP);
-	if (vr->v6->addrs->count)
-		vrrp_event(vr->v6, VRRP_EVENT_STARTUP);
+	vrrp_autoconfig_autoaddrupdate(vr);
 
 	vr->autoconf = true;
 
 	return vr;
 }
 
-static bool vrrp_ifp_is_mvl(struct interface *ifp)
+static bool vrrp_ifp_has_vrrp_mac(struct interface *ifp)
 {
 	struct ethaddr vmac4;
 	struct ethaddr vmac6;
@@ -1351,22 +1377,176 @@ static bool vrrp_ifp_is_mvl(struct interface *ifp)
 	       || !memcmp(ifp->hw_addr, vmac6.octet, sizeof(vmac6.octet) - 1);
 }
 
-int vrrp_autoconfig(struct interface *ifp)
+static struct vrrp_vrouter *vrrp_lookup_by_mvlif(struct interface *mvl_ifp)
 {
-	if (ifp && vrrp_ifp_is_mvl(ifp)) {
-		vrrp_autoconfig_autocreate(ifp);
+	struct interface *p;
+
+	if (!mvl_ifp || !mvl_ifp->link_ifindex
+	    || !vrrp_ifp_has_vrrp_mac(mvl_ifp))
+		return NULL;
+
+	p = if_lookup_by_index(mvl_ifp->link_ifindex, VRF_DEFAULT);
+	uint8_t vrid = mvl_ifp->hw_addr[5];
+
+	return vrrp_lookup(p, vrid);
+}
+
+int vrrp_autoconfig_if_add(struct interface *ifp)
+{
+	if (!vrrp_autoconfig_is_on)
 		return 0;
+
+	struct vrrp_vrouter *vr;
+
+	if (!ifp || !ifp->link_ifindex || !vrrp_ifp_has_vrrp_mac(ifp))
+		return -1;
+
+	vr = vrrp_lookup_by_mvlif(ifp);
+
+	if (!vr)
+		vr = vrrp_autoconfig_autocreate(ifp);
+
+	if (!vr)
+		return -1;
+
+	if (vr->autoconf == false)
+		return 0;
+	else {
+		vrrp_attach_interface(vr->v4);
+		vrrp_attach_interface(vr->v6);
+		vrrp_autoconfig_autoaddrupdate(vr);
 	}
-
-	/* Loop through interfaces, looking for compatible macvlan devices. */
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
-
-	FOR_ALL_INTERFACES (vrf, ifp)
-		if (vrrp_ifp_is_mvl(ifp))
-			vrrp_autoconfig_autocreate(ifp);
 
 	return 0;
 }
+
+int vrrp_autoconfig_if_del(struct interface *ifp)
+{
+	if (!vrrp_autoconfig_is_on)
+		return 0;
+
+	struct vrrp_vrouter *vr = vrrp_lookup_by_mvlif(ifp);
+
+	if (!vr)
+		return 0;
+
+	if (vr && vr->autoconf == false)
+		return 0;
+
+	if (vr && vr->v4->mvl_ifp == ifp) {
+		if (vr->v4->fsm.state != VRRP_STATE_INITIALIZE)
+			vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
+		vr->v4->mvl_ifp = NULL;
+	}
+	if (vr && vr->v6->mvl_ifp == ifp) {
+		if (vr->v6->fsm.state != VRRP_STATE_INITIALIZE)
+			vrrp_event(vr->v6, VRRP_EVENT_SHUTDOWN);
+		vr->v6->mvl_ifp = NULL;
+	}
+
+	if (vr->v4->mvl_ifp == NULL && vr->v6->mvl_ifp == NULL) {
+		vrrp_vrouter_destroy(vr);
+		vr = NULL;
+	}
+
+	return 0;
+}
+
+int vrrp_autoconfig_if_up(struct interface *ifp)
+{
+	if (!vrrp_autoconfig_is_on)
+		return 0;
+
+	struct vrrp_vrouter *vr = vrrp_lookup_by_mvlif(ifp);
+
+	if (vr && !vr->autoconf)
+		return 0;
+
+	if (!vr) {
+		vrrp_autoconfig_if_add(ifp);
+		return 0;
+	}
+
+	vrrp_attach_interface(vr->v4);
+	vrrp_attach_interface(vr->v6);
+	vrrp_autoconfig_autoaddrupdate(vr);
+
+	return 0;
+}
+
+int vrrp_autoconfig_if_down(struct interface *ifp)
+{
+	if (!vrrp_autoconfig_is_on)
+		return 0;
+
+	return 0;
+}
+
+int vrrp_autoconfig_if_address_add(struct interface *ifp)
+{
+	if (!vrrp_autoconfig_is_on)
+		return 0;
+
+	struct vrrp_vrouter *vr = vrrp_lookup_by_mvlif(ifp);
+
+	if (vr && vr->autoconf)
+		vrrp_autoconfig_autoaddrupdate(vr);
+
+	return 0;
+}
+
+int vrrp_autoconfig_if_address_del(struct interface *ifp)
+{
+	if (!vrrp_autoconfig_is_on)
+		return 0;
+
+	struct vrrp_vrouter *vr = vrrp_lookup_by_mvlif(ifp);
+
+	if (vr && vr->autoconf)
+		vrrp_autoconfig_autoaddrupdate(vr);
+
+	return 0;
+}
+
+int vrrp_autoconfig(void)
+{
+	if (!vrrp_autoconfig_is_on)
+		return 0;
+
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct interface *ifp;
+
+	FOR_ALL_INTERFACES (vrf, ifp)
+		vrrp_autoconfig_if_add(ifp);
+
+	return 0;
+}
+
+void vrrp_autoconfig_on(int version)
+{
+	vrrp_autoconfig_is_on = true;
+	vrrp_autoconfig_version = version;
+
+	vrrp_autoconfig();
+}
+
+void vrrp_autoconfig_off(void)
+{
+	vrrp_autoconfig_is_on = false;
+
+	struct list *ll = hash_to_list(vrrp_vrouters_hash);
+
+	struct listnode *ln;
+	struct vrrp_vrouter *vr;
+
+	for (ALL_LIST_ELEMENTS_RO(ll, ln, vr))
+		if (vr->autoconf)
+			vrrp_vrouter_destroy(vr);
+
+	list_delete(&ll);
+}
+
+/* Other ------------------------------------------------------------------- */
 
 static unsigned int vrrp_hash_key(void *arg)
 {

@@ -51,19 +51,15 @@ extern struct thread_master *master;
 extern struct zebra_privs_t vrrp_privs;
 
 /* Global hash of all Virtual Routers */
-struct hash *vrrp_vrouters_hash;
+extern struct hash *vrrp_vrouters_hash;
 
-/* Whether to automatically configure VRRP instances */
-static bool vrrp_autoconfig_on;
-static int vrrp_autoconfig_version;
-
-	/*
-	 * VRRP Router.
-	 *
-	 * This struct contains all state for a particular VRRP Router operating
-	 * in a Virtual Router for either IPv4 or IPv6.
-	 */
-	struct vrrp_router {
+/*
+ * VRRP Router.
+ *
+ * This struct contains all state for a particular VRRP Router operating
+ * in a Virtual Router for either IPv4 or IPv6.
+ */
+struct vrrp_router {
 	/*
 	 * Whether this VRRP Router is active.
 	 */
@@ -421,8 +417,7 @@ DECLARE_HOOK(vrrp_change_state_hook, (struct vrrp_router * r, int to), (r, to));
  */
 int vrrp_event(struct vrrp_router *r, int event);
 
-
-/* Other ------------------------------------------------------------------- */
+/* Autoconfig -------------------------------------------------------------- */
 
 /*
  * Search for and automatically configure VRRP instances on interfaces.
@@ -439,7 +434,129 @@ int vrrp_event(struct vrrp_router *r, int event);
  *    -1 on failure
  *     0 otherwise
  */
-int vrrp_autoconfig(struct interface *ifp);
+int vrrp_autoconfig(void);
+
+/*
+ * Enable autoconfiguration.
+ *
+ * Calling this function will cause vrrpd to automatically configure VRRP
+ * instances on existing compatible macvlan interfaces. These instances will
+ * react to interface up/down and address add/delete events to keep themselves
+ * in sync with the available interfaces.
+ *
+ * version
+ *    VRRP version to use for autoconfigured instances. Must be 2 or 3.
+ */
+void vrrp_autoconfig_on(int version);
+
+/*
+ * Disable autoconfiguration.
+ *
+ * Calling this function will delete all existing autoconfigured VRRP instances.
+ */
+void vrrp_autoconfig_off(void);
+
+/*
+ * Callback to notify autoconfig of interface add.
+ *
+ * If the interface is a VRRP-compatible device, and there is no existing VRRP
+ * router running on it, one is created. All addresses on the interface are
+ * added to the router.
+ *
+ * ifp
+ *    Interface to operate on
+ *
+ * Returns:
+ *    -1 on failure
+ *     0 otherwise
+ */
+int vrrp_autoconfig_if_add(struct interface *ifp);
+
+/*
+ * Callback to notify autoconfig of interface delete.
+ *
+ * If the interface is a VRRP-compatible device, and a VRRP router is running
+ * on it, and that VRRP router was automatically configured, it will be
+ * deleted. If that was the last router for the corresponding VRID (i.e., if
+ * this interface was a v4 VRRP interface and no v6 router is configured for
+ * the same VRID) then the entire virtual router is deleted.
+ *
+ * ifp
+ *    Interface to operate on
+ *
+ * Returns:
+ *    -1 on failure
+ *     0 otherwise
+ */
+int vrrp_autoconfig_if_del(struct interface *ifp);
+
+/*
+ * Callback to notify autoconfig of interface up.
+ *
+ * Roughly equivalent to vrrp_autoconfig_if_add, except that addresses are
+ * refreshed if an autoconfigured virtual router already exists.
+ *
+ * ifp
+ *    Interface to operate on
+ *
+ * Returns:
+ *    -1 on failure
+ *     0 otherwise
+ */
+int vrrp_autoconfig_if_up(struct interface *ifp);
+
+/*
+ * Callback to notify autoconfig of interface down.
+ *
+ * Does nothing. An interface down event is accompanied by address deletion
+ * events for all the addresses on the interface; if an autoconfigured VRRP
+ * router exists on this interface, then it will have all its addresses deleted
+ * and end up in Initialize.
+ *
+ * ifp
+ *    Interface to operate on
+ *
+ * Returns:
+ *    -1 on failure
+ *     0 otherwise
+ */
+int vrrp_autoconfig_if_down(struct interface *ifp);
+
+/*
+ * Callback to notify autoconfig of a new interface address.
+ *
+ * If a VRRP router exists on this interface, its address list is updated to
+ * match the new address list. If no addresses remain, a Shutdown event is
+ * issued to the VRRP router.
+ *
+ * ifp
+ *    Interface to operate on
+ *
+ * Returns:
+ *    -1 on failure
+ *     0 otherwise
+ *
+ */
+int vrrp_autoconfig_if_address_add(struct interface *ifp);
+
+/*
+ * Callback to notify autoconfig of a removed interface address.
+ *
+ * If a VRRP router exists on this interface, its address list is updated to
+ * match the new address list. If no addresses remain, a Shutdown event is
+ * issued to the VRRP router.
+ *
+ * ifp
+ *    Interface to operate on
+ *
+ * Returns:
+ *    -1 on failure
+ *     0 otherwise
+ *
+ */
+int vrrp_autoconfig_if_address_del(struct interface *ifp);
+
+/* Other ------------------------------------------------------------------- */
 
 /*
  * Find VRRP Virtual Router by Virtual Router ID
