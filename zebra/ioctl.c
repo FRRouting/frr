@@ -332,119 +332,10 @@ static int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 		return ret;
 	return 0;
 }
-
-/* Set up interface's IP address, netmask (and broadcas? ).  *BSD may
-   have ifaliasreq structure.  */
-int if_set_prefix(struct interface *ifp, struct connected *ifc)
-{
-	int ret;
-	struct ifaliasreq addreq;
-	struct sockaddr_in addr, mask, peer;
-	struct prefix_ipv4 *p;
-
-	/* don't configure PtP addresses on broadcast ifs or reverse */
-	if (!(ifp->flags & IFF_POINTOPOINT) != !CONNECTED_PEER(ifc)) {
-		errno = EINVAL;
-		return -1;
-	}
-
-	p = (struct prefix_ipv4 *)ifc->address;
-	rib_lookup_and_pushup(p, ifp->vrf_id);
-
-	memset(&addreq, 0, sizeof addreq);
-	strlcpy(addreq.ifra_name, ifp->name, sizeof(addreq.ifra_name));
-
-	memset(&addr, 0, sizeof(struct sockaddr_in));
-	addr.sin_addr = p->prefix;
-	addr.sin_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	addr.sin_len = sizeof(struct sockaddr_in);
-#endif
-	memcpy(&addreq.ifra_addr, &addr, sizeof(struct sockaddr_in));
-
-	if (CONNECTED_PEER(ifc)) {
-		p = (struct prefix_ipv4 *)ifc->destination;
-		memset(&mask, 0, sizeof(struct sockaddr_in));
-		peer.sin_addr = p->prefix;
-		peer.sin_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-		peer.sin_len = sizeof(struct sockaddr_in);
-#endif
-		memcpy(&addreq.ifra_broadaddr, &peer,
-		       sizeof(struct sockaddr_in));
-	}
-
-	memset(&mask, 0, sizeof(struct sockaddr_in));
-	masklen2ip(p->prefixlen, &mask.sin_addr);
-	mask.sin_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	mask.sin_len = sizeof(struct sockaddr_in);
-#endif
-	memcpy(&addreq.ifra_mask, &mask, sizeof(struct sockaddr_in));
-
-	ret = if_ioctl(SIOCAIFADDR, (caddr_t)&addreq);
-	if (ret < 0)
-		return ret;
-	return 0;
-}
-
-/* Set up interface's IP address, netmask (and broadcas? ).  *BSD may
-   has ifaliasreq structure.  */
-int if_unset_prefix(struct interface *ifp, struct connected *ifc)
-{
-	int ret;
-	struct ifaliasreq addreq;
-	struct sockaddr_in addr, mask, peer;
-	struct prefix_ipv4 *p;
-
-	/* this would probably wreak havoc */
-	if (!(ifp->flags & IFF_POINTOPOINT) != !CONNECTED_PEER(ifc)) {
-		errno = EINVAL;
-		return -1;
-	}
-
-	p = (struct prefix_ipv4 *)ifc->address;
-
-	memset(&addreq, 0, sizeof addreq);
-	strlcpy(addreq.ifra_name, ifp->name, sizeof(addreq.ifra_name));
-
-	memset(&addr, 0, sizeof(struct sockaddr_in));
-	addr.sin_addr = p->prefix;
-	addr.sin_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	addr.sin_len = sizeof(struct sockaddr_in);
-#endif
-	memcpy(&addreq.ifra_addr, &addr, sizeof(struct sockaddr_in));
-
-	if (CONNECTED_PEER(ifc)) {
-		p = (struct prefix_ipv4 *)ifc->destination;
-		memset(&mask, 0, sizeof(struct sockaddr_in));
-		peer.sin_addr = p->prefix;
-		peer.sin_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-		peer.sin_len = sizeof(struct sockaddr_in);
-#endif
-		memcpy(&addreq.ifra_broadaddr, &peer,
-		       sizeof(struct sockaddr_in));
-	}
-
-	memset(&mask, 0, sizeof(struct sockaddr_in));
-	masklen2ip(p->prefixlen, &mask.sin_addr);
-	mask.sin_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	mask.sin_len = sizeof(struct sockaddr_in);
-#endif
-	memcpy(&addreq.ifra_mask, &mask, sizeof(struct sockaddr_in));
-
-	ret = if_ioctl(SIOCDIFADDR, (caddr_t)&addreq);
-	if (ret < 0)
-		return ret;
-	return 0;
-}
 #else
 /* Set up interface's address, netmask (and broadcas? ).  Linux or
    Solaris uses ifname:number semantics to set IP address aliases. */
-int if_set_prefix(struct interface *ifp, struct connected *ifc)
+int if_set_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 {
 	int ret;
 	struct ifreq ifreq;
@@ -454,11 +345,12 @@ int if_set_prefix(struct interface *ifp, struct connected *ifc)
 	struct prefix_ipv4 ifaddr;
 	struct prefix_ipv4 *p;
 
-	p = (struct prefix_ipv4 *)ifc->address;
+	p = (struct prefix_ipv4 *)dplane_ctx_get_intf_addr(ctx);
 
 	ifaddr = *p;
 
-	ifreq_set_name(&ifreq, ifp);
+	strlcpy(ifreq.ifr_name, dplane_ctx_get_ifname(ctx),
+		sizeof(ifreq.ifr_name));
 
 	addr.sin_addr = p->prefix;
 	addr.sin_family = p->family;
@@ -470,7 +362,7 @@ int if_set_prefix(struct interface *ifp, struct connected *ifc)
 	/* We need mask for make broadcast addr. */
 	masklen2ip(p->prefixlen, &mask.sin_addr);
 
-	if (if_is_broadcast(ifp)) {
+	if (dplane_ctx_intf_is_broadcast(ctx)) {
 		apply_mask_ipv4(&ifaddr);
 		addr.sin_addr = ifaddr.prefix;
 
@@ -489,7 +381,7 @@ int if_set_prefix(struct interface *ifp, struct connected *ifc)
 #ifdef SUNOS_5
 	memcpy(&mask, &ifreq.ifr_addr, sizeof(mask));
 #else
-	memcpy(&ifreq.ifr_netmask, &mask, sizeof(struct sockaddr_in));
+	memcpy(&ifreq.ifr_addr, &mask, sizeof(struct sockaddr_in));
 #endif /* SUNOS5 */
 	ret = if_ioctl(SIOCSIFNETMASK, (caddr_t)&ifreq);
 	if (ret < 0)
@@ -500,16 +392,17 @@ int if_set_prefix(struct interface *ifp, struct connected *ifc)
 
 /* Set up interface's address, netmask (and broadcas? ).  Linux or
    Solaris uses ifname:number semantics to set IP address aliases. */
-int if_unset_prefix(struct interface *ifp, struct connected *ifc)
+int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 {
 	int ret;
 	struct ifreq ifreq;
 	struct sockaddr_in addr;
 	struct prefix_ipv4 *p;
 
-	p = (struct prefix_ipv4 *)ifc->address;
+	p = (struct prefix_ipv4 *)dplane_ctx_get_intf_addr(ctx);
 
-	ifreq_set_name(&ifreq, ifp);
+	strlcpy(ifreq.ifr_name, dplane_ctx_get_ifname(ctx),
+		sizeof(ifreq.ifr_name));
 
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = p->family;
@@ -614,30 +507,8 @@ int if_unset_flags(struct interface *ifp, uint64_t flags)
 	return 0;
 }
 
-#ifdef LINUX_IPV6
-#ifndef _LINUX_IN6_H
-/* linux/include/net/ipv6.h */
-struct in6_ifreq {
-	struct in6_addr ifr6_addr;
-	uint32_t ifr6_prefixlen;
-	int ifr6_ifindex;
-};
-#endif /* _LINUX_IN6_H */
-/* Interface's address add/delete functions. */
-int if_prefix_add_ipv6(struct interface *ifp, struct connected *ifc)
-{
-#ifdef HAVE_NETLINK
-	return kernel_address_add_ipv6(ifp, ifc);
-#endif /* HAVE_NETLINK */
-}
+#ifndef LINUX_IPV6 /* Netlink has its own code */
 
-int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
-{
-#ifdef HAVE_NETLINK
-	return kernel_address_delete_ipv6(ifp, ifc);
-#endif /* HAVE_NETLINK */
-}
-#else /* LINUX_IPV6 */
 #ifdef HAVE_STRUCT_IN6_ALIASREQ
 #ifndef ND6_INFINITE_LIFETIME
 #define ND6_INFINITE_LIFETIME 0xffffffffL
@@ -657,7 +528,7 @@ static int if_set_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 	p = (struct prefix_ipv6 *)dplane_ctx_get_intf_addr(ctx);
 
 	memset(&addreq, 0, sizeof(addreq));
-	strncpy((char *)&addreq.ifra_name,
+	strlcpy((char *)&addreq.ifra_name,
 		dplane_ctx_get_ifname(ctx), sizeof(addreq.ifra_name));
 
 	memset(&addr, 0, sizeof(struct sockaddr_in6));
@@ -704,7 +575,7 @@ static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 	p = (struct prefix_ipv6 *)dplane_ctx_get_intf_addr(ctx);
 
 	memset(&addreq, 0, sizeof(addreq));
-	strncpy((char *)&addreq.ifra_name,
+	strlcpy((char *)&addreq.ifra_name,
 		dplane_ctx_get_ifname(ctx), sizeof(addreq.ifra_name));
 
 	memset(&addr, 0, sizeof(struct sockaddr_in6));
@@ -733,96 +604,16 @@ static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 		return ret;
 	return 0;
 }
-
-int if_prefix_add_ipv6(struct interface *ifp, struct connected *ifc)
-{
-	int ret;
-	struct in6_aliasreq addreq;
-	struct sockaddr_in6 addr;
-	struct sockaddr_in6 mask;
-	struct prefix_ipv6 *p;
-
-	p = (struct prefix_ipv6 *)ifc->address;
-
-	memset(&addreq, 0, sizeof addreq);
-	strlcpy(addreq.ifra_name, ifp->name, sizeof(addreq.ifra_name));
-
-	memset(&addr, 0, sizeof(struct sockaddr_in6));
-	addr.sin6_addr = p->prefix;
-	addr.sin6_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	addr.sin6_len = sizeof(struct sockaddr_in6);
-#endif
-	memcpy(&addreq.ifra_addr, &addr, sizeof(struct sockaddr_in6));
-
-	memset(&mask, 0, sizeof(struct sockaddr_in6));
-	masklen2ip6(p->prefixlen, &mask.sin6_addr);
-	mask.sin6_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	mask.sin6_len = sizeof(struct sockaddr_in6);
-#endif
-	memcpy(&addreq.ifra_prefixmask, &mask, sizeof(struct sockaddr_in6));
-
-	addreq.ifra_lifetime.ia6t_vltime = 0xffffffff;
-	addreq.ifra_lifetime.ia6t_pltime = 0xffffffff;
-
-#ifdef HAVE_STRUCT_IF6_ALIASREQ_IFRA_LIFETIME
-	addreq.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
-	addreq.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
-#endif
-
-	ret = if_ioctl_ipv6(SIOCAIFADDR_IN6, (caddr_t)&addreq);
-	if (ret < 0)
-		return ret;
-	return 0;
-}
-
-int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
-{
-	int ret;
-	struct in6_aliasreq addreq;
-	struct sockaddr_in6 addr;
-	struct sockaddr_in6 mask;
-	struct prefix_ipv6 *p;
-
-	p = (struct prefix_ipv6 *)ifc->address;
-
-	memset(&addreq, 0, sizeof addreq);
-	strlcpy(addreq.ifra_name, ifp->name, sizeof(addreq.ifra_name));
-
-	memset(&addr, 0, sizeof(struct sockaddr_in6));
-	addr.sin6_addr = p->prefix;
-	addr.sin6_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	addr.sin6_len = sizeof(struct sockaddr_in6);
-#endif
-	memcpy(&addreq.ifra_addr, &addr, sizeof(struct sockaddr_in6));
-
-	memset(&mask, 0, sizeof(struct sockaddr_in6));
-	masklen2ip6(p->prefixlen, &mask.sin6_addr);
-	mask.sin6_family = p->family;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	mask.sin6_len = sizeof(struct sockaddr_in6);
-#endif
-	memcpy(&addreq.ifra_prefixmask, &mask, sizeof(struct sockaddr_in6));
-
-#ifdef HAVE_STRUCT_IF6_ALIASREQ_IFRA_LIFETIME
-	addreq.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
-	addreq.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
-#endif
-
-	ret = if_ioctl_ipv6(SIOCDIFADDR_IN6, (caddr_t)&addreq);
-	if (ret < 0)
-		return ret;
-	return 0;
-}
 #else
-int if_prefix_add_ipv6(struct interface *ifp, struct connected *ifc)
+/* The old, pre-dataplane code here just returned, so we're retaining that
+ * choice.
+ */
+static int if_set_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 {
 	return 0;
 }
 
-int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
+static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 {
 	return 0;
 }
