@@ -834,67 +834,6 @@ int kernel_interface_set_master(struct interface *master,
 }
 
 /* Interface address modification. */
-static int netlink_address(int cmd, int family, struct interface *ifp,
-			   struct connected *ifc)
-{
-	int bytelen;
-	struct prefix *p;
-
-	struct {
-		struct nlmsghdr n;
-		struct ifaddrmsg ifa;
-		char buf[NL_PKT_BUF_SIZE];
-	} req;
-
-	struct zebra_ns *zns;
-
-	if (vrf_is_backend_netns())
-		zns = zebra_ns_lookup((ns_id_t)ifp->vrf_id);
-	else
-		zns = zebra_ns_lookup(NS_DEFAULT);
-	p = ifc->address;
-	memset(&req, 0, sizeof req - NL_PKT_BUF_SIZE);
-
-	bytelen = (family == AF_INET ? 4 : 16);
-
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
-	req.n.nlmsg_flags = NLM_F_REQUEST;
-	req.n.nlmsg_type = cmd;
-	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
-
-	req.ifa.ifa_family = family;
-
-	req.ifa.ifa_index = ifp->ifindex;
-
-	addattr_l(&req.n, sizeof req, IFA_LOCAL, &p->u.prefix, bytelen);
-
-	if (family == AF_INET) {
-		if (CONNECTED_PEER(ifc)) {
-			p = ifc->destination;
-			addattr_l(&req.n, sizeof req, IFA_ADDRESS, &p->u.prefix,
-				  bytelen);
-		} else if (cmd == RTM_NEWADDR && ifc->destination) {
-			p = ifc->destination;
-			addattr_l(&req.n, sizeof req, IFA_BROADCAST,
-				  &p->u.prefix, bytelen);
-		}
-	}
-
-	/* p is now either ifc->address or ifc->destination */
-	req.ifa.ifa_prefixlen = p->prefixlen;
-
-	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
-		SET_FLAG(req.ifa.ifa_flags, IFA_F_SECONDARY);
-
-	if (ifc->label)
-		addattr_l(&req.n, sizeof req, IFA_LABEL, ifc->label,
-			  strlen(ifc->label) + 1);
-
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    0);
-}
-
-/* Interface address modification. */
 static int netlink_address_ctx(const struct zebra_dplane_ctx *ctx)
 {
 	int bytelen;
@@ -955,26 +894,6 @@ static int netlink_address_ctx(const struct zebra_dplane_ctx *ctx)
 
 	return netlink_talk_info(netlink_talk_filter, &req.n,
 				 dplane_ctx_get_ns(ctx), 0);
-}
-
-int kernel_address_add_ipv4(struct interface *ifp, struct connected *ifc)
-{
-	return netlink_address(RTM_NEWADDR, AF_INET, ifp, ifc);
-}
-
-int kernel_address_delete_ipv4(struct interface *ifp, struct connected *ifc)
-{
-	return netlink_address(RTM_DELADDR, AF_INET, ifp, ifc);
-}
-
-int kernel_address_add_ipv6(struct interface *ifp, struct connected *ifc)
-{
-	return netlink_address(RTM_NEWADDR, AF_INET6, ifp, ifc);
-}
-
-int kernel_address_delete_ipv6(struct interface *ifp, struct connected *ifc)
-{
-	return netlink_address(RTM_DELADDR, AF_INET6, ifp, ifc);
 }
 
 enum zebra_dplane_result kernel_address_update_ctx(struct zebra_dplane_ctx *ctx)
