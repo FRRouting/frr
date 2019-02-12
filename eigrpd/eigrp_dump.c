@@ -174,7 +174,7 @@ const char *eigrp_if_ip_string(struct eigrp_interface *ei)
 	if (!ei)
 		return "inactive";
 
-	ifaddr = ntohl(ei->address->u.prefix4.s_addr);
+	ifaddr = ntohl(ei->address.u.prefix4.s_addr);
 	snprintf(buf, EIGRP_IF_STRING_MAXLEN, "%u.%u.%u.%u",
 		 (ifaddr >> 24) & 0xff, (ifaddr >> 16) & 0xff,
 		 (ifaddr >> 8) & 0xff, ifaddr & 0xff);

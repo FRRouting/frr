@@ -180,7 +180,7 @@ struct eigrp_interface {
 	/* EIGRP Network Type. */
 	uint8_t type;
 
-	struct prefix *address;      /* Interface prefix */
+	struct prefix address;      /* Interface prefix */
 
 	/* Neighbor information. */
 	struct list *nbrs; /* EIGRP Neighbor List */

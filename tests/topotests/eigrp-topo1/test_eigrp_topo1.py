@@ -171,6 +171,16 @@ def test_zebra_ipv4_routingTable():
         assertmsg = 'Zebra IPv4 Routing Table verification failed for router {}'.format(router.name)
         assert topotest.json_cmp(output, expected) is None, assertmsg
 
+def test_shut_interface_and_recover():
+    "Test shutdown of an interface and recovery of the interface"
+
+    tgen = get_topogen()
+    router = tgen.gears['r1']
+    router.run('ip link set r1-eth1 down')
+    topotest.sleep(5, 'Waiting for EIGRP convergence')
+    router.run('ip link set r1-eth1 up')
+
+
 
 def test_shutdown_check_stderr():
     if os.environ.get('TOPOTESTS_CHECK_STDERR') is None:
