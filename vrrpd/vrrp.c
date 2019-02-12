@@ -831,6 +831,9 @@ static int vrrp_socket(struct vrrp_router *r)
 				r->vr->vrid);
 		}
 
+		/* Set Tx socket DSCP byte */
+		setsockopt_ipv4_tos(r->sock_tx, IPTOS_PREC_INTERNETCONTROL);
+
 		/* Turn off multicast loop on Tx */
 		setsockopt_ipv4_multicast_loop(r->sock_tx, 0);
 
@@ -916,6 +919,9 @@ static int vrrp_socket(struct vrrp_router *r)
 				"Failed to set outgoing multicast hop count to 255; RFC 5798 compliant implementations will drop our packets",
 				r->vr->vrid);
 		}
+
+		/* Set Tx socket DSCP byte */
+		setsockopt_ipv6_tclass(r->sock_tx, IPTOS_PREC_INTERNETCONTROL);
 
 		/* Request hop limit delivery */
 		setsockopt_ipv6_hoplimit(r->sock_rx, 1);
