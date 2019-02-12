@@ -1217,8 +1217,6 @@ DEFUN (vnc_nve_group_redist_bgpdirect_no_prefixlist,
 
 	if (rfg->plist_redist_name[ZEBRA_ROUTE_BGP_DIRECT][afi])
 		free(rfg->plist_redist_name[ZEBRA_ROUTE_BGP_DIRECT][afi]);
-	route_map_counter_decrement(
-		rfg->plist_redist[ZEBRA_ROUTE_BGP_DIRECT][afi]);
 	rfg->plist_redist_name[ZEBRA_ROUTE_BGP_DIRECT][afi] = NULL;
 	rfg->plist_redist[ZEBRA_ROUTE_BGP_DIRECT][afi] = NULL;
 
