@@ -328,7 +328,7 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 		       vr->v6->master_down_interval);
 	ttable_add_row(tt, "%s|%u", "IPv4 Addresses", vr->v4->addrs->count);
 
-	char fill[37];
+	char fill[35];
 	memset(fill, '.', sizeof(fill));
 	fill[sizeof(fill) - 1] = 0x00;
 	if (vr->v4->addrs->count) {
