@@ -121,6 +121,17 @@ void pbr_map_reason_string(unsigned int reason, char *buf, int size)
 	}
 }
 
+void pbr_map_final_interface_deletion(struct pbr_map *pbrm,
+				      struct pbr_map_interface *pmi)
+{
+	if (pmi->delete == true) {
+		listnode_delete(pbrm->incoming, pmi);
+		pmi->pbrm = NULL;
+
+		bf_release_index(pbrm->ifi_bitfield, pmi->install_bit);
+		XFREE(MTYPE_PBR_MAP_INTERFACE, pmi);
+	}
+}
 
 void pbr_map_interface_delete(struct pbr_map *pbrm, struct interface *ifp_del)
 {
@@ -466,11 +477,7 @@ void pbr_map_policy_delete(struct pbr_map *pbrm, struct pbr_map_interface *pmi)
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
 		pbr_send_pbr_map(pbrms, pmi, false);
 
-	listnode_delete(pbrm->incoming, pmi);
-	pmi->pbrm = NULL;
-
-	bf_release_index(pbrm->ifi_bitfield, pmi->install_bit);
-	XFREE(MTYPE_PBR_MAP_INTERFACE, pmi);
+	pmi->delete = true;
 }
 
 /*
