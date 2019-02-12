@@ -27,8 +27,9 @@
 #include "lib/vty.h"
 
 #include "vrrp.h"
-#include "vrrp_vty.h"
+#include "vrrp_debug.h"
 #include "vrrp_memory.h"
+#include "vrrp_vty.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "vrrpd/vrrp_vty_clippy.c"
 #endif
@@ -51,18 +52,6 @@
 			return CMD_WARNING_CONFIG_FAILED;                      \
 		}                                                              \
 	} while (0);
-
-DEFUN_NOSH (show_debugging_vrrpd,
-	    show_debugging_vrrpd_cmd,
-	    "show debugging [vrrp]",
-	    SHOW_STR
-	    DEBUG_STR
-	    "VRRP information\n")
-{
-	vty_out(vty, "VRRP debugging status\n");
-
-	return CMD_SUCCESS;
-}
 
 DEFPY(vrrp_vrid,
       vrrp_vrid_cmd,
@@ -383,17 +372,63 @@ DEFPY(vrrp_vrid_show,
 	return CMD_SUCCESS;
 }
 
+
+DEFPY(debug_vrrp,
+      debug_vrrp_cmd,
+      "[no] debug vrrp [{protocol$proto|autoconfigure$ac|packets$pkt|sockets$sock|ndisc$ndisc|arp$arp|zebra$zebra}]",
+      NO_STR
+      DEBUG_STR
+      VRRP_STR
+      "Debug protocol state\n"
+      "Debug autoconfiguration\n"
+      "Debug sent and received packets\n"
+      "Debug socket creation and configuration\n"
+      "Debug Neighbor Discovery\n"
+      "Debug ARP\n"
+      "Debug Zebra events\n")
+{
+	/* If no specific are given on/off them all */
+	if (strmatch(argv[argc - 1]->text, "vrrp"))
+		vrrp_debug_set(NULL, 0, vty->node, !no, true, true, true, true,
+			       true, true, true);
+	else
+		vrrp_debug_set(NULL, 0, vty->node, !no, !!proto, !!ac, !!pkt,
+			       !!sock, !!ndisc, !!arp, !!zebra);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_NOSH (show_debugging_vrrp,
+	    show_debugging_vrrp_cmd,
+	    "show debugging [vrrp]",
+	    SHOW_STR
+	    DEBUG_STR
+	    "VRRP information\n")
+{
+	vty_out(vty, "VRRP debugging status:\n");
+
+	vrrp_debug_status_write(vty);
+
+	return CMD_SUCCESS;
+}
+
 static struct cmd_node interface_node = {
 	INTERFACE_NODE,
 	"%s(config-if)# ", 1
 };
 
+static struct cmd_node debug_node = {DEBUG_NODE, "", 1};
+
 void vrrp_vty_init(void)
 {
+	install_node(&debug_node, vrrp_debug_config_write);
 	install_node(&interface_node, NULL);
 	if_cmd_init();
-	install_element(VIEW_NODE, &show_debugging_vrrpd_cmd);
+
 	install_element(VIEW_NODE, &vrrp_vrid_show_cmd);
+	install_element(VIEW_NODE, &show_debugging_vrrp_cmd);
+	install_element(VIEW_NODE, &debug_vrrp_cmd);
+	install_element(CONFIG_NODE, &debug_vrrp_cmd);
 	install_element(CONFIG_NODE, &vrrp_autoconfigure_cmd);
 	install_element(INTERFACE_NODE, &vrrp_vrid_cmd);
 	install_element(INTERFACE_NODE, &vrrp_priority_cmd);

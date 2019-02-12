@@ -35,6 +35,7 @@
 #include "lib/vrf.h"
 
 #include "vrrp.h"
+#include "vrrp_debug.h"
 #include "vrrp_vty.h"
 #include "vrrp_zebra.h"
 
@@ -139,6 +140,7 @@ int main(int argc, char **argv, char **envp)
 
 	master = frr_init();
 
+	vrrp_debug_init();
 	vrrp_zebra_init();
 	vrrp_vty_init();
 	vrrp_init();
