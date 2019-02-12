@@ -50,11 +50,6 @@ extern enum zebra_dplane_result kernel_lsp_update(
 
 enum zebra_dplane_result kernel_pw_update(struct zebra_dplane_ctx *ctx);
 
-extern int kernel_address_add_ipv4(struct interface *, struct connected *);
-extern int kernel_address_delete_ipv4(struct interface *, struct connected *);
-extern int kernel_address_add_ipv6(struct interface *, struct connected *);
-extern int kernel_address_delete_ipv6(struct interface *, struct connected *);
-
 enum zebra_dplane_result kernel_address_update_ctx(
 	struct zebra_dplane_ctx *ctx);
 
