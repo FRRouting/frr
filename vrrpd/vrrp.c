@@ -635,6 +635,7 @@ static int vrrp_read(struct thread *thread)
 	ssize_t nbytes;
 	bool resched;
 	char errbuf[BUFSIZ];
+	struct sockaddr_storage sa;
 	uint8_t control[64];
 	struct ipaddr src = {};
 
@@ -642,8 +643,8 @@ static int vrrp_read(struct thread *thread)
 	struct iovec iov;
 	iov.iov_base = r->ibuf;
 	iov.iov_len = sizeof(r->ibuf);
-	m.msg_name = NULL;
-	m.msg_namelen = 0;
+	m.msg_name = &sa;
+	m.msg_namelen = sizeof(sa);
 	m.msg_iov = &iov;
 	m.msg_iovlen = 1;
 	m.msg_control = control;

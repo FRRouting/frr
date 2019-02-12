@@ -226,8 +226,9 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 		VRRP_PKT_VCHECK(pktsize > 0, "IPv4 packet has no payload");
 
 		/* Extract source address */
+		struct sockaddr_in *sa = m->msg_name;
 		src->ipa_type = IPADDR_V4;
-		src->ipaddr_v4 = ip->ip_src;
+		src->ipaddr_v4 = sa->sin_addr;
 	} else if (family == AF_INET6) {
 		struct cmsghdr *c;
 		for (c = CMSG_FIRSTHDR(m); c != NULL; CMSG_NXTHDR(m, c)) {
@@ -247,8 +248,8 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 		pktsize = read;
 
 		/* Extract source address */
-		src->ipa_type = IPADDR_V6;
 		struct sockaddr_in6 *sa = m->msg_name;
+		src->ipa_type = IPADDR_V6;
 		memcpy(&src->ipaddr_v6, &sa->sin6_addr,
 		       sizeof(struct in6_addr));
 	} else {
