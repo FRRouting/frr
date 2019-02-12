@@ -495,6 +495,7 @@ static void zebra_rnh_eval_import_check_entry(struct zebra_vrf *zvrf, afi_t afi,
 
 	if (compare_state(re, rnh->state)) {
 		copy_state(rnh, re, nrn);
+		state_changed = 1;
 	}
 
 	if (state_changed || force) {
