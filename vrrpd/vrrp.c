@@ -32,6 +32,7 @@
 
 #include "vrrp.h"
 #include "vrrp_arp.h"
+#include "vrrp_debug.h"
 #include "vrrp_memory.h"
 #include "vrrp_ndisc.h"
 #include "vrrp_packet.h"
@@ -443,10 +444,8 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 				     r->priority, r->vr->advertisement_interval,
 				     r->addrs->count, (struct ipaddr **)&addrs);
 
-	if (pktsz > 0)
-		zlog_hexdump(pkt, (size_t) pktsz);
-	else
-		zlog_warn("Could not build VRRP packet");
+	if (DEBUG_MODE_CHECK(&vrrp_dbg_pkt, DEBUG_MODE_ALL))
+		zlog_hexdump(pkt, (size_t)pktsz);
 
 	const char *group =
 		r->family == AF_INET ? VRRP_MCASTV4_GROUP_STR : VRRP_MCASTV6_GROUP_STR;
@@ -499,26 +498,27 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 
 	char dumpbuf[BUFSIZ];
 	vrrp_pkt_adver_dump(dumpbuf, sizeof(dumpbuf), pkt);
-	zlog_debug(VRRP_LOGPFX VRRP_LOGPFX_VRID
-		   "Received VRRP Advertisement from %s:\n%s",
-		   r->vr->vrid, sipstr, dumpbuf);
+	DEBUGD(&vrrp_dbg_proto,
+	       VRRP_LOGPFX VRRP_LOGPFX_VRID
+	       "Received VRRP Advertisement from %s:\n%s",
+	       r->vr->vrid, sipstr, dumpbuf);
 
 	/* Check that VRID matches our configured VRID */
 	if (pkt->hdr.vrid != r->vr->vrid) {
-		zlog_warn(
-			VRRP_LOGPFX VRRP_LOGPFX_VRID
-			"%s datagram invalid: Advertisement contains VRID %" PRIu8
-			" which does not match our instance",
-			r->vr->vrid, family2str(r->family), pkt->hdr.vrid);
+		DEBUGD(&vrrp_dbg_proto,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "%s datagram invalid: Advertisement contains VRID %" PRIu8
+		       " which does not match our instance",
+		       r->vr->vrid, family2str(r->family), pkt->hdr.vrid);
 		return -1;
 	}
 
 	/* Verify that we are not the IPvX address owner */
 	if (r->is_owner) {
-		zlog_warn(
-			VRRP_LOGPFX VRRP_LOGPFX_VRID
-			"%s datagram invalid: Received advertisement but we are the address owner",
-			r->vr->vrid, family2str(r->family));
+		DEBUGD(&vrrp_dbg_proto,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "%s datagram invalid: Received advertisement but we are the address owner",
+		       r->vr->vrid, family2str(r->family));
 		return -1;
 	}
 
@@ -526,25 +526,25 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 	bool adveq = (pkt->hdr.v2.adver_int
 		      == MAX(r->vr->advertisement_interval / 100, 1));
 	if (r->vr->version == 2 && !adveq) {
-		zlog_warn(
-			VRRP_LOGPFX VRRP_LOGPFX_VRID
-			"%s datagram invalid: Received advertisement with advertisement interval %" PRIu8
-			" unequal to our configured value %u",
-			r->vr->vrid, family2str(r->family),
-			pkt->hdr.v2.adver_int,
-			MAX(r->vr->advertisement_interval / 100, 1));
+		DEBUGD(&vrrp_dbg_proto,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "%s datagram invalid: Received advertisement with advertisement interval %" PRIu8
+		       " unequal to our configured value %u",
+		       r->vr->vrid, family2str(r->family),
+		       pkt->hdr.v2.adver_int,
+		       MAX(r->vr->advertisement_interval / 100, 1));
 		return -1;
 	}
 
 
 	/* Check that # IPs received matches our # configured IPs */
-	if (pkt->hdr.naddr != r->addrs->count) {
-		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "%s datagram has %" PRIu8
-			  " addresses, but this VRRP instance has %u",
-			  r->vr->vrid, family2str(r->family), pkt->hdr.naddr,
-			  r->addrs->count);
-		}
+	if (pkt->hdr.naddr != r->addrs->count)
+		DEBUGD(&vrrp_dbg_proto,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "%s datagram has %" PRIu8
+		       " addresses, but this VRRP instance has %u",
+		       r->vr->vrid, family2str(r->family), pkt->hdr.naddr,
+		       r->addrs->count);
 
 	int addrcmp;
 
@@ -580,9 +580,10 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			vrrp_change_state(r, VRRP_STATE_BACKUP);
 		} else {
 			/* Discard advertisement */
-			zlog_debug(VRRP_LOGPFX VRRP_LOGPFX_VRID
-				   "Discarding advertisement from %s",
-				   r->vr->vrid, sipstr);
+			DEBUGD(&vrrp_dbg_proto,
+			       VRRP_LOGPFX VRRP_LOGPFX_VRID
+			       "Discarding advertisement from %s",
+			       r->vr->vrid, sipstr);
 		}
 		break;
 	case VRRP_STATE_BACKUP:
@@ -606,9 +607,10 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 		} else if (r->vr->preempt_mode == true
 			   && pkt->hdr.priority < r->priority) {
 			/* Discard advertisement */
-			zlog_debug(VRRP_LOGPFX VRRP_LOGPFX_VRID
-				   "Discarding advertisement from %s",
-				   r->vr->vrid, sipstr);
+			DEBUGD(&vrrp_dbg_proto,
+			       VRRP_LOGPFX VRRP_LOGPFX_VRID
+			       "Discarding advertisement from %s",
+			       r->vr->vrid, sipstr);
 		}
 		break;
 	case VRRP_STATE_INITIALIZE:
@@ -658,20 +660,24 @@ static int vrrp_read(struct thread *thread)
 		goto done;
 	}
 
-	zlog_debug(VRRP_LOGPFX VRRP_LOGPFX_VRID "Received %s datagram: ",
-		   r->vr->vrid, family2str(r->family));
-	zlog_hexdump(r->ibuf, nbytes);
+	if (DEBUG_MODE_CHECK(&vrrp_dbg_pkt, DEBUG_MODE_ALL)) {
+		DEBUGD(&vrrp_dbg_pkt,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID "Received %s datagram: ",
+		       r->vr->vrid, family2str(r->family));
+		zlog_hexdump(r->ibuf, nbytes);
+	}
 
 	pktsize = vrrp_pkt_parse_datagram(r->family, r->vr->version, &m, nbytes,
 					  &src, &pkt, errbuf, sizeof(errbuf));
 
 	if (pktsize < 0) {
-		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "%s datagram invalid: %s",
-			  r->vr->vrid, family2str(r->family), errbuf);
+		DEBUGD(&vrrp_dbg_pkt,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID "%s datagram invalid: %s",
+		       r->vr->vrid, family2str(r->family), errbuf);
 	} else {
-		zlog_debug(VRRP_LOGPFX VRRP_LOGPFX_VRID "Packet looks good",
-			   r->vr->vrid);
+		DEBUGD(&vrrp_dbg_pkt,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID "Packet looks good",
+		       r->vr->vrid);
 		vrrp_recv_advertisement(r, &src, pkt, pktsize);
 	}
 
@@ -755,12 +761,12 @@ static int vrrp_bind_to_primary_connected(struct vrrp_router *r)
 			safe_strerror(errno));
 		return -1;
 	} else {
-		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Bound Tx socket to primary IP address %s",
-			  r->vr->vrid,
-			  inet_ntop(r->family,
-				    (const void *)&c->address->u.prefix, ipstr,
-				    sizeof(ipstr)));
+		DEBUGD(&vrrp_dbg_sock,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "Bound Tx socket to primary IP address %s",
+		       r->vr->vrid,
+		       inet_ntop(r->family, (const void *)&c->address->u.prefix,
+				 ipstr, sizeof(ipstr)));
 	}
 
 	return 0;
@@ -843,8 +849,9 @@ static int vrrp_socket(struct vrrp_router *r)
 			failed = true;
 			goto done;
 		}
-		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Bound Rx socket to %s",
-			  r->vr->vrid, r->vr->ifp->name);
+		DEBUGD(&vrrp_dbg_sock,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID "Bound Rx socket to %s",
+		       r->vr->vrid, r->vr->ifp->name);
 
 		/* Bind Rx socket to v4 multicast address */
 		struct sockaddr_in sa = {0};
@@ -859,9 +866,10 @@ static int vrrp_socket(struct vrrp_router *r)
 			failed = true;
 			goto done;
 		}
-		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Bound Rx socket to VRRP %s multicast group",
-			  r->vr->vrid, family2str(r->family));
+		DEBUGD(&vrrp_dbg_sock,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "Bound Rx socket to VRRP %s multicast group",
+		       r->vr->vrid, family2str(r->family));
 
 		/* Join Rx socket to VRRP IPv4 multicast group */
 		struct connected *c = listhead(r->vr->ifp->connected)->data;
@@ -876,9 +884,10 @@ static int vrrp_socket(struct vrrp_router *r)
 			failed = true;
 			goto done;
 		}
-		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Joined %s VRRP multicast group",
-			  r->vr->vrid, family2str(r->family));
+		DEBUGD(&vrrp_dbg_sock,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "Joined %s VRRP multicast group",
+		       r->vr->vrid, family2str(r->family));
 
 		/* Set outgoing interface for advertisements */
 		struct ip_mreqn mreqn = {};
@@ -893,9 +902,10 @@ static int vrrp_socket(struct vrrp_router *r)
 			failed = true;
 			goto done;
 		}
-		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Set %s as outgoing multicast interface",
-			  r->vr->vrid, r->mvl_ifp->name);
+		DEBUGD(&vrrp_dbg_sock,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "Set %s as outgoing multicast interface",
+		       r->vr->vrid, r->mvl_ifp->name);
 	} else if (r->family == AF_INET6) {
 		/* Always transmit IPv6 packets with hop limit set to 255 */
 		ret = setsockopt_ipv6_multicast_hops(r->sock_tx, 255);
@@ -935,8 +945,9 @@ static int vrrp_socket(struct vrrp_router *r)
 			failed = true;
 			goto done;
 		}
-		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Bound Rx socket to %s",
-			  r->vr->vrid, r->vr->ifp->name);
+		DEBUGD(&vrrp_dbg_sock,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID "Bound Rx socket to %s",
+		       r->vr->vrid, r->vr->ifp->name);
 
 		/* Bind Rx socket to v6 multicast address */
 		struct sockaddr_in6 sa = {0};
@@ -951,9 +962,10 @@ static int vrrp_socket(struct vrrp_router *r)
 			failed = true;
 			goto done;
 		}
-		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Bound Rx socket to VRRP %s multicast group",
-			  r->vr->vrid, family2str(r->family));
+		DEBUGD(&vrrp_dbg_sock,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "Bound Rx socket to VRRP %s multicast group",
+		       r->vr->vrid, family2str(r->family));
 
 		/* Join VRRP IPv6 multicast group */
 		struct ipv6_mreq mreq;
@@ -969,9 +981,10 @@ static int vrrp_socket(struct vrrp_router *r)
 			failed = true;
 			goto done;
 		}
-		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Joined %s VRRP multicast group",
-			  r->vr->vrid, family2str(r->family));
+		DEBUGD(&vrrp_dbg_sock,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "Joined %s VRRP multicast group",
+		       r->vr->vrid, family2str(r->family));
 
 		/* Set outgoing interface for advertisements */
 		ret = setsockopt(r->sock_tx, IPPROTO_IPV6, IPV6_MULTICAST_IF,
@@ -984,9 +997,10 @@ static int vrrp_socket(struct vrrp_router *r)
 			failed = true;
 			goto done;
 		}
-		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Set %s as outgoing multicast interface",
-			  r->vr->vrid, r->mvl_ifp->name);
+		DEBUGD(&vrrp_dbg_sock,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "Set %s as outgoing multicast interface",
+		       r->vr->vrid, r->mvl_ifp->name);
 	}
 
 	/* Bind Tx socket to link-local address */
@@ -1106,8 +1120,8 @@ static int vrrp_adver_timer_expire(struct thread *thread)
 {
 	struct vrrp_router *r = thread->arg;
 
-	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Adver_Timer expired",
-		  r->vr->vrid);
+	DEBUGD(&vrrp_dbg_proto,
+	       VRRP_LOGPFX VRRP_LOGPFX_VRID "Adver_Timer expired", r->vr->vrid);
 
 	if (r->fsm.state == VRRP_STATE_MASTER) {
 		/* Send an ADVERTISEMENT */
@@ -1118,9 +1132,9 @@ static int vrrp_adver_timer_expire(struct thread *thread)
 				      r->vr->advertisement_interval * 10,
 				      &r->t_adver_timer);
 	} else {
-		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Adver_Timer expired in state '%s'; this is a bug",
-			  r->vr->vrid, vrrp_state_names[r->fsm.state]);
+		zlog_err(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			 "Adver_Timer expired in state '%s'; this is a bug",
+			 r->vr->vrid, vrrp_state_names[r->fsm.state]);
 	}
 
 	return 0;
@@ -1261,10 +1275,11 @@ static int vrrp_shutdown(struct vrrp_router *r)
 		THREAD_OFF(r->t_master_down_timer);
 		break;
 	case VRRP_STATE_INITIALIZE:
-		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Received '%s' event in '%s' state; ignoring",
-			  r->vr->vrid, vrrp_event_names[VRRP_EVENT_SHUTDOWN],
-			  vrrp_state_names[VRRP_STATE_INITIALIZE]);
+		DEBUGD(&vrrp_dbg_proto,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "Received '%s' event in '%s' state; ignoring",
+		       r->vr->vrid, vrrp_event_names[VRRP_EVENT_SHUTDOWN],
+		       vrrp_state_names[VRRP_STATE_INITIALIZE]);
 		break;
 	}
 
@@ -1319,23 +1334,43 @@ static void vrrp_autoconfig_autoaddrupdate(struct vrrp_vrouter *vr)
 	struct listnode *ln;
 	struct connected *c = NULL;
 
-	if (vr->v4->mvl_ifp)
+	if (vr->v4->mvl_ifp) {
+		DEBUGD(&vrrp_dbg_auto,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "Setting IPv4 Virtual IP list to match IPv4 addresses on %s",
+		       vr->vrid, vr->v4->mvl_ifp->name);
 		for (ALL_LIST_ELEMENTS_RO(vr->v4->mvl_ifp->connected, ln, c))
 			if (c->address->family == AF_INET)
 				vrrp_add_ipv4(vr, c->address->u.prefix4, true);
+	}
 
-	if (vr->v6->mvl_ifp)
+	if (vr->v6->mvl_ifp) {
+		DEBUGD(&vrrp_dbg_auto,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "Setting IPv6 Virtual IP list to match IPv6 addresses on %s",
+		       vr->vrid, vr->v6->mvl_ifp->name);
 		for (ALL_LIST_ELEMENTS_RO(vr->v6->mvl_ifp->connected, ln, c))
 			if (c->address->family == AF_INET6
 			    && !IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
 				vrrp_add_ipv6(vr, c->address->u.prefix6, true);
+	}
 
 	if (vr->v4->addrs->count == 0
-	    && vr->v4->fsm.state != VRRP_STATE_INITIALIZE)
+	    && vr->v4->fsm.state != VRRP_STATE_INITIALIZE) {
+		DEBUGD(&vrrp_dbg_auto,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "IPv4 Virtual IP list is empty; shutting down",
+		       vr->vrid);
 		vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
+	}
 	if (vr->v6->addrs->count == 0
-	    && vr->v6->fsm.state != VRRP_STATE_INITIALIZE)
+	    && vr->v6->fsm.state != VRRP_STATE_INITIALIZE) {
+		DEBUGD(&vrrp_dbg_auto,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "IPv6 Virtual IP list is empty; shutting down",
+		       vr->vrid);
 		vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
+	}
 }
 
 static struct vrrp_vrouter *
@@ -1351,7 +1386,8 @@ vrrp_autoconfig_autocreate(struct interface *mvl_ifp)
 
 	uint8_t vrid = mvl_ifp->hw_addr[5];
 
-	zlog_info(VRRP_LOGPFX "Autoconfiguring VRRP on %s", p->name);
+	DEBUGD(&vrrp_dbg_auto, VRRP_LOGPFX "Autoconfiguring VRRP on %s",
+	       p->name);
 
 	vr = vrrp_vrouter_create(p, vrid, vrrp_autoconfig_version);
 
@@ -1438,17 +1474,31 @@ int vrrp_autoconfig_if_del(struct interface *ifp)
 		return 0;
 
 	if (vr && vr->v4->mvl_ifp == ifp) {
-		if (vr->v4->fsm.state != VRRP_STATE_INITIALIZE)
+		if (vr->v4->fsm.state != VRRP_STATE_INITIALIZE) {
+			DEBUGD(&vrrp_dbg_auto,
+			       VRRP_LOGPFX VRRP_LOGPFX_VRID
+			       "Interface %s deleted; shutting down IPv4 VRRP router",
+			       vr->vrid, ifp->name);
 			vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
+		}
 		vr->v4->mvl_ifp = NULL;
 	}
 	if (vr && vr->v6->mvl_ifp == ifp) {
-		if (vr->v6->fsm.state != VRRP_STATE_INITIALIZE)
+		if (vr->v6->fsm.state != VRRP_STATE_INITIALIZE) {
+			DEBUGD(&vrrp_dbg_auto,
+			       VRRP_LOGPFX VRRP_LOGPFX_VRID
+			       "Interface %s deleted; shutting down IPv6 VRRP router",
+			       vr->vrid, ifp->name);
 			vrrp_event(vr->v6, VRRP_EVENT_SHUTDOWN);
+		}
 		vr->v6->mvl_ifp = NULL;
 	}
 
 	if (vr->v4->mvl_ifp == NULL && vr->v6->mvl_ifp == NULL) {
+		DEBUGD(&vrrp_dbg_auto,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "All VRRP interfaces for instance deleted; destroying autoconfigured VRRP router",
+		       vr->vrid);
 		vrrp_vrouter_destroy(vr);
 		vr = NULL;
 	}

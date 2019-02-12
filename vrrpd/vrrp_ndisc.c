@@ -32,6 +32,7 @@
 #include "lib/ipaddr.h"
 #include "lib/log.h"
 
+#include "vrrp_debug.h"
 #include "vrrp_ndisc.h"
 
 #define VRRP_LOGPFX "[NDISC] "
@@ -168,9 +169,14 @@ int vrrp_ndisc_una_send(struct vrrp_router *r, struct ipaddr *ip)
 	char ipbuf[INET6_ADDRSTRLEN];
 	ipaddr2str(ip, ipbuf, sizeof(ipbuf));
 
-	zlog_debug(VRRP_LOGPFX VRRP_LOGPFX_VRID
-		   "Sending unsolicited Neighbor Advertisement on %s for %s",
-		   r->vr->vrid, ifp->name, ipbuf);
+	DEBUGD(&vrrp_dbg_ndisc,
+	       VRRP_LOGPFX VRRP_LOGPFX_VRID
+	       "Sending unsolicited Neighbor Advertisement on %s for %s",
+	       r->vr->vrid, ifp->name, ipbuf);
+
+	if (DEBUG_MODE_CHECK(&vrrp_dbg_ndisc, DEBUG_MODE_ALL)
+	    && DEBUG_MODE_CHECK(&vrrp_dbg_pkt, DEBUG_MODE_ALL))
+		zlog_hexdump(buf, VRRP_NDISC_SIZE);
 
 	len = sendto(ndisc_fd, buf, VRRP_NDISC_SIZE, 0, (struct sockaddr *)&sll,
 		     sizeof(sll));
@@ -207,20 +213,24 @@ void vrrp_ndisc_init(void)
 	}
 	vrrp_privs.change(ZPRIVS_LOWER);
 
-	if (ndisc_fd > 0)
-		zlog_info(
-			VRRP_LOGPFX
-			"Initialized unsolicited neighbor advertisement socket");
-	else
-		zlog_err(
-			VRRP_LOGPFX
-			"Error initializing unsolicited neighbor advertisement socket");
+	if (ndisc_fd > 0) {
+		DEBUGD(&vrrp_dbg_sock,
+		       VRRP_LOGPFX "Initialized Neighbor Discovery socket");
+		DEBUGD(&vrrp_dbg_ndisc,
+		       VRRP_LOGPFX "Initialized Neighbor Discovery subsystem");
+	} else {
+		zlog_err(VRRP_LOGPFX
+			 "Error initializing Neighbor Discovery socket");
+	}
 }
 
 void vrrp_ndisc_fini(void)
 {
 	close(ndisc_fd);
 	ndisc_fd = -1;
+
+	DEBUGD(&vrrp_dbg_ndisc,
+	       VRRP_LOGPFX "Deinitialized Neighbor Discovery subsystem");
 }
 
 bool vrrp_ndisc_is_init(void)

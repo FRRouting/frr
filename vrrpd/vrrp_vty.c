@@ -53,6 +53,8 @@
 		}                                                              \
 	} while (0);
 
+/* clang-format off */
+
 DEFPY(vrrp_vrid,
       vrrp_vrid_cmd,
       "[no] vrrp (1-255)$vrid [version (2-3)]",
@@ -411,6 +413,8 @@ DEFUN_NOSH (show_debugging_vrrp,
 
 	return CMD_SUCCESS;
 }
+
+/* clang-format on */
 
 static struct cmd_node interface_node = {
 	INTERFACE_NODE,
