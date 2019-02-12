@@ -1369,7 +1369,7 @@ static void vrrp_autoconfig_autoaddrupdate(struct vrrp_vrouter *vr)
 		       VRRP_LOGPFX VRRP_LOGPFX_VRID
 		       "IPv6 Virtual IP list is empty; shutting down",
 		       vr->vrid);
-		vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
+		vrrp_event(vr->v6, VRRP_EVENT_SHUTDOWN);
 	}
 }
 
