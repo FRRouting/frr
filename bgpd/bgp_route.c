@@ -8405,11 +8405,15 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				json_pmsi = json_object_new_object();
 				json_object_string_add(json_pmsi,
 						       "tunnelType", str);
+				json_object_int_add(json_pmsi,
+						"label",
+						label2vni(&attr->label));
 				json_object_object_add(json_path, "pmsi",
 						       json_pmsi);
 			} else
-				vty_out(vty, "      PMSI Tunnel Type: %s\n",
-					str);
+				vty_out(vty,
+					"      PMSI Tunnel Type: %s, label: %d\n",
+					str, label2vni(&attr->label));
 		}
 
 	}
