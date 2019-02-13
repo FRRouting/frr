@@ -320,15 +320,15 @@ static bool vrrp_attach_interface(struct vrrp_router *r)
 
 	if (candidates == 0)
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "No interface found w/ MAC %s",
-			  r->vr->vrid, ethstr);
+			  "%s interface: None (no interface found w/ MAC %s)",
+			  r->vr->vrid, family2str(r->family), ethstr);
 	else if (candidates > 1)
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
-			  "Multiple VRRP interfaces found; using %s",
-			  r->vr->vrid, selection->name);
+			  "%s interface: Multiple interfaces found; using %s",
+			  r->vr->vrid, family2str(r->family), selection->name);
 	else
-		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Selected %s",
-			  r->vr->vrid, selection->name);
+		zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "%s interface: %s",
+			  r->vr->vrid, family2str(r->family), selection->name);
 
 	r->mvl_ifp = selection;
 
