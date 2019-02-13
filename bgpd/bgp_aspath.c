@@ -1381,39 +1381,45 @@ static struct aspath *aspath_merge(struct aspath *as1, struct aspath *as2)
 /* Prepend as1 to as2.  as2 should be uninterned aspath. */
 struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2)
 {
-	struct assegment *seg1;
-	struct assegment *seg2;
+	struct assegment *as1segtail;
+	struct assegment *as2segtail;
+	struct assegment *as2seghead;
 
 	if (!as1 || !as2)
 		return NULL;
 
-	seg1 = as1->segments;
-	seg2 = as2->segments;
-
 	/* If as2 is empty, only need to dupe as1's chain onto as2 */
-	if (seg2 == NULL) {
+	if (as2->segments == NULL) {
 		as2->segments = assegment_dup_all(as1->segments);
 		aspath_str_update(as2, false);
 		return as2;
 	}
 
 	/* If as1 is empty AS, no prepending to do. */
-	if (seg1 == NULL)
+	if (as1->segments == NULL)
 		return as2;
 
 	/* find the tail as1's segment chain. */
-	while (seg1 && seg1->next)
-		seg1 = seg1->next;
+	as1segtail = as1->segments;
+	while (as1segtail && as1segtail->next)
+		as1segtail = as1segtail->next;
 
 	/* Delete any AS_CONFED_SEQUENCE segment from as2. */
-	if (seg1->type == AS_SEQUENCE && seg2->type == AS_CONFED_SEQUENCE)
+	if (as1segtail->type == AS_SEQUENCE
+	    && as2->segments->type == AS_CONFED_SEQUENCE)
 		as2 = aspath_delete_confed_seq(as2);
 
+	if (!as2->segments) {
+		as2->segments = assegment_dup_all(as1->segments);
+		aspath_str_update(as2, false);
+		return as2;
+	}
+
 	/* Compare last segment type of as1 and first segment type of as2. */
-	if (seg1->type != seg2->type)
+	if (as1segtail->type != as2->segments->type)
 		return aspath_merge(as1, as2);
 
-	if (seg1->type == AS_SEQUENCE) {
+	if (as1segtail->type == AS_SEQUENCE) {
 		/* We have two chains of segments, as1->segments and seg2,
 		 * and we have to attach them together, merging the attaching
 		 * segments together into one.
@@ -1423,23 +1429,28 @@ struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2)
 		 * 3. attach chain after seg2
 		 */
 
-		/* dupe as1 onto as2's head */
-		seg1 = as2->segments = assegment_dup_all(as1->segments);
+		/* save as2 head */
+		as2seghead = as2->segments;
 
-		/* refind the tail of as2, reusing seg1 */
-		while (seg1 && seg1->next)
-			seg1 = seg1->next;
+		/* dupe as1 onto as2's head */
+		as2segtail = as2->segments = assegment_dup_all(as1->segments);
+
+		/* refind the tail of as2 */
+		while (as2segtail && as2segtail->next)
+			as2segtail = as2segtail->next;
 
 		/* merge the old head, seg2, into tail, seg1 */
-		seg1 = assegment_append_asns(seg1, seg2->as, seg2->length);
+		assegment_append_asns(as2segtail, as2seghead->as,
+				      as2seghead->length);
 
-		/* bypass the merged seg2, and attach any chain after it to
-		 * chain descending from as2's head
+		/*
+		 * bypass the merged seg2, and attach any chain after it
+		 * to chain descending from as2's head
 		 */
-		seg1->next = seg2->next;
+		as2segtail->next = as2seghead->next;
 
-		/* seg2 is now referenceless and useless*/
-		assegment_free(seg2);
+		/* as2->segments is now referenceless and useless */
+		assegment_free(as2seghead);
 
 		/* we've now prepended as1's segment chain to as2, merging
 		 * the inbetween AS_SEQUENCE of seg2 in the process
