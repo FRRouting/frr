@@ -39,14 +39,22 @@
 #endif
 
 DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
-      "sharp watch nexthop X:X::X:X$nhop [connected$connected]",
+      "sharp watch <nexthop$n|import$import> X:X::X:X$nhop [connected$connected]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "Watch for nexthop changes\n"
+      "Watch for import check changes\n"
       "The v6 nexthop to signal for watching\n"
       "Should the route be connected\n")
 {
 	struct prefix p;
+	bool type_import;
+
+
+	if (n)
+		type_import = false;
+	else
+		type_import = true;
 
 	memset(&p, 0, sizeof(p));
 
@@ -55,29 +63,36 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 	p.family = AF_INET6;
 
 	sharp_nh_tracker_get(&p);
-	sharp_zebra_nexthop_watch(&p, true, !!connected);
+	sharp_zebra_nexthop_watch(&p, type_import, true, !!connected);
 
 	return CMD_SUCCESS;
 }
 
 DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
-      "sharp watch nexthop A.B.C.D$nhop [connected$connected]",
+      "sharp watch <nexthop$n|import$import> A.B.C.D$nhop [connected$connected]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "Watch for nexthop changes\n"
+      "Watch for import check changes\n"
       "The v4 nexthop to signal for watching\n"
       "Should the route be connected\n")
 {
 	struct prefix p;
+	bool type_import;
 
 	memset(&p, 0, sizeof(p));
+
+	if (n)
+		type_import = false;
+	else
+		type_import = true;
 
 	p.prefixlen = 32;
 	p.u.prefix4 = nhop;
 	p.family = AF_INET;
 
 	sharp_nh_tracker_get(&p);
-	sharp_zebra_nexthop_watch(&p, true, !!connected);
+	sharp_zebra_nexthop_watch(&p, type_import, true, !!connected);
 
 	return CMD_SUCCESS;
 }

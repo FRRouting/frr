@@ -320,12 +320,22 @@ void route_delete(struct prefix *p, uint8_t instance)
 	return;
 }
 
-void sharp_zebra_nexthop_watch(struct prefix *p, bool watch, bool connected)
+void sharp_zebra_nexthop_watch(struct prefix *p, bool import,
+			       bool watch, bool connected)
 {
-	int command = ZEBRA_NEXTHOP_REGISTER;
+	int command;
 
-	if (!watch)
-		command = ZEBRA_NEXTHOP_UNREGISTER;
+	if (!import) {
+		command = ZEBRA_NEXTHOP_REGISTER;
+
+		if (!watch)
+			command = ZEBRA_NEXTHOP_UNREGISTER;
+	} else {
+		command = ZEBRA_IMPORT_ROUTE_REGISTER;
+
+		if (!watch)
+			command = ZEBRA_IMPORT_ROUTE_UNREGISTER;
+	}
 
 	if (zclient_send_rnh(zclient, command, p, connected, VRF_DEFAULT) < 0)
 		zlog_warn("%s: Failure to send nexthop to zebra",
@@ -405,4 +415,5 @@ void sharp_zebra_init(void)
 	zclient->interface_address_delete = interface_address_delete;
 	zclient->route_notify_owner = route_notify_owner;
 	zclient->nexthop_update = sharp_nexthop_update;
+	zclient->import_check_update = sharp_nexthop_update;
 }
