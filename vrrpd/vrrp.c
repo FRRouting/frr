@@ -1320,7 +1320,7 @@ static int (*vrrp_event_handlers[])(struct vrrp_router *r) = {
 int vrrp_event(struct vrrp_router *r, int event)
 {
 	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "'%s' event", r->vr->vrid,
-		  vrrp_event_names[r->fsm.state]);
+		  vrrp_event_names[event]);
 	return vrrp_event_handlers[event](r);
 }
 
