@@ -99,6 +99,9 @@ static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_NEWRULE, "RTM_NEWRULE"},
 					   {RTM_DELRULE, "RTM_DELRULE"},
 					   {RTM_GETRULE, "RTM_GETRULE"},
+					   {RTM_NEWNEXTHOP, "RTM_NEWNEXTHOP"},
+					   {RTM_DELNEXTHOP, "RTM_DELNEXTHOP"},
+					   {RTM_GETNEXTHOP, "RTM_GETNEXTHOP"},
 					   {0}};
 
 static const struct message rtproto_str[] = {
@@ -291,6 +294,14 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 		return netlink_rule_change(h, ns_id, startup);
 	case RTM_DELRULE:
 		return netlink_rule_change(h, ns_id, startup);
+	case RTM_NEWNEXTHOP:
+	case RTM_DELNEXTHOP:
+	case RTM_GETNEXTHOP:
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Got a nexthop: %s(%d) message!",
+				   nl_msg_type_to_str(h->nlmsg_type),
+				   h->nlmsg_type);
+		break;
 	default:
 		/*
 		 * If we have received this message then
