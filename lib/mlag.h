@@ -22,6 +22,10 @@
 #ifndef __MLAG_H__
 #define __MLAG_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum mlag_role {
 	MLAG_ROLE_NONE,
 	MLAG_ROLE_PRIMARY,
@@ -29,4 +33,9 @@ enum mlag_role {
 };
 
 extern char *mlag_role2str(enum mlag_role role, char *buf, size_t size);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

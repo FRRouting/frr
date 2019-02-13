@@ -202,10 +202,10 @@ static int frr_sr_process_change(struct nb_config *candidate,
 		 * notified about the removal of all of its leafs, even the ones
 		 * that are non-optional. We need to ignore these notifications.
 		 */
-		if (!nb_operation_is_valid(NB_OP_DELETE, nb_node->snode))
+		if (!nb_operation_is_valid(NB_OP_DESTROY, nb_node->snode))
 			return NB_OK;
 
-		nb_op = NB_OP_DELETE;
+		nb_op = NB_OP_DESTROY;
 		break;
 	case SR_OP_MOVED:
 		nb_op = NB_OP_MOVE;

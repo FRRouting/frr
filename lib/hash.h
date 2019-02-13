@@ -24,6 +24,10 @@
 #include "memory.h"
 #include "frratomic.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MTYPE(HASH)
 DECLARE_MTYPE(HASH_BACKET)
 
@@ -54,9 +58,9 @@ struct hash_backet {
 
 struct hashstats {
 	/* number of empty hash buckets */
-	_Atomic uint_fast32_t empty;
+	atomic_uint_fast32_t empty;
 	/* sum of squares of bucket length */
-	_Atomic uint_fast32_t ssq;
+	atomic_uint_fast32_t ssq;
 };
 
 struct hash {
@@ -324,5 +328,9 @@ extern unsigned int string_hash_make(const char *);
  * Install CLI commands for viewing global hash table statistics.
  */
 extern void hash_cmd_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_HASH_H */

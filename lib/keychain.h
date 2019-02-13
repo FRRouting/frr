@@ -23,6 +23,10 @@
 
 #include "qobj.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct keychain {
 	char *name;
 
@@ -56,5 +60,9 @@ extern struct keychain *keychain_lookup(const char *);
 extern struct key *key_lookup_for_accept(const struct keychain *, uint32_t);
 extern struct key *key_match_for_accept(const struct keychain *, const char *);
 extern struct key *key_lookup_for_send(const struct keychain *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_KEYCHAIN_H */

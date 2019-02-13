@@ -232,6 +232,15 @@ typedef unsigned char uint8_t;
 
 #include "zassert.h"
 
+/*
+ * Add explicit static cast only when using a C++ compiler.
+ */
+#ifdef __cplusplus
+#define static_cast(l, r) static_cast<decltype(l)>((r))
+#else
+#define static_cast(l, r) (r)
+#endif
+
 #ifndef HAVE_STRLCAT
 size_t strlcat(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);

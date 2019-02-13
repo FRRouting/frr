@@ -25,6 +25,11 @@
 
 #include "memory.h"
 #include "queue.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MTYPE(WORK_QUEUE)
 
 /* Hold time for the initial schedule of a queue run, in  millisec */
@@ -175,5 +180,9 @@ bool work_queue_is_scheduled(struct work_queue *);
 extern int work_queue_run(struct thread *);
 
 extern void workqueue_cmd_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _QUAGGA_WORK_QUEUE_H */

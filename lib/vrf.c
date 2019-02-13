@@ -471,7 +471,7 @@ static const struct cmd_variable_handler vrf_var_handlers[] = {
 
 /* Initialize VRF module. */
 void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
-	      int (*disable)(struct vrf *), int (*delete)(struct vrf *),
+	      int (*disable)(struct vrf *), int (*destroy)(struct vrf *),
 	      int ((*update)(struct vrf *)))
 {
 	struct vrf *default_vrf;
@@ -485,7 +485,7 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 	vrf_master.vrf_new_hook = create;
 	vrf_master.vrf_enable_hook = enable;
 	vrf_master.vrf_disable_hook = disable;
-	vrf_master.vrf_delete_hook = delete;
+	vrf_master.vrf_delete_hook = destroy;
 	vrf_master.vrf_update_name_hook = update;
 
 	/* The default VRF always exists. */

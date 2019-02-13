@@ -27,6 +27,10 @@
 
 #include "vector.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * Tokenizes a string, storing tokens in a vector. Whitespace is ignored.
  * Delimiter characters are not included.
@@ -107,5 +111,9 @@ bool begins_with(const char *str, const char *prefix);
  *    1 str only contains digit characters, 0 otherwise
  */
 int all_digit(const char *str);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRRSTR_H_ */

@@ -20,6 +20,10 @@
 #ifndef _ZEBRA_LOGICAL_ROUTER_H
 #define _ZEBRA_LOGICAL_ROUTER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Logical Router Backend defines */
 #define LOGICALROUTER_BACKEND_OFF   0
 #define LOGICALROUTER_BACKEND_NETNS 1
@@ -37,5 +41,9 @@ extern void logicalrouter_terminate(void);
  * one can think of having exclusivity only per NETNS
  */
 extern void logicalrouter_configure_backend(int backend_netns);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /*_ZEBRA_LOGICAL_ROUTER_H*/

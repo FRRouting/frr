@@ -147,7 +147,7 @@ dnl - specifically, options to control warnings
 
 AC_USE_SYSTEM_EXTENSIONS
 AC_DEFUN([AC_C_FLAG], [{
-    m4_pushdef([cachename],[m4_translit([frr_cv_$1],[ =-],[___])])
+    m4_pushdef([cachename],[m4_translit([frr_cv_$1],[ =-+],[____])])
     AC_CACHE_CHECK([[whether $CC supports $1]], cachename, [
 	AC_LANG_PUSH([C])
 	ac_c_flag_save="$CFLAGS"
@@ -260,6 +260,9 @@ else
 fi
 AC_C_FLAG([-Wno-unused-parameter])
 AC_C_FLAG([-Wno-missing-field-initializers])
+
+AC_C_FLAG([-Wc++-compat], [], [CXX_COMPAT_CFLAGS="-Wc++-compat"])
+AC_SUBST([CXX_COMPAT_CFLAGS])
 
 dnl ICC emits a broken warning for const char *x = a ? "b" : "c";
 dnl for some reason the string consts get 'promoted' to char *,

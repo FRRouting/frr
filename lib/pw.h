@@ -20,6 +20,10 @@
 #ifndef _FRR_PW_H
 #define _FRR_PW_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* L2VPN name length. */
 #define L2VPN_NAME_LEN		32
 
@@ -44,9 +48,10 @@ union pw_protocol_fields {
 		uint32_t pwid;
 		char vpn_name[L2VPN_NAME_LEN];
 	} ldp;
-	struct {
-		/* TODO */
-	} bgp;
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_PW_H */

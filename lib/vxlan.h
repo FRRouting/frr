@@ -22,6 +22,10 @@
 #ifndef __VXLAN_H__
 #define __VXLAN_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* VxLAN Network Identifier - 24-bit (RFC 7348) */
 typedef uint32_t vni_t;
 #define VNI_MAX 16777215 /* (2^24 - 1) */
@@ -35,4 +39,9 @@ enum vxlan_flood_control {
 	VXLAN_FLOOD_HEAD_END_REPL = 0,
 	VXLAN_FLOOD_DISABLED,
 };
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* __VXLAN_H__ */

@@ -43,6 +43,10 @@
 #ifndef _ZEBRA_EVENT_COUNTER_H
 #define _ZEBRA_EVENT_COUNTER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct event_counter {
 	unsigned long long count;
 	time_t last;
@@ -50,5 +54,9 @@ struct event_counter {
 
 void event_counter_inc(struct event_counter *counter);
 const char *event_counter_format(const struct event_counter *counter);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

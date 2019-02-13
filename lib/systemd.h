@@ -19,6 +19,10 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * Wrapper functions to systemd calls.
  *
@@ -37,3 +41,7 @@ void systemd_send_stopping(void);
  *                process?
  */
 void systemd_send_started(struct thread_master *master, int the_process);
+
+#ifdef __cplusplus
+}
+#endif

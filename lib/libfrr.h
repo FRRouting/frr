@@ -30,6 +30,10 @@
 #include "hook.h"
 #include "northbound.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* The following options disable specific command line options that
  * are not applicable for a particular daemon.
  */
@@ -151,5 +155,9 @@ extern char frr_protoname[];
 extern char frr_protonameinst[];
 
 extern bool debug_memstats_at_exit;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_FRR_H */
