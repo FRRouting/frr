@@ -1463,25 +1463,28 @@ static struct vrrp_vrouter *vrrp_lookup_by_mvlif(struct interface *mvl_ifp)
 
 int vrrp_autoconfig_if_add(struct interface *ifp)
 {
+	bool created = false;
+	struct vrrp_vrouter *vr;
+
 	if (!vrrp_autoconfig_is_on)
 		return 0;
-
-	struct vrrp_vrouter *vr;
 
 	if (!ifp || !ifp->link_ifindex || !vrrp_ifp_has_vrrp_mac(ifp))
 		return -1;
 
 	vr = vrrp_lookup_by_mvlif(ifp);
 
-	if (!vr)
+	if (!vr) {
 		vr = vrrp_autoconfig_autocreate(ifp);
+		created = true;
+	}
 
 	if (!vr)
 		return -1;
 
 	if (vr->autoconf == false)
 		return 0;
-	else {
+	else if (!created) {
 		vrrp_attach_interface(vr->v4);
 		vrrp_attach_interface(vr->v6);
 		vrrp_autoconfig_autoaddrupdate(vr);
