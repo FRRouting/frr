@@ -1341,6 +1341,7 @@ static void vrrp_autoconfig_autoaddrupdate(struct vrrp_vrouter *vr)
 
 	struct listnode *ln;
 	struct connected *c = NULL;
+	char ipbuf[INET6_ADDRSTRLEN];
 
 	if (vr->v4->mvl_ifp) {
 		DEBUGD(&vrrp_dbg_auto,
@@ -1348,8 +1349,14 @@ static void vrrp_autoconfig_autoaddrupdate(struct vrrp_vrouter *vr)
 		       "Setting IPv4 Virtual IP list to match IPv4 addresses on %s",
 		       vr->vrid, vr->v4->mvl_ifp->name);
 		for (ALL_LIST_ELEMENTS_RO(vr->v4->mvl_ifp->connected, ln, c))
-			if (c->address->family == AF_INET)
+			if (c->address->family == AF_INET) {
+				inet_ntop(AF_INET, &c->address->u.prefix4, ipbuf,
+					  sizeof(ipbuf));
+				DEBUGD(&vrrp_dbg_auto,
+				       VRRP_LOGPFX VRRP_LOGPFX_VRID "Adding %s",
+				       vr->vrid, ipbuf);
 				vrrp_add_ipv4(vr, c->address->u.prefix4, true);
+			}
 	}
 
 	if (vr->v6->mvl_ifp) {
@@ -1359,8 +1366,14 @@ static void vrrp_autoconfig_autoaddrupdate(struct vrrp_vrouter *vr)
 		       vr->vrid, vr->v6->mvl_ifp->name);
 		for (ALL_LIST_ELEMENTS_RO(vr->v6->mvl_ifp->connected, ln, c))
 			if (c->address->family == AF_INET6
-			    && !IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
+			    && !IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6)) {
+				inet_ntop(AF_INET6, &c->address->u.prefix6,
+					  ipbuf, sizeof(ipbuf));
+				DEBUGD(&vrrp_dbg_auto,
+				       VRRP_LOGPFX VRRP_LOGPFX_VRID "Adding %s",
+				       vr->vrid, ipbuf);
 				vrrp_add_ipv6(vr, c->address->u.prefix6, true);
+			}
 	}
 
 	if (vr->v4->addrs->count == 0
@@ -1394,7 +1407,8 @@ vrrp_autoconfig_autocreate(struct interface *mvl_ifp)
 
 	uint8_t vrid = mvl_ifp->hw_addr[5];
 
-	DEBUGD(&vrrp_dbg_auto, VRRP_LOGPFX "Autoconfiguring VRRP on %s",
+	DEBUGD(&vrrp_dbg_auto,
+	       VRRP_LOGPFX VRRP_LOGPFX_VRID "Autoconfiguring VRRP on %s", vrid,
 	       p->name);
 
 	vr = vrrp_vrouter_create(p, vrid, vrrp_autoconfig_version);
