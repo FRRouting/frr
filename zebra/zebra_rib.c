@@ -1089,7 +1089,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	hook_call(rib_update, rn, "installing in kernel");
 
 	/* Send add or update */
-	if (old && (old != re))
+	if (old)
 		ret = dplane_route_update(rn, re, old);
 	else
 		ret = dplane_route_add(rn, re);
