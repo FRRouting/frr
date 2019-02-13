@@ -1800,9 +1800,10 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 		break;
 
 	case DPLANE_OP_LSP_DELETE:
-		flog_warn(EC_ZEBRA_LSP_DELETE_FAILURE,
-			  "LSP Deletion Failure: in-label %u",
-			  dplane_ctx_get_in_label(ctx));
+		if (status != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			flog_warn(EC_ZEBRA_LSP_DELETE_FAILURE,
+				  "LSP Deletion Failure: in-label %u",
+				  dplane_ctx_get_in_label(ctx));
 		break;
 
 	default:
