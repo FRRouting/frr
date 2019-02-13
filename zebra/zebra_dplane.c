@@ -1419,7 +1419,7 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 	ctx->u.rinfo.zd_safi = info->safi;
 
 	/* Copy nexthops; recursive info is included too */
-	copy_nexthops(&(ctx->u.rinfo.zd_ng.nexthop), re->ng.nexthop, NULL);
+	copy_nexthops(&(ctx->u.rinfo.zd_ng.nexthop), re->ng->nexthop, NULL);
 
 	/* Ensure that the dplane's nexthops flags are clear. */
 	for (ALL_NEXTHOPS(ctx->u.rinfo.zd_ng, nexthop))
@@ -1577,7 +1577,7 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 
 			if (re)
 				copy_nexthops(&(ctx->u.pw.nhg.nexthop),
-					      re->ng.nexthop, NULL);
+					      re->ng->nexthop, NULL);
 
 			route_unlock_node(rn);
 		}

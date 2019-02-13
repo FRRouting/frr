@@ -259,7 +259,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				tm->tm_hour);
 		vty_out(vty, " ago\n");
 
-		for (ALL_NEXTHOPS(re->ng, nexthop)) {
+		for (ALL_NEXTHOPS_PTR(re->ng, nexthop)) {
 			char addrstr[32];
 
 			vty_out(vty, "  %c%s",
@@ -409,7 +409,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	if (is_fib)
 		nhg = rib_active_nhg(re);
 	else
-		nhg = &(re->ng);
+		nhg = re->ng;
 
 	if (json) {
 		json_route = json_object_new_object();
@@ -1615,7 +1615,7 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 				fib_cnt[ZEBRA_ROUTE_TOTAL]++;
 				fib_cnt[re->type]++;
 			}
-			for (nexthop = re->ng.nexthop; (!cnt && nexthop);
+			for (nexthop = re->ng->nexthop; (!cnt && nexthop);
 			     nexthop = nexthop->next) {
 				cnt++;
 				rib_cnt[ZEBRA_ROUTE_TOTAL]++;

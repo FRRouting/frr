@@ -627,6 +627,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			re->nexthop_num = 0;
 			re->uptime = monotime(NULL);
 			re->tag = tag;
+			re->ng = nexthop_group_new();
 
 			for (;;) {
 				struct nexthop *nh = NULL;
@@ -722,9 +723,10 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			zserv_nexthop_num_warn(__func__,
 					       (const struct prefix *)&p,
 					       re->nexthop_num);
-			if (re->nexthop_num == 0)
+			if (re->nexthop_num == 0) {
+				nexthop_group_delete(&re->ng);
 				XFREE(MTYPE_RE, re);
-			else
+			} else
 				rib_add_multipath(afi, SAFI_UNICAST, &p,
 						  &src_p, re);
 		}

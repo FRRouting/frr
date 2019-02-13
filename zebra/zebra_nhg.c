@@ -164,7 +164,7 @@ void zebra_nhg_release(afi_t afi, struct route_entry *re)
 
 	lookup.vrf_id = re->vrf_id;
 	lookup.afi = afi;
-	lookup.nhg = re->ng;
+	lookup.nhg = *re->ng;
 
 	nhe = hash_lookup(zrouter.nhgs, &lookup);
 	nhe->refcnt--;
@@ -446,7 +446,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 		if (match->type == ZEBRA_ROUTE_CONNECT) {
 			/* Directly point connected route. */
-			newhop = match->ng.nexthop;
+			newhop = match->ng->nexthop;
 			if (newhop) {
 				if (nexthop->type == NEXTHOP_TYPE_IPV4
 				    || nexthop->type == NEXTHOP_TYPE_IPV6)
@@ -455,7 +455,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			return 1;
 		} else if (CHECK_FLAG(re->flags, ZEBRA_FLAG_ALLOW_RECURSION)) {
 			resolved = 0;
-			for (ALL_NEXTHOPS(match->ng, newhop)) {
+			for (ALL_NEXTHOPS_PTR(match->ng, newhop)) {
 				if (!CHECK_FLAG(match->status,
 						ROUTE_ENTRY_INSTALLED))
 					continue;
@@ -475,7 +475,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			return resolved;
 		} else if (re->type == ZEBRA_ROUTE_STATIC) {
 			resolved = 0;
-			for (ALL_NEXTHOPS(match->ng, newhop)) {
+			for (ALL_NEXTHOPS_PTR(match->ng, newhop)) {
 				if (!CHECK_FLAG(match->status,
 						ROUTE_ENTRY_INSTALLED))
 					continue;
@@ -660,7 +660,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	re->nexthop_active_num = 0;
 	UNSET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 
-	for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next) {
+	for (nexthop = re->ng->nexthop; nexthop; nexthop = nexthop->next) {
 		/* No protocol daemon provides src and so we're skipping
 		 * tracking it */
 		prev_src = nexthop->rmap_src;
