@@ -218,12 +218,12 @@ DEFPY(vrrp_ip6,
 	if (deactivated)
 		vty_out(vty, "%% Deactivated IPv6 Virtual Router %ld\n", vrid);
 	if (failed) {
-		vty_out(vty, "%% Failed to %s virtual IP",
+		vty_out(vty, "%% Failed to %s virtual IP\n",
 			no ? "remove" : "add");
 		ret = CMD_WARNING_CONFIG_FAILED;
 		if (will_activate && !activated) {
 			vty_out(vty,
-				"%% Failed to activate IPv4 Virtual Router %ld\n",
+				"%% Failed to activate IPv6 Virtual Router %ld\n",
 				vrid);
 		}
 	}
