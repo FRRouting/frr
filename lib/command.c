@@ -149,6 +149,7 @@ const char *node_names[] = {
 	"bfd",			 /* BFD_NODE */
 	"bfd peer",		 /* BFD_PEER_NODE */
 	"openfabric",		    // OPENFABRIC_NODE
+	"vrrp",			    // VRRP_NODE
 };
 /* clang-format on */
 

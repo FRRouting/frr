@@ -30,6 +30,7 @@
 #include "lib/privs.h"
 #include "lib/stream.h"
 #include "lib/thread.h"
+#include "lib/vty.h"
 
 /* Global definitions */
 #define VRRP_DEFAULT_ADVINT 100
@@ -557,6 +558,28 @@ int vrrp_autoconfig_if_address_add(struct interface *ifp);
 int vrrp_autoconfig_if_address_del(struct interface *ifp);
 
 /* Other ------------------------------------------------------------------- */
+
+/*
+ * Write interface block-level configuration to vty.
+ *
+ * vty
+ *    vty to write config to
+ *
+ * Returns:
+ *    # of lines written
+ */
+int vrrp_config_write_interface(struct vty *vty);
+
+/*
+ * Write global level configuration to vty.
+ *
+ * vty
+ *    vty to write config to
+ *
+ * Returns:
+ *    # of lines written
+ */
+int vrrp_config_write_global(struct vty *vty);
 
 /*
  * Find VRRP Virtual Router by Virtual Router ID

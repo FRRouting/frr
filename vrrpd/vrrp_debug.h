@@ -46,7 +46,7 @@ void vrrp_debug_init(void);
  * vty
  *    VTY to print debugging configuration to.
  */
-int vrrp_debug_config_write(struct vty *vty);
+int vrrp_config_write_debug(struct vty *vty);
 
 /*
  * Print VRRP debugging configuration, human readable form.

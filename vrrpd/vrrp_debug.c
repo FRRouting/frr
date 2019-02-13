@@ -89,7 +89,7 @@ static int vrrp_debug_config_write_helper(struct vty *vty, bool config)
 	return 0;
 }
 
-int vrrp_debug_config_write(struct vty *vty)
+int vrrp_config_write_debug(struct vty *vty)
 {
 	return vrrp_debug_config_write_helper(vty, true);
 }

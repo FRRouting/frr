@@ -29,6 +29,7 @@
 #include "lib/sockopt.h"
 #include "lib/sockunion.h"
 #include "lib/vrf.h"
+#include "lib/vty.h"
 
 #include "vrrp.h"
 #include "vrrp_arp.h"
@@ -1608,6 +1609,69 @@ void vrrp_autoconfig_off(void)
 }
 
 /* Other ------------------------------------------------------------------- */
+
+int vrrp_config_write_interface(struct vty *vty)
+{
+	struct list *vrs = hash_to_list(vrrp_vrouters_hash);
+	struct listnode *ln;
+	struct vrrp_vrouter *vr;
+	int writes = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr)) {
+		vty_frame(vty, "interface %s\n", vr->ifp->name);
+		++writes;
+
+		vty_out(vty, " vrrp %" PRIu8 "%s\n", vr->vrid,
+			vr->version == 2 ? " version 2" : "");
+		++writes;
+
+		if (!vr->preempt_mode && ++writes)
+			vty_out(vty, " no vrrp %" PRIu8 " preempt\n", vr->vrid);
+
+		if (vr->accept_mode && ++writes)
+			vty_out(vty, " vrrp %" PRIu8 " accept\n", vr->vrid);
+
+		if (vr->advertisement_interval != VRRP_DEFAULT_ADVINT
+		    && ++writes)
+			vty_out(vty,
+				" vrrp %" PRIu8
+				" advertisement-interval %" PRIu16 "\n",
+				vr->vrid, vr->advertisement_interval);
+
+		if (vr->priority != VRRP_DEFAULT_PRIORITY && ++writes)
+			vty_out(vty, " vrrp %" PRIu8 " priority %" PRIu8 "\n",
+				vr->vrid, vr->priority);
+
+		ln = NULL;
+		struct ipaddr *ip;
+
+		for (ALL_LIST_ELEMENTS_RO(vr->v4->addrs, ln, ip)) {
+			char ipbuf[INET6_ADDRSTRLEN];
+			ipaddr2str(ip, ipbuf, sizeof(ipbuf));
+			vty_out(vty, " vrrp %" PRIu8 " ip %s\n", vr->vrid,
+				ipbuf);
+			++writes;
+		}
+		for (ALL_LIST_ELEMENTS_RO(vr->v6->addrs, ln, ip)) {
+			char ipbuf[INET6_ADDRSTRLEN];
+			ipaddr2str(ip, ipbuf, sizeof(ipbuf));
+			vty_out(vty, " vrrp %" PRIu8 " ipv6 %s\n", vr->vrid,
+				ipbuf);
+			++writes;
+		}
+	}
+
+	return writes;
+}
+
+int vrrp_config_write_global(struct vty *vty)
+{
+	if (vrrp_autoconfig_is_on)
+		vty_out(vty, "vrrp autoconfigure%s\n",
+			vrrp_autoconfig_version == 2 ? " version 2" : "");
+
+	return 1;
+}
 
 static unsigned int vrrp_hash_key(void *arg)
 {

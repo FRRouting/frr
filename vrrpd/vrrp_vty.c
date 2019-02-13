@@ -416,17 +416,15 @@ DEFUN_NOSH (show_debugging_vrrp,
 
 /* clang-format on */
 
-static struct cmd_node interface_node = {
-	INTERFACE_NODE,
-	"%s(config-if)# ", 1
-};
-
+static struct cmd_node interface_node = {INTERFACE_NODE, "%s(config-if)# ", 1};
 static struct cmd_node debug_node = {DEBUG_NODE, "", 1};
+static struct cmd_node vrrp_node = {VRRP_NODE, "", 1};
 
 void vrrp_vty_init(void)
 {
-	install_node(&debug_node, vrrp_debug_config_write);
-	install_node(&interface_node, NULL);
+	install_node(&debug_node, vrrp_config_write_debug);
+	install_node(&interface_node, vrrp_config_write_interface);
+	install_node(&vrrp_node, vrrp_config_write_global);
 	if_cmd_init();
 
 	install_element(VIEW_NODE, &vrrp_vrid_show_cmd);
