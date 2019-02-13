@@ -1291,7 +1291,15 @@ static int vrrp_shutdown(struct vrrp_router *r)
 		break;
 	}
 
-	/* Transition to the Initialize state */
+	if (r->sock_rx > 0) {
+		close(r->sock_rx);
+		r->sock_rx = -1;
+	}
+	if (r->sock_tx > 0) {
+		close(r->sock_tx);
+		r->sock_tx = -1;
+	}
+
 	vrrp_change_state(r, VRRP_STATE_INITIALIZE);
 
 	r->is_active = false;
