@@ -71,10 +71,15 @@ keyword. At present, no sharp commands will be preserved in the config.
    be used for pop and forward operations when the specified label is seen.
 
 .. index:: sharp watch
-.. clicmd:: sharp watch nexthop <A.B.C.D|X:X::X:X>
+.. clicmd:: [no] sharp watch <nexthop|import> <A.B.C.D|X:X::X:X> [connected]
 
    Instruct zebra to monitor and notify sharp when the specified nexthop is
    changed. The notification from zebra is written into the debug log.
+   The nexthop or import choice chooses the type of nexthop we are asking
+   zebra to watch for us.  This choice affects zebra's decision on what
+   matches.  Connected tells zebra whether or not that we want the route
+   matched against to be a static or connected route.  The no form of
+   the command obviously turns this watching off.
 
 .. index:: sharp data nexthop
 .. clicmd:: sharp data nexthop
