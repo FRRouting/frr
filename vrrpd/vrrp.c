@@ -1614,8 +1614,7 @@ static unsigned int vrrp_hash_key(void *arg)
 	struct vrrp_vrouter *vr = arg;
 
 	char key[IFNAMSIZ + 64];
-	snprintf(key, sizeof(key), "%d%s%u", vr->ifp->ifindex, vr->ifp->name,
-		 vr->vrid);
+	snprintf(key, sizeof(key), "%s@%" PRIu8, vr->ifp->name, vr->vrid);
 
 	return string_hash_make(key);
 }
