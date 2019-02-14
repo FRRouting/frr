@@ -968,6 +968,18 @@ static void _bfdd_peer_write_config(struct hash_backet *hb, void *arg)
 	vty_out(vty, " !\n");
 }
 
+DEFUN_NOSH(show_debugging_bfd,
+	   show_debugging_bfd_cmd,
+	   "show debugging [bfd]",
+	   SHOW_STR
+	   DEBUG_STR
+	   "BFD daemon\n")
+{
+	vty_out(vty, "BFD debugging status:\n");
+
+	return CMD_SUCCESS;
+}
+
 static int bfdd_peer_write_config(struct vty *vty)
 {
 	bfd_id_iterate(_bfdd_peer_write_config, vty);
@@ -993,6 +1005,7 @@ void bfdd_vty_init(void)
 	install_element(ENABLE_NODE, &bfd_show_peers_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peer_cmd);
 	install_element(CONFIG_NODE, &bfd_enter_cmd);
+	install_element(ENABLE_NODE, &show_debugging_bfd_cmd);
 
 	/* Install BFD node and commands. */
 	install_node(&bfd_node, bfdd_write_config);
