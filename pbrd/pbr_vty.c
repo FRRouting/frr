@@ -612,18 +612,18 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 	vty_out(vty, "pbr-map %s seq %u\n", pbrm->name, pbrms->seqno);
 
 	if (pbrms->src)
-		vty_out(vty, "  match src-ip %s\n",
+		vty_out(vty, " match src-ip %s\n",
 			prefix2str(pbrms->src, buff, sizeof(buff)));
 
 	if (pbrms->dst)
-		vty_out(vty, "  match dst-ip %s\n",
+		vty_out(vty, " match dst-ip %s\n",
 			prefix2str(pbrms->dst, buff, sizeof(buff)));
 
 	if (pbrms->nhgrp_name)
-		vty_out(vty, "  set nexthop-group %s\n", pbrms->nhgrp_name);
+		vty_out(vty, " set nexthop-group %s\n", pbrms->nhgrp_name);
 
 	if (pbrms->nhg) {
-		vty_out(vty, "  set ");
+		vty_out(vty, " set ");
 		nexthop_group_write_nexthop(vty, pbrms->nhg->nexthop);
 	}
 

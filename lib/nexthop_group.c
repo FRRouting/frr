@@ -520,7 +520,7 @@ static int nexthop_group_write(struct vty *vty)
 		vty_out(vty, "nexthop-group %s\n", nhgc->name);
 
 		for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_list, node, nh)) {
-			vty_out(vty, "  ");
+			vty_out(vty, " ");
 			nexthop_group_write_nexthop_internal(vty, nh);
 		}
 
