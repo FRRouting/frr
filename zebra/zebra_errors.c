@@ -729,6 +729,15 @@ static struct log_ref ferr_zebra_err[] = {
 			"Check network topology to detect duplicate host IP for correctness.",
 	},
 	{
+		.code = EC_ZEBRA_BAD_NHG_MESSAGE,
+		.title =
+			"Bad Nexthop Group Message",
+		.description =
+			"Zebra received Nexthop Group message from the kernel that it cannot process.",
+		.suggestion =
+			"Check the kernel's link states and routing table to see how it matches ours."
+	},
+	{
 		.code = END_FERR,
 	}
 };
