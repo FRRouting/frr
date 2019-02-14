@@ -851,8 +851,13 @@ static int vrrp_bind_to_primary_connected(struct vrrp_router *r)
 	struct listnode *ln;
 	struct connected *c = NULL;
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, ln, c))
-		if (c->address->family == r->family)
-			break;
+		if (c->address->family == r->family) {
+			if (r->family == AF_INET6
+			    && IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
+				break;
+			else if (r->family == AF_INET)
+				break;
+		}
 
 	if (c == NULL) {
 		zlog_err(VRRP_LOGPFX VRRP_LOGPFX_VRID
