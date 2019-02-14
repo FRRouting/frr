@@ -168,6 +168,9 @@ struct vrrp_vrouter {
 	/* Whether this instance was automatically configured */
 	bool autoconf;
 
+	/* Whether this VRRP router is in administrative shutdown */
+	bool shutdown;
+
 	/* Interface */
 	struct interface *ifp;
 
@@ -235,6 +238,14 @@ void vrrp_vrouter_destroy(struct vrrp_vrouter *vr);
 /* Configuration controllers ----------------------------------------------- */
 
 /*
+ * Check if a Virtual Router ought to be started, and if so, start it.
+ *
+ * vr
+ *    Virtual Router to checkstart
+ */
+void vrrp_check_start(struct vrrp_vrouter *vr);
+
+/*
  * Change the configured priority of a VRRP Virtual Router.
  *
  * Note that this only changes the configured priority of the Virtual Router.
@@ -279,7 +290,7 @@ void vrrp_set_advertisement_interval(struct vrrp_vrouter *vr,
  *    -1 on error
  *     0 otherwise
  */
-int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip, bool activate);
+int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip);
 
 /*
  * Add an IPv4 address to a VRRP Virtual Router.
@@ -298,7 +309,7 @@ int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip, bool activate);
  *    -1 on error
  *     0 otherwise
  */
-int vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4, bool activate);
+int vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4);
 
 /*
  * Add an IPv6 address to a VRRP Virtual Router.
@@ -317,7 +328,7 @@ int vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4, bool activate);
  *    -1 on error
  *     0 otherwise
  */
-int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6, bool activate);
+int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
 
 /*
  * Remove an IP address from a VRRP Virtual Router.
@@ -338,7 +349,7 @@ int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6, bool activate);
  *    -1 on error
  *     0 otherwise
  */
-int vrrp_del_ip(struct vrrp_router *r, struct ipaddr *ip, bool deactivate);
+int vrrp_del_ip(struct vrrp_router *r, struct ipaddr *ip);
 
 /*
  * Remove an IPv4 address from a VRRP Virtual Router.
@@ -359,7 +370,7 @@ int vrrp_del_ip(struct vrrp_router *r, struct ipaddr *ip, bool deactivate);
  *    -1 on error
  *     0 otherwise
  */
-int vrrp_del_ipv4(struct vrrp_vrouter *vr, struct in_addr v4, bool deactivate);
+int vrrp_del_ipv4(struct vrrp_vrouter *vr, struct in_addr v4);
 
 /*
  * Remove an IPv6 address from a VRRP Virtual Router.
@@ -380,7 +391,7 @@ int vrrp_del_ipv4(struct vrrp_vrouter *vr, struct in_addr v4, bool deactivate);
  *    -1 on error
  *     0 otherwise
  */
-int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6, bool deactivate);
+int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6);
 
 /* State machine ----------------------------------------------------------- */
 
@@ -457,105 +468,14 @@ void vrrp_autoconfig_on(int version);
  */
 void vrrp_autoconfig_off(void);
 
-/*
- * Callback to notify autoconfig of interface add.
- *
- * If the interface is a VRRP-compatible device, and there is no existing VRRP
- * router running on it, one is created. All addresses on the interface are
- * added to the router.
- *
- * ifp
- *    Interface to operate on
- *
- * Returns:
- *    -1 on failure
- *     0 otherwise
- */
-int vrrp_autoconfig_if_add(struct interface *ifp);
+/* Interface Tracking ------------------------------------------------------ */
 
-/*
- * Callback to notify autoconfig of interface delete.
- *
- * If the interface is a VRRP-compatible device, and a VRRP router is running
- * on it, and that VRRP router was automatically configured, it will be
- * deleted. If that was the last router for the corresponding VRID (i.e., if
- * this interface was a v4 VRRP interface and no v6 router is configured for
- * the same VRID) then the entire virtual router is deleted.
- *
- * ifp
- *    Interface to operate on
- *
- * Returns:
- *    -1 on failure
- *     0 otherwise
- */
-int vrrp_autoconfig_if_del(struct interface *ifp);
-
-/*
- * Callback to notify autoconfig of interface up.
- *
- * Roughly equivalent to vrrp_autoconfig_if_add, except that addresses are
- * refreshed if an autoconfigured virtual router already exists.
- *
- * ifp
- *    Interface to operate on
- *
- * Returns:
- *    -1 on failure
- *     0 otherwise
- */
-int vrrp_autoconfig_if_up(struct interface *ifp);
-
-/*
- * Callback to notify autoconfig of interface down.
- *
- * Does nothing. An interface down event is accompanied by address deletion
- * events for all the addresses on the interface; if an autoconfigured VRRP
- * router exists on this interface, then it will have all its addresses deleted
- * and end up in Initialize.
- *
- * ifp
- *    Interface to operate on
- *
- * Returns:
- *    -1 on failure
- *     0 otherwise
- */
-int vrrp_autoconfig_if_down(struct interface *ifp);
-
-/*
- * Callback to notify autoconfig of a new interface address.
- *
- * If a VRRP router exists on this interface, its address list is updated to
- * match the new address list. If no addresses remain, a Shutdown event is
- * issued to the VRRP router.
- *
- * ifp
- *    Interface to operate on
- *
- * Returns:
- *    -1 on failure
- *     0 otherwise
- *
- */
-int vrrp_autoconfig_if_address_add(struct interface *ifp);
-
-/*
- * Callback to notify autoconfig of a removed interface address.
- *
- * If a VRRP router exists on this interface, its address list is updated to
- * match the new address list. If no addresses remain, a Shutdown event is
- * issued to the VRRP router.
- *
- * ifp
- *    Interface to operate on
- *
- * Returns:
- *    -1 on failure
- *     0 otherwise
- *
- */
-int vrrp_autoconfig_if_address_del(struct interface *ifp);
+void vrrp_if_add(struct interface *ifp);
+void vrrp_if_del(struct interface *ifp);
+void vrrp_if_up(struct interface *ifp);
+void vrrp_if_down(struct interface *ifp);
+void vrrp_if_address_add(struct interface *ifp);
+void vrrp_if_address_del(struct interface *ifp);
 
 /* Other ------------------------------------------------------------------- */
 

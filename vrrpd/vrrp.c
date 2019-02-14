@@ -128,7 +128,145 @@ static bool vrrp_is_owner(struct interface *ifp, struct ipaddr *addr)
 	return !!connected_lookup_prefix_exact(ifp, &p);
 }
 
+/*
+ * Whether an interface has a MAC address that matches the VRRP RFC.
+ *
+ * ifp
+ *    Interface to check
+ *
+ * Returns:
+ *    Whether the interface has a VRRP mac or not
+ */
+static bool vrrp_ifp_has_vrrp_mac(struct interface *ifp)
+{
+	struct ethaddr vmac4;
+	struct ethaddr vmac6;
+	vrrp_mac_set(&vmac4, 0, 0x00);
+	vrrp_mac_set(&vmac6, 1, 0x00);
+
+	return !memcmp(ifp->hw_addr, vmac4.octet, sizeof(vmac4.octet) - 1)
+	       || !memcmp(ifp->hw_addr, vmac6.octet, sizeof(vmac6.octet) - 1);
+}
+
+/*
+ * Lookup a Virtual Router instance given a macvlan subinterface.
+ *
+ * The VRID is extracted from the interface MAC and the 2-tuple (iface, vrid)
+ * is used to look up any existing instances that match the interface. It does
+ * not matter whether the instance is already bound to the interface or not.
+ *
+ * mvl_ifp
+ *    Interface pointer to use to lookup. Should be a macvlan device.
+ *
+ * Returns:
+ *    Virtual Router, if found
+ *    NULL otherwise
+ */
+static struct vrrp_vrouter *vrrp_lookup_by_if_mvl(struct interface *mvl_ifp)
+{
+	struct interface *p;
+
+	if (!mvl_ifp || !mvl_ifp->link_ifindex
+	    || !vrrp_ifp_has_vrrp_mac(mvl_ifp))
+		return NULL;
+
+	p = if_lookup_by_index(mvl_ifp->link_ifindex, VRF_DEFAULT);
+	uint8_t vrid = mvl_ifp->hw_addr[5];
+
+	return vrrp_lookup(p, vrid);
+}
+
+/*
+ * Lookup the Virtual Router instances configured on a particular interface.
+ *
+ * ifp
+ *    Interface pointer to use to lookup. Should not be a macvlan device.
+ *
+ * Returns:
+ *    List of virtual routers found
+ */
+static struct list *vrrp_lookup_by_if(struct interface *ifp)
+{
+	struct list *l = hash_to_list(vrrp_vrouters_hash);
+	struct listnode *ln, *nn;
+	struct vrrp_vrouter *vr;
+
+	for (ALL_LIST_ELEMENTS(l, ln, nn, vr))
+		if (vr->ifp != ifp)
+			list_delete_node(l, ln);
+
+	return l;
+}
+
+/*
+ * Lookup any Virtual Router instances associated with a particular interface.
+ * This is a combination of the results from vrrp_lookup_by_if_mvl and
+ * vrrp_lookup_by_if.
+ *
+ * Suppose the system interface list looks like the following:
+ *
+ * eth0
+ * \- eth0-v0 00:00:5e:00:01:01
+ * \- eth0-v1 00:00:5e:00:02:01
+ * \- eth0-v2 00:00:5e:00:01:0a
+ *
+ * Passing eth0-v2 to this function will give you the VRRP instance configured
+ * on eth0 with VRID 10. Passing eth0-v0 or eth0-v1 will give you the VRRP
+ * instance configured on eth0 with VRID 1. Passing eth0 will give you both.
+ *
+ * ifp
+ *    Interface pointer to use to lookup. Can be any interface.
+ *
+ * Returns:
+ *    List of virtual routers found
+ */
+static struct list *vrrp_lookup_by_if_any(struct interface *ifp)
+{
+	struct vrrp_vrouter *vr;
+	struct list *vrs;
+
+	vr = vrrp_lookup_by_if_mvl(ifp);
+	vrs = vr ? list_new() : vrrp_lookup_by_if(ifp);
+
+	if (vr)
+		listnode_add(vrs, vr);
+
+	return vrs;
+}
+
 /* Configuration controllers ----------------------------------------------- */
+
+void vrrp_check_start(struct vrrp_vrouter *vr)
+{
+	struct vrrp_router *r;
+	bool start;
+
+	if (vr->shutdown || vr->ifp == NULL)
+		return;
+
+	r = vr->v4;
+	start = r->fsm.state == VRRP_STATE_INITIALIZE;
+	start = start && (vr->ifp != NULL);
+	start = start && (CHECK_FLAG(vr->ifp->flags, IFF_UP));
+	start = start && vr->ifp->connected->count > 0;
+	start = start && (r->mvl_ifp != NULL);
+	start = start && (CHECK_FLAG(r->mvl_ifp->flags, IFF_UP));
+	start = start && r->addrs->count > 0;
+	if (start)
+		vrrp_event(r, VRRP_EVENT_STARTUP);
+
+	r = vr->v6;
+	start = r->fsm.state == VRRP_STATE_INITIALIZE;
+	start = start && (vr->ifp != NULL);
+	start = start && (CHECK_FLAG(vr->ifp->flags, IFF_UP));
+	start = start && vr->ifp->connected->count;
+	start = start && (r->mvl_ifp != NULL);
+	start = start && (CHECK_FLAG(r->mvl_ifp->flags, IFF_UP));
+	start = start && (r->mvl_ifp->connected->count > 0);
+	start = start && r->addrs->count > 0;
+	if (start)
+		vrrp_event(r, VRRP_EVENT_STARTUP);
+}
 
 void vrrp_set_priority(struct vrrp_vrouter *vr, uint8_t priority)
 {
@@ -161,7 +299,7 @@ static bool vrrp_has_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 	return false;
 }
 
-int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip, bool activate)
+int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip)
 {
 	int af = (ip->ipa_type == IPADDR_V6) ? AF_INET6 : AF_INET;
 
@@ -185,15 +323,7 @@ int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip, bool activate)
 	*new = *ip;
 	listnode_add(r->addrs, new);
 
-	bool do_activate = (activate && r->fsm.state == VRRP_STATE_INITIALIZE);
-	int ret = 0;
-
-	if (do_activate) {
-		ret = vrrp_event(r, VRRP_EVENT_STARTUP);
-		if (ret)
-			listnode_delete(r->addrs, new);
-	}
-	else if (r->fsm.state == VRRP_STATE_MASTER) {
+	if (r->fsm.state == VRRP_STATE_MASTER) {
 		switch (r->family) {
 		case AF_INET:
 			vrrp_garp_send(r, &new->ipaddr_v4);
@@ -204,26 +334,26 @@ int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip, bool activate)
 		}
 	}
 
-	return ret;
+	return 0;
 }
 
-int vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4, bool activate)
+int vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
 {
 	struct ipaddr ip;
 	ip.ipa_type = IPADDR_V4;
 	ip.ipaddr_v4 = v4;
-	return vrrp_add_ip(vr->v4, &ip, activate);
+	return vrrp_add_ip(vr->v4, &ip);
 }
 
-int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6, bool activate)
+int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
 {
 	struct ipaddr ip;
 	ip.ipa_type = IPADDR_V6;
 	ip.ipaddr_v6 = v6;
-	return vrrp_add_ip(vr->v6, &ip, activate);
+	return vrrp_add_ip(vr->v6, &ip);
 }
 
-int vrrp_del_ip(struct vrrp_router *r, struct ipaddr *ip, bool deactivate)
+int vrrp_del_ip(struct vrrp_router *r, struct ipaddr *ip)
 {
 	struct listnode *ln, *nn;
 	struct ipaddr *iter;
@@ -232,37 +362,36 @@ int vrrp_del_ip(struct vrrp_router *r, struct ipaddr *ip, bool deactivate)
 	if (!vrrp_has_ip(r->vr, ip))
 		return 0;
 
-	if (deactivate && r->addrs->count == 1
-	    && r->fsm.state != VRRP_STATE_INITIALIZE)
-		ret = vrrp_event(r, VRRP_EVENT_SHUTDOWN);
+	for (ALL_LIST_ELEMENTS(r->addrs, ln, nn, iter))
+		if (!memcmp(&iter->ip, &ip->ip, IPADDRSZ(ip)))
+			list_delete_node(r->addrs, ln);
 
 	/*
-	 * Don't delete IP if we failed to deactivate, otherwise we'll run into
-	 * issues later trying to build a VRRP advertisement with no IPs
+	 * NB: Deleting the last address and then issuing a shutdown will cause
+	 * transmission of a priority 0 VRRP Advertisement - as per the RFC -
+	 * but it will have no addresses. This is not forbidden in the RFC but
+	 * might confuse other implementations.
 	 */
-	if (ret == 0) {
-		for (ALL_LIST_ELEMENTS(r->addrs, ln, nn, iter))
-			if (!memcmp(&iter->ip, &ip->ip, IPADDRSZ(ip)))
-				list_delete_node(r->addrs, ln);
-	}
+	if (r->addrs->count == 0 && r->fsm.state != VRRP_STATE_INITIALIZE)
+		ret = vrrp_event(r, VRRP_EVENT_SHUTDOWN);
 
 	return ret;
 }
 
-int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6, bool deactivate)
+int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
 {
 	struct ipaddr ip;
 	ip.ipa_type = IPADDR_V6;
 	ip.ipaddr_v6 = v6;
-	return vrrp_del_ip(vr->v6, &ip, deactivate);
+	return vrrp_del_ip(vr->v6, &ip);
 }
 
-int vrrp_del_ipv4(struct vrrp_vrouter *vr, struct in_addr v4, bool deactivate)
+int vrrp_del_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
 {
 	struct ipaddr ip;
 	ip.ipa_type = IPADDR_V4;
 	ip.ipaddr_v4 = v4;
-	return vrrp_del_ip(vr->v4, &ip, deactivate);
+	return vrrp_del_ip(vr->v4, &ip);
 }
 
 
@@ -1363,7 +1492,7 @@ static void vrrp_autoconfig_autoaddrupdate(struct vrrp_vrouter *vr)
 				DEBUGD(&vrrp_dbg_auto,
 				       VRRP_LOGPFX VRRP_LOGPFX_VRID "Adding %s",
 				       vr->vrid, ipbuf);
-				vrrp_add_ipv4(vr, c->address->u.prefix4, true);
+				vrrp_add_ipv4(vr, c->address->u.prefix4);
 			}
 	}
 
@@ -1380,9 +1509,11 @@ static void vrrp_autoconfig_autoaddrupdate(struct vrrp_vrouter *vr)
 				DEBUGD(&vrrp_dbg_auto,
 				       VRRP_LOGPFX VRRP_LOGPFX_VRID "Adding %s",
 				       vr->vrid, ipbuf);
-				vrrp_add_ipv6(vr, c->address->u.prefix6, true);
+				vrrp_add_ipv6(vr, c->address->u.prefix6);
 			}
 	}
+
+	vrrp_check_start(vr);
 
 	if (vr->v4->addrs->count == 0
 	    && vr->v4->fsm.state != VRRP_STATE_INITIALIZE) {
@@ -1436,32 +1567,21 @@ vrrp_autoconfig_autocreate(struct interface *mvl_ifp)
 	return vr;
 }
 
-static bool vrrp_ifp_has_vrrp_mac(struct interface *ifp)
-{
-	struct ethaddr vmac4;
-	struct ethaddr vmac6;
-	vrrp_mac_set(&vmac4, 0, 0x00);
-	vrrp_mac_set(&vmac6, 1, 0x00);
-
-	return !memcmp(ifp->hw_addr, vmac4.octet, sizeof(vmac4.octet) - 1)
-	       || !memcmp(ifp->hw_addr, vmac6.octet, sizeof(vmac6.octet) - 1);
-}
-
-static struct vrrp_vrouter *vrrp_lookup_by_mvlif(struct interface *mvl_ifp)
-{
-	struct interface *p;
-
-	if (!mvl_ifp || !mvl_ifp->link_ifindex
-	    || !vrrp_ifp_has_vrrp_mac(mvl_ifp))
-		return NULL;
-
-	p = if_lookup_by_index(mvl_ifp->link_ifindex, VRF_DEFAULT);
-	uint8_t vrid = mvl_ifp->hw_addr[5];
-
-	return vrrp_lookup(p, vrid);
-}
-
-int vrrp_autoconfig_if_add(struct interface *ifp)
+/*
+ * Callback to notify autoconfig of interface add.
+ *
+ * If the interface is a VRRP-compatible device, and there is no existing VRRP
+ * router running on it, one is created. All addresses on the interface are
+ * added to the router.
+ *
+ * ifp
+ *    Interface to operate on
+ *
+ * Returns:
+ *    -1 on failure
+ *     0 otherwise
+ */
+static int vrrp_autoconfig_if_add(struct interface *ifp)
 {
 	bool created = false;
 	struct vrrp_vrouter *vr;
@@ -1472,7 +1592,7 @@ int vrrp_autoconfig_if_add(struct interface *ifp)
 	if (!ifp || !ifp->link_ifindex || !vrrp_ifp_has_vrrp_mac(ifp))
 		return -1;
 
-	vr = vrrp_lookup_by_mvlif(ifp);
+	vr = vrrp_lookup_by_if_mvl(ifp);
 
 	if (!vr) {
 		vr = vrrp_autoconfig_autocreate(ifp);
@@ -1485,66 +1605,73 @@ int vrrp_autoconfig_if_add(struct interface *ifp)
 	if (vr->autoconf == false)
 		return 0;
 	else if (!created) {
-		vrrp_attach_interface(vr->v4);
-		vrrp_attach_interface(vr->v6);
 		vrrp_autoconfig_autoaddrupdate(vr);
 	}
 
 	return 0;
 }
 
-int vrrp_autoconfig_if_del(struct interface *ifp)
+/*
+ * Callback to notify autoconfig of interface delete.
+ *
+ * If the interface is a VRRP-compatible device, and a VRRP router is running
+ * on it, and that VRRP router was automatically configured, it will be
+ * deleted. If that was the last router for the corresponding VRID (i.e., if
+ * this interface was a v4 VRRP interface and no v6 router is configured for
+ * the same VRID) then the entire virtual router is deleted.
+ *
+ * ifp
+ *    Interface to operate on
+ *
+ * Returns:
+ *    -1 on failure
+ *     0 otherwise
+ */
+static int vrrp_autoconfig_if_del(struct interface *ifp)
 {
 	if (!vrrp_autoconfig_is_on)
 		return 0;
 
-	struct vrrp_vrouter *vr = vrrp_lookup_by_mvlif(ifp);
+	struct vrrp_vrouter *vr;
+	struct listnode *ln;
+	struct list *vrs;
 
-	if (!vr)
-		return 0;
+	vrs = vrrp_lookup_by_if_any(ifp);
 
-	if (vr && vr->autoconf == false)
-		return 0;
-
-	if (vr && vr->v4->mvl_ifp == ifp) {
-		if (vr->v4->fsm.state != VRRP_STATE_INITIALIZE) {
+	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr))
+		if (vr->autoconf
+		    && (!vr->ifp || (!vr->v4->mvl_ifp && !vr->v6->mvl_ifp))) {
 			DEBUGD(&vrrp_dbg_auto,
 			       VRRP_LOGPFX VRRP_LOGPFX_VRID
-			       "Interface %s deleted; shutting down IPv4 VRRP router",
-			       vr->vrid, ifp->name);
-			vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
+			       "All VRRP interfaces for instance deleted; destroying autoconfigured VRRP router",
+			       vr->vrid);
+			vrrp_vrouter_destroy(vr);
 		}
-		vr->v4->mvl_ifp = NULL;
-	}
-	if (vr && vr->v6->mvl_ifp == ifp) {
-		if (vr->v6->fsm.state != VRRP_STATE_INITIALIZE) {
-			DEBUGD(&vrrp_dbg_auto,
-			       VRRP_LOGPFX VRRP_LOGPFX_VRID
-			       "Interface %s deleted; shutting down IPv6 VRRP router",
-			       vr->vrid, ifp->name);
-			vrrp_event(vr->v6, VRRP_EVENT_SHUTDOWN);
-		}
-		vr->v6->mvl_ifp = NULL;
-	}
 
-	if (vr->v4->mvl_ifp == NULL && vr->v6->mvl_ifp == NULL) {
-		DEBUGD(&vrrp_dbg_auto,
-		       VRRP_LOGPFX VRRP_LOGPFX_VRID
-		       "All VRRP interfaces for instance deleted; destroying autoconfigured VRRP router",
-		       vr->vrid);
-		vrrp_vrouter_destroy(vr);
-		vr = NULL;
-	}
+	list_delete(&vrs);
 
 	return 0;
 }
 
-int vrrp_autoconfig_if_up(struct interface *ifp)
+/*
+ * Callback to notify autoconfig of interface up.
+ *
+ * Roughly equivalent to vrrp_autoconfig_if_add, except that addresses are
+ * refreshed if an autoconfigured virtual router already exists.
+ *
+ * ifp
+ *    Interface to operate on
+ *
+ * Returns:
+ *    -1 on failure
+ *     0 otherwise
+ */
+static int vrrp_autoconfig_if_up(struct interface *ifp)
 {
 	if (!vrrp_autoconfig_is_on)
 		return 0;
 
-	struct vrrp_vrouter *vr = vrrp_lookup_by_mvlif(ifp);
+	struct vrrp_vrouter *vr = vrrp_lookup_by_if_mvl(ifp);
 
 	if (vr && !vr->autoconf)
 		return 0;
@@ -1554,14 +1681,27 @@ int vrrp_autoconfig_if_up(struct interface *ifp)
 		return 0;
 	}
 
-	vrrp_attach_interface(vr->v4);
-	vrrp_attach_interface(vr->v6);
 	vrrp_autoconfig_autoaddrupdate(vr);
 
 	return 0;
 }
 
-int vrrp_autoconfig_if_down(struct interface *ifp)
+/*
+ * Callback to notify autoconfig of interface down.
+ *
+ * Does nothing. An interface down event is accompanied by address deletion
+ * events for all the addresses on the interface; if an autoconfigured VRRP
+ * router exists on this interface, then it will have all its addresses deleted
+ * and end up in Initialize.
+ *
+ * ifp
+ *    Interface to operate on
+ *
+ * Returns:
+ *    -1 on failure
+ *     0 otherwise
+ */
+static int vrrp_autoconfig_if_down(struct interface *ifp)
 {
 	if (!vrrp_autoconfig_is_on)
 		return 0;
@@ -1569,12 +1709,27 @@ int vrrp_autoconfig_if_down(struct interface *ifp)
 	return 0;
 }
 
-int vrrp_autoconfig_if_address_add(struct interface *ifp)
+/*
+ * Callback to notify autoconfig of a new interface address.
+ *
+ * If a VRRP router exists on this interface, its address list is updated to
+ * match the new address list. If no addresses remain, a Shutdown event is
+ * issued to the VRRP router.
+ *
+ * ifp
+ *    Interface to operate on
+ *
+ * Returns:
+ *    -1 on failure
+ *     0 otherwise
+ *
+ */
+static int vrrp_autoconfig_if_address_add(struct interface *ifp)
 {
 	if (!vrrp_autoconfig_is_on)
 		return 0;
 
-	struct vrrp_vrouter *vr = vrrp_lookup_by_mvlif(ifp);
+	struct vrrp_vrouter *vr = vrrp_lookup_by_if_mvl(ifp);
 
 	if (vr && vr->autoconf)
 		vrrp_autoconfig_autoaddrupdate(vr);
@@ -1582,12 +1737,27 @@ int vrrp_autoconfig_if_address_add(struct interface *ifp)
 	return 0;
 }
 
-int vrrp_autoconfig_if_address_del(struct interface *ifp)
+/*
+ * Callback to notify autoconfig of a removed interface address.
+ *
+ * If a VRRP router exists on this interface, its address list is updated to
+ * match the new address list. If no addresses remain, a Shutdown event is
+ * issued to the VRRP router.
+ *
+ * ifp
+ *    Interface to operate on
+ *
+ * Returns:
+ *    -1 on failure
+ *     0 otherwise
+ *
+ */
+static int vrrp_autoconfig_if_address_del(struct interface *ifp)
 {
 	if (!vrrp_autoconfig_is_on)
 		return 0;
 
-	struct vrrp_vrouter *vr = vrrp_lookup_by_mvlif(ifp);
+	struct vrrp_vrouter *vr = vrrp_lookup_by_if_mvl(ifp);
 
 	if (vr && vr->autoconf)
 		vrrp_autoconfig_autoaddrupdate(vr);
@@ -1631,6 +1801,142 @@ void vrrp_autoconfig_off(void)
 			vrrp_vrouter_destroy(vr);
 
 	list_delete(&ll);
+}
+
+/* Interface tracking ------------------------------------------------------ */
+
+/*
+ * Bind any pending interfaces.
+ *
+ * mvl_ifp
+ *    macvlan interface that some VRRP instances might want to bind to
+ */
+static void vrrp_bind_pending(struct interface *mvl_ifp)
+{
+	struct vrrp_vrouter *vr;
+
+	vr = vrrp_lookup_by_if_mvl(mvl_ifp);
+
+	if (vr) {
+		if (mvl_ifp->hw_addr[4] == 0x01 && !vr->v4->mvl_ifp)
+			vrrp_attach_interface(vr->v4);
+		else if (mvl_ifp->hw_addr[4] == 0x02 && !vr->v6->mvl_ifp)
+			vrrp_attach_interface(vr->v6);
+	}
+}
+
+void vrrp_if_up(struct interface *ifp)
+{
+	struct vrrp_vrouter *vr;
+	struct listnode *ln;
+	struct list *vrs;
+
+	vrrp_bind_pending(ifp);
+
+	vrs = vrrp_lookup_by_if_any(ifp);
+
+	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr))
+		vrrp_check_start(vr);
+
+	list_delete(&vrs);
+
+	vrrp_autoconfig_if_up(ifp);
+}
+
+void vrrp_if_down(struct interface *ifp)
+{
+	struct vrrp_vrouter *vr;
+	struct listnode *ln;
+	struct list *vrs;
+
+	vrs = vrrp_lookup_by_if_any(ifp);
+
+	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr)) {
+		if (vr->v4->mvl_ifp == ifp || vr->ifp == ifp) {
+			if (vr->v4->fsm.state != VRRP_STATE_INITIALIZE) {
+				DEBUGD(&vrrp_dbg_auto,
+				       VRRP_LOGPFX VRRP_LOGPFX_VRID
+				       "Interface %s down; shutting down IPv4 VRRP router",
+				       vr->vrid, ifp->name);
+				vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
+			}
+		}
+
+		if (vr->v6->mvl_ifp == ifp || vr->ifp == ifp) {
+			if (vr->v6->fsm.state != VRRP_STATE_INITIALIZE) {
+				DEBUGD(&vrrp_dbg_auto,
+				       VRRP_LOGPFX VRRP_LOGPFX_VRID
+				       "Interface %s down; shutting down IPv6 VRRP router",
+				       vr->vrid, ifp->name);
+				vrrp_event(vr->v6, VRRP_EVENT_SHUTDOWN);
+			}
+		}
+	}
+
+	list_delete(&vrs);
+
+	vrrp_autoconfig_if_down(ifp);
+}
+
+void vrrp_if_add(struct interface *ifp)
+{
+	vrrp_bind_pending(ifp);
+
+	/* thanks, zebra */
+	if (CHECK_FLAG(ifp->flags, IFF_UP))
+		vrrp_if_up(ifp);
+
+	vrrp_autoconfig_if_add(ifp);
+}
+
+void vrrp_if_del(struct interface *ifp)
+{
+	struct listnode *ln;
+	struct vrrp_vrouter *vr;
+	struct list *vrs = vrrp_lookup_by_if_any(ifp);
+
+	vrrp_if_down(ifp);
+
+	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr)) {
+		if (vr->ifp == ifp)
+			vr->ifp = NULL;
+		else if (vr->v4->mvl_ifp == ifp)
+			vr->v4->mvl_ifp = NULL;
+		else if (vr->v6->mvl_ifp == ifp)
+			vr->v6->mvl_ifp = NULL;
+	}
+
+	list_delete(&vrs);
+
+	vrrp_autoconfig_if_del(ifp);
+}
+
+void vrrp_if_address_add(struct interface *ifp)
+{
+	struct vrrp_vrouter *vr;
+	struct listnode *ln;
+	struct list *vrs;
+
+	/*
+	 * We have to do a wide search here, because we need to know when a v6
+	 * macvlan device gets a new address. This is because the macvlan link
+	 * local is used as the source address for v6 advertisements, and hence
+	 * "do I have a link local" constitutes an activation condition for v6
+	 * virtual routers.
+	 */
+	vrs = vrrp_lookup_by_if_any(ifp);
+
+	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr))
+		vrrp_check_start(vr);
+
+	list_delete(&vrs);
+
+	vrrp_autoconfig_if_address_add(ifp);
+}
+
+void vrrp_if_address_del(struct interface *ifp)
+{
+	vrrp_autoconfig_if_address_del(ifp);
 }
 
 /* Other ------------------------------------------------------------------- */

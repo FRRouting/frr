@@ -61,7 +61,7 @@ static int vrrp_zebra_if_add(int command, struct zclient *zclient,
 	if (!ifp)
 		return 0;
 
-	vrrp_autoconfig_if_add(ifp);
+	vrrp_if_add(ifp);
 
 	return 0;
 }
@@ -75,7 +75,7 @@ static int vrrp_zebra_if_del(int command, struct zclient *zclient,
 	if (!ifp)
 		return 0;
 
-	vrrp_autoconfig_if_del(ifp);
+	vrrp_if_del(ifp);
 
 #if 0
 	if (VRRP_DEBUG_ZEBRA) {
@@ -104,7 +104,7 @@ static int vrrp_zebra_if_state_up(int command, struct zclient *zclient,
 	if (!ifp)
 		return 0;
 
-	vrrp_autoconfig_if_up(ifp);
+	vrrp_if_up(ifp);
 
 #if 0
 	if (VRRP_DEBUG_ZEBRA) {
@@ -132,7 +132,7 @@ static int vrrp_zebra_if_state_down(int command, struct zclient *zclient,
 	if (!ifp)
 		return 0;
 
-	vrrp_autoconfig_if_down(ifp);
+	vrrp_if_down(ifp);
 
 #if 0
 	if (VRRP_DEBUG_ZEBRA) {
@@ -189,7 +189,7 @@ static int vrrp_zebra_if_address_add(int command, struct zclient *zclient,
 	if (!c)
 		return 0;
 
-	vrrp_autoconfig_if_address_add(c->ifp);
+	vrrp_if_address_add(c->ifp);
 
 #if 0
 	if (VRRP_DEBUG_ZEBRA) {
@@ -225,7 +225,7 @@ static int vrrp_zebra_if_address_del(int command, struct zclient *client,
 	if (!c)
 		return 0;
 
-	vrrp_autoconfig_if_address_del(c->ifp);
+	vrrp_if_address_del(c->ifp);
 
 	return 0;
 }

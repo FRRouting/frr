@@ -146,12 +146,14 @@ DEFPY(vrrp_ip,
 
 	if (no) {
 		int oldstate = vr->v4->fsm.state;
-		failed = vrrp_del_ipv4(vr, ip, true);
+		failed = vrrp_del_ipv4(vr, ip);
+		vrrp_check_start(vr);
 		deactivated = (vr->v4->fsm.state == VRRP_STATE_INITIALIZE
 			       && oldstate != VRRP_STATE_INITIALIZE);
 	} else {
 		int oldstate = vr->v4->fsm.state;
-		failed = vrrp_add_ipv4(vr, ip, true);
+		failed = vrrp_add_ipv4(vr, ip);
+		vrrp_check_start(vr);
 		activated = (vr->v4->fsm.state != VRRP_STATE_INITIALIZE
 			     && oldstate == VRRP_STATE_INITIALIZE);
 	}
@@ -203,12 +205,12 @@ DEFPY(vrrp_ip6,
 
 	if (no) {
 		int oldstate = vr->v6->fsm.state;
-		failed = vrrp_del_ipv6(vr, ipv6, true);
+		failed = vrrp_del_ipv6(vr, ipv6);
 		deactivated = (vr->v6->fsm.state == VRRP_STATE_INITIALIZE
 			       && oldstate != VRRP_STATE_INITIALIZE);
 	} else {
 		int oldstate = vr->v6->fsm.state;
-		failed = vrrp_add_ipv6(vr, ipv6, true);
+		failed = vrrp_add_ipv6(vr, ipv6);
 		activated = (vr->v6->fsm.state != VRRP_STATE_INITIALIZE
 			     && oldstate == VRRP_STATE_INITIALIZE);
 	}
