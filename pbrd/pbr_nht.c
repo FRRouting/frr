@@ -378,33 +378,47 @@ static afi_t pbr_nht_which_afi(struct nexthop_group nhg,
 	afi_t install_afi = AFI_MAX;
 	bool v6, v4, bh;
 
+	if (nh_type) {
+		switch (nh_type) {
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			return AFI_IP;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			return AFI_IP6;
+		case NEXTHOP_TYPE_IFINDEX:
+		case NEXTHOP_TYPE_BLACKHOLE:
+			return AFI_MAX;
+		}
+	}
+
 	v6 = v4 = bh = false;
 
-	if (!nh_type) {
-		for (ALL_NEXTHOPS(nhg, nexthop)) {
-			nh_type = nexthop->type;
+	for (ALL_NEXTHOPS(nhg, nexthop)) {
+		nh_type = nexthop->type;
+
+		switch (nh_type) {
+		case NEXTHOP_TYPE_IFINDEX:
+			break;
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			v6 = true;
+			install_afi = AFI_IP;
+			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			v4 = true;
+			install_afi = AFI_IP6;
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			bh = true;
 			break;
 		}
 	}
 
-	switch (nh_type) {
-	case NEXTHOP_TYPE_IFINDEX:
-		break;
-	case NEXTHOP_TYPE_IPV4:
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		v6 = true;
-		install_afi = AFI_IP;
-		break;
-	case NEXTHOP_TYPE_IPV6:
-	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		v4 = true;
-		install_afi = AFI_IP6;
-		break;
-	case NEXTHOP_TYPE_BLACKHOLE:
-		bh = true;
+	/* Interface and/or blackhole nexthops only. */
+	if (!v4 && !v6)
 		install_afi = AFI_MAX;
-		break;
-	}
 
 	if (!bh && v6 && v4)
 		DEBUGD(&pbr_dbg_nht,
