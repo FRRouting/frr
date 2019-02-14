@@ -50,7 +50,7 @@ static void pbr_nht_install_nexthop_group(struct pbr_nexthop_group_cache *pnhgc,
 static void
 pbr_nht_uninstall_nexthop_group(struct pbr_nexthop_group_cache *pnhgc,
 				struct nexthop_group nhg,
-				enum nexthop_types_t nh_afi);
+				enum nexthop_types_t nh_type);
 
 /*
  * Nexthop refcount.
@@ -274,7 +274,7 @@ void pbr_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 	struct pbr_nexthop_group_cache *pnhgc;
 	struct pbr_nexthop_cache pnhc_find = {};
 	struct pbr_nexthop_cache *pnhc;
-	enum nexthop_types_t nh_afi = nhop->type;
+	enum nexthop_types_t nh_type = nhop->type;
 
 	/* find pnhgc by name */
 	strlcpy(pnhgc_find.name, nhgc->name, sizeof(pnhgc_find.name));
@@ -296,7 +296,7 @@ void pbr_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 	if (pnhgc->nhh->count)
 		pbr_nht_install_nexthop_group(pnhgc, nhgc->nhg);
 	else
-		pbr_nht_uninstall_nexthop_group(pnhgc, nhgc->nhg, nh_afi);
+		pbr_nht_uninstall_nexthop_group(pnhgc, nhgc->nhg, nh_type);
 
 	pbr_map_check_nh_group_change(nhgc->name);
 }
@@ -372,7 +372,7 @@ void pbr_nht_route_removed_for_table(uint32_t table_id)
  *    - AFI_MAX on error
  */
 static afi_t pbr_nht_which_afi(struct nexthop_group nhg,
-			       enum nexthop_types_t nh_afi)
+			       enum nexthop_types_t nh_type)
 {
 	struct nexthop *nexthop;
 	afi_t install_afi = AFI_MAX;
@@ -380,14 +380,14 @@ static afi_t pbr_nht_which_afi(struct nexthop_group nhg,
 
 	v6 = v4 = bh = false;
 
-	if (!nh_afi) {
+	if (!nh_type) {
 		for (ALL_NEXTHOPS(nhg, nexthop)) {
-			nh_afi = nexthop->type;
+			nh_type = nexthop->type;
 			break;
 		}
 	}
 
-	switch (nh_afi) {
+	switch (nh_type) {
 	case NEXTHOP_TYPE_IFINDEX:
 		break;
 	case NEXTHOP_TYPE_IPV4:
@@ -423,9 +423,9 @@ static void pbr_nht_install_nexthop_group(struct pbr_nexthop_group_cache *pnhgc,
 					  struct nexthop_group nhg)
 {
 	afi_t install_afi;
-	enum nexthop_types_t nh_afi = 0;
+	enum nexthop_types_t nh_type = 0;
 
-	install_afi = pbr_nht_which_afi(nhg, nh_afi);
+	install_afi = pbr_nht_which_afi(nhg, nh_type);
 
 	route_add(pnhgc, nhg, install_afi);
 }
@@ -433,11 +433,11 @@ static void pbr_nht_install_nexthop_group(struct pbr_nexthop_group_cache *pnhgc,
 static void
 pbr_nht_uninstall_nexthop_group(struct pbr_nexthop_group_cache *pnhgc,
 				struct nexthop_group nhg,
-				enum nexthop_types_t nh_afi)
+				enum nexthop_types_t nh_type)
 {
 	afi_t install_afi;
 
-	install_afi = pbr_nht_which_afi(nhg, nh_afi);
+	install_afi = pbr_nht_which_afi(nhg, nh_type);
 
 	pnhgc->installed = false;
 	pnhgc->valid = false;
@@ -526,7 +526,7 @@ void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms)
 	struct listnode *node;
 	struct pbr_map_interface *pmi;
 	struct nexthop *nh;
-	enum nexthop_types_t nh_afi = 0;
+	enum nexthop_types_t nh_type = 0;
 
 	if (pbrm->valid && pbrms->nhs_installed && pbrm->incoming->count) {
 		for (ALL_LIST_ELEMENTS_RO(pbrm->incoming, node, pmi))
@@ -542,13 +542,13 @@ void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms)
 	pnhgc = hash_lookup(pbr_nhg_hash, &find);
 
 	nh = pbrms->nhg->nexthop;
-	nh_afi = nh->type;
+	nh_type = nh->type;
 	lup.nexthop = nh;
 	pnhc = hash_lookup(pnhgc->nhh, &lup);
 	pnhc->parent = NULL;
 	hash_release(pnhgc->nhh, pnhc);
 	pbr_nh_delete(&pnhc);
-	pbr_nht_uninstall_nexthop_group(pnhgc, *pbrms->nhg, nh_afi);
+	pbr_nht_uninstall_nexthop_group(pnhgc, *pbrms->nhg, nh_type);
 
 	hash_release(pbr_nhg_hash, pnhgc);
 
