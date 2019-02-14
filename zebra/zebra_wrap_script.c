@@ -99,36 +99,34 @@ static struct zebra_wrap_ipset_json_cache *ipset_json;
 static struct zebra_wrap_iptable_json_cache *iptable_json;
 
 static int zebra_wrap_script_ipset_entry_get_stat(
-				struct zebra_ns *zns,
 				struct zebra_pbr_ipset_entry *ipset,
 				uint64_t *pkts, uint64_t *bytes);
 static int zebra_wrap_script_iptable_get_stat(
-				struct zebra_ns *zns,
 				struct zebra_pbr_iptable *iptable,
 				uint64_t *pkts, uint64_t *bytes);
 
 static int zebra_wrap_script_init(struct event_loop *event_loop);
 
-static int zebra_wrap_script_iptable_update(struct zebra_ns *zns, int cmd,
+static int zebra_wrap_script_iptable_update(int cmd,
 					    struct zebra_pbr_iptable *iptable);
-static int zebra_wrap_script_ipset_update(struct zebra_ns *zns, int cmd,
+static int zebra_wrap_script_ipset_update(int cmd,
 					  struct zebra_pbr_ipset *ipset);
-static int zebra_wrap_script_ipset_entry_update(struct zebra_ns *zns, int cmd,
+static int zebra_wrap_script_ipset_entry_update(int cmd,
 					  struct zebra_pbr_ipset_entry *ipset);
 static int zebra_wrap_show_debugging(struct vty *vty);
 
 static int zebra_wrap_script_module_init(void)
 {
-	hook_register(zebra_pbr_iptable_wrap_script_get_stat,
+	hook_register(zebra_pbr_iptable_get_stat,
 		      zebra_wrap_script_iptable_get_stat);
-	hook_register(zebra_pbr_ipset_entry_wrap_script_get_stat,
+	hook_register(zebra_pbr_ipset_entry_get_stat,
 		      zebra_wrap_script_ipset_entry_get_stat);
 	hook_register(frr_late_init, zebra_wrap_script_init);
-	hook_register(zebra_pbr_iptable_wrap_script_update,
+	hook_register(zebra_pbr_iptable_update,
 		      zebra_wrap_script_iptable_update);
-	hook_register(zebra_pbr_ipset_entry_wrap_script_update,
+	hook_register(zebra_pbr_ipset_entry_update,
 		      zebra_wrap_script_ipset_entry_update);
-	hook_register(zebra_pbr_ipset_wrap_script_update,
+	hook_register(zebra_pbr_ipset_update,
 		      zebra_wrap_script_ipset_update);
 	hook_register(zebra_debug_show_debugging,
 		      zebra_wrap_show_debugging);
@@ -797,7 +795,6 @@ static int zebra_wrap_script_get_stat(struct json_object *json_input,
 }
 
 static int zebra_wrap_script_ipset_entry_get_stat(
-				struct zebra_ns *zns,
 				struct zebra_pbr_ipset_entry *zpie,
 				uint64_t *pkts, uint64_t *bytes)
 {
@@ -936,7 +933,6 @@ static int zebra_wrap_script_ipset_entry_get_stat(
 }
 
 static int zebra_wrap_script_iptable_get_stat(
-				struct zebra_ns *zns,
 				struct zebra_pbr_iptable *iptable,
 				uint64_t *pkts, uint64_t *bytes)
 {
@@ -1140,14 +1136,14 @@ static int netlink_iptable_update_unit(int cmd,
  * Form netlink message and ship it. Currently, notify status after
  * waiting for netlink status.
  */
-static int zebra_wrap_script_iptable_update(struct zebra_ns *zns, int cmd,
+static int zebra_wrap_script_iptable_update(int cmd,
 					    struct zebra_pbr_iptable *iptable)
 {
 	char buf2[32];
 	int ret = 0;
 
 	if (!zebra_wrap_script_iptable_pathname) {
-		zlog_err("SCRIPT: script not configured for iptable\n");
+		zlog_err("SCRIPT: script not configured for iptable");
 		return 0;
 	}
 	if (iptable->type == IPSET_NET_NET) {
@@ -1293,14 +1289,14 @@ DEFUN (zebra_wrap_script_no_get_iptable,
  * Form netlink message and ship it. Currently, notify status after
  * waiting for netlink status.
  */
-static int zebra_wrap_script_ipset_update(struct zebra_ns *zns, int cmd,
+static int zebra_wrap_script_ipset_update(int cmd,
 					  struct zebra_pbr_ipset *ipset)
 {
 	char buf[256];
 	int ret = 0;
 
 	if (!zebra_wrap_script_ipset_pathname) {
-		zlog_err("SCRIPT: script not configured for ipset\n");
+		zlog_err("SCRIPT: script not configured for ipset");
 		return 0;
 	}
 	if (cmd) {
@@ -1343,7 +1339,7 @@ static void netlink_ipset_entry_port(char *strtofill, int lenstr,
  * Form netlink message and ship it. Currently, notify status after
  * waiting for netlink status.
  */
-static int zebra_wrap_script_ipset_entry_update(struct zebra_ns *zns, int cmd,
+static int zebra_wrap_script_ipset_entry_update(int cmd,
 					struct zebra_pbr_ipset_entry *ipset)
 {
 	char buf[256];
@@ -1356,7 +1352,7 @@ static int zebra_wrap_script_ipset_entry_update(struct zebra_ns *zns, int cmd,
 	int ret = 0;
 
 	if (!zebra_wrap_script_ipset_pathname) {
-		zlog_err("SCRIPT: script not configured for ipset\n");
+		zlog_err("SCRIPT: script not configured for ipset");
 		return 0;
 	}
 	if (ipset->filter_bm & PBR_FILTER_SRC_PORT)
