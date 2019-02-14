@@ -269,6 +269,9 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 
 	ospf6_bfd_info_free(&(oi->bfd_info));
 
+	/* disable from area list if possible */
+	ospf6_area_interface_delete(oi);
+
 	XFREE(MTYPE_OSPF6_IF, oi);
 }
 
