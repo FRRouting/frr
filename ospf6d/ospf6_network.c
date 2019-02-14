@@ -163,6 +163,7 @@ int ospf6_sendmsg(struct in6_addr *src, struct in6_addr *dst,
 	assert(dst);
 	assert(*ifindex);
 
+	memset(&cmsgbuf, 0, sizeof(cmsgbuf));
 	scmsgp = (struct cmsghdr *)&cmsgbuf;
 	pktinfo = (struct in6_pktinfo *)(CMSG_DATA(scmsgp));
 	memset(&dst_sin6, 0, sizeof(struct sockaddr_in6));
