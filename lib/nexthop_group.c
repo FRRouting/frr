@@ -192,7 +192,7 @@ static int nhgl_cmp(struct nexthop_hold *nh1, struct nexthop_hold *nh2)
 {
 	int ret;
 
-	ret = sockunion_cmp(&nh1->addr, &nh2->addr);
+	ret = sockunion_cmp(nh1->addr, nh2->addr);
 	if (ret)
 		return ret;
 
@@ -210,6 +210,8 @@ static void nhgl_delete(struct nexthop_hold *nh)
 
 	if (nh->nhvrf_name)
 		XFREE(MTYPE_TMP, nh->nhvrf_name);
+
+	sockunion_free(nh->addr);
 
 	XFREE(MTYPE_TMP, nh);
 }
@@ -295,7 +297,7 @@ static void nexthop_group_save_nhop(struct nexthop_group_cmd *nhgc,
 	if (intf)
 		nh->intf = XSTRDUP(MTYPE_TMP, intf);
 
-	nh->addr = *addr;
+	nh->addr = sockunion_dup(addr);
 
 	listnode_add_sort(nhgc->nhg_list, nh);
 }
@@ -310,7 +312,7 @@ static void nexthop_group_unsave_nhop(struct nexthop_group_cmd *nhgc,
 
 	for (ALL_LIST_ELEMENTS_RO(nhgc->nhg_list, node, nh)) {
 		if (nhgc_cmp_helper(nhvrf_name, nh->nhvrf_name) == 0 &&
-		    sockunion_cmp(addr, &nh->addr) == 0 &&
+		    sockunion_cmp(addr, nh->addr) == 0 &&
 		    nhgc_cmp_helper(intf, nh->intf) == 0)
 			break;
 	}
@@ -478,7 +480,7 @@ static void nexthop_group_write_nexthop_internal(struct vty *vty,
 
 	vty_out(vty, "nexthop ");
 
-	vty_out(vty, "%s", sockunion2str(&nh->addr, buf, sizeof(buf)));
+	vty_out(vty, "%s", sockunion2str(nh->addr, buf, sizeof(buf)));
 
 	if (nh->intf)
 		vty_out(vty, " %s", nh->intf);
@@ -522,7 +524,7 @@ void nexthop_group_enable_vrf(struct vrf *vrf)
 			struct nexthop nhop;
 			struct nexthop *nh;
 
-			if (!nexthop_group_parse_nexthop(&nhop, &nhh->addr,
+			if (!nexthop_group_parse_nexthop(&nhop, nhh->addr,
 							 nhh->intf,
 							 nhh->nhvrf_name))
 				continue;
@@ -558,7 +560,7 @@ void nexthop_group_disable_vrf(struct vrf *vrf)
 			struct nexthop nhop;
 			struct nexthop *nh;
 
-			if (!nexthop_group_parse_nexthop(&nhop, &nhh->addr,
+			if (!nexthop_group_parse_nexthop(&nhop, nhh->addr,
 							 nhh->intf,
 							 nhh->nhvrf_name))
 				continue;
@@ -596,7 +598,7 @@ void nexthop_group_interface_state_change(struct interface *ifp,
 				struct nexthop nhop;
 
 				if (!nexthop_group_parse_nexthop(
-					    &nhop, &nhh->addr, nhh->intf,
+					    &nhop, nhh->addr, nhh->intf,
 					    nhh->nhvrf_name))
 					continue;
 
