@@ -322,13 +322,7 @@ static void nexthop_group_unsave_nhop(struct nexthop_group_cmd *nhgc,
 		return;
 
 	list_delete_node(nhgc->nhg_list, node);
-
-	if (nh->nhvrf_name)
-		XFREE(MTYPE_TMP, nh->nhvrf_name);
-	if (nh->intf)
-		XFREE(MTYPE_TMP, nh->intf);
-
-	XFREE(MTYPE_TMP, nh);
+	nhgl_delete(nh);
 }
 
 static bool nexthop_group_parse_nexthop(struct nexthop *nhop,
