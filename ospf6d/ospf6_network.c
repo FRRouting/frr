@@ -73,6 +73,15 @@ static void ospf6_set_checksum(void)
 #endif /* DISABLE_IPV6_CHECKSUM */
 }
 
+void ospf6_serv_close(void)
+{
+	if (ospf6_sock > 0) {
+		close(ospf6_sock);
+		ospf6_sock = -1;
+		return;
+	}
+}
+
 /* Make ospf6d's server socket. */
 int ospf6_serv_sock(void)
 {
