@@ -157,7 +157,7 @@ static bool pbr_nh_hash_equal(const void *arg1, const void *arg2)
 
 	switch (pbrnc1->nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
-		return true;
+		return pbrnc1->nexthop->ifindex == pbrnc2->nexthop->ifindex;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV4:
 		return pbrnc1->nexthop->gate.ipv4.s_addr
@@ -264,6 +264,14 @@ void pbr_nhgroup_add_nexthop_cb(const struct nexthop_group_cmd *nhgc,
 
 	pbr_nht_install_nexthop_group(pnhgc, nhgc->nhg);
 	pbr_map_check_nh_group_change(nhgc->name);
+
+	if (nhop->type == NEXTHOP_TYPE_IFINDEX) {
+		struct interface *ifp;
+
+		ifp = if_lookup_by_index(nhop->ifindex, nhop->vrf_id);
+		if (ifp)
+			pbr_nht_nexthop_interface_update(ifp);
+	}
 }
 
 void pbr_nhgroup_del_nexthop_cb(const struct nexthop_group_cmd *nhgc,
@@ -667,6 +675,7 @@ bool pbr_nht_nexthop_group_valid(const char *name)
 
 struct pbr_nht_individual {
 	struct zapi_route *nhr;
+	struct interface *ifp;
 
 	uint32_t valid;
 };
@@ -728,6 +737,56 @@ static void pbr_nht_nexthop_update_lookup(struct hash_backet *b, void *data)
 void pbr_nht_nexthop_update(struct zapi_route *nhr)
 {
 	hash_iterate(pbr_nhg_hash, pbr_nht_nexthop_update_lookup, nhr);
+}
+
+static void
+pbr_nht_individual_nexthop_interface_update_lookup(struct hash_backet *b,
+						   void *data)
+{
+	struct pbr_nexthop_cache *pnhc = b->data;
+	struct pbr_nht_individual *pnhi = data;
+	bool old_valid;
+
+	old_valid = pnhc->valid;
+
+	if (pnhc->nexthop->type == NEXTHOP_TYPE_IFINDEX
+	    && pnhc->nexthop->ifindex == pnhi->ifp->ifindex)
+		pnhc->valid = !!if_is_up(pnhi->ifp);
+
+	DEBUGD(&pbr_dbg_nht, "\tFound %s: old: %d new: %d", pnhi->ifp->name,
+	       old_valid, pnhc->valid);
+
+	if (pnhc->valid)
+		pnhi->valid += 1;
+}
+
+static void pbr_nht_nexthop_interface_update_lookup(struct hash_backet *b,
+						    void *data)
+{
+	struct pbr_nexthop_group_cache *pnhgc = b->data;
+	struct pbr_nht_individual pnhi;
+	bool old_valid;
+
+	old_valid = pnhgc->valid;
+
+	pnhi.ifp = data;
+	pnhi.valid = 0;
+	hash_iterate(pnhgc->nhh,
+		     pbr_nht_individual_nexthop_interface_update_lookup, &pnhi);
+
+	/*
+	 * If any of the specified nexthops are valid we are valid
+	 */
+	pnhgc->valid = !!pnhi.valid;
+
+	if (old_valid != pnhgc->valid)
+		pbr_map_check_nh_group_change(pnhgc->name);
+}
+
+void pbr_nht_nexthop_interface_update(struct interface *ifp)
+{
+	hash_iterate(pbr_nhg_hash, pbr_nht_nexthop_interface_update_lookup,
+		     ifp);
 }
 
 static uint32_t pbr_nhg_hash_key(void *arg)
