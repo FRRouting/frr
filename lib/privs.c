@@ -789,7 +789,7 @@ void zprivs_preinit(struct zebra_privs_t *zprivs)
 
 void zprivs_init(struct zebra_privs_t *zprivs)
 {
-	gid_t groups[NGROUPS_MAX];
+	gid_t groups[NGROUPS_MAX] = {};
 	int i, ngroups = 0;
 	int found = 0;
 
