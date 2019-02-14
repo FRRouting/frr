@@ -1780,7 +1780,7 @@ DEFUN(ipv6_nd_rdnss,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
-	struct rtadv_rdnss rdnss = {0};
+	struct rtadv_rdnss rdnss = {};
 
 	if (inet_pton(AF_INET6, argv[3]->arg, &rdnss.addr) != 1) {
 		vty_out(vty, "Malformed IPv6 address\n");
@@ -1813,7 +1813,7 @@ DEFUN(no_ipv6_nd_rdnss,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
-	struct rtadv_rdnss rdnss = {0};
+	struct rtadv_rdnss rdnss = {};
 
 	if (inet_pton(AF_INET6, argv[4]->arg, &rdnss.addr) != 1) {
 		vty_out(vty, "Malformed IPv6 address\n");
@@ -1839,7 +1839,7 @@ DEFUN(ipv6_nd_dnssl,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
-	struct rtadv_dnssl dnssl = {0};
+	struct rtadv_dnssl dnssl = {};
 	size_t len;
 	int ret;
 
@@ -1889,7 +1889,7 @@ DEFUN(no_ipv6_nd_dnssl,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
-	struct rtadv_dnssl dnssl = {0};
+	struct rtadv_dnssl dnssl = {};
 	size_t len;
 
 	len = strlcpy(dnssl.name, argv[4]->arg, sizeof(dnssl.name));
