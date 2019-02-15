@@ -340,19 +340,6 @@ extern void route_entry_copy_nexthops(struct route_entry *re,
 extern void _route_entry_dump(const char *func, union prefixconstptr pp,
 			      union prefixconstptr src_pp,
 			      const struct route_entry *re);
-/* RPF lookup behaviour */
-enum multicast_mode {
-	MCAST_NO_CONFIG = 0,  /* MIX_MRIB_FIRST, but no show in config write */
-	MCAST_MRIB_ONLY,      /* MRIB only */
-	MCAST_URIB_ONLY,      /* URIB only */
-	MCAST_MIX_MRIB_FIRST, /* MRIB, if nothing at all then URIB */
-	MCAST_MIX_DISTANCE,   /* MRIB & URIB, lower distance wins */
-	MCAST_MIX_PFXLEN,     /* MRIB & URIB, longer prefix wins */
-			      /* on equal value, MRIB wins for last 2 */
-};
-
-extern void multicast_mode_ipv4_set(enum multicast_mode mode);
-extern enum multicast_mode multicast_mode_ipv4_get(void);
 
 extern void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id);
 extern void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id);

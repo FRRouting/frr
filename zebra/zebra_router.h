@@ -50,6 +50,17 @@ RB_HEAD(zebra_router_table_head, zebra_router_table);
 RB_PROTOTYPE(zebra_router_table_head, zebra_router_table,
 	     zebra_router_table_entry, zebra_router_table_entry_compare)
 
+/* RPF lookup behaviour */
+enum multicast_mode {
+	MCAST_NO_CONFIG = 0,  /* MIX_MRIB_FIRST, but no show in config write */
+	MCAST_MRIB_ONLY,      /* MRIB only */
+	MCAST_URIB_ONLY,      /* URIB only */
+	MCAST_MIX_MRIB_FIRST, /* MRIB, if nothing at all then URIB */
+	MCAST_MIX_DISTANCE,   /* MRIB & URIB, lower distance wins */
+	MCAST_MIX_PFXLEN,     /* MRIB & URIB, longer prefix wins */
+			      /* on equal value, MRIB wins for last 2 */
+};
+
 struct zebra_mlag_info {
 	/* Role this zebra router is playing */
 	enum mlag_role role;
@@ -113,6 +124,9 @@ struct zebra_router {
 
 	uint32_t multipath_num;
 
+	/* RPF Lookup behavior */
+	enum multicast_mode ipv4_multicast_mode;
+
 	/*
 	 * Time for when we sweep the rib from old routes
 	 */
@@ -152,6 +166,10 @@ static inline struct zebra_vrf *zebra_vrf_get_evpn(void)
 	return zrouter.evpn_vrf ? zrouter.evpn_vrf
 			        : zebra_vrf_lookup_by_id(VRF_DEFAULT);
 }
+
+extern void multicast_mode_ipv4_set(enum multicast_mode mode);
+
+extern enum multicast_mode multicast_mode_ipv4_get(void);
 
 #ifdef __cplusplus
 }

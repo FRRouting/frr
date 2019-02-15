@@ -108,10 +108,6 @@ static const struct {
 	/* no entry/default: 150 */
 };
 
-/* RPF lookup behaviour */
-static enum multicast_mode ipv4_multicast_mode = MCAST_NO_CONFIG;
-
-
 static void __attribute__((format(printf, 5, 6)))
 _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn,
 	    int priority, const char *msgfmt, ...)
@@ -404,7 +400,7 @@ struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
 	struct route_node *m_rn = NULL, *u_rn = NULL;
 	union g_addr gaddr = {.ipv4 = addr};
 
-	switch (ipv4_multicast_mode) {
+	switch (zrouter.ipv4_multicast_mode) {
 	case MCAST_MRIB_ONLY:
 		return rib_match(AFI_IP, SAFI_MULTICAST, vrf_id, &gaddr,
 				 rn_out);
@@ -454,19 +450,6 @@ struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
 			   re == ure ? "URIB" : re == mre ? "MRIB" : "none");
 	}
 	return re;
-}
-
-void multicast_mode_ipv4_set(enum multicast_mode mode)
-{
-	if (IS_ZEBRA_DEBUG_RIB)
-		zlog_debug("%s: multicast lookup mode set (%d)", __func__,
-			   mode);
-	ipv4_multicast_mode = mode;
-}
-
-enum multicast_mode multicast_mode_ipv4_get(void)
-{
-	return ipv4_multicast_mode;
 }
 
 struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p, vrf_id_t vrf_id)
