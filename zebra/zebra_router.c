@@ -254,7 +254,13 @@ void zebra_router_init(void)
 						zebra_pbr_iptable_hash_equal,
 						"IPtable Hash Entry");
 
+	/* Index via hash and IDs so we can
+	 * easily communicate to/from the kernel
+	 */
 	zrouter.nhgs =
 		hash_create_size(8, zebra_nhg_hash_key, zebra_nhg_hash_equal,
 				 "Zebra Router Nexthop Groups");
+	zrouter.nhgs_id =
+		hash_create_size(8, zebra_nhg_id_key, zebra_nhg_id_equal,
+				 "Zebra Router Nexthop Groups ID index");
 }

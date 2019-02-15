@@ -102,6 +102,21 @@ uint32_t zebra_nhg_hash_key(const void *arg)
 	return jhash_1word(zebra_nhg_hash_key_nexthop_group(&nhe->nhg), key);
 }
 
+uint32_t zebra_nhg_id_key(const void *arg)
+{
+	const struct nhg_hash_entry *nhe = arg;
+
+	return nhe->id;
+}
+
+bool zebra_nhg_id_equal(const void *arg1, const void *arg2)
+{
+	const struct nhg_hash_entry *nhe1 = arg1;
+	const struct nhg_hash_entry *nhe2 = arg2;
+
+	return (nhe1->id == nhe2->id);
+}
+
 bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct nhg_hash_entry *nhe1 = arg1;
@@ -137,25 +152,49 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	return true;
 }
 
-void zebra_nhg_find(afi_t afi, struct nexthop_group *nhg,
-		    struct route_entry *re)
+/**
+ * Helper function for lookup and get()
+ * since we are using two different tables.
+ *
+ * Avoiding code duplication hopefully.
+ */
+static void zebra_nhg_lookup_get(struct hash *hash_table,
+				 struct nhg_hash_entry *lookup)
 {
-	struct nhg_hash_entry lookup, *nhe;
+	struct nhg_hash_entry *nhe;
 
-	memset(&lookup, 0, sizeof(lookup));
-	lookup.vrf_id = re->vrf_id;
-	lookup.afi = afi;
-	lookup.nhg = *nhg;
+	nhe = hash_lookup(hash_table, lookup);
 
-	nhe = hash_lookup(zrouter.nhgs, &lookup);
 	if (!nhe)
-		nhe = hash_get(zrouter.nhgs, &lookup, zebra_nhg_alloc);
+		nhe = hash_get(hash_table, lookup, zebra_nhg_alloc);
 	else
 		nhe->refcnt++;
 
 	//re->ng = nhe->nhg;
 
 	return;
+}
+
+void zebra_nhg_find_id(uint32_t id, struct nexthop_group *nhg)
+{
+	struct nhg_hash_entry lookup = {0};
+
+	lookup.nhg = *nhg;
+
+	zebra_nhg_lookup_get(zrouter.nhgs_id, &lookup);
+}
+
+void zebra_nhg_find(afi_t afi, struct nexthop_group *nhg,
+		    struct route_entry *re)
+{
+	struct nhg_hash_entry lookup;
+
+	memset(&lookup, 0, sizeof(lookup));
+	lookup.vrf_id = re->vrf_id;
+	lookup.afi = afi;
+	lookup.nhg = *nhg;
+
+	zebra_nhg_lookup_get(zrouter.nhgs, &lookup);
 }
 
 void zebra_nhg_release(afi_t afi, struct route_entry *re)
