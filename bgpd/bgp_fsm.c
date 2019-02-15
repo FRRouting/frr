@@ -1442,7 +1442,7 @@ int bgp_start(struct peer *peer)
 	if (!bgp_find_or_add_nexthop(peer->bgp, peer->bgp,
 				     family2afi(peer->su.sa.sa_family), NULL,
 				     peer, connected)) {
-		if (bgp_zebra_num_connects()) {
+		if (!bgp_zebra_num_connects()) {
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%s [FSM] Waiting for NHT",
 					   peer->host);
