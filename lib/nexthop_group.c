@@ -59,6 +59,30 @@ nexthop_group_cmd_compare(const struct nexthop_group_cmd *nhgc1,
 	return strcmp(nhgc1->name, nhgc2->name);
 }
 
+uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+	uint8_t num = 0;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nhop))
+		num++;
+
+	return num;
+}
+
+uint8_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+	uint8_t num = 0;
+
+	for (ALL_NEXTHOPS_PTR(nhg, nhop)) {
+		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
+			num++;
+	}
+
+	return num;
+}
+
 struct nexthop *nexthop_exists(struct nexthop_group *nhg, struct nexthop *nh)
 {
 	struct nexthop *nexthop;
