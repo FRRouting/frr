@@ -1203,6 +1203,9 @@ static void vrrp_change_state_backup(struct vrrp_router *r)
 	if (r->family == AF_INET6)
 		vrrp_zebra_radv_set(r, false);
 
+	/* Disable Adver_Timer */
+	THREAD_OFF(r->t_adver_timer);
+
 	vrrp_zclient_send_interface_protodown(r->mvl_ifp, true);
 }
 
@@ -1402,19 +1405,17 @@ static int vrrp_startup(struct vrrp_router *r)
  */
 static int vrrp_shutdown(struct vrrp_router *r)
 {
+	uint8_t saved_prio;
+
 	switch (r->fsm.state) {
 	case VRRP_STATE_MASTER:
-		/* Cancel the Adver_Timer */
-		THREAD_OFF(r->t_adver_timer);
 		/* Send an ADVERTISEMENT with Priority = 0 */
-		uint8_t saved_prio = r->priority;
+		saved_prio = r->priority;
 		r->priority = 0;
 		vrrp_send_advertisement(r);
 		r->priority = saved_prio;
 		break;
 	case VRRP_STATE_BACKUP:
-		/* Cancel the Master_Down_Timer */
-		THREAD_OFF(r->t_master_down_timer);
 		break;
 	case VRRP_STATE_INITIALIZE:
 		DEBUGD(&vrrp_dbg_proto,
@@ -1424,6 +1425,10 @@ static int vrrp_shutdown(struct vrrp_router *r)
 		       vrrp_state_names[VRRP_STATE_INITIALIZE]);
 		break;
 	}
+
+	/* Cancel all timers */
+	THREAD_OFF(r->t_adver_timer);
+	THREAD_OFF(r->t_master_down_timer);
 
 	if (r->sock_rx > 0) {
 		close(r->sock_rx);
@@ -1858,22 +1863,22 @@ void vrrp_if_down(struct interface *ifp)
 
 	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr)) {
 		if (vr->v4->mvl_ifp == ifp || vr->ifp == ifp) {
-			if (vr->v4->fsm.state != VRRP_STATE_INITIALIZE) {
+			if (vr->v4->fsm.state == VRRP_STATE_MASTER) {
 				DEBUGD(&vrrp_dbg_auto,
 				       VRRP_LOGPFX VRRP_LOGPFX_VRID
-				       "Interface %s down; shutting down IPv4 VRRP router",
+				       "Interface %s down; transitioning IPv4 VRRP router to Backup",
 				       vr->vrid, ifp->name);
-				vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
+				vrrp_change_state(vr->v4, VRRP_STATE_BACKUP);
 			}
 		}
 
 		if (vr->v6->mvl_ifp == ifp || vr->ifp == ifp) {
-			if (vr->v6->fsm.state != VRRP_STATE_INITIALIZE) {
+			if (vr->v6->fsm.state == VRRP_STATE_MASTER) {
 				DEBUGD(&vrrp_dbg_auto,
 				       VRRP_LOGPFX VRRP_LOGPFX_VRID
-				       "Interface %s down; shutting down IPv6 VRRP router",
+				       "Interface %s down; transitioning IPv6 VRRP router to Backup",
 				       vr->vrid, ifp->name);
-				vrrp_event(vr->v6, VRRP_EVENT_SHUTDOWN);
+				vrrp_change_state(vr->v6, VRRP_STATE_BACKUP);
 			}
 		}
 	}
