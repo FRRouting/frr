@@ -90,7 +90,7 @@ static int zfpm_dt_find_route(rib_dest_t **dest_p, struct route_entry **re_p)
 		if (!re)
 			continue;
 
-		if (re->nexthop_active_num <= 0)
+		if (nexthop_group_active_nexthop_num(re->ng) == 0)
 			continue;
 
 		*dest_p = dest;

@@ -644,9 +644,8 @@ static unsigned nexthop_active_check(struct route_node *rn,
 
 /*
  * Iterate over all nexthops of the given RIB entry and refresh their
- * ACTIVE flag. re->nexthop_active_num is updated accordingly. If any
- * nexthop is found to toggle the ACTIVE flag, the whole re structure
- * is flagged with ROUTE_ENTRY_CHANGED.
+ * ACTIVE flag.  If any nexthop is found to toggle the ACTIVE flag,
+ * the whole re structure is flagged with ROUTE_ENTRY_CHANGED.
  *
  * Return value is the new number of active nexthops.
  */
@@ -656,8 +655,8 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	union g_addr prev_src;
 	unsigned int prev_active, new_active;
 	ifindex_t prev_index;
+	uint8_t curr_active = 0;
 
-	re->nexthop_active_num = 0;
 	UNSET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 
 	for (nexthop = re->ng->nexthop; nexthop; nexthop = nexthop->next) {
@@ -674,12 +673,15 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 		 */
 		new_active = nexthop_active_check(rn, re, nexthop);
 		if (new_active
-		    && re->nexthop_active_num >= zrouter.multipath_num) {
+		    && nexthop_group_active_nexthop_num(re->ng)
+			       >= zrouter.multipath_num) {
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 			new_active = 0;
 		}
+
 		if (new_active)
-			re->nexthop_active_num++;
+			curr_active++;
+
 		/* Don't allow src setting on IPv6 addr for now */
 		if (prev_active != new_active || prev_index != nexthop->ifindex
 		    || ((nexthop->type >= NEXTHOP_TYPE_IFINDEX
@@ -694,5 +696,5 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 	}
 
-	return re->nexthop_active_num;
+	return curr_active;
 }

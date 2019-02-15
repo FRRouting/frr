@@ -2481,7 +2481,8 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 		"%s: metric == %u, mtu == %u, distance == %u, flags == %u, status == %u",
 		straddr, re->metric, re->mtu, re->distance, re->flags, re->status);
 	zlog_debug("%s: nexthop_num == %u, nexthop_active_num == %u", straddr,
-		   nexthop_group_nexthop_num(re->ng), re->nexthop_active_num);
+		   nexthop_group_nexthop_num(re->ng),
+		   nexthop_group_active_nexthop_num(re->ng));
 
 	for (ALL_NEXTHOPS_PTR(re->ng, nexthop)) {
 		struct interface *ifp;
