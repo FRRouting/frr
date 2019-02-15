@@ -57,6 +57,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_damp.c \
 	bgpd/bgp_debug.c \
 	bgpd/bgp_dump.c \
+	bgpd/bgp_bmp.c \
 	bgpd/bgp_ecommunity.c \
 	bgpd/bgp_encap_tlv.c \
 	bgpd/bgp_errors.c \
@@ -129,6 +130,7 @@ noinst_HEADERS += \
 	bgpd/bgp_damp.h \
 	bgpd/bgp_debug.h \
 	bgpd/bgp_dump.h \
+	bgpd/bgp_bmp.h \
 	bgpd/bgp_ecommunity.h \
 	bgpd/bgp_encap_tlv.h \
 	bgpd/bgp_encap_types.h \
