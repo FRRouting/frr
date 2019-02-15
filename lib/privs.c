@@ -799,7 +799,7 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 		return;
 
 	if (zprivs->user) {
-		ngroups = sizeof(groups);
+		ngroups = array_size(groups);
 		if (getgrouplist(zprivs->user, zprivs_state.zgid, groups,
 				 &ngroups)
 		    < 0) {
