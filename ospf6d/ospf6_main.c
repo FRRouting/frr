@@ -85,8 +85,10 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 
 	frr_early_fini();
 
-	if (ospf6)
+	if (ospf6) {
 		ospf6_delete(ospf6);
+		ospf6 = NULL;
+	}
 
 	bfd_gbl_exit();
 
