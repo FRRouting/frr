@@ -1620,6 +1620,7 @@ ac_libs_save="$LIBS"
 LIBS="$LIBS $LIBYANG_LIBS"
 AC_CHECK_FUNC([ly_register_types], [
   libyang_ext_builtin=true
+  ac_libs_save="$LIBS"
   AC_DEFINE([LIBYANG_EXT_BUILTIN], [1], [have ly_register_types()])
 ], [
   libyang_ext_builtin=false
