@@ -18,6 +18,8 @@ FRR currently supports the following protocols:
 * LDP
 * BFD
 * Babel
+* PBR
+* OpenFabric
 * EIGRP (alpha)
 * NHRP (alpha)
 
