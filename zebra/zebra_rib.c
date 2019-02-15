@@ -197,7 +197,6 @@ int zebra_check_addr(const struct prefix *p)
 void route_entry_nexthop_add(struct route_entry *re, struct nexthop *nexthop)
 {
 	_nexthop_group_add_sorted(re->ng, nexthop);
-	re->nexthop_num++;
 }
 
 
@@ -208,8 +207,6 @@ void route_entry_copy_nexthops(struct route_entry *re, struct nexthop *nh)
 {
 	assert(!re->ng->nexthop);
 	copy_nexthops(&re->ng->nexthop, nh, NULL);
-	for (struct nexthop *nexthop = nh; nexthop; nexthop = nexthop->next)
-		re->nexthop_num++;
 }
 
 /* Delete specified nexthop from the list. */
@@ -221,7 +218,6 @@ void route_entry_nexthop_delete(struct route_entry *re, struct nexthop *nexthop)
 		nexthop->prev->next = nexthop->next;
 	else
 		re->ng->nexthop = nexthop->next;
-	re->nexthop_num--;
 }
 
 
@@ -2485,7 +2481,7 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 		"%s: metric == %u, mtu == %u, distance == %u, flags == %u, status == %u",
 		straddr, re->metric, re->mtu, re->distance, re->flags, re->status);
 	zlog_debug("%s: nexthop_num == %u, nexthop_active_num == %u", straddr,
-		   re->nexthop_num, re->nexthop_active_num);
+		   nexthop_group_nexthop_num(re->ng), re->nexthop_active_num);
 
 	for (ALL_NEXTHOPS_PTR(re->ng, nexthop)) {
 		struct interface *ifp;
@@ -2959,7 +2955,6 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	re->mtu = mtu;
 	re->table = table_id;
 	re->vrf_id = vrf_id;
-	re->nexthop_num = 0;
 	re->uptime = monotime(NULL);
 	re->tag = tag;
 	re->ng = nexthop_group_new();

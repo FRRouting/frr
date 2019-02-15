@@ -676,7 +676,6 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	newre->metric = re->metric;
 	newre->mtu = re->mtu;
 	newre->table = zvrf->table_id;
-	newre->nexthop_num = 0;
 	newre->uptime = monotime(NULL);
 	newre->instance = re->table;
 	newre->ng = nexthop_group_new();

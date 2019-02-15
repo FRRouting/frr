@@ -609,7 +609,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 				&src_p, &nh, table, metric, mtu, distance, tag);
 		} else {
 			/* This is a multipath route */
-
+			uint8_t nhop_num;
 			struct route_entry *re;
 			struct rtnexthop *rtnh =
 				(struct rtnexthop *)RTA_DATA(tb[RTA_MULTIPATH]);
@@ -624,7 +624,6 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			re->mtu = mtu;
 			re->vrf_id = vrf_id;
 			re->table = table;
-			re->nexthop_num = 0;
 			re->uptime = monotime(NULL);
 			re->tag = tag;
 			re->ng = nexthop_group_new();
@@ -720,10 +719,10 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 				rtnh = RTNH_NEXT(rtnh);
 			}
 
-			zserv_nexthop_num_warn(__func__,
-					       (const struct prefix *)&p,
-					       re->nexthop_num);
-			if (re->nexthop_num == 0) {
+			nhop_num = nexthop_group_nexthop_num(re->ng);
+			zserv_nexthop_num_warn(
+				__func__, (const struct prefix *)&p, nhop_num);
+			if (nhop_num == 0) {
 				nexthop_group_delete(&re->ng);
 				XFREE(MTYPE_RE, re);
 			} else
