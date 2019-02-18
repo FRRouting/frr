@@ -266,6 +266,7 @@ parts:
         configflags:
            - -DCMAKE_INSTALL_PREFIX:PATH=/usr
            - -DENABLE_LYD_PRIV=ON
+           - -DENABLE_CACHE=OFF
            - -DCMAKE_BUILD_TYPE:String="Release"
     frr: 
         after: [rtrlib,libyang]
