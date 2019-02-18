@@ -41,6 +41,7 @@
 /lib/test_timer_correctness
 /lib/test_timer_performance
 /lib/test_ttable
+/lib/test_typelist
 /lib/test_zlog
 /lib/test_zmq
 /ospf6d/test_lsdb
