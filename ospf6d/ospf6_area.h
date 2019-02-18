@@ -132,5 +132,7 @@ extern void ospf6_area_show(struct vty *, struct ospf6_area *);
 extern void ospf6_area_plist_update(struct prefix_list *plist, int add);
 extern void ospf6_area_config_write(struct vty *vty);
 extern void ospf6_area_init(void);
+struct ospf6_interface;
+extern void ospf6_area_interface_delete(struct ospf6_interface *oi);
 
 #endif /* OSPF_AREA_H */
