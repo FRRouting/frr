@@ -374,15 +374,13 @@ rm -vf %{buildroot}%{_libdir}/*.la
 # install /etc sources
 %if "%{initsystem}" == "systemd"
 mkdir -p %{buildroot}%{_unitdir}
-install -m644 %{zeb_rh_src}/frr.service %{buildroot}%{_unitdir}/frr.service
-install %{zeb_rh_src}/frr.init %{buildroot}%{_sbindir}/frr
+install -m644 %{zeb_src}/tools/frr.service %{buildroot}%{_unitdir}/frr.service
 %else
 mkdir -p %{buildroot}%{_initddir}
-install %{zeb_rh_src}/frr.init %{buildroot}%{_sbindir}/frr
-ln -s %{_sbindir}/frr %{buildroot}%{_initddir}/frr
+ln -s %{_sbindir}/frrinit.sh %{buildroot}%{_initddir}/frr
 %endif
 
-install %{zeb_rh_src}/daemons %{buildroot}%{_sysconfdir}/frr
+install %{zeb_src}/tools/etc/frr/daemons %{buildroot}%{_sysconfdir}/frr
 # add rpki module to daemon
 %if %{with_rpki}
     sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{buildroot}%{_sysconfdir}/frr/daemons
@@ -471,7 +469,7 @@ zebra_spec_add_service isisd    2608/tcp "ISISd vty"
 
 # Fix bad path in previous config files
 #  Config files won't get replaced by default, so we do this ugly hack to fix it
-%__sed -i 's|/etc/init.d/|%{_sbindir}/|g' %{configdir}/daemons 2> /dev/null || true
+%__sed -i 's|watchfrr_options=|#watchfrr_options=|g' %{configdir}/daemons 2> /dev/null || true
 
 # With systemd, watchfrr is mandatory. Fix config to make sure it's enabled if
 # we install or upgrade to a frr built with systemd
@@ -627,7 +625,6 @@ fi
 %else
     %{_initddir}/frr
 %endif
-%{_sbindir}/frr
 %config(noreplace) %{_sysconfdir}/pam.d/frr
 %config(noreplace) %{_sysconfdir}/logrotate.d/frr
 %{_sbindir}/frr-reload
