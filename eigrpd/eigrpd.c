@@ -209,7 +209,7 @@ static struct eigrp *eigrp_new(const char *AS)
 
 	/*
 	  eigrp->if_rmap_ctx = if_rmap_ctx_create(
-	                               vrf_lookup_by_id(VRF_DEFAULT));
+	                               VRF_DEFAULT_NAME);
 	  if_rmap_hook_add (eigrp_if_rmap_update);
 	  if_rmap_hook_delete (eigrp_if_rmap_update);
 	*/

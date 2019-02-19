@@ -1821,8 +1821,7 @@ int ripng_create(int socket)
 				    ripng_distribute_update);
 
 	/* if rmap install. */
-	ripng->if_rmap_ctx = if_rmap_ctx_create(
-				      vrf_lookup_by_id(VRF_DEFAULT));
+	ripng->if_rmap_ctx = if_rmap_ctx_create(VRF_DEFAULT_NAME);
 	if_rmap_hook_add(ripng->if_rmap_ctx, ripng_if_rmap_update);
 	if_rmap_hook_delete(ripng->if_rmap_ctx, ripng_if_rmap_update);
 
@@ -2490,11 +2489,15 @@ void ripng_clean(void)
 static void ripng_if_rmap_update(struct if_rmap_ctx *ctx,
 				 struct if_rmap *if_rmap)
 {
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	struct ripng_interface *ri;
 	struct route_map *rmap;
+	struct vrf *vrf = NULL;
 
-	ifp = if_lookup_by_name(if_rmap->ifname, ctx->vrf->vrf_id);
+	if (ctx->name)
+		vrf = vrf_lookup_by_name(ctx->name);
+	if (vrf)
+		ifp = if_lookup_by_name(if_rmap->ifname, vrf->vrf_id);
 	if (ifp == NULL)
 		return;
 

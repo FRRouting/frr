@@ -27,6 +27,7 @@
 #include "if_rmap.h"
 
 DEFINE_MTYPE_STATIC(LIB, IF_RMAP_CTX, "Interface route map container")
+DEFINE_MTYPE_STATIC(LIB, IF_RMAP_CTX_NAME, "Interface route map container name")
 DEFINE_MTYPE_STATIC(LIB, IF_RMAP, "Interface route map")
 DEFINE_MTYPE_STATIC(LIB, IF_RMAP_NAME, "I.f. route map name")
 
@@ -300,15 +301,20 @@ int config_write_if_rmap(struct vty *vty,
 void if_rmap_ctx_delete(struct if_rmap_ctx *ctx)
 {
 	hash_clean(ctx->ifrmaphash, (void (*)(void *))if_rmap_free);
+	if (ctx->name)
+		XFREE(MTYPE_IF_RMAP_CTX_NAME, ctx);
 	XFREE(MTYPE_IF_RMAP_CTX, ctx);
 }
 
-struct if_rmap_ctx *if_rmap_ctx_create(struct vrf *vrf)
+/* name is optional: either vrf name, or other */
+struct if_rmap_ctx *if_rmap_ctx_create(const char *name)
 {
 	struct if_rmap_ctx *ctx;
 
 	ctx = XCALLOC(MTYPE_IF_RMAP_CTX, sizeof(struct if_rmap_ctx));
-	ctx->vrf = vrf;
+
+	if (ctx->name)
+		ctx->name = XSTRDUP(MTYPE_IF_RMAP_CTX_NAME, name);
 	ctx->ifrmaphash = hash_create_size(4, if_rmap_hash_make, if_rmap_hash_cmp,
 					   "Interface Route-Map Hash");
 	if (!if_rmap_ctx_list)

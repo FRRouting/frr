@@ -44,11 +44,11 @@ struct if_rmap_ctx {
 	void (*if_rmap_delete_hook)(struct if_rmap_ctx *ctx,
 				       struct if_rmap *ifrmap);
 
-	/* vrf information */
-	struct vrf *vrf;
+	/* naming information */
+	char *name;
 };
 
-extern struct if_rmap_ctx *if_rmap_ctx_create(struct vrf *vrf);
+extern struct if_rmap_ctx *if_rmap_ctx_create(const char *name);
 extern void if_rmap_ctx_delete(struct if_rmap_ctx *ctx);
 extern void if_rmap_init(int node);
 extern void if_rmap_terminate(void);

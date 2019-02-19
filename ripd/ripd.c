@@ -2717,8 +2717,7 @@ int rip_create(int socket)
 				    rip_distribute_update);
 
 	/* if rmap install. */
-	rip->if_rmap_ctx = if_rmap_ctx_create(
-				      vrf_lookup_by_id(VRF_DEFAULT));
+	rip->if_rmap_ctx = if_rmap_ctx_create(VRF_DEFAULT_NAME);
 	if_rmap_hook_add(rip->if_rmap_ctx, rip_if_rmap_update);
 	if_rmap_hook_delete(rip->if_rmap_ctx, rip_if_rmap_update);
 
@@ -3409,11 +3408,15 @@ void rip_clean(void)
 static void rip_if_rmap_update(struct if_rmap_ctx *ctx,
 			       struct if_rmap *if_rmap)
 {
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	struct rip_interface *ri;
 	struct route_map *rmap;
+	struct vrf *vrf = NULL;
 
-	ifp = if_lookup_by_name(if_rmap->ifname, ctx->vrf->vrf_id);
+	if (ctx->name)
+		vrf = vrf_lookup_by_name(ctx->name);
+	if (vrf)
+		ifp = if_lookup_by_name(if_rmap->ifname, vrf->vrf_id);
 	if (ifp == NULL)
 		return;
 
