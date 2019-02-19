@@ -8,8 +8,8 @@ vtysh_scan += $(top_srcdir)/nhrpd/nhrp_vty.c
 man8 += $(MANBUILD)/nhrpd.8
 endif
 
-nhrpd_nhrpd_LDADD = lib/libfrr.la @LIBCAP@ @CARES_LIBS@
-nhrpd_nhrpd_CFLAGS = $(AM_CFLAGS) @CARES_CFLAGS@
+nhrpd_nhrpd_LDADD = lib/libfrr.la $(LIBCAP) $(CARES_LIBS)
+nhrpd_nhrpd_CFLAGS = $(AM_CFLAGS) $(CARES_CFLAGS)
 nhrpd_nhrpd_SOURCES = \
 	nhrpd/linux.c \
 	nhrpd/netlink_arp.c \

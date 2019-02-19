@@ -92,6 +92,14 @@ All the commands are prefixed with frr.
     frr.ripngd-debug
     frr.ldp-debug
     frr.zebra-debug
+    frr.pimd-debug
+    frr.nhrpd-debug
+    frr.babeld-debug
+    frr.eigrpd-debug
+    frr.pbrd-debug
+    frr.staticd-debug
+    frr.bfdd-debug
+    frr.fabricd-debug
 
 vtysh can be accessed as frr.vtysh (Make sure you have /snap/bin in your
 path). If access as `vtysh` instead of `frr.vtysh` is needed, you can enable it

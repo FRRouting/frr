@@ -1930,6 +1930,27 @@ int lsp_tick(struct thread *thread)
 						area->area_tag, lsp->level,
 						rawlspid_print(lsp->hdr.lsp_id),
 						lsp->hdr.seqno);
+
+					/* if we're aging out fragment 0,
+					 * lsp_destroy() below will delete all
+					 * other fragments too, so we need to
+					 * skip over those
+					 */
+					while (!LSP_FRAGMENT(lsp->hdr.lsp_id)
+							&& dnode_next) {
+						struct isis_lsp *nextlsp;
+
+						nextlsp = dnode_get(dnode_next);
+						if (memcmp(nextlsp->hdr.lsp_id,
+							   lsp->hdr.lsp_id,
+							   ISIS_SYS_ID_LEN + 1))
+							break;
+
+						dnode_next = dict_next(
+							area->lspdb[level],
+							dnode_next);
+					}
+
 					lsp_destroy(lsp);
 					lsp = NULL;
 					dict_delete_free(area->lspdb[level],

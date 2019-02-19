@@ -80,6 +80,7 @@ struct ospf6_interface {
 
 	/* Interface socket setting trial counter, resets on success */
 	uint8_t sso_try_cnt;
+	struct thread *thread_sso;
 
 	/* OSPF6 Interface flag */
 	char flag;
