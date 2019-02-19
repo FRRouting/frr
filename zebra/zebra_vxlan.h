@@ -40,7 +40,7 @@
 static inline int is_evpn_enabled(void)
 {
 	struct zebra_vrf *zvrf = NULL;
-	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	zvrf = zebra_vrf_get_evpn();
 	return zvrf ? zvrf->advertise_all_vni : 0;
 }
 

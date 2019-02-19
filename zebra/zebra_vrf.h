@@ -107,22 +107,27 @@ struct zebra_vrf {
 #define MPLS_FLAG_SCHEDULE_LSPS    (1 << 0)
 
 	/*
-	 * VNI hash table (for EVPN). Only in default instance.
+	 * VNI hash table (for EVPN). Only in the EVPN instance.
 	 */
 	struct hash *vni_table;
 
 	/*
-	 * Whether EVPN is enabled or not. Only in default instance.
+	 * Whether EVPN is enabled or not. Only in the EVPN instance.
 	 */
 	int advertise_all_vni;
 
 	/*
 	 * Whether we are advertising g/w macip in EVPN or not.
-	 * Only in default instance.
+	 * Only in the EVPN instance.
 	 */
 	int advertise_gw_macip;
 
 	int advertise_svi_macip;
+
+	/*
+	 * The EVPN instance, if any
+	 */
+	vrf_id_t evpn_vrf_id;
 
 	/* l3-vni info */
 	vni_t l3vni;
@@ -195,6 +200,17 @@ extern struct zebra_vrf *zebra_vrf_lookup_by_id(vrf_id_t vrf_id);
 extern struct zebra_vrf *zebra_vrf_lookup_by_name(const char *);
 extern struct zebra_vrf *zebra_vrf_alloc(void);
 extern struct route_table *zebra_vrf_table(afi_t, safi_t, vrf_id_t);
+
+static inline vrf_id_t zebra_vrf_get_evpn_id(void)
+{
+	struct zebra_vrf *zvrf = NULL;
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	return zvrf ? zvrf->evpn_vrf_id : VRF_DEFAULT;
+}
+static inline struct zebra_vrf *zebra_vrf_get_evpn(void)
+{
+	return zebra_vrf_lookup_by_id(zebra_vrf_get_evpn_id());
+}
 
 extern struct route_table *
 zebra_vrf_other_route_table(afi_t afi, uint32_t table_id, vrf_id_t vrf_id);

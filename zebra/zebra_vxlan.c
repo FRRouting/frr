@@ -324,7 +324,7 @@ static int advertise_gw_macip_enabled(zebra_vni_t *zvni)
 {
 	struct zebra_vrf *zvrf;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_get_evpn();
 	if (zvrf && zvrf->advertise_gw_macip)
 		return 1;
 
@@ -9041,19 +9041,19 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 	struct stream *s = NULL;
 	int advertise = 0;
 	enum vxlan_flood_control flood_ctrl;
+	struct zebra_vrf *zvrf_default = NULL;
 
-	if (zvrf_id(zvrf) != VRF_DEFAULT) {
-		zlog_debug("EVPN VNI Adv for non-default VRF %u",
-			   zvrf_id(zvrf));
+	zvrf_default = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	if (!zvrf_default)
 		return;
-	}
 
 	s = msg;
 	STREAM_GETC(s, advertise);
 	STREAM_GETC(s, flood_ctrl);
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("EVPN VNI Adv %s, currently %s, flood control %u",
+		zlog_debug("EVPN VRF %s(%u) VNI Adv %s, currently %s, flood control %u",
+			   zvrf_name(zvrf), zvrf_id(zvrf),
 			   advertise ? "enabled" : "disabled",
 			   is_evpn_enabled() ? "enabled" : "disabled",
 			   flood_ctrl);
@@ -9062,7 +9062,9 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 		return;
 
 	zvrf->advertise_all_vni = advertise;
-	if (is_evpn_enabled()) {
+	if (zvrf->advertise_all_vni) {
+		zvrf_default->evpn_vrf_id = zvrf_id(zvrf);
+
 		/* Note BUM handling */
 		zvrf->vxlan_flood_ctrl = flood_ctrl;
 
@@ -9086,6 +9088,9 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 
 		/* cleanup all l3vnis */
 		hash_iterate(zrouter.l3vni_table, zl3vni_cleanup_all, NULL);
+
+		/* Fallback to the default VRF. */
+		zvrf_default->evpn_vrf_id = VRF_DEFAULT;
 	}
 
 stream_failure:
