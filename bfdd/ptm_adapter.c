@@ -597,23 +597,96 @@ static void bfdd_zebra_connected(struct zclient *zc)
 	zclient_send_message(zclient);
 }
 
-static int bfdd_interface_update(int cmd, struct zclient *zc, uint16_t len,
+static void bfdd_sessions_enable_interface(struct interface *ifp)
+{
+	struct bfd_session_observer *bso;
+	struct bfd_session *bs;
+
+	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
+		if (bso->bso_isinterface == false)
+			continue;
+
+		/* Interface name mismatch. */
+		bs = bso->bso_bs;
+		if (strcmp(ifp->name, bs->ifname))
+			continue;
+		/* Skip enabled sessions. */
+		if (bs->sock != -1)
+			continue;
+
+		/* Try to enable it. */
+		bfd_session_enable(bs);
+	}
+}
+
+static void bfdd_sessions_disable_interface(struct interface *ifp)
+{
+	struct bfd_session_observer *bso;
+	struct bfd_session *bs;
+
+	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
+		if (bso->bso_isinterface == false)
+			continue;
+
+		/* Interface name mismatch. */
+		bs = bso->bso_bs;
+		if (strcmp(ifp->name, bs->ifname))
+			continue;
+		/* Skip disabled sessions. */
+		if (bs->sock == -1)
+			continue;
+
+		/* Try to enable it. */
+		bfd_session_disable(bs);
+
+		TAILQ_INSERT_HEAD(&bglobal.bg_obslist, bso, bso_entry);
+	}
+}
+
+static int bfdd_interface_update(int cmd, struct zclient *zc,
+				 uint16_t len __attribute__((__unused__)),
 				 vrf_id_t vrfid)
 {
+	struct interface *ifp;
+
 	/*
 	 * `zebra_interface_add_read` will handle the interface creation
 	 * on `lib/if.c`. We'll use that data structure instead of
 	 * rolling our own.
 	 */
 	if (cmd == ZEBRA_INTERFACE_ADD) {
-		zebra_interface_add_read(zc->ibuf, vrfid);
+		ifp = zebra_interface_add_read(zc->ibuf, vrfid);
+		if (ifp == NULL)
+			return 0;
+
+		bfdd_sessions_enable_interface(ifp);
 		return 0;
 	}
 
 	/* Update interface information. */
-	zebra_interface_state_read(zc->ibuf, vrfid);
+	ifp = zebra_interface_state_read(zc->ibuf, vrfid);
+	if (ifp == NULL)
+		return 0;
 
-	/* TODO: stop all sessions using this interface. */
+	bfdd_sessions_disable_interface(ifp);
+
+	return 0;
+}
+
+static int bfdd_interface_vrf_update(int command __attribute__((__unused__)),
+				     struct zclient *zclient,
+				     zebra_size_t length
+				     __attribute__((__unused__)),
+				     vrf_id_t vrfid)
+{
+	struct interface *ifp;
+	vrf_id_t nvrfid;
+
+	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrfid, &nvrfid);
+	if (ifp == NULL)
+		return 0;
+
+	if_update_to_new_vrf(ifp, nvrfid);
 
 	return 0;
 }
@@ -637,6 +710,9 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 	/* Learn interfaces from zebra instead of the OS. */
 	zclient->interface_add = bfdd_interface_update;
 	zclient->interface_delete = bfdd_interface_update;
+
+	/* Learn about interface VRF. */
+	zclient->interface_vrf_update = bfdd_interface_vrf_update;
 }
 
 void bfdd_zclient_stop(void)
