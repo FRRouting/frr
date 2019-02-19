@@ -22,6 +22,37 @@ administrator with an external editor.
    have effect for vtysh) need to be manually updated in :file:`vtysh.conf`.
 
 
+Pager usage
+===========
+
+*vtysh* can call an external paging program (e.g. *more* or *less*) to
+paginate long output from commands.  This feature used to be enabled by
+default but is now controlled by the ``VTYSH_PAGER`` environment variable
+and the :clicmd:`terminal paginate` command:
+
+.. envvar:: VTYSH_PAGER
+
+   If set, the ``VTYSH_PAGER`` environment variable causes *vtysh* to pipe
+   output from commands through the given command.  Note that this happens
+   regardless of the length of the output.  As such, standard pager behavior
+   (particularly waiting at the end of output) tends to be annoying to the
+   user.  Using ``less -EFX`` is recommended for a better user experience.
+
+   If this environment variable is unset, *vtysh* defaults to not using any
+   pager.
+
+   This variable should be set by the user according to their preferences,
+   in their :file:`~/.profile` file.
+
+.. index:: [no] terminal paginate
+.. clicmd:: [no] terminal paginate
+
+   Enables/disables vtysh output pagination.  This command is intended to
+   be placed in :file:`vtysh.conf` to set a system-wide default.  If this
+   is enabled but ``VTYSH_PAGER`` is not set, the system default pager
+   (likely ``more`` or ``/usr/bin/pager``) will be used.
+
+
 Permissions and setup requirements
 ==================================
 
