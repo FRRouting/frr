@@ -487,6 +487,11 @@ struct bgp {
 	/* EVPN enable - advertise local VNIs and their MACs etc. */
 	int advertise_all_vni;
 
+	/* RFC 8212 - prevent route leaks. */
+	int ebgp_requires_policy;
+#define DEFAULT_EBGP_POLICY_DISABLED 0
+#define DEFAULT_EBGP_POLICY_ENABLED 1
+
 	struct bgp_evpn_info *evpn_info;
 
 	/* EVPN - use RFC 8365 to auto-derive RT */
