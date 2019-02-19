@@ -1680,8 +1680,8 @@ static int vrrp_autoconfig_if_del(struct interface *ifp)
 /*
  * Callback to notify autoconfig of interface up.
  *
- * Roughly equivalent to vrrp_autoconfig_if_add, except that addresses are
- * refreshed if an autoconfigured virtual router already exists.
+ * Creates VRRP instance on interface if it does not exist. Otherwise does
+ * nothing.
  *
  * ifp
  *    Interface to operate on
@@ -1704,8 +1704,6 @@ static int vrrp_autoconfig_if_up(struct interface *ifp)
 		vrrp_autoconfig_if_add(ifp);
 		return 0;
 	}
-
-	vrrp_autoconfig_autoaddrupdate(vr);
 
 	return 0;
 }
