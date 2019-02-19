@@ -2013,6 +2013,9 @@ int vrrp_config_write_interface(struct vty *vty)
 			vr->version == 2 ? " version 2" : "");
 		++writes;
 
+		if (vr->shutdown && ++writes)
+			vty_out(vty, " vrrp %" PRIu8 " shutdown\n", vr->vrid);
+
 		if (!vr->preempt_mode && ++writes)
 			vty_out(vty, " no vrrp %" PRIu8 " preempt\n", vr->vrid);
 

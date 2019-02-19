@@ -85,6 +85,34 @@ DEFPY(vrrp_vrid,
 	return CMD_SUCCESS;
 }
 
+DEFPY(vrrp_shutdown,
+      vrrp_shutdown_cmd,
+      "[no] vrrp (1-255)$vrid shutdown",
+      NO_STR
+      VRRP_STR
+      VRRP_VRID_STR
+      "Force VRRP router into administrative shutdown\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	struct vrrp_vrouter *vr;
+
+	VROUTER_GET_VTY(vty, ifp, vrid, vr);
+
+	if (!no) {
+		if (vr->v4->fsm.state != VRRP_STATE_INITIALIZE)
+			vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
+		if (vr->v6->fsm.state != VRRP_STATE_INITIALIZE)
+			vrrp_event(vr->v6, VRRP_EVENT_SHUTDOWN);
+		vr->shutdown = true;
+	} else {
+		vr->shutdown = false;
+		vrrp_check_start(vr);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(vrrp_priority,
       vrrp_priority_cmd,
       "[no] vrrp (1-255)$vrid priority (1-254)",
@@ -287,6 +315,7 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	ttable_add_row(tt, "%s|%" PRIu8, "Protocol Version", vr->version);
 	ttable_add_row(tt, "%s|%s", "Autoconfigured",
 		       vr->autoconf ? "Yes" : "No");
+	ttable_add_row(tt, "%s|%s", "Shutdown", vr->shutdown ? "Yes" : "No");
 	ttable_add_row(tt, "%s|%s", "Interface", vr->ifp->name);
 	prefix_mac2str(&vr->v4->vmac, ethstr4, sizeof(ethstr4));
 	prefix_mac2str(&vr->v6->vmac, ethstr6, sizeof(ethstr6));
@@ -435,6 +464,7 @@ void vrrp_vty_init(void)
 	install_element(CONFIG_NODE, &debug_vrrp_cmd);
 	install_element(CONFIG_NODE, &vrrp_autoconfigure_cmd);
 	install_element(INTERFACE_NODE, &vrrp_vrid_cmd);
+	install_element(INTERFACE_NODE, &vrrp_shutdown_cmd);
 	install_element(INTERFACE_NODE, &vrrp_priority_cmd);
 	install_element(INTERFACE_NODE, &vrrp_advertisement_interval_cmd);
 	install_element(INTERFACE_NODE, &vrrp_ip_cmd);
