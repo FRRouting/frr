@@ -27,13 +27,46 @@
 #include "lib/zclient.h"
 
 #include "vrrp.h"
+#include "vrrp_debug.h"
 #include "vrrp_zebra.h"
+
+#define VRRP_LOGPFX "[ZEBRA] "
 
 static struct zclient *zclient = NULL;
 
+static void vrrp_zebra_debug_if_state(struct interface *ifp, vrf_id_t vrf_id,
+				      const char *func)
+{
+	DEBUGD(&vrrp_dbg_zebra,
+	       "%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
+	       func, ifp->name, ifp->ifindex, vrf_id, (long)ifp->flags,
+	       ifp->metric, ifp->mtu, if_is_operative(ifp));
+}
+
+static void vrrp_zebra_debug_if_dump_address(struct interface *ifp,
+					     const char *func)
+{
+	struct connected *ifc;
+	struct listnode *node;
+
+	DEBUGD(&vrrp_dbg_zebra, "%s: interface %s addresses:", func, ifp->name);
+
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+		struct prefix *p = ifc->address;
+
+		if (p->family != AF_INET)
+			continue;
+
+		DEBUGD(&vrrp_dbg_zebra, "%s: interface %s address %s %s", func,
+		       ifp->name, inet_ntoa(p->u.prefix4),
+		       CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY) ? "secondary"
+								   : "primary");
+	}
+}
+
+
 static void vrrp_zebra_connected(struct zclient *zclient)
 {
-	fprintf(stderr, "Zclient connected\n");
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
@@ -58,8 +91,11 @@ static int vrrp_zebra_if_add(int command, struct zclient *zclient,
 	 * interface_add_read below, see comments in lib/zclient.c
 	 */
 	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
+
 	if (!ifp)
 		return 0;
+
+	vrrp_zebra_debug_if_state(ifp, vrf_id, __func__);
 
 	vrrp_if_add(ifp);
 
@@ -72,20 +108,13 @@ static int vrrp_zebra_if_del(int command, struct zclient *zclient,
 	struct interface *ifp;
 
 	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
+
 	if (!ifp)
 		return 0;
 
-	vrrp_if_del(ifp);
+	vrrp_zebra_debug_if_state(ifp, vrf_id, __func__);
 
-#if 0
-	if (VRRP_DEBUG_ZEBRA) {
-		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex, vrf_id,
-			(long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
-	}
-#endif
+	vrrp_if_del(ifp);
 
 	return 0;
 }
@@ -101,20 +130,13 @@ static int vrrp_zebra_if_state_up(int command, struct zclient *zclient,
 	 * zebra_interface_state_read(zclient->ibuf, vrf_id);
 	 */
 	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
+
 	if (!ifp)
 		return 0;
 
-	vrrp_if_up(ifp);
+	vrrp_zebra_debug_if_state(ifp, vrf_id, __func__);
 
-#if 0
-	if (VRRP_DEBUG_ZEBRA) {
-		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex, vrf_id,
-			(long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
-	}
-#endif
+	vrrp_if_up(ifp);
 
 	return 0;
 }
@@ -129,48 +151,16 @@ static int vrrp_zebra_if_state_down(int command, struct zclient *zclient,
 	 * zebra_interface_state_read below, see comments in lib/zclient.c
 	 */
 	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
+
 	if (!ifp)
 		return 0;
 
-	vrrp_if_down(ifp);
+	vrrp_zebra_debug_if_state(ifp, vrf_id, __func__);
 
-#if 0
-	if (VRRP_DEBUG_ZEBRA) {
-		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex, vrf_id,
-			(long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
-	}
-#endif
+	vrrp_if_down(ifp);
 
 	return 0;
 }
-
-#ifdef VRRP_DEBUG_IFADDR_DUMP
-static void dump_if_address(struct interface *ifp)
-{
-	struct connected *ifc;
-	struct listnode *node;
-
-	zlog_debug("%s %s: interface %s addresses:", __FILE__,
-		   __PRETTY_FUNCTION__, ifp->name);
-
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
-		struct prefix *p = ifc->address;
-
-		if (p->family != AF_INET)
-			continue;
-
-		zlog_debug("%s %s: interface %s address %s %s", __FILE__,
-			   __PRETTY_FUNCTION__, ifp->name,
-			   inet_ntoa(p->u.prefix4),
-			   CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)
-				   ? "secondary"
-				   : "primary");
-	}
-}
-#endif
 
 static int vrrp_zebra_if_address_add(int command, struct zclient *zclient,
 				     zebra_size_t length, vrf_id_t vrf_id)
@@ -186,24 +176,14 @@ static int vrrp_zebra_if_address_add(int command, struct zclient *zclient,
 	 * connected_add_by_prefix()
 	 */
 	c = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
+
 	if (!c)
 		return 0;
 
+	vrrp_zebra_debug_if_state(c->ifp, vrf_id, __func__);
+	vrrp_zebra_debug_if_dump_address(c->ifp, __func__);
+
 	vrrp_if_address_add(c->ifp);
-
-#if 0
-	if (VRRP_DEBUG_ZEBRA) {
-		char buf[BUFSIZ];
-		prefix2str(p, buf, BUFSIZ);
-		zlog_debug("%s: %s(%u) connected IP address %s flags %u %s",
-			   __PRETTY_FUNCTION__, c->ifp->name, vrf_id, buf,
-			   c->flags,
-			   CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
-				   ? "secondary"
-				   : "primary");
-
-	}
-#endif
 
 	return 0;
 }
@@ -222,8 +202,12 @@ static int vrrp_zebra_if_address_del(int command, struct zclient *client,
 	 * connected_delete_by_prefix()
 	 */
 	c = zebra_interface_address_read(command, client->ibuf, vrf_id);
+
 	if (!c)
 		return 0;
+
+	vrrp_zebra_debug_if_state(c->ifp, vrf_id, __func__);
+	vrrp_zebra_debug_if_dump_address(c->ifp, __func__);
 
 	vrrp_if_address_del(c->ifp);
 
@@ -232,12 +216,21 @@ static int vrrp_zebra_if_address_del(int command, struct zclient *client,
 
 void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable)
 {
+	DEBUGD(&vrrp_dbg_zebra,
+	       VRRP_LOGPFX VRRP_LOGPFX_VRID
+	       "Requesting Zebra to turn router advertisements %s for %s",
+	       r->vr->vrid, enable ? "on" : "off", r->mvl_ifp->name);
+
 	zclient_send_interface_radv_req(zclient, VRF_DEFAULT, r->mvl_ifp,
 					enable, VRRP_RADV_INT);
 }
 
 int vrrp_zclient_send_interface_protodown(struct interface *ifp, bool down)
 {
+	DEBUGD(&vrrp_dbg_zebra,
+	       VRRP_LOGPFX "Requesting Zebra to set %s protodown %s", ifp->name,
+	       down ? "on" : "off");
+
 	return zclient_send_interface_protodown(zclient, VRF_DEFAULT, ifp,
 						down);
 }
