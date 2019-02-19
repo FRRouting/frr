@@ -1659,6 +1659,8 @@ if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
    fi
    CONFD_CFLAGS="-I${enable_confd}/include -L${enable_confd}/lib"
    AC_SUBST([CONFD_CFLAGS])
+   CONFD_LIBS="-lconfd"
+   AC_SUBST([CONFD_LIBS])
    AC_DEFINE([HAVE_CONFD], [1], [Enable confd integration])
 fi
 AM_CONDITIONAL([CONFD], [test "x$enable_confd" != "x"])
