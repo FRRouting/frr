@@ -147,6 +147,8 @@ extern void pbr_map_delete_nexthop_group(struct pbr_map_sequence *pbrms);
 extern void pbr_map_add_interface(struct pbr_map *pbrm, struct interface *ifp);
 extern void pbr_map_interface_delete(struct pbr_map *pbrm,
 				     struct interface *ifp);
+extern void pbr_map_final_interface_deletion(struct pbr_map *pbrm,
+					     struct pbr_map_interface *pmi);
 extern void pbr_map_write_interfaces(struct vty *vty, struct interface *ifp);
 extern void pbr_map_init(void);
 

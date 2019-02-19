@@ -250,6 +250,8 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 		break;
 	}
 
+	pbr_map_final_interface_deletion(pbrms->parent, pmi);
+
 	return 0;
 }
 
