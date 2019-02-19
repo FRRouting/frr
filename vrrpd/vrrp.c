@@ -533,7 +533,7 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid,
 	vr->vrid = vrid;
 	vr->priority = VRRP_DEFAULT_PRIORITY;
 	vr->preempt_mode = true;
-	vr->accept_mode = false;
+	vr->accept_mode = true;
 
 	vr->v4 = vrrp_router_create(vr, AF_INET);
 	vr->v6 = vrrp_router_create(vr, AF_INET6);
