@@ -1022,3 +1022,16 @@ void ospf6_area_init(void)
 	install_element(OSPF6_NODE, &area_filter_list_cmd);
 	install_element(OSPF6_NODE, &no_area_filter_list_cmd);
 }
+
+void ospf6_area_interface_delete(struct ospf6_interface *oi)
+{
+	struct ospf6_area *oa;
+	struct listnode *node, *nnode;
+
+	if (!ospf6)
+		return;
+	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, oa))
+		if(listnode_lookup(oa->if_list, oi))
+			listnode_delete(oa->if_list, oi);
+
+}

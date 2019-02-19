@@ -73,6 +73,15 @@ static void ospf6_set_checksum(void)
 #endif /* DISABLE_IPV6_CHECKSUM */
 }
 
+void ospf6_serv_close(void)
+{
+	if (ospf6_sock > 0) {
+		close(ospf6_sock);
+		ospf6_sock = -1;
+		return;
+	}
+}
+
 /* Make ospf6d's server socket. */
 int ospf6_serv_sock(void)
 {
@@ -163,6 +172,7 @@ int ospf6_sendmsg(struct in6_addr *src, struct in6_addr *dst,
 	assert(dst);
 	assert(*ifindex);
 
+	memset(&cmsgbuf, 0, sizeof(cmsgbuf));
 	scmsgp = (struct cmsghdr *)&cmsgbuf;
 	pktinfo = (struct in6_pktinfo *)(CMSG_DATA(scmsgp));
 	memset(&dst_sin6, 0, sizeof(struct sockaddr_in6));
