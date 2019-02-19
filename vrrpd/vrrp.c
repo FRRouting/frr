@@ -1961,7 +1961,42 @@ void vrrp_if_address_add(struct interface *ifp)
 
 void vrrp_if_address_del(struct interface *ifp)
 {
-	vrrp_autoconfig_if_address_del(ifp);
+	/*
+	 * Zebra is stupid and sends us address deletion notifications
+	 * when any of the following condition sets are met:
+	 *
+	 * - IFF_UP && address deleted
+	 * - IFF_UP -> !IFF_UP
+	 *
+	 * Note that the second one is nonsense, because Zebra behaves as
+	 * though an interface going down means all the addresses on that
+	 * interface got deleted. Which is a problem for autoconfig because all
+	 * the addresses on an interface going away means the VRRP session goes
+	 * to Initialize. However interfaces go down whenever we transition to
+	 * Backup, so this effectively means that for autoconfigured instances
+	 * we actually end up in Initialize whenever we try to go into Backup.
+	 *
+	 * Also, Zebra does NOT send us notifications when:
+	 * - !IFF_UP && address deleted
+	 *
+	 * Which means if we're in backup and an address is deleted out from
+	 * under us, we won't even know.
+	 *
+	 * The only solution here is to only resynchronize our address list
+	 * when:
+	 *
+	 * - An interfaces comes up
+	 * - An interface address is added
+	 * - An interface address is deleted AND the interface is up
+	 *
+	 * Even though this is only a problem with autoconfig at the moment I'm
+	 * papering over Zebra's braindead semantics here. Every piece of code
+	 * in this function should be protected by a check that the interface
+	 * is up.
+	 */
+	if (CHECK_FLAG(ifp->flags, IFF_UP)) {
+		vrrp_autoconfig_if_address_del(ifp);
+	}
 }
 
 /* Other ------------------------------------------------------------------- */
