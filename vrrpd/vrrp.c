@@ -250,13 +250,13 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 	/* Must have a parent interface */
 	start = start && (vr->ifp != NULL);
 	/* Parent interface must be up */
-	start = start && (CHECK_FLAG(vr->ifp->flags, IFF_UP));
+	start = start && if_is_operative(vr->ifp);
 	/* Parent interface must have at least one v4 */
 	start = start && vr->ifp->connected->count > 1;
 	/* Must have a macvlan interface */
 	start = start && (r->mvl_ifp != NULL);
-	/* Macvlan interface must be up */
-	start = start && (CHECK_FLAG(r->mvl_ifp->flags, IFF_UP));
+	/* Macvlan interface must be admin up */
+	start = start && CHECK_FLAG(r->mvl_ifp->flags, IFF_UP);
 	/* Must have at least one VIP configured */
 	start = start && r->addrs->count > 0;
 	if (start)
@@ -268,11 +268,11 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 	/* Must have a parent interface */
 	start = start && (vr->ifp != NULL);
 	/* Parent interface must be up */
-	start = start && (CHECK_FLAG(vr->ifp->flags, IFF_UP));
+	start = start && if_is_operative(vr->ifp);
 	/* Must have a macvlan interface */
 	start = start && (r->mvl_ifp != NULL);
-	/* Macvlan interface must be up */
-	start = start && (CHECK_FLAG(r->mvl_ifp->flags, IFF_UP));
+	/* Macvlan interface must be admin up */
+	start = start && CHECK_FLAG(r->mvl_ifp->flags, IFF_UP);
 	/* Macvlan interface must have at least two v6 */
 	start = start && (r->mvl_ifp->connected->count >= 2);
 	/* Macvlan interface must have a link local */
@@ -445,8 +445,7 @@ static bool vrrp_attach_interface(struct vrrp_router *r)
 	unsigned int candidates = 0;
 	struct interface *selection = NULL;
 	for (unsigned int i = 0; i < ifps_cnt; i++) {
-		if (ifps[i]->link_ifindex != r->vr->ifp->ifindex
-		    || !CHECK_FLAG(ifps[i]->flags, IFF_UP))
+		if (ifps[i]->link_ifindex != r->vr->ifp->ifindex)
 			ifps[i] = NULL;
 		else {
 			selection = selection ? selection : ifps[i];
@@ -1965,8 +1964,8 @@ void vrrp_if_address_del(struct interface *ifp)
 	 * Zebra is stupid and sends us address deletion notifications
 	 * when any of the following condition sets are met:
 	 *
-	 * - IFF_UP && address deleted
-	 * - IFF_UP -> !IFF_UP
+	 * - if_is_operative && address deleted
+	 * - if_is_operative -> !if_is_operative
 	 *
 	 * Note that the second one is nonsense, because Zebra behaves as
 	 * though an interface going down means all the addresses on that
@@ -1977,7 +1976,7 @@ void vrrp_if_address_del(struct interface *ifp)
 	 * we actually end up in Initialize whenever we try to go into Backup.
 	 *
 	 * Also, Zebra does NOT send us notifications when:
-	 * - !IFF_UP && address deleted
+	 * - !if_is_operative && address deleted
 	 *
 	 * Which means if we're in backup and an address is deleted out from
 	 * under us, we won't even know.
@@ -1994,7 +1993,7 @@ void vrrp_if_address_del(struct interface *ifp)
 	 * in this function should be protected by a check that the interface
 	 * is up.
 	 */
-	if (CHECK_FLAG(ifp->flags, IFF_UP)) {
+	if (if_is_operative(ifp)) {
 		vrrp_autoconfig_if_address_del(ifp);
 	}
 }
