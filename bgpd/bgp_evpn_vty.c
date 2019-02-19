@@ -149,11 +149,11 @@ static void display_vrf_import_rt(struct vty *vty, struct vrf_irt_node *irt,
 	}
 }
 
-static void show_vrf_import_rt_entry(struct hash_backet *backet, void *args[])
+static void show_vrf_import_rt_entry(struct hash_bucket *bucket, void *args[])
 {
 	json_object *json = NULL;
 	struct vty *vty = NULL;
-	struct vrf_irt_node *irt = (struct vrf_irt_node *)backet->data;
+	struct vrf_irt_node *irt = (struct vrf_irt_node *)bucket->data;
 
 	vty = (struct vty *)args[0];
 	json = (struct json_object *)args[1];
@@ -256,11 +256,11 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt,
 	}
 }
 
-static void show_import_rt_entry(struct hash_backet *backet, void *args[])
+static void show_import_rt_entry(struct hash_bucket *bucket, void *args[])
 {
 	json_object *json = NULL;
 	struct vty *vty = NULL;
-	struct irt_node *irt = (struct irt_node *)backet->data;
+	struct irt_node *irt = (struct irt_node *)bucket->data;
 
 	vty = args[0];
 	json = args[1];
@@ -709,9 +709,9 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
 	}
 }
 
-static void show_vni_routes_hash(struct hash_backet *backet, void *arg)
+static void show_vni_routes_hash(struct hash_bucket *bucket, void *arg)
 {
-	struct bgpevpn *vpn = (struct bgpevpn *)backet->data;
+	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
 	struct vni_walk_ctx *wctx = arg;
 	struct vty *vty = wctx->vty;
 	json_object *json = wctx->json;
@@ -835,7 +835,7 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 	}
 }
 
-static void show_es_entry(struct hash_backet *backet, void *args[])
+static void show_es_entry(struct hash_bucket *bucket, void *args[])
 {
 	char buf[ESI_STR_LEN];
 	char buf1[RD_ADDRSTRLEN];
@@ -845,7 +845,7 @@ static void show_es_entry(struct hash_backet *backet, void *args[])
 	json_object *json = args[1];
 	json_object *json_vteps = NULL;
 	struct listnode *node = NULL;
-	struct evpnes *es = (struct evpnes *)backet->data;
+	struct evpnes *es = (struct evpnes *)bucket->data;
 
 	if (json) {
 		json_vteps = json_object_new_array();
@@ -877,14 +877,14 @@ static void show_es_entry(struct hash_backet *backet, void *args[])
 	}
 }
 
-static void show_vni_entry(struct hash_backet *backet, void *args[])
+static void show_vni_entry(struct hash_bucket *bucket, void *args[])
 {
 	struct vty *vty;
 	json_object *json;
 	json_object *json_vni = NULL;
 	json_object *json_import_rtl = NULL;
 	json_object *json_export_rtl = NULL;
-	struct bgpevpn *vpn = (struct bgpevpn *)backet->data;
+	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
 	char buf1[10];
 	char buf2[RD_ADDRSTRLEN];
 	char rt_buf[25];
@@ -1969,7 +1969,7 @@ static void evpn_show_vrf_import_rts(struct vty *vty, struct bgp *bgp_def,
 	args[1] = json;
 
 	hash_iterate(bgp_def->vrf_import_rt_hash,
-		     (void (*)(struct hash_backet *,
+		     (void (*)(struct hash_bucket *,
 			       void *))show_vrf_import_rt_entry,
 		     args);
 }
@@ -1987,7 +1987,7 @@ static void evpn_show_import_rts(struct vty *vty, struct bgp *bgp,
 
 	hash_iterate(
 		bgp->import_rt_hash,
-		(void (*)(struct hash_backet *, void *))show_import_rt_entry,
+		(void (*)(struct hash_bucket *, void *))show_import_rt_entry,
 		args);
 }
 
@@ -2008,7 +2008,7 @@ static void evpn_show_routes_vni_all(struct vty *vty, struct bgp *bgp,
 	wctx.vty = vty;
 	wctx.vtep_ip = vtep_ip;
 	wctx.json = json;
-	hash_iterate(bgp->vnihash, (void (*)(struct hash_backet *,
+	hash_iterate(bgp->vnihash, (void (*)(struct hash_bucket *,
 					     void *))show_vni_routes_hash,
 		     &wctx);
 }
@@ -2552,7 +2552,7 @@ static void evpn_show_all_es(struct vty *vty, struct bgp *bgp,
 	args[0] = vty;
 	args[1] = json;
 	hash_iterate(bgp->esihash,
-		     (void (*)(struct hash_backet *, void *))show_es_entry,
+		     (void (*)(struct hash_bucket *, void *))show_es_entry,
 		     args);
 }
 
@@ -2612,7 +2612,7 @@ static void evpn_show_all_vnis(struct vty *vty, struct bgp *bgp,
 	args[0] = vty;
 	args[1] = json;
 	hash_iterate(bgp->vnihash,
-		     (void (*)(struct hash_backet *, void *))show_vni_entry,
+		     (void (*)(struct hash_bucket *, void *))show_vni_entry,
 		     args);
 
 	/* print all L3 VNIs */

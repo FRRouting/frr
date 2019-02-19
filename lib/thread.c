@@ -106,7 +106,7 @@ static void vty_out_cpu_thread_history(struct vty *vty,
 		a->types & (1 << THREAD_EXECUTE) ? 'X' : ' ', a->funcname);
 }
 
-static void cpu_record_hash_print(struct hash_backet *bucket, void *args[])
+static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 {
 	struct cpu_thread_history *totals = args[0];
 	struct cpu_thread_history copy;
@@ -178,7 +178,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 			if (m->cpu_record->count)
 				hash_iterate(
 					m->cpu_record,
-					(void (*)(struct hash_backet *,
+					(void (*)(struct hash_bucket *,
 						  void *))cpu_record_hash_print,
 					args);
 			else
@@ -202,7 +202,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 		vty_out_cpu_thread_history(vty, &tmp);
 }
 
-static void cpu_record_hash_clear(struct hash_backet *bucket, void *args[])
+static void cpu_record_hash_clear(struct hash_bucket *bucket, void *args[])
 {
 	uint8_t *filter = args[0];
 	struct hash *cpu_record = args[1];
@@ -229,7 +229,7 @@ static void cpu_record_clear(uint8_t filter)
 				void *args[2] = {tmp, m->cpu_record};
 				hash_iterate(
 					m->cpu_record,
-					(void (*)(struct hash_backet *,
+					(void (*)(struct hash_bucket *,
 						  void *))cpu_record_hash_clear,
 					args);
 			}

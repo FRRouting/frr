@@ -3604,9 +3604,9 @@ static int delete_withdraw_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
  * router-id. The routes in the per-VNI table are used to create routes in
  * the global table and schedule them.
  */
-static void update_router_id_vni(struct hash_backet *backet, struct bgp *bgp)
+static void update_router_id_vni(struct hash_bucket *bucket, struct bgp *bgp)
 {
-	struct bgpevpn *vpn = (struct bgpevpn *)backet->data;
+	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
 
 	/* Skip VNIs with configured RD. */
 	if (is_rd_configured(vpn))
@@ -3622,9 +3622,9 @@ static void update_router_id_vni(struct hash_backet *backet, struct bgp *bgp)
  * the router-id and is done only on the global route table, the routes
  * are needed in the per-VNI table to re-advertise with new router id.
  */
-static void withdraw_router_id_vni(struct hash_backet *backet, struct bgp *bgp)
+static void withdraw_router_id_vni(struct hash_bucket *bucket, struct bgp *bgp)
 {
-	struct bgpevpn *vpn = (struct bgpevpn *)backet->data;
+	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
 
 	/* Skip VNIs with configured RD. */
 	if (is_rd_configured(vpn))
@@ -3637,9 +3637,9 @@ static void withdraw_router_id_vni(struct hash_backet *backet, struct bgp *bgp)
  * Create RT-3 for a VNI and schedule for processing and advertisement.
  * This is invoked upon flooding mode changing to head-end replication.
  */
-static void create_advertise_type3(struct hash_backet *backet, void *data)
+static void create_advertise_type3(struct hash_bucket *bucket, void *data)
 {
-	struct bgpevpn *vpn = backet->data;
+	struct bgpevpn *vpn = bucket->data;
 	struct bgp *bgp = data;
 	struct prefix_evpn p;
 
@@ -3656,9 +3656,9 @@ static void create_advertise_type3(struct hash_backet *backet, void *data)
  * Delete RT-3 for a VNI and schedule for processing and withdrawal.
  * This is invoked upon flooding mode changing to drop BUM packets.
  */
-static void delete_withdraw_type3(struct hash_backet *backet, void *data)
+static void delete_withdraw_type3(struct hash_bucket *bucket, void *data)
 {
-	struct bgpevpn *vpn = backet->data;
+	struct bgpevpn *vpn = bucket->data;
 	struct bgp *bgp = data;
 	struct prefix_evpn p;
 
@@ -4088,9 +4088,9 @@ static void evpn_mpattr_encode_type5(struct stream *s, struct prefix *p,
 /*
  * Cleanup specific VNI upon EVPN (advertise-all-vni) being disabled.
  */
-static void cleanup_vni_on_disable(struct hash_backet *backet, struct bgp *bgp)
+static void cleanup_vni_on_disable(struct hash_bucket *bucket, struct bgp *bgp)
 {
-	struct bgpevpn *vpn = (struct bgpevpn *)backet->data;
+	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
 
 	/* Remove EVPN routes and schedule for processing. */
 	delete_routes_for_vni(bgp, vpn);
@@ -4104,9 +4104,9 @@ static void cleanup_vni_on_disable(struct hash_backet *backet, struct bgp *bgp)
 /*
  * Free a VNI entry; iterator function called during cleanup.
  */
-static void free_vni_entry(struct hash_backet *backet, struct bgp *bgp)
+static void free_vni_entry(struct hash_bucket *bucket, struct bgp *bgp)
 {
-	struct bgpevpn *vpn = (struct bgpevpn *)backet->data;
+	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
 
 	delete_all_vni_routes(bgp, vpn);
 	bgp_evpn_free(bgp, vpn);
@@ -4175,9 +4175,9 @@ static void bgp_evpn_handle_export_rt_change_for_vrf(struct bgp *bgp_vrf)
 /*
  * Handle autort change for a given VNI.
  */
-static void update_autort_vni(struct hash_backet *backet, struct bgp *bgp)
+static void update_autort_vni(struct hash_bucket *bucket, struct bgp *bgp)
 {
-	struct bgpevpn *vpn = backet->data;
+	struct bgpevpn *vpn = bucket->data;
 
 	if (!is_import_rt_configured(vpn)) {
 		if (is_vni_live(vpn))
@@ -4483,7 +4483,7 @@ void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 		 * L2-VNIs
 		 */
 		hash_iterate(bgp->vnihash,
-			     (void (*)(struct hash_backet *,
+			     (void (*)(struct hash_bucket *,
 				       void *))withdraw_router_id_vni,
 			     bgp);
 	} else {
@@ -4497,7 +4497,7 @@ void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 		 * new RD
 		 */
 		hash_iterate(bgp->vnihash,
-			     (void (*)(struct hash_backet *,
+			     (void (*)(struct hash_bucket *,
 				       void *))update_router_id_vni,
 			     bgp);
 	}
@@ -4509,7 +4509,7 @@ void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 void bgp_evpn_handle_autort_change(struct bgp *bgp)
 {
 	hash_iterate(bgp->vnihash,
-		     (void (*)(struct hash_backet *,
+		     (void (*)(struct hash_bucket *,
 			       void*))update_autort_vni,
 		     bgp);
 }
@@ -5382,10 +5382,10 @@ int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 	return 0;
 }
 
-static void link_l2vni_hash_to_l3vni(struct hash_backet *backet,
+static void link_l2vni_hash_to_l3vni(struct hash_bucket *bucket,
 				     struct bgp *bgp_vrf)
 {
-	struct bgpevpn *vpn = (struct bgpevpn *)backet->data;
+	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
 	struct bgp *bgp_def = NULL;
 
 	bgp_def = bgp_get_default();
@@ -5471,7 +5471,7 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *rmac,
 
 	/* link all corresponding l2vnis */
 	hash_iterate(bgp_def->vnihash,
-		     (void (*)(struct hash_backet *,
+		     (void (*)(struct hash_bucket *,
 			       void *))link_l2vni_hash_to_l3vni,
 		     bgp_vrf);
 
@@ -5804,7 +5804,7 @@ void bgp_evpn_flood_control_change(struct bgp *bgp)
  */
 void bgp_evpn_cleanup_on_disable(struct bgp *bgp)
 {
-	hash_iterate(bgp->vnihash, (void (*)(struct hash_backet *,
+	hash_iterate(bgp->vnihash, (void (*)(struct hash_bucket *,
 					     void *))cleanup_vni_on_disable,
 		     bgp);
 }
@@ -5816,7 +5816,7 @@ void bgp_evpn_cleanup_on_disable(struct bgp *bgp)
 void bgp_evpn_cleanup(struct bgp *bgp)
 {
 	hash_iterate(bgp->vnihash,
-		     (void (*)(struct hash_backet *, void *))free_vni_entry,
+		     (void (*)(struct hash_bucket *, void *))free_vni_entry,
 		     bgp);
 
 	hash_free(bgp->import_rt_hash);

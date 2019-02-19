@@ -7613,10 +7613,10 @@ DEFUN (show_bgp_mac_hash,
 	return CMD_SUCCESS;
 }
 
-static void show_tip_entry(struct hash_backet *backet, void *args)
+static void show_tip_entry(struct hash_bucket *bucket, void *args)
 {
 	struct vty *vty = (struct vty *)args;
-	struct tip_addr *tip = (struct tip_addr *)backet->data;
+	struct tip_addr *tip = (struct tip_addr *)bucket->data;
 
 	vty_out(vty, "addr: %s, count: %d\n", inet_ntoa(tip->addr),
 		tip->refcnt);
@@ -7629,7 +7629,7 @@ static void bgp_show_martian_nexthops(struct vty *vty, struct bgp *bgp)
 
 	vty_out(vty, "Tunnel-ip database:\n");
 	hash_iterate(bgp->tip_hash,
-		     (void (*)(struct hash_backet *, void *))show_tip_entry,
+		     (void (*)(struct hash_bucket *, void *))show_tip_entry,
 		     vty);
 }
 
@@ -7784,7 +7784,7 @@ DEFUN (show_bgp_memory,
 	if ((count = mtype_stats_alloc(MTYPE_HASH_BACKET)))
 		vty_out(vty, "%ld hash buckets, using %s of memory\n", count,
 			mtype_memstr(memstrbuf, sizeof(memstrbuf),
-				     count * sizeof(struct hash_backet)));
+				     count * sizeof(struct hash_bucket)));
 	if ((count = mtype_stats_alloc(MTYPE_BGP_REGEXP)))
 		vty_out(vty, "%ld compiled regexes, using %s of memory\n",
 			count, mtype_memstr(memstrbuf, sizeof(memstrbuf),
@@ -11196,12 +11196,12 @@ DEFUN (show_ip_bgp_paths,
 
 #include "hash.h"
 
-static void community_show_all_iterator(struct hash_backet *backet,
+static void community_show_all_iterator(struct hash_bucket *bucket,
 					struct vty *vty)
 {
 	struct community *com;
 
-	com = (struct community *)backet->data;
+	com = (struct community *)bucket->data;
 	vty_out(vty, "[%p] (%ld) %s\n", (void *)com, com->refcnt,
 		community_str(com, false));
 }
@@ -11218,19 +11218,19 @@ DEFUN (show_ip_bgp_community_info,
 	vty_out(vty, "Address Refcnt Community\n");
 
 	hash_iterate(community_hash(),
-		     (void (*)(struct hash_backet *,
+		     (void (*)(struct hash_bucket *,
 			       void *))community_show_all_iterator,
 		     vty);
 
 	return CMD_SUCCESS;
 }
 
-static void lcommunity_show_all_iterator(struct hash_backet *backet,
+static void lcommunity_show_all_iterator(struct hash_bucket *bucket,
 					 struct vty *vty)
 {
 	struct lcommunity *lcom;
 
-	lcom = (struct lcommunity *)backet->data;
+	lcom = (struct lcommunity *)bucket->data;
 	vty_out(vty, "[%p] (%ld) %s\n", (void *)lcom, lcom->refcnt,
 		lcommunity_str(lcom, false));
 }
@@ -11247,7 +11247,7 @@ DEFUN (show_ip_bgp_lcommunity_info,
 	vty_out(vty, "Address Refcnt Large-community\n");
 
 	hash_iterate(lcommunity_hash(),
-		     (void (*)(struct hash_backet *,
+		     (void (*)(struct hash_bucket *,
 			       void *))lcommunity_show_all_iterator,
 		     vty);
 

@@ -72,9 +72,9 @@ struct bgp_pbr_rule_unique {
 	struct bgp_pbr_rule *bpr_found;
 };
 
-static int bgp_pbr_rule_walkcb(struct hash_backet *backet, void *arg)
+static int bgp_pbr_rule_walkcb(struct hash_bucket *bucket, void *arg)
 {
-	struct bgp_pbr_rule *bpr = (struct bgp_pbr_rule *)backet->data;
+	struct bgp_pbr_rule *bpr = (struct bgp_pbr_rule *)bucket->data;
 	struct bgp_pbr_rule_unique *bpru = (struct bgp_pbr_rule_unique *)
 		arg;
 	uint32_t unique = bpru->unique;
@@ -86,9 +86,9 @@ static int bgp_pbr_rule_walkcb(struct hash_backet *backet, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
-static int bgp_pbr_action_walkcb(struct hash_backet *backet, void *arg)
+static int bgp_pbr_action_walkcb(struct hash_bucket *bucket, void *arg)
 {
-	struct bgp_pbr_action *bpa = (struct bgp_pbr_action *)backet->data;
+	struct bgp_pbr_action *bpa = (struct bgp_pbr_action *)bucket->data;
 	struct bgp_pbr_action_unique *bpau = (struct bgp_pbr_action_unique *)
 		arg;
 	uint32_t unique = bpau->unique;
@@ -100,10 +100,10 @@ static int bgp_pbr_action_walkcb(struct hash_backet *backet, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
-static int bgp_pbr_match_entry_walkcb(struct hash_backet *backet, void *arg)
+static int bgp_pbr_match_entry_walkcb(struct hash_bucket *bucket, void *arg)
 {
 	struct bgp_pbr_match_entry *bpme =
-		(struct bgp_pbr_match_entry *)backet->data;
+		(struct bgp_pbr_match_entry *)bucket->data;
 	struct bgp_pbr_match_entry_unique *bpmeu =
 		(struct bgp_pbr_match_entry_unique *)arg;
 	uint32_t unique = bpmeu->unique;
@@ -120,9 +120,9 @@ struct bgp_pbr_match_ipsetname {
 	struct bgp_pbr_match *bpm_found;
 };
 
-static int bgp_pbr_match_pername_walkcb(struct hash_backet *backet, void *arg)
+static int bgp_pbr_match_pername_walkcb(struct hash_bucket *bucket, void *arg)
 {
-	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)backet->data;
+	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)bucket->data;
 	struct bgp_pbr_match_ipsetname *bpmi =
 		(struct bgp_pbr_match_ipsetname *)arg;
 	char *ipset_name = bpmi->ipsetname;
@@ -135,9 +135,9 @@ static int bgp_pbr_match_pername_walkcb(struct hash_backet *backet, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
-static int bgp_pbr_match_iptable_walkcb(struct hash_backet *backet, void *arg)
+static int bgp_pbr_match_iptable_walkcb(struct hash_bucket *bucket, void *arg)
 {
-	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)backet->data;
+	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)bucket->data;
 	struct bgp_pbr_match_iptable_unique *bpmiu =
 		(struct bgp_pbr_match_iptable_unique *)arg;
 	uint32_t unique = bpmiu->unique;
@@ -154,9 +154,9 @@ struct bgp_pbr_match_unique {
 	struct bgp_pbr_match *bpm_found;
 };
 
-static int bgp_pbr_match_walkcb(struct hash_backet *backet, void *arg)
+static int bgp_pbr_match_walkcb(struct hash_bucket *bucket, void *arg)
 {
-	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)backet->data;
+	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)bucket->data;
 	struct bgp_pbr_match_unique *bpmu = (struct bgp_pbr_match_unique *)
 		arg;
 	uint32_t unique = bpmu->unique;
@@ -1504,9 +1504,9 @@ struct bgp_pbr_rule_remain {
 	struct bgp_pbr_rule *bpr_found;
 };
 
-static int bgp_pbr_get_same_rule(struct hash_backet *backet, void *arg)
+static int bgp_pbr_get_same_rule(struct hash_bucket *bucket, void *arg)
 {
-	struct bgp_pbr_rule *r1 = (struct bgp_pbr_rule *)backet->data;
+	struct bgp_pbr_rule *r1 = (struct bgp_pbr_rule *)bucket->data;
 	struct bgp_pbr_rule_remain *ctxt =
 		(struct bgp_pbr_rule_remain *)arg;
 	struct bgp_pbr_rule *r2;
@@ -1543,9 +1543,9 @@ static int bgp_pbr_get_same_rule(struct hash_backet *backet, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
-static int bgp_pbr_get_remaining_entry(struct hash_backet *backet, void *arg)
+static int bgp_pbr_get_remaining_entry(struct hash_bucket *bucket, void *arg)
 {
-	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)backet->data;
+	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)bucket->data;
 	struct bgp_pbr_match_entry_remain *bpmer =
 		(struct bgp_pbr_match_entry_remain *)arg;
 	struct bgp_pbr_match *bpm_temp;

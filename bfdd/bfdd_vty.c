@@ -52,7 +52,7 @@
 static int bfdd_write_config(struct vty *vty);
 static int bfdd_peer_write_config(struct vty *vty);
 static void _bfdd_peer_write_config(struct vty *vty, struct bfd_session *bs);
-static void _bfdd_peer_write_config_iter(struct hash_backet *hb, void *arg);
+static void _bfdd_peer_write_config_iter(struct hash_bucket *hb, void *arg);
 static int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 			      const struct sockaddr_any *peer,
 			      const struct sockaddr_any *local,
@@ -65,13 +65,13 @@ static struct json_object *_peer_json_header(struct bfd_session *bs);
 static void _display_peer_json(struct vty *vty, struct bfd_session *bs);
 static void _display_peer(struct vty *vty, struct bfd_session *bs);
 static void _display_all_peers(struct vty *vty, bool use_json);
-static void _display_peer_iter(struct hash_backet *hb, void *arg);
-static void _display_peer_json_iter(struct hash_backet *hb, void *arg);
+static void _display_peer_iter(struct hash_bucket *hb, void *arg);
+static void _display_peer_json_iter(struct hash_bucket *hb, void *arg);
 static void _display_peer_counter(struct vty *vty, struct bfd_session *bs);
 static struct json_object *__display_peer_counters_json(struct bfd_session *bs);
 static void _display_peer_counters_json(struct vty *vty, struct bfd_session *bs);
-static void _display_peer_counter_iter(struct hash_backet *hb, void *arg);
-static void _display_peer_counter_json_iter(struct hash_backet *hb, void *arg);
+static void _display_peer_counter_iter(struct hash_bucket *hb, void *arg);
+static void _display_peer_counter_json_iter(struct hash_bucket *hb, void *arg);
 static void _display_peers_counter(struct vty *vty, bool use_json);
 static struct bfd_session *
 _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
@@ -538,7 +538,7 @@ static void _display_peer_json(struct vty *vty, struct bfd_session *bs)
 	json_object_free(jo);
 }
 
-static void _display_peer_iter(struct hash_backet *hb, void *arg)
+static void _display_peer_iter(struct hash_bucket *hb, void *arg)
 {
 	struct vty *vty = arg;
 	struct bfd_session *bs = hb->data;
@@ -546,7 +546,7 @@ static void _display_peer_iter(struct hash_backet *hb, void *arg)
 	_display_peer(vty, bs);
 }
 
-static void _display_peer_json_iter(struct hash_backet *hb, void *arg)
+static void _display_peer_json_iter(struct hash_bucket *hb, void *arg)
 {
 	struct json_object *jo = arg, *jon = NULL;
 	struct bfd_session *bs = hb->data;
@@ -621,7 +621,7 @@ static void _display_peer_counters_json(struct vty *vty, struct bfd_session *bs)
 	json_object_free(jo);
 }
 
-static void _display_peer_counter_iter(struct hash_backet *hb, void *arg)
+static void _display_peer_counter_iter(struct hash_bucket *hb, void *arg)
 {
 	struct vty *vty = arg;
 	struct bfd_session *bs = hb->data;
@@ -629,7 +629,7 @@ static void _display_peer_counter_iter(struct hash_backet *hb, void *arg)
 	_display_peer_counter(vty, bs);
 }
 
-static void _display_peer_counter_json_iter(struct hash_backet *hb, void *arg)
+static void _display_peer_counter_json_iter(struct hash_bucket *hb, void *arg)
 {
 	struct json_object *jo = arg, *jon = NULL;
 	struct bfd_session *bs = hb->data;
@@ -970,7 +970,7 @@ DEFUN_NOSH(show_debugging_bfd,
 	return CMD_SUCCESS;
 }
 
-static void _bfdd_peer_write_config_iter(struct hash_backet *hb, void *arg)
+static void _bfdd_peer_write_config_iter(struct hash_bucket *hb, void *arg)
 {
 	struct vty *vty = arg;
 	struct bfd_session *bs = hb->data;

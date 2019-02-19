@@ -1294,7 +1294,7 @@ static void _shop_key(struct bfd_session *bs, const struct bfd_shop_key *shop);
 static void _shop_key2(struct bfd_session *bs, const struct bfd_shop_key *shop);
 static void _mhop_key(struct bfd_session *bs, const struct bfd_mhop_key *mhop);
 
-static void _bfd_free(struct hash_backet *hb,
+static void _bfd_free(struct hash_bucket *hb,
 		      void *arg __attribute__((__unused__)));
 
 /* BFD hash for our discriminator. */
@@ -1516,7 +1516,7 @@ void bfd_initialize(void)
 				    "BFD multihop hop hash");
 }
 
-static void _bfd_free(struct hash_backet *hb,
+static void _bfd_free(struct hash_bucket *hb,
 		      void *arg __attribute__((__unused__)))
 {
 	struct bfd_session *bs = hb->data;

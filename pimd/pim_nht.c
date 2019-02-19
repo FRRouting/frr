@@ -266,10 +266,10 @@ void pim_resolve_upstream_nh(struct pim_instance *pim, struct prefix *nht_p)
 }
 
 /* Update Upstream nexthop info based on Nexthop update received from Zebra.*/
-static int pim_update_upstream_nh_helper(struct hash_backet *backet, void *arg)
+static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 {
 	struct pim_instance *pim = (struct pim_instance *)arg;
-	struct pim_upstream *up = (struct pim_upstream *)backet->data;
+	struct pim_upstream *up = (struct pim_upstream *)bucket->data;
 	int vif_index = 0;
 
 	enum pim_rpf_result rpf_result;

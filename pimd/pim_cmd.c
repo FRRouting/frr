@@ -2789,9 +2789,9 @@ struct pnc_cache_walk_data {
 	struct pim_instance *pim;
 };
 
-static int pim_print_pnc_cache_walkcb(struct hash_backet *backet, void *arg)
+static int pim_print_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 {
-	struct pim_nexthop_cache *pnc = backet->data;
+	struct pim_nexthop_cache *pnc = bucket->data;
 	struct pnc_cache_walk_data *cwd = arg;
 	struct vty *vty = cwd->vty;
 	struct pim_instance *pim = cwd->pim;

@@ -2077,14 +2077,14 @@ void aspath_print_vty(struct vty *vty, const char *format, struct aspath *as,
 		vty_out(vty, "%s", suffix);
 }
 
-static void aspath_show_all_iterator(struct hash_backet *backet,
+static void aspath_show_all_iterator(struct hash_bucket *bucket,
 				     struct vty *vty)
 {
 	struct aspath *as;
 
-	as = (struct aspath *)backet->data;
+	as = (struct aspath *)bucket->data;
 
-	vty_out(vty, "[%p:%u] (%ld) ", (void *)backet, backet->key, as->refcnt);
+	vty_out(vty, "[%p:%u] (%ld) ", (void *)bucket, bucket->key, as->refcnt);
 	vty_out(vty, "%s\n", as->str);
 }
 
@@ -2092,7 +2092,7 @@ static void aspath_show_all_iterator(struct hash_backet *backet,
    `show [ip] bgp paths' command. */
 void aspath_print_all_vty(struct vty *vty)
 {
-	hash_iterate(ashash, (void (*)(struct hash_backet *,
+	hash_iterate(ashash, (void (*)(struct hash_bucket *,
 				       void *))aspath_show_all_iterator,
 		     vty);
 }

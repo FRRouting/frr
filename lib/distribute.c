@@ -409,7 +409,7 @@ int config_show_distribute(struct vty *vty, struct distribute_ctx *dist_ctxt)
 {
 	unsigned int i;
 	int has_print = 0;
-	struct hash_backet *mp;
+	struct hash_bucket *mp;
 	struct distribute *dist;
 
 	/* Output filter configuration. */
@@ -512,7 +512,7 @@ int config_write_distribute(struct vty *vty,
 	unsigned int i;
 	int j;
 	int output, v6;
-	struct hash_backet *mp;
+	struct hash_bucket *mp;
 	int write = 0;
 
 	for (i = 0; i < dist_ctxt->disthash->size; i++)

@@ -261,7 +261,7 @@ DEFUN (no_if_rmap,
 int config_write_if_rmap(struct vty *vty)
 {
 	unsigned int i;
-	struct hash_backet *mp;
+	struct hash_bucket *mp;
 	int write = 0;
 
 	for (i = 0; i < ifrmaphash->size; i++)

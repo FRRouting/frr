@@ -85,8 +85,8 @@ static int nhlfe_nexthop_active_ipv6(zebra_nhlfe_t *nhlfe,
 static int nhlfe_nexthop_active(zebra_nhlfe_t *nhlfe);
 
 static void lsp_select_best_nhlfe(zebra_lsp_t *lsp);
-static void lsp_uninstall_from_kernel(struct hash_backet *backet, void *ctxt);
-static void lsp_schedule(struct hash_backet *backet, void *ctxt);
+static void lsp_uninstall_from_kernel(struct hash_bucket *bucket, void *ctxt);
+static void lsp_schedule(struct hash_bucket *bucket, void *ctxt);
 static wq_item_status lsp_process(struct work_queue *wq, void *data);
 static void lsp_processq_del(struct work_queue *wq, void *data);
 static void lsp_processq_complete(struct work_queue *wq);
@@ -853,11 +853,11 @@ static void lsp_select_best_nhlfe(zebra_lsp_t *lsp)
  * Delete LSP forwarding entry from kernel, if installed. Called upon
  * process exit.
  */
-static void lsp_uninstall_from_kernel(struct hash_backet *backet, void *ctxt)
+static void lsp_uninstall_from_kernel(struct hash_bucket *bucket, void *ctxt)
 {
 	zebra_lsp_t *lsp;
 
-	lsp = (zebra_lsp_t *)backet->data;
+	lsp = (zebra_lsp_t *)bucket->data;
 	if (CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED))
 		(void)dplane_lsp_delete(lsp);
 }
@@ -866,11 +866,11 @@ static void lsp_uninstall_from_kernel(struct hash_backet *backet, void *ctxt)
  * Schedule LSP forwarding entry for processing. Called upon changes
  * that may impact LSPs such as nexthop / connected route changes.
  */
-static void lsp_schedule(struct hash_backet *backet, void *ctxt)
+static void lsp_schedule(struct hash_bucket *bucket, void *ctxt)
 {
 	zebra_lsp_t *lsp;
 
-	lsp = (zebra_lsp_t *)backet->data;
+	lsp = (zebra_lsp_t *)bucket->data;
 	(void)lsp_processq_add(lsp);
 }
 
@@ -1492,7 +1492,7 @@ static json_object *lsp_json(zebra_lsp_t *lsp)
 static struct list *hash_get_sorted_list(struct hash *hash, void *cmp)
 {
 	unsigned int i;
-	struct hash_backet *hb;
+	struct hash_bucket *hb;
 	struct list *sorted_list = list_new();
 
 	sorted_list->cmp = (int (*)(void *, void *))cmp;
@@ -2550,12 +2550,12 @@ int mpls_lsp_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
  * Uninstall all LDP NHLFEs for a particular LSP forwarding entry.
  * If no other NHLFEs exist, the entry would be deleted.
  */
-void mpls_ldp_lsp_uninstall_all(struct hash_backet *backet, void *ctxt)
+void mpls_ldp_lsp_uninstall_all(struct hash_bucket *bucket, void *ctxt)
 {
 	zebra_lsp_t *lsp;
 	struct hash *lsp_table;
 
-	lsp = (zebra_lsp_t *)backet->data;
+	lsp = (zebra_lsp_t *)bucket->data;
 	if (!lsp->nhlfe_list)
 		return;
 
