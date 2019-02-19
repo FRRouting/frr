@@ -616,11 +616,12 @@ static void zserv_client_free(struct zserv *client)
 	pthread_mutex_destroy(&client->ibuf_mtx);
 
 	/* Free bitmaps. */
-	for (afi_t afi = AFI_IP; afi < AFI_MAX; afi++)
+	for (afi_t afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (int i = 0; i < ZEBRA_ROUTE_MAX; i++)
 			vrf_bitmap_free(client->redist[afi][i]);
 
-	vrf_bitmap_free(client->redist_default);
+		vrf_bitmap_free(client->redist_default[afi]);
+	}
 	vrf_bitmap_free(client->ifinfo);
 	vrf_bitmap_free(client->ridinfo);
 
@@ -700,10 +701,11 @@ static struct zserv *zserv_client_create(int sock)
 			      memory_order_relaxed);
 
 	/* Initialize flags */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
 			client->redist[afi][i] = vrf_bitmap_init();
-	client->redist_default = vrf_bitmap_init();
+		client->redist_default[afi] = vrf_bitmap_init();
+	}
 	client->ifinfo = vrf_bitmap_init();
 	client->ridinfo = vrf_bitmap_init();
 
@@ -720,8 +722,6 @@ static struct zserv *zserv_client_create(int sock)
 	client->pthread =
 		frr_pthread_new(&zclient_pthr_attrs, "Zebra API client thread",
 				"zebra_apic");
-
-	zebra_vrf_update_all(client);
 
 	/* start read loop */
 	zserv_client_event(client, ZSERV_CLIENT_READ);

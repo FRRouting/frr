@@ -261,7 +261,7 @@ static int nb_cli_confirmed_commit_timeout(struct thread *thread)
 static int nb_cli_commit(struct vty *vty, bool force,
 			 unsigned int confirmed_timeout, char *comment)
 {
-	uint32_t transaction_id;
+	uint32_t transaction_id = 0;
 	int ret;
 
 	/* Check if there's a pending confirmed commit. */

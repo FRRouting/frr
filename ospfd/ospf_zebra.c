@@ -340,11 +340,11 @@ static int ospf_interface_address_delete(int command, struct zclient *zclient,
 }
 
 static int ospf_interface_link_params(int command, struct zclient *zclient,
-				      zebra_size_t length)
+				      zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 
-	ifp = zebra_interface_link_params_read(zclient->ibuf);
+	ifp = zebra_interface_link_params_read(zclient->ibuf, vrf_id);
 
 	if (ifp == NULL)
 		return 0;
@@ -655,7 +655,7 @@ int ospf_is_type_redistributed(struct ospf *ospf, int type,
 			       unsigned short instance)
 {
 	return (DEFAULT_ROUTE_TYPE(type)
-			? vrf_bitmap_check(zclient->default_information,
+			? vrf_bitmap_check(zclient->default_information[AFI_IP],
 					   ospf->vrf_id)
 			: ((instance
 			    && redist_check_instance(
@@ -793,8 +793,8 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 			 * existance.
 			 */
 			zclient_redistribute_default(
-					ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
-					 zclient, ospf->vrf_id);
+				ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient, AFI_IP,
+				ospf->vrf_id);
 		}
 
 		ospf_asbr_status_update(ospf, ++ospf->redistribute);
@@ -820,7 +820,7 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 
 			zclient_redistribute_default(
 					ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
-					zclient, ospf->vrf_id);
+					zclient, AFI_IP, ospf->vrf_id);
 			/* here , ex-info should be added since ex-info might
 			 * have not updated earlier if def route is not exist.
 			 * If ex-iinfo ex-info already exist , it will return
@@ -845,7 +845,7 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 
 			zclient_redistribute_default(
 					ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
-					zclient, ospf->vrf_id);
+					zclient, AFI_IP, ospf->vrf_id);
 		}
 	}
 
@@ -857,7 +857,7 @@ int ospf_redistribute_default_unset(struct ospf *ospf)
 		if (!ospf_is_type_redistributed(ospf, DEFAULT_ROUTE, 0))
 			return CMD_SUCCESS;
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
-				 zclient, ospf->vrf_id);
+				 zclient, AFI_IP, ospf->vrf_id);
 	}
 
 	ospf->default_originate = DEFAULT_ORIGINATE_NONE;

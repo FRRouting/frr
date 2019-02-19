@@ -1323,6 +1323,7 @@ static void zread_interface_add(ZAPI_HANDLER_ARGS)
 				continue;
 
 			zsend_interface_add(client, ifp);
+			zsend_interface_link_params(client, ifp);
 			zsend_interface_addresses(client, ifp);
 		}
 	}
@@ -1655,6 +1656,7 @@ static void zsend_capabilities(struct zserv *client, struct zebra_vrf *zvrf)
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_CAPABILITIES, zvrf->vrf->vrf_id);
+	stream_putl(s, vrf_get_backend());
 	stream_putc(s, mpls_enabled);
 	stream_putl(s, multipath_num);
 
@@ -1690,6 +1692,7 @@ static void zread_hello(ZAPI_HANDLER_ARGS)
 	}
 
 	zsend_capabilities(client, zvrf);
+	zebra_vrf_update_all(client);
 stream_failure:
 	return;
 }
@@ -1700,10 +1703,11 @@ static void zread_vrf_unregister(ZAPI_HANDLER_ARGS)
 	int i;
 	afi_t afi;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
 			vrf_bitmap_unset(client->redist[afi][i], zvrf_id(zvrf));
-	vrf_bitmap_unset(client->redist_default, zvrf_id(zvrf));
+		vrf_bitmap_unset(client->redist_default[afi], zvrf_id(zvrf));
+	}
 	vrf_bitmap_unset(client->ifinfo, zvrf_id(zvrf));
 	vrf_bitmap_unset(client->ridinfo, zvrf_id(zvrf));
 }

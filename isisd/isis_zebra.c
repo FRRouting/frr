@@ -219,11 +219,11 @@ static int isis_zebra_if_address_del(int command, struct zclient *client,
 }
 
 static int isis_zebra_link_params(int command, struct zclient *zclient,
-				  zebra_size_t length)
+				  zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 
-	ifp = zebra_interface_link_params_read(zclient->ibuf);
+	ifp = zebra_interface_link_params_read(zclient->ibuf, vrf_id);
 
 	if (ifp == NULL)
 		return 0;
@@ -390,7 +390,7 @@ void isis_zebra_redistribute_set(afi_t afi, int type)
 {
 	if (type == DEFAULT_ROUTE)
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
-					     zclient, VRF_DEFAULT);
+					     zclient, afi, VRF_DEFAULT);
 	else
 		zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type,
 				     0, VRF_DEFAULT);
@@ -400,7 +400,7 @@ void isis_zebra_redistribute_unset(afi_t afi, int type)
 {
 	if (type == DEFAULT_ROUTE)
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
-					     zclient, VRF_DEFAULT);
+					     zclient, afi, VRF_DEFAULT);
 	else
 		zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, afi,
 				     type, 0, VRF_DEFAULT);

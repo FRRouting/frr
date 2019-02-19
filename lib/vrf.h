@@ -240,9 +240,6 @@ extern void vrf_set_default_name(const char *default_name, bool force);
 extern const char *vrf_get_default_name(void);
 #define VRF_DEFAULT_NAME    vrf_get_default_name()
 
-/* VRF is mapped on netns or not ? */
-int vrf_is_mapped_on_netns(struct vrf *vrf);
-
 /* VRF switch from NETNS */
 extern int vrf_switch_to_netns(vrf_id_t vrf_id);
 extern int vrf_switchback_to_initial(void);
