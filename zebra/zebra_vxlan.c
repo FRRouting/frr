@@ -2076,7 +2076,7 @@ static int zvni_macip_send_msg_to_client(vni_t vni, struct ethaddr *macaddr,
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, cmd, VRF_DEFAULT);
+	zclient_create_header(s, cmd, zebra_vrf_get_evpn_id());
 	stream_putl(s, vni);
 	stream_put(s, macaddr->octet, ETH_ALEN);
 	if (ip) {
@@ -3880,7 +3880,7 @@ static int zvni_send_add_to_client(zebra_vni_t *zvni)
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, ZEBRA_VNI_ADD, VRF_DEFAULT);
+	zclient_create_header(s, ZEBRA_VNI_ADD, zebra_vrf_get_evpn_id());
 	stream_putl(s, zvni->vni);
 	stream_put_in_addr(s, &zvni->local_vtep_ip);
 	stream_put(s, &zvni->vrf_id, sizeof(vrf_id_t)); /* tenant vrf */
@@ -3914,7 +3914,7 @@ static int zvni_send_del_to_client(vni_t vni)
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_VNI_DEL, VRF_DEFAULT);
+	zclient_create_header(s, ZEBRA_VNI_DEL, zebra_vrf_get_evpn_id());
 	stream_putl(s, vni);
 
 	/* Write packet size. */
