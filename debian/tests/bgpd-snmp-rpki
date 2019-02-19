@@ -10,9 +10,9 @@ EOF
 service frr restart
 
 # check that it actually started
-killall -0 watchfrr
-killall -0 zebra
-killall -0 bgpd
+pgrep watchfrr
+pgrep zebra
+pgrep bgpd
 
 # just for debugging
 vtysh -c 'show modules'

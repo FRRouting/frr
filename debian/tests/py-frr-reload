@@ -5,9 +5,9 @@ set -e
 service frr restart
 
 # these should be running by default
-killall -0 watchfrr
-killall -0 zebra
-killall -0 staticd
+pgrep watchfrr
+pgrep zebra
+pgrep staticd
 
 # configure interactively, save to file
 vtysh -c 'configure terminal' -c 'ip route 198.51.100.0/28 127.0.0.1'

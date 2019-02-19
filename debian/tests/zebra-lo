@@ -5,9 +5,9 @@ set -e
 service frr status >/dev/null || service frr restart
 
 # these should be running by default
-killall -0 watchfrr
-killall -0 zebra
-killall -0 staticd
+pgrep watchfrr
+pgrep zebra
+pgrep staticd
 
 # check vtysh works at all
 vtysh -c 'show version'
