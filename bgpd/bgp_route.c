@@ -249,8 +249,9 @@ static void bgp_path_info_free(struct bgp_path_info *path)
 	bgp_unlink_nexthop(path);
 	bgp_path_info_extra_free(&path->extra);
 	bgp_path_info_mpath_free(&path->mpath);
-	bgp_addpath_free_info_data(&path->tx_addpath,
-				 path->net ? &path->net->tx_addpath : NULL);
+	if (path->net)
+		bgp_addpath_free_info_data(&path->tx_addpath,
+					   &path->net->tx_addpath);
 
 	peer_unlock(path->peer); /* bgp_path_info peer reference */
 
