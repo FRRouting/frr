@@ -279,25 +279,26 @@ DEFPY(no_ip_router_isis, no_ip_router_isis_cmd,
       "IS-IS routing protocol\n"
       "Routing process tag\n")
 {
-	const struct lyd_node *dnode =
-		yang_dnode_get(running_config->dnode, VTY_CURR_XPATH);
+	const struct lyd_node *dnode;
 
-	/* if both ipv4 and ipv6 are off delete the interface isis container too
+	dnode = yang_dnode_get(vty->candidate_config->dnode,
+			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	if (!dnode)
+		return CMD_SUCCESS;
+
+	/*
+	 * If both ipv4 and ipv6 are off delete the interface isis container.
 	 */
-	if (!strncmp(ip, "ipv6", strlen("ipv6"))) {
-		if (dnode
-		    && !yang_dnode_get_bool(dnode,
-					    "./frr-isisd:isis/ipv4-routing"))
+	if (strmatch(ip, "ipv6")) {
+		if (!yang_dnode_get_bool(dnode, "./ipv4-routing"))
 			nb_cli_enqueue_change(vty, "./frr-isisd:isis",
 					      NB_OP_DESTROY, NULL);
 		else
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/ipv6-routing",
 					      NB_OP_MODIFY, "false");
-	} else { /* no ipv4  */
-		if (dnode
-		    && !yang_dnode_get_bool(dnode,
-					    "./frr-isisd:isis/ipv6-routing"))
+	} else {
+		if (!yang_dnode_get_bool(dnode, "./ipv6-routing"))
 			nb_cli_enqueue_change(vty, "./frr-isisd:isis",
 					      NB_OP_DESTROY, NULL);
 		else
