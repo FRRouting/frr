@@ -1417,7 +1417,7 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 	const char *ifname;
 	const char *vrfname;
 	struct vrf *vrf;
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 
 	ifname = yang_dnode_get_string(args->dnode, "./name");
 	vrfname = yang_dnode_get_string(args->dnode, "./vrf");
@@ -1431,16 +1431,12 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 			return NB_ERR_VALIDATION;
 		}
 		if (vrf->vrf_id == VRF_UNKNOWN) {
-			zlog_warn("%s: VRF %s is not active", __func__,
-				  vrf->name);
-			return NB_ERR_VALIDATION;
+			zlog_warn("%s: VRF %s is not active. Using interface however.",
+				  __func__, vrf->name);
+			ifp = if_get_by_name_vrf(ifname, vrf);
+			nb_running_set_entry(args->dnode, ifp);
 		}
-
-		/* if VRF is netns or not yet known - init for instance
-		 * then assumption is that passed config is exact
-		 * then the user intent was not to use an other iface
-		 */
-		if (vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
+		if (!ifp && vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
 			ifp = if_lookup_by_name_all_vrf(ifname);
 			if (ifp && ifp->vrf_id != vrf->vrf_id) {
 				zlog_warn(
@@ -1456,7 +1452,7 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 	case NB_EV_APPLY:
 		vrf = vrf_lookup_by_name(vrfname);
 		assert(vrf);
-		ifp = if_get_by_name(ifname, vrf->vrf_id);
+		ifp = if_get_by_name_vrf(ifname, vrf);
 
 		ifp->configured = true;
 		nb_running_set_entry(args->dnode, ifp);
