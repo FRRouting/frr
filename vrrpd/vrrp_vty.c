@@ -381,6 +381,15 @@ static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
 	return j;
 }
 
+/*
+ * Dump VRRP instance status to VTY.
+ *
+ * vty
+ *    vty to dump to
+ *
+ * vr
+ *    VRRP router to dump
+ */
 static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 {
 	char ethstr4[ETHER_ADDR_STRLEN];
@@ -418,17 +427,21 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 		       vr->preempt_mode ? "Yes" : "No");
 	ttable_add_row(tt, "%s|%s", "Accept Mode",
 		       vr->accept_mode ? "Yes" : "No");
-	ttable_add_row(tt, "%s|%" PRIu16" cs", "Advertisement Interval",
+	ttable_add_row(tt, "%s|%" PRIu16 " cs", "Advertisement Interval",
 		       vr->advertisement_interval);
-	ttable_add_row(tt, "%s|%" PRIu16" cs", "Master Advertisement Interval (v4)",
+	ttable_add_row(tt, "%s|%" PRIu16 " cs",
+		       "Master Advertisement Interval (v4)",
 		       vr->v4->master_adver_interval);
-	ttable_add_row(tt, "%s|%" PRIu16" cs", "Master Advertisement Interval (v6)",
+	ttable_add_row(tt, "%s|%" PRIu16 " cs",
+		       "Master Advertisement Interval (v6)",
 		       vr->v6->master_adver_interval);
-	ttable_add_row(tt, "%s|%" PRIu16" cs", "Skew Time (v4)", vr->v4->skew_time);
-	ttable_add_row(tt, "%s|%" PRIu16" cs", "Skew Time (v6)", vr->v6->skew_time);
-	ttable_add_row(tt, "%s|%" PRIu16" cs", "Master Down Interval (v4)",
+	ttable_add_row(tt, "%s|%" PRIu16 " cs", "Skew Time (v4)",
+		       vr->v4->skew_time);
+	ttable_add_row(tt, "%s|%" PRIu16 " cs", "Skew Time (v6)",
+		       vr->v6->skew_time);
+	ttable_add_row(tt, "%s|%" PRIu16 " cs", "Master Down Interval (v4)",
 		       vr->v4->master_down_interval);
-	ttable_add_row(tt, "%s|%" PRIu16" cs", "Master Down Interval (v6)",
+	ttable_add_row(tt, "%s|%" PRIu16 " cs", "Master Down Interval (v6)",
 		       vr->v6->master_down_interval);
 	ttable_add_row(tt, "%s|%u", "IPv4 Addresses", vr->v4->addrs->count);
 
