@@ -22,6 +22,7 @@
 #include "lib/command.h"
 #include "lib/if.h"
 #include "lib/ipaddr.h"
+#include "lib/json.h"
 #include "lib/prefix.h"
 #include "lib/termtable.h"
 #include "lib/vty.h"
@@ -299,6 +300,87 @@ DEFPY(vrrp_autoconfigure,
 	return CMD_SUCCESS;
 }
 
+/*
+ * Build JSON representation of VRRP instance.
+ *
+ * vr
+ *    VRRP router to build json object from
+ *
+ * Returns:
+ *    JSON representation of VRRP instance. Must be freed by caller.
+ */
+static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
+{
+	char ethstr4[ETHER_ADDR_STRLEN];
+	char ethstr6[ETHER_ADDR_STRLEN];
+	char ipstr[INET6_ADDRSTRLEN];
+	const char *stastr4 = vrrp_state_names[vr->v4->fsm.state];
+	const char *stastr6 = vrrp_state_names[vr->v6->fsm.state];
+	struct listnode *ln;
+	struct ipaddr *ip;
+	struct json_object *j = json_object_new_object();
+	struct json_object *v4 = json_object_new_object();
+	struct json_object *v4_addrs = json_object_new_array();
+	struct json_object *v6 = json_object_new_object();
+	struct json_object *v6_addrs = json_object_new_array();
+
+	prefix_mac2str(&vr->v4->vmac, ethstr4, sizeof(ethstr4));
+	prefix_mac2str(&vr->v6->vmac, ethstr6, sizeof(ethstr6));
+
+	json_object_int_add(j, "vrid", vr->vrid);
+	json_object_int_add(j, "version", vr->version);
+	json_object_boolean_add(j, "autoconfigured", vr->autoconf);
+	json_object_boolean_add(j, "shutdown", vr->shutdown);
+	json_object_boolean_add(j, "preempt_mode", vr->preempt_mode);
+	json_object_boolean_add(j, "accept_mode", vr->accept_mode);
+	json_object_string_add(j, "interface", vr->ifp->name);
+	/* v4 */
+	json_object_string_add(v4, "interface",
+			       vr->v4->mvl_ifp ? vr->v4->mvl_ifp->name : "");
+	json_object_string_add(v4, "vmac", ethstr4);
+	json_object_string_add(v4, "status", stastr4);
+	json_object_int_add(v4, "effective_priority", vr->v4->priority);
+	json_object_int_add(v4, "master_adver_interval",
+			    vr->v4->master_adver_interval);
+	json_object_int_add(v4, "skew_time", vr->v4->skew_time);
+	json_object_int_add(v4, "master_down_interval",
+			    vr->v4->master_down_interval);
+	if (vr->v4->addrs->count) {
+		for (ALL_LIST_ELEMENTS_RO(vr->v4->addrs, ln, ip)) {
+			inet_ntop(vr->v4->family, &ip->ipaddr_v4, ipstr,
+				  sizeof(ipstr));
+			json_object_array_add(v4_addrs,
+					      json_object_new_string(ipstr));
+		}
+	}
+	json_object_object_add(v4, "addresses", v4_addrs);
+	json_object_object_add(j, "v4", v4);
+
+	/* v6 */
+	json_object_string_add(v6, "interface",
+			       vr->v6->mvl_ifp ? vr->v6->mvl_ifp->name : "");
+	json_object_string_add(v6, "vmac", ethstr6);
+	json_object_string_add(v6, "status", stastr6);
+	json_object_int_add(v6, "effective_priority", vr->v6->priority);
+	json_object_int_add(v6, "master_adver_interval",
+			    vr->v6->master_adver_interval);
+	json_object_int_add(v6, "skew_time", vr->v6->skew_time);
+	json_object_int_add(v6, "master_down_interval",
+			    vr->v6->master_down_interval);
+	if (vr->v6->addrs->count) {
+		for (ALL_LIST_ELEMENTS_RO(vr->v6->addrs, ln, ip)) {
+			inet_ntop(vr->v6->family, &ip->ipaddr_v6, ipstr,
+				  sizeof(ipstr));
+			json_object_array_add(v6_addrs,
+					      json_object_new_string(ipstr));
+		}
+	}
+	json_object_object_add(v6, "addresses", v6_addrs);
+	json_object_object_add(j, "v6", v6);
+
+	return j;
+}
+
 static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 {
 	char ethstr4[ETHER_ADDR_STRLEN];
@@ -375,21 +457,22 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	vty_out(vty, "\n%s\n", table);
 	XFREE(MTYPE_TMP, table);
 	ttable_del(tt);
-
 }
 
 DEFPY(vrrp_vrid_show,
       vrrp_vrid_show_cmd,
-      "show vrrp [interface INTERFACE$ifn] [(1-255)$vrid]",
+      "show vrrp [interface INTERFACE$ifn] [(1-255)$vrid] [json$json]",
       SHOW_STR
       VRRP_STR
       INTERFACE_STR
       "Only show VRRP instances on this interface\n"
-      VRRP_VRID_STR)
+      VRRP_VRID_STR
+      JSON_STR)
 {
 	struct vrrp_vrouter *vr;
 	struct listnode *ln;
 	struct list *ll = hash_to_list(vrrp_vrouters_hash);
+	struct json_object *j = json_object_new_array();
 
 	for (ALL_LIST_ELEMENTS_RO(ll, ln, vr)) {
 		if (ifn && !strmatch(ifn, vr->ifp->name))
@@ -397,8 +480,18 @@ DEFPY(vrrp_vrid_show,
 		if (vrid && vrid != vr->vrid)
 			continue;
 
-		vrrp_show(vty, vr);
+		if (!json)
+			vrrp_show(vty, vr);
+		else
+			json_object_array_add(j, vrrp_build_json(vr));
 	}
+
+	if (json)
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				j, JSON_C_TO_STRING_PRETTY));
+
+	json_object_free(j);
 
 	list_delete(&ll);
 
