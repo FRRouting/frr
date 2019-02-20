@@ -6404,6 +6404,56 @@ static int pim_cmd_interface_add(struct interface *ifp)
 	return 1;
 }
 
+DEFPY_HIDDEN (pim_test_sg_keepalive,
+	      pim_test_sg_keepalive_cmd,
+	      "test pim [vrf NAME$name] keepalive-reset A.B.C.D$source A.B.C.D$group",
+	      "Test code\n"
+	      PIM_STR
+	      VRF_CMD_HELP_STR
+	      "Reset the Keepalive Timer\n"
+	      "The Source we are resetting\n"
+	      "The Group we are resetting\n")
+{
+	struct pim_upstream *up;
+	struct pim_instance *pim;
+	struct prefix_sg sg;
+
+	sg.src = source;
+	sg.grp = group;
+
+	if (!name)
+		pim = pim_get_pim_instance(VRF_DEFAULT);
+	else {
+		struct vrf *vrf = vrf_lookup_by_name(name);
+
+		if (!vrf) {
+			vty_out(vty, "%% Vrf specified: %s does not exist\n",
+				name);
+			return CMD_WARNING;
+		}
+
+		pim = pim_get_pim_instance(vrf->vrf_id);
+	}
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	up = pim_upstream_find(pim, &sg);
+	if (!up) {
+		vty_out(vty, "%% Unable to find %s specified\n",
+			pim_str_sg_dump(&sg));
+		return CMD_WARNING;
+	}
+
+	vty_out(vty, "Setting %s to current keep alive time: %d\n",
+		pim_str_sg_dump(&sg), pim->keep_alive_time);
+	pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY_HIDDEN (interface_ip_pim_activeactive,
 	      interface_ip_pim_activeactive_cmd,
 	      "[no$no] ip pim active-active",
@@ -8667,7 +8717,6 @@ DEFUN (show_ip_msdp_sa_sg_vrf_all,
 	return CMD_SUCCESS;
 }
 
-
 void pim_cmd_init(void)
 {
 	install_node(&interface_node,
@@ -8675,6 +8724,8 @@ void pim_cmd_init(void)
 	if_cmd_init();
 
 	install_node(&debug_node, pim_debug_config_write);
+
+	install_element(ENABLE_NODE, &pim_test_sg_keepalive_cmd);
 
 	install_element(CONFIG_NODE, &ip_pim_rp_cmd);
 	install_element(VRF_NODE, &ip_pim_rp_cmd);
