@@ -162,7 +162,7 @@ BuildRequires:  make
 BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
 BuildRequires:  texinfo
-BuildRequires:  libyang >= 0.16.7
+BuildRequires:  libyang-devel >= 0.16.74
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
 BuildRequires:  python27-devel
@@ -624,7 +624,6 @@ fi
     %{_libdir}/frr/modules/bgpd_rpki.so
 %endif
 %{_libdir}/frr/modules/zebra_irdp.so
-%{_libdir}/frr/libyang_plugins/frr_user_types.so
 %{_bindir}/*
 %config(noreplace) %{configdir}/[!v]*.conf*
 %config(noreplace) %attr(750,%{frr_user},%{frr_user}) %{configdir}/daemons
