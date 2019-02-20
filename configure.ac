@@ -1611,7 +1611,7 @@ CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
 AC_CHECK_MEMBER([struct lyd_node.priv], [], [
   AC_MSG_ERROR([m4_normalize([
     libyang needs to be compiled with ENABLE_LYD_PRIV=ON.
-    See http://docs.frrouting.org/projects/dev-guide/en/latest/building-libyang.html for details.])
+    Instructions for this are included in the build documentation for your platform at http://docs.frrouting.org/projects/dev-guide/en/latest/building.html])
   ])
 ], [[#include <libyang/libyang.h>]])
 CFLAGS="$ac_cflags_save"
