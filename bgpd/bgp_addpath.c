@@ -175,6 +175,28 @@ int bgp_addpath_tx_path(enum bgp_addpath_strat strat,
 	}
 }
 
+static void bgp_addpath_flush_type_rn(struct bgp *bgp, afi_t afi, safi_t safi,
+				      enum bgp_addpath_strat addpath_type,
+				      struct bgp_node *rn)
+{
+	struct bgp_path_info *pi;
+
+	idalloc_drain_pool(
+		bgp->tx_addpath.id_allocators[afi][safi][addpath_type],
+		&(rn->tx_addpath.free_ids[addpath_type]));
+	for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
+		if (pi->tx_addpath.addpath_tx_id[addpath_type]
+		    != IDALLOC_INVALID) {
+			idalloc_free(
+				bgp->tx_addpath
+					.id_allocators[afi][safi][addpath_type],
+				pi->tx_addpath.addpath_tx_id[addpath_type]);
+			pi->tx_addpath.addpath_tx_id[addpath_type] =
+				IDALLOC_INVALID;
+		}
+	}
+}
+
 /*
  * Purge all addpath ID's on a BGP instance associated with the addpath
  * strategy, and afi/safi combination. This lets us let go of all memory held to
@@ -185,26 +207,24 @@ int bgp_addpath_tx_path(enum bgp_addpath_strat strat,
 static void bgp_addpath_flush_type(struct bgp *bgp, afi_t afi, safi_t safi,
 				   enum bgp_addpath_strat addpath_type)
 {
-	struct bgp_node *rn;
-	struct bgp_path_info *pi;
+	struct bgp_node *rn, *nrn;
 
 	for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
 	     rn = bgp_route_next(rn)) {
-		idalloc_drain_pool(
-			bgp->tx_addpath.id_allocators[afi][safi][addpath_type],
-			&(rn->tx_addpath.free_ids[addpath_type]));
-		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
-			if (pi->tx_addpath.addpath_tx_id[addpath_type]
-			    != IDALLOC_INVALID) {
-				idalloc_free(
-					bgp->tx_addpath
-						.id_allocators[afi][safi]
-							      [addpath_type],
-					pi->tx_addpath
-						.addpath_tx_id[addpath_type]);
-				pi->tx_addpath.addpath_tx_id[addpath_type] =
-					IDALLOC_INVALID;
-			}
+		if (safi == SAFI_MPLS_VPN) {
+			struct bgp_table *table;
+
+			table = bgp_node_get_bgp_table_info(rn);
+			if (!table)
+				continue;
+
+			for (nrn = bgp_table_top(table); nrn;
+			     nrn = bgp_route_next(nrn))
+				bgp_addpath_flush_type_rn(bgp, afi, safi,
+							  addpath_type, nrn);
+		} else {
+			bgp_addpath_flush_type_rn(bgp, afi, safi, addpath_type,
+						  rn);
 		}
 	}
 
@@ -234,8 +254,7 @@ static void bgp_addpath_populate_path(struct id_alloc *allocator,
 static void bgp_addpath_populate_type(struct bgp *bgp, afi_t afi, safi_t safi,
 				    enum bgp_addpath_strat addpath_type)
 {
-	struct bgp_node *rn;
-	struct bgp_path_info *bi;
+	struct bgp_node *rn, *nrn;
 	char buf[200];
 	struct id_alloc *allocator;
 
@@ -255,9 +274,29 @@ static void bgp_addpath_populate_type(struct bgp *bgp, afi_t afi, safi_t safi,
 	allocator = bgp->tx_addpath.id_allocators[afi][safi][addpath_type];
 
 	for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
-	     rn = bgp_route_next(rn))
-		for (bi = bgp_node_get_bgp_path_info(rn); bi; bi = bi->next)
-			bgp_addpath_populate_path(allocator, bi, addpath_type);
+	     rn = bgp_route_next(rn)) {
+		struct bgp_path_info *bi;
+
+		if (safi == SAFI_MPLS_VPN) {
+			struct bgp_table *table;
+
+			table = bgp_node_get_bgp_table_info(rn);
+			if (!table)
+				continue;
+
+			for (nrn = bgp_table_top(table); nrn;
+			     nrn = bgp_route_next(nrn))
+				for (bi = bgp_node_get_bgp_path_info(nrn); bi;
+				     bi = bi->next)
+					bgp_addpath_populate_path(allocator, bi,
+								  addpath_type);
+		} else {
+			for (bi = bgp_node_get_bgp_path_info(rn); bi;
+			     bi = bi->next)
+				bgp_addpath_populate_path(allocator, bi,
+							  addpath_type);
+		}
+	}
 }
 
 /*
