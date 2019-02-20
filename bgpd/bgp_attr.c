@@ -54,6 +54,7 @@
 #include "bgp_encap_types.h"
 #include "bgp_evpn.h"
 #include "bgp_flowspec_private.h"
+#include "bgp_mac.h"
 
 /* Attribute strings for logging. */
 static const struct message attr_str[] = {
@@ -1944,7 +1945,18 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	bgp_attr_evpn_na_flag(attr, &attr->router_flag);
 
 	/* Extract the Rmac, if any */
-	bgp_attr_rmac(attr, &attr->rmac);
+	if (bgp_attr_rmac(attr, &attr->rmac)) {
+		if (bgp_debug_update(peer, NULL, NULL, 1) &&
+		    bgp_mac_exist(&attr->rmac)) {
+			char buf1[ETHER_ADDR_STRLEN];
+
+			zlog_debug("%s: router mac %s is self mac",
+				   __func__,
+				   prefix_mac2str(&attr->rmac, buf1,
+						  sizeof(buf1)));
+		}
+
+	}
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
