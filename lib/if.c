@@ -467,6 +467,27 @@ struct interface *if_lookup_by_name_all_vrf(const char *name)
 	return NULL;
 }
 
+static struct interface *
+if_lookup_by_name_all_vrf_by_name(const char *name, struct vrf **parent_vrf)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+
+	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+		return NULL;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		ifp = if_lookup_by_name_vrf(name, vrf);
+		if (ifp) {
+			if (parent_vrf)
+				*parent_vrf = vrf;
+			return ifp;
+		}
+	}
+
+	return NULL;
+}
+
 struct interface *if_lookup_by_index_all_vrf(ifindex_t ifindex)
 {
 	struct vrf *vrf;
@@ -1437,7 +1458,7 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 	const char *ifname;
 	const char *vrfname;
 	struct vrf *vrf;
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 
 	ifname = yang_dnode_get_string(args->dnode, "./name");
 	vrfname = yang_dnode_get_string(args->dnode, "./vrf");
@@ -1450,25 +1471,24 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 				  vrfname);
 			return NB_ERR_VALIDATION;
 		}
-		if (vrf->vrf_id == VRF_UNKNOWN) {
-			zlog_warn("%s: VRF %s is not active", __func__,
-				  vrf->name);
-			return NB_ERR_VALIDATION;
-		}
-
 		/* if VRF is netns or not yet known - init for instance
 		 * then assumption is that passed config is exact
 		 * then the user intent was not to use an other iface
 		 */
-		if (vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
-			ifp = if_lookup_by_name_all_vrf(ifname);
-			if (ifp && ifp->vrf_id != vrf->vrf_id) {
+		if (vrf_get_backend() != VRF_BACKEND_NETNS) {
+			struct vrf *vrf2 = NULL;
+
+			ifp = if_lookup_by_name_all_vrf_by_name(ifname, &vrf2);
+			if (ifp && vrf2 && vrf2 != vrf) {
 				zlog_warn(
 					"%s: interface %s already exists in another VRF",
 					__func__, ifp->name);
 				return NB_ERR_VALIDATION;
 			}
 		}
+		if (vrf->vrf_id == VRF_UNKNOWN)
+			zlog_warn("%s: VRF %s is not active. Using interface however.",
+				  __func__, vrf->name);
 		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
@@ -1476,7 +1496,7 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 	case NB_EV_APPLY:
 		vrf = vrf_lookup_by_name(vrfname);
 		assert(vrf);
-		ifp = if_get_by_name(ifname, vrf->vrf_id);
+		ifp = if_get_by_name_vrf(ifname, vrf);
 
 		ifp->configured = true;
 		nb_running_set_entry(args->dnode, ifp);
