@@ -224,6 +224,8 @@ bgpd/bgp_route_clippy.c: $(CLIPPY_DEPS)
 bgpd/bgp_route.$(OBJEXT): bgpd/bgp_route_clippy.c
 bgpd/bgp_debug_clippy.c: $(CLIPPY_DEPS)
 bgpd/bgp_debug.$(OBJEXT): bgpd/bgp_debug_clippy.c
+bgpd/bgp_routemap_clippy.c: $(CLIPPY_DEPS)
+bgpd/bgp_routemap.$(OBJEXT): bgpd/bgp_routemap_clippy.c
 bgpd/bgp_rpki_clippy.c: $(CLIPPY_DEPS)
 $(AUTOMAKE_DUMMY)bgpd/bgpd_bgpd_rpki_la-bgp_rpki.lo: bgpd/bgp_rpki_clippy.c
 $(AUTOMAKE_DUMMY)bgpd/bgpd_rpki_la-bgp_rpki.lo: bgpd/bgp_rpki_clippy.c
