@@ -318,6 +318,9 @@ struct cmd_node {
 
 #define DEFPY_ATTR(funcname, cmdname, cmdstr, helpstr, attr)                   \
 	DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, attr)
+
+#define DEFPY_HIDDEN(funcname, cmdname, cmdstr, helpstr)                       \
+	DEFUN_HIDDEN(funcname, cmdname, cmdstr, helpstr)
 #endif /* VTYSH_EXTRACT_PL */
 
 /* Some macroes */
