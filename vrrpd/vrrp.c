@@ -1874,24 +1874,11 @@ void vrrp_if_down(struct interface *ifp)
 	vrs = vrrp_lookup_by_if_any(ifp);
 
 	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr)) {
-		if (vr->v4->mvl_ifp == ifp || vr->ifp == ifp) {
-			if (vr->v4->fsm.state == VRRP_STATE_MASTER) {
-				DEBUGD(&vrrp_dbg_auto,
-				       VRRP_LOGPFX VRRP_LOGPFX_VRID
-				       "Interface %s down; transitioning IPv4 VRRP router to Backup",
-				       vr->vrid, ifp->name);
-				vrrp_change_state(vr->v4, VRRP_STATE_BACKUP);
-			}
-		}
-
-		if (vr->v6->mvl_ifp == ifp || vr->ifp == ifp) {
-			if (vr->v6->fsm.state == VRRP_STATE_MASTER) {
-				DEBUGD(&vrrp_dbg_auto,
-				       VRRP_LOGPFX VRRP_LOGPFX_VRID
-				       "Interface %s down; transitioning IPv6 VRRP router to Backup",
-				       vr->vrid, ifp->name);
-				vrrp_change_state(vr->v6, VRRP_STATE_BACKUP);
-			}
+		if (vr->ifp == ifp || vr->v4->mvl_ifp == ifp
+		    || vr->v6->mvl_ifp == ifp) {
+			DEBUGD(&vrrp_dbg_auto,
+			       VRRP_LOGPFX VRRP_LOGPFX_VRID "Interface %s down",
+			       vr->vrid, ifp->name);
 		}
 	}
 
