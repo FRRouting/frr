@@ -1920,12 +1920,15 @@ void vrrp_if_del(struct interface *ifp)
 	vrrp_if_down(ifp);
 
 	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr)) {
-		if (vr->ifp == ifp)
-			vr->ifp = NULL;
-		else if (vr->v4->mvl_ifp == ifp)
+		if ((vr->v4->mvl_ifp == ifp || vr->ifp == ifp)
+		    && vr->v4->fsm.state != VRRP_STATE_INITIALIZE) {
+			vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
 			vr->v4->mvl_ifp = NULL;
-		else if (vr->v6->mvl_ifp == ifp)
+		} else if ((vr->v6->mvl_ifp == ifp || vr->ifp == ifp)
+			   && vr->v6->fsm.state != VRRP_STATE_INITIALIZE) {
+			vrrp_event(vr->v6, VRRP_EVENT_SHUTDOWN);
 			vr->v6->mvl_ifp = NULL;
+		}
 	}
 
 	list_delete(&vrs);
