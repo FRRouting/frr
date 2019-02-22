@@ -283,6 +283,15 @@ static struct log_ref ferr_zebra_err[] = {
 		.description = "Zebra received an event from inotify, but failed to read what it was.",
 		.suggestion = "Notify a developer.",
 	},
+	{
+		.code = EC_ZEBRA_NHG_TABLE_INSERT_FAILED,
+		.title =
+			"Nexthop Group Hash Table Insert Failure",
+		.description =
+			"Zebra failed in inserting a Nexthop Group into its hash tables.",
+		.suggestion =
+			"Check to see if the entry already exists or if the netlink message was parsed incorrectly."
+	},
 	/* Warnings */
 	{
 		.code = EC_ZEBRAING_LM_PROTO_MISMATCH,
