@@ -453,25 +453,31 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] =
 		PIM_MROUTE_MIN_TTL;
 
-	if (pim_mroute_add(channel_oil, __PRETTY_FUNCTION__)) {
-		if (PIM_DEBUG_MROUTE) {
-			char group_str[INET_ADDRSTRLEN];
-			char source_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<group?>",
-				       channel_oil->oil.mfcc_mcastgrp,
-				       group_str, sizeof(group_str));
-			pim_inet4_dump("<source?>",
-				       channel_oil->oil.mfcc_origin, source_str,
-				       sizeof(source_str));
-			zlog_debug(
-				"%s %s: could not add output interface %s (vif_index=%d) for channel (S,G)=(%s,%s)",
-				__FILE__, __PRETTY_FUNCTION__, oif->name,
-				pim_ifp->mroute_vif_index, source_str,
-				group_str);
-		}
+	/* channel_oil->is_valid indicate if this entry is valid to get
+	 * installed in kernel.
+	 */
+	if (channel_oil->is_valid) {
+		if (pim_mroute_add(channel_oil, __PRETTY_FUNCTION__)) {
+			if (PIM_DEBUG_MROUTE) {
+				char group_str[INET_ADDRSTRLEN];
+				char source_str[INET_ADDRSTRLEN];
+				pim_inet4_dump("<group?>",
+				      channel_oil->oil.mfcc_mcastgrp,
+				      group_str, sizeof(group_str));
+				pim_inet4_dump("<source?>",
+				      channel_oil->oil.mfcc_origin, source_str,
+				      sizeof(source_str));
+				zlog_debug(
+				    "%s %s: could not add output interface %s (vif_index=%d) for channel (S,G)=(%s,%s)",
+				    __FILE__, __PRETTY_FUNCTION__, oif->name,
+				    pim_ifp->mroute_vif_index, source_str,
+				    group_str);
+			}
 
-		channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] = old_ttl;
-		return -5;
+			channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index]
+				= old_ttl;
+			return -5;
+		}
 	}
 
 	channel_oil->oif_creation[pim_ifp->mroute_vif_index] =
