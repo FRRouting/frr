@@ -300,7 +300,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 		char buf[PBR_NHC_NAMELEN];
 
 		if (no) {
-			vty_out(vty, "No nexthops to delete");
+			vty_out(vty, "No nexthops to delete\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 

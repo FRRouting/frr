@@ -164,8 +164,8 @@ static bool pbr_nh_hash_equal(const void *arg1, const void *arg2)
 		       == pbrnc2->nexthop->gate.ipv4.s_addr;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 	case NEXTHOP_TYPE_IPV6:
-		return !!memcmp(&pbrnc1->nexthop->gate.ipv6,
-				&pbrnc2->nexthop->gate.ipv6, 16);
+		return !memcmp(&pbrnc1->nexthop->gate.ipv6,
+			       &pbrnc2->nexthop->gate.ipv6, 16);
 	case NEXTHOP_TYPE_BLACKHOLE:
 		return pbrnc1->nexthop->bh_type == pbrnc2->nexthop->bh_type;
 	}
