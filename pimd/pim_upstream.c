@@ -668,15 +668,14 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		ch->upstream = up;
 
 	up = hash_get(pim->upstream_hash, up, hash_alloc_intern);
+	/* Set up->upstream_addr as INADDR_ANY, if RP is not
+	 * configured and retain the upstream data structure
+	 */
 	if (!pim_rp_set_upstream_addr(pim, &up->upstream_addr, sg->src,
 				      sg->grp)) {
 		if (PIM_DEBUG_TRACE)
 			zlog_debug("%s: Received a (*,G) with no RP configured",
 				   __PRETTY_FUNCTION__);
-
-		hash_release(pim->upstream_hash, up);
-		XFREE(MTYPE_PIM_UPSTREAM, up);
-		return NULL;
 	}
 
 	up->parent = pim_upstream_find_parent(pim, up);
@@ -716,45 +715,34 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	if (up->sg.src.s_addr != INADDR_ANY)
 		wheel_add_item(pim->upstream_sg_wheel, up);
 
-	rpf_result = pim_rpf_update(pim, up, NULL, 1);
-	if (rpf_result == PIM_RPF_FAILURE) {
-		struct prefix nht_p;
+        if (up->upstream_addr.s_addr == INADDR_ANY)
+		/* Create a dummmy channel oil with incoming ineterface MAXVIFS,
+		 * since RP is not configured
+		 */
+		up->channel_oil = pim_channel_oil_add(pim, &up->sg, MAXVIFS);
 
-		if (PIM_DEBUG_TRACE)
-			zlog_debug(
-				"%s: Attempting to create upstream(%s), Unable to RPF for source",
-				__PRETTY_FUNCTION__, up->sg_str);
-
-		nht_p.family = AF_INET;
-		nht_p.prefixlen = IPV4_MAX_BITLEN;
-		nht_p.u.prefix4 = up->upstream_addr;
-		pim_delete_tracked_nexthop(pim, &nht_p, up, NULL);
-
-		if (up->parent) {
-			listnode_delete(up->parent->sources, up);
-			up->parent = NULL;
+	else {
+		rpf_result = pim_rpf_update(pim, up, NULL, 1);
+		if (rpf_result == PIM_RPF_FAILURE) {
+			if (PIM_DEBUG_TRACE)
+				zlog_debug(
+					"%s: Attempting to create upstream(%s), Unable to RPF for source",
+					__PRETTY_FUNCTION__, up->sg_str);
+			/* Create a dummmy channel oil with incoming ineterface
+			 * MAXVIFS, since RP is not reachable
+			 */
+			up->channel_oil = pim_channel_oil_add(
+				pim, &up->sg, MAXVIFS);
 		}
 
-		if (up->sg.src.s_addr != INADDR_ANY)
-			wheel_remove_item(pim->upstream_sg_wheel, up);
-
-		pim_upstream_remove_children(pim, up);
-		if (up->sources)
-			list_delete(&up->sources);
-
-		list_delete(&up->ifchannels);
-
-		hash_release(pim->upstream_hash, up);
-		XFREE(MTYPE_PIM_UPSTREAM, up);
-		return NULL;
+		if (up->rpf.source_nexthop.interface) {
+			pim_ifp = up->rpf.source_nexthop.interface->info;
+			if (pim_ifp)
+				up->channel_oil = pim_channel_oil_add(pim,
+					&up->sg, pim_ifp->mroute_vif_index);
+		}
 	}
 
-	if (up->rpf.source_nexthop.interface) {
-		pim_ifp = up->rpf.source_nexthop.interface->info;
-		if (pim_ifp)
-			up->channel_oil = pim_channel_oil_add(
-				pim, &up->sg, pim_ifp->mroute_vif_index);
-	}
 	listnode_add_sort(pim->upstream_list, up);
 
 	if (PIM_DEBUG_TRACE) {

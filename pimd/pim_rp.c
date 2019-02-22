@@ -870,7 +870,7 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, struct in_addr group)
  * the rp configured and the source address
  *
  * If we have don't have a RP configured and the source address is *
- * then return failure.
+ * then set the upstream addr as INADDR_ANY and return failure.
  *
  */
 int pim_rp_set_upstream_addr(struct pim_instance *pim, struct in_addr *up,
@@ -891,6 +891,7 @@ int pim_rp_set_upstream_addr(struct pim_instance *pim, struct in_addr *up,
 		if (PIM_DEBUG_PIM_NHT_RP)
 			zlog_debug("%s: Received a (*,G) with no RP configured",
 				   __PRETTY_FUNCTION__);
+		up->s_addr = INADDR_ANY;
 		return 0;
 	}
 

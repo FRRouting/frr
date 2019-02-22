@@ -168,13 +168,15 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 		return c_oil;
 	}
 
-	ifp = pim_if_find_by_vif_index(pim, input_vif_index);
-	if (!ifp) {
-		/* warning only */
-		zlog_warn(
-			"%s: (S,G)=%s could not find input interface for input_vif_index=%d",
-			__PRETTY_FUNCTION__, pim_str_sg_dump(sg),
-			input_vif_index);
+	if (input_vif_index != MAXVIFS) {
+		ifp = pim_if_find_by_vif_index(pim, input_vif_index);
+		if (!ifp) {
+			/* warning only */
+			zlog_warn(
+				"%s: (S,G)=%s could not find input interface for input_vif_index=%d",
+				__PRETTY_FUNCTION__, pim_str_sg_dump(sg),
+				input_vif_index);
+		}
 	}
 
 	c_oil = XCALLOC(MTYPE_PIM_CHANNEL_OIL, sizeof(*c_oil));
@@ -188,6 +190,10 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 	c_oil->installed = 0;
 	c_oil->up = pim_upstream_find(pim, sg);
 	c_oil->pim = pim;
+	if (input_vif_index != MAXVIFS)
+		c_oil->is_valid = 1;
+	else
+		c_oil->is_valid = 0;
 
 	listnode_add_sort(pim->channel_oil_list, c_oil);
 
