@@ -910,10 +910,9 @@ struct route_map_rule_cmd route_match_evpn_route_type_cmd = {
 	route_match_evpn_route_type_compile, route_match_evpn_route_type_free};
 
 /* Route map commands for VRF route leak with source vrf matching */
-static route_map_result_t route_match_vrl_source_vrf(void *rule,
-						     struct prefix *prefix,
-						     route_map_object_t type,
-						     void *object)
+static route_map_result_t
+route_match_vrl_source_vrf(void *rule, const struct prefix *prefix,
+			   route_map_object_t type, void *object)
 {
 	struct bgp_path_info *path;
 	char *vrf_name;
