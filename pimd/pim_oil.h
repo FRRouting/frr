@@ -64,12 +64,32 @@ struct channel_counts {
 
   Each channel_oil.oil is used to control an (S,G) entry in the Kernel
   Multicast Forwarding Cache.
+
+  There is a case when we create a channel_oil but don't install in the kernel
+
+  Case where (S, G) entry not installed in the kernel:
+    FRR receives IGMP/PIM (*, G) join and RP is not configured or
+    not-reachable, then create a channel_oil for the group G with the incoming
+    interface(channel_oil.oil.mfcc_parent) as invalid i.e "MAXVIF" and populate
+    the outgoing interface where join is received. Keep this entry in the stack,
+    but don't install in the kernel(channel_oil.installed = 0).
+
+  Case where (S, G) entry installed in the kernel:
+    When RP is configured and is reachable for the group G, and receiving a
+    join if channel_oil is already present then populate the incoming interface
+    and install the entry in the kernel, if channel_oil not present, then create
+    a new_channel oil(channel_oil.installed = 1).
+
+  is_valid: indicate if this entry is valid to get installed in kernel.
+  installed: indicate if this entry is installed in the kernel.
+
 */
 
 struct channel_oil {
 	struct pim_instance *pim;
 
 	struct mfcctl oil;
+	bool is_valid;
 	int installed;
 	int oil_inherited_rescan;
 	int oil_size;

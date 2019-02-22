@@ -88,10 +88,30 @@ enum pim_upstream_sptbit {
 
 /*
   Upstream (S,G) channel in Joined state
-
   (S,G) in the "Not Joined" state is not represented
-
   See RFC 4601: 4.5.7.  Sending (S,G) Join/Prune Message
+
+  upstream_addr : Who we are talking to.
+  For (*, G), upstream_addr is RP address or INADDR_ANY(if RP not configured)
+  For (S, G), upstream_addr is source address
+
+  rpf: contains the nexthop information to whom we are talking to.
+
+  join_state: JOINED/NOTJOINED
+
+  In the case when FRR receives IGMP/PIM (*, G) join for group G and RP is not
+  configured, then create a pim_upstream with the below information.
+  pim_upstream->upstream address: INADDR_ANY
+  pim_upstream->rpf: Unknown
+  pim_upstream->state: NOTJOINED
+
+  When a new RP gets configured for G, find the corresponding pim upstream (*,G)
+  entries and update the upstream address as new RP address if it the better one
+  for the group G.
+
+  When RP becomes reachable, populate the nexthop information in
+  pim_upstream->rpf and update the state to JOINED.
+
 */
 struct pim_upstream {
 	struct pim_upstream *parent;
