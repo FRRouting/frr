@@ -362,6 +362,10 @@ static int isis_zebra_read(int command, struct zclient *zclient,
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
 		return -1;
 
+	if (api.prefix.family == AF_INET6
+	    && IN6_IS_ADDR_LINKLOCAL(&api.prefix.u.prefix6))
+		return 0;
+
 	/*
 	 * Avoid advertising a false default reachability. (A default
 	 * route installed by IS-IS gets redistributed from zebra back
