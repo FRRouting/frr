@@ -314,6 +314,34 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 }
 
 /*
+ * In the case of RP deletion and RP unreachablity,
+ * uninstall the mroute in the kernel and clear the
+ * rpf information in the pim upstream and pim channel
+ * oil data structure.
+ */
+void pim_upstream_rpf_clear(struct pim_instance *pim,
+			    struct pim_upstream *up)
+{
+	if (up->rpf.source_nexthop.interface) {
+		if (up->channel_oil) {
+			up->channel_oil->oil.mfcc_parent = MAXVIFS;
+			up->channel_oil->is_valid = 0;
+			pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
+
+		}
+		pim_upstream_switch(pim, up, PIM_UPSTREAM_NOTJOINED);
+		up->rpf.source_nexthop.interface = NULL;
+		up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =
+			PIM_NET_INADDR_ANY;
+		up->rpf.source_nexthop.mrib_metric_preference =
+			router->infinite_assert_metric.metric_preference;
+		up->rpf.source_nexthop.mrib_route_metric =
+			router->infinite_assert_metric.route_metric;
+		up->rpf.rpf_addr.u.prefix4.s_addr = PIM_NET_INADDR_ANY;
+	}
+}
+
+/*
   RFC 4601: 4.1.6.  State Summarization Macros
 
      neighbor RPF'(S,G) {
