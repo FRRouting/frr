@@ -535,6 +535,14 @@ static void scan_upstream_rpf_cache(struct pim_instance *pim)
 		struct pim_rpf old;
 		struct prefix nht_p;
 
+		if (up->upstream_addr.s_addr == INADDR_ANY) {
+			if (PIM_DEBUG_TRACE)
+				zlog_debug(
+				    "%s: RP not configured for Upstream %s",
+				    __PRETTY_FUNCTION__, up->sg_str);
+			continue;
+		}
+
 		nht_p.family = AF_INET;
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4.s_addr = up->upstream_addr.s_addr;
