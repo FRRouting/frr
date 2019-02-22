@@ -331,19 +331,19 @@ static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
 	json_object_int_add(j, "version", vr->version);
 	json_object_boolean_add(j, "autoconfigured", vr->autoconf);
 	json_object_boolean_add(j, "shutdown", vr->shutdown);
-	json_object_boolean_add(j, "preempt_mode", vr->preempt_mode);
-	json_object_boolean_add(j, "accept_mode", vr->accept_mode);
+	json_object_boolean_add(j, "preemptMode", vr->preempt_mode);
+	json_object_boolean_add(j, "acceptMode", vr->accept_mode);
 	json_object_string_add(j, "interface", vr->ifp->name);
 	/* v4 */
 	json_object_string_add(v4, "interface",
 			       vr->v4->mvl_ifp ? vr->v4->mvl_ifp->name : "");
 	json_object_string_add(v4, "vmac", ethstr4);
 	json_object_string_add(v4, "status", stastr4);
-	json_object_int_add(v4, "effective_priority", vr->v4->priority);
-	json_object_int_add(v4, "master_adver_interval",
+	json_object_int_add(v4, "effectivePriority", vr->v4->priority);
+	json_object_int_add(v4, "masterAdverInterval",
 			    vr->v4->master_adver_interval);
-	json_object_int_add(v4, "skew_time", vr->v4->skew_time);
-	json_object_int_add(v4, "master_down_interval",
+	json_object_int_add(v4, "skewTime", vr->v4->skew_time);
+	json_object_int_add(v4, "masterDownInterval",
 			    vr->v4->master_down_interval);
 	if (vr->v4->addrs->count) {
 		for (ALL_LIST_ELEMENTS_RO(vr->v4->addrs, ln, ip)) {
@@ -361,11 +361,11 @@ static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
 			       vr->v6->mvl_ifp ? vr->v6->mvl_ifp->name : "");
 	json_object_string_add(v6, "vmac", ethstr6);
 	json_object_string_add(v6, "status", stastr6);
-	json_object_int_add(v6, "effective_priority", vr->v6->priority);
-	json_object_int_add(v6, "master_adver_interval",
+	json_object_int_add(v6, "effectivePriority", vr->v6->priority);
+	json_object_int_add(v6, "masterAdverInterval",
 			    vr->v6->master_adver_interval);
-	json_object_int_add(v6, "skew_time", vr->v6->skew_time);
-	json_object_int_add(v6, "master_down_interval",
+	json_object_int_add(v6, "skewTime", vr->v6->skew_time);
+	json_object_int_add(v6, "masterDownInterval",
 			    vr->v6->master_down_interval);
 	if (vr->v6->addrs->count) {
 		for (ALL_LIST_ELEMENTS_RO(vr->v6->addrs, ln, ip)) {
