@@ -300,6 +300,8 @@ DEFPY(vrrp_autoconfigure,
 	return CMD_SUCCESS;
 }
 
+/* clang-format on */
+
 /*
  * Build JSON representation of VRRP instance.
  *
@@ -320,8 +322,10 @@ static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
 	struct ipaddr *ip;
 	struct json_object *j = json_object_new_object();
 	struct json_object *v4 = json_object_new_object();
+	struct json_object *v4_stats = json_object_new_object();
 	struct json_object *v4_addrs = json_object_new_array();
 	struct json_object *v6 = json_object_new_object();
+	struct json_object *v6_stats = json_object_new_object();
 	struct json_object *v6_addrs = json_object_new_array();
 
 	prefix_mac2str(&vr->v4->vmac, ethstr4, sizeof(ethstr4));
@@ -345,6 +349,13 @@ static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
 	json_object_int_add(v4, "skewTime", vr->v4->skew_time);
 	json_object_int_add(v4, "masterDownInterval",
 			    vr->v4->master_down_interval);
+	/* v4 stats */
+	json_object_int_add(v4_stats, "adverTx", vr->v4->stats.adver_tx_cnt);
+	json_object_int_add(v4_stats, "adverRx", vr->v4->stats.adver_rx_cnt);
+	json_object_int_add(v4_stats, "garpTx", vr->v4->stats.garp_tx_cnt);
+	json_object_int_add(v4_stats, "transitions", vr->v4->stats.trans_cnt);
+	json_object_object_add(v4, "stats", v4_stats);
+	/* v4 addrs */
 	if (vr->v4->addrs->count) {
 		for (ALL_LIST_ELEMENTS_RO(vr->v4->addrs, ln, ip)) {
 			inet_ntop(vr->v4->family, &ip->ipaddr_v4, ipstr,
@@ -367,6 +378,14 @@ static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
 	json_object_int_add(v6, "skewTime", vr->v6->skew_time);
 	json_object_int_add(v6, "masterDownInterval",
 			    vr->v6->master_down_interval);
+	/* v6 stats */
+	json_object_int_add(v6_stats, "adverTx", vr->v6->stats.adver_tx_cnt);
+	json_object_int_add(v6_stats, "adverRx", vr->v6->stats.adver_rx_cnt);
+	json_object_int_add(v6_stats, "neighborAdverTx",
+			    vr->v6->stats.una_tx_cnt);
+	json_object_int_add(v6_stats, "transitions", vr->v6->stats.trans_cnt);
+	json_object_object_add(v6, "stats", v6_stats);
+	/* v6 addrs */
 	if (vr->v6->addrs->count) {
 		for (ALL_LIST_ELEMENTS_RO(vr->v6->addrs, ln, ip)) {
 			inet_ntop(vr->v6->family, &ip->ipaddr_v6, ipstr,
@@ -435,6 +454,22 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	ttable_add_row(tt, "%s|%" PRIu16 " cs",
 		       "Master Advertisement Interval (v6)",
 		       vr->v6->master_adver_interval);
+	ttable_add_row(tt, "%s|%" PRIu32, "Advertisements Tx (v4)",
+		       vr->v4->stats.adver_tx_cnt);
+	ttable_add_row(tt, "%s|%" PRIu32, "Advertisements Tx (v6)",
+		       vr->v6->stats.adver_tx_cnt);
+	ttable_add_row(tt, "%s|%" PRIu32, "Advertisements Rx (v4)",
+		       vr->v4->stats.adver_rx_cnt);
+	ttable_add_row(tt, "%s|%" PRIu32, "Advertisements Rx (v6)",
+		       vr->v6->stats.adver_rx_cnt);
+	ttable_add_row(tt, "%s|%" PRIu32, "Gratuitous ARP Tx (v4)",
+		       vr->v4->stats.garp_tx_cnt);
+	ttable_add_row(tt, "%s|%" PRIu32, "Neigh. Adverts Tx (v6)",
+		       vr->v6->stats.una_tx_cnt);
+	ttable_add_row(tt, "%s|%" PRIu32, "State transitions (v4)",
+		       vr->v4->stats.trans_cnt);
+	ttable_add_row(tt, "%s|%" PRIu32, "State transitions (v6)",
+		       vr->v6->stats.trans_cnt);
 	ttable_add_row(tt, "%s|%" PRIu16 " cs", "Skew Time (v4)",
 		       vr->v4->skew_time);
 	ttable_add_row(tt, "%s|%" PRIu16 " cs", "Skew Time (v6)",
@@ -471,6 +506,8 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	XFREE(MTYPE_TMP, table);
 	ttable_del(tt);
 }
+
+/* clang-format off */
 
 DEFPY(vrrp_vrid_show,
       vrrp_vrid_show_cmd,

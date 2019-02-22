@@ -141,6 +141,18 @@ struct vrrp_router {
 		int state;
 	} fsm;
 
+	struct {
+		/* Total number of advertisements sent and received */
+		uint32_t adver_tx_cnt;
+		uint32_t adver_rx_cnt;
+		/* Total number of gratuitous ARPs sent */
+		uint32_t garp_tx_cnt;
+		/* Total number of unsolicited Neighbor Advertisements sent */
+		uint32_t una_tx_cnt;
+		/* Total number of state transitions */
+		uint32_t trans_cnt;
+	} stats;
+
 	struct thread *t_master_down_timer;
 	struct thread *t_adver_timer;
 	struct thread *t_read;

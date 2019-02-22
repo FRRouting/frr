@@ -187,6 +187,8 @@ int vrrp_ndisc_una_send(struct vrrp_router *r, struct ipaddr *ip)
 			"Error sending unsolicited Neighbor Advertisement on %s for %s",
 			r->vr->vrid, ifp->name, ipbuf);
 		ret = -1;
+	} else {
+		++r->stats.una_tx_cnt;
 	}
 
 	return ret;

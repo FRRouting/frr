@@ -147,6 +147,8 @@ void vrrp_garp_send(struct vrrp_router *r, struct in_addr *v4)
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
 			  "Error sending gratuitous ARP on %s for %s",
 			  r->vr->vrid, ifp->name, astr);
+	else
+		++r->stats.garp_tx_cnt;
 }
 
 void vrrp_garp_send_all(struct vrrp_router *r)
