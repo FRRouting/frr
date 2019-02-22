@@ -283,7 +283,7 @@ static int pim_update_upstream_nh_helper(struct hash_backet *backet, void *arg)
 	}
 
 	/* update kernel multicast forwarding cache (MFC) */
-	if (up->channel_oil) {
+	if (up->rpf.source_nexthop.interface) {
 		ifindex_t ifindex = up->rpf.source_nexthop.interface->ifindex;
 
 		vif_index = pim_if_find_vifindex_by_ifindex(pim, ifindex);
@@ -306,9 +306,10 @@ static int pim_update_upstream_nh_helper(struct hash_backet *backet, void *arg)
 
 	if (PIM_DEBUG_PIM_NHT) {
 		zlog_debug("%s: NHT upstream %s(%s) old ifp %s new ifp %s",
-			   __PRETTY_FUNCTION__, up->sg_str, pim->vrf->name,
-			   old.source_nexthop.interface->name,
-			   up->rpf.source_nexthop.interface->name);
+			__PRETTY_FUNCTION__, up->sg_str, pim->vrf->name,
+			old.source_nexthop.interface
+			? old.source_nexthop.interface->name : "Unknwon",
+			up->rpf.source_nexthop.interface->name);
 	}
 
 	return HASHWALK_CONTINUE;

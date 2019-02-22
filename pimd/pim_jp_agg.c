@@ -213,8 +213,18 @@ void pim_jp_agg_upstream_verification(struct pim_upstream *up, bool ignore)
 {
 #ifdef PIM_JP_AGG_DEBUG
 	struct interface *ifp;
-	struct pim_interface *pim_ifp = up->rpf.source_nexthop.interface->info;
-	struct pim_instance *pim = pim_ifp->pim;
+	struct pim_interface *pim_ifp;
+	struct pim_instance *pim;
+
+	if (!up->rpf.source_nexthop.interface) {
+		if (PIM_DEBUG_TRACE)
+			zlog_debug("%s: up %s RPF is not present",
+				__PRETTY_FUNCTION__, up->sg_str);
+		return;
+	}
+
+	pim_ifp = up->rpf.source_nexthop.interface->info;
+	pim = pim_ifp->pim;
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;

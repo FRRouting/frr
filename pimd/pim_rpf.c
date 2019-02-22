@@ -205,6 +205,12 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	struct prefix src, grp;
 	bool neigh_needed = true;
 
+	if (up->upstream_addr.s_addr == INADDR_ANY) {
+		zlog_debug("%s: RP is not configured yet for %s",
+			__PRETTY_FUNCTION__, up->sg_str);
+		return PIM_RPF_OK;
+	}
+
 	saved.source_nexthop = rpf->source_nexthop;
 	saved.rpf_addr = rpf->rpf_addr;
 
