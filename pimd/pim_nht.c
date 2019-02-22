@@ -292,7 +292,7 @@ static int pim_update_upstream_nh_helper(struct hash_backet *backet, void *arg)
 	old.source_nexthop.interface = up->rpf.source_nexthop.interface;
 	rpf_result = pim_rpf_update(pim, up, &old, 0);
 	if (rpf_result == PIM_RPF_FAILURE) {
-		pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
+		pim_upstream_rpf_clear(pim, up);
 		return HASHWALK_CONTINUE;
 	}
 

@@ -941,7 +941,7 @@ void pim_upstream_update_join_desired(struct pim_instance *pim,
 		PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED(up->flags);
 
 	/* switched from false to true */
-	if (is_join_desired && !was_join_desired) {
+	if (is_join_desired) {
 		pim_upstream_switch(pim, up, PIM_UPSTREAM_JOINED);
 		return;
 	}
