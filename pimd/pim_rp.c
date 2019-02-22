@@ -45,7 +45,9 @@
 #include "pim_iface.h"
 #include "pim_msdp.h"
 #include "pim_nht.h"
-
+#include "pim_mroute.h"
+#include "pim_oil.h"
+#include "pim_zebra.h"
 
 /* Cleanup pim->rpf_hash each node data */
 void pim_rp_list_hash_clean(void *data)
@@ -201,7 +203,7 @@ static struct rp_info *pim_rp_find_exact(struct pim_instance *pim,
 /*
  * Given a group, return the rp_info for that group
  */
-static struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
+struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 					       const struct prefix *group)
 {
 	struct listnode *node;
@@ -334,6 +336,77 @@ static void pim_rp_check_interfaces(struct pim_instance *pim,
 	}
 }
 
+void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
+{
+	struct pim_rpf old_rpf;
+	enum pim_rpf_result rpf_result;
+	struct in_addr old_upstream_addr;
+	struct in_addr new_upstream_addr;
+	struct prefix nht_p;
+
+	old_upstream_addr = up->upstream_addr;
+	pim_rp_set_upstream_addr(pim, &new_upstream_addr, up->sg.src,
+				 up->sg.grp);
+
+	if (PIM_DEBUG_TRACE)
+		zlog_debug("%s: pim upstream update for  old upstream %s",
+			   __PRETTY_FUNCTION__,
+			   inet_ntoa(old_upstream_addr));
+
+	if (old_upstream_addr.s_addr == new_upstream_addr.s_addr)
+		return;
+
+	/* Lets consider a case, where a PIM upstream has a better RP as a
+	 * result of a new RP configuration with more precise group range.
+	 * This upstream has to be added to the upstream hash of new RP's
+	 * NHT(pnc) and has to be removed from old RP's NHT upstream hash
+	 */
+	if (old_upstream_addr.s_addr != INADDR_ANY) {
+		/* Deregister addr with Zebra NHT */
+		nht_p.family = AF_INET;
+		nht_p.prefixlen = IPV4_MAX_BITLEN;
+		nht_p.u.prefix4 = old_upstream_addr;
+		if (PIM_DEBUG_TRACE) {
+			char buf[PREFIX2STR_BUFFER];
+
+			prefix2str(&nht_p, buf, sizeof(buf));
+			zlog_debug("%s: Deregister upstream %s addr %s with Zebra NHT",
+				   __PRETTY_FUNCTION__, up->sg_str, buf);
+		}
+		pim_delete_tracked_nexthop(pim, &nht_p, up, NULL);
+	}
+
+	/* Update the upstream address */
+	up->upstream_addr = new_upstream_addr;
+
+	old_rpf.source_nexthop.interface = up->rpf.source_nexthop.interface;
+
+	rpf_result = pim_rpf_update(pim, up, &old_rpf, 1);
+	if (rpf_result == PIM_RPF_FAILURE)
+		pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
+
+	/* update kernel multicast forwarding cache (MFC) */
+	if (up->rpf.source_nexthop.interface && up->channel_oil) {
+		ifindex_t ifindex = up->rpf.source_nexthop.interface->ifindex;
+		int vif_index = pim_if_find_vifindex_by_ifindex(pim, ifindex);
+		/* Pass Current selected NH vif index to mroute download */
+		if (vif_index)
+			pim_scan_individual_oil(up->channel_oil, vif_index);
+		else {
+			if (PIM_DEBUG_PIM_NHT)
+				zlog_debug(
+				  "%s: NHT upstream %s channel_oil IIF %s vif_index is not valid",
+				  __PRETTY_FUNCTION__, up->sg_str,
+				  up->rpf.source_nexthop.interface->name);
+		}
+	}
+
+	if (rpf_result == PIM_RPF_CHANGED)
+		pim_zebra_upstream_rpf_changed(pim, up, &old_rpf);
+
+	pim_zebra_update_all_interfaces(pim);
+}
+
 int pim_rp_new(struct pim_instance *pim, const char *rp,
 	       const char *group_range, const char *plist)
 {
@@ -348,6 +421,8 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 	struct prefix temp;
 	struct pim_nexthop_cache pnc;
 	struct route_node *rn;
+	struct pim_upstream *up;
+	struct listnode *upnode;
 
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
 
@@ -469,6 +544,27 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 					"%s: NHT Register rp_all addr %s grp %s ",
 					__PRETTY_FUNCTION__, buf, buf1);
 			}
+
+			for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode,
+						  up)) {
+				/* Find (*, G) upstream whose RP is not
+				 * configured yet
+				 */
+				if ((up->upstream_addr.s_addr == INADDR_ANY)
+				    && (up->sg.src.s_addr == INADDR_ANY)) {
+					struct prefix grp;
+					struct rp_info *trp_info;
+
+					grp.family = AF_INET;
+					grp.prefixlen = IPV4_MAX_BITLEN;
+					grp.u.prefix4 = up->sg.grp;
+					trp_info = pim_rp_find_match_group(pim,
+									  &grp);
+					if (trp_info == rp_all)
+						pim_upstream_update(pim, up);
+				}
+			}
+
 			memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
 			if (pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_all,
 						      &pnc)) {
@@ -534,6 +630,21 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 			   rp_info,
 			   prefix2str(&rp_info->group, buf, sizeof(buf)),
 			   rn->lock);
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+		if (up->sg.src.s_addr == INADDR_ANY) {
+			struct prefix grp;
+			struct rp_info *trp_info;
+
+			grp.family = AF_INET;
+			grp.prefixlen = IPV4_MAX_BITLEN;
+			grp.u.prefix4 = up->sg.grp;
+			trp_info = pim_rp_find_match_group(pim, &grp);
+
+			if (trp_info == rp_info)
+				pim_upstream_update(pim, up);
+		}
 	}
 
 	/* Register addr with Zebra NHT */
