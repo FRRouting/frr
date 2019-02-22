@@ -39,6 +39,7 @@
 #include "pim_jp_agg.h"
 #include "pim_zebra.h"
 #include "pim_zlookup.h"
+#include "pim_rp.h"
 
 /**
  * pim_sendmsg_zebra_rnh -- Format and send a nexthop register/Unregister
@@ -207,6 +208,17 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 	}
 }
 
+void pim_rp_nexthop_del(struct rp_info *rp_info)
+{
+	rp_info->rp.source_nexthop.interface = NULL;
+	rp_info->rp.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =
+		PIM_NET_INADDR_ANY;
+	rp_info->rp.source_nexthop.mrib_metric_preference =
+		router->infinite_assert_metric.metric_preference;
+	rp_info->rp.source_nexthop.mrib_route_metric =
+		router->infinite_assert_metric.route_metric;
+}
+
 /* Update RP nexthop info based on Nexthop update received from Zebra.*/
 static void pim_update_rp_nh(struct pim_instance *pim,
 			     struct pim_nexthop_cache *pnc)
@@ -220,9 +232,11 @@ static void pim_update_rp_nh(struct pim_instance *pim,
 			continue;
 
 		// Compute PIM RPF using cached nexthop
-		pim_ecmp_nexthop_search(pim, pnc, &rp_info->rp.source_nexthop,
-					&rp_info->rp.rpf_addr, &rp_info->group,
-					1);
+		if (!pim_ecmp_nexthop_search(pim, pnc,
+		    &rp_info->rp.source_nexthop,
+		    &rp_info->rp.rpf_addr, &rp_info->group,
+		    1))
+			pim_rp_nexthop_del(rp_info);
 	}
 }
 
