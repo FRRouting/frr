@@ -1,0 +1,16 @@
+etc/
+usr/bin/vtysh
+usr/bin/mtracebis
+usr/lib/*/frr/libfrr.*
+usr/lib/*/frr/libfrrospfapiclient.*
+usr/lib/frr/*.sh
+usr/lib/frr/*d
+usr/lib/frr/watchfrr
+usr/lib/frr/zebra
+usr/lib/*/frr/modules/zebra_irdp.so
+usr/lib/*/frr/modules/zebra_fpm.so
+usr/share/doc/frr/examples
+usr/share/man/
+usr/share/yang/
+tools/frr-reload usr/lib/frr/
+debian/frr.conf usr/lib/tmpfiles.d

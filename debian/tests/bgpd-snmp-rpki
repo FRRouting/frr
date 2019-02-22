@@ -1,0 +1,22 @@
+#!/bin/sh
+set -e
+
+# enable bgpd with SNMP & RPKI modules
+cat >> /etc/frr/daemons <<EOF
+bgpd=yes
+bgpd_options="-A 127.0.0.1 -Msnmp -Mrpki"
+EOF
+
+service frr restart
+
+# check that it actually started
+pgrep watchfrr
+pgrep zebra
+pgrep bgpd
+
+# just for debugging
+vtysh -c 'show modules'
+
+# ... and SNMP & RPKI should be loaded
+vtysh -c 'show modules' | grep -q snmp
+vtysh -c 'show modules' | grep -q rpki

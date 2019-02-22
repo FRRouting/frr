@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # This is a "library" of sorts for use by the other FRR shell scripts.  It
 # has most of the daemon start/stop logic, but expects the following shell
@@ -85,6 +85,9 @@ daemon_list() {
 		eval inst=\$${daemon}_instances
 		[ "$daemon" = zebra -o "$daemon" = staticd ] && cfg=yes
 		if [ -n "$cfg" -a "$cfg" != "no" -a "$cfg" != "0" ]; then
+			if ! daemon_prep "$daemon" "$inst"; then
+				continue
+			fi
 			debug "$daemon enabled"
 			enabled="$enabled $daemon"
 			if [ -n "$inst" ]; then
@@ -287,6 +290,13 @@ load_old_config() {
 load_old_config "$C_PATH/daemons.conf"
 load_old_config "/etc/default/frr"
 load_old_config "/etc/sysconfig/frr"
+
+if declare -p watchfrr_options | grep -q '^declare \-a'; then
+	log_warning_msg "watchfrr_options contains a bash array value." \
+		"The configured value is intentionally ignored since it is likely wrong." \
+		"Please remove or fix the setting."
+	unset watchfrr_options
+fi
 
 #
 # other defaults and dispatch

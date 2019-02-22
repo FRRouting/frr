@@ -53,6 +53,10 @@
 #define DEFAULT_MIN_RESTART	60
 #define DEFAULT_MAX_RESTART	600
 
+#define DEFAULT_RESTART_CMD	WATCHFRR_SH_PATH " restart %s"
+#define DEFAULT_START_CMD	WATCHFRR_SH_PATH " start %s"
+#define DEFAULT_STOP_CMD	WATCHFRR_SH_PATH " stop %s"
+
 #define PING_TOKEN	"PING"
 
 DEFINE_MGROUP(WATCHFRR, "watchfrr")
@@ -83,6 +87,7 @@ static const char *phase_str[] = {
 };
 
 #define PHASE_TIMEOUT (3*gs.restart_timeout)
+#define STARTUP_TIMEOUT	55 * 1000
 
 struct restart_info {
 	const char *name;
@@ -97,6 +102,7 @@ struct restart_info {
 static struct global_state {
 	restart_phase_t phase;
 	struct thread *t_phase_hanging;
+	struct thread *t_startup_timeout;
 	const char *vtydir;
 	long period;
 	long timeout;
@@ -122,6 +128,9 @@ static struct global_state {
 	.loglevel = DEFAULT_LOGLEVEL,
 	.min_restart_interval = DEFAULT_MIN_RESTART,
 	.max_restart_interval = DEFAULT_MAX_RESTART,
+	.restart_command = DEFAULT_RESTART_CMD,
+	.start_command = DEFAULT_START_CMD,
+	.stop_command = DEFAULT_STOP_CMD,
 };
 
 typedef enum {
@@ -225,14 +234,17 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 -r, --restart	Supply a Bourne shell command to use to restart a single\n\
 		daemon.  The command string should include '%%s' where the\n\
 		name of the daemon should be substituted.\n\
+		(default: '%s')\n\
 -s, --start-command\n\
 		Supply a Bourne shell to command to use to start a single\n\
 		daemon.  The command string should include '%%s' where the\n\
 		name of the daemon should be substituted.\n\
+		(default: '%s')\n\
 -k, --kill-command\n\
 		Supply a Bourne shell to command to use to stop a single\n\
 		daemon.  The command string should include '%%s' where the\n\
 		name of the daemon should be substituted.\n\
+		(default: '%s')\n\
     --dry	Do not start or restart anything, just log.\n\
 -p, --pid-file	Set process identifier file name\n\
 		(default is %s/watchfrr.pid).\n\
@@ -245,7 +257,9 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 -h, --help	Display this help and exit\n",
 		frr_vtydir, DEFAULT_LOGLEVEL, LOG_EMERG, LOG_DEBUG, LOG_DEBUG,
 		DEFAULT_MIN_RESTART, DEFAULT_MAX_RESTART, DEFAULT_PERIOD,
-		DEFAULT_TIMEOUT, DEFAULT_RESTART_TIMEOUT, frr_vtydir);
+		DEFAULT_TIMEOUT, DEFAULT_RESTART_TIMEOUT,
+		DEFAULT_RESTART_CMD, DEFAULT_START_CMD, DEFAULT_STOP_CMD,
+		frr_vtydir);
 }
 
 static pid_t run_background(char *shell_cmd)
@@ -630,23 +644,38 @@ static int handle_read(struct thread *t_read)
  * Wait till we notice that all daemons are ready before
  * we send we are ready to systemd
  */
-static void daemon_send_ready(void)
+static void daemon_send_ready(int exitcode)
 {
+	FILE *fp;
 	static int sent = 0;
-	if (!sent && gs.numdown == 0) {
-		FILE *fp;
 
+	if (sent)
+		return;
+
+	if (exitcode == 0)
 		zlog_notice("all daemons up, doing startup-complete notify");
-		frr_detach();
+	else if (gs.numdown < gs.numdaemons)
+		flog_err(EC_WATCHFRR_CONNECTION,
+			 "startup did not complete within timeout"
+			 " (%d/%d daemons running)",
+			 gs.numdaemons - gs.numdown, gs.numdaemons);
+	else {
+		flog_err(EC_WATCHFRR_CONNECTION,
+			 "all configured daemons failed to start"
+			 " -- exiting watchfrr");
+		exit(exitcode);
 
-		fp = fopen(DAEMON_VTY_DIR "/watchfrr.started", "w");
-		if (fp)
-			fclose(fp);
-#if defined HAVE_SYSTEMD
-		systemd_send_started(master, 0);
-#endif
-		sent = 1;
 	}
+
+	frr_detach();
+
+	fp = fopen(DAEMON_VTY_DIR "/watchfrr.started", "w");
+	if (fp)
+		fclose(fp);
+#if defined HAVE_SYSTEMD
+	systemd_send_started(master, 0);
+#endif
+	sent = 1;
 }
 
 static void daemon_up(struct daemon *dmn, const char *why)
@@ -655,7 +684,8 @@ static void daemon_up(struct daemon *dmn, const char *why)
 	gs.numdown--;
 	dmn->connect_tries = 0;
 	zlog_notice("%s state -> up : %s", dmn->name, why);
-	daemon_send_ready();
+	if (gs.numdown == 0)
+		daemon_send_ready(0);
 	SET_WAKEUP_ECHO(dmn);
 	phase_check();
 }
@@ -1030,12 +1060,21 @@ static char *translate_blanks(const char *cmd, const char *blankstr)
 	return res;
 }
 
+static int startup_timeout(struct thread *t_wakeup)
+{
+	daemon_send_ready(1);
+	return 0;
+}
+
 static void watchfrr_init(int argc, char **argv)
 {
 	const char *special = "zebra";
 	int i;
 	struct daemon *dmn, **add = &gs.daemons;
 	char alldaemons[512] = "", *p = alldaemons;
+
+	thread_add_timer_msec(master, startup_timeout, NULL, STARTUP_TIMEOUT,
+			      &gs.t_startup_timeout);
 
 	for (i = optind; i < argc; i++) {
 		dmn = XCALLOC(MTYPE_WATCHFRR_DAEMON, sizeof(*dmn));
