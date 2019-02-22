@@ -689,6 +689,9 @@ int pim_rp_del(struct pim_instance *pim, const char *rp,
 	struct prefix nht_p;
 	struct route_node *rn;
 	bool was_plist = false;
+	struct rp_info *trp_info;
+	struct pim_upstream *up;
+	struct listnode *upnode;
 
 	if (group_range == NULL)
 		result = str2prefix("224.0.0.0/4", &group);
@@ -733,6 +736,23 @@ int pim_rp_del(struct pim_instance *pim, const char *rp,
 	rp_all = pim_rp_find_match_group(pim, &g_all);
 
 	if (rp_all == rp_info) {
+		for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+			/* Find the upstream (*, G) whose upstream address is
+			 * same as the deleted RP
+			 */
+			if ((up->upstream_addr.s_addr == rp_addr.s_addr) &&
+			    (up->sg.src.s_addr == INADDR_ANY)) {
+				struct prefix grp;
+				grp.family = AF_INET;
+				grp.prefixlen = IPV4_MAX_BITLEN;
+				grp.u.prefix4 = up->sg.grp;
+				trp_info = pim_rp_find_match_group(pim, &grp);
+				if (trp_info == rp_all) {
+					pim_upstream_rpf_clear(pim, up);
+					up->upstream_addr.s_addr = INADDR_ANY;
+				}
+			}
+		}
 		rp_all->rp.rpf_addr.family = AF_INET;
 		rp_all->rp.rpf_addr.u.prefix4.s_addr = INADDR_NONE;
 		rp_all->i_am_rp = 0;
@@ -767,6 +787,34 @@ int pim_rp_del(struct pim_instance *pim, const char *rp,
 
 	pim_rp_refresh_group_to_rp_mapping(pim);
 
+	for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up)) {
+		/* Find the upstream (*, G) whose upstream address is same as
+		 * the deleted RP
+		 */
+		if ((up->upstream_addr.s_addr == rp_addr.s_addr) &&
+		    (up->sg.src.s_addr == INADDR_ANY)) {
+			struct prefix grp;
+
+			grp.family = AF_INET;
+			grp.prefixlen = IPV4_MAX_BITLEN;
+			grp.u.prefix4 = up->sg.grp;
+
+			trp_info = pim_rp_find_match_group(pim, &grp);
+
+			/* RP not found for the group grp */
+			if (pim_rpf_addr_is_inaddr_none(&trp_info->rp)) {
+				pim_upstream_rpf_clear(pim, up);
+				pim_rp_set_upstream_addr(pim,
+					&up->upstream_addr,
+					up->sg.src, up->sg.grp);
+			}
+
+			/* RP found for the group grp */
+			else
+				pim_upstream_update(pim, up);
+		}
+	}
+
 	XFREE(MTYPE_PIM_RP, rp_info);
 	return PIM_SUCCESS;
 }
@@ -793,6 +841,7 @@ void pim_rp_setup(struct pim_instance *pim)
 		else {
 			if (PIM_DEBUG_PIM_NHT_RP) {
 				char buf[PREFIX2STR_BUFFER];
+
 				prefix2str(&nht_p, buf, sizeof(buf));
 				zlog_debug(
 					"%s: NHT Local Nexthop not found for RP %s ",
