@@ -71,4 +71,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty,
 			     bool uj);
 void pim_resolve_rp_nh(struct pim_instance *pim);
 int pim_rp_list_cmp(void *v1, void *v2);
+struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
+					const struct prefix *group);
+void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up);
 #endif
