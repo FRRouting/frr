@@ -1,0 +1,96 @@
+#!/bin/sh
+set -e
+
+# most of this file makes sense to execute regardless of whether this is any
+# of normal "configure" or error-handling "abort-upgrade", "abort-remove" or
+# "abort-deconfigure"
+
+addgroup --system frrvty
+addgroup --system frr
+adduser \
+	--system \
+	--ingroup frr \
+	--home /nonexistent \
+	--gecos "Frr routing suite" \
+	--no-create-home \
+	frr
+usermod -a -G frrvty frr
+
+mkdir -p /var/log/frr
+mkdir -p /etc/frr
+
+
+# only change ownership of files when they were previously owned by root or
+# quagga; this is to ensure we don't trample over some custom user setup.
+#
+# if we are on a freshly installed package (or we added new configfiles),
+# the files should be owned by root by default so we should end up with "frr"
+# owned configfiles.
+
+quaggauid=`id -u quagga 2>/dev/null || echo 0`
+quaggagid=`id -g quagga 2>/dev/null || echo 0`
+
+find \
+	/etc/frr \
+	/var/log/frr \
+		\( -uid 0 -o -uid $quaggauid \) -a \
+		\( -gid 0 -o -gid $quaggauid \) | \
+	while read filename; do
+
+	# don't chown anything that has ACLs (but don't fail if we don't
+	# have getfacl)
+	if { getfacl -c "$filename" 2>/dev/null || true; } \
+		| egrep -q -v '^((user|group|other)::|$)'; then
+		:
+	else
+		chown frr: "$filename"
+		chmod o-rwx "$filename"
+	fi
+done
+
+# fix misconfigured vtysh.conf & frr.conf ownership caused by config save
+# mishandling in earlier FRR (and Quagga) versions
+find /etc/frr -maxdepth 1 \( -name vtysh.conf -o -name frr.conf \) \
+	-group frrvty -exec chgrp frr {} \;
+
+# more Quagga -> FRR upgrade smoothing.  Not technically needed, but let's
+# at least do the straightforward pieces.
+
+check_old_config() {
+	oldcfg="$1"
+	[ -r "$oldcfg" ] || return 0
+	[ -s "$oldcfg" ] || return 0
+	grep -v '^[[:blank:]]*\(#\|$\)' "$oldcfg" > /dev/null || return 0
+
+	cat >&2 <<EOF
+Note: deprecated $oldcfg is present. This file is still read by
+the FRR service but its contents should be migrated to /etc/frr/daemons.
+EOF
+}
+
+rmsum() {
+	fname="$1"
+	test -f "$1" || return 0
+	fhash="`sha1sum \"$fname\"`"
+	fhash="${fhash%% *}"
+	if test "$fhash" = "$2"; then
+		rm "$fname"
+	fi
+}
+
+case "$1" in
+configure)
+	check_old_config /etc/frr/daemons.conf
+	check_old_config /etc/default/frr
+	if test -f /etc/frr/.pkg.frr.nointegrated; then
+		# remove integrated config setup
+		# (if checksums match, the files match freshly installed
+		# defaults, but the user has split config in place)
+		rmsum /etc/frr/vtysh.conf 5e7e3a488c51751e1ff98f27c9ad6085e1ad9cbb
+		rmsum /etc/frr/frr.conf   dac6f2af4fca9919ba40eb338885a5d1773195c8
+		rm /etc/frr/.pkg.frr.nointegrated
+	fi
+	;;
+esac
+
+#DEBHELPER#

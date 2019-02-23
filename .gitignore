@@ -28,6 +28,7 @@
 /aclocal.m4
 /libtool
 /libtool.orig
+/changelog-auto
 
 /Makefile
 /Makefile.in

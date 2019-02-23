@@ -1,0 +1,131 @@
+Source: frr
+Section: net
+Priority: optional
+Maintainer: David Lamparter <equinox-debian@diac24.net>
+Uploaders: FRRouting-dev <dev@lists.frrouting.org>
+Build-Depends:
+ autotools-dev,
+ bison,
+ chrpath,
+ debhelper (>= 9),
+ debhelper (>= 9.20160709) <!pkg.frr.nosystemd> | dh-systemd <!pkg.frr.nosystemd>,
+ dh-autoreconf,
+ flex,
+ gawk,
+ install-info,
+ libc-ares-dev,
+ libcap-dev,
+ libjson-c-dev | libjson0-dev,
+ libpam0g-dev | libpam-dev,
+ libpcre3-dev,
+ libpython3-dev,
+ libreadline-dev,
+ librtr-dev <!pkg.frr.nortrlib>,
+ libsnmp-dev,
+ libssh-dev <!pkg.frr.nortrlib>,
+ libsystemd-dev <!pkg.frr.nosystemd>,
+ libyang-dev (>= 0.16.74),
+ pkg-config,
+ python3,
+ python3-dev,
+ python3-sphinx,
+ python3-pytest <!nocheck>,
+ texinfo (>= 4.7)
+Standards-Version: 4.2.1
+Homepage: https://www.frrouting.org/
+Vcs-Browser: https://github.com/FRRouting/frr/
+Vcs-Git: https://github.com/FRRouting/frr.git
+
+Package: frr
+Architecture: linux-any
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+ iproute2 | iproute,
+ logrotate (>= 3.2-11)
+Pre-Depends: adduser
+Recommends: frr-pythontools
+Suggests: frr-doc
+Conflicts:
+ zebra,
+ zebra-pj,
+ pimd,
+ quagga,
+ quagga-bgpd,
+ quagga-core,
+ quagga-isisd,
+ quagga-ospf6d,
+ quagga-ospfd,
+ quagga-pimd,
+ quagga-ripd,
+ quagga-ripngd
+Replaces: zebra, zebra-pj
+Description: FRRouting suite of internet protocols (BGP, OSPF, IS-IS, ...)
+ FRRouting implements the routing protocols commonly used in the
+ internet and private networks to exchange information between routers.
+ Both IP and IPv6 are supported, as are BGP, OSPF, IS-IS, BABEL, EIGRP,
+ RIP, LDP, BFD, PIM and NHRP protocols.
+ .
+ These protocols are used to turn your system into a dynamic router,
+ exchanging information about available connections with other routers
+ in a standards-compliant way.  The actual packet forwarding
+ functionality is provided by the OS kernel.
+ .
+ FRRouting is a fork of Quagga with an open community model. The main
+ git lives on https://github.com/frrouting/frr.git and the project name
+ is commonly abbreviated as "FRR."
+
+Package: frr-snmp
+Architecture: linux-any
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+ frr (= ${binary:Version})
+Recommends: snmpd
+Description: FRRouting suite - SNMP support
+ Adds SNMP support to FRR's daemons by attaching to net-snmp's snmpd
+ through the AgentX protocol.  Provides read-only access to current
+ routing state through standard SNMP MIBs.
+
+Package: frr-rpki-rtrlib
+Architecture: linux-any
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+ frr (= ${binary:Version})
+Description: FRRouting suite - BGP RPKI support (rtrlib)
+ Adds RPKI support to FRR's bgpd, allowing validation of BGP routes
+ against cryptographic information stored in WHOIS databases.  This is
+ used to prevent hijacking of networks on the wider internet.  It is only
+ relevant to internet service providers using their own autonomous system
+ number.
+Build-Profiles: <!pkg.frr.nortrlib>
+
+Package: frr-doc
+Section: doc
+Architecture: all
+Depends:
+ ${misc:Depends},
+ libjs-jquery,
+ libjs-underscore
+Suggests: frr
+Conflicts: quagga-doc
+Description: FRRouting suite - user manual
+ This provides the FRR user manual in HTML form.  This is the official
+ manual maintained as part of the package and is also available online
+ at https://frrouting.readthedocs.io/
+
+Package: frr-pythontools
+Architecture: all
+Depends:
+ ${misc:Depends},
+ frr (<< ${source:Upstream-Version}.0-~),
+ frr (>= ${source:Version}~),
+ python3:any
+Description: FRRouting suite - Python tools
+ The FRRouting suite uses a small Python tool to provide configuration
+ reload functionality, particularly useful when the interactive configuration
+ shell is not used.
+ .
+ Without this package installed, "reload" (as a systemd or init script
+ invocation) will not work for the FRR daemons.

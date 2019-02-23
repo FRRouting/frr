@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+# should have been started on install, but policy may have inhibited that
+service frr status >/dev/null || service frr restart
+
+# these should be running by default
+pgrep watchfrr
+pgrep zebra
+pgrep staticd
+
+# check vtysh works at all
+vtysh -c 'show version'
+
+# check zebra is properly talking to the kernel
+vtysh -c 'show interface lo' | grep -q LOOPBACK

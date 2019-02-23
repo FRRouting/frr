@@ -1,0 +1,11 @@
+Tests: zebra-lo
+Depends: frr
+Restrictions: needs-root, isolation-container
+
+Tests: bgpd-snmp-rpki
+Depends: frr, frr-snmp, frr-rpki-rtrlib
+Restrictions: needs-root, isolation-container
+
+Tests: py-frr-reload
+Depends: frr, frr-pythontools
+Restrictions: needs-root, isolation-container

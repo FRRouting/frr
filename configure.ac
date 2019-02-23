@@ -2157,6 +2157,7 @@ AC_SUBST([CFG_LIBYANG_PLUGINS])
 AC_DEFINE_UNQUOTED([MODULE_PATH], ["$CFG_MODULE"], [path to modules])
 AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data models])
 AC_DEFINE_UNQUOTED([LIBYANG_PLUGINS_PATH], ["$CFG_LIBYANG_PLUGINS"], [path to libyang plugins])
+AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
 
 dnl ------------------------------------
 dnl Enable RPKI and add librtr to libs
@@ -2196,9 +2197,9 @@ AC_CONFIG_FILES([Makefile],[sed -e 's/^#AUTODERP# //' -i Makefile])
 
 AC_CONFIG_FILES([
 	  config.version
+	  changelog-auto
 	  redhat/frr.spec
 	  solaris/Makefile
-	  debianpkg/changelog
 	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml
 	  lib/version.h

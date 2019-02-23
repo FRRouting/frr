@@ -2,39 +2,26 @@
 #
 # Written by Daniil Baturin, 2018
 # This file is public domain
+set -e
+
+cd "`dirname $0`"
+cd ..
+
+if [ "`id -u`" = 0 ]; then
+	echo "Running as root - installing dependencies"
+	apt-get install fakeroot debhelper devscripts
+	mk-build-deps --install debian/control
+	exit 0
+fi
 
 git diff-index --quiet HEAD || echo "Warning: git working directory is not clean!"
 
-# Set the defaults
-if [ "$EXTRA_VERSION" = "" ]; then
-    EXTRA_VERSION="-MyDebPkgVersion"
-fi
-
-if [ "$WANT_SNMP" = "" ]; then
-    WANT_SNMP=0
-fi
-
-if [ "$WANT_CUMULUS_MODE" = "" ]; then
-    WANT_CUMULUS_MODE=0
-fi
-
 echo "Preparing the build"
-./bootstrap.sh
-./configure --with-pkg-extra-version=$EXTRA_VERSION
-make dist
-
-echo "Preparing Debian source package"
-mv debianpkg debian
-make -f debian/rules backports
-
-echo "Unpacking the source to frrpkg/"
-mkdir frrpkg
-cd frrpkg
-tar xf ../frr_*.orig.tar.gz
-cd frr*
-. /etc/os-release
-tar xf ../../frr_*${ID}${VERSION_ID}*.debian.tar.xz
+tools/tarsource.sh -V
 
 echo "Building the Debian package"
-debuild --no-lintian --set-envvar=WANT_SNMP=$WANT_SNMP --set-envvar=WANT_CUMULUS_MODE=$WANT_CUMULUS_MODE -b -uc -us
-
+if test $# -eq 0; then
+	dpkg-buildpackage -b -uc -us
+else
+	dpkg-buildpackage "$@"
+fi
