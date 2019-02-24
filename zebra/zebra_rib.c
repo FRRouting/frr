@@ -1860,8 +1860,6 @@ static void rib_process_after(struct zebra_dplane_ctx *ctx)
 		goto done;
 	}
 
-	route_unlock_node(rn);
-
 	srcdest_rnode_prefixes(rn, &dest_pfx, &src_pfx);
 
 	op = dplane_ctx_get_op(ctx);
@@ -2010,6 +2008,9 @@ static void rib_process_after(struct zebra_dplane_ctx *ctx)
 	}
 
 done:
+
+	if (rn)
+		route_unlock_node(rn);
 
 	/* Return context to dataplane module */
 	dplane_ctx_fini(&ctx);
