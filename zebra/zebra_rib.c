@@ -1938,8 +1938,10 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 				zlog_debug("%u:%s Stale dplane result for old_re %p",
 					   dplane_ctx_get_vrf(ctx),
 					   dest_str, old_re);
-		} else
-			UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
+		} else {
+			if (re)
+				UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
+		}
 	}
 
 	switch (op) {
