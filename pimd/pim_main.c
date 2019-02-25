@@ -68,7 +68,7 @@ struct zebra_privs_t pimd_privs = {
 	.vty_group = VTY_GROUP,
 #endif
 	.caps_p = _caps_p,
-	.cap_num_p = sizeof(_caps_p) / sizeof(_caps_p[0]),
+	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0};
 
 static const struct frr_yang_module_info *pimd_yang_modules[] = {

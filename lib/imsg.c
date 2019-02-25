@@ -18,6 +18,7 @@
 
 #include <zebra.h>
 
+#include "memory.h"
 #include "queue.h"
 #include "imsg.h"
 
@@ -35,7 +36,7 @@ static int available_fds(unsigned int n)
 	unsigned int i;
 	int ret, fds[256];
 
-	if (n > (sizeof(fds) / sizeof(fds[0])))
+	if (n > (unsigned int)array_size(fds))
 		return (1);
 
 	ret = 0;

@@ -1358,13 +1358,10 @@ static int ospf6TrapNbrStateChange(struct ospf6_neighbor *on, int next_state,
 	index[1] = on->ospf6_if->instance_id;
 	index[2] = ntohl(on->router_id);
 
-	smux_trap(ospfv3_variables,
-		  sizeof ospfv3_variables / sizeof(struct variable),
-		  ospfv3_trap_oid, sizeof ospfv3_trap_oid / sizeof(oid),
-		  ospfv3_oid, sizeof ospfv3_oid / sizeof(oid), index, 3,
-		  ospf6NbrTrapList,
-		  sizeof ospf6NbrTrapList / sizeof(struct trap_object),
-		  NBRSTATECHANGE);
+	smux_trap(ospfv3_variables, array_size(ospfv3_variables),
+		  ospfv3_trap_oid, array_size(ospfv3_trap_oid), ospfv3_oid,
+		  sizeof ospfv3_oid / sizeof(oid), index, 3, ospf6NbrTrapList,
+		  array_size(ospf6NbrTrapList), NBRSTATECHANGE);
 	return 0;
 }
 
@@ -1383,13 +1380,10 @@ static int ospf6TrapIfStateChange(struct ospf6_interface *oi, int next_state,
 	index[0] = oi->interface->ifindex;
 	index[1] = oi->instance_id;
 
-	smux_trap(ospfv3_variables,
-		  sizeof ospfv3_variables / sizeof(struct variable),
-		  ospfv3_trap_oid, sizeof ospfv3_trap_oid / sizeof(oid),
-		  ospfv3_oid, sizeof ospfv3_oid / sizeof(oid), index, 2,
-		  ospf6IfTrapList,
-		  sizeof ospf6IfTrapList / sizeof(struct trap_object),
-		  IFSTATECHANGE);
+	smux_trap(ospfv3_variables, array_size(ospfv3_variables),
+		  ospfv3_trap_oid, array_size(ospfv3_trap_oid), ospfv3_oid,
+		  sizeof ospfv3_oid / sizeof(oid), index, 2, ospf6IfTrapList,
+		  array_size(ospf6IfTrapList), IFSTATECHANGE);
 	return 0;
 }
 

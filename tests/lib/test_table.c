@@ -478,7 +478,7 @@ static void test_iter_pause(void)
 	const char *prefixes[] = {"1.0.1.0/24", "1.0.1.0/25", "1.0.1.128/25",
 				  "1.0.2.0/24", "2.0.0.0/8"};
 
-	num_prefixes = sizeof(prefixes) / sizeof(prefixes[0]);
+	num_prefixes = array_size(prefixes);
 
 	printf("\n\nTesting that route_table_iter_pause() works as expected\n");
 	table = route_table_init();
