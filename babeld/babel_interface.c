@@ -1414,10 +1414,7 @@ static babel_interface_nfo *
 babel_interface_allocate (void)
 {
     babel_interface_nfo *babel_ifp;
-    babel_ifp = XMALLOC(MTYPE_BABEL_IF, sizeof(babel_interface_nfo));
-
-    /* Here are set the default values for an interface. */
-    memset(babel_ifp, 0, sizeof(babel_interface_nfo));
+    babel_ifp = XCALLOC(MTYPE_BABEL_IF, sizeof(babel_interface_nfo));
     /* All flags are unset */
     babel_ifp->bucket_time = babel_now.tv_sec;
     babel_ifp->bucket = BUCKET_TOKENS_MAX;
