@@ -440,7 +440,7 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 		return false;
 
 	if (pe1->addpath_type[afi][safi] != pe2->addpath_type[afi][safi])
-		return 0;
+		return false;
 
 	if ((pe1->cap & PEER_UPDGRP_CAP_FLAGS)
 	    != (pe2->cap & PEER_UPDGRP_CAP_FLAGS))
