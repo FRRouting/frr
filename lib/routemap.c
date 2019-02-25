@@ -538,10 +538,8 @@ int generic_match_delete(struct vty *vty, struct route_map_index *index,
 		break;
 	}
 
-	if (dep_name)
-		XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
-	if (rmap_name)
-		XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
+	XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
+	XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
 
 	return retval;
 }
@@ -1075,8 +1073,7 @@ static void route_map_index_delete(struct route_map_index *index, int notify)
 		index->map->head = index->next;
 
 	/* Free 'char *nextrm' if not NULL */
-	if (index->nextrm)
-		XFREE(MTYPE_ROUTE_MAP_NAME, index->nextrm);
+	XFREE(MTYPE_ROUTE_MAP_NAME, index->nextrm);
 
 	/* Execute event hook. */
 	if (route_map_master.event_hook && notify) {
@@ -1231,8 +1228,7 @@ static void route_map_rule_delete(struct route_map_rule_list *list,
 	if (rule->cmd->func_free)
 		(*rule->cmd->func_free)(rule->value);
 
-	if (rule->rule_str)
-		XFREE(MTYPE_ROUTE_MAP_RULE_STR, rule->rule_str);
+	XFREE(MTYPE_ROUTE_MAP_RULE_STR, rule->rule_str);
 
 	if (rule->next)
 		rule->next->prev = rule->prev;
@@ -1779,8 +1775,7 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 		}
 
 		ret_map_name = (char *)hash_release(dep->dep_rmap_hash, rname);
-		if (ret_map_name)
-			XFREE(MTYPE_ROUTE_MAP_NAME, ret_map_name);
+		XFREE(MTYPE_ROUTE_MAP_NAME, ret_map_name);
 
 		if (!dep->dep_rmap_hash->count) {
 			dep = hash_release(dephash, dname);

@@ -504,8 +504,7 @@ void isis_redist_area_finish(struct isis_area *area)
 				redist = &area->redist_settings[protocol][type]
 							       [level];
 				redist->redist = 0;
-				if (redist->map_name)
-					XFREE(MTYPE_ISIS, redist->map_name);
+				XFREE(MTYPE_ISIS, redist->map_name);
 			}
 			route_table_finish(area->ext_reach[protocol][level]);
 		}

@@ -110,8 +110,7 @@ static void sync_init(struct update_subgroup *subgrp)
 
 static void sync_delete(struct update_subgroup *subgrp)
 {
-	if (subgrp->sync)
-		XFREE(MTYPE_BGP_SYNCHRONISE, subgrp->sync);
+	XFREE(MTYPE_BGP_SYNCHRONISE, subgrp->sync);
 	subgrp->sync = NULL;
 	if (subgrp->hash)
 		hash_free(subgrp->hash);
@@ -144,8 +143,7 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->v_routeadv = src->v_routeadv;
 	dst->flags = src->flags;
 	dst->af_flags[afi][safi] = src->af_flags[afi][safi];
-	if (dst->host)
-		XFREE(MTYPE_BGP_PEER_HOST, dst->host);
+	XFREE(MTYPE_BGP_PEER_HOST, dst->host);
 
 	dst->host = XSTRDUP(MTYPE_BGP_PEER_HOST, src->host);
 	dst->cap = src->cap;
@@ -208,27 +206,19 @@ static void conf_release(struct peer *src, afi_t afi, safi_t safi)
 
 	srcfilter = &src->filter[afi][safi];
 
-	if (src->default_rmap[afi][safi].name)
-		XFREE(MTYPE_ROUTE_MAP_NAME, src->default_rmap[afi][safi].name);
+	XFREE(MTYPE_ROUTE_MAP_NAME, src->default_rmap[afi][safi].name);
 
-	if (srcfilter->dlist[FILTER_OUT].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->dlist[FILTER_OUT].name);
+	XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->dlist[FILTER_OUT].name);
 
-	if (srcfilter->plist[FILTER_OUT].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->plist[FILTER_OUT].name);
+	XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->plist[FILTER_OUT].name);
 
-	if (srcfilter->aslist[FILTER_OUT].name)
-		XFREE(MTYPE_BGP_FILTER_NAME,
-		      srcfilter->aslist[FILTER_OUT].name);
+	XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->aslist[FILTER_OUT].name);
 
-	if (srcfilter->map[RMAP_OUT].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->map[RMAP_OUT].name);
+	XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->map[RMAP_OUT].name);
 
-	if (srcfilter->usmap.name)
-		XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->usmap.name);
+	XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->usmap.name);
 
-	if (src->host)
-		XFREE(MTYPE_BGP_PEER_HOST, src->host);
+	XFREE(MTYPE_BGP_PEER_HOST, src->host);
 	src->host = NULL;
 }
 
@@ -741,12 +731,10 @@ static void update_group_delete(struct update_group *updgrp)
 	hash_release(updgrp->bgp->update_groups[updgrp->afid], updgrp);
 	conf_release(updgrp->conf, updgrp->afi, updgrp->safi);
 
-	if (updgrp->conf->host)
-		XFREE(MTYPE_BGP_PEER_HOST, updgrp->conf->host);
+	XFREE(MTYPE_BGP_PEER_HOST, updgrp->conf->host);
 	updgrp->conf->host = NULL;
 
-	if (updgrp->conf->ifname)
-		XFREE(MTYPE_BGP_PEER_IFNAME, updgrp->conf->ifname);
+	XFREE(MTYPE_BGP_PEER_IFNAME, updgrp->conf->ifname);
 
 	XFREE(MTYPE_BGP_PEER, updgrp->conf);
 	XFREE(MTYPE_BGP_UPDGRP, updgrp);

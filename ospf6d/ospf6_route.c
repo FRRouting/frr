@@ -174,8 +174,7 @@ struct ospf6_nexthop *ospf6_nexthop_create(void)
 
 void ospf6_nexthop_delete(struct ospf6_nexthop *nh)
 {
-	if (nh)
-		XFREE(MTYPE_OSPF6_NEXTHOP, nh);
+	XFREE(MTYPE_OSPF6_NEXTHOP, nh);
 }
 
 void ospf6_clear_nexthops(struct list *nh_list)

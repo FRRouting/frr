@@ -510,11 +510,9 @@ static void rip_interface_reset(struct rip_interface *ri)
 	ri->ri_receive = yang_get_default_enum("%s/version-receive", RIP_IFACE);
 	ri->v2_broadcast = yang_get_default_bool("%s/v2-broadcast", RIP_IFACE);
 
-	if (ri->auth_str)
-		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->auth_str);
+	XFREE(MTYPE_RIP_INTERFACE_STRING, ri->auth_str);
 
-	if (ri->key_chain)
-		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->key_chain);
+	XFREE(MTYPE_RIP_INTERFACE_STRING, ri->key_chain);
 
 	ri->list[RIP_FILTER_IN] = NULL;
 	ri->list[RIP_FILTER_OUT] = NULL;

@@ -242,11 +242,9 @@ static void access_list_delete(struct access_list *access)
 	else
 		list->head = access->next;
 
-	if (access->name)
-		XFREE(MTYPE_ACCESS_LIST_STR, access->name);
+	XFREE(MTYPE_ACCESS_LIST_STR, access->name);
 
-	if (access->remark)
-		XFREE(MTYPE_TMP, access->remark);
+	XFREE(MTYPE_TMP, access->remark);
 
 	access_list_free(access);
 }

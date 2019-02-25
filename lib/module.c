@@ -141,8 +141,7 @@ struct frrmod_runtime *frrmod_load(const char *spec, const char *dir, char *err,
 	return rtinfo;
 
 out_fail:
-	if (rtinfo->load_args)
-		XFREE(MTYPE_MODULE_LOADARGS, rtinfo->load_args);
+	XFREE(MTYPE_MODULE_LOADARGS, rtinfo->load_args);
 	XFREE(MTYPE_MODULE_LOADNAME, rtinfo->load_name);
 	return NULL;
 }

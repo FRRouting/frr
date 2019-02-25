@@ -309,8 +309,7 @@ void aspath_free(struct aspath *aspath)
 		return;
 	if (aspath->segments)
 		assegment_free_all(aspath->segments);
-	if (aspath->str)
-		XFREE(MTYPE_AS_STR, aspath->str);
+	XFREE(MTYPE_AS_STR, aspath->str);
 
 	if (aspath->json) {
 		json_object_free(aspath->json);
@@ -620,8 +619,7 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 
 void aspath_str_update(struct aspath *as, bool make_json)
 {
-	if (as->str)
-		XFREE(MTYPE_AS_STR, as->str);
+	XFREE(MTYPE_AS_STR, as->str);
 
 	if (as->json) {
 		json_object_free(as->json);

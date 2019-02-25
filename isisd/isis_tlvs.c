@@ -3202,8 +3202,7 @@ void isis_tlvs_set_protocols_supported(struct isis_tlvs *tlvs,
 				       struct nlpids *nlpids)
 {
 	tlvs->protocols_supported.count = nlpids->count;
-	if (tlvs->protocols_supported.protocols)
-		XFREE(MTYPE_ISIS_TLV, tlvs->protocols_supported.protocols);
+	XFREE(MTYPE_ISIS_TLV, tlvs->protocols_supported.protocols);
 	if (nlpids->count) {
 		tlvs->protocols_supported.protocols =
 			XCALLOC(MTYPE_ISIS_TLV, nlpids->count);

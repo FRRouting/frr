@@ -1277,8 +1277,7 @@ int cmd_execute(struct vty *vty, const char *cmd,
 
 	hook_call(cmd_execute_done, vty, cmd_exec);
 
-	if (cmd_out)
-		XFREE(MTYPE_TMP, cmd_out);
+	XFREE(MTYPE_TMP, cmd_out);
 
 	return ret;
 }
@@ -2408,8 +2407,7 @@ static int set_log_file(struct vty *vty, const char *fname, int loglevel)
 
 	ret = zlog_set_file(fullpath, loglevel);
 
-	if (p)
-		XFREE(MTYPE_TMP, p);
+	XFREE(MTYPE_TMP, p);
 
 	if (!ret) {
 		if (vty)
@@ -2417,8 +2415,7 @@ static int set_log_file(struct vty *vty, const char *fname, int loglevel)
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (host.logfile)
-		XFREE(MTYPE_HOST, host.logfile);
+	XFREE(MTYPE_HOST, host.logfile);
 
 	host.logfile = XSTRDUP(MTYPE_HOST, fname);
 
@@ -2487,8 +2484,7 @@ static void disable_log_file(void)
 {
 	zlog_reset_file();
 
-	if (host.logfile)
-		XFREE(MTYPE_HOST, host.logfile);
+	XFREE(MTYPE_HOST, host.logfile);
 
 	host.logfile = NULL;
 }
@@ -2637,8 +2633,7 @@ int cmd_banner_motd_file(const char *file)
 		return CMD_ERR_NO_FILE;
 	in = strstr(rpath, SYSCONFDIR);
 	if (in == rpath) {
-		if (host.motdfile)
-			XFREE(MTYPE_HOST, host.motdfile);
+		XFREE(MTYPE_HOST, host.motdfile);
 		host.motdfile = XSTRDUP(MTYPE_HOST, file);
 	} else
 		success = CMD_WARNING_CONFIG_FAILED;
@@ -2723,8 +2718,7 @@ DEFUN(find,
 /* Set config filename.  Called from vty.c */
 void host_config_set(const char *filename)
 {
-	if (host.config)
-		XFREE(MTYPE_HOST, host.config);
+	XFREE(MTYPE_HOST, host.config);
 	host.config = XSTRDUP(MTYPE_HOST, filename);
 }
 
@@ -2904,24 +2898,15 @@ void cmd_terminate(void)
 		cmdvec = NULL;
 	}
 
-	if (host.name)
-		XFREE(MTYPE_HOST, host.name);
-	if (host.domainname)
-		XFREE(MTYPE_HOST, host.domainname);
-	if (host.password)
-		XFREE(MTYPE_HOST, host.password);
-	if (host.password_encrypt)
-		XFREE(MTYPE_HOST, host.password_encrypt);
-	if (host.enable)
-		XFREE(MTYPE_HOST, host.enable);
-	if (host.enable_encrypt)
-		XFREE(MTYPE_HOST, host.enable_encrypt);
-	if (host.logfile)
-		XFREE(MTYPE_HOST, host.logfile);
-	if (host.motdfile)
-		XFREE(MTYPE_HOST, host.motdfile);
-	if (host.config)
-		XFREE(MTYPE_HOST, host.config);
+	XFREE(MTYPE_HOST, host.name);
+	XFREE(MTYPE_HOST, host.domainname);
+	XFREE(MTYPE_HOST, host.password);
+	XFREE(MTYPE_HOST, host.password_encrypt);
+	XFREE(MTYPE_HOST, host.enable);
+	XFREE(MTYPE_HOST, host.enable_encrypt);
+	XFREE(MTYPE_HOST, host.logfile);
+	XFREE(MTYPE_HOST, host.motdfile);
+	XFREE(MTYPE_HOST, host.config);
 
 	list_delete(&varhandlers);
 	qobj_finish();

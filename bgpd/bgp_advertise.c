@@ -255,8 +255,7 @@ void bgp_sync_delete(struct peer *peer)
 	safi_t safi;
 
 	FOREACH_AFI_SAFI (afi, safi) {
-		if (peer->sync[afi][safi])
-			XFREE(MTYPE_BGP_SYNCHRONISE, peer->sync[afi][safi]);
+		XFREE(MTYPE_BGP_SYNCHRONISE, peer->sync[afi][safi]);
 		peer->sync[afi][safi] = NULL;
 	}
 }

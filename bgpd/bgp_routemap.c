@@ -322,8 +322,7 @@ static void route_match_peer_free(void *rule)
 {
 	struct bgp_match_peer_compiled *pc = rule;
 
-	if (pc->interface)
-		XFREE(MTYPE_ROUTE_MAP_COMPILED, pc->interface);
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, pc->interface);
 
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
@@ -1548,8 +1547,7 @@ static void route_set_ip_nexthop_free(void *rule)
 {
 	struct rmap_ip_nexthop_set *rins = rule;
 
-	if (rins->address)
-		XFREE(MTYPE_ROUTE_MAP_COMPILED, rins->address);
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rins->address);
 
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rins);
 }
@@ -3098,10 +3096,8 @@ static int bgp_route_match_delete(struct vty *vty, const char *command,
 		break;
 	}
 
-	if (dep_name)
-		XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
-	if (rmap_name)
-		XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
+	XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
+	XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
 
 	return retval;
 }

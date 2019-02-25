@@ -45,10 +45,8 @@ static struct lcommunity *lcommunity_new(void)
 /* Allocate lcommunities.  */
 void lcommunity_free(struct lcommunity **lcom)
 {
-	if ((*lcom)->val)
-		XFREE(MTYPE_LCOMMUNITY_VAL, (*lcom)->val);
-	if ((*lcom)->str)
-		XFREE(MTYPE_LCOMMUNITY_STR, (*lcom)->str);
+	XFREE(MTYPE_LCOMMUNITY_VAL, (*lcom)->val);
+	XFREE(MTYPE_LCOMMUNITY_STR, (*lcom)->str);
 	XFREE(MTYPE_LCOMMUNITY, *lcom);
 }
 

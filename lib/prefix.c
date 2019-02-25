@@ -944,8 +944,7 @@ int str2prefix_eth(const char *str, struct prefix_eth *p)
 	ret = 1;
 
 done:
-	if (cp)
-		XFREE(MTYPE_TMP, cp);
+	XFREE(MTYPE_TMP, cp);
 
 	return ret;
 }

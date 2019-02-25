@@ -74,8 +74,7 @@ static int config_cmp(struct config *c1, struct config *c2)
 static void config_del(struct config *config)
 {
 	list_delete(&config->line);
-	if (config->name)
-		XFREE(MTYPE_VTYSH_CONFIG_LINE, config->name);
+	XFREE(MTYPE_VTYSH_CONFIG_LINE, config->name);
 	XFREE(MTYPE_VTYSH_CONFIG, config);
 }
 

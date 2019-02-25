@@ -322,8 +322,7 @@ void hash_free(struct hash *hash)
 	}
 	pthread_mutex_unlock(&_hashes_mtx);
 
-	if (hash->name)
-		XFREE(MTYPE_HASH, hash->name);
+	XFREE(MTYPE_HASH, hash->name);
 
 	XFREE(MTYPE_HASH_INDEX, hash->index);
 	XFREE(MTYPE_HASH, hash);

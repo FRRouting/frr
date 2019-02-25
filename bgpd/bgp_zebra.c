@@ -1681,8 +1681,7 @@ int bgp_redistribute_rmap_set(struct bgp_redist *red, const char *name,
 	if (red->rmap.name && (strcmp(red->rmap.name, name) == 0))
 		return 0;
 
-	if (red->rmap.name)
-		XFREE(MTYPE_ROUTE_MAP_NAME, red->rmap.name);
+	XFREE(MTYPE_ROUTE_MAP_NAME, red->rmap.name);
 	/* Decrement the count for existing routemap and
 	 * increment the count for new route map.
 	 */
@@ -1795,8 +1794,7 @@ int bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
 	bgp_redistribute_unreg(bgp, afi, type, instance);
 
 	/* Unset route-map. */
-	if (red->rmap.name)
-		XFREE(MTYPE_ROUTE_MAP_NAME, red->rmap.name);
+	XFREE(MTYPE_ROUTE_MAP_NAME, red->rmap.name);
 	route_map_counter_decrement(red->rmap.map);
 	red->rmap.name = NULL;
 	red->rmap.map = NULL;

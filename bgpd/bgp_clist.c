@@ -100,16 +100,14 @@ static void community_entry_free(struct community_entry *entry)
 	case EXTCOMMUNITY_LIST_STANDARD:
 		/* In case of standard extcommunity-list, configuration string
 		   is made by ecommunity_ecom2str().  */
-		if (entry->config)
-			XFREE(MTYPE_ECOMMUNITY_STR, entry->config);
+		XFREE(MTYPE_ECOMMUNITY_STR, entry->config);
 		if (entry->u.ecom)
 			ecommunity_free(&entry->u.ecom);
 		break;
 	case COMMUNITY_LIST_EXPANDED:
 	case EXTCOMMUNITY_LIST_EXPANDED:
 	case LARGE_COMMUNITY_LIST_EXPANDED:
-		if (entry->config)
-			XFREE(MTYPE_COMMUNITY_LIST_CONFIG, entry->config);
+		XFREE(MTYPE_COMMUNITY_LIST_CONFIG, entry->config);
 		if (entry->reg)
 			bgp_regex_free(entry->reg);
 	default:
@@ -127,8 +125,7 @@ static struct community_list *community_list_new(void)
 /* Free community-list.  */
 static void community_list_free(struct community_list *list)
 {
-	if (list->name)
-		XFREE(MTYPE_COMMUNITY_LIST_NAME, list->name);
+	XFREE(MTYPE_COMMUNITY_LIST_NAME, list->name);
 	XFREE(MTYPE_COMMUNITY_LIST, list);
 }
 

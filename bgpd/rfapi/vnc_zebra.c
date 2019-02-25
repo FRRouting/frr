@@ -608,10 +608,8 @@ static void vnc_zebra_add_del_prefix(struct bgp *bgp,
 					    add);
 	}
 
-	if (nhp_ary)
-		XFREE(MTYPE_TMP, nhp_ary);
-	if (nh_ary)
-		XFREE(MTYPE_TMP, nh_ary);
+	XFREE(MTYPE_TMP, nhp_ary);
+	XFREE(MTYPE_TMP, nh_ary);
 }
 
 void vnc_zebra_add_prefix(struct bgp *bgp,
@@ -789,10 +787,8 @@ static void vnc_zebra_add_del_group_afi(struct bgp *bgp,
 				}
 			}
 		}
-		if (nhp_ary)
-			XFREE(MTYPE_TMP, nhp_ary);
-		if (nh_ary)
-			XFREE(MTYPE_TMP, nh_ary);
+		XFREE(MTYPE_TMP, nhp_ary);
+		XFREE(MTYPE_TMP, nh_ary);
 	}
 }
 

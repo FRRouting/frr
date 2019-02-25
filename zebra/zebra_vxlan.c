@@ -2215,8 +2215,7 @@ static int zvni_neigh_del(zebra_vni_t *zvni, zebra_neigh_t *n)
 
 	/* Free the VNI hash entry and allocated memory. */
 	tmp_n = hash_release(zvni->neigh_table, n);
-	if (tmp_n)
-		XFREE(MTYPE_NEIGH, tmp_n);
+	XFREE(MTYPE_NEIGH, tmp_n);
 
 	return 0;
 }
@@ -3311,8 +3310,7 @@ static int zvni_mac_del(zebra_vni_t *zvni, zebra_mac_t *mac)
 
 	/* Free the VNI hash entry and allocated memory. */
 	tmp_mac = hash_release(zvni->mac_table, mac);
-	if (tmp_mac)
-		XFREE(MTYPE_MAC, tmp_mac);
+	XFREE(MTYPE_MAC, tmp_mac);
 
 	return 0;
 }
@@ -3864,8 +3862,7 @@ static int zvni_del(zebra_vni_t *zvni)
 
 	/* Free the VNI hash entry and allocated memory. */
 	tmp_zvni = hash_release(zvrf->vni_table, zvni);
-	if (tmp_zvni)
-		XFREE(MTYPE_ZVNI, tmp_zvni);
+	XFREE(MTYPE_ZVNI, tmp_zvni);
 
 	return 0;
 }
@@ -4301,8 +4298,7 @@ static int zl3vni_rmac_del(zebra_l3vni_t *zl3vni, zebra_mac_t *zrmac)
 	}
 
 	tmp_rmac = hash_release(zl3vni->rmac_table, zrmac);
-	if (tmp_rmac)
-		XFREE(MTYPE_MAC, tmp_rmac);
+	XFREE(MTYPE_MAC, tmp_rmac);
 
 	return 0;
 }
@@ -4478,8 +4474,7 @@ static int zl3vni_nh_del(zebra_l3vni_t *zl3vni, zebra_neigh_t *n)
 	}
 
 	tmp_n = hash_release(zl3vni->nh_table, n);
-	if (tmp_n)
-		XFREE(MTYPE_NEIGH, tmp_n);
+	XFREE(MTYPE_NEIGH, tmp_n);
 
 	return 0;
 }
@@ -4711,8 +4706,7 @@ static int zl3vni_del(zebra_l3vni_t *zl3vni)
 
 	/* Free the VNI hash entry and allocated memory. */
 	tmp_zl3vni = hash_release(zrouter.l3vni_table, zl3vni);
-	if (tmp_zl3vni)
-		XFREE(MTYPE_ZL3VNI, tmp_zl3vni);
+	XFREE(MTYPE_ZL3VNI, tmp_zl3vni);
 
 	return 0;
 }
