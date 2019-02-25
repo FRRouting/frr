@@ -3326,8 +3326,7 @@ static int ospf_make_hello(struct ospf_interface *oi, struct stream *s)
 								> ospf_packet_max(oi)) {
 								flog_err(
 									EC_OSPF_LARGE_HELLO,
-									"Oversized Hello packet!"
-									" Larger than MTU. Not sending it out");
+									"Oversized Hello packet! Larger than MTU. Not sending it out");
 								return 0;
 							}
 

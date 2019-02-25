@@ -172,11 +172,8 @@ static struct log_ref ferr_ospf_err[] = {
 	{
 		.code = EC_OSPF_LARGE_HELLO,
 		.title = "OSPF Encountered a Large Hello",
-		.description = "OSPF attempted to send a Hello larger than MTU "
-					   "but did not",
-		.suggestion = "Too many neighbors configured on a single interface."
-					  " Suggestion is to decrease the number of neighbors on"
-					  " a single interface/subnet"
+		.description = "OSPF attempted to send a Hello larger than MTU but did not",
+		.suggestion = "Too many neighbors configured on a single interface. Suggestion is to decrease the number of neighbors on a single interface/subnet"
 	},
 	{
 		.code = END_FERR,
