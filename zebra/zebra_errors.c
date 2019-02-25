@@ -747,6 +747,15 @@ static struct log_ref ferr_zebra_err[] = {
 			"Check the kernel's link states and routing table to see how it matches ours."
 	},
 	{
+		.code = EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
+		.title =
+			"Duplicate Nexthop Group Message",
+		.description =
+			"Zebra received Nexthop Group message from the kernel that it is identical to one it/we already have but with a different ID.",
+		.suggestion =
+			"See if the nexthop you are trying to add is already present in the fib."
+	},
+	{
 		.code = END_FERR,
 	}
 };

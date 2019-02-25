@@ -127,6 +127,7 @@ enum zebra_log_refs {
 	EC_ZEBRA_DUP_IP_INHERIT_DETECTED,
 	EC_ZEBRA_DUP_IP_DETECTED,
 	EC_ZEBRA_BAD_NHG_MESSAGE,
+	EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
 };
 
 void zebra_error_init(void);
