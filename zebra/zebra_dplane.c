@@ -1039,8 +1039,6 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 			      enum dplane_op_e op,
 			      struct zebra_pw *pw)
 {
-	int ret = AOK;
-
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug("init dplane ctx %s: pw '%s', loc %u, rem %u",
 			   dplane_op2str(op), pw->ifname, pw->local_label,
@@ -1070,7 +1068,7 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 
 	ctx->u.pw.fields = pw->data;
 
-	return ret;
+	return AOK;
 }
 
 /*
