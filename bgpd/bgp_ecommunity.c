@@ -48,8 +48,7 @@ static struct hash *ecomhash;
 /* Allocate a new ecommunities.  */
 struct ecommunity *ecommunity_new(void)
 {
-	return (struct ecommunity *)XCALLOC(MTYPE_ECOMMUNITY,
-					    sizeof(struct ecommunity));
+	return XCALLOC(MTYPE_ECOMMUNITY, sizeof(struct ecommunity));
 }
 
 void ecommunity_strfree(char **s)

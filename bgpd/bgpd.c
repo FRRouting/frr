@@ -2379,8 +2379,7 @@ static int peer_group_cmp(struct peer_group *g1, struct peer_group *g2)
 /* Peer group cofiguration. */
 static struct peer_group *peer_group_new(void)
 {
-	return (struct peer_group *)XCALLOC(MTYPE_PEER_GROUP,
-					    sizeof(struct peer_group));
+	return XCALLOC(MTYPE_PEER_GROUP, sizeof(struct peer_group));
 }
 
 static void peer_group_free(struct peer_group *group)

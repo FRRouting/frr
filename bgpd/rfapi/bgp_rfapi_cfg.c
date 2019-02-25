@@ -3814,8 +3814,7 @@ struct rfapi_cfg *bgp_rfapi_cfg_new(struct rfapi_rfp_cfg *cfg)
 	struct rfapi_cfg *h;
 	afi_t afi;
 
-	h = (struct rfapi_cfg *)XCALLOC(MTYPE_RFAPI_CFG,
-					sizeof(struct rfapi_cfg));
+	h = XCALLOC(MTYPE_RFAPI_CFG, sizeof(struct rfapi_cfg));
 	assert(h);
 
 	h->nve_groups_sequential = list_new();

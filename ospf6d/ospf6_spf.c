@@ -107,8 +107,7 @@ static struct ospf6_vertex *ospf6_vertex_create(struct ospf6_lsa *lsa)
 {
 	struct ospf6_vertex *v;
 
-	v = (struct ospf6_vertex *)XMALLOC(MTYPE_OSPF6_VERTEX,
-					   sizeof(struct ospf6_vertex));
+	v = XMALLOC(MTYPE_OSPF6_VERTEX, sizeof(struct ospf6_vertex));
 
 	/* type */
 	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_ROUTER) {
@@ -1016,8 +1015,7 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 	new_header = XMALLOC(MTYPE_OSPF6_LSA_HEADER, total_lsa_length);
 
 	/* LSA information structure */
-	lsa = (struct ospf6_lsa *)XCALLOC(MTYPE_OSPF6_LSA,
-					  sizeof(struct ospf6_lsa));
+	lsa = XCALLOC(MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa));
 
 	lsa->header = (struct ospf6_lsa_header *)new_header;
 

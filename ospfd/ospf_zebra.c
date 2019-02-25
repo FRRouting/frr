@@ -560,8 +560,7 @@ struct ospf_external *ospf_external_add(struct ospf *ospf, uint8_t type,
 		ospf->external[type] = list_new();
 
 	ext_list = ospf->external[type];
-	ext = (struct ospf_external *)XCALLOC(MTYPE_OSPF_EXTERNAL,
-					      sizeof(struct ospf_external));
+	ext = XCALLOC(MTYPE_OSPF_EXTERNAL, sizeof(struct ospf_external));
 	ext->instance = instance;
 	EXTERNAL_INFO(ext) = route_table_init();
 
@@ -621,8 +620,7 @@ struct ospf_redist *ospf_redist_add(struct ospf *ospf, uint8_t type,
 		ospf->redist[type] = list_new();
 
 	red_list = ospf->redist[type];
-	red = (struct ospf_redist *)XCALLOC(MTYPE_OSPF_REDISTRIBUTE,
-					    sizeof(struct ospf_redist));
+	red = XCALLOC(MTYPE_OSPF_REDISTRIBUTE, sizeof(struct ospf_redist));
 	red->instance = instance;
 	red->dmetric.type = -1;
 	red->dmetric.value = -1;

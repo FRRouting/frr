@@ -1573,8 +1573,7 @@ struct bgp_redist *bgp_redist_add(struct bgp *bgp, afi_t afi, uint8_t type,
 		bgp->redist[afi][type] = list_new();
 
 	red_list = bgp->redist[afi][type];
-	red = (struct bgp_redist *)XCALLOC(MTYPE_BGP_REDIST,
-					   sizeof(struct bgp_redist));
+	red = XCALLOC(MTYPE_BGP_REDIST, sizeof(struct bgp_redist));
 	red->instance = instance;
 
 	listnode_add(red_list, red);

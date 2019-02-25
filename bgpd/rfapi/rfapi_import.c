@@ -4285,7 +4285,7 @@ struct rfapi *bgp_rfapi_new(struct bgp *bgp)
 
 	assert(bgp->rfapi_cfg == NULL);
 
-	h = (struct rfapi *)XCALLOC(MTYPE_RFAPI, sizeof(struct rfapi));
+	h = XCALLOC(MTYPE_RFAPI, sizeof(struct rfapi));
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		h->un[afi] = agg_table_init();

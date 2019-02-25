@@ -38,8 +38,7 @@ static struct hash *lcomhash;
 /* Allocate a new lcommunities.  */
 static struct lcommunity *lcommunity_new(void)
 {
-	return (struct lcommunity *)XCALLOC(MTYPE_LCOMMUNITY,
-					    sizeof(struct lcommunity));
+	return XCALLOC(MTYPE_LCOMMUNITY, sizeof(struct lcommunity));
 }
 
 /* Allocate lcommunities.  */
