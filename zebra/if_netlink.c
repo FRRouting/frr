@@ -66,6 +66,7 @@
 #include "zebra/zebra_ptm.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/kernel_netlink.h"
+#include "zebra/rt_netlink.h"
 #include "zebra/if_netlink.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_vxlan.h"
@@ -1477,6 +1478,11 @@ int netlink_protodown(struct interface *ifp, bool down)
 void interface_list(struct zebra_ns *zns)
 {
 	interface_lookup_netlink(zns);
+	/* We add routes for interface address,
+	 * so we need to get the nexthop info
+	 * from the kernel before we can do that
+	 */
+	netlink_nexthop_read(zns);
 	interface_addr_lookup_netlink(zns);
 }
 

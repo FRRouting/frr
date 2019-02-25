@@ -29,6 +29,7 @@
 struct nhg_hash_entry {
 	uint32_t id;
 	vrf_id_t vrf_id;
+	bool is_kernel_nh;
 
 	struct nexthop_group nhg;
 
@@ -54,15 +55,22 @@ struct nhg_hash_entry {
 void zebra_nhg_init(void);
 void zebra_nhg_terminate(void);
 
+extern struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id);
+extern int zebra_nhg_insert_id(struct nhg_hash_entry *nhe);
+
 extern uint32_t zebra_nhg_hash_key(const void *arg);
 extern uint32_t zebra_nhg_id_key(const void *arg);
 
 extern bool zebra_nhg_hash_equal(const void *arg1, const void *arg2);
-extern bool zebra_nhg_id_equal(const void *arg1, const void *arg2);
+extern bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2);
 
-extern void zebra_nhg_find(struct nexthop_group *nhg, struct route_entry *re);
-extern void zebra_nhg_find_id(uint32_t id, struct nexthop_group *nhg);
-void zebra_nhg_release(struct route_entry *re);
+extern struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
+					     vrf_id_t vrf_id, uint32_t id);
+extern struct nhg_hash_entry *zebra_nhg_find_id(uint32_t id,
+						struct nexthop_group *nhg);
+void zebra_nhg_free(void *arg);
+void zebra_nhg_release(struct nhg_hash_entry *nhe);
+void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe);
 
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re);
 #endif

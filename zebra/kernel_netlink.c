@@ -295,13 +295,9 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_DELRULE:
 		return netlink_rule_change(h, ns_id, startup);
 	case RTM_NEWNEXTHOP:
+		return netlink_nexthop_change(h, ns_id, startup);
 	case RTM_DELNEXTHOP:
-	case RTM_GETNEXTHOP:
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("Got a nexthop: %s(%d) message!",
-				   nl_msg_type_to_str(h->nlmsg_type),
-				   h->nlmsg_type);
-		break;
+		return netlink_nexthop_change(h, ns_id, startup);
 	default:
 		/*
 		 * If we have received this message then

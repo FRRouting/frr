@@ -218,6 +218,11 @@ void zebra_router_terminate(void)
 	zebra_vxlan_disable();
 	zebra_mlag_terminate();
 
+	hash_clean(zrouter.nhgs, zebra_nhg_free);
+	hash_free(zrouter.nhgs);
+	hash_clean(zrouter.nhgs_id, NULL);
+	hash_free(zrouter.nhgs_id);
+
 	hash_clean(zrouter.rules_hash, zebra_pbr_rules_free);
 	hash_free(zrouter.rules_hash);
 
@@ -254,13 +259,10 @@ void zebra_router_init(void)
 						zebra_pbr_iptable_hash_equal,
 						"IPtable Hash Entry");
 
-	/* Index via hash and IDs so we can
-	 * easily communicate to/from the kernel
-	 */
 	zrouter.nhgs =
 		hash_create_size(8, zebra_nhg_hash_key, zebra_nhg_hash_equal,
 				 "Zebra Router Nexthop Groups");
 	zrouter.nhgs_id =
-		hash_create_size(8, zebra_nhg_id_key, zebra_nhg_id_equal,
+		hash_create_size(8, zebra_nhg_id_key, zebra_nhg_hash_id_equal,
 				 "Zebra Router Nexthop Groups ID index");
 }

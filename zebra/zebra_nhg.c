@@ -35,23 +35,86 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/rt.h"
+#include "zebra_errors.h"
+
+/**
+ * zebra_nhg_lookup_id() - Lookup the nexthop group id in the id table
+ *
+ * @id:		ID to look for
+ *
+ * Return:	Nexthop hash entry if found/NULL if not found
+ */
+struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id)
+{
+	struct nhg_hash_entry lookup = {0};
+
+	lookup.id = id;
+	return hash_lookup(zrouter.nhgs_id, &lookup);
+}
+
+/**
+ * zebra_nhg_insert_id() - Insert a nhe into the id hashed table
+ *
+ * @nhe:	The entry directly from the other table
+ *
+ * Return:	Result status
+ */
+int zebra_nhg_insert_id(struct nhg_hash_entry *nhe)
+{
+	if (hash_lookup(zrouter.nhgs_id, nhe)) {
+		flog_err(
+			EC_ZEBRA_NHG_TABLE_INSERT_FAILED,
+			"Failed inserting NHG id=%u into the ID hash table, entry already exists",
+			nhe->id);
+		return -1;
+	}
+
+	hash_get(zrouter.nhgs_id, nhe, hash_alloc_intern);
+
+	return 0;
+}
 
 
 static void *zebra_nhg_alloc(void *arg)
 {
+	/* lock for getiing and setting the id */
+	static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+	/* id counter to keep in sync with kernel */
+	static uint32_t id_counter = 0;
 	struct nhg_hash_entry *nhe;
 	struct nhg_hash_entry *copy = arg;
 
-	nhe = XMALLOC(MTYPE_TMP, sizeof(struct nhg_hash_entry));
+	nhe = XCALLOC(MTYPE_TMP, sizeof(struct nhg_hash_entry));
+
+	pthread_mutex_lock(&lock); /* Lock, set the id counter from kernel */
+	if (copy->id) {
+		/* This is from the kernel if it has an id */
+		if (copy->id > id_counter) {
+			/* Increase our counter so we don't try to create
+			 * an ID that already exists
+			 */
+			id_counter = copy->id;
+		}
+		nhe->id = copy->id;
+		/* Mark as valid since from the kernel */
+		SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+		SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
+	} else {
+		nhe->id = ++id_counter;
+	}
+	pthread_mutex_unlock(&lock);
 
 	nhe->vrf_id = copy->vrf_id;
 	nhe->refcnt = 0;
+	nhe->is_kernel_nh = false;
 	nhe->dplane_ref = zebra_router_get_next_sequence();
 	nhe->nhg.nexthop = NULL;
 
 	nexthop_group_copy(&nhe->nhg, &copy->nhg);
 
-	nhe->refcnt = 1;
+	/* Add to id table as well */
+	zebra_nhg_insert_id(nhe);
+
 
 	return nhe;
 }
@@ -95,11 +158,15 @@ static uint32_t zebra_nhg_hash_key_nexthop_group(struct nexthop_group *nhg)
 uint32_t zebra_nhg_hash_key(const void *arg)
 {
 	const struct nhg_hash_entry *nhe = arg;
+
 	int key = 0x5a351234;
 
 	key = jhash_1word(nhe->vrf_id, key);
 
-	return jhash_1word(zebra_nhg_hash_key_nexthop_group(&nhe->nhg), key);
+	key = jhash_1word(zebra_nhg_hash_key_nexthop_group(&nhe->nhg), key);
+
+
+	return key;
 }
 
 uint32_t zebra_nhg_id_key(const void *arg)
@@ -107,14 +174,6 @@ uint32_t zebra_nhg_id_key(const void *arg)
 	const struct nhg_hash_entry *nhe = arg;
 
 	return nhe->id;
-}
-
-bool zebra_nhg_id_equal(const void *arg1, const void *arg2)
-{
-	const struct nhg_hash_entry *nhe1 = arg1;
-	const struct nhg_hash_entry *nhe2 = arg2;
-
-	return (nhe1->id == nhe2->id);
 }
 
 bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
@@ -149,60 +208,116 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	return true;
 }
 
-/**
- * Helper function for lookup and get()
- * since we are using two different tables.
- *
- * Avoiding code duplication hopefully.
- */
-static struct nhg_hash_entry *
-zebra_nhg_lookup_get(struct hash *hash_table,
-		     struct nhg_hash_entry *lookup)
+bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
 {
-	struct nhg_hash_entry *nhe;
+	const struct nhg_hash_entry *nhe1 = arg1;
+	const struct nhg_hash_entry *nhe2 = arg2;
 
-	nhe = hash_lookup(hash_table, lookup);
+	return nhe1->id == nhe2->id;
+}
 
-	if (!nhe)
-		nhe = hash_get(hash_table, lookup, zebra_nhg_alloc);
-	else
-		nhe->refcnt++;
+struct nhg_hash_entry *zebra_nhg_find_id(uint32_t id, struct nexthop_group *nhg)
+{
+	// TODO: How this will work is yet to be determined
+	return NULL;
+}
+
+/**
+ * zebra_nhg_find() - Find the zebra nhg in our table, or create it
+ *
+ * @nhg:	Nexthop group we lookup with
+ * @vrf_id:	VRF id
+ * @id:		ID we lookup with, 0 means its from us and we need to give it
+ * 		an ID, otherwise its from the kernel as we use the ID it gave
+ * 		us.
+ *
+ * Return:	Hash entry found or created
+ */
+struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
+				      vrf_id_t vrf_id, uint32_t id)
+{
+	struct nhg_hash_entry lookup = {0};
+	struct nhg_hash_entry *nhe = NULL;
+
+	lookup.id = id;
+	lookup.vrf_id = vrf_id;
+	lookup.nhg = *nhg;
+
+
+	nhe = hash_lookup(zrouter.nhgs, &lookup);
+
+	if (!nhe) {
+		nhe = hash_get(zrouter.nhgs, &lookup, zebra_nhg_alloc);
+	} else {
+		if (id) {
+			/* Duplicate but with different ID from the kernel */
+
+			/* The kernel allows duplicate nexthops as long as they
+			 * have different IDs. We are ignoring those to prevent
+			 * syncing problems with the kernel changes.
+			 */
+			flog_warn(
+				EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
+				"Nexthop Group from kernel with ID (%d) is a duplicate, ignoring",
+				id);
+			return NULL;
+		}
+	}
 
 	return nhe;
 }
 
-void zebra_nhg_find_id(uint32_t id, struct nexthop_group *nhg)
+/**
+ * zebra_nhg_free() - Free the nexthop group hash entry
+ *
+ * arg:	Nexthop group entry to free
+ */
+void zebra_nhg_free(void *arg)
 {
-	struct nhg_hash_entry lookup = {0};
+	struct nhg_hash_entry *nhe = NULL;
 
-	lookup.nhg = *nhg;
+	nhe = (struct nhg_hash_entry *)arg;
 
-	zebra_nhg_lookup_get(zrouter.nhgs_id, &lookup);
+	nexthops_free(nhe->nhg.nexthop);
+	XFREE(MTYPE_TMP, nhe);
 }
 
-void zebra_nhg_find(struct nexthop_group *nhg, struct route_entry *re)
+/**
+ * zebra_nhg_release() - Release a nhe from the tables
+ *
+ * @nhe:	Nexthop group hash entry
+ */
+void zebra_nhg_release(struct nhg_hash_entry *nhe)
 {
-	struct nhg_hash_entry lookup;
+	if (nhe->refcnt) {
+		flog_err(
+			EC_ZEBRA_NHG_SYNC,
+			"Kernel deleted a nexthop group with ID (%u) that we are still using for a route",
+			nhe->id);
+		// TODO: Re-send to kernel
+	}
 
-	memset(&lookup, 0, sizeof(lookup));
-	lookup.vrf_id = re->vrf_id;
-	lookup.nhg = *nhg;
-
-	re->nhe = zebra_nhg_lookup_get(zrouter.nhgs, &lookup);
+	hash_release(zrouter.nhgs, nhe);
+	hash_release(zrouter.nhgs_id, nhe);
+	zebra_nhg_free(nhe);
 }
 
-void zebra_nhg_release(struct route_entry *re)
+/**
+ * zebra_nhg_decrement_ref() - Decrement the reference count, release if unused
+ *
+ * @nhe:	Nexthop group hash entry
+ *
+ * If the counter hits 0 and is not a nexthop group that was created by the
+ * kernel, we don't need to have it in our table anymore.
+ */
+void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 {
-	struct nhg_hash_entry lookup, *nhe;
-
-	lookup.vrf_id = re->vrf_id;
-	lookup.nhg = *re->ng;
-
-	nhe = hash_lookup(zrouter.nhgs, &lookup);
 	nhe->refcnt--;
 
-	if (nhe->refcnt == 0)
-		hash_release(zrouter.nhgs, nhe);
+	if (!nhe->is_kernel_nh && nhe->refcnt <= 0) {
+		zebra_nhg_release(nhe);
+	}
+
 	// re->ng = NULL;
 }
 

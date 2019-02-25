@@ -292,6 +292,15 @@ static struct log_ref ferr_zebra_err[] = {
 		.suggestion =
 			"Check to see if the entry already exists or if the netlink message was parsed incorrectly."
 	},
+	{
+		.code = EC_ZEBRA_NHG_SYNC,
+		.title =
+			"Zebra's Nexthop Groups are out of sync",
+		.description =
+			"Zebra's nexthop group tables are out of sync with the nexthop groups in the fib.",
+		.suggestion =
+			"Check the current status of the kernels nexthop groups and compare it to Zebra's."
+	},
 	/* Warnings */
 	{
 		.code = EC_ZEBRAING_LM_PROTO_MISMATCH,

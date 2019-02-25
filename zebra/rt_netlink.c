@@ -27,6 +27,7 @@
 #include <linux/mpls_iptunnel.h>
 #include <linux/neighbour.h>
 #include <linux/rtnetlink.h>
+#include <linux/nexthop.h>
 
 /* Hack for GNU libc version 2. */
 #ifndef MSG_TRUNC
@@ -62,6 +63,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/rt_netlink.h"
+#include "zebra/zebra_nhg.h"
 #include "zebra/zebra_mroute.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
@@ -1919,6 +1921,292 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 	return (ret == 0 ?
 		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
 }
+
+/**
+ * netlink_nexthop_process_nh() - Parse the gatway/if info from a new nexthop
+ *
+ * @tb:		Netlink RTA data
+ * @family:	Address family in the nhmsg
+ * @ns_id:	Namspace id
+ *
+ * Return:	New nexthop
+ */
+static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
+						 unsigned char family,
+						 ns_id_t ns_id)
+{
+	struct nexthop nh = {0};
+	void *gate = NULL;
+	struct interface *ifp = NULL;
+	int if_index;
+	size_t sz;
+
+	if_index = *(int *)RTA_DATA(tb[NHA_OIF]);
+
+	if (tb[NHA_GATEWAY]) {
+		switch (family) {
+		case AF_INET:
+			nh.type = NEXTHOP_TYPE_IPV4_IFINDEX;
+			sz = 4;
+			break;
+		case AF_INET6:
+			nh.type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			sz = 16;
+			break;
+		default:
+			flog_warn(
+				EC_ZEBRA_BAD_NHG_MESSAGE,
+				"Nexthop with bad address family (%d) received from kernel",
+				family);
+			// TODO: Different return value?
+			return nh;
+		}
+		gate = RTA_DATA(tb[NHA_GATEWAY]);
+		memcpy(&(nh.gate), gate, sz);
+	} else {
+		nh.type = NEXTHOP_TYPE_IFINDEX;
+	}
+
+	nh.ifindex = if_index;
+
+	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), nh.ifindex);
+	if (ifp) {
+		nh.vrf_id = ifp->vrf_id;
+	} else {
+		flog_warn(
+			EC_ZEBRA_UNKNOWN_INTERFACE,
+			"%s: Unknown nexthop interface %u received, defaulting to VRF_DEFAULT",
+			__PRETTY_FUNCTION__, nh.ifindex);
+
+		nh.vrf_id = VRF_DEFAULT;
+	}
+
+	if (tb[NHA_ENCAP] && tb[NHA_ENCAP_TYPE]) {
+		uint16_t encap_type = *(uint16_t *)RTA_DATA(tb[NHA_ENCAP_TYPE]);
+		int num_labels = 0;
+		mpls_label_t labels[MPLS_MAX_LABELS] = {0};
+
+		if (encap_type == LWTUNNEL_ENCAP_MPLS) {
+			num_labels = parse_encap_mpls(tb[NHA_ENCAP], labels);
+		}
+
+		if (num_labels) {
+			nexthop_add_labels(&nh, ZEBRA_LSP_STATIC, num_labels,
+					   labels);
+		}
+	}
+
+	return nh;
+}
+
+/**
+ * netlink_nexthop_process_group() - Iterate over nhmsg nexthop group
+ *
+ * @tb:		Netlink RTA data
+ *
+ * Return:	TODO: Not sure yet
+ */
+static int netlink_nexthop_process_group(struct rtattr **tb)
+{
+	int count;
+	struct nexthop_grp *n_grp = NULL;
+
+	n_grp = RTA_DATA(tb[NHA_GROUP]);
+	count = (RTA_PAYLOAD(tb[NHA_GROUP]) / sizeof(*n_grp));
+
+	if (!count || (count * sizeof(*n_grp)) != RTA_PAYLOAD(tb[NHA_GROUP])) {
+		flog_warn(EC_ZEBRA_BAD_NHG_MESSAGE,
+			  "Invalid nexthop group received from the kernel");
+		return -1;
+	}
+
+	// TODO: Need type for something?
+	// zlog_debug("group type: %d",
+	//	   *((uint16_t *)RTA_DATA(tb[NHA_GROUP_TYPE])));
+
+
+	for (int i = 0; i < count; i++) {
+		// TODO: Lookup by id and if we already have entries
+		// for that id, delete it?
+
+		/* We do not care about nexthop_grp.weight at
+		 * this time. But we should figure out
+		 * how to adapt this to our code in
+		 * the future.
+		 */
+	}
+
+	return count;
+}
+
+/**
+ * netlink_nexthop_change() - Read in change about nexthops from the kernel
+ *
+ * @h:		Netlink message header
+ * @ns_id:	Namspace id
+ * @startup:	Are we reading under startup conditions?
+ *
+ * Return:	Result status
+ */
+int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
+{
+	int len;
+	/* nexthop group id */
+	uint32_t id;
+	unsigned char family;
+	struct nhmsg *nhm = NULL;
+	/* struct for nexthop group abstraction  */
+	struct nexthop_group nhg = {0};
+	/* zebra's version of nexthops */
+	struct nexthop nh = {0};
+	/* struct that goes into our tables */
+	struct nhg_hash_entry *nhe = NULL;
+	struct rtattr *tb[NHA_MAX + 1];
+
+
+	nhm = NLMSG_DATA(h);
+
+	if (startup && h->nlmsg_type != RTM_NEWNEXTHOP)
+		return 0;
+
+	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct nhmsg));
+	if (len < 0) {
+		zlog_warn(
+			"%s: Message received from netlink is of a broken size %d %zu",
+			__PRETTY_FUNCTION__, h->nlmsg_len,
+			(size_t)NLMSG_LENGTH(sizeof(struct nhmsg)));
+		return -1;
+	}
+
+	memset(tb, 0, sizeof(tb));
+	netlink_parse_rtattr(tb, NHA_MAX, RTM_NHA(nhm), len);
+
+
+	if (!tb[NHA_ID]) {
+		flog_warn(
+			EC_ZEBRA_BAD_NHG_MESSAGE,
+			"Nexthop group without an ID received from the kernel");
+		return -1;
+	}
+
+	/* We use the ID key'd nhg table for kernel updates */
+	id = *((uint32_t *)RTA_DATA(tb[NHA_ID]));
+	family = nhm->nh_family;
+
+	if (IS_ZEBRA_DEBUG_KERNEL) {
+		zlog_debug("Nexthop ID (%u) update from the kernel", id);
+	}
+
+	/* Lookup via the id */
+	nhe = zebra_nhg_lookup_id(id);
+
+	if (h->nlmsg_type == RTM_NEWNEXTHOP) {
+		if (tb[NHA_GROUP]) {
+			/**
+			 * If this is a group message its only going to have
+			 * an array of nexthop IDs associated with it
+			 */
+			return -1;
+			netlink_nexthop_process_group(tb);
+		} else if (tb[NHA_BLACKHOLE]) {
+			/**
+			 * This nexthop is just for blackhole-ing traffic,
+			 * it should not have an OIF, GATEWAY, or ENCAP
+			 */
+			nh.type = NEXTHOP_TYPE_BLACKHOLE;
+			// TODO: Handle blackhole case
+			nh.bh_type = BLACKHOLE_UNSPEC;
+		} else if (tb[NHA_OIF]) {
+			/**
+			 * This is a true new nexthop, so we need
+			 * to parse the gateway and device info
+			 */
+			nh = netlink_nexthop_process_nh(tb, family, ns_id);
+		}
+
+
+		nexthop_group_add_sorted(&nhg, &nh);
+
+		if (nhe) {
+			/* This is a change to a group we already have */
+			nexthops_free(nhe->nhg.nexthop);
+			nhe->nhg.nexthop = NULL;
+			nexthop_group_copy(&nhe->nhg, &nhg);
+		} else {
+			/* This is a new nexthop group */
+			nhe = zebra_nhg_find(&nhg, nh.vrf_id, id);
+			if (nhe) {
+				nhe->is_kernel_nh = true;
+			} else {
+				return -1;
+			}
+		}
+	} else if (h->nlmsg_type == RTM_DELNEXTHOP) {
+		if (!nhe) {
+			flog_warn(
+				EC_ZEBRA_BAD_NHG_MESSAGE,
+				"Kernel delete message received for nexthop group ID (%u) that we do not have in our ID table",
+				id);
+			return -1;
+		}
+
+		// TODO: Run some active check on all route_entry's?
+		zebra_nhg_release(nhe);
+	}
+
+
+	return 0;
+}
+
+/**
+ * netlink_request_nexthop() - Request nextop information from the kernel
+ * @zns:	Zebra namespace
+ * @family:	AF_* netlink family
+ * @type:	RTM_* route type
+ *
+ * Return:	Result status
+ */
+static int netlink_request_nexthop(struct zebra_ns *zns, int family, int type)
+{
+	struct {
+		struct nlmsghdr n;
+		struct nhmsg nhm;
+	} req;
+
+	/* Form the request, specifying filter (rtattr) if needed. */
+	memset(&req, 0, sizeof(req));
+	req.n.nlmsg_type = type;
+	req.n.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct nhmsg));
+	req.nhm.nh_family = family;
+
+	return netlink_request(&zns->netlink_cmd, &req.n);
+}
+
+/**
+ * netlink_nexthop_read() - Nexthop read function using netlink interface
+ *
+ * @zns:	Zebra name space
+ *
+ * Return:	Result status
+ * Only called at bootstrap time.
+ */
+int netlink_nexthop_read(struct zebra_ns *zns)
+{
+	int ret;
+	struct zebra_dplane_info dp_info;
+
+	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
+
+	/* Get nexthop objects */
+	ret = netlink_request_nexthop(zns, AF_UNSPEC, RTM_GETNEXTHOP);
+	if (ret < 0)
+		return ret;
+	ret = netlink_parse_info(netlink_nexthop_change, &zns->netlink_cmd,
+				 &dp_info, 0, 1);
+	return 0;
+}
+
 
 int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
 			int llalen, ns_id_t ns_id)
