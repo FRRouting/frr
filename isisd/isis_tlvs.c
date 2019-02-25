@@ -1913,7 +1913,7 @@ static void format_item_auth(uint16_t mtid, struct isis_item *i,
 	default:
 		sbuf_push(buf, indent, "  Unknown (%" PRIu8 ")\n", auth->type);
 		break;
-	};
+	}
 }
 
 static void free_item_auth(struct isis_item *i)

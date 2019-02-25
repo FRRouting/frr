@@ -520,7 +520,7 @@ const char *dplane_op2str(enum dplane_op_e op)
 		ret = "PW_UNINSTALL";
 		break;
 
-	};
+	}
 
 	return ret;
 }
@@ -539,7 +539,7 @@ const char *dplane_res2str(enum zebra_dplane_result res)
 	case ZEBRA_DPLANE_REQUEST_SUCCESS:
 		ret = "SUCCESS";
 		break;
-	};
+	}
 
 	return ret;
 }
