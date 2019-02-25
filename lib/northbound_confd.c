@@ -1383,7 +1383,7 @@ error:
 
 static int frr_confd_finish(void)
 {
-	if (confd_connected == false)
+	if (!confd_connected)
 		return 0;
 
 	frr_confd_finish_cdb();

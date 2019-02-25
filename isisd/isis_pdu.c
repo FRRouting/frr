@@ -2146,11 +2146,11 @@ int send_csnp(struct isis_circuit *circuit, int level)
 		 * stop lsp_id in this current CSNP.
 		 */
 		memcpy(start, stop, ISIS_SYS_ID_LEN + 2);
-		loop = 0;
+		loop = false;
 		for (int i = ISIS_SYS_ID_LEN + 1; i >= 0; --i) {
 			if (start[i] < (uint8_t)0xff) {
 				start[i] += 1;
-				loop = 1;
+				loop = true;
 				break;
 			}
 		}

@@ -61,7 +61,7 @@ static char dbfile_default[512];
 #endif
 static char vtypath_default[256];
 
-bool debug_memstats_at_exit = 0;
+bool debug_memstats_at_exit = false;
 static bool nodetach_term, nodetach_daemon;
 
 static char comb_optstr[256];

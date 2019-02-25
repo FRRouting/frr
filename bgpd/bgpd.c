@@ -116,7 +116,7 @@ static int bgp_check_main_socket(bool create, struct bgp *bgp)
 {
 	static int bgp_server_main_created;
 
-	if (create == true) {
+	if (create) {
 		if (bgp_server_main_created)
 			return 0;
 		if (bgp_socket(bgp, bm->port, bm->address) < 0)

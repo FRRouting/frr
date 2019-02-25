@@ -62,7 +62,7 @@ bool yang_str2bool(const char *value)
 
 struct yang_data *yang_data_new_bool(const char *xpath, bool value)
 {
-	return yang_data_new(xpath, (value == true) ? "true" : "false");
+	return yang_data_new(xpath, (value) ? "true" : "false");
 }
 
 bool yang_dnode_get_bool(const struct lyd_node *dnode, const char *xpath_fmt,

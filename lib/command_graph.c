@@ -471,7 +471,7 @@ void cmd_graph_node_print_cb(struct graph_node *gn, struct buffer *buf)
 	struct cmd_token *tok = gn->data;
 	const char *color;
 
-	if (wasend == true) {
+	if (wasend) {
 		wasend = false;
 		return;
 	}

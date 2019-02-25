@@ -180,7 +180,7 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
 {
 	int i;
 	int len;
-	bool first = 1;
+	bool first = true;
 	char *str_buf;
 	char *str_pnt;
 	uint8_t *pnt;
@@ -218,7 +218,7 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
 
 	for (i = 0; i < lcom->size; i++) {
 		if (first)
-			first = 0;
+			first = false;
 		else
 			*str_pnt++ = ' ';
 
