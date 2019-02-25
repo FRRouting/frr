@@ -149,6 +149,10 @@ static int rip_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 void rip_redistribute_conf_update(struct rip *rip, int type)
 {
+	if (!rip->vrf)
+		return;
+	if (rip->vrf->vrf_id == VRF_UNKNOWN)
+		return;
 	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
 				type, 0, rip->vrf->vrf_id);
 }

@@ -3537,6 +3537,12 @@ static void rip_instance_enable(struct rip *rip, struct vrf *vrf, int sock)
 	rip_event(rip, RIP_UPDATE_EVENT, 1);
 
 	rip_zebra_vrf_register(vrf);
+
+	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+		if (!rip->redistribute_type[i])
+			continue;
+		rip_redistribute_conf_update(rip, i);
+	}
 }
 
 static void rip_instance_disable(struct rip *rip)

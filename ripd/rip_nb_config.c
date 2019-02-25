@@ -592,6 +592,8 @@ int ripd_instance_redistribute_destroy(struct nb_cb_destroy_args *args)
 	rip->redist[type].metric_config = false;
 	rip->redist[type].metric = 0;
 
+	rip->redistribute_type[type] = 0;
+
 	if (rip->enabled)
 		rip_redistribute_conf_delete(rip, type);
 
@@ -607,6 +609,7 @@ void ripd_instance_redistribute_apply_finish(
 	rip = nb_running_get_entry(args->dnode, NULL, true);
 	type = yang_dnode_get_enum(args->dnode, "./protocol");
 
+	rip->redistribute_type[type] = 1;
 	if (rip->enabled)
 		rip_redistribute_conf_update(rip, type);
 }
