@@ -752,8 +752,6 @@ static struct ptm_client *pc_new(uint32_t pid)
 
 	/* Allocate the client data and save it. */
 	pc = XCALLOC(MTYPE_BFDD_CONTROL, sizeof(*pc));
-	if (pc == NULL)
-		return NULL;
 
 	pc->pc_pid = pid;
 	TAILQ_INSERT_HEAD(&pcqueue, pc, pc_entry);
@@ -799,8 +797,6 @@ static struct ptm_client_notification *pcn_new(struct ptm_client *pc,
 
 	/* Save the client notification data. */
 	pcn = XCALLOC(MTYPE_BFDD_NOTIFICATION, sizeof(*pcn));
-	if (pcn == NULL)
-		return NULL;
 
 	TAILQ_INSERT_HEAD(&pc->pc_pcnqueue, pcn, pcn_entry);
 	pcn->pcn_pc = pc;

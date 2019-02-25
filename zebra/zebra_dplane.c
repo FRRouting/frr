@@ -1474,10 +1474,6 @@ int dplane_provider_register(const char *name,
 
 	/* Allocate and init new provider struct */
 	p = XCALLOC(MTYPE_DP_PROV, sizeof(struct zebra_dplane_provider));
-	if (p == NULL) {
-		ret = ENOMEM;
-		goto done;
-	}
 
 	pthread_mutex_init(&(p->dp_mutex), NULL);
 	TAILQ_INIT(&(p->dp_ctx_in_q));

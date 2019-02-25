@@ -95,8 +95,6 @@ static void hash_expand(struct hash *hash)
 
 	new_index = XCALLOC(MTYPE_HASH_INDEX,
 			    sizeof(struct hash_bucket *) * new_size);
-	if (new_index == NULL)
-		return;
 
 	hash->stats.empty = new_size;
 

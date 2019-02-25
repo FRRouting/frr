@@ -197,8 +197,6 @@ static void *route_value_compile(const char *arg)
 	}
 
 	rv = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_value));
-	if (!rv)
-		return NULL;
 
 	rv->action = action;
 	rv->variable = var;
@@ -837,8 +835,6 @@ static void *route_match_vni_compile(const char *arg)
 	char *end = NULL;
 
 	vni = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(vni_t));
-	if (!vni)
-		return NULL;
 
 	*vni = strtoul(arg, &end, 10);
 	if (*end != '\0') {
@@ -997,9 +993,6 @@ static void *route_match_local_pref_compile(const char *arg)
 		return NULL;
 
 	local_pref = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
-
-	if (!local_pref)
-		return local_pref;
 
 	*local_pref = tmpval;
 	return local_pref;

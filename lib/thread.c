@@ -414,8 +414,6 @@ struct thread_master *thread_master_create(const char *name)
 	pthread_once(&init_once, &initializer);
 
 	rv = XCALLOC(MTYPE_THREAD_MASTER, sizeof(struct thread_master));
-	if (rv == NULL)
-		return NULL;
 
 	/* Initialize master mutex */
 	pthread_mutex_init(&rv->mtx, NULL);

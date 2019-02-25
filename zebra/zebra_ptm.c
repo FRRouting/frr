@@ -1215,8 +1215,6 @@ static struct ptm_process *pp_new(pid_t pid, struct zserv *zs)
 
 	/* Allocate and register new process. */
 	pp = XCALLOC(MTYPE_ZEBRA_PTM_BFD_PROCESS, sizeof(*pp));
-	if (pp == NULL)
-		return NULL;
 
 	pp->pp_pid = pid;
 	pp->pp_zs = zs;

@@ -1415,8 +1415,6 @@ babel_interface_allocate (void)
 {
     babel_interface_nfo *babel_ifp;
     babel_ifp = XMALLOC(MTYPE_BABEL_IF, sizeof(babel_interface_nfo));
-    if(babel_ifp == NULL)
-        return NULL;
 
     /* Here are set the default values for an interface. */
     memset(babel_ifp, 0, sizeof(babel_interface_nfo));
