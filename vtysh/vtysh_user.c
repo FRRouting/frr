@@ -204,7 +204,7 @@ char *vtysh_get_home(void)
 	struct passwd *passwd;
 	char *homedir;
 
-	if ((homedir = getenv("HOME")) != 0)
+	if ((homedir = getenv("HOME")) != NULL)
 		return homedir;
 
 	/* Fallback if HOME is undefined */
