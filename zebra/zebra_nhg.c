@@ -45,7 +45,6 @@ static void *zebra_nhg_alloc(void *arg)
 	nhe = XMALLOC(MTYPE_TMP, sizeof(struct nhg_hash_entry));
 
 	nhe->vrf_id = copy->vrf_id;
-	nhe->afi = copy->afi;
 	nhe->refcnt = 0;
 	nhe->dplane_ref = zebra_router_get_next_sequence();
 	nhe->nhg.nexthop = NULL;
@@ -68,6 +67,7 @@ static uint32_t zebra_nhg_hash_key_nexthop_group(struct nexthop_group *nhg)
 	 * resolved nexthops
 	 */
 	for (nh = nhg->nexthop; nh; nh = nh->next) {
+		key = jhash_1word(nh->type, key);
 		key = jhash_2words(nh->vrf_id, nh->nh_label_type, key);
 		/* gate and blackhole are together in a union */
 		key = jhash(&nh->gate, sizeof(nh->gate), key);
@@ -97,7 +97,7 @@ uint32_t zebra_nhg_hash_key(const void *arg)
 	const struct nhg_hash_entry *nhe = arg;
 	int key = 0x5a351234;
 
-	key = jhash_2words(nhe->vrf_id, nhe->afi, key);
+	key = jhash_1word(nhe->vrf_id, key);
 
 	return jhash_1word(zebra_nhg_hash_key_nexthop_group(&nhe->nhg), key);
 }
@@ -125,9 +125,6 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	uint32_t nh_count = 0;
 
 	if (nhe1->vrf_id != nhe2->vrf_id)
-		return false;
-
-	if (nhe1->afi != nhe2->afi)
 		return false;
 
 	/*
@@ -183,25 +180,22 @@ void zebra_nhg_find_id(uint32_t id, struct nexthop_group *nhg)
 	zebra_nhg_lookup_get(zrouter.nhgs_id, &lookup);
 }
 
-void zebra_nhg_find(afi_t afi, struct nexthop_group *nhg,
-		    struct route_entry *re)
+void zebra_nhg_find(struct nexthop_group *nhg, struct route_entry *re)
 {
 	struct nhg_hash_entry lookup;
 
 	memset(&lookup, 0, sizeof(lookup));
 	lookup.vrf_id = re->vrf_id;
-	lookup.afi = afi;
 	lookup.nhg = *nhg;
 
 	re->nhe = zebra_nhg_lookup_get(zrouter.nhgs, &lookup);
 }
 
-void zebra_nhg_release(afi_t afi, struct route_entry *re)
+void zebra_nhg_release(struct route_entry *re)
 {
 	struct nhg_hash_entry lookup, *nhe;
 
 	lookup.vrf_id = re->vrf_id;
-	lookup.afi = afi;
 	lookup.nhg = *re->ng;
 
 	nhe = hash_lookup(zrouter.nhgs, &lookup);

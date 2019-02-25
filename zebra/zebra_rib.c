@@ -2411,8 +2411,7 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 	if (dest->selected_fib == re)
 		dest->selected_fib = NULL;
 
-	info = srcdest_rnode_table_info(rn);
-	zebra_nhg_release(info->afi, re);
+	zebra_nhg_release(re);
 
 	nexthops_free(re->ng->nexthop);
 	nexthop_group_delete(&re->ng);
@@ -2659,7 +2658,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	if (src_p)
 		apply_mask_ipv6(src_p);
 
-	zebra_nhg_find(afi, re->ng, re);
+	zebra_nhg_find(re->ng, re);
 	/* Set default distance by route type. */
 	if (re->distance == 0)
 		re->distance = route_distance(re->type);
