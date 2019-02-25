@@ -126,7 +126,7 @@ DEFPY(vrrp_priority,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	struct vrrp_vrouter *vr;
-	uint8_t newprio = no ? VRRP_DEFAULT_PRIORITY : priority;
+	uint8_t newprio = no ? vd.priority : priority;
 
 	VROUTER_GET_VTY(vty, ifp, vrid, vr);
 
@@ -144,7 +144,8 @@ DEFPY(vrrp_advertisement_interval,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	struct vrrp_vrouter *vr;
-	uint16_t newadvint = no ? VRRP_DEFAULT_ADVINT : advertisement_interval;
+	uint16_t newadvint = no ? vd.advertisement_interval :
+				  advertisement_interval;
 
 	VROUTER_GET_VTY(vty, ifp, vrid, vr);
 	vrrp_set_advertisement_interval(vr, newadvint);
@@ -296,6 +297,31 @@ DEFPY(vrrp_autoconfigure,
 		vrrp_autoconfig_on(version);
 	else
 		vrrp_autoconfig_off();
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(vrrp_default,
+      vrrp_default_cmd,
+      "[no] vrrp default <advertisement-interval$adv (1-4096)$advint|preempt$p|priority$prio (1-254)$prioval|shutdown$s>",
+      NO_STR
+      VRRP_STR
+      "Configure defaults for new VRRP instances\n"
+      VRRP_ADVINT_STR
+      "Advertisement interval in centiseconds\n"
+      "Preempt mode\n"
+      VRRP_PRIORITY_STR
+      "Priority value\n"
+      "Force VRRP router into administrative shutdown\n")
+{
+	if (adv)
+		vd.advertisement_interval = no ? VRRP_DEFAULT_ADVINT : advint;
+	if (p)
+		vd.preempt_mode = !no;
+	if (prio)
+		vd.priority = no ? VRRP_DEFAULT_PRIORITY : prioval;
+	if (s)
+		vd.shutdown = !no;
 
 	return CMD_SUCCESS;
 }
@@ -606,6 +632,7 @@ void vrrp_vty_init(void)
 	install_element(VIEW_NODE, &debug_vrrp_cmd);
 	install_element(CONFIG_NODE, &debug_vrrp_cmd);
 	install_element(CONFIG_NODE, &vrrp_autoconfigure_cmd);
+	install_element(CONFIG_NODE, &vrrp_default_cmd);
 	install_element(INTERFACE_NODE, &vrrp_vrid_cmd);
 	install_element(INTERFACE_NODE, &vrrp_shutdown_cmd);
 	install_element(INTERFACE_NODE, &vrrp_priority_cmd);

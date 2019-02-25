@@ -46,6 +46,8 @@ struct hash *vrrp_vrouters_hash;
 bool vrrp_autoconfig_is_on;
 int vrrp_autoconfig_version;
 
+struct vrrp_defaults vd;
+
 const char *vrrp_state_names[3] = {
 	[VRRP_STATE_INITIALIZE] = "Initialize",
 	[VRRP_STATE_MASTER] = "Master",
@@ -531,14 +533,15 @@ struct vrrp_vrouter *vrrp_vrouter_create(struct interface *ifp, uint8_t vrid,
 	vr->ifp = ifp;
 	vr->version = version;
 	vr->vrid = vrid;
-	vr->priority = VRRP_DEFAULT_PRIORITY;
-	vr->preempt_mode = true;
-	vr->accept_mode = true;
+	vr->priority = vd.priority;
+	vr->preempt_mode = vd.preempt_mode;
+	vr->accept_mode = vd.accept_mode;
+	vr->shutdown = vd.shutdown;
 
 	vr->v4 = vrrp_router_create(vr, AF_INET);
 	vr->v6 = vrrp_router_create(vr, AF_INET6);
 
-	vrrp_set_advertisement_interval(vr, VRRP_DEFAULT_ADVINT);
+	vrrp_set_advertisement_interval(vr, vd.advertisement_interval);
 
 	hash_get(vrrp_vrouters_hash, vr, hash_alloc_intern);
 
@@ -2009,23 +2012,26 @@ int vrrp_config_write_interface(struct vty *vty)
 			vr->version == 2 ? " version 2" : "");
 		++writes;
 
-		if (vr->shutdown && ++writes)
-			vty_out(vty, " vrrp %" PRIu8 " shutdown\n", vr->vrid);
+		if (vr->shutdown != vd.shutdown && ++writes)
+			vty_out(vty, " %svrrp %" PRIu8 " shutdown\n",
+				vr->shutdown ? "" : "no ", vr->vrid);
 
-		if (!vr->preempt_mode && ++writes)
-			vty_out(vty, " no vrrp %" PRIu8 " preempt\n", vr->vrid);
+		if (vr->preempt_mode != vd.preempt_mode && ++writes)
+			vty_out(vty, " %svrrp %" PRIu8 " preempt\n",
+				vr->preempt_mode ? "" : "no ", vr->vrid);
 
-		if (vr->accept_mode && ++writes)
-			vty_out(vty, " vrrp %" PRIu8 " accept\n", vr->vrid);
+		if (vr->accept_mode != vd.accept_mode && ++writes)
+			vty_out(vty, " %svrrp %" PRIu8 " accept\n",
+				vr->accept_mode ? "" : "no ", vr->vrid);
 
-		if (vr->advertisement_interval != VRRP_DEFAULT_ADVINT
+		if (vr->advertisement_interval != vd.advertisement_interval
 		    && ++writes)
 			vty_out(vty,
 				" vrrp %" PRIu8
 				" advertisement-interval %" PRIu16 "\n",
 				vr->vrid, vr->advertisement_interval);
 
-		if (vr->priority != VRRP_DEFAULT_PRIORITY && ++writes)
+		if (vr->priority != vd.priority && ++writes)
 			vty_out(vty, " vrrp %" PRIu8 " priority %" PRIu8 "\n",
 				vr->vrid, vr->priority);
 
@@ -2053,11 +2059,33 @@ int vrrp_config_write_interface(struct vty *vty)
 
 int vrrp_config_write_global(struct vty *vty)
 {
-	if (vrrp_autoconfig_is_on)
+	unsigned int writes = 0;
+
+	if (vrrp_autoconfig_is_on && ++writes)
 		vty_out(vty, "vrrp autoconfigure%s\n",
 			vrrp_autoconfig_version == 2 ? " version 2" : "");
 
-	return 1;
+	if (vd.priority != VRRP_DEFAULT_PRIORITY && ++writes)
+		vty_out(vty, "vrrp default priority %" PRIu8 "\n", vd.priority);
+
+	if (vd.advertisement_interval != VRRP_DEFAULT_ADVINT && ++writes)
+		vty_out(vty,
+			"vrrp default advertisement-interval %" PRIu16 "\n",
+			vd.advertisement_interval);
+
+	if (vd.preempt_mode != VRRP_DEFAULT_PREEMPT && ++writes)
+		vty_out(vty, "%svrrp default preempt\n",
+			!vd.preempt_mode ? "no " : "");
+
+	if (vd.accept_mode != VRRP_DEFAULT_ACCEPT && ++writes)
+		vty_out(vty, "%svrrp default accept\n",
+			!vd.accept_mode ? "no " : "");
+
+	if (vd.shutdown != VRRP_DEFAULT_SHUTDOWN && ++writes)
+		vty_out(vty, "%svrrp default shutdown\n",
+			!vd.shutdown ? "no " : "");
+
+	return writes;
 }
 
 static unsigned int vrrp_hash_key(void *arg)
@@ -2085,6 +2113,13 @@ static bool vrrp_hash_cmp(const void *arg1, const void *arg2)
 
 void vrrp_init(void)
 {
+	/* Set default defaults */
+	vd.priority = VRRP_DEFAULT_PRIORITY;
+	vd.advertisement_interval = VRRP_DEFAULT_ADVINT;
+	vd.preempt_mode = VRRP_DEFAULT_PREEMPT;
+	vd.accept_mode = VRRP_DEFAULT_ACCEPT;
+	vd.shutdown = VRRP_DEFAULT_SHUTDOWN;
+
 	vrrp_autoconfig_version = 3;
 	vrrp_vrouters_hash = hash_create(&vrrp_hash_key, vrrp_hash_cmp,
 					 "VRRP virtual router hash");

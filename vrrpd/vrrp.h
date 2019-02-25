@@ -33,8 +33,6 @@
 #include "lib/vty.h"
 
 /* Global definitions */
-#define VRRP_DEFAULT_ADVINT 100
-#define VRRP_DEFAULT_PRIORITY 100
 #define VRRP_RADV_INT 16
 #define VRRP_PRIO_MASTER 255
 #define VRRP_MCASTV4_GROUP_STR "224.0.0.18"
@@ -44,6 +42,24 @@
 #define IPPROTO_VRRP 112
 
 #define VRRP_LOGPFX_VRID "[VRID: %u] "
+
+/* Default defaults */
+#define VRRP_DEFAULT_PRIORITY 100
+#define VRRP_DEFAULT_ADVINT 100
+#define VRRP_DEFAULT_PREEMPT true
+#define VRRP_DEFAULT_ACCEPT true
+#define VRRP_DEFAULT_SHUTDOWN false
+
+/* Configured defaults */
+struct vrrp_defaults {
+	uint8_t priority;
+	uint16_t advertisement_interval;
+	bool preempt_mode;
+	bool accept_mode;
+	bool shutdown;
+};
+
+extern struct vrrp_defaults vd;
 
 /* threadmaster */
 extern struct thread_master *master;
