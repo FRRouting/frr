@@ -1363,7 +1363,7 @@ struct isis_lsp *lsp_for_arg(const char *argv, dict_t *lspdb)
 	 * xxxx.xxxx.xxxx
 	 */
 	if (argv)
-		strncpy(sysid, argv, 254);
+		strlcpy(sysid, argv, sizeof(sysid));
 	if (argv && strlen(argv) > 3) {
 		pos = argv + strlen(argv) - 3;
 		if (strncmp(pos, "-", 1) == 0) {
@@ -1639,7 +1639,8 @@ static int isis_area_passwd_set(struct isis_area *area, int level,
 			return -1;
 
 		modified.len = len;
-		strncpy((char *)modified.passwd, passwd, 255);
+		strlcpy((char *)modified.passwd, passwd,
+			sizeof(modified.passwd));
 		modified.type = passwd_type;
 		modified.snp_auth = snp_auth;
 	}

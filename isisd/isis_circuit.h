@@ -190,6 +190,8 @@ ferr_r isis_circuit_metric_set(struct isis_circuit *circuit, int level,
 			       int metric);
 
 ferr_r isis_circuit_passwd_unset(struct isis_circuit *circuit);
+ferr_r isis_circuit_passwd_set(struct isis_circuit *circuit,
+			       uint8_t passwd_type, const char *passwd);
 ferr_r isis_circuit_passwd_cleartext_set(struct isis_circuit *circuit,
 					 const char *passwd);
 ferr_r isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit,
