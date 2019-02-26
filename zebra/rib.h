@@ -93,6 +93,8 @@ struct route_entry {
 	/* Nexthop group from FIB (optional) */
 	struct nexthop_group fib_ng;
 
+	struct nhg_hash_entry *nhe;
+
 	/* Tag */
 	route_tag_t tag;
 

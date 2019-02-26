@@ -158,8 +158,9 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
  *
  * Avoiding code duplication hopefully.
  */
-static void zebra_nhg_lookup_get(struct hash *hash_table,
-				 struct nhg_hash_entry *lookup)
+static struct nhg_hash_entry *
+zebra_nhg_lookup_get(struct hash *hash_table,
+		     struct nhg_hash_entry *lookup)
 {
 	struct nhg_hash_entry *nhe;
 
@@ -170,9 +171,7 @@ static void zebra_nhg_lookup_get(struct hash *hash_table,
 	else
 		nhe->refcnt++;
 
-	//re->ng = nhe->nhg;
-
-	return;
+	return nhe;
 }
 
 void zebra_nhg_find_id(uint32_t id, struct nexthop_group *nhg)
@@ -194,7 +193,7 @@ void zebra_nhg_find(afi_t afi, struct nexthop_group *nhg,
 	lookup.afi = afi;
 	lookup.nhg = *nhg;
 
-	zebra_nhg_lookup_get(zrouter.nhgs, &lookup);
+	re->nhe = zebra_nhg_lookup_get(zrouter.nhgs, &lookup);
 }
 
 void zebra_nhg_release(afi_t afi, struct route_entry *re)
