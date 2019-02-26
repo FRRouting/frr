@@ -234,8 +234,12 @@ static struct ospf *ospf_new(unsigned short instance, const char *name)
 	new->instance = instance;
 	new->router_id.s_addr = htonl(0);
 	new->router_id_static.s_addr = htonl(0);
-	if (name && !strmatch(name, VRF_DEFAULT_NAME)) {
-		new->vrf_id = VRF_UNKNOWN;
+	if (name) {
+		vrf = vrf_lookup_by_name(name);
+		if (vrf)
+			new->vrf_id = vrf->vrf_id;
+		else
+			new->vrf_id = VRF_UNKNOWN;
 		/* Freed in ospf_finish_final */
 		new->name = XSTRDUP(MTYPE_OSPF_TOP, name);
 		if (IS_DEBUG_OSPF_EVENT)
