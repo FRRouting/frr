@@ -44,7 +44,7 @@ extern struct zebra_privs_t zserv_privs;
 /* clear and set interface name string */
 void lifreq_set_name(struct lifreq *lifreq, const char *ifname)
 {
-	strncpy(lifreq->lifr_name, ifname, IFNAMSIZ);
+	strlcpy(lifreq->lifr_name, ifname, sizeof(lifreq->lifr_name));
 }
 
 int vrf_if_ioctl(unsigned long request, caddr_t buffer, vrf_id_t vrf_id)
@@ -199,7 +199,7 @@ int if_set_prefix(struct interface *ifp, struct connected *ifc)
 
 	ifaddr = *p;
 
-	strncpy(ifreq.ifr_name, ifp->name, IFNAMSIZ);
+	strlcpy(ifreq.ifr_name, ifp->name, sizeof(ifreq.ifr_name));
 
 	addr.sin_addr = p->prefix;
 	addr.sin_family = p->family;
@@ -250,7 +250,7 @@ int if_unset_prefix(struct interface *ifp, struct connected *ifc)
 
 	p = (struct prefix_ipv4 *)ifc->address;
 
-	strncpy(ifreq.ifr_name, ifp->name, IFNAMSIZ);
+	strlcpy(ifreq.ifr_name, ifp->name, sizeof(ifreq.ifr_name));
 
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = p->family;

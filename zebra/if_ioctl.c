@@ -147,7 +147,7 @@ static int if_get_hwaddr(struct interface *ifp)
 	struct ifreq ifreq;
 	int i;
 
-	strncpy(ifreq.ifr_name, ifp->name, IFNAMSIZ);
+	strlcpy(ifreq.ifr_name, ifp->name, sizeof(ifreq.ifr_name));
 	ifreq.ifr_addr.sa_family = AF_INET;
 
 	/* Fetch Hardware address if available. */

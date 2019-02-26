@@ -767,8 +767,7 @@ static void zvni_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json)
 						n->detect_start_time.tv_sec);
 				char tmp_buf[30];
 
-				memset(tmp_buf, 0, 30);
-				strncpy(tmp_buf, buf, strlen(buf) - 1);
+				strlcpy(tmp_buf, buf, sizeof(tmp_buf));
 				vty_out(vty,
 					" Duplicate detection started at %s, detection count %u\n",
 					tmp_buf, n->dad_count);
@@ -1148,7 +1147,7 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 	struct vty *vty;
 	zebra_neigh_t *n = NULL;
 	struct listnode *node = NULL;
-	char buf1[20];
+	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 	struct zebra_vrf *zvrf;
 	struct timeval detect_start_time = {0, 0};
@@ -1289,8 +1288,7 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 						mac->detect_start_time.tv_sec);
 				char tmp_buf[30];
 
-				memset(tmp_buf, 0, 30);
-				strncpy(tmp_buf, buf, strlen(buf) - 1);
+				strlcpy(tmp_buf, buf, sizeof(tmp_buf));
 				vty_out(vty,
 					" Duplicate detection started at %s, detection count %u\n",
 					tmp_buf, mac->dad_count);
@@ -1323,7 +1321,7 @@ static void zvni_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 	struct vty *vty;
 	json_object *json_mac_hdr = NULL, *json_mac = NULL;
 	zebra_mac_t *mac;
-	char buf1[20];
+	char buf1[ETHER_ADDR_STRLEN];
 	struct mac_walk_ctx *wctx = ctxt;
 
 	vty = wctx->vty;
@@ -1445,7 +1443,7 @@ static void zvni_print_mac_hash_detail(struct hash_bucket *bucket, void *ctxt)
 	json_object *json_mac_hdr = NULL;
 	zebra_mac_t *mac;
 	struct mac_walk_ctx *wctx = ctxt;
-	char buf1[20];
+	char buf1[ETHER_ADDR_STRLEN];
 
 	vty = wctx->vty;
 	json_mac_hdr = wctx->json;
