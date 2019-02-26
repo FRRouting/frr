@@ -3280,7 +3280,7 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 			extra = bgp_path_info_extra_get(pi);
 			if (extra->label != label) {
 				memcpy(&extra->label, label,
-						num_labels * sizeof(mpls_label_t));
+				       num_labels * sizeof(mpls_label_t));
 				extra->num_labels = num_labels;
 			}
 			if (!(afi == AFI_L2VPN && safi == SAFI_EVPN))
@@ -3452,7 +3452,8 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	if (has_valid_label) {
 		extra = bgp_path_info_extra_get(new);
 		if (extra->label != label) {
-			memcpy(&extra->label, label, num_labels * sizeof(mpls_label_t));
+			memcpy(&extra->label, label,
+			       num_labels * sizeof(mpls_label_t));
 			extra->num_labels = num_labels;
 		}
 		if (!(afi == AFI_L2VPN && safi == SAFI_EVPN))
