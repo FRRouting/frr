@@ -945,14 +945,17 @@ bgp_path_info_to_ipv6_nexthop(struct bgp_path_info *path, ifindex_t *ifindex)
 	struct in6_addr *nexthop = NULL;
 
 	/* Only global address nexthop exists. */
-	if (path->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL) {
+	if (path->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL
+	    || path->attr->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL) {
 		nexthop = &path->attr->mp_nexthop_global;
 		if (IN6_IS_ADDR_LINKLOCAL(nexthop))
 			*ifindex = path->attr->nh_ifindex;
 	}
 
 	/* If both global and link-local address present. */
-	if (path->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
+	if (path->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
+	    || path->attr->mp_nexthop_len
+		       == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL) {
 		/* Check if route-map is set to prefer global over link-local */
 		if (path->attr->mp_nexthop_prefer_global) {
 			nexthop = &path->attr->mp_nexthop_global;
