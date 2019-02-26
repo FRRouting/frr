@@ -67,7 +67,7 @@ static int ndisc_fd = -1;
  *     0 otherwise
  */
 static int vrrp_ndisc_una_build(struct interface *ifp, struct ipaddr *ip,
-			       uint8_t *buf, size_t bufsiz)
+				uint8_t *buf, size_t bufsiz)
 {
 	if (bufsiz < VRRP_NDISC_SIZE)
 		return -1;

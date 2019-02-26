@@ -50,7 +50,8 @@
 static int garp_fd = -1;
 
 /* Send the gratuitous ARP message */
-static ssize_t vrrp_send_garp(struct interface *ifp, uint8_t *buf, ssize_t pack_len)
+static ssize_t vrrp_send_garp(struct interface *ifp, uint8_t *buf,
+			      ssize_t pack_len)
 {
 	struct sockaddr_ll sll;
 	ssize_t len;
@@ -59,7 +60,7 @@ static ssize_t vrrp_send_garp(struct interface *ifp, uint8_t *buf, ssize_t pack_
 	memset(&sll, 0, sizeof(sll));
 	sll.sll_family = AF_PACKET;
 	sll.sll_protocol = ETH_P_ARP;
-	sll.sll_ifindex = (int) ifp->ifindex;
+	sll.sll_ifindex = (int)ifp->ifindex;
 	sll.sll_halen = ifp->hw_addr_len;
 	memset(sll.sll_addr, 0xFF, ETH_ALEN);
 
@@ -80,14 +81,14 @@ static ssize_t vrrp_build_garp(uint8_t *buf, struct interface *ifp,
 		return -1;
 
 	/* Build Ethernet header */
-	struct ether_header *eth = (struct ether_header *) buf;
+	struct ether_header *eth = (struct ether_header *)buf;
 
 	memset(eth->ether_dhost, 0xFF, ETH_ALEN);
 	memcpy(eth->ether_shost, ifp->hw_addr, ETH_ALEN);
 	eth->ether_type = htons(ETHERTYPE_ARP);
 
 	/* Build ARP payload */
-	struct arphdr *arph = (struct arphdr *) (buf + ETHER_HDR_LEN);
+	struct arphdr *arph = (struct arphdr *)(buf + ETHER_HDR_LEN);
 
 	arph->ar_hrd = htons(HWTYPE_ETHER);
 	arph->ar_pro = htons(ETHERTYPE_IP);

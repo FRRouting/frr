@@ -478,7 +478,6 @@ static bool vrrp_attach_interface(struct vrrp_router *r)
 	r->mvl_ifp = selection;
 
 	return !!r->mvl_ifp;
-
 }
 
 static struct vrrp_router *vrrp_router_create(struct vrrp_vrouter *vr,
@@ -594,8 +593,8 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 	if (DEBUG_MODE_CHECK(&vrrp_dbg_pkt, DEBUG_MODE_ALL))
 		zlog_hexdump(pkt, (size_t)pktsz);
 
-	const char *group =
-		r->family == AF_INET ? VRRP_MCASTV4_GROUP_STR : VRRP_MCASTV6_GROUP_STR;
+	const char *group = r->family == AF_INET ? VRRP_MCASTV4_GROUP_STR
+						 : VRRP_MCASTV6_GROUP_STR;
 	str2sockunion(group, &dest);
 
 	ssize_t sent = sendto(r->sock_tx, pkt, (size_t)pktsz, 0, &dest.sa,
@@ -711,7 +710,8 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 				r->vr->advertisement_interval * 10,
 				&r->t_adver_timer);
 		} else if (pkt->hdr.priority > r->priority
-			   || ((pkt->hdr.priority == r->priority) && addrcmp > 0)) {
+			   || ((pkt->hdr.priority == r->priority)
+			       && addrcmp > 0)) {
 			zlog_info(
 				VRRP_LOGPFX VRRP_LOGPFX_VRID
 				"Received advertisement from %s w/ priority %" PRIu8
@@ -1520,8 +1520,8 @@ static void vrrp_autoconfig_autoaddrupdate(struct vrrp_vrouter *vr)
 		       vr->vrid, vr->v4->mvl_ifp->name);
 		for (ALL_LIST_ELEMENTS_RO(vr->v4->mvl_ifp->connected, ln, c))
 			if (c->address->family == AF_INET) {
-				inet_ntop(AF_INET, &c->address->u.prefix4, ipbuf,
-					  sizeof(ipbuf));
+				inet_ntop(AF_INET, &c->address->u.prefix4,
+					  ipbuf, sizeof(ipbuf));
 				DEBUGD(&vrrp_dbg_auto,
 				       VRRP_LOGPFX VRRP_LOGPFX_VRID "Adding %s",
 				       vr->vrid, ipbuf);
