@@ -1664,9 +1664,9 @@ static bool route_map_dep_hash_cmp(const void *p1, const void *p2)
 		== 0);
 }
 
-static void route_map_clear_reference(struct hash_backet *backet, void *arg)
+static void route_map_clear_reference(struct hash_bucket *bucket, void *arg)
 {
-	struct route_map_dep *dep = (struct route_map_dep *)backet->data;
+	struct route_map_dep *dep = (struct route_map_dep *)bucket->data;
 	char *rmap_name;
 
 	if (arg) {
@@ -1720,9 +1720,9 @@ static unsigned int route_map_dep_hash_make_key(void *p)
 	return (string_hash_make((char *)p));
 }
 
-static void route_map_print_dependency(struct hash_backet *backet, void *data)
+static void route_map_print_dependency(struct hash_bucket *bucket, void *data)
 {
-	char *rmap_name = (char *)backet->data;
+	char *rmap_name = (char *)bucket->data;
 	char *dep_name = (char *)data;
 
 	zlog_debug("%s: Dependency for %s: %s", __FUNCTION__, dep_name,
@@ -1846,9 +1846,9 @@ static struct hash *route_map_get_dep_hash(route_map_event_t event)
 	return (upd8_hash);
 }
 
-static void route_map_process_dependency(struct hash_backet *backet, void *data)
+static void route_map_process_dependency(struct hash_bucket *bucket, void *data)
 {
-	char *rmap_name = (char *)backet->data;
+	char *rmap_name = (char *)bucket->data;
 	route_map_event_t type = (route_map_event_t)(ptrdiff_t)data;
 
 	if (rmap_debug)

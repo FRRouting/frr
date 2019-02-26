@@ -291,7 +291,7 @@ int mpls_lsp_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
  * Uninstall all LDP NHLFEs for a particular LSP forwarding entry.
  * If no other NHLFEs exist, the entry would be deleted.
  */
-void mpls_ldp_lsp_uninstall_all(struct hash_backet *backet, void *ctxt);
+void mpls_ldp_lsp_uninstall_all(struct hash_bucket *bucket, void *ctxt);
 
 /*
  * Uninstall all LDP FEC-To-NHLFE (FTN) bindings of the given address-family.
@@ -302,7 +302,7 @@ void mpls_ldp_ftn_uninstall_all(struct zebra_vrf *zvrf, int afi);
  * Uninstall all Segment Routing NHLFEs for a particular LSP forwarding entry.
  * If no other NHLFEs exist, the entry would be deleted.
  */
-void mpls_sr_lsp_uninstall_all(struct hash_backet *backet, void *ctxt);
+void mpls_sr_lsp_uninstall_all(struct hash_bucket *bucket, void *ctxt);
 
 #if defined(HAVE_CUMULUS)
 /*

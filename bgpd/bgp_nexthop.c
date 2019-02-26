@@ -184,10 +184,10 @@ struct bgp_addr {
 	struct list *ifp_name_list;
 };
 
-static void show_address_entry(struct hash_backet *backet, void *args)
+static void show_address_entry(struct hash_bucket *bucket, void *args)
 {
 	struct vty *vty = (struct vty *)args;
-	struct bgp_addr *addr = (struct bgp_addr *)backet->data;
+	struct bgp_addr *addr = (struct bgp_addr *)bucket->data;
 	char *name;
 	struct listnode *node;
 
@@ -204,7 +204,7 @@ static void show_address_entry(struct hash_backet *backet, void *args)
 void bgp_nexthop_show_address_hash(struct vty *vty, struct bgp *bgp)
 {
 	hash_iterate(bgp->address_hash,
-		     (void (*)(struct hash_backet *, void *))show_address_entry,
+		     (void (*)(struct hash_bucket *, void *))show_address_entry,
 		     vty);
 }
 

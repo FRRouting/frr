@@ -1020,10 +1020,10 @@ static void update_ext_prefix_sid(struct sr_node *srn, struct sr_prefix *srp)
  * When change the FRR Self SRGB, update the NHLFE Input Label
  * for all Extended Prefix with SID index through hash_iterate()
  */
-static void update_in_nhlfe(struct hash_backet *backet, void *args)
+static void update_in_nhlfe(struct hash_bucket *bucket, void *args)
 {
 	struct listnode *node;
-	struct sr_node *srn = (struct sr_node *)backet->data;
+	struct sr_node *srn = (struct sr_node *)bucket->data;
 	struct sr_prefix *srp;
 	struct sr_nhlfe new;
 
@@ -1052,10 +1052,10 @@ static void update_in_nhlfe(struct hash_backet *backet, void *args)
  * When SRGB has changed, update NHLFE Output Label for all Extended Prefix
  * with SID index which use the given SR-Node as nexthop though hash_iterate()
  */
-static void update_out_nhlfe(struct hash_backet *backet, void *args)
+static void update_out_nhlfe(struct hash_bucket *bucket, void *args)
 {
 	struct listnode *node;
-	struct sr_node *srn = (struct sr_node *)backet->data;
+	struct sr_node *srn = (struct sr_node *)bucket->data;
 	struct sr_node *srnext = (struct sr_node *)args;
 	struct sr_prefix *srp;
 	struct sr_nhlfe new;
@@ -1192,7 +1192,7 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 		/* Update NHLFE if it is a neighbor SR node */
 		if (srn->neighbor == OspfSR.self)
 			hash_iterate(OspfSR.neighbors,
-				     (void (*)(struct hash_backet *,
+				     (void (*)(struct hash_bucket *,
 					       void *))update_out_nhlfe,
 				     (void *)srn);
 	}
@@ -1531,10 +1531,10 @@ void ospf_sr_update_prefix(struct interface *ifp, struct prefix *p)
  * Following functions are used to update MPLS LFIB after a SPF run
  */
 
-static void ospf_sr_nhlfe_update(struct hash_backet *backet, void *args)
+static void ospf_sr_nhlfe_update(struct hash_bucket *bucket, void *args)
 {
 
-	struct sr_node *srn = (struct sr_node *)backet->data;
+	struct sr_node *srn = (struct sr_node *)bucket->data;
 	struct listnode *node;
 	struct sr_prefix *srp;
 	struct sr_nhlfe old;
@@ -1593,7 +1593,7 @@ static int ospf_sr_update_schedule(struct thread *t)
 	if (IS_DEBUG_OSPF_SR)
 		zlog_debug("SR (%s): Start SPF update", __func__);
 
-	hash_iterate(OspfSR.neighbors, (void (*)(struct hash_backet *,
+	hash_iterate(OspfSR.neighbors, (void (*)(struct hash_bucket *,
 						 void *))ospf_sr_nhlfe_update,
 		     NULL);
 
@@ -1818,7 +1818,7 @@ DEFUN (sr_sid_label_range,
 
 	/* Update NHLFE entries */
 	hash_iterate(OspfSR.neighbors,
-		     (void (*)(struct hash_backet *, void *))update_in_nhlfe,
+		     (void (*)(struct hash_bucket *, void *))update_in_nhlfe,
 		     NULL);
 
 	return CMD_SUCCESS;
@@ -1850,7 +1850,7 @@ DEFUN (no_sr_sid_label_range,
 
 	/* Update NHLFE entries */
 	hash_iterate(OspfSR.neighbors,
-		     (void (*)(struct hash_backet *, void *))update_in_nhlfe,
+		     (void (*)(struct hash_bucket *, void *))update_in_nhlfe,
 		     NULL);
 
 	return CMD_SUCCESS;
@@ -2281,18 +2281,18 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 		vty_out(vty, "\n");
 }
 
-static void show_vty_srdb(struct hash_backet *backet, void *args)
+static void show_vty_srdb(struct hash_bucket *bucket, void *args)
 {
 	struct vty *vty = (struct vty *)args;
-	struct sr_node *srn = (struct sr_node *)backet->data;
+	struct sr_node *srn = (struct sr_node *)bucket->data;
 
 	show_sr_node(vty, NULL, srn);
 }
 
-static void show_json_srdb(struct hash_backet *backet, void *args)
+static void show_json_srdb(struct hash_bucket *bucket, void *args)
 {
 	struct json_object *json = (struct json_object *)args;
-	struct sr_node *srn = (struct sr_node *)backet->data;
+	struct sr_node *srn = (struct sr_node *)bucket->data;
 
 	show_sr_node(NULL, json, srn);
 }
@@ -2366,14 +2366,14 @@ DEFUN (show_ip_opsf_srdb,
 
 	/* No parameters have been provided, Iterate through all the SRDB */
 	if (uj) {
-		hash_iterate(OspfSR.neighbors, (void (*)(struct hash_backet *,
+		hash_iterate(OspfSR.neighbors, (void (*)(struct hash_bucket *,
 							 void *))show_json_srdb,
 			     (void *)json_node_array);
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
 					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
-		hash_iterate(OspfSR.neighbors, (void (*)(struct hash_backet *,
+		hash_iterate(OspfSR.neighbors, (void (*)(struct hash_bucket *,
 							 void *))show_vty_srdb,
 			     (void *)vty);
 	}

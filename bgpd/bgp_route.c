@@ -11695,10 +11695,10 @@ DEFUN (clear_ip_bgp_dampening_address_mask,
 				    NULL, 0);
 }
 
-static void show_bgp_peerhash_entry(struct hash_backet *backet, void *arg)
+static void show_bgp_peerhash_entry(struct hash_bucket *bucket, void *arg)
 {
        struct vty *vty = arg;
-       struct peer *peer = backet->data;
+       struct peer *peer = bucket->data;
        char buf[SU_ADDRSTRLEN];
 
        vty_out(vty, "\tPeer: %s %s\n", peer->host,

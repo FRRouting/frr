@@ -592,9 +592,9 @@ static void attrhash_finish(void)
 	attrhash = NULL;
 }
 
-static void attr_show_all_iterator(struct hash_backet *backet, struct vty *vty)
+static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 {
-	struct attr *attr = backet->data;
+	struct attr *attr = bucket->data;
 
 	vty_out(vty, "attr[%ld] nexthop %s\n", attr->refcnt,
 		inet_ntoa(attr->nexthop));
@@ -605,7 +605,7 @@ static void attr_show_all_iterator(struct hash_backet *backet, struct vty *vty)
 
 void attr_show_all(struct vty *vty)
 {
-	hash_iterate(attrhash, (void (*)(struct hash_backet *,
+	hash_iterate(attrhash, (void (*)(struct hash_bucket *,
 					 void *))attr_show_all_iterator,
 		     vty);
 }

@@ -557,7 +557,7 @@ bool bfd_mhop_insert(struct bfd_session *bs);
 bool bfd_vrf_insert(struct bfd_vrf *vrf);
 bool bfd_iface_insert(struct bfd_iface *iface);
 
-typedef void (*hash_iter_func)(struct hash_backet *hb, void *arg);
+typedef void (*hash_iter_func)(struct hash_bucket *hb, void *arg);
 void bfd_id_iterate(hash_iter_func hif, void *arg);
 void bfd_shop_iterate(hash_iter_func hif, void *arg);
 void bfd_mhop_iterate(hash_iter_func hif, void *arg);

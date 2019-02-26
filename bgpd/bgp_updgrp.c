@@ -1393,9 +1393,9 @@ static int updgrp_policy_update_walkcb(struct update_group *updgrp, void *arg)
 	return UPDWALK_CONTINUE;
 }
 
-static int update_group_walkcb(struct hash_backet *backet, void *arg)
+static int update_group_walkcb(struct hash_bucket *bucket, void *arg)
 {
-	struct update_group *updgrp = backet->data;
+	struct update_group *updgrp = bucket->data;
 	struct updwalk_context *wctx = arg;
 	int ret = (*wctx->cb)(updgrp, wctx->context);
 	return ret;

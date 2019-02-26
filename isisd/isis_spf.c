@@ -352,10 +352,10 @@ static struct isis_vertex *isis_spf_add_root(struct isis_spftree *spftree,
 	return vertex;
 }
 
-static void vertex_add_parent_firsthop(struct hash_backet *backet, void *arg)
+static void vertex_add_parent_firsthop(struct hash_bucket *bucket, void *arg)
 {
 	struct isis_vertex *vertex = arg;
-	struct isis_vertex *hop = backet->data;
+	struct isis_vertex *hop = bucket->data;
 
 	hash_get(vertex->firsthops, hop, hash_alloc_intern);
 }
