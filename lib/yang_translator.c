@@ -511,7 +511,7 @@ static void str_replace(char *o_string, const char *s_string,
 	if (!ch)
 		return;
 
-	strncpy(buffer, o_string, ch - o_string);
+	memcpy(buffer, o_string, ch - o_string);
 	buffer[ch - o_string] = 0;
 
 	sprintf(buffer + (ch - o_string), "%s%s", r_string,

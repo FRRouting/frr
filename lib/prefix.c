@@ -866,7 +866,7 @@ int str2prefix_ipv4(const char *str, struct prefix_ipv4 *p)
 		return ret;
 	} else {
 		cp = XMALLOC(MTYPE_TMP, (pnt - str) + 1);
-		strncpy(cp, str, pnt - str);
+		memcpy(cp, str, pnt - str);
 		*(cp + (pnt - str)) = '\0';
 		ret = inet_aton(cp, &p->prefix);
 		XFREE(MTYPE_TMP, cp);
@@ -913,7 +913,7 @@ int str2prefix_eth(const char *str, struct prefix_eth *p)
 		}
 
 		cp = XMALLOC(MTYPE_TMP, (pnt - str) + 1);
-		strncpy(cp, str, pnt - str);
+		memcpy(cp, str, pnt - str);
 		*(cp + (pnt - str)) = '\0';
 
 		str_addr = cp;
@@ -1030,7 +1030,7 @@ int str2prefix_ipv6(const char *str, struct prefix_ipv6 *p)
 		int plen;
 
 		cp = XMALLOC(MTYPE_TMP, (pnt - str) + 1);
-		strncpy(cp, str, pnt - str);
+		memcpy(cp, str, pnt - str);
 		*(cp + (pnt - str)) = '\0';
 		ret = inet_pton(AF_INET6, cp, &p->prefix);
 		XFREE(MTYPE_TMP, cp);
