@@ -211,7 +211,8 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 		/* IP total length check */
 		VRRP_PKT_VCHECK(
 			ntohs(ip->ip_len) == read,
-			"IPv4 packet length field does not match # received bytes; %u != %lu",
+			"IPv4 packet length field does not match # received bytes; %" PRIu16
+			"!= %zu",
 			ntohs(ip->ip_len), read);
 
 		/* TTL check */
