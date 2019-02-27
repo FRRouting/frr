@@ -2490,6 +2490,9 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 					bgp_evpn_advertise_type5_route(
 						bgp, &rn->p, new_select->attr,
 						afi, safi);
+				else
+					bgp_evpn_withdraw_type5_route(
+						bgp, &rn->p, afi, safi);
 			} else {
 				bgp_evpn_advertise_type5_route(bgp,
 							       &rn->p,
