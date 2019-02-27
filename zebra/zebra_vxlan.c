@@ -4875,6 +4875,7 @@ static int zl3vni_send_add_to_client(zebra_l3vni_t *zl3vni)
 	stream_put(s, &rmac, sizeof(struct ethaddr));
 	stream_put_in_addr(s, &zl3vni->local_vtep_ip);
 	stream_put(s, &zl3vni->filter, sizeof(int));
+	stream_putl(s, zl3vni->svi_if->ifindex);
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));

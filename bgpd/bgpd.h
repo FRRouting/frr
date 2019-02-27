@@ -517,6 +517,9 @@ struct bgp {
 	/* originator ip - to be used as NH for type-5 routes */
 	struct in_addr originator_ip;
 
+	/* SVI associated with the L3-VNI corresponding to this vrf */
+	ifindex_t l3vni_svi_ifindex;
+
 	/* vrf flags */
 	uint32_t vrf_flags;
 #define BGP_VRF_AUTO                        (1 << 0)
