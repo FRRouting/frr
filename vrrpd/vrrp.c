@@ -242,6 +242,7 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 {
 	struct vrrp_router *r;
 	bool start;
+	const char *whynot = NULL;
 
 	if (vr->shutdown || vr->ifp == NULL)
 		return;
@@ -251,46 +252,62 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 	start = r->fsm.state == VRRP_STATE_INITIALIZE;
 	/* Must have a parent interface */
 	start = start && (vr->ifp != NULL);
+	whynot = (!start && !whynot) ? "No base interface" : NULL;
 #if 0
 	/* Parent interface must be up */
 	start = start && if_is_operative(vr->ifp);
 #endif
 	/* Parent interface must have at least one v4 */
 	start = start && vr->ifp->connected->count > 1;
+	whynot = (!start && !whynot) ? "No primary IPv4 address" : NULL;
 	/* Must have a macvlan interface */
 	start = start && (r->mvl_ifp != NULL);
+	whynot = (!start && !whynot) ? "No VRRP interface" : NULL;
 #if 0
 	/* Macvlan interface must be admin up */
 	start = start && CHECK_FLAG(r->mvl_ifp->flags, IFF_UP);
 #endif
 	/* Must have at least one VIP configured */
 	start = start && r->addrs->count > 0;
+	whynot = (!start && !whynot) ? "No Virtual IP address configured" : NULL;
 	if (start)
 		vrrp_event(r, VRRP_EVENT_STARTUP);
+	else if (whynot)
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Refusing to start IPv4 Virtual Router: %s",
+			  vr->vrid, whynot);
 
 	r = vr->v6;
 	/* Must not already be started */
 	start = r->fsm.state == VRRP_STATE_INITIALIZE;
 	/* Must have a parent interface */
 	start = start && (vr->ifp != NULL);
+	whynot = (!start && !whynot) ? "No base interface" : NULL;
 #if 0
 	/* Parent interface must be up */
 	start = start && if_is_operative(vr->ifp);
 #endif
 	/* Must have a macvlan interface */
 	start = start && (r->mvl_ifp != NULL);
+	whynot = (!start && !whynot) ? "No VRRP interface" : NULL;
 #if 0
 	/* Macvlan interface must be admin up */
 	start = start && CHECK_FLAG(r->mvl_ifp->flags, IFF_UP);
 #endif
-	/* Macvlan interface must have at least two v6 */
-	start = start && (r->mvl_ifp->connected->count >= 2);
 	/* Macvlan interface must have a link local */
 	start = start && connected_get_linklocal(r->mvl_ifp);
+	whynot = (!start && !whynot) ? "No link local address configured" : NULL;
+	/* Macvlan interface must have a v6 IP besides the link local */
+	start = start && (r->mvl_ifp->connected->count >= 2);
+	whynot = (!start && !whynot) ? "No Virtual IP address configured" : NULL;
 	/* Must have at least one VIP configured */
 	start = start && r->addrs->count > 0;
 	if (start)
 		vrrp_event(r, VRRP_EVENT_STARTUP);
+	else if (whynot)
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+			  "Refusing to start IPv6 Virtual Router: %s",
+			  vr->vrid, whynot);
 }
 
 void vrrp_set_priority(struct vrrp_vrouter *vr, uint8_t priority)
