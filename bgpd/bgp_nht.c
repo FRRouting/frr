@@ -53,16 +53,28 @@ static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc,
 static void evaluate_paths(struct bgp_nexthop_cache *bnc);
 static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p);
 
-static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
+static int bgp_isvalid_nexthop(struct bgp_path_info *path,
+			       struct bgp_nexthop_cache *bnc)
 {
-	return (bgp_zebra_num_connects() == 0
-		|| (bnc && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID)));
-}
+	if (bgp_zebra_num_connects() == 0)
+		return 1;
 
-static int bgp_isvalid_labeled_nexthop(struct bgp_nexthop_cache *bnc)
-{
-	return (bgp_zebra_num_connects() == 0
-		|| (bnc && CHECK_FLAG(bnc->flags, BGP_NEXTHOP_LABELED_VALID)));
+	if (path) {
+		safi_t safi = bgp_node_table(path->net)->safi;
+
+		/*
+		 * VPN routes and associated IP routes need an LSP to the BGP
+		 * next hop.
+		 */
+		if (safi == SAFI_MPLS_VPN
+		    || (safi == SAFI_UNICAST
+			&& path->sub_type == BGP_ROUTE_IMPORTED && path->extra
+			&& path->extra->num_labels))
+			return CHECK_FLAG(bnc->flags,
+					  BGP_NEXTHOP_LABELED_VALID);
+	}
+
+	return CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
 }
 
 int bgp_find_nexthop(struct bgp_path_info *path, int connected)
@@ -83,7 +95,7 @@ int bgp_find_nexthop(struct bgp_path_info *path, int connected)
 	if (connected && !(CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)))
 		return 0;
 
-	return (bgp_isvalid_nexthop(bnc));
+	return (bgp_isvalid_nexthop(path, bnc));
 }
 
 static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
@@ -272,7 +284,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	if (bgp_route->inst_type == BGP_INSTANCE_TYPE_VIEW)
 		return 1;
 	else
-		return (bgp_isvalid_nexthop(bnc));
+		return bgp_isvalid_nexthop(pi, bnc);
 }
 
 void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer)
@@ -735,19 +747,8 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		 * nexthops with labels
 		 */
 
-		int bnc_is_valid_nexthop = 0;
-
-		if (safi == SAFI_UNICAST &&
-			path->sub_type == BGP_ROUTE_IMPORTED &&
-			path->extra &&
-			path->extra->num_labels) {
-
-			bnc_is_valid_nexthop =
-				bgp_isvalid_labeled_nexthop(bnc) ? 1 : 0;
-		} else {
-			bnc_is_valid_nexthop =
-				bgp_isvalid_nexthop(bnc) ? 1 : 0;
-		}
+		int bnc_is_valid_nexthop =
+			bgp_isvalid_nexthop(path, bnc) ? 1 : 0;
 
 		if (BGP_DEBUG(nht, NHT)) {
 			char buf[PREFIX_STRLEN];
@@ -775,7 +776,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 
 		/* Copy the metric to the path. Will be used for bestpath
 		 * computation */
-		if (bgp_isvalid_nexthop(bnc) && bnc->metric)
+		if (bgp_isvalid_nexthop(path, bnc) && bnc->metric)
 			(bgp_path_info_extra_get(path))->igpmetric =
 				bnc->metric;
 		else if (path->extra)
@@ -792,7 +793,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug("%s: Updating peer (%s) status with NHT",
 				   __FUNCTION__, peer->host);
-		bgp_fsm_event_update(peer, bgp_isvalid_nexthop(bnc));
+		bgp_fsm_event_update(peer, bgp_isvalid_nexthop(NULL, bnc));
 		SET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
 	}
 

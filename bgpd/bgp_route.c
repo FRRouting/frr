@@ -3563,7 +3563,8 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	}
 	/* Nexthop reachability check. */
 	if ((afi == AFI_IP || afi == AFI_IP6)
-	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST)) {
+	    && (safi == SAFI_UNICAST || safi == SAFI_LABELED_UNICAST
+		|| safi == SAFI_MPLS_VPN)) {
 		if (peer->sort == BGP_PEER_EBGP && peer->ttl == 1
 		    && !CHECK_FLAG(peer->flags,
 				   PEER_FLAG_DISABLE_CONNECTED_CHECK)
