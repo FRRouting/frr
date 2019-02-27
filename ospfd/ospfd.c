@@ -628,8 +628,10 @@ static void ospf_finish_final(struct ospf *ospf)
 		if (!red_list)
 			continue;
 
-		for (ALL_LIST_ELEMENTS(red_list, node, nnode, red))
+		for (ALL_LIST_ELEMENTS(red_list, node, nnode, red)) {
 			ospf_redistribute_unset(ospf, i, red->instance);
+			ospf_redist_del(ospf, i, red->instance);
+		}
 	}
 	ospf_redistribute_default_unset(ospf);
 
@@ -776,6 +778,8 @@ static void ospf_finish_final(struct ospf *ospf)
 					rn->info = NULL;
 					route_unlock_node(rn);
 				}
+
+			ospf_external_del(ospf, i, ext->instance);
 		}
 	}
 
