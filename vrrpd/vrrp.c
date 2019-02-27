@@ -251,14 +251,18 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 	start = r->fsm.state == VRRP_STATE_INITIALIZE;
 	/* Must have a parent interface */
 	start = start && (vr->ifp != NULL);
+#if 0
 	/* Parent interface must be up */
 	start = start && if_is_operative(vr->ifp);
+#endif
 	/* Parent interface must have at least one v4 */
 	start = start && vr->ifp->connected->count > 1;
 	/* Must have a macvlan interface */
 	start = start && (r->mvl_ifp != NULL);
+#if 0
 	/* Macvlan interface must be admin up */
 	start = start && CHECK_FLAG(r->mvl_ifp->flags, IFF_UP);
+#endif
 	/* Must have at least one VIP configured */
 	start = start && r->addrs->count > 0;
 	if (start)
@@ -269,12 +273,16 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 	start = r->fsm.state == VRRP_STATE_INITIALIZE;
 	/* Must have a parent interface */
 	start = start && (vr->ifp != NULL);
+#if 0
 	/* Parent interface must be up */
 	start = start && if_is_operative(vr->ifp);
+#endif
 	/* Must have a macvlan interface */
 	start = start && (r->mvl_ifp != NULL);
+#if 0
 	/* Macvlan interface must be admin up */
 	start = start && CHECK_FLAG(r->mvl_ifp->flags, IFF_UP);
+#endif
 	/* Macvlan interface must have at least two v6 */
 	start = start && (r->mvl_ifp->connected->count >= 2);
 	/* Macvlan interface must have a link local */
