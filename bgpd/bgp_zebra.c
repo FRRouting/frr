@@ -1111,20 +1111,23 @@ int bgp_zebra_get_table_range(uint32_t chunk_size,
 }
 
 static int update_ipv4nh_for_route_install(int nh_othervrf,
+					   struct bgp *nh_bgp,
 					   struct in_addr *nexthop,
 					   struct attr *attr,
 					   bool is_evpn,
 					   struct zapi_nexthop *api_nh)
 {
 	api_nh->gate.ipv4 = *nexthop;
+	api_nh->vrf_id = nh_bgp->vrf_id;
 
 	/* Need to set fields appropriately for EVPN routes imported into
 	 * a VRF (which are programmed as onlink on l3-vni SVI) as well as
 	 * connected routes leaked into a VRF.
 	 */
-	if (is_evpn)
+	if (is_evpn) {
 		api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
-	else if (nh_othervrf &&
+		api_nh->ifindex = nh_bgp->l3vni_svi_ifindex;
+	} else if (nh_othervrf &&
 		 api_nh->gate.ipv4.s_addr == INADDR_ANY) {
 		api_nh->type = NEXTHOP_TYPE_IFINDEX;
 		api_nh->ifindex = attr->nh_ifindex;
@@ -1135,7 +1138,8 @@ static int update_ipv4nh_for_route_install(int nh_othervrf,
 }
 
 static int
-update_ipv6nh_for_route_install(int nh_othervrf, struct in6_addr *nexthop,
+update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
+				struct in6_addr *nexthop,
 				ifindex_t ifindex, struct bgp_path_info *pi,
 				struct bgp_path_info *best_pi, bool is_evpn,
 				struct zapi_nexthop *api_nh)
@@ -1143,10 +1147,12 @@ update_ipv6nh_for_route_install(int nh_othervrf, struct in6_addr *nexthop,
 	struct attr *attr;
 
 	attr = pi->attr;
+	api_nh->vrf_id = nh_bgp->vrf_id;
 
-	if (is_evpn)
+	if (is_evpn) {
 		api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
-	else if (nh_othervrf) {
+		api_nh->ifindex = nh_bgp->l3vni_svi_ifindex;
+	} else if (nh_othervrf) {
 		if (IN6_IS_ADDR_UNSPECIFIED(nexthop)) {
 			api_nh->type = NEXTHOP_TYPE_IFINDEX;
 			api_nh->ifindex = attr->nh_ifindex;
@@ -1297,8 +1303,6 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			continue;
 
 		api_nh = &api.nexthops[valid_nh_count];
-		api_nh->vrf_id = nh_othervrf ? info->extra->bgp_orig->vrf_id
-					     : bgp->vrf_id;
 		if (nh_family == AF_INET) {
 			if (bgp_debug_zebra(&api.prefix)) {
 				if (mpinfo->extra) {
@@ -1338,6 +1342,8 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 			nh_updated = update_ipv4nh_for_route_install(
 					nh_othervrf,
+					nh_othervrf ?
+					info->extra->bgp_orig : bgp,
 					&mpinfo_cp->attr->nexthop,
 					mpinfo_cp->attr, is_evpn, api_nh);
 		} else {
@@ -1372,7 +1378,9 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			nexthop = bgp_path_info_to_ipv6_nexthop(mpinfo_cp,
 								&ifindex);
 			nh_updated = update_ipv6nh_for_route_install(
-					nh_othervrf, nexthop, ifindex,
+					nh_othervrf, nh_othervrf ?
+					info->extra->bgp_orig : bgp,
+					nexthop, ifindex,
 					mpinfo, info, is_evpn, api_nh);
 		}
 
