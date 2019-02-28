@@ -1305,6 +1305,7 @@ DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
 	return CMD_SUCCESS;
 }
 
+#ifdef KEEP_OLD_VPN_COMMANDS
 DEFUNSH(VTYSH_BGPD, address_family_vpnv4, address_family_vpnv4_cmd,
 	"address-family vpnv4 [unicast]",
 	"Enter Address Family command mode\n"
@@ -1324,6 +1325,7 @@ DEFUNSH(VTYSH_BGPD, address_family_vpnv6, address_family_vpnv6_cmd,
 	vty->node = BGP_VPNV6_NODE;
 	return CMD_SUCCESS;
 }
+#endif /* KEEP_OLD_VPN_COMMANDS */
 
 DEFUNSH(VTYSH_BGPD, address_family_ipv4, address_family_ipv4_cmd,
 	"address-family ipv4 [unicast]",
@@ -3735,8 +3737,10 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &router_isis_cmd);
 	install_element(CONFIG_NODE, &router_openfabric_cmd);
 	install_element(CONFIG_NODE, &router_bgp_cmd);
+#ifdef KEEP_OLD_VPN_COMMANDS
 	install_element(BGP_NODE, &address_family_vpnv4_cmd);
 	install_element(BGP_NODE, &address_family_vpnv6_cmd);
+#endif /* KEEP_OLD_VPN_COMMANDS */
 #if defined(ENABLE_BGP_VNC)
 	install_element(BGP_NODE, &vnc_vrf_policy_cmd);
 	install_element(BGP_NODE, &vnc_defaults_cmd);
