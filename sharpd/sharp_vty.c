@@ -39,17 +39,28 @@
 #endif
 
 DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
-      "sharp watch <nexthop$n|import$import> X:X::X:X$nhop [connected$connected]",
+      "sharp watch [vrf NAME$name] <nexthop$n|import$import> X:X::X:X$nhop [connected$connected]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
+      "The vrf we would like to watch if non-default\n"
+      "The NAME of the vrf\n"
       "Watch for nexthop changes\n"
       "Watch for import check changes\n"
       "The v6 nexthop to signal for watching\n"
       "Should the route be connected\n")
 {
+	struct vrf *vrf;
 	struct prefix p;
 	bool type_import;
 
+	if (!name)
+		name = VRF_DEFAULT_NAME;
+	vrf = vrf_lookup_by_name(name);
+	if (!vrf) {
+		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
+			name);
+		return CMD_WARNING;
+	}
 
 	if (n)
 		type_import = false;
@@ -63,23 +74,35 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 	p.family = AF_INET6;
 
 	sharp_nh_tracker_get(&p);
-	sharp_zebra_nexthop_watch(&p, VRF_DEFAULT, type_import,
+	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
 				  true, !!connected);
 
 	return CMD_SUCCESS;
 }
 
 DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
-      "sharp watch <nexthop$n|import$import> A.B.C.D$nhop [connected$connected]",
+      "sharp watch [vrf NAME$name] <nexthop$n|import$import> A.B.C.D$nhop [connected$connected]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
+      "The vrf we would like to watch if non-default\n"
+      "The NAME of the vrf\n"
       "Watch for nexthop changes\n"
       "Watch for import check changes\n"
       "The v4 nexthop to signal for watching\n"
       "Should the route be connected\n")
 {
+	struct vrf *vrf;
 	struct prefix p;
 	bool type_import;
+
+	if (!name)
+		name = VRF_DEFAULT_NAME;
+	vrf = vrf_lookup_by_name(name);
+	if (!vrf) {
+		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
+			name);
+		return CMD_WARNING;
+	}
 
 	memset(&p, 0, sizeof(p));
 
@@ -93,7 +116,7 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 	p.family = AF_INET;
 
 	sharp_nh_tracker_get(&p);
-	sharp_zebra_nexthop_watch(&p, VRF_DEFAULT, type_import,
+	sharp_zebra_nexthop_watch(&p, vrf->vrf_id, type_import,
 				  true, !!connected);
 
 	return CMD_SUCCESS;
@@ -181,10 +204,13 @@ DEFPY (install_routes,
 	}
 	sg.r.orig_prefix = prefix;
 
-	vrf = vrf_lookup_by_name(name ? name : VRF_DEFAULT_NAME);
+	if (!name)
+		name = VRF_DEFAULT_NAME;
+
+	vrf = vrf_lookup_by_name(name);
 	if (!vrf) {
 		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
-			name ? name : VRF_DEFAULT_NAME);
+			name);
 		return CMD_WARNING;
 	}
 
