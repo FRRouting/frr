@@ -236,11 +236,13 @@ DEFPY(vrrp_ip6,
 	if (no) {
 		int oldstate = vr->v6->fsm.state;
 		failed = vrrp_del_ipv6(vr, ipv6);
+		vrrp_check_start(vr);
 		deactivated = (vr->v6->fsm.state == VRRP_STATE_INITIALIZE
 			       && oldstate != VRRP_STATE_INITIALIZE);
 	} else {
 		int oldstate = vr->v6->fsm.state;
 		failed = vrrp_add_ipv6(vr, ipv6);
+		vrrp_check_start(vr);
 		activated = (vr->v6->fsm.state != VRRP_STATE_INITIALIZE
 			     && oldstate == VRRP_STATE_INITIALIZE);
 	}
