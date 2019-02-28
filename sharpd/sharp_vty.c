@@ -195,12 +195,15 @@ DEFPY (install_routes,
 			sg.r.nhop.type = NEXTHOP_TYPE_IPV6;
 		}
 
+		sg.r.nhop.vrf_id = VRF_DEFAULT;
 		sg.r.nhop_group.nexthop = &sg.r.nhop;
 	}
 
 	sg.r.inst = instance;
+	sg.r.vrf_id = VRF_DEFAULT;
 	rts = routes;
-	sharp_install_routes_helper(&prefix, sg.r.inst, &sg.r.nhop_group, rts);
+	sharp_install_routes_helper(&prefix, sg.r.vrf_id,
+				    sg.r.inst, &sg.r.nhop_group, rts);
 
 	return CMD_SUCCESS;
 }
@@ -266,8 +269,10 @@ DEFPY (remove_routes,
 	}
 
 	sg.r.inst = instance;
+	sg.r.vrf_id = VRF_DEFAULT;
 	rts = routes;
-	sharp_remove_routes_helper(&prefix, sg.r.inst, rts);
+	sharp_remove_routes_helper(&prefix, sg.r.vrf_id,
+				   sg.r.inst, rts);
 
 	return CMD_SUCCESS;
 }
