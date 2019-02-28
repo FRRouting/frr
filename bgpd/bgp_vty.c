@@ -7163,7 +7163,7 @@ DEFUN_NOSH (address_family_vpnv6,
 	vty->node = BGP_VPNV6_NODE;
 	return CMD_SUCCESS;
 }
-#endif
+#endif /* KEEP_OLD_VPN_COMMANDS */
 
 DEFUN_NOSH (address_family_evpn,
        address_family_evpn_cmd,
