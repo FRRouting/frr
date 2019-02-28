@@ -101,6 +101,12 @@ static inline int is_route_parent_evpn(struct bgp_path_info *ri)
 	return 0;
 }
 
+/* Flag if the route path's family is EVPN. */
+static inline bool is_pi_family_evpn(struct bgp_path_info *pi)
+{
+	return is_pi_family_matching(pi, AFI_L2VPN, SAFI_EVPN);
+}
+
 extern void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf,
 					   struct prefix *p,
 					   struct attr *src_attr, afi_t afi,
