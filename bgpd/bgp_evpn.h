@@ -107,6 +107,32 @@ static inline bool is_pi_family_evpn(struct bgp_path_info *pi)
 	return is_pi_family_matching(pi, AFI_L2VPN, SAFI_EVPN);
 }
 
+/* Flag if the route is injectable into EVPN. This would be either a
+ * non-imported route or a non-EVPN imported route.
+ */
+static inline bool is_route_injectable_into_evpn(struct bgp_path_info *pi)
+{
+	struct bgp_path_info *parent_pi;
+	struct bgp_table *table;
+	struct bgp_node *rn;
+
+	if (pi->sub_type != BGP_ROUTE_IMPORTED ||
+	    !pi->extra ||
+	    !pi->extra->parent)
+		return true;
+
+	parent_pi = (struct bgp_path_info *)pi->extra->parent;
+	rn = parent_pi->net;
+	if (!rn)
+		return true;
+	table = bgp_node_table(rn);
+	if (table &&
+	    table->afi == AFI_L2VPN &&
+	    table->safi == SAFI_EVPN)
+		return false;
+	return true;
+}
+
 extern void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf,
 					   struct prefix *p,
 					   struct attr *src_attr, afi_t afi,
