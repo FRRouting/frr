@@ -2053,7 +2053,7 @@ void vrrp_if_address_del(struct interface *ifp)
 int vrrp_config_write_interface(struct vty *vty)
 {
 	struct list *vrs = hash_to_list(vrrp_vrouters_hash);
-	struct listnode *ln;
+	struct listnode *ln, *ipln;
 	struct vrrp_vrouter *vr;
 	int writes = 0;
 
@@ -2088,23 +2088,24 @@ int vrrp_config_write_interface(struct vty *vty)
 			vty_out(vty, " vrrp %" PRIu8 " priority %" PRIu8 "\n",
 				vr->vrid, vr->priority);
 
-		ln = NULL;
 		struct ipaddr *ip;
 
-		for (ALL_LIST_ELEMENTS_RO(vr->v4->addrs, ln, ip)) {
+		for (ALL_LIST_ELEMENTS_RO(vr->v4->addrs, ipln, ip)) {
 			char ipbuf[INET6_ADDRSTRLEN];
 			ipaddr2str(ip, ipbuf, sizeof(ipbuf));
 			vty_out(vty, " vrrp %" PRIu8 " ip %s\n", vr->vrid,
 				ipbuf);
 			++writes;
 		}
-		for (ALL_LIST_ELEMENTS_RO(vr->v6->addrs, ln, ip)) {
+
+		for (ALL_LIST_ELEMENTS_RO(vr->v6->addrs, ipln, ip)) {
 			char ipbuf[INET6_ADDRSTRLEN];
 			ipaddr2str(ip, ipbuf, sizeof(ipbuf));
 			vty_out(vty, " vrrp %" PRIu8 " ipv6 %s\n", vr->vrid,
 				ipbuf);
 			++writes;
 		}
+		vty_endframe(vty, "!\n");
 	}
 
 	return writes;
