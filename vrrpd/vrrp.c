@@ -1599,10 +1599,21 @@ vrrp_autoconfig_autocreate(struct interface *mvl_ifp)
 		return NULL;
 	}
 
+	vr->autoconf = true;
+
+	/*
+	 * If these interfaces are protodown on, we need to un-protodown them
+	 * in order to get Zebra to send us their addresses so we can
+	 * autoconfigure them.
+	 */
+	if (vr->v4->mvl_ifp)
+		vrrp_zclient_send_interface_protodown(vr->v4->mvl_ifp, false);
+	if (vr->v6->mvl_ifp)
+		vrrp_zclient_send_interface_protodown(vr->v6->mvl_ifp, false);
+
+	 /* If they're not, we can go ahead and add the addresses we have */
 	vrrp_autoconfig_autoaddrupdate(vr->v4);
 	vrrp_autoconfig_autoaddrupdate(vr->v6);
-
-	vr->autoconf = true;
 
 	return vr;
 }
@@ -1636,22 +1647,43 @@ static int vrrp_autoconfig_if_add(struct interface *ifp)
 
 	if (!vr) {
 		vr = vrrp_autoconfig_autocreate(ifp);
-		if (vr) {
-			created = true;
-			vrrp_zclient_send_interface_protodown(ifp, false);
-		}
+		created = true;
 	}
 
-	if (!vr)
-		return -1;
-
-	if (vr->autoconf == false)
+	if (!vr || vr->autoconf == false)
 		return 0;
-	else if (!created) {
-		if (vr->v4->mvl_ifp == ifp)
-			vrrp_autoconfig_autoaddrupdate(vr->v4);
-		else if (vr->v6->mvl_ifp == ifp)
-			vrrp_autoconfig_autoaddrupdate(vr->v6);
+
+	if (!created) {
+		/*
+		 * We didn't create it, but it has already been autoconfigured.
+		 * Try to attach this interface to the existing instance.
+		 */
+		if (!vr->v4->mvl_ifp) {
+			vrrp_attach_interface(vr->v4);
+			/* If we just attached it, make sure it's turned on */
+			if (vr->v4->mvl_ifp) {
+				vrrp_zclient_send_interface_protodown(
+					vr->v4->mvl_ifp, false);
+				/*
+				 * If it's already up, we can go ahead and add
+				 * the addresses we have
+				 */
+				vrrp_autoconfig_autoaddrupdate(vr->v4);
+			}
+		}
+		if (!vr->v6->mvl_ifp) {
+			vrrp_attach_interface(vr->v6);
+			/* If we just attached it, make sure it's turned on */
+			if (vr->v6->mvl_ifp) {
+				vrrp_zclient_send_interface_protodown(
+					vr->v6->mvl_ifp, false);
+				/*
+				 * If it's already up, we can go ahead and add
+				 * the addresses we have
+				 */
+				vrrp_autoconfig_autoaddrupdate(vr->v6);
+			}
+		}
 	}
 
 	return 0;
