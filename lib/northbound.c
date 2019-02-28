@@ -348,40 +348,39 @@ static void nb_config_diff_del_changes(struct nb_config_cbs *changes)
  * configurations. Given a new subtree, calculate all new YANG data nodes,
  * excluding default leafs and leaf-lists. This is a recursive function.
  */
-static void nb_config_diff_new_subtree(const struct lyd_node *dnode,
-				       struct nb_config_cbs *changes)
+static void nb_config_diff_created(const struct lyd_node *dnode,
+				   struct nb_config_cbs *changes)
 {
+	enum nb_operation operation;
 	struct lyd_node *child;
 
-	LY_TREE_FOR (dnode->child, child) {
-		enum nb_operation operation;
-
-		switch (child->schema->nodetype) {
-		case LYS_LEAF:
-		case LYS_LEAFLIST:
-			if (lyd_wd_default((struct lyd_node_leaf_list *)child))
-				break;
-
-			if (nb_operation_is_valid(NB_OP_CREATE, child->schema))
-				operation = NB_OP_CREATE;
-			else if (nb_operation_is_valid(NB_OP_MODIFY,
-						       child->schema))
-				operation = NB_OP_MODIFY;
-			else
-				continue;
-
-			nb_config_diff_add_change(changes, operation, child);
+	switch (dnode->schema->nodetype) {
+	case LYS_LEAF:
+	case LYS_LEAFLIST:
+		if (lyd_wd_default((struct lyd_node_leaf_list *)dnode))
 			break;
-		case LYS_CONTAINER:
-		case LYS_LIST:
-			if (nb_operation_is_valid(NB_OP_CREATE, child->schema))
-				nb_config_diff_add_change(changes, NB_OP_CREATE,
-							  child);
-			nb_config_diff_new_subtree(child, changes);
-			break;
-		default:
-			break;
+
+		if (nb_operation_is_valid(NB_OP_CREATE, dnode->schema))
+			operation = NB_OP_CREATE;
+		else if (nb_operation_is_valid(NB_OP_MODIFY, dnode->schema))
+			operation = NB_OP_MODIFY;
+		else
+			return;
+
+		nb_config_diff_add_change(changes, operation, dnode);
+		break;
+	case LYS_CONTAINER:
+	case LYS_LIST:
+		if (nb_operation_is_valid(NB_OP_CREATE, dnode->schema))
+			nb_config_diff_add_change(changes, NB_OP_CREATE, dnode);
+
+		/* Process child nodes recursively. */
+		LY_TREE_FOR (dnode->child, child) {
+			nb_config_diff_created(child, changes);
 		}
+		break;
+	default:
+		break;
 	}
 }
 
@@ -399,42 +398,28 @@ static void nb_config_diff(const struct nb_config *config1,
 	for (int i = 0; diff->type[i] != LYD_DIFF_END; i++) {
 		LYD_DIFFTYPE type;
 		struct lyd_node *dnode;
-		enum nb_operation operation;
 
 		type = diff->type[i];
 
 		switch (type) {
 		case LYD_DIFF_CREATED:
 			dnode = diff->second[i];
-
-			if (nb_operation_is_valid(NB_OP_CREATE, dnode->schema))
-				operation = NB_OP_CREATE;
-			else if (nb_operation_is_valid(NB_OP_MODIFY,
-						       dnode->schema))
-				operation = NB_OP_MODIFY;
-			else
-				continue;
+			nb_config_diff_created(dnode, changes);
 			break;
 		case LYD_DIFF_DELETED:
 			dnode = diff->first[i];
-			operation = NB_OP_DESTROY;
+			nb_config_diff_add_change(changes, NB_OP_DESTROY,
+						  dnode);
 			break;
 		case LYD_DIFF_CHANGED:
 			dnode = diff->second[i];
-			operation = NB_OP_MODIFY;
+			nb_config_diff_add_change(changes, NB_OP_MODIFY, dnode);
 			break;
 		case LYD_DIFF_MOVEDAFTER1:
 		case LYD_DIFF_MOVEDAFTER2:
 		default:
 			continue;
 		}
-
-		nb_config_diff_add_change(changes, operation, dnode);
-
-		if (type == LYD_DIFF_CREATED
-		    && CHECK_FLAG(dnode->schema->nodetype,
-				  LYS_CONTAINER | LYS_LIST))
-			nb_config_diff_new_subtree(dnode, changes);
 	}
 
 	lyd_free_diff(diff);
