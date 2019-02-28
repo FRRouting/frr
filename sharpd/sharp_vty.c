@@ -132,10 +132,12 @@ DEFPY (install_routes_data_dump,
 
 DEFPY (install_routes,
        install_routes_cmd,
-       "sharp install routes <A.B.C.D$start4|X:X::X:X$start6> <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|nexthop-group NAME$nexthop_group> (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt]",
+       "sharp install routes [vrf NAME$name] <A.B.C.D$start4|X:X::X:X$start6> <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|nexthop-group NAME$nexthop_group> (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
+       "The vrf we would like to install into if non-default\n"
+       "The NAME of the vrf\n"
        "v4 Address to start /32 generation at\n"
        "v6 Address to start /32 generation at\n"
        "Nexthop to use(Can be an IPv4 or IPv6 address)\n"
@@ -149,6 +151,7 @@ DEFPY (install_routes,
        "Should we repeat this command\n"
        "How many times to repeat this command\n")
 {
+	struct vrf *vrf;
 	struct prefix prefix;
 	uint32_t rts;
 
@@ -176,6 +179,13 @@ DEFPY (install_routes,
 	}
 	sg.r.orig_prefix = prefix;
 
+	vrf = vrf_lookup_by_name(name ? name : VRF_DEFAULT_NAME);
+	if (!vrf) {
+		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
+			name ? name : VRF_DEFAULT_NAME);
+		return CMD_WARNING;
+	}
+
 	if (nexthop_group) {
 		struct nexthop_group_cmd *nhgc = nhgc_find(nexthop_group);
 		if (!nhgc) {
@@ -195,12 +205,12 @@ DEFPY (install_routes,
 			sg.r.nhop.type = NEXTHOP_TYPE_IPV6;
 		}
 
-		sg.r.nhop.vrf_id = VRF_DEFAULT;
+		sg.r.nhop.vrf_id = vrf->vrf_id;
 		sg.r.nhop_group.nexthop = &sg.r.nhop;
 	}
 
 	sg.r.inst = instance;
-	sg.r.vrf_id = VRF_DEFAULT;
+	sg.r.vrf_id = vrf->vrf_id;
 	rts = routes;
 	sharp_install_routes_helper(&prefix, sg.r.vrf_id,
 				    sg.r.inst, &sg.r.nhop_group, rts);
@@ -240,16 +250,19 @@ DEFPY(vrf_label, vrf_label_cmd,
 
 DEFPY (remove_routes,
        remove_routes_cmd,
-       "sharp remove routes <A.B.C.D$start4|X:X::X:X$start6> (1-1000000)$routes [instance (0-255)$instance]",
+       "sharp remove routes [vrf NAME$name] <A.B.C.D$start4|X:X::X:X$start6> (1-1000000)$routes [instance (0-255)$instance]",
        "Sharp Routing Protocol\n"
        "Remove some routes\n"
        "Routes to remove\n"
+       "The vrf we would like to remove from if non-default\n"
+       "The NAME of the vrf\n"
        "v4 Starting spot\n"
        "v6 Starting spot\n"
        "Routes to uninstall\n"
        "instance to use\n"
        "Value of instance\n")
 {
+	struct vrf *vrf;
 	struct prefix prefix;
 
 	sg.r.total_routes = routes;
@@ -268,8 +281,15 @@ DEFPY (remove_routes,
 		prefix.u.prefix6 = start6;
 	}
 
+	vrf = vrf_lookup_by_name(name ? name : VRF_DEFAULT_NAME);
+	if (!vrf) {
+		vty_out(vty, "The vrf NAME specified: %s does not exist\n",
+			name ? name : VRF_DEFAULT_NAME);
+		return CMD_WARNING;
+	}
+
 	sg.r.inst = instance;
-	sg.r.vrf_id = VRF_DEFAULT;
+	sg.r.vrf_id = vrf->vrf_id;
 	rts = routes;
 	sharp_remove_routes_helper(&prefix, sg.r.vrf_id,
 				   sg.r.inst, rts);
