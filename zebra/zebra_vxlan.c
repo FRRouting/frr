@@ -7090,9 +7090,10 @@ void zebra_vxlan_print_vnis_detail(struct vty *vty, struct zebra_vrf *zvrf,
 	zes.zvrf = zvrf;
 
 	/* Display all L2-VNIs */
-	hash_iterate(zvrf->vni_table, (void (*)(struct hash_bucket *,
-						void *))zvni_print_hash_detail,
-		     &zes);
+	hash_iterate(
+		zvrf->vni_table,
+		(void (*)(struct hash_bucket *, void *))zvni_print_hash_detail,
+		&zes);
 
 	/* Display all L3-VNIs */
 	hash_iterate(zrouter.l3vni_table,
@@ -7101,8 +7102,9 @@ void zebra_vxlan_print_vnis_detail(struct vty *vty, struct zebra_vrf *zvrf,
 		     &zes);
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
