@@ -63,7 +63,8 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 	p.family = AF_INET6;
 
 	sharp_nh_tracker_get(&p);
-	sharp_zebra_nexthop_watch(&p, type_import, true, !!connected);
+	sharp_zebra_nexthop_watch(&p, VRF_DEFAULT, type_import,
+				  true, !!connected);
 
 	return CMD_SUCCESS;
 }
@@ -92,7 +93,8 @@ DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
 	p.family = AF_INET;
 
 	sharp_nh_tracker_get(&p);
-	sharp_zebra_nexthop_watch(&p, type_import, true, !!connected);
+	sharp_zebra_nexthop_watch(&p, VRF_DEFAULT, type_import,
+				  true, !!connected);
 
 	return CMD_SUCCESS;
 }

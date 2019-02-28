@@ -323,7 +323,7 @@ void route_delete(struct prefix *p, vrf_id_t vrf_id, uint8_t instance)
 	return;
 }
 
-void sharp_zebra_nexthop_watch(struct prefix *p, bool import,
+void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import,
 			       bool watch, bool connected)
 {
 	int command;
@@ -340,7 +340,7 @@ void sharp_zebra_nexthop_watch(struct prefix *p, bool import,
 			command = ZEBRA_IMPORT_ROUTE_UNREGISTER;
 	}
 
-	if (zclient_send_rnh(zclient, command, p, connected, VRF_DEFAULT) < 0)
+	if (zclient_send_rnh(zclient, command, p, connected, vrf_id) < 0)
 		zlog_warn("%s: Failure to send nexthop to zebra",
 			  __PRETTY_FUNCTION__);
 }
