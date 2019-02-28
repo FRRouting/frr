@@ -888,11 +888,7 @@ static int vrrp_bind_to_primary_connected(struct vrrp_router *r)
 	char ipstr[INET6_ADDRSTRLEN];
 	struct interface *ifp;
 
-	/*
-	 * A slight quirk: the RFC specifies that advertisements under IPv6 must
-	 * be transmitted using the link local address of the source interface
-	 */
-	ifp = r->family == AF_INET ? r->vr->ifp : r->mvl_ifp;
+	ifp = r->vr->ifp;
 
 	struct listnode *ln;
 	struct connected *c = NULL;
