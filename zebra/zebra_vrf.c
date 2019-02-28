@@ -208,8 +208,11 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		 * table, see rib_close_table above
 		 * we no-longer need this pointer.
 		 */
-		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++)
+		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
+			zebra_router_release_table(zvrf, zvrf->table_id, afi,
+						   safi);
 			zvrf->table[afi][safi] = NULL;
+		}
 
 		route_table_finish(zvrf->rnh_table[afi]);
 		zvrf->rnh_table[afi] = NULL;
@@ -256,14 +259,12 @@ static int zebra_vrf_delete(struct vrf *vrf)
 
 	/* release allocated memory */
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
-		void *table_info;
-
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
 			table = zvrf->table[afi][safi];
 			if (table) {
-				table_info = route_table_get_info(table);
-				route_table_finish(table);
-				XFREE(MTYPE_RIB_TABLE_INFO, table_info);
+				zebra_router_release_table(zvrf, zvrf->table_id,
+							   afi, safi);
+				zvrf->table[afi][safi] = NULL;
 			}
 		}
 
