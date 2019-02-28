@@ -1529,65 +1529,44 @@ int vrrp_event(struct vrrp_router *r, int event)
  * vr
  *    VRRP router to act on
  */
-static void vrrp_autoconfig_autoaddrupdate(struct vrrp_vrouter *vr)
+static void vrrp_autoconfig_autoaddrupdate(struct vrrp_router *r)
 {
-	list_delete_all_node(vr->v4->addrs);
-	list_delete_all_node(vr->v6->addrs);
-
 	struct listnode *ln;
 	struct connected *c = NULL;
+	bool is_v6_ll;
 	char ipbuf[INET6_ADDRSTRLEN];
 
-	if (vr->v4->mvl_ifp) {
-		DEBUGD(&vrrp_dbg_auto,
-		       VRRP_LOGPFX VRRP_LOGPFX_VRID
-		       "Setting IPv4 Virtual IP list to match IPv4 addresses on %s",
-		       vr->vrid, vr->v4->mvl_ifp->name);
-		for (ALL_LIST_ELEMENTS_RO(vr->v4->mvl_ifp->connected, ln, c))
-			if (c->address->family == AF_INET) {
-				inet_ntop(AF_INET, &c->address->u.prefix4,
-					  ipbuf, sizeof(ipbuf));
-				DEBUGD(&vrrp_dbg_auto,
-				       VRRP_LOGPFX VRRP_LOGPFX_VRID "Adding %s",
-				       vr->vrid, ipbuf);
-				vrrp_add_ipv4(vr, c->address->u.prefix4);
-			}
+	if (!r->mvl_ifp)
+		return;
+
+	DEBUGD(&vrrp_dbg_auto,
+	       VRRP_LOGPFX VRRP_LOGPFX_VRID
+	       "Setting %s Virtual IP list to match IPv4 addresses on %s",
+	       r->vr->vrid, family2str(r->family), r->mvl_ifp->name);
+	for (ALL_LIST_ELEMENTS_RO(r->mvl_ifp->connected, ln, c)) {
+		is_v6_ll = (c->address->family == AF_INET6
+			    && IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6));
+		if (c->address->family == r->family && !is_v6_ll) {
+			inet_ntop(r->family, &c->address->u.prefix, ipbuf,
+				  sizeof(ipbuf));
+			DEBUGD(&vrrp_dbg_auto,
+			       VRRP_LOGPFX VRRP_LOGPFX_VRID "Adding %s",
+			       r->vr->vrid, ipbuf);
+			if (r->family == AF_INET)
+				vrrp_add_ipv4(r->vr, c->address->u.prefix4);
+			else
+				vrrp_add_ipv6(r->vr, c->address->u.prefix6);
+		}
 	}
 
-	if (vr->v6->mvl_ifp) {
-		DEBUGD(&vrrp_dbg_auto,
-		       VRRP_LOGPFX VRRP_LOGPFX_VRID
-		       "Setting IPv6 Virtual IP list to match IPv6 addresses on %s",
-		       vr->vrid, vr->v6->mvl_ifp->name);
-		for (ALL_LIST_ELEMENTS_RO(vr->v6->mvl_ifp->connected, ln, c))
-			if (c->address->family == AF_INET6
-			    && !IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6)) {
-				inet_ntop(AF_INET6, &c->address->u.prefix6,
-					  ipbuf, sizeof(ipbuf));
-				DEBUGD(&vrrp_dbg_auto,
-				       VRRP_LOGPFX VRRP_LOGPFX_VRID "Adding %s",
-				       vr->vrid, ipbuf);
-				vrrp_add_ipv6(vr, c->address->u.prefix6);
-			}
-	}
+	vrrp_check_start(r->vr);
 
-	vrrp_check_start(vr);
-
-	if (vr->v4->addrs->count == 0
-	    && vr->v4->fsm.state != VRRP_STATE_INITIALIZE) {
+	if (r->addrs->count == 0 && r->fsm.state != VRRP_STATE_INITIALIZE) {
 		DEBUGD(&vrrp_dbg_auto,
 		       VRRP_LOGPFX VRRP_LOGPFX_VRID
-		       "IPv4 Virtual IP list is empty; shutting down",
-		       vr->vrid);
-		vrrp_event(vr->v4, VRRP_EVENT_SHUTDOWN);
-	}
-	if (vr->v6->addrs->count == 0
-	    && vr->v6->fsm.state != VRRP_STATE_INITIALIZE) {
-		DEBUGD(&vrrp_dbg_auto,
-		       VRRP_LOGPFX VRRP_LOGPFX_VRID
-		       "IPv6 Virtual IP list is empty; shutting down",
-		       vr->vrid);
-		vrrp_event(vr->v6, VRRP_EVENT_SHUTDOWN);
+		       "%s Virtual IP list is empty; shutting down",
+		       r->vr->vrid, family2str(r->family));
+		vrrp_event(r, VRRP_EVENT_SHUTDOWN);
 	}
 }
 
@@ -1618,7 +1597,8 @@ vrrp_autoconfig_autocreate(struct interface *mvl_ifp)
 		return NULL;
 	}
 
-	vrrp_autoconfig_autoaddrupdate(vr);
+	vrrp_autoconfig_autoaddrupdate(vr->v4);
+	vrrp_autoconfig_autoaddrupdate(vr->v6);
 
 	vr->autoconf = true;
 
@@ -1666,7 +1646,10 @@ static int vrrp_autoconfig_if_add(struct interface *ifp)
 	if (vr->autoconf == false)
 		return 0;
 	else if (!created) {
-		vrrp_autoconfig_autoaddrupdate(vr);
+		if (vr->v4->mvl_ifp == ifp)
+			vrrp_autoconfig_autoaddrupdate(vr->v4);
+		else if (vr->v6->mvl_ifp == ifp)
+			vrrp_autoconfig_autoaddrupdate(vr->v6);
 	}
 
 	return 0;
@@ -1790,8 +1773,12 @@ static int vrrp_autoconfig_if_address_add(struct interface *ifp)
 
 	struct vrrp_vrouter *vr = vrrp_lookup_by_if_mvl(ifp);
 
-	if (vr && vr->autoconf)
-		vrrp_autoconfig_autoaddrupdate(vr);
+	if (vr && vr->autoconf) {
+		if (vr->v4->mvl_ifp == ifp)
+			vrrp_autoconfig_autoaddrupdate(vr->v4);
+		else if (vr->v6->mvl_ifp == ifp)
+			vrrp_autoconfig_autoaddrupdate(vr->v6);
+	}
 
 	return 0;
 }
@@ -1818,8 +1805,12 @@ static int vrrp_autoconfig_if_address_del(struct interface *ifp)
 
 	struct vrrp_vrouter *vr = vrrp_lookup_by_if_mvl(ifp);
 
-	if (vr && vr->autoconf)
-		vrrp_autoconfig_autoaddrupdate(vr);
+	if (vr && vr->autoconf) {
+		if (vr->v4->mvl_ifp == ifp)
+			vrrp_autoconfig_autoaddrupdate(vr->v4);
+		else if (vr->v6->mvl_ifp == ifp)
+			vrrp_autoconfig_autoaddrupdate(vr->v6);
+	}
 
 	return 0;
 }
