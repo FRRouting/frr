@@ -111,9 +111,12 @@ struct dplane_pw_info {
 	int af;
 	int status;
 	uint32_t flags;
-	union g_addr nexthop;
+	union g_addr dest;
 	mpls_label_t local_label;
 	mpls_label_t remote_label;
+
+	/* Nexthops */
+	struct nexthop_group nhg;
 
 	union pw_protocol_fields fields;
 };
@@ -386,6 +389,15 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 
 	case DPLANE_OP_PW_INSTALL:
 	case DPLANE_OP_PW_UNINSTALL:
+		/* Free allocated nexthops */
+		if ((*pctx)->u.pw.nhg.nexthop) {
+			/* This deals with recursive nexthops too */
+			nexthops_free((*pctx)->u.pw.nhg.nexthop);
+
+			(*pctx)->u.pw.nhg.nexthop = NULL;
+		}
+		break;
+
 	case DPLANE_OP_NONE:
 		break;
 	}
@@ -814,12 +826,12 @@ int dplane_ctx_get_pw_status(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.pw.status;
 }
 
-const union g_addr *dplane_ctx_get_pw_nexthop(
+const union g_addr *dplane_ctx_get_pw_dest(
 	const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->u.pw.nexthop);
+	return &(ctx->u.pw.dest);
 }
 
 const union pw_protocol_fields *dplane_ctx_get_pw_proto(
@@ -1056,6 +1068,7 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 
 	/* This name appears to be c-string, so we use string copy. */
 	strlcpy(ctx->u.pw.ifname, pw->ifname, sizeof(ctx->u.pw.ifname));
+
 	ctx->zd_vrf_id = pw->vrf_id;
 	ctx->u.pw.ifindex = pw->ifindex;
 	ctx->u.pw.type = pw->type;
@@ -1064,7 +1077,7 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 	ctx->u.pw.remote_label = pw->remote_label;
 	ctx->u.pw.flags = pw->flags;
 
-	ctx->u.pw.nexthop = pw->nexthop;
+	ctx->u.pw.dest = pw->nexthop;
 
 	ctx->u.pw.fields = pw->data;
 

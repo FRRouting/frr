@@ -342,7 +342,7 @@ static enum zebra_dplane_result kmpw_install(struct zebra_dplane_ctx *ctx)
 
 	/* pseudowire nexthop */
 	memset(&ss, 0, sizeof(ss));
-	gaddr = dplane_ctx_get_pw_nexthop(ctx);
+	gaddr = dplane_ctx_get_pw_dest(ctx);
 	switch (dplane_ctx_get_pw_af(ctx)) {
 	case AF_INET:
 		sa_in->sin_family = AF_INET;

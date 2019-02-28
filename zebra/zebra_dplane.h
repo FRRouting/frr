@@ -215,7 +215,7 @@ int dplane_ctx_get_pw_type(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_get_pw_af(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_pw_flags(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_get_pw_status(const struct zebra_dplane_ctx *ctx);
-const union g_addr *dplane_ctx_get_pw_nexthop(
+const union g_addr *dplane_ctx_get_pw_dest(
 	const struct zebra_dplane_ctx *ctx);
 const union pw_protocol_fields *dplane_ctx_get_pw_proto(
 	const struct zebra_dplane_ctx *ctx);
