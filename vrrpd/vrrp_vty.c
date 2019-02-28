@@ -444,6 +444,8 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	char ipstr[INET6_ADDRSTRLEN];
 	const char *stastr4 = vrrp_state_names[vr->v4->fsm.state];
 	const char *stastr6 = vrrp_state_names[vr->v6->fsm.state];
+	char sipstr4[INET6_ADDRSTRLEN];
+	char sipstr6[INET6_ADDRSTRLEN];
 	struct listnode *ln;
 	struct ipaddr *ip;
 
@@ -461,6 +463,10 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 		       vr->v4->mvl_ifp ? vr->v4->mvl_ifp->name : "None");
 	ttable_add_row(tt, "%s|%s", "VRRP interface (v6)",
 		       vr->v6->mvl_ifp ? vr->v6->mvl_ifp->name : "None");
+	ipaddr2str(&vr->v4->src, sipstr4, sizeof(sipstr4));
+	ipaddr2str(&vr->v6->src, sipstr6, sizeof(sipstr6));
+	ttable_add_row(tt, "%s|%s", "Primary IP (v4)", sipstr4);
+	ttable_add_row(tt, "%s|%s", "Primary IP (v6)", sipstr6);
 	ttable_add_row(tt, "%s|%s", "Virtual MAC (v4)", ethstr4);
 	ttable_add_row(tt, "%s|%s", "Virtual MAC (v6)", ethstr6);
 	ttable_add_row(tt, "%s|%s", "Status (v4)", stastr4);

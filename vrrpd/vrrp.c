@@ -668,6 +668,8 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 {
 	char sipstr[INET6_ADDRSTRLEN];
 	ipaddr2str(src, sipstr, sizeof(sipstr));
+	char dipstr[INET6_ADDRSTRLEN];
+	ipaddr2str(&r->src, dipstr, sizeof(dipstr));
 
 	char dumpbuf[BUFSIZ];
 	vrrp_pkt_adver_dump(dumpbuf, sizeof(dumpbuf), pkt);
@@ -758,8 +760,10 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			/* Discard advertisement */
 			DEBUGD(&vrrp_dbg_proto,
 			       VRRP_LOGPFX VRRP_LOGPFX_VRID
-			       "Discarding advertisement from %s",
-			       r->vr->vrid, sipstr);
+			       "Discarding advertisement from %s (%" PRIu8
+			       " = %" PRIu8 " & %s <= %s)",
+			       r->vr->vrid, sipstr, pkt->hdr.priority,
+			       r->priority, sipstr, dipstr);
 		}
 		break;
 	case VRRP_STATE_BACKUP:
@@ -785,8 +789,10 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			/* Discard advertisement */
 			DEBUGD(&vrrp_dbg_proto,
 			       VRRP_LOGPFX VRRP_LOGPFX_VRID
-			       "Discarding advertisement from %s",
-			       r->vr->vrid, sipstr);
+			       "Discarding advertisement from %s (%" PRIu8
+			       " < %" PRIu8 " & preempt = true)",
+			       r->vr->vrid, sipstr, pkt->hdr.priority,
+			       r->priority);
 		}
 		break;
 	case VRRP_STATE_INITIALIZE:
