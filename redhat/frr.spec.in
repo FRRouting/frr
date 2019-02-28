@@ -668,6 +668,39 @@ fi
 
 
 %changelog
+* Thu Feb 28 2019 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Added libyang dependency: New work for northbound interface based on libyang
+- Fabricd: New Daemon based on https://datatracker.ietf.org/doc/draft-white-openfabric/
+- various bug fixes and other enhancements
+
+* Sun Oct  7 2018 Martin Winter <mwinter@opensourcerouting.org> - 6.0
+- Staticd: New daemon responsible for management of static routes
+- ISISd: Implement dst-src routing as per draft-ietf-isis-ipv6-dst-src-routing
+- BFDd: new daemon for BFD (Bidrectional Forwarding Detection). Responsiblei
+  for notifying link changes to make routing protocols converge faster.
+- various bug fixes
+
+* Thu Jul  5 2018 Martin Winter <mwinter@opensourcerouting.org> - 5.0.1
+- Support Automake 1.16.1
+- BGPd: Support for flowspec ICMP, DSCP, packet length, fragment and tcp flags
+- BGPd: fix rpki validation for ipv6
+- VRF: Workaround for kernel bug on Linux 4.14 and newer
+- Zebra: Fix interface based routes from zebra not marked up
+- Zebra: Fix large zebra memory usage when redistribute between protocols
+- Zebra: Allow route-maps to match on source instance
+- BGPd: Backport peer-attr overrides, peer-level enforce-first-as and filtered-routes fix
+- BGPd: fix for crash during display of filtered-routes
+- BGPd: Actually display labeled unicast routes received
+- Label Manager: Fix to work correctly behind a label manager proxy
+
+* Thu Jun  7 2018 Martin Winter <mwinter@opensourcerouting.org> - 5.0
+- PIM: Add a Multicast Trace Command draft-ietf-idmr-traceroute-ipm-05
+- IS-IS: Implement Three-Way Handshake as per RFC5303
+- BGPD: Implement VPN-VRF route leaking per RFC4364.
+- BGPD: Implement VRF with NETNS backend
+- BGPD: Flowspec
+- PBRD: Add a new Policy Based Routing Daemon
+
 * Sun May 28 2018 Rafael Zalamena <rzalamena@opensourcerouting.org> - %{version}
 - Add BFDd support
 
