@@ -2526,6 +2526,12 @@ static void ripng_instance_enable(struct ripng *ripng, struct vrf *vrf,
 	ripng_event(ripng, RIPNG_UPDATE_EVENT, 1);
 
 	ripng_zebra_vrf_register(vrf);
+
+	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+		if (!ripng->redistribute_type[i])
+			continue;
+		ripng_redistribute_conf_update(ripng, i);
+	}
 }
 
 static void ripng_instance_disable(struct ripng *ripng)

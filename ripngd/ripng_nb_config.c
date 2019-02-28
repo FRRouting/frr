@@ -412,6 +412,7 @@ int ripngd_instance_redistribute_destroy(struct nb_cb_destroy_args *args)
 	}
 	ripng->redist[type].metric_config = false;
 	ripng->redist[type].metric = 0;
+	ripng->redistribute_type[type] = 0;
 
 	if (ripng->enabled)
 		ripng_redistribute_conf_delete(ripng, type);
@@ -428,6 +429,7 @@ void ripngd_instance_redistribute_apply_finish(
 	ripng = nb_running_get_entry(args->dnode, NULL, true);
 	type = yang_dnode_get_enum(args->dnode, "./protocol");
 
+	ripng->redistribute_type[type] = 1;
 	if (ripng->enabled)
 		ripng_redistribute_conf_update(ripng, type);
 }

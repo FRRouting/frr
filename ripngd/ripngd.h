@@ -160,6 +160,7 @@ struct ripng {
 		bool metric_config;
 		uint8_t metric;
 	} redist[ZEBRA_ROUTE_MAX];
+	int redistribute_type[ZEBRA_ROUTE_MAX];
 
 	/* For distribute-list container */
 	struct distribute_ctx *distribute_ctx;
