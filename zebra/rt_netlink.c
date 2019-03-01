@@ -1845,6 +1845,157 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	return suc;
 }
 
+/**
+ * netlink_nexthop() - Nexthop change via the netlink interface
+ *
+ * @ctx:	Dataplane ctx
+ *
+ * Return:	Result status
+ */
+static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
+{
+	int ret = 0;
+
+	struct {
+		struct nlmsghdr n;
+		struct nhmsg nhm;
+		char buf[NL_PKT_BUF_SIZE];
+	} req;
+
+	memset(&req, 0, sizeof(req));
+
+	const struct nhg_hash_entry *nhe = dplane_ctx_get_nhe(ctx);
+
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct nhmsg));
+	req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
+	req.n.nlmsg_type = cmd;
+
+	req.nhm.nh_family = AF_UNSPEC;
+	// TODO: Scope?
+
+	if (!nhe->id) {
+		// TODO: When we start using this with the ctx's we might not
+		// need to do ID assignment ourselves and just let the kernel
+		// handle it.
+		flog_err(
+			EC_ZEBRA_NHG_FIB_UPDATE,
+			"Failed trying to update a nexthop group in the kernel that does not have an ID");
+		return -1;
+	}
+
+	addattr32(&req.n, sizeof(req), NHA_ID, nhe->id);
+
+	if (cmd == RTM_NEWNEXTHOP) {
+		// TODO: IF not a group
+		const struct nexthop_group nhg = nhe->nhg;
+		const struct nexthop *nh = nhg.nexthop;
+		const struct prefix *src_p;
+		unsigned char family = 0;
+
+		switch (nh->type) {
+			// TODO: Need AF for just index also
+			// just use source?
+		case NEXTHOP_TYPE_IFINDEX:
+			src_p = dplane_ctx_get_src(ctx);
+			family = PREFIX_FAMILY(src_p);
+			break;
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			family = AF_INET;
+			addattr_l(&req.n, sizeof(req), NHA_GATEWAY,
+				  &nh->gate.ipv4, IPV4_MAX_BYTELEN);
+			break;
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			family = AF_INET6;
+			addattr_l(&req.n, sizeof(req), NHA_GATEWAY,
+				  &nh->gate.ipv6, IPV6_MAX_BYTELEN);
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			family = AF_UNSPEC;
+			addattr_l(&req.n, sizeof(req), NHA_BLACKHOLE, NULL, 0);
+			break;
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV6:
+			flog_err(
+				EC_ZEBRA_NHG_FIB_UPDATE,
+				"Context received for kernel nexthop update without an interface");
+			return -1;
+			break;
+		}
+
+		req.nhm.nh_family = family;
+		req.nhm.nh_protocol = zebra2proto(dplane_ctx_get_type(ctx));
+
+		addattr32(&req.n, sizeof(req), NHA_OIF, nh->ifindex);
+
+		// TODO: Handle Encap
+
+	} else if (cmd != RTM_DELNEXTHOP) {
+		flog_err(
+			EC_ZEBRA_NHG_FIB_UPDATE,
+			"Nexthop group kernel update command (%d) does not exist",
+			cmd);
+		return -1;
+	}
+
+
+	if (ret) {
+		zlog_debug("Something failed with inserting nhg into kernel");
+	}
+
+	return netlink_talk_info(netlink_talk_filter, &req.n,
+				 dplane_ctx_get_ns(ctx), 0);
+}
+
+/**
+ * kernel_nexthop_update() - Update/delete a nexthop from the kernel
+ *
+ * @ctx:	Dataplane context
+ *
+ * Return:	Dataplane result flag
+ */
+enum zebra_dplane_result kernel_nexthop_update(struct zebra_dplane_ctx *ctx)
+{
+	int cmd, ret = 0;
+
+	switch (dplane_ctx_get_op(ctx)) {
+	case DPLANE_OP_NH_DELETE:
+		cmd = RTM_DELNEXTHOP;
+		break;
+	case DPLANE_OP_NH_INSTALL:
+	case DPLANE_OP_NH_UPDATE:
+		cmd = RTM_NEWNEXTHOP;
+		break;
+	case DPLANE_OP_ROUTE_INSTALL:
+	case DPLANE_OP_ROUTE_UPDATE:
+	case DPLANE_OP_ROUTE_DELETE:
+	case DPLANE_OP_ROUTE_NOTIFY:
+	case DPLANE_OP_LSP_INSTALL:
+	case DPLANE_OP_LSP_UPDATE:
+	case DPLANE_OP_LSP_DELETE:
+	case DPLANE_OP_LSP_NOTIFY:
+	case DPLANE_OP_PW_INSTALL:
+	case DPLANE_OP_PW_UNINSTALL:
+	case DPLANE_OP_SYS_ROUTE_ADD:
+	case DPLANE_OP_SYS_ROUTE_DELETE:
+	case DPLANE_OP_ADDR_INSTALL:
+	case DPLANE_OP_ADDR_UNINSTALL:
+	case DPLANE_OP_MAC_INSTALL:
+	case DPLANE_OP_MAC_DELETE:
+	case DPLANE_OP_NONE:
+		flog_err(
+			EC_ZEBRA_NHG_FIB_UPDATE,
+			"Context received for kernel nexthop update with incorrect OP code (%u)",
+			dplane_ctx_get_op(ctx));
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
+		break;
+	}
+
+	ret = netlink_nexthop(cmd, ctx);
+
+	return (ret == 0 ? ZEBRA_DPLANE_REQUEST_SUCCESS
+			 : ZEBRA_DPLANE_REQUEST_FAILURE);
+}
+
 /*
  * Update or delete a prefix from the kernel,
  * using info from a dataplane context.

@@ -1482,6 +1482,8 @@ void interface_list(struct zebra_ns *zns)
 	 * so we need to get the nexthop info
 	 * from the kernel before we can do that
 	 */
+	// TODO: Mark a failure with boolean on dataplane provider to indicate
+	// it is a kenrel that doesn't support nh objects.
 	netlink_nexthop_read(zns);
 	interface_addr_lookup_netlink(zns);
 }

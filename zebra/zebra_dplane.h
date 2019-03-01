@@ -30,6 +30,7 @@
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_mpls.h"
+#include "zebra/zebra_nhg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -107,6 +108,11 @@ enum dplane_op_e {
 	DPLANE_OP_ROUTE_UPDATE,
 	DPLANE_OP_ROUTE_DELETE,
 	DPLANE_OP_ROUTE_NOTIFY,
+
+	/* Nexthop update */
+	DPLANE_OP_NH_INSTALL,
+	DPLANE_OP_NH_UPDATE,
+	DPLANE_OP_NH_DELETE,
 
 	/* LSP update */
 	DPLANE_OP_LSP_INSTALL,
@@ -269,6 +275,10 @@ const struct nexthop_group *dplane_ctx_get_ng(
 const struct nexthop_group *dplane_ctx_get_old_ng(
 	const struct zebra_dplane_ctx *ctx);
 
+/* Accessors for nexthop information */
+const struct nhg_hash_entry *
+dplane_ctx_get_nhe(const struct zebra_dplane_ctx *ctx);
+
 /* Accessors for LSP information */
 mpls_label_t dplane_ctx_get_in_label(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_in_label(struct zebra_dplane_ctx *ctx,
@@ -372,6 +382,16 @@ enum zebra_dplane_result dplane_route_notif_update(
 	struct route_entry *re,
 	enum dplane_op_e op,
 	struct zebra_dplane_ctx *ctx);
+
+
+/* Forward ref of nhg_hash_entry */
+struct nhg_hash_entry;
+/*
+ * Enqueue a nexthop change operation for the dataplane.
+ */
+enum zebra_dplane_result dplane_nexthop_add(struct nhg_hash_entry *nhe);
+enum zebra_dplane_result dplane_nexthop_update(struct nhg_hash_entry *nhe);
+enum zebra_dplane_result dplane_nexthop_delete(struct nhg_hash_entry *nhe);
 
 /*
  * Enqueue LSP change operations for the dataplane.

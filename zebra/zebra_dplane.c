@@ -95,6 +95,10 @@ struct dplane_route_info {
 	uint32_t zd_mtu;
 	uint32_t zd_nexthop_mtu;
 
+	/* Nexthop hash entry */
+	// TODO: Adjust the others as needed
+	struct nhg_hash_entry zd_nhe;
+
 	/* Nexthops */
 	struct nexthop_group zd_ng;
 
@@ -321,6 +325,9 @@ static struct zebra_dplane_globals {
 	_Atomic uint32_t dg_route_errors;
 	_Atomic uint32_t dg_other_errors;
 
+	_Atomic uint32_t dg_nexthops_in;
+	_Atomic uint32_t dg_nexthop_errors;
+
 	_Atomic uint32_t dg_lsps_in;
 	_Atomic uint32_t dg_lsp_errors;
 
@@ -460,6 +467,13 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 		}
 
 		break;
+
+	case DPLANE_OP_NH_INSTALL:
+	case DPLANE_OP_NH_UPDATE:
+	case DPLANE_OP_NH_DELETE: {
+		nexthops_free((*pctx)->u.rinfo.zd_nhe.nhg.nexthop);
+		break;
+	}
 
 	case DPLANE_OP_LSP_INSTALL:
 	case DPLANE_OP_LSP_UPDATE:
@@ -636,6 +650,17 @@ const char *dplane_op2str(enum dplane_op_e op)
 		break;
 	case DPLANE_OP_ROUTE_NOTIFY:
 		ret = "ROUTE_NOTIFY";
+		break;
+
+	/* Nexthop update */
+	case DPLANE_OP_NH_INSTALL:
+		ret = "NH_INSTALL";
+		break;
+	case DPLANE_OP_NH_UPDATE:
+		ret = "NH_UPDATE";
+		break;
+	case DPLANE_OP_NH_DELETE:
+		ret = "NH_DELETE";
 		break;
 
 	case DPLANE_OP_LSP_INSTALL:
@@ -1013,6 +1038,14 @@ const struct zebra_dplane_info *dplane_ctx_get_ns(
 	DPLANE_CTX_VALID(ctx);
 
 	return &(ctx->zd_ns_info);
+}
+
+/* Accessors for nexthop information */
+const struct nhg_hash_entry *
+dplane_ctx_get_nhe(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return &(ctx->u.rinfo.zd_nhe);
 }
 
 /* Accessors for LSP information */
@@ -1449,6 +1482,38 @@ done:
 	return ret;
 }
 
+/**
+ * dplane_ctx_nexthop_init() - Initialize a context block for a nexthop update
+ *
+ * @ctx:	Dataplane context to init
+ * @op:		Operation being performed
+ * @nhe:	Nexthop group hash entry
+ *
+ * Return:	Result status
+ */
+static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
+				   enum dplane_op_e op,
+				   struct nhg_hash_entry *nhe)
+{
+	int ret = EINVAL;
+
+	if (!ctx || !nhe)
+		goto done;
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	/* Copy over nhe info */
+	ctx->u.rinfo.zd_nhe = *nhe;
+	ctx->u.rinfo.zd_nhe.nhg.nexthop = NULL;
+	nexthop_group_copy(&(ctx->u.rinfo.zd_nhe.nhg), &nhe->nhg);
+
+	ret = AOK;
+
+done:
+	return ret;
+}
+
 /*
  * Capture information for an LSP update in a dplane context.
  */
@@ -1697,6 +1762,49 @@ dplane_route_update_internal(struct route_node *rn,
 	return result;
 }
 
+/**
+ * dplane_nexthop_update_internal() - Helper for enqueuing nexthop changes
+ *
+ * @nhe:	Nexthop group hash entry where the change occured
+ * @op:		The operation to be enqued
+ *
+ * Return:	Result of the change
+ */
+static enum zebra_dplane_result
+dplane_nexthop_update_internal(struct nhg_hash_entry *nhe, enum dplane_op_e op)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	int ret = EINVAL;
+	struct zebra_dplane_ctx *ctx = NULL;
+
+	/* Obtain context block */
+	ctx = dplane_ctx_alloc();
+	if (!ctx) {
+		ret = ENOMEM;
+		goto done;
+	}
+
+	ret = dplane_ctx_nexthop_init(ctx, op, nhe);
+	if (ret == AOK) {
+		ret = dplane_update_enqueue(ctx);
+	}
+done:
+	/* Update counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_nexthops_in, 1,
+				  memory_order_relaxed);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_nexthop_errors, 1,
+					  memory_order_relaxed);
+		if (ctx)
+			dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+
 /*
  * Enqueue a route 'add' for the dataplane.
  */
@@ -1849,6 +1957,43 @@ dplane_route_notif_update(struct route_node *rn,
 	ret = ZEBRA_DPLANE_REQUEST_QUEUED;
 
 done:
+	return ret;
+}
+
+/*
+ * Enqueue a nexthop add for the dataplane.
+ */
+enum zebra_dplane_result dplane_nexthop_add(struct nhg_hash_entry *nhe)
+{
+	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	if (nhe)
+		ret = dplane_nexthop_update_internal(nhe, DPLANE_OP_NH_INSTALL);
+	return ret;
+}
+
+/*
+ * Enqueue a nexthop update for the dataplane.
+ */
+enum zebra_dplane_result dplane_nexthop_update(struct nhg_hash_entry *nhe)
+{
+	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	if (nhe)
+		ret = dplane_nexthop_update_internal(nhe, DPLANE_OP_NH_UPDATE);
+	return ret;
+}
+
+/*
+ * Enqueue a nexthop removal for the dataplane.
+ */
+enum zebra_dplane_result dplane_nexthop_delete(struct nhg_hash_entry *nhe)
+{
+	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	if (nhe)
+		ret = dplane_nexthop_update_internal(nhe, DPLANE_OP_NH_DELETE);
+
 	return ret;
 }
 
@@ -2873,6 +3018,33 @@ kernel_dplane_address_update(struct zebra_dplane_ctx *ctx)
 	return res;
 }
 
+/**
+ * kernel_dplane_nexthop_update() - Handler for kernel nexthop updates
+ *
+ * @ctx:	Dataplane context
+ *
+ * Return:	Dataplane result flag
+ */
+static enum zebra_dplane_result
+kernel_dplane_nexthop_update(struct zebra_dplane_ctx *ctx)
+{
+	enum zebra_dplane_result res;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		zlog_debug("ID (%u) Dplane nexthop update ctx %p op %s",
+			   dplane_ctx_get_nhe(ctx)->id, ctx,
+			   dplane_op2str(dplane_ctx_get_op(ctx)));
+	}
+
+	res = kernel_nexthop_update(ctx);
+
+	if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+		atomic_fetch_add_explicit(&zdplane_info.dg_nexthop_errors, 1,
+					  memory_order_relaxed);
+
+	return res;
+}
+
 /*
  * Handler for kernel-facing EVPN MAC address updates
  */
@@ -2965,6 +3137,12 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 		case DPLANE_OP_ROUTE_UPDATE:
 		case DPLANE_OP_ROUTE_DELETE:
 			res = kernel_dplane_route_update(ctx);
+			break;
+
+		case DPLANE_OP_NH_INSTALL:
+		case DPLANE_OP_NH_UPDATE:
+		case DPLANE_OP_NH_DELETE:
+			res = kernel_dplane_nexthop_update(ctx);
 			break;
 
 		case DPLANE_OP_LSP_INSTALL:
