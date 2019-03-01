@@ -1355,7 +1355,10 @@ void vpn_leak_to_vrf_withdraw_all(struct bgp *bgp_vrf, /* to */
 
 		for (bpi = bgp_node_get_bgp_path_info(bn); bpi;
 		     bpi = bpi->next) {
-			if (bpi->extra && bpi->extra->bgp_orig != bgp_vrf) {
+			if (bpi->extra
+			    && bpi->extra->bgp_orig != bgp_vrf
+			    && bpi->extra->parent
+			    && is_pi_family_vpn(bpi->extra->parent)) {
 
 				/* delete route */
 				bgp_aggregate_decrement(bgp_vrf, &bn->p, bpi,
