@@ -88,8 +88,13 @@ static inline int is_route_parent_evpn(struct bgp_path_info *ri)
 	    !ri->extra->parent)
 		return 0;
 
-	/* See if the parent is of family L2VPN/EVPN */
-	parent_ri = (struct bgp_path_info *)ri->extra->parent;
+	/* Determine parent recursively */
+	for (parent_ri = ri->extra->parent;
+	     parent_ri->extra && parent_ri->extra->parent;
+	     parent_ri = parent_ri->extra->parent)
+		;
+
+	/* See if of family L2VPN/EVPN */
 	rn = parent_ri->net;
 	if (!rn)
 		return 0;
