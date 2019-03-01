@@ -219,6 +219,8 @@ const union g_addr *dplane_ctx_get_pw_dest(
 	const struct zebra_dplane_ctx *ctx);
 const union pw_protocol_fields *dplane_ctx_get_pw_proto(
 	const struct zebra_dplane_ctx *ctx);
+const struct nexthop_group *dplane_ctx_get_pw_nhg(
+	const struct zebra_dplane_ctx *ctx);
 
 /* Namespace info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
