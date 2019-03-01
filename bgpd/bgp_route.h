@@ -272,6 +272,71 @@ struct bgp_static {
 	struct prefix gatewayIp;
 };
 
+/* Aggreagete address:
+ *
+ *  advertise-map  Set condition to advertise attribute
+ *  as-set         Generate AS set path information
+ *  attribute-map  Set attributes of aggregate
+ *  route-map      Set parameters of aggregate
+ *  summary-only   Filter more specific routes from updates
+ *  suppress-map   Conditionally filter more specific routes from updates
+ *  <cr>
+ */
+struct bgp_aggregate {
+	/* Summary-only flag. */
+	uint8_t summary_only;
+
+	/* AS set generation. */
+	uint8_t as_set;
+
+	/* Route-map for aggregated route. */
+	struct route_map *map;
+
+	/* Suppress-count. */
+	unsigned long count;
+
+	/* Count of routes of origin type incomplete under this aggregate. */
+	unsigned long incomplete_origin_count;
+
+	/* Count of routes of origin type egp under this aggregate. */
+	unsigned long egp_origin_count;
+
+	/* Hash containing the communities of all the
+	 * routes under this aggregate.
+	 */
+	struct hash *community_hash;
+
+	/* Hash containing the extended communities of all the
+	 * routes under this aggregate.
+	 */
+	struct hash *ecommunity_hash;
+
+	/* Hash containing the large communities of all the
+	 * routes under this aggregate.
+	 */
+	struct hash *lcommunity_hash;
+
+	/* Hash containing the AS-Path of all the
+	 * routes under this aggregate.
+	 */
+	struct hash *aspath_hash;
+
+	/* Aggregate route's community. */
+	struct community *community;
+
+	/* Aggregate route's extended community. */
+	struct ecommunity *ecommunity;
+
+	/* Aggregate route's large community. */
+	struct lcommunity *lcommunity;
+
+	/* Aggregate route's as-path. */
+	struct aspath *aspath;
+
+	/* SAFI configuration. */
+	safi_t safi;
+};
+
 #define BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen)                                      \
 	((nhlen) < IPV4_MAX_BYTELEN                                            \
 		 ? 0                                                           \

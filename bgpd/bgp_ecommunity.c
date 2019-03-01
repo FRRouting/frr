@@ -1026,3 +1026,112 @@ int ecommunity_fill_pbr_action(struct ecommunity_val *ecom_eval,
 		return -1;
 	return 0;
 }
+
+static struct ecommunity *bgp_aggr_ecommunity_lookup(
+						struct bgp_aggregate *aggregate,
+						struct ecommunity *ecommunity)
+{
+	return hash_lookup(aggregate->ecommunity_hash, ecommunity);
+}
+
+static void *bgp_aggr_ecommunty_hash_alloc(void *p)
+{
+	struct ecommunity *ref = (struct ecommunity *)p;
+	struct ecommunity *ecommunity = NULL;
+
+	ecommunity = ecommunity_dup(ref);
+	return ecommunity;
+}
+
+static void bgp_aggr_ecommunity_prepare(struct hash_backet *hb, void *arg)
+{
+	struct ecommunity *ecommerge = NULL;
+	struct ecommunity *hb_ecommunity = hb->data;
+	struct ecommunity **aggr_ecommunity = arg;
+
+	if (*aggr_ecommunity) {
+		ecommerge = ecommunity_merge(*aggr_ecommunity, hb_ecommunity);
+		*aggr_ecommunity = ecommunity_uniq_sort(ecommerge);
+		ecommunity_free(&ecommerge);
+	} else
+		*aggr_ecommunity = ecommunity_dup(hb_ecommunity);
+}
+
+void bgp_aggr_ecommunity_remove(void *arg)
+{
+	struct ecommunity *ecommunity = arg;
+
+	ecommunity_free(&ecommunity);
+}
+
+void bgp_compute_aggregate_ecommunity(struct bgp_aggregate *aggregate,
+				      struct ecommunity *ecommunity)
+{
+	struct ecommunity *aggr_ecommunity = NULL;
+
+	if ((aggregate == NULL) || (ecommunity == NULL))
+		return;
+
+	/* Create hash if not already created.
+	 */
+	if (aggregate->ecommunity_hash == NULL)
+		aggregate->ecommunity_hash = hash_create(
+					ecommunity_hash_make, ecommunity_cmp,
+					"BGP Aggregator ecommunity hash");
+
+	aggr_ecommunity = bgp_aggr_ecommunity_lookup(aggregate, ecommunity);
+	if (aggr_ecommunity == NULL) {
+		/* Insert ecommunity into hash.
+		 */
+		aggr_ecommunity = hash_get(aggregate->ecommunity_hash,
+					   ecommunity,
+					   bgp_aggr_ecommunty_hash_alloc);
+
+		/* Re-compute aggregate's ecommunity.
+		 */
+		if (aggregate->ecommunity)
+			ecommunity_free(&aggregate->ecommunity);
+
+		hash_iterate(aggregate->ecommunity_hash,
+			     bgp_aggr_ecommunity_prepare,
+			     &aggregate->ecommunity);
+	}
+
+	/* Increment refernce counter.
+	 */
+	aggr_ecommunity->refcnt++;
+}
+
+void bgp_remove_ecommunity_from_aggregate(struct bgp_aggregate *aggregate,
+					  struct ecommunity *ecommunity)
+{
+	struct ecommunity *aggr_ecommunity = NULL;
+	struct ecommunity *ret_ecomm = NULL;
+
+	if ((aggregate == NULL) || (ecommunity == NULL))
+		return;
+
+	if (aggregate->ecommunity_hash == NULL)
+		return;
+
+	/* Look-up the ecommunity in the hash.
+	 */
+	aggr_ecommunity = bgp_aggr_ecommunity_lookup(aggregate, ecommunity);
+	if (aggr_ecommunity) {
+		aggr_ecommunity->refcnt--;
+
+		if (aggr_ecommunity->refcnt == 0) {
+			ret_ecomm = hash_release(aggregate->ecommunity_hash,
+						 aggr_ecommunity);
+			ecommunity_free(&ret_ecomm);
+
+			ecommunity_free(&aggregate->ecommunity);
+
+			/* Compute aggregate's ecommunity.
+			 */
+			hash_iterate(aggregate->ecommunity_hash,
+				     bgp_aggr_ecommunity_prepare,
+				     &aggregate->ecommunity);
+		}
+	}
+}
