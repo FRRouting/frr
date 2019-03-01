@@ -561,7 +561,7 @@ DEFPY(vrrp_vrid_show,
 	for (ALL_LIST_ELEMENTS_RO(ll, ln, vr)) {
 		if (ifn && !strmatch(ifn, vr->ifp->name))
 			continue;
-		if ((uint8_t) vrid && vrid != vr->vrid)
+		if (vrid && ((uint8_t) vrid) != vr->vrid)
 			continue;
 
 		if (!json)
