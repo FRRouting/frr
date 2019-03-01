@@ -1466,10 +1466,9 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
 	req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
 
-	if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE) {
-		if ((p->family == AF_INET) || v6_rr_semantics)
-			req.n.nlmsg_flags |= NLM_F_REPLACE;
-	}
+	if ((cmd == RTM_NEWROUTE) &&
+	    ((p->family == AF_INET) || v6_rr_semantics))
+		req.n.nlmsg_flags |= NLM_F_REPLACE;
 
 	req.n.nlmsg_type = cmd;
 
