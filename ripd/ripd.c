@@ -854,7 +854,7 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
 	MD5_CTX ctx;
 	uint8_t digest[RIP_AUTH_MD5_SIZE];
 	uint16_t packet_len;
-	char auth_str[RIP_AUTH_MD5_SIZE];
+	char auth_str[RIP_AUTH_MD5_SIZE] = {};
 
 	if (IS_RIP_DEBUG_EVENT)
 		zlog_debug("RIPv2 MD5 authentication from %s",
@@ -898,8 +898,6 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
 	/* retrieve authentication data */
 	md5data = (struct rip_md5_data *)(((uint8_t *)packet) + packet_len);
 
-	memset(auth_str, 0, RIP_AUTH_MD5_SIZE);
-
 	if (ri->key_chain) {
 		keychain = keychain_lookup(ri->key_chain);
 		if (keychain == NULL)
@@ -909,9 +907,9 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
 		if (key == NULL || key->string == NULL)
 			return 0;
 
-		strncpy(auth_str, key->string, RIP_AUTH_MD5_SIZE);
+		strlcpy(auth_str, key->string, sizeof(auth_str));
 	} else if (ri->auth_str)
-		strncpy(auth_str, ri->auth_str, RIP_AUTH_MD5_SIZE);
+		strlcpy(auth_str, ri->auth_str, sizeof(auth_str));
 
 	if (auth_str[0] == 0)
 		return 0;
@@ -944,9 +942,9 @@ static void rip_auth_prepare_str_send(struct rip_interface *ri, struct key *key,
 
 	memset(auth_str, 0, len);
 	if (key && key->string)
-		strncpy(auth_str, key->string, len);
+		strlcpy(auth_str, key->string, len);
 	else if (ri->auth_str)
-		strncpy(auth_str, ri->auth_str, len);
+		strlcpy(auth_str, ri->auth_str, len);
 
 	return;
 }
@@ -1392,13 +1390,12 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 	if (IS_RIP_DEBUG_PACKET) {
 #define ADDRESS_SIZE 20
 		char dst[ADDRESS_SIZE];
-		dst[ADDRESS_SIZE - 1] = '\0';
 
 		if (to) {
-			strncpy(dst, inet_ntoa(to->sin_addr), ADDRESS_SIZE - 1);
+			strlcpy(dst, inet_ntoa(to->sin_addr), sizeof(dst));
 		} else {
 			sin.sin_addr.s_addr = htonl(INADDR_RIP_GROUP);
-			strncpy(dst, inet_ntoa(sin.sin_addr), ADDRESS_SIZE - 1);
+			strlcpy(dst, inet_ntoa(sin.sin_addr), sizeof(dst));
 		}
 #undef ADDRESS_SIZE
 		zlog_debug("rip_send_packet %s > %s (%s)",
@@ -2103,8 +2100,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 				key = key_lookup_for_send(keychain);
 		}
 		/* to be passed to auth functions later */
-		rip_auth_prepare_str_send(ri, key, auth_str,
-					  RIP_AUTH_SIMPLE_SIZE);
+		rip_auth_prepare_str_send(ri, key, auth_str, sizeof(auth_str));
 		if (strlen(auth_str) == 0)
 			return;
 	}

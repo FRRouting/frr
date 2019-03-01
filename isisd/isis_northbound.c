@@ -2092,8 +2092,8 @@ lib_interface_isis_password_password_modify(enum nb_event event,
 
 	password = yang_dnode_get_string(dnode, NULL);
 	circuit = yang_dnode_get_entry(dnode, true);
-	circuit->passwd.len = strlen(password);
-	strncpy((char *)circuit->passwd.passwd, password, 255);
+
+	isis_circuit_passwd_set(circuit, circuit->passwd.type, password);
 
 	return NB_OK;
 }

@@ -62,7 +62,7 @@ const char *event_counter_format(const struct event_counter *counter)
 	    || strftime(timebuf, sizeof(timebuf), "%a, %d %b %Y %T %z",
 			last_change)
 		       == 0) {
-		strncpy(timebuf, "???", sizeof(timebuf));
+		strlcpy(timebuf, "???", sizeof(timebuf));
 	}
 
 	snprintf(rv, sizeof(rv), "%5llu  last: %s", counter->count,

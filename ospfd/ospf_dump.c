@@ -538,8 +538,7 @@ static void ospf_header_dump(struct ospf_header *ospfh)
 	case OSPF_AUTH_NULL:
 		break;
 	case OSPF_AUTH_SIMPLE:
-		memset(buf, 0, 9);
-		strncpy(buf, (char *)ospfh->u.auth_data, 8);
+		strlcpy(buf, (char *)ospfh->u.auth_data, sizeof(buf));
 		zlog_debug("  Simple Password %s", buf);
 		break;
 	case OSPF_AUTH_CRYPTOGRAPHIC:
