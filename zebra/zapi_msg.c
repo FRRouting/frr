@@ -1432,12 +1432,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 
 			memset(&vtep_ip, 0, sizeof(struct ipaddr));
-			if (CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-				ifindex = get_l3vni_svi_ifindex(vrf_id);
-			} else {
-				ifindex = api_nh->ifindex;
-			}
-
+			ifindex = api_nh->ifindex;
 			if (IS_ZEBRA_DEBUG_RECV) {
 				char nhbuf[INET6_ADDRSTRLEN] = {0};
 
@@ -1452,12 +1447,10 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				re, &api_nh->gate.ipv4, NULL, ifindex,
 				api_nh->vrf_id);
 
-			/* if this an EVPN route entry,
-			 * program the nh as neigh
+			/* Special handling for IPv4 routes sourced from EVPN:
+			 * the nexthop and associated MAC need to be installed.
 			 */
 			if (CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-				SET_FLAG(nexthop->flags,
-					 NEXTHOP_FLAG_EVPN_RVTEP);
 				vtep_ip.ipa_type = IPADDR_V4;
 				memcpy(&(vtep_ip.ipaddr_v4),
 				       &(api_nh->gate.ipv4),
@@ -1473,22 +1466,15 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			memset(&vtep_ip, 0, sizeof(struct ipaddr));
-			if (CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-				ifindex = get_l3vni_svi_ifindex(vrf_id);
-			} else {
-				ifindex = api_nh->ifindex;
-			}
-
+			ifindex = api_nh->ifindex;
 			nexthop = route_entry_nexthop_ipv6_ifindex_add(
 				re, &api_nh->gate.ipv6, ifindex,
 				api_nh->vrf_id);
 
-			/* if this an EVPN route entry,
-			 * program the nh as neigh
+			/* Special handling for IPv6 routes sourced from EVPN:
+			 * the nexthop and associated MAC need to be installed.
 			 */
 			if (CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-				SET_FLAG(nexthop->flags,
-					 NEXTHOP_FLAG_EVPN_RVTEP);
 				vtep_ip.ipa_type = IPADDR_V6;
 				memcpy(&vtep_ip.ipaddr_v6, &(api_nh->gate.ipv6),
 				       sizeof(struct in6_addr));

@@ -276,10 +276,8 @@ struct nexthop *route_entry_nexthop_ipv4_ifindex_add(struct route_entry *re,
 	/*Pending: need to think if null ifp here is ok during bootup?
 	  There was a crash because ifp here was coming to be NULL */
 	if (ifp)
-		if (connected_is_unnumbered(ifp)
-		    || CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+		if (connected_is_unnumbered(ifp))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
-		}
 
 	route_entry_nexthop_add(re, nexthop);
 
@@ -314,8 +312,6 @@ struct nexthop *route_entry_nexthop_ipv6_ifindex_add(struct route_entry *re,
 	nexthop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 	nexthop->gate.ipv6 = *ipv6;
 	nexthop->ifindex = ifindex;
-	if (CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE))
-		SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
 
 	route_entry_nexthop_add(re, nexthop);
 
@@ -433,10 +429,6 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		re->nexthop_mtu = 0;
 	}
 
-	/* Next hops (remote VTEPs) for EVPN routes are fully resolved. */
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN_RVTEP))
-		return 1;
-
 	/*
 	 * If the kernel has sent us a route, then
 	 * by golly gee whiz it's a good route.
@@ -459,6 +451,9 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	 * Check to see if we should trust the passed in information
 	 * for UNNUMBERED interfaces as that we won't find the GW
 	 * address in the routing table.
+	 * This check should suffice to handle IPv4 or IPv6 routes
+	 * sourced from EVPN routes which are installed with the
+	 * next hop as the remote VTEP IP.
 	 */
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK)) {
 		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
@@ -2937,6 +2932,10 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 			return;
 		}
 
+		/* Special handling for IPv4 or IPv6 routes sourced from
+		 * EVPN - the nexthop (and associated MAC) need to be
+		 * uninstalled if no more refs.
+		 */
 		if (CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE)) {
 			struct nexthop *tmp_nh;
 
