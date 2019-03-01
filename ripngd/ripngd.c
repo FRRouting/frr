@@ -60,6 +60,9 @@ void ripng_output_process(struct interface *, struct sockaddr_in6 *, int);
 
 int ripng_triggered_update(struct thread *);
 
+static void ripng_if_rmap_update(struct if_rmap_ctx *ctx,
+				 struct if_rmap *if_rmap);
+
 /* RIPng next hop specification. */
 struct ripng_nexthop {
 	enum ripng_nexthop_type {
@@ -1816,6 +1819,12 @@ int ripng_create(int socket)
 				 ripng_distribute_update);
 	distribute_list_delete_hook(ripng->distribute_ctx,
 				    ripng_distribute_update);
+
+	/* if rmap install. */
+	ripng->if_rmap_ctx = if_rmap_ctx_create(VRF_DEFAULT_NAME);
+	if_rmap_hook_add(ripng->if_rmap_ctx, ripng_if_rmap_update);
+	if_rmap_hook_delete(ripng->if_rmap_ctx, ripng_if_rmap_update);
+
 	/* Make socket. */
 	ripng->sock = socket;
 
@@ -2303,7 +2312,7 @@ static int ripng_config_write(struct vty *vty)
 		config_write_distribute(vty,
 					ripng->distribute_ctx);
 
-		config_write_if_rmap(vty);
+		config_write_if_rmap(vty, ripng->if_rmap_ctx);
 
 		write = 1;
 	}
@@ -2474,15 +2483,21 @@ void ripng_clean(void)
 	ripng_offset_clean();
 	ripng_interface_clean();
 	ripng_redistribute_clean();
+	if_rmap_terminate();
 }
 
-static void ripng_if_rmap_update(struct if_rmap *if_rmap)
+static void ripng_if_rmap_update(struct if_rmap_ctx *ctx,
+				 struct if_rmap *if_rmap)
 {
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	struct ripng_interface *ri;
 	struct route_map *rmap;
+	struct vrf *vrf = NULL;
 
-	ifp = if_lookup_by_name(if_rmap->ifname, VRF_DEFAULT);
+	if (ctx->name)
+		vrf = vrf_lookup_by_name(ctx->name);
+	if (vrf)
+		ifp = if_lookup_by_name(if_rmap->ifname, vrf->vrf_id);
 	if (ifp == NULL)
 		return;
 
@@ -2510,10 +2525,18 @@ static void ripng_if_rmap_update(struct if_rmap *if_rmap)
 void ripng_if_rmap_update_interface(struct interface *ifp)
 {
 	struct if_rmap *if_rmap;
+	struct if_rmap_ctx *ctx;
 
-	if_rmap = if_rmap_lookup(ifp->name);
+	if (ifp->vrf_id != VRF_DEFAULT)
+		return;
+	if (!ripng)
+		return;
+	ctx = ripng->if_rmap_ctx;
+	if (!ctx)
+		return;
+	if_rmap = if_rmap_lookup(ctx, ifp->name);
 	if (if_rmap)
-		ripng_if_rmap_update(if_rmap);
+		ripng_if_rmap_update(ctx, if_rmap);
 }
 
 static void ripng_routemap_update_redistribute(void)
@@ -2590,6 +2613,4 @@ void ripng_init(void)
 	route_map_delete_hook(ripng_routemap_update);
 
 	if_rmap_init(RIPNG_NODE);
-	if_rmap_hook_add(ripng_if_rmap_update);
-	if_rmap_hook_delete(ripng_if_rmap_update);
 }

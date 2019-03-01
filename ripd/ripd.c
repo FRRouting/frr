@@ -71,6 +71,9 @@ static int rip_update_jitter(unsigned long);
 static void rip_distribute_update(struct distribute_ctx *ctx,
 				  struct distribute *dist);
 
+static void rip_if_rmap_update(struct if_rmap_ctx *ctx,
+			       struct if_rmap *if_rmap);
+
 /* RIP output routes type. */
 enum { rip_all_route, rip_changed_route };
 
@@ -2712,6 +2715,12 @@ int rip_create(int socket)
 				 rip_distribute_update);
 	distribute_list_delete_hook(rip->distribute_ctx,
 				    rip_distribute_update);
+
+	/* if rmap install. */
+	rip->if_rmap_ctx = if_rmap_ctx_create(VRF_DEFAULT_NAME);
+	if_rmap_hook_add(rip->if_rmap_ctx, rip_if_rmap_update);
+	if_rmap_hook_delete(rip->if_rmap_ctx, rip_if_rmap_update);
+
 	return 0;
 }
 
@@ -3228,7 +3237,7 @@ static int config_write_rip(struct vty *vty)
 						 rip->distribute_ctx);
 
 		/* Interface routemap configuration */
-		write += config_write_if_rmap(vty);
+		write += config_write_if_rmap(vty, rip->if_rmap_ctx);
 	}
 	return write;
 }
@@ -3381,25 +3390,33 @@ void rip_clean(void)
 		route_table_finish(rip->neighbor);
 
 		distribute_list_delete(&rip->distribute_ctx);
+
+		if_rmap_ctx_delete(rip->if_rmap_ctx);
+
 		XFREE(MTYPE_RIP, rip);
 		rip = NULL;
 	}
-
 	rip_clean_network();
 	rip_passive_nondefault_clean();
 	rip_offset_clean();
 	rip_interfaces_clean();
 	rip_distance_reset();
 	rip_redistribute_clean();
+	if_rmap_terminate();
 }
 
-static void rip_if_rmap_update(struct if_rmap *if_rmap)
+static void rip_if_rmap_update(struct if_rmap_ctx *ctx,
+			       struct if_rmap *if_rmap)
 {
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	struct rip_interface *ri;
 	struct route_map *rmap;
+	struct vrf *vrf = NULL;
 
-	ifp = if_lookup_by_name(if_rmap->ifname, VRF_DEFAULT);
+	if (ctx->name)
+		vrf = vrf_lookup_by_name(ctx->name);
+	if (vrf)
+		ifp = if_lookup_by_name(if_rmap->ifname, vrf->vrf_id);
 	if (ifp == NULL)
 		return;
 
@@ -3426,10 +3443,18 @@ static void rip_if_rmap_update(struct if_rmap *if_rmap)
 void rip_if_rmap_update_interface(struct interface *ifp)
 {
 	struct if_rmap *if_rmap;
+	struct if_rmap_ctx *ctx;
 
-	if_rmap = if_rmap_lookup(ifp->name);
+	if (!rip)
+		return;
+	if (ifp->vrf_id != VRF_DEFAULT)
+		return;
+	ctx = rip->if_rmap_ctx;
+	if (!ctx)
+		return;
+	if_rmap = if_rmap_lookup(ctx, ifp->name);
 	if (if_rmap)
-		rip_if_rmap_update(if_rmap);
+		rip_if_rmap_update(ctx, if_rmap);
 }
 
 static void rip_routemap_update_redistribute(void)
@@ -3497,8 +3522,6 @@ void rip_init(void)
 	route_map_delete_hook(rip_routemap_update);
 
 	if_rmap_init(RIP_NODE);
-	if_rmap_hook_add(rip_if_rmap_update);
-	if_rmap_hook_delete(rip_if_rmap_update);
 
 	/* Distance control. */
 	rip_distance_table = route_table_init();

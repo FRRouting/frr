@@ -206,6 +206,13 @@ static struct eigrp *eigrp_new(const char *AS)
 				 eigrp_distribute_update);
 	distribute_list_delete_hook(eigrp->distribute_ctx,
 				    eigrp_distribute_update);
+
+	/*
+	  eigrp->if_rmap_ctx = if_rmap_ctx_create(
+	                               VRF_DEFAULT_NAME);
+	  if_rmap_hook_add (eigrp_if_rmap_update);
+	  if_rmap_hook_delete (eigrp_if_rmap_update);
+	*/
 	QOBJ_REG(eigrp, eigrp);
 	return eigrp;
 }

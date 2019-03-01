@@ -132,6 +132,9 @@ struct ripng {
 
 	/* For distribute-list container */
 	struct distribute_ctx *distribute_ctx;
+
+	/* For if_rmap container */
+	struct if_rmap_ctx *if_rmap_ctx;
 };
 
 /* Routing table entry. */

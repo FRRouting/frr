@@ -211,10 +211,7 @@ int main(int argc, char **argv, char **envp)
 	/*eigrp_route_map_init();
 	  route_map_add_hook (eigrp_rmap_update);
 	  route_map_delete_hook (eigrp_rmap_update);*/
-	/*if_rmap_init (EIGRP_NODE);
-	  if_rmap_hook_add (eigrp_if_rmap_update);
-	  if_rmap_hook_delete (eigrp_if_rmap_update);*/
-
+	/*if_rmap_init (EIGRP_NODE); */
 	/* Distribute list install. */
 	distribute_list_init(EIGRP_NODE);
 
