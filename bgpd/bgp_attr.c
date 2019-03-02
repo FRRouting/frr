@@ -3016,6 +3016,22 @@ void bgp_packet_mpattr_end(struct stream *s, size_t sizep)
 	stream_putw_at(s, sizep, (stream_get_endp(s) - sizep) - 2);
 }
 
+static int bgp_append_local_as(struct peer *peer, afi_t afi, safi_t safi)
+{
+	if (!BGP_AS_IS_PRIVATE(peer->local_as)
+	    || (BGP_AS_IS_PRIVATE(peer->local_as)
+		&& !CHECK_FLAG(peer->af_flags[afi][safi],
+			       PEER_FLAG_REMOVE_PRIVATE_AS)
+		&& !CHECK_FLAG(peer->af_flags[afi][safi],
+			       PEER_FLAG_REMOVE_PRIVATE_AS_ALL)
+		&& !CHECK_FLAG(peer->af_flags[afi][safi],
+			       PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE)
+		&& !CHECK_FLAG(peer->af_flags[afi][safi],
+			       PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE)))
+		return 1;
+	return 0;
+}
+
 /* Make attribute packet. */
 bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 				struct stream *s, struct attr *attr,
@@ -3081,12 +3097,12 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 				/* If replace-as is specified, we only use the
 				   change_local_as when
 				   advertising routes. */
-				if (!CHECK_FLAG(
-					    peer->flags,
-					    PEER_FLAG_LOCAL_AS_REPLACE_AS)) {
-					aspath = aspath_add_seq(aspath,
-								peer->local_as);
-				}
+				if (!CHECK_FLAG(peer->flags,
+						PEER_FLAG_LOCAL_AS_REPLACE_AS))
+					if (bgp_append_local_as(peer, afi,
+								safi))
+						aspath = aspath_add_seq(
+							aspath, peer->local_as);
 				aspath = aspath_add_seq(aspath,
 							peer->change_local_as);
 			} else {
