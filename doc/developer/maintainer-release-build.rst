@@ -37,7 +37,7 @@ Release Build Procedure for FRR Maintainers
 
 4. Update Changelog for Debian Packages:
 
-   Edit :file:`debianpkg/changelog.in`:
+   Edit :file:`debian/changelog-auto.in`:
 
    - Change last (top of list) entry from ``@VERSION@`` to previous fixed
      version number, i.e.::

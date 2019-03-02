@@ -184,8 +184,8 @@ static unsigned int nb_node_validate_cbs(const struct nb_node *nb_node)
 				     !!nb_node->cbs.create, false);
 	error += nb_node_validate_cb(nb_node, NB_OP_MODIFY,
 				     !!nb_node->cbs.modify, false);
-	error += nb_node_validate_cb(nb_node, NB_OP_DELETE,
-				     !!nb_node->cbs.delete, false);
+	error += nb_node_validate_cb(nb_node, NB_OP_DESTROY,
+				     !!nb_node->cbs.destroy, false);
 	error += nb_node_validate_cb(nb_node, NB_OP_MOVE, !!nb_node->cbs.move,
 				     false);
 	error += nb_node_validate_cb(nb_node, NB_OP_APPLY_FINISH,
@@ -417,7 +417,7 @@ static void nb_config_diff(const struct nb_config *config1,
 			break;
 		case LYD_DIFF_DELETED:
 			dnode = diff->first[i];
-			operation = NB_OP_DELETE;
+			operation = NB_OP_DESTROY;
 			break;
 		case LYD_DIFF_CHANGED:
 			dnode = diff->second[i];
@@ -485,7 +485,7 @@ int nb_candidate_edit(struct nb_config *candidate,
 			lyd_validate(&dnode, LYD_OPT_CONFIG, ly_native_ctx);
 		}
 		break;
-	case NB_OP_DELETE:
+	case NB_OP_DESTROY:
 		dnode = yang_dnode_get(candidate->dnode, xpath_edit);
 		if (!dnode)
 			/*
@@ -741,8 +741,8 @@ static int nb_configuration_callback(const enum nb_event event,
 	case NB_OP_MODIFY:
 		ret = (*nb_node->cbs.modify)(event, dnode, resource);
 		break;
-	case NB_OP_DELETE:
-		ret = (*nb_node->cbs.delete)(event, dnode);
+	case NB_OP_DESTROY:
+		ret = (*nb_node->cbs.destroy)(event, dnode);
 		break;
 	case NB_OP_MOVE:
 		ret = (*nb_node->cbs.move)(event, dnode);
@@ -912,7 +912,7 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 		 * (the 'apply_finish' callbacks from the node ancestors should
 		 * be called though).
 		 */
-		if (change->cb.operation == NB_OP_DELETE) {
+		if (change->cb.operation == NB_OP_DESTROY) {
 			char xpath[XPATH_MAXLEN];
 
 			dnode = dnode->parent;
@@ -1359,7 +1359,7 @@ bool nb_operation_is_valid(enum nb_operation operation,
 			return false;
 		}
 		return true;
-	case NB_OP_DELETE:
+	case NB_OP_DESTROY:
 		if (!CHECK_FLAG(snode->flags, LYS_CONFIG_W))
 			return false;
 
@@ -1511,8 +1511,8 @@ const char *nb_operation_name(enum nb_operation operation)
 		return "create";
 	case NB_OP_MODIFY:
 		return "modify";
-	case NB_OP_DELETE:
-		return "delete";
+	case NB_OP_DESTROY:
+		return "destroy";
 	case NB_OP_MOVE:
 		return "move";
 	case NB_OP_APPLY_FINISH:

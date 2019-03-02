@@ -22,6 +22,7 @@
 #define _QUAGGA_BGP_ASPATH_H
 
 #include "lib/json.h"
+#include "bgpd/bgp_route.h"
 
 /* AS path segment type.  */
 #define AS_SET                       1
@@ -129,5 +130,11 @@ extern unsigned int aspath_has_as4(struct aspath *);
 
 /* For SNMP BGP4PATHATTRASPATHSEGMENT, might be useful for debug */
 extern uint8_t *aspath_snmp_pathseg(struct aspath *, size_t *);
+
+extern void bgp_compute_aggregate_aspath(struct bgp_aggregate *aggregate,
+					 struct aspath *aspath);
+extern void bgp_remove_aspath_from_aggregate(struct bgp_aggregate *aggregate,
+					     struct aspath *aspath);
+extern void bgp_aggr_aspath_remove(void *arg);
 
 #endif /* _QUAGGA_BGP_ASPATH_H */

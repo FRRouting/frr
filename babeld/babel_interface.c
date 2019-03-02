@@ -1262,7 +1262,7 @@ DEFUN (show_babel_parameters,
 }
 
 void
-babel_if_init ()
+babel_if_init(void)
 {
     /* initialize interface list */
     hook_register_prio(if_add, 0, babel_if_new_hook);

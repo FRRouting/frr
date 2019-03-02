@@ -89,9 +89,6 @@ struct zserv {
 	/* Redistribute default route flag. */
 	vrf_bitmap_t redist_default[AFI_MAX];
 
-	/* Interface information. */
-	vrf_bitmap_t ifinfo;
-
 	/* Router-id information. */
 	vrf_bitmap_t ridinfo;
 
@@ -173,31 +170,6 @@ struct zserv {
 DECLARE_HOOK(zserv_client_connect, (struct zserv *client), (client));
 DECLARE_KOOH(zserv_client_close, (struct zserv *client), (client));
 
-/* Zebra instance */
-struct zebra_t {
-	/* Thread master */
-	struct thread_master *master;
-	struct list *client_list;
-
-	/* Socket */
-	int sock;
-
-	/* default table */
-	uint32_t rtm_table_default;
-
-/* rib work queue */
-#define ZEBRA_RIB_PROCESS_HOLD_TIME 10
-#define ZEBRA_RIB_PROCESS_RETRY_TIME 1
-	struct work_queue *ribq;
-	struct meta_queue *mq;
-
-	/* LSP work queue */
-	struct work_queue *lsp_process_q;
-
-#define ZEBRA_ZAPI_PACKETS_TO_PROCESS 1000
-	_Atomic uint32_t packets_to_process;
-};
-extern struct zebra_t zebrad;
 extern unsigned int multipath_num;
 
 /*

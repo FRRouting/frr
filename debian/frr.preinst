@@ -1,0 +1,93 @@
+#!/bin/bash
+set -e
+# bash is required since /etc/frr/daemons.conf used a bash array in some
+# previous versions.
+
+# NOTE: this code exists specifically to make migrations from Quagga to
+# FRR easier.  FRR is able to load most Quagga configurations, but the
+# config handling itself has changed with the move towards the "integrated"
+# /etc/frr/frr.conf approach instead of separate per-daemon config files.
+#
+# That said, with this in place there's a good chance users can use a
+# preexisting Quagga config with little hassle.
+
+case "$1" in
+install|upgrade)
+	(
+		test -f /etc/frr/daemons      && . /etc/frr/daemons
+		test -f /etc/frr/daemons.conf && . /etc/frr/daemons.conf
+		test -f /etc/default/frr      && . /etc/default/frr
+
+		if [ "$watchfrr_enable" = no -o \
+			"$watchfrr_enable" = "0" ]; then
+			cat >&2 <<EOF
+ERROR: Pre-existing frr configuration file disables watchfrr.
+
+This configuration is deprecated upstream and not supported by the Debian
+FRR package.  Refusing to $1 in order to not break running setups.
+Please change your setup to use watchfrr and remove the "watchfrr_enable"
+option from /etc/frr/daemons, /etc/frr/daemons.conf and/or /etc/default/frr.
+EOF
+			exit 1
+		fi
+	)
+	vtysh=''
+	if test -f /etc/frr/vtysh.conf; then
+		if grep -q '^[[:space:]]*service[[:space:]]\+integrated-vtysh-config' /etc/frr/vtysh.conf; then
+			# existing vtysh.conf with integrated statement
+			# - do nothing (=> integrated config)
+			vtysh='i'
+		elif grep -q '^[[:space:]]*no[[:space:]]\+service[[:space:]]\+integrated-vtysh-config' /etc/frr/vtysh.conf; then
+			# explicit non-integrated
+			# => need to fix vtysh.conf & frr.conf in postinst
+			vtysh='ni'
+			if test -f /etc/frr/frr.conf; then
+				cat >&2 <<EOF
+ERROR: Pre-existing /etc/frr/vtysh.conf specifies
+"no service integrated-vtysh-config", but /etc/frr/frr.conf exists.  This
+will cause the frr package to malfunction.  Please remove /etc/frr/frr.conf
+or remove the "no service integrated-vtysh-config" statement from
+/etc/frr/vtysh.conf.
+EOF
+				exit 1
+			fi
+		else
+			# vtysh.conf exists but has no statement
+			:
+		fi
+	fi
+	if test -f /etc/frr/frr.conf; then
+		# vtysh.conf has no explicit statement but frr.conf exists
+		# => integrated config used
+		vtysh='i'
+	elif test -f /etc/frr/zebra.conf \
+		-o -f /etc/frr/bgpd.conf \
+		-o -f /etc/frr/ospfd.conf \
+		-o -f /etc/frr/ospf6d.conf \
+		-o -f /etc/frr/ripd.conf \
+		-o -f /etc/frr/ripngd.conf \
+		-o -f /etc/frr/isisd.conf \
+		-o -f /etc/frr/pimd.conf \
+		-o -f /etc/frr/ldpd.conf \
+		-o -f /etc/frr/nhrpd.conf \
+		-o -f /etc/frr/eigrpd.conf \
+		-o -f /etc/frr/babeld.conf \
+		-o -f /etc/frr/pbrd.conf \
+		-o -f /etc/frr/bfdd.conf; then
+		# no explicit statement, but some split config file exists
+		# => need to fix vtysh.conf & frr.conf in postinst
+		test -n "$vtysh" || vtysh='ni'
+	else
+		# no config at all - use integrated
+		:
+	fi
+	if test "$vtysh" = "ni"; then
+		touch /etc/frr/.pkg.frr.nointegrated
+	fi
+	;;
+abort-upgrade)
+	# shouldn't fail an upgrade abort
+	;;
+esac
+
+#DEBHELPER#

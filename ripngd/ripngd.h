@@ -162,6 +162,9 @@ struct ripng {
 
 	/* For distribute-list container */
 	struct distribute_ctx *distribute_ctx;
+
+	/* For if_rmap container */
+	struct if_rmap_ctx *if_rmap_ctx;
 };
 RB_HEAD(ripng_instance_head, ripng);
 RB_PROTOTYPE(ripng_instance_head, ripng, entry, ripng_instance_compare)

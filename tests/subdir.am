@@ -46,6 +46,7 @@ tests/ospf6d/tests_ospf6d_test_lsdb-test_lsdb.$(OBJEXT): tests/ospf6d/test_lsdb_
 tests/ospf6d/test_lsdb-test_lsdb.$(OBJEXT): tests/ospf6d/test_lsdb_clippy.c
 
 check_PROGRAMS = \
+	tests/lib/cxxcompat \
 	tests/lib/test_buffer \
 	tests/lib/test_checksum \
 	tests/lib/test_heavy_thread \
@@ -112,10 +113,13 @@ TESTS_CPPFLAGS = $(AM_CPPFLAGS) \
 	-I$(top_srcdir)/tests/helpers/c \
 	-I$(top_builddir)/tests/helpers/c \
 	# end
-TESTS_CFLAGS = $(SAN_FLAGS)
+TESTS_CFLAGS = \
+	$(LIBYANG_CFLAGS) \
+	$(SAN_FLAGS) \
+	# end
 # note no -Werror
 
-ALL_TESTS_LDADD = lib/libfrr.la @LIBCAP@
+ALL_TESTS_LDADD = lib/libfrr.la $(LIBCAP)
 BGP_TEST_LDADD = bgpd/libbgp.a $(RFPLDADD) $(ALL_TESTS_LDADD) -lm
 ISISD_TEST_LDADD = isisd/libisis.a $(ALL_TESTS_LDADD)
 OSPF6_TEST_LDADD = ospf6d/libospf6.a $(ALL_TESTS_LDADD)
@@ -167,6 +171,10 @@ tests_isisd_test_isis_vertex_queue_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_isisd_test_isis_vertex_queue_LDADD = $(ISISD_TEST_LDADD)
 tests_isisd_test_isis_vertex_queue_SOURCES = tests/isisd/test_isis_vertex_queue.c
 
+tests_lib_cxxcompat_CFLAGS = $(TESTS_CFLAGS) $(CXX_COMPAT_CFLAGS) $(WERROR)
+tests_lib_cxxcompat_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_cxxcompat_SOURCES = tests/lib/cxxcompat.c
+tests_lib_cxxcompat_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_cli_test_cli_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_cli_test_cli_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_cli_test_cli_LDADD = $(ALL_TESTS_LDADD)

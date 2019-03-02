@@ -78,7 +78,7 @@ DEFPY (no_router_rip,
 	snprintf(xpath, sizeof(xpath), "/frr-ripd:ripd/instance[vrf='%s']",
 		 vrf);
 
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DELETE, NULL);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -235,9 +235,9 @@ DEFPY (rip_distance_source,
 		nb_cli_enqueue_change(vty, "./distance", NB_OP_MODIFY,
 				      distance_str);
 		nb_cli_enqueue_change(vty, "./access-list",
-				      acl ? NB_OP_MODIFY : NB_OP_DELETE, acl);
+				      acl ? NB_OP_MODIFY : NB_OP_DESTROY, acl);
 	} else
-		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, "./distance/source[prefix='%s']",
 				    prefix_str);
@@ -266,7 +266,7 @@ DEFPY (rip_neighbor,
        "Neighbor address\n")
 {
 	nb_cli_enqueue_change(vty, "./explicit-neighbor",
-			      no ? NB_OP_DELETE : NB_OP_CREATE, neighbor_str);
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, neighbor_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -288,7 +288,7 @@ DEFPY (rip_network_prefix,
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
 {
 	nb_cli_enqueue_change(vty, "./network",
-			      no ? NB_OP_DELETE : NB_OP_CREATE, network_str);
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, network_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -310,7 +310,7 @@ DEFPY (rip_network_if,
        "Interface name\n")
 {
 	nb_cli_enqueue_change(vty, "./interface",
-			      no ? NB_OP_DELETE : NB_OP_CREATE, network);
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, network);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -341,7 +341,7 @@ DEFPY (rip_offset_list,
 		nb_cli_enqueue_change(vty, "./metric", NB_OP_MODIFY,
 				      metric_str);
 	} else
-		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(
 		vty, "./offset-list[interface='%s'][direction='%s']",
@@ -401,9 +401,9 @@ DEFPY (rip_passive_interface,
        "Interface name\n")
 {
 	nb_cli_enqueue_change(vty, "./passive-interface",
-			      no ? NB_OP_DELETE : NB_OP_CREATE, ifname);
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, ifname);
 	nb_cli_enqueue_change(vty, "./non-passive-interface",
-			      no ? NB_OP_CREATE : NB_OP_DELETE, ifname);
+			      no ? NB_OP_CREATE : NB_OP_DESTROY, ifname);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -439,13 +439,13 @@ DEFPY (rip_redistribute,
 	if (!no) {
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 		nb_cli_enqueue_change(vty, "./route-map",
-				      route_map ? NB_OP_MODIFY : NB_OP_DELETE,
+				      route_map ? NB_OP_MODIFY : NB_OP_DESTROY,
 				      route_map);
 		nb_cli_enqueue_change(vty, "./metric",
-				      metric_str ? NB_OP_MODIFY : NB_OP_DELETE,
+				      metric_str ? NB_OP_MODIFY : NB_OP_DESTROY,
 				      metric_str);
 	} else
-		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, "./redistribute[protocol='%s']",
 				    protocol);
@@ -476,7 +476,7 @@ DEFPY (rip_route,
        "IP prefix <network>/<length>\n")
 {
 	nb_cli_enqueue_change(vty, "./static-route",
-			      no ? NB_OP_DELETE : NB_OP_CREATE, route_str);
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, route_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -915,7 +915,7 @@ DEFPY (no_ip_rip_authentication_string,
        "Authentication string\n"
        "Authentication string\n")
 {
-	nb_cli_enqueue_change(vty, "./authentication-password", NB_OP_DELETE,
+	nb_cli_enqueue_change(vty, "./authentication-password", NB_OP_DESTROY,
 			      NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-ripd:rip");
@@ -964,7 +964,7 @@ DEFPY (no_ip_rip_authentication_key_chain,
        "Authentication key-chain\n"
        "name of key-chain\n")
 {
-	nb_cli_enqueue_change(vty, "./authentication-key-chain", NB_OP_DELETE,
+	nb_cli_enqueue_change(vty, "./authentication-key-chain", NB_OP_DESTROY,
 			      NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-ripd:rip");

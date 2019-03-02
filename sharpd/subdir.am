@@ -11,12 +11,15 @@ man8 += $(MANBUILD)/sharpd.8
 endif
 
 sharpd_libsharp_a_SOURCES = \
+	sharpd/sharp_nht.c \
 	sharpd/sharp_zebra.c \
 	sharpd/sharp_vty.c \
 	# end
 
 noinst_HEADERS += \
+	sharpd/sharp_nht.h \
 	sharpd/sharp_vty.h \
+	sharpd/sharp_globals.h \
 	sharpd/sharp_zebra.h \
 	# end
 
@@ -24,5 +27,5 @@ sharpd/sharp_vty_clippy.c: $(CLIPPY_DEPS)
 sharpd/sharp_vty.$(OBJEXT): sharpd/sharp_vty_clippy.c
 
 sharpd_sharpd_SOURCES = sharpd/sharp_main.c
-sharpd_sharpd_LDADD = sharpd/libsharp.a lib/libfrr.la @LIBCAP@
+sharpd_sharpd_LDADD = sharpd/libsharp.a lib/libfrr.la $(LIBCAP)
 

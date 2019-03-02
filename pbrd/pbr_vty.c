@@ -300,7 +300,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 		char buf[PBR_NHC_NAMELEN];
 
 		if (no) {
-			vty_out(vty, "No nexthops to delete");
+			vty_out(vty, "No nexthops to delete\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
@@ -349,6 +349,7 @@ DEFPY (pbr_policy,
 	struct pbr_map *pbrm, *old_pbrm;
 	struct pbr_interface *pbr_ifp = ifp->info;
 
+	old_pbrm = NULL;
 	pbrm = pbrm_find(mapname);
 
 	if (!pbr_ifp) {
@@ -369,12 +370,23 @@ DEFPY (pbr_policy,
 	} else {
 		if (strcmp(pbr_ifp->mapname, "") != 0) {
 			old_pbrm = pbrm_find(pbr_ifp->mapname);
-			if (old_pbrm)
+
+			/*
+			 * So if we have an old pbrm we should only
+			 * delete it if we are actually deleting and
+			 * moving to a new pbrm
+			 */
+			if (old_pbrm && old_pbrm != pbrm)
 				pbr_map_interface_delete(old_pbrm, ifp);
 		}
 		snprintf(pbr_ifp->mapname, sizeof(pbr_ifp->mapname),
 			 "%s", mapname);
-		if (pbrm)
+
+		/*
+		 * So only reinstall if the old_pbrm and this pbrm are
+		 * different.
+		 */
+		if (pbrm && pbrm != old_pbrm)
 			pbr_map_add_interface(pbrm, ifp);
 	}
 

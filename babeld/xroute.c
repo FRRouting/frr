@@ -169,7 +169,7 @@ add_xroute(unsigned char prefix[16], unsigned char plen,
 
 /* Returns an overestimate of the number of xroutes. */
 int
-xroutes_estimate()
+xroutes_estimate(void)
 {
     return numxroutes;
 }

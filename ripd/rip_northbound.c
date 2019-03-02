@@ -1486,7 +1486,7 @@ const struct frr_yang_module_info frr_ripd_info = {
 		{
 			.xpath = "/frr-ripd:ripd/instance",
 			.cbs.create = ripd_instance_create,
-			.cbs.delete = ripd_instance_delete,
+			.cbs.destroy = ripd_instance_delete,
 			.cbs.get_next = ripd_instance_get_next,
 			.cbs.get_keys = ripd_instance_get_keys,
 			.cbs.lookup_entry = ripd_instance_lookup_entry,
@@ -1515,7 +1515,7 @@ const struct frr_yang_module_info frr_ripd_info = {
 		{
 			.xpath = "/frr-ripd:ripd/instance/distance/source",
 			.cbs.create = ripd_instance_distance_source_create,
-			.cbs.delete = ripd_instance_distance_source_delete,
+			.cbs.destroy = ripd_instance_distance_source_delete,
 			.cbs.cli_show = cli_show_rip_distance_source,
 		},
 		{
@@ -1525,30 +1525,30 @@ const struct frr_yang_module_info frr_ripd_info = {
 		{
 			.xpath = "/frr-ripd:ripd/instance/distance/source/access-list",
 			.cbs.modify = ripd_instance_distance_source_access_list_modify,
-			.cbs.delete = ripd_instance_distance_source_access_list_delete,
+			.cbs.destroy = ripd_instance_distance_source_access_list_delete,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/explicit-neighbor",
 			.cbs.create = ripd_instance_explicit_neighbor_create,
-			.cbs.delete = ripd_instance_explicit_neighbor_delete,
+			.cbs.destroy = ripd_instance_explicit_neighbor_delete,
 			.cbs.cli_show = cli_show_rip_neighbor,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/network",
 			.cbs.create = ripd_instance_network_create,
-			.cbs.delete = ripd_instance_network_delete,
+			.cbs.destroy = ripd_instance_network_delete,
 			.cbs.cli_show = cli_show_rip_network_prefix,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/interface",
 			.cbs.create = ripd_instance_interface_create,
-			.cbs.delete = ripd_instance_interface_delete,
+			.cbs.destroy = ripd_instance_interface_delete,
 			.cbs.cli_show = cli_show_rip_network_interface,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/offset-list",
 			.cbs.create = ripd_instance_offset_list_create,
-			.cbs.delete = ripd_instance_offset_list_delete,
+			.cbs.destroy = ripd_instance_offset_list_delete,
 			.cbs.cli_show = cli_show_rip_offset_list,
 		},
 		{
@@ -1567,36 +1567,36 @@ const struct frr_yang_module_info frr_ripd_info = {
 		{
 			.xpath = "/frr-ripd:ripd/instance/passive-interface",
 			.cbs.create = ripd_instance_passive_interface_create,
-			.cbs.delete = ripd_instance_passive_interface_delete,
+			.cbs.destroy = ripd_instance_passive_interface_delete,
 			.cbs.cli_show = cli_show_rip_passive_interface,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/non-passive-interface",
 			.cbs.create = ripd_instance_non_passive_interface_create,
-			.cbs.delete = ripd_instance_non_passive_interface_delete,
+			.cbs.destroy = ripd_instance_non_passive_interface_delete,
 			.cbs.cli_show = cli_show_rip_non_passive_interface,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/redistribute",
 			.cbs.create = ripd_instance_redistribute_create,
-			.cbs.delete = ripd_instance_redistribute_delete,
+			.cbs.destroy = ripd_instance_redistribute_delete,
 			.cbs.apply_finish = ripd_instance_redistribute_apply_finish,
 			.cbs.cli_show = cli_show_rip_redistribute,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/redistribute/route-map",
 			.cbs.modify = ripd_instance_redistribute_route_map_modify,
-			.cbs.delete = ripd_instance_redistribute_route_map_delete,
+			.cbs.destroy = ripd_instance_redistribute_route_map_delete,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/redistribute/metric",
 			.cbs.modify = ripd_instance_redistribute_metric_modify,
-			.cbs.delete = ripd_instance_redistribute_metric_delete,
+			.cbs.destroy = ripd_instance_redistribute_metric_delete,
 		},
 		{
 			.xpath = "/frr-ripd:ripd/instance/static-route",
 			.cbs.create = ripd_instance_static_route_create,
-			.cbs.delete = ripd_instance_static_route_delete,
+			.cbs.destroy = ripd_instance_static_route_delete,
 			.cbs.cli_show = cli_show_rip_route,
 		},
 		{
@@ -1659,18 +1659,18 @@ const struct frr_yang_module_info frr_ripd_info = {
 		{
 			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/authentication-scheme/md5-auth-length",
 			.cbs.modify = lib_interface_rip_authentication_scheme_md5_auth_length_modify,
-			.cbs.delete = lib_interface_rip_authentication_scheme_md5_auth_length_delete,
+			.cbs.destroy = lib_interface_rip_authentication_scheme_md5_auth_length_delete,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/authentication-password",
 			.cbs.modify = lib_interface_rip_authentication_password_modify,
-			.cbs.delete = lib_interface_rip_authentication_password_delete,
+			.cbs.destroy = lib_interface_rip_authentication_password_delete,
 			.cbs.cli_show = cli_show_ip_rip_authentication_string,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/authentication-key-chain",
 			.cbs.modify = lib_interface_rip_authentication_key_chain_modify,
-			.cbs.delete = lib_interface_rip_authentication_key_chain_delete,
+			.cbs.destroy = lib_interface_rip_authentication_key_chain_delete,
 			.cbs.cli_show = cli_show_ip_rip_authentication_key_chain,
 		},
 		{

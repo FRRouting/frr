@@ -27,6 +27,10 @@
 #include "qobj.h"
 #include "hook.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MTYPE(IF)
 DECLARE_MTYPE(CONNECTED_LABEL)
 
@@ -290,9 +294,9 @@ struct interface {
 };
 
 RB_HEAD(if_name_head, interface);
-RB_PROTOTYPE(if_name_head, interface, name_entry, if_cmp_func);
+RB_PROTOTYPE(if_name_head, interface, name_entry, if_cmp_func)
 RB_HEAD(if_index_head, interface);
-RB_PROTOTYPE(if_index_head, interface, index_entry, if_cmp_func);
+RB_PROTOTYPE(if_index_head, interface, index_entry, if_cmp_func)
 DECLARE_QOBJ_TYPE(interface)
 
 #define IFNAME_RB_INSERT(vrf, ifp)                                             \
@@ -341,6 +345,8 @@ DECLARE_QOBJ_TYPE(interface)
 DECLARE_HOOK(if_add, (struct interface * ifp), (ifp))
 DECLARE_KOOH(if_del, (struct interface * ifp), (ifp))
 
+#define METRIC_MAX (~0)
+
 /* Connected address structure. */
 struct connected {
 	/* Attached interface. */
@@ -388,6 +394,13 @@ struct connected {
 
 	/* Label for Linux 2.2.X and upper. */
 	char *label;
+
+	/*
+	 * Used for setting the connected route's cost. If the metric
+	 * here is set to METRIC_MAX the connected route falls back to
+	 * "struct interface"
+	 */
+	uint32_t metric;
 };
 
 /* Nbr Connected address structure. */
@@ -535,5 +548,9 @@ void if_link_params_free(struct interface *);
 /* Northbound. */
 extern void if_cmd_init(void);
 extern const struct frr_yang_module_info frr_interface_info;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_IF_H */

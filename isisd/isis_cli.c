@@ -89,7 +89,7 @@ DEFPY(no_router_isis, no_router_isis_cmd, "no router isis WORD$tag",
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 	area = isis_area_lookup(tag);
 	if (area && area->circuit_list && listcount(area->circuit_list)) {
 		for (ALL_LIST_ELEMENTS(area->circuit_list, node, nnode,
@@ -103,7 +103,7 @@ DEFPY(no_router_isis, no_router_isis_cmd, "no router isis WORD$tag",
 				temp_xpath, XPATH_MAXLEN,
 				"/frr-interface:lib/interface[name='%s'][vrf='%s']/frr-isisd:isis",
 				circuit->interface->name, vrf_name);
-			nb_cli_enqueue_change(vty, temp_xpath, NB_OP_DELETE,
+			nb_cli_enqueue_change(vty, temp_xpath, NB_OP_DESTROY,
 					      NULL);
 		}
 	}
@@ -279,27 +279,28 @@ DEFPY(no_ip_router_isis, no_ip_router_isis_cmd,
       "IS-IS routing protocol\n"
       "Routing process tag\n")
 {
-	const struct lyd_node *dnode =
-		yang_dnode_get(running_config->dnode, VTY_CURR_XPATH);
+	const struct lyd_node *dnode;
 
-	/* if both ipv4 and ipv6 are off delete the interface isis container too
+	dnode = yang_dnode_get(vty->candidate_config->dnode,
+			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	if (!dnode)
+		return CMD_SUCCESS;
+
+	/*
+	 * If both ipv4 and ipv6 are off delete the interface isis container.
 	 */
-	if (!strncmp(ip, "ipv6", strlen("ipv6"))) {
-		if (dnode
-		    && !yang_dnode_get_bool(dnode,
-					    "./frr-isisd:isis/ipv4-routing"))
+	if (strmatch(ip, "ipv6")) {
+		if (!yang_dnode_get_bool(dnode, "./ipv4-routing"))
 			nb_cli_enqueue_change(vty, "./frr-isisd:isis",
-					      NB_OP_DELETE, NULL);
+					      NB_OP_DESTROY, NULL);
 		else
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/ipv6-routing",
 					      NB_OP_MODIFY, "false");
-	} else { /* no ipv4  */
-		if (dnode
-		    && !yang_dnode_get_bool(dnode,
-					    "./frr-isisd:isis/ipv6-routing"))
+	} else {
+		if (!yang_dnode_get_bool(dnode, "./ipv6-routing"))
 			nb_cli_enqueue_change(vty, "./frr-isisd:isis",
-					      NB_OP_DELETE, NULL);
+					      NB_OP_DESTROY, NULL);
 		else
 			nb_cli_enqueue_change(vty,
 					      "./frr-isisd:isis/ipv4-routing",
@@ -336,7 +337,7 @@ DEFPY(net, net_cmd, "[no] net WORD",
       "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n")
 {
 	nb_cli_enqueue_change(vty, "./area-address",
-			      no ? NB_OP_DELETE : NB_OP_CREATE, net);
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, net);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -589,7 +590,7 @@ DEFPY(no_area_passwd, no_area_passwd_cmd,
       "Configure the authentication password for an area\n"
       "Set the authentication password for a routing domain\n")
 {
-	nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, "./%s", cmd);
 }
@@ -892,7 +893,7 @@ DEFPY(no_spf_delay_ietf, no_spf_delay_ietf_cmd,
       "Maximum duration needed to learn all the events related to a single failure\n"
       "Maximum duration needed to learn all the events related to a single failure (in milliseconds)\n")
 {
-	nb_cli_enqueue_change(vty, "./spf/ietf-backoff-delay", NB_OP_DELETE,
+	nb_cli_enqueue_change(vty, "./spf/ietf-backoff-delay", NB_OP_DESTROY,
 			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -947,7 +948,7 @@ DEFPY(no_isis_mpls_te_on, no_isis_mpls_te_on_cmd, "no mpls-te [on]",
       "Disable the MPLS-TE functionality\n"
       "Enable the MPLS-TE functionality\n")
 {
-	nb_cli_enqueue_change(vty, "/frr-isisd:isis/mpls-te", NB_OP_DELETE,
+	nb_cli_enqueue_change(vty, "/frr-isisd:isis/mpls-te", NB_OP_DESTROY,
 			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -1014,16 +1015,16 @@ DEFPY(isis_default_originate, isis_default_originate_cmd,
       "Pointer to route-map entries\n")
 {
 	if (no)
-		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 	else {
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 		nb_cli_enqueue_change(vty, "./always", NB_OP_MODIFY,
 				      always ? "true" : "false");
 		nb_cli_enqueue_change(vty, "./route-map",
-				      rmap ? NB_OP_MODIFY : NB_OP_DELETE,
+				      rmap ? NB_OP_MODIFY : NB_OP_DESTROY,
 				      rmap ? rmap : NULL);
 		nb_cli_enqueue_change(vty, "./metric",
-				      metric ? NB_OP_MODIFY : NB_OP_DELETE,
+				      metric ? NB_OP_MODIFY : NB_OP_DESTROY,
 				      metric ? metric_str : NULL);
 		if (strmatch(ip, "ipv6") && !always) {
 			vty_out(vty,
@@ -1094,14 +1095,14 @@ DEFPY(isis_redistribute, isis_redistribute_cmd,
       "Pointer to route-map entries\n")
 {
 	if (no)
-		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 	else {
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 		nb_cli_enqueue_change(vty, "./route-map",
-				      route_map ? NB_OP_MODIFY : NB_OP_DELETE,
+				      route_map ? NB_OP_MODIFY : NB_OP_DESTROY,
 				      route_map ? route_map : NULL);
 		nb_cli_enqueue_change(vty, "./metric",
-				      metric ? NB_OP_MODIFY : NB_OP_DELETE,
+				      metric ? NB_OP_MODIFY : NB_OP_DESTROY,
 				      metric ? metric_str : NULL);
 	}
 
@@ -1182,7 +1183,7 @@ DEFPY(isis_topology, isis_topology_cmd,
 			 topology);
 
 	if (no)
-		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 	else {
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 		nb_cli_enqueue_change(vty, "./overload", NB_OP_MODIFY,
@@ -1297,7 +1298,7 @@ DEFPY(no_isis_passwd, no_isis_passwd_cmd, "no isis password [<md5|clear> WORD]",
       "Cleartext password\n"
       "Circuit password\n")
 {
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/password", NB_OP_DELETE,
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/password", NB_OP_DESTROY,
 			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);

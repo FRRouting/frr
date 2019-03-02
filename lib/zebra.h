@@ -232,6 +232,15 @@ typedef unsigned char uint8_t;
 
 #include "zassert.h"
 
+/*
+ * Add explicit static cast only when using a C++ compiler.
+ */
+#ifdef __cplusplus
+#define static_cast(l, r) static_cast<decltype(l)>((r))
+#else
+#define static_cast(l, r) (r)
+#endif
+
 #ifndef HAVE_STRLCAT
 size_t strlcat(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
@@ -446,11 +455,6 @@ extern const char *zserv_command_string(unsigned int command);
  * route entry.  This mainly is used for backup static routes.
  */
 #define ZEBRA_FLAG_RR_USE_DISTANCE    0x40
-/*
- * This flag tells Zebra that the passed down route is ONLINK and the
- * kernel install flag for it should be turned on
- */
-#define ZEBRA_FLAG_ONLINK             0x80
 
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */

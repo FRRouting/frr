@@ -56,6 +56,14 @@ keyword. At present, no sharp commands will be preserved in the config.
    log and when all routes have been successfully deleted the debug log will be
    updated with this information as well.
 
+.. index:: sharp data route
+.. clicmd:: sharp data route
+
+   Allow end user doing route install and deletion to get timing information
+   from the vty or vtysh instead of having to read the log file.  This command
+   is informational only and you should look at sharp_vty.c for explanation
+   of the output as that it may change.
+
 .. index:: sharp label
 .. clicmd:: sharp label <ipv4|ipv6> vrf NAME label (0-1000000)
 
@@ -63,7 +71,18 @@ keyword. At present, no sharp commands will be preserved in the config.
    be used for pop and forward operations when the specified label is seen.
 
 .. index:: sharp watch
-.. clicmd:: sharp watch nexthop <A.B.C.D|X:X::X:X>
+.. clicmd:: [no] sharp watch <nexthop|import> <A.B.C.D|X:X::X:X> [connected]
 
    Instruct zebra to monitor and notify sharp when the specified nexthop is
    changed. The notification from zebra is written into the debug log.
+   The nexthop or import choice chooses the type of nexthop we are asking
+   zebra to watch for us.  This choice affects zebra's decision on what
+   matches.  Connected tells zebra whether or not that we want the route
+   matched against to be a static or connected route.  The no form of
+   the command obviously turns this watching off.
+
+.. index:: sharp data nexthop
+.. clicmd:: sharp data nexthop
+
+   Allow end user to dump associated data with the nexthop tracking that
+   may have been turned on.

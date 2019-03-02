@@ -30,6 +30,7 @@
 #include "lib_errors.h"
 
 DEFINE_MTYPE_STATIC(LIB, PREFIX, "Prefix")
+DEFINE_MTYPE_STATIC(LIB, PREFIX_FLOWSPEC, "Prefix Flowspec")
 
 /* Maskbit. */
 static const uint8_t maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
@@ -820,7 +821,7 @@ const char *prefix_family_str(const struct prefix *p)
 }
 
 /* Allocate new prefix_ipv4 structure. */
-struct prefix_ipv4 *prefix_ipv4_new()
+struct prefix_ipv4 *prefix_ipv4_new(void)
 {
 	struct prefix_ipv4 *p;
 
@@ -865,7 +866,7 @@ int str2prefix_ipv4(const char *str, struct prefix_ipv4 *p)
 		return ret;
 	} else {
 		cp = XMALLOC(MTYPE_TMP, (pnt - str) + 1);
-		strncpy(cp, str, pnt - str);
+		memcpy(cp, str, pnt - str);
 		*(cp + (pnt - str)) = '\0';
 		ret = inet_aton(cp, &p->prefix);
 		XFREE(MTYPE_TMP, cp);
@@ -912,7 +913,7 @@ int str2prefix_eth(const char *str, struct prefix_eth *p)
 		}
 
 		cp = XMALLOC(MTYPE_TMP, (pnt - str) + 1);
-		strncpy(cp, str, pnt - str);
+		memcpy(cp, str, pnt - str);
 		*(cp + (pnt - str)) = '\0';
 
 		str_addr = cp;
@@ -1029,7 +1030,7 @@ int str2prefix_ipv6(const char *str, struct prefix_ipv6 *p)
 		int plen;
 
 		cp = XMALLOC(MTYPE_TMP, (pnt - str) + 1);
-		strncpy(cp, str, pnt - str);
+		memcpy(cp, str, pnt - str);
 		*(cp + (pnt - str)) = '\0';
 		ret = inet_pton(AF_INET6, cp, &p->prefix);
 		XFREE(MTYPE_TMP, cp);
@@ -1359,7 +1360,7 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 	return str;
 }
 
-struct prefix *prefix_new()
+struct prefix *prefix_new(void)
 {
 	struct prefix *p;
 

@@ -222,7 +222,7 @@ void rfapiRibCheckCounts(
 	assert(t_ri_active + t_ri_deleted + t_ri_pend + offset == alloc_count);
 }
 
-static struct rfapi_info *rfapi_info_new()
+static struct rfapi_info *rfapi_info_new(void)
 {
 	return XCALLOC(MTYPE_RFAPI_INFO, sizeof(struct rfapi_info));
 }

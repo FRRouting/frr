@@ -30,32 +30,31 @@
 #include "zclient.h"
 #include "nexthop_group.h"
 
+#include "sharpd/sharp_globals.h"
 #include "sharpd/sharp_zebra.h"
+#include "sharpd/sharp_nht.h"
 #include "sharpd/sharp_vty.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "sharpd/sharp_vty_clippy.c"
 #endif
 
-extern uint32_t total_routes;
-extern uint32_t installed_routes;
-extern uint32_t removed_routes;
-
-uint8_t inst;
-struct prefix prefix;
-struct prefix orig_prefix;
-struct nexthop nhop;
-struct nexthop_group nhop_group;
-uint32_t rts;
-int32_t repeat;
-
 DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
-      "sharp watch nexthop X:X::X:X$nhop",
+      "sharp watch <nexthop$n|import$import> X:X::X:X$nhop [connected$connected]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "Watch for nexthop changes\n"
-      "The v6 nexthop to signal for watching\n")
+      "Watch for import check changes\n"
+      "The v6 nexthop to signal for watching\n"
+      "Should the route be connected\n")
 {
 	struct prefix p;
+	bool type_import;
+
+
+	if (n)
+		type_import = false;
+	else
+		type_import = true;
 
 	memset(&p, 0, sizeof(p));
 
@@ -63,27 +62,70 @@ DEFPY(watch_nexthop_v6, watch_nexthop_v6_cmd,
 	memcpy(&p.u.prefix6, &nhop, 16);
 	p.family = AF_INET6;
 
-	sharp_zebra_nexthop_watch(&p, true);
+	sharp_nh_tracker_get(&p);
+	sharp_zebra_nexthop_watch(&p, type_import, true, !!connected);
 
 	return CMD_SUCCESS;
 }
 
 DEFPY(watch_nexthop_v4, watch_nexthop_v4_cmd,
-      "sharp watch nexthop A.B.C.D$nhop",
+      "sharp watch <nexthop$n|import$import> A.B.C.D$nhop [connected$connected]",
       "Sharp routing Protocol\n"
       "Watch for changes\n"
       "Watch for nexthop changes\n"
-      "The v4 nexthop to signal for watching\n")
+      "Watch for import check changes\n"
+      "The v4 nexthop to signal for watching\n"
+      "Should the route be connected\n")
 {
 	struct prefix p;
+	bool type_import;
 
 	memset(&p, 0, sizeof(p));
+
+	if (n)
+		type_import = false;
+	else
+		type_import = true;
 
 	p.prefixlen = 32;
 	p.u.prefix4 = nhop;
 	p.family = AF_INET;
 
-	sharp_zebra_nexthop_watch(&p, true);
+	sharp_nh_tracker_get(&p);
+	sharp_zebra_nexthop_watch(&p, type_import, true, !!connected);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(sharp_nht_data_dump,
+      sharp_nht_data_dump_cmd,
+      "sharp data nexthop",
+      "Sharp routing Protocol\n"
+      "Nexthop information\n"
+      "Data Dump\n")
+{
+	sharp_nh_tracker_dump(vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (install_routes_data_dump,
+       install_routes_data_dump_cmd,
+       "sharp data route",
+       "Sharp routing Protocol\n"
+       "Data about what is going on\n"
+       "Route Install/Removal Information\n")
+{
+	char buf[PREFIX_STRLEN];
+	struct timeval r;
+
+	timersub(&sg.r.t_end, &sg.r.t_start, &r);
+	vty_out(vty, "Prefix: %s Total: %u %u %u Time: %ld.%ld\n",
+		prefix2str(&sg.r.orig_prefix, buf, sizeof(buf)),
+		sg.r.total_routes,
+		sg.r.installed_routes,
+		sg.r.removed_routes,
+		r.tv_sec, r.tv_usec);
 
 	return CMD_SUCCESS;
 }
@@ -107,18 +149,21 @@ DEFPY (install_routes,
        "Should we repeat this command\n"
        "How many times to repeat this command\n")
 {
-	total_routes = routes;
-	installed_routes = 0;
+	struct prefix prefix;
+	uint32_t rts;
+
+	sg.r.total_routes = routes;
+	sg.r.installed_routes = 0;
 
 	if (rpt >= 2)
-		repeat = rpt * 2;
+		sg.r.repeat = rpt * 2;
 	else
-		repeat = 0;
+		sg.r.repeat = 0;
 
 	memset(&prefix, 0, sizeof(prefix));
-	memset(&orig_prefix, 0, sizeof(orig_prefix));
-	memset(&nhop, 0, sizeof(nhop));
-	memset(&nhop_group, 0, sizeof(nhop_group));
+	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
+	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
 
 	if (start4.s_addr != 0) {
 		prefix.family = AF_INET;
@@ -129,7 +174,7 @@ DEFPY (install_routes,
 		prefix.prefixlen = 128;
 		prefix.u.prefix6 = start6;
 	}
-	orig_prefix = prefix;
+	sg.r.orig_prefix = prefix;
 
 	if (nexthop_group) {
 		struct nexthop_group_cmd *nhgc = nhgc_find(nexthop_group);
@@ -140,22 +185,22 @@ DEFPY (install_routes,
 			return CMD_WARNING;
 		}
 
-		nhop_group.nexthop = nhgc->nhg.nexthop;
+		sg.r.nhop_group.nexthop = nhgc->nhg.nexthop;
 	} else {
 		if (nexthop4.s_addr != INADDR_ANY) {
-			nhop.gate.ipv4 = nexthop4;
-			nhop.type = NEXTHOP_TYPE_IPV4;
+			sg.r.nhop.gate.ipv4 = nexthop4;
+			sg.r.nhop.type = NEXTHOP_TYPE_IPV4;
 		} else {
-			nhop.gate.ipv6 = nexthop6;
-			nhop.type = NEXTHOP_TYPE_IPV6;
+			sg.r.nhop.gate.ipv6 = nexthop6;
+			sg.r.nhop.type = NEXTHOP_TYPE_IPV6;
 		}
 
-		nhop_group.nexthop = &nhop;
+		sg.r.nhop_group.nexthop = &sg.r.nhop;
 	}
 
-	inst = instance;
+	sg.r.inst = instance;
 	rts = routes;
-	sharp_install_routes_helper(&prefix, inst, &nhop_group, rts);
+	sharp_install_routes_helper(&prefix, sg.r.inst, &sg.r.nhop_group, rts);
 
 	return CMD_SUCCESS;
 }
@@ -202,8 +247,11 @@ DEFPY (remove_routes,
        "instance to use\n"
        "Value of instance\n")
 {
-	total_routes = routes;
-	removed_routes = 0;
+	struct prefix prefix;
+
+	sg.r.total_routes = routes;
+	sg.r.removed_routes = 0;
+	uint32_t rts;
 
 	memset(&prefix, 0, sizeof(prefix));
 
@@ -217,9 +265,9 @@ DEFPY (remove_routes,
 		prefix.u.prefix6 = start6;
 	}
 
-	inst = instance;
+	sg.r.inst = instance;
 	rts = routes;
-	sharp_remove_routes_helper(&prefix, inst, rts);
+	sharp_remove_routes_helper(&prefix, sg.r.inst, rts);
 
 	return CMD_SUCCESS;
 }
@@ -238,9 +286,11 @@ DEFUN_NOSH (show_debugging_sharpd,
 
 void sharp_vty_init(void)
 {
+	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
 	install_element(ENABLE_NODE, &install_routes_cmd);
 	install_element(ENABLE_NODE, &remove_routes_cmd);
 	install_element(ENABLE_NODE, &vrf_label_cmd);
+	install_element(ENABLE_NODE, &sharp_nht_data_dump_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v6_cmd);
 	install_element(ENABLE_NODE, &watch_nexthop_v4_cmd);
 

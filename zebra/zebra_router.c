@@ -21,6 +21,9 @@
  */
 #include "zebra.h"
 
+#include <pthread.h>
+#include "lib/frratomic.h"
+
 #include "zebra_router.h"
 #include "zebra_memory.h"
 #include "zebra_pbr.h"
@@ -169,6 +172,13 @@ static void zebra_router_free_table(struct zebra_router_table *zrt)
 	XFREE(MTYPE_ZEBRA_NS, zrt);
 }
 
+uint32_t zebra_router_get_next_sequence(void)
+{
+	return 1
+	       + atomic_fetch_add_explicit(&zrouter.sequence_num, 1,
+					   memory_order_relaxed);
+}
+
 void zebra_router_terminate(void)
 {
 	struct zebra_router_table *zrt, *tmp;
@@ -177,6 +187,9 @@ void zebra_router_terminate(void)
 		RB_REMOVE(zebra_router_table_head, &zrouter.tables, zrt);
 		zebra_router_free_table(zrt);
 	}
+
+	work_queue_free_and_null(&zrouter.ribq);
+	meta_queue_free(zrouter.mq);
 
 	zebra_vxlan_disable();
 	zebra_mlag_terminate();
@@ -194,6 +207,11 @@ void zebra_router_terminate(void)
 
 void zebra_router_init(void)
 {
+	zrouter.sequence_num = 0;
+
+	zrouter.rtm_table_default = 0;
+	zrouter.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS;
+
 	zebra_vxlan_init();
 	zebra_mlag_init();
 

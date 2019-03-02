@@ -22,6 +22,10 @@
 #ifndef _ZEBRA_NETWORK_H
 #define _ZEBRA_NETWORK_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Both readn and writen are deprecated and will be removed.  They are not
    suitable for use with non-blocking file descriptors.
  */
@@ -40,5 +44,9 @@ extern int set_cloexec(int fd);
 
 extern float htonf(float);
 extern float ntohf(float);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_NETWORK_H */

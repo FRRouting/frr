@@ -122,7 +122,7 @@ DEFUN (clear_foo,
 	return CMD_SUCCESS;
 }
 
-void test_init()
+void test_init(void)
 {
 	install_element(VIEW_NODE, &clear_foo_cmd);
 }

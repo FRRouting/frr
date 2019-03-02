@@ -33,6 +33,10 @@
 #ifndef _SYS_QUEUE_H_
 #define	_SYS_QUEUE_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * This file defines four types of data structures: singly-linked lists,
  * singly-linked tail queues, lists and tail queues.
@@ -674,5 +678,9 @@ struct qm_trace {
 		else                                                           \
 			(head2)->tqh_last = &(head2)->tqh_first;               \
 	} while (0)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !_SYS_QUEUE_H_ */

@@ -1,0 +1,5 @@
+# module contains no function calls that can be hardened
+frr-rpki-rtrlib binary: hardening-no-fortify-functions *
+
+# personal name
+spelling-error-in-copyright Ang And

@@ -124,7 +124,7 @@ static void pbr_nh_delete(struct pbr_nexthop_cache **pnhc)
 	XFREE(MTYPE_PBR_NHG, *pnhc);
 }
 
-static void pbr_nh_delete_iterate(struct hash_backet *b, void *p)
+static void pbr_nh_delete_iterate(struct hash_bucket *b, void *p)
 {
 	pbr_nh_delete((struct pbr_nexthop_cache **)&b->data);
 }
@@ -164,8 +164,8 @@ static bool pbr_nh_hash_equal(const void *arg1, const void *arg2)
 		       == pbrnc2->nexthop->gate.ipv4.s_addr;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 	case NEXTHOP_TYPE_IPV6:
-		return !!memcmp(&pbrnc1->nexthop->gate.ipv6,
-				&pbrnc2->nexthop->gate.ipv6, 16);
+		return !memcmp(&pbrnc1->nexthop->gate.ipv6,
+			       &pbrnc2->nexthop->gate.ipv6, 16);
 	case NEXTHOP_TYPE_BLACKHOLE:
 		return pbrnc1->nexthop->bh_type == pbrnc2->nexthop->bh_type;
 	}
@@ -319,7 +319,7 @@ static struct pbr_nexthop_cache *pbr_nht_lookup_nexthop(struct nexthop *nexthop)
 }
 #endif
 
-static void pbr_nht_find_nhg_from_table_install(struct hash_backet *b,
+static void pbr_nht_find_nhg_from_table_install(struct hash_bucket *b,
 						void *data)
 {
 	struct pbr_nexthop_group_cache *pnhgc =
@@ -348,7 +348,7 @@ void pbr_nht_route_installed_for_table(uint32_t table_id)
 		     &table_id);
 }
 
-static void pbr_nht_find_nhg_from_table_remove(struct hash_backet *b,
+static void pbr_nht_find_nhg_from_table_remove(struct hash_bucket *b,
 					       void *data)
 {
 	;
@@ -657,7 +657,7 @@ struct pbr_nht_individual {
 	uint32_t valid;
 };
 
-static void pbr_nht_individual_nexthop_update_lookup(struct hash_backet *b,
+static void pbr_nht_individual_nexthop_update_lookup(struct hash_bucket *b,
 						     void *data)
 {
 	struct pbr_nexthop_cache *pnhc = b->data;
@@ -689,7 +689,7 @@ static void pbr_nht_individual_nexthop_update_lookup(struct hash_backet *b,
 		pnhi->valid += 1;
 }
 
-static void pbr_nht_nexthop_update_lookup(struct hash_backet *b, void *data)
+static void pbr_nht_nexthop_update_lookup(struct hash_bucket *b, void *data)
 {
 	struct pbr_nexthop_group_cache *pnhgc = b->data;
 	struct pbr_nht_individual pnhi;
@@ -822,7 +822,7 @@ bool pbr_nht_get_installed(const char *name)
 	return pnhgc->installed;
 }
 
-static void pbr_nht_show_nhg_nexthops(struct hash_backet *b, void *data)
+static void pbr_nht_show_nhg_nexthops(struct hash_bucket *b, void *data)
 {
 	struct pbr_nexthop_cache *pnhc = b->data;
 	struct vty *vty = data;
@@ -836,7 +836,7 @@ struct pbr_nht_show {
 	const char *name;
 };
 
-static void pbr_nht_show_nhg(struct hash_backet *b, void *data)
+static void pbr_nht_show_nhg(struct hash_bucket *b, void *data)
 {
 	struct pbr_nexthop_group_cache *pnhgc = b->data;
 	struct pbr_nht_show *pns = data;

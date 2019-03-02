@@ -209,6 +209,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		.ifindex = ifp->ifindex,
 		.vrf_id = ifp->vrf_id,
 	};
+	uint32_t metric;
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		return;
@@ -243,11 +244,13 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		break;
 	}
 
+	metric = (ifc->metric < (uint32_t)METRIC_MAX) ?
+				ifc->metric : ifp->metric;
 	rib_add(afi, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0, &p,
-		NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0, 0);
+		NULL, &nh, RT_TABLE_MAIN, metric, 0, 0, 0);
 
 	rib_add(afi, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0, &p,
-		NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0, 0);
+		NULL, &nh, RT_TABLE_MAIN, metric, 0, 0, 0);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		char buf[PREFIX_STRLEN];
@@ -276,7 +279,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 /* Add connected IPv4 route to the interface. */
 void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
 			uint16_t prefixlen, struct in_addr *broad,
-			const char *label)
+			const char *label, uint32_t metric)
 {
 	struct prefix_ipv4 *p;
 	struct connected *ifc;
@@ -288,6 +291,7 @@ void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
 	ifc = connected_new();
 	ifc->ifp = ifp;
 	ifc->flags = flags;
+	ifc->metric = metric;
 	/* If we get a notification from the kernel,
 	 * we can safely assume the address is known to the kernel */
 	SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
@@ -500,7 +504,7 @@ void connected_delete_ipv4(struct interface *ifp, int flags,
 /* Add connected IPv6 route to the interface. */
 void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 			struct in6_addr *broad, uint16_t prefixlen,
-			const char *label)
+			const char *label, uint32_t metric)
 {
 	struct prefix_ipv6 *p;
 	struct connected *ifc;
@@ -512,6 +516,7 @@ void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 	ifc = connected_new();
 	ifc->ifp = ifp;
 	ifc->flags = flags;
+	ifc->metric = metric;
 	/* If we get a notification from the kernel,
 	 * we can safely assume the address is known to the kernel */
 	SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);

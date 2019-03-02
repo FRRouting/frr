@@ -67,7 +67,7 @@ void pim_prefix_list_update(struct prefix_list *plist)
 	}
 }
 
-static void pim_free()
+static void pim_free(void)
 {
 	pim_route_map_terminate();
 
@@ -123,7 +123,7 @@ void pim_init(void)
 	pim_cmd_init();
 }
 
-void pim_terminate()
+void pim_terminate(void)
 {
 	struct zclient *zclient;
 

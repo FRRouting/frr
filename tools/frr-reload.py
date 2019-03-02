@@ -300,13 +300,11 @@ class Config(object):
 
         '''
           More fixups in user specification and what running config shows.
-          "null0" in routes must be replaced by Null0, and "blackhole" must
-          be replaced by Null0 as well.
+          "null0" in routes must be replaced by Null0.
         '''
         if (key[0].startswith('ip route') or key[0].startswith('ipv6 route') and
-                'null0' in key[0] or 'blackhole' in key[0]):
+                'null0' in key[0]):
             key[0] = re.sub(r'\s+null0(\s*$)', ' Null0', key[0])
-            key[0] = re.sub(r'\s+blackhole(\s*$)', ' Null0', key[0])
 
         if lines:
             if tuple(key) not in self.contexts:
@@ -435,11 +433,22 @@ end
                 self.save_contexts(ctx_keys, current_context_lines)
                 new_ctx = True
 
-            elif line in ["end", "exit-vrf"]:
+            elif line == "end":
                 self.save_contexts(ctx_keys, current_context_lines)
                 log.debug('LINE %-50s: exiting old context, %-50s', line, ctx_keys)
 
                 # Start a new context
+                new_ctx = True
+                main_ctx_key = []
+                ctx_keys = []
+                current_context_lines = []
+
+            elif line == "exit-vrf":
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines.append(line)
+                log.debug('LINE %-50s: append to current_context_lines, %-50s', line, ctx_keys)
+
+                #Start a new context
                 new_ctx = True
                 main_ctx_key = []
                 ctx_keys = []

@@ -40,7 +40,7 @@ noinst_HEADERS += \
 	ripngd/ripngd.h \
 	# end
 
-ripngd_ripngd_LDADD = ripngd/libripng.a lib/libfrr.la @LIBCAP@
+ripngd_ripngd_LDADD = ripngd/libripng.a lib/libfrr.la $(LIBCAP)
 ripngd_ripngd_SOURCES = \
 	ripngd/ripng_main.c \
 	# end

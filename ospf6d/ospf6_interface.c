@@ -246,6 +246,7 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	THREAD_OFF(oi->thread_send_hello);
 	THREAD_OFF(oi->thread_send_lsupdate);
 	THREAD_OFF(oi->thread_send_lsack);
+	THREAD_OFF(oi->thread_sso);
 
 	ospf6_lsdb_remove_all(oi->lsdb);
 	ospf6_lsdb_remove_all(oi->lsupdate_list);
@@ -267,6 +268,9 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 		XFREE(MTYPE_CFG_PLIST_NAME, oi->plist_name);
 
 	ospf6_bfd_info_free(&(oi->bfd_info));
+
+	/* disable from area list if possible */
+	ospf6_area_interface_delete(oi);
 
 	XFREE(MTYPE_OSPF6_IF, oi);
 }
@@ -291,6 +295,7 @@ void ospf6_interface_disable(struct ospf6_interface *oi)
 	THREAD_OFF(oi->thread_send_hello);
 	THREAD_OFF(oi->thread_send_lsupdate);
 	THREAD_OFF(oi->thread_send_lsack);
+	THREAD_OFF(oi->thread_sso);
 
 	THREAD_OFF(oi->thread_network_lsa);
 	THREAD_OFF(oi->thread_link_lsa);
@@ -381,9 +386,9 @@ void ospf6_interface_state_update(struct interface *ifp)
 	if (if_is_operative(ifp)
 	    && (ospf6_interface_get_linklocal_address(oi->interface)
 		|| if_is_loopback(oi->interface)))
-		thread_add_event(master, interface_up, oi, 0, NULL);
+		thread_execute(master, interface_up, oi, 0);
 	else
-		thread_add_event(master, interface_down, oi, 0, NULL);
+		thread_execute(master, interface_down, oi, 0);
 
 	return;
 }
@@ -679,6 +684,12 @@ int interface_up(struct thread *thread)
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 	assert(oi && oi->interface);
 
+	/*
+	 * Remove old pointer. If this thread wasn't a timer this
+	 * operation won't make a difference, because it is already NULL.
+	 */
+	oi->thread_sso = NULL;
+
 	if (IS_OSPF6_DEBUG_INTERFACE)
 		zlog_debug("Interface Event %s: [InterfaceUp]",
 			   oi->interface->name);
@@ -721,6 +732,22 @@ int interface_up(struct thread *thread)
 		return 0;
 	}
 
+#ifdef __FreeBSD__
+	/*
+	 * XXX: Schedule IPv6 group join for later, otherwise we might
+	 * lose the multicast group registration caused by IPv6 group
+	 * leave race.
+	 */
+	if (oi->sso_try_cnt == 0) {
+		oi->sso_try_cnt++;
+		zlog_info("Scheduling %s for sso", oi->interface->name);
+		thread_add_timer(master, interface_up, oi,
+				 OSPF6_INTERFACE_SSO_RETRY_INT,
+				 &oi->thread_sso);
+		return 0;
+	}
+#endif /* __FreeBSD__ */
+
 	/* Join AllSPFRouters */
 	if (ospf6_sso(oi->interface->ifindex, &allspfrouters6, IPV6_JOIN_GROUP)
 	    < 0) {
@@ -729,7 +756,8 @@ int interface_up(struct thread *thread)
 				"Scheduling %s for sso retry, trial count: %d",
 				oi->interface->name, oi->sso_try_cnt);
 			thread_add_timer(master, interface_up, oi,
-					 OSPF6_INTERFACE_SSO_RETRY_INT, NULL);
+					 OSPF6_INTERFACE_SSO_RETRY_INT,
+					 &oi->thread_sso);
 		}
 		return 0;
 	}
@@ -829,6 +857,9 @@ int interface_down(struct thread *thread)
 
 	/* Stop Hellos */
 	THREAD_OFF(oi->thread_send_hello);
+
+	/* Stop trying to set socket options. */
+	THREAD_OFF(oi->thread_sso);
 
 	/* Leave AllSPFRouters */
 	if (oi->state > OSPF6_INTERFACE_DOWN)
@@ -1602,6 +1633,7 @@ DEFUN (ipv6_ospf6_passive,
 
 	SET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
 	THREAD_OFF(oi->thread_send_hello);
+	THREAD_OFF(oi->thread_sso);
 
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
 		THREAD_OFF(on->inactivity_timer);
@@ -1631,7 +1663,7 @@ DEFUN (no_ipv6_ospf6_passive,
 
 	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE);
 	THREAD_OFF(oi->thread_send_hello);
-	oi->thread_send_hello = NULL;
+	THREAD_OFF(oi->thread_sso);
 	thread_add_event(master, ospf6_hello_send, oi, 0,
 			 &oi->thread_send_hello);
 
@@ -1791,8 +1823,8 @@ DEFUN (ipv6_ospf6_network,
 	}
 
 	/* Reset the interface */
-	thread_add_event(master, interface_down, oi, 0, NULL);
-	thread_add_event(master, interface_up, oi, 0, NULL);
+	thread_execute(master, interface_down, oi, 0);
+	thread_execute(master, interface_up, oi, 0);
 
 	return CMD_SUCCESS;
 }
@@ -1825,8 +1857,8 @@ DEFUN (no_ipv6_ospf6_network,
 	oi->type = type;
 
 	/* Reset the interface */
-	thread_add_event(master, interface_down, oi, 0, NULL);
-	thread_add_event(master, interface_up, oi, 0, NULL);
+	thread_execute(master, interface_down, oi, 0);
+	thread_execute(master, interface_up, oi, 0);
 
 	return CMD_SUCCESS;
 }
@@ -1969,8 +2001,8 @@ static void ospf6_interface_clear(struct vty *vty, struct interface *ifp)
 		zlog_debug("Interface %s: clear by reset", ifp->name);
 
 	/* Reset the interface */
-	thread_add_event(master, interface_down, oi, 0, NULL);
-	thread_add_event(master, interface_up, oi, 0, NULL);
+	thread_execute(master, interface_down, oi, 0);
+	thread_execute(master, interface_up, oi, 0);
 }
 
 /* Clear interface */

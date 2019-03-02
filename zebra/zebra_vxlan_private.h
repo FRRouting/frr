@@ -70,6 +70,9 @@ struct zebra_vni_t_ {
 	/* Flag for advertising gw macip */
 	uint8_t advertise_gw_macip;
 
+	/* Flag for advertising svi macip */
+	uint8_t advertise_svi_macip;
+
 	/* Flag for advertising gw macip */
 	uint8_t advertise_subnet;
 
@@ -313,11 +316,9 @@ struct rmac_walk_ctx {
 	struct json_object *json;
 };
 
-enum zebra_neigh_state { ZEBRA_NEIGH_INACTIVE = 0, ZEBRA_NEIGH_ACTIVE = 1 };
+#define IS_ZEBRA_NEIGH_ACTIVE(n) (n->state == ZEBRA_NEIGH_ACTIVE)
 
-#define IS_ZEBRA_NEIGH_ACTIVE(n) n->state == ZEBRA_NEIGH_ACTIVE
-
-#define IS_ZEBRA_NEIGH_INACTIVE(n) n->state == ZEBRA_NEIGH_INACTIVE
+#define IS_ZEBRA_NEIGH_INACTIVE(n) (n->state == ZEBRA_NEIGH_INACTIVE)
 
 #define ZEBRA_NEIGH_SET_ACTIVE(n) n->state = ZEBRA_NEIGH_ACTIVE
 

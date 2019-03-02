@@ -212,6 +212,9 @@ static struct assegment *assegment_append_asns(struct assegment *seg,
 {
 	as_t *newas;
 
+	if (!seg)
+		return seg;
+
 	newas = XREALLOC(MTYPE_AS_SEG_DATA, seg->as,
 			 ASSEGMENT_DATA_SIZE(seg->length + num, 1));
 
@@ -1372,7 +1375,8 @@ static struct aspath *aspath_merge(struct aspath *as1, struct aspath *as2)
 	while (last && last->next)
 		last = last->next;
 
-	last->next = as2->segments;
+	if (last)
+		last->next = as2->segments;
 	as2->segments = new;
 	aspath_str_update(as2, false);
 	return as2;
@@ -1381,39 +1385,45 @@ static struct aspath *aspath_merge(struct aspath *as1, struct aspath *as2)
 /* Prepend as1 to as2.  as2 should be uninterned aspath. */
 struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2)
 {
-	struct assegment *seg1;
-	struct assegment *seg2;
+	struct assegment *as1segtail;
+	struct assegment *as2segtail;
+	struct assegment *as2seghead;
 
 	if (!as1 || !as2)
 		return NULL;
 
-	seg1 = as1->segments;
-	seg2 = as2->segments;
-
 	/* If as2 is empty, only need to dupe as1's chain onto as2 */
-	if (seg2 == NULL) {
+	if (as2->segments == NULL) {
 		as2->segments = assegment_dup_all(as1->segments);
 		aspath_str_update(as2, false);
 		return as2;
 	}
 
 	/* If as1 is empty AS, no prepending to do. */
-	if (seg1 == NULL)
+	if (as1->segments == NULL)
 		return as2;
 
 	/* find the tail as1's segment chain. */
-	while (seg1 && seg1->next)
-		seg1 = seg1->next;
+	as1segtail = as1->segments;
+	while (as1segtail && as1segtail->next)
+		as1segtail = as1segtail->next;
 
 	/* Delete any AS_CONFED_SEQUENCE segment from as2. */
-	if (seg1->type == AS_SEQUENCE && seg2->type == AS_CONFED_SEQUENCE)
+	if (as1segtail->type == AS_SEQUENCE
+	    && as2->segments->type == AS_CONFED_SEQUENCE)
 		as2 = aspath_delete_confed_seq(as2);
 
+	if (!as2->segments) {
+		as2->segments = assegment_dup_all(as1->segments);
+		aspath_str_update(as2, false);
+		return as2;
+	}
+
 	/* Compare last segment type of as1 and first segment type of as2. */
-	if (seg1->type != seg2->type)
+	if (as1segtail->type != as2->segments->type)
 		return aspath_merge(as1, as2);
 
-	if (seg1->type == AS_SEQUENCE) {
+	if (as1segtail->type == AS_SEQUENCE) {
 		/* We have two chains of segments, as1->segments and seg2,
 		 * and we have to attach them together, merging the attaching
 		 * segments together into one.
@@ -1423,23 +1433,29 @@ struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2)
 		 * 3. attach chain after seg2
 		 */
 
-		/* dupe as1 onto as2's head */
-		seg1 = as2->segments = assegment_dup_all(as1->segments);
+		/* save as2 head */
+		as2seghead = as2->segments;
 
-		/* refind the tail of as2, reusing seg1 */
-		while (seg1 && seg1->next)
-			seg1 = seg1->next;
+		/* dupe as1 onto as2's head */
+		as2segtail = as2->segments = assegment_dup_all(as1->segments);
+
+		/* refind the tail of as2 */
+		while (as2segtail && as2segtail->next)
+			as2segtail = as2segtail->next;
 
 		/* merge the old head, seg2, into tail, seg1 */
-		seg1 = assegment_append_asns(seg1, seg2->as, seg2->length);
+		assegment_append_asns(as2segtail, as2seghead->as,
+				      as2seghead->length);
 
-		/* bypass the merged seg2, and attach any chain after it to
-		 * chain descending from as2's head
+		/*
+		 * bypass the merged seg2, and attach any chain after it
+		 * to chain descending from as2's head
 		 */
-		seg1->next = seg2->next;
+		if (as2segtail)
+			as2segtail->next = as2seghead->next;
 
-		/* seg2 is now referenceless and useless*/
-		assegment_free(seg2);
+		/* as2->segments is now referenceless and useless */
+		assegment_free(as2seghead);
 
 		/* we've now prepended as1's segment chain to as2, merging
 		 * the inbetween AS_SEQUENCE of seg2 in the process
@@ -2066,14 +2082,14 @@ void aspath_print_vty(struct vty *vty, const char *format, struct aspath *as,
 		vty_out(vty, "%s", suffix);
 }
 
-static void aspath_show_all_iterator(struct hash_backet *backet,
+static void aspath_show_all_iterator(struct hash_bucket *bucket,
 				     struct vty *vty)
 {
 	struct aspath *as;
 
-	as = (struct aspath *)backet->data;
+	as = (struct aspath *)bucket->data;
 
-	vty_out(vty, "[%p:%u] (%ld) ", (void *)backet, backet->key, as->refcnt);
+	vty_out(vty, "[%p:%u] (%ld) ", (void *)bucket, bucket->key, as->refcnt);
 	vty_out(vty, "%s\n", as->str);
 }
 
@@ -2081,7 +2097,114 @@ static void aspath_show_all_iterator(struct hash_backet *backet,
    `show [ip] bgp paths' command. */
 void aspath_print_all_vty(struct vty *vty)
 {
-	hash_iterate(ashash, (void (*)(struct hash_backet *,
+	hash_iterate(ashash, (void (*)(struct hash_bucket *,
 				       void *))aspath_show_all_iterator,
 		     vty);
+}
+
+static struct aspath *bgp_aggr_aspath_lookup(struct bgp_aggregate *aggregate,
+					     struct aspath *aspath)
+{
+	return hash_lookup(aggregate->aspath_hash, aspath);
+}
+
+static void *bgp_aggr_aspath_hash_alloc(void *p)
+{
+	struct aspath *ref = (struct aspath *)p;
+	struct aspath *aspath = NULL;
+
+	aspath = aspath_dup(ref);
+	return aspath;
+}
+
+static void bgp_aggr_aspath_prepare(struct hash_backet *hb, void *arg)
+{
+	struct aspath *asmerge = NULL;
+	struct aspath *hb_aspath = hb->data;
+	struct aspath **aggr_aspath = arg;
+
+	if (*aggr_aspath) {
+		asmerge = aspath_aggregate(*aggr_aspath, hb_aspath);
+		aspath_free(*aggr_aspath);
+		*aggr_aspath = asmerge;
+	} else
+		*aggr_aspath = aspath_dup(hb_aspath);
+}
+
+void bgp_aggr_aspath_remove(void *arg)
+{
+	struct aspath *aspath = arg;
+
+	aspath_free(aspath);
+}
+
+void bgp_compute_aggregate_aspath(struct bgp_aggregate *aggregate,
+				  struct aspath *aspath)
+{
+	struct aspath *aggr_aspath = NULL;
+
+	if ((aggregate == NULL) || (aspath == NULL))
+		return;
+
+	/* Create hash if not already created.
+	 */
+	if (aggregate->aspath_hash == NULL)
+		aggregate->aspath_hash = hash_create(
+					aspath_key_make, aspath_cmp,
+					"BGP Aggregator as-path hash");
+
+	aggr_aspath = bgp_aggr_aspath_lookup(aggregate, aspath);
+	if (aggr_aspath == NULL) {
+		/* Insert as-path into hash.
+		 */
+		aggr_aspath = hash_get(aggregate->aspath_hash, aspath,
+				       bgp_aggr_aspath_hash_alloc);
+
+		/* Compute aggregate's as-path.
+		 */
+		hash_iterate(aggregate->aspath_hash,
+			     bgp_aggr_aspath_prepare,
+			     &aggregate->aspath);
+	}
+
+	/* Increment refernce counter.
+	 */
+	aggr_aspath->refcnt++;
+}
+
+void bgp_remove_aspath_from_aggregate(struct bgp_aggregate *aggregate,
+				      struct aspath *aspath)
+{
+	struct aspath *aggr_aspath = NULL;
+	struct aspath *ret_aspath = NULL;
+
+	if ((aggregate == NULL) || (aspath == NULL))
+		return;
+
+	if (aggregate->aspath_hash == NULL)
+		return;
+
+	/* Look-up the aspath in the hash.
+	 */
+	aggr_aspath = bgp_aggr_aspath_lookup(aggregate, aspath);
+	if (aggr_aspath) {
+		aggr_aspath->refcnt--;
+
+		if (aggr_aspath->refcnt == 0) {
+			ret_aspath = hash_release(aggregate->aspath_hash,
+						  aggr_aspath);
+			aspath_free(ret_aspath);
+
+			/* Remove aggregate's old as-path.
+			 */
+			aspath_free(aggregate->aspath);
+			aggregate->aspath = NULL;
+
+			/* Compute aggregate's as-path.
+			 */
+			hash_iterate(aggregate->aspath_hash,
+				     bgp_aggr_aspath_prepare,
+				     &aggregate->aspath);
+		}
+	}
 }

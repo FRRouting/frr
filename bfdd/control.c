@@ -65,7 +65,7 @@ static void control_handle_notify_add(struct bfd_control_socket *bcs,
 				      struct bfd_control_msg *bcm);
 static void control_handle_notify_del(struct bfd_control_socket *bcs,
 				      struct bfd_control_msg *bcm);
-static void _control_handle_notify(struct hash_backet *hb, void *arg);
+static void _control_handle_notify(struct hash_bucket *hb, void *arg);
 static void control_handle_notify(struct bfd_control_socket *bcs,
 				  struct bfd_control_msg *bcm);
 static void control_response(struct bfd_control_socket *bcs, uint16_t id,
@@ -630,7 +630,7 @@ static struct bfd_session *_notify_find_peer(struct bfd_peer_cfg *bpc)
 	return bs_peer_find(bpc);
 }
 
-static void _control_handle_notify(struct hash_backet *hb, void *arg)
+static void _control_handle_notify(struct hash_bucket *hb, void *arg)
 {
 	struct bfd_control_socket *bcs = arg;
 	struct bfd_session *bs = hb->data;

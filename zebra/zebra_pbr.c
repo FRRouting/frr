@@ -212,7 +212,7 @@ struct pbr_rule_unique_lookup {
 	vrf_id_t vrf_id;
 };
 
-static int pbr_rule_lookup_unique_walker(struct hash_backet *b, void *data)
+static int pbr_rule_lookup_unique_walker(struct hash_bucket *b, void *data)
 {
 	struct pbr_rule_unique_lookup *pul = data;
 	struct zebra_pbr_rule *rule = b->data;
@@ -461,7 +461,7 @@ void zebra_pbr_del_rule(struct zebra_pbr_rule *rule)
 			   __PRETTY_FUNCTION__);
 }
 
-static void zebra_pbr_cleanup_rules(struct hash_backet *b, void *data)
+static void zebra_pbr_cleanup_rules(struct hash_bucket *b, void *data)
 {
 	struct zebra_pbr_rule *rule = b->data;
 	int *sock = data;
@@ -473,7 +473,7 @@ static void zebra_pbr_cleanup_rules(struct hash_backet *b, void *data)
 	}
 }
 
-static void zebra_pbr_cleanup_ipset(struct hash_backet *b, void *data)
+static void zebra_pbr_cleanup_ipset(struct hash_bucket *b, void *data)
 {
 	struct zebra_pbr_ipset *ipset = b->data;
 	int *sock = data;
@@ -484,7 +484,7 @@ static void zebra_pbr_cleanup_ipset(struct hash_backet *b, void *data)
 	}
 }
 
-static void zebra_pbr_cleanup_ipset_entry(struct hash_backet *b, void *data)
+static void zebra_pbr_cleanup_ipset_entry(struct hash_bucket *b, void *data)
 {
 	struct zebra_pbr_ipset_entry *ipset = b->data;
 	int *sock = data;
@@ -495,7 +495,7 @@ static void zebra_pbr_cleanup_ipset_entry(struct hash_backet *b, void *data)
 	}
 }
 
-static void zebra_pbr_cleanup_iptable(struct hash_backet *b, void *data)
+static void zebra_pbr_cleanup_iptable(struct hash_bucket *b, void *data)
 {
 	struct zebra_pbr_iptable *iptable = b->data;
 	int *sock = data;
@@ -576,11 +576,11 @@ const char *zebra_pbr_ipset_type2str(uint32_t type)
 			  "Unrecognized IPset Type");
 }
 
-static int zebra_pbr_ipset_pername_walkcb(struct hash_backet *backet, void *arg)
+static int zebra_pbr_ipset_pername_walkcb(struct hash_bucket *bucket, void *arg)
 {
 	struct pbr_ipset_name_lookup *pinl =
 		(struct pbr_ipset_name_lookup *)arg;
-	struct zebra_pbr_ipset *zpi = (struct zebra_pbr_ipset *)backet->data;
+	struct zebra_pbr_ipset *zpi = (struct zebra_pbr_ipset *)bucket->data;
 
 	if (!strncmp(pinl->ipset_name, zpi->ipset_name,
 		     ZEBRA_IPSET_NAME_SIZE)) {
@@ -874,7 +874,7 @@ static void zebra_pbr_display_port(struct vty *vty, uint32_t filter_bm,
 	}
 }
 
-static int zebra_pbr_show_ipset_entry_walkcb(struct hash_backet *backet,
+static int zebra_pbr_show_ipset_entry_walkcb(struct hash_bucket *bucket,
 					     void *arg)
 {
 	struct zebra_pbr_ipset_entry_unique_display *unique =
@@ -882,7 +882,7 @@ static int zebra_pbr_show_ipset_entry_walkcb(struct hash_backet *backet,
 	struct zebra_pbr_ipset *zpi = unique->zpi;
 	struct vty *vty = unique->vty;
 	struct zebra_pbr_ipset_entry *zpie =
-		(struct zebra_pbr_ipset_entry *)backet->data;
+		(struct zebra_pbr_ipset_entry *)bucket->data;
 	uint64_t pkts = 0, bytes = 0;
 	int ret = 0;
 
@@ -949,11 +949,11 @@ static int zebra_pbr_show_ipset_entry_walkcb(struct hash_backet *backet,
 	return HASHWALK_CONTINUE;
 }
 
-static int zebra_pbr_show_ipset_walkcb(struct hash_backet *backet, void *arg)
+static int zebra_pbr_show_ipset_walkcb(struct hash_bucket *bucket, void *arg)
 {
 	struct zebra_pbr_env_display *uniqueipset =
 		(struct zebra_pbr_env_display *)arg;
-	struct zebra_pbr_ipset *zpi = (struct zebra_pbr_ipset *)backet->data;
+	struct zebra_pbr_ipset *zpi = (struct zebra_pbr_ipset *)bucket->data;
 	struct zebra_pbr_ipset_entry_unique_display unique;
 	struct vty *vty = uniqueipset->vty;
 	struct zebra_ns *zns = uniqueipset->zns;
@@ -1026,12 +1026,12 @@ struct pbr_rule_fwmark_lookup {
 	uint32_t fwmark;
 };
 
-static int zebra_pbr_rule_lookup_fwmark_walkcb(struct hash_backet *backet,
+static int zebra_pbr_rule_lookup_fwmark_walkcb(struct hash_bucket *bucket,
 					       void *arg)
 {
 	struct pbr_rule_fwmark_lookup *iprule =
 		(struct pbr_rule_fwmark_lookup *)arg;
-	struct zebra_pbr_rule *zpr = (struct zebra_pbr_rule *)backet->data;
+	struct zebra_pbr_rule *zpr = (struct zebra_pbr_rule *)bucket->data;
 
 	if (iprule->fwmark == zpr->rule.filter.fwmark) {
 		iprule->ptr = zpr;
@@ -1117,10 +1117,10 @@ static void zebra_pbr_show_iptable_unit(struct zebra_pbr_iptable *iptable,
 	}
 }
 
-static int zebra_pbr_show_iptable_walkcb(struct hash_backet *backet, void *arg)
+static int zebra_pbr_show_iptable_walkcb(struct hash_bucket *bucket, void *arg)
 {
 	struct zebra_pbr_iptable *iptable =
-		(struct zebra_pbr_iptable *)backet->data;
+		(struct zebra_pbr_iptable *)bucket->data;
 	struct zebra_pbr_env_display *env = (struct zebra_pbr_env_display *)arg;
 	struct vty *vty = env->vty;
 	struct zebra_ns *zns = env->zns;

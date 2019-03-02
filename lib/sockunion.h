@@ -28,6 +28,10 @@
 #include <netmpls/mpls.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 union sockunion {
 	struct sockaddr sa;
 	struct sockaddr_in sin;
@@ -98,5 +102,9 @@ extern union sockunion *sockunion_getpeername(int);
 extern union sockunion *sockunion_dup(const union sockunion *);
 extern void sockunion_free(union sockunion *);
 extern void sockunion_init(union sockunion *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_SOCKUNION_H */

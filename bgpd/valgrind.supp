@@ -6,8 +6,4 @@
    fun:dlopen@@GLIBC_2.2.5
    fun:ly_load_plugins_dir
    fun:ly_load_plugins
-   fun:ly_ctx_new
-   fun:yang_init
-   fun:frr_init
-   fun:main
 }

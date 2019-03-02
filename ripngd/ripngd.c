@@ -55,8 +55,9 @@ void ripng_output_process(struct interface *, struct sockaddr_in6 *, int);
 static void ripng_instance_enable(struct ripng *ripng, struct vrf *vrf,
 				  int sock);
 static void ripng_instance_disable(struct ripng *ripng);
-
 int ripng_triggered_update(struct thread *);
+static void ripng_if_rmap_update(struct if_rmap_ctx *ctx,
+				 struct if_rmap *if_rmap);
 
 /* Generate rb-tree of RIPng instances. */
 static inline int ripng_instance_compare(const struct ripng *a,
@@ -84,7 +85,7 @@ int ripng_route_rte(struct ripng_info *rinfo)
 }
 
 /* Allocate new ripng information. */
-struct ripng_info *ripng_info_new()
+struct ripng_info *ripng_info_new(void)
 {
 	struct ripng_info *new;
 
@@ -1895,6 +1896,10 @@ struct ripng *ripng_create(const char *vrf_name, struct vrf *vrf, int socket)
 	distribute_list_delete_hook(ripng->distribute_ctx,
 				    ripng_distribute_update);
 
+	/* if rmap install. */
+	ripng->if_rmap_ctx = if_rmap_ctx_create(vrf_name);
+	if_rmap_hook_add(ripng->if_rmap_ctx, ripng_if_rmap_update);
+	if_rmap_hook_delete(ripng->if_rmap_ctx, ripng_if_rmap_update);
 
 	/* Enable the routing instance if possible. */
 	if (vrf && vrf_is_enabled(vrf))
@@ -2425,8 +2430,7 @@ static int ripng_config_write(struct vty *vty)
 		nb_cli_show_dnode_cmds(vty, dnode, false);
 
 		config_write_distribute(vty, ripng->distribute_ctx);
-		if (strmatch(ripng->vrf_name, VRF_DEFAULT_NAME))
-			config_write_if_rmap(vty);
+		config_write_if_rmap(vty, ripng->if_rmap_ctx);
 
 		write = 1;
 	}
@@ -2538,6 +2542,7 @@ void ripng_clean(struct ripng *ripng)
 	agg_table_finish(ripng->table);
 	list_delete(&ripng->peer_list);
 	distribute_list_delete(&ripng->distribute_ctx);
+	if_rmap_ctx_delete(ripng->if_rmap_ctx);
 
 	stream_free(ripng->ibuf);
 	stream_free(ripng->obuf);
@@ -2555,13 +2560,18 @@ void ripng_clean(struct ripng *ripng)
 	XFREE(MTYPE_RIPNG, ripng);
 }
 
-static void ripng_if_rmap_update(struct if_rmap *if_rmap)
+static void ripng_if_rmap_update(struct if_rmap_ctx *ctx,
+				 struct if_rmap *if_rmap)
 {
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	struct ripng_interface *ri;
 	struct route_map *rmap;
+	struct vrf *vrf = NULL;
 
-	ifp = if_lookup_by_name(if_rmap->ifname, VRF_DEFAULT);
+	if (ctx->name)
+		vrf = vrf_lookup_by_name(ctx->name);
+	if (vrf)
+		ifp = if_lookup_by_name(if_rmap->ifname, vrf->vrf_id);
 	if (ifp == NULL)
 		return;
 
@@ -2588,20 +2598,31 @@ static void ripng_if_rmap_update(struct if_rmap *if_rmap)
 
 void ripng_if_rmap_update_interface(struct interface *ifp)
 {
+	struct ripng_interface *ri = ifp->info;
+	struct ripng *ripng = ri->ripng;
 	struct if_rmap *if_rmap;
+	struct if_rmap_ctx *ctx;
 
-	if_rmap = if_rmap_lookup(ifp->name);
+	if (!ripng)
+		return;
+	ctx = ripng->if_rmap_ctx;
+	if (!ctx)
+		return;
+	if_rmap = if_rmap_lookup(ctx, ifp->name);
 	if (if_rmap)
-		ripng_if_rmap_update(if_rmap);
+		ripng_if_rmap_update(ctx, if_rmap);
 }
 
 static void ripng_routemap_update_redistribute(struct ripng *ripng)
 {
 	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (ripng->redist[i].route_map.name)
+		if (ripng->redist[i].route_map.name) {
 			ripng->redist[i].route_map.map =
 				route_map_lookup_by_name(
 					ripng->redist[i].route_map.name);
+			route_map_counter_increment(
+				ripng->redist[i].route_map.map);
+		}
 	}
 }
 
@@ -2801,7 +2822,7 @@ void ripng_vrf_terminate(void)
 }
 
 /* Initialize ripng structure and set commands. */
-void ripng_init()
+void ripng_init(void)
 {
 	/* Install RIPNG_NODE. */
 	install_node(&cmd_ripng_node, ripng_config_write);
@@ -2845,6 +2866,4 @@ void ripng_init()
 	route_map_delete_hook(ripng_routemap_update);
 
 	if_rmap_init(RIPNG_NODE);
-	if_rmap_hook_add(ripng_if_rmap_update);
-	if_rmap_hook_delete(ripng_if_rmap_update);
 }

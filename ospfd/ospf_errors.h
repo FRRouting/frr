@@ -47,6 +47,7 @@ enum ospf_log_refs {
 	EC_OSPF_LSA_MISSING,
 	EC_OSPF_PTP_NEIGHBOR,
 	EC_OSPF_LSA_SIZE,
+	EC_OSPF_LARGE_HELLO,
 };
 
 extern void ospf_error_init(void);

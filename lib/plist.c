@@ -2111,7 +2111,7 @@ static void prefix_list_init_ipv6(void)
 	install_element(ENABLE_NODE, &clear_ipv6_prefix_list_cmd);
 }
 
-void prefix_list_init()
+void prefix_list_init(void)
 {
 	cmd_variable_handler_register(plist_var_handlers);
 
@@ -2119,7 +2119,7 @@ void prefix_list_init()
 	prefix_list_init_ipv6();
 }
 
-void prefix_list_reset()
+void prefix_list_reset(void)
 {
 	prefix_list_reset_afi(AFI_IP, 0);
 	prefix_list_reset_afi(AFI_IP6, 0);

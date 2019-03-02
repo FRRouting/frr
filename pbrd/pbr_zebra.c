@@ -69,6 +69,9 @@ static int interface_add(int command, struct zclient *zclient,
 	if (!ifp)
 		return 0;
 
+	DEBUGD(&pbr_dbg_zebra,
+	       "%s: %s", __PRETTY_FUNCTION__, ifp->name);
+
 	if (!ifp->info)
 		pbr_if_new(ifp);
 
@@ -89,6 +92,9 @@ static int interface_delete(int command, struct zclient *zclient,
 	if (ifp == NULL)
 		return 0;
 
+	DEBUGD(&pbr_dbg_zebra,
+	       "%s: %s", __PRETTY_FUNCTION__, ifp->name);
+
 	if_set_index(ifp, IFINDEX_INTERNAL);
 
 	return 0;
@@ -97,7 +103,14 @@ static int interface_delete(int command, struct zclient *zclient,
 static int interface_address_add(int command, struct zclient *zclient,
 				 zebra_size_t length, vrf_id_t vrf_id)
 {
-	zebra_interface_address_read(command, zclient->ibuf, vrf_id);
+	struct connected *c;
+	char buf[PREFIX_STRLEN];
+
+	c = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
+
+	DEBUGD(&pbr_dbg_zebra,
+	       "%s: %s added %s", __PRETTY_FUNCTION__, c->ifp->name,
+	       prefix2str(c->address, buf, sizeof(buf)));
 
 	return 0;
 }
@@ -106,11 +119,16 @@ static int interface_address_delete(int command, struct zclient *zclient,
 				    zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct connected *c;
+	char buf[PREFIX_STRLEN];
 
 	c = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
 
 	if (!c)
 		return 0;
+
+	DEBUGD(&pbr_dbg_zebra,
+	       "%s: %s deleted %s", __PRETTY_FUNCTION__, c->ifp->name,
+	       prefix2str(c->address, buf, sizeof(buf)));
 
 	connected_free(c);
 	return 0;
@@ -119,8 +137,12 @@ static int interface_address_delete(int command, struct zclient *zclient,
 static int interface_state_up(int command, struct zclient *zclient,
 			      zebra_size_t length, vrf_id_t vrf_id)
 {
+	struct interface *ifp;
 
-	zebra_interface_state_read(zclient->ibuf, vrf_id);
+	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
+
+	DEBUGD(&pbr_dbg_zebra,
+	       "%s: %s is up", __PRETTY_FUNCTION__, ifp->name);
 
 	return 0;
 }
@@ -128,8 +150,12 @@ static int interface_state_up(int command, struct zclient *zclient,
 static int interface_state_down(int command, struct zclient *zclient,
 				zebra_size_t length, vrf_id_t vrf_id)
 {
+	struct interface *ifp;
 
-	zebra_interface_state_read(zclient->ibuf, vrf_id);
+	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
+
+	DEBUGD(&pbr_dbg_zebra,
+	       "%s: %s is down", __PRETTY_FUNCTION__, ifp->name);
 
 	return 0;
 }
@@ -142,10 +168,10 @@ static int route_notify_owner(int command, struct zclient *zclient,
 	uint32_t table_id;
 	char buf[PREFIX_STRLEN];
 
-	prefix2str(&p, buf, sizeof(buf));
-
 	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note))
 		return -1;
+
+	prefix2str(&p, buf, sizeof(buf));
 
 	switch (note) {
 	case ZAPI_ROUTE_FAIL_INSTALL:
@@ -207,28 +233,32 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 
 	switch (note) {
 	case ZAPI_RULE_FAIL_INSTALL:
-		DEBUGD(&pbr_dbg_zebra, "%s: Received RULE_FAIL_INSTALL",
-		       __PRETTY_FUNCTION__);
 		pbrms->installed &= ~installed;
+		DEBUGD(&pbr_dbg_zebra, "%s: Received RULE_FAIL_INSTALL: %lu",
+		       __PRETTY_FUNCTION__, pbrms->installed);
 		break;
 	case ZAPI_RULE_INSTALLED:
 		pbrms->installed |= installed;
-		DEBUGD(&pbr_dbg_zebra, "%s: Received RULE_INSTALLED",
-		       __PRETTY_FUNCTION__);
+		DEBUGD(&pbr_dbg_zebra, "%s: Received RULE_INSTALLED: %lu",
+		       __PRETTY_FUNCTION__, pbrms->installed);
 		break;
 	case ZAPI_RULE_FAIL_REMOVE:
 	case ZAPI_RULE_REMOVED:
 		pbrms->installed &= ~installed;
-		DEBUGD(&pbr_dbg_zebra, "%s: Received RULE REMOVED",
-		       __PRETTY_FUNCTION__);
+		DEBUGD(&pbr_dbg_zebra, "%s: Received RULE REMOVED: %lu",
+		       __PRETTY_FUNCTION__, pbrms->installed);
 		break;
 	}
+
+	pbr_map_final_interface_deletion(pbrms->parent, pmi);
 
 	return 0;
 }
 
 static void zebra_connected(struct zclient *zclient)
 {
+	DEBUGD(&pbr_dbg_zebra, "%s: Registering for fun and profit",
+	       __PRETTY_FUNCTION__);
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
@@ -236,10 +266,14 @@ static void route_add_helper(struct zapi_route *api, struct nexthop_group nhg,
 			     uint8_t install_afi)
 {
 	struct zapi_nexthop *api_nh;
+	char buf[PREFIX_STRLEN];
 	struct nexthop *nhop;
 	int i;
 
 	api->prefix.family = install_afi;
+
+	DEBUGD(&pbr_dbg_zebra, "\tEncoding %s",
+	       prefix2str(&api->prefix, buf, sizeof(buf)));
 
 	i = 0;
 	for (ALL_NEXTHOPS(nhg, nhop)) {
@@ -284,6 +318,9 @@ void route_add(struct pbr_nexthop_group_cache *pnhgc, struct nexthop_group nhg,
 {
 	struct zapi_route api;
 
+	DEBUGD(&pbr_dbg_zebra, "%s for Table: %d", __PRETTY_FUNCTION__,
+	       pnhgc->table_id);
+
 	memset(&api, 0, sizeof(api));
 
 	api.vrf_id = VRF_DEFAULT;
@@ -322,6 +359,9 @@ void route_add(struct pbr_nexthop_group_cache *pnhgc, struct nexthop_group nhg,
 void route_delete(struct pbr_nexthop_group_cache *pnhgc, afi_t afi)
 {
 	struct zapi_route api;
+
+	DEBUGD(&pbr_dbg_zebra, "%s for Table: %d", __PRETTY_FUNCTION__,
+	       pnhgc->table_id);
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;

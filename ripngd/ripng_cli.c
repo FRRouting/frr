@@ -78,7 +78,7 @@ DEFPY (no_router_ripng,
 	snprintf(xpath, sizeof(xpath), "/frr-ripngd:ripngd/instance[vrf='%s']",
 		 vrf);
 
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DELETE, NULL);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -192,7 +192,7 @@ DEFPY (ripng_network_prefix,
        "IPv6 network\n")
 {
 	nb_cli_enqueue_change(vty, "./network",
-			      no ? NB_OP_DELETE : NB_OP_CREATE, network_str);
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, network_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -214,7 +214,7 @@ DEFPY (ripng_network_if,
        "Interface name\n")
 {
 	nb_cli_enqueue_change(vty, "./interface",
-			      no ? NB_OP_DELETE : NB_OP_CREATE, network);
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, network);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -245,7 +245,7 @@ DEFPY (ripng_offset_list,
 		nb_cli_enqueue_change(vty, "./metric", NB_OP_MODIFY,
 				      metric_str);
 	} else
-		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(
 		vty, "./offset-list[interface='%s'][direction='%s']",
@@ -279,7 +279,7 @@ DEFPY (ripng_passive_interface,
        "Interface name\n")
 {
 	nb_cli_enqueue_change(vty, "./passive-interface",
-			      no ? NB_OP_DELETE : NB_OP_CREATE, ifname);
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, ifname);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -308,13 +308,13 @@ DEFPY (ripng_redistribute,
 	if (!no) {
 		nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
 		nb_cli_enqueue_change(vty, "./route-map",
-				      route_map ? NB_OP_MODIFY : NB_OP_DELETE,
+				      route_map ? NB_OP_MODIFY : NB_OP_DESTROY,
 				      route_map);
 		nb_cli_enqueue_change(vty, "./metric",
-				      metric_str ? NB_OP_MODIFY : NB_OP_DELETE,
+				      metric_str ? NB_OP_MODIFY : NB_OP_DESTROY,
 				      metric_str);
 	} else
-		nb_cli_enqueue_change(vty, ".", NB_OP_DELETE, NULL);
+		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, "./redistribute[protocol='%s']",
 				    protocol);
@@ -345,7 +345,7 @@ DEFPY (ripng_route,
        "Set static RIPng route announcement\n")
 {
 	nb_cli_enqueue_change(vty, "./static-route",
-			      no ? NB_OP_DELETE : NB_OP_CREATE, route_str);
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, route_str);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -367,7 +367,7 @@ DEFPY (ripng_aggregate_address,
        "Aggregate network\n")
 {
 	nb_cli_enqueue_change(vty, "./aggregate-address",
-			      no ? NB_OP_DELETE : NB_OP_CREATE,
+			      no ? NB_OP_DESTROY : NB_OP_CREATE,
 			      aggregate_address_str);
 
 	return nb_cli_apply_changes(vty, NULL);

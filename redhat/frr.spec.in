@@ -162,7 +162,7 @@ BuildRequires:  make
 BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
 BuildRequires:  texinfo
-BuildRequires:  libyang >= 0.16.7
+BuildRequires:  libyang-devel >= 0.16.74
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
 BuildRequires:  python27-devel
@@ -171,6 +171,7 @@ BuildRequires:  python27-sphinx
 BuildRequires:  python-devel >= 2.7
 BuildRequires:  python-sphinx
 %endif
+Requires:       initscripts
 %if %{with_pam}
 BuildRequires:  pam-devel
 %endif
@@ -188,7 +189,6 @@ Requires(post):     chkconfig
 Requires(preun):    chkconfig
 # Initscripts > 5.60 is required for IPv6 support
 Requires(pre):      initscripts >= 5.60
-Requires:           initscripts
 %endif
 Provides:           routingdaemon = %{version}-%{release}
 Obsoletes:          gated mrt zebra frr-sysvinit
@@ -624,7 +624,6 @@ fi
     %{_libdir}/frr/modules/bgpd_rpki.so
 %endif
 %{_libdir}/frr/modules/zebra_irdp.so
-%{_libdir}/frr/libyang_plugins/frr_user_types.so
 %{_bindir}/*
 %config(noreplace) %{configdir}/[!v]*.conf*
 %config(noreplace) %attr(750,%{frr_user},%{frr_user}) %{configdir}/daemons

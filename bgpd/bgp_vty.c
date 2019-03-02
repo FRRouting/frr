@@ -22,6 +22,7 @@
 
 #include "command.h"
 #include "lib/json.h"
+#include "lib/zclient.h"
 #include "prefix.h"
 #include "plist.h"
 #include "buffer.h"
@@ -897,7 +898,7 @@ DEFUN_HIDDEN (no_bgp_local_mac,
 		return CMD_WARNING;
 	}
 
-	rv = bgp_evpn_local_macip_del(bgp, vni, &mac, &ip);
+	rv = bgp_evpn_local_macip_del(bgp, vni, &mac, &ip, ZEBRA_NEIGH_ACTIVE);
 	if (rv < 0) {
 		vty_out(vty, "Internal error\n");
 		return CMD_WARNING;
@@ -1859,6 +1860,29 @@ DEFUN (no_bgp_always_compare_med,
 	return CMD_SUCCESS;
 }
 
+
+DEFUN(bgp_ebgp_requires_policy, bgp_ebgp_requires_policy_cmd,
+      "bgp ebgp-requires-policy",
+      "BGP specific commands\n"
+      "Require in and out policy for eBGP peers (RFC8212)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	bgp->ebgp_requires_policy = DEFAULT_EBGP_POLICY_ENABLED;
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_bgp_ebgp_requires_policy, no_bgp_ebgp_requires_policy_cmd,
+      "no bgp ebgp-requires-policy",
+      NO_STR
+      "BGP specific commands\n"
+      "Require in and out policy for eBGP peers (RFC8212)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	bgp->ebgp_requires_policy = DEFAULT_EBGP_POLICY_DISABLED;
+	return CMD_SUCCESS;
+}
+
+
 /* "bgp deterministic-med" configuration. */
 DEFUN (bgp_deterministic_med,
        bgp_deterministic_med_cmd,
@@ -1944,7 +1968,7 @@ DEFUN (no_bgp_graceful_restart,
 
 DEFUN (bgp_graceful_restart_stalepath_time,
        bgp_graceful_restart_stalepath_time_cmd,
-       "bgp graceful-restart stalepath-time (1-3600)",
+       "bgp graceful-restart stalepath-time (1-4095)",
        "BGP specific commands\n"
        "Graceful restart capability parameters\n"
        "Set the max time to hold onto restarting peer's stale paths\n"
@@ -1961,7 +1985,7 @@ DEFUN (bgp_graceful_restart_stalepath_time,
 
 DEFUN (bgp_graceful_restart_restart_time,
        bgp_graceful_restart_restart_time_cmd,
-       "bgp graceful-restart restart-time (1-3600)",
+       "bgp graceful-restart restart-time (1-4095)",
        "BGP specific commands\n"
        "Graceful restart capability parameters\n"
        "Set the time to wait to delete stale routes before a BGP open message is received\n"
@@ -1978,7 +2002,7 @@ DEFUN (bgp_graceful_restart_restart_time,
 
 DEFUN (no_bgp_graceful_restart_stalepath_time,
        no_bgp_graceful_restart_stalepath_time_cmd,
-       "no bgp graceful-restart stalepath-time [(1-3600)]",
+       "no bgp graceful-restart stalepath-time [(1-4095)]",
        NO_STR
        "BGP specific commands\n"
        "Graceful restart capability parameters\n"
@@ -1993,7 +2017,7 @@ DEFUN (no_bgp_graceful_restart_stalepath_time,
 
 DEFUN (no_bgp_graceful_restart_restart_time,
        no_bgp_graceful_restart_restart_time_cmd,
-       "no bgp graceful-restart restart-time [(1-3600)]",
+       "no bgp graceful-restart restart-time [(1-4095)]",
        NO_STR
        "BGP specific commands\n"
        "Graceful restart capability parameters\n"
@@ -2846,13 +2870,11 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 	switch (ret) {
 	case BGP_ERR_PEER_GROUP_MEMBER:
 		vty_out(vty,
-			"%% Peer-group AS %u. Cannot configure remote-as for member\n",
-			as);
+			"%% Peer-group member cannot override remote-as of peer-group\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	case BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT:
 		vty_out(vty,
-			"%% The AS# can not be changed from %u to %s, peer-group members must be all internal or all external\n",
-			as, as_str);
+			"%% Peer-group members must be all internal or all external\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	return bgp_vty_return(vty, ret);
@@ -2973,7 +2995,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 	if (!CHECK_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE)) {
 		SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE);
 		SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE);
-		UNSET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE);
+		SET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE);
 	}
 
 	if (peer_group_name) {
@@ -7141,7 +7163,7 @@ DEFUN_NOSH (address_family_vpnv6,
 	vty->node = BGP_VPNV6_NODE;
 	return CMD_SUCCESS;
 }
-#endif
+#endif /* KEEP_OLD_VPN_COMMANDS */
 
 DEFUN_NOSH (address_family_evpn,
        address_family_evpn_cmd,
@@ -7591,10 +7613,10 @@ DEFUN (show_bgp_mac_hash,
 	return CMD_SUCCESS;
 }
 
-static void show_tip_entry(struct hash_backet *backet, void *args)
+static void show_tip_entry(struct hash_bucket *bucket, void *args)
 {
 	struct vty *vty = (struct vty *)args;
-	struct tip_addr *tip = (struct tip_addr *)backet->data;
+	struct tip_addr *tip = (struct tip_addr *)bucket->data;
 
 	vty_out(vty, "addr: %s, count: %d\n", inet_ntoa(tip->addr),
 		tip->refcnt);
@@ -7607,7 +7629,7 @@ static void bgp_show_martian_nexthops(struct vty *vty, struct bgp *bgp)
 
 	vty_out(vty, "Tunnel-ip database:\n");
 	hash_iterate(bgp->tip_hash,
-		     (void (*)(struct hash_backet *, void *))show_tip_entry,
+		     (void (*)(struct hash_bucket *, void *))show_tip_entry,
 		     vty);
 }
 
@@ -7762,7 +7784,7 @@ DEFUN (show_bgp_memory,
 	if ((count = mtype_stats_alloc(MTYPE_HASH_BACKET)))
 		vty_out(vty, "%ld hash buckets, using %s of memory\n", count,
 			mtype_memstr(memstrbuf, sizeof(memstrbuf),
-				     count * sizeof(struct hash_backet)));
+				     count * sizeof(struct hash_bucket)));
 	if ((count = mtype_stats_alloc(MTYPE_BGP_REGEXP)))
 		vty_out(vty, "%ld compiled regexes, using %s of memory\n",
 			count, mtype_memstr(memstrbuf, sizeof(memstrbuf),
@@ -8830,6 +8852,20 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				json_addr, "routeMapForOutgoingAdvertisements",
 				filter->map[RMAP_OUT].name);
 
+		/* ebgp-requires-policy (inbound) */
+		if (p->bgp->ebgp_requires_policy == DEFAULT_EBGP_POLICY_ENABLED
+		    && !bgp_inbound_policy_exists(p, filter))
+			json_object_string_add(
+				json_addr, "inboundEbgpRequiresPolicy",
+				"Inbound updates discarded due to missing policy");
+
+		/* ebgp-requires-policy (outbound) */
+		if (p->bgp->ebgp_requires_policy == DEFAULT_EBGP_POLICY_ENABLED
+		    && (!bgp_outbound_policy_exists(p, filter)))
+			json_object_string_add(
+				json_addr, "outboundEbgpRequiresPolicy",
+				"Outbound updates discarded due to missing policy");
+
 		/* unsuppress-map */
 		if (filter->usmap.name)
 			json_object_string_add(json_addr,
@@ -9106,6 +9142,18 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				filter->map[RMAP_OUT].map ? "*" : "",
 				filter->map[RMAP_OUT].name);
 
+		/* ebgp-requires-policy (inbound) */
+		if (p->bgp->ebgp_requires_policy == DEFAULT_EBGP_POLICY_ENABLED
+		    && !bgp_inbound_policy_exists(p, filter))
+			vty_out(vty,
+				"  Inbound updates discarded due to missing policy\n");
+
+		/* ebgp-requires-policy (outbound) */
+		if (p->bgp->ebgp_requires_policy == DEFAULT_EBGP_POLICY_ENABLED
+		    && !bgp_outbound_policy_exists(p, filter))
+			vty_out(vty,
+				"  Outbound updates discarded due to missing policy\n");
+
 		/* unsuppress-map */
 		if (filter->usmap.name)
 			vty_out(vty,
@@ -9212,8 +9260,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				? " replace-as"
 				: "");
 	}
-	/* peer type internal, external, confed-internal or confed-external */
-	if (p->as == p->local_as) {
+	/* peer type internal or confed-internal */
+	if ((p->as == p->local_as) || (p->as_type == AS_INTERNAL)) {
 		if (use_json) {
 			if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
 				json_object_boolean_true_add(
@@ -9227,7 +9275,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			else
 				vty_out(vty, "internal link\n");
 		}
-	} else {
+	/* peer type external or confed-external */
+	} else if (p->as || (p->as_type == AS_EXTERNAL)) {
 		if (use_json) {
 			if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
 				json_object_boolean_true_add(
@@ -9241,6 +9290,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			else
 				vty_out(vty, "external link\n");
 		}
+	} else {
+		if (use_json)
+			json_object_boolean_true_add(json_neigh,
+						     "nbrUnspecifiedLink");
+		else
+			vty_out(vty, "unspecified link\n");
 	}
 
 	/* Description. */
@@ -11006,6 +11061,7 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 			bgp_show_neighbor(vty, bgp, show_all, NULL, NULL,
 					  use_json, json);
 		}
+		json_object_free(json);
 	}
 
 	if (use_json) {
@@ -11140,12 +11196,12 @@ DEFUN (show_ip_bgp_paths,
 
 #include "hash.h"
 
-static void community_show_all_iterator(struct hash_backet *backet,
+static void community_show_all_iterator(struct hash_bucket *bucket,
 					struct vty *vty)
 {
 	struct community *com;
 
-	com = (struct community *)backet->data;
+	com = (struct community *)bucket->data;
 	vty_out(vty, "[%p] (%ld) %s\n", (void *)com, com->refcnt,
 		community_str(com, false));
 }
@@ -11162,19 +11218,19 @@ DEFUN (show_ip_bgp_community_info,
 	vty_out(vty, "Address Refcnt Community\n");
 
 	hash_iterate(community_hash(),
-		     (void (*)(struct hash_backet *,
+		     (void (*)(struct hash_bucket *,
 			       void *))community_show_all_iterator,
 		     vty);
 
 	return CMD_SUCCESS;
 }
 
-static void lcommunity_show_all_iterator(struct hash_backet *backet,
+static void lcommunity_show_all_iterator(struct hash_bucket *bucket,
 					 struct vty *vty)
 {
 	struct lcommunity *lcom;
 
-	lcom = (struct lcommunity *)backet->data;
+	lcom = (struct lcommunity *)bucket->data;
 	vty_out(vty, "[%p] (%ld) %s\n", (void *)lcom, lcom->refcnt,
 		lcommunity_str(lcom, false));
 }
@@ -11191,7 +11247,7 @@ DEFUN (show_ip_bgp_lcommunity_info,
 	vty_out(vty, "Address Refcnt Large-community\n");
 
 	hash_iterate(lcommunity_hash(),
-		     (void (*)(struct hash_backet *,
+		     (void (*)(struct hash_bucket *,
 			       void *))lcommunity_show_all_iterator,
 		     vty);
 
@@ -11643,11 +11699,11 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 	conf = group->conf;
 
 	if (conf->as_type == AS_SPECIFIED || conf->as_type == AS_EXTERNAL) {
-		vty_out(vty, "\nBGP peer-group %s, remote AS %d\n", group->name,
-			conf->as);
+		vty_out(vty, "\nBGP peer-group %s, remote AS %" PRIu32 "\n",
+			group->name, conf->as);
 	} else if (conf->as_type == AS_INTERNAL) {
-		vty_out(vty, "\nBGP peer-group %s, remote AS %d\n", group->name,
-			group->bgp->as);
+		vty_out(vty, "\nBGP peer-group %s, remote AS %" PRIu32 "\n",
+			group->name, group->bgp->as);
 	} else {
 		vty_out(vty, "\nBGP peer-group %s\n", group->name);
 	}
@@ -12815,6 +12871,10 @@ void bgp_vty_init(void)
 	/* "bgp always-compare-med" commands */
 	install_element(BGP_NODE, &bgp_always_compare_med_cmd);
 	install_element(BGP_NODE, &no_bgp_always_compare_med_cmd);
+
+	/* bgp ebgp-requires-policy */
+	install_element(BGP_NODE, &bgp_ebgp_requires_policy_cmd);
+	install_element(BGP_NODE, &no_bgp_ebgp_requires_policy_cmd);
 
 	/* "bgp deterministic-med" commands */
 	install_element(BGP_NODE, &bgp_deterministic_med_cmd);

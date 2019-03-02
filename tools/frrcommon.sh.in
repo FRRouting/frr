@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # This is a "library" of sorts for use by the other FRR shell scripts.  It
 # has most of the daemon start/stop logic, but expects the following shell
@@ -67,9 +67,9 @@ vtysh_b () {
 daemon_inst() {
 	# note this sets global variables ($dmninst, $daemon, $inst)
 	dmninst="$1"
-	daemon="${dmninst%:*}"
+	daemon="${dmninst%-*}"
 	inst=""
-	[ "$daemon" != "$dmninst" ] && inst="${dmninst#*:}"
+	[ "$daemon" != "$dmninst" ] && inst="${dmninst#*-}"
 }
 
 daemon_list() {
@@ -85,13 +85,19 @@ daemon_list() {
 		eval inst=\$${daemon}_instances
 		[ "$daemon" = zebra -o "$daemon" = staticd ] && cfg=yes
 		if [ -n "$cfg" -a "$cfg" != "no" -a "$cfg" != "0" ]; then
+			if ! daemon_prep "$daemon" "$inst"; then
+				continue
+			fi
 			debug "$daemon enabled"
 			enabled="$enabled $daemon"
 			if [ -n "$inst" ]; then
 				debug "$daemon multi-instance $inst"
+				oldifs="${IFS}"
+				IFS="${IFS},"
 				for i in $inst; do
-					enabled="$enabled $daemon:$inst"
+					enabled="$enabled $daemon-$i"
 				done
+				IFS="${oldifs}"
 			fi
 		else
 			debug "$daemon disabled"
@@ -116,7 +122,7 @@ daemon_prep() {
 	inst="$2"
 	[ "$daemon" = "watchfrr" ] && return 0
 	[ -x "$D_PATH/$daemon" ] || {
-		log_failure_msg "cannot start $daemon${inst:+ (instance $inst)}: daemon binary not installed\n"
+		log_failure_msg "cannot start $daemon${inst:+ (instance $inst)}: daemon binary not installed"
 		return 1
 	}
 	[ -r "$C_PATH/frr.conf" ] && return 0
@@ -276,7 +282,7 @@ load_old_config() {
 }
 
 [ -r "$C_PATH/daemons" ] || {
-	log_failure_msg "cannot run $@: $C_PATH/daemons does not exist\n"
+	log_failure_msg "cannot run $@: $C_PATH/daemons does not exist"
 	exit 1
 }
 . "$C_PATH/daemons"
@@ -284,6 +290,13 @@ load_old_config() {
 load_old_config "$C_PATH/daemons.conf"
 load_old_config "/etc/default/frr"
 load_old_config "/etc/sysconfig/frr"
+
+if declare -p watchfrr_options | grep -q '^declare \-a'; then
+	log_warning_msg "watchfrr_options contains a bash array value." \
+		"The configured value is intentionally ignored since it is likely wrong." \
+		"Please remove or fix the setting."
+	unset watchfrr_options
+fi
 
 #
 # other defaults and dispatch

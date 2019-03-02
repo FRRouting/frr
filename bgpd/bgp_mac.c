@@ -106,10 +106,10 @@ struct bgp_mac_find_internal {
 	const char *ifname;
 };
 
-static void bgp_mac_find_ifp_internal(struct hash_backet *backet, void *arg)
+static void bgp_mac_find_ifp_internal(struct hash_bucket *bucket, void *arg)
 {
 	struct bgp_mac_find_internal *bmfi = arg;
-	struct bgp_self_mac *bsm = backet->data;
+	struct bgp_self_mac *bsm = bucket->data;
 	struct listnode *node;
 	char *name;
 
@@ -331,10 +331,10 @@ bool bgp_mac_entry_exists(struct prefix *p)
 	return true;
 }
 
-static void bgp_mac_show_mac_entry(struct hash_backet *backet, void *arg)
+static void bgp_mac_show_mac_entry(struct hash_bucket *bucket, void *arg)
 {
 	struct vty *vty = arg;
-	struct bgp_self_mac *bsm = backet->data;
+	struct bgp_self_mac *bsm = bucket->data;
 	struct listnode *node;
 	char *name;
 	char buf_mac[ETHER_ADDR_STRLEN];

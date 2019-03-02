@@ -19,7 +19,6 @@ dev_RSTFILES = \
 	doc/developer/building-frr-for-netbsd7.rst \
 	doc/developer/building-frr-for-omnios.rst \
 	doc/developer/building-frr-for-openbsd6.rst \
-	doc/developer/building-frr-for-ubuntu1204.rst \
 	doc/developer/building-frr-for-ubuntu1404.rst \
 	doc/developer/building-frr-for-ubuntu1604.rst \
 	doc/developer/building-frr-for-ubuntu1804.rst \
@@ -38,6 +37,11 @@ dev_RSTFILES = \
 	doc/developer/ospf-api.rst \
 	doc/developer/ospf-sr.rst \
 	doc/developer/ospf.rst \
+	doc/developer/packaging.rst \
+	doc/developer/packaging-debian.rst \
+	doc/developer/testing.rst \
+	doc/developer/topotests-snippets.rst \
+	doc/developer/topotests.rst \
 	doc/developer/workflow.rst \
 	doc/developer/zebra.rst \
 	# end

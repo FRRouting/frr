@@ -23,6 +23,10 @@
 #ifndef _ZEBRA_PRIVS_H
 #define _ZEBRA_PRIVS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* list of zebra capabilities */
 typedef enum {
 	ZCAP_SETID,
@@ -119,5 +123,9 @@ extern void _zprivs_lower(struct zebra_privs_t **privs);
 					  (unused, cleanup(_zprivs_lower))) =  \
 					  _zprivs_raise(privs, __func__);      \
 	     _once == NULL; _once = (void *)1)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_PRIVS_H */

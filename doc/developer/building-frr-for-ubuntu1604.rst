@@ -13,11 +13,11 @@ Add packages:
 
 ::
 
-    apt-get install \
-       git autoconf automake libtool make gawk libreadline-dev texinfo dejagnu \
-       pkg-config libpam0g-dev libjson-c-dev bison flex python-pytest \
-       libc-ares-dev python3-dev libsystemd-dev python-ipaddress \
-       python3-sphinx install-info
+   apt-get install \
+      git autoconf automake libtool make gawk libreadline-dev texinfo dejagnu \
+      pkg-config libpam0g-dev libjson-c-dev bison flex python-pytest \
+      libc-ares-dev python3-dev libsystemd-dev python-ipaddress \
+      python3-sphinx install-info build-essential libsystemd-dev
 
 .. include:: building-libyang.rst
 

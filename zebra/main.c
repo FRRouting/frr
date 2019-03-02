@@ -62,12 +62,6 @@
 
 #define ZEBRA_PTM_SUPPORT
 
-/* Zebra instance */
-struct zebra_t zebrad = {
-	.rtm_table_default = 0,
-	.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS,
-};
-
 /* process id. */
 pid_t pid;
 
@@ -156,10 +150,10 @@ static void sigint(void)
 
 	zebra_dplane_pre_finish();
 
-	for (ALL_LIST_ELEMENTS(zebrad.client_list, ln, nn, client))
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, ln, nn, client))
 		zserv_close_client(client);
 
-	list_delete_all_node(zebrad.client_list);
+	list_delete_all_node(zrouter.client_list);
 	zebra_ptm_finish();
 
 	if (retain_mode)
@@ -168,8 +162,8 @@ static void sigint(void)
 			if (zvrf)
 				SET_FLAG(zvrf->flags, ZEBRA_VRF_RETAIN);
 		}
-	if (zebrad.lsp_process_q)
-		work_queue_free_and_null(&zebrad.lsp_process_q);
+	if (zrouter.lsp_process_q)
+		work_queue_free_and_null(&zrouter.lsp_process_q);
 	vrf_terminate();
 
 	ns_walk_func(zebra_ns_early_shutdown);
@@ -179,7 +173,7 @@ static void sigint(void)
 	prefix_list_reset();
 	route_map_finish();
 
-	list_delete(&zebrad.client_list);
+	list_delete(&zrouter.client_list);
 
 	/* Indicate that all new dplane work has been enqueued. When that
 	 * work is complete, the dataplane will enqueue an event
@@ -201,9 +195,6 @@ int zebra_finalize(struct thread *dummy)
 
 	/* Stop dplane thread and finish any cleanup */
 	zebra_dplane_shutdown();
-
-	work_queue_free_and_null(&zebrad.ribq);
-	meta_queue_free(zebrad.mq);
 
 	zebra_router_terminate();
 
@@ -391,7 +382,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	zebrad.master = frr_init();
+	zrouter.master = frr_init();
 
 	/* Initialize pthread library */
 	frr_pthread_init();
@@ -479,7 +470,7 @@ int main(int argc, char **argv)
 #endif /* HANDLE_NETLINK_FUZZING */
 
 
-	frr_run(zebrad.master);
+	frr_run(zrouter.master);
 
 	/* Not reached... */
 	return 0;

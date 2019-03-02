@@ -25,6 +25,10 @@
 
 #include "vrf.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * These functions should only be called by:
  * zebra/if_netlink.c -> The interface from OS into Zebra
@@ -51,5 +55,9 @@ extern int vrf_enable(struct vrf *);
  * from interested parties
  */
 extern void vrf_delete(struct vrf *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

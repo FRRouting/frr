@@ -1134,7 +1134,7 @@ DEFPY (no_rpki_cache,
 {
 	struct cache *cache_p = find_cache(preference);
 
-	if (!cache) {
+	if (!cache_p) {
 		vty_out(vty, "Could not find cache %ld\n", preference);
 		return CMD_WARNING;
 	}
@@ -1190,9 +1190,23 @@ DEFUN (show_rpki_cache_server,
 	struct cache *cache;
 
 	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
-		vty_out(vty, "host: %s port: %s\n",
-			cache->tr_config.tcp_config->host,
-			cache->tr_config.tcp_config->port);
+		if (cache->type == TCP) {
+			vty_out(vty, "host: %s port: %s\n",
+				cache->tr_config.tcp_config->host,
+				cache->tr_config.tcp_config->port);
+
+		} else if (cache->type == SSH) {
+			vty_out(vty,
+				"host: %s port: %d username: %s "
+				"server_hostkey_path: %s client_privkey_path: %s\n",
+				cache->tr_config.ssh_config->host,
+				cache->tr_config.ssh_config->port,
+				cache->tr_config.ssh_config->username,
+				cache->tr_config.ssh_config
+					->server_hostkey_path,
+				cache->tr_config.ssh_config
+					->client_privkey_path);
+		}
 	}
 
 	return CMD_SUCCESS;

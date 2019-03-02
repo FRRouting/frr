@@ -27,6 +27,10 @@
 #include "yang.h"
 #include "yang_translator.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Forward declaration(s). */
 struct vty;
 
@@ -65,7 +69,7 @@ enum nb_event {
 enum nb_operation {
 	NB_OP_CREATE,
 	NB_OP_MODIFY,
-	NB_OP_DELETE,
+	NB_OP_DESTROY,
 	NB_OP_MOVE,
 	NB_OP_APPLY_FINISH,
 	NB_OP_GET_ELEM,
@@ -168,7 +172,7 @@ struct nb_callbacks {
 	 *    - NB_ERR_INCONSISTENCY when an inconsistency was detected.
 	 *    - NB_ERR for other errors.
 	 */
-	int (*delete)(enum nb_event event, const struct lyd_node *dnode);
+	int (*destroy)(enum nb_event event, const struct lyd_node *dnode);
 
 	/*
 	 * Configuration callback.
@@ -838,5 +842,9 @@ extern void nb_init(struct thread_master *tm, const struct frr_yang_module_info 
  * is exiting.
  */
 extern void nb_terminate(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_NORTHBOUND_H_ */

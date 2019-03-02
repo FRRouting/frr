@@ -9,7 +9,7 @@ class TestFlag(frrtest.TestMultiOut):
 TestFlag.okfail('peer\\advertisement-interval')
 TestFlag.okfail('peer\\capability dynamic')
 TestFlag.okfail('peer\\capability extended-nexthop')
-TestFlag.okfail('peer\\capability extended-nexthop')
+#TestFlag.okfail('peer\\capability extended-nexthop')
 TestFlag.okfail('peer\\description')
 TestFlag.okfail('peer\\disable-connected-check')
 TestFlag.okfail('peer\\dont-capability-negotiate')

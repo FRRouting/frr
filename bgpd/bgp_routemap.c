@@ -65,6 +65,10 @@
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
 
+#ifndef VTYSH_EXTRACT_PL
+#include "bgpd/bgp_routemap_clippy.c"
+#endif
+
 /* Memo of route-map commands.
 
 o Cisco route-map
@@ -904,6 +908,53 @@ static void route_match_evpn_route_type_free(void *rule)
 struct route_map_rule_cmd route_match_evpn_route_type_cmd = {
 	"evpn route-type", route_match_evpn_route_type,
 	route_match_evpn_route_type_compile, route_match_evpn_route_type_free};
+
+/* Route map commands for VRF route leak with source vrf matching */
+static route_map_result_t
+route_match_vrl_source_vrf(void *rule, const struct prefix *prefix,
+			   route_map_object_t type, void *object)
+{
+	struct bgp_path_info *path;
+	char *vrf_name;
+
+	if (type == RMAP_BGP) {
+		vrf_name = rule;
+		path = (struct bgp_path_info *)object;
+
+		if (strncmp(vrf_name, "n/a", VRF_NAMSIZ) == 0)
+			return RMAP_NOMATCH;
+
+		if (path->extra == NULL)
+			return RMAP_NOMATCH;
+
+		if (strncmp(vrf_name, vrf_id_to_name(
+				path->extra->bgp_orig->vrf_id), VRF_NAMSIZ)
+		    == 0)
+			return RMAP_MATCH;
+	}
+
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_vrl_source_vrf_compile(const char *arg)
+{
+	uint8_t *vrf_name = NULL;
+
+	vrf_name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+
+	return vrf_name;
+}
+
+/* Free route map's compiled `route-type' value. */
+static void route_match_vrl_source_vrf_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+struct route_map_rule_cmd route_match_vrl_source_vrf_cmd = {
+	"source-vrf", route_match_vrl_source_vrf,
+	route_match_vrl_source_vrf_compile,
+	route_match_vrl_source_vrf_free};
 
 /* `match local-preference LOCAL-PREF' */
 
@@ -3250,6 +3301,15 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 		if (bgp->table_map[afi][safi].name
 		    && (strcmp(rmap_name, bgp->table_map[afi][safi].name)
 			== 0)) {
+
+			/* bgp->table_map[afi][safi].map  is NULL.
+			 * i.e Route map creation event.
+			 * So update applied_counter.
+			 * If it is not NULL, i.e It may be routemap updation or
+			 * deletion. so no need to update the counter.
+			 */
+			if (!bgp->table_map[afi][safi].map)
+				route_map_counter_increment(map);
 			bgp->table_map[afi][safi].map = map;
 
 			if (BGP_DEBUG(zebra, ZEBRA))
@@ -3271,6 +3331,9 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 			if (!bgp_static->rmap.name
 			    || (strcmp(rmap_name, bgp_static->rmap.name) != 0))
 				continue;
+
+			if (!bgp_static->rmap.map)
+				route_map_counter_increment(map);
 
 			bgp_static->rmap.map = map;
 
@@ -3303,6 +3366,9 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 				    || (strcmp(rmap_name, red->rmap.name) != 0))
 					continue;
 
+				if (!red->rmap.map)
+					route_map_counter_increment(map);
+
 				red->rmap.map = map;
 
 				if (!route_update)
@@ -3325,12 +3391,18 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 			       != 0)
 			continue;
 
+		/* Make sure the route-map is populated here if not already done */
+		bgp->adv_cmd_rmap[afi][safi].map = map;
+
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
 				"Processing route_map %s update on advertise type5 route command",
 				rmap_name);
-		bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
-		bgp_evpn_advertise_type5_routes(bgp, afi, safi);
+
+		if (route_update) {
+			bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
+			bgp_evpn_advertise_type5_routes(bgp, afi, safi);
+		}
 	}
 }
 
@@ -3514,6 +3586,29 @@ DEFUN (no_match_evpn_default_route,
        "default EVPN type-5 route\n")
 {
 	return bgp_route_match_delete(vty, "evpn default-route", NULL,
+				      RMAP_EVENT_MATCH_DELETED);
+}
+
+DEFPY(match_vrl_source_vrf,
+      match_vrl_source_vrf_cmd,
+      "match source-vrf NAME$vrf_name",
+      MATCH_STR
+      "source vrf\n"
+      "The VRF name\n")
+{
+	return bgp_route_match_add(vty, "source-vrf", vrf_name,
+				   RMAP_EVENT_MATCH_ADDED);
+}
+
+DEFPY(no_match_vrl_source_vrf,
+      no_match_vrl_source_vrf_cmd,
+      "no match source-vrf NAME$vrf_name",
+      NO_STR
+      MATCH_STR
+      "source vrf\n"
+      "The VRF name\n")
+{
+	return bgp_route_match_delete(vty, "source-vrf", vrf_name,
 				      RMAP_EVENT_MATCH_DELETED);
 }
 
@@ -4971,6 +5066,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_evpn_vni_cmd);
 	route_map_install_match(&route_match_evpn_route_type_cmd);
 	route_map_install_match(&route_match_evpn_default_route_cmd);
+	route_map_install_match(&route_match_vrl_source_vrf_cmd);
 
 	route_map_install_set(&route_set_ip_nexthop_cmd);
 	route_map_install_set(&route_set_local_pref_cmd);
@@ -5009,6 +5105,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_match_evpn_route_type_cmd);
 	install_element(RMAP_NODE, &match_evpn_default_route_cmd);
 	install_element(RMAP_NODE, &no_match_evpn_default_route_cmd);
+	install_element(RMAP_NODE, &match_vrl_source_vrf_cmd);
+	install_element(RMAP_NODE, &no_match_vrl_source_vrf_cmd);
 
 	install_element(RMAP_NODE, &match_aspath_cmd);
 	install_element(RMAP_NODE, &no_match_aspath_cmd);

@@ -50,7 +50,7 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_vxlan_private.h"
-#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, HOST_PREFIX, "host prefix");
 DEFINE_MTYPE_STATIC(ZEBRA, ZVNI, "VNI hash");
@@ -65,23 +65,23 @@ DEFINE_MTYPE_STATIC(ZEBRA, NEIGH, "VNI Neighbor");
 static int ip_prefix_send_to_client(vrf_id_t vrf_id, struct prefix *p,
 				    uint16_t cmd);
 static void zvni_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json);
-static void zvni_print_neigh_hash(struct hash_backet *backet, void *ctxt);
-static void zvni_print_dad_neigh_hash(struct hash_backet *backet, void *ctxt);
-static void zvni_print_neigh_hash_all_vni(struct hash_backet *backet,
+static void zvni_print_neigh_hash(struct hash_bucket *bucket, void *ctxt);
+static void zvni_print_dad_neigh_hash(struct hash_bucket *bucket, void *ctxt);
+static void zvni_print_neigh_hash_all_vni(struct hash_bucket *bucket,
 					  void **args);
 static void zl3vni_print_nh(zebra_neigh_t *n, struct vty *vty,
 			    json_object *json);
 static void zl3vni_print_rmac(zebra_mac_t *zrmac, struct vty *vty,
 			      json_object *json);
 static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json);
-static void zvni_print_mac_hash(struct hash_backet *backet, void *ctxt);
-static void zvni_print_mac_hash_all_vni(struct hash_backet *backet, void *ctxt);
+static void zvni_print_mac_hash(struct hash_bucket *bucket, void *ctxt);
+static void zvni_print_mac_hash_all_vni(struct hash_bucket *bucket, void *ctxt);
 static void zvni_print(zebra_vni_t *zvni, void **ctxt);
-static void zvni_print_hash(struct hash_backet *backet, void *ctxt[]);
+static void zvni_print_hash(struct hash_bucket *bucket, void *ctxt[]);
 
 static int zvni_macip_send_msg_to_client(vni_t vni, struct ethaddr *macaddr,
 					 struct ipaddr *ip, uint8_t flags,
-					 uint32_t seq, uint16_t cmd);
+					 uint32_t seq, int state, uint16_t cmd);
 static unsigned int neigh_hash_keymake(void *p);
 static void *zvni_neigh_alloc(void *p);
 static zebra_neigh_t *zvni_neigh_add(zebra_vni_t *zvni, struct ipaddr *ip,
@@ -97,9 +97,10 @@ static int zvni_neigh_send_add_to_client(vni_t vni, struct ipaddr *ip,
 					 uint8_t flags, uint32_t seq);
 static int zvni_neigh_send_del_to_client(vni_t vni, struct ipaddr *ip,
 					 struct ethaddr *macaddr,
-					 uint8_t flags);
+					 uint8_t flags, int state);
 static int zvni_neigh_install(zebra_vni_t *zvni, zebra_neigh_t *n);
 static int zvni_neigh_uninstall(zebra_vni_t *zvni, zebra_neigh_t *n);
+static int zvni_neigh_probe(zebra_vni_t *zvni, zebra_neigh_t *n);
 static zebra_vni_t *zvni_from_svi(struct interface *ifp,
 				  struct interface *br_if);
 static struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if);
@@ -116,7 +117,7 @@ static int zl3vni_nh_install(zebra_l3vni_t *zl3vni, zebra_neigh_t *n);
 static int zl3vni_nh_uninstall(zebra_l3vni_t *zl3vni, zebra_neigh_t *n);
 
 /* l3-vni rmac related APIs */
-static void zl3vni_print_rmac_hash(struct hash_backet *, void *);
+static void zl3vni_print_rmac_hash(struct hash_bucket *, void *);
 static zebra_mac_t *zl3vni_rmac_lookup(zebra_l3vni_t *zl3vni,
 				       struct ethaddr *rmac);
 static void *zl3vni_rmac_alloc(void *p);
@@ -154,7 +155,7 @@ static zebra_vni_t *zvni_map_vlan(struct interface *ifp,
 				  struct interface *br_if, vlanid_t vid);
 static int zvni_mac_install(zebra_vni_t *zvni, zebra_mac_t *mac);
 static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac);
-static void zvni_install_mac_hash(struct hash_backet *backet, void *ctxt);
+static void zvni_install_mac_hash(struct hash_bucket *bucket, void *ctxt);
 
 static unsigned int vni_hash_keymake(void *p);
 static void *zvni_alloc(void *p);
@@ -163,7 +164,7 @@ static zebra_vni_t *zvni_add(vni_t vni);
 static int zvni_del(zebra_vni_t *zvni);
 static int zvni_send_add_to_client(zebra_vni_t *zvni);
 static int zvni_send_del_to_client(vni_t vni);
-static void zvni_build_hash_table();
+static void zvni_build_hash_table(void);
 static int zvni_vtep_match(struct in_addr *vtep_ip, zebra_vtep_t *zvtep);
 static zebra_vtep_t *zvni_vtep_find(zebra_vni_t *zvni, struct in_addr *vtep_ip);
 static zebra_vtep_t *zvni_vtep_add(zebra_vni_t *zvni, struct in_addr *vtep_ip);
@@ -179,6 +180,7 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 			     struct ipaddr *ip);
 struct interface *zebra_get_vrr_intf_for_svi(struct interface *ifp);
 static int advertise_gw_macip_enabled(zebra_vni_t *zvni);
+static int advertise_svi_macip_enabled(zebra_vni_t *zvni);
 static int zebra_vxlan_ip_inherit_dad_from_mac(struct zebra_vrf *zvrf,
 					       zebra_mac_t *old_zmac,
 					       zebra_mac_t *new_zmac,
@@ -255,7 +257,7 @@ static uint32_t num_valid_macs(zebra_vni_t *zvni)
 	unsigned int i;
 	uint32_t num_macs = 0;
 	struct hash *hash;
-	struct hash_backet *hb;
+	struct hash_bucket *hb;
 	zebra_mac_t *mac;
 
 	hash = zvni->mac_table;
@@ -279,7 +281,7 @@ static uint32_t num_dup_detected_macs(zebra_vni_t *zvni)
 	unsigned int i;
 	uint32_t num_macs = 0;
 	struct hash *hash;
-	struct hash_backet *hb;
+	struct hash_bucket *hb;
 	zebra_mac_t *mac;
 
 	hash = zvni->mac_table;
@@ -301,7 +303,7 @@ static uint32_t num_dup_detected_neighs(zebra_vni_t *zvni)
 	unsigned int i;
 	uint32_t num_neighs = 0;
 	struct hash *hash;
-	struct hash_backet *hb;
+	struct hash_bucket *hb;
 	zebra_neigh_t *nbr;
 
 	hash = zvni->neigh_table;
@@ -327,6 +329,20 @@ static int advertise_gw_macip_enabled(zebra_vni_t *zvni)
 		return 1;
 
 	if (zvni && zvni->advertise_gw_macip)
+		return 1;
+
+	return 0;
+}
+
+static int advertise_svi_macip_enabled(zebra_vni_t *zvni)
+{
+	struct zebra_vrf *zvrf;
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (zvrf && zvrf->advertise_svi_macip)
+		return 1;
+
+	if (zvni && zvni->advertise_svi_macip)
 		return 1;
 
 	return 0;
@@ -510,7 +526,7 @@ static void zebra_vxlan_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 						       sizeof(buf)),
 					mac->flags, zvrf->dad_freeze_time);
 
-			thread_add_timer(zebrad.master,
+			thread_add_timer(zrouter.master,
 					 zebra_vxlan_dad_mac_auto_recovery_exp,
 					 mac, zvrf->dad_freeze_time,
 					 &mac->dad_mac_auto_recovery_timer);
@@ -556,6 +572,7 @@ static void zebra_vxlan_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
 
 		if (zvrf->dad_freeze)
 			*is_dup_detect = true;
+
 		/* warn-only action, neigh will be installed.
 		 * freeze action, it wil not be installed.
 		 */
@@ -642,7 +659,7 @@ static void zebra_vxlan_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
 				   ipaddr2str(&nbr->ip, buf1, sizeof(buf1)),
 				   nbr->flags, zvrf->dad_freeze_time);
 
-			thread_add_timer(zebrad.master,
+			thread_add_timer(zrouter.master,
 				zebra_vxlan_dad_ip_auto_recovery_exp,
 				nbr, zvrf->dad_freeze_time,
 				&nbr->dad_ip_auto_recovery_timer);
@@ -657,14 +674,14 @@ static void zebra_vxlan_dup_addr_detect_for_neigh(struct zebra_vrf *zvrf,
  * display - just because we're dealing with IPv6 addresses that can
  * widely vary.
  */
-static void zvni_find_neigh_addr_width(struct hash_backet *backet, void *ctxt)
+static void zvni_find_neigh_addr_width(struct hash_bucket *bucket, void *ctxt)
 {
 	zebra_neigh_t *n;
 	char buf[INET6_ADDRSTRLEN];
 	struct neigh_walk_ctx *wctx = ctxt;
 	int width;
 
-	n = (zebra_neigh_t *)backet->data;
+	n = (zebra_neigh_t *)bucket->data;
 
 	ipaddr2str(&n->ip, buf, sizeof(buf));
 	width = strlen(buf);
@@ -750,8 +767,7 @@ static void zvni_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json)
 						n->detect_start_time.tv_sec);
 				char tmp_buf[30];
 
-				memset(tmp_buf, 0, 30);
-				strncpy(tmp_buf, buf, strlen(buf) - 1);
+				strlcpy(tmp_buf, buf, sizeof(tmp_buf));
 				vty_out(vty,
 					" Duplicate detection started at %s, detection count %u\n",
 					tmp_buf, n->dad_count);
@@ -774,7 +790,7 @@ static void zvni_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json)
 /*
  * Print neighbor hash entry - called for display of all neighbors.
  */
-static void zvni_print_neigh_hash(struct hash_backet *backet, void *ctxt)
+static void zvni_print_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 {
 	struct vty *vty;
 	json_object *json_vni = NULL, *json_row = NULL;
@@ -786,7 +802,7 @@ static void zvni_print_neigh_hash(struct hash_backet *backet, void *ctxt)
 
 	vty = wctx->vty;
 	json_vni = wctx->json;
-	n = (zebra_neigh_t *)backet->data;
+	n = (zebra_neigh_t *)bucket->data;
 
 	if (json_vni)
 		json_row = json_object_new_object();
@@ -870,7 +886,7 @@ static void zvni_print_neigh_hash(struct hash_backet *backet, void *ctxt)
 /*
  * Print neighbor hash entry in detail - called for display of all neighbors.
  */
-static void zvni_print_neigh_hash_detail(struct hash_backet *backet, void *ctxt)
+static void zvni_print_neigh_hash_detail(struct hash_bucket *bucket, void *ctxt)
 {
 	struct vty *vty;
 	json_object *json_vni = NULL, *json_row = NULL;
@@ -880,7 +896,7 @@ static void zvni_print_neigh_hash_detail(struct hash_backet *backet, void *ctxt)
 
 	vty = wctx->vty;
 	json_vni = wctx->json;
-	n = (zebra_neigh_t *)backet->data;
+	n = (zebra_neigh_t *)bucket->data;
 	if (!n)
 		return;
 
@@ -897,7 +913,7 @@ static void zvni_print_neigh_hash_detail(struct hash_backet *backet, void *ctxt)
 /*
  * Print neighbors for all VNI.
  */
-static void zvni_print_neigh_hash_all_vni(struct hash_backet *backet,
+static void zvni_print_neigh_hash_all_vni(struct hash_bucket *bucket,
 					  void **args)
 {
 	struct vty *vty;
@@ -912,7 +928,7 @@ static void zvni_print_neigh_hash_all_vni(struct hash_backet *backet,
 	json = (json_object *)args[1];
 	print_dup = (uint32_t)(uintptr_t)args[2];
 
-	zvni = (zebra_vni_t *)backet->data;
+	zvni = (zebra_vni_t *)bucket->data;
 
 	num_neigh = hashcount(zvni->neigh_table);
 
@@ -961,35 +977,35 @@ static void zvni_print_neigh_hash_all_vni(struct hash_backet *backet,
 		json_object_object_add(json, vni_str, json_vni);
 }
 
-static void zvni_print_dad_neigh_hash(struct hash_backet *backet, void *ctxt)
+static void zvni_print_dad_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 {
 	zebra_neigh_t *nbr;
 
-	nbr = (zebra_neigh_t *)backet->data;
+	nbr = (zebra_neigh_t *)bucket->data;
 	if (!nbr)
 		return;
 
 	if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE))
-		zvni_print_neigh_hash(backet, ctxt);
+		zvni_print_neigh_hash(bucket, ctxt);
 }
 
-static void zvni_print_dad_neigh_hash_detail(struct hash_backet *backet,
+static void zvni_print_dad_neigh_hash_detail(struct hash_bucket *bucket,
 					     void *ctxt)
 {
 	zebra_neigh_t *nbr;
 
-	nbr = (zebra_neigh_t *)backet->data;
+	nbr = (zebra_neigh_t *)bucket->data;
 	if (!nbr)
 		return;
 
 	if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_DUPLICATE))
-		zvni_print_neigh_hash_detail(backet, ctxt);
+		zvni_print_neigh_hash_detail(bucket, ctxt);
 }
 
 /*
  * Print neighbors for all VNIs in detail.
  */
-static void zvni_print_neigh_hash_all_vni_detail(struct hash_backet *backet,
+static void zvni_print_neigh_hash_all_vni_detail(struct hash_bucket *bucket,
 						 void **args)
 {
 	struct vty *vty;
@@ -1004,7 +1020,7 @@ static void zvni_print_neigh_hash_all_vni_detail(struct hash_backet *backet,
 	json = (json_object *)args[1];
 	print_dup = (uint32_t)(uintptr_t)args[2];
 
-	zvni = (zebra_vni_t *)backet->data;
+	zvni = (zebra_vni_t *)bucket->data;
 	if (!zvni) {
 		if (json)
 			vty_out(vty, "{}\n");
@@ -1131,7 +1147,7 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 	struct vty *vty;
 	zebra_neigh_t *n = NULL;
 	struct listnode *node = NULL;
-	char buf1[20];
+	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 	struct zebra_vrf *zvrf;
 	struct timeval detect_start_time = {0, 0};
@@ -1272,8 +1288,7 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 						mac->detect_start_time.tv_sec);
 				char tmp_buf[30];
 
-				memset(tmp_buf, 0, 30);
-				strncpy(tmp_buf, buf, strlen(buf) - 1);
+				strlcpy(tmp_buf, buf, sizeof(tmp_buf));
 				vty_out(vty,
 					" Duplicate detection started at %s, detection count %u\n",
 					tmp_buf, mac->dad_count);
@@ -1301,17 +1316,17 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 /*
  * Print MAC hash entry - called for display of all MACs.
  */
-static void zvni_print_mac_hash(struct hash_backet *backet, void *ctxt)
+static void zvni_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 {
 	struct vty *vty;
 	json_object *json_mac_hdr = NULL, *json_mac = NULL;
 	zebra_mac_t *mac;
-	char buf1[20];
+	char buf1[ETHER_ADDR_STRLEN];
 	struct mac_walk_ctx *wctx = ctxt;
 
 	vty = wctx->vty;
 	json_mac_hdr = wctx->json;
-	mac = (zebra_mac_t *)backet->data;
+	mac = (zebra_mac_t *)bucket->data;
 
 	prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1));
 
@@ -1407,32 +1422,32 @@ static void zvni_print_mac_hash(struct hash_backet *backet, void *ctxt)
 }
 
 /* Print Duplicate MAC */
-static void zvni_print_dad_mac_hash(struct hash_backet *backet, void *ctxt)
+static void zvni_print_dad_mac_hash(struct hash_bucket *bucket, void *ctxt)
 {
 	zebra_mac_t *mac;
 
-	mac = (zebra_mac_t *)backet->data;
+	mac = (zebra_mac_t *)bucket->data;
 	if (!mac)
 		return;
 
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE))
-		zvni_print_mac_hash(backet, ctxt);
+		zvni_print_mac_hash(bucket, ctxt);
 }
 
 /*
  * Print MAC hash entry in detail - called for display of all MACs.
  */
-static void zvni_print_mac_hash_detail(struct hash_backet *backet, void *ctxt)
+static void zvni_print_mac_hash_detail(struct hash_bucket *bucket, void *ctxt)
 {
 	struct vty *vty;
 	json_object *json_mac_hdr = NULL;
 	zebra_mac_t *mac;
 	struct mac_walk_ctx *wctx = ctxt;
-	char buf1[20];
+	char buf1[ETHER_ADDR_STRLEN];
 
 	vty = wctx->vty;
 	json_mac_hdr = wctx->json;
-	mac = (zebra_mac_t *)backet->data;
+	mac = (zebra_mac_t *)bucket->data;
 	if (!mac)
 		return;
 
@@ -1443,23 +1458,23 @@ static void zvni_print_mac_hash_detail(struct hash_backet *backet, void *ctxt)
 }
 
 /* Print Duplicate MAC in detail */
-static void zvni_print_dad_mac_hash_detail(struct hash_backet *backet,
+static void zvni_print_dad_mac_hash_detail(struct hash_bucket *bucket,
 					   void *ctxt)
 {
 	zebra_mac_t *mac;
 
-	mac = (zebra_mac_t *)backet->data;
+	mac = (zebra_mac_t *)bucket->data;
 	if (!mac)
 		return;
 
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE))
-		zvni_print_mac_hash_detail(backet, ctxt);
+		zvni_print_mac_hash_detail(bucket, ctxt);
 }
 
 /*
  * Print MACs for all VNI.
  */
-static void zvni_print_mac_hash_all_vni(struct hash_backet *backet, void *ctxt)
+static void zvni_print_mac_hash_all_vni(struct hash_bucket *bucket, void *ctxt)
 {
 	struct vty *vty;
 	json_object *json = NULL, *json_vni = NULL;
@@ -1472,7 +1487,7 @@ static void zvni_print_mac_hash_all_vni(struct hash_backet *backet, void *ctxt)
 	vty = (struct vty *)wctx->vty;
 	json = (struct json_object *)wctx->json;
 
-	zvni = (zebra_vni_t *)backet->data;
+	zvni = (zebra_vni_t *)bucket->data;
 	wctx->zvni = zvni;
 
 	/*We are iterating over a new VNI, set the count to 0*/
@@ -1529,7 +1544,7 @@ static void zvni_print_mac_hash_all_vni(struct hash_backet *backet, void *ctxt)
 /*
  * Print MACs in detail for all VNI.
  */
-static void zvni_print_mac_hash_all_vni_detail(struct hash_backet *backet,
+static void zvni_print_mac_hash_all_vni_detail(struct hash_bucket *bucket,
 					       void *ctxt)
 {
 	struct vty *vty;
@@ -1543,7 +1558,7 @@ static void zvni_print_mac_hash_all_vni_detail(struct hash_backet *backet,
 	vty = (struct vty *)wctx->vty;
 	json = (struct json_object *)wctx->json;
 
-	zvni = (zebra_vni_t *)backet->data;
+	zvni = (zebra_vni_t *)bucket->data;
 	if (!zvni) {
 		if (json)
 			vty_out(vty, "{}\n");
@@ -1592,7 +1607,7 @@ static void zvni_print_mac_hash_all_vni_detail(struct hash_backet *backet,
 	}
 }
 
-static void zl3vni_print_nh_hash(struct hash_backet *backet, void *ctx)
+static void zl3vni_print_nh_hash(struct hash_bucket *bucket, void *ctx)
 {
 	struct nh_walk_ctx *wctx = NULL;
 	struct vty *vty = NULL;
@@ -1607,7 +1622,7 @@ static void zl3vni_print_nh_hash(struct hash_backet *backet, void *ctx)
 	json_vni = wctx->json;
 	if (json_vni)
 		json_nh = json_object_new_object();
-	n = (zebra_neigh_t *)backet->data;
+	n = (zebra_neigh_t *)bucket->data;
 
 	if (!json_vni) {
 		vty_out(vty, "%-15s %-17s\n",
@@ -1625,7 +1640,7 @@ static void zl3vni_print_nh_hash(struct hash_backet *backet, void *ctx)
 	}
 }
 
-static void zl3vni_print_nh_hash_all_vni(struct hash_backet *backet,
+static void zl3vni_print_nh_hash_all_vni(struct hash_bucket *bucket,
 					 void **args)
 {
 	struct vty *vty = NULL;
@@ -1639,7 +1654,7 @@ static void zl3vni_print_nh_hash_all_vni(struct hash_backet *backet,
 	vty = (struct vty *)args[0];
 	json = (struct json_object *)args[1];
 
-	zl3vni = (zebra_l3vni_t *)backet->data;
+	zl3vni = (zebra_l3vni_t *)bucket->data;
 
 	num_nh = hashcount(zl3vni->nh_table);
 	if (!num_nh)
@@ -1664,7 +1679,7 @@ static void zl3vni_print_nh_hash_all_vni(struct hash_backet *backet,
 		json_object_object_add(json, vni_str, json_vni);
 }
 
-static void zl3vni_print_rmac_hash_all_vni(struct hash_backet *backet,
+static void zl3vni_print_rmac_hash_all_vni(struct hash_bucket *bucket,
 					   void **args)
 {
 	struct vty *vty = NULL;
@@ -1678,7 +1693,7 @@ static void zl3vni_print_rmac_hash_all_vni(struct hash_backet *backet,
 	vty = (struct vty *)args[0];
 	json = (struct json_object *)args[1];
 
-	zl3vni = (zebra_l3vni_t *)backet->data;
+	zl3vni = (zebra_l3vni_t *)bucket->data;
 
 	num_rmacs = hashcount(zl3vni->rmac_table);
 	if (!num_rmacs)
@@ -1707,7 +1722,7 @@ static void zl3vni_print_rmac_hash_all_vni(struct hash_backet *backet,
 		json_object_object_add(json, vni_str, json_vni);
 }
 
-static void zl3vni_print_rmac_hash(struct hash_backet *backet, void *ctx)
+static void zl3vni_print_rmac_hash(struct hash_bucket *bucket, void *ctx)
 {
 	zebra_mac_t *zrmac = NULL;
 	struct rmac_walk_ctx *wctx = NULL;
@@ -1721,7 +1736,7 @@ static void zl3vni_print_rmac_hash(struct hash_backet *backet, void *ctx)
 	json = wctx->json;
 	if (json)
 		json_rmac = json_object_new_object();
-	zrmac = (zebra_mac_t *)backet->data;
+	zrmac = (zebra_mac_t *)bucket->data;
 
 	if (!json) {
 		vty_out(vty, "%-17s %-21s\n",
@@ -1887,7 +1902,7 @@ static void zvni_print(zebra_vni_t *zvni, void **ctxt)
 }
 
 /* print a L3 VNI hash entry */
-static void zl3vni_print_hash(struct hash_backet *backet, void *ctx[])
+static void zl3vni_print_hash(struct hash_bucket *bucket, void *ctx[])
 {
 	struct vty *vty = NULL;
 	json_object *json = NULL;
@@ -1897,7 +1912,7 @@ static void zl3vni_print_hash(struct hash_backet *backet, void *ctx[])
 	vty = (struct vty *)ctx[0];
 	json = (json_object *)ctx[1];
 
-	zl3vni = (zebra_l3vni_t *)backet->data;
+	zl3vni = (zebra_l3vni_t *)bucket->data;
 
 	if (!json) {
 		vty_out(vty, "%-10u %-4s %-21s %-8lu %-8lu %-15s %-37s\n",
@@ -1933,7 +1948,7 @@ struct zvni_evpn_show {
 };
 
 /* print a L3 VNI hash entry in detail*/
-static void zl3vni_print_hash_detail(struct hash_backet *backet, void *data)
+static void zl3vni_print_hash_detail(struct hash_bucket *bucket, void *data)
 {
 	struct vty *vty = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
@@ -1947,7 +1962,7 @@ static void zl3vni_print_hash_detail(struct hash_backet *backet, void *data)
 	if (json)
 		use_json = true;
 
-	zl3vni = (zebra_l3vni_t *)backet->data;
+	zl3vni = (zebra_l3vni_t *)bucket->data;
 
 	zebra_vxlan_print_vni(vty, zes->zvrf, zl3vni->vni, use_json);
 	vty_out(vty, "\n");
@@ -1957,7 +1972,7 @@ static void zl3vni_print_hash_detail(struct hash_backet *backet, void *data)
 /*
  * Print a VNI hash entry - called for display of all VNIs.
  */
-static void zvni_print_hash(struct hash_backet *backet, void *ctxt[])
+static void zvni_print_hash(struct hash_bucket *bucket, void *ctxt[])
 {
 	struct vty *vty;
 	zebra_vni_t *zvni;
@@ -1973,7 +1988,7 @@ static void zvni_print_hash(struct hash_backet *backet, void *ctxt[])
 	vty = ctxt[0];
 	json = ctxt[1];
 
-	zvni = (zebra_vni_t *)backet->data;
+	zvni = (zebra_vni_t *)bucket->data;
 
 	zvtep = zvni->vteps;
 	while (zvtep) {
@@ -2021,7 +2036,7 @@ static void zvni_print_hash(struct hash_backet *backet, void *ctxt[])
 /*
  * Print a VNI hash entry in detail - called for display of all VNIs.
  */
-static void zvni_print_hash_detail(struct hash_backet *backet, void *data)
+static void zvni_print_hash_detail(struct hash_bucket *bucket, void *data)
 {
 	struct vty *vty;
 	zebra_vni_t *zvni;
@@ -2035,7 +2050,7 @@ static void zvni_print_hash_detail(struct hash_backet *backet, void *data)
 	if (json)
 		use_json = true;
 
-	zvni = (zebra_vni_t *)backet->data;
+	zvni = (zebra_vni_t *)bucket->data;
 
 	zebra_vxlan_print_vni(vty, zes->zvrf, zvni->vni, use_json);
 	vty_out(vty, "\n");
@@ -2046,7 +2061,7 @@ static void zvni_print_hash_detail(struct hash_backet *backet, void *data)
  */
 static int zvni_macip_send_msg_to_client(vni_t vni, struct ethaddr *macaddr,
 					 struct ipaddr *ip, uint8_t flags,
-					 uint32_t seq, uint16_t cmd)
+					 uint32_t seq, int state, uint16_t cmd)
 {
 	char buf[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
@@ -2080,6 +2095,8 @@ static int zvni_macip_send_msg_to_client(vni_t vni, struct ethaddr *macaddr,
 	if (cmd == ZEBRA_MACIP_ADD) {
 		stream_putc(s, flags); /* sticky mac/gateway mac */
 		stream_putl(s, seq); /* sequence number */
+	} else {
+		stream_putl(s, state); /* state - active/inactive */
 	}
 
 
@@ -2205,10 +2222,10 @@ static int zvni_neigh_del(zebra_vni_t *zvni, zebra_neigh_t *n)
 /*
  * Free neighbor hash entry (callback)
  */
-static void zvni_neigh_del_hash_entry(struct hash_backet *backet, void *arg)
+static void zvni_neigh_del_hash_entry(struct hash_bucket *bucket, void *arg)
 {
 	struct neigh_walk_ctx *wctx = arg;
-	zebra_neigh_t *n = backet->data;
+	zebra_neigh_t *n = bucket->data;
 
 	if (((wctx->flags & DEL_LOCAL_NEIGH) && (n->flags & ZEBRA_NEIGH_LOCAL))
 	    || ((wctx->flags & DEL_REMOTE_NEIGH)
@@ -2218,7 +2235,7 @@ static void zvni_neigh_del_hash_entry(struct hash_backet *backet, void *arg)
 		&& IPV4_ADDR_SAME(&n->r_vtep_ip, &wctx->r_vtep_ip))) {
 		if (wctx->upd_client && (n->flags & ZEBRA_NEIGH_LOCAL))
 			zvni_neigh_send_del_to_client(wctx->zvni->vni, &n->ip,
-						      &n->emac, 0);
+						      &n->emac, 0, n->state);
 
 		if (wctx->uninstall)
 			zvni_neigh_uninstall(wctx->zvni, n);
@@ -2354,7 +2371,7 @@ static void zvni_process_neigh_on_local_mac_del(zebra_vni_t *zvni,
 				ZEBRA_NEIGH_SET_INACTIVE(n);
 				n->loc_seq = 0;
 				zvni_neigh_send_del_to_client(zvni->vni, &n->ip,
-							      &n->emac, 0);
+				      &n->emac, 0, ZEBRA_NEIGH_ACTIVE);
 			}
 		}
 	}
@@ -2385,7 +2402,7 @@ static void zvni_process_neigh_on_remote_mac_add(zebra_vni_t *zvni,
 				ZEBRA_NEIGH_SET_INACTIVE(n);
 				n->loc_seq = 0;
 				zvni_neigh_send_del_to_client(zvni->vni, &n->ip,
-							      &n->emac, 0);
+					      &n->emac, 0, ZEBRA_NEIGH_ACTIVE);
 			}
 		}
 	}
@@ -2399,6 +2416,18 @@ static void zvni_process_neigh_on_remote_mac_del(zebra_vni_t *zvni,
 						 zebra_mac_t *zmac)
 {
 	/* NOTE: Currently a NO-OP. */
+}
+
+static void zvni_probe_neigh_on_mac_add(zebra_vni_t *zvni, zebra_mac_t *zmac)
+{
+	zebra_neigh_t *nbr = NULL;
+	struct listnode *node = NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(zmac->neigh_list, node, nbr)) {
+		if (CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_LOCAL) &&
+		    IS_ZEBRA_NEIGH_INACTIVE(nbr))
+			zvni_neigh_probe(zvni, nbr);
+	}
 }
 
 /*
@@ -2418,17 +2447,18 @@ static int zvni_neigh_send_add_to_client(vni_t vni, struct ipaddr *ip,
 		SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
 
 	return zvni_macip_send_msg_to_client(vni, macaddr, ip, flags,
-					     seq, ZEBRA_MACIP_ADD);
+			     seq, ZEBRA_NEIGH_ACTIVE, ZEBRA_MACIP_ADD);
 }
 
 /*
  * Inform BGP about local neighbor deletion.
  */
 static int zvni_neigh_send_del_to_client(vni_t vni, struct ipaddr *ip,
-					 struct ethaddr *macaddr, uint8_t flags)
+					 struct ethaddr *macaddr, uint8_t flags,
+					 int state)
 {
 	return zvni_macip_send_msg_to_client(vni, macaddr, ip, flags,
-					     0, ZEBRA_MACIP_DEL);
+					     0, state, ZEBRA_MACIP_DEL);
 }
 
 /*
@@ -2497,14 +2527,40 @@ static int zvni_neigh_uninstall(zebra_vni_t *zvni, zebra_neigh_t *n)
 }
 
 /*
+ * Probe neighbor from the kernel.
+ */
+static int zvni_neigh_probe(zebra_vni_t *zvni, zebra_neigh_t *n)
+{
+	struct zebra_if *zif;
+	struct zebra_l2info_vxlan *vxl;
+	struct interface *vlan_if;
+
+	zif = zvni->vxlan_if->info;
+	if (!zif)
+		return -1;
+	vxl = &zif->l2info.vxl;
+
+	vlan_if = zvni_map_to_svi(vxl->access_vlan, zif->brslave_info.br_if);
+	if (!vlan_if)
+		return -1;
+
+#ifdef GNU_LINUX
+	return kernel_upd_neigh(vlan_if, &n->ip, &n->emac,
+				0, NUD_PROBE);
+#else
+	return 0;
+#endif
+}
+
+/*
  * Install neighbor hash entry - called upon access VLAN change.
  */
-static void zvni_install_neigh_hash(struct hash_backet *backet, void *ctxt)
+static void zvni_install_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 {
 	zebra_neigh_t *n;
 	struct neigh_walk_ctx *wctx = ctxt;
 
-	n = (zebra_neigh_t *)backet->data;
+	n = (zebra_neigh_t *)bucket->data;
 
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
 		zvni_neigh_install(wctx->zvni, n);
@@ -2749,7 +2805,7 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 
 	/* Remove neighbor from BGP. */
 	zvni_neigh_send_del_to_client(zvni->vni, &n->ip, &n->emac,
-				      ZEBRA_MACIP_TYPE_GW);
+				      ZEBRA_MACIP_TYPE_GW, ZEBRA_NEIGH_ACTIVE);
 
 	/* Delete this neighbor entry. */
 	zvni_neigh_del(zvni, n);
@@ -2761,7 +2817,7 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 	return 0;
 }
 
-static void zvni_gw_macip_del_for_vni_hash(struct hash_backet *backet,
+static void zvni_gw_macip_del_for_vni_hash(struct hash_bucket *bucket,
 					   void *ctxt)
 {
 	zebra_vni_t *zvni = NULL;
@@ -2772,7 +2828,7 @@ static void zvni_gw_macip_del_for_vni_hash(struct hash_backet *backet,
 	struct interface *ifp;
 
 	/* Add primary SVI MAC*/
-	zvni = (zebra_vni_t *)backet->data;
+	zvni = (zebra_vni_t *)bucket->data;
 
 	ifp = zvni->vxlan_if;
 	if (!ifp)
@@ -2801,7 +2857,7 @@ static void zvni_gw_macip_del_for_vni_hash(struct hash_backet *backet,
 	return;
 }
 
-static void zvni_gw_macip_add_for_vni_hash(struct hash_backet *backet,
+static void zvni_gw_macip_add_for_vni_hash(struct hash_bucket *bucket,
 					   void *ctxt)
 {
 	zebra_vni_t *zvni = NULL;
@@ -2811,7 +2867,7 @@ static void zvni_gw_macip_add_for_vni_hash(struct hash_backet *backet,
 	struct interface *vrr_if = NULL;
 	struct interface *ifp = NULL;
 
-	zvni = (zebra_vni_t *)backet->data;
+	zvni = (zebra_vni_t *)bucket->data;
 
 	ifp = zvni->vxlan_if;
 	if (!ifp)
@@ -2831,10 +2887,48 @@ static void zvni_gw_macip_add_for_vni_hash(struct hash_backet *backet,
 	/* Add primary SVI MAC-IP */
 	zvni_add_macip_for_intf(vlan_if, zvni);
 
-	/* Add VRR MAC-IP - if any*/
-	vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
-	if (vrr_if)
-		zvni_add_macip_for_intf(vrr_if, zvni);
+	if (advertise_gw_macip_enabled(zvni)) {
+		/* Add VRR MAC-IP - if any*/
+		vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
+		if (vrr_if)
+			zvni_add_macip_for_intf(vrr_if, zvni);
+	}
+
+	return;
+}
+
+static void zvni_svi_macip_del_for_vni_hash(struct hash_bucket *bucket,
+					   void *ctxt)
+{
+	zebra_vni_t *zvni = NULL;
+	struct zebra_if *zif = NULL;
+	struct zebra_l2info_vxlan zl2_info;
+	struct interface *vlan_if = NULL;
+	struct interface *ifp;
+
+	/* Add primary SVI MAC*/
+	zvni = (zebra_vni_t *)bucket->data;
+	if (!zvni)
+		return;
+
+	ifp = zvni->vxlan_if;
+	if (!ifp)
+		return;
+	zif = ifp->info;
+
+	/* If down or not mapped to a bridge, we're done. */
+	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+		return;
+
+	zl2_info = zif->l2info.vxl;
+
+	vlan_if = zvni_map_to_svi(zl2_info.access_vlan,
+				  zif->brslave_info.br_if);
+	if (!vlan_if)
+		return;
+
+	/* Del primary MAC-IP */
+	zvni_del_macip_for_intf(vlan_if, zvni);
 
 	return;
 }
@@ -2963,7 +3057,7 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 			 */
 			if (IS_ZEBRA_NEIGH_ACTIVE(n))
 				zvni_neigh_send_del_to_client(zvni->vni, &n->ip,
-							      &n->emac, 0);
+					      &n->emac, 0, n->state);
 			old_zmac = zvni_mac_lookup(zvni, &n->emac);
 			if (old_zmac) {
 				old_mac_seq = CHECK_FLAG(old_zmac->flags,
@@ -3224,10 +3318,10 @@ static int zvni_mac_del(zebra_vni_t *zvni, zebra_mac_t *mac)
 /*
  * Free MAC hash entry (callback)
  */
-static void zvni_mac_del_hash_entry(struct hash_backet *backet, void *arg)
+static void zvni_mac_del_hash_entry(struct hash_bucket *bucket, void *arg)
 {
 	struct mac_walk_ctx *wctx = arg;
-	zebra_mac_t *mac = backet->data;
+	zebra_mac_t *mac = bucket->data;
 
 	if (((wctx->flags & DEL_LOCAL_MAC) && (mac->flags & ZEBRA_MAC_LOCAL))
 	    || ((wctx->flags & DEL_REMOTE_MAC)
@@ -3319,7 +3413,7 @@ static int zvni_mac_send_add_to_client(vni_t vni, struct ethaddr *macaddr,
 		SET_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
 
 	return zvni_macip_send_msg_to_client(vni, macaddr, NULL, flags,
-					     seq, ZEBRA_MACIP_ADD);
+			     seq, ZEBRA_NEIGH_ACTIVE, ZEBRA_MACIP_ADD);
 }
 
 /*
@@ -3328,7 +3422,7 @@ static int zvni_mac_send_add_to_client(vni_t vni, struct ethaddr *macaddr,
 static int zvni_mac_send_del_to_client(vni_t vni, struct ethaddr *macaddr)
 {
 	return zvni_macip_send_msg_to_client(vni, macaddr, NULL, 0 /* flags */,
-					     0 /* seq */, ZEBRA_MACIP_DEL);
+			     0 /* seq */, ZEBRA_NEIGH_ACTIVE, ZEBRA_MACIP_DEL);
 }
 
 /*
@@ -3568,12 +3662,12 @@ static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac)
 /*
  * Install MAC hash entry - called upon access VLAN change.
  */
-static void zvni_install_mac_hash(struct hash_backet *backet, void *ctxt)
+static void zvni_install_mac_hash(struct hash_bucket *bucket, void *ctxt)
 {
 	zebra_mac_t *mac;
 	struct mac_walk_ctx *wctx = ctxt;
 
-	mac = (zebra_mac_t *)backet->data;
+	mac = (zebra_mac_t *)bucket->data;
 
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
 		zvni_mac_install(wctx->zvni, mac);
@@ -3841,7 +3935,7 @@ static int zvni_send_del_to_client(vni_t vni)
  * Build the VNI hash table by going over the VxLAN interfaces. This
  * is called when EVPN (advertise-all-vni) is enabled.
  */
-static void zvni_build_hash_table()
+static void zvni_build_hash_table(void)
 {
 	struct zebra_ns *zns;
 	struct route_node *rn;
@@ -4046,13 +4140,13 @@ static int zvni_vtep_uninstall(zebra_vni_t *zvni, struct in_addr *vtep_ip)
  * Install or uninstall flood entries in the kernel corresponding to
  * remote VTEPs. This is invoked upon change to BUM handling.
  */
-static void zvni_handle_flooding_remote_vteps(struct hash_backet *backet,
+static void zvni_handle_flooding_remote_vteps(struct hash_bucket *bucket,
 					      void *zvrf)
 {
 	zebra_vni_t *zvni;
 	zebra_vtep_t *zvtep;
 
-	zvni = (zebra_vni_t *)backet->data;
+	zvni = (zebra_vni_t *)bucket->data;
 	if (!zvni)
 		return;
 
@@ -4067,13 +4161,13 @@ static void zvni_handle_flooding_remote_vteps(struct hash_backet *backet,
 /*
  * Cleanup VNI/VTEP and update kernel
  */
-static void zvni_cleanup_all(struct hash_backet *backet, void *arg)
+static void zvni_cleanup_all(struct hash_bucket *bucket, void *arg)
 {
 	zebra_vni_t *zvni = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 	struct zebra_vrf *zvrf = (struct zebra_vrf *)arg;
 
-	zvni = (zebra_vni_t *)backet->data;
+	zvni = (zebra_vni_t *)bucket->data;
 
 	/* remove from l3-vni list */
 	if (zvrf->l3vni)
@@ -4093,11 +4187,11 @@ static void zvni_cleanup_all(struct hash_backet *backet, void *arg)
 }
 
 /* cleanup L3VNI */
-static void zl3vni_cleanup_all(struct hash_backet *backet, void *args)
+static void zl3vni_cleanup_all(struct hash_bucket *bucket, void *args)
 {
 	zebra_l3vni_t *zl3vni = NULL;
 
-	zl3vni = (zebra_l3vni_t *)backet->data;
+	zl3vni = (zebra_l3vni_t *)bucket->data;
 
 	zebra_vxlan_process_l3vni_oper_down(zl3vni);
 }
@@ -4781,6 +4875,7 @@ static int zl3vni_send_add_to_client(zebra_l3vni_t *zl3vni)
 	stream_put(s, &rmac, sizeof(struct ethaddr));
 	stream_put_in_addr(s, &zl3vni->local_vtep_ip);
 	stream_put(s, &zl3vni->filter, sizeof(int));
+	stream_putl(s, zl3vni->svi_if->ifindex);
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -4848,9 +4943,9 @@ static void zebra_vxlan_process_l3vni_oper_down(zebra_l3vni_t *zl3vni)
 	zl3vni_send_del_to_client(zl3vni);
 }
 
-static void zvni_add_to_l3vni_list(struct hash_backet *backet, void *ctxt)
+static void zvni_add_to_l3vni_list(struct hash_bucket *bucket, void *ctxt)
 {
-	zebra_vni_t *zvni = (zebra_vni_t *)backet->data;
+	zebra_vni_t *zvni = (zebra_vni_t *)bucket->data;
 	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)ctxt;
 
 	if (zvni->vrf_id == zl3vni_vrf_id(zl3vni))
@@ -4911,24 +5006,24 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 }
 
 /* delete and uninstall rmac hash entry */
-static void zl3vni_del_rmac_hash_entry(struct hash_backet *backet, void *ctx)
+static void zl3vni_del_rmac_hash_entry(struct hash_bucket *bucket, void *ctx)
 {
 	zebra_mac_t *zrmac = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 
-	zrmac = (zebra_mac_t *)backet->data;
+	zrmac = (zebra_mac_t *)bucket->data;
 	zl3vni = (zebra_l3vni_t *)ctx;
 	zl3vni_rmac_uninstall(zl3vni, zrmac);
 	zl3vni_rmac_del(zl3vni, zrmac);
 }
 
 /* delete and uninstall nh hash entry */
-static void zl3vni_del_nh_hash_entry(struct hash_backet *backet, void *ctx)
+static void zl3vni_del_nh_hash_entry(struct hash_bucket *bucket, void *ctx)
 {
 	zebra_neigh_t *n = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 
-	n = (zebra_neigh_t *)backet->data;
+	n = (zebra_neigh_t *)bucket->data;
 	zl3vni = (zebra_l3vni_t *)ctx;
 	zl3vni_nh_uninstall(zl3vni, n);
 	zl3vni_nh_del(zl3vni, n);
@@ -5140,11 +5235,15 @@ static void process_remote_macip_add(vni_t vni,
 		 * RFC-7432: A PE/VTEP that detects a MAC mobility
 		 * event via local learning starts an M-second timer.
 		 *
-		 * VTEP-IP or seq. change along is not considered
+		 * VTEP-IP or seq. change alone is not considered
 		 * for dup. detection.
+		 *
+		 * MAC is already marked duplicate set dad, then
+		 * is_dup_detect will be set to not install the entry.
 		 */
-		if ((!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) &&
-		    mac->dad_count)
+		if ((!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) &&
+		    mac->dad_count) ||
+		    CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE))
 			do_dad = true;
 
 		/* Remove local MAC from BGP. */
@@ -5255,7 +5354,7 @@ static void process_remote_macip_add(vni_t vni,
 				    IS_ZEBRA_NEIGH_ACTIVE(n))
 					zvni_neigh_send_del_to_client(
 						zvni->vni, &n->ip,
-						&n->emac, 0);
+						&n->emac, 0, n->state);
 
 				/* update neigh list for macs */
 				old_mac = zvni_mac_lookup(zvni, &n->emac);
@@ -5321,6 +5420,8 @@ static void process_remote_macip_add(vni_t vni,
 			zvni_neigh_install(zvni, n);
 	}
 
+	zvni_probe_neigh_on_mac_add(zvni, mac);
+
 	/* Update seq number. */
 	n->rem_seq = seq;
 }
@@ -5337,6 +5438,9 @@ static void process_remote_macip_del(vni_t vni,
 	zebra_neigh_t *n = NULL;
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
+	struct zebra_ns *zns;
+	struct zebra_l2info_vxlan *vxl;
+	struct zebra_vrf *zvrf;
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
 
@@ -5360,6 +5464,8 @@ static void process_remote_macip_del(vni_t vni,
 				   vni);
 		return;
 	}
+	zns = zebra_ns_lookup(NS_DEFAULT);
+	vxl = &zif->l2info.vxl;
 
 	/* The remote VTEP specified is normally expected to exist, but
 	 * it is possible that the peer may delete the VTEP before deleting
@@ -5386,9 +5492,10 @@ static void process_remote_macip_del(vni_t vni,
 	if (!mac && !n)
 		return;
 
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
+
 	/* Ignore the delete if this mac is a gateway mac-ip */
-	if (mac
-	    && CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)
 	    && CHECK_FLAG(mac->flags, ZEBRA_MAC_DEF_GW)) {
 		zlog_warn(
 			"Ignore remote MACIP DEL VNI %u MAC %s%s%s as MAC is already configured as gateway MAC",
@@ -5402,6 +5509,23 @@ static void process_remote_macip_del(vni_t vni,
 
 	/* Uninstall remote neighbor or MAC. */
 	if (n) {
+		if (zvrf->dad_freeze &&
+		    CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE) &&
+		    CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) &&
+		    (memcmp(n->emac.octet, macaddr->octet, ETH_ALEN) == 0)) {
+			struct interface *vlan_if;
+
+			vlan_if = zvni_map_to_svi(vxl->access_vlan,
+					zif->brslave_info.br_if);
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("%s: IP %s (flags 0x%x intf %s) is remote and duplicate, read kernel for local entry",
+					   __PRETTY_FUNCTION__,
+					   ipaddr2str(ipaddr, buf1,
+						      sizeof(buf1)), n->flags,
+					   vlan_if->name);
+			neigh_read_specific_ip(ipaddr, vlan_if);
+		}
+
 		/* When the MAC changes for an IP, it is possible the
 		 * client may update the new MAC before trying to delete the
 		 * "old" neighbor (as these are two different MACIP routes).
@@ -5414,6 +5538,25 @@ static void process_remote_macip_del(vni_t vni,
 			zvni_deref_ip2mac(zvni, mac);
 		}
 	} else {
+		/* DAD: when MAC is freeze state as remote learn event,
+		 * remote mac-ip delete event is received will result in freeze
+		 * entry removal, first fetch kernel for the same entry present
+		 * as LOCAL and reachable, avoid deleting this entry instead
+		 * use kerenel local entry to update during unfreeze time.
+		 */
+		if (zvrf->dad_freeze &&
+		    CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE) &&
+		    CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
+			if (IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug("%s: MAC %s (flags 0x%x) is remote and duplicate, read kernel for local entry",
+					   __PRETTY_FUNCTION__,
+					   prefix_mac2str(macaddr, buf,
+							  sizeof(buf)),
+					   mac->flags);
+			macfdb_read_specific_mac(zns, zif->brslave_info.br_if,
+						 macaddr, vxl->access_vlan);
+		}
+
 		if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 			zvni_process_neigh_on_remote_mac_del(zvni, mac);
 			/*
@@ -5626,7 +5769,7 @@ void zebra_vxlan_print_rmacs_all_l3vni(struct vty *vty, bool use_json)
 	args[0] = vty;
 	args[1] = json;
 	hash_iterate(zrouter.l3vni_table,
-		     (void (*)(struct hash_backet *,
+		     (void (*)(struct hash_bucket *,
 			       void *))zl3vni_print_rmac_hash_all_vni,
 		     args);
 
@@ -5743,7 +5886,7 @@ void zebra_vxlan_print_nh_all_l3vni(struct vty *vty, bool use_json)
 	args[0] = vty;
 	args[1] = json;
 	hash_iterate(zrouter.l3vni_table,
-		     (void (*)(struct hash_backet *,
+		     (void (*)(struct hash_bucket *,
 			       void *))zl3vni_print_nh_hash_all_vni,
 		     args);
 
@@ -5904,7 +6047,7 @@ void zebra_vxlan_print_neigh_all_vni(struct vty *vty, struct zebra_vrf *zvrf,
 	args[2] = (void *)(ptrdiff_t)print_dup;
 
 	hash_iterate(zvrf->vni_table,
-		     (void (*)(struct hash_backet *,
+		     (void (*)(struct hash_bucket *,
 			       void *))zvni_print_neigh_hash_all_vni,
 		     args);
 	if (use_json) {
@@ -5935,7 +6078,7 @@ void zebra_vxlan_print_neigh_all_vni_detail(struct vty *vty,
 	args[2] = (void *)(ptrdiff_t)print_dup;
 
 	hash_iterate(zvrf->vni_table,
-		     (void (*)(struct hash_backet *,
+		     (void (*)(struct hash_bucket *,
 			       void *))zvni_print_neigh_hash_all_vni_detail,
 		     args);
 	if (use_json) {
@@ -6497,7 +6640,7 @@ int zebra_vxlan_clear_dup_detect_vni_ip(struct vty *vty,
 	return CMD_SUCCESS;
 }
 
-static void zvni_clear_dup_mac_hash(struct hash_backet *backet, void *ctxt)
+static void zvni_clear_dup_mac_hash(struct hash_bucket *bucket, void *ctxt)
 {
 	struct mac_walk_ctx *wctx = ctxt;
 	zebra_mac_t *mac;
@@ -6505,7 +6648,7 @@ static void zvni_clear_dup_mac_hash(struct hash_backet *backet, void *ctxt)
 	struct listnode *node = NULL;
 	zebra_neigh_t *nbr = NULL;
 
-	mac = (zebra_mac_t *)backet->data;
+	mac = (zebra_mac_t *)bucket->data;
 	if (!mac)
 		return;
 
@@ -6552,14 +6695,14 @@ static void zvni_clear_dup_mac_hash(struct hash_backet *backet, void *ctxt)
 	}
 }
 
-static void zvni_clear_dup_neigh_hash(struct hash_backet *backet, void *ctxt)
+static void zvni_clear_dup_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 {
 	struct neigh_walk_ctx *wctx = ctxt;
 	zebra_neigh_t *nbr;
 	zebra_vni_t *zvni;
 	char buf[INET6_ADDRSTRLEN];
 
-	nbr = (zebra_neigh_t *)backet->data;
+	nbr = (zebra_neigh_t *)bucket->data;
 	if (!nbr)
 		return;
 
@@ -6592,7 +6735,7 @@ static void zvni_clear_dup_neigh_hash(struct hash_backet *backet, void *ctxt)
 	}
 }
 
-static void zvni_clear_dup_detect_hash_vni_all(struct hash_backet *backet,
+static void zvni_clear_dup_detect_hash_vni_all(struct hash_bucket *bucket,
 					    void **args)
 {
 	struct vty *vty;
@@ -6601,7 +6744,7 @@ static void zvni_clear_dup_detect_hash_vni_all(struct hash_backet *backet,
 	struct mac_walk_ctx m_wctx;
 	struct neigh_walk_ctx n_wctx;
 
-	zvni = (zebra_vni_t *)backet->data;
+	zvni = (zebra_vni_t *)bucket->data;
 	if (!zvni)
 		return;
 
@@ -6639,7 +6782,7 @@ int zebra_vxlan_clear_dup_detect_vni_all(struct vty *vty,
 	args[1] = zvrf;
 
 	hash_iterate(zvrf->vni_table,
-		     (void (*)(struct hash_backet *, void *))
+		     (void (*)(struct hash_bucket *, void *))
 		     zvni_clear_dup_detect_hash_vni_all, args);
 
 	return CMD_SUCCESS;
@@ -6818,6 +6961,8 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 		vty_out(vty, "L3 VNIs: %u\n", num_l3vnis);
 		vty_out(vty, "Advertise gateway mac-ip: %s\n",
 			zvrf->advertise_gw_macip ? "Yes" : "No");
+		vty_out(vty, "Advertise svi mac-ip: %s\n",
+			zvrf->advertise_svi_macip ? "Yes" : "No");
 		vty_out(vty, "Duplicate address detection: %s\n",
 			zvrf->dup_addr_detect ? "Enable" : "Disable");
 		vty_out(vty, "  Detection max-moves %u, time %d\n",
@@ -6863,12 +7008,12 @@ void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 
 	/* Display all L2-VNIs */
 	hash_iterate(zvrf->vni_table,
-		     (void (*)(struct hash_backet *, void *))zvni_print_hash,
+		     (void (*)(struct hash_bucket *, void *))zvni_print_hash,
 		     args);
 
 	/* Display all L3-VNIs */
 	hash_iterate(zrouter.l3vni_table,
-		     (void (*)(struct hash_backet *, void *))zl3vni_print_hash,
+		     (void (*)(struct hash_bucket *, void *))zl3vni_print_hash,
 		     args);
 
 	if (use_json) {
@@ -6946,19 +7091,21 @@ void zebra_vxlan_print_vnis_detail(struct vty *vty, struct zebra_vrf *zvrf,
 	zes.zvrf = zvrf;
 
 	/* Display all L2-VNIs */
-	hash_iterate(zvrf->vni_table, (void (*)(struct hash_backet *,
-						void *))zvni_print_hash_detail,
-		     &zes);
+	hash_iterate(
+		zvrf->vni_table,
+		(void (*)(struct hash_bucket *, void *))zvni_print_hash_detail,
+		&zes);
 
 	/* Display all L3-VNIs */
 	hash_iterate(zrouter.l3vni_table,
-		     (void (*)(struct hash_backet *,
+		     (void (*)(struct hash_bucket *,
 			       void *))zl3vni_print_hash_detail,
 		     &zes);
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -6979,6 +7126,7 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 	zebra_vni_t *zvni = NULL;
 	zebra_mac_t *zmac = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_vrf *zvrf;
 
 	/* check if this is a remote neigh entry corresponding to remote
 	 * next-hop
@@ -7031,9 +7179,23 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 		return 0;
 	}
 
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
+	if (!zvrf) {
+		zlog_debug("%s: VNI %u vrf lookup failed.",
+				   __PRETTY_FUNCTION__, zvni->vni);
+		return -1;
+	}
+
+	/* In case of feeze action, if local neigh is in duplicate state,
+	 * Mark the Neigh as inactive before sending delete request to BGPd,
+	 * If BGPd has remote entry, it will re-install
+	 */
+	if (zvrf->dad_freeze &&
+	    CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE))
+	    ZEBRA_NEIGH_SET_INACTIVE(n);
+
 	/* Remove neighbor from BGP. */
-	if (IS_ZEBRA_NEIGH_ACTIVE(n))
-		zvni_neigh_send_del_to_client(zvni->vni, &n->ip, &n->emac, 0);
+	zvni_neigh_send_del_to_client(zvni->vni, &n->ip, &n->emac, 0, n->state);
 
 	/* Delete this neighbor entry. */
 	zvni_neigh_del(zvni, n);
@@ -8600,6 +8762,102 @@ void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS)
 	 */
 	hash_iterate(zvrf->vni_table, zvni_handle_flooding_remote_vteps,
 		     zvrf);
+
+stream_failure:
+	return;
+}
+
+/*
+ * Handle message from client to enable/disable advertisement of svi macip
+ * routes
+ */
+void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
+{
+	struct stream *s;
+	int advertise;
+	vni_t vni = 0;
+	zebra_vni_t *zvni = NULL;
+	struct interface *ifp = NULL;
+
+	if (zvrf_id(zvrf) != VRF_DEFAULT) {
+		zlog_debug("EVPN GW-MACIP Adv for non-default VRF %u",
+			   zvrf_id(zvrf));
+		return;
+	}
+
+	s = msg;
+	STREAM_GETC(s, advertise);
+	STREAM_GETL(s, vni);
+
+	if (!vni) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("EVPN gateway macip Adv %s, currently %s",
+				   advertise ? "enabled" : "disabled",
+				   advertise_gw_macip_enabled(NULL)
+					   ? "enabled"
+					   : "disabled");
+
+		if (zvrf->advertise_svi_macip == advertise)
+			return;
+
+
+		if (advertise) {
+			zvrf->advertise_svi_macip = advertise;
+			hash_iterate(zvrf->vni_table,
+				     zvni_gw_macip_add_for_vni_hash, NULL);
+		} else {
+			hash_iterate(zvrf->vni_table,
+				     zvni_svi_macip_del_for_vni_hash, NULL);
+			zvrf->advertise_svi_macip = advertise;
+		}
+
+	} else {
+		struct zebra_if *zif = NULL;
+		struct zebra_l2info_vxlan zl2_info;
+		struct interface *vlan_if = NULL;
+
+		zvni = zvni_lookup(vni);
+		if (!zvni)
+			return;
+
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"EVPN SVI macip Adv %s on VNI %d , currently %s",
+				advertise ? "enabled" : "disabled", vni,
+				advertise_svi_macip_enabled(zvni)
+					? "enabled"
+					: "disabled");
+
+		if (zvni->advertise_svi_macip == advertise)
+			return;
+
+		ifp = zvni->vxlan_if;
+		if (!ifp)
+			return;
+
+		zif = ifp->info;
+
+		/* If down or not mapped to a bridge, we're done. */
+		if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+			return;
+
+		zl2_info = zif->l2info.vxl;
+
+		vlan_if = zvni_map_to_svi(zl2_info.access_vlan,
+					  zif->brslave_info.br_if);
+		if (!vlan_if)
+			return;
+
+		if (advertise) {
+			zvni->advertise_svi_macip = advertise;
+			/* Add primary SVI MAC-IP */
+			zvni_add_macip_for_intf(vlan_if, zvni);
+		} else {
+			/* Del primary MAC-IP */
+			zvni_del_macip_for_intf(vlan_if, zvni);
+			zvni->advertise_svi_macip = advertise;
+		}
+	}
 
 stream_failure:
 	return;

@@ -1073,9 +1073,13 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 		return;
 	}
 
-	if (debug)
-		zlog_debug("%s: updating to vrf %s", __func__,
-				bgp_vrf->name_pretty);
+	if (debug) {
+		char buf_prefix[PREFIX_STRLEN];
+
+		prefix2str(p, buf_prefix, sizeof(buf_prefix));
+		zlog_debug("%s: updating %s to vrf %s", __func__,
+				buf_prefix, bgp_vrf->name_pretty);
+	}
 
 	bgp_attr_dup(&static_attr, path_vpn->attr); /* shallow copy */
 
@@ -1088,8 +1092,6 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 	 */
 	uint8_t nhfamily = NEXTHOP_FAMILY(path_vpn->attr->mp_nexthop_len);
 
-	if (nhfamily != AF_UNSPEC)
-		static_attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 	memset(&nexthop_orig, 0, sizeof(nexthop_orig));
 	nexthop_orig.family = nhfamily;
 
@@ -1109,6 +1111,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 			static_attr.mp_nexthop_len =
 				path_vpn->attr->mp_nexthop_len;
 		}
+		static_attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 		break;
 	case AF_INET6:
 		/* save */
@@ -1132,6 +1135,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 		memset(&info, 0, sizeof(info));
 		info.peer = bgp_vrf->peer_self;
 		info.attr = &static_attr;
+		info.extra = path_vpn->extra; /* Used for source-vrf filter */
 		ret = route_map_apply(bgp_vrf->vpn_policy[afi]
 					      .rmap[BGP_VPN_POLICY_DIR_FROMVPN],
 				      p, RMAP_BGP, &info);

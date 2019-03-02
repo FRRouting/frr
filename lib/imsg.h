@@ -21,6 +21,10 @@
 #ifndef _IMSG_H_
 #define _IMSG_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define IBUF_READ_SIZE		65535
 #define IMSG_HEADER_SIZE	sizeof(struct imsg_hdr)
 #define MAX_IMSGSIZE		16384
@@ -107,5 +111,9 @@ void imsg_close(struct imsgbuf *, struct ibuf *);
 void imsg_free(struct imsg *);
 int imsg_flush(struct imsgbuf *);
 void imsg_clear(struct imsgbuf *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

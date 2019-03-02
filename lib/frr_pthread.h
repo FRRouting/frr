@@ -25,6 +25,10 @@
 #include "memory.h"
 #include "thread.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MTYPE(FRR_PTHREAD);
 DECLARE_MTYPE(PTHREAD_PRIM);
 
@@ -73,7 +77,7 @@ struct frr_pthread {
 	 */
 	pthread_cond_t *running_cond;
 	pthread_mutex_t *running_cond_mtx;
-	_Atomic bool running;
+	atomic_bool running;
 
 	/*
 	 * Fake thread-specific storage. No constraints on usage. Helpful when
@@ -209,6 +213,10 @@ void frr_pthread_stop_all(void);
 
 #ifndef HAVE_PTHREAD_CONDATTR_SETCLOCK
 #define pthread_condattr_setclock(A, B)
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif /* _FRR_PTHREAD_H */

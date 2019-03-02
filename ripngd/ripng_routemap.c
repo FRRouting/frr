@@ -337,7 +337,7 @@ static struct route_map_rule_cmd route_set_tag_cmd = {
 #define MATCH_STR "Match values from routing table\n"
 #define SET_STR "Set values in destination routing protocol\n"
 
-void ripng_route_map_init()
+void ripng_route_map_init(void)
 {
 	route_map_init();
 

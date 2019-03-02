@@ -61,11 +61,15 @@
 #include "zebra/zapi_msg.h"       /* for zserv_handle_commands */
 #include "zebra/zebra_vrf.h"      /* for zebra_vrf_lookup_by_id, zvrf */
 #include "zebra/zserv.h"          /* for zserv */
+#include "zebra/zebra_router.h"
 #include "zebra/zebra_errors.h"   /* for error messages */
 /* clang-format on */
 
 /* privileges */
 extern struct zebra_privs_t zserv_privs;
+
+/* The listener socket for clients connecting to us */
+static int zsock;
 
 /*
  * Client thread events.
@@ -312,7 +316,7 @@ static int zserv_read(struct thread *thread)
 	uint32_t p2p;
 	struct zmsghdr hdr;
 
-	p2p_orig = atomic_load_explicit(&zebrad.packets_to_process,
+	p2p_orig = atomic_load_explicit(&zrouter.packets_to_process,
 					memory_order_relaxed);
 	cache = stream_fifo_new();
 	p2p = p2p_orig;
@@ -401,8 +405,10 @@ static int zserv_read(struct thread *thread)
 		}
 
 		/* Debug packet information. */
-		if (IS_ZEBRA_DEBUG_EVENT)
-			zlog_debug("zebra message comes from socket [%d]",
+		if (IS_ZEBRA_DEBUG_PACKET)
+			zlog_debug("zebra message[%s:%u:%u] comes from socket [%d]",
+				   zserv_command_string(hdr.command),
+				   hdr.vrf_id, hdr.length,
 				   sock);
 
 		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
@@ -438,7 +444,8 @@ static int zserv_read(struct thread *thread)
 	}
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("Read %d packets", p2p_orig - p2p);
+		zlog_debug("Read %d packets from client: %s", p2p_orig - p2p,
+			   zebra_route_string(client->proto));
 
 	/* Reschedule ourselves */
 	zserv_client_event(client, ZSERV_CLIENT_READ);
@@ -481,9 +488,9 @@ static void zserv_client_event(struct zserv *client,
  * with the message is executed. This proceeds until there are no more messages,
  * an error occurs, or the processing limit is reached.
  *
- * The client's I/O thread can push at most zebrad.packets_to_process messages
+ * The client's I/O thread can push at most zrouter.packets_to_process messages
  * onto the input buffer before notifying us there are packets to read. As long
- * as we always process zebrad.packets_to_process messages here, then we can
+ * as we always process zrouter.packets_to_process messages here, then we can
  * rely on the read thread to handle queuing this task enough times to process
  * everything on the input queue.
  */
@@ -492,7 +499,7 @@ static int zserv_process_messages(struct thread *thread)
 	struct zserv *client = THREAD_ARG(thread);
 	struct stream *msg;
 	struct stream_fifo *cache = stream_fifo_new();
-	uint32_t p2p = zebrad.packets_to_process;
+	uint32_t p2p = zrouter.packets_to_process;
 	bool need_resched = false;
 
 	pthread_mutex_lock(&client->ibuf_mtx);
@@ -622,7 +629,6 @@ static void zserv_client_free(struct zserv *client)
 
 		vrf_bitmap_free(client->redist_default[afi]);
 	}
-	vrf_bitmap_free(client->ifinfo);
 	vrf_bitmap_free(client->ridinfo);
 
 	XFREE(MTYPE_TMP, client);
@@ -637,7 +643,7 @@ void zserv_close_client(struct zserv *client)
 		zlog_debug("Closing client '%s'",
 			   zebra_route_string(client->proto));
 
-	thread_cancel_event(zebrad.master, client);
+	thread_cancel_event(zrouter.master, client);
 	THREAD_OFF(client->t_cleanup);
 	THREAD_OFF(client->t_process);
 
@@ -646,7 +652,7 @@ void zserv_close_client(struct zserv *client)
 	client->pthread = NULL;
 
 	/* remove from client list */
-	listnode_delete(zebrad.client_list, client);
+	listnode_delete(zrouter.client_list, client);
 
 	/* delete client */
 	zserv_client_free(client);
@@ -695,7 +701,7 @@ static struct zserv *zserv_client_create(int sock)
 	client->wb = buffer_new(0);
 
 	/* Set table number. */
-	client->rtm_table = zebrad.rtm_table_default;
+	client->rtm_table = zrouter.rtm_table_default;
 
 	atomic_store_explicit(&client->connect_time, (uint32_t) monotime(NULL),
 			      memory_order_relaxed);
@@ -706,14 +712,13 @@ static struct zserv *zserv_client_create(int sock)
 			client->redist[afi][i] = vrf_bitmap_init();
 		client->redist_default[afi] = vrf_bitmap_init();
 	}
-	client->ifinfo = vrf_bitmap_init();
 	client->ridinfo = vrf_bitmap_init();
 
 	/* by default, it's not a synchronous client */
 	client->is_synchronous = 0;
 
 	/* Add this client to linked list. */
-	listnode_add(zebrad.client_list, client);
+	listnode_add(zrouter.client_list, client);
 
 	struct frr_pthread_attr zclient_pthr_attrs = {
 		.start = frr_pthread_attr_default.start,
@@ -722,8 +727,6 @@ static struct zserv *zserv_client_create(int sock)
 	client->pthread =
 		frr_pthread_new(&zclient_pthr_attrs, "Zebra API client thread",
 				"zebra_apic");
-
-	zebra_vrf_update_all(client);
 
 	/* start read loop */
 	zserv_client_event(client, ZSERV_CLIENT_READ);
@@ -785,16 +788,16 @@ void zserv_start(char *path)
 	old_mask = umask(0077);
 
 	/* Make UNIX domain socket. */
-	zebrad.sock = socket(sa.ss_family, SOCK_STREAM, 0);
-	if (zebrad.sock < 0) {
+	zsock = socket(sa.ss_family, SOCK_STREAM, 0);
+	if (zsock < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "Can't create zserv socket: %s",
 			     safe_strerror(errno));
 		return;
 	}
 
 	if (sa.ss_family != AF_UNIX) {
-		sockopt_reuseaddr(zebrad.sock);
-		sockopt_reuseport(zebrad.sock);
+		sockopt_reuseaddr(zsock);
+		sockopt_reuseport(zsock);
 	} else {
 		struct sockaddr_un *suna = (struct sockaddr_un *)&sa;
 		if (suna->sun_path[0])
@@ -802,28 +805,28 @@ void zserv_start(char *path)
 	}
 
 	frr_elevate_privs(&zserv_privs) {
-		setsockopt_so_recvbuf(zebrad.sock, 1048576);
-		setsockopt_so_sendbuf(zebrad.sock, 1048576);
+		setsockopt_so_recvbuf(zsock, 1048576);
+		setsockopt_so_sendbuf(zsock, 1048576);
 	}
 
 	frr_elevate_privs((sa.ss_family != AF_UNIX) ? &zserv_privs : NULL) {
-		ret = bind(zebrad.sock, (struct sockaddr *)&sa, sa_len);
+		ret = bind(zsock, (struct sockaddr *)&sa, sa_len);
 	}
 	if (ret < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "Can't bind zserv socket on %s: %s",
 			     path, safe_strerror(errno));
-		close(zebrad.sock);
-		zebrad.sock = -1;
+		close(zsock);
+		zsock = -1;
 		return;
 	}
 
-	ret = listen(zebrad.sock, 5);
+	ret = listen(zsock, 5);
 	if (ret < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "Can't listen to zserv socket %s: %s", path,
 			     safe_strerror(errno));
-		close(zebrad.sock);
-		zebrad.sock = -1;
+		close(zsock);
+		zsock = -1;
 		return;
 	}
 
@@ -836,15 +839,15 @@ void zserv_event(struct zserv *client, enum zserv_event event)
 {
 	switch (event) {
 	case ZSERV_ACCEPT:
-		thread_add_read(zebrad.master, zserv_accept, NULL, zebrad.sock,
+		thread_add_read(zrouter.master, zserv_accept, NULL, zsock,
 				NULL);
 		break;
 	case ZSERV_PROCESS_MESSAGES:
-		thread_add_event(zebrad.master, zserv_process_messages, client,
+		thread_add_event(zrouter.master, zserv_process_messages, client,
 				 0, &client->t_process);
 		break;
 	case ZSERV_HANDLE_CLIENT_FAIL:
-		thread_add_event(zebrad.master, zserv_handle_client_fail,
+		thread_add_event(zrouter.master, zserv_handle_client_fail,
 				 client, 0, &client->t_cleanup);
 	}
 }
@@ -1004,7 +1007,7 @@ struct zserv *zserv_find_client(uint8_t proto, unsigned short instance)
 	struct listnode *node, *nnode;
 	struct zserv *client;
 
-	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {
+	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		if (client->proto == proto && client->instance == instance)
 			return client;
 	}
@@ -1023,7 +1026,7 @@ DEFUN (show_zebra_client,
 	struct listnode *node;
 	struct zserv *client;
 
-	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client))
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
 		zebra_show_client_detail(vty, client);
 
 	return CMD_SUCCESS;
@@ -1046,7 +1049,7 @@ DEFUN (show_zebra_client_summary,
 	vty_out(vty,
 		"--------------------------------------------------------------------------------\n");
 
-	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client))
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
 		zebra_show_client_brief(vty, client);
 
 	vty_out(vty, "Routes column shows (added+updated)/deleted\n");
@@ -1069,10 +1072,10 @@ void zserv_read_file(char *input)
 void zserv_init(void)
 {
 	/* Client list init. */
-	zebrad.client_list = list_new();
+	zrouter.client_list = list_new();
 
 	/* Misc init. */
-	zebrad.sock = -1;
+	zsock = -1;
 
 	install_element(ENABLE_NODE, &show_zebra_client_cmd);
 	install_element(ENABLE_NODE, &show_zebra_client_summary_cmd);

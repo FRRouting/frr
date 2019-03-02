@@ -22,6 +22,8 @@
 #ifndef __ZEBRA_ROUTER_H__
 #define __ZEBRA_ROUTER_H__
 
+#include "lib/mlag.h"
+
 #include "zebra/zebra_ns.h"
 
 /*
@@ -44,7 +46,24 @@ RB_HEAD(zebra_router_table_head, zebra_router_table);
 RB_PROTOTYPE(zebra_router_table_head, zebra_router_table,
 	     zebra_router_table_entry, zebra_router_table_entry_compare)
 
+struct zebra_mlag_info {
+	/* Role this zebra router is playing */
+	enum mlag_role role;
+
+	/* The peerlink being used for mlag */
+	char *peerlink;
+	ifindex_t peerlink_ifindex;
+
+	/* The system mac being used */
+	struct ethaddr mac;
+};
+
 struct zebra_router {
+	/* Thread master */
+	struct thread_master *master;
+
+	/* Lists of clients who have connected to us */
+	struct list *client_list;
 
 	struct zebra_router_table_head tables;
 
@@ -62,6 +81,29 @@ struct zebra_router {
 #if defined(HAVE_RTADV)
 	struct rtadv rtadv;
 #endif /* HAVE_RTADV */
+
+	/* A sequence number used for tracking routes */
+	_Atomic uint32_t sequence_num;
+
+	/* The default table used for this router */
+	uint32_t rtm_table_default;
+
+	/* rib work queue */
+#define ZEBRA_RIB_PROCESS_HOLD_TIME 10
+#define ZEBRA_RIB_PROCESS_RETRY_TIME 1
+	struct work_queue *ribq;
+
+	/* Meta Queue Information */
+	struct meta_queue *mq;
+
+	/* LSP work queue */
+	struct work_queue *lsp_process_q;
+
+#define ZEBRA_ZAPI_PACKETS_TO_PROCESS 1000
+	_Atomic uint32_t packets_to_process;
+
+	/* Mlag information for the router */
+	struct zebra_mlag_info mlag_info;
 };
 
 extern struct zebra_router zrouter;
@@ -83,4 +125,6 @@ extern unsigned long zebra_router_score_proto(uint8_t proto,
 extern void zebra_router_sweep_route(void);
 
 extern void zebra_router_show_table_summary(struct vty *vty);
+
+extern uint32_t zebra_router_get_next_sequence(void);
 #endif

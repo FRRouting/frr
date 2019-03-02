@@ -28,7 +28,8 @@ extern void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label);
 extern void route_add(struct prefix *p, uint8_t instance,
 		      struct nexthop_group *nhg);
 extern void route_delete(struct prefix *p, uint8_t instance);
-extern void sharp_zebra_nexthop_watch(struct prefix *p, bool watch);
+extern void sharp_zebra_nexthop_watch(struct prefix *p, bool import,
+				      bool watch, bool connected);
 
 extern void sharp_install_routes_helper(struct prefix *p, uint8_t instance,
 					 struct nexthop_group *nhg,

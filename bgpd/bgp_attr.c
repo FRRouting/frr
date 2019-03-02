@@ -592,9 +592,9 @@ static void attrhash_finish(void)
 	attrhash = NULL;
 }
 
-static void attr_show_all_iterator(struct hash_backet *backet, struct vty *vty)
+static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 {
-	struct attr *attr = backet->data;
+	struct attr *attr = bucket->data;
 
 	vty_out(vty, "attr[%ld] nexthop %s\n", attr->refcnt,
 		inet_ntoa(attr->nexthop));
@@ -605,7 +605,7 @@ static void attr_show_all_iterator(struct hash_backet *backet, struct vty *vty)
 
 void attr_show_all(struct vty *vty)
 {
-	hash_iterate(attrhash, (void (*)(struct hash_backet *,
+	hash_iterate(attrhash, (void (*)(struct hash_bucket *,
 					 void *))attr_show_all_iterator,
 		     vty);
 }
@@ -2227,11 +2227,12 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 	uint8_t tnl_type;
+	int attr_parse_len = 2 + BGP_LABEL_BYTES;
 
 	/* Verify that the receiver is expecting "ingress replication" as we
 	 * can only support that.
 	 */
-	if (length < 2) {
+	if (length < attr_parse_len) {
 		flog_err(EC_BGP_ATTR_LEN, "Bad PMSI tunnel attribute length %d",
 			 length);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -2258,9 +2259,10 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL);
 	attr->pmsi_tnl_type = tnl_type;
+	stream_get(&attr->label, peer->curr, BGP_LABEL_BYTES);
 
 	/* Forward read pointer of input stream. */
-	stream_forward_getp(peer->curr, length - 2);
+	stream_forward_getp(peer->curr, length - attr_parse_len);
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -3445,7 +3447,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		stream_putc(s, BGP_ATTR_PMSI_TUNNEL);
 		stream_putc(s, 9); // Length
 		stream_putc(s, 0); // Flags
-		stream_putc(s, PMSI_TNLTYPE_INGR_REPL); // IR (6)
+		stream_putc(s, attr->pmsi_tnl_type);
 		stream_put(s, &(attr->label),
 			   BGP_LABEL_BYTES); // MPLS Label / VXLAN VNI
 		stream_put_ipv4(s, attr->nexthop.s_addr);

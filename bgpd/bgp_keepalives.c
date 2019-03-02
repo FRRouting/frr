@@ -85,7 +85,7 @@ static void pkat_del(void *pkat)
  *
  * @return maximum time to wait until next update (0 if infinity)
  */
-static void peer_process(struct hash_backet *hb, void *arg)
+static void peer_process(struct hash_bucket *hb, void *arg)
 {
 	struct pkat *pkat = hb->data;
 
@@ -288,7 +288,7 @@ void bgp_keepalives_off(struct peer *peer)
 	pthread_mutex_unlock(peerhash_mtx);
 }
 
-void bgp_keepalives_wake()
+void bgp_keepalives_wake(void)
 {
 	pthread_mutex_lock(peerhash_mtx);
 	{

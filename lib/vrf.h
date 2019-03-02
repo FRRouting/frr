@@ -28,6 +28,10 @@
 #include "vty.h"
 #include "ns.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* The default VRF ID */
 #define VRF_UNKNOWN UINT32_MAX
 
@@ -200,7 +204,7 @@ extern int vrf_bitmap_check(vrf_bitmap_t, vrf_id_t);
  *           the system ( 2 and 3 ) above.
  */
 extern void vrf_init(int (*create)(struct vrf *vrf), int (*enable)(struct vrf *vrf),
-		     int (*disable)(struct vrf *vrf), int (*delete)(struct vrf *vrf),
+		     int (*disable)(struct vrf *vrf), int (*destroy)(struct vrf *vrf),
 		     int (*update)(struct vrf *vrf));
 
 /*
@@ -239,9 +243,6 @@ extern vrf_id_t vrf_get_default_id(void);
 extern void vrf_set_default_name(const char *default_name, bool force);
 extern const char *vrf_get_default_name(void);
 #define VRF_DEFAULT_NAME    vrf_get_default_name()
-
-/* VRF is mapped on netns or not ? */
-int vrf_is_mapped_on_netns(struct vrf *vrf);
 
 /* VRF switch from NETNS */
 extern int vrf_switch_to_netns(vrf_id_t vrf_id);
@@ -294,5 +295,9 @@ extern void vrf_disable(struct vrf *vrf);
 extern int vrf_enable(struct vrf *vrf);
 extern void vrf_delete(struct vrf *vrf);
 extern vrf_id_t vrf_generate_id(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /*_ZEBRA_VRF_H*/

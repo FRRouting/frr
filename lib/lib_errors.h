@@ -23,6 +23,10 @@
 
 #include "lib/ferr.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum lib_log_refs {
 	EC_LIB_PRIVILEGES = LIB_FERR_START,
 	EC_LIB_VRF_START,
@@ -81,5 +85,9 @@ enum lib_log_refs {
 };
 
 extern void lib_error_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

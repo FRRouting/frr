@@ -174,7 +174,7 @@ const char *eigrp_if_ip_string(struct eigrp_interface *ei)
 	if (!ei)
 		return "inactive";
 
-	ifaddr = ntohl(ei->address->u.prefix4.s_addr);
+	ifaddr = ntohl(ei->address.u.prefix4.s_addr);
 	snprintf(buf, EIGRP_IF_STRING_MAXLEN, "%u.%u.%u.%u",
 		 (ifaddr >> 24) & 0xff, (ifaddr >> 16) & 0xff,
 		 (ifaddr >> 8) & 0xff, ifaddr & 0xff);
@@ -301,14 +301,14 @@ void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
 }
 
 void show_ip_eigrp_nexthop_entry(struct vty *vty, struct eigrp *eigrp,
-				 struct eigrp_nexthop_entry *te, int *first)
+				 struct eigrp_nexthop_entry *te, bool *first)
 {
 	if (te->reported_distance == EIGRP_MAX_METRIC)
 		return;
 
 	if (*first) {
 		show_ip_eigrp_prefix_entry(vty, te->prefix);
-		*first = 0;
+		*first = false;
 	}
 
 	if (te->adv_router == eigrp->neighbor_self)
@@ -605,7 +605,7 @@ static struct cmd_node eigrp_debug_node = {
 };
 
 /* Initialize debug commands. */
-void eigrp_debug_init()
+void eigrp_debug_init(void)
 {
 	install_node(&eigrp_debug_node, config_write_debug);
 

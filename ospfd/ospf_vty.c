@@ -954,8 +954,9 @@ static int ospf_vl_set_security(struct ospf_vl_data *vl_data,
 	if (vl_config->auth_key) {
 		memset(IF_DEF_PARAMS(ifp)->auth_simple, 0,
 		       OSPF_AUTH_SIMPLE_SIZE + 1);
-		strncpy((char *)IF_DEF_PARAMS(ifp)->auth_simple,
-			vl_config->auth_key, OSPF_AUTH_SIMPLE_SIZE);
+		strlcpy((char *)IF_DEF_PARAMS(ifp)->auth_simple,
+			vl_config->auth_key,
+			sizeof(IF_DEF_PARAMS(ifp)->auth_simple));
 	} else if (vl_config->md5_key) {
 		if (ospf_crypt_key_lookup(IF_DEF_PARAMS(ifp)->auth_crypt,
 					  vl_config->crypto_key_id)
@@ -967,8 +968,8 @@ static int ospf_vl_set_security(struct ospf_vl_data *vl_data,
 		ck = ospf_crypt_key_new();
 		ck->key_id = vl_config->crypto_key_id;
 		memset(ck->auth_key, 0, OSPF_AUTH_MD5_SIZE + 1);
-		strncpy((char *)ck->auth_key, vl_config->md5_key,
-			OSPF_AUTH_MD5_SIZE);
+		strlcpy((char *)ck->auth_key, vl_config->md5_key,
+			sizeof(ck->auth_key));
 
 		ospf_crypt_key_add(IF_DEF_PARAMS(ifp)->auth_crypt, ck);
 	} else if (vl_config->crypto_key_id != 0) {
@@ -1147,14 +1148,12 @@ DEFUN (ospf_area_vlink,
 		if (vl_config.crypto_key_id < 0)
 			return CMD_WARNING_CONFIG_FAILED;
 
-		memset(md5_key, 0, OSPF_AUTH_MD5_SIZE + 1);
-		strncpy(md5_key, argv[idx + 3]->arg, OSPF_AUTH_MD5_SIZE);
+		strlcpy(md5_key, argv[idx + 3]->arg, sizeof(md5_key));
 		vl_config.md5_key = md5_key;
 	}
 
 	if (argv_find(argv, argc, "authentication-key", &idx)) {
-		memset(auth_key, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
-		strncpy(auth_key, argv[idx + 1]->arg, OSPF_AUTH_SIMPLE_SIZE);
+		strlcpy(auth_key, argv[idx + 1]->arg, sizeof(auth_key));
 		vl_config.auth_key = auth_key;
 	}
 
@@ -1205,14 +1204,17 @@ DEFUN (no_ospf_area_vlink,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	vl_data = ospf_vl_lookup(ospf, area, vl_config.vl_peer);
+	if (!vl_data) {
+		vty_out(vty, "Virtual link does not exist\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (argc <= 5) {
 		/* Basic VLink no command */
 		/* Thats all folks! - BUGS B. strikes again!!!*/
-		if ((vl_data = ospf_vl_lookup(ospf, area, vl_config.vl_peer)))
-			ospf_vl_delete(ospf, vl_data);
-
+		ospf_vl_delete(ospf, vl_data);
 		ospf_area_check_free(ospf, vl_config.area_id);
-
 		return CMD_SUCCESS;
 	}
 
@@ -6892,9 +6894,8 @@ DEFUN (ip_ospf_authentication_key,
 		ospf_if_update_params(ifp, addr);
 	}
 
-	memset(params->auth_simple, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
-	strncpy((char *)params->auth_simple, argv[3]->arg,
-		OSPF_AUTH_SIMPLE_SIZE);
+	strlcpy((char *)params->auth_simple, argv[3]->arg,
+		sizeof(params->auth_simple));
 	SET_IF_PARAM(params, auth_simple);
 
 	return CMD_SUCCESS;
@@ -7003,8 +7004,7 @@ DEFUN (ip_ospf_message_digest_key,
 
 	ck = ospf_crypt_key_new();
 	ck->key_id = (uint8_t)key_id;
-	memset(ck->auth_key, 0, OSPF_AUTH_MD5_SIZE + 1);
-	strncpy((char *)ck->auth_key, cryptkey, OSPF_AUTH_MD5_SIZE);
+	strlcpy((char *)ck->auth_key, cryptkey, sizeof(ck->auth_key));
 
 	ospf_crypt_key_add(params->auth_crypt, ck);
 	SET_IF_PARAM(params, auth_crypt);

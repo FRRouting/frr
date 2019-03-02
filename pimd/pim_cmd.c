@@ -62,6 +62,10 @@
 #include "pim_bfd.h"
 #include "bfd.h"
 
+#ifndef VTYSH_EXTRACT_PL
+#include "pimd/pim_cmd_clippy.c"
+#endif
+
 static struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1 /* vtysh ? yes */
 };
@@ -2785,9 +2789,9 @@ struct pnc_cache_walk_data {
 	struct pim_instance *pim;
 };
 
-static int pim_print_pnc_cache_walkcb(struct hash_backet *backet, void *arg)
+static int pim_print_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
 {
-	struct pim_nexthop_cache *pnc = backet->data;
+	struct pim_nexthop_cache *pnc = bucket->data;
 	struct pnc_cache_walk_data *cwd = arg;
 	struct vty *vty = cwd->vty;
 	struct pim_instance *pim = cwd->pim;
@@ -5138,6 +5142,12 @@ static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (result == PIM_GROUP_BAD_ADDR_MASK_COMBO) {
+		vty_out(vty, "%% Inconsistent address and mask: %s\n",
+			group);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -6392,6 +6402,81 @@ static int pim_cmd_interface_add(struct interface *ifp)
 	pim_if_addr_add_all(ifp);
 	pim_if_membership_refresh(ifp);
 	return 1;
+}
+
+DEFPY_HIDDEN (pim_test_sg_keepalive,
+	      pim_test_sg_keepalive_cmd,
+	      "test pim [vrf NAME$name] keepalive-reset A.B.C.D$source A.B.C.D$group",
+	      "Test code\n"
+	      PIM_STR
+	      VRF_CMD_HELP_STR
+	      "Reset the Keepalive Timer\n"
+	      "The Source we are resetting\n"
+	      "The Group we are resetting\n")
+{
+	struct pim_upstream *up;
+	struct pim_instance *pim;
+	struct prefix_sg sg;
+
+	sg.src = source;
+	sg.grp = group;
+
+	if (!name)
+		pim = pim_get_pim_instance(VRF_DEFAULT);
+	else {
+		struct vrf *vrf = vrf_lookup_by_name(name);
+
+		if (!vrf) {
+			vty_out(vty, "%% Vrf specified: %s does not exist\n",
+				name);
+			return CMD_WARNING;
+		}
+
+		pim = pim_get_pim_instance(vrf->vrf_id);
+	}
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	up = pim_upstream_find(pim, &sg);
+	if (!up) {
+		vty_out(vty, "%% Unable to find %s specified\n",
+			pim_str_sg_dump(&sg));
+		return CMD_WARNING;
+	}
+
+	vty_out(vty, "Setting %s to current keep alive time: %d\n",
+		pim_str_sg_dump(&sg), pim->keep_alive_time);
+	pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY_HIDDEN (interface_ip_pim_activeactive,
+	      interface_ip_pim_activeactive_cmd,
+	      "[no$no] ip pim active-active",
+	      NO_STR
+	      IP_STR
+	      PIM_STR
+	      "Mark interface as Active-Active for MLAG operations, Hidden because not finished yet\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp;
+
+	if (!no && !pim_cmd_interface_add(ifp)) {
+		vty_out(vty, "Could not enable PIM SM active-active on interface\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	pim_ifp = ifp->info;
+	if (no)
+		pim_ifp->activeactive = false;
+	else
+		pim_ifp->activeactive = true;
+
+	return CMD_SUCCESS;
 }
 
 DEFUN_HIDDEN (interface_ip_pim_ssm,
@@ -8632,7 +8717,6 @@ DEFUN (show_ip_msdp_sa_sg_vrf_all,
 	return CMD_SUCCESS;
 }
 
-
 void pim_cmd_init(void)
 {
 	install_node(&interface_node,
@@ -8640,6 +8724,8 @@ void pim_cmd_init(void)
 	if_cmd_init();
 
 	install_node(&debug_node, pim_debug_config_write);
+
+	install_element(ENABLE_NODE, &pim_test_sg_keepalive_cmd);
 
 	install_element(CONFIG_NODE, &ip_pim_rp_cmd);
 	install_element(VRF_NODE, &ip_pim_rp_cmd);
@@ -8722,6 +8808,7 @@ void pim_cmd_init(void)
 			&interface_ip_igmp_query_max_response_time_dsec_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ip_igmp_query_max_response_time_dsec_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_activeactive_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_sm_cmd);

@@ -121,6 +121,17 @@ void pbr_map_reason_string(unsigned int reason, char *buf, int size)
 	}
 }
 
+void pbr_map_final_interface_deletion(struct pbr_map *pbrm,
+				      struct pbr_map_interface *pmi)
+{
+	if (pmi->delete == true) {
+		listnode_delete(pbrm->incoming, pmi);
+		pmi->pbrm = NULL;
+
+		bf_release_index(pbrm->ifi_bitfield, pmi->install_bit);
+		XFREE(MTYPE_PBR_MAP_INTERFACE, pmi);
+	}
+}
 
 void pbr_map_interface_delete(struct pbr_map *pbrm, struct interface *ifp_del)
 {
@@ -409,7 +420,8 @@ void pbr_map_schedule_policy_from_nhg(const char *nh_group)
 		       pbrm->name);
 		for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms)) {
 			DEBUGD(&pbr_dbg_map, "\tNH Grp name: %s",
-			       pbrms->nhgrp_name ? pbrms->nhgrp_name : "NULL");
+			       pbrms->nhgrp_name ?
+			       pbrms->nhgrp_name : pbrms->internal_nhg_name);
 
 			if (pbrms->nhgrp_name
 			    && (strcmp(nh_group, pbrms->nhgrp_name) == 0)) {
@@ -465,11 +477,7 @@ void pbr_map_policy_delete(struct pbr_map *pbrm, struct pbr_map_interface *pmi)
 	for (ALL_LIST_ELEMENTS_RO(pbrm->seqnumbers, node, pbrms))
 		pbr_send_pbr_map(pbrms, pmi, false);
 
-	listnode_delete(pbrm->incoming, pmi);
-	pmi->pbrm = NULL;
-
-	bf_release_index(pbrm->ifi_bitfield, pmi->install_bit);
-	XFREE(MTYPE_PBR_MAP_INTERFACE, pmi);
+	pmi->delete = true;
 }
 
 /*
@@ -526,11 +534,8 @@ void pbr_map_check(struct pbr_map_sequence *pbrms)
 	DEBUGD(&pbr_dbg_map, "%s: for %s(%u)", __PRETTY_FUNCTION__,
 	       pbrm->name, pbrms->seqno);
 	if (pbr_map_check_valid(pbrm->name))
-		DEBUGD(&pbr_dbg_map, "We are totally valid %s\n",
+		DEBUGD(&pbr_dbg_map, "We are totally valid %s",
 		       pbrm->name);
-
-	DEBUGD(&pbr_dbg_map, "%s: Installing %s(%u) reason: %" PRIu64,
-	       __PRETTY_FUNCTION__, pbrm->name, pbrms->seqno, pbrms->reason);
 
 	if (pbrms->reason == PBR_MAP_VALID_SEQUENCE_NUMBER) {
 		install = true;

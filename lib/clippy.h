@@ -22,7 +22,15 @@
 
 #include <Python.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern PyObject *clippy_parse(PyObject *self, PyObject *args);
 extern PyMODINIT_FUNC command_py_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_CLIPPY_H */

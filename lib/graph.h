@@ -28,6 +28,10 @@
 #include "vector.h"
 #include "buffer.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct graph {
 	vector nodes;
 };
@@ -164,4 +168,9 @@ char *graph_dump_dot(struct graph *graph, struct graph_node *start,
 		     void (*pcb)(struct graph_node *, struct buffer *buf));
 
 #endif /* BUILDING_CLIPPY */
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* _ZEBRA_COMMAND_GRAPH_H */

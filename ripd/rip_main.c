@@ -34,6 +34,7 @@
 #include "sigevent.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "if_rmap.h"
 #include "libfrr.h"
 
 #include "ripd/ripd.h"
@@ -82,6 +83,7 @@ static void sigint(void)
 	zlog_notice("Terminating on signal");
 
 	rip_vrf_terminate();
+	if_rmap_terminate();
 	rip_zclient_stop();
 	frr_fini();
 

@@ -23,6 +23,10 @@
 
 #include "sockunion.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern void setsockopt_so_recvbuf(int sock, int size);
 extern void setsockopt_so_sendbuf(const int sock, int size);
 extern int getsockopt_so_sendbuf(const int sock);
@@ -98,4 +102,9 @@ extern void sockopt_iphdrincl_swab_systoh(struct ip *iph);
 extern int sockopt_tcp_rtt(int);
 extern int sockopt_tcp_signature(int sock, union sockunion *su,
 				 const char *password);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /*_ZEBRA_SOCKOPT_H */

@@ -293,7 +293,7 @@ void eigrp_if_update(struct interface *ifp)
 	 */
 	for (ALL_LIST_ELEMENTS(eigrp_om->eigrp, node, nnode, eigrp)) {
 		/* EIGRP must be on and Router-ID must be configured. */
-		if (!eigrp || eigrp->router_id.s_addr == 0)
+		if (eigrp->router_id.s_addr == 0)
 			continue;
 
 		/* Run each network for this interface. */
@@ -333,7 +333,7 @@ int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 			if (rn->info == NULL)
 				continue;
 
-			if (eigrp_network_match_iface(ei->address, &rn->p)) {
+			if (eigrp_network_match_iface(&ei->address, &rn->p)) {
 				found = true;
 				route_unlock_node(rn);
 				break;

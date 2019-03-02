@@ -38,6 +38,10 @@
 
 #include <sqlite3.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern int db_init(const char *path_fmt, ...);
 extern int db_close(void);
 extern int db_bindf(struct sqlite3_stmt *ss, const char *fmt, ...);
@@ -47,6 +51,10 @@ extern int db_run(struct sqlite3_stmt *ss);
 extern int db_loadf(struct sqlite3_stmt *ss, const char *fmt, ...);
 extern void db_finalize(struct sqlite3_stmt **ss);
 extern int db_execute(const char *stmt_fmt, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* HAVE_SQLITE3 */
 #endif /* _FRR_DB_H_ */

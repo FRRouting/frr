@@ -29,6 +29,10 @@
 
 #include "yang_wrappers.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MTYPE(YANG_MODULE)
 DECLARE_MTYPE(YANG_DATA)
 
@@ -525,6 +529,11 @@ extern struct yang_data *yang_data_list_find(const struct list *list,
 					     const char *xpath_fmt, ...);
 
 /*
+ * Create and set up a libyang context (for use by the translator)
+ */
+extern struct ly_ctx *yang_ctx_new_setup(void);
+
+/*
  * Initialize the YANG subsystem. Should be called only once during the
  * daemon initialization process.
  */
@@ -535,5 +544,9 @@ extern void yang_init(void);
  * is exiting.
  */
 extern void yang_terminate(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_YANG_H_ */

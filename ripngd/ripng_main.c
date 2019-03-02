@@ -35,6 +35,7 @@
 #include "privs.h"
 #include "sigevent.h"
 #include "vrf.h"
+#include "if_rmap.h"
 #include "libfrr.h"
 
 #include "ripngd/ripngd.h"
@@ -83,6 +84,7 @@ static void sigint(void)
 	zlog_notice("Terminating on signal");
 
 	ripng_vrf_terminate();
+	if_rmap_terminate();
 	ripng_zebra_stop();
 	frr_fini();
 	exit(0);

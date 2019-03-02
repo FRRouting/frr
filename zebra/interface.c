@@ -41,7 +41,7 @@
 #include "zebra/interface.h"
 #include "zebra/rib.h"
 #include "zebra/rt.h"
-#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/irdp.h"
@@ -135,6 +135,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 		rtadv->DefaultPreference = RTADV_PREF_MEDIUM;
 
 		rtadv->AdvPrefixList = list_new();
+		rtadv->AdvRDNSSList = list_new();
+		rtadv->AdvDNSSLList = list_new();
 	}
 #endif /* HAVE_RTADV */
 
@@ -153,7 +155,7 @@ static int if_zebra_new_hook(struct interface *ifp)
 	 * of seconds and ask again.  Hopefully it's all settled
 	 * down upon startup.
 	 */
-	thread_add_timer(zebrad.master, if_zebra_speed_update, ifp, 15,
+	thread_add_timer(zrouter.master, if_zebra_speed_update, ifp, 15,
 			 &zebra_if->speed_update);
 	return 0;
 }
@@ -175,6 +177,8 @@ static int if_zebra_delete_hook(struct interface *ifp)
 
 		rtadv = &zebra_if->rtadv;
 		list_delete(&rtadv->AdvPrefixList);
+		list_delete(&rtadv->AdvRDNSSList);
+		list_delete(&rtadv->AdvDNSSLList);
 #endif /* HAVE_RTADV */
 
 		THREAD_OFF(zebra_if->speed_update);
@@ -1156,6 +1160,106 @@ static const char *zebra_ziftype_2str(zebra_iftype_t zif_type)
 	}
 }
 
+/* Interface's brief information print out to vty interface. */
+static void ifs_dump_brief_vty(struct vty *vty, struct vrf *vrf)
+{
+	struct connected *connected;
+	struct listnode *node;
+	struct route_node *rn;
+	struct zebra_if *zebra_if;
+	struct prefix *p;
+	struct interface *ifp;
+	bool print_header = true;
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		char global_pfx[PREFIX_STRLEN] = {0};
+		char buf[PREFIX_STRLEN] = {0};
+		bool first_pfx_printed = false;
+
+		if (print_header) {
+			vty_out(vty, "%-16s%-8s%-16s%s\n", "Interface",
+				"Status", "VRF", "Addresses");
+			vty_out(vty, "%-16s%-8s%-16s%s\n", "---------",
+				"------", "---", "---------");
+			print_header = false; /* We have at least 1 iface */
+		}
+		zebra_if = ifp->info;
+
+		vty_out(vty, "%-16s", ifp->name);
+
+		if (if_is_up(ifp))
+			vty_out(vty, "%-8s", "up");
+		else
+			vty_out(vty, "%-8s", "down");
+
+		vty_out(vty, "%-16s", vrf->name);
+
+		for (rn = route_top(zebra_if->ipv4_subnets); rn;
+		     rn = route_next(rn)) {
+			if (!rn->info)
+				continue;
+			uint32_t list_size = listcount((struct list *)rn->info);
+
+			for (ALL_LIST_ELEMENTS_RO((struct list *)rn->info, node,
+						  connected)) {
+				if (!CHECK_FLAG(connected->flags,
+						ZEBRA_IFA_SECONDARY)) {
+					p = connected->address;
+					prefix2str(p, buf, sizeof(buf));
+					if (first_pfx_printed) {
+						/* padding to prepare row only for ip addr */
+						vty_out(vty, "%-40s", "");
+						if (list_size > 1)
+							vty_out(vty, "+ ");
+						vty_out(vty, "%s\n", buf);
+					} else {
+						if (list_size > 1)
+							vty_out(vty, "+ ");
+						vty_out(vty, "%s\n", buf);
+					}
+					first_pfx_printed = true;
+					break;
+				}
+			}
+		}
+
+		uint32_t v6_list_size = 0;
+		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+			if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
+				&& (connected->address->family == AF_INET6))
+				v6_list_size++;
+		}
+		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected)) {
+			if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
+			    && !CHECK_FLAG(connected->flags,
+					   ZEBRA_IFA_SECONDARY)
+			    && (connected->address->family == AF_INET6)) {
+				p = connected->address;
+				/* Don't print link local pfx */
+				if (!IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6)) {
+					prefix2str(p, global_pfx, PREFIX_STRLEN);
+					if (first_pfx_printed) {
+						/* padding to prepare row only for ip addr */
+						vty_out(vty, "%-40s", "");
+						if (v6_list_size > 1)
+							vty_out(vty, "+ ");
+						vty_out(vty, "%s\n", global_pfx);
+					} else {
+						if (v6_list_size > 1)
+							vty_out(vty, "+ ");
+						vty_out(vty, "%s\n", global_pfx);
+					}
+					first_pfx_printed = true;
+					break;
+				}
+			}
+		}
+		if (!first_pfx_printed)
+			vty_out(vty, "\n");
+	}
+	vty_out(vty, "\n");
+}
+
 /* Interface's information print out to vty interface. */
 static void if_dump_vty(struct vty *vty, struct interface *ifp)
 {
@@ -1456,13 +1560,16 @@ static void interface_update_stats(void)
 
 struct cmd_node interface_node = {INTERFACE_NODE, "%s(config-if)# ", 1};
 
+#ifndef VTYSH_EXTRACT_PL
+#include "zebra/interface_clippy.c"
+#endif
 /* Show all interfaces to vty. */
-DEFUN (show_interface,
-       show_interface_cmd,
-       "show interface [vrf NAME]",
-       SHOW_STR
-       "Interface status and configuration\n"
-       VRF_CMD_HELP_STR)
+DEFPY(show_interface, show_interface_cmd,
+      "show interface [vrf NAME$name] [brief$brief]",
+      SHOW_STR
+      "Interface status and configuration\n"
+      VRF_CMD_HELP_STR
+      "Interface status and configuration summary\n")
 {
 	struct vrf *vrf;
 	struct interface *ifp;
@@ -1470,13 +1577,18 @@ DEFUN (show_interface,
 
 	interface_update_stats();
 
-	if (argc > 2)
-		VRF_GET_ID(vrf_id, argv[3]->arg, false);
+	if (name)
+		VRF_GET_ID(vrf_id, name, false);
 
 	/* All interface print. */
 	vrf = vrf_lookup_by_id(vrf_id);
-	FOR_ALL_INTERFACES (vrf, ifp)
-		if_dump_vty(vty, ifp);
+	if (brief) {
+		ifs_dump_brief_vty(vty, vrf);
+	} else {
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			if_dump_vty(vty, ifp);
+		}
+	}
 
 	return CMD_SUCCESS;
 }

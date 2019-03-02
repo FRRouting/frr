@@ -93,7 +93,8 @@ static void cpu_record_hash_free(void *a)
 static void vty_out_cpu_thread_history(struct vty *vty,
 				       struct cpu_thread_history *a)
 {
-	vty_out(vty, "%5d %10lu.%03lu %9u %8lu %9lu %8lu %9lu", a->total_active,
+	vty_out(vty, "%5"PRIdFAST32" %10lu.%03lu %9"PRIuFAST32
+		" %8lu %9lu %8lu %9lu", a->total_active,
 		a->cpu.total / 1000, a->cpu.total % 1000, a->total_calls,
 		a->cpu.total / a->total_calls, a->cpu.max,
 		a->real.total / a->total_calls, a->real.max);
@@ -105,7 +106,7 @@ static void vty_out_cpu_thread_history(struct vty *vty,
 		a->types & (1 << THREAD_EXECUTE) ? 'X' : ' ', a->funcname);
 }
 
-static void cpu_record_hash_print(struct hash_backet *bucket, void *args[])
+static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 {
 	struct cpu_thread_history *totals = args[0];
 	struct cpu_thread_history copy;
@@ -177,7 +178,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 			if (m->cpu_record->count)
 				hash_iterate(
 					m->cpu_record,
-					(void (*)(struct hash_backet *,
+					(void (*)(struct hash_bucket *,
 						  void *))cpu_record_hash_print,
 					args);
 			else
@@ -201,7 +202,7 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 		vty_out_cpu_thread_history(vty, &tmp);
 }
 
-static void cpu_record_hash_clear(struct hash_backet *bucket, void *args[])
+static void cpu_record_hash_clear(struct hash_bucket *bucket, void *args[])
 {
 	uint8_t *filter = args[0];
 	struct hash *cpu_record = args[1];
@@ -228,7 +229,7 @@ static void cpu_record_clear(uint8_t filter)
 				void *args[2] = {tmp, m->cpu_record};
 				hash_iterate(
 					m->cpu_record,
-					(void (*)(struct hash_backet *,
+					(void (*)(struct hash_bucket *,
 						  void *))cpu_record_hash_clear,
 					args);
 			}
@@ -400,7 +401,7 @@ static void cancelreq_del(void *cr)
 }
 
 /* initializer, only ever called once */
-static void initializer()
+static void initializer(void)
 {
 	pthread_key_create(&thread_current, NULL);
 }

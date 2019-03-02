@@ -125,6 +125,7 @@ typedef enum {
 	ZEBRA_FEC_UNREGISTER,
 	ZEBRA_FEC_UPDATE,
 	ZEBRA_ADVERTISE_DEFAULT_GW,
+	ZEBRA_ADVERTISE_SVI_MACIP,
 	ZEBRA_ADVERTISE_SUBNET,
 	ZEBRA_ADVERTISE_ALL_VNI,
 	ZEBRA_LOCAL_ES_ADD,
@@ -229,7 +230,7 @@ struct zclient {
 	int (*interface_address_add)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*interface_address_delete)(int, struct zclient *, uint16_t,
 					vrf_id_t);
-	int (*interface_link_params)(int, struct zclient *, uint16_t);
+	int (*interface_link_params)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*interface_bfd_dest_update)(int, struct zclient *, uint16_t,
 					 vrf_id_t);
 	int (*interface_nbr_address_add)(int, struct zclient *, uint16_t,
@@ -306,6 +307,7 @@ struct zapi_nexthop {
 	enum nexthop_types_t type;
 	vrf_id_t vrf_id;
 	ifindex_t ifindex;
+	bool onlink;
 	union {
 		union g_addr gate;
 		enum blackhole_type bh_type;
@@ -425,6 +427,8 @@ enum zapi_iptable_notify_owner {
 #define ZEBRA_MACIP_TYPE_GW                    0x02 /* gateway (SVI) mac*/
 #define ZEBRA_MACIP_TYPE_ROUTER_FLAG           0x04 /* Router Flag - proxy NA */
 #define ZEBRA_MACIP_TYPE_OVERRIDE_FLAG         0x08 /* Override Flag */
+
+enum zebra_neigh_state { ZEBRA_NEIGH_INACTIVE = 0, ZEBRA_NEIGH_ACTIVE = 1 };
 
 struct zclient_options {
 	bool receive_notify;
@@ -564,7 +568,8 @@ extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
 extern void zebra_interface_if_set_value(struct stream *, struct interface *);
 extern void zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 
-extern struct interface *zebra_interface_link_params_read(struct stream *);
+extern struct interface *zebra_interface_link_params_read(struct stream *s,
+							  vrf_id_t vrf_id);
 extern size_t zebra_interface_link_params_write(struct stream *,
 						struct interface *);
 extern int zclient_send_get_label_chunk(

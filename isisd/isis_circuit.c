@@ -69,7 +69,7 @@ int isis_interface_config_write(struct vty *);
 int isis_if_new_hook(struct interface *);
 int isis_if_delete_hook(struct interface *);
 
-struct isis_circuit *isis_circuit_new()
+struct isis_circuit *isis_circuit_new(void)
 {
 	struct isis_circuit *circuit;
 	int i;
@@ -1305,8 +1305,8 @@ ferr_r isis_circuit_passwd_unset(struct isis_circuit *circuit)
 	return ferr_ok();
 }
 
-static int isis_circuit_passwd_set(struct isis_circuit *circuit,
-				   uint8_t passwd_type, const char *passwd)
+ferr_r isis_circuit_passwd_set(struct isis_circuit *circuit,
+			       uint8_t passwd_type, const char *passwd)
 {
 	int len;
 
@@ -1319,7 +1319,8 @@ static int isis_circuit_passwd_set(struct isis_circuit *circuit,
 			"circuit password too long (max 254 chars)");
 
 	circuit->passwd.len = len;
-	strncpy((char *)circuit->passwd.passwd, passwd, 255);
+	strlcpy((char *)circuit->passwd.passwd, passwd,
+		sizeof(circuit->passwd.passwd));
 	circuit->passwd.type = passwd_type;
 	return ferr_ok();
 }
@@ -1393,7 +1394,7 @@ int isis_if_delete_hook(struct interface *ifp)
 	return 0;
 }
 
-void isis_circuit_init()
+void isis_circuit_init(void)
 {
 	/* Initialize Zebra interface data structure */
 	hook_register_prio(if_add, 0, isis_if_new_hook);

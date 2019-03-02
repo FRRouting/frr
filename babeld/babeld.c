@@ -307,7 +307,7 @@ babel_initial_noise(void)
 
 /* Delete all the added babel routes, make babeld only speak to zebra. */
 static void
-babel_clean_routing_process()
+babel_clean_routing_process(void)
 {
     flush_all_routes();
     babel_interface_close_all();

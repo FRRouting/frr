@@ -22,6 +22,10 @@
 #ifndef _QUAGGA_PLIST_INT_H
 #define _QUAGGA_PLIST_INT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum prefix_name_type { PREFIX_TYPE_STRING, PREFIX_TYPE_NUMBER };
 
 struct pltrie_table;
@@ -67,5 +71,9 @@ struct prefix_list_entry {
 	/* up the chain for best match search */
 	struct prefix_list_entry *next_best;
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _QUAGGA_PLIST_INT_H */

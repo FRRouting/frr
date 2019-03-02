@@ -43,7 +43,7 @@
 
 #include "zebra/rt.h"
 #include "zebra/interface.h"
-#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/debug.h"
 #include "zebra/kernel_socket.h"
 #include "zebra/rib.h"
@@ -236,6 +236,7 @@ size_t _rta_get(caddr_t sap, void *destp, size_t destlen, bool checkaf);
 size_t rta_get(caddr_t sap, void *dest, size_t destlen);
 size_t rta_getattr(caddr_t sap, void *destp, size_t destlen);
 size_t rta_getsdlname(caddr_t sap, void *dest, short *destlen);
+const char *rtatostr(unsigned int flags, char *buf, size_t buflen);
 
 /* Supported address family check. */
 static inline int af_check(int family)
@@ -273,7 +274,7 @@ size_t _rta_get(caddr_t sap, void *destp, size_t destlen, bool checkaf)
 		if (sa->sa_family == AF_LINK) {
 			sdl = (struct sockaddr_dl *)sa;
 			if (sdl->sdl_index == 0 || sdl->sdl_nlen == 0)
-				copylen = sizeof(*sdl) - sizeof(sdl->sdl_data);
+				copylen = destlen;
 		}
 
 		if (copylen > destlen) {
@@ -327,6 +328,85 @@ size_t rta_getsdlname(caddr_t sap, void *destp, short *destlen)
 		*destlen = 0;
 
 	return tlen;
+}
+
+const char *rtatostr(unsigned int flags, char *buf, size_t buflen)
+{
+	const char *flagstr, *bufstart;
+	int bit, wlen;
+	char ustr[32];
+
+	/* Hold the pointer to the buffer beginning. */
+	bufstart = buf;
+
+	for (bit = 1; bit; bit <<= 1) {
+		if ((flags & bit) == 0)
+			continue;
+
+		switch (bit) {
+		case RTA_DST:
+			flagstr = "DST";
+			break;
+		case RTA_GATEWAY:
+			flagstr = "GATEWAY";
+			break;
+		case RTA_NETMASK:
+			flagstr = "NETMASK";
+			break;
+#ifdef RTA_GENMASK
+		case RTA_GENMASK:
+			flagstr = "GENMASK";
+			break;
+#endif /* RTA_GENMASK */
+		case RTA_IFP:
+			flagstr = "IFP";
+			break;
+		case RTA_IFA:
+			flagstr = "IFA";
+			break;
+#ifdef RTA_AUTHOR
+		case RTA_AUTHOR:
+			flagstr = "AUTHOR";
+			break;
+#endif /* RTA_AUTHOR */
+		case RTA_BRD:
+			flagstr = "BRD";
+			break;
+#ifdef RTA_SRC
+		case RTA_SRC:
+			flagstr = "SRC";
+			break;
+#endif /* RTA_SRC */
+#ifdef RTA_SRCMASK
+		case RTA_SRCMASK:
+			flagstr = "SRCMASK";
+			break;
+#endif /* RTA_SRCMASK */
+#ifdef RTA_LABEL
+		case RTA_LABEL:
+			flagstr = "LABEL";
+			break;
+#endif /* RTA_LABEL */
+
+		default:
+			snprintf(ustr, sizeof(ustr), "0x%x", bit);
+			flagstr = ustr;
+			break;
+		}
+
+		wlen = snprintf(buf, buflen, "%s,", flagstr);
+		buf += wlen;
+		buflen -= wlen;
+	}
+
+	/* Check for empty buffer. */
+	if (bufstart != buf)
+		buf--;
+
+	/* Remove the last comma. */
+	*buf = 0;
+
+	return bufstart;
 }
 
 /* Dump routing table flag for debug purpose. */
@@ -443,6 +523,7 @@ int ifm_read(struct if_msghdr *ifm)
 	short ifnlen = 0;
 	int maskbit;
 	caddr_t cp;
+	char fbuf[64];
 
 	/* terminate ifname at head (for strnlen) and tail (for safety) */
 	ifname[IFNAMSIZ - 1] = '\0';
@@ -488,8 +569,9 @@ int ifm_read(struct if_msghdr *ifm)
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: sdl ifname %s", __func__,
-			   (ifnlen ? ifname : "(nil)"));
+		zlog_debug("%s: sdl ifname %s addrs {%s}", __func__,
+			   (ifnlen ? ifname : "(nil)"),
+			   rtatostr(ifm->ifm_addrs, fbuf, sizeof(fbuf)));
 
 	/*
 	 * Look up on ifindex first, because ifindices are the primary handle
@@ -687,6 +769,7 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 	union sockunion dst;
 	union sockunion gateway;
 	int maskbit;
+	char fbuf[64];
 
 	pnt = (caddr_t)(ifm + 1);
 	end = ((caddr_t)ifm) + ifm->ifam_msglen;
@@ -736,33 +819,35 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL) {
-		int family = sockunion_family(addr);
-		switch (family) {
+		switch (sockunion_family(addr)) {
 		case AF_INET:
 		case AF_INET6: {
 			char buf[4][INET6_ADDRSTRLEN];
+			int masklen =
+				(sockunion_family(addr) == AF_INET)
+					? ip_masklen(mask->sin.sin_addr)
+					: ip6_masklen(mask->sin6.sin6_addr);
 			zlog_debug(
-				"%s: ifindex %d, ifname %s, ifam_addrs 0x%x, "
+				"%s: ifindex %d, ifname %s, ifam_addrs {%s}, "
 				"ifam_flags 0x%x, addr %s/%d broad %s dst %s "
 				"gateway %s",
 				__func__, ifm->ifam_index,
-				(ifnlen ? ifname : "(nil)"), ifm->ifam_addrs,
+				(ifnlen ? ifname : "(nil)"),
+				rtatostr(ifm->ifam_addrs, fbuf, sizeof(fbuf)),
 				ifm->ifam_flags,
-				inet_ntop(family, &addr->sin.sin_addr, buf[0],
-					  sizeof(buf[0])),
-				ip_masklen(mask->sin.sin_addr),
-				inet_ntop(family, &brd->sin.sin_addr, buf[1],
-					  sizeof(buf[1])),
-				inet_ntop(family, &dst.sin.sin_addr, buf[2],
-					  sizeof(buf[2])),
-				inet_ntop(family, &gateway.sin.sin_addr, buf[3],
-					  sizeof(buf[3])));
+				sockunion2str(addr, buf[0], sizeof(buf[0])),
+				masklen,
+				sockunion2str(brd, buf[1], sizeof(buf[1])),
+				sockunion2str(&dst, buf[2], sizeof(buf[2])),
+				sockunion2str(&gateway, buf[2],
+					      sizeof(buf[2])));
 		} break;
 		default:
-			zlog_debug("%s: ifindex %d, ifname %s, ifam_addrs 0x%x",
+			zlog_debug("%s: ifindex %d, ifname %s, ifam_addrs {%s}",
 				   __func__, ifm->ifam_index,
 				   (ifnlen ? ifname : "(nil)"),
-				   ifm->ifam_addrs);
+				   rtatostr(ifm->ifam_addrs, fbuf,
+					    sizeof(fbuf)));
 			break;
 		}
 	}
@@ -821,7 +906,8 @@ int ifam_read(struct ifa_msghdr *ifam)
 			connected_add_ipv4(ifp, flags, &addr.sin.sin_addr,
 					   ip_masklen(mask.sin.sin_addr),
 					   &brd.sin.sin_addr,
-					   (isalias ? ifname : NULL));
+					   (isalias ? ifname : NULL),
+					   METRIC_MAX);
 		else
 			connected_delete_ipv4(ifp, flags, &addr.sin.sin_addr,
 					      ip_masklen(mask.sin.sin_addr),
@@ -838,7 +924,8 @@ int ifam_read(struct ifa_msghdr *ifam)
 			connected_add_ipv6(ifp, flags, &addr.sin6.sin6_addr,
 					   NULL,
 					   ip6_masklen(mask.sin6.sin6_addr),
-					   (isalias ? ifname : NULL));
+					   (isalias ? ifname : NULL),
+					   METRIC_MAX);
 		else
 			connected_delete_ipv6(ifp, &addr.sin6.sin6_addr, NULL,
 					      ip6_masklen(mask.sin6.sin6_addr));
@@ -909,7 +996,7 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 			pnt += rta_get(pnt, gate, sizeof(*gate));
 			break;
 		case RTA_NETMASK:
-			pnt += rta_get(pnt, mask, sizeof(*mask));
+			pnt += rta_getattr(pnt, mask, sizeof(*mask));
 			break;
 		case RTA_IFP:
 			pnt += rta_getsdlname(pnt, ifname, ifnlen);
@@ -950,6 +1037,7 @@ void rtm_read(struct rt_msghdr *rtm)
 	struct prefix p;
 	ifindex_t ifindex = 0;
 	afi_t afi;
+	char fbuf[64];
 
 	zebra_flags = 0;
 
@@ -959,9 +1047,10 @@ void rtm_read(struct rt_msghdr *rtm)
 	if (!(flags & RTF_DONE))
 		return;
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: got rtm of type %d (%s)", __func__,
+		zlog_debug("%s: got rtm of type %d (%s) addrs {%s}", __func__,
 			   rtm->rtm_type,
-			   lookup_msg(rtm_type_str, rtm->rtm_type, NULL));
+			   lookup_msg(rtm_type_str, rtm->rtm_type, NULL),
+			   rtatostr(rtm->rtm_addrs, fbuf, sizeof(fbuf)));
 
 #ifdef RTF_CLONED /*bsdi, netbsd 1.6*/
 	if (flags & RTF_CLONED)
@@ -1207,12 +1296,14 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 /* For debug purpose. */
 static void rtmsg_debug(struct rt_msghdr *rtm)
 {
+	char fbuf[64];
+
 	zlog_debug("Kernel: Len: %d Type: %s", rtm->rtm_msglen,
 		   lookup_msg(rtm_type_str, rtm->rtm_type, NULL));
 	rtm_flag_dump(rtm->rtm_flags);
 	zlog_debug("Kernel: message seq %d", rtm->rtm_seq);
-	zlog_debug("Kernel: pid %lld, rtm_addrs 0x%x", (long long)rtm->rtm_pid,
-		   rtm->rtm_addrs);
+	zlog_debug("Kernel: pid %lld, rtm_addrs {%s}", (long long)rtm->rtm_pid,
+		   rtatostr(rtm->rtm_addrs, fbuf, sizeof(fbuf)));
 }
 
 /* This is pretty gross, better suggestions welcome -- mhandler */
@@ -1281,7 +1372,7 @@ static int kernel_read(struct thread *thread)
 		return 0;
 	}
 
-	thread_add_read(zebrad.master, kernel_read, NULL, sock, NULL);
+	thread_add_read(zrouter.master, kernel_read, NULL, sock, NULL);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		rtmsg_debug(&buf.r.rtm);
@@ -1354,7 +1445,7 @@ static void routing_socket(struct zebra_ns *zns)
 	  zlog_warn ("Can't set O_NONBLOCK to routing socket");*/
 
 	/* kernel_read needs rewrite. */
-	thread_add_read(zebrad.master, kernel_read, NULL, routing_sock, NULL);
+	thread_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
 }
 
 /* Exported interface function.  This function simply calls

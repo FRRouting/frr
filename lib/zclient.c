@@ -414,9 +414,6 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 	/* We need router-id information. */
 	zebra_message_send(zclient, ZEBRA_ROUTER_ID_ADD, vrf_id);
 
-	/* We need interface information. */
-	zebra_message_send(zclient, ZEBRA_INTERFACE_ADD, vrf_id);
-
 	/* Set unwanted redistribute route. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		vrf_bitmap_set(zclient->redist[afi][zclient->redist_default],
@@ -457,8 +454,7 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 							vrf_id);
 
 		/* If default information is needed. */
-		if (vrf_bitmap_check(zclient->default_information[afi],
-				     VRF_DEFAULT))
+		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
 			zebra_redistribute_default_send(
 				ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient, afi,
 				vrf_id);
@@ -481,9 +477,6 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 
 	/* We need router-id information. */
 	zebra_message_send(zclient, ZEBRA_ROUTER_ID_DELETE, vrf_id);
-
-	/* We need interface information. */
-	zebra_message_send(zclient, ZEBRA_INTERFACE_DELETE, vrf_id);
 
 	/* Set unwanted redistribute route. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
@@ -525,8 +518,7 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 					i, 0, vrf_id);
 
 		/* If default information is needed. */
-		if (vrf_bitmap_check(zclient->default_information[afi],
-				     VRF_DEFAULT))
+		if (vrf_bitmap_check(zclient->default_information[afi], vrf_id))
 			zebra_redistribute_default_send(
 				ZEBRA_REDISTRIBUTE_DEFAULT_DELETE, zclient, afi,
 				vrf_id);
@@ -597,6 +589,8 @@ int zclient_start(struct zclient *zclient)
 	zclient_event(ZCLIENT_READ, zclient);
 
 	zebra_hello_send(zclient);
+
+	zebra_message_send(zclient, ZEBRA_INTERFACE_ADD, VRF_DEFAULT);
 
 	/* Inform the successful connection. */
 	if (zclient->zebra_connected)
@@ -756,10 +750,24 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 	stream_reset(s);
 	zclient_create_header(s, cmd, api->vrf_id);
 
+	if (api->type >= ZEBRA_ROUTE_MAX) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: Specified route type (%u) is not a legal value\n",
+			 __PRETTY_FUNCTION__, api->type);
+		return -1;
+	}
 	stream_putc(s, api->type);
+
 	stream_putw(s, api->instance);
 	stream_putl(s, api->flags);
 	stream_putc(s, api->message);
+
+	if (api->safi < SAFI_UNICAST || api->safi >= SAFI_MAX) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: Specified route SAFI (%u) is not a legal value\n",
+			 __PRETTY_FUNCTION__, api->safi);
+		return -1;
+	}
 	stream_putc(s, api->safi);
 
 	/* Put prefix information. */
@@ -795,6 +803,7 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 
 			stream_putl(s, api_nh->vrf_id);
 			stream_putc(s, api_nh->type);
+			stream_putc(s, api_nh->onlink);
 			switch (api_nh->type) {
 			case NEXTHOP_TYPE_BLACKHOLE:
 				stream_putc(s, api_nh->bh_type);
@@ -875,7 +884,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 
 	/* Type, flags, message. */
 	STREAM_GETC(s, api->type);
-	if (api->type > ZEBRA_ROUTE_MAX) {
+	if (api->type >= ZEBRA_ROUTE_MAX) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "%s: Specified route type: %d is not a legal value\n",
 			 __PRETTY_FUNCTION__, api->type);
@@ -886,6 +895,12 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	STREAM_GETL(s, api->flags);
 	STREAM_GETC(s, api->message);
 	STREAM_GETC(s, api->safi);
+	if (api->safi < SAFI_UNICAST || api->safi >= SAFI_MAX) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: Specified route SAFI (%u) is not a legal value\n",
+			 __PRETTY_FUNCTION__, api->safi);
+		return -1;
+	}
 
 	/* Prefix. */
 	STREAM_GETC(s, api->prefix.family);
@@ -955,6 +970,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 
 			STREAM_GETL(s, api_nh->vrf_id);
 			STREAM_GETC(s, api_nh->type);
+			STREAM_GETC(s, api_nh->onlink);
 			switch (api_nh->type) {
 			case NEXTHOP_TYPE_BLACKHOLE:
 				STREAM_GETC(s, api_nh->bh_type);
@@ -1497,7 +1513,8 @@ static void link_params_set_value(struct stream *s, struct if_link_params *iflp)
 	iflp->use_bw = stream_getf(s);
 }
 
-struct interface *zebra_interface_link_params_read(struct stream *s)
+struct interface *zebra_interface_link_params_read(struct stream *s,
+						   vrf_id_t vrf_id)
 {
 	struct if_link_params *iflp;
 	ifindex_t ifindex;
@@ -1506,7 +1523,7 @@ struct interface *zebra_interface_link_params_read(struct stream *s)
 
 	ifindex = stream_getl(s);
 
-	struct interface *ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	struct interface *ifp = if_lookup_by_index(ifindex, vrf_id);
 
 	if (ifp == NULL) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
@@ -2372,7 +2389,11 @@ static void zclient_capability_decode(int command, struct zclient *zclient,
 {
 	struct zclient_capabilities cap;
 	struct stream *s = zclient->ibuf;
+	int vrf_backend;
 	uint8_t mpls_enabled;
+
+	STREAM_GETL(s, vrf_backend);
+	vrf_configure_backend(vrf_backend);
 
 	memset(&cap, 0, sizeof(cap));
 	STREAM_GETC(s, mpls_enabled);
@@ -2583,7 +2604,7 @@ static int zclient_read(struct thread *thread)
 	case ZEBRA_INTERFACE_LINK_PARAMS:
 		if (zclient->interface_link_params)
 			(*zclient->interface_link_params)(command, zclient,
-							  length);
+							  length, vrf_id);
 		break;
 	case ZEBRA_FEC_UPDATE:
 		if (zclient_debug)

@@ -471,7 +471,7 @@ static const struct cmd_variable_handler vrf_var_handlers[] = {
 
 /* Initialize VRF module. */
 void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
-	      int (*disable)(struct vrf *), int (*delete)(struct vrf *),
+	      int (*disable)(struct vrf *), int (*destroy)(struct vrf *),
 	      int ((*update)(struct vrf *)))
 {
 	struct vrf *default_vrf;
@@ -485,7 +485,7 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 	vrf_master.vrf_new_hook = create;
 	vrf_master.vrf_enable_hook = enable;
 	vrf_master.vrf_disable_hook = disable;
-	vrf_master.vrf_delete_hook = delete;
+	vrf_master.vrf_delete_hook = destroy;
 	vrf_master.vrf_update_name_hook = update;
 
 	/* The default VRF always exists. */
@@ -714,13 +714,6 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 	}
 
 	return CMD_SUCCESS;
-}
-
-int vrf_is_mapped_on_netns(struct vrf *vrf)
-{
-	if (!vrf || vrf->data.l.netns_name[0] == '\0')
-		return 0;
-	return 1;
 }
 
 /* vrf CLI commands */
@@ -953,7 +946,7 @@ int vrf_bind(vrf_id_t vrf_id, int fd, const char *name)
 
 	if (fd < 0 || name == NULL)
 		return fd;
-	if (vrf_is_mapped_on_netns(vrf_lookup_by_id(vrf_id)))
+	if (vrf_is_backend_netns())
 		return fd;
 #ifdef SO_BINDTODEVICE
 	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, name, strlen(name)+1);

@@ -21,6 +21,10 @@
 #include <stdlib.h>
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* reserve a specific amount of bytes for a struct, which can grow up to
  * that size (or be dummy'd out if not needed)
  *
@@ -28,11 +32,17 @@
  * this is intentional to prevent the struct from growing beyond the allocated
  * space.
  */
+#ifndef __cplusplus
 #define RESERVED_SPACE_STRUCT(name, fieldname, size)                           \
 	struct {                                                               \
 		struct name fieldname;                                         \
 		char padding##fieldname[size - sizeof(struct name)];           \
 	};
+#else
+#define RESERVED_SPACE_STRUCT(name, fieldname, size)                           \
+	struct name fieldname;                                                 \
+	char padding##fieldname[size - sizeof(struct name)];
+#endif
 
 /* don't need struct definitions for these here.  code actually using
  * these needs to define the struct *before* including this header.
@@ -126,5 +136,9 @@ void *qobj_get_typed(uint64_t id, struct qobj_nodetype *type);
 
 void qobj_init(void);
 void qobj_finish(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _QOBJ_H */

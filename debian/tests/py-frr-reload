@@ -1,0 +1,28 @@
+#!/bin/sh
+set -e
+
+# should have been started on install, but policy may have inhibited that
+service frr restart
+
+# these should be running by default
+pgrep watchfrr
+pgrep zebra
+pgrep staticd
+
+# configure interactively, save to file
+vtysh -c 'configure terminal' -c 'ip route 198.51.100.0/28 127.0.0.1'
+vtysh -c 'show running-config' | grep -q 'ip route 198.51.100.0/28 127.0.0.1'
+vtysh -c 'write memory'
+
+grep -q 'ip route 198.51.100.0/28 127.0.0.1' /etc/frr/frr.conf
+
+# configure in file, check interactively
+sed -e '/^ip route 198.51.100.0\/28 127.0.0.1/ c ip route 198.51.100.64/28 127.0.0.1' \
+	-i /etc/frr/frr.conf
+
+service frr reload
+
+vtysh -c 'show running-config' | grep -q 'ip route 198.51.100.64/28 127.0.0.1'
+if vtysh -c 'show running-config' | grep -q 'ip route 198.51.100.0/28 127.0.0.1'; then
+	exit 1
+fi

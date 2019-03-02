@@ -61,7 +61,7 @@ static int eigrp_nexthop_entry_cmp(struct eigrp_nexthop_entry *,
  * del - assigned function executed before deleting topology node by list
  * function
  */
-struct route_table *eigrp_topology_new()
+struct route_table *eigrp_topology_new(void)
 {
 	return route_table_init();
 }
@@ -70,7 +70,7 @@ struct route_table *eigrp_topology_new()
  * Returns new created toplogy node
  * cmp - assigned function for comparing topology entry
  */
-struct eigrp_prefix_entry *eigrp_prefix_entry_new()
+struct eigrp_prefix_entry *eigrp_prefix_entry_new(void)
 {
 	struct eigrp_prefix_entry *new;
 	new = XCALLOC(MTYPE_EIGRP_PREFIX_ENTRY,
@@ -102,7 +102,7 @@ static int eigrp_nexthop_entry_cmp(struct eigrp_nexthop_entry *entry1,
  * Returns new topology entry
  */
 
-struct eigrp_nexthop_entry *eigrp_nexthop_entry_new()
+struct eigrp_nexthop_entry *eigrp_nexthop_entry_new(void)
 {
 	struct eigrp_nexthop_entry *new;
 
@@ -141,10 +141,10 @@ void eigrp_prefix_entry_add(struct route_table *topology,
 				__PRETTY_FUNCTION__,
 				prefix2str(pe->destination, buf, sizeof(buf)));
 		}
+		route_unlock_node(rn);
 	}
 
 	rn->info = pe;
-	route_lock_node(rn);
 }
 
 /*
@@ -161,7 +161,7 @@ void eigrp_nexthop_entry_add(struct eigrp_prefix_entry *node,
 		listnode_add_sort(node->entries, entry);
 		entry->prefix = node;
 
-		eigrp_zebra_route_add(node->destination, l);
+		eigrp_zebra_route_add(node->destination, l, node->fdistance);
 	}
 
 	list_delete(&l);
@@ -477,7 +477,8 @@ void eigrp_update_routing_table(struct eigrp_prefix_entry *prefix)
 	successors = eigrp_topology_get_successor_max(prefix, eigrp->max_paths);
 
 	if (successors) {
-		eigrp_zebra_route_add(prefix->destination, successors);
+		eigrp_zebra_route_add(prefix->destination, successors,
+				      prefix->fdistance);
 		for (ALL_LIST_ELEMENTS_RO(successors, node, entry))
 			entry->flags |= EIGRP_NEXTHOP_ENTRY_INTABLE_FLAG;
 

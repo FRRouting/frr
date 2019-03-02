@@ -64,6 +64,9 @@ static void rip_instance_disable(struct rip *rip);
 static void rip_distribute_update(struct distribute_ctx *ctx,
 				  struct distribute *dist);
 
+static void rip_if_rmap_update(struct if_rmap_ctx *ctx,
+			       struct if_rmap *if_rmap);
+
 /* RIP output routes type. */
 enum { rip_all_route, rip_changed_route };
 
@@ -864,7 +867,7 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
 	MD5_CTX ctx;
 	uint8_t digest[RIP_AUTH_MD5_SIZE];
 	uint16_t packet_len;
-	char auth_str[RIP_AUTH_MD5_SIZE];
+	char auth_str[RIP_AUTH_MD5_SIZE] = {};
 
 	if (IS_RIP_DEBUG_EVENT)
 		zlog_debug("RIPv2 MD5 authentication from %s",
@@ -908,8 +911,6 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
 	/* retrieve authentication data */
 	md5data = (struct rip_md5_data *)(((uint8_t *)packet) + packet_len);
 
-	memset(auth_str, 0, RIP_AUTH_MD5_SIZE);
-
 	if (ri->key_chain) {
 		keychain = keychain_lookup(ri->key_chain);
 		if (keychain == NULL)
@@ -919,9 +920,9 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
 		if (key == NULL || key->string == NULL)
 			return 0;
 
-		strncpy(auth_str, key->string, RIP_AUTH_MD5_SIZE);
+		strlcpy(auth_str, key->string, sizeof(auth_str));
 	} else if (ri->auth_str)
-		strncpy(auth_str, ri->auth_str, RIP_AUTH_MD5_SIZE);
+		strlcpy(auth_str, ri->auth_str, sizeof(auth_str));
 
 	if (auth_str[0] == 0)
 		return 0;
@@ -954,9 +955,9 @@ static void rip_auth_prepare_str_send(struct rip_interface *ri, struct key *key,
 
 	memset(auth_str, 0, len);
 	if (key && key->string)
-		strncpy(auth_str, key->string, len);
+		strlcpy(auth_str, key->string, len);
 	else if (ri->auth_str)
-		strncpy(auth_str, ri->auth_str, len);
+		strlcpy(auth_str, ri->auth_str, len);
 
 	return;
 }
@@ -1420,13 +1421,12 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 	if (IS_RIP_DEBUG_PACKET) {
 #define ADDRESS_SIZE 20
 		char dst[ADDRESS_SIZE];
-		dst[ADDRESS_SIZE - 1] = '\0';
 
 		if (to) {
-			strncpy(dst, inet_ntoa(to->sin_addr), ADDRESS_SIZE - 1);
+			strlcpy(dst, inet_ntoa(to->sin_addr), sizeof(dst));
 		} else {
 			sin.sin_addr.s_addr = htonl(INADDR_RIP_GROUP);
-			strncpy(dst, inet_ntoa(sin.sin_addr), ADDRESS_SIZE - 1);
+			strlcpy(dst, inet_ntoa(sin.sin_addr), sizeof(dst));
 		}
 #undef ADDRESS_SIZE
 		zlog_debug("rip_send_packet %s > %s (%s)",
@@ -2086,8 +2086,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 				key = key_lookup_for_send(keychain);
 		}
 		/* to be passed to auth functions later */
-		rip_auth_prepare_str_send(ri, key, auth_str,
-					  RIP_AUTH_SIMPLE_SIZE);
+		rip_auth_prepare_str_send(ri, key, auth_str, sizeof(auth_str));
 		if (strlen(auth_str) == 0)
 			return;
 	}
@@ -2720,6 +2719,11 @@ struct rip *rip_create(const char *vrf_name, struct vrf *vrf, int socket)
 	distribute_list_add_hook(rip->distribute_ctx, rip_distribute_update);
 	distribute_list_delete_hook(rip->distribute_ctx, rip_distribute_update);
 
+	/* if rmap install. */
+	rip->if_rmap_ctx = if_rmap_ctx_create(vrf_name);
+	if_rmap_hook_add(rip->if_rmap_ctx, rip_if_rmap_update);
+	if_rmap_hook_delete(rip->if_rmap_ctx, rip_if_rmap_update);
+
 	/* Make output stream. */
 	rip->obuf = stream_new(1500);
 
@@ -3272,8 +3276,7 @@ static int config_write_rip(struct vty *vty)
 		config_write_distribute(vty, rip->distribute_ctx);
 
 		/* Interface routemap configuration */
-		if (strmatch(rip->vrf_name, VRF_DEFAULT_NAME))
-			config_write_if_rmap(vty);
+		config_write_if_rmap(vty, rip->if_rmap_ctx);
 
 		write = 1;
 	}
@@ -3388,6 +3391,7 @@ void rip_clean(struct rip *rip)
 	route_table_finish(rip->neighbor);
 	list_delete(&rip->peer_list);
 	distribute_list_delete(&rip->distribute_ctx);
+	if_rmap_ctx_delete(rip->if_rmap_ctx);
 
 	rip_clean_network(rip);
 	rip_passive_nondefault_clean(rip);
@@ -3403,13 +3407,18 @@ void rip_clean(struct rip *rip)
 	XFREE(MTYPE_RIP, rip);
 }
 
-static void rip_if_rmap_update(struct if_rmap *if_rmap)
+static void rip_if_rmap_update(struct if_rmap_ctx *ctx,
+			       struct if_rmap *if_rmap)
 {
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	struct rip_interface *ri;
 	struct route_map *rmap;
+	struct vrf *vrf = NULL;
 
-	ifp = if_lookup_by_name(if_rmap->ifname, VRF_DEFAULT);
+	if (ctx->name)
+		vrf = vrf_lookup_by_name(ctx->name);
+	if (vrf)
+		ifp = if_lookup_by_name(if_rmap->ifname, vrf->vrf_id);
 	if (ifp == NULL)
 		return;
 
@@ -3435,19 +3444,30 @@ static void rip_if_rmap_update(struct if_rmap *if_rmap)
 
 void rip_if_rmap_update_interface(struct interface *ifp)
 {
+	struct rip_interface *ri = ifp->info;
+	struct rip *rip = ri->rip;
 	struct if_rmap *if_rmap;
+	struct if_rmap_ctx *ctx;
 
-	if_rmap = if_rmap_lookup(ifp->name);
+	if (!rip)
+		return;
+	ctx = rip->if_rmap_ctx;
+	if (!ctx)
+		return;
+	if_rmap = if_rmap_lookup(ctx, ifp->name);
 	if (if_rmap)
-		rip_if_rmap_update(if_rmap);
+		rip_if_rmap_update(ctx, if_rmap);
 }
 
 static void rip_routemap_update_redistribute(struct rip *rip)
 {
 	for (int i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if (rip->redist[i].route_map.name)
+		if (rip->redist[i].route_map.name) {
 			rip->redist[i].route_map.map = route_map_lookup_by_name(
 				rip->redist[i].route_map.name);
+			route_map_counter_increment(
+				rip->redist[i].route_map.map);
+		}
 	}
 }
 
@@ -3669,6 +3689,4 @@ void rip_init(void)
 	route_map_delete_hook(rip_routemap_update);
 
 	if_rmap_init(RIP_NODE);
-	if_rmap_hook_add(rip_if_rmap_update);
-	if_rmap_hook_delete(rip_if_rmap_update);
 }

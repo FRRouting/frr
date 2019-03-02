@@ -338,12 +338,14 @@ static void isis_redist_routemap_set(struct isis_redist *redist,
 {
 	if (redist->map_name) {
 		XFREE(MTYPE_ISIS, redist->map_name);
+		route_map_counter_decrement(redist->map);
 		redist->map = NULL;
 	}
 
 	if (routemap && strlen(routemap)) {
 		redist->map_name = XSTRDUP(MTYPE_ISIS, routemap);
 		redist->map = route_map_lookup_by_name(routemap);
+		route_map_counter_increment(redist->map);
 	}
 }
 

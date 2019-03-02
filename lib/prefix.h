@@ -35,6 +35,10 @@
 #include "ipaddr.h"
 #include "compiler.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef ETH_ALEN
 #define ETH_ALEN 6
 #endif
@@ -276,20 +280,29 @@ struct prefix_sg {
  * side, which strips type safety since the cast will accept any pointer
  * type.)
  */
+#ifndef __cplusplus
+#define prefixtype(uname, typename, fieldname) \
+	typename *fieldname;
+#else
+#define prefixtype(uname, typename, fieldname) \
+	typename *fieldname; \
+	uname(typename *x) { this->fieldname = x; }
+#endif
+
 union prefixptr {
-	struct prefix *p;
-	struct prefix_ipv4 *p4;
-	struct prefix_ipv6 *p6;
-	struct prefix_evpn *evp;
-	const struct prefix_fs *fs;
+	prefixtype(prefixptr, struct prefix,      p)
+	prefixtype(prefixptr, struct prefix_ipv4, p4)
+	prefixtype(prefixptr, struct prefix_ipv6, p6)
+	prefixtype(prefixptr, struct prefix_evpn, evp)
+	prefixtype(prefixptr, struct prefix_fs,   fs)
 } __attribute__((transparent_union));
 
 union prefixconstptr {
-	const struct prefix *p;
-	const struct prefix_ipv4 *p4;
-	const struct prefix_ipv6 *p6;
-	const struct prefix_evpn *evp;
-	const struct prefix_fs *fs;
+	prefixtype(prefixconstptr, const struct prefix,      p)
+	prefixtype(prefixconstptr, const struct prefix_ipv4, p4)
+	prefixtype(prefixconstptr, const struct prefix_ipv6, p6)
+	prefixtype(prefixconstptr, const struct prefix_evpn, evp)
+	prefixtype(prefixconstptr, const struct prefix_fs,   fs)
 } __attribute__((transparent_union));
 
 #ifndef INET_ADDRSTRLEN
@@ -497,4 +510,9 @@ static inline int is_host_route(struct prefix *p)
 		return (p->prefixlen == IPV6_MAX_BITLEN);
 	return 0;
 }
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* _ZEBRA_PREFIX_H */

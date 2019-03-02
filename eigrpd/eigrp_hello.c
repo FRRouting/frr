@@ -248,7 +248,7 @@ static void eigrp_peer_termination_decode(struct eigrp_neighbor *nbr,
 	struct TLV_Peer_Termination_type *param =
 		(struct TLV_Peer_Termination_type *)tlv;
 
-	uint32_t my_ip = nbr->ei->address->u.prefix4.s_addr;
+	uint32_t my_ip = nbr->ei->address.u.prefix4.s_addr;
 	uint32_t received_ip = param->neighbor_ip;
 
 	if (my_ip == received_ip) {

@@ -72,6 +72,8 @@ extern struct interface *if_lookup_by_ipv6_exact(struct in6_addr *, ifindex_t,
 extern int bgp_zebra_advertise_subnet(struct bgp *bgp, int advertise,
 				      vni_t vni);
 extern int bgp_zebra_advertise_gw_macip(struct bgp *, int, vni_t);
+extern int bgp_zebra_advertise_svi_macip(struct bgp *bgp, int advertise,
+					 vni_t vni);
 extern int bgp_zebra_advertise_all_vni(struct bgp *, int);
 extern int bgp_zebra_dup_addr_detection(struct bgp *bgp);
 extern int bgp_zebra_vxlan_flood_control(struct bgp *bgp,
@@ -84,9 +86,11 @@ extern bool bgp_zebra_nexthop_set(union sockunion *, union sockunion *,
 
 struct bgp_pbr_action;
 struct bgp_pbr_match;
+struct bgp_pbr_rule;
 struct bgp_pbr_match_entry;
 extern void bgp_send_pbr_rule_action(struct bgp_pbr_action *pbra,
-				bool install);
+				     struct bgp_pbr_rule *pbr,
+				     bool install);
 extern void bgp_send_pbr_ipset_match(struct bgp_pbr_match *pbrim,
 				     bool install);
 extern void bgp_send_pbr_ipset_entry_match(struct bgp_pbr_match_entry *pbrime,

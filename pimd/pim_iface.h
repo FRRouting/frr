@@ -124,6 +124,9 @@ struct pim_interface {
 	/* boundary prefix-list */
 	char *boundary_oil_plist;
 
+	/* Turn on Active-Active for this interface */
+	bool activeactive;
+
 	int64_t pim_ifstat_start; /* start timestamp for stats */
 	uint32_t pim_ifstat_hello_sent;
 	uint32_t pim_ifstat_hello_sendfail;

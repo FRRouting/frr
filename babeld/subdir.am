@@ -51,4 +51,4 @@ noinst_HEADERS += \
 	# end
 
 babeld_babeld_SOURCES = babeld/babel_main.c
-babeld_babeld_LDADD = babeld/libbabel.a lib/libfrr.la @LIBCAP@
+babeld_babeld_LDADD = babeld/libbabel.a lib/libfrr.la $(LIBCAP)

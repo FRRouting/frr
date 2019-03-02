@@ -38,6 +38,7 @@
 DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH_ENTRY, "PBR match entry")
 DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH, "PBR match")
 DEFINE_MTYPE_STATIC(BGPD, PBR_ACTION, "PBR action")
+DEFINE_MTYPE_STATIC(BGPD, PBR_RULE, "PBR rule")
 DEFINE_MTYPE_STATIC(BGPD, PBR, "BGP PBR Context")
 DEFINE_MTYPE_STATIC(BGPD, PBR_VALMASK, "BGP PBR Val Mask Value")
 
@@ -66,9 +67,28 @@ struct bgp_pbr_action_unique {
 	struct bgp_pbr_action *bpa_found;
 };
 
-static int bgp_pbr_action_walkcb(struct hash_backet *backet, void *arg)
+struct bgp_pbr_rule_unique {
+	uint32_t unique;
+	struct bgp_pbr_rule *bpr_found;
+};
+
+static int bgp_pbr_rule_walkcb(struct hash_bucket *bucket, void *arg)
 {
-	struct bgp_pbr_action *bpa = (struct bgp_pbr_action *)backet->data;
+	struct bgp_pbr_rule *bpr = (struct bgp_pbr_rule *)bucket->data;
+	struct bgp_pbr_rule_unique *bpru = (struct bgp_pbr_rule_unique *)
+		arg;
+	uint32_t unique = bpru->unique;
+
+	if (bpr->unique == unique) {
+		bpru->bpr_found = bpr;
+		return HASHWALK_ABORT;
+	}
+	return HASHWALK_CONTINUE;
+}
+
+static int bgp_pbr_action_walkcb(struct hash_bucket *bucket, void *arg)
+{
+	struct bgp_pbr_action *bpa = (struct bgp_pbr_action *)bucket->data;
 	struct bgp_pbr_action_unique *bpau = (struct bgp_pbr_action_unique *)
 		arg;
 	uint32_t unique = bpau->unique;
@@ -80,10 +100,10 @@ static int bgp_pbr_action_walkcb(struct hash_backet *backet, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
-static int bgp_pbr_match_entry_walkcb(struct hash_backet *backet, void *arg)
+static int bgp_pbr_match_entry_walkcb(struct hash_bucket *bucket, void *arg)
 {
 	struct bgp_pbr_match_entry *bpme =
-		(struct bgp_pbr_match_entry *)backet->data;
+		(struct bgp_pbr_match_entry *)bucket->data;
 	struct bgp_pbr_match_entry_unique *bpmeu =
 		(struct bgp_pbr_match_entry_unique *)arg;
 	uint32_t unique = bpmeu->unique;
@@ -100,9 +120,9 @@ struct bgp_pbr_match_ipsetname {
 	struct bgp_pbr_match *bpm_found;
 };
 
-static int bgp_pbr_match_pername_walkcb(struct hash_backet *backet, void *arg)
+static int bgp_pbr_match_pername_walkcb(struct hash_bucket *bucket, void *arg)
 {
-	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)backet->data;
+	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)bucket->data;
 	struct bgp_pbr_match_ipsetname *bpmi =
 		(struct bgp_pbr_match_ipsetname *)arg;
 	char *ipset_name = bpmi->ipsetname;
@@ -115,9 +135,9 @@ static int bgp_pbr_match_pername_walkcb(struct hash_backet *backet, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
-static int bgp_pbr_match_iptable_walkcb(struct hash_backet *backet, void *arg)
+static int bgp_pbr_match_iptable_walkcb(struct hash_bucket *bucket, void *arg)
 {
-	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)backet->data;
+	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)bucket->data;
 	struct bgp_pbr_match_iptable_unique *bpmiu =
 		(struct bgp_pbr_match_iptable_unique *)arg;
 	uint32_t unique = bpmiu->unique;
@@ -134,9 +154,9 @@ struct bgp_pbr_match_unique {
 	struct bgp_pbr_match *bpm_found;
 };
 
-static int bgp_pbr_match_walkcb(struct hash_backet *backet, void *arg)
+static int bgp_pbr_match_walkcb(struct hash_bucket *bucket, void *arg)
 {
-	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)backet->data;
+	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)bucket->data;
 	struct bgp_pbr_match_unique *bpmu = (struct bgp_pbr_match_unique *)
 		arg;
 	uint32_t unique = bpmu->unique;
@@ -200,9 +220,11 @@ struct bgp_pbr_val_mask {
  * so that BGP can create pbr instructions to ZEBRA
  */
 struct bgp_pbr_filter {
+	uint8_t type;
 	vrf_id_t vrf_id;
 	struct prefix *src;
 	struct prefix *dst;
+	uint8_t bitmask_iprule;
 	uint8_t protocol;
 	struct bgp_pbr_range_port *pkt_len;
 	struct bgp_pbr_range_port *src_port;
@@ -448,6 +470,11 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 {
 	bool enumerate_icmp = false;
 
+	if (api->type ==  BGP_PBR_UNDEFINED) {
+		if (BGP_DEBUG(pbr, PBR))
+			zlog_debug("BGP: pbr entry undefined. cancel.");
+		return 0;
+	}
 	/* because bgp pbr entry may contain unsupported
 	 * combinations, a message will be displayed here if
 	 * not supported.
@@ -612,13 +639,45 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 				 " too complex. ignoring.");
 		return 0;
 	}
-	if (!(api->match_bitmask & PREFIX_SRC_PRESENT) &&
-	    !(api->match_bitmask & PREFIX_DST_PRESENT)) {
+	/* iprule only supports redirect IP */
+	if (api->type == BGP_PBR_IPRULE) {
+		int i;
+
+		for (i = 0; i < api->action_num; i++) {
+			if (api->actions[i].action == ACTION_TRAFFICRATE &&
+			    api->actions[i].u.r.rate == 0) {
+				if (BGP_DEBUG(pbr, PBR)) {
+					bgp_pbr_print_policy_route(api);
+					zlog_debug("BGP: iprule match actions"
+						   " drop not supported");
+				}
+				return 0;
+			}
+			if (api->actions[i].action == ACTION_MARKING) {
+				if (BGP_DEBUG(pbr, PBR)) {
+					bgp_pbr_print_policy_route(api);
+					zlog_warn("PBR: iprule set DSCP %u"
+						  " not supported",
+						api->actions[i].u.marking_dscp);
+				}
+			}
+			if (api->actions[i].action == ACTION_REDIRECT) {
+				if (BGP_DEBUG(pbr, PBR)) {
+					bgp_pbr_print_policy_route(api);
+					zlog_warn("PBR: iprule redirect VRF %u"
+						" not supported",
+						api->actions[i].u.redirect_vrf);
+				}
+			}
+		}
+
+	} else if (!(api->match_bitmask & PREFIX_SRC_PRESENT) &&
+		   !(api->match_bitmask & PREFIX_DST_PRESENT)) {
 		if (BGP_DEBUG(pbr, PBR)) {
 			bgp_pbr_print_policy_route(api);
 			zlog_debug("BGP: match actions without src"
-				 " or dst address can not operate."
-				 " ignoring.");
+				   " or dst address can not operate."
+				   " ignoring.");
 		}
 		return 0;
 	}
@@ -832,6 +891,34 @@ static void *bgp_pbr_match_alloc_intern(void *arg)
 	return new;
 }
 
+static void bgp_pbr_rule_free(void *arg)
+{
+	struct bgp_pbr_rule *bpr;
+
+	bpr = (struct bgp_pbr_rule *)arg;
+
+	/* delete iprule */
+	if (bpr->installed) {
+		bgp_send_pbr_rule_action(bpr->action, bpr, false);
+		bpr->installed = false;
+		bpr->action->refcnt--;
+		bpr->action = NULL;
+	}
+	XFREE(MTYPE_PBR_RULE, bpr);
+}
+
+static void *bgp_pbr_rule_alloc_intern(void *arg)
+{
+	struct bgp_pbr_rule *bpr, *new;
+
+	bpr = (struct bgp_pbr_rule *)arg;
+
+	new = XCALLOC(MTYPE_PBR_RULE, sizeof(*new));
+	memcpy(new, bpr, sizeof(*bpr));
+
+	return new;
+}
+
 static void bgp_pbr_action_free(void *arg)
 {
 	struct bgp_pbr_action *bpa;
@@ -840,7 +927,7 @@ static void bgp_pbr_action_free(void *arg)
 
 	if (bpa->refcnt == 0) {
 		if (bpa->installed && bpa->table_id != 0) {
-			bgp_send_pbr_rule_action(bpa, false);
+			bgp_send_pbr_rule_action(bpa, NULL, false);
 			bgp_zebra_announce_default(bpa->bgp, &(bpa->nh),
 						   AFI_IP,
 						   bpa->table_id,
@@ -932,6 +1019,44 @@ bool bgp_pbr_match_hash_equal(const void *arg1, const void *arg2)
 	return true;
 }
 
+uint32_t bgp_pbr_rule_hash_key(void *arg)
+{
+	struct bgp_pbr_rule *pbr = (struct bgp_pbr_rule *)arg;
+	uint32_t key;
+
+	key = prefix_hash_key(&pbr->src);
+	key = jhash_1word(pbr->vrf_id, key);
+	key = jhash_1word(pbr->flags, key);
+	return jhash_1word(prefix_hash_key(&pbr->dst), key);
+}
+
+bool bgp_pbr_rule_hash_equal(const void *arg1, const void *arg2)
+{
+	const struct bgp_pbr_rule *r1, *r2;
+
+	r1 = (const struct bgp_pbr_rule *)arg1;
+	r2 = (const struct bgp_pbr_rule *)arg2;
+
+	if (r1->vrf_id != r2->vrf_id)
+		return false;
+
+	if (r1->flags != r2->flags)
+		return false;
+
+	if (r1->action != r2->action)
+		return false;
+
+	if ((r1->flags & MATCH_IP_SRC_SET) &&
+	    !prefix_same(&r1->src, &r2->src))
+		return false;
+
+	if ((r1->flags & MATCH_IP_DST_SET) &&
+	    !prefix_same(&r1->dst, &r2->dst))
+		return false;
+
+	return true;
+}
+
 uint32_t bgp_pbr_match_entry_hash_key(void *arg)
 {
 	struct bgp_pbr_match_entry *pbme;
@@ -1017,6 +1142,20 @@ bool bgp_pbr_action_hash_equal(const void *arg1, const void *arg2)
 	return true;
 }
 
+struct bgp_pbr_rule *bgp_pbr_rule_lookup(vrf_id_t vrf_id,
+					 uint32_t unique)
+{
+	struct bgp *bgp = bgp_lookup_by_vrf_id(vrf_id);
+	struct bgp_pbr_rule_unique bpru;
+
+	if (!bgp || unique == 0)
+		return NULL;
+	bpru.unique = unique;
+	bpru.bpr_found = NULL;
+	hash_walk(bgp->pbr_rule_hash, bgp_pbr_rule_walkcb, &bpru);
+	return bpru.bpr_found;
+}
+
 struct bgp_pbr_action *bgp_pbr_action_rule_lookup(vrf_id_t vrf_id,
 						  uint32_t unique)
 {
@@ -1090,6 +1229,11 @@ void bgp_pbr_cleanup(struct bgp *bgp)
 		hash_free(bgp->pbr_match_hash);
 		bgp->pbr_match_hash = NULL;
 	}
+	if (bgp->pbr_rule_hash) {
+		hash_clean(bgp->pbr_rule_hash, bgp_pbr_rule_free);
+		hash_free(bgp->pbr_rule_hash);
+		bgp->pbr_rule_hash = NULL;
+	}
 	if (bgp->pbr_action_hash) {
 		hash_clean(bgp->pbr_action_hash, bgp_pbr_action_free);
 		hash_free(bgp->pbr_action_hash);
@@ -1112,6 +1256,11 @@ void bgp_pbr_init(struct bgp *bgp)
 		hash_create_size(8, bgp_pbr_action_hash_key,
 				 bgp_pbr_action_hash_equal,
 				 "Match Hash Entry");
+
+	bgp->pbr_rule_hash =
+		hash_create_size(8, bgp_pbr_rule_hash_key,
+				 bgp_pbr_rule_hash_equal,
+				 "Match Rule");
 
 	bgp->bgp_pbr_cfg = XCALLOC(MTYPE_PBR, sizeof(struct bgp_pbr_config));
 	bgp->bgp_pbr_cfg->pbr_interface_any_ipv4 = true;
@@ -1253,6 +1402,42 @@ void bgp_pbr_print_policy_route(struct bgp_pbr_entry_main *api)
 	zlog_info("%s", return_string);
 }
 
+static void bgp_pbr_flush_iprule(struct bgp *bgp, struct bgp_pbr_action *bpa,
+				  struct bgp_pbr_rule *bpr)
+{
+	/* if bpr is null, do nothing
+	 */
+	if (bpr == NULL)
+		return;
+	if (bpr->installed) {
+		bgp_send_pbr_rule_action(bpa, bpr, false);
+		bpr->installed = false;
+		bpr->action->refcnt--;
+		bpr->action = NULL;
+		if (bpr->path) {
+			struct bgp_path_info *path;
+			struct bgp_path_info_extra *extra;
+
+			/* unlink path to bpme */
+			path = (struct bgp_path_info *)bpr->path;
+			extra = bgp_path_info_extra_get(path);
+			listnode_delete(extra->bgp_fs_iprule, bpr);
+			bpr->path = NULL;
+		}
+	}
+	hash_release(bgp->pbr_rule_hash, bpr);
+	if (bpa->refcnt == 0) {
+		if (bpa->installed && bpa->table_id != 0) {
+			bgp_send_pbr_rule_action(bpa, NULL, false);
+			bgp_zebra_announce_default(bpa->bgp, &(bpa->nh),
+						   AFI_IP,
+						   bpa->table_id,
+						   false);
+			bpa->installed = false;
+		}
+	}
+}
+
 static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 				struct bgp_pbr_match *bpm,
 				struct bgp_pbr_match_entry *bpme)
@@ -1270,11 +1455,10 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 			struct bgp_path_info *path;
 			struct bgp_path_info_extra *extra;
 
-			/* unlink bgp_path_info to bpme */
+			/* unlink path to bpme */
 			path = (struct bgp_path_info *)bpme->path;
 			extra = bgp_path_info_extra_get(path);
-			if (extra->bgp_fs_pbr)
-				listnode_delete(extra->bgp_fs_pbr, bpme);
+			listnode_delete(extra->bgp_fs_pbr, bpme);
 			bpme->path = NULL;
 		}
 	}
@@ -1300,7 +1484,7 @@ static void bgp_pbr_flush_entry(struct bgp *bgp, struct bgp_pbr_action *bpa,
 	}
 	if (bpa->refcnt == 0) {
 		if (bpa->installed && bpa->table_id != 0) {
-			bgp_send_pbr_rule_action(bpa, false);
+			bgp_send_pbr_rule_action(bpa, NULL, false);
 			bgp_zebra_announce_default(bpa->bgp, &(bpa->nh),
 						   AFI_IP,
 						   bpa->table_id,
@@ -1315,9 +1499,53 @@ struct bgp_pbr_match_entry_remain {
 	struct bgp_pbr_match_entry *bpme_found;
 };
 
-static int bgp_pbr_get_remaining_entry(struct hash_backet *backet, void *arg)
+struct bgp_pbr_rule_remain {
+	struct bgp_pbr_rule *bpr_to_match;
+	struct bgp_pbr_rule *bpr_found;
+};
+
+static int bgp_pbr_get_same_rule(struct hash_bucket *bucket, void *arg)
 {
-	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)backet->data;
+	struct bgp_pbr_rule *r1 = (struct bgp_pbr_rule *)bucket->data;
+	struct bgp_pbr_rule_remain *ctxt =
+		(struct bgp_pbr_rule_remain *)arg;
+	struct bgp_pbr_rule *r2;
+
+	r2 = ctxt->bpr_to_match;
+
+	if (r1->vrf_id != r2->vrf_id)
+		return HASHWALK_CONTINUE;
+
+	if (r1->flags != r2->flags)
+		return HASHWALK_CONTINUE;
+
+	if ((r1->flags & MATCH_IP_SRC_SET) &&
+	    !prefix_same(&r1->src, &r2->src))
+		return HASHWALK_CONTINUE;
+
+	if ((r1->flags & MATCH_IP_DST_SET) &&
+	    !prefix_same(&r1->dst, &r2->dst))
+		return HASHWALK_CONTINUE;
+
+	/* this function is used for two cases:
+	 * - remove an entry upon withdraw request
+	 * (case r2->action is null)
+	 * - replace an old iprule with different action
+	 * (case r2->action is != null)
+	 * the old one is removed after the new one
+	 * this is to avoid disruption in traffic
+	 */
+	if (r2->action == NULL ||
+	    r1->action != r2->action) {
+		ctxt->bpr_found = r1;
+		return HASHWALK_ABORT;
+	}
+	return HASHWALK_CONTINUE;
+}
+
+static int bgp_pbr_get_remaining_entry(struct hash_bucket *bucket, void *arg)
+{
+	struct bgp_pbr_match *bpm = (struct bgp_pbr_match *)bucket->data;
 	struct bgp_pbr_match_entry_remain *bpmer =
 		(struct bgp_pbr_match_entry_remain *)arg;
 	struct bgp_pbr_match *bpm_temp;
@@ -1352,12 +1580,15 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(
 {
 	struct bgp_pbr_match temp;
 	struct bgp_pbr_match_entry temp2;
+	struct bgp_pbr_rule pbr_rule;
+	struct bgp_pbr_rule *bpr;
 	struct bgp_pbr_match *bpm;
 	struct bgp_pbr_match_entry *bpme;
 	struct bgp_pbr_match_entry_remain bpmer;
 	struct bgp_pbr_range_port *src_port;
 	struct bgp_pbr_range_port *dst_port;
 	struct bgp_pbr_range_port *pkt_len;
+	struct bgp_pbr_rule_remain bprr;
 
 	if (!bpf)
 		return;
@@ -1374,6 +1605,37 @@ static void bgp_pbr_policyroute_remove_from_zebra_unit(
 	 */
 	memset(&temp2, 0, sizeof(temp2));
 	memset(&temp, 0, sizeof(temp));
+
+	if (bpf->type == BGP_PBR_IPRULE) {
+		memset(&pbr_rule, 0, sizeof(pbr_rule));
+		pbr_rule.vrf_id = bpf->vrf_id;
+		if (bpf->src) {
+			prefix_copy(&pbr_rule.src, bpf->src);
+			pbr_rule.flags |= MATCH_IP_SRC_SET;
+		}
+		if (bpf->dst) {
+			prefix_copy(&pbr_rule.dst, bpf->dst);
+			pbr_rule.flags |= MATCH_IP_DST_SET;
+		}
+		bpr = &pbr_rule;
+		/* A previous entry may already exist
+		 * flush previous entry if necessary
+		 */
+		bprr.bpr_to_match = bpr;
+		bprr.bpr_found = NULL;
+		hash_walk(bgp->pbr_rule_hash, bgp_pbr_get_same_rule, &bprr);
+		if (bprr.bpr_found) {
+			static struct bgp_pbr_rule *local_bpr;
+			static struct bgp_pbr_action *local_bpa;
+
+			local_bpr = bprr.bpr_found;
+			local_bpa = local_bpr->action;
+			bgp_pbr_flush_iprule(bgp, local_bpa,
+					     local_bpr);
+		}
+		return;
+	}
+
 	if (bpf->src) {
 		temp.flags |= MATCH_IP_SRC_SET;
 		prefix_copy(&temp2.src, bpf->src);
@@ -1732,9 +1994,13 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	struct bgp_pbr_action temp3;
 	struct bgp_pbr_action *bpa = NULL;
 	struct bgp_pbr_match_entry_remain bpmer;
+	struct bgp_pbr_rule_remain bprr;
 	struct bgp_pbr_range_port *src_port;
 	struct bgp_pbr_range_port *dst_port;
 	struct bgp_pbr_range_port *pkt_len;
+	struct bgp_pbr_rule pbr_rule;
+	struct bgp_pbr_rule *bpr;
+	bool bpr_found = false;
 	bool bpme_found = false;
 
 	if (!bpf)
@@ -1771,7 +2037,69 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		/* 0 value is forbidden */
 		bpa->install_in_progress = false;
 	}
+	if (bpf->type == BGP_PBR_IPRULE) {
+		memset(&pbr_rule, 0, sizeof(pbr_rule));
+		pbr_rule.vrf_id = bpf->vrf_id;
+		pbr_rule.priority = 20;
+		if (bpf->src) {
+			pbr_rule.flags |= MATCH_IP_SRC_SET;
+			prefix_copy(&pbr_rule.src, bpf->src);
+		}
+		if (bpf->dst) {
+			pbr_rule.flags |= MATCH_IP_DST_SET;
+			prefix_copy(&pbr_rule.dst, bpf->dst);
+		}
+		pbr_rule.action = bpa;
+		bpr = hash_get(bgp->pbr_rule_hash, &pbr_rule,
+			       bgp_pbr_rule_alloc_intern);
+		if (bpr && bpr->unique == 0) {
+			bpr->unique = ++bgp_pbr_action_counter_unique;
+			bpr->installed = false;
+			bpr->install_in_progress = false;
+			/* link bgp info to bpr */
+			bpr->path = (void *)path;
+		} else
+			bpr_found = true;
+		/* already installed */
+		if (bpr_found && bpr) {
+			struct bgp_path_info_extra *extra =
+				bgp_path_info_extra_get(path);
 
+			if (extra && listnode_lookup(extra->bgp_fs_iprule,
+						     bpr)) {
+				if (BGP_DEBUG(pbr, PBR_ERROR))
+					zlog_err("%s: entry %p/%p already "
+						 "installed in bgp pbr iprule",
+						 __func__, path, bpr);
+				return;
+			}
+		}
+		if (!bpa->installed && !bpa->install_in_progress) {
+			bgp_send_pbr_rule_action(bpa, NULL, true);
+			bgp_zebra_announce_default(bgp, nh,
+						   AFI_IP, bpa->table_id, true);
+		}
+		/* ip rule add */
+		if (bpr && !bpr->installed)
+			bgp_send_pbr_rule_action(bpa, bpr, true);
+
+		/* A previous entry may already exist
+		 * flush previous entry if necessary
+		 */
+		bprr.bpr_to_match = bpr;
+		bprr.bpr_found = NULL;
+		hash_walk(bgp->pbr_rule_hash, bgp_pbr_get_same_rule, &bprr);
+		if (bprr.bpr_found) {
+			static struct bgp_pbr_rule *local_bpr;
+			static struct bgp_pbr_action *local_bpa;
+
+			local_bpr = bprr.bpr_found;
+			local_bpa = local_bpr->action;
+			bgp_pbr_flush_iprule(bgp, local_bpa,
+					     local_bpr);
+		}
+		return;
+	}
 	/* then look for bpm */
 	memset(&temp, 0, sizeof(temp));
 	temp.vrf_id = bpf->vrf_id;
@@ -1885,8 +2213,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		struct bgp_path_info_extra *extra =
 			bgp_path_info_extra_get(path);
 
-		if (extra && extra->bgp_fs_pbr &&
-		    listnode_lookup(extra->bgp_fs_pbr, bpme)) {
+		if (extra && listnode_lookup(extra->bgp_fs_pbr, bpme)) {
 			if (BGP_DEBUG(pbr, PBR_ERROR))
 				zlog_err(
 					"%s: entry %p/%p already installed in bgp pbr",
@@ -1906,7 +2233,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	 */
 	/* ip rule add */
 	if (!bpa->installed && !bpa->install_in_progress) {
-		bgp_send_pbr_rule_action(bpa, true);
+		bgp_send_pbr_rule_action(bpa, NULL, true);
 		bgp_zebra_announce_default(bgp, nh,
 					   AFI_IP, bpa->table_id, true);
 	}
@@ -2048,10 +2375,16 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 	memset(&nh, 0, sizeof(struct nexthop));
 	memset(&bpf, 0, sizeof(struct bgp_pbr_filter));
 	memset(&bpof, 0, sizeof(struct bgp_pbr_or_filter));
-	if (api->match_bitmask & PREFIX_SRC_PRESENT)
+	if (api->match_bitmask & PREFIX_SRC_PRESENT ||
+	    (api->type == BGP_PBR_IPRULE &&
+	     api->match_bitmask_iprule & PREFIX_SRC_PRESENT))
 		src = &api->src_prefix;
-	if (api->match_bitmask & PREFIX_DST_PRESENT)
+	if (api->match_bitmask & PREFIX_DST_PRESENT ||
+	    (api->type == BGP_PBR_IPRULE &&
+	     api->match_bitmask_iprule & PREFIX_DST_PRESENT))
 		dst = &api->dst_prefix;
+	if (api->type == BGP_PBR_IPRULE)
+		bpf.type = api->type;
 	memset(&nh, 0, sizeof(struct nexthop));
 	nh.vrf_id = VRF_UNKNOWN;
 	if (api->match_protocol_num)

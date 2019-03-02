@@ -340,11 +340,11 @@ static int ospf_interface_address_delete(int command, struct zclient *zclient,
 }
 
 static int ospf_interface_link_params(int command, struct zclient *zclient,
-				      zebra_size_t length)
+				      zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 
-	ifp = zebra_interface_link_params_read(zclient->ibuf);
+	ifp = zebra_interface_link_params_read(zclient->ibuf, vrf_id);
 
 	if (ifp == NULL)
 		return 0;
@@ -869,6 +869,9 @@ int ospf_redistribute_default_unset(struct ospf *ospf)
 
 	ospf_asbr_status_update(ospf, --ospf->redistribute);
 
+	/* clean up maxage default originate external lsa */
+	ospf_default_originate_lsa_update(ospf);
+
 	return CMD_SUCCESS;
 }
 
@@ -980,17 +983,22 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 /* OSPF route-map set for redistribution */
 void ospf_routemap_set(struct ospf_redist *red, const char *name)
 {
-	if (ROUTEMAP_NAME(red))
+	if (ROUTEMAP_NAME(red)) {
+		route_map_counter_decrement(ROUTEMAP(red));
 		free(ROUTEMAP_NAME(red));
+	}
 
 	ROUTEMAP_NAME(red) = strdup(name);
 	ROUTEMAP(red) = route_map_lookup_by_name(name);
+	route_map_counter_increment(ROUTEMAP(red));
 }
 
 void ospf_routemap_unset(struct ospf_redist *red)
 {
-	if (ROUTEMAP_NAME(red))
+	if (ROUTEMAP_NAME(red)) {
+		route_map_counter_decrement(ROUTEMAP(red));
 		free(ROUTEMAP_NAME(red));
+	}
 
 	ROUTEMAP_NAME(red) = NULL;
 	ROUTEMAP(red) = NULL;

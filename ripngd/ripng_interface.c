@@ -994,7 +994,7 @@ static struct cmd_node interface_node = {
 };
 
 /* Initialization of interface. */
-void ripng_if_init()
+void ripng_if_init(void)
 {
 	/* Interface initialize. */
 	hook_register_prio(if_add, 0, ripng_if_new_hook);

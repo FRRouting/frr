@@ -213,7 +213,7 @@ int if_set_prefix(struct interface *ifp, struct connected *ifc)
 	rib_lookup_and_pushup(p, ifp->vrf_id);
 
 	memset(&addreq, 0, sizeof addreq);
-	strncpy((char *)&addreq.ifra_name, ifp->name, sizeof addreq.ifra_name);
+	strlcpy(addreq.ifra_name, ifp->name, sizeof(addreq.ifra_name));
 
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_addr = p->prefix;
@@ -267,7 +267,7 @@ int if_unset_prefix(struct interface *ifp, struct connected *ifc)
 	p = (struct prefix_ipv4 *)ifc->address;
 
 	memset(&addreq, 0, sizeof addreq);
-	strncpy((char *)&addreq.ifra_name, ifp->name, sizeof addreq.ifra_name);
+	strlcpy(addreq.ifra_name, ifp->name, sizeof(addreq.ifra_name));
 
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_addr = p->prefix;
@@ -412,7 +412,7 @@ void if_get_flags(struct interface *ifp)
 
 	if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION)) {
 		(void)memset(&ifmr, 0, sizeof(ifmr));
-		strncpy(ifmr.ifm_name, ifp->name, IFNAMSIZ);
+		strlcpy(ifmr.ifm_name, ifp->name, sizeof(ifmr.ifm_name));
 
 		/* Seems not all interfaces implement this ioctl */
 		if (if_ioctl(SIOCGIFMEDIA, (caddr_t)&ifmr) == -1 &&
@@ -514,7 +514,7 @@ int if_prefix_add_ipv6(struct interface *ifp, struct connected *ifc)
 	p = (struct prefix_ipv6 *)ifc->address;
 
 	memset(&addreq, 0, sizeof addreq);
-	strncpy((char *)&addreq.ifra_name, ifp->name, sizeof addreq.ifra_name);
+	strlcpy(addreq.ifra_name, ifp->name, sizeof(addreq.ifra_name));
 
 	memset(&addr, 0, sizeof(struct sockaddr_in6));
 	addr.sin6_addr = p->prefix;
@@ -557,7 +557,7 @@ int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
 	p = (struct prefix_ipv6 *)ifc->address;
 
 	memset(&addreq, 0, sizeof addreq);
-	strncpy((char *)&addreq.ifra_name, ifp->name, sizeof addreq.ifra_name);
+	strlcpy(addreq.ifra_name, ifp->name, sizeof(addreq.ifra_name));
 
 	memset(&addr, 0, sizeof(struct sockaddr_in6));
 	addr.sin6_addr = p->prefix;

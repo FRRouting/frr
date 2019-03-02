@@ -34,7 +34,8 @@
 #include "lib/zclient.h"
 #include "lib/libfrr.h"
 
-#include "zebra/zserv.h"
+//#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/label_manager.h"
 #include "zebra/zebra_errors.h"
 
@@ -294,7 +295,7 @@ static int lm_zclient_connect(struct thread *t)
 	if (zclient_socket_connect(zclient) < 0) {
 		flog_err(EC_ZEBRA_LM_CLIENT_CONNECTION_FAILED,
 			 "Error connecting synchronous zclient!");
-		thread_add_timer(zebrad.master, lm_zclient_connect, zclient,
+		thread_add_timer(zrouter.master, lm_zclient_connect, zclient,
 				 CONNECTION_DELAY, &zclient->t_connect);
 		return -1;
 	}
@@ -318,7 +319,7 @@ static void lm_zclient_init(char *lm_zserv_path)
 				 lm_zserv_path);
 
 	/* Set default values. */
-	zclient = zclient_new(zebrad.master, &zclient_options_default);
+	zclient = zclient_new(zrouter.master, &zclient_options_default);
 	zclient->privs = &zserv_privs;
 	zclient->sock = -1;
 	zclient->t_connect = NULL;
@@ -480,7 +481,7 @@ int release_label_chunk(uint8_t proto, unsigned short instance, uint32_t start,
 }
 
 
-void label_manager_close()
+void label_manager_close(void)
 {
 	list_delete(&lbl_mgr.lc_list);
 	stream_free(obuf);

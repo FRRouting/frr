@@ -123,7 +123,7 @@ void rfapiDebugBacktrace(void)
  * Count remote routes and compare with actively-maintained values.
  * Abort if they disagree.
  */
-void rfapiCheckRouteCount()
+void rfapiCheckRouteCount(void)
 {
 	struct bgp *bgp = bgp_get_default();
 	struct rfapi *h;
@@ -2190,7 +2190,7 @@ static void rfapiItBiIndexDump(struct agg_node *rn)
 			prefix2str(&k->extra->vnc.import.aux_prefix,
 				   buf_aux_pfx, sizeof(buf_aux_pfx));
 		} else
-			strncpy(buf_aux_pfx, "(none)", PREFIX_STRLEN);
+			strlcpy(buf_aux_pfx, "(none)", sizeof(buf_aux_pfx));
 
 		vnc_zlog_debug_verbose("bpi %p, peer %p, rd %s, aux_prefix %s",
 				       k, k->peer, buf, buf_aux_pfx);
@@ -2221,7 +2221,7 @@ static struct bgp_path_info *rfapiItBiIndexSearch(
 			prefix2str(aux_prefix, buf_aux_pfx,
 				   sizeof(buf_aux_pfx));
 		} else
-			strncpy(buf_aux_pfx, "(nil)", sizeof(buf_aux_pfx));
+			strlcpy(buf_aux_pfx, "(nil)", sizeof(buf_aux_pfx));
 
 		vnc_zlog_debug_verbose("%s want prd=%s, peer=%p, aux_prefix=%s",
 				       __func__,

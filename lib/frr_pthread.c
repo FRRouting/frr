@@ -47,7 +47,7 @@ static struct list *frr_pthread_list;
 
 /* ------------------------------------------------------------------------ */
 
-void frr_pthread_init()
+void frr_pthread_init(void)
 {
 	pthread_mutex_lock(&frr_pthread_list_mtx);
 	{
@@ -57,7 +57,7 @@ void frr_pthread_init()
 	pthread_mutex_unlock(&frr_pthread_list_mtx);
 }
 
-void frr_pthread_finish()
+void frr_pthread_finish(void)
 {
 	pthread_mutex_lock(&frr_pthread_list_mtx);
 	{
@@ -83,9 +83,9 @@ struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
 	name = (name ? name : "Anonymous thread");
 	fpt->name = XSTRDUP(MTYPE_FRR_PTHREAD, name);
 	if (os_name)
-		snprintf(fpt->os_name, OS_THREAD_NAMELEN, "%s", os_name);
+		strlcpy(fpt->os_name, os_name, OS_THREAD_NAMELEN);
 	else
-		snprintf(fpt->os_name, OS_THREAD_NAMELEN, "%s", name);
+		strlcpy(fpt->os_name, name, OS_THREAD_NAMELEN);
 	/* initialize startup synchronization primitives */
 	fpt->running_cond_mtx = XCALLOC(
 		MTYPE_PTHREAD_PRIM, sizeof(pthread_mutex_t));
@@ -124,7 +124,7 @@ int frr_pthread_set_name(struct frr_pthread *fpt)
 #ifdef HAVE_PTHREAD_SETNAME_NP
 # ifdef GNU_LINUX
 	ret = pthread_setname_np(fpt->thread, fpt->os_name);
-# else /* NetBSD */
+# elif defined(__NetBSD__)
 	ret = pthread_setname_np(fpt->thread, fpt->os_name, NULL);
 # endif
 #elif defined(HAVE_PTHREAD_SET_NAME_NP)
@@ -178,7 +178,7 @@ int frr_pthread_stop(struct frr_pthread *fpt, void **result)
 	return ret;
 }
 
-void frr_pthread_stop_all()
+void frr_pthread_stop_all(void)
 {
 	pthread_mutex_lock(&frr_pthread_list_mtx);
 	{
