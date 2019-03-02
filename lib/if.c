@@ -1309,8 +1309,8 @@ static int lib_interface_create(enum nb_event event,
 	return NB_OK;
 }
 
-static int lib_interface_delete(enum nb_event event,
-				const struct lyd_node *dnode)
+static int lib_interface_destroy(enum nb_event event,
+				 const struct lyd_node *dnode)
 {
 	struct interface *ifp;
 
@@ -1357,8 +1357,8 @@ static int lib_interface_description_modify(enum nb_event event,
 	return NB_OK;
 }
 
-static int lib_interface_description_delete(enum nb_event event,
-					    const struct lyd_node *dnode)
+static int lib_interface_description_destroy(enum nb_event event,
+					     const struct lyd_node *dnode)
 {
 	struct interface *ifp;
 
@@ -1379,13 +1379,13 @@ const struct frr_yang_module_info frr_interface_info = {
 		{
 			.xpath = "/frr-interface:lib/interface",
 			.cbs.create = lib_interface_create,
-			.cbs.destroy = lib_interface_delete,
+			.cbs.destroy = lib_interface_destroy,
 			.cbs.cli_show = cli_show_interface,
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/description",
 			.cbs.modify = lib_interface_description_modify,
-			.cbs.destroy = lib_interface_description_delete,
+			.cbs.destroy = lib_interface_description_destroy,
 			.cbs.cli_show = cli_show_interface_desc,
 		},
 		{
