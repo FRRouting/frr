@@ -422,7 +422,13 @@ extern const char *zserv_command_string(unsigned int command);
 #endif
 
 /* Address family numbers from RFC1700. */
-typedef enum { AFI_IP = 1, AFI_IP6 = 2, AFI_L2VPN = 3, AFI_MAX = 4 } afi_t;
+typedef enum {
+	AFI_UNSPEC = 0,
+	AFI_IP = 1,
+	AFI_IP6 = 2,
+	AFI_L2VPN = 3,
+	AFI_MAX = 4
+} afi_t;
 
 /* Subsequent Address Family Identifier. */
 typedef enum {
