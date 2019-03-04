@@ -1609,7 +1609,7 @@ DEFUN (show_vrf,
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (default_vrf_vni_mapping,
+DEFUN (default_vrf_vni_mapping,
        default_vrf_vni_mapping_cmd,
        "vni " CMD_VNI_RANGE "[prefix-routes-only]",
        "VNI corresponding to the DEFAULT VRF\n"
@@ -1639,7 +1639,7 @@ DEFUN_HIDDEN (default_vrf_vni_mapping,
 	return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (no_default_vrf_vni_mapping,
+DEFUN (no_default_vrf_vni_mapping,
        no_default_vrf_vni_mapping_cmd,
        "no vni " CMD_VNI_RANGE,
        NO_STR
