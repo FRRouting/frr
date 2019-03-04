@@ -1260,7 +1260,41 @@ static void vrrp_change_state_master(struct vrrp_router *r)
 	if (r->family == AF_INET6)
 		vrrp_zebra_radv_set(r, true);
 
+	/* Set protodown off */
 	vrrp_zclient_send_interface_protodown(r->mvl_ifp, false);
+
+	/*
+	 * If protodown is already off, we can send our stuff, otherwise we
+	 * have to delay until the interface is all the way up
+	 */
+	if (if_is_operative(r->mvl_ifp)) {
+		vrrp_send_advertisement(r);
+
+		if (r->family == AF_INET)
+			vrrp_garp_send_all(r);
+		else if (r->family == AF_INET6)
+			vrrp_ndisc_una_send_all(r);
+	} else {
+		DEBUGD(&vrrp_dbg_proto,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID
+		       "Delaying VRRP advertisement until interface is up",
+		       r->vr->vrid);
+		r->advert_pending = true;
+
+		if (r->family == AF_INET) {
+			DEBUGD(&vrrp_dbg_proto,
+			       VRRP_LOGPFX VRRP_LOGPFX_VRID
+			       "Delaying VRRP gratuitous ARPs until interface is up",
+			       r->vr->vrid);
+			r->garp_pending = true;
+		} else if (r->family == AF_INET6) {
+			DEBUGD(&vrrp_dbg_proto,
+			       VRRP_LOGPFX VRRP_LOGPFX_VRID
+			       "Delaying VRRP unsolicited neighbor advertisement until interface is up",
+			       r->vr->vrid);
+			r->ndisc_pending = true;
+		}
+	}
 }
 
 /*
@@ -1278,7 +1312,6 @@ static void vrrp_change_state_backup(struct vrrp_router *r)
 	/* Disable Adver_Timer */
 	THREAD_OFF(r->t_adver_timer);
 
-	/* This should not be necessary, but just in case */
 	r->advert_pending = false;
 	r->garp_pending = false;
 	r->ndisc_pending = false;
@@ -1301,7 +1334,6 @@ static void vrrp_change_state_initialize(struct vrrp_router *r)
 	r->master_adver_interval = 0;
 	vrrp_recalculate_timers(r);
 
-	/* This should not be necessary, but just in case */
 	r->advert_pending = false;
 	r->garp_pending = false;
 	r->ndisc_pending = false;
@@ -1384,18 +1416,6 @@ static int vrrp_master_down_timer_expire(struct thread *thread)
 			      &r->t_adver_timer);
 	vrrp_change_state(r, VRRP_STATE_MASTER);
 
-	/*
-	 * Since this implemention uses protodown to implement backup status,
-	 * we have to wait for the interface to come up before we can send our
-	 * initial advert and garp/ndisc packets. This will be handled in
-	 * vrrp_if_up().
-	 */
-	r->advert_pending = true;
-	if (r->family == AF_INET)
-		r->garp_pending = true;
-	if (r->family == AF_INET6)
-		r->ndisc_pending = true;
-
 	return 0;
 }
 
@@ -1464,13 +1484,6 @@ static int vrrp_startup(struct vrrp_router *r)
 	}
 
 	if (r->priority == VRRP_PRIO_MASTER) {
-		vrrp_send_advertisement(r);
-
-		if (r->family == AF_INET)
-			vrrp_garp_send_all(r);
-		if (r->family == AF_INET6)
-			vrrp_ndisc_una_send_all(r);
-
 		thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
 				      r->vr->advertisement_interval * 10,
 				      &r->t_adver_timer);
@@ -1530,10 +1543,6 @@ static int vrrp_shutdown(struct vrrp_router *r)
 		close(r->sock_tx);
 		r->sock_tx = -1;
 	}
-
-	r->advert_pending = false;
-	r->garp_pending = false;
-	r->ndisc_pending = false;
 
 	vrrp_change_state(r, VRRP_STATE_INITIALIZE);
 
@@ -1967,6 +1976,9 @@ void vrrp_if_up(struct interface *ifp)
 
 	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr)) {
 		vrrp_check_start(vr);
+
+		if (!if_is_operative(ifp))
+			continue;
 
 		/*
 		 * Handle the situation in which we performed a state
