@@ -2125,6 +2125,10 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		}
 
 
+		SET_FLAG(nh.flags, NEXTHOP_FLAG_ACTIVE);
+		if (nhm->nh_flags & RTNH_F_ONLINK)
+			SET_FLAG(nh.flags, NEXTHOP_FLAG_ONLINK);
+
 		nexthop_group_add_sorted(&nhg, &nh);
 
 		if (nhe) {
