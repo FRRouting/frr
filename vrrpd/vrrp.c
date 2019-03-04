@@ -553,10 +553,12 @@ static void vrrp_router_destroy(struct vrrp_router *r)
 	if (r->is_active)
 		vrrp_event(r, VRRP_EVENT_SHUTDOWN);
 
-	if (r->sock_rx >= 0)
+	if (r->sock_rx >= 0) {
 		close(r->sock_rx);
-	if (r->sock_tx >= 0)
+	}
+	if (r->sock_tx >= 0) {
 		close(r->sock_tx);
+	}
 
 	/* FIXME: also delete list elements */
 	list_delete(&r->addrs);
@@ -1276,6 +1278,11 @@ static void vrrp_change_state_backup(struct vrrp_router *r)
 	/* Disable Adver_Timer */
 	THREAD_OFF(r->t_adver_timer);
 
+	/* This should not be necessary, but just in case */
+	r->advert_pending = false;
+	r->garp_pending = false;
+	r->ndisc_pending = false;
+
 	vrrp_zclient_send_interface_protodown(r->mvl_ifp, true);
 }
 
@@ -1293,6 +1300,11 @@ static void vrrp_change_state_initialize(struct vrrp_router *r)
 	r->vr->advertisement_interval = r->vr->advertisement_interval;
 	r->master_adver_interval = 0;
 	vrrp_recalculate_timers(r);
+
+	/* This should not be necessary, but just in case */
+	r->advert_pending = false;
+	r->garp_pending = false;
+	r->ndisc_pending = false;
 
 	/* Disable ND Router Advertisements */
 	if (r->family == AF_INET6)
@@ -1367,15 +1379,22 @@ static int vrrp_master_down_timer_expire(struct thread *thread)
 	zlog_info(VRRP_LOGPFX VRRP_LOGPFX_VRID "Master_Down_Timer expired",
 		  r->vr->vrid);
 
-	vrrp_send_advertisement(r);
-	if (r->family == AF_INET)
-		vrrp_garp_send_all(r);
-	if (r->family == AF_INET6)
-		vrrp_ndisc_una_send_all(r);
 	thread_add_timer_msec(master, vrrp_adver_timer_expire, r,
 			      r->vr->advertisement_interval * 10,
 			      &r->t_adver_timer);
 	vrrp_change_state(r, VRRP_STATE_MASTER);
+
+	/*
+	 * Since this implemention uses protodown to implement backup status,
+	 * we have to wait for the interface to come up before we can send our
+	 * initial advert and garp/ndisc packets. This will be handled in
+	 * vrrp_if_up().
+	 */
+	r->advert_pending = true;
+	if (r->family == AF_INET)
+		r->garp_pending = true;
+	if (r->family == AF_INET6)
+		r->ndisc_pending = true;
 
 	return 0;
 }
@@ -1511,6 +1530,10 @@ static int vrrp_shutdown(struct vrrp_router *r)
 		close(r->sock_tx);
 		r->sock_tx = -1;
 	}
+
+	r->advert_pending = false;
+	r->garp_pending = false;
+	r->ndisc_pending = false;
 
 	vrrp_change_state(r, VRRP_STATE_INITIALIZE);
 
@@ -1942,8 +1965,51 @@ void vrrp_if_up(struct interface *ifp)
 
 	vrs = vrrp_lookup_by_if_any(ifp);
 
-	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr))
+	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr)) {
 		vrrp_check_start(vr);
+
+		/*
+		 * Handle the situation in which we performed a state
+		 * transition on this VRRP router but needed to wait for the
+		 * macvlan interface to come up to perform some actions
+		 */
+		if (ifp == vr->v4->mvl_ifp) {
+			if (vr->v4->advert_pending) {
+				DEBUGD(&vrrp_dbg_proto,
+				       VRRP_LOGPFX VRRP_LOGPFX_VRID
+				       "Interface up; sending pending advertisement",
+				       vr->vrid);
+				vrrp_send_advertisement(vr->v4);
+				vr->v4->advert_pending = false;
+			}
+			if (vr->v4->garp_pending) {
+				DEBUGD(&vrrp_dbg_proto,
+				       VRRP_LOGPFX VRRP_LOGPFX_VRID
+				       "Interface up; sending pending gratuitous ARP",
+				       vr->vrid);
+				vrrp_garp_send_all(vr->v4);
+				vr->v4->garp_pending = false;
+			}
+		}
+		if (ifp == vr->v6->mvl_ifp) {
+			if (vr->v6->advert_pending) {
+				DEBUGD(&vrrp_dbg_proto,
+				       VRRP_LOGPFX VRRP_LOGPFX_VRID
+				       "Interface up; sending pending advertisement",
+				       vr->vrid);
+				vrrp_send_advertisement(vr->v6);
+				vr->v6->advert_pending = false;
+			}
+			if (vr->v6->ndisc_pending) {
+				DEBUGD(&vrrp_dbg_proto,
+				       VRRP_LOGPFX VRRP_LOGPFX_VRID
+				       "Interface up; sending pending Unsolicited Neighbor Advertisement",
+				       vr->vrid);
+				vrrp_ndisc_una_send_all(vr->v6);
+				vr->v6->ndisc_pending = false;
+			}
+		}
+	}
 
 	list_delete(&vrs);
 

@@ -121,6 +121,27 @@ struct vrrp_router {
 	struct list *addrs;
 
 	/*
+	 * This flag says whether we are waiting on an interface up
+	 * notification from Zebra before we send an ADVERTISEMENT.
+	 */
+	bool advert_pending;
+
+	/*
+	 * If this is an IPv4 VRRP router, this flag says whether we are
+	 * waiting on an interface up notification from Zebra before we send
+	 * gratuitous ARP packets for all our addresses. Should never be true
+	 * if family == AF_INET6.
+	 */
+	bool garp_pending;
+	/*
+	 * If this is an IPv6 VRRP router, this flag says whether we are
+	 * waiting on an interface up notification from Zebra before we send
+	 * Unsolicited Neighbor Advertisement packets for all our addresses.
+	 * Should never be true if family == AF_INET.
+	 */
+	bool ndisc_pending;
+
+	/*
 	 * Effective priority
 	 *    => vr->priority if we are Backup
 	 *    => 255 if we are Master
