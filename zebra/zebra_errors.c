@@ -301,6 +301,15 @@ static struct log_ref ferr_zebra_err[] = {
 		.suggestion =
 			"Check the current status of the kernels nexthop groups and compare it to Zebra's."
 	},
+	{
+		.code = EC_ZEBRA_NHG_FIB_UPDATE,
+		.title =
+			"Zebra failed updating the fib with Nexthop Group",
+		.description =
+			"Zebra was not able to successfully install a new nexthop group into the fib",
+		.suggestion =
+			"Check to see if the nexthop group on the route you tried to install is valid."
+	},
 	/* Warnings */
 	{
 		.code = EC_ZEBRAING_LM_PROTO_MISMATCH,
