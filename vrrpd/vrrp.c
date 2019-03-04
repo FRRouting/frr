@@ -107,11 +107,15 @@ static void vrrp_recalculate_timers(struct vrrp_router *r)
  * Determines if a VRRP router is the owner of the specified address.
  *
  * The determining factor for whether an interface is the address owner is
- * simply whether the address is assigned to the VRRP subinterface by someone
+ * simply whether the address is assigned to the VRRP base interface by someone
  * other than vrrpd.
  *
  * This function should always return the correct answer regardless of
  * master/backup status.
+ *
+ * ifp
+ *    The interface to check owernship of. This should be the base interface of
+ *    a VRRP router.
  *
  * vr
  *    Virtual Router
@@ -121,6 +125,23 @@ static void vrrp_recalculate_timers(struct vrrp_router *r)
  */
 static bool vrrp_is_owner(struct interface *ifp, struct ipaddr *addr)
 {
+	/*
+	 * This code sanity checks implicit ownership configuration. Ideally,
+	 * the way we determine address ownership status for this VRRP router
+	 * is by looking at whether our VIPs are also assigned to the base
+	 * interface, and therefore count as "real" addresses. This frees the
+	 * user from having to manually configure priority 255 to indicate
+	 * address ownership. However, this means one of the VIPs will be used
+	 * as the source address for VRRP advertisements, which in turn means
+	 * that other VRRP routers will be receiving packets with a source
+	 * address they themselves have. This causes lots of different issues
+	 * so for now we're disabling this and forcing the user to configure
+	 * priority 255 to indicate ownership.
+	 */
+
+	return false;
+
+#if 0
 	struct prefix p;
 
 	p.family = IS_IPADDR_V4(addr) ? AF_INET : AF_INET6;
@@ -128,6 +149,7 @@ static bool vrrp_is_owner(struct interface *ifp, struct ipaddr *addr)
 	memcpy(&p.u, &addr->ip, sizeof(addr->ip));
 
 	return !!connected_lookup_prefix_exact(ifp, &p);
+#endif
 }
 
 /*
@@ -1411,13 +1433,14 @@ static int vrrp_startup(struct vrrp_router *r)
 	char ipbuf[INET6_ADDRSTRLEN];
 	inet_ntop(r->family, &primary->ip.addr, ipbuf, sizeof(ipbuf));
 
-	if (vrrp_is_owner(r->vr->ifp, primary)) {
+	if (r->vr->priority == VRRP_PRIO_MASTER
+	    || vrrp_is_owner(r->vr->ifp, primary)) {
 		r->priority = VRRP_PRIO_MASTER;
 		vrrp_recalculate_timers(r);
 
 		zlog_info(
 			VRRP_LOGPFX VRRP_LOGPFX_VRID
-			"%s owns primary Virtual Router IP %s; electing self as Master",
+			"%s has priority set to 255 or owns primary Virtual Router IP %s; electing self as Master",
 			r->vr->vrid, r->vr->ifp->name, ipbuf);
 	}
 

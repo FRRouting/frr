@@ -116,7 +116,7 @@ DEFPY(vrrp_shutdown,
 
 DEFPY(vrrp_priority,
       vrrp_priority_cmd,
-      "[no] vrrp (1-255)$vrid priority (1-254)",
+      "[no] vrrp (1-255)$vrid priority (1-255)",
       NO_STR
       VRRP_STR
       VRRP_VRID_STR
