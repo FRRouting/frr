@@ -456,7 +456,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				json_object_boolean_true_add(json_nexthop,
 							     "duplicate");
 
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) &&
+			    !CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 				json_object_boolean_true_add(json_nexthop,
 							     "fib");
 
