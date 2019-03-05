@@ -6353,8 +6353,8 @@ DEFUN (interface_ip_pim_drprio,
 	pim_ifp->pim_dr_priority = strtol(argv[idx_number]->arg, NULL, 10);
 
 	if (old_dr_prio != pim_ifp->pim_dr_priority) {
-		if (pim_if_dr_election(ifp))
-			pim_hello_restart_now(ifp);
+		pim_if_dr_election(ifp);
+		pim_hello_restart_now(ifp);
 	}
 
 	return CMD_SUCCESS;
@@ -6379,8 +6379,8 @@ DEFUN (interface_no_ip_pim_drprio,
 
 	if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
 		pim_ifp->pim_dr_priority = PIM_DEFAULT_DR_PRIORITY;
-		if (pim_if_dr_election(ifp))
-			pim_hello_restart_now(ifp);
+		pim_if_dr_election(ifp);
+		pim_hello_restart_now(ifp);
 	}
 
 	return CMD_SUCCESS;
