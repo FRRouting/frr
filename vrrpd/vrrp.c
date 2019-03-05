@@ -1534,6 +1534,8 @@ static int vrrp_shutdown(struct vrrp_router *r)
 	/* Cancel all timers */
 	THREAD_OFF(r->t_adver_timer);
 	THREAD_OFF(r->t_master_down_timer);
+	THREAD_OFF(r->t_read);
+	THREAD_OFF(r->t_write);
 
 	if (r->sock_rx > 0) {
 		close(r->sock_rx);
