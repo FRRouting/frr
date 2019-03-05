@@ -110,7 +110,7 @@ static int linux_configure_arp(const char *iface, int on)
 {
 	struct ifreq ifr;
 
-	strlcpy(ifr.ifr_name, iface, sizeof(ifr.ifr_name));
+	strncpy(ifr.ifr_name, iface, IFNAMSIZ - 1);
 	if (ioctl(nhrp_socket_fd, SIOCGIFFLAGS, &ifr))
 		return -1;
 
