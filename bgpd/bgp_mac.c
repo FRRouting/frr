@@ -311,11 +311,35 @@ void bgp_mac_del_mac_entry(struct interface *ifp)
 	bgp_mac_remove_ifp_internal(bsm, ifp->name);
 }
 
+/* This API checks MAC address against any of local
+ * assigned (SVIs) MAC address.
+ * An example: router-mac attribute in any of evpn update
+ * requires to compare against local mac.
+ */
+bool bgp_mac_exist(struct ethaddr *mac)
+{
+	struct bgp_self_mac lookup;
+	struct bgp_self_mac *bsm;
+	static uint8_t tmp [ETHER_ADDR_STRLEN] = {0};
+
+	if (memcmp(mac, &tmp, ETH_ALEN) == 0)
+		return false;
+
+	memcpy(&lookup.macaddr, mac, ETH_ALEN);
+	bsm = hash_lookup(bm->self_mac_hash, &lookup);
+	if (!bsm)
+		return false;
+
+	return true;
+}
+
+/* This API checks EVPN type-2 prefix and comapares
+ * mac against any of local assigned (SVIs) MAC
+ * address.
+ */
 bool bgp_mac_entry_exists(struct prefix *p)
 {
 	struct prefix_evpn *pevpn = (struct prefix_evpn *)p;
-	struct bgp_self_mac lookup;
-	struct bgp_self_mac *bsm;
 
 	if (pevpn->family != AF_EVPN)
 		return false;
@@ -323,10 +347,7 @@ bool bgp_mac_entry_exists(struct prefix *p)
 	if (pevpn->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
 		return false;
 
-	memcpy(&lookup.macaddr, &p->u.prefix_evpn.macip_addr.mac, ETH_ALEN);
-	bsm = hash_lookup(bm->self_mac_hash, &lookup);
-	if (!bsm)
-		return false;
+	return bgp_mac_exist(&p->u.prefix_evpn.macip_addr.mac);
 
 	return true;
 }
