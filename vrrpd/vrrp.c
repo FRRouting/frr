@@ -785,7 +785,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 			DEBUGD(&vrrp_dbg_proto,
 			       VRRP_LOGPFX VRRP_LOGPFX_VRID
 			       "Discarding advertisement from %s (%" PRIu8
-			       " = %" PRIu8 " & %s <= %s)",
+			       " <= %" PRIu8 " & %s <= %s)",
 			       r->vr->vrid, sipstr, pkt->hdr.priority,
 			       r->priority, sipstr, dipstr);
 		}
