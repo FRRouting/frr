@@ -1047,8 +1047,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
 	if (info->safi != SAFI_UNICAST) {
-		for (ALL_NEXTHOPS(re->ng, nexthop))
-			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
 		return;
 	} else {
 		struct nexthop *prev;
@@ -1125,8 +1124,6 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 
 	if (info->safi != SAFI_UNICAST) {
 		UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
-		for (ALL_NEXTHOPS(re->ng, nexthop))
-			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		return;
 	}
 
@@ -1181,9 +1178,6 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 			UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
 
 		dest->selected_fib = NULL;
-
-		for (ALL_NEXTHOPS(re->ng, nexthop))
-			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 	}
 
 	if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
@@ -1417,14 +1411,9 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 						UNSET_FLAG(
 							old->status,
 							ROUTE_ENTRY_INSTALLED);
-				} else {
+				} else
 					UNSET_FLAG(old->status,
 						   ROUTE_ENTRY_INSTALLED);
-					for (nexthop = old->ng.nexthop; nexthop;
-					     nexthop = nexthop->next)
-						UNSET_FLAG(nexthop->flags,
-							   NEXTHOP_FLAG_FIB);
-				}
 			}
 		}
 
@@ -1970,21 +1959,6 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 					if (nexthop_same(ctx_nexthop, nexthop))
 						break;
 				}
-
-				if (nexthop == NULL)
-					continue;
-
-				if (CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_RECURSIVE))
-					continue;
-
-				if (CHECK_FLAG(ctx_nexthop->flags,
-					       NEXTHOP_FLAG_FIB))
-					SET_FLAG(nexthop->flags,
-						 NEXTHOP_FLAG_FIB);
-				else
-					UNSET_FLAG(nexthop->flags,
-						   NEXTHOP_FLAG_FIB);
 			}
 
 			if (zvrf) {
@@ -2741,11 +2715,8 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	}
 
 	/* If this route is kernel route, set FIB flag to the route. */
-	if (RIB_SYSTEM_ROUTE(re)) {
+	if (RIB_SYSTEM_ROUTE(re))
 		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
-		for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
-			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-	}
 
 	/* Link new re to node.*/
 	if (IS_ZEBRA_DEBUG_RIB) {
@@ -2882,12 +2853,6 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 			}
 			if (allow_delete) {
 				UNSET_FLAG(fib->status, ROUTE_ENTRY_INSTALLED);
-				/* Unset flags. */
-				for (rtnh = fib->ng.nexthop; rtnh;
-				     rtnh = rtnh->next)
-					UNSET_FLAG(rtnh->flags,
-						   NEXTHOP_FLAG_FIB);
-
 				/*
 				 * This is a non FRR route
 				 * as such we should mark
@@ -3133,8 +3098,6 @@ void rib_sweep_table(struct route_table *table)
 			 * this decision needs to be revisited
 			 */
 			SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
-			for (ALL_NEXTHOPS(re->ng, nexthop))
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 
 			rib_uninstall_kernel(rn, re);
 			rib_delnode(rn, re);

@@ -269,8 +269,7 @@ static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 		     && (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)
 			 && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)))
 		    || (action == RTM_DELETE
-			&& (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED)
-			    && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)))) {
+			&& (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED)))) {
 			if (nhlfe->nexthop->nh_label->num_labels > 1) {
 				flog_warn(EC_ZEBRA_MAX_LABELS_PUSH,
 					  "%s: can't push %u labels at once "

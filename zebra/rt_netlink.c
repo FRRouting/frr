@@ -1851,19 +1851,6 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 	}
 
 	ret = netlink_route_multipath(cmd, ctx);
-	if ((cmd == RTM_NEWROUTE) && (ret == 0)) {
-		/* Update installed nexthops to signal which have been
-		 * installed.
-		 */
-		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-				continue;
-
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-			}
-		}
-	}
 
 	return (ret == 0 ?
 		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
@@ -2780,8 +2767,7 @@ int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 				nexthop_num++;
 		} else { /* DEL */
 			/* Count all installed NHLFEs */
-			if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED)
-			    && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+			if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED))
 				nexthop_num++;
 		}
 	}
@@ -2836,9 +2822,7 @@ int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 					       NEXTHOP_FLAG_ACTIVE)))
 			    || (cmd == RTM_DELROUTE
 				&& (CHECK_FLAG(nhlfe->flags,
-					       NHLFE_FLAG_INSTALLED)
-				    && CHECK_FLAG(nexthop->flags,
-						  NEXTHOP_FLAG_FIB)))) {
+					       NHLFE_FLAG_INSTALLED)))) {
 				/* Add the gateway */
 				_netlink_mpls_build_singlepath(
 					routedesc, nhlfe,
@@ -2876,9 +2860,7 @@ int netlink_mpls_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 					       NEXTHOP_FLAG_ACTIVE)))
 			    || (cmd == RTM_DELROUTE
 				&& (CHECK_FLAG(nhlfe->flags,
-					       NHLFE_FLAG_INSTALLED)
-				    && CHECK_FLAG(nexthop->flags,
-						  NEXTHOP_FLAG_FIB)))) {
+					       NHLFE_FLAG_INSTALLED)))) {
 				nexthop_num++;
 
 				/* Build the multipath */

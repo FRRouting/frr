@@ -142,7 +142,6 @@ static void clear_nhlfe_installed(zebra_lsp_t *lsp)
 			continue;
 
 		UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
-		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 	}
 }
 
@@ -981,12 +980,9 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 				if (CHECK_FLAG(nhlfe->flags,
 					       NHLFE_FLAG_INSTALLED)
 				    && !CHECK_FLAG(nhlfe->flags,
-						   NHLFE_FLAG_SELECTED)) {
+						   NHLFE_FLAG_SELECTED))
 					UNSET_FLAG(nhlfe->flags,
 						   NHLFE_FLAG_INSTALLED);
-					UNSET_FLAG(nexthop->flags,
-						   NEXTHOP_FLAG_FIB);
-				}
 			}
 
 			switch (dplane_lsp_update(lsp)) {
@@ -1787,7 +1783,6 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 					continue;
 
 				SET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 			}
 		} else {
 			UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);

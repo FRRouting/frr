@@ -257,8 +257,6 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug("%s: %s: successfully did NH %s",
 					   __func__, prefix_buf, gate_buf);
-			if (cmd == RTM_ADD)
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 			break;
 
 			/* The only valid case for this error is

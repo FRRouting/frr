@@ -952,10 +952,6 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 
 	/* TODO -- maybe use array of nexthops to avoid allocs? */
 
-	/* Ensure that the dplane's nexthops flags are clear. */
-	for (ALL_NEXTHOPS(ctx->u.rinfo.zd_ng, nexthop))
-		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-
 	/* Trying out the sequence number idea, so we can try to detect
 	 * when a result is stale.
 	 */
