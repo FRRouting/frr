@@ -54,6 +54,7 @@ struct zebra_ns {
 	struct nlsock netlink_cmd;    /* command channel */
 	struct nlsock netlink_dplane; /* dataplane channel */
 	struct thread *t_netlink;
+	bool supports_nh; /* Does kernel support nexthop objects? */
 #endif
 
 	struct route_table *if_table;
