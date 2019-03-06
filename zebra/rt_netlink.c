@@ -1861,8 +1861,6 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
  */
 static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 {
-	int ret = 0;
-
 	struct {
 		struct nlmsghdr n;
 		struct nhmsg nhm;
@@ -1944,10 +1942,7 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 		return -1;
 	}
 
-
-	if (ret) {
-		zlog_debug("Something failed with inserting nhg into kernel");
-	}
+	_netlink_nexthop_debug(cmd, nhe->id);
 
 	return netlink_talk_info(netlink_talk_filter, &req.n,
 				 dplane_ctx_get_ns(ctx), 0);
