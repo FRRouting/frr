@@ -2309,7 +2309,15 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		}
 
 		// TODO: Run some active check on all route_entry's?
-		zebra_nhg_release(nhe);
+		if (nhe->refcnt) {
+			flog_err(
+				EC_ZEBRA_NHG_SYNC,
+				"Kernel deleted a nexthop group with ID (%u) that we are still using for a route, sending it back down",
+				nhe->id);
+			zebra_nhg_install_kernel(nhe);
+		} else {
+			zebra_nhg_release(nhe);
+		}
 	}
 
 

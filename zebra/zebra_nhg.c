@@ -290,13 +290,11 @@ void zebra_nhg_free(void *arg)
  */
 void zebra_nhg_release(struct nhg_hash_entry *nhe)
 {
-	if (nhe->refcnt) {
+	if (nhe->refcnt)
 		flog_err(
 			EC_ZEBRA_NHG_SYNC,
-			"Kernel deleted a nexthop group with ID (%u) that we are still using for a route",
+			"Releasing a nexthop group with ID (%u) that we are still using for a route",
 			nhe->id);
-		// TODO: Re-send to kernel
-	}
 
 	hash_release(zrouter.nhgs, nhe);
 	hash_release(zrouter.nhgs_id, nhe);
