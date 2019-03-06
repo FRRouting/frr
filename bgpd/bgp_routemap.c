@@ -2037,22 +2037,12 @@ static route_map_result_t route_set_lcommunity_delete(void *rule,
 static void *route_set_lcommunity_delete_compile(const char *arg)
 {
 	struct rmap_community *rcom;
-	char *p;
-	char *str;
-	int len;
 
 	rcom = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_community));
 
-	p = strchr(arg, ' ');
-	if (p) {
-		len = p - arg;
-		str = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, len + 1);
-		memcpy(str, arg, len);
-	} else
-		str = NULL;
-
-	rcom->name = str;
+	rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 	rcom->name_hash = bgp_clist_hash_key(rcom->name);
+
 	return rcom;
 }
 
@@ -2132,22 +2122,12 @@ static route_map_result_t route_set_community_delete(
 static void *route_set_community_delete_compile(const char *arg)
 {
 	struct rmap_community *rcom;
-	char *p;
-	char *str;
-	int len;
 
 	rcom = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_community));
 
-	p = strchr(arg, ' ');
-	if (p) {
-		len = p - arg;
-		str = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, len + 1);
-		memcpy(str, arg, len);
-	} else
-		str = NULL;
-
-	rcom->name = str;
+	rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 	rcom->name_hash = bgp_clist_hash_key(rcom->name);
+
 	return rcom;
 }
 
@@ -4340,17 +4320,10 @@ DEFUN (set_community_delete,
        "Delete matching communities\n")
 {
 	int idx_comm_list = 2;
-	char *str;
-
-	str = XCALLOC(MTYPE_TMP,
-		      strlen(argv[idx_comm_list]->arg) + strlen(" delete") + 1);
-	strcpy(str, argv[idx_comm_list]->arg);
-	strcpy(str + strlen(argv[idx_comm_list]->arg), " delete");
 
 	generic_set_add(vty, VTY_GET_CONTEXT(route_map_index), "comm-list",
-			str);
+			argv[idx_comm_list]->arg);
 
-	XFREE(MTYPE_TMP, str);
 	return CMD_SUCCESS;
 }
 
@@ -4439,16 +4412,9 @@ DEFUN (set_lcommunity_delete,
        "Large Community-list name\n"
        "Delete matching large communities\n")
 {
-	char *str;
-
-	str = XCALLOC(MTYPE_TMP, strlen(argv[2]->arg) + strlen(" delete") + 1);
-	strcpy(str, argv[2]->arg);
-	strcpy(str + strlen(argv[2]->arg), " delete");
-
 	generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			"large-comm-list", str);
+			"large-comm-list", argv[2]->arg);
 
-	XFREE(MTYPE_TMP, str);
 	return CMD_SUCCESS;
 }
 
