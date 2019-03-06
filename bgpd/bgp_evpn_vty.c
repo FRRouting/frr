@@ -1958,9 +1958,9 @@ static int evpn_delete_vni(struct bgp *bgp, struct bgpevpn *vpn)
 
 /*
  * Display import RT mapping to VRFs (vty handler)
- * bgp_def: default bgp instance
+ * bgp_evpn: evpn bgp instance
  */
-static void evpn_show_vrf_import_rts(struct vty *vty, struct bgp *bgp_def,
+static void evpn_show_vrf_import_rts(struct vty *vty, struct bgp *bgp_evpn,
 				     json_object *json)
 {
 	void *args[2];
@@ -1968,7 +1968,7 @@ static void evpn_show_vrf_import_rts(struct vty *vty, struct bgp *bgp_def,
 	args[0] = vty;
 	args[1] = json;
 
-	hash_iterate(bgp_def->vrf_import_rt_hash,
+	hash_iterate(bgp_evpn->vrf_import_rt_hash,
 		     (void (*)(struct hash_bucket *,
 			       void *))show_vrf_import_rt_entry,
 		     args);
@@ -3451,7 +3451,7 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
       "VNI number\n"
       JSON_STR)
 {
-	struct bgp *bgp_def;
+	struct bgp *bgp_evpn;
 	vni_t vni;
 	int idx = 0;
 	bool uj = false;
@@ -3464,8 +3464,8 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 
 	uj = use_json(argc, argv);
 
-	bgp_def = bgp_get_evpn();
-	if (!bgp_def)
+	bgp_evpn = bgp_get_evpn();
+	if (!bgp_evpn)
 		return CMD_WARNING;
 
 	if (!argv_find(argv, argc, "evpn", &idx))
@@ -3476,7 +3476,7 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 
 	if ((uj && argc == ((idx + 1) + 2)) || (!uj && argc == (idx + 1) + 1)) {
 
-		num_l2vnis = hashcount(bgp_def->vnihash);
+		num_l2vnis = hashcount(bgp_evpn->vnihash);
 
 		for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_temp)) {
 			if (bgp_temp->l3vni)
@@ -3485,7 +3485,7 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 		num_vnis = num_l2vnis + num_l3vnis;
 		if (uj) {
 			json_object_string_add(json, "advertiseGatewayMacip",
-					       bgp_def->advertise_gw_macip
+					       bgp_evpn->advertise_gw_macip
 						       ? "Enabled"
 						       : "Disabled");
 			json_object_string_add(json, "advertiseAllVnis",
@@ -3493,7 +3493,7 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 								 : "Disabled");
 			json_object_string_add(
 				json, "flooding",
-				bgp_def->vxlan_flood_ctrl
+				bgp_evpn->vxlan_flood_ctrl
 						== VXLAN_FLOOD_HEAD_END_REPL
 					? "Head-end replication"
 					: "Disabled");
@@ -3502,22 +3502,22 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 			json_object_int_add(json, "numL3Vnis", num_l3vnis);
 		} else {
 			vty_out(vty, "Advertise Gateway Macip: %s\n",
-				bgp_def->advertise_gw_macip ? "Enabled"
+				bgp_evpn->advertise_gw_macip ? "Enabled"
 							    : "Disabled");
 			vty_out(vty, "Advertise SVI Macip: %s\n",
-				bgp_def->evpn_info->advertise_svi_macip ? "Enabled"
+				bgp_evpn->evpn_info->advertise_svi_macip ? "Enabled"
 							: "Disabled");
 			vty_out(vty, "Advertise All VNI flag: %s\n",
 				is_evpn_enabled() ? "Enabled" : "Disabled");
 			vty_out(vty, "BUM flooding: %s\n",
-				bgp_def->vxlan_flood_ctrl
+				bgp_evpn->vxlan_flood_ctrl
 						== VXLAN_FLOOD_HEAD_END_REPL
 					? "Head-end replication"
 					: "Disabled");
 			vty_out(vty, "Number of L2 VNIs: %u\n", num_l2vnis);
 			vty_out(vty, "Number of L3 VNIs: %u\n", num_l3vnis);
 		}
-		evpn_show_all_vnis(vty, bgp_def, json);
+		evpn_show_all_vnis(vty, bgp_evpn, json);
 	} else {
 		int vni_idx = 0;
 
@@ -3526,7 +3526,7 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 
 		/* Display specific VNI */
 		vni = strtoul(argv[vni_idx + 1]->arg, NULL, 10);
-		evpn_show_vni(vty, bgp_def, vni, json);
+		evpn_show_vni(vty, bgp_evpn, vni, json);
 	}
 
 	if (uj) {
@@ -4138,18 +4138,18 @@ DEFUN(show_bgp_l2vpn_evpn_vrf_import_rt,
       JSON_STR)
 {
 	bool uj = false;
-	struct bgp *bgp_def = NULL;
+	struct bgp *bgp_evpn = NULL;
 	json_object *json = NULL;
 
-	bgp_def = bgp_get_evpn();
-	if (!bgp_def)
+	bgp_evpn = bgp_get_evpn();
+	if (!bgp_evpn)
 		return CMD_WARNING;
 
 	uj = use_json(argc, argv);
 	if (uj)
 		json = json_object_new_object();
 
-	evpn_show_vrf_import_rts(vty, bgp_def, json);
+	evpn_show_vrf_import_rts(vty, bgp_evpn, json);
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(

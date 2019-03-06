@@ -8581,10 +8581,10 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 				    int add)
 {
 	zebra_l3vni_t *zl3vni = NULL;
-	struct zebra_vrf *zvrf_default = NULL;
+	struct zebra_vrf *zvrf_evpn = NULL;
 
-	zvrf_default = zebra_vrf_get_evpn();
-	if (!zvrf_default)
+	zvrf_evpn = zebra_vrf_get_evpn();
+	if (!zvrf_evpn)
 		return -1;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
@@ -8638,7 +8638,7 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 		zl3vni->svi_if = zl3vni_map_to_svi_if(zl3vni);
 
 		/* formulate l2vni list */
-		hash_iterate(zvrf_default->vni_table, zvni_add_to_l3vni_list,
+		hash_iterate(zvrf_evpn->vni_table, zvni_add_to_l3vni_list,
 			     zl3vni);
 
 		if (is_l3vni_oper_up(zl3vni))
