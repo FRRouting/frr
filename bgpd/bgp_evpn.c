@@ -5379,7 +5379,7 @@ static void link_l2vni_hash_to_l3vni(struct hash_bucket *bucket,
 	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
 	struct bgp *bgp_def = NULL;
 
-	bgp_def = bgp_get_default();
+	bgp_def = bgp_get_evpn();
 	assert(bgp_def);
 
 	if (vpn->tenant_vrf_id == bgp_vrf->vrf_id)
@@ -5396,27 +5396,28 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *rmac,
 	struct bgpevpn *vpn = NULL;
 	as_t as = 0;
 
-	/* get the default instance - required to get the AS number for VRF
+	/* get the EVPN instance - required to get the AS number for VRF
 	 * auto-creatio
 	 */
-	bgp_def = bgp_get_default();
+	bgp_def = bgp_get_evpn();
 	if (!bgp_def) {
 		flog_err(
 			EC_BGP_NO_DFLT,
-			"Cannot process L3VNI  %u ADD - default BGP instance not yet created",
+			"Cannot process L3VNI  %u ADD - EVPN BGP instance not yet created",
 			l3vni);
 		return -1;
 	}
 	as = bgp_def->as;
 
 	/* if the BGP vrf instance doesn't exist - create one */
-	bgp_vrf = bgp_lookup_by_name(vrf_id_to_name(vrf_id));
+	bgp_vrf = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp_vrf) {
 
 		int ret = 0;
 
 		ret = bgp_get(&bgp_vrf, &as, vrf_id_to_name(vrf_id),
-			      BGP_INSTANCE_TYPE_VRF);
+			      vrf_id == VRF_DEFAULT ? BGP_INSTANCE_TYPE_DEFAULT
+						    : BGP_INSTANCE_TYPE_VRF);
 		switch (ret) {
 		case BGP_ERR_MULTIPLE_INSTANCE_NOT_SET:
 			flog_err(EC_BGP_MULTI_INSTANCE,
@@ -5498,11 +5499,11 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni, vrf_id_t vrf_id)
 		return -1;
 	}
 
-	bgp_def = bgp_get_default();
+	bgp_def = bgp_get_evpn();
 	if (!bgp_def) {
 		flog_err(
 			EC_BGP_NO_DFLT,
-			"Cannot process L3VNI %u Del - Could not find default BGP instance",
+			"Cannot process L3VNI %u Del - Could not find EVPN BGP instance",
 			l3vni);
 		return -1;
 	}
