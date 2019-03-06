@@ -208,13 +208,17 @@ int bfd_session_enable(struct bfd_session *bs)
 
 	/* Set the IPv6 scope id for link-local addresses. */
 	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6)) {
-		sin6 = &bs->mhop.peer.sa_sin6;
+		sin6 = (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
+			       ? &bs->mhop.peer.sa_sin6
+			       : &bs->shop.peer.sa_sin6;
 		if (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr))
 			sin6->sin6_scope_id = bs->ifp != NULL
 						      ? bs->ifp->ifindex
 						      : IFINDEX_INTERNAL;
 
-		sin6 = &bs->mhop.local.sa_sin6;
+		sin6 = (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
+			       ? &bs->mhop.local.sa_sin6
+			       : &bs->local_address.sa_sin6;
 		if (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr))
 			sin6->sin6_scope_id = bs->ifp != NULL
 						      ? bs->ifp->ifindex
