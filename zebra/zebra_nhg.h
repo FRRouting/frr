@@ -50,6 +50,11 @@ struct nhg_hash_entry {
  * and it's possible usage by a route entry.
  */
 #define NEXTHOP_GROUP_INSTALLED 0x2
+/*
+ * Has the nexthop group been queued to be send to the FIB?
+ * The NEXTHOP_GROUP_VALID flag should also be set by this point.
+ */
+#define NEXTHOP_GROUP_QUEUED 0x4
 };
 
 void zebra_nhg_init(void);
