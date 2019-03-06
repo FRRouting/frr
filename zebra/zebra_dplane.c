@@ -1495,6 +1495,9 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 				   enum dplane_op_e op,
 				   struct nhg_hash_entry *nhe)
 {
+	struct zebra_ns *zns;
+	struct zebra_vrf *zvrf;
+
 	int ret = EINVAL;
 
 	if (!ctx || !nhe)
@@ -1507,6 +1510,14 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 	ctx->u.rinfo.zd_nhe = *nhe;
 	ctx->u.rinfo.zd_nhe.nhg.nexthop = NULL;
 	nexthop_group_copy(&(ctx->u.rinfo.zd_nhe.nhg), &nhe->nhg);
+
+	/* Extract ns info - can't use pointers to 'core' structs */
+	zvrf = vrf_info_lookup(nhe->vrf_id);
+	zns = zvrf->zns;
+
+	// TODO: Might not need to mark this as an update, since
+	// it probably won't require two messages
+	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_NH_UPDATE));
 
 	ret = AOK;
 
