@@ -168,17 +168,17 @@ static bool vrf_import_rt_hash_cmp(const void *p1, const void *p2)
 }
 
 /*
- * Create a new vrf import_rt in default instance
+ * Create a new vrf import_rt in evpn instance
  */
 static struct vrf_irt_node *vrf_import_rt_new(struct ecommunity_val *rt)
 {
 	struct bgp *bgp_def = NULL;
 	struct vrf_irt_node *irt;
 
-	bgp_def = bgp_get_default();
+	bgp_def = bgp_get_evpn();
 	if (!bgp_def) {
 		flog_err(EC_BGP_NO_DFLT,
-			 "vrf import rt new - def instance not created yet");
+			 "vrf import rt new - evpn instance not created yet");
 		return NULL;
 	}
 
@@ -204,10 +204,10 @@ static void vrf_import_rt_free(struct vrf_irt_node *irt)
 {
 	struct bgp *bgp_def = NULL;
 
-	bgp_def = bgp_get_default();
+	bgp_def = bgp_get_evpn();
 	if (!bgp_def) {
 		flog_err(EC_BGP_NO_DFLT,
-			 "vrf import rt free - def instance not created yet");
+			 "vrf import rt free - evpn instance not created yet");
 		return;
 	}
 
@@ -226,10 +226,11 @@ static struct vrf_irt_node *lookup_vrf_import_rt(struct ecommunity_val *rt)
 	struct vrf_irt_node *irt;
 	struct vrf_irt_node tmp;
 
-	bgp_def = bgp_get_default();
+	bgp_def = bgp_get_evpn();
 	if (!bgp_def) {
-		flog_err(EC_BGP_NO_DFLT,
-			 "vrf import rt lookup - def instance not created yet");
+		flog_err(
+			EC_BGP_NO_DFLT,
+			"vrf import rt lookup - evpn instance not created yet");
 		return NULL;
 	}
 
@@ -2956,7 +2957,7 @@ static int install_uninstall_routes_for_vrf(struct bgp *bgp_vrf, int install)
 
 	afi = AFI_L2VPN;
 	safi = SAFI_EVPN;
-	bgp_def = bgp_get_default();
+	bgp_def = bgp_get_evpn();
 	if (!bgp_def)
 		return -1;
 
@@ -4117,7 +4118,7 @@ static void evpn_auto_rt_import_add_for_vrf(struct bgp *bgp_vrf)
 	UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD);
 
 	/* Map RT to VRF */
-	bgp_def = bgp_get_default();
+	bgp_def = bgp_get_evpn();
 	if (!bgp_def)
 		return;
 	bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
@@ -4154,7 +4155,7 @@ static void bgp_evpn_handle_export_rt_change_for_vrf(struct bgp *bgp_vrf)
 	struct listnode *node = NULL;
 	struct bgpevpn *vpn = NULL;
 
-	bgp_def = bgp_get_default();
+	bgp_def = bgp_get_evpn();
 	if (!bgp_def)
 		return;
 
