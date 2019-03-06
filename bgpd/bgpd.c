@@ -2872,6 +2872,12 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 				   name, *as);
 	}
 
+	/* Default the EVPN VRF to the default one */
+	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT && !bgp_master.bgp_evpn) {
+		bgp_lock(bgp);
+		bm->bgp_evpn = bgp;
+	}
+
 	bgp_lock(bgp);
 	bgp->heuristic_coalesce = true;
 	bgp->inst_type = inst_type;
@@ -3068,6 +3074,29 @@ struct bgp *bgp_lookup_by_vrf_id(vrf_id_t vrf_id)
 	if (!vrf)
 		return NULL;
 	return (vrf->info) ? (struct bgp *)vrf->info : NULL;
+}
+
+/* Sets the BGP instance where EVPN is enabled */
+void bgp_set_evpn(struct bgp *bgp)
+{
+	if (bm->bgp_evpn == bgp)
+		return;
+
+	/* First, release the reference count we hold on the instance */
+	if (bm->bgp_evpn)
+		bgp_unlock(bm->bgp_evpn);
+
+	bm->bgp_evpn = bgp;
+
+	/* Increase the reference count on this new VRF */
+	if (bm->bgp_evpn)
+		bgp_lock(bm->bgp_evpn);
+}
+
+/* Returns the BGP instance where EVPN is enabled, if any */
+struct bgp *bgp_get_evpn(void)
+{
+	return bm->bgp_evpn;
 }
 
 /* handle socket creation or deletion, if necessary
@@ -3353,6 +3382,14 @@ int bgp_delete(struct bgp *bgp)
 	bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
 	if (vrf)
 		bgp_vrf_unlink(bgp, vrf);
+
+	/* Update EVPN VRF pointer */
+	if (bm->bgp_evpn == bgp) {
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+			bgp_set_evpn(NULL);
+		else
+			bgp_set_evpn(bgp_get_default());
+	}
 
 	thread_master_free_unused(bm->master);
 	bgp_unlock(bgp); /* initial reference */

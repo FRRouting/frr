@@ -1632,7 +1632,7 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
 			return CMD_WARNING;
 
 #if ENABLE_BGP_VNC
-		if (bgp->vrf_id == VRF_DEFAULT
+		if (bgp->advertise_all_vni
 		    && type == ZEBRA_ROUTE_VNC_DIRECT) {
 			vnc_export_bgp_enable(
 				bgp, afi); /* only enables if mode bits cfg'd */
@@ -1794,7 +1794,7 @@ int bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
  * status. red lookup fails if there is no zebra connection.
  */
 #if ENABLE_BGP_VNC
-	if (bgp->vrf_id == VRF_DEFAULT && type == ZEBRA_ROUTE_VNC_DIRECT) {
+	if (bgp->advertise_all_vni && type == ZEBRA_ROUTE_VNC_DIRECT) {
 		vnc_export_bgp_disable(bgp, afi);
 	}
 #endif
@@ -1861,9 +1861,8 @@ void bgp_zebra_instance_register(struct bgp *bgp)
 	/* Register for router-id, interfaces, redistributed routes. */
 	zclient_send_reg_requests(zclient, bgp->vrf_id);
 
-	/* For default instance, register to learn about VNIs, if appropriate.
-	 */
-	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT && is_evpn_enabled())
+	/* For EVPN instance, register to learn about VNIs, if appropriate. */
+	if (bgp->advertise_all_vni)
 		bgp_zebra_advertise_all_vni(bgp, 1);
 
 	bgp_nht_register_nexthops(bgp);
@@ -1881,9 +1880,8 @@ void bgp_zebra_instance_deregister(struct bgp *bgp)
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Deregistering VRF %u", bgp->vrf_id);
 
-	/* For default instance, unregister learning about VNIs, if appropriate.
-	 */
-	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT && is_evpn_enabled())
+	/* For EVPN instance, unregister learning about VNIs, if appropriate. */
+	if (bgp->advertise_all_vni)
 		bgp_zebra_advertise_all_vni(bgp, 0);
 
 	/* Deregister for router-id, interfaces, redistributed routes. */

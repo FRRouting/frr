@@ -31,7 +31,7 @@ static inline int is_evpn_enabled(void)
 {
 	struct bgp *bgp = NULL;
 
-	bgp = bgp_get_default();
+	bgp = bgp_get_evpn();
 	return bgp ? bgp->advertise_all_vni : 0;
 }
 

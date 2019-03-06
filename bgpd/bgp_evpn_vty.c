@@ -2757,6 +2757,7 @@ static void evpn_unset_advertise_subnet(struct bgp *bgp, struct bgpevpn *vpn)
 static void evpn_set_advertise_all_vni(struct bgp *bgp)
 {
 	bgp->advertise_all_vni = 1;
+	bgp_set_evpn(bgp);
 	bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
 }
 
@@ -2767,6 +2768,7 @@ static void evpn_set_advertise_all_vni(struct bgp *bgp)
 static void evpn_unset_advertise_all_vni(struct bgp *bgp)
 {
 	bgp->advertise_all_vni = 0;
+	bgp_set_evpn(bgp_get_default());
 	bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
 	bgp_evpn_cleanup_on_disable(bgp);
 }
@@ -2954,9 +2956,18 @@ DEFUN (bgp_evpn_advertise_all_vni,
        "Advertise All local VNIs\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	struct bgp *bgp_evpn = NULL;
 
 	if (!bgp)
 		return CMD_WARNING;
+
+	bgp_evpn = bgp_get_evpn();
+	if (bgp_evpn && bgp_evpn != bgp) {
+		vty_out(vty, "%% Please unconfigure EVPN in VRF %s\n",
+			bgp_evpn->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	evpn_set_advertise_all_vni(bgp);
 	return CMD_SUCCESS;
 }
