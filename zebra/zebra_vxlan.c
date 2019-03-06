@@ -9157,16 +9157,16 @@ static int zebra_vxlan_dad_ip_auto_recovery_exp(struct thread *t)
 	nbr = THREAD_ARG(t);
 
 	/* since this is asynchronous we need sanity checks*/
-	nbr = zvni_neigh_lookup(zvni, &nbr->ip);
-	if (!nbr)
+	zvrf = vrf_info_lookup(nbr->zvni->vrf_id);
+	if (!zvrf)
 		return 0;
 
 	zvni = zvni_lookup(nbr->zvni->vni);
 	if (!zvni)
 		return 0;
 
-	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
-	if (!zvrf)
+	nbr = zvni_neigh_lookup(zvni, &nbr->ip);
+	if (!nbr)
 		return 0;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
@@ -9207,16 +9207,16 @@ static int zebra_vxlan_dad_mac_auto_recovery_exp(struct thread *t)
 	mac = THREAD_ARG(t);
 
 	/* since this is asynchronous we need sanity checks*/
-	mac = zvni_mac_lookup(zvni, &mac->macaddr);
-	if (!mac)
+	zvrf = vrf_info_lookup(mac->zvni->vrf_id);
+	if (!zvrf)
 		return 0;
 
 	zvni = zvni_lookup(mac->zvni->vni);
 	if (!zvni)
 		return 0;
 
-	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
-	if (!zvrf)
+	mac = zvni_mac_lookup(zvni, &mac->macaddr);
+	if (!mac)
 		return 0;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
