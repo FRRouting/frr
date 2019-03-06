@@ -1194,8 +1194,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifp = if_lookup_by_name_per_ns(zns, name);
 
 	if (ifp) {
-		if (ifp->desc)
-			XFREE(MTYPE_TMP, ifp->desc);
+		XFREE(MTYPE_TMP, ifp->desc);
 		if (desc)
 			ifp->desc = XSTRDUP(MTYPE_TMP, desc);
 	}

@@ -140,12 +140,9 @@ void isis_delete_adj(void *arg)
 	/* remove from SPF trees */
 	spftree_area_adj_del(adj->circuit->area, adj);
 
-	if (adj->area_addresses)
-		XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->area_addresses);
-	if (adj->ipv4_addresses)
-		XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->ipv4_addresses);
-	if (adj->ipv6_addresses)
-		XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->ipv6_addresses);
+	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->area_addresses);
+	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->ipv4_addresses);
+	XFREE(MTYPE_ISIS_ADJACENCY_INFO, adj->ipv6_addresses);
 
 	adj_mt_finish(adj);
 

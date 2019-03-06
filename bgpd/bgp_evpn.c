@@ -184,8 +184,6 @@ static struct vrf_irt_node *vrf_import_rt_new(struct ecommunity_val *rt)
 
 	irt = XCALLOC(MTYPE_BGP_EVPN_VRF_IMPORT_RT,
 		      sizeof(struct vrf_irt_node));
-	if (!irt)
-		return NULL;
 
 	irt->rt = *rt;
 	irt->vrfs = list_new();
@@ -296,8 +294,6 @@ static struct irt_node *import_rt_new(struct bgp *bgp,
 		return NULL;
 
 	irt = XCALLOC(MTYPE_BGP_EVPN_IMPORT_RT, sizeof(struct irt_node));
-	if (!irt)
-		return NULL;
 
 	irt->rt = *rt;
 	irt->vnis = list_new();
@@ -968,8 +964,6 @@ static struct in_addr *es_vtep_new(struct in_addr vtep)
 	struct in_addr *ip;
 
 	ip = XCALLOC(MTYPE_BGP_EVPN_ES_VTEP, sizeof(struct in_addr));
-	if (!ip)
-		return NULL;
 
 	ip->s_addr = vtep.s_addr;
 	return ip;
@@ -5100,8 +5094,6 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 		return NULL;
 
 	vpn = XCALLOC(MTYPE_BGP_EVPN, sizeof(struct bgpevpn));
-	if (!vpn)
-		return NULL;
 
 	/* Set values - RD and RT set to defaults. */
 	vpn->vni = vni;
@@ -5181,8 +5173,6 @@ struct evpnes *bgp_evpn_es_new(struct bgp *bgp,
 		return NULL;
 
 	es = XCALLOC(MTYPE_BGP_EVPN_ES, sizeof(struct evpnes));
-	if (!es)
-		return NULL;
 
 	/* set the ESI and originator_ip */
 	memcpy(&es->esi, esi, sizeof(esi_t));

@@ -190,7 +190,7 @@ static int bgp_vnc_config_write_debug(struct vty *vty)
 	int write = 0;
 	size_t i;
 
-	for (i = 0; i < (sizeof(vncdebug) / sizeof(struct vnc_debug)); ++i) {
+	for (i = 0; i < array_size(vncdebug); ++i) {
 		if (conf_vnc_debug & vncdebug[i].bit) {
 			vty_out(vty, "debug bgp vnc %s\n", vncdebug[i].name);
 			write++;

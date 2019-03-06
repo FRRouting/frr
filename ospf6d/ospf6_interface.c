@@ -177,8 +177,7 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 	struct ospf6_interface *oi;
 	unsigned int iobuflen;
 
-	oi = (struct ospf6_interface *)XCALLOC(MTYPE_OSPF6_IF,
-					       sizeof(struct ospf6_interface));
+	oi = XCALLOC(MTYPE_OSPF6_IF, sizeof(struct ospf6_interface));
 
 	oi->area = (struct ospf6_area *)NULL;
 	oi->neighbor_list = list_new();

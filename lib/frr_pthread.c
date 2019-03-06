@@ -110,8 +110,7 @@ void frr_pthread_destroy(struct frr_pthread *fpt)
 	pthread_mutex_destroy(&fpt->mtx);
 	pthread_mutex_destroy(fpt->running_cond_mtx);
 	pthread_cond_destroy(fpt->running_cond);
-	if (fpt->name)
-		XFREE(MTYPE_FRR_PTHREAD, fpt->name);
+	XFREE(MTYPE_FRR_PTHREAD, fpt->name);
 	XFREE(MTYPE_PTHREAD_PRIM, fpt->running_cond_mtx);
 	XFREE(MTYPE_PTHREAD_PRIM, fpt->running_cond);
 	XFREE(MTYPE_FRR_PTHREAD, fpt);

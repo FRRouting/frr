@@ -38,17 +38,14 @@ static struct hash *lcomhash;
 /* Allocate a new lcommunities.  */
 static struct lcommunity *lcommunity_new(void)
 {
-	return (struct lcommunity *)XCALLOC(MTYPE_LCOMMUNITY,
-					    sizeof(struct lcommunity));
+	return XCALLOC(MTYPE_LCOMMUNITY, sizeof(struct lcommunity));
 }
 
 /* Allocate lcommunities.  */
 void lcommunity_free(struct lcommunity **lcom)
 {
-	if ((*lcom)->val)
-		XFREE(MTYPE_LCOMMUNITY_VAL, (*lcom)->val);
-	if ((*lcom)->str)
-		XFREE(MTYPE_LCOMMUNITY_STR, (*lcom)->str);
+	XFREE(MTYPE_LCOMMUNITY_VAL, (*lcom)->val);
+	XFREE(MTYPE_LCOMMUNITY_STR, (*lcom)->str);
 	XFREE(MTYPE_LCOMMUNITY, *lcom);
 }
 
@@ -180,7 +177,7 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
 {
 	int i;
 	int len;
-	bool first = 1;
+	bool first = true;
 	char *str_buf;
 	char *str_pnt;
 	uint8_t *pnt;
@@ -218,7 +215,7 @@ static void set_lcommunity_string(struct lcommunity *lcom, bool make_json)
 
 	for (i = 0; i < lcom->size; i++) {
 		if (first)
-			first = 0;
+			first = false;
 		else
 			*str_pnt++ = ' ';
 
@@ -319,10 +316,10 @@ bool lcommunity_cmp(const void *arg1, const void *arg2)
 	const struct lcommunity *lcom2 = arg2;
 
 	if (lcom1 == NULL && lcom2 == NULL)
-		return 1;
+		return true;
 
 	if (lcom1 == NULL || lcom2 == NULL)
-		return 0;
+		return false;
 
 	return (lcom1->size == lcom2->size
 		&& memcmp(lcom1->val, lcom2->val, lcom_length(lcom1)) == 0);

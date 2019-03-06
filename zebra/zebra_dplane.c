@@ -520,7 +520,7 @@ const char *dplane_op2str(enum dplane_op_e op)
 		ret = "PW_UNINSTALL";
 		break;
 
-	};
+	}
 
 	return ret;
 }
@@ -539,7 +539,7 @@ const char *dplane_res2str(enum zebra_dplane_result res)
 	case ZEBRA_DPLANE_REQUEST_SUCCESS:
 		ret = "SUCCESS";
 		break;
-	};
+	}
 
 	return ret;
 }
@@ -1039,8 +1039,6 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 			      enum dplane_op_e op,
 			      struct zebra_pw *pw)
 {
-	int ret = AOK;
-
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug("init dplane ctx %s: pw '%s', loc %u, rem %u",
 			   dplane_op2str(op), pw->ifname, pw->local_label,
@@ -1070,7 +1068,7 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 
 	ctx->u.pw.fields = pw->data;
 
-	return ret;
+	return AOK;
 }
 
 /*
@@ -1476,10 +1474,6 @@ int dplane_provider_register(const char *name,
 
 	/* Allocate and init new provider struct */
 	p = XCALLOC(MTYPE_DP_PROV, sizeof(struct zebra_dplane_provider));
-	if (p == NULL) {
-		ret = ENOMEM;
-		goto done;
-	}
 
 	pthread_mutex_init(&(p->dp_mutex), NULL);
 	TAILQ_INIT(&(p->dp_ctx_in_q));

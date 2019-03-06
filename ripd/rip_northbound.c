@@ -937,8 +937,7 @@ lib_interface_rip_authentication_password_modify(enum nb_event event,
 
 	ifp = yang_dnode_get_entry(dnode, true);
 	ri = ifp->info;
-	if (ri->auth_str)
-		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->auth_str);
+	XFREE(MTYPE_RIP_INTERFACE_STRING, ri->auth_str);
 	ri->auth_str = XSTRDUP(MTYPE_RIP_INTERFACE_STRING,
 			       yang_dnode_get_string(dnode, NULL));
 
@@ -978,8 +977,7 @@ lib_interface_rip_authentication_key_chain_modify(enum nb_event event,
 
 	ifp = yang_dnode_get_entry(dnode, true);
 	ri = ifp->info;
-	if (ri->key_chain)
-		XFREE(MTYPE_RIP_INTERFACE_STRING, ri->key_chain);
+	XFREE(MTYPE_RIP_INTERFACE_STRING, ri->key_chain);
 	ri->key_chain = XSTRDUP(MTYPE_RIP_INTERFACE_STRING,
 				yang_dnode_get_string(dnode, NULL));
 

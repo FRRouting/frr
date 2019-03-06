@@ -234,8 +234,7 @@ void if_delete(struct interface *ifp)
 
 	if_link_params_free(ifp);
 
-	if (ifp->desc)
-		XFREE(MTYPE_TMP, ifp->desc);
+	XFREE(MTYPE_TMP, ifp->desc);
 
 	XFREE(MTYPE_IF, ifp);
 }
@@ -708,8 +707,7 @@ void connected_free(struct connected *connected)
 	if (connected->destination)
 		prefix_free(connected->destination);
 
-	if (connected->label)
-		XFREE(MTYPE_CONNECTED_LABEL, connected->label);
+	XFREE(MTYPE_CONNECTED_LABEL, connected->label);
 
 	XFREE(MTYPE_CONNECTED, connected);
 }
@@ -1349,8 +1347,7 @@ static int lib_interface_description_modify(enum nb_event event,
 		return NB_OK;
 
 	ifp = yang_dnode_get_entry(dnode, true);
-	if (ifp->desc)
-		XFREE(MTYPE_TMP, ifp->desc);
+	XFREE(MTYPE_TMP, ifp->desc);
 	description = yang_dnode_get_string(dnode, NULL);
 	ifp->desc = XSTRDUP(MTYPE_TMP, description);
 
@@ -1366,8 +1363,7 @@ static int lib_interface_description_delete(enum nb_event event,
 		return NB_OK;
 
 	ifp = yang_dnode_get_entry(dnode, true);
-	if (ifp->desc)
-		XFREE(MTYPE_TMP, ifp->desc);
+	XFREE(MTYPE_TMP, ifp->desc);
 
 	return NB_OK;
 }

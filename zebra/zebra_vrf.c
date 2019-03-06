@@ -351,8 +351,7 @@ void zebra_rtable_node_cleanup(struct route_table *table,
 		rib_unlink(node, re);
 	}
 
-	if (node->info)
-		XFREE(MTYPE_RIB_DEST, node->info);
+	XFREE(MTYPE_RIB_DEST, node->info);
 }
 
 static void zebra_rnhtable_node_cleanup(struct route_table *table,

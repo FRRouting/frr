@@ -44,13 +44,10 @@ static struct if_rmap *if_rmap_new(void)
 
 static void if_rmap_free(struct if_rmap *if_rmap)
 {
-	if (if_rmap->ifname)
-		XFREE(MTYPE_IF_RMAP_NAME, if_rmap->ifname);
+	XFREE(MTYPE_IF_RMAP_NAME, if_rmap->ifname);
 
-	if (if_rmap->routemap[IF_RMAP_IN])
-		XFREE(MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_IN]);
-	if (if_rmap->routemap[IF_RMAP_OUT])
-		XFREE(MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_OUT]);
+	XFREE(MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_IN]);
+	XFREE(MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_OUT]);
 
 	XFREE(MTYPE_IF_RMAP, if_rmap);
 }
@@ -65,8 +62,7 @@ struct if_rmap *if_rmap_lookup(struct if_rmap_ctx *ctx, const char *ifname)
 
 	if_rmap = hash_lookup(ctx->ifrmaphash, &key);
 
-	if (key.ifname)
-		XFREE(MTYPE_IF_RMAP_NAME, key.ifname);
+	XFREE(MTYPE_IF_RMAP_NAME, key.ifname);
 
 	return if_rmap;
 }
@@ -106,8 +102,7 @@ static struct if_rmap *if_rmap_get(struct if_rmap_ctx *ctx, const char *ifname)
 
 	ret = hash_get(ctx->ifrmaphash, &key, if_rmap_hash_alloc);
 
-	if (key.ifname)
-		XFREE(MTYPE_IF_RMAP_NAME, key.ifname);
+	XFREE(MTYPE_IF_RMAP_NAME, key.ifname);
 
 	return ret;
 }
@@ -136,16 +131,12 @@ static struct if_rmap *if_rmap_set(struct if_rmap_ctx *ctx,
 	if_rmap = if_rmap_get(ctx, ifname);
 
 	if (type == IF_RMAP_IN) {
-		if (if_rmap->routemap[IF_RMAP_IN])
-			XFREE(MTYPE_IF_RMAP_NAME,
-			      if_rmap->routemap[IF_RMAP_IN]);
+		XFREE(MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_IN]);
 		if_rmap->routemap[IF_RMAP_IN] =
 			XSTRDUP(MTYPE_IF_RMAP_NAME, routemap_name);
 	}
 	if (type == IF_RMAP_OUT) {
-		if (if_rmap->routemap[IF_RMAP_OUT])
-			XFREE(MTYPE_IF_RMAP_NAME,
-			      if_rmap->routemap[IF_RMAP_OUT]);
+		XFREE(MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_OUT]);
 		if_rmap->routemap[IF_RMAP_OUT] =
 			XSTRDUP(MTYPE_IF_RMAP_NAME, routemap_name);
 	}

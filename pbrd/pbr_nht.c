@@ -740,7 +740,7 @@ uint32_t pbr_nht_get_next_tableid(bool peek)
 	bool found = false;
 
 	for (i = pbr_nhg_low_table; i <= pbr_nhg_high_table; i++) {
-		if (nhg_tableid[i] == false) {
+		if (!nhg_tableid[i]) {
 			found = true;
 			break;
 		}

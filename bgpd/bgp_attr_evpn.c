@@ -84,8 +84,8 @@ char *esi2str(struct eth_segment_id *id)
 		return NULL;
 
 	val = id->val;
-	ptr = (char *)XMALLOC(MTYPE_TMP,
-			      (ESI_LEN * 2 + ESI_LEN - 1 + 1) * sizeof(char));
+	ptr = XMALLOC(MTYPE_TMP,
+		      (ESI_LEN * 2 + ESI_LEN - 1 + 1) * sizeof(char));
 
 	snprintf(ptr, (ESI_LEN * 2 + ESI_LEN - 1 + 1),
 		 "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x", val[0],

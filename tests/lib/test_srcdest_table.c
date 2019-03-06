@@ -105,7 +105,7 @@ static unsigned int log_key(void *data)
 static bool log_cmp(const void *a, const void *b)
 {
 	if (a == NULL || b == NULL)
-		return 0;
+		return false;
 
 	return !memcmp(a, b, 2 * sizeof(struct prefix));
 }

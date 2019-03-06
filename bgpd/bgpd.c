@@ -116,7 +116,7 @@ static int bgp_check_main_socket(bool create, struct bgp *bgp)
 {
 	static int bgp_server_main_created;
 
-	if (create == true) {
+	if (create) {
 		if (bgp_server_main_created)
 			return 0;
 		if (bgp_socket(bgp, bm->port, bm->address) < 0)
@@ -1099,8 +1099,7 @@ static void peer_free(struct peer *peer)
 		peer->update_if = NULL;
 	}
 
-	if (peer->notify.data)
-		XFREE(MTYPE_TMP, peer->notify.data);
+	XFREE(MTYPE_TMP, peer->notify.data);
 	memset(&peer->notify, 0, sizeof(struct bgp_notify));
 
 	if (peer->clear_node_queue)
@@ -1322,8 +1321,7 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 		peer_dst->update_source =
 			sockunion_dup(peer_src->update_source);
 	} else if (peer_src->update_if) {
-		if (peer_dst->update_if)
-			XFREE(MTYPE_PEER_UPDATE_SOURCE, peer_dst->update_if);
+		XFREE(MTYPE_PEER_UPDATE_SOURCE, peer_dst->update_if);
 		if (peer_dst->update_source) {
 			sockunion_free(peer_dst->update_source);
 			peer_dst->update_source = NULL;
@@ -1333,8 +1331,7 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	}
 
 	if (peer_src->ifname) {
-		if (peer_dst->ifname)
-			XFREE(MTYPE_BGP_PEER_IFNAME, peer_dst->ifname);
+		XFREE(MTYPE_BGP_PEER_IFNAME, peer_dst->ifname);
 
 		peer_dst->ifname =
 			XSTRDUP(MTYPE_BGP_PEER_IFNAME, peer_src->ifname);
@@ -1541,14 +1538,12 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 			peer->su = *su;
 		else
 			bgp_peer_conf_if_to_su_update(peer);
-		if (peer->host)
-			XFREE(MTYPE_BGP_PEER_HOST, peer->host);
+		XFREE(MTYPE_BGP_PEER_HOST, peer->host);
 		peer->host = XSTRDUP(MTYPE_BGP_PEER_HOST, conf_if);
 	} else if (su) {
 		peer->su = *su;
 		sockunion2str(su, buf, SU_ADDRSTRLEN);
-		if (peer->host)
-			XFREE(MTYPE_BGP_PEER_HOST, peer->host);
+		XFREE(MTYPE_BGP_PEER_HOST, peer->host);
 		peer->host = XSTRDUP(MTYPE_BGP_PEER_HOST, buf);
 	}
 	peer->local_as = local_as;
@@ -2384,8 +2379,7 @@ static int peer_group_cmp(struct peer_group *g1, struct peer_group *g2)
 /* Peer group cofiguration. */
 static struct peer_group *peer_group_new(void)
 {
-	return (struct peer_group *)XCALLOC(MTYPE_PEER_GROUP,
-					    sizeof(struct peer_group));
+	return XCALLOC(MTYPE_PEER_GROUP, sizeof(struct peer_group));
 }
 
 static void peer_group_free(struct peer_group *group)
@@ -2416,8 +2410,7 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 
 	group = peer_group_new();
 	group->bgp = bgp;
-	if (group->name)
-		XFREE(MTYPE_PEER_GROUP_HOST, group->name);
+	XFREE(MTYPE_PEER_GROUP_HOST, group->name);
 	group->name = XSTRDUP(MTYPE_PEER_GROUP_HOST, name);
 	group->peer = list_new();
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
@@ -2425,8 +2418,7 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 	group->conf = peer_new(bgp);
 	if (!bgp_flag_check(bgp, BGP_FLAG_NO_DEFAULT_IPV4))
 		group->conf->afc[AFI_IP][SAFI_UNICAST] = 1;
-	if (group->conf->host)
-		XFREE(MTYPE_BGP_PEER_HOST, group->conf->host);
+	XFREE(MTYPE_BGP_PEER_HOST, group->conf->host);
 	group->conf->host = XSTRDUP(MTYPE_BGP_PEER_HOST, name);
 	group->conf->group = group;
 	group->conf->as = 0;
@@ -2886,8 +2878,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->vrf_id = (inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? VRF_DEFAULT
 							       : VRF_UNKNOWN;
 	bgp->peer_self = peer_new(bgp);
-	if (bgp->peer_self->host)
-		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->host);
+	XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->host);
 	bgp->peer_self->host =
 		XSTRDUP(MTYPE_BGP_PEER_HOST, "Static announcement");
 	if (bgp->peer_self->hostname != NULL) {
@@ -3404,8 +3395,7 @@ void bgp_free(struct bgp *bgp)
 		if (bgp->rib[afi][safi])
 			bgp_table_finish(&bgp->rib[afi][safi]);
 		rmap = &bgp->table_map[afi][safi];
-		if (rmap->name)
-			XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
+		XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
 	}
 
 	bgp_scan_finish(bgp);
@@ -3435,10 +3425,8 @@ void bgp_free(struct bgp *bgp)
 			ecommunity_free(&bgp->vpn_policy[afi].rtlist[dir]);
 	}
 
-	if (bgp->name)
-		XFREE(MTYPE_BGP, bgp->name);
-	if (bgp->name_pretty)
-		XFREE(MTYPE_BGP, bgp->name_pretty);
+	XFREE(MTYPE_BGP, bgp->name);
+	XFREE(MTYPE_BGP, bgp->name_pretty);
 
 	XFREE(MTYPE_BGP, bgp);
 }
@@ -4368,8 +4356,7 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 /* Neighbor description. */
 int peer_description_set(struct peer *peer, const char *desc)
 {
-	if (peer->desc)
-		XFREE(MTYPE_PEER_DESC, peer->desc);
+	XFREE(MTYPE_PEER_DESC, peer->desc);
 
 	peer->desc = XSTRDUP(MTYPE_PEER_DESC, desc);
 
@@ -4378,8 +4365,7 @@ int peer_description_set(struct peer *peer, const char *desc)
 
 int peer_description_unset(struct peer *peer)
 {
-	if (peer->desc)
-		XFREE(MTYPE_PEER_DESC, peer->desc);
+	XFREE(MTYPE_PEER_DESC, peer->desc);
 
 	peer->desc = NULL;
 
@@ -5125,15 +5111,13 @@ int peer_advertise_interval_unset(struct peer *peer)
 /* neighbor interface */
 void peer_interface_set(struct peer *peer, const char *str)
 {
-	if (peer->ifname)
-		XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
+	XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
 	peer->ifname = XSTRDUP(MTYPE_BGP_PEER_IFNAME, str);
 }
 
 void peer_interface_unset(struct peer *peer)
 {
-	if (peer->ifname)
-		XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
+	XFREE(MTYPE_BGP_PEER_IFNAME, peer->ifname);
 	peer->ifname = NULL;
 }
 

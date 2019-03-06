@@ -249,8 +249,7 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 				   lsp->ile.in_label, lsp->flags);
 
 		lsp = hash_release(lsp_table, &lsp->ile);
-		if (lsp)
-			XFREE(MTYPE_LSP, lsp);
+		XFREE(MTYPE_LSP, lsp);
 	}
 
 	return 0;
@@ -313,8 +312,7 @@ static int lsp_uninstall(struct zebra_vrf *zvrf, mpls_label_t label)
 				   lsp->ile.in_label, lsp->flags);
 
 		lsp = hash_release(lsp_table, &lsp->ile);
-		if (lsp)
-			XFREE(MTYPE_LSP, lsp);
+		XFREE(MTYPE_LSP, lsp);
 	}
 
 	return 0;
@@ -1048,8 +1046,7 @@ static void lsp_processq_del(struct work_queue *wq, void *data)
 				   lsp->ile.in_label, lsp->flags);
 
 		lsp = hash_release(lsp_table, &lsp->ile);
-		if (lsp)
-			XFREE(MTYPE_LSP, lsp);
+		XFREE(MTYPE_LSP, lsp);
 	}
 }
 
@@ -1335,8 +1332,7 @@ static int mpls_lsp_uninstall_all(struct hash *lsp_table, zebra_lsp_t *lsp,
 				   lsp->ile.in_label, lsp->flags);
 
 		lsp = hash_release(lsp_table, &lsp->ile);
-		if (lsp)
-			XFREE(MTYPE_LSP, lsp);
+		XFREE(MTYPE_LSP, lsp);
 	}
 
 	return 0;
@@ -1659,8 +1655,7 @@ static int snhlfe_del(zebra_snhlfe_t *snhlfe)
 		slsp->snhlfe_list = snhlfe->next;
 
 	snhlfe->prev = snhlfe->next = NULL;
-	if (snhlfe->ifname)
-		XFREE(MTYPE_SNHLFE_IFNAME, snhlfe->ifname);
+	XFREE(MTYPE_SNHLFE_IFNAME, snhlfe->ifname);
 	XFREE(MTYPE_SNHLFE, snhlfe);
 
 	return 0;
@@ -2539,8 +2534,7 @@ int mpls_lsp_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 					   lsp->ile.in_label, lsp->flags);
 
 			lsp = hash_release(lsp_table, &lsp->ile);
-			if (lsp)
-				XFREE(MTYPE_LSP, lsp);
+			XFREE(MTYPE_LSP, lsp);
 		}
 	}
 	return 0;
@@ -2784,8 +2778,7 @@ int zebra_mpls_static_lsp_del(struct zebra_vrf *zvrf, mpls_label_t in_label,
 	 * above. */
 	if (!slsp->snhlfe_list) {
 		slsp = hash_release(slsp_table, &tmp_ile);
-		if (slsp)
-			XFREE(MTYPE_SLSP, slsp);
+		XFREE(MTYPE_SLSP, slsp);
 	}
 
 	return 0;

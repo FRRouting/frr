@@ -95,8 +95,6 @@ static void hash_expand(struct hash *hash)
 
 	new_index = XCALLOC(MTYPE_HASH_INDEX,
 			    sizeof(struct hash_bucket *) * new_size);
-	if (new_index == NULL)
-		return;
 
 	hash->stats.empty = new_size;
 
@@ -324,8 +322,7 @@ void hash_free(struct hash *hash)
 	}
 	pthread_mutex_unlock(&_hashes_mtx);
 
-	if (hash->name)
-		XFREE(MTYPE_HASH, hash->name);
+	XFREE(MTYPE_HASH, hash->name);
 
 	XFREE(MTYPE_HASH_INDEX, hash->index);
 	XFREE(MTYPE_HASH, hash);

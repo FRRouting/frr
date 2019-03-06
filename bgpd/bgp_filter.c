@@ -95,8 +95,7 @@ static void as_filter_free(struct as_filter *asfilter)
 {
 	if (asfilter->reg)
 		bgp_regex_free(asfilter->reg);
-	if (asfilter->reg_str)
-		XFREE(MTYPE_AS_FILTER_STR, asfilter->reg_str);
+	XFREE(MTYPE_AS_FILTER_STR, asfilter->reg_str);
 	XFREE(MTYPE_AS_FILTER, asfilter);
 }
 
@@ -338,8 +337,7 @@ static void as_list_filter_delete(struct as_list *aslist,
 	/* Run hook function. */
 	if (as_list_master.delete_hook)
 		(*as_list_master.delete_hook)(name);
-	if (name)
-		XFREE(MTYPE_AS_STR, name);
+	XFREE(MTYPE_AS_STR, name);
 }
 
 static int as_filter_match(struct as_filter *asfilter, struct aspath *aspath)

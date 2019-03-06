@@ -388,7 +388,7 @@ bool zebra_pbr_iptable_hash_equal(const void *arg1, const void *arg2)
 	r2 = (const struct zebra_pbr_iptable *)arg2;
 
 	if (r1->vrf_id != r2->vrf_id)
-		return 0;
+		return false;
 	if (r1->type != r2->type)
 		return false;
 	if (r1->unique != r2->unique)

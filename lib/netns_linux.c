@@ -344,8 +344,7 @@ void ns_delete(struct ns *ns)
 	// if_terminate (&ns->iflist);
 
 	RB_REMOVE(ns_head, &ns_tree, ns);
-	if (ns->name)
-		XFREE(MTYPE_NS_NAME, ns->name);
+	XFREE(MTYPE_NS_NAME, ns->name);
 
 	XFREE(MTYPE_NS, ns);
 }

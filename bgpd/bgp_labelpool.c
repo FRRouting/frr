@@ -180,14 +180,12 @@ static void lp_cbq_item_free(struct work_queue *wq, void *data)
 
 static void lp_lcb_free(void *goner)
 {
-	if (goner)
-		XFREE(MTYPE_BGP_LABEL_CB, goner);
+	XFREE(MTYPE_BGP_LABEL_CB, goner);
 }
 
 static void lp_chunk_free(void *goner)
 {
-	if (goner)
-		XFREE(MTYPE_BGP_LABEL_CHUNK, goner);
+	XFREE(MTYPE_BGP_LABEL_CHUNK, goner);
 }
 
 void bgp_lp_init(struct thread_master *master, struct labelpool *pool)

@@ -944,8 +944,7 @@ int str2prefix_eth(const char *str, struct prefix_eth *p)
 	ret = 1;
 
 done:
-	if (cp)
-		XFREE(MTYPE_TMP, cp);
+	XFREE(MTYPE_TMP, cp);
 
 	return ret;
 }
@@ -1503,8 +1502,7 @@ char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size)
 	if (!mac)
 		return NULL;
 	if (!buf)
-		ptr = (char *)XMALLOC(MTYPE_TMP,
-				      ETHER_ADDR_STRLEN * sizeof(char));
+		ptr = XMALLOC(MTYPE_TMP, ETHER_ADDR_STRLEN * sizeof(char));
 	else {
 		assert(size >= ETHER_ADDR_STRLEN);
 		ptr = buf;
@@ -1585,8 +1583,7 @@ char *esi_to_str(const esi_t *esi, char *buf, int size)
 	if (!esi)
 		return NULL;
 	if (!buf)
-		ptr = (char *)XMALLOC(MTYPE_TMP,
-				      ESI_STR_LEN * sizeof(char));
+		ptr = XMALLOC(MTYPE_TMP, ESI_STR_LEN * sizeof(char));
 	else {
 		assert(size >= ESI_STR_LEN);
 		ptr = buf;

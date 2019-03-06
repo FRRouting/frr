@@ -974,8 +974,7 @@ static void vty_complete_command(struct vty *vty)
 	default:
 		break;
 	}
-	if (matched)
-		XFREE(MTYPE_TMP, matched);
+	XFREE(MTYPE_TMP, matched);
 }
 
 static void vty_describe_fold(struct vty *vty, int cmd_width,
@@ -1169,8 +1168,7 @@ static void vty_hist_add(struct vty *vty)
 		}
 
 	/* Insert history entry. */
-	if (vty->hist[vty->hindex])
-		XFREE(MTYPE_VTY_HIST, vty->hist[vty->hindex]);
+	XFREE(MTYPE_VTY_HIST, vty->hist[vty->hindex]);
 	vty->hist[vty->hindex] = XSTRDUP(MTYPE_VTY_HIST, vty->buf);
 
 	/* History index rotation. */
@@ -2232,9 +2230,9 @@ void vty_close(struct vty *vty)
 	buffer_free(vty->lbuf);
 
 	/* Free command history. */
-	for (i = 0; i < VTY_MAXHIST; i++)
-		if (vty->hist[i])
-			XFREE(MTYPE_VTY_HIST, vty->hist[i]);
+	for (i = 0; i < VTY_MAXHIST; i++) {
+		XFREE(MTYPE_VTY_HIST, vty->hist[i]);
+	}
 
 	/* Unset vector. */
 	if (vty->fd != -1)
@@ -2255,8 +2253,7 @@ void vty_close(struct vty *vty)
 	if (vty->fd == STDIN_FILENO)
 		was_stdio = true;
 
-	if (vty->buf)
-		XFREE(MTYPE_VTY, vty->buf);
+	XFREE(MTYPE_VTY, vty->buf);
 
 	if (vty->error) {
 		vty->error->del = vty_error_delete;
@@ -2546,8 +2543,7 @@ bool vty_read_config(struct nb_config *config, const char *config_file,
 	host_config_set(fullpath);
 
 tmp_free_and_out:
-	if (tmp)
-		XFREE(MTYPE_TMP, tmp);
+	XFREE(MTYPE_TMP, tmp);
 
 	return read_success;
 }
@@ -3163,8 +3159,7 @@ void vty_init(struct thread_master *master_thread)
 
 void vty_terminate(void)
 {
-	if (vty_cwd)
-		XFREE(MTYPE_TMP, vty_cwd);
+	XFREE(MTYPE_TMP, vty_cwd);
 
 	if (vtyvec && Vvty_serv_thread) {
 		vty_reset();

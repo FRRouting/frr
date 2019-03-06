@@ -159,8 +159,7 @@ static bool cluster_hash_cmp(const void *p1, const void *p2)
 
 static void cluster_free(struct cluster_list *cluster)
 {
-	if (cluster->list)
-		XFREE(MTYPE_CLUSTER_VAL, cluster->list);
+	XFREE(MTYPE_CLUSTER_VAL, cluster->list);
 	XFREE(MTYPE_CLUSTER, cluster);
 }
 
@@ -401,8 +400,7 @@ static struct hash *transit_hash;
 
 static void transit_free(struct transit *transit)
 {
-	if (transit->val)
-		XFREE(MTYPE_TRANSIT_VAL, transit->val);
+	XFREE(MTYPE_TRANSIT_VAL, transit->val);
 	XFREE(MTYPE_TRANSIT, transit);
 }
 

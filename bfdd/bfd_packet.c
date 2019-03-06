@@ -544,7 +544,7 @@ int bfd_recv_cb(struct thread *t)
 	}
 
 	/* Validate packet TTL. */
-	if ((is_mhop == false) && (ttl != BFD_TTL_VAL)) {
+	if ((!is_mhop) && (ttl != BFD_TTL_VAL)) {
 		cp_debug(is_mhop, &peer, &local, ifindex, vrfid,
 			 "invalid TTL: %d expected %d", ttl, BFD_TTL_VAL);
 		return 0;

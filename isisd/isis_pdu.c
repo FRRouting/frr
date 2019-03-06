@@ -2146,11 +2146,11 @@ int send_csnp(struct isis_circuit *circuit, int level)
 		 * stop lsp_id in this current CSNP.
 		 */
 		memcpy(start, stop, ISIS_SYS_ID_LEN + 2);
-		loop = 0;
+		loop = false;
 		for (int i = ISIS_SYS_ID_LEN + 1; i >= 0; --i) {
 			if (start[i] < (uint8_t)0xff) {
 				start[i] += 1;
-				loop = 1;
+				loop = true;
 				break;
 			}
 		}
@@ -2164,7 +2164,6 @@ int send_csnp(struct isis_circuit *circuit, int level)
 int send_l1_csnp(struct thread *thread)
 {
 	struct isis_circuit *circuit;
-	int retval = ISIS_OK;
 
 	circuit = THREAD_ARG(thread);
 	assert(circuit);
@@ -2181,13 +2180,12 @@ int send_l1_csnp(struct thread *thread)
 			 isis_jitter(circuit->csnp_interval[0], CSNP_JITTER),
 			 &circuit->t_send_csnp[0]);
 
-	return retval;
+	return ISIS_OK;
 }
 
 int send_l2_csnp(struct thread *thread)
 {
 	struct isis_circuit *circuit;
-	int retval = ISIS_OK;
 
 	circuit = THREAD_ARG(thread);
 	assert(circuit);
@@ -2204,7 +2202,7 @@ int send_l2_csnp(struct thread *thread)
 			 isis_jitter(circuit->csnp_interval[1], CSNP_JITTER),
 			 &circuit->t_send_csnp[1]);
 
-	return retval;
+	return ISIS_OK;
 }
 
 /*
@@ -2329,7 +2327,6 @@ int send_l1_psnp(struct thread *thread)
 {
 
 	struct isis_circuit *circuit;
-	int retval = ISIS_OK;
 
 	circuit = THREAD_ARG(thread);
 	assert(circuit);
@@ -2342,7 +2339,7 @@ int send_l1_psnp(struct thread *thread)
 			 isis_jitter(circuit->psnp_interval[0], PSNP_JITTER),
 			 &circuit->t_send_psnp[0]);
 
-	return retval;
+	return ISIS_OK;
 }
 
 /*
@@ -2352,7 +2349,6 @@ int send_l1_psnp(struct thread *thread)
 int send_l2_psnp(struct thread *thread)
 {
 	struct isis_circuit *circuit;
-	int retval = ISIS_OK;
 
 	circuit = THREAD_ARG(thread);
 	assert(circuit);
@@ -2366,7 +2362,7 @@ int send_l2_psnp(struct thread *thread)
 			 isis_jitter(circuit->psnp_interval[1], PSNP_JITTER),
 			 &circuit->t_send_psnp[1]);
 
-	return retval;
+	return ISIS_OK;
 }
 
 /*

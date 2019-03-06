@@ -65,8 +65,7 @@ void pim_rp_list_hash_clean(void *data)
 
 static void pim_rp_info_free(struct rp_info *rp_info)
 {
-	if (rp_info->plist)
-		XFREE(MTYPE_PIM_FILTER_NAME, rp_info->plist);
+	XFREE(MTYPE_PIM_FILTER_NAME, rp_info->plist);
 
 	XFREE(MTYPE_PIM_RP, rp_info);
 }

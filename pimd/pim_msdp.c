@@ -1256,8 +1256,7 @@ static void pim_msdp_mg_free(struct pim_instance *pim)
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		zlog_debug("MSDP mesh-group %s deleted", mg->mesh_group_name);
 	}
-	if (mg->mesh_group_name)
-		XFREE(MTYPE_PIM_MSDP_MG_NAME, mg->mesh_group_name);
+	XFREE(MTYPE_PIM_MSDP_MG_NAME, mg->mesh_group_name);
 
 	if (mg->mbr_list)
 		list_delete(&mg->mbr_list);

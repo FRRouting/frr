@@ -414,8 +414,6 @@ struct thread_master *thread_master_create(const char *name)
 	pthread_once(&init_once, &initializer);
 
 	rv = XCALLOC(MTYPE_THREAD_MASTER, sizeof(struct thread_master));
-	if (rv == NULL)
-		return NULL;
 
 	/* Initialize master mutex */
 	pthread_mutex_init(&rv->mtx, NULL);
@@ -484,8 +482,7 @@ void thread_master_set_name(struct thread_master *master, const char *name)
 {
 	pthread_mutex_lock(&master->mtx);
 	{
-		if (master->name)
-			XFREE(MTYPE_THREAD_MASTER, master->name);
+		XFREE(MTYPE_THREAD_MASTER, master->name);
 		master->name = XSTRDUP(MTYPE_THREAD_MASTER, name);
 	}
 	pthread_mutex_unlock(&master->mtx);
@@ -649,8 +646,7 @@ void thread_master_free(struct thread_master *m)
 	hash_free(m->cpu_record);
 	m->cpu_record = NULL;
 
-	if (m->name)
-		XFREE(MTYPE_THREAD_MASTER, m->name);
+	XFREE(MTYPE_THREAD_MASTER, m->name);
 	XFREE(MTYPE_THREAD_MASTER, m->handler.pfds);
 	XFREE(MTYPE_THREAD_MASTER, m->handler.copy);
 	XFREE(MTYPE_THREAD_MASTER, m);

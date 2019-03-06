@@ -231,7 +231,7 @@ static const char *fsm_state2str(enum eigrp_fsm_events event)
 		return "Query from Successor while in active state";
 	case EIGRP_FSM_EVENT_LR_FCN:
 		return "Last Reply Event, Feasibility not satisfied";
-	};
+	}
 
 	return "Unknown";
 }

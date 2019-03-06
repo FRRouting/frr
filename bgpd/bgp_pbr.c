@@ -333,7 +333,7 @@ static bool bgp_pbr_extract_enumerate_unary(struct bgp_pbr_match_val list[],
 						 unary_operator, and_valmask,
 						 or_valmask, list[i].value,
 						 type_entry);
-				if (ret == false)
+				if (!ret)
 					return ret;
 				continue;
 			}
@@ -441,7 +441,7 @@ static bool bgp_pbr_extract(struct bgp_pbr_match_val list[],
 				range->min_port = list[i].value;
 			exact_match = true;
 		}
-		if (exact_match == true && i > 0)
+		if (exact_match && i > 0)
 			return false;
 		if (list[i].compare_operator ==
 		    (OPERATOR_COMPARE_GREATER_THAN +
@@ -545,7 +545,7 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 					   "too complex. ignoring.");
 			return 0;
 		} else if (api->match_icmp_type_num > 1 &&
-			   enumerate_icmp == false) {
+			   !enumerate_icmp) {
 			if (BGP_DEBUG(pbr, PBR))
 				zlog_debug("BGP: match icmp code is enumerate"
 					   ", and icmp type is not."

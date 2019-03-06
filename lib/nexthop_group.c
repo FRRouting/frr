@@ -205,11 +205,9 @@ static int nhgl_cmp(struct nexthop_hold *nh1, struct nexthop_hold *nh2)
 
 static void nhgl_delete(struct nexthop_hold *nh)
 {
-	if (nh->intf)
-		XFREE(MTYPE_TMP, nh->intf);
+	XFREE(MTYPE_TMP, nh->intf);
 
-	if (nh->nhvrf_name)
-		XFREE(MTYPE_TMP, nh->nhvrf_name);
+	XFREE(MTYPE_TMP, nh->nhvrf_name);
 
 	XFREE(MTYPE_TMP, nh);
 }

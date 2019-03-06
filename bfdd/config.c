@@ -574,8 +574,6 @@ struct peer_label *pl_new(const char *label, struct bfd_session *bs)
 	struct peer_label *pl;
 
 	pl = XCALLOC(MTYPE_BFDD_LABEL, sizeof(*pl));
-	if (pl == NULL)
-		return NULL;
 
 	if (strlcpy(pl->pl_label, label, sizeof(pl->pl_label))
 	    > sizeof(pl->pl_label))

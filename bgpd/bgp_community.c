@@ -34,17 +34,14 @@ static struct hash *comhash;
 /* Allocate a new communities value.  */
 static struct community *community_new(void)
 {
-	return (struct community *)XCALLOC(MTYPE_COMMUNITY,
-					   sizeof(struct community));
+	return XCALLOC(MTYPE_COMMUNITY, sizeof(struct community));
 }
 
 /* Free communities value.  */
 void community_free(struct community **com)
 {
-	if ((*com)->val)
-		XFREE(MTYPE_COMMUNITY_VAL, (*com)->val);
-	if ((*com)->str)
-		XFREE(MTYPE_COMMUNITY_STR, (*com)->str);
+	XFREE(MTYPE_COMMUNITY_VAL, (*com)->val);
+	XFREE(MTYPE_COMMUNITY_STR, (*com)->str);
 
 	if ((*com)->json) {
 		json_object_free((*com)->json);

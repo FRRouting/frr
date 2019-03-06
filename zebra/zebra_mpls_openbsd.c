@@ -415,7 +415,7 @@ enum zebra_dplane_result kernel_pw_update(struct zebra_dplane_ctx *ctx)
 		break;
 	default:
 		break;
-	};
+	}
 
 	return result;
 }

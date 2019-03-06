@@ -1095,10 +1095,10 @@ void dict_load_end(dict_load_t *load)
 			baselevel = level = 1;
 			complete = tree[0];
 
-			if (complete != 0) {
+			if (complete != NULL) {
 				tree[0] = 0;
 				complete->right = dictnil;
-				while (tree[level] != 0) {
+				while (tree[level] != NULL) {
 					tree[level]->right = complete;
 					complete->parent = tree[level];
 					complete = tree[level];
@@ -1114,7 +1114,7 @@ void dict_load_end(dict_load_t *load)
 			complete = curr;
 
 			assert(level == baselevel);
-			while (tree[level] != 0) {
+			while (tree[level] != NULL) {
 				tree[level]->right = complete;
 				complete->parent = tree[level];
 				complete = tree[level];
@@ -1134,7 +1134,7 @@ void dict_load_end(dict_load_t *load)
 		complete = dictnil;
 
 	for (i = 0; i < DICT_DEPTH_MAX; i++) {
-		if (tree[i] != 0) {
+		if (tree[i] != NULL) {
 			tree[i]->right = complete;
 			complete->parent = tree[i];
 			complete = tree[i];

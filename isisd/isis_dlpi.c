@@ -444,7 +444,7 @@ static int open_dlpi_dev(struct isis_circuit *circuit)
 		struct strioctl sioc;
 
 		pfil.Pf_Priority = 0;
-		pfil.Pf_FilterLen = sizeof(pf_filter) / sizeof(unsigned short);
+		pfil.Pf_FilterLen = array_size(pf_filter);
 		memcpy(pfil.Pf_Filter, pf_filter, sizeof(pf_filter));
 		/* pfmod does not support transparent ioctls */
 		sioc.ic_cmd = PFIOCSETF;

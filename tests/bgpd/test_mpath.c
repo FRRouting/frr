@@ -205,7 +205,7 @@ struct peer test_mp_list_peer[] = {
 	{.local_as = 1, .as = 2}, {.local_as = 1, .as = 2},
 	{.local_as = 1, .as = 2},
 };
-int test_mp_list_peer_count = sizeof(test_mp_list_peer) / sizeof(struct peer);
+int test_mp_list_peer_count = array_size(test_mp_list_peer);
 struct attr test_mp_list_attr[4];
 struct bgp_path_info test_mp_list_info[] = {
 	{.peer = &test_mp_list_peer[0], .attr = &test_mp_list_attr[0]},
@@ -214,8 +214,7 @@ struct bgp_path_info test_mp_list_info[] = {
 	{.peer = &test_mp_list_peer[3], .attr = &test_mp_list_attr[2]},
 	{.peer = &test_mp_list_peer[4], .attr = &test_mp_list_attr[3]},
 };
-int test_mp_list_info_count =
-	sizeof(test_mp_list_info) / sizeof(struct bgp_path_info);
+int test_mp_list_info_count = array_size(test_mp_list_info);
 
 static int setup_bgp_mp_list(testcase_t *t)
 {
@@ -370,7 +369,7 @@ testcase_t *all_tests[] = {
 	&test_bgp_path_info_mpath_update,
 };
 
-int all_tests_count = (sizeof(all_tests) / sizeof(testcase_t *));
+int all_tests_count = array_size(all_tests);
 
 /*=========================================================
  * Test Driver Functions
