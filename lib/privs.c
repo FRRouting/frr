@@ -706,6 +706,14 @@ struct zebra_privs_t *_zprivs_raise(struct zebra_privs_t *privs,
 	if (!privs)
 		return NULL;
 
+	/* If we're already elevated, just return */
+	pthread_mutex_lock(&(privs->mutex));
+	if (++privs->refcount > 1) {
+		pthread_mutex_unlock(&(privs->mutex));
+		return privs;
+	}
+	pthread_mutex_unlock(&(privs->mutex));
+
 	errno = 0;
 	if (privs->change(ZPRIVS_RAISE)) {
 		zlog_err("%s: Failed to raise privileges (%s)",
@@ -722,6 +730,14 @@ void _zprivs_lower(struct zebra_privs_t **privs)
 
 	if (!*privs)
 		return;
+
+	/* Don't lower privs if there's another caller */
+	pthread_mutex_lock(&(*privs)->mutex);
+	if (--((*privs)->refcount) > 0) {
+		pthread_mutex_unlock(&(*privs)->mutex);
+		return;
+	}
+	pthread_mutex_unlock(&(*privs)->mutex);
 
 	errno = 0;
 	if ((*privs)->change(ZPRIVS_LOWER)) {
@@ -742,6 +758,9 @@ void zprivs_preinit(struct zebra_privs_t *zprivs)
 		fprintf(stderr, "zprivs_init: called with NULL arg!\n");
 		exit(1);
 	}
+
+	pthread_mutex_init(&(zprivs->mutex), NULL);
+	zprivs->refcount = 0;
 
 	if (zprivs->vty_group) {
 		/* in a "NULL" setup, this is allowed to fail too, but still

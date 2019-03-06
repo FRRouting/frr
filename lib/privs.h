@@ -23,6 +23,8 @@
 #ifndef _ZEBRA_PRIVS_H
 #define _ZEBRA_PRIVS_H
 
+#include <pthread.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -59,6 +61,14 @@ struct zebra_privs_t {
 	zebra_capabilities_t *caps_i; /* caps to allow inheritance of */
 	int cap_num_p;		      /* number of caps in arrays */
 	int cap_num_i;
+
+	/* Mutex and counter used to avoid race conditions in multi-threaded
+	 * processes. The privs elevation is process-wide, so we need to
+	 * avoid changing the privilege status across threads.
+	 */
+	pthread_mutex_t mutex;
+	uint32_t refcount;
+
 	const char *user; /* user and group to run as */
 	const char *group;
 	const char *vty_group; /* group to chown vty socket to */
