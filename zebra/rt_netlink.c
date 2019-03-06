@@ -1874,6 +1874,7 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct nhmsg));
 	req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
 	req.n.nlmsg_type = cmd;
+	req.n.nlmsg_pid = dplane_ctx_get_ns(ctx)->nls.snl.nl_pid;
 
 	req.nhm.nh_family = AF_UNSPEC;
 	// TODO: Scope?
@@ -1894,15 +1895,15 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 		// TODO: IF not a group
 		const struct nexthop_group nhg = nhe->nhg;
 		const struct nexthop *nh = nhg.nexthop;
-		const struct prefix *src_p;
+		const struct prefix *dest_p;
 		unsigned char family = 0;
 
 		switch (nh->type) {
 			// TODO: Need AF for just index also
-			// just use source?
+			// just use dest?
 		case NEXTHOP_TYPE_IFINDEX:
-			src_p = dplane_ctx_get_src(ctx);
-			family = PREFIX_FAMILY(src_p);
+			dest_p = dplane_ctx_get_dest(ctx);
+			family = PREFIX_FAMILY(dest_p);
 			break;
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 			family = AF_INET;
