@@ -1504,7 +1504,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 	struct bgp *bgp_def = NULL;
 	int route_changed = 0;
 
-	bgp_def = bgp_get_default();
+	bgp_def = bgp_get_evpn();
 	if (!bgp_def)
 		return 0;
 
@@ -1926,7 +1926,7 @@ static int delete_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp)
 	struct bgp_path_info *pi = NULL;
 	struct bgp *bgp_def = NULL; /* default bgp instance */
 
-	bgp_def = bgp_get_default();
+	bgp_def = bgp_get_evpn();
 	if (!bgp_def)
 		return 0;
 
