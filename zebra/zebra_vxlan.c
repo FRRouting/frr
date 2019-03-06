@@ -3801,7 +3801,7 @@ static zebra_vni_t *zvni_lookup(vni_t vni)
 	zebra_vni_t tmp_vni;
 	zebra_vni_t *zvni = NULL;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_get_evpn();
 	assert(zvrf);
 	memset(&tmp_vni, 0, sizeof(zebra_vni_t));
 	tmp_vni.vni = vni;
@@ -3819,7 +3819,7 @@ static zebra_vni_t *zvni_add(vni_t vni)
 	zebra_vni_t tmp_zvni;
 	zebra_vni_t *zvni = NULL;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_get_evpn();
 	assert(zvrf);
 	memset(&tmp_zvni, 0, sizeof(zebra_vni_t));
 	tmp_zvni.vni = vni;
@@ -3845,7 +3845,7 @@ static int zvni_del(zebra_vni_t *zvni)
 	struct zebra_vrf *zvrf;
 	zebra_vni_t *tmp_zvni;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_get_evpn();
 	assert(zvrf);
 
 	zvni->vxlan_if = NULL;
@@ -6924,7 +6924,7 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 	if (!is_evpn_enabled())
 		return;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_get_evpn();
 	if (!zvrf)
 		return;
 
