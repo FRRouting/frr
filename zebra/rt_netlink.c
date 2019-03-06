@@ -1433,6 +1433,13 @@ static void _netlink_route_debug(int cmd, const struct prefix *p,
 	}
 }
 
+static void _netlink_nexthop_debug(int cmd, uint32_t id)
+{
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("netlink_nexthop(): %s, id=%u",
+			   nl_msg_type_to_str(cmd), id);
+}
+
 static void _netlink_mpls_debug(int cmd, uint32_t label, const char *routedesc)
 {
 	if (IS_ZEBRA_DEBUG_KERNEL)
