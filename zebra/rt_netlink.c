@@ -2362,7 +2362,7 @@ int netlink_nexthop_read(struct zebra_ns *zns)
 		return ret;
 	ret = netlink_parse_info(netlink_nexthop_change, &zns->netlink_cmd,
 				 &dp_info, 0, 1);
-	return 0;
+	return ret;
 }
 
 
