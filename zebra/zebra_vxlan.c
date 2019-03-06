@@ -8583,7 +8583,7 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 	zebra_l3vni_t *zl3vni = NULL;
 	struct zebra_vrf *zvrf_default = NULL;
 
-	zvrf_default = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	zvrf_default = zebra_vrf_get_evpn();
 	if (!zvrf_default)
 		return -1;
 
