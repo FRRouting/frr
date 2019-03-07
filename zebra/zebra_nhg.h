@@ -80,4 +80,7 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe);
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re);
 
 void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe);
+void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe);
+
+void zebra_nhg_cleanup_tables(void);
 #endif
