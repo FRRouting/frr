@@ -756,14 +756,15 @@ uint32_t dplane_ctx_get_lsp_flags(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.lsp.flags;
 }
 
-zebra_nhlfe_t *dplane_ctx_get_nhlfe(struct zebra_dplane_ctx *ctx)
+const zebra_nhlfe_t *dplane_ctx_get_nhlfe(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.lsp.nhlfe_list;
 }
 
-zebra_nhlfe_t *dplane_ctx_get_best_nhlfe(struct zebra_dplane_ctx *ctx)
+const zebra_nhlfe_t *
+dplane_ctx_get_best_nhlfe(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 

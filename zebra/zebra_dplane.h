@@ -203,8 +203,9 @@ const struct nexthop_group *dplane_ctx_get_old_ng(
 mpls_label_t dplane_ctx_get_in_label(const struct zebra_dplane_ctx *ctx);
 uint8_t dplane_ctx_get_addr_family(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_lsp_flags(const struct zebra_dplane_ctx *ctx);
-zebra_nhlfe_t *dplane_ctx_get_nhlfe(struct zebra_dplane_ctx *ctx);
-zebra_nhlfe_t *dplane_ctx_get_best_nhlfe(struct zebra_dplane_ctx *ctx);
+const zebra_nhlfe_t *dplane_ctx_get_nhlfe(const struct zebra_dplane_ctx *ctx);
+const zebra_nhlfe_t *dplane_ctx_get_best_nhlfe(
+	const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_lsp_num_ecmp(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for pseudowire information */
