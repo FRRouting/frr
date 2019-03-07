@@ -1438,7 +1438,6 @@ static int netlink_neigh_update(int cmd, int ifindex, uint32_t addr, char *lla,
 static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 {
 	int bytelen;
-	struct sockaddr_nl snl;
 	struct nexthop *nexthop = NULL;
 	unsigned int nexthop_num;
 	int family;
@@ -1747,11 +1746,6 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 	}
 
 skip:
-
-	/* Destination netlink address. */
-	memset(&snl, 0, sizeof(snl));
-	snl.nl_family = AF_NETLINK;
-
 	/* Talk to netlink socket. */
 	return netlink_talk_info(netlink_talk_filter, &req.n,
 				 dplane_ctx_get_ns(ctx), 0);
