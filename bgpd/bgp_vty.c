@@ -11267,8 +11267,9 @@ DEFUN (show_ip_bgp_attr_info,
 	return CMD_SUCCESS;
 }
 
-static int bgp_show_route_leak_vty(struct vty *vty, const char *name, afi_t afi,
-				   safi_t safi, bool use_json)
+static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
+				   afi_t afi, safi_t safi,
+				   bool use_json, json_object *json)
 {
 	struct bgp *bgp;
 	struct listnode *node;
@@ -11277,12 +11278,9 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name, afi_t afi,
 	char *ecom_str;
 	vpn_policy_direction_t dir;
 
-	if (use_json) {
-		json_object *json = NULL;
+	if (json) {
 		json_object *json_import_vrfs = NULL;
 		json_object *json_export_vrfs = NULL;
-
-		json = json_object_new_object();
 
 		bgp = name ? bgp_lookup_by_name(name) : bgp_get_default();
 
@@ -11354,11 +11352,12 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name, afi_t afi,
 			XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
 		}
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(json,
+		if (use_json) {
+			vty_out(vty, "%s\n",
+				json_object_to_json_string_ext(json,
 						      JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-
+			json_object_free(json);
+		}
 	} else {
 		bgp = name ? bgp_lookup_by_name(name) : bgp_get_default();
 
@@ -11422,6 +11421,54 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name, afi_t afi,
 	return CMD_SUCCESS;
 }
 
+static int bgp_show_all_instance_route_leak_vty(struct vty *vty, afi_t afi,
+						safi_t safi, bool use_json)
+{
+	struct listnode *node, *nnode;
+	struct bgp *bgp;
+	char *vrf_name = NULL;
+	json_object *json = NULL;
+	json_object *json_vrf = NULL;
+	json_object *json_vrfs = NULL;
+
+	if (use_json) {
+		json = json_object_new_object();
+		json_vrfs = json_object_new_object();
+	}
+
+	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
+			vrf_name = bgp->name;
+
+		if (use_json) {
+			json_vrf = json_object_new_object();
+		} else {
+			vty_out(vty, "\nInstance %s:\n",
+				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+				? VRF_DEFAULT_NAME : bgp->name);
+		}
+		bgp_show_route_leak_vty(vty, vrf_name, afi, safi, 0, json_vrf);
+		if (use_json) {
+			if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+				json_object_object_add(json_vrfs,
+						VRF_DEFAULT_NAME, json_vrf);
+			else
+				json_object_object_add(json_vrfs, vrf_name,
+						       json_vrf);
+		}
+	}
+
+	if (use_json) {
+		json_object_object_add(json, "vrfs", json_vrfs);
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(json,
+						JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+
+	return CMD_SUCCESS;
+}
+
 /* "show [ip] bgp route-leak" command.  */
 DEFUN (show_ip_bgp_route_leak,
 	show_ip_bgp_route_leak_cmd,
@@ -11441,6 +11488,7 @@ DEFUN (show_ip_bgp_route_leak,
 
 	bool uj = use_json(argc, argv);
 	int idx = 0;
+	json_object *json = NULL;
 
 	/* show [ip] bgp */
 	if (argv_find(argv, argc, "ip", &idx)) {
@@ -11470,7 +11518,13 @@ DEFUN (show_ip_bgp_route_leak,
 		return CMD_WARNING;
 	}
 
-	return bgp_show_route_leak_vty(vty, vrf, afi, safi, uj);
+	if (vrf && strmatch(vrf, "all"))
+		return bgp_show_all_instance_route_leak_vty(vty, afi, safi, uj);
+
+	if (uj)
+		json = json_object_new_object();
+
+	return bgp_show_route_leak_vty(vty, vrf, afi, safi, uj, json);
 }
 
 static void bgp_show_all_instances_updgrps_vty(struct vty *vty, afi_t afi,
