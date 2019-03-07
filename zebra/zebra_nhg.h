@@ -26,6 +26,8 @@
 #include "zebra/rib.h"
 #include "lib/nexthop_group.h"
 
+#include "zebra/zebra_dplane.h"
+
 struct nhg_hash_entry {
 	uint32_t id;
 	vrf_id_t vrf_id;
@@ -83,4 +85,6 @@ void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe);
 void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe);
 
 void zebra_nhg_cleanup_tables(void);
+
+void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx);
 #endif

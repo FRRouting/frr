@@ -36,7 +36,6 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/rt.h"
 #include "zebra_errors.h"
-#include "zebra_dplane.h"
 
 /**
  * zebra_nhg_lookup_id() - Lookup the nexthop group id in the id table
@@ -898,6 +897,82 @@ void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe)
 	}
 }
 
+/**
+ * zebra_nhg_dplane_result() - Process dplane result
+ *
+ * @ctx:	Dataplane context
+ */
+void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op;
+	enum zebra_dplane_result status;
+	uint32_t id = 0;
+	struct nhg_hash_entry *nhe = NULL;
+
+	op = dplane_ctx_get_op(ctx);
+	status = dplane_ctx_get_status(ctx);
+
+	id = dplane_ctx_get_nhe(ctx)->id;
+	nhe = zebra_nhg_lookup_id(id);
+
+	if (nhe) {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+			zlog_debug(
+				"Nexthop dplane ctx %p, op %s, nexthop ID (%u), result %s",
+				ctx, dplane_op2str(op), nhe->id,
+				dplane_res2str(status));
+
+		switch (op) {
+		case DPLANE_OP_NH_DELETE:
+			if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
+				UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+				zebra_nhg_release(nhe);
+			} else {
+				flog_err(
+					EC_ZEBRA_DP_DELETE_FAIL,
+					"Failed to uninstall Nexthop ID (%u) from the kernel",
+					nhe->id);
+			}
+			break;
+		case DPLANE_OP_NH_INSTALL:
+		case DPLANE_OP_NH_UPDATE:
+			if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
+				SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+			} else {
+				flog_err(
+					EC_ZEBRA_DP_INSTALL_FAIL,
+					"Failed to install Nexthop ID (%u) into the kernel",
+					nhe->id);
+				UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+			}
+			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
+			break;
+		case DPLANE_OP_ROUTE_INSTALL:
+		case DPLANE_OP_ROUTE_UPDATE:
+		case DPLANE_OP_ROUTE_DELETE:
+		case DPLANE_OP_ROUTE_NOTIFY:
+		case DPLANE_OP_LSP_INSTALL:
+		case DPLANE_OP_LSP_UPDATE:
+		case DPLANE_OP_LSP_DELETE:
+		case DPLANE_OP_LSP_NOTIFY:
+		case DPLANE_OP_PW_INSTALL:
+		case DPLANE_OP_PW_UNINSTALL:
+		case DPLANE_OP_SYS_ROUTE_ADD:
+		case DPLANE_OP_SYS_ROUTE_DELETE:
+		case DPLANE_OP_ADDR_INSTALL:
+		case DPLANE_OP_ADDR_UNINSTALL:
+		case DPLANE_OP_MAC_INSTALL:
+		case DPLANE_OP_MAC_DELETE:
+		case DPLANE_OP_NONE:
+			break;
+		}
+		dplane_ctx_fini(&ctx);
+
+	} else {
+		flog_err(
+			EC_ZEBRA_NHG_SYNC,
+			"%s operation preformed on Nexthop ID (%u) in the kernel, that we no longer have in our table",
+			dplane_op2str(op), id);
 	}
 }
 
