@@ -156,22 +156,22 @@ size_t vrrp_pkt_adver_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt)
 	struct vrrp_hdr *hdr = &pkt->hdr;
 
 	buf[0] = 0x00;
-	snprintf(tmpbuf, sizeof(tmpbuf), "Version: %u\n", (hdr->vertype >> 4));
+	snprintf(tmpbuf, sizeof(tmpbuf), "version %u, ", (hdr->vertype >> 4));
 	rs += strlcat(buf, tmpbuf, buflen);
-	snprintf(tmpbuf, sizeof(tmpbuf), "Type: %u (%s)\n",
+	snprintf(tmpbuf, sizeof(tmpbuf), "type %u (%s), ",
 		 (hdr->vertype & 0x0F),
 		 vrrp_packet_names[(hdr->vertype & 0x0F)]);
 	rs += strlcat(buf, tmpbuf, buflen);
-	snprintf(tmpbuf, sizeof(tmpbuf), "VRID: %u\n", hdr->vrid);
+	snprintf(tmpbuf, sizeof(tmpbuf), "vrid %u, ", hdr->vrid);
 	rs += strlcat(buf, tmpbuf, buflen);
-	snprintf(tmpbuf, sizeof(tmpbuf), "Priority: %u\n", hdr->priority);
+	snprintf(tmpbuf, sizeof(tmpbuf), "priority %u, ", hdr->priority);
 	rs += strlcat(buf, tmpbuf, buflen);
-	snprintf(tmpbuf, sizeof(tmpbuf), "Count IPvX: %u\n", hdr->naddr);
+	snprintf(tmpbuf, sizeof(tmpbuf), "#%u addresses, ", hdr->naddr);
 	rs += strlcat(buf, tmpbuf, buflen);
-	snprintf(tmpbuf, sizeof(tmpbuf), "Max Adver Int: %u\n",
+	snprintf(tmpbuf, sizeof(tmpbuf), "max adver int %u, ",
 		 ntohs(hdr->v3.adver_int));
 	rs += strlcat(buf, tmpbuf, buflen);
-	snprintf(tmpbuf, sizeof(tmpbuf), "Checksum: %x\n", ntohs(hdr->chksum));
+	snprintf(tmpbuf, sizeof(tmpbuf), "checksum %x", ntohs(hdr->chksum));
 	rs += strlcat(buf, tmpbuf, buflen);
 
 	return rs;

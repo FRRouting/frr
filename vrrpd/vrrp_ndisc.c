@@ -170,9 +170,9 @@ int vrrp_ndisc_una_send(struct vrrp_router *r, struct ipaddr *ip)
 	ipaddr2str(ip, ipbuf, sizeof(ipbuf));
 
 	DEBUGD(&vrrp_dbg_ndisc,
-	       VRRP_LOGPFX VRRP_LOGPFX_VRID
+	       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 	       "Sending unsolicited Neighbor Advertisement on %s for %s",
-	       r->vr->vrid, ifp->name, ipbuf);
+	       r->vr->vrid, family2str(r->family), ifp->name, ipbuf);
 
 	if (DEBUG_MODE_CHECK(&vrrp_dbg_ndisc, DEBUG_MODE_ALL)
 	    && DEBUG_MODE_CHECK(&vrrp_dbg_pkt, DEBUG_MODE_ALL))
@@ -183,9 +183,9 @@ int vrrp_ndisc_una_send(struct vrrp_router *r, struct ipaddr *ip)
 
 	if (len < 0) {
 		zlog_err(
-			VRRP_LOGPFX VRRP_LOGPFX_VRID
+			VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 			"Error sending unsolicited Neighbor Advertisement on %s for %s",
-			r->vr->vrid, ifp->name, ipbuf);
+			r->vr->vrid, family2str(r->family), ifp->name, ipbuf);
 		ret = -1;
 	} else {
 		++r->stats.una_tx_cnt;

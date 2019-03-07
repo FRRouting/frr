@@ -123,9 +123,9 @@ void vrrp_garp_send(struct vrrp_router *r, struct in_addr *v4)
 	/* If the interface doesn't support ARP, don't try sending */
 	if (ifp->flags & IFF_NOARP) {
 		zlog_warn(
-			VRRP_LOGPFX VRRP_LOGPFX_VRID
+			VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 			"Unable to send gratuitous ARP on %s; has IFF_NOARP\n",
-			r->vr->vrid, ifp->name);
+			r->vr->vrid, family2str(r->family), ifp->name);
 		return;
 	}
 
@@ -136,18 +136,18 @@ void vrrp_garp_send(struct vrrp_router *r, struct in_addr *v4)
 	inet_ntop(AF_INET, v4, astr, sizeof(astr));
 
 	DEBUGD(&vrrp_dbg_arp,
-	       VRRP_LOGPFX VRRP_LOGPFX_VRID
+	       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 	       "Sending gratuitous ARP on %s for %s",
-	       r->vr->vrid, ifp->name, astr);
+	       r->vr->vrid, family2str(r->family), ifp->name, astr);
 	if (DEBUG_MODE_CHECK(&vrrp_dbg_arp, DEBUG_MODE_ALL))
 		zlog_hexdump(garpbuf, garpbuf_len);
 
 	sent_len = vrrp_send_garp(ifp, garpbuf, garpbuf_len);
 
 	if (sent_len < 0)
-		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID
+		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 			  "Error sending gratuitous ARP on %s for %s",
-			  r->vr->vrid, ifp->name, astr);
+			  r->vr->vrid, family2str(r->family), ifp->name, astr);
 	else
 		++r->stats.garp_tx_cnt;
 }
@@ -161,9 +161,9 @@ void vrrp_garp_send_all(struct vrrp_router *r)
 	/* If the interface doesn't support ARP, don't try sending */
 	if (ifp->flags & IFF_NOARP) {
 		zlog_warn(
-			VRRP_LOGPFX VRRP_LOGPFX_VRID
+			VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 			"Unable to send gratuitous ARP on %s; has IFF_NOARP\n",
-			r->vr->vrid, ifp->name);
+			r->vr->vrid, family2str(r->family), ifp->name);
 		return;
 	}
 

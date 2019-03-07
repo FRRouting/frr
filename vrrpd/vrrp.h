@@ -41,7 +41,8 @@
 #define VRRP_MCASTV6_GROUP 0xff020000000000000000000000000012
 #define IPPROTO_VRRP 112
 
-#define VRRP_LOGPFX_VRID "[VRID: %u] "
+#define VRRP_LOGPFX_VRID "[VRID %u] "
+#define VRRP_LOGPFX_FAM "[%s] "
 
 /* Default defaults */
 #define VRRP_DEFAULT_PRIORITY 100
