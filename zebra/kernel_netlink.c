@@ -1096,7 +1096,8 @@ void kernel_init(struct zebra_ns *zns)
 		RTMGRP_IPV4_MROUTE             |
 		RTMGRP_NEIGH                   |
 		(1 << (RTNLGRP_IPV4_RULE - 1)) |
-		(1 << (RTNLGRP_IPV6_RULE - 1));
+		(1 << (RTNLGRP_IPV6_RULE - 1)) |
+		(1 << (RTNLGRP_NEXTHOP - 1));
 
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);
