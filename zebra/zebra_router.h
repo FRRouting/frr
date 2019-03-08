@@ -117,6 +117,8 @@ extern struct route_table *zebra_router_find_table(struct zebra_vrf *zvrf,
 extern struct route_table *zebra_router_get_table(struct zebra_vrf *zvrf,
 						  uint32_t tableid, afi_t afi,
 						  safi_t safi);
+extern void zebra_router_release_table(struct zebra_vrf *zvrf, uint32_t tableid,
+				       afi_t afi, safi_t safi);
 
 extern int zebra_router_config_write(struct vty *vty);
 
