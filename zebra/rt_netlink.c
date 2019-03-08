@@ -1965,23 +1965,38 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	/* The interface should exist. */
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id),
 					ndm->ndm_ifindex);
-	if (!ifp || !ifp->info)
+	if (!ifp || !ifp->info) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("\t%s without associated interface: %u",
+				   __PRETTY_FUNCTION__, ndm->ndm_ifindex);
 		return 0;
+	}
 
 	/* The interface should be something we're interested in. */
-	if (!IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
+	if (!IS_ZEBRA_IF_BRIDGE_SLAVE(ifp)) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("\t%s Not interested in %s, not a slave",
+				   __PRETTY_FUNCTION__, ifp->name);
 		return 0;
+	}
 
 	/* Drop "permanent" entries. */
-	if (ndm->ndm_state & NUD_PERMANENT)
+	if (ndm->ndm_state & NUD_PERMANENT) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("\t%s Entry is PERMANENT, dropping",
+				   __PRETTY_FUNCTION__);
 		return 0;
+	}
 
 	zif = (struct zebra_if *)ifp->info;
 	if ((br_if = zif->brslave_info.br_if) == NULL) {
-		zlog_debug("%s family %s IF %s(%u) brIF %u - no bridge master",
-			   nl_msg_type_to_str(h->nlmsg_type),
-			   nl_family_to_str(ndm->ndm_family), ifp->name,
-			   ndm->ndm_ifindex, zif->brslave_info.bridge_ifindex);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug(
+				"%s family %s IF %s(%u) brIF %u - no bridge master",
+				nl_msg_type_to_str(h->nlmsg_type),
+				nl_family_to_str(ndm->ndm_family), ifp->name,
+				ndm->ndm_ifindex,
+				zif->brslave_info.bridge_ifindex);
 		return 0;
 	}
 
@@ -1990,20 +2005,24 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	netlink_parse_rtattr(tb, NDA_MAX, NDA_RTA(ndm), len);
 
 	if (!tb[NDA_LLADDR]) {
-		zlog_debug("%s family %s IF %s(%u) brIF %u - no LLADDR",
-			   nl_msg_type_to_str(h->nlmsg_type),
-			   nl_family_to_str(ndm->ndm_family), ifp->name,
-			   ndm->ndm_ifindex, zif->brslave_info.bridge_ifindex);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s family %s IF %s(%u) brIF %u - no LLADDR",
+				   nl_msg_type_to_str(h->nlmsg_type),
+				   nl_family_to_str(ndm->ndm_family), ifp->name,
+				   ndm->ndm_ifindex,
+				   zif->brslave_info.bridge_ifindex);
 		return 0;
 	}
 
 	if (RTA_PAYLOAD(tb[NDA_LLADDR]) != ETH_ALEN) {
-		zlog_debug(
-			"%s family %s IF %s(%u) brIF %u - LLADDR is not MAC, len %lu",
-			nl_msg_type_to_str(h->nlmsg_type),
-			nl_family_to_str(ndm->ndm_family), ifp->name,
-			ndm->ndm_ifindex, zif->brslave_info.bridge_ifindex,
-			(unsigned long)RTA_PAYLOAD(tb[NDA_LLADDR]));
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug(
+				"%s family %s IF %s(%u) brIF %u - LLADDR is not MAC, len %lu",
+				nl_msg_type_to_str(h->nlmsg_type),
+				nl_family_to_str(ndm->ndm_family), ifp->name,
+				ndm->ndm_ifindex,
+				zif->brslave_info.bridge_ifindex,
+				(unsigned long)RTA_PAYLOAD(tb[NDA_LLADDR]));
 		return 0;
 	}
 
@@ -2036,8 +2055,12 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 			   prefix_mac2str(&mac, buf, sizeof(buf)),
 			   dst_present ? dst_buf : "");
 
-	if (filter_vlan && vid != filter_vlan)
+	if (filter_vlan && vid != filter_vlan) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("\tFiltered due to filter vlan: %d",
+				   filter_vlan);
 		return 0;
+	}
 
 	/* If add or update, do accordingly if learnt on a "local" interface; if
 	 * the notification is over VxLAN, this has to be related to
@@ -2061,8 +2084,11 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	 * Ignore the notification from VxLan driver as it is also generated
 	 * when mac moves from remote to local.
 	 */
-	if (dst_present)
+	if (dst_present) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("\tNo Destination Present");
 		return 0;
+	}
 
 	if (IS_ZEBRA_IF_VXLAN(ifp))
 		return zebra_vxlan_check_readd_remote_mac(ifp, br_if, &mac,
@@ -2375,6 +2401,9 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	/* if kernel deletes our rfc5549 neighbor entry, re-install it */
 	if (h->nlmsg_type == RTM_DELNEIGH && (ndm->ndm_state & NUD_PERMANENT)) {
 		netlink_handle_5549(ndm, zif, ifp, &ip);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug(
+				"\tNeighbor Entry Received is a 5549 entry, finished");
 		return 0;
 	}
 
@@ -2400,20 +2429,27 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 			return 0;
 	} else if (IS_ZEBRA_IF_BRIDGE(ifp))
 		link_if = ifp;
-	else
+	else {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug(
+				"\tNeighbor Entry received is not on a VLAN or a BRIDGE, ignoring");
 		return 0;
+	}
 
 	memset(&mac, 0, sizeof(struct ethaddr));
 	if (h->nlmsg_type == RTM_NEWNEIGH) {
 		if (tb[NDA_LLADDR]) {
 			if (RTA_PAYLOAD(tb[NDA_LLADDR]) != ETH_ALEN) {
-				zlog_debug(
-					"%s family %s IF %s(%u) - LLADDR is not MAC, len %lu",
-					nl_msg_type_to_str(h->nlmsg_type),
-					nl_family_to_str(ndm->ndm_family),
-					ifp->name, ndm->ndm_ifindex,
-					(unsigned long)RTA_PAYLOAD(
-						tb[NDA_LLADDR]));
+				if (IS_ZEBRA_DEBUG_KERNEL)
+					zlog_debug(
+						"%s family %s IF %s(%u) - LLADDR is not MAC, len %lu",
+						nl_msg_type_to_str(
+							h->nlmsg_type),
+						nl_family_to_str(
+							ndm->ndm_family),
+						ifp->name, ndm->ndm_ifindex,
+						(unsigned long)RTA_PAYLOAD(
+							tb[NDA_LLADDR]));
 				return 0;
 			}
 
