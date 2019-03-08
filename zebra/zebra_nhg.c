@@ -898,6 +898,30 @@ void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe)
 }
 
 /**
+ * zebra_nhg_uninstall_created() - Uninstall nexthops we created in the kernel
+ *
+ * @nhe:	Nexthop group hash entry
+ */
+static void zebra_nhg_uninstall_created(struct hash_bucket *bucket, void *arg)
+{
+	struct nhg_hash_entry *nhe = NULL;
+
+	nhe = (struct nhg_hash_entry *)bucket->data;
+
+	if (nhe && !nhe->is_kernel_nh)
+		zebra_nhg_uninstall_kernel(nhe);
+}
+
+/**
+ * zebra_nhg_cleanup_tables() - Iterate over our tables to uninstall nh's
+ * 				we created
+ */
+void zebra_nhg_cleanup_tables(void)
+{
+	hash_iterate(zrouter.nhgs, zebra_nhg_uninstall_created, NULL);
+}
+
+/**
  * zebra_nhg_dplane_result() - Process dplane result
  *
  * @ctx:	Dataplane context

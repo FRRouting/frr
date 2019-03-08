@@ -266,3 +266,14 @@ void zebra_router_init(void)
 		hash_create_size(8, zebra_nhg_id_key, zebra_nhg_hash_id_equal,
 				 "Zebra Router Nexthop Groups ID index");
 }
+
+/**
+ * zebra_router_cleanup() - Perform any cleanup actions before termination
+ *
+ * Right now this is just being used to clear the nexthops we installed in
+ * the kernel on shutdown before the routes are cleaned via vrf_terminated().
+ */
+void zebra_router_cleanup(void)
+{
+	zebra_nhg_cleanup_tables();
+}

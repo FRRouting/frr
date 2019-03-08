@@ -150,6 +150,7 @@ struct zebra_router {
 extern struct zebra_router zrouter;
 
 extern void zebra_router_init(void);
+extern void zebra_router_cleanup(void);
 extern void zebra_router_terminate(void);
 
 extern struct route_table *zebra_router_find_table(struct zebra_vrf *zvrf,

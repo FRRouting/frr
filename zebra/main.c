@@ -165,6 +165,8 @@ static void sigint(void)
 		}
 	if (zrouter.lsp_process_q)
 		work_queue_free_and_null(&zrouter.lsp_process_q);
+
+	zebra_router_cleanup();
 	vrf_terminate();
 
 	ns_walk_func(zebra_ns_early_shutdown);
