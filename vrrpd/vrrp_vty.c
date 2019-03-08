@@ -346,6 +346,8 @@ static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
 	char ipstr[INET6_ADDRSTRLEN];
 	const char *stastr4 = vrrp_state_names[vr->v4->fsm.state];
 	const char *stastr6 = vrrp_state_names[vr->v6->fsm.state];
+	char sipstr4[INET6_ADDRSTRLEN] = {};
+	char sipstr6[INET6_ADDRSTRLEN] = {};
 	struct listnode *ln;
 	struct ipaddr *ip;
 	struct json_object *j = json_object_new_object();
@@ -370,6 +372,8 @@ static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
 	json_object_string_add(v4, "interface",
 			       vr->v4->mvl_ifp ? vr->v4->mvl_ifp->name : "");
 	json_object_string_add(v4, "vmac", ethstr4);
+	ipaddr2str(&vr->v4->src, sipstr4, sizeof(sipstr4));
+	json_object_string_add(v4, "primaryAddress", sipstr4);
 	json_object_string_add(v4, "status", stastr4);
 	json_object_int_add(v4, "effectivePriority", vr->v4->priority);
 	json_object_int_add(v4, "masterAdverInterval",
@@ -399,6 +403,10 @@ static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
 	json_object_string_add(v6, "interface",
 			       vr->v6->mvl_ifp ? vr->v6->mvl_ifp->name : "");
 	json_object_string_add(v6, "vmac", ethstr6);
+	ipaddr2str(&vr->v6->src, sipstr6, sizeof(sipstr6));
+	if (strlen(sipstr6) == 0 && vr->v6->src.ip.addr == 0x00)
+		strlcat(sipstr6, "::", sizeof(sipstr6));
+	json_object_string_add(v6, "primaryAddress", sipstr6);
 	json_object_string_add(v6, "status", stastr6);
 	json_object_int_add(v6, "effectivePriority", vr->v6->priority);
 	json_object_int_add(v6, "masterAdverInterval",
@@ -444,8 +452,8 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	char ipstr[INET6_ADDRSTRLEN];
 	const char *stastr4 = vrrp_state_names[vr->v4->fsm.state];
 	const char *stastr6 = vrrp_state_names[vr->v6->fsm.state];
-	char sipstr4[INET6_ADDRSTRLEN];
-	char sipstr6[INET6_ADDRSTRLEN];
+	char sipstr4[INET6_ADDRSTRLEN] = {};
+	char sipstr6[INET6_ADDRSTRLEN] = {};
 	struct listnode *ln;
 	struct ipaddr *ip;
 
@@ -465,6 +473,8 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 		       vr->v6->mvl_ifp ? vr->v6->mvl_ifp->name : "None");
 	ipaddr2str(&vr->v4->src, sipstr4, sizeof(sipstr4));
 	ipaddr2str(&vr->v6->src, sipstr6, sizeof(sipstr6));
+	if (strlen(sipstr6) == 0 && vr->v6->src.ip.addr == 0x00)
+		strlcat(sipstr6, "::", sizeof(sipstr6));
 	ttable_add_row(tt, "%s|%s", "Primary IP (v4)", sipstr4);
 	ttable_add_row(tt, "%s|%s", "Primary IP (v6)", sipstr6);
 	ttable_add_row(tt, "%s|%s", "Virtual MAC (v4)", ethstr4);
