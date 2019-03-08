@@ -315,10 +315,10 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 #if 0
 	/* Macvlan interface must be admin up */
 	start = start && CHECK_FLAG(r->mvl_ifp->flags, IFF_UP);
-#endif
 	/* Macvlan interface must have a link local */
 	start = start && connected_get_linklocal(r->mvl_ifp);
 	whynot = (!start && !whynot) ? "No link local address configured" : NULL;
+#endif
 	/* Macvlan interface must have a v6 IP besides the link local */
 	start = start && (r->mvl_ifp->connected->count >= 2);
 	whynot = (!start && !whynot) ? "No Virtual IP address configured" : NULL;
@@ -1125,6 +1125,13 @@ static int vrrp_socket(struct vrrp_router *r)
 		       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 		       "Set %s as outgoing multicast interface",
 		       r->vr->vrid, family2str(r->family), r->mvl_ifp->name);
+
+		/* Select and bind source address */
+		if (vrrp_bind_to_primary_connected(r) < 0) {
+			failed = true;
+			goto done;
+		}
+
 	} else if (r->family == AF_INET6) {
 		/* Always transmit IPv6 packets with hop limit set to 255 */
 		ret = setsockopt_ipv6_multicast_hops(r->sock_tx, 255);
@@ -1225,12 +1232,6 @@ static int vrrp_socket(struct vrrp_router *r)
 		       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 		       "Set %s as outgoing multicast interface",
 		       r->vr->vrid, family2str(r->family), r->mvl_ifp->name);
-	}
-
-	/* Bind Tx socket to link-local address */
-	if (vrrp_bind_to_primary_connected(r) < 0) {
-		failed = true;
-		goto done;
 	}
 
 done:
