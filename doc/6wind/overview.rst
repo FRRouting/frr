@@ -1,4 +1,4 @@
-.. Copyright 2018 6WIND S.A.
+.. Copyright 2018-2019 6WIND S.A.
 
 ========
 Overview
@@ -19,9 +19,16 @@ __ https://frrouting.org/user-guide/
 Features
 ========
 
-- |rip| and |ripng|
-- |ospf| and |ospf| v6
-- |bgp|
+- |bgp|, BGP4+
+- |ospf|\v2, |ospf|\v3
+- |rip|, |ripng|
+- |xvrf|
+- Static Routes
+- ECMP
+- |pbr|
+- |mpls| |ldp|
+- |bgp| |l3vpn|
+- |bgp| Flowspec
 
 Dependencies
 ============
@@ -30,3 +37,7 @@ Dependencies
 -----------------
 
 - |fpforw4|
+- |fpforw6| (for IPv6)
+- |fp-pbr| (for |pbr| and |bgp| Flowspec)
+- |fp-mpls| (for |mpls| |ldp| and |bgp| |l3vpn|)
+- |linux-fp-sync|
