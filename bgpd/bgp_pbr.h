@@ -51,7 +51,7 @@ enum bgp_pbr_action_enum {
 /* struct used to store values [0;65535]
  * this can be used for port number of protocol
  */
-#define BGP_PBR_MATCH_VAL_MAX 5
+#define BGP_PBR_MATCH_VAL_MAX 21
 
 struct bgp_pbr_match_val {
 	uint16_t value;

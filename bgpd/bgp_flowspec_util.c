@@ -261,8 +261,10 @@ int bgp_flowspec_op_decode(enum bgp_flowspec_util_nlri_t type,
 
 	*error = 0;
 	do {
-		if (loop > BGP_PBR_MATCH_VAL_MAX)
+		if (loop > BGP_PBR_MATCH_VAL_MAX) {
 			*error = -2;
+			break;
+		}
 		hex2bin(&nlri_ptr[offset], op);
 		offset++;
 		len = 2*op[2]+op[3];
