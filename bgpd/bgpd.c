@@ -253,6 +253,8 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id)
 	if (is_evpn_enabled())
 		bgp_evpn_handle_router_id_update(bgp, TRUE);
 
+	vpn_handle_router_id_update(bgp, TRUE);
+
 	IPV4_ADDR_COPY(&bgp->router_id, id);
 
 	/* Set all peer's local identifier with this value. */
@@ -269,6 +271,8 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id)
 	/* EVPN uses router id in RD, update them */
 	if (is_evpn_enabled())
 		bgp_evpn_handle_router_id_update(bgp, FALSE);
+
+	vpn_handle_router_id_update(bgp, FALSE);
 
 	return 0;
 }
