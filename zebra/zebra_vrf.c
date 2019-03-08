@@ -167,6 +167,11 @@ static int zebra_vrf_disable(struct vrf *vrf)
 
 	/* Remove all routes. */
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+		route_table_finish(zvrf->rnh_table[afi]);
+		zvrf->rnh_table[afi] = NULL;
+		route_table_finish(zvrf->import_check_table[afi]);
+		zvrf->import_check_table[afi] = NULL;
+
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++)
 			rib_close_table(zvrf->table[afi][safi]);
 	}
@@ -213,11 +218,6 @@ static int zebra_vrf_disable(struct vrf *vrf)
 						   safi);
 			zvrf->table[afi][safi] = NULL;
 		}
-
-		route_table_finish(zvrf->rnh_table[afi]);
-		zvrf->rnh_table[afi] = NULL;
-		route_table_finish(zvrf->import_check_table[afi]);
-		zvrf->import_check_table[afi] = NULL;
 	}
 
 	return 0;
@@ -268,8 +268,10 @@ static int zebra_vrf_delete(struct vrf *vrf)
 			}
 		}
 
-		route_table_finish(zvrf->rnh_table[afi]);
-		route_table_finish(zvrf->import_check_table[afi]);
+		if (zvrf->rnh_table[afi])
+			route_table_finish(zvrf->rnh_table[afi]);
+		if (zvrf->import_check_table[afi])
+			route_table_finish(zvrf->import_check_table[afi]);
 	}
 
 	/* Cleanup EVPN states for vrf */
