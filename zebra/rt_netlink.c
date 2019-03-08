@@ -2045,10 +2045,6 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	 * so perform an implicit delete of any local entry (if it exists).
 	 */
 	if (h->nlmsg_type == RTM_NEWNEIGH) {
-		/* Drop "permanent" entries. */
-		if (ndm->ndm_state & NUD_PERMANENT)
-			return 0;
-
 		if (IS_ZEBRA_IF_VXLAN(ifp))
 			return zebra_vxlan_check_del_local_mac(ifp, br_if, &mac,
 							       vid);
