@@ -2396,7 +2396,7 @@ static void rib_addnode(struct route_node *rn,
 void rib_unlink(struct route_node *rn, struct route_entry *re)
 {
 	rib_dest_t *dest;
-	rib_table_info_t *info;
+	struct nhg_hash_entry *nhe = NULL;
 
 	assert(rn && re);
 
@@ -2411,7 +2411,9 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 	if (dest->selected_fib == re)
 		dest->selected_fib = NULL;
 
-	zebra_nhg_decrement_ref(re->nhe);
+	nhe = zebra_nhg_lookup_id(re->nhe_id);
+	if (nhe)
+		zebra_nhg_decrement_ref(nhe);
 
 	// TODO: We need to hold on nh's until refcnt is 0 right?
 	nexthops_free(re->ng->nexthop);
@@ -2638,6 +2640,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	struct route_table *table;
 	struct route_node *rn;
 	struct route_entry *same = NULL;
+	struct nhg_hash_entry *nhe = NULL;
 	int ret = 0;
 
 	if (!re)
@@ -2659,8 +2662,11 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	if (src_p)
 		apply_mask_ipv6(src_p);
 
-	re->nhe = zebra_nhg_find(re->ng, re->vrf_id, 0);
-	re->nhe->refcnt++;
+	nhe = zebra_nhg_find(re->ng, re->vrf_id, 0);
+
+	re->nhe_id = nhe->id;
+	nhe->refcnt++;
+
 	/* Set default distance by route type. */
 	if (re->distance == 0)
 		re->distance = route_distance(re->type);
