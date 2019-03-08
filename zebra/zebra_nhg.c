@@ -313,7 +313,7 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 	nhe->refcnt--;
 
 	if (!nhe->is_kernel_nh && nhe->refcnt <= 0) {
-		zebra_nhg_release(nhe);
+		zebra_nhg_uninstall_kernel(nhe);
 	}
 
 	// re->ng = NULL;
