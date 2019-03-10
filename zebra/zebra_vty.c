@@ -383,6 +383,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	json_object *json_labels = NULL;
 	time_t uptime;
 	struct tm *tm;
+	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
 	uptime = time(NULL);
 	uptime -= re->uptime;
@@ -406,6 +407,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 			json_object_boolean_true_add(json_route, "selected");
+
+		if (dest->selected_fib == re)
+			json_object_boolean_true_add(json_route,
+						     "destSelected");
 
 		json_object_int_add(json_route, "distance",
 				    re->distance);
