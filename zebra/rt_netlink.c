@@ -342,6 +342,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	uint32_t mtu = 0;
 	uint8_t distance = 0;
 	route_tag_t tag = 0;
+	uint32_t nhe_id = 0;
 
 	void *dest = NULL;
 	void *gate = NULL;
@@ -445,6 +446,9 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 
 	if (tb[RTA_GATEWAY])
 		gate = RTA_DATA(tb[RTA_GATEWAY]);
+
+	if (tb[RTA_NH_ID])
+		nhe_id = *(uint32_t *)RTA_DATA(tb[RTA_NH_ID]);
 
 	if (tb[RTA_PRIORITY])
 		metric = *(int *)RTA_DATA(tb[RTA_PRIORITY]);
