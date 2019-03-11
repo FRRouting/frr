@@ -3358,7 +3358,8 @@ DEFUN (bgp_evpn_advertise_type5,
 	}
 
 	/* advertise type-5 routes */
-	bgp_evpn_advertise_type5_routes(bgp_vrf, afi, safi);
+	if (advertise_type5_routes(bgp_vrf, afi))
+		bgp_evpn_advertise_type5_routes(bgp_vrf, afi, safi);
 	return CMD_SUCCESS;
 }
 
