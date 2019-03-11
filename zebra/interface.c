@@ -53,6 +53,7 @@
 #include "zebra/zebra_errors.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information")
+DEFINE_MTYPE_STATIC(ZEBRA, NHE_CONNECTED, "Nexthops Connected")
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -120,6 +121,10 @@ static int if_zebra_new_hook(struct interface *ifp)
 
 	zebra_if->multicast = IF_ZEBRA_MULTICAST_UNSPEC;
 	zebra_if->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
+
+	zebra_if->nhe_connected = list_new();
+	zebra_if->nhe_connected->del = (void (*)(void *))nhe_connected_free;
+
 	zebra_ptm_if_init(zebra_if);
 
 	ifp->ptm_enable = zebra_ptm_get_enable_state();
@@ -195,6 +200,8 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		list_delete(&rtadv->AdvRDNSSList);
 		list_delete(&rtadv->AdvDNSSLList);
 #endif /* HAVE_RTADV */
+
+		list_delete(&zebra_if->nhe_connected);
 
 		XFREE(MTYPE_TMP, zebra_if->desc);
 		THREAD_OFF(zebra_if->speed_update);
@@ -925,6 +932,51 @@ static void if_down_del_nbr_connected(struct interface *ifp)
 	}
 }
 
+/**
+ * nhe_connected_add() - Add the nexthop entry to the interfaces connected list
+ *
+ * @ifp:	Interface to add to
+ * @nhe:	Nexthop hash entry to add
+ *
+ * Return:	nhe_connected struct created and added
+ */
+struct nhe_connected *nhe_connected_add(struct interface *ifp,
+					struct nhg_hash_entry *nhe)
+{
+	struct nhe_connected *if_nhec = NULL;
+	struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+	if_nhec = nhe_connected_new();
+	if_nhec->ifp = ifp;
+
+	/* Attach the nhe */
+	if_nhec->nhe = nhe;
+
+	/* Add connected nexthop to the interface */
+	listnode_add(zif->nhe_connected, if_nhec);
+	return if_nhec;
+}
+
+/**
+ * nhe_connected() - Allocate nhe connected structure
+ *
+ * Return:	Allocated nhe_connected structure
+ */
+struct nhe_connected *nhe_connected_new(void)
+{
+	return XCALLOC(MTYPE_NHE_CONNECTED, sizeof(struct nhe_connected));
+}
+
+/**
+ * nhe_connected_free() - Free nhe_connected structure
+ *
+ * @nhe_connected:	nhe_connected structure to free
+ */
+void nhe_connected_free(struct nhe_connected *connected)
+{
+	XFREE(MTYPE_NHE_CONNECTED, connected);
+}
+
 /* Interface is up. */
 void if_up(struct interface *ifp)
 {
@@ -1132,6 +1184,19 @@ static void nbr_connected_dump_vty(struct vty *vty,
 	vty_out(vty, "\n");
 }
 
+/**
+ * nhe_connected_dump() - Dump nexthops connected to this interface to vty
+ *
+ * @vty:		Vty output
+ * @nhe_connected:	List of connected nexthop hash entries
+ */
+static void nhe_connected_dump_vty(struct vty *vty,
+				   struct nhe_connected *connected)
+{
+	/* Just outputing ID for now. */
+	vty_out(vty, "  (%u)", connected->nhe->id);
+}
+
 static const char *zebra_ziftype_2str(zebra_iftype_t zif_type)
 {
 	switch (zif_type) {
@@ -1279,6 +1344,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 {
 	struct connected *connected;
 	struct nbr_connected *nbr_connected;
+	struct nhe_connected *nhe_connected;
 	struct listnode *node;
 	struct route_node *rn;
 	struct zebra_if *zebra_if;
@@ -1362,6 +1428,14 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 		    && (connected->address->family == AF_INET6))
 			connected_dump_vty(vty, connected);
+	}
+
+	if (listhead(zebra_if->nhe_connected)) {
+		vty_out(vty, "  Nexthop IDs connected:");
+		for (ALL_LIST_ELEMENTS_RO(zebra_if->nhe_connected, node,
+					  nhe_connected))
+			nhe_connected_dump_vty(vty, nhe_connected);
+		vty_out(vty, "\n");
 	}
 
 	vty_out(vty, "  Interface Type %s\n",

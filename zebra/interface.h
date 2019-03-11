@@ -27,6 +27,7 @@
 #include "hook.h"
 
 #include "zebra/zebra_l2.h"
+#include "zebra/zebra_nhg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -263,6 +264,15 @@ typedef enum {
 
 struct irdp_interface;
 
+/* Nexthop hash entry connected structure */
+struct nhe_connected {
+	/* Attached interface */
+	struct interface *ifp;
+
+	/* Connected nexthop hash entry */
+	struct nhg_hash_entry *nhe;
+};
+
 /* `zebra' daemon local interface structure. */
 struct zebra_if {
 	/* Shutdown configuration. */
@@ -276,6 +286,15 @@ struct zebra_if {
 
 	/* Installed addresses chains tree. */
 	struct route_table *ipv4_subnets;
+
+	/* Nexthops pointed to it list */
+	/**
+	 * Any nexthop that we get should have an
+	 * interface. When an interface goes down,
+	 * we will use this list to update the nexthops
+	 * pointing to it with that info.
+	 */
+	struct list *nhe_connected;
 
 	/* Information about up/down changes */
 	unsigned int up_count;
@@ -423,6 +442,12 @@ extern void zebra_if_update_link(struct interface *ifp, ifindex_t link_ifindex,
 				 ns_id_t ns_id);
 extern void zebra_if_update_all_links(void);
 extern void zebra_if_set_protodown(struct interface *ifp, bool down);
+
+/* Nexthop connected list functions */
+struct nhe_connected *nhe_connected_add(struct interface *ifp,
+					struct nhg_hash_entry *nhe);
+struct nhe_connected *nhe_connected_new(void);
+void nhe_connected_free(struct nhe_connected *connected);
 
 extern void vrf_add_update(struct vrf *vrfp);
 
