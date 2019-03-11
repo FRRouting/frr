@@ -55,7 +55,7 @@ static struct zclient *zclient;
 /*
  * Prototypes
  */
-static int _ptm_msg_address(struct stream *msg, struct sockaddr_any *sa);
+static int _ptm_msg_address(struct stream *msg, int family, const void *addr);
 
 static void _ptm_msg_read_address(struct stream *msg, struct sockaddr_any *sa);
 static int _ptm_msg_read(struct stream *msg, int command,
@@ -127,24 +127,24 @@ static void debug_printbpc(const char *func, unsigned int line,
 #define DEBUG_PRINTBPC(bpc)
 #endif /* BFD_DEBUG */
 
-static int _ptm_msg_address(struct stream *msg, struct sockaddr_any *sa)
+static int _ptm_msg_address(struct stream *msg, int family, const void *addr)
 {
-	switch (sa->sa_sin.sin_family) {
+	stream_putc(msg, family);
+
+	switch (family) {
 	case AF_INET:
-		stream_putc(msg, sa->sa_sin.sin_family);
-		stream_put_in_addr(msg, &sa->sa_sin.sin_addr);
+		stream_put(msg, addr, sizeof(struct in_addr));
 		stream_putc(msg, 32);
 		break;
 
 	case AF_INET6:
-		stream_putc(msg, sa->sa_sin6.sin6_family);
-		stream_put(msg, &sa->sa_sin6.sin6_addr,
-			   sizeof(sa->sa_sin6.sin6_addr));
+		stream_put(msg, addr, sizeof(struct in6_addr));
 		stream_putc(msg, 128);
 		break;
 
 	default:
-		return -1;
+		assert(0);
+		break;
 	}
 
 	return 0;
@@ -153,7 +153,6 @@ static int _ptm_msg_address(struct stream *msg, struct sockaddr_any *sa)
 int ptm_bfd_notify(struct bfd_session *bs)
 {
 	struct stream *msg;
-	struct sockaddr_any sac;
 
 	bs->stats.znotification++;
 
@@ -195,10 +194,7 @@ int ptm_bfd_notify(struct bfd_session *bs)
 		stream_putl(msg, IFINDEX_INTERNAL);
 
 	/* BFD destination prefix information. */
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
-		_ptm_msg_address(msg, &bs->mhop.peer);
-	else
-		_ptm_msg_address(msg, &bs->shop.peer);
+	_ptm_msg_address(msg, bs->key.family, &bs->key.peer);
 
 	/* BFD status */
 	switch (bs->ses_state) {
@@ -218,34 +214,7 @@ int ptm_bfd_notify(struct bfd_session *bs)
 	}
 
 	/* BFD source prefix information. */
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
-		_ptm_msg_address(msg, &bs->mhop.local);
-	} else {
-		if (bs->local_address.sa_sin.sin_family)
-			_ptm_msg_address(msg, &bs->local_address);
-		else if (bs->local_address.sa_sin.sin_family)
-			_ptm_msg_address(msg, &bs->local_ip);
-		else {
-			sac = bs->shop.peer;
-			switch (sac.sa_sin.sin_family) {
-			case AF_INET:
-				memset(&sac.sa_sin.sin_addr, 0,
-				       sizeof(sac.sa_sin.sin_family));
-				break;
-			case AF_INET6:
-				memset(&sac.sa_sin6.sin6_addr, 0,
-				       sizeof(sac.sa_sin6.sin6_family));
-				break;
-
-			default:
-				assert(false);
-				break;
-			}
-
-			/* No local address found yet, so send zeroes. */
-			_ptm_msg_address(msg, &sac);
-		}
-	}
+	_ptm_msg_address(msg, bs->key.family, &bs->key.local);
 
 	/* Write packet size. */
 	stream_putw_at(msg, 0, stream_get_endp(msg));
@@ -290,7 +259,6 @@ stream_failure:
 static int _ptm_msg_read(struct stream *msg, int command,
 			 struct bfd_peer_cfg *bpc, struct ptm_client **pc)
 {
-	struct interface *ifp;
 	uint32_t pid;
 	uint8_t ttl __attribute__((unused));
 	size_t ifnamelen;
@@ -385,31 +353,6 @@ static int _ptm_msg_read(struct stream *msg, int command,
 		if (bpc->bpc_has_localif) {
 			STREAM_GET(bpc->bpc_localif, msg, ifnamelen);
 			bpc->bpc_localif[ifnamelen] = 0;
-
-			/*
-			 * IPv6 link-local addresses must use scope id,
-			 * otherwise the session lookup will always fail
-			 * and we'll have multiple sessions showing up.
-			 *
-			 * This problem only happens with single hop
-			 * since it is not possible to have link-local
-			 * address for multi hop sessions.
-			 */
-			if (bpc->bpc_ipv4 == false
-			    && IN6_IS_ADDR_LINKLOCAL(
-				       &bpc->bpc_peer.sa_sin6.sin6_addr)) {
-				ifp = if_lookup_by_name_all_vrf(
-					bpc->bpc_localif);
-				if (ifp == NULL) {
-					log_error(
-						"ptm-read: interface %s doesn't exists",
-						bpc->bpc_localif);
-					return -1;
-				}
-
-				bpc->bpc_peer.sa_sin6.sin6_scope_id =
-					ifp->ifindex;
-			}
 		}
 	}
 
@@ -608,7 +551,7 @@ static void bfdd_sessions_enable_interface(struct interface *ifp)
 
 		/* Interface name mismatch. */
 		bs = bso->bso_bs;
-		if (strcmp(ifp->name, bs->ifname))
+		if (strcmp(ifp->name, bs->key.ifname))
 			continue;
 		/* Skip enabled sessions. */
 		if (bs->sock != -1)
@@ -630,7 +573,7 @@ static void bfdd_sessions_disable_interface(struct interface *ifp)
 
 		/* Interface name mismatch. */
 		bs = bso->bso_bs;
-		if (strcmp(ifp->name, bs->ifname))
+		if (strcmp(ifp->name, bs->key.ifname))
 			continue;
 		/* Skip disabled sessions. */
 		if (bs->sock == -1)

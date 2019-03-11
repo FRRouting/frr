@@ -173,15 +173,13 @@ enum bfd_session_flags {
 #define BFD_CHECK_FLAG(field, flag) (field & flag)
 
 /* BFD session hash keys */
-struct bfd_shop_key {
-	struct sockaddr_any peer;
-	ifindex_t ifindex;
-};
-
-struct bfd_mhop_key {
-	struct sockaddr_any peer;
-	struct sockaddr_any local;
-	vrf_id_t vrfid;
+struct bfd_key {
+	uint16_t family;
+	uint8_t mhop;
+	struct in6_addr peer;
+	struct in6_addr local;
+	char ifname[MAXNAMELEN];
+	char vrfname[MAXNAMELEN];
 };
 
 struct bfd_session_stats {
@@ -227,19 +225,14 @@ struct bfd_session {
 	uint8_t polling;
 
 	/* This and the localDiscr are the keys to state info */
+	struct bfd_key key;
 	struct peer_label *pl;
-	union {
-		struct bfd_shop_key shop;
-		struct bfd_mhop_key mhop;
-	};
-	int sock;
 
 	struct sockaddr_any local_address;
-	struct sockaddr_any local_ip;
 	struct interface *ifp;
 	struct vrf *vrf;
-	char ifname[MAXNAMELEN];
-	char vrfname[MAXNAMELEN];
+
+	int sock;
 
 	/* BFD session flags */
 	enum bfd_session_flags flags;
@@ -531,38 +524,28 @@ const char *satostr(struct sockaddr_any *sa);
 const char *diag2str(uint8_t diag);
 int strtosa(const char *addr, struct sockaddr_any *sa);
 void integer2timestr(uint64_t time, char *buf, size_t buflen);
-const char *bs_to_string(struct bfd_session *bs);
+const char *bs_to_string(const struct bfd_session *bs);
 
 int bs_observer_add(struct bfd_session *bs);
 void bs_observer_del(struct bfd_session_observer *bso);
+
+void bs_to_bpc(struct bfd_session *bs, struct bfd_peer_cfg *bpc);
 
 /* BFD hash data structures interface */
 void bfd_initialize(void);
 void bfd_shutdown(void);
 struct bfd_session *bfd_id_lookup(uint32_t id);
-struct bfd_session *bfd_shop_lookup(struct bfd_shop_key shop);
-struct bfd_session *bfd_mhop_lookup(struct bfd_mhop_key mhop);
-struct bfd_vrf *bfd_vrf_lookup(int vrf_id);
-struct bfd_iface *bfd_iface_lookup(const char *ifname);
+struct bfd_session *bfd_key_lookup(struct bfd_key key);
 
 struct bfd_session *bfd_id_delete(uint32_t id);
-struct bfd_session *bfd_shop_delete(struct bfd_shop_key shop);
-struct bfd_session *bfd_mhop_delete(struct bfd_mhop_key mhop);
-struct bfd_vrf *bfd_vrf_delete(int vrf_id);
-struct bfd_iface *bfd_iface_delete(const char *ifname);
+struct bfd_session *bfd_key_delete(struct bfd_key key);
 
 bool bfd_id_insert(struct bfd_session *bs);
-bool bfd_shop_insert(struct bfd_session *bs);
-bool bfd_mhop_insert(struct bfd_session *bs);
-bool bfd_vrf_insert(struct bfd_vrf *vrf);
-bool bfd_iface_insert(struct bfd_iface *iface);
+bool bfd_key_insert(struct bfd_session *bs);
 
 typedef void (*hash_iter_func)(struct hash_bucket *hb, void *arg);
 void bfd_id_iterate(hash_iter_func hif, void *arg);
-void bfd_shop_iterate(hash_iter_func hif, void *arg);
-void bfd_mhop_iterate(hash_iter_func hif, void *arg);
-void bfd_vrf_iterate(hash_iter_func hif, void *arg);
-void bfd_iface_iterate(hash_iter_func hif, void *arg);
+void bfd_key_iterate(hash_iter_func hif, void *arg);
 
 /* Export callback functions for `event.c`. */
 extern struct thread_master *master;
@@ -571,6 +554,8 @@ int bfd_recvtimer_cb(struct thread *t);
 int bfd_echo_recvtimer_cb(struct thread *t);
 int bfd_xmt_cb(struct thread *t);
 int bfd_echo_xmt_cb(struct thread *t);
+
+extern struct in6_addr zero_addr;
 
 
 /*

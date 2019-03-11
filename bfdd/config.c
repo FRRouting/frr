@@ -309,24 +309,7 @@ static int parse_peer_label_config(struct json_object *jo,
 	log_debug("\tpeer-label: %s", sval);
 
 	/* Translate the label into BFD address keys. */
-	bpc->bpc_ipv4 = !BFD_CHECK_FLAG(pl->pl_bs->flags, BFD_SESS_FLAG_IPV6);
-	bpc->bpc_mhop = BFD_CHECK_FLAG(pl->pl_bs->flags, BFD_SESS_FLAG_MH);
-	if (bpc->bpc_mhop) {
-		bpc->bpc_peer = pl->pl_bs->mhop.peer;
-		bpc->bpc_local = pl->pl_bs->mhop.local;
-		if (pl->pl_bs->mhop.vrfid != VRF_DEFAULT) {
-			bpc->bpc_has_vrfname = true;
-			strlcpy(bpc->bpc_vrfname, pl->pl_bs->vrf->name,
-				sizeof(bpc->bpc_vrfname));
-		}
-	} else {
-		bpc->bpc_peer = pl->pl_bs->shop.peer;
-		if (pl->pl_bs->ifname[0]) {
-			bpc->bpc_has_localif = true;
-			strlcpy(bpc->bpc_localif, pl->pl_bs->ifname,
-				sizeof(bpc->bpc_localif));
-		}
-	}
+	bs_to_bpc(pl->pl_bs, bpc);
 
 	return 0;
 }
@@ -519,6 +502,8 @@ int config_notify_request(struct bfd_control_socket *bcs, const char *jsonstr,
 
 static int json_object_add_peer(struct json_object *jo, struct bfd_session *bs)
 {
+	char addr_buf[INET6_ADDRSTRLEN];
+
 	/* Add peer 'key' information. */
 	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6))
 		json_object_boolean_true_add(jo, "ipv6");
@@ -528,21 +513,26 @@ static int json_object_add_peer(struct json_object *jo, struct bfd_session *bs)
 	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
 		json_object_boolean_true_add(jo, "multihop");
 		json_object_string_add(jo, "peer-address",
-				       satostr(&bs->mhop.peer));
+				       inet_ntop(bs->key.family, &bs->key.peer,
+						 addr_buf, sizeof(addr_buf)));
 		json_object_string_add(jo, "local-address",
-				       satostr(&bs->mhop.local));
-		if (bs->vrfname[0])
-			json_object_string_add(jo, "vrf-name", bs->vrfname);
+				       inet_ntop(bs->key.family, &bs->key.local,
+						 addr_buf, sizeof(addr_buf)));
+		if (bs->key.vrfname[0])
+			json_object_string_add(jo, "vrf-name", bs->key.vrfname);
 	} else {
 		json_object_boolean_false_add(jo, "multihop");
 		json_object_string_add(jo, "peer-address",
-				       satostr(&bs->shop.peer));
-		if (bs->local_address.sa_sin.sin_family != AF_UNSPEC)
-			json_object_string_add(jo, "local-address",
-					       satostr(&bs->local_address));
-		if (bs->ifname[0])
+				       inet_ntop(bs->key.family, &bs->key.peer,
+						 addr_buf, sizeof(addr_buf)));
+		if (memcmp(&bs->key.local, &zero_addr, sizeof(bs->key.local)))
+			json_object_string_add(
+				jo, "local-address",
+				inet_ntop(bs->key.family, &bs->key.local,
+					  addr_buf, sizeof(addr_buf)));
+		if (bs->key.ifname[0])
 			json_object_string_add(jo, "local-interface",
-					       bs->ifname);
+					       bs->key.ifname);
 	}
 
 	if (bs->pl)
