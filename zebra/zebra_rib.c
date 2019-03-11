@@ -2947,8 +2947,8 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	    unsigned short instance, int flags, struct prefix *p,
 	    struct prefix_ipv6 *src_p, const struct nexthop *nh,
-	    uint32_t table_id, uint32_t metric, uint32_t mtu, uint8_t distance,
-	    route_tag_t tag)
+	    uint32_t nhe_id, uint32_t table_id, uint32_t metric, uint32_t mtu,
+	    uint8_t distance, route_tag_t tag)
 {
 	struct route_entry *re;
 	struct nexthop *nexthop;

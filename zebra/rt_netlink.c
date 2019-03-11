@@ -618,7 +618,8 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 					gate, afi, nh_vrf_id);
 			}
 			rib_add(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, &p,
-				&src_p, &nh, table, metric, mtu, distance, tag);
+				&src_p, &nh, nhe_id, table, metric, mtu,
+				distance, tag);
 		} else {
 			/* This is a multipath route */
 			uint8_t nhop_num;
