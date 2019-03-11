@@ -2415,9 +2415,6 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 	if (nhe)
 		zebra_nhg_decrement_ref(nhe);
 
-	// TODO: We need to hold on nh's until refcnt is 0 right?
-	nexthops_free(re->ng->nexthop);
-	nexthop_group_delete(&re->ng);
 	nexthops_free(re->fib_ng.nexthop);
 
 	XFREE(MTYPE_RE, re);
@@ -2651,8 +2648,6 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	/* Lookup table.  */
 	table = zebra_vrf_table_with_table_id(afi, safi, re->vrf_id, re->table);
 	if (!table) {
-		nexthops_free(re->ng->nexthop);
-		nexthop_group_delete(&re->ng);
 		XFREE(MTYPE_RE, re);
 		return 0;
 	}
@@ -2662,10 +2657,33 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	if (src_p)
 		apply_mask_ipv6(src_p);
 
-	nhe = zebra_nhg_find(re->ng, re->vrf_id, 0);
+	/* Using a kernel that supports nexthop ojects */
+	if (re->nhe_id) {
+		nhe = zebra_nhg_lookup_id(re->nhe_id);
+	} else {
+		nhe = zebra_nhg_find(re->ng, re->vrf_id, 0);
+		re->nhe_id = nhe->id;
+	}
 
-	re->nhe_id = nhe->id;
-	nhe->refcnt++;
+	if (nhe) {
+		nhe->refcnt++;
+
+		/* Freeing the nexthop structs we were using
+		 * for lookup since it will just point
+		 * to the hash entry group now.
+		 */
+		nexthops_free(re->ng->nexthop);
+		nexthop_group_delete(&re->ng);
+		/* Point to hash entry group */
+		re->ng = &nhe->nhg;
+
+	} else {
+		flog_err(
+			EC_ZEBRA_TABLE_LOOKUP_FAILED,
+			"Zebra failed to find or create a nexthop hash entry for id=%u in a route entry",
+			re->nhe_id);
+	}
+
 
 	/* Set default distance by route type. */
 	if (re->distance == 0)
@@ -2950,8 +2968,8 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	    uint32_t nhe_id, uint32_t table_id, uint32_t metric, uint32_t mtu,
 	    uint8_t distance, route_tag_t tag)
 {
-	struct route_entry *re;
-	struct nexthop *nexthop;
+	struct route_entry *re = NULL;
+	struct nexthop *nexthop = NULL;
 
 	/* Allocate new route_entry structure. */
 	re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
@@ -2965,6 +2983,8 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	re->vrf_id = vrf_id;
 	re->uptime = monotime(NULL);
 	re->tag = tag;
+	re->nhe_id = nhe_id;
+
 	re->ng = nexthop_group_new();
 
 	/* Add nexthop. */
