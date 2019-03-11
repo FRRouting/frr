@@ -321,6 +321,63 @@ static int parse_encap_mpls(struct rtattr *tb, mpls_label_t *labels)
 	return num_labels;
 }
 
+static struct nexthop
+parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
+		      enum blackhole_type bh_type, int index, void *prefsrc,
+		      void *gate, afi_t afi, vrf_id_t nh_vrf_id)
+{
+	struct interface *ifp = NULL;
+	struct nexthop nh = {0};
+	mpls_label_t labels[MPLS_MAX_LABELS] = {0};
+	int num_labels = 0;
+
+	size_t sz = (afi == AFI_IP) ? 4 : 16;
+
+	if (bh_type == BLACKHOLE_UNSPEC) {
+		if (index && !gate)
+			nh.type = NEXTHOP_TYPE_IFINDEX;
+		else if (index && gate)
+			nh.type = (afi == AFI_IP) ? NEXTHOP_TYPE_IPV4_IFINDEX
+						  : NEXTHOP_TYPE_IPV6_IFINDEX;
+		else if (!index && gate)
+			nh.type = (afi == AFI_IP) ? NEXTHOP_TYPE_IPV4
+						  : NEXTHOP_TYPE_IPV6;
+		else {
+			nh.type = NEXTHOP_TYPE_BLACKHOLE;
+			nh.bh_type = bh_type;
+		}
+	} else {
+		nh.type = NEXTHOP_TYPE_BLACKHOLE;
+		nh.bh_type = bh_type;
+	}
+	nh.ifindex = index;
+	if (prefsrc)
+		memcpy(&nh.src, prefsrc, sz);
+	if (gate)
+		memcpy(&nh.gate, gate, sz);
+
+	if (index) {
+		ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), index);
+		if (ifp)
+			nh_vrf_id = ifp->vrf_id;
+	}
+	nh.vrf_id = nh_vrf_id;
+
+	if (tb[RTA_ENCAP] && tb[RTA_ENCAP_TYPE]
+	    && *(uint16_t *)RTA_DATA(tb[RTA_ENCAP_TYPE])
+		       == LWTUNNEL_ENCAP_MPLS) {
+		num_labels = parse_encap_mpls(tb[RTA_ENCAP], labels);
+	}
+
+	if (rtm->rtm_flags & RTNH_F_ONLINK)
+		SET_FLAG(nh.flags, NEXTHOP_FLAG_ONLINK);
+
+	if (num_labels)
+		nexthop_add_labels(&nh, ZEBRA_LSP_STATIC, num_labels, labels);
+
+	return nh;
+}
+
 /* Looking up routing table by netlink interface. */
 static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 					     int startup)
@@ -349,10 +406,6 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	void *prefsrc = NULL; /* IPv4 preferred source host address */
 	void *src = NULL;     /* IPv6 srcdest   source prefix */
 	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
-
-	/* MPLS labels */
-	mpls_label_t labels[MPLS_MAX_LABELS] = {0};
-	int num_labels = 0;
 
 	rtm = NLMSG_DATA(h);
 
@@ -557,60 +610,13 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		vrf_id_t nh_vrf_id = vrf_id;
 
 		if (!tb[RTA_MULTIPATH]) {
-			struct nexthop nh;
-			size_t sz = (afi == AFI_IP) ? 4 : 16;
+			struct nexthop nh = {0};
 
-			memset(&nh, 0, sizeof(nh));
-
-			if (bh_type == BLACKHOLE_UNSPEC) {
-				if (index && !gate)
-					nh.type = NEXTHOP_TYPE_IFINDEX;
-				else if (index && gate)
-					nh.type =
-						(afi == AFI_IP)
-							? NEXTHOP_TYPE_IPV4_IFINDEX
-							: NEXTHOP_TYPE_IPV6_IFINDEX;
-				else if (!index && gate)
-					nh.type = (afi == AFI_IP)
-							  ? NEXTHOP_TYPE_IPV4
-							  : NEXTHOP_TYPE_IPV6;
-				else {
-					nh.type = NEXTHOP_TYPE_BLACKHOLE;
-					nh.bh_type = bh_type;
-				}
-			} else {
-				nh.type = NEXTHOP_TYPE_BLACKHOLE;
-				nh.bh_type = bh_type;
+			if (!nhe_id) {
+				nh = parse_nexthop_unicast(
+					ns_id, rtm, tb, bh_type, index, prefsrc,
+					gate, afi, nh_vrf_id);
 			}
-			nh.ifindex = index;
-			if (prefsrc)
-				memcpy(&nh.src, prefsrc, sz);
-			if (gate)
-				memcpy(&nh.gate, gate, sz);
-
-			if (index) {
-				ifp = if_lookup_by_index_per_ns(
-						zebra_ns_lookup(ns_id),
-						index);
-				if (ifp)
-					nh_vrf_id = ifp->vrf_id;
-			}
-			nh.vrf_id = nh_vrf_id;
-
-			if (tb[RTA_ENCAP] && tb[RTA_ENCAP_TYPE]
-			    && *(uint16_t *)RTA_DATA(tb[RTA_ENCAP_TYPE])
-				       == LWTUNNEL_ENCAP_MPLS) {
-				num_labels =
-					parse_encap_mpls(tb[RTA_ENCAP], labels);
-			}
-
-			if (rtm->rtm_flags & RTNH_F_ONLINK)
-				SET_FLAG(nh.flags, NEXTHOP_FLAG_ONLINK);
-
-			if (num_labels)
-				nexthop_add_labels(&nh, ZEBRA_LSP_STATIC,
-						   num_labels, labels);
-
 			rib_add(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, &p,
 				&src_p, &nh, table, metric, mtu, distance, tag);
 		} else {
@@ -619,6 +625,9 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			struct route_entry *re;
 			struct rtnexthop *rtnh =
 				(struct rtnexthop *)RTA_DATA(tb[RTA_MULTIPATH]);
+			/* MPLS labels */
+			mpls_label_t labels[MPLS_MAX_LABELS] = {0};
+			int num_labels = 0;
 
 			len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
 
