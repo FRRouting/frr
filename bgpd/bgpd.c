@@ -2714,7 +2714,7 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			peer->sort = group->conf->sort;
 		}
 
-		if (!group->conf->as) {
+		if (!group->conf->as && peer_sort(peer)) {
 			if (peer_sort(group->conf) != BGP_PEER_INTERNAL
 			    && peer_sort(group->conf) != peer_sort(peer)) {
 				if (as)
