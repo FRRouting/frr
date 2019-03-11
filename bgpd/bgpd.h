@@ -97,6 +97,9 @@ enum bgp_af_index {
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
 
+#define FOREACH_SAFI(safi)                                            \
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+
 /* BGP master for system wide configurations and variables.  */
 struct bgp_master {
 	/* BGP instance list.  */

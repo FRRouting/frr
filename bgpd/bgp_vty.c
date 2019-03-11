@@ -8296,7 +8296,7 @@ const char *afi_safi_json(afi_t afi, safi_t safi)
 }
 
 /* Show BGP peer's information. */
-enum show_type { show_all, show_peer };
+enum show_type { show_all, show_peer, show_ipv4_all, show_ipv6_all, show_ipv4_peer, show_ipv6_peer };
 
 static void bgp_show_peer_afi_orf_cap(struct vty *vty, struct peer *p,
 				      afi_t afi, safi_t safi,
@@ -10690,6 +10690,14 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 	struct listnode *node, *nnode;
 	struct peer *peer;
 	int find = 0;
+	afi_t afi = AFI_MAX;
+	safi_t safi = SAFI_MAX;
+
+	if (type == show_ipv4_peer || type == show_ipv4_all) {
+		afi = AFI_IP;
+	} else if (type == show_ipv6_peer || type == show_ipv6_all) {
+		afi = AFI_IP6;
+	}
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
@@ -10717,10 +10725,45 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 				}
 			}
 			break;
+		case show_ipv4_peer:
+		case show_ipv6_peer:
+			FOREACH_SAFI (safi) {
+				if (peer->afc[afi][safi]) {
+					if (conf_if) {
+						if ((peer->conf_if
+						     && !strcmp(peer->conf_if, conf_if))
+						    || (peer->hostname
+							&& !strcmp(peer->hostname, conf_if))) {
+							find = 1;
+							bgp_show_peer(vty, peer, use_json,
+								      json);
+							break;
+						}
+					} else {
+						if (sockunion_same(&peer->su, su)) {
+							find = 1;
+							bgp_show_peer(vty, peer, use_json,
+								      json);
+							break;
+						}
+					}
+				}
+			}
+			break;
+		case show_ipv4_all:
+		case show_ipv6_all:
+			FOREACH_SAFI (safi) {
+				if (peer->afc[afi][safi]) {
+					bgp_show_peer(vty, peer, use_json, json);
+					break;
+				}
+			}
+			break;
 		}
 	}
 
-	if (type == show_peer && !find) {
+	if ((type == show_peer || type == show_ipv4_peer ||
+	     type == show_ipv6_peer) && !find) {
 		if (use_json)
 			json_object_boolean_true_add(json, "bgpNoSuchNeighbor");
 		else
@@ -10788,7 +10831,8 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 					: bgp->name);
 		}
 
-		if (type == show_peer) {
+		if (type == show_peer || type == show_ipv4_peer ||
+		    type == show_ipv6_peer) {
 			ret = str2sockunion(ip_str, &su);
 			if (ret < 0)
 				bgp_show_neighbor(vty, bgp, type, NULL, ip_str,
@@ -10797,7 +10841,7 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 				bgp_show_neighbor(vty, bgp, type, &su, NULL,
 						  use_json, json);
 		} else {
-			bgp_show_neighbor(vty, bgp, show_all, NULL, NULL,
+			bgp_show_neighbor(vty, bgp, type, NULL, NULL,
 					  use_json, json);
 		}
 	}
@@ -10884,6 +10928,7 @@ DEFUN (show_ip_bgp_neighbors,
 	char *vrf = NULL;
 	char *sh_arg = NULL;
 	enum show_type sh_type;
+	afi_t afi = AFI_MAX;
 
 	uint8_t uj = use_json(argc, argv);
 
@@ -10894,13 +10939,29 @@ DEFUN (show_ip_bgp_neighbors,
 		vrf = argv[idx + 1]->arg;
 
 	idx++;
+
+	if (argv_find(argv, argc, "ipv4", &idx)) {
+		sh_type = show_ipv4_all;
+		afi = AFI_IP;
+	} else if (argv_find(argv, argc, "ipv6", &idx)) {
+		sh_type = show_ipv6_all;
+		afi = AFI_IP6;
+	} else {
+		sh_type = show_all;
+	}
+
 	if (argv_find(argv, argc, "A.B.C.D", &idx)
 	    || argv_find(argv, argc, "X:X::X:X", &idx)
 	    || argv_find(argv, argc, "WORD", &idx)) {
 		sh_type = show_peer;
 		sh_arg = argv[idx]->arg;
-	} else
-		sh_type = show_all;
+	}
+
+	if (sh_type == show_peer && afi == AFI_IP) {
+		sh_type = show_ipv4_peer;
+	} else if (sh_type == show_peer && afi == AFI_IP6) {
+		sh_type = show_ipv6_peer;
+	}
 
 	return bgp_show_neighbor_vty(vty, vrf, sh_type, sh_arg, uj);
 }
