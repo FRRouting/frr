@@ -275,7 +275,8 @@ options from the list below.
    For backwards compatability with older configure options when setting X = 0,
    we will build FRR with 64 way ECMP.  This is needed because there are
    hardcoded arrays that FRR builds towards, so we need to know how big to
-   make these arrays at build time.
+   make these arrays at build time.  Additionally if this parameter is
+   not passed in FRR will default to 16 ECMP.
 
 .. option:: --enable-shell-access
 
