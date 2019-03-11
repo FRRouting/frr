@@ -1409,7 +1409,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 				 * from ourselves we don't
 				 * over write this pointer
 				 */
-				dest->selected_fib = NULL;
+				dest->selected_fib = new;
 			}
 			/* If install succeeded or system route, cleanup flags
 			 * for prior route. */
