@@ -79,7 +79,6 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 		    const char *local_str, const char *ifname,
 		    const char *vrfname);
 
-
 /*
  * Commands definition.
  */
@@ -369,22 +368,25 @@ DEFPY(bfd_no_peer, bfd_no_peer_cmd,
  */
 static void _display_peer_header(struct vty *vty, struct bfd_session *bs)
 {
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
-		vty_out(vty, "\tpeer %s", satostr(&bs->mhop.peer));
+	char addr_buf[INET6_ADDRSTRLEN];
+
+	vty_out(vty, "\tpeer %s",
+		inet_ntop(bs->key.family, &bs->key.peer, addr_buf,
+			  sizeof(addr_buf)));
+
+	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
 		vty_out(vty, " multihop");
-		vty_out(vty, " local-address %s", satostr(&bs->mhop.local));
-		if (bs->vrfname[0])
-			vty_out(vty, " vrf %s", bs->vrfname);
-		vty_out(vty, "\n");
-	} else {
-		vty_out(vty, "\tpeer %s", satostr(&bs->shop.peer));
-		if (bs->local_address.sa_sin.sin_family != AF_UNSPEC)
-			vty_out(vty, " local-address %s",
-				satostr(&bs->local_address));
-		if (bs->ifname[0])
-			vty_out(vty, " interface %s", bs->ifname);
-		vty_out(vty, "\n");
-	}
+
+	if (memcmp(&bs->key.local, &zero_addr, sizeof(bs->key.local)))
+		vty_out(vty, " local-address %s",
+			inet_ntop(bs->key.family, &bs->key.local, addr_buf,
+				  sizeof(addr_buf)));
+
+	if (bs->key.vrfname[0])
+		vty_out(vty, " vrf %s", bs->key.vrfname);
+	if (bs->key.ifname[0])
+		vty_out(vty, " interface %s", bs->key.ifname);
+	vty_out(vty, "\n");
 
 	if (bs->pl)
 		vty_out(vty, "\t\tlabel: %s\n", bs->pl->pl_label);
@@ -453,22 +455,25 @@ static void _display_peer(struct vty *vty, struct bfd_session *bs)
 static struct json_object *_peer_json_header(struct bfd_session *bs)
 {
 	struct json_object *jo = json_object_new_object();
+	char addr_buf[INET6_ADDRSTRLEN];
 
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
+	if (bs->key.mhop)
 		json_object_boolean_true_add(jo, "multihop");
-		json_object_string_add(jo, "peer", satostr(&bs->mhop.peer));
-		json_object_string_add(jo, "local", satostr(&bs->mhop.local));
-		if (bs->vrfname[0])
-			json_object_string_add(jo, "vrf", bs->vrfname);
-	} else {
+	else
 		json_object_boolean_false_add(jo, "multihop");
-		json_object_string_add(jo, "peer", satostr(&bs->shop.peer));
-		if (bs->local_address.sa_sin.sin_family != AF_UNSPEC)
-			json_object_string_add(jo, "local",
-					       satostr(&bs->local_address));
-		if (bs->ifname[0])
-			json_object_string_add(jo, "interface", bs->ifname);
-	}
+
+	json_object_string_add(jo, "peer",
+			       inet_ntop(bs->key.family, &bs->key.peer,
+					 addr_buf, sizeof(addr_buf)));
+	if (memcmp(&bs->key.local, &zero_addr, sizeof(bs->key.local)))
+		json_object_string_add(jo, "local",
+				       inet_ntop(bs->key.family, &bs->key.local,
+						 addr_buf, sizeof(addr_buf)));
+
+	if (bs->key.vrfname[0])
+		json_object_string_add(jo, "vrf", bs->key.vrfname);
+	if (bs->key.ifname[0])
+		json_object_string_add(jo, "interface", bs->key.ifname);
 
 	if (bs->pl)
 		json_object_string_add(jo, "label", bs->pl->pl_label);
@@ -916,25 +921,29 @@ static int bfdd_write_config(struct vty *vty)
 
 static void _bfdd_peer_write_config(struct vty *vty, struct bfd_session *bs)
 {
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
-		vty_out(vty, " peer %s", satostr(&bs->mhop.peer));
+	char addr_buf[INET6_ADDRSTRLEN];
+
+	vty_out(vty, " peer %s",
+		inet_ntop(bs->key.family, &bs->key.peer, addr_buf,
+			  sizeof(addr_buf)));
+
+	if (bs->key.mhop)
 		vty_out(vty, " multihop");
-		vty_out(vty, " local-address %s", satostr(&bs->mhop.local));
-		if (bs->vrfname[0])
-			vty_out(vty, " vrf %s", bs->vrfname);
-		vty_out(vty, "\n");
-	} else {
-		vty_out(vty, " peer %s", satostr(&bs->shop.peer));
-		if (bs->local_address.sa_sin.sin_family != AF_UNSPEC)
-			vty_out(vty, " local-address %s",
-				satostr(&bs->local_address));
-		if (bs->ifname[0])
-			vty_out(vty, " interface %s", bs->ifname);
-		vty_out(vty, "\n");
-	}
+
+	if (memcmp(&bs->key.local, &zero_addr, sizeof(bs->key.local)))
+		vty_out(vty, " local-address %s",
+			inet_ntop(bs->key.family, &bs->key.local, addr_buf,
+				  sizeof(addr_buf)));
+
+	if (bs->key.vrfname[0])
+		vty_out(vty, " vrf %s", bs->key.vrfname);
+	if (bs->key.ifname[0])
+		vty_out(vty, " interface %s", bs->key.ifname);
+	vty_out(vty, "\n");
 
 	if (bs->sock == -1)
-		vty_out(vty, "  ! vrf or interface doesn't exist\n");
+		vty_out(vty,
+			"  ! vrf, interface or local-address doesn't exist\n");
 
 	if (bs->detect_mult != BPC_DEF_DETECTMULTIPLIER)
 		vty_out(vty, "  detect-multiplier %d\n", bs->detect_mult);
@@ -980,16 +989,7 @@ static void _bfdd_peer_write_config_iter(struct hash_bucket *hb, void *arg)
 
 static int bfdd_peer_write_config(struct vty *vty)
 {
-	struct bfd_session_observer *bso;
-
 	bfd_id_iterate(_bfdd_peer_write_config_iter, vty);
-	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
-		/* Only print disabled sessions here. */
-		if (bso->bso_bs->sock != -1)
-			continue;
-
-		_bfdd_peer_write_config(vty, bso->bso_bs);
-	}
 
 	return 1;
 }
