@@ -771,19 +771,23 @@ static int bgp_clear_vty(struct vty *vty, const char *name, afi_t afi,
 /* clear soft inbound */
 static void bgp_clear_star_soft_in(struct vty *vty, const char *name)
 {
-	bgp_clear_vty(vty, name, AFI_IP, SAFI_UNICAST, clear_all,
-		      BGP_CLEAR_SOFT_IN, NULL);
-	bgp_clear_vty(vty, name, AFI_IP6, SAFI_UNICAST, clear_all,
-		      BGP_CLEAR_SOFT_IN, NULL);
+	afi_t afi;
+	safi_t safi;
+
+	FOREACH_AFI_SAFI (afi, safi)
+		bgp_clear_vty(vty, name, afi, safi, clear_all,
+			      BGP_CLEAR_SOFT_IN, NULL);
 }
 
 /* clear soft outbound */
 static void bgp_clear_star_soft_out(struct vty *vty, const char *name)
 {
-	bgp_clear_vty(vty, name, AFI_IP, SAFI_UNICAST, clear_all,
-		      BGP_CLEAR_SOFT_OUT, NULL);
-	bgp_clear_vty(vty, name, AFI_IP6, SAFI_UNICAST, clear_all,
-		      BGP_CLEAR_SOFT_OUT, NULL);
+	afi_t afi;
+	safi_t safi;
+
+	FOREACH_AFI_SAFI (afi, safi)
+		bgp_clear_vty(vty, name, afi, safi, clear_all,
+			      BGP_CLEAR_SOFT_OUT, NULL);
 }
 
 
