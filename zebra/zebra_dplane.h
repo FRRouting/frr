@@ -203,8 +203,9 @@ const struct nexthop_group *dplane_ctx_get_old_ng(
 mpls_label_t dplane_ctx_get_in_label(const struct zebra_dplane_ctx *ctx);
 uint8_t dplane_ctx_get_addr_family(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_lsp_flags(const struct zebra_dplane_ctx *ctx);
-zebra_nhlfe_t *dplane_ctx_get_nhlfe(struct zebra_dplane_ctx *ctx);
-zebra_nhlfe_t *dplane_ctx_get_best_nhlfe(struct zebra_dplane_ctx *ctx);
+const zebra_nhlfe_t *dplane_ctx_get_nhlfe(const struct zebra_dplane_ctx *ctx);
+const zebra_nhlfe_t *dplane_ctx_get_best_nhlfe(
+	const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_lsp_num_ecmp(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for pseudowire information */
@@ -215,9 +216,11 @@ int dplane_ctx_get_pw_type(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_get_pw_af(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_pw_flags(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_get_pw_status(const struct zebra_dplane_ctx *ctx);
-const union g_addr *dplane_ctx_get_pw_nexthop(
+const union g_addr *dplane_ctx_get_pw_dest(
 	const struct zebra_dplane_ctx *ctx);
 const union pw_protocol_fields *dplane_ctx_get_pw_proto(
+	const struct zebra_dplane_ctx *ctx);
+const struct nexthop_group *dplane_ctx_get_pw_nhg(
 	const struct zebra_dplane_ctx *ctx);
 
 /* Namespace info - esp. for netlink communication */
