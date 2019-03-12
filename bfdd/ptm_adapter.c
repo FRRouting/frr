@@ -634,6 +634,48 @@ static int bfdd_interface_vrf_update(int command __attribute__((__unused__)),
 	return 0;
 }
 
+static void bfdd_sessions_enable_address(struct connected *ifc)
+{
+	struct bfd_session_observer *bso;
+	struct bfd_session *bs;
+	struct prefix prefix;
+
+	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
+		if (bso->bso_isaddress == false)
+			continue;
+
+		/* Skip enabled sessions. */
+		bs = bso->bso_bs;
+		if (bs->sock != -1)
+			continue;
+
+		/* Check address. */
+		prefix = bso->bso_addr;
+		prefix.prefixlen = ifc->address->prefixlen;
+		if (prefix_cmp(&prefix, ifc->address))
+			continue;
+
+		/* Try to enable it. */
+		bfd_session_enable(bs);
+	}
+}
+
+static int bfdd_interface_address_update(int cmd, struct zclient *zc,
+					 zebra_size_t len
+					 __attribute__((__unused__)),
+					 vrf_id_t vrfid)
+{
+	struct connected *ifc;
+
+	ifc = zebra_interface_address_read(cmd, zc->ibuf, vrfid);
+	if (ifc == NULL)
+		return 0;
+
+	bfdd_sessions_enable_address(ifc);
+
+	return 0;
+}
+
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 {
 	zclient = zclient_new(master, &zclient_options_default);
@@ -656,6 +698,10 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 
 	/* Learn about interface VRF. */
 	zclient->interface_vrf_update = bfdd_interface_vrf_update;
+
+	/* Learn about new addresses being registered. */
+	zclient->interface_address_add = bfdd_interface_address_update;
+	zclient->interface_address_delete = bfdd_interface_address_update;
 }
 
 void bfdd_zclient_stop(void)

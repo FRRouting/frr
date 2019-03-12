@@ -162,6 +162,13 @@ int bfd_session_enable(struct bfd_session *bs)
 	    && BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) == 0)
 		bs->ifp = ifp;
 
+	/* Sanity check: don't leak open sockets. */
+	if (bs->sock != -1) {
+		zlog_debug("session-enable: previous socket open");
+		close(bs->sock);
+		bs->sock = -1;
+	}
+
 	/*
 	 * Get socket for transmitting control packets.  Note that if we
 	 * could use the destination port (3784) for the source
@@ -170,11 +177,11 @@ int bfd_session_enable(struct bfd_session *bs)
 	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6) == 0) {
 		psock = bp_peer_socket(bs);
 		if (psock == -1)
-			return -1;
+			return 0;
 	} else {
 		psock = bp_peer_socketv6(bs);
 		if (psock == -1)
-			return -1;
+			return 0;
 	}
 
 	/*
@@ -662,10 +669,6 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 		strlcpy(bfd->key.vrfname, bpc->bpc_vrfname,
 			sizeof(bfd->key.vrfname));
 
-	/* Add observer if we have moving parts. */
-	if (bfd->key.ifname[0] || bfd->key.vrfname[0])
-		bs_observer_add(bfd);
-
 	/* Copy remaining data. */
 	if (bpc->bpc_ipv4 == false)
 		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6);
@@ -707,6 +710,10 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 		bfd_session_free(bfd);
 		return NULL;
 	}
+
+	/* Add observer if we have moving parts. */
+	if (bfd->key.ifname[0] || bfd->key.vrfname[0] || bfd->sock == -1)
+		bs_observer_add(bfd);
 
 	/* Apply other configurations. */
 	_bfd_session_update(bfd, bpc);
@@ -1189,6 +1196,14 @@ int bs_observer_add(struct bfd_session *bs)
 	else
 		strlcpy(bso->bso_entryname, bs->key.vrfname,
 			sizeof(bso->bso_entryname));
+
+	/* Handle socket binding failures caused by missing local addresses. */
+	if (bs->sock == -1) {
+		bso->bso_isaddress = true;
+		bso->bso_addr.family = bs->key.family;
+		memcpy(&bso->bso_addr.u.prefix, &bs->key.local,
+		       sizeof(bs->key.local));
+	}
 
 	TAILQ_INSERT_TAIL(&bglobal.bg_obslist, bso, bso_entry);
 

@@ -942,7 +942,8 @@ static void _bfdd_peer_write_config(struct vty *vty, struct bfd_session *bs)
 	vty_out(vty, "\n");
 
 	if (bs->sock == -1)
-		vty_out(vty, "  ! vrf or interface doesn't exist\n");
+		vty_out(vty,
+			"  ! vrf, interface or local-address doesn't exist\n");
 
 	if (bs->detect_mult != BPC_DEF_DETECTMULTIPLIER)
 		vty_out(vty, "  detect-multiplier %d\n", bs->detect_mult);
