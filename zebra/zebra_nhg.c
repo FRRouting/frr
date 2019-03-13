@@ -256,7 +256,7 @@ struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
 			 */
 			flog_warn(
 				EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
-				"Nexthop Group from kernel with ID (%d) is a duplicate, ignoring",
+				"Nexthop Group from with ID (%d) is a duplicate, ignoring",
 				id);
 			return NULL;
 		}
