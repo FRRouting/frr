@@ -119,7 +119,7 @@ ssize_t vrrp_pkt_adver_build(struct vrrp_pkt **pkt, struct ipaddr *src,
 		addrsz = IPADDRSZ(ips[0]);
 	}
 
-	size_t pktsize = VRRP_PKT_SIZE(v6 ? AF_INET6 : AF_INET, numip);
+	size_t pktsize = VRRP_PKT_SIZE(v6 ? AF_INET6 : AF_INET, version, numip);
 	*pkt = XCALLOC(MTYPE_VRRP_PKT, pktsize);
 
 	(*pkt)->hdr.vertype |= version << 4;
@@ -283,9 +283,10 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 	VRRP_PKT_VCHECK(((*pkt)->hdr.vertype & 0x0F) == 1, "Bad type %" PRIu8,
 			(*pkt)->hdr.vertype & 0x0f);
 
-	/* # addresses check */
-	size_t ves = VRRP_PKT_SIZE(family, (*pkt)->hdr.naddr);
-	VRRP_PKT_VCHECK(pktsize == ves, "Packet has incorrect # addresses");
+	/* Exact size check */
+	size_t ves = VRRP_PKT_SIZE(family, pktver, (*pkt)->hdr.naddr);
+	VRRP_PKT_VCHECK(pktsize == ves, "Packet has incorrect # addresses%s",
+			pktver == 2 ? " or missing auth fields" : "");
 
 	/* auth type check */
 	if (version == 2)

@@ -70,6 +70,10 @@ struct vrrp_pkt {
 	 * When used, this is actually an array of one or the other, not an
 	 * array of union. If N v4 addresses are stored then
 	 * sizeof(addrs) == N * sizeof(struct in_addr).
+	 *
+	 * Under v2, the last 2 entries in this array are the authentication
+	 * data fields. We don't support auth in v2 so these are always just 8
+	 * bytes of 0x00.
 	 */
 	union {
 		struct in_addr v4;
@@ -77,17 +81,18 @@ struct vrrp_pkt {
 	} addrs[];
 } __attribute__((packed));
 
-#define VRRP_PKT_SIZE(_f, _naddr)                                              \
+#define VRRP_PKT_SIZE(_f, _ver, _naddr)                                        \
 	({                                                                     \
 		size_t _asz = ((_f) == AF_INET) ? sizeof(struct in_addr)       \
 						: sizeof(struct in6_addr);     \
-		sizeof(struct vrrp_hdr) + (_asz * (_naddr));                   \
+		size_t _auth = 2 * sizeof(uint32_t) * (3 - (_ver));            \
+		sizeof(struct vrrp_hdr) + (_asz * (_naddr)) + _auth;           \
 	})
 
-#define VRRP_MIN_PKT_SIZE_V4 VRRP_PKT_SIZE(AF_INET, 1)
-#define VRRP_MAX_PKT_SIZE_V4 VRRP_PKT_SIZE(AF_INET, 255)
-#define VRRP_MIN_PKT_SIZE_V6 VRRP_PKT_SIZE(AF_INET6, 1)
-#define VRRP_MAX_PKT_SIZE_V6 VRRP_PKT_SIZE(AF_INET6, 255)
+#define VRRP_MIN_PKT_SIZE_V4 VRRP_PKT_SIZE(AF_INET, 3, 1)
+#define VRRP_MAX_PKT_SIZE_V4 VRRP_PKT_SIZE(AF_INET, 2, 255)
+#define VRRP_MIN_PKT_SIZE_V6 VRRP_PKT_SIZE(AF_INET6, 3, 1)
+#define VRRP_MAX_PKT_SIZE_V6 VRRP_PKT_SIZE(AF_INET6, 3, 255)
 
 #define VRRP_MIN_PKT_SIZE VRRP_MIN_PKT_SIZE_V4
 #define VRRP_MAX_PKT_SIZE VRRP_MAX_PKT_SIZE_V6
