@@ -3513,7 +3513,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 					    oi->output_cost);
 			json_object_int_add(
 				json_interface_sub, "transmitDelayMsecs",
-				1000 / OSPF_IF_PARAM(oi, transmit_delay));
+				OSPF_IF_PARAM(oi, transmit_delay) / 1000);
 			json_object_string_add(json_interface_sub, "state",
 					       lookup_msg(ospf_ism_state_msg,
 							  oi->state, NULL));
@@ -3617,20 +3617,20 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			if (OSPF_IF_PARAM(oi, fast_hello) == 0)
 				json_object_int_add(
 					json_interface_sub, "timerMsecs",
-					1000 / OSPF_IF_PARAM(oi, v_hello));
+					OSPF_IF_PARAM(oi, v_hello) / 1000);
 			else
 				json_object_int_add(
 					json_interface_sub, "timerMsecs",
-					1000 / OSPF_IF_PARAM(oi, fast_hello));
+					OSPF_IF_PARAM(oi, fast_hello) / 1000);
 			json_object_int_add(json_interface_sub,
 					    "timerDeadMsecs",
-					    1000 / OSPF_IF_PARAM(oi, v_wait));
+					    OSPF_IF_PARAM(oi, v_wait) / 1000);
 			json_object_int_add(json_interface_sub,
 					    "timerWaitMsecs",
-					    1000 / OSPF_IF_PARAM(oi, v_wait));
+					    OSPF_IF_PARAM(oi, v_wait) / 1000);
 			json_object_int_add(
 				json_interface_sub, "timerRetransmit",
-				1000 / OSPF_IF_PARAM(oi, retransmit_interval));
+				OSPF_IF_PARAM(oi, retransmit_interval) / 1000);
 		} else {
 			vty_out(vty, "  Timer intervals configured,");
 			vty_out(vty, " Hello ");
