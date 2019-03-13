@@ -1018,11 +1018,12 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	    && memcmp(RTA_DATA(tb[IFA_ADDRESS]), RTA_DATA(tb[IFA_LOCAL]),
 		      RTA_PAYLOAD(tb[IFA_ADDRESS]))) {
 		broad = RTA_DATA(tb[IFA_ADDRESS]);
-		SET_FLAG(flags, ZEBRA_IFA_PEER);
 	} else
 		/* seeking a broadcast address */
 		broad = (tb[IFA_BROADCAST] ? RTA_DATA(tb[IFA_BROADCAST])
 					   : NULL);
+	if (broad)
+		SET_FLAG(flags, ZEBRA_IFA_PEER);
 
 	/* addr is primary key, SOL if we don't have one */
 	if (addr == NULL) {
