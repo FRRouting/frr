@@ -96,9 +96,6 @@ static void *zebra_nhg_alloc(void *arg)
 			id_counter = copy->id;
 		}
 		nhe->id = copy->id;
-		/* Mark as valid since from the kernel */
-		SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
-		SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 	} else {
 		nhe->id = ++id_counter;
 	}

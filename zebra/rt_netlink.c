@@ -2324,7 +2324,9 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			// TODO: Don't add dupes
 			nhe_connected_add(ifp, nhe);
 		}
+
 		SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+		SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 
 	} else if (h->nlmsg_type == RTM_DELNEXTHOP) {
 		if (!nhe) {
