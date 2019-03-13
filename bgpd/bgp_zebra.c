@@ -1820,6 +1820,29 @@ int bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
 	return CMD_SUCCESS;
 }
 
+void bgp_redistribute_redo(struct bgp *bgp)
+{
+	afi_t afi;
+	int i;
+	struct list *red_list;
+	struct listnode *node;
+	struct bgp_redist *red;
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+
+			red_list = bgp->redist[afi][i];
+			if (!red_list)
+				continue;
+
+			for (ALL_LIST_ELEMENTS_RO(red_list, node, red)) {
+				bgp_redistribute_resend(bgp, afi, i,
+							red->instance);
+			}
+		}
+	}
+}
+
 /* Update redistribute vrf bitmap during triggers like
    restart networking or delete/add VRFs */
 void bgp_update_redist_vrf_bitmaps(struct bgp *bgp, vrf_id_t old_vrf_id)
