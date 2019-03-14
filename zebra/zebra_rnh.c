@@ -383,7 +383,7 @@ static void zebra_rnh_eval_import_check_entry(vrf_id_t vrfid, afi_t afi,
 	if (state_changed || force) {
 		if (IS_ZEBRA_DEBUG_NHT) {
 			prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
-			zlog_debug("%u:%s: Route import check %s %s\n", vrfid,
+			zlog_debug("%u:%s: Route import check %s %s", vrfid,
 				   bufn, rnh->state ? "passed" : "failed",
 				   state_changed ? "(state changed)" : "");
 		}
@@ -775,7 +775,7 @@ void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
 
 	table = get_rnh_table(vrfid, afi, type);
 	if (!table) {
-		zlog_debug("print_rnhs: rnh table not found\n");
+		zlog_debug("print_rnhs: rnh table not found");
 		return;
 	}
 
@@ -1025,7 +1025,7 @@ static int zebra_cleanup_rnh_client(vrf_id_t vrf_id, afi_t afi,
 
 	ntable = get_rnh_table(vrf_id, afi, type);
 	if (!ntable) {
-		zlog_debug("cleanup_rnh_client: rnh table not found\n");
+		zlog_debug("cleanup_rnh_client: rnh table not found");
 		return -1;
 	}
 

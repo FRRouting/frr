@@ -1600,7 +1600,7 @@ static int ospf_sr_update_schedule(struct thread *t)
 	monotime(&stop_time);
 
 	if (IS_DEBUG_OSPF_SR)
-		zlog_debug("SR (%s): SPF Processing Time(usecs): %lld\n",
+		zlog_debug("SR (%s): SPF Processing Time(usecs): %lld",
 			   __func__,
 			   (stop_time.tv_sec - start_time.tv_sec) * 1000000LL
 				   + (stop_time.tv_usec - start_time.tv_usec));

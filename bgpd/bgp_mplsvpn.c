@@ -995,7 +995,7 @@ void vpn_leak_from_vrf_withdraw_all(struct bgp *bgp_vpn, /* to */
 				    == bgp_vrf) {
 					/* delete route */
 					if (debug)
-						zlog_debug("%s: deleting it\n",
+						zlog_debug("%s: deleting it",
 							   __func__);
 					bgp_aggregate_decrement(bgp_vpn, &bn->p,
 								bpi, afi, safi);

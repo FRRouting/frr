@@ -2504,7 +2504,7 @@ static int zclient_read(struct thread *thread)
 	length -= ZEBRA_HEADER_SIZE;
 
 	if (zclient_debug)
-		zlog_debug("zclient 0x%p command 0x%x VRF %u\n",
+		zlog_debug("zclient 0x%p command 0x%x VRF %u",
 			   (void *)zclient, command, vrf_id);
 
 	switch (command) {
@@ -2574,14 +2574,14 @@ static int zclient_read(struct thread *thread)
 		break;
 	case ZEBRA_NEXTHOP_UPDATE:
 		if (zclient_debug)
-			zlog_debug("zclient rcvd nexthop update\n");
+			zlog_debug("zclient rcvd nexthop update");
 		if (zclient->nexthop_update)
 			(*zclient->nexthop_update)(command, zclient, length,
 						   vrf_id);
 		break;
 	case ZEBRA_IMPORT_CHECK_UPDATE:
 		if (zclient_debug)
-			zlog_debug("zclient rcvd import check update\n");
+			zlog_debug("zclient rcvd import check update");
 		if (zclient->import_check_update)
 			(*zclient->import_check_update)(command, zclient,
 							length, vrf_id);
@@ -2608,7 +2608,7 @@ static int zclient_read(struct thread *thread)
 		break;
 	case ZEBRA_FEC_UPDATE:
 		if (zclient_debug)
-			zlog_debug("zclient rcvd fec update\n");
+			zlog_debug("zclient rcvd fec update");
 		if (zclient->fec_update)
 			(*zclient->fec_update)(command, zclient, length);
 		break;

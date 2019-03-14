@@ -475,7 +475,7 @@ void ospf6_spf_calculation(uint32_t router_id,
 	lsa = ospf6_create_single_router_lsa(oa, oa->lsdb_self, router_id);
 	if (lsa == NULL) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug("%s: No router LSA for area %s\n", __func__,
+			zlog_debug("%s: No router LSA for area %s", __func__,
 				   oa->name);
 		return;
 	}

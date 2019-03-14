@@ -1372,14 +1372,14 @@ static uint16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh)
 	}
 
 	else {
-		zlog_debug("  Segment Routing Algorithm TLV:\n");
+		zlog_debug("  Segment Routing Algorithm TLV:");
 		for (i = 0; i < ntohs(algo->header.length); i++)
 			switch (algo->value[i]) {
 			case 0:
-				zlog_debug("    Algorithm %d: SPF\n", i);
+				zlog_debug("    Algorithm %d: SPF", i);
 				break;
 			case 1:
-				zlog_debug("    Algorithm %d: Strict SPF\n", i);
+				zlog_debug("    Algorithm %d: Strict SPF", i);
 				break;
 			default:
 				zlog_debug(

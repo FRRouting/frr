@@ -622,7 +622,7 @@ int ifm_read(struct if_msghdr *ifm)
 		 * RTA_IFP) is required.
 		 */
 		if (!ifnlen) {
-			zlog_debug("Interface index %d (new) missing ifname\n",
+			zlog_debug("Interface index %d (new) missing ifname",
 				   ifm->ifm_index);
 			return -1;
 		}

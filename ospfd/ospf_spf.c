@@ -1140,13 +1140,13 @@ ospf_rtrs_print (struct route_table *rtrs)
               if (path->nexthop.s_addr == 0)
                 {
                   if (IS_DEBUG_OSPF_EVENT)
-                    zlog_debug ("   directly attached to %s\r\n",
+                    zlog_debug ("   directly attached to %s\r",
 				ifindex2ifname (path->ifindex), VRF_DEFAULT);
                 }
               else
                 {
                   if (IS_DEBUG_OSPF_EVENT)
-                    zlog_debug ("   via %s, %s\r\n",
+                    zlog_debug ("   via %s, %s\r",
 				inet_ntoa (path->nexthop),
 				ifindex2ifname (path->ifindex), VRF_DEFAULT);
                 }
