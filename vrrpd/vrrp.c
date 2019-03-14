@@ -373,6 +373,7 @@ int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip)
 	int af = (ip->ipa_type == IPADDR_V6) ? AF_INET6 : AF_INET;
 
 	assert(r->family == af);
+	assert(!(r->vr->version == 2 && ip->ipa_type == IPADDR_V6));
 
 	if (vrrp_has_ip(r->vr, ip))
 		return 0;
@@ -416,6 +417,8 @@ int vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
 
 int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
 {
+	assert(vr->version != 2);
+
 	struct ipaddr ip;
 	ip.ipa_type = IPADDR_V6;
 	ip.ipaddr_v6 = v6;
@@ -1649,7 +1652,7 @@ static void vrrp_autoconfig_autoaddrupdate(struct vrrp_router *r)
 			       r->vr->vrid, family2str(r->family), ipbuf);
 			if (r->family == AF_INET)
 				vrrp_add_ipv4(r->vr, c->address->u.prefix4);
-			else
+			else if (r->vr->version == 3)
 				vrrp_add_ipv6(r->vr, c->address->u.prefix6);
 		}
 	}
