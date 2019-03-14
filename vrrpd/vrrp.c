@@ -304,6 +304,9 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 	r = vr->v6;
 	/* Must not already be started */
 	start = r->fsm.state == VRRP_STATE_INITIALIZE;
+	/* Must not be v2 */
+	start = vr->version != 2;
+	whynot = (!start && !whynot) ? "VRRPv2 does not support v6" : NULL;
 	/* Must have a parent interface */
 	start = start && (vr->ifp != NULL);
 	whynot = (!start && !whynot) ? "No base interface" : NULL;
