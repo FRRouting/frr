@@ -624,6 +624,92 @@ static int vrrp_adver_timer_expire(struct thread *thread);
 static int vrrp_master_down_timer_expire(struct thread *thread);
 
 /*
+ * Finds the first connected address of the appropriate family on a VRRP
+ * router's interface and binds the Tx socket of the VRRP router to that
+ * address.
+ *
+ * Also sets src field of vrrp_router.
+ *
+ * r
+ *    VRRP router to operate on
+ *
+ * Returns:
+ *     0 on success
+ *    -1 on failure
+ */
+static int vrrp_bind_to_primary_connected(struct vrrp_router *r)
+{
+	char ipstr[INET6_ADDRSTRLEN];
+	struct interface *ifp;
+
+	/*
+	 * A slight quirk: the RFC specifies that advertisements under IPv6 must
+	 * be transmitted using the link local address of the source interface
+	 */
+	ifp = r->family == AF_INET ? r->vr->ifp : r->mvl_ifp;
+
+	struct listnode *ln;
+	struct connected *c = NULL;
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, ln, c))
+		if (c->address->family == r->family) {
+			if (r->family == AF_INET6
+			    && IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
+				break;
+			else if (r->family == AF_INET)
+				break;
+		}
+
+	if (c == NULL) {
+		zlog_err(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
+			 "Failed to find address to bind on %s",
+			 r->vr->vrid, family2str(r->family), ifp->name);
+		return -1;
+	}
+
+	union sockunion su;
+	memset(&su, 0x00, sizeof(su));
+
+	switch (r->family) {
+	case AF_INET:
+		r->src.ipa_type = IPADDR_V4;
+		r->src.ipaddr_v4 = c->address->u.prefix4;
+		su.sin.sin_family = AF_INET;
+		su.sin.sin_addr = c->address->u.prefix4;
+		break;
+	case AF_INET6:
+		r->src.ipa_type = IPADDR_V6;
+		r->src.ipaddr_v6 = c->address->u.prefix6;
+		su.sin6.sin6_family = AF_INET6;
+		su.sin6.sin6_scope_id = ifp->ifindex;
+		su.sin6.sin6_addr = c->address->u.prefix6;
+		break;
+	}
+
+	sockopt_reuseaddr(r->sock_tx);
+	if (bind(r->sock_tx, (const struct sockaddr *)&su, sizeof(su)) < 0) {
+		zlog_err(
+			VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
+			"Failed to bind Tx socket to primary IP address %s: %s",
+			r->vr->vrid, family2str(r->family),
+			inet_ntop(r->family,
+				  (const void *)&c->address->u.prefix, ipstr,
+				  sizeof(ipstr)),
+			safe_strerror(errno));
+		return -1;
+	} else {
+		DEBUGD(&vrrp_dbg_sock,
+		       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
+		       "Bound Tx socket to primary IP address %s",
+		       r->vr->vrid, family2str(r->family),
+		       inet_ntop(r->family, (const void *)&c->address->u.prefix,
+				 ipstr, sizeof(ipstr)));
+	}
+
+	return 0;
+}
+
+
+/*
  * Create and multicast a VRRP ADVERTISEMENT message.
  *
  * r
@@ -635,6 +721,10 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 	ssize_t pktsz;
 	struct ipaddr *addrs[r->addrs->count];
 	union sockunion dest;
+
+	if (r->src.ipa_type == IPADDR_NONE
+	    && vrrp_bind_to_primary_connected(r) < 0)
+		return;
 
 	list_to_array(r->addrs, (void **)addrs, r->addrs->count);
 
@@ -899,91 +989,6 @@ done:
 
 	if (resched)
 		thread_add_read(master, vrrp_read, r, r->sock_rx, &r->t_read);
-
-	return 0;
-}
-
-/*
- * Finds the first connected address of the appropriate family on a VRRP
- * router's interface and binds the Tx socket of the VRRP router to that
- * address.
- *
- * Also sets src field of vrrp_router.
- *
- * r
- *    VRRP router to operate on
- *
- * Returns:
- *     0 on success
- *    -1 on failure
- */
-static int vrrp_bind_to_primary_connected(struct vrrp_router *r)
-{
-	char ipstr[INET6_ADDRSTRLEN];
-	struct interface *ifp;
-
-	/*
-	 * A slight quirk: the RFC specifies that advertisements under IPv6 must
-	 * be transmitted using the link local address of the source interface
-	 */
-	ifp = r->family == AF_INET ? r->vr->ifp : r->mvl_ifp;
-
-	struct listnode *ln;
-	struct connected *c = NULL;
-	for (ALL_LIST_ELEMENTS_RO(ifp->connected, ln, c))
-		if (c->address->family == r->family) {
-			if (r->family == AF_INET6
-			    && IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
-				break;
-			else if (r->family == AF_INET)
-				break;
-		}
-
-	if (c == NULL) {
-		zlog_err(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
-			 "Failed to find address to bind on %s",
-			 r->vr->vrid, family2str(r->family), ifp->name);
-		return -1;
-	}
-
-	union sockunion su;
-	memset(&su, 0x00, sizeof(su));
-
-	switch (r->family) {
-	case AF_INET:
-		r->src.ipa_type = IPADDR_V4;
-		r->src.ipaddr_v4 = c->address->u.prefix4;
-		su.sin.sin_family = AF_INET;
-		su.sin.sin_addr = c->address->u.prefix4;
-		break;
-	case AF_INET6:
-		r->src.ipa_type = IPADDR_V6;
-		r->src.ipaddr_v6 = c->address->u.prefix6;
-		su.sin6.sin6_family = AF_INET6;
-		su.sin6.sin6_scope_id = ifp->ifindex;
-		su.sin6.sin6_addr = c->address->u.prefix6;
-		break;
-	}
-
-	sockopt_reuseaddr(r->sock_tx);
-	if (bind(r->sock_tx, (const struct sockaddr *)&su, sizeof(su)) < 0) {
-		zlog_err(
-			VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
-			"Failed to bind Tx socket to primary IP address %s: %s",
-			r->vr->vrid, family2str(r->family),
-			inet_ntop(r->family,
-				  (const void *)&c->address->u.prefix, ipstr,
-				  sizeof(ipstr)),
-			safe_strerror(errno));
-		return -1;
-	} else {
-		DEBUGD(&vrrp_dbg_sock,
-		       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
-		       "Bound Tx socket to primary IP address %s",
-		       r->vr->vrid, family2str(r->family),
-		       inet_ntop(r->family, (const void *)&c->address->u.prefix,
-				 ipstr, sizeof(ipstr)));
-	}
 
 	return 0;
 }
@@ -1328,6 +1333,7 @@ static void vrrp_change_state_backup(struct vrrp_router *r)
 	r->advert_pending = false;
 	r->garp_pending = false;
 	r->ndisc_pending = false;
+	memset(&r->src, 0x00, sizeof(r->src));
 
 	vrrp_zclient_send_interface_protodown(r->mvl_ifp, true);
 }
@@ -1559,6 +1565,9 @@ static int vrrp_shutdown(struct vrrp_router *r)
 
 	/* Protodown macvlan */
 	vrrp_zclient_send_interface_protodown(r->mvl_ifp, true);
+
+	/* Throw away our source address */
+	memset(&r->src, 0x00, sizeof(r->src));
 
 	if (r->sock_rx > 0) {
 		close(r->sock_rx);
