@@ -261,6 +261,7 @@ static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
 		break;
 	case AF_INET6:
 		sa->sa_sin6.sin6_port = 0;
+		sa->sa_sin6.sin6_scope_id = 0;
 		if (memcmp(sa, &bs->shop.peer, sizeof(sa->sa_sin6)) == 0)
 			return bs;
 		break;
@@ -579,15 +580,8 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 		ptm_bfd_fetch_local_mac(bpc->bpc_localif, bfd->local_mac);
 	}
 
-	if (bpc->bpc_ipv4 == false) {
+	if (bpc->bpc_ipv4 == false)
 		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6);
-
-		/* Set the IPv6 scope id for link-local addresses. */
-		if (IN6_IS_ADDR_LINKLOCAL(&bpc->bpc_local.sa_sin6.sin6_addr))
-			bpc->bpc_local.sa_sin6.sin6_scope_id = bfd->ifindex;
-		if (IN6_IS_ADDR_LINKLOCAL(&bpc->bpc_peer.sa_sin6.sin6_addr))
-			bpc->bpc_peer.sa_sin6.sin6_scope_id = bfd->ifindex;
-	}
 
 	/* Initialize the session */
 	bfd->ses_state = PTM_BFD_DOWN;
@@ -963,6 +957,7 @@ static void _shop_key(struct bfd_session *bs, const struct bfd_shop_key *shop)
 		break;
 	case AF_INET6:
 		bs->shop.peer.sa_sin6.sin6_port = 0;
+		bs->shop.peer.sa_sin6.sin6_scope_id = 0;
 		break;
 	}
 }
@@ -985,7 +980,9 @@ static void _mhop_key(struct bfd_session *bs, const struct bfd_mhop_key *mhop)
 		break;
 	case AF_INET6:
 		bs->mhop.peer.sa_sin6.sin6_port = 0;
+		bs->mhop.peer.sa_sin6.sin6_scope_id = 0;
 		bs->mhop.local.sa_sin6.sin6_port = 0;
+		bs->mhop.local.sa_sin6.sin6_scope_id = 0;
 		break;
 	}
 }
