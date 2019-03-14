@@ -112,12 +112,13 @@ ssize_t vrrp_pkt_adver_build(struct vrrp_pkt **pkt, struct ipaddr *src,
 	size_t addrsz = 0;
 
 	assert(version >= 2 && version <= 3);
-	assert(!(version == 2 && v6));
 
 	if (numip > 0) {
 		v6 = IS_IPADDR_V6(ips[0]);
 		addrsz = IPADDRSZ(ips[0]);
 	}
+
+	assert(!(version == 2 && v6));
 
 	size_t pktsize = VRRP_PKT_SIZE(v6 ? AF_INET6 : AF_INET, version, numip);
 	*pkt = XCALLOC(MTYPE_VRRP_PKT, pktsize);
