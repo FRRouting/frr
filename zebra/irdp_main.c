@@ -241,7 +241,7 @@ int irdp_send_thread(struct thread *t_advert)
 		timer = MAX_INITIAL_ADVERT_INTERVAL;
 
 	if (irdp->flags & IF_DEBUG_MISC)
-		zlog_debug("IRDP: New timer for %s set to %u\n", ifp->name,
+		zlog_debug("IRDP: New timer for %s set to %u", ifp->name,
 			   timer);
 
 	irdp->t_advertise = NULL;

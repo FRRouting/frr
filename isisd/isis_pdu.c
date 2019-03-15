@@ -131,7 +131,7 @@ static int process_p2p_hello(struct iih_info *iih)
 	if (tw_adj) {
 		if (tw_adj->state > ISIS_THREEWAY_DOWN) {
 			if (isis->debugs & DEBUG_ADJ_PACKETS) {
-				zlog_debug("ISIS-Adj (%s): Rcvd P2P IIH from (%s) with invalid three-way state: %d\n",
+				zlog_debug("ISIS-Adj (%s): Rcvd P2P IIH from (%s) with invalid three-way state: %d",
 					   iih->circuit->area->area_tag,
 					   iih->circuit->interface->name,
 					   tw_adj->state);
@@ -144,7 +144,7 @@ static int process_p2p_hello(struct iih_info *iih)
 			|| tw_adj->neighbor_circuit_id != (uint32_t) iih->circuit->idx)) {
 
 			if (isis->debugs & DEBUG_ADJ_PACKETS) {
-				zlog_debug("ISIS-Adj (%s): Rcvd P2P IIH from (%s) which lists IS/Circuit different from us as neighbor.\n",
+				zlog_debug("ISIS-Adj (%s): Rcvd P2P IIH from (%s) which lists IS/Circuit different from us as neighbor.",
 					   iih->circuit->area->area_tag,
 					   iih->circuit->interface->name);
 			}
@@ -1523,7 +1523,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 	}
 
 	if (fabricd_initial_sync_is_complete(circuit->area) && resync_needed)
-		zlog_warn("OpenFabric: Needed to resync LSPDB using CSNP!\n");
+		zlog_warn("OpenFabric: Needed to resync LSPDB using CSNP!");
 
 	retval = ISIS_OK;
 out:

@@ -901,7 +901,7 @@ static struct ospf_lsa *lsdb_lookup_next(struct ospf_area *area, uint8_t *type,
 	/* Sanity check, if LSA type unknwon
 	   merley skip any LSA */
 	if ((i < OSPF_MIN_LSA) || (i >= OSPF_MAX_LSA)) {
-		zlog_debug("Strange request with LSA type %d\n", i);
+		zlog_debug("Strange request with LSA type %d", i);
 		return NULL;
 	}
 
