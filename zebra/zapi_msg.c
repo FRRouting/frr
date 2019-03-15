@@ -1456,8 +1456,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				       &(api_nh->gate.ipv4),
 				       sizeof(struct in_addr));
 				zebra_vxlan_evpn_vrf_route_add(
-					vrf_id, &api_nh->rmac, &vtep_ip,
-					&api.prefix);
+					api_nh->vrf_id, &api_nh->rmac,
+					&vtep_ip, &api.prefix);
 			}
 			break;
 		case NEXTHOP_TYPE_IPV6:
@@ -1479,8 +1479,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				memcpy(&vtep_ip.ipaddr_v6, &(api_nh->gate.ipv6),
 				       sizeof(struct in6_addr));
 				zebra_vxlan_evpn_vrf_route_add(
-					vrf_id, &api_nh->rmac, &vtep_ip,
-					&api.prefix);
+					api_nh->vrf_id, &api_nh->rmac,
+					&vtep_ip, &api.prefix);
 			}
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:

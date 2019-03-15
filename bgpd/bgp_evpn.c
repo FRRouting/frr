@@ -2502,6 +2502,9 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	/* Perform route selection and update zebra, if required. */
 	bgp_process(bgp_vrf, rn, afi, safi);
 
+	/* Process for route leaking. */
+	vpn_leak_from_vrf_update(bgp_get_default(), bgp_vrf, pi);
+
 	return ret;
 }
 
@@ -2666,6 +2669,9 @@ static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 
 	if (!pi)
 		return 0;
+
+	/* Process for route leaking. */
+	vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp_vrf, pi);
 
 	bgp_aggregate_decrement(bgp_vrf, &rn->p, pi, afi, safi);
 
@@ -4222,11 +4228,13 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 
 	table = bgp_vrf->rib[afi][safi];
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		/* Only care about "selected" routes - non-imported. */
+		/* Only care about "selected" routes. Also ensure that
+		 * these are routes that are injectable into EVPN.
+		 */
 		/* TODO: Support for AddPath for EVPN. */
 		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
-			    && (!pi->extra || !pi->extra->parent)) {
+			    && is_route_injectable_into_evpn(pi)) {
 				bgp_evpn_withdraw_type5_route(bgp_vrf, &rn->p,
 							      afi, safi);
 				break;
@@ -4293,12 +4301,13 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 	table = bgp_vrf->rib[afi][safi];
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
 		/* Need to identify the "selected" route entry to use its
-		 * attribute. Also, we only consider "non-imported" routes.
+		 * attribute. Also, ensure that the route is injectable
+		 * into EVPN.
 		 * TODO: Support for AddPath for EVPN.
 		 */
 		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
-			    && (!pi->extra || !pi->extra->parent)) {
+			    && is_route_injectable_into_evpn(pi)) {
 
 				/* apply the route-map */
 				if (bgp_vrf->adv_cmd_rmap[afi][safi].map) {
