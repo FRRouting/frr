@@ -2190,6 +2190,7 @@ static zebra_neigh_t *zvni_neigh_add(zebra_vni_t *zvni, struct ipaddr *ip,
 
 	memcpy(&n->emac, mac, ETH_ALEN);
 	n->state = ZEBRA_NEIGH_INACTIVE;
+	n->zvni = zvni;
 
 	/* Associate the neigh to mac */
 	zmac = zvni_mac_lookup(zvni, mac);
