@@ -381,21 +381,6 @@ static int _ptm_msg_read(struct stream *msg, int command,
 		if (bpc->bpc_has_localif) {
 			STREAM_GET(bpc->bpc_localif, msg, ifnamelen);
 			bpc->bpc_localif[ifnamelen] = 0;
-
-			/*
-			 * IPv6 link-local addresses must use scope id,
-			 * otherwise the session lookup will always fail
-			 * and we'll have multiple sessions showing up.
-			 *
-			 * This problem only happens with single hop
-			 * since it is not possible to have link-local
-			 * address for multi hop sessions.
-			 */
-			if (bpc->bpc_ipv4 == false
-			    && IN6_IS_ADDR_LINKLOCAL(
-				       &bpc->bpc_peer.sa_sin6.sin6_addr))
-				bpc->bpc_peer.sa_sin6.sin6_scope_id =
-					ptm_bfd_fetch_ifindex(bpc->bpc_localif);
 		}
 	}
 
