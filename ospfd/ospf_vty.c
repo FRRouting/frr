@@ -3029,13 +3029,13 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 			if (ospf->stub_router_startup_time
 			    != OSPF_STUB_ROUTER_UNCONFIGURED)
 				json_object_int_add(
-					json_vrf, "postStartEnabledMsecs",
-					ospf->stub_router_startup_time / 1000);
+					json_vrf, "postStartEnabledSecs",
+					ospf->stub_router_startup_time);
 			if (ospf->stub_router_shutdown_time
 			    != OSPF_STUB_ROUTER_UNCONFIGURED)
 				json_object_int_add(
-					json_vrf, "preShutdownEnabledMsecs",
-					ospf->stub_router_shutdown_time / 1000);
+					json_vrf, "preShutdownEnabledSecs",
+					ospf->stub_router_shutdown_time);
 		} else {
 			vty_out(vty,
 				" Stub router advertisement is configured\n");
@@ -3511,8 +3511,8 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			json_object_int_add(json_interface_sub, "cost",
 					    oi->output_cost);
 			json_object_int_add(
-				json_interface_sub, "transmitDelayMsecs",
-				OSPF_IF_PARAM(oi, transmit_delay) / 1000);
+				json_interface_sub, "transmitDelaySecs",
+				OSPF_IF_PARAM(oi, transmit_delay));
 			json_object_string_add(json_interface_sub, "state",
 					       lookup_msg(ospf_ism_state_msg,
 							  oi->state, NULL));
@@ -3616,20 +3616,20 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			if (OSPF_IF_PARAM(oi, fast_hello) == 0)
 				json_object_int_add(
 					json_interface_sub, "timerMsecs",
-					OSPF_IF_PARAM(oi, v_hello) / 1000);
+					OSPF_IF_PARAM(oi, v_hello) * 1000);
 			else
 				json_object_int_add(
 					json_interface_sub, "timerMsecs",
-					OSPF_IF_PARAM(oi, fast_hello) / 1000);
+					1000 / OSPF_IF_PARAM(oi, fast_hello));
 			json_object_int_add(json_interface_sub,
-					    "timerDeadMsecs",
-					    OSPF_IF_PARAM(oi, v_wait) / 1000);
+					    "timerDeadSecs",
+					    OSPF_IF_PARAM(oi, v_wait));
 			json_object_int_add(json_interface_sub,
-					    "timerWaitMsecs",
-					    OSPF_IF_PARAM(oi, v_wait) / 1000);
+					    "timerWaitSecs",
+					    OSPF_IF_PARAM(oi, v_wait));
 			json_object_int_add(
-				json_interface_sub, "timerRetransmit",
-				OSPF_IF_PARAM(oi, retransmit_interval) / 1000);
+				json_interface_sub, "timerRetransmitSecs",
+				OSPF_IF_PARAM(oi, retransmit_interval));
 		} else {
 			vty_out(vty, "  Timer intervals configured,");
 			vty_out(vty, " Hello ");
