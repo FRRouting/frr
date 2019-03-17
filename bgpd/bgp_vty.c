@@ -2055,29 +2055,6 @@ DEFUN (no_bgp_graceful_restart_preserve_fw,
 	return CMD_SUCCESS;
 }
 
-static void bgp_redistribute_redo(struct bgp *bgp)
-{
-	afi_t afi;
-	int i;
-	struct list *red_list;
-	struct listnode *node;
-	struct bgp_redist *red;
-
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-
-			red_list = bgp->redist[afi][i];
-			if (!red_list)
-				continue;
-
-			for (ALL_LIST_ELEMENTS_RO(red_list, node, red)) {
-				bgp_redistribute_resend(bgp, afi, i,
-							red->instance);
-			}
-		}
-	}
-}
-
 /* "bgp graceful-shutdown" configuration */
 DEFUN (bgp_graceful_shutdown,
        bgp_graceful_shutdown_cmd,

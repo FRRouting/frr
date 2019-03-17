@@ -1907,7 +1907,7 @@ static inline void bgp_vrf_unlink(struct bgp *bgp, struct vrf *vrf)
 	bgp->vrf_id = VRF_UNKNOWN;
 }
 
-extern void bgp_update_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
+extern void bgp_unset_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
 
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp);
