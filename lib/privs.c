@@ -708,19 +708,19 @@ struct zebra_privs_t *_zprivs_raise(struct zebra_privs_t *privs,
 
 	/* If we're already elevated, just return */
 	pthread_mutex_lock(&(privs->mutex));
-	if (++privs->refcount > 1) {
-		pthread_mutex_unlock(&(privs->mutex));
-		return privs;
+	{
+		if (++(privs->refcount) == 1) {
+			errno = 0;
+			if (privs->change(ZPRIVS_RAISE)) {
+				zlog_err("%s: Failed to raise privileges (%s)",
+					 funcname, safe_strerror(errno));
+			}
+			errno = save_errno;
+			privs->raised_in_funcname = funcname;
+		}
 	}
 	pthread_mutex_unlock(&(privs->mutex));
 
-	errno = 0;
-	if (privs->change(ZPRIVS_RAISE)) {
-		zlog_err("%s: Failed to raise privileges (%s)",
-			 funcname, safe_strerror(errno));
-	}
-	errno = save_errno;
-	privs->raised_in_funcname = funcname;
 	return privs;
 }
 
@@ -733,19 +733,20 @@ void _zprivs_lower(struct zebra_privs_t **privs)
 
 	/* Don't lower privs if there's another caller */
 	pthread_mutex_lock(&(*privs)->mutex);
-	if (--((*privs)->refcount) > 0) {
-		pthread_mutex_unlock(&(*privs)->mutex);
-		return;
+	{
+		if (--((*privs)->refcount) == 0) {
+			errno = 0;
+			if ((*privs)->change(ZPRIVS_LOWER)) {
+				zlog_err("%s: Failed to lower privileges (%s)",
+					 (*privs)->raised_in_funcname,
+					 safe_strerror(errno));
+			}
+			errno = save_errno;
+			(*privs)->raised_in_funcname = NULL;
+		}
 	}
 	pthread_mutex_unlock(&(*privs)->mutex);
 
-	errno = 0;
-	if ((*privs)->change(ZPRIVS_LOWER)) {
-		zlog_err("%s: Failed to lower privileges (%s)",
-			 (*privs)->raised_in_funcname, safe_strerror(errno));
-	}
-	errno = save_errno;
-	(*privs)->raised_in_funcname = NULL;
 	*privs = NULL;
 }
 
