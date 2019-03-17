@@ -353,7 +353,7 @@ struct thread_master *dplane_get_thread_master(void)
 /*
  * Allocate a dataplane update context
  */
-static struct zebra_dplane_ctx *dplane_ctx_alloc(void)
+struct zebra_dplane_ctx *dplane_ctx_alloc(void)
 {
 	struct zebra_dplane_ctx *p;
 
@@ -546,6 +546,12 @@ bool dplane_ctx_is_skip_kernel(const struct zebra_dplane_ctx *ctx)
 	return CHECK_FLAG(ctx->zd_flags, DPLANE_CTX_FLAG_NO_KERNEL);
 }
 
+void dplane_ctx_set_op(struct zebra_dplane_ctx *ctx, enum dplane_op_e op)
+{
+	DPLANE_CTX_VALID(ctx);
+	ctx->zd_op = op;
+}
+
 enum dplane_op_e dplane_ctx_get_op(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -631,11 +637,29 @@ const char *dplane_res2str(enum zebra_dplane_result res)
 	return ret;
 }
 
+void dplane_ctx_set_dest(struct zebra_dplane_ctx *ctx,
+			 const struct prefix *dest)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	prefix_copy(&(ctx->u.rinfo.zd_dest), dest);
+}
+
 const struct prefix *dplane_ctx_get_dest(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
 	return &(ctx->u.rinfo.zd_dest);
+}
+
+void dplane_ctx_set_src(struct zebra_dplane_ctx *ctx, const struct prefix *src)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	if (src)
+		prefix_copy(&(ctx->u.rinfo.zd_src), src);
+	else
+		memset(&(ctx->u.rinfo.zd_src), 0, sizeof(struct prefix));
 }
 
 /* Source prefix is a little special - return NULL for "no src prefix" */
@@ -672,11 +696,25 @@ uint32_t dplane_ctx_get_old_seq(const struct zebra_dplane_ctx *ctx)
 	return ctx->zd_old_seq;
 }
 
+void dplane_ctx_set_vrf(struct zebra_dplane_ctx *ctx, vrf_id_t vrf)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->zd_vrf_id = vrf;
+}
+
 vrf_id_t dplane_ctx_get_vrf(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->zd_vrf_id;
+}
+
+void dplane_ctx_set_type(struct zebra_dplane_ctx *ctx, int type)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rinfo.zd_type = type;
 }
 
 int dplane_ctx_get_type(const struct zebra_dplane_ctx *ctx)
@@ -693,6 +731,13 @@ int dplane_ctx_get_old_type(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rinfo.zd_old_type;
 }
 
+void dplane_ctx_set_afi(struct zebra_dplane_ctx *ctx, afi_t afi)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rinfo.zd_afi = afi;
+}
+
 afi_t dplane_ctx_get_afi(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -700,11 +745,25 @@ afi_t dplane_ctx_get_afi(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rinfo.zd_afi;
 }
 
+void dplane_ctx_set_safi(struct zebra_dplane_ctx *ctx, safi_t safi)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rinfo.zd_safi = safi;
+}
+
 safi_t dplane_ctx_get_safi(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.rinfo.zd_safi;
+}
+
+void dplane_ctx_set_table(struct zebra_dplane_ctx *ctx, uint32_t table)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->zd_table_id = table;
 }
 
 uint32_t dplane_ctx_get_table(const struct zebra_dplane_ctx *ctx)
@@ -782,6 +841,17 @@ uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.rinfo.zd_old_distance;
+}
+
+void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	if (ctx->u.rinfo.zd_ng.nexthop) {
+		nexthops_free(ctx->u.rinfo.zd_ng.nexthop);
+		ctx->u.rinfo.zd_ng.nexthop = NULL;
+	}
+	copy_nexthops(&(ctx->u.rinfo.zd_ng.nexthop), nh, NULL);
 }
 
 const struct nexthop_group *dplane_ctx_get_ng(
@@ -2051,6 +2121,20 @@ int dplane_provider_work_ready(void)
 	}
 
 	return AOK;
+}
+
+/*
+ * Enqueue a context directly to zebra main.
+ */
+void dplane_provider_enqueue_to_zebra(struct zebra_dplane_ctx *ctx)
+{
+	struct dplane_ctx_q temp_list;
+
+	/* Zebra's api takes a list, so we need to use a temporary list */
+	TAILQ_INIT(&temp_list);
+
+	TAILQ_INSERT_TAIL(&temp_list, ctx, zd_q_entries);
+	(zdplane_info.dg_results_cb)(&temp_list);
 }
 
 /*
