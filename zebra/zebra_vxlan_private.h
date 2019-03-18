@@ -87,6 +87,9 @@ struct zebra_vni_t_ {
 	/* Local IP */
 	struct in_addr local_vtep_ip;
 
+	/* PIM-SM MDT group for BUM flooding */
+	struct in_addr mcast_grp;
+
 	/* tenant VRF, if any */
 	vrf_id_t vrf_id;
 

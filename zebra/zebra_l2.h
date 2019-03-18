@@ -54,6 +54,7 @@ struct zebra_l2info_vxlan {
 	vni_t vni;		/* VNI */
 	struct in_addr vtep_ip; /* Local tunnel IP */
 	vlanid_t access_vlan;   /* Access VLAN - for VLAN-aware bridge. */
+	struct in_addr mcast_grp;
 };
 
 struct zebra_l2info_bondslave {
