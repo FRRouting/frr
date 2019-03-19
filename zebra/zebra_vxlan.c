@@ -219,6 +219,11 @@ static void zebra_vxlan_sg_do_deref(struct zebra_vrf *zvrf,
 		struct in_addr sip, struct in_addr mcast_grp);
 static zebra_vxlan_sg_t *zebra_vxlan_sg_do_ref(struct zebra_vrf *vrf,
 				struct in_addr sip, struct in_addr mcast_grp);
+static void zebra_vxlan_sg_deref(struct in_addr local_vtep_ip,
+				struct in_addr mcast_grp);
+static void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip,
+				struct in_addr mcast_grp);
+static void zebra_vxlan_sg_cleanup(struct hash_backet *backet, void *arg);
 
 /* Private functions */
 static int host_rb_entry_compare(const struct host_rb_entry *hle1,
@@ -3909,6 +3914,9 @@ static int zvni_del(zebra_vni_t *zvni)
 
 	zvni->vxlan_if = NULL;
 
+	/* Remove references to the BUM mcast grp */
+	zebra_vxlan_sg_deref(zvni->local_vtep_ip, zvni->mcast_grp);
+
 	/* Free the neighbor hash table. */
 	hash_free(zvni->neigh_table);
 	zvni->neigh_table = NULL;
@@ -4066,8 +4074,15 @@ static void zvni_build_hash_table(void)
 				return;
 			}
 
-			zvni->local_vtep_ip = vxl->vtep_ip;
-			zvni->mcast_grp = vxl->mcast_grp;
+			if (zvni->local_vtep_ip.s_addr != vxl->vtep_ip.s_addr ||
+				zvni->mcast_grp.s_addr != vxl->mcast_grp.s_addr) {
+				zebra_vxlan_sg_deref(zvni->local_vtep_ip,
+					zvni->mcast_grp);
+				zebra_vxlan_sg_ref(vxl->vtep_ip,
+					vxl->mcast_grp);
+				zvni->local_vtep_ip = vxl->vtep_ip;
+				zvni->mcast_grp = vxl->mcast_grp;
+			}
 			zvni->vxlan_if = ifp;
 			vlan_if = zvni_map_to_svi(vxl->access_vlan,
 						  zif->brslave_info.br_if);
@@ -8527,8 +8542,14 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 			zvni_mac_del_all(zvni, 0, 1, DEL_LOCAL_MAC);
 		}
 
-		zvni->local_vtep_ip = vxl->vtep_ip;
-		zvni->mcast_grp = vxl->mcast_grp;
+		if (zvni->local_vtep_ip.s_addr != vxl->vtep_ip.s_addr ||
+			zvni->mcast_grp.s_addr != vxl->mcast_grp.s_addr) {
+			zebra_vxlan_sg_deref(zvni->local_vtep_ip,
+				zvni->mcast_grp);
+			zebra_vxlan_sg_ref(vxl->vtep_ip, vxl->mcast_grp);
+			zvni->local_vtep_ip = vxl->vtep_ip;
+			zvni->mcast_grp = vxl->mcast_grp;
+		}
 		zvni->vxlan_if = ifp;
 
 		/* Take further actions needed.
@@ -8632,8 +8653,14 @@ int zebra_vxlan_if_add(struct interface *ifp)
 			}
 		}
 
-		zvni->local_vtep_ip = vxl->vtep_ip;
-		zvni->mcast_grp = vxl->mcast_grp;
+		if (zvni->local_vtep_ip.s_addr != vxl->vtep_ip.s_addr ||
+			zvni->mcast_grp.s_addr != vxl->mcast_grp.s_addr) {
+			zebra_vxlan_sg_deref(zvni->local_vtep_ip,
+				zvni->mcast_grp);
+			zebra_vxlan_sg_ref(vxl->vtep_ip, vxl->mcast_grp);
+			zvni->local_vtep_ip = vxl->vtep_ip;
+			zvni->mcast_grp = vxl->mcast_grp;
+		}
 		zvni->vxlan_if = ifp;
 		vlan_if = zvni_map_to_svi(vxl->access_vlan,
 					  zif->brslave_info.br_if);
@@ -9218,6 +9245,7 @@ void zebra_vxlan_cleanup_tables(struct zebra_vrf *zvrf)
 	if (!zvrf)
 		return;
 	hash_iterate(zvrf->vni_table, zvni_cleanup_all, zvrf);
+	hash_iterate(zvrf->vxlan_sg_table, zebra_vxlan_sg_cleanup, NULL);
 }
 
 /* Close all VNI handling */
@@ -9518,4 +9546,40 @@ static zebra_vxlan_sg_t *zebra_vxlan_sg_do_ref(struct zebra_vrf *zvrf,
 		++vxlan_sg->ref_cnt;
 
 	return vxlan_sg;
+}
+
+static void zebra_vxlan_sg_deref(struct in_addr local_vtep_ip,
+		struct in_addr mcast_grp)
+{
+	struct zebra_vrf *zvrf;
+
+	if (!local_vtep_ip.s_addr || !mcast_grp.s_addr)
+		return;
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf)
+		return;
+
+	zebra_vxlan_sg_do_deref(zvrf, local_vtep_ip, mcast_grp);
+}
+
+static void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip,
+				struct in_addr mcast_grp)
+{
+	struct zebra_vrf *zvrf;
+
+	if (!local_vtep_ip.s_addr || !mcast_grp.s_addr)
+		return;
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf)
+		return;
+	zebra_vxlan_sg_do_ref(zvrf, local_vtep_ip, mcast_grp);
+}
+
+static void zebra_vxlan_sg_cleanup(struct hash_backet *backet, void *arg)
+{
+	zebra_vxlan_sg_t *vxlan_sg = (zebra_vxlan_sg_t *)backet->data;
+
+	zebra_vxlan_sg_del(vxlan_sg);
 }
