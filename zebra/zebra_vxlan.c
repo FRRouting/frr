@@ -1858,12 +1858,16 @@ static void zvni_print(zebra_vni_t *zvni, void **ctxt)
 		vty_out(vty, " VxLAN ifIndex: %u\n", zvni->vxlan_if->ifindex);
 		vty_out(vty, " Local VTEP IP: %s\n",
 			inet_ntoa(zvni->local_vtep_ip));
+		vty_out(vty, " Mcast group: %s\n",
+				inet_ntoa(zvni->mcast_grp));
 	} else {
 		json_object_string_add(json, "vxlanInterface",
 				       zvni->vxlan_if->name);
 		json_object_int_add(json, "ifindex", zvni->vxlan_if->ifindex);
 		json_object_string_add(json, "vtepIp",
 				       inet_ntoa(zvni->local_vtep_ip));
+		json_object_string_add(json, "mcastGroup",
+				inet_ntoa(zvni->mcast_grp));
 		json_object_string_add(json, "advertiseGatewayMacip",
 				       zvni->advertise_gw_macip ? "Yes" : "No");
 		json_object_int_add(json, "numMacs", num_macs);
@@ -3916,6 +3920,7 @@ static int zvni_send_add_to_client(zebra_vni_t *zvni)
 	stream_putl(s, zvni->vni);
 	stream_put_in_addr(s, &zvni->local_vtep_ip);
 	stream_put(s, &zvni->vrf_id, sizeof(vrf_id_t)); /* tenant vrf */
+	stream_put_in_addr(s, &zvni->mcast_grp);
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -4039,6 +4044,7 @@ static void zvni_build_hash_table(void)
 			}
 
 			zvni->local_vtep_ip = vxl->vtep_ip;
+			zvni->mcast_grp = vxl->mcast_grp;
 			zvni->vxlan_if = ifp;
 			vlan_if = zvni_map_to_svi(vxl->access_vlan,
 						  zif->brslave_info.br_if);
@@ -8477,6 +8483,7 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 		}
 
 		zvni->local_vtep_ip = vxl->vtep_ip;
+		zvni->mcast_grp = vxl->mcast_grp;
 		zvni->vxlan_if = ifp;
 
 		/* Take further actions needed.
@@ -8488,7 +8495,9 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 
 		/* Inform BGP, if there is a change of interest. */
 		if (chgflags
-		    & (ZEBRA_VXLIF_MASTER_CHANGE | ZEBRA_VXLIF_LOCAL_IP_CHANGE))
+			& (ZEBRA_VXLIF_MASTER_CHANGE |
+			   ZEBRA_VXLIF_LOCAL_IP_CHANGE |
+			   ZEBRA_VXLIF_MCAST_GRP_CHANGE))
 			zvni_send_add_to_client(zvni);
 
 		/* If there is a valid new master or a VLAN mapping change,
@@ -8579,6 +8588,7 @@ int zebra_vxlan_if_add(struct interface *ifp)
 		}
 
 		zvni->local_vtep_ip = vxl->vtep_ip;
+		zvni->mcast_grp = vxl->mcast_grp;
 		zvni->vxlan_if = ifp;
 		vlan_if = zvni_map_to_svi(vxl->access_vlan,
 					  zif->brslave_info.br_if);
@@ -8589,15 +8599,24 @@ int zebra_vxlan_if_add(struct interface *ifp)
 				listnode_add_sort(zl3vni->l2vnis, zvni);
 		}
 
-		if (IS_ZEBRA_DEBUG_VXLAN)
+		if (IS_ZEBRA_DEBUG_VXLAN) {
+			char addr_buf1[INET_ADDRSTRLEN];
+			char addr_buf2[INET_ADDRSTRLEN];
+
+			inet_ntop(AF_INET, &vxl->vtep_ip,
+					addr_buf1, INET_ADDRSTRLEN);
+			inet_ntop(AF_INET, &vxl->mcast_grp,
+					addr_buf2, INET_ADDRSTRLEN);
+
 			zlog_debug(
-				"Add L2-VNI %u VRF %s intf %s(%u) VLAN %u local IP %s master %u",
+				"Add L2-VNI %u VRF %s intf %s(%u) VLAN %u local IP %s mcast %s master %u",
 				vni,
 				vlan_if ? vrf_id_to_name(vlan_if->vrf_id)
 					: VRF_DEFAULT_NAME,
 				ifp->name, ifp->ifindex, vxl->access_vlan,
-				inet_ntoa(vxl->vtep_ip),
+				addr_buf1, addr_buf2,
 				zif->brslave_info.bridge_ifindex);
+		}
 
 		/* If down or not mapped to a bridge, we're done. */
 		if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
