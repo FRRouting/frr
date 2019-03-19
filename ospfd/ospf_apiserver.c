@@ -2110,7 +2110,6 @@ void ospf_apiserver_show_info(struct vty *vty, struct ospf_lsa *lsa)
 		for (i = 0; i < opaquelen; i++) {
 			zlog_debug("0x%x ", olsa->data[i]);
 		}
-		zlog_debug("");
 	}
 	return;
 }
