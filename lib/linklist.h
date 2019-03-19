@@ -84,7 +84,7 @@ extern struct list *list_new(void);
  * data
  *    element to add
  */
-extern void listnode_add(struct list *list, void *data);
+extern struct listnode *listnode_add(struct list *list, void *data);
 
 /*
  * Add a new element to the beginning of a list.

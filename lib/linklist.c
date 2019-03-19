@@ -50,7 +50,7 @@ static void listnode_free(struct listnode *node)
 	XFREE(MTYPE_LINK_NODE, node);
 }
 
-void listnode_add(struct list *list, void *val)
+struct listnode *listnode_add(struct list *list, void *val)
 {
 	struct listnode *node;
 
@@ -68,6 +68,8 @@ void listnode_add(struct list *list, void *val)
 	list->tail = node;
 
 	list->count++;
+
+	return node;
 }
 
 void listnode_add_head(struct list *list, void *val)
