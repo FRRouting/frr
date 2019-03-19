@@ -1841,6 +1841,57 @@ static void zebra_rib_fixup_system(struct route_node *rn)
 }
 
 /*
+ * Update a route from a dplane context. This consolidates common code
+ * that can be used in processing of results from FIB updates, and in
+ * async notification processing.
+ */
+static int rib_update_re_from_ctx(struct route_entry *re,
+				  struct route_node *rn,
+				  const struct zebra_dplane_ctx *ctx)
+{
+	int result = 0;
+	struct nexthop *nexthop, *ctx_nexthop;
+	const struct prefix *dest_pfx, *src_pfx;
+
+	srcdest_rnode_prefixes(rn, &dest_pfx, &src_pfx);
+
+	/* Update zebra nexthop FIB flag for each
+	 * nexthop that was installed.
+	 */
+	for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx),
+			      ctx_nexthop)) {
+
+		if (!re)
+			continue;
+
+		for (ALL_NEXTHOPS(re->ng, nexthop)) {
+			if (nexthop_same(ctx_nexthop, nexthop))
+				break;
+		}
+
+		if (nexthop == NULL)
+			continue;
+
+		if (CHECK_FLAG(nexthop->flags,
+			       NEXTHOP_FLAG_RECURSIVE))
+			continue;
+
+		if (CHECK_FLAG(ctx_nexthop->flags,
+			       NEXTHOP_FLAG_FIB))
+			SET_FLAG(nexthop->flags,
+				 NEXTHOP_FLAG_FIB);
+		else
+			UNSET_FLAG(nexthop->flags,
+				   NEXTHOP_FLAG_FIB);
+	}
+
+	/* Redistribute */
+	redistribute_update(dest_pfx, src_pfx, re, NULL);
+
+	return result;
+}
+
+/*
  * Route-update results processing after async dataplane update.
  */
 static void rib_process_result(struct zebra_dplane_ctx *ctx)
@@ -1850,7 +1901,6 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	struct route_node *rn = NULL;
 	struct route_entry *re = NULL, *old_re = NULL, *rib;
 	bool is_update = false;
-	struct nexthop *nexthop, *ctx_nexthop;
 	char dest_str[PREFIX_STRLEN] = "";
 	enum dplane_op_e op;
 	enum zebra_dplane_result status;
@@ -1979,35 +2029,13 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 				UNSET_FLAG(old_re->status,
 					   ROUTE_ENTRY_INSTALLED);
 			}
-			/* Update zebra nexthop FIB flag for each
-			 * nexthop that was installed.
+
+			/* Update zebra route based on the results in
+			 * the context struct. This also triggers
+			 * redistribution for the route.
 			 */
-			for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx),
-					      ctx_nexthop)) {
-
-				if (!re)
-					continue;
-
-				for (ALL_NEXTHOPS(re->ng, nexthop)) {
-					if (nexthop_same(ctx_nexthop, nexthop))
-						break;
-				}
-
-				if (nexthop == NULL)
-					continue;
-
-				if (CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_RECURSIVE))
-					continue;
-
-				if (CHECK_FLAG(ctx_nexthop->flags,
-					       NEXTHOP_FLAG_FIB))
-					SET_FLAG(nexthop->flags,
-						 NEXTHOP_FLAG_FIB);
-				else
-					UNSET_FLAG(nexthop->flags,
-						   NEXTHOP_FLAG_FIB);
-			}
+			if (re)
+				rib_update_re_from_ctx(re, rn, ctx);
 
 			/*
 			 * System routes are weird in that they
@@ -2022,19 +2050,6 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 
 			if (zvrf)
 				zvrf->installs++;
-
-			/* Redistribute */
-			/*
-			 * TODO -- still calling the redist api using the
-			 * route_entries, and there's a corner-case here:
-			 * if there's no client for the 'new' route, a redist
-			 * deleting the 'old' route will be sent. But if the
-			 * 'old' context info was stale, 'old_re' will be
-			 * NULL here and that delete will not be sent.
-			 */
-			if (re)
-				redistribute_update(dest_pfx, src_pfx,
-						    re, old_re);
 
 			/* Notify route owner */
 			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_INSTALLED);
