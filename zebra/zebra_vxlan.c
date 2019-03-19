@@ -9407,6 +9407,41 @@ static int zebra_vxlan_dad_mac_auto_recovery_exp(struct thread *t)
 }
 
 /************************** vxlan SG cache management ************************/
+/* Inform PIM about the mcast group */
+static int zebra_vxlan_sg_send(struct prefix_sg *sg,
+			char *sg_str, uint16_t cmd)
+{
+	struct zserv *client = NULL;
+	struct stream *s = NULL;
+
+	client = zserv_find_client(ZEBRA_ROUTE_PIM, 0);
+	if (!client)
+		return 0;
+
+	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+	stream_putl(s, IPV4_MAX_BYTELEN);
+	stream_put(s, &sg->src.s_addr, IPV4_MAX_BYTELEN);
+	stream_put(s, &sg->grp.s_addr, IPV4_MAX_BYTELEN);
+
+	/* Write packet size. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug(
+			"Send %s %s to %s",
+			(cmd == ZEBRA_VXLAN_SG_ADD) ? "add" : "del", sg_str,
+			zebra_route_string(client->proto));
+
+	if (cmd == ZEBRA_VXLAN_SG_ADD)
+		client->vxlan_sg_add_cnt++;
+	else
+		client->vxlan_sg_del_cnt++;
+
+	return zserv_send_message(client, s);
+}
+
 static unsigned int zebra_vxlan_sg_hash_key_make(void *p)
 {
 	zebra_vxlan_sg_t *vxlan_sg = p;
@@ -9482,6 +9517,8 @@ static zebra_vxlan_sg_t *zebra_vxlan_sg_add(struct zebra_vrf *zvrf,
 		return vxlan_sg;
 	}
 
+	zebra_vxlan_sg_send(sg, vxlan_sg->sg_str, ZEBRA_VXLAN_SG_ADD);
+
 	return vxlan_sg;
 }
 
@@ -9501,6 +9538,9 @@ static void zebra_vxlan_sg_del(zebra_vxlan_sg_t *vxlan_sg)
 		memset(&sip, 0, sizeof(sip));
 		zebra_vxlan_sg_do_deref(zvrf, sip, vxlan_sg->sg.grp);
 	}
+
+	zebra_vxlan_sg_send(&vxlan_sg->sg, vxlan_sg->sg_str,
+		ZEBRA_VXLAN_SG_DEL);
 
 	hash_release(vxlan_sg->zvrf->vxlan_sg_table, vxlan_sg);
 
