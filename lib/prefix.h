@@ -321,6 +321,15 @@ union prefixconstptr {
 /* Maximum string length of the result of prefix2str */
 #define PREFIX_STRLEN 80
 
+/*
+ * Longest possible length of a (S,G) string is 36 bytes
+ * 123.123.123.123 = 16 * 2
+ * (,) = 3
+ * NULL Character at end = 1
+ * (123.123.123.123,123.123.123.123)
+ */
+#define PREFIX_SG_STR_LEN 36
+
 /* Max bit/byte length of IPv4 address. */
 #define IPV4_MAX_BYTELEN    4
 #define IPV4_MAX_BITLEN    32
@@ -394,6 +403,9 @@ extern int str2prefix(const char *, struct prefix *);
 
 #define PREFIX2STR_BUFFER  PREFIX_STRLEN
 
+extern void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
+				char *buf, int buf_size);
+extern const char *prefix_sg2str(const struct prefix_sg *sg, char *str);
 extern const char *prefix2str(union prefixconstptr, char *, int);
 extern int prefix_match(const struct prefix *, const struct prefix *);
 extern int prefix_match_network_statement(const struct prefix *,
