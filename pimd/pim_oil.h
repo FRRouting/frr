@@ -89,7 +89,6 @@ struct channel_oil {
 	struct pim_instance *pim;
 
 	struct mfcctl oil;
-	bool is_valid;
 	int installed;
 	int oil_inherited_rescan;
 	int oil_size;

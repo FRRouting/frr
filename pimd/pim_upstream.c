@@ -306,19 +306,13 @@ static int on_join_timer(struct thread *t)
 
 static void join_timer_stop(struct pim_upstream *up)
 {
-	struct pim_neighbor *nbr;
-
-	if (!up->rpf.source_nexthop.interface) {
-		if (PIM_DEBUG_TRACE)
-			zlog_debug("%s: up %s RPF is not present",
-				__PRETTY_FUNCTION__, up->sg_str);
-		return;
-	}
+	struct pim_neighbor *nbr = NULL;
 
 	THREAD_OFF(up->t_join_timer);
 
-	nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-				up->rpf.rpf_addr.u.prefix4);
+	if (up->rpf.source_nexthop.interface)
+		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
+					up->rpf.rpf_addr.u.prefix4);
 
 	if (nbr)
 		pim_jp_agg_remove_group(nbr->upstream_jp_agg, up);
@@ -329,13 +323,6 @@ static void join_timer_stop(struct pim_upstream *up)
 void join_timer_start(struct pim_upstream *up)
 {
 	struct pim_neighbor *nbr = NULL;
-
-	if (!up->rpf.source_nexthop.interface) {
-		if (PIM_DEBUG_TRACE)
-			zlog_debug("%s: up %s RPF is not present",
-				__PRETTY_FUNCTION__, up->sg_str);
-		return;
-	}
 
 	if (up->rpf.source_nexthop.interface) {
 		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
@@ -562,14 +549,16 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 	enum pim_upstream_state old_state = up->join_state;
 
 	if (up->upstream_addr.s_addr == INADDR_ANY) {
-		zlog_debug("%s: RPF not configured for %s",
-			__PRETTY_FUNCTION__, up->sg_str);
+		if (PIM_DEBUG_PIM_EVENTS)
+			zlog_debug("%s: RPF not configured for %s",
+				__PRETTY_FUNCTION__, up->sg_str);
 		return;
 	}
 
 	if (!up->rpf.source_nexthop.interface)  {
-		zlog_debug("%s: RP not reachable for %s",
-			__PRETTY_FUNCTION__, up->sg_str);
+		if (PIM_DEBUG_PIM_EVENTS)
+			zlog_debug("%s: RP not reachable for %s",
+				__PRETTY_FUNCTION__, up->sg_str);
 		return;
 	}
 
@@ -949,7 +938,7 @@ void pim_upstream_update_join_desired(struct pim_instance *pim,
 		PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED(up->flags);
 
 	/* switched from false to true */
-	if (is_join_desired) {
+	if (is_join_desired && (up->join_state == PIM_UPSTREAM_NOTJOINED)) {
 		pim_upstream_switch(pim, up, PIM_UPSTREAM_JOINED);
 		return;
 	}

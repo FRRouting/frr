@@ -190,10 +190,6 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 	c_oil->installed = 0;
 	c_oil->up = pim_upstream_find(pim, sg);
 	c_oil->pim = pim;
-	if (input_vif_index != MAXVIFS)
-		c_oil->is_valid = 1;
-	else
-		c_oil->is_valid = 0;
 
 	listnode_add_sort(pim->channel_oil_list, c_oil);
 
@@ -453,10 +449,10 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] =
 		PIM_MROUTE_MIN_TTL;
 
-	/* channel_oil->is_valid indicate if this entry is valid to get
-	 * installed in kernel.
+	/* channel_oil->oil.mfcc_parent != MAXVIFS indicate this entry is not
+	 * valid to get installed in kernel.
 	 */
-	if (channel_oil->is_valid) {
+	if (channel_oil->oil.mfcc_parent != MAXVIFS) {
 		if (pim_mroute_add(channel_oil, __PRETTY_FUNCTION__)) {
 			if (PIM_DEBUG_MROUTE) {
 				char group_str[INET_ADDRSTRLEN];

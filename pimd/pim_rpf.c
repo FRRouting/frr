@@ -325,7 +325,6 @@ void pim_upstream_rpf_clear(struct pim_instance *pim,
 	if (up->rpf.source_nexthop.interface) {
 		if (up->channel_oil) {
 			up->channel_oil->oil.mfcc_parent = MAXVIFS;
-			up->channel_oil->is_valid = 0;
 			pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
 
 		}
