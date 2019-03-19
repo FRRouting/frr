@@ -26,6 +26,7 @@
 #include "pim_str.h"
 #include "pim_msdp.h"
 #include "pim_assert.h"
+#include "pim_vxlan_instance.h"
 
 #if defined(HAVE_LINUX_MROUTE_H)
 #include <linux/mroute.h>
@@ -110,6 +111,7 @@ struct pim_instance {
 	struct hash *channel_oil_hash;
 
 	struct pim_msdp msdp;
+	struct pim_vxlan_instance vxlan;
 
 	struct list *ssmpingd_list;
 	struct in_addr ssmpingd_group_addr;

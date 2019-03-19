@@ -60,6 +60,7 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	pim_oil_terminate(pim);
 
 	pim_msdp_exit(pim);
+	pim_vxlan_exit(pim);
 
 	XFREE(MTYPE_PIM_PIM_INSTANCE, pim);
 }
@@ -86,6 +87,7 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	pim->spt.plist = NULL;
 
 	pim_msdp_init(pim, router->master);
+	pim_vxlan_init(pim);
 
 	snprintf(hash_name, 64, "PIM %s RPF Hash", vrf->name);
 	pim->rpf_hash = hash_create_size(256, pim_rpf_hash_key, pim_rpf_equal,
