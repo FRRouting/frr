@@ -2297,6 +2297,26 @@ static int delete_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn)
 }
 
 /*
+ * There is a flood mcast IP address change. Update the mcast-grp and
+ * remove the type-3 route if any. A new type-3 route will be generated
+ * post tunnel_ip update if the new flood mode is head-end-replication.
+ */
+static int bgp_evpn_mcast_grp_change(struct bgp *bgp, struct bgpevpn *vpn,
+		struct in_addr mcast_grp)
+{
+	struct prefix_evpn p;
+
+	vpn->mcast_grp = mcast_grp;
+
+	if (is_vni_live(vpn)) {
+		build_evpn_type3_prefix(&p, vpn->originator_ip);
+		delete_evpn_route(bgp, vpn, &p);
+	}
+
+	return 0;
+}
+
+/*
  * There is a tunnel endpoint IP address change for this VNI, delete
  * prior type-3 route (if needed) and update.
  * Note: Route re-advertisement happens elsewhere after other processing
@@ -5138,8 +5158,9 @@ struct bgpevpn *bgp_evpn_lookup_vni(struct bgp *bgp, vni_t vni)
  * Create a new vpn - invoked upon configuration or zebra notification.
  */
 struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
-			     struct in_addr originator_ip,
-			     vrf_id_t tenant_vrf_id)
+		struct in_addr originator_ip,
+		vrf_id_t tenant_vrf_id,
+		struct in_addr mcast_grp)
 {
 	struct bgpevpn *vpn;
 
@@ -5152,6 +5173,7 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 	vpn->vni = vni;
 	vpn->originator_ip = originator_ip;
 	vpn->tenant_vrf_id = tenant_vrf_id;
+	vpn->mcast_grp = mcast_grp;
 
 	/* Initialize route-target import and export lists */
 	vpn->import_rtl = list_new();
@@ -5650,7 +5672,10 @@ int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
  * about are for the local-tunnel-ip and the (tenant) VRF.
  */
 int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
-			   struct in_addr originator_ip, vrf_id_t tenant_vrf_id)
+			   struct in_addr originator_ip,
+			   vrf_id_t tenant_vrf_id,
+			   struct in_addr mcast_grp)
+
 {
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
@@ -5661,10 +5686,13 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 
 		if (is_vni_live(vpn)
 		    && IPV4_ADDR_SAME(&vpn->originator_ip, &originator_ip)
+		    && IPV4_ADDR_SAME(&vpn->mcast_grp, &mcast_grp)
 		    && vpn->tenant_vrf_id == tenant_vrf_id)
 			/* Probably some other param has changed that we don't
 			 * care about. */
 			return 0;
+
+		bgp_evpn_mcast_grp_change(bgp, vpn, mcast_grp);
 
 		/* Update tenant_vrf_id if it has changed. */
 		if (vpn->tenant_vrf_id != tenant_vrf_id) {
@@ -5688,7 +5716,8 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 
 	/* Create or update as appropriate. */
 	if (!vpn) {
-		vpn = bgp_evpn_new(bgp, vni, originator_ip, tenant_vrf_id);
+		vpn = bgp_evpn_new(bgp, vni, originator_ip, tenant_vrf_id,
+				mcast_grp);
 		if (!vpn) {
 			flog_err(
 				EC_BGP_VNI,

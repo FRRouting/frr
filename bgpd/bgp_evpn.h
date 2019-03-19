@@ -180,7 +180,8 @@ extern int bgp_evpn_local_l3vni_del(vni_t vni, vrf_id_t vrf_id);
 extern int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni);
 extern int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 				  struct in_addr originator_ip,
-				  vrf_id_t tenant_vrf_id);
+				  vrf_id_t tenant_vrf_id,
+				  struct in_addr mcast_grp);
 extern int bgp_evpn_local_es_add(struct bgp *bgp, esi_t *esi,
 				 struct ipaddr *originator_ip);
 extern int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi,

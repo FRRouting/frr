@@ -473,6 +473,8 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 			prefix_rd2str(&vpn->prd, buf1, sizeof(buf1)));
 		json_object_string_add(json, "originatorIp",
 				       inet_ntoa(vpn->originator_ip));
+		json_object_string_add(json, "mcastGroup",
+				inet_ntoa(vpn->mcast_grp));
 		json_object_string_add(json, "advertiseGatewayMacip",
 				       vpn->advertise_gw_macip ? "Yes" : "No");
 	} else {
@@ -488,6 +490,8 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 			prefix_rd2str(&vpn->prd, buf1, sizeof(buf1)));
 		vty_out(vty, "  Originator IP: %s\n",
 			inet_ntoa(vpn->originator_ip));
+		vty_out(vty, "  Mcast group: %s\n",
+				inet_ntoa(vpn->mcast_grp));
 		vty_out(vty, "  Advertise-gw-macip : %s\n",
 			vpn->advertise_gw_macip ? "Yes" : "No");
 		vty_out(vty, "  Advertise-svi-macip : %s\n",
@@ -1897,6 +1901,7 @@ static void evpn_unconfigure_rd(struct bgp *bgp, struct bgpevpn *vpn)
 static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
 {
 	struct bgpevpn *vpn;
+	struct in_addr mcast_grp = {INADDR_ANY};
 
 	if (!bgp->vnihash)
 		return NULL;
@@ -1915,7 +1920,7 @@ static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
 		/* tenant vrf will be updated when we get local_vni_add from
 		 * zebra
 		 */
-		vpn = bgp_evpn_new(bgp, vni, bgp->router_id, 0);
+		vpn = bgp_evpn_new(bgp, vni, bgp->router_id, 0, mcast_grp);
 		if (!vpn) {
 			flog_err(
 				EC_BGP_VNI,
