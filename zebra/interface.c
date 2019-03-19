@@ -1371,6 +1371,9 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		if (vxlan_info->access_vlan)
 			vty_out(vty, " Access VLAN Id %u",
 				vxlan_info->access_vlan);
+		if (vxlan_info->mcast_grp.s_addr != INADDR_ANY)
+			vty_out(vty, " Mcast %s",
+					inet_ntoa(vxlan_info->mcast_grp));
 		vty_out(vty, "\n");
 	}
 
