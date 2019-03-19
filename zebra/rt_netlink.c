@@ -2126,7 +2126,7 @@ static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
 		default:
 			flog_warn(
 				EC_ZEBRA_BAD_NHG_MESSAGE,
-				"Nexthop with bad address family (%d) received from kernel",
+				"Nexthop gateway with bad address family (%d) received from kernel",
 				family);
 			// TODO: Different return value?
 			return nh;
