@@ -60,6 +60,16 @@ DEFINE_MTYPE_STATIC(ZEBRA, MAC, "VNI MAC");
 DEFINE_MTYPE_STATIC(ZEBRA, NEIGH, "VNI Neighbor");
 
 /* definitions */
+/* PMSI strings. */
+#define VXLAN_FLOOD_STR_NO_INFO "-"
+#define VXLAN_FLOOD_STR_DEFAULT VXLAN_FLOOD_STR_NO_INFO
+static const struct message zvtep_flood_str[] = {
+	{VXLAN_FLOOD_DISABLED, VXLAN_FLOOD_STR_NO_INFO},
+	{VXLAN_FLOOD_PIM_SM, "PIM-SM"},
+	{VXLAN_FLOOD_HEAD_END_REPL, "HER"},
+	{0}
+};
+
 
 /* static function declarations */
 static int ip_prefix_send_to_client(vrf_id_t vrf_id, struct prefix *p,
@@ -167,10 +177,11 @@ static int zvni_send_del_to_client(vni_t vni);
 static void zvni_build_hash_table(void);
 static int zvni_vtep_match(struct in_addr *vtep_ip, zebra_vtep_t *zvtep);
 static zebra_vtep_t *zvni_vtep_find(zebra_vni_t *zvni, struct in_addr *vtep_ip);
-static zebra_vtep_t *zvni_vtep_add(zebra_vni_t *zvni, struct in_addr *vtep_ip);
+static zebra_vtep_t *zvni_vtep_add(zebra_vni_t *zvni, struct in_addr *vtep_ip,
+		int flood_control);
 static int zvni_vtep_del(zebra_vni_t *zvni, zebra_vtep_t *zvtep);
 static int zvni_vtep_del_all(zebra_vni_t *zvni, int uninstall);
-static int zvni_vtep_install(zebra_vni_t *zvni, struct in_addr *vtep_ip);
+static int zvni_vtep_install(zebra_vni_t *zvni, zebra_vtep_t *zvtep);
 static int zvni_vtep_uninstall(zebra_vni_t *zvni, struct in_addr *vtep_ip);
 static int zvni_del_macip_for_intf(struct interface *ifp, zebra_vni_t *zvni);
 static int zvni_add_macip_for_intf(struct interface *ifp, zebra_vni_t *zvni);
@@ -1882,14 +1893,19 @@ static void zvni_print(zebra_vni_t *zvni, void **ctxt)
 		else
 			json_vtep_list = json_object_new_array();
 		for (zvtep = zvni->vteps; zvtep; zvtep = zvtep->next) {
-			if (json == NULL)
-				vty_out(vty, "  %s\n",
-					inet_ntoa(zvtep->vtep_ip));
-			else {
+			const char *flood_str = lookup_msg(zvtep_flood_str,
+					zvtep->flood_control,
+					VXLAN_FLOOD_STR_DEFAULT);
+
+			if (json == NULL) {
+				vty_out(vty, "  %s flood: %s\n",
+						inet_ntoa(zvtep->vtep_ip),
+						flood_str);
+			} else {
 				json_ip_str = json_object_new_string(
-					inet_ntoa(zvtep->vtep_ip));
+						inet_ntoa(zvtep->vtep_ip));
 				json_object_array_add(json_vtep_list,
-						      json_ip_str);
+						json_ip_str);
 			}
 		}
 		if (json)
@@ -4092,13 +4108,16 @@ static zebra_vtep_t *zvni_vtep_find(zebra_vni_t *zvni, struct in_addr *vtep_ip)
 /*
  * Add remote VTEP to VNI hash table.
  */
-static zebra_vtep_t *zvni_vtep_add(zebra_vni_t *zvni, struct in_addr *vtep_ip)
+static zebra_vtep_t *zvni_vtep_add(zebra_vni_t *zvni, struct in_addr *vtep_ip,
+		int flood_control)
+
 {
 	zebra_vtep_t *zvtep;
 
 	zvtep = XCALLOC(MTYPE_ZVNI_VTEP, sizeof(zebra_vtep_t));
 
 	zvtep->vtep_ip = *vtep_ip;
+	zvtep->flood_control = flood_control;
 
 	if (zvni->vteps)
 		zvni->vteps->prev = zvtep;
@@ -4148,12 +4167,15 @@ static int zvni_vtep_del_all(zebra_vni_t *zvni, int uninstall)
 }
 
 /*
- * Install remote VTEP into the kernel.
+ * Install remote VTEP into the kernel if the remote VTEP has asked
+ * for head-end-replication.
  */
-static int zvni_vtep_install(zebra_vni_t *zvni, struct in_addr *vtep_ip)
+static int zvni_vtep_install(zebra_vni_t *zvni, zebra_vtep_t *zvtep)
 {
-	if (is_vxlan_flooding_head_end())
-		return kernel_add_vtep(zvni->vni, zvni->vxlan_if, vtep_ip);
+	if (is_vxlan_flooding_head_end() &&
+			(zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL))
+		return kernel_add_vtep(zvni->vni, zvni->vxlan_if,
+				&zvtep->vtep_ip);
 	return 0;
 }
 
@@ -4187,7 +4209,7 @@ static void zvni_handle_flooding_remote_vteps(struct hash_bucket *bucket,
 
 	for (zvtep = zvni->vteps; zvtep; zvtep = zvtep->next) {
 		if (is_vxlan_flooding_head_end())
-			zvni_vtep_install(zvni, &zvtep->vtep_ip);
+			zvni_vtep_install(zvni, zvtep);
 		else
 			zvni_vtep_uninstall(zvni, &zvtep->vtep_ip);
 	}
@@ -5165,7 +5187,8 @@ static void process_remote_macip_add(vni_t vni,
 	 */
 	zvtep = zvni_vtep_find(zvni, &vtep_ip);
 	if (!zvtep) {
-		if (zvni_vtep_add(zvni, &vtep_ip) == NULL) {
+		zvtep = zvni_vtep_add(zvni, &vtep_ip, VXLAN_FLOOD_DISABLED);
+		if (!zvtep) {
 			flog_err(
 				EC_ZEBRA_VTEP_ADD_FAILED,
 				"Failed to add remote VTEP, VNI %u zvni %p upon remote MACIP ADD",
@@ -5173,7 +5196,7 @@ static void process_remote_macip_add(vni_t vni,
 			return;
 		}
 
-		zvni_vtep_install(zvni, &vtep_ip);
+		zvni_vtep_install(zvni, zvtep);
 	}
 
 	sticky = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
@@ -7880,6 +7903,8 @@ void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS)
 	zebra_vni_t *zvni;
 	struct interface *ifp;
 	struct zebra_if *zif;
+	int flood_control;
+	zebra_vtep_t *zvtep;
 
 	if (!is_evpn_enabled()) {
 		zlog_debug(
@@ -7901,12 +7926,13 @@ void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS)
 		STREAM_GETL(s, vni);
 		l += 4;
 		STREAM_GET(&vtep_ip.s_addr, s, IPV4_MAX_BYTELEN);
+		STREAM_GETL(s, flood_control);
 		l += IPV4_MAX_BYTELEN;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("Recv VTEP_ADD %s VNI %u from %s",
-				   inet_ntoa(vtep_ip), vni,
-				   zebra_route_string(client->proto));
+			zlog_debug("Recv VTEP_ADD %s VNI %u flood %d from %s",
+					inet_ntoa(vtep_ip), vni, flood_control,
+					zebra_route_string(client->proto));
 
 		/* Locate VNI hash entry - expected to exist. */
 		zvni = zvni_lookup(vni);
@@ -7933,19 +7959,31 @@ void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS)
 		if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
 			continue;
 
-		/* If the remote VTEP already exists,
-		   there's nothing more to do. */
-		if (zvni_vtep_find(zvni, &vtep_ip))
-			continue;
-
-		if (zvni_vtep_add(zvni, &vtep_ip) == NULL) {
-			flog_err(EC_ZEBRA_VTEP_ADD_FAILED,
-				 "Failed to add remote VTEP, VNI %u zvni %p",
-				 vni, zvni);
-			continue;
+		zvtep = zvni_vtep_find(zvni, &vtep_ip);
+		if (zvtep) {
+			/* If the remote VTEP already exists check if
+			 * the flood mode has changed
+			 */
+			if (zvtep->flood_control != flood_control) {
+				if (zvtep->flood_control
+						== VXLAN_FLOOD_DISABLED)
+					/* old mode was head-end-replication but
+					 * is no longer; get rid of the HER fdb
+					 * entry installed before
+					 */
+					zvni_vtep_uninstall(zvni, &vtep_ip);
+				zvtep->flood_control = flood_control;
+				zvni_vtep_install(zvni, zvtep);
+			}
+		} else {
+			zvtep = zvni_vtep_add(zvni, &vtep_ip, flood_control);
+			if (zvtep)
+				zvni_vtep_install(zvni, zvtep);
+			else
+				flog_err(EC_ZEBRA_VTEP_ADD_FAILED,
+					"Failed to add remote VTEP, VNI %u zvni %p",
+					vni, zvni);
 		}
-
-		zvni_vtep_install(zvni, &vtep_ip);
 	}
 
 stream_failure:

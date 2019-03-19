@@ -52,6 +52,10 @@ struct zebra_vtep_t_ {
 	/* Remote IP. */
 	/* NOTE: Can only be IPv4 right now. */
 	struct in_addr vtep_ip;
+	/* Flood mode (one of enum vxlan_flood_control) based on the PMSI
+	 * tunnel type advertised by the remote VTEP
+	 */
+	int flood_control;
 
 	/* Links. */
 	struct zebra_vtep_t_ *next;
