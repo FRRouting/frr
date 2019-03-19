@@ -213,6 +213,12 @@ static void zebra_vxlan_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 						bool do_dad,
 						bool *is_dup_detect,
 						bool is_local);
+static unsigned int zebra_vxlan_sg_hash_key_make(void *p);
+static bool zebra_vxlan_sg_hash_eq(const void *p1, const void *p2);
+static void zebra_vxlan_sg_do_deref(struct zebra_vrf *zvrf,
+		struct in_addr sip, struct in_addr mcast_grp);
+static zebra_vxlan_sg_t *zebra_vxlan_sg_do_ref(struct zebra_vrf *vrf,
+				struct in_addr sip, struct in_addr mcast_grp);
 
 /* Private functions */
 static int host_rb_entry_compare(const struct host_rb_entry *hle1,
@@ -9202,6 +9208,8 @@ void zebra_vxlan_init_tables(struct zebra_vrf *zvrf)
 		return;
 	zvrf->vni_table = hash_create(vni_hash_keymake, vni_hash_cmp,
 				      "Zebra VRF VNI Table");
+	zvrf->vxlan_sg_table = hash_create(zebra_vxlan_sg_hash_key_make,
+			zebra_vxlan_sg_hash_eq, "Zebra VxLAN SG Table");
 }
 
 /* Cleanup VNI info, but don't free the table. */
@@ -9368,4 +9376,146 @@ static int zebra_vxlan_dad_mac_auto_recovery_exp(struct thread *t)
 	}
 
 	return 0;
+}
+
+/************************** vxlan SG cache management ************************/
+static unsigned int zebra_vxlan_sg_hash_key_make(void *p)
+{
+	zebra_vxlan_sg_t *vxlan_sg = p;
+
+	return (jhash_2words(vxlan_sg->sg.src.s_addr,
+				vxlan_sg->sg.grp.s_addr, 0));
+}
+
+static bool zebra_vxlan_sg_hash_eq(const void *p1, const void *p2)
+{
+	const zebra_vxlan_sg_t *sg1 = p1;
+	const zebra_vxlan_sg_t *sg2 = p2;
+
+	return ((sg1->sg.src.s_addr == sg2->sg.src.s_addr)
+		&& (sg1->sg.grp.s_addr == sg2->sg.grp.s_addr));
+}
+
+static zebra_vxlan_sg_t *zebra_vxlan_sg_new(struct zebra_vrf *zvrf,
+		struct prefix_sg *sg)
+{
+	zebra_vxlan_sg_t *vxlan_sg;
+
+	vxlan_sg = XCALLOC(MTYPE_ZVXLAN_SG, sizeof(*vxlan_sg));
+
+	vxlan_sg->zvrf = zvrf;
+	vxlan_sg->sg = *sg;
+	prefix_sg2str(sg, vxlan_sg->sg_str);
+
+	vxlan_sg = hash_get(zvrf->vxlan_sg_table, vxlan_sg, hash_alloc_intern);
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s created", vxlan_sg->sg_str);
+
+	return vxlan_sg;
+}
+
+static zebra_vxlan_sg_t *zebra_vxlan_sg_find(struct zebra_vrf *zvrf,
+					    struct prefix_sg *sg)
+{
+	zebra_vxlan_sg_t lookup;
+
+	lookup.sg = *sg;
+	return hash_lookup(zvrf->vxlan_sg_table, &lookup);
+}
+
+static zebra_vxlan_sg_t *zebra_vxlan_sg_add(struct zebra_vrf *zvrf,
+					   struct prefix_sg *sg)
+{
+	zebra_vxlan_sg_t *vxlan_sg;
+	zebra_vxlan_sg_t *parent = NULL;
+	struct in_addr sip;
+
+	vxlan_sg = zebra_vxlan_sg_find(zvrf, sg);
+	if (vxlan_sg)
+		return vxlan_sg;
+
+	/* create a *G entry for every BUM group implicitly -
+	 * 1. The SG entry is used by pimd to setup the vxlan-origination-mroute
+	 * 2. the XG entry is used by pimd to setup the
+	 * vxlan-termination-mroute
+	 */
+	if (sg->src.s_addr) {
+		memset(&sip, 0, sizeof(sip));
+		parent = zebra_vxlan_sg_do_ref(zvrf, sip, sg->grp);
+		if (!parent)
+			return NULL;
+	}
+
+	vxlan_sg = zebra_vxlan_sg_new(zvrf, sg);
+	if (!vxlan_sg) {
+		if (parent)
+			zebra_vxlan_sg_do_deref(zvrf, sip, sg->grp);
+		return vxlan_sg;
+	}
+
+	return vxlan_sg;
+}
+
+static void zebra_vxlan_sg_del(zebra_vxlan_sg_t *vxlan_sg)
+{
+	struct in_addr sip;
+	struct zebra_vrf *zvrf;
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf)
+		return;
+
+	/* On SG entry deletion remove the reference to its parent XG
+	 * entry
+	 */
+	if (vxlan_sg->sg.src.s_addr) {
+		memset(&sip, 0, sizeof(sip));
+		zebra_vxlan_sg_do_deref(zvrf, sip, vxlan_sg->sg.grp);
+	}
+
+	hash_release(vxlan_sg->zvrf->vxlan_sg_table, vxlan_sg);
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("VXLAN SG %s deleted", vxlan_sg->sg_str);
+
+	XFREE(MTYPE_ZVXLAN_SG, vxlan_sg);
+}
+
+static void zebra_vxlan_sg_do_deref(struct zebra_vrf *zvrf,
+		struct in_addr sip, struct in_addr mcast_grp)
+{
+	zebra_vxlan_sg_t *vxlan_sg;
+	struct prefix_sg sg;
+
+	sg.family = AF_INET;
+	sg.prefixlen = IPV4_MAX_BYTELEN;
+	sg.src = sip;
+	sg.grp = mcast_grp;
+	vxlan_sg = zebra_vxlan_sg_find(zvrf, &sg);
+	if (!vxlan_sg)
+		return;
+
+	if (vxlan_sg->ref_cnt)
+		--vxlan_sg->ref_cnt;
+
+	if (!vxlan_sg->ref_cnt)
+		zebra_vxlan_sg_del(vxlan_sg);
+}
+
+static zebra_vxlan_sg_t *zebra_vxlan_sg_do_ref(struct zebra_vrf *zvrf,
+				struct in_addr sip, struct in_addr mcast_grp)
+{
+	zebra_vxlan_sg_t *vxlan_sg;
+	struct prefix_sg sg;
+
+	sg.family = AF_INET;
+	sg.prefixlen = IPV4_MAX_BYTELEN;
+	sg.src = sip;
+	sg.grp = mcast_grp;
+	vxlan_sg = zebra_vxlan_sg_add(zvrf, &sg);
+	if (vxlan_sg)
+		++vxlan_sg->ref_cnt;
+
+	return vxlan_sg;
 }
