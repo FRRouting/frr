@@ -609,7 +609,8 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
  * Add (update) or delete remote VTEP from zebra.
  */
 static int bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
-				      struct prefix_evpn *p, int add)
+				struct prefix_evpn *p,
+				int flood_control, int add)
 {
 	struct stream *s;
 
@@ -641,6 +642,7 @@ static int bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 			add ? "ADD" : "DEL", vpn->vni);
 		return -1;
 	}
+	stream_putl(s, flood_control);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -889,6 +891,7 @@ static int evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn,
 {
 	int ret;
 	uint8_t flags;
+	int flood_control;
 
 	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 		flags = 0;
@@ -903,7 +906,20 @@ static int evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn,
 			bgp, vpn, p, pi->attr->nexthop, 1, flags,
 			mac_mobility_seqnum(pi->attr));
 	} else {
-		ret = bgp_zebra_send_remote_vtep(bgp, vpn, p, 1);
+		switch (pi->attr->pmsi_tnl_type) {
+		case PMSI_TNLTYPE_INGR_REPL:
+			flood_control = VXLAN_FLOOD_HEAD_END_REPL;
+			break;
+
+		case PMSI_TNLTYPE_PIM_SM:
+			flood_control = VXLAN_FLOOD_PIM_SM;
+			break;
+
+		default:
+			flood_control = VXLAN_FLOOD_DISABLED;
+			break;
+		}
+		ret = bgp_zebra_send_remote_vtep(bgp, vpn, p, flood_control, 1);
 	}
 
 	return ret;
@@ -920,7 +936,8 @@ static int evpn_zebra_uninstall(struct bgp *bgp, struct bgpevpn *vpn,
 		ret = bgp_zebra_send_remote_macip(bgp, vpn, p, remote_vtep_ip,
 						  0, 0, 0);
 	else
-		ret = bgp_zebra_send_remote_vtep(bgp, vpn, p, 0);
+		ret = bgp_zebra_send_remote_vtep(bgp, vpn, p,
+					VXLAN_FLOOD_DISABLED, 0);
 
 	return ret;
 }
@@ -3900,12 +3917,12 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 	 */
 	if (attr &&
 	    (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL))) {
-		if (attr->pmsi_tnl_type != PMSI_TNLTYPE_INGR_REPL) {
-			flog_warn(
-				EC_BGP_EVPN_PMSI_PRESENT,
-				"%u:%s - Rx EVPN Type-3 NLRI with unsupported PTA %d",
-				peer->bgp->vrf_id, peer->host,
-				attr->pmsi_tnl_type);
+		if (attr->pmsi_tnl_type != PMSI_TNLTYPE_INGR_REPL &&
+			attr->pmsi_tnl_type != PMSI_TNLTYPE_PIM_SM) {
+			flog_warn(EC_BGP_EVPN_PMSI_PRESENT,
+				  "%u:%s - Rx EVPN Type-3 NLRI with unsupported PTA %d",
+				  peer->bgp->vrf_id, peer->host,
+				  attr->pmsi_tnl_type);
 		}
 	}
 
