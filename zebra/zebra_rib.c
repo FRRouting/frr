@@ -2661,7 +2661,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	if (re->nhe_id) {
 		nhe = zebra_nhg_lookup_id(re->nhe_id);
 	} else {
-		nhe = zebra_nhg_find(re->ng, re->vrf_id, 0);
+		nhe = zebra_nhg_find(re->ng, re->vrf_id, afi, 0);
 		re->nhe_id = nhe->id;
 	}
 

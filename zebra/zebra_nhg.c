@@ -106,6 +106,7 @@ static void *zebra_nhg_alloc(void *arg)
 	pthread_mutex_unlock(&lock);
 
 	nhe->vrf_id = copy->vrf_id;
+	nhe->afi = copy->afi;
 	nhe->refcnt = 0;
 	nhe->is_kernel_nh = false;
 	nhe->dplane_ref = zebra_router_get_next_sequence();
@@ -163,7 +164,7 @@ uint32_t zebra_nhg_hash_key(const void *arg)
 
 	int key = 0x5a351234;
 
-	key = jhash_1word(nhe->vrf_id, key);
+	key = jhash_2words(nhe->vrf_id, nhe->afi, key);
 
 	key = jhash_1word(zebra_nhg_hash_key_nexthop_group(&nhe->nhg), key);
 
@@ -186,6 +187,9 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	uint32_t nh_count = 0;
 
 	if (nhe1->vrf_id != nhe2->vrf_id)
+		return false;
+
+	if (nhe1->afi != nhe2->afi)
 		return false;
 
 	/*
@@ -229,6 +233,7 @@ struct nhg_hash_entry *zebra_nhg_find_id(uint32_t id, struct nexthop_group *nhg)
  *
  * @nhg:	Nexthop group we lookup with
  * @vrf_id:	VRF id
+ * @afi:	Address Family type
  * @id:		ID we lookup with, 0 means its from us and we need to give it
  * 		an ID, otherwise its from the kernel as we use the ID it gave
  * 		us.
@@ -236,13 +241,14 @@ struct nhg_hash_entry *zebra_nhg_find_id(uint32_t id, struct nexthop_group *nhg)
  * Return:	Hash entry found or created
  */
 struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
-				      vrf_id_t vrf_id, uint32_t id)
+				      vrf_id_t vrf_id, afi_t afi, uint32_t id)
 {
 	struct nhg_hash_entry lookup = {0};
 	struct nhg_hash_entry *nhe = NULL;
 
 	lookup.id = id;
 	lookup.vrf_id = vrf_id;
+	lookup.afi = afi;
 	lookup.nhg = *nhg;
 
 
