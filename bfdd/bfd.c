@@ -1231,7 +1231,7 @@ void bs_to_bpc(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
 
 		if (memcmp(&bs->key.local, &zero_addr, sizeof(bs->key.local))) {
 			bpc->bpc_local.sa_sin.sin_family = AF_INET6;
-			memcpy(&bpc->bpc_local.sa_sin.sin_addr, &bs->key.peer,
+			memcpy(&bpc->bpc_local.sa_sin.sin_addr, &bs->key.local,
 			       sizeof(bpc->bpc_local.sa_sin.sin_addr));
 		}
 		break;
@@ -1242,7 +1242,7 @@ void bs_to_bpc(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
 		       sizeof(bpc->bpc_peer.sa_sin6.sin6_addr));
 
 		bpc->bpc_local.sa_sin6.sin6_family = AF_INET6;
-		memcpy(&bpc->bpc_local.sa_sin6.sin6_addr, &bs->key.peer,
+		memcpy(&bpc->bpc_local.sa_sin6.sin6_addr, &bs->key.local,
 		       sizeof(bpc->bpc_local.sa_sin6.sin6_addr));
 		break;
 	}
