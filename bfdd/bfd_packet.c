@@ -141,6 +141,7 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6)) {
 		sd = bglobal.bg_echov6;
 		memset(&sin6, 0, sizeof(sin6));
+		sin6.sin6_family = AF_INET6;
 		memcpy(&sin6.sin6_addr, &bfd->key.peer, sizeof(sin6.sin6_addr));
 		if (bfd->ifp && IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
 			sin6.sin6_scope_id = bfd->ifp->ifindex;
@@ -155,6 +156,7 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 	} else {
 		sd = bglobal.bg_echo;
 		memset(&sin6, 0, sizeof(sin6));
+		sin.sin_family = AF_INET;
 		memcpy(&sin.sin_addr, &bfd->key.peer, sizeof(sin.sin_addr));
 		sin.sin_port = htons(BFD_DEF_ECHO_PORT);
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
