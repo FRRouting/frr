@@ -1858,31 +1858,30 @@ static int rib_update_re_from_ctx(struct route_entry *re,
 	/* Update zebra nexthop FIB flag for each
 	 * nexthop that was installed.
 	 */
-	for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx),
-			      ctx_nexthop)) {
+	for (ALL_NEXTHOPS(re->ng, nexthop)) {
 
-		if (!re)
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			continue;
 
-		for (ALL_NEXTHOPS(re->ng, nexthop)) {
+		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx),
+				      ctx_nexthop)) {
+
 			if (nexthop_same(ctx_nexthop, nexthop))
 				break;
 		}
 
-		if (nexthop == NULL)
+		/* If the FIB doesn't know about the nexthop,
+		 * it's not installed
+		 */
+		if (ctx_nexthop == NULL) {
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 			continue;
+		}
 
-		if (CHECK_FLAG(nexthop->flags,
-			       NEXTHOP_FLAG_RECURSIVE))
-			continue;
-
-		if (CHECK_FLAG(ctx_nexthop->flags,
-			       NEXTHOP_FLAG_FIB))
-			SET_FLAG(nexthop->flags,
-				 NEXTHOP_FLAG_FIB);
+		if (CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_FIB))
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		else
-			UNSET_FLAG(nexthop->flags,
-				   NEXTHOP_FLAG_FIB);
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 	}
 
 	/* Redistribute */
