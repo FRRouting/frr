@@ -71,10 +71,7 @@ def setup_module(mod):
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
-    for rname, router in tgen.routers().iteritems():
-        router.run("vtysh -f {}".format(os.path.join(CWD, '{}/frr.conf'.format(rname))))
 
-    #tgen.mininet_cli()
 
 def teardown_module(mod):
     "Teardown the pytest environment"
@@ -98,17 +95,22 @@ def test_pim_send_mcast_stream():
 
     # Let's establish a S,G stream from r2 -> r1
     CWD = os.path.dirname(os.path.realpath(__file__))
-    out2 = r2.run("{}/mcast-tx.py --ttl 5 --count 5 --interval 10 229.1.1.1 r2-eth0 > /tmp/bar".format(CWD))
+    r2.run("{}/mcast-tx.py --ttl 5 --count 5 --interval 10 229.1.1.1 r2-eth0 > /tmp/bar".format(CWD))
 
     # Let's see that it shows up and we have established some basic state
-    out1 = r1.vtysh_cmd("show ip pim upstream json", isjson=True)
+    out = r1.vtysh_cmd("show ip pim upstream json", isjson=True)
+    expected = {
+        '229.1.1.1': {
+            '10.0.20.2': {
+                'firstHopRouter': 1,
+                'joinState': 'NotJoined',
+                'regState': 'RegPrune',
+                'inboundInterface': 'r1-eth0',
+            }
+        }
+    }
 
-    sg = out1['229.1.1.1']['10.0.20.2']
-    assert sg['firstHopRouter'] == 1
-    assert sg['joinState']  == "NotJoined"
-    assert sg['regState'] == "RegPrune"
-    assert sg['inboundInterface'] == "r1-eth0"
-    #tgen.mininet_cli()
+    assert topotest.json_cmp(out, expected) is None, 'failed to converge pim'
 
 
 def test_pim_igmp_report():
@@ -125,15 +127,21 @@ def test_pim_igmp_report():
 
     # Let's send a igmp report from r2->r1
     CWD = os.path.dirname(os.path.realpath(__file__))
-    out2 = r2.run("{}/mcast-rx.py 229.1.1.2 r2-eth0 &".format(CWD))
+    r2.run("{}/mcast-rx.py 229.1.1.2 r2-eth0 &".format(CWD))
 
-    out1 = r1.vtysh_cmd("show ip pim upstream json", isjson=True)
-    starg = out1['229.1.1.2']['*']
-    assert starg['sourceIgmp'] == 1
-    assert starg['joinState'] == "Joined"
-    assert starg['regState'] == "RegNoInfo"
-    assert starg['sptBit'] == 0
-    #tgen.mininet_cli()
+    out = r1.vtysh_cmd("show ip pim upstream json", isjson=True)
+    expected = {
+        '229.1.1.2': {
+            '*': {
+                'sourceIgmp': 1,
+                'joinState': 'Joined',
+                'regState': 'RegNoInfo',
+                'sptBit': 0,
+            }
+        }
+    }
+
+    assert topotest.json_cmp(out, expected) is None, 'failed to converge pim'
 
 
 def test_memory_leak():
