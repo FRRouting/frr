@@ -1,6 +1,8 @@
 /*
  * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
+ * Portions:
+ *   Copyright (C) 2008 Everton da Silva Marques
+ *   Copyright (C) 2019 Akamai Technologies Inc., Jake Holland
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -130,7 +132,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 
 	pim_ifp = ch->interface->info;
 
-	if (ch->upstream->channel_oil) {
+	if (ch->upstream && ch->upstream->channel_oil) {
 		uint32_t mask = PIM_OIF_FLAG_PROTO_PIM;
 		if (ch->upstream->flags & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
 			mask = PIM_OIF_FLAG_PROTO_IGMP;
@@ -164,25 +166,36 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	if (ch->sources)
 		list_delete(&ch->sources);
 
-	listnode_delete(ch->upstream->ifchannels, ch);
-
-	if (ch->ifjoin_state != PIM_IFJOIN_NOINFO) {
-		pim_upstream_update_join_desired(pim_ifp->pim, ch->upstream);
+	/* this can be called when the channel wasn't created yet */
+	if (ch->upstream && ch->upstream->ifchannels) {
+		listnode_delete(ch->upstream->ifchannels, ch);
 	}
+
+	if (ch->upstream && ch->ifjoin_state != PIM_IFJOIN_NOINFO)
+		pim_upstream_update_join_desired(pim_ifp->pim, ch->upstream);
 
 	/* upstream is common across ifchannels, check if upstream's
 	   ifchannel list is empty before deleting upstream_del
 	   ref count will take care of it.
 	*/
-	if (ch->upstream->ref_count > 0)
+	if (ch->upstream && ch->upstream->ref_count > 0) {
 		pim_upstream_del(pim_ifp->pim, ch->upstream,
 			__PRETTY_FUNCTION__);
 
-	else
-		zlog_warn("%s: Avoiding deletion of upstream with ref_count %d "
-			"from ifchannel(%s): %s", __PRETTY_FUNCTION__,
-			ch->upstream->ref_count, ch->interface->name,
-			ch->sg_str);
+	} else {
+		if (ch->upstream) {
+			zlog_warn(
+				"%s: Avoiding deletion of upstream with ref_count %d "
+				"from ifchannel(%s): %s",
+				__PRETTY_FUNCTION__, ch->upstream->ref_count,
+				ch->interface->name, ch->sg_str);
+		} else {
+			zlog_warn(
+				"%s: Avoiding deletion of null upstream from ifchannel(%s): %s",
+				__PRETTY_FUNCTION__, ch->interface->name,
+				ch->sg_str);
+		}
+	}
 
 	ch->upstream = NULL;
 
@@ -190,16 +203,16 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
 	THREAD_OFF(ch->t_ifassert_timer);
 
+	if (PIM_DEBUG_PIM_TRACE)
+		zlog_debug("%s: ifchannel entry %s is deleted",
+			   __PRETTY_FUNCTION__, ch->sg_str);
+
 	if (ch->parent) {
 		listnode_delete(ch->parent->sources, ch);
 		ch->parent = NULL;
 	}
 
 	RB_REMOVE(pim_ifchannel_rb, &pim_ifp->ifchannel_rb, ch);
-
-	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: ifchannel entry %s is deleted ",
-			   __PRETTY_FUNCTION__, ch->sg_str);
 
 	XFREE(MTYPE_PIM_IFCHANNEL, ch);
 }
@@ -558,6 +571,11 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 	up = pim_upstream_add(pim_ifp->pim, sg, NULL, up_flags,
 			      __PRETTY_FUNCTION__, ch);
 
+	if (!up) {
+		pim_ifchannel_delete(ch);
+		return NULL;
+	}
+
 	ch->upstream = up;
 
 	listnode_add_sort(up->ifchannels, ch);
@@ -771,13 +789,47 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 
 	if (nonlocal_upstream(1 /* join */, ifp, upstream, sg, source_flags,
 			      holdtime)) {
+		if (PIM_DEBUG_TRACE) {
+			char up_str[INET_ADDRSTRLEN];
+
+			pim_inet4_dump("<upstream?>", upstream, up_str,
+				       sizeof(up_str));
+			zlog_debug(
+				"%s: nonlocal_upstream nonzero: ifchannel %s(%s) upstream: %s state: %d",
+				__PRETTY_FUNCTION__, ifp->name,
+				pim_str_sg_dump(sg), up_str, source_flags);
+		}
 		return;
+	}
+
+	if (PIM_DEBUG_TRACE) {
+		char up_str[INET_ADDRSTRLEN];
+
+		pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
+		zlog_debug(
+			"%s: nonlocal_upstream zero: ifchannel %s(%s) upstream: %s state: %d",
+			__PRETTY_FUNCTION__, ifp->name, pim_str_sg_dump(sg),
+			up_str, source_flags);
 	}
 
 	ch = pim_ifchannel_add(ifp, sg, source_flags,
 			       PIM_UPSTREAM_FLAG_MASK_SRC_PIM);
-	if (!ch)
+	if (!ch) {
+		if (PIM_DEBUG_TRACE) {
+			zlog_debug(
+				"%s: failed ifchannel_add: ifchannel %s(%s) state: %d",
+				__PRETTY_FUNCTION__, ifp->name,
+				pim_str_sg_dump(sg), source_flags);
+		}
 		return;
+	}
+
+	if (PIM_DEBUG_TRACE) {
+		zlog_debug(
+			"%s: passed ifchannel_add: ifchannel %s(%s) state: %d",
+			__PRETTY_FUNCTION__, ifp->name, pim_str_sg_dump(sg),
+			source_flags);
+	}
 
 	/*
 	  RFC 4601: 4.6.1.  (S,G) Assert Message State Machine
@@ -862,6 +914,13 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 				  current value is
 				  higher than the received join holdtime.
 				 */
+				if (PIM_DEBUG_TRACE) {
+					zlog_debug(
+						"%s: current expiry higher than holdtime: ifchannel %s(%s) state: %d",
+						__PRETTY_FUNCTION__, ifp->name,
+						pim_str_sg_dump(sg),
+						source_flags);
+				}
 				return;
 			}
 		}
@@ -888,6 +947,12 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		break;
 	}
 
+	if (PIM_DEBUG_TRACE) {
+		zlog_debug(
+			"%s: finished: ifchannel %s(%s) state: %d, holdtime: %d",
+			__PRETTY_FUNCTION__, ifp->name, pim_str_sg_dump(sg),
+			source_flags, holdtime);
+	}
 	if (holdtime != 0xFFFF) {
 		thread_add_timer(router->master, on_ifjoin_expiry_timer, ch,
 				 holdtime, &ch->t_ifjoin_expiry_timer);

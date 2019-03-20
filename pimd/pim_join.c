@@ -1,6 +1,8 @@
 /*
  * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
+ * Portions:
+ *   Copyright (C) 2008 Everton da Silva Marques
+ *   Copyright (C) 2019 Akamai Technologies Inc., Jake Holland
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -356,6 +358,14 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		starg_ch = NULL;
 	} /* scan groups */
 
+
+	if (PIM_DEBUG_TRACE) {
+		char src_str[INET_ADDRSTRLEN];
+		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
+		zlog_debug("%s: finished: from %s on %s", __PRETTY_FUNCTION__,
+			   src_str, ifp->name);
+	}
+
 	return 0;
 }
 
@@ -460,6 +470,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 	if (PIM_INADDR_IS_ANY(rpf->rpf_addr.u.prefix4)) {
 		if (PIM_DEBUG_PIM_J_P) {
 			char dst_str[INET_ADDRSTRLEN];
+
 			pim_inet4_dump("<dst?>", rpf->rpf_addr.u.prefix4,
 				       dst_str, sizeof(dst_str));
 			zlog_debug("%s: upstream=%s is myself on interface %s",

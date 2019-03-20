@@ -1,6 +1,9 @@
 /*
  * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
+ * Portions:
+ *   Copyright (C) 2008 Everton da Silva Marques
+ *   Copyright (C) 2019 Akamai Technologies Inc., Jake Holland
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -115,6 +118,26 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 
 	zassert(ifp);
 	zassert(!ifp->info);
+
+	if (ifp->ifindex == IFINDEX_INTERNAL) {
+		if (strcmp(ifp->name, "pimreg") == 0) {
+			if (PIM_DEBUG_PIM_TRACE) {
+				zlog_debug(
+					"%s: interface %s keeps ifindex IFINDEX_INTERNAL=%d, matching PIM_OIF_PIM_REGISTER_VIF=%d",
+					__PRETTY_FUNCTION__, ifp->name,
+					IFINDEX_INTERNAL,
+					PIM_OIF_PIM_REGISTER_VIF);
+			}
+		} else {
+			if_set_index(ifp, if_nametoindex(ifp->name));
+			if (ifp->ifindex == IFINDEX_INTERNAL) {
+				zlog_warn(
+					"%s: could not find nonzero ifindex for %s",
+					__PRETTY_FUNCTION__, ifp->name);
+				return NULL;
+			}
+		}
+	}
 
 	pim_ifp = XCALLOC(MTYPE_PIM_INTERFACE, sizeof(*pim_ifp));
 
@@ -942,7 +965,7 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg)
 	}
 
 	if (ifp->ifindex < 0) {
-		zlog_warn("%s: ifindex=%d < 1 on interface %s",
+		zlog_warn("%s: ifindex=%d < 0 on interface %s",
 			  __PRETTY_FUNCTION__, ifp->ifindex, ifp->name);
 		return -2;
 	}
@@ -953,6 +976,16 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg)
 			"%s: could not get address for interface %s ifindex=%d",
 			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex);
 		return -4;
+	}
+
+	if (PIM_DEBUG_PIM_TRACE) {
+		char addr_str[INET_ADDRSTRLEN];
+
+		pim_inet4_dump("<addr?>", ifaddr, addr_str, sizeof(addr_str));
+		zlog_warn(
+			"%s: address for interface %s ifindex=%d, any=%d, primary_addr=%s",
+			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex,
+			PIM_INADDR_IS_ANY(ifaddr), addr_str);
 	}
 
 	pim_ifp->mroute_vif_index = pim_iface_next_vif_index(ifp);

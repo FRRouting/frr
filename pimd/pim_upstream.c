@@ -1,6 +1,8 @@
 /*
  * PIM for Quagga
- * Copyright (C) 2008  Everton da Silva Marques
+ * Portions:
+ *   Copyright (C) 2008 Everton da Silva Marques
+ *   Copyright (C) 2019 Akamai Technologies Inc., Jake Holland
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -619,6 +621,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 
 		hash_release(pim->upstream_hash, up);
 		XFREE(MTYPE_PIM_UPSTREAM, up);
+		if (ch)
+			ch->upstream = NULL;
 		return NULL;
 	}
 
@@ -689,6 +693,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 
 		hash_release(pim->upstream_hash, up);
 		XFREE(MTYPE_PIM_UPSTREAM, up);
+		if (ch)
+			ch->upstream = NULL;
 		return NULL;
 	}
 
