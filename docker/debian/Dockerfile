@@ -3,8 +3,17 @@ MAINTAINER Rob Gil (rob@rem5.com)
 RUN apt-get update
 RUN apt-get install -y libpcre3-dev apt-transport-https ca-certificates curl wget logrotate \
     libc-ares2 libjson-c3 vim systemd procps
-RUN curl -sLO https://ci1.netdef.org/artifact/LIBYANG-YANGRELEASE/shared/build-1/Debian-9-x86_64-Packages/libyang_0.16.46_amd64.deb && dpkg -i libyang_0.16.46_amd64.deb
-RUN curl -sLO https://github.com/FRRouting/frr/releases/download/frr-6.0.2/frr_6.0.2-0.deb9u1_amd64.deb && dpkg -i frr_6.0.2-0.deb9u1_amd64.deb
-ADD daemons /etc/frr/daemons
-ADD docker-start /usr/sbin/docker-start
-ENTRYPOINT ["/usr/sbin/docker-start"]
+
+RUN addgroup --system --gid 92 frr && \
+    addgroup --system --gid 85 frrvty && \
+    adduser --system --ingroup frr --home /var/opt/frr/ \
+    --gecos "FRR suite" --shell /bin/false frr && \
+    usermod -a -G frrvty frr
+COPY --chown=frr:frrvty bin/ /usr/bin/
+COPY --chown=frr:frrvty include/ /usr/include/
+COPY --chown=frr:frrvty lib/ /usr/lib/
+COPY --chown=frr:frrvty sbin/ /usr/sbin/
+COPY --chown=frr:frrvty share/ /usr/share/
+#ADD daemons /etc/frr/daemons
+#ADD docker-start /usr/sbin/docker-start
+#ENTRYPOINT ["/usr/sbin/docker-start"]
