@@ -2127,7 +2127,6 @@ static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
 				EC_ZEBRA_BAD_NHG_MESSAGE,
 				"Nexthop gateway with bad address family (%d) received from kernel",
 				family);
-			// TODO: Different return value?
 			return nh;
 		}
 		gate = RTA_DATA(tb[NHA_GATEWAY]);
@@ -2298,12 +2297,8 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 							ns_id);
 		}
 
-
-		SET_FLAG(nh.flags, NEXTHOP_FLAG_ACTIVE);
-		if (nhm->nh_flags & RTNH_F_ONLINK)
-			SET_FLAG(nh.flags, NEXTHOP_FLAG_ONLINK);
-
-		nexthop_group_add_sorted(&nhg, &nh);
+		if (!nhg.nexthop)
+			return -1;
 
 		if (nhe) {
 			/* This is a change to a group we already have */
