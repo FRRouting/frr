@@ -2469,7 +2469,7 @@ certainly contains silly mistakes, if not serious flaws.
    route-map rm-no-export permit 20
    !
    route-map rm-blackhole permit 10
-    description blackhole, up-pref and ensure it can not escape this AS
+    description blackhole, up-pref and ensure it cannot escape this AS
     set ip next-hop 127.0.0.1
     set local-preference 10
     set community additive no-export
