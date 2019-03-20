@@ -1892,11 +1892,50 @@ static int rib_update_re_from_ctx(struct route_entry *re,
 }
 
 /*
+ * Helper to locate a zebra route-node from a dplane context. This is used
+ * when processing dplane results, e.g. Note well: the route-node is returned
+ * with a ref held - route_unlock_node() must be called eventually.
+ */
+static struct route_node *
+rib_find_rn_from_ctx(const struct zebra_dplane_ctx *ctx)
+{
+	struct route_table *table = NULL;
+	struct route_node *rn = NULL;
+	const struct prefix *dest_pfx, *src_pfx;
+
+	/* Locate rn and re(s) from ctx */
+
+	table = zebra_vrf_table_with_table_id(dplane_ctx_get_afi(ctx),
+					      dplane_ctx_get_safi(ctx),
+					      dplane_ctx_get_vrf(ctx),
+					      dplane_ctx_get_table(ctx));
+	if (table == NULL) {
+		if (IS_ZEBRA_DEBUG_DPLANE) {
+			zlog_debug("Failed to find route for ctx: no table for afi %d, safi %d, vrf %u",
+				   dplane_ctx_get_afi(ctx),
+				   dplane_ctx_get_safi(ctx),
+				   dplane_ctx_get_vrf(ctx));
+		}
+		goto done;
+	}
+
+	dest_pfx = dplane_ctx_get_dest(ctx);
+	src_pfx = dplane_ctx_get_src(ctx);
+
+	rn = srcdest_rnode_get(table, dest_pfx,
+			       src_pfx ? (struct prefix_ipv6 *)src_pfx : NULL);
+
+done:
+	return rn;
+}
+
+
+
+/*
  * Route-update results processing after async dataplane update.
  */
 static void rib_process_result(struct zebra_dplane_ctx *ctx)
 {
-	struct route_table *table = NULL;
 	struct zebra_vrf *zvrf = NULL;
 	struct route_node *rn = NULL;
 	struct route_entry *re = NULL, *old_re = NULL, *rib;
@@ -1907,24 +1946,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	const struct prefix *dest_pfx, *src_pfx;
 	uint32_t seq;
 
-	/* Locate rn and re(s) from ctx */
-
-	table = zebra_vrf_table_with_table_id(dplane_ctx_get_afi(ctx),
-					      dplane_ctx_get_safi(ctx),
-					      dplane_ctx_get_vrf(ctx),
-					      dplane_ctx_get_table(ctx));
-	if (table == NULL) {
-		if (IS_ZEBRA_DEBUG_DPLANE) {
-			zlog_debug("Failed to process dplane results: no table for afi %d, safi %d, vrf %u",
-				   dplane_ctx_get_afi(ctx),
-				   dplane_ctx_get_safi(ctx),
-				   dplane_ctx_get_vrf(ctx));
-		}
-		goto done;
-	}
-
 	zvrf = vrf_info_lookup(dplane_ctx_get_vrf(ctx));
-
 	dest_pfx = dplane_ctx_get_dest(ctx);
 
 	/* Note well: only capturing the prefix string if debug is enabled here;
@@ -1933,9 +1955,8 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		prefix2str(dest_pfx, dest_str, sizeof(dest_str));
 
-	src_pfx = dplane_ctx_get_src(ctx);
-	rn = srcdest_rnode_get(table, dplane_ctx_get_dest(ctx),
-			       src_pfx ? (struct prefix_ipv6 *)src_pfx : NULL);
+	/* Locate rn and re(s) from ctx */
+	rn = rib_find_rn_from_ctx(ctx);
 	if (rn == NULL) {
 		if (IS_ZEBRA_DEBUG_DPLANE) {
 			zlog_debug("Failed to process dplane results: no route for %u:%s",
