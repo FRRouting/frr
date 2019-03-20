@@ -1187,7 +1187,8 @@ int bs_observer_add(struct bfd_session *bs)
 {
 	struct bfd_session_observer *bso;
 
-	bso = XMALLOC(MTYPE_BFDD_SESSION_OBSERVER, sizeof(*bso));
+	bso = XCALLOC(MTYPE_BFDD_SESSION_OBSERVER, sizeof(*bso));
+	bso->bso_isaddress = false;
 	bso->bso_bs = bs;
 	bso->bso_isinterface = !BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH);
 	if (bso->bso_isinterface)
