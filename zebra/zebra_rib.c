@@ -1932,7 +1932,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 					   dplane_ctx_get_vrf(ctx),
 					   dest_str, old_re);
 		} else
-			UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
+			UNSET_FLAG(old_re->status, ROUTE_ENTRY_QUEUED);
 	}
 
 	switch (op) {
