@@ -11,7 +11,7 @@ FreeBSD 11 restrictions:
 Install required packages
 -------------------------
 
-Add packages: (Allow the install of the package managment tool if this
+Add packages: (Allow the install of the package management tool if this
 is first package install and asked)
 
 .. code-block:: shell

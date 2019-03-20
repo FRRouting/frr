@@ -128,7 +128,7 @@ branch is required. The work can be shared by multiple people. In all cases, the
 must be at least one person that is in charge of the maintenance branch. The person
 on people responsible for a maintenance branch must be a FRR maintainer. Note that
 they may choose to abandon support for the maintenance branch at any time. If
-noone takes over the responsibility of the LTS branch, then the support will be
+no one takes over the responsibility of the LTS branch, then the support will be
 discontinued.
 
 The LTS branch duties are the following ones:

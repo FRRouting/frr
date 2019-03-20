@@ -126,7 +126,7 @@ required MPLS similar to ``net.mpls.conf.eth0.input=1``)
     net.mpls.conf.eth2.input=1
     net.mpls.platform_labels=100000
 
-Load the modifed sysctl's on the system:
+Load the modified sysctl's on the system:
 
 ::
 

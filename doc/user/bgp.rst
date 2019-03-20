@@ -1145,7 +1145,7 @@ is 4 octet long. The following format is used to define the community value.
    ``graceful-shutdown`` represents well-known communities value
    ``GRACEFUL_SHUTDOWN`` ``0xFFFF0000`` ``65535:0``. :rfc:`8326` implements
    the purpose Graceful BGP Session Shutdown to reduce the amount of
-   lost traffic when taking BGP sessions down for maintainance. The use
+   lost traffic when taking BGP sessions down for maintenance. The use
    of the community needs to be supported from your peers side to
    actually have any effect.
 
@@ -1176,20 +1176,20 @@ is 4 octet long. The following format is used to define the community value.
 ``llgr-stale``
    ``llgr-stale`` represents well-known communities value ``LLGR_STALE``
    ``0xFFFF0006`` ``65535:6``.
-   Assigned and intented only for use with routers supporting the
+   Assigned and intended only for use with routers supporting the
    Long-lived Graceful Restart Capability  as described in
    [Draft-IETF-uttaro-idr-bgp-persistence]_.
-   Routers recieving routes with this community may (depending on
+   Routers receiving routes with this community may (depending on
    implementation) choose allow to reject or modify routes on the
    presence or absence of this community.
 
 ``no-llgr``
    ``no-llgr`` represents well-known communities value ``NO_LLGR``
    ``0xFFFF0007`` ``65535:7``.
-   Assigned and intented only for use with routers supporting the
+   Assigned and intended only for use with routers supporting the
    Long-lived Graceful Restart Capability  as described in
    [Draft-IETF-uttaro-idr-bgp-persistence]_.
-   Routers recieving routes with this community may (depending on
+   Routers receiving routes with this community may (depending on
    implementation) choose allow to reject or modify routes on the
    presence or absence of this community.
 
@@ -1251,7 +1251,7 @@ UPDATE messages.
 There are two types of community list:
 
 standard
-   This type accepts an explicit value for the atttribute.
+   This type accepts an explicit value for the attribute.
 
 expanded
    This type accepts a regular expression. Because the regex must be
@@ -2469,7 +2469,7 @@ certainly contains silly mistakes, if not serious flaws.
    route-map rm-no-export permit 20
    !
    route-map rm-blackhole permit 10
-    description blackhole, up-pref and ensure it cant escape this AS
+    description blackhole, up-pref and ensure it can not escape this AS
     set ip next-hop 127.0.0.1
     set local-preference 10
     set community additive no-export

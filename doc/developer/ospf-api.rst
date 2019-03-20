@@ -284,7 +284,7 @@ Each message begins with the following header:
 The message type field can take one of the following values:
 
 +-------------------------------+---------+
-| Messages to OSPF deamon       | Value   |
+| Messages to OSPF daemon       | Value   |
 +===============================+=========+
 | MSG\_REGISTER\_OPAQUETYPE     | 1       |
 +-------------------------------+---------+
@@ -300,7 +300,7 @@ The message type field can take one of the following values:
 +-------------------------------+---------+
 
 +-----------------------------+---------+
-| Messages from OSPF deamon   | Value   |
+| Messages from OSPF daemon   | Value   |
 +=============================+=========+
 | MSG\_REPLY                  | 10      |
 +-----------------------------+---------+
