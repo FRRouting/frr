@@ -686,6 +686,22 @@ AS_IF([test "$host" = "$build"], [
 AC_SUBST([PYTHON_CFLAGS])
 AC_SUBST([PYTHON_LIBS])
 
+AC_PATH_PROGS([PYTHON], [ \
+    python \
+    python3 \
+    python3.7 \
+    python3.6 \
+    python3.5 \
+    python3.4 \
+    python3.2 \
+    python2.7 \
+    python2 ],
+    [no]
+)
+if test "$PYTHON" = "no"; then
+    AC_MSG_ERROR([Unable to find python interpreter])
+fi
+
 #
 # Logic for protobuf support.
 #
