@@ -2145,6 +2145,88 @@ done:
 	dplane_ctx_fini(&ctx);
 }
 
+/*
+ * Handle notification from async dataplane: the dataplane has detected
+ * some change to a route, and notifies zebra so that the control plane
+ * can reflect that change.
+ */
+static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
+{
+	struct route_node *rn = NULL;
+	struct route_entry *re = NULL, *rib;
+	char dest_str[PREFIX_STRLEN] = "";
+	const struct prefix *dest_pfx, *src_pfx;
+	bool changed_p = false;
+
+	dest_pfx = dplane_ctx_get_dest(ctx);
+
+	/* Note well: only capturing the prefix string if debug is enabled here;
+	 * unconditional log messages will have to generate the string.
+	 */
+	if (IS_ZEBRA_DEBUG_DPLANE)
+		prefix2str(dest_pfx, dest_str, sizeof(dest_str));
+
+	/* Locate rn and re(s) from ctx */
+	rn = rib_find_rn_from_ctx(ctx);
+	if (rn == NULL) {
+		if (IS_ZEBRA_DEBUG_DPLANE) {
+			zlog_debug("Failed to process dplane notification: no route for %u:%s",
+				   dplane_ctx_get_vrf(ctx), dest_str);
+		}
+		goto done;
+	}
+
+	route_unlock_node(rn);
+
+	srcdest_rnode_prefixes(rn, &dest_pfx, &src_pfx);
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+		zlog_debug("%u:%s Processing dplane notif ctx %p",
+			   dplane_ctx_get_vrf(ctx), dest_str, ctx);
+
+	/*
+	 * Take a pass through the routes, look for matches with the context
+	 * info.
+	 */
+	RNODE_FOREACH_RE(rn, rib) {
+
+		if (re == NULL) {
+			if (rib_route_match_ctx(rib, ctx, false))
+				re = rib;
+		}
+
+		/* Have we found the route we need to work on? */
+		if (re)
+			break;
+	}
+
+	/* No match? Nothing we can do */
+	if (re == NULL) {
+		if (IS_ZEBRA_DEBUG_DPLANE)
+			zlog_debug("Unable to process dplane notification: no entry for %u:%s, type %d",
+				   dplane_ctx_get_vrf(ctx), dest_str,
+				   dplane_ctx_get_type(ctx));
+
+		goto done;
+	}
+
+	/* Update zebra's nexthop FIB flags based on the context struct's
+	 * nexthops.
+	 */
+	rib_update_re_from_ctx(re, rn, ctx);
+
+	/* TODO -- we'd like to know about this possibility? */
+	if (!changed_p) {
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+			zlog_debug("%u:%s No change from dplane notification",
+				   dplane_ctx_get_vrf(ctx), dest_str);
+	}
+
+done:
+	/* Return context to dataplane module */
+	dplane_ctx_fini(&ctx);
+}
+
 /* Take a list of route_node structs and return 1, if there was a record
  * picked from it and processed by rib_process(). Don't process more,
  * than one RN record; operate only in the specified sub-queue.
@@ -3363,6 +3445,10 @@ static int rib_process_dplane_results(struct thread *thread)
 			case DPLANE_OP_ROUTE_UPDATE:
 			case DPLANE_OP_ROUTE_DELETE:
 				rib_process_result(ctx);
+				break;
+
+			case DPLANE_OP_ROUTE_NOTIFY:
+				rib_process_dplane_notify(ctx);
 				break;
 
 			case DPLANE_OP_LSP_INSTALL:

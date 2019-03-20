@@ -394,6 +394,7 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 	case DPLANE_OP_ROUTE_DELETE:
 	case DPLANE_OP_SYS_ROUTE_ADD:
 	case DPLANE_OP_SYS_ROUTE_DELETE:
+	case DPLANE_OP_ROUTE_NOTIFY:
 
 		/* Free allocated nexthops */
 		if ((*pctx)->u.rinfo.zd_ng.nexthop) {
@@ -570,6 +571,9 @@ const char *dplane_op2str(enum dplane_op_e op)
 		break;
 	case DPLANE_OP_ROUTE_DELETE:
 		ret = "ROUTE_DELETE";
+		break;
+	case DPLANE_OP_ROUTE_NOTIFY:
+		ret = "ROUTE_NOTIFY";
 		break;
 
 	case DPLANE_OP_LSP_INSTALL:
@@ -2211,9 +2215,10 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 			res = kernel_dplane_address_update(ctx);
 			break;
 
-		/* Ignore system 'notifications' - the kernel already knows */
+		/* Ignore 'notifications' */
 		case DPLANE_OP_SYS_ROUTE_ADD:
 		case DPLANE_OP_SYS_ROUTE_DELETE:
+		case DPLANE_OP_ROUTE_NOTIFY:
 			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
 			break;
 
@@ -2655,7 +2660,6 @@ static int dplane_thread_loop(struct thread *event)
 	(zdplane_info.dg_results_cb)(&error_list);
 
 	TAILQ_INIT(&error_list);
-
 
 	/* Call through to zebra main */
 	(zdplane_info.dg_results_cb)(&work_list);
