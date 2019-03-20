@@ -376,6 +376,8 @@ static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
 	json_object_boolean_add(j, "preemptMode", vr->preempt_mode);
 	json_object_boolean_add(j, "acceptMode", vr->accept_mode);
 	json_object_string_add(j, "interface", vr->ifp->name);
+	json_object_int_add(j, "advertisementInterval",
+			    vr->advertisement_interval * CS2MS);
 	/* v4 */
 	json_object_string_add(v4, "interface",
 			       vr->v4->mvl_ifp ? vr->v4->mvl_ifp->name : "");
