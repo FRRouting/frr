@@ -137,15 +137,23 @@ DEFPY(vrrp_priority,
 
 DEFPY(vrrp_advertisement_interval,
       vrrp_advertisement_interval_cmd,
-      "[no] vrrp (1-255)$vrid advertisement-interval (1-4096)",
+      "[no] vrrp (1-255)$vrid advertisement-interval (10-40950)",
       NO_STR VRRP_STR VRRP_VRID_STR VRRP_ADVINT_STR
-      "Advertisement interval in centiseconds")
+      "Advertisement interval in milliseconds; must be multiple of 10")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	struct vrrp_vrouter *vr;
 	uint16_t newadvint = no ? vd.advertisement_interval :
 				  advertisement_interval;
+
+	if (newadvint % 10 != 0) {
+		vty_out(vty, "%% Value must be a multiple of 10\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* all internal computations are in centiseconds */
+	newadvint /= CS2MS;
 
 	VROUTER_GET_VTY(vty, ifp, vrid, vr);
 	vrrp_set_advertisement_interval(vr, newadvint);
@@ -377,10 +385,10 @@ static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
 	json_object_string_add(v4, "status", stastr4);
 	json_object_int_add(v4, "effectivePriority", vr->v4->priority);
 	json_object_int_add(v4, "masterAdverInterval",
-			    vr->v4->master_adver_interval);
-	json_object_int_add(v4, "skewTime", vr->v4->skew_time);
+			    vr->v4->master_adver_interval * CS2MS);
+	json_object_int_add(v4, "skewTime", vr->v4->skew_time * CS2MS);
 	json_object_int_add(v4, "masterDownInterval",
-			    vr->v4->master_down_interval);
+			    vr->v4->master_down_interval * CS2MS);
 	/* v4 stats */
 	json_object_int_add(v4_stats, "adverTx", vr->v4->stats.adver_tx_cnt);
 	json_object_int_add(v4_stats, "adverRx", vr->v4->stats.adver_rx_cnt);
@@ -410,10 +418,10 @@ static struct json_object *vrrp_build_json(struct vrrp_vrouter *vr)
 	json_object_string_add(v6, "status", stastr6);
 	json_object_int_add(v6, "effectivePriority", vr->v6->priority);
 	json_object_int_add(v6, "masterAdverInterval",
-			    vr->v6->master_adver_interval);
-	json_object_int_add(v6, "skewTime", vr->v6->skew_time);
+			    vr->v6->master_adver_interval * CS2MS);
+	json_object_int_add(v6, "skewTime", vr->v6->skew_time * CS2MS);
 	json_object_int_add(v6, "masterDownInterval",
-			    vr->v6->master_down_interval);
+			    vr->v6->master_down_interval * CS2MS);
 	/* v6 stats */
 	json_object_int_add(v6_stats, "adverTx", vr->v6->stats.adver_tx_cnt);
 	json_object_int_add(v6_stats, "adverRx", vr->v6->stats.adver_rx_cnt);
@@ -490,14 +498,14 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 		       vr->preempt_mode ? "Yes" : "No");
 	ttable_add_row(tt, "%s|%s", "Accept Mode",
 		       vr->accept_mode ? "Yes" : "No");
-	ttable_add_row(tt, "%s|%" PRIu16 " cs", "Advertisement Interval",
-		       vr->advertisement_interval);
-	ttable_add_row(tt, "%s|%" PRIu16 " cs",
+	ttable_add_row(tt, "%s|%d ms", "Advertisement Interval",
+		       vr->advertisement_interval * CS2MS);
+	ttable_add_row(tt, "%s|%d ms",
 		       "Master Advertisement Interval (v4)",
-		       vr->v4->master_adver_interval);
-	ttable_add_row(tt, "%s|%" PRIu16 " cs",
+		       vr->v4->master_adver_interval * CS2MS);
+	ttable_add_row(tt, "%s|%d ms",
 		       "Master Advertisement Interval (v6)",
-		       vr->v6->master_adver_interval);
+		       vr->v6->master_adver_interval * CS2MS);
 	ttable_add_row(tt, "%s|%" PRIu32, "Advertisements Tx (v4)",
 		       vr->v4->stats.adver_tx_cnt);
 	ttable_add_row(tt, "%s|%" PRIu32, "Advertisements Tx (v6)",
@@ -514,14 +522,14 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 		       vr->v4->stats.trans_cnt);
 	ttable_add_row(tt, "%s|%" PRIu32, "State transitions (v6)",
 		       vr->v6->stats.trans_cnt);
-	ttable_add_row(tt, "%s|%" PRIu16 " cs", "Skew Time (v4)",
-		       vr->v4->skew_time);
-	ttable_add_row(tt, "%s|%" PRIu16 " cs", "Skew Time (v6)",
-		       vr->v6->skew_time);
-	ttable_add_row(tt, "%s|%" PRIu16 " cs", "Master Down Interval (v4)",
-		       vr->v4->master_down_interval);
-	ttable_add_row(tt, "%s|%" PRIu16 " cs", "Master Down Interval (v6)",
-		       vr->v6->master_down_interval);
+	ttable_add_row(tt, "%s|%d ms", "Skew Time (v4)",
+		       vr->v4->skew_time * CS2MS);
+	ttable_add_row(tt, "%s|%d ms", "Skew Time (v6)",
+		       vr->v6->skew_time * CS2MS);
+	ttable_add_row(tt, "%s|%d ms", "Master Down Interval (v4)",
+		       vr->v4->master_down_interval * CS2MS);
+	ttable_add_row(tt, "%s|%d ms", "Master Down Interval (v6)",
+		       vr->v6->master_down_interval * CS2MS);
 	ttable_add_row(tt, "%s|%u", "IPv4 Addresses", vr->v4->addrs->count);
 
 	char fill[35];

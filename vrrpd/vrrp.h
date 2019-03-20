@@ -51,6 +51,9 @@
 #define VRRP_DEFAULT_ACCEPT true
 #define VRRP_DEFAULT_SHUTDOWN false
 
+/* User compatibility constant */
+#define CS2MS 10
+
 /* Configured defaults */
 struct vrrp_defaults {
 	uint8_t priority;
