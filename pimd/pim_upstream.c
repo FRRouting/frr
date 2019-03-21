@@ -1117,12 +1117,11 @@ static void pim_upstream_fhr_kat_start(struct pim_upstream *up)
  * KAT expiry indicates that flow is inactive. If the flow was created or
  * maintained by activity now is the time to deref it.
  */
-static int pim_upstream_keep_alive_timer(struct thread *t)
+struct pim_upstream *pim_upstream_keep_alive_timer_proc(
+		struct pim_upstream *up)
 {
-	struct pim_upstream *up;
 	struct pim_instance *pim;
 
-	up = THREAD_ARG(t);
 	pim = up->channel_oil->pim;
 
 	if (PIM_UPSTREAM_FLAG_TEST_DISABLE_KAT_EXPIRY(up->flags)) {
@@ -1130,7 +1129,7 @@ static int pim_upstream_keep_alive_timer(struct thread *t)
 		 * of KAT as the mroute is pre-setup without any traffic
 		 */
 		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
-		return 0;
+		return up;
 	}
 
 	if (I_am_RP(pim, up->sg.grp)) {
@@ -1152,12 +1151,12 @@ static int pim_upstream_keep_alive_timer(struct thread *t)
 				"kat expired on %s[%s]; remove stream reference",
 				up->sg_str, pim->vrf->name);
 		PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(up->flags);
-		pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
+		up = pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
 	} else if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(up->flags)) {
 		struct pim_upstream *parent = up->parent;
 
 		PIM_UPSTREAM_FLAG_UNSET_SRC_LHR(up->flags);
-		pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
+		up = pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
 
 		if (parent) {
 			pim_jp_agg_single_upstream_send(&parent->rpf, parent,
@@ -1165,6 +1164,15 @@ static int pim_upstream_keep_alive_timer(struct thread *t)
 		}
 	}
 
+	return up;
+}
+static int pim_upstream_keep_alive_timer(struct thread *t)
+{
+	struct pim_upstream *up;
+
+	up = THREAD_ARG(t);
+
+	pim_upstream_keep_alive_timer_proc(up);
 	return 0;
 }
 

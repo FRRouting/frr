@@ -254,4 +254,6 @@ void pim_upstream_spt_prefix_list_update(struct pim_instance *pim,
 
 unsigned int pim_upstream_hash_key(void *arg);
 bool pim_upstream_equal(const void *arg1, const void *arg2);
+struct pim_upstream *pim_upstream_keep_alive_timer_proc(
+		struct pim_upstream *up);
 #endif /* PIM_UPSTREAM_H */
