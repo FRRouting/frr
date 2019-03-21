@@ -3,6 +3,7 @@
 export LD_LIBRARY_PATH=/usr/local/lib:/lib:/usr/lib
 ./configure \
     --prefix=$(pwd)/docker/debian \
+    --sysconfdir=/etc/frr \
     --enable-multipath=64 \
     --enable-user=frr \
     --enable-group=frr \
@@ -16,6 +17,7 @@ export LD_LIBRARY_PATH=/usr/local/lib:/lib:/usr/lib
 make -j4
 make install
 make check
+cp ../libyang/build/libyang.so* docker/debian/lib
 #./configure \
 #    --enable-exampledir=/usr/share/doc/frr/examples/ \
 #    --localstatedir=/var/opt/frr \
