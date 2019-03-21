@@ -1125,6 +1125,14 @@ static int pim_upstream_keep_alive_timer(struct thread *t)
 	up = THREAD_ARG(t);
 	pim = up->channel_oil->pim;
 
+	if (PIM_UPSTREAM_FLAG_TEST_DISABLE_KAT_EXPIRY(up->flags)) {
+		/* if the router is a PIM vxlan encapsulator we prevent expiry
+		 * of KAT as the mroute is pre-setup without any traffic
+		 */
+		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
+		return 0;
+	}
+
 	if (I_am_RP(pim, up->sg.grp)) {
 		pim_br_clear_pmbr(&up->sg);
 		/*
