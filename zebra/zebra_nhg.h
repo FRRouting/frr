@@ -48,6 +48,13 @@ struct nhg_hash_entry {
 	uint32_t dplane_ref;
 
 	uint32_t flags;
+
+	/* Dependency list for other entries.
+	 * For instance a group with two
+	 * nexthops will have two dependencies
+	 * pointing to those nhg_hash_entries.
+	 */
+	struct list *nhg_depends;
 /*
  * Is this nexthop group valid, ie all nexthops are fully resolved.
  * What is fully resolved?  It's a nexthop that is either self contained
@@ -68,8 +75,21 @@ struct nhg_hash_entry {
 #define NEXTHOP_GROUP_QUEUED 0x4
 };
 
+/* Struct for dependency nexthop */
+struct nhg_depend {
+	struct nhg_hash_entry *nhe;
+};
+
+
 void zebra_nhg_init(void);
 void zebra_nhg_terminate(void);
+
+extern struct nhg_depend *nhg_depend_add(struct list *nhg_depends,
+					 struct nhg_hash_entry *depend);
+extern struct nhg_depend *nhg_depend_new(void);
+extern void nhg_depend_free(struct nhg_depend *depends);
+
+extern struct list *nhg_depend_new_list(void);
 
 extern struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id);
 extern int zebra_nhg_insert_id(struct nhg_hash_entry *nhe);

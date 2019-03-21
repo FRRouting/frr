@@ -41,6 +41,61 @@
 #include "zebra_errors.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, NHG, "Nexthop Group Entry");
+DEFINE_MTYPE_STATIC(ZEBRA, NHG_DEPENDS, "Nexthop Group Entry Depends");
+
+/**
+ * nhg_depend_add() - Add a new dependency to the nhg_hash_entry
+ *
+ * @nhg_depend:	List we are adding the dependency to
+ * @depends:		Dependency we are adding
+ *
+ * Return:		Newly created nhg_depend
+ */
+struct nhg_depend *nhg_depend_add(struct list *nhg_depends,
+				  struct nhg_hash_entry *depend)
+{
+	struct nhg_depend *nhg_dp = NULL;
+
+	nhg_dp = nhg_depend_new();
+	nhg_dp->nhe = depend;
+
+	listnode_add(nhg_depends, nhg_dp);
+	return nhg_dp;
+}
+
+/**
+ * nhg_depend_new() - Allocate a new nhg_depend struct
+ *
+ * Return:	Allocated nhg_depend struct
+ */
+struct nhg_depend *nhg_depend_new(void)
+{
+	return XCALLOC(MTYPE_NHG_DEPENDS, sizeof(struct nhg_depend));
+}
+
+/**
+ * nhg_depend_free() - Free the nhg_depend struct
+ */
+void nhg_depend_free(struct nhg_depend *depends)
+{
+	XFREE(MTYPE_NHG_DEPENDS, depends);
+}
+
+/**
+ * nhg_depend_new_list() - Allocate a new list for nhg_depends
+ *
+ * Return:	Allocated nhg_depend list
+ */
+struct list *nhg_depend_new_list()
+{
+	struct list *nhg_depends = NULL;
+
+	nhg_depends = list_new();
+	nhg_depends->del = (void (*)(void *))nhg_depend_free;
+
+	return nhg_depends;
+}
+
 /**
  * zebra_nhg_lookup_id() - Lookup the nexthop group id in the id table
  *
@@ -105,15 +160,26 @@ static void *zebra_nhg_alloc(void *arg)
 	}
 	pthread_mutex_unlock(&lock);
 
+	nhe->nhg_depends = NULL;
+	nhe->nhg.nexthop = NULL;
+
+	if (copy->nhg_depends) {
+		nhe->nhg_depends = copy->nhg_depends;
+		/* These have already been allocated when
+		 * building the dependency list
+		 */
+		nhe->nhg = copy->nhg;
+	} else {
+		nexthop_group_copy(&nhe->nhg, &copy->nhg);
+	}
+
 	nhe->vrf_id = copy->vrf_id;
 	nhe->afi = copy->afi;
 	nhe->refcnt = 0;
 	nhe->is_kernel_nh = false;
 	nhe->dplane_ref = zebra_router_get_next_sequence();
 	nhe->ifp = NULL;
-	nhe->nhg.nexthop = NULL;
 
-	nexthop_group_copy(&nhe->nhg, &copy->nhg);
 
 	/* Add to id table as well */
 	zebra_nhg_insert_id(nhe);
@@ -167,7 +233,6 @@ uint32_t zebra_nhg_hash_key(const void *arg)
 	key = jhash_2words(nhe->vrf_id, nhe->afi, key);
 
 	key = jhash_1word(zebra_nhg_hash_key_nexthop_group(&nhe->nhg), key);
-
 
 	return key;
 }
@@ -285,6 +350,9 @@ void zebra_nhg_free(void *arg)
 	struct nhg_hash_entry *nhe = NULL;
 
 	nhe = (struct nhg_hash_entry *)arg;
+
+	if (nhe->nhg_depends)
+		list_delete(&nhe->nhg_depends);
 
 	nexthops_free(nhe->nhg.nexthop);
 
