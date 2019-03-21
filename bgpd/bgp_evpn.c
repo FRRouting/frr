@@ -48,6 +48,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_addpath.h"
+#include "bgpd/bgp_mac.h"
 
 /*
  * Definitions and external declarations.
@@ -2945,6 +2946,41 @@ static int install_uninstall_routes_for_es(struct bgp *bgp,
 	return 0;
 }
 
+/* This API will scan evpn routes for checking attribute's rmac
+ * macthes with bgp instance router mac. It avoid installing
+ * route into bgp vrf table and remote rmac in bridge table.
+ */
+static int bgp_evpn_route_rmac_self_check(struct bgp *bgp_vrf,
+					  struct prefix_evpn *evp,
+					  struct bgp_path_info *pi)
+{
+	/* evpn route could have learnt prior to L3vni has come up,
+	 * perform rmac check before installing route and
+	 * remote router mac.
+	 * The route will be removed from global bgp table once
+	 * SVI comes up with MAC and stored in hash, triggers
+	 * bgp_mac_rescan_all_evpn_tables.
+	 */
+	if (pi->attr &&
+	    memcmp(&bgp_vrf->rmac, &pi->attr->rmac, ETH_ALEN) == 0) {
+		if (bgp_debug_update(pi->peer, NULL, NULL, 1)) {
+			char buf1[PREFIX_STRLEN];
+			char attr_str[BUFSIZ] = {0};
+
+			bgp_dump_attr(pi->attr, attr_str, BUFSIZ);
+
+			zlog_debug("%s: bgp %u prefix %s with attr %s - DENIED due to self mac",
+				__func__, bgp_vrf->vrf_id,
+				prefix2str(evp, buf1, sizeof(buf1)),
+				attr_str);
+		}
+
+		return 1;
+	}
+
+	return 0;
+}
+
 /*
  * Install or uninstall mac-ip routes are appropriate for this
  * particular VRF.
@@ -3001,6 +3037,10 @@ static int install_uninstall_routes_for_vrf(struct bgp *bgp_vrf, int install)
 					continue;
 
 				if (is_route_matching_for_vrf(bgp_vrf, pi)) {
+					if (bgp_evpn_route_rmac_self_check(
+								bgp_vrf, evp, pi))
+						continue;
+
 					if (install)
 						ret = install_evpn_route_entry_in_vrf(
 							bgp_vrf, evp, pi);
