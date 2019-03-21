@@ -1112,7 +1112,7 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 	for (ALL_LIST_ELEMENTS_RO(list, node, nhe)) {
 		struct nexthop *nhop;
 
-		if (nhe->afi != afi)
+		if (afi && nhe->afi != afi)
 			continue;
 
 		if (nhe->vrf_id != zvrf->vrf->vrf_id)
@@ -1126,6 +1126,18 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 		if (nhe->ifp)
 			vty_out(vty, "\tInterface Index: %d\n",
 				nhe->ifp->ifindex);
+
+		if (nhe->nhg_depends) {
+			struct listnode *dp_node = NULL;
+			struct nhg_depend *n_dp = NULL;
+			vty_out(vty, "\tDepends:");
+			for (ALL_LIST_ELEMENTS_RO(nhe->nhg_depends, dp_node,
+						  n_dp)) {
+				vty_out(vty, " (%u)", n_dp->nhe->id);
+			}
+			vty_out(vty, "\n");
+		}
+
 		for (ALL_NEXTHOPS(nhe->nhg, nhop)) {
 			vty_out(vty, "\t");
 			nexthop_group_write_nexthop(vty, nhop);
@@ -1137,14 +1149,20 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 
 DEFPY (show_nexthop_group,
        show_nexthop_group_cmd,
-       "show nexthop-group <ipv4$v4|ipv6$v6> [vrf <NAME$vrf_name|all$vrf_all>]",
+       "show nexthop-group [<ipv4$v4|ipv6$v6>] [vrf <NAME$vrf_name|all$vrf_all>]",
        SHOW_STR
        IP_STR
        IP6_STR
        "Show Nexthop Groups\n"
        VRF_FULL_CMD_HELP_STR)
 {
-	afi_t afi = v4 ? AFI_IP : AFI_IP6;
+
+	afi_t afi = 0;
+	if (v4)
+		afi = AFI_IP;
+	else if (v6)
+		afi = AFI_IP6;
+
 	struct zebra_vrf *zvrf;
 
 	if (vrf_all) {
