@@ -287,12 +287,6 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
 	return nhe1->id == nhe2->id;
 }
 
-struct nhg_hash_entry *zebra_nhg_find_id(uint32_t id, struct nexthop_group *nhg)
-{
-	// TODO: How this will work is yet to be determined
-	return NULL;
-}
-
 /**
  * zebra_nhg_find() - Find the zebra nhg in our table, or create it
  *
@@ -302,11 +296,31 @@ struct nhg_hash_entry *zebra_nhg_find_id(uint32_t id, struct nexthop_group *nhg)
  * @id:		ID we lookup with, 0 means its from us and we need to give it
  * 		an ID, otherwise its from the kernel as we use the ID it gave
  * 		us.
+ * @dep_info:	Array of nexthop dependency info (ID/weight)
+ * @dep_count:	Count for the number of nexthop dependencies
  *
  * Return:	Hash entry found or created
+ *
+ * The nhg and n_grp are fundementally the same thing (a group of nexthops).
+ * We are just using the nhg representation with routes and the n_grp
+ * is what the kernel gives us (a list of IDs). Our nhg_hash_entry
+ * will contain both.
+ *
+ * nhg_hash_entry example:
+ *
+ * 	nhe:
+ * 		->nhg:
+ * 			.nexthop->nexthop->nexthop
+ * 		->nhg_depends:
+ * 			.nhe->nhe->nhe
+ *
+ * Routes will use the nhg directly, and any updating of nexthops
+ * we have to do or flag setting, we use the nhg_depends.
+ *
  */
 struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
-				      vrf_id_t vrf_id, afi_t afi, uint32_t id)
+				      vrf_id_t vrf_id, afi_t afi, uint32_t id,
+				      struct list *nhg_depends, int dep_count)
 {
 	struct nhg_hash_entry lookup = {0};
 	struct nhg_hash_entry *nhe = NULL;
@@ -315,7 +329,10 @@ struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
 	lookup.vrf_id = vrf_id;
 	lookup.afi = afi;
 	lookup.nhg = *nhg;
+	lookup.nhg_depends = NULL;
 
+	if (dep_count)
+		lookup.nhg_depends = nhg_depends;
 
 	nhe = hash_lookup(zrouter.nhgs, &lookup);
 
@@ -333,6 +350,9 @@ struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
 				EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
 				"Nexthop Group from with ID (%d) is a duplicate, ignoring",
 				id);
+			if (lookup.nhg_depends)
+				list_delete(&lookup.nhg_depends);
+
 			return NULL;
 		}
 	}

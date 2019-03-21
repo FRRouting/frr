@@ -2170,40 +2170,59 @@ static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
 /**
  * netlink_nexthop_process_group() - Iterate over nhmsg nexthop group
  *
- * @tb:		Netlink RTA data
+ * @tb:			Netlink RTA data
+ * @nhg_depends:	List of nexthops in the group (depends)
+ * @nhg:		Nexthop group struct
  *
- * Return:	TODO: Not sure yet
+ * Return:	Count of nexthops in the group
  */
-static int netlink_nexthop_process_group(struct rtattr **tb)
+static int netlink_nexthop_process_group(struct rtattr **tb,
+					 struct nexthop_group *nhg,
+					 struct list **nhg_depends)
 {
-	int count;
+	int count = 0;
 	struct nexthop_grp *n_grp = NULL;
+	struct nhg_hash_entry *depend = NULL;
 
-	n_grp = RTA_DATA(tb[NHA_GROUP]);
+	n_grp = (struct nexthop_grp *)RTA_DATA(tb[NHA_GROUP]);
 	count = (RTA_PAYLOAD(tb[NHA_GROUP]) / sizeof(*n_grp));
 
 	if (!count || (count * sizeof(*n_grp)) != RTA_PAYLOAD(tb[NHA_GROUP])) {
 		flog_warn(EC_ZEBRA_BAD_NHG_MESSAGE,
 			  "Invalid nexthop group received from the kernel");
-		return -1;
+		return count;
 	}
 
 	// TODO: Need type for something?
-	// zlog_debug("group type: %d",
-	//	   *((uint16_t *)RTA_DATA(tb[NHA_GROUP_TYPE])));
+	zlog_debug("Nexthop group type: %d",
+		   *((uint16_t *)RTA_DATA(tb[NHA_GROUP_TYPE])));
 
+	*nhg_depends = nhg_depend_new_list();
 
 	for (int i = 0; i < count; i++) {
-		// TODO: Lookup by id and if we already have entries
-		// for that id, delete it?
-
 		/* We do not care about nexthop_grp.weight at
 		 * this time. But we should figure out
 		 * how to adapt this to our code in
 		 * the future.
 		 */
-	}
+		depend = zebra_nhg_lookup_id(n_grp[i].id);
+		if (depend) {
+			nhg_depend_add(*nhg_depends, depend);
+			/*
+			 * If this is a nexthop with its own group
+			 * dependencies, add them as well. Not sure its
+			 * even possible to have a group within a group
+			 * in the kernel.
+			 */
 
+			copy_nexthops(&nhg->nexthop, depend->nhg.nexthop, NULL);
+		} else {
+			flog_err(
+				EC_ZEBRA_NHG_SYNC,
+				"Received Nexthop Group from the kernel with a dependent Nexthop ID (%u) which we do not have in our table",
+				n_grp[i].id);
+		}
+	}
 	return count;
 }
 
@@ -2229,6 +2248,10 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	struct nexthop_group nhg = {0};
 	/* zebra's version of nexthops */
 	struct nexthop nh = {0};
+	/* If its a group, array of nexthops */
+	struct list *nhg_depends = NULL;
+	/* Count of nexthops in group array */
+	int dep_count = 0;
 	/* struct that goes into our tables */
 	struct nhg_hash_entry *nhe = NULL;
 	struct rtattr *tb[NHA_MAX + 1];
@@ -2278,36 +2301,54 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			 * If this is a group message its only going to have
 			 * an array of nexthop IDs associated with it
 			 */
-			return -1;
-			netlink_nexthop_process_group(tb);
-		} else if (tb[NHA_BLACKHOLE]) {
-			/**
-			 * This nexthop is just for blackhole-ing traffic,
-			 * it should not have an OIF, GATEWAY, or ENCAP
-			 */
-			nh.type = NEXTHOP_TYPE_BLACKHOLE;
-			// TODO: Handle blackhole case
-			nh.bh_type = BLACKHOLE_UNSPEC;
-		} else if (tb[NHA_OIF]) {
-			/**
-			 * This is a true new nexthop, so we need
-			 * to parse the gateway and device info
-			 */
-			nh = netlink_nexthop_process_nh(tb, family, &ifp,
-							ns_id);
+			dep_count = netlink_nexthop_process_group(tb, &nhg,
+								  &nhg_depends);
+		} else {
+			if (tb[NHA_BLACKHOLE]) {
+				/**
+				 * This nexthop is just for blackhole-ing
+				 * traffic, it should not have an OIF, GATEWAY,
+				 * or ENCAP
+				 */
+				nh.type = NEXTHOP_TYPE_BLACKHOLE;
+				nh.bh_type = BLACKHOLE_UNSPEC;
+			} else if (tb[NHA_OIF]) {
+				/**
+				 * This is a true new nexthop, so we need
+				 * to parse the gateway and device info
+				 */
+				nh = netlink_nexthop_process_nh(tb, family,
+								&ifp, ns_id);
+			}
+			SET_FLAG(nh.flags, NEXTHOP_FLAG_ACTIVE);
+			if (nhm->nh_flags & RTNH_F_ONLINK)
+				SET_FLAG(nh.flags, NEXTHOP_FLAG_ONLINK);
+
+			nexthop_group_add_sorted(&nhg, &nh);
 		}
 
 		if (!nhg.nexthop)
 			return -1;
 
 		if (nhe) {
-			/* This is a change to a group we already have */
+			/* This is a change to a group we already have
+			 */
 			nexthops_free(nhe->nhg.nexthop);
-			nhe->nhg.nexthop = NULL;
-			nexthop_group_copy(&nhe->nhg, &nhg);
+			if (dep_count) {
+				list_delete(&nhe->nhg_depends);
+				nhe->nhg_depends = nhg_depends;
+				/* Group is already allocated with depends */
+				// TODO: Maybe better to just allocate both
+				// rather than doing each differently?
+				nhe->nhg = nhg;
+			} else {
+				nhe->nhg.nexthop = NULL;
+				nexthop_group_copy(&nhe->nhg, &nhg);
+			}
 		} else {
 			/* This is a new nexthop group */
-			nhe = zebra_nhg_find(&nhg, nh.vrf_id, afi, id);
+			nhe = zebra_nhg_find(&nhg, nh.vrf_id, afi, id,
+					     nhg_depends, dep_count);
 			if (nhe) {
 				nhe->is_kernel_nh = true;
 			} else {
@@ -2321,7 +2362,6 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			// TODO: Don't add dupes
 			nhe_connected_add(ifp, nhe);
 		}
-
 		SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 		SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 
