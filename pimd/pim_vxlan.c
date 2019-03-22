@@ -226,6 +226,46 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 	pim_upstream_inherited_olist(vxlan_sg->pim, up);
 }
 
+static void pim_vxlan_orig_mr_oif_add(struct pim_vxlan_sg *vxlan_sg)
+{
+	if (!vxlan_sg->up || !vxlan_sg->orig_oif)
+		return;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s oif %s add",
+			vxlan_sg->sg_str, vxlan_sg->orig_oif->name);
+
+	vxlan_sg->flags |= PIM_VXLAN_SGF_OIF_INSTALLED;
+	pim_channel_add_oif(vxlan_sg->up->channel_oil,
+		vxlan_sg->orig_oif, PIM_OIF_FLAG_PROTO_VXLAN);
+}
+
+static void pim_vxlan_orig_mr_oif_del(struct pim_vxlan_sg *vxlan_sg)
+{
+	struct interface *orig_oif;
+
+	orig_oif = vxlan_sg->orig_oif;
+	vxlan_sg->orig_oif = NULL;
+
+	if (!(vxlan_sg->flags & PIM_VXLAN_SGF_OIF_INSTALLED))
+		return;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s oif %s del",
+			vxlan_sg->sg_str, orig_oif->name);
+
+	vxlan_sg->flags &= ~PIM_VXLAN_SGF_OIF_INSTALLED;
+	pim_channel_del_oif(vxlan_sg->up->channel_oil,
+		orig_oif, PIM_OIF_FLAG_PROTO_VXLAN);
+}
+
+static inline struct interface *pim_vxlan_orig_mr_oif_get(
+		struct pim_instance *pim)
+{
+	return (vxlan_mlag.flags & PIM_VXLAN_MLAGF_ENABLED) ?
+		pim->vxlan.peerlink_rif : NULL;
+}
+
 /* Single VTEPs: IIF for the vxlan-origination-mroutes is lo or vrf-dev (if
  * the mroute is in a non-default vrf).
  * Anycast VTEPs: IIF is the MLAG ISL/peerlink.
@@ -256,6 +296,9 @@ static bool pim_vxlan_orig_mr_add_is_ok(struct pim_vxlan_sg *vxlan_sg)
 static void pim_vxlan_orig_mr_install(struct pim_vxlan_sg *vxlan_sg)
 {
 	pim_vxlan_orig_mr_up_add(vxlan_sg);
+
+	vxlan_sg->orig_oif = pim_vxlan_orig_mr_oif_get(vxlan_sg->pim);
+	pim_vxlan_orig_mr_oif_add(vxlan_sg);
 }
 
 static void pim_vxlan_orig_mr_add(struct pim_vxlan_sg *vxlan_sg)
@@ -273,6 +316,8 @@ static void pim_vxlan_orig_mr_del(struct pim_vxlan_sg *vxlan_sg)
 {
 	if (PIM_DEBUG_VXLAN)
 		zlog_debug("vxlan SG %s orig-mr del", vxlan_sg->sg_str);
+
+	pim_vxlan_orig_mr_oif_del(vxlan_sg);
 	pim_vxlan_orig_mr_up_del(vxlan_sg);
 }
 
