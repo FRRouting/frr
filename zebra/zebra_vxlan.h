@@ -47,7 +47,7 @@ static inline int is_evpn_enabled(void)
 static inline int
 is_vxlan_flooding_head_end(void)
 {
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
 
 	if (!zvrf)
 		return 0;
