@@ -42,6 +42,153 @@
 /* pim-vxlan global info */
 struct pim_vxlan vxlan_info, *pim_vxlan_p = &vxlan_info;
 
+static void pim_vxlan_work_timer_setup(bool start);
+
+/*************************** vxlan work list **********************************
+ * A work list is maintained for staggered generation of pim null register
+ * messages for vxlan SG entries that are in a reg_join state.
+ *
+ * A max of 500 NULL registers are generated at one shot. If paused reg
+ * generation continues on the next second and so on till all register
+ * messages have been sent out. And the process is restarted every 60s.
+ *
+ * purpose of this null register generation is to setup the SPT and maintain
+ * independent of the presence of overlay BUM traffic.
+ ****************************************************************************/
+static void pim_vxlan_do_reg_work(void)
+{
+	struct listnode *listnode;
+	int work_cnt = 0;
+	struct pim_vxlan_sg *vxlan_sg;
+	static int sec_count;
+
+	++sec_count;
+
+	if (sec_count > PIM_VXLAN_NULL_REG_INTERVAL) {
+		sec_count = 0;
+		listnode = vxlan_info.next_work ?
+					vxlan_info.next_work :
+					vxlan_info.work_list->head;
+		if (PIM_DEBUG_VXLAN && listnode)
+			zlog_debug("vxlan SG work %s",
+				vxlan_info.next_work ? "continues" : "starts");
+	} else {
+		listnode = vxlan_info.next_work;
+	}
+
+	for (; listnode; listnode = listnode->next) {
+		vxlan_sg = (struct pim_vxlan_sg *)listnode->data;
+		if (vxlan_sg->up && (vxlan_sg->up->reg_state == PIM_REG_JOIN)) {
+			if (PIM_DEBUG_VXLAN)
+				zlog_debug("vxlan SG %s periodic NULL register",
+						vxlan_sg->sg_str);
+			pim_null_register_send(vxlan_sg->up);
+			++work_cnt;
+		}
+
+		if (work_cnt > vxlan_info.max_work_cnt) {
+			vxlan_info.next_work = listnode->next;
+			if (PIM_DEBUG_VXLAN)
+				zlog_debug("vxlan SG %d work items proc and pause",
+					work_cnt);
+			return;
+		}
+	}
+
+	if (work_cnt) {
+		if (PIM_DEBUG_VXLAN)
+			zlog_debug("vxlan SG %d work items proc", work_cnt);
+	}
+	vxlan_info.next_work = NULL;
+}
+
+/* Staggered work related info is initialized when the first work comes
+ * along
+ */
+static void pim_vxlan_init_work(void)
+{
+	if (vxlan_info.flags & PIM_VXLANF_WORK_INITED)
+		return;
+
+	vxlan_info.max_work_cnt = PIM_VXLAN_WORK_MAX;
+	vxlan_info.flags |= PIM_VXLANF_WORK_INITED;
+	vxlan_info.work_list = list_new();
+	pim_vxlan_work_timer_setup(TRUE /* start */);
+}
+
+static void pim_vxlan_add_work(struct pim_vxlan_sg *vxlan_sg)
+{
+	if (vxlan_sg->flags & PIM_VXLAN_SGF_DEL_IN_PROG) {
+		if (PIM_DEBUG_VXLAN)
+			zlog_debug("vxlan SG %s skip work list; del-in-prog",
+					vxlan_sg->sg_str);
+		return;
+	}
+
+	pim_vxlan_init_work();
+
+	/* already a part of the work list */
+	if (vxlan_sg->work_node)
+		return;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s work list add",
+				vxlan_sg->sg_str);
+	vxlan_sg->work_node = listnode_add(vxlan_info.work_list, vxlan_sg);
+	/* XXX: adjust max_work_cnt if needed */
+}
+
+static void pim_vxlan_del_work(struct pim_vxlan_sg *vxlan_sg)
+{
+	if (!vxlan_sg->work_node)
+		return;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s work list del",
+				vxlan_sg->sg_str);
+
+	if (vxlan_sg->work_node == vxlan_info.next_work)
+		vxlan_info.next_work = vxlan_sg->work_node->next;
+
+	list_delete_node(vxlan_info.work_list, vxlan_sg->work_node);
+	vxlan_sg->work_node = NULL;
+}
+
+void pim_vxlan_update_sg_reg_state(struct pim_instance *pim,
+		struct pim_upstream *up, bool reg_join)
+{
+	struct pim_vxlan_sg *vxlan_sg;
+
+	vxlan_sg = pim_vxlan_sg_find(pim, &up->sg);
+	if (!vxlan_sg)
+		return;
+
+	/* add the vxlan sg entry to a work list for periodic reg joins.
+	 * the entry will stay in the list as long as the register state is
+	 * PIM_REG_JOIN
+	 */
+	if (reg_join)
+		pim_vxlan_add_work(vxlan_sg);
+	else
+		pim_vxlan_del_work(vxlan_sg);
+}
+
+static int pim_vxlan_work_timer_cb(struct thread *t)
+{
+	pim_vxlan_do_reg_work();
+	pim_vxlan_work_timer_setup(true /* start */);
+	return 0;
+}
+
+/* global 1second timer used for periodic processing */
+static void pim_vxlan_work_timer_setup(bool start)
+{
+	THREAD_OFF(vxlan_info.work_timer);
+	if (start)
+		thread_add_timer(router->master, pim_vxlan_work_timer_cb, NULL,
+			PIM_VXLAN_WORK_TIME, &vxlan_info.work_timer);
+}
+
 /**************************** vxlan origination mroutes ***********************
  * For every (local-vtep-ip, bum-mcast-grp) registered by evpn an origination
  * mroute is setup by pimd. The purpose of this mroute is to forward vxlan
@@ -393,6 +540,8 @@ void pim_vxlan_sg_del(struct pim_instance *pim, struct prefix_sg *sg)
 		return;
 
 	vxlan_sg->flags |= PIM_VXLAN_SGF_DEL_IN_PROG;
+
+	pim_vxlan_del_work(vxlan_sg);
 
 	if (pim_vxlan_is_orig_mroute(vxlan_sg))
 		pim_vxlan_orig_mr_del(vxlan_sg);

@@ -43,6 +43,7 @@
 #include "pim_join.h"
 #include "pim_util.h"
 #include "pim_ssm.h"
+#include "pim_vxlan.h"
 
 struct thread *send_test_packet_timer = NULL;
 
@@ -60,6 +61,7 @@ void pim_register_join(struct pim_upstream *up)
 	pim_channel_add_oif(up->channel_oil, pim->regiface,
 			    PIM_OIF_FLAG_PROTO_PIM);
 	up->reg_state = PIM_REG_JOIN;
+	pim_vxlan_update_sg_reg_state(pim, up, TRUE /*reg_join*/);
 }
 
 void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
@@ -145,6 +147,8 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 		pim_channel_del_oif(upstream->channel_oil, pim->regiface,
 				    PIM_OIF_FLAG_PROTO_PIM);
 		pim_upstream_start_register_stop_timer(upstream, 0);
+		pim_vxlan_update_sg_reg_state(pim, upstream,
+			FALSE /*reg_join*/);
 		break;
 	case PIM_REG_JOIN_PENDING:
 		upstream->reg_state = PIM_REG_PRUNE;

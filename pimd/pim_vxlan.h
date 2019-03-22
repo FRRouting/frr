@@ -120,5 +120,7 @@ extern struct pim_vxlan_sg *pim_vxlan_sg_find(struct pim_instance *pim,
 extern struct pim_vxlan_sg *pim_vxlan_sg_add(struct pim_instance *pim,
 					   struct prefix_sg *sg);
 extern void pim_vxlan_sg_del(struct pim_instance *pim, struct prefix_sg *sg);
+extern void pim_vxlan_update_sg_reg_state(struct pim_instance *pim,
+		struct pim_upstream *up, bool reg_join);
 
 #endif /* PIM_VXLAN_H */

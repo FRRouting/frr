@@ -51,6 +51,7 @@
 #include "pim_jp_agg.h"
 #include "pim_nht.h"
 #include "pim_ssm.h"
+#include "pim_vxlan.h"
 
 static void join_timer_stop(struct pim_upstream *up);
 static void
@@ -1432,6 +1433,7 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 		up->reg_state = PIM_REG_JOIN;
 		pim_channel_add_oif(up->channel_oil, pim->regiface,
 				    PIM_OIF_FLAG_PROTO_PIM);
+		pim_vxlan_update_sg_reg_state(pim, up, TRUE /*reg_join*/);
 		break;
 	case PIM_REG_JOIN:
 		break;
