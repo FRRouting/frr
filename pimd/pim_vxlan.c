@@ -42,6 +42,240 @@
 /* pim-vxlan global info */
 struct pim_vxlan vxlan_info, *pim_vxlan_p = &vxlan_info;
 
+/**************************** vxlan origination mroutes ***********************
+ * For every (local-vtep-ip, bum-mcast-grp) registered by evpn an origination
+ * mroute is setup by pimd. The purpose of this mroute is to forward vxlan
+ * encapsulated BUM (broadcast, unknown-unicast and unknown-multicast packets
+ * over the underlay.)
+ *
+ * Sample mroute (single VTEP):
+ * (27.0.0.7, 239.1.1.100)     Iif: lo      Oifs: uplink-1
+ *
+ * Sample mroute (anycast VTEP):
+ * (36.0.0.9, 239.1.1.100)          Iif: peerlink-3.4094\
+ *                                       Oifs: peerlink-3.4094 uplink-1
+ ***************************************************************************/
+static void pim_vxlan_orig_mr_up_del(struct pim_vxlan_sg *vxlan_sg)
+{
+	struct pim_upstream *up = vxlan_sg->up;
+
+	if (!up)
+		return;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s orig mroute-up del",
+			vxlan_sg->sg_str);
+
+	vxlan_sg->up = NULL;
+	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_ORIG) {
+		/* clear out all the vxlan properties */
+		up->flags &= ~(PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_ORIG |
+			PIM_UPSTREAM_FLAG_MASK_STATIC_IIF |
+			PIM_UPSTREAM_FLAG_MASK_DISABLE_KAT_EXPIRY |
+			PIM_UPSTREAM_FLAG_MASK_FORCE_PIMREG |
+			PIM_UPSTREAM_FLAG_MASK_NO_PIMREG_DATA |
+			PIM_UPSTREAM_FLAG_MASK_ALLOW_IIF_IN_OIL);
+
+		/* We bring things to a grinding halt by force expirying
+		 * the kat. Doing this will also remove the reference we
+		 * created as a "vxlan" source and delete the upstream entry
+		 * if there are no other references.
+		 */
+		if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
+			THREAD_OFF(up->t_ka_timer);
+			up = pim_upstream_keep_alive_timer_proc(up);
+		} else {
+			/* this is really unexpected as we force vxlan
+			 * origination mroutes active sources but just in
+			 * case
+			 */
+			up = pim_upstream_del(vxlan_sg->pim, up,
+				__PRETTY_FUNCTION__);
+		}
+		/* if there are other references register the source
+		 * for nht
+		 */
+		if (up)
+			pim_rpf_update(vxlan_sg->pim, up, NULL, 1 /* is_new */);
+	}
+}
+
+static void pim_vxlan_orig_mr_up_iif_update(struct pim_vxlan_sg *vxlan_sg)
+{
+	int vif_index;
+
+	/* update MFC with the new IIF */
+	pim_upstream_fill_static_iif(vxlan_sg->up, vxlan_sg->iif);
+	vif_index = pim_if_find_vifindex_by_ifindex(vxlan_sg->pim,
+			vxlan_sg->iif->ifindex);
+	if (vif_index > 0)
+		pim_scan_individual_oil(vxlan_sg->up->channel_oil,
+				vif_index);
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s orig mroute-up updated with iif %s vifi %d",
+			vxlan_sg->sg_str,
+			vxlan_sg->iif?vxlan_sg->iif->name:"-", vif_index);
+
+}
+
+/* For every VxLAN BUM multicast group we setup a SG-up that has the following
+ * "forced properties" -
+ * 1. Directly connected on a DR interface i.e. we must act as an FHR
+ * 2. We prime the pump i.e. no multicast data is needed to register this
+ *    source with the FHR. To do that we send periodic null registers if
+ *    the SG entry is in a register-join state. We also prevent expiry of
+ *    KAT.
+ * 3. As this SG is setup without data there is no need to register encapsulate
+ *    data traffic. This encapsulation is explicitly skipped for the following
+ *    reasons -
+ *    a) Many levels of encapsulation are needed creating MTU disc challenges.
+ *       Overlay BUM is encapsulated in a vxlan/UDP/IP header and then
+ *       encapsulated again in a pim-register header.
+ *    b) On a vxlan-aa setup both switches rx a copy of each BUM packet. if
+ *       they both reg encapsulated traffic the RP will accept the duplicates
+ *       as there are no RPF checks for this encapsulated data.
+ *    a), b) can be workarounded if needed, but there is really no need because
+ *    of (2) i.e. the pump is primed without data.
+ */
+static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
+{
+	struct pim_upstream *up;
+	int flags = 0;
+	struct prefix nht_p;
+
+	if (vxlan_sg->up) {
+		/* nothing to do */
+		return;
+	}
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s orig mroute-up add with iif %s",
+			vxlan_sg->sg_str,
+			vxlan_sg->iif?vxlan_sg->iif->name:"-");
+
+	PIM_UPSTREAM_FLAG_SET_SRC_VXLAN_ORIG(flags);
+	/* pin the IIF to lo or peerlink-subinterface and disable NHT */
+	PIM_UPSTREAM_FLAG_SET_STATIC_IIF(flags);
+	/* Fake traffic by setting SRC_STREAM and starting KAT */
+	/* We intentionally skip updating ref count for SRC_STREAM/FHR.
+	 * Setting SRC_VXLAN should have already created a reference
+	 * preventing the entry from being deleted
+	 */
+	PIM_UPSTREAM_FLAG_SET_FHR(flags);
+	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(flags);
+	/* Force pimreg even if non-DR. This is needed on a MLAG setup for
+	 * VxLAN AA
+	 */
+	PIM_UPSTREAM_FLAG_SET_FORCE_PIMREG(flags);
+	/* prevent KAT expiry. we want the MDT setup even if there is no BUM
+	 * traffic
+	 */
+	PIM_UPSTREAM_FLAG_SET_DISABLE_KAT_EXPIRY(flags);
+	/* SPT for vxlan BUM groups is primed and maintained via NULL
+	 * registers so there is no need to reg-encapsulate
+	 * vxlan-encapsulated overlay data traffic
+	 */
+	PIM_UPSTREAM_FLAG_SET_NO_PIMREG_DATA(flags);
+	/* On a MLAG setup we force a copy to the MLAG peer while also
+	 * accepting traffic from the peer. To do this we set peerlink-rif as
+	 * the IIF and also add it to the OIL
+	 */
+	PIM_UPSTREAM_FLAG_SET_ALLOW_IIF_IN_OIL(flags);
+
+	/* XXX: todo: defer pim_upstream add if pim is not enabled on the iif */
+	up = pim_upstream_find(vxlan_sg->pim, &vxlan_sg->sg);
+	if (up) {
+		/* if the iif is set to something other than the vxlan_sg->iif
+		 * we must dereg the old nexthop and force to new "static"
+		 * iif
+		 */
+		if (!PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)) {
+			nht_p.family = AF_INET;
+			nht_p.prefixlen = IPV4_MAX_BITLEN;
+			nht_p.u.prefix4 = up->upstream_addr;
+			pim_delete_tracked_nexthop(vxlan_sg->pim,
+				&nht_p, up, NULL);
+		}
+		pim_upstream_ref(up, flags, __PRETTY_FUNCTION__);
+		vxlan_sg->up = up;
+		pim_vxlan_orig_mr_up_iif_update(vxlan_sg);
+	} else {
+		up = pim_upstream_add(vxlan_sg->pim, &vxlan_sg->sg,
+				vxlan_sg->iif, flags,
+				__PRETTY_FUNCTION__, NULL);
+		vxlan_sg->up = up;
+	}
+
+	if (!up) {
+		if (PIM_DEBUG_VXLAN)
+			zlog_debug("vxlan SG %s orig mroute-up add failed",
+					vxlan_sg->sg_str);
+		return;
+	}
+
+	pim_upstream_keep_alive_timer_start(up, vxlan_sg->pim->keep_alive_time);
+
+	/* register the source with the RP */
+	if (up->reg_state == PIM_REG_NOINFO) {
+		pim_register_join(up);
+		pim_null_register_send(up);
+	}
+
+	/* update the inherited OIL */
+	pim_upstream_inherited_olist(vxlan_sg->pim, up);
+}
+
+/* Single VTEPs: IIF for the vxlan-origination-mroutes is lo or vrf-dev (if
+ * the mroute is in a non-default vrf).
+ * Anycast VTEPs: IIF is the MLAG ISL/peerlink.
+ */
+static inline struct interface *pim_vxlan_orig_mr_iif_get(
+		struct pim_instance *pim)
+{
+	return ((vxlan_mlag.flags & PIM_VXLAN_MLAGF_ENABLED) &&
+			pim->vxlan.peerlink_rif) ?
+		pim->vxlan.peerlink_rif : pim->vxlan.default_iif;
+}
+
+static bool pim_vxlan_orig_mr_add_is_ok(struct pim_vxlan_sg *vxlan_sg)
+{
+	struct pim_interface *pim_ifp;
+
+	vxlan_sg->iif = pim_vxlan_orig_mr_iif_get(vxlan_sg->pim);
+	if (!vxlan_sg->iif)
+		return false;
+
+	pim_ifp = (struct pim_interface *)vxlan_sg->iif->info;
+	if (!pim_ifp || (pim_ifp->mroute_vif_index < 0))
+		return false;
+
+	return true;
+}
+
+static void pim_vxlan_orig_mr_install(struct pim_vxlan_sg *vxlan_sg)
+{
+	pim_vxlan_orig_mr_up_add(vxlan_sg);
+}
+
+static void pim_vxlan_orig_mr_add(struct pim_vxlan_sg *vxlan_sg)
+{
+	if (!pim_vxlan_orig_mr_add_is_ok(vxlan_sg))
+		return;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s orig-mr add", vxlan_sg->sg_str);
+
+	pim_vxlan_orig_mr_install(vxlan_sg);
+}
+
+static void pim_vxlan_orig_mr_del(struct pim_vxlan_sg *vxlan_sg)
+{
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s orig-mr del", vxlan_sg->sg_str);
+	pim_vxlan_orig_mr_up_del(vxlan_sg);
+}
+
 /************************** vxlan SG cache management ************************/
 static unsigned int pim_vxlan_sg_hash_key_make(void *p)
 {
@@ -99,6 +333,9 @@ struct pim_vxlan_sg *pim_vxlan_sg_add(struct pim_instance *pim,
 
 	vxlan_sg = pim_vxlan_sg_new(pim, sg);
 
+	if (pim_vxlan_is_orig_mroute(vxlan_sg))
+		pim_vxlan_orig_mr_add(vxlan_sg);
+
 	return vxlan_sg;
 }
 
@@ -109,6 +346,11 @@ void pim_vxlan_sg_del(struct pim_instance *pim, struct prefix_sg *sg)
 	vxlan_sg = pim_vxlan_sg_find(pim, sg);
 	if (!vxlan_sg)
 		return;
+
+	vxlan_sg->flags |= PIM_VXLAN_SGF_DEL_IN_PROG;
+
+	if (pim_vxlan_is_orig_mroute(vxlan_sg))
+		pim_vxlan_orig_mr_del(vxlan_sg);
 
 	hash_release(vxlan_sg->pim->vxlan.sg_hash, vxlan_sg);
 

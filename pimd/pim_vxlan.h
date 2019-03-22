@@ -99,6 +99,22 @@ struct pim_vxlan {
 	struct pim_vxlan_mlag mlag;
 };
 
+/* zebra adds-
+ * 1. one (S, G) entry where S=local-VTEP-IP and G==BUM-mcast-grp for
+ * each BUM MDT. This is the origination entry.
+ * 2. and one (*, G) entry each MDT. This is the termination place holder.
+ *
+ * Note: This doesn't mean that only (*, G) mroutes are used for tunnel
+ * termination. (S, G) mroutes with ipmr-lo in the OIL can also be
+ * used for tunnel termiation if SPT switchover happens; however such
+ * SG entries are created by traffic and will NOT be a part of the vxlan SG
+ * database.
+ */
+static inline bool pim_vxlan_is_orig_mroute(struct pim_vxlan_sg *vxlan_sg)
+{
+	return (vxlan_sg->sg.src.s_addr != 0);
+}
+
 extern struct pim_vxlan_sg *pim_vxlan_sg_find(struct pim_instance *pim,
 					    struct prefix_sg *sg);
 extern struct pim_vxlan_sg *pim_vxlan_sg_add(struct pim_instance *pim,
