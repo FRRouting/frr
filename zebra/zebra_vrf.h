@@ -203,9 +203,7 @@ extern struct route_table *zebra_vrf_table(afi_t, safi_t, vrf_id_t);
 
 static inline vrf_id_t zebra_vrf_get_evpn_id(void)
 {
-	struct zebra_vrf *zvrf = NULL;
-	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	return zvrf ? zvrf->evpn_vrf_id : VRF_DEFAULT;
+	return zebra_vrf_lookup_by_id(VRF_DEFAULT)->evpn_vrf_id;
 }
 static inline struct zebra_vrf *zebra_vrf_get_evpn(void)
 {

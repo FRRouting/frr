@@ -9045,7 +9045,10 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 	struct zebra_vrf *zvrf_default = NULL;
 
 	zvrf_default = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf_default)
+
+	/* Mismatch between EVPN VRF and current VRF (should be prevented by
+	 * bgpd's cli) */
+	if (is_evpn_enabled() && !zvrf->advertise_all_vni)
 		return;
 
 	s = msg;
