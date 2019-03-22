@@ -5081,6 +5081,9 @@ void bgp_evpn_derive_auto_rt_export(struct bgp *bgp, struct bgpevpn *vpn)
  */
 void bgp_evpn_derive_auto_rd_for_vrf(struct bgp *bgp)
 {
+	if (is_vrf_rd_configured(bgp))
+		return;
+
 	form_auto_rd(bgp->router_id, bgp->vrf_rd_id, &bgp->vrf_prd);
 }
 
