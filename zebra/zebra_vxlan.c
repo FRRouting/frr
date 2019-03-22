@@ -9048,7 +9048,7 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 
 	/* Mismatch between EVPN VRF and current VRF (should be prevented by
 	 * bgpd's cli) */
-	if (is_evpn_enabled() && !zvrf->advertise_all_vni)
+	if (is_evpn_enabled() && !EVPN_ENABLED(zvrf))
 		return;
 
 	s = msg;
@@ -9066,7 +9066,7 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 		return;
 
 	zvrf->advertise_all_vni = advertise;
-	if (zvrf->advertise_all_vni) {
+	if (EVPN_ENABLED(zvrf)) {
 		zvrf_default->evpn_vrf_id = zvrf_id(zvrf);
 
 		/* Note BUM handling */

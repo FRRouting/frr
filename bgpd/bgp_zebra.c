@@ -1632,8 +1632,7 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type,
 			return CMD_WARNING;
 
 #if ENABLE_BGP_VNC
-		if (bgp->advertise_all_vni
-		    && type == ZEBRA_ROUTE_VNC_DIRECT) {
+		if (EVPN_ENABLED(bgp) && type == ZEBRA_ROUTE_VNC_DIRECT) {
 			vnc_export_bgp_enable(
 				bgp, afi); /* only enables if mode bits cfg'd */
 		}
@@ -1794,7 +1793,7 @@ int bgp_redistribute_unset(struct bgp *bgp, afi_t afi, int type,
  * status. red lookup fails if there is no zebra connection.
  */
 #if ENABLE_BGP_VNC
-	if (bgp->advertise_all_vni && type == ZEBRA_ROUTE_VNC_DIRECT) {
+	if (EVPN_ENABLED(bgp) && type == ZEBRA_ROUTE_VNC_DIRECT) {
 		vnc_export_bgp_disable(bgp, afi);
 	}
 #endif

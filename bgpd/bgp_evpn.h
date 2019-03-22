@@ -27,12 +27,13 @@
 #define EVPN_ROUTE_STRLEN 200 /* Must be >> MAC + IPv6 strings. */
 #define EVPN_AUTORT_VXLAN 0x10000000
 
+#define EVPN_ENABLED(bgp)  (bgp)->advertise_all_vni
 static inline int is_evpn_enabled(void)
 {
 	struct bgp *bgp = NULL;
 
 	bgp = bgp_get_evpn();
-	return bgp ? bgp->advertise_all_vni : 0;
+	return bgp ? EVPN_ENABLED(bgp) : 0;
 }
 
 static inline void vni2label(vni_t vni, mpls_label_t *label)

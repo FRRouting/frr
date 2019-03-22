@@ -41,7 +41,7 @@ static inline int is_evpn_enabled(void)
 {
 	struct zebra_vrf *zvrf = NULL;
 	zvrf = zebra_vrf_get_evpn();
-	return zvrf ? zvrf->advertise_all_vni : 0;
+	return zvrf ? EVPN_ENABLED(zvrf) : 0;
 }
 
 static inline int
