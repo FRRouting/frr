@@ -99,9 +99,14 @@ Bugfix releases are made as needed at 1 month intervals until the next
 ``MAJOR.MINOR`` release branch is pulled. Depending on the severity of the bugs,
 bugfix releases may occur sooner.
 
-Bugfixes are applied to the two most recent releases. Security fixes are
-backported to all releases less than or equal to at least one year old. Security
-fixes may also be backported to older releases depending on severity.
+Bugfixes are applied to the two most recent releases. However, backporting of bug
+fixes to older than the two most recent releases will not be prevented, if acked
+under the classical development workflow applying for a pull request.
+
+Security fixes are backported to all releases less than or equal to at least one
+year old. Security fixes may also be backported to older releases depending on
+severity.
+
 
 Long term support branches ( LTS )
 -----------------------------------------
