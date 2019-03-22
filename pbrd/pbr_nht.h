@@ -117,5 +117,10 @@ extern void pbr_nht_show_nexthop_group(struct vty *vty, const char *name);
  */
 extern void pbr_nht_nexthop_update(struct zapi_route *nhr);
 
+/*
+ * When we get a callback from zebra about an interface status update.
+ */
+extern void pbr_nht_nexthop_interface_update(struct interface *ifp);
+
 extern void pbr_nht_init(void);
 #endif

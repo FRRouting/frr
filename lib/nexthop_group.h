@@ -68,7 +68,7 @@ void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
 
 struct nexthop_hold {
 	char *nhvrf_name;
-	union sockunion addr;
+	union sockunion *addr;
 	char *intf;
 };
 
