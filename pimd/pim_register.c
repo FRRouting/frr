@@ -219,6 +219,45 @@ void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
 	}
 }
 
+void pim_null_register_send(struct pim_upstream *up)
+{
+	struct ip ip_hdr;
+	struct pim_interface *pim_ifp;
+	struct pim_rpf *rpg;
+	struct in_addr src;
+
+	pim_ifp = up->rpf.source_nexthop.interface->info;
+	if (!pim_ifp) {
+		if (PIM_DEBUG_TRACE)
+			zlog_debug(
+				"%s: Cannot send null-register for %s no valid iif",
+				__PRETTY_FUNCTION__, up->sg_str);
+		return;
+	}
+
+	rpg = RP(pim_ifp->pim, up->sg.grp);
+	if (!rpg) {
+		if (PIM_DEBUG_TRACE)
+			zlog_debug(
+				"%s: Cannot send null-register for %s no RPF to the RP",
+				__PRETTY_FUNCTION__, up->sg_str);
+		return;
+	}
+
+	memset(&ip_hdr, 0, sizeof(struct ip));
+	ip_hdr.ip_p = PIM_IP_PROTO_PIM;
+	ip_hdr.ip_hl = 5;
+	ip_hdr.ip_v = 4;
+	ip_hdr.ip_src = up->sg.src;
+	ip_hdr.ip_dst = up->sg.grp;
+	ip_hdr.ip_len = htons(20);
+
+	/* checksum is broken */
+	src = pim_ifp->primary_address;
+	pim_register_send((uint8_t *)&ip_hdr, sizeof(struct ip),
+			src, rpg, 1, up);
+}
+
 /*
  * 4.4.2 Receiving Register Messages at the RP
  *

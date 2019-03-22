@@ -1417,8 +1417,6 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 	struct pim_interface *pim_ifp;
 	struct pim_instance *pim;
 	struct pim_upstream *up;
-	struct pim_rpf *rpg;
-	struct ip ip_hdr;
 	up = THREAD_ARG(t);
 	pim = up->channel_oil->pim;
 
@@ -1466,24 +1464,7 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 					__PRETTY_FUNCTION__);
 			return 0;
 		}
-		rpg = RP(pim_ifp->pim, up->sg.grp);
-		if (!rpg) {
-			if (PIM_DEBUG_TRACE)
-				zlog_debug(
-					"%s: Cannot send register for %s no RPF to the RP",
-					__PRETTY_FUNCTION__, up->sg_str);
-			return 0;
-		}
-		memset(&ip_hdr, 0, sizeof(struct ip));
-		ip_hdr.ip_p = PIM_IP_PROTO_PIM;
-		ip_hdr.ip_hl = 5;
-		ip_hdr.ip_v = 4;
-		ip_hdr.ip_src = up->sg.src;
-		ip_hdr.ip_dst = up->sg.grp;
-		ip_hdr.ip_len = htons(20);
-		// checksum is broken
-		pim_register_send((uint8_t *)&ip_hdr, sizeof(struct ip),
-				  pim_ifp->primary_address, rpg, 1, up);
+		pim_null_register_send(up);
 		break;
 	default:
 		break;
