@@ -511,8 +511,8 @@ cause may lead to routing instability or oscillation across multiple speakers
 in iBGP topologies. This can occur with full-mesh iBGP, but is particularly
 problematic in non-full-mesh iBGP topologies that further reduce the routing
 information known to each speaker. This has primarily been documented with iBGP
-route-reflection topologies. However, any route-hiding technologies potentially
-could also exacerbate oscillation with MED.
+:ref:`route-reflection <bgp-route-reflector>` topologies. However, any
+route-hiding technologies potentially could also exacerbate oscillation with MED.
 
 This second issue occurs where speakers each have only a subset of routes, and
 there are cycles in the preferences between different combinations of routes -
@@ -2240,10 +2240,15 @@ Displaying Routes by AS Path
 Route Reflector
 ===============
 
-.. note:: This documentation is woefully incomplete.
+BGP routers connected inside the same AS through BGP belong to an internal
+BGP session, or IBGP. In order to prevent routing table loops, IBGP does not
+advertise IBGP-learned routes to other routers in the same session. As such,
+IBGP requires a full mesh of all peers. For large networks, this quickly becomes
+unscalable. Introducing route reflectors removes the need for the full-mesh.
 
-.. index:: bgp cluster-id A.B.C.D
-.. clicmd:: bgp cluster-id A.B.C.D
+When route reflectors are configured, these will reflect the routes announced
+by the peers configured as clients. A route reflector client is configured
+with:
 
 .. index:: neighbor PEER route-reflector-client
 .. clicmd:: neighbor PEER route-reflector-client
@@ -2251,6 +2256,13 @@ Route Reflector
 .. index:: no neighbor PEER route-reflector-client
 .. clicmd:: no neighbor PEER route-reflector-client
 
+To avoid single points of failure, multiple route reflectors can be configured.
+
+A cluster is a collection of route reflectors and their clients, and is used
+by route reflectors to avoid looping.
+
+.. index:: bgp cluster-id A.B.C.D
+.. clicmd:: bgp cluster-id A.B.C.D
 
 .. _routing-policy:
 
