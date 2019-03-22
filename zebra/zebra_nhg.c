@@ -328,36 +328,52 @@ struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
 	lookup.id = id;
 	lookup.vrf_id = vrf_id;
 	lookup.afi = afi;
-	lookup.nhg = *nhg;
-	lookup.nhg_depends = NULL;
+	lookup.nhg = nhg;
+	lookup.nhg_depends = nhg_depends;
 
-	if (dep_count)
-		lookup.nhg_depends = nhg_depends;
-
-	nhe = hash_lookup(zrouter.nhgs, &lookup);
+	if (id)
+		nhe = zebra_nhg_lookup_id(id);
+	else
+		nhe = hash_lookup(zrouter.nhgs, &lookup);
 
 	if (!nhe) {
 		nhe = hash_get(zrouter.nhgs, &lookup, zebra_nhg_alloc);
 	} else {
-		if (id) {
-			/* Duplicate but with different ID from the kernel */
-
-			/* The kernel allows duplicate nexthops as long as they
-			 * have different IDs. We are ignoring those to prevent
-			 * syncing problems with the kernel changes.
-			 */
-			flog_warn(
-				EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
-				"Nexthop Group from with ID (%d) is a duplicate, ignoring",
-				id);
-			if (lookup.nhg_depends)
-				list_delete(&lookup.nhg_depends);
-
-			return NULL;
-		}
+		zebra_nhg_free_group_depends(nhg, nhg_depends);
 	}
 
 	return nhe;
+}
+
+/**
+ * zebra_nhg_free_group_depends() - Helper function for freeing nexthop_group
+ * 				    struct and depends
+ *
+ * @nhg:		Nexthop group
+ * @nhg_depends:	Nexthop group hash entry dependency list
+ */
+void zebra_nhg_free_group_depends(struct nexthop_group *nhg,
+				  struct list *nhg_depends)
+{
+	if (nhg_depends)
+		list_delete(&nhg_depends);
+	if (nhg) {
+		if (nhg->nexthop)
+			nexthops_free(nhg->nexthop);
+		nexthop_group_delete(&nhg);
+	}
+}
+
+/**
+ * zebra_nhg_free_members() - Free all members in the hash entry struct
+ *
+ * @nhe: Nexthop group hash entry
+ *
+ * Just use this to free everything but the entry itself.
+ */
+void zebra_nhg_free_members(struct nhg_hash_entry *nhe)
+{
+	zebra_nhg_free_group_depends(nhe->nhg, nhe->nhg_depends);
 }
 
 /**
