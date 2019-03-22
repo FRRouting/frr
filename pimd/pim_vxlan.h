@@ -22,12 +22,36 @@
 #ifndef PIM_VXLAN_H
 #define PIM_VXLAN_H
 
+enum pim_vxlan_sg_flags {
+	PIM_VXLAN_SGF_NONE = 0,
+	PIM_VXLAN_SGF_DEL_IN_PROG = (1 << 0),
+	PIM_VXLAN_SGF_OIF_INSTALLED = (1 << 1)
+};
+
 struct pim_vxlan_sg {
 	struct pim_instance *pim;
 
 	/* key */
 	struct prefix_sg sg;
 	char sg_str[PIM_SG_LEN];
+
+	enum pim_vxlan_sg_flags flags;
+	struct pim_upstream *up;
+
+	/* termination info (only applicable to termination XG mroutes)
+	 * term_if - termination device ipmr-lo is added to the OIL
+	 * as local/IGMP membership to allow termination of vxlan traffic
+	 */
+	struct interface *term_oif;
+
+	/* origination info
+	 * iif - lo/vrf or peerlink (on MLAG setups)
+	 * peerlink_oif - added to the OIL to send encapsulated BUM traffic to
+	 * the MLAG peer switch
+	 */
+	struct interface *iif;
+	/* on a MLAG setup the peerlink is added as a static OIF */
+	struct interface *orig_oif;
 };
 
 extern struct pim_vxlan_sg *pim_vxlan_sg_find(struct pim_instance *pim,
