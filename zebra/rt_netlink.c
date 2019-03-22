@@ -2247,6 +2247,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	uint32_t id;
 	unsigned char family;
 	afi_t afi = AFI_UNSPEC;
+	vrf_id_t vrf_id = VRF_DEFAULT;
 	struct interface *ifp = NULL;
 	struct nhmsg *nhm = NULL;
 	/* struct for nexthop group abstraction  */
@@ -2332,7 +2333,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				if (nhm->nh_flags & RTNH_F_ONLINK)
 					SET_FLAG(nh->flags,
 						 NEXTHOP_FLAG_ONLINK);
-
+				vrf_id = nh->vrf_id;
 				nexthop_group_add_sorted(nhg, nh);
 			} else {
 				flog_warn(
@@ -2363,8 +2364,8 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 		} else {
 			/* This is a new nexthop group */
-			nhe = zebra_nhg_find(nhg, nhg->nexthop->vrf_id, afi, id,
-					     nhg_depends, dep_count);
+			nhe = zebra_nhg_find(nhg, vrf_id, afi, id, nhg_depends,
+					     dep_count);
 			if (!nhe) {
 				flog_err(
 					EC_ZEBRA_TABLE_LOOKUP_FAILED,
