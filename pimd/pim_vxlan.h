@@ -54,6 +54,29 @@ struct pim_vxlan_sg {
 	struct interface *orig_oif;
 };
 
+enum pim_vxlan_mlag_flags {
+	PIM_VXLAN_MLAGF_NONE = 0,
+	PIM_VXLAN_MLAGF_ENABLED = (1 << 0)
+};
+
+enum pim_vxlan_mlag_role {
+	PIM_VXLAN_MLAG_ROLE_SECONDARY = 0,
+	PIM_VXLAN_MLAG_ROLE_PRIMARY
+};
+
+struct pim_vxlan_mlag {
+	enum pim_vxlan_mlag_flags flags;
+	enum pim_vxlan_mlag_role role;
+	bool peer_state;
+	/* routed interface setup on top of MLAG peerlink */
+	struct interface *peerlink_rif;
+	struct in_addr reg_addr;
+};
+
+struct pim_vxlan {
+	struct pim_vxlan_mlag mlag;
+};
+
 extern struct pim_vxlan_sg *pim_vxlan_sg_find(struct pim_instance *pim,
 					    struct prefix_sg *sg);
 extern struct pim_vxlan_sg *pim_vxlan_sg_add(struct pim_instance *pim,
