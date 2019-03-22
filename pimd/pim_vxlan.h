@@ -22,6 +22,15 @@
 #ifndef PIM_VXLAN_H
 #define PIM_VXLAN_H
 
+/* global timer used for miscellaneous staggered processing */
+#define PIM_VXLAN_WORK_TIME 1
+/* number of SG entries processed at one shot */
+#define PIM_VXLAN_WORK_MAX 500
+/* frequency of periodic NULL registers */
+#define PIM_VXLAN_NULL_REG_INTERVAL 60 /* seconds */
+
+#define vxlan_mlag (vxlan_info.mlag)
+
 enum pim_vxlan_sg_flags {
 	PIM_VXLAN_SGF_NONE = 0,
 	PIM_VXLAN_SGF_DEL_IN_PROG = (1 << 0),
@@ -37,6 +46,7 @@ struct pim_vxlan_sg {
 
 	enum pim_vxlan_sg_flags flags;
 	struct pim_upstream *up;
+	struct listnode *work_node; /* to pim_vxlan.work_list */
 
 	/* termination info (only applicable to termination XG mroutes)
 	 * term_if - termination device ipmr-lo is added to the OIL
@@ -73,7 +83,19 @@ struct pim_vxlan_mlag {
 	struct in_addr reg_addr;
 };
 
+enum pim_vxlan_flags {
+	PIM_VXLANF_NONE = 0,
+	PIM_VXLANF_WORK_INITED = (1 << 0)
+};
+
 struct pim_vxlan {
+	enum pim_vxlan_flags flags;
+
+	struct thread *work_timer;
+	struct list *work_list;
+	struct listnode *next_work;
+	int max_work_cnt;
+
 	struct pim_vxlan_mlag mlag;
 };
 

@@ -39,6 +39,8 @@
 #include "pim_zebra.h"
 #include "pim_vxlan.h"
 
+/* pim-vxlan global info */
+struct pim_vxlan vxlan_info, *pim_vxlan_p = &vxlan_info;
 
 /************************** vxlan SG cache management ************************/
 static unsigned int pim_vxlan_sg_hash_key_make(void *p)
