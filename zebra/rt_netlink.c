@@ -1895,9 +1895,6 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 	// TODO: Scope?
 
 	if (!nhe->id) {
-		// TODO: When we start using this with the ctx's we might not
-		// need to do ID assignment ourselves and just let the kernel
-		// handle it.
 		flog_err(
 			EC_ZEBRA_NHG_FIB_UPDATE,
 			"Failed trying to update a nexthop group in the kernel that does not have an ID");
@@ -1907,9 +1904,7 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 	addattr32(&req.n, sizeof(req), NHA_ID, nhe->id);
 
 	if (cmd == RTM_NEWNEXTHOP) {
-		// TODO: IF not a group
-		const struct nexthop_group nhg = nhe->nhg;
-		const struct nexthop *nh = nhg.nexthop;
+		const struct nexthop *nh = nhe->nhg->nexthop;
 
 		if (nhe->afi == AFI_IP)
 			req.nhm.nh_family = AF_INET;
@@ -1917,8 +1912,6 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 			req.nhm.nh_family = AF_INET6;
 
 		switch (nh->type) {
-			// TODO: Need AF for just index also
-			// just use dest?
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 			addattr_l(&req.n, sizeof(req), NHA_GATEWAY,
 				  &nh->gate.ipv4, IPV4_MAX_BYTELEN);
@@ -2100,26 +2093,28 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
  *
  * Return:	New nexthop
  */
-static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
-						 unsigned char family,
-						 struct interface **ifp,
-						 ns_id_t ns_id)
+static struct nexthop *netlink_nexthop_process_nh(struct rtattr **tb,
+						  unsigned char family,
+						  struct interface **ifp,
+						  ns_id_t ns_id)
 {
-	struct nexthop nh = {0};
+	struct nexthop *nh = NULL;
 	void *gate = NULL;
+	enum nexthop_types_t type = 0;
 	int if_index;
 	size_t sz;
 
 	if_index = *(int *)RTA_DATA(tb[NHA_OIF]);
 
+
 	if (tb[NHA_GATEWAY]) {
 		switch (family) {
 		case AF_INET:
-			nh.type = NEXTHOP_TYPE_IPV4_IFINDEX;
+			type = NEXTHOP_TYPE_IPV4_IFINDEX;
 			sz = 4;
 			break;
 		case AF_INET6:
-			nh.type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			type = NEXTHOP_TYPE_IPV6_IFINDEX;
 			sz = 16;
 			break;
 		default:
@@ -2127,26 +2122,35 @@ static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
 				EC_ZEBRA_BAD_NHG_MESSAGE,
 				"Nexthop gateway with bad address family (%d) received from kernel",
 				family);
-			return nh;
+			return NULL;
 		}
 		gate = RTA_DATA(tb[NHA_GATEWAY]);
-		memcpy(&(nh.gate), gate, sz);
 	} else {
-		nh.type = NEXTHOP_TYPE_IFINDEX;
+		type = NEXTHOP_TYPE_IFINDEX;
 	}
 
-	nh.ifindex = if_index;
+	/* Allocate the new nexthop */
+	nh = nexthop_new();
 
-	*ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), nh.ifindex);
+	if (type)
+		nh->type = type;
+
+	if (gate)
+		memcpy(&(nh->gate), gate, sz);
+
+	if (if_index)
+		nh->ifindex = if_index;
+
+	*ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id), nh->ifindex);
 	if (ifp) {
-		nh.vrf_id = (*ifp)->vrf_id;
+		nh->vrf_id = (*ifp)->vrf_id;
 	} else {
 		flog_warn(
 			EC_ZEBRA_UNKNOWN_INTERFACE,
 			"%s: Unknown nexthop interface %u received, defaulting to VRF_DEFAULT",
-			__PRETTY_FUNCTION__, nh.ifindex);
+			__PRETTY_FUNCTION__, nh->ifindex);
 
-		nh.vrf_id = VRF_DEFAULT;
+		nh->vrf_id = VRF_DEFAULT;
 	}
 
 	if (tb[NHA_ENCAP] && tb[NHA_ENCAP_TYPE]) {
@@ -2159,7 +2163,7 @@ static struct nexthop netlink_nexthop_process_nh(struct rtattr **tb,
 		}
 
 		if (num_labels) {
-			nexthop_add_labels(&nh, ZEBRA_LSP_STATIC, num_labels,
+			nexthop_add_labels(nh, ZEBRA_LSP_STATIC, num_labels,
 					   labels);
 		}
 	}
@@ -2215,7 +2219,8 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 			 * in the kernel.
 			 */
 
-			copy_nexthops(&nhg->nexthop, depend->nhg.nexthop, NULL);
+			copy_nexthops(&nhg->nexthop, depend->nhg->nexthop,
+				      NULL);
 		} else {
 			flog_err(
 				EC_ZEBRA_NHG_SYNC,
@@ -2245,9 +2250,8 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	struct interface *ifp = NULL;
 	struct nhmsg *nhm = NULL;
 	/* struct for nexthop group abstraction  */
-	struct nexthop_group nhg = {0};
-	/* zebra's version of nexthops */
-	struct nexthop nh = {0};
+	struct nexthop_group *nhg = NULL;
+	struct nexthop *nh = NULL;
 	/* If its a group, array of nexthops */
 	struct list *nhg_depends = NULL;
 	/* Count of nexthops in group array */
@@ -2296,12 +2300,14 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	nhe = zebra_nhg_lookup_id(id);
 
 	if (h->nlmsg_type == RTM_NEWNEXTHOP) {
+		nhg = nexthop_group_new();
+
 		if (tb[NHA_GROUP]) {
 			/**
 			 * If this is a group message its only going to have
 			 * an array of nexthop IDs associated with it
 			 */
-			dep_count = netlink_nexthop_process_group(tb, &nhg,
+			dep_count = netlink_nexthop_process_group(tb, nhg,
 								  &nhg_depends);
 		} else {
 			if (tb[NHA_BLACKHOLE]) {
@@ -2310,8 +2316,9 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				 * traffic, it should not have an OIF, GATEWAY,
 				 * or ENCAP
 				 */
-				nh.type = NEXTHOP_TYPE_BLACKHOLE;
-				nh.bh_type = BLACKHOLE_UNSPEC;
+				nh = nexthop_new();
+				nh->type = NEXTHOP_TYPE_BLACKHOLE;
+				nh->bh_type = BLACKHOLE_UNSPEC;
 			} else if (tb[NHA_OIF]) {
 				/**
 				 * This is a true new nexthop, so we need
@@ -2320,39 +2327,68 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				nh = netlink_nexthop_process_nh(tb, family,
 								&ifp, ns_id);
 			}
-			SET_FLAG(nh.flags, NEXTHOP_FLAG_ACTIVE);
-			if (nhm->nh_flags & RTNH_F_ONLINK)
-				SET_FLAG(nh.flags, NEXTHOP_FLAG_ONLINK);
+			if (nh) {
+				SET_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE);
+				if (nhm->nh_flags & RTNH_F_ONLINK)
+					SET_FLAG(nh->flags,
+						 NEXTHOP_FLAG_ONLINK);
 
-			nexthop_group_add_sorted(&nhg, &nh);
+				nexthop_group_add_sorted(nhg, nh);
+			} else {
+				flog_warn(
+					EC_ZEBRA_BAD_NHG_MESSAGE,
+					"Invalid Nexthop message received from the kernel with ID (%u)",
+					id);
+				return -1;
+			}
 		}
 
-		if (!nhg.nexthop)
+		if (!nhg->nexthop) {
+			/* Nothing to lookup */
+			zebra_nhg_free_group_depends(nhg, nhg_depends);
 			return -1;
+		}
 
 		if (nhe) {
 			/* This is a change to a group we already have
 			 */
-			nexthops_free(nhe->nhg.nexthop);
-			if (dep_count) {
-				list_delete(&nhe->nhg_depends);
+
+			/* Free what's already there */
+			zebra_nhg_free_members(nhe);
+
+			/* Update with new info */
+			nhe->nhg = nhg;
+			if (dep_count)
 				nhe->nhg_depends = nhg_depends;
-				/* Group is already allocated with depends */
-				// TODO: Maybe better to just allocate both
-				// rather than doing each differently?
-				nhe->nhg = nhg;
-			} else {
-				nhe->nhg.nexthop = NULL;
-				nexthop_group_copy(&nhe->nhg, &nhg);
-			}
+
 		} else {
 			/* This is a new nexthop group */
-			nhe = zebra_nhg_find(&nhg, nh.vrf_id, afi, id,
+			nhe = zebra_nhg_find(nhg, nhg->nexthop->vrf_id, afi, id,
 					     nhg_depends, dep_count);
-			if (nhe) {
-				nhe->is_kernel_nh = true;
-			} else {
+			if (!nhe) {
+				flog_err(
+					EC_ZEBRA_TABLE_LOOKUP_FAILED,
+					"Zebra failed to find or create a nexthop hash entry for ID (%u) from the kernel",
+					id);
+				zebra_nhg_free_group_depends(nhg, nhg_depends);
 				return -1;
+			}
+
+			nhe->is_kernel_nh = true;
+			if (id != nhe->id) {
+				/* Duplicate but with different ID from
+				 * the kernel */
+
+				/* The kernel allows duplicate nexthops
+				 * as long as they have different IDs.
+				 * We are ignoring those to prevent
+				 * syncing problems with the kernel
+				 * changes.
+				 */
+				flog_warn(
+					EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
+					"Nexthop Group from kernel with ID (%d) is a duplicate, ignoring",
+					id);
 			}
 		}
 		if (ifp) {

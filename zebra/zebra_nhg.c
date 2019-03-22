@@ -161,17 +161,11 @@ static void *zebra_nhg_alloc(void *arg)
 	pthread_mutex_unlock(&lock);
 
 	nhe->nhg_depends = NULL;
-	nhe->nhg.nexthop = NULL;
 
-	if (copy->nhg_depends) {
+	if (copy->nhg_depends)
 		nhe->nhg_depends = copy->nhg_depends;
-		/* These have already been allocated when
-		 * building the dependency list
-		 */
-		nhe->nhg = copy->nhg;
-	} else {
-		nexthop_group_copy(&nhe->nhg, &copy->nhg);
-	}
+
+	nhe->nhg = copy->nhg;
 
 	nhe->vrf_id = copy->vrf_id;
 	nhe->afi = copy->afi;
@@ -232,7 +226,7 @@ uint32_t zebra_nhg_hash_key(const void *arg)
 
 	key = jhash_2words(nhe->vrf_id, nhe->afi, key);
 
-	key = jhash_1word(zebra_nhg_hash_key_nexthop_group(&nhe->nhg), key);
+	key = jhash_1word(zebra_nhg_hash_key_nexthop_group(nhe->nhg), key);
 
 	return key;
 }
@@ -261,9 +255,9 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	 * Again we are not interested in looking at any recursively
 	 * resolved nexthops.  Top level only
 	 */
-	for (nh1 = nhe1->nhg.nexthop; nh1; nh1 = nh1->next) {
+	for (nh1 = nhe1->nhg->nexthop; nh1; nh1 = nh1->next) {
 		uint32_t inner_nh_count = 0;
-		for (nh2 = nhe2->nhg.nexthop; nh2; nh2 = nh2->next) {
+		for (nh2 = nhe2->nhg->nexthop; nh2; nh2 = nh2->next) {
 			if (inner_nh_count == nh_count) {
 				break;
 			}
@@ -290,16 +284,16 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
 /**
  * zebra_nhg_find() - Find the zebra nhg in our table, or create it
  *
- * @nhg:	Nexthop group we lookup with
- * @vrf_id:	VRF id
- * @afi:	Address Family type
- * @id:		ID we lookup with, 0 means its from us and we need to give it
- * 		an ID, otherwise its from the kernel as we use the ID it gave
- * 		us.
- * @dep_info:	Array of nexthop dependency info (ID/weight)
- * @dep_count:	Count for the number of nexthop dependencies
+ * @nhg:		Nexthop group we lookup with
+ * @vrf_id:		VRF id
+ * @afi:		Address Family type
+ * @id:			ID we lookup with, 0 means its from us and we
+ * 			need to give it an ID, otherwise its from the
+ * 			kernel as we use the ID it gave us.
+ * @nhg_depends:	Nexthop dependencies
+ * @dep_count:		Count for the number of nexthop dependencies
  *
- * Return:	Hash entry found or created
+ * Return:		Hash entry found or created
  *
  * The nhg and n_grp are fundementally the same thing (a group of nexthops).
  * We are just using the nhg representation with routes and the n_grp
@@ -387,10 +381,7 @@ void zebra_nhg_free(void *arg)
 
 	nhe = (struct nhg_hash_entry *)arg;
 
-	if (nhe->nhg_depends)
-		list_delete(&nhe->nhg_depends);
-
-	nexthops_free(nhe->nhg.nexthop);
+	zebra_nhg_free_members(nhe);
 
 	XFREE(MTYPE_NHG, nhe);
 }

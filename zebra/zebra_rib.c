@@ -2648,6 +2648,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	/* Lookup table.  */
 	table = zebra_vrf_table_with_table_id(afi, safi, re->vrf_id, re->table);
 	if (!table) {
+		zebra_nhg_free_group_depends(re->ng, NULL);
 		XFREE(MTYPE_RE, re);
 		return 0;
 	}
@@ -2657,27 +2658,13 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	if (src_p)
 		apply_mask_ipv6(src_p);
 
-	/* Using a kernel that supports nexthop ojects */
-	if (re->nhe_id) {
-		nhe = zebra_nhg_lookup_id(re->nhe_id);
-	} else {
-		nhe = zebra_nhg_find(re->ng, re->vrf_id, afi, 0, NULL, 0);
-		re->nhe_id = nhe->id;
-	}
+	nhe = zebra_nhg_find(re->ng, re->vrf_id, afi, re->nhe_id, NULL, 0);
 
 	if (nhe) {
 		// TODO: Add interface pointer
+		re->ng = nhe->nhg;
+		re->nhe_id = nhe->id;
 		nhe->refcnt++;
-
-		/* Freeing the nexthop structs we were using
-		 * for lookup since it will just point
-		 * to the hash entry group now.
-		 */
-		nexthops_free(re->ng->nexthop);
-		nexthop_group_delete(&re->ng);
-		/* Point to hash entry group */
-		re->ng = &nhe->nhg;
-
 	} else {
 		flog_err(
 			EC_ZEBRA_TABLE_LOOKUP_FAILED,

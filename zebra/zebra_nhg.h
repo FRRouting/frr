@@ -34,7 +34,7 @@ struct nhg_hash_entry {
 	vrf_id_t vrf_id;
 	bool is_kernel_nh;
 
-	struct nexthop_group nhg;
+	struct nexthop_group *nhg;
 
 	/* If this is not a group, it
 	 * will be a single nexthop

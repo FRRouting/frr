@@ -1138,7 +1138,7 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 			vty_out(vty, "\n");
 		}
 
-		for (ALL_NEXTHOPS(nhe->nhg, nhop)) {
+		for (ALL_NEXTHOPS_PTR(nhe->nhg, nhop)) {
 			vty_out(vty, "\t");
 			nexthop_group_write_nexthop(vty, nhop);
 		}
