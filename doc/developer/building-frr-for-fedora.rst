@@ -1,8 +1,10 @@
-Fedora 24
-=========
+Fedora 24+
+==========
 
 This document describes installation from source. If you want to build an RPM,
 see :ref:`packaging-redhat`.
+
+These instructions have been tested on Fedora 24+.
 
 Installing Dependencies
 -----------------------
