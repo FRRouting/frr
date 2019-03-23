@@ -468,6 +468,130 @@ static void pim_vxlan_orig_mr_del(struct pim_vxlan_sg *vxlan_sg)
 	pim_vxlan_orig_mr_up_del(vxlan_sg);
 }
 
+/**************************** vxlan termination mroutes ***********************
+ * For every bum-mcast-grp registered by evpn a *G termination
+ * mroute is setup by pimd. The purpose of this mroute is to pull down vxlan
+ * packets with the bum-mcast-grp dip from the underlay and terminate the
+ * tunnel. This is done by including the vxlan termination device (ipmr-lo) in
+ * its OIL. The vxlan de-capsulated packets are subject to subsequent overlay
+ * bridging.
+ *
+ * Sample mroute:
+ * (0.0.0.0, 239.1.1.100)     Iif: uplink-1      Oifs: ipmr-lo, uplink-1
+ *****************************************************************************/
+struct pim_interface *pim_vxlan_get_term_ifp(struct pim_instance *pim)
+{
+	return pim->vxlan.term_if ?
+		(struct pim_interface *)pim->vxlan.term_if->info : NULL;
+}
+
+static void pim_vxlan_term_mr_oif_add(struct pim_vxlan_sg *vxlan_sg)
+{
+	if (vxlan_sg->flags & PIM_VXLAN_SGF_OIF_INSTALLED)
+		return;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s term-oif %s add",
+			vxlan_sg->sg_str, vxlan_sg->term_oif->name);
+
+	if (pim_ifchannel_local_membership_add(vxlan_sg->term_oif,
+				&vxlan_sg->sg)) {
+		vxlan_sg->flags |= PIM_VXLAN_SGF_OIF_INSTALLED;
+	} else {
+		zlog_warn("vxlan SG %s term-oif %s add failed",
+			vxlan_sg->sg_str, vxlan_sg->term_oif->name);
+	}
+}
+
+static void pim_vxlan_term_mr_oif_del(struct pim_vxlan_sg *vxlan_sg)
+{
+	if (!(vxlan_sg->flags & PIM_VXLAN_SGF_OIF_INSTALLED))
+		return;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s oif %s del",
+			vxlan_sg->sg_str, vxlan_sg->term_oif->name);
+
+	vxlan_sg->flags &= ~PIM_VXLAN_SGF_OIF_INSTALLED;
+	pim_ifchannel_local_membership_del(vxlan_sg->term_oif, &vxlan_sg->sg);
+}
+
+static void pim_vxlan_term_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
+{
+	struct pim_upstream *up;
+	int flags = 0;
+
+	if (vxlan_sg->up) {
+		/* nothing to do */
+		return;
+	}
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s term mroute-up add",
+			vxlan_sg->sg_str);
+
+	PIM_UPSTREAM_FLAG_SET_SRC_VXLAN_TERM(flags);
+	/* enable MLAG designated-forwarder election on termination mroutes */
+	PIM_UPSTREAM_FLAG_SET_MLAG_VXLAN(flags);
+
+	up = pim_upstream_add(vxlan_sg->pim, &vxlan_sg->sg,
+			NULL /* iif */, flags,
+			__PRETTY_FUNCTION__, NULL);
+	vxlan_sg->up = up;
+
+	if (!up) {
+		zlog_warn("vxlan SG %s term mroute-up add failed",
+			vxlan_sg->sg_str);
+	}
+}
+
+static void pim_vxlan_term_mr_up_del(struct pim_vxlan_sg *vxlan_sg)
+{
+	struct pim_upstream *up = vxlan_sg->up;
+
+	if (!up)
+		return;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s term mroute-up del",
+			vxlan_sg->sg_str);
+	vxlan_sg->up = NULL;
+	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM) {
+		/* clear out all the vxlan related flags */
+		up->flags &= ~(PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM |
+			PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN);
+
+		pim_upstream_del(vxlan_sg->pim, up,
+				__PRETTY_FUNCTION__);
+	}
+}
+
+static void pim_vxlan_term_mr_add(struct pim_vxlan_sg *vxlan_sg)
+{
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s term mroute add", vxlan_sg->sg_str);
+
+	vxlan_sg->term_oif = vxlan_sg->pim->vxlan.term_if;
+	if (!vxlan_sg->term_oif)
+		/* defer termination mroute till we have a termination device */
+		return;
+
+	pim_vxlan_term_mr_up_add(vxlan_sg);
+	/* set up local membership for the term-oif */
+	pim_vxlan_term_mr_oif_add(vxlan_sg);
+}
+
+static void pim_vxlan_term_mr_del(struct pim_vxlan_sg *vxlan_sg)
+{
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s term mroute del", vxlan_sg->sg_str);
+
+	/* remove local membership associated with the term oif */
+	pim_vxlan_term_mr_oif_del(vxlan_sg);
+	/* remove references to the upstream entry */
+	pim_vxlan_term_mr_up_del(vxlan_sg);
+}
+
 /************************** vxlan SG cache management ************************/
 static unsigned int pim_vxlan_sg_hash_key_make(void *p)
 {
@@ -527,6 +651,8 @@ struct pim_vxlan_sg *pim_vxlan_sg_add(struct pim_instance *pim,
 
 	if (pim_vxlan_is_orig_mroute(vxlan_sg))
 		pim_vxlan_orig_mr_add(vxlan_sg);
+	else
+		pim_vxlan_term_mr_add(vxlan_sg);
 
 	return vxlan_sg;
 }
@@ -545,6 +671,8 @@ void pim_vxlan_sg_del(struct pim_instance *pim, struct prefix_sg *sg)
 
 	if (pim_vxlan_is_orig_mroute(vxlan_sg))
 		pim_vxlan_orig_mr_del(vxlan_sg);
+	else
+		pim_vxlan_term_mr_del(vxlan_sg);
 
 	hash_release(vxlan_sg->pim->vxlan.sg_hash, vxlan_sg);
 
