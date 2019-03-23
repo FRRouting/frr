@@ -151,7 +151,7 @@ Collect Memory Leak Information
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 FRR processes have the capabilities to report remaining memory allocations upon
-exit. To enable the reporting of the memory, define an enviroment variable
+exit. To enable the reporting of the memory, define an environment variable
 ``TOPOTESTS_CHECK_MEMLEAK`` with the file prefix, i.e.::
 
    export TOPOTESTS_CHECK_MEMLEAK="/home/mydir/memleak_"
@@ -410,7 +410,7 @@ Defining the Topology
 The first step to write a new test is to define the topology. This step can be
 done in many ways, but the recommended is to use Graphviz to generate a drawing
 of the topology. It allows us to see the topology graphically and to see the
-names of equipments, links and addresses.
+names of equipment, links and addresses.
 
 Here is an example of Graphviz dot file that generates the template topology
 :file:`tests/topotests/example-test/test_template.dot` (the inlined code might

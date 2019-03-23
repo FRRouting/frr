@@ -127,7 +127,7 @@ following content:
     net.ipv4.conf.all.forwarding=1
     net.ipv6.conf.all.forwarding=1
 
-Load the modifed sysctl's on the system:
+Load the modified sysctl's on the system:
 
 ::
 

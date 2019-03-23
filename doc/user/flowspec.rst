@@ -167,7 +167,7 @@ set.  That VRF will then be selected. The below full configuration example
 depicts how Route Targets are configured and how VRFs and cross VRF
 configuration is done.  Note that the VRF are mapped on Linux Network
 Namespaces. For data traffic to cross VRF boundaries, virtual ethernet
-interfaces are created with private IP adressing scheme.
+interfaces are created with private IP addressing scheme.
 
 .. code-block:: frr
 
@@ -322,7 +322,7 @@ There are some other known issues:
 - The validation procedure depicted in :rfc:`5575` is not available.
 
   This validation procedure has not been implemented, as this feature was not
-  used in the existing setups you shared wih us.
+  used in the existing setups you shared with us.
 
 - The filtering action shaper value, if positive, is not used to apply shaping.
 

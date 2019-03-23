@@ -43,7 +43,7 @@ simplifying the output. This is discussed in :ref:`vtysh-configuration`.
 Command Extraction
 ------------------
 
-When VTYSH is a built, a Perl script named :file:`extract.pl` searches the FRR
+When VTYSH is built, a Perl script named :file:`extract.pl` searches the FRR
 codebase looking for ``DEFUN``'s. It extracts these ``DEFUN``'s, transforms
 them into ``DEFSH``'s and appends them to ``vtysh_cmd.c``. Each ``DEFSH``
 contains the name of the command plus ``_vtysh``, as well as a flag that
@@ -167,7 +167,7 @@ Protocol
 VTYSH communicates with FRR daemons by way of domain socket. Each daemon
 creates its own socket, typically in :file:`/var/run/frr/<daemon>.vty`. The
 protocol is very simple. In the VTYSH to daemon direction, messages are simply
-NULL-terminated strings, whose content are CLI commands. Here is a typical
+NUL-terminated strings, whose content are CLI commands. Here is a typical
 message from VTYSH to a daemon:
 
 ::
@@ -178,7 +178,7 @@ message from VTYSH to a daemon:
    00000010: 6c0a 00                                  l..
 
 
-The response format has some more data in it. First is a NULL-terminated string
+The response format has some more data in it. First is a NUL-terminated string
 containing the plaintext response, which is just the output of the command that
 was sent in the request. This is displayed to the user. The plaintext response
 is followed by 3 null marker bytes, followed by a 1-byte status code that

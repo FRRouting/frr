@@ -210,8 +210,8 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
    Set the IGMP version used on this interface. The default value is 3.
 
-.. index:: ip multicat boundary oil WORD
-.. clicmd:: ip multicat boundary oil WORD
+.. index:: ip multicast boundary oil WORD
+.. clicmd:: ip multicast boundary oil WORD
 
    Set a pim multicast boundary, based upon the WORD prefix-list. If a pim join
    or IGMP report is received on this interface and the Group is denied by the
