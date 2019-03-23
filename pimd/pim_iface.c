@@ -47,6 +47,7 @@
 #include "pim_nht.h"
 #include "pim_jp_agg.h"
 #include "pim_igmp_join.h"
+#include "pim_vxlan.h"
 
 static void pim_if_igmp_join_del_all(struct interface *ifp);
 static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
@@ -977,6 +978,10 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 	}
 
 	pim_ifp->pim->iface_vif_index[pim_ifp->mroute_vif_index] = 1;
+
+	/* if the device qualifies as pim_vxlan iif/oif update vxlan entries */
+	pim_vxlan_add_vif(ifp);
+
 	return 0;
 }
 
@@ -990,6 +995,9 @@ int pim_if_del_vif(struct interface *ifp)
 			  ifp->name, ifp->ifindex);
 		return -1;
 	}
+
+	/* if the device was a pim_vxlan iif/oif update vxlan mroute entries */
+	pim_vxlan_del_vif(ifp);
 
 	pim_mroute_del_vif(ifp);
 

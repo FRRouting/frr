@@ -123,5 +123,7 @@ extern void pim_vxlan_sg_del(struct pim_instance *pim, struct prefix_sg *sg);
 extern void pim_vxlan_update_sg_reg_state(struct pim_instance *pim,
 		struct pim_upstream *up, bool reg_join);
 extern struct pim_interface *pim_vxlan_get_term_ifp(struct pim_instance *pim);
+extern void pim_vxlan_add_vif(struct interface *ifp);
+extern void pim_vxlan_del_vif(struct interface *ifp);
 
 #endif /* PIM_VXLAN_H */

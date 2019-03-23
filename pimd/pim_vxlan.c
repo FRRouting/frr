@@ -468,6 +468,34 @@ static void pim_vxlan_orig_mr_del(struct pim_vxlan_sg *vxlan_sg)
 	pim_vxlan_orig_mr_up_del(vxlan_sg);
 }
 
+static void pim_vxlan_orig_mr_iif_update(struct hash_backet *backet, void *arg)
+{
+	struct interface *ifp = (struct interface *)arg;
+	struct pim_vxlan_sg *vxlan_sg = (struct pim_vxlan_sg *)backet->data;
+	struct interface *old_iif = vxlan_sg->iif;
+
+	if (!pim_vxlan_is_orig_mroute(vxlan_sg))
+		return;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s iif changed from %s to %s",
+				vxlan_sg->sg_str,
+				old_iif ? old_iif->name : "-",
+				ifp ? ifp->name : "-");
+
+	if (pim_vxlan_orig_mr_add_is_ok(vxlan_sg)) {
+		if (vxlan_sg->up) {
+			/* upstream exists but iif changed */
+			pim_vxlan_orig_mr_up_iif_update(vxlan_sg);
+		} else {
+			/* install mroute */
+			pim_vxlan_orig_mr_install(vxlan_sg);
+		}
+	} else {
+		pim_vxlan_orig_mr_del(vxlan_sg);
+	}
+}
+
 /**************************** vxlan termination mroutes ***********************
  * For every bum-mcast-grp registered by evpn a *G termination
  * mroute is setup by pimd. The purpose of this mroute is to pull down vxlan
@@ -680,6 +708,102 @@ void pim_vxlan_sg_del(struct pim_instance *pim, struct prefix_sg *sg)
 		zlog_debug("vxlan SG %s free", vxlan_sg->sg_str);
 
 	XFREE(MTYPE_PIM_VXLAN_SG, vxlan_sg);
+}
+
+/****************************** misc callbacks *******************************/
+static void pim_vxlan_set_default_iif(struct pim_instance *pim,
+				struct interface *ifp)
+{
+	struct interface *old_iif;
+
+	if (pim->vxlan.default_iif == ifp)
+		return;
+
+	old_iif = pim->vxlan.default_iif;
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("%s: vxlan default iif changed from %s to %s",
+			__PRETTY_FUNCTION__,
+			old_iif ? old_iif->name : "-",
+			ifp ? ifp->name : "-");
+
+	old_iif = pim_vxlan_orig_mr_iif_get(pim);
+	pim->vxlan.default_iif = ifp;
+	ifp = pim_vxlan_orig_mr_iif_get(pim);
+	if (old_iif == ifp)
+		return;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("%s: vxlan orig iif changed from %s to %s",
+			__PRETTY_FUNCTION__, old_iif ? old_iif->name : "-",
+			ifp ? ifp->name : "-");
+
+	/* add/del upstream entries for the existing vxlan SG when the
+	 * interface becomes available
+	 */
+	hash_iterate(pim->vxlan.sg_hash, pim_vxlan_orig_mr_iif_update, ifp);
+}
+
+static void pim_vxlan_set_peerlink_rif(struct pim_instance *pim,
+			struct interface *ifp)
+{
+	struct interface *old_iif;
+
+	if (pim->vxlan.peerlink_rif == ifp)
+		return;
+
+	old_iif = pim->vxlan.peerlink_rif;
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("%s: vxlan peerlink_rif changed from %s to %s",
+			__PRETTY_FUNCTION__, old_iif ? old_iif->name : "-",
+			ifp ? ifp->name : "-");
+
+	old_iif = pim_vxlan_orig_mr_iif_get(pim);
+	pim->vxlan.peerlink_rif = ifp;
+	ifp = pim_vxlan_orig_mr_iif_get(pim);
+	if (old_iif == ifp)
+		return;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("%s: vxlan orig iif changed from %s to %s",
+			__PRETTY_FUNCTION__, old_iif ? old_iif->name : "-",
+			ifp ? ifp->name : "-");
+
+	/* add/del upstream entries for the existing vxlan SG when the
+	 * interface becomes available
+	 */
+	hash_iterate(pim->vxlan.sg_hash, pim_vxlan_orig_mr_iif_update, ifp);
+}
+
+void pim_vxlan_add_vif(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_instance *pim = pim_ifp->pim;
+
+	pim = ((struct pim_interface *)ifp->info)->pim;
+	if (pim->vrf_id != VRF_DEFAULT)
+		return;
+
+	if (if_is_loopback_or_vrf(ifp))
+		pim_vxlan_set_default_iif(pim, ifp);
+
+	if (vxlan_mlag.flags & PIM_VXLAN_MLAGF_ENABLED &&
+			(ifp == vxlan_mlag.peerlink_rif))
+		pim_vxlan_set_peerlink_rif(pim, ifp);
+}
+
+void pim_vxlan_del_vif(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct pim_instance *pim = pim_ifp->pim;
+
+	if (pim->vrf_id != VRF_DEFAULT)
+		return;
+
+	if (pim->vxlan.default_iif == ifp)
+		pim_vxlan_set_default_iif(pim, NULL);
+
+	if (pim->vxlan.peerlink_rif == ifp)
+		pim_vxlan_set_peerlink_rif(pim, NULL);
 }
 
 void pim_vxlan_init(struct pim_instance *pim)
