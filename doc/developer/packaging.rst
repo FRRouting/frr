@@ -7,3 +7,4 @@ Packaging
 
    maintainer-release-build
    packaging-debian
+   packaging-redhat

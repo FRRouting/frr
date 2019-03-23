@@ -181,7 +181,6 @@ EXTRA_DIST += \
 	redhat/frr.logrotate \
 	redhat/frr.pam \
 	redhat/frr.spec \
-	redhat/README.rpm_build.md \
 	\
 	snapcraft/snapcraft.yaml \
 	snapcraft/README.snap_build.md \

@@ -371,7 +371,7 @@ system in which submissions from an individual representing one company should
 be merged by someone unaffiliated with that company.
 
 Guidelines for code review
-""""""""""""""""""""""""""
+--------------------------
 
 - As a rule of thumb, the depth of the review should be proportional to the
   scope and / or impact of the patch.

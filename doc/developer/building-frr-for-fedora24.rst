@@ -1,9 +1,8 @@
 Fedora 24
 =========================================
 
-(As an alternative to this installation, you may prefer to create a FRR
-rpm package yourself and install that package instead. See instructions
-in redhat/README.rpm\_build.md on how to build a rpm package)
+This document describes installation from source. If you want to build an RPM,
+see :ref:`packaging-redhat`.
 
 Install required packages
 -------------------------
