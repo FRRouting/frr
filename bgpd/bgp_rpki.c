@@ -1203,8 +1203,9 @@ DEFPY (show_rpki_prefix,
 
 	struct lrtr_ip_addr addr;
 	char addr_str[INET6_ADDRSTRLEN];
-	memset(addr_str, 0, sizeof(addr_str));
 	size_t addr_len = strchr(prefix_str, '/') - prefix_str;
+
+	memset(addr_str, 0, sizeof(addr_str));
 	memcpy(addr_str, prefix_str, addr_len);
 
 	if (lrtr_ip_str_to_addr(addr_str, &addr) != 0) {
@@ -1226,6 +1227,7 @@ DEFPY (show_rpki_prefix,
 	vty_out(vty, "%-40s %s  %s\n", "Prefix", "Prefix Length", "Origin-AS");
 	for (size_t i = 0; i < match_count; ++i) {
 		const struct pfx_record *record = &matches[i];
+
 		if (record->max_len >= prefix->prefixlen
 		    && ((asn != 0 && asn == record->asn) || asn == 0)) {
 			print_record(&matches[i], vty);
