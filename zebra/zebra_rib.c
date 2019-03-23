@@ -3482,7 +3482,7 @@ struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter)
 		while (1) {
 
 			while (iter->afi_safi_ix
-			       < (int)ZEBRA_NUM_OF(afi_safis)) {
+			       < (int)array_size(afi_safis)) {
 				table = zebra_vrf_table(
 					afi_safis[iter->afi_safi_ix].afi,
 					afi_safis[iter->afi_safi_ix].safi,

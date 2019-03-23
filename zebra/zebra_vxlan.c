@@ -2135,7 +2135,7 @@ static unsigned int neigh_hash_keymake(void *p)
 		return jhash_1word(ip->ipaddr_v4.s_addr, 0);
 
 	return jhash2(ip->ipaddr_v6.s6_addr32,
-		      ZEBRA_NUM_OF(ip->ipaddr_v6.s6_addr32), 0);
+		      array_size(ip->ipaddr_v6.s6_addr32), 0);
 }
 
 /*

@@ -335,8 +335,6 @@ struct in_pktinfo {
 
 #endif /* ndef BYTE_ORDER */
 
-#define ZEBRA_NUM_OF(x) (sizeof (x) / sizeof (x[0]))
-
 /* For old definition. */
 #ifndef IN6_ARE_ADDR_EQUAL
 #define IN6_ARE_ADDR_EQUAL IN6_IS_ADDR_EQUAL
