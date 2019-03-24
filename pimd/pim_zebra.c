@@ -119,6 +119,10 @@ static int pim_zebra_if_add(int command, struct zclient *zclient,
 		pim_sock_add(ifp);
 	}
 
+	if (!strncmp(ifp->name, PIM_VXLAN_TERM_DEV_NAME,
+				sizeof(PIM_VXLAN_TERM_DEV_NAME)))
+		pim_vxlan_add_term_dev(pim, ifp);
+
 	return 0;
 }
 
@@ -126,6 +130,7 @@ static int pim_zebra_if_del(int command, struct zclient *zclient,
 			    zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
+	struct pim_instance *pim;
 
 	/*
 	  zebra api adds/dels interfaces using the same call
@@ -153,6 +158,10 @@ static int pim_zebra_if_del(int command, struct zclient *zclient,
 		pim_if_addr_del_all(ifp);
 
 	if_set_index(ifp, IFINDEX_INTERNAL);
+
+	pim = pim_get_pim_instance(vrf_id);
+	if (pim && pim->vxlan.term_if == ifp)
+		pim_vxlan_del_term_dev(pim);
 
 	return 0;
 }

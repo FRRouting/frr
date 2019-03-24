@@ -779,7 +779,6 @@ void pim_vxlan_add_vif(struct interface *ifp)
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim = pim_ifp->pim;
 
-	pim = ((struct pim_interface *)ifp->info)->pim;
 	if (pim->vrf_id != VRF_DEFAULT)
 		return;
 
@@ -804,6 +803,75 @@ void pim_vxlan_del_vif(struct interface *ifp)
 
 	if (pim->vxlan.peerlink_rif == ifp)
 		pim_vxlan_set_peerlink_rif(pim, NULL);
+}
+
+static void pim_vxlan_term_mr_oif_update(struct hash_backet *backet, void *arg)
+{
+	struct interface *ifp = (struct interface *)arg;
+	struct pim_vxlan_sg *vxlan_sg = (struct pim_vxlan_sg *)backet->data;
+
+	if (pim_vxlan_is_orig_mroute(vxlan_sg))
+		return;
+
+	if (vxlan_sg->term_oif == ifp)
+		return;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan SG %s term oif changed from %s to %s",
+			vxlan_sg->sg_str,
+			vxlan_sg->term_oif ? vxlan_sg->term_oif->name : "-",
+			ifp ? ifp->name : "-");
+
+	pim_vxlan_term_mr_del(vxlan_sg);
+	vxlan_sg->term_oif = ifp;
+	pim_vxlan_term_mr_add(vxlan_sg);
+}
+
+void pim_vxlan_add_term_dev(struct pim_instance *pim,
+		struct interface *ifp)
+{
+	struct pim_interface *pim_ifp;
+
+	if (pim->vxlan.term_if == ifp)
+		return;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan term oif changed from %s to %s",
+			pim->vxlan.term_if ? pim->vxlan.term_if->name : "-",
+			ifp ? ifp->name : "-");
+
+	/* enable pim on the term ifp */
+	pim_ifp = (struct pim_interface *)ifp->info;
+	if (pim_ifp)
+		PIM_IF_DO_PIM(pim_ifp->options);
+	else
+		pim_ifp = pim_if_new(ifp, false /*igmp*/, true /*pim*/,
+				false /*pimreg*/, true /*vxlan_term*/);
+
+	pim->vxlan.term_if = ifp;
+	hash_iterate(pim_ifp->pim->vxlan.sg_hash,
+		pim_vxlan_term_mr_oif_update, ifp);
+}
+
+void pim_vxlan_del_term_dev(struct pim_instance *pim)
+{
+	struct interface *ifp = pim->vxlan.term_if;
+	struct pim_interface *pim_ifp;
+
+	if (PIM_DEBUG_VXLAN)
+		zlog_debug("vxlan term oif changed from %s to -", ifp->name);
+
+	pim->vxlan.term_if = NULL;
+	hash_iterate(pim->vxlan.sg_hash,
+		pim_vxlan_term_mr_oif_update, NULL);
+
+	pim_ifp = (struct pim_interface *)ifp->info;
+	if (pim_ifp) {
+		PIM_IF_DONT_PIM(pim_ifp->options);
+		if (!PIM_IF_TEST_IGMP(pim_ifp->options))
+			pim_if_delete(ifp);
+	}
+
 }
 
 void pim_vxlan_init(struct pim_instance *pim)
