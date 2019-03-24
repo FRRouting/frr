@@ -291,7 +291,7 @@ load_old_config "$C_PATH/daemons.conf"
 load_old_config "/etc/default/frr"
 load_old_config "/etc/sysconfig/frr"
 
-if declare -p watchfrr_options | grep -q '^declare \-a'; then
+if { declare -p watchfrr_options 2>/dev/null || true; } | grep -q '^declare \-a'; then
 	log_warning_msg "watchfrr_options contains a bash array value." \
 		"The configured value is intentionally ignored since it is likely wrong." \
 		"Please remove or fix the setting."
