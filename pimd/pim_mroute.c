@@ -42,6 +42,7 @@
 #include "pim_zlookup.h"
 #include "pim_ssm.h"
 #include "pim_sock.h"
+#include "pim_vxlan.h"
 
 static void mroute_read_on(struct pim_instance *pim);
 
@@ -899,6 +900,9 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	struct pim_interface *pim_reg_ifp;
 	int orig_pimreg_ttl;
 	bool pimreg_ttl_reset = false;
+	struct pim_interface *vxlan_ifp;
+	int orig_term_ttl;
+	bool orig_term_ttl_reset = false;
 
 	pim->mroute_add_last = pim_time_monotonic_sec();
 	++pim->mroute_add_events;
@@ -936,6 +940,23 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 			/* remember to flip it back after MFC programming */
 			pimreg_ttl_reset = true;
 		}
+
+		vxlan_ifp = pim_vxlan_get_term_ifp(pim);
+		/* 1. vxlan termination device must never be added to the
+		 * origination mroute (and that can actually happen because
+		 * of XG inheritance from the termination mroute) otherwise
+		 * traffic will end up looping.
+		 * 2. vxlan termination device should be removed from the non-DF
+		 * to prevent duplicates to the overlay rxer
+		 */
+		if (vxlan_ifp &&
+			(PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN_ORIG(c_oil->up->flags) ||
+			 PIM_UPSTREAM_FLAG_TEST_MLAG_NON_DF(c_oil->up->flags))) {
+			orig_term_ttl_reset = true;
+			orig_term_ttl =
+				c_oil->oil.mfcc_ttls[vxlan_ifp->mroute_vif_index];
+			c_oil->oil.mfcc_ttls[vxlan_ifp->mroute_vif_index] = 0;
+		}
 	}
 
 	/*
@@ -967,6 +988,11 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	if (pimreg_ttl_reset)
 		c_oil->oil.mfcc_ttls[pim_reg_ifp->mroute_vif_index] =
 			orig_pimreg_ttl;
+
+	if (orig_term_ttl_reset)
+		c_oil->oil.mfcc_ttls[vxlan_ifp->mroute_vif_index] =
+			orig_term_ttl;
+
 	if (err) {
 		zlog_warn(
 			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_MFC): errno=%d: %s",
