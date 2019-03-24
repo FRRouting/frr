@@ -43,6 +43,8 @@
 struct pim_vxlan vxlan_info, *pim_vxlan_p = &vxlan_info;
 
 static void pim_vxlan_work_timer_setup(bool start);
+static void pim_vxlan_set_peerlink_rif(struct pim_instance *pim,
+			struct interface *ifp);
 
 /*************************** vxlan work list **********************************
  * A work list is maintained for staggered generation of pim null register
@@ -708,6 +710,101 @@ void pim_vxlan_sg_del(struct pim_instance *pim, struct prefix_sg *sg)
 		zlog_debug("vxlan SG %s free", vxlan_sg->sg_str);
 
 	XFREE(MTYPE_PIM_VXLAN_SG, vxlan_sg);
+}
+
+/******************************* MLAG handling *******************************/
+/* The peerlink sub-interface is added as an OIF to the origination-mroute.
+ * This is done to send a copy of the multicast-vxlan encapsulated traffic
+ * to the MLAG peer which may mroute it over the underlay if there are any
+ * interested receivers.
+ */
+static void pim_vxlan_sg_peerlink_update(struct hash_backet *backet, void *arg)
+{
+	struct interface *new_oif = (struct interface *)arg;
+	struct pim_vxlan_sg *vxlan_sg = (struct pim_vxlan_sg *)backet->data;
+
+	if (!pim_vxlan_is_orig_mroute(vxlan_sg))
+		return;
+
+	if (vxlan_sg->orig_oif == new_oif)
+		return;
+
+	pim_vxlan_orig_mr_oif_del(vxlan_sg);
+
+	vxlan_sg->orig_oif = new_oif;
+	pim_vxlan_orig_mr_oif_add(vxlan_sg);
+}
+
+/* In the case of anycast VTEPs the VTEP-PIP must be used as the
+ * register source.
+ */
+bool pim_vxlan_get_register_src(struct pim_instance *pim,
+		struct pim_upstream *up, struct in_addr *src_p)
+{
+	if (!(vxlan_mlag.flags & PIM_VXLAN_MLAGF_ENABLED))
+		return true;
+
+	/* if address is not available suppress the pim-register */
+	if (vxlan_mlag.reg_addr.s_addr == INADDR_ANY)
+		return false;
+
+	*src_p = vxlan_mlag.reg_addr;
+	return true;
+}
+
+void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
+				struct interface *peerlink_rif,
+				struct in_addr *reg_addr)
+{
+	struct pim_instance *pim;
+	struct interface *old_oif;
+	struct interface *new_oif;
+	char addr_buf[INET_ADDRSTRLEN];
+	struct pim_interface *pim_ifp = NULL;
+
+	if (PIM_DEBUG_VXLAN) {
+		inet_ntop(AF_INET, reg_addr,
+				addr_buf, INET_ADDRSTRLEN);
+		zlog_debug("vxlan MLAG update %s state %s role %d rif %s addr %s",
+				enable ? "enable" : "disable",
+				peer_state ? "up" : "down",
+				role,
+				peerlink_rif ? peerlink_rif->name : "-",
+				addr_buf);
+	}
+
+	/* XXX: for now vxlan termination is only possible in the default VRF
+	 * when that changes this will need to change to iterate all VRFs
+	 */
+	pim = pim_get_pim_instance(VRF_DEFAULT);
+
+	old_oif = pim_vxlan_orig_mr_oif_get(pim);
+
+	if (enable)
+		vxlan_mlag.flags |= PIM_VXLAN_MLAGF_ENABLED;
+	else
+		vxlan_mlag.flags &= ~PIM_VXLAN_MLAGF_ENABLED;
+
+	if (vxlan_mlag.peerlink_rif != peerlink_rif)
+		vxlan_mlag.peerlink_rif = peerlink_rif;
+
+	vxlan_mlag.reg_addr = *reg_addr;
+	vxlan_mlag.peer_state = peer_state;
+	vxlan_mlag.role = role;
+
+	/* process changes */
+	if (vxlan_mlag.peerlink_rif)
+		pim_ifp = (struct pim_interface *)vxlan_mlag.peerlink_rif->info;
+	if ((vxlan_mlag.flags & PIM_VXLAN_MLAGF_ENABLED) &&
+			pim_ifp && (pim_ifp->mroute_vif_index > 0))
+		pim_vxlan_set_peerlink_rif(pim, peerlink_rif);
+	else
+		pim_vxlan_set_peerlink_rif(pim, NULL);
+
+	new_oif = pim_vxlan_orig_mr_oif_get(pim);
+	if (old_oif != new_oif)
+		hash_iterate(pim->vxlan.sg_hash, pim_vxlan_sg_peerlink_update,
+			new_oif);
 }
 
 /****************************** misc callbacks *******************************/
