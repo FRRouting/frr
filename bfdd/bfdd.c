@@ -208,6 +208,8 @@ int main(int argc, char *argv[])
 	/* Initialize BFD data structures. */
 	bfd_initialize();
 
+	bfd_vrf_init();
+
 	/* Initialize zebra connection. */
 	bfdd_zclient_init(&bfdd_privs);
 

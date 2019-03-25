@@ -1443,3 +1443,36 @@ void bfd_shutdown(void)
 	hash_free(bfd_id_hash);
 	hash_free(bfd_key_hash);
 }
+
+static int bfd_vrf_new(struct vrf *vrf)
+{
+	log_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
+	return 0;
+}
+
+static int bfd_vrf_delete(struct vrf *vrf)
+{
+	log_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
+	return 0;
+}
+
+static int bfd_vrf_enable(struct vrf *vrf)
+{
+	log_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
+	return 0;
+}
+
+static int bfd_vrf_disable(struct vrf *vrf)
+{
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return 0;
+	log_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
+	return 0;
+}
+
+void bfd_vrf_init(void)
+{
+	vrf_init(bfd_vrf_new, bfd_vrf_enable, bfd_vrf_disable,
+		 bfd_vrf_delete, NULL);
+}
+

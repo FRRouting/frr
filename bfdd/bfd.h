@@ -541,6 +541,7 @@ void bs_to_bpc(struct bfd_session *bs, struct bfd_peer_cfg *bpc);
 /* BFD hash data structures interface */
 void bfd_initialize(void);
 void bfd_shutdown(void);
+void bfd_vrf_init(void);
 struct bfd_session *bfd_id_lookup(uint32_t id);
 struct bfd_session *bfd_key_lookup(struct bfd_key key);
 
