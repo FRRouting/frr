@@ -126,11 +126,6 @@ DEFUN_NOSH(
 	if (argv_find(argv, argc, "vrf", &idx))
 		vrfname = argv[idx + 1]->arg;
 
-	if (vrfname && ifname) {
-		vty_out(vty, "%% VRF is not mixable with interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	strtosa(peer, &psa);
 	if (local) {
 		strtosa(local, &lsa);

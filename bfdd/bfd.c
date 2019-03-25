@@ -128,15 +128,8 @@ int bfd_session_enable(struct bfd_session *bs)
 	 * If the interface or VRF doesn't exist, then we must register
 	 * the session but delay its start.
 	 */
-	if (bs->key.ifname[0]) {
-		ifp = if_lookup_by_name_all_vrf(bs->key.ifname);
-		if (ifp == NULL) {
-			log_error(
-				"session-enable: specified interface doesn't exists.");
-			return 0;
-		}
-
-		vrf = vrf_lookup_by_id(ifp->vrf_id);
+	if (bs->key.vrfname[0]) {
+		vrf = vrf_lookup_by_name(bs->key.vrfname);
 		if (vrf == NULL) {
 			log_error(
 				"session-enable: specified VRF doesn't exists.");
@@ -144,12 +137,23 @@ int bfd_session_enable(struct bfd_session *bs)
 		}
 	}
 
-	if (bs->key.vrfname[0]) {
-		vrf = vrf_lookup_by_name(bs->key.vrfname);
-		if (vrf == NULL) {
+	if (bs->key.ifname[0]) {
+		if (vrf)
+			ifp = if_lookup_by_name(bs->key.ifname, vrf->vrf_id);
+		else
+			ifp = if_lookup_by_name_all_vrf(bs->key.ifname);
+		if (ifp == NULL) {
 			log_error(
-				"session-enable: specified VRF doesn't exists.");
+				  "session-enable: specified interface doesn't exists.");
 			return 0;
+		}
+		if (bs->key.ifname[0] && !vrf) {
+			vrf = vrf_lookup_by_id(ifp->vrf_id);
+			if (vrf == NULL) {
+				log_error(
+					  "session-enable: specified VRF doesn't exists.");
+				return 0;
+			}
 		}
 	}
 
