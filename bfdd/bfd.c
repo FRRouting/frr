@@ -164,7 +164,7 @@ int bfd_session_enable(struct bfd_session *bs)
 
 	/* Sanity check: don't leak open sockets. */
 	if (bs->sock != -1) {
-		zlog_debug("session-enable: previous socket open");
+		log_debug("session-enable: previous socket open");
 		close(bs->sock);
 		bs->sock = -1;
 	}
