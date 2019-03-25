@@ -49,6 +49,8 @@ DECLARE_MTYPE(BFDD_CONTROL);
 DECLARE_MTYPE(BFDD_SESSION_OBSERVER);
 DECLARE_MTYPE(BFDD_NOTIFICATION);
 
+extern struct zebra_privs_t bfdd_privs;
+
 struct bfd_timers {
 	uint32_t desired_min_tx;
 	uint32_t required_min_rx;

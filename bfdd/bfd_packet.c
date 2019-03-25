@@ -37,7 +37,6 @@
 
 #include "bfd.h"
 
-
 /*
  * Prototypes
  */
@@ -906,7 +905,10 @@ int bp_peer_socket(const struct bfd_session *bs)
 	struct sockaddr_in sin;
 	static int srcPort = BFD_SRCPORTINIT;
 
-	sd = socket(AF_INET, SOCK_DGRAM, PF_UNSPEC);
+	frr_elevate_privs(&bfdd_privs) {
+		sd = vrf_socket(AF_INET, SOCK_DGRAM, PF_UNSPEC,
+				bs->vrf->vrf_id, NULL);
+	}
 	if (sd == -1) {
 		log_error("ipv4-new: failed to create socket: %s",
 			  strerror(errno));
@@ -976,7 +978,10 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 	struct sockaddr_in6 sin6;
 	static int srcPort = BFD_SRCPORTINIT;
 
-	sd = socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC);
+	frr_elevate_privs(&bfdd_privs) {
+		sd = vrf_socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC,
+				bs->vrf->vrf_id, NULL);
+	}
 	if (sd == -1) {
 		log_error("ipv6-new: failed to create socket: %s",
 			  strerror(errno));
