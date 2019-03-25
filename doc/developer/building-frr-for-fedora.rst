@@ -21,39 +21,6 @@ Installing Dependencies
 Building & Installing FRR
 -------------------------
 
-Compile
-^^^^^^^
-
-Clone the FRR git repo and use the included ``configure`` script to configure
-FRR's build time options to your liking. The full option listing can be
-obtained by running ``./configure -h``. The options shown below are examples.
-
-.. code-block:: console
-
-   git clone https://github.com/frrouting/frr.git frr
-   cd frr
-   ./bootstrap.sh
-   ./configure \
-       --bindir=/usr/bin \
-       --sbindir=/usr/lib/frr \
-       --sysconfdir=/etc/frr \
-       --libdir=/usr/lib/frr \
-       --libexecdir=/usr/lib/frr \
-       --localstatedir=/var/run/frr \
-       --with-moduledir=/usr/lib/frr/modules \
-       --with-libyang-pluginsdir=/usr/lib/frr/libyang_plugins \
-       --enable-snmp=agentx \
-       --enable-multipath=64 \
-       --enable-user=frr \
-       --enable-group=frr \
-       --enable-vty-group=frrvty \
-       --disable-exampledir \
-       --enable-fpm \
-       --with-pkg-git-version \
-       --with-pkg-extra-version=-MyOwnFRRVersion
-   make
-   sudo make install
-
 Add FRR user and groups
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -63,6 +30,11 @@ Add FRR user and groups
    sudo groupadd -r -g 85 frrvty
    sudo useradd -u 92 -g 92 -M -r -G frrvty -s /sbin/nologin \
      -c "FRR FRRouting suite" -d /var/run/frr frr
+
+Compile
+^^^^^^^
+
+.. include:: include-compile.rst
 
 Install FRR configuration files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -76,15 +48,9 @@ Install FRR configuration files
    sudo install -m 640 -o frr -g frr tools/etc/frr/daemons.conf /etc/frr/daemons.conf
    sudo install -m 640 -o frr -g frr tools/etc/frr/daemons /etc/frr/daemons
 
-Enable daemons
-^^^^^^^^^^^^^^
-
-Open :file:`/etc/frr/daemons` with your text editor of choice. Look for the
-section with ``watchfrr_enable=...`` and ``zebra=...`` etc.  Enable the daemons
-as required by changing the value to ``yes``.
-
 Tweak sysctls
 ^^^^^^^^^^^^^
+
 Some sysctls need to be changed in order to enable IPv4/IPv6 forwarding and
 MPLS (if supported by your platform). If your platform does not support MPLS,
 skip the MPLS related configuration in this section.
@@ -92,7 +58,7 @@ skip the MPLS related configuration in this section.
 Create a new file ``/etc/sysctl.d/90-routing-sysctl.conf`` with the following
 content:
 
-.. code-block:: console
+::
 
    #
    # Enable packet forwarding
@@ -120,7 +86,7 @@ Load the modifed sysctls on the system:
 
 Create a new file ``/etc/modules-load.d/mpls.conf`` with the following content:
 
-.. code-block:: console
+::
 
    # Load MPLS Kernel Modules
    mpls-router
@@ -140,6 +106,13 @@ Install service files
    sudo install -p -m 644 redhat/frr.service /usr/lib/systemd/system/frr.service
    sudo install -p -m 755 redhat/frr.init /usr/lib/frr/frr
    sudo systemctl enable frr
+
+Enable daemons
+^^^^^^^^^^^^^^
+
+Open :file:`/etc/frr/daemons` with your text editor of choice. Look for the
+section with ``watchfrr_enable=...`` and ``zebra=...`` etc.  Enable the daemons
+as required by changing the value to ``yes``.
 
 Start FRR
 ^^^^^^^^^
