@@ -119,6 +119,11 @@ int pim_debug_config_write(struct vty *vty)
 		++writes;
 	}
 
+	if (PIM_DEBUG_VXLAN) {
+		vty_out(vty, "debug pim vxlan\n");
+		++writes;
+	}
+
 	if (PIM_DEBUG_SSMPINGD) {
 		vty_out(vty, "debug ssmpingd\n");
 		++writes;
