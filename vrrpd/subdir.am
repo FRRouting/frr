@@ -27,6 +27,7 @@ noinst_HEADERS += \
 	vrrpd/vrrp_debug.h \
 	vrrpd/vrrp_memory.h \
 	vrrpd/vrrp_ndisc.h \
+	vrrpd/vrrp_packet.h \
 	vrrpd/vrrp_vty.h \
 	vrrpd/vrrp_zebra.h \
 	# end
