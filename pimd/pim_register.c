@@ -258,6 +258,15 @@ void pim_null_register_send(struct pim_upstream *up)
 
 	/* checksum is broken */
 	src = pim_ifp->primary_address;
+	if (PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN_ORIG(up->flags)) {
+		if (!pim_vxlan_get_register_src(pim_ifp->pim, up, &src)) {
+			if (PIM_DEBUG_TRACE)
+				zlog_debug(
+					"%s: Cannot send null-register for %s vxlan-aa PIP unavailable",
+					__PRETTY_FUNCTION__, up->sg_str);
+			return;
+		}
+	}
 	pim_register_send((uint8_t *)&ip_hdr, sizeof(struct ip),
 			src, rpg, 1, up);
 }
