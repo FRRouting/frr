@@ -904,10 +904,17 @@ int bp_peer_socket(const struct bfd_session *bs)
 	int sd, pcount;
 	struct sockaddr_in sin;
 	static int srcPort = BFD_SRCPORTINIT;
+	const char *device_to_bind = NULL;
+
+	if (bs->key.ifname[0])
+		device_to_bind = (const char *)bs->key.ifname;
+	else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
+	    && bs->key.vrfname[0])
+		device_to_bind = (const char *)bs->key.vrfname;
 
 	frr_elevate_privs(&bfdd_privs) {
 		sd = vrf_socket(AF_INET, SOCK_DGRAM, PF_UNSPEC,
-				bs->vrf->vrf_id, NULL);
+				bs->vrf->vrf_id, device_to_bind);
 	}
 	if (sd == -1) {
 		log_error("ipv4-new: failed to create socket: %s",
@@ -925,19 +932,6 @@ int bp_peer_socket(const struct bfd_session *bs)
 	if (bp_set_tos(sd, BFD_TOS_VAL) != 0) {
 		close(sd);
 		return -1;
-	}
-
-	if (bs->key.ifname[0]) {
-		if (bp_bind_dev(sd, bs->key.ifname) != 0) {
-			close(sd);
-			return -1;
-		}
-	} else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
-		   && bs->key.vrfname[0]) {
-		if (bp_bind_dev(sd, bs->key.vrfname) != 0) {
-			close(sd);
-			return -1;
-		}
 	}
 
 	/* Find an available source port in the proper range */
@@ -977,10 +971,17 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 	int sd, pcount;
 	struct sockaddr_in6 sin6;
 	static int srcPort = BFD_SRCPORTINIT;
+	const char *device_to_bind = NULL;
+
+	if (bs->key.ifname[0])
+		device_to_bind = (const char *)bs->key.ifname;
+	else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
+	    && bs->key.vrfname[0])
+		device_to_bind = (const char *)bs->key.vrfname;
 
 	frr_elevate_privs(&bfdd_privs) {
 		sd = vrf_socket(AF_INET6, SOCK_DGRAM, PF_UNSPEC,
-				bs->vrf->vrf_id, NULL);
+				bs->vrf->vrf_id, device_to_bind);
 	}
 	if (sd == -1) {
 		log_error("ipv6-new: failed to create socket: %s",
@@ -1009,19 +1010,6 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 	memcpy(&sin6.sin6_addr, &bs->key.local, sizeof(sin6.sin6_addr));
 	if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
 		sin6.sin6_scope_id = bs->ifp->ifindex;
-
-	if (bs->key.ifname[0]) {
-		if (bp_bind_dev(sd, bs->key.ifname) != 0) {
-			close(sd);
-			return -1;
-		}
-	} else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
-		   && bs->key.vrfname[0]) {
-		if (bp_bind_dev(sd, bs->key.vrfname) != 0) {
-			close(sd);
-			return -1;
-		}
-	}
 
 	pcount = 0;
 	do {

@@ -1201,10 +1201,6 @@ int bs_observer_add(struct bfd_session *bs)
 	if (bso->bso_isinterface)
 		strlcpy(bso->bso_entryname, bs->key.ifname,
 			sizeof(bso->bso_entryname));
-	else
-		strlcpy(bso->bso_entryname, bs->key.vrfname,
-			sizeof(bso->bso_entryname));
-
 	/* Handle socket binding failures caused by missing local addresses. */
 	if (bs->sock == -1) {
 		bso->bso_isaddress = true;
