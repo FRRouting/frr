@@ -101,8 +101,9 @@ RB_PROTOTYPE(vrf_name_head, vrf, name_entry, vrf_name_compare)
 DECLARE_QOBJ_TYPE(vrf)
 
 /* Allow VRF with netns as backend */
-#define VRF_BACKEND_VRF_LITE 0
-#define VRF_BACKEND_NETNS    1
+#define VRF_BACKEND_VRF_LITE   0
+#define VRF_BACKEND_NETNS      1
+#define VRF_BACKEND_UNKNOWN    2
 
 extern struct vrf_id_head vrfs_by_id;
 extern struct vrf_name_head vrfs_by_name;

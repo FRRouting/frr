@@ -396,6 +396,7 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id)
 	struct interface *ifp;
 
 	switch (vrf_get_backend()) {
+	case VRF_BACKEND_UNKNOWN:
 	case VRF_BACKEND_NETNS:
 		ifp = if_lookup_by_name(name, vrf_id);
 		if (ifp)
@@ -1279,6 +1280,11 @@ static int lib_interface_create(enum nb_event event,
 				  vrf->name);
 			return NB_ERR_VALIDATION;
 		}
+
+		/* if VRF is netns or not yet known - init for instance
+		 * then assumption is that passed config is exact
+		 * then the user intent was not to use an other iface
+		 */
 		if (vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
 			ifp = if_lookup_by_name_all_vrf(ifname);
 			if (ifp && ifp->vrf_id != vrf->vrf_id) {
