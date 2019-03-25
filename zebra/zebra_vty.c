@@ -425,12 +425,6 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED))
 			json_object_boolean_true_add(json_route, "queued");
 
-		if (re->type != ZEBRA_ROUTE_CONNECT) {
-			json_object_int_add(json_route, "distance",
-					    re->distance);
-			json_object_int_add(json_route, "metric", re->metric);
-		}
-
 		if (re->tag)
 			json_object_int_add(json_route, "tag", re->tag);
 
