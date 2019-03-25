@@ -60,6 +60,7 @@
 #include "pim_ssm.h"
 #include "pim_nht.h"
 #include "pim_bfd.h"
+#include "pim_vxlan.h"
 #include "bfd.h"
 
 #ifndef VTYSH_EXTRACT_PL
@@ -8724,6 +8725,286 @@ DEFUN (show_ip_msdp_sa_sg_vrf_all,
 	return CMD_SUCCESS;
 }
 
+struct pim_sg_cache_walk_data {
+	struct vty *vty;
+	json_object *json;
+	json_object *json_group;
+	struct in_addr addr;
+	bool addr_match;
+};
+
+static void pim_show_vxlan_sg_entry(struct pim_vxlan_sg *vxlan_sg,
+			 struct pim_sg_cache_walk_data *cwd)
+{
+	struct vty *vty = cwd->vty;
+	json_object *json = cwd->json;
+	char src_str[INET_ADDRSTRLEN];
+	char grp_str[INET_ADDRSTRLEN];
+	json_object *json_row;
+	bool installed = (vxlan_sg->up)?TRUE:FALSE;
+	const char *iif_name = vxlan_sg->iif?vxlan_sg->iif->name:"-";
+	const char *oif_name;
+
+	if (pim_vxlan_is_orig_mroute(vxlan_sg))
+		oif_name = vxlan_sg->orig_oif?vxlan_sg->orig_oif->name:"";
+	else
+		oif_name = vxlan_sg->term_oif?vxlan_sg->term_oif->name:"";
+
+	if (cwd->addr_match && (vxlan_sg->sg.src.s_addr != cwd->addr.s_addr) &&
+			(vxlan_sg->sg.grp.s_addr != cwd->addr.s_addr)) {
+		return;
+	}
+	pim_inet4_dump("<src?>", vxlan_sg->sg.src, src_str, sizeof(src_str));
+	pim_inet4_dump("<grp?>", vxlan_sg->sg.grp, grp_str, sizeof(grp_str));
+	if (json) {
+		json_object_object_get_ex(json, grp_str, &cwd->json_group);
+
+		if (!cwd->json_group) {
+			cwd->json_group = json_object_new_object();
+			json_object_object_add(json, grp_str,
+					cwd->json_group);
+		}
+
+		json_row = json_object_new_object();
+		json_object_string_add(json_row, "source", src_str);
+		json_object_string_add(json_row, "group", grp_str);
+		json_object_string_add(json_row, "input", iif_name);
+		json_object_string_add(json_row, "output", oif_name);
+		if (installed)
+			json_object_boolean_true_add(json_row, "installed");
+		else
+			json_object_boolean_false_add(json_row, "installed");
+		json_object_object_add(cwd->json_group, src_str, json_row);
+	} else {
+		vty_out(vty, "%-15s %-15s %-15s %-15s %-5s\n",
+				src_str, grp_str, iif_name, oif_name,
+				installed?"I":"");
+	}
+}
+
+static void pim_show_vxlan_sg_hash_entry(struct hash_backet *backet, void *arg)
+{
+	pim_show_vxlan_sg_entry((struct pim_vxlan_sg *)backet->data,
+		 (struct pim_sg_cache_walk_data *)arg);
+}
+
+static void pim_show_vxlan_sg(struct pim_instance *pim,
+		struct vty *vty, bool uj)
+{
+	json_object *json = NULL;
+	struct pim_sg_cache_walk_data cwd;
+
+	if (uj) {
+		json = json_object_new_object();
+	} else {
+		vty_out(vty, "Codes: I -> installed\n");
+		vty_out(vty,
+			"Source          Group           Input           Output          Flags\n");
+	}
+
+	memset(&cwd, 0, sizeof(cwd));
+	cwd.vty = vty;
+	cwd.json = json;
+	hash_iterate(pim->vxlan.sg_hash, pim_show_vxlan_sg_hash_entry, &cwd);
+
+	if (uj) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+}
+
+static void pim_show_vxlan_sg_match_addr(struct pim_instance *pim,
+		struct vty *vty, char *addr_str, bool uj)
+{
+	json_object *json = NULL;
+	struct pim_sg_cache_walk_data cwd;
+	int result = 0;
+
+	memset(&cwd, 0, sizeof(cwd));
+	result = inet_pton(AF_INET, addr_str, &cwd.addr);
+	if (result <= 0) {
+		vty_out(vty, "Bad address %s: errno=%d: %s\n", addr_str,
+				errno, safe_strerror(errno));
+		return;
+	}
+
+	if (uj) {
+		json = json_object_new_object();
+	} else {
+		vty_out(vty, "Codes: I -> installed\n");
+		vty_out(vty,
+			"Source          Group           Input           Output          Flags\n");
+	}
+
+	cwd.vty = vty;
+	cwd.json = json;
+	cwd.addr_match = TRUE;
+	hash_iterate(pim->vxlan.sg_hash, pim_show_vxlan_sg_hash_entry, &cwd);
+
+	if (uj) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+}
+
+static void pim_show_vxlan_sg_one(struct pim_instance *pim,
+		struct vty *vty, char *src_str, char *grp_str, bool uj)
+{
+	json_object *json = NULL;
+	struct prefix_sg sg;
+	int result = 0;
+	struct pim_vxlan_sg *vxlan_sg;
+	const char *iif_name;
+	bool installed;
+	const char *oif_name;
+
+	result = inet_pton(AF_INET, src_str, &sg.src);
+	if (result <= 0) {
+		vty_out(vty, "Bad src address %s: errno=%d: %s\n", src_str,
+				errno, safe_strerror(errno));
+		return;
+	}
+	result = inet_pton(AF_INET, grp_str, &sg.grp);
+	if (result <= 0) {
+		vty_out(vty, "Bad grp address %s: errno=%d: %s\n", grp_str,
+				errno, safe_strerror(errno));
+		return;
+	}
+
+	sg.family = AF_INET;
+	sg.prefixlen = IPV4_MAX_BITLEN;
+	if (uj)
+		json = json_object_new_object();
+
+	vxlan_sg = pim_vxlan_sg_find(pim, &sg);
+	if (vxlan_sg) {
+		installed = (vxlan_sg->up)?TRUE:FALSE;
+		iif_name = vxlan_sg->iif?vxlan_sg->iif->name:"-";
+
+		if (pim_vxlan_is_orig_mroute(vxlan_sg))
+			oif_name =
+				vxlan_sg->orig_oif?vxlan_sg->orig_oif->name:"";
+		else
+			oif_name =
+				vxlan_sg->term_oif?vxlan_sg->term_oif->name:"";
+
+		if (uj) {
+			json_object_string_add(json, "source", src_str);
+			json_object_string_add(json, "group", grp_str);
+			json_object_string_add(json, "input", iif_name);
+			json_object_string_add(json, "output", oif_name);
+			if (installed)
+				json_object_boolean_true_add(json, "installed");
+			else
+				json_object_boolean_false_add(json,
+					"installed");
+		} else {
+			vty_out(vty, "SG : %s\n", vxlan_sg->sg_str);
+			vty_out(vty, "  Input     : %s\n", iif_name);
+			vty_out(vty, "  Output    : %s\n", oif_name);
+			vty_out(vty, "  installed : %s\n",
+				installed?"yes":"no");
+		}
+	}
+
+	if (uj) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+}
+
+DEFUN (show_ip_pim_vxlan_sg,
+       show_ip_pim_vxlan_sg_cmd,
+       "show ip pim [vrf NAME] vxlan-groups [A.B.C.D [A.B.C.D]] [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "VxLAN BUM groups\n"
+       "source or group ip\n"
+       "group ip\n"
+       JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	struct vrf *vrf;
+	int idx = 2;
+
+	vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	char *src_ip = argv_find(argv, argc, "A.B.C.D", &idx) ?
+		argv[idx++]->arg:NULL;
+	char *grp_ip = idx < argc && argv_find(argv, argc, "A.B.C.D", &idx) ?
+		argv[idx]->arg:NULL;
+
+	if (src_ip && grp_ip)
+		pim_show_vxlan_sg_one(vrf->info, vty, src_ip, grp_ip, uj);
+	else if (src_ip)
+		pim_show_vxlan_sg_match_addr(vrf->info, vty, src_ip, uj);
+	else
+		pim_show_vxlan_sg(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+static void pim_show_vxlan_sg_work(struct pim_instance *pim,
+		struct vty *vty, bool uj)
+{
+	json_object *json = NULL;
+	struct pim_sg_cache_walk_data cwd;
+	struct listnode *node;
+	struct pim_vxlan_sg *vxlan_sg;
+
+	if (uj) {
+		json = json_object_new_object();
+	} else {
+		vty_out(vty, "Codes: I -> installed\n");
+		vty_out(vty,
+			"Source          Group           Input           Flags\n");
+	}
+
+	memset(&cwd, 0, sizeof(cwd));
+	cwd.vty = vty;
+	cwd.json = json;
+	for (ALL_LIST_ELEMENTS_RO(pim_vxlan_p->work_list, node, vxlan_sg))
+		pim_show_vxlan_sg_entry(vxlan_sg, &cwd);
+
+	if (uj) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+}
+
+DEFUN_HIDDEN (show_ip_pim_vxlan_sg_work,
+              show_ip_pim_vxlan_sg_work_cmd,
+              "show ip pim [vrf NAME] vxlan-work [json]",
+              SHOW_STR
+              IP_STR
+              PIM_STR
+              VRF_CMD_HELP_STR
+              "VxLAN work list\n"
+              JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	struct vrf *vrf;
+	int idx = 2;
+
+	vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	pim_show_vxlan_sg_work(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	install_node(&interface_node,
@@ -8995,6 +9276,8 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_msdp_mesh_group_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_ssm_range_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_group_type_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_vxlan_sg_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_vxlan_sg_work_cmd);
 	install_element(INTERFACE_NODE, &interface_pim_use_source_cmd);
 	install_element(INTERFACE_NODE, &interface_no_pim_use_source_cmd);
 	/* Install BFD command */
