@@ -3447,7 +3447,14 @@ static int ospf_make_ls_req_func(struct stream *s, uint16_t *length,
 
 	oi = nbr->oi;
 
-	/* LS Request packet overflows interface MTU. */
+	/* LS Request packet overflows interface MTU
+	 * delta is just number of bytes required for 1 LS Req
+	 * ospf_packet_max will return the number of bytes can
+	 * be accomodated without ospf header. So length+delta
+	 * can be compared to ospf_packet_max
+	 * to check if it can fit another lsreq in the same packet.
+	 */
+
 	if (*length + delta > ospf_packet_max(oi))
 		return 0;
 
@@ -3466,7 +3473,7 @@ static int ospf_make_ls_req(struct ospf_neighbor *nbr, struct stream *s)
 {
 	struct ospf_lsa *lsa;
 	uint16_t length = OSPF_LS_REQ_MIN_SIZE;
-	unsigned long delta = stream_get_endp(s) + 12;
+	unsigned long delta = 12;
 	struct route_table *table;
 	struct route_node *rn;
 	int i;
@@ -3530,8 +3537,9 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,
 
 		assert(lsa->data);
 
-		/* Will it fit? */
-		if (length + delta + ntohs(lsa->data->length) > size_noauth)
+		/* Will it fit? Minimum it has to fit atleast one */
+		if ((length + delta + ntohs(lsa->data->length) > size_noauth) &&
+				(count > 0))
 			break;
 
 		/* Keep pointer to LS age. */
@@ -3568,13 +3576,21 @@ static int ospf_make_ls_ack(struct ospf_interface *oi, struct list *ack,
 {
 	struct listnode *node, *nnode;
 	uint16_t length = OSPF_LS_ACK_MIN_SIZE;
-	unsigned long delta = stream_get_endp(s) + 24;
+	unsigned long delta = OSPF_LSA_HEADER_SIZE;
 	struct ospf_lsa *lsa;
 
 	for (ALL_LIST_ELEMENTS(ack, node, nnode, lsa)) {
 		assert(lsa);
 
-		if (length + delta > ospf_packet_max(oi))
+		/* LS Ack packet overflows interface MTU
+		 * delta is just number of bytes required for
+		 * 1 LS Ack(1 LS Hdr) ospf_packet_max will return
+		 * the number of bytes can be accomodated without
+		 * ospf header. So length+delta can be compared
+		 * against ospf_packet_max to check if it can fit
+		 * another ls header in the same packet.
+		 */
+		if ((length + delta) > ospf_packet_max(oi))
 			break;
 
 		stream_put(s, lsa->data, OSPF_LSA_HEADER_SIZE);
