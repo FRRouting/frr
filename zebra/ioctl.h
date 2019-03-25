@@ -22,6 +22,10 @@
 #ifndef _ZEBRA_IOCTL_H
 #define _ZEBRA_IOCTL_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Prototypes. */
 extern void ifreq_set_name(struct ifreq *, struct interface *);
 extern int if_ioctl(unsigned long, caddr_t);
@@ -52,5 +56,9 @@ extern struct connected *if_lookup_linklocal(struct interface *);
 #define AF_IOCTL(af, request, buffer)  if_ioctl(request, buffer)
 
 #endif /* SOLARIS_IPV6 */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_IOCTL_H */

@@ -24,6 +24,10 @@
 
 #include "lib/vty.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Debug flags. */
 #define ZEBRA_DEBUG_EVENT   0x01
 
@@ -98,5 +102,9 @@ extern unsigned long zebra_debug_mlag;
 extern void zebra_debug_init(void);
 
 DECLARE_HOOK(zebra_debug_show_debugging, (struct vty *vty), (vty));
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_DEBUG_H */

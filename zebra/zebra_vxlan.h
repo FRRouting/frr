@@ -35,6 +35,10 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zserv.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Is EVPN enabled? */
 #define EVPN_ENABLED(zvrf)  (zvrf)->advertise_all_vni
 static inline int is_evpn_enabled(void)
@@ -205,5 +209,9 @@ extern int zebra_vxlan_clear_dup_detect_vni_all(struct vty *vty,
 extern int zebra_vxlan_clear_dup_detect_vni(struct vty *vty,
 					    struct zebra_vrf *zvrf,
 					    vni_t vni);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_VXLAN_H */

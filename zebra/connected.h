@@ -28,6 +28,10 @@
 #include "lib/if.h"
 #include "lib/prefix.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern struct connected *connected_check(struct interface *ifp,
 					 union prefixconstptr p);
 extern struct connected *connected_check_ptp(struct interface *ifp,
@@ -58,4 +62,7 @@ extern void connected_delete_ipv6(struct interface *ifp,
 
 extern int connected_is_unnumbered(struct interface *);
 
+#ifdef __cplusplus
+}
+#endif
 #endif /*_ZEBRA_CONNECTED_H */

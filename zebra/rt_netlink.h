@@ -26,6 +26,10 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_dplane.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define NL_DEFAULT_ROUTE_METRIC 20
 
 /*
@@ -78,6 +82,10 @@ extern int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 					    struct ethaddr *mac, uint16_t vid);
 extern int netlink_neigh_read_specific_ip(struct ipaddr *ip,
 					  struct interface *vlan_if);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* HAVE_NETLINK */
 

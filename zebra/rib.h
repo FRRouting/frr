@@ -35,6 +35,10 @@
 #include "mpls.h"
 #include "srcdest_table.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define DISTANCE_INFINITY  255
 #define ZEBRA_KERNEL_TABLE_MAX 252 /* support for no more than this rt tables */
 
@@ -464,4 +468,9 @@ extern void zebra_vty_init(void);
 extern pid_t pid;
 
 extern bool v6_rr_semantics;
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /*_ZEBRA_RIB_H */

@@ -28,6 +28,10 @@
 #include <zebra/zebra_pw.h>
 #include <lib/vxlan.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* MPLS (Segment Routing) global block */
 typedef struct mpls_srgb_t_ {
 	uint32_t start_label;
@@ -203,4 +207,9 @@ extern void zebra_vrf_init(void);
 
 extern void zebra_rtable_node_cleanup(struct route_table *table,
 				      struct route_node *node);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* ZEBRA_VRF_H */

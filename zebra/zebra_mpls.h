@@ -34,6 +34,9 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_vrf.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Definitions and macros. */
 
@@ -533,5 +536,9 @@ static inline int mpls_should_lsps_be_processed(struct zebra_vrf *zvrf)
 
 /* Global variables. */
 extern int mpls_enabled;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /*_ZEBRA_MPLS_H */
