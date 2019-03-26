@@ -1868,6 +1868,33 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 }
 
 /**
+ * _netlink_nexthop_build_group() - Build a nexthop_grp struct for a nlmsg
+ *
+ * @n:			Netlink message header struct
+ * @req_size:		Size allocated for this message
+ * @nhg_depends:	List of entry dependencies
+ */
+static void _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
+					 struct list *nhg_depends)
+{
+	int count = listcount(nhg_depends);
+	int i = 0;
+	struct nexthop_grp grp[count];
+	struct listnode *dp_node = NULL;
+	struct nhg_depend *n_dp = NULL;
+
+	memset(grp, 0, sizeof(grp));
+
+	if (count) {
+		for (ALL_LIST_ELEMENTS_RO(nhg_depends, dp_node, n_dp)) {
+			grp[i++].id = n_dp->nhe->id;
+		}
+	}
+
+	addattr_l(n, req_size, NHA_GROUP, grp, count * sizeof(*grp));
+}
+
+/**
  * netlink_nexthop() - Nexthop change via the netlink interface
  *
  * @ctx:	Dataplane ctx
@@ -1904,43 +1931,48 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 	addattr32(&req.n, sizeof(req), NHA_ID, nhe->id);
 
 	if (cmd == RTM_NEWNEXTHOP) {
-		const struct nexthop *nh = nhe->nhg->nexthop;
+		if (nhe->nhg_depends) {
+			_netlink_nexthop_build_group(&req.n, sizeof(req),
+						     nhe->nhg_depends);
+		} else {
+			const struct nexthop *nh = nhe->nhg->nexthop;
 
-		if (nhe->afi == AFI_IP)
-			req.nhm.nh_family = AF_INET;
-		else if (nhe->afi == AFI_IP6)
-			req.nhm.nh_family = AF_INET6;
+			if (nhe->afi == AFI_IP)
+				req.nhm.nh_family = AF_INET;
+			else if (nhe->afi == AFI_IP6)
+				req.nhm.nh_family = AF_INET6;
 
-		switch (nh->type) {
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			addattr_l(&req.n, sizeof(req), NHA_GATEWAY,
-				  &nh->gate.ipv4, IPV4_MAX_BYTELEN);
-			break;
-		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			addattr_l(&req.n, sizeof(req), NHA_GATEWAY,
-				  &nh->gate.ipv6, IPV6_MAX_BYTELEN);
-			break;
-		case NEXTHOP_TYPE_BLACKHOLE:
-			// TODO: Handle this
-			addattr_l(&req.n, sizeof(req), NHA_BLACKHOLE, NULL, 0);
-			break;
-		case NEXTHOP_TYPE_IFINDEX:
-			/* Don't need anymore info for this */
-			break;
-		case NEXTHOP_TYPE_IPV4:
-		case NEXTHOP_TYPE_IPV6:
-			flog_err(
-				EC_ZEBRA_NHG_FIB_UPDATE,
-				"Context received for kernel nexthop update without an interface");
-			return -1;
-			break;
+			switch (nh->type) {
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+				addattr_l(&req.n, sizeof(req), NHA_GATEWAY,
+					  &nh->gate.ipv4, IPV4_MAX_BYTELEN);
+				break;
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				addattr_l(&req.n, sizeof(req), NHA_GATEWAY,
+					  &nh->gate.ipv6, IPV6_MAX_BYTELEN);
+				break;
+			case NEXTHOP_TYPE_BLACKHOLE:
+				// TODO: Handle this
+				addattr_l(&req.n, sizeof(req), NHA_BLACKHOLE,
+					  NULL, 0);
+				break;
+			case NEXTHOP_TYPE_IFINDEX:
+				/* Don't need anymore info for this */
+				break;
+			case NEXTHOP_TYPE_IPV4:
+			case NEXTHOP_TYPE_IPV6:
+				flog_err(
+					EC_ZEBRA_NHG_FIB_UPDATE,
+					"Context received for kernel nexthop update without an interface");
+				return -1;
+				break;
+			}
+
+			addattr32(&req.n, sizeof(req), NHA_OIF, nh->ifindex);
+			// TODO: Handle Encap
 		}
 
 		req.nhm.nh_protocol = zebra2proto(dplane_ctx_get_type(ctx));
-
-		addattr32(&req.n, sizeof(req), NHA_OIF, nh->ifindex);
-
-		// TODO: Handle Encap
 
 	} else if (cmd != RTM_DELNEXTHOP) {
 		flog_err(
@@ -2354,6 +2386,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* This is a change to a group we already have
 			 */
 
+			// TODO: Fix this for routes referencing it
 			/* Free what's already there */
 			zebra_nhg_free_members(nhe);
 
