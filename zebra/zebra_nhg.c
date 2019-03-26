@@ -46,8 +46,8 @@ DEFINE_MTYPE_STATIC(ZEBRA, NHG_DEPENDS, "Nexthop Group Entry Depends");
 /**
  * nhg_depend_add() - Add a new dependency to the nhg_hash_entry
  *
- * @nhg_depend:	List we are adding the dependency to
- * @depends:		Dependency we are adding
+ * @nhg_depends:	List we are adding the dependency to
+ * @depend:		Dependency we are adding
  *
  * Return:		Newly created nhg_depend
  */
@@ -76,9 +76,9 @@ struct nhg_depend *nhg_depend_new(void)
 /**
  * nhg_depend_free() - Free the nhg_depend struct
  */
-void nhg_depend_free(struct nhg_depend *depends)
+void nhg_depend_free(struct nhg_depend *depend)
 {
-	XFREE(MTYPE_NHG_DEPENDS, depends);
+	XFREE(MTYPE_NHG_DEPENDS, depend);
 }
 
 /**
