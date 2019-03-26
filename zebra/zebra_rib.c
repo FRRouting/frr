@@ -2662,6 +2662,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 
 	if (nhe) {
 		// TODO: Add interface pointer
+		zebra_nhg_free_group_depends(re->ng, NULL);
 		re->ng = nhe->nhg;
 		re->nhe_id = nhe->id;
 		nhe->refcnt++;

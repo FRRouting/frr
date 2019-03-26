@@ -185,9 +185,10 @@ static void *zebra_nhg_alloc(void *arg)
 	nhe->nhg_depends = NULL;
 
 	if (copy->nhg_depends)
-		nhe->nhg_depends = copy->nhg_depends;
+		nhe->nhg_depends = nhg_depend_dup_list(copy->nhg_depends);
 
-	nhe->nhg = copy->nhg;
+	nhe->nhg = nexthop_group_new();
+	nexthop_group_copy(nhe->nhg, copy->nhg);
 
 	nhe->vrf_id = copy->vrf_id;
 	nhe->afi = copy->afi;
@@ -352,11 +353,8 @@ struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
 	else
 		nhe = hash_lookup(zrouter.nhgs, &lookup);
 
-	if (!nhe) {
+	if (!nhe)
 		nhe = hash_get(zrouter.nhgs, &lookup, zebra_nhg_alloc);
-	} else {
-		zebra_nhg_free_group_depends(nhg, nhg_depends);
-	}
 
 	return nhe;
 }

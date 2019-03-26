@@ -2399,12 +2399,13 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* This is a new nexthop group */
 			nhe = zebra_nhg_find(nhg, vrf_id, afi, id, nhg_depends,
 					     dep_count);
+			zebra_nhg_free_group_depends(nhg, nhg_depends);
+
 			if (!nhe) {
 				flog_err(
 					EC_ZEBRA_TABLE_LOOKUP_FAILED,
 					"Zebra failed to find or create a nexthop hash entry for ID (%u) from the kernel",
 					id);
-				zebra_nhg_free_group_depends(nhg, nhg_depends);
 				return -1;
 			}
 
