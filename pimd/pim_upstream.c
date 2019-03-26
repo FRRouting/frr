@@ -483,6 +483,13 @@ static int pim_upstream_could_register(struct pim_upstream *up)
 {
 	struct pim_interface *pim_ifp = NULL;
 
+	/* FORCE_PIMREG is a generic flag to let an app like VxLAN-AA register
+	 * a source on an upstream entry even if the source is not directly
+	 * connected on the IIF.
+	 */
+	if (PIM_UPSTREAM_FLAG_TEST_FORCE_PIMREG(up->flags))
+		return 1;
+
 	if (up->rpf.source_nexthop.interface)
 		pim_ifp = up->rpf.source_nexthop.interface->info;
 	else {
