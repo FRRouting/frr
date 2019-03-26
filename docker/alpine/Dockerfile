@@ -32,4 +32,5 @@ RUN mkdir -p /pkgs/apk
 COPY --from=alpine-builder /pkgs/apk/ /pkgs/apk/
 RUN apk add --no-cache tini
 RUN apk add --no-cache --allow-untrusted /pkgs/apk/x86_64/*.apk
+COPY docker/alpine/docker-start /usr/lib/frr/docker-start
 ENTRYPOINT [ "/sbin/tini", "--", "/usr/lib/frr/docker-start" ]

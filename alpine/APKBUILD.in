@@ -60,7 +60,6 @@ package() {
 	cd "$builddir"
 	make DESTDIR="$pkgdir" install
 
-	install -Dm755 "$srcdir"/docker-start "$pkgdir"$_sbindir
 	install -Dm644 "$srcdir"/daemons "$pkgdir"$_sysconfdir
 	install -d "$pkgdir"/etc/init.d
 	ln -s ${_sbindir}/frr "$pkgdir"/etc/init.d/frr
