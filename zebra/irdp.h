@@ -28,6 +28,10 @@
 
 #include "lib/vty.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define TRUE 1
 #define FALSE 0
 
@@ -150,5 +154,8 @@ extern int irdp_read_raw(struct thread *r);
 extern void send_packet(struct interface *ifp, struct stream *s, uint32_t dst,
 			struct prefix *p, uint32_t ttl);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _IRDP_H */

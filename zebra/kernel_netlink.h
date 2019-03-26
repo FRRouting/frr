@@ -21,6 +21,10 @@
 #ifndef _ZEBRA_KERNEL_NETLINK_H
 #define _ZEBRA_KERNEL_NETLINK_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef HAVE_NETLINK
 
 #define NL_RCV_PKT_BUF_SIZE     32768
@@ -67,5 +71,9 @@ int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 extern int netlink_request(struct nlsock *nl, struct nlmsghdr *n);
 
 #endif /* HAVE_NETLINK */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_KERNEL_NETLINK_H */

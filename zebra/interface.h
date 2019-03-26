@@ -28,6 +28,10 @@
 
 #include "zebra/zebra_l2.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* For interface multicast configuration. */
 #define IF_ZEBRA_MULTICAST_UNSPEC 0
 #define IF_ZEBRA_MULTICAST_ON     1
@@ -431,5 +435,9 @@ extern int interface_list_proc(void);
 #ifdef HAVE_PROC_NET_IF_INET6
 extern int ifaddr_proc_ipv6(void);
 #endif /* HAVE_PROC_NET_IF_INET6 */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_INTERFACE_H */

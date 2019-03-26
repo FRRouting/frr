@@ -23,6 +23,10 @@
 
 #include "lib/ferr.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum zebra_log_refs {
 	EC_ZEBRA_LM_RESPONSE = ZEBRA_FERR_START,
 	EC_ZEBRA_LM_NO_SUCH_CLIENT,
@@ -125,5 +129,9 @@ enum zebra_log_refs {
 };
 
 void zebra_error_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __EC_ZEBRAORS_H__ */

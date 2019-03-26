@@ -26,6 +26,10 @@
 
 #include "zebra/debug.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if defined __STDC_VERSION__ && __STDC_VERSION__ >= 199901L
 
 #define zfpm_debug(...)                                                        \
@@ -61,4 +65,9 @@ extern int zfpm_protobuf_encode_route(rib_dest_t *dest, struct route_entry *re,
 				      uint8_t *in_buf, size_t in_buf_len);
 
 extern struct route_entry *zfpm_route_for_update(rib_dest_t *dest);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* _ZEBRA_FPM_PRIVATE_H */

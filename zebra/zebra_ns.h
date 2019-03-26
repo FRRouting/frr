@@ -28,6 +28,10 @@
 #include "zebra/rib.h"
 #include "zebra/zebra_vrf.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef HAVE_NETLINK
 /* Socket interface to kernel */
 struct nlsock {
@@ -67,5 +71,9 @@ int zebra_ns_early_shutdown(struct ns *ns);
 int zebra_ns_final_shutdown(struct ns *ns);
 
 int zebra_ns_config_write(struct vty *vty, struct ns *ns);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

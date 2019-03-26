@@ -24,6 +24,10 @@
 
 #include "memory.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MGROUP(ZEBRA)
 DECLARE_MTYPE(RTADV_PREFIX)
 DECLARE_MTYPE(ZEBRA_NS)
@@ -36,5 +40,9 @@ DECLARE_MTYPE(RIB_TABLE_INFO)
 DECLARE_MTYPE(RNH)
 DECLARE_MTYPE(DP_CTX)
 DECLARE_MTYPE(DP_PROV)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _QUAGGA_ZEBRA_MEMORY_H */

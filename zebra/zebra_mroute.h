@@ -24,6 +24,10 @@
 
 #include "zebra/zserv.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct mcast_route_data {
 	struct prefix_sg sg;
 	unsigned int ifindex;
@@ -31,5 +35,9 @@ struct mcast_route_data {
 };
 
 void zebra_ipmr_route_stats(ZAPI_HANDLER_ARGS);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

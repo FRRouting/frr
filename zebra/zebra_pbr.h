@@ -32,6 +32,10 @@
 #include "rt.h"
 #include "pbr.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct zebra_pbr_rule {
 	int sock;
 
@@ -251,5 +255,9 @@ DECLARE_HOOK(zebra_pbr_ipset_entry_update,
 	     (int cmd, struct zebra_pbr_ipset_entry *ipset), (cmd, ipset));
 DECLARE_HOOK(zebra_pbr_ipset_update,
 	     (int cmd, struct zebra_pbr_ipset *ipset), (cmd, ipset));
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_PBR_H */

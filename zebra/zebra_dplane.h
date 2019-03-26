@@ -30,6 +30,10 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_mpls.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Key netlink info from zebra ns */
 struct zebra_dplane_info {
 	ns_id_t ns_id;
@@ -393,5 +397,9 @@ void zebra_dplane_start(void);
 void zebra_dplane_pre_finish(void);
 void zebra_dplane_finish(void);
 void zebra_dplane_shutdown(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	/* _ZEBRA_DPLANE_H */

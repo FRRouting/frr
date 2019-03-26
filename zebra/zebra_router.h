@@ -26,6 +26,10 @@
 
 #include "zebra/zebra_ns.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * This header file contains the idea of a router and as such
  * owns data that is associated with a router from zebra's
@@ -129,4 +133,9 @@ extern void zebra_router_sweep_route(void);
 extern void zebra_router_show_table_summary(struct vty *vty);
 
 extern uint32_t zebra_router_get_next_sequence(void);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
