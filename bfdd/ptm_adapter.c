@@ -716,6 +716,20 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 	zclient->interface_address_delete = bfdd_interface_address_update;
 }
 
+void bfdd_zclient_register(vrf_id_t vrf_id)
+{
+	if (!zclient || zclient->sock < 0)
+		return;
+	zclient_send_reg_requests(zclient, vrf_id);
+}
+
+void bfdd_zclient_unregister(vrf_id_t vrf_id)
+{
+	if (!zclient || zclient->sock < 0)
+		return;
+	zclient_send_dereg_requests(zclient, vrf_id);
+}
+
 void bfdd_zclient_stop(void)
 {
 	zclient_stop(zclient);
