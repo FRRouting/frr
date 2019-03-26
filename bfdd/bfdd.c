@@ -39,7 +39,7 @@ DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data");
 struct thread_master *master;
 
 /* BFDd privileges */
-static zebra_capabilities_t _caps_p[] = {ZCAP_BIND};
+static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_SYS_ADMIN, ZCAP_NET_RAW};
 
 struct zebra_privs_t bfdd_privs = {
 #if defined(FRR_USER) && defined(FRR_GROUP)
