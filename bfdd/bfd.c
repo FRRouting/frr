@@ -1503,8 +1503,10 @@ static int bfd_vrf_enable(struct vrf *vrf)
 		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
 				&bvrf->bg_ev[5]);
 
-	if (vrf->vrf_id != VRF_DEFAULT)
+	if (vrf->vrf_id != VRF_DEFAULT) {
 		bfdd_zclient_register(vrf->vrf_id);
+		bfdd_sessions_enable_vrf(vrf);
+	}
 	return 0;
 }
 
@@ -1516,8 +1518,10 @@ static int bfd_vrf_disable(struct vrf *vrf)
 		return 0;
 	bvrf = vrf->info;
 
-	if (vrf->vrf_id != VRF_DEFAULT)
+	if (vrf->vrf_id != VRF_DEFAULT) {
+		bfdd_sessions_disable_vrf(vrf);
 		bfdd_zclient_unregister(vrf->vrf_id);
+	}
 
 	log_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
 	/* Close all descriptors. */

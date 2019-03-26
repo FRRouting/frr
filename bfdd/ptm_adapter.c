@@ -605,6 +605,52 @@ static void bfdd_sessions_disable_interface(struct interface *ifp)
 	}
 }
 
+void bfdd_sessions_enable_vrf(struct vrf *vrf)
+{
+	struct bfd_session_observer *bso;
+	struct bfd_session *bs;
+
+	/* it may affect configs without interfaces */
+	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
+		bs = bso->bso_bs;
+		if (bs->vrf)
+			continue;
+		if (bs->key.vrfname[0] &&
+		    strcmp(vrf->name, bs->key.vrfname))
+			continue;
+		/* need to update the vrf information on
+		 * bs so that callbacks are handled
+		 */
+		bs->vrf = vrf;
+		/* Skip enabled sessions. */
+		if (bs->sock != -1)
+			continue;
+		/* Try to enable it. */
+		bfd_session_enable(bs);
+	}
+}
+
+void bfdd_sessions_disable_vrf(struct vrf *vrf)
+{
+	struct bfd_session_observer *bso;
+	struct bfd_session *bs;
+
+	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
+		if (bso->bso_isinterface)
+			continue;
+		bs = bso->bso_bs;
+		if (bs->key.vrfname[0] &&
+		    strcmp(vrf->name, bs->key.vrfname))
+			continue;
+		/* Skip disabled sessions. */
+		if (bs->sock == -1)
+			continue;
+
+		/* Try to enable it. */
+		bfd_session_disable(bs);
+	}
+}
+
 static int bfdd_interface_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
