@@ -204,6 +204,9 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	struct prefix src, grp;
 	bool neigh_needed = true;
 
+	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags))
+		return PIM_RPF_OK;
+
 	if (up->upstream_addr.s_addr == INADDR_ANY) {
 		zlog_debug("%s: RP is not configured yet for %s",
 			__PRETTY_FUNCTION__, up->sg_str);

@@ -647,6 +647,23 @@ int pim_upstream_compare(void *arg1, void *arg2)
 	return 0;
 }
 
+void pim_upstream_fill_static_iif(struct pim_upstream *up,
+				struct interface *incoming)
+{
+	up->rpf.source_nexthop.interface = incoming;
+
+	/* reset other parameters to matched a connected incoming interface */
+	up->rpf.source_nexthop.mrib_nexthop_addr.family = AF_INET;
+	up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =
+		PIM_NET_INADDR_ANY;
+	up->rpf.source_nexthop.mrib_metric_preference =
+		ZEBRA_CONNECT_DISTANCE_DEFAULT;
+	up->rpf.source_nexthop.mrib_route_metric = 0;
+	up->rpf.rpf_addr.family = AF_INET;
+	up->rpf.rpf_addr.u.prefix4.s_addr = PIM_NET_INADDR_ANY;
+
+}
+
 static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 					     struct prefix_sg *sg,
 					     struct interface *incoming,
@@ -712,13 +729,19 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	if (up->sg.src.s_addr != INADDR_ANY)
 		wheel_add_item(pim->upstream_sg_wheel, up);
 
-	if (up->upstream_addr.s_addr == INADDR_ANY)
+	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)) {
+		pim_upstream_fill_static_iif(up, incoming);
+		pim_ifp = up->rpf.source_nexthop.interface->info;
+		assert(pim_ifp);
+		up->channel_oil = pim_channel_oil_add(pim,
+				&up->sg, pim_ifp->mroute_vif_index);
+	} else if (up->upstream_addr.s_addr == INADDR_ANY) {
 		/* Create a dummmy channel oil with incoming ineterface MAXVIFS,
 		 * since RP is not configured
 		 */
 		up->channel_oil = pim_channel_oil_add(pim, &up->sg, MAXVIFS);
 
-	else {
+	} else {
 		rpf_result = pim_rpf_update(pim, up, NULL, 1);
 		if (rpf_result == PIM_RPF_FAILURE) {
 			if (PIM_DEBUG_TRACE)

@@ -43,6 +43,11 @@
  * lack of BUM traffic.
  */
 #define PIM_UPSTREAM_FLAG_MASK_DISABLE_KAT_EXPIRY      (1 << 9)
+/* for pim vxlan we need to pin the IIF to lo or MLAG-ISL on the
+ * originating VTEP. This flag allows that by setting IIF to the
+ * value specified and preventing next-hop-tracking on the entry
+ */
+#define PIM_UPSTREAM_FLAG_MASK_STATIC_IIF              (1 << 10)
 #define PIM_UPSTREAM_FLAG_ALL 0xFFFFFFFF
 
 #define PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
@@ -55,6 +60,7 @@
 #define PIM_UPSTREAM_FLAG_TEST_SEND_SG_RPT_PRUNE(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_SEND_SG_RPT_PRUNE)
 #define PIM_UPSTREAM_FLAG_TEST_SRC_LHR(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_SRC_LHR)
 #define PIM_UPSTREAM_FLAG_TEST_DISABLE_KAT_EXPIRY(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_DISABLE_KAT_EXPIRY)
+#define PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(flags) ((flags) & PIM_UPSTREAM_FLAG_MASK_STATIC_IIF)
 
 #define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_SET_DR_JOIN_DESIRED_UPDATED(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
@@ -66,6 +72,7 @@
 #define PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SEND_SG_RPT_PRUNE)
 #define PIM_UPSTREAM_FLAG_SET_SRC_LHR(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_SRC_LHR)
 #define PIM_UPSTREAM_FLAG_SET_DISABLE_KAT_EXPIRY(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_DISABLE_KAT_EXPIRY)
+#define PIM_UPSTREAM_FLAG_SET_STATIC_IIF(flags) ((flags) |= PIM_UPSTREAM_FLAG_MASK_STATIC_IIF)
 
 #define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
 #define PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED_UPDATED(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
@@ -77,6 +84,7 @@
 #define PIM_UPSTREAM_FLAG_UNSET_SEND_SG_RPT_PRUNE(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SEND_SG_RPT_PRUNE)
 #define PIM_UPSTREAM_FLAG_UNSET_SRC_LHR(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_SRC_LHR)
 #define PIM_UPSTREAM_FLAG_UNSET_DISABLE_KAT_EXPIRY(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_DISABLE_KAT_EXPIRY)
+#define PIM_UPSTREAM_FLAG_UNSET_STATIC_IIF(flags) ((flags) &= ~PIM_UPSTREAM_FLAG_MASK_STATIC_IIF)
 
 enum pim_upstream_state {
 	PIM_UPSTREAM_NOTJOINED,
@@ -256,4 +264,6 @@ unsigned int pim_upstream_hash_key(void *arg);
 bool pim_upstream_equal(const void *arg1, const void *arg2);
 struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 		struct pim_upstream *up);
+void pim_upstream_fill_static_iif(struct pim_upstream *up,
+				struct interface *incoming);
 #endif /* PIM_UPSTREAM_H */
