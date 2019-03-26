@@ -808,6 +808,27 @@ void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 }
 
 /****************************** misc callbacks *******************************/
+void pim_vxlan_config_write(struct vty *vty, char *spaces, int *writes)
+{
+	char addr_buf[INET_ADDRSTRLEN];
+
+	if ((vxlan_mlag.flags & PIM_VXLAN_MLAGF_ENABLED) &&
+			vxlan_mlag.peerlink_rif) {
+
+		inet_ntop(AF_INET, &vxlan_mlag.reg_addr,
+				addr_buf, sizeof(addr_buf));
+		vty_out(vty,
+			"%sip pim mlag %s role %s state %s addr %s\n",
+			spaces,
+			vxlan_mlag.peerlink_rif->name,
+			(vxlan_mlag.role == PIM_VXLAN_MLAG_ROLE_PRIMARY) ?
+				"primary":"secondary",
+			vxlan_mlag.peer_state ? "up" : "down",
+			addr_buf);
+		*writes += 1;
+	}
+}
+
 static void pim_vxlan_set_default_iif(struct pim_instance *pim,
 				struct interface *ifp)
 {

@@ -9005,6 +9005,89 @@ DEFUN_HIDDEN (show_ip_pim_vxlan_sg_work,
 	return CMD_SUCCESS;
 }
 
+DEFUN_HIDDEN (no_ip_pim_mlag,
+       no_ip_pim_mlag_cmd,
+       "no ip pim mlag",
+       NO_STR
+       IP_STR
+       PIM_STR
+       "MLAG\n")
+{
+	struct in_addr addr;
+
+	addr.s_addr = 0;
+	pim_vxlan_mlag_update(TRUE /*mlag_enable*/,
+		FALSE /*peer_state*/, PIM_VXLAN_MLAG_ROLE_SECONDARY,
+		NULL/*peerlink*/, &addr);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN (ip_pim_mlag,
+       ip_pim_mlag_cmd,
+       "ip pim mlag INTERFACE role [primary|secondary] state [up|down] addr A.B.C.D",
+       IP_STR
+       PIM_STR
+       "MLAG\n"
+       "peerlink sub interface\n"
+       "MLAG role\n"
+       "MLAG role primary\n"
+       "MLAG role secondary\n"
+       "peer session state\n"
+       "peer session state up\n"
+       "peer session state down\n"
+       "configure PIP\n"
+       "unique ip address\n")
+{
+	struct interface *ifp;
+	const char *peerlink;
+	uint32_t role;
+	int idx;
+	bool peer_state;
+	int result;
+	struct in_addr reg_addr;
+
+	idx = 3;
+	peerlink = argv[idx]->arg;
+	ifp = if_lookup_by_name(peerlink, VRF_DEFAULT);
+	if (!ifp) {
+		vty_out(vty, "No such interface name %s\n", peerlink);
+		return CMD_WARNING;
+	}
+
+	idx += 2;
+	if (!strcmp(argv[idx]->arg, "primary")) {
+		role = PIM_VXLAN_MLAG_ROLE_PRIMARY;
+	} else if (!strcmp(argv[idx]->arg, "secondary")) {
+		role = PIM_VXLAN_MLAG_ROLE_SECONDARY;
+	} else {
+		vty_out(vty, "unknown MLAG role %s\n", argv[idx]->arg);
+		return CMD_WARNING;
+	}
+
+	idx += 2;
+	if (!strcmp(argv[idx]->arg, "up")) {
+		peer_state = TRUE;
+	} else if (strcmp(argv[idx]->arg, "down")) {
+		peer_state = FALSE;
+	} else {
+		vty_out(vty, "unknown MLAG state %s\n", argv[idx]->arg);
+		return CMD_WARNING;
+	}
+
+	idx += 2;
+	result = inet_pton(AF_INET, argv[idx]->arg, &reg_addr);
+	if (result <= 0) {
+		vty_out(vty, "%% Bad reg address %s: errno=%d: %s\n",
+			argv[idx]->arg,
+			errno, safe_strerror(errno));
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	pim_vxlan_mlag_update(TRUE, peer_state, role, ifp, &reg_addr);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	install_node(&interface_node,
@@ -9078,6 +9161,8 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &ip_pim_ecmp_rebalance_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_ecmp_rebalance_cmd);
 	install_element(VRF_NODE, &no_ip_pim_ecmp_rebalance_cmd);
+	install_element(CONFIG_NODE, &ip_pim_mlag_cmd);
+	install_element(CONFIG_NODE, &no_ip_pim_mlag_cmd);
 
 	install_element(INTERFACE_NODE, &interface_ip_igmp_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_igmp_cmd);

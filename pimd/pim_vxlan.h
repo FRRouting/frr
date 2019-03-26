@@ -134,5 +134,6 @@ extern bool pim_vxlan_get_register_src(struct pim_instance *pim,
 extern void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 				struct interface *peerlink_rif,
 				struct in_addr *reg_addr);
+extern void pim_vxlan_config_write(struct vty *vty, char *spaces, int *writes);
 
 #endif /* PIM_VXLAN_H */

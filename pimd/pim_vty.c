@@ -39,6 +39,7 @@
 #include "pim_msdp.h"
 #include "pim_ssm.h"
 #include "pim_bfd.h"
+#include "pim_vxlan.h"
 
 int pim_debug_config_write(struct vty *vty)
 {
@@ -238,6 +239,8 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 			++writes;
 		}
 	}
+
+	pim_vxlan_config_write(vty, spaces, &writes);
 
 	return writes;
 }
