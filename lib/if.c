@@ -1225,7 +1225,7 @@ void if_link_params_free(struct interface *ifp)
  */
 DEFPY_YANG_NOSH (interface,
        interface_cmd,
-       "interface IFNAME [vrf NAME$vrf_name]",
+       "interface IFNAME$ifname [vrf NAME$vrf_name]",
        "Select an interface to configure\n"
        "Interface's name\n"
        VRF_CMD_HELP_STR)
@@ -1248,14 +1248,18 @@ DEFPY_YANG_NOSH (interface,
 	vrf = vrf_get(VRF_UNKNOWN, vrf_name);
 	if (vrf->vrf_id == VRF_UNKNOWN)
 		ifp = if_get_by_name_vrf(ifname, vrf);
-	else
+	else if (vrf_get_backend() == VRF_BACKEND_VRF_LITE)
 		ifp = if_lookup_by_name_all_vrf(ifname);
+	else
+		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
 	if (ifp && ifp->vrf_id != vrf->vrf_id) {
 		/*
 		 * Special case 1: a VRF name was specified, but the found
 		 * interface is associated to different VRF. Reject the command.
 		 */
 		if (vrf->vrf_id != VRF_DEFAULT) {
+			zlog_err("%s: interface %s not in %s vrf\n", __func__, ifname,
+				vrf_name);
 			vty_out(vty, "%% interface %s not in %s vrf\n", ifname,
 				vrf_name);
 			return CMD_WARNING_CONFIG_FAILED;
@@ -1286,7 +1290,8 @@ DEFPY_YANG_NOSH (interface,
 		 * all interface-level commands are converted to the new
 		 * northbound model.
 		 */
-		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
+		if (!ifp)
+			ifp = if_lookup_by_name(ifname, vrf->vrf_id);
 		if (ifp)
 			VTY_PUSH_CONTEXT(INTERFACE_NODE, ifp);
 	}
