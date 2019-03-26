@@ -1715,7 +1715,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		stream_get(&attr->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
 		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)) {
 			if (!peer->nexthop.ifp) {
-				zlog_warn("%s: interface not set appropriately to handle some attributes",
+				zlog_warn("%s: Received a V6/VPNV6 Global attribute but address is a V6 LL and we have no peer interface information, withdrawing",
 					  peer->host);
 				return BGP_ATTR_PARSE_WITHDRAW;
 			}
@@ -1732,7 +1732,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		stream_get(&attr->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
 		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)) {
 			if (!peer->nexthop.ifp) {
-				zlog_warn("%s: interface not set appropriately to handle some attributes",
+				zlog_warn("%s: Received V6/VPNV6 Global and LL attribute but global address is a V6 LL and we have no peer interface information, withdrawing",
 					  peer->host);
 				return BGP_ATTR_PARSE_WITHDRAW;
 			}
@@ -1762,7 +1762,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 			attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
 		}
 		if (!peer->nexthop.ifp) {
-			zlog_warn("%s: Interface not set appropriately to handle this some attributes",
+			zlog_warn("%s: Received a V6 LL nexthop and we have no peer interface information, withdrawing",
 				  peer->host);
 			return BGP_ATTR_PARSE_WITHDRAW;
 		}
