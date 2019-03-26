@@ -1,36 +1,57 @@
-FROM alpine:3.7 as source-builder
+# This stage builds a dist tarball from the source
+FROM alpine:edge as source-builder
 ARG commit
-RUN apk add --no-cache abuild acct alpine-sdk attr autoconf automake bash \
-    binutils binutils-libs bison bsd-compat-headers build-base \
-    c-ares c-ares-dev ca-certificates cryptsetup-libs curl \
-    device-mapper-libs expat fakeroot flex fortify-headers g++ gcc gdbm \
-    git gmp isl json-c json-c-dev kmod lddtree libacl libatomic libattr \
-    libblkid libburn libbz2 libc-dev libcap libcurl libedit libffi libgcc \
-    libgomp libisoburn libisofs libltdl libressl libssh2 \
-    libstdc++ libtool libuuid linux-headers lzip lzo m4 make mkinitfs mpc1 \
-    mpfr3 mtools musl-dev ncurses-libs ncurses-terminfo ncurses-terminfo-base \
-    patch pax-utils pcre perl pkgconf python2 python2-dev readline \
-    readline-dev sqlite-libs squashfs-tools sudo tar texinfo xorriso xz-libs \
-    groff gzip bc py-sphinx
-ADD . /src
-RUN (cd /src && \
-	./bootstrap.sh && \
-	./configure \
+
+RUN mkdir -p /src/alpine
+COPY alpine/APKBUILD.in /src/alpine
+RUN source /src/alpine/APKBUILD.in \
+	&& echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories \
+	&& apk add \
+		--no-cache \
+		--update-cache \
+		$makedepends \
+		gzip
+
+COPY . /src
+RUN cd /src \
+	&& ./bootstrap.sh \
+	&& ./configure \
 		--enable-numeric-version \
-		--with-pkg-extra-version=_git$commit && \
-	make dist)
-FROM alpine:3.7 as alpine-builder
-RUN apk add --no-cache abuild alpine-sdk && mkdir -p /pkgs/apk
-ADD docker/alpine/alpine-build.sh /usr/bin/
-ADD docker/alpine/builder /etc/sudoers.d
-COPY --from=source-builder /src/*.tar.gz /src/alpine/* /src/tools/etc/frr/daemons* /dist/
+		--with-pkg-extra-version=_git$commit \
+	&& make dist
+
+# This stage builds an apk from the dist tarball
+FROM alpine:edge as alpine-builder
+# Don't use nocache here so that abuild can use the cache
+RUN echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories \
+	&& apk add \
+		--update-cache \
+		abuild \
+		alpine-conf \
+		alpine-sdk \
+	&& setup-apkcache /var/cache/apk \
+	&& mkdir -p /pkgs/apk \
+	&& echo 'builder ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+COPY --from=source-builder /src/frr-*.tar.gz /src/alpine/* /dist/
 RUN adduser -D -G abuild builder && chown -R builder /dist /pkgs
 USER builder
-RUN /usr/bin/alpine-build.sh
-FROM alpine:3.7
+RUN cd /dist \
+	&& abuild-keygen -a -n \
+	&& abuild checksum \
+	&& abuild -r -P /pkgs/apk
+
+# This stage installs frr from the apk
+FROM alpine:edge
 RUN mkdir -p /pkgs/apk
 COPY --from=alpine-builder /pkgs/apk/ /pkgs/apk/
-RUN apk add --no-cache tini
-RUN apk add --no-cache --allow-untrusted /pkgs/apk/x86_64/*.apk
+RUN echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories \
+	&& apk add \
+		--no-cache \
+		--update-cache \
+		tini \
+	&& apk add \
+		--no-cache \
+		--allow-untrusted /pkgs/apk/*/*.apk
 COPY docker/alpine/docker-start /usr/lib/frr/docker-start
 ENTRYPOINT [ "/sbin/tini", "--", "/usr/lib/frr/docker-start" ]
