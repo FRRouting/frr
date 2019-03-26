@@ -97,6 +97,28 @@ struct list *nhg_depend_new_list()
 }
 
 /**
+ * nhg_depend_dup_list() - Duplicate the dependency linked list
+ *
+ * @from:	List to duplicate
+ *
+ * Return:	New list
+ */
+struct list *nhg_depend_dup_list(struct list *from)
+{
+	struct list *to = NULL;
+	struct listnode *ln = NULL;
+	struct nhg_depend *n_dp = NULL;
+
+	to = nhg_depend_new_list();
+
+	for (ALL_LIST_ELEMENTS_RO(from, ln, n_dp)) {
+		nhg_depend_add(to, n_dp->nhe);
+	}
+
+	return to;
+}
+
+/**
  * zebra_nhg_lookup_id() - Lookup the nexthop group id in the id table
  *
  * @id:		ID to look for

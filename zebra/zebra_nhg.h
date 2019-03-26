@@ -90,6 +90,7 @@ extern struct nhg_depend *nhg_depend_new(void);
 extern void nhg_depend_free(struct nhg_depend *depends);
 
 extern struct list *nhg_depend_new_list(void);
+extern struct list *nhg_depend_dup_list(struct list *from);
 
 extern struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id);
 extern int zebra_nhg_insert_id(struct nhg_hash_entry *nhe);
