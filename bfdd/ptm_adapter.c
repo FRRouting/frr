@@ -58,7 +58,7 @@ static struct zclient *zclient;
 static int _ptm_msg_address(struct stream *msg, int family, const void *addr);
 
 static void _ptm_msg_read_address(struct stream *msg, struct sockaddr_any *sa);
-static int _ptm_msg_read(struct stream *msg, int command,
+static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 			 struct bfd_peer_cfg *bpc, struct ptm_client **pc);
 
 static struct ptm_client *pc_lookup(uint32_t pid);
@@ -72,8 +72,8 @@ static struct ptm_client_notification *pcn_lookup(struct ptm_client *pc,
 static void pcn_free(struct ptm_client_notification *pcn);
 
 
-static void bfdd_dest_register(struct stream *msg);
-static void bfdd_dest_deregister(struct stream *msg);
+static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id);
+static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id);
 static void bfdd_client_register(struct stream *msg);
 static void bfdd_client_deregister(struct stream *msg);
 
@@ -182,7 +182,10 @@ int ptm_bfd_notify(struct bfd_session *bs)
 	stream_reset(msg);
 
 	/* TODO: VRF handling */
-	zclient_create_header(msg, ZEBRA_BFD_DEST_REPLAY, VRF_DEFAULT);
+	if (bs->vrf)
+		zclient_create_header(msg, ZEBRA_BFD_DEST_REPLAY, bs->vrf->vrf_id);
+	else
+		zclient_create_header(msg, ZEBRA_BFD_DEST_REPLAY, VRF_DEFAULT);
 
 	/* This header will be handled by `zebra_ptm.c`. */
 	stream_putl(msg, ZEBRA_INTERFACE_BFD_DEST_UPDATE);
@@ -256,7 +259,7 @@ stream_failure:
 	memset(sa, 0, sizeof(*sa));
 }
 
-static int _ptm_msg_read(struct stream *msg, int command,
+static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 			 struct bfd_peer_cfg *bpc, struct ptm_client **pc)
 {
 	uint32_t pid;
@@ -355,6 +358,18 @@ static int _ptm_msg_read(struct stream *msg, int command,
 			bpc->bpc_localif[ifnamelen] = 0;
 		}
 	}
+	if (vrf_id != VRF_DEFAULT) {
+		struct vrf *vrf;
+
+		vrf = vrf_lookup_by_id(vrf_id);
+		if (vrf) {
+			bpc->bpc_has_vrfname = true;
+			strlcpy(bpc->bpc_vrfname, vrf->name, sizeof(bpc->bpc_vrfname));
+		} else {
+			log_error("ptm-read: vrf id %u could not be identified", vrf_id);
+			return -1;
+		}
+	}
 
 	/* Sanity check: peer and local address must match IP types. */
 	if (bpc->bpc_local.sa_sin.sin_family != 0
@@ -370,7 +385,7 @@ stream_failure:
 	return -1;
 }
 
-static void bfdd_dest_register(struct stream *msg)
+static void bfdd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 {
 	struct ptm_client *pc;
 	struct ptm_client_notification *pcn;
@@ -378,7 +393,7 @@ static void bfdd_dest_register(struct stream *msg)
 	struct bfd_peer_cfg bpc;
 
 	/* Read the client context and peer data. */
-	if (_ptm_msg_read(msg, ZEBRA_BFD_DEST_REGISTER, &bpc, &pc) == -1)
+	if (_ptm_msg_read(msg, ZEBRA_BFD_DEST_REGISTER, vrf_id, &bpc, &pc) == -1)
 		return;
 
 	DEBUG_PRINTBPC(&bpc);
@@ -408,7 +423,7 @@ static void bfdd_dest_register(struct stream *msg)
 	ptm_bfd_notify(bs);
 }
 
-static void bfdd_dest_deregister(struct stream *msg)
+static void bfdd_dest_deregister(struct stream *msg, vrf_id_t vrf_id)
 {
 	struct ptm_client *pc;
 	struct ptm_client_notification *pcn;
@@ -416,7 +431,7 @@ static void bfdd_dest_deregister(struct stream *msg)
 	struct bfd_peer_cfg bpc;
 
 	/* Read the client context and peer data. */
-	if (_ptm_msg_read(msg, ZEBRA_BFD_DEST_DEREGISTER, &bpc, &pc) == -1)
+	if (_ptm_msg_read(msg, ZEBRA_BFD_DEST_DEREGISTER, vrf_id, &bpc, &pc) == -1)
 		return;
 
 	DEBUG_PRINTBPC(&bpc);
@@ -497,10 +512,10 @@ static int bfdd_replay(ZAPI_CALLBACK_ARGS)
 	switch (rcmd) {
 	case ZEBRA_BFD_DEST_REGISTER:
 	case ZEBRA_BFD_DEST_UPDATE:
-		bfdd_dest_register(msg);
+		bfdd_dest_register(msg, vrf_id);
 		break;
 	case ZEBRA_BFD_DEST_DEREGISTER:
-		bfdd_dest_deregister(msg);
+		bfdd_dest_deregister(msg, vrf_id);
 		break;
 	case ZEBRA_BFD_CLIENT_REGISTER:
 		bfdd_client_register(msg);
