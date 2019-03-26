@@ -629,7 +629,7 @@ void zclient_init(struct zclient *zclient, int redist_default,
 	}
 
 	if (zclient_debug)
-		zlog_debug("zclient_start is called");
+		zlog_debug("scheduling zclient connection");
 
 	zclient_event(ZCLIENT_SCHEDULE, zclient);
 }
@@ -2504,8 +2504,9 @@ static int zclient_read(struct thread *thread)
 	length -= ZEBRA_HEADER_SIZE;
 
 	if (zclient_debug)
-		zlog_debug("zclient 0x%p command 0x%x VRF %u",
-			   (void *)zclient, command, vrf_id);
+		zlog_debug("zclient 0x%p command %s VRF %u",
+			   (void *)zclient, zserv_command_string(command),
+			   vrf_id);
 
 	switch (command) {
 	case ZEBRA_CAPABILITIES:
