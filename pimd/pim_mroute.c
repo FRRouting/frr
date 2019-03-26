@@ -896,6 +896,9 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	int err;
 	int orig = 0;
 	int orig_iif_vif = 0;
+	struct pim_interface *pim_reg_ifp;
+	int orig_pimreg_ttl;
+	bool pimreg_ttl_reset = false;
 
 	pim->mroute_add_last = pim_time_monotonic_sec();
 	++pim->mroute_add_events;
@@ -919,6 +922,20 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY) {
 		orig = c_oil->oil.mfcc_ttls[c_oil->oil.mfcc_parent];
 		c_oil->oil.mfcc_ttls[c_oil->oil.mfcc_parent] = 1;
+	}
+
+	if (c_oil->up) {
+		/* suppress pimreg in the OIL if the mroute is not supposed to
+		 * trigger register encapsulated data
+		 */
+		if (PIM_UPSTREAM_FLAG_TEST_NO_PIMREG_DATA(c_oil->up->flags)) {
+			pim_reg_ifp = pim->regiface->info;
+			orig_pimreg_ttl =
+				c_oil->oil.mfcc_ttls[pim_reg_ifp->mroute_vif_index];
+			c_oil->oil.mfcc_ttls[pim_reg_ifp->mroute_vif_index] = 0;
+			/* remember to flip it back after MFC programming */
+			pimreg_ttl_reset = true;
+		}
 	}
 
 	/*
@@ -947,6 +964,9 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
 		c_oil->oil.mfcc_ttls[c_oil->oil.mfcc_parent] = orig;
 
+	if (pimreg_ttl_reset)
+		c_oil->oil.mfcc_ttls[pim_reg_ifp->mroute_vif_index] =
+			orig_pimreg_ttl;
 	if (err) {
 		zlog_warn(
 			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_MFC): errno=%d: %s",
