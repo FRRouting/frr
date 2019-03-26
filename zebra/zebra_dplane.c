@@ -1517,10 +1517,12 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 	nexthop_group_copy(ctx->u.rinfo.zd_nhe.nhg, nhe->nhg);
 
 	if (nhe->nhg_depends)
-		ctx->u.rinfo.zd_nhe.nhg_depends = list_dup(nhe->nhg_depends);
+		ctx->u.rinfo.zd_nhe.nhg_depends =
+			nhg_depend_dup_list(nhe->nhg_depends);
 
 
-	/* Extract ns info - can't use pointers to 'core' structs */
+	/* Extract ns info - can't use pointers to 'core'
+	   structs */
 	zns = ((struct zebra_vrf *)vrf_info_lookup(nhe->vrf_id))->zns;
 
 	// TODO: Might not need to mark this as an update, since
