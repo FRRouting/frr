@@ -165,9 +165,6 @@ EXTRA_DIST += \
 	python/clidef.py \
 	python/clippy/__init__.py \
 	\
-	redhat/frr.init \
-	redhat/frr.service \
-	redhat/daemons \
 	redhat/frr.logrotate \
 	redhat/frr.pam \
 	redhat/frr.spec \
