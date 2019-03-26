@@ -2220,6 +2220,24 @@ static int delete_all_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	return 0;
 }
 
+/* BUM traffic flood mode per-l2-vni */
+static int bgp_evpn_vni_flood_mode_get(struct bgp *bgp,
+					struct bgpevpn *vpn)
+{
+	/* if flooding has been globally disabled per-vni mode is
+	 * not relevant
+	 */
+	if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_DISABLED)
+		return VXLAN_FLOOD_DISABLED;
+
+	/* if mcast group ip has been specified we use a PIM-SM MDT */
+	if (vpn->mcast_grp.s_addr != INADDR_ANY)
+		return VXLAN_FLOOD_PIM_SM;
+
+	/* default is ingress replication */
+	return VXLAN_FLOOD_HEAD_END_REPL;
+}
+
 /*
  * Update (and advertise) local routes for a VNI. Invoked upon the VNI
  * export RT getting modified or change to tunnel IP. Note that these
@@ -2236,7 +2254,8 @@ static int update_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn)
 	 *
 	 * RT-3 only if doing head-end replication
 	 */
-	if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL) {
+	if (bgp_evpn_vni_flood_mode_get(bgp, vpn)
+				== VXLAN_FLOOD_HEAD_END_REPL) {
 		build_evpn_type3_prefix(&p, vpn->originator_ip);
 		ret = update_evpn_route(bgp, vpn, &p, 0, 0);
 		if (ret)
@@ -3558,7 +3577,8 @@ static int update_advertise_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	 *
 	 * RT-3 only if doing head-end replication
 	 */
-	if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL) {
+	if (bgp_evpn_vni_flood_mode_get(bgp, vpn)
+				== VXLAN_FLOOD_HEAD_END_REPL) {
 		build_evpn_type3_prefix(&p, vpn->originator_ip);
 		rn = bgp_node_lookup(vpn->route_table, (struct prefix *)&p);
 		if (!rn) /* unexpected */
@@ -3704,7 +3724,9 @@ static void create_advertise_type3(struct hash_bucket *bucket, void *data)
 	struct bgp *bgp = data;
 	struct prefix_evpn p;
 
-	if (!vpn || !is_vni_live(vpn))
+	if (!vpn || !is_vni_live(vpn) ||
+		bgp_evpn_vni_flood_mode_get(bgp, vpn)
+					!= VXLAN_FLOOD_HEAD_END_REPL)
 		return;
 
 	build_evpn_type3_prefix(&p, vpn->originator_ip);
@@ -5745,7 +5767,8 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	 *
 	 * RT-3 only if doing head-end replication
 	 */
-	if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL) {
+	if (bgp_evpn_vni_flood_mode_get(bgp, vpn)
+			== VXLAN_FLOOD_HEAD_END_REPL) {
 		build_evpn_type3_prefix(&p, vpn->originator_ip);
 		if (update_evpn_route(bgp, vpn, &p, 0, 0)) {
 			flog_err(EC_BGP_EVPN_ROUTE_CREATE,
