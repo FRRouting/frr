@@ -1458,15 +1458,72 @@ static int bfd_vrf_delete(struct vrf *vrf)
 
 static int bfd_vrf_enable(struct vrf *vrf)
 {
+	struct bfd_vrf_global *bvrf;
+
+	/* a different name */
+	if (!vrf->info) {
+		bvrf = XCALLOC(MTYPE_BFDD_VRF, sizeof(struct bfd_vrf_global));
+		bvrf->vrf = vrf;
+		vrf->info = (void *)bvrf;
+	} else
+		bvrf = vrf->info;
 	log_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
+
+	/* create sockets if needed */
+	if (!bvrf->bg_shop)
+		bvrf->bg_shop = bp_udp_shop(vrf->vrf_id);
+	if (!bvrf->bg_mhop)
+		bvrf->bg_mhop = bp_udp_mhop(vrf->vrf_id);
+	if (!bvrf->bg_shop6)
+		bvrf->bg_shop6 = bp_udp6_shop(vrf->vrf_id);
+	if (!bvrf->bg_mhop6)
+		bvrf->bg_mhop6 = bp_udp6_mhop(vrf->vrf_id);
+	if (!bvrf->bg_echo)
+		bvrf->bg_echo = bp_echo_socket(vrf->vrf_id);
+	if (!bvrf->bg_echov6)
+		bvrf->bg_echov6 = bp_echov6_socket(vrf->vrf_id);
+
+	/* Add descriptors to the event loop. */
+	if (!bvrf->bg_ev[0])
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
+				&bvrf->bg_ev[0]);
+	if (!bvrf->bg_ev[1])
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
+				&bvrf->bg_ev[1]);
+	if (!bvrf->bg_ev[2])
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
+				&bvrf->bg_ev[2]);
+	if (!bvrf->bg_ev[3])
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
+				&bvrf->bg_ev[3]);
+	if (!bvrf->bg_ev[4])
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
+				&bvrf->bg_ev[4]);
+	if (!bvrf->bg_ev[5])
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
+				&bvrf->bg_ev[5]);
 	return 0;
 }
 
 static int bfd_vrf_disable(struct vrf *vrf)
 {
-	if (vrf->vrf_id == VRF_DEFAULT)
+	struct bfd_vrf_global *bvrf;
+
+	if (!vrf->info)
 		return 0;
+	bvrf = vrf->info;
 	log_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
+	/* Close all descriptors. */
+	socket_close(&bvrf->bg_echo);
+	socket_close(&bvrf->bg_shop);
+	socket_close(&bvrf->bg_mhop);
+	socket_close(&bvrf->bg_shop6);
+	socket_close(&bvrf->bg_mhop6);
+
+	/* free context */
+	XFREE(MTYPE_BFDD_VRF, bvrf);
+	vrf->info = NULL;
+
 	return 0;
 }
 
@@ -1476,3 +1533,24 @@ void bfd_vrf_init(void)
 		 bfd_vrf_delete, NULL);
 }
 
+void bfd_vrf_terminate(void)
+{
+	vrf_terminate();
+}
+
+struct bfd_vrf_global *bfd_vrf_look_by_session(struct bfd_session *bfd)
+{
+	struct vrf *vrf;
+
+	if (!vrf_is_backend_netns()) {
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		if (vrf)
+			return (struct bfd_vrf_global *)vrf->info;
+		return NULL;
+	}
+	if (!bfd)
+		return NULL;
+	if (!bfd->vrf)
+		return NULL;
+	return bfd->vrf->info;
+}

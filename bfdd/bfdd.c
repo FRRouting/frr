@@ -34,6 +34,7 @@ DEFINE_MTYPE(BFDD, BFDD_LABEL, "long-lived label memory");
 DEFINE_MTYPE(BFDD, BFDD_CONTROL, "long-lived control socket memory");
 DEFINE_MTYPE(BFDD, BFDD_SESSION_OBSERVER, "Session observer");
 DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data");
+DEFINE_MTYPE(BFDD, BFDD_VRF, "BFD VRF");
 
 /* Master of threads. */
 struct thread_master *master;
@@ -85,12 +86,7 @@ static void sigterm_handler(void)
 	/* Shutdown and free all protocol related memory. */
 	bfd_shutdown();
 
-	/* Close all descriptors. */
-	socket_close(&bglobal.bg_echo);
-	socket_close(&bglobal.bg_shop);
-	socket_close(&bglobal.bg_mhop);
-	socket_close(&bglobal.bg_shop6);
-	socket_close(&bglobal.bg_mhop6);
+	bfd_vrf_terminate();
 
 	/* Terminate and free() FRR related memory. */
 	frr_fini();
@@ -155,13 +151,6 @@ static void bg_init(void)
 {
 	TAILQ_INIT(&bglobal.bg_bcslist);
 	TAILQ_INIT(&bglobal.bg_obslist);
-
-	bglobal.bg_shop = bp_udp_shop();
-	bglobal.bg_mhop = bp_udp_mhop();
-	bglobal.bg_shop6 = bp_udp6_shop();
-	bglobal.bg_mhop6 = bp_udp6_mhop();
-	bglobal.bg_echo = bp_echo_socket();
-	bglobal.bg_echov6 = bp_echov6_socket();
 }
 
 int main(int argc, char *argv[])
@@ -213,19 +202,6 @@ int main(int argc, char *argv[])
 	/* Initialize zebra connection. */
 	bfdd_zclient_init(&bfdd_privs);
 
-	/* Add descriptors to the event loop. */
-	thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_shop,
-			&bglobal.bg_ev[0]);
-	thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_mhop,
-			&bglobal.bg_ev[1]);
-	thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_shop6,
-			&bglobal.bg_ev[2]);
-	thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_mhop6,
-			&bglobal.bg_ev[3]);
-	thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_echo,
-			&bglobal.bg_ev[4]);
-	thread_add_read(master, bfd_recv_cb, NULL, bglobal.bg_echov6,
-			&bglobal.bg_ev[5]);
 	thread_add_read(master, control_accept, NULL, bglobal.bg_csock,
 			&bglobal.bg_csockev);
 
