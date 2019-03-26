@@ -434,4 +434,26 @@ struct nh_walk_ctx {
 }
 #endif
 
+/*
+ * Multicast hash table.
+ *
+ * This table contains -
+ * 1. The (S, G) entries used for encapsulating and forwarding BUM traffic.
+ *    S is the local VTEP-IP and G is a BUM mcast group address.
+ * 2. The (X, G) entries used for terminating a BUM flow.
+ * Multiple L2-VNIs can share the same MDT hence the need to maintain
+ * an aggregated table that pimd can consume without much
+ * re-interpretation.
+ */
+typedef struct zebra_vxlan_sg_ {
+	struct zebra_vrf *zvrf;
+
+	struct prefix_sg sg;
+	char sg_str[PREFIX_SG_STR_LEN];
+
+	/* For SG - num of L2 VNIs using this entry for sending BUM traffic */
+	/* For XG - num of SG using this as parent */
+	uint32_t ref_cnt;
+} zebra_vxlan_sg_t;
+
 #endif /* _ZEBRA_VXLAN_PRIVATE_H */
