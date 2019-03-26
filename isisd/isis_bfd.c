@@ -139,7 +139,7 @@ static int isis_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 
 static int isis_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 {
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, vrf_id);
 
 	struct listnode *anode;
 	struct isis_area *area;
@@ -167,7 +167,7 @@ static void isis_bfd_zebra_connected(struct zclient *zclient)
 	if (orig_zebra_connected)
 		orig_zebra_connected(zclient);
 
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 }
 
 static void bfd_debug(struct in_addr *dst, struct in_addr *src,
