@@ -12,6 +12,6 @@ commit=`printf '%u\n' 0x$c`
 docker build -f docker/alpine/Dockerfile \
 	--build-arg commit=$commit -t frr:alpine-$c .
 id=`docker create frr:alpine-$c`
-docker cp ${id}:/pkgs/ docker
+docker cp ${id}:/pkgs/ docker/alpine
 docker rm $id
 docker rmi frr:alpine-$c
