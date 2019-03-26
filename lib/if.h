@@ -496,7 +496,8 @@ extern struct interface *if_lookup_prefix(struct prefix *prefix,
 size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 			   struct interface ***result, vrf_id_t vrf_id);
 
-extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
+/* These 3 functions are to be used when the ifname argument is terminated
+   by a '\0' character: */
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
 extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id);
 extern struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id);

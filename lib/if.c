@@ -193,6 +193,23 @@ void if_down_via_zapi(struct interface *ifp)
 		(*ifp_master.down_hook)(ifp);
 }
 
+static struct interface *if_lookup_by_name_all_vrf(const char *name)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+
+	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+		return NULL;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		ifp = if_lookup_by_name(name, vrf->vrf_id);
+		if (ifp)
+			return ifp;
+	}
+
+	return NULL;
+}
+
 struct interface *if_create_name(const char *name, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
@@ -359,20 +376,24 @@ struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
 	return RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
 }
 
-struct interface *if_lookup_by_name_all_vrf(const char *name)
+/* Interface existance check by interface name.
+ * if vrf backend is vrf-lite, look in other vrfs
+ */
+static struct interface *if_lookup_by_name_relax(const char *name, vrf_id_t vrf_id)
 {
-	struct vrf *vrf;
-	struct interface *ifp;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	struct interface if_tmp, *ifp;
 
-	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+	if (!vrf || !name
+	    || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
 		return NULL;
 
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		ifp = if_lookup_by_name(name, vrf->vrf_id);
-		if (ifp)
-			return ifp;
-	}
-
+	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
+	ifp = RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
+	if (ifp)
+		return ifp;
+	if (vrf_get_backend() == VRF_BACKEND_VRF_LITE)
+		return if_lookup_by_name_all_vrf(name);
 	return NULL;
 }
 
@@ -1279,7 +1300,7 @@ DEFPY_NOSH (interface,
 	 * VRF.
 	 */
 	VRF_GET_ID(vrf_id, vrf_name, false);
-	ifp = if_lookup_by_name_all_vrf(ifname);
+	ifp = if_lookup_by_name_relax(ifname, vrf_id);
 	if (ifp && ifp->vrf_id != vrf_id) {
 		struct vrf *vrf;
 
