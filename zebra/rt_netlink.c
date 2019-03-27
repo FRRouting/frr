@@ -3285,6 +3285,15 @@ static int netlink_request_specific_neigh_in_vlan(struct zebra_ns *zns,
 
 	addattr_l(&req.n, sizeof(req), NDA_DST, &ip->ip.addr, ipa_len);
 
+	if (IS_ZEBRA_DEBUG_KERNEL) {
+		char buf[INET6_ADDRSTRLEN];
+
+		zlog_debug("%s: Tx %s family %s IF %u IP %s flags 0x%x",
+			   __func__, nl_msg_type_to_str(type),
+			   nl_family_to_str(req.ndm.ndm_family), ifindex,
+			   ipaddr2str(ip, buf, sizeof(buf)), req.n.nlmsg_flags);
+	}
+
 	return netlink_request(&zns->netlink_cmd, &req.n);
 }
 
