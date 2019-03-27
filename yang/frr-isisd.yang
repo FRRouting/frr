@@ -737,13 +737,6 @@ module frr-isisd {
           "Area-tag associated to this circuit.";
       }
 
-      leaf circuit-type {
-        type level;
-        default "level-1-2";
-        description
-          "IS-type of this circuit.";
-      }
-
       leaf ipv4-routing {
         type boolean;
         default "false";
@@ -756,6 +749,13 @@ module frr-isisd {
         default "false";
         description
           "Routing IS-IS IPv6 traffic over this circuit.";
+      }
+
+      leaf circuit-type {
+        type level;
+        default "level-1-2";
+        description
+          "IS-type of this circuit.";
       }
 
       container csnp-interval {
