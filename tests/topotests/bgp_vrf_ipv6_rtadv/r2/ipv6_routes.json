@@ -1,0 +1,18 @@
+{
+  "2001:db8:1::/64": [
+    {
+      "protocol": "connected",
+      "selected": true,
+      "prefix": "2001:db8:1::/64",
+      "nexthops": [
+        {
+          "directlyConnected": true,
+          "interfaceName": "r2-eth0",
+          "interfaceIndex": 2,
+          "fib": true,
+          "active": true
+        }
+      ]
+    }
+  ]
+}
