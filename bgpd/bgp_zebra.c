@@ -793,6 +793,7 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 						      peer->bgp->vrf_id);
 	}
 	if (local->sa.sa_family == AF_INET6) {
+		memcpy(&nexthop->v6_global, &local->sin6.sin6_addr, IPV6_MAX_BYTELEN);
 		if (IN6_IS_ADDR_LINKLOCAL(&local->sin6.sin6_addr)) {
 			if (peer->conf_if || peer->ifname)
 				ifp = if_lookup_by_name(peer->conf_if
