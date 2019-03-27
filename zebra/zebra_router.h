@@ -104,6 +104,11 @@ struct zebra_router {
 
 	/* Mlag information for the router */
 	struct zebra_mlag_info mlag_info;
+
+	/*
+	 * The EVPN instance, if any
+	 */
+	struct zebra_vrf *evpn_vrf;
 };
 
 extern struct zebra_router zrouter;
@@ -127,4 +132,14 @@ extern void zebra_router_sweep_route(void);
 extern void zebra_router_show_table_summary(struct vty *vty);
 
 extern uint32_t zebra_router_get_next_sequence(void);
+
+static inline vrf_id_t zebra_vrf_get_evpn_id(void)
+{
+	return zrouter.evpn_vrf ? zvrf_id(zrouter.evpn_vrf) : VRF_DEFAULT;
+}
+static inline struct zebra_vrf *zebra_vrf_get_evpn(void)
+{
+	return zrouter.evpn_vrf ? zrouter.evpn_vrf
+			        : zebra_vrf_lookup_by_id(VRF_DEFAULT);
+}
 #endif

@@ -25,6 +25,7 @@
 #define _ZEBRA_VXLAN_H
 
 #include <zebra.h>
+#include <zebra/zebra_router.h>
 
 #include "linklist.h"
 #include "if.h"
