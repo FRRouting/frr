@@ -1,6 +1,5 @@
 # This stage builds a dist tarball from the source
 FROM alpine:edge as source-builder
-ARG commit
 
 RUN mkdir -p /src/alpine
 COPY alpine/APKBUILD.in /src/alpine
@@ -13,11 +12,12 @@ RUN source /src/alpine/APKBUILD.in \
 		gzip
 
 COPY . /src
+ARG PKGVER
 RUN cd /src \
 	&& ./bootstrap.sh \
 	&& ./configure \
 		--enable-numeric-version \
-		--with-pkg-extra-version=_git$commit \
+		--with-pkg-extra-version="_git$PKGVER" \
 	&& make dist
 
 # This stage builds an apk from the dist tarball
@@ -52,6 +52,7 @@ RUN echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/reposit
 		tini \
 	&& apk add \
 		--no-cache \
-		--allow-untrusted /pkgs/apk/*/*.apk
+		--allow-untrusted /pkgs/apk/*/*.apk \
+	&& rm -rf /pkgs
 COPY docker/alpine/docker-start /usr/lib/frr/docker-start
 ENTRYPOINT [ "/sbin/tini", "--", "/usr/lib/frr/docker-start" ]
