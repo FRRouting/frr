@@ -1369,7 +1369,7 @@ static void vty_show_ip_route_summary(struct vty *vty,
 			else
 				rib_cnt[re->type]++;
 
-			if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)) {
 				fib_cnt[ZEBRA_ROUTE_TOTAL]++;
 
 				if (is_ibgp)
