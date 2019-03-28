@@ -1030,7 +1030,7 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 			sg.grp = c_oil->oil.mfcc_mcastgrp;
 			if (PIM_DEBUG_MROUTE)
 				zlog_debug(
-					"Channel(%s) is not installed no need to collect data from kernel",
+					"Channel%s is not installed no need to collect data from kernel",
 					pim_str_sg_dump(&sg));
 		}
 		return;
@@ -1049,7 +1049,7 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 			sg.grp = c_oil->oil.mfcc_mcastgrp;
 
 			zlog_warn(
-				"ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=(%s): errno=%d: %s",
+				"ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=%s: errno=%d: %s",
 				(unsigned long)SIOCGETSGCNT,
 				pim_str_sg_dump(&sg), errno,
 				safe_strerror(errno));

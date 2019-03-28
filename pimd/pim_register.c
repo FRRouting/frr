@@ -329,9 +329,8 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 		char src_str[INET_ADDRSTRLEN];
 
 		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
-		zlog_debug(
-			"Received Register message(%s) from %s on %s, rp: %d",
-			pim_str_sg_dump(&sg), src_str, ifp->name, i_am_rp);
+		zlog_debug("Received Register message%s from %s on %s, rp: %d",
+			   pim_str_sg_dump(&sg), src_str, ifp->name, i_am_rp);
 	}
 
 	if (i_am_rp

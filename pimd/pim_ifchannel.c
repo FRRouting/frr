@@ -911,7 +911,7 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 	if (!ch && !(source_flags & PIM_ENCODE_RPT_BIT)) {
 		if (PIM_DEBUG_TRACE)
 			zlog_debug(
-				"%s: Received prune with no relevant ifchannel %s(%s) state: %d",
+				"%s: Received prune with no relevant ifchannel %s%s state: %d",
 				__PRETTY_FUNCTION__, ifp->name,
 				pim_str_sg_dump(sg), source_flags);
 		return;
