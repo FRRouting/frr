@@ -11,7 +11,7 @@ Installing Dependencies
 
 .. code-block:: console
 
-   sudo dnf install git autoconf automake libtool make gawk \
+   sudo dnf install git autoconf automake libtool make \
      readline-devel texinfo net-snmp-devel groff pkgconfig json-c-devel \
      pam-devel pytest bison flex c-ares-devel python3-devel python2-sphinx \
      perl-core patch

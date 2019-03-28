@@ -43,7 +43,7 @@ Add packages:
 
 .. code-block:: shell
 
-   sudo yum install git autoconf automake libtool make gawk \
+   sudo yum install git autoconf automake libtool make \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
       json-c-devel pam-devel flex epel-release c-ares-devel
 

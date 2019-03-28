@@ -16,9 +16,9 @@ is first package install and asked)
 
 ::
 
-    pkg install -y git autoconf automake libtool gmake gawk \
+    pkg install -y git autoconf automake libtool gmake \
         pkgconf texinfo json-c bison flex py27-pytest c-ares \
-        python3 py-sphinx
+        python3 py-sphinx libexecinfo
 
 Make sure there is no /usr/bin/flex preinstalled (and use the newly
 installed in /usr/local/bin): (FreeBSD frequently provides a older flex

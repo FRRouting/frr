@@ -37,7 +37,7 @@ Add packages:
       library/idnkit/header-idnkit \
       system/header \
       system/library/math/header-math \
-      git libtool gawk pkg-config
+      git libtool pkg-config
 
 Add additional Solaris packages:
 
