@@ -341,6 +341,8 @@ extern void list_add_list(struct list *list, struct list *add);
 		(L)->count--;                                                  \
 	} while (0)
 
+extern struct listnode *listnode_lookup_nocheck(struct list *list, void *data);
+
 #ifdef __cplusplus
 }
 #endif
