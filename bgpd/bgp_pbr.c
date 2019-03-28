@@ -2067,9 +2067,9 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 			struct bgp_path_info_extra *extra =
 				bgp_path_info_extra_get(path);
 
-			if (extra && extra->bgp_fs_iprule &&
-			    listnode_lookup(extra->bgp_fs_iprule,
-						     bpr)) {
+			if (extra &&
+			    listnode_lookup_nocheck(extra->bgp_fs_iprule,
+						    bpr)) {
 				if (BGP_DEBUG(pbr, PBR_ERROR))
 					zlog_err("%s: entry %p/%p already "
 						 "installed in bgp pbr iprule",
@@ -2216,8 +2216,8 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		struct bgp_path_info_extra *extra =
 			bgp_path_info_extra_get(path);
 
-		if (extra && extra->bgp_fs_pbr &&
-		    listnode_lookup(extra->bgp_fs_pbr, bpme)) {
+		if (extra &&
+		    listnode_lookup_nocheck(extra->bgp_fs_pbr, bpme)) {
 			if (BGP_DEBUG(pbr, PBR_ERROR))
 				zlog_err(
 					"%s: entry %p/%p already installed in bgp pbr",
