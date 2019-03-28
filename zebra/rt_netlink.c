@@ -2322,13 +2322,15 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	/* We use the ID key'd nhg table for kernel updates */
 	id = *((uint32_t *)RTA_DATA(tb[NHA_ID]));
 
-	if (IS_ZEBRA_DEBUG_KERNEL) {
-		zlog_debug("Nexthop ID (%u) update from the kernel", id);
-	}
-
 	family = nhm->nh_family;
 
 	afi = family2afi(family);
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s ID (%u) %s NS %u",
+			   nl_msg_type_to_str(h->nlmsg_type), id,
+			   nl_family_to_str(family), ns_id);
+
 
 	nhe = zebra_nhg_lookup_id(id);
 
