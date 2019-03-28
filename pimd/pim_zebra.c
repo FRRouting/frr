@@ -541,45 +541,6 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 	pim_upstream_update_join_desired(pim, up);
 }
 
-static void scan_upstream_rpf_cache(struct pim_instance *pim)
-{
-	struct listnode *up_node;
-	struct listnode *up_nextnode;
-	struct pim_upstream *up;
-
-	for (ALL_LIST_ELEMENTS(pim->upstream_list, up_node, up_nextnode, up)) {
-		enum pim_rpf_result rpf_result;
-		struct pim_rpf old;
-		struct prefix nht_p;
-
-		if (up->upstream_addr.s_addr == INADDR_ANY) {
-			if (PIM_DEBUG_TRACE)
-				zlog_debug(
-				    "%s: RP not configured for Upstream %s",
-				    __PRETTY_FUNCTION__, up->sg_str);
-			continue;
-		}
-
-		nht_p.family = AF_INET;
-		nht_p.prefixlen = IPV4_MAX_BITLEN;
-		nht_p.u.prefix4.s_addr = up->upstream_addr.s_addr;
-		pim_resolve_upstream_nh(pim, &nht_p);
-
-		old.source_nexthop.interface = up->rpf.source_nexthop.interface;
-		old.source_nexthop.nbr = up->rpf.source_nexthop.nbr;
-		rpf_result = pim_rpf_update(pim, up, &old, 0);
-
-		if (rpf_result == PIM_RPF_FAILURE)
-			continue;
-
-		if (rpf_result == PIM_RPF_CHANGED)
-			pim_zebra_upstream_rpf_changed(pim, up, &old);
-
-	} /* for (qpim_upstream_list) */
-
-	pim_zebra_update_all_interfaces(pim);
-}
-
 void pim_scan_individual_oil(struct channel_oil *c_oil, int in_vif_index)
 {
 	struct in_addr vif_source;
@@ -742,9 +703,6 @@ void pim_scan_oil(struct pim_instance *pim)
 static int on_rpf_cache_refresh(struct thread *t)
 {
 	struct pim_instance *pim = THREAD_ARG(t);
-
-	/* update PIM protocol state */
-	scan_upstream_rpf_cache(pim);
 
 	/* update kernel multicast forwarding cache (MFC) */
 	pim_scan_oil(pim);
