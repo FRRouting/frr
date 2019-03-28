@@ -354,7 +354,12 @@ void zebra_rtable_node_cleanup(struct route_table *table,
 		rib_unlink(node, re);
 	}
 
-	XFREE(MTYPE_RIB_DEST, node->info);
+	if (node->info) {
+		rib_dest_t *dest = node->info;
+
+		list_delete(&dest->nht);
+		XFREE(MTYPE_RIB_DEST, node->info);
+	}
 }
 
 static void zebra_rnhtable_node_cleanup(struct route_table *table,
@@ -370,10 +375,19 @@ static void zebra_rnhtable_node_cleanup(struct route_table *table,
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 				   safi_t safi)
 {
+	struct route_node *rn;
+	struct prefix p;
+
 	assert(!zvrf->table[afi][safi]);
 
 	zvrf->table[afi][safi] =
 		zebra_router_get_table(zvrf, zvrf->table_id, afi, safi);
+
+	memset(&p, 0, sizeof(p));
+	p.family = afi2family(afi);
+
+	rn = srcdest_rnode_get(zvrf->table[afi][safi], &p, NULL);
+	zebra_rib_create_dest(rn);
 }
 
 /* Allocate new zebra VRF. */

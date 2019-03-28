@@ -29,6 +29,8 @@
 extern "C" {
 #endif
 
+typedef enum { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE } rnh_type_t;
+
 /* Nexthop structure. */
 struct rnh {
 	uint8_t flags;
@@ -39,6 +41,12 @@ struct rnh {
 
 	/* VRF identifier. */
 	vrf_id_t vrf_id;
+
+	afi_t afi;
+
+	rnh_type_t type;
+
+	uint32_t seqno;
 
 	struct route_entry *state;
 	struct prefix resolved_route;
@@ -54,8 +62,6 @@ struct rnh {
 	 */
 	int filtered[ZEBRA_ROUTE_MAX];
 };
-
-typedef enum { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE } rnh_type_t;
 
 extern int zebra_rnh_ip_default_route;
 extern int zebra_rnh_ipv6_default_route;

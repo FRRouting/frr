@@ -94,6 +94,61 @@ char *rnh_str(struct rnh *rnh, char *buf, int size)
 	return buf;
 }
 
+static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
+{
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(rnh->vrf_id);
+	struct route_table *table = zvrf->table[rnh->afi][SAFI_UNICAST];
+	struct route_node *rn;
+	rib_dest_t *dest;
+
+	if (!table)
+		return;
+
+	rn = route_node_match(table, &rnh->resolved_route);
+	if (!rn)
+		return;
+
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+		char buf[PREFIX_STRLEN];
+		char buf1[PREFIX_STRLEN];
+
+		zlog_debug("%s: %u:%s removed from tracking on %s",
+			   __PRETTY_FUNCTION__, rnh->vrf_id,
+			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
+			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
+	}
+
+	dest = rib_dest_from_rnode(rn);
+	listnode_delete(dest->nht, rnh);
+	route_unlock_node(rn);
+}
+
+static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
+{
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(rnh->vrf_id);
+	struct route_table *table = zvrf->table[rnh->afi][SAFI_UNICAST];
+	struct route_node *rn;
+	rib_dest_t *dest;
+
+	rn = route_node_match(table, &rnh->resolved_route);
+	if (!rn)
+		return;
+
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+		char buf[PREFIX_STRLEN];
+		char buf1[PREFIX_STRLEN];
+
+		zlog_debug("%s: %u:%s added for tracking on %s",
+			   __PRETTY_FUNCTION__, rnh->vrf_id,
+			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
+			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
+	}
+
+	dest = rib_dest_from_rnode(rn);
+	listnode_add(dest->nht, rnh);
+	route_unlock_node(rn);
+}
+
 struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type,
 			  bool *exists)
 {
@@ -101,12 +156,13 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type,
 	struct route_node *rn;
 	struct rnh *rnh = NULL;
 	char buf[PREFIX2STR_BUFFER];
+	afi_t afi = family2afi(p->family);
 
 	if (IS_ZEBRA_DEBUG_NHT) {
 		prefix2str(p, buf, sizeof(buf));
 		zlog_debug("%u: Add RNH %s type %d", vrfid, buf, type);
 	}
-	table = get_rnh_table(vrfid, family2afi(PREFIX_FAMILY(p)), type);
+	table = get_rnh_table(vrfid, afi, type);
 	if (!table) {
 		prefix2str(p, buf, sizeof(buf));
 		flog_warn(EC_ZEBRA_RNH_NO_TABLE,
@@ -124,13 +180,26 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type,
 
 	if (!rn->info) {
 		rnh = XCALLOC(MTYPE_RNH, sizeof(struct rnh));
+
+		/*
+		 * The resolved route is already 0.0.0.0/0 or
+		 * 0::0/0 due to the calloc right above, but
+		 * we should set the family so that future
+		 * comparisons can just be done
+		 */
+		rnh->resolved_route.family = p->family;
 		rnh->client_list = list_new();
 		rnh->vrf_id = vrfid;
+		rnh->type = type;
+		rnh->seqno = 0;
+		rnh->afi = afi;
 		rnh->zebra_pseudowire_list = list_new();
 		route_lock_node(rn);
 		rn->info = rnh;
 		rnh->node = rn;
 		*exists = false;
+
+		zebra_rnh_store_in_routing_table(rnh);
 	} else
 		*exists = true;
 
@@ -161,9 +230,30 @@ struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type)
 
 void zebra_free_rnh(struct rnh *rnh)
 {
+	struct zebra_vrf *zvrf;
+	struct route_table *table;
+
+	zebra_rnh_remove_from_routing_table(rnh);
 	rnh->flags |= ZEBRA_NHT_DELETED;
 	list_delete(&rnh->client_list);
 	list_delete(&rnh->zebra_pseudowire_list);
+
+	zvrf = zebra_vrf_lookup_by_id(rnh->vrf_id);
+	table = zvrf->table[family2afi(rnh->resolved_route.family)][SAFI_UNICAST];
+
+	if (table) {
+		struct route_node *rern;
+
+		rern = route_node_match(table, &rnh->resolved_route);
+		if (rern) {
+			rib_dest_t *dest;
+
+			route_unlock_node(rern);
+
+			dest = rib_dest_from_rnode(rern);
+			listnode_delete(dest->nht, rnh);
+		}
+	}
 	free_state(rnh->vrf_id, rnh->state, rnh->node);
 	XFREE(MTYPE_RNH, rnh);
 }
@@ -344,6 +434,16 @@ zebra_rnh_resolve_import_entry(struct zebra_vrf *zvrf, afi_t afi,
 	    && !prefix_same(&nrn->p, &rn->p))
 		return NULL;
 
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+		char buf[PREFIX_STRLEN];
+		char buf1[PREFIX_STRLEN];
+
+		zlog_debug("%s: %u:%s Resolved Import Entry to %s",
+			   __PRETTY_FUNCTION__, rnh->vrf_id,
+			   prefix2str(&rnh->node->p, buf, sizeof(buf)),
+			   srcdest_rnode2str(rn, buf1, sizeof(buf)));
+	}
+
 	/* Identify appropriate route entry. */
 	RNODE_FOREACH_RE (rn, re) {
 		if (!CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)
@@ -354,6 +454,10 @@ zebra_rnh_resolve_import_entry(struct zebra_vrf *zvrf, afi_t afi,
 
 	if (re)
 		*prn = rn;
+
+	if (!re && IS_ZEBRA_DEBUG_NHT_DETAILED)
+		zlog_debug("\tRejected due to removed or is a bgp route");
+
 	return re;
 }
 
@@ -361,9 +465,10 @@ zebra_rnh_resolve_import_entry(struct zebra_vrf *zvrf, afi_t afi,
  * See if a tracked route entry for import (by BGP) has undergone any
  * change, and if so, notify the client.
  */
-static void zebra_rnh_eval_import_check_entry(vrf_id_t vrfid, afi_t afi,
+static void zebra_rnh_eval_import_check_entry(struct zebra_vrf *zvrf, afi_t afi,
 					      int force, struct route_node *nrn,
 					      struct rnh *rnh,
+					      struct route_node *prn,
 					      struct route_entry *re)
 {
 	int state_changed = 0;
@@ -371,25 +476,40 @@ static void zebra_rnh_eval_import_check_entry(vrf_id_t vrfid, afi_t afi,
 	char bufn[INET6_ADDRSTRLEN];
 	struct listnode *node;
 
+	zebra_rnh_remove_from_routing_table(rnh);
+	if (prn) {
+		prefix_copy(&rnh->resolved_route, &prn->p);
+	} else {
+		int family = rnh->resolved_route.family;
+
+		memset(&rnh->resolved_route.family, 0, sizeof(struct prefix));
+		rnh->resolved_route.family = family;
+	}
+	zebra_rnh_store_in_routing_table(rnh);
+
 	if (re && (rnh->state == NULL)) {
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED))
 			state_changed = 1;
 	} else if (!re && (rnh->state != NULL))
 		state_changed = 1;
 
-	if (compare_state(re, rnh->state))
+	if (compare_state(re, rnh->state)) {
 		copy_state(rnh, re, nrn);
+		state_changed = 1;
+	}
 
 	if (state_changed || force) {
 		if (IS_ZEBRA_DEBUG_NHT) {
 			prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
-			zlog_debug("%u:%s: Route import check %s %s", vrfid,
+			zlog_debug("%u:%s: Route import check %s %s",
+				   zvrf->vrf->vrf_id,
 				   bufn, rnh->state ? "passed" : "failed",
 				   state_changed ? "(state changed)" : "");
 		}
 		/* state changed, notify clients */
 		for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client)) {
-			send_client(rnh, client, RNH_IMPORT_CHECK_TYPE, vrfid);
+			send_client(rnh, client,
+				    RNH_IMPORT_CHECK_TYPE, zvrf->vrf->vrf_id);
 		}
 	}
 }
@@ -412,7 +532,7 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 	if (IS_ZEBRA_DEBUG_NHT) {
 		prefix2str(&nrn->p, bufn, INET6_ADDRSTRLEN);
 		if (prn && re) {
-			prefix2str(&prn->p, bufp, INET6_ADDRSTRLEN);
+			srcdest_rnode2str(prn, bufp, INET6_ADDRSTRLEN);
 			zlog_debug("%u:%s: NH resolved over route %s",
 				   zvrf->vrf->vrf_id, bufn, bufp);
 		} else
@@ -545,19 +665,43 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	 * most-specific match. Do similar logic as in zebra_rib.c
 	 */
 	while (rn) {
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+			char buf[PREFIX_STRLEN];
+			char buf1[PREFIX_STRLEN];
+
+			zlog_debug("%s: %u:%s Possible Match to %s",
+				   __PRETTY_FUNCTION__, rnh->vrf_id,
+				   prefix2str(&rnh->node->p, buf, sizeof(buf)),
+				   srcdest_rnode2str(rn, buf1, sizeof(buf)));
+		}
+
 		/* Do not resolve over default route unless allowed &&
 		 * match route to be exact if so specified
 		 */
 		if (is_default_prefix(&rn->p)
-		    && !rnh_resolve_via_default(rn->p.family))
+		    && !rnh_resolve_via_default(rn->p.family)) {
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+				zlog_debug(
+					"\tNot allowed to resolve through default prefix");
 			return NULL;
+		}
 
 		/* Identify appropriate route entry. */
 		RNODE_FOREACH_RE (rn, re) {
-			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
+				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+					zlog_debug(
+						"\tRoute Entry %s removed",
+						zebra_route_string(re->type));
 				continue;
-			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
+			}
+			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
+				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+					zlog_debug(
+						"\tRoute Entry %s !selected",
+						zebra_route_string(re->type));
 				continue;
+			}
 
 			/* Just being SELECTED isn't quite enough - must
 			 * have an installed nexthop to be useful.
@@ -567,8 +711,13 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 					break;
 			}
 
-			if (nexthop == NULL)
+			if (nexthop == NULL) {
+				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+					zlog_debug(
+						"\tRoute Entry %s no nexthops",
+						zebra_route_string(re->type));
 				continue;
+			}
 
 			if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)) {
 				if ((re->type == ZEBRA_ROUTE_CONNECT)
@@ -594,10 +743,14 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			return re;
 		}
 
-		if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
+		if (!CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
 			rn = rn->parent;
-		else
+		else {
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+				zlog_debug(
+					"\tNexthop must be connected, cannot recurse up");
 			return NULL;
+		}
 	}
 
 	return NULL;
@@ -629,11 +782,20 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 	 * the resolving route has some change (e.g., metric), there is a state
 	 * change.
 	 */
-	if (!prefix_same(&rnh->resolved_route, &prn->p)) {
+	zebra_rnh_remove_from_routing_table(rnh);
+	if (!prefix_same(&rnh->resolved_route, prn ? NULL : &prn->p)) {
 		if (prn)
 			prefix_copy(&rnh->resolved_route, &prn->p);
-		else
+		else {
+			/*
+			 * Just quickly store the family of the resolved
+			 * route so that we can reset it in a second here
+			 */
+			int family = rnh->resolved_route.family;
+
 			memset(&rnh->resolved_route, 0, sizeof(struct prefix));
+			rnh->resolved_route.family = family;
+		}
 
 		copy_state(rnh, re, nrn);
 		state_changed = 1;
@@ -641,6 +803,7 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 		copy_state(rnh, re, nrn);
 		state_changed = 1;
 	}
+	zebra_rnh_store_in_routing_table(rnh);
 
 	if (state_changed || force) {
 		/* NOTE: Use the "copy" of resolving route stored in 'rnh' i.e.,
@@ -689,8 +852,8 @@ static void zebra_rnh_evaluate_entry(struct zebra_vrf *zvrf, afi_t afi,
 
 	/* Process based on type of entry. */
 	if (type == RNH_IMPORT_CHECK_TYPE)
-		zebra_rnh_eval_import_check_entry(zvrf->vrf->vrf_id, afi, force,
-						  nrn, rnh, re);
+		zebra_rnh_eval_import_check_entry(zvrf, afi, force, nrn, rnh,
+						  prn, re);
 	else
 		zebra_rnh_eval_nexthop_entry(zvrf, afi, force, nrn, rnh, prn,
 					     re);
@@ -790,7 +953,6 @@ void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
 static void free_state(vrf_id_t vrf_id, struct route_entry *re,
 		       struct route_node *rn)
 {
-
 	if (!re)
 		return;
 

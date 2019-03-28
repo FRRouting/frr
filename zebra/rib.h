@@ -145,6 +145,15 @@ typedef struct rib_dest_t_ {
 	uint32_t flags;
 
 	/*
+	 * The list of nht prefixes that have ended up
+	 * depending on this route node.
+	 * After route processing is returned from
+	 * the data plane we will run evaluate_rnh
+	 * on these prefixes.
+	 */
+	struct list *nht;
+
+	/*
 	 * Linkage to put dest on the FPM processing queue.
 	 */
 	TAILQ_ENTRY(rib_dest_t_) fpm_q_entries;
@@ -171,6 +180,8 @@ typedef struct rib_dest_t_ {
  * dest.
  */
 #define RIB_DEST_UPDATE_FPM    (1 << (ZEBRA_MAX_QINDEX + 2))
+
+#define RIB_DEST_UPDATE_LSPS   (1 << (ZEBRA_MAX_QINDEX + 3))
 
 /*
  * Macro to iterate over each route for a destination (prefix).
@@ -359,6 +370,8 @@ extern struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter);
 
 extern uint8_t route_distance(int type);
 
+extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq);
+
 /*
  * Inline functions.
  */
@@ -429,6 +442,11 @@ static inline struct zebra_vrf *rib_dest_vrf(rib_dest_t *dest)
 {
 	return rib_table_info(rib_dest_table(dest))->zvrf;
 }
+
+/*
+ * Create the rib_dest_t and attach it to the specified node
+ */
+extern rib_dest_t *zebra_rib_create_dest(struct route_node *rn);
 
 /*
  * rib_tables_iter_init

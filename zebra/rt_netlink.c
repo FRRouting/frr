@@ -1836,7 +1836,9 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 			 * of the route delete.  If that happens yeah we're
 			 * screwed.
 			 */
-			(void)netlink_route_multipath(RTM_DELROUTE, ctx);
+			if (!RSYSTEM_ROUTE(dplane_ctx_get_old_type(ctx)))
+				(void)netlink_route_multipath(RTM_DELROUTE,
+							      ctx);
 			cmd = RTM_NEWROUTE;
 		}
 
@@ -1844,7 +1846,10 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
-	ret = netlink_route_multipath(cmd, ctx);
+	if (!RSYSTEM_ROUTE(dplane_ctx_get_type(ctx)))
+		ret = netlink_route_multipath(cmd, ctx);
+	else
+		ret = 0;
 	if ((cmd == RTM_NEWROUTE) && (ret == 0)) {
 		/* Update installed nexthops to signal which have been
 		 * installed.
