@@ -36,7 +36,9 @@ DEFINE_QOBJ_TYPE(bfd_session);
 /*
  * Prototypes
  */
-static struct bfd_session *bs_peer_waiting_find(struct bfd_peer_cfg *bpc);
+void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
+		 struct sockaddr_any *local, bool mhop, const char *ifname,
+		 const char *vrfname);
 
 static uint32_t ptm_bfd_gen_ID(void);
 static void ptm_bfd_echo_xmt_TO(struct bfd_session *bfd);
@@ -52,66 +54,47 @@ static void bs_down_handler(struct bfd_session *bs, int nstate);
 static void bs_init_handler(struct bfd_session *bs, int nstate);
 static void bs_up_handler(struct bfd_session *bs, int nstate);
 
+/* Zeroed array with the size of an IPv6 address. */
+struct in6_addr zero_addr;
 
 /*
  * Functions
  */
-static struct bfd_session *bs_peer_waiting_find(struct bfd_peer_cfg *bpc)
+void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
+		 struct sockaddr_any *local, bool mhop, const char *ifname,
+		 const char *vrfname)
 {
-	struct bfd_session_observer *bso;
-	struct bfd_session *bs = NULL;
-	bool is_shop, is_ipv4;
+	memset(key, 0, sizeof(*key));
 
-	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
-		bs = bso->bso_bs;
-
-		is_shop = !BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH);
-		is_ipv4 = !BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6);
-		/* Quick checks first. */
-		if (is_shop != (!bpc->bpc_mhop))
-			continue;
-		if (is_ipv4 != bpc->bpc_ipv4)
-			continue;
-
-		/*
-		 * Slow lookup without hash because we don't have all
-		 * information yet.
-		 */
-		if (is_shop) {
-			if (strcmp(bs->ifname, bpc->bpc_localif))
-				continue;
-			if (memcmp(&bs->shop.peer, &bpc->bpc_peer,
-				   sizeof(bs->shop.peer)))
-				continue;
-
-			break;
-		}
-
-		if (strcmp(bs->vrfname, bpc->bpc_vrfname))
-			continue;
-		if (memcmp(&bs->mhop.peer, &bpc->bpc_peer,
-			   sizeof(bs->mhop.peer)))
-			continue;
-		if (memcmp(&bs->mhop.local, &bpc->bpc_local,
-			   sizeof(bs->mhop.local)))
-			continue;
-
+	switch (peer->sa_sin.sin_family) {
+	case AF_INET:
+		key->family = AF_INET;
+		memcpy(&key->peer, &peer->sa_sin.sin_addr,
+		       sizeof(peer->sa_sin.sin_addr));
+		memcpy(&key->local, &local->sa_sin.sin_addr,
+		       sizeof(local->sa_sin.sin_addr));
+		break;
+	case AF_INET6:
+		key->family = AF_INET6;
+		memcpy(&key->peer, &peer->sa_sin6.sin6_addr,
+		       sizeof(peer->sa_sin6.sin6_addr));
+		memcpy(&key->local, &local->sa_sin6.sin6_addr,
+		       sizeof(local->sa_sin6.sin6_addr));
 		break;
 	}
-	if (bso == NULL)
-		bs = NULL;
 
-	return bs;
+	key->mhop = mhop;
+	if (ifname && ifname[0])
+		strlcpy(key->ifname, ifname, sizeof(key->ifname));
+	if (vrfname && vrfname[0])
+		strlcpy(key->vrfname, vrfname, sizeof(key->vrfname));
 }
 
 struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
 {
 	struct bfd_session *bs;
 	struct peer_label *pl;
-	struct interface *ifp;
-	struct vrf *vrf;
-	struct bfd_mhop_key mhop;
-	struct bfd_shop_key shop;
+	struct bfd_key key;
 
 	/* Try to find label first. */
 	if (bpc->bpc_has_label) {
@@ -123,38 +106,10 @@ struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
 	}
 
 	/* Otherwise fallback to peer/local hash lookup. */
-	if (bpc->bpc_mhop) {
-		memset(&mhop, 0, sizeof(mhop));
-		mhop.peer = bpc->bpc_peer;
-		mhop.local = bpc->bpc_local;
-		if (bpc->bpc_has_vrfname) {
-			vrf = vrf_lookup_by_name(bpc->bpc_vrfname);
-			if (vrf == NULL)
-				return NULL;
+	gen_bfd_key(&key, &bpc->bpc_peer, &bpc->bpc_local, bpc->bpc_mhop,
+		    bpc->bpc_localif, bpc->bpc_vrfname);
 
-			mhop.vrfid = vrf->vrf_id;
-		}
-
-		bs = bfd_mhop_lookup(mhop);
-	} else {
-		memset(&shop, 0, sizeof(shop));
-		shop.peer = bpc->bpc_peer;
-		if (bpc->bpc_has_localif) {
-			ifp = if_lookup_by_name_all_vrf(bpc->bpc_localif);
-			if (ifp == NULL)
-				return NULL;
-
-			shop.ifindex = ifp->ifindex;
-		}
-
-		bs = bfd_shop_lookup(shop);
-	}
-
-	if (bs != NULL)
-		return bs;
-
-	/* Search for entries that are incomplete. */
-	return bs_peer_waiting_find(bpc);
+	return bfd_key_lookup(key);
 }
 
 /*
@@ -165,7 +120,6 @@ struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
  */
 int bfd_session_enable(struct bfd_session *bs)
 {
-	struct sockaddr_in6 *sin6;
 	struct interface *ifp = NULL;
 	struct vrf *vrf = NULL;
 	int psock;
@@ -174,8 +128,8 @@ int bfd_session_enable(struct bfd_session *bs)
 	 * If the interface or VRF doesn't exist, then we must register
 	 * the session but delay its start.
 	 */
-	if (bs->ifname[0] != 0) {
-		ifp = if_lookup_by_name_all_vrf(bs->ifname);
+	if (bs->key.ifname[0]) {
+		ifp = if_lookup_by_name_all_vrf(bs->key.ifname);
 		if (ifp == NULL) {
 			log_error(
 				"session-enable: specified interface doesn't exists.");
@@ -184,15 +138,17 @@ int bfd_session_enable(struct bfd_session *bs)
 
 		vrf = vrf_lookup_by_id(ifp->vrf_id);
 		if (vrf == NULL) {
-			log_error("session-enable: specified VRF doesn't exists.");
+			log_error(
+				"session-enable: specified VRF doesn't exists.");
 			return 0;
 		}
 	}
 
-	if (bs->vrfname[0] != 0) {
-		vrf = vrf_lookup_by_name(bs->vrfname);
+	if (bs->key.vrfname[0]) {
+		vrf = vrf_lookup_by_name(bs->key.vrfname);
 		if (vrf == NULL) {
-			log_error("session-enable: specified VRF doesn't exists.");
+			log_error(
+				"session-enable: specified VRF doesn't exists.");
 			return 0;
 		}
 	}
@@ -202,26 +158,15 @@ int bfd_session_enable(struct bfd_session *bs)
 	if (bs->vrf == NULL)
 		bs->vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
-	if (bs->ifname[0] != 0 &&
-	    BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) == 0)
+	if (bs->key.ifname[0]
+	    && BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) == 0)
 		bs->ifp = ifp;
 
-	/* Set the IPv6 scope id for link-local addresses. */
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6)) {
-		sin6 = &bs->mhop.peer.sa_sin6;
-		if (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr))
-			sin6->sin6_scope_id = bs->ifp != NULL
-						      ? bs->ifp->ifindex
-						      : IFINDEX_INTERNAL;
-
-		sin6 = &bs->mhop.local.sa_sin6;
-		if (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr))
-			sin6->sin6_scope_id = bs->ifp != NULL
-						      ? bs->ifp->ifindex
-						      : IFINDEX_INTERNAL;
-
-		bs->local_ip.sa_sin6 = *sin6;
-		bs->local_address.sa_sin6 = *sin6;
+	/* Sanity check: don't leak open sockets. */
+	if (bs->sock != -1) {
+		zlog_debug("session-enable: previous socket open");
+		close(bs->sock);
+		bs->sock = -1;
 	}
 
 	/*
@@ -232,11 +177,11 @@ int bfd_session_enable(struct bfd_session *bs)
 	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6) == 0) {
 		psock = bp_peer_socket(bs);
 		if (psock == -1)
-			return -1;
+			return 0;
 	} else {
 		psock = bp_peer_socketv6(bs);
 		if (psock == -1)
-			return -1;
+			return 0;
 	}
 
 	/*
@@ -246,25 +191,6 @@ int bfd_session_enable(struct bfd_session *bs)
 	bs->sock = psock;
 	bfd_recvtimer_update(bs);
 	ptm_bfd_start_xmt_timer(bs, false);
-
-	/* Registrate session into data structures. */
-	bs->discrs.my_discr = ptm_bfd_gen_ID();
-	bfd_id_insert(bs);
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
-		if (vrf != NULL)
-			bs->mhop.vrfid = vrf->vrf_id;
-		else
-			bs->mhop.vrfid = VRF_DEFAULT;
-
-		bfd_mhop_insert(bs);
-	} else {
-		if (ifp != NULL)
-			bs->shop.ifindex = ifp->ifindex;
-		else
-			bs->shop.ifindex = IFINDEX_INTERNAL;
-
-		bfd_shop_insert(bs);
-	}
 
 	return 0;
 }
@@ -288,13 +214,6 @@ void bfd_session_disable(struct bfd_session *bs)
 	bfd_echo_recvtimer_delete(bs);
 	bfd_xmttimer_delete(bs);
 	bfd_echo_xmttimer_delete(bs);
-
-	/* Unregister session from hashes to avoid unwanted activation. */
-	bfd_id_delete(bs->discrs.my_discr);
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
-		bfd_mhop_delete(bs->mhop);
-	else
-		bfd_shop_delete(bs->shop);
 }
 
 static uint32_t ptm_bfd_gen_ID(void)
@@ -438,21 +357,20 @@ static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
 	if (bs == NULL)
 		return NULL;
 
-	/* Remove unused fields. */
-	switch (sa->sa_sin.sin_family) {
+	switch (bs->key.family) {
 	case AF_INET:
-		sa->sa_sin.sin_port = 0;
-		if (memcmp(sa, &bs->shop.peer, sizeof(sa->sa_sin)) == 0)
-			return bs;
+		if (memcmp(&sa->sa_sin.sin_addr, &bs->key.peer,
+			   sizeof(sa->sa_sin.sin_addr)))
+			return NULL;
 		break;
 	case AF_INET6:
-		sa->sa_sin6.sin6_port = 0;
-		if (memcmp(sa, &bs->shop.peer, sizeof(sa->sa_sin6)) == 0)
-			return bs;
+		if (memcmp(&sa->sa_sin6.sin6_addr, &bs->key.peer,
+			   sizeof(sa->sa_sin6.sin6_addr)))
+			return NULL;
 		break;
 	}
 
-	return NULL;
+	return bs;
 }
 
 struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
@@ -461,32 +379,30 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 				      ifindex_t ifindex, vrf_id_t vrfid,
 				      bool is_mhop)
 {
-	struct bfd_session *l_bfd = NULL;
-	struct bfd_mhop_key mhop;
-	struct bfd_shop_key shop;
+	struct interface *ifp;
+	struct vrf *vrf;
+	struct bfd_key key;
 
 	/* Find our session using the ID signaled by the remote end. */
 	if (cp->discrs.remote_discr)
 		return bfd_find_disc(peer, ntohl(cp->discrs.remote_discr));
 
 	/* Search for session without using discriminator. */
-	if (is_mhop) {
-		memset(&mhop, 0, sizeof(mhop));
-		mhop.peer = *peer;
-		mhop.local = *local;
-		mhop.vrfid = vrfid;
+	ifp = if_lookup_by_index(ifindex, vrfid);
+	if (vrfid == VRF_DEFAULT) {
+		/*
+		 * Don't use the default vrf, otherwise we won't find
+		 * sessions that doesn't specify it.
+		 */
+		vrf = NULL;
+	} else
+		vrf = vrf_lookup_by_id(vrfid);
 
-		l_bfd = bfd_mhop_lookup(mhop);
-	} else {
-		memset(&shop, 0, sizeof(shop));
-		shop.peer = *peer;
-		shop.ifindex = ifindex;
-
-		l_bfd = bfd_shop_lookup(shop);
-	}
+	gen_bfd_key(&key, peer, local, is_mhop, ifp ? ifp->name : NULL,
+		    vrf ? vrf->name : NULL);
 
 	/* XXX maybe remoteDiscr should be checked for remoteHeard cases. */
-	return l_bfd;
+	return bfd_key_lookup(key);
 }
 
 int bfd_xmt_cb(struct thread *t)
@@ -701,6 +617,9 @@ static void bfd_session_free(struct bfd_session *bs)
 
 	bfd_session_disable(bs);
 
+	bfd_key_delete(bs->key);
+	bfd_id_delete(bs->discrs.my_discr);
+
 	/* Remove observer if any. */
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
 		if (bso->bso_bs != bs)
@@ -743,29 +662,47 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 	 * start. See `bfd_session_enable` for more information.
 	 */
 	if (bpc->bpc_has_localif)
-		strlcpy(bfd->ifname, bpc->bpc_localif, sizeof(bfd->ifname));
+		strlcpy(bfd->key.ifname, bpc->bpc_localif,
+			sizeof(bfd->key.ifname));
 
 	if (bpc->bpc_has_vrfname)
-		strlcpy(bfd->vrfname, bpc->bpc_vrfname, sizeof(bfd->vrfname));
-
-	/* Add observer if we have moving parts. */
-	if (bfd->ifname[0] || bfd->vrfname[0])
-		bs_observer_add(bfd);
+		strlcpy(bfd->key.vrfname, bpc->bpc_vrfname,
+			sizeof(bfd->key.vrfname));
 
 	/* Copy remaining data. */
 	if (bpc->bpc_ipv4 == false)
 		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6);
 
-	if (bpc->bpc_mhop) {
-		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_MH);
-		bfd->mhop.peer = bpc->bpc_peer;
-		bfd->mhop.local = bpc->bpc_local;
-	} else {
-		bfd->shop.peer = bpc->bpc_peer;
+	bfd->key.family = (bpc->bpc_ipv4) ? AF_INET : AF_INET6;
+	switch (bfd->key.family) {
+	case AF_INET:
+		memcpy(&bfd->key.peer, &bpc->bpc_peer.sa_sin.sin_addr,
+		       sizeof(bpc->bpc_peer.sa_sin.sin_addr));
+		memcpy(&bfd->key.local, &bpc->bpc_local.sa_sin.sin_addr,
+		       sizeof(bpc->bpc_local.sa_sin.sin_addr));
+		break;
+
+	case AF_INET6:
+		memcpy(&bfd->key.peer, &bpc->bpc_peer.sa_sin6.sin6_addr,
+		       sizeof(bpc->bpc_peer.sa_sin6.sin6_addr));
+		memcpy(&bfd->key.local, &bpc->bpc_local.sa_sin6.sin6_addr,
+		       sizeof(bpc->bpc_local.sa_sin6.sin6_addr));
+		break;
+
+	default:
+		assert(1);
+		break;
 	}
 
-	bfd->local_ip = bpc->bpc_local;
-	bfd->local_address = bpc->bpc_local;
+	if (bpc->bpc_mhop)
+		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_MH);
+
+	bfd->key.mhop = bpc->bpc_mhop;
+
+	/* Registrate session into data structures. */
+	bfd_key_insert(bfd);
+	bfd->discrs.my_discr = ptm_bfd_gen_ID();
+	bfd_id_insert(bfd);
 
 	/* Try to enable session and schedule for packet receive/send. */
 	if (bfd_session_enable(bfd) == -1) {
@@ -773,6 +710,10 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 		bfd_session_free(bfd);
 		return NULL;
 	}
+
+	/* Add observer if we have moving parts. */
+	if (bfd->key.ifname[0] || bfd->key.vrfname[0] || bfd->sock == -1)
+		bs_observer_add(bfd);
 
 	/* Apply other configurations. */
 	_bfd_session_update(bfd, bpc);
@@ -1219,35 +1160,26 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 	snprintf(buf, buflen, "%u second(s)", second);
 }
 
-const char *bs_to_string(struct bfd_session *bs)
+const char *bs_to_string(const struct bfd_session *bs)
 {
 	static char buf[256];
+	char addr_buf[INET6_ADDRSTRLEN];
 	int pos;
 	bool is_mhop = BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH);
 
 	pos = snprintf(buf, sizeof(buf), "mhop:%s", is_mhop ? "yes" : "no");
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
-		pos += snprintf(buf + pos, sizeof(buf) - pos,
-				" peer:%s local:%s", satostr(&bs->mhop.peer),
-				satostr(&bs->mhop.local));
-
-		if (bs->mhop.vrfid != VRF_DEFAULT)
-			snprintf(buf + pos, sizeof(buf) - pos, " vrf:%u",
-				 bs->mhop.vrfid);
-	} else {
-		pos += snprintf(buf + pos, sizeof(buf) - pos, " peer:%s",
-				satostr(&bs->shop.peer));
-
-		if (bs->local_address.sa_sin.sin_family)
-			pos += snprintf(buf + pos, sizeof(buf) - pos,
-					" local:%s",
-					satostr(&bs->local_address));
-
-		if (bs->shop.ifindex)
-			snprintf(buf + pos, sizeof(buf) - pos, " ifindex:%u",
-				 bs->shop.ifindex);
-	}
-
+	pos += snprintf(buf + pos, sizeof(buf) - pos, " peer:%s",
+			inet_ntop(bs->key.family, &bs->key.peer, addr_buf,
+				  sizeof(addr_buf)));
+	pos += snprintf(buf + pos, sizeof(buf) - pos, " local:%s",
+			inet_ntop(bs->key.family, &bs->key.local, addr_buf,
+				  sizeof(addr_buf)));
+	if (bs->key.vrfname[0])
+		pos += snprintf(buf + pos, sizeof(buf) - pos, " vrf:%s",
+				bs->key.vrfname);
+	if (bs->key.ifname[0])
+		pos += snprintf(buf + pos, sizeof(buf) - pos, " ifname:%s",
+				bs->key.ifname);
 	return buf;
 }
 
@@ -1255,15 +1187,24 @@ int bs_observer_add(struct bfd_session *bs)
 {
 	struct bfd_session_observer *bso;
 
-	bso = XMALLOC(MTYPE_BFDD_SESSION_OBSERVER, sizeof(*bso));
+	bso = XCALLOC(MTYPE_BFDD_SESSION_OBSERVER, sizeof(*bso));
+	bso->bso_isaddress = false;
 	bso->bso_bs = bs;
 	bso->bso_isinterface = !BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH);
 	if (bso->bso_isinterface)
-		strlcpy(bso->bso_entryname, bs->ifname,
+		strlcpy(bso->bso_entryname, bs->key.ifname,
 			sizeof(bso->bso_entryname));
 	else
-		strlcpy(bso->bso_entryname, bs->vrfname,
+		strlcpy(bso->bso_entryname, bs->key.vrfname,
 			sizeof(bso->bso_entryname));
+
+	/* Handle socket binding failures caused by missing local addresses. */
+	if (bs->sock == -1) {
+		bso->bso_isaddress = true;
+		bso->bso_addr.family = bs->key.family;
+		memcpy(&bso->bso_addr.u.prefix, &bs->key.local,
+		       sizeof(bs->key.local));
+	}
 
 	TAILQ_INSERT_TAIL(&bglobal.bg_obslist, bso, bso_entry);
 
@@ -1276,21 +1217,59 @@ void bs_observer_del(struct bfd_session_observer *bso)
 	XFREE(MTYPE_BFDD_SESSION_OBSERVER, bso);
 }
 
+void bs_to_bpc(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
+{
+	memset(bpc, 0, sizeof(*bpc));
+
+	bpc->bpc_ipv4 = (bs->key.family == AF_INET);
+	bpc->bpc_mhop = bs->key.mhop;
+
+	switch (bs->key.family) {
+	case AF_INET:
+		bpc->bpc_peer.sa_sin.sin_family = AF_INET;
+		memcpy(&bpc->bpc_peer.sa_sin.sin_addr, &bs->key.peer,
+		       sizeof(bpc->bpc_peer.sa_sin.sin_addr));
+
+		if (memcmp(&bs->key.local, &zero_addr, sizeof(bs->key.local))) {
+			bpc->bpc_local.sa_sin.sin_family = AF_INET6;
+			memcpy(&bpc->bpc_local.sa_sin.sin_addr, &bs->key.local,
+			       sizeof(bpc->bpc_local.sa_sin.sin_addr));
+		}
+		break;
+
+	case AF_INET6:
+		bpc->bpc_peer.sa_sin.sin_family = AF_INET6;
+		memcpy(&bpc->bpc_peer.sa_sin6.sin6_addr, &bs->key.peer,
+		       sizeof(bpc->bpc_peer.sa_sin6.sin6_addr));
+
+		bpc->bpc_local.sa_sin6.sin6_family = AF_INET6;
+		memcpy(&bpc->bpc_local.sa_sin6.sin6_addr, &bs->key.local,
+		       sizeof(bpc->bpc_local.sa_sin6.sin6_addr));
+		break;
+	}
+
+	if (bs->key.ifname[0]) {
+		bpc->bpc_has_localif = true;
+		strlcpy(bpc->bpc_localif, bs->key.ifname,
+			sizeof(bpc->bpc_localif));
+	}
+
+	if (bs->key.vrfname[0]) {
+		bpc->bpc_has_vrfname = true;
+		strlcpy(bpc->bpc_vrfname, bs->key.vrfname,
+			sizeof(bpc->bpc_vrfname));
+	}
+}
+
 
 /*
  * BFD hash data structures to find sessions.
  */
 static struct hash *bfd_id_hash;
-static struct hash *bfd_shop_hash;
-static struct hash *bfd_mhop_hash;
+static struct hash *bfd_key_hash;
 
 static unsigned int bfd_id_hash_do(void *p);
-static unsigned int bfd_shop_hash_do(void *p);
-static unsigned int bfd_mhop_hash_do(void *p);
-
-static void _shop_key(struct bfd_session *bs, const struct bfd_shop_key *shop);
-static void _shop_key2(struct bfd_session *bs, const struct bfd_shop_key *shop);
-static void _mhop_key(struct bfd_session *bs, const struct bfd_mhop_key *mhop);
+static unsigned int bfd_key_hash_do(void *p);
 
 static void _bfd_free(struct hash_bucket *hb,
 		      void *arg __attribute__((__unused__)));
@@ -1311,73 +1290,20 @@ static bool bfd_id_hash_cmp(const void *n1, const void *n2)
 }
 
 /* BFD hash for single hop. */
-static unsigned int bfd_shop_hash_do(void *p)
+static unsigned int bfd_key_hash_do(void *p)
 {
 	struct bfd_session *bs = p;
 
-	return jhash(&bs->shop, sizeof(bs->shop), 0);
+	return jhash(&bs->key, sizeof(bs->key), 0);
 }
 
-static bool bfd_shop_hash_cmp(const void *n1, const void *n2)
+static bool bfd_key_hash_cmp(const void *n1, const void *n2)
 {
 	const struct bfd_session *bs1 = n1, *bs2 = n2;
 
-	return memcmp(&bs1->shop, &bs2->shop, sizeof(bs1->shop)) == 0;
+	return memcmp(&bs1->key, &bs2->key, sizeof(bs1->key)) == 0;
 }
 
-/* BFD hash for multi hop. */
-static unsigned int bfd_mhop_hash_do(void *p)
-{
-	struct bfd_session *bs = p;
-
-	return jhash(&bs->mhop, sizeof(bs->mhop), 0);
-}
-
-static bool bfd_mhop_hash_cmp(const void *n1, const void *n2)
-{
-	const struct bfd_session *bs1 = n1, *bs2 = n2;
-
-	return memcmp(&bs1->mhop, &bs2->mhop, sizeof(bs1->mhop)) == 0;
-}
-
-/* Helper functions */
-static void _shop_key(struct bfd_session *bs, const struct bfd_shop_key *shop)
-{
-	bs->shop = *shop;
-
-	/* Remove unused fields. */
-	switch (bs->shop.peer.sa_sin.sin_family) {
-	case AF_INET:
-		bs->shop.peer.sa_sin.sin_port = 0;
-		break;
-	case AF_INET6:
-		bs->shop.peer.sa_sin6.sin6_port = 0;
-		break;
-	}
-}
-
-static void _shop_key2(struct bfd_session *bs, const struct bfd_shop_key *shop)
-{
-	_shop_key(bs, shop);
-	bs->shop.ifindex = IFINDEX_INTERNAL;
-}
-
-static void _mhop_key(struct bfd_session *bs, const struct bfd_mhop_key *mhop)
-{
-	bs->mhop = *mhop;
-
-	/* Remove unused fields. */
-	switch (bs->mhop.peer.sa_sin.sin_family) {
-	case AF_INET:
-		bs->mhop.peer.sa_sin.sin_port = 0;
-		bs->mhop.local.sa_sin.sin_port = 0;
-		break;
-	case AF_INET6:
-		bs->mhop.peer.sa_sin6.sin6_port = 0;
-		bs->mhop.local.sa_sin6.sin6_port = 0;
-		break;
-	}
-}
 
 /*
  * Hash public interface / exported functions.
@@ -1393,32 +1319,33 @@ struct bfd_session *bfd_id_lookup(uint32_t id)
 	return hash_lookup(bfd_id_hash, &bs);
 }
 
-struct bfd_session *bfd_shop_lookup(struct bfd_shop_key shop)
+struct bfd_session *bfd_key_lookup(struct bfd_key key)
 {
 	struct bfd_session bs, *bsp;
 
-	_shop_key(&bs, &shop);
+	bs.key = key;
+	bsp = hash_lookup(bfd_key_hash, &bs);
 
-	bsp = hash_lookup(bfd_shop_hash, &bs);
-	if (bsp == NULL && bs.shop.ifindex != 0) {
-		/*
-		 * Since the local interface spec is optional, try
-		 * searching the key without it as well.
-		 */
-		_shop_key2(&bs, &shop);
-		bsp = hash_lookup(bfd_shop_hash, &bs);
+	/* Handle cases where local-address is optional. */
+	if (bsp == NULL && bs.key.family == AF_INET) {
+		memset(&bs.key.local, 0, sizeof(bs.key.local));
+		bsp = hash_lookup(bfd_key_hash, &bs);
+	}
+
+	/* Handle cases where ifname is optional. */
+	bs.key = key;
+	if (bsp == NULL && bs.key.ifname[0]) {
+		memset(bs.key.ifname, 0, sizeof(bs.key.ifname));
+		bsp = hash_lookup(bfd_key_hash, &bs);
+
+		/* Handle cases where local-address and ifname are optional. */
+		if (bsp == NULL && bs.key.family == AF_INET) {
+			memset(&bs.key.local, 0, sizeof(bs.key.local));
+			bsp = hash_lookup(bfd_key_hash, &bs);
+		}
 	}
 
 	return bsp;
-}
-
-struct bfd_session *bfd_mhop_lookup(struct bfd_mhop_key mhop)
-{
-	struct bfd_session bs;
-
-	_mhop_key(&bs, &mhop);
-
-	return hash_lookup(bfd_mhop_hash, &bs);
 }
 
 /*
@@ -1440,31 +1367,18 @@ struct bfd_session *bfd_id_delete(uint32_t id)
 	return hash_release(bfd_id_hash, &bs);
 }
 
-struct bfd_session *bfd_shop_delete(struct bfd_shop_key shop)
+struct bfd_session *bfd_key_delete(struct bfd_key key)
 {
 	struct bfd_session bs, *bsp;
 
-	_shop_key(&bs, &shop);
-	bsp = hash_release(bfd_shop_hash, &bs);
-	if (bsp == NULL && shop.ifindex != 0) {
-		/*
-		 * Since the local interface spec is optional, try
-		 * searching the key without it as well.
-		 */
-		_shop_key2(&bs, &shop);
-		bsp = hash_release(bfd_shop_hash, &bs);
+	bs.key = key;
+	bsp = hash_lookup(bfd_key_hash, &bs);
+	if (bsp == NULL && key.ifname[0]) {
+		memset(bs.key.ifname, 0, sizeof(bs.key.ifname));
+		bsp = hash_lookup(bfd_key_hash, &bs);
 	}
 
-	return bsp;
-}
-
-struct bfd_session *bfd_mhop_delete(struct bfd_mhop_key mhop)
-{
-	struct bfd_session bs;
-
-	_mhop_key(&bs, &mhop);
-
-	return hash_release(bfd_mhop_hash, &bs);
+	return hash_release(bfd_key_hash, bsp);
 }
 
 /* Iteration functions. */
@@ -1473,14 +1387,9 @@ void bfd_id_iterate(hash_iter_func hif, void *arg)
 	hash_iterate(bfd_id_hash, hif, arg);
 }
 
-void bfd_shop_iterate(hash_iter_func hif, void *arg)
+void bfd_key_iterate(hash_iter_func hif, void *arg)
 {
-	hash_iterate(bfd_shop_hash, hif, arg);
-}
-
-void bfd_mhop_iterate(hash_iter_func hif, void *arg)
-{
-	hash_iterate(bfd_mhop_hash, hif, arg);
+	hash_iterate(bfd_key_hash, hif, arg);
 }
 
 /*
@@ -1494,24 +1403,17 @@ bool bfd_id_insert(struct bfd_session *bs)
 	return (hash_get(bfd_id_hash, bs, hash_alloc_intern) == bs);
 }
 
-bool bfd_shop_insert(struct bfd_session *bs)
+bool bfd_key_insert(struct bfd_session *bs)
 {
-	return (hash_get(bfd_shop_hash, bs, hash_alloc_intern) == bs);
-}
-
-bool bfd_mhop_insert(struct bfd_session *bs)
-{
-	return (hash_get(bfd_mhop_hash, bs, hash_alloc_intern) == bs);
+	return (hash_get(bfd_key_hash, bs, hash_alloc_intern) == bs);
 }
 
 void bfd_initialize(void)
 {
 	bfd_id_hash = hash_create(bfd_id_hash_do, bfd_id_hash_cmp,
-				  "BFD discriminator hash");
-	bfd_shop_hash = hash_create(bfd_shop_hash_do, bfd_shop_hash_cmp,
-				    "BFD single hop hash");
-	bfd_mhop_hash = hash_create(bfd_mhop_hash_do, bfd_mhop_hash_cmp,
-				    "BFD multihop hop hash");
+				  "BFD session discriminator hash");
+	bfd_key_hash = hash_create(bfd_key_hash_do, bfd_key_hash_cmp,
+				   "BFD session hash");
 }
 
 static void _bfd_free(struct hash_bucket *hb,
@@ -1532,11 +1434,9 @@ void bfd_shutdown(void)
 	 * assert() here to make sure it really happened.
 	 */
 	bfd_id_iterate(_bfd_free, NULL);
-	assert(bfd_shop_hash->count == 0);
-	assert(bfd_mhop_hash->count == 0);
+	assert(bfd_key_hash->count == 0);
 
 	/* Now free the hashes themselves. */
 	hash_free(bfd_id_hash);
-	hash_free(bfd_shop_hash);
-	hash_free(bfd_mhop_hash);
+	hash_free(bfd_key_hash);
 }

@@ -31,6 +31,10 @@
 
 #include "zebra/zserv.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define NO_PROTO 0
 
 /*
@@ -73,5 +77,9 @@ int release_label_chunk(uint8_t proto, unsigned short instance, uint32_t start,
 			uint32_t end);
 int release_daemon_label_chunks(struct zserv *client);
 void label_manager_close(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _LABEL_MANAGER_H */

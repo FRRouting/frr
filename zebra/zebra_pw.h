@@ -29,6 +29,10 @@
 
 #include "zebra/zebra_vrf.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define PW_INSTALL_RETRY_INTERVAL	30
 
 struct zebra_pw {
@@ -73,5 +77,9 @@ void zebra_pw_install_failure(struct zebra_pw *);
 void zebra_pw_init(struct zebra_vrf *);
 void zebra_pw_exit(struct zebra_vrf *);
 void zebra_pw_vty_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* ZEBRA_PW_H_ */

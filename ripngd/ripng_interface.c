@@ -90,7 +90,7 @@ static int ripng_multicast_join(struct interface *ifp)
 			 * group on
 			 * an interface that has just gone down.
 			 */
-			zlog_warn("ripng join on %s EADDRINUSE (ignoring)\n",
+			zlog_warn("ripng join on %s EADDRINUSE (ignoring)",
 				  ifp->name);
 			return 0; /* not an error */
 		}
@@ -124,7 +124,7 @@ static int ripng_multicast_leave(struct interface *ifp)
 		ret = setsockopt(ripng->sock, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
 				 (char *)&mreq, sizeof(mreq));
 		if (ret < 0)
-			zlog_warn("can't setsockopt IPV6_LEAVE_GROUP: %s\n",
+			zlog_warn("can't setsockopt IPV6_LEAVE_GROUP: %s",
 				  safe_strerror(errno));
 
 		if (IS_RIPNG_DEBUG_EVENT)

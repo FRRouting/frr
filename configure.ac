@@ -765,7 +765,7 @@ AC_DEFINE_UNQUOTED([CONFIGFILE_MASK], [${enable_configfile_mask}], [Mask for con
 enable_logfile_mask=${enable_logfile_mask:-0600}
 AC_DEFINE_UNQUOTED([LOGFILE_MASK], [${enable_logfile_mask}], [Mask for log files])
 
-MPATH_NUM=1
+MPATH_NUM=16
 
 case "${enable_multipath}" in
   0)

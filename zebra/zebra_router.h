@@ -26,6 +26,10 @@
 
 #include "zebra/zebra_ns.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * This header file contains the idea of a router and as such
  * owns data that is associated with a router from zebra's
@@ -122,6 +126,8 @@ extern struct route_table *zebra_router_find_table(struct zebra_vrf *zvrf,
 extern struct route_table *zebra_router_get_table(struct zebra_vrf *zvrf,
 						  uint32_t tableid, afi_t afi,
 						  safi_t safi);
+extern void zebra_router_release_table(struct zebra_vrf *zvrf, uint32_t tableid,
+				       afi_t afi, safi_t safi);
 
 extern int zebra_router_config_write(struct vty *vty);
 
@@ -142,4 +148,9 @@ static inline struct zebra_vrf *zebra_vrf_get_evpn(void)
 	return zrouter.evpn_vrf ? zrouter.evpn_vrf
 			        : zebra_vrf_lookup_by_id(VRF_DEFAULT);
 }
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

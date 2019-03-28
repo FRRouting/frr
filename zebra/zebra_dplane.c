@@ -111,9 +111,12 @@ struct dplane_pw_info {
 	int af;
 	int status;
 	uint32_t flags;
-	union g_addr nexthop;
+	union g_addr dest;
 	mpls_label_t local_label;
 	mpls_label_t remote_label;
+
+	/* Nexthops */
+	struct nexthop_group nhg;
 
 	union pw_protocol_fields fields;
 };
@@ -386,6 +389,15 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 
 	case DPLANE_OP_PW_INSTALL:
 	case DPLANE_OP_PW_UNINSTALL:
+		/* Free allocated nexthops */
+		if ((*pctx)->u.pw.nhg.nexthop) {
+			/* This deals with recursive nexthops too */
+			nexthops_free((*pctx)->u.pw.nhg.nexthop);
+
+			(*pctx)->u.pw.nhg.nexthop = NULL;
+		}
+		break;
+
 	case DPLANE_OP_NONE:
 		break;
 	}
@@ -744,14 +756,15 @@ uint32_t dplane_ctx_get_lsp_flags(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.lsp.flags;
 }
 
-zebra_nhlfe_t *dplane_ctx_get_nhlfe(struct zebra_dplane_ctx *ctx)
+const zebra_nhlfe_t *dplane_ctx_get_nhlfe(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.lsp.nhlfe_list;
 }
 
-zebra_nhlfe_t *dplane_ctx_get_best_nhlfe(struct zebra_dplane_ctx *ctx)
+const zebra_nhlfe_t *
+dplane_ctx_get_best_nhlfe(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
@@ -814,12 +827,12 @@ int dplane_ctx_get_pw_status(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.pw.status;
 }
 
-const union g_addr *dplane_ctx_get_pw_nexthop(
+const union g_addr *dplane_ctx_get_pw_dest(
 	const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return &(ctx->u.pw.nexthop);
+	return &(ctx->u.pw.dest);
 }
 
 const union pw_protocol_fields *dplane_ctx_get_pw_proto(
@@ -828,6 +841,14 @@ const union pw_protocol_fields *dplane_ctx_get_pw_proto(
 	DPLANE_CTX_VALID(ctx);
 
 	return &(ctx->u.pw.fields);
+}
+
+const struct nexthop_group *
+dplane_ctx_get_pw_nhg(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.pw.nhg);
 }
 
 /*
@@ -1039,6 +1060,12 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 			      enum dplane_op_e op,
 			      struct zebra_pw *pw)
 {
+	struct prefix p;
+	afi_t afi;
+	struct route_table *table;
+	struct route_node *rn;
+	struct route_entry *re;
+
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug("init dplane ctx %s: pw '%s', loc %u, rem %u",
 			   dplane_op2str(op), pw->ifname, pw->local_label,
@@ -1056,6 +1083,7 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 
 	/* This name appears to be c-string, so we use string copy. */
 	strlcpy(ctx->u.pw.ifname, pw->ifname, sizeof(ctx->u.pw.ifname));
+
 	ctx->zd_vrf_id = pw->vrf_id;
 	ctx->u.pw.ifindex = pw->ifindex;
 	ctx->u.pw.type = pw->type;
@@ -1064,9 +1092,36 @@ static int dplane_ctx_pw_init(struct zebra_dplane_ctx *ctx,
 	ctx->u.pw.remote_label = pw->remote_label;
 	ctx->u.pw.flags = pw->flags;
 
-	ctx->u.pw.nexthop = pw->nexthop;
+	ctx->u.pw.dest = pw->nexthop;
 
 	ctx->u.pw.fields = pw->data;
+
+	/* Capture nexthop info for the pw destination. We need to look
+	 * up and use zebra datastructs, but we're running in the zebra
+	 * pthread here so that should be ok.
+	 */
+	memcpy(&p.u, &pw->nexthop, sizeof(pw->nexthop));
+	p.family = pw->af;
+	p.prefixlen = ((pw->af == AF_INET) ?
+		       IPV4_MAX_PREFIXLEN : IPV6_MAX_PREFIXLEN);
+
+	afi = (pw->af == AF_INET) ? AFI_IP : AFI_IP6;
+	table = zebra_vrf_table(afi, SAFI_UNICAST, pw->vrf_id);
+	if (table) {
+		rn = route_node_match(table, &p);
+		if (rn) {
+			RNODE_FOREACH_RE(rn, re) {
+				if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
+					break;
+			}
+
+			if (re)
+				copy_nexthops(&(ctx->u.pw.nhg.nexthop),
+					      re->ng.nexthop, NULL);
+
+			route_unlock_node(rn);
+		}
+	}
 
 	return AOK;
 }

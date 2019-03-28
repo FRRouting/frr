@@ -226,6 +226,9 @@ static int ospf6_zebra_read_route(int command, struct zclient *zclient,
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
 		return 0;
 
+	if (IN6_IS_ADDR_LINKLOCAL(&api.prefix.u.prefix6))
+		return 0;
+
 	ifindex = api.nexthops[0].ifindex;
 	nexthop = &api.nexthops[0].gate.ipv6;
 

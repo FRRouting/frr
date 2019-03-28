@@ -25,6 +25,10 @@
 #include "vty.h"
 #include "zebra/interface.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* NB: RTADV is defined in zebra/interface.h above */
 #if defined(HAVE_RTADV)
 
@@ -137,5 +141,8 @@ extern void rtadv_cmd_init(void);
 extern void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS);
 extern void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_RTADV_H */

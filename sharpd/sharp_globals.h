@@ -38,6 +38,7 @@ struct sharp_routes {
 	int32_t repeat;
 
 	uint8_t inst;
+	vrf_id_t vrf_id;
 
 	struct timeval t_start;
 	struct timeval t_end;

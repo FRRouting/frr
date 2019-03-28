@@ -511,8 +511,8 @@ cause may lead to routing instability or oscillation across multiple speakers
 in iBGP topologies. This can occur with full-mesh iBGP, but is particularly
 problematic in non-full-mesh iBGP topologies that further reduce the routing
 information known to each speaker. This has primarily been documented with iBGP
-route-reflection topologies. However, any route-hiding technologies potentially
-could also exacerbate oscillation with MED.
+:ref:`route-reflection <bgp-route-reflector>` topologies. However, any
+route-hiding technologies potentially could also exacerbate oscillation with MED.
 
 This second issue occurs where speakers each have only a subset of routes, and
 there are cycles in the preferences between different combinations of routes -
@@ -1145,7 +1145,7 @@ is 4 octet long. The following format is used to define the community value.
    ``graceful-shutdown`` represents well-known communities value
    ``GRACEFUL_SHUTDOWN`` ``0xFFFF0000`` ``65535:0``. :rfc:`8326` implements
    the purpose Graceful BGP Session Shutdown to reduce the amount of
-   lost traffic when taking BGP sessions down for maintainance. The use
+   lost traffic when taking BGP sessions down for maintenance. The use
    of the community needs to be supported from your peers side to
    actually have any effect.
 
@@ -1176,20 +1176,20 @@ is 4 octet long. The following format is used to define the community value.
 ``llgr-stale``
    ``llgr-stale`` represents well-known communities value ``LLGR_STALE``
    ``0xFFFF0006`` ``65535:6``.
-   Assigned and intented only for use with routers supporting the
+   Assigned and intended only for use with routers supporting the
    Long-lived Graceful Restart Capability  as described in
    [Draft-IETF-uttaro-idr-bgp-persistence]_.
-   Routers recieving routes with this community may (depending on
+   Routers receiving routes with this community may (depending on
    implementation) choose allow to reject or modify routes on the
    presence or absence of this community.
 
 ``no-llgr``
    ``no-llgr`` represents well-known communities value ``NO_LLGR``
    ``0xFFFF0007`` ``65535:7``.
-   Assigned and intented only for use with routers supporting the
+   Assigned and intended only for use with routers supporting the
    Long-lived Graceful Restart Capability  as described in
    [Draft-IETF-uttaro-idr-bgp-persistence]_.
-   Routers recieving routes with this community may (depending on
+   Routers receiving routes with this community may (depending on
    implementation) choose allow to reject or modify routes on the
    presence or absence of this community.
 
@@ -1251,7 +1251,7 @@ UPDATE messages.
 There are two types of community list:
 
 standard
-   This type accepts an explicit value for the atttribute.
+   This type accepts an explicit value for the attribute.
 
 expanded
    This type accepts a regular expression. Because the regex must be
@@ -2240,10 +2240,15 @@ Displaying Routes by AS Path
 Route Reflector
 ===============
 
-.. note:: This documentation is woefully incomplete.
+BGP routers connected inside the same AS through BGP belong to an internal
+BGP session, or IBGP. In order to prevent routing table loops, IBGP does not
+advertise IBGP-learned routes to other routers in the same session. As such,
+IBGP requires a full mesh of all peers. For large networks, this quickly becomes
+unscalable. Introducing route reflectors removes the need for the full-mesh.
 
-.. index:: bgp cluster-id A.B.C.D
-.. clicmd:: bgp cluster-id A.B.C.D
+When route reflectors are configured, these will reflect the routes announced
+by the peers configured as clients. A route reflector client is configured
+with:
 
 .. index:: neighbor PEER route-reflector-client
 .. clicmd:: neighbor PEER route-reflector-client
@@ -2251,6 +2256,13 @@ Route Reflector
 .. index:: no neighbor PEER route-reflector-client
 .. clicmd:: no neighbor PEER route-reflector-client
 
+To avoid single points of failure, multiple route reflectors can be configured.
+
+A cluster is a collection of route reflectors and their clients, and is used
+by route reflectors to avoid looping.
+
+.. index:: bgp cluster-id A.B.C.D
+.. clicmd:: bgp cluster-id A.B.C.D
 
 .. _routing-policy:
 
@@ -2469,7 +2481,7 @@ certainly contains silly mistakes, if not serious flaws.
    route-map rm-no-export permit 20
    !
    route-map rm-blackhole permit 10
-    description blackhole, up-pref and ensure it cant escape this AS
+    description blackhole, up-pref and ensure it cannot escape this AS
     set ip next-hop 127.0.0.1
     set local-preference 10
     set community additive no-export

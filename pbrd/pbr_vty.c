@@ -221,12 +221,18 @@ DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
 }
 
 DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
-      "[no] set nexthop <A.B.C.D|X:X::X:X>$addr [INTERFACE]$intf [nexthop-vrf NAME$name]",
+      "[no] set nexthop\
+        <\
+	  <A.B.C.D|X:X::X:X>$addr [INTERFACE$intf]\
+	  |INTERFACE$intf\
+	>\
+        [nexthop-vrf NAME$name]",
       NO_STR
       "Set for the PBR-MAP\n"
       "Specify one of the nexthops in this map\n"
       "v4 Address\n"
       "v6 Address\n"
+      "Interface to use\n"
       "Interface to use\n"
       "If the nexthop is in a different vrf tell us\n"
       "The nexthop-vrf Name\n")
@@ -255,44 +261,38 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 	memset(&nhop, 0, sizeof(nhop));
 	nhop.vrf_id = vrf->vrf_id;
 
-	/*
-	 * Make SA happy.  CLIPPY is not going to give us a NULL
-	 * addr.
-	 */
-	assert(addr);
-	if (addr->sa.sa_family == AF_INET) {
-		nhop.gate.ipv4.s_addr = addr->sin.sin_addr.s_addr;
-		if (intf) {
-			nhop.type = NEXTHOP_TYPE_IPV4_IFINDEX;
-			nhop.ifindex = ifname2ifindex(intf, vrf->vrf_id);
-			if (nhop.ifindex == IFINDEX_INTERNAL) {
-				vty_out(vty,
-					"Specified Intf %s does not exist in vrf: %s\n",
-					intf, vrf->name);
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-		} else
-			nhop.type = NEXTHOP_TYPE_IPV4;
-	} else {
-		memcpy(&nhop.gate.ipv6, &addr->sin6.sin6_addr, 16);
-		if (intf) {
-			nhop.type = NEXTHOP_TYPE_IPV6_IFINDEX;
-			nhop.ifindex = ifname2ifindex(intf, vrf->vrf_id);
-			if (nhop.ifindex == IFINDEX_INTERNAL) {
-				vty_out(vty,
-					"Specified Intf %s does not exist in vrf: %s\n",
-					intf, vrf->name);
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-		} else {
-			if (IN6_IS_ADDR_LINKLOCAL(&nhop.gate.ipv6)) {
-				vty_out(vty,
-					"Specified a v6 LL with no interface, rejecting\n");
-				return CMD_WARNING_CONFIG_FAILED;
-			}
-			nhop.type = NEXTHOP_TYPE_IPV6;
+	if (intf) {
+		nhop.ifindex = ifname2ifindex(intf, vrf->vrf_id);
+		if (nhop.ifindex == IFINDEX_INTERNAL) {
+			vty_out(vty,
+				"Specified Intf %s does not exist in vrf: %s\n",
+				intf, vrf->name);
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
+
+	if (addr) {
+		if (addr->sa.sa_family == AF_INET) {
+			nhop.gate.ipv4.s_addr = addr->sin.sin_addr.s_addr;
+			if (intf)
+				nhop.type = NEXTHOP_TYPE_IPV4_IFINDEX;
+			else
+				nhop.type = NEXTHOP_TYPE_IPV4;
+		} else {
+			nhop.gate.ipv6 = addr->sin6.sin6_addr;
+			if (intf)
+				nhop.type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			else {
+				if (IN6_IS_ADDR_LINKLOCAL(&nhop.gate.ipv6)) {
+					vty_out(vty,
+						"Specified a v6 LL with no interface, rejecting\n");
+					return CMD_WARNING_CONFIG_FAILED;
+				}
+				nhop.type = NEXTHOP_TYPE_IPV6;
+			}
+		}
+	} else
+		nhop.type = NEXTHOP_TYPE_IFINDEX;
 
 	if (pbrms->nhg)
 		nh = nexthop_exists(pbrms->nhg, &nhop);
@@ -333,6 +333,14 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 
 		pbr_nht_add_individual_nexthop(pbrms);
 		pbr_map_check(pbrms);
+	}
+
+	if (nhop.type == NEXTHOP_TYPE_IFINDEX) {
+		struct interface *ifp;
+
+		ifp = if_lookup_by_index(nhop.ifindex, nhop.vrf_id);
+		if (ifp)
+			pbr_nht_nexthop_interface_update(ifp);
 	}
 
 	return CMD_SUCCESS;
@@ -616,18 +624,18 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 	vty_out(vty, "pbr-map %s seq %u\n", pbrm->name, pbrms->seqno);
 
 	if (pbrms->src)
-		vty_out(vty, "  match src-ip %s\n",
+		vty_out(vty, " match src-ip %s\n",
 			prefix2str(pbrms->src, buff, sizeof(buff)));
 
 	if (pbrms->dst)
-		vty_out(vty, "  match dst-ip %s\n",
+		vty_out(vty, " match dst-ip %s\n",
 			prefix2str(pbrms->dst, buff, sizeof(buff)));
 
 	if (pbrms->nhgrp_name)
-		vty_out(vty, "  set nexthop-group %s\n", pbrms->nhgrp_name);
+		vty_out(vty, " set nexthop-group %s\n", pbrms->nhgrp_name);
 
 	if (pbrms->nhg) {
-		vty_out(vty, "  set ");
+		vty_out(vty, " set ");
 		nexthop_group_write_nexthop(vty, pbrms->nhg->nexthop);
 	}
 

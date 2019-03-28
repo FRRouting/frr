@@ -99,9 +99,14 @@ Bugfix releases are made as needed at 1 month intervals until the next
 ``MAJOR.MINOR`` release branch is pulled. Depending on the severity of the bugs,
 bugfix releases may occur sooner.
 
-Bugfixes are applied to the two most recent releases. Security fixes are
-backported to all releases less than or equal to at least one year old. Security
-fixes may also be backported to older releases depending on severity.
+Bugfixes are applied to the two most recent releases. However, backporting of bug
+fixes to older than the two most recent releases will not be prevented, if acked
+under the classical development workflow applying for a pull request.
+
+Security fixes are backported to all releases less than or equal to at least one
+year old. Security fixes may also be backported to older releases depending on
+severity.
+
 
 Long term support branches ( LTS )
 -----------------------------------------
@@ -128,7 +133,7 @@ branch is required. The work can be shared by multiple people. In all cases, the
 must be at least one person that is in charge of the maintenance branch. The person
 on people responsible for a maintenance branch must be a FRR maintainer. Note that
 they may choose to abandon support for the maintenance branch at any time. If
-noone takes over the responsibility of the LTS branch, then the support will be
+no one takes over the responsibility of the LTS branch, then the support will be
 discontinued.
 
 The LTS branch duties are the following ones:
@@ -371,7 +376,7 @@ system in which submissions from an individual representing one company should
 be merged by someone unaffiliated with that company.
 
 Guidelines for code review
-""""""""""""""""""""""""""
+--------------------------
 
 - As a rule of thumb, the depth of the review should be proportional to the
   scope and / or impact of the patch.

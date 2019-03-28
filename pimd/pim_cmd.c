@@ -1191,7 +1191,7 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			vty_out(vty, "Designated Router\n");
 			vty_out(vty, "-----------------\n");
 			vty_out(vty, "Address   : %s\n", dr_str);
-			vty_out(vty, "Priority  : %d(%d)\n",
+			vty_out(vty, "Priority  : %u(%d)\n",
 				pim_ifp->pim_dr_priority,
 				pim_ifp->pim_dr_num_nondrpri_neighbors);
 			vty_out(vty, "Uptime    : %s\n", dr_uptime);
@@ -2370,9 +2370,10 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 					 up->t_join_timer);
 
 		/*
-		 * If we have a J/P timer for the neighbor display that
+		 * If the upstream is not dummy and it has a J/P timer for the
+		 * neighbor display that
 		 */
-		if (!up->t_join_timer) {
+		if (!up->t_join_timer && up->rpf.source_nexthop.interface) {
 			struct pim_neighbor *nbr;
 
 			nbr = pim_neighbor_find(
@@ -2412,8 +2413,10 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 			json_row = json_object_new_object();
 			json_object_pim_upstream_add(json_row, up);
 			json_object_string_add(
-				json_row, "inboundInterface",
-				up->rpf.source_nexthop.interface->name);
+			    json_row, "inboundInterface",
+			    up->rpf.source_nexthop.interface
+				? up->rpf.source_nexthop.interface->name
+				: "Unknown");
 
 			/*
 			 * The RPF address we use is slightly different
@@ -2463,8 +2466,10 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		} else {
 			vty_out(vty,
 				"%-10s%-15s %-15s %-11s %-8s %-9s %-9s %-9s %6d\n",
-				up->rpf.source_nexthop.interface->name, src_str,
-				grp_str, state_str, uptime, join_timer,
+				up->rpf.source_nexthop.interface
+				    ? up->rpf.source_nexthop.interface->name
+				    : "Unknown",
+				src_str, grp_str, state_str, uptime, join_timer,
 				rs_timer, ka_timer, up->ref_count);
 		}
 	}
@@ -6351,8 +6356,8 @@ DEFUN (interface_ip_pim_drprio,
 	pim_ifp->pim_dr_priority = strtol(argv[idx_number]->arg, NULL, 10);
 
 	if (old_dr_prio != pim_ifp->pim_dr_priority) {
-		if (pim_if_dr_election(ifp))
-			pim_hello_restart_now(ifp);
+		pim_if_dr_election(ifp);
+		pim_hello_restart_now(ifp);
 	}
 
 	return CMD_SUCCESS;
@@ -6377,8 +6382,8 @@ DEFUN (interface_no_ip_pim_drprio,
 
 	if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
 		pim_ifp->pim_dr_priority = PIM_DEFAULT_DR_PRIORITY;
-		if (pim_if_dr_election(ifp))
-			pim_hello_restart_now(ifp);
+		pim_if_dr_election(ifp);
+		pim_hello_restart_now(ifp);
 	}
 
 	return CMD_SUCCESS;

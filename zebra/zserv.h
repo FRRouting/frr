@@ -40,6 +40,10 @@
 #include "zebra/zebra_vrf.h"  /* for zebra_vrf */
 /* clang-format on */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Default port information. */
 #define ZEBRA_VTY_PORT                2601
 
@@ -180,6 +184,13 @@ extern unsigned int multipath_num;
 extern void zserv_init(void);
 
 /*
+ * Stop the Zebra API server.
+ *
+ * closes the socket
+ */
+extern void zserv_close(void);
+
+/*
  * Start Zebra API server.
  *
  * Allocates resources, creates the server socket and begins listening on the
@@ -233,5 +244,9 @@ extern void zserv_read_file(char *input);
 
 /* TODO */
 int zebra_finalize(struct thread *event);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_ZEBRA_H */

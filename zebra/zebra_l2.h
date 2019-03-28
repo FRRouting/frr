@@ -29,6 +29,10 @@
 #include "vlan.h"
 #include "vxlan.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* zebra L2 interface information - bridge slave (linkage to bridge) */
 struct zebra_l2info_brslave {
 	ifindex_t bridge_ifindex; /* Bridge Master */
@@ -96,4 +100,9 @@ extern void zebra_l2if_update_bridge_slave(struct interface *ifp,
 
 extern void zebra_l2if_update_bond_slave(struct interface *ifp,
 					 ifindex_t bond_ifindex);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* _ZEBRA_L2_H */

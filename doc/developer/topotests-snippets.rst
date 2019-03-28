@@ -48,17 +48,17 @@ A sample of this snippet in a test can be found `here
 Interacting with equipment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You might want to interact with the topology equipments during the tests and
+You might want to interact with the topology equipment during the tests and
 there are different ways to do so.
 
 Notes:
 
-1. When using the Topogen API, all the equipments code derive from ``Topogear``
+1. When using the Topogen API, all the equipment code derives from ``Topogear``
    (`lib/topogen.py <lib/topogen.py>`__). If you feel brave you can look by
-   yourself how the abstractions that will be mentioned here works.
+   yourself how the abstractions that will be mentioned here work.
 
 2. When not using the ``Topogen`` API there is only one way to interact with
-   the equipments, which is by calling the ``mininet`` API functions directly
+   the equipment, which is by calling the ``mininet`` API functions directly
    to spawn commands.
 
 Interacting with the Linux sandbox
@@ -149,7 +149,7 @@ Translating vtysh JSON output into Python structures:
 
 .. note::
 
-   ``vtysh_(multi)cmd`` is only available for router type of equipments.
+   ``vtysh_(multi)cmd`` is only available for router types of equipment.
 
 Invoking mininet CLI
 ^^^^^^^^^^^^^^^^^^^^
@@ -195,7 +195,7 @@ Loading JSON from a file:
 Comparing JSON output
 ^^^^^^^^^^^^^^^^^^^^^
 
-After obtaining JSON output formated with Python data structures, you may use
+After obtaining JSON output formatted with Python data structures, you may use
 it to assert a minimalist schema:
 
 .. code:: py

@@ -1,0 +1,108 @@
+{
+  "10.0.3.0/24": [
+    {
+      "distance": 110,
+      "protocol": "ospf",
+      "internalFlags": 0,
+      "metric": 10,
+      "internalStatus": 2,
+      "prefix": "10.0.3.0/24",
+      "nexthops": [
+        {
+          "active": true,
+          "directlyConnected": true,
+          "flags": 1,
+          "interfaceIndex": 3,
+          "interfaceName": "r2-eth1"
+        }
+      ]
+    },
+    {
+      "distance": 0,
+      "protocol": "connected",
+      "internalFlags": 8,
+      "metric": 0,
+      "selected": true,
+      "installed": true,
+      "prefix": "10.0.3.0/24",
+      "internalStatus": 32,
+      "nexthops": [
+        {
+          "directlyConnected": true,
+          "interfaceName": "r2-eth1",
+          "interfaceIndex": 3,
+          "fib": true,
+          "flags": 3,
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.254.254.3/32": [
+    {
+      "distance": 110,
+      "protocol": "ospf",
+      "internalFlags": 8,
+      "metric": 20,
+      "selected": true,
+      "installed": true,
+      "prefix": "10.254.254.3/32",
+      "internalStatus": 34,
+      "nexthops": [
+        {
+          "interfaceName": "r2-eth1",
+          "ip": "10.0.3.1",
+          "interfaceIndex": 3,
+          "fib": true,
+          "flags": 3,
+          "active": true,
+          "afi": "ipv4"
+        }
+      ]
+    }
+  ],
+  "10.254.254.2/32": [
+    {
+      "distance": 0,
+      "protocol": "connected",
+      "internalFlags": 8,
+      "metric": 0,
+      "selected": true,
+      "installed": true,
+      "prefix": "10.254.254.2/32",
+      "internalStatus": 32,
+      "nexthops": [
+        {
+          "directlyConnected": true,
+          "interfaceName": "lo",
+          "interfaceIndex": 1,
+          "fib": true,
+          "flags": 3,
+          "active": true
+        }
+      ]
+    }
+  ],
+  "10.254.254.1/32": [
+    {
+      "distance": 20,
+      "protocol": "bgp",
+      "internalFlags": 8,
+      "metric": 0,
+      "selected": true,
+      "installed": true,
+      "prefix": "10.254.254.1/32",
+      "internalStatus": 34,
+      "nexthops": [
+        {
+          "interfaceName": "r2-eth0",
+          "interfaceIndex": 2,
+          "fib": true,
+          "flags": 3,
+          "active": true,
+          "afi": "ipv6"
+        }
+      ]
+    }
+  ]
+}

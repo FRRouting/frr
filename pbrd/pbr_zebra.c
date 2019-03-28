@@ -75,6 +75,8 @@ static int interface_add(int command, struct zclient *zclient,
 	if (!ifp->info)
 		pbr_if_new(ifp);
 
+	pbr_nht_nexthop_interface_update(ifp);
+
 	return 0;
 }
 
@@ -144,6 +146,8 @@ static int interface_state_up(int command, struct zclient *zclient,
 	DEBUGD(&pbr_dbg_zebra,
 	       "%s: %s is up", __PRETTY_FUNCTION__, ifp->name);
 
+	pbr_nht_nexthop_interface_update(ifp);
+
 	return 0;
 }
 
@@ -156,6 +160,8 @@ static int interface_state_down(int command, struct zclient *zclient,
 
 	DEBUGD(&pbr_dbg_zebra,
 	       "%s: %s is down", __PRETTY_FUNCTION__, ifp->name);
+
+	pbr_nht_nexthop_interface_update(ifp);
 
 	return 0;
 }

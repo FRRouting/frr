@@ -29,7 +29,7 @@ documented elsewhere.
 Using SHARP
 ===========
 
-All sharp commands are under the enable node and preceeded by the ``sharp``
+All sharp commands are under the enable node and preceded by the ``sharp``
 keyword. At present, no sharp commands will be preserved in the config.
 
 .. index:: sharp install

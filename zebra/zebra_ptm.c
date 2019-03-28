@@ -328,7 +328,7 @@ DEFUN (zebra_ptm_enable_if,
 	if (!old_ptm_enable && ptm_cb.ptm_enable) {
 		if (!if_is_operative(ifp) && send_linkdown) {
 			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("%s: Bringing down interface %s\n",
+				zlog_debug("%s: Bringing down interface %s",
 					   __func__, ifp->name);
 			if_down(ifp);
 		}
@@ -354,7 +354,7 @@ DEFUN (no_zebra_ptm_enable_if,
 		ifp->ptm_enable = ZEBRA_IF_PTM_ENABLE_OFF;
 		if (if_is_no_ptm_operative(ifp) && send_linkup) {
 			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("%s: Bringing up interface %s\n",
+				zlog_debug("%s: Bringing up interface %s",
 					   __func__, ifp->name);
 			if_up(ifp);
 		}

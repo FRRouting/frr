@@ -48,6 +48,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_addpath.h"
+#include "bgpd/bgp_mac.h"
 
 /*
  * Definitions and external declarations.
@@ -2503,6 +2504,9 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	/* Perform route selection and update zebra, if required. */
 	bgp_process(bgp_vrf, rn, afi, safi);
 
+	/* Process for route leaking. */
+	vpn_leak_from_vrf_update(bgp_get_default(), bgp_vrf, pi);
+
 	return ret;
 }
 
@@ -2667,6 +2671,9 @@ static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 
 	if (!pi)
 		return 0;
+
+	/* Process for route leaking. */
+	vpn_leak_from_vrf_withdraw(bgp_get_default(), bgp_vrf, pi);
 
 	bgp_aggregate_decrement(bgp_vrf, &rn->p, pi, afi, safi);
 
@@ -2940,6 +2947,41 @@ static int install_uninstall_routes_for_es(struct bgp *bgp,
 	return 0;
 }
 
+/* This API will scan evpn routes for checking attribute's rmac
+ * macthes with bgp instance router mac. It avoid installing
+ * route into bgp vrf table and remote rmac in bridge table.
+ */
+static int bgp_evpn_route_rmac_self_check(struct bgp *bgp_vrf,
+					  struct prefix_evpn *evp,
+					  struct bgp_path_info *pi)
+{
+	/* evpn route could have learnt prior to L3vni has come up,
+	 * perform rmac check before installing route and
+	 * remote router mac.
+	 * The route will be removed from global bgp table once
+	 * SVI comes up with MAC and stored in hash, triggers
+	 * bgp_mac_rescan_all_evpn_tables.
+	 */
+	if (pi->attr &&
+	    memcmp(&bgp_vrf->rmac, &pi->attr->rmac, ETH_ALEN) == 0) {
+		if (bgp_debug_update(pi->peer, NULL, NULL, 1)) {
+			char buf1[PREFIX_STRLEN];
+			char attr_str[BUFSIZ] = {0};
+
+			bgp_dump_attr(pi->attr, attr_str, BUFSIZ);
+
+			zlog_debug("%s: bgp %u prefix %s with attr %s - DENIED due to self mac",
+				__func__, bgp_vrf->vrf_id,
+				prefix2str(evp, buf1, sizeof(buf1)),
+				attr_str);
+		}
+
+		return 1;
+	}
+
+	return 0;
+}
+
 /*
  * Install or uninstall mac-ip routes are appropriate for this
  * particular VRF.
@@ -2996,6 +3038,10 @@ static int install_uninstall_routes_for_vrf(struct bgp *bgp_vrf, int install)
 					continue;
 
 				if (is_route_matching_for_vrf(bgp_vrf, pi)) {
+					if (bgp_evpn_route_rmac_self_check(
+								bgp_vrf, evp, pi))
+						continue;
+
 					if (install)
 						ret = install_evpn_route_entry_in_vrf(
 							bgp_vrf, evp, pi);
@@ -4223,11 +4269,13 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi, safi_t safi)
 
 	table = bgp_vrf->rib[afi][safi];
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		/* Only care about "selected" routes - non-imported. */
+		/* Only care about "selected" routes. Also ensure that
+		 * these are routes that are injectable into EVPN.
+		 */
 		/* TODO: Support for AddPath for EVPN. */
 		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
-			    && (!pi->extra || !pi->extra->parent)) {
+			    && is_route_injectable_into_evpn(pi)) {
 				bgp_evpn_withdraw_type5_route(bgp_vrf, &rn->p,
 							      afi, safi);
 				break;
@@ -4294,12 +4342,13 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 	table = bgp_vrf->rib[afi][safi];
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
 		/* Need to identify the "selected" route entry to use its
-		 * attribute. Also, we only consider "non-imported" routes.
+		 * attribute. Also, ensure that the route is injectable
+		 * into EVPN.
 		 * TODO: Support for AddPath for EVPN.
 		 */
 		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
-			    && (!pi->extra || !pi->extra->parent)) {
+			    && is_route_injectable_into_evpn(pi)) {
 
 				/* apply the route-map */
 				if (bgp_vrf->adv_cmd_rmap[afi][safi].map) {
@@ -5033,6 +5082,9 @@ void bgp_evpn_derive_auto_rt_export(struct bgp *bgp, struct bgpevpn *vpn)
  */
 void bgp_evpn_derive_auto_rd_for_vrf(struct bgp *bgp)
 {
+	if (is_vrf_rd_configured(bgp))
+		return;
+
 	form_auto_rd(bgp->router_id, bgp->vrf_rd_id, &bgp->vrf_prd);
 }
 

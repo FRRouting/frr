@@ -30,6 +30,10 @@
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_errors.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * This is called to process inbound ZAPI messages.
  *
@@ -86,3 +90,7 @@ extern void zserv_nexthop_num_warn(const char *caller, const struct prefix *p,
 				   const unsigned int nexthop_num);
 
 extern void zsend_capabilities_all_clients(void);
+
+#ifdef __cplusplus
+}
+#endif

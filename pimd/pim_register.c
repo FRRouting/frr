@@ -97,7 +97,7 @@ void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
 	pinfo = (struct pim_interface *)ifp->info;
 	if (!pinfo) {
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug("%s: No pinfo!\n", __PRETTY_FUNCTION__);
+			zlog_debug("%s: No pinfo!", __PRETTY_FUNCTION__);
 		return;
 	}
 	if (pim_msg_send(pinfo->pim_sock_fd, src, originator, buffer,

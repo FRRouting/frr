@@ -1175,10 +1175,7 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 		if (zebra_rib_labeled_unicast(re))
 			zebra_mpls_lsp_uninstall(info->zvrf, rn, re);
 
-		if (!RIB_SYSTEM_ROUTE(re))
-			rib_uninstall_kernel(rn, re);
-		else
-			UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+		rib_uninstall_kernel(rn, re);
 
 		dest->selected_fib = NULL;
 
@@ -1208,6 +1205,16 @@ static int rib_can_delete_dest(rib_dest_t *dest)
 	}
 
 	/*
+	 * Unresolved rnh's are stored on the default route's list
+	 *
+	 * dest->rnode can also be the source prefix node in an
+	 * ipv6 sourcedest table.  Fortunately the prefix of a
+	 * source prefix node can never be the default prefix.
+	 */
+	if (is_default_prefix(&dest->rnode->p))
+		return 0;
+
+	/*
 	 * Don't delete the dest if we have to update the FPM about this
 	 * prefix.
 	 */
@@ -1216,6 +1223,88 @@ static int rib_can_delete_dest(rib_dest_t *dest)
 		return 0;
 
 	return 1;
+}
+
+void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
+{
+	rib_dest_t *dest = rib_dest_from_rnode(rn);
+	struct listnode *node, *nnode;
+	struct rnh *rnh;
+
+	/*
+	 * We are storing the rnh's associated withb
+	 * the tracked nexthop as a list of the rn's.
+	 * Unresolved rnh's are placed at the top
+	 * of the tree list.( 0.0.0.0/0 for v4 and 0::0/0 for v6 )
+	 * As such for each rn we need to walk up the tree
+	 * and see if any rnh's need to see if they
+	 * would match a more specific route
+	 */
+	while (rn) {
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+			char buf[PREFIX_STRLEN];
+
+			zlog_debug("%s: %s Being examined for Nexthop Tracking",
+				   __PRETTY_FUNCTION__,
+				   srcdest_rnode2str(rn, buf, sizeof(buf)));
+		}
+		if (!dest) {
+			rn = rn->parent;
+			if (rn)
+				dest = rib_dest_from_rnode(rn);
+			continue;
+		}
+		/*
+		 * If we have any rnh's stored in the nht list
+		 * then we know that this route node was used for
+		 * nht resolution and as such we need to call the
+		 * nexthop tracking evaluation code
+		 */
+		for (ALL_LIST_ELEMENTS(dest->nht, node, nnode, rnh)) {
+			struct zebra_vrf *zvrf =
+				zebra_vrf_lookup_by_id(rnh->vrf_id);
+			struct prefix *p = &rnh->node->p;
+
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+				char buf1[PREFIX_STRLEN];
+				char buf2[PREFIX_STRLEN];
+
+				zlog_debug("%u:%s has Nexthop(%s) depending on it, evaluating %u:%u",
+					   zvrf->vrf->vrf_id,
+					   srcdest_rnode2str(rn, buf1,
+						      sizeof(buf1)),
+					   prefix2str(p, buf2, sizeof(buf2)),
+					   seq, rnh->seqno);
+			}
+
+			/*
+			 * If we have evaluated this node on this pass
+			 * already, due to following the tree up
+			 * then we know that we can move onto the next
+			 * rnh to process.
+			 *
+			 * Additionally we call zebra_evaluate_rnh
+			 * when we gc the dest.  In this case we know
+			 * that there must be no other re's where
+			 * we were originally as such we know that
+			 * that sequence number is ok to respect.
+			 */
+			if (rnh->seqno == seq) {
+				if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+					zlog_debug(
+						"\tNode processed and moved already");
+				continue;
+			}
+
+			rnh->seqno = seq;
+			zebra_evaluate_rnh(zvrf, family2afi(p->family), 0,
+					   rnh->type, p);
+		}
+
+		rn = rn->parent;
+		if (rn)
+			dest = rib_dest_from_rnode(rn);
+	}
 }
 
 /*
@@ -1244,7 +1333,10 @@ int rib_gc_dest(struct route_node *rn)
 		rnode_debug(rn, zvrf_id(zvrf), "removing dest from table");
 	}
 
+	zebra_rib_evaluate_rn_nexthops(rn, zebra_router_get_next_sequence());
+
 	dest->rnode = NULL;
+	list_delete(&dest->nht);
 	XFREE(MTYPE_RIB_DEST, dest);
 	rn->info = NULL;
 
@@ -1258,8 +1350,6 @@ int rib_gc_dest(struct route_node *rn)
 static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 				struct route_entry *new)
 {
-	rib_dest_t *dest = rib_dest_from_rnode(rn);
-
 	hook_call(rib_update, rn, "new route selected");
 
 	/* Update real nexthop. This may actually determine if nexthop is active
@@ -1281,10 +1371,7 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 	if (zebra_rib_labeled_unicast(new))
 		zebra_mpls_lsp_install(zvrf, rn, new);
 
-	if (!RIB_SYSTEM_ROUTE(new))
-		rib_install_kernel(rn, new, NULL);
-	else
-		dest->selected_fib = new;
+	rib_install_kernel(rn, new, NULL);
 
 	UNSET_FLAG(new->status, ROUTE_ENTRY_CHANGED);
 }
@@ -1292,7 +1379,6 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 static void rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 				struct route_entry *old)
 {
-	rib_dest_t *dest = rib_dest_from_rnode(rn);
 	hook_call(rib_update, rn, "removing existing route");
 
 	/* Uninstall from kernel. */
@@ -1308,20 +1394,7 @@ static void rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 	if (zebra_rib_labeled_unicast(old))
 		zebra_mpls_lsp_uninstall(zvrf, rn, old);
 
-	if (!RIB_SYSTEM_ROUTE(old))
-		rib_uninstall_kernel(rn, old);
-	else {
-		UNSET_FLAG(old->status, ROUTE_ENTRY_INSTALLED);
-		/*
-		 * We are setting this to NULL here
-		 * because that is what we traditionally
-		 * have been doing.  I am not positive
-		 * that this is the right thing to do
-		 * but let's leave the code alone
-		 * for the RIB_SYSTEM_ROUTE case
-		 */
-		dest->selected_fib = NULL;
-	}
+	rib_uninstall_kernel(rn, old);
 
 	/* Update nexthop for route, reset changed flag. */
 	/* Note: this code also handles the Linux case when an interface goes
@@ -1340,9 +1413,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 				   struct route_entry *old,
 				   struct route_entry *new)
 {
-	struct nexthop *nexthop = NULL;
 	int nh_active = 0;
-	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
 	/*
 	 * We have to install or update if a new route has been selected or
@@ -1384,48 +1455,15 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 			if (zebra_rib_labeled_unicast(old))
 				zebra_mpls_lsp_uninstall(zvrf, rn, old);
 
-			/* Non-system route should be installed. */
-			if (!RIB_SYSTEM_ROUTE(new)) {
-				/* If labeled-unicast route, install transit
-				 * LSP. */
-				if (zebra_rib_labeled_unicast(new))
-					zebra_mpls_lsp_install(zvrf, rn, new);
+			/*
+			 * Non-system route should be installed.
+			 * If labeled-unicast route, install transit
+			 * LSP.
+			 */
+			if (zebra_rib_labeled_unicast(new))
+				zebra_mpls_lsp_install(zvrf, rn, new);
 
-				rib_install_kernel(rn, new, old);
-			} else {
-				UNSET_FLAG(new->status, ROUTE_ENTRY_INSTALLED);
-				/*
-				 * We do not need to install the
-				 * selected route because it
-				 * is already isntalled by
-				 * the system( ie not us )
-				 * so just mark it as winning
-				 * we do need to ensure that
-				 * if we uninstall a route
-				 * from ourselves we don't
-				 * over write this pointer
-				 */
-				dest->selected_fib = NULL;
-			}
-			/* If install succeeded or system route, cleanup flags
-			 * for prior route. */
-			if (new != old) {
-				if (RIB_SYSTEM_ROUTE(new)) {
-					if (!RIB_SYSTEM_ROUTE(old))
-						rib_uninstall_kernel(rn, old);
-					else
-						UNSET_FLAG(
-							old->status,
-							ROUTE_ENTRY_INSTALLED);
-				} else {
-					UNSET_FLAG(old->status,
-						   ROUTE_ENTRY_INSTALLED);
-					for (nexthop = old->ng.nexthop; nexthop;
-					     nexthop = nexthop->next)
-						UNSET_FLAG(nexthop->flags,
-							   NEXTHOP_FLAG_FIB);
-				}
-			}
+			rib_install_kernel(rn, new, old);
 		}
 
 		/*
@@ -1455,25 +1493,18 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 			if (zebra_rib_labeled_unicast(old))
 				zebra_mpls_lsp_uninstall(zvrf, rn, old);
 
-			if (!RIB_SYSTEM_ROUTE(old))
-				rib_uninstall_kernel(rn, old);
-			else {
-				UNSET_FLAG(old->status, ROUTE_ENTRY_INSTALLED);
-				dest->selected_fib = NULL;
-			}
+			rib_uninstall_kernel(rn, old);
 		}
 	} else {
 		/*
 		 * Same route selected; check if in the FIB and if not,
-		 * re-install. This
-		 * is housekeeping code to deal with race conditions in kernel
-		 * with linux
-		 * netlink reporting interface up before IPv4 or IPv6 protocol
-		 * is ready
+		 * re-install. This is housekeeping code to deal with
+		 * race conditions in kernel with linux netlink reporting
+		 * interface up before IPv4 or IPv6 protocol is ready
 		 * to add routes.
 		 */
-		if (!RIB_SYSTEM_ROUTE(new)
-		    && !CHECK_FLAG(new->status, ROUTE_ENTRY_INSTALLED))
+		if (!CHECK_FLAG(new->status, ROUTE_ENTRY_INSTALLED) ||
+		    RIB_SYSTEM_ROUTE(new))
 			rib_install_kernel(rn, new, NULL);
 	}
 
@@ -1725,17 +1756,8 @@ static void rib_process(struct route_node *rn)
 			UNSET_FLAG(new_selected->status, ROUTE_ENTRY_CHANGED);
 		}
 
-		if (new_selected) {
+		if (new_selected)
 			SET_FLAG(new_selected->flags, ZEBRA_FLAG_SELECTED);
-
-			/* Special case: new route is system route, so
-			 * dataplane update will not be done - ensure we
-			 * redistribute the route.
-			 */
-			if (RIB_SYSTEM_ROUTE(new_selected))
-				redistribute_update(p, src_p, new_selected,
-						    old_selected);
-		}
 
 		if (old_selected) {
 			if (!new_selected)
@@ -1761,6 +1783,24 @@ static void rib_process(struct route_node *rn)
 	 * Check if the dest can be deleted now.
 	 */
 	rib_gc_dest(rn);
+}
+
+static void zebra_rib_evaluate_mpls(struct route_node *rn)
+{
+	rib_dest_t *dest = rib_dest_from_rnode(rn);
+	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
+
+	if (!dest)
+		return;
+
+	if (CHECK_FLAG(dest->flags, RIB_DEST_UPDATE_LSPS)) {
+		if (IS_ZEBRA_DEBUG_MPLS)
+			zlog_debug(
+				"%u: Scheduling all LSPs upon RIB completion",
+				zvrf_id(zvrf));
+		zebra_mpls_lsp_schedule(zvrf);
+		mpls_unmark_lsps_for_processing(rn);
+	}
 }
 
 /*
@@ -1821,6 +1861,30 @@ done:
 	return (result);
 }
 
+static void zebra_rib_fixup_system(struct route_node *rn)
+{
+	struct route_entry *re;
+
+	RNODE_FOREACH_RE(rn, re) {
+		struct nexthop *nhop;
+
+		if (!RIB_SYSTEM_ROUTE(re))
+			continue;
+
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
+			continue;
+
+		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+
+		for (ALL_NEXTHOPS(re->ng, nhop)) {
+			if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_RECURSIVE))
+				continue;
+
+			SET_FLAG(nhop->flags, NEXTHOP_FLAG_FIB);
+		}
+	}
+}
+
 /*
  * Route-update results processing after async dataplane update.
  */
@@ -1836,6 +1900,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	enum dplane_op_e op;
 	enum zebra_dplane_result status;
 	const struct prefix *dest_pfx, *src_pfx;
+	uint32_t seq;
 
 	/* Locate rn and re(s) from ctx */
 
@@ -1912,11 +1977,13 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			break;
 	}
 
+	seq = dplane_ctx_get_seq(ctx);
+
 	/*
 	 * Check sequence number(s) to detect stale results before continuing
 	 */
 	if (re) {
-		if (re->dplane_sequence != dplane_ctx_get_seq(ctx)) {
+		if (re->dplane_sequence != seq) {
 			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 				zlog_debug("%u:%s Stale dplane result for re %p",
 					   dplane_ctx_get_vrf(ctx),
@@ -1932,7 +1999,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 					   dplane_ctx_get_vrf(ctx),
 					   dest_str, old_re);
 		} else
-			UNSET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
+			UNSET_FLAG(old_re->status, ROUTE_ENTRY_QUEUED);
 	}
 
 	switch (op) {
@@ -1987,6 +2054,17 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 						   NEXTHOP_FLAG_FIB);
 			}
 
+			/*
+			 * System routes are weird in that they
+			 * allow multiple to be installed that match
+			 * to the same prefix, so after we get the
+			 * result we need to clean them up so that
+			 * we can actually use them.
+			 */
+			if ((re && RIB_SYSTEM_ROUTE(re)) ||
+			    (old_re && RIB_SYSTEM_ROUTE(old_re)))
+				zebra_rib_fixup_system(rn);
+
 			if (zvrf) {
 				zvrf->installs++;
 				/* Set flag for nexthop tracking processing */
@@ -2010,9 +2088,10 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_INSTALLED);
 
 		} else {
-			if (re)
+			if (re) {
 				SET_FLAG(re->status, ROUTE_ENTRY_FAILED);
-			if (old_re)
+				UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+			} if (old_re)
 				SET_FLAG(old_re->status, ROUTE_ENTRY_FAILED);
 			if (re)
 				zsend_route_notify_owner(re, dest_pfx,
@@ -2052,10 +2131,24 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 				  prefix2str(dest_pfx,
 					     dest_str, sizeof(dest_str)));
 		}
+
+		/*
+		 * System routes are weird in that they
+		 * allow multiple to be installed that match
+		 * to the same prefix, so after we get the
+		 * result we need to clean them up so that
+		 * we can actually use them.
+		 */
+		if ((re && RIB_SYSTEM_ROUTE(re)) ||
+		    (old_re && RIB_SYSTEM_ROUTE(old_re)))
+			zebra_rib_fixup_system(rn);
 		break;
 	default:
 		break;
 	}
+
+	zebra_rib_evaluate_rn_nexthops(rn, seq);
+	zebra_rib_evaluate_mpls(rn);
 done:
 
 	if (rn)
@@ -2110,47 +2203,12 @@ static unsigned int process_subq(struct list *subq, uint8_t qindex)
 	return 1;
 }
 
+
 /*
  * Perform next-hop tracking processing after RIB updates.
  */
 static void do_nht_processing(void)
 {
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-
-	/* Evaluate nexthops for those VRFs which underwent route processing.
-	 * This
-	 * should limit the evaluation to the necessary VRFs in most common
-	 * situations.
-	 */
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		zvrf = vrf->info;
-		if (zvrf == NULL || !(zvrf->flags & ZEBRA_VRF_RIB_SCHEDULED))
-			continue;
-
-		if (IS_ZEBRA_DEBUG_RIB_DETAILED || IS_ZEBRA_DEBUG_NHT)
-			zlog_debug("NHT processing check for zvrf %s",
-				   zvrf_name(zvrf));
-
-		zvrf->flags &= ~ZEBRA_VRF_RIB_SCHEDULED;
-		zebra_evaluate_rnh(zvrf, AFI_IP, 0, RNH_NEXTHOP_TYPE, NULL);
-		zebra_evaluate_rnh(zvrf, AFI_IP, 0, RNH_IMPORT_CHECK_TYPE,
-				   NULL);
-		zebra_evaluate_rnh(zvrf, AFI_IP6, 0, RNH_NEXTHOP_TYPE, NULL);
-		zebra_evaluate_rnh(zvrf, AFI_IP6, 0, RNH_IMPORT_CHECK_TYPE,
-				   NULL);
-	}
-
-	/* Schedule LSPs for processing, if needed. */
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	if (mpls_should_lsps_be_processed(zvrf)) {
-		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug(
-				"%u: Scheduling all LSPs upon RIB completion",
-				zvrf_id(zvrf));
-		zebra_mpls_lsp_schedule(zvrf);
-		mpls_unmark_lsps_for_processing(zvrf);
-	}
 }
 
 /* Dispatch the meta queue by picking, processing and unlocking the next RN from
@@ -2340,6 +2398,19 @@ static void rib_queue_init(void)
 	return;
 }
 
+rib_dest_t *zebra_rib_create_dest(struct route_node *rn)
+{
+	rib_dest_t *dest;
+
+	dest = XCALLOC(MTYPE_RIB_DEST, sizeof(rib_dest_t));
+	dest->nht = list_new();
+	route_lock_node(rn); /* rn route table reference */
+	rn->info = dest;
+	dest->rnode = rn;
+
+	return dest;
+}
+
 /* RIB updates are processed via a queue of pointers to route_nodes.
  *
  * The queue length is bounded by the maximal size of the routing table,
@@ -2392,10 +2463,7 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			rnode_debug(rn, re->vrf_id, "rn %p adding dest", rn);
 
-		dest = XCALLOC(MTYPE_RIB_DEST, sizeof(rib_dest_t));
-		route_lock_node(rn); /* rn route table reference */
-		rn->info = dest;
-		dest->rnode = rn;
+		dest = zebra_rib_create_dest(rn);
 	}
 
 	head = dest->routes;
@@ -2654,7 +2722,7 @@ void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	 * revalidation
 	 * of the rest of the RE.
 	 */
-	if (dest->selected_fib && !RIB_SYSTEM_ROUTE(dest->selected_fib)) {
+	if (dest->selected_fib) {
 		changed = 1;
 		if (IS_ZEBRA_DEBUG_RIB) {
 			char buf[PREFIX_STRLEN];
@@ -2676,7 +2744,6 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	struct route_table *table;
 	struct route_node *rn;
 	struct route_entry *same = NULL;
-	struct nexthop *nexthop;
 	int ret = 0;
 
 	if (!re)
@@ -2738,13 +2805,6 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		 */
 		if (same->type != ZEBRA_ROUTE_CONNECT)
 			break;
-	}
-
-	/* If this route is kernel route, set FIB flag to the route. */
-	if (RIB_SYSTEM_ROUTE(re)) {
-		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
-		for (nexthop = re->ng.nexthop; nexthop; nexthop = nexthop->next)
-			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 	}
 
 	/* Link new re to node.*/
@@ -3222,10 +3282,8 @@ void rib_close_table(struct route_table *table)
 			if (info->safi == SAFI_UNICAST)
 				hook_call(rib_update, rn, NULL);
 
-			if (!RIB_SYSTEM_ROUTE(dest->selected_fib)) {
-				rib_uninstall_kernel(rn, dest->selected_fib);
-				dest->selected_fib = NULL;
-			}
+			rib_uninstall_kernel(rn, dest->selected_fib);
+			dest->selected_fib = NULL;
 		}
 	}
 }

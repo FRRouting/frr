@@ -6,7 +6,7 @@ Hooks
 Libfrr provides type-safe subscribable hook points where other pieces of
 code can add one or more callback functions.  "type-safe" in this case
 applies to the function pointers used for subscriptions.  The
-implementations checks (at compile-time) wheter a callback to be added has
+implementations checks (at compile-time) whether a callback to be added has
 the appropriate function signature (parameters) for the hook.
 
 Example:

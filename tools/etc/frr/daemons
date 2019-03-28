@@ -5,7 +5,7 @@
 #
 # ATTENTION:
 #
-# When activation a daemon at the first time, a config file, even if it is
+# When activating a daemon for the first time, a config file, even if it is
 # empty, has to be present *and* be owned by the user and group "frr", else
 # the daemon will not be started by /etc/init.d/frr. The permissions should
 # be u=rw,g=r,o=.

@@ -310,7 +310,8 @@ void bgp_timer_set(struct peer *peer)
 		   status start timer is on unless peer is shutdown or peer is
 		   inactive.  All other timer must be turned off */
 		if (BGP_PEER_START_SUPPRESSED(peer) || !peer_active(peer)
-		    || peer->bgp->vrf_id == VRF_UNKNOWN) {
+		    || (peer->bgp->inst_type != BGP_INSTANCE_TYPE_VIEW &&
+			peer->bgp->vrf_id == VRF_UNKNOWN)) {
 			BGP_TIMER_OFF(peer->t_start);
 		} else {
 			BGP_TIMER_ON(peer->t_start, bgp_start_timer,
@@ -1422,7 +1423,8 @@ int bgp_start(struct peer *peer)
 		return 0;
 	}
 
-	if (peer->bgp->vrf_id == VRF_UNKNOWN) {
+	if (peer->bgp->inst_type != BGP_INSTANCE_TYPE_VIEW &&
+	    peer->bgp->vrf_id == VRF_UNKNOWN) {
 		if (bgp_debug_neighbor_events(peer))
 			flog_err(
 				EC_BGP_FSM,

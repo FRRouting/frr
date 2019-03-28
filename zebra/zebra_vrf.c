@@ -167,6 +167,11 @@ static int zebra_vrf_disable(struct vrf *vrf)
 
 	/* Remove all routes. */
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
+		route_table_finish(zvrf->rnh_table[afi]);
+		zvrf->rnh_table[afi] = NULL;
+		route_table_finish(zvrf->import_check_table[afi]);
+		zvrf->import_check_table[afi] = NULL;
+
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++)
 			rib_close_table(zvrf->table[afi][safi]);
 	}
@@ -208,13 +213,11 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		 * table, see rib_close_table above
 		 * we no-longer need this pointer.
 		 */
-		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++)
+		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
+			zebra_router_release_table(zvrf, zvrf->table_id, afi,
+						   safi);
 			zvrf->table[afi][safi] = NULL;
-
-		route_table_finish(zvrf->rnh_table[afi]);
-		zvrf->rnh_table[afi] = NULL;
-		route_table_finish(zvrf->import_check_table[afi]);
-		zvrf->import_check_table[afi] = NULL;
+		}
 	}
 
 	return 0;
@@ -256,19 +259,19 @@ static int zebra_vrf_delete(struct vrf *vrf)
 
 	/* release allocated memory */
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
-		void *table_info;
-
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
 			table = zvrf->table[afi][safi];
 			if (table) {
-				table_info = route_table_get_info(table);
-				route_table_finish(table);
-				XFREE(MTYPE_RIB_TABLE_INFO, table_info);
+				zebra_router_release_table(zvrf, zvrf->table_id,
+							   afi, safi);
+				zvrf->table[afi][safi] = NULL;
 			}
 		}
 
-		route_table_finish(zvrf->rnh_table[afi]);
-		route_table_finish(zvrf->import_check_table[afi]);
+		if (zvrf->rnh_table[afi])
+			route_table_finish(zvrf->rnh_table[afi]);
+		if (zvrf->import_check_table[afi])
+			route_table_finish(zvrf->import_check_table[afi]);
 	}
 
 	/* Cleanup EVPN states for vrf */
@@ -351,7 +354,12 @@ void zebra_rtable_node_cleanup(struct route_table *table,
 		rib_unlink(node, re);
 	}
 
-	XFREE(MTYPE_RIB_DEST, node->info);
+	if (node->info) {
+		rib_dest_t *dest = node->info;
+
+		list_delete(&dest->nht);
+		XFREE(MTYPE_RIB_DEST, node->info);
+	}
 }
 
 static void zebra_rnhtable_node_cleanup(struct route_table *table,
@@ -367,10 +375,19 @@ static void zebra_rnhtable_node_cleanup(struct route_table *table,
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 				   safi_t safi)
 {
+	struct route_node *rn;
+	struct prefix p;
+
 	assert(!zvrf->table[afi][safi]);
 
 	zvrf->table[afi][safi] =
 		zebra_router_get_table(zvrf, zvrf->table_id, afi, safi);
+
+	memset(&p, 0, sizeof(p));
+	p.family = afi2family(afi);
+
+	rn = srcdest_rnode_get(zvrf->table[afi][safi], &p, NULL);
+	zebra_rib_create_dest(rn);
 }
 
 /* Allocate new zebra VRF. */

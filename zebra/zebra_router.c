@@ -164,12 +164,31 @@ static void zebra_router_free_table(struct zebra_router_table *zrt)
 {
 	void *table_info;
 
-	rib_close_table(zrt->table);
-
 	table_info = route_table_get_info(zrt->table);
 	route_table_finish(zrt->table);
+	RB_REMOVE(zebra_router_table_head, &zrouter.tables, zrt);
+
 	XFREE(MTYPE_RIB_TABLE_INFO, table_info);
 	XFREE(MTYPE_ZEBRA_NS, zrt);
+}
+
+void zebra_router_release_table(struct zebra_vrf *zvrf, uint32_t tableid,
+				afi_t afi, safi_t safi)
+{
+	struct zebra_router_table finder;
+	struct zebra_router_table *zrt;
+
+	memset(&finder, 0, sizeof(finder));
+	finder.afi = afi;
+	finder.safi = safi;
+	finder.tableid = tableid;
+	finder.ns_id = zvrf->zns->ns_id;
+	zrt = RB_FIND(zebra_router_table_head, &zrouter.tables, &finder);
+
+	if (!zrt)
+		return;
+
+	zebra_router_free_table(zrt);
 }
 
 uint32_t zebra_router_get_next_sequence(void)

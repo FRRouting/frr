@@ -26,11 +26,13 @@
 
 #include <zebra.h>
 
-#include <zebra.h>
-
 #include "if.h"
 #include "linklist.h"
 #include "zebra_vxlan.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define ERR_STR_SZ 256
 
@@ -420,5 +422,9 @@ struct nh_walk_ctx {
 	struct vty *vty;
 	struct json_object *json;
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_VXLAN_PRIVATE_H */

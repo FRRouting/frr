@@ -304,33 +304,41 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 {
 	enum zebra_dplane_result res = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	uint32_t type, old_type;
 
 	if (dplane_ctx_get_src(ctx) != NULL) {
 		zlog_err("route add: IPv6 sourcedest routes unsupported!");
 		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 
+	type = dplane_ctx_get_type(ctx);
+	old_type = dplane_ctx_get_old_type(ctx);
+
 	frr_elevate_privs(&zserv_privs) {
 
-		if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE)
-			kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
-				   dplane_ctx_get_ng(ctx),
-				   dplane_ctx_get_metric(ctx));
-		else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_INSTALL)
-			kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
-				   dplane_ctx_get_ng(ctx),
-				   dplane_ctx_get_metric(ctx));
-		else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE) {
+		if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE) {
+			if (!RSYSTEM_ROUTE(type))
+				kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
+					   dplane_ctx_get_ng(ctx),
+					   dplane_ctx_get_metric(ctx));
+		} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_INSTALL) {
+			if (!RSYSTEM_ROUTE(type))
+				kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
+					   dplane_ctx_get_ng(ctx),
+					   dplane_ctx_get_metric(ctx));
+		} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE) {
 			/* Must do delete and add separately -
 			 * no update available
 			 */
-			kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
-				   dplane_ctx_get_old_ng(ctx),
-				   dplane_ctx_get_old_metric(ctx));
+			if (!RSYSTEM_ROUTE(old_type))
+				kernel_rtm(RTM_DELETE, dplane_ctx_get_dest(ctx),
+					   dplane_ctx_get_old_ng(ctx),
+					   dplane_ctx_get_old_metric(ctx));
 
-			kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
-				   dplane_ctx_get_ng(ctx),
-				   dplane_ctx_get_metric(ctx));
+			if (!RSYSTEM_ROUTE(type))
+				kernel_rtm(RTM_ADD, dplane_ctx_get_dest(ctx),
+					   dplane_ctx_get_ng(ctx),
+					   dplane_ctx_get_metric(ctx));
 		} else {
 			zlog_err("Invalid routing socket update op %s (%u)",
 				 dplane_op2str(dplane_ctx_get_op(ctx)),
@@ -338,6 +346,20 @@ enum zebra_dplane_result kernel_route_update(struct zebra_dplane_ctx *ctx)
 			res = ZEBRA_DPLANE_REQUEST_FAILURE;
 		}
 	} /* Elevated privs */
+
+	if (RSYSTEM_ROUTE(type)
+	    && dplane_ctx_get_op(ctx) != DPLANE_OP_ROUTE_DELETE) {
+		struct nexthop *nexthop;
+
+		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), nexthop)) {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+				continue;
+
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)) {
+				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+			}
+		}
+	}
 
 	return res;
 }

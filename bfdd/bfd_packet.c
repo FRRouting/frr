@@ -79,7 +79,10 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_IPV6)) {
 		memset(&sin6, 0, sizeof(sin6));
 		sin6.sin6_family = AF_INET6;
-		sin6.sin6_addr = bs->shop.peer.sa_sin6.sin6_addr;
+		memcpy(&sin6.sin6_addr, &bs->key.peer, sizeof(sin6.sin6_addr));
+		if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
+			sin6.sin6_scope_id = bs->ifp->ifindex;
+
 		sin6.sin6_port =
 			(port) ? *port
 			       : (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
@@ -92,7 +95,7 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 	} else {
 		memset(&sin, 0, sizeof(sin));
 		sin.sin_family = AF_INET;
-		sin.sin_addr = bs->shop.peer.sa_sin.sin_addr;
+		memcpy(&sin.sin_addr, &bs->key.peer, sizeof(sin.sin_addr));
 		sin.sin_port =
 			(port) ? *port
 			       : (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
@@ -120,7 +123,7 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 
 void ptm_bfd_echo_snd(struct bfd_session *bfd)
 {
-	struct sockaddr_any *sa;
+	struct sockaddr *sa;
 	socklen_t salen;
 	int sd;
 	struct bfd_echo_pkt bep;
@@ -135,31 +138,36 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 	bep.len = BFD_ECHO_PKT_LEN;
 	bep.my_discr = htonl(bfd->discrs.my_discr);
 
-	sa = BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_MH) ? &bfd->mhop.peer
-							  : &bfd->shop.peer;
 	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6)) {
 		sd = bglobal.bg_echov6;
-		sin6 = sa->sa_sin6;
+		memset(&sin6, 0, sizeof(sin6));
+		sin6.sin6_family = AF_INET6;
+		memcpy(&sin6.sin6_addr, &bfd->key.peer, sizeof(sin6.sin6_addr));
+		if (bfd->ifp && IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
+			sin6.sin6_scope_id = bfd->ifp->ifindex;
+
 		sin6.sin6_port = htons(BFD_DEF_ECHO_PORT);
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 		sin6.sin6_len = sizeof(sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 
-		sa = (struct sockaddr_any *)&sin6;
+		sa = (struct sockaddr *)&sin6;
 		salen = sizeof(sin6);
 	} else {
 		sd = bglobal.bg_echo;
-		sin = sa->sa_sin;
+		memset(&sin6, 0, sizeof(sin6));
+		sin.sin_family = AF_INET;
+		memcpy(&sin.sin_addr, &bfd->key.peer, sizeof(sin.sin_addr));
 		sin.sin_port = htons(BFD_DEF_ECHO_PORT);
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 		sin.sin_len = sizeof(sin);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 
-		sa = (struct sockaddr_any *)&sin;
+		sa = (struct sockaddr *)&sin;
 		salen = sizeof(sin);
 	}
-	if (bp_udp_send(sd, BFD_TTL_VAL, (uint8_t *)&bep, sizeof(bep),
-			(struct sockaddr *)sa, salen)
+	if (bp_udp_send(sd, BFD_TTL_VAL, (uint8_t *)&bep, sizeof(bep), sa,
+			salen)
 	    == -1)
 		return;
 
@@ -602,8 +610,8 @@ int bfd_recv_cb(struct thread *t)
 				 bfd->mh_ttl, BFD_TTL_VAL);
 			return 0;
 		}
-	} else if (bfd->local_ip.sa_sin.sin_family == AF_UNSPEC) {
-		bfd->local_ip = local;
+	} else if (bfd->local_address.sa_sin.sin_family == AF_UNSPEC) {
+		bfd->local_address = local;
 	}
 
 	/*
@@ -917,25 +925,26 @@ int bp_peer_socket(const struct bfd_session *bs)
 		return -1;
 	}
 
-	if (bs->shop.ifindex != IFINDEX_INTERNAL) {
-		if (bp_bind_dev(sd, bs->ifp->name) != 0) {
+	if (bs->key.ifname[0]) {
+		if (bp_bind_dev(sd, bs->key.ifname) != 0) {
 			close(sd);
 			return -1;
 		}
-	} else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) &&
-		   bs->mhop.vrfid != VRF_DEFAULT) {
-		if (bp_bind_dev(sd, bs->vrf->name) != 0) {
+	} else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
+		   && bs->key.vrfname[0]) {
+		if (bp_bind_dev(sd, bs->key.vrfname) != 0) {
 			close(sd);
 			return -1;
 		}
 	}
 
 	/* Find an available source port in the proper range */
-	sin = bs->local_ip.sa_sin;
+	memset(&sin, 0, sizeof(sin));
 	sin.sin_family = AF_INET;
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 	sin.sin_len = sizeof(sin);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
+	memcpy(&sin.sin_addr, &bs->key.local, sizeof(sin.sin_addr));
 	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) == 0)
 		sin.sin_addr.s_addr = INADDR_ANY;
 
@@ -987,20 +996,23 @@ int bp_peer_socketv6(const struct bfd_session *bs)
 	}
 
 	/* Find an available source port in the proper range */
-	sin6 = bs->local_ip.sa_sin6;
+	memset(&sin6, 0, sizeof(sin6));
 	sin6.sin6_family = AF_INET6;
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 	sin6.sin6_len = sizeof(sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
+	memcpy(&sin6.sin6_addr, &bs->key.local, sizeof(sin6.sin6_addr));
+	if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
+		sin6.sin6_scope_id = bs->ifp->ifindex;
 
-	if (bs->shop.ifindex != IFINDEX_INTERNAL) {
-		if (bp_bind_dev(sd, bs->ifp->name) != 0) {
+	if (bs->key.ifname[0]) {
+		if (bp_bind_dev(sd, bs->key.ifname) != 0) {
 			close(sd);
 			return -1;
 		}
-	} else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH) &&
-		   bs->mhop.vrfid != VRF_DEFAULT) {
-		if (bp_bind_dev(sd, bs->vrf->name) != 0) {
+	} else if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)
+		   && bs->key.vrfname[0]) {
+		if (bp_bind_dev(sd, bs->key.vrfname) != 0) {
 			close(sd);
 			return -1;
 		}

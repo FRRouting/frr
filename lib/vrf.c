@@ -56,6 +56,7 @@ struct vrf_id_head vrfs_by_id = RB_INITIALIZER(&vrfs_by_id);
 struct vrf_name_head vrfs_by_name = RB_INITIALIZER(&vrfs_by_name);
 
 static int vrf_backend;
+static int vrf_backend_configured;
 static struct zebra_privs_t *vrf_daemon_privs;
 static char vrf_default_name[VRF_NAMSIZ] = VRF_DEFAULT_NAME_INTERNAL;
 
@@ -613,12 +614,15 @@ int vrf_is_backend_netns(void)
 
 int vrf_get_backend(void)
 {
+	if (!vrf_backend_configured)
+		return VRF_BACKEND_UNKNOWN;
 	return vrf_backend;
 }
 
 void vrf_configure_backend(int vrf_backend_netns)
 {
 	vrf_backend = vrf_backend_netns;
+	vrf_backend_configured = 1;
 }
 
 int vrf_handler_create(struct vty *vty, const char *vrfname,
@@ -662,7 +666,7 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 				"VRF %u is already configured with VRF %s\n",
 				vrf->vrf_id, vrf->name);
 		else
-			zlog_info("VRF %u is already configured with VRF %s\n",
+			zlog_info("VRF %u is already configured with VRF %s",
 				  vrf->vrf_id, vrf->name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}

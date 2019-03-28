@@ -1036,6 +1036,8 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 	uint8_t flags = 0;
 	uint16_t type = cmd2type[hdr->command];
 	bool exist;
+	bool flag_changed = false;
+	uint8_t orig_flags;
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
@@ -1084,6 +1086,7 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 		if (!rnh)
 			return;
 
+		orig_flags = rnh->flags;
 		if (type == RNH_NEXTHOP_TYPE) {
 			if (flags
 			    && !CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
@@ -1101,9 +1104,12 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 				UNSET_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH);
 		}
 
+		if (orig_flags != rnh->flags)
+			flag_changed = true;
+
 		zebra_add_rnh_client(rnh, client, type, zvrf_id(zvrf));
 		/* Anything not AF_INET/INET6 has been filtered out above */
-		if (!exist)
+		if (!exist || flag_changed)
 			zebra_evaluate_rnh(zvrf, family2afi(p.family), 1, type,
 					   &p);
 	}
@@ -1456,8 +1462,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				       &(api_nh->gate.ipv4),
 				       sizeof(struct in_addr));
 				zebra_vxlan_evpn_vrf_route_add(
-					vrf_id, &api_nh->rmac, &vtep_ip,
-					&api.prefix);
+					api_nh->vrf_id, &api_nh->rmac,
+					&vtep_ip, &api.prefix);
 			}
 			break;
 		case NEXTHOP_TYPE_IPV6:
@@ -1479,8 +1485,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 				memcpy(&vtep_ip.ipaddr_v6, &(api_nh->gate.ipv6),
 				       sizeof(struct in6_addr));
 				zebra_vxlan_evpn_vrf_route_add(
-					vrf_id, &api_nh->rmac, &vtep_ip,
-					&api.prefix);
+					api_nh->vrf_id, &api_nh->rmac,
+					&vtep_ip, &api.prefix);
 			}
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:

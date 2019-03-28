@@ -133,6 +133,13 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	if (!up)
 		return false;
 
+	if (!up->rpf.source_nexthop.interface) {
+		if (PIM_DEBUG_TRACE)
+			zlog_debug("%s: up %s RPF is not present",
+			__PRETTY_FUNCTION__, up->sg_str);
+		return false;
+	}
+
 	ifp_in = up->rpf.source_nexthop.interface;
 	nh_addr = up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4;
 	total = htonl(MTRACE_UNKNOWN_COUNT);

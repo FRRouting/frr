@@ -24,6 +24,10 @@
 
 #include "lib/vty.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Debug flags. */
 #define ZEBRA_DEBUG_EVENT   0x01
 
@@ -40,7 +44,9 @@
 #define ZEBRA_DEBUG_RIB_DETAILED   0x02
 
 #define ZEBRA_DEBUG_FPM     0x01
-#define ZEBRA_DEBUG_NHT     0x01
+
+#define ZEBRA_DEBUG_NHT 0x01
+#define ZEBRA_DEBUG_NHT_DETAILED 0x02
 
 #define ZEBRA_DEBUG_MPLS    0x01
 
@@ -72,7 +78,10 @@
 #define IS_ZEBRA_DEBUG_RIB_DETAILED  (zebra_debug_rib & ZEBRA_DEBUG_RIB_DETAILED)
 
 #define IS_ZEBRA_DEBUG_FPM (zebra_debug_fpm & ZEBRA_DEBUG_FPM)
+
 #define IS_ZEBRA_DEBUG_NHT  (zebra_debug_nht & ZEBRA_DEBUG_NHT)
+#define IS_ZEBRA_DEBUG_NHT_DETAILED (zebra_debug_nht & ZEBRA_DEBUG_NHT_DETAILED)
+
 #define IS_ZEBRA_DEBUG_MPLS  (zebra_debug_mpls & ZEBRA_DEBUG_MPLS)
 #define IS_ZEBRA_DEBUG_VXLAN (zebra_debug_vxlan & ZEBRA_DEBUG_VXLAN)
 #define IS_ZEBRA_DEBUG_PW  (zebra_debug_pw & ZEBRA_DEBUG_PW)
@@ -98,5 +107,9 @@ extern unsigned long zebra_debug_mlag;
 extern void zebra_debug_init(void);
 
 DECLARE_HOOK(zebra_debug_show_debugging, (struct vty *vty), (vty));
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_DEBUG_H */

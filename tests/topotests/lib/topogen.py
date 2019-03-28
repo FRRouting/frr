@@ -586,9 +586,9 @@ class TopoRouter(TopoGear):
         os.system('chmod -R go+rw /tmp/topotests')
 
         # Open router log file
-        logfile = '{0}/{1}.log'.format(dir, name)
-
+        logfile = '{0}/{1}.log'.format(self.logdir, name)
         self.logger = logger_config.get_logger(name=name, target=logfile)
+
         self.tgen.topo.addNode(self.name, cls=self.cls, **params)
 
     def __str__(self):
