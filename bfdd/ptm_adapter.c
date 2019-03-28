@@ -607,7 +607,6 @@ static void bfdd_sessions_disable_interface(struct interface *ifp)
 		/* Try to enable it. */
 		bfd_session_disable(bs);
 
-		TAILQ_INSERT_HEAD(&bglobal.bg_obslist, bso, bso_entry);
 	}
 }
 
