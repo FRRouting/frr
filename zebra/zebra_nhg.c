@@ -158,29 +158,13 @@ int zebra_nhg_insert_id(struct nhg_hash_entry *nhe)
 
 static void *zebra_nhg_alloc(void *arg)
 {
-	/* lock for getiing and setting the id */
-	static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-	/* id counter to keep in sync with kernel */
-	static uint32_t id_counter = 0;
 	struct nhg_hash_entry *nhe;
 	struct nhg_hash_entry *copy = arg;
 
 	nhe = XCALLOC(MTYPE_NHG, sizeof(struct nhg_hash_entry));
 
-	pthread_mutex_lock(&lock); /* Lock, set the id counter from kernel */
-	if (copy->id) {
-		/* This is from the kernel if it has an id */
-		if (copy->id > id_counter) {
-			/* Increase our counter so we don't try to create
-			 * an ID that already exists
-			 */
-			id_counter = copy->id;
-		}
-		nhe->id = copy->id;
-	} else {
-		nhe->id = ++id_counter;
-	}
-	pthread_mutex_unlock(&lock);
+
+	nhe->id = copy->id;
 
 	nhe->nhg_depends = NULL;
 
@@ -339,10 +323,31 @@ struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
 				      vrf_id_t vrf_id, afi_t afi, uint32_t id,
 				      struct list *nhg_depends, int dep_count)
 {
+	/* lock for getiing and setting the id */
+	static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+	/* id counter to keep in sync with kernel */
+	static uint32_t id_counter = 0;
+
 	struct nhg_hash_entry lookup = {0};
 	struct nhg_hash_entry *nhe = NULL;
+	uint32_t old_id_counter = 0;
 
-	lookup.id = id;
+	pthread_mutex_lock(&lock); /* Lock, set the id counter */
+
+	old_id_counter = id_counter;
+
+	if (id) {
+		if (id > id_counter) {
+			/* Increase our counter so we don't try to create
+			 * an ID that already exists
+			 */
+			id_counter = id;
+		}
+		lookup.id = id;
+	} else {
+		lookup.id = ++id_counter;
+	}
+
 	lookup.vrf_id = vrf_id;
 	lookup.afi = afi;
 	lookup.nhg = nhg;
@@ -352,6 +357,12 @@ struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
 		nhe = zebra_nhg_lookup_id(id);
 	else
 		nhe = hash_lookup(zrouter.nhgs, &lookup);
+
+	/* If it found an nhe in our tables, this new ID is unused */
+	if (nhe)
+		id_counter = old_id_counter;
+
+	pthread_mutex_unlock(&lock);
 
 	if (!nhe)
 		nhe = hash_get(zrouter.nhgs, &lookup, zebra_nhg_alloc);
