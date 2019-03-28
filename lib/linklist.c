@@ -325,3 +325,10 @@ void list_sort(struct list *list, int (*cmp)(const void **, const void **))
 
 	XFREE(MTYPE_TMP, items);
 }
+
+void listnode_add_force(struct list **list, void *val)
+{
+	if (*list == NULL)
+		*list = list_new();
+	return listnode_add(*list, val);
+}
