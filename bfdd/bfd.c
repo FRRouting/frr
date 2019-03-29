@@ -1180,6 +1180,9 @@ const char *bs_to_string(const struct bfd_session *bs)
 	if (bs->key.ifname[0])
 		pos += snprintf(buf + pos, sizeof(buf) - pos, " ifname:%s",
 				bs->key.ifname);
+
+	(void)pos;
+
 	return buf;
 }
 
