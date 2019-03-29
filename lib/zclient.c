@@ -414,6 +414,9 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 	/* We need router-id information. */
 	zebra_message_send(zclient, ZEBRA_ROUTER_ID_ADD, vrf_id);
 
+	/* We need interface information. */
+	zebra_message_send(zclient, ZEBRA_INTERFACE_ADD, vrf_id);
+
 	/* Set unwanted redistribute route. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		vrf_bitmap_set(zclient->redist[afi][zclient->redist_default],
@@ -477,6 +480,8 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 
 	/* We need router-id information. */
 	zebra_message_send(zclient, ZEBRA_ROUTER_ID_DELETE, vrf_id);
+
+	zebra_message_send(zclient, ZEBRA_INTERFACE_DELETE, vrf_id);
 
 	/* Set unwanted redistribute route. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
