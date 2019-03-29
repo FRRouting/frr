@@ -229,7 +229,7 @@ uint32_t zebra_nhg_hash_key(const void *arg)
 {
 	const struct nhg_hash_entry *nhe = arg;
 
-	int key = 0x5a351234;
+	uint32_t key = 0x5a351234;
 
 	key = jhash_2words(nhe->vrf_id, nhe->afi, key);
 
