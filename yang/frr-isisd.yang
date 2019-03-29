@@ -179,25 +179,23 @@ module frr-isisd {
   grouping redistribute-attributes {
     description
       "Common optional attributes of any redistribute entry.";
-    choice attribute {
-      leaf route-map {
-        type string {
-          length "1..max";
-        }
-        description
-          "Applies the conditions of the specified route-map to routes that
-           are redistributed into this routing instance.";
+    leaf route-map {
+      type string {
+        length "1..max";
       }
+      description
+        "Applies the conditions of the specified route-map to routes that
+         are redistributed into this routing instance.";
+    }
 
-      leaf metric {
-        type uint32 {
-          range "0..16777215";
-        }
-        default "0";
-        description
-          "Metric used for the redistributed route. If 0,
-           the default-metric attribute is used instead.";
+    leaf metric {
+      type uint32 {
+        range "0..16777215";
       }
+      default "0";
+      description
+        "Metric used for the redistributed route. If 0,
+         the default-metric attribute is used instead.";
     }
   }
 
