@@ -373,6 +373,29 @@ struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
 }
 
 /**
+ * zebra_nhg_find_nexthop() - Create a group with a single nexthop, find it in
+ * 			      our table, or create it
+ *
+ * @nh:		Nexthop to lookup
+ * @afi:	Address Family type
+ *
+ * Return:	Hash entry found or created
+ */
+struct nhg_hash_entry *zebra_nhg_find_nexthop(struct nexthop *nh, afi_t afi)
+{
+	struct nhg_hash_entry *nhe = NULL;
+
+	struct nexthop_group *nhg = nexthop_group_new();
+
+	nexthop_group_add_sorted(nhg, nh);
+	nhe = zebra_nhg_find(nhg, nh->vrf_id, afi, 0, NULL, false);
+
+	nexthop_group_delete(&nhg);
+
+	return nhe;
+}
+
+/**
  * zebra_nhg_free_group_depends() - Helper function for freeing nexthop_group
  * 				    struct and depends
  *

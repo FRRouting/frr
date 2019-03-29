@@ -105,6 +105,9 @@ extern struct nhg_hash_entry *
 zebra_nhg_find(struct nexthop_group *nhg, vrf_id_t vrf_id, afi_t afi,
 	       uint32_t id, struct list *nhg_depends, bool is_kernel_nh);
 
+extern struct nhg_hash_entry *zebra_nhg_find_nexthop(struct nexthop *nh,
+						     afi_t afi);
+
 void zebra_nhg_free_group_depends(struct nexthop_group *nhg,
 				  struct list *nhg_depends);
 void zebra_nhg_free_members(struct nhg_hash_entry *nhe);
