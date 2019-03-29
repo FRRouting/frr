@@ -119,6 +119,32 @@ struct list *nhg_depend_dup_list(struct list *from)
 }
 
 /**
+ * zebra_nhg_depends_lookup_id() - Lookup for an id in the nhg_depends
+ * 				   linked list of another nhe
+ *
+ * @nhe: 	Nexthop group hash entry with list to look in
+ * @lookup:	ID to look for
+ *
+ * Return:	Nexthop group hash entry if found
+ */
+static struct nhg_hash_entry *
+zebra_nhg_depends_lookup_id(const struct nhg_hash_entry *nhe, const uint32_t id)
+{
+	struct listnode *ln = NULL;
+	struct nhg_depend *n_dp = NULL;
+	struct nhg_hash_entry *match = NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(nhe->nhg_depends, ln, n_dp)) {
+		if (n_dp->nhe->id == id) {
+			match = n_dp->nhe;
+			break;
+		}
+	}
+
+	return match;
+}
+
+/**
  * zebra_nhg_lookup_id() - Lookup the nexthop group id in the id table
  *
  * @id:		ID to look for
