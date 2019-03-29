@@ -613,6 +613,8 @@ static int bfdd_interface_update(int cmd, struct zclient *zc,
 
 	bfdd_sessions_disable_interface(ifp);
 
+	if_set_index(ifp, IFINDEX_INTERNAL);
+
 	return 0;
 }
 
