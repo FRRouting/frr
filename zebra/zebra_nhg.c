@@ -517,6 +517,15 @@ void zebra_nhg_release(struct nhg_hash_entry *nhe)
  */
 void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 {
+	if (nhe->nhg_depends) {
+		struct listnode *ln = NULL;
+		struct nhg_depend *n_dp = NULL;
+
+		for (ALL_LIST_ELEMENTS_RO(nhe->nhg_depends, ln, n_dp)) {
+			zebra_nhg_decrement_ref(n_dp->nhe);
+		}
+	}
+
 	nhe->refcnt--;
 
 	if (!nhe->is_kernel_nh && nhe->refcnt <= 0) {
