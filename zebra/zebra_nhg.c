@@ -145,6 +145,41 @@ zebra_nhg_depends_lookup_id(const struct nhg_hash_entry *nhe, const uint32_t id)
 }
 
 /**
+ * zebra_nhg_depends_equal() - Are the dependencies of these nhe's equal
+ *
+ * @nhe1:	Nexthop group hash entry
+ * @nhe2:	Nexthop group hash entry
+ *
+ * Return:	True if equal
+ *
+ * We don't care about ordering of the dependencies. If they contain
+ * the same nhe ID's, they are equivalent.
+ */
+static bool zebra_nhg_depends_equal(const struct nhg_hash_entry *nhe1,
+				    const struct nhg_hash_entry *nhe2)
+{
+	struct listnode *ln = NULL;
+	struct nhg_depend *n_dp = NULL;
+
+	if (!nhe1->nhg_depends && !nhe2->nhg_depends)
+		return true;
+
+	if ((nhe1->nhg_depends && !nhe2->nhg_depends)
+	    || (nhe2->nhg_depends && !nhe1->nhg_depends))
+		return false;
+
+	if (listcount(nhe1->nhg_depends) != listcount(nhe2->nhg_depends))
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(nhe1->nhg_depends, ln, n_dp)) {
+		if (!zebra_nhg_depends_lookup_id(nhe2, n_dp->nhe->id))
+			return false;
+	}
+
+	return true;
+}
+
+/**
  * zebra_nhg_lookup_id() - Lookup the nexthop group id in the id table
  *
  * @id:		ID to look for
@@ -212,6 +247,10 @@ static void *zebra_nhg_alloc(void *arg)
 	zebra_nhg_insert_id(nhe);
 
 
+	/* Send it to the kernel */
+	if (!nhe->is_kernel_nh)
+		zebra_nhg_install_kernel(nhe);
+
 	return nhe;
 }
 
@@ -275,8 +314,6 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct nhg_hash_entry *nhe1 = arg1;
 	const struct nhg_hash_entry *nhe2 = arg2;
-	struct nexthop *nh1, *nh2;
-	uint32_t nh_count = 0;
 
 	if (nhe1->vrf_id != nhe2->vrf_id)
 		return false;
@@ -284,24 +321,8 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	if (nhe1->afi != nhe2->afi)
 		return false;
 
-	/*
-	 * Again we are not interested in looking at any recursively
-	 * resolved nexthops.  Top level only
-	 */
-	for (nh1 = nhe1->nhg->nexthop; nh1; nh1 = nh1->next) {
-		uint32_t inner_nh_count = 0;
-		for (nh2 = nhe2->nhg->nexthop; nh2; nh2 = nh2->next) {
-			if (inner_nh_count == nh_count) {
-				break;
-			}
-			inner_nh_count++;
-		}
-
-		if (!nexthop_same(nh1, nh2))
-			return false;
-
-		nh_count++;
-	}
+	if (!zebra_nhg_depends_equal(nhe1, nhe2))
+		return false;
 
 	return true;
 }

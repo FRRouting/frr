@@ -2638,6 +2638,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	struct route_node *rn;
 	struct route_entry *same = NULL;
 	struct nhg_hash_entry *nhe = NULL;
+	struct list *nhg_depends = NULL;
 	int ret = 0;
 
 	if (!re)
@@ -2648,7 +2649,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	/* Lookup table.  */
 	table = zebra_vrf_table_with_table_id(afi, safi, re->vrf_id, re->table);
 	if (!table) {
-		zebra_nhg_free_group_depends(re->ng, NULL);
+		zebra_nhg_free_group_depends(re->ng, nhg_depends);
 		XFREE(MTYPE_RE, re);
 		return 0;
 	}
@@ -2658,11 +2659,29 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	if (src_p)
 		apply_mask_ipv6(src_p);
 
-	nhe = zebra_nhg_find(re->ng, re->vrf_id, afi, re->nhe_id, NULL, 0);
+	/* If its a group, create a dependency list */
+	if (re->ng && re->ng->nexthop->next) {
+		struct nexthop *nh = NULL;
+		struct nexthop lookup = {0};
+		struct nhg_hash_entry *depend = NULL;
+
+		nhg_depends = nhg_depend_new_list();
+
+		for (ALL_NEXTHOPS_PTR(re->ng, nh)) {
+			lookup = *nh;
+			/* Clear it, since its a group */
+			lookup.next = NULL;
+			depend = zebra_nhg_find_nexthop(&lookup, afi);
+			nhg_depend_add(nhg_depends, depend);
+		}
+	}
+
+	nhe = zebra_nhg_find(re->ng, re->vrf_id, afi, re->nhe_id, nhg_depends,
+			     false);
 
 	if (nhe) {
 		// TODO: Add interface pointer
-		zebra_nhg_free_group_depends(re->ng, NULL);
+		zebra_nhg_free_group_depends(re->ng, nhg_depends);
 		re->ng = nhe->nhg;
 		re->nhe_id = nhe->id;
 		nhe->refcnt++;

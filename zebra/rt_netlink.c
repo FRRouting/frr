@@ -324,13 +324,14 @@ static int parse_encap_mpls(struct rtattr *tb, mpls_label_t *labels)
 static struct nexthop
 parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 		      enum blackhole_type bh_type, int index, void *prefsrc,
-		      void *gate, afi_t afi, vrf_id_t nh_vrf_id)
+		      void *gate, afi_t afi, vrf_id_t vrf_id)
 {
 	struct interface *ifp = NULL;
 	struct nexthop nh = {0};
 	mpls_label_t labels[MPLS_MAX_LABELS] = {0};
 	int num_labels = 0;
 
+	vrf_id_t nh_vrf_id = vrf_id;
 	size_t sz = (afi == AFI_IP) ? 4 : 16;
 
 	if (bh_type == BLACKHOLE_UNSPEC) {
@@ -376,6 +377,114 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 		nexthop_add_labels(&nh, ZEBRA_LSP_STATIC, num_labels, labels);
 
 	return nh;
+}
+
+static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
+						struct route_entry *re,
+						struct rtmsg *rtm,
+						struct rtnexthop *rtnh,
+						struct rtattr **tb,
+						void *prefsrc, vrf_id_t vrf_id)
+{
+	void *gate = NULL;
+	struct interface *ifp = NULL;
+	int index = 0;
+	/* MPLS labels */
+	mpls_label_t labels[MPLS_MAX_LABELS] = {0};
+	int num_labels = 0;
+	struct rtattr *rtnh_tb[RTA_MAX + 1] = {};
+
+	int len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
+	vrf_id_t nh_vrf_id = vrf_id;
+
+	re->ng = nexthop_group_new();
+
+	for (;;) {
+		struct nexthop *nh = NULL;
+
+		if (len < (int)sizeof(*rtnh) || rtnh->rtnh_len > len)
+			break;
+
+		index = rtnh->rtnh_ifindex;
+		if (index) {
+			/*
+			 * Yes we are looking this up
+			 * for every nexthop and just
+			 * using the last one looked
+			 * up right now
+			 */
+			ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id),
+							index);
+			if (ifp)
+				nh_vrf_id = ifp->vrf_id;
+			else {
+				flog_warn(
+					EC_ZEBRA_UNKNOWN_INTERFACE,
+					"%s: Unknown interface %u specified, defaulting to VRF_DEFAULT",
+					__PRETTY_FUNCTION__, index);
+				nh_vrf_id = VRF_DEFAULT;
+			}
+		} else
+			nh_vrf_id = vrf_id;
+
+		if (rtnh->rtnh_len > sizeof(*rtnh)) {
+			memset(rtnh_tb, 0, sizeof(rtnh_tb));
+
+			netlink_parse_rtattr(rtnh_tb, RTA_MAX, RTNH_DATA(rtnh),
+					     rtnh->rtnh_len - sizeof(*rtnh));
+			if (rtnh_tb[RTA_GATEWAY])
+				gate = RTA_DATA(rtnh_tb[RTA_GATEWAY]);
+			if (rtnh_tb[RTA_ENCAP] && rtnh_tb[RTA_ENCAP_TYPE]
+			    && *(uint16_t *)RTA_DATA(rtnh_tb[RTA_ENCAP_TYPE])
+				       == LWTUNNEL_ENCAP_MPLS) {
+				num_labels = parse_encap_mpls(
+					rtnh_tb[RTA_ENCAP], labels);
+			}
+		}
+
+		if (gate) {
+			if (rtm->rtm_family == AF_INET) {
+				if (index)
+					nh = route_entry_nexthop_ipv4_ifindex_add(
+						re, gate, prefsrc, index,
+						nh_vrf_id);
+				else
+					nh = route_entry_nexthop_ipv4_add(
+						re, gate, prefsrc, nh_vrf_id);
+			} else if (rtm->rtm_family == AF_INET6) {
+				if (index)
+					nh = route_entry_nexthop_ipv6_ifindex_add(
+						re, gate, index, nh_vrf_id);
+				else
+					nh = route_entry_nexthop_ipv6_add(
+						re, gate, nh_vrf_id);
+			}
+		} else
+			nh = route_entry_nexthop_ifindex_add(re, index,
+							     nh_vrf_id);
+
+		if (nh) {
+			if (num_labels)
+				nexthop_add_labels(nh, ZEBRA_LSP_STATIC,
+						   num_labels, labels);
+
+			if (rtnh->rtnh_flags & RTNH_F_ONLINK)
+				SET_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK);
+		}
+
+		if (rtnh->rtnh_len == 0)
+			break;
+
+		len -= NLMSG_ALIGN(rtnh->rtnh_len);
+		rtnh = RTNH_NEXT(rtnh);
+	}
+
+	uint8_t nhop_num = nexthop_group_nexthop_num(re->ng);
+
+	if (!nhop_num)
+		nexthop_group_delete(&re->ng);
+
+	return nhop_num;
 }
 
 /* Looking up routing table by netlink interface. */
@@ -606,8 +715,6 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		afi = AFI_IP6;
 
 	if (h->nlmsg_type == RTM_NEWROUTE) {
-		struct interface *ifp;
-		vrf_id_t nh_vrf_id = vrf_id;
 
 		if (!tb[RTA_MULTIPATH]) {
 			struct nexthop nh = {0};
@@ -615,22 +722,16 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			if (!nhe_id) {
 				nh = parse_nexthop_unicast(
 					ns_id, rtm, tb, bh_type, index, prefsrc,
-					gate, afi, nh_vrf_id);
+					gate, afi, vrf_id);
 			}
 			rib_add(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, &p,
 				&src_p, &nh, nhe_id, table, metric, mtu,
 				distance, tag);
 		} else {
 			/* This is a multipath route */
-			uint8_t nhop_num;
 			struct route_entry *re;
 			struct rtnexthop *rtnh =
 				(struct rtnexthop *)RTA_DATA(tb[RTA_MULTIPATH]);
-			/* MPLS labels */
-			mpls_label_t labels[MPLS_MAX_LABELS] = {0};
-			int num_labels = 0;
-
-			len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
 
 			re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
 			re->type = proto;
@@ -643,108 +744,23 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			re->uptime = monotime(NULL);
 			re->tag = tag;
 			re->nhe_id = nhe_id;
-			re->ng = nexthop_group_new();
 
-			for (;;) {
-				struct nexthop *nh = NULL;
+			if (!nhe_id) {
+				uint8_t nhop_num =
+					parse_multipath_nexthops_unicast(
+						ns_id, re, rtm, rtnh, tb,
+						prefsrc, vrf_id);
 
-				if (len < (int)sizeof(*rtnh)
-				    || rtnh->rtnh_len > len)
-					break;
-
-				index = rtnh->rtnh_ifindex;
-				if (index) {
-					/*
-					 * Yes we are looking this up
-					 * for every nexthop and just
-					 * using the last one looked
-					 * up right now
-					 */
-					ifp = if_lookup_by_index_per_ns(
-							zebra_ns_lookup(ns_id),
-							index);
-					if (ifp)
-						nh_vrf_id = ifp->vrf_id;
-					else {
-						flog_warn(
-							EC_ZEBRA_UNKNOWN_INTERFACE,
-							"%s: Unknown interface %u specified, defaulting to VRF_DEFAULT",
-							__PRETTY_FUNCTION__,
-							index);
-						nh_vrf_id = VRF_DEFAULT;
-					}
-				} else
-					nh_vrf_id = vrf_id;
-
-				gate = 0;
-				if (rtnh->rtnh_len > sizeof(*rtnh)) {
-					memset(tb, 0, sizeof(tb));
-					netlink_parse_rtattr(
-						tb, RTA_MAX, RTNH_DATA(rtnh),
-						rtnh->rtnh_len - sizeof(*rtnh));
-					if (tb[RTA_GATEWAY])
-						gate = RTA_DATA(
-							tb[RTA_GATEWAY]);
-					if (tb[RTA_ENCAP] && tb[RTA_ENCAP_TYPE]
-					    && *(uint16_t *)RTA_DATA(
-						       tb[RTA_ENCAP_TYPE])
-						       == LWTUNNEL_ENCAP_MPLS) {
-						num_labels = parse_encap_mpls(
-							tb[RTA_ENCAP], labels);
-					}
-				}
-
-				if (gate) {
-					if (rtm->rtm_family == AF_INET) {
-						if (index)
-							nh = route_entry_nexthop_ipv4_ifindex_add(
-								re, gate,
-								prefsrc, index,
-								nh_vrf_id);
-						else
-							nh = route_entry_nexthop_ipv4_add(
-								re, gate,
-								prefsrc,
-								nh_vrf_id);
-					} else if (rtm->rtm_family
-						   == AF_INET6) {
-						if (index)
-							nh = route_entry_nexthop_ipv6_ifindex_add(
-								re, gate, index,
-								nh_vrf_id);
-						else
-							nh = route_entry_nexthop_ipv6_add(
-								re, gate,
-								nh_vrf_id);
-					}
-				} else
-					nh = route_entry_nexthop_ifindex_add(
-						re, index, nh_vrf_id);
-
-				if (nh && num_labels)
-					nexthop_add_labels(nh, ZEBRA_LSP_STATIC,
-							   num_labels, labels);
-
-				if (nh && (rtnh->rtnh_flags & RTNH_F_ONLINK))
-					SET_FLAG(nh->flags,
-						 NEXTHOP_FLAG_ONLINK);
-
-				if (rtnh->rtnh_len == 0)
-					break;
-
-				len -= NLMSG_ALIGN(rtnh->rtnh_len);
-				rtnh = RTNH_NEXT(rtnh);
+				zserv_nexthop_num_warn(
+					__func__, (const struct prefix *)&p,
+					nhop_num);
 			}
 
-			nhop_num = nexthop_group_nexthop_num(re->ng);
-			zserv_nexthop_num_warn(
-				__func__, (const struct prefix *)&p, nhop_num);
-			if (nhop_num == 0) {
-				nexthop_group_delete(&re->ng);
-				XFREE(MTYPE_RE, re);
-			} else
+			if (nhe_id || re->ng)
 				rib_add_multipath(afi, SAFI_UNICAST, &p,
 						  &src_p, re);
+			else
+				XFREE(MTYPE_RE, re);
 		}
 	} else {
 		if (!tb[RTA_MULTIPATH]) {
@@ -2400,7 +2416,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		} else {
 			/* This is a new nexthop group */
 			nhe = zebra_nhg_find(nhg, vrf_id, afi, id, nhg_depends,
-					     dep_count);
+					     true);
 			zebra_nhg_free_group_depends(nhg, nhg_depends);
 
 			if (!nhe) {
