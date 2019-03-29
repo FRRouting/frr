@@ -522,8 +522,25 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 	if (!nhe->is_kernel_nh && nhe->refcnt <= 0) {
 		zebra_nhg_uninstall_kernel(nhe);
 	}
+}
 
-	// re->ng = NULL;
+/**
+ * zebra_nhg_increment_ref() - Increment the reference count
+ *
+ * @nhe:	Nexthop group hash entry
+ */
+void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
+{
+	if (nhe->nhg_depends) {
+		struct listnode *ln = NULL;
+		struct nhg_depend *n_dp = NULL;
+
+		for (ALL_LIST_ELEMENTS_RO(nhe->nhg_depends, ln, n_dp)) {
+			zebra_nhg_increment_ref(n_dp->nhe);
+		}
+	}
+
+	nhe->refcnt++;
 }
 
 static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
