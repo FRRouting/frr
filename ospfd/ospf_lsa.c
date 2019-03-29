@@ -3646,8 +3646,8 @@ void ospf_refresher_unregister_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 			list_delete(&refresh_list);
 			ospf->lsa_refresh_queue.qs[lsa->refresh_list] = NULL;
 		}
-		ospf_lsa_unlock(&lsa); /* lsa_refresh_queue */
 		lsa->refresh_list = -1;
+		ospf_lsa_unlock(&lsa); /* lsa_refresh_queue */
 	}
 }
 
