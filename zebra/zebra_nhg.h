@@ -103,7 +103,7 @@ extern bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2);
 
 extern struct nhg_hash_entry *
 zebra_nhg_find(struct nexthop_group *nhg, vrf_id_t vrf_id, afi_t afi,
-	       uint32_t id, struct list *nhg_depends, int dep_count);
+	       uint32_t id, struct list *nhg_depends, bool is_kernel_nh);
 
 void zebra_nhg_free_group_depends(struct nexthop_group *nhg,
 				  struct list *nhg_depends);

@@ -177,7 +177,7 @@ static void *zebra_nhg_alloc(void *arg)
 	nhe->vrf_id = copy->vrf_id;
 	nhe->afi = copy->afi;
 	nhe->refcnt = 0;
-	nhe->is_kernel_nh = false;
+	nhe->is_kernel_nh = copy->is_kernel_nh;
 	nhe->dplane_ref = zebra_router_get_next_sequence();
 	nhe->ifp = NULL;
 
@@ -298,7 +298,7 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
  * 			need to give it an ID, otherwise its from the
  * 			kernel as we use the ID it gave us.
  * @nhg_depends:	Nexthop dependencies
- * @dep_count:		Count for the number of nexthop dependencies
+ * @is_kernel_nh:	Was the nexthop created by the kernel
  *
  * Return:		Hash entry found or created
  *
@@ -321,7 +321,8 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
  */
 struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
 				      vrf_id_t vrf_id, afi_t afi, uint32_t id,
-				      struct list *nhg_depends, int dep_count)
+				      struct list *nhg_depends,
+				      bool is_kernel_nh)
 {
 	/* lock for getiing and setting the id */
 	static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
@@ -352,6 +353,7 @@ struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
 	lookup.afi = afi;
 	lookup.nhg = nhg;
 	lookup.nhg_depends = nhg_depends;
+	lookup.is_kernel_nh = is_kernel_nh;
 
 	if (id)
 		nhe = zebra_nhg_lookup_id(id);
