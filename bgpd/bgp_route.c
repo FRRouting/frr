@@ -10225,40 +10225,20 @@ ravg_tally (unsigned long count, unsigned long oldavg, unsigned long newval)
 }
 #endif
 
-static int bgp_table_stats_walker(struct thread *t)
+static void bgp_table_stats_rn(struct bgp_node *rn, struct bgp_node *top,
+			       struct bgp_table_stats *ts, unsigned int space)
 {
-	struct bgp_node *rn;
-	struct bgp_node *top;
-	struct bgp_table_stats *ts = THREAD_ARG(t);
-	unsigned int space = 0;
+	struct bgp_node *prn = bgp_node_parent_nolock(rn);
+	struct bgp_path_info *pi;
 
-	if (!(top = bgp_table_top(ts->table)))
-		return 0;
+	if (rn == top)
+		return;
 
-	switch (top->p.family) {
-	case AF_INET:
-		space = IPV4_MAX_BITLEN;
-		break;
-	case AF_INET6:
-		space = IPV6_MAX_BITLEN;
-		break;
-	}
+	if (!bgp_node_has_bgp_path_info_data(rn))
+		return;
 
-	ts->counts[BGP_STATS_MAXBITLEN] = space;
-
-	for (rn = top; rn; rn = bgp_route_next(rn)) {
-		struct bgp_path_info *pi;
-		struct bgp_node *prn = bgp_node_parent_nolock(rn);
-		unsigned int pinum = 0;
-
-		if (rn == top)
-			continue;
-
-		if (!bgp_node_has_bgp_path_info_data(rn))
-			continue;
-
-		ts->counts[BGP_STATS_PREFIXES]++;
-		ts->counts[BGP_STATS_TOTPLEN] += rn->p.prefixlen;
+	ts->counts[BGP_STATS_PREFIXES]++;
+	ts->counts[BGP_STATS_TOTPLEN] += rn->p.prefixlen;
 
 #if 0
       ts->counts[BGP_STATS_AVGPLEN]
@@ -10267,49 +10247,43 @@ static int bgp_table_stats_walker(struct thread *t)
                       rn->p.prefixlen);
 #endif
 
-		/* check if the prefix is included by any other announcements */
-		while (prn && !bgp_node_has_bgp_path_info_data(prn))
-			prn = bgp_node_parent_nolock(prn);
+	/* check if the prefix is included by any other announcements */
+	while (prn && !bgp_node_has_bgp_path_info_data(prn))
+		prn = bgp_node_parent_nolock(prn);
 
-		if (prn == NULL || prn == top) {
-			ts->counts[BGP_STATS_UNAGGREGATEABLE]++;
-			/* announced address space */
-			if (space)
-				ts->total_space +=
-					pow(2.0, space - rn->p.prefixlen);
-		} else if (bgp_node_has_bgp_path_info_data(prn))
-			ts->counts[BGP_STATS_MAX_AGGREGATEABLE]++;
+	if (prn == NULL || prn == top) {
+		ts->counts[BGP_STATS_UNAGGREGATEABLE]++;
+		/* announced address space */
+		if (space)
+			ts->total_space += pow(2.0, space - rn->p.prefixlen);
+	} else if (bgp_node_has_bgp_path_info_data(prn))
+		ts->counts[BGP_STATS_MAX_AGGREGATEABLE]++;
 
-		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
-			pinum++;
-			ts->counts[BGP_STATS_RIB]++;
 
-			if (pi->attr
-			    && (CHECK_FLAG(pi->attr->flag,
-					   ATTR_FLAG_BIT(
-						   BGP_ATTR_ATOMIC_AGGREGATE))))
-				ts->counts[BGP_STATS_AGGREGATES]++;
+	for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = pi->next) {
+		ts->counts[BGP_STATS_RIB]++;
 
-			/* as-path stats */
-			if (pi->attr && pi->attr->aspath) {
-				unsigned int hops =
-					aspath_count_hops(pi->attr->aspath);
-				unsigned int size =
-					aspath_size(pi->attr->aspath);
-				as_t highest = aspath_highest(pi->attr->aspath);
+		if (pi->attr
+		    && (CHECK_FLAG(pi->attr->flag,
+				   ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))))
+			ts->counts[BGP_STATS_AGGREGATES]++;
 
-				ts->counts[BGP_STATS_ASPATH_COUNT]++;
+		/* as-path stats */
+		if (pi->attr && pi->attr->aspath) {
+			unsigned int hops = aspath_count_hops(pi->attr->aspath);
+			unsigned int size = aspath_size(pi->attr->aspath);
+			as_t highest = aspath_highest(pi->attr->aspath);
 
-				if (hops > ts->counts[BGP_STATS_ASPATH_MAXHOPS])
-					ts->counts[BGP_STATS_ASPATH_MAXHOPS] =
-						hops;
+			ts->counts[BGP_STATS_ASPATH_COUNT]++;
 
-				if (size > ts->counts[BGP_STATS_ASPATH_MAXSIZE])
-					ts->counts[BGP_STATS_ASPATH_MAXSIZE] =
-						size;
+			if (hops > ts->counts[BGP_STATS_ASPATH_MAXHOPS])
+				ts->counts[BGP_STATS_ASPATH_MAXHOPS] = hops;
 
-				ts->counts[BGP_STATS_ASPATH_TOTHOPS] += hops;
-				ts->counts[BGP_STATS_ASPATH_TOTSIZE] += size;
+			if (size > ts->counts[BGP_STATS_ASPATH_MAXSIZE])
+				ts->counts[BGP_STATS_ASPATH_MAXSIZE] = size;
+
+			ts->counts[BGP_STATS_ASPATH_TOTHOPS] += hops;
+			ts->counts[BGP_STATS_ASPATH_TOTSIZE] += size;
 #if 0
               ts->counts[BGP_STATS_ASPATH_AVGHOPS]
                 = ravg_tally (ts->counts[BGP_STATS_ASPATH_COUNT],
@@ -10320,12 +10294,52 @@ static int bgp_table_stats_walker(struct thread *t)
                               ts->counts[BGP_STATS_ASPATH_AVGSIZE],
                               size);
 #endif
-				if (highest > ts->counts[BGP_STATS_ASN_HIGHEST])
-					ts->counts[BGP_STATS_ASN_HIGHEST] =
-						highest;
-			}
+			if (highest > ts->counts[BGP_STATS_ASN_HIGHEST])
+				ts->counts[BGP_STATS_ASN_HIGHEST] = highest;
 		}
 	}
+}
+
+static int bgp_table_stats_walker(struct thread *t)
+{
+	struct bgp_node *rn, *nrn;
+	struct bgp_node *top;
+	struct bgp_table_stats *ts = THREAD_ARG(t);
+	unsigned int space = 0;
+
+	if (!(top = bgp_table_top(ts->table)))
+		return 0;
+
+	switch (ts->table->afi) {
+	case AFI_IP:
+		space = IPV4_MAX_BITLEN;
+		break;
+	case AFI_IP6:
+		space = IPV6_MAX_BITLEN;
+		break;
+	default:
+		return 0;
+	}
+
+	ts->counts[BGP_STATS_MAXBITLEN] = space;
+
+	for (rn = top; rn; rn = bgp_route_next(rn)) {
+		if (ts->table->safi == SAFI_MPLS_VPN) {
+			struct bgp_table *table;
+
+			table = bgp_node_get_bgp_table_info(rn);
+			if (!table)
+				continue;
+
+			top = bgp_table_top(table);
+			for (nrn = bgp_table_top(table); nrn;
+			     nrn = bgp_route_next(nrn))
+				bgp_table_stats_rn(nrn, top, ts, space);
+		} else {
+			bgp_table_stats_rn(rn, top, ts, space);
+		}
+	}
+
 	return 0;
 }
 
