@@ -29,6 +29,7 @@
 #include "zebra_pbr.h"
 #include "zebra_vxlan.h"
 #include "zebra_mlag.h"
+#include "zebra_errors.h"
 
 struct zebra_router zrouter;
 
@@ -163,6 +164,15 @@ void zebra_router_sweep_route(void)
 static void zebra_router_free_table(struct zebra_router_table *zrt)
 {
 	void *table_info;
+	struct zebra_vrf *zvrf;
+
+	zvrf = zvrf_lookup_from_attribute(zrt->tableid, zrt->ns_id);
+	if (!zvrf)
+		flog_warn(EC_ZEBRA_VRF_REMOVED,
+			  "zrouter: vrf for table %u, ns %u not found. cancel rib_close.",
+			  zrt->tableid, zrt->ns_id);
+	else
+		rib_close_table(zrt->table);
 
 	table_info = route_table_get_info(zrt->table);
 	route_table_finish(zrt->table);

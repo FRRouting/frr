@@ -207,6 +207,8 @@ extern void zebra_vrf_init(void);
 extern void zebra_rtable_node_cleanup(struct route_table *table,
 				      struct route_node *node);
 
+extern struct zebra_vrf *zvrf_lookup_from_attribute(uint32_t tableid,
+						    ns_id_t ns_id);
 #ifdef __cplusplus
 }
 #endif

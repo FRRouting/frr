@@ -126,6 +126,7 @@ enum zebra_log_refs {
 	EC_ZEBRA_DUP_MAC_DETECTED,
 	EC_ZEBRA_DUP_IP_INHERIT_DETECTED,
 	EC_ZEBRA_DUP_IP_DETECTED,
+	EC_ZEBRA_VRF_REMOVED,
 };
 
 void zebra_error_init(void);

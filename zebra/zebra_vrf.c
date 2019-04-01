@@ -511,3 +511,19 @@ void zebra_vrf_init(void)
 
 	vrf_cmd_init(vrf_config_write, &zserv_privs);
 }
+
+struct zebra_vrf *zvrf_lookup_from_attribute(uint32_t tableid, ns_id_t ns_id)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		zvrf = vrf->info;
+		if (zvrf->table_id != tableid)
+			continue;
+		if (zvrf->zns && zvrf->zns->ns_id == ns_id)
+			return zvrf;
+		continue;
+	}
+	return NULL;
+}
