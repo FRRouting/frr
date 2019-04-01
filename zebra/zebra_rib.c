@@ -2684,7 +2684,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		zebra_nhg_free_group_depends(re->ng, nhg_depends);
 		re->ng = nhe->nhg;
 		re->nhe_id = nhe->id;
-		nhe->refcnt++;
+		zebra_nhg_increment_ref(nhe);
 	} else {
 		flog_err(
 			EC_ZEBRA_TABLE_LOOKUP_FAILED,
