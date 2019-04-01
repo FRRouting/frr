@@ -2639,6 +2639,8 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	struct route_entry *same = NULL;
 	struct nhg_hash_entry *nhe = NULL;
 	struct list *nhg_depends = NULL;
+	/* Default to route afi */
+	afi_t nhg_afi = afi;
 	int ret = 0;
 
 	if (!re)
@@ -2671,13 +2673,18 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 			lookup = *nh;
 			/* Clear it, since its a group */
 			lookup.next = NULL;
+			/* Use the route afi here, since a single nh */
 			depend = zebra_nhg_find_nexthop(&lookup, afi);
 			nhg_depend_add(nhg_depends, depend);
 		}
+
+		/* change the afi for group */
+		if (listcount(nhg_depends))
+			nhg_afi = AFI_UNSPEC;
 	}
 
-	nhe = zebra_nhg_find(re->ng, re->vrf_id, afi, re->nhe_id, nhg_depends,
-			     false);
+	nhe = zebra_nhg_find(re->ng, re->vrf_id, nhg_afi, re->nhe_id,
+			     nhg_depends, false);
 
 	if (nhe) {
 		// TODO: Add interface pointer
