@@ -1472,7 +1472,6 @@ static void install_cli_commands(void)
 	install_default(RPKI_NODE);
 	overwrite_exit_commands();
 	install_element(CONFIG_NODE, &rpki_cmd);
-	install_element(VIEW_NODE, &rpki_cmd);
 
 	install_element(ENABLE_NODE, &bgp_rpki_start_cmd);
 	install_element(ENABLE_NODE, &bgp_rpki_stop_cmd);
@@ -1505,10 +1504,10 @@ static void install_cli_commands(void)
 	install_element(RPKI_NODE, &no_rpki_cache_cmd);
 
 	/* Install show commands */
-	install_element(ENABLE_NODE, &show_rpki_prefix_table_cmd);
-	install_element(ENABLE_NODE, &show_rpki_cache_connection_cmd);
-	install_element(ENABLE_NODE, &show_rpki_cache_server_cmd);
-	install_element(ENABLE_NODE, &show_rpki_prefix_cmd);
+	install_element(VIEW_NODE, &show_rpki_prefix_table_cmd);
+	install_element(VIEW_NODE, &show_rpki_cache_connection_cmd);
+	install_element(VIEW_NODE, &show_rpki_cache_server_cmd);
+	install_element(VIEW_NODE, &show_rpki_prefix_cmd);
 
 	/* Install debug commands */
 	install_element(CONFIG_NODE, &debug_rpki_cmd);
