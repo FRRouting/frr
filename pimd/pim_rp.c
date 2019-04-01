@@ -1206,14 +1206,13 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 	}
 }
 
-void pim_resolve_rp_nh(struct pim_instance *pim)
+void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr)
 {
 	struct listnode *node = NULL;
 	struct rp_info *rp_info = NULL;
 	struct nexthop *nh_node = NULL;
 	struct prefix nht_p;
 	struct pim_nexthop_cache pnc;
-	struct pim_neighbor *nbr = NULL;
 
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (rp_info->rp.rpf_addr.u.prefix4.s_addr == INADDR_NONE)
@@ -1233,8 +1232,8 @@ void pim_resolve_rp_nh(struct pim_instance *pim)
 
 			struct interface *ifp1 = if_lookup_by_index(
 				nh_node->ifindex, pim->vrf_id);
-			nbr = pim_neighbor_find_if(ifp1);
-			if (!nbr)
+
+			if (nbr->interface != ifp1)
 				continue;
 
 			nh_node->gate.ipv4 = nbr->source_addr;
