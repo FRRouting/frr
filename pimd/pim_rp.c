@@ -1091,34 +1091,13 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 	return count;
 }
 
-int pim_rp_check_is_my_ip_address(struct pim_instance *pim,
-				  struct in_addr group,
-				  struct in_addr dest_addr)
+bool pim_rp_check_is_my_ip_address(struct pim_instance *pim,
+				   struct in_addr dest_addr)
 {
-	struct rp_info *rp_info;
-	struct prefix g;
-
-	memset(&g, 0, sizeof(g));
-	g.family = AF_INET;
-	g.prefixlen = 32;
-	g.u.prefix4 = group;
-
-	rp_info = pim_rp_find_match_group(pim, &g);
-	/*
-	 * See if we can short-cut some?
-	 * This might not make sense if we ever leave a static RP
-	 * type of configuration.
-	 * Note - Premature optimization might bite our patooeys' here.
-	 */
-	if (I_am_RP(pim, group)) {
-		if (dest_addr.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr)
-			return 1;
-	}
-
 	if (if_lookup_exact_address(&dest_addr, AF_INET, pim->vrf_id))
-		return 1;
+		return true;
 
-	return 0;
+	return false;
 }
 
 void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)

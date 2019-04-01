@@ -279,14 +279,13 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
 	ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
 
-	if (!pim_rp_check_is_my_ip_address(pim_ifp->pim, ip_hdr->ip_dst,
-					   dest_addr)) {
+	if (!pim_rp_check_is_my_ip_address(pim_ifp->pim, dest_addr)) {
 		if (PIM_DEBUG_PIM_REG) {
 			char dest[INET_ADDRSTRLEN];
 
 			pim_inet4_dump("<dst?>", dest_addr, dest, sizeof(dest));
 			zlog_debug(
-				"%s: Received Register message for %s that I do not own",
+				"%s: Received Register message for destination address: %s that I do not own",
 				__func__, dest);
 		}
 		return 0;
@@ -330,9 +329,8 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 		char src_str[INET_ADDRSTRLEN];
 
 		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
-		zlog_debug(
-			"Received Register message(%s) from %s on %s, rp: %d",
-			pim_str_sg_dump(&sg), src_str, ifp->name, i_am_rp);
+		zlog_debug("Received Register message%s from %s on %s, rp: %d",
+			   pim_str_sg_dump(&sg), src_str, ifp->name, i_am_rp);
 	}
 
 	if (i_am_rp

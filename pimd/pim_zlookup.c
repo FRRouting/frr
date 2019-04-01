@@ -499,7 +499,7 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 		more.src = c_oil->oil.mfcc_origin;
 		more.grp = c_oil->oil.mfcc_mcastgrp;
 		zlog_debug(
-			"Sending Request for New Channel Oil Information(%s) VIIF %d(%s)",
+			"Sending Request for New Channel Oil Information%s VIIF %d(%s)",
 			pim_str_sg_dump(&more), c_oil->oil.mfcc_parent,
 			c_oil->pim->vrf->name);
 	}
