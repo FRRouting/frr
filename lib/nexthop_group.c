@@ -25,6 +25,7 @@
 #include <nexthop_group.h>
 #include <vty.h>
 #include <command.h>
+#include <jhash.h>
 
 #ifndef VTYSH_EXTRACT_PL
 #include "lib/nexthop_group_clippy.c"
@@ -145,6 +146,21 @@ void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 			copy_nexthops(&nexthop->resolved, nh1->resolved,
 				      nexthop);
 	}
+}
+
+uint32_t nexthop_group_hash(const struct nexthop_group *nhg)
+{
+	struct nexthop *nh;
+	uint32_t key = 0;
+
+	/*
+	 * We are not interested in hashing over any recursively
+	 * resolved nexthops
+	 */
+	for (nh = nhg->nexthop; nh; nh = nh->next)
+		key = jhash_1word(nexthop_hash(nh), key);
+
+	return key;
 }
 
 static void nhgc_delete_nexthops(struct nexthop_group_cmd *nhgc)

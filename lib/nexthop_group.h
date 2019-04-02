@@ -47,6 +47,8 @@ void nexthop_del(struct nexthop_group *nhg, struct nexthop *nexthop);
 void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 		   struct nexthop *rparent);
 
+uint32_t nexthop_group_hash(const struct nexthop_group *nhg);
+
 /* The following for loop allows to iterate over the nexthop
  * structure of routes.
  *
