@@ -18,7 +18,7 @@ Add packages:
 
 ::
 
-    sudo yum install git autoconf automake libtool make gawk \
+    sudo yum install git autoconf automake libtool make \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
       json-c-devel pam-devel bison flex pytest c-ares-devel \
       python-devel systemd-devel python-sphinx
