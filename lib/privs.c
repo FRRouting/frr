@@ -706,7 +706,9 @@ struct zebra_privs_t *_zprivs_raise(struct zebra_privs_t *privs,
 	if (!privs)
 		return NULL;
 
-	/* If we're already elevated, just return */
+	/*
+	 * Allow multiple 'raise' operations, but serialize them.
+	 */
 	pthread_mutex_lock(&(privs->mutex));
 	{
 		if (++(privs->refcount) == 1) {
@@ -717,6 +719,13 @@ struct zebra_privs_t *_zprivs_raise(struct zebra_privs_t *privs,
 			}
 			errno = save_errno;
 			privs->raised_in_funcname = funcname;
+		} else {
+			errno = 0;
+			if (privs->change(ZPRIVS_RAISE)) {
+				zlog_err("%s: Failed to re-raise privileges (%s)",
+					 funcname, safe_strerror(errno));
+			}
+			errno = save_errno;
 		}
 	}
 	pthread_mutex_unlock(&(privs->mutex));
