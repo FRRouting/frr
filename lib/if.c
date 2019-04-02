@@ -177,6 +177,8 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 	if (ifp->ifindex != IFINDEX_INTERNAL)
 		IFINDEX_RB_INSERT(vrf, ifp);
 
+	if (!old_vrf->name)
+		return;
 	/*
 	 * HACK: Change the interface VRF in the running configuration directly,
 	 * bypassing the northbound layer. This is necessary to avoid deleting
