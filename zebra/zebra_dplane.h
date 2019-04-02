@@ -201,6 +201,9 @@ uint32_t dplane_ctx_get_old_seq(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_vrf(struct zebra_dplane_ctx *ctx, vrf_id_t vrf);
 vrf_id_t dplane_ctx_get_vrf(const struct zebra_dplane_ctx *ctx);
 
+bool dplane_ctx_is_from_notif(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_notif_provider(const struct zebra_dplane_ctx *ctx);
+
 /* Accessors for route update information */
 void dplane_ctx_set_type(struct zebra_dplane_ctx *ctx, int type);
 int dplane_ctx_get_type(const struct zebra_dplane_ctx *ctx);
