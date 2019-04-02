@@ -148,7 +148,9 @@ const struct message rtm_type_str[] = {{RTM_ADD, "RTM_ADD"},
 #ifdef RTM_OLDDEL
 				       {RTM_OLDDEL, "RTM_OLDDEL"},
 #endif /* RTM_OLDDEL */
+#ifdef RTM_RESOLVE
 				       {RTM_RESOLVE, "RTM_RESOLVE"},
+#endif	/* RTM_RESOLVE */
 				       {RTM_NEWADDR, "RTM_NEWADDR"},
 				       {RTM_DELADDR, "RTM_DELADDR"},
 				       {RTM_IFINFO, "RTM_IFINFO"},
