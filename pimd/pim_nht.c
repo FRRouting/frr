@@ -899,6 +899,8 @@ int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
 	if (PIM_DEBUG_PIM_NHT)
 		pim_inet4_dump("<addr?>", src->u.prefix4, addr_str,
 			       sizeof(addr_str));
+
+	memset(&nhop, 0, sizeof(nhop));
 	if (!pim_ecmp_nexthop_lookup(pim, &nhop, src, grp, 0)) {
 		if (PIM_DEBUG_PIM_NHT)
 			zlog_debug(
