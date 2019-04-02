@@ -58,7 +58,7 @@ static void static_nht_update_safi(struct prefix *p, uint32_t nh_num,
 			    && si->type != STATIC_IPV4_GATEWAY_IFNAME
 			    && si->type != STATIC_IPV6_GATEWAY
 			    && si->type != STATIC_IPV6_GATEWAY_IFNAME)
-				return;
+				continue;
 
 			orig = si->nh_valid;
 			if (p->family == AF_INET
