@@ -158,7 +158,8 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 		hash_get(pnc->upstream_hash, up, hash_alloc_intern);
 
 	if (CHECK_FLAG(pnc->flags, PIM_NEXTHOP_VALID)) {
-		memcpy(out_pnc, pnc, sizeof(struct pim_nexthop_cache));
+		if (out_pnc)
+			memcpy(out_pnc, pnc, sizeof(struct pim_nexthop_cache));
 		return 1;
 	}
 
@@ -256,10 +257,9 @@ static void pim_update_rp_nh(struct pim_instance *pim,
 			continue;
 
 		// Compute PIM RPF using cached nexthop
-		if (!pim_ecmp_nexthop_search(pim, pnc,
-		    &rp_info->rp.source_nexthop,
-		    &rp_info->rp.rpf_addr, &rp_info->group,
-		    1))
+		if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop,
+					     &rp_info->rp.rpf_addr,
+					     &rp_info->group, 1))
 			pim_rp_nexthop_del(rp_info);
 	}
 }
@@ -347,10 +347,11 @@ uint32_t pim_compute_ecmp_hash(struct prefix *src, struct prefix *grp)
 	return hash_val;
 }
 
-int pim_ecmp_nexthop_search(struct pim_instance *pim,
-			    struct pim_nexthop_cache *pnc,
-			    struct pim_nexthop *nexthop, struct prefix *src,
-			    struct prefix *grp, int neighbor_needed)
+static int pim_ecmp_nexthop_search(struct pim_instance *pim,
+				   struct pim_nexthop_cache *pnc,
+				   struct pim_nexthop *nexthop,
+				   struct prefix *src, struct prefix *grp,
+				   int neighbor_needed)
 {
 	struct pim_neighbor *nbrs[MULTIPATH_NUM], *nbr = NULL;
 	struct interface *ifps[MULTIPATH_NUM];
@@ -734,8 +735,10 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 			    struct pim_nexthop *nexthop, struct prefix *src,
 			    struct prefix *grp, int neighbor_needed)
 {
+	struct pim_nexthop_cache *pnc;
 	struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
 	struct pim_neighbor *nbrs[MULTIPATH_NUM], *nbr = NULL;
+	struct pim_rpf rpf;
 	int num_ifindex;
 	struct interface *ifps[MULTIPATH_NUM], *ifp;
 	int first_ifindex;
@@ -752,6 +755,16 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 			   __PRETTY_FUNCTION__, addr_str, pim->vrf->name,
 			   nexthop->last_lookup_time);
 	}
+
+	memset(&rpf, 0, sizeof(struct pim_rpf));
+	rpf.rpf_addr.family = AF_INET;
+	rpf.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
+	rpf.rpf_addr.u.prefix4 = src->u.prefix4;
+
+	pnc = pim_nexthop_cache_find(pim, &rpf);
+	if (pnc)
+		return pim_ecmp_nexthop_search(pim, pnc, nexthop, src, grp,
+					       neighbor_needed);
 
 	memset(nexthop_tab, 0,
 	       sizeof(struct pim_zlookup_nexthop) * MULTIPATH_NUM);
