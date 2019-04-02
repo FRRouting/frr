@@ -4594,7 +4594,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty, bool fill,
 		for (oif_vif_index = 0; oif_vif_index < MAXVIFS;
 		     ++oif_vif_index) {
 			struct interface *ifp_out;
-			char oif_uptime[10];
+			char mroute_uptime[10];
 			int ttl;
 
 			ttl = c_oil->oil.mfcc_ttls[oif_vif_index];
@@ -4603,8 +4603,8 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty, bool fill,
 
 			ifp_out = pim_if_find_by_vif_index(pim, oif_vif_index);
 			pim_time_uptime(
-				oif_uptime, sizeof(oif_uptime),
-				now - c_oil->oif_creation[oif_vif_index]);
+				mroute_uptime, sizeof(mroute_uptime),
+				now - c_oil->mroute_creation);
 			found_oif = 1;
 
 			if (ifp_out)
@@ -4652,7 +4652,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty, bool fill,
 						    oif_vif_index);
 				json_object_int_add(json_ifp_out, "ttl", ttl);
 				json_object_string_add(json_ifp_out, "upTime",
-						       oif_uptime);
+						       mroute_uptime);
 				if (!json_oil) {
 					json_oil = json_object_new_object();
 					json_object_object_add(json_source,
@@ -4684,7 +4684,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty, bool fill,
 				vty_out(vty,
 					"%-15s %-15s %-6s %-16s %-16s %-3d  %8s\n",
 					src_str, grp_str, proto, in_ifname,
-					out_ifname, ttl, oif_uptime);
+					out_ifname, ttl, mroute_uptime);
 
 				if (first) {
 					src_str[0] = '\0';

@@ -964,6 +964,8 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	}
 
 	c_oil->installed = 1;
+	c_oil->mroute_creation = pim_time_monotonic_sec();
+
 	return 0;
 }
 

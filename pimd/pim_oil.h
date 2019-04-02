@@ -97,6 +97,7 @@ struct channel_oil {
 	uint32_t oif_flags[MAXVIFS];
 	struct channel_counts cc;
 	struct pim_upstream *up;
+	time_t mroute_creation;
 };
 
 extern struct list *pim_channel_oil_list;
