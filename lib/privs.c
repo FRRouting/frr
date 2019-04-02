@@ -25,10 +25,25 @@
 #include "privs.h"
 #include "memory.h"
 #include "lib_errors.h"
-
-#ifdef HAVE_CAPABILITIES
+#include "lib/queue.h"
 
 DEFINE_MTYPE_STATIC(LIB, PRIVS, "Privilege information")
+
+/*
+ * Different capabilities/privileges apis have different characteristics: some
+ * are process-wide, and some are per-thread.
+ */
+#ifdef HAVE_CAPABILITIES
+#ifdef HAVE_LCAPS
+static const bool privs_per_process;  /* = false */
+#elif defined(HAVE_SOLARIS_CAPABILITIES)
+static const bool privs_per_process = true;
+#endif
+#else
+static const bool privs_per_process = true;
+#endif	/* HAVE_CAPABILITIES */
+
+#ifdef HAVE_CAPABILITIES
 
 /* sort out some generic internal types for:
  *
@@ -698,25 +713,66 @@ static int getgrouplist(const char *user, gid_t group, gid_t *groups,
 }
 #endif /* HAVE_GETGROUPLIST */
 
+/*
+ * Helper function that locates a refcounting object to use: a process-wide
+ * object or a per-pthread object.
+ */
+static struct zebra_privs_refs_t *get_privs_refs(struct zebra_privs_t *privs)
+{
+	struct zebra_privs_refs_t *temp, *refs = NULL;
+	pthread_t tid;
+
+	if (privs_per_process)
+		refs = &(privs->process_refs);
+	else {
+		/* Locate - or create - the object for the current pthread. */
+		tid = pthread_self();
+
+		STAILQ_FOREACH(temp, &(privs->thread_refs), entry) {
+			if (pthread_equal(temp->tid, tid)) {
+				refs = temp;
+				break;
+			}
+		}
+
+		/* Need to create a new refcounting object. */
+		if (refs == NULL) {
+			refs = XCALLOC(MTYPE_PRIVS,
+				       sizeof(struct zebra_privs_refs_t));
+			refs->tid = tid;
+			STAILQ_INSERT_TAIL(&(privs->thread_refs), refs, entry);
+		}
+	}
+
+	return refs;
+}
+
 struct zebra_privs_t *_zprivs_raise(struct zebra_privs_t *privs,
 				    const char *funcname)
 {
 	int save_errno = errno;
+	struct zebra_privs_refs_t *refs;
 
 	if (!privs)
 		return NULL;
 
-	/* If we're already elevated, just return */
+	/*
+	 * Serialize 'raise' operations; particularly important for
+	 * OSes where privs are process-wide.
+	 */
 	pthread_mutex_lock(&(privs->mutex));
 	{
-		if (++(privs->refcount) == 1) {
+		/* Locate ref-counting object to use */
+		refs = get_privs_refs(privs);
+
+		if (++(refs->refcount) == 1) {
 			errno = 0;
 			if (privs->change(ZPRIVS_RAISE)) {
 				zlog_err("%s: Failed to raise privileges (%s)",
 					 funcname, safe_strerror(errno));
 			}
 			errno = save_errno;
-			privs->raised_in_funcname = funcname;
+			refs->raised_in_funcname = funcname;
 		}
 	}
 	pthread_mutex_unlock(&(privs->mutex));
@@ -727,22 +783,27 @@ struct zebra_privs_t *_zprivs_raise(struct zebra_privs_t *privs,
 void _zprivs_lower(struct zebra_privs_t **privs)
 {
 	int save_errno = errno;
+	struct zebra_privs_refs_t *refs;
 
 	if (!*privs)
 		return;
 
-	/* Don't lower privs if there's another caller */
+	/* Serialize 'lower privs' operation - particularly important
+	 * when OS privs are process-wide.
+	 */
 	pthread_mutex_lock(&(*privs)->mutex);
 	{
-		if (--((*privs)->refcount) == 0) {
+		refs = get_privs_refs(*privs);
+
+		if (--(refs->refcount) == 0) {
 			errno = 0;
 			if ((*privs)->change(ZPRIVS_LOWER)) {
 				zlog_err("%s: Failed to lower privileges (%s)",
-					 (*privs)->raised_in_funcname,
+					 refs->raised_in_funcname,
 					 safe_strerror(errno));
 			}
 			errno = save_errno;
-			(*privs)->raised_in_funcname = NULL;
+			refs->raised_in_funcname = NULL;
 		}
 	}
 	pthread_mutex_unlock(&(*privs)->mutex);
@@ -761,7 +822,9 @@ void zprivs_preinit(struct zebra_privs_t *zprivs)
 	}
 
 	pthread_mutex_init(&(zprivs->mutex), NULL);
-	zprivs->refcount = 0;
+	zprivs->process_refs.refcount = 0;
+	zprivs->process_refs.raised_in_funcname = NULL;
+	STAILQ_INIT(&zprivs->thread_refs);
 
 	if (zprivs->vty_group) {
 		/* in a "NULL" setup, this is allowed to fail too, but still
@@ -919,6 +982,8 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 
 void zprivs_terminate(struct zebra_privs_t *zprivs)
 {
+	struct zebra_privs_refs_t *refs;
+
 	if (!zprivs) {
 		fprintf(stderr, "%s: no privs struct given, terminating",
 			__func__);
@@ -940,6 +1005,11 @@ void zprivs_terminate(struct zebra_privs_t *zprivs)
 		}
 	}
 #endif /* HAVE_LCAPS */
+
+	while ((refs = STAILQ_FIRST(&(zprivs->thread_refs))) != NULL) {
+		STAILQ_REMOVE_HEAD(&(zprivs->thread_refs), entry);
+		XFREE(MTYPE_PRIVS, refs);
+	}
 
 	zprivs->change = zprivs_change_null;
 	zprivs->current_state = zprivs_state_null;
