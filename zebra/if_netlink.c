@@ -660,6 +660,8 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		    && !vrf_is_backend_netns()) {
 			zif_slave_type = ZEBRA_IF_SLAVE_VRF;
 			vrf_id = *(uint32_t *)RTA_DATA(tb[IFLA_MASTER]);
+			/* vrf can be needed before vrf netlink discovery */
+			vrf_get(vrf_id, NULL);
 		} else if (slave_kind && (strcmp(slave_kind, "bridge") == 0)) {
 			zif_slave_type = ZEBRA_IF_SLAVE_BRIDGE;
 			bridge_ifindex =
@@ -672,9 +674,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	}
 	if (vrf_is_backend_netns())
 		vrf_id = (vrf_id_t)ns_id;
-
 	vrf = vrf_lookup_by_id(vrf_id);
-
 	/* If linking to another interface, note it. */
 	if (tb[IFLA_LINK])
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
