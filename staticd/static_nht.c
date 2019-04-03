@@ -52,7 +52,7 @@ static void static_nht_update_safi(struct prefix *p, uint32_t nh_num,
 		reinstall = false;
 		for (si = rn->info; si; si = si->next) {
 			if (si->nh_vrf_id != nh_vrf_id)
-				return;
+				continue;
 
 			if (si->type != STATIC_IPV4_GATEWAY
 			    && si->type != STATIC_IPV4_GATEWAY_IFNAME
