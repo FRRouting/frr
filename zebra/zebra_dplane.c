@@ -1828,6 +1828,14 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 		if (ctx == NULL)
 			break;
 
+		/* A previous provider plugin may have asked to skip the
+		 * kernel update.
+		 */
+		if (dplane_ctx_is_skip_kernel(ctx)) {
+			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
+			goto skip_one;
+		}
+
 		/* Dispatch to appropriate kernel-facing apis */
 		switch (dplane_ctx_get_op(ctx)) {
 
@@ -1857,6 +1865,7 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 			break;
 		}
 
+skip_one:
 		dplane_ctx_set_status(ctx, res);
 
 		dplane_provider_enqueue_out_ctx(prov, ctx);
