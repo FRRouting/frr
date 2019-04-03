@@ -1,0 +1,94 @@
+{
+  "1": {
+    "level-1": {
+      "ipv4": [
+        {
+          "vertex": "r2"
+        }
+      ],
+      "ipv6": [
+        {
+          "vertex": "r2"
+        }
+      ]
+    },
+    "level-2": {
+      "ipv4": [
+        {
+          "vertex": "r2"
+        },
+        {
+          "metric": "internal",
+          "parent": "0",
+          "type": "IP",
+          "vertex": "10.0.21.0/24"
+        },
+        {
+          "interface": "r2-eth0",
+          "metric": "10",
+          "next-hop": "r4",
+          "parent": "r2(4)",
+          "type": "TE-IS",
+          "vertex": "r4"
+        },
+        {
+          "interface": "r4",
+          "metric": "TE",
+          "next-hop": "10",
+          "parent": "r2-eth0",
+          "type": "IP",
+          "vertex": "10.0.11.0/24"
+        },
+        {
+          "interface": "r4",
+          "metric": "TE",
+          "next-hop": "10",
+          "parent": "r2-eth0",
+          "type": "IP",
+          "vertex": "10.0.21.0/24"
+        },
+        {
+          "interface": "r4",
+          "metric": "TE",
+          "next-hop": "10",
+          "parent": "r2-eth0",
+          "type": "IP",
+          "vertex": "10.254.0.4/32"
+        }
+      ],
+      "ipv6": [
+        {
+          "vertex": "r2"
+        },
+        {
+          "metric": "internal",
+          "parent": "0",
+          "type": "IP6",
+          "vertex": "2001:db8:1:2::/64"
+        },
+        {
+          "interface": "r2-eth0",
+          "metric": "10",
+          "next-hop": "r4",
+          "parent": "r2(4)",
+          "type": "TE-IS",
+          "vertex": "r4"
+        },
+        {
+          "interface": "r4",
+          "next-hop": "10",
+          "parent": "r2-eth0",
+          "type": "IP6",
+          "vertex": "2001:db8:2:2::/64"
+        },
+        {
+          "interface": "r4",
+          "next-hop": "10",
+          "parent": "r2-eth0",
+          "type": "IP6",
+          "vertex": "2001:db8:f::4/128"
+        }
+      ]
+    }
+  }
+}

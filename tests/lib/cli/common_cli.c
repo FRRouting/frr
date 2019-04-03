@@ -50,6 +50,8 @@ static void vty_do_exit(int isexit)
 	printf("\nend.\n");
 	cmd_terminate();
 	vty_terminate();
+	nb_terminate();
+	yang_terminate();
 	thread_master_free(master);
 	closezlog();
 
@@ -78,9 +80,12 @@ int main(int argc, char **argv)
 	/* Library inits. */
 	cmd_init(1);
 	cmd_hostname_set("test");
+	cmd_domainname_set("test.domain");
 
 	vty_init(master);
 	memory_init();
+	yang_init();
+	nb_init(master, NULL, 0);
 
 	test_init(argc, argv);
 

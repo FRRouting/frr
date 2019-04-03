@@ -269,7 +269,8 @@ DEFUN (show_zebra,
 	vty_out(vty, "Zebra Infomation\n");
 	vty_out(vty, "  fail: %d\n", zclient->fail);
 	vty_out(vty, "  redistribute default: %d\n",
-		vrf_bitmap_check(zclient->default_information, VRF_DEFAULT));
+		vrf_bitmap_check(zclient->default_information[AFI_IP6],
+				 VRF_DEFAULT));
 	vty_out(vty, "  redistribute:");
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (vrf_bitmap_check(zclient->redist[AFI_IP6][i], VRF_DEFAULT))
@@ -586,7 +587,7 @@ static void ospf6_zebra_connected(struct zclient *zclient)
 void ospf6_zebra_init(struct thread_master *master)
 {
 	/* Allocate zebra structure. */
-	zclient = zclient_new_notify(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default);
 	zclient_init(zclient, ZEBRA_ROUTE_OSPF6, 0, &ospf6d_privs);
 	zclient->zebra_connected = ospf6_zebra_connected;
 	zclient->router_id_update = ospf6_router_id_update_zebra;

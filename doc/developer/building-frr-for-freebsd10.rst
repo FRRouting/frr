@@ -23,6 +23,8 @@ Make sure there is no /usr/bin/flex preinstalled (and use the newly
 installed in /usr/local/bin): (FreeBSD frequently provides a older flex
 as part of the base OS which takes preference in path)
 
+.. include:: building-libyang.rst
+
 ::
 
     rm -f /usr/bin/flex

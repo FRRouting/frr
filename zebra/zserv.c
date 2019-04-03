@@ -492,8 +492,8 @@ static int zserv_process_messages(struct thread *thread)
 	struct zserv *client = THREAD_ARG(thread);
 	struct stream *msg;
 	struct stream_fifo *cache = stream_fifo_new();
-
 	uint32_t p2p = zebrad.packets_to_process;
+	bool need_resched = false;
 
 	pthread_mutex_lock(&client->ibuf_mtx);
 	{
@@ -505,6 +505,12 @@ static int zserv_process_messages(struct thread *thread)
 		}
 
 		msg = NULL;
+
+		/* Need to reschedule processing work if there are still
+		 * packets in the fifo.
+		 */
+		if (stream_fifo_head(client->ibuf_fifo))
+			need_resched = true;
 	}
 	pthread_mutex_unlock(&client->ibuf_mtx);
 
@@ -515,6 +521,10 @@ static int zserv_process_messages(struct thread *thread)
 	}
 
 	stream_fifo_free(cache);
+
+	/* Reschedule ourselves if necessary */
+	if (need_resched)
+		zserv_event(client, ZSERV_PROCESS_MESSAGES);
 
 	return 0;
 }
@@ -606,11 +616,12 @@ static void zserv_client_free(struct zserv *client)
 	pthread_mutex_destroy(&client->ibuf_mtx);
 
 	/* Free bitmaps. */
-	for (afi_t afi = AFI_IP; afi < AFI_MAX; afi++)
+	for (afi_t afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (int i = 0; i < ZEBRA_ROUTE_MAX; i++)
 			vrf_bitmap_free(client->redist[afi][i]);
 
-	vrf_bitmap_free(client->redist_default);
+		vrf_bitmap_free(client->redist_default[afi]);
+	}
 	vrf_bitmap_free(client->ifinfo);
 	vrf_bitmap_free(client->ridinfo);
 
@@ -628,6 +639,7 @@ void zserv_close_client(struct zserv *client)
 
 	thread_cancel_event(zebrad.master, client);
 	THREAD_OFF(client->t_cleanup);
+	THREAD_OFF(client->t_process);
 
 	/* destroy pthread */
 	frr_pthread_destroy(client->pthread);
@@ -689,10 +701,11 @@ static struct zserv *zserv_client_create(int sock)
 			      memory_order_relaxed);
 
 	/* Initialize flags */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
 			client->redist[afi][i] = vrf_bitmap_init();
-	client->redist_default = vrf_bitmap_init();
+		client->redist_default[afi] = vrf_bitmap_init();
+	}
 	client->ifinfo = vrf_bitmap_init();
 	client->ridinfo = vrf_bitmap_init();
 
@@ -709,8 +722,6 @@ static struct zserv *zserv_client_create(int sock)
 	client->pthread =
 		frr_pthread_new(&zclient_pthr_attrs, "Zebra API client thread",
 				"zebra_apic");
-
-	zebra_vrf_update_all(client);
 
 	/* start read loop */
 	zserv_client_event(client, ZSERV_CLIENT_READ);
@@ -828,7 +839,7 @@ void zserv_event(struct zserv *client, enum zserv_event event)
 		break;
 	case ZSERV_PROCESS_MESSAGES:
 		thread_add_event(zebrad.master, zserv_process_messages, client,
-				 0, NULL);
+				 0, &client->t_process);
 		break;
 	case ZSERV_HANDLE_CLIENT_FAIL:
 		thread_add_event(zebrad.master, zserv_handle_client_fail,
@@ -875,7 +886,7 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 	char cbuf[ZEBRA_TIME_BUF], rbuf[ZEBRA_TIME_BUF];
 	char wbuf[ZEBRA_TIME_BUF], nhbuf[ZEBRA_TIME_BUF], mbuf[ZEBRA_TIME_BUF];
 	time_t connect_time, last_read_time, last_write_time;
-	uint16_t last_read_cmd, last_write_cmd;
+	uint32_t last_read_cmd, last_write_cmd;
 
 	vty_out(vty, "Client: %s", zebra_route_string(client->proto));
 	if (client->instance)
@@ -940,6 +951,10 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 		client->ifdel_cnt);
 	vty_out(vty, "BFD peer    %-12d%-12d%-12d\n", client->bfd_peer_add_cnt,
 		client->bfd_peer_upd8_cnt, client->bfd_peer_del_cnt);
+	vty_out(vty, "NHT v4      %-12d%-12d%-12d\n",
+		client->v4_nh_watch_add_cnt, 0, client->v4_nh_watch_rem_cnt);
+	vty_out(vty, "NHT v6      %-12d%-12d%-12d\n",
+		client->v6_nh_watch_add_cnt, 0, client->v6_nh_watch_rem_cnt);
 	vty_out(vty, "Interface Up Notifications: %d\n", client->ifup_cnt);
 	vty_out(vty, "Interface Down Notifications: %d\n", client->ifdown_cnt);
 	vty_out(vty, "VNI add notifications: %d\n", client->vniadd_cnt);

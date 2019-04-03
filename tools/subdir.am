@@ -2,22 +2,36 @@
 # tools
 #
 
-noinst_PROGRAMS += tools/permutations
+noinst_PROGRAMS += \
+	tools/permutations \
+	tools/gen_northbound_callbacks \
+	tools/gen_yang_deviations \
+	# end
+
 sbin_PROGRAMS += tools/ssd
 sbin_SCRIPTS += \
 	tools/frr-reload \
 	tools/frr-reload.py \
 	tools/frr \
+	\
+	tools/frrcommon.sh \
+	tools/frrinit.sh \
+	tools/watchfrr.sh \
 	# end
 
 tools_permutations_SOURCES = tools/permutations.c
 tools_permutations_LDADD = lib/libfrr.la
 
+tools_gen_northbound_callbacks_SOURCES = tools/gen_northbound_callbacks.c
+tools_gen_northbound_callbacks_LDADD = lib/libfrr.la $(LIBYANG_LIBS)
+
+tools_gen_yang_deviations_SOURCES = tools/gen_yang_deviations.c
+tools_gen_yang_deviations_LDADD = lib/libfrr.la $(LIBYANG_LIBS)
+
 tools_ssd_SOURCES = tools/start-stop-daemon.c
 
 EXTRA_DIST += \
 	tools/etc \
-	tools/frr \
 	tools/frr-reload \
 	tools/frr-reload.py \
 	tools/frr.service \

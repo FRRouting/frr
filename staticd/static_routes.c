@@ -64,8 +64,8 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 		     const char *ifname, enum static_blackhole_type bh_type,
 		     route_tag_t tag, uint8_t distance, struct static_vrf *svrf,
 		     struct static_vrf *nh_svrf,
-		     struct static_nh_label *snh_label,
-		     uint32_t table_id)
+		     struct static_nh_label *snh_label, uint32_t table_id,
+		     bool onlink)
 {
 	struct route_node *rn;
 	struct static_route *si;
@@ -104,7 +104,7 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 			    && (table_id == si->table_id)
 			    && !memcmp(&si->snh_label, snh_label,
 				       sizeof(struct static_nh_label))
-			    && si->bh_type == bh_type) {
+			    && si->bh_type == bh_type && si->onlink == onlink) {
 				route_unlock_node(rn);
 				return 0;
 			}
@@ -129,6 +129,7 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 	si->nh_vrf_id = nh_svrf->vrf->vrf_id;
 	strcpy(si->nh_vrfname, nh_svrf->vrf->name);
 	si->table_id = table_id;
+	si->onlink = onlink;
 
 	if (ifname)
 		strlcpy(si->ifname, ifname, sizeof(si->ifname));
@@ -491,6 +492,66 @@ void static_cleanup_vrf_ids(struct static_vrf *disable_svrf)
 
 				if (disable_svrf == svrf)
 					static_disable_vrf(stable, afi, safi);
+			}
+		}
+	}
+}
+
+/*
+ * This function enables static routes when an interface it relies
+ * on in a different vrf is coming up.
+ *
+ * stable -> The stable we are looking at.
+ * ifp -> interface coming up
+ * afi -> the afi in question
+ * safi -> the safi in question
+ */
+static void static_fixup_intf_nh(struct route_table *stable,
+				 struct interface *ifp,
+				 afi_t afi, safi_t safi)
+{
+	struct route_node *rn;
+	struct static_route *si;
+
+	for (rn = route_top(stable); rn; rn = route_next(rn)) {
+		for (si = rn->info; si; si = si->next) {
+			if (si->nh_vrf_id != ifp->vrf_id)
+				continue;
+
+			if (si->ifindex != ifp->ifindex)
+				continue;
+
+			static_install_route(rn, si, safi);
+		}
+	}
+}
+
+/*
+ * This function enables static routes that rely on an interface in
+ * a different vrf when that interface comes up.
+ */
+void static_install_intf_nh(struct interface *ifp)
+{
+	struct route_table *stable;
+	struct vrf *vrf;
+	afi_t afi;
+	safi_t safi;
+
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
+		struct static_vrf *svrf = vrf->info;
+
+		/* Not needed if same vrf since happens naturally */
+		if (vrf->vrf_id == ifp->vrf_id)
+			continue;
+
+		/* Install any static routes configured for this interface. */
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+				stable = svrf->stable[afi][safi];
+				if (!stable)
+					continue;
+
+				static_fixup_intf_nh(stable, ifp, afi, safi);
 			}
 		}
 	}

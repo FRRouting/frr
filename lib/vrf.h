@@ -236,12 +236,9 @@ extern vrf_id_t vrf_get_default_id(void);
 /* The default VRF ID */
 #define VRF_DEFAULT vrf_get_default_id()
 
-extern void vrf_set_default_name(const char *default_name);
+extern void vrf_set_default_name(const char *default_name, bool force);
 extern const char *vrf_get_default_name(void);
 #define VRF_DEFAULT_NAME    vrf_get_default_name()
-
-/* VRF is mapped on netns or not ? */
-int vrf_is_mapped_on_netns(struct vrf *vrf);
 
 /* VRF switch from NETNS */
 extern int vrf_switch_to_netns(vrf_id_t vrf_id);
@@ -293,5 +290,6 @@ extern int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
 extern void vrf_disable(struct vrf *vrf);
 extern int vrf_enable(struct vrf *vrf);
 extern void vrf_delete(struct vrf *vrf);
+extern vrf_id_t vrf_generate_id(void);
 
 #endif /*_ZEBRA_VRF_H*/

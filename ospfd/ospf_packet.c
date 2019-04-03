@@ -875,11 +875,9 @@ static int ospf_write(struct thread *thread)
 	}
 
 	/* If packets still remain in queue, call write thread. */
-	if (!list_isempty(ospf->oi_write_q)) {
-		ospf->t_write = NULL;
+	if (!list_isempty(ospf->oi_write_q))
 		thread_add_write(master, ospf_write, ospf, ospf->fd,
 				 &ospf->t_write);
-	}
 
 	return 0;
 }
@@ -2100,10 +2098,22 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 
 		if (current == NULL
 		    || (ret = ospf_lsa_more_recent(current, lsa)) < 0) {
+			/* CVE-2017-3224 */
+			if (current && (lsa->data->ls_seqnum ==
+					htonl(OSPF_MAX_SEQUENCE_NUMBER)
+					&& !IS_LSA_MAXAGE(lsa))) {
+				zlog_debug(
+					"Link State Update[%s]: has Max Seq but not MaxAge. Dropping it",
+					dump_lsa_key(lsa));
+
+				DISCARD_LSA(lsa, 4);
+				continue;
+			}
+
 			/* Actual flooding procedure. */
 			if (ospf_flood(oi->ospf, nbr, current, lsa)
 			    < 0) /* Trap NSSA later. */
-				DISCARD_LSA(lsa, 4);
+				DISCARD_LSA(lsa, 5);
 			continue;
 		}
 
@@ -2160,7 +2170,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 							oi->ls_ack,
 							ospf_lsa_lock(lsa));
 
-				DISCARD_LSA(lsa, 5);
+				DISCARD_LSA(lsa, 6);
 			} else
 			/* Acknowledge the receipt of the LSA by sending a
 			   Link State Acknowledgment packet back out the
@@ -2168,7 +2178,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			   interface. */
 			{
 				ospf_ls_ack_send(nbr, lsa);
-				DISCARD_LSA(lsa, 6);
+				DISCARD_LSA(lsa, 7);
 			}
 		}
 
@@ -2185,7 +2195,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			if (IS_LSA_MAXAGE(current)
 			    && current->data->ls_seqnum
 				       == htonl(OSPF_MAX_SEQUENCE_NUMBER)) {
-				DISCARD_LSA(lsa, 7);
+				DISCARD_LSA(lsa, 8);
 			}
 			/* Otherwise, as long as the database copy has not been
 			   sent in a
@@ -2208,7 +2218,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 					ospf_ls_upd_send_lsa(
 						nbr, current,
 						OSPF_SEND_PACKET_DIRECT);
-				DISCARD_LSA(lsa, 8);
+				DISCARD_LSA(lsa, 9);
 			}
 		}
 	}
@@ -3370,7 +3380,7 @@ static int ospf_make_db_desc(struct ospf_interface *oi,
 				if (IS_OPAQUE_LSA(lsa->data->type)
 				    && (!CHECK_FLAG(options, OSPF_OPTION_O))) {
 					/* Suppress advertising
-					 * opaque-informations. */
+					 * opaque-information. */
 					/* Remove LSA from DB summary list. */
 					ospf_lsdb_delete(lsdb, lsa);
 					continue;

@@ -91,17 +91,63 @@ documentation and packaging systems will be updated to reflect the next
 possible release name to allow for easy distinguishing.
 
 After one month the development branch will be renamed to
-``stable/MAJOR.MINOR``.  This process is not held up unless a crash or security
-issue has been found and needs to be addressed. Issues being fixed will not
-cause a delay.
+``stable/MAJOR.MINOR``.  The branch is a stable branch. This process is not
+held up unless a crash or security issue has been found and needs to
+be addressed. Issues being fixed will not cause a delay.
 
 Bugfix releases are made as needed at 1 month intervals until the next
-``MAJOR.MINOR`` relese branch is pulled. Depending on the severity of the bugs,
+``MAJOR.MINOR`` release branch is pulled. Depending on the severity of the bugs,
 bugfix releases may occur sooner.
 
 Bugfixes are applied to the two most recent releases. Security fixes are
-backported to all releases less than or equal to one year old. Security fixes
-may also be backported to older releases depending on severity.
+backported to all releases less than or equal to at least one year old. Security
+fixes may also be backported to older releases depending on severity.
+
+Long term support branches ( LTS )
+-----------------------------------------
+
+This kind of branch is not yet officially supported, and need experimentation
+before being effective.
+
+Previous definition of releases prevents long term support of previous releases.
+For instance, bug and security fixes are not applied if the stable branch is too
+old.
+
+Because the FRR users have a need to backport bug and security fixes after the
+stable branch becomes too old, there is a need to provide support on a long term
+basis on that stable branch. If that support is applied on that stable branch,
+then that branch is a long term support branch.
+
+Having a LTS branch requires extra-work and requires one person to be in charge
+of that maintenance branch for a certain amount of time. The amount of time will
+be by default set to 4 months, and can be increased. 4 months stands for the time
+between two releases, this time can be applied to the decision to continue with a
+LTS release or not. In all cases, that time period will be well-defined and
+published. Also, a self nomination from a person that proposes to handle the LTS
+branch is required. The work can be shared by multiple people. In all cases, there
+must be at least one person that is in charge of the maintenance branch. The person
+on people responsible for a maintenance branch must be a FRR maintainer. Note that
+they may choose to abandon support for the maintenance branch at any time. If
+noone takes over the responsibility of the LTS branch, then the support will be
+discontinued.
+
+The LTS branch duties are the following ones:
+
+- organise meetings on a (bi-)weekly or monthly basis, the handling of issues
+  and pull requested relative to that branch. When time permits, this may be done
+  during the regularly scheduled FRR meeting.
+
+- ensure the stability of the branch, by using and eventually adapting the
+  checking the CI tools of FRR ( indeed, maintaining may lead to create
+  maintenance branches for topotests or for CI).
+
+It will not be possible to backport feature requests to LTS branches. Actually, it
+is a false good idea to use LTS for that need. Introducing feature requests may
+break the paradigm where all more recent releases should also include the feature
+request. This would require the LTS maintainer to ensure that all more recent
+releases have support for this feature request. Moreover, introducing features
+requests may result in breaking the stability of the branch. LTS branches are first
+done to bring long term support for stability.
 
 Changelog
 ---------
@@ -170,6 +216,12 @@ License for Contributions
 FRR is under a “GPLv2 or later” license. Any code submitted must be released
 under the same license (preferred) or any license which allows redistribution
 under this GPLv2 license (eg MIT License).
+It is forbidden to push any code that prevents from using GPLv3 license. This
+becomes a community rule, as FRR produces binaries that links with Apache 2.0
+libraries. Apache 2.0 and GPLv2 license are incompatible, if put together.
+Please see `<http://www.apache.org/licenses/GPL-compatibility.html>`_ for
+more information. This rule guarantees the user to distribute FRR binary code
+without any licensing issues.
 
 Pre-submission Checklist
 ------------------------

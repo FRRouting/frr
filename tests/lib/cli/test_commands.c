@@ -142,6 +142,8 @@ static void test_init(void)
 	struct cmd_element *cmd;
 
 	cmd_init(1);
+	yang_init();
+	nb_init(master, NULL, 0);
 
 	install_node(&bgp_node, NULL);
 	install_node(&rip_node, NULL);
@@ -184,6 +186,8 @@ static void test_terminate(void)
 		XFREE(MTYPE_TMP, vector_slot(test_cmds, i));
 	vector_free(test_cmds);
 	cmd_terminate();
+	nb_terminate();
+	yang_terminate();
 }
 
 static void test_run(struct prng *prng, struct vty *vty, const char *cmd,

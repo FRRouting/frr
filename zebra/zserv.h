@@ -73,6 +73,9 @@ struct zserv {
 	struct thread *t_read;
 	struct thread *t_write;
 
+	/* Event for message processing, for the main pthread */
+	struct thread *t_process;
+
 	/* Threads for the main pthread */
 	struct thread *t_cleanup;
 
@@ -84,7 +87,7 @@ struct zserv {
 	vrf_bitmap_t redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 
 	/* Redistribute default route flag. */
-	vrf_bitmap_t redist_default;
+	vrf_bitmap_t redist_default[AFI_MAX];
 
 	/* Interface information. */
 	vrf_bitmap_t ifinfo;
@@ -133,6 +136,10 @@ struct zserv {
 	uint32_t macipdel_cnt;
 	uint32_t prefixadd_cnt;
 	uint32_t prefixdel_cnt;
+	uint32_t v4_nh_watch_add_cnt;
+	uint32_t v4_nh_watch_rem_cnt;
+	uint32_t v6_nh_watch_add_cnt;
+	uint32_t v6_nh_watch_rem_cnt;
 
 	time_t nh_reg_time;
 	time_t nh_dereg_time;
@@ -153,9 +160,9 @@ struct zserv {
 	/* monotime of last message sent */
 	_Atomic uint32_t last_write_time;
 	/* command code of last message read */
-	_Atomic uint16_t last_read_cmd;
+	_Atomic uint32_t last_read_cmd;
 	/* command code of last message written */
-	_Atomic uint16_t last_write_cmd;
+	_Atomic uint32_t last_write_cmd;
 };
 
 #define ZAPI_HANDLER_ARGS                                                      \
@@ -180,6 +187,7 @@ struct zebra_t {
 
 /* rib work queue */
 #define ZEBRA_RIB_PROCESS_HOLD_TIME 10
+#define ZEBRA_RIB_PROCESS_RETRY_TIME 1
 	struct work_queue *ribq;
 	struct meta_queue *mq;
 
@@ -250,5 +258,8 @@ extern void zserv_close_client(struct zserv *client);
 #if defined(HANDLE_ZAPI_FUZZING)
 extern void zserv_read_file(char *input);
 #endif
+
+/* TODO */
+int zebra_finalize(struct thread *event);
 
 #endif /* _ZEBRA_ZEBRA_H */

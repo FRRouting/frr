@@ -29,18 +29,26 @@ enum isis_tx_type {
 
 struct isis_tx_queue;
 
-struct isis_tx_queue *isis_tx_queue_new(void *arg,
-					void(*send_event)(void *arg,
-							  struct isis_lsp *,
-							  enum isis_tx_type));
+struct isis_tx_queue *isis_tx_queue_new(
+		struct isis_circuit *circuit,
+		void(*send_event)(struct isis_circuit *circuit,
+				  struct isis_lsp *,
+				  enum isis_tx_type)
+);
 
 void isis_tx_queue_free(struct isis_tx_queue *queue);
 
-void isis_tx_queue_add(struct isis_tx_queue *queue,
-		       struct isis_lsp *lsp,
-		       enum isis_tx_type type);
+#define isis_tx_queue_add(queue, lsp, type) \
+	_isis_tx_queue_add((queue), (lsp), (type), \
+			   __func__, __FILE__, __LINE__)
+void _isis_tx_queue_add(struct isis_tx_queue *queue, struct isis_lsp *lsp,
+			enum isis_tx_type type, const char *func,
+			const char *file, int line);
 
-void isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp);
+#define isis_tx_queue_del(queue, lsp) \
+	_isis_tx_queue_del((queue), (lsp), __func__, __FILE__, __LINE__)
+void _isis_tx_queue_del(struct isis_tx_queue *queue, struct isis_lsp *lsp,
+			const char *func, const char *file, int line);
 
 unsigned long isis_tx_queue_len(struct isis_tx_queue *queue);
 

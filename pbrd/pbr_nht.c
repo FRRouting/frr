@@ -69,7 +69,7 @@ static void *pbr_nhrc_hash_alloc(void *p)
 	return nhrc;
 }
 
-static int pbr_nhrc_hash_equal(const void *arg1, const void *arg2)
+static bool pbr_nhrc_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct nexthop *nh1, *nh2;
 
@@ -139,7 +139,7 @@ static uint32_t pbr_nh_hash_key(void *arg)
 	return key;
 }
 
-static int pbr_nh_hash_equal(const void *arg1, const void *arg2)
+static bool pbr_nh_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct pbr_nexthop_cache *pbrnc1 =
 		(const struct pbr_nexthop_cache *)arg1;
@@ -147,17 +147,17 @@ static int pbr_nh_hash_equal(const void *arg1, const void *arg2)
 		(const struct pbr_nexthop_cache *)arg2;
 
 	if (pbrnc1->nexthop->vrf_id != pbrnc2->nexthop->vrf_id)
-		return 0;
+		return false;
 
 	if (pbrnc1->nexthop->ifindex != pbrnc2->nexthop->ifindex)
-		return 0;
+		return false;
 
 	if (pbrnc1->nexthop->type != pbrnc2->nexthop->type)
-		return 0;
+		return false;
 
 	switch (pbrnc1->nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
-		return 1;
+		return true;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV4:
 		return pbrnc1->nexthop->gate.ipv4.s_addr
@@ -173,7 +173,7 @@ static int pbr_nh_hash_equal(const void *arg1, const void *arg2)
 	/*
 	 * We should not get here
 	 */
-	return 0;
+	return false;
 }
 
 static void pbr_nhgc_delete(struct pbr_nexthop_group_cache *p)
@@ -724,7 +724,7 @@ static uint32_t pbr_nhg_hash_key(void *arg)
 	return jhash(&nhgc->name, strlen(nhgc->name), 0x52c34a96);
 }
 
-static int pbr_nhg_hash_equal(const void *arg1, const void *arg2)
+static bool pbr_nhg_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct pbr_nexthop_group_cache *nhgc1 =
 		(const struct pbr_nexthop_group_cache *)arg1;

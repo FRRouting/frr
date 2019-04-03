@@ -550,11 +550,8 @@ static void rfapiBgpInfoFree(struct bgp_path_info *goner)
 	if (goner->attr) {
 		bgp_attr_unintern(&goner->attr);
 	}
-	if (goner->extra) {
-		assert(!goner->extra->damp_info); /* Not used in import tbls */
-		XFREE(MTYPE_BGP_ROUTE_EXTRA, goner->extra);
-		goner->extra = NULL;
-	}
+	if (goner->extra)
+		bgp_path_info_extra_free(&goner->extra);
 	XFREE(MTYPE_BGP_ROUTE, goner);
 }
 
@@ -4244,13 +4241,15 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 	for (rn1 = bgp_table_top(bgp->rib[afi][safi]); rn1;
 	     rn1 = bgp_route_next(rn1)) {
 
-		if (rn1->info) {
-			for (rn2 = bgp_table_top(rn1->info); rn2;
+		if (bgp_node_has_bgp_path_info_data(rn1)) {
+
+			for (rn2 = bgp_table_top(bgp_node_get_bgp_table_info(rn1)); rn2;
 			     rn2 = bgp_route_next(rn2)) {
 
 				struct bgp_path_info *bpi;
 
-				for (bpi = rn2->info; bpi; bpi = bpi->next) {
+				for (bpi = bgp_node_get_bgp_path_info(rn2);
+				     bpi; bpi = bpi->next) {
 					uint32_t label = 0;
 
 					if (CHECK_FLAG(bpi->flags,
@@ -4485,7 +4484,7 @@ static void rfapiDeleteRemotePrefixesIt(
 			struct bgp_path_info *bpi;
 			struct bgp_path_info *next;
 
-			if (VNC_DEBUG(IMPORT_DEL_REMOTE)) {
+			if (p && VNC_DEBUG(IMPORT_DEL_REMOTE)) {
 				char p1line[PREFIX_STRLEN];
 				char p2line[PREFIX_STRLEN];
 

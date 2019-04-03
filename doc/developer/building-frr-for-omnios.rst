@@ -86,6 +86,8 @@ Edit ``~/.profile`` and add the following default PATH:
 
     PATH=/usr/gnu/bin:/usr/bin:/usr/sbin:/sbin:/opt/csw/bin
 
+.. include:: building-libyang.rst
+
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 

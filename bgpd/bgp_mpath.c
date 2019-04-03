@@ -749,7 +749,7 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 						mpinfo->attr->community);
 					community =
 						community_uniq_sort(commerge);
-					community_free(commerge);
+					community_free(&commerge);
 				} else
 					community = community_dup(
 						mpinfo->attr->community);

@@ -253,16 +253,16 @@ unsigned int ecommunity_hash_make(void *arg)
 }
 
 /* Compare two Extended Communities Attribute structure.  */
-int ecommunity_cmp(const void *arg1, const void *arg2)
+bool ecommunity_cmp(const void *arg1, const void *arg2)
 {
 	const struct ecommunity *ecom1 = arg1;
 	const struct ecommunity *ecom2 = arg2;
 
 	if (ecom1 == NULL && ecom2 == NULL)
-		return 1;
+		return true;
 
 	if (ecom1 == NULL || ecom2 == NULL)
-		return 0;
+		return false;
 
 	return (ecom1->size == ecom2->size
 		&& memcmp(ecom1->val, ecom2->val, ecom1->size * ECOMMUNITY_SIZE)
@@ -688,9 +688,23 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 			/* Low-order octet of type. */
 			sub_type = *pnt++;
 			if (sub_type != ECOMMUNITY_ROUTE_TARGET
-			    && sub_type != ECOMMUNITY_SITE_ORIGIN)
-				unk_ecom = 1;
-			else
+			    && sub_type != ECOMMUNITY_SITE_ORIGIN) {
+				if (sub_type ==
+				    ECOMMUNITY_FLOWSPEC_REDIRECT_IPV4 &&
+				    type == ECOMMUNITY_ENCODE_IP) {
+					struct in_addr *ipv4 =
+						(struct in_addr *)pnt;
+					char ipv4str[INET_ADDRSTRLEN];
+
+					inet_ntop(AF_INET, ipv4,
+						  ipv4str,
+						  INET_ADDRSTRLEN);
+					len = sprintf(str_buf + str_pnt,
+						      "NH:%s:%d",
+						      ipv4str, pnt[5]);
+				} else
+					unk_ecom = 1;
+			} else
 				len = ecommunity_rt_soo_str(str_buf + str_pnt,
 							    pnt, type, sub_type,
 							    format);

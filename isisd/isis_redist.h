@@ -55,4 +55,8 @@ int isis_redist_config_write(struct vty *vty, struct isis_area *area,
 void isis_redist_init(void);
 void isis_redist_area_finish(struct isis_area *area);
 
+void isis_redist_set(struct isis_area *area, int level, int family, int type,
+		     uint32_t metric, const char *routemap, int originate_type);
+void isis_redist_unset(struct isis_area *area, int level, int family, int type);
+
 #endif

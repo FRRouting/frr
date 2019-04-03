@@ -122,11 +122,17 @@ static int interface_state_up(int command, struct zclient *zclient,
 
 	ifp = zebra_interface_if_lookup(zclient->ibuf);
 
-	if (ifp && if_is_vrf(ifp)) {
-		struct static_vrf *svrf = static_vrf_lookup_by_id(vrf_id);
+	if (ifp) {
+		if (if_is_vrf(ifp)) {
+			struct static_vrf *svrf =
+					static_vrf_lookup_by_id(vrf_id);
 
-		static_fixup_vrf_ids(svrf);
-		static_config_install_delayed_routes(svrf);
+			static_fixup_vrf_ids(svrf);
+			static_config_install_delayed_routes(svrf);
+		}
+
+		/* Install any static reliant on this interface coming up */
+		static_install_intf_nh(ifp);
 	}
 
 	return 0;
@@ -148,10 +154,10 @@ static int route_notify_owner(int command, struct zclient *zclient,
 	uint32_t table_id;
 	char buf[PREFIX_STRLEN];
 
-	prefix2str(&p, buf, sizeof(buf));
-
 	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note))
 		return -1;
+
+	prefix2str(&p, buf, sizeof(buf));
 
 	switch (note) {
 	case ZAPI_ROUTE_FAIL_INSTALL:
@@ -234,13 +240,13 @@ static unsigned int static_nht_hash_key(void *data)
 	return jhash_1word(nhtd->nh_vrf_id, key);
 }
 
-static int static_nht_hash_cmp(const void *d1, const void *d2)
+static bool static_nht_hash_cmp(const void *d1, const void *d2)
 {
 	const struct static_nht_data *nhtd1 = d1;
 	const struct static_nht_data *nhtd2 = d2;
 
 	if (nhtd1->nh_vrf_id != nhtd2->nh_vrf_id)
-		return 0;
+		return false;
 
 	return prefix_same(nhtd1->nh, nhtd2->nh);
 }
@@ -364,6 +370,8 @@ extern void static_zebra_route_add(struct route_node *rn,
 		memcpy(&api.src_prefix, src_pp, sizeof(api.src_prefix));
 	}
 	SET_FLAG(api.flags, ZEBRA_FLAG_RR_USE_DISTANCE);
+	if (si_changed->onlink)
+		SET_FLAG(api.flags, ZEBRA_FLAG_ONLINK);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	if (si_changed->distance) {
 		SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
@@ -463,7 +471,7 @@ void static_zebra_init(void)
 {
 	struct zclient_options opt = { .receive_notify = true };
 
-	zclient = zclient_new_notify(master, &opt);
+	zclient = zclient_new(master, &opt);
 
 	zclient_init(zclient, ZEBRA_ROUTE_STATIC, 0, &static_privs);
 	zclient->zebra_capabilities = static_zebra_capabilities;

@@ -36,6 +36,7 @@
 #include "table.h"
 #include "qobj.h"
 #include "spf_backoff.h"
+#include "lib/northbound_cli.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
@@ -67,7 +68,6 @@ DEFINE_QOBJ_TYPE(isis_area)
  * Prototypes.
  */
 int isis_area_get(struct vty *, const char *);
-int isis_area_destroy(struct vty *, const char *);
 int area_net_title(struct vty *, const char *);
 int area_clear_net_title(struct vty *, const char *);
 int show_isis_interface_common(struct vty *, const char *ifname, char);
@@ -113,10 +113,11 @@ struct isis_area *isis_area_create(const char *area_tag)
 	 */
 	if (fabricd) {
 		area->is_type = IS_LEVEL_2;
-	} else if (listcount(isis->area_list) > 0)
-		area->is_type = IS_LEVEL_1;
-	else
+	} else if (listcount(isis->area_list) == 0)
 		area->is_type = IS_LEVEL_1_AND_2;
+	else
+		area->is_type = yang_get_default_enum(
+			"/frr-isisd:isis/instance/is-type");
 
 	/*
 	 * intialize the databases
@@ -138,6 +139,35 @@ struct isis_area *isis_area_create(const char *area_tag)
 	/*
 	 * Default values
 	 */
+#ifndef FABRICD
+	enum isis_metric_style default_style;
+
+	area->max_lsp_lifetime[0] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/maximum-lifetime/level-1");
+	area->max_lsp_lifetime[1] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/maximum-lifetime/level-2");
+	area->lsp_refresh[0] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/refresh-interval/level-1");
+	area->lsp_refresh[1] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/refresh-interval/level-2");
+	area->lsp_gen_interval[0] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/generation-interval/level-1");
+	area->lsp_gen_interval[1] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/lsp/generation-interval/level-2");
+	area->min_spf_interval[0] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/spf/minimum-interval/level-1");
+	area->min_spf_interval[1] = yang_get_default_uint16(
+		"/frr-isisd:isis/instance/spf/minimum-interval/level-1");
+	area->dynhostname = yang_get_default_bool(
+		"/frr-isisd:isis/instance/dynamic-hostname");
+	default_style =
+		yang_get_default_enum("/frr-isisd:isis/instance/metric-style");
+	area->oldmetric = default_style == ISIS_WIDE_METRIC ? 0 : 1;
+	area->newmetric = default_style == ISIS_NARROW_METRIC ? 0 : 1;
+	area->lsp_frag_threshold = 90; /* not currently configurable */
+	area->lsp_mtu =
+		yang_get_default_uint16("/frr-isisd:isis/instance/lsp/mtu");
+#else
 	area->max_lsp_lifetime[0] = DEFAULT_LSP_LIFETIME;    /* 1200 */
 	area->max_lsp_lifetime[1] = DEFAULT_LSP_LIFETIME;    /* 1200 */
 	area->lsp_refresh[0] = DEFAULT_MAX_LSP_GEN_INTERVAL; /* 900 */
@@ -151,6 +181,7 @@ struct isis_area *isis_area_create(const char *area_tag)
 	area->newmetric = 1;
 	area->lsp_frag_threshold = 90;
 	area->lsp_mtu = DEFAULT_LSP_MTU;
+#endif /* ifndef FABRICD */
 
 	area_mt_init(area);
 
@@ -160,6 +191,13 @@ struct isis_area *isis_area_create(const char *area_tag)
 
 	if (fabricd)
 		area->fabricd = fabricd_new(area);
+
+	area->lsp_refresh_arg[0].area = area;
+	area->lsp_refresh_arg[0].level = IS_LEVEL_1;
+	area->lsp_refresh_arg[1].area = area;
+	area->lsp_refresh_arg[1].level = IS_LEVEL_2;
+
+
 	QOBJ_REG(area, isis_area);
 
 	return area;
@@ -200,7 +238,7 @@ int isis_area_get(struct vty *vty, const char *area_tag)
 	return CMD_SUCCESS;
 }
 
-int isis_area_destroy(struct vty *vty, const char *area_tag)
+int isis_area_destroy(const char *area_tag)
 {
 	struct isis_area *area;
 	struct listnode *node, *nnode;
@@ -210,7 +248,8 @@ int isis_area_destroy(struct vty *vty, const char *area_tag)
 	area = isis_area_lookup(area_tag);
 
 	if (area == NULL) {
-		vty_out(vty, "Can't find ISIS instance \n");
+		zlog_warn("%s: could not find area with area-tag %s",
+				__func__, area_tag);
 		return CMD_ERR_NO_MATCH;
 	}
 
@@ -280,6 +319,7 @@ int isis_area_destroy(struct vty *vty, const char *area_tag)
 	return CMD_SUCCESS;
 }
 
+#ifdef FABRICD
 static void area_set_mt_enabled(struct isis_area *area, uint16_t mtid,
 				bool enabled)
 {
@@ -305,6 +345,7 @@ static void area_set_mt_overload(struct isis_area *area, uint16_t mtid,
 						0);
 	}
 }
+#endif /* ifdef FABRICD */
 
 int area_net_title(struct vty *vty, const char *net_title)
 {
@@ -713,24 +754,14 @@ void print_debug(struct vty *vty, int flags, int onoff)
 		vty_out(vty,
 			"IS-IS Adjacency related packets debugging is %s\n",
 			onoffs);
-	if (flags & DEBUG_CHECKSUM_ERRORS)
-		vty_out(vty, "IS-IS checksum errors debugging is %s\n", onoffs);
-	if (flags & DEBUG_LOCAL_UPDATES)
-		vty_out(vty, "IS-IS local updates debugging is %s\n", onoffs);
-	if (flags & DEBUG_PROTOCOL_ERRORS)
-		vty_out(vty, "IS-IS protocol errors debugging is %s\n", onoffs);
+	if (flags & DEBUG_TX_QUEUE)
+		vty_out(vty, "IS-IS TX queue debugging is %s\n",
+			onoffs);
 	if (flags & DEBUG_SNP_PACKETS)
 		vty_out(vty, "IS-IS CSNP/PSNP packets debugging is %s\n",
 			onoffs);
 	if (flags & DEBUG_SPF_EVENTS)
 		vty_out(vty, "IS-IS SPF events debugging is %s\n", onoffs);
-	if (flags & DEBUG_SPF_STATS)
-		vty_out(vty,
-			"IS-IS SPF Timing and Statistics Data debugging is %s\n",
-			onoffs);
-	if (flags & DEBUG_SPF_TRIGGERS)
-		vty_out(vty, "IS-IS SPF triggering events debugging is %s\n",
-			onoffs);
 	if (flags & DEBUG_UPDATE_PACKETS)
 		vty_out(vty, "IS-IS Update related packet debugging is %s\n",
 			onoffs);
@@ -744,8 +775,8 @@ void print_debug(struct vty *vty, int flags, int onoff)
 		vty_out(vty, "IS-IS LSP generation debugging is %s\n", onoffs);
 	if (flags & DEBUG_LSP_SCHED)
 		vty_out(vty, "IS-IS LSP scheduling debugging is %s\n", onoffs);
-	if (flags & DEBUG_FABRICD_FLOODING)
-		vty_out(vty, "OpenFabric Flooding debugging is %s\n", onoffs);
+	if (flags & DEBUG_FLOODING)
+		vty_out(vty, "IS-IS Flooding debugging is %s\n", onoffs);
 	if (flags & DEBUG_BFD)
 		vty_out(vty, "IS-IS BFD debugging is %s\n", onoffs);
 }
@@ -777,16 +808,8 @@ static int config_write_debug(struct vty *vty)
 		vty_out(vty, "debug " PROTO_NAME " adj-packets\n");
 		write++;
 	}
-	if (flags & DEBUG_CHECKSUM_ERRORS) {
-		vty_out(vty, "debug " PROTO_NAME " checksum-errors\n");
-		write++;
-	}
-	if (flags & DEBUG_LOCAL_UPDATES) {
-		vty_out(vty, "debug " PROTO_NAME " local-updates\n");
-		write++;
-	}
-	if (flags & DEBUG_PROTOCOL_ERRORS) {
-		vty_out(vty, "debug " PROTO_NAME " protocol-errors\n");
+	if (flags & DEBUG_TX_QUEUE) {
+		vty_out(vty, "debug " PROTO_NAME " tx-queue\n");
 		write++;
 	}
 	if (flags & DEBUG_SNP_PACKETS) {
@@ -795,14 +818,6 @@ static int config_write_debug(struct vty *vty)
 	}
 	if (flags & DEBUG_SPF_EVENTS) {
 		vty_out(vty, "debug " PROTO_NAME " spf-events\n");
-		write++;
-	}
-	if (flags & DEBUG_SPF_STATS) {
-		vty_out(vty, "debug " PROTO_NAME " spf-statistics\n");
-		write++;
-	}
-	if (flags & DEBUG_SPF_TRIGGERS) {
-		vty_out(vty, "debug " PROTO_NAME " spf-triggers\n");
 		write++;
 	}
 	if (flags & DEBUG_UPDATE_PACKETS) {
@@ -829,7 +844,7 @@ static int config_write_debug(struct vty *vty)
 		vty_out(vty, "debug " PROTO_NAME " lsp-sched\n");
 		write++;
 	}
-	if (flags & DEBUG_FABRICD_FLOODING) {
+	if (flags & DEBUG_FLOODING) {
 		vty_out(vty, "debug " PROTO_NAME " flooding\n");
 		write++;
 	}
@@ -869,83 +884,56 @@ DEFUN (no_debug_isis_adj,
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_isis_csum,
-       debug_isis_csum_cmd,
-       "debug " PROTO_NAME " checksum-errors",
+DEFUN (debug_isis_tx_queue,
+       debug_isis_tx_queue_cmd,
+       "debug " PROTO_NAME " tx-queue",
        DEBUG_STR
        PROTO_HELP
-       "IS-IS LSP checksum errors\n")
+       "IS-IS TX queues\n")
 {
-	isis->debugs |= DEBUG_CHECKSUM_ERRORS;
-	print_debug(vty, DEBUG_CHECKSUM_ERRORS, 1);
+	isis->debugs |= DEBUG_TX_QUEUE;
+	print_debug(vty, DEBUG_TX_QUEUE, 1);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_debug_isis_csum,
-       no_debug_isis_csum_cmd,
-       "no debug " PROTO_NAME " checksum-errors",
+DEFUN (no_debug_isis_tx_queue,
+       no_debug_isis_tx_queue_cmd,
+       "no debug " PROTO_NAME " tx-queue",
        NO_STR
        UNDEBUG_STR
        PROTO_HELP
-       "IS-IS LSP checksum errors\n")
+       "IS-IS TX queues\n")
 {
-	isis->debugs &= ~DEBUG_CHECKSUM_ERRORS;
-	print_debug(vty, DEBUG_CHECKSUM_ERRORS, 0);
+	isis->debugs &= ~DEBUG_TX_QUEUE;
+	print_debug(vty, DEBUG_TX_QUEUE, 0);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_isis_lupd,
-       debug_isis_lupd_cmd,
-       "debug " PROTO_NAME " local-updates",
+DEFUN (debug_isis_flooding,
+       debug_isis_flooding_cmd,
+       "debug " PROTO_NAME " flooding",
        DEBUG_STR
        PROTO_HELP
-       "IS-IS local update packets\n")
+       "Flooding algorithm\n")
 {
-	isis->debugs |= DEBUG_LOCAL_UPDATES;
-	print_debug(vty, DEBUG_LOCAL_UPDATES, 1);
+	isis->debugs |= DEBUG_FLOODING;
+	print_debug(vty, DEBUG_FLOODING, 1);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_debug_isis_lupd,
-       no_debug_isis_lupd_cmd,
-       "no debug " PROTO_NAME " local-updates",
+DEFUN (no_debug_isis_flooding,
+       no_debug_isis_flooding_cmd,
+       "no debug " PROTO_NAME " flooding",
        NO_STR
        UNDEBUG_STR
        PROTO_HELP
-       "IS-IS local update packets\n")
+       "Flooding algorithm\n")
 {
-	isis->debugs &= ~DEBUG_LOCAL_UPDATES;
-	print_debug(vty, DEBUG_LOCAL_UPDATES, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_isis_err,
-       debug_isis_err_cmd,
-       "debug " PROTO_NAME " protocol-errors",
-       DEBUG_STR
-       PROTO_HELP
-       "IS-IS LSP protocol errors\n")
-{
-	isis->debugs |= DEBUG_PROTOCOL_ERRORS;
-	print_debug(vty, DEBUG_PROTOCOL_ERRORS, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_isis_err,
-       no_debug_isis_err_cmd,
-       "no debug " PROTO_NAME " protocol-errors",
-       NO_STR
-       UNDEBUG_STR
-       PROTO_HELP
-       "IS-IS LSP protocol errors\n")
-{
-	isis->debugs &= ~DEBUG_PROTOCOL_ERRORS;
-	print_debug(vty, DEBUG_PROTOCOL_ERRORS, 0);
+	isis->debugs &= ~DEBUG_FLOODING;
+	print_debug(vty, DEBUG_FLOODING, 0);
 
 	return CMD_SUCCESS;
 }
@@ -1027,60 +1015,6 @@ DEFUN (no_debug_isis_spfevents,
 {
 	isis->debugs &= ~DEBUG_SPF_EVENTS;
 	print_debug(vty, DEBUG_SPF_EVENTS, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_isis_spfstats,
-       debug_isis_spfstats_cmd,
-       "debug " PROTO_NAME " spf-statistics ",
-       DEBUG_STR
-       PROTO_HELP
-       "IS-IS SPF Timing and Statistic Data\n")
-{
-	isis->debugs |= DEBUG_SPF_STATS;
-	print_debug(vty, DEBUG_SPF_STATS, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_isis_spfstats,
-       no_debug_isis_spfstats_cmd,
-       "no debug " PROTO_NAME " spf-statistics",
-       NO_STR
-       UNDEBUG_STR
-       PROTO_HELP
-       "IS-IS SPF Timing and Statistic Data\n")
-{
-	isis->debugs &= ~DEBUG_SPF_STATS;
-	print_debug(vty, DEBUG_SPF_STATS, 0);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_isis_spftrigg,
-       debug_isis_spftrigg_cmd,
-       "debug " PROTO_NAME " spf-triggers",
-       DEBUG_STR
-       PROTO_HELP
-       "IS-IS SPF triggering events\n")
-{
-	isis->debugs |= DEBUG_SPF_TRIGGERS;
-	print_debug(vty, DEBUG_SPF_TRIGGERS, 1);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_isis_spftrigg,
-       no_debug_isis_spftrigg_cmd,
-       "no debug " PROTO_NAME " spf-triggers",
-       NO_STR
-       UNDEBUG_STR
-       PROTO_HELP
-       "IS-IS SPF triggering events\n")
-{
-	isis->debugs &= ~DEBUG_SPF_TRIGGERS;
-	print_debug(vty, DEBUG_SPF_TRIGGERS, 0);
 
 	return CMD_SUCCESS;
 }
@@ -1358,11 +1292,25 @@ DEFUN (show_isis_summary,
 			}
 		}
 
+		vty_out(vty, "  TX counters per PDU type:\n");
+		pdu_counter_print(vty, "    ", area->pdu_tx_counters);
+		vty_out(vty, "   LSP RXMT: %" PRIu64 "\n",
+			area->lsp_rxmt_count);
+		vty_out(vty, "  RX counters per PDU type:\n");
+		pdu_counter_print(vty, "    ", area->pdu_rx_counters);
+
 		for (level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
 			if ((area->is_type & level) == 0)
 				continue;
 
 			vty_out(vty, "  Level-%d:\n", level);
+
+			vty_out(vty, "    LSP0 regenerated: %" PRIu64 "\n",
+				area->lsp_gen_count[level - 1]);
+
+			vty_out(vty, "         LSPs purged: %" PRIu64 "\n",
+				area->lsp_purge_count[level - 1]);
+
 			if (area->spf_timer[level - 1])
 				vty_out(vty, "    SPF: (pending)\n");
 			else
@@ -1393,6 +1341,66 @@ DEFUN (show_isis_summary,
 	return CMD_SUCCESS;
 }
 
+struct isis_lsp *lsp_for_arg(const char *argv, dict_t *lspdb)
+{
+	char sysid[255] = {0};
+	uint8_t number[3];
+	const char *pos;
+	uint8_t lspid[ISIS_SYS_ID_LEN + 2] = {0};
+	struct isis_dynhn *dynhn;
+	struct isis_lsp *lsp = NULL;
+
+	if (!argv)
+		return NULL;
+
+	/*
+	 * extract fragment and pseudo id from the string argv
+	 * in the forms:
+	 * (a) <systemid/hostname>.<pseudo-id>-<framenent> or
+	 * (b) <systemid/hostname>.<pseudo-id> or
+	 * (c) <systemid/hostname> or
+	 * Where systemid is in the form:
+	 * xxxx.xxxx.xxxx
+	 */
+	if (argv)
+		strncpy(sysid, argv, 254);
+	if (argv && strlen(argv) > 3) {
+		pos = argv + strlen(argv) - 3;
+		if (strncmp(pos, "-", 1) == 0) {
+			memcpy(number, ++pos, 2);
+			lspid[ISIS_SYS_ID_LEN + 1] =
+				(uint8_t)strtol((char *)number, NULL, 16);
+			pos -= 4;
+			if (strncmp(pos, ".", 1) != 0)
+				return NULL;
+		}
+		if (strncmp(pos, ".", 1) == 0) {
+			memcpy(number, ++pos, 2);
+			lspid[ISIS_SYS_ID_LEN] =
+				(uint8_t)strtol((char *)number, NULL, 16);
+			sysid[pos - argv - 1] = '\0';
+		}
+	}
+
+	/*
+	 * Try to find the lsp-id if the argv
+	 * string is in
+	 * the form
+	 * hostname.<pseudo-id>-<fragment>
+	 */
+	if (sysid2buff(lspid, sysid)) {
+		lsp = lsp_search(lspid, lspdb);
+	} else if ((dynhn = dynhn_find_by_name(sysid))) {
+		memcpy(lspid, dynhn->id, ISIS_SYS_ID_LEN);
+		lsp = lsp_search(lspid, lspdb);
+	} else if (strncmp(cmd_hostname_get(), sysid, 15) == 0) {
+		memcpy(lspid, isis->sysid, ISIS_SYS_ID_LEN);
+		lsp = lsp_search(lspid, lspdb);
+	}
+
+	return lsp;
+}
+
 /*
  * This function supports following display options:
  * [ show isis database [detail] ]
@@ -1414,47 +1422,10 @@ static int show_isis_database(struct vty *vty, const char *argv, int ui_level)
 	struct listnode *node;
 	struct isis_area *area;
 	struct isis_lsp *lsp;
-	struct isis_dynhn *dynhn;
-	const char *pos;
-	uint8_t lspid[ISIS_SYS_ID_LEN + 2];
-	char sysid[255];
-	uint8_t number[3];
 	int level, lsp_count;
 
 	if (isis->area_list->count == 0)
 		return CMD_SUCCESS;
-
-	memset(&lspid, 0, ISIS_SYS_ID_LEN);
-	memset(&sysid, 0, 255);
-
-	/*
-	 * extract fragment and pseudo id from the string argv
-	 * in the forms:
-	 * (a) <systemid/hostname>.<pseudo-id>-<framenent> or
-	 * (b) <systemid/hostname>.<pseudo-id> or
-	 * (c) <systemid/hostname> or
-	 * Where systemid is in the form:
-	 * xxxx.xxxx.xxxx
-	 */
-	if (argv)
-		strncpy(sysid, argv, 254);
-	if (argv && strlen(argv) > 3) {
-		pos = argv + strlen(argv) - 3;
-		if (strncmp(pos, "-", 1) == 0) {
-			memcpy(number, ++pos, 2);
-			lspid[ISIS_SYS_ID_LEN + 1] =
-				(uint8_t)strtol((char *)number, NULL, 16);
-			pos -= 4;
-			if (strncmp(pos, ".", 1) != 0)
-				return CMD_WARNING;
-		}
-		if (strncmp(pos, ".", 1) == 0) {
-			memcpy(number, ++pos, 2);
-			lspid[ISIS_SYS_ID_LEN] =
-				(uint8_t)strtol((char *)number, NULL, 16);
-			sysid[pos - argv - 1] = '\0';
-		}
-	}
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 		vty_out(vty, "Area %s:\n",
@@ -1463,35 +1434,7 @@ static int show_isis_database(struct vty *vty, const char *argv, int ui_level)
 		for (level = 0; level < ISIS_LEVELS; level++) {
 			if (area->lspdb[level]
 			    && dict_count(area->lspdb[level]) > 0) {
-				lsp = NULL;
-				if (argv != NULL) {
-					/*
-					 * Try to find the lsp-id if the argv
-					 * string is in
-					 * the form
-					 * hostname.<pseudo-id>-<fragment>
-					 */
-					if (sysid2buff(lspid, sysid)) {
-						lsp = lsp_search(
-							lspid,
-							area->lspdb[level]);
-					} else if ((dynhn = dynhn_find_by_name(
-							    sysid))) {
-						memcpy(lspid, dynhn->id,
-						       ISIS_SYS_ID_LEN);
-						lsp = lsp_search(
-							lspid,
-							area->lspdb[level]);
-					} else if (strncmp(cmd_hostname_get(),
-							   sysid, 15)
-						   == 0) {
-						memcpy(lspid, isis->sysid,
-						       ISIS_SYS_ID_LEN);
-						lsp = lsp_search(
-							lspid,
-							area->lspdb[level]);
-					}
-				}
+				lsp = lsp_for_arg(argv, area->lspdb[level]);
 
 				if (lsp != NULL || argv == NULL) {
 					vty_out(vty,
@@ -1543,12 +1486,13 @@ DEFUN (show_database,
 	return show_isis_database(vty, id, uilevel);
 }
 
+#ifdef FABRICD
 /*
- * 'router isis' command
+ * 'router openfabric' command
  */
-DEFUN_NOSH (router_isis,
-       router_isis_cmd,
-       "router " PROTO_NAME " WORD",
+DEFUN_NOSH (router_openfabric,
+       router_openfabric_cmd,
+       "router openfabric WORD",
        ROUTER_STR
        PROTO_HELP
        "ISO Routing area tag\n")
@@ -1558,20 +1502,21 @@ DEFUN_NOSH (router_isis,
 }
 
 /*
- *'no router isis' command
+ *'no router openfabric' command
  */
-DEFUN (no_router_isis,
-       no_router_isis_cmd,
-       "no router " PROTO_NAME " WORD",
+DEFUN (no_router_openfabric,
+       no_router_openfabric_cmd,
+       "no router openfabric WORD",
        NO_STR
        ROUTER_STR
        PROTO_HELP
        "ISO Routing area tag\n")
 {
 	int idx_word = 3;
-	return isis_area_destroy(vty, argv[idx_word]->arg);
+	return isis_area_destroy(argv[idx_word]->arg);
 }
-
+#endif /* ifdef FABRICD */
+#ifdef FABRICD
 /*
  * 'net' command
  */
@@ -1598,7 +1543,8 @@ DEFUN (no_net,
 	int idx_word = 2;
 	return area_clear_net_title(vty, argv[idx_word]->arg);
 }
-
+#endif /* ifdef FABRICD */
+#ifdef FABRICD
 DEFUN (isis_topology,
        isis_topology_cmd,
        "topology " ISIS_MT_NAMES " [overload]",
@@ -1663,6 +1609,7 @@ DEFUN (no_isis_topology,
 	area_set_mt_overload(area, mtid, false);
 	return CMD_SUCCESS;
 }
+#endif /* ifdef FABRICD */
 
 void isis_area_lsp_mtu_set(struct isis_area *area, unsigned int lsp_mtu)
 {
@@ -1834,11 +1781,9 @@ void isis_area_is_type_set(struct isis_area *area, int is_type)
 void isis_area_metricstyle_set(struct isis_area *area, bool old_metric,
 			       bool new_metric)
 {
-	if (area->oldmetric != old_metric || area->newmetric != new_metric) {
-		area->oldmetric = old_metric;
-		area->newmetric = new_metric;
-		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
-	}
+	area->oldmetric = old_metric;
+	area->newmetric = new_metric;
+	lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
 }
 
 void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
@@ -1849,6 +1794,9 @@ void isis_area_overload_bit_set(struct isis_area *area, bool overload_bit)
 		area->overload_bit = new_overload_bit;
 		lsp_regenerate_schedule(area, IS_LEVEL_1 | IS_LEVEL_2, 1);
 	}
+#ifndef FABRICD
+	isis_notif_db_overload(area, overload_bit);
+#endif /* ifndef FABRICD */
 }
 
 void isis_area_attached_bit_set(struct isis_area *area, bool attached_bit)
@@ -1893,6 +1841,7 @@ void isis_area_lsp_refresh_set(struct isis_area *area, int level,
 	lsp_regenerate_schedule(area, level, 1);
 }
 
+#ifdef FABRICD
 DEFUN (log_adj_changes,
        log_adj_changes_cmd,
        "log-adjacency-changes",
@@ -1917,7 +1866,8 @@ DEFUN (no_log_adj_changes,
 
 	return CMD_SUCCESS;
 }
-
+#endif /* ifdef FABRICD */
+#ifdef FABRICD
 /* IS-IS configuration write function */
 int isis_config_write(struct vty *vty)
 {
@@ -2192,6 +2142,23 @@ int isis_config_write(struct vty *vty)
 	return write;
 }
 
+#else
+/* IS-IS configuration write function */
+int isis_config_write(struct vty *vty)
+{
+	int write = 0;
+	struct lyd_node *dnode;
+
+	dnode = yang_dnode_get(running_config->dnode, "/frr-isisd:isis");
+	if (dnode) {
+		nb_cli_show_dnode_cmds(vty, dnode, false);
+		write++;
+	}
+
+	return write;
+}
+#endif /* ifdef FABRICD */
+
 struct cmd_node router_node = {ROUTER_NODE, "%s(config-router)# ", 1};
 
 void isis_init()
@@ -2222,22 +2189,16 @@ void isis_init()
 
 	install_element(ENABLE_NODE, &debug_isis_adj_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_adj_cmd);
-	install_element(ENABLE_NODE, &debug_isis_csum_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_csum_cmd);
-	install_element(ENABLE_NODE, &debug_isis_lupd_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_lupd_cmd);
-	install_element(ENABLE_NODE, &debug_isis_err_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_err_cmd);
+	install_element(ENABLE_NODE, &debug_isis_tx_queue_cmd);
+	install_element(ENABLE_NODE, &no_debug_isis_tx_queue_cmd);
+	install_element(ENABLE_NODE, &debug_isis_flooding_cmd);
+	install_element(ENABLE_NODE, &no_debug_isis_flooding_cmd);
 	install_element(ENABLE_NODE, &debug_isis_snp_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_snp_cmd);
 	install_element(ENABLE_NODE, &debug_isis_upd_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_upd_cmd);
 	install_element(ENABLE_NODE, &debug_isis_spfevents_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_spfevents_cmd);
-	install_element(ENABLE_NODE, &debug_isis_spfstats_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_spfstats_cmd);
-	install_element(ENABLE_NODE, &debug_isis_spftrigg_cmd);
-	install_element(ENABLE_NODE, &no_debug_isis_spftrigg_cmd);
 	install_element(ENABLE_NODE, &debug_isis_rtevents_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_rtevents_cmd);
 	install_element(ENABLE_NODE, &debug_isis_events_cmd);
@@ -2253,22 +2214,16 @@ void isis_init()
 
 	install_element(CONFIG_NODE, &debug_isis_adj_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_adj_cmd);
-	install_element(CONFIG_NODE, &debug_isis_csum_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_csum_cmd);
-	install_element(CONFIG_NODE, &debug_isis_lupd_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_lupd_cmd);
-	install_element(CONFIG_NODE, &debug_isis_err_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_err_cmd);
+	install_element(CONFIG_NODE, &debug_isis_tx_queue_cmd);
+	install_element(CONFIG_NODE, &no_debug_isis_tx_queue_cmd);
+	install_element(CONFIG_NODE, &debug_isis_flooding_cmd);
+	install_element(CONFIG_NODE, &no_debug_isis_flooding_cmd);
 	install_element(CONFIG_NODE, &debug_isis_snp_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_snp_cmd);
 	install_element(CONFIG_NODE, &debug_isis_upd_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_upd_cmd);
 	install_element(CONFIG_NODE, &debug_isis_spfevents_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_spfevents_cmd);
-	install_element(CONFIG_NODE, &debug_isis_spfstats_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_spfstats_cmd);
-	install_element(CONFIG_NODE, &debug_isis_spftrigg_cmd);
-	install_element(CONFIG_NODE, &no_debug_isis_spftrigg_cmd);
 	install_element(CONFIG_NODE, &debug_isis_rtevents_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_rtevents_cmd);
 	install_element(CONFIG_NODE, &debug_isis_events_cmd);
@@ -2282,10 +2237,11 @@ void isis_init()
 	install_element(CONFIG_NODE, &debug_isis_bfd_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_bfd_cmd);
 
-	install_element(CONFIG_NODE, &router_isis_cmd);
-	install_element(CONFIG_NODE, &no_router_isis_cmd);
-
 	install_default(ROUTER_NODE);
+
+#ifdef FABRICD
+	install_element(CONFIG_NODE, &router_openfabric_cmd);
+	install_element(CONFIG_NODE, &no_router_openfabric_cmd);
 
 	install_element(ROUTER_NODE, &net_cmd);
 	install_element(ROUTER_NODE, &no_net_cmd);
@@ -2295,6 +2251,7 @@ void isis_init()
 
 	install_element(ROUTER_NODE, &log_adj_changes_cmd);
 	install_element(ROUTER_NODE, &no_log_adj_changes_cmd);
+#endif /* ifdef FABRICD */
 
 	spf_backoff_cmd_init();
 }

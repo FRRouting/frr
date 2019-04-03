@@ -1,0 +1,37 @@
+SUFFIXES += .yang .yang.c .yin .yin.c
+EXTRA_DIST += yang/embedmodel.py
+
+.yang.yang.c:
+	$(AM_V_GEN)$(PYTHON) $(top_srcdir)/yang/embedmodel.py $^ $@
+.yin.yin.c:
+	$(AM_V_GEN)$(PYTHON) $(top_srcdir)/yang/embedmodel.py $^ $@
+
+# use .yang.c files like this:
+#
+# ripd_ripd_SOURCES = \
+#	...
+# nodist_ripd_ripd_SOURCES = \
+#	yang/frr-ripd.yang.c \
+#	# end
+#
+# Note that putting the .yang.c file into a static library.a will NOT work
+# because the entire file is "optimized out" since it does not contain any
+# global symbols :(.  Just put it in the daemon.  Dynamic libraries.so work
+# without problems, as seen in libfrr.
+
+dist_yangmodels_DATA += yang/frr-module-translator.yang
+dist_yangmodels_DATA += yang/frr-test-module.yang
+dist_yangmodels_DATA += yang/frr-interface.yang
+dist_yangmodels_DATA += yang/frr-route-types.yang
+
+if RIPD
+dist_yangmodels_DATA += yang/frr-ripd.yang
+endif
+
+if RIPNGD
+dist_yangmodels_DATA += yang/frr-ripngd.yang
+endif
+
+if ISISD
+dist_yangmodels_DATA += yang/frr-isisd.yang
+endif

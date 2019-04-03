@@ -28,6 +28,7 @@
 #include "vrf.h"
 #include "vty.h"
 
+#include "zebra/zebra_router.h"
 #include "zebra/debug.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/rib.h"
@@ -144,7 +145,6 @@ static int zebra_vrf_enable(struct vrf *vrf)
 static int zebra_vrf_disable(struct vrf *vrf)
 {
 	struct zebra_vrf *zvrf = vrf->info;
-	struct route_table *table;
 	struct interface *ifp;
 	afi_t afi;
 	safi_t safi;
@@ -202,15 +202,16 @@ static int zebra_vrf_disable(struct vrf *vrf)
 
 	/* Cleanup (free) routing tables and NHT tables. */
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
-		void *table_info;
-
-		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
-			table = zvrf->table[afi][safi];
-			table_info = route_table_get_info(table);
-			route_table_finish(table);
-			XFREE(MTYPE_RIB_TABLE_INFO, table_info);
+		/*
+		 * Set the table pointer to NULL as that
+		 * we no-longer need a copy of it, nor do we
+		 * own this data, the zebra_router structure
+		 * owns these tables.  Once we've cleaned up the
+		 * table, see rib_close_table above
+		 * we no-longer need this pointer.
+		 */
+		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++)
 			zvrf->table[afi][safi] = NULL;
-		}
 
 		route_table_finish(zvrf->rnh_table[afi]);
 		zvrf->rnh_table[afi] = NULL;
@@ -374,13 +375,12 @@ static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 
 	assert(!zvrf->table[afi][safi]);
 
-	if (afi == AFI_IP6)
-		table = srcdest_table_init();
-	else
-		table = route_table_init();
+	table = zebra_router_get_table(zvrf, zvrf->table_id, afi, safi);
+
 	table->cleanup = zebra_rtable_node_cleanup;
 	zvrf->table[afi][safi] = table;
 
+	XFREE(MTYPE_RIB_TABLE_INFO, table->info);
 	info = XCALLOC(MTYPE_RIB_TABLE_INFO, sizeof(*info));
 	info->zvrf = zvrf;
 	info->afi = afi;
@@ -442,13 +442,10 @@ struct route_table *zebra_vrf_other_route_table(afi_t afi, uint32_t table_id,
 						vrf_id_t vrf_id)
 {
 	struct zebra_vrf *zvrf;
-	struct zebra_ns *zns;
 
 	zvrf = vrf_info_lookup(vrf_id);
 	if (!zvrf)
 		return NULL;
-
-	zns = zvrf->zns;
 
 	if (afi >= AFI_MAX)
 		return NULL;
@@ -461,7 +458,8 @@ struct route_table *zebra_vrf_other_route_table(afi_t afi, uint32_t table_id,
 			 * so in all cases, it does not use specific table
 			 * so it is possible to configure tables in this VRF
 			 */
-			return zebra_ns_get_table(zns, zvrf, table_id, afi);
+			return zebra_router_get_table(zvrf, table_id, afi,
+						      SAFI_UNICAST);
 		}
 	}
 

@@ -1,0 +1,197 @@
+module frr-deviations-ietf-rip {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/frr-deviations-ietf-rip";
+  prefix frr-deviations-ietf-rip;
+
+  import ietf-routing {
+    prefix ietf-routing;
+  }
+
+  import ietf-rip {
+    prefix ietf-rip;
+  }
+
+  organization
+    "Free Range Routing";
+
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+
+  description
+    "This module defines deviation statements for the ietf-rip
+     module.";
+
+  deviation "/ietf-rip:clear-rip-route/ietf-rip:input" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:originate-default-route/ietf-rip:route-policy" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:distance" {
+    deviate replace {
+      type uint8 {
+        range 0..255;
+      }
+    }
+    deviate replace {
+      default "0";
+    }
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:triggered-update-threshold" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:maximum-paths" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:output-delay" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:distribute-list" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:redistribute" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:timers" {
+    deviate delete {
+      must "invalid-interval >= (update-interval * 3)";
+    }
+    deviate delete {
+      must "flush-interval > invalid-interval";
+    }
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:timers/ietf-rip:update-interval" {
+    deviate replace {
+      type uint32;
+    }
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:timers/ietf-rip:invalid-interval" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:timers/ietf-rip:holddown-interval" {
+    deviate replace {
+      type uint32;
+    }
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:timers/ietf-rip:flush-interval" {
+    deviate replace {
+      default "120";
+    }
+    deviate replace {
+      type uint32;
+    }
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:interfaces/ietf-rip:interface/ietf-rip:authentication" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:interfaces/ietf-rip:interface/ietf-rip:bfd" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:interfaces/ietf-rip:interface/ietf-rip:cost" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:interfaces/ietf-rip:interface/ietf-rip:neighbors" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:interfaces/ietf-rip:interface/ietf-rip:no-listen" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:interfaces/ietf-rip:interface/ietf-rip:passive" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:interfaces/ietf-rip:interface/ietf-rip:originate-default-route" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:interfaces/ietf-rip:interface/ietf-rip:summary-address" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:interfaces/ietf-rip:interface/ietf-rip:timers" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:interfaces/ietf-rip:interface/ietf-rip:oper-status" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:interfaces/ietf-rip:interface/ietf-rip:next-full-update" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:interfaces/ietf-rip:interface/ietf-rip:valid-address" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:interfaces/ietf-rip:interface/ietf-rip:statistics" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:next-triggered-update" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:num-of-routes" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:ipv4/ietf-rip:routes/ietf-rip:route/ietf-rip:redistributed" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:ipv4/ietf-rip:routes/ietf-rip:route/ietf-rip:route-type" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:ipv4/ietf-rip:routes/ietf-rip:route/ietf-rip:expire-time" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:ipv4/ietf-rip:routes/ietf-rip:route/ietf-rip:deleted" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:ipv4/ietf-rip:routes/ietf-rip:route/ietf-rip:holddown" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:ipv4/ietf-rip:routes/ietf-rip:route/ietf-rip:need-triggered-update" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:ipv4/ietf-rip:routes/ietf-rip:route/ietf-rip:inactive" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:ipv4/ietf-rip:routes/ietf-rip:route/ietf-rip:flush-expire-before-holddown" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:ipv6" {
+    deviate not-supported;
+  }
+
+  deviation "/ietf-routing:routing/ietf-routing:control-plane-protocols/ietf-routing:control-plane-protocol/ietf-rip:rip/ietf-rip:statistics" {
+    deviate not-supported;
+  }
+}

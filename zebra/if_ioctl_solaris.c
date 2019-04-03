@@ -156,7 +156,7 @@ calculate_lifc_len:
 		       && (*(lifreq->lifr_name + normallen) != ':'))
 			normallen++;
 
-		ifp = if_get_by_name(lifreq->lifr_name, VRF_DEFAULT, 0);
+		ifp = if_get_by_name(lifreq->lifr_name, VRF_DEFAULT);
 
 		if (lifreq->lifr_addr.ss_family == AF_INET)
 			ifp->flags |= IFF_IPV4;
@@ -302,10 +302,11 @@ static int if_get_addr(struct interface *ifp, struct sockaddr *addr,
 	/* Set address to the interface. */
 	if (af == AF_INET)
 		connected_add_ipv4(ifp, flags, &SIN(addr)->sin_addr, prefixlen,
-				   (struct in_addr *)dest_pnt, label);
+				   (struct in_addr *)dest_pnt, label,
+				   METRIC_MAX);
 	else if (af == AF_INET6)
 		connected_add_ipv6(ifp, flags, &SIN6(addr)->sin6_addr, NULL,
-				   prefixlen, label);
+				   prefixlen, label, METRIC_MAX);
 
 	return 0;
 }

@@ -110,7 +110,7 @@ static int interface_list_ioctl(void)
 		unsigned int size;
 
 		ifreq = (struct ifreq *)((caddr_t)ifconf.ifc_req + n);
-		ifp = if_get_by_name(ifreq->ifr_name, VRF_DEFAULT, 0);
+		ifp = if_get_by_name(ifreq->ifr_name, VRF_DEFAULT);
 		if_add_update(ifp);
 		size = ifreq->ifr_addr.sa_len;
 		if (size < sizeof(ifreq->ifr_addr))
@@ -120,7 +120,7 @@ static int interface_list_ioctl(void)
 	}
 #else
 	for (n = 0; n < ifconf.ifc_len; n += sizeof(struct ifreq)) {
-		ifp = if_get_by_name(ifreq->ifr_name, VRF_DEFAULT, 0);
+		ifp = if_get_by_name(ifreq->ifr_name, VRF_DEFAULT);
 		if_add_update(ifp);
 		ifreq++;
 	}
@@ -236,7 +236,8 @@ static int if_getaddrs(void)
 			}
 
 			connected_add_ipv4(ifp, flags, &addr->sin_addr,
-					   prefixlen, dest_pnt, NULL);
+					   prefixlen, dest_pnt, NULL,
+					   METRIC_MAX);
 		}
 		if (ifap->ifa_addr->sa_family == AF_INET6) {
 			struct sockaddr_in6 *addr;
@@ -258,7 +259,7 @@ static int if_getaddrs(void)
 #endif
 
 			connected_add_ipv6(ifp, flags, &addr->sin6_addr, NULL,
-					   prefixlen, NULL);
+					   prefixlen, NULL, METRIC_MAX);
 		}
 	}
 

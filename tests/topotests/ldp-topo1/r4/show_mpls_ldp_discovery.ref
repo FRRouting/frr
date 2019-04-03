@@ -1,0 +1,3 @@
+AF   ID              Type     Source           Holdtime
+ipv4 2.2.2.2         Link     r4-eth0                15
+ipv4 3.3.3.3         Link     r4-eth0                15

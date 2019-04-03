@@ -58,6 +58,10 @@
 #define ZEBRA_IPTABLES_FORWARD 0
 #define ZEBRA_IPTABLES_DROP    1
 
+/* Zebra FEC register command flags. */
+#define ZEBRA_FEC_REGISTER_LABEL          0x1
+#define ZEBRA_FEC_REGISTER_LABEL_INDEX    0x2
+
 extern struct sockaddr_storage zclient_addr;
 extern socklen_t zclient_addr_len;
 
@@ -135,6 +139,7 @@ typedef enum {
 	ZEBRA_IP_PREFIX_ROUTE_DEL,
 	ZEBRA_REMOTE_MACIP_ADD,
 	ZEBRA_REMOTE_MACIP_DEL,
+	ZEBRA_DUPLICATE_ADDR_DETECTION,
 	ZEBRA_PW_ADD,
 	ZEBRA_PW_DELETE,
 	ZEBRA_PW_SET,
@@ -208,7 +213,7 @@ struct zclient {
 	vrf_bitmap_t redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 
 	/* Redistribute defauilt. */
-	vrf_bitmap_t default_information;
+	vrf_bitmap_t default_information[AFI_MAX];
 
 	/* Pointer to the callback functions. */
 	void (*zebra_connected)(struct zclient *);
@@ -221,7 +226,7 @@ struct zclient {
 	int (*interface_address_add)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*interface_address_delete)(int, struct zclient *, uint16_t,
 					vrf_id_t);
-	int (*interface_link_params)(int, struct zclient *, uint16_t);
+	int (*interface_link_params)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*interface_bfd_dest_update)(int, struct zclient *, uint16_t,
 					 vrf_id_t);
 	int (*interface_nbr_address_add)(int, struct zclient *, uint16_t,
@@ -422,23 +427,10 @@ struct zclient_options {
 	bool receive_notify;
 };
 
-/* Prototypes of zebra client service functions. */
-extern struct zclient *zclient_new(struct thread_master *);
-
-/* clang-format off */
-#if CONFDATE > 20181101
-CPP_NOTICE("zclient_new_notify can take over or zclient_new now");
-#endif
-/* clang-format on */
-
 extern struct zclient_options zclient_options_default;
 
-extern struct zclient *zclient_new_notify(struct thread_master *m,
-					  struct zclient_options *opt);
-
-#define zclient_new(A)                                                         \
-	zclient_new_notify((A), &zclient_options_default);                     \
-	CPP_WARN("Please transition to using zclient_new_notify");
+extern struct zclient *zclient_new(struct thread_master *m,
+				   struct zclient_options *opt);
 
 extern void zclient_init(struct zclient *, int, unsigned short,
 			 struct zebra_privs_t *privs);
@@ -484,13 +476,16 @@ extern int zebra_redistribute_send(int command, struct zclient *, afi_t,
 				   int type, unsigned short instance,
 				   vrf_id_t vrf_id);
 
+extern int zebra_redistribute_default_send(int command, struct zclient *zclient,
+					   afi_t afi, vrf_id_t vrf_id);
+
 /* If state has changed, update state and call zebra_redistribute_send. */
 extern void zclient_redistribute(int command, struct zclient *, afi_t, int type,
 				 unsigned short instance, vrf_id_t vrf_id);
 
 /* If state has changed, update state and send the command to zebra. */
 extern void zclient_redistribute_default(int command, struct zclient *,
-					 vrf_id_t vrf_id);
+					 afi_t, vrf_id_t vrf_id);
 
 /* Send the message in zclient->obuf to the zebra daemon (or enqueue it).
    Returns 0 for success or -1 on an I/O error. */
@@ -566,7 +561,8 @@ extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
 extern void zebra_interface_if_set_value(struct stream *, struct interface *);
 extern void zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 
-extern struct interface *zebra_interface_link_params_read(struct stream *);
+extern struct interface *zebra_interface_link_params_read(struct stream *s,
+							  vrf_id_t vrf_id);
 extern size_t zebra_interface_link_params_write(struct stream *,
 						struct interface *);
 extern int zclient_send_get_label_chunk(

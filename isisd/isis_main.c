@@ -58,6 +58,7 @@
 #include "isisd/isis_bfd.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_mt.h"
+#include "isisd/fabricd.h"
 
 /* Default configuration file name */
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
@@ -106,12 +107,23 @@ static __attribute__((__noreturn__)) void terminate(int i)
 /*
  * Signal handlers
  */
-
+#ifdef FABRICD
 void sighup(void)
 {
-	zlog_notice("SIGHUP/reload is not implemented for isisd");
+	zlog_notice("SIGHUP/reload is not implemented for fabricd");
 	return;
 }
+#else
+static struct frr_daemon_info isisd_di;
+void sighup(void)
+{
+	zlog_info("SIGHUP received");
+
+	/* Reload config file. */
+	vty_read_config(NULL, isisd_di.config_file, config_default);
+}
+
+#endif
 
 __attribute__((__noreturn__)) void sigint(void)
 {
@@ -150,6 +162,14 @@ struct quagga_signal_t isisd_signals[] = {
 	},
 };
 
+
+static const struct frr_yang_module_info *isisd_yang_modules[] = {
+	&frr_interface_info,
+#ifndef FABRICD
+	&frr_isisd_info,
+#endif /* ifndef FABRICD */
+};
+
 #ifdef FABRICD
 FRR_DAEMON_INFO(fabricd, OPEN_FABRIC, .vty_port = FABRICD_VTY_PORT,
 
@@ -166,7 +186,8 @@ FRR_DAEMON_INFO(isisd, ISIS, .vty_port = ISISD_VTY_PORT,
 		.signals = isisd_signals,
 		.n_signals = array_size(isisd_signals),
 
-		.privs = &isisd_privs, )
+		.privs = &isisd_privs, .yang_modules = isisd_yang_modules,
+		.n_yang_modules = array_size(isisd_yang_modules), )
 
 /*
  * Main routine of isisd. Parse arguments and handle IS-IS state machine.
@@ -198,7 +219,6 @@ int main(int argc, char **argv, char **envp)
 		}
 	}
 
-	vty_config_lockless();
 	/* thread master */
 	master = frr_init();
 
@@ -212,6 +232,9 @@ int main(int argc, char **argv, char **envp)
 	isis_init();
 	isis_circuit_init();
 	isis_vty_init();
+#ifndef FABRICD
+	isis_cli_init();
+#endif /* ifdef FABRICD */
 	isis_spf_cmds_init();
 	isis_redist_init();
 	isis_route_map_init();
@@ -224,6 +247,7 @@ int main(int argc, char **argv, char **envp)
 
 	isis_zebra_init(master);
 	isis_bfd_init();
+	fabricd_init();
 
 	frr_config_fork();
 	frr_run(master);

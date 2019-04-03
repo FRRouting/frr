@@ -21,7 +21,6 @@ Building FRR
    building-frr-for-omnios
    building-frr-for-openbsd6
    building-frr-for-openwrt
-   building-frr-for-ubuntu1204
    building-frr-for-ubuntu1404
    building-frr-for-ubuntu1604
    building-frr-for-ubuntu1804

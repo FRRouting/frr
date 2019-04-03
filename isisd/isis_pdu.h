@@ -208,15 +208,14 @@ int isis_receive(struct thread *thread);
 /*
  * Sending functions
  */
-int send_lan_l1_hello(struct thread *thread);
-int send_lan_l2_hello(struct thread *thread);
-int send_p2p_hello(struct thread *thread);
+void send_hello_sched(struct isis_circuit *circuit, int level, long delay);
 int send_csnp(struct isis_circuit *circuit, int level);
 int send_l1_csnp(struct thread *thread);
 int send_l2_csnp(struct thread *thread);
 int send_l1_psnp(struct thread *thread);
 int send_l2_psnp(struct thread *thread);
-void send_lsp(void *arg, struct isis_lsp *lsp, enum isis_tx_type tx_type);
+void send_lsp(struct isis_circuit *circuit,
+	      struct isis_lsp *lsp, enum isis_tx_type tx_type);
 void fill_fixed_hdr(uint8_t pdu_type, struct stream *stream);
 int send_hello(struct isis_circuit *circuit, int level);
 int isis_handle_pdu(struct isis_circuit *circuit, uint8_t *ssnpa);

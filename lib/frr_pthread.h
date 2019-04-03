@@ -133,16 +133,13 @@ struct frr_pthread *frr_pthread_new(struct frr_pthread_attr *attr,
 				    const char *name, const char *os_name);
 
 /*
- * Changes the name of the frr_pthread.
+ * Changes the name of the frr_pthread as reported by the operating
+ * system.
  *
  * @param fpt - the frr_pthread to operate on
- * @param name - Human-readable name
- * @param os_name - 16 characters thread name , including the null
- * terminator ('\0') to set in os.
  * @return -  on success returns 0 otherwise nonzero error number.
  */
-int frr_pthread_set_name(struct frr_pthread *fpt, const char *name,
-			 const char *os_name);
+int frr_pthread_set_name(struct frr_pthread *fpt);
 
 /*
  * Destroys an frr_pthread.

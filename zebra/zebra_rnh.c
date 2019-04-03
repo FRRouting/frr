@@ -36,6 +36,7 @@
 #include "nexthop.h"
 #include "vrf.h"
 
+#include "zebra/zebra_router.h"
 #include "zebra/rib.h"
 #include "zebra/rt.h"
 #include "zebra/zserv.h"
@@ -212,10 +213,14 @@ void zebra_add_rnh_client(struct rnh *rnh, struct zserv *client,
 			   zebra_route_string(client->proto),
 			   rnh_str(rnh, buf, sizeof(buf)), type);
 	}
-	if (!listnode_lookup(rnh->client_list, client)) {
+	if (!listnode_lookup(rnh->client_list, client))
 		listnode_add(rnh->client_list, client);
-		send_client(rnh, client, type, vrf_id);
-	}
+
+	/*
+	 * We always need to respond with known information,
+	 * currently multiple daemons expect this behavior
+	 */
+	send_client(rnh, client, type, vrf_id);
 }
 
 void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
@@ -469,12 +474,11 @@ static void zebra_rnh_process_pbr_tables(int family,
 					 struct route_node *prn,
 					 struct route_entry *re)
 {
-	struct zebra_ns_table *znst;
+	struct zebra_router_table *zrt;
 	struct route_entry *o_re;
 	struct route_node *o_rn;
 	struct listnode *node;
 	struct zserv *client;
-	struct zebra_ns *zns;
 	afi_t afi = AFI_IP;
 
 	if (family == AF_INET6)
@@ -492,13 +496,12 @@ static void zebra_rnh_process_pbr_tables(int family,
 	if (!client)
 		return;
 
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	RB_FOREACH (znst, zebra_ns_table_head, &zns->ns_tables) {
-		if (afi != znst->afi)
+	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
+		if (afi != zrt->afi)
 			continue;
 
-		for (o_rn = route_top(znst->table);
-		     o_rn; o_rn = srcdest_route_next(o_rn)) {
+		for (o_rn = route_top(zrt->table); o_rn;
+		     o_rn = srcdest_route_next(o_rn)) {
 			RNODE_FOREACH_RE (o_rn, o_re) {
 				if (o_re->type == ZEBRA_ROUTE_PBR)
 					break;
@@ -519,6 +522,17 @@ static void zebra_rnh_process_pbr_tables(int family,
 }
 
 /*
+ * Utility to determine whether a candidate nexthop is useable. We make this
+ * check in a couple of places, so this is a single home for the logic we
+ * use.
+ */
+static bool rnh_nexthop_valid(const struct nexthop *nh)
+{
+	return (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_FIB)
+		&& CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE));
+}
+
+/*
  * Determine appropriate route (route entry) resolving a tracked
  * nexthop.
  */
@@ -530,6 +544,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, int family,
 	struct route_table *route_table;
 	struct route_node *rn;
 	struct route_entry *re;
+	struct nexthop *nexthop;
 
 	*prn = NULL;
 
@@ -562,12 +577,22 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, int family,
 			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 				continue;
 
+			/* Just being SELECTED isn't quite enough - must
+			 * have an installed nexthop to be useful.
+			 */
+			for (ALL_NEXTHOPS(re->ng, nexthop)) {
+				if (rnh_nexthop_valid(nexthop))
+					break;
+			}
+
+			if (nexthop == NULL)
+				continue;
+
 			if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED)) {
 				if ((re->type == ZEBRA_ROUTE_CONNECT)
 				    || (re->type == ZEBRA_ROUTE_STATIC))
 					break;
 				if (re->type == ZEBRA_ROUTE_NHRP) {
-					struct nexthop *nexthop;
 
 					for (nexthop = re->ng.nexthop; nexthop;
 					     nexthop = nexthop->next)
@@ -888,10 +913,9 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 		num = 0;
 		nump = stream_get_endp(s);
 		stream_putc(s, 0);
-		for (nh = re->ng.nexthop; nh; nh = nh->next)
-			if ((CHECK_FLAG(nh->flags, NEXTHOP_FLAG_FIB)
-			     || CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))
-			    && CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)) {
+		for (ALL_NEXTHOPS(re->ng, nh))
+			if (rnh_nexthop_valid(nh)) {
+				stream_putl(s, nh->vrf_id);
 				stream_putc(s, nh->type);
 				switch (nh->type) {
 				case NEXTHOP_TYPE_IPV4:

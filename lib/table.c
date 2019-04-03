@@ -33,7 +33,7 @@ DEFINE_MTYPE(LIB, ROUTE_NODE, "Route node")
 
 static void route_table_free(struct route_table *);
 
-static int route_table_hash_cmp(const void *a, const void *b)
+static bool route_table_hash_cmp(const void *a, const void *b)
 {
 	const struct prefix *pa = a, *pb = b;
 	return prefix_cmp(pa, pb) == 0;

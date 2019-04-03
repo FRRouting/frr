@@ -47,6 +47,11 @@ struct isis_lsp {
 	int age_out;
 	struct isis_area *area;
 	struct isis_tlvs *tlvs;
+
+	time_t flooding_time;
+	struct list *flooding_neighbors[TX_LSP_CIRCUIT_SCOPED + 1];
+	char *flooding_interface;
+	bool flooding_circuit_scoped;
 };
 
 dict_t *lsp_db_init(void);
@@ -54,7 +59,12 @@ void lsp_db_destroy(dict_t *lspdb);
 int lsp_tick(struct thread *thread);
 
 int lsp_generate(struct isis_area *area, int level);
-int lsp_regenerate_schedule(struct isis_area *area, int level, int all_pseudo);
+#define lsp_regenerate_schedule(area, level, all_pseudo) \
+	_lsp_regenerate_schedule((area), (level), (all_pseudo), true, \
+				 __func__, __FILE__, __LINE__)
+int _lsp_regenerate_schedule(struct isis_area *area, int level,
+			     int all_pseudo, bool postpone,
+			     const char *func, const char *file, int line);
 int lsp_generate_pseudo(struct isis_circuit *circuit, int level);
 int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level);
 
@@ -95,12 +105,17 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 		struct isis_tlvs *tlvs, struct stream *stream,
 		struct isis_area *area, int level, bool confusion);
 void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno);
+void lspid_print(uint8_t *lsp_id, char *dest, char dynhost, char frag);
 void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost);
 void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost);
 int lsp_print_all(struct vty *vty, dict_t *lspdb, char detail, char dynhost);
 /* sets SRMflags for all active circuits of an lsp */
 void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set);
-void lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit);
+
+#define lsp_flood(lsp, circuit) \
+	_lsp_flood((lsp), (circuit), __func__, __FILE__, __LINE__)
+void _lsp_flood(struct isis_lsp *lsp, struct isis_circuit *circuit,
+		const char *func, const char *file, int line);
 void lsp_init(void);
 
 #endif /* ISIS_LSP */

@@ -1,0 +1,10 @@
+BGP router identifier 192.168.0.1, local AS number 100 vrf-id 0
+BGP table version 1
+RIB entries 1, using XXXX bytes of memory
+Peers 4, using XXXX KiB of memory
+
+Neighbor         V         AS MsgRcvd MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd
+192.168.7.10     4        100       0       0        0    0    0    never       Active
+192.168.7.20     4        200       0       0        0    0    0    never       Active
+fc00:0:0:8::1000 4        100       0       0        0    0    0    never       Active
+fc00:0:0:8::2000 4        200       0       0        0    0    0    never       Active

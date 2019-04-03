@@ -1,0 +1,10 @@
+# function names & co.
+frr binary: spelling-error-in-binary usr/lib/*/frr/libfrr.so.0.0.0 writen written
+frr binary: spelling-error-in-binary usr/lib/*/frr/libfrrospfapiclient.so.0.0.0 writen written
+frr binary: spelling-error-in-binary usr/lib/frr/ospfd writen written
+frr binary: spelling-error-in-binary usr/lib/frr/zebra writen written
+frr binary: spelling-error-in-binary usr/lib/frr/pimd writen written
+frr binary: spelling-error-in-binary usr/lib/frr/pimd iif if
+
+# personal name
+spelling-error-in-copyright Ang And

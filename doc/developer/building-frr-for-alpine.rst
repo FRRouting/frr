@@ -85,7 +85,6 @@ startup.  To configure by hand:
 
    docker exec -it frr /bin/sh
    vi /etc/frr/daemons
-   vi /etc/frr/daemons.conf
    cp /etc/frr/zebra.conf.sample /etc/frr/zebra.conf
    vi /etc/frr/zebra.conf
    /etc/init.d/frr start

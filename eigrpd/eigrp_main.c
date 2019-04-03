@@ -130,6 +130,10 @@ struct quagga_signal_t eigrp_signals[] = {
 	},
 };
 
+static const struct frr_yang_module_info *eigrpd_yang_modules[] = {
+	&frr_interface_info,
+};
+
 FRR_DAEMON_INFO(eigrpd, EIGRP, .vty_port = EIGRP_VTY_PORT,
 
 		.proghelp = "Implementation of the EIGRP routing protocol.",
@@ -137,7 +141,8 @@ FRR_DAEMON_INFO(eigrpd, EIGRP, .vty_port = EIGRP_VTY_PORT,
 		.signals = eigrp_signals,
 		.n_signals = array_size(eigrp_signals),
 
-		.privs = &eigrpd_privs, )
+		.privs = &eigrpd_privs, .yang_modules = eigrpd_yang_modules,
+		.n_yang_modules = array_size(eigrpd_yang_modules), )
 
 /* EIGRPd main routine. */
 int main(int argc, char **argv, char **envp)
@@ -212,8 +217,6 @@ int main(int argc, char **argv, char **envp)
 
 	/* Distribute list install. */
 	distribute_list_init(EIGRP_NODE);
-	distribute_list_add_hook(eigrp_distribute_update);
-	distribute_list_delete_hook(eigrp_distribute_update);
 
 	frr_config_fork();
 	frr_run(master);

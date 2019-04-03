@@ -40,22 +40,6 @@ struct rip_metric_modifier {
 	uint8_t metric;
 };
 
-/* Hook function for updating route_map assignment. */
-/* ARGSUSED */
-static void rip_route_map_update(const char *notused)
-{
-	int i;
-
-	if (rip) {
-		for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-			if (rip->route_map[i].name)
-				rip->route_map[i].map =
-					route_map_lookup_by_name(
-						rip->route_map[i].name);
-		}
-	}
-}
-
 /* `match metric METRIC' */
 /* Match function return 1 if match is success else return zero. */
 static route_map_result_t route_match_metric(void *rule,
@@ -533,18 +517,10 @@ static struct route_map_rule_cmd route_set_tag_cmd = {
 #define MATCH_STR "Match values from routing table\n"
 #define SET_STR "Set values in destination routing protocol\n"
 
-void rip_route_map_reset()
-{
-	;
-}
-
 /* Route-map init */
 void rip_route_map_init()
 {
 	route_map_init();
-
-	route_map_add_hook(rip_route_map_update);
-	route_map_delete_hook(rip_route_map_update);
 
 	route_map_match_interface_hook(generic_match_add);
 	route_map_no_match_interface_hook(generic_match_delete);

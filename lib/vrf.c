@@ -330,6 +330,8 @@ vrf_id_t vrf_name_to_id(const char *name)
 	vrf_id_t vrf_id = VRF_DEFAULT; // Pending: need a way to return invalid
 				       // id/ routine not used.
 
+	if (!name)
+		return vrf_id;
 	vrf = vrf_lookup_by_name(name);
 	if (vrf)
 		vrf_id = vrf->vrf_id;
@@ -366,7 +368,7 @@ static unsigned int vrf_hash_bitmap_key(void *data)
 	return bit->vrf_id;
 }
 
-static int vrf_hash_bitmap_cmp(const void *a, const void *b)
+static bool vrf_hash_bitmap_cmp(const void *a, const void *b)
 {
 	const struct vrf_bit_set *bit1 = a;
 	const struct vrf_bit_set *bit2 = b;
@@ -714,13 +716,6 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 	return CMD_SUCCESS;
 }
 
-int vrf_is_mapped_on_netns(struct vrf *vrf)
-{
-	if (!vrf || vrf->data.l.netns_name[0] == '\0')
-		return 0;
-	return 1;
-}
-
 /* vrf CLI commands */
 DEFUN_NOSH(vrf_exit,
            vrf_exit_cmd,
@@ -894,14 +889,20 @@ void vrf_cmd_init(int (*writefunc)(struct vty *vty),
 	}
 }
 
-void vrf_set_default_name(const char *default_name)
+void vrf_set_default_name(const char *default_name, bool force)
 {
 	struct vrf *def_vrf;
 	struct vrf *vrf_with_default_name = NULL;
+	static bool def_vrf_forced;
 
 	def_vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	assert(default_name);
-	vrf_with_default_name = vrf_lookup_by_name(default_name);
+	if (def_vrf && !force && def_vrf_forced) {
+		zlog_debug("VRF: %s, avoid changing name to %s, previously forced (%u)",
+			   def_vrf->name, default_name,
+			   def_vrf->vrf_id);
+		return;
+	}
 	if (vrf_with_default_name && vrf_with_default_name != def_vrf) {
 		/* vrf name already used by an other VRF */
 		zlog_debug("VRF: %s, avoid changing name to %s, same name exists (%u)",
@@ -911,6 +912,8 @@ void vrf_set_default_name(const char *default_name)
 	}
 	snprintf(vrf_default_name, VRF_NAMSIZ, "%s", default_name);
 	if (def_vrf) {
+		if (force)
+			def_vrf_forced = true;
 		RB_REMOVE(vrf_name_head, &vrfs_by_name, def_vrf);
 		strlcpy(def_vrf->data.l.netns_name,
 			vrf_default_name, NS_NAMSIZ);
@@ -943,7 +946,7 @@ int vrf_bind(vrf_id_t vrf_id, int fd, char *name)
 
 	if (fd < 0 || name == NULL)
 		return fd;
-	if (vrf_is_mapped_on_netns(vrf_lookup_by_id(vrf_id)))
+	if (vrf_is_backend_netns())
 		return fd;
 #ifdef SO_BINDTODEVICE
 	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, name, strlen(name)+1);
@@ -1021,4 +1024,11 @@ int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id,
 		ret = ret2;
 	}
 	return ret;
+}
+
+vrf_id_t vrf_generate_id(void)
+{
+	static int vrf_id_local;
+
+	return ++vrf_id_local;
 }

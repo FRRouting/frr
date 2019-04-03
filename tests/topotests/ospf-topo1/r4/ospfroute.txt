@@ -1,0 +1,23 @@
+============ OSPF network routing table ============
+N IA 10.0.1.0/24           [30] area: 0.0.0.1
+                           via 172.16.0.2, r4-eth0
+N IA 10.0.2.0/24           [30] area: 0.0.0.1
+                           via 172.16.0.2, r4-eth0
+N IA 10.0.3.0/24           [20] area: 0.0.0.1
+                           via 172.16.0.2, r4-eth0
+N IA 10.0.10.0/24          [20] area: 0.0.0.1
+                           via 172.16.0.2, r4-eth0
+N    172.16.0.0/24         [10] area: 0.0.0.1
+                           directly attached to r4-eth0
+N    172.16.1.0/24         [10] area: 0.0.0.1
+                           directly attached to r4-eth1
+
+============ OSPF router routing table =============
+R    10.0.255.1         IA [20] area: 0.0.0.1, ASBR
+                           via 172.16.0.2, r4-eth0
+R    10.0.255.2         IA [20] area: 0.0.0.1, ASBR
+                           via 172.16.0.2, r4-eth0
+R    10.0.255.3            [10] area: 0.0.0.1, ABR, ASBR
+                           via 172.16.0.2, r4-eth0
+
+============ OSPF external routing table ===========

@@ -87,12 +87,6 @@ static int isis_zebra_if_add(int command, struct zclient *zclient,
 
 	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
 
-	if (isis->debugs & DEBUG_ZEBRA)
-		zlog_debug(
-			"Zebra I/F add: %s index %d flags %ld metric %d mtu %d",
-			ifp->name, ifp->ifindex, (long)ifp->flags, ifp->metric,
-			ifp->mtu);
-
 	if (if_is_operative(ifp))
 		isis_csm_state_change(IF_UP_FROM_Z, circuit_scan_by_ifp(ifp),
 				      ifp);
@@ -115,12 +109,6 @@ static int isis_zebra_if_del(int command, struct zclient *zclient,
 	if (if_is_operative(ifp))
 		zlog_warn("Zebra: got delete of %s, but interface is still up",
 			  ifp->name);
-
-	if (isis->debugs & DEBUG_ZEBRA)
-		zlog_debug(
-			"Zebra I/F delete: %s index %d flags %ld metric %d mtu %d",
-			ifp->name, ifp->ifindex, (long)ifp->flags, ifp->metric,
-			ifp->mtu);
 
 	isis_csm_state_change(IF_DOWN_FROM_Z, circuit_scan_by_ifp(ifp), ifp);
 
@@ -231,11 +219,11 @@ static int isis_zebra_if_address_del(int command, struct zclient *client,
 }
 
 static int isis_zebra_link_params(int command, struct zclient *zclient,
-				  zebra_size_t length)
+				  zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 
-	ifp = zebra_interface_link_params_read(zclient->ibuf);
+	ifp = zebra_interface_link_params_read(zclient->ibuf, vrf_id);
 
 	if (ifp == NULL)
 		return 0;
@@ -402,7 +390,7 @@ void isis_zebra_redistribute_set(afi_t afi, int type)
 {
 	if (type == DEFAULT_ROUTE)
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
-					     zclient, VRF_DEFAULT);
+					     zclient, afi, VRF_DEFAULT);
 	else
 		zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type,
 				     0, VRF_DEFAULT);
@@ -412,7 +400,7 @@ void isis_zebra_redistribute_unset(afi_t afi, int type)
 {
 	if (type == DEFAULT_ROUTE)
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
-					     zclient, VRF_DEFAULT);
+					     zclient, afi, VRF_DEFAULT);
 	else
 		zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, afi,
 				     type, 0, VRF_DEFAULT);
@@ -425,7 +413,7 @@ static void isis_zebra_connected(struct zclient *zclient)
 
 void isis_zebra_init(struct thread_master *master)
 {
-	zclient = zclient_new_notify(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default);
 	zclient_init(zclient, PROTO_TYPE, 0, &isisd_privs);
 	zclient->zebra_connected = isis_zebra_connected;
 	zclient->router_id_update = isis_router_id_update_zebra;

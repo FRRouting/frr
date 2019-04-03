@@ -69,6 +69,96 @@ static struct log_ref ferr_lib_warn[] = {
 		.suggestion = "Check the length of the vrf name and adjust accordingly",
 	},
 	{
+		.code = EC_LIB_YANG_DATA_TRUNCATED,
+		.title = "YANG data truncation",
+		.description = "The northbound subsystem has detected that YANG data has been truncated as the given buffer wasn't big enough",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
+		.code = EC_LIB_YANG_UNKNOWN_DATA_PATH,
+		.title = "Unknown YANG data path",
+		.description = "The northbound subsystem has detected an unknown YANG data path",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
+		.code = EC_LIB_YANG_TRANSLATOR_LOAD,
+		.title = "Unable to load YANG module translator",
+		.description = "The northbound subsystem has detected an error while loading a YANG module translator",
+		.suggestion = "Ensure the YANG module translator file is valid. See documentation for further information.",
+	},
+	{
+		.code = EC_LIB_YANG_TRANSLATION_ERROR,
+		.title = "YANG translation error",
+		.description = "The northbound subsystem has detected an error while performing a YANG XPath translation",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
+		.code = EC_LIB_NB_DATABASE,
+		.title = "The northbound database wasn't initialized correctly",
+		.description = "An error occurred while initializing the northbound database. As a result, the configuration rollback feature won't work as expected.",
+		.suggestion = "Ensure permissions are correct for FRR files, users and groups are correct."
+	},
+	{
+		.code = EC_LIB_NB_CB_UNNEEDED,
+		.title = "Unneeded northbound callback",
+		.description = "The northbound subsystem, during initialization, has detected a callback that doesn't need to be implemented",
+		.suggestion = "This is a bug; please report it"
+	},
+	{
+		.code = EC_LIB_NB_CB_CONFIG_VALIDATE,
+		.title = "A northbound configuration callback has failed in the VALIDATE phase",
+		.description = "A callback used to process a configuration change has returned a validation error",
+		.suggestion = "The provided configuration is invalid. Fix any inconsistency and try again.",
+	},
+	{
+		.code = EC_LIB_NB_CB_CONFIG_PREPARE,
+		.title = "A northbound configuration callback has failed in the PREPARE phase",
+		.description = "A callback used to process a configuration change has returned a resource allocation error",
+		.suggestion = "The system might be running out of resources. Check the log for more details.",
+	},
+	{
+		.code = EC_LIB_NB_CB_STATE,
+		.title = "A northbound callback for operational data has failed",
+		.description = "The northbound subsystem has detected that a callback used to fetch operational data has returned an error",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
+		.code = EC_LIB_NB_CB_RPC,
+		.title = "A northbound RPC callback has failed",
+		.description = "The northbound subsystem has detected that a callback used to process YANG RPCs/actions has returned an error",
+		.suggestion = "The log message should contain further details on the specific error that occurred; investigate the reported error.",
+	},
+	{
+		.code = EC_LIB_NB_CANDIDATE_INVALID,
+		.title = "Invalid candidate configuration",
+		.description = "The northbound subsystem failed to validate a candidate configuration",
+		.suggestion = "Check the log messages to see the validation errors and edit the candidate configuration to fix them",
+	},
+	{
+		.code = EC_LIB_NB_CANDIDATE_EDIT_ERROR,
+		.title = "Failure to edit a candidate configuration",
+		.description = "The northbound subsystem failed to edit a candidate configuration",
+		.suggestion = "This is a bug; please report it"
+	},
+	{
+		.code = EC_LIB_NB_OPERATIONAL_DATA,
+		.title = "Failure to obtain operational data",
+		.description = "The northbound subsystem failed to obtain YANG-modeled operational data",
+		.suggestion = "This is a bug; please report it"
+	},
+	{
+		.code = EC_LIB_NB_TRANSACTION_CREATION_FAILED,
+		.title = "Failure to create a configuration transaction",
+		.description = "The northbound subsystem failed to create a configuration transaction",
+		.suggestion = "The log message should contain further details on the specific error that occurred; investigate the reported error.",
+	},
+	{
+		.code = EC_LIB_NB_TRANSACTION_RECORD_FAILED,
+		.title = "Failure to record a configuration transaction",
+		.description = "The northbound subsystem failed to record a configuration transaction in the northbound database",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
 		.code = END_FERR,
 	},
 };
@@ -89,8 +179,8 @@ static struct log_ref ferr_lib_err[] = {
 	{
 		.code = EC_LIB_SOCKET,
 		.title = "Socket Error",
-		.description = "When attempting to access a socket a system error has occured and we were unable to properly complete the request",
-		.suggestion = "Ensure that there are sufficient system resources available and ensure that the frr user has sufficient permisions to work.  If necessary open an Issue",
+		.description = "When attempting to access a socket a system error has occurred and we were unable to properly complete the request",
+		.suggestion = "Ensure that there are sufficient system resources available and ensure that the frr user has sufficient permissions to work.  If necessary open an Issue",
 	},
 	{
 		.code = EC_LIB_ZAPI_MISSMATCH,
@@ -151,6 +241,108 @@ static struct log_ref ferr_lib_err[] = {
 		.title = "Feature or system unavailable",
 		.description = "FRR was not compiled with support for a particular feature, or it is not available on the current platform",
 		.suggestion = "Recompile FRR with the feature enabled, or find out what platforms support the feature"
+	},
+	{
+		.code = EC_LIB_YANG_MODULE_LOAD,
+		.title = "Unable to load YANG module from the file system",
+		.description = "The northbound subsystem has detected an error while loading a YANG module from the file system",
+		.suggestion = "Ensure all FRR YANG modules were installed correctly in the system.",
+	},
+	{
+		.code = EC_LIB_YANG_MODULE_LOADED_ALREADY,
+		.title = "Attempt to load a YANG module that is already loaded",
+		.description = "The northbound subsystem has detected an attempt to load a YANG module that is already loaded",
+		.suggestion = "This is a bug; please report it"
+	},
+	{
+		.code = EC_LIB_YANG_DATA_CONVERT,
+		.title = "YANG data conversion error",
+		.description = "An error has occurred while converting a YANG data value from string to binary representation or vice-versa",
+		.suggestion = "Open an Issue with all relevant log files and restart FRR"
+	},
+	{
+		.code = EC_LIB_YANG_DNODE_NOT_FOUND,
+		.title = "YANG data node not found",
+		.description = "The northbound subsystem failed to find a YANG data node that was supposed to exist",
+		.suggestion = "This is a bug; please report it"
+	},
+	{
+		.code = EC_LIB_NB_CB_MISSING,
+		.title = "Missing northbound callback",
+		.description = "The northbound subsystem, during initialization, has detected a missing callback for one node of the loaded YANG modules",
+		.suggestion = "This is a bug; please report it"
+	},
+	{
+		.code = EC_LIB_NB_CB_INVALID_PRIO,
+		.title = "Norhtbound callback has an invalid priority",
+		.description = "The northbound subsystem, during initialization, has detected a callback whose priority is invalid",
+		.suggestion = "This is a bug; please report it"
+	},
+	{
+		.code = EC_LIB_NB_CBS_VALIDATION,
+		.title = "Failure to validate the northbound callbacks",
+		.description = "The northbound subsystem, during initialization, has detected one or more errors while loading the northbound callbacks",
+		.suggestion = "This is a bug; please report it"
+	},
+	{
+		.code = EC_LIB_LIBYANG,
+		.title = "The libyang library returned an error",
+		.description = "The northbound subsystem has detected that the libyang library returned an error",
+		.suggestion = "Open an Issue with all relevant log files and restart FRR"
+	},
+	{
+		.code = EC_LIB_LIBYANG_PLUGIN_LOAD,
+		.title = "Failure to load a libyang plugin",
+		.description = "The northbound subsystem, during initialization, has detected that a libyang plugin failed to be loaded",
+		.suggestion = "Check if the FRR libyang plugins were installed correctly in the system",
+	},
+	{
+		.code = EC_LIB_CONFD_INIT,
+		.title = "ConfD initialization error",
+		.description = "Upon startup FRR failed to properly initialize and startup the ConfD northbound plugin",
+		.suggestion = "Check if ConfD is installed correctly in the system. Also, check if the confd daemon is running.",
+	},
+	{
+		.code = EC_LIB_CONFD_DATA_CONVERT,
+		.title = "ConfD data conversion error",
+		.description = "An error has occurred while converting a ConfD data value (binary) to a string",
+		.suggestion = "Open an Issue with all relevant log files and restart FRR"
+	},
+	{
+		.code = EC_LIB_LIBCONFD,
+		.title = "libconfd error",
+		.description = "The northbound subsystem has detected that the libconfd library returned an error",
+		.suggestion = "Open an Issue with all relevant log files and restart FRR"
+	},
+	{
+		.code = EC_LIB_SYSREPO_INIT,
+		.title = "Sysrepo initialization error",
+		.description = "Upon startup FRR failed to properly initialize and startup the Sysrepo northbound plugin",
+		.suggestion = "Check if Sysrepo is installed correctly in the system",
+	},
+	{
+		.code = EC_LIB_SYSREPO_DATA_CONVERT,
+		.title = "Sysrepo data conversion error",
+		.description = "An error has occurred while converting a YANG data value to the Sysrepo format",
+		.suggestion = "Open an Issue with all relevant log files and restart FRR"
+	},
+	{
+		.code = EC_LIB_LIBSYSREPO,
+		.title = "libsysrepo error",
+		.description = "The northbound subsystem has detected that the libsysrepo library returned an error",
+		.suggestion = "Open an Issue with all relevant log files and restart FRR"
+	},
+	{
+		.code = EC_LIB_NB_CB_CONFIG_ABORT,
+		.title = "A northbound configuration callback has failed in the ABORT phase",
+		.description = "A callback used to process a configuration change has returned an error while trying to abort a change",
+		.suggestion = "Gather log data and open an Issue.",
+	},
+	{
+		.code = EC_LIB_NB_CB_CONFIG_APPLY,
+		.title = "A northbound configuration callback has failed in the APPLY phase",
+		.description = "A callback used to process a configuration change has returned an error while applying the changes",
+		.suggestion = "Gather log data and open an Issue.",
 	},
 	{
 		.code = END_FERR,

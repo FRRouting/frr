@@ -104,7 +104,7 @@ static int vty_close_pager(struct vty *vty)
 	return 0;
 }
 
-void vtysh_pager_init(void)
+static void vtysh_pager_envdef(bool fallback)
 {
 	char *pager_defined;
 
@@ -112,7 +112,7 @@ void vtysh_pager_init(void)
 
 	if (pager_defined)
 		vtysh_pager_name = strdup(pager_defined);
-	else
+	else if (fallback)
 		vtysh_pager_name = strdup(VTYSH_PAGER);
 }
 
@@ -577,7 +577,7 @@ static int vtysh_execute_func(const char *line, int pager)
 				    && (cmd->daemon == vtysh_client[i].flag)) {
 					for (vc = &vtysh_client[i]; vc;
 					     vc = vc->next)
-						if (vc->fd < 0)
+						if (vc->fd == VTYSH_WAS_ACTIVE)
 							vtysh_reconnect(vc);
 				}
 				if (vtysh_client[i].fd < 0
@@ -856,7 +856,7 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
 		lineno++;
 
-		ret = command_config_read_one_line(vty, &cmd, 1);
+		ret = command_config_read_one_line(vty, &cmd, lineno, 1);
 
 		switch (ret) {
 		case CMD_WARNING:
@@ -1458,7 +1458,7 @@ DEFUNSH_HIDDEN(VTYSH_BGPD, address_family_evpn2, address_family_evpn2_cmd,
 }
 #endif
 
-DEFUNSH(VTYSH_BGPD, bgp_evpn_vni, bgp_evpn_vni_cmd, "vni (1-16777215)",
+DEFUNSH(VTYSH_BGPD, bgp_evpn_vni, bgp_evpn_vni_cmd, "vni " CMD_VNI_RANGE,
 	"VXLAN Network Identifier\n"
 	"VNI number\n")
 {
@@ -1502,7 +1502,7 @@ DEFUNSH(VTYSH_BGPD, vnc_l2_group, vnc_l2_group_cmd, "vnc l2-group NAME",
 }
 #endif
 
-DEFUNSH(VTYSH_RIPD, key_chain, key_chain_cmd, "key chain WORD",
+DEFUNSH(VTYSH_KEYS, key_chain, key_chain_cmd, "key chain WORD",
 	"Authentication key management\n"
 	"Key-chain management\n"
 	"Key-chain name\n")
@@ -1511,7 +1511,7 @@ DEFUNSH(VTYSH_RIPD, key_chain, key_chain_cmd, "key chain WORD",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_RIPD, key, key_cmd, "key (0-2147483647)",
+DEFUNSH(VTYSH_KEYS, key, key_cmd, "key (0-2147483647)",
 	"Configure a key\n"
 	"Key identifier number\n")
 {
@@ -2110,7 +2110,7 @@ DEFSH(VTYSH_ZEBRA, vtysh_no_logicalrouter_cmd,
       "The Name Space\n"
       "The file name in " NS_RUN_DIR ", or a full pathname\n")
 
-DEFUNSH(VTYSH_PBRD, vtysh_nexthop_group, vtysh_nexthop_group_cmd,
+DEFUNSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_nexthop_group, vtysh_nexthop_group_cmd,
 	"nexthop-group NAME",
 	"Nexthop Group configuration\n"
 	"Name of the Nexthop Group\n")
@@ -2119,7 +2119,8 @@ DEFUNSH(VTYSH_PBRD, vtysh_nexthop_group, vtysh_nexthop_group_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFSH(VTYSH_PBRD, vtysh_no_nexthop_group_cmd, "no nexthop-group NAME",
+DEFSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_no_nexthop_group_cmd,
+      "no nexthop-group NAME",
       NO_STR
       "Nexthop Group Configuration\n"
       "Name of the Nexthop Group\n")
@@ -2265,7 +2266,7 @@ DEFUN (vtysh_show_work_queues,
 
 DEFUN (vtysh_show_work_queues_daemon,
        vtysh_show_work_queues_daemon_cmd,
-       "show work-queues <zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pbrd|fabricd>",
+       "show work-queues <zebra|ripd|ripngd|ospfd|ospf6d|bgpd|isisd|pbrd|fabricd|pimd|staticd>",
        SHOW_STR
        "Work Queue information\n"
        "For the zebra daemon\n"
@@ -2276,7 +2277,9 @@ DEFUN (vtysh_show_work_queues_daemon,
        "For the bgp daemon\n"
        "For the isis daemon\n"
        "For the pbr daemon\n"
-       "For the fabricd daemon\n")
+       "For the fabricd daemon\n"
+       "For the pim daemon\n"
+       "For the static daemon\n")
 {
 	int idx_protocol = 2;
 	unsigned int i;
@@ -2614,7 +2617,7 @@ DEFUNSH(VTYSH_ALL, no_vtysh_config_enable_password,
 
 DEFUN (vtysh_write_terminal,
        vtysh_write_terminal_cmd,
-       "write terminal [<zebra|ripd|ripngd|ospfd|ospf6d|ldpd|bgpd|isisd|fabricd|pimd>]",
+       "write terminal [<zebra|ripd|ripngd|ospfd|ospf6d|ldpd|bgpd|isisd|fabricd|pimd|staticd>]",
        "Write running configuration to memory, network, or terminal\n"
        "Write to terminal\n"
        "For the zebra daemon\n"
@@ -2626,7 +2629,8 @@ DEFUN (vtysh_write_terminal,
        "For the bgp daemon\n"
        "For the isis daemon\n"
        "For the fabricd daemon\n"
-       "For the pim daemon\n")
+       "For the pim daemon\n"
+       "For the static daemon\n")
 {
 	unsigned int i;
 	char line[] = "do write terminal\n";
@@ -2652,7 +2656,7 @@ DEFUN (vtysh_write_terminal,
 
 DEFUN (vtysh_show_running_config,
        vtysh_show_running_config_cmd,
-       "show running-config [<zebra|ripd|ripngd|ospfd|ospf6d|ldpd|bgpd|isisd|fabricd|pimd>]",
+       "show running-config [<zebra|ripd|ripngd|ospfd|ospf6d|ldpd|bgpd|isisd|fabricd|pimd|staticd>]",
        SHOW_STR
        "Current operating configuration\n"
        "For the zebra daemon\n"
@@ -2664,7 +2668,8 @@ DEFUN (vtysh_show_running_config,
        "For the bgp daemon\n"
        "For the isis daemon\n"
        "For the fabricd daemon\n"
-       "For the pim daemon\n")
+       "For the pim daemon\n"
+       "For the static daemon\n")
 {
 	return vtysh_write_terminal(self, vty, argc, argv);
 }
@@ -2877,52 +2882,58 @@ DEFUN (vtysh_copy_running_config,
 	return vtysh_write_memory(self, vty, argc, argv);
 }
 
+DEFUN (vtysh_terminal_paginate,
+       vtysh_terminal_paginate_cmd,
+       "[no] terminal paginate",
+       NO_STR
+       "Set terminal line parameters\n"
+       "Use pager for output scrolling\n")
+{
+	free(vtysh_pager_name);
+	vtysh_pager_name = NULL;
+
+	if (strcmp(argv[0]->text, "no"))
+		vtysh_pager_envdef(true);
+	return CMD_SUCCESS;
+}
+
 DEFUN (vtysh_terminal_length,
        vtysh_terminal_length_cmd,
-       "terminal length (0-512)",
+       "[no] terminal length (0-4294967295)",
+       NO_STR
        "Set terminal line parameters\n"
        "Set number of lines on a screen\n"
-       "Number of lines on screen (0 for no pausing)\n")
+       "Number of lines on screen (0 for no pausing, nonzero to use pager)\n")
 {
 	int idx_number = 2;
-	int lines;
-	char *endptr = NULL;
-	char default_pager[10];
+	unsigned long lines;
 
-	lines = strtol(argv[idx_number]->arg, &endptr, 10);
-	if (lines < 0 || lines > 512 || *endptr != '\0') {
-		vty_out(vty, "length is malformed\n");
-		return CMD_WARNING;
+	free(vtysh_pager_name);
+	vtysh_pager_name = NULL;
+
+	if (!strcmp(argv[0]->text, "no") || !strcmp(argv[1]->text, "no")) {
+		/* "terminal no length" = use VTYSH_PAGER */
+		vtysh_pager_envdef(true);
+		return CMD_SUCCESS;
 	}
 
-	if (vtysh_pager_name) {
-		free(vtysh_pager_name);
-		vtysh_pager_name = NULL;
-	}
-
+	lines = strtoul(argv[idx_number]->arg, NULL, 10);
 	if (lines != 0) {
-		snprintf(default_pager, 10, "more -%i", lines);
-		vtysh_pager_name = strdup(default_pager);
+		vty_out(vty,
+			"%% The \"terminal length\" command is deprecated and its value is ignored.\n"
+			"%% Please use \"terminal paginate\" instead with OS TTY length handling.\n");
+		vtysh_pager_envdef(true);
 	}
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (vtysh_terminal_no_length,
+ALIAS_DEPRECATED(vtysh_terminal_length,
        vtysh_terminal_no_length_cmd,
        "terminal no length",
        "Set terminal line parameters\n"
        NO_STR
        "Set number of lines on a screen\n")
-{
-	if (vtysh_pager_name) {
-		free(vtysh_pager_name);
-		vtysh_pager_name = NULL;
-	}
-
-	vtysh_pager_init();
-	return CMD_SUCCESS;
-}
 
 DEFUN (vtysh_show_daemons,
        vtysh_show_daemons_cmd,
@@ -3468,6 +3479,7 @@ void vtysh_init_vty(void)
 
 	/* set default output */
 	vty->of = stdout;
+	vtysh_pager_envdef(false);
 
 	/* Initialize commands. */
 	cmd_init(0);
@@ -3801,6 +3813,8 @@ void vtysh_init_vty(void)
 	/* "write memory" command. */
 	install_element(ENABLE_NODE, &vtysh_write_memory_cmd);
 
+	install_element(CONFIG_NODE, &vtysh_terminal_paginate_cmd);
+	install_element(VIEW_NODE, &vtysh_terminal_paginate_cmd);
 	install_element(VIEW_NODE, &vtysh_terminal_length_cmd);
 	install_element(VIEW_NODE, &vtysh_terminal_no_length_cmd);
 	install_element(VIEW_NODE, &vtysh_show_daemons_cmd);

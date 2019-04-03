@@ -1,0 +1,321 @@
+module frr-ripngd {
+  yang-version 1.1;
+  namespace "http://frrouting.org/yang/ripngd";
+  prefix frr-ripngd;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+  import ietf-yang-types {
+    prefix yang;
+  }
+  import frr-interface {
+    prefix frr-interface;
+  }
+  import frr-route-types {
+    prefix frr-route-types;
+  }
+
+  organization
+    "Free Range Routing";
+  contact
+    "FRR Users List:       <mailto:frog@lists.frrouting.org>
+     FRR Development List: <mailto:dev@lists.frrouting.org>";
+  description
+    "This module defines a model for managing FRR ripngd daemon.";
+
+  revision 2018-11-27 {
+    description
+      "Initial revision.";
+    reference
+      "RFC 2080: RIPng for IPv6.";
+  }
+
+  container ripngd {
+    /*
+     * Global configuration data
+     */
+    container instance {
+      presence "Present if the RIPng protocol is enabled.";
+      description
+        "RIPng routing instance.";
+
+      leaf allow-ecmp {
+        type boolean;
+        default "false";
+        description
+          "Allow equal-cost multi-path.";
+      }
+      leaf default-information-originate {
+        type boolean;
+        default "false";
+        description
+          "Control distribution of default route.";
+      }
+      leaf default-metric {
+        type uint8 {
+          range "1..16";
+        }
+        default "1";
+        description
+          "Default metric of redistributed routes.";
+      }
+      leaf-list network {
+        type inet:ipv6-prefix;
+        description
+          "Enable RIPng on the specified IPv6 network.";
+      }
+      leaf-list interface {
+        type string {
+          length "1..16";
+        }
+        description
+          "Enable RIPng on the specified interface.";
+      }
+      list offset-list {
+        key "interface direction";
+        description
+          "Offset-list to modify route metric.";
+        leaf interface {
+          type string;
+          description
+            "Interface to match. Use '*' to match all interfaces.";
+        }
+        leaf direction {
+          type enumeration {
+            enum in {
+              value 0;
+              description
+                "Incoming updates.";
+            }
+            enum out {
+              value 1;
+              description
+                "Outgoing updates.";
+            }
+          }
+          description
+            "Incoming or outgoing updates.";
+        }
+        leaf access-list {
+          type string;
+          mandatory true;
+          description
+            "Access-list name.";
+        }
+        leaf metric {
+          type uint8 {
+            range "0..16";
+          }
+          mandatory true;
+          description
+            "Route metric.";
+        }
+      }
+      leaf-list passive-interface {
+        type string {
+          length "1..16";
+        }
+        description
+          "A list of interfaces where the sending of RIPng packets
+           is disabled.";
+      }
+      list redistribute {
+        key "protocol";
+        description
+          "Redistributes routes learned from other routing protocols.";
+        leaf protocol {
+          type frr-route-types:frr-route-types-v6;
+          description
+            "Routing protocol.";
+          must '. != "ripng"';
+        }
+        leaf route-map {
+          type string {
+            length "1..max";
+          }
+          description
+            "Applies the conditions of the specified route-map to
+             routes that are redistributed into the RIPng routing
+             instance.";
+        }
+        leaf metric {
+          type uint8 {
+            range "0..16";
+          }
+          description
+            "Metric used for the redistributed route. If a metric is
+             not specified, the metric configured with the
+             default-metric attribute in RIPng router configuration is
+             used. If the default-metric attribute has not been
+             configured, the default metric for redistributed routes
+             is 0.";
+        }
+      }
+      leaf-list static-route {
+        type inet:ipv6-prefix;
+        description
+          "RIPng static routes.";
+      }
+      leaf-list aggregate-address {
+        type inet:ipv6-prefix;
+        description
+          "RIPng aggregate route announcement.";
+      }
+      container timers {
+        description
+          "Settings of basic timers";
+        leaf flush-interval {
+          type uint16 {
+            range "1..65535";
+          }
+          units "seconds";
+          default "120";
+          description
+            "Interval before a route is flushed from the routing
+             table.";
+        }
+        leaf holddown-interval {
+          type uint16 {
+            range "1..65535";
+          }
+          units "seconds";
+          default "180";
+          description
+            "Interval before better routes are released.";
+        }
+        leaf update-interval {
+          type uint16 {
+            range "1..65535";
+          }
+          units "seconds";
+          default "30";
+          description
+            "Interval at which RIPng updates are sent.";
+        }
+      }
+    }
+
+    /*
+     * Operational data.
+     */
+    container state {
+      config false;
+      description
+        "Operational data.";
+
+      container neighbors {
+        description
+          "Neighbor information.";
+        list neighbor {
+          key "address";
+          description
+            "A RIPng neighbor.";
+          leaf address {
+            type inet:ipv6-address;
+            description
+              "IPv6 address that a RIPng neighbor is using as its
+               source address.";
+          }
+          leaf last-update {
+            type yang:date-and-time;
+            description
+              "The time when the most recent RIPng update was
+               received from this neighbor.";
+          }
+          leaf bad-packets-rcvd {
+            type yang:counter32;
+            description
+              "The number of RIPng invalid packets received from
+               this neighbor which were subsequently discarded
+               for any reason (e.g. a version 0 packet, or an
+               unknown command type).";
+          }
+          leaf bad-routes-rcvd {
+            type yang:counter32;
+            description
+              "The number of routes received from this neighbor,
+               in valid RIPng packets, which were ignored for any
+               reason (e.g. unknown address family, or invalid
+               metric).";
+          }
+        }
+      }
+      container routes {
+        description
+          "Route information.";
+        list route {
+          key "prefix";
+          description
+            "A RIPng IPv6 route.";
+          leaf prefix {
+            type inet:ipv6-prefix;
+            description
+              "IPv6 address and prefix length, in the format
+               specified in RFC6991.";
+          }
+          leaf next-hop {
+            type inet:ipv6-address;
+            description
+              "Next hop IPv6 address.";
+          }
+          leaf interface {
+            type string;
+            description
+              "The interface that the route uses.";
+          }
+          leaf metric {
+            type uint8 {
+              range "0..16";
+            }
+            description
+              "Route metric.";
+          }
+        }
+      }
+    }
+  }
+
+  /*
+   * Per-interface configuration data
+   */
+  augment "/frr-interface:lib/frr-interface:interface" {
+    container ripng {
+      description
+        "RIPng interface parameters.";
+      leaf split-horizon {
+        type enumeration {
+          enum "disabled" {
+            value 0;
+            description
+              "Disables split-horizon processing.";
+          }
+          enum "simple" {
+            value 1;
+            description
+              "Enables simple split-horizon processing.";
+          }
+          enum "poison-reverse" {
+            value 2;
+            description
+              "Enables split-horizon processing with poison
+               reverse.";
+          }
+        }
+        default "simple";
+        description
+          "Controls RIPng split-horizon processing on the specified
+           interface.";
+      }
+    }
+  }
+
+  /*
+   * RPCs
+   */
+  rpc clear-ripng-route {
+    description
+      "Clears RIPng routes from the IPv6 routing table and routes
+       redistributed into the RIPng protocol.";
+  }
+}

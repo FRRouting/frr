@@ -4519,17 +4519,6 @@ sub process {
 			}
 		}
 
-#goto labels aren't indented, allow a single space however
-		if ($line=~/^.\s+[A-Za-z\d_]+:(?![0-9]+)/ and
-		   !($line=~/^. [A-Za-z\d_]+:/) and !($line=~/^.\s+default:/)) {
-			if (WARN("INDENTED_LABEL",
-				 "labels should not be indented\n" . $herecurr) &&
-			    $fix) {
-				$fixed[$fixlinenr] =~
-				    s/^(.)\s+/$1/;
-			}
-		}
-
 # return is not a function
 		if (defined($stat) && $stat =~ /^.\s*return(\s*)\(/s) {
 			my $spacing = $1;
@@ -5897,27 +5886,6 @@ sub process {
 			     "unchecked sscanf return value\n" . "$here\n$stat_real\n");
 		}
 
-# check for simple sscanf that should be kstrto<foo>
-		if ($^V && $^V ge 5.10.0 &&
-		    defined $stat &&
-		    $line =~ /\bsscanf\b/) {
-			my $lc = $stat =~ tr@\n@@;
-			$lc = $lc + $linenr;
-			my $stat_real = raw_line($linenr, 0);
-		        for (my $count = $linenr + 1; $count <= $lc; $count++) {
-				$stat_real = $stat_real . "\n" . raw_line($count, 0);
-			}
-			if ($stat_real =~ /\bsscanf\b\s*\(\s*$FuncArg\s*,\s*("[^"]+")/) {
-				my $format = $6;
-				my $count = $format =~ tr@%@%@;
-				if ($count == 1 &&
-				    $format =~ /^"\%(?i:ll[udxi]|[udxi]ll|ll|[hl]h?[udxi]|[udxi][hl]h?|[hl]h?|[udxi])"$/) {
-					WARN("SSCANF_TO_KSTRTO",
-					     "Prefer kstrto<type> to single variable sscanf\n" . "$here\n$stat_real\n");
-				}
-			}
-		}
-
 # check for new externs in .h files.
 		if ($realfile =~ /\.h$/ &&
 		    $line =~ /^\+\s*(extern\s+)$Type\s*$Ident\s*\(/s) {
@@ -6188,12 +6156,6 @@ sub process {
 			     "consider using a completion\n" . $herecurr);
 		}
 
-# recommend kstrto* over simple_strto* and strict_strto*
-		if ($line =~ /\b((simple|strict)_(strto(l|ll|ul|ull)))\s*\(/) {
-			WARN("CONSIDER_KSTRTO",
-			     "$1 is obsolete, use k$3 instead\n" . $herecurr);
-		}
-
 # check for __initcall(), use device_initcall() explicitly or more appropriate function please
 		if ($line =~ /^.\s*__initcall\s*\(/) {
 			WARN("USE_DEVICE_INITCALL",
@@ -6378,6 +6340,13 @@ sub process {
 			ERROR("NONSTANDARD_INTEGRAL_TYPES",
 			      "Please, no nonstandard integer types in new code.\n" . $herecurr)
 		}
+
+# check for usage of non-32 bit atomics
+		if ($line =~ /_Atomic [u]?int(?!32)[0-9]+_t/) {
+			WARN("NON_32BIT_ATOMIC",
+			     "Please, only use 32 bit atomics.\n" . $herecurr);
+		}
+
 	}
 
 	# If we have no input at all, then there is nothing to report on

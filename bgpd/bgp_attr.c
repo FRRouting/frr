@@ -78,7 +78,7 @@ static const struct message attr_str[] = {
 	{BGP_ATTR_AS_PATHLIMIT, "AS_PATHLIMIT"},
 	{BGP_ATTR_PMSI_TUNNEL, "PMSI_TUNNEL_ATTRIBUTE"},
 	{BGP_ATTR_ENCAP, "ENCAP"},
-#if ENABLE_BGP_VNC
+#if ENABLE_BGP_VNC_ATTR
 	{BGP_ATTR_VNC, "VNC"},
 #endif
 	{BGP_ATTR_LARGE_COMMUNITIES, "LARGE_COMMUNITY"},
@@ -146,7 +146,7 @@ static unsigned int cluster_hash_key_make(void *p)
 	return jhash(cluster->list, cluster->length, 0);
 }
 
-static int cluster_hash_cmp(const void *p1, const void *p2)
+static bool cluster_hash_cmp(const void *p1, const void *p2)
 {
 	const struct cluster_list *cluster1 = p1;
 	const struct cluster_list *cluster2 = p2;
@@ -355,7 +355,7 @@ static unsigned int encap_hash_key_make(void *p)
 	return jhash(encap->value, encap->length, 0);
 }
 
-static int encap_hash_cmp(const void *p1, const void *p2)
+static bool encap_hash_cmp(const void *p1, const void *p2)
 {
 	return encap_same((const struct bgp_attr_encap_subtlv *)p1,
 			  (const struct bgp_attr_encap_subtlv *)p2);
@@ -441,7 +441,7 @@ static unsigned int transit_hash_key_make(void *p)
 	return jhash(transit->val, transit->length, 0);
 }
 
-static int transit_hash_cmp(const void *p1, const void *p2)
+static bool transit_hash_cmp(const void *p1, const void *p2)
 {
 	const struct transit *transit1 = p1;
 	const struct transit *transit2 = p2;
@@ -527,7 +527,7 @@ unsigned int attrhash_key_make(void *p)
 	return key;
 }
 
-int attrhash_cmp(const void *p1, const void *p2)
+bool attrhash_cmp(const void *p1, const void *p2)
 {
 	const struct attr *attr1 = p1;
 	const struct attr *attr2 = p2;
@@ -565,10 +565,10 @@ int attrhash_cmp(const void *p1, const void *p2)
 		    && overlay_index_same(attr1, attr2)
 		    && attr1->nh_ifindex == attr2->nh_ifindex
 		    && attr1->nh_lla_ifindex == attr2->nh_lla_ifindex)
-			return 1;
+			return true;
 	}
 
-	return 0;
+	return false;
 }
 
 static void attrhash_init(void)
@@ -723,8 +723,10 @@ struct attr *bgp_attr_default_set(struct attr *attr, uint8_t origin)
 /* Create the attributes for an aggregate */
 struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 				       struct aspath *aspath,
-				       struct community *community, int as_set,
-				       uint8_t atomic_aggregate)
+				       struct community *community,
+				       struct ecommunity *ecommunity,
+				       struct lcommunity *lcommunity,
+				       int as_set, uint8_t atomic_aggregate)
 {
 	struct attr attr;
 	struct attr *new;
@@ -758,6 +760,16 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, uint8_t origin,
 
 		attr.community = community;
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
+	}
+
+	if (ecommunity) {
+		attr.ecommunity = ecommunity;
+		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
+	}
+
+	if (lcommunity) {
+		attr.lcommunity = lcommunity;
+		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
 	}
 
 	if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
@@ -837,7 +849,7 @@ void bgp_attr_undup(struct attr *new, struct attr *old)
 		aspath_free(new->aspath);
 
 	if (new->community != old->community)
-		community_free(new->community);
+		community_free(&new->community);
 
 	if (new->ecommunity != old->ecommunity)
 		ecommunity_free(&new->ecommunity);
@@ -875,11 +887,8 @@ void bgp_attr_flush(struct attr *attr)
 		aspath_free(attr->aspath);
 		attr->aspath = NULL;
 	}
-	if (attr->community && !attr->community->refcnt) {
-		community_free(attr->community);
-		attr->community = NULL;
-	}
-
+	if (attr->community && !attr->community->refcnt)
+		community_free(&attr->community);
 	if (attr->ecommunity && !attr->ecommunity->refcnt)
 		ecommunity_free(&attr->ecommunity);
 	if (attr->lcommunity && !attr->lcommunity->refcnt)
@@ -1688,7 +1697,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 				 * - for consistency in rx processing
 				 *
 				 * The following comment is to signal GCC this intention
-				 * and supress the warning
+				 * and suppress the warning
 				 */
 	/* FALLTHRU */
 	case BGP_ATTR_NHLEN_IPV4:
@@ -2584,7 +2593,7 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 		case BGP_ATTR_EXT_COMMUNITIES:
 			ret = bgp_attr_ext_communities(&attr_args);
 			break;
-#if ENABLE_BGP_VNC
+#if ENABLE_BGP_VNC_ATTR
 		case BGP_ATTR_VNC:
 #endif
 		case BGP_ATTR_ENCAP:
@@ -2615,7 +2624,7 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 			return ret;
 		}
 
-		/* If hard error occured immediately return to the caller. */
+		/* If hard error occurred immediately return to the caller. */
 		if (ret == BGP_ATTR_PARSE_ERROR) {
 			flog_warn(EC_BGP_ATTRIBUTE_PARSE_ERROR,
 				  "%s: Attribute %s, parse error", peer->host,
@@ -2937,7 +2946,7 @@ static void bgp_packet_mpattr_tea(struct bgp *bgp, struct peer *peer,
 		attrhdrlen = 1 + 1;   /* subTLV T + L */
 		break;
 
-#if ENABLE_BGP_VNC
+#if ENABLE_BGP_VNC_ATTR
 	case BGP_ATTR_VNC:
 		attrname = "VNC";
 		subtlvs = attr->vnc_subtlvs;
@@ -3424,7 +3433,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		/* Tunnel Encap attribute */
 		bgp_packet_mpattr_tea(bgp, peer, s, attr, BGP_ATTR_ENCAP);
 
-#if ENABLE_BGP_VNC
+#if ENABLE_BGP_VNC_ATTR
 		/* VNC attribute */
 		bgp_packet_mpattr_tea(bgp, peer, s, attr, BGP_ATTR_VNC);
 #endif
@@ -3486,8 +3495,8 @@ void bgp_packet_mpunreach_prefix(struct stream *s, struct prefix *p, afi_t afi,
 		num_labels = 1;
 	}
 
-	return bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels,
-					addpath_encode, addpath_tx_id, attr);
+	bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels,
+				 addpath_encode, addpath_tx_id, attr);
 }
 
 void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt)

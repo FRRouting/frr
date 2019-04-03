@@ -35,10 +35,11 @@ static unsigned int nhrp_vc_key(void *peer_data)
 			    sockunion_hash(&vc->remote.nbma), 0);
 }
 
-static int nhrp_vc_cmp(const void *cache_data, const void *key_data)
+static bool nhrp_vc_cmp(const void *cache_data, const void *key_data)
 {
 	const struct nhrp_vc *a = cache_data;
 	const struct nhrp_vc *b = key_data;
+
 	return sockunion_same(&a->local.nbma, &b->local.nbma)
 	       && sockunion_same(&a->remote.nbma, &b->remote.nbma);
 }

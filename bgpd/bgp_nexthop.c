@@ -44,8 +44,6 @@
 #include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_vty.h"
-#include "zebra/rib.h"
-#include "zebra/zserv.h" /* For ZEBRA_SERV_PATH. */
 
 DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Address Intf String");
 
@@ -83,12 +81,19 @@ static void bgp_nexthop_cache_reset(struct bgp_table *table)
 	struct bgp_nexthop_cache *bnc;
 
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-		bnc = bgp_nexthop_get_node_info(rn);
-		if (bnc != NULL) {
-			bnc_free(bnc);
-			bgp_nexthop_set_node_info(rn, NULL);
-			bgp_unlock_node(rn);
+		bnc = bgp_node_get_bgp_nexthop_info(rn);
+		if (!bnc)
+			continue;
+
+		while (!LIST_EMPTY(&(bnc->paths))) {
+			struct bgp_path_info *path = LIST_FIRST(&(bnc->paths));
+
+			path_nh_map(path, bnc, false);
 		}
+
+		bnc_free(bnc);
+		bgp_node_set_bgp_nexthop_info(rn, NULL);
+		bgp_unlock_node(rn);
 	}
 }
 
@@ -116,7 +121,7 @@ static unsigned int bgp_tip_hash_key_make(void *p)
 	return jhash_1word(addr->addr.s_addr, 0);
 }
 
-static int bgp_tip_hash_cmp(const void *p1, const void *p2)
+static bool bgp_tip_hash_cmp(const void *p1, const void *p2)
 {
 	const struct tip_addr *addr1 = p1;
 	const struct tip_addr *addr2 = p2;
@@ -239,7 +244,7 @@ static unsigned int bgp_address_hash_key_make(void *p)
 	return jhash_1word(addr->addr.s_addr, 0);
 }
 
-static int bgp_address_hash_cmp(const void *p1, const void *p2)
+static bool bgp_address_hash_cmp(const void *p1, const void *p2)
 {
 	const struct bgp_addr *addr1 = p1;
 	const struct bgp_addr *addr2 = p2;
@@ -344,14 +349,14 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 
 		rn = bgp_node_get(bgp->connected_table[AFI_IP],
 				  (struct prefix *)&p);
-		bc = bgp_connected_get_node_info(rn);
+		bc = bgp_node_get_bgp_connected_ref_info(rn);
 		if (bc)
 			bc->refcnt++;
 		else {
 			bc = XCALLOC(MTYPE_BGP_CONN,
 				     sizeof(struct bgp_connected_ref));
 			bc->refcnt = 1;
-			bgp_connected_set_node_info(rn, bc);
+			bgp_node_set_bgp_connected_ref_info(rn, bc);
 		}
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
@@ -377,14 +382,14 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 		rn = bgp_node_get(bgp->connected_table[AFI_IP6],
 				  (struct prefix *)&p);
 
-		bc = bgp_connected_get_node_info(rn);
+		bc = bgp_node_get_bgp_connected_ref_info(rn);
 		if (bc)
 			bc->refcnt++;
 		else {
 			bc = XCALLOC(MTYPE_BGP_CONN,
 				     sizeof(struct bgp_connected_ref));
 			bc->refcnt = 1;
-			bgp_connected_set_node_info(rn, bc);
+			bgp_node_set_bgp_connected_ref_info(rn, bc);
 		}
 	}
 }
@@ -421,11 +426,11 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 	if (!rn)
 		return;
 
-	bc = bgp_connected_get_node_info(rn);
+	bc = bgp_node_get_bgp_connected_ref_info(rn);
 	bc->refcnt--;
 	if (bc->refcnt == 0) {
 		XFREE(MTYPE_BGP_CONN, bc);
-		bgp_connected_set_node_info(rn, NULL);
+		bgp_node_set_bgp_connected_ref_info(rn, NULL);
 	}
 	bgp_unlock_node(rn);
 	bgp_unlock_node(rn);
@@ -437,14 +442,14 @@ static void bgp_connected_cleanup(struct route_table *table,
 	struct bgp_connected_ref *bc;
 	struct bgp_node *bn = bgp_node_from_rnode(rn);
 
-	bc = bgp_connected_get_node_info(bn);
+	bc = bgp_node_get_bgp_connected_ref_info(bn);
 	if (!bc)
 		return;
 
 	bc->refcnt--;
 	if (bc->refcnt == 0) {
 		XFREE(MTYPE_BGP_CONN, bc);
-		bgp_connected_set_node_info(bn, NULL);
+		bgp_node_set_bgp_connected_ref_info(bn, NULL);
 	}
 }
 
@@ -581,22 +586,30 @@ static void bgp_show_nexthops_detail(struct vty *vty, struct bgp *bgp,
 		}
 }
 
-static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail)
+static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail,
+			     bool import_table)
 {
 	struct bgp_node *rn;
 	struct bgp_nexthop_cache *bnc;
 	char buf[PREFIX2STR_BUFFER];
 	time_t tbuf;
 	afi_t afi;
+	struct bgp_table **table;
 
-	vty_out(vty, "Current BGP nexthop cache:\n");
+	if (import_table)
+		vty_out(vty, "Current BGP import check cache:\n");
+	else
+		vty_out(vty, "Current BGP nexthop cache:\n");
+	if (import_table)
+		table = bgp->import_check_table;
+	else
+		table = bgp->nexthop_cache_table;
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		if (!bgp->nexthop_cache_table[afi])
+		if (!table || !table[afi])
 			continue;
-
-		for (rn = bgp_table_top(bgp->nexthop_cache_table[afi]); rn;
+		for (rn = bgp_table_top(table[afi]); rn;
 		     rn = bgp_route_next(rn)) {
-			bnc = bgp_nexthop_get_node_info(rn);
+			bnc = bgp_node_get_bgp_nexthop_info(rn);
 			if (!bnc)
 				continue;
 
@@ -621,7 +634,10 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail)
 				if (CHECK_FLAG(bnc->flags,
 					       BGP_NEXTHOP_CONNECTED))
 					vty_out(vty, "  Must be Connected\n");
-				}
+				if (!CHECK_FLAG(bnc->flags,
+						BGP_NEXTHOP_REGISTERED))
+					vty_out(vty, "  Is not Registered\n");
+			}
 			tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
 			vty_out(vty, "  Last update: %s", ctime(&tbuf));
 			vty_out(vty, "\n");
@@ -630,7 +646,7 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail)
 }
 
 static int show_ip_bgp_nexthop_table(struct vty *vty, const char *name,
-				     int detail)
+				     int detail, bool import_table)
 {
 	struct bgp *bgp;
 
@@ -643,7 +659,7 @@ static int show_ip_bgp_nexthop_table(struct vty *vty, const char *name,
 		return CMD_WARNING;
 	}
 
-	bgp_show_nexthops(vty, bgp, detail);
+	bgp_show_nexthops(vty, bgp, detail, import_table);
 
 	return CMD_SUCCESS;
 }
@@ -656,9 +672,9 @@ static void bgp_show_all_instances_nexthops_vty(struct vty *vty)
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 		vty_out(vty, "\nInstance %s:\n",
 			(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-				? "Default"
+				? VRF_DEFAULT_NAME
 				: bgp->name);
-		bgp_show_nexthops(vty, bgp, 0);
+		bgp_show_nexthops(vty, bgp, 0, false);
 	}
 }
 
@@ -679,7 +695,28 @@ DEFUN (show_ip_bgp_nexthop,
 	    || argv_find(argv, argc, "vrf", &idx))
 		vrf = argv[++idx]->arg;
 	int detail = argv_find(argv, argc, "detail", &idx) ? 1 : 0;
-	return show_ip_bgp_nexthop_table(vty, vrf, detail);
+
+	return show_ip_bgp_nexthop_table(vty, vrf, detail, false);
+}
+
+DEFUN (show_ip_bgp_import_check,
+       show_ip_bgp_import_check_cmd,
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] import-check-table [detail]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       "BGP import check table\n"
+       "Show detailed information\n")
+{
+	int idx = 0;
+	char *vrf = NULL;
+
+	if (argv_find(argv, argc, "view", &idx)
+	    || argv_find(argv, argc, "vrf", &idx))
+		vrf = argv[++idx]->arg;
+	int detail = argv_find(argv, argc, "detail", &idx) ? 1 : 0;
+	return show_ip_bgp_nexthop_table(vty, vrf, detail, true);
 }
 
 DEFUN (show_ip_bgp_instance_all_nexthop,
@@ -712,6 +749,7 @@ void bgp_scan_init(struct bgp *bgp)
 void bgp_scan_vty_init(void)
 {
 	install_element(VIEW_NODE, &show_ip_bgp_nexthop_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_import_check_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_instance_all_nexthop_cmd);
 }
 

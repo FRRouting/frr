@@ -261,6 +261,7 @@ static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
 		break;
 	case AF_INET6:
 		sa->sa_sin6.sin6_port = 0;
+		sa->sa_sin6.sin6_scope_id = 0;
 		if (memcmp(sa, &bs->shop.peer, sizeof(sa->sa_sin6)) == 0)
 			return bs;
 		break;
@@ -579,15 +580,8 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 		ptm_bfd_fetch_local_mac(bpc->bpc_localif, bfd->local_mac);
 	}
 
-	if (bpc->bpc_ipv4 == false) {
+	if (bpc->bpc_ipv4 == false)
 		BFD_SET_FLAG(bfd->flags, BFD_SESS_FLAG_IPV6);
-
-		/* Set the IPv6 scope id for link-local addresses. */
-		if (IN6_IS_ADDR_LINKLOCAL(&bpc->bpc_local.sa_sin6.sin6_addr))
-			bpc->bpc_local.sa_sin6.sin6_scope_id = bfd->ifindex;
-		if (IN6_IS_ADDR_LINKLOCAL(&bpc->bpc_peer.sa_sin6.sin6_addr))
-			bpc->bpc_peer.sa_sin6.sin6_scope_id = bfd->ifindex;
-	}
 
 	/* Initialize the session */
 	bfd->ses_state = PTM_BFD_DOWN;
@@ -770,10 +764,10 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 	int rv;
 
 #define MINUTES (60)
-#define HOURS (24 * MINUTES)
-#define DAYS (30 * HOURS)
-#define MONTHS (12 * DAYS)
-#define YEARS (MONTHS)
+#define HOURS (60 * MINUTES)
+#define DAYS (24 * HOURS)
+#define MONTHS (30 * DAYS)
+#define YEARS (12 * MONTHS)
 	if (time >= YEARS) {
 		year = time / YEARS;
 		time -= year * YEARS;
@@ -861,15 +855,10 @@ static struct hash *bfd_vrf_hash;
 static struct hash *bfd_iface_hash;
 
 static unsigned int bfd_id_hash_do(void *p);
-static int bfd_id_hash_cmp(const void *n1, const void *n2);
 static unsigned int bfd_shop_hash_do(void *p);
-static int bfd_shop_hash_cmp(const void *n1, const void *n2);
 static unsigned int bfd_mhop_hash_do(void *p);
-static int bfd_mhop_hash_cmp(const void *n1, const void *n2);
 static unsigned int bfd_vrf_hash_do(void *p);
-static int bfd_vrf_hash_cmp(const void *n1, const void *n2);
 static unsigned int bfd_iface_hash_do(void *p);
-static int bfd_iface_hash_cmp(const void *n1, const void *n2);
 
 static void _shop_key(struct bfd_session *bs, const struct bfd_shop_key *shop);
 static void _shop_key2(struct bfd_session *bs, const struct bfd_shop_key *shop);
@@ -889,7 +878,7 @@ static unsigned int bfd_id_hash_do(void *p)
 	return jhash_1word(bs->discrs.my_discr, 0);
 }
 
-static int bfd_id_hash_cmp(const void *n1, const void *n2)
+static bool bfd_id_hash_cmp(const void *n1, const void *n2)
 {
 	const struct bfd_session *bs1 = n1, *bs2 = n2;
 
@@ -904,7 +893,7 @@ static unsigned int bfd_shop_hash_do(void *p)
 	return jhash(&bs->shop, sizeof(bs->shop), 0);
 }
 
-static int bfd_shop_hash_cmp(const void *n1, const void *n2)
+static bool bfd_shop_hash_cmp(const void *n1, const void *n2)
 {
 	const struct bfd_session *bs1 = n1, *bs2 = n2;
 
@@ -919,7 +908,7 @@ static unsigned int bfd_mhop_hash_do(void *p)
 	return jhash(&bs->mhop, sizeof(bs->mhop), 0);
 }
 
-static int bfd_mhop_hash_cmp(const void *n1, const void *n2)
+static bool bfd_mhop_hash_cmp(const void *n1, const void *n2)
 {
 	const struct bfd_session *bs1 = n1, *bs2 = n2;
 
@@ -934,7 +923,7 @@ static unsigned int bfd_vrf_hash_do(void *p)
 	return jhash_1word(vrf->vrf_id, 0);
 }
 
-static int bfd_vrf_hash_cmp(const void *n1, const void *n2)
+static bool bfd_vrf_hash_cmp(const void *n1, const void *n2)
 {
 	const struct bfd_vrf *v1 = n1, *v2 = n2;
 
@@ -949,7 +938,7 @@ static unsigned int bfd_iface_hash_do(void *p)
 	return string_hash_make(iface->ifname);
 }
 
-static int bfd_iface_hash_cmp(const void *n1, const void *n2)
+static bool bfd_iface_hash_cmp(const void *n1, const void *n2)
 {
 	const struct bfd_iface *i1 = n1, *i2 = n2;
 
@@ -968,6 +957,7 @@ static void _shop_key(struct bfd_session *bs, const struct bfd_shop_key *shop)
 		break;
 	case AF_INET6:
 		bs->shop.peer.sa_sin6.sin6_port = 0;
+		bs->shop.peer.sa_sin6.sin6_scope_id = 0;
 		break;
 	}
 }
@@ -990,7 +980,9 @@ static void _mhop_key(struct bfd_session *bs, const struct bfd_mhop_key *mhop)
 		break;
 	case AF_INET6:
 		bs->mhop.peer.sa_sin6.sin6_port = 0;
+		bs->mhop.peer.sa_sin6.sin6_scope_id = 0;
 		bs->mhop.local.sa_sin6.sin6_port = 0;
+		bs->mhop.local.sa_sin6.sin6_scope_id = 0;
 		break;
 	}
 }

@@ -144,7 +144,7 @@
 Summary: Routing daemon
 Name:           frr
 Version:        %{rpmversion}
-Release:        @CONFDATE@%{release_rev}%{?dist}
+Release:        %{release_rev}%{?dist}
 License:        GPLv2+
 Group:          System Environment/Daemons
 Source0:        https://github.com/FRRouting/frr/archive/%{name}-%{frrversion}.tar.gz
@@ -162,6 +162,7 @@ BuildRequires:  make
 BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
 BuildRequires:  texinfo
+BuildRequires:  libyang-devel >= 0.16.74
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
 BuildRequires:  python27-devel
@@ -170,6 +171,7 @@ BuildRequires:  python27-sphinx
 BuildRequires:  python-devel >= 2.7
 BuildRequires:  python-sphinx
 %endif
+Requires:       initscripts
 %if %{with_pam}
 BuildRequires:  pam-devel
 %endif
@@ -187,7 +189,6 @@ Requires(post):     chkconfig
 Requires(preun):    chkconfig
 # Initscripts > 5.60 is required for IPv6 support
 Requires(pre):      initscripts >= 5.60
-Requires:           initscripts
 %endif
 Provides:           routingdaemon = %{version}-%{release}
 Obsoletes:          gated mrt zebra frr-sysvinit
@@ -370,19 +371,18 @@ rm -f %{buildroot}%{_sbindir}/frr
 # kill bogus libtool files
 rm -vf %{buildroot}%{_libdir}/frr/modules/*.la
 rm -vf %{buildroot}%{_libdir}/*.la
+rm -vf %{buildroot}%{_libdir}/frr/libyang_plugins/*.la
 
 # install /etc sources
 %if "%{initsystem}" == "systemd"
 mkdir -p %{buildroot}%{_unitdir}
-install -m644 %{zeb_rh_src}/frr.service %{buildroot}%{_unitdir}/frr.service
-install %{zeb_rh_src}/frr.init %{buildroot}%{_sbindir}/frr
+install -m644 %{zeb_src}/tools/frr.service %{buildroot}%{_unitdir}/frr.service
 %else
 mkdir -p %{buildroot}%{_initddir}
-install %{zeb_rh_src}/frr.init %{buildroot}%{_sbindir}/frr
-ln -s %{_sbindir}/frr %{buildroot}%{_initddir}/frr
+ln -s %{_sbindir}/frrinit.sh %{buildroot}%{_initddir}/frr
 %endif
 
-install %{zeb_rh_src}/daemons %{buildroot}%{_sysconfdir}/frr
+install %{zeb_src}/tools/etc/frr/daemons %{buildroot}%{_sysconfdir}/frr
 # add rpki module to daemon
 %if %{with_rpki}
     sed -i -e 's/^\(bgpd_options=\)\(.*\)\(".*\)/\1\2 -M rpki\3/' %{buildroot}%{_sysconfdir}/frr/daemons
@@ -472,7 +472,7 @@ zebra_spec_add_service fabricd	2618/tcp "Fabricd vty"
 
 # Fix bad path in previous config files
 #  Config files won't get replaced by default, so we do this ugly hack to fix it
-%__sed -i 's|/etc/init.d/|%{_sbindir}/|g' %{configdir}/daemons 2> /dev/null || true
+%__sed -i 's|watchfrr_options=|#watchfrr_options=|g' %{configdir}/daemons 2> /dev/null || true
 
 # With systemd, watchfrr is mandatory. Fix config to make sure it's enabled if
 # we install or upgrade to a frr built with systemd
@@ -564,6 +564,7 @@ fi
 %doc */*.sample* COPYING
 %doc doc/mpls
 %doc README.md
+/usr/share/yang/*.yang
 %if 0%{?frr_user:1}
     %dir %attr(751,%{frr_user},%{frr_user}) %{configdir}
     %dir %attr(750,%{frr_user},%{frr_user}) %{_localstatedir}/log/frr
@@ -629,10 +630,12 @@ fi
 %else
     %{_initddir}/frr
 %endif
-%{_sbindir}/frr
 %config(noreplace) %{_sysconfdir}/pam.d/frr
 %config(noreplace) %{_sysconfdir}/logrotate.d/frr
 %{_sbindir}/frr-reload
+%{_sbindir}/frrcommon.sh
+%{_sbindir}/frrinit.sh
+%{_sbindir}/watchfrr.sh
 
 
 %files contrib
@@ -647,9 +650,6 @@ fi
 
 %files devel
 %{_libdir}/lib*.so
-%if %{with_ospfclient}
-    %{_sbindir}/ospfclient
-%endif
 %dir %{_includedir}/%{name}
 %{_includedir}/%{name}/*.h
 %dir %{_includedir}/%{name}/ospfd
@@ -665,6 +665,39 @@ fi
 
 
 %changelog
+* Thu Feb 28 2019 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Added libyang dependency: New work for northbound interface based on libyang
+- Fabricd: New Daemon based on https://datatracker.ietf.org/doc/draft-white-openfabric/
+- various bug fixes and other enhancements
+
+* Sun Oct  7 2018 Martin Winter <mwinter@opensourcerouting.org> - 6.0
+- Staticd: New daemon responsible for management of static routes
+- ISISd: Implement dst-src routing as per draft-ietf-isis-ipv6-dst-src-routing
+- BFDd: new daemon for BFD (Bidrectional Forwarding Detection). Responsiblei
+  for notifying link changes to make routing protocols converge faster.
+- various bug fixes
+
+* Thu Jul  5 2018 Martin Winter <mwinter@opensourcerouting.org> - 5.0.1
+- Support Automake 1.16.1
+- BGPd: Support for flowspec ICMP, DSCP, packet length, fragment and tcp flags
+- BGPd: fix rpki validation for ipv6
+- VRF: Workaround for kernel bug on Linux 4.14 and newer
+- Zebra: Fix interface based routes from zebra not marked up
+- Zebra: Fix large zebra memory usage when redistribute between protocols
+- Zebra: Allow route-maps to match on source instance
+- BGPd: Backport peer-attr overrides, peer-level enforce-first-as and filtered-routes fix
+- BGPd: fix for crash during display of filtered-routes
+- BGPd: Actually display labeled unicast routes received
+- Label Manager: Fix to work correctly behind a label manager proxy
+
+* Thu Jun  7 2018 Martin Winter <mwinter@opensourcerouting.org> - 5.0
+- PIM: Add a Multicast Trace Command draft-ietf-idmr-traceroute-ipm-05
+- IS-IS: Implement Three-Way Handshake as per RFC5303
+- BGPD: Implement VPN-VRF route leaking per RFC4364.
+- BGPD: Implement VRF with NETNS backend
+- BGPD: Flowspec
+- PBRD: Add a new Policy Based Routing Daemon
+
 * Sun May 28 2018 Rafael Zalamena <rzalamena@opensourcerouting.org> - %{version}
 - Add BFDd support
 

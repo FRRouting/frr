@@ -75,6 +75,8 @@
 
 #define MIN_LSP_RETRANS_INTERVAL      5 /* Seconds */
 
+#define TRIGGERED_IIH_DELAY           50	/* msec */
+
 #define MIN_CSNP_INTERVAL             1
 #define MAX_CSNP_INTERVAL             600
 #define DEFAULT_CSNP_INTERVAL         10

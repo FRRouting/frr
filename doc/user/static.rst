@@ -9,7 +9,7 @@ of static routes.
 
 .. _starting-static:
 
-Starting STATIC 
+Starting STATIC
 ===============
 
 Default configuration file for *staticd* is :file:`staticd.conf`.  The typical
@@ -45,11 +45,11 @@ a static prefix and gateway.
    initial form of the command.  GATEWAY is gateway for the prefix it currently
    must match the v4 or v6 route type specified at the start of the command.
    GATEWAY can also be treated as an interface name. If the interface name
-   is ``null0`` then zebra installs a blackhole route.  TABLENO 
+   is ``null0`` then zebra installs a blackhole route.  TABLENO
    is an optional parameter for namespaces that allows you to create the
    route in a specified table associated with the vrf namespace. table will
    be rejected if you are not using namespace based vrfs.  ``nexthop-vrf``
-   allows you to create a leaked route with a nexthop in the specified VRFNAME 
+   allows you to create a leaked route with a nexthop in the specified VRFNAME
    vrf VRFNAME allows you to create the route in a specified vrf.
    ``nexthop-vrf`` cannot be currently used with namespace based vrfs
    currently as well.

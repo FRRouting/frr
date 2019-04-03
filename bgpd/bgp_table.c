@@ -29,6 +29,7 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
+#include "bgp_addpath.h"
 
 void bgp_table_lock(struct bgp_table *rt)
 {
@@ -66,6 +67,8 @@ static struct route_node *bgp_node_create(route_table_delegate_t *delegate,
 {
 	struct bgp_node *node;
 	node = XCALLOC(MTYPE_BGP_NODE, sizeof(struct bgp_node));
+
+	RB_INIT(bgp_adj_out_rb, &node->adj_out);
 	return bgp_node_to_rnode(node);
 }
 
@@ -76,7 +79,16 @@ static void bgp_node_destroy(route_table_delegate_t *delegate,
 			     struct route_table *table, struct route_node *node)
 {
 	struct bgp_node *bgp_node;
+	struct bgp_table *rt;
 	bgp_node = bgp_node_from_rnode(node);
+	rt = table->info;
+
+	if (rt->bgp) {
+		bgp_addpath_free_node_data(&rt->bgp->tx_addpath,
+					 &bgp_node->tx_addpath,
+					 rt->afi, rt->safi);
+	}
+
 	XFREE(MTYPE_BGP_NODE, bgp_node);
 }
 
@@ -146,7 +158,8 @@ void bgp_table_range_lookup(const struct bgp_table *table, struct prefix *p,
 
 	while (node && node->p.prefixlen <= p->prefixlen
 	       && prefix_match(&node->p, p)) {
-		if (node->info && node->p.prefixlen == p->prefixlen) {
+		if (bgp_node_has_bgp_path_info_data(node)
+		    && node->p.prefixlen == p->prefixlen) {
 			matched = node;
 			break;
 		}
@@ -162,14 +175,14 @@ void bgp_table_range_lookup(const struct bgp_table *table, struct prefix *p,
 	else if (matched == NULL)
 		matched = node = bgp_node_from_rnode(node->parent);
 
-	if (matched->info) {
+	if (bgp_node_has_bgp_path_info_data(matched)) {
 		bgp_lock_node(matched);
 		listnode_add(matches, matched);
 	}
 
 	while ((node = bgp_route_next_until_maxlen(node, matched, maxlen))) {
 		if (prefix_match(p, &node->p)) {
-			if (node->info) {
+			if (bgp_node_has_bgp_path_info_data(node)) {
 				bgp_lock_node(node);
 				listnode_add(matches, node);
 			}

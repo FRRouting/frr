@@ -670,8 +670,7 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 	listener->fd = sock;
 
 	/* this socket needs a change of ns. record bgp back pointer */
-	if (bgp->vrf_id != VRF_DEFAULT && vrf_is_mapped_on_netns(
-						vrf_lookup_by_id(bgp->vrf_id)))
+	if (bgp->vrf_id != VRF_DEFAULT && vrf_is_backend_netns())
 		listener->bgp = bgp;
 
 	memcpy(&listener->su, sa, salen);
@@ -708,7 +707,11 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 			     gai_strerror(ret));
 		return -1;
 	}
-
+	if (bgp_option_check(BGP_OPT_NO_ZEBRA) &&
+	    bgp->vrf_id != VRF_DEFAULT) {
+		freeaddrinfo(ainfo_save);
+		return -1;
+	}
 	count = 0;
 	for (ainfo = ainfo_save; ainfo; ainfo = ainfo->ai_next) {
 		int sock;

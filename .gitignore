@@ -7,6 +7,7 @@
 /config.status
 /config.guess
 /config.sub
+/config.version
 /ltmain.sh
 /stamp-h
 /stamp-h[0-9]*
@@ -26,6 +27,8 @@
 /conftest.err
 /aclocal.m4
 /libtool
+/libtool.orig
+/changelog-auto
 
 /Makefile
 /Makefile.in

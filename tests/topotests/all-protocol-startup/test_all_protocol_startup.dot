@@ -1,0 +1,61 @@
+## GraphViz file for test_all_protocol_startup
+##
+## Color coding:
+#########################
+##  Main FRR: #f08080  red
+##  No protocol: #d0e0d0  gray
+##  RIP:      #19e3d9  Cyan
+##  RIPng:    #fcb314  dark yellow
+##  OSPFv2:   #32b835  Green
+##  OSPFv3:   #19e3d9  Cyan
+##  ISIS IPv4 #33ff99  light green
+##  ISIS IPv6 #9a81ec  purple
+##  BGP IPv4  #eee3d3  beige
+##  BGP IPv6  #fdff00  yellow
+##  LDP IPv4  #fedbe2  light pink
+##### Colors (see http://www.color-hex.com/)
+
+graph test_all_protocol_startup {
+
+    // title
+    labelloc="t";
+    label="Test Topologoy All Protocols Startup";
+
+	######################
+	# Routers	
+	######################
+
+	# Main FRR Router with all protocols
+	R1 [shape=doubleoctagon, label="R1 FRR\nMain Router", fillcolor="#f08080", style=filled];
+	
+	######################
+	# Network Lists
+	######################
+
+    SW0_STUB    [label="SW0 (no protocol)\n192.168.1.0/24\nfc00:0:0:0::/64", fillcolor="#d0e0d0", style=filled];
+
+    SW1_RIP     [label="SW1 RIP\n192.168.1.0/24\nfc00:0:0:1::/64", fillcolor="#19e3d9", style=filled];
+    SW2_RIPNG   [label="SW2 RIPng\n192.168.2.0/24\nfc00:0:0:2::/64", fillcolor="#fcb314", style=filled];
+    SW3_OSPF    [label="SW3 OSPFv2\n192.168.3.0/24\nfc00:0:0:3::/64", fillcolor="#32b835", style=filled];
+    SW4_OSPFV3  [label="SW4 OSPFv3\n192.168.4.0/24\nfc00:0:0:4::/64", fillcolor="#19e3d9", style=filled];
+    SW5_ISIS_V4 [label="SW5 ISIS IPv4\n192.168.5.0/24\nfc00:0:0:5::/64", fillcolor="#33ff99", style=filled];
+    SW6_ISIS_V6 [label="SW6 ISIS IPv6\n192.168.6.0/24\nfc00:0:0:6::/64", fillcolor="#9a81ec", style=filled];
+    SW7_BGP_V4  [label="SW7 BGP IPv4\n192.168.7.0/24\nfc00:0:0:7::/64", fillcolor="#eee3d3", style=filled];
+    SW8_BGP_V6  [label="SW8 BGP IPv6\n192.168.8.0/24\nfc00:0:0:8::/64", fillcolor="#fdff00", style=filled];
+    SW9_LDP     [label="SW9 LDP\n192.168.9.0/24\nfc00:0:0:9::/64", fillcolor="#fedbe2", style=filled];
+
+	######################
+	# Network Connections
+	######################
+    R1 -- SW0_STUB    [label = "eth0\n.1\n::1"];
+    R1 -- SW1_RIP     [label = "eth1\n.1\n::1"];
+    R1 -- SW2_RIPNG   [label = "eth2\n.1\n::1"];
+    R1 -- SW3_OSPF    [label = "eth3\n.1\n::1"];
+    R1 -- SW4_OSPFV3  [label = "eth4\n.1\n::1"];
+    R1 -- SW5_ISIS_V4 [label = "eth5\n.1\n::1"];
+    R1 -- SW6_ISIS_V6 [label = "eth6\n.1\n::1"];
+    R1 -- SW7_BGP_V4  [label = "eth7\n.1\n::1"];
+    R1 -- SW8_BGP_V6  [label = "eth8\n.1\n::1"];
+    R1 -- SW9_LDP     [label = "eth9\n.1\n::1"];
+
+}

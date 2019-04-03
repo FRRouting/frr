@@ -24,6 +24,7 @@ TESTS_ISISD =
 else
 TESTS_ISISD = \
 	tests/isisd/test_fuzz_isis_tlv \
+	tests/isisd/test_isis_lspdb \
 	tests/isisd/test_isis_vertex_queue \
 	# end
 endif
@@ -50,6 +51,7 @@ check_PROGRAMS = \
 	tests/lib/test_heavy_thread \
 	tests/lib/test_heavy_wq \
 	tests/lib/test_heavy \
+	tests/lib/test_idalloc \
 	tests/lib/test_memory \
 	tests/lib/test_nexthop_iter \
 	tests/lib/test_privs \
@@ -66,6 +68,7 @@ check_PROGRAMS = \
 	tests/lib/test_graph \
 	tests/lib/cli/test_cli \
 	tests/lib/cli/test_commands \
+	tests/lib/northbound/test_oper_data \
 	$(TESTS_BGPD) \
 	$(TESTS_ISISD) \
 	$(TESTS_OSPF6D) \
@@ -84,6 +87,7 @@ tests/lib/cli/test_commands_defun.c: vtysh/vtysh_cmd.c
 		-e 's/VTYSH_[A-Z][A-Z_0-9]*/0/g' \
 		< vtysh/vtysh_cmd.c \
 		> "$@"
+CLEANFILES += tests/lib/cli/test_commands_defun.c
 
 tests/isisd/test_fuzz_isis_tlv_tests.h: $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz
 	gzip -d < $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz > "$@"
@@ -108,10 +112,13 @@ TESTS_CPPFLAGS = $(AM_CPPFLAGS) \
 	-I$(top_srcdir)/tests/helpers/c \
 	-I$(top_builddir)/tests/helpers/c \
 	# end
-TESTS_CFLAGS = $(SAN_FLAGS)
+TESTS_CFLAGS = \
+	$(LIBYANG_CFLAGS) \
+	$(SAN_FLAGS) \
+	# end
 # note no -Werror
 
-ALL_TESTS_LDADD = lib/libfrr.la @LIBCAP@
+ALL_TESTS_LDADD = lib/libfrr.la $(LIBCAP)
 BGP_TEST_LDADD = bgpd/libbgp.a $(RFPLDADD) $(ALL_TESTS_LDADD) -lm
 ISISD_TEST_LDADD = isisd/libisis.a $(ALL_TESTS_LDADD)
 OSPF6_TEST_LDADD = ospf6d/libospf6.a $(ALL_TESTS_LDADD)
@@ -154,6 +161,10 @@ tests_isisd_test_fuzz_isis_tlv_CPPFLAGS = $(TESTS_CPPFLAGS) -I$(top_builddir)/te
 tests_isisd_test_fuzz_isis_tlv_LDADD = $(ISISD_TEST_LDADD)
 tests_isisd_test_fuzz_isis_tlv_SOURCES = tests/isisd/test_fuzz_isis_tlv.c
 nodist_tests_isisd_test_fuzz_isis_tlv_SOURCES = tests/isisd/test_fuzz_isis_tlv_tests.h
+tests_isisd_test_isis_lspdb_CFLAGS = $(TESTS_CFLAGS)
+tests_isisd_test_isis_lspdb_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_isisd_test_isis_lspdb_LDADD = $(ISISD_TEST_LDADD)
+tests_isisd_test_isis_lspdb_SOURCES = tests/isisd/test_isis_lspdb.c
 tests_isisd_test_isis_vertex_queue_CFLAGS = $(TESTS_CFLAGS)
 tests_isisd_test_isis_vertex_queue_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_isisd_test_isis_vertex_queue_LDADD = $(ISISD_TEST_LDADD)
@@ -166,7 +177,13 @@ tests_lib_cli_test_cli_SOURCES = tests/lib/cli/test_cli.c tests/lib/cli/common_c
 tests_lib_cli_test_commands_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_cli_test_commands_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_cli_test_commands_LDADD = $(ALL_TESTS_LDADD)
-tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands_defun.c tests/lib/cli/test_commands.c tests/helpers/c/prng.c
+nodist_tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands_defun.c
+tests_lib_cli_test_commands_SOURCES = tests/lib/cli/test_commands.c tests/helpers/c/prng.c
+tests_lib_northbound_test_oper_data_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_northbound_test_oper_data_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_northbound_test_oper_data_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_northbound_test_oper_data_SOURCES = tests/lib/northbound/test_oper_data.c
+nodist_tests_lib_northbound_test_oper_data_SOURCES = yang/frr-test-module.yang.c
 tests_lib_test_buffer_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_buffer_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_buffer_LDADD = $(ALL_TESTS_LDADD)
@@ -191,6 +208,9 @@ tests_lib_test_heavy_wq_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_heavy_wq_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_heavy_wq_LDADD = $(ALL_TESTS_LDADD) -lm
 tests_lib_test_heavy_wq_SOURCES = tests/lib/test_heavy_wq.c tests/helpers/c/main.c
+tests_lib_test_idalloc_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_idalloc_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_idalloc_SOURCES = tests/lib/test_idalloc.c
 tests_lib_test_memory_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_memory_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_memory_LDADD = $(ALL_TESTS_LDADD)
@@ -265,6 +285,7 @@ EXTRA_DIST += \
 	tests/helpers/python/frrtest.py \
 	tests/isisd/test_fuzz_isis_tlv.py \
 	tests/isisd/test_fuzz_isis_tlv_tests.h.gz \
+	tests/isisd/test_isis_lspdb.py \
 	tests/isisd/test_isis_vertex_queue.py \
 	tests/lib/cli/test_commands.in \
 	tests/lib/cli/test_commands.py \
@@ -272,6 +293,9 @@ EXTRA_DIST += \
 	tests/lib/cli/test_cli.in \
 	tests/lib/cli/test_cli.py \
 	tests/lib/cli/test_cli.refout \
+	tests/lib/northbound/test_oper_data.in \
+	tests/lib/northbound/test_oper_data.py \
+	tests/lib/northbound/test_oper_data.refout \
 	tests/lib/test_nexthop_iter.py \
 	tests/lib/test_ringbuf.py \
 	tests/lib/test_srcdest_table.py \
@@ -293,3 +317,8 @@ EXTRA_DIST += \
 tests/tests.xml: $(check_PROGRAMS)
 	( cd tests; $(PYTHON) ../$(srcdir)/tests/runtests.py --junitxml=tests.xml -v ../$(srcdir)/tests; )
 check: tests/tests.xml
+
+clean-local: clean-tests
+.PHONY: clean-tests
+clean-tests:
+	-rm -f tests/tests.xml

@@ -156,7 +156,7 @@ DEFPY  (ldp_dual_stack_transport_connection_prefer_ipv4,
 	NO_STR
 	"Configure dual stack parameters\n"
 	"Configure TCP transport parameters\n"
-	"Configure prefered address family for TCP transport connection with neighbor\n"
+	"Configure preferred address family for TCP transport connection with neighbor\n"
 	"IPv4\n")
 {
 	return (ldp_vty_trans_pref_ipv4(vty, no));

@@ -1,0 +1,12 @@
+*N IE 2001:db8:1::/64                fe80::78fe:fcff:fe51:9afc r4-eth0 00:09:13
+ N E1 2001:db8:1::/64                fe80::78fe:fcff:fe51:9afc r4-eth0 00:09:13
+*N IE 2001:db8:2::/64                fe80::78fe:fcff:fe51:9afc r4-eth0 00:09:13
+ N E1 2001:db8:2::/64                fe80::78fe:fcff:fe51:9afc r4-eth0 00:09:13
+*N IE 2001:db8:3::/64                fe80::78fe:fcff:fe51:9afc r4-eth0 00:09:13
+ N E1 2001:db8:3::/64                fe80::78fe:fcff:fe51:9afc r4-eth0 00:09:13
+ N E1 2001:db8:3::/64                fe80::78fe:fcff:fe51:9afc r4-eth0 00:09:13
+*N IE 2001:db8:100::/64              fe80::78fe:fcff:fe51:9afc r4-eth0 00:09:13
+ N E1 2001:db8:100::/64              fe80::78fe:fcff:fe51:9afc r4-eth0 00:09:13
+*N IA 2001:db8:200::/64              ::                        r4-eth0 00:09:17
+ N E1 2001:db8:200::/64              fe80::78fe:fcff:fe51:9afc r4-eth0 00:09:13
+*N IA 2001:db8:300::/64              ::                        r4-eth1 00:09:18

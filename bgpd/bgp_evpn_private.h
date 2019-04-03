@@ -161,6 +161,24 @@ struct vrf_irt_node {
 #define RT_TYPE_EXPORT 2
 #define RT_TYPE_BOTH   3
 
+#define EVPN_DAD_DEFAULT_TIME 180 /* secs */
+#define EVPN_DAD_DEFAULT_MAX_MOVES 5 /* default from RFC 7432 */
+#define EVPN_DAD_DEFAULT_AUTO_RECOVERY_TIME 1800 /* secs */
+
+struct bgp_evpn_info {
+	/* enable disable dup detect */
+	bool dup_addr_detect;
+
+	/* Detection time(M) */
+	int dad_time;
+	/* Detection max moves(N) */
+	uint32_t dad_max_moves;
+	/* Permanent freeze */
+	bool dad_freeze;
+	/* Recovery time */
+	uint32_t dad_freeze_time;
+};
+
 static inline int is_vrf_rd_configured(struct bgp *bgp_vrf)
 {
 	return (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD));
@@ -466,6 +484,9 @@ static inline int is_es_local(struct evpnes *es)
 	return CHECK_FLAG(es->flags, EVPNES_LOCAL) ? 1 : 0;
 }
 
+extern void bgp_evpn_install_uninstall_default_route(struct bgp *bgp_vrf,
+						     afi_t afi, safi_t safi,
+						     bool add);
 extern void evpn_rt_delete_auto(struct bgp *, vni_t, struct list *);
 extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						 struct ecommunity *ecomadd);

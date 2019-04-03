@@ -46,6 +46,7 @@
 #include "jhash.h"
 #include "hook.h"
 #include "lib_errors.h"
+#include "northbound_cli.h"
 
 DEFINE_MTYPE(LIB, HOST, "Host config")
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item")
@@ -81,6 +82,7 @@ const char *node_names[] = {
 	"config",		    // CONFIG_NODE,
 	"debug",		    // DEBUG_NODE,
 	"vrf debug",		    // VRF_DEBUG_NODE,
+	"northbound debug",	    // NORTHBOUND_DEBUG_NODE,
 	"vnc debug",		    // DEBUG_VNC_NODE,
 	"aaa",			    // AAA_NODE,
 	"keychain",		    // KEYCHAIN_NODE,
@@ -337,7 +339,7 @@ static unsigned int cmd_hash_key(void *p)
 	return jhash(p, size, 0);
 }
 
-static int cmd_hash_cmp(const void *a, const void *b)
+static bool cmd_hash_cmp(const void *a, const void *b)
 {
 	return a == b;
 }
@@ -718,11 +720,14 @@ vector cmd_describe_command(vector vline, struct vty *vty, int *status)
 
 	if (cmd_try_do_shortcut(vty->node, vector_slot(vline, 0))) {
 		enum node_type onode;
+		int orig_xpath_index;
 		vector shifted_vline;
 		unsigned int index;
 
 		onode = vty->node;
+		orig_xpath_index = vty->xpath_index;
 		vty->node = ENABLE_NODE;
+		vty->xpath_index = 0;
 		/* We can try it on enable node, cos' the vty is authenticated
 		 */
 
@@ -737,6 +742,7 @@ vector cmd_describe_command(vector vline, struct vty *vty, int *status)
 
 		vector_free(shifted_vline);
 		vty->node = onode;
+		vty->xpath_index = orig_xpath_index;
 		return ret;
 	}
 
@@ -1045,8 +1051,13 @@ static int cmd_execute_command_real(vector vline, enum filter_type filter,
 	int ret;
 	if (matched_element->daemon)
 		ret = CMD_SUCCESS_DAEMON;
-	else
+	else {
+		/* Clear enqueued configuration changes. */
+		vty->num_cfg_changes = 0;
+		memset(&vty->cfg_changes, 0, sizeof(vty->cfg_changes));
+
 		ret = matched_element->func(matched_element, vty, argc, argv);
+	}
 
 	// delete list and cmd_token's in it
 	list_delete(&argv_list);
@@ -1075,14 +1086,17 @@ int cmd_execute_command(vector vline, struct vty *vty,
 {
 	int ret, saved_ret = 0;
 	enum node_type onode, try_node;
+	int orig_xpath_index;
 
 	onode = try_node = vty->node;
+	orig_xpath_index = vty->xpath_index;
 
 	if (cmd_try_do_shortcut(vty->node, vector_slot(vline, 0))) {
 		vector shifted_vline;
 		unsigned int index;
 
 		vty->node = ENABLE_NODE;
+		vty->xpath_index = 0;
 		/* We can try it on enable node, cos' the vty is authenticated
 		 */
 
@@ -1097,6 +1111,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 
 		vector_free(shifted_vline);
 		vty->node = onode;
+		vty->xpath_index = orig_xpath_index;
 		return ret;
 	}
 
@@ -1113,6 +1128,8 @@ int cmd_execute_command(vector vline, struct vty *vty,
 		while (vty->node > CONFIG_NODE) {
 			try_node = node_parent(try_node);
 			vty->node = try_node;
+			if (vty->xpath_index > 0)
+				vty->xpath_index--;
 			ret = cmd_execute_command_real(vline, FILTER_RELAXED,
 						       vty, cmd);
 			if (ret == CMD_SUCCESS || ret == CMD_WARNING
@@ -1122,6 +1139,7 @@ int cmd_execute_command(vector vline, struct vty *vty,
 		}
 		/* no command succeeded, reset the vty to the original node */
 		vty->node = onode;
+		vty->xpath_index = orig_xpath_index;
 	}
 
 	/* return command status for original node */
@@ -1281,10 +1299,10 @@ int cmd_execute(struct vty *vty, const char *cmd,
  *         as to why no command could be executed.
  */
 int command_config_read_one_line(struct vty *vty,
-				 const struct cmd_element **cmd, int use_daemon)
+				 const struct cmd_element **cmd,
+				 uint32_t line_num, int use_daemon)
 {
 	vector vline;
-	int saved_node;
 	int ret;
 
 	vline = cmd_make_strvec(vty->buf);
@@ -1302,14 +1320,16 @@ int command_config_read_one_line(struct vty *vty,
 	    && ret != CMD_SUCCESS && ret != CMD_WARNING
 	    && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED
 	    && vty->node != CONFIG_NODE) {
-
-		saved_node = vty->node;
+		int saved_node = vty->node;
+		int saved_xpath_index = vty->xpath_index;
 
 		while (!(use_daemon && ret == CMD_SUCCESS_DAEMON)
 		       && !(!use_daemon && ret == CMD_ERR_NOTHING_TODO)
 		       && ret != CMD_SUCCESS && ret != CMD_WARNING
 		       && vty->node > CONFIG_NODE) {
 			vty->node = node_parent(vty->node);
+			if (vty->xpath_index > 0)
+				vty->xpath_index--;
 			ret = cmd_execute_command_strict(vline, vty, cmd);
 		}
 
@@ -1319,11 +1339,22 @@ int command_config_read_one_line(struct vty *vty,
 		    && !(!use_daemon && ret == CMD_ERR_NOTHING_TODO)
 		    && ret != CMD_SUCCESS && ret != CMD_WARNING) {
 			vty->node = saved_node;
+			vty->xpath_index = saved_xpath_index;
 		}
 	}
 
-	if (ret != CMD_SUCCESS && ret != CMD_WARNING)
-		memcpy(vty->error_buf, vty->buf, VTY_BUFSIZ);
+	if (ret != CMD_SUCCESS &&
+	    ret != CMD_WARNING &&
+	    ret != CMD_SUCCESS_DAEMON) {
+		struct vty_error *ve = XCALLOC(MTYPE_TMP, sizeof(*ve));
+
+		memcpy(ve->error_buf, vty->buf, VTY_BUFSIZ);
+		ve->line_num = line_num;
+		if (!vty->error)
+			vty->error = list_new();
+
+		listnode_add(vty->error, ve);
+	}
 
 	cmd_free_strvec(vline);
 
@@ -1337,10 +1368,9 @@ int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 	*line_num = 0;
 
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
-		if (!error_ret)
-			++(*line_num);
+		++(*line_num);
 
-		ret = command_config_read_one_line(vty, NULL, 0);
+		ret = command_config_read_one_line(vty, NULL, *line_num, 0);
 
 		if (ret != CMD_SUCCESS && ret != CMD_WARNING
 		    && ret != CMD_ERR_NOTHING_TODO)
@@ -1361,13 +1391,7 @@ DEFUN (config_terminal,
        "Configuration from vty interface\n"
        "Configuration terminal\n")
 {
-	if (vty_config_lock(vty))
-		vty->node = CONFIG_NODE;
-	else {
-		vty_out(vty, "VTY configuration is locked by other VTY\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	return CMD_SUCCESS;
+	return vty_config_enter(vty, false, false);
 }
 
 /* Enable command */
@@ -1419,7 +1443,7 @@ void cmd_exit(struct vty *vty)
 		break;
 	case CONFIG_NODE:
 		vty->node = ENABLE_NODE;
-		vty_config_unlock(vty);
+		vty_config_exit(vty);
 		break;
 	case INTERFACE_NODE:
 	case PW_NODE:
@@ -1490,6 +1514,9 @@ void cmd_exit(struct vty *vty)
 	default:
 		break;
 	}
+
+	if (vty->xpath_index > 0)
+		vty->xpath_index--;
 }
 
 /* ALIAS_FIXME */
@@ -1508,64 +1535,11 @@ DEFUN (config_end,
        "end",
        "End current mode and change to enable mode.\n")
 {
-	switch (vty->node) {
-	case VIEW_NODE:
-	case ENABLE_NODE:
-		/* Nothing to do. */
-		break;
-	case CONFIG_NODE:
-	case INTERFACE_NODE:
-	case PW_NODE:
-	case LOGICALROUTER_NODE:
-	case VRF_NODE:
-	case NH_GROUP_NODE:
-	case ZEBRA_NODE:
-	case RIP_NODE:
-	case RIPNG_NODE:
-	case EIGRP_NODE:
-	case BABEL_NODE:
-	case BGP_NODE:
-	case BGP_VRF_POLICY_NODE:
-	case BGP_VNC_DEFAULTS_NODE:
-	case BGP_VNC_NVE_GROUP_NODE:
-	case BGP_VNC_L2_GROUP_NODE:
-	case BGP_VPNV4_NODE:
-	case BGP_VPNV6_NODE:
-	case BGP_FLOWSPECV4_NODE:
-	case BGP_FLOWSPECV6_NODE:
-	case BGP_IPV4_NODE:
-	case BGP_IPV4M_NODE:
-	case BGP_IPV4L_NODE:
-	case BGP_IPV6_NODE:
-	case BGP_IPV6M_NODE:
-	case BGP_EVPN_NODE:
-	case BGP_EVPN_VNI_NODE:
-	case BGP_IPV6L_NODE:
-	case RMAP_NODE:
-	case PBRMAP_NODE:
-	case OSPF_NODE:
-	case OSPF6_NODE:
-	case LDP_NODE:
-	case LDP_IPV4_NODE:
-	case LDP_IPV6_NODE:
-	case LDP_IPV4_IFACE_NODE:
-	case LDP_IPV6_IFACE_NODE:
-	case LDP_L2VPN_NODE:
-	case LDP_PSEUDOWIRE_NODE:
-	case ISIS_NODE:
-	case OPENFABRIC_NODE:
-	case KEYCHAIN_NODE:
-	case KEYCHAIN_KEY_NODE:
-	case VTY_NODE:
-	case LINK_PARAMS_NODE:
-	case BFD_NODE:
-	case BFD_PEER_NODE:
-		vty_config_unlock(vty);
+	if (vty->config) {
+		vty_config_exit(vty);
 		vty->node = ENABLE_NODE;
-		break;
-	default:
-		break;
 	}
+
 	return CMD_SUCCESS;
 }
 
@@ -2541,8 +2515,6 @@ DEFUN (config_log_syslog,
 {
 	int idx_log_levels = 2;
 
-	disable_log_file();
-
 	if (argc == 3) {
 		int level;
 		if ((level = level_match(argv[idx_log_levels]->arg))
@@ -2775,6 +2747,8 @@ void install_default(enum node_type node)
 	install_element(node, &show_running_config_cmd);
 
 	install_element(node, &autocomplete_cmd);
+
+	nb_cli_install_default(node);
 }
 
 /* Initialize command interface. Install basic nodes and commands.

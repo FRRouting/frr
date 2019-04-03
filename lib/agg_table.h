@@ -58,7 +58,7 @@ static inline struct agg_node *agg_lock_node(struct agg_node *node)
 
 static inline void agg_unlock_node(struct agg_node *node)
 {
-	return route_unlock_node(agg_node_to_rnode(node));
+	route_unlock_node(agg_node_to_rnode(node));
 }
 
 static inline void agg_set_table_info(struct agg_table *atable, void *data)

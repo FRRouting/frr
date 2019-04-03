@@ -39,10 +39,11 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
     struct interface *ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
     babel_interface_nfo *babel_ifp = ifp ? babel_get_if_nfo(ifp) : NULL;
     struct prefix p;
-    struct distribute *dist;
+    struct distribute *dist = NULL;
     struct access_list *alist;
     struct prefix_list *plist;
     int distribute;
+    struct babel *babel;
 
     p.family = v4mapped(prefix) ? AF_INET : AF_INET6;
     p.prefixlen = v4mapped(prefix) ? plen - 96 : plen;
@@ -81,7 +82,9 @@ babel_filter(int output, const unsigned char *prefix, unsigned short plen,
     }
 
     /* All interface filter check. */
-    dist = distribute_lookup (NULL);
+    babel = babel_lookup();
+    if (babel)
+        dist = distribute_lookup (babel->distribute_ctx, NULL);
     if (dist) {
         if (dist->list[distribute]) {
             alist = access_list_lookup (p.family, dist->list[distribute]);

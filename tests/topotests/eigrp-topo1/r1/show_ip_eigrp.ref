@@ -1,0 +1,14 @@
+
+EIGRP Topology Table for AS(1)/ID(193.1.1.1)
+
+Codes: P - Passive, A - Active, U - Update, Q - Query, R - Reply
+       r - reply Status, s - sia Status
+
+P  193.1.1.0/26, 1 successors, FD is 28160, serno: 0 
+       via Connected, r1-eth1
+P  192.168.1.0/24, 1 successors, FD is 28160, serno: 0 
+       via Connected, r1-eth0
+P  193.1.2.0/24, 1 successors, FD is 30720, serno: 0 
+       via 193.1.1.2 (30720/28160), r1-eth1
+P  192.168.3.0/24, 1 successors, FD is 33280, serno: 0 
+       via 193.1.1.2 (33280/30720), r1-eth1

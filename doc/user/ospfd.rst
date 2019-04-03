@@ -979,14 +979,17 @@ Traffic Engineering
 Router Information
 ==================
 
-.. index:: router-info [as | area <A.B.C.D>]
-.. clicmd:: router-info [as | area <A.B.C.D>]
+.. index:: router-info [as | area]
+.. clicmd:: router-info [as | area]
 
 .. index:: no router-info
 .. clicmd:: no router-info
 
    Enable Router Information (:rfc:`4970`) LSA advertisement with AS scope
-   (default) or Area scope flooding when area is specified.
+   (default) or Area scope flooding when area is specified. Old syntax
+   `router-info area <A.B.C.D>` is always supported but mark as deprecated
+   as the area ID is no more necessary. Indeed, router information support
+   multi-area and detect automatically the areas.
 
 .. index:: pce address <A.B.C.D>
 .. clicmd:: pce address <A.B.C.D>

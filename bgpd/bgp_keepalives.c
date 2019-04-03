@@ -123,10 +123,11 @@ static void peer_process(struct hash_backet *hb, void *arg)
 		*next_update = diff;
 }
 
-static int peer_hash_cmp(const void *f, const void *s)
+static bool peer_hash_cmp(const void *f, const void *s)
 {
 	const struct pkat *p1 = f;
 	const struct pkat *p2 = s;
+
 	return p1->peer == p2->peer;
 }
 
@@ -180,7 +181,11 @@ void *bgp_keepalives_start(void *arg)
 	pthread_cond_init(peerhash_cond, &attrs);
 	pthread_condattr_destroy(&attrs);
 
-	frr_pthread_set_name(fpt, NULL, "bgpd_ka");
+	/*
+	 * We are not using normal FRR pthread mechanics and are
+	 * not using fpt_run
+	 */
+	frr_pthread_set_name(fpt);
 
 	/* initialize peer hashtable */
 	peerhash = hash_create_size(2048, peer_hash_key, peer_hash_cmp, NULL);

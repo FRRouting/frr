@@ -56,6 +56,7 @@
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_label.h"
+#include "bgpd/bgp_addpath.h"
 
 /********************
  * PRIVATE FUNCTIONS
@@ -1123,6 +1124,8 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 			snprintf(tx_id_buf, sizeof(tx_id_buf),
 				 " with addpath ID %u",
 				 BGP_ADDPATH_TX_ID_FOR_DEFAULT_ORIGINATE);
+		else
+			tx_id_buf[0] = '\0';
 
 		zlog_debug("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s%s %s",
 			   (SUBGRP_UPDGRP(subgrp))->id, subgrp->id,

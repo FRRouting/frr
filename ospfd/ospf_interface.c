@@ -920,6 +920,23 @@ static void ospf_vl_if_delete(struct ospf_vl_data *vl_data)
 	vlink_count--;
 }
 
+/* for a defined area, count the number of configured vl
+ */
+int ospf_vl_count(struct ospf *ospf, struct ospf_area *area)
+{
+	int count = 0;
+	struct ospf_vl_data *vl_data;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf->vlinks, node, vl_data)) {
+		if (area
+		    && !IPV4_ADDR_SAME(&vl_data->vl_area_id, &area->area_id))
+			continue;
+		count++;
+	}
+	return count;
+}
+
 /* Look up vl_data for given peer, optionally qualified to be in the
  * specified area. NULL area returns first found..
  */

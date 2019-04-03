@@ -15,6 +15,8 @@ Required packages
       libc-ares-dev python3-dev libsystemd-dev python-ipaddress \
       python3-sphinx install-info
 
+.. include:: building-libyang.rst
+
 Optional packages
 ^^^^^^^^^^^^^^^^^
 
@@ -113,7 +115,7 @@ Create empty FRR configuration files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Although not strictly necessary, it's good practice to create empty
-configuration files _before_ starting FRR. This assures that the permissions 
+configuration files _before_ starting FRR. This assures that the permissions
 are correct. If the files are not already present, FRR will create them.
 
 It's also important to consider _which_ files to create. FRR supports writing
@@ -201,9 +203,7 @@ Install the systemd service
 ::
 
    sudo install -m 644 tools/frr.service /etc/systemd/system/frr.service
-   sudo install -m 644 tools/etc/default/frr /etc/default/frr
    sudo install -m 644 tools/etc/frr/daemons /etc/frr/daemons
-   sudo install -m 644 tools/etc/frr/daemons.conf /etc/frr/daemons.conf
    sudo install -m 644 tools/etc/frr/frr.conf /etc/frr/frr.conf
    sudo install -m 644 -o frr -g frr tools/etc/frr/vtysh.conf /etc/frr/vtysh.conf
 

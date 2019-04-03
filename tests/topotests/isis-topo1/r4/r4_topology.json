@@ -1,0 +1,189 @@
+{
+  "1": {
+    "level-1": {
+      "ipv4": [
+        {
+          "vertex": "r4"
+        },
+        {
+          "metric": "internal",
+          "parent": "0",
+          "type": "IP",
+          "vertex": "10.0.11.0/24"
+        },
+        {
+          "interface": "r4-eth1",
+          "metric": "10",
+          "next-hop": "r5",
+          "parent": "r4(4)",
+          "type": "TE-IS",
+          "vertex": "r5"
+        },
+        {
+          "interface": "r5",
+          "metric": "TE",
+          "next-hop": "10",
+          "parent": "r4-eth1",
+          "type": "IP",
+          "vertex": "10.0.10.0/24"
+        },
+        {
+          "interface": "r5",
+          "metric": "TE",
+          "next-hop": "10",
+          "parent": "r4-eth1",
+          "type": "IP",
+          "vertex": "10.0.11.0/24"
+        },
+        {
+          "interface": "r5",
+          "metric": "TE",
+          "next-hop": "10",
+          "parent": "r4-eth1",
+          "type": "IP",
+          "vertex": "10.254.0.5/32"
+        },
+        {
+          "interface": "r4-eth1",
+          "metric": "20",
+          "next-hop": "r5",
+          "type": "TE-IS",
+          "vertex": "r3"
+        },
+        {
+          "interface": "r5",
+          "metric": "TE",
+          "next-hop": "20",
+          "parent": "r4-eth1",
+          "type": "IP",
+          "vertex": "10.0.20.0/24"
+        },
+        {
+          "interface": "r5",
+          "metric": "TE",
+          "next-hop": "20",
+          "parent": "r4-eth1",
+          "type": "IP",
+          "vertex": "10.254.0.3/32"
+        }
+      ],
+      "ipv6": [
+        {
+          "vertex": "r4"
+        },
+        {
+          "metric": "internal",
+          "parent": "0",
+          "type": "IP6",
+          "vertex": "2001:db8:2:2::/64"
+        },
+        {
+          "interface": "r4-eth1",
+          "metric": "10",
+          "next-hop": "r5",
+          "parent": "r4(4)",
+          "type": "TE-IS",
+          "vertex": "r5"
+        },
+        {
+          "interface": "r5",
+          "next-hop": "10",
+          "parent": "r4-eth1",
+          "type": "IP6",
+          "vertex": "2001:db8:2:1::/64"
+        },
+        {
+          "interface": "r5",
+          "next-hop": "10",
+          "parent": "r4-eth1",
+          "type": "IP6",
+          "vertex": "2001:db8:f::5/128"
+        },
+        {
+          "interface": "r4-eth1",
+          "metric": "20",
+          "next-hop": "r5",
+          "type": "TE-IS",
+          "vertex": "r3"
+        },
+        {
+          "interface": "r5",
+          "next-hop": "20",
+          "parent": "r4-eth1",
+          "type": "IP6",
+          "vertex": "2001:db8:1:1::/64"
+        },
+        {
+          "interface": "r5",
+          "next-hop": "20",
+          "parent": "r4-eth1",
+          "type": "IP6",
+          "vertex": "2001:db8:f::3/128"
+        }
+      ]
+    },
+    "level-2": {
+      "ipv4": [
+        {
+          "vertex": "r4"
+        },
+        {
+          "metric": "internal",
+          "parent": "0",
+          "type": "IP",
+          "vertex": "10.0.21.0/24"
+        },
+        {
+          "interface": "r4-eth0",
+          "metric": "10",
+          "next-hop": "r2",
+          "parent": "r4(4)",
+          "type": "TE-IS",
+          "vertex": "r2"
+        },
+        {
+          "interface": "r2",
+          "metric": "TE",
+          "next-hop": "10",
+          "parent": "r4-eth0",
+          "type": "IP",
+          "vertex": "10.0.21.0/24"
+        },
+        {
+          "interface": "r2",
+          "metric": "TE",
+          "next-hop": "10",
+          "parent": "r4-eth0",
+          "type": "IP",
+          "vertex": "10.254.0.2/32"
+        }
+      ],
+      "ipv6": [
+        {
+          "vertex": "r4"
+        },
+        {
+          "metric": "internal",
+          "parent": "0",
+          "type": "IP6",
+          "vertex": "2001:db8:1:2::/64"
+        },
+        {
+          "interface": "r4-eth0",
+          "metric": "10",
+          "next-hop": "r2",
+          "parent": "r4(4)",
+          "type": "TE-IS",
+          "vertex": "r2"
+        },
+        {
+          "interface": "r2",
+          "next-hop": "10",
+          "parent": "r4-eth0",
+          "type": "IP6",
+          "vertex": "2001:db8:f::2/128"
+        }
+      ]
+    }
+  }
+}

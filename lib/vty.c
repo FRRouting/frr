@@ -41,6 +41,7 @@
 #include "libfrr.h"
 #include "frrstr.h"
 #include "lib_errors.h"
+#include "northbound_cli.h"
 
 #include <arpa/telnet.h>
 #include <termios.h>
@@ -85,9 +86,8 @@ static vector Vvty_serv_thread;
 /* Current directory. */
 char *vty_cwd = NULL;
 
-/* Configure lock. */
-static int vty_config;
-static int vty_config_is_lockless = 0;
+/* Exclusive configuration lock. */
+struct vty *vty_exclusive_lock;
 
 /* Login password check. */
 static int no_password_check = 0;
@@ -775,57 +775,9 @@ static void vty_end_config(struct vty *vty)
 {
 	vty_out(vty, "\n");
 
-	switch (vty->node) {
-	case VIEW_NODE:
-	case ENABLE_NODE:
-		/* Nothing to do. */
-		break;
-	case CONFIG_NODE:
-	case INTERFACE_NODE:
-	case PW_NODE:
-	case ZEBRA_NODE:
-	case RIP_NODE:
-	case RIPNG_NODE:
-	case EIGRP_NODE:
-	case BGP_NODE:
-	case BGP_VPNV4_NODE:
-	case BGP_VPNV6_NODE:
-	case BGP_VRF_POLICY_NODE:
-	case BGP_VNC_DEFAULTS_NODE:
-	case BGP_VNC_NVE_GROUP_NODE:
-	case BGP_VNC_L2_GROUP_NODE:
-	case BGP_IPV4_NODE:
-	case BGP_IPV4M_NODE:
-	case BGP_IPV4L_NODE:
-	case BGP_IPV6_NODE:
-	case BGP_IPV6M_NODE:
-	case BGP_EVPN_NODE:
-	case BGP_IPV6L_NODE:
-	case RMAP_NODE:
-	case PBRMAP_NODE:
-	case OSPF_NODE:
-	case OSPF6_NODE:
-	case LDP_NODE:
-	case LDP_IPV4_NODE:
-	case LDP_IPV6_NODE:
-	case LDP_IPV4_IFACE_NODE:
-	case LDP_IPV6_IFACE_NODE:
-	case LDP_L2VPN_NODE:
-	case LDP_PSEUDOWIRE_NODE:
-	case ISIS_NODE:
-	case OPENFABRIC_NODE:
-	case KEYCHAIN_NODE:
-	case KEYCHAIN_KEY_NODE:
-	case VTY_NODE:
-	case BGP_EVPN_VNI_NODE:
-	case BFD_NODE:
-	case BFD_PEER_NODE:
-		vty_config_unlock(vty);
+	if (vty->config) {
+		vty_config_exit(vty);
 		vty->node = ENABLE_NODE;
-		break;
-	default:
-		/* Unknown node, we have to ignore it. */
-		break;
 	}
 
 	vty_prompt(vty);
@@ -1188,44 +1140,11 @@ static void vty_stop_input(struct vty *vty)
 	vty_clear_buf(vty);
 	vty_out(vty, "\n");
 
-	switch (vty->node) {
-	case VIEW_NODE:
-	case ENABLE_NODE:
-		/* Nothing to do. */
-		break;
-	case CONFIG_NODE:
-	case INTERFACE_NODE:
-	case PW_NODE:
-	case ZEBRA_NODE:
-	case RIP_NODE:
-	case RIPNG_NODE:
-	case EIGRP_NODE:
-	case BGP_NODE:
-	case RMAP_NODE:
-	case PBRMAP_NODE:
-	case OSPF_NODE:
-	case OSPF6_NODE:
-	case LDP_NODE:
-	case LDP_IPV4_NODE:
-	case LDP_IPV6_NODE:
-	case LDP_IPV4_IFACE_NODE:
-	case LDP_IPV6_IFACE_NODE:
-	case LDP_L2VPN_NODE:
-	case LDP_PSEUDOWIRE_NODE:
-	case ISIS_NODE:
-	case OPENFABRIC_NODE:
-	case KEYCHAIN_NODE:
-	case KEYCHAIN_KEY_NODE:
-	case VTY_NODE:
-	case BFD_NODE:
-	case BFD_PEER_NODE:
-		vty_config_unlock(vty);
+	if (vty->config) {
+		vty_config_exit(vty);
 		vty->node = ENABLE_NODE;
-		break;
-	default:
-		/* Unknown node, we have to ignore it. */
-		break;
 	}
+
 	vty_prompt(vty);
 
 	/* Set history pointer to the latest one. */
@@ -1695,7 +1614,6 @@ struct vty *vty_new()
 	new->lbuf = buffer_new(0);
 	new->obuf = buffer_new(0); /* Use default buffer size. */
 	new->buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
-	new->error_buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
 	new->max = VTY_BUFSIZ;
 
 	return new;
@@ -1719,6 +1637,10 @@ static struct vty *vty_new_init(int vty_sock)
 	memset(vty->hist, 0, sizeof(vty->hist));
 	vty->hp = 0;
 	vty->hindex = 0;
+	vty->xpath_index = 0;
+	memset(vty->xpath, 0, sizeof(vty->xpath));
+	vty->private_config = false;
+	vty->candidate_config = vty_shared_candidate_config;
 	vector_set_index(vtyvec, vty_sock, vty);
 	vty->status = VTY_NORMAL;
 	vty->lines = -1;
@@ -2278,6 +2200,13 @@ void vty_serv_sock(const char *addr, unsigned short port, const char *path)
 #endif /* VTYSH */
 }
 
+static void vty_error_delete(void *arg)
+{
+	struct vty_error *ve = arg;
+
+	XFREE(MTYPE_TMP, ve);
+}
+
 /* Close vty interface.  Warning: call this only from functions that
    will be careful not to access the vty afterwards (since it has
    now been freed).  This is safest from top-level functions (called
@@ -2329,11 +2258,13 @@ void vty_close(struct vty *vty)
 	if (vty->buf)
 		XFREE(MTYPE_VTY, vty->buf);
 
-	if (vty->error_buf)
-		XFREE(MTYPE_VTY, vty->error_buf);
+	if (vty->error) {
+		vty->error->del = vty_error_delete;
+		list_delete(&vty->error);
+	}
 
 	/* Check configure. */
-	vty_config_unlock(vty);
+	vty_config_exit(vty);
 
 	/* OK free vty. */
 	XFREE(MTYPE_VTY, vty);
@@ -2364,10 +2295,12 @@ static int vty_timeout(struct thread *thread)
 }
 
 /* Read up configuration file from file_name. */
-static void vty_read_file(FILE *confp)
+static void vty_read_file(struct nb_config *config, FILE *confp)
 {
 	int ret;
 	struct vty *vty;
+	struct vty_error *ve;
+	struct listnode *node;
 	unsigned int line_num = 0;
 
 	vty = vty_new();
@@ -2381,6 +2314,12 @@ static void vty_read_file(FILE *confp)
 	vty->wfd = STDERR_FILENO;
 	vty->type = VTY_FILE;
 	vty->node = CONFIG_NODE;
+	if (config)
+		vty->candidate_config = config;
+	else {
+		vty->private_config = true;
+		vty->candidate_config = nb_config_new(NULL);
+	}
 
 	/* Execute configuration file */
 	ret = config_from_file(vty, confp, &line_num);
@@ -2417,11 +2356,27 @@ static void vty_read_file(FILE *confp)
 			break;
 		}
 
-		nl = strchr(vty->error_buf, '\n');
-		if (nl)
-			*nl = '\0';
-		flog_err(EC_LIB_VTY, "ERROR: %s on config line %u: %s", message,
-			 line_num, vty->error_buf);
+		for (ALL_LIST_ELEMENTS_RO(vty->error, node, ve)) {
+			nl = strchr(ve->error_buf, '\n');
+			if (nl)
+				*nl = '\0';
+			flog_err(EC_LIB_VTY, "ERROR: %s on config line %u: %s",
+				 message, ve->line_num, ve->error_buf);
+		}
+	}
+
+	/*
+	 * Automatically commit the candidate configuration after
+	 * reading the configuration file.
+	 */
+	if (config == NULL && vty->candidate_config
+	    && frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL) {
+		ret = nb_candidate_commit(vty->candidate_config, NB_CLIENT_CLI,
+					  true, "Read configuration file",
+					  NULL);
+		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
+			zlog_err("%s: failed to read configuration file.",
+				 __func__);
 	}
 
 	vty_close(vty);
@@ -2482,7 +2437,8 @@ static FILE *vty_use_backup_config(const char *fullpath)
 }
 
 /* Read up configuration file from file_name. */
-bool vty_read_config(const char *config_file, char *config_default_dir)
+bool vty_read_config(struct nb_config *config, const char *config_file,
+		     char *config_default_dir)
 {
 	char cwd[MAXPATHLEN];
 	FILE *confp = NULL;
@@ -2496,9 +2452,9 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 			if (getcwd(cwd, MAXPATHLEN) == NULL) {
 				flog_err_sys(
 					EC_LIB_SYSTEM_CALL,
-					"Failure to determine Current Working Directory %d!",
-					errno);
-				exit(1);
+					"%s: failure to determine Current Working Directory %d!",
+					__func__, errno);
+				goto tmp_free_and_out;
 			}
 			tmp = XMALLOC(MTYPE_TMP,
 				      strlen(cwd) + strlen(config_file) + 2);
@@ -2521,10 +2477,11 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 					EC_LIB_BACKUP_CONFIG,
 					"WARNING: using backup configuration file!");
 			else {
-				flog_err(EC_LIB_VTY,
-					 "can't open configuration file [%s]",
-					 config_file);
-				exit(1);
+				flog_err(
+					EC_LIB_VTY,
+					"%s: can't open configuration file [%s]",
+					__func__, config_file);
+				goto tmp_free_and_out;
 			}
 		}
 	} else {
@@ -2581,7 +2538,7 @@ bool vty_read_config(const char *config_file, char *config_default_dir)
 			fullpath = config_default_dir;
 	}
 
-	vty_read_file(confp);
+	vty_read_file(config, confp);
 	read_success = true;
 
 	fclose(confp);
@@ -2646,31 +2603,71 @@ void vty_log_fixed(char *buf, size_t len)
 	}
 }
 
-int vty_config_lock(struct vty *vty)
+int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 {
-	if (vty_config_is_lockless)
+	if (exclusive && !vty_config_exclusive_lock(vty)) {
+		vty_out(vty, "VTY configuration is locked by other VTY\n");
+		return CMD_WARNING;
+	}
+
+	vty->node = CONFIG_NODE;
+	vty->config = true;
+	vty->private_config = private_config;
+	vty->xpath_index = 0;
+
+	if (private_config) {
+		vty->candidate_config = nb_config_dup(running_config);
+		vty->candidate_config_base = nb_config_dup(running_config);
+		vty_out(vty,
+			"Warning: uncommitted changes will be discarded on exit.\n\n");
+	} else {
+		vty->candidate_config = vty_shared_candidate_config;
+		if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL)
+			vty->candidate_config_base =
+				nb_config_dup(running_config);
+	}
+
+	return CMD_SUCCESS;
+}
+
+void vty_config_exit(struct vty *vty)
+{
+	/* Check if there's a pending confirmed commit. */
+	if (vty->t_confirmed_commit_timeout) {
+		vty_out(vty,
+			"WARNING: exiting with a pending confirmed commit. Rolling back to previous configuration.\n\n");
+		nb_cli_confirmed_commit_rollback(vty);
+		nb_cli_confirmed_commit_clean(vty);
+	}
+
+	vty_config_exclusive_unlock(vty);
+
+	if (vty->candidate_config) {
+		if (vty->private_config)
+			nb_config_free(vty->candidate_config);
+		vty->candidate_config = NULL;
+	}
+	if (vty->candidate_config_base) {
+		nb_config_free(vty->candidate_config_base);
+		vty->candidate_config_base = NULL;
+	}
+
+	vty->config = false;
+}
+
+int vty_config_exclusive_lock(struct vty *vty)
+{
+	if (vty_exclusive_lock == NULL) {
+		vty_exclusive_lock = vty;
 		return 1;
-	if (vty_config == 0) {
-		vty->config = 1;
-		vty_config = 1;
 	}
-	return vty->config;
+	return 0;
 }
 
-int vty_config_unlock(struct vty *vty)
+void vty_config_exclusive_unlock(struct vty *vty)
 {
-	if (vty_config_is_lockless)
-		return 0;
-	if (vty_config == 1 && vty->config == 1) {
-		vty->config = 0;
-		vty_config = 0;
-	}
-	return vty->config;
-}
-
-void vty_config_lockless(void)
-{
-	vty_config_is_lockless = 1;
+	if (vty_exclusive_lock == vty)
+		vty_exclusive_lock = NULL;
 }
 
 /* Master of the threads. */

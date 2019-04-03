@@ -64,7 +64,7 @@ static void err_key_fini(void)
 pthread_mutex_t refs_mtx = PTHREAD_MUTEX_INITIALIZER;
 struct hash *refs;
 
-static int ferr_hash_cmp(const void *a, const void *b)
+static bool ferr_hash_cmp(const void *a, const void *b)
 {
 	const struct log_ref *f_a = a;
 	const struct log_ref *f_b = b;

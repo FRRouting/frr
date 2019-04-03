@@ -140,16 +140,6 @@ Standard Commands
    behind the other end of the link (or even on the link in Point-to-Multipoint
    setups), though generally /32s are used.
 
-.. index:: ip address ADDRESS/PREFIX secondary
-
-.. clicmd:: ip address ADDRESS/PREFIX secondary
-.. index:: no ip address ADDRESS/PREFIX secondary
-
-.. clicmd:: no ip address ADDRESS/PREFIX secondary
-
-   Set the secondary flag for this address. This causes ospfd to not treat the
-   address as a distinct subnet.
-
 .. index:: description DESCRIPTION ...
 
 .. clicmd:: description DESCRIPTION ...
@@ -186,6 +176,8 @@ Standard Commands
    Enable/disable link-detect on platforms which support this. Currently only
    Linux and Solaris, and only where network interface drivers support
    reporting link-state via the ``IFF_RUNNING`` flag.
+
+   In FRR, link-detect is on by default.
 
 .. _link-parameters-commands:
 
@@ -283,6 +275,12 @@ Link Parameters Commands
    kernels supporting multiple routing tables (like GNU/Linux 2.2.x and later).
    After setting TABLENO with this command, static routes defined after this
    are added to the specified table.
+
+.. index:: ip nht resolve-via-default
+.. clicmd:: ip nht resolve-via-default
+
+   Allows nexthop tracking to resolve via the default route. This is useful
+   when e.g. you want to allow BGP to peer across the default route.
 
 .. _zebra-vrf:
 
@@ -391,7 +389,7 @@ alternate name for default VRF. Then, the default VRF naming will automatically
 be updated with the new name. To illustrate, if you want to recompile with
 `global` value, use the following command:
 
-.. code-block:: linux
+.. code-block:: shell
 
    ./configure --with-defaultvrfname=global
 

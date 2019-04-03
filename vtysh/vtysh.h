@@ -55,6 +55,7 @@ DECLARE_MGROUP(MVTYSH)
 #define VTYSH_INTERFACE	  VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_ISISD|VTYSH_PIMD|VTYSH_NHRPD|VTYSH_EIGRPD|VTYSH_BABELD|VTYSH_PBRD|VTYSH_FABRICD
 #define VTYSH_NS          VTYSH_ZEBRA
 #define VTYSH_VRF	  VTYSH_ZEBRA|VTYSH_PIMD|VTYSH_STATICD
+#define VTYSH_KEYS        VTYSH_RIPD|VTYSH_EIGRPD
 
 enum vtysh_write_integrated {
 	WRITE_INTEGRATED_UNSPECIFIED,
@@ -96,8 +97,6 @@ void vtysh_config_parse_line(void *, const char *);
 void vtysh_config_dump(void);
 
 void vtysh_config_init(void);
-
-void vtysh_pager_init(void);
 
 void suid_on(void);
 void suid_off(void);

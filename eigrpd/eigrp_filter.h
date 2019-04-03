@@ -33,7 +33,8 @@
 #ifndef EIGRPD_EIGRP_FILTER_H_
 #define EIGRPD_EIGRP_FILTER_H_
 
-extern void eigrp_distribute_update(struct distribute *);
+extern void eigrp_distribute_update(struct distribute_ctx *ctx,
+				    struct distribute *dist);
 extern void eigrp_distribute_update_interface(struct interface *);
 extern void eigrp_distribute_update_all(struct prefix_list *);
 extern void eigrp_distribute_update_all_wrapper(struct access_list *);

@@ -25,7 +25,7 @@ FRR_VTY_GROUP="@enable_vty_group@" # frrvty
 # Local Daemon selection may be done by using /etc/frr/daemons.
 # See /usr/share/doc/frr/README.Debian.gz for further information.
 # Keep zebra first and do not list watchfrr!
-DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd ldpd nhrpd eigrpd sharpd pbrd staticd bfdd"
+DAEMONS="zebra bgpd ripd ripngd ospfd ospf6d isisd babeld pimd ldpd nhrpd eigrpd sharpd pbrd staticd bfdd fabricd"
 MAX_INSTANCES=5
 RELOAD_SCRIPT="$D_PATH/frr-reload.py"
 
@@ -115,41 +115,45 @@ check_daemon()
 # The Frr daemons creates the pidfile when starting.
 start()
 {
-	ulimit -n $MAX_FDS
-	if [ "$1" = "watchfrr" ]; then
+	local dmn inst
+	dmn="$1"
+	inst="$2"
+
+	ulimit -n $MAX_FDS > /dev/null 2> /dev/null
+	if [ "$dmn" = "watchfrr" ]; then
 
 		# We may need to restart watchfrr if new daemons are added and/or
 		# removed
-		if started "$1" ; then
+		if started "$dmn" ; then
 			stop watchfrr
 		else
 			# Echo only once. watchfrr is printed in the stop above
-			echo -n " $1"
+			echo -n " $dmn"
 		fi
 
+		eval "set - $watchfrr_options"
 		${SSD} \
 			--start \
-			--pidfile=`pidfile $1` \
-			--exec "$D_PATH/$1" \
+			--pidfile=`pidfile $dmn` \
+			--exec "$D_PATH/$dmn" \
 			-- \
-			"${watchfrr_options[@]}"
+			"$@"
 
-	elif [ -n "$2" ]; then
-		echo -n " $1-$2"
-		if ! check_daemon $1 $2 ; then
+	elif [ -n "$inst" ]; then
+		echo -n " $dmn-$inst"
+		if ! check_daemon $dmn $inst ; then
 			echo -n " (binary does not exist)"
 			return;
 		fi
 
 		${SSD} \
 			--start \
-			--pidfile=`pidfile $1-$2` \
-			--exec "$D_PATH/$1" \
+			--pidfile=`pidfile $dmn-$inst` \
+			--exec "$D_PATH/$dmn" \
 			-- \
-			`eval echo "$""$1""_options"` -n "$2"
+			`eval echo "$""$dmn""_options"` -n "$inst"
 	else
-		echo -n " $1"
-		if ! check_daemon $1; then
+		if ! check_daemon $dmn; then
 			echo -n " (binary does not exist)"
 			return;
 		fi
@@ -157,22 +161,22 @@ start()
 		if [ "$valgrind_enable" = "yes" ]; then
 			${SSD} \
 				--start \
-				--pidfile=`pidfile $1` \
+				--pidfile=`pidfile $dmn` \
 				--exec "$valgrind" \
-				-- --trace-children=no --leak-check=full --log-file=/var/log/frr/$1-valgrind.log $D_PATH/$1 \
-				`eval echo "$""$1""_options"`
+				-- --trace-children=no --leak-check=full --log-file=/var/log/frr/$dmn-valgrind.log $D_PATH/$dmn \
+				`eval echo "$""$dmn""_options"`
 		else
 			${SSD} \
 				--start \
-				--pidfile=`pidfile $1` \
-				--exec "$D_PATH/$1" \
+				--pidfile=`pidfile $dmn` \
+				--exec "$D_PATH/$dmn" \
 				-- \
-				`eval echo "$""$1""_options"`
+				`eval echo "$""$dmn""_options"`
 		fi
 	fi
 
 	# Start the staticd automatically
-	if [ "$1" = "zebra" ]; then
+	if [ "$dmn" = "zebra" ]; then
 		echo -n "starting staticd since zebra is running"
 		if ! check_daemon staticd ; then
 			echo -n " (binary does not exist)"
@@ -210,7 +214,6 @@ stop()
 		#       Now we have to wait until $DAEMON has _really_ stopped.
 		#
 		if test -n "$PID" && kill -0 $PID 2>/dev/null; then
-			echo -n " (waiting) ."
 			cnt=0
 			while kill -0 $PID 2>/dev/null; do
 				cnt=`expr $cnt + 1`
@@ -220,10 +223,8 @@ stop()
 					break
 				fi
 				sleep 2
-				echo -n "."
 			done
 		fi
-		echo -n " $inst"
 		rm -f `pidfile $inst`
 		rm -f `vtyfile $inst`
 
@@ -272,11 +273,9 @@ start_watchfrr()
 	fi
 
 	# Check variable type
-	if ! declare -p watchfrr_options | grep -q '^declare \-a'; then
-		echo
-		echo "ERROR: The variable watchfrr_options from /etc/frr/debian.cnf must be a BASH array!"
-		echo "ERROR: Please convert config file and restart!"
-		exit 1
+	if declare -p watchfrr_options | grep -q '^declare \-a'; then
+		# old array support
+		watchfrr_options="${watchfrr_options[@]}"
 	fi
 
 	# Which daemons have been started?
@@ -290,13 +289,13 @@ start_watchfrr()
 					eval "inst_disable=\${${daemon_name}_${inst}}"
 					if [ -z ${inst_disable} ] || [ ${inst_disable} != 0 ]; then
 						if check_daemon $daemon_name $inst; then
-							watchfrr_options+=("${daemon_name}-${inst}")
+							watchfrr_options="$watchfrr_options ${daemon_name}-${inst}"
 						fi
 					fi
 				done
 			else
 				if check_daemon $daemon_name; then
-					watchfrr_options+=($daemon_name)
+					watchfrr_options="$watchfrr_options $daemon_name"
 				fi
 			fi
 			found_one=1
@@ -305,7 +304,6 @@ start_watchfrr()
 
 	# Start if at least one daemon is activated.
 	if [ $found_one -eq 1 ]; then
-		echo -n "Starting Frr monitor daemon:"
 		start watchfrr
 		echo "."
 	fi
@@ -408,8 +406,6 @@ start_prio()
 	wanted_prio=$1
 	daemon_list=${daemon:-$DAEMONS}
 
-	echo -n "Starting Frr daemons (prio:$wanted_prio):"
-
 	for prio_i in `seq 1 $wanted_prio`; do
 		for daemon_name in $daemon_list; do
 			eval daemon_prio=\$${daemon_name}
@@ -447,7 +443,6 @@ start_prio()
 					eval "file_list_suffix="$V_PATH"/"$daemon_name-*""
 					for pidfile in $file_list_suffix.pid; do
 						${SSD} --stop --quiet --oknodo --pidfile "$pidfile"
-						echo -n "."
 						rm -rf "$pidfile"
 					done
 					for vtyfile in $file_list_suffix.vty; do
@@ -459,7 +454,6 @@ start_prio()
 			fi
 		done
 	done
-	echo "."
 }
 
 check_status()

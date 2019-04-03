@@ -626,7 +626,7 @@ static int bgp_pbr_validate_policy_route(struct bgp_pbr_entry_main *api)
 }
 
 /* return -1 if build or validation failed */
-static int bgp_pbr_build_and_validate_entry(struct prefix *p,
+int bgp_pbr_build_and_validate_entry(struct prefix *p,
 					    struct bgp_path_info *path,
 					    struct bgp_pbr_entry_main *api)
 {
@@ -638,6 +638,7 @@ static int bgp_pbr_build_and_validate_entry(struct prefix *p,
 	struct prefix *src = NULL, *dst = NULL;
 	int valid_prefix = 0;
 	afi_t afi = AFI_IP;
+	struct bgp_pbr_entry_action *api_action_redirect_ip = NULL;
 
 	/* extract match from flowspec entries */
 	ret = bgp_flowspec_match_rules_fill((uint8_t *)p->u.prefix_flowspec.ptr,
@@ -688,10 +689,55 @@ static int bgp_pbr_build_and_validate_entry(struct prefix *p,
 				    (char)ECOMMUNITY_ENCODE_REDIRECT_IP_NH) &&
 				   (ecom_eval->val[1] ==
 				    (char)ECOMMUNITY_REDIRECT_IP_NH)) {
-				api_action->action = ACTION_REDIRECT_IP;
-				api_action->u.zr.redirect_ip_v4.s_addr =
-					path->attr->nexthop.s_addr;
-				api_action->u.zr.duplicate = ecom_eval->val[7];
+				/* in case the 2 ecom present,
+				 * do not overwrite
+				 * draft-ietf-idr-flowspec-redirect
+				 */
+				if (api_action_redirect_ip) {
+					if (api_action_redirect_ip->u
+					    .zr.redirect_ip_v4.s_addr)
+						continue;
+					if (!path->attr->nexthop.s_addr)
+						continue;
+					api_action_redirect_ip->u
+						.zr.redirect_ip_v4.s_addr =
+						path->attr->nexthop.s_addr;
+					api_action_redirect_ip->u.zr.duplicate
+						= ecom_eval->val[7];
+					continue;
+				} else {
+					api_action->action = ACTION_REDIRECT_IP;
+					api_action->u.zr.redirect_ip_v4.s_addr =
+						path->attr->nexthop.s_addr;
+					api_action->u.zr.duplicate =
+						ecom_eval->val[7];
+					api_action_redirect_ip = api_action;
+				}
+			} else if ((ecom_eval->val[0] ==
+				    (char)ECOMMUNITY_ENCODE_IP) &&
+				   (ecom_eval->val[1] ==
+				    (char)ECOMMUNITY_FLOWSPEC_REDIRECT_IPV4)) {
+				/* in case the 2 ecom present,
+				 * overwrite simpson draft
+				 * update redirect ip fields
+				 */
+				if (api_action_redirect_ip) {
+					memcpy(&(api_action_redirect_ip->u
+						 .zr.redirect_ip_v4.s_addr),
+					       (ecom_eval->val+2), 4);
+					api_action_redirect_ip->u
+						.zr.duplicate =
+						ecom_eval->val[7];
+					continue;
+				} else {
+					api_action->action = ACTION_REDIRECT_IP;
+					memcpy(&(api_action->u
+						 .zr.redirect_ip_v4.s_addr),
+					       (ecom_eval->val+2), 4);
+					api_action->u.zr.duplicate =
+						ecom_eval->val[7];
+					api_action_redirect_ip = api_action;
+				}
 			} else {
 				if (ecom_eval->val[0] !=
 				    (char)ECOMMUNITY_ENCODE_TRANS_EXP)
@@ -847,7 +893,7 @@ uint32_t bgp_pbr_match_hash_key(void *arg)
 	return jhash_1word(pbm->type, key);
 }
 
-int bgp_pbr_match_hash_equal(const void *arg1, const void *arg2)
+bool bgp_pbr_match_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct bgp_pbr_match *r1, *r2;
 
@@ -855,35 +901,35 @@ int bgp_pbr_match_hash_equal(const void *arg1, const void *arg2)
 	r2 = (const struct bgp_pbr_match *)arg2;
 
 	if (r1->vrf_id != r2->vrf_id)
-		return 0;
+		return false;
 
 	if (r1->type != r2->type)
-		return 0;
+		return false;
 
 	if (r1->flags != r2->flags)
-		return 0;
+		return false;
 
 	if (r1->action != r2->action)
-		return 0;
+		return false;
 
 	if (r1->pkt_len_min != r2->pkt_len_min)
-		return 0;
+		return false;
 
 	if (r1->pkt_len_max != r2->pkt_len_max)
-		return 0;
+		return false;
 
 	if (r1->tcp_flags != r2->tcp_flags)
-		return 0;
+		return false;
 
 	if (r1->tcp_mask_flags != r2->tcp_mask_flags)
-		return 0;
+		return false;
 
 	if (r1->dscp_value != r2->dscp_value)
-		return 0;
+		return false;
 
 	if (r1->fragment != r2->fragment)
-		return 0;
-	return 1;
+		return false;
+	return true;
 }
 
 uint32_t bgp_pbr_match_entry_hash_key(void *arg)
@@ -903,45 +949,41 @@ uint32_t bgp_pbr_match_entry_hash_key(void *arg)
 	return key;
 }
 
-int bgp_pbr_match_entry_hash_equal(const void *arg1, const void *arg2)
+bool bgp_pbr_match_entry_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct bgp_pbr_match_entry *r1, *r2;
 
 	r1 = (const struct bgp_pbr_match_entry *)arg1;
 	r2 = (const struct bgp_pbr_match_entry *)arg2;
 
-	/* on updates, comparing
-	 * backpointer is not necessary
-	 */
-
-	/* unique value is self calculated
-	 */
-
-	/* rate is ignored for now
+	/*
+	 * on updates, comparing backpointer is not necessary
+	 * unique value is self calculated
+	 * rate is ignored for now
 	 */
 
 	if (!prefix_same(&r1->src, &r2->src))
-		return 0;
+		return false;
 
 	if (!prefix_same(&r1->dst, &r2->dst))
-		return 0;
+		return false;
 
 	if (r1->src_port_min != r2->src_port_min)
-		return 0;
+		return false;
 
 	if (r1->dst_port_min != r2->dst_port_min)
-		return 0;
+		return false;
 
 	if (r1->src_port_max != r2->src_port_max)
-		return 0;
+		return false;
 
 	if (r1->dst_port_max != r2->dst_port_max)
-		return 0;
+		return false;
 
 	if (r1->proto != r2->proto)
-		return 0;
+		return false;
 
-	return 1;
+	return true;
 }
 
 uint32_t bgp_pbr_action_hash_key(void *arg)
@@ -955,7 +997,7 @@ uint32_t bgp_pbr_action_hash_key(void *arg)
 	return key;
 }
 
-int bgp_pbr_action_hash_equal(const void *arg1, const void *arg2)
+bool bgp_pbr_action_hash_equal(const void *arg1, const void *arg2)
 {
 	const struct bgp_pbr_action *r1, *r2;
 
@@ -967,11 +1009,12 @@ int bgp_pbr_action_hash_equal(const void *arg1, const void *arg2)
 	 * rate is ignored
 	 */
 	if (r1->vrf_id != r2->vrf_id)
-		return 0;
+		return false;
 
 	if (memcmp(&r1->nh, &r2->nh, sizeof(struct nexthop)))
-		return 0;
-	return 1;
+		return false;
+
+	return true;
 }
 
 struct bgp_pbr_action *bgp_pbr_action_rule_lookup(vrf_id_t vrf_id,
@@ -1511,9 +1554,10 @@ static void bgp_pbr_policyroute_remove_from_zebra_recursive(
 	struct list *orig_list;
 	struct bgp_pbr_val_mask **target_val;
 
-	if (type_entry == 0)
-		return bgp_pbr_policyroute_remove_from_zebra_unit(bgp, path,
-								  bpf);
+	if (type_entry == 0) {
+		bgp_pbr_policyroute_remove_from_zebra_unit(bgp, path, bpf);
+		return;
+	}
 	next_type_entry = bgp_pbr_next_type_entry(type_entry);
 	if (type_entry == FLOWSPEC_TCP_FLAGS && bpof->tcpflags) {
 		orig_list = bpof->tcpflags;
@@ -1533,8 +1577,9 @@ static void bgp_pbr_policyroute_remove_from_zebra_recursive(
 		bgp_pbr_icmp_action(bgp, path, bpf, bpof, false, NULL, NULL);
 		return;
 	} else {
-		return bgp_pbr_policyroute_remove_from_zebra_recursive(
+		bgp_pbr_policyroute_remove_from_zebra_recursive(
 			bgp, path, bpf, bpof, next_type_entry);
+		return;
 	}
 	for (ALL_LIST_ELEMENTS(orig_list, node, nnode, valmask)) {
 		*target_val = valmask;
@@ -1547,9 +1592,10 @@ static void bgp_pbr_policyroute_remove_from_zebra(
 	struct bgp *bgp, struct bgp_path_info *path, struct bgp_pbr_filter *bpf,
 	struct bgp_pbr_or_filter *bpof)
 {
-	if (!bpof)
-		return bgp_pbr_policyroute_remove_from_zebra_unit(bgp, path,
-								  bpf);
+	if (!bpof) {
+		bgp_pbr_policyroute_remove_from_zebra_unit(bgp, path, bpf);
+		return;
+	}
 	if (bpof->tcpflags)
 		bgp_pbr_policyroute_remove_from_zebra_recursive(
 			bgp, path, bpf, bpof, FLOWSPEC_TCP_FLAGS);
@@ -1906,9 +1952,10 @@ static void bgp_pbr_policyroute_add_to_zebra_recursive(
 	struct list *orig_list;
 	struct bgp_pbr_val_mask **target_val;
 
-	if (type_entry == 0)
-		return bgp_pbr_policyroute_add_to_zebra_unit(bgp, path, bpf, nh,
-							     rate);
+	if (type_entry == 0) {
+		bgp_pbr_policyroute_add_to_zebra_unit(bgp, path, bpf, nh, rate);
+		return;
+	}
 	next_type_entry = bgp_pbr_next_type_entry(type_entry);
 	if (type_entry == FLOWSPEC_TCP_FLAGS && bpof->tcpflags) {
 		orig_list = bpof->tcpflags;
@@ -1928,8 +1975,9 @@ static void bgp_pbr_policyroute_add_to_zebra_recursive(
 		bgp_pbr_icmp_action(bgp, path, bpf, bpof, true, nh, rate);
 		return;
 	} else {
-		return bgp_pbr_policyroute_add_to_zebra_recursive(
+		bgp_pbr_policyroute_add_to_zebra_recursive(
 			bgp, path, bpf, bpof, nh, rate, next_type_entry);
+		return;
 	}
 	for (ALL_LIST_ELEMENTS(orig_list, node, nnode, valmask)) {
 		*target_val = valmask;
@@ -1944,9 +1992,10 @@ static void bgp_pbr_policyroute_add_to_zebra(struct bgp *bgp,
 					     struct bgp_pbr_or_filter *bpof,
 					     struct nexthop *nh, float *rate)
 {
-	if (!bpof)
-		return bgp_pbr_policyroute_add_to_zebra_unit(bgp, path, bpf, nh,
-							     rate);
+	if (!bpof) {
+		bgp_pbr_policyroute_add_to_zebra_unit(bgp, path, bpf, nh, rate);
+		return;
+	}
 	if (bpof->tcpflags)
 		bgp_pbr_policyroute_add_to_zebra_recursive(
 			bgp, path, bpf, bpof, nh, rate, FLOWSPEC_TCP_FLAGS);
@@ -2115,9 +2164,10 @@ static void bgp_pbr_handle_entry(struct bgp *bgp, struct bgp_path_info *path,
 	bpf.protocol = proto;
 	bpf.src_port = srcp;
 	bpf.dst_port = dstp;
-	if (!add)
-		return bgp_pbr_policyroute_remove_from_zebra(bgp, path, &bpf,
-							     &bpof);
+	if (!add) {
+		bgp_pbr_policyroute_remove_from_zebra(bgp, path, &bpf, &bpof);
+		return;
+	}
 	/* no action for add = true */
 	for (i = 0; i < api->action_num; i++) {
 		switch (api->actions[i].action) {

@@ -3304,17 +3304,17 @@ static const auth_validator_func auth_validators[] = {
 		[ISIS_PASSWD_TYPE_HMAC_MD5] = auth_validator_hmac_md5,
 };
 
-bool isis_tlvs_auth_is_valid(struct isis_tlvs *tlvs, struct isis_passwd *passwd,
-			     struct stream *stream, bool is_lsp)
+int isis_tlvs_auth_is_valid(struct isis_tlvs *tlvs, struct isis_passwd *passwd,
+			    struct stream *stream, bool is_lsp)
 {
 	/* If no auth is set, always pass authentication */
 	if (!passwd->type)
-		return true;
+		return ISIS_AUTH_OK;
 
 	/* If we don't known how to validate the auth, return invalid */
 	if (passwd->type >= array_size(auth_validators)
 	    || !auth_validators[passwd->type])
-		return false;
+		return ISIS_AUTH_NO_VALIDATOR;
 
 	struct isis_auth *auth_head = (struct isis_auth *)tlvs->isis_auth.head;
 	struct isis_auth *auth;
@@ -3325,10 +3325,14 @@ bool isis_tlvs_auth_is_valid(struct isis_tlvs *tlvs, struct isis_passwd *passwd,
 
 	/* If matching auth TLV could not be found, return invalid */
 	if (!auth)
-		return false;
+		return ISIS_AUTH_TYPE_FAILURE;
+
 
 	/* Perform validation and return result */
-	return auth_validators[passwd->type](passwd, stream, auth, is_lsp);
+	if (auth_validators[passwd->type](passwd, stream, auth, is_lsp))
+		return ISIS_AUTH_OK;
+	else
+		return ISIS_AUTH_FAILURE;
 }
 
 bool isis_tlvs_area_addresses_match(struct isis_tlvs *tlvs,
@@ -3408,7 +3412,7 @@ static void tlvs_protocols_supported_to_adj(struct isis_tlvs *tlvs,
 		reduced.nlpids[0] = NLPID_IP;
 	} else if (ipv6_supported) {
 		reduced.count = 1;
-		reduced.nlpids[1] = NLPID_IPV6;
+		reduced.nlpids[0] = NLPID_IPV6;
 	} else {
 		reduced.count = 0;
 	}

@@ -1570,7 +1570,7 @@ void rfapiPrintAdvertisedInfo(struct vty *vty, struct rfapi_descriptor *rfd,
 
 	vty_out(vty, "  bn=%p%s", bn, HVTYNL);
 
-	for (bpi = bn->info; bpi; bpi = bpi->next) {
+	for (bpi = bgp_node_get_bgp_path_info(bn); bpi; bpi = bpi->next) {
 		if (bpi->peer == rfd->peer && bpi->type == type
 		    && bpi->sub_type == BGP_ROUTE_RFP && bpi->extra
 		    && bpi->extra->vnc.export.rfapi_handle == (void *)rfd) {
@@ -4845,6 +4845,10 @@ DEFUN (add_vrf_prefix_rd_label_pref,
 static int rfapi_cfg_group_it_count(struct rfapi_nve_group_cfg *rfg)
 {
 	int count = 0;
+
+	if (rfg->rfapi_import_table == NULL)
+		return 0;
+
 	afi_t afi = AFI_MAX;
 	while (afi-- > 0) {
 		count += rfg->rfapi_import_table->local_count[afi];

@@ -34,6 +34,7 @@
 #include "plist.h"
 #include "log.h"
 #include "nexthop.h"
+#include "nexthop_group.h"
 
 #include "sharp_zebra.h"
 
@@ -176,10 +177,12 @@ void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label)
 	zclient_send_vrf_label(zclient, vrf_id, afi, label, ZEBRA_LSP_SHARP);
 }
 
-void route_add(struct prefix *p, uint8_t instance, struct nexthop *nh)
+void route_add(struct prefix *p, uint8_t instance, struct nexthop_group *nhg)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
+	struct nexthop *nh;
+	int i = 0;
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
@@ -191,12 +194,35 @@ void route_add(struct prefix *p, uint8_t instance, struct nexthop *nh)
 	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
-	api_nh = &api.nexthops[0];
-	api_nh->vrf_id = VRF_DEFAULT;
-	api_nh->gate = nh->gate;
-	api_nh->type = nh->type;
-	api_nh->ifindex = nh->ifindex;
-	api.nexthop_num = 1;
+	for (ALL_NEXTHOPS_PTR(nhg, nh)) {
+		api_nh = &api.nexthops[i];
+		api_nh->vrf_id = VRF_DEFAULT;
+		api_nh->type = nh->type;
+		switch (nh->type) {
+		case NEXTHOP_TYPE_IPV4:
+			api_nh->gate = nh->gate;
+			break;
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			api_nh->gate = nh->gate;
+			api_nh->ifindex = nh->ifindex;
+			break;
+		case NEXTHOP_TYPE_IFINDEX:
+			api_nh->ifindex = nh->ifindex;
+			break;
+		case NEXTHOP_TYPE_IPV6:
+			memcpy(&api_nh->gate.ipv6, &nh->gate.ipv6, 16);
+			break;
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			api_nh->ifindex = nh->ifindex;
+			memcpy(&api_nh->gate.ipv6, &nh->gate.ipv6, 16);
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			api_nh->bh_type = nh->bh_type;
+			break;
+		}
+		i++;
+	}
+	api.nexthop_num = i;
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }
@@ -223,7 +249,9 @@ void sharp_zebra_nexthop_watch(struct prefix *p, bool watch)
 	if (!watch)
 		command = ZEBRA_NEXTHOP_UNREGISTER;
 
-	zclient_send_rnh(zclient, command, p, true, VRF_DEFAULT);
+	if (zclient_send_rnh(zclient, command, p, true, VRF_DEFAULT) < 0)
+		zlog_warn("%s: Failure to send nexthop to zebra",
+			  __PRETTY_FUNCTION__);
 }
 
 static int sharp_nexthop_update(int command, struct zclient *zclient,
@@ -281,7 +309,7 @@ void sharp_zebra_init(void)
 {
 	struct zclient_options opt = {.receive_notify = true};
 
-	zclient = zclient_new_notify(master, &opt);
+	zclient = zclient_new(master, &opt);
 
 	zclient_init(zclient, ZEBRA_ROUTE_SHARP, 0, &sharp_privs);
 	zclient->zebra_connected = zebra_connected;

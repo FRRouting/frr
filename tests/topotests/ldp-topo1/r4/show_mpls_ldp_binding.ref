@@ -1,0 +1,15 @@
+AF   Destination          Nexthop         Local Label Remote Label  In Use
+ipv4 1.1.1.1/32           2.2.2.2         xxx         xxx              yes
+ipv4 1.1.1.1/32           3.3.3.3         xxx         xxx               no
+ipv4 2.2.2.2/32           2.2.2.2         xxx         imp-null         yes
+ipv4 2.2.2.2/32           3.3.3.3         xxx         xxx               no
+ipv4 3.3.3.3/32           2.2.2.2         xxx         xxx               no
+ipv4 3.3.3.3/32           3.3.3.3         xxx         imp-null         yes
+ipv4 4.4.4.4/32           2.2.2.2         imp-null    xxx               no
+ipv4 4.4.4.4/32           3.3.3.3         imp-null    xxx               no
+ipv4 10.0.1.0/24          2.2.2.2         xxx         imp-null         yes
+ipv4 10.0.1.0/24          3.3.3.3         xxx         xxx               no
+ipv4 10.0.2.0/24          2.2.2.2         imp-null    imp-null          no
+ipv4 10.0.2.0/24          3.3.3.3         imp-null    imp-null          no
+ipv4 10.0.3.0/24          2.2.2.2         xxx         imp-null         yes
+ipv4 10.0.3.0/24          3.3.3.3         xxx         imp-null         yes

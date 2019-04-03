@@ -79,6 +79,13 @@ struct static_route {
 	struct static_nh_label snh_label;
 
 	uint32_t table_id;
+
+	/*
+	 * Whether to pretend the nexthop is directly attached to the specified
+	 * link. Only meaningful when both a gateway address and interface name
+	 * are specified.
+	 */
+	bool onlink;
 };
 
 extern bool mpls_enabled;
@@ -94,7 +101,7 @@ extern int static_add_route(afi_t afi, safi_t safi, uint8_t type,
 			    uint8_t distance, struct static_vrf *svrf,
 			    struct static_vrf *nh_svrf,
 			    struct static_nh_label *snh_label,
-			    uint32_t table_id);
+			    uint32_t table_id, bool onlink);
 
 extern int static_delete_route(afi_t afi, safi_t safi, uint8_t type,
 			       struct prefix *p, struct prefix_ipv6 *src_p,
@@ -105,6 +112,8 @@ extern int static_delete_route(afi_t afi, safi_t safi, uint8_t type,
 			       uint32_t table_id);
 
 extern void static_cleanup_vrf_ids(struct static_vrf *disable_svrf);
+
+extern void static_install_intf_nh(struct interface *ifp);
 
 extern void static_ifindex_update(struct interface *ifp, bool up);
 #endif

@@ -448,12 +448,15 @@ static void bgp_damp_config_clean(struct bgp_damp_config *damp)
 {
 	/* Free decay array */
 	XFREE(MTYPE_BGP_DAMP_ARRAY, damp->decay_array);
+	damp->decay_array_size = 0;
 
 	/* Free reuse index array */
 	XFREE(MTYPE_BGP_DAMP_ARRAY, damp->reuse_index);
+	damp->reuse_index_size = 0;
 
 	/* Free reuse list array. */
 	XFREE(MTYPE_BGP_DAMP_ARRAY, damp->reuse_list);
+	damp->reuse_list_size = 0;
 }
 
 /* Clean all the bgp_damp_info stored in reuse_list. */
@@ -686,7 +689,7 @@ int bgp_show_dampening_parameters(struct vty *vty, afi_t afi, safi_t safi)
 		vty_out(vty, "Suppress penalty: %d\n", damp->suppress_value);
 		vty_out(vty, "Max suppress time: %lld min\n",
 			(long long)damp->max_suppress_time / 60);
-		vty_out(vty, "Max supress penalty: %u\n", damp->ceiling);
+		vty_out(vty, "Max suppress penalty: %u\n", damp->ceiling);
 		vty_out(vty, "\n");
 	} else
 		vty_out(vty, "dampening not enabled for %s\n",

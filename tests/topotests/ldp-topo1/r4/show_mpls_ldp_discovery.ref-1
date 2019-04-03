@@ -1,0 +1,9 @@
+Local LDP Identifier: 4.4.4.4:0
+Discovery Sources:
+  Interfaces:
+    r4-eth0: xmit/recv
+      LDP Id: 2.2.2.2:0, Transport address: 2.2.2.2
+          Hold time: 15 sec
+      LDP Id: 3.3.3.3:0, Transport address: 3.3.3.3
+          Hold time: 15 sec
+  Targeted Hellos:

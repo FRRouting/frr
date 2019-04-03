@@ -4,8 +4,8 @@ summary: FRRouting BGP/OSPFv2/OSPFv3/ISIS/RIP/RIPng/PIM/LDP/EIGRP/BFD routing da
 description: BGP/OSPFv2/OSPFv3/ISIS/RIP/RIPng/PIM/LDP/EIGRP/BFD routing daemon
  FRRouting (FRR) is free software which manages TCP/IP based routing 
  protocols. It supports BGP4, BGP4+, OSPFv2, OSPFv3, IS-IS, RIPv1, RIPv2, 
- RIPng, PIM, LDP, Babel, EIGRP, PBR (Policy-based routing) and BFD as well as
- the IPv6 versions of these.
+ RIPng, PIM, LDP, Babel, EIGRP, PBR (Policy-based routing), BFD and OpenFabric
+ as well as the IPv6 versions of these.
  FRRouting (frr) is a fork of Quagga.
 confinement: strict
 grade: devel
@@ -127,6 +127,13 @@ apps:
             - network
             - network-bind
             - network-control
+    fabricd:
+        command: bin/fabricd-service
+        daemon: simple
+        plugs:
+            - network
+            - network-bind
+            - network-control
     set:
         command: bin/set-options
     zebra-debug:
@@ -136,7 +143,7 @@ apps:
             - network-bind
             - network-control
     bgpd-debug:
-        command: sbin/bgpd -f $SNAP_DATA/bgpd.conf --pid_file $SNAP_DATA/bgpd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA --moduledir $SNAP/lib/frr/modules `cat $SNAP_DATA/rpki.conf 2> /dev/null`
+        command: sbin/bgpd -f $SNAP_DATA/bgpd.conf --pid_file $SNAP_DATA/bgpd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA --moduledir $SNAP/lib/frr/modules
         plugs:
             - network
             - network-bind
@@ -219,6 +226,12 @@ apps:
             - network
             - network-bind
             - network-control
+    fabricd-debug:
+        command: sbin/fabricd -f $SNAP_DATA/fabricd.conf --pid_file $SNAP_DATA/fabricd.pid --socket $SNAP_DATA/zsock --vty_socket $SNAP_DATA
+        plugs:
+            - network
+            - network-bind
+            - network-control
 
 parts:
     rtrlib:
@@ -230,16 +243,33 @@ parts:
         stage-packages:
            - libssh-4
         prime:
-           - lib/x86_64-linux-gnu/librtr.so*
+           - lib/librtr.so*
            - usr/lib/x86_64-linux-gnu/libssh.so*
         source: https://github.com/rtrlib/rtrlib.git
         source-type: git
-        source-tag: v0.5.0
+        source-tag: v0.6.3
         plugin: cmake
         configflags:
            - -DCMAKE_BUILD_TYPE=Release
+    libyang:
+        build-packages:
+           - cmake
+           - make
+           - gcc
+           - libpcre3-dev
+        stage-packages:
+           - libpcre3
+        source: https://github.com/CESNET/libyang.git
+        source-type: git
+        source-tag: v0.16-r3
+        plugin: cmake
+        configflags:
+           - -DCMAKE_INSTALL_PREFIX:PATH=/usr
+           - -DENABLE_LYD_PRIV=ON
+           - -DENABLE_CACHE=OFF
+           - -DCMAKE_BUILD_TYPE:String="Release"
     frr: 
-        after: [rtrlib]
+        after: [rtrlib,libyang]
         build-packages:
            - gcc
            - autoconf
@@ -272,7 +302,6 @@ parts:
            - iproute2
            - logrotate
            - libcap2
-           - libc6
            - libtinfo5
            - libreadline6
            - libjson-c2
@@ -322,7 +351,9 @@ parts:
             eigrpd.conf.default: etc/frr/eigrpd.conf.default
             pbrd.conf.default: etc/frr/pbrd.conf.default
             bfdd.conf.default: etc/frr/bfdd.conf.default
+            fabricd.conf.default: etc/frr/fabricd.conf.default
             vtysh.conf.default: etc/frr/vtysh.conf.default
+            staticd.conf.default: etc/frr/staticd.conf.default
     frr-scripts:
         plugin: make
         source: scripts
@@ -343,4 +374,9 @@ parts:
             README.usage.md: doc/README.usage.md
             README.snap_build.md: doc/README.snap_build.md
             extra_version_info.txt: doc/extra_version_info.txt
+
+passthrough:
+    layout:
+         /usr/lib/x86_64-linux-gnu/libyang:
+             bind: $SNAP/usr/lib/x86_64-linux-gnu/libyang
 

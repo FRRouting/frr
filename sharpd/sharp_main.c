@@ -42,6 +42,7 @@
 #include "distribute.h"
 #include "libfrr.h"
 #include "routemap.h"
+#include "nexthop_group.h"
 
 #include "sharp_zebra.h"
 #include "sharp_vty.h"
@@ -111,6 +112,9 @@ struct quagga_signal_t sharp_signals[] = {
 
 #define SHARP_VTY_PORT 2614
 
+static const struct frr_yang_module_info *sharpd_yang_modules[] = {
+};
+
 FRR_DAEMON_INFO(sharpd, SHARP, .vty_port = SHARP_VTY_PORT,
 
 		.proghelp = "Implementation of a Sharp of routes daemon.",
@@ -118,7 +122,8 @@ FRR_DAEMON_INFO(sharpd, SHARP, .vty_port = SHARP_VTY_PORT,
 		.signals = sharp_signals,
 		.n_signals = array_size(sharp_signals),
 
-		.privs = &sharp_privs, )
+		.privs = &sharp_privs, .yang_modules = sharpd_yang_modules,
+		.n_yang_modules = array_size(sharpd_yang_modules), )
 
 extern void sharp_vty_init(void);
 
@@ -146,6 +151,7 @@ int main(int argc, char **argv, char **envp)
 
 	master = frr_init();
 
+	nexthop_group_init(NULL, NULL, NULL, NULL);
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
 
 	access_list_init();

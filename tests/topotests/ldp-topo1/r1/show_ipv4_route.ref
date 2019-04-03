@@ -1,0 +1,7 @@
+O   1.1.1.1/32 [110/0] is directly connected, lo
+O>* 2.2.2.2/32 [110/10] via 10.0.1.2, r1-eth0, label implicit-null
+O>* 3.3.3.3/32 [110/20] via 10.0.1.2, r1-eth0, label xxx
+O>* 4.4.4.4/32 [110/20] via 10.0.1.2, r1-eth0, label xxx
+O   10.0.1.0/24 [110/10] is directly connected, r1-eth0
+O>* 10.0.2.0/24 [110/20] via 10.0.1.2, r1-eth0, label implicit-null
+O>* 10.0.3.0/24 [110/20] via 10.0.1.2, r1-eth0, label implicit-null

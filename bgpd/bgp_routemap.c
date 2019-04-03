@@ -1403,45 +1403,45 @@ static route_map_result_t route_set_ip_nexthop(void *rule,
 	struct bgp_path_info *path;
 	struct peer *peer;
 
-	if (type == RMAP_BGP) {
-		path = object;
-		peer = path->peer;
+	if (type != RMAP_BGP)
+		return RMAP_OKAY;
 
-		if (rins->unchanged) {
-			SET_FLAG(path->attr->rmap_change_flags,
-				 BATTR_RMAP_NEXTHOP_UNCHANGED);
-		} else if (rins->peer_address) {
-			if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN)
-			     || CHECK_FLAG(peer->rmap_type,
-					   PEER_RMAP_TYPE_IMPORT))
-			    && peer->su_remote
-			    && sockunion_family(peer->su_remote) == AF_INET) {
-				path->attr->nexthop.s_addr =
-					sockunion2ip(peer->su_remote);
-				path->attr->flag |=
-					ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
-			} else if (CHECK_FLAG(peer->rmap_type,
-					      PEER_RMAP_TYPE_OUT)) {
-				/* The next hop value will be set as part of
-				 * packet rewrite.
-				 * Set the flags here to indicate that rewrite
-				 * needs to be done.
-				 * Also, clear the value.
-				 */
-				SET_FLAG(path->attr->rmap_change_flags,
-					 BATTR_RMAP_NEXTHOP_PEER_ADDRESS);
-				path->attr->nexthop.s_addr = 0;
-			}
-		} else {
-			/* Set next hop value. */
+	if (prefix->family == AF_INET6)
+		return RMAP_OKAY;
+
+	path = object;
+	peer = path->peer;
+
+	if (rins->unchanged) {
+		SET_FLAG(path->attr->rmap_change_flags,
+			 BATTR_RMAP_NEXTHOP_UNCHANGED);
+	} else if (rins->peer_address) {
+		if ((CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IN)
+		     || CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IMPORT))
+		    && peer->su_remote
+		    && sockunion_family(peer->su_remote) == AF_INET) {
+			path->attr->nexthop.s_addr =
+				sockunion2ip(peer->su_remote);
 			path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
-			path->attr->nexthop = *rins->address;
+		} else if (CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_OUT)) {
+			/* The next hop value will be set as part of
+			 * packet rewrite.  Set the flags here to indicate
+			 * that rewrite needs to be done.
+			 * Also, clear the value.
+			 */
 			SET_FLAG(path->attr->rmap_change_flags,
-				 BATTR_RMAP_IPV4_NHOP_CHANGED);
-			/* case for MP-BGP : MPLS VPN */
-			path->attr->mp_nexthop_global_in = *rins->address;
-			path->attr->mp_nexthop_len = sizeof(*rins->address);
+				 BATTR_RMAP_NEXTHOP_PEER_ADDRESS);
+			path->attr->nexthop.s_addr = 0;
 		}
+	} else {
+		/* Set next hop value. */
+		path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+		path->attr->nexthop = *rins->address;
+		SET_FLAG(path->attr->rmap_change_flags,
+			 BATTR_RMAP_IPV4_NHOP_CHANGED);
+		/* case for MP-BGP : MPLS VPN */
+		path->attr->mp_nexthop_global_in = *rins->address;
+		path->attr->mp_nexthop_len = sizeof(*rins->address);
 	}
 
 	return RMAP_OKAY;
@@ -1717,7 +1717,7 @@ static route_map_result_t route_set_community(void *rule,
 			attr->community = NULL;
 			/* See the longer comment down below. */
 			if (old && old->refcnt == 0)
-				community_free(old);
+				community_free(&old);
 			return RMAP_OKAY;
 		}
 
@@ -1726,7 +1726,7 @@ static route_map_result_t route_set_community(void *rule,
 			merge = community_merge(community_dup(old), rcs->com);
 
 			new = community_uniq_sort(merge);
-			community_free(merge);
+			community_free(&merge);
 		} else
 			new = community_dup(rcs->com);
 
@@ -1736,7 +1736,7 @@ static route_map_result_t route_set_community(void *rule,
 		 * Really need to cleanup attribute caching sometime.
 		 */
 		if (old && old->refcnt == 0)
-			community_free(old);
+			community_free(&old);
 
 		/* will be interned by caller if required */
 		attr->community = new;
@@ -1790,7 +1790,7 @@ static void route_set_community_free(void *rule)
 	struct rmap_com_set *rcs = rule;
 
 	if (rcs->com)
-		community_free(rcs->com);
+		community_free(&rcs->com);
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcs);
 }
 
@@ -2031,7 +2031,7 @@ static route_map_result_t route_set_community_delete(
 			merge = community_list_match_delete(community_dup(old),
 							    list);
 			new = community_uniq_sort(merge);
-			community_free(merge);
+			community_free(&merge);
 
 			/* HACK: if the old community is not intern'd,
 			 * we should free it here, or all reference to it may be
@@ -2039,13 +2039,13 @@ static route_map_result_t route_set_community_delete(
 			 * Really need to cleanup attribute caching sometime.
 			 */
 			if (old->refcnt == 0)
-				community_free(old);
+				community_free(&old);
 
 			if (new->size == 0) {
 				path->attr->community = NULL;
 				path->attr->flag &=
 					~ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
-				community_free(new);
+				community_free(&new);
 			} else {
 				path->attr->community = new;
 				path->attr->flag |=
@@ -3226,33 +3226,29 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 
 		/* For network route-map updates. */
 		for (bn = bgp_table_top(bgp->route[afi][safi]); bn;
-		     bn = bgp_route_next(bn))
-			if ((bgp_static = bn->info) != NULL) {
-				if (bgp_static->rmap.name
-				    && (strcmp(rmap_name, bgp_static->rmap.name)
-					== 0)) {
-					bgp_static->rmap.map = map;
+		     bn = bgp_route_next(bn)) {
+			bgp_static = bgp_node_get_bgp_static_info(bn);
+			if (!bgp_static)
+				continue;
 
-					if (route_update)
-						if (!bgp_static->backdoor) {
-							if (bgp_debug_zebra(
-								    &bn->p))
-								zlog_debug(
-									"Processing route_map %s update on "
-									"static route %s",
-									rmap_name,
-									inet_ntop(
-										bn->p.family,
-										&bn->p.u.prefix,
-										buf,
-										INET6_ADDRSTRLEN));
-							bgp_static_update(
-								bgp, &bn->p,
-								bgp_static, afi,
-								safi);
-						}
-				}
+			if (!bgp_static->rmap.name
+			    || (strcmp(rmap_name, bgp_static->rmap.name) != 0))
+				continue;
+
+			bgp_static->rmap.map = map;
+
+			if (route_update && !bgp_static->backdoor) {
+				if (bgp_debug_zebra(&bn->p))
+					zlog_debug(
+						"Processing route_map %s update on static route %s",
+						rmap_name,
+						inet_ntop(bn->p.family,
+							  &bn->p.u.prefix, buf,
+							  INET6_ADDRSTRLEN));
+				bgp_static_update(bgp, &bn->p, bgp_static, afi,
+						  safi);
 			}
+		}
 	}
 
 	/* For redistribute route-map updates. */
@@ -3266,38 +3262,38 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 				continue;
 
 			for (ALL_LIST_ELEMENTS_RO(red_list, node, red)) {
-				if (red->rmap.name
-				    && (strcmp(rmap_name, red->rmap.name)
-					== 0)) {
-					red->rmap.map = map;
+				if (!red->rmap.name
+				    || (strcmp(rmap_name, red->rmap.name) != 0))
+					continue;
 
-					if (route_update) {
-						if (BGP_DEBUG(zebra, ZEBRA))
-							zlog_debug(
-								"Processing route_map %s update on "
-								"redistributed routes",
-								rmap_name);
+				red->rmap.map = map;
 
-						bgp_redistribute_resend(
-							bgp, afi, i,
+				if (!route_update)
+					continue;
+
+				if (BGP_DEBUG(zebra, ZEBRA))
+					zlog_debug(
+						"Processing route_map %s update on redistributed routes",
+						rmap_name);
+
+				bgp_redistribute_resend(bgp, afi, i,
 							red->instance);
-					}
-				}
 			}
 		}
 
 	/* for type5 command route-maps */
 	FOREACH_AFI_SAFI (afi, safi) {
-		if (bgp->adv_cmd_rmap[afi][safi].name
-		    && strcmp(rmap_name, bgp->adv_cmd_rmap[afi][safi].name)
-			       == 0) {
-			if (BGP_DEBUG(zebra, ZEBRA))
-				zlog_debug(
-					"Processing route_map %s update on advertise type5 route command",
-					rmap_name);
-			bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
-			bgp_evpn_advertise_type5_routes(bgp, afi, safi);
-		}
+		if (!bgp->adv_cmd_rmap[afi][safi].name
+		    || strcmp(rmap_name, bgp->adv_cmd_rmap[afi][safi].name)
+			       != 0)
+			continue;
+
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_debug(
+				"Processing route_map %s update on advertise type5 route command",
+				rmap_name);
+		bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
+		bgp_evpn_advertise_type5_routes(bgp, afi, safi);
 	}
 }
 
@@ -3438,7 +3434,7 @@ DEFUN (no_match_evpn_route_type,
 
 DEFUN (match_evpn_vni,
        match_evpn_vni_cmd,
-       "match evpn vni (1-16777215)",
+       "match evpn vni " CMD_VNI_RANGE,
        MATCH_STR
        EVPN_HELP_STR
        "Match VNI\n"
@@ -3450,7 +3446,7 @@ DEFUN (match_evpn_vni,
 
 DEFUN (no_match_evpn_vni,
        no_match_evpn_vni_cmd,
-       "no match evpn vni (1-16777215)",
+       "no match evpn vni " CMD_VNI_RANGE,
        NO_STR
        MATCH_STR
        EVPN_HELP_STR
@@ -4076,6 +4072,11 @@ DEFUN (no_set_aspath_exclude,
 	return ret;
 }
 
+ALIAS(no_set_aspath_exclude, no_set_aspath_exclude_all_cmd,
+      "no set as-path exclude",
+      NO_STR SET_STR
+      "Transform BGP AS_PATH attribute\n"
+      "Exclude from the as-path\n")
 
 DEFUN (set_community,
        set_community_cmd,
@@ -4171,7 +4172,7 @@ DEFUN (set_community,
 		ret = generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
 				      "community", str);
 
-	community_free(com);
+	community_free(&com);
 
 	return ret;
 }
@@ -4198,6 +4199,13 @@ DEFUN (no_set_community,
 	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
 				  "community", NULL);
 }
+
+ALIAS (no_set_community,
+       no_set_community_short_cmd,
+       "no set community",
+       NO_STR
+       SET_STR
+       "BGP community attribute\n")
 
 
 DEFUN (set_community_delete,
@@ -4293,6 +4301,13 @@ DEFUN (no_set_lcommunity1,
 				  "large-community", NULL);
 }
 
+ALIAS (no_set_lcommunity1,
+       no_set_lcommunity1_short_cmd,
+       "no set large-community",
+       NO_STR
+       SET_STR
+       "BGP large community attribute\n")
+
 DEFUN (set_lcommunity_delete,
        set_lcommunity_delete_cmd,
        "set large-comm-list <(1-99)|(100-500)|WORD> delete",
@@ -4331,6 +4346,13 @@ DEFUN (no_set_lcommunity_delete,
 				  "large-comm-list", NULL);
 }
 
+ALIAS (no_set_lcommunity_delete,
+       no_set_lcommunity_delete_short_cmd,
+       "no set large-comm-list",
+       NO_STR
+       SET_STR
+       "set BGP large community list (for deletion)\n")
+
 DEFUN (set_ecommunity_rt,
        set_ecommunity_rt_cmd,
        "set extcommunity rt ASN:NN_OR_IP-ADDRESS:NN...",
@@ -4364,6 +4386,13 @@ DEFUN (no_set_ecommunity_rt,
 				  "extcommunity rt", NULL);
 }
 
+ALIAS (no_set_ecommunity_rt,
+       no_set_ecommunity_rt_short_cmd,
+       "no set extcommunity rt",
+       NO_STR
+       SET_STR
+       "BGP extended community attribute\n"
+       "Route Target extended community\n")
 
 DEFUN (set_ecommunity_soo,
        set_ecommunity_soo_cmd,
@@ -4398,6 +4427,13 @@ DEFUN (no_set_ecommunity_soo,
 				  "extcommunity soo", NULL);
 }
 
+ALIAS (no_set_ecommunity_soo,
+       no_set_ecommunity_soo_short_cmd,
+       "no set extcommunity soo",
+       NO_STR
+       SET_STR
+       "GP extended community attribute\n"
+       "Site-of-Origin extended community\n")
 
 DEFUN (set_origin,
        set_origin_cmd,
@@ -4965,6 +5001,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_aspath_exclude_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_prepend_cmd);
 	install_element(RMAP_NODE, &no_set_aspath_exclude_cmd);
+	install_element(RMAP_NODE, &no_set_aspath_exclude_all_cmd);
 	install_element(RMAP_NODE, &set_origin_cmd);
 	install_element(RMAP_NODE, &no_set_origin_cmd);
 	install_element(RMAP_NODE, &set_atomic_aggregate_cmd);
@@ -4974,18 +5011,23 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_community_cmd);
 	install_element(RMAP_NODE, &set_community_none_cmd);
 	install_element(RMAP_NODE, &no_set_community_cmd);
+	install_element(RMAP_NODE, &no_set_community_short_cmd);
 	install_element(RMAP_NODE, &set_community_delete_cmd);
 	install_element(RMAP_NODE, &no_set_community_delete_cmd);
 	install_element(RMAP_NODE, &set_lcommunity_cmd);
 	install_element(RMAP_NODE, &set_lcommunity_none_cmd);
 	install_element(RMAP_NODE, &no_set_lcommunity_cmd);
 	install_element(RMAP_NODE, &no_set_lcommunity1_cmd);
+	install_element(RMAP_NODE, &no_set_lcommunity1_short_cmd);
 	install_element(RMAP_NODE, &set_lcommunity_delete_cmd);
 	install_element(RMAP_NODE, &no_set_lcommunity_delete_cmd);
+	install_element(RMAP_NODE, &no_set_lcommunity_delete_short_cmd);
 	install_element(RMAP_NODE, &set_ecommunity_rt_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_rt_cmd);
+	install_element(RMAP_NODE, &no_set_ecommunity_rt_short_cmd);
 	install_element(RMAP_NODE, &set_ecommunity_soo_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_soo_cmd);
+	install_element(RMAP_NODE, &no_set_ecommunity_soo_short_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
 	install_element(RMAP_NODE, &set_vpn_nexthop_cmd);
 	install_element(RMAP_NODE, &no_set_vpn_nexthop_cmd);

@@ -132,16 +132,83 @@ static void config_add_line_uniq(struct list *config, const char *line)
 }
 
 /*
- * I want to explicitly move this command to the end of the line
+ * Add a line that should only be shown once, and always show at the end of the
+ * config block.
+ *
+ * If the line already exists, it will be moved to the end of the block. If it
+ * does not exist, it will be added at the end of the block.
+ *
+ * Note that this only makes sense when there is just one such line that should
+ * show up at the very end of a config block. Furthermore, if the same block
+ * can show up from multiple daemons, all of them must make sure to print the
+ * line at the end of their config, otherwise the line will show at the end of
+ * the config for the last daemon that printed it.
+ *
+ * Here is a motivating example with the 'exit-vrf' command. Suppose we receive
+ * a config from Zebra like so:
+ *
+ * vrf BLUE
+ *    ip route A
+ *    ip route B
+ *    exit-vrf
+ *
+ * Then suppose we later receive this config from PIM:
+ *
+ * vrf BLUE
+ *    ip msdp mesh-group MyGroup member 1.2.3.4
+ *    exit-vrf
+ *
+ * Then we will combine them into one config block like so:
+ *
+ * vrf BLUE
+ *    ip route A
+ *    ip route B
+ *    ip msdp mesh-group MyGroup member 1.2.3.4
+ *    exit-vrf
+ *
+ * Because PIM also sent us an 'exit-vrf', we noticed that we already had one
+ * under the 'vrf BLUE' config block and so we moved it to the end of the
+ * config block again. If PIM had neglected to send us 'exit-vrf', the result
+ * would be this:
+ *
+ * vrf BLUE
+ *    ip route A
+ *    ip route B
+ *    exit-vrf
+ *    ip msdp mesh-group MyGroup member 1.2.3.4
+ *
+ * Therefore, daemons that share config blocks must take care to consistently
+ * print the same block terminators.
+ *
+ * Ideally this would be solved by adding a string to struct config that is
+ * always printed at the end when dumping a config. However, this would only
+ * work when the user is using integrated config. In the non-integrated config
+ * case, daemons are responsible for writing their own config files, and so the
+ * must be able to print these blocks correctly independently of vtysh, which
+ * means they are the ones that need to handle printing the block terminators
+ * and VTYSH needs to be smart enough to combine them properly.
+ *
+ * ---
+ *
+ * config
+ *    The config to add the line to
+ *
+ * line
+ *    The line to add to the end of the config
  */
-static void config_add_line_end(struct list *config, const char *line)
+static void config_add_line_uniq_end(struct list *config, const char *line)
 {
 	struct listnode *node;
-	void *item = XSTRDUP(MTYPE_VTYSH_CONFIG_LINE, line);
+	char *pnt;
 
-	listnode_add(config, item);
-	node = listnode_lookup(config, item);
-	if (node)
+	for (ALL_LIST_ELEMENTS_RO(config, node, pnt)) {
+		if (strcmp(pnt, line) == 0)
+			break;
+	}
+
+	if (!node)
+		config_add_line(config, line);
+	else
 		listnode_move_to_tail(config, node);
 }
 
@@ -157,8 +224,6 @@ void vtysh_config_parse_line(void *arg, const char *line)
 
 	if (c == '\0')
 		return;
-
-	/* printf ("[%s]\n", line); */
 
 	switch (c) {
 	/* Suppress exclamation points ! and commented lines. The !s are
@@ -178,10 +243,10 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			} else if (strncmp(line, " ip multicast boundary",
 					   strlen(" ip multicast boundary"))
 				   == 0) {
-				config_add_line_end(config->line, line);
+				config_add_line_uniq_end(config->line, line);
 			} else if (strncmp(line, " ip igmp query-interval",
 					   strlen(" ip igmp query-interval")) == 0) {
-				config_add_line_end(config->line, line);
+				config_add_line_uniq_end(config->line, line);
 			} else if (config->index == LINK_PARAMS_NODE
 				   && strncmp(line, "  exit-link-params",
 					      strlen("  exit"))
@@ -192,8 +257,7 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				   && strncmp(line, " exit-vrf",
 					      strlen(" exit-vrf"))
 					      == 0) {
-				config_add_line(config->line, line);
-				config->index = CONFIG_NODE;
+				config_add_line_uniq_end(config->line, line);
 			} else if (config->index == RMAP_NODE
 				   || config->index == INTERFACE_NODE
 				   || config->index == LOGICALROUTER_NODE
@@ -302,6 +366,10 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(FORWARDING_NODE, line);
 		else if (strncmp(line, "debug vrf", strlen("debug vrf")) == 0)
 			config = config_get(VRF_DEBUG_NODE, line);
+		else if (strncmp(line, "debug northbound",
+				 strlen("debug northbound"))
+			 == 0)
+			config = config_get(NORTHBOUND_DEBUG_NODE, line);
 		else if (strncmp(line, "debug", strlen("debug")) == 0)
 			config = config_get(DEBUG_NODE, line);
 		else if (strncmp(line, "password", strlen("password")) == 0
@@ -347,7 +415,7 @@ void vtysh_config_parse_line(void *arg, const char *line)
 	 || (I) == ACCESS_IPV6_NODE || (I) == ACCESS_MAC_NODE                  \
 	 || (I) == PREFIX_IPV6_NODE || (I) == FORWARDING_NODE                  \
 	 || (I) == DEBUG_NODE || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE      \
-	 || (I) == MPLS_NODE)
+	 || (I) == NORTHBOUND_DEBUG_NODE || (I) == MPLS_NODE)
 
 /* Display configuration to file pointer. */
 void vtysh_config_dump(void)

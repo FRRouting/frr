@@ -120,7 +120,7 @@ void zclient_lookup_free(void)
 
 void zclient_lookup_new(void)
 {
-	zlookup = zclient_new_notify(master, &zclient_options_default);
+	zlookup = zclient_new(master, &zclient_options_default);
 	if (!zlookup) {
 		flog_err(EC_LIB_ZAPI_SOCKET, "%s: zclient_new() failure",
 			 __PRETTY_FUNCTION__);
@@ -202,10 +202,12 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 	}
 
 	for (i = 0; i < nexthop_num; ++i) {
+		vrf_id_t nexthop_vrf_id;
 		enum nexthop_types_t nexthop_type;
 		struct pim_neighbor *nbr;
 		struct prefix p;
 
+		nexthop_vrf_id = stream_getl(s);
 		nexthop_type = stream_getc(s);
 		if (num_ifindex >= tab_size) {
 			char addr_str[INET_ADDRSTRLEN];
@@ -219,6 +221,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 		}
 		nexthop_tab[num_ifindex].protocol_distance = distance;
 		nexthop_tab[num_ifindex].route_metric = metric;
+		nexthop_tab[num_ifindex].vrf_id = nexthop_vrf_id;
 		switch (nexthop_type) {
 		case NEXTHOP_TYPE_IFINDEX:
 			nexthop_tab[num_ifindex].ifindex = stream_getl(s);
@@ -265,12 +268,12 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 					if_lookup_by_index(
 						nexthop_tab[num_ifindex]
 							.ifindex,
-						vrf_id),
+						nexthop_vrf_id),
 					&p);
 			else
 				nbr = pim_neighbor_find_if(if_lookup_by_index(
 					nexthop_tab[num_ifindex].ifindex,
-					vrf_id));
+					nexthop_vrf_id));
 			if (nbr) {
 				nexthop_tab[num_ifindex].nexthop_addr.family =
 					AF_INET;

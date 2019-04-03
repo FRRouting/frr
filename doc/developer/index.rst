@@ -12,3 +12,4 @@ FRRouting Developer's Guide
    bgpd
    ospf
    zebra
+   vtysh
