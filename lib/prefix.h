@@ -511,6 +511,19 @@ static inline int is_host_route(struct prefix *p)
 	return 0;
 }
 
+static inline int is_default_host_route(struct prefix *p)
+{
+	if (p->family == AF_INET) {
+		return (p->u.prefix4.s_addr == INADDR_ANY &&
+			p->prefixlen == IPV4_MAX_BITLEN);
+	} else if (p->family == AF_INET6) {
+		return ((!memcmp(&p->u.prefix6, &in6addr_any,
+				 sizeof(struct in6_addr))) &&
+			p->prefixlen == IPV6_MAX_BITLEN);
+	}
+	return 0;
+}
+
 #ifdef __cplusplus
 }
 #endif
