@@ -18,7 +18,6 @@ lib_libfrr_la_SOURCES = \
 	lib/csv.c \
 	lib/debug.c \
 	lib/distribute.c \
-	lib/event_counter.c \
 	lib/ferr.c \
 	lib/filter.c \
 	lib/frr_pthread.c \
@@ -144,7 +143,6 @@ pkginclude_HEADERS += \
 	lib/db.h \
 	lib/debug.h \
 	lib/distribute.h \
-	lib/event_counter.h \
 	lib/ferr.h \
 	lib/fifo.h \
 	lib/filter.h \
