@@ -729,6 +729,14 @@ uint32_t dplane_ctx_get_notif_provider(const struct zebra_dplane_ctx *ctx)
 	return ctx->zd_notif_provider;
 }
 
+void dplane_ctx_set_notif_provider(struct zebra_dplane_ctx *ctx,
+				       uint32_t id)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->zd_notif_provider = id;
+}
+
 void dplane_ctx_set_type(struct zebra_dplane_ctx *ctx, int type)
 {
 	DPLANE_CTX_VALID(ctx);
