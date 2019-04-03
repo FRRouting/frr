@@ -710,6 +710,7 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 		nexthops_free(pnc->nexthop);
 		pnc->nexthop = NULL;
 	}
+	SET_FLAG(pnc->flags, PIM_NEXTHOP_ANSWER_RECEIVED);
 
 	if (PIM_DEBUG_PIM_NHT) {
 		char buf[PREFIX2STR_BUFFER];
@@ -762,9 +763,11 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 	rpf.rpf_addr.u.prefix4 = src->u.prefix4;
 
 	pnc = pim_nexthop_cache_find(pim, &rpf);
-	if (pnc)
-		return pim_ecmp_nexthop_search(pim, pnc, nexthop, src, grp,
-					       neighbor_needed);
+	if (pnc) {
+		if (CHECK_FLAG(pnc->flags, PIM_NEXTHOP_ANSWER_RECEIVED))
+		    return pim_ecmp_nexthop_search(pim, pnc, nexthop, src, grp,
+						   neighbor_needed);
+	}
 
 	memset(nexthop_tab, 0,
 	       sizeof(struct pim_zlookup_nexthop) * MULTIPATH_NUM);

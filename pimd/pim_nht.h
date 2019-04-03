@@ -41,6 +41,7 @@ struct pim_nexthop_cache {
 	int64_t last_update;
 	uint16_t flags;
 #define PIM_NEXTHOP_VALID             (1 << 0)
+#define PIM_NEXTHOP_ANSWER_RECEIVED   (1 << 1)
 
 	struct list *rp_list;
 	struct hash *upstream_hash;
