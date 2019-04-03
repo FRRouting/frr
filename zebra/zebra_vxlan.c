@@ -324,7 +324,7 @@ static int advertise_gw_macip_enabled(zebra_vni_t *zvni)
 {
 	struct zebra_vrf *zvrf;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_get_evpn();
 	if (zvrf && zvrf->advertise_gw_macip)
 		return 1;
 
@@ -338,7 +338,7 @@ static int advertise_svi_macip_enabled(zebra_vni_t *zvni)
 {
 	struct zebra_vrf *zvrf;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_get_evpn();
 	if (zvrf && zvrf->advertise_svi_macip)
 		return 1;
 
@@ -707,11 +707,10 @@ static void zvni_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json)
 	struct zebra_vrf *zvrf = NULL;
 	struct timeval detect_start_time = {0, 0};
 
-	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	zvrf = zebra_vrf_get_evpn();
 	if (!zvrf)
 		return;
 
-	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 	ipaddr2str(&n->ip, buf2, sizeof(buf2));
 	prefix_mac2str(&n->emac, buf1, sizeof(buf1));
 	type_str = CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL) ?
@@ -1155,7 +1154,9 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt, json_object *json)
 	struct zebra_vrf *zvrf;
 	struct timeval detect_start_time = {0, 0};
 
-	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	zvrf = zebra_vrf_get_evpn();
+	if (!zvrf)
+		return;
 
 	vty = (struct vty *)ctxt;
 	prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1));
@@ -2079,7 +2080,7 @@ static int zvni_macip_send_msg_to_client(vni_t vni, struct ethaddr *macaddr,
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, cmd, VRF_DEFAULT);
+	zclient_create_header(s, cmd, zebra_vrf_get_evpn_id());
 	stream_putl(s, vni);
 	stream_put(s, macaddr->octet, ETH_ALEN);
 	if (ip) {
@@ -3832,7 +3833,7 @@ static zebra_vni_t *zvni_lookup(vni_t vni)
 	zebra_vni_t tmp_vni;
 	zebra_vni_t *zvni = NULL;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_get_evpn();
 	assert(zvrf);
 	memset(&tmp_vni, 0, sizeof(zebra_vni_t));
 	tmp_vni.vni = vni;
@@ -3850,7 +3851,7 @@ static zebra_vni_t *zvni_add(vni_t vni)
 	zebra_vni_t tmp_zvni;
 	zebra_vni_t *zvni = NULL;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_get_evpn();
 	assert(zvrf);
 	memset(&tmp_zvni, 0, sizeof(zebra_vni_t));
 	tmp_zvni.vni = vni;
@@ -3876,7 +3877,7 @@ static int zvni_del(zebra_vni_t *zvni)
 	struct zebra_vrf *zvrf;
 	zebra_vni_t *tmp_zvni;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_get_evpn();
 	assert(zvrf);
 
 	zvni->vxlan_if = NULL;
@@ -3911,7 +3912,7 @@ static int zvni_send_add_to_client(zebra_vni_t *zvni)
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	zclient_create_header(s, ZEBRA_VNI_ADD, VRF_DEFAULT);
+	zclient_create_header(s, ZEBRA_VNI_ADD, zebra_vrf_get_evpn_id());
 	stream_putl(s, zvni->vni);
 	stream_put_in_addr(s, &zvni->local_vtep_ip);
 	stream_put(s, &zvni->vrf_id, sizeof(vrf_id_t)); /* tenant vrf */
@@ -3945,7 +3946,7 @@ static int zvni_send_del_to_client(vni_t vni)
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_VNI_DEL, VRF_DEFAULT);
+	zclient_create_header(s, ZEBRA_VNI_DEL, zebra_vrf_get_evpn_id());
 	stream_putl(s, vni);
 
 	/* Write packet size. */
@@ -6955,7 +6956,7 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 	if (!is_evpn_enabled())
 		return;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = zebra_vrf_get_evpn();
 	if (!zvrf)
 		return;
 
@@ -7797,9 +7798,9 @@ void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	if (zvrf_id(zvrf) != VRF_DEFAULT) {
-		zlog_debug("Recv MACIP DEL for non-default VRF %u",
-			   zvrf_id(zvrf));
+	if (!EVPN_ENABLED(zvrf)) {
+		zlog_debug("Recv MACIP DEL for non-EVPN VRF %u",
+			  zvrf_id(zvrf));
 		return;
 	}
 
@@ -7881,9 +7882,9 @@ void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
-	if (zvrf_id(zvrf) != VRF_DEFAULT) {
-		zlog_debug("Recv MACIP ADD for non-default VRF %u",
-			   zvrf_id(zvrf));
+	if (!EVPN_ENABLED(zvrf)) {
+		zlog_debug("Recv MACIP ADD for non-EVPN VRF %u",
+			  zvrf_id(zvrf));
 		return;
 	}
 
@@ -8617,10 +8618,10 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 				    int add)
 {
 	zebra_l3vni_t *zl3vni = NULL;
-	struct zebra_vrf *zvrf_default = NULL;
+	struct zebra_vrf *zvrf_evpn = NULL;
 
-	zvrf_default = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	if (!zvrf_default)
+	zvrf_evpn = zebra_vrf_get_evpn();
+	if (!zvrf_evpn)
 		return -1;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
@@ -8674,7 +8675,7 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 		zl3vni->svi_if = zl3vni_map_to_svi_if(zl3vni);
 
 		/* formulate l2vni list */
-		hash_iterate(zvrf_default->vni_table, zvni_add_to_l3vni_list,
+		hash_iterate(zvrf_evpn->vni_table, zvni_add_to_l3vni_list,
 			     zl3vni);
 
 		if (is_l3vni_oper_up(zl3vni))
@@ -8769,8 +8770,8 @@ void zebra_vxlan_flood_control(ZAPI_HANDLER_ARGS)
 	struct stream *s;
 	enum vxlan_flood_control flood_ctrl;
 
-	if (zvrf_id(zvrf) != VRF_DEFAULT) {
-		zlog_err("EVPN flood control for non-default VRF %u",
+	if (!EVPN_ENABLED(zvrf)) {
+		zlog_err("EVPN flood control for non-EVPN VRF %u",
 			 zvrf_id(zvrf));
 		return;
 	}
@@ -8809,9 +8810,9 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 	zebra_vni_t *zvni = NULL;
 	struct interface *ifp = NULL;
 
-	if (zvrf_id(zvrf) != VRF_DEFAULT) {
-		zlog_debug("EVPN GW-MACIP Adv for non-default VRF %u",
-			   zvrf_id(zvrf));
+	if (!EVPN_ENABLED(zvrf)) {
+		zlog_debug("EVPN GW-MACIP Adv for non-EVPN VRF %u",
+			  zvrf_id(zvrf));
 		return;
 	}
 
@@ -8908,9 +8909,9 @@ void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS)
 	struct zebra_l2info_vxlan zl2_info;
 	struct interface *vlan_if = NULL;
 
-	if (zvrf_id(zvrf) != VRF_DEFAULT) {
-		zlog_debug("EVPN GW-MACIP Adv for non-default VRF %u",
-			   zvrf_id(zvrf));
+	if (!EVPN_ENABLED(zvrf)) {
+		zlog_debug("EVPN GW-MACIP Adv for non-EVPN VRF %u",
+			  zvrf_id(zvrf));
 		return;
 	}
 
@@ -8971,8 +8972,8 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 	zebra_vni_t *zvni = NULL;
 	struct interface *ifp = NULL;
 
-	if (zvrf_id(zvrf) != VRF_DEFAULT) {
-		zlog_debug("EVPN GW-MACIP Adv for non-default VRF %u",
+	if (!EVPN_ENABLED(zvrf)) {
+		zlog_debug("EVPN GW-MACIP Adv for non-EVPN VRF %u",
 			   zvrf_id(zvrf));
 		return;
 	}
@@ -9078,18 +9079,18 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 	int advertise = 0;
 	enum vxlan_flood_control flood_ctrl;
 
-	if (zvrf_id(zvrf) != VRF_DEFAULT) {
-		zlog_debug("EVPN VNI Adv for non-default VRF %u",
-			   zvrf_id(zvrf));
+	/* Mismatch between EVPN VRF and current VRF (should be prevented by
+	 * bgpd's cli) */
+	if (is_evpn_enabled() && !EVPN_ENABLED(zvrf))
 		return;
-	}
 
 	s = msg;
 	STREAM_GETC(s, advertise);
 	STREAM_GETC(s, flood_ctrl);
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("EVPN VNI Adv %s, currently %s, flood control %u",
+		zlog_debug("EVPN VRF %s(%u) VNI Adv %s, currently %s, flood control %u",
+			   zvrf_name(zvrf), zvrf_id(zvrf),
 			   advertise ? "enabled" : "disabled",
 			   is_evpn_enabled() ? "enabled" : "disabled",
 			   flood_ctrl);
@@ -9098,7 +9099,9 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 		return;
 
 	zvrf->advertise_all_vni = advertise;
-	if (is_evpn_enabled()) {
+	if (EVPN_ENABLED(zvrf)) {
+		zrouter.evpn_vrf = zvrf;
+
 		/* Note BUM handling */
 		zvrf->vxlan_flood_ctrl = flood_ctrl;
 
@@ -9122,6 +9125,9 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 
 		/* cleanup all l3vnis */
 		hash_iterate(zrouter.l3vni_table, zl3vni_cleanup_all, NULL);
+
+		/* Mark as "no EVPN VRF" */
+		zrouter.evpn_vrf = NULL;
 	}
 
 stream_failure:
@@ -9162,6 +9168,7 @@ void zebra_vxlan_init(void)
 {
 	zrouter.l3vni_table = hash_create(l3vni_hash_keymake, l3vni_hash_cmp,
 					  "Zebra VRF L3 VNI table");
+	zrouter.evpn_vrf = NULL;
 }
 
 /* free l3vni table */

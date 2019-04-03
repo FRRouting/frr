@@ -153,6 +153,9 @@ struct bgp_master {
 	/* dynamic mpls label allocation pool */
 	struct labelpool labelpool;
 
+	/* BGP-EVPN VRF ID. Defaults to default VRF (if any) */
+	struct bgp* bgp_evpn;
+
 	bool terminating;	/* global flag that sigint terminate seen */
 	QOBJ_FIELDS
 };
@@ -1512,6 +1515,8 @@ extern struct bgp *bgp_get_default(void);
 extern struct bgp *bgp_lookup(as_t, const char *);
 extern struct bgp *bgp_lookup_by_name(const char *);
 extern struct bgp *bgp_lookup_by_vrf_id(vrf_id_t);
+extern struct bgp *bgp_get_evpn(void);
+extern void bgp_set_evpn(struct bgp *bgp);
 extern struct peer *peer_lookup(struct bgp *, union sockunion *);
 extern struct peer *peer_lookup_by_conf_if(struct bgp *, const char *);
 extern struct peer *peer_lookup_by_hostname(struct bgp *, const char *);

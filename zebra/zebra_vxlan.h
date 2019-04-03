@@ -25,6 +25,7 @@
 #define _ZEBRA_VXLAN_H
 
 #include <zebra.h>
+#include <zebra/zebra_router.h>
 
 #include "linklist.h"
 #include "if.h"
@@ -44,14 +45,14 @@ extern "C" {
 static inline int is_evpn_enabled(void)
 {
 	struct zebra_vrf *zvrf = NULL;
-	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-	return zvrf ? zvrf->advertise_all_vni : 0;
+	zvrf = zebra_vrf_get_evpn();
+	return zvrf ? EVPN_ENABLED(zvrf) : 0;
 }
 
 static inline int
 is_vxlan_flooding_head_end(void)
 {
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
 
 	if (!zvrf)
 		return 0;
