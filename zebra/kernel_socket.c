@@ -280,8 +280,9 @@ size_t _rta_get(caddr_t sap, void *destp, size_t destlen, bool checkaf)
 		}
 
 		if (copylen > destlen) {
-			zlog_warn("%s: destination buffer too small (%lu vs %lu)",
-				  __func__, copylen, destlen);
+			zlog_warn(
+				"%s: destination buffer too small (%zu vs %zu)",
+				__func__, copylen, destlen);
 			memcpy(dest, sap, destlen);
 		} else
 			memcpy(dest, sap, copylen);
@@ -316,8 +317,9 @@ size_t rta_getsdlname(caddr_t sap, void *destp, short *destlen)
 
 	if (copylen > 0 && dest != NULL && sdl->sdl_family == AF_LINK) {
 		if (copylen > IFNAMSIZ) {
-			zlog_warn("%s: destination buffer too small (%lu vs %d)",
-				  __func__, copylen, IFNAMSIZ);
+			zlog_warn(
+				"%s: destination buffer too small (%zu vs %d)",
+				__func__, copylen, IFNAMSIZ);
 			memcpy(dest, sdl->sdl_data, IFNAMSIZ);
 			dest[IFNAMSIZ] = 0;
 			*destlen = IFNAMSIZ;
