@@ -56,9 +56,6 @@ DEFINE_QOBJ_TYPE(interface)
 DEFINE_HOOK(if_add, (struct interface * ifp), (ifp))
 DEFINE_KOOH(if_del, (struct interface * ifp), (ifp))
 
-/* List of interfaces in only the default VRF */
-int ptm_enable = 0;
-
 /* Compare interface names, returning an integer greater than, equal to, or
  * less than 0, (following the strcmp convention), according to the
  * relationship between ifp1 and ifp2.  Interface names consist of an

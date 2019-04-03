@@ -93,7 +93,7 @@ struct vty *vty_exclusive_lock;
 static int no_password_check = 0;
 
 /* Integrated configuration file path */
-char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
+static char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 
 static int do_log_commands = 0;
 

@@ -52,10 +52,10 @@ DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats")
 	} while (0);
 
 /* control variable for initializer */
-pthread_once_t init_once = PTHREAD_ONCE_INIT;
+static pthread_once_t init_once = PTHREAD_ONCE_INIT;
 pthread_key_t thread_current;
 
-pthread_mutex_t masters_mtx = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t masters_mtx = PTHREAD_MUTEX_INITIALIZER;
 static struct list *masters;
 
 static void thread_free(struct thread_master *master, struct thread *thread);

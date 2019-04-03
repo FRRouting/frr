@@ -22,9 +22,9 @@
 #include "queue.h"
 #include "imsg.h"
 
-int imsg_fd_overhead = 0;
+static int imsg_fd_overhead = 0;
 
-int imsg_get_fd(struct imsgbuf *);
+static int imsg_get_fd(struct imsgbuf *);
 
 #ifndef __OpenBSD__
 /*

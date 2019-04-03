@@ -57,7 +57,7 @@ struct zlog *zlog_default = NULL;
 bool zlog_startup_stderr = true;
 
 /* lock protecting zlog_default for mt-safe zlog */
-pthread_mutex_t loglock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t loglock = PTHREAD_MUTEX_INITIALIZER;
 
 const char *zlog_priority[] = {
 	"emergencies",   "alerts",	"critical",  "errors", "warnings",

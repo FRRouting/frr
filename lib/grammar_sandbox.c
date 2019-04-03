@@ -44,7 +44,7 @@ void pretty_print_graph(struct vty *vty, struct graph_node *, int, int,
 void init_cmdgraph(struct vty *, struct graph **);
 
 /** shim interface commands **/
-struct graph *nodegraph = NULL, *nodegraph_free = NULL;
+static struct graph *nodegraph = NULL, *nodegraph_free = NULL;
 
 #define check_nodegraph()                                                      \
 	do {                                                                   \

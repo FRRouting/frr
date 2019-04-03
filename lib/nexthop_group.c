@@ -49,7 +49,7 @@ nexthop_group_cmd_compare(const struct nexthop_group_cmd *nhgc1,
 RB_GENERATE(nhgc_entry_head, nexthop_group_cmd, nhgc_entry,
 	    nexthop_group_cmd_compare)
 
-struct nhgc_entry_head nhgc_entries;
+static struct nhgc_entry_head nhgc_entries;
 
 static inline int
 nexthop_group_cmd_compare(const struct nexthop_group_cmd *nhgc1,

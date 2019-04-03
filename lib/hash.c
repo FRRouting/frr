@@ -33,7 +33,7 @@ DEFINE_MTYPE(LIB, HASH, "Hash")
 DEFINE_MTYPE(LIB, HASH_BACKET, "Hash Bucket")
 DEFINE_MTYPE_STATIC(LIB, HASH_INDEX, "Hash Index")
 
-pthread_mutex_t _hashes_mtx = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t _hashes_mtx = PTHREAD_MUTEX_INITIALIZER;
 static struct list *_hashes;
 
 struct hash *hash_create_size(unsigned int size,

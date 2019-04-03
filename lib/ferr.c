@@ -61,7 +61,7 @@ static void err_key_fini(void)
 /*
  * Global shared hash table holding reference text for all defined errors.
  */
-pthread_mutex_t refs_mtx = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t refs_mtx = PTHREAD_MUTEX_INITIALIZER;
 struct hash *refs;
 
 static bool ferr_hash_cmp(const void *a, const void *b)

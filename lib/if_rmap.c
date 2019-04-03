@@ -31,7 +31,7 @@ DEFINE_MTYPE_STATIC(LIB, IF_RMAP_CTX_NAME, "Interface route map container name")
 DEFINE_MTYPE_STATIC(LIB, IF_RMAP, "Interface route map")
 DEFINE_MTYPE_STATIC(LIB, IF_RMAP_NAME, "I.f. route map name")
 
-struct list *if_rmap_ctx_list;
+static struct list *if_rmap_ctx_list;
 
 static struct if_rmap *if_rmap_new(void)
 {
