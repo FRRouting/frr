@@ -393,12 +393,10 @@ static int zebra_rnh_apply_nht_rmap(afi_t afi, struct zebra_vrf *zvrf,
 		     nexthop = nexthop->next) {
 			ret = zebra_nht_route_map_check(
 				afi, proto, &prn->p, zvrf, re, nexthop);
-			if (ret != RMAP_DENYMATCH) {
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+			if (ret != RMAP_DENYMATCH)
 				at_least_one++; /* at least one valid NH */
-			} else {
+			else
 				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-			}
 		}
 	}
 	return (at_least_one);
