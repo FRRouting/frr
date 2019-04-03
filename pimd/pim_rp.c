@@ -564,6 +564,9 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 				}
 			}
 
+			pim_rp_check_interfaces(pim, rp_all);
+			pim_rp_refresh_group_to_rp_mapping(pim);
+
 			memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
 			if (pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_all,
 						      &pnc)) {
@@ -578,8 +581,7 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 					    &nht_p, &rp_all->group, 1))
 					return PIM_RP_NO_PATH;
 			}
-			pim_rp_check_interfaces(pim, rp_all);
-			pim_rp_refresh_group_to_rp_mapping(pim);
+
 			return PIM_SUCCESS;
 		}
 
@@ -646,6 +648,9 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 		}
 	}
 
+	pim_rp_check_interfaces(pim, rp_info);
+	pim_rp_refresh_group_to_rp_mapping(pim);
+
 	/* Register addr with Zebra NHT */
 	nht_p.family = AF_INET;
 	nht_p.prefixlen = IPV4_MAX_BITLEN;
@@ -671,8 +676,6 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 			return PIM_RP_NO_PATH;
 	}
 
-	pim_rp_check_interfaces(pim, rp_info);
-	pim_rp_refresh_group_to_rp_mapping(pim);
 	return PIM_SUCCESS;
 }
 
