@@ -188,10 +188,14 @@ DEFPY(ip_router_isis, ip_router_isis_cmd, "ip router isis WORD$tag",
 	}
 
 	/* check if the interface is a loopback and if so set it as passive */
-	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (ifp && if_is_loopback(ifp))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
-				      NB_OP_MODIFY, "true");
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
+		if (ifp && if_is_loopback(ifp))
+			nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
+					      NB_OP_MODIFY, "true");
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -258,10 +262,14 @@ DEFPY(ip6_router_isis, ip6_router_isis_cmd, "ipv6 router isis WORD$tag",
 	}
 
 	/* check if the interface is a loopback and if so set it as passive */
-	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (ifp && if_is_loopback(ifp))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
-				      NB_OP_MODIFY, "true");
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
+		if (ifp && if_is_loopback(ifp))
+			nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
+					      NB_OP_MODIFY, "true");
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -368,20 +376,26 @@ DEFPY(no_is_type, no_is_type_cmd,
       "Act as both a station router and an area router\n"
       "Act as an area router only\n")
 {
-	const char *value = NULL;
-	struct isis_area *area;
+	const char *value;
 
-	area = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		struct isis_area *area;
 
-	/*
-	 * Put the is-type back to defaults:
-	 * - level-1-2 on first area
-	 * - level-1 for the rest
-	 */
-	if (area && listgetdata(listhead(isis->area_list)) == area)
-		value = "level-1-2";
-	else
-		value = NULL;
+		area = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
+
+		/*
+		 * Put the is-type back to defaults:
+		 * - level-1-2 on first area
+		 * - level-1 for the rest
+		 */
+		if (area && listgetdata(listhead(isis->area_list)) == area)
+			value = "level-1-2";
+		else
+			value = NULL;
+	}
+	pthread_rwlock_unlock(&running_config->lock);
+
 	nb_cli_enqueue_change(vty, "./is-type", NB_OP_MODIFY, value);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -1769,50 +1783,43 @@ DEFPY(no_isis_circuit_type, no_isis_circuit_type_cmd,
       "Level-1-2 adjacencies are formed\n"
       "Level-2 only adjacencies are formed\n")
 {
-	struct interface *ifp;
-	struct isis_circuit *circuit;
-	int is_type;
-	const char *circ_type;
+	const char *circ_type = NULL;
 
 	/*
 	 * Default value depends on whether the circuit is part of an area,
 	 * and the is-type of the area if there is one. So we need to do this
 	 * here.
 	 */
-	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (!ifp)
-		goto def_val;
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		struct interface *ifp;
+		struct isis_circuit *circuit;
 
-	circuit = circuit_scan_by_ifp(ifp);
-	if (!circuit)
-		goto def_val;
+		ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
+		if (!ifp)
+			goto unlock;
 
-	if (circuit->state == C_STATE_UP)
-		is_type = circuit->area->is_type;
-	else
-		goto def_val;
+		circuit = circuit_scan_by_ifp(ifp);
+		if (!circuit || circuit->state != C_STATE_UP)
+			goto unlock;
 
-	switch (is_type) {
-	case IS_LEVEL_1:
-		circ_type = "level-1";
-		break;
-	case IS_LEVEL_2:
-		circ_type = "level-2";
-		break;
-	case IS_LEVEL_1_AND_2:
-		circ_type = "level-1-2";
-		break;
-	default:
-		return CMD_ERR_NO_MATCH;
+		switch (circuit->area->is_type) {
+		case IS_LEVEL_1:
+			circ_type = "level-1";
+			break;
+		case IS_LEVEL_2:
+			circ_type = "level-2";
+			break;
+		case IS_LEVEL_1_AND_2:
+			circ_type = "level-1-2";
+			break;
+		}
 	}
+unlock:
+	pthread_rwlock_unlock(&running_config->lock);
+
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
 			      NB_OP_MODIFY, circ_type);
-
-	return nb_cli_apply_changes(vty, NULL);
-
-def_val:
-	nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
-			      NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }

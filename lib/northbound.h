@@ -422,8 +422,19 @@ enum nb_client {
 
 /* Northbound configuration. */
 struct nb_config {
+	/* Configuration data. */
 	struct lyd_node *dnode;
+
+	/* Configuration version. */
 	uint32_t version;
+
+	/*
+	 * Lock protecting this structure. The use of this lock is always
+	 * necessary when reading or modifying the global running configuration.
+	 * For candidate configurations, use of this lock is optional depending
+	 * on the threading scheme of the northbound plugin.
+	 */
+	pthread_rwlock_t lock;
 };
 
 /* Northbound configuration callback. */

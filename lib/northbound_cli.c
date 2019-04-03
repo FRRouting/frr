@@ -193,8 +193,13 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 				"Please check the logs for more details.\n");
 
 			/* Regenerate candidate for consistency. */
-			nb_config_replace(vty->candidate_config, running_config,
-					  true);
+			pthread_rwlock_rdlock(&running_config->lock);
+			{
+				nb_config_replace(vty->candidate_config,
+						  running_config, true);
+			}
+			pthread_rwlock_unlock(&running_config->lock);
+
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
@@ -302,7 +307,12 @@ static int nb_cli_commit(struct vty *vty, bool force,
 
 	/* "confirm" parameter. */
 	if (confirmed_timeout) {
-		vty->confirmed_commit_rollback = nb_config_dup(running_config);
+		pthread_rwlock_rdlock(&running_config->lock);
+		{
+			vty->confirmed_commit_rollback =
+				nb_config_dup(running_config);
+		}
+		pthread_rwlock_unlock(&running_config->lock);
 
 		vty->t_confirmed_commit_timeout = NULL;
 		thread_add_timer(master, nb_cli_confirmed_commit_timeout, vty,
@@ -316,8 +326,13 @@ static int nb_cli_commit(struct vty *vty, bool force,
 	/* Map northbound return code to CLI return code. */
 	switch (ret) {
 	case NB_OK:
-		nb_config_replace(vty->candidate_config_base, running_config,
-				  true);
+		pthread_rwlock_rdlock(&running_config->lock);
+		{
+			nb_config_replace(vty->candidate_config_base,
+					  running_config, true);
+		}
+		pthread_rwlock_unlock(&running_config->lock);
+
 		vty_out(vty,
 			"%% Configuration committed successfully (Transaction ID #%u).\n\n",
 			transaction_id);
@@ -682,7 +697,12 @@ DEFPY (config_update,
 		return CMD_WARNING;
 	}
 
-	nb_config_replace(vty->candidate_config_base, running_config, true);
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		nb_config_replace(vty->candidate_config_base, running_config,
+				  true);
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	vty_out(vty, "%% Candidate configuration updated successfully.\n\n");
 
@@ -782,8 +802,12 @@ DEFPY (show_config_running,
 		}
 	}
 
-	nb_cli_show_config(vty, running_config, format, translator,
-			   !!with_defaults);
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		nb_cli_show_config(vty, running_config, format, translator,
+				   !!with_defaults);
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	return CMD_SUCCESS;
 }
@@ -897,57 +921,68 @@ DEFPY (show_config_compare,
 	struct nb_config *config2, *config_transaction2 = NULL;
 	int ret = CMD_WARNING;
 
-	if (c1_candidate)
-		config1 = vty->candidate_config;
-	else if (c1_running)
-		config1 = running_config;
-	else {
-		config_transaction1 = nb_db_transaction_load(c1_tid);
-		if (!config_transaction1) {
-			vty_out(vty, "%% Transaction %u does not exist\n\n",
-				(unsigned int)c1_tid);
-			goto exit;
+	/*
+	 * For simplicity, lock the running configuration regardless if it's
+	 * going to be used or not.
+	 */
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		if (c1_candidate)
+			config1 = vty->candidate_config;
+		else if (c1_running)
+			config1 = running_config;
+		else {
+			config_transaction1 = nb_db_transaction_load(c1_tid);
+			if (!config_transaction1) {
+				vty_out(vty,
+					"%% Transaction %u does not exist\n\n",
+					(unsigned int)c1_tid);
+				goto exit;
+			}
+			config1 = config_transaction1;
 		}
-		config1 = config_transaction1;
-	}
 
-	if (c2_candidate)
-		config2 = vty->candidate_config;
-	else if (c2_running)
-		config2 = running_config;
-	else {
-		config_transaction2 = nb_db_transaction_load(c2_tid);
-		if (!config_transaction2) {
-			vty_out(vty, "%% Transaction %u does not exist\n\n",
-				(unsigned int)c2_tid);
-			goto exit;
+		if (c2_candidate)
+			config2 = vty->candidate_config;
+		else if (c2_running)
+			config2 = running_config;
+		else {
+			config_transaction2 = nb_db_transaction_load(c2_tid);
+			if (!config_transaction2) {
+				vty_out(vty,
+					"%% Transaction %u does not exist\n\n",
+					(unsigned int)c2_tid);
+				goto exit;
+			}
+			config2 = config_transaction2;
 		}
-		config2 = config_transaction2;
-	}
 
-	if (json)
-		format = NB_CFG_FMT_JSON;
-	else if (xml)
-		format = NB_CFG_FMT_XML;
-	else
-		format = NB_CFG_FMT_CMDS;
+		if (json)
+			format = NB_CFG_FMT_JSON;
+		else if (xml)
+			format = NB_CFG_FMT_XML;
+		else
+			format = NB_CFG_FMT_CMDS;
 
-	if (translator_family) {
-		translator = yang_translator_find(translator_family);
-		if (!translator) {
-			vty_out(vty, "%% Module translator \"%s\" not found\n",
-				translator_family);
-			goto exit;
+		if (translator_family) {
+			translator = yang_translator_find(translator_family);
+			if (!translator) {
+				vty_out(vty,
+					"%% Module translator \"%s\" not found\n",
+					translator_family);
+				goto exit;
+			}
 		}
-	}
 
-	ret = nb_cli_show_config_compare(vty, config1, config2, format,
-					 translator);
-exit:
-	if (config_transaction1)
-		nb_config_free(config_transaction1);
-	if (config_transaction2)
-		nb_config_free(config_transaction2);
+		ret = nb_cli_show_config_compare(vty, config1, config2, format,
+						 translator);
+	exit:
+		if (config_transaction1)
+			nb_config_free(config_transaction1);
+		if (config_transaction2)
+			nb_config_free(config_transaction2);
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	return ret;
 }

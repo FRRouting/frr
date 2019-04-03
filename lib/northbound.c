@@ -264,6 +264,7 @@ struct nb_config *nb_config_new(struct lyd_node *dnode)
 	else
 		config->dnode = yang_dnode_new(ly_native_ctx, true);
 	config->version = 0;
+	pthread_rwlock_init(&config->lock, NULL);
 
 	return config;
 }
@@ -272,6 +273,7 @@ void nb_config_free(struct nb_config *config)
 {
 	if (config->dnode)
 		yang_dnode_free(config->dnode);
+	pthread_rwlock_destroy(&config->lock);
 	XFREE(MTYPE_NB_CONFIG, config);
 }
 
@@ -282,6 +284,7 @@ struct nb_config *nb_config_dup(const struct nb_config *config)
 	dup = XCALLOC(MTYPE_NB_CONFIG, sizeof(*dup));
 	dup->dnode = yang_dnode_dup(config->dnode);
 	dup->version = config->version;
+	pthread_rwlock_init(&dup->lock, NULL);
 
 	return dup;
 }
@@ -529,17 +532,28 @@ int nb_candidate_edit(struct nb_config *candidate,
 
 bool nb_candidate_needs_update(const struct nb_config *candidate)
 {
-	if (candidate->version < running_config->version)
-		return true;
+	bool ret = false;
 
-	return false;
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		if (candidate->version < running_config->version)
+			ret = true;
+	}
+	pthread_rwlock_unlock(&running_config->lock);
+
+	return ret;
 }
 
 int nb_candidate_update(struct nb_config *candidate)
 {
 	struct nb_config *updated_config;
 
-	updated_config = nb_config_dup(running_config);
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		updated_config = nb_config_dup(running_config);
+	}
+	pthread_rwlock_unlock(&running_config->lock);
+
 	if (nb_config_merge(updated_config, candidate, true) != NB_OK)
 		return NB_ERR;
 
@@ -591,9 +605,13 @@ int nb_candidate_validate(struct nb_config *candidate)
 		return NB_ERR_VALIDATION;
 
 	RB_INIT(nb_config_cbs, &changes);
-	nb_config_diff(running_config, candidate, &changes);
-	ret = nb_candidate_validate_changes(candidate, &changes);
-	nb_config_diff_del_changes(&changes);
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		nb_config_diff(running_config, candidate, &changes);
+		ret = nb_candidate_validate_changes(candidate, &changes);
+		nb_config_diff_del_changes(&changes);
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	return ret;
 }
@@ -613,26 +631,36 @@ int nb_candidate_commit_prepare(struct nb_config *candidate,
 	}
 
 	RB_INIT(nb_config_cbs, &changes);
-	nb_config_diff(running_config, candidate, &changes);
-	if (RB_EMPTY(nb_config_cbs, &changes))
-		return NB_ERR_NO_CHANGES;
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		nb_config_diff(running_config, candidate, &changes);
+		if (RB_EMPTY(nb_config_cbs, &changes)) {
+			pthread_rwlock_unlock(&running_config->lock);
+			return NB_ERR_NO_CHANGES;
+		}
 
-	if (nb_candidate_validate_changes(candidate, &changes) != NB_OK) {
-		flog_warn(EC_LIB_NB_CANDIDATE_INVALID,
-			  "%s: failed to validate candidate configuration",
-			  __func__);
-		nb_config_diff_del_changes(&changes);
-		return NB_ERR_VALIDATION;
-	}
+		if (nb_candidate_validate_changes(candidate, &changes)
+		    != NB_OK) {
+			flog_warn(
+				EC_LIB_NB_CANDIDATE_INVALID,
+				"%s: failed to validate candidate configuration",
+				__func__);
+			nb_config_diff_del_changes(&changes);
+			pthread_rwlock_unlock(&running_config->lock);
+			return NB_ERR_VALIDATION;
+		}
 
-	*transaction =
-		nb_transaction_new(candidate, &changes, client, user, comment);
-	if (*transaction == NULL) {
-		flog_warn(EC_LIB_NB_TRANSACTION_CREATION_FAILED,
-			  "%s: failed to create transaction", __func__);
-		nb_config_diff_del_changes(&changes);
-		return NB_ERR_LOCKED;
+		*transaction = nb_transaction_new(candidate, &changes, client,
+						  user, comment);
+		if (*transaction == NULL) {
+			flog_warn(EC_LIB_NB_TRANSACTION_CREATION_FAILED,
+				  "%s: failed to create transaction", __func__);
+			nb_config_diff_del_changes(&changes);
+			pthread_rwlock_unlock(&running_config->lock);
+			return NB_ERR_LOCKED;
+		}
 	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	return nb_transaction_process(NB_EV_PREPARE, *transaction);
 }
@@ -651,7 +679,11 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 
 	/* Replace running by candidate. */
 	transaction->config->version++;
-	nb_config_replace(running_config, transaction->config, true);
+	pthread_rwlock_wrlock(&running_config->lock);
+	{
+		nb_config_replace(running_config, transaction->config, true);
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	/* Record transaction. */
 	if (save_transaction
@@ -931,40 +963,52 @@ static int nb_transaction_process(enum nb_event event,
 {
 	struct nb_config_cb *cb;
 
-	RB_FOREACH (cb, nb_config_cbs, &transaction->changes) {
-		struct nb_config_change *change = (struct nb_config_change *)cb;
-		int ret;
+	/*
+	 * Need to lock the running configuration since transaction->changes
+	 * can contain pointers to data nodes from the running configuration.
+	 */
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		RB_FOREACH (cb, nb_config_cbs, &transaction->changes) {
+			struct nb_config_change *change =
+				(struct nb_config_change *)cb;
+			int ret;
 
-		/*
-		 * Only try to release resources that were allocated
-		 * successfully.
-		 */
-		if (event == NB_EV_ABORT && change->prepare_ok == false)
-			break;
-
-		/* Call the appropriate callback. */
-		ret = nb_callback_configuration(event, change);
-		switch (event) {
-		case NB_EV_PREPARE:
-			if (ret != NB_OK)
-				return ret;
-			change->prepare_ok = true;
-			break;
-		case NB_EV_ABORT:
-		case NB_EV_APPLY:
 			/*
-			 * At this point it's not possible to reject the
-			 * transaction anymore, so any failure here can lead to
-			 * inconsistencies and should be treated as a bug.
-			 * Operations prone to errors, like validations and
-			 * resource allocations, should be performed during the
-			 * 'prepare' phase.
+			 * Only try to release resources that were allocated
+			 * successfully.
 			 */
-			break;
-		default:
-			break;
+			if (event == NB_EV_ABORT && change->prepare_ok == false)
+				break;
+
+			/* Call the appropriate callback. */
+			ret = nb_callback_configuration(event, change);
+			switch (event) {
+			case NB_EV_PREPARE:
+				if (ret != NB_OK) {
+					pthread_rwlock_unlock(
+						&running_config->lock);
+					return ret;
+				}
+				change->prepare_ok = true;
+				break;
+			case NB_EV_ABORT:
+			case NB_EV_APPLY:
+				/*
+				 * At this point it's not possible to reject the
+				 * transaction anymore, so any failure here can
+				 * lead to inconsistencies and should be treated
+				 * as a bug. Operations prone to errors, like
+				 * validations and resource allocations, should
+				 * be performed during the 'prepare' phase.
+				 */
+				break;
+			default:
+				break;
+			}
 		}
 	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	return NB_OK;
 }

@@ -1705,12 +1705,16 @@ static int vty_write_config(struct vty *vty)
 	vty_out(vty, "frr defaults %s\n", DFLT_NAME);
 	vty_out(vty, "!\n");
 
-	for (i = 0; i < vector_active(cmdvec); i++)
-		if ((node = vector_slot(cmdvec, i)) && node->func
-		    && (node->vtysh || vty->type != VTY_SHELL)) {
-			if ((*node->func)(vty))
-				vty_out(vty, "!\n");
-		}
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		for (i = 0; i < vector_active(cmdvec); i++)
+			if ((node = vector_slot(cmdvec, i)) && node->func
+			    && (node->vtysh || vty->type != VTY_SHELL)) {
+				if ((*node->func)(vty))
+					vty_out(vty, "!\n");
+			}
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	if (vty->type == VTY_TERM) {
 		vty_out(vty, "end\n");

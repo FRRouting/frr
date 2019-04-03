@@ -2608,17 +2608,22 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 	vty->private_config = private_config;
 	vty->xpath_index = 0;
 
-	if (private_config) {
-		vty->candidate_config = nb_config_dup(running_config);
-		vty->candidate_config_base = nb_config_dup(running_config);
-		vty_out(vty,
-			"Warning: uncommitted changes will be discarded on exit.\n\n");
-	} else {
-		vty->candidate_config = vty_shared_candidate_config;
-		if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL)
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		if (private_config) {
+			vty->candidate_config = nb_config_dup(running_config);
 			vty->candidate_config_base =
 				nb_config_dup(running_config);
+			vty_out(vty,
+				"Warning: uncommitted changes will be discarded on exit.\n\n");
+		} else {
+			vty->candidate_config = vty_shared_candidate_config;
+			if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL)
+				vty->candidate_config_base =
+					nb_config_dup(running_config);
+		}
 	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	return CMD_SUCCESS;
 }
