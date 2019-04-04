@@ -931,7 +931,7 @@ void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
 }
 
 void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
-			   rnh_type_t type)
+			   rnh_type_t type, struct prefix *p)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -942,9 +942,13 @@ void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
 		return;
 	}
 
-	for (rn = route_top(table); rn; rn = route_next(rn))
+	for (rn = route_top(table); rn; rn = route_next(rn)) {
+		if (p && prefix_cmp(&rn->p, p) != 0)
+			continue;
+
 		if (rn->info)
 			print_rnh(rn, vty);
+	}
 }
 
 /**
