@@ -1107,11 +1107,12 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 		if (orig_flags != rnh->flags)
 			flag_changed = true;
 
-		zebra_add_rnh_client(rnh, client, type, zvrf_id(zvrf));
 		/* Anything not AF_INET/INET6 has been filtered out above */
 		if (!exist || flag_changed)
 			zebra_evaluate_rnh(zvrf, family2afi(p.family), 1, type,
 					   &p);
+
+		zebra_add_rnh_client(rnh, client, type, zvrf_id(zvrf));
 	}
 
 stream_failure:
