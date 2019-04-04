@@ -68,7 +68,7 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, struct in_addr group);
 
 void pim_rp_show_information(struct pim_instance *pim, struct vty *vty,
 			     bool uj);
-void pim_resolve_rp_nh(struct pim_instance *pim);
+void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr);
 int pim_rp_list_cmp(void *v1, void *v2);
 struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 					const struct prefix *group);

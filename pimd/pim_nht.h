@@ -65,7 +65,6 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 			    struct prefix *grp, int neighbor_needed);
 void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zclient,
 			   struct pim_nexthop_cache *pnc, int command);
-void pim_resolve_upstream_nh(struct pim_instance *pim, struct prefix *nht_p);
 int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
 				     struct prefix *src, struct prefix *grp);
 void pim_rp_nexthop_del(struct rp_info *rp_info);

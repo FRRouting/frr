@@ -48,8 +48,8 @@ void pim_rpf_set_refresh_time(struct pim_instance *pim)
 			   pim->last_route_change_time);
 }
 
-int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
-		       struct in_addr addr, int neighbor_needed)
+bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
+			struct in_addr addr, int neighbor_needed)
 {
 	struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
 	struct pim_neighbor *nbr = NULL;
@@ -65,7 +65,7 @@ int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	 * it will never work
 	 */
 	if (addr.s_addr == INADDR_NONE)
-		return -1;
+		return false;
 
 	if ((nexthop->last_lookup.s_addr == addr.s_addr)
 	    && (nexthop->last_lookup_time > pim->last_route_change_time)) {
@@ -83,7 +83,7 @@ int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 				pim->last_route_change_time, nexthop_str);
 		}
 		pim->nexthop_lookups_avoided++;
-		return 0;
+		return true;
 	} else {
 		if (PIM_DEBUG_TRACE) {
 			char addr_str[INET_ADDRSTRLEN];
@@ -107,7 +107,7 @@ int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 		zlog_warn(
 			"%s %s: could not find nexthop ifindex for address %s",
 			__FILE__, __PRETTY_FUNCTION__, addr_str);
-		return -1;
+		return false;
 	}
 
 	while (!found && (i < num_ifindex)) {
@@ -179,9 +179,9 @@ int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 		nexthop->last_lookup = addr;
 		nexthop->last_lookup_time = pim_time_monotonic_usec();
 		nexthop->nbr = nbr;
-		return 0;
+		return true;
 	} else
-		return -1;
+		return false;
 }
 
 static int nexthop_mismatch(const struct pim_nexthop *nh1,

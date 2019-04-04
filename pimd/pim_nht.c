@@ -264,45 +264,6 @@ static void pim_update_rp_nh(struct pim_instance *pim,
 	}
 }
 
-/* This API is used to traverse nexthop cache of RPF addr
-   of upstream entry whose IPv4 nexthop address is in
-   unresolved state and due to event like pim neighbor
-   UP event if it can be resolved.
-*/
-void pim_resolve_upstream_nh(struct pim_instance *pim, struct prefix *nht_p)
-{
-	struct nexthop *nh_node = NULL;
-	struct pim_nexthop_cache pnc;
-	struct pim_neighbor *nbr = NULL;
-
-	memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-	if (!pim_find_or_track_nexthop(pim, nht_p, NULL, NULL, &pnc))
-		return;
-
-	for (nh_node = pnc.nexthop; nh_node; nh_node = nh_node->next) {
-		if (nh_node->gate.ipv4.s_addr != 0)
-			continue;
-
-		struct interface *ifp1 =
-			if_lookup_by_index(nh_node->ifindex, pim->vrf_id);
-		nbr = pim_neighbor_find_if(ifp1);
-		if (!nbr)
-			continue;
-
-		nh_node->gate.ipv4 = nbr->source_addr;
-		if (PIM_DEBUG_PIM_NHT) {
-			char str[PREFIX_STRLEN];
-			char str1[INET_ADDRSTRLEN];
-			pim_inet4_dump("<nht_nbr?>", nbr->source_addr, str1,
-				       sizeof(str1));
-			pim_addr_dump("<nht_addr?>", nht_p, str, sizeof(str));
-			zlog_debug(
-				"%s: addr %s new nexthop addr %s interface %s",
-				__PRETTY_FUNCTION__, str, str1, ifp1->name);
-		}
-	}
-}
-
 /* Update Upstream nexthop info based on Nexthop update received from Zebra.*/
 static int pim_update_upstream_nh_helper(struct hash_bucket *bucket, void *arg)
 {
