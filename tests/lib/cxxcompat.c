@@ -31,7 +31,6 @@
 #include "lib/csv.h"
 #include "lib/debug.h"
 #include "lib/distribute.h"
-#include "lib/event_counter.h"
 #include "lib/ferr.h"
 #include "lib/fifo.h"
 #include "lib/filter.h"
