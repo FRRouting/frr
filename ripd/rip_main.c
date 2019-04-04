@@ -34,6 +34,7 @@
 #include "sigevent.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "if_rmap.h"
 #include "libfrr.h"
 
 #include "ripd/ripd.h"
@@ -46,7 +47,7 @@
 static struct option longopts[] = {{"retain", no_argument, NULL, 'r'}, {0}};
 
 /* ripd privileges */
-zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND};
+zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
 
 struct zebra_privs_t ripd_privs = {
 #if defined(FRR_USER)
@@ -59,7 +60,7 @@ struct zebra_privs_t ripd_privs = {
 	.vty_group = VTY_GROUP,
 #endif
 	.caps_p = _caps_p,
-	.cap_num_p = 2,
+	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0};
 
 /* Master of threads. */
@@ -81,8 +82,8 @@ static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
-	rip_clean();
-
+	rip_vrf_terminate();
+	if_rmap_terminate();
 	rip_zclient_stop();
 	frr_fini();
 
@@ -171,14 +172,13 @@ int main(int argc, char **argv)
 	/* Library initialization. */
 	rip_error_init();
 	keychain_init();
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	rip_vrf_init();
 
 	/* RIP related initialization. */
 	rip_init();
 	rip_if_init();
 	rip_cli_init();
 	rip_zclient_init(master);
-	rip_peer_init();
 
 	frr_config_fork();
 	frr_run(master);

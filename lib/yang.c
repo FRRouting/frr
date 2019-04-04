@@ -610,6 +610,25 @@ struct list *yang_data_list_new(void)
 	return list;
 }
 
+struct yang_data *yang_data_list_find(const struct list *list,
+				      const char *xpath_fmt, ...)
+{
+	char xpath[XPATH_MAXLEN];
+	struct yang_data *data;
+	struct listnode *node;
+	va_list ap;
+
+	va_start(ap, xpath_fmt);
+	vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
+	va_end(ap);
+
+	for (ALL_LIST_ELEMENTS_RO(list, node, data))
+		if (strmatch(data->xpath, xpath))
+			return data;
+
+	return NULL;
+}
+
 static void *ly_dup_cb(const void *priv)
 {
 	/* Make a shallow copy of the priv pointer. */

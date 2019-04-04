@@ -48,8 +48,8 @@ extern void ripng_aggregate_decrement(struct agg_node *rp,
 				      struct ripng_info *rinfo);
 extern void ripng_aggregate_decrement_list(struct agg_node *rp,
 					   struct list *list);
-extern int ripng_aggregate_add(struct prefix *p);
-extern int ripng_aggregate_delete(struct prefix *p);
+extern int ripng_aggregate_add(struct ripng *ripng, struct prefix *p);
+extern int ripng_aggregate_delete(struct ripng *ripng, struct prefix *p);
 extern void ripng_aggregate_free(struct ripng_aggregate *aggregate);
 
 #endif /* _ZEBRA_RIPNG_ROUTE_H */

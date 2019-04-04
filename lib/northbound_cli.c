@@ -1297,7 +1297,7 @@ DEFPY (show_yang_operational_data,
 		yang_dnode_free(dnode);
 		return CMD_WARNING;
 	}
-	lyd_validate(&dnode, LYD_OPT_DATA | LYD_OPT_DATA_NO_YANGLIB, ly_ctx);
+	lyd_validate(&dnode, LYD_OPT_GET, ly_ctx);
 
 	/* Display the data. */
 	if (lyd_print_mem(&strp, dnode, format,
