@@ -32,7 +32,7 @@ DEFINE_QOBJ_TYPE(keychain)
 DEFINE_QOBJ_TYPE(key)
 
 /* Master list of key chain. */
-struct list *keychain_list;
+static struct list *keychain_list;
 
 static struct keychain *keychain_new(void)
 {

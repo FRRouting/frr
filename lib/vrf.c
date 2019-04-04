@@ -64,7 +64,7 @@ static char vrf_default_name[VRF_NAMSIZ] = VRF_DEFAULT_NAME_INTERNAL;
  * Turn on/off debug code
  * for vrf.
  */
-int debug_vrf = 0;
+static int debug_vrf = 0;
 
 /* Holding VRF hooks  */
 struct vrf_master {

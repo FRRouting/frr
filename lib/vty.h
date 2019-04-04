@@ -290,7 +290,6 @@ struct vty_arg {
 #endif
 
 /* Exported variables */
-extern char integrate_default[];
 extern struct vty *vty_exclusive_lock;
 
 /* Prototypes. */

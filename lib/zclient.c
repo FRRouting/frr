@@ -49,13 +49,13 @@ enum event { ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT };
 /* Prototype for event manager. */
 static void zclient_event(enum event, struct zclient *);
 
+struct zclient_options zclient_options_default = {.receive_notify = false};
+
 struct sockaddr_storage zclient_addr;
 socklen_t zclient_addr_len;
 
 /* This file local debug flag. */
-int zclient_debug = 0;
-
-struct zclient_options zclient_options_default = {.receive_notify = false};
+static int zclient_debug;
 
 /* Allocate zclient structure. */
 struct zclient *zclient_new(struct thread_master *master,

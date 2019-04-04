@@ -32,7 +32,7 @@ DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE, "Distribute list")
 DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_IFNAME, "Dist-list ifname")
 DEFINE_MTYPE_STATIC(LIB, DISTRIBUTE_NAME, "Dist-list name")
 
-struct list *dist_ctx_list;
+static struct list *dist_ctx_list;
 
 static struct distribute *distribute_new(void)
 {
