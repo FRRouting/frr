@@ -118,11 +118,11 @@ void nexthop_del(struct nexthop_group *nhg, struct nexthop *nh)
 	nh->next = NULL;
 }
 
-void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
+void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 		   struct nexthop *rparent)
 {
 	struct nexthop *nexthop;
-	struct nexthop *nh1;
+	const struct nexthop *nh1;
 
 	for (nh1 = nh; nh1; nh1 = nh1->next) {
 		nexthop = nexthop_new();
