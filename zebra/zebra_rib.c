@@ -2065,11 +2065,8 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			    (old_re && RIB_SYSTEM_ROUTE(old_re)))
 				zebra_rib_fixup_system(rn);
 
-			if (zvrf) {
+			if (zvrf)
 				zvrf->installs++;
-				/* Set flag for nexthop tracking processing */
-				zvrf->flags |= ZEBRA_VRF_RIB_SCHEDULED;
-			}
 
 			/* Redistribute */
 			/*
@@ -2269,7 +2266,6 @@ static void rib_meta_queue_add(struct meta_queue *mq, struct route_node *rn)
 {
 	struct route_entry *re = NULL, *curr_re = NULL;
 	uint8_t qindex = MQ_SIZE, curr_qindex = MQ_SIZE;
-	struct zebra_vrf *zvrf;
 
 	RNODE_FOREACH_RE (rn, curr_re) {
 		curr_qindex = route_info[curr_re->type].meta_q_map;
@@ -2301,10 +2297,6 @@ static void rib_meta_queue_add(struct meta_queue *mq, struct route_node *rn)
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		rnode_debug(rn, re->vrf_id, "queued rn %p into sub-queue %u",
 			    (void *)rn, qindex);
-
-	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
-	if (zvrf)
-		zvrf->flags |= ZEBRA_VRF_RIB_SCHEDULED;
 }
 
 /* Add route_node to work queue and schedule processing */
