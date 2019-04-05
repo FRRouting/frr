@@ -482,7 +482,9 @@ int nb_candidate_edit(struct nb_config *candidate,
 		 */
 		if (dnode) {
 			lyd_schema_sort(dnode, 0);
-			lyd_validate(&dnode, LYD_OPT_CONFIG, ly_native_ctx);
+			lyd_validate(&dnode,
+				     LYD_OPT_CONFIG | LYD_OPT_WHENAUTODEL,
+				     ly_native_ctx);
 		}
 		break;
 	case NB_OP_DELETE:
@@ -569,7 +571,8 @@ static void nb_candidate_restore_priv_pointers(struct nb_config *candidate)
  */
 static int nb_candidate_validate_yang(struct nb_config *candidate)
 {
-	if (lyd_validate(&candidate->dnode, LYD_OPT_STRICT | LYD_OPT_CONFIG,
+	if (lyd_validate(&candidate->dnode,
+			 LYD_OPT_STRICT | LYD_OPT_CONFIG | LYD_OPT_WHENAUTODEL,
 			 ly_native_ctx)
 	    != 0)
 		return NB_ERR_VALIDATION;
