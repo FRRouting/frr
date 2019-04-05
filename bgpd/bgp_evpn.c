@@ -5509,8 +5509,9 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *rmac,
 	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD))
 		evpn_auto_rt_export_add_for_vrf(bgp_vrf);
 
-	/* auto derive RD */
-	bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
+	/* Configured RD or auto derive RD */
+	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD))
+		bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
 
 	/* link all corresponding l2vnis */
 	hash_iterate(bgp_evpn->vnihash,
