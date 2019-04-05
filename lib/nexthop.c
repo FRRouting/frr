@@ -314,14 +314,52 @@ unsigned int nexthop_level(struct nexthop *nexthop)
 	return rv;
 }
 
-uint32_t nexthop_hash(struct nexthop *nexthop)
+uint32_t nexthop_hash(const struct nexthop *nexthop)
 {
-	uint32_t key;
+	uint32_t key = 0x45afe398;
 
-	key = jhash_1word(nexthop->vrf_id, 0x45afe398);
-	key = jhash_1word(nexthop->ifindex, key);
-	key = jhash_1word(nexthop->type, key);
-	key = jhash(&nexthop->gate, sizeof(union g_addr), key);
+	key = jhash_3words(nexthop->type, nexthop->vrf_id,
+			   nexthop->nh_label_type, key);
+	/* gate and blackhole are together in a union */
+	key = jhash(&nexthop->gate, sizeof(nexthop->gate), key);
+	key = jhash(&nexthop->src, sizeof(nexthop->src), key);
+	key = jhash(&nexthop->rmap_src, sizeof(nexthop->rmap_src), key);
 
+	if (nexthop->nh_label) {
+		int labels = nexthop->nh_label->num_labels;
+		int i = 0;
+
+		while (labels >= 3) {
+			key = jhash_3words(nexthop->nh_label->label[i],
+					   nexthop->nh_label->label[i + 1],
+					   nexthop->nh_label->label[i + 2],
+					   key);
+			labels -= 3;
+			i += 3;
+		}
+
+		if (labels >= 2) {
+			key = jhash_2words(nexthop->nh_label->label[i],
+					   nexthop->nh_label->label[i + 1],
+					   key);
+			labels -= 2;
+			i += 2;
+		}
+
+		if (labels >= 1)
+			key = jhash_1word(nexthop->nh_label->label[i], key);
+	}
+
+	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+	case NEXTHOP_TYPE_IFINDEX:
+		key = jhash_1word(nexthop->ifindex, key);
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV6:
+		break;
+	}
 	return key;
 }

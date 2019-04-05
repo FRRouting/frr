@@ -136,7 +136,7 @@ void nexthop_del_labels(struct nexthop *);
  * Returns:
  *    32-bit hash of nexthop
  */
-uint32_t nexthop_hash(struct nexthop *nexthop);
+uint32_t nexthop_hash(const struct nexthop *nexthop);
 
 extern bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2);
 
