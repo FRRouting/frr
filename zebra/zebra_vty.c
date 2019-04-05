@@ -957,16 +957,28 @@ DEFPY (show_route_table_vrf,
 
 DEFPY (show_ip_nht,
        show_ip_nht_cmd,
-       "show <ip$ipv4|ipv6$ipv6> nht [vrf NAME$vrf_name|vrf all$vrf_all]",
+       "show <ip$ipv4|ipv6$ipv6> <nht|import-check>$type [<A.B.C.D|X:X::X:X>$addr|vrf NAME$vrf_name <A.B.C.D|X:X::X:X>$addr|vrf all$vrf_all]",
        SHOW_STR
        IP_STR
        IP6_STR
        "IP nexthop tracking table\n"
+       "IP import check tracking table\n"
+       "IPv4 Address\n"
+       "IPv6 Address\n"
        VRF_CMD_HELP_STR
+       "IPv4 Address\n"
+       "IPv6 Address\n"
        VRF_ALL_CMD_HELP_STR)
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	vrf_id_t vrf_id = VRF_DEFAULT;
+	struct prefix prefix, *p = NULL;
+	rnh_type_t rtype;
+
+	if (strcmp(type, "nht") == 0)
+		rtype = RNH_NEXTHOP_TYPE;
+	else
+		rtype = RNH_IMPORT_CHECK_TYPE;
 
 	if (vrf_all) {
 		struct vrf *vrf;
@@ -976,47 +988,18 @@ DEFPY (show_ip_nht,
 			if ((zvrf = vrf->info) != NULL) {
 				vty_out(vty, "\nVRF %s:\n", zvrf_name(zvrf));
 				zebra_print_rnh_table(zvrf_id(zvrf), afi, vty,
-						      RNH_NEXTHOP_TYPE);
+						      rtype, NULL);
 			}
 		return CMD_SUCCESS;
 	}
 	if (vrf_name)
 		VRF_GET_ID(vrf_id, vrf_name, false);
 
-	zebra_print_rnh_table(vrf_id, afi, vty, RNH_NEXTHOP_TYPE);
-	return CMD_SUCCESS;
-}
+	memset(&prefix, 0, sizeof(prefix));
+	if (addr)
+		p = sockunion2hostprefix(addr, &prefix);
 
-DEFPY (show_ip_import_check,
-       show_ip_import_check_cmd,
-       "show <ip$ipv4|ipv6$ipv6> import-check [vrf NAME$vrf_name|vrf all$vrf_all]",
-       SHOW_STR
-       IP_STR
-       IP6_STR
-       "IP import check tracking table\n"
-       VRF_CMD_HELP_STR
-       VRF_ALL_CMD_HELP_STR)
-{
-	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-
-	if (vrf_all) {
-		struct vrf *vrf;
-		struct zebra_vrf *zvrf;
-
-		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-			if ((zvrf = vrf->info) != NULL) {
-				vty_out(vty, "\nVRF %s:\n",
-					zvrf_name(zvrf));
-				zebra_print_rnh_table(zvrf_id(zvrf), afi, vty,
-						      RNH_IMPORT_CHECK_TYPE);
-			}
-		return CMD_SUCCESS;
-	}
-	if (vrf_name)
-		VRF_GET_ID(vrf_id, vrf_name, false);
-
-	zebra_print_rnh_table(vrf_id, afi, vty, RNH_IMPORT_CHECK_TYPE);
+	zebra_print_rnh_table(vrf_id, afi, vty, rtype, p);
 	return CMD_SUCCESS;
 }
 
@@ -2930,7 +2913,6 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_route_detail_cmd);
 	install_element(VIEW_NODE, &show_route_summary_cmd);
 	install_element(VIEW_NODE, &show_ip_nht_cmd);
-	install_element(VIEW_NODE, &show_ip_import_check_cmd);
 
 	install_element(VIEW_NODE, &show_ip_rpf_cmd);
 	install_element(VIEW_NODE, &show_ip_rpf_addr_cmd);

@@ -91,7 +91,7 @@ extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
 extern void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
 			       rnh_type_t type, struct prefix *p);
 extern void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
-				  rnh_type_t);
+				  rnh_type_t type, struct prefix *p);
 extern char *rnh_str(struct rnh *rnh, char *buf, int size);
 
 #ifdef __cplusplus
