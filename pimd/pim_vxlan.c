@@ -960,11 +960,16 @@ void pim_vxlan_add_term_dev(struct pim_instance *pim,
 
 	/* enable pim on the term ifp */
 	pim_ifp = (struct pim_interface *)ifp->info;
-	if (pim_ifp)
+	if (pim_ifp) {
 		PIM_IF_DO_PIM(pim_ifp->options);
-	else
+	} else {
 		pim_ifp = pim_if_new(ifp, false /*igmp*/, true /*pim*/,
 				false /*pimreg*/, true /*vxlan_term*/);
+		/* ensure that pimreg existss before using the newly created
+		 * vxlan termination device
+		 */
+		pim_if_create_pimreg(pim);
+	}
 
 	pim->vxlan.term_if = ifp;
 	hash_iterate(pim_ifp->pim->vxlan.sg_hash,
