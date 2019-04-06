@@ -956,7 +956,7 @@ void pim_vxlan_add_term_dev(struct pim_instance *pim,
 	if (PIM_DEBUG_VXLAN)
 		zlog_debug("vxlan term oif changed from %s to %s",
 			pim->vxlan.term_if ? pim->vxlan.term_if->name : "-",
-			ifp ? ifp->name : "-");
+			ifp->name);
 
 	/* enable pim on the term ifp */
 	pim_ifp = (struct pim_interface *)ifp->info;
