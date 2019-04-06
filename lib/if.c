@@ -519,10 +519,10 @@ const char *if_flag_dump(unsigned long flag)
 #define IFF_OUT_LOG(X, STR)                                                    \
 	if (flag & (X)) {                                                      \
 		if (separator)                                                 \
-			strlcat(logbuf, ",", BUFSIZ);                          \
+			strlcat(logbuf, ",", sizeof(logbuf));                  \
 		else                                                           \
 			separator = 1;                                         \
-		strlcat(logbuf, STR, BUFSIZ);                                  \
+		strlcat(logbuf, STR, sizeof(logbuf));                          \
 	}
 
 	strlcpy(logbuf, "<", BUFSIZ);
@@ -548,7 +548,7 @@ const char *if_flag_dump(unsigned long flag)
 	IFF_OUT_LOG(IFF_IPV4, "IPv4");
 	IFF_OUT_LOG(IFF_IPV6, "IPv6");
 
-	strlcat(logbuf, ">", BUFSIZ);
+	strlcat(logbuf, ">", sizeof(logbuf));
 
 	return logbuf;
 #undef IFF_OUT_LOG
