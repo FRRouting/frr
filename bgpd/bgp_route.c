@@ -239,12 +239,6 @@ struct bgp_path_info_extra *bgp_path_info_extra_get(struct bgp_path_info *pi)
 	return pi->extra;
 }
 
-/* Allocate new bgp info structure. */
-struct bgp_path_info *bgp_path_info_new(void)
-{
-	return XCALLOC(MTYPE_BGP_ROUTE, sizeof(struct bgp_path_info));
-}
-
 /* Free bgp route information. */
 static void bgp_path_info_free(struct bgp_path_info *path)
 {

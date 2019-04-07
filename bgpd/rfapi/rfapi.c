@@ -1059,14 +1059,8 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		}
 	}
 
-
-	new = bgp_path_info_new();
-	new->type = type;
-	new->sub_type = sub_type;
-	new->peer = rfd->peer;
+	new = info_make(type, sub_type, 0, rfd->peer, new_attr, NULL);
 	SET_FLAG(new->flags, BGP_PATH_VALID);
-	new->attr = new_attr;
-	new->uptime = bgp_clock();
 
 	/* save backref to rfapi handle */
 	assert(bgp_path_info_extra_get(new));

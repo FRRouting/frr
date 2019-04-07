@@ -564,7 +564,6 @@ extern void bgp_process_queues_drain_immediate(void);
 extern struct bgp_node *bgp_afi_node_lookup(struct bgp_table *table, afi_t afi,
 					    safi_t safi, struct prefix *p,
 					    struct prefix_rd *prd);
-extern struct bgp_path_info *bgp_path_info_new(void);
 extern void bgp_path_info_restore(struct bgp_node *rn,
 				  struct bgp_path_info *path);
 
