@@ -871,6 +871,25 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		if (source_flags & PIM_ENCODE_RPT_BIT)
 			pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch,
 						    PIM_IFJOIN_NOINFO);
+		else {
+			/*
+			 * We have received a S,G join and we are in
+			 * S,G RPT Prune state.  Which means we need
+			 * to transition to Join state and setup
+			 * state as appropriate.
+			 */
+			pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch,
+						    PIM_IFJOIN_JOIN);
+			PIM_IF_FLAG_UNSET_S_G_RPT(ch->flags);
+			if (pim_upstream_evaluate_join_desired(pim_ifp->pim,
+							       ch->upstream)) {
+				pim_channel_add_oif(ch->upstream->channel_oil,
+						    ch->interface,
+						    PIM_OIF_FLAG_PROTO_PIM);
+				pim_upstream_update_join_desired(pim_ifp->pim,
+								 ch->upstream);
+			}
+		}
 		break;
 	case PIM_IFJOIN_PRUNE_PENDING:
 		THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
