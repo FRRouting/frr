@@ -147,7 +147,7 @@ modify the Segment Routing Global Block (SRGB) and Maximum Stack Depth (MSD)
 TLV. Only Shortest Path First (SPF) Algorithm is supported, so no possibility
 to modify this TLV is offer by the code.
 
-When Opaque LSA Tyep 4 i.e. Router Information are stored in LSDB, function
+When Opaque LSA Type 4 i.e. Router Information are stored in LSDB, function
 `ospf_opaque_lsa_install_hook()` will call the previously registered function
 `ospf_router_info_lsa_update()`. In turn, the function will simply trigger
 `ospf_sr_ri_lsa_update()` or `ospf_sr_ri_lsa_delete` in function of the LSA
