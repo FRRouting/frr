@@ -1377,9 +1377,9 @@ int rip_create_socket(struct vrf *vrf)
 #ifdef IPTOS_PREC_INTERNETCONTROL
 	setsockopt_ipv4_tos(sock, IPTOS_PREC_INTERNETCONTROL);
 #endif
+	setsockopt_so_recvbuf(sock, RIP_UDP_RCV_BUF);
 
 	frr_elevate_privs(&ripd_privs) {
-		setsockopt_so_recvbuf(sock, RIP_UDP_RCV_BUF);
 		if ((ret = bind(sock, (struct sockaddr *)&addr, sizeof(addr)))
 		    < 0) {
 			zlog_err("%s: Can't bind socket %d to %s port %d: %s",

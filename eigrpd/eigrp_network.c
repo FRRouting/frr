@@ -108,7 +108,6 @@ void eigrp_adjust_sndbuflen(struct eigrp *eigrp, unsigned int buflen)
 	/* Check if any work has to be done at all. */
 	if (eigrp->maxsndbuflen >= buflen)
 		return;
-	frr_elevate_privs(&eigrpd_privs) {
 
 	/* Now we try to set SO_SNDBUF to what our caller has requested
 	 * (the MTU of a newly added interface). However, if the OS has
@@ -117,16 +116,15 @@ void eigrp_adjust_sndbuflen(struct eigrp *eigrp, unsigned int buflen)
 	 * may allocate more buffer space, than requested, this isn't
 	 * a error.
 	 */
-		setsockopt_so_sendbuf(eigrp->fd, buflen);
-		newbuflen = getsockopt_so_sendbuf(eigrp->fd);
-		if (newbuflen < 0 || newbuflen < (int)buflen)
-			zlog_warn("%s: tried to set SO_SNDBUF to %u, but got %d",
-				  __func__, buflen, newbuflen);
-		if (newbuflen >= 0)
-			eigrp->maxsndbuflen = (unsigned int)newbuflen;
-		else
-			zlog_warn("%s: failed to get SO_SNDBUF", __func__);
-	}
+	setsockopt_so_sendbuf(eigrp->fd, buflen);
+	newbuflen = getsockopt_so_sendbuf(eigrp->fd);
+	if (newbuflen < 0 || newbuflen < (int)buflen)
+		zlog_warn("%s: tried to set SO_SNDBUF to %u, but got %d",
+			  __func__, buflen, newbuflen);
+	if (newbuflen >= 0)
+		eigrp->maxsndbuflen = (unsigned int)newbuflen;
+	else
+		zlog_warn("%s: failed to get SO_SNDBUF", __func__);
 }
 
 int eigrp_if_ipmulticast(struct eigrp *top, struct prefix *p,
