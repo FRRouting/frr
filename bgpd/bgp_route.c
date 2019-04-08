@@ -239,12 +239,6 @@ struct bgp_path_info_extra *bgp_path_info_extra_get(struct bgp_path_info *pi)
 	return pi->extra;
 }
 
-/* Allocate new bgp info structure. */
-struct bgp_path_info *bgp_path_info_new(void)
-{
-	return XCALLOC(MTYPE_BGP_ROUTE, sizeof(struct bgp_path_info));
-}
-
 /* Free bgp route information. */
 static void bgp_path_info_free(struct bgp_path_info *path)
 {
@@ -1941,7 +1935,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 				continue;
 			if (BGP_PATH_HOLDDOWN(pi1))
 				continue;
-			if (pi1->peer && pi1->peer != bgp->peer_self)
+			if (pi1->peer != bgp->peer_self)
 				if (pi1->peer->status != Established)
 					continue;
 
@@ -1953,11 +1947,10 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 						continue;
 					if (BGP_PATH_HOLDDOWN(pi2))
 						continue;
-					if (pi2->peer
-					    && pi2->peer != bgp->peer_self
+					if (pi2->peer != bgp->peer_self
 					    && !CHECK_FLAG(
-						       pi2->peer->sflags,
-						       PEER_STATUS_NSF_WAIT))
+						    pi2->peer->sflags,
+						    PEER_STATUS_NSF_WAIT))
 						if (pi2->peer->status
 						    != Established)
 							continue;

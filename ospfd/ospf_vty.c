@@ -9733,7 +9733,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 					vty_out(vty, " ip ospf network %s",
 						ospf_int_type_str
 							[params->type]);
-					if (params != IF_DEF_PARAMS(ifp))
+					if (params != IF_DEF_PARAMS(ifp) && rn)
 						vty_out(vty, " %s",
 							inet_ntoa(
 								rn->p.u.prefix4));
@@ -9770,7 +9770,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 				vty_out(vty, " ip ospf authentication%s",
 					auth_str);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9781,7 +9781,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			    && params->auth_simple[0] != '\0') {
 				vty_out(vty, " ip ospf authentication-key %s",
 					params->auth_simple);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9794,7 +9794,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 					vty_out(vty,
 						" ip ospf message-digest-key %d md5 %s",
 						ck->key_id, ck->auth_key);
-					if (params != IF_DEF_PARAMS(ifp))
+					if (params != IF_DEF_PARAMS(ifp) && rn)
 						vty_out(vty, " %s",
 							inet_ntoa(
 								rn->p.u.prefix4));
@@ -9806,7 +9806,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			if (OSPF_IF_PARAM_CONFIGURED(params, output_cost_cmd)) {
 				vty_out(vty, " ip ospf cost %u",
 					params->output_cost_cmd);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9817,7 +9817,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			    && params->v_hello != OSPF_HELLO_INTERVAL_DEFAULT) {
 				vty_out(vty, " ip ospf hello-interval %u",
 					params->v_hello);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9839,7 +9839,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				else
 					vty_out(vty, "%u", params->v_wait);
 
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9851,7 +9851,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				       != OSPF_ROUTER_PRIORITY_DEFAULT) {
 				vty_out(vty, " ip ospf priority %u",
 					params->priority);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9864,7 +9864,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				       != OSPF_RETRANSMIT_INTERVAL_DEFAULT) {
 				vty_out(vty, " ip ospf retransmit-interval %u",
 					params->retransmit_interval);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9876,7 +9876,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				       != OSPF_TRANSMIT_DELAY_DEFAULT) {
 				vty_out(vty, " ip ospf transmit-delay %u",
 					params->transmit_delay);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9895,7 +9895,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				area_id2str(buf, sizeof(buf), &params->if_area,
 					    params->if_area_id_fmt);
 				vty_out(vty, " area %s", buf);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9912,7 +9912,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 					vty_out(vty, " no ip ospf mtu-ignore");
 				else
 					vty_out(vty, " ip ospf mtu-ignore");
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");

@@ -509,13 +509,11 @@ static struct bgp_path_info *rfapiBgpInfoCreate(struct attr *attr,
 {
 	struct bgp_path_info *new;
 
-	new = bgp_path_info_new();
-	assert(new);
+	new = info_make(type, sub_type, 0, peer, attr, NULL);
 
-	if (attr) {
-		if (!new->attr)
-			new->attr = bgp_attr_intern(attr);
-	}
+	if (attr)
+		new->attr = bgp_attr_intern(attr);
+
 	bgp_path_info_extra_get(new);
 	if (prd) {
 		new->extra->vnc.import.rd = *prd;
@@ -523,9 +521,7 @@ static struct bgp_path_info *rfapiBgpInfoCreate(struct attr *attr,
 	}
 	if (label)
 		encode_label(*label, &new->extra->label[0]);
-	new->type = type;
-	new->sub_type = sub_type;
-	new->peer = peer;
+
 	peer_lock(peer);
 
 	return new;
