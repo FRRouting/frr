@@ -47,6 +47,11 @@
 
 DEFINE_MTYPE_STATIC(BGPD, MARTIAN_STRING, "BGP Martian Address Intf String");
 
+static void bgp_ipv6_address_add(struct bgp *bgp, struct connected *ifc,
+					struct prefix *p);
+static void bgp_ipv6_address_del(struct bgp *bgp, struct connected *ifc,
+				struct prefix *p);
+
 char *bnc_str(struct bgp_nexthop_cache *bnc, char *buf, int size)
 {
 	prefix2str(&(bnc->node->p), buf, size);
@@ -379,6 +384,8 @@ void bgp_connected_add(struct bgp *bgp, struct connected *ifc)
 		if (IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6))
 			return;
 
+		bgp_ipv6_address_add(bgp, ifc, addr);
+
 		rn = bgp_node_get(bgp->connected_table[AFI_IP6],
 				  (struct prefix *)&p);
 
@@ -418,6 +425,8 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 
 		if (IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6))
 			return;
+
+		bgp_ipv6_address_del(bgp, ifc, addr);
 
 		rn = bgp_node_lookup(bgp->connected_table[AFI_IP6],
 				     (struct prefix *)&p);
@@ -771,4 +780,128 @@ void bgp_scan_finish(struct bgp *bgp)
 		bgp_table_unlock(bgp->import_check_table[afi]);
 		bgp->import_check_table[afi] = NULL;
 	}
+}
+
+static void *bgp_ipv6_address_hash_alloc(void *p)
+{
+	const struct in6_addr *v6addr = (const struct in6_addr *)p;
+	struct bgp_addrv6 *addr;
+
+	addr = XMALLOC(MTYPE_BGP_ADDR, sizeof(struct bgp_addrv6));
+	addr->addrv6 = *v6addr;
+
+	addr->ifp_name_list = list_new();
+	addr->ifp_name_list->del = bgp_address_hash_string_del;
+
+	return addr;
+}
+
+static void bgp_ipv6_address_hash_free(void *data)
+{
+	struct bgp_addrv6 *v6addr = data;
+
+	list_delete(&v6addr->ifp_name_list);
+	XFREE(MTYPE_BGP_ADDR, v6addr);
+}
+
+static unsigned int bgp_ipv6_address_hash_key_make(void *p)
+{
+	const struct bgp_addrv6 *v6 = p;
+
+	return __ipv6_addr_jhash(&v6->addrv6, 0);
+}
+
+static bool bgp_ipv6_address_hash_cmp(const void *p1,
+					const void *p2)
+{
+	const struct bgp_addrv6 *addr1 = p1;
+	const struct bgp_addrv6 *addr2 = p2;
+
+	return(!memcmp(&addr1->addrv6, &addr2->addrv6,
+				sizeof(struct in6_addr)));
+}
+
+void bgp_ipv6_address_init(struct bgp *bgp)
+{
+	bgp->ipv6_address_hash = hash_create(bgp_ipv6_address_hash_key_make,
+						bgp_ipv6_address_hash_cmp,
+						"BGP IPV6 Address Hash");
+}
+
+void bgp_ipv6_address_destroy(struct bgp *bgp)
+{
+	if (bgp->ipv6_address_hash == NULL)
+		return;
+	hash_clean(bgp->ipv6_address_hash,
+			bgp_ipv6_address_hash_free);
+
+	hash_free(bgp->ipv6_address_hash);
+			bgp->ipv6_address_hash = NULL;
+}
+
+static void bgp_ipv6_address_add(struct bgp *bgp, struct connected *ifc,
+					struct prefix *p)
+{
+	struct bgp_addrv6 tmp = {0};
+	struct bgp_addrv6 *addr = NULL;
+	struct listnode *node = NULL;
+	char *name = 0;
+
+	tmp.addrv6 = p->u.prefix6;
+
+	addr = hash_get(bgp->ipv6_address_hash, &tmp,
+			bgp_ipv6_address_hash_alloc);
+	if (!addr)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(addr->ifp_name_list, node, name)) {
+		if (strcmp(ifc->ifp->name, name) == 0)
+			break;
+	}
+
+	if (!node) {
+		name = XSTRDUP(MTYPE_MARTIAN_STRING, ifc->ifp->name);
+		listnode_add(addr->ifp_name_list, name);
+	}
+}
+
+
+static void bgp_ipv6_address_del(struct bgp *bgp, struct connected *ifc,
+				struct prefix *p)
+{
+	struct bgp_addrv6 tmp;
+	struct bgp_addrv6 *addr;
+	struct listnode *node;
+	char *name;
+
+
+	tmp.addrv6 = p->u.prefix6;
+
+	addr = hash_lookup(bgp->ipv6_address_hash, &tmp);
+        /* may have been deleted earlier by bgp_interface_down() */
+        if (addr == NULL)
+                return;
+
+        for (ALL_LIST_ELEMENTS_RO(addr->ifp_name_list, node, name)) {
+                if (strcmp(ifc->ifp->name, name) == 0)
+                        break;
+        }
+
+        if (node) {
+                list_delete_node(addr->ifp_name_list, node);
+                XFREE(MTYPE_MARTIAN_STRING, name);
+        }
+
+        if (addr->ifp_name_list->count == 0) {
+                hash_release(bgp->ipv6_address_hash, addr);
+                list_delete(&addr->ifp_name_list);
+                XFREE(MTYPE_BGP_ADDR, addr);
+        }
+}
+int bgp_nexthop_self_ipv6(struct bgp *bgp, struct in6_addr *addr)
+{
+	struct bgp_addrv6 tmp;
+
+	tmp.addrv6 = *addr;
+	return ( !!hash_lookup(bgp->ipv6_address_hash, &tmp));
 }
