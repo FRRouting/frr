@@ -202,10 +202,8 @@ void zebra_router_terminate(void)
 {
 	struct zebra_router_table *zrt, *tmp;
 
-	RB_FOREACH_SAFE (zrt, zebra_router_table_head, &zrouter.tables, tmp) {
-		RB_REMOVE(zebra_router_table_head, &zrouter.tables, zrt);
+	RB_FOREACH_SAFE (zrt, zebra_router_table_head, &zrouter.tables, tmp)
 		zebra_router_free_table(zrt);
-	}
 
 	work_queue_free_and_null(&zrouter.ribq);
 	meta_queue_free(zrouter.mq);
