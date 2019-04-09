@@ -156,11 +156,9 @@ static int lm_zclient_read(struct thread *t)
 	/* read response and send it back */
 	ret = relay_response_back();
 
-	/* on error, schedule another read */
-	if (ret == -1)
-		if (!zclient->t_read)
-			thread_add_read(zclient->master, lm_zclient_read, NULL,
-					zclient->sock, &zclient->t_read);
+	/* re-arm read */
+	thread_add_read(zclient->master, lm_zclient_read, NULL,
+			zclient->sock, &zclient->t_read);
 	return ret;
 }
 
