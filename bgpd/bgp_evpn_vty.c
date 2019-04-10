@@ -2756,9 +2756,11 @@ static void evpn_unset_advertise_subnet(struct bgp *bgp, struct bgpevpn *vpn)
  */
 static void evpn_set_advertise_all_vni(struct bgp *bgp)
 {
-	bgp->advertise_all_vni = 1;
-	bgp_set_evpn(bgp);
-	bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
+	if (!bgp->advertise_all_vni) {
+		bgp->advertise_all_vni = 1;
+		bgp_set_evpn(bgp);
+		bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
+	}
 }
 
 /*
@@ -2767,10 +2769,12 @@ static void evpn_set_advertise_all_vni(struct bgp *bgp)
  */
 static void evpn_unset_advertise_all_vni(struct bgp *bgp)
 {
-	bgp->advertise_all_vni = 0;
-	bgp_set_evpn(bgp_get_default());
-	bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
-	bgp_evpn_cleanup_on_disable(bgp);
+	if (bgp->advertise_all_vni) {
+		bgp->advertise_all_vni = 0;
+		bgp_set_evpn(bgp_get_default());
+		bgp_zebra_advertise_all_vni(bgp, bgp->advertise_all_vni);
+		bgp_evpn_cleanup_on_disable(bgp);
+	}
 }
 
 /*

@@ -9064,6 +9064,29 @@ stream_failure:
 	return;
 }
 
+/* Notify BGP All L3VNI's when the BGP daemon is back up*/
+static void zl3vni_add_notify_client(struct hash_backet *backet, void *args)
+{
+	zebra_l3vni_t *zl3vni = NULL;
+
+	zl3vni = (zebra_l3vni_t *)backet->data;
+	if (is_l3vni_oper_up(zl3vni))
+		zebra_vxlan_process_l3vni_oper_up(zl3vni);
+}
+
+/* Notify BGP ALL L2VNIs when the BGP daemon is back up*/
+static void zvni_add_notify_client(struct hash_backet *backet, void *arg)
+{
+	zebra_vni_t *zvni = NULL;
+	struct interface *ifp;
+	struct zebra_if *zif;
+
+	zvni = (zebra_vni_t *)backet->data;
+	ifp = zvni->vxlan_if;
+	zif = ifp->info;
+	if (if_is_operative(ifp) && zif->brslave_info.br_if)
+		zvni_send_add_to_client(zvni);
+}
 
 /*
  * Handle message from client to learn (or stop learning) about VNIs and MACs.
@@ -9095,8 +9118,16 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 			   is_evpn_enabled() ? "enabled" : "disabled",
 			   flood_ctrl);
 
-	if (zvrf->advertise_all_vni == advertise)
+	/* This happens if when BGP daemons restarts */
+	if (zvrf->advertise_all_vni == advertise) {
+		if (advertise) {
+			hash_iterate(zvrf->vni_table, zvni_add_notify_client,
+					zvrf);
+			hash_iterate(zrouter.l3vni_table,
+					zl3vni_add_notify_client, NULL);
+		}
 		return;
+	}
 
 	zvrf->advertise_all_vni = advertise;
 	if (EVPN_ENABLED(zvrf)) {
