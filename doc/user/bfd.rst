@@ -72,8 +72,7 @@ BFDd Commands
    peer listener to and the address we should use to send the packets.
    This option is mandatory for IPv6.
 
-   `interface` selects which interface we should use. This option
-   conflicts with `vrf`.
+   `interface` selects which interface we should use.
 
    `vrf` selects which domain we want to use.
 
@@ -294,6 +293,11 @@ Here are the available peer configurations:
      receive-interval 60000
      transmit-interval 3000
      shutdown
+    !
+
+    ! configure a peer on an interface from a separate vrf
+    peer 192.168.0.5 interface eth1 vrf vrf2
+     no shutdown
     !
 
     ! remove a peer
