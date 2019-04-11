@@ -156,8 +156,6 @@ extern struct nhg_hash_entry *zebra_nhg_find_nexthop(struct nexthop *nh,
 						     afi_t afi);
 
 
-void zebra_nhg_free_group_depends(struct nexthop_group **nhg,
-				  struct nhg_connected_head *head);
 void zebra_nhg_free_members(struct nhg_hash_entry *nhe);
 void zebra_nhg_free(void *arg);
 void zebra_nhg_release(struct nhg_hash_entry *nhe);

@@ -530,32 +530,6 @@ struct nhg_hash_entry *zebra_nhg_find_nexthop(struct nexthop *nh, afi_t afi)
 }
 
 /**
- * zebra_nhg_free_group_depends() - Helper function for freeing nexthop_group
- * 				    struct and depends
- *
- * @nhg:		Nexthop_group
- * @nhg_depends:	Nexthop group dependency tree head
- */
-void zebra_nhg_free_group_depends(struct nexthop_group **nhg,
-				  struct nhg_connected_head *head)
-{
-	// TODO
-	//
-	//
-	// FIX THIS NAMING
-	//
-	//
-	//
-	//
-	//
-	if (head)
-		nhg_connected_head_free(head);
-
-	if (nhg)
-		nexthop_group_free_delete(nhg);
-}
-
-/**
  * zebra_nhg_free_members() - Free all members in the hash entry struct
  *
  * @nhe: Nexthop group hash entry
@@ -564,9 +538,8 @@ void zebra_nhg_free_group_depends(struct nexthop_group **nhg,
  */
 void zebra_nhg_free_members(struct nhg_hash_entry *nhe)
 {
-	zebra_nhg_free_group_depends(&nhe->nhg, &nhe->nhg_depends);
-
-	// TODO: Fixup this function
+	nexthop_group_free_delete(&nhe->nhg);
+	nhg_connected_head_free(&nhe->nhg_depends);
 	nhg_connected_head_free(&nhe->nhg_dependents);
 }
 

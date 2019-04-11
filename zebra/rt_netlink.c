@@ -2399,7 +2399,8 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 		if (!nhg->nexthop) {
 			/* Nothing to lookup */
-			zebra_nhg_free_group_depends(&nhg, &nhg_depends);
+			nexthop_group_free_delete(&nhg);
+			nhg_connected_head_free(&nhg_depends);
 			return -1;
 		}
 
@@ -2413,12 +2414,14 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			 */
 
 			zebra_nhg_set_invalid(nhe);
-			zebra_nhg_free_group_depends(&nhg, &nhg_depends);
+			nexthop_group_free_delete(&nhg);
+			nhg_connected_head_free(&nhg_depends);
 
 		} else {
 			/* This is a new nexthop group */
 			nhe = zebra_nhg_find(nhg, vrf_id, afi, id, &nhg_depends,
 					     true);
+			/* The group was copied over, so free it */
 			nexthop_group_free_delete(&nhg);
 
 			if (!nhe) {
