@@ -8688,6 +8688,13 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 			return -1;
 		}
 
+		if (zvrf->l3vni != vni) {
+			snprintf(err, err_str_sz,
+					"VNI %d doesn't exist in VRF: %s",
+					vni, zvrf->vrf->name);
+			return -1;
+		}
+
 		if (filter && !CHECK_FLAG(zl3vni->filter, PREFIX_ROUTES_ONLY)) {
 			snprintf(err, ERR_STR_SZ,
 				 "prefix-routes-only is not set for the vni");
