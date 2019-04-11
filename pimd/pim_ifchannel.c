@@ -871,6 +871,25 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		if (source_flags & PIM_ENCODE_RPT_BIT)
 			pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch,
 						    PIM_IFJOIN_NOINFO);
+		else {
+			/*
+			 * We have received a S,G join and we are in
+			 * S,G RPT Prune state.  Which means we need
+			 * to transition to Join state and setup
+			 * state as appropriate.
+			 */
+			pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch,
+						    PIM_IFJOIN_JOIN);
+			PIM_IF_FLAG_UNSET_S_G_RPT(ch->flags);
+			if (pim_upstream_evaluate_join_desired(pim_ifp->pim,
+							       ch->upstream)) {
+				pim_channel_add_oif(ch->upstream->channel_oil,
+						    ch->interface,
+						    PIM_OIF_FLAG_PROTO_PIM);
+				pim_upstream_update_join_desired(pim_ifp->pim,
+								 ch->upstream);
+			}
+		}
 		break;
 	case PIM_IFJOIN_PRUNE_PENDING:
 		THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
@@ -1330,10 +1349,12 @@ void pim_ifchannel_scan_forward_start(struct interface *new_ifp)
 void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 					 uint8_t join)
 {
+	bool send_upstream_starg = false;
 	struct pim_ifchannel *child;
 	struct listnode *ch_node, *nch_node;
 	struct pim_instance *pim =
 		((struct pim_interface *)ch->interface->info)->pim;
+	struct pim_upstream *starup = ch->upstream;
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
@@ -1368,7 +1389,6 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 			if (child->ifjoin_state == PIM_IFJOIN_PRUNE_PENDING_TMP)
 				THREAD_OFF(child->t_ifjoin_prune_pending_timer);
 			THREAD_OFF(child->t_ifjoin_expiry_timer);
-			struct pim_upstream *parent = child->upstream->parent;
 
 			PIM_IF_FLAG_UNSET_S_G_RPT(child->flags);
 			child->ifjoin_state = PIM_IFJOIN_NOINFO;
@@ -1383,14 +1403,15 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 					&child->upstream->rpf, child->upstream,
 					true);
 			}
-			if (parent)
-				pim_jp_agg_single_upstream_send(&parent->rpf,
-								parent, true);
+			send_upstream_starg = true;
 
 			delete_on_noinfo(child);
 			break;
 		}
 	}
+
+	if (send_upstream_starg)
+		pim_jp_agg_single_upstream_send(&starup->rpf, starup, true);
 }
 
 unsigned int pim_ifchannel_hash_key(void *arg)

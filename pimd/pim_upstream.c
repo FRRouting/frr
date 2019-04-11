@@ -1276,7 +1276,12 @@ void pim_upstream_set_sptbit(struct pim_upstream *up,
 	}
 
 	// AND JoinDesired(S,G) == TRUE
-	// FIXME
+	if (!pim_upstream_evaluate_join_desired(up->channel_oil->pim, up)) {
+		if (PIM_DEBUG_TRACE)
+			zlog_debug("%s: %s Join is not Desired",
+				   __PRETTY_FUNCTION__, up->sg_str);
+		return;
+	}
 
 	// DirectlyConnected(S) == TRUE
 	if (pim_if_connected_to_source(up->rpf.source_nexthop.interface,
