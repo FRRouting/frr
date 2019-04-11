@@ -153,6 +153,7 @@ void zebra_pw_update(struct zebra_pw *pw)
 {
 	if (zebra_pw_check_reachability(pw) < 0) {
 		zebra_pw_uninstall(pw);
+		zebra_pw_install_failure(pw);
 		/* wait for NHT and try again later */
 	} else {
 		/*
