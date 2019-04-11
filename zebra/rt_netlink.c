@@ -2298,7 +2298,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	uint32_t id;
 	unsigned char family;
 	afi_t afi = AFI_UNSPEC;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	vrf_id_t vrf_id = 0;
 	struct interface *ifp = NULL;
 	struct nhmsg *nhm = NULL;
 	/* struct for nexthop group abstraction  */

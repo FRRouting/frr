@@ -2641,6 +2641,8 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	struct nhg_connected_head nhg_depends = {0};
 	/* Default to route afi */
 	afi_t nhg_afi = afi;
+	/* Default to route vrf id */
+	vrf_id_t nhg_vrf_id = re->vrf_id;
 	int ret = 0;
 
 	if (!re)
@@ -2680,10 +2682,11 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 
 		/* change the afi for group */
 		nhg_afi = AFI_UNSPEC;
+		nhg_vrf_id = 0;
 	}
 
 	// TODO: Add proto type here
-	nhe = zebra_nhg_find(re->ng, re->vrf_id, nhg_afi, re->nhe_id,
+	nhe = zebra_nhg_find(re->ng, nhg_vrf_id, nhg_afi, re->nhe_id,
 			     &nhg_depends, false);
 
 	if (nhe) {
