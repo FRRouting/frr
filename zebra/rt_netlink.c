@@ -2447,12 +2447,6 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					id);
 				nhg_connected_head_free(&nhg_depends);
 			} else {
-				/* Add the nhe to the interface's tree
-				 * of connected nhe's
-				 */
-				if (ifp)
-					zebra_nhg_set_if(nhe, ifp);
-
 				SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 				SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 			}
