@@ -169,41 +169,6 @@ void zebra_nhg_depends_init(struct nhg_hash_entry *nhe)
 	nhg_connected_head_init(&nhe->nhg_depends);
 }
 
-/**
- * zebra_nhg_depends_equal() - Are the dependencies of these nhe's equal
- *
- * @nhe1:	Nexthop group hash entry
- * @nhe2:	Nexthop group hash entry
- *
- * Return:	True if equal
- *
- * We don't care about ordering of the dependencies. If they contain
- * the same nhe ID's, they are equivalent.
- */
-static bool zebra_nhg_depends_equal(const struct nhg_hash_entry *nhe1,
-				    const struct nhg_hash_entry *nhe2)
-{
-	struct nhg_connected *rb_node_dep = NULL;
-
-	if (zebra_nhg_depends_is_empty(nhe1)
-	    && zebra_nhg_depends_is_empty(nhe2))
-		return true;
-
-	if ((zebra_nhg_depends_is_empty(nhe1)
-	     && !zebra_nhg_depends_is_empty(nhe2))
-	    || (zebra_nhg_depends_is_empty(nhe2)
-		&& !zebra_nhg_depends_is_empty(nhe1)))
-		return false;
-
-	RB_FOREACH (rb_node_dep, nhg_connected_head, &nhe1->nhg_depends) {
-		if (!RB_FIND(nhg_connected_head, &nhe2->nhg_depends,
-			     rb_node_dep))
-			return false;
-	}
-
-	return true;
-}
-
 unsigned int zebra_nhg_dependents_count(const struct nhg_hash_entry *nhe)
 {
 	return nhg_connected_head_count(&nhe->nhg_dependents);
@@ -383,7 +348,7 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	if (nhe1->afi != nhe2->afi)
 		return false;
 
-	if (!zebra_nhg_depends_equal(nhe1, nhe2))
+	if (!nexthop_group_equal(nhe1->nhg, nhe2->nhg))
 		return false;
 
 	return true;
