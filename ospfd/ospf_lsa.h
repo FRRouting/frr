@@ -24,6 +24,12 @@
 
 #include "stream.h"
 
+/* OSPF LSA Default metric values */
+#define DEFAULT_DEFAULT_METRIC 20
+#define DEFAULT_DEFAULT_ORIGINATE_METRIC 10
+#define DEFAULT_DEFAULT_ALWAYS_METRIC 1
+#define DEFAULT_METRIC_TYPE EXTERNAL_METRIC_TYPE_2
+
 /* OSPF LSA Range definition. */
 #define OSPF_MIN_LSA		1  /* begin range here */
 #define OSPF_MAX_LSA           12
