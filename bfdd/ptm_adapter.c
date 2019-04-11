@@ -434,7 +434,7 @@ static void bfdd_dest_deregister(struct stream *msg)
 	if (bs->refcount ||
 	    BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
 		return;
-	ptm_bfd_ses_del(&bpc);
+	ptm_bfd_sess_del(&bpc);
 }
 
 /*

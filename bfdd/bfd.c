@@ -291,7 +291,7 @@ void ptm_bfd_echo_start(struct bfd_session *bfd)
 		ptm_bfd_echo_xmt_TO(bfd);
 }
 
-void ptm_bfd_ses_up(struct bfd_session *bfd)
+void ptm_bfd_sess_up(struct bfd_session *bfd)
 {
 	int old_state = bfd->ses_state;
 
@@ -315,7 +315,7 @@ void ptm_bfd_ses_up(struct bfd_session *bfd)
 	}
 }
 
-void ptm_bfd_ses_dn(struct bfd_session *bfd, uint8_t diag)
+void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 {
 	int old_state = bfd->ses_state;
 
@@ -432,7 +432,7 @@ int bfd_recvtimer_cb(struct thread *t)
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
-		ptm_bfd_ses_dn(bs, BD_CONTROL_EXPIRED);
+		ptm_bfd_sess_dn(bs, BD_CONTROL_EXPIRED);
 		bfd_recvtimer_update(bs);
 		break;
 
@@ -455,7 +455,7 @@ int bfd_echo_recvtimer_cb(struct thread *t)
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
-		ptm_bfd_ses_dn(bs, BD_ECHO_FAILED);
+		ptm_bfd_sess_dn(bs, BD_ECHO_FAILED);
 		break;
 	}
 
@@ -725,7 +725,7 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 	return bfd;
 }
 
-int ptm_bfd_ses_del(struct bfd_peer_cfg *bpc)
+int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc)
 {
 	struct bfd_session *bs;
 
@@ -805,7 +805,7 @@ static void bs_down_handler(struct bfd_session *bs, int nstate)
 		 * Remote peer told us his path is up, lets turn
 		 * activate the session.
 		 */
-		ptm_bfd_ses_up(bs);
+		ptm_bfd_sess_up(bs);
 		break;
 
 	default:
@@ -832,7 +832,7 @@ static void bs_init_handler(struct bfd_session *bs, int nstate)
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
 		/* We agreed on the settings and the path is up. */
-		ptm_bfd_ses_up(bs);
+		ptm_bfd_sess_up(bs);
 		break;
 
 	default:
@@ -847,7 +847,7 @@ static void bs_up_handler(struct bfd_session *bs, int nstate)
 	case PTM_BFD_ADM_DOWN:
 	case PTM_BFD_DOWN:
 		/* Peer lost or asked to shutdown connection. */
-		ptm_bfd_ses_dn(bs, BD_NEIGHBOR_DOWN);
+		ptm_bfd_sess_dn(bs, BD_NEIGHBOR_DOWN);
 		break;
 
 	case PTM_BFD_INIT:

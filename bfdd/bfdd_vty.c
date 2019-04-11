@@ -360,7 +360,7 @@ DEFPY(bfd_no_peer, bfd_no_peer_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (ptm_bfd_ses_del(&bpc) != 0) {
+	if (ptm_bfd_sess_del(&bpc) != 0) {
 		vty_out(vty, "%% Failed to remove peer.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
