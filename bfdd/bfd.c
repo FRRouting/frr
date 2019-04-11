@@ -1322,32 +1322,105 @@ struct bfd_session *bfd_id_lookup(uint32_t id)
 	return hash_lookup(bfd_id_hash, &bs);
 }
 
+struct bfd_key_walk_partial_lookup {
+	struct bfd_session *given;
+	struct bfd_session *result;
+};
+
+/* ignore some parameters */
+static int bfd_key_lookup_ignore_partial_walker(struct hash_bucket *b, void *data)
+{
+	struct bfd_key_walk_partial_lookup  *ctx =
+		(struct bfd_key_walk_partial_lookup *)data;
+	struct bfd_session *given = ctx->given;
+	struct bfd_session *parsed = b->data;
+
+	if (given->key.family != parsed->key.family)
+		return HASHWALK_CONTINUE;
+	if (given->key.mhop != parsed->key.mhop)
+		return HASHWALK_CONTINUE;
+	if (memcmp(&given->key.peer, &parsed->key.peer, sizeof(struct in6_addr)))
+		return HASHWALK_CONTINUE;
+	if (memcmp(given->key.vrfname, parsed->key.vrfname, MAXNAMELEN))
+		return HASHWALK_CONTINUE;
+	ctx->result = parsed;
+	/* ignore localaddr or interface */
+	return HASHWALK_ABORT;
+}
+
 struct bfd_session *bfd_key_lookup(struct bfd_key key)
 {
 	struct bfd_session bs, *bsp;
+	struct bfd_key_walk_partial_lookup ctx;
+	char peer_buf[INET6_ADDRSTRLEN];
 
 	bs.key = key;
 	bsp = hash_lookup(bfd_key_hash, &bs);
+	if (bsp)
+		return bsp;
 
+	inet_ntop(bs.key.family, &bs.key.peer, peer_buf,
+		  sizeof(peer_buf));
 	/* Handle cases where local-address is optional. */
-	if (bsp == NULL && bs.key.family == AF_INET) {
+	if (bs.key.family == AF_INET) {
 		memset(&bs.key.local, 0, sizeof(bs.key.local));
 		bsp = hash_lookup(bfd_key_hash, &bs);
-	}
+		if (bsp) {
+			char addr_buf[INET6_ADDRSTRLEN];
 
-	/* Handle cases where ifname is optional. */
-	bs.key = key;
-	if (bsp == NULL && bs.key.ifname[0]) {
-		memset(bs.key.ifname, 0, sizeof(bs.key.ifname));
-		bsp = hash_lookup(bfd_key_hash, &bs);
-
-		/* Handle cases where local-address and ifname are optional. */
-		if (bsp == NULL && bs.key.family == AF_INET) {
-			memset(&bs.key.local, 0, sizeof(bs.key.local));
-			bsp = hash_lookup(bfd_key_hash, &bs);
+			inet_ntop(bs.key.family, &key.local, addr_buf,
+				  sizeof(addr_buf));
+			log_debug(" peer %s found, but loc-addr %s ignored",
+				  peer_buf, addr_buf);
+			return bsp;
 		}
 	}
 
+	bs.key = key;
+	/* Handle cases where ifname is optional. */
+	if (bs.key.ifname[0]) {
+		memset(bs.key.ifname, 0, sizeof(bs.key.ifname));
+		bsp = hash_lookup(bfd_key_hash, &bs);
+		if (bsp) {
+			log_debug(" peer %s found, but ifp %s ignored",
+				  peer_buf, key.ifname);
+			return bsp;
+		}
+	}
+
+	/* Handle cases where local-address and ifname are optional. */
+	if (bs.key.family == AF_INET) {
+		memset(&bs.key.local, 0, sizeof(bs.key.local));
+		bsp = hash_lookup(bfd_key_hash, &bs);
+		if (bsp) {
+			char addr_buf[INET6_ADDRSTRLEN];
+
+			inet_ntop(bs.key.family, &bs.key.local, addr_buf,
+				  sizeof(addr_buf));
+			log_debug(" peer %s found, but ifp %s"
+				  " and loc-addr %s ignored",
+				  peer_buf, key.ifname,
+				  addr_buf);
+			return bsp;
+		}
+	}
+	bs.key = key;
+
+	/* Handle case where a context more complex ctx is present.
+	 * input has no iface nor local-address, but a context may
+	 * exist
+	 */
+	ctx.result = NULL;
+	ctx.given = &bs;
+	hash_walk(bfd_key_hash,
+		  &bfd_key_lookup_ignore_partial_walker,
+		  &ctx);
+	/* change key */
+	if (ctx.result) {
+		bsp = ctx.result;
+		log_debug(" peer %s found, but ifp"
+			  " and/or loc-addr params ignored");
+	}
 	return bsp;
 }
 
