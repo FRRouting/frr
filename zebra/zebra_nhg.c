@@ -363,10 +363,10 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
 }
 
 /**
- * zebra_nhg_cmp() - Compare the ID's of two nhe's
+ * nhg_connected cmp() - Compare the ID's of two connected nhg's
  *
- * @nhe1:	Nexthop group hash entry #1
- * @nhe2:	Nexthop group hash entry #2
+ * @con1:	Connected group entry #1
+ * @con2:	Connected group entry #2
  *
  * Return:
  * 	- Negative: #1 < #2
@@ -375,16 +375,10 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
  *
  * This is used in the nhg RB trees.
  */
-static int zebra_nhg_cmp(const struct nhg_hash_entry *nhe1,
-			 const struct nhg_hash_entry *nhe2)
+static int nhg_connected_cmp(const struct nhg_connected *con1,
+			     const struct nhg_connected *con2)
 {
-	return nhe1->id - nhe2->id;
-}
-
-static int nhg_connected_cmp(const struct nhg_connected *dep1,
-			     const struct nhg_connected *dep2)
-{
-	return zebra_nhg_cmp(dep1->nhe, dep2->nhe);
+	return (con1->nhe->id - con2->nhe->id);
 }
 
 /**
