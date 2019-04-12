@@ -746,14 +746,17 @@ static int eigrpd_instance_redistribute_create(enum nb_event event,
 					       union nb_resource *resource)
 {
 	struct eigrp_metrics metrics;
+	const char *vrfname;
 	struct eigrp *eigrp;
 	uint32_t proto;
+	vrf_id_t vrfid;
 
 	switch (event) {
 	case NB_EV_VALIDATE:
 		proto = yang_dnode_get_enum(dnode, "./protocol");
-		if (vrf_bitmap_check(zclient->redist[AFI_IP][proto],
-				     VRF_DEFAULT))
+		vrfname = yang_dnode_get_string(dnode, "../vrf");
+		vrfid = vrf_name_to_id(vrfname);
+		if (vrf_bitmap_check(zclient->redist[AFI_IP][proto], vrfid))
 			return NB_ERR_INCONSISTENCY;
 		break;
 	case NB_EV_PREPARE:

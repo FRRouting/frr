@@ -93,7 +93,7 @@ extern struct in_addr router_id_zebra;
  */
 void eigrp_router_id_update(struct eigrp *eigrp)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(eigrp->vrf_id);
 	struct interface *ifp;
 	struct in_addr router_id, router_id_old;
 
@@ -199,16 +199,15 @@ static struct eigrp *eigrp_new(const char *AS, vrf_id_t vrf_id)
 	eigrp->routemap[EIGRP_FILTER_OUT] = NULL;
 
 	/* Distribute list install. */
-	eigrp->distribute_ctx = distribute_list_ctx_create(
-					   vrf_lookup_by_id(VRF_DEFAULT));
+	eigrp->distribute_ctx =
+		distribute_list_ctx_create(vrf_lookup_by_id(eigrp->vrf_id));
 	distribute_list_add_hook(eigrp->distribute_ctx,
 				 eigrp_distribute_update);
 	distribute_list_delete_hook(eigrp->distribute_ctx,
 				    eigrp_distribute_update);
 
 	/*
-	  eigrp->if_rmap_ctx = if_rmap_ctx_create(
-	                               VRF_DEFAULT_NAME);
+	  eigrp->if_rmap_ctx = if_rmap_ctx_create(eigrp->vrf_id);
 	  if_rmap_hook_add (eigrp_if_rmap_update);
 	  if_rmap_hook_delete (eigrp_if_rmap_update);
 	*/

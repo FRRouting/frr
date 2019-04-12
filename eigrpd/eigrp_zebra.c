@@ -443,7 +443,7 @@ int eigrp_redistribute_set(struct eigrp *eigrp, int type,
 	eigrp->dmetric[type] = metric;
 
 	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type, 0,
-			     VRF_DEFAULT);
+			     eigrp->vrf_id);
 
 	++eigrp->redistribute;
 
@@ -456,7 +456,7 @@ int eigrp_redistribute_unset(struct eigrp *eigrp, int type)
 	if (eigrp_is_type_redistributed(type)) {
 		memset(&eigrp->dmetric[type], 0, sizeof(struct eigrp_metrics));
 		zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP,
-				     type, 0, VRF_DEFAULT);
+				     type, 0, eigrp->vrf_id);
 		--eigrp->redistribute;
 	}
 

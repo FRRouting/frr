@@ -525,7 +525,7 @@ int eigrp_read(struct thread *thread)
 		   ifindex
 		   retrieval but do not. */
 		c = if_lookup_address((void *)&iph->ip_src, AF_INET,
-				      VRF_DEFAULT);
+				      eigrp->vrf_id);
 
 		if (c == NULL)
 			return 0;
