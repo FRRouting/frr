@@ -64,8 +64,6 @@ static struct eigrp_master eigrp_master;
 
 struct eigrp_master *eigrp_om;
 
-static struct eigrp *eigrp_new(const char *);
-
 extern struct zclient *zclient;
 extern struct in_addr router_id_zebra;
 
@@ -136,12 +134,13 @@ void eigrp_master_init(void)
 }
 
 /* Allocate new eigrp structure. */
-static struct eigrp *eigrp_new(const char *AS)
+static struct eigrp *eigrp_new(const char *AS, vrf_id_t vrf_id)
 {
 	struct eigrp *eigrp = XCALLOC(MTYPE_EIGRP_TOP, sizeof(struct eigrp));
 	int eigrp_socket;
 
 	/* init information relevant to peers */
+	eigrp->vrf_id = vrf_id;
 	eigrp->vrid = 0;
 	eigrp->AS = atoi(AS);
 	eigrp->router_id.s_addr = 0;
@@ -217,13 +216,13 @@ static struct eigrp *eigrp_new(const char *AS)
 	return eigrp;
 }
 
-struct eigrp *eigrp_get(const char *AS)
+struct eigrp *eigrp_get(const char *AS, vrf_id_t vrf_id)
 {
 	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
-		eigrp = eigrp_new(AS);
+		eigrp = eigrp_new(AS, vrf_id);
 		listnode_add(eigrp_om->eigrp, eigrp);
 	}
 
