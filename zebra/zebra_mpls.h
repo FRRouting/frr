@@ -352,6 +352,9 @@ struct zebra_dplane_ctx;
 
 void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx);
 
+/* Process async dplane notifications. */
+void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx);
+
 /*
  * Schedule all MPLS label forwarding entries for processing.
  * Called upon changes that may affect one or more of them such as

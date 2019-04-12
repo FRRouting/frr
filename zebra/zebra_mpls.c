@@ -1810,6 +1810,130 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 }
 
 /*
+ * Process async dplane notifications.
+ */
+void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
+{
+	struct zebra_vrf *zvrf;
+	zebra_ile_t tmp_ile;
+	struct hash *lsp_table;
+	zebra_lsp_t *lsp;
+	zebra_nhlfe_t *nhlfe;
+	const zebra_nhlfe_t *ctx_nhlfe;
+	struct nexthop *nexthop;
+	const struct nexthop *ctx_nexthop;
+	int start_count = 0, end_count = 0; /* Installed counts */
+	bool is_debug = (IS_ZEBRA_DEBUG_DPLANE | IS_ZEBRA_DEBUG_MPLS);
+
+	if (is_debug)
+		zlog_debug("LSP dplane notif, in-label %u",
+			   dplane_ctx_get_in_label(ctx));
+
+	/* Look for zebra LSP object */
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (zvrf == NULL)
+		goto done;
+
+	lsp_table = zvrf->lsp_table;
+
+	tmp_ile.in_label = dplane_ctx_get_in_label(ctx);
+	lsp = hash_lookup(lsp_table, &tmp_ile);
+	if (lsp == NULL) {
+		if (is_debug)
+			zlog_debug("dplane LSP notif: in-label %u not found",
+				   dplane_ctx_get_in_label(ctx));
+		goto done;
+	}
+
+	/*
+	 * The dataplane/forwarding plane is notifying zebra about the state
+	 * of the nexthops associated with this LSP. We bring the zebra
+	 * nexthop state into sync with the forwarding-plane state.
+	 */
+	for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
+		char buf[NEXTHOP_STRLEN];
+
+		nexthop = nhlfe->nexthop;
+		if (!nexthop)
+			continue;
+
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+			start_count++;
+
+		ctx_nexthop = NULL;
+		for (ctx_nhlfe = dplane_ctx_get_nhlfe(ctx);
+		     ctx_nhlfe; ctx_nhlfe = ctx_nhlfe->next) {
+
+			ctx_nexthop = ctx_nhlfe->nexthop;
+			if (!ctx_nexthop)
+				continue;
+
+			if ((ctx_nexthop->type == nexthop->type) &&
+			    nexthop_same(ctx_nexthop, nexthop)) {
+				/* Matched */
+				break;
+			}
+		}
+
+		if (is_debug)
+			nexthop2str(nexthop, buf, sizeof(buf));
+
+		if (ctx_nhlfe && ctx_nexthop) {
+			if (is_debug) {
+				const char *tstr = "";
+
+				if (!CHECK_FLAG(ctx_nhlfe->flags,
+						NHLFE_FLAG_INSTALLED))
+					tstr = "not ";
+
+				zlog_debug("LSP dplane notif: matched nh %s (%sinstalled)",
+					   buf, tstr);
+			}
+
+			/* Bring zebra nhlfe install state into sync */
+			if (CHECK_FLAG(ctx_nhlfe->flags,
+				       NHLFE_FLAG_INSTALLED)) {
+				SET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+
+				/* Update counter */
+				end_count++;
+			} else
+				UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+
+			if (CHECK_FLAG(ctx_nhlfe->nexthop->flags,
+				       NEXTHOP_FLAG_FIB))
+				SET_FLAG(nhlfe->nexthop->flags,
+					 NEXTHOP_FLAG_FIB);
+			else
+				UNSET_FLAG(nhlfe->nexthop->flags,
+					   NEXTHOP_FLAG_FIB);
+		} else {
+			/* Not mentioned in lfib set -> uninstalled */
+			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+
+			if (is_debug)
+				zlog_debug("LSP dplane notif: no match, nh %s",
+					   buf);
+		}
+	}
+
+	if (is_debug)
+		zlog_debug("LSP dplane notif: lfib start_count %d, end_count %d",
+			   start_count, end_count);
+
+	if (end_count > 0)
+		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+	else {
+		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+		clear_nhlfe_installed(lsp);
+	}
+
+done:
+	dplane_ctx_fini(&ctx);
+}
+
+/*
  * Install dynamic LSP entry.
  */
 int zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,

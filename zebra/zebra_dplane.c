@@ -421,6 +421,7 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 	case DPLANE_OP_LSP_INSTALL:
 	case DPLANE_OP_LSP_UPDATE:
 	case DPLANE_OP_LSP_DELETE:
+	case DPLANE_OP_LSP_NOTIFY:
 	{
 		zebra_nhlfe_t *nhlfe, *next;
 
@@ -595,6 +596,9 @@ const char *dplane_op2str(enum dplane_op_e op)
 		break;
 	case DPLANE_OP_LSP_DELETE:
 		ret = "LSP_DELETE";
+		break;
+	case DPLANE_OP_LSP_NOTIFY:
+		ret = "LSP_NOTIFY";
 		break;
 
 	case DPLANE_OP_PW_INSTALL:
@@ -2377,10 +2381,11 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 			res = kernel_dplane_address_update(ctx);
 			break;
 
-		/* Ignore 'notifications' */
+		/* Ignore 'notifications' - no-op */
 		case DPLANE_OP_SYS_ROUTE_ADD:
 		case DPLANE_OP_SYS_ROUTE_DELETE:
 		case DPLANE_OP_ROUTE_NOTIFY:
+		case DPLANE_OP_LSP_NOTIFY:
 			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
 			break;
 

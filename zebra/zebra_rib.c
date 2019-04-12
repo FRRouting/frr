@@ -3738,6 +3738,10 @@ static int rib_process_dplane_results(struct thread *thread)
 				zebra_mpls_lsp_dplane_result(ctx);
 				break;
 
+			case DPLANE_OP_LSP_NOTIFY:
+				zebra_mpls_process_dplane_notify(ctx);
+				break;
+
 			case DPLANE_OP_PW_INSTALL:
 			case DPLANE_OP_PW_UNINSTALL:
 				handle_pw_result(ctx);
