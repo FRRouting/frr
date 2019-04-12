@@ -85,7 +85,8 @@ static int eigrpd_instance_create(enum nb_event event,
 		/* NOTHING */
 		break;
 	case NB_EV_PREPARE:
-		eigrp = eigrp_get(yang_dnode_get_string(dnode, "./asn"));
+		eigrp = eigrp_get(yang_dnode_get_string(dnode, "./asn"),
+				  VRF_DEFAULT);
 		resource->ptr = eigrp;
 		break;
 	case NB_EV_ABORT:
@@ -1181,7 +1182,8 @@ static int lib_interface_eigrp_instance_create(enum nb_event event,
 			break;
 		}
 
-		eigrp = eigrp_get(yang_dnode_get_string(dnode, "./asn"));
+		eigrp = eigrp_get(yang_dnode_get_string(dnode, "./asn"),
+				  VRF_DEFAULT);
 		eif = eigrp_interface_lookup(eigrp, ifp->name);
 		if (eif == NULL)
 			return NB_ERR_INCONSISTENCY;
@@ -1192,7 +1194,8 @@ static int lib_interface_eigrp_instance_create(enum nb_event event,
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(dnode, NULL, true);
-		eigrp = eigrp_get(yang_dnode_get_string(dnode, "./asn"));
+		eigrp = eigrp_get(yang_dnode_get_string(dnode, "./asn"),
+				  VRF_DEFAULT);
 		eif = eigrp_interface_lookup(eigrp, ifp->name);
 		if (eif == NULL)
 			return NB_ERR_INCONSISTENCY;

@@ -48,7 +48,7 @@ extern void eigrp_master_init(void);
 extern void eigrp_terminate(void);
 extern void eigrp_finish_final(struct eigrp *);
 extern void eigrp_finish(struct eigrp *);
-extern struct eigrp *eigrp_get(const char *);
+extern struct eigrp *eigrp_get(const char *as, vrf_id_t vrf_id);
 extern struct eigrp *eigrp_lookup(void);
 extern void eigrp_router_id_update(struct eigrp *);
 
