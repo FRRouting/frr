@@ -1207,7 +1207,8 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode,
 						  up)) {
 
-				if (strcmp(ifp->name,
+				if (!up->rpf.source_nexthop.interface ||
+				    strcmp(ifp->name,
 					   up->rpf.source_nexthop
 						   .interface->name)
 				    != 0)
@@ -2335,6 +2336,7 @@ static const char *pim_reg_state2brief_str(enum pim_reg_state reg_state,
 }
 
 static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
+			      const char *src_or_group, const char *group,
 			      bool uj)
 {
 	struct listnode *upnode;
@@ -2368,6 +2370,19 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 				now - up->state_transition);
 		pim_time_timer_to_hhmmss(join_timer, sizeof(join_timer),
 					 up->t_join_timer);
+
+
+		/*
+		 * if source/group passed filter based on that
+		 */
+		if (src_or_group) {
+			if (strcmp(src_or_group, src_str)
+			    && strcmp(src_or_group, grp_str))
+				continue;
+
+			if (group && strcmp(group, grp_str))
+				continue;
+		}
 
 		/*
 		 * If the upstream is not dummy and it has a J/P timer for the
@@ -4022,16 +4037,15 @@ DEFUN (show_ip_pim_state_vrf_all,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_upstream,
-       show_ip_pim_upstream_cmd,
-       "show ip pim [vrf NAME] upstream [json]",
-       SHOW_STR
-       IP_STR
-       PIM_STR
-       VRF_CMD_HELP_STR
-       "PIM upstream information\n"
-       JSON_STR)
+DEFUN(show_ip_pim_upstream, show_ip_pim_upstream_cmd,
+      "show ip pim [vrf NAME] upstream [A.B.C.D [A.B.C.D]] [json]",
+      SHOW_STR IP_STR PIM_STR VRF_CMD_HELP_STR
+      "PIM upstream information\n"
+      "Unicast or Multicast address\n"
+      "Multicast address\n" JSON_STR)
 {
+	const char *src_or_group = NULL;
+	const char *group = NULL;
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
 	bool uj = use_json(argc, argv);
@@ -4039,7 +4053,16 @@ DEFUN (show_ip_pim_upstream,
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_show_upstream(vrf->info, vty, uj);
+	if (uj)
+		argc--;
+
+	if (argv_find(argv, argc, "A.B.C.D", &idx)) {
+		src_or_group = argv[idx]->arg;
+		if (idx + 1 < argc)
+			group = argv[idx + 1]->arg;
+	}
+
+	pim_show_upstream(vrf->info, vty, src_or_group, group, uj);
 
 	return CMD_SUCCESS;
 }
@@ -4068,7 +4091,7 @@ DEFUN (show_ip_pim_upstream_vrf_all,
 			first = false;
 		} else
 			vty_out(vty, "VRF: %s\n", vrf->name);
-		pim_show_upstream(vrf->info, vty, uj);
+		pim_show_upstream(vrf->info, vty, NULL, NULL, uj);
 	}
 
 	return CMD_SUCCESS;
