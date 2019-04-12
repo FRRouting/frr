@@ -363,7 +363,13 @@ enum dplane_provider_prio {
  * then checks the provider's outbound queue for completed work.
  */
 
-/* Providers offer an entry-point for shutdown and cleanup. This is called
+/*
+ * Providers can offer a 'start' callback; if present, the dataplane will
+ * call it when it is starting - when its pthread and event-scheduling
+ * thread_master are available.
+ */
+
+/* Providers can offer an entry-point for shutdown and cleanup. This is called
  * with 'early' during shutdown, to indicate that the dataplane subsystem
  * is allowing work to move through the providers and finish.
  * When called without 'early', the provider should release
@@ -372,6 +378,7 @@ enum dplane_provider_prio {
 int dplane_provider_register(const char *name,
 			     enum dplane_provider_prio prio,
 			     int flags,
+			     int (*start_fp)(struct zebra_dplane_provider *),
 			     int (*fp)(struct zebra_dplane_provider *),
 			     int (*fini_fp)(struct zebra_dplane_provider *,
 					    bool early),

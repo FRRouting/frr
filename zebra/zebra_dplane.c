@@ -222,6 +222,8 @@ struct zebra_dplane_provider {
 	/* Flags */
 	int dp_flags;
 
+	int (*dp_start)(struct zebra_dplane_provider *prov);
+
 	int (*dp_fp)(struct zebra_dplane_provider *prov);
 
 	int (*dp_fini)(struct zebra_dplane_provider *prov, bool early_p);
@@ -1823,6 +1825,7 @@ int dplane_show_provs_helper(struct vty *vty, bool detailed)
 int dplane_provider_register(const char *name,
 			     enum dplane_provider_prio prio,
 			     int flags,
+			     int (*start_fp)(struct zebra_dplane_provider *),
 			     int (*fp)(struct zebra_dplane_provider *),
 			     int (*fini_fp)(struct zebra_dplane_provider *,
 					    bool early),
@@ -1853,6 +1856,7 @@ int dplane_provider_register(const char *name,
 
 	p->dp_priority = prio;
 	p->dp_fp = fp;
+	p->dp_start = start_fp;
 	p->dp_fini = fini_fp;
 	p->dp_data = data;
 
@@ -2320,7 +2324,7 @@ static void dplane_provider_init(void)
 
 	ret = dplane_provider_register("Kernel",
 				       DPLANE_PRIO_KERNEL,
-				       DPLANE_PROV_FLAGS_DEFAULT,
+				       DPLANE_PROV_FLAGS_DEFAULT, NULL,
 				       kernel_dplane_process_func,
 				       NULL,
 				       NULL, NULL);
@@ -2333,7 +2337,7 @@ static void dplane_provider_init(void)
 	/* Optional test provider ... */
 	ret = dplane_provider_register("Test",
 				       DPLANE_PRIO_PRE_KERNEL,
-				       DPLANE_PROV_FLAGS_DEFAULT,
+				       DPLANE_PROV_FLAGS_DEFAULT, NULL,
 				       test_dplane_process_func,
 				       test_dplane_shutdown_func,
 				       NULL /* data */, NULL);
@@ -2717,12 +2721,13 @@ static void zebra_dplane_init_internal(void)
  */
 void zebra_dplane_start(void)
 {
-	/* Start dataplane pthread */
-
+	struct zebra_dplane_provider *prov;
 	struct frr_pthread_attr pattr = {
 		.start = frr_pthread_attr_default.start,
 		.stop = frr_pthread_attr_default.stop
 	};
+
+	/* Start dataplane pthread */
 
 	zdplane_info.dg_pthread = frr_pthread_new(&pattr, "Zebra dplane thread",
 						  "Zebra dplane");
@@ -2734,6 +2739,23 @@ void zebra_dplane_start(void)
 	/* Enqueue an initial event for the dataplane pthread */
 	thread_add_event(zdplane_info.dg_master, dplane_thread_loop, NULL, 0,
 			 &zdplane_info.dg_t_update);
+
+	/* Call start callbacks for registered providers */
+
+	DPLANE_LOCK();
+	prov = TAILQ_FIRST(&zdplane_info.dg_providers_q);
+	DPLANE_UNLOCK();
+
+	while (prov) {
+
+		if (prov->dp_start)
+			(prov->dp_start)(prov);
+
+		/* Locate next provider */
+		DPLANE_LOCK();
+		prov = TAILQ_NEXT(prov, dp_prov_link);
+		DPLANE_UNLOCK();
+	}
 
 	frr_pthread_run(zdplane_info.dg_pthread, NULL);
 }
