@@ -33,6 +33,7 @@ extern "C" {
 
 /* Forward declaration(s). */
 struct vty;
+struct debug;
 
 /* Northbound events. */
 enum nb_event {
@@ -458,11 +459,37 @@ typedef int (*nb_oper_data_cb)(const struct lys_node *snode,
 /* Iterate over direct child nodes only. */
 #define NB_OPER_DATA_ITER_NORECURSE 0x0001
 
+/* Hooks. */
 DECLARE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 	     (xpath, arguments))
+DECLARE_HOOK(nb_client_debug_config_write, (struct vty *vty), (vty))
+DECLARE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set))
 
-extern int debug_northbound;
+/* Northbound debugging records */
+extern struct debug nb_dbg_cbs_config;
+extern struct debug nb_dbg_cbs_state;
+extern struct debug nb_dbg_cbs_rpc;
+extern struct debug nb_dbg_notif;
+extern struct debug nb_dbg_events;
+
+/* Global running configuration. */
 extern struct nb_config *running_config;
+
+/* Wrappers for the northbound callbacks. */
+extern struct yang_data *nb_callback_get_elem(const struct nb_node *nb_node,
+					      const char *xpath,
+					      const void *list_entry);
+extern const void *nb_callback_get_next(const struct nb_node *nb_node,
+					const void *parent_list_entry,
+					const void *list_entry);
+extern int nb_callback_get_keys(const struct nb_node *nb_node,
+				const void *list_entry,
+				struct yang_list_keys *keys);
+extern const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
+					    const void *parent_list_entry,
+					    const struct yang_list_keys *keys);
+extern int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
+			   const struct list *input, struct list *output);
 
 /*
  * Create a northbound node for all YANG schema nodes.
