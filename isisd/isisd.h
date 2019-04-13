@@ -63,6 +63,7 @@ extern struct zebra_privs_t isisd_privs;
 struct fabricd;
 
 struct isis {
+	vrf_id_t vrf_id;
 	unsigned long process_id;
 	int sysid_set;
 	uint8_t sysid[ISIS_SYS_ID_LEN]; /* SystemID for this IS */
@@ -190,7 +191,7 @@ struct isis_area {
 DECLARE_QOBJ_TYPE(isis_area)
 
 void isis_init(void);
-void isis_new(unsigned long);
+void isis_new(unsigned long process_id, vrf_id_t vrf_id);
 struct isis_area *isis_area_create(const char *);
 struct isis_area *isis_area_lookup(const char *);
 int isis_area_get(struct vty *vty, const char *area_tag);
