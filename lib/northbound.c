@@ -1383,19 +1383,12 @@ int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 	 */
 	ly_errno = 0;
 	dnode = lyd_new_path(NULL, ly_native_ctx, xpath, NULL, 0,
-			     LYD_PATH_OPT_UPDATE);
-	if (!dnode && ly_errno) {
+			     LYD_PATH_OPT_UPDATE | LYD_PATH_OPT_NOPARENTRET);
+	if (!dnode) {
 		flog_warn(EC_LIB_LIBYANG, "%s: lyd_new_path() failed",
 			  __func__);
 		return NB_ERR;
 	}
-	/*
-	 * We can remove the following two lines once we depend on
-	 * libyang-v0.16-r2, which has the LYD_PATH_OPT_NOPARENTRET flag for
-	 * lyd_new_path().
-	 */
-	dnode = yang_dnode_get(dnode, xpath);
-	assert(dnode);
 
 	/*
 	 * Create a linked list to sort the data nodes starting from the root.
