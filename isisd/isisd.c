@@ -75,12 +75,13 @@ int clear_isis_neighbor_common(struct vty *, const char *id);
 int isis_config_write(struct vty *);
 
 
-void isis_new(unsigned long process_id)
+void isis_new(unsigned long process_id, vrf_id_t vrf_id)
 {
 	isis = XCALLOC(MTYPE_ISIS, sizeof(struct isis));
 	/*
 	 * Default values
 	 */
+	isis->vrf_id = vrf_id;
 	isis->max_area_addrs = 3;
 	isis->process_id = process_id;
 	isis->router_id = 0;
