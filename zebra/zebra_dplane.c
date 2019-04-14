@@ -1655,6 +1655,59 @@ done:
 }
 
 /*
+ * Update from an async notification, to bring other fibs up-to-date.
+ */
+enum zebra_dplane_result
+dplane_route_notif_update(struct route_node *rn,
+			  struct route_entry *re,
+			  enum dplane_op_e op,
+			  struct zebra_dplane_ctx *ctx)
+{
+	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *new_ctx = NULL;
+	struct nexthop *nexthop;
+
+	if (rn == NULL || re == NULL)
+		goto done;
+
+	new_ctx = dplane_ctx_alloc();
+	if (new_ctx == NULL)
+		goto done;
+
+	/* Init context with info from zebra data structs */
+	dplane_ctx_route_init(new_ctx, op, rn, re);
+
+	/* For add/update, need to adjust the nexthops so that we match
+	 * the notification state, which may not be the route-entry/RIB
+	 * state.
+	 */
+	if (op == DPLANE_OP_ROUTE_UPDATE ||
+	    op == DPLANE_OP_ROUTE_INSTALL) {
+
+		nexthops_free(new_ctx->u.rinfo.zd_ng.nexthop);
+		new_ctx->u.rinfo.zd_ng.nexthop = NULL;
+
+		copy_nexthops(&(new_ctx->u.rinfo.zd_ng.nexthop),
+			      (rib_active_nhg(re))->nexthop, NULL);
+
+		for (ALL_NEXTHOPS(new_ctx->u.rinfo.zd_ng, nexthop))
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+
+	}
+
+	/* Capture info about the source of the notification, in 'ctx' */
+	dplane_ctx_set_notif_provider(new_ctx,
+				      dplane_ctx_get_notif_provider(ctx));
+
+	dplane_route_enqueue(new_ctx);
+
+	ret = ZEBRA_DPLANE_REQUEST_QUEUED;
+
+done:
+	return ret;
+}
+
+/*
  * Enqueue LSP add for the dataplane.
  */
 enum zebra_dplane_result dplane_lsp_add(zebra_lsp_t *lsp)
@@ -1685,6 +1738,50 @@ enum zebra_dplane_result dplane_lsp_delete(zebra_lsp_t *lsp)
 		lsp_update_internal(lsp, DPLANE_OP_LSP_DELETE);
 
 	return ret;
+}
+
+/* Update or un-install resulting from an async notification */
+enum zebra_dplane_result
+dplane_lsp_notif_update(zebra_lsp_t *lsp,
+			enum dplane_op_e op,
+			struct zebra_dplane_ctx *notif_ctx)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	int ret = EINVAL;
+	struct zebra_dplane_ctx *ctx = NULL;
+
+	/* Obtain context block */
+	ctx = dplane_ctx_alloc();
+	if (ctx == NULL) {
+		ret = ENOMEM;
+		goto done;
+	}
+
+	ret = dplane_ctx_lsp_init(ctx, op, lsp);
+	if (ret != AOK)
+		goto done;
+
+	/* Capture info about the source of the notification */
+	dplane_ctx_set_notif_provider(
+		ctx,
+		dplane_ctx_get_notif_provider(notif_ctx));
+
+	ret = dplane_route_enqueue(ctx);
+
+done:
+	/* Update counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_lsps_in, 1,
+				  memory_order_relaxed);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_lsp_errors, 1,
+					  memory_order_relaxed);
+		if (ctx)
+			dplane_ctx_free(&ctx);
+	}
+	return result;
 }
 
 /*

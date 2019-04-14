@@ -1823,6 +1823,7 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	struct nexthop *nexthop;
 	const struct nexthop *ctx_nexthop;
 	int start_count = 0, end_count = 0; /* Installed counts */
+	bool changed_p = false;
 	bool is_debug = (IS_ZEBRA_DEBUG_DPLANE | IS_ZEBRA_DEBUG_MPLS);
 
 	if (is_debug)
@@ -1847,8 +1848,11 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 
 	/*
 	 * The dataplane/forwarding plane is notifying zebra about the state
-	 * of the nexthops associated with this LSP. We bring the zebra
-	 * nexthop state into sync with the forwarding-plane state.
+	 * of the nexthops associated with this LSP. First, we take a
+	 * pre-scan pass to determine whether the LSP has transitioned
+	 * from installed -> uninstalled. In that case, we need to have
+	 * the existing state of the LSP objects available before making
+	 * any changes.
 	 */
 	for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
 		char buf[NEXTHOP_STRLEN];
@@ -1890,27 +1894,30 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 					   buf, tstr);
 			}
 
-			/* Bring zebra nhlfe install state into sync */
+			/* Test zebra nhlfe install state */
 			if (CHECK_FLAG(ctx_nhlfe->flags,
 				       NHLFE_FLAG_INSTALLED)) {
-				SET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+
+				if (!CHECK_FLAG(nhlfe->flags,
+						NHLFE_FLAG_INSTALLED))
+					changed_p = true;
 
 				/* Update counter */
 				end_count++;
-			} else
-				UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+			} else {
 
-			if (CHECK_FLAG(ctx_nhlfe->nexthop->flags,
-				       NEXTHOP_FLAG_FIB))
-				SET_FLAG(nhlfe->nexthop->flags,
-					 NEXTHOP_FLAG_FIB);
-			else
-				UNSET_FLAG(nhlfe->nexthop->flags,
-					   NEXTHOP_FLAG_FIB);
+				if (CHECK_FLAG(nhlfe->flags,
+					       NHLFE_FLAG_INSTALLED))
+					changed_p = true;
+			}
+
 		} else {
 			/* Not mentioned in lfib set -> uninstalled */
-			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
-			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+			if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED) ||
+			    CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE) ||
+			    CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)) {
+				changed_p = true;
+			}
 
 			if (is_debug)
 				zlog_debug("LSP dplane notif: no match, nh %s",
@@ -1919,12 +1926,89 @@ void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	}
 
 	if (is_debug)
-		zlog_debug("LSP dplane notif: lfib start_count %d, end_count %d",
-			   start_count, end_count);
+		zlog_debug("LSP dplane notif: lfib start_count %d, end_count %d%s",
+			   start_count, end_count,
+			   changed_p ? ", changed" : "");
 
-	if (end_count > 0)
+	/*
+	 * Has the LSP become uninstalled?
+	 */
+	if (start_count > 0 && end_count == 0) {
+		/* Inform other lfibs */
+		dplane_lsp_notif_update(lsp, DPLANE_OP_LSP_DELETE, ctx);
+	}
+
+	/*
+	 * Now we take a second pass and bring the zebra
+	 * nexthop state into sync with the forwarding-plane state.
+	 */
+	for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
+		char buf[NEXTHOP_STRLEN];
+
+		nexthop = nhlfe->nexthop;
+		if (!nexthop)
+			continue;
+
+		ctx_nexthop = NULL;
+		for (ctx_nhlfe = dplane_ctx_get_nhlfe(ctx);
+		     ctx_nhlfe; ctx_nhlfe = ctx_nhlfe->next) {
+
+			ctx_nexthop = ctx_nhlfe->nexthop;
+			if (!ctx_nexthop)
+				continue;
+
+			if ((ctx_nexthop->type == nexthop->type) &&
+			    nexthop_same(ctx_nexthop, nexthop)) {
+				/* Matched */
+				break;
+			}
+		}
+
+		if (is_debug)
+			nexthop2str(nexthop, buf, sizeof(buf));
+
+		if (ctx_nhlfe && ctx_nexthop) {
+
+			/* Bring zebra nhlfe install state into sync */
+			if (CHECK_FLAG(ctx_nhlfe->flags,
+				       NHLFE_FLAG_INSTALLED)) {
+
+				SET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+
+			} else {
+
+				UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+			}
+
+			if (CHECK_FLAG(ctx_nhlfe->nexthop->flags,
+				       NEXTHOP_FLAG_FIB)) {
+				SET_FLAG(nhlfe->nexthop->flags,
+					 NEXTHOP_FLAG_ACTIVE);
+				SET_FLAG(nhlfe->nexthop->flags,
+					 NEXTHOP_FLAG_FIB);
+			} else {
+				UNSET_FLAG(nhlfe->nexthop->flags,
+					 NEXTHOP_FLAG_ACTIVE);
+				UNSET_FLAG(nhlfe->nexthop->flags,
+					   NEXTHOP_FLAG_FIB);
+			}
+
+		} else {
+			/* Not mentioned in lfib set -> uninstalled */
+
+			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		}
+	}
+
+	if (end_count > 0) {
 		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
-	else {
+
+		if (changed_p)
+			dplane_lsp_notif_update(lsp, DPLANE_OP_LSP_UPDATE, ctx);
+
+	} else {
 		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 		clear_nhlfe_installed(lsp);
 	}

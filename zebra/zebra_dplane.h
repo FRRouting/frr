@@ -317,12 +317,24 @@ enum zebra_dplane_result dplane_sys_route_add(struct route_node *rn,
 enum zebra_dplane_result dplane_sys_route_del(struct route_node *rn,
 					      struct route_entry *re);
 
+/* Update from an async notification, to bring other fibs up-to-date */
+enum zebra_dplane_result dplane_route_notif_update(
+	struct route_node *rn,
+	struct route_entry *re,
+	enum dplane_op_e op,
+	struct zebra_dplane_ctx *ctx);
+
 /*
  * Enqueue LSP change operations for the dataplane.
  */
 enum zebra_dplane_result dplane_lsp_add(zebra_lsp_t *lsp);
 enum zebra_dplane_result dplane_lsp_update(zebra_lsp_t *lsp);
 enum zebra_dplane_result dplane_lsp_delete(zebra_lsp_t *lsp);
+
+/* Update or un-install resulting from an async notification */
+enum zebra_dplane_result dplane_lsp_notif_update(zebra_lsp_t *lsp,
+						 enum dplane_op_e op,
+						 struct zebra_dplane_ctx *ctx);
 
 /*
  * Enqueue pseudowire operations for the dataplane.
