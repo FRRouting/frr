@@ -454,13 +454,6 @@ int nb_candidate_edit(struct nb_config *candidate,
 	struct lyd_node *dnode;
 	char xpath_edit[XPATH_MAXLEN];
 
-	if (!nb_operation_is_valid(operation, nb_node->snode)) {
-		flog_warn(EC_LIB_NB_CANDIDATE_EDIT_ERROR,
-			  "%s: %s operation not valid for %s", __func__,
-			  nb_operation_name(operation), xpath);
-		return NB_ERR;
-	}
-
 	/* Use special notation for leaf-lists (RFC 6020, section 9.13.5). */
 	if (nb_node->snode->nodetype == LYS_LEAFLIST)
 		snprintf(xpath_edit, sizeof(xpath_edit), "%s[.='%s']", xpath,
