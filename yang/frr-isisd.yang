@@ -709,16 +709,16 @@ module frr-isisd {
         description
           "Log changes to the IS-IS adjacencies in this area.";
       }
-    }
 
-    container mpls-te {
-      presence "Present if MPLS-TE is enabled.";
-      description
-        "Enable MPLS-TE functionality.";
-      leaf router-address {
-        type inet:ipv4-address;
+      container mpls-te {
+        presence "Present if MPLS-TE is enabled.";
         description
-          "Stable IP address of the advertising router.";
+          "Enable MPLS-TE functionality.";
+        leaf router-address {
+          type inet:ipv4-address;
+          description
+            "Stable IP address of the advertising router.";
+        }
       }
     }
   }

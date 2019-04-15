@@ -201,8 +201,9 @@ static int process_p2p_hello(struct iih_info *iih)
 				      adj);
 
 	/* Update MPLS TE Remote IP address parameter if possible */
-	if (IS_MPLS_TE(isisMplsTE) && iih->circuit->mtc
-	    && IS_CIRCUIT_TE(iih->circuit->mtc) && adj->ipv4_address_count)
+	if (adj->ipv4_address_count && iih->circuit->area
+	    && IS_MPLS_TE(iih->circuit->area->mta)
+	    && IS_MPLS_TE(iih->circuit->mtc))
 		set_circuitparams_rmt_ipaddr(iih->circuit->mtc,
 					     adj->ipv4_addresses[0]);
 
