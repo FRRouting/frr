@@ -280,6 +280,11 @@ static void bgp_bfd_peer_status_update(struct peer *peer, int status)
 		peer->last_reset = PEER_DOWN_BFD_DOWN;
 		BGP_EVENT_ADD(peer, BGP_Stop);
 	}
+	if ((status == BFD_STATUS_UP) && (old_status == BFD_STATUS_DOWN)
+	    && peer->status != Established) {
+		if (!BGP_PEER_START_SUPPRESSED(peer))
+			BGP_EVENT_ADD(peer, BGP_Start);
+	}
 }
 
 /*
