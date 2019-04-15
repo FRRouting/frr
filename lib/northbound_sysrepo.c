@@ -374,7 +374,7 @@ static int frr_sr_state_data_iter_cb(const struct lys_node *snode,
 /* Callback for state retrieval. */
 static int frr_sr_state_cb(const char *xpath, sr_val_t **values,
 			   size_t *values_cnt, uint64_t request_id,
-			   void *private_ctx)
+			   const char *original_xpath, void *private_ctx)
 {
 	struct list *elements;
 	struct yang_data *data;
