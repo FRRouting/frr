@@ -50,6 +50,7 @@ The FRR project builds binary ``libyang`` packages, which we offer for download
    make
    sudo make install
 
-When building libyang on CentOS 6, it's also necessary to pass the
-``-DENABLE_CACHE=OFF`` parameter to cmake.
+When building ``libyang`` version ``0.16.x`` it's also necessary to pass the
+``-DENABLE_CACHE=OFF`` parameter to ``cmake`` to work around a
+`known bug <https://github.com/CESNET/libyang/issues/752>`_ in libyang.
 
