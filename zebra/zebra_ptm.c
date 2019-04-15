@@ -93,6 +93,7 @@ const char ZEBRA_PTM_BFD_IFNAME_FIELD[] = "ifName";
 const char ZEBRA_PTM_BFD_MAX_HOP_CNT_FIELD[] = "maxHopCnt";
 const char ZEBRA_PTM_BFD_SEND_EVENT[] = "sendEvent";
 const char ZEBRA_PTM_BFD_VRF_NAME_FIELD[] = "vrfName";
+const char ZEBRA_PTM_BFD_CBIT_FIELD[] = "bfdcbit";
 
 static ptm_lib_handle_t *ptm_hdl;
 
@@ -688,6 +689,7 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 	char tmp_buf[64];
 	int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
 	unsigned int pid;
+	uint8_t cbit_set;
 
 	if (hdr->command == ZEBRA_BFD_DEST_UPDATE)
 		client->bfd_peer_upd8_cnt++;
@@ -813,6 +815,10 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 		ptm_lib_append_msg(ptm_hdl, out_ctxt,
 				   ZEBRA_PTM_BFD_IFNAME_FIELD, if_name);
 	}
+	STREAM_GETC(s, cbit_set);
+	sprintf(tmp_buf, "%d", cbit_set);
+	ptm_lib_append_msg(ptm_hdl, out_ctxt,
+			   ZEBRA_PTM_BFD_CBIT_FIELD, tmp_buf);
 
 	sprintf(tmp_buf, "%d", 1);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEND_EVENT,

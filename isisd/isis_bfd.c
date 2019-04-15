@@ -98,7 +98,8 @@ static int isis_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 	struct prefix dst_ip;
 	int status;
 
-	ifp = bfd_get_peer_info(zclient->ibuf, &dst_ip, NULL, &status, vrf_id);
+	ifp = bfd_get_peer_info(zclient->ibuf, &dst_ip, NULL, &status,
+				NULL, vrf_id);
 	if (!ifp || dst_ip.family != AF_INET)
 		return 0;
 
@@ -217,6 +218,7 @@ static void bfd_handle_adj_down(struct isis_adjacency *adj)
 			 adj->circuit->interface->name,
 			 0, /* ttl */
 			 0, /* multihop */
+			 1, /* control plane independent bit is on */
 			 ZEBRA_BFD_DEST_DEREGISTER,
 			 0, /* set_flag */
 			 VRF_DEFAULT);
@@ -258,6 +260,7 @@ static void bfd_handle_adj_up(struct isis_adjacency *adj, int command)
 			 circuit->interface->name,
 			 0, /* ttl */
 			 0, /* multihop */
+			 1, /* control plane independent bit is on */
 			 command,
 			 0, /* set flag */
 			 VRF_DEFAULT);

@@ -96,7 +96,7 @@ int bgp_bfd_is_peer_multihop(struct peer *peer)
 static void bgp_bfd_peer_sendmsg(struct peer *peer, int command)
 {
 	struct bfd_info *bfd_info;
-	int multihop;
+	int multihop, cbit = 0;
 	vrf_id_t vrf_id;
 
 	bfd_info = (struct bfd_info *)peer->bfd_info;
@@ -112,20 +112,28 @@ static void bgp_bfd_peer_sendmsg(struct peer *peer, int command)
 		if ((command == ZEBRA_BFD_DEST_REGISTER) && multihop)
 			SET_FLAG(bfd_info->flags, BFD_FLAG_BFD_TYPE_MULTIHOP);
 	}
+	/* while graceful restart with fwd path preserved is not kept
+	 * keep bfd independent controlplane bit set to 1
+	 */
+	if (!bgp_flag_check(peer->bgp, BGP_FLAG_GRACEFUL_RESTART)
+	    && !bgp_flag_check(peer->bgp, BGP_FLAG_GR_PRESERVE_FWD))
+		SET_FLAG(bfd_info->flags,  BFD_FLAG_BFD_CBIT_ON);
+
+	cbit = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
 
 	if (peer->su.sa.sa_family == AF_INET)
 		bfd_peer_sendmsg(
 			zclient, bfd_info, AF_INET, &peer->su.sin.sin_addr,
 			(peer->su_local) ? &peer->su_local->sin.sin_addr : NULL,
 			(peer->nexthop.ifp) ? peer->nexthop.ifp->name : NULL,
-			peer->ttl, multihop, command, 1, vrf_id);
+			peer->ttl, multihop, cbit, command, 1, vrf_id);
 	else if (peer->su.sa.sa_family == AF_INET6)
 		bfd_peer_sendmsg(
 			zclient, bfd_info, AF_INET6, &peer->su.sin6.sin6_addr,
 			(peer->su_local) ? &peer->su_local->sin6.sin6_addr
 					 : NULL,
 			(peer->nexthop.ifp) ? peer->nexthop.ifp->name : NULL,
-			peer->ttl, multihop, command, 1, vrf_id);
+			peer->ttl, multihop, cbit, command, 1, vrf_id);
 }
 
 /*
@@ -260,7 +268,8 @@ static int bgp_bfd_dest_replay(ZAPI_CALLBACK_ARGS)
  *                              down the peer if the BFD session went down from
  * *                              up.
  */
-static void bgp_bfd_peer_status_update(struct peer *peer, int status)
+static void bgp_bfd_peer_status_update(struct peer *peer, int status,
+				       int remote_cbit)
 {
 	struct bfd_info *bfd_info;
 	int old_status;
@@ -280,6 +289,13 @@ static void bgp_bfd_peer_status_update(struct peer *peer, int status)
 				   bfd_get_status_str(status));
 	}
 	if ((status == BFD_STATUS_DOWN) && (old_status == BFD_STATUS_UP)) {
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE) &&
+		    !remote_cbit) {
+			zlog_info("%s BFD DOWN message ignored in the process"
+				  " of graceful restart when C bit is cleared",
+				  peer->host);
+			return;
+		}
 		peer->last_reset = PEER_DOWN_BFD_DOWN;
 		BGP_EVENT_ADD(peer, BGP_Stop);
 	}
@@ -303,23 +319,27 @@ static int bgp_bfd_dest_update(ZAPI_CALLBACK_ARGS)
 	struct prefix dp;
 	struct prefix sp;
 	int status;
+	int remote_cbit;
 
-	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &status, vrf_id);
+	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &status,
+				&remote_cbit, vrf_id);
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		char buf[2][PREFIX2STR_BUFFER];
 		prefix2str(&dp, buf[0], sizeof(buf[0]));
 		if (ifp) {
 			zlog_debug(
-				"Zebra: vrf %u interface %s bfd destination %s %s",
+				"Zebra: vrf %u interface %s bfd destination %s %s %s",
 				vrf_id, ifp->name, buf[0],
-				bfd_get_status_str(status));
+				bfd_get_status_str(status),
+				remote_cbit ? "(cbit on)" : "");
 		} else {
 			prefix2str(&sp, buf[1], sizeof(buf[1]));
 			zlog_debug(
-				"Zebra: vrf %u source %s bfd destination %s %s",
+				"Zebra: vrf %u source %s bfd destination %s %s %s",
 				vrf_id, buf[1], buf[0],
-				bfd_get_status_str(status));
+				bfd_get_status_str(status),
+				remote_cbit ? "(cbit on)" : "");
 		}
 	}
 
@@ -351,7 +371,8 @@ static int bgp_bfd_dest_update(ZAPI_CALLBACK_ARGS)
 
 				if (ifp && (ifp == peer->nexthop.ifp)) {
 					bgp_bfd_peer_status_update(peer,
-								   status);
+								   status,
+								   remote_cbit);
 				} else {
 					if (!peer->su_local)
 						continue;
@@ -381,7 +402,8 @@ static int bgp_bfd_dest_update(ZAPI_CALLBACK_ARGS)
 						continue;
 
 					bgp_bfd_peer_status_update(peer,
-								   status);
+								   status,
+								   remote_cbit);
 				}
 			}
 	}
