@@ -3783,7 +3783,7 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 		if (addpath_encoded) {
 			/* When packet overflow occurs return immediately. */
 			if (pnt + BGP_ADDPATH_ID_LEN > lim)
-				return -1;
+				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 
 			addpath_id = ntohl(*((uint32_t *)pnt));
 			pnt += BGP_ADDPATH_ID_LEN;
@@ -3791,14 +3791,14 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 
 		/* All EVPN NLRI types start with type and length. */
 		if (pnt + 2 > lim)
-			return -1;
+			return BGP_NLRI_PARSE_ERROR_EVPN_MISSING_TYPE;
 
 		rtype = *pnt++;
 		psize = rlen = *pnt++;
 
 		/* When packet overflow occur return immediately. */
 		if (pnt + psize > lim)
-			return -1;
+			return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 
 		switch (rtype) {
 		case BGP_EVPN_MAC_IP_ROUTE:
@@ -3808,7 +3808,7 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 				zlog_err(
 					"%u:%s - Error in processing EVPN type-2 NLRI size %d",
 					peer->bgp->vrf_id, peer->host, psize);
-				return -1;
+				return BGP_NLRI_PARSE_ERROR_EVPN_TYPE2_SIZE;
 			}
 			break;
 
@@ -3819,7 +3819,7 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 				zlog_err(
 					"%u:%s - Error in processing EVPN type-3 NLRI size %d",
 					peer->bgp->vrf_id, peer->host, psize);
-				return -1;
+				return BGP_NLRI_PARSE_ERROR_EVPN_TYPE3_SIZE;
 			}
 			break;
 
@@ -3829,7 +3829,7 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 				zlog_err(
 					"%u:%s - Error in processing EVPN type-5 NLRI size %d",
 					peer->bgp->vrf_id, peer->host, psize);
-				return -1;
+				return BGP_NLRI_PARSE_ERROR_EVPN_TYPE5_SIZE;
 			}
 			break;
 
@@ -3840,9 +3840,9 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 
 	/* Packet length consistency check. */
 	if (pnt != lim)
-		return -1;
+		return BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
 
-	return 0;
+	return BGP_NLRI_PARSE_OK;
 }
 
 /*
