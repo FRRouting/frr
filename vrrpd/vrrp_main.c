@@ -105,7 +105,7 @@ static const struct frr_yang_module_info *vrrp_yang_modules[] = {
 	&frr_interface_info,
 };
 
-#define VRRP_VTY_PORT 2617
+#define VRRP_VTY_PORT 2619
 
 FRR_DAEMON_INFO(vrrpd, VRRP, .vty_port = VRRP_VTY_PORT,
 		.proghelp = "Virtual Router Redundancy Protocol",
