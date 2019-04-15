@@ -753,40 +753,44 @@ static int nb_callback_configuration(const enum nb_event event,
 		ret = (*nb_node->cbs.move)(event, dnode);
 		break;
 	default:
-		break;
+		flog_err(EC_LIB_DEVELOPMENT,
+			 "%s: unknown operation (%u) [xpath %s]", __func__,
+			 operation, xpath);
+		exit(1);
 	}
 
 	if (ret != NB_OK) {
-		enum lib_log_refs ref = 0;
+		int priority;
+		enum lib_log_refs ref;
 
 		switch (event) {
 		case NB_EV_VALIDATE:
+			priority = LOG_WARNING;
 			ref = EC_LIB_NB_CB_CONFIG_VALIDATE;
 			break;
 		case NB_EV_PREPARE:
+			priority = LOG_WARNING;
 			ref = EC_LIB_NB_CB_CONFIG_PREPARE;
 			break;
 		case NB_EV_ABORT:
+			priority = LOG_WARNING;
 			ref = EC_LIB_NB_CB_CONFIG_ABORT;
 			break;
 		case NB_EV_APPLY:
+			priority = LOG_ERR;
 			ref = EC_LIB_NB_CB_CONFIG_APPLY;
 			break;
+		default:
+			flog_err(EC_LIB_DEVELOPMENT,
+				 "%s: unknown event (%u) [xpath %s]",
+				 __func__, event, xpath);
+			exit(1);
 		}
-		if (event == NB_EV_VALIDATE || event == NB_EV_PREPARE)
-			flog_warn(
-				ref,
-				"%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
-				__func__, nb_err_name(ret),
-				nb_event_name(event),
-				nb_operation_name(operation), xpath);
-		else
-			flog_err(
-				ref,
-				"%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
-				__func__, nb_err_name(ret),
-				nb_event_name(event),
-				nb_operation_name(operation), xpath);
+
+		flog(priority, ref,
+		     "%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
+		     __func__, nb_err_name(ret), nb_event_name(event),
+		     nb_operation_name(operation), xpath);
 	}
 
 	return ret;
