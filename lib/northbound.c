@@ -1677,12 +1677,6 @@ void nb_init(struct thread_master *tm,
 		exit(1);
 	}
 
-	/* Initialize the northbound database (used for the rollback log). */
-	if (nb_db_init() != NB_OK)
-		flog_warn(EC_LIB_NB_DATABASE,
-			  "%s: failed to initialize northbound database",
-			  __func__);
-
 	/* Create an empty running configuration. */
 	running_config = nb_config_new(NULL);
 
