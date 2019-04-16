@@ -803,13 +803,13 @@ DEFPY(bfd_show_peers, bfd_show_peers_cmd, "show bfd [vrf <NAME>] peers [json]",
 }
 
 DEFPY(bfd_show_peer, bfd_show_peer_cmd,
-      "show bfd peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]> [json]",
+      "show bfd [vrf <NAME$vrfname>] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> [json]",
       SHOW_STR
       "Bidirection Forwarding Detection\n"
+      VRF_CMD_HELP_STR
       "BFD peers status\n"
       "Peer label\n" PEER_IPV4_STR PEER_IPV6_STR MHOP_STR LOCAL_STR
-	      LOCAL_IPV4_STR LOCAL_IPV6_STR INTERFACE_STR LOCAL_INTF_STR VRF_STR
-		      VRF_NAME_STR JSON_STR)
+	      LOCAL_IPV4_STR LOCAL_IPV6_STR INTERFACE_STR LOCAL_INTF_STR JSON_STR)
 {
 	struct bfd_session *bs;
 
@@ -830,9 +830,10 @@ DEFPY(bfd_show_peer, bfd_show_peer_cmd,
 }
 
 DEFPY(bfd_show_peer_counters, bfd_show_peer_counters_cmd,
-      "show bfd peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]> counters [json]",
+      "show bfd [vrf <NAME$vrfname>] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> counters [json]",
       SHOW_STR
       "Bidirection Forwarding Detection\n"
+      VRF_CMD_HELP_STR
       "BFD peers status\n"
       "Peer label\n"
       PEER_IPV4_STR
@@ -843,8 +844,6 @@ DEFPY(bfd_show_peer_counters, bfd_show_peer_counters_cmd,
       LOCAL_IPV6_STR
       INTERFACE_STR
       LOCAL_INTF_STR
-      VRF_STR
-      VRF_NAME_STR
       "Show BFD peer counters information\n"
       JSON_STR)
 {
