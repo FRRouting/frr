@@ -928,7 +928,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
 
 	if (!source->source_channel_oil) {
 		struct in_addr vif_source;
-		struct prefix nht_p, src, grp;
+		struct prefix src, grp;
 		struct pim_nexthop nexthop;
 		struct pim_upstream *up = NULL;
 
@@ -950,11 +950,6 @@ void igmp_source_forward_start(struct pim_instance *pim,
 		}
 
 		else {
-			/* Register addr with Zebra NHT */
-			nht_p.family = AF_INET;
-			nht_p.prefixlen = IPV4_MAX_BITLEN;
-			nht_p.u.prefix4 = vif_source;
-
 			src.family = AF_INET;
 			src.prefixlen = IPV4_MAX_BITLEN;
 			src.u.prefix4 = vif_source; // RP or Src address
@@ -1183,12 +1178,8 @@ void pim_forward_start(struct pim_ifchannel *ch)
 	   as part of mroute_del called by pim_forward_stop.
 	*/
 	if ((up->upstream_addr.s_addr != INADDR_ANY) && (!up->channel_oil)) {
-		struct prefix nht_p, src, grp;
+		struct prefix src, grp;
 
-		/* Register addr with Zebra NHT */
-		nht_p.family = AF_INET;
-		nht_p.prefixlen = IPV4_MAX_BITLEN;
-		nht_p.u.prefix4 = up->upstream_addr;
 		grp.family = AF_INET;
 		grp.prefixlen = IPV4_MAX_BITLEN;
 		grp.u.prefix4 = up->sg.grp;
