@@ -51,6 +51,7 @@ struct vni_walk_ctx {
 	struct vty *vty;
 	struct in_addr vtep_ip;
 	json_object *json;
+	int detail;
 };
 
 static void display_vrf_import_rt(struct vty *vty, struct vrf_irt_node *irt,
@@ -616,12 +617,12 @@ static void show_esi_routes(struct bgp *bgp,
 
 static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
 			    struct vty *vty, struct in_addr vtep_ip,
-			    json_object *json)
+			    json_object *json, int detail)
 {
 	struct bgp_node *rn;
 	struct bgp_path_info *pi;
 	struct bgp_table *table;
-	int header = 1;
+	int header = detail ? 0 : 1;
 	uint64_t tbl_ver;
 	uint32_t prefix_cnt, path_cnt;
 
@@ -675,7 +676,13 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
 			if (json)
 				json_path = json_object_new_array();
 
-			route_vty_out(vty, &rn->p, pi, 0, SAFI_EVPN, json_path);
+			if (detail)
+				route_vty_out_detail(vty, bgp, &rn->p, pi,
+						     AFI_L2VPN, SAFI_EVPN,
+						     json_path);
+			else
+				route_vty_out(vty, &rn->p, pi, 0, SAFI_EVPN,
+					      json_path);
 
 			if (json)
 				json_object_array_add(json_paths, json_path);
@@ -706,6 +713,7 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
 			vty_out(vty, "\nDisplayed %u prefixes (%u paths)%s\n",
 				prefix_cnt, path_cnt,
 				type ? " (of requested type)" : "");
+		vty_out(vty, "\n");
 	}
 }
 
@@ -726,7 +734,8 @@ static void show_vni_routes_hash(struct hash_bucket *bucket, void *arg)
 		vty_out(vty, "\nVNI: %d\n\n", vpn->vni);
 	}
 
-	show_vni_routes(wctx->bgp, vpn, 0, wctx->vty, wctx->vtep_ip, json_vni);
+	show_vni_routes(wctx->bgp, vpn, 0, wctx->vty, wctx->vtep_ip, json_vni,
+			wctx->detail);
 
 	if (json)
 		json_object_object_add(json, vni_str, json_vni);
@@ -1995,7 +2004,8 @@ static void evpn_show_import_rts(struct vty *vty, struct bgp *bgp,
  * Display EVPN routes for all VNIs - vty handler.
  */
 static void evpn_show_routes_vni_all(struct vty *vty, struct bgp *bgp,
-				     struct in_addr vtep_ip, json_object *json)
+				     struct in_addr vtep_ip, json_object *json,
+				     int detail)
 {
 	uint32_t num_vnis;
 	struct vni_walk_ctx wctx;
@@ -2008,6 +2018,7 @@ static void evpn_show_routes_vni_all(struct vty *vty, struct bgp *bgp,
 	wctx.vty = vty;
 	wctx.vtep_ip = vtep_ip;
 	wctx.json = json;
+	wctx.detail = detail;
 	hash_iterate(bgp->vnihash, (void (*)(struct hash_bucket *,
 					     void *))show_vni_routes_hash,
 		     &wctx);
@@ -2188,7 +2199,7 @@ static void evpn_show_routes_vni(struct vty *vty, struct bgp *bgp, vni_t vni,
 	}
 
 	/* Walk this VNI's route table and display appropriate routes. */
-	show_vni_routes(bgp, vpn, type, vty, vtep_ip, json);
+	show_vni_routes(bgp, vpn, type, vty, vtep_ip, json, 0);
 }
 
 /*
@@ -4075,7 +4086,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_multicast,
  */
 DEFUN(show_bgp_l2vpn_evpn_route_vni_all,
       show_bgp_l2vpn_evpn_route_vni_all_cmd,
-      "show bgp l2vpn evpn route vni all [vtep A.B.C.D] [json]",
+      "show bgp l2vpn evpn route vni all [detail] [vtep A.B.C.D] [json]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -4083,6 +4094,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_all,
       "EVPN route information\n"
       "VXLAN Network Identifier\n"
       "All VNIs\n"
+      "Print Detailed Output\n"
       "Remote VTEP\n"
       "Remote VTEP IP address\n"
       JSON_STR)
@@ -4092,6 +4104,8 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_all,
 	int idx = 0;
 	bool uj = false;
 	json_object *json = NULL;
+	/* Detail Adjust. Adjust indexes according to detail option */
+	int da = 0;
 
 	bgp = bgp_get_evpn();
 	if (!bgp)
@@ -4105,16 +4119,21 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_all,
 	if (!argv_find(argv, argc, "evpn", &idx))
 		return CMD_WARNING;
 
+	if (argv_find(argv, argc, "detail", &da))
+		da = 1;
+
+	/* vtep-ip position depends on detail option */
 	vtep_ip.s_addr = 0;
-	if ((!uj && (argc == (idx + 1 + 5) && argv[idx + 5]->arg))
-	    || (uj && (argc == (idx + 1 + 6) && argv[idx + 5]->arg))) {
-		if (!inet_aton(argv[idx + 5]->arg, &vtep_ip)) {
+	if ((!uj && (argc == (idx + 1 + 5 + da) && argv[idx + 5 + da]->arg))
+	    || (uj
+		&& (argc == (idx + 1 + 6 + da) && argv[idx + 5 + da]->arg))) {
+		if (!inet_aton(argv[idx + 5 + da]->arg, &vtep_ip)) {
 			vty_out(vty, "%% Malformed VTEP IP address\n");
 			return CMD_WARNING;
 		}
 	}
 
-	evpn_show_routes_vni_all(vty, bgp, vtep_ip, json);
+	evpn_show_routes_vni_all(vty, bgp, vtep_ip, json, da);
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
@@ -4345,11 +4364,12 @@ ALIAS_HIDDEN(show_bgp_l2vpn_evpn_route_vni_multicast,
 	     "Originating Router IP address\n")
 
 ALIAS_HIDDEN(show_bgp_l2vpn_evpn_route_vni_all, show_bgp_evpn_route_vni_all_cmd,
-	     "show bgp evpn route vni all [vtep A.B.C.D]",
+	     "show bgp evpn route vni all [detail] [vtep A.B.C.D]",
 	     SHOW_STR BGP_STR EVPN_HELP_STR
 	     "EVPN route information\n"
 	     "VXLAN Network Identifier\n"
 	     "All VNIs\n"
+	     "Print Detailed Output\n"
 	     "Remote VTEP\n"
 	     "Remote VTEP IP address\n")
 
