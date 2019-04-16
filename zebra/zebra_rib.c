@@ -437,16 +437,6 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	    re->type == ZEBRA_ROUTE_SYSTEM)
 		return 1;
 
-	/* Skip nexthops that have been filtered out due to route-map */
-	/* The nexthops are specific to this route and so the same */
-	/* nexthop for a different route may not have this flag set */
-	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FILTERED)) {
-		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			zlog_debug("\t%s: Nexthop Filtered",
-				   __PRETTY_FUNCTION__);
-		return 0;
-	}
-
 	/*
 	 * Check to see if we should trust the passed in information
 	 * for UNNUMBERED interfaces as that we won't find the GW
