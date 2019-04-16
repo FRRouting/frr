@@ -23,6 +23,7 @@
 #include "log.h"
 #include "lib_errors.h"
 #include "command.h"
+#include "debug.h"
 #include "db.h"
 #include "northbound.h"
 #include "northbound_cli.h"
@@ -40,7 +41,7 @@ struct nb_config *running_config;
  */
 static bool transaction_in_progress;
 
-static int nb_configuration_callback(const enum nb_event event,
+static int nb_callback_configuration(const enum nb_event event,
 				     struct nb_config_change *change);
 static struct nb_transaction *nb_transaction_new(struct nb_config *config,
 						 struct nb_config_cbs *changes,
@@ -592,7 +593,7 @@ static int nb_candidate_validate_changes(struct nb_config *candidate,
 		struct nb_config_change *change = (struct nb_config_change *)cb;
 		int ret;
 
-		ret = nb_configuration_callback(NB_EV_VALIDATE, change);
+		ret = nb_callback_configuration(NB_EV_VALIDATE, change);
 		if (ret != NB_OK)
 			return NB_ERR_VALIDATION;
 	}
@@ -714,7 +715,7 @@ static void nb_log_callback(const enum nb_event event,
  * Call the northbound configuration callback associated to a given
  * configuration change.
  */
-static int nb_configuration_callback(const enum nb_event event,
+static int nb_callback_configuration(const enum nb_event event,
 				     struct nb_config_change *change)
 {
 	enum nb_operation operation = change->cb.operation;
@@ -724,7 +725,7 @@ static int nb_configuration_callback(const enum nb_event event,
 	union nb_resource *resource;
 	int ret = NB_ERR;
 
-	if (debug_northbound) {
+	if (DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL)) {
 		const char *value = "(none)";
 
 		if (dnode && !yang_snode_is_typeless_data(dnode->schema))
@@ -791,6 +792,57 @@ static int nb_configuration_callback(const enum nb_event event,
 	return ret;
 }
 
+struct yang_data *nb_callback_get_elem(const struct nb_node *nb_node,
+				       const char *xpath,
+				       const void *list_entry)
+{
+	DEBUGD(&nb_dbg_cbs_state,
+	       "northbound callback (get_elem): xpath [%s] list_entry [%p]",
+	       xpath, list_entry);
+
+	return nb_node->cbs.get_elem(xpath, list_entry);
+}
+
+const void *nb_callback_get_next(const struct nb_node *nb_node,
+				 const void *parent_list_entry,
+				 const void *list_entry)
+{
+	DEBUGD(&nb_dbg_cbs_state,
+	       "northbound callback (get_next): node [%s] parent_list_entry [%p] list_entry [%p]",
+	       nb_node->xpath, parent_list_entry, list_entry);
+
+	return nb_node->cbs.get_next(parent_list_entry, list_entry);
+}
+
+int nb_callback_get_keys(const struct nb_node *nb_node, const void *list_entry,
+			 struct yang_list_keys *keys)
+{
+	DEBUGD(&nb_dbg_cbs_state,
+	       "northbound callback (get_keys): node [%s] list_entry [%p]",
+	       nb_node->xpath, list_entry);
+
+	return nb_node->cbs.get_keys(list_entry, keys);
+}
+
+const void *nb_callback_lookup_entry(const struct nb_node *nb_node,
+				     const void *parent_list_entry,
+				     const struct yang_list_keys *keys)
+{
+	DEBUGD(&nb_dbg_cbs_state,
+	       "northbound callback (lookup_entry): node [%s] parent_list_entry [%p]",
+	       nb_node->xpath, parent_list_entry);
+
+	return nb_node->cbs.lookup_entry(parent_list_entry, keys);
+}
+
+int nb_callback_rpc(const struct nb_node *nb_node, const char *xpath,
+		    const struct list *input, struct list *output)
+{
+	DEBUGD(&nb_dbg_cbs_rpc, "northbound RPC: %s", xpath);
+
+	return nb_node->cbs.rpc(xpath, input, output);
+}
+
 static struct nb_transaction *nb_transaction_new(struct nb_config *config,
 						 struct nb_config_cbs *changes,
 						 enum nb_client client,
@@ -843,7 +895,7 @@ static int nb_transaction_process(enum nb_event event,
 			break;
 
 		/* Call the appropriate callback. */
-		ret = nb_configuration_callback(event, change);
+		ret = nb_callback_configuration(event, change);
 		switch (event) {
 		case NB_EV_PREPARE:
 			if (ret != NB_OK)
@@ -958,7 +1010,7 @@ static void nb_transaction_apply_finish(struct nb_transaction *transaction)
 
 	/* Call the 'apply_finish' callbacks, sorted by their priorities. */
 	RB_FOREACH (cb, nb_config_cbs, &cbs) {
-		if (debug_northbound)
+		if (DEBUG_MODE_CHECK(&nb_dbg_cbs_config, DEBUG_MODE_ALL))
 			nb_log_callback(NB_EV_APPLY, NB_OP_APPLY_FINISH,
 					cb->xpath, NULL);
 
@@ -1010,7 +1062,7 @@ static int nb_oper_data_iter_leaf(const struct nb_node *nb_node,
 	if (lys_is_key((struct lys_node_leaf *)nb_node->snode, NULL))
 		return NB_OK;
 
-	data = nb_node->cbs.get_elem(xpath, list_entry);
+	data = nb_callback_get_elem(nb_node, xpath, list_entry);
 	if (data == NULL)
 		/* Leaf of type "empty" is not present. */
 		return NB_OK;
@@ -1034,7 +1086,7 @@ static int nb_oper_data_iter_container(const struct nb_node *nb_node,
 		struct yang_data *data;
 		int ret;
 
-		data = nb_node->cbs.get_elem(xpath, list_entry);
+		data = nb_callback_get_elem(nb_node, xpath, list_entry);
 		if (data == NULL)
 			/* Presence container is not present. */
 			return NB_OK;
@@ -1066,13 +1118,13 @@ nb_oper_data_iter_leaflist(const struct nb_node *nb_node, const char *xpath,
 		struct yang_data *data;
 		int ret;
 
-		list_entry =
-			nb_node->cbs.get_next(parent_list_entry, list_entry);
+		list_entry = nb_callback_get_next(nb_node, parent_list_entry,
+						  list_entry);
 		if (!list_entry)
 			/* End of the list. */
 			break;
 
-		data = nb_node->cbs.get_elem(xpath, list_entry);
+		data = nb_callback_get_elem(nb_node, xpath, list_entry);
 		if (data == NULL)
 			continue;
 
@@ -1105,15 +1157,16 @@ static int nb_oper_data_iter_list(const struct nb_node *nb_node,
 		int ret;
 
 		/* Obtain list entry. */
-		list_entry =
-			nb_node->cbs.get_next(parent_list_entry, list_entry);
+		list_entry = nb_callback_get_next(nb_node, parent_list_entry,
+						  list_entry);
 		if (!list_entry)
 			/* End of the list. */
 			break;
 
 		if (!CHECK_FLAG(nb_node->flags, F_NB_NODE_KEYLESS_LIST)) {
 			/* Obtain the list entry keys. */
-			if (nb_node->cbs.get_keys(list_entry, &list_keys)
+			if (nb_callback_get_keys(nb_node, list_entry,
+						 &list_keys)
 			    != NB_OK) {
 				flog_warn(EC_LIB_NB_CB_STATE,
 					  "%s: failed to get list keys",
@@ -1291,7 +1344,8 @@ int nb_oper_data_iterate(const char *xpath, struct yang_translator *translator,
 
 		/* Find the list entry pointer. */
 		nn = dn->schema->priv;
-		list_entry = nn->cbs.lookup_entry(list_entry, &list_keys);
+		list_entry =
+			nb_callback_lookup_entry(nn, list_entry, &list_keys);
 		if (list_entry == NULL) {
 			list_delete(&list_dnodes);
 			yang_dnode_free(dnode);
@@ -1484,6 +1538,8 @@ DEFINE_HOOK(nb_notification_send, (const char *xpath, struct list *arguments),
 int nb_notification_send(const char *xpath, struct list *arguments)
 {
 	int ret;
+
+	DEBUGD(&nb_dbg_notif, "northbound notification: %s", xpath);
 
 	ret = hook_call(nb_notification_send, xpath, arguments);
 	if (arguments)
