@@ -826,6 +826,30 @@ Defining Peers
    peers ASN is the same as mine as specified under the :clicmd:`router bgp ASN`
    command the connection will be denied.
 
+.. index:: [no] bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group WORD
+.. clicmd:: [no] bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group WORD
+
+   Accept connections from any peers in the specified prefix. Configuration
+   from the specified peer-group is used to configure these peers.
+
+.. note::
+
+   When using BGP listen ranges, if the associated peer group has TCP MD5
+   authentication configured, your kernel must support this on prefixes. On
+   Linux, this support was added in kernel version 4.14. If your kernel does
+   not support this feature you will get a warning in the log file, and the
+   listen range will only accept connections from peers without MD5 configured.
+
+   Additionally, we have observed that when using this option at scale (several
+   hundred peers) the kernel may hit its option memory limit. In this situation
+   you will see error messages like:
+
+   ``bgpd: sockopt_tcp_signature: setsockopt(23): Cannot allocate memory``
+
+   In this case you need to increase the value of the sysctl
+   ``net.core.optmem_max`` to allow the kernel to allocate the necessary option
+   memory.
+
 .. _bgp-configuring-peers:
 
 Configuring Peers
