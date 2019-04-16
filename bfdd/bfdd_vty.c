@@ -64,7 +64,7 @@ static struct json_object *__display_peer_json(struct bfd_session *bs);
 static struct json_object *_peer_json_header(struct bfd_session *bs);
 static void _display_peer_json(struct vty *vty, struct bfd_session *bs);
 static void _display_peer(struct vty *vty, struct bfd_session *bs);
-static void _display_all_peers(struct vty *vty, bool use_json);
+static void _display_all_peers(struct vty *vty, char *vrfname, bool use_json);
 static void _display_peer_iter(struct hash_bucket *hb, void *arg);
 static void _display_peer_json_iter(struct hash_bucket *hb, void *arg);
 static void _display_peer_counter(struct vty *vty, struct bfd_session *bs);
@@ -540,18 +540,45 @@ static void _display_peer_json(struct vty *vty, struct bfd_session *bs)
 	json_object_free(jo);
 }
 
+struct bfd_vrf_tuple {
+	char *vrfname;
+	struct vty *vty;
+	struct json_object *jo;
+};
+
 static void _display_peer_iter(struct hash_bucket *hb, void *arg)
 {
-	struct vty *vty = arg;
+	struct bfd_vrf_tuple *bvt = (struct bfd_vrf_tuple *)arg;
+	struct vty *vty;
 	struct bfd_session *bs = hb->data;
 
+	if (!bvt)
+		return;
+	vty = bvt->vty;
+
+	if (bvt->vrfname) {
+		if (!bs->key.vrfname[0] ||
+		    !strmatch(bs->key.vrfname, bvt->vrfname))
+			return;
+	}
 	_display_peer(vty, bs);
 }
 
 static void _display_peer_json_iter(struct hash_bucket *hb, void *arg)
 {
-	struct json_object *jo = arg, *jon = NULL;
+	struct bfd_vrf_tuple *bvt = (struct bfd_vrf_tuple *)arg;
+	struct json_object *jo, *jon = NULL;
 	struct bfd_session *bs = hb->data;
+
+	if (!bvt)
+		return;
+	jo = bvt->jo;
+
+	if (bvt->vrfname) {
+		if (!bs->key.vrfname[0] ||
+		    !strmatch(bs->key.vrfname, bvt->vrfname))
+			return;
+	}
 
 	jon = __display_peer_json(bs);
 	if (jon == NULL) {
@@ -562,18 +589,24 @@ static void _display_peer_json_iter(struct hash_bucket *hb, void *arg)
 	json_object_array_add(jo, jon);
 }
 
-static void _display_all_peers(struct vty *vty, bool use_json)
+static void _display_all_peers(struct vty *vty, char *vrfname, bool use_json)
 {
 	struct json_object *jo;
+	struct bfd_vrf_tuple bvt;
+
+	memset(&bvt, 0, sizeof(bvt));
+	bvt.vrfname = vrfname;
 
 	if (!use_json) {
+		bvt.vty = vty;
 		vty_out(vty, "BFD Peers:\n");
-		bfd_id_iterate(_display_peer_iter, vty);
+		bfd_id_iterate(_display_peer_iter, &bvt);
 		return;
 	}
 
 	jo = json_object_new_array();
-	bfd_id_iterate(_display_peer_json_iter, jo);
+	bvt.jo = jo;
+	bfd_id_iterate(_display_peer_json_iter, &bvt);
 
 	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
 	json_object_free(jo);
@@ -725,12 +758,19 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 /*
  * Show commands.
  */
-DEFPY(bfd_show_peers, bfd_show_peers_cmd, "show bfd peers [json]",
+DEFPY(bfd_show_peers, bfd_show_peers_cmd, "show bfd [vrf <NAME>] peers [json]",
       SHOW_STR
       "Bidirection Forwarding Detection\n"
+       VRF_CMD_HELP_STR
       "BFD peers status\n" JSON_STR)
 {
-	_display_all_peers(vty, use_json(argc, argv));
+	char *vrf_name = NULL;
+	int idx_vrf = 0;
+
+	if (argv_find(argv, argc, "vrf", &idx_vrf))
+		vrf_name = argv[idx_vrf + 1]->arg;
+
+	_display_all_peers(vty, vrf_name, use_json(argc, argv));
 
 	return CMD_SUCCESS;
 }
