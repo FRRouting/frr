@@ -974,7 +974,8 @@ static int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 		    || ((nexthop->type >= NEXTHOP_TYPE_IPV6
 			 && nexthop->type < NEXTHOP_TYPE_BLACKHOLE)
 			&& !(IPV6_ADDR_SAME(&prev_src.ipv6,
-					    &nexthop->rmap_src.ipv6)))) {
+					    &nexthop->rmap_src.ipv6)))
+		    || CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED)) {
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 			SET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
 		}
@@ -1325,7 +1326,7 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	/* Update real nexthop. This may actually determine if nexthop is active
 	 * or not. */
-	if (!nexthop_active_update(rn, new)) {
+	if (!nexthop_group_active_nexthop_num(&new->ng)) {
 		UNSET_FLAG(new->status, ROUTE_ENTRY_CHANGED);
 		return;
 	}
@@ -1372,7 +1373,7 @@ static void rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 	 * down, causing the kernel to delete routes without sending DELROUTE
 	 * notifications
 	 */
-	if (!nexthop_active_update(rn, old) && (RIB_KERNEL_ROUTE(old)))
+	if (RIB_KERNEL_ROUTE(old))
 		SET_FLAG(old->status, ROUTE_ENTRY_REMOVED);
 	else
 		UNSET_FLAG(old->status, ROUTE_ENTRY_CHANGED);
@@ -1394,7 +1395,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 
 		/* Update the nexthop; we could determine here that nexthop is
 		 * inactive. */
-		if (nexthop_active_update(rn, new))
+		if (nexthop_group_active_nexthop_num(&new->ng))
 			nh_active = 1;
 
 		/* If nexthop is active, install the selected route, if
@@ -1479,11 +1480,8 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 	}
 
 	/* Update prior route. */
-	if (new != old) {
-		/* Set real nexthop. */
-		nexthop_active_update(rn, old);
+	if (new != old)
 		UNSET_FLAG(old->status, ROUTE_ENTRY_CHANGED);
-	}
 
 	/* Clear changed flag. */
 	UNSET_FLAG(new->status, ROUTE_ENTRY_CHANGED);
@@ -1613,38 +1611,30 @@ static void rib_process(struct route_node *rn)
 
 		/* Skip unreachable nexthop. */
 		/* This first call to nexthop_active_update is merely to
-		 * determine if
-		 * there's any change to nexthops associated with this RIB
-		 * entry. Now,
-		 * rib_process() can be invoked due to an external event such as
-		 * link
-		 * down or due to next-hop-tracking evaluation. In the latter
-		 * case,
+		 * determine if there's any change to nexthops associated
+		 * with this RIB entry. Now, rib_process() can be invoked due
+		 * to an external event such as link down or due to
+		 * next-hop-tracking evaluation. In the latter case,
 		 * a decision has already been made that the NHs have changed.
-		 * So, no
-		 * need to invoke a potentially expensive call again. Further,
-		 * since
-		 * the change might be in a recursive NH which is not caught in
-		 * the nexthop_active_update() code. Thus, we might miss changes
-		 * to
-		 * recursive NHs.
+		 * So, no need to invoke a potentially expensive call again.
+		 * Further, since the change might be in a recursive NH which
+		 * is not caught in the nexthop_active_update() code. Thus, we
+		 * might miss changes to recursive NHs.
 		 */
-		if (!CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)
+		if (CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)
 		    && !nexthop_active_update(rn, re)) {
 			if (re->type == ZEBRA_ROUTE_TABLE) {
 				/* XXX: HERE BE DRAGONS!!!!!
 				 * In all honesty, I have not yet figured out
-				 * what this part
-				 * does or why the ROUTE_ENTRY_CHANGED test
-				 * above is correct
+				 * what this part does or why the
+				 * ROUTE_ENTRY_CHANGED test above is correct
 				 * or why we need to delete a route here, and
-				 * also not whether
-				 * this concerns both selected and fib route, or
-				 * only selected
-				 * or only fib */
-				/* This entry was denied by the 'ip protocol
-				 * table' route-map, we
-				 * need to delete it */
+				 * also not whether this concerns both selected
+				 * and fib route, or only selected
+				 * or only fib
+				 *
+				 * This entry was denied by the 'ip protocol
+				 * table' route-map, we need to delete it */
 				if (re != old_selected) {
 					if (IS_ZEBRA_DEBUG_RIB)
 						zlog_debug(
@@ -1721,10 +1711,8 @@ static void rib_process(struct route_node *rn)
 	/* Update SELECTED entry */
 	if (old_selected != new_selected || selected_changed) {
 
-		if (new_selected && new_selected != new_fib) {
-			nexthop_active_update(rn, new_selected);
+		if (new_selected && new_selected != new_fib)
 			UNSET_FLAG(new_selected->status, ROUTE_ENTRY_CHANGED);
-		}
 
 		if (new_selected)
 			SET_FLAG(new_selected->flags, ZEBRA_FLAG_SELECTED);
@@ -2784,6 +2772,8 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			route_entry_dump(p, src_p, re);
 	}
+
+	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 	rib_addnode(rn, re, 1);
 	ret = 1;
 
