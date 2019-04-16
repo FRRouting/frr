@@ -49,6 +49,7 @@ struct bfd_gbl {
 #define BFD_FLAG_BFD_REG   (1 << 1) /* Peer registered with BFD */
 #define BFD_FLAG_BFD_TYPE_MULTIHOP (1 << 2) /* Peer registered with BFD as multihop */
 #define BFD_FLAG_BFD_CBIT_ON (1 << 3) /* Peer registered with CBIT set to on */
+#define BFD_FLAG_BFD_CHECK_CONTROLPLANE (1 << 4) /* BFD and controlplane daemon are linked */
 
 #define BFD_STATUS_UNKNOWN (1 << 0) /* BFD session status never received */
 #define BFD_STATUS_DOWN    (1 << 1) /* BFD session status is down */

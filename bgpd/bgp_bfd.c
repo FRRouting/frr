@@ -112,11 +112,13 @@ static void bgp_bfd_peer_sendmsg(struct peer *peer, int command)
 		if ((command == ZEBRA_BFD_DEST_REGISTER) && multihop)
 			SET_FLAG(bfd_info->flags, BFD_FLAG_BFD_TYPE_MULTIHOP);
 	}
-	/* while graceful restart with fwd path preserved is not kept
+	/* while graceful restart with fwd path preserved
+	 * and bfd controlplane check not configured is not kept
 	 * keep bfd independent controlplane bit set to 1
 	 */
 	if (!bgp_flag_check(peer->bgp, BGP_FLAG_GRACEFUL_RESTART)
-	    && !bgp_flag_check(peer->bgp, BGP_FLAG_GR_PRESERVE_FWD))
+	    && !bgp_flag_check(peer->bgp, BGP_FLAG_GR_PRESERVE_FWD)
+	    && !CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CHECK_CONTROLPLANE))
 		SET_FLAG(bfd_info->flags,  BFD_FLAG_BFD_CBIT_ON);
 
 	cbit = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
@@ -290,6 +292,7 @@ static void bgp_bfd_peer_status_update(struct peer *peer, int status,
 	}
 	if ((status == BFD_STATUS_DOWN) && (old_status == BFD_STATUS_UP)) {
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE) &&
+		    CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CHECK_CONTROLPLANE) &&
 		    !remote_cbit) {
 			zlog_info("%s BFD DOWN message ignored in the process"
 				  " of graceful restart when C bit is cleared",
@@ -556,6 +559,9 @@ void bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, char *addr)
 	if (!CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG)
 	    && (bfd_info->type == BFD_TYPE_NOT_CONFIGURED))
 		vty_out(vty, " neighbor %s bfd\n", addr);
+
+	if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CHECK_CONTROLPLANE))
+		vty_out(vty, " neighbor %s bfd check-control-plane-failure\n", addr);
 }
 
 /*
@@ -666,6 +672,73 @@ DEFUN_HIDDEN (neighbor_bfd_type,
 	return CMD_SUCCESS;
 }
 
+static int bgp_bfd_set_check_controlplane_failure_peer(struct vty *vty, struct peer *peer,
+						       const char *no)
+{
+	struct bfd_info *bfd_info;
+
+	if (!peer->bfd_info) {
+		if (no)
+			return CMD_SUCCESS;
+		vty_out(vty, "%% Specify bfd command first\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	bfd_info = (struct bfd_info *)peer->bfd_info;
+	if (!no) {
+		if (!CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CHECK_CONTROLPLANE)) {
+			SET_FLAG(bfd_info->flags,  BFD_FLAG_BFD_CHECK_CONTROLPLANE);
+			bgp_bfd_update_peer(peer);
+		}
+	} else {
+		if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CHECK_CONTROLPLANE)) {
+			UNSET_FLAG(bfd_info->flags,  BFD_FLAG_BFD_CHECK_CONTROLPLANE);
+			bgp_bfd_update_peer(peer);
+		}
+	}
+	return CMD_SUCCESS;
+}
+
+
+DEFUN (neighbor_bfd_check_controlplane_failure,
+       neighbor_bfd_check_controlplane_failure_cmd,
+       "[no] neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "BFD support\n"
+       "Link dataplane status with BGP controlplane\n")
+{
+	const char *no = strmatch(argv[0]->text, "no") ? "no" : NULL;
+	int idx_peer = 0;
+	struct peer *peer;
+	struct peer_group *group;
+	struct listnode *node, *nnode;
+	int ret = CMD_SUCCESS;
+
+	if (no)
+		idx_peer = 2;
+	else
+		idx_peer = 1;
+	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+	if (!peer) {
+		vty_out(vty, "%% Specify remote-as or peer-group commands first\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (!peer->bfd_info) {
+		if (no)
+			return CMD_SUCCESS;
+		vty_out(vty, "%% Specify bfd command first\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		group = peer->group;
+		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer))
+			ret = bgp_bfd_set_check_controlplane_failure_peer(vty, peer, no);
+	} else
+		ret = bgp_bfd_set_check_controlplane_failure_peer(vty, peer, no);
+	return ret;
+ }
+
 DEFUN (no_neighbor_bfd,
        no_neighbor_bfd_cmd,
 #if HAVE_BFDD > 0
@@ -740,6 +813,7 @@ void bgp_bfd_init(void)
 	install_element(BGP_NODE, &neighbor_bfd_cmd);
 	install_element(BGP_NODE, &neighbor_bfd_param_cmd);
 	install_element(BGP_NODE, &neighbor_bfd_type_cmd);
+	install_element(BGP_NODE, &neighbor_bfd_check_controlplane_failure_cmd);
 	install_element(BGP_NODE, &no_neighbor_bfd_cmd);
 	install_element(BGP_NODE, &no_neighbor_bfd_type_cmd);
 }
