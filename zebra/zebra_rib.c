@@ -940,10 +940,8 @@ static int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 {
 	struct nexthop *nexthop;
 	union g_addr prev_src;
-	unsigned int prev_active, new_active, old_num_nh;
+	unsigned int prev_active, new_active;
 	ifindex_t prev_index;
-
-	old_num_nh = re->nexthop_active_num;
 
 	re->nexthop_active_num = 0;
 	UNSET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
@@ -980,13 +978,6 @@ static int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 			SET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
 		}
-	}
-
-	if (old_num_nh != re->nexthop_active_num)
-		SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
-
-	if (CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)) {
-		SET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
 	}
 
 	return re->nexthop_active_num;
