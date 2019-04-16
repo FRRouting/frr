@@ -246,6 +246,9 @@ static struct zebra_dplane_globals {
 	/* Limit number of pending, unprocessed updates */
 	_Atomic uint32_t dg_max_queued_updates;
 
+	/* Control whether system route notifications should be produced. */
+	bool dg_sys_route_notifs;
+
 	/* Limit number of new updates dequeued at once, to pace an
 	 * incoming burst.
 	 */
@@ -326,6 +329,12 @@ static struct zebra_dplane_ctx *dplane_ctx_alloc(void)
 	return p;
 }
 
+/* Enable system route notifications */
+void dplane_enable_sys_route_notifs(void)
+{
+	zdplane_info.dg_sys_route_notifs = true;
+}
+
 /*
  * Free a dataplane results context.
  */
@@ -347,6 +356,8 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 	case DPLANE_OP_ROUTE_INSTALL:
 	case DPLANE_OP_ROUTE_UPDATE:
 	case DPLANE_OP_ROUTE_DELETE:
+	case DPLANE_OP_SYS_ROUTE_ADD:
+	case DPLANE_OP_SYS_ROUTE_DELETE:
 
 		/* Free allocated nexthops */
 		if ((*pctx)->u.rinfo.zd_ng.nexthop) {
@@ -532,6 +543,12 @@ const char *dplane_op2str(enum dplane_op_e op)
 		ret = "PW_UNINSTALL";
 		break;
 
+	case DPLANE_OP_SYS_ROUTE_ADD:
+		ret = "SYS_ROUTE_ADD";
+		break;
+	case DPLANE_OP_SYS_ROUTE_DELETE:
+		ret = "SYS_ROUTE_DEL";
+		break;
 	}
 
 	return ret;
@@ -962,20 +979,24 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 	ctx->u.rinfo.zd_afi = info->afi;
 	ctx->u.rinfo.zd_safi = info->safi;
 
-	/* Extract ns info - can't use pointers to 'core' structs */
-	zvrf = vrf_info_lookup(re->vrf_id);
-	zns = zvrf->zns;
-
-	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_ROUTE_UPDATE));
-
 	/* Copy nexthops; recursive info is included too */
 	copy_nexthops(&(ctx->u.rinfo.zd_ng.nexthop), re->ng.nexthop, NULL);
-
-	/* TODO -- maybe use array of nexthops to avoid allocs? */
 
 	/* Ensure that the dplane's nexthops flags are clear. */
 	for (ALL_NEXTHOPS(ctx->u.rinfo.zd_ng, nexthop))
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+
+	/* Don't need some info when capturing a system notification */
+	if (op == DPLANE_OP_SYS_ROUTE_ADD ||
+	    op == DPLANE_OP_SYS_ROUTE_DELETE) {
+		ret = AOK;
+		goto done;
+	}
+
+	/* Extract ns info - can't use pointers to 'core' structs */
+	zvrf = vrf_info_lookup(re->vrf_id);
+	zns = zvrf->zns;
+	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_ROUTE_UPDATE));
 
 	/* Trying out the sequence number idea, so we can try to detect
 	 * when a result is stale.
@@ -1291,6 +1312,54 @@ enum zebra_dplane_result dplane_route_delete(struct route_node *rn,
 
 	ret = dplane_route_update_internal(rn, re, NULL,
 					   DPLANE_OP_ROUTE_DELETE);
+
+done:
+	return ret;
+}
+
+/*
+ * Notify the dplane when system/connected routes change.
+ */
+enum zebra_dplane_result dplane_sys_route_add(struct route_node *rn,
+					      struct route_entry *re)
+{
+	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	/* Ignore this event unless a provider plugin has requested it. */
+	if (!zdplane_info.dg_sys_route_notifs) {
+		ret = ZEBRA_DPLANE_REQUEST_SUCCESS;
+		goto done;
+	}
+
+	if (rn == NULL || re == NULL)
+		goto done;
+
+	ret = dplane_route_update_internal(rn, re, NULL,
+					   DPLANE_OP_SYS_ROUTE_ADD);
+
+done:
+	return ret;
+}
+
+/*
+ * Notify the dplane when system/connected routes are deleted.
+ */
+enum zebra_dplane_result dplane_sys_route_del(struct route_node *rn,
+					      struct route_entry *re)
+{
+	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	/* Ignore this event unless a provider plugin has requested it. */
+	if (!zdplane_info.dg_sys_route_notifs) {
+		ret = ZEBRA_DPLANE_REQUEST_SUCCESS;
+		goto done;
+	}
+
+	if (rn == NULL || re == NULL)
+		goto done;
+
+	ret = dplane_route_update_internal(rn, re, NULL,
+					   DPLANE_OP_SYS_ROUTE_DELETE);
 
 done:
 	return ret;
@@ -1856,6 +1925,12 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 			res = kernel_dplane_pw_update(ctx);
 			break;
 
+		/* Ignore system 'notifications' - the kernel already knows */
+		case DPLANE_OP_SYS_ROUTE_ADD:
+		case DPLANE_OP_SYS_ROUTE_DELETE:
+			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
+			break;
+
 		default:
 			atomic_fetch_add_explicit(
 				&zdplane_info.dg_other_errors, 1,
@@ -1915,6 +1990,11 @@ static int test_dplane_process_func(struct zebra_dplane_provider *prov)
 		ctx = dplane_provider_dequeue_in_ctx(prov);
 		if (ctx == NULL)
 			break;
+
+		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+			zlog_debug("dplane provider '%s': op %s",
+				   dplane_provider_get_name(prov),
+				   dplane_op2str(dplane_ctx_get_op(ctx)));
 
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
 

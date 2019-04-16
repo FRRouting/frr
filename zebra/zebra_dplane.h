@@ -114,7 +114,14 @@ enum dplane_op_e {
 	/* Pseudowire update */
 	DPLANE_OP_PW_INSTALL,
 	DPLANE_OP_PW_UNINSTALL,
+
+	/* System route notification */
+	DPLANE_OP_SYS_ROUTE_ADD,
+	DPLANE_OP_SYS_ROUTE_DELETE,
 };
+
+/* Enable system route notifications */
+void dplane_enable_sys_route_notifs(void);
 
 /*
  * The dataplane context struct is used to exchange info between the main zebra
@@ -248,6 +255,12 @@ enum zebra_dplane_result dplane_route_update(struct route_node *rn,
 
 enum zebra_dplane_result dplane_route_delete(struct route_node *rn,
 					     struct route_entry *re);
+
+/* Notify the dplane when system/connected routes change */
+enum zebra_dplane_result dplane_sys_route_add(struct route_node *rn,
+					      struct route_entry *re);
+enum zebra_dplane_result dplane_sys_route_del(struct route_node *rn,
+					      struct route_entry *re);
 
 /*
  * Enqueue LSP change operations for the dataplane.
