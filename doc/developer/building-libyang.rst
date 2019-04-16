@@ -46,7 +46,8 @@ The FRR project builds binary ``libyang`` packages, which we offer for download
    git clone https://github.com/CESNET/libyang.git
    cd libyang
    mkdir build; cd build
-   cmake -DENABLE_LYD_PRIV=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr ..
+   cmake -DENABLE_LYD_PRIV=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+         -D CMAKE_BUILD_TYPE:String="Release" ..
    make
    sudo make install
 
