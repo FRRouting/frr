@@ -282,8 +282,10 @@ static void bgp_bfd_peer_status_update(struct peer *peer, int status)
 	}
 	if ((status == BFD_STATUS_UP) && (old_status == BFD_STATUS_DOWN)
 	    && peer->status != Established) {
-		if (!BGP_PEER_START_SUPPRESSED(peer))
+		if (!BGP_PEER_START_SUPPRESSED(peer)) {
+			bgp_fsm_event_update(peer, 1);
 			BGP_EVENT_ADD(peer, BGP_Start);
+		}
 	}
 }
 
