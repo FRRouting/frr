@@ -2153,7 +2153,8 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 			/* link bgp_info to bgp_pbr */
 			path = (struct bgp_path_info *)bgp_pbr->path;
 			extra = bgp_path_info_extra_get(path);
-			listnode_add(extra->bgp_fs_iprule, bgp_pbr);
+			listnode_add_force(&extra->bgp_fs_iprule,
+					   bgp_pbr);
 		}
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("%s: Received RULE_INSTALLED",
@@ -2261,7 +2262,7 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 		/* link bgp_path_info to bpme */
 		path = (struct bgp_path_info *)bgp_pbime->path;
 		extra = bgp_path_info_extra_get(path);
-		listnode_add(extra->bgp_fs_pbr, bgp_pbime);
+		listnode_add_force(&extra->bgp_fs_pbr, bgp_pbime);
 		}
 		break;
 	case ZAPI_IPSET_ENTRY_FAIL_REMOVE:

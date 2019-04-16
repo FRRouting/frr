@@ -259,6 +259,13 @@ struct listnode *listnode_lookup(struct list *list, void *data)
 	return NULL;
 }
 
+struct listnode *listnode_lookup_nocheck(struct list *list, void *data)
+{
+	if (!list)
+		return NULL;
+	return listnode_lookup(list, data);
+}
+
 void list_delete_node(struct list *list, struct listnode *node)
 {
 	if (node->prev)
@@ -317,4 +324,11 @@ void list_sort(struct list *list, int (*cmp)(const void **, const void **))
 		listnode_add(list, items[j]);
 
 	XFREE(MTYPE_TMP, items);
+}
+
+void listnode_add_force(struct list **list, void *val)
+{
+	if (*list == NULL)
+		*list = list_new();
+	return listnode_add(*list, val);
 }
