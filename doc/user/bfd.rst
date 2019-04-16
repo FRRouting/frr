@@ -174,6 +174,21 @@ The following commands are available inside the BGP configuration node.
 
    Removes any notification registration for this neighbor.
 
+.. index:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
+
+   Allow to write CBIT independence in BFD outgoing packets. Also allow to
+   read both C-BIT value of BFD and lookup BGP peer status. This command is
+   useful when a BFD down event is caught, while the BGP peer requested that
+   local BGP keeps the remote BGP entries as staled if such issue is detected.
+   This is the case when graceful restart is enabled, and it is wished to
+   ignore the BD event while waiting for the remote router to restart.
+
+.. index:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
+.. clicmd:: no neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure
+
+   Disallow to write CBIT independence in BFD outgoing packets. Also disallow
+   to ignore BFD down notification. This is the default behaviour.
 
 .. _bfd-ospf-peer-config:
 
