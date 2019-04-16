@@ -81,13 +81,13 @@ BFDd Commands
 
     Stops and removes the selected peer.
 
-.. index:: show bfd peers [json]
-.. clicmd:: show bfd peers [json]
+.. index:: show bfd [vrf NAME] peers [json]
+.. clicmd:: show bfd [vrf NAME] peers [json]
 
     Show all configured BFD peers information and current status.
 
-.. index:: show bfd peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]> [json]
-.. clicmd:: show bfd peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]> [json]
+.. index:: show bfd [vrf NAME$vrfname] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> [json]
+.. clicmd:: show bfd [vrf NAME$vrfname] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> [json]
 
     Show status for a specific BFD peer.
 
