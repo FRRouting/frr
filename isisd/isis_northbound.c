@@ -826,7 +826,7 @@ static void default_info_origin_apply_finish(const struct lyd_node *dnode,
 
 	if (yang_dnode_exists(dnode, "./metric"))
 		metric = yang_dnode_get_uint32(dnode, "./metric");
-	else if (yang_dnode_exists(dnode, "./route-map"))
+	if (yang_dnode_exists(dnode, "./route-map"))
 		routemap = yang_dnode_get_string(dnode, "./route-map");
 
 	isis_redist_set(area, level, family, DEFAULT_ROUTE, metric, routemap,
@@ -907,13 +907,6 @@ static int isis_instance_default_information_originate_ipv4_metric_modify(
 	return NB_OK;
 }
 
-static int isis_instance_default_information_originate_ipv4_metric_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
-{
-	/* It's all done by default_info_origin_apply_finish */
-	return NB_OK;
-}
-
 /*
  * XPath: /frr-isisd:isis/instance/default-information-originate/ipv6
  */
@@ -981,13 +974,6 @@ static int isis_instance_default_information_originate_ipv6_metric_modify(
 	return NB_OK;
 }
 
-static int isis_instance_default_information_originate_ipv6_metric_destroy(
-	enum nb_event event, const struct lyd_node *dnode)
-{
-	/* It's all done by default_info_origin_apply_finish */
-	return NB_OK;
-}
-
 /*
  * XPath: /frr-isisd:isis/instance/redistribute/ipv4
  */
@@ -1005,7 +991,7 @@ static void redistribute_apply_finish(const struct lyd_node *dnode, int family)
 
 	if (yang_dnode_exists(dnode, "./metric"))
 		metric = yang_dnode_get_uint32(dnode, "./metric");
-	else if (yang_dnode_exists(dnode, "./route-map"))
+	if (yang_dnode_exists(dnode, "./route-map"))
 		routemap = yang_dnode_get_string(dnode, "./route-map");
 
 	isis_redist_set(area, level, family, type, metric, routemap, 0);
@@ -1078,14 +1064,6 @@ isis_instance_redistribute_ipv4_metric_modify(enum nb_event event,
 	return NB_OK;
 }
 
-static int
-isis_instance_redistribute_ipv4_metric_destroy(enum nb_event event,
-					      const struct lyd_node *dnode)
-{
-	/* It's all done by redistribute_apply_finish */
-	return NB_OK;
-}
-
 /*
  * XPath: /frr-isisd:isis/instance/redistribute/ipv6
  */
@@ -1141,14 +1119,6 @@ static int
 isis_instance_redistribute_ipv6_metric_modify(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
-{
-	/* It's all done by redistribute_apply_finish */
-	return NB_OK;
-}
-
-static int
-isis_instance_redistribute_ipv6_metric_destroy(enum nb_event event,
-					      const struct lyd_node *dnode)
 {
 	/* It's all done by redistribute_apply_finish */
 	return NB_OK;
@@ -2926,7 +2896,6 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv4/metric",
 			.cbs.modify = isis_instance_default_information_originate_ipv4_metric_modify,
-			.cbs.destroy = isis_instance_default_information_originate_ipv4_metric_destroy,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv6",
@@ -2947,7 +2916,6 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-isisd:isis/instance/default-information-originate/ipv6/metric",
 			.cbs.modify = isis_instance_default_information_originate_ipv6_metric_modify,
-			.cbs.destroy = isis_instance_default_information_originate_ipv6_metric_destroy,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv4",
@@ -2964,7 +2932,6 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv4/metric",
 			.cbs.modify = isis_instance_redistribute_ipv4_metric_modify,
-			.cbs.destroy = isis_instance_redistribute_ipv4_metric_destroy,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6",
@@ -2981,7 +2948,6 @@ const struct frr_yang_module_info frr_isisd_info = {
 		{
 			.xpath = "/frr-isisd:isis/instance/redistribute/ipv6/metric",
 			.cbs.modify = isis_instance_redistribute_ipv6_metric_modify,
-			.cbs.destroy = isis_instance_redistribute_ipv6_metric_destroy,
 		},
 		{
 			.xpath = "/frr-isisd:isis/instance/multi-topology/ipv4-multicast",

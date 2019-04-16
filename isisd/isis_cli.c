@@ -1000,7 +1000,7 @@ DEFPY(isis_mpls_te_inter_as, isis_mpls_te_inter_as_cmd,
 DEFPY(isis_default_originate, isis_default_originate_cmd,
       "[no] default-information originate <ipv4|ipv6>$ip"
       " <level-1|level-2>$level [always]$always"
-      " [<metric (0-16777215)$metric|route-map WORD$rmap>]",
+      " [{metric (0-16777215)$metric|route-map WORD$rmap}]",
       NO_STR
       "Control distribution of default information\n"
       "Distribute a default route\n"
@@ -1023,9 +1023,8 @@ DEFPY(isis_default_originate, isis_default_originate_cmd,
 		nb_cli_enqueue_change(vty, "./route-map",
 				      rmap ? NB_OP_MODIFY : NB_OP_DESTROY,
 				      rmap ? rmap : NULL);
-		nb_cli_enqueue_change(vty, "./metric",
-				      metric ? NB_OP_MODIFY : NB_OP_DESTROY,
-				      metric ? metric_str : NULL);
+		nb_cli_enqueue_change(vty, "./metric", NB_OP_MODIFY,
+				      metric_str ? metric_str : NULL);
 		if (strmatch(ip, "ipv6") && !always) {
 			vty_out(vty,
 				"Zebra doesn't implement default-originate for IPv6 yet\n");
@@ -1043,8 +1042,6 @@ static void vty_print_def_origin(struct vty *vty, struct lyd_node *dnode,
 				 const char *family, const char *level,
 				 bool show_defaults)
 {
-	const char *metric;
-
 	vty_out(vty, " default-information originate %s %s", family, level);
 	if (yang_dnode_get_bool(dnode, "./always"))
 		vty_out(vty, " always");
@@ -1052,11 +1049,10 @@ static void vty_print_def_origin(struct vty *vty, struct lyd_node *dnode,
 	if (yang_dnode_exists(dnode, "./route-map"))
 		vty_out(vty, " route-map %s",
 			yang_dnode_get_string(dnode, "./route-map"));
-	else if (yang_dnode_exists(dnode, "./metric")) {
-		metric = yang_dnode_get_string(dnode, "./metric");
-		if (show_defaults || !yang_dnode_is_default(dnode, "./metric"))
-			vty_out(vty, " metric %s", metric);
-	}
+	if (show_defaults || !yang_dnode_is_default(dnode, "./metric"))
+		vty_out(vty, " metric %s",
+			yang_dnode_get_string(dnode, "./metric"));
+
 	vty_out(vty, "\n");
 }
 
@@ -1083,7 +1079,7 @@ DEFPY(isis_redistribute, isis_redistribute_cmd,
       "[no] redistribute <ipv4|ipv6>$ip " PROTO_REDIST_STR
       "$proto"
       " <level-1|level-2>$level"
-      " [<metric (0-16777215)|route-map WORD>]",
+      " [{metric (0-16777215)|route-map WORD}]",
       NO_STR REDIST_STR
       "Redistribute IPv4 routes\n"
       "Redistribute IPv6 routes\n" PROTO_REDIST_HELP
@@ -1101,9 +1097,8 @@ DEFPY(isis_redistribute, isis_redistribute_cmd,
 		nb_cli_enqueue_change(vty, "./route-map",
 				      route_map ? NB_OP_MODIFY : NB_OP_DESTROY,
 				      route_map ? route_map : NULL);
-		nb_cli_enqueue_change(vty, "./metric",
-				      metric ? NB_OP_MODIFY : NB_OP_DESTROY,
-				      metric ? metric_str : NULL);
+		nb_cli_enqueue_change(vty, "./metric", NB_OP_MODIFY,
+				      metric_str ? metric_str : NULL);
 	}
 
 	return nb_cli_apply_changes(
@@ -1112,16 +1107,16 @@ DEFPY(isis_redistribute, isis_redistribute_cmd,
 }
 
 static void vty_print_redistribute(struct vty *vty, struct lyd_node *dnode,
-				   const char *family)
+				   bool show_defaults, const char *family)
 {
 	const char *level = yang_dnode_get_string(dnode, "./level");
 	const char *protocol = yang_dnode_get_string(dnode, "./protocol");
 
 	vty_out(vty, " redistribute %s %s %s", family, protocol, level);
-	if (yang_dnode_exists(dnode, "./metric"))
+	if (show_defaults || !yang_dnode_is_default(dnode, "./metric"))
 		vty_out(vty, " metric %s",
 			yang_dnode_get_string(dnode, "./metric"));
-	else if (yang_dnode_exists(dnode, "./route-map"))
+	if (yang_dnode_exists(dnode, "./route-map"))
 		vty_out(vty, " route-map %s",
 			yang_dnode_get_string(dnode, "./route-map"));
 	vty_out(vty, "\n");
@@ -1130,12 +1125,12 @@ static void vty_print_redistribute(struct vty *vty, struct lyd_node *dnode,
 void cli_show_isis_redistribute_ipv4(struct vty *vty, struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	vty_print_redistribute(vty, dnode, "ipv4");
+	vty_print_redistribute(vty, dnode, show_defaults, "ipv4");
 }
 void cli_show_isis_redistribute_ipv6(struct vty *vty, struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	vty_print_redistribute(vty, dnode, "ipv6");
+	vty_print_redistribute(vty, dnode, show_defaults, "ipv6");
 }
 
 /*
