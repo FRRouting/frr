@@ -929,7 +929,6 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	if (!source->source_channel_oil) {
 		struct in_addr vif_source;
 		struct prefix nht_p, src, grp;
-		struct pim_nexthop_cache out_pnc;
 		struct pim_nexthop nexthop;
 		struct pim_upstream *up = NULL;
 
@@ -955,7 +954,6 @@ void igmp_source_forward_start(struct pim_instance *pim,
 			nht_p.family = AF_INET;
 			nht_p.prefixlen = IPV4_MAX_BITLEN;
 			nht_p.u.prefix4 = vif_source;
-			memset(&out_pnc, 0, sizeof(struct pim_nexthop_cache));
 
 			src.family = AF_INET;
 			src.prefixlen = IPV4_MAX_BITLEN;
@@ -964,44 +962,21 @@ void igmp_source_forward_start(struct pim_instance *pim,
 			grp.prefixlen = IPV4_MAX_BITLEN;
 			grp.u.prefix4 = sg.grp;
 
-			if (pim_find_or_track_nexthop(pim, &nht_p, NULL, NULL,
-					      &out_pnc)) {
-				if (out_pnc.nexthop_num) {
-					up = pim_upstream_find(pim, &sg);
-					memset(&nexthop, 0, sizeof(nexthop));
-					if (up)
-						memcpy(&nexthop,
-						    &up->rpf.source_nexthop,
-						    sizeof(struct pim_nexthop));
-					pim_ecmp_nexthop_search(pim, &out_pnc,
-								&nexthop,
-								&src, &grp, 0);
-					if (nexthop.interface)
-						input_iface_vif_index =
+			up = pim_upstream_find(pim, &sg);
+			if (up) {
+				memcpy(&nexthop, &up->rpf.source_nexthop,
+				       sizeof(struct pim_nexthop));
+				pim_ecmp_nexthop_lookup(pim, &nexthop, &src,
+							&grp, 0);
+				if (nexthop.interface)
+					input_iface_vif_index =
 						pim_if_find_vifindex_by_ifindex(
-						    pim,
-						    nexthop.interface->ifindex);
-				} else {
-					if (PIM_DEBUG_ZEBRA) {
-						char buf1[INET_ADDRSTRLEN];
-						char buf2[INET_ADDRSTRLEN];
-
-						pim_inet4_dump("<source?>",
-						       nht_p.u.prefix4, buf1,
-						       sizeof(buf1));
-						pim_inet4_dump("<source?>",
-						       grp.u.prefix4, buf2,
-						       sizeof(buf2));
-						zlog_debug(
-						"%s: NHT Nexthop not found for addr %s grp %s",
-						__PRETTY_FUNCTION__, buf1,
-						buf2);
-					}
-				}
+							pim,
+							nexthop.interface->ifindex);
 			} else
 				input_iface_vif_index =
-				    pim_ecmp_fib_lookup_if_vif_index(pim, &src,
-								 &grp);
+					pim_ecmp_fib_lookup_if_vif_index(
+						pim, &src, &grp);
 
 			if (PIM_DEBUG_ZEBRA) {
 				char buf2[INET_ADDRSTRLEN];
@@ -1209,7 +1184,6 @@ void pim_forward_start(struct pim_ifchannel *ch)
 	*/
 	if ((up->upstream_addr.s_addr != INADDR_ANY) && (!up->channel_oil)) {
 		struct prefix nht_p, src, grp;
-		struct pim_nexthop_cache out_pnc;
 
 		/* Register addr with Zebra NHT */
 		nht_p.family = AF_INET;
@@ -1218,55 +1192,14 @@ void pim_forward_start(struct pim_ifchannel *ch)
 		grp.family = AF_INET;
 		grp.prefixlen = IPV4_MAX_BITLEN;
 		grp.u.prefix4 = up->sg.grp;
-		memset(&out_pnc, 0, sizeof(struct pim_nexthop_cache));
+		src.family = AF_INET;
+		src.prefixlen = IPV4_MAX_BITLEN;
+		src.u.prefix4 = up->sg.src;
 
-		if (pim_find_or_track_nexthop(pim, &nht_p, NULL, NULL,
-					      &out_pnc)) {
-			if (out_pnc.nexthop_num) {
-				src.family = AF_INET;
-				src.prefixlen = IPV4_MAX_BITLEN;
-				src.u.prefix4 =
-					up->upstream_addr; // RP or Src address
-				grp.family = AF_INET;
-				grp.prefixlen = IPV4_MAX_BITLEN;
-				grp.u.prefix4 = up->sg.grp;
-				// Compute PIM RPF using Cached nexthop
-				if (pim_ecmp_nexthop_search(
-					    pim, &out_pnc,
-					    &up->rpf.source_nexthop, &src, &grp,
-					    0))
-					input_iface_vif_index =
-						pim_if_find_vifindex_by_ifindex(
-							pim,
-							up->rpf.source_nexthop
-								.interface->ifindex);
-				else {
-					if (PIM_DEBUG_TRACE)
-						zlog_debug(
-							"%s: Nexthop selection failed for %s ",
-							__PRETTY_FUNCTION__,
-							up->sg_str);
-				}
-			} else {
-				if (PIM_DEBUG_ZEBRA) {
-					char buf1[INET_ADDRSTRLEN];
-					char buf2[INET_ADDRSTRLEN];
-					pim_inet4_dump("<source?>",
-						       nht_p.u.prefix4, buf1,
-						       sizeof(buf1));
-					pim_inet4_dump("<source?>",
-						       grp.u.prefix4, buf2,
-						       sizeof(buf2));
-					zlog_debug(
-						"%s: NHT pnc is NULL for addr %s grp %s",
-						__PRETTY_FUNCTION__, buf1,
-						buf2);
-				}
-			}
-		} else
-			input_iface_vif_index =
-				pim_ecmp_fib_lookup_if_vif_index(pim, &src,
-								 &grp);
+		if (pim_ecmp_nexthop_lookup(pim, &up->rpf.source_nexthop, &src,
+					    &grp, 0))
+			input_iface_vif_index = pim_if_find_vifindex_by_ifindex(
+				pim, up->rpf.source_nexthop.interface->ifindex);
 
 		if (input_iface_vif_index < 1) {
 			if (PIM_DEBUG_PIM_TRACE) {

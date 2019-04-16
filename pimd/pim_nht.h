@@ -41,6 +41,7 @@ struct pim_nexthop_cache {
 	int64_t last_update;
 	uint16_t flags;
 #define PIM_NEXTHOP_VALID             (1 << 0)
+#define PIM_NEXTHOP_ANSWER_RECEIVED   (1 << 1)
 
 	struct list *rp_list;
 	struct hash *upstream_hash;
@@ -56,10 +57,6 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 struct pim_nexthop_cache *pim_nexthop_cache_find(struct pim_instance *pim,
 						 struct pim_rpf *rpf);
 uint32_t pim_compute_ecmp_hash(struct prefix *src, struct prefix *grp);
-int pim_ecmp_nexthop_search(struct pim_instance *pim,
-			    struct pim_nexthop_cache *pnc,
-			    struct pim_nexthop *nexthop, struct prefix *src,
-			    struct prefix *grp, int neighbor_needed);
 int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 			    struct pim_nexthop *nexthop, struct prefix *src,
 			    struct prefix *grp, int neighbor_needed);
