@@ -402,10 +402,13 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 	nexthop_add(&nexthop->resolved, resolved_hop);
 }
 
-/* If force flag is not set, do not modify falgs at all for uninstall
-   the route from FIB. */
+/*
+ * Given a nexthop we need to properly recursively resolve
+ * the route.  As such, do a table lookup to find and match
+ * if at all possible.  Set the nexthop->ifindex as appropriate
+ */
 static int nexthop_active(afi_t afi, struct route_entry *re,
-			  struct nexthop *nexthop, bool set,
+			  struct nexthop *nexthop,
 			  struct route_node *top)
 {
 	struct prefix p;
@@ -421,12 +424,10 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	    || nexthop->type == NEXTHOP_TYPE_IPV6)
 		nexthop->ifindex = 0;
 
-	if (set) {
-		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-		nexthops_free(nexthop->resolved);
-		nexthop->resolved = NULL;
-		re->nexthop_mtu = 0;
-	}
+	UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
+	nexthops_free(nexthop->resolved);
+	nexthop->resolved = NULL;
+	re->nexthop_mtu = 0;
 
 	/*
 	 * If the kernel has sent us a route, then
@@ -580,17 +581,14 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 					       NEXTHOP_FLAG_RECURSIVE))
 					continue;
 
-				if (set) {
-					SET_FLAG(nexthop->flags,
-						 NEXTHOP_FLAG_RECURSIVE);
-					SET_FLAG(re->status,
-						 ROUTE_ENTRY_NEXTHOPS_CHANGED);
-					nexthop_set_resolved(afi, newhop,
-							     nexthop);
-				}
+				SET_FLAG(nexthop->flags,
+					 NEXTHOP_FLAG_RECURSIVE);
+				SET_FLAG(re->status,
+					 ROUTE_ENTRY_NEXTHOPS_CHANGED);
+				nexthop_set_resolved(afi, newhop, nexthop);
 				resolved = 1;
 			}
-			if (resolved && set)
+			if (resolved)
 				re->nexthop_mtu = match->mtu;
 			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug("\t%s: Recursion failed to find",
@@ -606,15 +604,12 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 					       NEXTHOP_FLAG_RECURSIVE))
 					continue;
 
-				if (set) {
-					SET_FLAG(nexthop->flags,
-						 NEXTHOP_FLAG_RECURSIVE);
-					nexthop_set_resolved(afi, newhop,
-							     nexthop);
-				}
+				SET_FLAG(nexthop->flags,
+					 NEXTHOP_FLAG_RECURSIVE);
+				nexthop_set_resolved(afi, newhop, nexthop);
 				resolved = 1;
 			}
-			if (resolved && set)
+			if (resolved)
 				re->nexthop_mtu = match->mtu;
 
 			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
@@ -818,17 +813,15 @@ struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 
 /* This function verifies reachability of one given nexthop, which can be
  * numbered or unnumbered, IPv4 or IPv6. The result is unconditionally stored
- * in nexthop->flags field. If the 4th parameter, 'set', is non-zero,
- * nexthop->ifindex will be updated appropriately as well.
- * An existing route map can turn (otherwise active) nexthop into inactive, but
- * not vice versa.
+ * in nexthop->flags field. The nexthop->ifindex will be updated
+ * appropriately as well.  An existing route map can turn
+ * (otherwise active) nexthop into inactive, but not vice versa.
  *
  * The return value is the final value of 'ACTIVE' flag.
  */
-
 static unsigned nexthop_active_check(struct route_node *rn,
 				     struct route_entry *re,
-				     struct nexthop *nexthop, bool set)
+				     struct nexthop *nexthop)
 {
 	struct interface *ifp;
 	route_map_result_t ret = RMAP_MATCH;
@@ -856,14 +849,14 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		family = AFI_IP;
-		if (nexthop_active(AFI_IP, re, nexthop, set, rn))
+		if (nexthop_active(AFI_IP, re, nexthop, rn))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		break;
 	case NEXTHOP_TYPE_IPV6:
 		family = AFI_IP6;
-		if (nexthop_active(AFI_IP6, re, nexthop, set, rn))
+		if (nexthop_active(AFI_IP6, re, nexthop, rn))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -880,7 +873,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 			else
 				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		} else {
-			if (nexthop_active(AFI_IP6, re, nexthop, set, rn))
+			if (nexthop_active(AFI_IP6, re, nexthop, rn))
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 			else
 				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -945,17 +938,15 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	return CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 }
 
-/* Iterate over all nexthops of the given RIB entry and refresh their
+/*
+ * Iterate over all nexthops of the given RIB entry and refresh their
  * ACTIVE flag. re->nexthop_active_num is updated accordingly. If any
  * nexthop is found to toggle the ACTIVE flag, the whole re structure
- * is flagged with ROUTE_ENTRY_CHANGED. The 4th 'set' argument is
- * transparently passed to nexthop_active_check().
+ * is flagged with ROUTE_ENTRY_CHANGED.
  *
  * Return value is the new number of active nexthops.
  */
-
-static int nexthop_active_update(struct route_node *rn, struct route_entry *re,
-				 bool set)
+static int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 {
 	struct nexthop *nexthop;
 	union g_addr prev_src;
@@ -979,7 +970,7 @@ static int nexthop_active_update(struct route_node *rn, struct route_entry *re,
 		 * a multipath perpsective should not be a data plane
 		 * decision point.
 		 */
-		new_active = nexthop_active_check(rn, re, nexthop, set);
+		new_active = nexthop_active_check(rn, re, nexthop);
 		if (new_active && re->nexthop_active_num >= multipath_num) {
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 			new_active = 0;
@@ -1353,7 +1344,7 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	/* Update real nexthop. This may actually determine if nexthop is active
 	 * or not. */
-	if (!nexthop_active_update(rn, new, true)) {
+	if (!nexthop_active_update(rn, new)) {
 		UNSET_FLAG(new->status, ROUTE_ENTRY_CHANGED);
 		return;
 	}
@@ -1400,8 +1391,7 @@ static void rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 	 * down, causing the kernel to delete routes without sending DELROUTE
 	 * notifications
 	 */
-	if (!nexthop_active_update(rn, old, true) &&
-	    (RIB_KERNEL_ROUTE(old)))
+	if (!nexthop_active_update(rn, old) && (RIB_KERNEL_ROUTE(old)))
 		SET_FLAG(old->status, ROUTE_ENTRY_REMOVED);
 	else
 		UNSET_FLAG(old->status, ROUTE_ENTRY_CHANGED);
@@ -1423,7 +1413,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 
 		/* Update the nexthop; we could determine here that nexthop is
 		 * inactive. */
-		if (nexthop_active_update(rn, new, true))
+		if (nexthop_active_update(rn, new))
 			nh_active = 1;
 
 		/* If nexthop is active, install the selected route, if
@@ -1510,7 +1500,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 	/* Update prior route. */
 	if (new != old) {
 		/* Set real nexthop. */
-		nexthop_active_update(rn, old, true);
+		nexthop_active_update(rn, old);
 		UNSET_FLAG(old->status, ROUTE_ENTRY_CHANGED);
 	}
 
@@ -1659,7 +1649,7 @@ static void rib_process(struct route_node *rn)
 		 * recursive NHs.
 		 */
 		if (!CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED)
-		    && !nexthop_active_update(rn, re, false)) {
+		    && !nexthop_active_update(rn, re)) {
 			if (re->type == ZEBRA_ROUTE_TABLE) {
 				/* XXX: HERE BE DRAGONS!!!!!
 				 * In all honesty, I have not yet figured out
@@ -1751,7 +1741,7 @@ static void rib_process(struct route_node *rn)
 	if (old_selected != new_selected || selected_changed) {
 
 		if (new_selected && new_selected != new_fib) {
-			nexthop_active_update(rn, new_selected, true);
+			nexthop_active_update(rn, new_selected);
 			UNSET_FLAG(new_selected->status, ROUTE_ENTRY_CHANGED);
 		}
 
