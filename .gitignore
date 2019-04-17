@@ -75,6 +75,7 @@ build
 *.bak
 *.swp
 *.pyc
+*.dmp
 __pycache__
 *.patch
 *.diff
