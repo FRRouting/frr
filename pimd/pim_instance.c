@@ -36,6 +36,8 @@
 
 static void pim_instance_terminate(struct pim_instance *pim)
 {
+	pim_vxlan_exit(pim);
+
 	if (pim->ssm_info) {
 		pim_ssm_terminate(pim->ssm_info);
 		pim->ssm_info = NULL;
@@ -60,7 +62,6 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	pim_oil_terminate(pim);
 
 	pim_msdp_exit(pim);
-	pim_vxlan_exit(pim);
 
 	XFREE(MTYPE_PIM_PIM_INSTANCE, pim);
 }

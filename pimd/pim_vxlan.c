@@ -858,7 +858,9 @@ static void pim_vxlan_set_default_iif(struct pim_instance *pim,
 	/* add/del upstream entries for the existing vxlan SG when the
 	 * interface becomes available
 	 */
-	hash_iterate(pim->vxlan.sg_hash, pim_vxlan_orig_mr_iif_update, ifp);
+	if (pim->vxlan.sg_hash)
+		hash_iterate(pim->vxlan.sg_hash,
+				pim_vxlan_orig_mr_iif_update, ifp);
 }
 
 static void pim_vxlan_set_peerlink_rif(struct pim_instance *pim,
@@ -889,7 +891,9 @@ static void pim_vxlan_set_peerlink_rif(struct pim_instance *pim,
 	/* add/del upstream entries for the existing vxlan SG when the
 	 * interface becomes available
 	 */
-	hash_iterate(pim->vxlan.sg_hash, pim_vxlan_orig_mr_iif_update, ifp);
+	if (pim->vxlan.sg_hash)
+		hash_iterate(pim->vxlan.sg_hash,
+				pim_vxlan_orig_mr_iif_update, ifp);
 }
 
 void pim_vxlan_add_vif(struct interface *ifp)
@@ -972,8 +976,10 @@ void pim_vxlan_add_term_dev(struct pim_instance *pim,
 	}
 
 	pim->vxlan.term_if = ifp;
-	hash_iterate(pim_ifp->pim->vxlan.sg_hash,
-		pim_vxlan_term_mr_oif_update, ifp);
+
+	if (pim->vxlan.sg_hash)
+		hash_iterate(pim_ifp->pim->vxlan.sg_hash,
+				pim_vxlan_term_mr_oif_update, ifp);
 }
 
 void pim_vxlan_del_term_dev(struct pim_instance *pim)
@@ -985,8 +991,10 @@ void pim_vxlan_del_term_dev(struct pim_instance *pim)
 		zlog_debug("vxlan term oif changed from %s to -", ifp->name);
 
 	pim->vxlan.term_if = NULL;
-	hash_iterate(pim->vxlan.sg_hash,
-		pim_vxlan_term_mr_oif_update, NULL);
+
+	if (pim->vxlan.sg_hash)
+		hash_iterate(pim->vxlan.sg_hash,
+				pim_vxlan_term_mr_oif_update, NULL);
 
 	pim_ifp = (struct pim_interface *)ifp->info;
 	if (pim_ifp) {
