@@ -166,6 +166,7 @@ enum bfd_session_flags {
 						 * expires
 						 */
 	BFD_SESS_FLAG_SHUTDOWN = 1 << 7,	/* disable BGP peer function */
+	BFD_SESS_FLAG_CONFIG = 1 << 8,	/* Session configured with bfd NB API */
 };
 
 #define BFD_SET_FLAG(field, flag) (field |= flag)
