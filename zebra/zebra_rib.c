@@ -2653,7 +2653,8 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	/* Lookup table.  */
 	table = zebra_vrf_table_with_table_id(afi, safi, re->vrf_id, re->table);
 	if (!table) {
-		nexthop_group_free_delete(&re->ng);
+		if (re->ng)
+			nexthop_group_free_delete(&re->ng);
 		XFREE(MTYPE_RE, re);
 		return 0;
 	}
