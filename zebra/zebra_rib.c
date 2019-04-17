@@ -56,6 +56,9 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_dplane.h"
 
+/* Utility to fix installation status of system route types */
+static void zebra_rib_fixup_system(struct route_node *rn);
+
 /*
  * Event, list, and mutex for delivery of dataplane results
  */
@@ -1047,6 +1050,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
 	if (info->safi != SAFI_UNICAST) {
+		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
 		for (ALL_NEXTHOPS(re->ng, nexthop))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		return;
@@ -1503,9 +1507,15 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 		 * interface up before IPv4 or IPv6 protocol is ready
 		 * to add routes.
 		 */
-		if (!CHECK_FLAG(new->status, ROUTE_ENTRY_INSTALLED) ||
-		    RIB_SYSTEM_ROUTE(new))
+		if (!CHECK_FLAG(new->status, ROUTE_ENTRY_INSTALLED))
 			rib_install_kernel(rn, new, NULL);
+		else {
+			/* If we're not going to actually do an update,
+			 * ensure that any system route types associated with
+			 * this prefix are correctly set/flagged for use.
+			 */
+			zebra_rib_fixup_system(rn);
+		}
 	}
 
 	/* Update prior route. */
