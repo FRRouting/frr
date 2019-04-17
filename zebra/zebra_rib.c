@@ -2571,8 +2571,8 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 				  INET6_ADDRSTRLEN);
 			break;
 		}
-		zlog_debug("%s: %s %s[%u] vrf %s(%u) with flags %s%s%s", func,
-			   (nexthop->rparent ? "  NH" : "NH"), straddr,
+		zlog_debug("%s: %s %s[%u] vrf %s(%u) with flags %s%s%s%s%s%s",
+			   func, (nexthop->rparent ? "  NH" : "NH"), straddr,
 			   nexthop->ifindex, vrf ? vrf->name : "Unknown",
 			   nexthop->vrf_id,
 			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)
@@ -2582,7 +2582,16 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 				    ? "FIB "
 				    : ""),
 			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE)
-				    ? "RECURSIVE"
+				    ? "RECURSIVE "
+				    : ""),
+			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK)
+				    ? "ONLINK "
+				    : ""),
+			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_MATCHED)
+				    ? "MATCHED "
+				    : ""),
+			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE)
+				    ? "DUPLICATE "
 				    : ""));
 	}
 	zlog_debug("%s: dump complete", func);
