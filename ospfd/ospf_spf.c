@@ -166,6 +166,12 @@ static void vertex_parent_free(void *p)
 	XFREE(MTYPE_OSPF_VERTEX_PARENT, p);
 }
 
+static int vertex_parent_cmp(void *aa, void *bb)
+{
+	struct vertex_parent *a = aa, *b = bb;
+	return IPV4_ADDR_CMP(&a->nexthop->router, &b->nexthop->router);
+}
+
 static struct vertex *ospf_vertex_new(struct ospf_lsa *lsa)
 {
 	struct vertex *new;
@@ -180,6 +186,7 @@ static struct vertex *ospf_vertex_new(struct ospf_lsa *lsa)
 	new->children = list_new();
 	new->parents = list_new();
 	new->parents->del = vertex_parent_free;
+	new->parents->cmp = vertex_parent_cmp;
 
 	listnode_add(&vertex_list, new);
 
@@ -463,7 +470,7 @@ static void ospf_spf_add_parent(struct vertex *v, struct vertex *w,
 	}
 
 	vp = vertex_parent_new(v, ospf_lsa_has_link(w->lsa, v->lsa), newhop);
-	listnode_add(w->parents, vp);
+	listnode_add_sort(w->parents, vp);
 
 	return;
 }
