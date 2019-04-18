@@ -2335,7 +2335,7 @@ static const char *pim_reg_state2brief_str(enum pim_reg_state reg_state,
 }
 
 static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
-			      bool uj)
+			      struct prefix_sg *sg, bool uj)
 {
 	struct listnode *upnode;
 	struct pim_upstream *up;
@@ -2361,6 +2361,11 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		char ka_timer[10];
 		char msdp_reg_timer[10];
 		char state_str[PIM_REG_STATE_STR_LEN];
+
+		if (sg->grp.s_addr != 0 && sg->grp.s_addr != up->sg.grp.s_addr)
+			continue;
+		if (sg->src.s_addr != 0 && sg->src.s_addr != up->sg.src.s_addr)
+			continue;
 
 		pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
 		pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
@@ -4022,24 +4027,44 @@ DEFUN (show_ip_pim_state_vrf_all,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_upstream,
+DEFPY (show_ip_pim_upstream,
        show_ip_pim_upstream_cmd,
-       "show ip pim [vrf NAME] upstream [json]",
+       "show ip pim [vrf NAME] upstream [A.B.C.D$s_or_g [A.B.C.D$g]] [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
        VRF_CMD_HELP_STR
        "PIM upstream information\n"
+       "The Source or Group\n"
+       "The Group\n"
        JSON_STR)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
+	struct prefix_sg sg = {0};
+	struct vrf *v;
+	bool uj = !!json;
+	struct pim_instance *pim;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v) {
+		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
 		return CMD_WARNING;
+	}
+	pim = pim_get_pim_instance(v->vrf_id);
 
-	pim_show_upstream(vrf->info, vty, uj);
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (s_or_g.s_addr != 0) {
+		if (g.s_addr != 0) {
+			sg.src = s_or_g;
+			sg.grp = g;
+		} else
+			sg.grp = s_or_g;
+	}
+	pim_show_upstream(pim, vty, &sg, uj);
 
 	return CMD_SUCCESS;
 }
@@ -4054,6 +4079,7 @@ DEFUN (show_ip_pim_upstream_vrf_all,
        "PIM upstream information\n"
        JSON_STR)
 {
+	struct prefix_sg sg = {0};
 	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
 	bool first = true;
@@ -4068,7 +4094,7 @@ DEFUN (show_ip_pim_upstream_vrf_all,
 			first = false;
 		} else
 			vty_out(vty, "VRF: %s\n", vrf->name);
-		pim_show_upstream(vrf->info, vty, uj);
+		pim_show_upstream(vrf->info, vty, &sg, uj);
 	}
 
 	return CMD_SUCCESS;
