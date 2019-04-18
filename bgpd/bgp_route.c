@@ -4218,6 +4218,13 @@ static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table,
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
 		for (pi = bgp_node_get_bgp_path_info(rn); pi; pi = next) {
 			next = pi->next;
+
+			/* Unimport EVPN routes from VRFs */
+			if (safi == SAFI_EVPN)
+				bgp_evpn_unimport_route(bgp, AFI_L2VPN,
+							SAFI_EVPN,
+							&rn->p, pi);
+
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
 			    && pi->type == ZEBRA_ROUTE_BGP
 			    && (pi->sub_type == BGP_ROUTE_NORMAL
