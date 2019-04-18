@@ -1303,7 +1303,7 @@ static int lib_interface_create(enum nb_event event,
 #else
 		ifp = if_get_by_name(ifname, vrf->vrf_id);
 #endif /* SUNOS_5 */
-		yang_dnode_set_entry(dnode, ifp);
+		nb_running_set_entry(dnode, ifp);
 		break;
 	}
 
@@ -1315,10 +1315,10 @@ static int lib_interface_destroy(enum nb_event event,
 {
 	struct interface *ifp;
 
-	ifp = yang_dnode_get_entry(dnode, true);
 
 	switch (event) {
 	case NB_EV_VALIDATE:
+		ifp = nb_running_get_entry(dnode, NULL, true);
 		if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 			zlog_warn("%s: only inactive interfaces can be deleted",
 				  __func__);
@@ -1329,6 +1329,7 @@ static int lib_interface_destroy(enum nb_event event,
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+		ifp = nb_running_unset_entry(dnode);
 		if_delete(ifp);
 		break;
 	}
@@ -1349,7 +1350,7 @@ static int lib_interface_description_modify(enum nb_event event,
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = yang_dnode_get_entry(dnode, true);
+	ifp = nb_running_get_entry(dnode, NULL, true);
 	XFREE(MTYPE_TMP, ifp->desc);
 	description = yang_dnode_get_string(dnode, NULL);
 	ifp->desc = XSTRDUP(MTYPE_TMP, description);
@@ -1365,7 +1366,7 @@ static int lib_interface_description_destroy(enum nb_event event,
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
-	ifp = yang_dnode_get_entry(dnode, true);
+	ifp = nb_running_get_entry(dnode, NULL, true);
 	XFREE(MTYPE_TMP, ifp->desc);
 
 	return NB_OK;

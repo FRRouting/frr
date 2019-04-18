@@ -808,6 +808,75 @@ extern bool nb_operation_is_valid(enum nb_operation operation,
 extern int nb_notification_send(const char *xpath, struct list *arguments);
 
 /*
+ * Associate a user pointer to a configuration node.
+ *
+ * This should be called by northbound 'create' callbacks in the NB_EV_APPLY
+ * phase only.
+ *
+ * dnode
+ *    libyang data node - only its XPath is used.
+ *
+ * entry
+ *    Arbitrary user-specified pointer.
+ */
+extern void nb_running_set_entry(const struct lyd_node *dnode, void *entry);
+
+/*
+ * Unset the user pointer associated to a configuration node.
+ *
+ * This should be called by northbound 'destroy' callbacks in the NB_EV_APPLY
+ * phase only.
+ *
+ * dnode
+ *    libyang data node - only its XPath is used.
+ *
+ * Returns:
+ *    The user pointer that was unset.
+ */
+extern void *nb_running_unset_entry(const struct lyd_node *dnode);
+
+/*
+ * Find the user pointer (if any) associated to a configuration node.
+ *
+ * The XPath associated to the configuration node can be provided directly or
+ * indirectly through a libyang data node.
+ *
+ * If an user point is not found, this function follows the parent nodes in the
+ * running configuration until an user pointer is found or until the root node
+ * is reached.
+ *
+ * dnode
+ *    libyang data node - only its XPath is used (can be NULL if 'xpath' is
+ *    provided).
+ *
+ * xpath
+ *    XPath of the configuration node (can be NULL if 'dnode' is provided).
+ *
+ * abort_if_not_found
+ *    When set to true, abort the program if no user pointer is found.
+ *
+ *    As a rule of thumb, this parameter should be set to true in the following
+ *    scenarios:
+ *    - Calling this function from any northbound configuration callback during
+ *      the NB_EV_APPLY phase.
+ *    - Calling this function from a 'delete' northbound configuration callback
+ *      during any phase.
+ *
+ *    In both the above cases, the given configuration node should contain an
+ *    user pointer except when there's a bug in the code, in which case it's
+ *    better to abort the program right away and eliminate the need for
+ *    unnecessary NULL checks.
+ *
+ *    In all other cases, this parameter should be set to false and the caller
+ *    should check if the function returned NULL or not.
+ *
+ * Returns:
+ *    User pointer if found, NULL otherwise.
+ */
+extern void *nb_running_get_entry(const struct lyd_node *dnode, const char *xpath,
+				  bool abort_if_not_found);
+
+/*
  * Return a human-readable string representing a northbound event.
  *
  * event
