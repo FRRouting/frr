@@ -94,6 +94,7 @@ extern void zlog_warn(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_info(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_notice(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_debug(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
+extern void zlog(int priority, const char *format, ...) PRINTF_ATTRIBUTE(2, 3);
 
 /* For logs which have error codes associated with them */
 #define flog_err(ferr_id, format, ...)                                        \

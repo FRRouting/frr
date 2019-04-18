@@ -24,7 +24,6 @@
 #include "if.h"
 #include "linklist.h"
 #include "log.h"
-#include "log_int.h"
 #include "memory.h"
 #include "mpls.h"
 #include "nexthop.h"
