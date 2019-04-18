@@ -80,6 +80,9 @@ IP
 iptables
 ipv
 IPv
+IPvX
+IPv4
+IPv6
 isis
 isisd
 lan
@@ -99,6 +102,8 @@ LSAs
 Masaki
 Mbit
 Mbits
+macvlan
+macvlans
 mib
 motd
 mpls
@@ -227,6 +232,7 @@ VN
 VNC
 vrf
 vrfs
+vrrp
 vty
 Vty
 vtysh
