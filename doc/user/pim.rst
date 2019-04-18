@@ -333,10 +333,12 @@ cause great confusion.
 
    Display information about interfaces PIM is using.
 
-.. index:: show ip pim join
+.. index:: show ip pim [vrf NAME] join [A.B.C.D [A.B.C.D]] [json]
 .. clicmd:: show ip pim join
 
-   Display information about PIM joins received.
+   Display information about PIM joins received.  If one address is specified
+   then we assume it is the Group we are interested in displaying data on.
+   If the second address is specified then it is Source Group.
 
 .. index:: show ip pim local-membership
 .. clicmd:: show ip pim local-membership
@@ -383,10 +385,11 @@ cause great confusion.
    Display information about known S,G's and incoming interface as well as the
    OIL and how they were chosen.
 
-.. index:: show ip pim upstream
+.. index:: show ip pim [vrf NAME] upstream [A.B.C.D [A.B.C.D]] [json]
 .. clicmd:: show ip pim upstream
 
-   Display upstream information about a S,G mroute.
+   Display upstream information about a S,G mroute.  Allow the user to
+   specify sub Source and Groups that we are only interested in.
 
 .. index:: show ip pim upstream-join-desired
 .. clicmd:: show ip pim upstream-join-desired
