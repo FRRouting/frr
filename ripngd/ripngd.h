@@ -421,6 +421,7 @@ extern void ripng_peer_list_del(void *arg);
 extern struct ripng_offset_list *ripng_offset_list_new(struct ripng *ripng,
 						       const char *ifname);
 extern void ripng_offset_list_del(struct ripng_offset_list *offset);
+extern void ripng_offset_list_free(struct ripng_offset_list *offset);
 extern struct ripng_offset_list *ripng_offset_list_lookup(struct ripng *ripng,
 							  const char *ifname);
 extern int ripng_offset_list_apply_in(struct ripng *ripng,
