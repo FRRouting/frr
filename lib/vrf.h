@@ -116,17 +116,21 @@ extern vrf_id_t vrf_name_to_id(const char *);
 
 /* vrf context is searched and created
  */
-#define VRF_GET_INSTANCE(V, NAME, USE_JSON)                                    \
+#define VRF_GET_INSTANCE(V, NAME, USE_JSON, FORCE_CREATION)		       \
 	do {								       \
 		struct vrf *_vrf;                                              \
 									       \
 		if (!(_vrf = vrf_lookup_by_name(NAME))) {                      \
-			if (USE_JSON) {                                        \
-				vty_out(vty, "{}\n");                          \
-			} else {                                               \
-				vty_out(vty, "%% VRF %s not found\n", NAME);   \
+			if (!FORCE_CREATION) {   			       \
+				if (USE_JSON) {				       \
+					vty_out(vty, "{}\n");                  \
+				} else {                                       \
+					vty_out(vty, "%% VRF %s not found\n",  \
+						NAME);			       \
+				}                                              \
+				return CMD_WARNING;                            \
 			}                                                      \
-			return CMD_WARNING;                                    \
+			_vrf = vrf_get(VRF_UNKNOWN, NAME);                     \
 		}                                                              \
 		if (_vrf->vrf_id == VRF_UNKNOWN) {                             \
 			if (USE_JSON) {                                        \

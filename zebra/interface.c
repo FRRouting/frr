@@ -1577,7 +1577,7 @@ DEFPY(show_interface, show_interface_cmd,
 	interface_update_stats();
 
 	if (name)
-		VRF_GET_INSTANCE(vrf, name, false);
+		VRF_GET_INSTANCE(vrf, name, false, false);
 
 	/* All interface print. */
 	if (brief) {
@@ -1630,7 +1630,7 @@ DEFUN (show_interface_name_vrf,
 
 	interface_update_stats();
 
-	VRF_GET_INSTANCE(vrf, argv[idx_name]->arg, false);
+	VRF_GET_INSTANCE(vrf, argv[idx_name]->arg, false, false);
 
 	/* Specified interface print. */
 	ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf);
@@ -1723,7 +1723,7 @@ DEFUN (show_interface_desc,
 	struct vrf *vrf;
 
 	if (argc > 3)
-		VRF_GET_INSTANCE(vrf, argv[4]->arg, false);
+		VRF_GET_INSTANCE(vrf, argv[4]->arg, false, false);
 	else
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
 

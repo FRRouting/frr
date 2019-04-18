@@ -1095,7 +1095,7 @@ DEFPY_NOSH (interface,
 	 * interface is found, then a new one should be created on the default
 	 * VRF.
 	 */
-	VRF_GET_INSTANCE(vrf, vrfname, false);
+	VRF_GET_INSTANCE(vrf, vrfname, false, true);
 	/*
 	 * within vrf context, vrf_id may be unknown
 	 * this happens on daemons relying on zebra
