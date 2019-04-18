@@ -4,7 +4,7 @@
  * Quentin Young
  *
  * Portions:
- * 	Copyright (C) 2001-2017 Alexandre Cassen
+ *     Copyright (C) 2001-2017 Alexandre Cassen
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -134,6 +134,7 @@ static int vrrp_ndisc_una_build(struct interface *ifp, struct ipaddr *ip,
 	uint32_t len = sizeof(struct nd_neighbor_advert)
 		       + sizeof(struct nd_opt_hdr) + ETH_ALEN;
 	struct ipv6_ph ph = {};
+
 	ph.src = ip6h->ip6_src;
 	ph.dst = ip6h->ip6_dst;
 	ph.ulpl = htonl(len);
@@ -149,8 +150,8 @@ int vrrp_ndisc_una_send(struct vrrp_router *r, struct ipaddr *ip)
 
 	int ret = 0;
 	struct interface *ifp = r->mvl_ifp;
-
 	uint8_t buf[VRRP_NDISC_SIZE];
+
 	ret = vrrp_ndisc_una_build(ifp, ip, buf, sizeof(buf));
 
 	if (ret == -1)
@@ -167,6 +168,7 @@ int vrrp_ndisc_una_send(struct vrrp_router *r, struct ipaddr *ip)
 	sll.sll_ifindex = (int)ifp->ifindex;
 
 	char ipbuf[INET6_ADDRSTRLEN];
+
 	ipaddr2str(ip, ipbuf, sizeof(ipbuf));
 
 	DEBUGD(&vrrp_dbg_ndisc,

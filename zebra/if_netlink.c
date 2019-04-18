@@ -1406,7 +1406,7 @@ int netlink_protodown(struct interface *ifp, bool down)
 		char buf[NL_PKT_BUF_SIZE];
 	} req;
 
-	memset(&req, 0, sizeof req);
+	memset(&req, 0, sizeof(req));
 
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
 	req.n.nlmsg_flags = NLM_F_REQUEST;
@@ -1415,8 +1415,8 @@ int netlink_protodown(struct interface *ifp, bool down)
 
 	req.ifa.ifi_index = ifp->ifindex;
 
-	addattr_l(&req.n, sizeof req, IFLA_PROTO_DOWN, &down, 4);
-	addattr_l(&req.n, sizeof req, IFLA_LINK, &ifp->ifindex, 4);
+	addattr_l(&req.n, sizeof(req), IFLA_PROTO_DOWN, &down, 4);
+	addattr_l(&req.n, sizeof(req), IFLA_LINK, &ifp->ifindex, 4);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    0);

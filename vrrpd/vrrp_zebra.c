@@ -32,7 +32,7 @@
 
 #define VRRP_LOGPFX "[ZEBRA] "
 
-static struct zclient *zclient = NULL;
+static struct zclient *zclient;
 
 static void vrrp_zebra_debug_if_state(struct interface *ifp, vrf_id_t vrf_id,
 				      const char *func)

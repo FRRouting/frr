@@ -76,10 +76,12 @@ static uint16_t vrrp_pkt_checksum(struct vrrp_pkt *pkt, size_t pktsize,
 	bool v6 = (src->ipa_type == IPADDR_V6);
 
 	uint16_t chksum_pre = pkt->hdr.chksum;
+
 	pkt->hdr.chksum = 0;
 
 	if (v6) {
 		struct ipv6_ph ph = {};
+
 		ph.src = src->ipaddr_v6;
 		inet_pton(AF_INET6, VRRP_MCASTV6_GROUP_STR, &ph.dst);
 		ph.ulpl = htons(pktsize);
@@ -87,6 +89,7 @@ static uint16_t vrrp_pkt_checksum(struct vrrp_pkt *pkt, size_t pktsize,
 		chksum = in_cksum_with_ph6(&ph, pkt, pktsize);
 	} else if (!v6 && ((pkt->hdr.vertype >> 4) == 3)) {
 		struct ipv4_ph ph = {};
+
 		ph.src = src->ipaddr_v4;
 		inet_pton(AF_INET, VRRP_MCASTV4_GROUP_STR, &ph.dst);
 		ph.proto = 112;
@@ -121,6 +124,7 @@ ssize_t vrrp_pkt_adver_build(struct vrrp_pkt **pkt, struct ipaddr *src,
 	assert(!(version == 2 && v6));
 
 	size_t pktsize = VRRP_PKT_SIZE(v6 ? AF_INET6 : AF_INET, version, numip);
+
 	*pkt = XCALLOC(MTYPE_VRRP_PKT, pktsize);
 
 	(*pkt)->hdr.vertype |= version << 4;
@@ -229,10 +233,12 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 
 		/* Extract source address */
 		struct sockaddr_in *sa = m->msg_name;
+
 		src->ipa_type = IPADDR_V4;
 		src->ipaddr_v4 = sa->sin_addr;
 	} else if (family == AF_INET6) {
 		struct cmsghdr *c;
+
 		for (c = CMSG_FIRSTHDR(m); c != NULL; CMSG_NXTHDR(m, c)) {
 			if (c->cmsg_level == IPPROTO_IPV6
 			    && c->cmsg_type == IPV6_HOPLIMIT)
@@ -242,6 +248,7 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 		VRRP_PKT_VCHECK(!!c, "IPv6 Hop Limit not received");
 
 		uint8_t *hoplimit = CMSG_DATA(c);
+
 		VRRP_PKT_VCHECK(*hoplimit == 255,
 				"IPv6 Hop Limit is %" PRIu8 "; should be 255",
 				*hoplimit);
@@ -251,6 +258,7 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 
 		/* Extract source address */
 		struct sockaddr_in6 *sa = m->msg_name;
+
 		src->ipa_type = IPADDR_V6;
 		memcpy(&src->ipaddr_v6, &sa->sin6_addr,
 		       sizeof(struct in6_addr));
@@ -272,10 +280,12 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 
 	/* Version check */
 	uint8_t pktver = (*pkt)->hdr.vertype >> 4;
+
 	VRRP_PKT_VCHECK(pktver == version, "Bad version %u", pktver);
 
 	/* Checksum check */
 	uint16_t chksum = vrrp_pkt_checksum(*pkt, pktsize, src);
+
 	VRRP_PKT_VCHECK((*pkt)->hdr.chksum == chksum,
 			"Bad VRRP checksum %" PRIx16 "; should be %" PRIx16 "",
 			(*pkt)->hdr.chksum, chksum);
@@ -286,6 +296,7 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 
 	/* Exact size check */
 	size_t ves = VRRP_PKT_SIZE(family, pktver, (*pkt)->hdr.naddr);
+
 	VRRP_PKT_VCHECK(pktsize == ves, "Packet has incorrect # addresses%s",
 			pktver == 2 ? " or missing auth fields" : "");
 
@@ -298,6 +309,7 @@ ssize_t vrrp_pkt_parse_datagram(int family, int version, struct msghdr *m,
 	/* Addresses check */
 	char vbuf[INET6_ADDRSTRLEN];
 	uint8_t *p = (uint8_t *)(*pkt)->addrs;
+
 	for (uint8_t i = 0; i < (*pkt)->hdr.naddr; i++) {
 		VRRP_PKT_VCHECK(inet_ntop(family, p, vbuf, sizeof(vbuf)),
 				"Bad IP address, #%" PRIu8, i);

@@ -100,6 +100,7 @@ static void vrrp_recalculate_timers(struct vrrp_router *r)
 	uint16_t mdiadv = r->vr->version == 3 ? r->master_adver_interval
 					      : r->vr->advertisement_interval;
 	uint16_t skm = (r->vr->version == 3) ? r->master_adver_interval : 100;
+
 	r->skew_time = ((256 - r->vr->priority) * skm) / 256;
 	r->master_down_interval = 3 * mdiadv;
 	r->master_down_interval += r->skew_time;
@@ -167,6 +168,7 @@ static bool vrrp_ifp_has_vrrp_mac(struct interface *ifp)
 {
 	struct ethaddr vmac4;
 	struct ethaddr vmac6;
+
 	vrrp_mac_set(&vmac4, 0, 0x00);
 	vrrp_mac_set(&vmac6, 1, 0x00);
 
@@ -293,7 +295,8 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 #endif
 	/* Must have at least one VIP configured */
 	start = start && r->addrs->count > 0;
-	whynot = (!start && !whynot) ? "No Virtual IP address configured" : NULL;
+	whynot =
+		(!start && !whynot) ? "No Virtual IP address configured" : NULL;
 	if (start)
 		vrrp_event(r, VRRP_EVENT_STARTUP);
 	else if (whynot)
@@ -322,14 +325,18 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 	start = start && CHECK_FLAG(r->mvl_ifp->flags, IFF_UP);
 	/* Macvlan interface must have a link local */
 	start = start && connected_get_linklocal(r->mvl_ifp);
-	whynot = (!start && !whynot) ? "No link local address configured" : NULL;
+	whynot =
+		(!start && !whynot) ? "No link local address configured" : NULL;
 	/* Macvlan interface must have a v6 IP besides the link local */
 	start = start && (r->mvl_ifp->connected->count >= 2);
-	whynot = (!start && !whynot) ? "No Virtual IP configured on macvlan device" : NULL;
+	whynot = (!start && !whynot)
+			 ? "No Virtual IP configured on macvlan device"
+			 : NULL;
 #endif
 	/* Must have at least one VIP configured */
 	start = start && r->addrs->count > 0;
-	whynot = (!start && !whynot) ? "No Virtual IP address configured" : NULL;
+	whynot =
+		(!start && !whynot) ? "No Virtual IP address configured" : NULL;
 	if (start)
 		vrrp_event(r, VRRP_EVENT_STARTUP);
 	else if (whynot)
@@ -381,6 +388,7 @@ int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip)
 
 	if (!vrrp_is_owner(r->vr->ifp, ip) && r->is_owner) {
 		char ipbuf[INET6_ADDRSTRLEN];
+
 		inet_ntop(r->family, &ip->ip, ipbuf, sizeof(ipbuf));
 		zlog_err(
 			VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
@@ -411,6 +419,7 @@ int vrrp_add_ip(struct vrrp_router *r, struct ipaddr *ip)
 int vrrp_add_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
 {
 	struct ipaddr ip;
+
 	ip.ipa_type = IPADDR_V4;
 	ip.ipaddr_v4 = v4;
 	return vrrp_add_ip(vr->v4, &ip);
@@ -421,6 +430,7 @@ int vrrp_add_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
 	assert(vr->version != 2);
 
 	struct ipaddr ip;
+
 	ip.ipa_type = IPADDR_V6;
 	ip.ipaddr_v6 = v6;
 	return vrrp_add_ip(vr->v6, &ip);
@@ -454,6 +464,7 @@ int vrrp_del_ip(struct vrrp_router *r, struct ipaddr *ip)
 int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
 {
 	struct ipaddr ip;
+
 	ip.ipa_type = IPADDR_V6;
 	ip.ipaddr_v6 = v6;
 	return vrrp_del_ip(vr->v6, &ip);
@@ -462,6 +473,7 @@ int vrrp_del_ipv6(struct vrrp_vrouter *vr, struct in6_addr v6)
 int vrrp_del_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
 {
 	struct ipaddr ip;
+
 	ip.ipa_type = IPADDR_V4;
 	ip.ipaddr_v4 = v4;
 	return vrrp_del_ip(vr->v4, &ip);
@@ -473,6 +485,7 @@ int vrrp_del_ipv4(struct vrrp_vrouter *vr, struct in_addr v4)
 static void vrrp_router_addr_list_del_cb(void *val)
 {
 	struct ipaddr *ip = val;
+
 	XFREE(MTYPE_VRRP_IP, ip);
 }
 
@@ -490,6 +503,7 @@ static bool vrrp_attach_interface(struct vrrp_router *r)
 {
 	/* Search for existing interface with computed MAC address */
 	struct interface **ifps;
+
 	size_t ifps_cnt = if_lookup_by_hwaddr(
 		r->vmac.octet, sizeof(r->vmac.octet), &ifps, VRF_DEFAULT);
 
@@ -502,6 +516,7 @@ static bool vrrp_attach_interface(struct vrrp_router *r)
 	 */
 	unsigned int candidates = 0;
 	struct interface *selection = NULL;
+
 	for (unsigned int i = 0; i < ifps_cnt; i++) {
 		if (ifps[i]->link_ifindex != r->vr->ifp->ifindex)
 			ifps[i] = NULL;
@@ -515,6 +530,7 @@ static bool vrrp_attach_interface(struct vrrp_router *r)
 		XFREE(MTYPE_TMP, ifps);
 
 	char ethstr[ETHER_ADDR_STRLEN];
+
 	prefix_mac2str(&r->vmac, ethstr, sizeof(ethstr));
 
 	assert(!!selection == !!candidates);
@@ -563,12 +579,10 @@ static void vrrp_router_destroy(struct vrrp_router *r)
 	if (r->is_active)
 		vrrp_event(r, VRRP_EVENT_SHUTDOWN);
 
-	if (r->sock_rx >= 0) {
+	if (r->sock_rx >= 0)
 		close(r->sock_rx);
-	}
-	if (r->sock_tx >= 0) {
+	if (r->sock_tx >= 0)
 		close(r->sock_tx);
-	}
 
 	/* FIXME: also delete list elements */
 	list_delete(&r->addrs);
@@ -617,6 +631,7 @@ void vrrp_vrouter_destroy(struct vrrp_vrouter *vr)
 struct vrrp_vrouter *vrrp_lookup(struct interface *ifp, uint8_t vrid)
 {
 	struct vrrp_vrouter vr;
+
 	vr.vrid = vrid;
 	vr.ifp = ifp;
 
@@ -657,6 +672,7 @@ static int vrrp_bind_to_primary_connected(struct vrrp_router *r)
 
 	struct listnode *ln;
 	struct connected *c = NULL;
+
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, ln, c))
 		if (c->address->family == r->family) {
 			if (r->family == AF_INET6
@@ -674,6 +690,7 @@ static int vrrp_bind_to_primary_connected(struct vrrp_router *r)
 	}
 
 	union sockunion su;
+
 	memset(&su, 0x00, sizeof(su));
 
 	switch (r->family) {
@@ -792,11 +809,13 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 				   struct vrrp_pkt *pkt, size_t pktsize)
 {
 	char sipstr[INET6_ADDRSTRLEN];
-	ipaddr2str(src, sipstr, sizeof(sipstr));
 	char dipstr[INET6_ADDRSTRLEN];
+
+	ipaddr2str(src, sipstr, sizeof(sipstr));
 	ipaddr2str(&r->src, dipstr, sizeof(dipstr));
 
 	char dumpbuf[BUFSIZ];
+
 	vrrp_pkt_adver_dump(dumpbuf, sizeof(dumpbuf), pkt);
 	DEBUGD(&vrrp_dbg_proto,
 	       VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
@@ -950,6 +969,7 @@ static int vrrp_read(struct thread *thread)
 
 	struct msghdr m;
 	struct iovec iov;
+
 	iov.iov_base = r->ibuf;
 	iov.iov_len = sizeof(r->ibuf);
 	m.msg_name = &sa;
@@ -1038,6 +1058,7 @@ static int vrrp_socket(struct vrrp_router *r)
 
 	if (r->sock_rx < 0 || r->sock_tx < 0) {
 		const char *rxtx = r->sock_rx < 0 ? "Rx" : "Tx";
+
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 			  "Can't create VRRP %s socket",
 			  r->vr->vrid, family2str(r->family), rxtx);
@@ -1049,6 +1070,7 @@ static int vrrp_socket(struct vrrp_router *r)
 	if (r->family == AF_INET) {
 		/* Set Tx socket to always Tx with TTL set to 255 */
 		int ttl = 255;
+
 		ret = setsockopt(r->sock_tx, IPPROTO_IP, IP_MULTICAST_TTL, &ttl,
 				 sizeof(ttl));
 		if (ret < 0) {
@@ -1087,6 +1109,7 @@ static int vrrp_socket(struct vrrp_router *r)
 
 		/* Bind Rx socket to v4 multicast address */
 		struct sockaddr_in sa = {0};
+
 		sa.sin_family = AF_INET;
 		sa.sin_addr.s_addr = htonl(VRRP_MCASTV4_GROUP);
 		if (bind(r->sock_rx, (struct sockaddr *)&sa, sizeof(sa))) {
@@ -1106,6 +1129,7 @@ static int vrrp_socket(struct vrrp_router *r)
 		/* Join Rx socket to VRRP IPv4 multicast group */
 		struct connected *c = listhead(r->vr->ifp->connected)->data;
 		struct in_addr v4 = c->address->u.prefix4;
+
 		ret = setsockopt_ipv4_multicast(r->sock_rx, IP_ADD_MEMBERSHIP,
 						v4, htonl(VRRP_MCASTV4_GROUP),
 						r->vr->ifp->ifindex);
@@ -1123,6 +1147,7 @@ static int vrrp_socket(struct vrrp_router *r)
 
 		/* Set outgoing interface for advertisements */
 		struct ip_mreqn mreqn = {};
+
 		mreqn.imr_ifindex = r->mvl_ifp->ifindex;
 		ret = setsockopt(r->sock_tx, IPPROTO_IP, IP_MULTICAST_IF,
 				 (void *)&mreqn, sizeof(mreqn));
@@ -1195,6 +1220,7 @@ static int vrrp_socket(struct vrrp_router *r)
 
 		/* Bind Rx socket to v6 multicast address */
 		struct sockaddr_in6 sa = {0};
+
 		sa.sin6_family = AF_INET6;
 		inet_pton(AF_INET6, VRRP_MCASTV6_GROUP_STR, &sa.sin6_addr);
 		if (bind(r->sock_rx, (struct sockaddr *)&sa, sizeof(sa))) {
@@ -1213,6 +1239,7 @@ static int vrrp_socket(struct vrrp_router *r)
 
 		/* Join VRRP IPv6 multicast group */
 		struct ipv6_mreq mreq;
+
 		inet_pton(AF_INET6, VRRP_MCASTV6_GROUP_STR,
 			  &mreq.ipv6mr_multiaddr);
 		mreq.ipv6mr_interface = r->vr->ifp->ifindex;
@@ -1271,7 +1298,7 @@ done:
 
 /* State machine ----------------------------------------------------------- */
 
-DEFINE_HOOK(vrrp_change_state_hook, (struct vrrp_router * r, int to), (r, to));
+DEFINE_HOOK(vrrp_change_state_hook, (struct vrrp_router *r, int to), (r, to));
 
 /*
  * Handle any necessary actions during state change to MASTER state.
@@ -1490,6 +1517,7 @@ static int vrrp_startup(struct vrrp_router *r)
 	/* Create socket */
 	if (r->sock_rx < 0 || r->sock_tx < 0) {
 		int ret = vrrp_socket(r);
+
 		if (ret < 0 || r->sock_tx < 0 || r->sock_rx < 0)
 			return ret;
 	}
@@ -1499,8 +1527,8 @@ static int vrrp_startup(struct vrrp_router *r)
 
 	/* Configure effective priority */
 	struct ipaddr *primary = (struct ipaddr *)listhead(r->addrs)->data;
-
 	char ipbuf[INET6_ADDRSTRLEN];
+
 	inet_ntop(r->family, &primary->ip.addr, ipbuf, sizeof(ipbuf));
 
 	if (r->vr->priority == VRRP_PRIO_MASTER
@@ -2191,9 +2219,8 @@ void vrrp_if_address_del(struct interface *ifp)
 	 * in this function should be protected by a check that the interface
 	 * is up.
 	 */
-	if (if_is_operative(ifp)) {
+	if (if_is_operative(ifp))
 		vrrp_autoconfig_if_address_del(ifp);
-	}
 }
 
 /* Other ------------------------------------------------------------------- */
@@ -2240,6 +2267,7 @@ int vrrp_config_write_interface(struct vty *vty)
 
 		for (ALL_LIST_ELEMENTS_RO(vr->v4->addrs, ipln, ip)) {
 			char ipbuf[INET6_ADDRSTRLEN];
+
 			ipaddr2str(ip, ipbuf, sizeof(ipbuf));
 			vty_out(vty, " vrrp %" PRIu8 " ip %s\n", vr->vrid,
 				ipbuf);
@@ -2248,6 +2276,7 @@ int vrrp_config_write_interface(struct vty *vty)
 
 		for (ALL_LIST_ELEMENTS_RO(vr->v6->addrs, ipln, ip)) {
 			char ipbuf[INET6_ADDRSTRLEN];
+
 			ipaddr2str(ip, ipbuf, sizeof(ipbuf));
 			vty_out(vty, " vrrp %" PRIu8 " ipv6 %s\n", vr->vrid,
 				ipbuf);
@@ -2293,8 +2322,8 @@ int vrrp_config_write_global(struct vty *vty)
 static unsigned int vrrp_hash_key(void *arg)
 {
 	struct vrrp_vrouter *vr = arg;
-
 	char key[IFNAMSIZ + 64];
+
 	snprintf(key, sizeof(key), "%s@%" PRIu8, vr->ifp->name, vr->vrid);
 
 	return string_hash_make(key);

@@ -57,7 +57,7 @@ struct zebra_privs_t vrrp_privs = {
 	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0};
 
-struct option longopts[] = {{0}};
+struct option longopts[] = {};
 
 /* Master of threads. */
 struct thread_master *master;

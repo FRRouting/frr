@@ -35,7 +35,7 @@ struct debug vrrp_dbg_sock = {0, "VRRP sockets"};
 struct debug vrrp_dbg_zebra = {0, "VRRP Zebra events"};
 
 struct debug *vrrp_debugs[] = {
-	&vrrp_dbg_arp, 
+	&vrrp_dbg_arp,
 	&vrrp_dbg_auto,
 	&vrrp_dbg_ndisc,
 	&vrrp_dbg_pkt,

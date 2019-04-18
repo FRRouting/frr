@@ -52,7 +52,7 @@
 				(unsigned int)_vrid);                          \
 			return CMD_WARNING_CONFIG_FAILED;                      \
 		}                                                              \
-	} while (0);
+	} while (0)
 
 /* clang-format off */
 
@@ -177,19 +177,20 @@ DEFPY(vrrp_ip,
 	bool activated = false;
 	bool failed = false;
 	int ret = CMD_SUCCESS;
+	int oldstate;
 
 	VROUTER_GET_VTY(vty, ifp, vrid, vr);
 
 	bool will_activate = (vr->v4->fsm.state == VRRP_STATE_INITIALIZE);
 
 	if (no) {
-		int oldstate = vr->v4->fsm.state;
+		oldstate = vr->v4->fsm.state;
 		failed = vrrp_del_ipv4(vr, ip);
 		vrrp_check_start(vr);
 		deactivated = (vr->v4->fsm.state == VRRP_STATE_INITIALIZE
 			       && oldstate != VRRP_STATE_INITIALIZE);
 	} else {
-		int oldstate = vr->v4->fsm.state;
+		oldstate = vr->v4->fsm.state;
 		failed = vrrp_add_ipv4(vr, ip);
 		vrrp_check_start(vr);
 		activated = (vr->v4->fsm.state != VRRP_STATE_INITIALIZE
@@ -230,6 +231,7 @@ DEFPY(vrrp_ip6,
 	bool activated = false;
 	bool failed = false;
 	int ret = CMD_SUCCESS;
+	int oldstate;
 
 	VROUTER_GET_VTY(vty, ifp, vrid, vr);
 
@@ -242,13 +244,13 @@ DEFPY(vrrp_ip6,
 	bool will_activate = (vr->v6->fsm.state == VRRP_STATE_INITIALIZE);
 
 	if (no) {
-		int oldstate = vr->v6->fsm.state;
+		oldstate = vr->v6->fsm.state;
 		failed = vrrp_del_ipv6(vr, ipv6);
 		vrrp_check_start(vr);
 		deactivated = (vr->v6->fsm.state == VRRP_STATE_INITIALIZE
 			       && oldstate != VRRP_STATE_INITIALIZE);
 	} else {
-		int oldstate = vr->v6->fsm.state;
+		oldstate = vr->v6->fsm.state;
 		failed = vrrp_add_ipv6(vr, ipv6);
 		vrrp_check_start(vr);
 		activated = (vr->v6->fsm.state != VRRP_STATE_INITIALIZE
@@ -535,6 +537,7 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	ttable_add_row(tt, "%s|%u", "IPv4 Addresses", vr->v4->addrs->count);
 
 	char fill[35];
+
 	memset(fill, '.', sizeof(fill));
 	fill[sizeof(fill) - 1] = 0x00;
 	if (vr->v4->addrs->count) {
@@ -556,6 +559,7 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	}
 
 	char *table = ttable_dump(tt, "\n");
+
 	vty_out(vty, "\n%s\n", table);
 	XFREE(MTYPE_TMP, table);
 	ttable_del(tt);
