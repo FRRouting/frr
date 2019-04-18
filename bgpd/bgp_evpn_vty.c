@@ -3650,6 +3650,129 @@ DEFUN (no_bgp_evpn_advertise_type5,
 	return CMD_SUCCESS;
 }
 
+DEFPY (bgp_evpn_advertise_pip_ip_mac,
+       bgp_evpn_advertise_pip_ip_mac_cmd,
+       "[no$no] advertise-pip [ip <A.B.C.D> [mac <X:X:X:X:X:X|X:X:X:X:X:X/M>]]",
+       NO_STR
+       "evpn system primary IP\n"
+       IP_STR
+       "ip address\n"
+       MAC_STR MAC_STR MAC_STR)
+{
+	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp); /* bgp vrf instance */
+	struct bgp *bgp_evpn = NULL;
+
+	if (EVPN_ENABLED(bgp_vrf)) {
+		vty_out(vty,
+			"This command is supported under L3VNI BGP EVPN VRF\n");
+		return CMD_WARNING;
+	}
+	bgp_evpn = bgp_get_evpn();
+
+	if (!no) {
+		/* pip is already enabled */
+		if (argc == 1 && bgp_vrf->evpn_info->advertise_pip)
+			return CMD_SUCCESS;
+
+		bgp_vrf->evpn_info->advertise_pip = true;
+		if (ip.s_addr != INADDR_ANY) {
+			/* Already configured with same IP */
+			if (IPV4_ADDR_SAME(&ip,
+					&bgp_vrf->evpn_info->pip_ip_static))
+				return CMD_SUCCESS;
+
+			bgp_vrf->evpn_info->pip_ip_static = ip;
+			bgp_vrf->evpn_info->pip_ip = ip;
+		} else {
+			bgp_vrf->evpn_info->pip_ip_static.s_addr
+				= INADDR_ANY;
+			/* default instance router-id assignemt */
+			if (bgp_evpn)
+				bgp_vrf->evpn_info->pip_ip =
+					bgp_evpn->router_id;
+		}
+		/* parse sys mac */
+		if (!is_zero_mac(&mac->eth_addr)) {
+			/* Already configured with same MAC */
+			if (memcmp(&bgp_vrf->evpn_info->pip_rmac_static,
+				   &mac->eth_addr, ETH_ALEN) == 0)
+				return CMD_SUCCESS;
+
+			memcpy(&bgp_vrf->evpn_info->pip_rmac_static,
+			       &mac->eth_addr, ETH_ALEN);
+			memcpy(&bgp_vrf->evpn_info->pip_rmac,
+			       &bgp_vrf->evpn_info->pip_rmac_static,
+			       ETH_ALEN);
+		} else {
+			/* Copy zebra sys mac */
+			if (!is_zero_mac(&bgp_vrf->evpn_info->pip_rmac_zebra))
+				memcpy(&bgp_vrf->evpn_info->pip_rmac,
+				       &bgp_vrf->evpn_info->pip_rmac_zebra,
+				       ETH_ALEN);
+		}
+	} else {
+		if (argc == 2) {
+			if (!bgp_vrf->evpn_info->advertise_pip)
+				return CMD_SUCCESS;
+			/* Disable PIP feature */
+			bgp_vrf->evpn_info->advertise_pip = false;
+			/* copy anycast mac */
+			memcpy(&bgp_vrf->evpn_info->pip_rmac,
+			       &bgp_vrf->rmac, ETH_ALEN);
+		} else {
+			/* remove MAC-IP option retain PIP knob. */
+			if ((ip.s_addr != INADDR_ANY) &&
+			    !IPV4_ADDR_SAME(&ip,
+					&bgp_vrf->evpn_info->pip_ip_static)) {
+				vty_out(vty,
+					"%% BGP EVPN PIP IP does not match\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+
+			if (!is_zero_mac(&mac->eth_addr) &&
+			    memcmp(&bgp_vrf->evpn_info->pip_rmac_static,
+				   &mac->eth_addr, ETH_ALEN) != 0) {
+				vty_out(vty,
+					"%% BGP EVPN PIP MAC does not match\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+			/* pip_rmac can carry vrr_rmac reset only if it matches
+			 * with static value.
+			 */
+			if (memcmp(&bgp_vrf->evpn_info->pip_rmac,
+				   &bgp_vrf->evpn_info->pip_rmac_static,
+				   ETH_ALEN) == 0) {
+				/* Copy zebra sys mac */
+				if (!is_zero_mac(
+					&bgp_vrf->evpn_info->pip_rmac_zebra))
+					memcpy(&bgp_vrf->evpn_info->pip_rmac,
+					&bgp_vrf->evpn_info->pip_rmac_zebra,
+					       ETH_ALEN);
+				else {
+					/* copy anycast mac */
+					memcpy(&bgp_vrf->evpn_info->pip_rmac,
+					       &bgp_vrf->rmac, ETH_ALEN);
+				}
+			}
+		}
+		/* reset user configured sys MAC */
+		memset(&bgp_vrf->evpn_info->pip_rmac_static, 0, ETH_ALEN);
+		/* reset user configured sys IP */
+		bgp_vrf->evpn_info->pip_ip_static.s_addr = INADDR_ANY;
+		/* Assign default PIP IP (bgp instance router-id) */
+		if (bgp_evpn)
+			bgp_vrf->evpn_info->pip_ip = bgp_evpn->router_id;
+		else
+			bgp_vrf->evpn_info->pip_ip.s_addr = INADDR_ANY;
+	}
+
+	if (is_evpn_enabled()) {
+		update_advertise_vrf_routes(bgp_vrf);
+	}
+
+	return CMD_SUCCESS;
+}
+
 /*
  * Display VNI information - for all or a specific VNI
  */
@@ -5457,6 +5580,23 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 		       BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6))
 		vty_out(vty, "  default-originate ipv6\n");
 
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF) {
+		if (!bgp->evpn_info->advertise_pip)
+			vty_out(vty, "  no advertise-pip\n");
+		if (bgp->evpn_info->advertise_pip) {
+			if (bgp->evpn_info->pip_ip_static.s_addr != INADDR_ANY)
+				vty_out(vty, "  advertise-pip ip %s",
+				inet_ntoa(bgp->evpn_info->pip_ip_static));
+			if (!is_zero_mac(&(bgp->evpn_info->pip_rmac_static))) {
+				char buf[ETHER_ADDR_STRLEN];
+
+				vty_out(vty, " mac %s",
+				prefix_mac2str(&bgp->evpn_info->pip_rmac,
+						       buf, sizeof(buf)));
+			}
+			vty_out(vty, "\n");
+		}
+	}
 	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_RD_CFGD))
 		vty_out(vty, "  rd %s\n",
 			prefix_rd2str(&bgp->vrf_prd, buf1, sizeof(buf1)));
@@ -5527,6 +5667,7 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &dup_addr_detection_auto_recovery_cmd);
 	install_element(BGP_EVPN_NODE, &no_dup_addr_detection_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_flood_control_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_pip_ip_mac_cmd);
 
 	/* test commands */
 	install_element(BGP_EVPN_NODE, &test_adv_evpn_type4_route_cmd);

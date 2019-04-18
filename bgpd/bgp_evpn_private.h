@@ -188,6 +188,16 @@ struct bgp_evpn_info {
 	/* EVPN enable - advertise svi macip routes */
 	int advertise_svi_macip;
 
+	/* PIP feature knob */
+	bool advertise_pip;
+	/* PIP IP (sys ip) */
+	struct in_addr pip_ip;
+	struct in_addr pip_ip_static;
+	/* PIP MAC (sys MAC) */
+	struct ethaddr pip_rmac;
+	struct ethaddr pip_rmac_static;
+	struct ethaddr pip_rmac_zebra;
+	bool is_anycast_mac;
 };
 
 static inline int is_vrf_rd_configured(struct bgp *bgp_vrf)

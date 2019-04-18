@@ -1543,11 +1543,44 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 		memset(&attr, 0, sizeof(struct attr));
 		bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
 	}
-	/* Set nexthop to ourselves and fill in the Router MAC. */
-	attr.nexthop = bgp_vrf->originator_ip;
-	attr.mp_nexthop_global_in = bgp_vrf->originator_ip;
+
+	/* copy sys rmac */
+	memcpy(&attr.rmac, &bgp_vrf->evpn_info->pip_rmac, ETH_ALEN);
+	/* Advertise Primary IP (PIP) is enabled, send individual
+	 * IP (default instance router-id) as nexthop.
+	 * PIP is disabled or vrr interface is not present
+	 * use anycast-IP as nexthop.
+	 */
+	if (!bgp_vrf->evpn_info->advertise_pip ||
+	    (!bgp_vrf->evpn_info->is_anycast_mac)) {
+		attr.nexthop = bgp_vrf->originator_ip;
+		attr.mp_nexthop_global_in = bgp_vrf->originator_ip;
+	} else {
+		if (bgp_vrf->evpn_info->pip_ip.s_addr != INADDR_ANY) {
+			attr.nexthop = bgp_vrf->evpn_info->pip_ip;
+			attr.mp_nexthop_global_in = bgp_vrf->evpn_info->pip_ip;
+		} else if (bgp_vrf->evpn_info->pip_ip.s_addr == INADDR_ANY)
+			if (bgp_debug_zebra(NULL)) {
+				char buf1[PREFIX_STRLEN];
+
+				zlog_debug("VRF %s evp %s advertise-pip primary ip is not configured",
+					   vrf_id_to_name(bgp_vrf->vrf_id),
+					   prefix2str(evp, buf1, sizeof(buf1)));
+			}
+	}
+
+	if (bgp_debug_zebra(NULL)) {
+		char buf[ETHER_ADDR_STRLEN];
+		char buf1[PREFIX_STRLEN];
+
+		zlog_debug("VRF %s type-5 route evp %s RMAC %s nexthop %s",
+			   vrf_id_to_name(bgp_vrf->vrf_id),
+			   prefix2str(evp, buf1, sizeof(buf1)),
+			   prefix_mac2str(&attr.rmac, buf, sizeof(buf)),
+			   inet_ntoa(attr.nexthop));
+	}
+
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
-	memcpy(&attr.rmac, &bgp_vrf->rmac, sizeof(struct ethaddr));
 
 	/* Setup RT and encap extended community */
 	build_evpn_type5_route_extcomm(bgp_vrf, &attr);
@@ -3527,8 +3560,14 @@ static void delete_withdraw_vrf_routes(struct bgp *bgp_vrf)
  * update and advertise all ipv4 and ipv6 routes in thr vrf table as type-5
  * routes
  */
-static void update_advertise_vrf_routes(struct bgp *bgp_vrf)
+void update_advertise_vrf_routes(struct bgp *bgp_vrf)
 {
+	struct bgp *bgp_evpn = NULL; /* EVPN bgp instance */
+
+	bgp_evpn = bgp_get_evpn();
+	if (!bgp_evpn)
+		return;
+
 	/* update all ipv4 routes */
 	if (advertise_type5_routes(bgp_vrf, AFI_IP))
 		bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP, SAFI_UNICAST);
@@ -4586,6 +4625,9 @@ void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
  */
 void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 {
+	struct listnode *node;
+	struct bgp *bgp_vrf;
+
 	if (withdraw) {
 
 		/* delete and withdraw all the type-5 routes
@@ -4600,7 +4642,33 @@ void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 			     (void (*)(struct hash_bucket *,
 				       void *))withdraw_router_id_vni,
 			     bgp);
+
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+			for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+				if (bgp_vrf->evpn_info->advertise_pip &&
+				    (bgp_vrf->evpn_info->pip_ip_static.s_addr
+				     == INADDR_ANY))
+					bgp_vrf->evpn_info->pip_ip.s_addr
+						= INADDR_ANY;
+			}
+		}
 	} else {
+
+		/* Assign new default instance router-id */
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) {
+			for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+				if (bgp_vrf->evpn_info->advertise_pip &&
+				    (bgp_vrf->evpn_info->pip_ip_static.s_addr
+				     == INADDR_ANY)) {
+					bgp_vrf->evpn_info->pip_ip =
+						bgp->router_id;
+					/* advertise type-5 routes with
+					 * new nexthop
+					 */
+					update_advertise_vrf_routes(bgp_vrf);
+				}
+			}
+		}
 
 		/* advertise all routes in the vrf as type-5 routes with the new
 		 * RD
@@ -6005,6 +6073,15 @@ void bgp_evpn_init(struct bgp *bgp)
 		bgp->evpn_info->dad_freeze_time = 0;
 		/* Initialize zebra vxlan */
 		bgp_zebra_dup_addr_detection(bgp);
+		/* Enable PIP feature by default for bgp vrf instance */
+		if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF) {
+			struct bgp *bgp_default;
+
+			bgp->evpn_info->advertise_pip = true;
+			bgp_default = bgp_get_default();
+			if (bgp_default)
+				bgp->evpn_info->pip_ip = bgp_default->router_id;
+		}
 	}
 
 	/* Default BUM handling is to do head-end replication. */
