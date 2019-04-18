@@ -78,6 +78,7 @@ static const struct option longopts[] = {
 	{"skip_runas", no_argument, NULL, 'S'},
 	{"ecmp", required_argument, NULL, 'e'},
 	{"int_num", required_argument, NULL, 'I'},
+	{"no_zebra", no_argument, NULL, 'Z'},
 	{0}};
 
 /* signal definitions */
@@ -387,7 +388,7 @@ int main(int argc, char **argv)
 
 	frr_preinit(&bgpd_di, argc, argv);
 	frr_opt_add(
-		"p:l:Sne:I:" DEPRECATED_OPTIONS, longopts,
+		"p:l:SnZe:I:" DEPRECATED_OPTIONS, longopts,
 		"  -p, --bgp_port     Set BGP listen port number (0 means do not listen).\n"
 		"  -l, --listenon     Listen on specified address (implies -n)\n"
 		"  -n, --no_kernel    Do not install route to kernel.\n"
