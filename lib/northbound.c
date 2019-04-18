@@ -454,13 +454,6 @@ int nb_candidate_edit(struct nb_config *candidate,
 	struct lyd_node *dnode;
 	char xpath_edit[XPATH_MAXLEN];
 
-	if (!nb_operation_is_valid(operation, nb_node->snode)) {
-		flog_warn(EC_LIB_NB_CANDIDATE_EDIT_ERROR,
-			  "%s: %s operation not valid for %s", __func__,
-			  nb_operation_name(operation), xpath);
-		return NB_ERR;
-	}
-
 	/* Use special notation for leaf-lists (RFC 6020, section 9.13.5). */
 	if (nb_node->snode->nodetype == LYS_LEAFLIST)
 		snprintf(xpath_edit, sizeof(xpath_edit), "%s[.='%s']", xpath,
@@ -753,40 +746,44 @@ static int nb_callback_configuration(const enum nb_event event,
 		ret = (*nb_node->cbs.move)(event, dnode);
 		break;
 	default:
-		break;
+		flog_err(EC_LIB_DEVELOPMENT,
+			 "%s: unknown operation (%u) [xpath %s]", __func__,
+			 operation, xpath);
+		exit(1);
 	}
 
 	if (ret != NB_OK) {
-		enum lib_log_refs ref = 0;
+		int priority;
+		enum lib_log_refs ref;
 
 		switch (event) {
 		case NB_EV_VALIDATE:
+			priority = LOG_WARNING;
 			ref = EC_LIB_NB_CB_CONFIG_VALIDATE;
 			break;
 		case NB_EV_PREPARE:
+			priority = LOG_WARNING;
 			ref = EC_LIB_NB_CB_CONFIG_PREPARE;
 			break;
 		case NB_EV_ABORT:
+			priority = LOG_WARNING;
 			ref = EC_LIB_NB_CB_CONFIG_ABORT;
 			break;
 		case NB_EV_APPLY:
+			priority = LOG_ERR;
 			ref = EC_LIB_NB_CB_CONFIG_APPLY;
 			break;
+		default:
+			flog_err(EC_LIB_DEVELOPMENT,
+				 "%s: unknown event (%u) [xpath %s]",
+				 __func__, event, xpath);
+			exit(1);
 		}
-		if (event == NB_EV_VALIDATE || event == NB_EV_PREPARE)
-			flog_warn(
-				ref,
-				"%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
-				__func__, nb_err_name(ret),
-				nb_event_name(event),
-				nb_operation_name(operation), xpath);
-		else
-			flog_err(
-				ref,
-				"%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
-				__func__, nb_err_name(ret),
-				nb_event_name(event),
-				nb_operation_name(operation), xpath);
+
+		flog(priority, ref,
+		     "%s: error processing configuration change: error [%s] event [%s] operation [%s] xpath [%s]",
+		     __func__, nb_err_name(ret), nb_event_name(event),
+		     nb_operation_name(operation), xpath);
 	}
 
 	return ret;
@@ -1676,12 +1673,6 @@ void nb_init(struct thread_master *tm,
 			__func__, errors);
 		exit(1);
 	}
-
-	/* Initialize the northbound database (used for the rollback log). */
-	if (nb_db_init() != NB_OK)
-		flog_warn(EC_LIB_NB_DATABASE,
-			  "%s: failed to initialize northbound database",
-			  __func__);
 
 	/* Create an empty running configuration. */
 	running_config = nb_config_new(NULL);

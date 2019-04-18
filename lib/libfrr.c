@@ -38,6 +38,7 @@
 #include "lib_errors.h"
 #include "db.h"
 #include "northbound_cli.h"
+#include "northbound_db.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 DEFINE_KOOH(frr_early_fini, (), ())
@@ -654,6 +655,10 @@ struct thread_master *frr_init(void)
 
 	yang_init();
 	nb_init(master, di->yang_modules, di->n_yang_modules);
+	if (nb_db_init() != NB_OK)
+		flog_warn(EC_LIB_NB_DATABASE,
+			  "%s: failed to initialize northbound database",
+			  __func__);
 
 	return master;
 }

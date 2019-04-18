@@ -20,7 +20,6 @@
 #include <zebra.h>
 
 #include "log.h"
-#include "log_int.h"
 #include "lib_errors.h"
 #include "yang.h"
 #include "yang_translator.h"
