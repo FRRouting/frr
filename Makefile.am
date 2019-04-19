@@ -207,7 +207,6 @@ EXTRA_DIST += \
 	ospfd/Makefile \
 	pbrd/Makefile \
 	pimd/Makefile \
-	ports/Makefile \
 	qpb/Makefile \
 	ripd/Makefile \
 	ripngd/Makefile \
