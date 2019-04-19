@@ -1,5 +1,7 @@
 mdate-sh
 draft-zebra-00.txt
+defines.texi
+texinfo.tex
 *.pdf
 *.eps
 frr.ps
@@ -18,4 +20,6 @@ stamp-vti
 *.toc
 *.tp
 *.vr
+*.8
+*.1
 refix

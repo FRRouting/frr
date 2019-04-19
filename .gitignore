@@ -38,6 +38,9 @@
 .deps
 .libs
 
+Makefile
+Makefile.in
+
 ### build outputs
 
 *.o
