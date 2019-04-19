@@ -81,8 +81,7 @@ struct nexthop {
 #define NEXTHOP_FLAG_RECURSIVE  (1 << 2) /* Recursive nexthop. */
 #define NEXTHOP_FLAG_ONLINK     (1 << 3) /* Nexthop should be installed onlink. */
 #define NEXTHOP_FLAG_MATCHED    (1 << 4) /* Already matched vs a nexthop */
-#define NEXTHOP_FLAG_FILTERED   (1 << 5) /* rmap filtered, used by static only */
-#define NEXTHOP_FLAG_DUPLICATE  (1 << 6) /* nexthop duplicates another active one */
+#define NEXTHOP_FLAG_DUPLICATE  (1 << 5) /* nexthop duplicates another active one */
 #define NEXTHOP_IS_ACTIVE(flags)                                               \
 	(CHECK_FLAG(flags, NEXTHOP_FLAG_ACTIVE)                                \
 	 && !CHECK_FLAG(flags, NEXTHOP_FLAG_DUPLICATE))

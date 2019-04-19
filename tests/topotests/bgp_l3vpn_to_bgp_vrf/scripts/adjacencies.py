@@ -1,7 +1,7 @@
 from lutil import luCommand
 luCommand('ce1','vtysh -c "show bgp summary"',' 00:0','wait','Adjacencies up',180)
-luCommand('ce2','vtysh -c "show bgp summary"',' 00:0','wait','Adjacencies up')
-luCommand('ce3','vtysh -c "show bgp summary"',' 00:0','wait','Adjacencies up')
+luCommand('ce2','vtysh -c "show bgp summary"',' 00:0','wait','Adjacencies up',180)
+luCommand('ce3','vtysh -c "show bgp summary"',' 00:0','wait','Adjacencies up',180)
 luCommand('ce4','vtysh -c "show bgp vrf all summary"',' 00:0','wait','Adjacencies up',180)
 luCommand('r1','ping 2.2.2.2 -c 1',' 0. packet loss','wait','PE->P2 (loopback) ping',60)
 luCommand('r3','ping 2.2.2.2 -c 1',' 0. packet loss','wait','PE->P2 (loopback) ping',60)
