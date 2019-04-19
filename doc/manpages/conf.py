@@ -333,6 +333,7 @@ man_pages = [
     ("frr-sharpd", "frr-sharpd", fwfrr.format("a SHARP"), [], 8),
     ("frr-staticd", "frr-staticd", fwfrr.format("a static route manager"), [], 8),
     ("frr-vrrpd", "frr-vrrpd", fwfrr.format("a VRRP"), [], 8),
+    ('frr-pmd',        'frr-pmd', fwfrr.format("a PMD "), [], 8),
     (
         "frr-watchfrr",
         "frr-watchfrr",

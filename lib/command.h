@@ -171,6 +171,8 @@ enum node_type {
 	BMP_NODE,		/* BMP config under router bgp */
 	WRAP_SCRIPT_NODE,	/* Wrap Script Config commands */
 	RPKI_VRF_NODE,  /* RPKI node for VRF */
+	PM_NODE,		 /* PM protocol mode. */
+	PM_SESSION_NODE,	 /* PM peer configuration mode. */
 	NODE_TYPE_MAX, /* maximum */
 };
 

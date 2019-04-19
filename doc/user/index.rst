@@ -54,6 +54,7 @@ Protocols
    pathd
    pim
    pbr
+   pmd
    ripd
    ripngd
    sharp

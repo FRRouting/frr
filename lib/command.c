@@ -895,6 +895,9 @@ enum node_type node_parent(enum node_type node)
 	case RPKI_VRF_NODE:
 		ret = VRF_NODE;
 		break;
+	case PM_SESSION_NODE:
+		ret = PM_NODE;
+		break;
 	default:
 		ret = CONFIG_NODE;
 		break;
