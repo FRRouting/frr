@@ -139,6 +139,7 @@ struct vtysh_client vtysh_client[] = {
 	{.fd = -1, .name = "staticd", .flag = VTYSH_STATICD, .next = NULL},
 	{.fd = -1, .name = "bfdd", .flag = VTYSH_BFDD, .next = NULL},
 	{.fd = -1, .name = "vrrpd", .flag = VTYSH_VRRPD, .next = NULL},
+	{.fd = -1, .name = "pmd", .flag = VTYSH_PMD, .next = NULL},
 };
 
 /* Searches for client by name, returns index */
@@ -1494,6 +1495,20 @@ static struct cmd_node bfd_peer_node = {
 };
 #endif /* HAVE_BFDD */
 
+struct cmd_node pm_node = {
+	.name = "pm",
+	.node = PM_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-pm)# ",
+};
+
+struct cmd_node pm_session_node = {
+	.name = "pm-session",
+	.node = PM_SESSION_NODE,
+	.parent_node = PM_NODE,
+	.prompt = "%s(config-pm-session)# ",
+};
+
 /* Defined in lib/vty.c */
 extern struct cmd_node vty_node;
 
@@ -1949,6 +1964,35 @@ DEFUNSH(VTYSH_BFDD, bfd_peer_enter, bfd_peer_enter_cmd,
 }
 #endif /* HAVE_BFDD */
 
+DEFUNSH(VTYSH_PMD, pm_enter, pm_enter_cmd, "pm", "Configure Path Monitoring sessions\n")
+{
+	vty->node = PM_NODE;
+	return CMD_SUCCESS;
+}
+
+#define SESSION_STR "Configure session\n"
+#define SESSION_IPV4_STR "IPv4 peer address\n"
+#define SESSION_IPV6_STR "IPv6 peer address\n"
+#define REMOTE_STR "Configure remote address\n"
+#define LOCAL_STR "Configure local address\n"
+#define LOCAL_IPV4_STR "IPv4 local address\n"
+#define LOCAL_IPV6_STR "IPv6 local address\n"
+#define LOCAL_INTF_STR "Configure local interface name to use\n"
+#define VRF_STR "Configure VRF\n"
+#define VRF_NAME_STR "Configure VRF name\n"
+
+DEFUNSH(VTYSH_PMD, pm_session_enter, pm_session_enter_cmd,
+	"session <A.B.C.D|X:X::X:X> [{local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
+	SESSION_STR SESSION_IPV4_STR SESSION_IPV6_STR
+	LOCAL_STR LOCAL_IPV4_STR LOCAL_IPV6_STR
+	INTERFACE_STR
+	LOCAL_INTF_STR
+	VRF_STR VRF_NAME_STR)
+{
+	vty->node = PM_SESSION_NODE;
+	return CMD_SUCCESS;
+}
+
 DEFSH(VTYSH_PBRD, vtysh_no_pbr_map_cmd, "no pbr-map PBRMAP [seq (1-700)]",
 	NO_STR
 	"Delete pbr-map\n"
@@ -2234,6 +2278,15 @@ DEFUNSH(VTYSH_BFDD, vtysh_exit_bfdd, vtysh_exit_bfdd_cmd, "exit",
 ALIAS(vtysh_exit_bfdd, vtysh_quit_bfdd_cmd, "quit",
       "Exit current mode and down to previous mode\n")
 #endif
+
+DEFUNSH(VTYSH_PMD, vtysh_exit_pm, vtysh_exit_pm_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+ALIAS(vtysh_exit_pm, vtysh_quit_pm_cmd, "quit",
+      "Exit current mode and down to previous mode\n")
 
 DEFUNSH(VTYSH_FABRICD, vtysh_exit_fabricd, vtysh_exit_fabricd_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
@@ -3797,6 +3850,8 @@ void vtysh_init_vty(void)
 	install_node(&bfd_node);
 	install_node(&bfd_peer_node);
 #endif /* HAVE_BFDD */
+	install_node(&pm_node);
+	install_node(&pm_session_node);
 
 	struct cmd_node *node;
 	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {
@@ -3908,6 +3963,20 @@ void vtysh_init_vty(void)
 	install_element(BFD_NODE, &vtysh_end_all_cmd);
 	install_element(BFD_PEER_NODE, &vtysh_end_all_cmd);
 #endif /* HAVE_BFDD */
+	/* Enter node. */
+	install_element(CONFIG_NODE, &pm_enter_cmd);
+	install_element(PM_NODE, &pm_session_enter_cmd);
+
+	/* Exit/quit node. */
+	install_element(PM_NODE, &vtysh_exit_pm_cmd);
+	install_element(PM_NODE, &vtysh_quit_pm_cmd);
+	install_element(PM_SESSION_NODE, &vtysh_exit_pm_cmd);
+	install_element(PM_SESSION_NODE, &vtysh_quit_pm_cmd);
+
+	/* End/exit all. */
+	install_element(PM_NODE, &vtysh_end_all_cmd);
+	install_element(PM_SESSION_NODE, &vtysh_end_all_cmd);
+
 	install_element(VTY_NODE, &vtysh_exit_line_vty_cmd);
 	install_element(VTY_NODE, &vtysh_quit_line_vty_cmd);
 

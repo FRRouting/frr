@@ -30,6 +30,7 @@ pbrd=no
 bfdd=no
 fabricd=no
 vrrpd=no
+pmd=no
 
 #
 # If this option is set the /etc/init.d/frr script automatically loads
@@ -55,6 +56,7 @@ staticd_options="-A 127.0.0.1"
 bfdd_options="   -A 127.0.0.1"
 fabricd_options="-A 127.0.0.1"
 vrrpd_options="  -A 127.0.0.1"
+pmd_options="    -A 127.0.0.1"
 
 # configuration profile
 #

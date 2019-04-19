@@ -1,0 +1,34 @@
+#
+# pmd
+#
+
+if PMD
+noinst_LIBRARIES += pmd/libpm.a
+sbin_PROGRAMS += pmd/pmd
+dist_examples_DATA += pmd/pmd.conf.sample
+vtysh_scan += $(top_srcdir)/pmd/pm_vty.c
+man8 += $(MANBUILD)/frr-pmd.8
+endif
+
+pmd_libpm_a_SOURCES = \
+	pmd/pm_zebra.c \
+	pmd/pm_vty.c \
+	pmd/pm.c \
+	# end
+
+pmd/pmd_vty_clippy.c: $(CLIPPY_DEPS)
+pmd/pmd_vty.$(OBJEXT): pmd/pmd_vty_clippy.c
+
+noinst_HEADERS += \
+	pmd/pm_vty.h \
+	pmd/pm_zebra.h \
+	pmd/pm.h \
+	pmd/pm_memory.h \
+	# end
+
+pmd/pm_vty_clippy.c: $(CLIPPY_DEPS)
+pmd/pm_vty.$(OBJEXT): pmd/pm_vty_clippy.c
+
+pmd_pmd_SOURCES = pmd/pm_main.c
+pmd_pmd_LDADD = pmd/libpm.a lib/libfrr.la $(LIBCAP)
+

@@ -42,6 +42,7 @@ user_RSTFILES = \
 	doc/user/vtysh.rst \
 	doc/user/zebra.rst \
 	doc/user/bfd.rst \
+	doc/user/pmd.rst \
 	doc/user/flowspec.rst \
 	doc/user/watchfrr.rst \
 	doc/user/wecmp_linkbw.rst \

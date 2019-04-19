@@ -93,6 +93,7 @@ if [ ! -e Makefile ]; then
 		--enable-multipath=0 \
 		--enable-fpm \
 		--enable-sharpd \
+		--enable-pmd \
 		$EXTRA_CONFIGURE \
 		--with-pkg-extra-version=-topotests \
 		|| log_fatal "failed to configure the sources"

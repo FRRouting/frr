@@ -51,6 +51,7 @@ Protocols
    ospf6d
    pim
    pbr
+   pmd
    ripd
    ripngd
    sharp

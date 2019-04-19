@@ -785,6 +785,7 @@ class Router(Node):
 
         self.daemondir = None
         self.hasmpls = False
+<<<<<<< HEAD
         self.routertype = "frr"
         self.daemons = {
             "zebra": 0,
@@ -801,6 +802,7 @@ class Router(Node):
             "staticd": 0,
             "bfdd": 0,
             "sharpd": 0,
+            "pmd": 0,
         }
         self.daemons_options = {"zebra": ""}
         self.reportCores = True
@@ -1021,6 +1023,12 @@ class Router(Node):
             if not os.path.isfile(bfdd_path):
                 logger.info("BFD Test, but no bfdd compiled or installed")
                 return "BFD Test, but no bfdd compiled or installed"
+
+        if self.daemons['pmd'] == 1:
+            pmd_path = os.path.join(self.daemondir, 'pmd')
+            if not os.path.isfile(pmd_path):
+                logger.info("PM Test, but no pmd compiled or installed")
+                return "PM Test, but no pmd compiled or installed"
 
         self.restartRouter()
         return ""

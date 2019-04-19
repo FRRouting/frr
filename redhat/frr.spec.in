@@ -507,6 +507,9 @@ zebra_spec_add_service isisd    2608/tcp "ISISd vty"
 %if %{with_bfdd}
     zebra_spec_add_service bfdd     2617/tcp "BFDd vty"
 %endif
+%if %{with_pmd}
+    zebra_spec_add_service pmd     2619/tcp "PMd vty"
+%endif
 zebra_spec_add_service fabricd	2618/tcp "Fabricd vty"
 %if %{with_vrrpd}
     zebra_spec_add_service vrrpd    2619/tcp "VRRPd vty"

@@ -325,6 +325,7 @@ man_pages = [
     ('frr-ospfd',      'frr-ospfd', fwfrr.format("an OSPFv2"), [], 8),
     ('frr-pbrd',       'frr-pbrd', fwfrr.format("a PBR"), [], 8),
     ('frr-pimd',       'frr-pimd', fwfrr.format("a PIM"), [], 8),
+    ('frr-pmd',        'frr-pmd', fwfrr.format("a PMD "), [], 8),
     ('frr-ripd',       'frr-ripd', fwfrr.format("a RIP"), [], 8),
     ('frr-ripngd',     'frr-ripngd', fwfrr.format("a RIPNG"), [], 8),
     ('frr-sharpd',     'frr-sharpd', fwfrr.format("a SHARP"), [], 8),
