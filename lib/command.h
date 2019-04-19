@@ -183,6 +183,8 @@ enum node_type {
 	RPKI_VRF_NODE,  /* RPKI node for VRF */
 	BGP_LS_NODE,	/* BGP-LS configuration node */
 	WRAP_SCRIPT_NODE,	/* Wrap Script Config commands */
+	PM_NODE,		 /* PM protocol mode. */
+	PM_SESSION_NODE,	 /* PM peer configuration mode. */
 	NODE_TYPE_MAX, /* maximum */
 };
 /* clang-format on */

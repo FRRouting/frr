@@ -59,6 +59,7 @@ Protocols
    pim
    pimv6
    pbr
+   pmd
    ripd
    ripngd
    sharp

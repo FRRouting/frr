@@ -89,6 +89,7 @@ DECLARE_DLIST(log_args, struct log_arg, itm);
 #define BFDD_VTY_PORT 2617
 #define FABRICD_VTY_PORT 2618
 #define VRRP_VTY_PORT 2619
+#define PMD_VTY_PORT 2625
 
 /* default port for FPM connections */
 #define FPM_DEFAULT_PORT 2620

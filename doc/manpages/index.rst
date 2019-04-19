@@ -19,6 +19,7 @@
    frr-ospfd
    frr-pimd
    frr-pbrd
+   frr-pmd
    frr-ripd
    frr-ripngd
    frr-sharpd

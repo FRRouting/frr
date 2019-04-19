@@ -748,6 +748,7 @@ class TopoRouter(TopoGear):
     RD_PIM6 = 19
     RD_MGMTD = 20
     RD_TRAP = 21
+    RD_PM = 22
     RD = {
         RD_FRR: "frr",
         RD_ZEBRA: "zebra",
@@ -771,6 +772,7 @@ class TopoRouter(TopoGear):
         RD_SNMP: "snmpd",
         RD_MGMTD: "mgmtd",
         RD_TRAP: "snmptrapd",
+        RD_PM: "pmd",
     }
 
     def __init__(self, tgen, cls, name, **params):
