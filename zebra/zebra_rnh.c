@@ -377,6 +377,20 @@ void zebra_deregister_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
 	zebra_delete_rnh(rnh, RNH_NEXTHOP_TYPE);
 }
 
+/* Clear the NEXTHOP_FLAG_RNH_FILTERED flags on all nexthops
+ */
+static void zebra_rnh_clear_nexthop_rnh_filters(struct route_entry *re)
+{
+	struct nexthop *nexthop;
+
+	if (re) {
+		for (nexthop = re->ng.nexthop; nexthop;
+		     nexthop = nexthop->next) {
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_RNH_FILTERED);
+		}
+	}
+}
+
 /* Apply the NHT route-map for a client to the route (and nexthops)
  * resolving a NH.
  */
@@ -393,11 +407,11 @@ static int zebra_rnh_apply_nht_rmap(afi_t afi, struct zebra_vrf *zvrf,
 		     nexthop = nexthop->next) {
 			ret = zebra_nht_route_map_check(
 				afi, proto, &prn->p, zvrf, re, nexthop);
-			if (ret != RMAP_DENYMATCH) {
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+			if (ret != RMAP_DENYMATCH)
 				at_least_one++; /* at least one valid NH */
-			} else {
-				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+			else {
+				SET_FLAG(nexthop->flags,
+						NEXTHOP_FLAG_RNH_FILTERED);
 			}
 		}
 	}
@@ -546,6 +560,7 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 			 * this
 			 * nexthop to see if it is filtered or not.
 			 */
+			zebra_rnh_clear_nexthop_rnh_filters(re);
 			num_resolving_nh = zebra_rnh_apply_nht_rmap(
 				afi, zvrf, prn, re, client->proto);
 			if (num_resolving_nh)
@@ -572,6 +587,9 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 
 		send_client(rnh, client, RNH_NEXTHOP_TYPE, zvrf->vrf->vrf_id);
 	}
+
+	if (re)
+		zebra_rnh_clear_nexthop_rnh_filters(re);
 }
 
 static void zebra_rnh_process_pbr_tables(afi_t afi, struct route_node *nrn,
@@ -631,7 +649,10 @@ static bool rnh_nexthop_valid(const struct route_entry *re,
 			      const struct nexthop *nh)
 {
 	return (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)
-		&& CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE));
+		&& CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ACTIVE)
+		&& !CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE)
+		&& !CHECK_FLAG(nh->flags, NEXTHOP_FLAG_DUPLICATE)
+		&& !CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RNH_FILTERED));
 }
 
 /*
