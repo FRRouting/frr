@@ -57,7 +57,25 @@ struct bgp_listener {
 	union sockunion su;
 	struct thread *thread;
 	struct bgp *bgp;
+	char *name;
 };
+
+void bgp_dump_listener_info(struct vty *vty)
+{
+	struct listnode *node;
+	struct bgp_listener *listener;
+
+	vty_out(vty, "Name             fd Address\n");
+	vty_out(vty, "---------------------------\n");
+	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
+		char buf[SU_ADDRSTRLEN];
+
+		vty_out(vty, "%-16s %d %s\n",
+			listener->name ? listener->name : VRF_DEFAULT_NAME,
+			listener->fd,
+			sockunion2str(&listener->su, buf, sizeof(buf)));
+	}
+}
 
 /*
  * Set MD5 key for the socket, for the given IPv4 peer address.
@@ -762,6 +780,7 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 
 	listener = XCALLOC(MTYPE_BGP_LISTENER, sizeof(*listener));
 	listener->fd = sock;
+	listener->name = XSTRDUP(MTYPE_BGP_LISTENER, bgp->name);
 
 	/* this socket needs a change of ns. record bgp back pointer */
 	if (bgp->vrf_id != VRF_DEFAULT && vrf_is_backend_netns())
@@ -871,6 +890,7 @@ void bgp_close_vrf_socket(struct bgp *bgp)
 			thread_cancel(listener->thread);
 			close(listener->fd);
 			listnode_delete(bm->listen_sockets, listener);
+			XFREE(MTYPE_BGP_LISTENER, listener->name);
 			XFREE(MTYPE_BGP_LISTENER, listener);
 		}
 	}
@@ -892,6 +912,7 @@ void bgp_close(void)
 		thread_cancel(listener->thread);
 		close(listener->fd);
 		listnode_delete(bm->listen_sockets, listener);
+		XFREE(MTYPE_BGP_LISTENER, listener->name);
 		XFREE(MTYPE_BGP_LISTENER, listener);
 	}
 }

@@ -69,6 +69,7 @@
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_mac.h"
+#include "bgpd/bgp_network.h"
 
 #if ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -12766,6 +12767,18 @@ static void show_bgp_peerhash_entry(struct hash_bucket *bucket, void *arg)
 	       sockunion2str(&peer->su, buf, sizeof(buf)));
 }
 
+DEFUN (show_bgp_listeners,
+       show_bgp_listeners_cmd,
+       "show bgp listeners",
+       SHOW_STR
+       BGP_STR
+       "Display Listen Sockets and who created them\n")
+{
+	bgp_dump_listener_info(vty);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_bgp_peerhash,
        show_bgp_peerhash_cmd,
        "show bgp peerhash",
@@ -13155,6 +13168,7 @@ void bgp_route_init(void)
 	/* show bgp ipv4 flowspec detailed */
 	install_element(VIEW_NODE, &show_ip_bgp_flowspec_routes_detailed_cmd);
 
+	install_element(VIEW_NODE, &show_bgp_listeners_cmd);
 	install_element(VIEW_NODE, &show_bgp_peerhash_cmd);
 }
 
