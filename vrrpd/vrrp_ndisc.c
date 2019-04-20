@@ -211,11 +211,10 @@ int vrrp_ndisc_una_send_all(struct vrrp_router *r)
 
 void vrrp_ndisc_init(void)
 {
-	vrrp_privs.change(ZPRIVS_RAISE);
+	frr_elevate_privs(&vrrp_privs)
 	{
 		ndisc_fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IPV6));
 	}
-	vrrp_privs.change(ZPRIVS_LOWER);
 
 	if (ndisc_fd > 0) {
 		DEBUGD(&vrrp_dbg_sock,

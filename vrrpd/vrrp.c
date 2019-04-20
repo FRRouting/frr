@@ -1087,13 +1087,12 @@ static int vrrp_socket(struct vrrp_router *r)
 		setsockopt_ipv4_multicast_loop(r->sock_tx, 0);
 
 		/* Bind Rx socket to exact interface */
-		vrrp_privs.change(ZPRIVS_RAISE);
+		frr_elevate_privs(&vrrp_privs)
 		{
 			ret = setsockopt(r->sock_rx, SOL_SOCKET,
 					 SO_BINDTODEVICE, r->vr->ifp->name,
 					 strlen(r->vr->ifp->name));
 		}
-		vrrp_privs.change(ZPRIVS_LOWER);
 		if (ret) {
 			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 				  "Failed to bind Rx socket to %s: %s",
@@ -1198,13 +1197,12 @@ static int vrrp_socket(struct vrrp_router *r)
 		setsockopt_ipv6_multicast_loop(r->sock_tx, 0);
 
 		/* Bind Rx socket to exact interface */
-		vrrp_privs.change(ZPRIVS_RAISE);
+		frr_elevate_privs(&vrrp_privs)
 		{
 			ret = setsockopt(r->sock_rx, SOL_SOCKET,
 					 SO_BINDTODEVICE, r->vr->ifp->name,
 					 strlen(r->vr->ifp->name));
 		}
-		vrrp_privs.change(ZPRIVS_LOWER);
 		if (ret) {
 			zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
 				  "Failed to bind Rx socket to %s: %s",
