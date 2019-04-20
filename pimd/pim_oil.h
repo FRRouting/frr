@@ -35,9 +35,9 @@
 #define PIM_OIF_FLAG_PROTO_SOURCE (1 << 2)
 #define PIM_OIF_FLAG_PROTO_STAR   (1 << 3)
 #define PIM_OIF_FLAG_PROTO_VXLAN  (1 << 4)
-#define PIM_OIF_FLAG_PROTO_ANY                                                 \
-	(PIM_OIF_FLAG_PROTO_IGMP | PIM_OIF_FLAG_PROTO_PIM                      \
-	 | PIM_OIF_FLAG_PROTO_SOURCE | PIM_OIF_FLAG_PROTO_STAR\
+#define PIM_OIF_FLAG_PROTO_ANY                                 \
+	(PIM_OIF_FLAG_PROTO_IGMP | PIM_OIF_FLAG_PROTO_PIM      \
+	 | PIM_OIF_FLAG_PROTO_SOURCE | PIM_OIF_FLAG_PROTO_STAR \
 	 | PIM_OIF_FLAG_PROTO_VXLAN)
 
 /*
