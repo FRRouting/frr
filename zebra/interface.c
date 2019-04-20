@@ -1369,10 +1369,10 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 			vty_out(vty, " VTEP IP: %s",
 				inet_ntoa(vxlan_info->vtep_ip));
 		if (vxlan_info->access_vlan)
-			vty_out(vty, " Access VLAN Id %u",
+			vty_out(vty, " Access VLAN Id %u\n",
 				vxlan_info->access_vlan);
 		if (vxlan_info->mcast_grp.s_addr != INADDR_ANY)
-			vty_out(vty, " Mcast %s",
+			vty_out(vty, "  Mcast Group %s",
 					inet_ntoa(vxlan_info->mcast_grp));
 		vty_out(vty, "\n");
 	}

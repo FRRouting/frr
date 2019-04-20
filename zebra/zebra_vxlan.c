@@ -8681,7 +8681,7 @@ int zebra_vxlan_if_add(struct interface *ifp)
 					addr_buf2, INET_ADDRSTRLEN);
 
 			zlog_debug(
-				"Add L2-VNI %u VRF %s intf %s(%u) VLAN %u local IP %s mcast %s master %u",
+				"Add L2-VNI %u VRF %s intf %s(%u) VLAN %u local IP %s mcast_grp %s master %u",
 				vni,
 				vlan_if ? vrf_id_to_name(vlan_if->vrf_id)
 					: VRF_DEFAULT_NAME,
