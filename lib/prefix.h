@@ -323,12 +323,12 @@ union prefixconstptr {
 
 /*
  * Longest possible length of a (S,G) string is 36 bytes
- * 123.123.123.123 = 16 * 2
+ * 123.123.123.123 = 15 * 2
  * (,) = 3
  * NULL Character at end = 1
  * (123.123.123.123,123.123.123.123)
  */
-#define PREFIX_SG_STR_LEN 36
+#define PREFIX_SG_STR_LEN 34
 
 /* Max bit/byte length of IPv4 address. */
 #define IPV4_MAX_BYTELEN    4
