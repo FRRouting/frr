@@ -391,7 +391,7 @@ static int as_list_dup_check(struct as_list *aslist, struct as_filter *new)
 
 static int config_bgp_aspath_validate(const char *regstr)
 {
-	char valid_chars[] = "1234567890_^|[,{}() ]$*+.?-";
+	char valid_chars[] = "1234567890_^|[,{}() ]$*+.?-\\";
 
 	if (strspn(regstr, valid_chars) == strlen(regstr))
 		return 1;
