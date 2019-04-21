@@ -32,7 +32,6 @@
 #include "lib/debug.h"
 #include "lib/distribute.h"
 #include "lib/ferr.h"
-#include "lib/fifo.h"
 #include "lib/filter.h"
 #include "lib/frr_pthread.h"
 #include "lib/frratomic.h"

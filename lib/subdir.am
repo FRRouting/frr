@@ -148,7 +148,6 @@ pkginclude_HEADERS += \
 	lib/debug.h \
 	lib/distribute.h \
 	lib/ferr.h \
-	lib/fifo.h \
 	lib/filter.h \
 	lib/freebsd-queue.h \
 	lib/frr_pthread.h \
