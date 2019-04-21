@@ -241,9 +241,9 @@ void bgp_sync_init(struct peer *peer)
 	FOREACH_AFI_SAFI (afi, safi) {
 		sync = XCALLOC(MTYPE_BGP_SYNCHRONISE,
 			       sizeof(struct bgp_synchronize));
-		BGP_ADV_FIFO_INIT(&sync->update);
-		BGP_ADV_FIFO_INIT(&sync->withdraw);
-		BGP_ADV_FIFO_INIT(&sync->withdraw_low);
+		bgp_adv_fifo_init(&sync->update);
+		bgp_adv_fifo_init(&sync->withdraw);
+		bgp_adv_fifo_init(&sync->withdraw_low);
 		peer->sync[afi][safi] = sync;
 	}
 }
