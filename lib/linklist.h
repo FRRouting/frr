@@ -343,7 +343,13 @@ extern void list_add_list(struct list *list, struct list *add);
 
 extern struct listnode *listnode_lookup_nocheck(struct list *list, void *data);
 
-extern void listnode_add_force(struct list **list, void *val);
+/*
+ * Add a node to *list, if non-NULL. Otherwise, allocate a new list, mail
+ * it back in *list, and add a new node.
+ *
+ * Return: the new node.
+ */
+extern struct listnode *listnode_add_force(struct list **list, void *val);
 
 #ifdef __cplusplus
 }
