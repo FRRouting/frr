@@ -246,7 +246,7 @@ void vrrp_zebra_init(void)
 	zclient->interface_address_add = vrrp_zebra_if_address_add;
 	zclient->interface_address_delete = vrrp_zebra_if_address_del;
 
-	zclient_init(zclient, 0, 0, &vrrp_privs);
+	zclient_init(zclient, ZEBRA_ROUTE_VRRP, 0, &vrrp_privs);
 
 	zlog_notice("%s: zclient socket initialized", __PRETTY_FUNCTION__);
 }
