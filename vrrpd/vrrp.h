@@ -265,6 +265,14 @@ struct vrrp_vrouter {
  */
 void vrrp_init(void);
 
+/*
+ * Destroy all VRRP instances and gracefully shutdown.
+ *
+ * For instances in Master state, VRRP advertisements with 0 priority will be
+ * sent if possible to notify Backup routers that we are going away.
+ */
+void vrrp_fini(void);
+
 
 /* Creation and destruction ------------------------------------------------ */
 

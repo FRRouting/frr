@@ -2354,3 +2354,21 @@ void vrrp_init(void)
 					 "VRRP virtual router hash");
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
 }
+
+void vrrp_fini(void)
+{
+	/* Destroy all instances */
+	struct list *vrs = hash_to_list(vrrp_vrouters_hash);
+
+	struct listnode *ln;
+	struct vrrp_vrouter *vr;
+
+	for (ALL_LIST_ELEMENTS_RO(vrs, ln, vr)) {
+		vrrp_vrouter_destroy(vr);
+	}
+
+	list_delete(&vrs);
+
+	hash_clean(vrrp_vrouters_hash, NULL);
+	hash_free(vrrp_vrouters_hash);
+}
