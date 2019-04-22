@@ -499,16 +499,16 @@ extern void if_delete_retain(struct interface *);
    deletes it from the interface list and frees the structure. */
 extern void if_delete(struct interface *);
 
-extern int if_is_up(struct interface *);
-extern int if_is_running(struct interface *);
-extern int if_is_operative(struct interface *);
-extern int if_is_no_ptm_operative(struct interface *);
-extern int if_is_loopback(struct interface *);
-extern int if_is_vrf(struct interface *ifp);
-extern bool if_is_loopback_or_vrf(struct interface *ifp);
-extern int if_is_broadcast(struct interface *);
-extern int if_is_pointopoint(struct interface *);
-extern int if_is_multicast(struct interface *);
+extern int if_is_up(const struct interface *ifp);
+extern int if_is_running(const struct interface *ifp);
+extern int if_is_operative(const struct interface *ifp);
+extern int if_is_no_ptm_operative(const struct interface *ifp);
+extern int if_is_loopback(const struct interface *ifp);
+extern int if_is_vrf(const struct interface *ifp);
+extern bool if_is_loopback_or_vrf(const struct interface *ifp);
+extern int if_is_broadcast(const struct interface *ifp);
+extern int if_is_pointopoint(const struct interface *ifp);
+extern int if_is_multicast(const struct interface *ifp);
 struct vrf;
 extern void if_terminate(struct vrf *vrf);
 extern void if_dump_all(void);

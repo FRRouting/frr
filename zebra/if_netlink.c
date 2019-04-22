@@ -839,11 +839,12 @@ int kernel_interface_set_master(struct interface *master,
 }
 
 /* Interface address modification. */
-static int netlink_address(int cmd, int family, struct interface *ifp,
-			   struct connected *ifc)
+static int netlink_address_ctx(const struct zebra_dplane_ctx *ctx)
 {
 	int bytelen;
-	struct prefix *p;
+	const struct prefix *p;
+	int cmd;
+	const char *label;
 
 	struct {
 		struct nlmsghdr n;
@@ -851,72 +852,59 @@ static int netlink_address(int cmd, int family, struct interface *ifp,
 		char buf[NL_PKT_BUF_SIZE];
 	} req;
 
-	struct zebra_ns *zns;
+	p = dplane_ctx_get_intf_addr(ctx);
+	memset(&req, 0, sizeof(req) - NL_PKT_BUF_SIZE);
 
-	if (vrf_is_backend_netns())
-		zns = zebra_ns_lookup((ns_id_t)ifp->vrf_id);
-	else
-		zns = zebra_ns_lookup(NS_DEFAULT);
-	p = ifc->address;
-	memset(&req, 0, sizeof req - NL_PKT_BUF_SIZE);
-
-	bytelen = (family == AF_INET ? 4 : 16);
+	bytelen = (p->family == AF_INET ? 4 : 16);
 
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
 	req.n.nlmsg_flags = NLM_F_REQUEST;
+
+	if (dplane_ctx_get_op(ctx) == DPLANE_OP_ADDR_INSTALL)
+		cmd = RTM_NEWADDR;
+	else
+		cmd = RTM_DELADDR;
+
 	req.n.nlmsg_type = cmd;
-	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
+	req.ifa.ifa_family = p->family;
 
-	req.ifa.ifa_family = family;
+	req.ifa.ifa_index = dplane_ctx_get_ifindex(ctx);
 
-	req.ifa.ifa_index = ifp->ifindex;
+	addattr_l(&req.n, sizeof(req), IFA_LOCAL, &p->u.prefix, bytelen);
 
-	addattr_l(&req.n, sizeof req, IFA_LOCAL, &p->u.prefix, bytelen);
-
-	if (family == AF_INET) {
-		if (CONNECTED_PEER(ifc)) {
-			p = ifc->destination;
-			addattr_l(&req.n, sizeof req, IFA_ADDRESS, &p->u.prefix,
-				  bytelen);
-		} else if (cmd == RTM_NEWADDR && ifc->destination) {
-			p = ifc->destination;
-			addattr_l(&req.n, sizeof req, IFA_BROADCAST,
+	if (p->family == AF_INET) {
+		if (dplane_ctx_intf_is_connected(ctx)) {
+			p = dplane_ctx_get_intf_dest(ctx);
+			addattr_l(&req.n, sizeof(req), IFA_ADDRESS,
+				  &p->u.prefix, bytelen);
+		} else if (cmd == RTM_NEWADDR &&
+			   dplane_ctx_intf_has_dest(ctx)) {
+			p = dplane_ctx_get_intf_dest(ctx);
+			addattr_l(&req.n, sizeof(req), IFA_BROADCAST,
 				  &p->u.prefix, bytelen);
 		}
 	}
 
-	/* p is now either ifc->address or ifc->destination */
+	/* p is now either address or destination/bcast addr */
 	req.ifa.ifa_prefixlen = p->prefixlen;
 
-	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
+	if (dplane_ctx_intf_is_secondary(ctx))
 		SET_FLAG(req.ifa.ifa_flags, IFA_F_SECONDARY);
 
-	if (ifc->label)
-		addattr_l(&req.n, sizeof req, IFA_LABEL, ifc->label,
-			  strlen(ifc->label) + 1);
+	if (dplane_ctx_intf_has_label(ctx)) {
+		label = dplane_ctx_get_intf_label(ctx);
+		addattr_l(&req.n, sizeof(req), IFA_LABEL, label,
+			  strlen(label) + 1);
+	}
 
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    0);
+	return netlink_talk_info(netlink_talk_filter, &req.n,
+				 dplane_ctx_get_ns(ctx), 0);
 }
 
-int kernel_address_add_ipv4(struct interface *ifp, struct connected *ifc)
+enum zebra_dplane_result kernel_address_update_ctx(struct zebra_dplane_ctx *ctx)
 {
-	return netlink_address(RTM_NEWADDR, AF_INET, ifp, ifc);
-}
-
-int kernel_address_delete_ipv4(struct interface *ifp, struct connected *ifc)
-{
-	return netlink_address(RTM_DELADDR, AF_INET, ifp, ifc);
-}
-
-int kernel_address_add_ipv6(struct interface *ifp, struct connected *ifc)
-{
-	return netlink_address(RTM_NEWADDR, AF_INET6, ifp, ifc);
-}
-
-int kernel_address_delete_ipv6(struct interface *ifp, struct connected *ifc)
-{
-	return netlink_address(RTM_DELADDR, AF_INET6, ifp, ifc);
+	return (netlink_address_ctx(ctx) == 0 ?
+		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
 }
 
 int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
