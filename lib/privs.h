@@ -24,6 +24,7 @@
 #define _ZEBRA_PRIVS_H
 
 #include <pthread.h>
+#include "lib/queue.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,6 +57,13 @@ typedef enum {
 	ZPRIVS_LOWER,
 } zebra_privs_ops_t;
 
+struct zebra_privs_refs_t {
+	STAILQ_ENTRY(zebra_privs_refs_t) entry;
+	pthread_t tid;
+	uint32_t refcount;
+	const char *raised_in_funcname;
+};
+
 struct zebra_privs_t {
 	zebra_capabilities_t *caps_p; /* caps required for operation */
 	zebra_capabilities_t *caps_i; /* caps to allow inheritance of */
@@ -63,11 +71,15 @@ struct zebra_privs_t {
 	int cap_num_i;
 
 	/* Mutex and counter used to avoid race conditions in multi-threaded
-	 * processes. The privs elevation is process-wide, so we need to
-	 * avoid changing the privilege status across threads.
+	 * processes. If privs status is process-wide, we need to
+	 * control changes to the privilege status among threads.
+	 * If privs changes are per-thread, we need to be able to
+	 * manage that too.
 	 */
 	pthread_mutex_t mutex;
-	uint32_t refcount;
+	struct zebra_privs_refs_t process_refs;
+
+	STAILQ_HEAD(thread_refs_q, zebra_privs_refs_t) thread_refs;
 
 	const char *user; /* user and group to run as */
 	const char *group;
@@ -76,7 +88,6 @@ struct zebra_privs_t {
 	int (*change)(zebra_privs_ops_t); /* change privileges, 0 on success */
 	zebra_privs_current_t (*current_state)(
 		void); /* current privilege state */
-	const char *raised_in_funcname;
 };
 
 struct zprivs_ids_t {
