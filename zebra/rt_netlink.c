@@ -1962,10 +1962,12 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 				req.nhm.nh_family = AF_INET6;
 
 			switch (nh->type) {
+			case NEXTHOP_TYPE_IPV4:
 			case NEXTHOP_TYPE_IPV4_IFINDEX:
 				addattr_l(&req.n, sizeof(req), NHA_GATEWAY,
 					  &nh->gate.ipv4, IPV4_MAX_BYTELEN);
 				break;
+			case NEXTHOP_TYPE_IPV6:
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
 				addattr_l(&req.n, sizeof(req), NHA_GATEWAY,
 					  &nh->gate.ipv6, IPV6_MAX_BYTELEN);
@@ -1978,13 +1980,13 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 			case NEXTHOP_TYPE_IFINDEX:
 				/* Don't need anymore info for this */
 				break;
-			case NEXTHOP_TYPE_IPV4:
-			case NEXTHOP_TYPE_IPV6:
+			}
+
+			if (!nh->ifindex) {
 				flog_err(
 					EC_ZEBRA_NHG_FIB_UPDATE,
 					"Context received for kernel nexthop update without an interface");
 				return -1;
-				break;
 			}
 
 			addattr32(&req.n, sizeof(req), NHA_OIF, nh->ifindex);

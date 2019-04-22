@@ -312,22 +312,13 @@ static void *zebra_nhg_alloc(void *arg)
 	}
 
 	/* Add the ifp now if its not a group or recursive and has ifindex */
-	if (zebra_nhg_depends_is_empty(nhe) && nhe->nhg->nexthop) {
+	if (zebra_nhg_depends_is_empty(nhe) && nhe->nhg->nexthop
+	    && nhe->nhg->nexthop->ifindex) {
 		struct interface *ifp = NULL;
 
-		switch (nhe->nhg->nexthop->type) {
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-		case NEXTHOP_TYPE_IPV6_IFINDEX:
-		case NEXTHOP_TYPE_IFINDEX:
-			ifp = if_lookup_by_index(nhe->nhg->nexthop->ifindex,
-						 nhe->vrf_id);
-			zebra_nhg_set_if(nhe, ifp);
-			break;
-		case NEXTHOP_TYPE_BLACKHOLE:
-		case NEXTHOP_TYPE_IPV4:
-		case NEXTHOP_TYPE_IPV6:
-			break;
-		}
+		ifp = if_lookup_by_index(nhe->nhg->nexthop->ifindex,
+					 nhe->vrf_id);
+		zebra_nhg_set_if(nhe, ifp);
 	}
 
 	/* Add to id table as well */
