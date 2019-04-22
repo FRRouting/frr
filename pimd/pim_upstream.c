@@ -584,9 +584,10 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 	pim_upstream_update_assert_tracking_desired(up);
 
 	if (new_state == PIM_UPSTREAM_JOINED) {
+		pim_upstream_inherited_olist_decide(pim, up);
 		if (old_state != PIM_UPSTREAM_JOINED) {
 			int old_fhr = PIM_UPSTREAM_FLAG_TEST_FHR(up->flags);
-			forward_on(up);
+
 			pim_msdp_up_join_state_changed(pim, up);
 			if (pim_upstream_could_register(up)) {
 				PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
@@ -601,8 +602,6 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 				pim_upstream_send_join(up);
 				join_timer_start(up);
 			}
-		} else {
-			forward_on(up);
 		}
 	} else {
 
