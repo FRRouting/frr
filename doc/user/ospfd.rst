@@ -26,7 +26,7 @@ Configuring OSPF
 
 .. option:: -a, --apiserver
 
-   Enable the OSPF API server
+   Enable the OSPF API server. This is required to use ``ospfclient``.
 
 *ospfd* must acquire interface information from *zebra* in order to function.
 Therefore *zebra* must be running before invoking *ospfd*. Also, if *zebra* is
