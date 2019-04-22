@@ -609,7 +609,8 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
  * Add (update) or delete remote VTEP from zebra.
  */
 static int bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
-				      struct prefix_evpn *p, int add)
+				struct prefix_evpn *p,
+				int flood_control, int add)
 {
 	struct stream *s;
 
@@ -641,6 +642,7 @@ static int bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 			add ? "ADD" : "DEL", vpn->vni);
 		return -1;
 	}
+	stream_putl(s, flood_control);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
@@ -889,6 +891,7 @@ static int evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn,
 {
 	int ret;
 	uint8_t flags;
+	int flood_control;
 
 	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 		flags = 0;
@@ -903,7 +906,20 @@ static int evpn_zebra_install(struct bgp *bgp, struct bgpevpn *vpn,
 			bgp, vpn, p, pi->attr->nexthop, 1, flags,
 			mac_mobility_seqnum(pi->attr));
 	} else {
-		ret = bgp_zebra_send_remote_vtep(bgp, vpn, p, 1);
+		switch (pi->attr->pmsi_tnl_type) {
+		case PMSI_TNLTYPE_INGR_REPL:
+			flood_control = VXLAN_FLOOD_HEAD_END_REPL;
+			break;
+
+		case PMSI_TNLTYPE_PIM_SM:
+			flood_control = VXLAN_FLOOD_PIM_SM;
+			break;
+
+		default:
+			flood_control = VXLAN_FLOOD_DISABLED;
+			break;
+		}
+		ret = bgp_zebra_send_remote_vtep(bgp, vpn, p, flood_control, 1);
 	}
 
 	return ret;
@@ -920,7 +936,8 @@ static int evpn_zebra_uninstall(struct bgp *bgp, struct bgpevpn *vpn,
 		ret = bgp_zebra_send_remote_macip(bgp, vpn, p, remote_vtep_ip,
 						  0, 0, 0);
 	else
-		ret = bgp_zebra_send_remote_vtep(bgp, vpn, p, 0);
+		ret = bgp_zebra_send_remote_vtep(bgp, vpn, p,
+					VXLAN_FLOOD_DISABLED, 0);
 
 	return ret;
 }
@@ -2220,6 +2237,24 @@ static int delete_all_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	return 0;
 }
 
+/* BUM traffic flood mode per-l2-vni */
+static int bgp_evpn_vni_flood_mode_get(struct bgp *bgp,
+					struct bgpevpn *vpn)
+{
+	/* if flooding has been globally disabled per-vni mode is
+	 * not relevant
+	 */
+	if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_DISABLED)
+		return VXLAN_FLOOD_DISABLED;
+
+	/* if mcast group ip has been specified we use a PIM-SM MDT */
+	if (vpn->mcast_grp.s_addr != INADDR_ANY)
+		return VXLAN_FLOOD_PIM_SM;
+
+	/* default is ingress replication */
+	return VXLAN_FLOOD_HEAD_END_REPL;
+}
+
 /*
  * Update (and advertise) local routes for a VNI. Invoked upon the VNI
  * export RT getting modified or change to tunnel IP. Note that these
@@ -2236,7 +2271,8 @@ static int update_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn)
 	 *
 	 * RT-3 only if doing head-end replication
 	 */
-	if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL) {
+	if (bgp_evpn_vni_flood_mode_get(bgp, vpn)
+				== VXLAN_FLOOD_HEAD_END_REPL) {
 		build_evpn_type3_prefix(&p, vpn->originator_ip);
 		ret = update_evpn_route(bgp, vpn, &p, 0, 0);
 		if (ret)
@@ -2294,6 +2330,26 @@ static int delete_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn)
 
 	/* Delete all routes from the per-VNI table. */
 	return delete_all_vni_routes(bgp, vpn);
+}
+
+/*
+ * There is a flood mcast IP address change. Update the mcast-grp and
+ * remove the type-3 route if any. A new type-3 route will be generated
+ * post tunnel_ip update if the new flood mode is head-end-replication.
+ */
+static int bgp_evpn_mcast_grp_change(struct bgp *bgp, struct bgpevpn *vpn,
+		struct in_addr mcast_grp)
+{
+	struct prefix_evpn p;
+
+	vpn->mcast_grp = mcast_grp;
+
+	if (is_vni_live(vpn)) {
+		build_evpn_type3_prefix(&p, vpn->originator_ip);
+		delete_evpn_route(bgp, vpn, &p);
+	}
+
+	return 0;
 }
 
 /*
@@ -3538,7 +3594,8 @@ static int update_advertise_vni_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	 *
 	 * RT-3 only if doing head-end replication
 	 */
-	if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL) {
+	if (bgp_evpn_vni_flood_mode_get(bgp, vpn)
+				== VXLAN_FLOOD_HEAD_END_REPL) {
 		build_evpn_type3_prefix(&p, vpn->originator_ip);
 		rn = bgp_node_lookup(vpn->route_table, (struct prefix *)&p);
 		if (!rn) /* unexpected */
@@ -3684,7 +3741,9 @@ static void create_advertise_type3(struct hash_bucket *bucket, void *data)
 	struct bgp *bgp = data;
 	struct prefix_evpn p;
 
-	if (!vpn || !is_vni_live(vpn))
+	if (!vpn || !is_vni_live(vpn) ||
+		bgp_evpn_vni_flood_mode_get(bgp, vpn)
+					!= VXLAN_FLOOD_HEAD_END_REPL)
 		return;
 
 	build_evpn_type3_prefix(&p, vpn->originator_ip);
@@ -3858,12 +3917,12 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 	 */
 	if (attr &&
 	    (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL))) {
-		if (attr->pmsi_tnl_type != PMSI_TNLTYPE_INGR_REPL) {
-			flog_warn(
-				EC_BGP_EVPN_PMSI_PRESENT,
-				"%u:%s - Rx EVPN Type-3 NLRI with unsupported PTA %d",
-				peer->bgp->vrf_id, peer->host,
-				attr->pmsi_tnl_type);
+		if (attr->pmsi_tnl_type != PMSI_TNLTYPE_INGR_REPL &&
+			attr->pmsi_tnl_type != PMSI_TNLTYPE_PIM_SM) {
+			flog_warn(EC_BGP_EVPN_PMSI_PRESENT,
+				  "%u:%s - Rx EVPN Type-3 NLRI with unsupported PTA %d",
+				  peer->bgp->vrf_id, peer->host,
+				  attr->pmsi_tnl_type);
 		}
 	}
 
@@ -5138,8 +5197,9 @@ struct bgpevpn *bgp_evpn_lookup_vni(struct bgp *bgp, vni_t vni)
  * Create a new vpn - invoked upon configuration or zebra notification.
  */
 struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
-			     struct in_addr originator_ip,
-			     vrf_id_t tenant_vrf_id)
+		struct in_addr originator_ip,
+		vrf_id_t tenant_vrf_id,
+		struct in_addr mcast_grp)
 {
 	struct bgpevpn *vpn;
 
@@ -5152,6 +5212,7 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 	vpn->vni = vni;
 	vpn->originator_ip = originator_ip;
 	vpn->tenant_vrf_id = tenant_vrf_id;
+	vpn->mcast_grp = mcast_grp;
 
 	/* Initialize route-target import and export lists */
 	vpn->import_rtl = list_new();
@@ -5650,7 +5711,10 @@ int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
  * about are for the local-tunnel-ip and the (tenant) VRF.
  */
 int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
-			   struct in_addr originator_ip, vrf_id_t tenant_vrf_id)
+			   struct in_addr originator_ip,
+			   vrf_id_t tenant_vrf_id,
+			   struct in_addr mcast_grp)
+
 {
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
@@ -5661,10 +5725,13 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 
 		if (is_vni_live(vpn)
 		    && IPV4_ADDR_SAME(&vpn->originator_ip, &originator_ip)
+		    && IPV4_ADDR_SAME(&vpn->mcast_grp, &mcast_grp)
 		    && vpn->tenant_vrf_id == tenant_vrf_id)
 			/* Probably some other param has changed that we don't
 			 * care about. */
 			return 0;
+
+		bgp_evpn_mcast_grp_change(bgp, vpn, mcast_grp);
 
 		/* Update tenant_vrf_id if it has changed. */
 		if (vpn->tenant_vrf_id != tenant_vrf_id) {
@@ -5688,7 +5755,8 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 
 	/* Create or update as appropriate. */
 	if (!vpn) {
-		vpn = bgp_evpn_new(bgp, vni, originator_ip, tenant_vrf_id);
+		vpn = bgp_evpn_new(bgp, vni, originator_ip, tenant_vrf_id,
+				mcast_grp);
 		if (!vpn) {
 			flog_err(
 				EC_BGP_VNI,
@@ -5716,7 +5784,8 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	 *
 	 * RT-3 only if doing head-end replication
 	 */
-	if (bgp->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL) {
+	if (bgp_evpn_vni_flood_mode_get(bgp, vpn)
+			== VXLAN_FLOOD_HEAD_END_REPL) {
 		build_evpn_type3_prefix(&p, vpn->originator_ip);
 		if (update_evpn_route(bgp, vpn, &p, 0, 0)) {
 			flog_err(EC_BGP_EVPN_ROUTE_CREATE,

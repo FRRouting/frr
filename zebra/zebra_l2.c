@@ -172,6 +172,7 @@ void zebra_l2_vxlanif_add_update(struct interface *ifp,
 {
 	struct zebra_if *zif;
 	struct in_addr old_vtep_ip;
+	uint16_t chgflags = 0;
 
 	zif = ifp->info;
 	assert(zif);
@@ -183,11 +184,20 @@ void zebra_l2_vxlanif_add_update(struct interface *ifp,
 	}
 
 	old_vtep_ip = zif->l2info.vxl.vtep_ip;
-	if (IPV4_ADDR_SAME(&old_vtep_ip, &vxlan_info->vtep_ip))
-		return;
 
-	zif->l2info.vxl.vtep_ip = vxlan_info->vtep_ip;
-	zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_LOCAL_IP_CHANGE);
+	if (!IPV4_ADDR_SAME(&old_vtep_ip, &vxlan_info->vtep_ip)) {
+		chgflags |= ZEBRA_VXLIF_LOCAL_IP_CHANGE;
+		zif->l2info.vxl.vtep_ip = vxlan_info->vtep_ip;
+	}
+
+	if (!IPV4_ADDR_SAME(&zif->l2info.vxl.mcast_grp,
+				&vxlan_info->mcast_grp)) {
+		chgflags |= ZEBRA_VXLIF_MCAST_GRP_CHANGE;
+		zif->l2info.vxl.mcast_grp = vxlan_info->mcast_grp;
+	}
+
+	if (chgflags)
+		zebra_vxlan_if_update(ifp, chgflags);
 }
 
 /*

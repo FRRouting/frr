@@ -130,6 +130,9 @@ struct zebra_vrf {
 	/* l3-vni info */
 	vni_t l3vni;
 
+	/* pim mroutes installed for vxlan flooding */
+	struct hash *vxlan_sg_table;
+
 	bool dup_addr_detect;
 
 	int dad_time;

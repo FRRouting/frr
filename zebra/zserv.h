@@ -141,6 +141,8 @@ struct zserv {
 	uint32_t v4_nh_watch_rem_cnt;
 	uint32_t v6_nh_watch_add_cnt;
 	uint32_t v6_nh_watch_rem_cnt;
+	uint32_t vxlan_sg_add_cnt;
+	uint32_t vxlan_sg_del_cnt;
 
 	time_t nh_reg_time;
 	time_t nh_dereg_time;

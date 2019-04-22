@@ -320,6 +320,7 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 {
 	struct pim_interface *pim_ifp;
 	int old_ttl;
+	bool allow_iif_in_oil = false;
 
 	/*
 	 * If we've gotten here we've gone bad, but let's
@@ -344,7 +345,14 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	  by both source and receiver attached to the same interface. See
 	  TODO T22.
 	*/
-	if (pim_ifp->mroute_vif_index == channel_oil->oil.mfcc_parent) {
+	if (channel_oil->up &&
+			PIM_UPSTREAM_FLAG_TEST_ALLOW_IIF_IN_OIL(
+				channel_oil->up->flags)) {
+		allow_iif_in_oil = true;
+	}
+
+	if (!allow_iif_in_oil &&
+		pim_ifp->mroute_vif_index == channel_oil->oil.mfcc_parent) {
 		channel_oil->oil_inherited_rescan = 1;
 		if (PIM_DEBUG_MROUTE) {
 			char group_str[INET_ADDRSTRLEN];

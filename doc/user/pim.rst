@@ -8,7 +8,8 @@ PIM -- Protocol Independent Multicast
 
 *pimd* supports pim-sm as well as igmp v2 and v3. pim is
 vrf aware and can work within the context of vrf's in order to
-do S,G mrouting.
+do S,G mrouting.  Additionally PIM can be used in the EVPN underlay
+network for optimizing forwarding of overlay BUM traffic.
 
 .. _starting-and-stopping-pimd:
 
@@ -498,3 +499,23 @@ Clear commands reset various variables.
 .. clicmd:: clear ip pim oil
 
    Rescan PIM OIL (output interface list).
+
+PIM EVPN configuration
+======================
+To use PIM in the underlay for overlay BUM forwarding associate a
+multicast group with the L2 VNI. The actual configuration is based
+on your distribution. Here is an ifupdown2 example -
+auto vx-10100
+iface vx-10100
+	vxlan-id 10100
+	bridge-access 100
+	vxlan-local-tunnelip 27.0.0.11
+	vxlan-mcastgrp 239.1.1.100 >>>>>>>>
+PIM will see the vxlan configuration and auto configure state to properly
+forward BUM traffic.
+
+PIM also needs to be configured in the underlay to allow the BUM MDT to
+be setup. This is existing PIM configuration -
+- Enable pim on the underlay L3 interface via the "ip pim" command.
+- Configure RPs for the BUM multicast group range.
+- Ensure the PIM is enabled on the lo of the VTEPs and the RP.

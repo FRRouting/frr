@@ -481,6 +481,11 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 		vxl_info->vtep_ip = vtep_ip_in_msg;
 	}
 
+	if (attr[IFLA_VXLAN_GROUP]) {
+		vxl_info->mcast_grp =
+			*(struct in_addr *)RTA_DATA(attr[IFLA_VXLAN_GROUP]);
+	}
+
 	return 0;
 }
 

@@ -60,9 +60,11 @@ is_vxlan_flooding_head_end(void)
 }
 
 /* VxLAN interface change flags of interest. */
-#define ZEBRA_VXLIF_LOCAL_IP_CHANGE     0x1
-#define ZEBRA_VXLIF_MASTER_CHANGE       0x2
-#define ZEBRA_VXLIF_VLAN_CHANGE         0x4
+#define ZEBRA_VXLIF_LOCAL_IP_CHANGE     (1 << 0)
+#define ZEBRA_VXLIF_MASTER_CHANGE       (1 << 1)
+#define ZEBRA_VXLIF_VLAN_CHANGE         (1 << 2)
+#define ZEBRA_VXLIF_MCAST_GRP_CHANGE    (1 << 3)
+
 
 #define VNI_STR_LEN 32
 

@@ -51,6 +51,7 @@
 #include "pim_jp_agg.h"
 #include "pim_nht.h"
 #include "pim_ssm.h"
+#include "pim_vxlan.h"
 
 static void join_timer_stop(struct pim_upstream *up);
 static void
@@ -483,6 +484,13 @@ static int pim_upstream_could_register(struct pim_upstream *up)
 {
 	struct pim_interface *pim_ifp = NULL;
 
+	/* FORCE_PIMREG is a generic flag to let an app like VxLAN-AA register
+	 * a source on an upstream entry even if the source is not directly
+	 * connected on the IIF.
+	 */
+	if (PIM_UPSTREAM_FLAG_TEST_FORCE_PIMREG(up->flags))
+		return 1;
+
 	if (up->rpf.source_nexthop.interface)
 		pim_ifp = up->rpf.source_nexthop.interface->info;
 	else {
@@ -647,6 +655,23 @@ int pim_upstream_compare(void *arg1, void *arg2)
 	return 0;
 }
 
+void pim_upstream_fill_static_iif(struct pim_upstream *up,
+				struct interface *incoming)
+{
+	up->rpf.source_nexthop.interface = incoming;
+
+	/* reset other parameters to matched a connected incoming interface */
+	up->rpf.source_nexthop.mrib_nexthop_addr.family = AF_INET;
+	up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =
+		PIM_NET_INADDR_ANY;
+	up->rpf.source_nexthop.mrib_metric_preference =
+		ZEBRA_CONNECT_DISTANCE_DEFAULT;
+	up->rpf.source_nexthop.mrib_route_metric = 0;
+	up->rpf.rpf_addr.family = AF_INET;
+	up->rpf.rpf_addr.u.prefix4.s_addr = PIM_NET_INADDR_ANY;
+
+}
+
 static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 					     struct prefix_sg *sg,
 					     struct interface *incoming,
@@ -712,13 +737,19 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	if (up->sg.src.s_addr != INADDR_ANY)
 		wheel_add_item(pim->upstream_sg_wheel, up);
 
-	if (up->upstream_addr.s_addr == INADDR_ANY)
+	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)) {
+		pim_upstream_fill_static_iif(up, incoming);
+		pim_ifp = up->rpf.source_nexthop.interface->info;
+		assert(pim_ifp);
+		up->channel_oil = pim_channel_oil_add(pim,
+				&up->sg, pim_ifp->mroute_vif_index);
+	} else if (up->upstream_addr.s_addr == INADDR_ANY) {
 		/* Create a dummmy channel oil with incoming ineterface MAXVIFS,
 		 * since RP is not configured
 		 */
 		up->channel_oil = pim_channel_oil_add(pim, &up->sg, MAXVIFS);
 
-	else {
+	} else {
 		rpf_result = pim_rpf_update(pim, up, NULL, 1);
 		if (rpf_result == PIM_RPF_FAILURE) {
 			if (PIM_DEBUG_TRACE)
@@ -1117,13 +1148,20 @@ static void pim_upstream_fhr_kat_start(struct pim_upstream *up)
  * KAT expiry indicates that flow is inactive. If the flow was created or
  * maintained by activity now is the time to deref it.
  */
-static int pim_upstream_keep_alive_timer(struct thread *t)
+struct pim_upstream *pim_upstream_keep_alive_timer_proc(
+		struct pim_upstream *up)
 {
-	struct pim_upstream *up;
 	struct pim_instance *pim;
 
-	up = THREAD_ARG(t);
 	pim = up->channel_oil->pim;
+
+	if (PIM_UPSTREAM_FLAG_TEST_DISABLE_KAT_EXPIRY(up->flags)) {
+		/* if the router is a PIM vxlan encapsulator we prevent expiry
+		 * of KAT as the mroute is pre-setup without any traffic
+		 */
+		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
+		return up;
+	}
 
 	if (I_am_RP(pim, up->sg.grp)) {
 		pim_br_clear_pmbr(&up->sg);
@@ -1144,12 +1182,12 @@ static int pim_upstream_keep_alive_timer(struct thread *t)
 				"kat expired on %s[%s]; remove stream reference",
 				up->sg_str, pim->vrf->name);
 		PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(up->flags);
-		pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
+		up = pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
 	} else if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(up->flags)) {
 		struct pim_upstream *parent = up->parent;
 
 		PIM_UPSTREAM_FLAG_UNSET_SRC_LHR(up->flags);
-		pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
+		up = pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
 
 		if (parent) {
 			pim_jp_agg_single_upstream_send(&parent->rpf, parent,
@@ -1157,6 +1195,15 @@ static int pim_upstream_keep_alive_timer(struct thread *t)
 		}
 	}
 
+	return up;
+}
+static int pim_upstream_keep_alive_timer(struct thread *t)
+{
+	struct pim_upstream *up;
+
+	up = THREAD_ARG(t);
+
+	pim_upstream_keep_alive_timer_proc(up);
 	return 0;
 }
 
@@ -1371,8 +1418,6 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 	struct pim_interface *pim_ifp;
 	struct pim_instance *pim;
 	struct pim_upstream *up;
-	struct pim_rpf *rpg;
-	struct ip ip_hdr;
 	up = THREAD_ARG(t);
 	pim = up->channel_oil->pim;
 
@@ -1388,6 +1433,7 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 		up->reg_state = PIM_REG_JOIN;
 		pim_channel_add_oif(up->channel_oil, pim->regiface,
 				    PIM_OIF_FLAG_PROTO_PIM);
+		pim_vxlan_update_sg_reg_state(pim, up, TRUE /*reg_join*/);
 		break;
 	case PIM_REG_JOIN:
 		break;
@@ -1420,24 +1466,7 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 					__PRETTY_FUNCTION__);
 			return 0;
 		}
-		rpg = RP(pim_ifp->pim, up->sg.grp);
-		if (!rpg) {
-			if (PIM_DEBUG_TRACE)
-				zlog_debug(
-					"%s: Cannot send register for %s no RPF to the RP",
-					__PRETTY_FUNCTION__, up->sg_str);
-			return 0;
-		}
-		memset(&ip_hdr, 0, sizeof(struct ip));
-		ip_hdr.ip_p = PIM_IP_PROTO_PIM;
-		ip_hdr.ip_hl = 5;
-		ip_hdr.ip_v = 4;
-		ip_hdr.ip_src = up->sg.src;
-		ip_hdr.ip_dst = up->sg.grp;
-		ip_hdr.ip_len = htons(20);
-		// checksum is broken
-		pim_register_send((uint8_t *)&ip_hdr, sizeof(struct ip),
-				  pim_ifp->primary_address, rpg, 1, up);
+		pim_null_register_send(up);
 		break;
 	default:
 		break;

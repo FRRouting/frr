@@ -2553,12 +2553,14 @@ static int bgp_zebra_process_local_vni(int command, struct zclient *zclient,
 	struct bgp *bgp;
 	struct in_addr vtep_ip = {INADDR_ANY};
 	vrf_id_t tenant_vrf_id = VRF_DEFAULT;
+	struct in_addr mcast_grp = {INADDR_ANY};
 
 	s = zclient->ibuf;
 	vni = stream_getl(s);
 	if (command == ZEBRA_VNI_ADD) {
 		vtep_ip.s_addr = stream_get_ipv4(s);
 		stream_get(&tenant_vrf_id, s, sizeof(vrf_id_t));
+		mcast_grp.s_addr = stream_get_ipv4(s);
 	}
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
@@ -2574,7 +2576,7 @@ static int bgp_zebra_process_local_vni(int command, struct zclient *zclient,
 	if (command == ZEBRA_VNI_ADD)
 		return bgp_evpn_local_vni_add(
 			bgp, vni, vtep_ip.s_addr ? vtep_ip : bgp->router_id,
-			tenant_vrf_id);
+			tenant_vrf_id, mcast_grp);
 	else
 		return bgp_evpn_local_vni_del(bgp, vni);
 }

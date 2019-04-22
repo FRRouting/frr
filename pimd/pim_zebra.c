@@ -45,6 +45,7 @@
 #include "pim_jp_agg.h"
 #include "pim_nht.h"
 #include "pim_ssm.h"
+#include "pim_vxlan.h"
 
 #undef PIM_DEBUG_IFADDR_DUMP
 #define PIM_DEBUG_IFADDR_DUMP
@@ -110,12 +111,17 @@ static int pim_zebra_if_add(int command, struct zclient *zclient,
 		struct pim_interface *pim_ifp;
 
 		if (!ifp->info) {
-			pim_ifp = pim_if_new(ifp, false, false, false);
+			pim_ifp = pim_if_new(ifp, false, false, false,
+					false /*vxlan_term*/);
 			ifp->info = pim_ifp;
 		}
 
 		pim_sock_add(ifp);
 	}
+
+	if (!strncmp(ifp->name, PIM_VXLAN_TERM_DEV_NAME,
+				sizeof(PIM_VXLAN_TERM_DEV_NAME)))
+		pim_vxlan_add_term_dev(pim, ifp);
 
 	return 0;
 }
@@ -124,6 +130,7 @@ static int pim_zebra_if_del(int command, struct zclient *zclient,
 			    zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
+	struct pim_instance *pim;
 
 	/*
 	  zebra api adds/dels interfaces using the same call
@@ -151,6 +158,10 @@ static int pim_zebra_if_del(int command, struct zclient *zclient,
 		pim_if_addr_del_all(ifp);
 
 	if_set_index(ifp, IFINDEX_INTERNAL);
+
+	pim = pim_get_pim_instance(vrf_id);
+	if (pim && pim->vxlan.term_if == ifp)
+		pim_vxlan_del_term_dev(pim);
 
 	return 0;
 }
@@ -543,6 +554,41 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 	pim_upstream_update_join_desired(pim, up);
 }
 
+static int pim_zebra_vxlan_sg_proc(int command, struct zclient *zclient,
+		zebra_size_t length, vrf_id_t vrf_id)
+{
+	struct stream *s;
+	struct pim_instance *pim;
+	struct prefix_sg sg;
+
+	pim = pim_get_pim_instance(vrf_id);
+	if (!pim)
+		return 0;
+
+	s = zclient->ibuf;
+
+	sg.family = AF_INET;
+	sg.prefixlen = stream_getl(s);
+	stream_get(&sg.src.s_addr, s, sg.prefixlen);
+	stream_get(&sg.grp.s_addr, s, sg.prefixlen);
+
+	if (PIM_DEBUG_ZEBRA) {
+		char sg_str[PIM_SG_LEN];
+
+		pim_str_sg_set(&sg, sg_str);
+		zlog_debug("%u:recv SG %s %s", vrf_id,
+			(command == ZEBRA_VXLAN_SG_ADD)?"add":"del",
+			sg_str);
+	}
+
+	if (command == ZEBRA_VXLAN_SG_ADD)
+		pim_vxlan_sg_add(pim, &sg);
+	else
+		pim_vxlan_sg_del(pim, &sg);
+
+	return 0;
+}
+
 void pim_scan_individual_oil(struct channel_oil *c_oil, int in_vif_index)
 {
 	struct in_addr vif_source;
@@ -769,6 +815,8 @@ void pim_zebra_init(void)
 	zclient->interface_address_delete = pim_zebra_if_address_del;
 	zclient->interface_vrf_update = pim_zebra_interface_vrf_update;
 	zclient->nexthop_update = pim_parse_nexthop_update;
+	zclient->vxlan_sg_add = pim_zebra_vxlan_sg_proc;
+	zclient->vxlan_sg_del = pim_zebra_vxlan_sg_proc;
 
 	zclient_init(zclient, ZEBRA_ROUTE_PIM, 0, &pimd_privs);
 	if (PIM_DEBUG_PIM_TRACE) {

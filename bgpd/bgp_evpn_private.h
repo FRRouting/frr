@@ -87,6 +87,9 @@ struct bgpevpn {
 	/* Route type 3 field */
 	struct in_addr originator_ip;
 
+	/* PIM-SM MDT group for BUM flooding */
+	struct in_addr mcast_grp;
+
 	/* Import and Export RTs. */
 	struct list *import_rtl;
 	struct list *export_rtl;
@@ -526,8 +529,9 @@ extern void bgp_evpn_derive_auto_rd(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_derive_auto_rd_for_vrf(struct bgp *bgp);
 extern struct bgpevpn *bgp_evpn_lookup_vni(struct bgp *bgp, vni_t vni);
 extern struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
-				    struct in_addr originator_ip,
-				    vrf_id_t tenant_vrf_id);
+		struct in_addr originator_ip,
+		vrf_id_t tenant_vrf_id,
+		struct in_addr mcast_grp);
 extern void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn);
 extern struct evpnes *bgp_evpn_lookup_es(struct bgp *bgp, esi_t *esi);
 extern struct evpnes *bgp_evpn_es_new(struct bgp *bgp, esi_t *esi,

@@ -1359,6 +1359,35 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 	return str;
 }
 
+void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
+		char *buf, int buf_size)
+{
+	int save_errno = errno;
+
+	if (addr.s_addr == INADDR_ANY)
+		strcpy(buf, "*");
+	else {
+		if (!inet_ntop(AF_INET, &addr, buf, buf_size)) {
+			if (onfail)
+				snprintf(buf, buf_size, "%s", onfail);
+		}
+	}
+
+	errno = save_errno;
+}
+
+const char *prefix_sg2str(const struct prefix_sg *sg, char *sg_str)
+{
+	char src_str[INET_ADDRSTRLEN];
+	char grp_str[INET_ADDRSTRLEN];
+
+	prefix_mcast_inet4_dump("<src?>", sg->src, src_str, sizeof(src_str));
+	prefix_mcast_inet4_dump("<grp?>", sg->grp, grp_str, sizeof(grp_str));
+	snprintf(sg_str, PREFIX_SG_STR_LEN, "(%s,%s)", src_str, grp_str);
+
+	return sg_str;
+}
+
 struct prefix *prefix_new(void)
 {
 	struct prefix *p;

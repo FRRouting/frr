@@ -42,5 +42,6 @@ void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
 void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
 			    struct in_addr src, struct in_addr originator);
 void pim_register_join(struct pim_upstream *up);
+void pim_null_register_send(struct pim_upstream *up);
 
 #endif

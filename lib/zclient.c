@@ -2701,6 +2701,17 @@ static int zclient_read(struct thread *thread)
 			(*zclient->iptable_notify_owner)(command,
 						 zclient, length,
 						 vrf_id);
+		break;
+	case ZEBRA_VXLAN_SG_ADD:
+		if (zclient->vxlan_sg_add)
+			(*zclient->vxlan_sg_add)(command, zclient, length,
+						    vrf_id);
+		break;
+	case ZEBRA_VXLAN_SG_DEL:
+		if (zclient->vxlan_sg_del)
+			(*zclient->vxlan_sg_del)(command, zclient, length,
+						    vrf_id);
+		break;
 	default:
 		break;
 	}

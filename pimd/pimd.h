@@ -113,6 +113,7 @@
 #define PIM_MASK_PIM_NHT_DETAIL      (1 << 23)
 #define PIM_MASK_PIM_NHT_RP          (1 << 24)
 #define PIM_MASK_MTRACE              (1 << 25)
+#define PIM_MASK_VXLAN               (1 << 26)
 /* Remember 32 bits!!! */
 
 /* PIM error codes */
@@ -180,6 +181,7 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DEBUG_PIM_NHT_DETAIL (router->debugs & PIM_MASK_PIM_NHT_DETAIL)
 #define PIM_DEBUG_PIM_NHT_RP (router->debugs & PIM_MASK_PIM_NHT_RP)
 #define PIM_DEBUG_MTRACE (router->debugs & PIM_MASK_MTRACE)
+#define PIM_DEBUG_VXLAN (router->debugs & PIM_MASK_VXLAN)
 
 #define PIM_DEBUG_EVENTS                                                       \
 	(router->debugs                                                        \
@@ -220,6 +222,7 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DO_DEBUG_PIM_NHT (router->debugs |= PIM_MASK_PIM_NHT)
 #define PIM_DO_DEBUG_PIM_NHT_RP (router->debugs |= PIM_MASK_PIM_NHT_RP)
 #define PIM_DO_DEBUG_MTRACE (router->debugs |= PIM_MASK_MTRACE)
+#define PIM_DO_DEBUG_VXLAN (router->debugs |= PIM_MASK_VXLAN)
 
 #define PIM_DONT_DEBUG_PIM_EVENTS (router->debugs &= ~PIM_MASK_PIM_EVENTS)
 #define PIM_DONT_DEBUG_PIM_PACKETS (router->debugs &= ~PIM_MASK_PIM_PACKETS)
@@ -249,6 +252,7 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DONT_DEBUG_PIM_NHT (router->debugs &= ~PIM_MASK_PIM_NHT)
 #define PIM_DONT_DEBUG_PIM_NHT_RP (router->debugs &= ~PIM_MASK_PIM_NHT_RP)
 #define PIM_DONT_DEBUG_MTRACE (router->debugs &= ~PIM_MASK_MTRACE)
+#define PIM_DONT_DEBUG_VXLAN (router->debugs &= ~PIM_MASK_VXLAN)
 
 void pim_router_init(void);
 void pim_router_terminate(void);
