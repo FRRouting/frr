@@ -22,6 +22,10 @@ OPTIONS available for the |DAEMON| command:
 
 .. include:: common-options.rst
 
+.. option:: -a, --apiserver
+
+   Enable the OSPF API server.
+
 FILES
 =====
 
