@@ -136,8 +136,6 @@ DEFPY(ip_router_isis, ip_router_isis_cmd, "ip router isis WORD$tag",
 	const char *circ_type;
 	struct isis_area *area;
 	struct interface *ifp;
-	const struct lyd_node *dnode =
-		yang_dnode_get(running_config->dnode, VTY_CURR_XPATH);
 
 	/* area will be created if it is not present. make sure the yang model
 	 * is synced with FRR and call the appropriate NB cb.
@@ -190,7 +188,7 @@ DEFPY(ip_router_isis, ip_router_isis_cmd, "ip router isis WORD$tag",
 	}
 
 	/* check if the interface is a loopback and if so set it as passive */
-	ifp = yang_dnode_get_entry(dnode, false);
+	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
 	if (ifp && if_is_loopback(ifp))
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
 				      NB_OP_MODIFY, "true");
@@ -208,8 +206,6 @@ DEFPY(ip6_router_isis, ip6_router_isis_cmd, "ipv6 router isis WORD$tag",
 	const char *circ_type;
 	struct isis_area *area;
 	struct interface *ifp;
-	const struct lyd_node *dnode =
-		yang_dnode_get(running_config->dnode, VTY_CURR_XPATH);
 
 	/* area will be created if it is not present. make sure the yang model
 	 * is synced with FRR and call the appropriate NB cb.
@@ -262,7 +258,7 @@ DEFPY(ip6_router_isis, ip6_router_isis_cmd, "ipv6 router isis WORD$tag",
 	}
 
 	/* check if the interface is a loopback and if so set it as passive */
-	ifp = yang_dnode_get_entry(dnode, false);
+	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
 	if (ifp && if_is_loopback(ifp))
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
 				      NB_OP_MODIFY, "true");
@@ -373,9 +369,9 @@ DEFPY(no_is_type, no_is_type_cmd,
       "Act as an area router only\n")
 {
 	const char *value = NULL;
-	const struct lyd_node *dnode =
-		yang_dnode_get(running_config->dnode, VTY_CURR_XPATH);
-	struct isis_area *area = yang_dnode_get_entry(dnode, false);
+	struct isis_area *area;
+
+	area = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
 
 	/*
 	 * Put the is-type back to defaults:
@@ -1761,7 +1757,6 @@ DEFPY(no_isis_circuit_type, no_isis_circuit_type_cmd,
       "Level-1-2 adjacencies are formed\n"
       "Level-2 only adjacencies are formed\n")
 {
-	const struct lyd_node *dnode;
 	struct interface *ifp;
 	struct isis_circuit *circuit;
 	int is_type;
@@ -1772,8 +1767,7 @@ DEFPY(no_isis_circuit_type, no_isis_circuit_type_cmd,
 	 * and the is-type of the area if there is one. So we need to do this
 	 * here.
 	 */
-	dnode = yang_dnode_get(running_config->dnode, VTY_CURR_XPATH);
-	ifp = yang_dnode_get_entry(dnode, false);
+	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
 	if (!ifp)
 		goto def_val;
 

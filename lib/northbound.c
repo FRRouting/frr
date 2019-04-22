@@ -22,6 +22,7 @@
 #include "libfrr.h"
 #include "log.h"
 #include "lib_errors.h"
+#include "hash.h"
 #include "command.h"
 #include "debug.h"
 #include "db.h"
@@ -31,9 +32,13 @@
 
 DEFINE_MTYPE_STATIC(LIB, NB_NODE, "Northbound Node")
 DEFINE_MTYPE_STATIC(LIB, NB_CONFIG, "Northbound Configuration")
+DEFINE_MTYPE_STATIC(LIB, NB_CONFIG_ENTRY, "Northbound Configuration Entry")
 
 /* Running configuration - shouldn't be modified directly. */
 struct nb_config *running_config;
+
+/* Hash table of user pointers associated with configuration entries. */
+static struct hash *running_config_entries;
 
 /*
  * Global lock used to prevent multiple configuration transactions from
@@ -528,38 +533,6 @@ int nb_candidate_update(struct nb_config *candidate)
 }
 
 /*
- * The northbound configuration callbacks use the 'priv' pointer present in the
- * libyang lyd_node structure to store pointers to FRR internal variables
- * associated to YANG lists and presence containers. Before commiting a
- * candidate configuration, we must restore the 'priv' pointers stored in the
- * running configuration since they might be lost while editing the candidate.
- */
-static void nb_candidate_restore_priv_pointers(struct nb_config *candidate)
-{
-	struct lyd_node *root, *next, *dnode_iter;
-
-	LY_TREE_FOR (running_config->dnode, root) {
-		LY_TREE_DFS_BEGIN (root, next, dnode_iter) {
-			struct lyd_node *dnode_candidate;
-			char xpath[XPATH_MAXLEN];
-
-			if (!dnode_iter->priv)
-				goto next;
-
-			yang_dnode_get_path(dnode_iter, xpath, sizeof(xpath));
-			dnode_candidate =
-				yang_dnode_get(candidate->dnode, xpath);
-			if (dnode_candidate)
-				yang_dnode_set_entry(dnode_candidate,
-						     dnode_iter->priv);
-
-		next:
-			LY_TREE_DFS_END(root, next, dnode_iter);
-		}
-	}
-}
-
-/*
  * Perform YANG syntactic and semantic validation.
  *
  * WARNING: lyd_validate() can change the configuration as part of the
@@ -581,7 +554,6 @@ static int nb_candidate_validate_changes(struct nb_config *candidate,
 {
 	struct nb_config_cb *cb;
 
-	nb_candidate_restore_priv_pointers(candidate);
 	RB_FOREACH (cb, nb_config_cbs, changes) {
 		struct nb_config_change *change = (struct nb_config_change *)cb;
 		int ret;
@@ -1545,6 +1517,116 @@ int nb_notification_send(const char *xpath, struct list *arguments)
 	return ret;
 }
 
+/* Running configuration user pointers management. */
+struct nb_config_entry {
+	char xpath[XPATH_MAXLEN];
+	void *entry;
+};
+
+static bool running_config_entry_cmp(const void *value1, const void *value2)
+{
+	const struct nb_config_entry *c1 = value1;
+	const struct nb_config_entry *c2 = value2;
+
+	return strmatch(c1->xpath, c2->xpath);
+}
+
+static unsigned int running_config_entry_key_make(void *value)
+{
+	return string_hash_make(value);
+}
+
+static void *running_config_entry_alloc(void *p)
+{
+	struct nb_config_entry *new, *key = p;
+
+	new = XCALLOC(MTYPE_NB_CONFIG_ENTRY, sizeof(*new));
+	strlcpy(new->xpath, key->xpath, sizeof(new->xpath));
+
+	return new;
+}
+
+static void running_config_entry_free(void *arg)
+{
+	XFREE(MTYPE_NB_CONFIG_ENTRY, arg);
+}
+
+void nb_running_set_entry(const struct lyd_node *dnode, void *entry)
+{
+	struct nb_config_entry *config, s;
+
+	yang_dnode_get_path(dnode, s.xpath, sizeof(s.xpath));
+	config = hash_get(running_config_entries, &s,
+			  running_config_entry_alloc);
+	config->entry = entry;
+}
+
+static void *nb_running_unset_entry_helper(const struct lyd_node *dnode)
+{
+	struct nb_config_entry *config, s;
+	struct lyd_node *child;
+	void *entry = NULL;
+
+	yang_dnode_get_path(dnode, s.xpath, sizeof(s.xpath));
+	config = hash_release(running_config_entries, &s);
+	if (config) {
+		entry = config->entry;
+		running_config_entry_free(config);
+	}
+
+	/* Unset user pointers from the child nodes. */
+	if (CHECK_FLAG(dnode->schema->nodetype, LYS_LIST | LYS_CONTAINER)) {
+		LY_TREE_FOR (dnode->child, child) {
+			(void)nb_running_unset_entry_helper(child);
+		}
+	}
+
+	return entry;
+}
+
+void *nb_running_unset_entry(const struct lyd_node *dnode)
+{
+	void *entry;
+
+	entry = nb_running_unset_entry_helper(dnode);
+	assert(entry);
+
+	return entry;
+}
+
+void *nb_running_get_entry(const struct lyd_node *dnode, const char *xpath,
+			   bool abort_if_not_found)
+{
+	const struct lyd_node *orig_dnode = dnode;
+	char xpath_buf[XPATH_MAXLEN];
+
+	assert(dnode || xpath);
+
+	if (!dnode)
+		dnode = yang_dnode_get(running_config->dnode, xpath);
+
+	while (dnode) {
+		struct nb_config_entry *config, s;
+
+		yang_dnode_get_path(dnode, s.xpath, sizeof(s.xpath));
+		config = hash_lookup(running_config_entries, &s);
+		if (config)
+			return config->entry;
+
+		dnode = dnode->parent;
+	}
+
+	if (!abort_if_not_found)
+		return NULL;
+
+	yang_dnode_get_path(orig_dnode, xpath_buf, sizeof(xpath_buf));
+	flog_err(EC_LIB_YANG_DNODE_NOT_FOUND,
+		 "%s: failed to find entry [xpath %s]", __func__, xpath_buf);
+	zlog_backtrace(LOG_ERR);
+	abort();
+}
+
+/* Logging functions. */
 const char *nb_event_name(enum nb_event event)
 {
 	switch (event) {
@@ -1676,6 +1758,9 @@ void nb_init(struct thread_master *tm,
 
 	/* Create an empty running configuration. */
 	running_config = nb_config_new(NULL);
+	running_config_entries = hash_create(running_config_entry_key_make,
+					     running_config_entry_cmp,
+					     "Running Configuration Entries");
 
 	/* Initialize the northbound CLI. */
 	nb_cli_init(tm);
@@ -1690,5 +1775,7 @@ void nb_terminate(void)
 	nb_nodes_delete();
 
 	/* Delete the running configuration. */
+	hash_clean(running_config_entries, running_config_entry_free);
+	hash_free(running_config_entries);
 	nb_config_free(running_config);
 }
