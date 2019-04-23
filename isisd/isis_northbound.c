@@ -1365,40 +1365,19 @@ isis_instance_log_adjacency_changes_modify(enum nb_event event,
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/mpls-te
+ * XPath: /frr-isisd:isis/mpls-te
  */
-static int isis_instance_mpls_te_create(enum nb_event event,
+static int isis_mpls_te_create(enum nb_event event,
 			       const struct lyd_node *dnode,
 			       union nb_resource *resource)
 {
 	struct listnode *node;
-	struct isis_area *area;
 	struct isis_circuit *circuit;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = yang_dnode_get_entry(dnode, true);
-	if (area->mta == NULL) {
-
-		struct mpls_te_area *new;
-
-		zlog_debug("ISIS MPLS-TE: Initialize area %s",
-			area->area_tag);
-
-		new = XCALLOC(MTYPE_ISIS_MPLS_TE, sizeof(struct mpls_te_area));
-
-		/* Initialize MPLS_TE structure */
-		new->status = enable;
-		new->level = 0;
-		new->inter_as = off;
-		new->interas_areaid.s_addr = 0;
-		new->router_id.s_addr = 0;
-
-		area->mta = new;
-	} else {
-		area->mta->status = enable;
-	}
+	isisMplsTE.status = enable;
 
 	/*
 	 * Following code is intended to handle two cases;
@@ -1408,11 +1387,11 @@ static int isis_instance_mpls_te_create(enum nb_event event,
 	 * MPLS_TE flag
 	 * 2) MPLS-TE was once enabled then disabled, and now enabled again.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	for (ALL_LIST_ELEMENTS_RO(isisMplsTE.cir_list, node, circuit)) {
 		if (circuit->mtc == NULL || IS_FLOOD_AS(circuit->mtc->type))
 			continue;
 
-		if (!IS_MPLS_TE(circuit->mtc)
+		if ((circuit->mtc->status == disable)
 		    && HAS_LINK_PARAMS(circuit->interface))
 			circuit->mtc->status = enable;
 		else
@@ -1427,24 +1406,19 @@ static int isis_instance_mpls_te_create(enum nb_event event,
 	return NB_OK;
 }
 
-static int isis_instance_mpls_te_destroy(enum nb_event event,
+static int isis_mpls_te_destroy(enum nb_event event,
 			       const struct lyd_node *dnode)
 {
 	struct listnode *node;
-	struct isis_area *area;
 	struct isis_circuit *circuit;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = yang_dnode_get_entry(dnode, true);
-	if (IS_MPLS_TE(area->mta))
-		area->mta->status = disable;
-	else
-		return NB_OK;
+	isisMplsTE.status = disable;
 
 	/* Flush LSP if circuit engage */
-	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+	for (ALL_LIST_ELEMENTS_RO(isisMplsTE.cir_list, node, circuit)) {
 		if (circuit->mtc == NULL || (circuit->mtc->status == disable))
 			continue;
 
@@ -1461,53 +1435,55 @@ static int isis_instance_mpls_te_destroy(enum nb_event event,
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/mpls-te/router-address
+ * XPath: /frr-isisd:isis/mpls-te/router-address
  */
-static int isis_instance_mpls_te_router_address_modify(enum nb_event event,
+static int isis_mpls_te_router_address_modify(enum nb_event event,
 					      const struct lyd_node *dnode,
 					      union nb_resource *resource)
 {
 	struct in_addr value;
+	struct listnode *node;
 	struct isis_area *area;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = yang_dnode_get_entry(dnode, true);
+	yang_dnode_get_ipv4(&value, dnode, NULL);
+	isisMplsTE.router_id.s_addr = value.s_addr;
 	/* only proceed if MPLS-TE is enabled */
-	if (!IS_MPLS_TE(area->mta))
+	if (isisMplsTE.status == disable)
 		return NB_OK;
 
-	/* Update Area Router ID */
-	yang_dnode_get_ipv4(&value, dnode, NULL);
-	area->mta->router_id.s_addr = value.s_addr;
-
+	/* Update main Router ID in isis global structure */
+	isis->router_id = value.s_addr;
 	/* And re-schedule LSP update */
-	if (listcount(area->area_addrs) > 0)
-		lsp_regenerate_schedule(area, area->is_type, 0);
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+		if (listcount(area->area_addrs) > 0)
+			lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
 
-static int isis_instance_mpls_te_router_address_destroy(enum nb_event event,
+static int isis_mpls_te_router_address_destroy(enum nb_event event,
 					      const struct lyd_node *dnode)
 {
+	struct listnode *node;
 	struct isis_area *area;
 
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = yang_dnode_get_entry(dnode, true);
+	isisMplsTE.router_id.s_addr = INADDR_ANY;
 	/* only proceed if MPLS-TE is enabled */
-	if (!IS_MPLS_TE(area->mta))
+	if (isisMplsTE.status == disable)
 		return NB_OK;
 
-	/* Reset Area Router ID */
-	area->mta->router_id.s_addr = INADDR_ANY;
-
+	/* Update main Router ID in isis global structure */
+	isis->router_id = 0;
 	/* And re-schedule LSP update */
-	if (listcount(area->area_addrs) > 0)
-		lsp_regenerate_schedule(area, area->is_type, 0);
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
+		if (listcount(area->area_addrs) > 0)
+			lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return NB_OK;
 }
@@ -3039,15 +3015,15 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.cbs.cli_show = cli_show_isis_log_adjacency,
 		},
 		{
-			.xpath = "/frr-isisd:isis/instance/mpls-te",
-			.cbs.create = isis_instance_mpls_te_create,
-			.cbs.destroy = isis_instance_mpls_te_destroy,
+			.xpath = "/frr-isisd:isis/mpls-te",
+			.cbs.create = isis_mpls_te_create,
+			.cbs.destroy = isis_mpls_te_destroy,
 			.cbs.cli_show = cli_show_isis_mpls_te,
 		},
 		{
-			.xpath = "/frr-isisd:isis/instance/mpls-te/router-address",
-			.cbs.modify = isis_instance_mpls_te_router_address_modify,
-			.cbs.destroy = isis_instance_mpls_te_router_address_destroy,
+			.xpath = "/frr-isisd:isis/mpls-te/router-address",
+			.cbs.modify = isis_mpls_te_router_address_modify,
+			.cbs.destroy = isis_mpls_te_router_address_destroy,
 			.cbs.cli_show = cli_show_isis_mpls_te_router_addr,
 		},
 		{

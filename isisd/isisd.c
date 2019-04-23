@@ -95,6 +95,7 @@ void isis_new(unsigned long process_id)
 	 * uncomment the next line for full debugs
 	 */
 	/* isis->debugs = 0xFFFF; */
+	isisMplsTE.status = disable; /* Only support TE metric */
 
 	QOBJ_REG(isis, isis);
 }
@@ -256,10 +257,6 @@ int isis_area_destroy(const char *area_tag)
 
 	if (fabricd)
 		fabricd_finish(area->fabricd);
-
-	/* Disable MPLS if necessary before flooding LSP */
-	if (IS_MPLS_TE(area->mta))
-		area->mta->status = disable;
 
 	if (area->circuit_list) {
 		for (ALL_LIST_ELEMENTS(area->circuit_list, node, nnode,
@@ -2140,6 +2137,7 @@ int isis_config_write(struct vty *vty)
 			write += area_write_mt_settings(area, vty);
 			write += fabricd_write_settings(area, vty);
 		}
+		isis_mpls_te_config_write_router(vty);
 	}
 
 	return write;
