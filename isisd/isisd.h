@@ -165,8 +165,6 @@ struct isis_area {
 	uint8_t log_adj_changes;
 	/* multi topology settings */
 	struct list *mt_settings;
-	/* MPLS-TE settings */
-	struct mpls_te_area *mta;
 	int ipv6_circuits;
 	bool purge_originator;
 	/* Counters */

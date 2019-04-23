@@ -928,12 +928,12 @@ void cli_show_isis_purge_origin(struct vty *vty, struct lyd_node *dnode,
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/mpls-te
+ * XPath: /frr-isisd:isis/mpls-te
  */
 DEFPY(isis_mpls_te_on, isis_mpls_te_on_cmd, "mpls-te on",
       MPLS_TE_STR "Enable the MPLS-TE functionality\n")
 {
-	nb_cli_enqueue_change(vty, "./mpls-te", NB_OP_CREATE,
+	nb_cli_enqueue_change(vty, "/frr-isisd:isis/mpls-te", NB_OP_CREATE,
 			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -942,9 +942,9 @@ DEFPY(isis_mpls_te_on, isis_mpls_te_on_cmd, "mpls-te on",
 DEFPY(no_isis_mpls_te_on, no_isis_mpls_te_on_cmd, "no mpls-te [on]",
       NO_STR
       "Disable the MPLS-TE functionality\n"
-      "Disable the MPLS-TE functionality\n")
+      "Enable the MPLS-TE functionality\n")
 {
-	nb_cli_enqueue_change(vty, "./mpls-te", NB_OP_DESTROY,
+	nb_cli_enqueue_change(vty, "/frr-isisd:isis/mpls-te", NB_OP_DESTROY,
 			      NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -957,7 +957,7 @@ void cli_show_isis_mpls_te(struct vty *vty, struct lyd_node *dnode,
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/mpls-te/router-address
+ * XPath: /frr-isisd:isis/mpls-te/router-address
  */
 DEFPY(isis_mpls_te_router_addr, isis_mpls_te_router_addr_cmd,
       "mpls-te router-address A.B.C.D",
@@ -965,20 +965,8 @@ DEFPY(isis_mpls_te_router_addr, isis_mpls_te_router_addr_cmd,
       "Stable IP address of the advertising router\n"
       "MPLS-TE router address in IPv4 address format\n")
 {
-	nb_cli_enqueue_change(vty, "./mpls-te/router-address",
+	nb_cli_enqueue_change(vty, "/frr-isisd:isis/mpls-te/router-address",
 			      NB_OP_MODIFY, router_address_str);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFPY(no_isis_mpls_te_router_addr, no_isis_mpls_te_router_addr_cmd,
-      "no mpls-te router-address [A.B.C.D]",
-      NO_STR MPLS_TE_STR
-      "Delete IP address of the advertising router\n"
-      "MPLS-TE router address in IPv4 address format\n")
-{
-	nb_cli_enqueue_change(vty, "./mpls-te/router-address",
-			      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -998,7 +986,7 @@ DEFPY(isis_mpls_te_inter_as, isis_mpls_te_inter_as_cmd,
       "AREA native mode self originate INTER-AS LSP with L1 and L2 flooding scope\n"
       "AS native mode self originate INTER-AS LSP with L2 only flooding scope\n")
 {
-	vty_out(vty, "MPLS-TE Inter-AS is not yet supported\n");
+	vty_out(vty, "MPLS-TE Inter-AS is not yet supported.");
 	return CMD_SUCCESS;
 }
 
@@ -1979,7 +1967,6 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &isis_mpls_te_on_cmd);
 	install_element(ISIS_NODE, &no_isis_mpls_te_on_cmd);
 	install_element(ISIS_NODE, &isis_mpls_te_router_addr_cmd);
-	install_element(ISIS_NODE, &no_isis_mpls_te_router_addr_cmd);
 	install_element(ISIS_NODE, &isis_mpls_te_inter_as_cmd);
 
 	install_element(ISIS_NODE, &isis_default_originate_cmd);

@@ -61,6 +61,13 @@ static int isis_router_id_update_zebra(int command, struct zclient *zclient,
 	struct listnode *node;
 	struct prefix router_id;
 
+	/*
+	 * If ISIS TE is enable, TE Router ID is set through specific command.
+	 * See mpls_te_router_addr() command in isis_te.c
+	 */
+	if (IS_MPLS_TE(isisMplsTE))
+		return 0;
+
 	zebra_router_id_update_read(zclient->ibuf, &router_id);
 	if (isis->router_id == router_id.u.prefix4.s_addr)
 		return 0;
