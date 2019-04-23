@@ -9927,7 +9927,7 @@ DEFUN (show_ip_bgp_regexp,
        BGP_AFI_HELP_STR
        BGP_SAFI_WITH_LABEL_HELP_STR
        "Display routes matching the AS path regular expression\n"
-       "A regular-expression to match the BGP AS paths\n")
+       "A regular-expression (1234567890_^|[,{}() ]$*+.?-\\) to match the BGP AS paths\n")
 {
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
