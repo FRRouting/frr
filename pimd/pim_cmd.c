@@ -4557,8 +4557,8 @@ DEFUN (show_ip_multicast_vrf_all,
 	return CMD_SUCCESS;
 }
 
-static void show_mroute(struct pim_instance *pim, struct vty *vty, bool fill,
-			bool uj)
+static void show_mroute(struct pim_instance *pim, struct vty *vty,
+			struct prefix_sg *sg, bool fill, bool uj)
 {
 	struct listnode *node;
 	struct channel_oil *c_oil;
@@ -4593,6 +4593,13 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty, bool fill,
 		found_oif = 0;
 		first = 1;
 		if (!c_oil->installed && !uj)
+			continue;
+
+		if (sg->grp.s_addr != 0 &&
+		    sg->grp.s_addr != c_oil->oil.mfcc_mcastgrp.s_addr)
+			continue;
+		if (sg->src.s_addr != 0 &&
+		    sg->src.s_addr != c_oil->oil.mfcc_origin.s_addr)
 			continue;
 
 		pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, grp_str,
@@ -4892,28 +4899,43 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty, bool fill,
 	}
 }
 
-DEFUN (show_ip_mroute,
+DEFPY (show_ip_mroute,
        show_ip_mroute_cmd,
-       "show ip mroute [vrf NAME] [fill] [json]",
+       "show ip mroute [vrf NAME] [A.B.C.D$s_or_g [A.B.C.D$g]] [fill$fill] [json$json]",
        SHOW_STR
        IP_STR
        MROUTE_STR
        VRF_CMD_HELP_STR
+       "The Source or Group\n"
+       "The Group\n"
        "Fill in Assumed data\n"
        JSON_STR)
 {
-	bool uj = use_json(argc, argv);
-	bool fill = false;
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct prefix_sg sg = {0};
+	struct pim_instance *pim;
+	struct vrf *v;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v) {
+		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
 		return CMD_WARNING;
+	}
+	pim = pim_get_pim_instance(v->vrf_id);
 
-	if (argv_find(argv, argc, "fill", &idx))
-		fill = true;
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
 
-	show_mroute(vrf->info, vty, fill, uj);
+	if (s_or_g.s_addr != 0) {
+		if (g.s_addr != 0) {
+			sg.src = s_or_g;
+			sg.grp = g;
+		} else
+			sg.grp = s_or_g;
+	}
+	show_mroute(pim, vty, &sg, !!fill, !!json);
 	return CMD_SUCCESS;
 }
 
@@ -4927,6 +4949,7 @@ DEFUN (show_ip_mroute_vrf_all,
        "Fill in Assumed data\n"
        JSON_STR)
 {
+	struct prefix_sg sg = {0};
 	bool uj = use_json(argc, argv);
 	int idx = 4;
 	struct vrf *vrf;
@@ -4946,7 +4969,7 @@ DEFUN (show_ip_mroute_vrf_all,
 			first = false;
 		} else
 			vty_out(vty, "VRF: %s\n", vrf->name);
-		show_mroute(vrf->info, vty, fill, uj);
+		show_mroute(vrf->info, vty, &sg, fill, uj);
 	}
 	if (uj)
 		vty_out(vty, "}\n");

@@ -293,10 +293,14 @@ cause great confusion.
 
    Display various information about the interfaces used in this pim instance.
 
-.. index:: show ip mroute
-.. clicmd:: show ip mroute
+.. index:: show ip mroute [vrf NAME] [A.B.C.D [A.B.C.D]] [fill] [json]
+.. clicmd:: show ip mroute [vrf NAME] [A.B.C.D [A.B.C.D]] [fill] [json]
 
-   Display information about installed into the kernel S,G mroutes.
+   Display information about installed into the kernel S,G mroutes.  If
+   one address is specified we assume it is the Group we are interested
+   in displaying data on.  If the second address is specified then it is
+   Source Group.  The keyword `fill` says to fill in all assumed data
+   for test/data gathering purposes.
 
 .. index:: show ip mroute count
 .. clicmd:: show ip mroute count
