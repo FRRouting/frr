@@ -1593,6 +1593,11 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 	   structs */
 	zns = ((struct zebra_vrf *)vrf_info_lookup(nhe->vrf_id))->zns;
 
+	if (!zns->supports_nh) {
+		ret = EOPNOTSUPP;
+		goto done;
+	}
+
 	// TODO: Might not need to mark this as an update, since
 	// it probably won't require two messages
 	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_NH_UPDATE));
@@ -1885,8 +1890,12 @@ done:
 	if (ret == AOK)
 		result = ZEBRA_DPLANE_REQUEST_QUEUED;
 	else {
-		atomic_fetch_add_explicit(&zdplane_info.dg_nexthop_errors, 1,
-					  memory_order_relaxed);
+		if (ret == EOPNOTSUPP)
+			result = ZEBRA_DPLANE_REQUEST_SUCCESS;
+		else
+			atomic_fetch_add_explicit(
+				&zdplane_info.dg_nexthop_errors, 1,
+				memory_order_relaxed);
 		if (ctx)
 			dplane_ctx_free(&ctx);
 	}
