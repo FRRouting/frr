@@ -2712,7 +2712,7 @@ struct rip *rip_create(const char *vrf_name, struct vrf *vrf, int socket)
 	rip->passive_nondefault = vector_init(1);
 	rip->offset_list_master = list_new();
 	rip->offset_list_master->cmp = (int (*)(void *, void *))offset_list_cmp;
-	rip->offset_list_master->del = (void (*)(void *))offset_list_del;
+	rip->offset_list_master->del = (void (*)(void *))offset_list_free;
 
 	/* Distribute list install. */
 	rip->distribute_ctx = distribute_list_ctx_create(vrf);

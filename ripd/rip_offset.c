@@ -50,6 +50,11 @@ struct rip_offset_list *rip_offset_list_new(struct rip *rip, const char *ifname)
 void offset_list_del(struct rip_offset_list *offset)
 {
 	listnode_delete(offset->rip->offset_list_master, offset);
+	offset_list_free(offset);
+}
+
+void offset_list_free(struct rip_offset_list *offset)
+{
 	if (OFFSET_LIST_IN_NAME(offset))
 		free(OFFSET_LIST_IN_NAME(offset));
 	if (OFFSET_LIST_OUT_NAME(offset))

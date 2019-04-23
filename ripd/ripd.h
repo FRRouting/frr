@@ -507,6 +507,7 @@ extern struct rip_info *rip_ecmp_delete(struct rip *rip,
 extern struct rip_offset_list *rip_offset_list_new(struct rip *rip,
 						   const char *ifname);
 extern void offset_list_del(struct rip_offset_list *offset);
+extern void offset_list_free(struct rip_offset_list *offset);
 extern struct rip_offset_list *rip_offset_list_lookup(struct rip *rip,
 						      const char *ifname);
 extern int rip_offset_list_apply_in(struct prefix_ipv4 *, struct interface *,

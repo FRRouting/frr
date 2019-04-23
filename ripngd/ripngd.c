@@ -1889,7 +1889,7 @@ struct ripng *ripng_create(const char *vrf_name, struct vrf *vrf, int socket)
 	ripng->offset_list_master->cmp =
 		(int (*)(void *, void *))offset_list_cmp;
 	ripng->offset_list_master->del =
-		(void (*)(void *))ripng_offset_list_del;
+		(void (*)(void *))ripng_offset_list_free;
 	ripng->distribute_ctx = distribute_list_ctx_create(vrf);
 	distribute_list_add_hook(ripng->distribute_ctx,
 				 ripng_distribute_update);

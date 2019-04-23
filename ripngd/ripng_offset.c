@@ -56,6 +56,11 @@ struct ripng_offset_list *ripng_offset_list_new(struct ripng *ripng,
 void ripng_offset_list_del(struct ripng_offset_list *offset)
 {
 	listnode_delete(offset->ripng->offset_list_master, offset);
+	ripng_offset_list_free(offset);
+}
+
+void ripng_offset_list_free(struct ripng_offset_list *offset)
+{
 	if (OFFSET_LIST_IN_NAME(offset))
 		free(OFFSET_LIST_IN_NAME(offset));
 	if (OFFSET_LIST_OUT_NAME(offset))
