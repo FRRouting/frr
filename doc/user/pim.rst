@@ -509,14 +509,22 @@ PIM EVPN configuration
 To use PIM in the underlay for overlay BUM forwarding associate a
 multicast group with the L2 VNI. The actual configuration is based
 on your distribution. Here is an ifupdown2 example -
-auto vx-10100
-iface vx-10100
+
+.. code-block:: interface
+
+   auto vx-10100
+   iface vx-10100
 	vxlan-id 10100
 	bridge-access 100
 	vxlan-local-tunnelip 27.0.0.11
-	vxlan-mcastgrp 239.1.1.100 >>>>>>>>
-PIM will see the vxlan configuration and auto configure state to properly
-forward BUM traffic.
+	vxlan-mcastgrp 239.1.1.100
+
+
+.. note::
+
+   PIM will see the ``vxlan-mcastgrp`` configuration and auto configure
+   state to properly forward BUM traffic.
+
 
 PIM also needs to be configured in the underlay to allow the BUM MDT to
 be setup. This is existing PIM configuration -
