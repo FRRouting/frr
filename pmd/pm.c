@@ -29,15 +29,34 @@
 #include <prefix.h>
 
 #include "pmd/pm.h"
+#include "pmd/pm_echo.h"
 #include "pmd/pm_memory.h"
 /* definitions */
 
 struct hash *pm_session_list;
+struct hash *pm_id_list;
 
 DEFINE_QOBJ_TYPE(pm_session);
 
 DEFINE_MGROUP(PMD, "Path Monitoring Daemon")
 DEFINE_MTYPE(PMD, PM_SESSION, "PM sessions")
+DEFINE_MTYPE(PMD, PM_ECHO, "PM Echo contexts")
+DEFINE_MTYPE(PMD, PM_PACKET, "PM Packets")
+
+static unsigned int pm_id_list_hash_do(const void *p)
+{
+	const struct pm_echo *pme = p;
+
+	return jhash_1word(pme->discriminator_id, 0);
+}
+
+static bool pm_id_list_hash_cmp(const void *n1, const void *n2)
+{
+	const struct pm_echo *pm1 = n1, *pm2 = n2;
+
+	return pm1->discriminator_id == pm2->discriminator_id;
+}
+
 
 static unsigned int pm_session_hash_key(const void *arg)
 {
@@ -240,11 +259,46 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 
 }
 
+/* Lookup functions. */
+static struct pm_echo *pm_id_list_lookup(uint32_t id)
+{
+	struct pm_echo pme;
+
+	pme.discriminator_id = id;
+
+	return hash_lookup(pm_id_list, &pme);
+}
+
+uint32_t pm_id_list_gen_id(void)
+{
+	uint32_t session_id;
+
+	do {
+		session_id = ((random() << 16) & 0xFFFF0000)
+			     | (random() & 0x0000FFFF);
+	} while (session_id == 0 || pm_id_list_lookup(session_id) != NULL);
+
+	return session_id;
+}
+
+void pm_id_list_delete(struct pm_echo *pm)
+{
+	hash_release(pm_id_list, pm);
+}
+
+bool pm_id_list_insert(struct pm_echo *pm)
+{
+	return (hash_get(pm_id_list, pm, hash_alloc_intern) == pm);
+}
+
 static void pm_session_free_walker(struct hash_bucket *b, void *data)
 {
 	struct pm_session *pm = (struct pm_session *)b->data;
+	char errormsg[128];
 
 	QOBJ_UNREG(pm);
+	pm_echo_stop(pm, errormsg, sizeof(errormsg), true);
+
 	hash_release(pm_session_list, pm);
 	XFREE(MTYPE_PM_SESSION, pm);
 }
@@ -260,6 +314,87 @@ void pm_init(void)
 	pm_session_list  = hash_create_size(8, pm_session_hash_key,
 					    pm_session_hash_equal,
 					    "Session Hash");
+	pm_id_list = hash_create_size(8, pm_id_list_hash_do,
+				      pm_id_list_hash_cmp,
+				      "PM unique identifier");
+	pm_debug_echo = 0;
+}
+
+void pm_try_run(struct vty *vty, struct pm_session *pm)
+{
+	char errormsg[128];
+	char buf[SU_ADDRSTRLEN];
+	int ret;
+
+	if (PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_SHUTDOWN))
+		return;
+	/* check config is consistent */
+	pm_initialise(pm, true, errormsg, sizeof(errormsg));
+	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_VALIDATE)) {
+		vty_out(vty, "%% session could not be started: %s\n",
+			errormsg);
+		return;
+	}
+	/* flush previous context if necessary */
+	pm_echo_stop(pm, errormsg, sizeof(errormsg), false);
+	/* rerun it */
+	ret = pm_echo(pm, errormsg, sizeof(errormsg));
+	if (ret) {
+		vty_out(vty, "%% session could not be run: %s\n",
+			errormsg);
+		return;
+	}
+	PM_SET_FLAG(pm->flags, PM_SESS_FLAG_RUN);
+	vty_out(vty, "%% session to %s runs now\n",
+		sockunion2str(&pm->key.peer, buf, sizeof(buf)));
+}
+
+struct pm_session_ifp {
+	struct interface *ifp;
+	bool enable;
+};
+
+static int pm_sessions_change_ifp_walkcb(struct hash_bucket *bucket, void *arg)
+{
+	struct pm_session_ifp *psi = (struct pm_session_ifp *)arg;
+	struct pm_session *pm = (struct pm_session *)bucket->data;
+	struct interface *ifp = psi->ifp;
+	bool enable = psi->enable;
+	struct interface *if_ctx;
+	struct vrf *vrf, *vrf_ctx;
+	char errormsg[128];
+
+	vrf = vrf_lookup_by_id(ifp->vrf_id);
+	if (!vrf)
+		return HASHWALK_CONTINUE;
+
+	if (pm->key.vrfname[0])
+		vrf_ctx = vrf_lookup_by_name(pm->key.vrfname);
+	else
+		vrf_ctx = vrf_lookup_by_id(VRF_DEFAULT);
+	if (vrf_ctx != vrf)
+		return HASHWALK_CONTINUE;
+
+	if (!pm->key.ifname[0])
+		return HASHWALK_CONTINUE;
+	if_ctx = if_lookup_by_name(pm->key.ifname, vrf->vrf_id);
+	if (!if_ctx)
+		return HASHWALK_CONTINUE;
+	if (if_ctx != ifp)
+		return HASHWALK_CONTINUE;
+	if (!enable)
+		pm_echo_stop(pm, errormsg, sizeof(errormsg), true);
+	return HASHWALK_CONTINUE;
+}
+
+void pm_sessions_change_interface(struct interface *ifp, bool enable)
+{
+	struct pm_session_ifp psi;
+
+	psi.ifp = ifp;
+	psi.enable = enable;
+
+	hash_walk(pm_session_list, pm_sessions_change_ifp_walkcb, &psi);
 }
 
 char *pm_get_probe_type(struct pm_session *pm, char *buf, size_t len)
@@ -275,4 +410,64 @@ char *pm_get_probe_type(struct pm_session *pm, char *buf, size_t len)
 		break;
 	}
 	return buf;
+}
+
+char *pm_get_state_str(struct pm_session *pm, char *buf, size_t len)
+{
+	memset(buf, 0, len);
+
+	switch (pm->ses_state) {
+	case PM_ADM_DOWN:
+		snprintf(buf, len, "admin down");
+		break;
+	case PM_DOWN:
+		snprintf(buf, len, "down");
+		break;
+	case PM_INIT:
+		snprintf(buf, len, "init");
+		break;
+	case PM_UP:
+		snprintf(buf, len, "up");
+		break;
+	default:
+		break;
+	}
+	return buf;
+}
+
+static void pm_session_validate_walker(struct hash_bucket *b, void *data)
+{
+	struct pm_session *pm = (struct pm_session *)b->data;
+
+	if (PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_VALIDATE))
+		return;
+	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_RUN))
+		pm_try_run(NULL, pm);
+}
+
+/* event from underlying system - new address or new vrf */
+void pm_sessions_update(void)
+{
+	hash_iterate(pm_session_list,
+		     pm_session_validate_walker, NULL);
+}
+
+void pm_get_peer(struct pm_session *pm, union sockunion *peer)
+{
+	if (!peer || !pm)
+		return;
+	memset(peer, 0, sizeof(union sockunion));
+	memcpy(peer, &pm->key.peer, sizeof(union sockunion));
+}
+
+void pm_get_gw(struct pm_session *pm, union sockunion *gw)
+{
+	if (!gw || !pm)
+		return;
+	memset(gw, 0, sizeof(union sockunion));
+	if (sockunion_family(&pm->nh) == AF_INET ||
+	    sockunion_family(&pm->nh) == AF_INET6)
+		memcpy(gw, &pm->nh, sizeof(union sockunion));
+	else
+		pm_get_peer(pm, gw);
 }

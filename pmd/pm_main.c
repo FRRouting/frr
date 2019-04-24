@@ -48,6 +48,7 @@
 #include "pm.h"
 
 zebra_capabilities_t _caps_p[] = {
+	ZCAP_NET_ADMIN, ZCAP_NET_RAW,
 };
 
 struct zebra_privs_t pm_privs = {

@@ -36,6 +36,7 @@
 #include "pmd/pm_vty.h"
 
 #include "pmd/pm.h"
+#include "pmd/pm_echo.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "pmd/pm_vty_clippy.c"
@@ -182,6 +183,9 @@ DEFPY(
 			errormsg);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+	/* flush session if any */
+	pm_echo_stop(pm, errormsg, sizeof(errormsg), false);
+
 	hash_release(pm_session_list, pm);
 	XFREE(MTYPE_PM_SESSION, pm);
 	return CMD_SUCCESS;
@@ -200,6 +204,7 @@ DEFPY(pm_packet_interval, pm_packet_interval_cmd, "[no] interval [(1-65535)$freq
 		pm->interval = PM_INTERVAL_DEFAULT;
 	else if (freq)
 		pm->interval = freq;
+	pm_try_run(vty, pm);
 	return CMD_SUCCESS;
 }
 
@@ -214,6 +219,7 @@ DEFPY(pm_packet_size, pm_packet_size_cmd, "[no] packet-size [(1-65535)$psize]",
 		pm->packet_size = pm_get_default_packet_size(pm);
 	else if (psize)
 		pm->packet_size = psize;
+	pm_try_run(vty, pm);
 	return CMD_SUCCESS;
 }
 
@@ -229,6 +235,7 @@ DEFPY(pm_packet_tos, pm_packet_tos_cmd, "[no] packet-tos (1-255)$tosval",
 		pm->tos_val = PM_PACKET_TOS_DEFAULT;
 	else if (tosval)
 		pm->tos_val = tosval;
+	pm_try_run(vty, pm);
 	return CMD_SUCCESS;
 }
 
@@ -245,6 +252,7 @@ DEFPY(pm_packet_timeout, pm_packet_timeout_cmd, "[no] timeout [(1-65535)$tmo]",
 		pm->timeout = PM_TIMEOUT_DEFAULT;
 	else if (tmo)
 		pm->timeout = tmo;
+	pm_try_run(vty, pm);
 	return CMD_SUCCESS;
 }
 
@@ -260,23 +268,20 @@ DEFPY(pm_session_shutdown, pm_session_shutdown_cmd, "[no] shutdown",
 			return CMD_SUCCESS;
 
 		PM_UNSET_FLAG(pm->flags, PM_SESS_FLAG_SHUTDOWN);
-
-		pm_initialise(pm, true, errormsg, sizeof(errormsg));
-		if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_VALIDATE))
-			vty_out(vty, "%% session could not be started: %s",
-				errormsg);
-		else {
-			/* Change and notify state change. */
-			/* Enable all timers. */
-		}
+		pm_try_run(vty, pm);
 	} else {
 		if (PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_SHUTDOWN))
 			return CMD_SUCCESS;
 
+		/* flush previous context */
+		if (pm->oper_ctxt) {
+			pm_echo_stop(pm, errormsg, sizeof(errormsg), false);
+			PM_UNSET_FLAG(pm->flags, PM_SESS_FLAG_RUN);
+		}
+
 		PM_SET_FLAG(pm->flags, PM_SESS_FLAG_SHUTDOWN);
 
-		/* Disable all events. */
-		/* Change and notify state change. */
+		pm_echo_stop(pm, errormsg, sizeof(errormsg), false);
 	}
 	return CMD_SUCCESS;
 }
@@ -290,6 +295,225 @@ DEFUN_NOSH (show_debugging_pmd,
 {
 	vty_out(vty, "Pm debugging status\n");
 
+	return CMD_SUCCESS;
+}
+
+struct pm_session_dump {
+	struct vty *vty;
+	bool oper;
+	char *vrfname;
+	union sockunion *psa;
+	bool use_json;
+	struct json_object *jo;
+};
+
+static struct json_object *_session_json_header(struct pm_session *pm)
+{
+	struct json_object *jo = json_object_new_object();
+	char addr_buf[INET6_ADDRSTRLEN];
+
+	sockunion2str(&pm->key.peer, addr_buf, sizeof(addr_buf));
+	json_object_string_add(jo, "peer", addr_buf);
+	if (sockunion_family(&pm->key.local) == AF_INET ||
+	    sockunion_family(&pm->key.local) == AF_INET6) {
+		sockunion2str(&pm->key.local, addr_buf, sizeof(addr_buf));
+		json_object_string_add(jo, "local", addr_buf);
+	}
+
+	if (pm->key.vrfname[0])
+		json_object_string_add(jo, "vrf", pm->key.vrfname);
+	if (pm->key.ifname[0])
+		json_object_string_add(jo, "interface", pm->key.ifname);
+
+	return jo;
+}
+
+static struct json_object *__display_session_json(struct pm_session *pm,
+						  bool operational)
+{
+	struct json_object *jo = _session_json_header(pm);
+	char buf[256];
+	struct pm_echo *pme = pm->oper_ctxt;
+
+	if (operational)
+		return jo;
+	if (!pme) {
+		json_object_int_add(jo, "id", 0);
+		if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID))
+			json_object_string_add(jo, "diagnostic",
+					       "echo unreachable");
+		else
+			json_object_string_add(jo, "diagnostic",
+					       "echo none");
+	} else {
+		json_object_int_add(jo, "id", pme->discriminator_id);
+		json_object_string_add(jo, "diagnostic",
+				       pm_echo_get_alarm_str(pm,
+							buf,
+							sizeof(buf)));
+	}
+	json_object_string_add(jo, "status",
+			       pm_get_state_str(pm, buf,
+						sizeof(buf)));
+	if (pm->ses_state == PM_DOWN)
+		json_object_int_add(jo, "downtime",
+				    monotime(NULL) -
+				    monotime(&pm->last_time_change));
+	else if (pm->ses_state == PM_UP)
+		json_object_int_add(jo, "uptime",
+				    monotime(NULL) -
+				    monotime(&pm->last_time_change));
+	json_object_string_add(jo, "type",
+			       pm_get_probe_type(pm, buf,
+						 sizeof(buf)));
+	json_object_int_add(jo, "interval",
+			    pm->interval);
+	json_object_int_add(jo, "timeout",
+			    pm->timeout);
+	json_object_int_add(jo, "tos_val",
+			    pm->tos_val);
+	json_object_int_add(jo, "packet-size",
+			    pm->packet_size);
+	return jo;
+}
+
+static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
+{
+	struct pm_session_dump *psd = data;
+	struct vty *vty = psd->vty;
+	char buf[SU_ADDRSTRLEN];
+	char buf2[256];
+	struct pm_session *pm = (struct pm_session *)b->data;
+	struct json_object *jo = NULL;
+
+	if (psd->vrfname) {
+		if (!pm->key.vrfname[0] ||
+		    !strmatch(pm->key.vrfname, psd->vrfname))
+			return;
+	}
+	if (psd->psa) {
+		if (!sockunion_same((const union sockunion *)&pm->key.peer,
+				    (const union sockunion *)psd->psa))
+			return;
+	}
+	if (psd->use_json) {
+		jo = __display_session_json(pm, psd->oper);
+		json_object_array_add(psd->jo, jo);
+		return;
+	}
+	vty_out(vty, " session %s", sockunion2str(&pm->key.peer,
+						  buf, sizeof(buf)));
+	if (sockunion_family(&pm->key.local) == AF_INET ||
+	    sockunion_family(&pm->key.local) == AF_INET6)
+		vty_out(vty, " local-address %s",
+			sockunion2str(&pm->key.local, buf, sizeof(buf)));
+	if (pm->key.ifname[0])
+		vty_out(vty, " interface %s", pm->key.ifname);
+	if (pm->key.vrfname[0])
+		vty_out(vty, " vrf %s", pm->key.vrfname);
+	vty_out(vty, "\n");
+
+	if (psd->oper) {
+		pm_echo_dump(vty, pm);
+		return;
+	}
+	vty_out(vty, "\tpacket-tos %u, packet-size %u",
+		pm->tos_val, pm->packet_size);
+	vty_out(vty, ", interval %u, timeout %u\n",
+		pm->interval, pm->timeout);
+	vty_out(vty, "\tstatus: (0x%x)", pm->flags);
+	vty_out(vty, " session admin %s, run %s\n",
+		pm->flags & PM_SESS_FLAG_SHUTDOWN ? "down" : "up",
+		pm->flags & PM_SESS_FLAG_RUN ? "active" : "stopped");
+	vty_out(vty, "\t\t %s (%s)\n",
+		pm_get_state_str(pm, buf, sizeof(buf)),
+		pm_echo_get_alarm_str(pm, buf2, sizeof(buf2)));
+}
+
+DEFPY(show_pmd_sessions,
+      show_pmd_sessions_cmd,
+      "show pm [vrf <NAME>] sessions [operational] [json]",
+      SHOW_STR
+      "Path Monitoring\n"
+      VRF_CMD_HELP_STR
+      "Pm Sessions\n"
+      "Operational\n"
+      JSON_STR)
+{
+	struct pm_session_dump psd;
+	int oper, idx = 0;
+	char *vrfname = NULL;
+	int idx_vrf = 0;
+
+	if (argv_find(argv, argc, "vrf", &idx_vrf))
+		vrfname = argv[idx_vrf + 1]->arg;
+
+	oper = argv_find(argv, argc, "operational", &idx);
+
+	memset(&psd, 0, sizeof(struct pm_session_dump));
+	psd.vty = vty;
+	psd.vrfname = vrfname;
+	psd.psa = NULL;
+	if (oper)
+		psd.oper = true;
+	else
+		psd.oper = false;
+	psd.use_json = use_json(argc, argv);
+	if (!psd.use_json)
+		vty_out(vty, "Pm Sessions status\n");
+	else
+		psd.jo = json_object_new_array();
+	hash_iterate(pm_session_list,
+		     pm_session_dump_config_walker, (void *)&psd);
+	if (psd.use_json) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(psd.jo, 0));
+		json_object_free(psd.jo);
+	}
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_pmd_session,
+      show_pmd_session_cmd,
+      "show pm [vrf <NAME>] session <A.B.C.D|X:X::X:X>$peer [operational] [json]",
+      SHOW_STR
+      "Path Monitoring\n"
+      VRF_CMD_HELP_STR
+      SESSION_STR SESSION_IPV4_STR SESSION_IPV6_STR
+      "Operational\n"
+      JSON_STR)
+{
+	struct pm_session_dump psd;
+	int oper, idx = 0;
+	char *vrfname = NULL;
+	int idx_vrf = 0;
+	union sockunion psa;
+
+	str2sockunion(peer_str, &psa);
+
+	if (argv_find(argv, argc, "vrf", &idx_vrf))
+		vrfname = argv[idx_vrf + 1]->arg;
+
+	oper = argv_find(argv, argc, "operational", &idx);
+
+	memset(&psd, 0, sizeof(struct pm_session_dump));
+	psd.vty = vty;
+	psd.vrfname = vrfname;
+	psd.psa = &psa;
+	if (oper)
+		psd.oper = true;
+	else
+		psd.oper = false;
+	psd.use_json = use_json(argc, argv);
+	if (!psd.use_json)
+		vty_out(vty, "Pm Sessions status\n");
+	else
+		psd.jo = json_object_new_array();
+	hash_iterate(pm_session_list,
+		     pm_session_dump_config_walker, (void *)&psd);
+	if (psd.use_json) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(psd.jo, 0));
+		json_object_free(psd.jo);
+	}
 	return CMD_SUCCESS;
 }
 
@@ -311,8 +535,9 @@ struct cmd_node pm_session_node = {
 
 void pm_vty_init(void)
 {
-	install_element(VIEW_NODE, &show_debugging_pmd_cmd);
-
+	install_element(ENABLE_NODE, &show_debugging_pmd_cmd);
+	install_element(ENABLE_NODE, &show_pmd_sessions_cmd);
+	install_element(ENABLE_NODE, &show_pmd_session_cmd);
 	/* Install PM node and commands. */
 	install_element(CONFIG_NODE, &pm_enter_cmd);
 	install_node(&pm_node);

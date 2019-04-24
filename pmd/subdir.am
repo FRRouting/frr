@@ -14,6 +14,7 @@ pmd_libpm_a_SOURCES = \
 	pmd/pm_zebra.c \
 	pmd/pm_vty.c \
 	pmd/pm.c \
+	pmd/pm_echo.c \
 	# end
 
 pmd/pmd_vty_clippy.c: $(CLIPPY_DEPS)
@@ -24,6 +25,7 @@ noinst_HEADERS += \
 	pmd/pm_zebra.h \
 	pmd/pm.h \
 	pmd/pm_memory.h \
+	pmd/pm_echo.h \
 	# end
 
 pmd/pm_vty_clippy.c: $(CLIPPY_DEPS)
