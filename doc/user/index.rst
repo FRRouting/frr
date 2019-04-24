@@ -57,6 +57,7 @@ Protocols
    static
    vnc
    vrrp
+   bmp
 
 ########
 Appendix

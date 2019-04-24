@@ -1563,12 +1563,10 @@ dnl ##########################################################################
 dnl ------------------
 dnl check C-Ares library
 dnl ------------------
-if test "${NHRPD}" != ""; then
-  PKG_CHECK_MODULES([CARES], [libcares], ,[
-    AC_MSG_ERROR([trying to build nhrpd, but libcares not found. install c-ares and its -dev headers.])
-  ])
-fi
-AM_CONDITIONAL([CARES], [test "${NHRPD}" != ""])
+PKG_CHECK_MODULES([CARES], [libcares], ,[
+  AC_MSG_ERROR([libcares not found. install c-ares and its -dev headers.])
+])
+AM_CONDITIONAL([CARES], [true])
 
 dnl ------------------
 dnl check Net-SNMP library

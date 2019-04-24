@@ -151,6 +151,7 @@ const char *node_names[] = {
 	"bfd peer",		 /* BFD_PEER_NODE */
 	"openfabric",		    // OPENFABRIC_NODE
 	"vrrp",			    /* VRRP_NODE */
+	"bmp",			 /* BMP_NODE */
 };
 /* clang-format on */
 
@@ -975,6 +976,7 @@ enum node_type node_parent(enum node_type node)
 	case BGP_IPV6M_NODE:
 	case BGP_EVPN_NODE:
 	case BGP_IPV6L_NODE:
+	case BMP_NODE:
 		ret = BGP_NODE;
 		break;
 	case BGP_EVPN_VNI_NODE:
@@ -1491,6 +1493,7 @@ void cmd_exit(struct vty *vty)
 	case BGP_IPV6M_NODE:
 	case BGP_EVPN_NODE:
 	case BGP_IPV6L_NODE:
+	case BMP_NODE:
 		vty->node = BGP_NODE;
 		break;
 	case BGP_EVPN_VNI_NODE:
