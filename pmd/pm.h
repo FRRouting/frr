@@ -51,7 +51,9 @@ struct pm_session {
 #define PM_SESS_FLAG_VALIDATE      (1 << 1)
 #define PM_SESS_FLAG_CONFIG        (1 << 2)
 #define PM_SESS_FLAG_RUN           (1 << 3)
+#define PM_SESS_FLAG_NH_VALID      (1 << 4)
 	uint32_t flags;
+	union sockunion nh;
 	enum pm_probe_type type;
 #define PM_PACKET_SIZE_DEFAULT PM_DEF_PACKET_SIZE
 #define PM_PACKET_SIZE_DEFAULT_IPV6 PM_DEF_IPV6_PACKET_SIZE
@@ -63,6 +65,15 @@ struct pm_session {
 #define PM_TIMEOUT_DEFAULT PM_DEF_TIMEOUT
 	int timeout;
 
+	void *oper_ctxt;
+
+	struct timeval last_time_change;
+#define PM_ADM_DOWN 0
+#define PM_DOWN 1
+#define PM_INIT 2
+#define PM_UP 3
+	uint8_t ses_state;
+
 	QOBJ_FIELDS;
 
 };
@@ -70,6 +81,7 @@ struct pm_session {
 DECLARE_QOBJ_TYPE(pm_session);
 
 extern struct hash *pm_session_list;
+extern struct hash *pm_id_list;
 
 extern void pm_init(void);
 extern void pm_shutdown(void);
@@ -82,6 +94,13 @@ extern struct pm_session *pm_lookup_session(union sockunion *peer,
 					    const char *vrfname,
 					    bool create,
 					    char *ebuf, size_t ebuflen);
+
+extern uint32_t pm_id_list_gen_id(void);
+struct pm_echo;
+extern bool pm_id_list_insert(struct pm_echo *pm);
+extern void pm_id_list_delete(struct pm_echo *pm);
+struct vty;
+extern void pm_try_run(struct vty *vty, struct pm_session *pm);
 
 extern struct zebra_privs_t pm_privs;
 
@@ -96,5 +115,9 @@ extern void pm_sessions_update(void);
 extern void pm_sessions_change_interface(struct interface *ifp, bool ret);
 
 extern int pm_get_default_packet_size(struct pm_session *pm);
+extern char *pm_get_state_str(struct pm_session *pm, char *buf, size_t len);
+
+extern void pm_get_peer(struct pm_session *pm, union sockunion *peer);
+extern void pm_get_gw(struct pm_session *pm, union sockunion *gw);
 
 #endif
