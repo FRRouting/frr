@@ -42,19 +42,6 @@ struct thread_master *master;
 /* BFDd privileges */
 static zebra_capabilities_t _caps_p[] = {ZCAP_BIND, ZCAP_SYS_ADMIN, ZCAP_NET_RAW};
 
-struct zebra_privs_t bfdd_privs = {
-#if defined(FRR_USER) && defined(FRR_GROUP)
-	.user = FRR_USER,
-	.group = FRR_GROUP,
-#endif
-#if defined(VTY_GROUP)
-	.vty_group = VTY_GROUP,
-#endif
-	.caps_p = _caps_p,
-	.cap_num_p = array_size(_caps_p),
-	.cap_num_i = 0,
-};
-
 void socket_close(int *s)
 {
 	if (*s <= 0)
@@ -112,7 +99,7 @@ static struct quagga_signal_t bfd_signals[] = {
 FRR_DAEMON_INFO(bfdd, BFD, .vty_port = 2617,
 		.proghelp = "Implementation of the BFD protocol.",
 		.signals = bfd_signals, .n_signals = array_size(bfd_signals),
-		.privs = &bfdd_privs)
+		.privs = &bglobal.bfdd_privs)
 
 #define OPTION_CTLSOCK 1001
 static struct option longopts[] = {
@@ -149,14 +136,33 @@ struct bfd_state_str_list state_list[] = {
 
 static void bg_init(void)
 {
+	struct zebra_privs_t bfdd_privs = {
+#if defined(FRR_USER) && defined(FRR_GROUP)
+		.user = FRR_USER,
+		.group = FRR_GROUP,
+#endif
+#if defined(VTY_GROUP)
+		.vty_group = VTY_GROUP,
+#endif
+		.caps_p = _caps_p,
+		.cap_num_p = array_size(_caps_p),
+		.cap_num_i = 0,
+	};
+
 	TAILQ_INIT(&bglobal.bg_bcslist);
 	TAILQ_INIT(&bglobal.bg_obslist);
+
+	memcpy(&bglobal.bfdd_privs, &bfdd_privs,
+	       sizeof(bfdd_privs));
 }
 
 int main(int argc, char *argv[])
 {
 	const char *ctl_path = BFDD_CONTROL_SOCKET;
 	int opt;
+
+	/* Initialize system sockets. */
+	bg_init();
 
 	frr_preinit(&bfdd_di, argc, argv);
 	frr_opt_add("", longopts,
@@ -185,9 +191,6 @@ int main(int argc, char *argv[])
 	/* Initialize logging API. */
 	log_init(1, BLOG_DEBUG, &bfdd_di);
 
-	/* Initialize system sockets. */
-	bg_init();
-
 	/* Initialize control socket. */
 	control_init(ctl_path);
 
@@ -200,7 +203,7 @@ int main(int argc, char *argv[])
 	bfd_vrf_init();
 
 	/* Initialize zebra connection. */
-	bfdd_zclient_init(&bfdd_privs);
+	bfdd_zclient_init(&bglobal.bfdd_privs);
 
 	thread_add_read(master, control_accept, NULL, bglobal.bg_csock,
 			&bglobal.bg_csockev);

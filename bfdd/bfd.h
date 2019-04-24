@@ -50,8 +50,6 @@ DECLARE_MTYPE(BFDD_SESSION_OBSERVER);
 DECLARE_MTYPE(BFDD_NOTIFICATION);
 DECLARE_MTYPE(BFDD_VRF);
 
-extern struct zebra_privs_t bfdd_privs;
-
 struct bfd_timers {
 	uint32_t desired_min_tx;
 	uint32_t required_min_rx;
@@ -402,6 +400,8 @@ struct bfd_global {
 	struct pllist bg_pllist;
 
 	struct obslist bg_obslist;
+
+	struct zebra_privs_t bfdd_privs;
 };
 extern struct bfd_global bglobal;
 extern struct bfd_diag_str_list diag_list[];
