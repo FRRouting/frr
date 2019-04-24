@@ -681,9 +681,9 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 	 * in place because we are sometimes called with a doppelganger peer,
 	 * who tends to have a plethora of fields nulled out.
 	 */
-	if (peer->curr && peer->last_reset_cause_size) {
+	if (peer->curr) {
 		size_t packetsize = stream_get_endp(peer->curr);
-		assert(packetsize <= peer->last_reset_cause_size);
+		assert(packetsize <= sizeof(peer->last_reset_cause));
 		memcpy(peer->last_reset_cause, peer->curr->data, packetsize);
 		peer->last_reset_cause_size = packetsize;
 	}

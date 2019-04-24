@@ -1153,7 +1153,7 @@ struct peer {
 	unsigned long weight[AFI_MAX][SAFI_MAX];
 
 	/* peer reset cause */
-	char last_reset;
+	uint8_t last_reset;
 #define PEER_DOWN_RID_CHANGE             1 /* bgp router-id command */
 #define PEER_DOWN_REMOTE_AS_CHANGE       2 /* neighbor remote-as command */
 #define PEER_DOWN_LOCAL_AS_CHANGE        3 /* neighbor local-as command */
@@ -1180,7 +1180,7 @@ struct peer {
 #define PEER_DOWN_BFD_DOWN              24 /* BFD down */
 #define PEER_DOWN_IF_DOWN               25 /* Interface down */
 #define PEER_DOWN_NBR_ADDR_DEL          26 /* Peer address lost */
-	unsigned long last_reset_cause_size;
+	size_t last_reset_cause_size;
 	uint8_t last_reset_cause[BGP_MAX_PACKET_SIZE];
 
 	/* The kind of route-map Flags.*/
