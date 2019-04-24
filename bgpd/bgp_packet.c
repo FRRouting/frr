@@ -2256,9 +2256,6 @@ int bgp_process_packet(struct thread *thread)
 
 		hook_call(bgp_packet_dump, peer, type, size, peer->curr);
 
-		/* BGP Monitoring Protocol: mirroring. */
-		bmp_mirror_packet(peer, peer->curr);
-
 		/* adjust size to exclude the marker + length + type */
 		size -= BGP_HEADER_SIZE;
 

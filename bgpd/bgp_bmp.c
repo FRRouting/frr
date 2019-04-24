@@ -40,6 +40,7 @@
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_dump.h"
 #include "bgpd/bgp_errors.h"
+#include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_bmp.h"
 
 int accept_sock = -1;
@@ -272,7 +273,8 @@ static int bmp_send_peerup(struct bmp *bmp)
 	return 0;
 }
 
-void bmp_mirror_packet(struct peer *peer, struct stream *packet)
+static int bmp_mirror_packet(struct peer *peer, uint8_t type, bgp_size_t size,
+		struct stream *packet)
 {
 	struct bmp *bmp;
 	int len;
@@ -280,7 +282,7 @@ void bmp_mirror_packet(struct peer *peer, struct stream *packet)
 
 	bmp = bmp_default;
 	if (!bmp)
-		return;
+		return 0;
 
 	s = stream_new(BGP_MAX_PACKET_SIZE);
 
@@ -300,6 +302,7 @@ void bmp_mirror_packet(struct peer *peer, struct stream *packet)
 
 	stream_fifo_push(bmp->obuf, s);
 	bmp_send_packets(bmp);
+	return 0;
 }
 
 static int bmp_event(struct thread *thread)
@@ -513,6 +516,8 @@ void bmp_serv_sock(const char *hostname, unsigned short port)
 
 void bgp_bmp_init()
 {
+	hook_register(bgp_packet_dump, bmp_mirror_packet);
+
 	bmp_serv_sock("localhost", 60000);
 }
 

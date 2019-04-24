@@ -64,7 +64,6 @@ struct bmp
 				&(X)->t_event);									\
 	} while (0)
 
-extern void bmp_mirror_packet(struct peer *peer, struct stream *packet);
 extern void bmp_serv_sock(const char *hostname, unsigned short port);
 extern void bgp_bmp_init(void);
 
