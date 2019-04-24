@@ -5,10 +5,13 @@ Disclaimer
 ----------
 
 The OSPF daemon contains an API for application access to the LSA database.
-This API was created by Ralph Keller, originally as patch for Zebra.
-Unfortunately, the page containing documentation of the API is no longer
-online. This page is an attempt to recreate documentation for the API (with
-lots of help of the WayBackMachine)
+This API and documentation was created by Ralph Keller, originally as patch for
+Zebra. Unfortunately, the page containing documentation for the API is no
+longer online. This page is an attempt to recreate documentation for the API
+(with lots of help from the WayBackMachine).
+
+Ralph has kindly licensed this documentation under GPLv2+. Please preserve the
+acknowledgements at the bottom of this document.
 
 Introduction
 ------------
