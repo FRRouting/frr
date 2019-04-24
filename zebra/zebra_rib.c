@@ -68,6 +68,8 @@ DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 /* Should we allow non Quagga processes to delete our routes */
 extern int allow_delete;
 
+extern int kernel_reconcile;
+
 /* Each route type's string and default distance value. */
 static const struct {
 	int key;
@@ -2703,6 +2705,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	struct route_table *table;
 	struct route_node *rn;
 	struct route_entry *same = NULL;
+	struct route_entry *kernel_reconcile_rt = NULL;
 	int ret = 0;
 
 	if (!re)
@@ -2745,6 +2748,24 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		if (CHECK_FLAG(same->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
+		/* If kernel_reconcile is set, then mark Zebra-originated route
+		 * for deletion. Zebra learned these routes from kernel while
+		 * start up. Now, since we learned new route for same destination,
+		 * this is the time to clear stale route, so that both kernel
+		 * and FPM are updated while rib_process. This will result in no
+		 * traffic loss, if same route->NH is learned after startup.
+		 */
+		if (kernel_reconcile
+			&& CHECK_FLAG(same->flags, ZEBRA_FLAG_KERNEL_RECONCILE)) {
+			++zebra_kernel_reconcile_route_deleted;
+			if (IS_ZEBRA_DEBUG_RIB)
+				rnode_debug(rn, same->vrf_id,
+					"kernel_reconcile: match, A %lu D %lu rn %p",
+					zebra_kernel_reconcile_route_learned,
+					zebra_kernel_reconcile_route_deleted, rn);
+			kernel_reconcile_rt = same;
+			continue;
+		}
 		if (same->type != re->type)
 			continue;
 		if (same->instance != re->instance)
@@ -2781,6 +2802,10 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			route_entry_dump(p, src_p, re);
 	}
+
+	/* Delete kernel_reconcile_rt first */
+	if (kernel_reconcile_rt)
+		rib_delnode(rn, kernel_reconcile_rt);
 
 	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 	rib_addnode(rn, re, 1);
@@ -3212,6 +3237,71 @@ unsigned long rib_score_proto_table(uint8_t proto, unsigned short instance,
 				}
 			}
 	return n;
+}
+
+/*
+ * Delete remaining zebra_originationg routes from previous run of zebra
+ * after kernel reconciliation.
+ */
+void rib_sweep_kernel_reconcile_table(struct route_table *table)
+{
+	struct route_node *rn = NULL;
+	struct route_entry *re = NULL;
+	struct route_entry *next = NULL;
+	struct nexthop *nexthop = NULL;
+
+	if (!table || !kernel_reconcile)
+		return;
+
+	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
+		RNODE_FOREACH_RE_SAFE (rn, re, next) {
+			if (IS_ZEBRA_DEBUG_RIB)
+				route_entry_dump(&rn->p, NULL, re);
+
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
+				continue;
+
+			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_KERNEL_RECONCILE))
+				continue;
+
+			++zebra_kernel_reconcile_route_deleted;
+			/* Marking NH as active, may not be needed */
+			for (ALL_NEXTHOPS(re->ng, nexthop))
+				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+
+			rib_uninstall_kernel(rn, re);
+			rib_delnode(rn, re);
+		}
+	}
+}
+
+/* Sweep all RIB tables after the timer if kernel_reconcile is set. */
+void rib_sweep_kernel_reconcile_route(void)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+
+	zlog_notice("kernel_reconcile: timer_expire before sweep: A %lu, D %lu",
+		zebra_kernel_reconcile_route_learned,
+		zebra_kernel_reconcile_route_deleted);
+
+		if (!kernel_reconcile)
+			return;
+
+		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+			if ((zvrf = vrf->info) == NULL)
+				continue;
+
+			rib_sweep_kernel_reconcile_table(zvrf->table[AFI_IP][SAFI_UNICAST]);
+			rib_sweep_kernel_reconcile_table(zvrf->table[AFI_IP6][SAFI_UNICAST]);
+		}
+
+		zlog_notice("kernel_reconcile: timer_expire after sweep: add %ld, del %lu",
+			zebra_kernel_reconcile_route_learned,
+			zebra_kernel_reconcile_route_deleted);
+
+		zlog_notice("kernel_reconcile: Reset kernel_reconcile = 0");
+		kernel_reconcile = 0;
 }
 
 /* Remove specific by protocol routes. */
