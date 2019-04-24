@@ -144,7 +144,7 @@ DEFPY(vrrp_advertisement_interval,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	struct vrrp_vrouter *vr;
-	uint16_t newadvint = no ? vd.advertisement_interval :
+	uint16_t newadvint = no ? vd.advertisement_interval * 10:
 				  advertisement_interval;
 
 	if (newadvint % 10 != 0) {
