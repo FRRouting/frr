@@ -393,6 +393,9 @@ struct bgp {
 
 	struct hash *address_hash;
 
+	/* ipv6 connected address hash table pointer */
+	struct hash *ipv6_address_hash;
+
 	/* DB for all local tunnel-ips - used mainly for martian checks
 	   Currently it only has all VxLan tunnel IPs*/
 	struct hash *tip_hash;
