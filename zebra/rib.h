@@ -353,6 +353,8 @@ extern void rib_update_table(struct route_table *table,
 			     rib_update_event_t event);
 extern void rib_sweep_route(void);
 extern void rib_sweep_table(struct route_table *table);
+extern int  rib_sweep_kernel_reconcile_route(struct thread *thread);
+extern void rib_sweep_kernel_reconcile_table(struct route_table *table);
 extern void rib_close_table(struct route_table *table);
 extern void rib_init(void);
 extern unsigned long rib_score_proto(uint8_t proto, unsigned short instance);

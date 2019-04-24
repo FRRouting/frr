@@ -77,6 +77,9 @@ int allow_delete = 0;
 /* Don't delete kernel route. */
 int keep_kernel_mode = 0;
 
+/* Perform kernel reconciliation */
+int kernel_reconcile = 0;
+
 bool v6_rr_semantics = false;
 
 #ifdef HAVE_NETLINK
@@ -95,6 +98,7 @@ struct option longopts[] = {
 	{"label_socket", no_argument, NULL, 'l'},
 	{"retain", no_argument, NULL, 'r'},
 	{"vrfdefaultname", required_argument, NULL, 'o'},
+	{"kernel_reconcile", no_argument, NULL, 'K'},
 #ifdef HAVE_NETLINK
 	{"vrfwnetns", no_argument, NULL, 'n'},
 	{"nl-bufsize", required_argument, NULL, 's'},
@@ -270,7 +274,7 @@ int main(int argc, char **argv)
 	frr_preinit(&zebra_di, argc, argv);
 
 	frr_opt_add(
-		"bakz:e:l:o:r"
+		"bakz:e:l:o:r:K"
 #ifdef HAVE_NETLINK
 		"s:n"
 #endif
@@ -290,6 +294,7 @@ int main(int argc, char **argv)
 		"  -k, --keep_kernel     Don't delete old routes which were installed by zebra.\n"
 		"  -r, --retain          When program terminates, retain added route by zebra.\n"
 		"  -o, --vrfdefaultname  Set default VRF name.\n"
+		"  -K, --kernel_reconcile Reconcile kernel route after Zebra restart.\n"
 #ifdef HAVE_NETLINK
 		"  -n, --vrfwnetns       Use NetNS as VRF backend\n"
 		"  -s, --nl-bufsize      Set netlink receive buffer size\n"
@@ -349,6 +354,9 @@ int main(int argc, char **argv)
 			break;
 		case 'r':
 			retain_mode = 1;
+			break;
+		case 'K':
+			kernel_reconcile = 1;
 			break;
 #ifdef HAVE_NETLINK
 		case 's':
@@ -436,8 +444,11 @@ int main(int argc, char **argv)
 	*  immediately, so originating PID in notifications from kernel
 	*  will be equal to the current getpid(). To know about such routes,
 	* we have to have route_read() called before.
+	*  If kernel_reconcile is set, we do not clean up zebra-originated
+	*  routes on startup. Clean up will be done for remaining routes
+	*  after reconciliation .
 	*/
-	if (!keep_kernel_mode)
+	if (!keep_kernel_mode && !kernel_reconcile)
 		rib_sweep_route();
 
 	/* Needed for BSD routing socket. */

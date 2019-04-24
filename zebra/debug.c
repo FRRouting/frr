@@ -39,6 +39,8 @@ unsigned long zebra_debug_vxlan;
 unsigned long zebra_debug_pw;
 unsigned long zebra_debug_dplane;
 unsigned long zebra_debug_mlag;
+unsigned long zebra_kernel_reconcile_route_learned;
+unsigned long zebra_kernel_reconcile_route_deleted;
 
 DEFINE_HOOK(zebra_debug_show_debugging, (struct vty *vty), (vty));
 
@@ -546,6 +548,8 @@ void zebra_debug_init(void)
 	zebra_debug_dplane = 0;
 	zebra_debug_mlag = 0;
 	zebra_debug_nht = 0;
+	zebra_kernel_reconcile_route_learned = 0;
+	zebra_kernel_reconcile_route_deleted = 0;
 
 	install_node(&debug_node, config_write_debug);
 
