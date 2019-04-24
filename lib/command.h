@@ -159,6 +159,7 @@ enum node_type {
 	BFD_PEER_NODE,		 /* BFD peer configuration mode. */
 	OPENFABRIC_NODE,	/* OpenFabric router configuration node */
 	VRRP_NODE,		 /* VRRP node */
+	BMP_NODE,		/* BMP config under router bgp */
 	NODE_TYPE_MAX, /* maximum */
 };
 
