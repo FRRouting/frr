@@ -64,7 +64,4 @@ struct bmp
 				&(X)->t_event);									\
 	} while (0)
 
-extern void bmp_serv_sock(const char *hostname, unsigned short port);
-extern void bgp_bmp_init(void);
-
 #endif /*_BGP_BMP_H_*/

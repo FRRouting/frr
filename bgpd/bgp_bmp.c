@@ -33,6 +33,8 @@
 #include "filter.h"
 #include "lib_errors.h"
 #include "stream.h"
+#include "libfrr.h"
+#include "version.h"
 
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgpd.h"
@@ -46,6 +48,7 @@
 int accept_sock = -1;
 struct thread *bmp_serv_thread = NULL;
 
+DEFINE_MTYPE_STATIC(BGPD, BGP_BMP, "BGP Monitoring Protocol Information")
 
 /* BMP access-class command */
 static char *bmp_acl_name = NULL;
@@ -454,7 +457,7 @@ static int bmp_accept(struct thread *thread)
 	return 0;
 }
 
-void bmp_serv_sock(const char *hostname, unsigned short port)
+static void bmp_serv_sock(const char *hostname, unsigned short port)
 {
 	int ret;
 	struct addrinfo req;
@@ -514,11 +517,19 @@ void bmp_serv_sock(const char *hostname, unsigned short port)
 	freeaddrinfo(ainfo_save);
 }
 
-void bgp_bmp_init()
+static int bgp_bmp_init(struct thread_master *tm)
 {
-	hook_register(bgp_packet_dump, bmp_mirror_packet);
-
 	bmp_serv_sock("localhost", 60000);
+	return 0;
 }
 
+static int bgp_bmp_module_init(void)
+{
+	hook_register(bgp_packet_dump, bmp_mirror_packet);
+	hook_register(frr_late_init, bgp_bmp_init);
+	return 0;
+}
 
+FRR_MODULE_SETUP(.name = "bgpd_bmp", .version = FRR_VERSION,
+		 .description = "bgpd BMP module",
+		 .init = bgp_bmp_module_init)
