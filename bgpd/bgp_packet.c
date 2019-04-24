@@ -63,6 +63,11 @@
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_flowspec.h"
 
+DEFINE_HOOK(bgp_packet_dump,
+		(struct peer *peer, uint8_t type, bgp_size_t size,
+			struct stream *s),
+		(peer, type, size, s))
+
 /**
  * Sets marker and type fields for a BGP message.
  *
@@ -2242,8 +2247,7 @@ int bgp_process_packet(struct thread *thread)
 		size = stream_getw(peer->curr);
 		type = stream_getc(peer->curr);
 
-		/* BGP packet dump function. */
-		bgp_dump_packet(peer, type, peer->curr);
+		hook_call(bgp_packet_dump, peer, type, size, peer->curr);
 
 		/* adjust size to exclude the marker + length + type */
 		size -= BGP_HEADER_SIZE;
