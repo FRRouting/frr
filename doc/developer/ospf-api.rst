@@ -246,8 +246,8 @@ Important note:
 ^^^^^^^^^^^^^^^
 
 In order to originate an opaque LSA, there must be at least one active
-opaque-capable neighbor. Thus, you cannot originate opaque LSAs of no neighbors
-are present. If you try to originate even so no neighbor is ready, you will
+opaque-capable neighbor. Thus, you cannot originate opaque LSAs if no neighbors
+are present. If you try to originate when no neighbors are ready, you will
 receive a not ready error message. The reason for this restriction is that it
 might be possible that some routers have an identical opaque LSA from a
 previous origination in their LSDB that unfortunately could not be flushed due
@@ -320,7 +320,8 @@ The synchronous requests and replies have the following message formats:
 
    image
 
-The origin field allows to select according to the following types of origins:
+The origin field allows origin-based filtering using the following origin
+types:
 
 +-------------------------+---------+
 | Origin                  | Value   |
@@ -332,7 +333,7 @@ The origin field allows to select according to the following types of origins:
 | ANY\_ORIGIN             | 2       |
 +-------------------------+---------+
 
-The reply message has on of the following error codes:
+The reply message has one of the following error codes:
 
 +--------------------------+---------+
 | Error code               | Value   |
@@ -364,6 +365,9 @@ The asynchronous notifications have the following message formats:
    :alt: image
 
    image
+
+
+.. Do not delete these acknowledgements!
 
 Original Acknowledgments from Ralph Keller
 ------------------------------------------
