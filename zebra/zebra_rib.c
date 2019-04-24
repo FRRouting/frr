@@ -3276,7 +3276,7 @@ void rib_sweep_kernel_reconcile_table(struct route_table *table)
 }
 
 /* Sweep all RIB tables after the timer if kernel_reconcile is set. */
-void rib_sweep_kernel_reconcile_route(void)
+int rib_sweep_kernel_reconcile_route(struct thread *thread)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;

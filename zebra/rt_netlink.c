@@ -936,7 +936,7 @@ int netlink_route_read(struct zebra_ns *zns)
 	 * only at startup, so timer will be activated only once.
 	 */
 	if (kernel_reconcile)
-		thread_add_timer(zebrad.master, rib_sweep_kernel_reconcile_route,
+		thread_add_timer(zrouter.master, rib_sweep_kernel_reconcile_route,
 			NULL, 15, NULL);
 
 	return 0;
