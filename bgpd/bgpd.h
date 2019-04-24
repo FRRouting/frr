@@ -1077,6 +1077,14 @@ struct peer {
 	_Atomic uint32_t dynamic_cap_in;  /* Dynamic Capability input count.  */
 	_Atomic uint32_t dynamic_cap_out; /* Dynamic Capability output count. */
 
+	uint32_t stat_pfx_filter;
+	uint32_t stat_pfx_aspath_loop;
+	uint32_t stat_pfx_originator_loop;
+	uint32_t stat_pfx_cluster_loop;
+	uint32_t stat_pfx_nh_invalid;
+	uint32_t stat_pfx_dup_withdraw;
+	uint32_t stat_upd_7606;  /* RFC7606: treat-as-withdraw */
+
 	/* BGP state count */
 	uint32_t established; /* Established */
 	uint32_t dropped;     /* Dropped */
