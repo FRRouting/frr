@@ -2300,7 +2300,7 @@ int vrrp_config_write_global(struct vty *vty)
 	if (vd.advertisement_interval != VRRP_DEFAULT_ADVINT && ++writes)
 		vty_out(vty,
 			"vrrp default advertisement-interval %" PRIu16 "\n",
-			vd.advertisement_interval);
+			vd.advertisement_interval * CS2MS);
 
 	if (vd.preempt_mode != VRRP_DEFAULT_PREEMPT && ++writes)
 		vty_out(vty, "%svrrp default preempt\n",

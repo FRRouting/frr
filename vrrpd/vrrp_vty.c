@@ -315,19 +315,26 @@ DEFPY(vrrp_autoconfigure,
 
 DEFPY(vrrp_default,
       vrrp_default_cmd,
-      "[no] vrrp default <advertisement-interval$adv (1-4096)$advint|preempt$p|priority$prio (1-254)$prioval|shutdown$s>",
+      "[no] vrrp default <advertisement-interval$adv (10-40950)$advint|preempt$p|priority$prio (1-254)$prioval|shutdown$s>",
       NO_STR
       VRRP_STR
       "Configure defaults for new VRRP instances\n"
       VRRP_ADVINT_STR
-      "Advertisement interval in centiseconds\n"
+      "Advertisement interval in milliseconds\n"
       "Preempt mode\n"
       VRRP_PRIORITY_STR
       "Priority value\n"
       "Force VRRP router into administrative shutdown\n")
 {
-	if (adv)
+	if (adv) {
+		if (advint % 10 != 0) {
+			vty_out(vty, "%% Value must be a multiple of 10\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		/* all internal computations are in centiseconds */
+		advint /= CS2MS;
 		vd.advertisement_interval = no ? VRRP_DEFAULT_ADVINT : advint;
+	}
 	if (p)
 		vd.preempt_mode = !no;
 	if (prio)
