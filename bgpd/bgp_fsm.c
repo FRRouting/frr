@@ -184,9 +184,11 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 				EC_BGP_PKT_PROCESS,
 				"[%s] Dropping pending packet on connection transfer:",
 				peer->host);
-			uint16_t type = stream_getc_from(peer->curr,
-							 BGP_MARKER_SIZE + 2);
-			bgp_dump_packet(peer, type, peer->curr);
+			/* there used to be a bgp_packet_dump call here, but
+			 * that's extremely confusing since there's no way to
+			 * identify the packet in MRT dumps or BMP as dropped
+			 * due to connection transfer.
+			 */
 			stream_free(peer->curr);
 			peer->curr = NULL;
 		}
