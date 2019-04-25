@@ -2311,6 +2311,41 @@ static void json_object_pim_upstream_add(json_object *json,
 	/* XXX: need to print ths flag in the plain text display as well */
 	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_MSDP)
 		json_object_boolean_true_add(json, "sourceMsdp");
+
+	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SEND_SG_RPT_PRUNE)
+		json_object_boolean_true_add(json, "sendSGRptPrune");
+
+	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_LHR)
+		json_object_boolean_true_add(json, "lastHopRouter");
+
+	if (up->flags & PIM_UPSTREAM_FLAG_MASK_DISABLE_KAT_EXPIRY)
+		json_object_boolean_true_add(json, "disableKATExpiry");
+
+	if (up->flags & PIM_UPSTREAM_FLAG_MASK_STATIC_IIF)
+		json_object_boolean_true_add(json, "staticIncomingInterface");
+
+	if (up->flags & PIM_UPSTREAM_FLAG_MASK_ALLOW_IIF_IN_OIL)
+		json_object_boolean_true_add(json,
+					     "allowIncomingInterfaceinOil");
+
+	if (up->flags & PIM_UPSTREAM_FLAG_MASK_NO_PIMREG_DATA)
+		json_object_boolean_true_add(json, "noPimRegistrationData");
+
+	if (up->flags & PIM_UPSTREAM_FLAG_MASK_FORCE_PIMREG)
+		json_object_boolean_true_add(json, "forcePimRegistration");
+
+	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_ORIG)
+		json_object_boolean_true_add(json, "sourceVxlanOrigination");
+
+	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM)
+		json_object_boolean_true_add(json, "sourceVxlanTermination");
+
+	if (up->flags & PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN)
+		json_object_boolean_true_add(json, "mlagVxlan");
+
+	if (up->flags & PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF)
+		json_object_boolean_true_add(json,
+					     "mlagNonDesignatedForwarder");
 }
 
 static const char *
