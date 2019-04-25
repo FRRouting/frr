@@ -742,6 +742,27 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                         lines_to_add_to_del.append((tmp_ctx_keys, swpx_peergroup))
 
                 '''
+                Changing the bfd timers on neighbors is allowed without doing
+                a delete/add process. Since doing a "no neighbor blah bfd ..."
+                will cause the peer to bounce unnecessarily, just skip the delete
+                and just do the add.
+                '''
+                re_nbr_bfd_timers = re.search(r'neighbor (\S+) bfd (\S+) (\S+) (\S+)', line)
+
+                if re_nbr_bfd_timers:
+                    nbr = re_nbr_bfd_timers.group(1)
+                    bfd_nbr = "neighbor %s" % nbr
+
+                    for (ctx_keys, add_line) in lines_to_add:
+                        re_add_nbr_bfd_timers = re.search(r'neighbor (\S+) bfd (\S+) (\S+) (\S+)', add_line)
+
+                        if re_add_nbr_bfd_timers:
+                            found_add_bfd_nbr = line_exist(lines_to_add, ctx_keys, bfd_nbr, False)
+
+                            if found_add_bfd_nbr:
+                                lines_to_del_to_del.append((ctx_keys, line))
+
+                '''
                 We changed how we display the neighbor interface command. Older
                 versions of frr would display the following:
                     neighbor swp1 interface
