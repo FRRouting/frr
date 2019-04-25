@@ -1754,7 +1754,7 @@ static int bgp_fsm_exeption(struct peer *peer)
 	return (bgp_stop(peer));
 }
 
-void bgp_fsm_nht_update(struct peer *peer, int valid)
+void bgp_fsm_event_update(struct peer *peer, int valid)
 {
 	if (!peer)
 		return;
@@ -1787,7 +1787,6 @@ void bgp_fsm_nht_update(struct peer *peer, int valid)
 		break;
 	}
 }
-
 
 /* Finite State Machine structure */
 static const struct {
