@@ -158,6 +158,12 @@ DEFUN_NOSH(
 		}
 	}
 
+	if (!BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG)) {
+		if (bs->refcount)
+			vty_out(vty, "%% session peer is now configurable via bfd daemon.\n");
+		BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+	}
+
 	VTY_PUSH_CONTEXT(BFD_PEER_NODE, bs);
 
 	return CMD_SUCCESS;
@@ -983,6 +989,9 @@ static void _bfdd_peer_write_config_iter(struct hash_bucket *hb, void *arg)
 {
 	struct vty *vty = arg;
 	struct bfd_session *bs = hb->data;
+
+	if (!BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
+		return;
 
 	_bfdd_peer_write_config(vty, bs);
 }
