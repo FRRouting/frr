@@ -3834,6 +3834,13 @@ ALIAS_HIDDEN(neighbor_nexthop_self_force,
 	     "Disable the next hop calculation for this neighbor\n"
 	     "Set the next hop to self for reflected routes\n")
 
+ALIAS_HIDDEN(neighbor_nexthop_self_force,
+	     neighbor_nexthop_self_all_hidden_cmd,
+	     "neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self all",
+	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	     "Disable the next hop calculation for this neighbor\n"
+	     "Set the next hop to self for reflected routes\n")
+
 DEFUN (no_neighbor_nexthop_self,
        no_neighbor_nexthop_self_cmd,
        "no neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self",
@@ -3871,6 +3878,13 @@ DEFUN (no_neighbor_nexthop_self_force,
 ALIAS_HIDDEN(no_neighbor_nexthop_self_force,
 	     no_neighbor_nexthop_self_force_hidden_cmd,
 	     "no neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self force",
+	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	     "Disable the next hop calculation for this neighbor\n"
+	     "Set the next hop to self for reflected routes\n")
+
+ALIAS_HIDDEN(no_neighbor_nexthop_self_force,
+	     no_neighbor_nexthop_self_all_hidden_cmd,
+	     "no neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self all",
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Disable the next hop calculation for this neighbor\n"
 	     "Set the next hop to self for reflected routes\n")
@@ -12856,6 +12870,8 @@ void bgp_vty_init(void)
 	/* "neighbor next-hop-self force" commands. */
 	install_element(BGP_NODE, &neighbor_nexthop_self_force_hidden_cmd);
 	install_element(BGP_NODE, &no_neighbor_nexthop_self_force_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_nexthop_self_all_hidden_cmd);
+	install_element(BGP_NODE, &no_neighbor_nexthop_self_all_hidden_cmd);
 	install_element(BGP_IPV4_NODE, &neighbor_nexthop_self_force_cmd);
 	install_element(BGP_IPV4_NODE, &no_neighbor_nexthop_self_force_cmd);
 	install_element(BGP_IPV4M_NODE, &neighbor_nexthop_self_force_cmd);
