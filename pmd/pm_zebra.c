@@ -26,6 +26,7 @@
 #include "prefix.h"
 #include "routemap.h"
 #include "table.h"
+#include "jhash.h"
 #include "stream.h"
 #include "memory.h"
 #include "zclient.h"
@@ -35,13 +36,68 @@
 #include "nexthop.h"
 #include "nexthop_group.h"
 
+#include "pm.h"
 #include "pm_zebra.h"
 
 /* Zebra structure to hold current status. */
 struct zclient *zclient;
+static struct hash *pm_nht_hash;
 
 /* For registering events. */
 extern struct event_loop *master;
+
+struct pm_nht_data {
+	struct prefix *nh;
+
+	vrf_id_t nh_vrf_id;
+
+	uint32_t refcount;
+	uint8_t nh_num;
+};
+
+static unsigned int pm_nht_hash_key(const void *data)
+{
+	const struct pm_nht_data *nhtd = data;
+	unsigned int key = 0;
+
+	key = prefix_hash_key(nhtd->nh);
+	return jhash_1word(nhtd->nh_vrf_id, key);
+}
+
+static bool pm_nht_hash_cmp(const void *d1, const void *d2)
+{
+	const struct pm_nht_data *nhtd1 = d1;
+	const struct pm_nht_data *nhtd2 = d2;
+
+	if (nhtd1->nh_vrf_id != nhtd2->nh_vrf_id)
+		return false;
+
+	return prefix_same(nhtd1->nh, nhtd2->nh);
+}
+
+static void *pm_nht_hash_alloc(void *data)
+{
+	struct pm_nht_data *copy = data;
+	struct pm_nht_data *new;
+
+	new = XMALLOC(MTYPE_TMP, sizeof(*new));
+
+	new->nh = prefix_new();
+	prefix_copy(new->nh, copy->nh);
+	new->refcount = 0;
+	new->nh_num = 0;
+	new->nh_vrf_id = copy->nh_vrf_id;
+
+	return new;
+}
+
+static void pm_nht_hash_free(void *data)
+{
+	struct pm_nht_data *nhtd = data;
+
+	prefix_free(&nhtd->nh);
+	XFREE(MTYPE_TMP, nhtd);
+}
 
 static int pm_interface_address_add(int command, struct zclient *zclient,
 				 zebra_size_t length, vrf_id_t vrf_id)
@@ -84,38 +140,25 @@ static void zebra_connected(struct zclient *zclient)
 static void pm_nexthop_update(struct vrf *vrf, struct prefix *matched,
 			      struct zapi_route *nhr)
 {
-	int i;
+	struct pm_nht_data *nhtd, lookup;
+	afi_t afi = AFI_IP;
 
-	zlog_debug("Received update for %pFX", matched);
-	for (i = 0; i < nhr->nexthop_num; i++) {
-		struct zapi_nexthop *znh = &nhr->nexthops[i];
+	if (nhr->prefix.family == AF_INET6)
+		afi = AFI_IP6;
 
-		switch (znh->type) {
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-		case NEXTHOP_TYPE_IPV4:
-			zlog_debug(
-				"Nexthop %pI4, type: %d, ifindex: %d, vrf: %d, label_num: %d",
-					&znh->gate.ipv4.s_addr,
-				znh->type, znh->ifindex, znh->vrf_id,
-				znh->label_num);
-			break;
-		case NEXTHOP_TYPE_IPV6_IFINDEX:
-		case NEXTHOP_TYPE_IPV6:
-			zlog_debug(
-				"Nexthop %pI6, type: %d, ifindex: %d, vrf: %d, label_num: %d",
-				&znh->gate.ipv6,
-				znh->type, znh->ifindex, znh->vrf_id,
-				znh->label_num);
-			break;
-		case NEXTHOP_TYPE_IFINDEX:
-			zlog_debug("Nexthop IFINDEX: %d, ifindex: %d",
-				   znh->type, znh->ifindex);
-			break;
-		case NEXTHOP_TYPE_BLACKHOLE:
-			zlog_debug("Nexthop blackhole");
-			break;
-		}
-	}
+	memset(&lookup, 0, sizeof(lookup));
+	lookup.nh = matched;
+	lookup.nh_vrf_id = vrf->vrf_id;
+
+	nhtd = hash_lookup(pm_nht_hash, &lookup);
+
+	if (nhtd) {
+		nhtd->nh_num = nhr->nexthop_num;
+
+		pm_nht_update(matched, nhr->nexthop_num, afi,
+			      nhtd->nh_vrf_id, NULL);
+	} else
+		zlog_err("No nhtd?");
 }
 
 extern struct zebra_privs_t pm_privs;
@@ -136,6 +179,79 @@ static zclient_handler *const pm_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = pm_interface_address_delete,
 };
 
+void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
+{
+	struct pm_nht_data *nhtd, lookup;
+	uint32_t cmd;
+	struct prefix p;
+	afi_t afi = AFI_IP;
+	struct vrf *vrf;
+
+	cmd = (reg) ?
+		ZEBRA_NEXTHOP_REGISTER : ZEBRA_NEXTHOP_UNREGISTER;
+
+	if (PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_REGISTERED) && reg)
+		return;
+	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_REGISTERED) && !reg)
+		return;
+
+	memset(&p, 0, sizeof(p));
+	if (sockunion_family(&pm->key.peer) == AF_INET) {
+		p.family = AF_INET;
+		p.prefixlen = IPV4_MAX_BITLEN;
+		p.u.prefix4 = pm->key.peer.sin.sin_addr;
+		afi = AFI_IP;
+	} else if (sockunion_family(&pm->key.peer) == AF_INET6) {
+		p.family = AF_INET6;
+		p.prefixlen = IPV6_MAX_BITLEN;
+		p.u.prefix6 = pm->key.peer.sin6.sin6_addr;
+		afi = AFI_IP6;
+	}
+	if (pm->key.vrfname[0])
+		vrf = vrf_lookup_by_name(pm->key.vrfname);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (!vrf)
+		return;
+
+	memset(&lookup, 0, sizeof(lookup));
+	lookup.nh = &p;
+	lookup.nh_vrf_id = vrf->vrf_id;
+
+	if (reg)
+		PM_SET_FLAG(pm->flags, PM_SESS_FLAG_NH_REGISTERED);
+	else
+		PM_UNSET_FLAG(pm->flags, PM_SESS_FLAG_NH_REGISTERED);
+
+	if (reg) {
+		nhtd = hash_get(pm_nht_hash, &lookup,
+				pm_nht_hash_alloc);
+		nhtd->refcount++;
+
+		if (nhtd->refcount > 1) {
+			pm_nht_update(nhtd->nh, nhtd->nh_num,
+				      afi, nhtd->nh_vrf_id, vty);
+			return;
+		}
+	} else {
+		nhtd = hash_lookup(pm_nht_hash, &lookup);
+		if (!nhtd)
+			return;
+
+		nhtd->refcount--;
+		if (nhtd->refcount >= 1)
+			return;
+
+		hash_release(pm_nht_hash, nhtd);
+		pm_nht_hash_free(nhtd);
+	}
+
+	if (zclient_send_rnh(zclient, cmd, &p, SAFI_UNICAST, false, false,
+			     vrf->vrf_id, 0) < 0)
+		zlog_warn("%s: Failure to send nexthop to zebra",
+			  __PRETTY_FUNCTION__);
+}
+
 void pm_zebra_init(void)
 {
 	hook_register_prio(if_real, 0, pm_zebra_ifp_create);
@@ -150,4 +266,8 @@ void pm_zebra_init(void)
 
 	zclient->zebra_connected = zebra_connected;
 	zclient->nexthop_update = pm_nexthop_update;
+
+	pm_nht_hash = hash_create(pm_nht_hash_key,
+				  pm_nht_hash_cmp,
+				  "PM Nexthop Tracking hash");
 }

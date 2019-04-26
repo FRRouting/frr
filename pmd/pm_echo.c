@@ -90,10 +90,12 @@ void pm_echo_tmo(struct event *event)
 		return;
 	}
 	pme->stats_rx_timeout++;
-	if (pme->last_alarm != PM_ECHO_TIMEOUT)
+	if (pme->last_alarm != PM_ECHO_TIMEOUT &&
+	    pme->last_alarm != PM_ECHO_NHT_UNREACHABLE)
 		zlog_info("echo packet to %pSU timed out",
 			  &pme->peer);
-	pme->last_alarm = PM_ECHO_TIMEOUT;
+	if (pme->last_alarm != PM_ECHO_NHT_UNREACHABLE)
+		pme->last_alarm = PM_ECHO_TIMEOUT;
 }
 
 void pm_echo_receive(struct event *event)
@@ -214,7 +216,8 @@ void pm_echo_receive(struct event *event)
 			zlog_info("echo packet to %pSU timed out",
 					&pme->peer);
 		}
-		pme->last_alarm = PM_ECHO_TIMEOUT;
+		if (pme->last_alarm != PM_ECHO_NHT_UNREACHABLE)
+			pme->last_alarm = PM_ECHO_TIMEOUT;
 		return;
 	}
 	if (pme->last_alarm != PM_ECHO_OK)
@@ -650,4 +653,19 @@ void pm_echo_dump(struct vty *vty, struct pm_session *pm)
 		pme->last_rtt.tv_sec, pme->last_rtt.tv_usec);
 	vty_out(vty, "\t");
 	pm_rtt_display_stats(vty, pme->rtt_stats);
+}
+
+/* keep pme session on suspend */
+void pm_echo_trigger_nht_unreachable(struct pm_session *pm)
+{
+	struct pm_echo *pme = pm->oper_ctxt;
+
+	if (!pme)
+		return;
+
+	if (pme->last_alarm == PM_ECHO_OK)
+		zlog_info("echo packet to %pSU unreachable",
+			  &pme->peer);
+	if (pme->last_alarm != PM_ECHO_TIMEOUT)
+		pme->last_alarm = PM_ECHO_NHT_UNREACHABLE;
 }

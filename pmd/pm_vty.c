@@ -148,6 +148,12 @@ DEFUN_NOSH(
 		vrfname = argv[idx + 1]->arg;
 
 	str2sockunion(peer, &psa);
+	pm = pm_lookup_session(&psa, local, ifname, vrfname, false,
+			       errormsg, sizeof(errormsg));
+	if (pm) {
+		VTY_PUSH_CONTEXT(PM_SESSION_NODE, pm);
+		return CMD_SUCCESS;
+	}
 	pm = pm_lookup_session(&psa, local, ifname, vrfname, true,
 			       errormsg, sizeof(errormsg));
 	if (!pm) {
@@ -156,6 +162,7 @@ DEFUN_NOSH(
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	pm_initialise(pm, false, errormsg, sizeof(errormsg));
+	pm_zebra_nht_register(pm, true, vty);
 	VTY_PUSH_CONTEXT(PM_SESSION_NODE, pm);
 	return CMD_SUCCESS;
 }
@@ -184,6 +191,7 @@ DEFPY(
 	}
 	/* flush session if any */
 	pm_echo_stop(pm, errormsg, sizeof(errormsg), false);
+	pm_zebra_nht_register(pm, false, vty);
 
 	hash_release(pm_session_list, pm);
 	XFREE(MTYPE_PM_SESSION, pm);
