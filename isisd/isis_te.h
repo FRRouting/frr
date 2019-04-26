@@ -244,11 +244,10 @@ typedef enum _status_t { disable, enable, learn } status_t;
 /* Mode for Inter-AS LSP */ /* TODO: Check how if LSP is flooded in RFC5316 */
 typedef enum _interas_mode_t { off, region, as, emulate } interas_mode_t;
 
-#define IS_MPLS_TE(m)    (m.status == enable)
-#define IS_CIRCUIT_TE(c) (c->status == enable)
+#define IS_MPLS_TE(m)    (m && m->status == enable)
 
-/* Following structure are internal use only. */
-struct isis_mpls_te {
+/* Per area MPLS-TE parameters */
+struct mpls_te_area {
 	/* Status of MPLS-TE: enable or disable */
 	status_t status;
 
@@ -259,15 +258,11 @@ struct isis_mpls_te {
 	interas_mode_t inter_as;
 	struct in_addr interas_areaid;
 
-	/* Circuit list on which TE are enable */
-	struct list *cir_list;
-
 	/* MPLS_TE router ID */
 	struct in_addr router_id;
 };
 
-extern struct isis_mpls_te isisMplsTE;
-
+/* Per Circuit MPLS-TE parameters */
 struct mpls_te_circuit {
 
 	/* Status of MPLS-TE on this interface */
@@ -318,6 +313,5 @@ uint8_t add_te_subtlvs(uint8_t *, struct mpls_te_circuit *);
 uint8_t build_te_subtlvs(uint8_t *, struct isis_circuit *);
 void isis_link_params_update(struct isis_circuit *, struct interface *);
 void isis_mpls_te_update(struct interface *);
-void isis_mpls_te_config_write_router(struct vty *);
 
 #endif /* _ZEBRA_ISIS_MPLS_TE_H */

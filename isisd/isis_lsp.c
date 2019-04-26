@@ -1070,7 +1070,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 						uint8_t subtlvs[256];
 						uint8_t subtlv_len;
 
-						if (IS_MPLS_TE(isisMplsTE)
+						if (IS_MPLS_TE(area->mta)
 						    && circuit->interface
 						    && HAS_LINK_PARAMS(
 							       circuit->interface))
@@ -1112,7 +1112,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 					uint8_t subtlvs[256];
 					uint8_t subtlv_len;
 
-					if (IS_MPLS_TE(isisMplsTE)
+					if (IS_MPLS_TE(area->mta)
 					    && circuit->interface != NULL
 					    && HAS_LINK_PARAMS(
 						       circuit->interface))
