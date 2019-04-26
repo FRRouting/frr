@@ -22,6 +22,7 @@
 #define __PM_ECHO_H__
 
 #include "zebra.h"
+#include "pmd/pm_rtt.h"
 
 enum pm_echo_alarm {
 	PM_ECHO_NONE = 0,
@@ -45,6 +46,7 @@ struct pm_echo {
 	struct timeval start;
 	struct timeval end;
 	struct timeval last_rtt;
+	struct pm_rtt_stats *rtt_stats;
 	enum pm_echo_alarm last_alarm;
 	/* to distinguish between network
 	 * unreachable and other error
