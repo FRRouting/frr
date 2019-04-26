@@ -42,6 +42,7 @@ DEFINE_MGROUP(PMD, "Path Monitoring Daemon")
 DEFINE_MTYPE(PMD, PM_SESSION, "PM sessions")
 DEFINE_MTYPE(PMD, PM_ECHO, "PM Echo contexts")
 DEFINE_MTYPE(PMD, PM_PACKET, "PM Packets")
+DEFINE_MTYPE(PMD, PM_RTT_STATS, "PM RTT stats")
 
 static unsigned int pm_id_list_hash_do(const void *p)
 {

@@ -68,6 +68,8 @@ static void _pm_echo_remove(struct pm_echo *pme)
 	if (pm)
 		pm->oper_ctxt = NULL;
 	pm_id_list_delete(pme);
+	if (pme->rtt_stats)
+		pm_rtt_free_ctx(pme->rtt_stats);
 	if (pme->rx_buf)
 		XFREE(MTYPE_PM_PACKET, pme->rx_buf);
 	if (pme->tx_buf)
@@ -240,16 +242,11 @@ int pm_echo_receive(struct thread *thread)
 		}
 	}
 	pme->stats_rx++;
-	pme->last_rtt.tv_sec = pme->end.tv_sec - pme->start.tv_sec;
-	if (pme->end.tv_usec - pme->start.tv_usec > 0)
-		pme->last_rtt.tv_usec = pme->end.tv_usec - pme->start.tv_usec;
-	else {
-		pme->last_rtt.tv_usec = 1000000 -
-			(pme->start.tv_usec - pme->end.tv_usec);
-		pme->last_rtt.tv_sec--;
-	}
-	if (pme->last_rtt.tv_sec > pme->timeout ||
-	    ((pme->last_rtt.tv_sec == pm->timeout) &&
+	pm_rtt_calculate(&pme->start, &pme->end,
+			 &pme->last_rtt, NULL);
+	pm_rtt_update_stats(pme->rtt_stats, &pme->last_rtt, NULL);
+	if (pme->last_rtt.tv_sec * 1000 > pme->timeout ||
+	    ((pme->last_rtt.tv_sec * 1000 == pm->timeout) &&
 	     (pme->last_rtt.tv_usec > 0))) {
 		if (!pme->oper_receive)
 			pme->stats_rx_timeout++;
@@ -695,9 +692,11 @@ int pm_echo(struct pm_session *pm, char *errormsg, int errormsg_len)
 	pme_ptr->interval = pm->interval;
 	pme_ptr->packet_size = pm->packet_size;
 	pme_ptr->peer = peer;
+	pme_ptr->rtt_stats = pm_rtt_allocate_ctx();
 	pme_ptr->gw = gw;
 	pme_ptr->oper_connect = false;
 	pme_ptr->oper_bind = false;
+
 	pm_id_list_insert(pme_ptr);
 
 	thread_add_timer(master, pm_echo_send, pme_ptr, 0,
@@ -719,4 +718,6 @@ void pm_echo_dump(struct vty *vty, struct pm_session *pm)
 		pme->stats_tx, pme->stats_rx, pme->stats_rx_timeout);
 	vty_out(vty, "\tlast round trip time %lu sec, %lu usec\n",
 		pme->last_rtt.tv_sec, pme->last_rtt.tv_usec);
+	vty_out(vty, "\t");
+	pm_rtt_display_stats(vty, pme->rtt_stats);
 }
