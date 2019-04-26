@@ -86,5 +86,6 @@ extern void pm_echo_dump(struct vty *vty, struct pm_session *pm);
 
 extern char *pm_echo_get_alarm_str(struct pm_session *pm,
 				   char *buf, size_t len);
+extern void pm_echo_trigger_nht_unreachable(struct pm_session *pm);
 
 #endif

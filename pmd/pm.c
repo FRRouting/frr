@@ -329,11 +329,28 @@ void pm_try_run(struct vty *vty, struct pm_session *pm)
 
 	if (PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_SHUTDOWN))
 		return;
+	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID)) {
+		if (vty)
+			vty_out(vty, "%% session to %s could not be started:"
+				"nexthop not resolved\n",
+				sockunion2str(&pm->key.peer,
+					      buf, sizeof(buf)));
+		else
+			zlog_err("%% session to %s could not be started:"
+				 "nexthop not resolved",
+				 sockunion2str(&pm->key.peer,
+					       buf, sizeof(buf)));
+		return;
+	}
 	/* check config is consistent */
 	pm_initialise(pm, true, errormsg, sizeof(errormsg));
 	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_VALIDATE)) {
-		vty_out(vty, "%% session could not be started: %s\n",
-			errormsg);
+		if (vty)
+			vty_out(vty, "%% session could not be started: %s\n",
+				errormsg);
+		else
+			zlog_err("%% session could not be started: %s",
+				 errormsg);
 		return;
 	}
 	/* flush previous context if necessary */
@@ -341,13 +358,94 @@ void pm_try_run(struct vty *vty, struct pm_session *pm)
 	/* rerun it */
 	ret = pm_echo(pm, errormsg, sizeof(errormsg));
 	if (ret) {
-		vty_out(vty, "%% session could not be run: %s\n",
-			errormsg);
+		if (vty)
+			vty_out(vty, "%% session could not be run: %s\n",
+				errormsg);
+		else
+			zlog_info("%% session could not be run: %s",
+				 errormsg);
 		return;
 	}
 	PM_SET_FLAG(pm->flags, PM_SESS_FLAG_RUN);
-	vty_out(vty, "%% session to %s runs now\n",
-		sockunion2str(&pm->key.peer, buf, sizeof(buf)));
+	if (vty)
+		vty_out(vty, "%% session to %s runs now\n",
+			sockunion2str(&pm->key.peer, buf, sizeof(buf)));
+	else
+		zlog_info("%% session to %s runs now",
+			sockunion2str(&pm->key.peer, buf, sizeof(buf)));
+}
+
+struct pm_nht_ctx {
+	vrf_id_t vrf_id;
+	union sockunion peer;
+	uint32_t nh_num;
+	struct vty *vty;
+};
+
+static int pm_nht_update_walkcb(struct hash_bucket *bucket, void *arg)
+{
+	struct pm_nht_ctx *pnc = (struct pm_nht_ctx *)arg;
+	struct pm_session *pm = (struct pm_session *)bucket->data;
+	struct vty *vty = pnc->vty;
+	struct vrf *vrf;
+	bool orig, new;
+	bool reinstall = false;
+	char buf[SU_ADDRSTRLEN];
+	char errormsg[128];
+
+	if (pm->key.vrfname[0])
+		vrf = vrf_lookup_by_name(pm->key.vrfname);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (!vrf)
+		return HASHWALK_CONTINUE;
+	if (vrf->vrf_id != pnc->vrf_id)
+		return HASHWALK_CONTINUE;
+	if (!sockunion_same(&pm->key.peer, &pnc->peer))
+		return HASHWALK_CONTINUE;
+	orig = PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID);
+	new = !!pnc->nh_num;
+	if (orig != new)
+		reinstall = true;
+	if (reinstall) {
+		if (!new) {
+			zlog_info("PMD: session to %s,"
+				  "NHT fails to reach address",
+				  sockunion2str(&pm->key.peer,
+						buf, sizeof(buf)));
+			PM_UNSET_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID);
+			PM_UNSET_FLAG(pm->flags, PM_SESS_FLAG_RUN);
+			pm_echo_trigger_nht_unreachable(pm);
+			/* because nexthop failed, stop emitting */
+			pm_echo_stop(pm, errormsg, sizeof(errormsg), false);
+		} else {
+			zlog_info("PMD: session to %s, NHT OK",
+				  sockunion2str(&pm->key.peer,
+						buf, sizeof(buf)));
+			PM_SET_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID);
+			pm_try_run(vty, pm);
+		}
+	}
+	return HASHWALK_CONTINUE;
+}
+
+void pm_nht_update(struct prefix *p, uint32_t nh_num, afi_t afi,
+		   vrf_id_t nh_vrf_id, struct vty *vty)
+{
+	struct pm_nht_ctx pnc;
+
+	memset(&pnc, 0, sizeof(struct pm_nht_ctx));
+	pnc.vty = vty;
+	pnc.peer.sa.sa_family = p->family;
+	if (afi == AFI_IP)
+		pnc.peer.sin.sin_addr = p->u.prefix4;
+	else if (afi == AFI_IP6)
+		memcpy(&pnc.peer.sin6.sin6_addr, &p->u.prefix6,
+		       sizeof(struct in6_addr));
+	pnc.vrf_id = nh_vrf_id;
+	pnc.nh_num = nh_num;
+
+	hash_walk(pm_session_list, pm_nht_update_walkcb, &pnc);
 }
 
 struct pm_session_ifp {
@@ -383,8 +481,12 @@ static int pm_sessions_change_ifp_walkcb(struct hash_bucket *bucket, void *arg)
 		return HASHWALK_CONTINUE;
 	if (if_ctx != ifp)
 		return HASHWALK_CONTINUE;
-	if (!enable)
+	if (!enable) {
 		pm_echo_stop(pm, errormsg, sizeof(errormsg), true);
+		pm_zebra_nht_register(pm, false, NULL);
+	} else
+		pm_zebra_nht_register(pm, true, NULL);
+
 	return HASHWALK_CONTINUE;
 }
 
