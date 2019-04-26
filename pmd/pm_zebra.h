@@ -21,6 +21,13 @@
 #ifndef __PM_ZEBRA_H__
 #define __PM_ZEBRA_H__
 
+#include "vty.h"
+
+#include "pm.h"
+
 extern void pm_zebra_init(void);
+
+extern void pm_zebra_nht_register(struct pm_session *pm,
+				  bool reg, struct vty *vty);
 
 #endif

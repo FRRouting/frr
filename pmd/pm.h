@@ -52,6 +52,7 @@ struct pm_session {
 #define PM_SESS_FLAG_CONFIG        (1 << 2)
 #define PM_SESS_FLAG_RUN           (1 << 3)
 #define PM_SESS_FLAG_NH_VALID      (1 << 4)
+#define PM_SESS_FLAG_NH_REGISTERED (1 << 5)
 	uint32_t flags;
 	union sockunion nh;
 	enum pm_probe_type type;
@@ -116,6 +117,8 @@ extern void pm_sessions_change_interface(struct interface *ifp, bool ret);
 
 extern int pm_get_default_packet_size(struct pm_session *pm);
 extern char *pm_get_state_str(struct pm_session *pm, char *buf, size_t len);
+extern void pm_nht_update(struct prefix *p, uint32_t nh_num, afi_t afi,
+			  vrf_id_t nh_vrf_id, struct vty *vty);
 
 extern void pm_get_peer(struct pm_session *pm, union sockunion *peer);
 extern void pm_get_gw(struct pm_session *pm, union sockunion *gw);
