@@ -1378,7 +1378,7 @@ static int isis_instance_mpls_te_create(enum nb_event event,
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = yang_dnode_get_entry(dnode, true);
+	area = nb_running_get_entry(dnode, NULL, true);
 	if (area->mta == NULL) {
 
 		struct mpls_te_area *new;
@@ -1437,7 +1437,7 @@ static int isis_instance_mpls_te_destroy(enum nb_event event,
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = yang_dnode_get_entry(dnode, true);
+	area = nb_running_get_entry(dnode, NULL, true);
 	if (IS_MPLS_TE(area->mta))
 		area->mta->status = disable;
 	else
@@ -1473,7 +1473,7 @@ static int isis_instance_mpls_te_router_address_modify(enum nb_event event,
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = yang_dnode_get_entry(dnode, true);
+	area = nb_running_get_entry(dnode, NULL, true);
 	/* only proceed if MPLS-TE is enabled */
 	if (!IS_MPLS_TE(area->mta))
 		return NB_OK;
@@ -1497,7 +1497,7 @@ static int isis_instance_mpls_te_router_address_destroy(enum nb_event event,
 	if (event != NB_EV_APPLY)
 		return NB_OK;
 
-	area = yang_dnode_get_entry(dnode, true);
+	area = nb_running_get_entry(dnode, NULL, true);
 	/* only proceed if MPLS-TE is enabled */
 	if (!IS_MPLS_TE(area->mta))
 		return NB_OK;
