@@ -270,7 +270,6 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 				ri->rtm_type = RTN_BLACKHOLE;
 				break;
 			}
-			return 1;
 		}
 
 		if ((cmd == RTM_NEWROUTE
