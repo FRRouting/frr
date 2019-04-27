@@ -554,9 +554,9 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 				mod_v6nhg = &peer->nexthop.v6_global;
 				gnh_modified = 1;
 			} else if (
-				peer->sort == BGP_PEER_EBGP
-				&& !CHECK_FLAG(
-					   vec->flags,
+				(peer->sort == BGP_PEER_EBGP)
+				&& (!bgp_multiaccess_check_v6(v6nhglobal, peer))
+				&& !CHECK_FLAG(vec->flags,
 					   BPKT_ATTRVEC_FLAGS_RMAP_NH_UNCHANGED)
 				&& !peer_af_flag_check(
 					   peer, nhafi, paf->safi,
