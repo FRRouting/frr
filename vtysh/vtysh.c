@@ -2172,7 +2172,7 @@ DEFUNSH(VTYSH_VRF, vtysh_quit_vrf, vtysh_quit_vrf_cmd, "quit",
 	return vtysh_exit_vrf(self, vty, argc, argv);
 }
 
-DEFUNSH(VTYSH_PBRD, vtysh_exit_nexthop_group, vtysh_exit_nexthop_group_cmd,
+DEFUNSH(VTYSH_PBRD | VTYSH_SHARPD, vtysh_exit_nexthop_group, vtysh_exit_nexthop_group_cmd,
 	"exit", "Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit(vty);
