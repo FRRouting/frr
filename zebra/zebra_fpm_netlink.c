@@ -233,13 +233,6 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 	ri->rtm_table = zvrf_id(rib_dest_vrf(dest));
 	ri->rtm_protocol = RTPROT_UNSPEC;
 
-	/*
-	 * An RTM_DELROUTE need not be accompanied by any nexthops,
-	 * particularly in our communication with the FPM.
-	 */
-	if (cmd == RTM_DELROUTE && !re)
-		return 1;
-
 	if (!re) {
 		zfpm_debug("%s: Expected non-NULL re pointer",
 			   __PRETTY_FUNCTION__);
