@@ -342,6 +342,9 @@ struct zebra_if {
 	bool v6_2_v4_ll_neigh_entry;
 	char neigh_mac[6];
 	struct in6_addr v6_2_v4_ll_addr6;
+
+	/* The description of the interface */
+	char *desc;
 };
 
 DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
