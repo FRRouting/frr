@@ -280,7 +280,7 @@ int work_queue_run(struct thread *thread)
 		if (item->ran > wq->spec.max_retries) {
 			/* run error handler, if any */
 			if (wq->spec.errorfunc)
-				wq->spec.errorfunc(wq, item->data);
+				wq->spec.errorfunc(wq, item);
 			work_queue_item_remove(wq, item);
 			continue;
 		}
