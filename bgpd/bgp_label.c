@@ -355,7 +355,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 			/* When packet overflow occurs return immediately. */
 			if (pnt + BGP_ADDPATH_ID_LEN > lim)
-				return -1;
+				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 
 			addpath_id = ntohl(*((uint32_t *)pnt));
 			pnt += BGP_ADDPATH_ID_LEN;
@@ -372,7 +372,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 				EC_BGP_UPDATE_RCV,
 				"%s [Error] Update packet error / L-U (prefix length %d exceeds packet size %u)",
 				peer->host, prefixlen, (uint)(lim - pnt));
-			return -1;
+			return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 		}
 
 		/* Fill in the labels */
@@ -387,12 +387,12 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 				 peer->host, prefixlen);
 			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_INVAL_NETWORK);
-			return -1;
+			return BGP_NLRI_PARSE_ERROR_LABEL_LENGTH;
 		}
 
 		if ((afi == AFI_IP && p.prefixlen > 32)
 		    || (afi == AFI_IP6 && p.prefixlen > 128))
-			return -1;
+			return BGP_NLRI_PARSE_ERROR_PREFIX_LENGTH;
 
 		/* Fetch prefix from NLRI packet */
 		memcpy(&p.u.prefix, pnt + llen, psize - llen);
@@ -463,8 +463,8 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 			EC_BGP_UPDATE_RCV,
 			"%s [Error] Update packet error / L-U (%zu data remaining after parsing)",
 			peer->host, lim - pnt);
-		return -1;
+		return BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
 	}
 
-	return 0;
+	return BGP_NLRI_PARSE_OK;
 }
