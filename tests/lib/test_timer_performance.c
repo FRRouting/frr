@@ -28,6 +28,7 @@
 #include <unistd.h>
 
 #include "thread.h"
+#include "pqueue.h"
 #include "prng.h"
 
 #define SCHEDULE_TIMERS 1000000

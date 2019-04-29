@@ -28,6 +28,7 @@
 #include <unistd.h>
 
 #include "memory.h"
+#include "pqueue.h"
 #include "prng.h"
 #include "thread.h"
 

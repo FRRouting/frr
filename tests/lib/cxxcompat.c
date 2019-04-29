@@ -71,6 +71,7 @@
 #include "lib/openbsd-tree.h"
 #include "lib/pbr.h"
 #include "lib/plist.h"
+#include "lib/pqueue.h"
 #include "lib/prefix.h"
 #include "lib/privs.h"
 #include "lib/ptm_lib.h"
