@@ -288,6 +288,39 @@ extern void list_delete_node(struct list *list, struct listnode *node);
  */
 extern void list_add_list(struct list *list, struct list *add);
 
+/*
+ * Delete all nodes which satisfy a condition from a list.
+ * Deletes the node if cond function returns true for the node.
+ * If function ptr passed is NULL, it deletes all nodes
+ *
+ * list
+ *    list to operate on
+ * cond
+ *    function pointer which takes node data as input and return TRUE or FALSE
+ */
+
+extern void list_filter_out_nodes(struct list *list, bool (*cond)(void *data));
+
+/*
+ * Insert a new element into a list with insertion sort if there is no
+ * duplicate element present in the list. This assumes the input list is
+ * sorted. If unsorted, it will check for duplicate until it finds out
+ * the position to do insertion sort with the unsorted list.
+ *
+ * If list->cmp is set, this function is used to determine the position to
+ * insert the new element. If it is not set, this function is equivalent to
+ * listnode_add. duplicate element is determined by cmp function returning 0.
+ *
+ * Runtime is O(N).
+ *
+ * list
+ *    list to operate on
+ *
+ * val
+ *    element to add
+ */
+
+extern bool listnode_add_sort_nodup(struct list *list, void *val);
 /* List iteration macro.
  * Usage: for (ALL_LIST_ELEMENTS (...) { ... }
  * It is safe to delete the listnode using this macro.

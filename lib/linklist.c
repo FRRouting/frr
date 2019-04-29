@@ -92,6 +92,46 @@ void listnode_add_head(struct list *list, void *val)
 	list->count++;
 }
 
+bool listnode_add_sort_nodup(struct list *list, void *val)
+{
+	struct listnode *n;
+	struct listnode *new;
+	int ret;
+
+	assert(val != NULL);
+
+	if (list->cmp) {
+		for (n = list->head; n; n = n->next) {
+			ret = (*list->cmp)(val, n->data);
+			if (ret < 0) {
+				new = listnode_new();
+				new->data = val;
+
+				new->next = n;
+				new->prev = n->prev;
+
+				if (n->prev)
+					n->prev->next = new;
+				else
+					list->head = new;
+				n->prev = new;
+				list->count++;
+				return true;
+			}
+			/* found duplicate return false */
+			if (ret == 0)
+				return false;
+		}
+	}
+
+	new = listnode_new();
+	new->data = val;
+
+	LISTNODE_ATTACH(list, new);
+
+	return true;
+}
+
 void listnode_add_sort(struct list *list, void *val)
 {
 	struct listnode *n;
@@ -240,6 +280,23 @@ void list_delete_all_node(struct list *list)
 	}
 	list->head = list->tail = NULL;
 	list->count = 0;
+}
+
+void list_filter_out_nodes(struct list *list, bool (*cond)(void *data))
+{
+	struct listnode *node;
+	struct listnode *next;
+	void *data;
+
+	assert(list);
+
+	for (ALL_LIST_ELEMENTS(list, node, next, data)) {
+		if ((cond && cond(data)) || (!cond)) {
+			if (*list->del)
+				(*list->del)(data);
+			list_delete_node(list, node);
+		}
+	}
 }
 
 void list_delete(struct list **list)
