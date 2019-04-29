@@ -113,6 +113,12 @@ struct zebra_router {
 	 * The EVPN instance, if any
 	 */
 	struct zebra_vrf *evpn_vrf;
+
+	/*
+	 * Statistics for kernel stale routes.
+	 */
+	unsigned long zebra_stale_rt_add;
+	unsigned long zebra_stale_rt_del;
 };
 
 extern struct zebra_router zrouter;

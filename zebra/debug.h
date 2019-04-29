@@ -103,8 +103,6 @@ extern unsigned long zebra_debug_vxlan;
 extern unsigned long zebra_debug_pw;
 extern unsigned long zebra_debug_dplane;
 extern unsigned long zebra_debug_mlag;
-extern unsigned long zebra_kernel_reconcile_route_learned;
-extern unsigned long zebra_kernel_reconcile_route_deleted;
 
 extern void zebra_debug_init(void);
 

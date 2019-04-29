@@ -446,7 +446,7 @@ int main(int argc, char **argv)
 	* we have to have route_read() called before.
 	*  If kernel_reconcile is set, we do not clean up zebra-originated
 	*  routes on startup. Clean up will be done for remaining routes
-	*  after reconciliation .
+	*  after reconciliation.
 	*/
 	if (!keep_kernel_mode && !kernel_reconcile)
 		rib_sweep_route();

@@ -2757,12 +2757,12 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		 */
 		if (kernel_reconcile
 			&& CHECK_FLAG(same->flags, ZEBRA_FLAG_KERNEL_RECONCILE)) {
-			++zebra_kernel_reconcile_route_deleted;
+			++zrouter.zebra_stale_rt_del;
 			if (IS_ZEBRA_DEBUG_RIB)
 				rnode_debug(rn, same->vrf_id,
-					"kernel_reconcile: match, A %lu D %lu rn %p",
-					zebra_kernel_reconcile_route_learned,
-					zebra_kernel_reconcile_route_deleted, rn);
+					"kernel_reconcile: match, add %lu del %lu rn %p",
+					zrouter.zebra_stale_rt_add,
+					zrouter.zebra_stale_rt_del, rn);
 			kernel_reconcile_rt = same;
 			continue;
 		}
@@ -3264,7 +3264,7 @@ void rib_sweep_kernel_reconcile_table(struct route_table *table)
 			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_KERNEL_RECONCILE))
 				continue;
 
-			++zebra_kernel_reconcile_route_deleted;
+			++zrouter.zebra_stale_rt_del;
 			/* Marking NH as active, may not be needed */
 			for (ALL_NEXTHOPS(re->ng, nexthop))
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
@@ -3281,9 +3281,8 @@ int rib_sweep_kernel_reconcile_route(struct thread *thread)
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	zlog_notice("kernel_reconcile: timer_expire before sweep: A %lu, D %lu",
-		zebra_kernel_reconcile_route_learned,
-		zebra_kernel_reconcile_route_deleted);
+	zlog_notice("kernel_reconcile: timer_expire before sweep: add %lu, del %lu",
+		zrouter.zebra_stale_rt_add, zrouter.zebra_stale_rt_del);
 
 		if (!kernel_reconcile)
 			return;
@@ -3296,9 +3295,8 @@ int rib_sweep_kernel_reconcile_route(struct thread *thread)
 			rib_sweep_kernel_reconcile_table(zvrf->table[AFI_IP6][SAFI_UNICAST]);
 		}
 
-		zlog_notice("kernel_reconcile: timer_expire after sweep: add %ld, del %lu",
-			zebra_kernel_reconcile_route_learned,
-			zebra_kernel_reconcile_route_deleted);
+		zlog_notice("kernel_reconcile: timer_expire after sweep: add %lu, del %lu",
+			zrouter.zebra_stale_rt_add, zrouter.zebra_stale_rt_del);
 
 		zlog_notice("kernel_reconcile: Reset kernel_reconcile = 0");
 		kernel_reconcile = 0;

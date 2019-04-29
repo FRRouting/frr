@@ -390,7 +390,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	 */
 	if (kernel_reconcile && startup
 		&& is_selfroute(rtm->rtm_protocol)) {
-		++zebra_kernel_reconcile_route_learned;
+		++zrouter.zebra_stale_rt_add;
 		flags |= ZEBRA_FLAG_KERNEL_RECONCILE;
 	}
 	if (tb[RTA_OIF])
