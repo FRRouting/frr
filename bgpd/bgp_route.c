@@ -9012,6 +9012,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			unsigned long i;
 			for (i = 0; i < *json_header_depth; ++i)
 				vty_out(vty, " } ");
+			vty_out(vty, "\n");
 		}
 	} else {
 		if (is_last) {
