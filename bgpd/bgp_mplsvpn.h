@@ -259,11 +259,32 @@ static inline bool is_pi_family_vpn(struct bgp_path_info *pi)
 		is_pi_family_matching(pi, AFI_IP6, SAFI_MPLS_VPN));
 }
 
+static inline bool is_bgp_vpn_leak_present(void)
+{
+	struct listnode *next;
+	struct bgp *bgp;
+	afi_t afi;
+
+	for (afi = 0; afi < AFI_MAX; ++afi) {
+		if (afi != AFI_IP && afi != AFI_IP6)
+			continue;
+		for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
+			if (vpn_leak_to_vpn_active(bgp, afi, NULL))
+				return true;
+			if (vpn_leak_from_vpn_active(bgp, afi, NULL))
+				return true;
+		}
+	}
+	return false;
+}
+
 extern void vpn_policy_routemap_event(const char *rmap_name);
 
 extern vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey);
 
 extern void vpn_leak_postchange_all(void);
+extern int bgp_vpn_leak_unimport(struct bgp *from_bgp, struct vty *vty);
+extern void bgp_vpn_leak_export(struct bgp *from_bgp);
 extern void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */
