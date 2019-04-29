@@ -669,6 +669,7 @@ struct peer_af *peer_af_create(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct peer_af *af;
 	int afid;
+	struct bgp *bgp;
 
 	if (!peer)
 		return NULL;
@@ -677,6 +678,7 @@ struct peer_af *peer_af_create(struct peer *peer, afi_t afi, safi_t safi)
 	if (afid >= BGP_AF_MAX)
 		return NULL;
 
+	bgp = peer->bgp;
 	assert(peer->peer_af_array[afid] == NULL);
 
 	/* Allocate new peer af */
@@ -693,6 +695,7 @@ struct peer_af *peer_af_create(struct peer *peer, afi_t afi, safi_t safi)
 	af->safi = safi;
 	af->afid = afid;
 	af->peer = peer;
+	bgp->af_peer_count[afi][safi]++;
 
 	return af;
 }
@@ -715,6 +718,7 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct peer_af *af;
 	int afid;
+	struct bgp *bgp;
 
 	if (!peer)
 		return -1;
@@ -727,6 +731,7 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 	if (!af)
 		return -1;
 
+	bgp = peer->bgp;
 	bgp_stop_announce_route_timer(af);
 
 	if (PAF_SUBGRP(af)) {
@@ -737,6 +742,9 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 	}
 
 	update_subgroup_remove_peer(af->subgroup, af);
+
+	if (bgp->af_peer_count[afi][safi])
+		bgp->af_peer_count[afi][safi]--;
 
 	peer->peer_af_array[afid] = NULL;
 	XFREE(MTYPE_BGP_PEER_AF, af);
