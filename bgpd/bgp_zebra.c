@@ -1228,6 +1228,11 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 
+	if (info->attr->rmap_table_id) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_TABLEID);
+		api.tableid = info->attr->rmap_table_id;
+	}
+
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
 	for (mpinfo = info; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
