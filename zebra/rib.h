@@ -24,6 +24,7 @@
 
 #include "zebra.h"
 #include "hook.h"
+#include "typesafe.h"
 #include "linklist.h"
 #include "prefix.h"
 #include "table.h"
@@ -38,6 +39,44 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef enum { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE } rnh_type_t;
+
+PREDECL_LIST(rnh_list)
+
+/* Nexthop structure. */
+struct rnh {
+	uint8_t flags;
+
+#define ZEBRA_NHT_CONNECTED     0x1
+#define ZEBRA_NHT_DELETED       0x2
+#define ZEBRA_NHT_EXACT_MATCH   0x4
+
+	/* VRF identifier. */
+	vrf_id_t vrf_id;
+
+	afi_t afi;
+
+	rnh_type_t type;
+
+	uint32_t seqno;
+
+	struct route_entry *state;
+	struct prefix resolved_route;
+	struct list *client_list;
+
+	/* pseudowires dependent on this nh */
+	struct list *zebra_pseudowire_list;
+
+	struct route_node *node;
+
+	/*
+	 * if this has been filtered for the client
+	 */
+	int filtered[ZEBRA_ROUTE_MAX];
+
+	struct rnh_list_item rnh_list_item;
+};
 
 #define DISTANCE_INFINITY  255
 #define ZEBRA_KERNEL_TABLE_MAX 252 /* support for no more than this rt tables */
@@ -151,7 +190,7 @@ typedef struct rib_dest_t_ {
 	 * the data plane we will run evaluate_rnh
 	 * on these prefixes.
 	 */
-	struct list *nht;
+	struct rnh_list_head nht;
 
 	/*
 	 * Linkage to put dest on the FPM processing queue.
@@ -159,6 +198,8 @@ typedef struct rib_dest_t_ {
 	TAILQ_ENTRY(rib_dest_t_) fpm_q_entries;
 
 } rib_dest_t;
+
+DECLARE_LIST(rnh_list, struct rnh, rnh_list_item);
 
 #define RIB_ROUTE_QUEUED(x)	(1 << (x))
 // If MQ_SIZE is modified this value needs to be updated.
