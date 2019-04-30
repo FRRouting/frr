@@ -101,6 +101,7 @@ static const struct {
 	[ZEBRA_ROUTE_PBR] = {ZEBRA_ROUTE_PBR, 200, 4},
 	[ZEBRA_ROUTE_BFD] = {ZEBRA_ROUTE_BFD, 255, 4},
 	[ZEBRA_ROUTE_OPENFABRIC] = {ZEBRA_ROUTE_OPENFABRIC, 115, 2},
+	/* Any new route type added to zebra, should be mirrored here */
 
 	/* no entry/default: 150 */
 };
