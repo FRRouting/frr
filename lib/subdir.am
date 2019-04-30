@@ -58,7 +58,6 @@ lib_libfrr_la_SOURCES = \
 	lib/openbsd-tree.c \
 	lib/pid_output.c \
 	lib/plist.c \
-	lib/pqueue.c \
 	lib/prefix.c \
 	lib/privs.c \
 	lib/ptm_lib.c \
@@ -187,7 +186,6 @@ pkginclude_HEADERS += \
 	lib/openbsd-queue.h \
 	lib/openbsd-tree.h \
 	lib/plist.h \
-	lib/pqueue.h \
 	lib/prefix.h \
 	lib/privs.h \
 	lib/ptm_lib.h \
