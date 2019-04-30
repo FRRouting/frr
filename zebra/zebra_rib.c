@@ -2755,7 +2755,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		 * and FPM are updated while rib_process. This will result in no
 		 * traffic loss, if same route->NH is learned after startup.
 		 */
-		if (kernel_reconcile
+		if (kernel_reconcile && !kernel_reconcile_rt
 			&& CHECK_FLAG(same->flags, ZEBRA_FLAG_KERNEL_RECONCILE)) {
 			++zrouter.zebra_stale_rt_del;
 			if (IS_ZEBRA_DEBUG_RIB)
@@ -3149,8 +3149,11 @@ void rib_update(vrf_id_t vrf_id, rib_update_event_t event)
 	}
 }
 
-/* Delete self installed routes after zebra is relaunched.  */
-void rib_sweep_table(struct route_table *table)
+/*
+ * This function deletes stale zebra routes if zebra is relaunched without
+ * -K and -k options. Else it deletes stale zebra routes after reconciliation.
+ */
+void rib_sweep_table(struct route_table *table, uint32_t flag)
 {
 	struct route_node *rn;
 	struct route_entry *re;
@@ -3168,9 +3171,11 @@ void rib_sweep_table(struct route_table *table)
 			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 				continue;
 
-			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_SELFROUTE))
+			if (!CHECK_FLAG(re->flags, flag))
 				continue;
 
+			if (flag == ZEBRA_FLAG_KERNEL_RECONCILE)
+				++zrouter.zebra_stale_rt_del;
 			/*
 			 * So we are starting up and have received
 			 * routes from the kernel that we have installed
@@ -3209,8 +3214,10 @@ void rib_sweep_route(void)
 		if ((zvrf = vrf->info) == NULL)
 			continue;
 
-		rib_sweep_table(zvrf->table[AFI_IP][SAFI_UNICAST]);
-		rib_sweep_table(zvrf->table[AFI_IP6][SAFI_UNICAST]);
+		rib_sweep_table(zvrf->table[AFI_IP][SAFI_UNICAST],
+			ZEBRA_FLAG_SELFROUTE);
+		rib_sweep_table(zvrf->table[AFI_IP6][SAFI_UNICAST],
+			ZEBRA_FLAG_SELFROUTE);
 	}
 
 	zebra_router_sweep_route();
@@ -3239,42 +3246,6 @@ unsigned long rib_score_proto_table(uint8_t proto, unsigned short instance,
 	return n;
 }
 
-/*
- * Delete remaining zebra_originationg routes from previous run of zebra
- * after kernel reconciliation.
- */
-void rib_sweep_kernel_reconcile_table(struct route_table *table)
-{
-	struct route_node *rn = NULL;
-	struct route_entry *re = NULL;
-	struct route_entry *next = NULL;
-	struct nexthop *nexthop = NULL;
-
-	if (!table || !kernel_reconcile)
-		return;
-
-	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
-		RNODE_FOREACH_RE_SAFE (rn, re, next) {
-			if (IS_ZEBRA_DEBUG_RIB)
-				route_entry_dump(&rn->p, NULL, re);
-
-			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
-				continue;
-
-			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_KERNEL_RECONCILE))
-				continue;
-
-			++zrouter.zebra_stale_rt_del;
-			/* Marking NH as active, may not be needed */
-			for (ALL_NEXTHOPS(re->ng, nexthop))
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-
-			rib_uninstall_kernel(rn, re);
-			rib_delnode(rn, re);
-		}
-	}
-}
-
 /* Sweep all RIB tables after the timer if kernel_reconcile is set. */
 int rib_sweep_kernel_reconcile_route(struct thread *thread)
 {
@@ -3284,22 +3255,24 @@ int rib_sweep_kernel_reconcile_route(struct thread *thread)
 	zlog_notice("kernel_reconcile: timer_expire before sweep: add %lu, del %lu",
 		zrouter.zebra_stale_rt_add, zrouter.zebra_stale_rt_del);
 
-		if (!kernel_reconcile)
-			return;
+	if (!kernel_reconcile)
+		return -1;
 
-		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-			if ((zvrf = vrf->info) == NULL)
-				continue;
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		if ((zvrf = vrf->info) == NULL)
+			continue;
 
-			rib_sweep_kernel_reconcile_table(zvrf->table[AFI_IP][SAFI_UNICAST]);
-			rib_sweep_kernel_reconcile_table(zvrf->table[AFI_IP6][SAFI_UNICAST]);
-		}
+		rib_sweep_table(zvrf->table[AFI_IP][SAFI_UNICAST],
+			ZEBRA_FLAG_KERNEL_RECONCILE);
+		rib_sweep_table(zvrf->table[AFI_IP6][SAFI_UNICAST],
+			ZEBRA_FLAG_KERNEL_RECONCILE);
+	}
 
-		zlog_notice("kernel_reconcile: timer_expire after sweep: add %lu, del %lu",
-			zrouter.zebra_stale_rt_add, zrouter.zebra_stale_rt_del);
+	zlog_notice("kernel_reconcile: timer_expire after sweep: add %lu, del %lu",
+		zrouter.zebra_stale_rt_add, zrouter.zebra_stale_rt_del);
 
-		zlog_notice("kernel_reconcile: Reset kernel_reconcile = 0");
-		kernel_reconcile = 0;
+	zlog_notice("kernel_reconcile: Reset kernel_reconcile = 0");
+	kernel_reconcile = 0;
 }
 
 /* Remove specific by protocol routes. */

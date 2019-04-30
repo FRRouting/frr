@@ -156,7 +156,7 @@ void zebra_router_sweep_route(void)
 	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
 		if (zrt->ns_id != NS_DEFAULT)
 			continue;
-		rib_sweep_table(zrt->table);
+		rib_sweep_table(zrt->table, ZEBRA_FLAG_SELFROUTE);
 	}
 }
 
