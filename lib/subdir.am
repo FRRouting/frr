@@ -7,6 +7,7 @@ lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS)
 
 lib_libfrr_la_SOURCES = \
 	lib/agg_table.c \
+	lib/atomlist.c \
 	lib/bfd.c \
 	lib/buffer.c \
 	lib/checksum.c \
@@ -65,6 +66,7 @@ lib_libfrr_la_SOURCES = \
 	lib/ringbuf.c \
 	lib/routemap.c \
 	lib/sbuf.c \
+	lib/seqlock.c \
 	lib/sha256.c \
 	lib/sigevent.c \
 	lib/skiplist.c \
@@ -79,6 +81,8 @@ lib_libfrr_la_SOURCES = \
 	lib/table.c \
 	lib/termtable.c \
 	lib/thread.c \
+	lib/typerb.c \
+	lib/typesafe.c \
 	lib/vector.c \
 	lib/vrf.c \
 	lib/vty.c \
@@ -130,6 +134,7 @@ lib/northbound_cli.lo: lib/northbound_cli_clippy.c
 
 pkginclude_HEADERS += \
 	lib/agg_table.h \
+	lib/atomlist.h \
 	lib/bfd.h \
 	lib/bitfield.h \
 	lib/buffer.h \
@@ -144,7 +149,6 @@ pkginclude_HEADERS += \
 	lib/debug.h \
 	lib/distribute.h \
 	lib/ferr.h \
-	lib/fifo.h \
 	lib/filter.h \
 	lib/freebsd-queue.h \
 	lib/frr_pthread.h \
@@ -193,6 +197,7 @@ pkginclude_HEADERS += \
 	lib/ringbuf.h \
 	lib/routemap.h \
 	lib/sbuf.h \
+	lib/seqlock.h \
 	lib/sha256.h \
 	lib/sigevent.h \
 	lib/skiplist.h \
@@ -206,6 +211,8 @@ pkginclude_HEADERS += \
 	lib/table.h \
 	lib/termtable.h \
 	lib/thread.h \
+	lib/typerb.h \
+	lib/typesafe.h \
 	lib/vector.h \
 	lib/vlan.h \
 	lib/vrf.h \

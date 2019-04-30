@@ -22,6 +22,8 @@
 #ifndef _QUAGGA_OSPF_SPF_H
 #define _QUAGGA_OSPF_SPF_H
 
+#include "typesafe.h"
+
 /* values for vertex->type */
 #define OSPF_VERTEX_ROUTER  1  /* for a Router-LSA */
 #define OSPF_VERTEX_NETWORK 2  /* for a Network-LSA */
@@ -31,13 +33,15 @@
 
 /* The "root" is the node running the SPF calculation */
 
+PREDECL_SKIPLIST_NONUNIQ(vertex_pqueue)
 /* A router or network in an area */
 struct vertex {
+	struct vertex_pqueue_item pqi;
 	uint8_t flags;
 	uint8_t type;		/* copied from LSA header */
 	struct in_addr id;      /* copied from LSA header */
+	struct ospf_lsa *lsa_p;
 	struct lsa_header *lsa; /* Router or Network LSA */
-	int *stat;		/* Link to LSA status. */
 	uint32_t distance;      /* from root to this vertex */
 	struct list *parents;   /* list of parents in SPF tree */
 	struct list *children;  /* list of children in SPF tree*/

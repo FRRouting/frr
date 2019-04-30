@@ -917,7 +917,7 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 				zprivs->user, zprivs->vty_group);
 			exit(1);
 		}
-		if (i >= ngroups && ngroups < (int)ZEBRA_NUM_OF(groups)) {
+		if (i >= ngroups && ngroups < (int)array_size(groups)) {
 			groups[i] = zprivs_state.vtygrp;
 		}
 	}

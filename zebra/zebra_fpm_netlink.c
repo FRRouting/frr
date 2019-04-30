@@ -158,7 +158,7 @@ static int netlink_route_info_add_nh(netlink_route_info_t *ri,
 	memset(&nhi, 0, sizeof(nhi));
 	src = NULL;
 
-	if (ri->num_nhs >= (int)ZEBRA_NUM_OF(ri->nhs))
+	if (ri->num_nhs >= (int)array_size(ri->nhs))
 		return 0;
 
 	nhi.recursive = nexthop->rparent ? 1 : 0;

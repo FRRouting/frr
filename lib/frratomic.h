@@ -80,6 +80,9 @@ typedef std::atomic<uint_fast32_t>	atomic_uint_fast32_t;
 #define atomic_compare_exchange_weak_explicit(atom, expect, desire, mem1,      \
 					      mem2)                            \
 	__atomic_compare_exchange_n(atom, expect, desire, 1, mem1, mem2)
+#define atomic_compare_exchange_strong_explicit(atom, expect, desire, mem1,    \
+					      mem2)                            \
+	__atomic_compare_exchange_n(atom, expect, desire, 0, mem1, mem2)
 
 /* gcc 4.1 and newer,
  * clang 3.3 (possibly older)
@@ -152,7 +155,7 @@ typedef std::atomic<uint_fast32_t>	atomic_uint_fast32_t;
 		rval;                                                          \
 	})
 
-#define atomic_compare_exchange_weak_explicit(atom, expect, desire, mem1,      \
+#define atomic_compare_exchange_strong_explicit(atom, expect, desire, mem1,    \
 					      mem2)                            \
 	({                                                                     \
 		typeof(atom) _atom = (atom);                                   \
@@ -166,6 +169,8 @@ typedef std::atomic<uint_fast32_t>	atomic_uint_fast32_t;
 		*_expect = rval;                                               \
 		ret;                                                           \
 	})
+#define atomic_compare_exchange_weak_explicit \
+	atomic_compare_exchange_strong_explicit
 
 #define atomic_fetch_and_explicit(ptr, val, mem)                               \
 	({                                                                     \

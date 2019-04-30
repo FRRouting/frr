@@ -335,45 +335,6 @@ struct in_pktinfo {
 
 #endif /* ndef BYTE_ORDER */
 
-/* MAX / MIN are not commonly defined, but useful */
-/* note: glibc sys/param.h has #define MIN(a,b) (((a)<(b))?(a):(b)) */
-#ifdef MAX
-#undef MAX
-#endif
-#define MAX(a, b)                                                              \
-	({                                                                     \
-		typeof(a) _max_a = (a);                                        \
-		typeof(b) _max_b = (b);                                        \
-		_max_a > _max_b ? _max_a : _max_b;                             \
-	})
-#ifdef MIN
-#undef MIN
-#endif
-#define MIN(a, b)                                                              \
-	({                                                                     \
-		typeof(a) _min_a = (a);                                        \
-		typeof(b) _min_b = (b);                                        \
-		_min_a < _min_b ? _min_a : _min_b;                             \
-	})
-
-#ifndef offsetof
-#ifdef __compiler_offsetof
-#define offsetof(TYPE,MEMBER) __compiler_offsetof(TYPE,MEMBER)
-#else
-#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
-#endif
-#endif
-
-#ifndef container_of
-#define container_of(ptr, type, member)                                        \
-	({                                                                     \
-		const typeof(((type *)0)->member) *__mptr = (ptr);             \
-		(type *)((char *)__mptr - offsetof(type, member));             \
-	})
-#endif
-
-#define ZEBRA_NUM_OF(x) (sizeof (x) / sizeof (x[0]))
-
 /* For old definition. */
 #ifndef IN6_ARE_ADDR_EQUAL
 #define IN6_ARE_ADDR_EQUAL IN6_IS_ADDR_EQUAL

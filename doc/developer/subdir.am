@@ -30,6 +30,7 @@ dev_RSTFILES = \
 	doc/developer/include-compile.rst \
 	doc/developer/index.rst \
 	doc/developer/library.rst \
+	doc/developer/lists.rst \
 	doc/developer/logging.rst \
 	doc/developer/maintainer-release-build.rst \
 	doc/developer/memtypes.rst \

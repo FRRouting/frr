@@ -7,8 +7,9 @@ Library Facilities (libfrr)
 .. toctree::
    :maxdepth: 2
 
-   logging
    memtypes
+   lists
+   logging
    hooks
    cli
    modules

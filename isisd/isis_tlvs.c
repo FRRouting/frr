@@ -3522,26 +3522,24 @@ void isis_tlvs_add_lsp_entry(struct isis_tlvs *tlvs, struct isis_lsp *lsp)
 
 void isis_tlvs_add_csnp_entries(struct isis_tlvs *tlvs, uint8_t *start_id,
 				uint8_t *stop_id, uint16_t num_lsps,
-				dict_t *lspdb, struct isis_lsp **last_lsp)
+				struct lspdb_head *head,
+				struct isis_lsp **last_lsp)
 {
-	dnode_t *first = dict_lower_bound(lspdb, start_id);
+	struct isis_lsp searchfor;
+	struct isis_lsp *first, *lsp;
+
+	memcpy(&searchfor.hdr.lsp_id, start_id, sizeof(searchfor.hdr.lsp_id));
+	first = lspdb_find_gteq(head, &searchfor);
 	if (!first)
 		return;
 
-	dnode_t *last = dict_upper_bound(lspdb, stop_id);
-	dnode_t *curr = first;
-
-	isis_tlvs_add_lsp_entry(tlvs, first->dict_data);
-	*last_lsp = first->dict_data;
-
-	while (curr) {
-		curr = dict_next(lspdb, curr);
-		if (curr) {
-			isis_tlvs_add_lsp_entry(tlvs, curr->dict_data);
-			*last_lsp = curr->dict_data;
-		}
-		if (curr == last || tlvs->lsp_entries.count == num_lsps)
+	for_each_from (lspdb, head, lsp, first) {
+		if (memcmp(lsp->hdr.lsp_id, stop_id, sizeof(lsp->hdr.lsp_id))
+			> 0 || tlvs->lsp_entries.count == num_lsps)
 			break;
+
+		isis_tlvs_add_lsp_entry(tlvs, lsp);
+		*last_lsp = lsp;
 	}
 }
 
