@@ -25,6 +25,7 @@
 #include "memory.h"
 #include "hash.h"
 #include "prefix.h"
+#include "typesafe.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,10 +60,12 @@ struct route_table_delegate_t_ {
 	route_table_destroy_node_func_t destroy_node;
 };
 
+PREDECL_HASH(rn_hash_node)
+
 /* Routing table top structure. */
 struct route_table {
 	struct route_node *top;
-	struct hash *hash;
+	struct rn_hash_node_head hash;
 
 	/*
 	 * Delegate that performs certain functions for this table.
@@ -129,6 +132,7 @@ struct route_table {
 	/* Lock of this radix */                                               \
 	unsigned int table_rdonly(lock);                                       \
                                                                                \
+	struct rn_hash_node_item nodehash;                                     \
 	/* Each node of route. */                                              \
 	void *info;                                                            \
 
