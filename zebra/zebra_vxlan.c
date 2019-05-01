@@ -7858,7 +7858,7 @@ void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	while (l < hdr->length) {
-		int flood_control;
+		int flood_control __attribute__((unused));
 
 		/* Obtain each remote VTEP and process. */
 		STREAM_GETL(s, vni);
