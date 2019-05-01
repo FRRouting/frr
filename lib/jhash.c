@@ -185,3 +185,18 @@ uint32_t jhash_1word(uint32_t a, uint32_t initval)
 {
 	return jhash_3words(a, 0, 0, initval);
 }
+
+/* ipv6 hash function */
+uint32_t __ipv6_addr_jhash(const struct in6_addr *a, const uint32_t initval)
+{
+	uint32_t v = 0;
+	uint32_t y[4] = {0};
+
+	/* Since s6_addr32 is not available is few os like FreeBSD, NetBDS,
+	 *  OMIBDS & OpenBDS. So recreating in uint32_t format.
+	 */
+	memcpy(y, a->s6_addr, sizeof(struct in6_addr));
+	v = y[0] ^ y[1];
+
+	return jhash_3words(v, y[2], y[3], initval);
+}
