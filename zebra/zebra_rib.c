@@ -98,6 +98,10 @@ static const struct {
 	[ZEBRA_ROUTE_BGP_DIRECT_EXT] = {ZEBRA_ROUTE_BGP_DIRECT_EXT, 20, 3},
 	[ZEBRA_ROUTE_BABEL] = {ZEBRA_ROUTE_BABEL, 100, 2},
 	[ZEBRA_ROUTE_SHARP] = {ZEBRA_ROUTE_SHARP, 150, 4},
+	[ZEBRA_ROUTE_PBR] = {ZEBRA_ROUTE_PBR, 200, 4},
+	[ZEBRA_ROUTE_BFD] = {ZEBRA_ROUTE_BFD, 255, 4},
+	[ZEBRA_ROUTE_OPENFABRIC] = {ZEBRA_ROUTE_OPENFABRIC, 115, 2},
+	/* Any new route type added to zebra, should be mirrored here */
 
 	/* no entry/default: 150 */
 };
