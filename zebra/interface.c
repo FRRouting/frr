@@ -181,6 +181,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		list_delete(&rtadv->AdvDNSSLList);
 #endif /* HAVE_RTADV */
 
+		XFREE(MTYPE_TMP, zebra_if->desc);
 		THREAD_OFF(zebra_if->speed_update);
 
 		XFREE(MTYPE_ZINFO, zebra_if);
@@ -1303,6 +1304,9 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 
 	if (ifp->desc)
 		vty_out(vty, "  Description: %s\n", ifp->desc);
+	if (zebra_if->desc)
+		vty_out(vty, "  OS Description: %s\n", zebra_if->desc);
+
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
 		vty_out(vty, "  pseudo interface\n");
 		return;
@@ -1696,6 +1700,10 @@ static void if_show_description(struct vty *vty, vrf_id_t vrf_id)
 	vty_out(vty, "Interface       Status  Protocol  Description\n");
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		int len;
+		struct zebra_if *zif;
+		bool intf_desc;
+
+		intf_desc = false;
 
 		len = vty_out(vty, "%s", ifp->name);
 		vty_out(vty, "%*s", (16 - len), " ");
@@ -1715,8 +1723,19 @@ static void if_show_description(struct vty *vty, vrf_id_t vrf_id)
 			vty_out(vty, "down    down      ");
 		}
 
-		if (ifp->desc)
+		if (ifp->desc) {
+			intf_desc = true;
 			vty_out(vty, "%s", ifp->desc);
+		}
+		zif = ifp->info;
+		if (zif && zif->desc) {
+			vty_out(vty, "%s%s",
+				intf_desc
+					? "\n                                  "
+					: "",
+				zif->desc);
+		}
+
 		vty_out(vty, "\n");
 	}
 }

@@ -690,9 +690,6 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifp->speed = get_iflink_speed(ifp);
 	ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 
-	if (desc)
-		ifp->desc = XSTRDUP(MTYPE_TMP, desc);
-
 	/* Set zebra interface type */
 	zebra_if_set_ziftype(ifp, zif_type, zif_slave_type);
 	if (IS_ZEBRA_IF_VRF(ifp))
@@ -706,6 +703,11 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	 */
 	zif = (struct zebra_if *)ifp->info;
 	zif->link_ifindex = link_ifindex;
+
+	if (desc) {
+		XFREE(MTYPE_TMP, zif->desc);
+		zif->desc = XSTRDUP(MTYPE_TMP, desc);
+	}
 
 	/* Hardware type and address. */
 	ifp->ll_type = netlink_to_zebra_link_type(ifi->ifi_type);
@@ -1106,7 +1108,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifindex_t bond_ifindex = IFINDEX_INTERNAL;
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
 	uint8_t old_hw_addr[INTERFACE_HWADDR_MAX];
-
+	struct zebra_if *zif;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
@@ -1185,12 +1187,6 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	/* See if interface is present. */
 	ifp = if_lookup_by_name_per_ns(zns, name);
-
-	if (ifp) {
-		XFREE(MTYPE_TMP, ifp->desc);
-		if (desc)
-			ifp->desc = XSTRDUP(MTYPE_TMP, desc);
-	}
 
 	if (h->nlmsg_type == RTM_NEWLINK) {
 		if (tb[IFLA_MASTER]) {
@@ -1388,6 +1384,13 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 		if (!IS_ZEBRA_IF_VRF(ifp))
 			if_delete_update(ifp);
+	}
+
+	zif = ifp->info;
+	if (zif) {
+		XFREE(MTYPE_TMP, zif->desc);
+		if (desc)
+			zif->desc = XSTRDUP(MTYPE_TMP, desc);
 	}
 
 	return 0;
