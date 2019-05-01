@@ -3390,9 +3390,32 @@ static int rib_dplane_results(struct dplane_ctx_q *ctxlist)
 	return 0;
 }
 
+/*
+ * Ensure there are no empty slots in the route_info array.
+ * Every route type in zebra should be present there.
+ */
+static void check_route_info(void)
+{
+	int len = array_size(route_info);
+
+	/*
+	 * ZEBRA_ROUTE_SYSTEM is special cased since
+	 * its key is 0 anyway.
+	 *
+	 * ZEBRA_ROUTE_ALL is also ignored.
+	 */
+	for (int i = 0; i < len; i++) {
+		if (i == ZEBRA_ROUTE_SYSTEM || i == ZEBRA_ROUTE_ALL)
+			continue;
+		assert(route_info[i].key);
+	}
+}
+
 /* Routing information base initialize. */
 void rib_init(void)
 {
+	check_route_info();
+
 	rib_queue_init();
 
 	/* Init dataplane, and register for results */
