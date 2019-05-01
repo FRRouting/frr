@@ -240,6 +240,22 @@ extern struct zserv *zserv_find_client(uint8_t proto, unsigned short instance);
  */
 extern void zserv_close_client(struct zserv *client);
 
+
+/*
+ * Log a ZAPI message hexdump.
+ *
+ * errmsg
+ *    Error message to include with packet hexdump
+ *
+ * msg
+ *    Message to log
+ *
+ * hdr
+ *    Message header
+ */
+void zserv_log_message(const char *errmsg, struct stream *msg,
+		       struct zmsghdr *hdr);
+
 #if defined(HANDLE_ZAPI_FUZZING)
 extern void zserv_read_file(char *input);
 #endif

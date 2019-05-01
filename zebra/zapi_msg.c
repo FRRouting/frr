@@ -2507,6 +2507,9 @@ void zserv_handle_commands(struct zserv *client, struct stream *msg)
 
 	zapi_parse_header(msg, &hdr);
 
+	if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
+		zserv_log_message(NULL, msg, &hdr);
+
 #if defined(HANDLE_ZAPI_FUZZING)
 	zserv_write_incoming(msg, hdr.command);
 #endif

@@ -149,8 +149,8 @@ static void zserv_event(struct zserv *client, enum zserv_event event);
  * hdr (optional)
  *    The message header
  */
-static void zserv_log_message(const char *errmsg, struct stream *msg,
-			      struct zmsghdr *hdr)
+void zserv_log_message(const char *errmsg, struct stream *msg,
+		       struct zmsghdr *hdr)
 {
 	zlog_debug("Rx'd ZAPI message");
 	if (errmsg)
@@ -410,9 +410,6 @@ static int zserv_read(struct thread *thread)
 				   zserv_command_string(hdr.command),
 				   hdr.vrf_id, hdr.length,
 				   sock);
-
-		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-			zserv_log_message(NULL, client->ibuf_work, &hdr);
 
 		stream_set_getp(client->ibuf_work, 0);
 		struct stream *msg = stream_dup(client->ibuf_work);
