@@ -81,7 +81,6 @@ struct gw_family_t {
 char ipv4_ll_buf[16] = "169.254.0.1";
 struct in_addr ipv4_ll;
 
-extern int kernel_reconcile;
 /*
  * The ipv4_ll data structure is used for all 5549
  * additions to the kernel.  Let's figure out the
@@ -386,12 +385,12 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 	}
 	/*
 	 * At startup, Mark all routes from previous instance of Zebra
-	 * with KERNEL_RECONCILE flag.
+	 * with KERNEL_STALE_RT flag.
 	 */
-	if (kernel_reconcile && startup
+	if (kernel_gr && startup
 		&& is_selfroute(rtm->rtm_protocol)) {
 		++zrouter.zebra_stale_rt_add;
-		flags |= ZEBRA_FLAG_KERNEL_RECONCILE;
+		flags |= ZEBRA_FLAG_KERNEL_STALE_RT;
 	}
 	if (tb[RTA_OIF])
 		index = *(int *)RTA_DATA(tb[RTA_OIF]);
@@ -929,15 +928,6 @@ int netlink_route_read(struct zebra_ns *zns)
 				 &zns->netlink_cmd, &dp_info, 0, 1);
 	if (ret < 0)
 		return ret;
-
-	/*
-	 * Start a timer of 15 secs to clean stale kernel route after
-	 * reconciliation. Note netlink_route_read function is called
-	 * only at startup, so timer will be activated only once.
-	 */
-	if (kernel_reconcile)
-		thread_add_timer(zrouter.master, rib_sweep_kernel_reconcile_route,
-			NULL, 15, NULL);
 
 	return 0;
 }

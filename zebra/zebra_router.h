@@ -121,6 +121,10 @@ struct zebra_router {
 	unsigned long zebra_stale_rt_del;
 };
 
+#define ZEBRA_KERNEL_GR_TIME 60
+extern int kernel_gr;
+extern unsigned int kernel_gr_timer;
+
 extern struct zebra_router zrouter;
 
 extern void zebra_router_init(void);

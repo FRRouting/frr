@@ -30,6 +30,10 @@
 #include "zebra_vxlan.h"
 #include "zebra_mlag.h"
 
+/* Perform kernel level graceful restart */
+int kernel_gr = 0;
+unsigned int kernel_gr_timer = ZEBRA_KERNEL_GR_TIME;
+
 struct zebra_router zrouter;
 
 static inline int

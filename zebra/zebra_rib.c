@@ -68,8 +68,6 @@ DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 /* Should we allow non Quagga processes to delete our routes */
 extern int allow_delete;
 
-extern int kernel_reconcile;
-
 /* Each route type's string and default distance value. */
 static const struct {
 	int key;
@@ -2705,7 +2703,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	struct route_table *table;
 	struct route_node *rn;
 	struct route_entry *same = NULL;
-	struct route_entry *kernel_reconcile_rt = NULL;
+	struct route_entry *kernel_stale_rt = NULL;
 	int ret = 0;
 
 	if (!re)
@@ -2748,22 +2746,22 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		if (CHECK_FLAG(same->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
-		/* If kernel_reconcile is set, then mark Zebra-originated route
-		 * for deletion. Zebra learned these routes from kernel while
+		/* If kernel_gr is set, then mark Zebra-originated route for
+		 * deletion. Zebra learned these routes from kernel while
 		 * start up. Now, since we learned new route for same destination,
 		 * this is the time to clear stale route, so that both kernel
 		 * and FPM are updated while rib_process. This will result in no
 		 * traffic loss, if same route->NH is learned after startup.
 		 */
-		if (kernel_reconcile && !kernel_reconcile_rt
-			&& CHECK_FLAG(same->flags, ZEBRA_FLAG_KERNEL_RECONCILE)) {
+		if (kernel_gr && !kernel_stale_rt
+			&& CHECK_FLAG(same->flags, ZEBRA_FLAG_KERNEL_STALE_RT)) {
 			++zrouter.zebra_stale_rt_del;
 			if (IS_ZEBRA_DEBUG_RIB)
 				rnode_debug(rn, same->vrf_id,
-					"kernel_reconcile: match, add %lu del %lu rn %p",
+					"kernel_gr: match, add %lu del %lu rn %p",
 					zrouter.zebra_stale_rt_add,
 					zrouter.zebra_stale_rt_del, rn);
-			kernel_reconcile_rt = same;
+			kernel_stale_rt = same;
 			continue;
 		}
 		if (same->type != re->type)
@@ -2803,9 +2801,9 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 			route_entry_dump(p, src_p, re);
 	}
 
-	/* Delete kernel_reconcile_rt first */
-	if (kernel_reconcile_rt)
-		rib_delnode(rn, kernel_reconcile_rt);
+	/* Delete kernel_stale_rt first */
+	if (kernel_stale_rt)
+		rib_delnode(rn, kernel_stale_rt);
 
 	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 	rib_addnode(rn, re, 1);
@@ -3174,7 +3172,7 @@ void rib_sweep_table(struct route_table *table, uint32_t flag)
 			if (!CHECK_FLAG(re->flags, flag))
 				continue;
 
-			if (flag == ZEBRA_FLAG_KERNEL_RECONCILE)
+			if (flag == ZEBRA_FLAG_KERNEL_STALE_RT)
 				++zrouter.zebra_stale_rt_del;
 			/*
 			 * So we are starting up and have received
@@ -3246,16 +3244,16 @@ unsigned long rib_score_proto_table(uint8_t proto, unsigned short instance,
 	return n;
 }
 
-/* Sweep all RIB tables after the timer if kernel_reconcile is set. */
-int rib_sweep_kernel_reconcile_route(struct thread *thread)
+/* Sweep all RIB tables after the timer if kernel_gr is set. */
+int rib_sweep_stale_rt_kernel_gr(struct thread *thread)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	zlog_notice("kernel_reconcile: timer_expire before sweep: add %lu, del %lu",
+	zlog_notice("kernel_gr: timer_expire before sweep: add %lu, del %lu",
 		zrouter.zebra_stale_rt_add, zrouter.zebra_stale_rt_del);
 
-	if (!kernel_reconcile)
+	if (!kernel_gr)
 		return -1;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
@@ -3263,16 +3261,18 @@ int rib_sweep_kernel_reconcile_route(struct thread *thread)
 			continue;
 
 		rib_sweep_table(zvrf->table[AFI_IP][SAFI_UNICAST],
-			ZEBRA_FLAG_KERNEL_RECONCILE);
+			ZEBRA_FLAG_KERNEL_STALE_RT);
 		rib_sweep_table(zvrf->table[AFI_IP6][SAFI_UNICAST],
-			ZEBRA_FLAG_KERNEL_RECONCILE);
+			ZEBRA_FLAG_KERNEL_STALE_RT);
 	}
 
-	zlog_notice("kernel_reconcile: timer_expire after sweep: add %lu, del %lu",
+	zlog_notice("kernel_gr: timer_expire after sweep: add %lu, del %lu",
 		zrouter.zebra_stale_rt_add, zrouter.zebra_stale_rt_del);
 
-	zlog_notice("kernel_reconcile: Reset kernel_reconcile = 0");
-	kernel_reconcile = 0;
+	zlog_notice("kernel_gr: Reset kernel_gr = 0");
+	kernel_gr = 0;
+
+	return 0;
 }
 
 /* Remove specific by protocol routes. */

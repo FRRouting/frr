@@ -77,9 +77,6 @@ int allow_delete = 0;
 /* Don't delete kernel route. */
 int keep_kernel_mode = 0;
 
-/* Perform kernel reconciliation */
-int kernel_reconcile = 0;
-
 bool v6_rr_semantics = false;
 
 #ifdef HAVE_NETLINK
@@ -98,7 +95,7 @@ struct option longopts[] = {
 	{"label_socket", no_argument, NULL, 'l'},
 	{"retain", no_argument, NULL, 'r'},
 	{"vrfdefaultname", required_argument, NULL, 'o'},
-	{"kernel_reconcile", no_argument, NULL, 'K'},
+	{"kernel_gr", required_argument, NULL, 'K'},
 #ifdef HAVE_NETLINK
 	{"vrfwnetns", no_argument, NULL, 'n'},
 	{"nl-bufsize", required_argument, NULL, 's'},
@@ -294,7 +291,7 @@ int main(int argc, char **argv)
 		"  -k, --keep_kernel     Don't delete old routes which were installed by zebra.\n"
 		"  -r, --retain          When program terminates, retain added route by zebra.\n"
 		"  -o, --vrfdefaultname  Set default VRF name.\n"
-		"  -K, --kernel_reconcile Reconcile kernel route after Zebra restart.\n"
+		"  -K, --kernel_gr       Zebra graceful restart at kernel level. Arg: timer to expire stale routes\n"
 #ifdef HAVE_NETLINK
 		"  -n, --vrfwnetns       Use NetNS as VRF backend\n"
 		"  -s, --nl-bufsize      Set netlink receive buffer size\n"
@@ -356,7 +353,12 @@ int main(int argc, char **argv)
 			retain_mode = 1;
 			break;
 		case 'K':
-			kernel_reconcile = 1;
+			kernel_gr = 1;
+			kernel_gr_timer = atoi(optarg);
+			/* Allow all positive values till 5*ZEBRA_KERNEL_GR_TIME */
+			if ((kernel_gr_timer < 1)
+				|| (kernel_gr_timer > 5*ZEBRA_KERNEL_GR_TIME))
+				kernel_gr_timer = ZEBRA_KERNEL_GR_TIME;
 			break;
 #ifdef HAVE_NETLINK
 		case 's':
@@ -409,6 +411,15 @@ int main(int argc, char **argv)
 	 * Initialize NS( and implicitly the VRF module), and make kernel
 	 * routing socket. */
 	zebra_ns_init((const char *)vrf_default_name_configured);
+	/*
+	 * zebra has learned kernel routes on startup. Start a timer to
+	 * sweep stale kernel route. Within this timer, newly learned
+	 * routes are updated to kernel gracefully.
+	 */
+	if (kernel_gr)
+		thread_add_timer(zrouter.master, rib_sweep_stale_rt_kernel_gr,
+			NULL, kernel_gr_timer, NULL);
+
 	zebra_vty_init();
 	access_list_init();
 	prefix_list_init();
@@ -444,11 +455,11 @@ int main(int argc, char **argv)
 	*  immediately, so originating PID in notifications from kernel
 	*  will be equal to the current getpid(). To know about such routes,
 	* we have to have route_read() called before.
-	*  If kernel_reconcile is set, we do not clean up zebra-originated
-	*  routes on startup. Clean up will be done for remaining routes
-	*  after reconciliation.
+	*  If kernel_gr is set, we do not clean up zebra-originated routes
+	*  on startup. Clean up will be done for remaining routes after
+	*  kernel level graceful timer expire.
 	*/
-	if (!keep_kernel_mode && !kernel_reconcile)
+	if (!keep_kernel_mode && !kernel_gr)
 		rib_sweep_route();
 
 	/* Needed for BSD routing socket. */

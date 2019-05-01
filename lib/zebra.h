@@ -456,12 +456,12 @@ extern const char *zserv_command_string(unsigned int command);
  */
 #define ZEBRA_FLAG_RR_USE_DISTANCE    0x40
 /*
- * If kernel_reconcile option is set. This flag will be set on all
- * previous instance of zebra routes learned from kernel during startup.
- * This is similar to ZEBRA_FLAG_SELFROUTE, but specifically used during
- * kernel_reconcile phase.
+ * If kernel_gr option is set. This flag will be set on all previous
+ * instance of zebra routes learned from kernel during startup. This
+ * is similar to ZEBRA_FLAG_SELFROUTE, but specifically used during
+ * zebra kernel_gr (kernel level graceful restart) phase.
  */
- #define ZEBRA_FLAG_KERNEL_RECONCILE   0x80
+ #define ZEBRA_FLAG_KERNEL_STALE_RT   0x80
 
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
