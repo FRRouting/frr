@@ -7189,6 +7189,7 @@ DEFUN (debug_pim,
 	PIM_DO_DEBUG_PIM_TRACE;
 	PIM_DO_DEBUG_MSDP_EVENTS;
 	PIM_DO_DEBUG_MSDP_PACKETS;
+	PIM_DO_DEBUG_BSM;
 	return CMD_SUCCESS;
 }
 
@@ -7207,6 +7208,7 @@ DEFUN (no_debug_pim,
 
 	PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND;
 	PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV;
+	PIM_DONT_DEBUG_BSM;
 
 	return CMD_SUCCESS;
 }
@@ -7591,6 +7593,30 @@ DEFUN (no_debug_mtrace,
 	PIM_DONT_DEBUG_MTRACE;
 	return CMD_SUCCESS;
 }
+
+DEFUN (debug_bsm,
+       debug_bsm_cmd,
+       "debug pim bsm",
+       DEBUG_STR
+       DEBUG_PIM_STR
+       DEBUG_PIM_BSM_STR)
+{
+	PIM_DO_DEBUG_BSM;
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_bsm,
+       no_debug_bsm_cmd,
+       "no debug pim bsm",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIM_STR
+       DEBUG_PIM_BSM_STR)
+{
+	PIM_DONT_DEBUG_BSM;
+	return CMD_SUCCESS;
+}
+
 
 DEFUN_NOSH (show_debugging_pim,
 	    show_debugging_pim_cmd,
@@ -9377,6 +9403,8 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &no_debug_msdp_packets_cmd);
 	install_element(ENABLE_NODE, &debug_mtrace_cmd);
 	install_element(ENABLE_NODE, &no_debug_mtrace_cmd);
+	install_element(ENABLE_NODE, &debug_bsm_cmd);
+	install_element(ENABLE_NODE, &no_debug_bsm_cmd);
 
 	install_element(CONFIG_NODE, &debug_igmp_cmd);
 	install_element(CONFIG_NODE, &no_debug_igmp_cmd);
@@ -9420,6 +9448,8 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_debug_msdp_packets_cmd);
 	install_element(CONFIG_NODE, &debug_mtrace_cmd);
 	install_element(CONFIG_NODE, &no_debug_mtrace_cmd);
+	install_element(CONFIG_NODE, &debug_bsm_cmd);
+	install_element(CONFIG_NODE, &no_debug_bsm_cmd);
 
 	install_element(CONFIG_NODE, &ip_msdp_mesh_group_member_cmd);
 	install_element(VRF_NODE, &ip_msdp_mesh_group_member_cmd);
