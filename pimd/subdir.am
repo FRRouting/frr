@@ -17,6 +17,7 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_assert.c \
 	pimd/pim_bfd.c \
 	pimd/pim_br.c \
+	pimd/pim_bsm.c \
 	pimd/pim_cmd.c \
 	pimd/pim_errors.c \
 	pimd/pim_hello.c \
@@ -68,6 +69,7 @@ noinst_HEADERS += \
 	pimd/pim_assert.h \
 	pimd/pim_bfd.h \
 	pimd/pim_br.h \
+	pimd/pim_bsm.h \
 	pimd/pim_cmd.h \
 	pimd/pim_errors.h \
 	pimd/pim_hello.h \
