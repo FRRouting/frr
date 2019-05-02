@@ -1204,6 +1204,7 @@ static int rib_can_delete_dest(rib_dest_t *dest)
 void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 {
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
+	struct listnode *node, *nnode;
 	struct rnh *rnh;
 
 	/*
@@ -1235,7 +1236,7 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 		 * nht resolution and as such we need to call the
 		 * nexthop tracking evaluation code
 		 */
-		for_each (rnh_list, &dest->nht, rnh) {
+		for (ALL_LIST_ELEMENTS(dest->nht, node, nnode, rnh)) {
 			struct zebra_vrf *zvrf =
 				zebra_vrf_lookup_by_id(rnh->vrf_id);
 			struct prefix *p = &rnh->node->p;
@@ -1311,7 +1312,7 @@ int rib_gc_dest(struct route_node *rn)
 	zebra_rib_evaluate_rn_nexthops(rn, zebra_router_get_next_sequence());
 
 	dest->rnode = NULL;
-	rnh_list_fini(&dest->nht);
+	list_delete(&dest->nht);
 	XFREE(MTYPE_RIB_DEST, dest);
 	rn->info = NULL;
 
@@ -2356,7 +2357,7 @@ rib_dest_t *zebra_rib_create_dest(struct route_node *rn)
 	rib_dest_t *dest;
 
 	dest = XCALLOC(MTYPE_RIB_DEST, sizeof(rib_dest_t));
-	rnh_list_init(&dest->nht);
+	dest->nht = list_new();
 	route_lock_node(rn); /* rn route table reference */
 	rn->info = dest;
 	dest->rnode = rn;
