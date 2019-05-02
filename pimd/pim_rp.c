@@ -1064,6 +1064,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 	struct rp_info *rp_info;
 	struct rp_info *prev_rp_info = NULL;
 	struct listnode *node;
+	char source[7];
 
 	json_object *json = NULL;
 	json_object *json_rp_rows = NULL;
@@ -1073,12 +1074,17 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 		json = json_object_new_object();
 	else
 		vty_out(vty,
-			"RP address       group/prefix-list   OIF               I am RP\n");
-
+			"RP address       group/prefix-list   OIF         I am RP     Source\n");
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (!pim_rpf_addr_is_inaddr_none(&rp_info->rp)) {
 			char buf[48];
 
+			if (rp_info->rp_src == RP_SRC_STATIC)
+				strcpy(source, "Static");
+			else if (rp_info->rp_src == RP_SRC_BSR)
+				strcpy(source, "BSR");
+			else
+				strcpy(source, "None");
 			if (uj) {
 				/*
 				 * If we have moved on to a new RP then add the
@@ -1121,6 +1127,9 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 						json_row, "group",
 						prefix2str(&rp_info->group, buf,
 							   48));
+				json_object_string_add(json_row,
+						       "source",
+						       source);
 
 				json_object_array_add(json_rp_rows, json_row);
 			} else {
@@ -1145,9 +1154,10 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 				if (rp_info->i_am_rp)
 					vty_out(vty, "yes\n");
 				else
-					vty_out(vty, "no\n");
-			}
+					vty_out(vty, "no");
 
+				vty_out(vty, "%14s\n", source);
+			}
 			prev_rp_info = rp_info;
 		}
 	}
