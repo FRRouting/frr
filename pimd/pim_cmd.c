@@ -7755,6 +7755,94 @@ DEFUN (no_ip_pim_bfd,
 	return CMD_SUCCESS;
 }
 
+DEFUN (ip_pim_bsm,
+       ip_pim_bsm_cmd,
+       "ip pim bsm",
+       IP_STR
+       PIM_STR
+       "Enables BSM support on the interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (!pim_ifp) {
+		if (!pim_cmd_interface_add(ifp)) {
+			vty_out(vty, "Could not enable PIM SM on interface\n");
+			return CMD_WARNING;
+		}
+	}
+
+	pim_ifp = ifp->info;
+	pim_ifp->bsm_enable = true;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_bsm,
+       no_ip_pim_bsm_cmd,
+       "no ip pim bsm",
+       NO_STR
+       IP_STR
+       PIM_STR
+       "Disables BSM support\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (!pim_ifp) {
+		vty_out(vty, "Pim not enabled on this interface\n");
+		return CMD_WARNING;
+	}
+
+	pim_ifp->bsm_enable = false;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (ip_pim_ucast_bsm,
+       ip_pim_ucast_bsm_cmd,
+       "ip pim unicast-bsm",
+       IP_STR
+       PIM_STR
+       "Accept/Send unicast BSM on the interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (!pim_ifp) {
+		if (!pim_cmd_interface_add(ifp)) {
+			vty_out(vty, "Could not enable PIM SM on interface\n");
+			return CMD_WARNING;
+		}
+	}
+
+	pim_ifp = ifp->info;
+	pim_ifp->ucast_bsm_accept = true;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_ucast_bsm,
+       no_ip_pim_ucast_bsm_cmd,
+       "no ip pim unicast-bsm",
+       NO_STR
+       IP_STR
+       PIM_STR
+       "Block send/receive unicast BSM on this interface\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (!pim_ifp) {
+		vty_out(vty, "Pim not enabled on this interface\n");
+		return CMD_WARNING;
+	}
+
+	pim_ifp->ucast_bsm_accept = false;
+
+	return CMD_SUCCESS;
+}
+
 #if HAVE_BFDD > 0
 DEFUN_HIDDEN(
 #else
@@ -9487,6 +9575,11 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_vxlan_sg_work_cmd);
 	install_element(INTERFACE_NODE, &interface_pim_use_source_cmd);
 	install_element(INTERFACE_NODE, &interface_no_pim_use_source_cmd);
+	/* Install BSM command */
+	install_element(INTERFACE_NODE, &ip_pim_bsm_cmd);
+	install_element(INTERFACE_NODE, &no_ip_pim_bsm_cmd);
+	install_element(INTERFACE_NODE, &ip_pim_ucast_bsm_cmd);
+	install_element(INTERFACE_NODE, &no_ip_pim_ucast_bsm_cmd);
 	/* Install BFD command */
 	install_element(INTERFACE_NODE, &ip_pim_bfd_cmd);
 	install_element(INTERFACE_NODE, &ip_pim_bfd_param_cmd);

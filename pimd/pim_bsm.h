@@ -187,5 +187,5 @@ struct bsmmsg_rpinfo {
 /* API */
 void pim_bsm_proc_init(struct pim_instance *pim);
 void pim_bsm_proc_free(struct pim_instance *pim);
-
+void pim_bsm_write_config(struct vty *vty, struct interface *ifp);
 #endif

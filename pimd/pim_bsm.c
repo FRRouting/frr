@@ -22,7 +22,6 @@
 #include "if.h"
 #include "pimd.h"
 #include "pim_iface.h"
-#include "pim_cmd.h"
 #include "pim_instance.h"
 #include "pim_rpf.h"
 #include "pim_hello.h"
@@ -35,6 +34,20 @@
 static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout);
 static int pim_on_bs_timer(struct thread *t);
 static void pim_bs_timer_stop(struct bsm_scope *scope);
+
+/* pim_bsm_write_config - Write the interface pim bsm configuration.*/
+void
+pim_bsm_write_config(struct vty *vty, struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (pim_ifp) {
+		if (!pim_ifp->bsm_enable)
+			vty_out(vty, " no ip pim bsm\n");
+		if (!pim_ifp->ucast_bsm_accept)
+			vty_out(vty, " no ip pim unicast-bsm\n");
+	}
+}
 
 static void pim_free_bsgrp_data(struct bsgrp_node * bsgrp_node)
 {
