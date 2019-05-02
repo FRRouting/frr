@@ -81,10 +81,11 @@ struct rnh {
 #define DISTANCE_INFINITY  255
 #define ZEBRA_KERNEL_TABLE_MAX 252 /* support for no more than this rt tables */
 
+PREDECL_LIST(re_list)
+
 struct route_entry {
 	/* Link list. */
-	struct route_entry *next;
-	struct route_entry *prev;
+	struct re_list_item next;
 
 	/* Nexthop structure */
 	struct nexthop_group ng;
@@ -174,7 +175,7 @@ typedef struct rib_dest_t_ {
 	/*
 	 * Doubly-linked list of routes for this prefix.
 	 */
-	struct route_entry *routes;
+	struct re_list_head routes;
 
 	struct route_entry *selected_fib;
 
@@ -200,6 +201,7 @@ typedef struct rib_dest_t_ {
 } rib_dest_t;
 
 DECLARE_LIST(rnh_list, struct rnh, rnh_list_item);
+DECLARE_LIST(re_list, struct route_entry, next);
 
 #define RIB_ROUTE_QUEUED(x)	(1 << (x))
 // If MQ_SIZE is modified this value needs to be updated.
@@ -228,14 +230,16 @@ DECLARE_LIST(rnh_list, struct rnh, rnh_list_item);
  * Macro to iterate over each route for a destination (prefix).
  */
 #define RE_DEST_FOREACH_ROUTE(dest, re)                                        \
-	for ((re) = (dest) ? (dest)->routes : NULL; (re); (re) = (re)->next)
+	for ((re) = (dest) ? re_list_first(&((dest)->routes)) : NULL; (re);    \
+	     (re) = re_list_next(&((dest)->routes), (re)))
 
 /*
  * Same as above, but allows the current node to be unlinked.
  */
 #define RE_DEST_FOREACH_ROUTE_SAFE(dest, re, next)                             \
-	for ((re) = (dest) ? (dest)->routes : NULL;                            \
-	     (re) && ((next) = (re)->next, 1); (re) = (next))
+	for ((re) = (dest) ? re_list_first(&((dest)->routes)) : NULL;          \
+	     (re) && ((next) = re_list_next(&((dest)->routes), (re)), 1);      \
+	     (re) = (next))
 
 #define RNODE_FOREACH_RE(rn, re)                                               \
 	RE_DEST_FOREACH_ROUTE (rib_dest_from_rnode(rn), re)
@@ -447,7 +451,7 @@ static inline struct route_entry *rnode_to_ribs(struct route_node *rn)
 	if (!dest)
 		return NULL;
 
-	return dest->routes;
+	return re_list_first(&dest->routes);
 }
 
 /*

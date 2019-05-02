@@ -1176,7 +1176,7 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
  */
 static int rib_can_delete_dest(rib_dest_t *dest)
 {
-	if (dest->routes) {
+	if (re_list_first(&dest->routes)) {
 		return 0;
 	}
 
@@ -2404,7 +2404,6 @@ rib_dest_t *zebra_rib_create_dest(struct route_node *rn)
 /* Add RE to head of the route node. */
 static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 {
-	struct route_entry *head;
 	rib_dest_t *dest;
 	afi_t afi;
 	const char *rmap_name;
@@ -2419,12 +2418,7 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 		dest = zebra_rib_create_dest(rn);
 	}
 
-	head = dest->routes;
-	if (head) {
-		head->prev = re;
-	}
-	re->next = head;
-	dest->routes = re;
+	re_list_add_head(&dest->routes, re);
 
 	afi = (rn->p.family == AF_INET)
 		      ? AFI_IP
@@ -2474,14 +2468,7 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 
 	dest = rib_dest_from_rnode(rn);
 
-	if (re->next)
-		re->next->prev = re->prev;
-
-	if (re->prev)
-		re->prev->next = re->next;
-	else {
-		dest->routes = re->next;
-	}
+	re_list_del(&dest->routes, re);
 
 	if (dest->selected_fib == re)
 		dest->selected_fib = NULL;
