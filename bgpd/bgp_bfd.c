@@ -276,6 +276,11 @@ static void bgp_bfd_peer_status_update(struct peer *peer, int status)
 	bfd_info->status = status;
 	bfd_info->last_update = bgp_clock();
 
+	if (status != old_status) {
+		if (BGP_DEBUG(neighbor_events, NEIGHBOR_EVENTS))
+			zlog_debug("[%s]: BFD %s", peer->host,
+				   bfd_get_status_str(status));
+	}
 	if ((status == BFD_STATUS_DOWN) && (old_status == BFD_STATUS_UP)) {
 		peer->last_reset = PEER_DOWN_BFD_DOWN;
 		BGP_EVENT_ADD(peer, BGP_Stop);
