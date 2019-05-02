@@ -62,6 +62,7 @@
 #include "pim_bfd.h"
 #include "pim_vxlan.h"
 #include "bfd.h"
+#include "pim_bsm.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim_cmd_clippy.c"
@@ -1475,13 +1476,14 @@ static void pim_show_interface_traffic(struct pim_instance *pim,
 		json = json_object_new_object();
 	else {
 		vty_out(vty, "\n");
-		vty_out(vty, "%-16s%-17s%-17s%-17s%-17s%-17s%-17s\n",
+		vty_out(vty, "%-16s%-17s%-17s%-17s%-17s%-17s%-17s%-17s\n",
 			"Interface", "       HELLO", "       JOIN",
 			"      PRUNE", "   REGISTER", "REGISTER-STOP",
-			"  ASSERT");
-		vty_out(vty, "%-16s%-17s%-17s%-17s%-17s%-17s%-17s\n", "",
+			"  ASSERT", "  BSM");
+		vty_out(vty, "%-16s%-17s%-17s%-17s%-17s%-17s%-17s%-17s\n", "",
 			"       Rx/Tx", "       Rx/Tx", "      Rx/Tx",
-			"     Rx/Tx", "    Rx/Tx", "   Rx/Tx");
+			"      Rx/Tx", "     Rx/Tx", "    Rx/Tx",
+			"   Rx/Tx");
 		vty_out(vty,
 			"---------------------------------------------------------------------------------------------------------------\n");
 	}
@@ -1516,12 +1518,15 @@ static void pim_show_interface_traffic(struct pim_instance *pim,
 			json_object_int_add(json_row, "assertRx",
 					    pim_ifp->pim_ifstat_assert_recv);
 			json_object_int_add(json_row, "assertTx",
-					    pim_ifp->pim_ifstat_assert_send);
-
+					pim_ifp->pim_ifstat_assert_send);
+			json_object_int_add(json_row, "bsmRx",
+					pim_ifp->pim_ifstat_bsm_rx);
+			json_object_int_add(json_row, "bsmTx",
+					pim_ifp->pim_ifstat_bsm_tx);
 			json_object_object_add(json, ifp->name, json_row);
 		} else {
 			vty_out(vty,
-				"%-16s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u \n",
+				"%-16s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7lu/%-7lu \n",
 				ifp->name, pim_ifp->pim_ifstat_hello_recv,
 				pim_ifp->pim_ifstat_hello_sent,
 				pim_ifp->pim_ifstat_join_recv,
@@ -1533,7 +1538,9 @@ static void pim_show_interface_traffic(struct pim_instance *pim,
 				pim_ifp->pim_ifstat_reg_stop_recv,
 				pim_ifp->pim_ifstat_reg_stop_send,
 				pim_ifp->pim_ifstat_assert_recv,
-				pim_ifp->pim_ifstat_assert_send);
+				pim_ifp->pim_ifstat_assert_send,
+				pim_ifp->pim_ifstat_bsm_rx,
+				pim_ifp->pim_ifstat_bsm_tx);
 		}
 	}
 	if (uj) {
@@ -1557,14 +1564,15 @@ static void pim_show_interface_traffic_single(struct pim_instance *pim,
 		json = json_object_new_object();
 	else {
 		vty_out(vty, "\n");
-		vty_out(vty, "%-16s%-17s%-17s%-17s%-17s%-17s%-17s\n",
+		vty_out(vty, "%-16s%-17s%-17s%-17s%-17s%-17s%-17s%-17s\n",
 			"Interface", "    HELLO", "    JOIN", "   PRUNE",
-			"   REGISTER", "  REGISTER-STOP", "  ASSERT");
-		vty_out(vty, "%-14s%-18s%-17s%-17s%-17s%-17s%-17s\n", "",
+			"   REGISTER", "  REGISTER-STOP", "  ASSERT",
+			"    BSM");
+		vty_out(vty, "%-14s%-18s%-17s%-17s%-17s%-17s%-17s%-17s\n", "",
 			"      Rx/Tx", "     Rx/Tx", "    Rx/Tx", "    Rx/Tx",
-			"     Rx/Tx", "    Rx/Tx");
+			"     Rx/Tx", "    Rx/Tx", "    Rx/Tx");
 		vty_out(vty,
-			"---------------------------------------------------------------------------------------------------------------------\n");
+			"-------------------------------------------------------------------------------------------------------------------------------\n");
 	}
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
@@ -1603,11 +1611,15 @@ static void pim_show_interface_traffic_single(struct pim_instance *pim,
 					    pim_ifp->pim_ifstat_assert_recv);
 			json_object_int_add(json_row, "assertTx",
 					    pim_ifp->pim_ifstat_assert_send);
+			json_object_int_add(json_row, "bsmRx",
+					    pim_ifp->pim_ifstat_bsm_rx);
+			json_object_int_add(json_row, "bsmTx",
+					    pim_ifp->pim_ifstat_bsm_tx);
 
 			json_object_object_add(json, ifp->name, json_row);
 		} else {
 			vty_out(vty,
-				"%-16s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u \n",
+				"%-16s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7lu/%-7lu \n",
 				ifp->name, pim_ifp->pim_ifstat_hello_recv,
 				pim_ifp->pim_ifstat_hello_sent,
 				pim_ifp->pim_ifstat_join_recv,
@@ -1619,7 +1631,9 @@ static void pim_show_interface_traffic_single(struct pim_instance *pim,
 				pim_ifp->pim_ifstat_reg_stop_recv,
 				pim_ifp->pim_ifstat_reg_stop_send,
 				pim_ifp->pim_ifstat_assert_recv,
-				pim_ifp->pim_ifstat_assert_send);
+				pim_ifp->pim_ifstat_assert_send,
+				pim_ifp->pim_ifstat_bsm_rx,
+				pim_ifp->pim_ifstat_bsm_tx);
 		}
 	}
 	if (uj) {
