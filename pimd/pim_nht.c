@@ -242,6 +242,169 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 	}
 }
 
+/* Given a source address and a neighbor address, check if the neighbor is one
+ * of the next hop to reach the source. search from zebra route database
+ */
+bool pim_nexthop_match(struct pim_instance *pim, struct in_addr addr,
+		       struct in_addr ip_src)
+{
+	struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
+	int i = 0;
+	ifindex_t first_ifindex = 0;
+	struct interface *ifp = NULL;
+	struct pim_neighbor *nbr = NULL;
+	int num_ifindex;
+
+	if (addr.s_addr == INADDR_NONE)
+		return 0;
+
+	memset(nexthop_tab, 0,
+	       sizeof(struct pim_zlookup_nexthop) * MULTIPATH_NUM);
+	num_ifindex = zclient_lookup_nexthop(pim, nexthop_tab, MULTIPATH_NUM,
+					     addr, PIM_NEXTHOP_LOOKUP_MAX);
+	if (num_ifindex < 1) {
+		char addr_str[INET_ADDRSTRLEN];
+
+		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+		zlog_warn(
+			"%s %s: could not find nexthop ifindex for address %s",
+			__FILE__, __PRETTY_FUNCTION__, addr_str);
+		return 0;
+	}
+
+	while (i < num_ifindex) {
+		first_ifindex = nexthop_tab[i].ifindex;
+
+		ifp = if_lookup_by_index(first_ifindex, pim->vrf_id);
+		if (!ifp) {
+			if (PIM_DEBUG_ZEBRA) {
+				char addr_str[INET_ADDRSTRLEN];
+
+				pim_inet4_dump("<addr?>", addr, addr_str,
+					       sizeof(addr_str));
+				zlog_debug(
+					"%s %s: could not find interface for ifindex %d (address %s)",
+					__FILE__, __PRETTY_FUNCTION__,
+					first_ifindex, addr_str);
+			}
+			i++;
+			continue;
+		}
+
+		if (!ifp->info) {
+			if (PIM_DEBUG_ZEBRA) {
+				char addr_str[INET_ADDRSTRLEN];
+
+				pim_inet4_dump("<addr?>", addr, addr_str,
+					       sizeof(addr_str));
+				zlog_debug(
+					"%s: multicast not enabled on input interface %s (ifindex=%d, RPF for source %s)",
+					__PRETTY_FUNCTION__, ifp->name,
+					first_ifindex, addr_str);
+			}
+			i++;
+			continue;
+		}
+
+		if (!pim_if_connected_to_source(ifp, addr)) {
+			nbr = pim_neighbor_find(
+				ifp, nexthop_tab[i].nexthop_addr.u.prefix4);
+			if (PIM_DEBUG_PIM_TRACE_DETAIL)
+				zlog_debug("ifp name: %s, pim nbr: %p",
+					   ifp->name, nbr);
+			if (!nbr && !if_is_loopback(ifp)) {
+				i++;
+				continue;
+			}
+		}
+
+		if (nexthop_tab[i].nexthop_addr.u.prefix4.s_addr
+		    == ip_src.s_addr)
+			return 1;
+
+		i++;
+	}
+
+	return 0;
+}
+
+/* Given a source address and a neighbor address, check if the neighbor is one
+ * of the next hop to reach the source. search from pim next hop cache
+ */
+bool pim_nexthop_match_nht_cache(struct pim_instance *pim, struct in_addr addr,
+				 struct in_addr ip_src)
+{
+	struct pim_rpf rpf;
+	ifindex_t first_ifindex;
+	struct interface *ifp = NULL;
+	uint8_t nh_iter = 0;
+	struct pim_neighbor *nbr = NULL;
+	struct nexthop *nh_node = NULL;
+	struct pim_nexthop_cache *pnc = NULL;
+
+	memset(&rpf, 0, sizeof(struct pim_rpf));
+	rpf.rpf_addr.family = AF_INET;
+	rpf.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
+	rpf.rpf_addr.u.prefix4 = addr;
+
+	pnc = pim_nexthop_cache_find(pim, &rpf);
+	if (!pnc || !pnc->nexthop_num)
+		return 0;
+
+	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
+		first_ifindex = nh_node->ifindex;
+		ifp = if_lookup_by_index(first_ifindex, pim->vrf_id);
+		if (!ifp) {
+			if (PIM_DEBUG_PIM_NHT) {
+				char addr_str[INET_ADDRSTRLEN];
+
+				pim_inet4_dump("<addr?>", addr, addr_str,
+					       sizeof(addr_str));
+				zlog_debug(
+					"%s %s: could not find interface for ifindex %d (address %s(%s))",
+					__FILE__, __PRETTY_FUNCTION__,
+					first_ifindex, addr_str,
+					pim->vrf->name);
+			}
+			nh_iter++;
+			continue;
+		}
+		if (!ifp->info) {
+			if (PIM_DEBUG_PIM_NHT) {
+				char addr_str[INET_ADDRSTRLEN];
+
+				pim_inet4_dump("<addr?>", addr, addr_str,
+					       sizeof(addr_str));
+				zlog_debug(
+					"%s: multicast not enabled on input interface %s(%s) (ifindex=%d, RPF for source %s)",
+					__PRETTY_FUNCTION__, ifp->name,
+					pim->vrf->name, first_ifindex,
+					addr_str);
+			}
+			nh_iter++;
+			continue;
+		}
+
+		if (!pim_if_connected_to_source(ifp, addr)) {
+			nbr = pim_neighbor_find(ifp, nh_node->gate.ipv4);
+			if (!nbr && !if_is_loopback(ifp)) {
+				if (PIM_DEBUG_PIM_NHT)
+					zlog_debug(
+						"%s: pim nbr not found on input interface %s(%s)",
+						__PRETTY_FUNCTION__, ifp->name,
+						pim->vrf->name);
+				nh_iter++;
+				continue;
+			}
+		}
+
+		if (nh_node->gate.ipv4.s_addr == ip_src.s_addr)
+			return 1;
+	}
+
+	return 0;
+}
+
 void pim_rp_nexthop_del(struct rp_info *rp_info)
 {
 	rp_info->rp.source_nexthop.interface = NULL;
