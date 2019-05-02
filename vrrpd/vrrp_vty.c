@@ -572,6 +572,23 @@ static void vrrp_show(struct vty *vty, struct vrrp_vrouter *vr)
 	ttable_del(tt);
 }
 
+/*
+ * Sort comparator, used when sorting VRRP instances for display purposes.
+ *
+ * Sorts by interface name first, then by VRID ascending.
+ */
+static int vrrp_instance_display_sort_cmp(const void **d1, const void **d2)
+{
+	const struct vrrp_vrouter *vr1 = *d1;
+	const struct vrrp_vrouter *vr2 = *d2;
+	int result;
+
+	result = strcmp(vr1->ifp->name, vr2->ifp->name);
+	result += !result * (vr1->vrid - vr2->vrid);
+
+	return result;
+}
+
 /* clang-format off */
 
 DEFPY(vrrp_vrid_show,
@@ -588,6 +605,8 @@ DEFPY(vrrp_vrid_show,
 	struct listnode *ln;
 	struct list *ll = hash_to_list(vrrp_vrouters_hash);
 	struct json_object *j = json_object_new_array();
+
+	list_sort(ll, vrrp_instance_display_sort_cmp);
 
 	for (ALL_LIST_ELEMENTS_RO(ll, ln, vr)) {
 		if (ifn && !strmatch(ifn, vr->ifp->name))
@@ -607,6 +626,55 @@ DEFPY(vrrp_vrid_show,
 				j, JSON_C_TO_STRING_PRETTY));
 
 	json_object_free(j);
+
+	list_delete(&ll);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(vrrp_vrid_show_summary,
+      vrrp_vrid_show_summary_cmd,
+      "show vrrp [interface INTERFACE$ifn] [(1-255)$vrid] summary",
+      SHOW_STR
+      VRRP_STR
+      INTERFACE_STR
+      "Only show VRRP instances on this interface\n"
+      VRRP_VRID_STR
+      "Summarize all VRRP instances\n")
+{
+	struct vrrp_vrouter *vr;
+	struct listnode *ln;
+	struct list *ll = hash_to_list(vrrp_vrouters_hash);
+
+	list_sort(ll, vrrp_instance_display_sort_cmp);
+
+	struct ttable *tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+
+	ttable_add_row(
+		tt, "Interface|VRID|Priority|IPv4|IPv6|State (v4)|State (v6)");
+	ttable_rowseps(tt, 0, BOTTOM, true, '-');
+
+	for (ALL_LIST_ELEMENTS_RO(ll, ln, vr)) {
+		if (ifn && !strmatch(ifn, vr->ifp->name))
+			continue;
+		if (vrid && ((uint8_t)vrid) != vr->vrid)
+			continue;
+
+		ttable_add_row(
+			tt, "%s|%" PRIu8 "|%" PRIu8 "|%d|%d|%s|%s",
+			vr->ifp->name, vr->vrid, vr->priority,
+			vr->v4->addrs->count, vr->v6->addrs->count,
+			vr->v4->fsm.state == VRRP_STATE_MASTER ? "Master"
+							       : "Backup",
+			vr->v6->fsm.state == VRRP_STATE_MASTER ? "Master"
+							       : "Backup");
+	}
+
+	char *table = ttable_dump(tt, "\n");
+
+	vty_out(vty, "\n%s\n", table);
+	XFREE(MTYPE_TMP, table);
+	ttable_del(tt);
 
 	list_delete(&ll);
 
@@ -667,6 +735,7 @@ void vrrp_vty_init(void)
 	if_cmd_init();
 
 	install_element(VIEW_NODE, &vrrp_vrid_show_cmd);
+	install_element(VIEW_NODE, &vrrp_vrid_show_summary_cmd);
 	install_element(VIEW_NODE, &show_debugging_vrrp_cmd);
 	install_element(VIEW_NODE, &debug_vrrp_cmd);
 	install_element(CONFIG_NODE, &debug_vrrp_cmd);
