@@ -1706,7 +1706,7 @@ static enum zebra_dplane_result intf_addr_update_internal(
 	/* Init the interface-addr-specific area */
 	memset(&ctx->u.intf, 0, sizeof(ctx->u.intf));
 
-	strncpy(ctx->u.intf.ifname, ifp->name, sizeof(ctx->u.intf.ifname));
+	strlcpy(ctx->u.intf.ifname, ifp->name, sizeof(ctx->u.intf.ifname));
 	ctx->u.intf.ifindex = ifp->ifindex;
 	ctx->u.intf.prefix = *(ifc->address);
 
@@ -1734,7 +1734,7 @@ static enum zebra_dplane_result intf_addr_update_internal(
 		len = strlen(ifc->label);
 
 		if (len < sizeof(ctx->u.intf.label_buf)) {
-			strncpy(ctx->u.intf.label_buf, ifc->label,
+			strlcpy(ctx->u.intf.label_buf, ifc->label,
 				sizeof(ctx->u.intf.label_buf));
 			ctx->u.intf.label = ctx->u.intf.label_buf;
 		} else {
