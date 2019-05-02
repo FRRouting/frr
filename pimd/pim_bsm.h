@@ -31,25 +31,24 @@
 #include "pim_msg.h"
 
 /* Defines */
-#define PIM_GBL_SZ_ID		  0 /* global scope zone id set to 0 */
-#define PIM_BS_TIME              60 /* RFC 5059 - Sec 5 */
+#define PIM_GBL_SZ_ID 0		    /* global scope zone id set to 0 */
+#define PIM_BS_TIME 60		    /* RFC 5059 - Sec 5 */
 #define PIM_BSR_DEFAULT_TIMEOUT 130 /* RFC 5059 - Sec 5 */
 
 /* These structures are only encoded IPv4 specific */
-#define PIM_BSM_HDR_LEN         sizeof(struct bsm_hdr)
-#define PIM_BSM_GRP_LEN         sizeof(struct bsmmsg_grpinfo)
-#define PIM_BSM_RP_LEN          sizeof(struct bsmmsg_rpinfo)
+#define PIM_BSM_HDR_LEN sizeof(struct bsm_hdr)
+#define PIM_BSM_GRP_LEN sizeof(struct bsmmsg_grpinfo)
+#define PIM_BSM_RP_LEN sizeof(struct bsmmsg_rpinfo)
 
-#define PIM_MIN_BSM_LEN         (PIM_HDR_LEN     + \
-                                 PIM_BSM_HDR_LEN + \
-                                 PIM_BSM_GRP_LEN + \
-                                 PIM_BSM_RP_LEN)
+#define PIM_MIN_BSM_LEN \
+	(PIM_HDR_LEN + PIM_BSM_HDR_LEN + PIM_BSM_GRP_LEN + PIM_BSM_RP_LEN)
+
 /* Datastructures
  * ==============
  */
 
 /* Non candidate BSR states */
-enum ncbsr_state{
+enum ncbsr_state {
 	NO_INFO = 0,
 	ACCEPT_ANY,
 	ACCEPT_PREFERRED
@@ -57,19 +56,19 @@ enum ncbsr_state{
 
 /* BSM scope - bsm processing is per scope */
 struct bsm_scope {
-	int sz_id;                      /* scope zone id */
-	enum ncbsr_state state;         /* non candidate BSR state */
-	bool accept_nofwd_bsm;          /* no fwd bsm accepted for scope */
+	int sz_id;			/* scope zone id */
+	enum ncbsr_state state;		/* non candidate BSR state */
+	bool accept_nofwd_bsm;		/* no fwd bsm accepted for scope */
 	struct in_addr current_bsr;     /* current elected BSR for the sz */
 	uint32_t current_bsr_prio;      /* current BSR priority */
 	int64_t current_bsr_first_ts;   /* current BSR elected time */
 	int64_t current_bsr_last_ts;    /* Last BSM received from E-BSR */
-	uint16_t bsm_frag_tag;          /* Last received frag tag from E-BSR */
-	uint8_t hashMasklen;            /* Mask in hash calc RFC 7761 4.7.2 */
+	uint16_t bsm_frag_tag;		/* Last received frag tag from E-BSR */
+	uint8_t hashMasklen;		/* Mask in hash calc RFC 7761 4.7.2 */
 	struct pim_instance *pim;       /* Back pointer to pim instance */
-	struct list *bsm_list;          /* list of bsm frag for frowarding */
+	struct list *bsm_list;		/* list of bsm frag for frowarding */
 	struct route_table *bsrp_table; /* group2rp mapping rcvd from BSR */
-	struct thread *bs_timer;        /* Boot strap timer */
+	struct thread *bs_timer;	/* Boot strap timer */
 	struct thread *sz_timer;
 };
 
@@ -85,12 +84,12 @@ struct bsm_info {
  * this node maintains the list of rp for the group.
  */
 struct bsgrp_node {
-	struct prefix group;            /* Group range */
-	struct bsm_scope *scope;        /* Back ptr to scope */
-	struct list *bsrp_list;         /* list of RPs adv by BSR */
+	struct prefix group;		/* Group range */
+	struct bsm_scope *scope;	/* Back ptr to scope */
+	struct list *bsrp_list;		/* list of RPs adv by BSR */
 	struct list *partial_bsrp_list; /* maintained until all RPs received */
-	int pend_rp_cnt;                /* Total RP - Received RP */
-	uint16_t frag_tag;              /* frag tag to identify the fragment */
+	int pend_rp_cnt;		/* Total RP - Received RP */
+	uint16_t frag_tag;		/* frag tag to identify the fragment */
 };
 
 /* This is the list node of bsrp_list and partial bsrp list in
@@ -168,24 +167,26 @@ struct bsm_hdr {
 	uint8_t hm_len;
 	uint8_t bsr_prio;
 	struct pim_encoded_ipv4_unicast bsr_addr;
-}__attribute__((packed));
+} __attribute__((packed));
 
 struct bsmmsg_grpinfo {
 	struct pim_encoded_group_ipv4 group;
 	uint8_t rp_count;
 	uint8_t frag_rp_count;
 	uint16_t reserved;
-}__attribute__((packed));
+} __attribute__((packed));
 
 struct bsmmsg_rpinfo {
 	struct pim_encoded_ipv4_unicast rpaddr;
 	uint16_t rp_holdtime;
 	uint8_t rp_pri;
 	uint8_t reserved;
-}__attribute__((packed));
+} __attribute__((packed));
 
 /* API */
 void pim_bsm_proc_init(struct pim_instance *pim);
 void pim_bsm_proc_free(struct pim_instance *pim);
 void pim_bsm_write_config(struct vty *vty, struct interface *ifp);
+struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
+					  struct prefix *grp);
 #endif

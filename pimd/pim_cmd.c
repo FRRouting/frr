@@ -5210,7 +5210,13 @@ static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
 {
 	int result;
 
-	result = pim_rp_new(pim, rp, group, plist);
+	result = pim_rp_new_config(pim, rp, group, plist);
+
+	if (result == PIM_GROUP_BAD_ADDR_MASK_COMBO) {
+		vty_out(vty, "%% Inconsistent address and mask: %s\n",
+			group);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (result == PIM_GROUP_BAD_ADDRESS) {
 		vty_out(vty, "%% Bad group address specified: %s\n", group);
@@ -5536,7 +5542,7 @@ static int pim_no_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
 				const char *rp, const char *group,
 				const char *plist)
 {
-	int result = pim_rp_del(pim, rp, group, plist);
+	int result = pim_rp_del_config(pim, rp, group, plist);
 
 	if (result == PIM_GROUP_BAD_ADDRESS) {
 		vty_out(vty, "%% Bad group address specified: %s\n", group);

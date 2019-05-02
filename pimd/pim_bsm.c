@@ -36,8 +36,7 @@ static int pim_on_bs_timer(struct thread *t);
 static void pim_bs_timer_stop(struct bsm_scope *scope);
 
 /* pim_bsm_write_config - Write the interface pim bsm configuration.*/
-void
-pim_bsm_write_config(struct vty *vty, struct interface *ifp)
+void pim_bsm_write_config(struct vty *vty, struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
@@ -49,7 +48,7 @@ pim_bsm_write_config(struct vty *vty, struct interface *ifp)
 	}
 }
 
-static void pim_free_bsgrp_data(struct bsgrp_node * bsgrp_node)
+static void pim_free_bsgrp_data(struct bsgrp_node *bsgrp_node)
 {
 	if (bsgrp_node->bsrp_list)
 		list_delete(&bsgrp_node->bsrp_list);
@@ -90,8 +89,8 @@ void pim_bsm_proc_free(struct pim_instance *pim)
 	if (pim->global_scope.bsm_list)
 		list_delete(&pim->global_scope.bsm_list);
 
-	for(rn = route_top(pim->global_scope.bsrp_table);
-			rn; rn = route_next(rn)) {
+	for (rn = route_top(pim->global_scope.bsrp_table); rn;
+	     rn = route_next(rn)) {
 		bsgrp = rn->info;
 		if (!bsgrp)
 			continue;
@@ -111,8 +110,7 @@ static void pim_bs_timer_stop(struct bsm_scope *scope)
 {
 	if (PIM_DEBUG_BSM)
 		zlog_debug("%s : BS timer being stopped of sz: %d",
-			__PRETTY_FUNCTION__,
-			scope->sz_id);
+			   __PRETTY_FUNCTION__, scope->sz_id);
 	THREAD_OFF(scope->bs_timer);
 }
 
@@ -121,15 +119,33 @@ static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout)
 	if (!scope) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s : Invalid scope(NULL).",
-					__PRETTY_FUNCTION__);
+				   __PRETTY_FUNCTION__);
 	}
 
 	THREAD_OFF(scope->bs_timer);
 
 	if (PIM_DEBUG_BSM)
 		zlog_debug("%s : starting bs timer for scope %d with timeout %d secs",
-				__PRETTY_FUNCTION__, scope->sz_id, bs_timeout);
+			   __PRETTY_FUNCTION__, scope->sz_id, bs_timeout);
 	thread_add_timer(router->master, pim_on_bs_timer, scope, bs_timeout,
-			&scope->bs_timer);
+			 &scope->bs_timer);
 }
 
+struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
+					  struct prefix *grp)
+{
+	struct route_node *rn;
+	struct bsgrp_node *bsgrp;
+
+	rn = route_node_lookup(scope->bsrp_table, grp);
+	if (!rn) {
+		if (PIM_DEBUG_BSM)
+			zlog_debug("%s: Route node doesn't exist for the group",
+				   __PRETTY_FUNCTION__);
+		return NULL;
+	}
+	bsgrp = rn->info;
+	route_unlock_node(rn);
+
+	return bsgrp;
+}
