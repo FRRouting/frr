@@ -7,6 +7,8 @@ from lib.topotest import json_cmp_result
 from lib.topolog import logger
 import pytest
 
+topology_only = False
+
 def pytest_addoption(parser):
     """
     Add topology-only option to the topology tester. This option makes pytest
@@ -20,9 +22,9 @@ def pytest_runtest_call():
     This function must be run after setup_module(), it does standarized post
     setup routines. It is only being used for the 'topology-only' option.
     """
-    # pylint: disable=E1101
-    # Trust me, 'config' exists.
-    if pytest.config.getoption('--topology-only'):
+    global topology_only
+
+    if topology_only:
         tgen = get_topogen()
         if tgen is not None:
             # Allow user to play with the setup.
@@ -44,8 +46,14 @@ def pytest_assertrepr_compare(op, left, right):
 
 def pytest_configure(config):
     "Assert that the environment is correctly configured."
+
+    global topology_only
+
     if not diagnose_env():
         pytest.exit('enviroment has errors, please read the logs')
+
+    if config.getoption('--topology-only'):
+        topology_only = True
 
 def pytest_runtest_makereport(item, call):
     "Log all assert messages to default logger with error level"
