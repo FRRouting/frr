@@ -121,6 +121,7 @@ static struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_instance *pim,
  */
 int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 			      struct pim_upstream *up, struct rp_info *rp,
+			      bool bsr_track_needed,
 			      struct pim_nexthop_cache *out_pnc)
 {
 	struct pim_nexthop_cache *pnc = NULL;
@@ -157,6 +158,9 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 	if (up != NULL)
 		hash_get(pnc->upstream_hash, up, hash_alloc_intern);
 
+	if (bsr_track_needed)
+		pnc->bsr_tracking = true;
+
 	if (CHECK_FLAG(pnc->flags, PIM_NEXTHOP_VALID)) {
 		if (out_pnc)
 			memcpy(out_pnc, pnc, sizeof(struct pim_nexthop_cache));
@@ -167,7 +171,8 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 }
 
 void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
-				struct pim_upstream *up, struct rp_info *rp)
+				struct pim_upstream *up, struct rp_info *rp,
+				bool del_bsr_tracking)
 {
 	struct pim_nexthop_cache *pnc = NULL;
 	struct pim_nexthop_cache lookup;
@@ -208,6 +213,9 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 		if (up)
 			hash_release(pnc->upstream_hash, up);
 
+		if (del_bsr_tracking)
+			pnc->bsr_tracking = false;
+
 		if (PIM_DEBUG_PIM_NHT) {
 			char buf[PREFIX_STRLEN];
 			prefix2str(addr, buf, sizeof buf);
@@ -218,7 +226,8 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 		}
 
 		if (pnc->rp_list->count == 0
-		    && pnc->upstream_hash->count == 0) {
+		    && pnc->upstream_hash->count == 0
+		    && pnc->bsr_tracking == false) {
 			pim_sendmsg_zebra_rnh(pim, zclient, pnc,
 					      ZEBRA_NEXTHOP_UNREGISTER);
 

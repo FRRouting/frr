@@ -45,15 +45,23 @@ struct pim_nexthop_cache {
 
 	struct list *rp_list;
 	struct hash *upstream_hash;
+	/* Ideally this has to be list of scope zone. But for now we can just
+	 * have as a bool variable to say bsr_tracking.
+	 * Later this variable can be changed as a list of scope zones for
+	 * tracking same bsr for multiple scope zones.
+	 */
+	bool bsr_tracking;
 };
 
 int pim_parse_nexthop_update(int command, struct zclient *zclient,
 			     zebra_size_t length, vrf_id_t vrf_id);
 int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 			      struct pim_upstream *up, struct rp_info *rp,
+			      bool bsr_track_needed,
 			      struct pim_nexthop_cache *out_pnc);
 void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
-				struct pim_upstream *up, struct rp_info *rp);
+				struct pim_upstream *up, struct rp_info *rp,
+				bool del_bsr_tracking);
 struct pim_nexthop_cache *pim_nexthop_cache_find(struct pim_instance *pim,
 						 struct pim_rpf *rpf);
 uint32_t pim_compute_ecmp_hash(struct prefix *src, struct prefix *grp);
