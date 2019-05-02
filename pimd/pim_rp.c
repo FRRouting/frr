@@ -381,7 +381,7 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 
 	old_rpf.source_nexthop.interface = up->rpf.source_nexthop.interface;
 
-	rpf_result = pim_rpf_update(pim, up, &old_rpf, 1);
+	rpf_result = pim_rpf_update(pim, up, &old_rpf);
 	if (rpf_result == PIM_RPF_FAILURE)
 		pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
 
