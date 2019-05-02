@@ -27,9 +27,16 @@
 #include "pim_iface.h"
 #include "pim_rpf.h"
 
+enum rp_source {
+	RP_SRC_NONE = 0,
+	RP_SRC_STATIC,
+	RP_SRC_BSR
+};
+
 struct rp_info {
 	struct prefix group;
 	struct pim_rpf rp;
+	enum rp_source rp_src;
 	int i_am_rp;
 	char *plist;
 };
