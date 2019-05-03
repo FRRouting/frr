@@ -472,6 +472,24 @@ int bgp_nexthop_self(struct bgp *bgp, struct in_addr nh_addr)
 	return 0;
 }
 
+int bgp_nexthop_peer_self(struct update_subgroup *subgrp,
+			  struct in_addr nh_addr)
+{
+	union sockunion nh_su;
+	char *nh_str;
+	struct peer_af *paf;
+
+	nh_str = inet_ntoa(nh_addr);
+	str2sockunion(nh_str, &nh_su);
+
+	SUBGRP_FOREACH_PEER (subgrp, paf) {
+		if (sockunion_cmp(&paf->peer->su, &nh_su) == 0)
+			return 1;
+	}
+
+	return 0;
+}
+
 int bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer)
 {
 	struct bgp_node *rn1;

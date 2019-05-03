@@ -1800,6 +1800,21 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 		if (!bgp_outbound_policy_exists(peer, filter))
 			return 0;
 
+	/* Do not send prefixes with nexthop address as peer. */
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP)))
+		if (!CHECK_FLAG(peer->af_flags[afi][safi],
+				PEER_FLAG_NEXTHOP_SELF)
+		    && !CHECK_FLAG(peer->af_flags[afi][safi],
+				   PEER_FLAG_FORCE_NEXTHOP_SELF))
+			if (bgp_nexthop_peer_self(subgrp, attr->nexthop)) {
+				zlog_debug(
+					"%s: skipping %s because nexthop belongs to %s.",
+					__func__,
+					prefix2str(p, buf, sizeof(buf)),
+					inet_ntoa(attr->nexthop));
+				return 0;
+			}
+
 	if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
 		if (peer->sort == BGP_PEER_IBGP
 		    || peer->sort == BGP_PEER_CONFED) {
