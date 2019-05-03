@@ -1181,8 +1181,16 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 				"kat expired on %s[%s]; remove stream reference",
 				up->sg_str, pim->vrf->name);
 		PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(up->flags);
-		up = pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
-	} else if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(up->flags)) {
+
+		/* Return if upstream entry got deleted.*/
+		if (!pim_upstream_del(pim, up, __PRETTY_FUNCTION__))
+			return NULL;
+	}
+	/* upstream reference would have been added to track the local
+	 * membership if it is LHR. We have to clear it when KAT expires.
+	 * Otherwise would result in stale entry with uncleared ref count.
+	 */
+	if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(up->flags)) {
 		struct pim_upstream *parent = up->parent;
 
 		PIM_UPSTREAM_FLAG_UNSET_SRC_LHR(up->flags);
