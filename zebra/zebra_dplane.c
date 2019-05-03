@@ -914,11 +914,26 @@ mpls_label_t dplane_ctx_get_in_label(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.lsp.ile.in_label;
 }
 
+void dplane_ctx_set_in_label(struct zebra_dplane_ctx *ctx, mpls_label_t label)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.lsp.ile.in_label = label;
+}
+
 uint8_t dplane_ctx_get_addr_family(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.lsp.addr_family;
+}
+
+void dplane_ctx_set_addr_family(struct zebra_dplane_ctx *ctx,
+				uint8_t family)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.lsp.addr_family = family;
 }
 
 uint32_t dplane_ctx_get_lsp_flags(const struct zebra_dplane_ctx *ctx)
@@ -928,6 +943,14 @@ uint32_t dplane_ctx_get_lsp_flags(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.lsp.flags;
 }
 
+void dplane_ctx_set_lsp_flags(struct zebra_dplane_ctx *ctx,
+			      uint32_t flags)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.lsp.flags = flags;
+}
+
 const zebra_nhlfe_t *dplane_ctx_get_nhlfe(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -935,11 +958,39 @@ const zebra_nhlfe_t *dplane_ctx_get_nhlfe(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.lsp.nhlfe_list;
 }
 
+zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
+				    enum lsp_types_t lsp_type,
+				    enum nexthop_types_t nh_type,
+				    union g_addr *gate,
+				    ifindex_t ifindex,
+				    mpls_label_t out_label)
+{
+	zebra_nhlfe_t *nhlfe;
+
+	DPLANE_CTX_VALID(ctx);
+
+	nhlfe = zebra_mpls_lsp_add_nhlfe(&(ctx->u.lsp),
+					 lsp_type, nh_type, gate,
+					 ifindex, out_label);
+
+	return nhlfe;
+}
+
 const zebra_nhlfe_t *
 dplane_ctx_get_best_nhlfe(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
+	return ctx->u.lsp.best_nhlfe;
+}
+
+const zebra_nhlfe_t *
+dplane_ctx_set_best_nhlfe(struct zebra_dplane_ctx *ctx,
+			  zebra_nhlfe_t *nhlfe)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.lsp.best_nhlfe = nhlfe;
 	return ctx->u.lsp.best_nhlfe;
 }
 
