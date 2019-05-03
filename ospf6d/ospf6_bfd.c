@@ -138,8 +138,7 @@ static void ospf6_bfd_reg_dereg_all_nbr(struct ospf6_interface *oi, int command)
  * ospf6_bfd_nbr_replay - Replay all the neighbors that have BFD enabled
  *                        to zebra
  */
-static int ospf6_bfd_nbr_replay(int command, struct zclient *zclient,
-				zebra_size_t length, vrf_id_t vrf_id)
+static int ospf6_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct listnode *node;
@@ -182,8 +181,7 @@ static int ospf6_bfd_nbr_replay(int command, struct zclient *zclient,
  *                                   has changed and bring down the neighbor
  *                                   connectivity if BFD down is received.
  */
-static int ospf6_bfd_interface_dest_update(int command, struct zclient *zclient,
-					   zebra_size_t length, vrf_id_t vrf_id)
+static int ospf6_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	struct ospf6_interface *oi;

@@ -59,8 +59,7 @@ static struct interface *zebra_interface_if_lookup(struct stream *s)
 }
 
 /* Inteface addition message from zebra. */
-static int interface_add(int command, struct zclient *zclient,
-			       zebra_size_t length, vrf_id_t vrf_id)
+static int interface_add(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 
@@ -73,8 +72,7 @@ static int interface_add(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int interface_delete(int command, struct zclient *zclient,
-			    zebra_size_t length, vrf_id_t vrf_id)
+static int interface_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	struct stream *s;
@@ -93,20 +91,18 @@ static int interface_delete(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int interface_address_add(int command, struct zclient *zclient,
-				 zebra_size_t length, vrf_id_t vrf_id)
+static int interface_address_add(ZAPI_CALLBACK_ARGS)
 {
-	zebra_interface_address_read(command, zclient->ibuf, vrf_id);
+	zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	return 0;
 }
 
-static int interface_address_delete(int command, struct zclient *zclient,
-				    zebra_size_t length, vrf_id_t vrf_id)
+static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 
-	c = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
+	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	if (!c)
 		return 0;
@@ -115,8 +111,7 @@ static int interface_address_delete(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int interface_state_up(int command, struct zclient *zclient,
-			      zebra_size_t length, vrf_id_t vrf_id)
+static int interface_state_up(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 
@@ -138,16 +133,14 @@ static int interface_state_up(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int interface_state_down(int command, struct zclient *zclient,
-				zebra_size_t length, vrf_id_t vrf_id)
+static int interface_state_down(ZAPI_CALLBACK_ARGS)
 {
 	zebra_interface_state_read(zclient->ibuf, vrf_id);
 
 	return 0;
 }
 
-static int route_notify_owner(int command, struct zclient *zclient,
-			      zebra_size_t length, vrf_id_t vrf_id)
+static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix p;
 	enum zapi_route_notify_owner note;
@@ -194,8 +187,7 @@ struct static_nht_data {
 	uint8_t nh_num;
 };
 
-static int static_zebra_nexthop_update(int command, struct zclient *zclient,
-				       zebra_size_t length, vrf_id_t vrf_id)
+static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
 	struct static_nht_data *nhtd, lookup;
 	struct zapi_route nhr;

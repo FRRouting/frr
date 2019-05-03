@@ -92,8 +92,7 @@ static void bfd_adj_event(struct isis_adjacency *adj, struct prefix *dst,
 	isis_adj_state_change(adj, ISIS_ADJ_DOWN, "bfd session went down");
 }
 
-static int isis_bfd_interface_dest_update(int command, struct zclient *zclient,
-					  zebra_size_t length, vrf_id_t vrf_id)
+static int isis_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	struct prefix dst_ip;
@@ -138,8 +137,7 @@ static int isis_bfd_interface_dest_update(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int isis_bfd_nbr_replay(int command, struct zclient *zclient,
-			       zebra_size_t length, vrf_id_t vrf_id)
+static int isis_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 {
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 

@@ -468,20 +468,13 @@ extern int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 extern void ripng_packet_dump(struct ripng_packet *packet, int size,
 			      const char *sndrcv);
 
-extern int ripng_interface_up(int command, struct zclient *, zebra_size_t,
-			      vrf_id_t);
-extern int ripng_interface_down(int command, struct zclient *, zebra_size_t,
-				vrf_id_t);
-extern int ripng_interface_add(int command, struct zclient *, zebra_size_t,
-			       vrf_id_t);
-extern int ripng_interface_delete(int command, struct zclient *, zebra_size_t,
-				  vrf_id_t);
-extern int ripng_interface_address_add(int command, struct zclient *,
-				       zebra_size_t, vrf_id_t);
-extern int ripng_interface_address_delete(int command, struct zclient *,
-					  zebra_size_t, vrf_id_t);
-extern int ripng_interface_vrf_update(int command, struct zclient *zclient,
-				      zebra_size_t length, vrf_id_t vrf_id);
+extern int ripng_interface_up(ZAPI_CALLBACK_ARGS);
+extern int ripng_interface_down(ZAPI_CALLBACK_ARGS);
+extern int ripng_interface_add(ZAPI_CALLBACK_ARGS);
+extern int ripng_interface_delete(ZAPI_CALLBACK_ARGS);
+extern int ripng_interface_address_add(ZAPI_CALLBACK_ARGS);
+extern int ripng_interface_address_delete(ZAPI_CALLBACK_ARGS);
+extern int ripng_interface_vrf_update(ZAPI_CALLBACK_ARGS);
 extern void ripng_interface_sync(struct interface *ifp);
 
 extern struct ripng *ripng_lookup_by_vrf_id(vrf_id_t vrf_id);

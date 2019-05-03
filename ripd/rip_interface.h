@@ -30,8 +30,7 @@ extern int rip_interface_address_add(int, struct zclient *, zebra_size_t,
 				     vrf_id_t);
 extern int rip_interface_address_delete(int, struct zclient *, zebra_size_t,
 					vrf_id_t);
-extern int rip_interface_vrf_update(int command, struct zclient *zclient,
-				    zebra_size_t length, vrf_id_t vrf_id);
+extern int rip_interface_vrf_update(ZAPI_CALLBACK_ARGS);
 extern void rip_interface_sync(struct interface *ifp);
 
 #endif /* _QUAGGA_RIP_INTERFACE_H */

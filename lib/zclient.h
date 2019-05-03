@@ -580,9 +580,7 @@ extern int tm_release_table_chunk(struct zclient *zclient, uint32_t start,
 
 extern int zebra_send_pw(struct zclient *zclient, int command,
 			 struct zapi_pw *pw);
-extern void zebra_read_pw_status_update(int command, struct zclient *zclient,
-					zebra_size_t length, vrf_id_t vrf_id,
-					struct zapi_pw_status *pw);
+extern void zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw);
 
 extern int zclient_route_send(uint8_t, struct zclient *, struct zapi_route *);
 extern int zclient_send_rnh(struct zclient *zclient, int command,
