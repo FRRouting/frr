@@ -55,7 +55,7 @@ static struct zclient *zclient;
 /*
  * Prototypes
  */
-static int _ptm_msg_address(struct stream *msg, struct sockaddr_any *sa);
+static int _ptm_msg_address(struct stream *msg, int family, const void *addr);
 
 static void _ptm_msg_read_address(struct stream *msg, struct sockaddr_any *sa);
 static int _ptm_msg_read(struct stream *msg, int command,
@@ -127,24 +127,24 @@ static void debug_printbpc(const char *func, unsigned int line,
 #define DEBUG_PRINTBPC(bpc)
 #endif /* BFD_DEBUG */
 
-static int _ptm_msg_address(struct stream *msg, struct sockaddr_any *sa)
+static int _ptm_msg_address(struct stream *msg, int family, const void *addr)
 {
-	switch (sa->sa_sin.sin_family) {
+	stream_putc(msg, family);
+
+	switch (family) {
 	case AF_INET:
-		stream_putc(msg, sa->sa_sin.sin_family);
-		stream_put_in_addr(msg, &sa->sa_sin.sin_addr);
+		stream_put(msg, addr, sizeof(struct in_addr));
 		stream_putc(msg, 32);
 		break;
 
 	case AF_INET6:
-		stream_putc(msg, sa->sa_sin6.sin6_family);
-		stream_put(msg, &sa->sa_sin6.sin6_addr,
-			   sizeof(sa->sa_sin6.sin6_addr));
+		stream_put(msg, addr, sizeof(struct in6_addr));
 		stream_putc(msg, 128);
 		break;
 
 	default:
-		return -1;
+		assert(0);
+		break;
 	}
 
 	return 0;
@@ -153,7 +153,6 @@ static int _ptm_msg_address(struct stream *msg, struct sockaddr_any *sa)
 int ptm_bfd_notify(struct bfd_session *bs)
 {
 	struct stream *msg;
-	struct sockaddr_any sac;
 
 	bs->stats.znotification++;
 
@@ -189,13 +188,13 @@ int ptm_bfd_notify(struct bfd_session *bs)
 	stream_putl(msg, ZEBRA_INTERFACE_BFD_DEST_UPDATE);
 
 	/* NOTE: Interface is a shortcut to avoid comparing source address. */
-	stream_putl(msg, bs->ifindex);
+	if (bs->ifp != NULL)
+		stream_putl(msg, bs->ifp->ifindex);
+	else
+		stream_putl(msg, IFINDEX_INTERNAL);
 
 	/* BFD destination prefix information. */
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH))
-		_ptm_msg_address(msg, &bs->mhop.peer);
-	else
-		_ptm_msg_address(msg, &bs->shop.peer);
+	_ptm_msg_address(msg, bs->key.family, &bs->key.peer);
 
 	/* BFD status */
 	switch (bs->ses_state) {
@@ -215,34 +214,7 @@ int ptm_bfd_notify(struct bfd_session *bs)
 	}
 
 	/* BFD source prefix information. */
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
-		_ptm_msg_address(msg, &bs->mhop.local);
-	} else {
-		if (bs->local_address.sa_sin.sin_family)
-			_ptm_msg_address(msg, &bs->local_address);
-		else if (bs->local_address.sa_sin.sin_family)
-			_ptm_msg_address(msg, &bs->local_ip);
-		else {
-			sac = bs->shop.peer;
-			switch (sac.sa_sin.sin_family) {
-			case AF_INET:
-				memset(&sac.sa_sin.sin_addr, 0,
-				       sizeof(sac.sa_sin.sin_family));
-				break;
-			case AF_INET6:
-				memset(&sac.sa_sin6.sin6_addr, 0,
-				       sizeof(sac.sa_sin6.sin6_family));
-				break;
-
-			default:
-				assert(false);
-				break;
-			}
-
-			/* No local address found yet, so send zeroes. */
-			_ptm_msg_address(msg, &sac);
-		}
-	}
+	_ptm_msg_address(msg, bs->key.family, &bs->key.local);
 
 	/* Write packet size. */
 	stream_putw_at(msg, 0, stream_get_endp(msg));
@@ -381,21 +353,6 @@ static int _ptm_msg_read(struct stream *msg, int command,
 		if (bpc->bpc_has_localif) {
 			STREAM_GET(bpc->bpc_localif, msg, ifnamelen);
 			bpc->bpc_localif[ifnamelen] = 0;
-
-			/*
-			 * IPv6 link-local addresses must use scope id,
-			 * otherwise the session lookup will always fail
-			 * and we'll have multiple sessions showing up.
-			 *
-			 * This problem only happens with single hop
-			 * since it is not possible to have link-local
-			 * address for multi hop sessions.
-			 */
-			if (bpc->bpc_ipv4 == false
-			    && IN6_IS_ADDR_LINKLOCAL(
-				       &bpc->bpc_peer.sa_sin6.sin6_addr))
-				bpc->bpc_peer.sa_sin6.sin6_scope_id =
-					ptm_bfd_fetch_ifindex(bpc->bpc_localif);
 		}
 	}
 
@@ -474,6 +431,10 @@ static void bfdd_dest_deregister(struct stream *msg)
 	/* Unregister client peer notification. */
 	pcn = pcn_lookup(pc, bs);
 	pcn_free(pcn);
+	if (bs->refcount ||
+	    BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
+		return;
+	ptm_bfd_ses_del(&bpc);
 }
 
 /*
@@ -576,7 +537,149 @@ static void bfdd_zebra_connected(struct zclient *zc)
 	stream_putl(msg, ZEBRA_BFD_DEST_REPLAY);
 	stream_putw_at(msg, 0, stream_get_endp(msg));
 
+	/* Ask for interfaces information. */
+	zclient_create_header(msg, ZEBRA_INTERFACE_ADD, VRF_DEFAULT);
+
+	/* Send requests. */
 	zclient_send_message(zclient);
+}
+
+static void bfdd_sessions_enable_interface(struct interface *ifp)
+{
+	struct bfd_session_observer *bso;
+	struct bfd_session *bs;
+
+	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
+		if (bso->bso_isinterface == false)
+			continue;
+
+		/* Interface name mismatch. */
+		bs = bso->bso_bs;
+		if (strcmp(ifp->name, bs->key.ifname))
+			continue;
+		/* Skip enabled sessions. */
+		if (bs->sock != -1)
+			continue;
+
+		/* Try to enable it. */
+		bfd_session_enable(bs);
+	}
+}
+
+static void bfdd_sessions_disable_interface(struct interface *ifp)
+{
+	struct bfd_session_observer *bso;
+	struct bfd_session *bs;
+
+	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
+		if (bso->bso_isinterface == false)
+			continue;
+
+		/* Interface name mismatch. */
+		bs = bso->bso_bs;
+		if (strcmp(ifp->name, bs->key.ifname))
+			continue;
+		/* Skip disabled sessions. */
+		if (bs->sock == -1)
+			continue;
+
+		/* Try to enable it. */
+		bfd_session_disable(bs);
+
+		TAILQ_INSERT_HEAD(&bglobal.bg_obslist, bso, bso_entry);
+	}
+}
+
+static int bfdd_interface_update(int cmd, struct zclient *zc,
+				 uint16_t len __attribute__((__unused__)),
+				 vrf_id_t vrfid)
+{
+	struct interface *ifp;
+
+	/*
+	 * `zebra_interface_add_read` will handle the interface creation
+	 * on `lib/if.c`. We'll use that data structure instead of
+	 * rolling our own.
+	 */
+	if (cmd == ZEBRA_INTERFACE_ADD) {
+		ifp = zebra_interface_add_read(zc->ibuf, vrfid);
+		if (ifp == NULL)
+			return 0;
+
+		bfdd_sessions_enable_interface(ifp);
+		return 0;
+	}
+
+	/* Update interface information. */
+	ifp = zebra_interface_state_read(zc->ibuf, vrfid);
+	if (ifp == NULL)
+		return 0;
+
+	bfdd_sessions_disable_interface(ifp);
+
+	if_set_index(ifp, IFINDEX_INTERNAL);
+
+	return 0;
+}
+
+static int bfdd_interface_vrf_update(int command __attribute__((__unused__)),
+				     struct zclient *zclient,
+				     zebra_size_t length
+				     __attribute__((__unused__)),
+				     vrf_id_t vrfid)
+{
+	struct interface *ifp;
+	vrf_id_t nvrfid;
+
+	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrfid, &nvrfid);
+	if (ifp == NULL)
+		return 0;
+
+	if_update_to_new_vrf(ifp, nvrfid);
+
+	return 0;
+}
+
+static void bfdd_sessions_enable_address(struct connected *ifc)
+{
+	struct bfd_session_observer *bso;
+	struct bfd_session *bs;
+	struct prefix prefix;
+
+	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
+		if (bso->bso_isaddress == false)
+			continue;
+
+		/* Skip enabled sessions. */
+		bs = bso->bso_bs;
+		if (bs->sock != -1)
+			continue;
+
+		/* Check address. */
+		prefix = bso->bso_addr;
+		prefix.prefixlen = ifc->address->prefixlen;
+		if (prefix_cmp(&prefix, ifc->address))
+			continue;
+
+		/* Try to enable it. */
+		bfd_session_enable(bs);
+	}
+}
+
+static int bfdd_interface_address_update(int cmd, struct zclient *zc,
+					 zebra_size_t len
+					 __attribute__((__unused__)),
+					 vrf_id_t vrfid)
+{
+	struct connected *ifc;
+
+	ifc = zebra_interface_address_read(cmd, zc->ibuf, vrfid);
+	if (ifc == NULL)
+		return 0;
+
+	bfdd_sessions_enable_address(ifc);
+
+	return 0;
 }
 
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
@@ -594,6 +697,17 @@ void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
 
 	/* Send replay request on zebra connect. */
 	zclient->zebra_connected = bfdd_zebra_connected;
+
+	/* Learn interfaces from zebra instead of the OS. */
+	zclient->interface_add = bfdd_interface_update;
+	zclient->interface_delete = bfdd_interface_update;
+
+	/* Learn about interface VRF. */
+	zclient->interface_vrf_update = bfdd_interface_vrf_update;
+
+	/* Learn about new addresses being registered. */
+	zclient->interface_address_add = bfdd_interface_address_update;
+	zclient->interface_address_delete = bfdd_interface_address_update;
 }
 
 void bfdd_zclient_stop(void)
@@ -633,8 +747,6 @@ static struct ptm_client *pc_new(uint32_t pid)
 
 	/* Allocate the client data and save it. */
 	pc = XCALLOC(MTYPE_BFDD_CONTROL, sizeof(*pc));
-	if (pc == NULL)
-		return NULL;
 
 	pc->pc_pid = pid;
 	TAILQ_INSERT_HEAD(&pcqueue, pc, pc_entry);
@@ -680,8 +792,6 @@ static struct ptm_client_notification *pcn_new(struct ptm_client *pc,
 
 	/* Save the client notification data. */
 	pcn = XCALLOC(MTYPE_BFDD_NOTIFICATION, sizeof(*pcn));
-	if (pcn == NULL)
-		return NULL;
 
 	TAILQ_INSERT_HEAD(&pc->pc_pcnqueue, pcn, pcn_entry);
 	pcn->pcn_pc = pc;

@@ -31,7 +31,7 @@ Implementation details
 Concepts
 ^^^^^^^^
 
-Segment Routing used 3 differents OPAQUE LSA in OSPF to carry the various
+Segment Routing used 3 different OPAQUE LSA in OSPF to carry the various
 information:
 
 * **Router Information:** flood the Segment Routing capabilities of the node.
@@ -40,7 +40,7 @@ information:
 * **Extended Link:** flood the Adjaceny and Lan Adjacency Segment Identifier
 * **Extended Prefix:** flood the Prefix Segment Identifier
 
-The implementation follow previous TE and Router Information codes. It used the
+The implementation follows previous TE and Router Information codes. It used the
 OPAQUE LSA functions defined in ospf_opaque.[c,h] as well as the OSPF API. This
 latter is mandatory for the implementation as it provides the Callback to
 Segment Routing functions (see below) when an Extended Link / Prefix or Router
@@ -71,7 +71,7 @@ The figure below shows the relation between the various files:
   (4.0.0.0), Extended Prefix (7.0.0.X) and Link (8.0.0.X) by ospf_ri.c,
   respectively ospf_ext.c.
 * ospf_ri.c send back to ospf_sr.c received Router Information LSA and update
-  Self Router Information LSA with paramters provided by ospf_sr.c i.e. SRGB
+  Self Router Information LSA with parameters provided by ospf_sr.c i.e. SRGB
   and MSD. It use ospf_opaque.c functions to send/received these Opaque LSAs.
 * ospf_ext.c send back to ospf_sr.c received Extended Prefix and Link Opaque
   LSA and send self Extended Prefix and Link Opaque LSA through ospf_opaque.c
@@ -129,8 +129,8 @@ Opaque LSA it is the `ospf_opaque_lsa_install_hook()`.  For deletion, it is
 Note that incoming LSA which is already present in the LSDB will be inserted
 after the old instance of this LSA remove from the LSDB. Thus, after the first
 time, each incoming LSA will trigger a `delete` following by an `install`. This
-is not very helpfull to handle real LSA deletion. In fact, LSA deletion is done
-by Flushing LSA i.e. flood LSA after seting its age to MAX_AGE. Then, a garbage
+is not very helpful to handle real LSA deletion. In fact, LSA deletion is done
+by Flushing LSA i.e. flood LSA after setting its age to MAX_AGE. Then, a garbage
 function has the role to remove all LSA with `age == MAX_AGE` in the LSDB. So,
 to handle LSA Flush, the best is to look to the LSA age to determine if it is
 an installation or a future deletion i.e. the flushed LSA is first store in the
@@ -144,10 +144,10 @@ introduced. When this command is activated, function
 `ospf_router_info_update_sr()` is called to indicate to Router Information
 process that Segment Routing TLVs must be flood. Same function is called to
 modify the Segment Routing Global Block (SRGB) and Maximum Stack Depth (MSD)
-TLV. Only Shortest Path First (SPF) Algorithm is supported, so no possiblity
+TLV. Only Shortest Path First (SPF) Algorithm is supported, so no possibility
 to modify this TLV is offer by the code.
 
-When Opaque LSA Tyep 4 i.e. Router Information are stored in LSDB, function
+When Opaque LSA Type 4 i.e. Router Information are stored in LSDB, function
 `ospf_opaque_lsa_install_hook()` will call the previously registered function
 `ospf_router_info_lsa_update()`. In turn, the function will simply trigger
 `ospf_sr_ri_lsa_update()` or `ospf_sr_ri_lsa_delete` in function of the LSA
@@ -159,8 +159,8 @@ Extended Link Prefix LSAs
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Like for Router Information, Segment Routing is activate at the Extended
-Link/Prefix level with new `segment-routing on` command. This trigger
-automtically the flooding of Extended Link LSA for all ospf interface where
+Link/Prefix level with new `segment-routing on` command. This triggers
+automatically the flooding of Extended Link LSA for all ospf interfaces where
 adjacency is full. For Extended Prefix LSA, the new CLI command
 `segment-routing prefix ...` will trigger the flooding of Prefix SID
 TLV/SubTLVs.
@@ -255,7 +255,7 @@ The first segment-routing statement enable it. The Second one set the SRGB,
 third line the MSD and finally, set the Prefix SID index for a given prefix.
 Note that only prefix of Loopback interface could be configured with a Prefix
 SID. It is possible to add `no-php-flag` at the end of the prefix command to
-disbale Penultimate Hop Popping. This advertises peers that they MUST NOT pop
+disable Penultimate Hop Popping. This advertises to peers that they MUST NOT pop
 the MPLS label prior to sending the packet.
 
 Known limitations

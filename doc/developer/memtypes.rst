@@ -3,7 +3,7 @@
 Memtypes
 ========
 
-FRR includes wrappers arround ``malloc()`` and ``free()`` that count the number
+FRR includes wrappers around ``malloc()`` and ``free()`` that count the number
 of objects currently allocated, for each of a defined ``MTYPE``.
 
 To this extent, there are *memory groups* and *memory types*.  Each memory
@@ -95,7 +95,7 @@ Usage
 
 .. c:function:: void *XCALLOC(struct memtype *mtype, size_t size)
 
-.. c:function:: void *XSTRDUP(struct memtype *mtype, size_t size)
+.. c:function:: void *XSTRDUP(struct memtype *mtype, const char *name)
 
    Allocation wrappers for malloc/calloc/realloc/strdup, taking an extra
    mtype parameter.

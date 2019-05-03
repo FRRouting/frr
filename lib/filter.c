@@ -128,8 +128,7 @@ static struct access_master *access_master_get(afi_t afi)
 /* Allocate new filter structure. */
 static struct filter *filter_new(void)
 {
-	return (struct filter *)XCALLOC(MTYPE_ACCESS_FILTER,
-					sizeof(struct filter));
+	return XCALLOC(MTYPE_ACCESS_FILTER, sizeof(struct filter));
 }
 
 static void filter_free(struct filter *filter)
@@ -202,8 +201,7 @@ static int filter_match_zebra(struct filter *mfilter, const struct prefix *p)
 /* Allocate new access list structure. */
 static struct access_list *access_list_new(void)
 {
-	return (struct access_list *)XCALLOC(MTYPE_ACCESS_LIST,
-					     sizeof(struct access_list));
+	return XCALLOC(MTYPE_ACCESS_LIST, sizeof(struct access_list));
 }
 
 /* Free allocated access_list. */
@@ -242,11 +240,9 @@ static void access_list_delete(struct access_list *access)
 	else
 		list->head = access->next;
 
-	if (access->name)
-		XFREE(MTYPE_ACCESS_LIST_STR, access->name);
+	XFREE(MTYPE_ACCESS_LIST_STR, access->name);
 
-	if (access->remark)
-		XFREE(MTYPE_TMP, access->remark);
+	XFREE(MTYPE_TMP, access->remark);
 
 	access_list_free(access);
 }
@@ -2212,14 +2208,14 @@ static void access_list_init_ipv6(void)
 	install_element(CONFIG_NODE, &no_ipv6_access_list_remark_comment_cmd);
 }
 
-void access_list_init()
+void access_list_init(void)
 {
 	access_list_init_ipv4();
 	access_list_init_ipv6();
 	access_list_init_mac();
 }
 
-void access_list_reset()
+void access_list_reset(void)
 {
 	access_list_reset_ipv4();
 	access_list_reset_ipv6();

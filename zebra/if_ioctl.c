@@ -147,7 +147,7 @@ static int if_get_hwaddr(struct interface *ifp)
 	struct ifreq ifreq;
 	int i;
 
-	strncpy(ifreq.ifr_name, ifp->name, IFNAMSIZ);
+	strlcpy(ifreq.ifr_name, ifp->name, sizeof(ifreq.ifr_name));
 	ifreq.ifr_addr.sa_family = AF_INET;
 
 	/* Fetch Hardware address if available. */
@@ -236,7 +236,8 @@ static int if_getaddrs(void)
 			}
 
 			connected_add_ipv4(ifp, flags, &addr->sin_addr,
-					   prefixlen, dest_pnt, NULL);
+					   prefixlen, dest_pnt, NULL,
+					   METRIC_MAX);
 		}
 		if (ifap->ifa_addr->sa_family == AF_INET6) {
 			struct sockaddr_in6 *addr;
@@ -258,7 +259,7 @@ static int if_getaddrs(void)
 #endif
 
 			connected_add_ipv6(ifp, flags, &addr->sin6_addr, NULL,
-					   prefixlen, NULL);
+					   prefixlen, NULL, METRIC_MAX);
 		}
 	}
 

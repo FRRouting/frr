@@ -22,6 +22,10 @@
 
 #include "northbound.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * Initialize the northbound database.
  *
@@ -100,5 +104,9 @@ extern int nb_db_transactions_iterate(
 	void (*func)(void *arg, int transaction_id, const char *client_name,
 		     const char *date, const char *comment),
 	void *arg);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_NORTHBOUND_DB_H_ */

@@ -234,10 +234,10 @@ int ospf_sock_init(struct ospf *ospf)
 			flog_err(EC_LIB_SOCKET,
 				 "Can't set pktinfo option for fd %d",
 				 ospf_sock);
-
-		setsockopt_so_sendbuf(ospf_sock, bufsize);
-		setsockopt_so_recvbuf(ospf_sock, bufsize);
 	}
+
+	setsockopt_so_sendbuf(ospf_sock, bufsize);
+	setsockopt_so_recvbuf(ospf_sock, bufsize);
 
 	ospf->fd = ospf_sock;
 	return ret;

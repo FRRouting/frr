@@ -86,7 +86,7 @@ void ripng_aggregate_decrement_list(struct agg_node *child, struct list *list)
 }
 
 /* RIPng routes treatment. */
-int ripng_aggregate_add(struct prefix *p)
+int ripng_aggregate_add(struct ripng *ripng, struct prefix *p)
 {
 	struct agg_node *top;
 	struct agg_node *rp;
@@ -124,7 +124,7 @@ int ripng_aggregate_add(struct prefix *p)
 }
 
 /* Delete RIPng static route. */
-int ripng_aggregate_delete(struct prefix *p)
+int ripng_aggregate_delete(struct ripng *ripng, struct prefix *p)
 {
 	struct agg_node *top;
 	struct agg_node *rp;

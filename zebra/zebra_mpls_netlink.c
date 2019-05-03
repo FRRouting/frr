@@ -22,83 +22,52 @@
 
 #ifdef HAVE_NETLINK
 
+#include "zebra/debug.h"
 #include "zebra/rt.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/zebra_mpls.h"
 
 /*
- * Install Label Forwarding entry into the kernel.
+ * LSP forwarding update using dataplane context information.
  */
-enum zebra_dplane_result kernel_add_lsp(zebra_lsp_t *lsp)
+enum zebra_dplane_result kernel_lsp_update(struct zebra_dplane_ctx *ctx)
 {
-	int ret;
+	int cmd, ret = -1;
 
-	if (!lsp || !lsp->best_nhlfe) { // unexpected
-		kernel_lsp_pass_fail(lsp, ZEBRA_DPLANE_INSTALL_FAILURE);
-		return ZEBRA_DPLANE_REQUEST_FAILURE;
-	}
+	/* Call to netlink layer based on type of update */
+	if (dplane_ctx_get_op(ctx) == DPLANE_OP_LSP_DELETE) {
+		cmd = RTM_DELROUTE;
+	} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_LSP_INSTALL ||
+		   dplane_ctx_get_op(ctx) == DPLANE_OP_LSP_UPDATE) {
 
-	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
+		/* Validate */
+		if (dplane_ctx_get_best_nhlfe(ctx) == NULL) {
+			if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_MPLS)
+				zlog_debug("LSP in-label %u: update fails, no best NHLFE",
+					   dplane_ctx_get_in_label(ctx));
+			goto done;
+		}
 
-	kernel_lsp_pass_fail(lsp,
-			     (!ret) ? ZEBRA_DPLANE_INSTALL_SUCCESS
-				    : ZEBRA_DPLANE_INSTALL_FAILURE);
+		cmd = RTM_NEWROUTE;
+	} else
+		/* Invalid op? */
+		goto done;
 
-	return ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ret = netlink_mpls_multipath(cmd, ctx);
+
+done:
+
+	return (ret == 0 ?
+		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
 }
 
 /*
- * Update Label Forwarding entry in the kernel. This means that the Label
- * forwarding entry is already installed and needs an update - either a new
- * path is to be added, an installed path has changed (e.g., outgoing label)
- * or an installed path (but not all paths) has to be removed.
- * TODO: Performs a DEL followed by ADD now, need to change to REPLACE. Note
- * that REPLACE was originally implemented for IPv4 nexthops but removed as
- * it was not functioning when moving from swap to PHP as that was signaled
- * through the metric field (before kernel-MPLS). This shouldn't be an issue
- * any longer, so REPLACE can be reintroduced.
+ * Pseudowire update api - not supported by netlink as of 12/18,
+ * but note that the default has been to report 'success' for pw updates
+ * on unsupported platforms.
  */
-enum zebra_dplane_result kernel_upd_lsp(zebra_lsp_t *lsp)
+enum zebra_dplane_result kernel_pw_update(struct zebra_dplane_ctx *ctx)
 {
-	int ret;
-
-	if (!lsp || !lsp->best_nhlfe) { // unexpected
-		kernel_lsp_pass_fail(lsp, ZEBRA_DPLANE_INSTALL_FAILURE);
-		return ZEBRA_DPLANE_REQUEST_FAILURE;
-	}
-
-	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
-
-	kernel_lsp_pass_fail(lsp,
-			     (!ret) ? ZEBRA_DPLANE_INSTALL_SUCCESS
-				    : ZEBRA_DPLANE_INSTALL_FAILURE);
-
-	return ZEBRA_DPLANE_REQUEST_SUCCESS;
-}
-
-/*
- * Delete Label Forwarding entry from the kernel.
- */
-enum zebra_dplane_result kernel_del_lsp(zebra_lsp_t *lsp)
-{
-	int ret;
-
-	if (!lsp) { // unexpected
-		kernel_lsp_pass_fail(lsp, ZEBRA_DPLANE_DELETE_FAILURE);
-		return ZEBRA_DPLANE_REQUEST_FAILURE;
-	}
-
-	if (!CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)) {
-		kernel_lsp_pass_fail(lsp, ZEBRA_DPLANE_DELETE_FAILURE);
-		return ZEBRA_DPLANE_REQUEST_FAILURE;
-	}
-
-	ret = netlink_mpls_multipath(RTM_DELROUTE, lsp);
-
-	kernel_lsp_pass_fail(lsp,
-			     (!ret) ? ZEBRA_DPLANE_DELETE_SUCCESS
-				    : ZEBRA_DPLANE_DELETE_FAILURE);
-
 	return ZEBRA_DPLANE_REQUEST_SUCCESS;
 }
 

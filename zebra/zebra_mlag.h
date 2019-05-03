@@ -24,8 +24,17 @@
 
 #include "mlag.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void zebra_mlag_init(void);
 void zebra_mlag_terminate(void);
 
 enum mlag_role zebra_mlag_get_role(void);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

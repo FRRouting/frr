@@ -66,6 +66,9 @@ extern struct zebra_privs_t zserv_privs;
 #define ALLNODE   "ff02::1"
 #define ALLROUTER "ff02::2"
 
+DEFINE_MTYPE_STATIC(ZEBRA, RTADV_RDNSS, "Router Advertisement RDNSS")
+DEFINE_MTYPE_STATIC(ZEBRA, RTADV_DNSSL, "Router Advertisement DNSSL")
+
 /* Order is intentional.  Matches RFC4191.  This array is also used for
    command matching, so only modify with care. */
 const char *rtadv_pref_strs[] = {"medium", "high", "INVALID", "low", 0};
@@ -354,6 +357,78 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 		opt->nd_opt_mtu_mtu = htonl(zif->rtadv.AdvLinkMTU);
 		len += sizeof(struct nd_opt_mtu);
 	}
+
+	/*
+	 * There is no limit on the number of configurable recursive DNS
+	 * servers or search list entries. We don't want the RA message
+	 * to exceed the link's MTU (risking fragmentation) or even
+	 * blow the stack buffer allocated for it.
+	 */
+	size_t max_len = MIN(ifp->mtu6 - 40, sizeof(buf));
+
+	/* Recursive DNS servers */
+	struct rtadv_rdnss *rdnss;
+
+	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvRDNSSList, node, rdnss)) {
+		size_t opt_len =
+			sizeof(struct nd_opt_rdnss) + sizeof(struct in6_addr);
+
+		if (len + opt_len > max_len) {
+			zlog_warn(
+				"%s(%u): Tx RA: RDNSS option would exceed MTU, omitting it",
+				ifp->name, ifp->ifindex);
+			goto no_more_opts;
+		}
+		struct nd_opt_rdnss *opt = (struct nd_opt_rdnss *)(buf + len);
+
+		opt->nd_opt_rdnss_type = ND_OPT_RDNSS;
+		opt->nd_opt_rdnss_len = opt_len / 8;
+		opt->nd_opt_rdnss_reserved = 0;
+		opt->nd_opt_rdnss_lifetime = htonl(
+			rdnss->lifetime_set
+				? rdnss->lifetime
+				: MAX(1, 0.003 * zif->rtadv.MaxRtrAdvInterval));
+
+		len += sizeof(struct nd_opt_rdnss);
+
+		IPV6_ADDR_COPY(buf + len, &rdnss->addr);
+		len += sizeof(struct in6_addr);
+	}
+
+	/* DNS search list */
+	struct rtadv_dnssl *dnssl;
+
+	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvDNSSLList, node, dnssl)) {
+		size_t opt_len = sizeof(struct nd_opt_dnssl)
+				 + ((dnssl->encoded_len + 7) & ~7);
+
+		if (len + opt_len > max_len) {
+			zlog_warn(
+				"%s(%u): Tx RA: DNSSL option would exceed MTU, omitting it",
+				ifp->name, ifp->ifindex);
+			goto no_more_opts;
+		}
+		struct nd_opt_dnssl *opt = (struct nd_opt_dnssl *)(buf + len);
+
+		opt->nd_opt_dnssl_type = ND_OPT_DNSSL;
+		opt->nd_opt_dnssl_len = opt_len / 8;
+		opt->nd_opt_dnssl_reserved = 0;
+		opt->nd_opt_dnssl_lifetime = htonl(
+			dnssl->lifetime_set
+				? dnssl->lifetime
+				: MAX(1, 0.003 * zif->rtadv.MaxRtrAdvInterval));
+
+		len += sizeof(struct nd_opt_dnssl);
+
+		memcpy(buf + len, dnssl->encoded_name, dnssl->encoded_len);
+		len += dnssl->encoded_len;
+
+		/* Zero-pad to 8-octet boundary */
+		while (len % 8)
+			buf[len++] = '\0';
+	}
+
+no_more_opts:
 
 	msg.msg_name = (void *)&addr;
 	msg.msg_namelen = sizeof(struct sockaddr_in6);
@@ -1533,6 +1608,308 @@ DEFUN (no_ipv6_nd_mtu,
 	return CMD_SUCCESS;
 }
 
+static struct rtadv_rdnss *rtadv_rdnss_new(void)
+{
+	return XCALLOC(MTYPE_RTADV_RDNSS, sizeof(struct rtadv_rdnss));
+}
+
+static void rtadv_rdnss_free(struct rtadv_rdnss *rdnss)
+{
+	XFREE(MTYPE_RTADV_RDNSS, rdnss);
+}
+
+static struct rtadv_rdnss *rtadv_rdnss_lookup(struct list *list,
+					      struct rtadv_rdnss *rdnss)
+{
+	struct listnode *node;
+	struct rtadv_rdnss *p;
+
+	for (ALL_LIST_ELEMENTS_RO(list, node, p))
+		if (IPV6_ADDR_SAME(&p->addr, &rdnss->addr))
+			return p;
+	return NULL;
+}
+
+static struct rtadv_rdnss *rtadv_rdnss_get(struct list *list,
+					   struct rtadv_rdnss *rdnss)
+{
+	struct rtadv_rdnss *p;
+
+	p = rtadv_rdnss_lookup(list, rdnss);
+	if (p)
+		return p;
+
+	p = rtadv_rdnss_new();
+	memcpy(p, rdnss, sizeof(struct rtadv_rdnss));
+	listnode_add(list, p);
+
+	return p;
+}
+
+static void rtadv_rdnss_set(struct zebra_if *zif, struct rtadv_rdnss *rdnss)
+{
+	struct rtadv_rdnss *p;
+
+	p = rtadv_rdnss_get(zif->rtadv.AdvRDNSSList, rdnss);
+	p->lifetime = rdnss->lifetime;
+	p->lifetime_set = rdnss->lifetime_set;
+}
+
+static int rtadv_rdnss_reset(struct zebra_if *zif, struct rtadv_rdnss *rdnss)
+{
+	struct rtadv_rdnss *p;
+
+	p = rtadv_rdnss_lookup(zif->rtadv.AdvRDNSSList, rdnss);
+	if (p) {
+		listnode_delete(zif->rtadv.AdvRDNSSList, p);
+		rtadv_rdnss_free(p);
+		return 1;
+	}
+
+	return 0;
+}
+
+static struct rtadv_dnssl *rtadv_dnssl_new(void)
+{
+	return XCALLOC(MTYPE_RTADV_DNSSL, sizeof(struct rtadv_dnssl));
+}
+
+static void rtadv_dnssl_free(struct rtadv_dnssl *dnssl)
+{
+	XFREE(MTYPE_RTADV_DNSSL, dnssl);
+}
+
+static struct rtadv_dnssl *rtadv_dnssl_lookup(struct list *list,
+					      struct rtadv_dnssl *dnssl)
+{
+	struct listnode *node;
+	struct rtadv_dnssl *p;
+
+	for (ALL_LIST_ELEMENTS_RO(list, node, p))
+		if (!strcasecmp(p->name, dnssl->name))
+			return p;
+	return NULL;
+}
+
+static struct rtadv_dnssl *rtadv_dnssl_get(struct list *list,
+					   struct rtadv_dnssl *dnssl)
+{
+	struct rtadv_dnssl *p;
+
+	p = rtadv_dnssl_lookup(list, dnssl);
+	if (p)
+		return p;
+
+	p = rtadv_dnssl_new();
+	memcpy(p, dnssl, sizeof(struct rtadv_dnssl));
+	listnode_add(list, p);
+
+	return p;
+}
+
+static void rtadv_dnssl_set(struct zebra_if *zif, struct rtadv_dnssl *dnssl)
+{
+	struct rtadv_dnssl *p;
+
+	p = rtadv_dnssl_get(zif->rtadv.AdvDNSSLList, dnssl);
+	memcpy(p, dnssl, sizeof(struct rtadv_dnssl));
+}
+
+static int rtadv_dnssl_reset(struct zebra_if *zif, struct rtadv_dnssl *dnssl)
+{
+	struct rtadv_dnssl *p;
+
+	p = rtadv_dnssl_lookup(zif->rtadv.AdvDNSSLList, dnssl);
+	if (p) {
+		listnode_delete(zif->rtadv.AdvDNSSLList, p);
+		rtadv_dnssl_free(p);
+		return 1;
+	}
+
+	return 0;
+}
+
+/*
+ * Convert dotted domain name (with or without trailing root zone dot) to
+ * sequence of length-prefixed labels, as described in [RFC1035 3.1]. Write up
+ * to strlen(in) + 2 octets to out.
+ *
+ * Returns the number of octets written to out or -1 if in does not constitute
+ * a valid domain name.
+ */
+static int rtadv_dnssl_encode(uint8_t *out, const char *in)
+{
+	const char *label_start, *label_end;
+	size_t outp;
+
+	outp = 0;
+	label_start = in;
+
+	while (*label_start) {
+		size_t label_len;
+
+		label_end = strchr(label_start, '.');
+		if (label_end == NULL)
+			label_end = label_start + strlen(label_start);
+
+		label_len = label_end - label_start;
+		if (label_len >= 64)
+			return -1; /* labels must be 63 octets or less */
+
+		out[outp++] = (uint8_t)label_len;
+		memcpy(out + outp, label_start, label_len);
+		outp += label_len;
+		label_start += label_len;
+		if (*label_start == '.')
+			label_start++;
+	}
+
+	out[outp++] = '\0';
+	return outp;
+}
+
+DEFUN(ipv6_nd_rdnss,
+      ipv6_nd_rdnss_cmd,
+      "ipv6 nd rdnss X:X::X:X [<(0-4294967295)|infinite>]",
+      "Interface IPv6 config commands\n"
+      "Neighbor discovery\n"
+      "Recursive DNS server information\n"
+      "IPv6 address\n"
+      "Valid lifetime in seconds\n"
+      "Infinite valid lifetime\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zif = ifp->info;
+	struct rtadv_rdnss rdnss = {};
+
+	if (inet_pton(AF_INET6, argv[3]->arg, &rdnss.addr) != 1) {
+		vty_out(vty, "Malformed IPv6 address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (argc > 4) {
+		char *lifetime = argv[4]->type == RANGE_TKN ? argv[4]->arg
+							    : argv[4]->text;
+		rdnss.lifetime = strmatch(lifetime, "infinite")
+					 ? UINT32_MAX
+					 : strtoll(lifetime, NULL, 10);
+		rdnss.lifetime_set = 1;
+	}
+
+	rtadv_rdnss_set(zif, &rdnss);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_ipv6_nd_rdnss,
+      no_ipv6_nd_rdnss_cmd,
+      "no ipv6 nd rdnss X:X::X:X [<(0-4294967295)|infinite>]",
+      NO_STR
+      "Interface IPv6 config commands\n"
+      "Neighbor discovery\n"
+      "Recursive DNS server information\n"
+      "IPv6 address\n"
+      "Valid lifetime in seconds\n"
+      "Infinite valid lifetime\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zif = ifp->info;
+	struct rtadv_rdnss rdnss = {};
+
+	if (inet_pton(AF_INET6, argv[4]->arg, &rdnss.addr) != 1) {
+		vty_out(vty, "Malformed IPv6 address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (rtadv_rdnss_reset(zif, &rdnss) != 1) {
+		vty_out(vty, "Non-existant RDNSS address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(ipv6_nd_dnssl,
+      ipv6_nd_dnssl_cmd,
+      "ipv6 nd dnssl SUFFIX [<(0-4294967295)|infinite>]",
+      "Interface IPv6 config commands\n"
+      "Neighbor discovery\n"
+      "DNS search list information\n"
+      "Domain name suffix\n"
+      "Valid lifetime in seconds\n"
+      "Infinite valid lifetime\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zif = ifp->info;
+	struct rtadv_dnssl dnssl = {};
+	size_t len;
+	int ret;
+
+	len = strlcpy(dnssl.name, argv[3]->arg, sizeof(dnssl.name));
+	if (len == 0 || len >= sizeof(dnssl.name)) {
+		vty_out(vty, "Malformed DNS search domain\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (dnssl.name[len - 1] == '.') {
+		/*
+		 * Allow, but don't require, a trailing dot signifying the root
+		 * zone. Canonicalize by cutting it off if present.
+		 */
+		dnssl.name[len - 1] = '\0';
+		len--;
+	}
+	if (argc > 4) {
+		char *lifetime = argv[4]->type == RANGE_TKN ? argv[4]->arg
+							    : argv[4]->text;
+		dnssl.lifetime = strmatch(lifetime, "infinite")
+					 ? UINT32_MAX
+					 : strtoll(lifetime, NULL, 10);
+		dnssl.lifetime_set = 1;
+	}
+
+	ret = rtadv_dnssl_encode(dnssl.encoded_name, dnssl.name);
+	if (ret < 0) {
+		vty_out(vty, "Malformed DNS search domain\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	dnssl.encoded_len = ret;
+	rtadv_dnssl_set(zif, &dnssl);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_ipv6_nd_dnssl,
+      no_ipv6_nd_dnssl_cmd,
+      "no ipv6 nd dnssl SUFFIX [<(0-4294967295)|infinite>]",
+      NO_STR
+      "Interface IPv6 config commands\n"
+      "Neighbor discovery\n"
+      "DNS search list information\n"
+      "Domain name suffix\n"
+      "Valid lifetime in seconds\n"
+      "Infinite valid lifetime\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zif = ifp->info;
+	struct rtadv_dnssl dnssl = {};
+	size_t len;
+
+	len = strlcpy(dnssl.name, argv[4]->arg, sizeof(dnssl.name));
+	if (len == 0 || len >= sizeof(dnssl.name)) {
+		vty_out(vty, "Malformed DNS search domain\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (dnssl.name[len - 1] == '.') {
+		dnssl.name[len - 1] = '\0';
+		len--;
+	}
+	if (rtadv_dnssl_reset(zif, &dnssl) != 1) {
+		vty_out(vty, "Non-existant DNS search domain\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return CMD_SUCCESS;
+}
+
+
 /* Dump interface ND information to vty. */
 static int nd_dump_vty(struct vty *vty, struct interface *ifp)
 {
@@ -1607,6 +1984,8 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 	struct zebra_if *zif;
 	struct listnode *node;
 	struct rtadv_prefix *rprefix;
+	struct rtadv_rdnss *rdnss;
+	struct rtadv_dnssl *dnssl;
 	char buf[PREFIX_STRLEN];
 	int interval;
 
@@ -1688,6 +2067,29 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 			vty_out(vty, " router-address");
 		vty_out(vty, "\n");
 	}
+	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvRDNSSList, node, rdnss)) {
+		char buf[INET6_ADDRSTRLEN];
+
+		vty_out(vty, " ipv6 nd rdnss %s",
+			inet_ntop(AF_INET6, &rdnss->addr, buf, sizeof(buf)));
+		if (rdnss->lifetime_set) {
+			if (rdnss->lifetime == UINT32_MAX)
+				vty_out(vty, " infinite");
+			else
+				vty_out(vty, " %u", rdnss->lifetime);
+		}
+		vty_out(vty, "\n");
+	}
+	for (ALL_LIST_ELEMENTS_RO(zif->rtadv.AdvDNSSLList, node, dnssl)) {
+		vty_out(vty, " ipv6 nd dnssl %s", dnssl->name);
+		if (dnssl->lifetime_set) {
+			if (dnssl->lifetime == UINT32_MAX)
+				vty_out(vty, " infinite");
+			else
+				vty_out(vty, " %u", dnssl->lifetime);
+		}
+		vty_out(vty, "\n");
+	}
 	return 0;
 }
 
@@ -1698,9 +2100,9 @@ static void rtadv_event(struct zebra_ns *zns, enum rtadv_event event, int val)
 
 	switch (event) {
 	case RTADV_START:
-		thread_add_read(zebrad.master, rtadv_read, zns, val,
+		thread_add_read(zrouter.master, rtadv_read, zns, val,
 				&rtadv->ra_read);
-		thread_add_event(zebrad.master, rtadv_timer, zns, 0,
+		thread_add_event(zrouter.master, rtadv_timer, zns, 0,
 				 &rtadv->ra_timer);
 		break;
 	case RTADV_STOP:
@@ -1714,15 +2116,15 @@ static void rtadv_event(struct zebra_ns *zns, enum rtadv_event event, int val)
 		}
 		break;
 	case RTADV_TIMER:
-		thread_add_timer(zebrad.master, rtadv_timer, zns, val,
+		thread_add_timer(zrouter.master, rtadv_timer, zns, val,
 				 &rtadv->ra_timer);
 		break;
 	case RTADV_TIMER_MSEC:
-		thread_add_timer_msec(zebrad.master, rtadv_timer, zns, val,
+		thread_add_timer_msec(zrouter.master, rtadv_timer, zns, val,
 				      &rtadv->ra_timer);
 		break;
 	case RTADV_READ:
-		thread_add_read(zebrad.master, rtadv_read, zns, val,
+		thread_add_read(zrouter.master, rtadv_read, zns, val,
 				&rtadv->ra_read);
 		break;
 	default:
@@ -1782,6 +2184,10 @@ void rtadv_cmd_init(void)
 	install_element(INTERFACE_NODE, &no_ipv6_nd_router_preference_cmd);
 	install_element(INTERFACE_NODE, &ipv6_nd_mtu_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_nd_mtu_cmd);
+	install_element(INTERFACE_NODE, &ipv6_nd_rdnss_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_nd_rdnss_cmd);
+	install_element(INTERFACE_NODE, &ipv6_nd_dnssl_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_nd_dnssl_cmd);
 }
 
 static int if_join_all_router(int sock, struct interface *ifp)

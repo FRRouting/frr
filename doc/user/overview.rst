@@ -107,14 +107,13 @@ An illustration of the large scale architecture is given below.
 
 
 The multi-process architecture brings extensibility, modularity and
-maintainability. At the same time it also brings many configuration files and
-terminal interfaces. Each daemon has its own configuration file and terminal
-interface. When you configure a static route, it must be done in the *Zebra*
-configuration file. When you configure BGP network it must be done in the
-*bgpd* configuration file. This can become difficult to manage. To resolve the
-problem, FRR provides integrated user interface shell called *vtysh*. *vtysh*
-connects to each daemon with UNIX domain socket and then works as a proxy for
-user input.
+maintainability.  All of the FRR daemons can be managed through a single
+integrated user interface shell called *vtysh*.  *vtysh* connects to each
+daemon through a UNIX domain socket and then works as a proxy for user input.
+In addition to a unified frontend, *vtysh* also provides the ability to
+configure all the daemons using a single configuration file through the
+integrated configuration mode avoiding the problem of having to maintain a
+separate configuration file for each daemon.
 
 Supported Platforms
 ===================
@@ -228,6 +227,8 @@ features with system dependencies are included here.
 |    SSM (Source Specific)          | :mark:`Y`      | :mark:`N`    | :mark:`Y`  | :mark:`Y`  | :mark:`Y`  |
 +-----------------------------------+----------------+--------------+------------+------------+------------+
 |    ASM (Any Source)               | :mark:`Y`      | :mark:`N`    | :mark:`N`  | :mark:`N`  | :mark:`N`  |
++-----------------------------------+----------------+--------------+------------+------------+------------+
+|    EVPN BUM Forwarding            | :mark:`≥5.0`   | :mark:`N`    | :mark:`N`  | :mark:`N`  | :mark:`N`  |
 +-----------------------------------+----------------+--------------+------------+------------+------------+
 
 The indicators have the following semantics:

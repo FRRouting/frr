@@ -171,7 +171,7 @@ static void ares_address_cb(void *arg, int status, int timeouts,
 		return;
 	}
 
-	for (i = 0; i < ZEBRA_NUM_OF(addr) && he->h_addr_list[i] != NULL; i++) {
+	for (i = 0; i < array_size(addr) && he->h_addr_list[i] != NULL; i++) {
 		memset(&addr[i], 0, sizeof(addr[i]));
 		addr[i].sa.sa_family = he->h_addrtype;
 		switch (he->h_addrtype) {

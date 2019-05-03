@@ -326,8 +326,7 @@ static void prefix_list_delete(struct prefix_list *plist)
 	else
 		list->head = plist->next;
 
-	if (plist->desc)
-		XFREE(MTYPE_TMP, plist->desc);
+	XFREE(MTYPE_TMP, plist->desc);
 
 	/* Make sure master's recent changed prefix-list information is
 	   cleared. */
@@ -338,8 +337,7 @@ static void prefix_list_delete(struct prefix_list *plist)
 	if (master->delete_hook)
 		(*master->delete_hook)(plist);
 
-	if (plist->name)
-		XFREE(MTYPE_MPREFIX_LIST_STR, plist->name);
+	XFREE(MTYPE_MPREFIX_LIST_STR, plist->name);
 
 	XFREE(MTYPE_PREFIX_LIST_TRIE, plist->trie);
 
@@ -2111,7 +2109,7 @@ static void prefix_list_init_ipv6(void)
 	install_element(ENABLE_NODE, &clear_ipv6_prefix_list_cmd);
 }
 
-void prefix_list_init()
+void prefix_list_init(void)
 {
 	cmd_variable_handler_register(plist_var_handlers);
 
@@ -2119,7 +2117,7 @@ void prefix_list_init()
 	prefix_list_init_ipv6();
 }
 
-void prefix_list_reset()
+void prefix_list_reset(void)
 {
 	prefix_list_reset_afi(AFI_IP, 0);
 	prefix_list_reset_afi(AFI_IP6, 0);

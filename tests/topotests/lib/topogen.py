@@ -42,7 +42,12 @@ import os
 import sys
 import logging
 import json
-import ConfigParser
+
+if sys.version_info[0] > 2:
+    import configparser
+else:
+    import ConfigParser as configparser
+
 import glob
 import grp
 import platform
@@ -153,7 +158,7 @@ class Topogen(object):
         Loads the configuration file `pytest.ini` located at the root dir of
         topotests.
         """
-        self.config = ConfigParser.ConfigParser(tgen_defaults)
+        self.config = configparser.ConfigParser(tgen_defaults)
         pytestini_path = os.path.join(CWD, '../pytest.ini')
         self.config.read(pytestini_path)
 
@@ -586,9 +591,9 @@ class TopoRouter(TopoGear):
         os.system('chmod -R go+rw /tmp/topotests')
 
         # Open router log file
-        logfile = '{0}/{1}.log'.format(dir, name)
-
+        logfile = '{0}/{1}.log'.format(self.logdir, name)
         self.logger = logger_config.get_logger(name=name, target=logfile)
+
         self.tgen.topo.addNode(self.name, cls=self.cls, **params)
 
     def __str__(self):
@@ -599,7 +604,7 @@ class TopoRouter(TopoGear):
     def _prepare_tmpfiles(self):
         # Create directories if they don't exist
         try:
-            os.makedirs(self.logdir, 0755)
+            os.makedirs(self.logdir, 0o755)
         except OSError:
             pass
 
@@ -608,10 +613,10 @@ class TopoRouter(TopoGear):
             # Only allow group, if it exist.
             gid = grp.getgrnam(self.routertype)[2]
             os.chown(self.logdir, 0, gid)
-            os.chmod(self.logdir, 0775)
+            os.chmod(self.logdir, 0o775)
         except KeyError:
             # Allow anyone, but set the sticky bit to avoid file deletions
-            os.chmod(self.logdir, 01777)
+            os.chmod(self.logdir, 0o1777)
 
         # Try to find relevant old logfiles in /tmp and delete them
         map(os.remove, glob.glob('{}/{}/*.log'.format(self.logdir, self.name)))
@@ -931,7 +936,7 @@ def diagnose_env_linux():
     logger.info('Running environment diagnostics')
 
     # Load configuration
-    config = ConfigParser.ConfigParser(tgen_defaults)
+    config = configparser.ConfigParser(tgen_defaults)
     pytestini_path = os.path.join(CWD, '../pytest.ini')
     config.read(pytestini_path)
 

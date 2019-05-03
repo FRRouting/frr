@@ -20,25 +20,28 @@
         ]
     },
     "frr-ripd:ripd": {
-        "instance": {
-            "allow-ecmp": "true",
-            "distance": {
-                "source": [
+        "instance": [
+            {
+                "vrf": "default",
+                "allow-ecmp": "true",
+                "distance": {
+                    "source": [
+                        {
+                            "distance": "25",
+                            "prefix": "172.16.1.0/24"
+                        }
+                    ]
+                },
+                "redistribute": [
                     {
-                        "prefix": "172.16.1.0/24",
-                        "distance": "25"
+                        "metric": "3",
+                        "protocol": "ospf"
                     }
+                ],
+                "static-route": [
+                    "10.0.1.0/24"
                 ]
-            },
-            "redistribute": [
-                {
-                    "protocol": "ospf",
-                    "metric": "3"
-                }
-            ],
-            "static-route": [
-                "10.0.1.0/24"
-            ]
-        }
+            }
+        ]
     }
 }

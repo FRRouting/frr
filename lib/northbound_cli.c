@@ -26,6 +26,7 @@
 #include "command.h"
 #include "termtable.h"
 #include "db.h"
+#include "debug.h"
 #include "yang_translator.h"
 #include "northbound.h"
 #include "northbound_cli.h"
@@ -34,7 +35,12 @@
 #include "lib/northbound_cli_clippy.c"
 #endif
 
-int debug_northbound;
+struct debug nb_dbg_cbs_config = {0, "Northbound callbacks: configuration"};
+struct debug nb_dbg_cbs_state = {0, "Northbound callbacks: state"};
+struct debug nb_dbg_cbs_rpc = {0, "Northbound callbacks: RPCs"};
+struct debug nb_dbg_notif = {0, "Northbound notifications"};
+struct debug nb_dbg_events = {0, "Northbound events"};
+
 struct nb_config *vty_shared_candidate_config;
 static struct thread_master *master;
 
@@ -208,7 +214,7 @@ int nb_cli_rpc(const char *xpath, struct list *input, struct list *output)
 		return CMD_WARNING;
 	}
 
-	ret = nb_node->cbs.rpc(xpath, input, output);
+	ret = nb_callback_rpc(nb_node, xpath, input, output);
 	switch (ret) {
 	case NB_OK:
 		return CMD_SUCCESS;
@@ -261,7 +267,7 @@ static int nb_cli_confirmed_commit_timeout(struct thread *thread)
 static int nb_cli_commit(struct vty *vty, bool force,
 			 unsigned int confirmed_timeout, char *comment)
 {
-	uint32_t transaction_id;
+	uint32_t transaction_id = 0;
 	int ret;
 
 	/* Check if there's a pending confirmed commit. */
@@ -1297,7 +1303,7 @@ DEFPY (show_yang_operational_data,
 		yang_dnode_free(dnode);
 		return CMD_WARNING;
 	}
-	lyd_validate(&dnode, LYD_OPT_DATA | LYD_OPT_DATA_NO_YANGLIB, ly_ctx);
+	lyd_validate(&dnode, LYD_OPT_GET, ly_ctx);
 
 	/* Display the data. */
 	if (lyd_print_mem(&strp, dnode, format,
@@ -1540,36 +1546,90 @@ DEFPY (rollback_config,
 }
 
 /* Debug CLI commands. */
-DEFUN (debug_nb,
+static struct debug *nb_debugs[] = {
+	&nb_dbg_cbs_config, &nb_dbg_cbs_state, &nb_dbg_cbs_rpc,
+	&nb_dbg_notif,      &nb_dbg_events,
+};
+
+static const char *const nb_debugs_conflines[] = {
+	"debug northbound callbacks configuration",
+	"debug northbound callbacks state",
+	"debug northbound callbacks rpc",
+	"debug northbound notifications",
+	"debug northbound events",
+};
+
+DEFINE_HOOK(nb_client_debug_set_all, (uint32_t flags, bool set), (flags, set));
+
+static void nb_debug_set_all(uint32_t flags, bool set)
+{
+	for (unsigned int i = 0; i < array_size(nb_debugs); i++) {
+		DEBUG_FLAGS_SET(nb_debugs[i], flags, set);
+
+		/* If all modes have been turned off, don't preserve options. */
+		if (!DEBUG_MODE_CHECK(nb_debugs[i], DEBUG_MODE_ALL))
+			DEBUG_CLEAR(nb_debugs[i]);
+	}
+
+	hook_call(nb_client_debug_set_all, flags, set);
+}
+
+DEFPY (debug_nb,
        debug_nb_cmd,
-       "debug northbound",
+       "[no] debug northbound\
+          [<\
+	    callbacks$cbs [{configuration$cbs_cfg|state$cbs_state|rpc$cbs_rpc}]\
+	    |notifications$notifications\
+	    |events$events\
+          >]",
+       NO_STR
        DEBUG_STR
-       "Northbound Debugging\n")
+       "Northbound debugging\n"
+       "Callbacks\n"
+       "Configuration\n"
+       "State\n"
+       "RPC\n"
+       "Notifications\n"
+       "Events\n")
 {
-	debug_northbound = 1;
+	uint32_t mode = DEBUG_NODE2MODE(vty->node);
+
+	if (cbs) {
+		bool none = (!cbs_cfg && !cbs_state && !cbs_rpc);
+
+		if (none || cbs_cfg)
+			DEBUG_MODE_SET(&nb_dbg_cbs_config, mode, !no);
+		if (none || cbs_state)
+			DEBUG_MODE_SET(&nb_dbg_cbs_state, mode, !no);
+		if (none || cbs_rpc)
+			DEBUG_MODE_SET(&nb_dbg_cbs_rpc, mode, !no);
+	}
+	if (notifications)
+		DEBUG_MODE_SET(&nb_dbg_notif, mode, !no);
+	if (events)
+		DEBUG_MODE_SET(&nb_dbg_events, mode, !no);
+
+	/* no specific debug --> act on all of them */
+	if (strmatch(argv[argc - 1]->text, "northbound"))
+		nb_debug_set_all(mode, !no);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_debug_nb,
-       no_debug_nb_cmd,
-       "no debug northbound",
-       NO_STR DEBUG_STR
-       "Northbound Debugging\n")
-{
-	debug_northbound = 0;
-
-	return CMD_SUCCESS;
-}
+DEFINE_HOOK(nb_client_debug_config_write, (struct vty *vty), (vty));
 
 static int nb_debug_config_write(struct vty *vty)
 {
-	if (debug_northbound)
-		vty_out(vty, "debug northbound\n");
+	for (unsigned int i = 0; i < array_size(nb_debugs); i++)
+		if (DEBUG_MODE_CHECK(nb_debugs[i], DEBUG_MODE_CONF))
+			vty_out(vty, "%s\n", nb_debugs_conflines[i]);
+
+	hook_call(nb_client_debug_config_write, vty);
 
 	return 1;
 }
 
+static struct debug_callbacks nb_dbg_cbs = {.debug_set_all = nb_debug_set_all};
 static struct cmd_node nb_debug_node = {NORTHBOUND_DEBUG_NODE, "", 1};
 
 void nb_cli_install_default(int node)
@@ -1633,11 +1693,10 @@ void nb_cli_init(struct thread_master *tm)
 	vty_shared_candidate_config = nb_config_new(NULL);
 
 	/* Install debug commands */
+	debug_init(&nb_dbg_cbs);
 	install_node(&nb_debug_node, nb_debug_config_write);
 	install_element(ENABLE_NODE, &debug_nb_cmd);
-	install_element(ENABLE_NODE, &no_debug_nb_cmd);
 	install_element(CONFIG_NODE, &debug_nb_cmd);
-	install_element(CONFIG_NODE, &no_debug_nb_cmd);
 
 	/* Install commands specific to the transaction-base mode. */
 	if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL) {

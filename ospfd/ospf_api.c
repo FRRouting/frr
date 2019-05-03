@@ -74,12 +74,12 @@ void api_opaque_lsa_print(struct lsa_header *data)
 	olsa = (struct opaque_lsa *)data;
 
 	opaquelen = ntohs(data->length) - OSPF_LSA_HEADER_SIZE;
-	zlog_debug("apiserver_lsa_print: opaquelen=%d\n", opaquelen);
+	zlog_debug("apiserver_lsa_print: opaquelen=%d", opaquelen);
 
 	for (i = 0; i < opaquelen; i++) {
 		zlog_debug("0x%x ", olsa->mydata[i]);
 	}
-	zlog_debug("\n");
+	zlog_debug(" ");
 }
 
 /* -----------------------------------------------------------
@@ -242,7 +242,7 @@ const char *ospf_api_errname(int errcode)
 void msg_print(struct msg *msg)
 {
 	if (!msg) {
-		zlog_debug("msg_print msg=NULL!\n");
+		zlog_debug("msg_print msg=NULL!");
 		return;
 	}
 
@@ -300,7 +300,7 @@ uint32_t msg_get_seq(struct msg *msg)
  * -----------------------------------------------------------
  */
 
-struct msg_fifo *msg_fifo_new()
+struct msg_fifo *msg_fifo_new(void)
 {
 	return XCALLOC(MTYPE_OSPF_API_FIFO, sizeof(struct msg_fifo));
 }

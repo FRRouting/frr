@@ -25,6 +25,11 @@
 #include "memory.h"
 #include "hash.h"
 #include "prefix.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MTYPE(ROUTE_TABLE)
 DECLARE_MTYPE(ROUTE_NODE)
 
@@ -317,5 +322,9 @@ static inline int route_table_iter_started(route_table_iter_t *iter)
 {
 	return iter->state != RT_ITER_STATE_INIT;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_TABLE_H */

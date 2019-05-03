@@ -231,7 +231,7 @@ static const char *fsm_state2str(enum eigrp_fsm_events event)
 		return "Query from Successor while in active state";
 	case EIGRP_FSM_EVENT_LR_FCN:
 		return "Last Reply Event, Feasibility not satisfied";
-	};
+	}
 
 	return "Unknown";
 }
@@ -314,7 +314,7 @@ eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 			if (prefix->rij->count)
 				return EIGRP_FSM_KEEP_STATE;
 
-			zlog_info("All reply received\n");
+			zlog_info("All reply received");
 			if (head->reported_distance < prefix->fdistance) {
 				return EIGRP_FSM_EVENT_LR_FCS;
 			}
@@ -344,7 +344,7 @@ eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 			} else if (prefix->rij->count) {
 				return EIGRP_FSM_KEEP_STATE;
 			} else {
-				zlog_info("All reply received\n");
+				zlog_info("All reply received");
 				return EIGRP_FSM_EVENT_LR;
 			}
 		} else if (msg->packet_type == EIGRP_OPC_UPDATE
@@ -366,7 +366,7 @@ eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 			if (prefix->rij->count) {
 				return EIGRP_FSM_KEEP_STATE;
 			} else {
-				zlog_info("All reply received\n");
+				zlog_info("All reply received");
 				if (head->reported_distance
 				    < prefix->fdistance) {
 					return EIGRP_FSM_EVENT_LR_FCS;
@@ -390,7 +390,7 @@ eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 			} else if (prefix->rij->count) {
 				return EIGRP_FSM_KEEP_STATE;
 			} else {
-				zlog_info("All reply received\n");
+				zlog_info("All reply received");
 				return EIGRP_FSM_EVENT_LR;
 			}
 		} else if (msg->packet_type == EIGRP_OPC_UPDATE

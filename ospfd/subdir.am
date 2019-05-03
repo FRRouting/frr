@@ -98,7 +98,7 @@ noinst_HEADERS += \
 	ospfd/ospf_zebra.h \
 	# end
 
-ospfd_ospfd_LDADD = ospfd/libfrrospf.a lib/libfrr.la @LIBCAP@ @LIBM@
+ospfd_ospfd_LDADD = ospfd/libfrrospf.a lib/libfrr.la $(LIBCAP) $(LIBM)
 ospfd_ospfd_SOURCES = ospfd/ospf_main.c
 
 ospfd_ospfd_snmp_la_SOURCES = ospfd/ospf_snmp.c

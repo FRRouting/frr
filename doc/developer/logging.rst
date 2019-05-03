@@ -18,7 +18,7 @@ maybe by a syslog collector from all routers.)  Therefore, anything that
 needs to get the user in the loop—and only these things—are warnings or
 errors.
 
-Note that this doesn't neccessarily mean the user needs to fix something in
+Note that this doesn't necessarily mean the user needs to fix something in
 the FRR instance.  It also includes when we detect something else needs
 fixing, for example another router, the system we're running on, or the
 configuration.  The common point is that the user should probably do

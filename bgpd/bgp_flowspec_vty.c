@@ -332,17 +332,16 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 	if (display == NLRI_STRING_FORMAT_LARGE) {
 		struct bgp_path_info_extra *extra =
 			bgp_path_info_extra_get(path);
+		bool list_began = false;
 
-		if (extra->bgp_fs_pbr) {
+		if (extra->bgp_fs_pbr && listcount(extra->bgp_fs_pbr)) {
 			struct listnode *node;
 			struct bgp_pbr_match_entry *bpme;
 			struct bgp_pbr_match *bpm;
-			bool list_began = false;
 			struct list *list_bpm;
 
 			list_bpm = list_new();
-			if (listcount(extra->bgp_fs_pbr))
-				vty_out(vty, "\tinstalled in PBR");
+			vty_out(vty, "\tinstalled in PBR");
 			for (ALL_LIST_ELEMENTS_RO(extra->bgp_fs_pbr,
 						  node, bpme)) {
 				bpm = bpme->backpointer;
@@ -356,11 +355,32 @@ void route_vty_out_flowspec(struct vty *vty, struct prefix *p,
 					vty_out(vty, ", ");
 				vty_out(vty, "%s", bpm->ipset_name);
 			}
+			list_delete(&list_bpm);
+		}
+		if (extra->bgp_fs_iprule && listcount(extra->bgp_fs_iprule)) {
+			struct listnode *node;
+			struct bgp_pbr_rule *bpr;
+
+			if (!list_began)
+				vty_out(vty, "\tinstalled in PBR");
+			for (ALL_LIST_ELEMENTS_RO(extra->bgp_fs_iprule,
+						  node, bpr)) {
+				if (!bpr->action)
+					continue;
+				if (!list_began) {
+					vty_out(vty, " (");
+					list_began = true;
+				} else
+					vty_out(vty, ", ");
+				vty_out(vty, "-ipv4-rule %d action lookup %u-",
+					bpr->priority,
+					bpr->action->table_id);
+			}
 			if (list_began)
 				vty_out(vty, ")");
 			vty_out(vty, "\n");
-			list_delete(&list_bpm);
-		} else
+		}
+		if (!list_began)
 			vty_out(vty, "\tnot installed in PBR\n");
 	}
 }

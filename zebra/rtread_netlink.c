@@ -45,6 +45,12 @@ void macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 	netlink_macfdb_read_for_bridge(zns, ifp, br_if);
 }
 
+void macfdb_read_specific_mac(struct zebra_ns *zns, struct interface *br_if,
+			      struct ethaddr *mac, vlanid_t vid)
+{
+netlink_macfdb_read_specific_mac(zns, br_if, mac, vid);
+}
+
 void neigh_read(struct zebra_ns *zns)
 {
 	netlink_neigh_read(zns);
@@ -53,6 +59,11 @@ void neigh_read(struct zebra_ns *zns)
 void neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
 {
 	netlink_neigh_read_for_vlan(zns, vlan_if);
+}
+
+void neigh_read_specific_ip(struct ipaddr *ip, struct interface *vlan_if)
+{
+	netlink_neigh_read_specific_ip(ip, vlan_if);
 }
 
 void kernel_read_pbr_rules(struct zebra_ns *zns)

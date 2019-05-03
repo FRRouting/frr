@@ -8,7 +8,8 @@ PIM -- Protocol Independent Multicast
 
 *pimd* supports pim-sm as well as igmp v2 and v3. pim is
 vrf aware and can work within the context of vrf's in order to
-do S,G mrouting.
+do S,G mrouting.  Additionally PIM can be used in the EVPN underlay
+network for optimizing forwarding of overlay BUM traffic.
 
 .. _starting-and-stopping-pimd:
 
@@ -210,8 +211,8 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
    Set the IGMP version used on this interface. The default value is 3.
 
-.. index:: ip multicat boundary oil WORD
-.. clicmd:: ip multicat boundary oil WORD
+.. index:: ip multicast boundary oil WORD
+.. clicmd:: ip multicast boundary oil WORD
 
    Set a pim multicast boundary, based upon the WORD prefix-list. If a pim join
    or IGMP report is received on this interface and the Group is denied by the
@@ -292,10 +293,14 @@ cause great confusion.
 
    Display various information about the interfaces used in this pim instance.
 
-.. index:: show ip mroute
-.. clicmd:: show ip mroute
+.. index:: show ip mroute [vrf NAME] [A.B.C.D [A.B.C.D]] [fill] [json]
+.. clicmd:: show ip mroute [vrf NAME] [A.B.C.D [A.B.C.D]] [fill] [json]
 
-   Display information about installed into the kernel S,G mroutes.
+   Display information about installed into the kernel S,G mroutes.  If
+   one address is specified we assume it is the Group we are interested
+   in displaying data on.  If the second address is specified then it is
+   Source Group.  The keyword `fill` says to fill in all assumed data
+   for test/data gathering purposes.
 
 .. index:: show ip mroute count
 .. clicmd:: show ip mroute count
@@ -333,10 +338,12 @@ cause great confusion.
 
    Display information about interfaces PIM is using.
 
-.. index:: show ip pim join
+.. index:: show ip pim [vrf NAME] join [A.B.C.D [A.B.C.D]] [json]
 .. clicmd:: show ip pim join
 
-   Display information about PIM joins received.
+   Display information about PIM joins received.  If one address is specified
+   then we assume it is the Group we are interested in displaying data on.
+   If the second address is specified then it is Source Group.
 
 .. index:: show ip pim local-membership
 .. clicmd:: show ip pim local-membership
@@ -383,10 +390,11 @@ cause great confusion.
    Display information about known S,G's and incoming interface as well as the
    OIL and how they were chosen.
 
-.. index:: show ip pim upstream
+.. index:: show ip pim [vrf NAME] upstream [A.B.C.D [A.B.C.D]] [json]
 .. clicmd:: show ip pim upstream
 
-   Display upstream information about a S,G mroute.
+   Display upstream information about a S,G mroute.  Allow the user to
+   specify sub Source and Groups that we are only interested in.
 
 .. index:: show ip pim upstream-join-desired
 .. clicmd:: show ip pim upstream-join-desired
@@ -495,3 +503,28 @@ Clear commands reset various variables.
 .. clicmd:: clear ip pim oil
 
    Rescan PIM OIL (output interface list).
+
+PIM EVPN configuration
+======================
+To use PIM in the underlay for overlay BUM forwarding associate a multicast
+group with the L2 VNI. The actual configuration is based on your distribution.
+Here is an ifupdown2 example::
+
+   auto vx-10100
+   iface vx-10100
+       vxlan-id 10100
+       bridge-access 100
+       vxlan-local-tunnelip 27.0.0.11
+       vxlan-mcastgrp 239.1.1.100
+
+.. note::
+
+   PIM will see the ``vxlan-mcastgrp`` configuration and auto configure state
+   to properly forward BUM traffic.
+
+PIM also needs to be configured in the underlay to allow the BUM MDT to be
+setup. This is existing PIM configuration:
+
+- Enable pim on the underlay L3 interface via the "ip pim" command.
+- Configure RPs for the BUM multicast group range.
+- Ensure the PIM is enabled on the lo of the VTEPs and the RP.

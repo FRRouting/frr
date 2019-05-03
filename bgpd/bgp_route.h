@@ -73,6 +73,24 @@ enum bgp_show_adj_route_type {
  */
 #define BGP_MAX_LABELS 2
 
+/* Error codes for handling NLRI */
+#define BGP_NLRI_PARSE_OK 0
+#define BGP_NLRI_PARSE_ERROR_PREFIX_OVERFLOW -1
+#define BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW -2
+#define BGP_NLRI_PARSE_ERROR_PREFIX_LENGTH -3
+#define BGP_NLRI_PARSE_ERROR_PACKET_LENGTH -4
+#define BGP_NLRI_PARSE_ERROR_LABEL_LENGTH -5
+#define BGP_NLRI_PARSE_ERROR_EVPN_MISSING_TYPE -6
+#define BGP_NLRI_PARSE_ERROR_EVPN_TYPE2_SIZE -7
+#define BGP_NLRI_PARSE_ERROR_EVPN_TYPE3_SIZE -8
+#define BGP_NLRI_PARSE_ERROR_EVPN_TYPE4_SIZE -9
+#define BGP_NLRI_PARSE_ERROR_EVPN_TYPE5_SIZE -10
+#define BGP_NLRI_PARSE_ERROR_FLOWSPEC_IPV6_NOT_SUPPORTED -11
+#define BGP_NLRI_PARSE_ERROR_FLOWSPEC_NLRI_SIZELIMIT -12
+#define BGP_NLRI_PARSE_ERROR_FLOWSPEC_BAD_FORMAT -13
+#define BGP_NLRI_PARSE_ERROR_ADDRESS_FAMILY -14
+#define BGP_NLRI_PARSE_ERROR -32
+
 /* Ancillary information to struct bgp_path_info,
  * used for uncommonly used data (aggregation, MPLS, etc.)
  * and lazily allocated to save memory.
@@ -147,8 +165,10 @@ struct bgp_path_info_extra {
 	 * Set nexthop_orig.family to 0 if not valid.
 	 */
 	struct prefix nexthop_orig;
-	/* presence of FS pbr entry */
+	/* presence of FS pbr firewall based entry */
 	struct list *bgp_fs_pbr;
+	/* presence of FS pbr iprule based entry */
+	struct list *bgp_fs_iprule;
 };
 
 struct bgp_path_info {
@@ -270,6 +290,71 @@ struct bgp_static {
 	struct prefix gatewayIp;
 };
 
+/* Aggreagete address:
+ *
+ *  advertise-map  Set condition to advertise attribute
+ *  as-set         Generate AS set path information
+ *  attribute-map  Set attributes of aggregate
+ *  route-map      Set parameters of aggregate
+ *  summary-only   Filter more specific routes from updates
+ *  suppress-map   Conditionally filter more specific routes from updates
+ *  <cr>
+ */
+struct bgp_aggregate {
+	/* Summary-only flag. */
+	uint8_t summary_only;
+
+	/* AS set generation. */
+	uint8_t as_set;
+
+	/* Route-map for aggregated route. */
+	struct route_map *map;
+
+	/* Suppress-count. */
+	unsigned long count;
+
+	/* Count of routes of origin type incomplete under this aggregate. */
+	unsigned long incomplete_origin_count;
+
+	/* Count of routes of origin type egp under this aggregate. */
+	unsigned long egp_origin_count;
+
+	/* Hash containing the communities of all the
+	 * routes under this aggregate.
+	 */
+	struct hash *community_hash;
+
+	/* Hash containing the extended communities of all the
+	 * routes under this aggregate.
+	 */
+	struct hash *ecommunity_hash;
+
+	/* Hash containing the large communities of all the
+	 * routes under this aggregate.
+	 */
+	struct hash *lcommunity_hash;
+
+	/* Hash containing the AS-Path of all the
+	 * routes under this aggregate.
+	 */
+	struct hash *aspath_hash;
+
+	/* Aggregate route's community. */
+	struct community *community;
+
+	/* Aggregate route's extended community. */
+	struct ecommunity *ecommunity;
+
+	/* Aggregate route's large community. */
+	struct lcommunity *lcommunity;
+
+	/* Aggregate route's as-path. */
+	struct aspath *aspath;
+
+	/* SAFI configuration. */
+	safi_t safi;
+};
+
 #define BGP_NEXTHOP_AFI_FROM_NHLEN(nhlen)                                      \
 	((nhlen) < IPV4_MAX_BYTELEN                                            \
 		 ? 0                                                           \
@@ -277,7 +362,10 @@ struct bgp_static {
 
 #define BGP_ATTR_NEXTHOP_AFI_IP6(attr)                                         \
 	(!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))             \
-	 && ((attr)->mp_nexthop_len == 16 || (attr)->mp_nexthop_len == 32))
+	 && ((attr)->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL              \
+	     || (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL    \
+	     || (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL          \
+	     || (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL))
 #define BGP_PATH_COUNTABLE(BI)                                                 \
 	(!CHECK_FLAG((BI)->flags, BGP_PATH_HISTORY)                            \
 	 && !CHECK_FLAG((BI)->flags, BGP_PATH_REMOVED))
@@ -339,6 +427,24 @@ static inline int bgp_fibupd_safi(safi_t safi)
 	return 0;
 }
 
+/* Flag if the route path's family matches params. */
+static inline bool is_pi_family_matching(struct bgp_path_info *pi,
+					 afi_t afi, safi_t safi)
+{
+	struct bgp_table *table;
+	struct bgp_node *rn;
+
+	rn = pi->net;
+	if (!rn)
+		return false;
+	table = bgp_node_table(rn);
+	if (table &&
+	    table->afi == afi &&
+	    table->safi == safi)
+		return true;
+	return false;
+}
+
 /* Prototypes. */
 extern void bgp_rib_remove(struct bgp_node *rn, struct bgp_path_info *pi,
 			   struct peer *peer, afi_t afi, safi_t safi);
@@ -355,6 +461,8 @@ extern void bgp_clear_route(struct peer *, afi_t, safi_t);
 extern void bgp_clear_route_all(struct peer *);
 extern void bgp_clear_adj_in(struct peer *, afi_t, safi_t);
 extern void bgp_clear_stale_route(struct peer *, afi_t, safi_t);
+extern int bgp_outbound_policy_exists(struct peer *, struct bgp_filter *);
+extern int bgp_inbound_policy_exists(struct peer *, struct bgp_filter *);
 
 extern struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 					 safi_t safi, struct prefix *p,
@@ -474,7 +582,6 @@ extern void bgp_process_queues_drain_immediate(void);
 extern struct bgp_node *bgp_afi_node_lookup(struct bgp_table *table, afi_t afi,
 					    safi_t safi, struct prefix *p,
 					    struct prefix_rd *prd);
-extern struct bgp_path_info *bgp_path_info_new(void);
 extern void bgp_path_info_restore(struct bgp_node *rn,
 				  struct bgp_path_info *path);
 

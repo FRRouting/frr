@@ -23,6 +23,10 @@
 
 #include <vty.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * What is a nexthop group?
  *
@@ -40,8 +44,10 @@ void nexthop_group_delete(struct nexthop_group **nhg);
 
 void nexthop_add(struct nexthop **target, struct nexthop *nexthop);
 void nexthop_del(struct nexthop_group *nhg, struct nexthop *nexthop);
-void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
+void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 		   struct nexthop *rparent);
+
+uint32_t nexthop_group_hash(const struct nexthop_group *nhg);
 
 /* The following for loop allows to iterate over the nexthop
  * structure of routes.
@@ -64,7 +70,7 @@ void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
 
 struct nexthop_hold {
 	char *nhvrf_name;
-	union sockunion addr;
+	union sockunion *addr;
 	char *intf;
 };
 
@@ -92,12 +98,12 @@ DECLARE_QOBJ_TYPE(nexthop_group_cmd)
  * code
  */
 void nexthop_group_init(
-	void (*new)(const char *name),
+	void (*create)(const char *name),
 	void (*add_nexthop)(const struct nexthop_group_cmd *nhgc,
 			    const struct nexthop *nhop),
 	void (*del_nexthop)(const struct nexthop_group_cmd *nhgc,
 			    const struct nexthop *nhop),
-	void (*delete)(const char *name));
+	void (*destroy)(const char *name));
 
 void nexthop_group_enable_vrf(struct vrf *vrf);
 void nexthop_group_disable_vrf(struct vrf *vrf);
@@ -110,4 +116,14 @@ extern struct nexthop *nexthop_exists(struct nexthop_group *nhg,
 extern struct nexthop_group_cmd *nhgc_find(const char *name);
 
 extern void nexthop_group_write_nexthop(struct vty *vty, struct nexthop *nh);
+
+/* Return the number of nexthops in this nhg */
+extern uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg);
+extern uint8_t
+nexthop_group_active_nexthop_num(const struct nexthop_group *nhg);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

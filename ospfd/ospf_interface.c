@@ -1182,7 +1182,7 @@ int ospf_vls_in_area(struct ospf_area *area)
 }
 
 
-struct crypt_key *ospf_crypt_key_new()
+struct crypt_key *ospf_crypt_key_new(void)
 {
 	return XCALLOC(MTYPE_OSPF_CRYPT_KEY, sizeof(struct crypt_key));
 }
@@ -1230,7 +1230,7 @@ uint8_t ospf_default_iftype(struct interface *ifp)
 		return OSPF_IFTYPE_BROADCAST;
 }
 
-void ospf_if_init()
+void ospf_if_init(void)
 {
 	/* Initialize Zebra interface data structure. */
 	hook_register_prio(if_add, 0, ospf_if_new_hook);

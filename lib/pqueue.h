@@ -21,6 +21,10 @@
 #ifndef _ZEBRA_PQUEUE_H
 #define _ZEBRA_PQUEUE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct pqueue {
 	void **array;
 	int array_size;
@@ -42,5 +46,9 @@ extern void pqueue_remove(void *data, struct pqueue *queue);
 
 extern void trickle_down(int index, struct pqueue *queue);
 extern void trickle_up(int index, struct pqueue *queue);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_PQUEUE_H */

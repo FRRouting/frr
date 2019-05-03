@@ -79,9 +79,23 @@ options from the list below.
 
 .. program:: configure
 
+.. option:: --enable-tcmalloc
+
+   Enable the alternate malloc library.  In some cases this is faster and more efficient,
+   in some cases it is not.
+
+.. option:: --disable-doc
+
+   Do not build any documentation, including this one.
+
+.. option:: --enable-doc-html
+
+   From the documentation build html docs as well in addition to the normal output.
+
 .. option:: --disable-zebra
 
-   Do not build zebra daemon.
+   Do not build zebra daemon.  This generally only be useful in a scenario where
+   you are building bgp as a standalone server.
 
 .. option:: --disable-ripd
 
@@ -103,6 +117,52 @@ options from the list below.
 
    Do not build bgpd.
 
+.. option:: --disable-ldpd
+
+   Do not build ldpd.
+
+.. option:: --disable-nhrpd
+
+   Do not build nhrpd.
+
+.. option:: --disable-eigrpd
+
+   Do not build eigrpd.
+
+.. option:: --disable-babeld
+
+   Do not build babeld.
+
+.. option:: --disable-watchfrr
+
+   Do not build watchfrr.  Watchfrr is used to integrate daemons into startup/shutdown
+   software available on your machine.  This is needed for systemd integration, if you
+   disable watchfrr you cannot have any systemd integration.
+
+.. option:: --enable-systemd
+
+   Build watchfrr with systemd integration, this will allow FRR to communicate with
+   systemd to tell systemd if FRR has come up properly.
+
+.. option:: --disable-pimd
+
+   Turn off building of pimd.  On some BSD platforms pimd will not build properly due
+   to lack of kernel support.
+
+.. option:: --disable-pbrd
+
+   Turn off building of pbrd.  This daemon currently requires linux in order to function
+   properly.
+
+.. option:: --enable-sharpd
+
+   Turn on building of sharpd.  This daemon facilitates testing of FRR and can also
+   be used as a quick and easy route generator.
+
+.. option:: --disable-staticd
+
+   Do not build staticd.  This daemon is necessary if you want static routes.
+
 .. option:: --disable-bfdd
 
    Do not build bfdd.
@@ -111,6 +171,10 @@ options from the list below.
 
    Make *bgpd* which does not make bgp announcements at all.  This
    feature is good for using *bgpd* as a BGP announcement listener.
+
+.. option:: --disable-bgp-vnc
+
+   Turn off bgpd's ability to use VNC.
 
 .. option:: --enable-datacenter
 
@@ -208,10 +272,17 @@ options from the list below.
 .. option:: --enable-multipath=X
 
    Compile FRR with up to X way ECMP supported.  This number can be from 0-999.
-   For backwards compatability with older configure options when setting X = 0,
+   For backwards compatibility with older configure options when setting X = 0,
    we will build FRR with 64 way ECMP.  This is needed because there are
    hardcoded arrays that FRR builds towards, so we need to know how big to
-   make these arrays at build time.
+   make these arrays at build time.  Additionally if this parameter is
+   not passed in FRR will default to 16 ECMP.
+
+.. option:: --enable-shell-access
+
+   Turn on the ability of FRR to access some shell options( telnet/ssh/bash/etc. )
+   from vtysh itself.  This option is considered extremely unsecure and should only
+   be considered for usage if you really really know what you are doing.
 
 .. option:: --enable-gcov
 
@@ -264,6 +335,9 @@ options to the configuration script.
 
    Look for libyang plugins in `dir` [`prefix`/lib/frr/libyang_plugins].
    Note that the FRR libyang plugins will be installed here.
+
+   This option is meaningless with libyang 0.16.74 or newer and will be
+   removed once support for older libyang versions is dropped.
 
 When it's desired to run FRR without installing it in the system, it's possible
 to configure it as follows to look for YANG modules and libyang plugins in the

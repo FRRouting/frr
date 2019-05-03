@@ -133,8 +133,6 @@ static int pqueue_expand(struct pqueue *queue)
 
 	newarray =
 		XCALLOC(MTYPE_PQUEUE_DATA, queue->array_size * DATA_SIZE * 2);
-	if (newarray == NULL)
-		return 0;
 
 	memcpy(newarray, queue->array, queue->array_size * DATA_SIZE);
 

@@ -505,6 +505,15 @@ static struct log_ref ferr_zebra_err[] = {
 			"Check configuration values for correctness. If they are correct, report this as a bug.",
 	},
 	{
+		.code = EC_ZEBRA_RX_ROUTE_NO_NEXTHOPS,
+		.title =
+			"Zebra received an installation request for a route without nexthops",
+		.description =
+			"Zebra received a message from a client requesting a route installation, but the route is invalid since it doesn't have any nexthop address or interface.",
+		.suggestion =
+			"This is a bug; please report it.",
+	},
+	{
 		.code = EC_ZEBRA_RX_SRCDEST_WRONG_AFI,
 		.title =
 			"Zebra received sourcedest route install without IPv6 address family",

@@ -174,8 +174,7 @@ struct ospf6_nexthop *ospf6_nexthop_create(void)
 
 void ospf6_nexthop_delete(struct ospf6_nexthop *nh)
 {
-	if (nh)
-		XFREE(MTYPE_OSPF6_NEXTHOP, nh);
+	XFREE(MTYPE_OSPF6_NEXTHOP, nh);
 }
 
 void ospf6_clear_nexthops(struct list *nh_list)
@@ -332,8 +331,9 @@ int ospf6_route_get_first_nh_index(struct ospf6_route *route)
 	struct ospf6_nexthop *nh;
 
 	if (route) {
-		if ((nh = (struct ospf6_nexthop *)listhead(route->nh_list)))
-			return (nh->ifindex);
+		nh = listnode_head(route->nh_list);
+		if (nh)
+			return nh->ifindex;
 	}
 
 	return (-1);

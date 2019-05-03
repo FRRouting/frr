@@ -20,6 +20,10 @@
 #ifndef __PTM_LIB_H__
 #define __PTM_LIB_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define PTMLIB_MSG_SZ           1024
 #define PTMLIB_MSG_HDR_LEN      37
 #define PTMLIB_MSG_VERSION      2
@@ -64,5 +68,9 @@ int ptm_lib_init_msg(ptm_lib_handle_t *, int, int, void *, void **);
 int ptm_lib_append_msg(ptm_lib_handle_t *, void *, const char *, const char *);
 int ptm_lib_complete_msg(ptm_lib_handle_t *, void *, char *, int *);
 int ptm_lib_cleanup_msg(ptm_lib_handle_t *, void *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

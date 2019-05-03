@@ -63,23 +63,6 @@ class json_cmp_result(object):
     def __str__(self):
         return '\n'.join(self.errors)
 
-def get_test_logdir(node=None, init=False):
-    """
-    Return the current test log directory based on PYTEST_CURRENT_TEST
-    environment variable.
-    Optional paramters:
-    node:  when set, adds the node specific log directory to the init dir
-    init:  when set, initializes the log directory and fixes path permissions
-    """
-    cur_test = os.environ['PYTEST_CURRENT_TEST']
-
-    ret = '/tmp/topotests/' + cur_test[0:cur_test.find(".py")].replace('/','.')
-    if node != None:
-        dir = ret + "/" + node
-    if init:
-        os.system('mkdir -p ' + dir)
-        os.system('chmod -R go+rw /tmp/topotests')
-    return ret
 
 def json_diff(d1, d2):
     """
@@ -612,7 +595,21 @@ class Router(Node):
 
     def __init__(self, name, **params):
         super(Router, self).__init__(name, **params)
-        self.logdir = params.get('logdir', get_test_logdir(name, True))
+        self.logdir = params.get('logdir')
+
+        # If this topology is using old API and doesn't have logdir
+        # specified, then attempt to generate an unique logdir.
+        if self.logdir is None:
+            cur_test = os.environ['PYTEST_CURRENT_TEST']
+            self.logdir = ('/tmp/topotests/' +
+                           cur_test[0:cur_test.find(".py")].replace('/', '.'))
+
+        # If the logdir is not created, then create it and set the
+        # appropriated permissions.
+        if not os.path.isdir(self.logdir):
+            os.system('mkdir -p ' + self.logdir + '/' + name)
+            os.system('chmod -R go+rw /tmp/topotests')
+
         self.daemondir = None
         self.hasmpls = False
         self.routertype = 'frr'

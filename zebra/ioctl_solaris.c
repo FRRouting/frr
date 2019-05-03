@@ -38,13 +38,20 @@
 #include "zebra/interface.h"
 #include "zebra/ioctl_solaris.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/debug.h"
 
 extern struct zebra_privs_t zserv_privs;
+
+/* Prototypes */
+static int if_set_prefix_ctx(const struct zebra_dplane_ctx *ctx);
+static int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx);
+static int if_set_prefix6_ctx(const struct zebra_dplane_ctx *ctx);
+static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx);
 
 /* clear and set interface name string */
 void lifreq_set_name(struct lifreq *lifreq, const char *ifname)
 {
-	strncpy(lifreq->lifr_name, ifname, IFNAMSIZ);
+	strlcpy(lifreq->lifr_name, ifname, sizeof(lifreq->lifr_name));
 }
 
 int vrf_if_ioctl(unsigned long request, caddr_t buffer, vrf_id_t vrf_id)
@@ -183,23 +190,52 @@ void if_get_mtu(struct interface *ifp)
 		zebra_interface_up_update(ifp);
 }
 
+/*
+ *
+ */
+enum zebra_dplane_result kernel_address_update_ctx(
+	struct zebra_dplane_ctx *ctx)
+{
+	int ret = -1;
+	const struct prefix *p;
+
+	p = dplane_ctx_get_intf_addr(ctx);
+
+	if (dplane_ctx_get_op(ctx) == DPLANE_OP_ADDR_INSTALL) {
+		if (p->family == AF_INET)
+			ret = if_set_prefix_ctx(ctx);
+		else
+			ret = if_set_prefix6_ctx(ctx);
+	} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ADDR_UNINSTALL) {
+		if (p->family == AF_INET)
+			ret = if_unset_prefix_ctx(ctx);
+		else
+			ret = if_unset_prefix6_ctx(ctx);
+	} else {
+		if (IS_ZEBRA_DEBUG_DPLANE)
+			zlog_debug("Invalid op in interface-addr install");
+	}
+
+	return (ret == 0 ?
+		ZEBRA_DPLANE_REQUEST_SUCCESS : ZEBRA_DPLANE_REQUEST_FAILURE);
+}
+
 /* Set up interface's address, netmask (and broadcast? ).
    Solaris uses ifname:number semantics to set IP address aliases. */
-int if_set_prefix(struct interface *ifp, struct connected *ifc)
+static int if_set_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 {
 	int ret;
 	struct ifreq ifreq;
-	struct sockaddr_in addr;
-	struct sockaddr_in broad;
-	struct sockaddr_in mask;
+	struct sockaddr_in addr, broad, mask;
 	struct prefix_ipv4 ifaddr;
 	struct prefix_ipv4 *p;
 
-	p = (struct prefix_ipv4 *)ifc->address;
+	p = (struct prefix_ipv4 *)dplane_ctx_get_intf_addr(ctx);
 
 	ifaddr = *p;
 
-	strncpy(ifreq.ifr_name, ifp->name, IFNAMSIZ);
+	strlcpy(ifreq.ifr_name, dplane_ctx_get_ifname(ctx),
+		sizeof(ifreq.ifr_name));
 
 	addr.sin_addr = p->prefix;
 	addr.sin_family = p->family;
@@ -213,7 +249,7 @@ int if_set_prefix(struct interface *ifp, struct connected *ifc)
 	/* We need mask for make broadcast addr. */
 	masklen2ip(p->prefixlen, &mask.sin_addr);
 
-	if (if_is_broadcast(ifp)) {
+	if (dplane_ctx_intf_is_broadcast(ctx)) {
 		apply_mask_ipv4(&ifaddr);
 		addr.sin_addr = ifaddr.prefix;
 
@@ -241,16 +277,17 @@ int if_set_prefix(struct interface *ifp, struct connected *ifc)
 
 /* Set up interface's address, netmask (and broadcast).
    Solaris uses ifname:number semantics to set IP address aliases. */
-int if_unset_prefix(struct interface *ifp, struct connected *ifc)
+static int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 {
 	int ret;
 	struct ifreq ifreq;
 	struct sockaddr_in addr;
 	struct prefix_ipv4 *p;
 
-	p = (struct prefix_ipv4 *)ifc->address;
+	p = (struct prefix_ipv4 *)dplane_ctx_get_intf_addr(ctx);
 
-	strncpy(ifreq.ifr_name, ifp->name, IFNAMSIZ);
+	strncpy(ifreq.ifr_name, dplane_ctx_get_ifname(ctx),
+		sizeof(ifreq.ifr_name));
 
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = p->family;
@@ -377,24 +414,26 @@ int if_unset_flags(struct interface *ifp, uint64_t flags)
 }
 
 /* Interface's address add/delete functions. */
-int if_prefix_add_ipv6(struct interface *ifp, struct connected *ifc)
+static int if_set_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 {
 	char addrbuf[PREFIX_STRLEN];
 
+	prefix2str(dplane_ctx_get_intf_addr(ctx), addrbuf, sizeof(addrbuf));
+
 	flog_warn(EC_LIB_DEVELOPMENT, "Can't set %s on interface %s",
-		  prefix2str(ifc->address, addrbuf, sizeof(addrbuf)),
-		  ifp->name);
+		  addrbuf, dplane_ctx_get_ifname(ctx));
 
 	return 0;
 }
 
-int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
+static int if_unset_prefix6_ctx(const struct zebra_dplane_ctx *ctx)
 {
 	char addrbuf[PREFIX_STRLEN];
 
+	prefix2str(dplane_ctx_get_intf_addr(ctx), addrbuf, sizeof(addrbuf));
+
 	flog_warn(EC_LIB_DEVELOPMENT, "Can't delete %s on interface %s",
-		  prefix2str(ifc->address, addrbuf, sizeof(addrbuf)),
-		  ifp->name);
+		  addrbuf, dplane_ctx_get_ifname(ctx));
 
 	return 0;
 }

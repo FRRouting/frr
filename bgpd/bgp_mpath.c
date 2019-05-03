@@ -671,7 +671,7 @@ void bgp_mp_dmed_deselect(struct bgp_path_info *dmed_best)
 
 	bgp_path_info_mpath_count_set(dmed_best, 0);
 	UNSET_FLAG(dmed_best->flags, BGP_PATH_MULTIPATH_CHG);
-	assert(bgp_path_info_mpath_first(dmed_best) == 0);
+	assert(bgp_path_info_mpath_first(dmed_best) == NULL);
 }
 
 /*

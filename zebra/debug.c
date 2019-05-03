@@ -23,6 +23,10 @@
 #include "command.h"
 #include "debug.h"
 
+#ifndef VTYSH_EXTRACT_PL
+#include "zebra/debug_clippy.c"
+#endif
+
 /* For debug statement. */
 unsigned long zebra_debug_event;
 unsigned long zebra_debug_packet;
@@ -34,6 +38,7 @@ unsigned long zebra_debug_mpls;
 unsigned long zebra_debug_vxlan;
 unsigned long zebra_debug_pw;
 unsigned long zebra_debug_dplane;
+unsigned long zebra_debug_mlag;
 
 DEFINE_HOOK(zebra_debug_show_debugging, (struct vty *vty), (vty));
 
@@ -82,7 +87,9 @@ DEFUN_NOSH (show_debugging_zebra,
 
 	if (IS_ZEBRA_DEBUG_FPM)
 		vty_out(vty, "  Zebra FPM debugging is on\n");
-	if (IS_ZEBRA_DEBUG_NHT)
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+		vty_out(vty, "  Zebra detailed next-hop tracking debugging is on\n");
+	else if (IS_ZEBRA_DEBUG_NHT)
 		vty_out(vty, "  Zebra next-hop tracking debugging is on\n");
 	if (IS_ZEBRA_DEBUG_MPLS)
 		vty_out(vty, "  Zebra MPLS debugging is on\n");
@@ -94,6 +101,8 @@ DEFUN_NOSH (show_debugging_zebra,
 		vty_out(vty, "  Zebra detailed dataplane debugging is on\n");
 	else if (IS_ZEBRA_DEBUG_DPLANE)
 		vty_out(vty, "  Zebra dataplane debugging is on\n");
+	if (IS_ZEBRA_DEBUG_MLAG)
+		vty_out(vty, "  Zebra mlag debugging is on\n");
 
 	hook_call(zebra_debug_show_debugging, vty);
 	return CMD_SUCCESS;
@@ -112,12 +121,19 @@ DEFUN (debug_zebra_events,
 
 DEFUN (debug_zebra_nht,
        debug_zebra_nht_cmd,
-       "debug zebra nht",
+       "debug zebra nht [detailed]",
        DEBUG_STR
        "Zebra configuration\n"
-       "Debug option set for zebra next hop tracking\n")
+       "Debug option set for zebra next hop tracking\n"
+       "Debug option set for detailed info\n")
 {
+	int idx = 0;
+
 	zebra_debug_nht = ZEBRA_DEBUG_NHT;
+
+	if (argv_find(argv, argc, "detailed", &idx))
+		zebra_debug_nht |= ZEBRA_DEBUG_NHT_DETAILED;
+
 	return CMD_SUCCESS;
 }
 
@@ -284,6 +300,21 @@ DEFUN (debug_zebra_dplane,
 	return CMD_SUCCESS;
 }
 
+DEFPY (debug_zebra_mlag,
+       debug_zebra_mlag_cmd,
+       "[no$no] debug zebra mlag",
+       NO_STR
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug option set for mlag events\n")
+{
+	if (no)
+		UNSET_FLAG(zebra_debug_mlag, ZEBRA_DEBUG_MLAG);
+	else
+		SET_FLAG(zebra_debug_mlag, ZEBRA_DEBUG_MLAG);
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_zebra_events,
        no_debug_zebra_events_cmd,
        "no debug zebra events",
@@ -298,11 +329,12 @@ DEFUN (no_debug_zebra_events,
 
 DEFUN (no_debug_zebra_nht,
        no_debug_zebra_nht_cmd,
-       "no debug zebra nht",
+       "no debug zebra nht [detailed]",
        NO_STR
        DEBUG_STR
        "Zebra configuration\n"
-       "Debug option set for zebra next hop tracking\n")
+       "Debug option set for zebra next hop tracking\n"
+       "Debug option set for detailed info\n")
 {
 	zebra_debug_nht = 0;
 	return CMD_SUCCESS;
@@ -468,10 +500,15 @@ static int config_write_debug(struct vty *vty)
 		vty_out(vty, "debug zebra fpm\n");
 		write++;
 	}
-	if (IS_ZEBRA_DEBUG_NHT) {
+
+	if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
+		vty_out(vty, "debug zebra nht detailed\n");
+		write++;
+	} else if (IS_ZEBRA_DEBUG_NHT) {
 		vty_out(vty, "debug zebra nht\n");
 		write++;
 	}
+
 	if (IS_ZEBRA_DEBUG_MPLS) {
 		vty_out(vty, "debug zebra mpls\n");
 		write++;
@@ -507,6 +544,8 @@ void zebra_debug_init(void)
 	zebra_debug_vxlan = 0;
 	zebra_debug_pw = 0;
 	zebra_debug_dplane = 0;
+	zebra_debug_mlag = 0;
+	zebra_debug_nht = 0;
 
 	install_node(&debug_node, config_write_debug);
 
@@ -523,6 +562,7 @@ void zebra_debug_init(void)
 	install_element(ENABLE_NODE, &debug_zebra_rib_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_fpm_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_dplane_cmd);
+	install_element(ENABLE_NODE, &debug_zebra_mlag_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_events_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_nht_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_mpls_cmd);

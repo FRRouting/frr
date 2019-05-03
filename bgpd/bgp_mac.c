@@ -106,10 +106,10 @@ struct bgp_mac_find_internal {
 	const char *ifname;
 };
 
-static void bgp_mac_find_ifp_internal(struct hash_backet *backet, void *arg)
+static void bgp_mac_find_ifp_internal(struct hash_bucket *bucket, void *arg)
 {
 	struct bgp_mac_find_internal *bmfi = arg;
-	struct bgp_self_mac *bsm = backet->data;
+	struct bgp_self_mac *bsm = bucket->data;
 	struct listnode *node;
 	char *name;
 
@@ -311,19 +311,21 @@ void bgp_mac_del_mac_entry(struct interface *ifp)
 	bgp_mac_remove_ifp_internal(bsm, ifp->name);
 }
 
-bool bgp_mac_entry_exists(struct prefix *p)
+/* This API checks MAC address against any of local
+ * assigned (SVIs) MAC address.
+ * An example: router-mac attribute in any of evpn update
+ * requires to compare against local mac.
+ */
+bool bgp_mac_exist(struct ethaddr *mac)
 {
-	struct prefix_evpn *pevpn = (struct prefix_evpn *)p;
 	struct bgp_self_mac lookup;
 	struct bgp_self_mac *bsm;
+	static uint8_t tmp [ETHER_ADDR_STRLEN] = {0};
 
-	if (pevpn->family != AF_EVPN)
+	if (memcmp(mac, &tmp, ETH_ALEN) == 0)
 		return false;
 
-	if (pevpn->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
-		return false;
-
-	memcpy(&lookup.macaddr, &p->u.prefix_evpn.macip_addr.mac, ETH_ALEN);
+	memcpy(&lookup.macaddr, mac, ETH_ALEN);
 	bsm = hash_lookup(bm->self_mac_hash, &lookup);
 	if (!bsm)
 		return false;
@@ -331,10 +333,29 @@ bool bgp_mac_entry_exists(struct prefix *p)
 	return true;
 }
 
-static void bgp_mac_show_mac_entry(struct hash_backet *backet, void *arg)
+/* This API checks EVPN type-2 prefix and comapares
+ * mac against any of local assigned (SVIs) MAC
+ * address.
+ */
+bool bgp_mac_entry_exists(struct prefix *p)
+{
+	struct prefix_evpn *pevpn = (struct prefix_evpn *)p;
+
+	if (pevpn->family != AF_EVPN)
+		return false;
+
+	if (pevpn->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
+		return false;
+
+	return bgp_mac_exist(&p->u.prefix_evpn.macip_addr.mac);
+
+	return true;
+}
+
+static void bgp_mac_show_mac_entry(struct hash_bucket *bucket, void *arg)
 {
 	struct vty *vty = arg;
-	struct bgp_self_mac *bsm = backet->data;
+	struct bgp_self_mac *bsm = bucket->data;
 	struct listnode *node;
 	char *name;
 	char buf_mac[ETHER_ADDR_STRLEN];

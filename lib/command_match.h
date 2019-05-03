@@ -28,10 +28,14 @@
 #include "linklist.h"
 #include "command.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* These definitions exist in command.c in the current engine but should be
  * relocated here in the new engine
  */
-enum filter_type { FILTER_RELAXED, FILTER_STRICT };
+enum cmd_filter_type { FILTER_RELAXED, FILTER_STRICT };
 
 /* matcher result value */
 enum matcher_rv {
@@ -97,5 +101,9 @@ enum matcher_rv command_match(struct graph *cmdgraph, vector vline,
  */
 enum matcher_rv command_complete(struct graph *cmdgraph, vector vline,
 				 struct list **completions);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_COMMAND_MATCH_H */

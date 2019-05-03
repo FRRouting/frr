@@ -21,6 +21,12 @@
 #include <stdlib.h>
 #include <stddef.h>
 
+#include "typesafe.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* reserve a specific amount of bytes for a struct, which can grow up to
  * that size (or be dummy'd out if not needed)
  *
@@ -28,11 +34,17 @@
  * this is intentional to prevent the struct from growing beyond the allocated
  * space.
  */
+#ifndef __cplusplus
 #define RESERVED_SPACE_STRUCT(name, fieldname, size)                           \
 	struct {                                                               \
 		struct name fieldname;                                         \
 		char padding##fieldname[size - sizeof(struct name)];           \
 	};
+#else
+#define RESERVED_SPACE_STRUCT(name, fieldname, size)                           \
+	struct name fieldname;                                                 \
+	char padding##fieldname[size - sizeof(struct name)];
+#endif
 
 /* don't need struct definitions for these here.  code actually using
  * these needs to define the struct *before* including this header.
@@ -59,6 +71,8 @@ struct qobj_nodetype_capnp {
 };
 #endif
 
+#include "typesafe.h"
+
 /* each different kind of object will have a global variable of this type,
  * which can be used by various other pieces to store type-related bits.
  * type equality can be tested as pointer equality. (cf. QOBJ_GET_TYPESAFE)
@@ -69,9 +83,12 @@ struct qobj_nodetype {
 	RESERVED_SPACE_STRUCT(qobj_nodetype_capnp, capnp, 256)
 };
 
+PREDECL_HASH(qobj_nodes)
+
 /* anchor to be embedded somewhere in the object's struct */
 struct qobj_node {
 	uint64_t nid;
+	struct qobj_nodes_item nodehash;
 	struct qobj_nodetype *type;
 };
 
@@ -126,5 +143,9 @@ void *qobj_get_typed(uint64_t id, struct qobj_nodetype *type);
 
 void qobj_init(void);
 void qobj_finish(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _QOBJ_H */

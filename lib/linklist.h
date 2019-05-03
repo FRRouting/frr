@@ -21,6 +21,10 @@
 #ifndef _ZEBRA_LINKLIST_H
 #define _ZEBRA_LINKLIST_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* listnodes must always contain data to be valid. Adding an empty node
  * to a list is invalid
  */
@@ -80,7 +84,7 @@ extern struct list *list_new(void);
  * data
  *    element to add
  */
-extern void listnode_add(struct list *list, void *data);
+extern struct listnode *listnode_add(struct list *list, void *data);
 
 /*
  * Add a new element to the beginning of a list.
@@ -291,7 +295,8 @@ extern void list_add_list(struct list *list, struct list *add);
 #define ALL_LIST_ELEMENTS(list, node, nextnode, data)                          \
 	(node) = listhead(list), ((data) = NULL);                              \
 	(node) != NULL                                                         \
-		&& ((data) = listgetdata(node), (nextnode) = node->next, 1);   \
+		&& ((data) = static_cast(data, listgetdata(node)),             \
+		    (nextnode) = node->next, 1);                               \
 	(node) = (nextnode), ((data) = NULL)
 
 /* read-only list iteration macro.
@@ -302,7 +307,7 @@ extern void list_add_list(struct list *list, struct list *add);
  */
 #define ALL_LIST_ELEMENTS_RO(list, node, data)                                 \
 	(node) = listhead(list), ((data) = NULL);                              \
-	(node) != NULL && ((data) = listgetdata(node), 1);                     \
+	(node) != NULL && ((data) = static_cast(data, listgetdata(node)), 1);  \
 	(node) = listnextnode(node), ((data) = NULL)
 
 /* these *do not* cleanup list nodes and referenced data, as the functions
@@ -335,5 +340,19 @@ extern void list_add_list(struct list *list, struct list *add);
 			(L)->tail = (N)->prev;                                 \
 		(L)->count--;                                                  \
 	} while (0)
+
+extern struct listnode *listnode_lookup_nocheck(struct list *list, void *data);
+
+/*
+ * Add a node to *list, if non-NULL. Otherwise, allocate a new list, mail
+ * it back in *list, and add a new node.
+ *
+ * Return: the new node.
+ */
+extern struct listnode *listnode_add_force(struct list **list, void *val);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_LINKLIST_H */

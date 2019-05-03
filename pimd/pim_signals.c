@@ -33,26 +33,26 @@
  * Signal handlers
  */
 
-static void pim_sighup()
+static void pim_sighup(void)
 {
 	zlog_info("SIGHUP received, ignoring");
 }
 
-static void pim_sigint()
+static void pim_sigint(void)
 {
 	zlog_notice("Terminating on signal SIGINT");
 	pim_terminate();
 	exit(1);
 }
 
-static void pim_sigterm()
+static void pim_sigterm(void)
 {
 	zlog_notice("Terminating on signal SIGTERM");
 	pim_terminate();
 	exit(1);
 }
 
-static void pim_sigusr1()
+static void pim_sigusr1(void)
 {
 	zlog_rotate();
 }

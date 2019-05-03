@@ -65,7 +65,7 @@ static void control_handle_notify_add(struct bfd_control_socket *bcs,
 				      struct bfd_control_msg *bcm);
 static void control_handle_notify_del(struct bfd_control_socket *bcs,
 				      struct bfd_control_msg *bcm);
-static void _control_handle_notify(struct hash_backet *hb, void *arg);
+static void _control_handle_notify(struct hash_bucket *hb, void *arg);
 static void control_handle_notify(struct bfd_control_socket *bcs,
 				  struct bfd_control_msg *bcm);
 static void control_response(struct bfd_control_socket *bcs, uint16_t id,
@@ -186,8 +186,6 @@ struct bfd_control_socket *control_new(int sd)
 	struct bfd_control_socket *bcs;
 
 	bcs = XCALLOC(MTYPE_BFDD_CONTROL, sizeof(*bcs));
-	if (bcs == NULL)
-		return NULL;
 
 	/* Disable notifications by default. */
 	bcs->bcs_notify = 0;
@@ -247,10 +245,6 @@ struct bfd_notify_peer *control_notifypeer_new(struct bfd_control_socket *bcs,
 		return bnp;
 
 	bnp = XCALLOC(MTYPE_BFDD_CONTROL, sizeof(*bnp));
-	if (bnp == NULL) {
-		log_warning("%s: calloc: %s", __func__, strerror(errno));
-		return NULL;
-	}
 
 	TAILQ_INSERT_TAIL(&bcs->bcs_bnplist, bnp, bnp_entry);
 	bnp->bnp_bs = bs;
@@ -285,10 +279,6 @@ struct bfd_control_queue *control_queue_new(struct bfd_control_socket *bcs)
 	struct bfd_control_queue *bcq;
 
 	bcq = XCALLOC(MTYPE_BFDD_NOTIFICATION, sizeof(*bcq));
-	if (bcq == NULL) {
-		log_warning("%s: calloc: %s", __func__, strerror(errno));
-		return NULL;
-	}
 
 	control_reset_buf(&bcq->bcq_bcb);
 	TAILQ_INSERT_TAIL(&bcs->bcs_bcqueue, bcq, bcq_entry);
@@ -630,7 +620,7 @@ static struct bfd_session *_notify_find_peer(struct bfd_peer_cfg *bpc)
 	return bs_peer_find(bpc);
 }
 
-static void _control_handle_notify(struct hash_backet *hb, void *arg)
+static void _control_handle_notify(struct hash_bucket *hb, void *arg)
 {
 	struct bfd_control_socket *bcs = arg;
 	struct bfd_session *bs = hb->data;
@@ -743,11 +733,6 @@ static void control_response(struct bfd_control_socket *bcs, uint16_t id,
 	jsonstrlen = strlen(jsonstr);
 	bcm = XMALLOC(MTYPE_BFDD_NOTIFICATION,
 		      sizeof(struct bfd_control_msg) + jsonstrlen);
-	if (bcm == NULL) {
-		log_warning("%s: malloc: %s", __func__, strerror(errno));
-		XFREE(MTYPE_BFDD_NOTIFICATION, jsonstr);
-		return;
-	}
 
 	bcm->bcm_length = htonl(jsonstrlen);
 	bcm->bcm_ver = BMV_VERSION_1;
@@ -778,11 +763,6 @@ static void _control_notify(struct bfd_control_socket *bcs,
 	jsonstrlen = strlen(jsonstr);
 	bcm = XMALLOC(MTYPE_BFDD_NOTIFICATION,
 		      sizeof(struct bfd_control_msg) + jsonstrlen);
-	if (bcm == NULL) {
-		log_warning("%s: malloc: %s", __func__, strerror(errno));
-		XFREE(MTYPE_BFDD_NOTIFICATION, jsonstr);
-		return;
-	}
 
 	bcm->bcm_length = htonl(jsonstrlen);
 	bcm->bcm_ver = BMV_VERSION_1;
@@ -846,11 +826,6 @@ static void _control_notify_config(struct bfd_control_socket *bcs,
 	jsonstrlen = strlen(jsonstr);
 	bcm = XMALLOC(MTYPE_BFDD_NOTIFICATION,
 		      sizeof(struct bfd_control_msg) + jsonstrlen);
-	if (bcm == NULL) {
-		log_warning("%s: malloc: %s", __func__, strerror(errno));
-		XFREE(MTYPE_BFDD_NOTIFICATION, jsonstr);
-		return;
-	}
 
 	bcm->bcm_length = htonl(jsonstrlen);
 	bcm->bcm_ver = BMV_VERSION_1;

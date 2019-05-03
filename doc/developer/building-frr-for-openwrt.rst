@@ -9,7 +9,7 @@ For Debian based distributions, run:
 ::
 
     sudo apt-get install git build-essential libssl-dev libncurses5-dev \
-       unzip gawk zlib1g-dev subversion mercurial
+       unzip zlib1g-dev subversion mercurial
 
 For other environments, instructions can be found in the
 `official documentation
@@ -63,10 +63,10 @@ Usage
 -----
 
 Edit ``/usr/sbin/frr.init`` and add/remove the daemons name in section
-``DAEMONS=`` or don't install unneded packages For example: zebra bgpd ldpd
+``DAEMONS=`` or don't install unneeded packages For example: zebra bgpd ldpd
 isisd nhrpd ospfd ospf6d pimd ripd ripngd
 
-Enable the serivce
+Enable the service
 ^^^^^^^^^^^^^^^^^^
 
 -  ``service frr enable``

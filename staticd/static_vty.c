@@ -104,30 +104,18 @@ static int static_list_compare_helper(const char *s1, const char *s2)
 
 static void static_list_delete(struct static_hold_route *shr)
 {
-	if (shr->vrf_name)
-		XFREE(MTYPE_STATIC_ROUTE, shr->vrf_name);
-	if (shr->nhvrf_name)
-		XFREE(MTYPE_STATIC_ROUTE, shr->nhvrf_name);
-	if (shr->dest_str)
-		XFREE(MTYPE_STATIC_ROUTE, shr->dest_str);
-	if (shr->mask_str)
-		XFREE(MTYPE_STATIC_ROUTE, shr->mask_str);
-	if (shr->src_str)
-		XFREE(MTYPE_STATIC_ROUTE, shr->src_str);
-	if (shr->gate_str)
-		XFREE(MTYPE_STATIC_ROUTE, shr->gate_str);
-	if (shr->ifname)
-		XFREE(MTYPE_STATIC_ROUTE, shr->ifname);
-	if (shr->flag_str)
-		XFREE(MTYPE_STATIC_ROUTE, shr->flag_str);
-	if (shr->tag_str)
-		XFREE(MTYPE_STATIC_ROUTE, shr->tag_str);
-	if (shr->distance_str)
-		XFREE(MTYPE_STATIC_ROUTE, shr->distance_str);
-	if (shr->label_str)
-		XFREE(MTYPE_STATIC_ROUTE, shr->label_str);
-	if (shr->table_str)
-		XFREE(MTYPE_STATIC_ROUTE, shr->table_str);
+	XFREE(MTYPE_STATIC_ROUTE, shr->vrf_name);
+	XFREE(MTYPE_STATIC_ROUTE, shr->nhvrf_name);
+	XFREE(MTYPE_STATIC_ROUTE, shr->dest_str);
+	XFREE(MTYPE_STATIC_ROUTE, shr->mask_str);
+	XFREE(MTYPE_STATIC_ROUTE, shr->src_str);
+	XFREE(MTYPE_STATIC_ROUTE, shr->gate_str);
+	XFREE(MTYPE_STATIC_ROUTE, shr->ifname);
+	XFREE(MTYPE_STATIC_ROUTE, shr->flag_str);
+	XFREE(MTYPE_STATIC_ROUTE, shr->tag_str);
+	XFREE(MTYPE_STATIC_ROUTE, shr->distance_str);
+	XFREE(MTYPE_STATIC_ROUTE, shr->label_str);
+	XFREE(MTYPE_STATIC_ROUTE, shr->table_str);
 
 	XFREE(MTYPE_STATIC_ROUTE, shr);
 }
@@ -775,7 +763,7 @@ DEFPY(ip_route_blackhole,
       "Table to configure\n"
       "The table number to configure\n")
 {
-	if (table_str && vrf && !vrf_is_mapped_on_netns(vrf_lookup_by_name(vrf))) {
+	if (table_str && vrf && !vrf_is_backend_netns()) {
 		vty_out(vty,
 			"%% table param only available when running on netns-based vrfs\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -814,7 +802,7 @@ DEFPY(ip_route_blackhole_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	struct static_vrf *svrf = vrf->info;
 
-	if (table_str && !vrf_is_mapped_on_netns(vrf)) {
+	if (table_str && !vrf_is_backend_netns()) {
 		vty_out(vty,
 			"%% table param only available when running on netns-based vrfs\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -880,7 +868,7 @@ DEFPY(ip_route_address_interface,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (table_str && vrf && !vrf_is_mapped_on_netns(vrf_lookup_by_name(vrf))) {
+	if (table_str && vrf && !vrf_is_backend_netns()) {
 		vty_out(vty,
 			"%% table param only available when running on netns-based vrfs\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -938,7 +926,7 @@ DEFPY(ip_route_address_interface_vrf,
 	struct static_vrf *svrf = vrf->info;
 	struct static_vrf *nh_svrf;
 
-	if (table_str && !vrf_is_mapped_on_netns(vrf)) {
+	if (table_str && !vrf_is_backend_netns()) {
 		vty_out(vty,
 			"%% table param only available when running on netns-based vrfs\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -999,7 +987,7 @@ DEFPY(ip_route,
 	struct static_vrf *nh_svrf;
 	const char *flag = NULL;
 
-	if (table_str && vrf && !vrf_is_mapped_on_netns(vrf_lookup_by_name(vrf))) {
+	if (table_str && vrf && !vrf_is_backend_netns()) {
 		vty_out(vty,
 			"%% table param only available when running on netns-based vrfs\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1065,7 +1053,7 @@ DEFPY(ip_route_vrf,
 	struct static_vrf *nh_svrf;
 	const char *flag = NULL;
 
-	if (table_str && !vrf_is_mapped_on_netns(vrf)) {
+	if (table_str && !vrf_is_backend_netns()) {
 		vty_out(vty,
 			"%% table param only available when running on netns-based vrfs\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1119,7 +1107,7 @@ DEFPY(ipv6_route_blackhole,
       "Table to configure\n"
       "The table number to configure\n")
 {
-	if (table_str && vrf && !vrf_is_mapped_on_netns(vrf_lookup_by_name(vrf))) {
+	if (table_str && vrf && !vrf_is_backend_netns()) {
 		vty_out(vty,
 			"%% table param only available when running on netns-based vrfs\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1158,7 +1146,7 @@ DEFPY(ipv6_route_blackhole_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	struct static_vrf *svrf = vrf->info;
 
-	if (table_str && !vrf_is_mapped_on_netns(vrf)) {
+	if (table_str && !vrf_is_backend_netns()) {
 		vty_out(vty,
 			"%% table param only available when running on netns-based vrfs\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1213,7 +1201,7 @@ DEFPY(ipv6_route_address_interface,
 	struct static_vrf *nh_svrf;
 	const char *flag = NULL;
 
-	if (table_str && vrf && !vrf_is_mapped_on_netns(vrf_lookup_by_name(vrf))) {
+	if (table_str && vrf && !vrf_is_backend_netns()) {
 		vty_out(vty,
 			"%% table param only available when running on netns-based vrfs\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1282,7 +1270,7 @@ DEFPY(ipv6_route_address_interface_vrf,
 	struct static_vrf *nh_svrf;
 	const char *flag = NULL;
 
-	if (table_str && !vrf_is_mapped_on_netns(vrf)) {
+	if (table_str && !vrf_is_backend_netns()) {
 		vty_out(vty,
 			"%% table param only available when running on netns-based vrfs\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1343,7 +1331,7 @@ DEFPY(ipv6_route,
 	struct static_vrf *nh_svrf;
 	const char *flag = NULL;
 
-	if (table_str && vrf && !vrf_is_mapped_on_netns(vrf_lookup_by_name(vrf))) {
+	if (table_str && vrf && !vrf_is_backend_netns()) {
 		vty_out(vty,
 			"%% table param only available when running on netns-based vrfs\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1409,7 +1397,7 @@ DEFPY(ipv6_route_vrf,
 	struct static_vrf *nh_svrf;
 	const char *flag = NULL;
 
-	if (table_str && !vrf_is_mapped_on_netns(vrf)) {
+	if (table_str && !vrf_is_backend_netns()) {
 		vty_out(vty,
 			"%% table param only available when running on netns-based vrfs\n");
 		return CMD_WARNING_CONFIG_FAILED;

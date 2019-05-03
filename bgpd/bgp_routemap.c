@@ -65,6 +65,10 @@
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
 #endif
 
+#ifndef VTYSH_EXTRACT_PL
+#include "bgpd/bgp_routemap_clippy.c"
+#endif
+
 /* Memo of route-map commands.
 
 o Cisco route-map
@@ -193,8 +197,6 @@ static void *route_value_compile(const char *arg)
 	}
 
 	rv = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_value));
-	if (!rv)
-		return NULL;
 
 	rv->action = action;
 	rv->variable = var;
@@ -320,8 +322,7 @@ static void route_match_peer_free(void *rule)
 {
 	struct bgp_match_peer_compiled *pc = rule;
 
-	if (pc->interface)
-		XFREE(MTYPE_ROUTE_MAP_COMPILED, pc->interface);
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, pc->interface);
 
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
@@ -833,8 +834,6 @@ static void *route_match_vni_compile(const char *arg)
 	char *end = NULL;
 
 	vni = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(vni_t));
-	if (!vni)
-		return NULL;
 
 	*vni = strtoul(arg, &end, 10);
 	if (*end != '\0') {
@@ -905,6 +904,53 @@ struct route_map_rule_cmd route_match_evpn_route_type_cmd = {
 	"evpn route-type", route_match_evpn_route_type,
 	route_match_evpn_route_type_compile, route_match_evpn_route_type_free};
 
+/* Route map commands for VRF route leak with source vrf matching */
+static route_map_result_t
+route_match_vrl_source_vrf(void *rule, const struct prefix *prefix,
+			   route_map_object_t type, void *object)
+{
+	struct bgp_path_info *path;
+	char *vrf_name;
+
+	if (type == RMAP_BGP) {
+		vrf_name = rule;
+		path = (struct bgp_path_info *)object;
+
+		if (strncmp(vrf_name, "n/a", VRF_NAMSIZ) == 0)
+			return RMAP_NOMATCH;
+
+		if (path->extra == NULL)
+			return RMAP_NOMATCH;
+
+		if (strncmp(vrf_name, vrf_id_to_name(
+				path->extra->bgp_orig->vrf_id), VRF_NAMSIZ)
+		    == 0)
+			return RMAP_MATCH;
+	}
+
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_vrl_source_vrf_compile(const char *arg)
+{
+	uint8_t *vrf_name = NULL;
+
+	vrf_name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+
+	return vrf_name;
+}
+
+/* Free route map's compiled `route-type' value. */
+static void route_match_vrl_source_vrf_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+struct route_map_rule_cmd route_match_vrl_source_vrf_cmd = {
+	"source-vrf", route_match_vrl_source_vrf,
+	route_match_vrl_source_vrf_compile,
+	route_match_vrl_source_vrf_free};
+
 /* `match local-preference LOCAL-PREF' */
 
 /* Match function return 1 if match is success else return zero. */
@@ -946,9 +992,6 @@ static void *route_match_local_pref_compile(const char *arg)
 		return NULL;
 
 	local_pref = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint32_t));
-
-	if (!local_pref)
-		return local_pref;
 
 	*local_pref = tmpval;
 	return local_pref;
@@ -1037,6 +1080,7 @@ struct route_map_rule_cmd route_match_aspath_cmd = {
 /* `match community COMMUNIY' */
 struct rmap_community {
 	char *name;
+	uint32_t name_hash;
 	int exact;
 };
 
@@ -1048,13 +1092,14 @@ static route_map_result_t route_match_community(void *rule,
 {
 	struct community_list *list;
 	struct bgp_path_info *path;
-	struct rmap_community *rcom;
+	struct rmap_community *rcom = rule;
 
 	if (type == RMAP_BGP) {
 		path = object;
 		rcom = rule;
 
 		list = community_list_lookup(bgp_clist, rcom->name,
+					     rcom->name_hash,
 					     COMMUNITY_LIST_MASTER);
 		if (!list)
 			return RMAP_NOMATCH;
@@ -1090,6 +1135,8 @@ static void *route_match_community_compile(const char *arg)
 		rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 		rcom->exact = 0;
 	}
+
+	rcom->name_hash = bgp_clist_hash_key(rcom->name);
 	return rcom;
 }
 
@@ -1115,13 +1162,13 @@ static route_map_result_t route_match_lcommunity(void *rule,
 {
 	struct community_list *list;
 	struct bgp_path_info *path;
-	struct rmap_community *rcom;
+	struct rmap_community *rcom = rule;
 
 	if (type == RMAP_BGP) {
 		path = object;
-		rcom = rule;
 
 		list = community_list_lookup(bgp_clist, rcom->name,
+					     rcom->name_hash,
 					     LARGE_COMMUNITY_LIST_MASTER);
 		if (!list)
 			return RMAP_NOMATCH;
@@ -1150,6 +1197,8 @@ static void *route_match_lcommunity_compile(const char *arg)
 		rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 		rcom->exact = 0;
 	}
+
+	rcom->name_hash = bgp_clist_hash_key(rcom->name);
 	return rcom;
 }
 
@@ -1176,11 +1225,13 @@ static route_map_result_t route_match_ecommunity(void *rule,
 {
 	struct community_list *list;
 	struct bgp_path_info *path;
+	struct rmap_community *rcom = rule;
 
 	if (type == RMAP_BGP) {
 		path = object;
 
-		list = community_list_lookup(bgp_clist, (char *)rule,
+		list = community_list_lookup(bgp_clist, rcom->name,
+					     rcom->name_hash,
 					     EXTCOMMUNITY_LIST_MASTER);
 		if (!list)
 			return RMAP_NOMATCH;
@@ -1194,13 +1245,22 @@ static route_map_result_t route_match_ecommunity(void *rule,
 /* Compile function for extcommunity match. */
 static void *route_match_ecommunity_compile(const char *arg)
 {
-	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+	struct rmap_community *rcom;
+
+	rcom = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_community));
+	rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+	rcom->name_hash = bgp_clist_hash_key(rcom->name);
+
+	return rcom;
 }
 
 /* Compile function for extcommunity match. */
 static void route_match_ecommunity_free(void *rule)
 {
-	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+	struct rmap_community *rcom = rule;
+
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcom->name);
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcom);
 }
 
 /* Route map commands for community matching. */
@@ -1487,8 +1547,7 @@ static void route_set_ip_nexthop_free(void *rule)
 {
 	struct rmap_ip_nexthop_set *rins = rule;
 
-	if (rins->address)
-		XFREE(MTYPE_ROUTE_MAP_COMPILED, rins->address);
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rins->address);
 
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rins);
 }
@@ -1932,13 +1991,15 @@ static route_map_result_t route_set_lcommunity_delete(void *rule,
 	struct lcommunity *new;
 	struct lcommunity *old;
 	struct bgp_path_info *path;
+	struct rmap_community *rcom = rule;
 
 	if (type == RMAP_BGP) {
-		if (!rule)
+		if (!rcom)
 			return RMAP_OKAY;
 
 		path = object;
-		list = community_list_lookup(bgp_clist, rule,
+		list = community_list_lookup(bgp_clist, rcom->name,
+					     rcom->name_hash,
 					     LARGE_COMMUNITY_LIST_MASTER);
 		old = path->attr->lcommunity;
 
@@ -1975,25 +2036,23 @@ static route_map_result_t route_set_lcommunity_delete(void *rule,
 /* Compile function for set lcommunity. */
 static void *route_set_lcommunity_delete_compile(const char *arg)
 {
-	char *p;
-	char *str;
-	int len;
+	struct rmap_community *rcom;
 
-	p = strchr(arg, ' ');
-	if (p) {
-		len = p - arg;
-		str = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, len + 1);
-		memcpy(str, arg, len);
-	} else
-		str = NULL;
+	rcom = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_community));
 
-	return str;
+	rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+	rcom->name_hash = bgp_clist_hash_key(rcom->name);
+
+	return rcom;
 }
 
 /* Free function for set lcommunity. */
 static void route_set_lcommunity_delete_free(void *rule)
 {
-	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+	struct rmap_community *rcom = rule;
+
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcom->name);
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcom);
 }
 
 /* Set lcommunity rule structure. */
@@ -2017,13 +2076,15 @@ static route_map_result_t route_set_community_delete(
 	struct community *new;
 	struct community *old;
 	struct bgp_path_info *path;
+	struct rmap_community *rcom = rule;
 
 	if (type == RMAP_BGP) {
-		if (!rule)
+		if (!rcom)
 			return RMAP_OKAY;
 
 		path = object;
-		list = community_list_lookup(bgp_clist, rule,
+		list = community_list_lookup(bgp_clist, rcom->name,
+					     rcom->name_hash,
 					     COMMUNITY_LIST_MASTER);
 		old = path->attr->community;
 
@@ -2060,25 +2121,23 @@ static route_map_result_t route_set_community_delete(
 /* Compile function for set community. */
 static void *route_set_community_delete_compile(const char *arg)
 {
-	char *p;
-	char *str;
-	int len;
+	struct rmap_community *rcom;
 
-	p = strchr(arg, ' ');
-	if (p) {
-		len = p - arg;
-		str = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, len + 1);
-		memcpy(str, arg, len);
-	} else
-		str = NULL;
+	rcom = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_community));
 
-	return str;
+	rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+	rcom->name_hash = bgp_clist_hash_key(rcom->name);
+
+	return rcom;
 }
 
 /* Free function for set community. */
 static void route_set_community_delete_free(void *rule)
 {
-	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+	struct rmap_community *rcom = rule;
+
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcom->name);
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcom);
 }
 
 /* Set community rule structure. */
@@ -3017,10 +3076,8 @@ static int bgp_route_match_delete(struct vty *vty, const char *command,
 		break;
 	}
 
-	if (dep_name)
-		XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
-	if (rmap_name)
-		XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
+	XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
+	XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
 
 	return retval;
 }
@@ -3213,6 +3270,15 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 		if (bgp->table_map[afi][safi].name
 		    && (strcmp(rmap_name, bgp->table_map[afi][safi].name)
 			== 0)) {
+
+			/* bgp->table_map[afi][safi].map  is NULL.
+			 * i.e Route map creation event.
+			 * So update applied_counter.
+			 * If it is not NULL, i.e It may be routemap updation or
+			 * deletion. so no need to update the counter.
+			 */
+			if (!bgp->table_map[afi][safi].map)
+				route_map_counter_increment(map);
 			bgp->table_map[afi][safi].map = map;
 
 			if (BGP_DEBUG(zebra, ZEBRA))
@@ -3234,6 +3300,9 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 			if (!bgp_static->rmap.name
 			    || (strcmp(rmap_name, bgp_static->rmap.name) != 0))
 				continue;
+
+			if (!bgp_static->rmap.map)
+				route_map_counter_increment(map);
 
 			bgp_static->rmap.map = map;
 
@@ -3266,6 +3335,9 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 				    || (strcmp(rmap_name, red->rmap.name) != 0))
 					continue;
 
+				if (!red->rmap.map)
+					route_map_counter_increment(map);
+
 				red->rmap.map = map;
 
 				if (!route_update)
@@ -3288,12 +3360,18 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 			       != 0)
 			continue;
 
+		/* Make sure the route-map is populated here if not already done */
+		bgp->adv_cmd_rmap[afi][safi].map = map;
+
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
 				"Processing route_map %s update on advertise type5 route command",
 				rmap_name);
-		bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
-		bgp_evpn_advertise_type5_routes(bgp, afi, safi);
+
+		if (route_update && advertise_type5_routes(bgp, afi)) {
+			bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
+			bgp_evpn_advertise_type5_routes(bgp, afi, safi);
+		}
 	}
 }
 
@@ -3477,6 +3555,29 @@ DEFUN (no_match_evpn_default_route,
        "default EVPN type-5 route\n")
 {
 	return bgp_route_match_delete(vty, "evpn default-route", NULL,
+				      RMAP_EVENT_MATCH_DELETED);
+}
+
+DEFPY(match_vrl_source_vrf,
+      match_vrl_source_vrf_cmd,
+      "match source-vrf NAME$vrf_name",
+      MATCH_STR
+      "source vrf\n"
+      "The VRF name\n")
+{
+	return bgp_route_match_add(vty, "source-vrf", vrf_name,
+				   RMAP_EVENT_MATCH_ADDED);
+}
+
+DEFPY(no_match_vrl_source_vrf,
+      no_match_vrl_source_vrf_cmd,
+      "no match source-vrf NAME$vrf_name",
+      NO_STR
+      MATCH_STR
+      "source vrf\n"
+      "The VRF name\n")
+{
+	return bgp_route_match_delete(vty, "source-vrf", vrf_name,
 				      RMAP_EVENT_MATCH_DELETED);
 }
 
@@ -4219,17 +4320,10 @@ DEFUN (set_community_delete,
        "Delete matching communities\n")
 {
 	int idx_comm_list = 2;
-	char *str;
-
-	str = XCALLOC(MTYPE_TMP,
-		      strlen(argv[idx_comm_list]->arg) + strlen(" delete") + 1);
-	strcpy(str, argv[idx_comm_list]->arg);
-	strcpy(str + strlen(argv[idx_comm_list]->arg), " delete");
 
 	generic_set_add(vty, VTY_GET_CONTEXT(route_map_index), "comm-list",
-			str);
+			argv[idx_comm_list]->arg);
 
-	XFREE(MTYPE_TMP, str);
 	return CMD_SUCCESS;
 }
 
@@ -4318,16 +4412,9 @@ DEFUN (set_lcommunity_delete,
        "Large Community-list name\n"
        "Delete matching large communities\n")
 {
-	char *str;
-
-	str = XCALLOC(MTYPE_TMP, strlen(argv[2]->arg) + strlen(" delete") + 1);
-	strcpy(str, argv[2]->arg);
-	strcpy(str + strlen(argv[2]->arg), " delete");
-
 	generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			"large-comm-list", str);
+			"large-comm-list", argv[2]->arg);
 
-	XFREE(MTYPE_TMP, str);
 	return CMD_SUCCESS;
 }
 
@@ -4934,6 +5021,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_evpn_vni_cmd);
 	route_map_install_match(&route_match_evpn_route_type_cmd);
 	route_map_install_match(&route_match_evpn_default_route_cmd);
+	route_map_install_match(&route_match_vrl_source_vrf_cmd);
 
 	route_map_install_set(&route_set_ip_nexthop_cmd);
 	route_map_install_set(&route_set_local_pref_cmd);
@@ -4972,6 +5060,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_match_evpn_route_type_cmd);
 	install_element(RMAP_NODE, &match_evpn_default_route_cmd);
 	install_element(RMAP_NODE, &no_match_evpn_default_route_cmd);
+	install_element(RMAP_NODE, &match_vrl_source_vrf_cmd);
+	install_element(RMAP_NODE, &no_match_vrl_source_vrf_cmd);
 
 	install_element(RMAP_NODE, &match_aspath_cmd);
 	install_element(RMAP_NODE, &no_match_aspath_cmd);

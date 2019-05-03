@@ -31,6 +31,10 @@
 #include "compiler.h"
 #include "northbound.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define VTY_BUFSIZ 4096
 #define VTY_MAXHIST 20
 #define VTY_MAXDEPTH 8
@@ -286,7 +290,6 @@ struct vty_arg {
 #endif
 
 /* Exported variables */
-extern char integrate_default[];
 extern struct vty *vty_exclusive_lock;
 
 /* Prototypes. */
@@ -332,5 +335,9 @@ extern void vty_stdio_close(void);
 /* Send a fixed-size message to all vty terminal monitors; this should be
    an async-signal-safe function. */
 extern void vty_log_fixed(char *buf, size_t len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ZEBRA_VTY_H */

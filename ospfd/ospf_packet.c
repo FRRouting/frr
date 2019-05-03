@@ -148,7 +148,7 @@ void ospf_packet_free(struct ospf_packet *op)
 	XFREE(MTYPE_OSPF_PACKET, op);
 }
 
-struct ospf_fifo *ospf_fifo_new()
+struct ospf_fifo *ospf_fifo_new(void)
 {
 	struct ospf_fifo *new;
 
@@ -2098,10 +2098,22 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 
 		if (current == NULL
 		    || (ret = ospf_lsa_more_recent(current, lsa)) < 0) {
+			/* CVE-2017-3224 */
+			if (current && (lsa->data->ls_seqnum ==
+					htonl(OSPF_MAX_SEQUENCE_NUMBER)
+					&& !IS_LSA_MAXAGE(lsa))) {
+				zlog_debug(
+					"Link State Update[%s]: has Max Seq but not MaxAge. Dropping it",
+					dump_lsa_key(lsa));
+
+				DISCARD_LSA(lsa, 4);
+				continue;
+			}
+
 			/* Actual flooding procedure. */
 			if (ospf_flood(oi->ospf, nbr, current, lsa)
 			    < 0) /* Trap NSSA later. */
-				DISCARD_LSA(lsa, 4);
+				DISCARD_LSA(lsa, 5);
 			continue;
 		}
 
@@ -2158,7 +2170,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 							oi->ls_ack,
 							ospf_lsa_lock(lsa));
 
-				DISCARD_LSA(lsa, 5);
+				DISCARD_LSA(lsa, 6);
 			} else
 			/* Acknowledge the receipt of the LSA by sending a
 			   Link State Acknowledgment packet back out the
@@ -2166,7 +2178,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			   interface. */
 			{
 				ospf_ls_ack_send(nbr, lsa);
-				DISCARD_LSA(lsa, 6);
+				DISCARD_LSA(lsa, 7);
 			}
 		}
 
@@ -2183,7 +2195,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			if (IS_LSA_MAXAGE(current)
 			    && current->data->ls_seqnum
 				       == htonl(OSPF_MAX_SEQUENCE_NUMBER)) {
-				DISCARD_LSA(lsa, 7);
+				DISCARD_LSA(lsa, 8);
 			}
 			/* Otherwise, as long as the database copy has not been
 			   sent in a
@@ -2206,7 +2218,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 					ospf_ls_upd_send_lsa(
 						nbr, current,
 						OSPF_SEND_PACKET_DIRECT);
-				DISCARD_LSA(lsa, 8);
+				DISCARD_LSA(lsa, 9);
 			}
 		}
 	}
@@ -3309,6 +3321,15 @@ static int ospf_make_hello(struct ospf_interface *oi, struct stream *s)
 										.prefix4))
 								flag = 1;
 
+							/* Hello packet overflows interface MTU. */
+							if (length + sizeof(uint32_t)
+								> ospf_packet_max(oi)) {
+								flog_err(
+									EC_OSPF_LARGE_HELLO,
+									"Oversized Hello packet! Larger than MTU. Not sending it out");
+								return 0;
+							}
+
 							stream_put_ipv4(
 								s,
 								nbr->router_id
@@ -3426,7 +3447,14 @@ static int ospf_make_ls_req_func(struct stream *s, uint16_t *length,
 
 	oi = nbr->oi;
 
-	/* LS Request packet overflows interface MTU. */
+	/* LS Request packet overflows interface MTU
+	 * delta is just number of bytes required for 1 LS Req
+	 * ospf_packet_max will return the number of bytes can
+	 * be accomodated without ospf header. So length+delta
+	 * can be compared to ospf_packet_max
+	 * to check if it can fit another lsreq in the same packet.
+	 */
+
 	if (*length + delta > ospf_packet_max(oi))
 		return 0;
 
@@ -3445,7 +3473,7 @@ static int ospf_make_ls_req(struct ospf_neighbor *nbr, struct stream *s)
 {
 	struct ospf_lsa *lsa;
 	uint16_t length = OSPF_LS_REQ_MIN_SIZE;
-	unsigned long delta = stream_get_endp(s) + 12;
+	unsigned long delta = 12;
 	struct route_table *table;
 	struct route_node *rn;
 	int i;
@@ -3509,8 +3537,9 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,
 
 		assert(lsa->data);
 
-		/* Will it fit? */
-		if (length + delta + ntohs(lsa->data->length) > size_noauth)
+		/* Will it fit? Minimum it has to fit atleast one */
+		if ((length + delta + ntohs(lsa->data->length) > size_noauth) &&
+				(count > 0))
 			break;
 
 		/* Keep pointer to LS age. */
@@ -3547,13 +3576,21 @@ static int ospf_make_ls_ack(struct ospf_interface *oi, struct list *ack,
 {
 	struct listnode *node, *nnode;
 	uint16_t length = OSPF_LS_ACK_MIN_SIZE;
-	unsigned long delta = stream_get_endp(s) + 24;
+	unsigned long delta = OSPF_LSA_HEADER_SIZE;
 	struct ospf_lsa *lsa;
 
 	for (ALL_LIST_ELEMENTS(ack, node, nnode, lsa)) {
 		assert(lsa);
 
-		if (length + delta > ospf_packet_max(oi))
+		/* LS Ack packet overflows interface MTU
+		 * delta is just number of bytes required for
+		 * 1 LS Ack(1 LS Hdr) ospf_packet_max will return
+		 * the number of bytes can be accomodated without
+		 * ospf header. So length+delta can be compared
+		 * against ospf_packet_max to check if it can fit
+		 * another ls header in the same packet.
+		 */
+		if ((length + delta) > ospf_packet_max(oi))
 			break;
 
 		stream_put(s, lsa->data, OSPF_LSA_HEADER_SIZE);
@@ -3578,6 +3615,11 @@ static void ospf_hello_send_sub(struct ospf_interface *oi, in_addr_t addr)
 
 	/* Prepare OSPF Hello body. */
 	length += ospf_make_hello(oi, op->s);
+	if (length == OSPF_HEADER_SIZE) {
+		/* Hello overshooting MTU */
+		ospf_packet_free(op);
+		return;
+	}
 
 	/* Fill OSPF header. */
 	ospf_fill_header(oi, op->s, length);

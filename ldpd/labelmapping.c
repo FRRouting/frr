@@ -37,7 +37,7 @@ enqueue_pdu(struct nbr *nbr, uint16_t type, struct ibuf *buf, uint16_t size)
 	struct ldp_hdr		*ldp_hdr;
 
 	ldp_hdr = ibuf_seek(buf, 0, sizeof(struct ldp_hdr));
-	ldp_hdr->length = htons(size);
+	ldp_hdr->length = htons(size - LDP_HDR_DEAD_LEN);
 	evbuf_enqueue(&nbr->tcp->wbuf, buf);
 }
 
@@ -65,7 +65,7 @@ send_labelmessage(struct nbr *nbr, uint16_t type, struct mapping_head *mh)
 			/* real size will be set up later */
 			err |= gen_ldp_hdr(buf, 0);
 
-			size = LDP_HDR_PDU_LEN;
+			size = LDP_HDR_SIZE;
 			first = 0;
 		}
 

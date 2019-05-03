@@ -22,21 +22,6 @@ In order to avoid restarting the daemons in quick succession, you can supply the
 
 OPTIONS
 =======
-The following 3 options specify scripts that |DAEMON| uses to perform start/stop/restart actions. These options are mandatory unless the --dry option is used:
-
-.. option:: -s command, --start-command command
-
-  Supply a Bourne shell command to start a single daemon. The command string should contain the '%s' placeholder to be sub‐ stituted with the daemon name.
-
-.. option:: -k command, --kill-command command
-
-   Supply a Bourne shell command to stop a single daemon. The command string should contain the '%s' placeholder to be substituted with the daemon name.
-
-.. option:: -r command, --restart command
-
-   Supply a Bourne shell command to restart a single daemon. The command string should contain the '%s' placeholder to be substituted with the daemon name.
-
-Other options:
 
 .. option:: --dry
 
@@ -91,6 +76,20 @@ Other options:
 .. option:: -h, --help
 
    Display the usage information and exit.
+
+The following 3 options specify scripts that |DAEMON| uses to perform start/stop/restart actions. Reasonable default values are built into watchfrr, so the use of these options should no longer be necessary:
+
+.. option:: -s command, --start-command command
+
+  Supply a Bourne shell command to start a single daemon. The command string should contain the '%s' placeholder to be substituted with the daemon name.
+
+.. option:: -k command, --kill-command command
+
+   Supply a Bourne shell command to stop a single daemon. The command string should contain the '%s' placeholder to be substituted with the daemon name.
+
+.. option:: -r command, --restart command
+
+   Supply a Bourne shell command to restart a single daemon. The command string should contain the '%s' placeholder to be substituted with the daemon name.
 
 PREVIOUS OPTIONS
 ================

@@ -158,7 +158,7 @@ static void test_range_lookup(void)
 				  "1.16.160.0/19", "1.16.32.0/20",
 				  "1.16.32.0/21",  "16.0.0.0/16"};
 
-	int num_prefixes = sizeof(prefixes) / sizeof(prefixes[0]);
+	int num_prefixes = array_size(prefixes);
 
 	for (int i = 0; i < num_prefixes; i++)
 		add_node(table, prefixes[i]);

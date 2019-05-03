@@ -92,12 +92,12 @@ DEFUN (clear_foo,
 	return CMD_SUCCESS;
 }
 
-static void slow_vty_init()
+static void slow_vty_init(void)
 {
 	install_element(VIEW_NODE, &clear_foo_cmd);
 }
 
-void test_init()
+void test_init(void)
 {
 	slow_vty_init();
 }

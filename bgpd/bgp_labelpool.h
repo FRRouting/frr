@@ -31,11 +31,13 @@
 #define LP_TYPE_VRF	0x00000001
 #define LP_TYPE_BGP_LU	0x00000002
 
+PREDECL_LIST(lp_fifo)
+
 struct labelpool {
 	struct skiplist		*ledger;	/* all requests */
 	struct skiplist		*inuse;		/* individual labels */
 	struct list		*chunks;	/* granted by zebra */
-	struct lp_fifo		*requests;	/* blocked on zebra */
+	struct lp_fifo_head	requests;	/* blocked on zebra */
 	struct work_queue	*callback_q;
 	uint32_t		pending_count;	/* requested from zebra */
 };

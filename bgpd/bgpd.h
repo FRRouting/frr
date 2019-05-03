@@ -99,6 +99,9 @@ enum bgp_af_index {
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
 
+#define FOREACH_SAFI(safi)                                            \
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+
 extern struct frr_pthread *bgp_pth_io;
 extern struct frr_pthread *bgp_pth_ka;
 
@@ -149,6 +152,9 @@ struct bgp_master {
 
 	/* dynamic mpls label allocation pool */
 	struct labelpool labelpool;
+
+	/* BGP-EVPN VRF ID. Defaults to default VRF (if any) */
+	struct bgp* bgp_evpn;
 
 	bool terminating;	/* global flag that sigint terminate seen */
 	QOBJ_FIELDS
@@ -374,6 +380,9 @@ struct bgp {
 #define BGP_CONFIG_VRF_TO_VRF_IMPORT			(1 << 7)
 #define BGP_CONFIG_VRF_TO_VRF_EXPORT			(1 << 8)
 
+	/* BGP per AF peer count */
+	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
+
 	/* Route table for next-hop lookup cache. */
 	struct bgp_table *nexthop_cache_table[AFI_MAX];
 
@@ -414,6 +423,7 @@ struct bgp {
 	 *
 	 *  pbr_action a <----- pbr_match i <--- pbr_match_entry 1..n
 	 *              <----- pbr_match j <--- pbr_match_entry 1..m
+	 *              <----- pbr_rule k
 	 *
 	 * - here in BGP structure, the list of match and actions will
 	 * stand for the list of ipset sets, and table_ids in the kernel
@@ -423,6 +433,7 @@ struct bgp {
 	 * contained in match, that lists the whole set of entries
 	 */
 	struct hash *pbr_match_hash;
+	struct hash *pbr_rule_hash;
 	struct hash *pbr_action_hash;
 
 	/* timer to re-evaluate neighbor default-originate route-maps */
@@ -485,6 +496,11 @@ struct bgp {
 	/* EVPN enable - advertise local VNIs and their MACs etc. */
 	int advertise_all_vni;
 
+	/* RFC 8212 - prevent route leaks. */
+	int ebgp_requires_policy;
+#define DEFAULT_EBGP_POLICY_DISABLED 0
+#define DEFAULT_EBGP_POLICY_ENABLED 1
+
 	struct bgp_evpn_info *evpn_info;
 
 	/* EVPN - use RFC 8365 to auto-derive RT */
@@ -509,6 +525,9 @@ struct bgp {
 
 	/* originator ip - to be used as NH for type-5 routes */
 	struct in_addr originator_ip;
+
+	/* SVI associated with the L3-VNI corresponding to this vrf */
+	ifindex_t l3vni_svi_ifindex;
 
 	/* vrf flags */
 	uint32_t vrf_flags;
@@ -646,7 +665,8 @@ struct bgp_filter {
 /* IBGP/EBGP identifier.  We also have a CONFED peer, which is to say,
    a peer who's AS is part of our Confederation.  */
 typedef enum {
-	BGP_PEER_IBGP = 1,
+	BGP_PEER_UNSPECIFIED,
+	BGP_PEER_IBGP,
 	BGP_PEER_EBGP,
 	BGP_PEER_INTERNAL,
 	BGP_PEER_CONFED,
@@ -1495,6 +1515,8 @@ extern struct bgp *bgp_get_default(void);
 extern struct bgp *bgp_lookup(as_t, const char *);
 extern struct bgp *bgp_lookup_by_name(const char *);
 extern struct bgp *bgp_lookup_by_vrf_id(vrf_id_t);
+extern struct bgp *bgp_get_evpn(void);
+extern void bgp_set_evpn(struct bgp *bgp);
 extern struct peer *peer_lookup(struct bgp *, union sockunion *);
 extern struct peer *peer_lookup_by_conf_if(struct bgp *, const char *);
 extern struct peer *peer_lookup_by_hostname(struct bgp *, const char *);
@@ -1890,7 +1912,7 @@ static inline void bgp_vrf_unlink(struct bgp *bgp, struct vrf *vrf)
 	bgp->vrf_id = VRF_UNKNOWN;
 }
 
-extern void bgp_update_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
+extern void bgp_unset_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
 
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp);

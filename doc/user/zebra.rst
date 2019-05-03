@@ -380,7 +380,7 @@ At startup, FRR detects the presence of that file. It detects that the file
 statistics information matches the same file statistics information as
 `/proc/self/ns/net` ( through stat() function). As statistics information
 matches, then `vrf0` stands for the new default namespace name.
-Consequently, the VRF naming `Default` will be overriden by the new discovered
+Consequently, the VRF naming `Default` will be overridden by the new discovered
 namespace name `vrf0`.
 
 For those who don't use VRF backend with *Linux network namespace*, it is
@@ -422,7 +422,7 @@ in routing entry, and can be configured like a route:
 .. index:: [no] ip route NETWORK MASK GATEWAY|INTERFACE label LABEL
 .. clicmd:: [no] ip route NETWORK MASK GATEWAY|INTERFACE label LABEL
 
-   NETWORK ans MASK stand for the IP prefix entry to be added as static
+   NETWORK and MASK stand for the IP prefix entry to be added as static
    route entry.
    GATEWAY is the gateway IP address to reach, in order to reach the prefix.
    INTERFACE is the interface behind which the prefix is located.

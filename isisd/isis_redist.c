@@ -32,7 +32,6 @@
 #include "vty.h"
 #include "srcdest_table.h"
 
-#include "isisd/dict.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"
@@ -338,12 +337,14 @@ static void isis_redist_routemap_set(struct isis_redist *redist,
 {
 	if (redist->map_name) {
 		XFREE(MTYPE_ISIS, redist->map_name);
+		route_map_counter_decrement(redist->map);
 		redist->map = NULL;
 	}
 
 	if (routemap && strlen(routemap)) {
 		redist->map_name = XSTRDUP(MTYPE_ISIS, routemap);
 		redist->map = route_map_lookup_by_name(routemap);
+		route_map_counter_increment(redist->map);
 	}
 }
 
@@ -502,8 +503,7 @@ void isis_redist_area_finish(struct isis_area *area)
 				redist = &area->redist_settings[protocol][type]
 							       [level];
 				redist->redist = 0;
-				if (redist->map_name)
-					XFREE(MTYPE_ISIS, redist->map_name);
+				XFREE(MTYPE_ISIS, redist->map_name);
 			}
 			route_table_finish(area->ext_reach[protocol][level]);
 		}
@@ -515,7 +515,7 @@ void isis_redist_area_finish(struct isis_area *area)
 DEFUN (isis_redistribute,
        isis_redistribute_cmd,
        "redistribute <ipv4|ipv6> " PROTO_REDIST_STR
-       " [<metric (0-16777215)|route-map WORD>]",
+       " [{metric (0-16777215)|route-map WORD}]",
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
@@ -527,7 +527,7 @@ DEFUN (isis_redistribute,
 {
 	int idx_afi = 1;
 	int idx_protocol = 2;
-	int idx_metric_rmap = fabricd ? 3 : 4;
+	int idx_metric_rmap = 1;
 	VTY_DECLVAR_CONTEXT(isis_area, area);
 	int family;
 	int afi;
@@ -555,20 +555,13 @@ DEFUN (isis_redistribute,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (argc > idx_metric_rmap + 1) {
-		if (argv[idx_metric_rmap + 1]->arg[0] == '\0')
-			return CMD_WARNING_CONFIG_FAILED;
+	if (argv_find(argv, argc, "metric", &idx_metric_rmap)) {
+		metric = strtoul(argv[idx_metric_rmap + 1]->arg, NULL, 10);
+	}
 
-		if (strmatch(argv[idx_metric_rmap]->text, "metric")) {
-			char *endp;
-			metric = strtoul(argv[idx_metric_rmap + 1]->arg, &endp,
-					 10);
-
-			if (*endp != '\0')
-				return CMD_WARNING_CONFIG_FAILED;
-		} else {
-			routemap = argv[idx_metric_rmap + 1]->arg;
-		}
+	idx_metric_rmap = 1;
+	if (argv_find(argv, argc, "route-map", &idx_metric_rmap)) {
+		routemap = argv[idx_metric_rmap + 1]->arg;
 	}
 
 	isis_redist_set(area, level, family, type, metric, routemap, 0);
@@ -613,7 +606,7 @@ DEFUN (no_isis_redistribute,
 DEFUN (isis_default_originate,
        isis_default_originate_cmd,
        "default-information originate <ipv4|ipv6>"
-       " [always] [<metric (0-16777215)|route-map WORD>]",
+       " [always] [{metric (0-16777215)|route-map WORD}]",
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Distribute default route for IPv4\n"
@@ -626,7 +619,7 @@ DEFUN (isis_default_originate,
 {
 	int idx_afi = 2;
 	int idx_always = fabricd ? 3 : 4;
-	int idx_metric_rmap = fabricd ? 3 : 4;
+	int idx_metric_rmap = 1;
 	VTY_DECLVAR_CONTEXT(isis_area, area);
 	int family;
 	int originate_type = DEFAULT_ORIGINATE;
@@ -650,12 +643,13 @@ DEFUN (isis_default_originate,
 		idx_metric_rmap++;
 	}
 
-	if (argc > idx_metric_rmap) {
-		if (strmatch(argv[idx_metric_rmap]->text, "metric"))
-			metric = strtoul(argv[idx_metric_rmap + 1]->arg, NULL,
-					 10);
-		else
-			routemap = argv[idx_metric_rmap + 1]->arg;
+	if (argv_find(argv, argc, "metric", &idx_metric_rmap)) {
+		metric = strtoul(argv[idx_metric_rmap + 1]->arg, NULL, 10);
+	}
+
+	idx_metric_rmap = 1;
+	if (argv_find(argv, argc, "route-map", &idx_metric_rmap)) {
+		routemap = argv[idx_metric_rmap + 1]->arg;
 	}
 
 	if (family == AF_INET6 && originate_type != DEFAULT_ORIGINATE_ALWAYS) {

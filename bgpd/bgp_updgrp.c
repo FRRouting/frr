@@ -83,9 +83,9 @@ static void sync_init(struct update_subgroup *subgrp)
 {
 	subgrp->sync =
 		XCALLOC(MTYPE_BGP_SYNCHRONISE, sizeof(struct bgp_synchronize));
-	BGP_ADV_FIFO_INIT(&subgrp->sync->update);
-	BGP_ADV_FIFO_INIT(&subgrp->sync->withdraw);
-	BGP_ADV_FIFO_INIT(&subgrp->sync->withdraw_low);
+	bgp_adv_fifo_init(&subgrp->sync->update);
+	bgp_adv_fifo_init(&subgrp->sync->withdraw);
+	bgp_adv_fifo_init(&subgrp->sync->withdraw_low);
 	subgrp->hash =
 		hash_create(baa_hash_key, baa_hash_cmp, "BGP SubGroup Hash");
 
@@ -110,8 +110,7 @@ static void sync_init(struct update_subgroup *subgrp)
 
 static void sync_delete(struct update_subgroup *subgrp)
 {
-	if (subgrp->sync)
-		XFREE(MTYPE_BGP_SYNCHRONISE, subgrp->sync);
+	XFREE(MTYPE_BGP_SYNCHRONISE, subgrp->sync);
 	subgrp->sync = NULL;
 	if (subgrp->hash)
 		hash_free(subgrp->hash);
@@ -144,8 +143,7 @@ static void conf_copy(struct peer *dst, struct peer *src, afi_t afi,
 	dst->v_routeadv = src->v_routeadv;
 	dst->flags = src->flags;
 	dst->af_flags[afi][safi] = src->af_flags[afi][safi];
-	if (dst->host)
-		XFREE(MTYPE_BGP_PEER_HOST, dst->host);
+	XFREE(MTYPE_BGP_PEER_HOST, dst->host);
 
 	dst->host = XSTRDUP(MTYPE_BGP_PEER_HOST, src->host);
 	dst->cap = src->cap;
@@ -208,27 +206,19 @@ static void conf_release(struct peer *src, afi_t afi, safi_t safi)
 
 	srcfilter = &src->filter[afi][safi];
 
-	if (src->default_rmap[afi][safi].name)
-		XFREE(MTYPE_ROUTE_MAP_NAME, src->default_rmap[afi][safi].name);
+	XFREE(MTYPE_ROUTE_MAP_NAME, src->default_rmap[afi][safi].name);
 
-	if (srcfilter->dlist[FILTER_OUT].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->dlist[FILTER_OUT].name);
+	XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->dlist[FILTER_OUT].name);
 
-	if (srcfilter->plist[FILTER_OUT].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->plist[FILTER_OUT].name);
+	XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->plist[FILTER_OUT].name);
 
-	if (srcfilter->aslist[FILTER_OUT].name)
-		XFREE(MTYPE_BGP_FILTER_NAME,
-		      srcfilter->aslist[FILTER_OUT].name);
+	XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->aslist[FILTER_OUT].name);
 
-	if (srcfilter->map[RMAP_OUT].name)
-		XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->map[RMAP_OUT].name);
+	XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->map[RMAP_OUT].name);
 
-	if (srcfilter->usmap.name)
-		XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->usmap.name);
+	XFREE(MTYPE_BGP_FILTER_NAME, srcfilter->usmap.name);
 
-	if (src->host)
-		XFREE(MTYPE_BGP_PEER_HOST, src->host);
+	XFREE(MTYPE_BGP_PEER_HOST, src->host);
 	src->host = NULL;
 }
 
@@ -440,7 +430,7 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 		return false;
 
 	if (pe1->addpath_type[afi][safi] != pe2->addpath_type[afi][safi])
-		return 0;
+		return false;
 
 	if ((pe1->cap & PEER_UPDGRP_CAP_FLAGS)
 	    != (pe2->cap & PEER_UPDGRP_CAP_FLAGS))
@@ -741,12 +731,10 @@ static void update_group_delete(struct update_group *updgrp)
 	hash_release(updgrp->bgp->update_groups[updgrp->afid], updgrp);
 	conf_release(updgrp->conf, updgrp->afi, updgrp->safi);
 
-	if (updgrp->conf->host)
-		XFREE(MTYPE_BGP_PEER_HOST, updgrp->conf->host);
+	XFREE(MTYPE_BGP_PEER_HOST, updgrp->conf->host);
 	updgrp->conf->host = NULL;
 
-	if (updgrp->conf->ifname)
-		XFREE(MTYPE_BGP_PEER_IFNAME, updgrp->conf->ifname);
+	XFREE(MTYPE_BGP_PEER_IFNAME, updgrp->conf->ifname);
 
 	XFREE(MTYPE_BGP_PEER, updgrp->conf);
 	XFREE(MTYPE_BGP_UPDGRP, updgrp);
@@ -1393,9 +1381,9 @@ static int updgrp_policy_update_walkcb(struct update_group *updgrp, void *arg)
 	return UPDWALK_CONTINUE;
 }
 
-static int update_group_walkcb(struct hash_backet *backet, void *arg)
+static int update_group_walkcb(struct hash_bucket *bucket, void *arg)
 {
-	struct update_group *updgrp = backet->data;
+	struct update_group *updgrp = bucket->data;
 	struct updwalk_context *wctx = arg;
 	int ret = (*wctx->cb)(updgrp, wctx->context);
 	return ret;

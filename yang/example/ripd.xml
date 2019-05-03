@@ -18,6 +18,7 @@
 </lib>
 <ripd xmlns="http://frrouting.org/yang/ripd">
 	<instance>
+		<vrf>default</vrf>
 		<allow-ecmp>true</allow-ecmp>
 		<static-route>10.0.1.0/24</static-route>
 		<distance>

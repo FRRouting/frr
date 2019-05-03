@@ -1,0 +1,10 @@
+# html docs include RST sources
+usr/share/doc/frr/html
+
+# info + images referenced by it
+usr/share/info/
+doc/user/_build/texinfo/*.png usr/share/info
+
+# other
+README.md         usr/share/doc/frr
+doc/figures/*.png usr/share/doc/frr

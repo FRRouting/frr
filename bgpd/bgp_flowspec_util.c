@@ -456,8 +456,7 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 				 */
 				if (prefix->family == AF_INET
 				    && prefix->u.prefix4.s_addr == 0)
-					memset(prefix, 0,
-					       sizeof(struct prefix));
+					bpem->match_bitmask_iprule |= bitmask;
 				else
 					bpem->match_bitmask |= bitmask;
 			}
@@ -580,6 +579,22 @@ int bgp_flowspec_match_rules_fill(uint8_t *nlri_content, int len,
 				 __func__, type);
 		}
 	}
+	if (bpem->match_packet_length_num || bpem->match_fragment_num ||
+	    bpem->match_tcpflags_num || bpem->match_dscp_num ||
+	    bpem->match_packet_length_num || bpem->match_icmp_code_num ||
+	    bpem->match_icmp_type_num || bpem->match_port_num ||
+	    bpem->match_src_port_num || bpem->match_dst_port_num ||
+	    bpem->match_protocol_num || bpem->match_bitmask)
+		bpem->type = BGP_PBR_IPSET;
+	else if ((bpem->match_bitmask_iprule & PREFIX_SRC_PRESENT) ||
+		 (bpem->match_bitmask_iprule & PREFIX_DST_PRESENT))
+		/* the extracted policy rule may not need an
+		 * iptables/ipset filtering. check this may not be
+		 * a standard ip rule : permit any to any ( eg)
+		 */
+		bpem->type = BGP_PBR_IPRULE;
+	else
+		bpem->type = BGP_PBR_UNDEFINED;
 	return error;
 }
 

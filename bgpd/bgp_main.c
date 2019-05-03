@@ -78,6 +78,7 @@ static const struct option longopts[] = {
 	{"skip_runas", no_argument, NULL, 'S'},
 	{"ecmp", required_argument, NULL, 'e'},
 	{"int_num", required_argument, NULL, 'I'},
+	{"no_zebra", no_argument, NULL, 'Z'},
 	{0}};
 
 /* signal definitions */
@@ -171,7 +172,7 @@ void sigusr1(void)
 */
 static __attribute__((__noreturn__)) void bgp_exit(int status)
 {
-	struct bgp *bgp, *bgp_default;
+	struct bgp *bgp, *bgp_default, *bgp_evpn;
 	struct listnode *node, *nnode;
 
 	/* it only makes sense for this to be called on a clean exit */
@@ -184,13 +185,16 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	bgp_close();
 
 	bgp_default = bgp_get_default();
+	bgp_evpn = bgp_get_evpn();
 
 	/* reverse bgp_master_init */
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
-		if (bgp_default == bgp)
+		if (bgp_default == bgp || bgp_evpn == bgp)
 			continue;
 		bgp_delete(bgp);
 	}
+	if (bgp_evpn && bgp_evpn != bgp_default)
+		bgp_delete(bgp_evpn);
 	if (bgp_default)
 		bgp_delete(bgp_default);
 
@@ -281,9 +285,9 @@ static int bgp_vrf_enable(struct vrf *vrf)
 		bgp_vrf_link(bgp, vrf);
 
 		bgp_handle_socket(bgp, vrf, old_vrf_id, true);
-		/* Update any redistribute vrf bitmaps if the vrf_id changed */
+		/* Update any redistribution if vrf_id changed */
 		if (old_vrf_id != bgp->vrf_id)
-			bgp_update_redist_vrf_bitmaps(bgp, old_vrf_id);
+			bgp_redistribute_redo(bgp);
 		bgp_instance_up(bgp);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP);
 		vpn_leak_zebra_vrf_label_update(bgp, AFI_IP6);
@@ -330,9 +334,9 @@ static int bgp_vrf_disable(struct vrf *vrf)
 		/* We have instance configured, unlink from VRF and make it
 		 * "down". */
 		bgp_vrf_unlink(bgp, vrf);
-		/* Update any redistribute vrf bitmaps if the vrf_id changed */
+		/* Delete any redistribute vrf bitmaps if the vrf_id changed */
 		if (old_vrf_id != bgp->vrf_id)
-			bgp_update_redist_vrf_bitmaps(bgp, old_vrf_id);
+			bgp_unset_redist_vrf_bitmaps(bgp, old_vrf_id);
 		bgp_instance_down(bgp);
 	}
 
@@ -384,7 +388,7 @@ int main(int argc, char **argv)
 
 	frr_preinit(&bgpd_di, argc, argv);
 	frr_opt_add(
-		"p:l:Sne:I:" DEPRECATED_OPTIONS, longopts,
+		"p:l:SnZe:I:" DEPRECATED_OPTIONS, longopts,
 		"  -p, --bgp_port     Set BGP listen port number (0 means do not listen).\n"
 		"  -l, --listenon     Listen on specified address (implies -n)\n"
 		"  -n, --no_kernel    Do not install route to kernel.\n"

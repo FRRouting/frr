@@ -32,4 +32,4 @@ staticd/static_vty_clippy.c: $(CLIPPY_DEPS)
 staticd/static_vty.$(OBJEXT): staticd/static_vty_clippy.c
 
 staticd_staticd_SOURCES = staticd/static_main.c
-staticd_staticd_LDADD = staticd/libstatic.a lib/libfrr.la @LIBCAP@
+staticd_staticd_LDADD = staticd/libstatic.a lib/libfrr.la $(LIBCAP)

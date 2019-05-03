@@ -28,6 +28,10 @@
 #include <zebra/zebra_pw.h>
 #include <lib/vxlan.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* MPLS (Segment Routing) global block */
 typedef struct mpls_srgb_t_ {
 	uint32_t start_label;
@@ -52,8 +56,7 @@ struct zebra_vrf {
 
 	/* Flags. */
 	uint16_t flags;
-#define ZEBRA_VRF_RIB_SCHEDULED   (1 << 0)
-#define ZEBRA_VRF_RETAIN          (2 << 0)
+#define ZEBRA_VRF_RETAIN          (1 << 0)
 
 	uint32_t table_id;
 
@@ -107,23 +110,28 @@ struct zebra_vrf {
 #define MPLS_FLAG_SCHEDULE_LSPS    (1 << 0)
 
 	/*
-	 * VNI hash table (for EVPN). Only in default instance.
+	 * VNI hash table (for EVPN). Only in the EVPN instance.
 	 */
 	struct hash *vni_table;
 
 	/*
-	 * Whether EVPN is enabled or not. Only in default instance.
+	 * Whether EVPN is enabled or not. Only in the EVPN instance.
 	 */
 	int advertise_all_vni;
 
 	/*
 	 * Whether we are advertising g/w macip in EVPN or not.
-	 * Only in default instance.
+	 * Only in the EVPN instance.
 	 */
 	int advertise_gw_macip;
 
+	int advertise_svi_macip;
+
 	/* l3-vni info */
 	vni_t l3vni;
+
+	/* pim mroutes installed for vxlan flooding */
+	struct hash *vxlan_sg_table;
 
 	bool dup_addr_detect;
 
@@ -137,12 +145,14 @@ struct zebra_vrf {
 	 */
 	enum vxlan_flood_control vxlan_flood_ctrl;
 
-	/* Route Installs */
+	/* Install stats */
 	uint64_t installs;
 	uint64_t removals;
 	uint64_t installs_queued;
 	uint64_t removals_queued;
 	uint64_t neigh_updates;
+	uint64_t lsp_installs_queued;
+	uint64_t lsp_removals_queued;
 	uint64_t lsp_installs;
 	uint64_t lsp_removals;
 };
@@ -199,4 +209,9 @@ extern void zebra_vrf_init(void);
 
 extern void zebra_rtable_node_cleanup(struct route_table *table,
 				      struct route_node *node);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* ZEBRA_VRF_H */

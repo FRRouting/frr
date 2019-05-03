@@ -48,8 +48,8 @@ void pim_rpf_set_refresh_time(struct pim_instance *pim)
 			   pim->last_route_change_time);
 }
 
-int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
-		       struct in_addr addr, int neighbor_needed)
+bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
+			struct in_addr addr, int neighbor_needed)
 {
 	struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
 	struct pim_neighbor *nbr = NULL;
@@ -65,7 +65,7 @@ int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	 * it will never work
 	 */
 	if (addr.s_addr == INADDR_NONE)
-		return -1;
+		return false;
 
 	if ((nexthop->last_lookup.s_addr == addr.s_addr)
 	    && (nexthop->last_lookup_time > pim->last_route_change_time)) {
@@ -83,7 +83,7 @@ int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 				pim->last_route_change_time, nexthop_str);
 		}
 		pim->nexthop_lookups_avoided++;
-		return 0;
+		return true;
 	} else {
 		if (PIM_DEBUG_TRACE) {
 			char addr_str[INET_ADDRSTRLEN];
@@ -107,7 +107,7 @@ int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 		zlog_warn(
 			"%s %s: could not find nexthop ifindex for address %s",
 			__FILE__, __PRETTY_FUNCTION__, addr_str);
-		return -1;
+		return false;
 	}
 
 	while (!found && (i < num_ifindex)) {
@@ -179,9 +179,9 @@ int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 		nexthop->last_lookup = addr;
 		nexthop->last_lookup_time = pim_time_monotonic_usec();
 		nexthop->nbr = nbr;
-		return 0;
+		return true;
 	} else
-		return -1;
+		return false;
 }
 
 static int nexthop_mismatch(const struct pim_nexthop *nh1,
@@ -201,9 +201,17 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	struct pim_rpf *rpf = &up->rpf;
 	struct pim_rpf saved;
 	struct prefix nht_p;
-	struct pim_nexthop_cache pnc;
 	struct prefix src, grp;
 	bool neigh_needed = true;
+
+	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags))
+		return PIM_RPF_OK;
+
+	if (up->upstream_addr.s_addr == INADDR_ANY) {
+		zlog_debug("%s: RP is not configured yet for %s",
+			__PRETTY_FUNCTION__, up->sg_str);
+		return PIM_RPF_OK;
+	}
 
 	saved.source_nexthop = rpf->source_nexthop;
 	saved.rpf_addr = rpf->rpf_addr;
@@ -226,23 +234,14 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	grp.family = AF_INET;
 	grp.prefixlen = IPV4_MAX_BITLEN;
 	grp.u.prefix4 = up->sg.grp;
-	memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
 
 	if ((up->sg.src.s_addr == INADDR_ANY && I_am_RP(pim, up->sg.grp)) ||
 	    PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
 		neigh_needed = FALSE;
-	if (pim_find_or_track_nexthop(pim, &nht_p, up, NULL, &pnc)) {
-		if (pnc.nexthop_num) {
-			if (!pim_ecmp_nexthop_search(pim, &pnc,
-						     &up->rpf.source_nexthop,
-						     &src, &grp, neigh_needed))
-				return PIM_RPF_FAILURE;
-		}
-	} else {
-		if (!pim_ecmp_nexthop_lookup(pim, &rpf->source_nexthop, &src,
-					     &grp, neigh_needed))
-			return PIM_RPF_FAILURE;
-	}
+	pim_find_or_track_nexthop(pim, &nht_p, up, NULL, NULL);
+	if (!pim_ecmp_nexthop_lookup(pim, &rpf->source_nexthop, &src, &grp,
+				     neigh_needed))
+		return PIM_RPF_FAILURE;
 
 	rpf->rpf_addr.family = AF_INET;
 	rpf->rpf_addr.u.prefix4 = pim_rpf_find_rpf_addr(up);
@@ -305,6 +304,33 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	}
 
 	return PIM_RPF_OK;
+}
+
+/*
+ * In the case of RP deletion and RP unreachablity,
+ * uninstall the mroute in the kernel and clear the
+ * rpf information in the pim upstream and pim channel
+ * oil data structure.
+ */
+void pim_upstream_rpf_clear(struct pim_instance *pim,
+			    struct pim_upstream *up)
+{
+	if (up->rpf.source_nexthop.interface) {
+		if (up->channel_oil) {
+			up->channel_oil->oil.mfcc_parent = MAXVIFS;
+			pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
+
+		}
+		pim_upstream_switch(pim, up, PIM_UPSTREAM_NOTJOINED);
+		up->rpf.source_nexthop.interface = NULL;
+		up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =
+			PIM_NET_INADDR_ANY;
+		up->rpf.source_nexthop.mrib_metric_preference =
+			router->infinite_assert_metric.metric_preference;
+		up->rpf.source_nexthop.mrib_route_metric =
+			router->infinite_assert_metric.route_metric;
+		up->rpf.rpf_addr.u.prefix4.s_addr = PIM_NET_INADDR_ANY;
+	}
 }
 
 /*

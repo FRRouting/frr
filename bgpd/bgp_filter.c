@@ -95,8 +95,7 @@ static void as_filter_free(struct as_filter *asfilter)
 {
 	if (asfilter->reg)
 		bgp_regex_free(asfilter->reg);
-	if (asfilter->reg_str)
-		XFREE(MTYPE_AS_FILTER_STR, asfilter->reg_str);
+	XFREE(MTYPE_AS_FILTER_STR, asfilter->reg_str);
 	XFREE(MTYPE_AS_FILTER, asfilter);
 }
 
@@ -338,8 +337,7 @@ static void as_list_filter_delete(struct as_list *aslist,
 	/* Run hook function. */
 	if (as_list_master.delete_hook)
 		(*as_list_master.delete_hook)(name);
-	if (name)
-		XFREE(MTYPE_AS_STR, name);
+	XFREE(MTYPE_AS_STR, name);
 }
 
 static int as_filter_match(struct as_filter *asfilter, struct aspath *aspath)
@@ -391,9 +389,9 @@ static int as_list_dup_check(struct as_list *aslist, struct as_filter *new)
 	return 0;
 }
 
-static int config_bgp_aspath_validate(const char *regstr)
+int config_bgp_aspath_validate(const char *regstr)
 {
-	char valid_chars[] = "1234567890_^|[,{}() ]$*+.?-";
+	char valid_chars[] = "1234567890_^|[,{}() ]$*+.?-\\";
 
 	if (strspn(regstr, valid_chars) == strlen(regstr))
 		return 1;
@@ -409,7 +407,7 @@ DEFUN(as_path, bgp_as_path_cmd,
       "Regular expression access list name\n"
       "Specify packets to reject\n"
       "Specify packets to forward\n"
-      "A regular-expression (1234567890_(^|[,{}() ]|$)) to match the BGP AS paths\n")
+      "A regular-expression (1234567890_^|[,{}() ]$*+.?-\\) to match the BGP AS paths\n")
 {
 	int idx = 0;
 	enum as_filter_type type;
@@ -477,7 +475,7 @@ ALIAS(as_path, ip_as_path_cmd,
       "Regular expression access list name\n"
       "Specify packets to reject\n"
       "Specify packets to forward\n"
-      "A regular-expression (1234567890_(^|[,{}() ]|$)) to match the BGP AS paths\n")
+      "A regular-expression (1234567890_^|[,{}() ]$*+.?-\\) to match the BGP AS paths\n")
 
 DEFUN(no_as_path, no_bgp_as_path_cmd,
       "no bgp as-path access-list WORD <deny|permit> LINE...",
@@ -488,7 +486,7 @@ DEFUN(no_as_path, no_bgp_as_path_cmd,
       "Regular expression access list name\n"
       "Specify packets to reject\n"
       "Specify packets to forward\n"
-      "A regular-expression (1234567890_(^|[,{}() ]|$)) to match the BGP AS paths\n")
+      "A regular-expression (1234567890_^|[,{}() ]$*+.?-\\) to match the BGP AS paths\n")
 {
 	int idx = 0;
 	enum as_filter_type type;
@@ -565,7 +563,7 @@ ALIAS(no_as_path, no_ip_as_path_cmd,
       "Regular expression access list name\n"
       "Specify packets to reject\n"
       "Specify packets to forward\n"
-      "A regular-expression (1234567890_(^|[,{}() ]|$)) to match the BGP AS paths\n")
+      "A regular-expression (1234567890_^|[,{}() ]$*+.?-\\) to match the BGP AS paths\n")
 
 DEFUN (no_as_path_all,
        no_bgp_as_path_all_cmd,

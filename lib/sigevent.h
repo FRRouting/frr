@@ -25,6 +25,10 @@
 
 #include <thread.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define QUAGGA_SIGNAL_TIMER_INTERVAL 2L
 
 struct quagga_signal_t {
@@ -46,5 +50,9 @@ extern void signal_init(struct thread_master *m, int sigc,
 
 /* check whether there are signals to handle, process any found */
 extern int quagga_sigevent_process(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _QUAGGA_SIGNAL_H */

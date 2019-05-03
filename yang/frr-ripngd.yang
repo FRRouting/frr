@@ -33,13 +33,18 @@ module frr-ripngd {
 
   container ripngd {
     /*
-     * Global configuration data
+     * Routing instance configuration.
      */
-    container instance {
-      presence "Present if the RIPng protocol is enabled.";
+    list instance {
+      key "vrf";
       description
         "RIPng routing instance.";
 
+      leaf vrf {
+        type string;
+        description
+          "VRF name.";
+      }
       leaf allow-ecmp {
         type boolean;
         default "false";
@@ -194,82 +199,82 @@ module frr-ripngd {
             "Interval at which RIPng updates are sent.";
         }
       }
-    }
 
-    /*
-     * Operational data.
-     */
-    container state {
-      config false;
-      description
-        "Operational data.";
-
-      container neighbors {
+      /*
+       * Operational data.
+       */
+      container state {
+        config false;
         description
-          "Neighbor information.";
-        list neighbor {
-          key "address";
+          "Operational data.";
+
+        container neighbors {
           description
-            "A RIPng neighbor.";
-          leaf address {
-            type inet:ipv6-address;
+            "Neighbor information.";
+          list neighbor {
+            key "address";
             description
-              "IPv6 address that a RIPng neighbor is using as its
-               source address.";
-          }
-          leaf last-update {
-            type yang:date-and-time;
-            description
-              "The time when the most recent RIPng update was
-               received from this neighbor.";
-          }
-          leaf bad-packets-rcvd {
-            type yang:counter32;
-            description
-              "The number of RIPng invalid packets received from
-               this neighbor which were subsequently discarded
-               for any reason (e.g. a version 0 packet, or an
-               unknown command type).";
-          }
-          leaf bad-routes-rcvd {
-            type yang:counter32;
-            description
-              "The number of routes received from this neighbor,
-               in valid RIPng packets, which were ignored for any
-               reason (e.g. unknown address family, or invalid
-               metric).";
+              "A RIPng neighbor.";
+            leaf address {
+              type inet:ipv6-address;
+              description
+                "IPv6 address that a RIPng neighbor is using as its
+                 source address.";
+            }
+            leaf last-update {
+              type yang:date-and-time;
+              description
+                "The time when the most recent RIPng update was
+                 received from this neighbor.";
+            }
+            leaf bad-packets-rcvd {
+              type yang:counter32;
+              description
+                "The number of RIPng invalid packets received from
+                 this neighbor which were subsequently discarded
+                 for any reason (e.g. a version 0 packet, or an
+                 unknown command type).";
+            }
+            leaf bad-routes-rcvd {
+              type yang:counter32;
+              description
+                "The number of routes received from this neighbor,
+                 in valid RIPng packets, which were ignored for any
+                 reason (e.g. unknown address family, or invalid
+                 metric).";
+            }
           }
         }
-      }
-      container routes {
-        description
-          "Route information.";
-        list route {
-          key "prefix";
+        container routes {
           description
-            "A RIPng IPv6 route.";
-          leaf prefix {
-            type inet:ipv6-prefix;
+            "Route information.";
+          list route {
+            key "prefix";
             description
-              "IPv6 address and prefix length, in the format
-               specified in RFC6991.";
-          }
-          leaf next-hop {
-            type inet:ipv6-address;
-            description
-              "Next hop IPv6 address.";
-          }
-          leaf interface {
-            type string;
-            description
-              "The interface that the route uses.";
-          }
-          leaf metric {
-            type uint8 {
-              range "0..16";
+              "A RIPng IPv6 route.";
+            leaf prefix {
+              type inet:ipv6-prefix;
+              description
+                "IPv6 address and prefix length, in the format
+                 specified in RFC6991.";
             }
-            description
-              "Route metric.";
+            leaf next-hop {
+              type inet:ipv6-address;
+              description
+                "Next hop IPv6 address.";
+            }
+            leaf interface {
+              type string;
+              description
+                "The interface that the route uses.";
+            }
+            leaf metric {
+              type uint8 {
+                range "0..16";
+              }
+              description
+                "Route metric.";
+            }
           }
         }
       }
@@ -317,5 +322,18 @@ module frr-ripngd {
     description
       "Clears RIPng routes from the IPv6 routing table and routes
        redistributed into the RIPng protocol.";
+
+    input {
+      leaf vrf {
+        type string;
+        description
+          "VRF name identifying a specific RIPng instance.
+           This leaf is optional for the rpc.
+           If it is specified, the rpc will clear all routes in the
+           specified RIPng instance;
+           if it is not specified, the rpc will clear all routes in
+           all RIPng instances.";
+      }
+    }
   }
 }

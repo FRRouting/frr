@@ -308,7 +308,7 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 	case SAFI_FLOWSPEC:
 		return bgp_nlri_parse_flowspec(peer, attr, packet, mp_withdraw);
 	}
-	return -1;
+	return BGP_NLRI_PARSE_ERROR;
 }
 
 /*
@@ -1568,10 +1568,11 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 			nlri_ret = bgp_nlri_parse(peer, &attr, &nlris[i], 1);
 			break;
 		default:
-			nlri_ret = -1;
+			nlri_ret = BGP_NLRI_PARSE_ERROR;
 		}
 
-		if (nlri_ret < 0) {
+		if (nlri_ret < BGP_NLRI_PARSE_OK
+		    && nlri_ret != BGP_NLRI_PARSE_ERROR_PREFIX_OVERFLOW) {
 			flog_err(EC_BGP_UPDATE_RCV,
 				 "%s [Error] Error parsing NLRI", peer->host);
 			if (peer->status == Established)

@@ -155,13 +155,13 @@ void frrstr_strvec_free(vector v)
 bool begins_with(const char *str, const char *prefix)
 {
 	if (!str || !prefix)
-		return 0;
+		return false;
 
 	size_t lenstr = strlen(str);
 	size_t lenprefix = strlen(prefix);
 
 	if (lenprefix > lenstr)
-		return 0;
+		return false;
 
 	return strncmp(str, prefix, lenprefix) == 0;
 }

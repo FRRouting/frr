@@ -23,6 +23,10 @@
 
 #include "lib/ferr.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum zebra_log_refs {
 	EC_ZEBRA_LM_RESPONSE = ZEBRA_FERR_START,
 	EC_ZEBRA_LM_NO_SUCH_CLIENT,
@@ -96,6 +100,7 @@ enum zebra_log_refs {
 	EC_ZEBRA_VRF_NOT_FOUND,
 	EC_ZEBRA_MORE_NH_THAN_MULTIPATH,
 	EC_ZEBRA_NEXTHOP_CREATION_FAILED,
+	EC_ZEBRA_RX_ROUTE_NO_NEXTHOPS,
 	EC_ZEBRA_RX_SRCDEST_WRONG_AFI,
 	EC_ZEBRA_PSEUDOWIRE_EXISTS,
 	EC_ZEBRA_PSEUDOWIRE_UNINSTALL_NOT_FOUND,
@@ -124,5 +129,9 @@ enum zebra_log_refs {
 };
 
 void zebra_error_init(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __EC_ZEBRAORS_H__ */

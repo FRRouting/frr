@@ -32,6 +32,10 @@
 #include "vector.h"
 #include "graph.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DECLARE_MTYPE(CMD_ARG)
 
 struct vty;
@@ -114,7 +118,7 @@ extern void cmd_token_varname_set(struct cmd_token *token, const char *varname);
 
 extern void cmd_graph_parse(struct graph *graph, struct cmd_element *cmd);
 extern void cmd_graph_names(struct graph *graph);
-extern void cmd_graph_merge(struct graph *old, struct graph *new,
+extern void cmd_graph_merge(struct graph *old, struct graph *n,
 			    int direction);
 /*
  * Print callback for DOT dumping.
@@ -132,5 +136,9 @@ extern void cmd_graph_node_print_cb(struct graph_node *gn, struct buffer *buf);
  *    String allocated with MTYPE_TMP representing this graph
  */
 char *cmd_graph_dump_dot(struct graph *cmdgraph);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_COMMAND_GRAPH_H */

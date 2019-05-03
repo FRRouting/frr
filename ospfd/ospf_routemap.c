@@ -70,11 +70,19 @@ static void ospf_route_map_update(const char *name)
 					/* Keep old route-map. */
 					struct route_map *old = ROUTEMAP(red);
 
-					/* Update route-map. */
-					ROUTEMAP(red) =
-						route_map_lookup_by_name(
-							ROUTEMAP_NAME(red));
+					if (!old) {
+						/* Route-map creation */
+						/* Update route-map. */
+						ROUTEMAP(red) =
+							route_map_lookup_by_name(
+								ROUTEMAP_NAME(red));
 
+							route_map_counter_increment(
+								ROUTEMAP(red));
+					} else {
+						/* Route-map deletion */
+						ROUTEMAP(red) = NULL;
+					}
 					/* No update for this distribute type.
 					 */
 					if (old == NULL
@@ -366,15 +374,16 @@ static route_map_result_t route_set_metric(void *rule,
 		/* Set metric out value. */
 		if (!metric->used)
 			return RMAP_OKAY;
+
+		ei->route_map_set.metric = DEFAULT_DEFAULT_METRIC;
+
 		if (metric->type == metric_increment)
 			ei->route_map_set.metric += metric->metric;
-		if (metric->type == metric_decrement)
+		else if (metric->type == metric_decrement)
 			ei->route_map_set.metric -= metric->metric;
-		if (metric->type == metric_absolute)
+		else if (metric->type == metric_absolute)
 			ei->route_map_set.metric = metric->metric;
 
-		if ((signed int)ei->route_map_set.metric < 1)
-			ei->route_map_set.metric = -1;
 		if (ei->route_map_set.metric > OSPF_LS_INFINITY)
 			ei->route_map_set.metric = OSPF_LS_INFINITY;
 	}

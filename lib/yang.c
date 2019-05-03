@@ -20,11 +20,12 @@
 #include <zebra.h>
 
 #include "log.h"
-#include "log_int.h"
 #include "lib_errors.h"
 #include "yang.h"
 #include "yang_translator.h"
 #include "northbound.h"
+
+#include <libyang/user_types.h>
 
 DEFINE_MTYPE(LIB, YANG_MODULE, "YANG module")
 DEFINE_MTYPE(LIB, YANG_DATA, "YANG data structure")
@@ -511,42 +512,6 @@ void yang_dnode_change_leaf(struct lyd_node *dnode, const char *value)
 	lyd_change_leaf((struct lyd_node_leaf_list *)dnode, value);
 }
 
-void yang_dnode_set_entry(const struct lyd_node *dnode, void *entry)
-{
-	assert(CHECK_FLAG(dnode->schema->nodetype, LYS_LIST | LYS_CONTAINER));
-	lyd_set_private(dnode, entry);
-}
-
-void *yang_dnode_get_entry(const struct lyd_node *dnode,
-			   bool abort_if_not_found)
-{
-	const struct lyd_node *orig_dnode = dnode;
-	char xpath[XPATH_MAXLEN];
-
-	while (dnode) {
-		switch (dnode->schema->nodetype) {
-		case LYS_CONTAINER:
-		case LYS_LIST:
-			if (dnode->priv)
-				return dnode->priv;
-			break;
-		default:
-			break;
-		}
-
-		dnode = dnode->parent;
-	}
-
-	if (!abort_if_not_found)
-		return NULL;
-
-	yang_dnode_get_path(orig_dnode, xpath, sizeof(xpath));
-	flog_err(EC_LIB_YANG_DNODE_NOT_FOUND,
-		 "%s: failed to find entry [xpath %s]", __func__, xpath);
-	zlog_backtrace(LOG_ERR);
-	abort();
-}
-
 struct lyd_node *yang_dnode_new(struct ly_ctx *ly_ctx, bool config_only)
 {
 	struct lyd_node *dnode;
@@ -608,10 +573,23 @@ struct list *yang_data_list_new(void)
 	return list;
 }
 
-static void *ly_dup_cb(const void *priv)
+struct yang_data *yang_data_list_find(const struct list *list,
+				      const char *xpath_fmt, ...)
 {
-	/* Make a shallow copy of the priv pointer. */
-	return (void *)priv;
+	char xpath[XPATH_MAXLEN];
+	struct yang_data *data;
+	struct listnode *node;
+	va_list ap;
+
+	va_start(ap, xpath_fmt);
+	vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
+	va_end(ap);
+
+	for (ALL_LIST_ELEMENTS_RO(list, node, data))
+		if (strmatch(data->xpath, xpath))
+			return data;
+
+	return NULL;
 }
 
 /* Make libyang log its errors using FRR logging infrastructure. */
@@ -639,8 +617,41 @@ static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 		zlog(priority, "libyang: %s", msg);
 }
 
+#if CONFDATE > 20190401
+CPP_NOTICE("lib/yang: time to remove non-LIBYANG_EXT_BUILTIN support")
+#endif
+
+#ifdef LIBYANG_EXT_BUILTIN
+extern struct lytype_plugin_list frr_user_types[];
+#endif
+
+struct ly_ctx *yang_ctx_new_setup(void)
+{
+	struct ly_ctx *ctx;
+	const char *yang_models_path = YANG_MODELS_PATH;
+
+	if (access(yang_models_path, R_OK | X_OK)) {
+		yang_models_path = NULL;
+		if (errno == ENOENT)
+			zlog_info("yang model directory \"%s\" does not exist",
+				  YANG_MODELS_PATH);
+		else
+			flog_err_sys(EC_LIB_LIBYANG,
+				     "cannot access yang model directory \"%s\"",
+				     YANG_MODELS_PATH);
+	}
+
+	ctx = ly_ctx_new(yang_models_path, LY_CTX_DISABLE_SEARCHDIR_CWD);
+	if (!ctx)
+		return NULL;
+	ly_ctx_set_module_imp_clb(ctx, yang_module_imp_clb, NULL);
+	return ctx;
+}
+
 void yang_init(void)
 {
+#ifndef LIBYANG_EXT_BUILTIN
+CPP_NOTICE("lib/yang: deprecated libyang <0.16.74 extension loading in use!")
 	static char ly_plugin_dir[PATH_MAX];
 	const char *const *ly_loaded_plugins;
 	const char *ly_plugin;
@@ -650,21 +661,28 @@ void yang_init(void)
 	snprintf(ly_plugin_dir, sizeof(ly_plugin_dir), "%s=%s",
 		 "LIBYANG_USER_TYPES_PLUGINS_DIR", LIBYANG_PLUGINS_PATH);
 	putenv(ly_plugin_dir);
+#endif
 
 	/* Initialize libyang global parameters that affect all containers. */
 	ly_set_log_clb(ly_log_cb, 1);
 	ly_log_options(LY_LOLOG | LY_LOSTORE);
 
+#ifdef LIBYANG_EXT_BUILTIN
+	if (ly_register_types(frr_user_types, "frr_user_types")) {
+		flog_err(EC_LIB_LIBYANG_PLUGIN_LOAD,
+			 "ly_register_types() failed");
+		exit(1);
+	}
+#endif
+
 	/* Initialize libyang container for native models. */
-	ly_native_ctx =
-		ly_ctx_new(YANG_MODELS_PATH, LY_CTX_DISABLE_SEARCHDIR_CWD);
+	ly_native_ctx = yang_ctx_new_setup();
 	if (!ly_native_ctx) {
 		flog_err(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		exit(1);
 	}
-	ly_ctx_set_module_imp_clb(ly_native_ctx, yang_module_imp_clb, NULL);
-	ly_ctx_set_priv_dup_clb(ly_native_ctx, ly_dup_cb);
 
+#ifndef LIBYANG_EXT_BUILTIN
 	/* Detect if the required libyang plugin(s) were loaded successfully. */
 	ly_loaded_plugins = ly_get_loaded_plugins();
 	for (size_t i = 0; (ly_plugin = ly_loaded_plugins[i]); i++) {
@@ -678,6 +696,7 @@ void yang_init(void)
 			 "%s: failed to load frr_user_types.so", __func__);
 		exit(1);
 	}
+#endif
 
 	yang_translator_init();
 }

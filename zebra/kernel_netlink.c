@@ -43,7 +43,8 @@
 #include "mpls.h"
 #include "lib_errors.h"
 
-#include "zebra/zserv.h"
+//#include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/rt.h"
@@ -388,7 +389,7 @@ static int kernel_read(struct thread *thread)
 	netlink_parse_info(netlink_information_fetch, &zns->netlink, &dp_info,
 			   5, 0);
 	zns->t_netlink = NULL;
-	thread_add_read(zebrad.master, kernel_read, zns, zns->netlink.sock,
+	thread_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
 			&zns->t_netlink);
 
 	return 0;
@@ -605,53 +606,59 @@ const char *nl_rttype_to_str(uint8_t rttype)
 	return lookup_msg(rttype_str, rttype, "");
 }
 
-#define NL_OK(nla, len)                                                        \
+#define NLA_OK(nla, len)                                                       \
 	((len) >= (int)sizeof(struct nlattr)                                   \
 	 && (nla)->nla_len >= sizeof(struct nlattr)                            \
 	 && (nla)->nla_len <= (len))
-#define NL_NEXT(nla, attrlen)                                                  \
-	((attrlen) -= RTA_ALIGN((nla)->nla_len),                               \
-	 (struct nlattr *)(((char *)(nla)) + RTA_ALIGN((nla)->nla_len)))
-#define NL_RTA(r)                                                              \
-	((struct nlattr *)(((char *)(r))                                       \
-			   + NLMSG_ALIGN(sizeof(struct nlmsgerr))))
+#define NLA_NEXT(nla, attrlen)                                                 \
+	((attrlen) -= NLA_ALIGN((nla)->nla_len),                               \
+	 (struct nlattr *)(((char *)(nla)) + NLA_ALIGN((nla)->nla_len)))
+#define NLA_LENGTH(len) (NLA_ALIGN(sizeof(struct nlattr)) + (len))
+#define NLA_DATA(nla) ((struct nlattr *)(((char *)(nla)) + NLA_LENGTH(0)))
+
+#define ERR_NLA(err, inner_len)                                                \
+	((struct nlattr *)(((char *)(err))                                     \
+			   + NLMSG_ALIGN(sizeof(struct nlmsgerr))              \
+			   + NLMSG_ALIGN((inner_len))))
 
 static void netlink_parse_nlattr(struct nlattr **tb, int max,
 				 struct nlattr *nla, int len)
 {
-	while (NL_OK(nla, len)) {
+	while (NLA_OK(nla, len)) {
 		if (nla->nla_type <= max)
 			tb[nla->nla_type] = nla;
-		nla = NL_NEXT(nla, len);
+		nla = NLA_NEXT(nla, len);
 	}
 }
 
 static void netlink_parse_extended_ack(struct nlmsghdr *h)
 {
-	struct nlattr *tb[NLMSGERR_ATTR_MAX + 1];
-	const struct nlmsgerr *err =
-		(const struct nlmsgerr *)((uint8_t *)h
-					  + NLMSG_ALIGN(
-						    sizeof(struct nlmsghdr)));
+	struct nlattr *tb[NLMSGERR_ATTR_MAX + 1] = {};
+	const struct nlmsgerr *err = (const struct nlmsgerr *)NLMSG_DATA(h);
 	const struct nlmsghdr *err_nlh = NULL;
-	uint32_t hlen = sizeof(*err);
+	/* Length not including nlmsghdr */
+	uint32_t len = 0;
+	/* Inner error netlink message length */
+	uint32_t inner_len = 0;
 	const char *msg = NULL;
 	uint32_t off = 0;
 
 	if (!(h->nlmsg_flags & NLM_F_CAPPED))
-		hlen += h->nlmsg_len - NLMSG_ALIGN(sizeof(struct nlmsghdr));
+		inner_len = (uint32_t)NLMSG_PAYLOAD(&err->msg, 0);
 
-	memset(tb, 0, sizeof(tb));
-	netlink_parse_nlattr(tb, NLMSGERR_ATTR_MAX, NL_RTA(h), hlen);
+	len = (uint32_t)(NLMSG_PAYLOAD(h, sizeof(struct nlmsgerr)) - inner_len);
+
+	netlink_parse_nlattr(tb, NLMSGERR_ATTR_MAX, ERR_NLA(err, inner_len),
+			     len);
 
 	if (tb[NLMSGERR_ATTR_MSG])
-		msg = (const char *)RTA_DATA(tb[NLMSGERR_ATTR_MSG]);
+		msg = (const char *)NLA_DATA(tb[NLMSGERR_ATTR_MSG]);
 
 	if (tb[NLMSGERR_ATTR_OFFS]) {
-		off = *(uint32_t *)RTA_DATA(tb[NLMSGERR_ATTR_OFFS]);
+		off = *(uint32_t *)NLA_DATA(tb[NLMSGERR_ATTR_OFFS]);
 
 		if (off > h->nlmsg_len) {
-			zlog_err("Invalid offset for NLMSGERR_ATTR_OFFS\n");
+			zlog_err("Invalid offset for NLMSGERR_ATTR_OFFS");
 		} else if (!(h->nlmsg_flags & NLM_F_CAPPED)) {
 			/*
 			 * Header of failed message
@@ -1032,7 +1039,6 @@ int netlink_request(struct nlsock *nl, struct nlmsghdr *n)
 	}
 
 	/* Fill common fields for all requests. */
-	n->nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;
 	n->nlmsg_pid = nl->snl.nl_pid;
 	n->nlmsg_seq = ++nl->seq;
 
@@ -1159,7 +1165,7 @@ void kernel_init(struct zebra_ns *zns)
 
 	zns->t_netlink = NULL;
 
-	thread_add_read(zebrad.master, kernel_read, zns,
+	thread_add_read(zrouter.master, kernel_read, zns,
 			zns->netlink.sock, &zns->t_netlink);
 
 	rt_netlink_init();

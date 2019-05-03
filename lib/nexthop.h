@@ -26,6 +26,10 @@
 #include "prefix.h"
 #include "mpls.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Maximum next hop string length - gateway + ifindex */
 #define NEXTHOP_STRLEN (INET6_ADDRSTRLEN + 30)
 
@@ -77,9 +81,8 @@ struct nexthop {
 #define NEXTHOP_FLAG_RECURSIVE  (1 << 2) /* Recursive nexthop. */
 #define NEXTHOP_FLAG_ONLINK     (1 << 3) /* Nexthop should be installed onlink. */
 #define NEXTHOP_FLAG_MATCHED    (1 << 4) /* Already matched vs a nexthop */
-#define NEXTHOP_FLAG_FILTERED   (1 << 5) /* rmap filtered, used by static only */
-#define NEXTHOP_FLAG_DUPLICATE  (1 << 6) /* nexthop duplicates another active one */
-#define NEXTHOP_FLAG_EVPN_RVTEP (1 << 7) /* EVPN remote vtep nexthop */
+#define NEXTHOP_FLAG_DUPLICATE  (1 << 5) /* nexthop duplicates another active one */
+#define NEXTHOP_FLAG_RNH_FILTERED  (1 << 6) /* rmap filtered, used by rnh */
 #define NEXTHOP_IS_ACTIVE(flags)                                               \
 	(CHECK_FLAG(flags, NEXTHOP_FLAG_ACTIVE)                                \
 	 && !CHECK_FLAG(flags, NEXTHOP_FLAG_DUPLICATE))
@@ -133,17 +136,24 @@ void nexthop_del_labels(struct nexthop *);
  * Returns:
  *    32-bit hash of nexthop
  */
-uint32_t nexthop_hash(struct nexthop *nexthop);
+uint32_t nexthop_hash(const struct nexthop *nexthop);
 
 extern bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2);
 
 extern const char *nexthop_type_to_str(enum nexthop_types_t nh_type);
 extern int nexthop_same_no_recurse(const struct nexthop *next1,
 				   const struct nexthop *next2);
-extern int nexthop_labels_match(struct nexthop *nh1, struct nexthop *nh2);
+extern int nexthop_labels_match(const struct nexthop *nh1,
+				const struct nexthop *nh2);
 extern int nexthop_same_firsthop(struct nexthop *next1, struct nexthop *next2);
 
-extern const char *nexthop2str(const struct nexthop *nexthop, char *str, int size);
+extern const char *nexthop2str(const struct nexthop *nexthop,
+			       char *str, int size);
 extern struct nexthop *nexthop_next(struct nexthop *nexthop);
 extern unsigned int nexthop_level(struct nexthop *nexthop);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /*_LIB_NEXTHOP_H */

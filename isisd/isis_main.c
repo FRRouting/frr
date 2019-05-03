@@ -41,7 +41,6 @@
 #include "qobj.h"
 #include "libfrr.h"
 
-#include "isisd/dict.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"
@@ -80,7 +79,7 @@ struct zebra_privs_t isisd_privs = {
 	.vty_group = VTY_GROUP,
 #endif
 	.caps_p = _caps_p,
-	.cap_num_p = sizeof(_caps_p) / sizeof(*_caps_p),
+	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0};
 
 /* isisd options */

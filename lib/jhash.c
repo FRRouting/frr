@@ -116,7 +116,7 @@ uint32_t jhash(const void *key, uint32_t length, uint32_t initval)
 	/* fallthru */
 	case 1:
 		a += k[0];
-	};
+	}
 
 	__jhash_mix(a, b, c);
 
@@ -151,7 +151,7 @@ uint32_t jhash2(const uint32_t *k, uint32_t length, uint32_t initval)
 	/* fallthru */
 	case 1:
 		a += k[0];
-	};
+	}
 
 	__jhash_mix(a, b, c);
 

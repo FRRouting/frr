@@ -243,8 +243,10 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	if (bgp_route->inst_type == BGP_INSTANCE_TYPE_VIEW) {
 		SET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
 		SET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
-	} else if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED))
+	} else if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED) &&
+		   !is_default_host_route(&bnc->node->p))
 		register_zebra_rnh(bnc, is_bgp_static_route);
+
 	if (pi && pi->nexthop != bnc) {
 		/* Unlink from existing nexthop cache, if any. This will also
 		 * free
@@ -791,7 +793,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug("%s: Updating peer (%s) status with NHT",
 				   __FUNCTION__, peer->host);
-		bgp_fsm_nht_update(peer, bgp_isvalid_nexthop(bnc));
+		bgp_fsm_event_update(peer, bgp_isvalid_nexthop(bnc));
 		SET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
 	}
 

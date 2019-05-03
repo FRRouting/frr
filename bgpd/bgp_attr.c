@@ -54,6 +54,7 @@
 #include "bgp_encap_types.h"
 #include "bgp_evpn.h"
 #include "bgp_flowspec_private.h"
+#include "bgp_mac.h"
 
 /* Attribute strings for logging. */
 static const struct message attr_str[] = {
@@ -158,8 +159,7 @@ static bool cluster_hash_cmp(const void *p1, const void *p2)
 
 static void cluster_free(struct cluster_list *cluster)
 {
-	if (cluster->list)
-		XFREE(MTYPE_CLUSTER_VAL, cluster->list);
+	XFREE(MTYPE_CLUSTER_VAL, cluster->list);
 	XFREE(MTYPE_CLUSTER, cluster);
 }
 
@@ -400,8 +400,7 @@ static struct hash *transit_hash;
 
 static void transit_free(struct transit *transit)
 {
-	if (transit->val)
-		XFREE(MTYPE_TRANSIT_VAL, transit->val);
+	XFREE(MTYPE_TRANSIT_VAL, transit->val);
 	XFREE(MTYPE_TRANSIT, transit);
 }
 
@@ -592,9 +591,9 @@ static void attrhash_finish(void)
 	attrhash = NULL;
 }
 
-static void attr_show_all_iterator(struct hash_backet *backet, struct vty *vty)
+static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 {
-	struct attr *attr = backet->data;
+	struct attr *attr = bucket->data;
 
 	vty_out(vty, "attr[%ld] nexthop %s\n", attr->refcnt,
 		inet_ntoa(attr->nexthop));
@@ -605,7 +604,7 @@ static void attr_show_all_iterator(struct hash_backet *backet, struct vty *vty)
 
 void attr_show_all(struct vty *vty)
 {
-	hash_iterate(attrhash, (void (*)(struct hash_backet *,
+	hash_iterate(attrhash, (void (*)(struct hash_bucket *,
 					 void *))attr_show_all_iterator,
 		     vty);
 }
@@ -1716,7 +1715,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		stream_get(&attr->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
 		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)) {
 			if (!peer->nexthop.ifp) {
-				zlog_warn("%s: interface not set appropriately to handle some attributes",
+				zlog_warn("%s: Received a V6/VPNV6 Global attribute but address is a V6 LL and we have no peer interface information, withdrawing",
 					  peer->host);
 				return BGP_ATTR_PARSE_WITHDRAW;
 			}
@@ -1733,7 +1732,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		stream_get(&attr->mp_nexthop_global, s, IPV6_MAX_BYTELEN);
 		if (IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_global)) {
 			if (!peer->nexthop.ifp) {
-				zlog_warn("%s: interface not set appropriately to handle some attributes",
+				zlog_warn("%s: Received V6/VPNV6 Global and LL attribute but global address is a V6 LL and we have no peer interface information, withdrawing",
 					  peer->host);
 				return BGP_ATTR_PARSE_WITHDRAW;
 			}
@@ -1763,7 +1762,7 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 			attr->mp_nexthop_len = IPV6_MAX_BYTELEN;
 		}
 		if (!peer->nexthop.ifp) {
-			zlog_warn("%s: Interface not set appropriately to handle this some attributes",
+			zlog_warn("%s: Received a V6 LL nexthop and we have no peer interface information, withdrawing",
 				  peer->host);
 			return BGP_ATTR_PARSE_WITHDRAW;
 		}
@@ -1944,7 +1943,18 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	bgp_attr_evpn_na_flag(attr, &attr->router_flag);
 
 	/* Extract the Rmac, if any */
-	bgp_attr_rmac(attr, &attr->rmac);
+	if (bgp_attr_rmac(attr, &attr->rmac)) {
+		if (bgp_debug_update(peer, NULL, NULL, 1) &&
+		    bgp_mac_exist(&attr->rmac)) {
+			char buf1[ETHER_ADDR_STRLEN];
+
+			zlog_debug("%s: router mac %s is self mac",
+				   __func__,
+				   prefix_mac2str(&attr->rmac, buf1,
+						  sizeof(buf1)));
+		}
+
+	}
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -2227,11 +2237,12 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
 	uint8_t tnl_type;
+	int attr_parse_len = 2 + BGP_LABEL_BYTES;
 
 	/* Verify that the receiver is expecting "ingress replication" as we
 	 * can only support that.
 	 */
-	if (length < 2) {
+	if (length < attr_parse_len) {
 		flog_err(EC_BGP_ATTR_LEN, "Bad PMSI tunnel attribute length %d",
 			 length);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
@@ -2258,9 +2269,10 @@ bgp_attr_pmsi_tunnel(struct bgp_attr_parser_args *args)
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL);
 	attr->pmsi_tnl_type = tnl_type;
+	stream_get(&attr->label, peer->curr, BGP_LABEL_BYTES);
 
 	/* Forward read pointer of input stream. */
-	stream_forward_getp(peer->curr, length - 2);
+	stream_forward_getp(peer->curr, length - attr_parse_len);
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -3014,6 +3026,22 @@ void bgp_packet_mpattr_end(struct stream *s, size_t sizep)
 	stream_putw_at(s, sizep, (stream_get_endp(s) - sizep) - 2);
 }
 
+static int bgp_append_local_as(struct peer *peer, afi_t afi, safi_t safi)
+{
+	if (!BGP_AS_IS_PRIVATE(peer->local_as)
+	    || (BGP_AS_IS_PRIVATE(peer->local_as)
+		&& !CHECK_FLAG(peer->af_flags[afi][safi],
+			       PEER_FLAG_REMOVE_PRIVATE_AS)
+		&& !CHECK_FLAG(peer->af_flags[afi][safi],
+			       PEER_FLAG_REMOVE_PRIVATE_AS_ALL)
+		&& !CHECK_FLAG(peer->af_flags[afi][safi],
+			       PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE)
+		&& !CHECK_FLAG(peer->af_flags[afi][safi],
+			       PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE)))
+		return 1;
+	return 0;
+}
+
 /* Make attribute packet. */
 bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 				struct stream *s, struct attr *attr,
@@ -3079,12 +3107,12 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 				/* If replace-as is specified, we only use the
 				   change_local_as when
 				   advertising routes. */
-				if (!CHECK_FLAG(
-					    peer->flags,
-					    PEER_FLAG_LOCAL_AS_REPLACE_AS)) {
-					aspath = aspath_add_seq(aspath,
-								peer->local_as);
-				}
+				if (!CHECK_FLAG(peer->flags,
+						PEER_FLAG_LOCAL_AS_REPLACE_AS))
+					if (bgp_append_local_as(peer, afi,
+								safi))
+						aspath = aspath_add_seq(
+							aspath, peer->local_as);
 				aspath = aspath_add_seq(aspath,
 							peer->change_local_as);
 			} else {
@@ -3445,7 +3473,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		stream_putc(s, BGP_ATTR_PMSI_TUNNEL);
 		stream_putc(s, 9); // Length
 		stream_putc(s, 0); // Flags
-		stream_putc(s, PMSI_TNLTYPE_INGR_REPL); // IR (6)
+		stream_putc(s, attr->pmsi_tnl_type);
 		stream_put(s, &(attr->label),
 			   BGP_LABEL_BYTES); // MPLS Label / VXLAN VNI
 		stream_put_ipv4(s, attr->nexthop.s_addr);

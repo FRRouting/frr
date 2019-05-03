@@ -1009,7 +1009,7 @@ enum node_type node_parent(enum node_type node)
 }
 
 /* Execute command by argument vline vector. */
-static int cmd_execute_command_real(vector vline, enum filter_type filter,
+static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 				    struct vty *vty,
 				    const struct cmd_element **cmd)
 {
@@ -1277,8 +1277,7 @@ int cmd_execute(struct vty *vty, const char *cmd,
 
 	hook_call(cmd_execute_done, vty, cmd_exec);
 
-	if (cmd_out)
-		XFREE(MTYPE_TMP, cmd_out);
+	XFREE(MTYPE_TMP, cmd_out);
 
 	return ret;
 }
@@ -1535,66 +1534,10 @@ DEFUN (config_end,
        "end",
        "End current mode and change to enable mode.\n")
 {
-	switch (vty->node) {
-	case VIEW_NODE:
-	case ENABLE_NODE:
-		/* Nothing to do. */
-		break;
-	case CONFIG_NODE:
-	case INTERFACE_NODE:
-	case PW_NODE:
-	case LOGICALROUTER_NODE:
-	case VRF_NODE:
-	case NH_GROUP_NODE:
-	case ZEBRA_NODE:
-	case RIP_NODE:
-	case RIPNG_NODE:
-	case EIGRP_NODE:
-	case BABEL_NODE:
-	case BGP_NODE:
-	case BGP_VRF_POLICY_NODE:
-	case BGP_VNC_DEFAULTS_NODE:
-	case BGP_VNC_NVE_GROUP_NODE:
-	case BGP_VNC_L2_GROUP_NODE:
-	case BGP_VPNV4_NODE:
-	case BGP_VPNV6_NODE:
-	case BGP_FLOWSPECV4_NODE:
-	case BGP_FLOWSPECV6_NODE:
-	case BGP_IPV4_NODE:
-	case BGP_IPV4M_NODE:
-	case BGP_IPV4L_NODE:
-	case BGP_IPV6_NODE:
-	case BGP_IPV6M_NODE:
-	case BGP_EVPN_NODE:
-	case BGP_EVPN_VNI_NODE:
-	case BGP_IPV6L_NODE:
-	case RMAP_NODE:
-	case PBRMAP_NODE:
-	case OSPF_NODE:
-	case OSPF6_NODE:
-	case LDP_NODE:
-	case LDP_IPV4_NODE:
-	case LDP_IPV6_NODE:
-	case LDP_IPV4_IFACE_NODE:
-	case LDP_IPV6_IFACE_NODE:
-	case LDP_L2VPN_NODE:
-	case LDP_PSEUDOWIRE_NODE:
-	case ISIS_NODE:
-	case OPENFABRIC_NODE:
-	case KEYCHAIN_NODE:
-	case KEYCHAIN_KEY_NODE:
-	case VTY_NODE:
-	case LINK_PARAMS_NODE:
-	case BFD_NODE:
-	case BFD_PEER_NODE:
+	if (vty->config) {
 		vty_config_exit(vty);
 		vty->node = ENABLE_NODE;
-		break;
-	default:
-		break;
 	}
-
-	vty->xpath_index = 0;
 
 	return CMD_SUCCESS;
 }
@@ -2464,8 +2407,7 @@ static int set_log_file(struct vty *vty, const char *fname, int loglevel)
 
 	ret = zlog_set_file(fullpath, loglevel);
 
-	if (p)
-		XFREE(MTYPE_TMP, p);
+	XFREE(MTYPE_TMP, p);
 
 	if (!ret) {
 		if (vty)
@@ -2473,8 +2415,7 @@ static int set_log_file(struct vty *vty, const char *fname, int loglevel)
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (host.logfile)
-		XFREE(MTYPE_HOST, host.logfile);
+	XFREE(MTYPE_HOST, host.logfile);
 
 	host.logfile = XSTRDUP(MTYPE_HOST, fname);
 
@@ -2543,8 +2484,7 @@ static void disable_log_file(void)
 {
 	zlog_reset_file();
 
-	if (host.logfile)
-		XFREE(MTYPE_HOST, host.logfile);
+	XFREE(MTYPE_HOST, host.logfile);
 
 	host.logfile = NULL;
 }
@@ -2570,8 +2510,6 @@ DEFUN (config_log_syslog,
        LOG_LEVEL_DESC)
 {
 	int idx_log_levels = 2;
-
-	disable_log_file();
 
 	if (argc == 3) {
 		int level;
@@ -2695,8 +2633,7 @@ int cmd_banner_motd_file(const char *file)
 		return CMD_ERR_NO_FILE;
 	in = strstr(rpath, SYSCONFDIR);
 	if (in == rpath) {
-		if (host.motdfile)
-			XFREE(MTYPE_HOST, host.motdfile);
+		XFREE(MTYPE_HOST, host.motdfile);
 		host.motdfile = XSTRDUP(MTYPE_HOST, file);
 	} else
 		success = CMD_WARNING_CONFIG_FAILED;
@@ -2781,8 +2718,7 @@ DEFUN(find,
 /* Set config filename.  Called from vty.c */
 void host_config_set(const char *filename)
 {
-	if (host.config)
-		XFREE(MTYPE_HOST, host.config);
+	XFREE(MTYPE_HOST, host.config);
 	host.config = XSTRDUP(MTYPE_HOST, filename);
 }
 
@@ -2939,7 +2875,7 @@ void cmd_init(int terminal)
 #endif
 }
 
-void cmd_terminate()
+void cmd_terminate(void)
 {
 	struct cmd_node *cmd_node;
 
@@ -2962,24 +2898,15 @@ void cmd_terminate()
 		cmdvec = NULL;
 	}
 
-	if (host.name)
-		XFREE(MTYPE_HOST, host.name);
-	if (host.domainname)
-		XFREE(MTYPE_HOST, host.domainname);
-	if (host.password)
-		XFREE(MTYPE_HOST, host.password);
-	if (host.password_encrypt)
-		XFREE(MTYPE_HOST, host.password_encrypt);
-	if (host.enable)
-		XFREE(MTYPE_HOST, host.enable);
-	if (host.enable_encrypt)
-		XFREE(MTYPE_HOST, host.enable_encrypt);
-	if (host.logfile)
-		XFREE(MTYPE_HOST, host.logfile);
-	if (host.motdfile)
-		XFREE(MTYPE_HOST, host.motdfile);
-	if (host.config)
-		XFREE(MTYPE_HOST, host.config);
+	XFREE(MTYPE_HOST, host.name);
+	XFREE(MTYPE_HOST, host.domainname);
+	XFREE(MTYPE_HOST, host.password);
+	XFREE(MTYPE_HOST, host.password_encrypt);
+	XFREE(MTYPE_HOST, host.enable);
+	XFREE(MTYPE_HOST, host.enable_encrypt);
+	XFREE(MTYPE_HOST, host.logfile);
+	XFREE(MTYPE_HOST, host.motdfile);
+	XFREE(MTYPE_HOST, host.config);
 
 	list_delete(&varhandlers);
 	qobj_finish();

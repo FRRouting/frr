@@ -191,17 +191,20 @@ noinst_HEADERS += \
 bgpd_bgpd_SOURCES = bgpd/bgp_main.c
 bgpd_bgp_btoa_SOURCES = bgpd/bgp_btoa.c
 
+bgpd_bgpd_CFLAGS = $(AM_CFLAGS)
+bgpd_bgp_btoa_CFLAGS = $(AM_CFLAGS)
+
 if ENABLE_BGP_VNC
 bgpd_bgpd_SOURCES += bgpd/rfapi/rfapi_descriptor_rfp_utils.c
-bgpd_bgpd_CFLAGS = -Irfapi -I@top_srcdir@/$(RFPINC)
+bgpd_bgpd_CFLAGS += -Irfapi -I@top_srcdir@/$(RFPINC)
 
 bgpd_bgp_btoa_SOURCES += bgpd/rfapi/rfapi_descriptor_rfp_utils.c
-bgpd_bgp_btoa_CFLAGS = -Irfapi -I@top_srcdir@/$(RFPINC)
+bgpd_bgp_btoa_CFLAGS += -Irfapi -I@top_srcdir@/$(RFPINC)
 endif
 
 # RFPLDADD is set in bgpd/rfp-example/librfp/subdir.am
-bgpd_bgpd_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la @LIBCAP@ @LIBM@
-bgpd_bgp_btoa_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la @LIBCAP@ @LIBM@
+bgpd_bgpd_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBCAP) $(LIBM)
+bgpd_bgp_btoa_LDADD = bgpd/libbgp.a $(RFPLDADD) lib/libfrr.la $(LIBCAP) $(LIBM)
 
 bgpd_bgpd_snmp_la_SOURCES = bgpd/bgp_snmp.c
 bgpd_bgpd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS) -std=gnu99
@@ -221,6 +224,8 @@ bgpd/bgp_route_clippy.c: $(CLIPPY_DEPS)
 bgpd/bgp_route.$(OBJEXT): bgpd/bgp_route_clippy.c
 bgpd/bgp_debug_clippy.c: $(CLIPPY_DEPS)
 bgpd/bgp_debug.$(OBJEXT): bgpd/bgp_debug_clippy.c
+bgpd/bgp_routemap_clippy.c: $(CLIPPY_DEPS)
+bgpd/bgp_routemap.$(OBJEXT): bgpd/bgp_routemap_clippy.c
 bgpd/bgp_rpki_clippy.c: $(CLIPPY_DEPS)
 $(AUTOMAKE_DUMMY)bgpd/bgpd_bgpd_rpki_la-bgp_rpki.lo: bgpd/bgp_rpki_clippy.c
 $(AUTOMAKE_DUMMY)bgpd/bgpd_rpki_la-bgp_rpki.lo: bgpd/bgp_rpki_clippy.c

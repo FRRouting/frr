@@ -954,8 +954,9 @@ static int ospf_vl_set_security(struct ospf_vl_data *vl_data,
 	if (vl_config->auth_key) {
 		memset(IF_DEF_PARAMS(ifp)->auth_simple, 0,
 		       OSPF_AUTH_SIMPLE_SIZE + 1);
-		strncpy((char *)IF_DEF_PARAMS(ifp)->auth_simple,
-			vl_config->auth_key, OSPF_AUTH_SIMPLE_SIZE);
+		strlcpy((char *)IF_DEF_PARAMS(ifp)->auth_simple,
+			vl_config->auth_key,
+			sizeof(IF_DEF_PARAMS(ifp)->auth_simple));
 	} else if (vl_config->md5_key) {
 		if (ospf_crypt_key_lookup(IF_DEF_PARAMS(ifp)->auth_crypt,
 					  vl_config->crypto_key_id)
@@ -967,8 +968,8 @@ static int ospf_vl_set_security(struct ospf_vl_data *vl_data,
 		ck = ospf_crypt_key_new();
 		ck->key_id = vl_config->crypto_key_id;
 		memset(ck->auth_key, 0, OSPF_AUTH_MD5_SIZE + 1);
-		strncpy((char *)ck->auth_key, vl_config->md5_key,
-			OSPF_AUTH_MD5_SIZE);
+		strlcpy((char *)ck->auth_key, vl_config->md5_key,
+			sizeof(ck->auth_key));
 
 		ospf_crypt_key_add(IF_DEF_PARAMS(ifp)->auth_crypt, ck);
 	} else if (vl_config->crypto_key_id != 0) {
@@ -1147,14 +1148,12 @@ DEFUN (ospf_area_vlink,
 		if (vl_config.crypto_key_id < 0)
 			return CMD_WARNING_CONFIG_FAILED;
 
-		memset(md5_key, 0, OSPF_AUTH_MD5_SIZE + 1);
-		strncpy(md5_key, argv[idx + 3]->arg, OSPF_AUTH_MD5_SIZE);
+		strlcpy(md5_key, argv[idx + 3]->arg, sizeof(md5_key));
 		vl_config.md5_key = md5_key;
 	}
 
 	if (argv_find(argv, argc, "authentication-key", &idx)) {
-		memset(auth_key, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
-		strncpy(auth_key, argv[idx + 1]->arg, OSPF_AUTH_SIMPLE_SIZE);
+		strlcpy(auth_key, argv[idx + 1]->arg, sizeof(auth_key));
 		vl_config.auth_key = auth_key;
 	}
 
@@ -1205,14 +1204,17 @@ DEFUN (no_ospf_area_vlink,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	vl_data = ospf_vl_lookup(ospf, area, vl_config.vl_peer);
+	if (!vl_data) {
+		vty_out(vty, "Virtual link does not exist\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (argc <= 5) {
 		/* Basic VLink no command */
 		/* Thats all folks! - BUGS B. strikes again!!!*/
-		if ((vl_data = ospf_vl_lookup(ospf, area, vl_config.vl_peer)))
-			ospf_vl_delete(ospf, vl_data);
-
+		ospf_vl_delete(ospf, vl_data);
 		ospf_area_check_free(ospf, vl_config.area_id);
-
 		return CMD_SUCCESS;
 	}
 
@@ -3027,13 +3029,13 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 			if (ospf->stub_router_startup_time
 			    != OSPF_STUB_ROUTER_UNCONFIGURED)
 				json_object_int_add(
-					json_vrf, "postStartEnabledMsecs",
-					ospf->stub_router_startup_time / 1000);
+					json_vrf, "postStartEnabledSecs",
+					ospf->stub_router_startup_time);
 			if (ospf->stub_router_shutdown_time
 			    != OSPF_STUB_ROUTER_UNCONFIGURED)
 				json_object_int_add(
-					json_vrf, "preShutdownEnabledMsecs",
-					ospf->stub_router_shutdown_time / 1000);
+					json_vrf, "preShutdownEnabledSecs",
+					ospf->stub_router_shutdown_time);
 		} else {
 			vty_out(vty,
 				" Stub router advertisement is configured\n");
@@ -3509,8 +3511,8 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			json_object_int_add(json_interface_sub, "cost",
 					    oi->output_cost);
 			json_object_int_add(
-				json_interface_sub, "transmitDelayMsecs",
-				1000 / OSPF_IF_PARAM(oi, transmit_delay));
+				json_interface_sub, "transmitDelaySecs",
+				OSPF_IF_PARAM(oi, transmit_delay));
 			json_object_string_add(json_interface_sub, "state",
 					       lookup_msg(ospf_ism_state_msg,
 							  oi->state, NULL));
@@ -3614,20 +3616,20 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			if (OSPF_IF_PARAM(oi, fast_hello) == 0)
 				json_object_int_add(
 					json_interface_sub, "timerMsecs",
-					1000 / OSPF_IF_PARAM(oi, v_hello));
+					OSPF_IF_PARAM(oi, v_hello) * 1000);
 			else
 				json_object_int_add(
 					json_interface_sub, "timerMsecs",
 					1000 / OSPF_IF_PARAM(oi, fast_hello));
 			json_object_int_add(json_interface_sub,
-					    "timerDeadMsecs",
-					    1000 / OSPF_IF_PARAM(oi, v_wait));
+					    "timerDeadSecs",
+					    OSPF_IF_PARAM(oi, v_wait));
 			json_object_int_add(json_interface_sub,
-					    "timerWaitMsecs",
-					    1000 / OSPF_IF_PARAM(oi, v_wait));
+					    "timerWaitSecs",
+					    OSPF_IF_PARAM(oi, v_wait));
 			json_object_int_add(
-				json_interface_sub, "timerRetransmit",
-				1000 / OSPF_IF_PARAM(oi, retransmit_interval));
+				json_interface_sub, "timerRetransmitSecs",
+				OSPF_IF_PARAM(oi, retransmit_interval));
 		} else {
 			vty_out(vty, "  Timer intervals configured,");
 			vty_out(vty, " Hello ");
@@ -6892,9 +6894,8 @@ DEFUN (ip_ospf_authentication_key,
 		ospf_if_update_params(ifp, addr);
 	}
 
-	memset(params->auth_simple, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
-	strncpy((char *)params->auth_simple, argv[3]->arg,
-		OSPF_AUTH_SIMPLE_SIZE);
+	strlcpy((char *)params->auth_simple, argv[3]->arg,
+		sizeof(params->auth_simple));
 	SET_IF_PARAM(params, auth_simple);
 
 	return CMD_SUCCESS;
@@ -7003,8 +7004,7 @@ DEFUN (ip_ospf_message_digest_key,
 
 	ck = ospf_crypt_key_new();
 	ck->key_id = (uint8_t)key_id;
-	memset(ck->auth_key, 0, OSPF_AUTH_MD5_SIZE + 1);
-	strncpy((char *)ck->auth_key, cryptkey, OSPF_AUTH_MD5_SIZE);
+	strlcpy((char *)ck->auth_key, cryptkey, sizeof(ck->auth_key));
 
 	ospf_crypt_key_add(params->auth_crypt, ck);
 	SET_IF_PARAM(params, auth_crypt);
@@ -9733,7 +9733,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 					vty_out(vty, " ip ospf network %s",
 						ospf_int_type_str
 							[params->type]);
-					if (params != IF_DEF_PARAMS(ifp))
+					if (params != IF_DEF_PARAMS(ifp) && rn)
 						vty_out(vty, " %s",
 							inet_ntoa(
 								rn->p.u.prefix4));
@@ -9770,7 +9770,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 				vty_out(vty, " ip ospf authentication%s",
 					auth_str);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9781,7 +9781,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			    && params->auth_simple[0] != '\0') {
 				vty_out(vty, " ip ospf authentication-key %s",
 					params->auth_simple);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9794,7 +9794,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 					vty_out(vty,
 						" ip ospf message-digest-key %d md5 %s",
 						ck->key_id, ck->auth_key);
-					if (params != IF_DEF_PARAMS(ifp))
+					if (params != IF_DEF_PARAMS(ifp) && rn)
 						vty_out(vty, " %s",
 							inet_ntoa(
 								rn->p.u.prefix4));
@@ -9806,7 +9806,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			if (OSPF_IF_PARAM_CONFIGURED(params, output_cost_cmd)) {
 				vty_out(vty, " ip ospf cost %u",
 					params->output_cost_cmd);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9817,7 +9817,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			    && params->v_hello != OSPF_HELLO_INTERVAL_DEFAULT) {
 				vty_out(vty, " ip ospf hello-interval %u",
 					params->v_hello);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9839,7 +9839,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				else
 					vty_out(vty, "%u", params->v_wait);
 
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9851,7 +9851,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				       != OSPF_ROUTER_PRIORITY_DEFAULT) {
 				vty_out(vty, " ip ospf priority %u",
 					params->priority);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9864,7 +9864,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				       != OSPF_RETRANSMIT_INTERVAL_DEFAULT) {
 				vty_out(vty, " ip ospf retransmit-interval %u",
 					params->retransmit_interval);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9876,7 +9876,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				       != OSPF_TRANSMIT_DELAY_DEFAULT) {
 				vty_out(vty, " ip ospf transmit-delay %u",
 					params->transmit_delay);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9895,7 +9895,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 				area_id2str(buf, sizeof(buf), &params->if_area,
 					    params->if_area_id_fmt);
 				vty_out(vty, " area %s", buf);
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");
@@ -9912,7 +9912,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 					vty_out(vty, " no ip ospf mtu-ignore");
 				else
 					vty_out(vty, " ip ospf mtu-ignore");
-				if (params != IF_DEF_PARAMS(ifp))
+				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %s",
 						inet_ntoa(rn->p.u.prefix4));
 				vty_out(vty, "\n");

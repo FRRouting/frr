@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.60])
 
-AC_INIT([frr], [6.1-dev], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [7.1-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -147,7 +147,7 @@ dnl - specifically, options to control warnings
 
 AC_USE_SYSTEM_EXTENSIONS
 AC_DEFUN([AC_C_FLAG], [{
-    m4_pushdef([cachename],[m4_translit([frr_cv_$1],[ =-],[___])])
+    m4_pushdef([cachename],[m4_translit([frr_cv_$1],[ =-+],[____])])
     AC_CACHE_CHECK([[whether $CC supports $1]], cachename, [
 	AC_LANG_PUSH([C])
 	ac_c_flag_save="$CFLAGS"
@@ -261,6 +261,9 @@ fi
 AC_C_FLAG([-Wno-unused-parameter])
 AC_C_FLAG([-Wno-missing-field-initializers])
 
+AC_C_FLAG([-Wc++-compat], [], [CXX_COMPAT_CFLAGS="-Wc++-compat"])
+AC_SUBST([CXX_COMPAT_CFLAGS])
+
 dnl ICC emits a broken warning for const char *x = a ? "b" : "c";
 dnl for some reason the string consts get 'promoted' to char *,
 dnl triggering a const to non-const conversion warning.
@@ -346,7 +349,7 @@ AM_CONDITIONAL([STATIC_BIN], [test "x$enable_static_bin" = "xyes"])
 
 dnl $AR and $RANLIB are set by LT_INIT above
 AC_MSG_CHECKING([whether $AR supports D option])
-if $AR crD conftest.a; then
+if $AR crD conftest.a >/dev/null 2>/dev/null; then
   AC_MSG_RESULT([yes])
   dnl ARFLAGS is for automake, AR_FLAGS for libtool m-(
   ARFLAGS="crD"
@@ -360,7 +363,7 @@ AC_SUBST([ARFLAGS])
 AC_SUBST([AR_FLAGS])
 
 AC_MSG_CHECKING([whether $RANLIB supports D option])
-if $RANLIB -D conftest.a; then
+if $RANLIB -D conftest.a >/dev/null 2>/dev/null; then
   AC_MSG_RESULT([yes])
   RANLIB="$RANLIB -D"
 else
@@ -587,7 +590,7 @@ AC_SUBST([DFLT_NAME])
 AC_DEFINE_UNQUOTED([DFLT_NAME], ["$DFLT_NAME"], [Name of the configuration default set])
 
 if test "${enable_shell_access}" = "yes"; then
-   AC_DEFINE([HAVE_SHELL_ACCESS], [1], [Allow user to use ssh/telnet/bash])
+   AC_DEFINE([HAVE_SHELL_ACCESS], [1], [Allow user to use ssh/telnet/bash, be aware this is considered insecure])
 fi
 
 AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
@@ -762,7 +765,7 @@ AC_DEFINE_UNQUOTED([CONFIGFILE_MASK], [${enable_configfile_mask}], [Mask for con
 enable_logfile_mask=${enable_logfile_mask:-0600}
 AC_DEFINE_UNQUOTED([LOGFILE_MASK], [${enable_logfile_mask}], [Mask for log files])
 
-MPATH_NUM=1
+MPATH_NUM=16
 
 case "${enable_multipath}" in
   0)
@@ -817,15 +820,17 @@ fi
 AM_CONDITIONAL([GIT_VERSION], [test "x$with_pkg_git_version" = "xyes"])
 
 AC_CHECK_TOOL([OBJCOPY], [objcopy], [:])
-AC_CACHE_CHECK([for .interp value to use], [frr_cv_interp], [
-  frr_cv_interp=""
-  AC_LINK_IFELSE([AC_LANG_SOURCE([[int main() { return 0; }]])], [
-    if $OBJCOPY -j.interp -Obinary conftest conftest.interp; then
-      frr_cv_interp="`xargs -0 echo < conftest.interp`"
-    fi
-    test -f conftest.interp && rm conftest.interp
+if test "x${OBJCOPY}" != "x:"; then
+  AC_CACHE_CHECK([for .interp value to use], [frr_cv_interp], [
+    frr_cv_interp=""
+    AC_LINK_IFELSE([AC_LANG_SOURCE([[int main() { return 0; }]])], [
+      if $OBJCOPY -j.interp -Obinary conftest conftest.interp; then
+        frr_cv_interp="`xargs -0 echo < conftest.interp`"
+      fi
+      test -f conftest.interp && rm conftest.interp
+    ])
   ])
-])
+fi
 if test -n "$frr_cv_interp"; then
   AC_DEFINE_UNQUOTED([INTERP], ["$frr_cv_interp"], [.interp value])
 fi
@@ -920,6 +925,80 @@ AC_CHECK_HEADERS([pthread_np.h],,, [
 #include <pthread.h>
 ])
 AC_CHECK_FUNCS([pthread_setname_np pthread_set_name_np])
+
+needsync=true
+
+AS_IF([$needsync], [
+  dnl Linux
+  AC_MSG_CHECKING([for Linux futex() support])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#include <unistd.h>
+#include <limits.h>
+#include <sys/time.h>
+#include <sys/syscall.h>
+#include <linux/futex.h>
+
+int main(void);
+],
+[
+{
+  return syscall(SYS_futex, NULL, FUTEX_WAIT, 0, NULL, NULL, 0);
+}
+])], [
+    AC_MSG_RESULT([yes])
+    AC_DEFINE(HAVE_SYNC_LINUX_FUTEX,,Have Linux futex support)
+    needsync=false
+  ], [
+    AC_MSG_RESULT([no])
+  ])
+])
+
+AS_IF([$needsync], [
+  dnl FreeBSD
+  AC_MSG_CHECKING([for FreeBSD _umtx_op() support])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([
+#include <errno.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/umtx.h>
+int main(void);
+],
+[
+{
+  return _umtx_op(NULL, UMTX_OP_WAIT_UINT, 0, NULL, NULL);
+}
+])], [
+    AC_MSG_RESULT([yes])
+    AC_DEFINE(HAVE_SYNC_UMTX_OP,,Have FreeBSD _umtx_op() support)
+    needsync=false
+  ], [
+    AC_MSG_RESULT([no])
+  ])
+])
+
+AS_IF([$needsync], [
+  dnl OpenBSD patch (not upstream at the time of writing this)
+  dnl https://marc.info/?l=openbsd-tech&m=147299508409549&w=2
+  AC_MSG_CHECKING([for OpenBSD futex() support])
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([
+#include <sys/futex.h>
+int main(void);
+],
+[
+{
+  return futex(NULL, FUTEX_WAIT, 0, NULL, NULL, 0);
+}
+])], [
+    AC_MSG_RESULT([yes])
+    AC_DEFINE(HAVE_SYNC_OPENBSD_FUTEX,,Have OpenBSD futex support)
+    needsync=false
+  ], [
+    AC_MSG_RESULT([no])
+  ])
+])
 
 dnl Utility macro to avoid retyping includes all the time
 m4_define([FRR_INCLUDES],
@@ -1598,22 +1677,43 @@ AC_SUBST([SNMP_CFLAGS])
 dnl ---------------
 dnl libyang
 dnl ---------------
-PKG_CHECK_MODULES([libyang], [libyang >= 0.16.7], , [
+PKG_CHECK_MODULES([LIBYANG], [libyang >= 0.16.7], , [
   AC_MSG_ERROR([libyang (>= 0.16.7) was not found on your system.])
 ])
+ac_cflags_save="$CFLAGS"
+CFLAGS="$CFLAGS $LIBYANG_CFLAGS"
 AC_CHECK_MEMBER([struct lyd_node.priv], [], [
   AC_MSG_ERROR([m4_normalize([
     libyang needs to be compiled with ENABLE_LYD_PRIV=ON.
-    See http://docs.frrouting.org/projects/dev-guide/en/latest/building-libyang.html for details.])
+    Instructions for this are included in the build documentation for your platform at http://docs.frrouting.org/projects/dev-guide/en/latest/building.html])
   ])
 ], [[#include <libyang/libyang.h>]])
+CFLAGS="$ac_cflags_save"
+
+ac_libs_save="$LIBS"
+LIBS="$LIBS $LIBYANG_LIBS"
+AC_CHECK_FUNC([ly_register_types], [
+  libyang_ext_builtin=true
+  AC_DEFINE([LIBYANG_EXT_BUILTIN], [1], [have ly_register_types()])
+], [
+  libyang_ext_builtin=false
+  AC_MSG_WARN([===== old libyang (before 0.16.74) detected =====])
+  AC_MSG_WARN([The available version of libyang does not seem to support])
+  AC_MSG_WARN([built-in YANG extension modules.  This will cause "make check"])
+  AC_MSG_WARN([to fail and may create installation and version mismatch issues.])
+  AC_MSG_WARN([Support for the old mechanism will be removed at some point.])
+  AC_MSG_WARN([Please update libyang to version 0.16.74 or newer.])
+  AC_MSG_WARN([===== old libyang (before 0.16.74) detected =====])
+])
+AM_CONDITIONAL([LIBYANG_EXT_BUILTIN], [$libyang_ext_builtin])
+LIBS="$ac_libs_save"
 
 dnl ---------------
 dnl configuration rollbacks
 dnl ---------------
 SQLITE3=false
 if test "$enable_config_rollbacks" = "yes"; then
-  PKG_CHECK_MODULES([sqlite3], [sqlite3], [
+  PKG_CHECK_MODULES([SQLITE3], [sqlite3], [
     AC_DEFINE([HAVE_CONFIG_ROLLBACKS], [1], [Enable configuration rollbacks])
     AC_DEFINE([HAVE_SQLITE3], [1], [Enable sqlite3 database])
     SQLITE3=true
@@ -1633,6 +1733,8 @@ if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
    fi
    CONFD_CFLAGS="-I${enable_confd}/include -L${enable_confd}/lib"
    AC_SUBST([CONFD_CFLAGS])
+   CONFD_LIBS="-lconfd"
+   AC_SUBST([CONFD_LIBS])
    AC_DEFINE([HAVE_CONFD], [1], [Enable confd integration])
 fi
 AM_CONDITIONAL([CONFD], [test "x$enable_confd" != "x"])
@@ -1641,7 +1743,7 @@ dnl ---------------
 dnl sysrepo
 dnl ---------------
 if test "$enable_sysrepo" = "yes"; then
-  PKG_CHECK_MODULES([sysrepo], [libsysrepo],
+  PKG_CHECK_MODULES([SYSREPO], [libsysrepo],
       [AC_DEFINE([HAVE_SYSREPO], [1], [Enable sysrepo integration])
       SYSREPO=true],
       [SYSREPO=false
@@ -1715,7 +1817,8 @@ AC_CHECK_TYPES([
 	vifi_t, struct sioc_vif_req, struct igmpmsg,
 	struct ifaliasreq, struct if6_aliasreq, struct in6_aliasreq,
 	struct nd_opt_adv_interval, struct rt_addrinfo,
-	struct nd_opt_homeagent_info, struct nd_opt_adv_interval],
+	struct nd_opt_homeagent_info, struct nd_opt_adv_interval,
+	struct nd_opt_rdnss, struct nd_opt_dnssl],
 	[], [], FRR_INCLUDES)
 
 AC_CHECK_MEMBERS([struct sockaddr.sa_len,
@@ -2128,6 +2231,7 @@ AC_SUBST([CFG_LIBYANG_PLUGINS])
 AC_DEFINE_UNQUOTED([MODULE_PATH], ["$CFG_MODULE"], [path to modules])
 AC_DEFINE_UNQUOTED([YANG_MODELS_PATH], ["$CFG_YANGMODELS"], [path to YANG data models])
 AC_DEFINE_UNQUOTED([LIBYANG_PLUGINS_PATH], ["$CFG_LIBYANG_PLUGINS"], [path to libyang plugins])
+AC_DEFINE_UNQUOTED([WATCHFRR_SH_PATH], ["${CFG_SBIN%/}/watchfrr.sh"], [path to watchfrr.sh])
 
 dnl ------------------------------------
 dnl Enable RPKI and add librtr to libs
@@ -2167,9 +2271,9 @@ AC_CONFIG_FILES([Makefile],[sed -e 's/^#AUTODERP# //' -i Makefile])
 
 AC_CONFIG_FILES([
 	  config.version
+	  changelog-auto
 	  redhat/frr.spec
 	  solaris/Makefile
-	  debianpkg/changelog
 	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml
 	  lib/version.h

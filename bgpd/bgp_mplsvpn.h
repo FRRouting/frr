@@ -226,10 +226,44 @@ static inline void vpn_leak_postchange(vpn_policy_direction_t direction,
 	}
 }
 
+/* Flag if the route is injectable into VPN. This would be either a
+ * non-imported route or a non-VPN imported route.
+ */
+static inline bool is_route_injectable_into_vpn(struct bgp_path_info *pi)
+{
+	struct bgp_path_info *parent_pi;
+	struct bgp_table *table;
+	struct bgp_node *rn;
+
+	if (pi->sub_type != BGP_ROUTE_IMPORTED ||
+	    !pi->extra ||
+	    !pi->extra->parent)
+		return true;
+
+	parent_pi = (struct bgp_path_info *)pi->extra->parent;
+	rn = parent_pi->net;
+	if (!rn)
+		return true;
+	table = bgp_node_table(rn);
+	if (table &&
+	    (table->afi == AFI_IP || table->afi == AFI_IP6) &&
+	    table->safi == SAFI_MPLS_VPN)
+		return false;
+	return true;
+}
+
+/* Flag if the route path's family is VPN. */
+static inline bool is_pi_family_vpn(struct bgp_path_info *pi)
+{
+	return (is_pi_family_matching(pi, AFI_IP, SAFI_MPLS_VPN) ||
+		is_pi_family_matching(pi, AFI_IP6, SAFI_MPLS_VPN));
+}
+
 extern void vpn_policy_routemap_event(const char *rmap_name);
 
 extern vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey);
 
 extern void vpn_leak_postchange_all(void);
+extern void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */

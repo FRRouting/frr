@@ -8,9 +8,10 @@ Add packages:
 
 ::
 
-    sudo apt-get install git autoconf automake libtool make \
-      libreadline-dev texinfo libjson-c-dev pkg-config bison flex \
-      python-pip libc-ares-dev python3-dev python-pytest python3-sphinx
+   sudo apt-get install git autoconf automake libtool make \
+     libreadline-dev texinfo libjson-c-dev pkg-config bison flex python-pip \
+     libc-ares-dev python3-dev python-pytest python3-sphinx build-essential \
+     libsystemd-dev
 
 .. include:: building-libyang.rst
 

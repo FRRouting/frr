@@ -37,7 +37,7 @@ struct zebra_privs_t test_privs = {
 	.vty_group = VTY_GROUP,
 #endif
 	.caps_p = _caps_p,
-	.cap_num_p = sizeof(_caps_p) / sizeof(_caps_p[0]),
+	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0};
 
 struct option longopts[] = {{"help", no_argument, NULL, 'h'},

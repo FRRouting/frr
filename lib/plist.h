@@ -27,6 +27,10 @@
 #include "stream.h"
 #include "vty.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum prefix_list_type {
 	PREFIX_DENY,
 	PREFIX_PERMIT,
@@ -74,5 +78,9 @@ extern int prefix_bgp_orf_set(char *, afi_t, struct orf_prefix *, int, int);
 extern void prefix_bgp_orf_remove_all(afi_t, char *);
 extern int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 				       bool use_json);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _QUAGGA_PLIST_H */

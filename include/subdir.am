@@ -1,4 +1,5 @@
 noinst_HEADERS += \
+	include/linux/if_addr.h \
 	include/linux/if_bridge.h \
 	include/linux/if_link.h \
 	include/linux/lwtunnel.h \

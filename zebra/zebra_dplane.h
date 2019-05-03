@@ -28,6 +28,11 @@
 #include "zebra/zebra_ns.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_mpls.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Key netlink info from zebra ns */
 struct zebra_dplane_info {
@@ -101,7 +106,26 @@ enum dplane_op_e {
 	DPLANE_OP_ROUTE_UPDATE,
 	DPLANE_OP_ROUTE_DELETE,
 
+	/* LSP update */
+	DPLANE_OP_LSP_INSTALL,
+	DPLANE_OP_LSP_UPDATE,
+	DPLANE_OP_LSP_DELETE,
+
+	/* Pseudowire update */
+	DPLANE_OP_PW_INSTALL,
+	DPLANE_OP_PW_UNINSTALL,
+
+	/* System route notification */
+	DPLANE_OP_SYS_ROUTE_ADD,
+	DPLANE_OP_SYS_ROUTE_DELETE,
+
+	/* Interface address update */
+	DPLANE_OP_ADDR_INSTALL,
+	DPLANE_OP_ADDR_UNINSTALL,
 };
+
+/* Enable system route notifications */
+void dplane_enable_sys_route_notifs(void);
 
 /*
  * The dataplane context struct is used to exchange info between the main zebra
@@ -167,6 +191,8 @@ bool dplane_ctx_is_update(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_seq(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_seq(const struct zebra_dplane_ctx *ctx);
 vrf_id_t dplane_ctx_get_vrf(const struct zebra_dplane_ctx *ctx);
+
+/* Accessors for route update information */
 int dplane_ctx_get_type(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_get_old_type(const struct zebra_dplane_ctx *ctx);
 afi_t dplane_ctx_get_afi(const struct zebra_dplane_ctx *ctx);
@@ -188,6 +214,47 @@ const struct nexthop_group *dplane_ctx_get_ng(
 const struct nexthop_group *dplane_ctx_get_old_ng(
 	const struct zebra_dplane_ctx *ctx);
 
+/* Accessors for LSP information */
+mpls_label_t dplane_ctx_get_in_label(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_get_addr_family(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_lsp_flags(const struct zebra_dplane_ctx *ctx);
+const zebra_nhlfe_t *dplane_ctx_get_nhlfe(const struct zebra_dplane_ctx *ctx);
+const zebra_nhlfe_t *dplane_ctx_get_best_nhlfe(
+	const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_lsp_num_ecmp(const struct zebra_dplane_ctx *ctx);
+
+/* Accessors for pseudowire information */
+const char *dplane_ctx_get_pw_ifname(const struct zebra_dplane_ctx *ctx);
+mpls_label_t dplane_ctx_get_pw_local_label(const struct zebra_dplane_ctx *ctx);
+mpls_label_t dplane_ctx_get_pw_remote_label(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_get_pw_type(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_get_pw_af(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_pw_flags(const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_get_pw_status(const struct zebra_dplane_ctx *ctx);
+const union g_addr *dplane_ctx_get_pw_dest(
+	const struct zebra_dplane_ctx *ctx);
+const union pw_protocol_fields *dplane_ctx_get_pw_proto(
+	const struct zebra_dplane_ctx *ctx);
+const struct nexthop_group *dplane_ctx_get_pw_nhg(
+	const struct zebra_dplane_ctx *ctx);
+
+/* Accessors for interface information */
+const char *dplane_ctx_get_ifname(const struct zebra_dplane_ctx *ctx);
+ifindex_t dplane_ctx_get_ifindex(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_intf_metric(const struct zebra_dplane_ctx *ctx);
+/* Is interface addr p2p? */
+bool dplane_ctx_intf_is_connected(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_intf_is_secondary(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_intf_is_broadcast(const struct zebra_dplane_ctx *ctx);
+const struct prefix *dplane_ctx_get_intf_addr(
+	const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_intf_has_dest(const struct zebra_dplane_ctx *ctx);
+const struct prefix *dplane_ctx_get_intf_dest(
+	const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_intf_has_label(const struct zebra_dplane_ctx *ctx);
+const char *dplane_ctx_get_intf_label(const struct zebra_dplane_ctx *ctx);
+
+/* Namespace info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
 	const struct zebra_dplane_ctx *ctx);
 
@@ -208,6 +275,34 @@ enum zebra_dplane_result dplane_route_update(struct route_node *rn,
 
 enum zebra_dplane_result dplane_route_delete(struct route_node *rn,
 					     struct route_entry *re);
+
+/* Notify the dplane when system/connected routes change */
+enum zebra_dplane_result dplane_sys_route_add(struct route_node *rn,
+					      struct route_entry *re);
+enum zebra_dplane_result dplane_sys_route_del(struct route_node *rn,
+					      struct route_entry *re);
+
+/*
+ * Enqueue LSP change operations for the dataplane.
+ */
+enum zebra_dplane_result dplane_lsp_add(zebra_lsp_t *lsp);
+enum zebra_dplane_result dplane_lsp_update(zebra_lsp_t *lsp);
+enum zebra_dplane_result dplane_lsp_delete(zebra_lsp_t *lsp);
+
+/*
+ * Enqueue pseudowire operations for the dataplane.
+ */
+enum zebra_dplane_result dplane_pw_install(struct zebra_pw *pw);
+enum zebra_dplane_result dplane_pw_uninstall(struct zebra_pw *pw);
+
+/*
+ * Enqueue interface address changes for the dataplane.
+ */
+enum zebra_dplane_result dplane_intf_addr_set(const struct interface *ifp,
+					      const struct connected *ifc);
+enum zebra_dplane_result dplane_intf_addr_unset(const struct interface *ifp,
+						const struct connected *ifc);
+
 
 /* Retrieve the limit on the number of pending, unprocessed updates. */
 uint32_t dplane_get_in_queue_limit(void);
@@ -344,5 +439,9 @@ void zebra_dplane_start(void);
 void zebra_dplane_pre_finish(void);
 void zebra_dplane_finish(void);
 void zebra_dplane_shutdown(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	/* _ZEBRA_DPLANE_H */

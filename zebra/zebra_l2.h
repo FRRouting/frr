@@ -29,6 +29,10 @@
 #include "vlan.h"
 #include "vxlan.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* zebra L2 interface information - bridge slave (linkage to bridge) */
 struct zebra_l2info_brslave {
 	ifindex_t bridge_ifindex; /* Bridge Master */
@@ -50,6 +54,7 @@ struct zebra_l2info_vxlan {
 	vni_t vni;		/* VNI */
 	struct in_addr vtep_ip; /* Local tunnel IP */
 	vlanid_t access_vlan;   /* Access VLAN - for VLAN-aware bridge. */
+	struct in_addr mcast_grp;
 };
 
 struct zebra_l2info_bondslave {
@@ -96,4 +101,9 @@ extern void zebra_l2if_update_bridge_slave(struct interface *ifp,
 
 extern void zebra_l2if_update_bond_slave(struct interface *ifp,
 					 ifindex_t bond_ifindex);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* _ZEBRA_L2_H */

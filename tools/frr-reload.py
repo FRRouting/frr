@@ -300,13 +300,11 @@ class Config(object):
 
         '''
           More fixups in user specification and what running config shows.
-          "null0" in routes must be replaced by Null0, and "blackhole" must
-          be replaced by Null0 as well.
+          "null0" in routes must be replaced by Null0.
         '''
         if (key[0].startswith('ip route') or key[0].startswith('ipv6 route') and
-                'null0' in key[0] or 'blackhole' in key[0]):
+                'null0' in key[0]):
             key[0] = re.sub(r'\s+null0(\s*$)', ' Null0', key[0])
-            key[0] = re.sub(r'\s+blackhole(\s*$)', ' Null0', key[0])
 
         if lines:
             if tuple(key) not in self.contexts:
@@ -435,11 +433,22 @@ end
                 self.save_contexts(ctx_keys, current_context_lines)
                 new_ctx = True
 
-            elif line in ["end", "exit-vrf"]:
+            elif line == "end":
                 self.save_contexts(ctx_keys, current_context_lines)
                 log.debug('LINE %-50s: exiting old context, %-50s', line, ctx_keys)
 
                 # Start a new context
+                new_ctx = True
+                main_ctx_key = []
+                ctx_keys = []
+                current_context_lines = []
+
+            elif line == "exit-vrf":
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines.append(line)
+                log.debug('LINE %-50s: append to current_context_lines, %-50s', line, ctx_keys)
+
+                #Start a new context
                 new_ctx = True
                 main_ctx_key = []
                 ctx_keys = []
@@ -731,6 +740,27 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                         lines_to_del_to_del.append((ctx_keys, line))
                         lines_to_add_to_del.append((ctx_keys, swpx_interface))
                         lines_to_add_to_del.append((tmp_ctx_keys, swpx_peergroup))
+
+                '''
+                Changing the bfd timers on neighbors is allowed without doing
+                a delete/add process. Since doing a "no neighbor blah bfd ..."
+                will cause the peer to bounce unnecessarily, just skip the delete
+                and just do the add.
+                '''
+                re_nbr_bfd_timers = re.search(r'neighbor (\S+) bfd (\S+) (\S+) (\S+)', line)
+
+                if re_nbr_bfd_timers:
+                    nbr = re_nbr_bfd_timers.group(1)
+                    bfd_nbr = "neighbor %s" % nbr
+
+                    for (ctx_keys, add_line) in lines_to_add:
+                        re_add_nbr_bfd_timers = re.search(r'neighbor (\S+) bfd (\S+) (\S+) (\S+)', add_line)
+
+                        if re_add_nbr_bfd_timers:
+                            found_add_bfd_nbr = line_exist(lines_to_add, ctx_keys, bfd_nbr, False)
+
+                            if found_add_bfd_nbr:
+                                lines_to_del_to_del.append((ctx_keys, line))
 
                 '''
                 We changed how we display the neighbor interface command. Older
