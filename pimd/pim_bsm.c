@@ -64,6 +64,18 @@ static void pim_free_bsgrp_data(struct bsgrp_node *bsgrp_node)
 	XFREE(MTYPE_PIM_BSGRP_NODE, bsgrp_node);
 }
 
+static void pim_free_bsgrp_node(struct route_table *rt, struct prefix *grp)
+{
+	struct route_node *rn;
+
+	rn = route_node_lookup(rt, grp);
+	if (rn) {
+		rn->info = NULL;
+		route_unlock_node(rn);
+		route_unlock_node(rn);
+	}
+}
+
 static void pim_bsm_node_free(struct bsm_info *bsm)
 {
 	if (bsm->bsm)
@@ -136,8 +148,83 @@ void pim_bsm_proc_free(struct pim_instance *pim)
 		route_table_finish(pim->global_scope.bsrp_table);
 }
 
+static bool is_hold_time_elapsed(void *data)
+{
+	struct bsm_rpinfo *bsrp;
+
+	bsrp = data;
+
+	if (bsrp->elapse_time < bsrp->rp_holdtime)
+		return false;
+	else
+		return true;
+}
+
 static int pim_on_g2rp_timer(struct thread *t)
 {
+	struct bsm_rpinfo *bsrp;
+	struct bsm_rpinfo *bsrp_node;
+	struct bsgrp_node *bsgrp_node;
+	struct listnode *bsrp_ln;
+	struct pim_instance *pim;
+	struct rp_info *rp_info;
+	struct route_node *rn;
+	uint16_t elapse;
+	struct in_addr bsrp_addr;
+
+	bsrp = THREAD_ARG(t);
+	THREAD_OFF(bsrp->g2rp_timer);
+	bsgrp_node = bsrp->bsgrp_node;
+
+	/* elapse time is the hold time of expired node */
+	elapse = bsrp->rp_holdtime;
+	bsrp_addr = bsrp->rp_address;
+
+	/* update elapse for all bsrp nodes */
+	for (ALL_LIST_ELEMENTS_RO(bsgrp_node->bsrp_list, bsrp_ln, bsrp_node))
+		bsrp_node->elapse_time += elapse;
+
+	/* remove the expired nodes from the list */
+	list_filter_out_nodes(bsgrp_node->bsrp_list, is_hold_time_elapsed);
+
+	/* Get the next elected rp node */
+	bsrp = listnode_head(bsgrp_node->bsrp_list);
+	pim = bsgrp_node->scope->pim;
+	rn = route_node_lookup(pim->rp_table, &bsgrp_node->group);
+
+	if (!rn) {
+		zlog_warn("%s: Route node doesn't exist", __PRETTY_FUNCTION__);
+		return 0;
+	}
+
+	rp_info = (struct rp_info *)rn->info;
+
+	if (!rp_info) {
+		route_unlock_node(rn);
+		return 0;
+	}
+
+	if (rp_info->rp_src != RP_SRC_STATIC) {
+		/* If new rp available, change it else delete the existing */
+		if (bsrp) {
+			bsrp_addr = bsrp->rp_address;
+			pim_g2rp_timer_start(
+				bsrp, (bsrp->rp_holdtime - bsrp->elapse_time));
+			pim_rp_change(pim, bsrp_addr, bsgrp_node->group,
+				      RP_SRC_BSR);
+		} else {
+			pim_rp_del(pim, bsrp_addr, bsgrp_node->group, NULL,
+				   RP_SRC_BSR);
+		}
+	}
+
+	if ((!bsgrp_node->bsrp_list->count)
+	    && (!bsgrp_node->partial_bsrp_list->count)) {
+		pim_free_bsgrp_node(pim->global_scope.bsrp_table,
+				    &bsgrp_node->group);
+		pim_free_bsgrp_data(bsgrp_node);
+	}
+
 	return 0;
 }
 
