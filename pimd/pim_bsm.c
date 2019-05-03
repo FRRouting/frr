@@ -32,8 +32,12 @@
 
 /* Functions forward declaration */
 static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout);
-static int pim_on_bs_timer(struct thread *t);
-static void pim_bs_timer_stop(struct bsm_scope *scope);
+
+/* Memory Types */
+DEFINE_MTYPE_STATIC(PIMD, PIM_BSGRP_NODE, "PIM BSR advertised grp info")
+DEFINE_MTYPE_STATIC(PIMD, PIM_BSRP_NODE, "PIM BSR advertised RP info")
+DEFINE_MTYPE_STATIC(PIMD, PIM_BSM_INFO, "PIM BSM Info")
+DEFINE_MTYPE_STATIC(PIMD, PIM_BSM_PKT_VAR_MEM, "PIM BSM Packet")
 
 /* pim_bsm_write_config - Write the interface pim bsm configuration.*/
 void pim_bsm_write_config(struct vty *vty, struct interface *ifp)
@@ -54,7 +58,6 @@ static void pim_free_bsgrp_data(struct bsgrp_node *bsgrp_node)
 		list_delete(&bsgrp_node->bsrp_list);
 	if (bsgrp_node->partial_bsrp_list)
 		list_delete(&bsgrp_node->partial_bsrp_list);
-
 	XFREE(MTYPE_PIM_BSGRP_NODE, bsgrp_node);
 }
 
@@ -63,6 +66,35 @@ static void pim_bsm_node_free(struct bsm_info *bsm)
 	if (bsm->bsm)
 		XFREE(MTYPE_PIM_BSM_PKT_VAR_MEM, bsm->bsm);
 	XFREE(MTYPE_PIM_BSM_INFO, bsm);
+}
+
+static int pim_on_bs_timer(struct thread *t)
+{
+	return 0;
+}
+
+static void pim_bs_timer_stop(struct bsm_scope *scope)
+{
+	if (PIM_DEBUG_BSM)
+		zlog_debug("%s : BS timer being stopped of sz: %d",
+			   __PRETTY_FUNCTION__, scope->sz_id);
+	THREAD_OFF(scope->bs_timer);
+}
+
+static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout)
+{
+	if (!scope) {
+		if (PIM_DEBUG_BSM)
+			zlog_debug("%s : Invalid scope(NULL).",
+				   __PRETTY_FUNCTION__);
+		return;
+	}
+	THREAD_OFF(scope->bs_timer);
+	if (PIM_DEBUG_BSM)
+		zlog_debug("%s : starting bs timer for scope %d with timeout %d secs",
+			   __PRETTY_FUNCTION__, scope->sz_id, bs_timeout);
+	thread_add_timer(router->master, pim_on_bs_timer, scope, bs_timeout,
+			 &scope->bs_timer);
 }
 
 void pim_bsm_proc_init(struct pim_instance *pim)
@@ -99,36 +131,6 @@ void pim_bsm_proc_free(struct pim_instance *pim)
 
 	if (pim->global_scope.bsrp_table)
 		route_table_finish(pim->global_scope.bsrp_table);
-}
-
-static int pim_on_bs_timer(struct thread *t)
-{
-	return 0;
-}
-
-static void pim_bs_timer_stop(struct bsm_scope *scope)
-{
-	if (PIM_DEBUG_BSM)
-		zlog_debug("%s : BS timer being stopped of sz: %d",
-			   __PRETTY_FUNCTION__, scope->sz_id);
-	THREAD_OFF(scope->bs_timer);
-}
-
-static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout)
-{
-	if (!scope) {
-		if (PIM_DEBUG_BSM)
-			zlog_debug("%s : Invalid scope(NULL).",
-				   __PRETTY_FUNCTION__);
-	}
-
-	THREAD_OFF(scope->bs_timer);
-
-	if (PIM_DEBUG_BSM)
-		zlog_debug("%s : starting bs timer for scope %d with timeout %d secs",
-			   __PRETTY_FUNCTION__, scope->sz_id, bs_timeout);
-	thread_add_timer(router->master, pim_on_bs_timer, scope, bs_timeout,
-			 &scope->bs_timer);
 }
 
 struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
