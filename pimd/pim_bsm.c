@@ -32,6 +32,9 @@
 
 /* Functions forward declaration */
 static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout);
+static void pim_g2rp_timer_start(struct bsm_rpinfo *bsrp, int hold_time);
+static inline void pim_g2rp_timer_restart(struct bsm_rpinfo *bsrp,
+					  int hold_time);
 
 /* Memory Types */
 DEFINE_MTYPE_STATIC(PIMD, PIM_BSGRP_NODE, "PIM BSR advertised grp info")
@@ -131,6 +134,41 @@ void pim_bsm_proc_free(struct pim_instance *pim)
 
 	if (pim->global_scope.bsrp_table)
 		route_table_finish(pim->global_scope.bsrp_table);
+}
+
+static int pim_on_g2rp_timer(struct thread *t)
+{
+	return 0;
+}
+
+static void pim_g2rp_timer_start(struct bsm_rpinfo *bsrp, int hold_time)
+{
+	if (!bsrp) {
+		if (PIM_DEBUG_BSM)
+			zlog_debug("%s : Invalid brsp(NULL).",
+				   __PRETTY_FUNCTION__);
+		return;
+	}
+	THREAD_OFF(bsrp->g2rp_timer);
+	if (PIM_DEBUG_BSM) {
+		char buf[48];
+
+		zlog_debug(
+			"%s : starting g2rp timer for grp: %s - rp: %s with timeout  %d secs(Actual Hold time : %d secs)",
+			__PRETTY_FUNCTION__,
+			prefix2str(&bsrp->bsgrp_node->group, buf, 48),
+			inet_ntoa(bsrp->rp_address), hold_time,
+			bsrp->rp_holdtime);
+	}
+
+	thread_add_timer(router->master, pim_on_g2rp_timer, bsrp, hold_time,
+			 &bsrp->g2rp_timer);
+}
+
+static inline void pim_g2rp_timer_restart(struct bsm_rpinfo *bsrp,
+					  int hold_time)
+{
+	pim_g2rp_timer_start(bsrp, hold_time);
 }
 
 struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
