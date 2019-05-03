@@ -40,7 +40,7 @@ dev_RSTFILES = \
 	doc/developer/ospf-sr.rst \
 	doc/developer/ospf.rst \
 	doc/developer/packaging-debian.rst \
-	doc/developer/packaging-redhat.rst
+	doc/developer/packaging-redhat.rst \
 	doc/developer/packaging.rst \
 	doc/developer/testing.rst \
 	doc/developer/topotests-snippets.rst \
