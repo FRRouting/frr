@@ -85,6 +85,64 @@ static void pim_bsm_node_free(struct bsm_info *bsm)
 
 static int pim_on_bs_timer(struct thread *t)
 {
+	struct route_node *rn;
+	struct bsm_scope *scope;
+	struct bsgrp_node *bsgrp_node;
+	struct bsm_rpinfo *bsrp;
+	struct prefix nht_p;
+	char buf[PREFIX2STR_BUFFER];
+	bool is_bsr_tracking = true;
+
+	scope = THREAD_ARG(t);
+	THREAD_OFF(scope->bs_timer);
+
+	if (PIM_DEBUG_BSM)
+		zlog_debug("%s: Bootstrap Timer expired for scope: %d",
+			   __PRETTY_FUNCTION__, scope->sz_id);
+
+	/* Remove next hop tracking for the bsr */
+	nht_p.family = AF_INET;
+	nht_p.prefixlen = IPV4_MAX_BITLEN;
+	nht_p.u.prefix4 = scope->current_bsr;
+	if (PIM_DEBUG_BSM) {
+		prefix2str(&nht_p, buf, sizeof(buf));
+		zlog_debug("%s: Deregister BSR addr %s with Zebra NHT",
+			   __PRETTY_FUNCTION__, buf);
+	}
+	pim_delete_tracked_nexthop(scope->pim, &nht_p, NULL, NULL,
+				   is_bsr_tracking);
+
+	/* Reset scope zone data */
+	scope->accept_nofwd_bsm = false;
+	scope->state = ACCEPT_ANY;
+	scope->current_bsr.s_addr = INADDR_ANY;
+	scope->current_bsr_prio = 0;
+	scope->current_bsr_first_ts = 0;
+	scope->current_bsr_last_ts = 0;
+	scope->bsm_frag_tag = 0;
+	list_delete_all_node(scope->bsm_list);
+
+	for (rn = route_top(scope->bsrp_table); rn; rn = route_next(rn)) {
+
+		bsgrp_node = (struct bsgrp_node *)rn->info;
+		if (!bsgrp_node) {
+			if (PIM_DEBUG_BSM)
+				zlog_debug("%s: bsgrp_node is null",
+					   __PRETTY_FUNCTION__);
+			continue;
+		}
+		/* Give grace time for rp to continue for another hold time */
+		if ((bsgrp_node->bsrp_list) && (bsgrp_node->bsrp_list->count)) {
+			bsrp = listnode_head(bsgrp_node->bsrp_list);
+			pim_g2rp_timer_restart(bsrp, bsrp->rp_holdtime);
+		}
+		/* clear pending list */
+		if ((bsgrp_node->partial_bsrp_list)
+		    && (bsgrp_node->partial_bsrp_list->count)) {
+			list_delete_all_node(bsgrp_node->partial_bsrp_list);
+			bsgrp_node->pend_rp_cnt = 0;
+		}
+	}
 	return 0;
 }
 
