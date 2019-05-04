@@ -264,6 +264,8 @@ int main(int argc, char **argv)
 #if defined(HANDLE_NETLINK_FUZZING)
 	char *netlink_fuzzing = NULL;
 #endif /* HANDLE_NETLINK_FUZZING */
+	kernel_gr = 0;
+	kernel_gr_timer = ZEBRA_KERNEL_GR_TIME;
 
 	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
 	logicalrouter_configure_backend(LOGICALROUTER_BACKEND_NETNS);
@@ -271,7 +273,7 @@ int main(int argc, char **argv)
 	frr_preinit(&zebra_di, argc, argv);
 
 	frr_opt_add(
-		"bakz:e:l:o:r:K"
+		"bakz:e:l:o:K:r"
 #ifdef HAVE_NETLINK
 		"s:n"
 #endif
@@ -291,7 +293,7 @@ int main(int argc, char **argv)
 		"  -k, --keep_kernel     Don't delete old routes which were installed by zebra.\n"
 		"  -r, --retain          When program terminates, retain added route by zebra.\n"
 		"  -o, --vrfdefaultname  Set default VRF name.\n"
-		"  -K, --kernel_gr       Zebra graceful restart at kernel level. Arg: timer to expire stale routes\n"
+		"  -K, --kernel_gr       Zebra graceful restart at kernel level, arg timer to expire stale routes\n"
 #ifdef HAVE_NETLINK
 		"  -n, --vrfwnetns       Use NetNS as VRF backend\n"
 		"  -s, --nl-bufsize      Set netlink receive buffer size\n"
@@ -355,9 +357,8 @@ int main(int argc, char **argv)
 		case 'K':
 			kernel_gr = 1;
 			kernel_gr_timer = atoi(optarg);
-			/* Allow all positive values till 5*ZEBRA_KERNEL_GR_TIME */
-			if ((kernel_gr_timer < 1)
-				|| (kernel_gr_timer > 5*ZEBRA_KERNEL_GR_TIME))
+			/* Allow all positive values */
+			if (kernel_gr_timer < 1)
 				kernel_gr_timer = ZEBRA_KERNEL_GR_TIME;
 			break;
 #ifdef HAVE_NETLINK
