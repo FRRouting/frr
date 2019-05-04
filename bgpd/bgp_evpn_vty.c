@@ -3259,9 +3259,6 @@ DEFPY(bgp_evpn_advertise_svi_ip_vni,
 	if (!bgp)
 		return CMD_WARNING;
 
-	if (!vpn)
-		return CMD_WARNING;
-
 	if (no)
 		evpn_set_advertise_svi_macip(bgp, vpn, 0);
 	else
