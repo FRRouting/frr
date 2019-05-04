@@ -39,7 +39,7 @@
 #include "pim_oil.h"
 
 void pim_msg_build_header(uint8_t *pim_msg, size_t pim_msg_size,
-			  uint8_t pim_msg_type)
+			  uint8_t pim_msg_type, bool no_fwd)
 {
 	struct pim_msg_header *header = (struct pim_msg_header *)pim_msg;
 
@@ -48,6 +48,7 @@ void pim_msg_build_header(uint8_t *pim_msg, size_t pim_msg_size,
 	 */
 	header->ver = PIM_PROTO_VERSION;
 	header->type = pim_msg_type;
+	header->Nbit = no_fwd;
 	header->reserved = 0;
 
 

@@ -94,7 +94,7 @@ void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
 	b1length += length;
 
 	pim_msg_build_header(buffer, b1length + PIM_MSG_REGISTER_STOP_LEN,
-			     PIM_MSG_TYPE_REG_STOP);
+			     PIM_MSG_TYPE_REG_STOP, false);
 
 	pinfo = (struct pim_interface *)ifp->info;
 	if (!pinfo) {
@@ -208,7 +208,7 @@ void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
 	memcpy(b1, (const unsigned char *)buf, buf_size);
 
 	pim_msg_build_header(buffer, buf_size + PIM_MSG_REGISTER_LEN,
-			     PIM_MSG_TYPE_REGISTER);
+			     PIM_MSG_TYPE_REGISTER, false);
 
 	++pinfo->pim_ifstat_reg_send;
 

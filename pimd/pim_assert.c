@@ -418,7 +418,7 @@ int pim_assert_build_msg(uint8_t *pim_msg, int buf_size, struct interface *ifp,
 	  Add PIM header
 	*/
 	pim_msg_size = pim_msg_curr - pim_msg;
-	pim_msg_build_header(pim_msg, pim_msg_size, PIM_MSG_TYPE_ASSERT);
+	pim_msg_build_header(pim_msg, pim_msg_size, PIM_MSG_TYPE_ASSERT, false);
 
 	return pim_msg_size;
 }
