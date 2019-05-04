@@ -89,9 +89,6 @@ struct zebra_router {
 	/* A sequence number used for tracking routes */
 	_Atomic uint32_t sequence_num;
 
-	/* The default table used for this router */
-	uint32_t rtm_table_default;
-
 	/* rib work queue */
 #define ZEBRA_RIB_PROCESS_HOLD_TIME 10
 #define ZEBRA_RIB_PROCESS_RETRY_TIME 1

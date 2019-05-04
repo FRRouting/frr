@@ -326,15 +326,13 @@ struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 		return NULL;
 
 	if (vrf_id == VRF_DEFAULT) {
-		if (table_id == RT_TABLE_MAIN
-		    || table_id == zrouter.rtm_table_default)
+		if (table_id == RT_TABLE_MAIN)
 			table = zebra_vrf_table(afi, safi, vrf_id);
 		else
 			table = zebra_vrf_other_route_table(afi, table_id,
 							    vrf_id);
 	} else if (vrf_is_backend_netns()) {
-		if (table_id == RT_TABLE_MAIN
-		    || table_id == zrouter.rtm_table_default)
+		if (table_id == RT_TABLE_MAIN)
 			table = zebra_vrf_table(afi, safi, vrf_id);
 		else
 			table = zebra_vrf_other_route_table(afi, table_id,
@@ -452,10 +450,8 @@ struct route_table *zebra_vrf_other_route_table(afi_t afi, uint32_t table_id,
 	if (afi >= AFI_MAX)
 		return NULL;
 
-	if ((table_id != RT_TABLE_MAIN)
-	    && (table_id != zrouter.rtm_table_default)) {
-		if (zvrf->table_id == RT_TABLE_MAIN ||
-		    zvrf->table_id == zrouter.rtm_table_default) {
+	if (table_id != RT_TABLE_MAIN) {
+		if (zvrf->table_id == RT_TABLE_MAIN) {
 			/* this VRF use default table
 			 * so in all cases, it does not use specific table
 			 * so it is possible to configure tables in this VRF

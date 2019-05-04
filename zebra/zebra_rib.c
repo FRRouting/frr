@@ -165,8 +165,7 @@ int is_zebra_valid_kernel_table(uint32_t table_id)
 
 int is_zebra_main_routing_table(uint32_t table_id)
 {
-	if ((table_id == RT_TABLE_MAIN)
-	    || (table_id == zrouter.rtm_table_default))
+	if (table_id == RT_TABLE_MAIN)
 		return 1;
 	return 0;
 }
