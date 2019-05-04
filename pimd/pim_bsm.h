@@ -192,6 +192,7 @@ int  pim_bsm_process(struct interface *ifp,
 		     uint8_t *buf,
 		     uint32_t buf_size,
 		     bool no_fwd);
+bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp);
 struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 					  struct prefix *grp);
 #endif
