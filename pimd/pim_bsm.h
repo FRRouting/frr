@@ -187,6 +187,11 @@ struct bsmmsg_rpinfo {
 void pim_bsm_proc_init(struct pim_instance *pim);
 void pim_bsm_proc_free(struct pim_instance *pim);
 void pim_bsm_write_config(struct vty *vty, struct interface *ifp);
+int  pim_bsm_process(struct interface *ifp,
+		     struct ip *ip_hdr,
+		     uint8_t *buf,
+		     uint32_t buf_size,
+		     bool no_fwd);
 struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 					  struct prefix *grp);
 #endif

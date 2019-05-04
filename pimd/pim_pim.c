@@ -149,6 +149,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 	uint16_t checksum;     /* computed checksum */
 	struct pim_neighbor *neigh;
 	struct pim_msg_header *header;
+	bool   no_fwd;
 
 	if (len < sizeof(*ip_hdr)) {
 		if (PIM_DEBUG_PIM_PACKETS)
@@ -186,6 +187,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 
 	/* for computing checksum */
 	header->checksum = 0;
+	no_fwd = header->Nbit;
 
 	if (header->type == PIM_MSG_TYPE_REGISTER) {
 		/* First 8 byte header checksum */
@@ -273,6 +275,10 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 		return pim_assert_recv(ifp, neigh, ip_hdr->ip_src,
 				       pim_msg + PIM_MSG_HEADER_LEN,
 				       pim_msg_len - PIM_MSG_HEADER_LEN);
+		break;
+	case PIM_MSG_TYPE_BOOTSTRAP:
+		return pim_bsm_process(ifp, ip_hdr, pim_msg, pim_msg_len,
+				       no_fwd);
 		break;
 
 	default:
