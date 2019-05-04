@@ -860,7 +860,6 @@ void vrf_cmd_init(int (*writefunc)(struct vty *vty),
 void vrf_set_default_name(const char *default_name, bool force)
 {
 	struct vrf *def_vrf;
-	struct vrf *vrf_with_default_name = NULL;
 	static bool def_vrf_forced;
 
 	def_vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -871,13 +870,7 @@ void vrf_set_default_name(const char *default_name, bool force)
 			   def_vrf->vrf_id);
 		return;
 	}
-	if (vrf_with_default_name && vrf_with_default_name != def_vrf) {
-		/* vrf name already used by an other VRF */
-		zlog_debug("VRF: %s, avoid changing name to %s, same name exists (%u)",
-			   vrf_with_default_name->name, default_name,
-			   vrf_with_default_name->vrf_id);
-		return;
-	}
+
 	snprintf(vrf_default_name, VRF_NAMSIZ, "%s", default_name);
 	if (def_vrf) {
 		if (force)
