@@ -474,8 +474,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"\t%s: Interface %s is not unnumbered",
-					__PRETTY_FUNCTION__,
-					ifp ? ifp->name : "Unknown");
+					__PRETTY_FUNCTION__, ifp->name);
 			return 0;
 		}
 	}
