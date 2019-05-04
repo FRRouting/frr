@@ -42,6 +42,9 @@ DEFINE_MTYPE_STATIC(PIMD, PIM_BSRP_NODE, "PIM BSR advertised RP info")
 DEFINE_MTYPE_STATIC(PIMD, PIM_BSM_INFO, "PIM BSM Info")
 DEFINE_MTYPE_STATIC(PIMD, PIM_BSM_PKT_VAR_MEM, "PIM BSM Packet")
 
+/* All bsm packets forwarded shall be fit within ip mtu less iphdr(max) */
+#define MAX_IP_HDR_LEN 24
+
 /* pim_bsm_write_config - Write the interface pim bsm configuration.*/
 void pim_bsm_write_config(struct vty *vty, struct interface *ifp)
 {
@@ -662,6 +665,68 @@ static void pim_bsm_update(struct pim_instance *pim, struct in_addr bsr,
 	pim->global_scope.current_bsr_last_ts = pim_time_monotonic_sec();
 }
 
+static bool pim_bsm_send_intf(uint8_t *buf, int len, struct interface *ifp,
+			      struct in_addr dst_addr)
+{
+	struct pim_interface *pim_ifp;
+
+	pim_ifp = ifp->info;
+
+	if (!pim_ifp) {
+		if (PIM_DEBUG_BSM)
+			zlog_debug("%s: Pim interface not available for %s",
+				   __PRETTY_FUNCTION__, ifp->name);
+		return false;
+	}
+
+	if (pim_ifp->pim_sock_fd == -1) {
+		if (PIM_DEBUG_BSM)
+			zlog_debug("%s: Pim sock not available for %s",
+				   __PRETTY_FUNCTION__, ifp->name);
+		return false;
+	}
+
+	pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address, dst_addr,
+		     buf, len, ifp->name);
+	pim_ifp->pim_ifstat_bsm_tx++;
+	pim_ifp->pim->bsm_sent++;
+	return true;
+}
+
+static void pim_bsm_fwd_whole_sz(struct pim_instance *pim, uint8_t *buf,
+				 uint32_t len, int sz)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	struct in_addr dst_addr;
+	uint32_t pim_mtu;
+	bool no_fwd = FALSE;
+
+	/* For now only global scope zone is supported, so send on all
+	 * pim interfaces in the vrf
+	 */
+	dst_addr = qpim_all_pim_routers_addr;
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		pim_ifp = ifp->info;
+		if ((!pim_ifp) || (!pim_ifp->bsm_enable))
+			continue;
+		pim_hello_require(ifp);
+		pim_mtu = ifp->mtu - MAX_IP_HDR_LEN;
+		if (pim_mtu < len) {
+			/* do semantic fragment and send TODO */
+		} else {
+			pim_msg_build_header(buf, len, PIM_MSG_TYPE_BOOTSTRAP,
+					     no_fwd);
+			if (!pim_bsm_send_intf(buf, len, ifp, dst_addr)) {
+				if (PIM_DEBUG_BSM)
+					zlog_debug(
+						"%s: pim_bsm_send_intf returned FALSE",
+						__PRETTY_FUNCTION__);
+			}
+		}
+	}
+}
+
 struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 					  struct prefix *grp)
 {
@@ -894,8 +959,10 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 		    uint32_t buf_size, bool no_fwd)
 {
 	struct bsm_hdr *bshdr;
+	int sz = PIM_GBL_SZ_ID;
 	struct bsmmsg_grpinfo *msg_grp;
 	struct pim_interface *pim_ifp = NULL;
+	struct bsm_info *bsminfo;
 	struct pim_instance *pim;
 	char bsr_str[INET_ADDRSTRLEN];
 	uint16_t frag_tag;
@@ -1045,5 +1112,27 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 
 	/* update the scope information from bsm */
 	pim_bsm_update(pim, bshdr->bsr_addr.addr, bshdr->bsr_prio);
+
+	if (!no_fwd) {
+		pim_bsm_fwd_whole_sz(pim_ifp->pim, buf, buf_size, sz);
+		bsminfo = XCALLOC(MTYPE_PIM_BSM_INFO, sizeof(struct bsm_info));
+		if (!bsminfo) {
+			zlog_warn("%s: bsminfo alloc failed",
+				  __PRETTY_FUNCTION__);
+			return 0;
+		}
+
+		bsminfo->bsm = XCALLOC(MTYPE_PIM_BSM_PKT_VAR_MEM, buf_size);
+		if (!bsminfo->bsm) {
+			zlog_warn("%s: bsm alloc failed", __PRETTY_FUNCTION__);
+			XFREE(MTYPE_PIM_BSM_INFO, bsminfo);
+			return 0;
+		}
+
+		bsminfo->size = buf_size;
+		memcpy(bsminfo->bsm, buf, buf_size);
+		listnode_add(pim_ifp->pim->global_scope.bsm_list, bsminfo);
+	}
+
 	return 0;
 }
