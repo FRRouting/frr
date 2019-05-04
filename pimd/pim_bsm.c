@@ -693,6 +693,180 @@ static bool pim_bsm_send_intf(uint8_t *buf, int len, struct interface *ifp,
 	return true;
 }
 
+static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
+			      uint32_t pim_mtu, struct in_addr dst_addr,
+			      bool no_fwd)
+{
+	struct bsmmsg_grpinfo *grpinfo, *curgrp;
+	uint8_t *firstgrp_ptr;
+	uint8_t *pkt;
+	uint8_t *pak_start;
+	uint32_t parsed_len = 0;
+	uint32_t this_pkt_rem;
+	uint32_t copy_byte_count;
+	uint32_t this_pkt_len;
+	uint8_t total_rp_cnt;
+	uint8_t this_rp_cnt;
+	uint8_t frag_rp_cnt;
+	uint8_t rp_fit_cnt;
+	bool pak_pending = false;
+
+	/* MTU  passed here is PIM MTU (IP MTU less IP Hdr) */
+	if (pim_mtu < (PIM_MIN_BSM_LEN)) {
+		zlog_warn(
+			"%s: mtu(pim mtu: %d) size less than minimum bootsrap len",
+			__PRETTY_FUNCTION__, pim_mtu);
+		if (PIM_DEBUG_BSM)
+			zlog_debug(
+				"%s: mtu (pim mtu:%d) less than minimum bootsrap len",
+				__PRETTY_FUNCTION__, pim_mtu);
+		return false;
+	}
+
+	pak_start = XCALLOC(MTYPE_PIM_BSM_PKT_VAR_MEM, pim_mtu);
+
+	if (!pak_start) {
+		if (PIM_DEBUG_BSM)
+			zlog_debug("%s: malloc failed", __PRETTY_FUNCTION__);
+		return false;
+	}
+
+	pkt = pak_start;
+
+	/* Fill PIM header later before sending packet to calc checksum */
+	pkt += PIM_MSG_HEADER_LEN;
+	buf += PIM_MSG_HEADER_LEN;
+
+	/* copy bsm header to new packet at offset of pim hdr */
+	memcpy(pkt, buf, PIM_BSM_HDR_LEN);
+	pkt += PIM_BSM_HDR_LEN;
+	buf += PIM_BSM_HDR_LEN;
+	parsed_len += (PIM_MSG_HEADER_LEN + PIM_BSM_HDR_LEN);
+
+	/* Store the position of first grp ptr, which can be reused for
+	 * next packet to start filling group. old bsm header and pim hdr
+	 * remains. So need not be filled again for next packet onwards.
+	 */
+	firstgrp_ptr = pkt;
+
+	/* we received mtu excluding IP hdr len as param
+	 * now this_pkt_rem is mtu excluding
+	 * PIM_BSM_HDR_LEN + PIM_MSG_HEADER_LEN
+	 */
+	this_pkt_rem = pim_mtu - (PIM_BSM_HDR_LEN + PIM_MSG_HEADER_LEN);
+
+	/* For each group till the packet length parsed */
+	while (parsed_len < len) {
+		/* pkt            ---> fragment's current pointer
+		 * buf            ---> input buffer's current pointer
+		 * mtu            ---> size of the pim packet - PIM header
+		 * curgrp         ---> current group on the fragment
+		 * grpinfo        ---> current group on the input buffer
+		 * this_pkt_rem   ---> bytes remaing on the current fragment
+		 * rp_fit_cnt     ---> num of rp for current grp that
+		 *                     fits this frag
+		 * total_rp_cnt   ---> total rp present for the group in the buf
+		 * frag_rp_cnt    ---> no of rp for the group to be fit in
+		 *                     the frag
+		 * this_rp_cnt    ---> how many rp have we parsed
+		 */
+		grpinfo = (struct bsmmsg_grpinfo *)buf;
+		memcpy(pkt, buf, PIM_BSM_GRP_LEN);
+		curgrp = (struct bsmmsg_grpinfo *)pkt;
+		parsed_len += PIM_BSM_GRP_LEN;
+		pkt += PIM_BSM_GRP_LEN;
+		buf += PIM_BSM_GRP_LEN;
+		this_pkt_rem -= PIM_BSM_GRP_LEN;
+
+		/* initialize rp count and total_rp_cnt before the rp loop */
+		this_rp_cnt = 0;
+		total_rp_cnt = grpinfo->frag_rp_count;
+
+		/* Loop till all RPs for the group parsed */
+		while (this_rp_cnt < total_rp_cnt) {
+			/* All RP from a group processed here.
+			 * group is pointed by grpinfo.
+			 * At this point make sure buf pointing to a RP
+			 * within a group
+			 */
+			rp_fit_cnt = this_pkt_rem / PIM_BSM_RP_LEN;
+
+			/* calculate how many rp am i going to copy in
+			 * this frag
+			 */
+			if (rp_fit_cnt > (total_rp_cnt - this_rp_cnt))
+				frag_rp_cnt = total_rp_cnt - this_rp_cnt;
+			else
+				frag_rp_cnt = rp_fit_cnt;
+
+			/* populate the frag rp count for the current grp */
+			curgrp->frag_rp_count = frag_rp_cnt;
+			copy_byte_count = frag_rp_cnt * PIM_BSM_RP_LEN;
+
+			/* copy all the rp that we are fitting in this
+			 * frag for the grp
+			 */
+			memcpy(pkt, buf, copy_byte_count);
+			this_rp_cnt += frag_rp_cnt;
+			buf += copy_byte_count;
+			pkt += copy_byte_count;
+			parsed_len += copy_byte_count;
+			this_pkt_rem -= copy_byte_count;
+
+			/* Either we couldn't fit all rp for the group or the
+			 * mtu reached
+			 */
+			if ((this_rp_cnt < total_rp_cnt)
+			    || (this_pkt_rem
+				< (PIM_BSM_GRP_LEN + PIM_BSM_RP_LEN))) {
+				/* No space to fit in more rp, send this pkt */
+				this_pkt_len = pim_mtu - this_pkt_rem;
+				pim_msg_build_header(pak_start, this_pkt_len,
+						     PIM_MSG_TYPE_BOOTSTRAP,
+						     no_fwd);
+				pim_bsm_send_intf(pak_start, this_pkt_len, ifp,
+						  dst_addr);
+
+				/* Construct next fragment. Reuse old packet */
+				pkt = firstgrp_ptr;
+				this_pkt_rem = pim_mtu - (PIM_BSM_HDR_LEN
+							  + PIM_MSG_HEADER_LEN);
+
+				/* If pkt can't accomodate next group + atleast
+				 * one rp, we must break out of this inner loop
+				 * and process next RP
+				 */
+				if (total_rp_cnt == this_rp_cnt)
+					break;
+
+				/* If some more RPs for the same group pending,
+				 * fill grp hdr
+				 */
+				memcpy(pkt, (uint8_t *)grpinfo,
+				       PIM_BSM_GRP_LEN);
+				curgrp = (struct bsmmsg_grpinfo *)pkt;
+				pkt += PIM_BSM_GRP_LEN;
+				this_pkt_rem -= PIM_BSM_GRP_LEN;
+				pak_pending = false;
+			} else {
+				/* We filled something but not yet sent out */
+				pak_pending = true;
+			}
+		} /* while RP count */
+	}	 /*while parsed len */
+
+	/* Send if we have any unsent packet */
+	if (pak_pending) {
+		this_pkt_len = pim_mtu - this_pkt_rem;
+		pim_msg_build_header(pak_start, this_pkt_len,
+				     PIM_MSG_TYPE_BOOTSTRAP, no_fwd);
+		pim_bsm_send_intf(pak_start, (pim_mtu - this_pkt_rem), ifp,
+				  dst_addr);
+	}
+	XFREE(MTYPE_PIM_BSM_PKT_VAR_MEM, pak_start);
+	return true;
+}
+
 static void pim_bsm_fwd_whole_sz(struct pim_instance *pim, uint8_t *buf,
 				 uint32_t len, int sz)
 {
@@ -701,6 +875,7 @@ static void pim_bsm_fwd_whole_sz(struct pim_instance *pim, uint8_t *buf,
 	struct in_addr dst_addr;
 	uint32_t pim_mtu;
 	bool no_fwd = FALSE;
+	bool ret = FALSE;
 
 	/* For now only global scope zone is supported, so send on all
 	 * pim interfaces in the vrf
@@ -713,7 +888,12 @@ static void pim_bsm_fwd_whole_sz(struct pim_instance *pim, uint8_t *buf,
 		pim_hello_require(ifp);
 		pim_mtu = ifp->mtu - MAX_IP_HDR_LEN;
 		if (pim_mtu < len) {
-			/* do semantic fragment and send TODO */
+			ret = pim_bsm_frag_send(buf, len, ifp, pim_mtu,
+						dst_addr, no_fwd);
+			if (PIM_DEBUG_BSM)
+				zlog_debug("%s: pim_bsm_frag_send returned %s",
+					   __PRETTY_FUNCTION__,
+					   ret ? "TRUE" : "FALSE");
 		} else {
 			pim_msg_build_header(buf, len, PIM_MSG_TYPE_BOOTSTRAP,
 					     no_fwd);
