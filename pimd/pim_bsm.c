@@ -404,6 +404,171 @@ static inline void pim_g2rp_timer_restart(struct bsm_rpinfo *bsrp,
 	pim_g2rp_timer_start(bsrp, hold_time);
 }
 
+static void pim_g2rp_timer_stop(struct bsm_rpinfo *bsrp)
+{
+	if (!bsrp)
+		return;
+
+	if (PIM_DEBUG_BSM) {
+		char buf[48];
+
+		zlog_debug("%s : stopping g2rp timer for grp: %s - rp: %s",
+			   __PRETTY_FUNCTION__,
+			   prefix2str(&bsrp->bsgrp_node->group, buf, 48),
+			   inet_ntoa(bsrp->rp_address));
+	}
+
+	THREAD_OFF(bsrp->g2rp_timer);
+}
+
+static bool is_hold_time_zero(void *data)
+{
+	struct bsm_rpinfo *bsrp;
+
+	bsrp = data;
+
+	if (bsrp->rp_holdtime)
+		return false;
+	else
+		return true;
+}
+
+static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
+{
+	struct bsm_rpinfo *active;
+	struct bsm_rpinfo *pend;
+	struct list *temp;
+	struct rp_info *rp_info;
+	struct route_node *rn;
+	struct pim_instance *pim;
+	struct rp_info *rp_all;
+	struct prefix group_all;
+	bool had_rp_node = true;
+
+	pim = bsgrp_node->scope->pim;
+	active = listnode_head(bsgrp_node->bsrp_list);
+
+	/* Remove nodes with hold time 0 & check if list still has a head */
+	list_filter_out_nodes(bsgrp_node->partial_bsrp_list, is_hold_time_zero);
+	pend = listnode_head(bsgrp_node->partial_bsrp_list);
+
+	if (!str2prefix("224.0.0.0/4", &group_all))
+		return;
+
+	rp_all = pim_rp_find_match_group(pim, &group_all);
+	rn = route_node_lookup(pim->rp_table, &bsgrp_node->group);
+
+	if (pend)
+		pim_g2rp_timer_start(pend, pend->rp_holdtime);
+
+	/* if rp node doesn't exist or exist but not configured(rp_all),
+	 * install the rp from head(if exists) of partial list. List is
+	 * is sorted such that head is the elected RP for the group.
+	 */
+	if (!rn || (prefix_same(&rp_all->group, &bsgrp_node->group)
+		    && pim_rpf_addr_is_inaddr_none(&rp_all->rp))) {
+		if (PIM_DEBUG_BSM)
+			zlog_debug("%s: Route node doesn't exist",
+				   __PRETTY_FUNCTION__);
+		if (pend)
+			pim_rp_new(pim, pend->rp_address, bsgrp_node->group,
+				   NULL, RP_SRC_BSR);
+		had_rp_node = false;
+	} else {
+		rp_info = (struct rp_info *)rn->info;
+		if (!rp_info) {
+			route_unlock_node(rn);
+			if (pend)
+				pim_rp_new(pim, pend->rp_address,
+					   bsgrp_node->group, NULL, RP_SRC_BSR);
+			had_rp_node = false;
+		}
+	}
+
+	/* We didn't have rp node and pending list is empty(unlikely), cleanup*/
+	if ((!had_rp_node) && (!pend)) {
+		pim_free_bsgrp_node(bsgrp_node->scope->bsrp_table,
+				    &bsgrp_node->group);
+		pim_free_bsgrp_data(bsgrp_node);
+		return;
+	}
+
+	if ((had_rp_node) && (rp_info->rp_src != RP_SRC_STATIC)) {
+		/* This means we searched and got rp node, needs unlock */
+		route_unlock_node(rn);
+
+		if (active && pend) {
+			if ((active->rp_address.s_addr
+			     != pend->rp_address.s_addr))
+				pim_rp_change(pim, pend->rp_address,
+					      bsgrp_node->group, RP_SRC_BSR);
+		}
+
+		/* Possible when the first BSM has group with 0 rp count */
+		if ((!active) && (!pend)) {
+			if (PIM_DEBUG_BSM) {
+				zlog_debug(
+					"%s: Both bsrp and partial list are empty",
+					__PRETTY_FUNCTION__);
+			}
+			pim_free_bsgrp_node(bsgrp_node->scope->bsrp_table,
+					    &bsgrp_node->group);
+			pim_free_bsgrp_data(bsgrp_node);
+			return;
+		}
+
+		/* Possible when a group with 0 rp count received in BSM */
+		if ((active) && (!pend)) {
+			pim_rp_del(pim, active->rp_address, bsgrp_node->group,
+				   NULL, RP_SRC_BSR);
+			pim_free_bsgrp_node(bsgrp_node->scope->bsrp_table,
+					    &bsgrp_node->group);
+			if (PIM_DEBUG_BSM) {
+				zlog_debug("%s:Pend List is null,del grp node",
+					   __PRETTY_FUNCTION__);
+			}
+			pim_free_bsgrp_data(bsgrp_node);
+			return;
+		}
+	}
+
+	if ((had_rp_node) && (rp_info->rp_src == RP_SRC_STATIC)) {
+		/* We need to unlock rn this case */
+		route_unlock_node(rn);
+		/* there is a chance that static rp exist and bsrp cleaned
+		 * so clean bsgrp node if pending list empty
+		 */
+		if (!pend) {
+			if (PIM_DEBUG_BSM)
+				zlog_debug(
+					"%s: Partial list is empty, static rp exists",
+					__PRETTY_FUNCTION__);
+			pim_free_bsgrp_node(bsgrp_node->scope->bsrp_table,
+					    &bsgrp_node->group);
+			pim_free_bsgrp_data(bsgrp_node);
+			return;
+		}
+	}
+
+	/* swap the list & delete all nodes in partial list (old bsrp_list)
+	 * before swap
+	 *    active is head of bsrp list
+	 *    pend is head of partial list
+	 * After swap
+	 *    active is head of partial list
+	 *    pend is head of bsrp list
+	 * So check appriate head after swap and clean the new partial list
+	 */
+	temp = bsgrp_node->bsrp_list;
+	bsgrp_node->bsrp_list = bsgrp_node->partial_bsrp_list;
+	bsgrp_node->partial_bsrp_list = temp;
+
+	if (active) {
+		pim_g2rp_timer_stop(active);
+		list_delete_all_node(bsgrp_node->partial_bsrp_list);
+	}
+}
+
 static bool pim_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr,
 			      struct in_addr ip_src_addr)
 {
@@ -718,7 +883,8 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 				zlog_debug(
 					"%s, Recvd all the rps for this group, so bsrp list with penidng rp list.",
 					__PRETTY_FUNCTION__);
-			/* replace the bsrp_list with pending list - TODO */
+			/* replace the bsrp_list with pending list */
+			pim_instate_pend_list(bsgrp);
 		}
 	}
 	return true;
