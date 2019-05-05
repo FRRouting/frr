@@ -111,8 +111,9 @@ static int interface_address_add(int command, struct zclient *zclient,
 	c = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
 
 	DEBUGD(&pbr_dbg_zebra,
-	       "%s: %s added %s", __PRETTY_FUNCTION__, c->ifp->name,
-	       prefix2str(c->address, buf, sizeof(buf)));
+	       "%s: %s added %s", __PRETTY_FUNCTION__,
+	       c ? c->ifp->name : "Unknown",
+	       c ? prefix2str(c->address, buf, sizeof(buf)) : "Unknown");
 
 	return 0;
 }

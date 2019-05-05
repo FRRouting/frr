@@ -1344,10 +1344,6 @@ dplane_route_update_internal(struct route_node *rn,
 
 	/* Obtain context block */
 	ctx = dplane_ctx_alloc();
-	if (ctx == NULL) {
-		ret = ENOMEM;
-		goto done;
-	}
 
 	/* Init context with info from zebra data structs */
 	ret = dplane_ctx_route_init(ctx, op, rn, re);
@@ -1382,7 +1378,6 @@ dplane_route_update_internal(struct route_node *rn,
 		ret = dplane_route_enqueue(ctx);
 	}
 
-done:
 	/* Update counter */
 	atomic_fetch_add_explicit(&zdplane_info.dg_routes_in, 1,
 				  memory_order_relaxed);
@@ -1562,10 +1557,6 @@ static enum zebra_dplane_result lsp_update_internal(zebra_lsp_t *lsp,
 
 	/* Obtain context block */
 	ctx = dplane_ctx_alloc();
-	if (ctx == NULL) {
-		ret = ENOMEM;
-		goto done;
-	}
 
 	ret = dplane_ctx_lsp_init(ctx, op, lsp);
 	if (ret != AOK)
@@ -1601,10 +1592,6 @@ static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
 	struct zebra_dplane_ctx *ctx = NULL;
 
 	ctx = dplane_ctx_alloc();
-	if (ctx == NULL) {
-		ret = ENOMEM;
-		goto done;
-	}
 
 	ret = dplane_ctx_pw_init(ctx, op, pw);
 	if (ret != AOK)
@@ -1691,10 +1678,6 @@ static enum zebra_dplane_result intf_addr_update_internal(
 	}
 
 	ctx = dplane_ctx_alloc();
-	if (ctx == NULL) {
-		ret = ENOMEM;
-		goto done;
-	}
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
@@ -1743,8 +1726,6 @@ static enum zebra_dplane_result intf_addr_update_internal(
 	}
 
 	ret = dplane_route_enqueue(ctx);
-
-done:
 
 	/* Increment counter */
 	atomic_fetch_add_explicit(&zdplane_info.dg_intf_addrs_in, 1,

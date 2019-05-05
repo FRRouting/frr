@@ -2107,7 +2107,6 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 					dump_lsa_key(lsa));
 
 				DISCARD_LSA(lsa, 4);
-				continue;
 			}
 
 			/* Actual flooding procedure. */
