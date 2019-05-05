@@ -3023,6 +3023,156 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 	}
 }
 
+/*Display the group-rp mappings */
+static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
+					    struct vty *vty, bool uj)
+{
+	struct bsgrp_node *bsgrp;
+	struct listnode *rpnode;
+	struct bsm_rpinfo *bsm_rp;
+	struct route_node *rn;
+	char bsr_str[INET_ADDRSTRLEN];
+	json_object *json = NULL;
+	json_object *json_group = NULL;
+	json_object *json_row = NULL;
+
+	if (pim->global_scope.current_bsr.s_addr == INADDR_ANY)
+		strncpy(bsr_str, "0.0.0.0", sizeof(bsr_str));
+
+	else
+		pim_inet4_dump("<bsr?>", pim->global_scope.current_bsr, bsr_str,
+			       sizeof(bsr_str));
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_string_add(json, "BSR Address", bsr_str);
+	} else {
+		vty_out(vty, "BSR Address  %s\n", bsr_str);
+	}
+
+	for (rn = route_top(pim->global_scope.bsrp_table); rn;
+	     rn = route_next(rn)) {
+		bsgrp = (struct bsgrp_node *)rn->info;
+
+		if (!bsgrp)
+			continue;
+
+		char grp_str[INET_ADDRSTRLEN];
+
+		prefix2str(&bsgrp->group, grp_str, sizeof(grp_str));
+
+		if (uj) {
+			json_object_object_get_ex(json, grp_str, &json_group);
+			if (!json_group) {
+				json_group = json_object_new_object();
+				json_object_object_add(json, grp_str,
+						       json_group);
+			}
+		} else {
+			vty_out(vty, "Group Address %s\n", grp_str);
+			vty_out(vty, "--------------------------\n");
+			vty_out(vty, "%-15s %-15s %-15s %-15s\n", "Rp Address",
+				"priority", "Holdtime", "Hash");
+
+			vty_out(vty, "(ACTIVE)\n");
+		}
+
+		if (bsgrp->bsrp_list) {
+			for (ALL_LIST_ELEMENTS_RO(bsgrp->bsrp_list, rpnode,
+						  bsm_rp)) {
+				char rp_str[INET_ADDRSTRLEN];
+
+				pim_inet4_dump("<Rp Address?>",
+					       bsm_rp->rp_address, rp_str,
+					       sizeof(rp_str));
+
+				if (uj) {
+					json_row = json_object_new_object();
+					json_object_string_add(
+						json_row, "Rp Address", rp_str);
+					json_object_int_add(
+						json_row, "Rp HoldTime",
+						bsm_rp->rp_holdtime);
+					json_object_int_add(json_row,
+							    "Rp Priority",
+							    bsm_rp->rp_prio);
+					json_object_int_add(json_row,
+							    "Hash Val",
+							    bsm_rp->hash);
+					json_object_object_add(
+						json_group, rp_str, json_row);
+
+				} else {
+					vty_out(vty,
+						"%-15s %-15u %-15u %-15u\n",
+						rp_str, bsm_rp->rp_prio,
+						bsm_rp->rp_holdtime,
+						bsm_rp->hash);
+				}
+			}
+			if (!bsgrp->bsrp_list->count && !uj)
+				vty_out(vty, "Active List is empty.\n");
+		}
+
+		if (uj) {
+			json_object_int_add(json_group, "Pending RP count",
+					    bsgrp->pend_rp_cnt);
+		} else {
+			vty_out(vty, "(PENDING)\n");
+			vty_out(vty, "Pending RP count :%d\n",
+				bsgrp->pend_rp_cnt);
+			if (bsgrp->pend_rp_cnt)
+				vty_out(vty, "%-15s %-15s %-15s %-15s\n",
+					"Rp Address", "priority", "Holdtime",
+					"Hash");
+		}
+
+		if (bsgrp->partial_bsrp_list) {
+			for (ALL_LIST_ELEMENTS_RO(bsgrp->partial_bsrp_list,
+						  rpnode, bsm_rp)) {
+				char rp_str[INET_ADDRSTRLEN];
+
+				pim_inet4_dump("<Rp Addr?>", bsm_rp->rp_address,
+					       rp_str, sizeof(rp_str));
+
+				if (uj) {
+					json_row = json_object_new_object();
+					json_object_string_add(
+						json_row, "Rp Address", rp_str);
+					json_object_int_add(
+						json_row, "Rp HoldTime",
+						bsm_rp->rp_holdtime);
+					json_object_int_add(json_row,
+							    "Rp Priority",
+							    bsm_rp->rp_prio);
+					json_object_int_add(json_row,
+							    "Hash Val",
+							    bsm_rp->hash);
+					json_object_object_add(
+						json_group, rp_str, json_row);
+				} else {
+					vty_out(vty,
+						"%-15s %-15u %-15u %-15u\n",
+						rp_str, bsm_rp->rp_prio,
+						bsm_rp->rp_holdtime,
+						bsm_rp->hash);
+				}
+			}
+			if (!bsgrp->partial_bsrp_list->count && !uj)
+				vty_out(vty, "Partial List is empty\n");
+		}
+
+		if (!uj)
+			vty_out(vty, "\n");
+	}
+
+	if (uj) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+}
+
 static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct interface *ifp;
@@ -4690,6 +4840,29 @@ DEFUN (show_ip_pim_bsm_db,
 	pim_show_bsm_db(vrf->info, vty, uj);
 	return CMD_SUCCESS;
 }
+
+DEFUN (show_ip_pim_bsrp,
+       show_ip_pim_bsrp_cmd,
+       "show ip pim bsrp-info [vrf NAME] [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM cached group-rp mappings information\n"
+       JSON_STR)
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	bool uj = use_json(argc, argv);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	pim_show_group_rp_mappings_info(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
 static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty)
 {
 	struct interface *ifp;
@@ -9733,6 +9906,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_debugging_pim_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_nexthop_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_nexthop_lookup_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_bsrp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsm_db_cmd);
 
 	install_element(ENABLE_NODE, &clear_ip_interfaces_cmd);
