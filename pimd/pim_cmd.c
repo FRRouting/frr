@@ -3879,6 +3879,8 @@ DEFUN (clear_ip_pim_interface_traffic,
 		pim_ifp->pim_ifstat_reg_stop_send = 0;
 		pim_ifp->pim_ifstat_assert_recv = 0;
 		pim_ifp->pim_ifstat_assert_send = 0;
+		pim_ifp->pim_ifstat_bsm_rx = 0;
+		pim_ifp->pim_ifstat_bsm_tx = 0;
 	}
 
 	return CMD_SUCCESS;
