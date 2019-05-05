@@ -3173,6 +3173,105 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 	}
 }
 
+/* pim statistics - just adding only bsm related now.
+ * We can continue to add all pim related stats here.
+ */
+static void pim_show_statistics(struct pim_instance *pim, struct vty *vty,
+				const char *ifname, bool uj)
+{
+	json_object *json = NULL;
+	struct interface *ifp;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_int_add(json, "Number of Received BSMs",
+				    pim->bsm_rcvd);
+		json_object_int_add(json, "Number of Forwared BSMs",
+				    pim->bsm_sent);
+		json_object_int_add(json, "Number of Dropped BSMs",
+				    pim->bsm_dropped);
+	} else {
+		vty_out(vty, "BSM Statistics :\n");
+		vty_out(vty, "----------------\n");
+		vty_out(vty, "Number of Received BSMs : %ld\n", pim->bsm_rcvd);
+		vty_out(vty, "Number of Forwared BSMs : %ld\n", pim->bsm_sent);
+		vty_out(vty, "Number of Dropped BSMs  : %ld\n",
+			pim->bsm_dropped);
+	}
+
+	vty_out(vty, "\n");
+
+	/* scan interfaces */
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+
+		if (ifname && strcmp(ifname, ifp->name))
+			continue;
+
+		if (!pim_ifp)
+			continue;
+
+		if (!uj) {
+			vty_out(vty, "Interface : %s\n", ifp->name);
+			vty_out(vty, "-------------------\n");
+			vty_out(vty,
+				"Number of BSMs dropped due to config miss : %u\n",
+				pim_ifp->pim_ifstat_bsm_cfg_miss);
+			vty_out(vty, "Number of unicast BSMs dropped : %u\n",
+				pim_ifp->pim_ifstat_ucast_bsm_cfg_miss);
+			vty_out(vty,
+				"Number of BSMs dropped due to invalid scope zone : %u\n",
+				pim_ifp->pim_ifstat_bsm_invalid_sz);
+		} else {
+
+			json_object *json_row = NULL;
+
+			json_row = json_object_new_object();
+
+			json_object_string_add(json_row, "If Name", ifp->name);
+			json_object_int_add(
+				json_row,
+				"Number of BSMs dropped due to config miss",
+				pim_ifp->pim_ifstat_bsm_cfg_miss);
+			json_object_int_add(
+				json_row, "Number of unicast BSMs dropped",
+				pim_ifp->pim_ifstat_ucast_bsm_cfg_miss);
+			json_object_int_add(json_row,
+					    "Number of BSMs dropped due to invalid scope zone",
+					    pim_ifp->pim_ifstat_bsm_invalid_sz);
+			json_object_object_add(json, ifp->name, json_row);
+		}
+		vty_out(vty, "\n");
+	}
+
+	if (uj) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+}
+
+static void clear_pim_statistics(struct pim_instance *pim)
+{
+	struct interface *ifp;
+
+	pim->bsm_rcvd = 0;
+	pim->bsm_sent = 0;
+	pim->bsm_dropped = 0;
+
+	/* scan interfaces */
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+
+		if (!pim_ifp)
+			continue;
+
+		pim_ifp->pim_ifstat_bsm_cfg_miss = 0;
+		pim_ifp->pim_ifstat_ucast_bsm_cfg_miss = 0;
+		pim_ifp->pim_ifstat_bsm_invalid_sz = 0;
+	}
+}
+
 static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct interface *ifp;
@@ -3640,6 +3739,25 @@ DEFUN (clear_ip_igmp_interfaces,
 
 	clear_igmp_interfaces(vrf->info);
 
+	return CMD_SUCCESS;
+}
+
+DEFUN (clear_ip_pim_statistics,
+       clear_ip_pim_statistics_cmd,
+       "clear ip pim statistics [vrf NAME]",
+       CLEAR_STR
+       IP_STR
+       CLEAR_IP_PIM_STR
+       VRF_CMD_HELP_STR
+       "Reset PIM statistics\n")
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	clear_pim_statistics(vrf->info);
 	return CMD_SUCCESS;
 }
 
@@ -4859,6 +4977,33 @@ DEFUN (show_ip_pim_bsrp,
 		return CMD_WARNING;
 
 	pim_show_group_rp_mappings_info(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_pim_statistics,
+       show_ip_pim_statistics_cmd,
+       "show ip pim [vrf NAME] statistics  [interface WORD] [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM statistics\n"
+       "interface\n"
+       "PIM interface\n"
+       JSON_STR)
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	bool uj = use_json(argc, argv);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	if (argv_find(argv, argc, "WORD", &idx))
+		pim_show_statistics(vrf->info, vty, argv[idx]->arg, uj);
+	else
+		pim_show_statistics(vrf->info, vty, NULL, uj);
 
 	return CMD_SUCCESS;
 }
@@ -9908,6 +10053,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_nexthop_lookup_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsrp_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_bsm_db_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_statistics_cmd);
 
 	install_element(ENABLE_NODE, &clear_ip_interfaces_cmd);
 	install_element(ENABLE_NODE, &clear_ip_igmp_interfaces_cmd);
@@ -9915,6 +10061,7 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &clear_ip_pim_interfaces_cmd);
 	install_element(ENABLE_NODE, &clear_ip_pim_interface_traffic_cmd);
 	install_element(ENABLE_NODE, &clear_ip_pim_oil_cmd);
+	install_element(ENABLE_NODE, &clear_ip_pim_statistics_cmd);
 
 	install_element(ENABLE_NODE, &debug_igmp_cmd);
 	install_element(ENABLE_NODE, &no_debug_igmp_cmd);
