@@ -4111,6 +4111,9 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 		timer_service_func = rfapiWithdrawTimerEncap;
 		break;
 	default:
+		/* Suppress uninitialized variable warning */
+		rt = NULL;
+		timer_service_func = NULL;
 		assert(0);
 	}
 
