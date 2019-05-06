@@ -681,7 +681,7 @@ int vtysh_mark_file(const char *filename)
 	while (fgets(vty->buf, VTY_BUFSIZ, confp)) {
 		lineno++;
 		tried = 0;
-		strcpy(vty_buf_copy, vty->buf);
+		strlcpy(vty_buf_copy, vty->buf, VTY_BUFSIZ);
 		vty_buf_trimmed = trim(vty_buf_copy);
 
 		switch (vty->node) {
@@ -2702,9 +2702,10 @@ static void backup_config_file(const char *fbackup)
 {
 	char *integrate_sav = NULL;
 
-	integrate_sav = malloc(strlen(fbackup) + strlen(CONF_BACKUP_EXT) + 1);
-	strcpy(integrate_sav, fbackup);
-	strcat(integrate_sav, CONF_BACKUP_EXT);
+	size_t integrate_sav_sz = strlen(fbackup) + strlen(CONF_BACKUP_EXT) + 1;
+	integrate_sav = malloc(integrate_sav_sz);
+	strlcpy(integrate_sav, fbackup, integrate_sav_sz);
+	strlcat(integrate_sav, CONF_BACKUP_EXT, integrate_sav_sz);
 
 	/* Move current configuration file to backup config file. */
 	if (unlink(integrate_sav) != 0) {
