@@ -553,8 +553,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 
 /* This API is used to parse Registered address nexthop update coming from Zebra
  */
-int pim_parse_nexthop_update(int command, struct zclient *zclient,
-			     zebra_size_t length, vrf_id_t vrf_id)
+int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
 	struct nexthop *nexthop;
 	struct nexthop *nhlist_head = NULL;
@@ -581,7 +580,7 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 		return 0;
 	}
 
-	if (command == ZEBRA_NEXTHOP_UPDATE) {
+	if (cmd == ZEBRA_NEXTHOP_UPDATE) {
 		prefix_copy(&rpf.rpf_addr, &nhr.prefix);
 		pnc = pim_nexthop_cache_find(pim, &rpf);
 		if (!pnc) {

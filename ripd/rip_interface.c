@@ -344,8 +344,7 @@ int if_check_address(struct rip *rip, struct in_addr addr)
 }
 
 /* Inteface link down message processing. */
-int rip_interface_down(int command, struct zclient *zclient,
-		       zebra_size_t length, vrf_id_t vrf_id)
+int rip_interface_down(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	struct stream *s;
@@ -372,8 +371,7 @@ int rip_interface_down(int command, struct zclient *zclient,
 }
 
 /* Inteface link up message processing */
-int rip_interface_up(int command, struct zclient *zclient, zebra_size_t length,
-		     vrf_id_t vrf_id)
+int rip_interface_up(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 
@@ -405,8 +403,7 @@ int rip_interface_up(int command, struct zclient *zclient, zebra_size_t length,
 }
 
 /* Inteface addition message from zebra. */
-int rip_interface_add(int command, struct zclient *zclient, zebra_size_t length,
-		      vrf_id_t vrf_id)
+int rip_interface_add(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 
@@ -436,8 +433,7 @@ int rip_interface_add(int command, struct zclient *zclient, zebra_size_t length,
 	return 0;
 }
 
-int rip_interface_delete(int command, struct zclient *zclient,
-			 zebra_size_t length, vrf_id_t vrf_id)
+int rip_interface_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	struct stream *s;
@@ -468,8 +464,7 @@ int rip_interface_delete(int command, struct zclient *zclient,
 }
 
 /* VRF update for an interface. */
-int rip_interface_vrf_update(int command, struct zclient *zclient,
-			     zebra_size_t length, vrf_id_t vrf_id)
+int rip_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	vrf_id_t new_vrf_id;
@@ -615,8 +610,7 @@ static void rip_apply_address_add(struct connected *ifc)
 				     0);
 }
 
-int rip_interface_address_add(int command, struct zclient *zclient,
-			      zebra_size_t length, vrf_id_t vrf_id)
+int rip_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
 	struct prefix *p;
@@ -669,8 +663,7 @@ static void rip_apply_address_del(struct connected *ifc)
 				&address, ifc->ifp->ifindex);
 }
 
-int rip_interface_address_delete(int command, struct zclient *zclient,
-				 zebra_size_t length, vrf_id_t vrf_id)
+int rip_interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
 	struct prefix *p;

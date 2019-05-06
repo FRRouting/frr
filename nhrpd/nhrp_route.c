@@ -184,8 +184,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type,
 			   &api);
 }
 
-int nhrp_route_read(int cmd, struct zclient *zclient, zebra_size_t length,
-		    vrf_id_t vrf_id)
+int nhrp_route_read(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;

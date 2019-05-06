@@ -487,9 +487,9 @@ stream_failure:
 	log_error("ptm-del-client: failed to deregister client");
 }
 
-static int bfdd_replay(int cmd, struct zclient *zc, uint16_t len, vrf_id_t vid)
+static int bfdd_replay(ZAPI_CALLBACK_ARGS)
 {
-	struct stream *msg = zc->ibuf;
+	struct stream *msg = zclient->ibuf;
 	uint32_t rcmd;
 
 	STREAM_GETL(msg, rcmd);
@@ -590,9 +590,7 @@ static void bfdd_sessions_disable_interface(struct interface *ifp)
 	}
 }
 
-static int bfdd_interface_update(int cmd, struct zclient *zc,
-				 uint16_t len __attribute__((__unused__)),
-				 vrf_id_t vrfid)
+static int bfdd_interface_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 
@@ -602,7 +600,7 @@ static int bfdd_interface_update(int cmd, struct zclient *zc,
 	 * rolling our own.
 	 */
 	if (cmd == ZEBRA_INTERFACE_ADD) {
-		ifp = zebra_interface_add_read(zc->ibuf, vrfid);
+		ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
 		if (ifp == NULL)
 			return 0;
 
@@ -611,7 +609,7 @@ static int bfdd_interface_update(int cmd, struct zclient *zc,
 	}
 
 	/* Update interface information. */
-	ifp = zebra_interface_state_read(zc->ibuf, vrfid);
+	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
 	if (ifp == NULL)
 		return 0;
 
@@ -622,16 +620,12 @@ static int bfdd_interface_update(int cmd, struct zclient *zc,
 	return 0;
 }
 
-static int bfdd_interface_vrf_update(int command __attribute__((__unused__)),
-				     struct zclient *zclient,
-				     zebra_size_t length
-				     __attribute__((__unused__)),
-				     vrf_id_t vrfid)
+static int bfdd_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	vrf_id_t nvrfid;
 
-	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrfid, &nvrfid);
+	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id, &nvrfid);
 	if (ifp == NULL)
 		return 0;
 
@@ -666,14 +660,11 @@ static void bfdd_sessions_enable_address(struct connected *ifc)
 	}
 }
 
-static int bfdd_interface_address_update(int cmd, struct zclient *zc,
-					 zebra_size_t len
-					 __attribute__((__unused__)),
-					 vrf_id_t vrfid)
+static int bfdd_interface_address_update(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
 
-	ifc = zebra_interface_address_read(cmd, zc->ibuf, vrfid);
+	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (ifc == NULL)
 		return 0;
 

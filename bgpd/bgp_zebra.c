@@ -83,8 +83,7 @@ static inline int bgp_install_info_to_zebra(struct bgp *bgp)
 int zclient_num_connects;
 
 /* Router-id update message from zebra. */
-static int bgp_router_id_update(int command, struct zclient *zclient,
-				zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_router_id_update(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix router_id;
 
@@ -101,17 +100,15 @@ static int bgp_router_id_update(int command, struct zclient *zclient,
 }
 
 /* Nexthop update message from zebra. */
-static int bgp_read_nexthop_update(int command, struct zclient *zclient,
-				   zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_read_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
-	bgp_parse_nexthop_update(command, vrf_id);
+	bgp_parse_nexthop_update(cmd, vrf_id);
 	return 0;
 }
 
-static int bgp_read_import_check_update(int command, struct zclient *zclient,
-					zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_read_import_check_update(ZAPI_CALLBACK_ARGS)
 {
-	bgp_parse_nexthop_update(command, vrf_id);
+	bgp_parse_nexthop_update(cmd, vrf_id);
 	return 0;
 }
 
@@ -206,8 +203,7 @@ static void bgp_nbr_connected_delete(struct bgp *bgp, struct nbr_connected *ifc,
 }
 
 /* Inteface addition message from zebra. */
-static int bgp_interface_add(int command, struct zclient *zclient,
-			     zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_interface_add(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	struct bgp *bgp;
@@ -229,8 +225,7 @@ static int bgp_interface_add(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int bgp_interface_delete(int command, struct zclient *zclient,
-				zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_interface_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct interface *ifp;
@@ -255,8 +250,7 @@ static int bgp_interface_delete(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int bgp_interface_up(int command, struct zclient *zclient,
-			    zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_interface_up(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct interface *ifp;
@@ -290,8 +284,7 @@ static int bgp_interface_up(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int bgp_interface_down(int command, struct zclient *zclient,
-			      zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_interface_down(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct interface *ifp;
@@ -350,15 +343,14 @@ static int bgp_interface_down(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int bgp_interface_address_add(int command, struct zclient *zclient,
-				     zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
 	struct bgp *bgp;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 
-	ifc = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
+	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	if (ifc == NULL)
 		return 0;
@@ -388,15 +380,14 @@ static int bgp_interface_address_add(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int bgp_interface_address_delete(int command, struct zclient *zclient,
-					zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
 	struct bgp *bgp;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 
-	ifc = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
+	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	if (ifc == NULL)
 		return 0;
@@ -417,13 +408,12 @@ static int bgp_interface_address_delete(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int bgp_interface_nbr_address_add(int command, struct zclient *zclient,
-					 zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_interface_nbr_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct nbr_connected *ifc = NULL;
 	struct bgp *bgp;
 
-	ifc = zebra_interface_nbr_address_read(command, zclient->ibuf, vrf_id);
+	ifc = zebra_interface_nbr_address_read(cmd, zclient->ibuf, vrf_id);
 
 	if (ifc == NULL)
 		return 0;
@@ -444,15 +434,12 @@ static int bgp_interface_nbr_address_add(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int bgp_interface_nbr_address_delete(int command,
-					    struct zclient *zclient,
-					    zebra_size_t length,
-					    vrf_id_t vrf_id)
+static int bgp_interface_nbr_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct nbr_connected *ifc = NULL;
 	struct bgp *bgp;
 
-	ifc = zebra_interface_nbr_address_read(command, zclient->ibuf, vrf_id);
+	ifc = zebra_interface_nbr_address_read(cmd, zclient->ibuf, vrf_id);
 
 	if (ifc == NULL)
 		return 0;
@@ -476,8 +463,7 @@ static int bgp_interface_nbr_address_delete(int command,
 }
 
 /* VRF update for an interface. */
-static int bgp_interface_vrf_update(int command, struct zclient *zclient,
-				    zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	vrf_id_t new_vrf_id;
@@ -532,8 +518,7 @@ static int bgp_interface_vrf_update(int command, struct zclient *zclient,
 }
 
 /* Zebra route add and delete treatment. */
-static int zebra_read_route(int command, struct zclient *zclient,
-			    zebra_size_t length, vrf_id_t vrf_id)
+static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	enum nexthop_types_t nhtype;
 	struct zapi_route api;
@@ -562,7 +547,7 @@ static int zebra_read_route(int command, struct zclient *zclient,
 	ifindex = api.nexthops[0].ifindex;
 	nhtype = api.nexthops[0].type;
 
-	add = (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
+	add = (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
 	if (add) {
 		/*
 		 * The ADD message is actually an UPDATE and there is no
@@ -2101,8 +2086,7 @@ int bgp_zebra_dup_addr_detection(struct bgp *bgp)
 	return zclient_send_message(zclient);
 }
 
-static int rule_notify_owner(int command, struct zclient *zclient,
-			     zebra_size_t length, vrf_id_t vrf_id)
+static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 {
 	uint32_t seqno, priority, unique;
 	enum zapi_rule_notify_owner note;
@@ -2171,8 +2155,7 @@ static int rule_notify_owner(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int ipset_notify_owner(int command, struct zclient *zclient,
-			     zebra_size_t length, vrf_id_t vrf_id)
+static int ipset_notify_owner(ZAPI_CALLBACK_ARGS)
 {
 	uint32_t unique;
 	enum zapi_ipset_notify_owner note;
@@ -2217,8 +2200,7 @@ static int ipset_notify_owner(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int ipset_entry_notify_owner(int command, struct zclient *zclient,
-				    zebra_size_t length, vrf_id_t vrf_id)
+static int ipset_entry_notify_owner(ZAPI_CALLBACK_ARGS)
 {
 	uint32_t unique;
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
@@ -2275,8 +2257,7 @@ static int ipset_entry_notify_owner(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int iptable_notify_owner(int command, struct zclient *zclient,
-				zebra_size_t length, vrf_id_t vrf_id)
+static int iptable_notify_owner(ZAPI_CALLBACK_ARGS)
 {
 	uint32_t unique;
 	enum zapi_iptable_notify_owner note;
@@ -2322,7 +2303,7 @@ static int iptable_notify_owner(int command, struct zclient *zclient,
 
 /* this function is used to forge ip rule,
  * - either for iptable/ipset using fwmark id
- * - or for sample ip rule command
+ * - or for sample ip rule cmd
  */
 static void bgp_encode_pbr_rule_action(struct stream *s,
 				       struct bgp_pbr_action *pbra,
@@ -2470,8 +2451,7 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	 */
 }
 
-static int bgp_zebra_process_local_es(int cmd, struct zclient *zclient,
-				      zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_zebra_process_local_es(ZAPI_CALLBACK_ARGS)
 {
 	esi_t esi;
 	struct bgp *bgp = NULL;
@@ -2504,8 +2484,7 @@ static int bgp_zebra_process_local_es(int cmd, struct zclient *zclient,
 	return 0;
 }
 
-static int bgp_zebra_process_local_l3vni(int cmd, struct zclient *zclient,
-					 zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_zebra_process_local_l3vni(ZAPI_CALLBACK_ARGS)
 {
 	int filter = 0;
 	char buf[ETHER_ADDR_STRLEN];
@@ -2545,8 +2524,7 @@ static int bgp_zebra_process_local_l3vni(int cmd, struct zclient *zclient,
 	return 0;
 }
 
-static int bgp_zebra_process_local_vni(int command, struct zclient *zclient,
-				       zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	vni_t vni;
@@ -2557,7 +2535,7 @@ static int bgp_zebra_process_local_vni(int command, struct zclient *zclient,
 
 	s = zclient->ibuf;
 	vni = stream_getl(s);
-	if (command == ZEBRA_VNI_ADD) {
+	if (cmd == ZEBRA_VNI_ADD) {
 		vtep_ip.s_addr = stream_get_ipv4(s);
 		stream_get(&tenant_vrf_id, s, sizeof(vrf_id_t));
 		mcast_grp.s_addr = stream_get_ipv4(s);
@@ -2569,11 +2547,11 @@ static int bgp_zebra_process_local_vni(int command, struct zclient *zclient,
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx VNI %s VRF %s VNI %u tenant-vrf %s",
-			   (command == ZEBRA_VNI_ADD) ? "add" : "del",
+			   (cmd == ZEBRA_VNI_ADD) ? "add" : "del",
 			   vrf_id_to_name(vrf_id), vni,
 			   vrf_id_to_name(tenant_vrf_id));
 
-	if (command == ZEBRA_VNI_ADD)
+	if (cmd == ZEBRA_VNI_ADD)
 		return bgp_evpn_local_vni_add(
 			bgp, vni, vtep_ip.s_addr ? vtep_ip : bgp->router_id,
 			tenant_vrf_id, mcast_grp);
@@ -2581,8 +2559,7 @@ static int bgp_zebra_process_local_vni(int command, struct zclient *zclient,
 		return bgp_evpn_local_vni_del(bgp, vni);
 }
 
-static int bgp_zebra_process_local_macip(int command, struct zclient *zclient,
-					 zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	vni_t vni;
@@ -2605,7 +2582,7 @@ static int bgp_zebra_process_local_macip(int command, struct zclient *zclient,
 	    && ipa_len != IPV6_MAX_BYTELEN) {
 		flog_err(EC_BGP_MACIP_LEN,
 			 "%u:Recv MACIP %s with invalid IP addr length %d",
-			 vrf_id, (command == ZEBRA_MACIP_ADD) ? "Add" : "Del",
+			 vrf_id, (cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del",
 			 ipa_len);
 		return -1;
 	}
@@ -2615,7 +2592,7 @@ static int bgp_zebra_process_local_macip(int command, struct zclient *zclient,
 			(ipa_len == IPV4_MAX_BYTELEN) ? IPADDR_V4 : IPADDR_V6;
 		stream_get(&ip.ip.addr, s, ipa_len);
 	}
-	if (command == ZEBRA_MACIP_ADD) {
+	if (cmd == ZEBRA_MACIP_ADD) {
 		flags = stream_getc(s);
 		seqnum = stream_getl(s);
 	} else {
@@ -2628,21 +2605,19 @@ static int bgp_zebra_process_local_macip(int command, struct zclient *zclient,
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("%u:Recv MACIP %s flags 0x%x MAC %s IP %s VNI %u seq %u state %d",
-			   vrf_id, (command == ZEBRA_MACIP_ADD) ? "Add" : "Del",
+			   vrf_id, (cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del",
 			   flags, prefix_mac2str(&mac, buf, sizeof(buf)),
 			   ipaddr2str(&ip, buf1, sizeof(buf1)), vni, seqnum,
 			   state);
 
-	if (command == ZEBRA_MACIP_ADD)
+	if (cmd == ZEBRA_MACIP_ADD)
 		return bgp_evpn_local_macip_add(bgp, vni, &mac, &ip,
 						flags, seqnum);
 	else
 		return bgp_evpn_local_macip_del(bgp, vni, &mac, &ip, state);
 }
 
-static void bgp_zebra_process_local_ip_prefix(int cmd, struct zclient *zclient,
-					      zebra_size_t length,
-					      vrf_id_t vrf_id)
+static void bgp_zebra_process_local_ip_prefix(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s = NULL;
 	struct bgp *bgp_vrf = NULL;
@@ -2682,11 +2657,7 @@ static void bgp_zebra_process_local_ip_prefix(int cmd, struct zclient *zclient,
 	}
 }
 
-static void bgp_zebra_process_label_chunk(
-	int cmd,
-	struct zclient *zclient,
-	zebra_size_t length,
-	vrf_id_t vrf_id)
+static void bgp_zebra_process_label_chunk(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s = NULL;
 	uint8_t response_keep;
