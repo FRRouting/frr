@@ -709,12 +709,15 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 				XMALLOC(MTYPE_TMP, bgp_notify.length * 3);
 			for (i = 0; i < bgp_notify.length; i++)
 				if (first) {
-					sprintf(c, " %02x", data[i]);
-					strcat(bgp_notify.data, c);
+					snprintf(c, sizeof(c), " %02x",
+						 data[i]);
+					strlcat(bgp_notify.data, c,
+						bgp_notify.length);
 				} else {
 					first = 1;
-					sprintf(c, "%02x", data[i]);
-					strcpy(bgp_notify.data, c);
+					snprintf(c, sizeof(c), "%02x", data[i]);
+					strlcpy(bgp_notify.data, c,
+						bgp_notify.length);
 				}
 		}
 		bgp_notify_print(peer, &bgp_notify, "sending");
@@ -1700,14 +1703,16 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 				XMALLOC(MTYPE_TMP, bgp_notify.length * 3);
 			for (i = 0; i < bgp_notify.length; i++)
 				if (first) {
-					sprintf(c, " %02x",
+					snprintf(c, sizeof(c), " %02x",
 						stream_getc(peer->curr));
-					strcat(bgp_notify.data, c);
+					strlcat(bgp_notify.data, c,
+						bgp_notify.length);
 				} else {
 					first = 1;
-					sprintf(c, "%02x",
-						stream_getc(peer->curr));
-					strcpy(bgp_notify.data, c);
+					snprintf(c, sizeof(c), "%02x",
+						 stream_getc(peer->curr));
+					strlcpy(bgp_notify.data, c,
+						bgp_notify.length);
 				}
 			bgp_notify.raw_data = (uint8_t *)peer->notify.data;
 		}
