@@ -2299,6 +2299,8 @@ int bgp_process_packet(struct thread *thread)
 					__FUNCTION__, peer->host);
 			break;
 		default:
+			/* Suppress uninitialized variable warning */
+			mprc = 0;
 			/*
 			 * The message type should have been sanitized before
 			 * we ever got here. Receipt of a message with an
