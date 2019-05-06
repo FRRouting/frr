@@ -43,6 +43,18 @@ struct zebra_rmap {
 	struct route_map *map;
 };
 
+PREDECL_RBTREE_UNIQ(otable);
+
+struct other_route_table {
+	struct otable_item next;
+
+	afi_t afi;
+	safi_t safi;
+	uint32_t table_id;
+
+	struct route_table *table;
+};
+
 /* Routing table instance.  */
 struct zebra_vrf {
 	/* Back pointer */
@@ -68,6 +80,8 @@ struct zebra_vrf {
 
 	/* Import check table (used mostly by BGP */
 	struct route_table *import_check_table[AFI_MAX];
+
+	struct otable_head other_tables;
 
 	/* 2nd pointer type used primarily to quell a warning on
 	 * ALL_LIST_ELEMENTS_RO
@@ -191,6 +205,25 @@ static inline bool zvrf_is_active(struct zebra_vrf *zvrf)
 {
 	return zvrf->vrf->status & VRF_ACTIVE;
 }
+
+static inline int
+zvrf_other_table_compare_func(const struct other_route_table *a,
+			      const struct other_route_table *b)
+{
+	if (a->afi != b->afi)
+		return a->afi - b->afi;
+
+	if (a->safi != b->safi)
+		return a->safi - b->safi;
+
+	if (a->table_id != b->table_id)
+		return a->table_id - b->table_id;
+
+	return 0;
+}
+
+DECLARE_RBTREE_UNIQ(otable, struct other_route_table, next,
+		    zvrf_other_table_compare_func)
 
 struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 						  vrf_id_t vrf_id,

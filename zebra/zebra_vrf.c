@@ -47,6 +47,8 @@ static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 static void zebra_rnhtable_node_cleanup(struct route_table *table,
 					struct route_node *node);
 
+DEFINE_MTYPE_STATIC(ZEBRA, OTHER_TABLE, "Other Table");
+
 /* VRF information update. */
 static void zebra_vrf_add_update(struct zebra_vrf *zvrf)
 {
@@ -93,6 +95,9 @@ static int zebra_vrf_new(struct vrf *vrf)
 	zvrf = zebra_vrf_alloc();
 	vrf->info = zvrf;
 	zvrf->vrf = vrf;
+
+	otable_init(&zvrf->other_tables);
+
 	router_id_init(zvrf);
 	return 0;
 }
@@ -226,6 +231,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 static int zebra_vrf_delete(struct vrf *vrf)
 {
 	struct zebra_vrf *zvrf = vrf->info;
+	struct other_route_table *otable;
 	struct route_table *table;
 	afi_t afi;
 	safi_t safi;
@@ -274,11 +280,22 @@ static int zebra_vrf_delete(struct vrf *vrf)
 			route_table_finish(zvrf->import_check_table[afi]);
 	}
 
+	otable = otable_pop(&zvrf->other_tables);
+	while (otable) {
+		zebra_router_release_table(zvrf, otable->table_id,
+					   otable->afi, otable->safi);
+		XFREE(MTYPE_OTHER_TABLE, otable);
+
+		otable = otable_pop(&zvrf->other_tables);
+	}
+
 	/* Cleanup EVPN states for vrf */
 	zebra_vxlan_vrf_delete(zvrf);
 
 	list_delete_all_node(zvrf->rid_all_sorted_list);
 	list_delete_all_node(zvrf->rid_lo_sorted_list);
+
+	otable_fini(&zvrf->other_tables);
 	XFREE(MTYPE_ZEBRA_VRF, zvrf);
 	vrf->info = NULL;
 
@@ -321,6 +338,8 @@ struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 						  uint32_t table_id)
 {
 	struct zebra_vrf *zvrf = vrf_info_lookup(vrf_id);
+	struct other_route_table ort, *otable;
+	struct route_table *table;
 
 	if (!zvrf)
 		return NULL;
@@ -331,7 +350,23 @@ struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 	if (table_id == zvrf->table_id)
 		return zebra_vrf_table(afi, safi, vrf_id);
 
-	return zebra_router_get_table(zvrf, table_id, afi, safi);
+	ort.afi = afi;
+	ort.safi = safi;
+	ort.table_id = table_id;
+	otable = otable_find(&zvrf->other_tables, &ort);
+	if (otable)
+		return otable->table;
+
+	table = zebra_router_get_table(zvrf, table_id, afi, safi);
+
+	otable = XCALLOC(MTYPE_OTHER_TABLE, sizeof(*otable));
+	otable->afi = afi;
+	otable->safi = safi;
+	otable->table_id = table_id;
+	otable->table = table;
+	otable_add(&zvrf->other_tables, otable);
+
+	return table;
 }
 
 void zebra_rtable_node_cleanup(struct route_table *table,
