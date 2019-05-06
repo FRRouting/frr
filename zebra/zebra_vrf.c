@@ -320,27 +320,18 @@ struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 						  vrf_id_t vrf_id,
 						  uint32_t table_id)
 {
-	struct route_table *table = NULL;
+	struct zebra_vrf *zvrf = vrf_info_lookup(vrf_id);
+
+	if (!zvrf)
+		return NULL;
 
 	if (afi >= AFI_MAX || safi >= SAFI_MAX)
 		return NULL;
 
-	if (vrf_id == VRF_DEFAULT) {
-		if (table_id == RT_TABLE_MAIN)
-			table = zebra_vrf_table(afi, safi, vrf_id);
-		else
-			table = zebra_vrf_other_route_table(afi, table_id,
-							    vrf_id);
-	} else if (vrf_is_backend_netns()) {
-		if (table_id == RT_TABLE_MAIN)
-			table = zebra_vrf_table(afi, safi, vrf_id);
-		else
-			table = zebra_vrf_other_route_table(afi, table_id,
-							    vrf_id);
-	} else
-		table = zebra_vrf_table(afi, safi, vrf_id);
+	if (table_id == zvrf->table_id)
+		return zebra_vrf_table(afi, safi, vrf_id);
 
-	return table;
+	return zebra_router_get_table(zvrf, table_id, afi, safi);
 }
 
 void zebra_rtable_node_cleanup(struct route_table *table,
@@ -436,32 +427,6 @@ struct route_table *zebra_vrf_table(afi_t afi, safi_t safi, vrf_id_t vrf_id)
 		return NULL;
 
 	return zvrf->table[afi][safi];
-}
-
-struct route_table *zebra_vrf_other_route_table(afi_t afi, uint32_t table_id,
-						vrf_id_t vrf_id)
-{
-	struct zebra_vrf *zvrf;
-
-	zvrf = vrf_info_lookup(vrf_id);
-	if (!zvrf)
-		return NULL;
-
-	if (afi >= AFI_MAX)
-		return NULL;
-
-	if (table_id != RT_TABLE_MAIN) {
-		if (zvrf->table_id == RT_TABLE_MAIN) {
-			/* this VRF use default table
-			 * so in all cases, it does not use specific table
-			 * so it is possible to configure tables in this VRF
-			 */
-			return zebra_router_get_table(zvrf, table_id, afi,
-						      SAFI_UNICAST);
-		}
-	}
-
-	return zvrf->table[afi][SAFI_UNICAST];
 }
 
 static int vrf_config_write(struct vty *vty)

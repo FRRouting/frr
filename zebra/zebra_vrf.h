@@ -202,8 +202,6 @@ extern struct zebra_vrf *zebra_vrf_lookup_by_name(const char *);
 extern struct zebra_vrf *zebra_vrf_alloc(void);
 extern struct route_table *zebra_vrf_table(afi_t, safi_t, vrf_id_t);
 
-extern struct route_table *
-zebra_vrf_other_route_table(afi_t afi, uint32_t table_id, vrf_id_t vrf_id);
 extern int zebra_vrf_has_config(struct zebra_vrf *zvrf);
 extern void zebra_vrf_init(void);
 

@@ -653,7 +653,8 @@ int zebra_import_table(afi_t afi, uint32_t table_id, uint32_t distance,
 	if (afi >= AFI_MAX)
 		return (-1);
 
-	table = zebra_vrf_other_route_table(afi, table_id, VRF_DEFAULT);
+	table = zebra_vrf_table_with_table_id(afi, SAFI_UNICAST,
+					      table_id, VRF_DEFAULT);
 	if (table == NULL) {
 		return 0;
 	} else if (IS_ZEBRA_DEBUG_RIB) {
@@ -767,8 +768,8 @@ void zebra_import_table_rm_update(const char *rmap)
 			rmap_name = zebra_get_import_table_route_map(afi, i);
 			if ((!rmap_name) || (strcmp(rmap_name, rmap) != 0))
 				continue;
-			table = zebra_vrf_other_route_table(afi, i,
-							    VRF_DEFAULT);
+			table = zebra_vrf_table_with_table_id(afi, SAFI_UNICAST,
+							      i, VRF_DEFAULT);
 			for (rn = route_top(table); rn; rn = route_next(rn)) {
 				/* For each entry in the non-default
 				 * routing table,
