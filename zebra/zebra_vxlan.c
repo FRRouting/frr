@@ -7858,11 +7858,17 @@ void zebra_vxlan_remote_vtep_del(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	while (l < hdr->length) {
+		int flood_control __attribute__((unused));
+
 		/* Obtain each remote VTEP and process. */
 		STREAM_GETL(s, vni);
 		l += 4;
 		STREAM_GET(&vtep_ip.s_addr, s, IPV4_MAX_BYTELEN);
 		l += IPV4_MAX_BYTELEN;
+
+		/* Flood control is intentionally ignored right now */
+		STREAM_GETL(s, flood_control);
+		l += 4;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Recv VTEP_DEL %s VNI %u from %s",
@@ -7949,7 +7955,7 @@ void zebra_vxlan_remote_vtep_add(ZAPI_HANDLER_ARGS)
 		l += 4;
 		STREAM_GET(&vtep_ip.s_addr, s, IPV4_MAX_BYTELEN);
 		STREAM_GETL(s, flood_control);
-		l += IPV4_MAX_BYTELEN;
+		l += IPV4_MAX_BYTELEN + 4;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Recv VTEP_ADD %s VNI %u flood %d from %s",
