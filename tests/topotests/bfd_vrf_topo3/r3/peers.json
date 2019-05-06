@@ -1,0 +1,34 @@
+[
+    {
+        "multihop":true,
+        "peer":"1000:1::1",
+        "local":"1001:1::1",
+        "vrf":"r3-cust1",
+        "status":"up",
+        "diagnostic":"ok",
+        "remote-diagnostic":"ok",
+        "receive-interval":300,
+        "transmit-interval":300,
+        "echo-receive-interval":50,
+        "echo-transmit-interval":0,
+        "remote-receive-interval":300,
+        "remote-transmit-interval":300,
+        "remote-echo-receive-interval":50
+    },
+    {
+        "multihop":true,
+        "peer":"192.168.0.1",
+        "local":"192.168.1.1",
+        "vrf":"r3-cust1",
+        "status":"up",
+        "diagnostic":"ok",
+        "remote-diagnostic":"ok",
+        "receive-interval":300,
+        "transmit-interval":300,
+        "echo-receive-interval":50,
+        "echo-transmit-interval":0,
+        "remote-receive-interval":300,
+        "remote-transmit-interval":300,
+        "remote-echo-receive-interval":50
+    }
+]
