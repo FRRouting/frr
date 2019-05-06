@@ -1173,8 +1173,17 @@ static route_map_result_t route_match_lcommunity(void *rule,
 		if (!list)
 			return RMAP_NOMATCH;
 
-		if (lcommunity_list_match(path->attr->lcommunity, list))
-			return RMAP_MATCH;
+		if (rcom->exact) {
+			if (lcommunity_list_exact_match(
+						path->attr->lcommunity,
+						list))
+				return RMAP_MATCH;
+		} else {
+			if (lcommunity_list_match(
+						path->attr->lcommunity,
+						list))
+				return RMAP_MATCH;
+		}
 	}
 	return RMAP_NOMATCH;
 }
@@ -1193,6 +1202,7 @@ static void *route_match_lcommunity_compile(const char *arg)
 		len = p - arg;
 		rcom->name = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, len + 1);
 		memcpy(rcom->name, arg, len);
+		rcom->exact = 1;
 	} else {
 		rcom->name = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 		rcom->exact = 0;
@@ -3796,26 +3806,45 @@ DEFUN (no_match_community,
 
 DEFUN (match_lcommunity,
        match_lcommunity_cmd,
-       "match large-community <(1-99)|(100-500)|WORD>",
+       "match large-community <(1-99)|(100-500)|WORD> [exact-match]",
        MATCH_STR
        "Match BGP large community list\n"
        "Large Community-list number (standard)\n"
        "Large Community-list number (expanded)\n"
-       "Large Community-list name\n")
+       "Large Community-list name\n"
+       "Do exact matching of communities\n")
 {
-	return bgp_route_match_add(vty, "large-community", argv[2]->arg,
+	int idx_lcomm_list = 2;
+	int ret;
+	char *argstr;
+
+	if (argc == 4) {
+		argstr = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
+				strlen(argv[idx_lcomm_list]->arg)
+				+ strlen("exact-match") + 2);
+
+		sprintf(argstr, "%s exact-match", argv[idx_lcomm_list]->arg);
+	} else
+		argstr = argv[idx_lcomm_list]->arg;
+
+	ret = bgp_route_match_add(vty, "large-community", argstr,
 				   RMAP_EVENT_LLIST_ADDED);
+	if (argstr != argv[idx_lcomm_list]->arg)
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, argstr);
+
+	return ret;
 }
 
 DEFUN (no_match_lcommunity,
        no_match_lcommunity_cmd,
-       "no match large-community [<(1-99)|(100-500)|WORD>]",
+       "no match large-community [<(1-99)|(100-500)|WORD> [exact-match]]",
        NO_STR
        MATCH_STR
        "Match BGP large community list\n"
        "Large Community-list number (standard)\n"
        "Large Community-list number (expanded)\n"
-       "Large Community-list name\n")
+       "Large Community-list name\n"
+       "Do exact matching of communities\n")
 {
 	return bgp_route_match_delete(vty, "large-community", NULL,
 				      RMAP_EVENT_LLIST_DELETED);

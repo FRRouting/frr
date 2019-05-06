@@ -1774,13 +1774,15 @@ Two types of large community lists are supported, namely `standard` and
 Large Communities in Route Map
 """"""""""""""""""""""""""""""
 
-.. index:: match large-community LINE
-.. clicmd:: match large-community LINE
+.. index:: match large-community LINE [exact-match]
+.. clicmd:: match large-community LINE [exact-match]
 
    Where `line` can be a simple string to match, or a regular expression. It
    is very important to note that this match occurs on the entire
    large-community string as a whole, where each large-community is ordered
-   from lowest to highest.
+   from lowest to highest. When `exact-match` keyword is specified, match
+   happen only when BGP updates have completely same large communities value
+   specified in the large community list.
 
 .. index:: set large-community LARGE-COMMUNITY
 .. clicmd:: set large-community LARGE-COMMUNITY
