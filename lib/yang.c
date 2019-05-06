@@ -617,14 +617,6 @@ static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 		zlog(priority, "libyang: %s", msg);
 }
 
-#if CONFDATE > 20190401
-CPP_NOTICE("lib/yang: time to remove non-LIBYANG_EXT_BUILTIN support")
-#endif
-
-#ifdef LIBYANG_EXT_BUILTIN
-extern struct lytype_plugin_list frr_user_types[];
-#endif
-
 struct ly_ctx *yang_ctx_new_setup(void)
 {
 	struct ly_ctx *ctx;
@@ -650,30 +642,9 @@ struct ly_ctx *yang_ctx_new_setup(void)
 
 void yang_init(void)
 {
-#ifndef LIBYANG_EXT_BUILTIN
-CPP_NOTICE("lib/yang: deprecated libyang <0.16.74 extension loading in use!")
-	static char ly_plugin_dir[PATH_MAX];
-	const char *const *ly_loaded_plugins;
-	const char *ly_plugin;
-	bool found_ly_frr_types = false;
-
-	/* Tell libyang where to find its plugins. */
-	snprintf(ly_plugin_dir, sizeof(ly_plugin_dir), "%s=%s",
-		 "LIBYANG_USER_TYPES_PLUGINS_DIR", LIBYANG_PLUGINS_PATH);
-	putenv(ly_plugin_dir);
-#endif
-
 	/* Initialize libyang global parameters that affect all containers. */
 	ly_set_log_clb(ly_log_cb, 1);
 	ly_log_options(LY_LOLOG | LY_LOSTORE);
-
-#ifdef LIBYANG_EXT_BUILTIN
-	if (ly_register_types(frr_user_types, "frr_user_types")) {
-		flog_err(EC_LIB_LIBYANG_PLUGIN_LOAD,
-			 "ly_register_types() failed");
-		exit(1);
-	}
-#endif
 
 	/* Initialize libyang container for native models. */
 	ly_native_ctx = yang_ctx_new_setup();
@@ -681,22 +652,6 @@ CPP_NOTICE("lib/yang: deprecated libyang <0.16.74 extension loading in use!")
 		flog_err(EC_LIB_LIBYANG, "%s: ly_ctx_new() failed", __func__);
 		exit(1);
 	}
-
-#ifndef LIBYANG_EXT_BUILTIN
-	/* Detect if the required libyang plugin(s) were loaded successfully. */
-	ly_loaded_plugins = ly_get_loaded_plugins();
-	for (size_t i = 0; (ly_plugin = ly_loaded_plugins[i]); i++) {
-		if (strmatch(ly_plugin, "frr_user_types")) {
-			found_ly_frr_types = true;
-			break;
-		}
-	}
-	if (!found_ly_frr_types) {
-		flog_err(EC_LIB_LIBYANG_PLUGIN_LOAD,
-			 "%s: failed to load frr_user_types.so", __func__);
-		exit(1);
-	}
-#endif
 
 	yang_translator_init();
 }
