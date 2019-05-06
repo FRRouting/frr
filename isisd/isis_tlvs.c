@@ -1272,6 +1272,11 @@ static void format_item_extended_ip_reach(uint16_t mtid, struct isis_item *i,
 	if (mtid != ISIS_MT_IPV4_UNICAST)
 		sbuf_push(buf, 0, " %s", isis_mtid2str(mtid));
 	sbuf_push(buf, 0, "\n");
+
+	if (r->subtlvs) {
+		sbuf_push(buf, indent, "  Subtlvs:\n");
+		format_subtlvs(r->subtlvs, buf, indent + 4);
+	}
 }
 
 static void free_item_extended_ip_reach(struct isis_item *i)
