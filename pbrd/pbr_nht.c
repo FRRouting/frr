@@ -191,7 +191,7 @@ static void *pbr_nhgc_alloc(void *p)
 
 	new = XCALLOC(MTYPE_PBR_NHG, sizeof(*new));
 
-	strcpy(new->name, pnhgc->name);
+	strlcpy(new->name, pnhgc->name, sizeof(pnhgc->name));
 	new->table_id = pbr_nht_get_next_tableid(false);
 
 	DEBUGD(&pbr_dbg_nht, "%s: NHT: %s assigned Table ID: %u",
