@@ -165,6 +165,8 @@ extern int ecommunity_list_match(struct ecommunity *, struct community_list *);
 extern int lcommunity_list_match(struct lcommunity *, struct community_list *);
 extern int community_list_exact_match(struct community *,
 				      struct community_list *);
+extern int lcommunity_list_exact_match(struct lcommunity *lcom,
+				       struct community_list *list);
 extern struct community *community_list_match_delete(struct community *,
 						     struct community_list *);
 extern struct lcommunity *
