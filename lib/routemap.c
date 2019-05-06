@@ -39,6 +39,7 @@ DEFINE_MTYPE(LIB, ROUTE_MAP_RULE, "Route map rule")
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_RULE_STR, "Route map rule str")
 DEFINE_MTYPE(LIB, ROUTE_MAP_COMPILED, "Route map compiled")
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_DEP, "Route map dependency")
+DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_DEP_DATA, "Route map dependency data")
 
 DEFINE_QOBJ_TYPE(route_map_index)
 DEFINE_QOBJ_TYPE(route_map)
@@ -668,6 +669,16 @@ struct route_map_dep {
 	char *dep_name;
 	struct hash *dep_rmap_hash;
 	struct hash *this_hash; /* ptr to the hash structure this is part of */
+};
+
+struct route_map_dep_data {
+	/* Route-map name.
+	 */
+	char *rname;
+	/* Count of number of sequences of this
+	 * route-map that depend on the same entity.
+	 */
+	uint16_t  refcnt;
 };
 
 /* Hashes maintaining dependency between various sublists used by route maps */
@@ -1649,7 +1660,9 @@ void route_map_event_hook(void (*func)(route_map_event_t, const char *))
 /* Routines for route map dependency lists and dependency processing */
 static bool route_map_rmap_hash_cmp(const void *p1, const void *p2)
 {
-	return (strcmp((const char *)p1, (const char *)p2) == 0);
+	return (strcmp(((const struct route_map_dep_data *)p1)->rname,
+		       ((const struct route_map_dep_data *)p2)->rname)
+		== 0);
 }
 
 static bool route_map_dep_hash_cmp(const void *p1, const void *p2)
@@ -1663,13 +1676,17 @@ static bool route_map_dep_hash_cmp(const void *p1, const void *p2)
 static void route_map_clear_reference(struct hash_bucket *bucket, void *arg)
 {
 	struct route_map_dep *dep = (struct route_map_dep *)bucket->data;
-	char *rmap_name;
+	struct route_map_dep_data *dep_data = NULL, tmp_dep_data;
 
 	if (arg) {
-		rmap_name =
-			(char *)hash_release(dep->dep_rmap_hash, (void *)arg);
-		if (rmap_name) {
-			XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
+		memset(&tmp_dep_data, 0, sizeof(struct route_map_dep_data));
+		tmp_dep_data.rname = (char *)arg;
+		dep_data = hash_release(dep->dep_rmap_hash,
+					(void *)&tmp_dep_data);
+		if (dep_data) {
+			XFREE(MTYPE_ROUTE_MAP_NAME, dep_data->rname);
+			XFREE(MTYPE_ROUTE_MAP_DEP_DATA, dep_data);
+			zlog_debug("CLEARED REFERENCE");
 		}
 		if (!dep->dep_rmap_hash->count) {
 			dep = hash_release(dep->this_hash,
@@ -1691,6 +1708,12 @@ static void route_map_clear_all_references(char *rmap_name)
 	}
 }
 
+static unsigned int route_map_dep_data_hash_make_key(void *p)
+{
+	struct route_map_dep_data *dep_data = p;
+	return (string_hash_make(dep_data->rname));
+}
+
 static void *route_map_dep_hash_alloc(void *p)
 {
 	char *dep_name = (char *)p;
@@ -1699,16 +1722,22 @@ static void *route_map_dep_hash_alloc(void *p)
 	dep_entry = XCALLOC(MTYPE_ROUTE_MAP_DEP, sizeof(struct route_map_dep));
 	dep_entry->dep_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, dep_name);
 	dep_entry->dep_rmap_hash =
-		hash_create_size(8, route_map_dep_hash_make_key,
+		hash_create_size(8, route_map_dep_data_hash_make_key,
 				 route_map_rmap_hash_cmp, "Route Map Dep Hash");
 	dep_entry->this_hash = NULL;
 
-	return ((void *)dep_entry);
+	return (void *)dep_entry;
 }
 
 static void *route_map_name_hash_alloc(void *p)
 {
-	return ((void *)XSTRDUP(MTYPE_ROUTE_MAP_NAME, (const char *)p));
+	struct route_map_dep_data *dep_data = NULL, *tmp_dep_data = NULL;
+
+	dep_data = XCALLOC(MTYPE_ROUTE_MAP_DEP_DATA,
+			   sizeof(struct route_map_dep_data));
+	tmp_dep_data = (struct route_map_dep_data *)p;
+	dep_data->rname = XSTRDUP(MTYPE_ROUTE_MAP_NAME, tmp_dep_data->rname);
+	return (void *)dep_data;
 }
 
 static unsigned int route_map_dep_hash_make_key(void *p)
@@ -1718,7 +1747,9 @@ static unsigned int route_map_dep_hash_make_key(void *p)
 
 static void route_map_print_dependency(struct hash_bucket *bucket, void *data)
 {
-	char *rmap_name = (char *)bucket->data;
+	struct route_map_dep_data *dep_data =
+				(struct route_map_dep_data *)bucket->data;
+	char *rmap_name = dep_data->rname;
 	char *dep_name = (char *)data;
 
 	zlog_debug("%s: Dependency for %s: %s", __FUNCTION__, dep_name,
@@ -1729,9 +1760,10 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 				const char *rmap_name, route_map_event_t type)
 {
 	struct route_map_dep *dep = NULL;
-	char *ret_map_name;
 	char *dname, *rname;
 	int ret = 0;
+	struct route_map_dep_data *dep_data = NULL, *ret_dep_data = NULL;
+	struct route_map_dep_data tmp_dep_data;
 
 	dname = XSTRDUP(MTYPE_ROUTE_MAP_NAME, dep_name);
 	rname = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_name);
@@ -1757,7 +1789,14 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 		if (!dep->this_hash)
 			dep->this_hash = dephash;
 
-		hash_get(dep->dep_rmap_hash, rname, route_map_name_hash_alloc);
+		memset(&tmp_dep_data, 0, sizeof(struct route_map_dep_data));
+		tmp_dep_data.rname = rname;
+		dep_data = hash_lookup(dep->dep_rmap_hash, &tmp_dep_data);
+		if (!dep_data)
+			dep_data = hash_get(dep->dep_rmap_hash, &tmp_dep_data,
+					    route_map_name_hash_alloc);
+
+		dep_data->refcnt++;
 		break;
 	case RMAP_EVENT_PLIST_DELETED:
 	case RMAP_EVENT_CLIST_DELETED:
@@ -1774,8 +1813,21 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 			goto out;
 		}
 
-		ret_map_name = (char *)hash_release(dep->dep_rmap_hash, rname);
-		XFREE(MTYPE_ROUTE_MAP_NAME, ret_map_name);
+		memset(&tmp_dep_data, 0, sizeof(struct route_map_dep_data));
+		tmp_dep_data.rname = rname;
+		dep_data = hash_lookup(dep->dep_rmap_hash, &tmp_dep_data);
+		dep_data->refcnt--;
+
+		if (!dep_data->refcnt) {
+			ret_dep_data = (struct route_map_dep_data *)
+					hash_release(dep->dep_rmap_hash,
+						     &tmp_dep_data);
+			if (ret_dep_data) {
+				XFREE(MTYPE_ROUTE_MAP_NAME,
+				      ret_dep_data->rname);
+				XFREE(MTYPE_ROUTE_MAP_DEP_DATA, ret_dep_data);
+			}
+		}
 
 		if (!dep->dep_rmap_hash->count) {
 			dep = hash_release(dephash, dname);
@@ -1843,8 +1895,12 @@ static struct hash *route_map_get_dep_hash(route_map_event_t event)
 
 static void route_map_process_dependency(struct hash_bucket *bucket, void *data)
 {
-	char *rmap_name = (char *)bucket->data;
+	struct route_map_dep_data *dep_data = NULL;
+	char *rmap_name = NULL;
 	route_map_event_t type = (route_map_event_t)(ptrdiff_t)data;
+
+	dep_data = (struct route_map_dep_data *)bucket->data;
+	rmap_name = dep_data->rname;
 
 	if (rmap_debug)
 		zlog_debug("%s: Notifying %s of dependency",
