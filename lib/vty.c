@@ -1659,7 +1659,7 @@ static struct vty *vty_create(int vty_sock, union sockunion *su)
 
 	/* configurable parameters not part of basic init */
 	vty->v_timeout = vty_timeout_val;
-	strcpy(vty->address, buf);
+	strlcpy(vty->address, buf, sizeof(vty->address));
 	if (no_password_check) {
 		if (host.advanced)
 			vty->node = ENABLE_NODE;
@@ -1795,7 +1795,7 @@ struct vty *vty_stdio(void (*atclose)(int isexit))
 	 */
 	vty->node = ENABLE_NODE;
 	vty->v_timeout = 0;
-	strcpy(vty->address, "console");
+	strlcpy(vty->address, "console", sizeof(vty->address));
 
 	vty_stdio_resume();
 	return vty;
@@ -2384,9 +2384,10 @@ static FILE *vty_use_backup_config(const char *fullpath)
 	int c;
 	char buffer[512];
 
-	fullpath_sav = malloc(strlen(fullpath) + strlen(CONF_BACKUP_EXT) + 1);
-	strcpy(fullpath_sav, fullpath);
-	strcat(fullpath_sav, CONF_BACKUP_EXT);
+	size_t fullpath_sav_sz = strlen(fullpath) + strlen(CONF_BACKUP_EXT) + 1;
+	fullpath_sav = malloc(fullpath_sav_sz);
+	strlcpy(fullpath_sav, fullpath, fullpath_sav_sz);
+	strlcat(fullpath_sav, CONF_BACKUP_EXT, fullpath_sav_sz);
 
 	sav = open(fullpath_sav, O_RDONLY);
 	if (sav < 0) {
@@ -3079,8 +3080,9 @@ static void vty_save_cwd(void)
 		}
 	}
 
-	vty_cwd = XMALLOC(MTYPE_TMP, strlen(cwd) + 1);
-	strcpy(vty_cwd, cwd);
+	size_t vty_cwd_sz = strlen(cwd) + 1;
+	vty_cwd = XMALLOC(MTYPE_TMP, vty_cwd_sz);
+	strlcpy(vty_cwd, cwd, vty_cwd_sz);
 }
 
 char *vty_get_cwd(void)
