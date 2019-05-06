@@ -4222,10 +4222,10 @@ DEFUN (set_community,
 	str = community_str(com, false);
 
 	if (additive) {
-		argstr = XCALLOC(MTYPE_TMP,
-				 strlen(str) + strlen(" additive") + 1);
-		strcpy(argstr, str);
-		strcpy(argstr + strlen(str), " additive");
+		size_t argstr_sz = strlen(str) + strlen(" additive") + 1;
+		argstr = XCALLOC(MTYPE_TMP, argstr_sz);
+		strlcpy(argstr, str, argstr_sz);
+		strlcat(argstr, " additive", argstr_sz);
 		ret = generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
 				      "community", argstr);
 		XFREE(MTYPE_TMP, argstr);
