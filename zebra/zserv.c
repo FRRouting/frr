@@ -697,9 +697,6 @@ static struct zserv *zserv_client_create(int sock)
 	pthread_mutex_init(&client->obuf_mtx, NULL);
 	client->wb = buffer_new(0);
 
-	/* Set table number. */
-	client->rtm_table = zrouter.rtm_table_default;
-
 	atomic_store_explicit(&client->connect_time, (uint32_t) monotime(NULL),
 			      memory_order_relaxed);
 
@@ -907,7 +904,6 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 
 	vty_out(vty, "------------------------ \n");
 	vty_out(vty, "FD: %d \n", client->sock);
-	vty_out(vty, "Route Table ID: %d \n", client->rtm_table);
 
 	connect_time = (time_t) atomic_load_explicit(&client->connect_time,
 						     memory_order_relaxed);

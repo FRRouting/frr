@@ -226,7 +226,6 @@ void zebra_router_init(void)
 {
 	zrouter.sequence_num = 0;
 
-	zrouter.rtm_table_default = 0;
 	zrouter.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS;
 
 	zebra_vxlan_init();
