@@ -2011,26 +2011,26 @@ static char *ripng_route_subtype_print(struct ripng_info *rinfo)
 	memset(str, 0, 3);
 
 	if (rinfo->suppress)
-		strcat(str, "S");
+		strlcat(str, "S", sizeof(str));
 
 	switch (rinfo->sub_type) {
 	case RIPNG_ROUTE_RTE:
-		strcat(str, "n");
+		strlcat(str, "n", sizeof(str));
 		break;
 	case RIPNG_ROUTE_STATIC:
-		strcat(str, "s");
+		strlcat(str, "s", sizeof(str));
 		break;
 	case RIPNG_ROUTE_DEFAULT:
-		strcat(str, "d");
+		strlcat(str, "d", sizeof(str));
 		break;
 	case RIPNG_ROUTE_REDISTRIBUTE:
-		strcat(str, "r");
+		strlcat(str, "r", sizeof(str));
 		break;
 	case RIPNG_ROUTE_INTERFACE:
-		strcat(str, "i");
+		strlcat(str, "i", sizeof(str));
 		break;
 	default:
-		strcat(str, "?");
+		strlcat(str, "?", sizeof(str));
 		break;
 	}
 
