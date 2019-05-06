@@ -9168,11 +9168,28 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 							 lcom))
 					continue;
 			}
+
+			if (type == bgp_show_type_lcommunity_exact) {
+				struct lcommunity *lcom = output_arg;
+
+				if (!pi->attr->lcommunity
+				    || !lcommunity_cmp(pi->attr->lcommunity,
+						      lcom))
+					continue;
+			}
 			if (type == bgp_show_type_lcommunity_list) {
 				struct community_list *list = output_arg;
 
 				if (!lcommunity_list_match(pi->attr->lcommunity,
 							   list))
+					continue;
+			}
+			if (type
+			    == bgp_show_type_lcommunity_list_exact) {
+				struct community_list *list = output_arg;
+
+				if (!lcommunity_list_exact_match(
+					    pi->attr->lcommunity, list))
 					continue;
 			}
 			if (type == bgp_show_type_lcommunity_all) {
@@ -9798,8 +9815,8 @@ static int bgp_show_route(struct vty *vty, struct bgp *bgp, const char *ip_str,
 }
 
 static int bgp_show_lcommunity(struct vty *vty, struct bgp *bgp, int argc,
-			       struct cmd_token **argv, afi_t afi, safi_t safi,
-			       bool uj)
+			       struct cmd_token **argv, bool exact, afi_t afi,
+			       safi_t safi, bool uj)
 {
 	struct lcommunity *lcom;
 	struct buffer *b;
@@ -9830,13 +9847,15 @@ static int bgp_show_lcommunity(struct vty *vty, struct bgp *bgp, int argc,
 		return CMD_WARNING;
 	}
 
-	return bgp_show(vty, bgp, afi, safi, bgp_show_type_lcommunity, lcom,
-			uj);
+	return bgp_show(vty, bgp, afi, safi,
+			(exact ? bgp_show_type_lcommunity_exact
+			 : bgp_show_type_lcommunity),
+			lcom, uj);
 }
 
 static int bgp_show_lcommunity_list(struct vty *vty, struct bgp *bgp,
-				    const char *lcom, afi_t afi, safi_t safi,
-				    bool uj)
+				    const char *lcom, bool exact, afi_t afi,
+				    safi_t safi, bool uj)
 {
 	struct community_list *list;
 
@@ -9848,13 +9867,15 @@ static int bgp_show_lcommunity_list(struct vty *vty, struct bgp *bgp,
 		return CMD_WARNING;
 	}
 
-	return bgp_show(vty, bgp, afi, safi, bgp_show_type_lcommunity_list,
+	return bgp_show(vty, bgp, afi, safi,
+			(exact ? bgp_show_type_lcommunity_list_exact
+			 : bgp_show_type_lcommunity_list),
 			list, uj);
 }
 
 DEFUN (show_ip_bgp_large_community_list,
        show_ip_bgp_large_community_list_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] large-community-list <(1-500)|WORD> [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] large-community-list <(1-500)|WORD> [exact-match] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9864,12 +9885,14 @@ DEFUN (show_ip_bgp_large_community_list,
        "Display routes matching the large-community-list\n"
        "large-community-list number\n"
        "large-community-list name\n"
+       "Exact match of the large-communities\n"
        JSON_STR)
 {
 	char *vrf = NULL;
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
 	int idx = 0;
+	bool exact_match = 0;
 
 	if (argv_find(argv, argc, "ip", &idx))
 		afi = AFI_IP;
@@ -9893,12 +9916,18 @@ DEFUN (show_ip_bgp_large_community_list,
 	}
 
 	argv_find(argv, argc, "large-community-list", &idx);
-	return bgp_show_lcommunity_list(vty, bgp, argv[idx + 1]->arg, afi, safi,
-					uj);
+
+	const char *clist_number_or_name = argv[++idx]->arg;
+
+	if (++idx < argc && strmatch(argv[idx]->text, "exact-match"))
+		exact_match = 1;
+
+	return bgp_show_lcommunity_list(vty, bgp, clist_number_or_name,
+					exact_match, afi, safi, uj);
 }
 DEFUN (show_ip_bgp_large_community,
        show_ip_bgp_large_community_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] large-community [AA:BB:CC] [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] large-community [<AA:BB:CC> [exact-match]] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9907,12 +9936,14 @@ DEFUN (show_ip_bgp_large_community,
        BGP_SAFI_WITH_LABEL_HELP_STR
        "Display routes matching the large-communities\n"
        "List of large-community numbers\n"
+       "Exact match of the large-communities\n"
        JSON_STR)
 {
 	char *vrf = NULL;
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
 	int idx = 0;
+	bool exact_match = 0;
 
 	if (argv_find(argv, argc, "ip", &idx))
 		afi = AFI_IP;
@@ -9935,9 +9966,12 @@ DEFUN (show_ip_bgp_large_community,
 		return CMD_WARNING;
 	}
 
-	if (argv_find(argv, argc, "AA:BB:CC", &idx))
-		return bgp_show_lcommunity(vty, bgp, argc, argv, afi, safi, uj);
-	else
+	if (argv_find(argv, argc, "AA:BB:CC", &idx)) {
+		if (argv_find(argv, argc, "exact-match", &idx))
+			exact_match = 1;
+		return bgp_show_lcommunity(vty, bgp, argc, argv,
+					exact_match, afi, safi, uj);
+	} else
 		return bgp_show(vty, bgp, afi, safi,
 				bgp_show_type_lcommunity_all, NULL, uj);
 }
