@@ -695,6 +695,32 @@ int lcommunity_list_match(struct lcommunity *lcom, struct community_list *list)
 	return 0;
 }
 
+
+/* Perform exact matching.  In case of expanded large-community-list, do
+ * same thing as lcommunity_list_match().
+ */
+int lcommunity_list_exact_match(struct lcommunity *lcom,
+			       struct community_list *list)
+{
+	struct community_entry *entry;
+
+	for (entry = list->head; entry; entry = entry->next) {
+		if (entry->any)
+			return entry->direct == COMMUNITY_PERMIT ? 1 : 0;
+
+		if (entry->style == LARGE_COMMUNITY_LIST_STANDARD) {
+			if (lcommunity_cmp(lcom, entry->u.com))
+				return entry->direct == COMMUNITY_PERMIT ? 1
+									 : 0;
+		} else if (entry->style == LARGE_COMMUNITY_LIST_EXPANDED) {
+			if (lcommunity_regexp_match(lcom, entry->reg))
+				return entry->direct == COMMUNITY_PERMIT ? 1
+									 : 0;
+		}
+	}
+	return 0;
+}
+
 int ecommunity_list_match(struct ecommunity *ecom, struct community_list *list)
 {
 	struct community_entry *entry;
