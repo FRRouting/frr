@@ -2,13 +2,6 @@
 # libyang user types
 #
 
-if LIBYANG_EXT_BUILTIN
-lib_libfrr_la_SOURCES += yang/libyang_plugins/frr_user_types.c
-else
-libyang_plugins_LTLIBRARIES += yang/libyang_plugins/frr_user_types.la
-endif
-
-yang_libyang_plugins_frr_user_types_la_CFLAGS = $(WERROR) $(LIBYANG_CFLAGS)
-yang_libyang_plugins_frr_user_types_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
-yang_libyang_plugins_frr_user_types_la_LIBADD =
-yang_libyang_plugins_frr_user_types_la_SOURCES = yang/libyang_plugins/frr_user_types.c
+# XXX: disable support for libyang custom user types temporarily to facilitate
+# the transition from libyang 0.x to libyang 1.x.
+#lib_libfrr_la_SOURCES += yang/libyang_plugins/frr_user_types.c

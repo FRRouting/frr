@@ -817,7 +817,7 @@ void yang_dnode_get_ipv4(struct in_addr *addr, const struct lyd_node *dnode,
 
 	dleaf = (const struct lyd_node_leaf_list *)dnode;
 	assert(dleaf->value_type == LY_TYPE_STRING);
-	memcpy(addr, dleaf->value.ptr, sizeof(*addr));
+	(void)inet_pton(AF_INET, dleaf->value_str, addr);
 }
 
 void yang_get_default_ipv4(struct in_addr *var, const char *xpath_fmt, ...)
@@ -874,7 +874,7 @@ void yang_dnode_get_ipv4p(union prefixptr prefix, const struct lyd_node *dnode,
 
 	dleaf = (const struct lyd_node_leaf_list *)dnode;
 	assert(dleaf->value_type == LY_TYPE_STRING);
-	memcpy(prefix4, dleaf->value.ptr, sizeof(*prefix4));
+	(void)str2prefix_ipv4(dleaf->value_str, prefix4);
 }
 
 void yang_get_default_ipv4p(union prefixptr var, const char *xpath_fmt, ...)
@@ -927,7 +927,7 @@ void yang_dnode_get_ipv6(struct in6_addr *addr, const struct lyd_node *dnode,
 
 	dleaf = (const struct lyd_node_leaf_list *)dnode;
 	assert(dleaf->value_type == LY_TYPE_STRING);
-	memcpy(addr, dleaf->value.ptr, sizeof(*addr));
+	(void)inet_pton(AF_INET6, dleaf->value_str, addr);
 }
 
 void yang_get_default_ipv6(struct in6_addr *var, const char *xpath_fmt, ...)
@@ -984,7 +984,7 @@ void yang_dnode_get_ipv6p(union prefixptr prefix, const struct lyd_node *dnode,
 
 	dleaf = (const struct lyd_node_leaf_list *)dnode;
 	assert(dleaf->value_type == LY_TYPE_STRING);
-	memcpy(prefix6, dleaf->value.ptr, sizeof(*prefix6));
+	(void)str2prefix_ipv6(dleaf->value_str, prefix6);
 }
 
 void yang_get_default_ipv6p(union prefixptr var, const char *xpath_fmt, ...)
