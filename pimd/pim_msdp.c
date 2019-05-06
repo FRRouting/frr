@@ -1078,7 +1078,7 @@ static enum pim_msdp_err pim_msdp_peer_new(struct pim_instance *pim,
 	mp->mesh_group_name = XSTRDUP(MTYPE_PIM_MSDP_MG_NAME, mesh_group_name);
 	mp->state = PIM_MSDP_INACTIVE;
 	mp->fd = -1;
-	strcpy(mp->last_reset, "-");
+	strlcpy(mp->last_reset, "-", sizeof(mp->last_reset));
 	/* higher IP address is listener */
 	if (ntohl(mp->local.s_addr) > ntohl(mp->peer.s_addr)) {
 		mp->flags |= PIM_MSDP_PEERF_LISTENER;

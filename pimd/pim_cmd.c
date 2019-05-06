@@ -2001,9 +2001,9 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 		ifp_in = pim_if_find_by_vif_index(pim, c_oil->oil.mfcc_parent);
 
 		if (ifp_in)
-			strcpy(in_ifname, ifp_in->name);
+			strlcpy(in_ifname, ifp_in->name, sizeof(in_ifname));
 		else
-			strcpy(in_ifname, "<iif?>");
+			strlcpy(in_ifname, "<iif?>", sizeof(in_ifname));
 
 		if (src_or_group) {
 			if (strcmp(src_or_group, src_str)
@@ -2085,9 +2085,9 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 				now - c_oil->oif_creation[oif_vif_index]);
 
 			if (ifp_out)
-				strcpy(out_ifname, ifp_out->name);
+				strlcpy(out_ifname, ifp_out->name, sizeof(out_ifname));
 			else
-				strcpy(out_ifname, "<oif?>");
+				strlcpy(out_ifname, "<oif?>", sizeof(out_ifname));
 
 			if (uj) {
 				json_ifp_out = json_object_new_object();
@@ -2366,37 +2366,37 @@ static void json_object_pim_upstream_add(json_object *json,
 
 static const char *
 pim_upstream_state2brief_str(enum pim_upstream_state join_state,
-			     char *state_str)
+			     char *state_str, size_t state_str_len)
 {
 	switch (join_state) {
 	case PIM_UPSTREAM_NOTJOINED:
-		strcpy(state_str, "NotJ");
+		strlcpy(state_str, "NotJ", state_str_len);
 		break;
 	case PIM_UPSTREAM_JOINED:
-		strcpy(state_str, "J");
+		strlcpy(state_str, "J", state_str_len);
 		break;
 	default:
-		strcpy(state_str, "Unk");
+		strlcpy(state_str, "Unk", state_str_len);
 	}
 	return state_str;
 }
 
 static const char *pim_reg_state2brief_str(enum pim_reg_state reg_state,
-					   char *state_str)
+					   char *state_str, size_t state_str_len)
 {
 	switch (reg_state) {
 	case PIM_REG_NOINFO:
-		strcpy(state_str, "RegNI");
+		strlcpy(state_str, "RegNI", state_str_len);
 		break;
 	case PIM_REG_JOIN:
-		strcpy(state_str, "RegJ");
+		strlcpy(state_str, "RegJ", state_str_len);
 		break;
 	case PIM_REG_JOIN_PENDING:
 	case PIM_REG_PRUNE:
-		strcpy(state_str, "RegP");
+		strlcpy(state_str, "RegP", state_str_len);
 		break;
 	default:
-		strcpy(state_str, "Unk");
+		strlcpy(state_str, "Unk", state_str_len);
 	}
 	return state_str;
 }
@@ -2464,13 +2464,13 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		pim_time_timer_to_hhmmss(msdp_reg_timer, sizeof(msdp_reg_timer),
 					 up->t_msdp_reg_timer);
 
-		pim_upstream_state2brief_str(up->join_state, state_str);
+		pim_upstream_state2brief_str(up->join_state, state_str, sizeof(state_str));
 		if (up->reg_state != PIM_REG_NOINFO) {
 			char tmp_str[PIM_REG_STATE_STR_LEN];
 
 			sprintf(state_str + strlen(state_str), ",%s",
-				pim_reg_state2brief_str(up->reg_state,
-							tmp_str));
+				pim_reg_state2brief_str(up->reg_state, tmp_str,
+							sizeof(tmp_str)));
 		}
 
 		if (uj) {
@@ -2521,7 +2521,7 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 				pim_upstream_state2str(up->join_state));
 			json_object_string_add(
 				json_row, "regState",
-				pim_reg_state2str(up->reg_state, state_str));
+				pim_reg_state2str(up->reg_state, state_str, sizeof(state_str)));
 			json_object_string_add(json_row, "upTime", uptime);
 			json_object_string_add(json_row, "joinTimer",
 					       join_timer);
@@ -5234,9 +5234,9 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 		ifp_in = pim_if_find_by_vif_index(pim, c_oil->oil.mfcc_parent);
 
 		if (ifp_in)
-			strcpy(in_ifname, ifp_in->name);
+			strlcpy(in_ifname, ifp_in->name, sizeof(in_ifname));
 		else
-			strcpy(in_ifname, "<iif?>");
+			strlcpy(in_ifname, "<iif?>", sizeof(in_ifname));
 
 		if (uj) {
 
@@ -5291,9 +5291,9 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 			found_oif = 1;
 
 			if (ifp_out)
-				strcpy(out_ifname, ifp_out->name);
+				strlcpy(out_ifname, ifp_out->name, sizeof(out_ifname));
 			else
-				strcpy(out_ifname, "<oif?>");
+				strlcpy(out_ifname, "<oif?>", sizeof(out_ifname));
 
 			if (uj) {
 				json_ifp_out = json_object_new_object();
@@ -5351,27 +5351,27 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 			} else {
 				if (c_oil->oif_flags[oif_vif_index]
 				    & PIM_OIF_FLAG_PROTO_PIM) {
-					strcpy(proto, "PIM");
+					strlcpy(proto, "PIM", sizeof(proto));
 				}
 
 				if (c_oil->oif_flags[oif_vif_index]
 				    & PIM_OIF_FLAG_PROTO_IGMP) {
-					strcpy(proto, "IGMP");
+					strlcpy(proto, "IGMP", sizeof(proto));
 				}
 
 				if (c_oil->oif_flags[oif_vif_index]
 				    & PIM_OIF_FLAG_PROTO_VXLAN) {
-					strcpy(proto, "VxLAN");
+					strlcpy(proto, "VxLAN", sizeof(proto));
 				}
 
 				if (c_oil->oif_flags[oif_vif_index]
 				    & PIM_OIF_FLAG_PROTO_SOURCE) {
-					strcpy(proto, "SRC");
+					strlcpy(proto, "SRC", sizeof(proto));
 				}
 
 				if (c_oil->oif_flags[oif_vif_index]
 				    & PIM_OIF_FLAG_PROTO_STAR) {
-					strcpy(proto, "STAR");
+					strlcpy(proto, "STAR", sizeof(proto));
 				}
 
 				vty_out(vty,
@@ -5410,9 +5410,9 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 		found_oif = 0;
 
 		if (ifp_in)
-			strcpy(in_ifname, ifp_in->name);
+			strlcpy(in_ifname, ifp_in->name, sizeof(in_ifname));
 		else
-			strcpy(in_ifname, "<iif?>");
+			strlcpy(in_ifname, "<iif?>", sizeof(in_ifname));
 
 		if (uj) {
 
@@ -5439,7 +5439,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 			json_object_string_add(json_source, "iif", in_ifname);
 			json_oil = NULL;
 		} else {
-			strcpy(proto, "STATIC");
+			strlcpy(proto, "STATIC", sizeof(proto));
 		}
 
 		for (oif_vif_index = 0; oif_vif_index < MAXVIFS;
@@ -5461,9 +5461,9 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 			found_oif = 1;
 
 			if (ifp_out)
-				strcpy(out_ifname, ifp_out->name);
+				strlcpy(out_ifname, ifp_out->name, sizeof(out_ifname));
 			else
-				strcpy(out_ifname, "<oif?>");
+				strlcpy(out_ifname, "<oif?>", sizeof(out_ifname));
 
 			if (uj) {
 				json_ifp_out = json_object_new_object();
@@ -8998,7 +8998,7 @@ static void ip_msdp_show_peers(struct pim_instance *pim, struct vty *vty,
 			pim_time_uptime(timebuf, sizeof(timebuf),
 					now - mp->uptime);
 		} else {
-			strcpy(timebuf, "-");
+			strlcpy(timebuf, "-", sizeof(timebuf));
 		}
 		pim_inet4_dump("<peer?>", mp->peer, peer_str, sizeof(peer_str));
 		pim_inet4_dump("<local?>", mp->local, local_str,
@@ -9055,7 +9055,7 @@ static void ip_msdp_show_peers_detail(struct pim_instance *pim, struct vty *vty,
 			pim_time_uptime(timebuf, sizeof(timebuf),
 					now - mp->uptime);
 		} else {
-			strcpy(timebuf, "-");
+			strlcpy(timebuf, "-", sizeof(timebuf));
 		}
 		pim_inet4_dump("<local?>", mp->local, local_str,
 			       sizeof(local_str));
@@ -9234,18 +9234,18 @@ static void ip_msdp_show_sa(struct pim_instance *pim, struct vty *vty, bool uj)
 		if (sa->flags & PIM_MSDP_SAF_PEER) {
 			pim_inet4_dump("<rp?>", sa->rp, rp_str, sizeof(rp_str));
 			if (sa->up) {
-				strcpy(spt_str, "yes");
+				strlcpy(spt_str, "yes", sizeof(spt_str));
 			} else {
-				strcpy(spt_str, "no");
+				strlcpy(spt_str, "no", sizeof(spt_str));
 			}
 		} else {
-			strcpy(rp_str, "-");
-			strcpy(spt_str, "-");
+			strlcpy(rp_str, "-", sizeof(rp_str));
+			strlcpy(spt_str, "-", sizeof(spt_str));
 		}
 		if (sa->flags & PIM_MSDP_SAF_LOCAL) {
-			strcpy(local_str, "yes");
+			strlcpy(local_str, "yes", sizeof(local_str));
 		} else {
-			strcpy(local_str, "no");
+			strlcpy(local_str, "no", sizeof(local_str));
 		}
 		if (uj) {
 			json_object_object_get_ex(json, grp_str, &json_group);
@@ -9299,19 +9299,19 @@ static void ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa,
 		pim_inet4_dump("<rp?>", sa->rp, rp_str, sizeof(rp_str));
 		pim_inet4_dump("<peer?>", sa->peer, peer_str, sizeof(peer_str));
 		if (sa->up) {
-			strcpy(spt_str, "yes");
+			strlcpy(spt_str, "yes", sizeof(spt_str));
 		} else {
-			strcpy(spt_str, "no");
+			strlcpy(spt_str, "no", sizeof(spt_str));
 		}
 	} else {
-		strcpy(rp_str, "-");
-		strcpy(peer_str, "-");
-		strcpy(spt_str, "-");
+		strlcpy(rp_str, "-", sizeof(rp_str));
+		strlcpy(peer_str, "-", sizeof(peer_str));
+		strlcpy(spt_str, "-", sizeof(spt_str));
 	}
 	if (sa->flags & PIM_MSDP_SAF_LOCAL) {
-		strcpy(local_str, "yes");
+		strlcpy(local_str, "yes", sizeof(local_str));
 	} else {
-		strcpy(local_str, "no");
+		strlcpy(local_str, "no", sizeof(local_str));
 	}
 	pim_time_timer_to_hhmmss(statetimer, sizeof(statetimer),
 				 sa->sa_state_timer);

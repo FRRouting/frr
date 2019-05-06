@@ -283,7 +283,8 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 
 const char *pim_upstream_state2str(enum pim_upstream_state join_state);
 #define PIM_REG_STATE_STR_LEN 12
-const char *pim_reg_state2str(enum pim_reg_state state, char *state_str);
+const char *pim_reg_state2str(enum pim_reg_state state, char *state_str,
+			      size_t state_str_len);
 
 int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 					struct pim_upstream *up);
