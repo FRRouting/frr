@@ -688,6 +688,11 @@ Networks
 Route Aggregation
 -----------------
 
+.. _bgp-route-aggregation-ipv4:
+
+Route Aggregation-IPv4 Address Family
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 .. index:: aggregate-address A.B.C.D/M
 .. clicmd:: aggregate-address A.B.C.D/M
 
@@ -707,6 +712,62 @@ Route Aggregation
 
 .. index:: no aggregate-address A.B.C.D/M
 .. clicmd:: no aggregate-address A.B.C.D/M
+   
+   This command removes an aggregate address.
+
+
+   This configuration example setup the aggregate-address under 
+   ipv4 address-family.
+
+   .. code-block:: frr
+
+      router bgp 1
+       address-family ipv4 unicast
+        aggregate-address 10.0.0.0/8
+        aggregate-address 20.0.0.0/8 as-set
+        aggregate-address 40.0.0.0/8 summary-only
+       exit-address-family
+
+
+.. _bgp-route-aggregation-ipv6:
+
+Route Aggregation-IPv6 Address Family
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. index:: aggregate-address X:X::X:X/M
+.. clicmd:: aggregate-address X:X::X:X/M
+
+   This command specifies an aggregate address.
+
+.. index:: aggregate-address X:X::X:X/M as-set
+.. clicmd:: aggregate-address X:X::X:X/M as-set
+
+   This command specifies an aggregate address. Resulting routes include
+   AS set.
+
+.. index:: aggregate-address X:X::X:X/M summary-only
+.. clicmd:: aggregate-address X:X::X:X/M summary-only
+
+   This command specifies an aggregate address. Aggregated routes will
+   not be announce.
+
+.. index:: no aggregate-address X:X::X:X/M
+.. clicmd:: no aggregate-address X:X::X:X/M
+
+   This command removes an aggregate address.
+
+
+   This configuration example setup the aggregate-address under 
+   ipv4 address-family.
+
+   .. code-block:: frr
+
+      router bgp 1
+       address-family ipv6 unicast
+        aggregate-address 10::0/64
+	aggregate-address 20::0/64 as-set
+	aggregate-address 40::0/64 summary-only
+       exit-address-family
 
 .. _bgp-redistribute-to-bgp:
 

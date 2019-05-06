@@ -6531,28 +6531,38 @@ DEFUN (no_aggregate_address_mask,
 
 DEFUN (ipv6_aggregate_address,
        ipv6_aggregate_address_cmd,
-       "aggregate-address X:X::X:X/M [summary-only]",
+       "aggregate-address X:X::X:X/M [<as-set [summary-only]|summary-only [as-set]>]",
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n"
-       "Filter more specific routes from updates\n")
+       "Generate AS set path information\n"
+       "Filter more specific routes from updates\n"
+       "Filter more specific routes from updates\n"
+       "Generate AS set path information\n")
 {
 	int idx = 0;
 	argv_find(argv, argc, "X:X::X:X/M", &idx);
 	char *prefix = argv[idx]->arg;
+	int as_set =
+		argv_find(argv, argc, "as-set", &idx) ? AGGREGATE_AS_SET : 0;
+
+	idx = 0;
 	int sum_only = argv_find(argv, argc, "summary-only", &idx)
 			       ? AGGREGATE_SUMMARY_ONLY
 			       : 0;
 	return bgp_aggregate_set(vty, prefix, AFI_IP6, SAFI_UNICAST, sum_only,
-				 0);
+				 as_set);
 }
 
 DEFUN (no_ipv6_aggregate_address,
        no_ipv6_aggregate_address_cmd,
-       "no aggregate-address X:X::X:X/M [summary-only]",
+       "no aggregate-address X:X::X:X/M [<as-set [summary-only]|summary-only [as-set]>]",
        NO_STR
        "Configure BGP aggregate entries\n"
        "Aggregate prefix\n"
-       "Filter more specific routes from updates\n")
+       "Generate AS set path information\n"
+       "Filter more specific routes from updates\n"
+       "Filter more specific routes from updates\n"
+       "Generate AS set path information\n")
 {
 	int idx = 0;
 	argv_find(argv, argc, "X:X::X:X/M", &idx);
