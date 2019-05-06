@@ -523,7 +523,7 @@ static enum zebra_link_type sdl_to_zebra_link_type(unsigned int sdlt)
 int ifm_read(struct if_msghdr *ifm)
 {
 	struct interface *ifp = NULL;
-	struct sockaddr_dl *sdl;
+	struct sockaddr_dl *sdl = NULL;
 	char ifname[IFNAMSIZ];
 	short ifnlen = 0;
 	int maskbit;
