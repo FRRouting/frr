@@ -304,12 +304,13 @@ size_t rta_getattr(caddr_t sap, void *destp, size_t destlen)
 size_t rta_getsdlname(caddr_t sap, void *destp, short *destlen)
 {
 	struct sockaddr_dl *sdl = (struct sockaddr_dl *)sap;
-	struct sockaddr *sa = (struct sockaddr *)sap;
 	uint8_t *dest = destp;
 	size_t tlen, copylen;
 
 	copylen = sdl->sdl_nlen;
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+	struct sockaddr *sa = (struct sockaddr *)sap;
+
 	tlen = (sa->sa_len == 0) ? sizeof(ROUNDUP_TYPE) : ROUNDUP(sa->sa_len);
 #else  /* !HAVE_STRUCT_SOCKADDR_SA_LEN */
 	tlen = SAROUNDUP(sap);
