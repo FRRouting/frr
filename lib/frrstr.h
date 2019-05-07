@@ -88,6 +88,28 @@ void frrstr_filter_vec(vector v, regex_t *filter);
 void frrstr_strvec_free(vector v);
 
 /*
+ * Given a string, replaces all occurrences of a substring with a different
+ * string. The result is a new string. The original string is not modified.
+ *
+ * If 'replace' is longer than 'find', this function performs N+1 allocations,
+ * where N is the number of times 'find' occurs in 'str'. If 'replace' is equal
+ * in length or shorter than 'find', only 1 allocation is performed.
+ *
+ * str
+ *    String to perform replacement on.
+ *
+ * find
+ *    Substring to replace.
+ *
+ * replace
+ *    String to replace 'find' with.
+ *
+ * Returns:
+ *    A new string, allocated with MTYPE_TMP, that is the result of performing
+ *    the replacement on 'str'. This must be freed by the caller.
+ */
+char *frrstr_replace(const char *str, const char *find, const char *replace);
+/*
  * Prefix match for string.
  *
  * str
