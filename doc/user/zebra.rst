@@ -738,6 +738,22 @@ zebra Terminal Mode Commands
    Display various statistics related to the installation and deletion
    of routes, neighbor updates, and LSP's into the kernel.
 
+.. index:: show zebra client [summary]
+.. clicmd:: show zebra client [summary]
+
+   Display statistics about clients that are connected to zebra.  This is
+   useful for debugging and seeing how much data is being passed between
+   zebra and it's clients.  If the summary form of the command is choosen
+   a table is displayed with shortened information.
+
+.. index:: show zebra router table summary
+.. clicmd:: show zebra router table summary
+
+   Display summarized data about tables created, their afi/safi/tableid
+   and how many routes each table contains.  Please note this is the
+   total number of route nodes in the table.  Which will be higher than
+   the actual number of routes that are held.
+
 .. index:: show zebra fpm stats
 .. clicmd:: show zebra fpm stats
 
