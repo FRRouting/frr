@@ -6,6 +6,29 @@ frr (@VERSION@-0) UNRELEASED; urgency=medium
 
  -- FRRouting-Dev <dev@lists.frrouting.org>  Thu, 25 Oct 2018 16:36:50 +0200
 
+frr (6.0-3) testing; urgency=medium
+
+  * bgpd: Fix 'show bgp ipv4/ipv6 neighbors' to show only v4 or v6 neighbors
+  * bgpd: Fix display issue when showing labeled-unicast routes
+  * bgpd: Fix incorrect # peers in 'show bgp ipv6 summary' output
+  * bgpd: Fix issue with remote-private-as in combination with local-as
+  * bgpd: Fix memory error when prepending to AS-path
+  * bgpd: Improve error handling when using maximum-prefix
+  * ldpd: Fix startup permissions error on OpenBSD
+  * ldpd: add support for FreeBSD IP_BINDANY
+  * ospfd: Fix incorrect display of millisecond time values
+  * tools: Fix incorrect systemd dependencies causing failure to start on boot
+  * vtysh: Fix unnecessary reconnection under multi-instance OSPF
+  * watchfrr: Fix multi-instance support when using new init script
+  * zebra: Fix a display bug in 'show ip route ... json'
+  * zebra: Fix compilation issue on OpenBSD
+  * zebra: Fix issue with missed selection of system-sourced routes
+  * zebra: Fix race condition in label manager
+  * zebra: Reliability improvements to pseudowire route recovery
+  * zebra: Tweak metric values for macvlan devices
+
+ -- Quentin Young <qlyoung@cumulusnetworks.com>  Tue,  7 May 2019 16:31:00 -0500
+
 frr (6.0-2) testing; urgency=medium
 
   * add install-info to build deps
