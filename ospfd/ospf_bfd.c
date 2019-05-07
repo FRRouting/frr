@@ -249,6 +249,13 @@ static int ospf_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_InactivityTimer);
 		}
+		if ((status == BFD_STATUS_UP)
+		    && (old_status == BFD_STATUS_DOWN)) {
+			if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
+				zlog_debug("NSM[%s:%s]: BFD Up",
+					   IF_NAME(nbr->oi),
+					   inet_ntoa(nbr->address.u.prefix4));
+		}
 	}
 
 	return 0;
