@@ -1112,7 +1112,7 @@ DEFPY (rpki_cache,
 		vty_out(vty,
 			"ssh sockets are not supported. "
 			"Please recompile rtrlib and frr with ssh support. "
-			"If you want to use it");
+			"If you want to use it\n");
 #endif
 	} else { // use tcp connection
 		return_value = add_tcp_cache(cache, tcpport, preference);
