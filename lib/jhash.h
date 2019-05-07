@@ -45,6 +45,8 @@ extern uint32_t jhash_3words(uint32_t a, uint32_t b, uint32_t c,
 			     uint32_t initval);
 extern uint32_t jhash_2words(uint32_t a, uint32_t b, uint32_t initval);
 extern uint32_t jhash_1word(uint32_t a, uint32_t initval);
+extern uint32_t __ipv6_addr_jhash(const struct in6_addr *a,
+				const uint32_t initval);
 
 #ifdef __cplusplus
 }

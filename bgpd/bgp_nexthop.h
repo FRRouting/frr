@@ -74,6 +74,12 @@ struct tip_addr {
 	int refcnt;
 };
 
+/* ipv6 connected address info structure */
+struct bgp_addrv6 {
+	struct in6_addr addrv6;
+	struct list *ifp_name_list;
+};
+
 extern void bgp_connected_add(struct bgp *bgp, struct connected *c);
 extern void bgp_connected_delete(struct bgp *bgp, struct connected *c);
 extern int bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
@@ -96,4 +102,8 @@ extern void bgp_tip_hash_init(struct bgp *bgp);
 extern void bgp_tip_hash_destroy(struct bgp *bgp);
 
 extern void bgp_nexthop_show_address_hash(struct vty *vty, struct bgp *bgp);
+extern void bgp_ipv6_address_init(struct bgp *bgp);
+extern void bgp_ipv6_address_destroy(struct bgp *bgp);
+extern int bgp_nexthop_self_ipv6(struct bgp *bgp,
+	struct in6_addr *addr);
 #endif /* _QUAGGA_BGP_NEXTHOP_H */
