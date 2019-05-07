@@ -55,7 +55,7 @@ struct zebra_privs_t nhrpd_privs = {
 	.vty_group = VTY_GROUP,
 #endif
 	.caps_p = _caps_p,
-	.cap_num_p = ZEBRA_NUM_OF(_caps_p),
+	.cap_num_p = array_size(_caps_p),
 };
 
 static void parse_arguments(int argc, char **argv)

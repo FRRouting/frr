@@ -296,13 +296,12 @@ void nhrp_interface_update(struct interface *ifp)
 	}
 }
 
-int nhrp_interface_add(int cmd, struct zclient *client, zebra_size_t length,
-		       vrf_id_t vrf_id)
+int nhrp_interface_add(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 
 	/* read and add the interface in the iflist. */
-	ifp = zebra_interface_add_read(client->ibuf, vrf_id);
+	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
 	if (ifp == NULL)
 		return 0;
 
@@ -315,13 +314,12 @@ int nhrp_interface_add(int cmd, struct zclient *client, zebra_size_t length,
 	return 0;
 }
 
-int nhrp_interface_delete(int cmd, struct zclient *client, zebra_size_t length,
-			  vrf_id_t vrf_id)
+int nhrp_interface_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	struct stream *s;
 
-	s = client->ibuf;
+	s = zclient->ibuf;
 	ifp = zebra_interface_state_read(s, vrf_id);
 	if (ifp == NULL)
 		return 0;
@@ -335,12 +333,11 @@ int nhrp_interface_delete(int cmd, struct zclient *client, zebra_size_t length,
 	return 0;
 }
 
-int nhrp_interface_up(int cmd, struct zclient *client, zebra_size_t length,
-		      vrf_id_t vrf_id)
+int nhrp_interface_up(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 
-	ifp = zebra_interface_state_read(client->ibuf, vrf_id);
+	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
 	if (ifp == NULL)
 		return 0;
 
@@ -350,12 +347,11 @@ int nhrp_interface_up(int cmd, struct zclient *client, zebra_size_t length,
 	return 0;
 }
 
-int nhrp_interface_down(int cmd, struct zclient *client, zebra_size_t length,
-			vrf_id_t vrf_id)
+int nhrp_interface_down(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 
-	ifp = zebra_interface_state_read(client->ibuf, vrf_id);
+	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
 	if (ifp == NULL)
 		return 0;
 
@@ -364,13 +360,12 @@ int nhrp_interface_down(int cmd, struct zclient *client, zebra_size_t length,
 	return 0;
 }
 
-int nhrp_interface_address_add(int cmd, struct zclient *client,
-			       zebra_size_t length, vrf_id_t vrf_id)
+int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
 	char buf[PREFIX_STRLEN];
 
-	ifc = zebra_interface_address_read(cmd, client->ibuf, vrf_id);
+	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (ifc == NULL)
 		return 0;
 
@@ -383,13 +378,12 @@ int nhrp_interface_address_add(int cmd, struct zclient *client,
 	return 0;
 }
 
-int nhrp_interface_address_delete(int cmd, struct zclient *client,
-				  zebra_size_t length, vrf_id_t vrf_id)
+int nhrp_interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *ifc;
 	char buf[PREFIX_STRLEN];
 
-	ifc = zebra_interface_address_read(cmd, client->ibuf, vrf_id);
+	ifc = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 	if (ifc == NULL)
 		return 0;
 

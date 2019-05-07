@@ -40,6 +40,8 @@ DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master")
 DEFINE_MTYPE_STATIC(LIB, THREAD_POLL, "Thread Poll Info")
 DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats")
 
+DECLARE_LIST(thread_list, struct thread, threaditem)
+
 #if defined(__APPLE__)
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -435,6 +437,9 @@ struct thread_master *thread_master_create(const char *name)
 		(bool (*)(const void *, const void *))cpu_record_hash_cmp,
 		"Thread Hash");
 
+	thread_list_init(&rv->event);
+	thread_list_init(&rv->ready);
+	thread_list_init(&rv->unuse);
 
 	/* Initialize the timer queues */
 	rv->timer = pqueue_create();
@@ -487,50 +492,6 @@ void thread_master_set_name(struct thread_master *master, const char *name)
 	pthread_mutex_unlock(&master->mtx);
 }
 
-/* Add a new thread to the list.  */
-static void thread_list_add(struct thread_list *list, struct thread *thread)
-{
-	thread->next = NULL;
-	thread->prev = list->tail;
-	if (list->tail)
-		list->tail->next = thread;
-	else
-		list->head = thread;
-	list->tail = thread;
-	list->count++;
-}
-
-/* Delete a thread from the list. */
-static struct thread *thread_list_delete(struct thread_list *list,
-					 struct thread *thread)
-{
-	if (thread->next)
-		thread->next->prev = thread->prev;
-	else
-		list->tail = thread->prev;
-	if (thread->prev)
-		thread->prev->next = thread->next;
-	else
-		list->head = thread->next;
-	thread->next = thread->prev = NULL;
-	list->count--;
-	return thread;
-}
-
-/* Thread list is empty or not.  */
-static int thread_empty(struct thread_list *list)
-{
-	return list->head ? 0 : 1;
-}
-
-/* Delete top of the list and return it. */
-static struct thread *thread_trim_head(struct thread_list *list)
-{
-	if (!thread_empty(list))
-		return thread_list_delete(list, list->head);
-	return NULL;
-}
-
 #define THREAD_UNUSED_DEPTH 10
 
 /* Move thread to unuse list. */
@@ -539,8 +500,6 @@ static void thread_add_unuse(struct thread_master *m, struct thread *thread)
 	pthread_mutex_t mtxc = thread->mtx;
 
 	assert(m != NULL && thread != NULL);
-	assert(thread->next == NULL);
-	assert(thread->prev == NULL);
 
 	thread->hist->total_active--;
 	memset(thread, 0, sizeof(struct thread));
@@ -549,8 +508,8 @@ static void thread_add_unuse(struct thread_master *m, struct thread *thread)
 	/* Restore the thread mutex context. */
 	thread->mtx = mtxc;
 
-	if (m->unuse.count < THREAD_UNUSED_DEPTH) {
-		thread_list_add(&m->unuse, thread);
+	if (thread_list_count(&m->unuse) < THREAD_UNUSED_DEPTH) {
+		thread_list_add_tail(&m->unuse, thread);
 		return;
 	}
 
@@ -558,16 +517,13 @@ static void thread_add_unuse(struct thread_master *m, struct thread *thread)
 }
 
 /* Free all unused thread. */
-static void thread_list_free(struct thread_master *m, struct thread_list *list)
+static void thread_list_free(struct thread_master *m,
+		struct thread_list_head *list)
 {
 	struct thread *t;
-	struct thread *next;
 
-	for (t = list->head; t; t = next) {
-		next = t->next;
+	while ((t = thread_list_pop(list)))
 		thread_free(m, t);
-		list->count--;
-	}
 }
 
 static void thread_array_free(struct thread_master *m,
@@ -609,9 +565,8 @@ void thread_master_free_unused(struct thread_master *m)
 	pthread_mutex_lock(&m->mtx);
 	{
 		struct thread *t;
-		while ((t = thread_trim_head(&m->unuse)) != NULL) {
+		while ((t = thread_list_pop(&m->unuse)))
 			thread_free(m, t);
-		}
 	}
 	pthread_mutex_unlock(&m->mtx);
 }
@@ -690,7 +645,7 @@ static struct thread *thread_get(struct thread_master *m, uint8_t type,
 				 int (*func)(struct thread *), void *arg,
 				 debugargdef)
 {
-	struct thread *thread = thread_trim_head(&m->unuse);
+	struct thread *thread = thread_list_pop(&m->unuse);
 	struct cpu_thread_history tmp;
 
 	if (!thread) {
@@ -971,7 +926,7 @@ struct thread *funcname_thread_add_event(struct thread_master *m,
 		pthread_mutex_lock(&thread->mtx);
 		{
 			thread->u.val = val;
-			thread_list_add(&m->event, thread);
+			thread_list_add_tail(&m->event, thread);
 		}
 		pthread_mutex_unlock(&thread->mtx);
 
@@ -1063,7 +1018,7 @@ static void thread_cancel_rw(struct thread_master *master, int fd, short state)
  */
 static void do_thread_cancel(struct thread_master *master)
 {
-	struct thread_list *list = NULL;
+	struct thread_list_head *list = NULL;
 	struct pqueue *queue = NULL;
 	struct thread **thread_array = NULL;
 	struct thread *thread;
@@ -1078,31 +1033,23 @@ static void do_thread_cancel(struct thread_master *master)
 		 * need to check every thread in the ready queue. */
 		if (cr->eventobj) {
 			struct thread *t;
-			thread = master->event.head;
 
-			while (thread) {
-				t = thread;
-				thread = t->next;
-
-				if (t->arg == cr->eventobj) {
-					thread_list_delete(&master->event, t);
-					if (t->ref)
-						*t->ref = NULL;
-					thread_add_unuse(master, t);
-				}
+			for_each_safe(thread_list, &master->event, t) {
+				if (t->arg != cr->eventobj)
+					continue;
+				thread_list_del(&master->event, t);
+				if (t->ref)
+					*t->ref = NULL;
+				thread_add_unuse(master, t);
 			}
 
-			thread = master->ready.head;
-			while (thread) {
-				t = thread;
-				thread = t->next;
-
-				if (t->arg == cr->eventobj) {
-					thread_list_delete(&master->ready, t);
-					if (t->ref)
-						*t->ref = NULL;
-					thread_add_unuse(master, t);
-				}
+			for_each_safe(thread_list, &master->ready, t) {
+				if (t->arg != cr->eventobj)
+					continue;
+				thread_list_del(&master->ready, t);
+				if (t->ref)
+					*t->ref = NULL;
+				thread_add_unuse(master, t);
 			}
 			continue;
 		}
@@ -1146,7 +1093,7 @@ static void do_thread_cancel(struct thread_master *master)
 			assert(thread == queue->array[thread->index]);
 			pqueue_remove_at(thread->index, queue);
 		} else if (list) {
-			thread_list_delete(list, thread);
+			thread_list_del(list, thread);
 		} else if (thread_array) {
 			thread_array[thread->u.fd] = NULL;
 		} else {
@@ -1301,7 +1248,7 @@ static int thread_process_io_helper(struct thread_master *m,
 		thread_array = m->write;
 
 	thread_array[thread->u.fd] = NULL;
-	thread_list_add(&m->ready, thread);
+	thread_list_add_tail(&m->ready, thread);
 	thread->type = THREAD_READY;
 	/* if another pthread scheduled this file descriptor for the event we're
 	 * responding to, no problem; we're getting to it now */
@@ -1380,24 +1327,21 @@ static unsigned int thread_process_timers(struct pqueue *queue,
 			return ready;
 		pqueue_dequeue(queue);
 		thread->type = THREAD_READY;
-		thread_list_add(&thread->master->ready, thread);
+		thread_list_add_tail(&thread->master->ready, thread);
 		ready++;
 	}
 	return ready;
 }
 
 /* process a list en masse, e.g. for event thread lists */
-static unsigned int thread_process(struct thread_list *list)
+static unsigned int thread_process(struct thread_list_head *list)
 {
 	struct thread *thread;
-	struct thread *next;
 	unsigned int ready = 0;
 
-	for (thread = list->head; thread; thread = next) {
-		next = thread->next;
-		thread_list_delete(list, thread);
+	while ((thread = thread_list_pop(list))) {
 		thread->type = THREAD_READY;
-		thread_list_add(&thread->master->ready, thread);
+		thread_list_add_tail(&thread->master->ready, thread);
 		ready++;
 	}
 	return ready;
@@ -1429,7 +1373,7 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 		 * Attempt to flush ready queue before going into poll().
 		 * This is performance-critical. Think twice before modifying.
 		 */
-		if ((thread = thread_trim_head(&m->ready))) {
+		if ((thread = thread_list_pop(&m->ready))) {
 			fetch = thread_run(m, thread, fetch);
 			if (fetch->ref)
 				*fetch->ref = NULL;
@@ -1462,10 +1406,11 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 		 * In every case except the last, we need to hit poll() at least
 		 * once per loop to avoid starvation by events
 		 */
-		if (m->ready.count == 0)
+		if (!thread_list_count(&m->ready))
 			tw = thread_timer_wait(m->timer, &tv);
 
-		if (m->ready.count != 0 || (tw && !timercmp(tw, &zerotime, >)))
+		if (thread_list_count(&m->ready) ||
+				(tw && !timercmp(tw, &zerotime, >)))
 			tw = &zerotime;
 
 		if (!tw && m->handler.pfdcount == 0) { /* die */

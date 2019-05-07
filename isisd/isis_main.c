@@ -41,7 +41,6 @@
 #include "qobj.h"
 #include "libfrr.h"
 
-#include "isisd/dict.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"

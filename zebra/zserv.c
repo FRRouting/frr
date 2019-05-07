@@ -149,8 +149,8 @@ static void zserv_event(struct zserv *client, enum zserv_event event);
  * hdr (optional)
  *    The message header
  */
-static void zserv_log_message(const char *errmsg, struct stream *msg,
-			      struct zmsghdr *hdr)
+void zserv_log_message(const char *errmsg, struct stream *msg,
+		       struct zmsghdr *hdr)
 {
 	zlog_debug("Rx'd ZAPI message");
 	if (errmsg)
@@ -410,9 +410,6 @@ static int zserv_read(struct thread *thread)
 				   zserv_command_string(hdr.command),
 				   hdr.vrf_id, hdr.length,
 				   sock);
-
-		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-			zserv_log_message(NULL, client->ibuf_work, &hdr);
 
 		stream_set_getp(client->ibuf_work, 0);
 		struct stream *msg = stream_dup(client->ibuf_work);
@@ -700,9 +697,6 @@ static struct zserv *zserv_client_create(int sock)
 	pthread_mutex_init(&client->obuf_mtx, NULL);
 	client->wb = buffer_new(0);
 
-	/* Set table number. */
-	client->rtm_table = zrouter.rtm_table_default;
-
 	atomic_store_explicit(&client->connect_time, (uint32_t) monotime(NULL),
 			      memory_order_relaxed);
 
@@ -910,7 +904,6 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 
 	vty_out(vty, "------------------------ \n");
 	vty_out(vty, "FD: %d \n", client->sock);
-	vty_out(vty, "Route Table ID: %d \n", client->rtm_table);
 
 	connect_time = (time_t) atomic_load_explicit(&client->connect_time,
 						     memory_order_relaxed);

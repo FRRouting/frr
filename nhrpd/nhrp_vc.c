@@ -102,7 +102,7 @@ int nhrp_vc_ipsec_updown(uint32_t child_id, struct nhrp_vc *vc)
 {
 	char buf[2][SU_ADDRSTRLEN];
 	struct child_sa *sa = NULL, *lsa;
-	uint32_t child_hash = child_id % ZEBRA_NUM_OF(childlist_head);
+	uint32_t child_hash = child_id % array_size(childlist_head);
 	int abort_migration = 0;
 
 	list_for_each_entry(lsa, &childlist_head[child_hash], childlist_entry)
@@ -202,7 +202,7 @@ void nhrp_vc_init(void)
 	size_t i;
 
 	nhrp_vc_hash = hash_create(nhrp_vc_key, nhrp_vc_cmp, "NHRP VC hash");
-	for (i = 0; i < ZEBRA_NUM_OF(childlist_head); i++)
+	for (i = 0; i < array_size(childlist_head); i++)
 		list_init(&childlist_head[i]);
 }
 
@@ -211,7 +211,7 @@ void nhrp_vc_reset(void)
 	struct child_sa *sa, *n;
 	size_t i;
 
-	for (i = 0; i < ZEBRA_NUM_OF(childlist_head); i++) {
+	for (i = 0; i < array_size(childlist_head); i++) {
 		list_for_each_entry_safe(sa, n, &childlist_head[i],
 					 childlist_entry)
 			nhrp_vc_ipsec_updown(sa->id, 0);

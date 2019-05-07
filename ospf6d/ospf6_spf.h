@@ -21,6 +21,7 @@
 #ifndef OSPF6_SPF_H
 #define OSPF6_SPF_H
 
+#include "typesafe.h"
 #include "ospf6_top.h"
 
 /* Debug option */
@@ -33,6 +34,7 @@ extern unsigned char conf_debug_ospf6_spf;
 #define IS_OSPF6_DEBUG_SPF(level)                                              \
 	(conf_debug_ospf6_spf & OSPF6_DEBUG_SPF_##level)
 
+PREDECL_SKIPLIST_NONUNIQ(vertex_pqueue)
 /* Transit Vertex */
 struct ospf6_vertex {
 	/* type of this vertex */
@@ -40,6 +42,8 @@ struct ospf6_vertex {
 
 	/* Vertex Identifier */
 	struct prefix vertex_id;
+
+	struct vertex_pqueue_item pqi;
 
 	/* Identifier String */
 	char name[128];

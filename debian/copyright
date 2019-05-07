@@ -324,19 +324,6 @@ Copyright:
  Copyright (c) 2006, 2007 Pierre-Yves Ritschard <pyr@openbsd.org>
  Copyright (c) 2006, 2007, 2008 Reyk Floeter <reyk@openbsd.org>
 
-Files: isisd/dict.*
-Copyright: Copyright (C) 1997 Kaz Kylheku <kaz@ashi.footprints.net>
-License: custom-BSD-like
- All rights are reserved by the author, with the following exceptions:
- Permission is granted to freely reproduce and distribute this software,
- possibly in exchange for a fee, provided that this copyright notice appears
- intact. Permission is also granted to adapt this software to produce
- derivative works, as long as the modified versions carry this copyright
- notice and additional notices stating that the work has been modified.
- This source code may be translated into executable form and incorporated
- into proprietary software; there is no requirement for such software to
- contain a copyright notice related to this source.
-
 Files: qpb/qpb.proto fpm/fpm.proto
 License: ISC
 Copyright: Copyright (C) 2016 Sproute Networks, Inc.

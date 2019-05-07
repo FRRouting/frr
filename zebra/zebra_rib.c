@@ -71,7 +71,7 @@ extern int allow_delete;
 /* Each route type's string and default distance value. */
 static const struct {
 	int key;
-	int distance;
+	uint8_t distance;
 	uint8_t meta_q_map;
 } route_info[ZEBRA_ROUTE_MAX] = {
 	[ZEBRA_ROUTE_SYSTEM] = {ZEBRA_ROUTE_SYSTEM, 0, 4},
@@ -98,6 +98,10 @@ static const struct {
 	[ZEBRA_ROUTE_BGP_DIRECT_EXT] = {ZEBRA_ROUTE_BGP_DIRECT_EXT, 20, 3},
 	[ZEBRA_ROUTE_BABEL] = {ZEBRA_ROUTE_BABEL, 100, 2},
 	[ZEBRA_ROUTE_SHARP] = {ZEBRA_ROUTE_SHARP, 150, 4},
+	[ZEBRA_ROUTE_PBR] = {ZEBRA_ROUTE_PBR, 200, 4},
+	[ZEBRA_ROUTE_BFD] = {ZEBRA_ROUTE_BFD, 255, 4},
+	[ZEBRA_ROUTE_OPENFABRIC] = {ZEBRA_ROUTE_OPENFABRIC, 115, 2},
+	/* Any new route type added to zebra, should be mirrored here */
 
 	/* no entry/default: 150 */
 };
@@ -161,8 +165,7 @@ int is_zebra_valid_kernel_table(uint32_t table_id)
 
 int is_zebra_main_routing_table(uint32_t table_id)
 {
-	if ((table_id == RT_TABLE_MAIN)
-	    || (table_id == zrouter.rtm_table_default))
+	if (table_id == RT_TABLE_MAIN)
 		return 1;
 	return 0;
 }
@@ -470,8 +473,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"\t%s: Interface %s is not unnumbered",
-					__PRETTY_FUNCTION__,
-					ifp ? ifp->name : "Unknown");
+					__PRETTY_FUNCTION__, ifp->name);
 			return 0;
 		}
 	}
@@ -3386,9 +3388,33 @@ static int rib_dplane_results(struct dplane_ctx_q *ctxlist)
 	return 0;
 }
 
+/*
+ * Ensure there are no empty slots in the route_info array.
+ * Every route type in zebra should be present there.
+ */
+static void check_route_info(void)
+{
+	int len = array_size(route_info);
+
+	/*
+	 * ZEBRA_ROUTE_SYSTEM is special cased since
+	 * its key is 0 anyway.
+	 *
+	 * ZEBRA_ROUTE_ALL is also ignored.
+	 */
+	for (int i = 0; i < len; i++) {
+		if (i == ZEBRA_ROUTE_SYSTEM || i == ZEBRA_ROUTE_ALL)
+			continue;
+		assert(route_info[i].key);
+		assert(route_info[i].meta_q_map < MQ_SIZE);
+	}
+}
+
 /* Routing information base initialize. */
 void rib_init(void)
 {
+	check_route_info();
+
 	rib_queue_init();
 
 	/* Init dataplane, and register for results */
@@ -3457,7 +3483,7 @@ struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter)
 		while (1) {
 
 			while (iter->afi_safi_ix
-			       < (int)ZEBRA_NUM_OF(afi_safis)) {
+			       < (int)array_size(afi_safis)) {
 				table = zebra_vrf_table(
 					afi_safis[iter->afi_safi_ix].afi,
 					afi_safis[iter->afi_safi_ix].safi,

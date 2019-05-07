@@ -25,7 +25,6 @@
 #include "stream.h"
 #include "mpls.h"
 #include "vty.h"
-#include "fifo.h"
 #include "linklist.h"
 #include "skiplist.h"
 #include "workqueue.h"
@@ -50,33 +49,9 @@ static struct labelpool *lp;
 #define LP_CHUNK_SIZE	50
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_LABEL_CHUNK, "BGP Label Chunk")
-DEFINE_MTYPE_STATIC(BGPD, BGP_LABEL_FIFO, "BGP Label FIFO")
+DEFINE_MTYPE_STATIC(BGPD, BGP_LABEL_FIFO, "BGP Label FIFO item")
 DEFINE_MTYPE_STATIC(BGPD, BGP_LABEL_CB, "BGP Dynamic Label Assignment")
 DEFINE_MTYPE_STATIC(BGPD, BGP_LABEL_CBQ, "BGP Dynamic Label Callback")
-
-#define LABEL_FIFO_ADD(F, N)						\
-	do {								\
-		FIFO_ADD((F), (N));					\
-		(F)->count++;						\
-	} while (0)
-
-#define LABEL_FIFO_DEL(F, N)						\
-	do {								\
-		FIFO_DEL((N));						\
-		(F)->count--;						\
-	} while (0)
-
-#define LABEL_FIFO_INIT(F)						\
-	do {								\
-		FIFO_INIT((F));						\
-		(F)->count = 0;						\
-	} while (0)
-
-#define LABEL_FIFO_COUNT(F) ((F)->count)
-
-#define LABEL_FIFO_EMPTY(F) FIFO_EMPTY(F)
-
-#define LABEL_FIFO_HEAD(F) ((F)->next == (F) ? NULL : (F)->next)
 
 struct lp_chunk {
 	uint32_t	first;
@@ -98,14 +73,12 @@ struct lp_lcb {
 	int		(*cbfunc)(mpls_label_t label, void *lblid, bool alloc);
 };
 
-/* XXX same first elements as "struct fifo" */
 struct lp_fifo {
-	struct lp_fifo	*next;
-	struct lp_fifo	*prev;
-
-	uint32_t	count;
+	struct lp_fifo_item fifo;
 	struct lp_lcb	lcb;
 };
+
+DECLARE_LIST(lp_fifo, struct lp_fifo, fifo)
 
 struct lp_cbq_item {
 	int		(*cbfunc)(mpls_label_t label, void *lblid, bool alloc);
@@ -199,8 +172,7 @@ void bgp_lp_init(struct thread_master *master, struct labelpool *pool)
 	lp->inuse = skiplist_new(0, NULL, NULL);
 	lp->chunks = list_new();
 	lp->chunks->del = lp_chunk_free;
-	lp->requests = XCALLOC(MTYPE_BGP_LABEL_FIFO, sizeof(struct lp_fifo));
-	LABEL_FIFO_INIT(lp->requests);
+	lp_fifo_init(&lp->requests);
 	lp->callback_q = work_queue_new(master, "label callbacks");
 
 	lp->callback_q->spec.workfunc = lp_cbq_docallback;
@@ -223,13 +195,9 @@ void bgp_lp_finish(void)
 
 	list_delete(&lp->chunks);
 
-	while ((lf = LABEL_FIFO_HEAD(lp->requests))) {
-
-		LABEL_FIFO_DEL(lp->requests, lf);
+	while ((lf = lp_fifo_pop(&lp->requests)))
 		XFREE(MTYPE_BGP_LABEL_FIFO, lf);
-	}
-	XFREE(MTYPE_BGP_LABEL_FIFO, lp->requests);
-	lp->requests = NULL;
+	lp_fifo_fini(&lp->requests);
 
 	work_queue_free_and_null(&lp->callback_q);
 
@@ -385,9 +353,9 @@ void bgp_lp_get(
 		sizeof(struct lp_fifo));
 
 	lf->lcb = *lcb;
-	LABEL_FIFO_ADD(lp->requests, lf);
+	lp_fifo_add_tail(&lp->requests, lf);
 
-	if (LABEL_FIFO_COUNT(lp->requests) > lp->pending_count) {
+	if (lp_fifo_count(&lp->requests) > lp->pending_count) {
 		if (!zclient_send_get_label_chunk(zclient, 0, LP_CHUNK_SIZE)) {
 			lp->pending_count += LP_CHUNK_SIZE;
 			return;
@@ -441,11 +409,11 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 	lp->pending_count -= (last - first + 1);
 
 	if (debug) {
-		zlog_debug("%s: %u pending requests", __func__,
-			LABEL_FIFO_COUNT(lp->requests));
+		zlog_debug("%s: %zu pending requests", __func__,
+			lp_fifo_count(&lp->requests));
 	}
 
-	while ((lf = LABEL_FIFO_HEAD(lp->requests))) {
+	while ((lf = lp_fifo_first(&lp->requests))) {
 
 		struct lp_lcb *lcb;
 		void *labelid = lf->lcb.labelid;
@@ -504,7 +472,7 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 		work_queue_add(lp->callback_q, q);
 
 finishedrequest:
-		LABEL_FIFO_DEL(lp->requests, lf);
+		lp_fifo_del(&lp->requests, lf);
 		XFREE(MTYPE_BGP_LABEL_FIFO, lf);
 	}
 }
@@ -533,7 +501,7 @@ void bgp_lp_event_zebra_up(void)
 	/*
 	 * Get label chunk allocation request dispatched to zebra
 	 */
-	labels_needed = LABEL_FIFO_COUNT(lp->requests) +
+	labels_needed = lp_fifo_count(&lp->requests) +
 		skiplist_count(lp->inuse);
 
 	/* round up */
@@ -588,7 +556,7 @@ void bgp_lp_event_zebra_up(void)
 				sizeof(struct lp_fifo));
 
 			lf->lcb = *lcb;
-			LABEL_FIFO_ADD(lp->requests, lf);
+			lp_fifo_add_tail(&lp->requests, lf);
 		}
 
 		skiplist_delete_first(lp->inuse);

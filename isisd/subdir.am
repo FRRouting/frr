@@ -25,7 +25,6 @@ dist_examples_DATA += isisd/fabricd.conf.sample
 endif
 
 noinst_HEADERS += \
-	isisd/dict.h \
 	isisd/isis_adjacency.h \
 	isisd/isis_bfd.h \
 	isisd/isis_circuit.h \
@@ -61,7 +60,6 @@ noinst_HEADERS += \
 	# end
 
 LIBISIS_SOURCES = \
-	isisd/dict.c \
 	isisd/isis_adjacency.c \
 	isisd/isis_bfd.c \
 	isisd/isis_circuit.c \

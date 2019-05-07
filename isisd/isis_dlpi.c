@@ -38,7 +38,6 @@
 #include "if.h"
 #include "lib_errors.h"
 
-#include "isisd/dict.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_circuit.h"

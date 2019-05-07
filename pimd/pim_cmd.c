@@ -1207,6 +1207,8 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			print_header = 1;
 			for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode,
 						  up)) {
+				if (!up->rpf.source_nexthop.interface)
+					continue;
 
 				if (strcmp(ifp->name,
 					   up->rpf.source_nexthop

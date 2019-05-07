@@ -83,9 +83,9 @@ static void sync_init(struct update_subgroup *subgrp)
 {
 	subgrp->sync =
 		XCALLOC(MTYPE_BGP_SYNCHRONISE, sizeof(struct bgp_synchronize));
-	BGP_ADV_FIFO_INIT(&subgrp->sync->update);
-	BGP_ADV_FIFO_INIT(&subgrp->sync->withdraw);
-	BGP_ADV_FIFO_INIT(&subgrp->sync->withdraw_low);
+	bgp_adv_fifo_init(&subgrp->sync->update);
+	bgp_adv_fifo_init(&subgrp->sync->withdraw);
+	bgp_adv_fifo_init(&subgrp->sync->withdraw_low);
 	subgrp->hash =
 		hash_create(baa_hash_key, baa_hash_cmp, "BGP SubGroup Hash");
 
