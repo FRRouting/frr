@@ -1049,8 +1049,10 @@ int lcommunity_list_set(struct community_list_handler *ch, const char *name,
 	/* Do not put duplicated community entry.  */
 	if (community_list_dup_check(list, entry))
 		community_entry_free(entry);
-	else
+	else {
 		community_list_entry_add(list, entry);
+		route_map_notify_dependencies(name, RMAP_EVENT_LLIST_ADDED);
+	}
 
 	return 0;
 }
@@ -1075,6 +1077,7 @@ int lcommunity_list_unset(struct community_list_handler *ch, const char *name,
 	/* Delete all of entry belongs to this community-list.  */
 	if (!str) {
 		community_list_delete(cm, list);
+		route_map_notify_dependencies(name, RMAP_EVENT_LLIST_DELETED);
 		return 0;
 	}
 
@@ -1100,6 +1103,7 @@ int lcommunity_list_unset(struct community_list_handler *ch, const char *name,
 		return COMMUNITY_LIST_ERR_CANT_FIND_LIST;
 
 	community_list_entry_delete(cm, list, entry);
+	route_map_notify_dependencies(name, RMAP_EVENT_LLIST_DELETED);
 
 	return 0;
 }
