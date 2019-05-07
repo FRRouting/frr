@@ -414,15 +414,28 @@ enum nb_error {
 
 /* Northbound clients. */
 enum nb_client {
-	NB_CLIENT_CLI = 0,
+	NB_CLIENT_NONE = 0,
+	NB_CLIENT_CLI,
 	NB_CLIENT_CONFD,
 	NB_CLIENT_SYSREPO,
+	NB_CLIENT_GRPC,
 };
 
 /* Northbound configuration. */
 struct nb_config {
+	/* Configuration data. */
 	struct lyd_node *dnode;
+
+	/* Configuration version. */
 	uint32_t version;
+
+	/*
+	 * Lock protecting this structure. The use of this lock is always
+	 * necessary when reading or modifying the global running configuration.
+	 * For candidate configurations, use of this lock is optional depending
+	 * on the threading scheme of the northbound plugin.
+	 */
+	pthread_rwlock_t lock;
 };
 
 /* Northbound configuration callback. */
@@ -662,6 +675,9 @@ extern int nb_candidate_validate(struct nb_config *candidate);
  * client
  *    Northbound client performing the commit.
  *
+ * user
+ *    Northbound user performing the commit (can be NULL).
+ *
  * comment
  *    Optional comment describing the commit.
  *
@@ -682,7 +698,7 @@ extern int nb_candidate_validate(struct nb_config *candidate);
  *    - NB_ERR for other errors.
  */
 extern int nb_candidate_commit_prepare(struct nb_config *candidate,
-				       enum nb_client client,
+				       enum nb_client client, const void *user,
 				       const char *comment,
 				       struct nb_transaction **transaction);
 
@@ -727,6 +743,9 @@ extern void nb_candidate_commit_apply(struct nb_transaction *transaction,
  * client
  *    Northbound client performing the commit.
  *
+ * user
+ *    Northbound user performing the commit (can be NULL).
+ *
  * save_transaction
  *    Specify whether the transaction should be recorded in the transactions log
  *    or not.
@@ -748,11 +767,57 @@ extern void nb_candidate_commit_apply(struct nb_transaction *transaction,
  *    - NB_ERR for other errors.
  */
 extern int nb_candidate_commit(struct nb_config *candidate,
-			       enum nb_client client, bool save_transaction,
-			       const char *comment, uint32_t *transaction_id);
+			       enum nb_client client, const void *user,
+			       bool save_transaction, const char *comment,
+			       uint32_t *transaction_id);
 
 /*
- * Iterate over operetional data.
+ * Lock the running configuration.
+ *
+ * client
+ *    Northbound client.
+ *
+ * user
+ *    Northbound user (can be NULL).
+ *
+ * Returns:
+ *    0 on success, -1 when the running configuration is already locked.
+ */
+extern int nb_running_lock(enum nb_client client, const void *user);
+
+/*
+ * Unlock the running configuration.
+ *
+ * client
+ *    Northbound client.
+ *
+ * user
+ *    Northbound user (can be NULL).
+ *
+ * Returns:
+ *    0 on success, -1 when the running configuration is already unlocked or
+ *    locked by another client/user.
+ */
+extern int nb_running_unlock(enum nb_client client, const void *user);
+
+/*
+ * Check if the running configuration is locked or not for the given
+ * client/user.
+ *
+ * client
+ *    Northbound client.
+ *
+ * user
+ *    Northbound user (can be NULL).
+ *
+ * Returns:
+ *    0 if the running configuration is unlocked or if the client/user owns the
+ *    lock, -1 otherwise.
+ */
+extern int nb_running_lock_check(enum nb_client client, const void *user);
+
+/*
+ * Iterate over operational data.
  *
  * xpath
  *    Data path of the YANG data we want to iterate over.

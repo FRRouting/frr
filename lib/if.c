@@ -187,17 +187,20 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 	if (yang_module_find("frr-interface")) {
 		struct lyd_node *if_dnode;
 
-		if_dnode = yang_dnode_get(
-			running_config->dnode,
-			"/frr-interface:lib/interface[name='%s'][vrf='%s']/vrf",
-			ifp->name, old_vrf->name);
-		if (if_dnode) {
-			yang_dnode_change_leaf(if_dnode, vrf->name);
-			running_config->version++;
+		pthread_rwlock_wrlock(&running_config->lock);
+		{
+			if_dnode = yang_dnode_get(
+				running_config->dnode,
+				"/frr-interface:lib/interface[name='%s'][vrf='%s']/vrf",
+				ifp->name, old_vrf->name);
+			if (if_dnode) {
+				yang_dnode_change_leaf(if_dnode, vrf->name);
+				running_config->version++;
+			}
 		}
+		pthread_rwlock_unlock(&running_config->lock);
 	}
 }
-
 
 /* Delete interface structure. */
 void if_delete_retain(struct interface *ifp)

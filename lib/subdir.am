@@ -310,6 +310,18 @@ lib_sysrepo_la_LIBADD = lib/libfrr.la $(SYSREPO_LIBS)
 lib_sysrepo_la_SOURCES = lib/northbound_sysrepo.c
 
 #
+# gRPC northbound plugin
+#
+if GRPC
+module_LTLIBRARIES += lib/grpc.la
+endif
+
+lib_grpc_la_CXXFLAGS = $(WERROR) $(GRPC_CFLAGS)
+lib_grpc_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+lib_grpc_la_LIBADD = lib/libfrr.la grpc/libfrrgrpc_pb.la $(GRPC_LIBS)
+lib_grpc_la_SOURCES = lib/northbound_grpc.cpp
+
+#
 # CLI utilities
 #
 noinst_PROGRAMS += \
@@ -353,7 +365,7 @@ am__v_CLIPPY_1 =
 
 CLIPPY_DEPS = $(HOSTTOOLS)lib/clippy $(top_srcdir)/python/clidef.py
 
-SUFFIXES = _clippy.c .proto .pb-c.c .pb-c.h .pb.h
+SUFFIXES = _clippy.c .proto .pb-c.c .pb-c.h .pb.h .pb.cc .grpc.pb.cc
 .c_clippy.c:
 	@{ test -x $(top_builddir)/$(HOSTTOOLS)lib/clippy || \
 		$(MAKE) -C $(top_builddir)/$(HOSTTOOLS) lib/clippy; }
