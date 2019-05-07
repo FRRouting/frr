@@ -227,6 +227,8 @@ void pim_ifchannel_delete_all(struct interface *ifp)
 	while (!RB_EMPTY(pim_ifchannel_rb, &pim_ifp->ifchannel_rb)) {
 		ch = RB_ROOT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
 
+		pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__,
+				ch, PIM_IFJOIN_NOINFO);
 		pim_ifchannel_delete(ch);
 	}
 }
