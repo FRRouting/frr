@@ -136,6 +136,20 @@ _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn,
 #define rnode_info(node, ...)                                                  \
 	_rnode_zlog(__func__, vrf_id, node, LOG_INFO, __VA_ARGS__)
 
+#define ALL_KERNEL_STALE_RT_SWEPT \
+	(zrouter.zebra_stale_rt_add == zrouter.zebra_stale_rt_del)
+
+#define IF_ANY_KERNEL_STALE_RT \
+	if (ALL_KERNEL_STALE_RT_SWEPT) \
+		break;
+
+#define KERNEL_STALE_RT_SWEEP(flag) \
+	if (flag == ZEBRA_FLAG_KERNEL_STALE_RT) { \
+		++zrouter.zebra_stale_rt_del; \
+		if (ALL_KERNEL_STALE_RT_SWEPT) \
+			return; \
+	}
+
 uint8_t route_distance(int type)
 {
 	uint8_t distance;
@@ -3172,8 +3186,6 @@ void rib_sweep_table(struct route_table *table, uint32_t flag)
 			if (!CHECK_FLAG(re->flags, flag))
 				continue;
 
-			if (flag == ZEBRA_FLAG_KERNEL_STALE_RT)
-				++zrouter.zebra_stale_rt_del;
 			/*
 			 * So we are starting up and have received
 			 * routes from the kernel that we have installed
@@ -3198,6 +3210,9 @@ void rib_sweep_table(struct route_table *table, uint32_t flag)
 
 			rib_uninstall_kernel(rn, re);
 			rib_delnode(rn, re);
+
+			/* if we are sweeping stale kernel routes. */
+			KERNEL_STALE_RT_SWEEP(flag)
 		}
 	}
 }
@@ -3260,8 +3275,12 @@ int rib_sweep_stale_rt_kernel_gr(struct thread *thread)
 		if ((zvrf = vrf->info) == NULL)
 			continue;
 
+		/* Break, soon after all kernel routes are swept. */
+		IF_ANY_KERNEL_STALE_RT
 		rib_sweep_table(zvrf->table[AFI_IP][SAFI_UNICAST],
 			ZEBRA_FLAG_KERNEL_STALE_RT);
+
+		IF_ANY_KERNEL_STALE_RT
 		rib_sweep_table(zvrf->table[AFI_IP6][SAFI_UNICAST],
 			ZEBRA_FLAG_KERNEL_STALE_RT);
 	}
