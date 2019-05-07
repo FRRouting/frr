@@ -1253,6 +1253,7 @@ DEFUN (show_rpki_cache_server,
 				cache->tr_config.tcp_config->host,
 				cache->tr_config.tcp_config->port);
 
+#if defined(FOUND_SSH)
 		} else if (cache->type == SSH) {
 			vty_out(vty,
 				"host: %s port: %d username: %s "
@@ -1264,6 +1265,7 @@ DEFUN (show_rpki_cache_server,
 					->server_hostkey_path,
 				cache->tr_config.ssh_config
 					->client_privkey_path);
+#endif
 		}
 	}
 
