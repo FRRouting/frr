@@ -1010,14 +1010,17 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 	struct bgp_path_info *pi;
 	int rd_header;
 	int header = 1;
+	char rd_str[BUFSIZ];
+	char buf[BUFSIZ];
 
 	unsigned long output_count = 0;
 	unsigned long total_count = 0;
 	json_object *json = NULL;
 	json_object *json_nroute = NULL;
 	json_object *json_array = NULL;
-	json_object *json_scode = NULL;
-	json_object *json_ocode = NULL;
+	json_object *json_prefix_info = NULL;
+
+	memset(rd_str, 0, BUFSIZ);
 
 	bgp = bgp_get_evpn();
 	if (bgp == NULL) {
@@ -1028,30 +1031,12 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 		return CMD_WARNING;
 	}
 
-	if (use_json) {
-		json_scode = json_object_new_object();
-		json_ocode = json_object_new_object();
+	if (use_json)
 		json = json_object_new_object();
-		json_nroute = json_object_new_object();
-
-		json_object_string_add(json_scode, "suppressed", "s");
-		json_object_string_add(json_scode, "damped", "d");
-		json_object_string_add(json_scode, "history", "h");
-		json_object_string_add(json_scode, "valid", "*");
-		json_object_string_add(json_scode, "best", ">");
-		json_object_string_add(json_scode, "internal", "i");
-
-		json_object_string_add(json_ocode, "igp", "i");
-		json_object_string_add(json_ocode, "egp", "e");
-		json_object_string_add(json_ocode, "incomplete", "?");
-	}
 
 	for (rn = bgp_table_top(bgp->rib[afi][SAFI_EVPN]); rn;
 	     rn = bgp_route_next(rn)) {
 		uint64_t tbl_ver;
-
-		if (use_json)
-			continue; /* XXX json TODO */
 
 		if (prd && memcmp(rn->p.u.val, prd->val, 8) != 0)
 			continue;
@@ -1075,28 +1060,23 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 						       pi->peer->su_remote, su))
 						continue;
 				}
-				if (header == 0) {
+				if (header) {
 					if (use_json) {
-						if (option
-						    == SHOW_DISPLAY_TAGS) {
-							json_object_int_add(
-								json,
-								"bgpTableVersion",
-								tbl_ver);
-							json_object_string_add(
-								json,
-								"bgpLocalRouterId",
-								inet_ntoa(
-									bgp->router_id));
-							json_object_object_add(
-								json,
-								"bgpStatusCodes",
-								json_scode);
-							json_object_object_add(
-								json,
-								"bgpOriginCodes",
-								json_ocode);
-						}
+						json_object_int_add(
+							json, "bgpTableVersion",
+							tbl_ver);
+						json_object_string_add(
+							json,
+							"bgpLocalRouterId",
+							inet_ntoa(
+							bgp->router_id));
+						json_object_int_add(
+							json,
+							"defaultLocPrf",
+							bgp->default_local_pref);
+						json_object_int_add(
+							json, "localAS",
+							bgp->as);
 					} else {
 						if (option == SHOW_DISPLAY_TAGS)
 							vty_out(vty,
@@ -1139,21 +1119,39 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 					else if (type == RD_TYPE_IP)
 						decode_rd_ip(pnt + 2, &rd_ip);
 					if (use_json) {
-						char buffer[BUFSIZ];
+						json_nroute =
+						      json_object_new_object();
+						json_prefix_info =
+						       json_object_new_object();
+						json_array =
+							json_object_new_array();
 						if (type == RD_TYPE_AS
 						    || type == RD_TYPE_AS4)
-							sprintf(buffer, "%u:%d",
+							sprintf(rd_str, "%u:%d",
 								rd_as.as,
 								rd_as.val);
 						else if (type == RD_TYPE_IP)
-							sprintf(buffer, "%s:%d",
+							sprintf(rd_str, "%s:%d",
 								inet_ntoa(
 									rd_ip.ip),
 								rd_ip.val);
 						json_object_string_add(
 							json_nroute,
-							"routeDistinguisher",
-							buffer);
+							"rd",
+							rd_str);
+
+						json_object_string_add(
+							json_prefix_info,
+							"prefix",
+							bgp_evpn_route2str(
+							(struct prefix_evpn *)
+							&rm->p, buf, BUFSIZ));
+
+						json_object_int_add(
+							json_prefix_info,
+							"prefixLen",
+							rm->p.prefixlen);
+
 					} else {
 						vty_out(vty,
 							"Route Distinguisher: ");
@@ -1176,10 +1174,6 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 					}
 					rd_header = 0;
 				}
-				if (use_json)
-					json_array = json_object_new_array();
-				else
-					json_array = NULL;
 				if (option == SHOW_DISPLAY_TAGS)
 					route_vty_out_tag(vty, &rm->p, pi, 0,
 							  SAFI_EVPN,
@@ -1192,13 +1186,31 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 						      SAFI_EVPN, json_array);
 				output_count++;
 			}
-		/* XXX json */
+
+		if (use_json) {
+			json_object_object_add(json_prefix_info, "paths",
+				json_array);
+			json_object_object_add(json_nroute, buf,
+				json_prefix_info);
+			json_object_object_add(json, rd_str, json_nroute);
+		}
 	}
-	if (output_count == 0)
-		vty_out(vty, "No prefixes displayed, %ld exist\n", total_count);
-	else
-		vty_out(vty, "\nDisplayed %ld out of %ld total prefixes\n",
-			output_count, total_count);
+
+	if (use_json) {
+		json_object_int_add(json, "numPrefix", output_count);
+		json_object_int_add(json, "totalPrefix", total_count);
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+			json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	} else {
+		if (output_count == 0)
+			vty_out(vty, "No prefixes displayed, %ld exist\n",
+				total_count);
+		else
+			vty_out(vty,
+				"\nDisplayed %ld out of %ld total prefixes\n",
+				output_count, total_count);
+	}
 	return CMD_SUCCESS;
 }
 
