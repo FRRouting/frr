@@ -286,7 +286,7 @@ static int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 
 	p = (struct prefix_ipv4 *)dplane_ctx_get_intf_addr(ctx);
 
-	strncpy(ifreq.ifr_name, dplane_ctx_get_ifname(ctx),
+	strlcpy(ifreq.ifr_name, dplane_ctx_get_ifname(ctx),
 		sizeof(ifreq.ifr_name));
 
 	memset(&addr, 0, sizeof(struct sockaddr_in));

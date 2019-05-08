@@ -998,7 +998,7 @@ static void vty_describe_fold(struct vty *vty, int cmd_width,
 		if (pos == 0)
 			break;
 
-		strncpy(buf, p, pos);
+		memcpy(buf, p, pos);
 		buf[pos] = '\0';
 		vty_out(vty, "  %-*s  %s\n", cmd_width, cmd, buf);
 
