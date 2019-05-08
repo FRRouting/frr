@@ -62,7 +62,7 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 			    bool supernets_only, int type,
 			    unsigned short ospf_instance_id);
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
-				     int mcast);
+				     int mcast, bool use_fib);
 static void vty_show_ip_route_summary(struct vty *vty,
 				      struct route_table *table);
 static void vty_show_ip_route_summary_prefix(struct vty *vty,
@@ -154,7 +154,7 @@ DEFUN (show_ip_rpf_addr,
 	re = rib_match_ipv4_multicast(VRF_DEFAULT, addr, &rn);
 
 	if (re)
-		vty_show_ip_route_detail(vty, rn, 1);
+		vty_show_ip_route_detail(vty, rn, 1, false);
 	else
 		vty_out(vty, "%% No match for RPF lookup\n");
 
@@ -186,14 +186,24 @@ static char re_status_output_char(struct route_entry *re, struct nexthop *nhop)
 
 /* New RIB.  Detailed information for IPv4 route. */
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
-				     int mcast)
+				     int mcast, bool use_fib)
 {
 	struct route_entry *re;
 	struct nexthop *nexthop;
 	char buf[SRCDEST2STR_BUFFER];
 	struct zebra_vrf *zvrf;
+	rib_dest_t *dest;
+
+	dest = rib_dest_from_rnode(rn);
 
 	RNODE_FOREACH_RE (rn, re) {
+		/*
+		 * If re not selected for forwarding, skip re
+		 * for "show ip/ipv6 fib <prefix>"
+		 */
+		if (use_fib && re != dest->selected_fib)
+			continue;
+
 		const char *mcast_info = "";
 		if (mcast) {
 			rib_table_info_t *info = srcdest_rnode_table_info(rn);
@@ -749,17 +759,26 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 }
 
 static void vty_show_ip_route_detail_json(struct vty *vty,
-					struct route_node *rn)
+					struct route_node *rn, bool use_fib)
 {
 	json_object *json = NULL;
 	json_object *json_prefix = NULL;
 	struct route_entry *re;
 	char buf[BUFSIZ];
+	rib_dest_t *dest;
+
+	dest = rib_dest_from_rnode(rn);
 
 	json = json_object_new_object();
 	json_prefix = json_object_new_array();
 
 	RNODE_FOREACH_RE (rn, re) {
+		/*
+		 * If re not selected for forwarding, skip re
+		 * for "show ip/ipv6 fib <prefix> json"
+		 */
+		if (use_fib && re != dest->selected_fib)
+			continue;
 		vty_show_ip_route(vty, rn, re, json_prefix);
 	}
 
@@ -1177,12 +1196,12 @@ DEFPY (show_route_detail,
        show_route_detail_cmd,
        "show\
          <\
-          ip$ipv4 route [vrf <NAME$vrf_name|all$vrf_all>]\
+          ip$ipv4 <fib$fib|route> [vrf <NAME$vrf_name|all$vrf_all>]\
           <\
 	   A.B.C.D$address\
 	   |A.B.C.D/M$prefix\
 	  >\
-          |ipv6$ipv6 route [vrf <NAME$vrf_name|all$vrf_all>]\
+          |ipv6$ipv6 <fib$fib|route> [vrf <NAME$vrf_name|all$vrf_all>]\
           <\
 	   X:X::X:X$address\
 	   |X:X::X:X/M$prefix\
@@ -1191,12 +1210,14 @@ DEFPY (show_route_detail,
 	 [json$json]",
        SHOW_STR
        IP_STR
+       "IPv6 forwarding table\n"
        "IP routing table\n"
        VRF_FULL_CMD_HELP_STR
        "Network in the IP routing table to display\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
        IP6_STR
-       "IP routing table\n"
+       "IPv6 forwarding table\n"
+       "IPv6 routing table\n"
        VRF_FULL_CMD_HELP_STR
        "IPv6 Address\n"
        "IPv6 prefix\n"
@@ -1232,9 +1253,9 @@ DEFPY (show_route_detail,
 			}
 
 			if (json)
-				vty_show_ip_route_detail_json(vty, rn);
+				vty_show_ip_route_detail_json(vty, rn, !!fib);
 			else
-				vty_show_ip_route_detail(vty, rn, 0);
+				vty_show_ip_route_detail(vty, rn, 0, !!fib);
 
 			route_unlock_node(rn);
 		}
@@ -1260,9 +1281,9 @@ DEFPY (show_route_detail,
 		}
 
 		if (json)
-			vty_show_ip_route_detail_json(vty, rn);
+			vty_show_ip_route_detail_json(vty, rn, !!fib);
 		else
-			vty_show_ip_route_detail(vty, rn, 0);
+			vty_show_ip_route_detail(vty, rn, 0, !!fib);
 
 		route_unlock_node(rn);
 	}
