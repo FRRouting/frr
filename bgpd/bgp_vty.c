@@ -14951,14 +14951,16 @@ static void lcommunity_list_show(struct vty *vty, struct community_list *list)
 		if (entry == list->head) {
 			if (all_digit(list->name))
 				vty_out(vty, "Large community %s list %s\n",
-					entry->style == EXTCOMMUNITY_LIST_STANDARD
+					entry->style ==
+						LARGE_COMMUNITY_LIST_STANDARD
 						? "standard"
 						: "(expanded) access",
 					list->name);
 			else
 				vty_out(vty,
 					"Named large community %s list %s\n",
-					entry->style == EXTCOMMUNITY_LIST_STANDARD
+					entry->style ==
+						LARGE_COMMUNITY_LIST_STANDARD
 						? "standard"
 						: "expanded",
 					list->name);
