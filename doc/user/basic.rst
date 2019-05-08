@@ -287,8 +287,8 @@ Terminal Mode Commands
 
    Write current configuration to configuration file.
 
-.. index:: configure terminal
-.. clicmd:: configure terminal
+.. index:: configure [terminal]
+.. clicmd:: configure [terminal]
 
    Change to configuration mode. This command is the first step to
    configuration.
