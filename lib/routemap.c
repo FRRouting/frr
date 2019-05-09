@@ -616,7 +616,7 @@ struct route_map_list {
 
 	void (*add_hook)(const char *);
 	void (*delete_hook)(const char *);
-	void (*event_hook)(route_map_event_t, const char *);
+	void (*event_hook)(const char *);
 };
 
 /* Master list of route map. */
@@ -1077,8 +1077,7 @@ static void route_map_index_delete(struct route_map_index *index, int notify)
 
 	/* Execute event hook. */
 	if (route_map_master.event_hook && notify) {
-		(*route_map_master.event_hook)(RMAP_EVENT_INDEX_DELETED,
-					       index->map->name);
+		(*route_map_master.event_hook)(index->map->name);
 		route_map_notify_dependencies(index->map->name,
 					      RMAP_EVENT_CALL_ADDED);
 	}
@@ -1137,8 +1136,7 @@ route_map_index_add(struct route_map *map, enum route_map_type type, int pref)
 
 	/* Execute event hook. */
 	if (route_map_master.event_hook) {
-		(*route_map_master.event_hook)(RMAP_EVENT_INDEX_ADDED,
-					       map->name);
+		(*route_map_master.event_hook)(map->name);
 		route_map_notify_dependencies(map->name, RMAP_EVENT_CALL_ADDED);
 	}
 	return index;
@@ -1337,10 +1335,7 @@ int route_map_add_match(struct route_map_index *index, const char *match_name,
 
 	/* Execute event hook. */
 	if (route_map_master.event_hook) {
-		(*route_map_master.event_hook)(
-			replaced ? RMAP_EVENT_MATCH_REPLACED
-				 : RMAP_EVENT_MATCH_ADDED,
-			index->map->name);
+		(*route_map_master.event_hook)(index->map->name);
 		route_map_notify_dependencies(index->map->name,
 					      RMAP_EVENT_CALL_ADDED);
 	}
@@ -1365,9 +1360,7 @@ int route_map_delete_match(struct route_map_index *index,
 			route_map_rule_delete(&index->match_list, rule);
 			/* Execute event hook. */
 			if (route_map_master.event_hook) {
-				(*route_map_master.event_hook)(
-					RMAP_EVENT_MATCH_DELETED,
-					index->map->name);
+				(*route_map_master.event_hook)(index->map->name);
 				route_map_notify_dependencies(
 					index->map->name,
 					RMAP_EVENT_CALL_ADDED);
@@ -1425,10 +1418,7 @@ int route_map_add_set(struct route_map_index *index, const char *set_name,
 
 	/* Execute event hook. */
 	if (route_map_master.event_hook) {
-		(*route_map_master.event_hook)(replaced
-						       ? RMAP_EVENT_SET_REPLACED
-						       : RMAP_EVENT_SET_ADDED,
-					       index->map->name);
+		(*route_map_master.event_hook)(index->map->name);
 		route_map_notify_dependencies(index->map->name,
 					      RMAP_EVENT_CALL_ADDED);
 	}
@@ -1452,9 +1442,7 @@ int route_map_delete_set(struct route_map_index *index, const char *set_name,
 			route_map_rule_delete(&index->set_list, rule);
 			/* Execute event hook. */
 			if (route_map_master.event_hook) {
-				(*route_map_master.event_hook)(
-					RMAP_EVENT_SET_DELETED,
-					index->map->name);
+				(*route_map_master.event_hook)(index->map->name);
 				route_map_notify_dependencies(
 					index->map->name,
 					RMAP_EVENT_CALL_ADDED);
@@ -1651,7 +1639,7 @@ void route_map_delete_hook(void (*func)(const char *))
 	route_map_master.delete_hook = func;
 }
 
-void route_map_event_hook(void (*func)(route_map_event_t, const char *))
+void route_map_event_hook(void (*func)(const char *name))
 {
 	route_map_master.event_hook = func;
 }
@@ -1874,13 +1862,12 @@ static struct hash *route_map_get_dep_hash(route_map_event_t event)
 static void route_map_process_dependency(struct hash_bucket *bucket, void *data)
 {
 	char *rmap_name = (char *)bucket->data;
-	route_map_event_t type = (route_map_event_t)(ptrdiff_t)data;
 
 	if (rmap_debug)
 		zlog_debug("%s: Notifying %s of dependency",
 			   __FUNCTION__, rmap_name);
 	if (route_map_master.event_hook)
-		(*route_map_master.event_hook)(type, rmap_name);
+		(*route_map_master.event_hook)(rmap_name);
 }
 
 void route_map_upd8_dependency(route_map_event_t type, const char *arg,
