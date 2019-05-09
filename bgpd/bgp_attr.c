@@ -1256,6 +1256,32 @@ static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
+/*
+ * Check that the nexthop attribute is valid.
+ */
+bgp_attr_parse_ret_t
+bgp_attr_nexthop_valid(struct peer *peer, struct attr *attr)
+{
+	in_addr_t nexthop_h;
+
+	nexthop_h = ntohl(attr->nexthop.s_addr);
+	if ((IPV4_NET0(nexthop_h) || IPV4_NET127(nexthop_h)
+	     || IPV4_CLASS_DE(nexthop_h))
+	    && !BGP_DEBUG(allow_martians, ALLOW_MARTIANS)) {
+		char buf[INET_ADDRSTRLEN];
+
+		inet_ntop(AF_INET, &attr->nexthop.s_addr, buf,
+			  INET_ADDRSTRLEN);
+		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %s",
+			 buf);
+		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
+				BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP);
+		return BGP_ATTR_PARSE_ERROR;
+	}
+
+	return BGP_ATTR_PARSE_PROCEED;
+}
+
 /* Nexthop attribute. */
 static bgp_attr_parse_ret_t bgp_attr_nexthop(struct bgp_attr_parser_args *args)
 {
@@ -2671,21 +2697,7 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 	 */
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))
 	    && !CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MP_REACH_NLRI))) {
-
-		in_addr_t nexthop_h;
-
-		nexthop_h = ntohl(attr->nexthop.s_addr);
-		if ((IPV4_NET0(nexthop_h) || IPV4_NET127(nexthop_h)
-		     || IPV4_CLASS_DE(nexthop_h))
-		    && !BGP_DEBUG(allow_martians, ALLOW_MARTIANS)) {
-			char buf[INET_ADDRSTRLEN];
-
-			inet_ntop(AF_INET, &attr->nexthop.s_addr, buf,
-				  INET_ADDRSTRLEN);
-			flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %s",
-				 buf);
-			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
-					BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP);
+		if (bgp_attr_nexthop_valid(peer, attr) < 0) {
 			return BGP_ATTR_PARSE_ERROR;
 		}
 	}

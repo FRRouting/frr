@@ -1533,6 +1533,17 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 		nlris[NLRI_UPDATE].nlri = stream_pnt(s);
 		nlris[NLRI_UPDATE].length = update_len;
 		stream_forward_getp(s, update_len);
+
+		if (CHECK_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_MP_REACH_NLRI))) {
+			/*
+			 * We skipped nexthop attribute validation earlier so
+			 * validate the nexthop now.
+			 */
+			if (bgp_attr_nexthop_valid(peer, &attr) < 0) {
+				bgp_attr_unintern_sub(&attr);
+				return BGP_Stop;
+			}
+		}
 	}
 
 	if (BGP_DEBUG(update, UPDATE_IN))

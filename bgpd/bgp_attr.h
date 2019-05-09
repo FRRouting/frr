@@ -344,6 +344,9 @@ extern void bgp_packet_mpunreach_prefix(struct stream *s, struct prefix *p,
 					uint32_t, int, uint32_t, struct attr *);
 extern void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt);
 
+extern bgp_attr_parse_ret_t bgp_attr_nexthop_valid(struct peer *peer,
+						   struct attr *attr);
+
 static inline int bgp_rmap_nhop_changed(uint32_t out_rmap_flags,
 					uint32_t in_rmap_flags)
 {
