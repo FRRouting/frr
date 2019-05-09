@@ -65,6 +65,7 @@ lib_libfrr_la_SOURCES = \
 	lib/prefix.c \
 	lib/privs.c \
 	lib/ptm_lib.c \
+	lib/pullwr.c \
 	lib/qobj.c \
 	lib/ringbuf.c \
 	lib/routemap.c \
@@ -203,6 +204,7 @@ pkginclude_HEADERS += \
 	lib/printfrr.h \
 	lib/privs.h \
 	lib/ptm_lib.h \
+	lib/pullwr.h \
 	lib/pw.h \
 	lib/qobj.h \
 	lib/queue.h \
