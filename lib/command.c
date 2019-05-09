@@ -1386,7 +1386,7 @@ int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 /* Configuration from terminal */
 DEFUN (config_terminal,
        config_terminal_cmd,
-       "configure terminal",
+       "configure [terminal]",
        "Configuration from vty interface\n"
        "Configuration terminal\n")
 {

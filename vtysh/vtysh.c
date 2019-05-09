@@ -502,7 +502,7 @@ static int vtysh_execute_func(const char *line, int pager)
 			vtysh_execute("exit");
 		} else if (tried) {
 			vtysh_execute("end");
-			vtysh_execute("configure terminal");
+			vtysh_execute("configure");
 		}
 	}
 	/*
@@ -540,7 +540,7 @@ static int vtysh_execute_func(const char *line, int pager)
 		if (pager && strncmp(line, "exit", 4))
 			vty_open_pager(vty);
 
-		if (!strcmp(cmd->string, "configure terminal")) {
+		if (!strcmp(cmd->string, "configure")) {
 			for (i = 0; i < array_size(vtysh_client); i++) {
 				cmd_stat = vtysh_client_execute(
 					&vtysh_client[i], line);
@@ -674,7 +674,7 @@ int vtysh_mark_file(const char *filename)
 	vty->node = CONFIG_NODE;
 
 	vtysh_execute_no_pager("enable");
-	vtysh_execute_no_pager("configure terminal");
+	vtysh_execute_no_pager("configure");
 	vty_buf_copy = XCALLOC(MTYPE_VTYSH_CMD, VTY_BUFSIZ);
 
 	while (fgets(vty->buf, VTY_BUFSIZ, confp)) {
@@ -1744,7 +1744,7 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_disable, vtysh_disable_cmd, "disable",
 }
 
 DEFUNSH(VTYSH_REALLYALL, vtysh_config_terminal, vtysh_config_terminal_cmd,
-	"configure terminal",
+	"configure [terminal]",
 	"Configuration from vty interface\n"
 	"Configuration terminal\n")
 {
@@ -1786,7 +1786,7 @@ static int vtysh_exit(struct vty *vty)
 	case BFD_NODE:
 	case RPKI_NODE:
 		vtysh_execute("end");
-		vtysh_execute("configure terminal");
+		vtysh_execute("configure");
 		vty->node = CONFIG_NODE;
 		break;
 	case BGP_VPNV4_NODE:
