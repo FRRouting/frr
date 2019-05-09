@@ -12,7 +12,9 @@ AM_CFLAGS = \
 	# end
 AM_CPPFLAGS = \
 	-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
-	-I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib
+	-I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib \
+	$(LUA_INCLUDE) \
+	# end
 AM_LDFLAGS = \
 	-export-dynamic \
 	$(AC_LDFLAGS) \
