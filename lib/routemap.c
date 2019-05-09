@@ -902,7 +902,7 @@ static const char *route_map_type_str(enum route_map_type type)
 	case RMAP_DENY:
 		return "deny";
 		break;
-	default:
+	case RMAP_ANY:
 		return "";
 		break;
 	}
@@ -1795,7 +1795,14 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
 			dep = NULL;
 		}
 		break;
-	default:
+	case RMAP_EVENT_SET_ADDED:
+	case RMAP_EVENT_SET_DELETED:
+	case RMAP_EVENT_SET_REPLACED:
+	case RMAP_EVENT_MATCH_ADDED:
+	case RMAP_EVENT_MATCH_DELETED:
+	case RMAP_EVENT_MATCH_REPLACED:
+	case RMAP_EVENT_INDEX_ADDED:
+	case RMAP_EVENT_INDEX_DELETED:
 		break;
 	}
 
@@ -1846,7 +1853,18 @@ static struct hash *route_map_get_dep_hash(route_map_event_t event)
 	case RMAP_EVENT_FILTER_DELETED:
 		upd8_hash = route_map_dep_hash[ROUTE_MAP_DEP_FILTER];
 		break;
-	default:
+	/*
+	 * Should we actually be ignoring these?
+	 * I am not sure but at this point in time, let
+	 * us get them into this switch and we can peel
+	 * them into the appropriate place in the future
+	 */
+	case RMAP_EVENT_SET_ADDED:
+	case RMAP_EVENT_SET_DELETED:
+	case RMAP_EVENT_SET_REPLACED:
+	case RMAP_EVENT_MATCH_REPLACED:
+	case RMAP_EVENT_INDEX_ADDED:
+	case RMAP_EVENT_INDEX_DELETED:
 		upd8_hash = NULL;
 		break;
 	}
