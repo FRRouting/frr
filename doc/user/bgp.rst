@@ -942,14 +942,18 @@ Configuring Peers
 .. index:: [no] neighbor PEER maximum-prefix NUMBER
 .. clicmd:: [no] neighbor PEER maximum-prefix NUMBER
 
-.. index:: [no] neighbor PEER local-as AS-NUMBER no-prepend
-.. clicmd:: [no] neighbor PEER local-as AS-NUMBER no-prepend
+   Sets a maximum number of prefixes we can receive from a given peer. If this
+   number is exceeded, the BGP session will be destroyed.
 
-.. index:: [no] neighbor PEER local-as AS-NUMBER no-prepend replace-as
-.. clicmd:: [no] neighbor PEER local-as AS-NUMBER no-prepend replace-as
+   In practice, it is generally preferable to use a prefix-list to limit what
+   prefixes are received from the peer instead of using this knob. Tearing down
+   the BGP session when a limit is exceeded is far more destructive than merely
+   rejecting undesired prefixes. The prefix-list method is also much more
+   granular and offers much smarter matching criterion than number of received
+   prefixes, making it more suited to implementing policy.
 
-.. index:: [no] neighbor PEER local-as AS-NUMBER
-.. clicmd:: [no] neighbor PEER local-as AS-NUMBER
+.. index:: [no] neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
+.. clicmd:: [no] neighbor PEER local-as AS-NUMBER [no-prepend] [replace-as]
 
    Specify an alternate AS for this BGP process when interacting with the
    specified peer. With no modifiers, the specified local-as is prepended to
