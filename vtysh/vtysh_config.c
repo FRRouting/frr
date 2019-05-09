@@ -373,6 +373,10 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				 strlen("debug northbound"))
 			 == 0)
 			config = config_get(NORTHBOUND_DEBUG_NODE, line);
+		else if (strncmp(line, "debug route-map",
+				 strlen("debug route-map"))
+			 == 0)
+			config = config_get(RMAP_DEBUG_NODE, line);
 		else if (strncmp(line, "debug", strlen("debug")) == 0)
 			config = config_get(DEBUG_NODE, line);
 		else if (strncmp(line, "password", strlen("password")) == 0
@@ -418,7 +422,8 @@ void vtysh_config_parse_line(void *arg, const char *line)
 	 || (I) == ACCESS_IPV6_NODE || (I) == ACCESS_MAC_NODE                  \
 	 || (I) == PREFIX_IPV6_NODE || (I) == FORWARDING_NODE                  \
 	 || (I) == DEBUG_NODE || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE      \
-	 || (I) == NORTHBOUND_DEBUG_NODE || (I) == MPLS_NODE)
+	 || (I) == NORTHBOUND_DEBUG_NODE || (I) == RMAP_DEBUG_NODE             \
+	 || (I) == MPLS_NODE)
 
 /* Display configuration to file pointer. */
 void vtysh_config_dump(void)
