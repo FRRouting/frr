@@ -1227,6 +1227,8 @@ DEFPY (show_route_detail,
 	struct route_table *table;
 	struct prefix p;
 	struct route_node *rn;
+	bool use_fib = !!fib;
+	rib_dest_t *dest;
 
 	if (address_str)
 		prefix_str = address_str;
@@ -1253,9 +1255,10 @@ DEFPY (show_route_detail,
 			}
 
 			if (json)
-				vty_show_ip_route_detail_json(vty, rn, !!fib);
+				vty_show_ip_route_detail_json(vty, rn,
+								use_fib);
 			else
-				vty_show_ip_route_detail(vty, rn, 0, !!fib);
+				vty_show_ip_route_detail(vty, rn, 0, use_fib);
 
 			route_unlock_node(rn);
 		}
@@ -1271,19 +1274,29 @@ DEFPY (show_route_detail,
 
 		rn = route_node_match(table, &p);
 		if (!rn) {
-			vty_out(vty, "%% Network not in table\n");
+			if (use_fib)
+				vty_out(vty, "%% Network not in FIB\n");
+			else
+				vty_out(vty, "%% Network not in table\n");
 			return CMD_WARNING;
 		}
 		if (!address_str && rn->p.prefixlen != p.prefixlen) {
-			vty_out(vty, "%% Network not in table\n");
+			if (use_fib)
+				vty_out(vty, "%% Network not in FIB\n");
+			else
+				vty_out(vty, "%% Network not in table\n");
 			route_unlock_node(rn);
 			return CMD_WARNING;
 		}
 
+		dest = rib_dest_from_rnode(rn);
+		if (use_fib && !dest->selected_fib)
+			vty_out(vty, "%% Network not in FIB\n");
+
 		if (json)
-			vty_show_ip_route_detail_json(vty, rn, !!fib);
+			vty_show_ip_route_detail_json(vty, rn, use_fib);
 		else
-			vty_show_ip_route_detail(vty, rn, 0, !!fib);
+			vty_show_ip_route_detail(vty, rn, 0, use_fib);
 
 		route_unlock_node(rn);
 	}
