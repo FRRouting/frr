@@ -107,6 +107,12 @@ static const struct message bgp_pmsi_tnltype_str[] = {
 
 #define VRFID_NONE_STR "-"
 
+DEFINE_HOOK(bgp_process,
+		(struct bgp *bgp, afi_t afi, safi_t safi,
+			struct bgp_node *bn, struct peer *peer, bool withdraw),
+		(bgp, afi, safi, bn, peer, withdraw))
+
+
 struct bgp_node *bgp_afi_node_get(struct bgp_table *table, afi_t afi,
 				  safi_t safi, struct prefix *p,
 				  struct prefix_rd *prd)
@@ -2819,6 +2825,8 @@ void bgp_rib_remove(struct bgp_node *rn, struct bgp_path_info *pi,
 	if (!CHECK_FLAG(pi->flags, BGP_PATH_HISTORY))
 		bgp_path_info_delete(rn, pi); /* keep historical info */
 
+	hook_call(bgp_process, peer->bgp, afi, safi, rn, peer, true);
+
 	bgp_process(peer->bgp, rn, afi, safi);
 }
 
@@ -3187,6 +3195,8 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	if (pi) {
 		pi->uptime = bgp_clock();
 		same_attr = attrhash_cmp(pi->attr, attr_new);
+
+		hook_call(bgp_process, bgp, afi, safi, rn, peer, true);
 
 		/* Same attribute comes in. */
 		if (!CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)
@@ -3616,6 +3626,8 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 	if (safi == SAFI_EVPN)
 		bgp_evpn_import_route(bgp, afi, safi, p, new);
 
+	hook_call(bgp_process, bgp, afi, safi, rn, peer, false);
+
 	/* Process change. */
 	bgp_process(bgp, rn, afi, safi);
 
@@ -3647,6 +3659,8 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 /* This BGP update is filtered.  Log the reason then update BGP
    entry.  */
 filtered:
+	hook_call(bgp_process, bgp, afi, safi, rn, peer, true);
+
 	if (bgp_debug_update(peer, p, NULL, 1)) {
 		if (!peer->rcvd_attr_printed) {
 			zlog_debug("%s rcvd UPDATE w/ attr: %s", peer->host,
