@@ -84,6 +84,7 @@ const char *node_names[] = {
 	"vrf debug",		    // VRF_DEBUG_NODE,
 	"northbound debug",	    // NORTHBOUND_DEBUG_NODE,
 	"vnc debug",		    // DEBUG_VNC_NODE,
+	"route-map debug",	    /* RMAP_DEBUG_NODE */
 	"aaa",			    // AAA_NODE,
 	"keychain",		    // KEYCHAIN_NODE,
 	"keychain key",		    // KEYCHAIN_KEY_NODE,
