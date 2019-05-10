@@ -1229,6 +1229,7 @@ DEFPY (show_route_detail,
 	struct route_node *rn;
 	bool use_fib = !!fib;
 	rib_dest_t *dest;
+	bool network_found = false;
 
 	if (address_str)
 		prefix_str = address_str;
@@ -1254,6 +1255,13 @@ DEFPY (show_route_detail,
 				continue;
 			}
 
+			dest = rib_dest_from_rnode(rn);
+			if (use_fib && !dest->selected_fib) {
+				route_unlock_node(rn);
+				continue;
+			}
+
+			network_found = true;
 			if (json)
 				vty_show_ip_route_detail_json(vty, rn,
 								use_fib);
@@ -1261,6 +1269,20 @@ DEFPY (show_route_detail,
 				vty_show_ip_route_detail(vty, rn, 0, use_fib);
 
 			route_unlock_node(rn);
+		}
+
+		if (!network_found) {
+			if (json)
+				vty_out(vty, "{}\n");
+			else {
+				if (use_fib)
+					vty_out(vty,
+						"%% Network not in FIB\n");
+				else
+					vty_out(vty,
+						"%% Network not in RIB\n");
+			}
+			return CMD_WARNING;
 		}
 	} else {
 		vrf_id_t vrf_id = VRF_DEFAULT;
@@ -1273,25 +1295,25 @@ DEFPY (show_route_detail,
 			return CMD_SUCCESS;
 
 		rn = route_node_match(table, &p);
-		if (!rn) {
-			if (use_fib)
-				vty_out(vty, "%% Network not in FIB\n");
-			else
-				vty_out(vty, "%% Network not in table\n");
-			return CMD_WARNING;
-		}
-		if (!address_str && rn->p.prefixlen != p.prefixlen) {
-			if (use_fib)
-				vty_out(vty, "%% Network not in FIB\n");
-			else
-				vty_out(vty, "%% Network not in table\n");
-			route_unlock_node(rn);
-			return CMD_WARNING;
-		}
+		if (rn)
+			dest = rib_dest_from_rnode(rn);
 
-		dest = rib_dest_from_rnode(rn);
-		if (use_fib && !dest->selected_fib)
-			vty_out(vty, "%% Network not in FIB\n");
+		if (!rn || (!address_str && rn->p.prefixlen != p.prefixlen) ||
+			(use_fib && dest && !dest->selected_fib)) {
+			if (json)
+				vty_out(vty, "{}\n");
+			else {
+				if (use_fib)
+					vty_out(vty,
+						"%% Network not in FIB\n");
+				else
+					vty_out(vty,
+						"%% Network not in table\n");
+			}
+			if (rn)
+				route_unlock_node(rn);
+			return CMD_WARNING;
+		}
 
 		if (json)
 			vty_show_ip_route_detail_json(vty, rn, use_fib);
