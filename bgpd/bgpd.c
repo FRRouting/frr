@@ -7878,8 +7878,31 @@ static void bgp_viewvrf_autocomplete(vector comps, struct cmd_token *token)
 	}
 }
 
+static void bgp_instasn_autocomplete(vector comps, struct cmd_token *token)
+{
+	struct listnode *next, *next2;
+	struct bgp *bgp, *bgp2;
+	char buf[11];
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, bgp)) {
+		/* deduplicate */
+		for (ALL_LIST_ELEMENTS_RO(bm->bgp, next2, bgp2)) {
+			if (bgp2->as == bgp->as)
+				break;
+			if (bgp2 == bgp)
+				break;
+		}
+		if (bgp2 != bgp)
+			continue;
+
+		snprintf(buf, sizeof(buf), "%u", bgp->as);
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, buf));
+	}
+}
+
 static const struct cmd_variable_handler bgp_viewvrf_var_handlers[] = {
 	{.tokenname = "VIEWVRFNAME", .completions = bgp_viewvrf_autocomplete},
+	{.varname = "instasn", .completions = bgp_instasn_autocomplete},
 	{.completions = NULL},
 };
 

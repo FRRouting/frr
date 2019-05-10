@@ -925,7 +925,7 @@ DEFUN (no_auto_summary,
 /* "router bgp" commands. */
 DEFUN_NOSH (router_bgp,
        router_bgp_cmd,
-       "router bgp [(1-4294967295) [<view|vrf> VIEWVRFNAME]]",
+       "router bgp [(1-4294967295)$instasn [<view|vrf> VIEWVRFNAME]]",
        ROUTER_STR
        BGP_STR
        AS_STR
@@ -1015,7 +1015,7 @@ DEFUN_NOSH (router_bgp,
 /* "no router bgp" commands. */
 DEFUN (no_router_bgp,
        no_router_bgp_cmd,
-       "no router bgp [(1-4294967295) [<view|vrf> VIEWVRFNAME]]",
+       "no router bgp [(1-4294967295)$instasn [<view|vrf> VIEWVRFNAME]]",
        NO_STR
        ROUTER_STR
        BGP_STR
