@@ -31,6 +31,8 @@ struct update_subgroup;
 struct bgp_advertise_attr {
 	/* Head of advertisement pointer. */
 	struct bgp_advertise *adv;
+	/* Tail of the advertisement pointer */
+	struct bgp_advertise *tail;
 
 	/* Reference counter.  */
 	unsigned long refcnt;

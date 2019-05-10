@@ -95,18 +95,25 @@ void bgp_advertise_free(struct bgp_advertise *adv)
 	XFREE(MTYPE_BGP_ADVERTISE, adv);
 }
 
+/* Add the new advertisement to the tail of the list */
 void bgp_advertise_add(struct bgp_advertise_attr *baa,
 		       struct bgp_advertise *adv)
 {
-	adv->next = baa->adv;
-	if (baa->adv)
-		baa->adv->prev = adv;
-	baa->adv = adv;
+	if (baa->tail == NULL) {
+		baa->adv = adv;
+		baa->tail = adv;
+	} else {
+		baa->tail->next = adv;
+		adv->prev = baa->tail;
+		baa->tail = adv;
+	}
 }
 
 void bgp_advertise_delete(struct bgp_advertise_attr *baa,
 			  struct bgp_advertise *adv)
 {
+	if (adv == baa->tail)
+		baa->tail = adv->prev;
 	if (adv->next)
 		adv->next->prev = adv->prev;
 	if (adv->prev)
