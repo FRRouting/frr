@@ -105,6 +105,8 @@ Execute all tests with output to console
 
    py.test -s -v --tb=no
 
+The above command must be executed from inside the topotests directory.
+
 All test\_\* scripts in subdirectories are detected and executed (unless
 disabled in ``pytest.ini`` file).
 
@@ -118,6 +120,13 @@ Execute single test
 
    cd test_to_be_run
    ./test_to_be_run.py
+
+For example, and assuming you are inside the frr directory:
+
+.. code:: shell
+
+   cd tests/topotests/bgp_l3vpn_to_bgp_vrf
+   ./test_bgp_l3vpn_to_bgp_vrf.py
 
 For further options, refer to pytest documentation.
 
