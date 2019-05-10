@@ -68,6 +68,11 @@ DEFINE_HOOK(bgp_packet_dump,
 			struct stream *s),
 		(peer, type, size, s))
 
+DEFINE_HOOK(bgp_packet_send,
+		(struct peer *peer, uint8_t type, bgp_size_t size,
+			struct stream *s),
+		(peer, type, size, s))
+
 /**
  * Sets marker and type fields for a BGP message.
  *
@@ -547,6 +552,7 @@ void bgp_open_send(struct peer *peer)
 
 	/* Dump packet if debug option is set. */
 	/* bgp_packet_dump (s); */
+	hook_call(bgp_packet_send, peer, BGP_MSG_OPEN, stream_get_endp(s), s);
 
 	/* Add packet to the peer. */
 	bgp_packet_add(peer, s);
