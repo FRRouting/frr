@@ -94,6 +94,10 @@ DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_INFO, "BGP EVPN instance information");
 DEFINE_QOBJ_TYPE(bgp_master)
 DEFINE_QOBJ_TYPE(bgp)
 DEFINE_QOBJ_TYPE(peer)
+DEFINE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp))
+DEFINE_HOOK(bgp_inst_config_write,
+		(struct bgp *bgp, struct vty *vty),
+		(bgp, vty))
 
 /* BGP process wide configuration.  */
 static struct bgp_master bgp_master;
@@ -3286,6 +3290,9 @@ int bgp_delete(struct bgp *bgp)
 	int i;
 
 	assert(bgp);
+
+	hook_call(bgp_inst_delete, bgp);
+
 	THREAD_OFF(bgp->t_startup);
 	THREAD_OFF(bgp->t_maxmed_onstartup);
 	THREAD_OFF(bgp->t_update_delay);
@@ -7796,6 +7803,8 @@ int bgp_config_write(struct vty *vty)
 
 		/* EVPN configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_L2VPN, SAFI_EVPN);
+
+		hook_call(bgp_inst_config_write, bgp, vty);
 
 #if ENABLE_BGP_VNC
 		bgp_rfapi_cfg_write(vty, bgp);
