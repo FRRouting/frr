@@ -222,9 +222,12 @@ elif test "x${enable_dev_build}" = "xyes"; then
       AC_C_FLAG([-O0])
    fi
    if test "x${enable_lua}" = "xyes"; then
-      AC_CHECK_LIB([lua], [lua_newstate],
-      [LIBS="$LIBS -llua"])
-      AC_DEFINE([HAVE_LUA], [1], [Lua enabled for development])
+      AX_PROG_LUA([5.3])
+      AX_LUA_HEADERS
+      AX_LUA_LIBS([
+         AC_DEFINE([HAVE_LUA], [1], [Have support for Lua interpreter])
+         LIBS="$LIBS $LUA_LIB"
+      ])
    fi
 else
    if test "x${enable_lua}" = "xyes"; then

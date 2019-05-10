@@ -3,7 +3,7 @@
 #
 lib_LTLIBRARIES += lib/libfrr.la
 lib_libfrr_la_LDFLAGS = -version-info 0:0:0 -Xlinker -e_libfrr_version
-lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS)
+lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB)
 
 lib_libfrr_la_SOURCES = \
 	lib/agg_table.c \
@@ -21,6 +21,7 @@ lib_libfrr_la_SOURCES = \
 	lib/distribute.c \
 	lib/ferr.c \
 	lib/filter.c \
+	lib/frrlua.c \
 	lib/frr_pthread.c \
 	lib/frrstr.c \
 	lib/getopt.c \
@@ -93,7 +94,6 @@ lib_libfrr_la_SOURCES = \
 	lib/yang_wrappers.c \
 	lib/zclient.c \
 	lib/logicalrouter.c \
-	lib/lua.c \
 	# end
 
 nodist_lib_libfrr_la_SOURCES = \
@@ -151,6 +151,7 @@ pkginclude_HEADERS += \
 	lib/ferr.h \
 	lib/filter.h \
 	lib/freebsd-queue.h \
+	lib/frrlua.h \
 	lib/frr_pthread.h \
 	lib/frratomic.h \
 	lib/frrstr.h \
@@ -228,7 +229,6 @@ pkginclude_HEADERS += \
 	lib/zclient.h \
 	lib/zebra.h \
 	lib/logicalrouter.h \
-	lib/lua.h \
 	lib/pbr.h \
 	# end
 

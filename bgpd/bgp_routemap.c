@@ -28,7 +28,7 @@
 #include "plist.h"
 #include "memory.h"
 #include "log.h"
-#include "lua.h"
+#include "frrlua.h"
 #ifdef HAVE_LIBPCREPOSIX
 #include <pcreposix.h>
 #else
