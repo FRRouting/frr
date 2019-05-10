@@ -1838,6 +1838,8 @@ static struct hash *route_map_get_dep_hash(route_map_event_t event)
 		break;
 	case RMAP_EVENT_CALL_ADDED:
 	case RMAP_EVENT_CALL_DELETED:
+	case RMAP_EVENT_MATCH_ADDED:
+	case RMAP_EVENT_MATCH_DELETED:
 		upd8_hash = route_map_dep_hash[ROUTE_MAP_DEP_RMAP];
 		break;
 	case RMAP_EVENT_FILTER_ADDED:
