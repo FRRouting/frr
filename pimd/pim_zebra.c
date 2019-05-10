@@ -1296,8 +1296,16 @@ void pim_forward_stop(struct pim_ifchannel *ch, bool install_it)
 			   install_it, up->channel_oil->installed);
 	}
 
-	pim_channel_del_oif(up->channel_oil, ch->interface,
-			    PIM_OIF_FLAG_PROTO_PIM);
+	/*
+	 * If a channel is being removed, check to see if we still need
+	 * to inherit the interface.  If so make sure it is added in
+	 */
+	if (pim_upstream_evaluate_join_desired_interface(up, ch, ch->parent))
+		pim_channel_add_oif(up->channel_oil, ch->interface,
+				    PIM_OIF_FLAG_PROTO_PIM);
+	else
+		pim_channel_del_oif(up->channel_oil, ch->interface,
+				    PIM_OIF_FLAG_PROTO_PIM);
 
 	if (install_it && !up->channel_oil->installed)
 		pim_mroute_add(up->channel_oil, __PRETTY_FUNCTION__);
