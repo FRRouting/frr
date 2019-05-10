@@ -35,7 +35,6 @@
 #ifndef VTYSH_EXTRACT_PL
 #include "staticd/static_vty_clippy.c"
 #endif
-
 static struct static_vrf *static_vty_get_unknown_vrf(struct vty *vty,
 						     const char *vrf_name)
 {
@@ -479,6 +478,23 @@ static int static_route_leak(
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		gatep = &gate;
+
+		if (afi == AFI_IP && !negate) {
+			if (if_lookup_exact_address(&gatep->ipv4, AF_INET,
+							svrf->vrf->vrf_id))
+				if (vty)
+					vty_out(vty,
+						"%% Warning!! Local connected address is configured as Gateway IP(%s)\n",
+						gate_str);
+		} else if (afi == AFI_IP6 && !negate) {
+			if (if_lookup_exact_address(&gatep->ipv6, AF_INET6,
+							svrf->vrf->vrf_id))
+				if (vty)
+					vty_out(vty,
+						"%% Warning!! Local connected address is configured as Gateway IPv6(%s)\n",
+						gate_str);
+		}
+
 	}
 
 	if (gate_str == NULL && ifname == NULL)
