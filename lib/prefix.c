@@ -1543,7 +1543,7 @@ char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size)
 	return ptr;
 }
 
-unsigned prefix_hash_key(void *pp)
+unsigned prefix_hash_key(const void *pp)
 {
 	struct prefix copy;
 

@@ -33,12 +33,14 @@ DEFINE_MTYPE(LIB, ROUTE_NODE, "Route node")
 
 static void route_table_free(struct route_table *);
 
-static bool route_table_hash_cmp(const void *a, const void *b)
+static int route_table_hash_cmp(const void *a, const void *b)
 {
 	const struct prefix *pa = a, *pb = b;
-	return prefix_cmp(pa, pb) == 0;
+	return prefix_cmp(pa, pb);
 }
 
+DECLARE_HASH(rn_hash_node, struct route_node, nodehash, route_table_hash_cmp,
+	     prefix_hash_key)
 /*
  * route_table_init_with_delegate
  */
@@ -49,8 +51,7 @@ route_table_init_with_delegate(route_table_delegate_t *delegate)
 
 	rt = XCALLOC(MTYPE_ROUTE_TABLE, sizeof(struct route_table));
 	rt->delegate = delegate;
-	rt->hash = hash_create(prefix_hash_key, route_table_hash_cmp,
-			       "route table hash");
+	rn_hash_node_init(&rt->hash);
 	return rt;
 }
 
@@ -69,15 +70,14 @@ static struct route_node *route_node_new(struct route_table *table)
 static struct route_node *route_node_set(struct route_table *table,
 					 const struct prefix *prefix)
 {
-	struct route_node *node, *inserted;
+	struct route_node *node;
 
 	node = route_node_new(table);
 
 	prefix_copy(&node->p, prefix);
 	node->table = table;
 
-	inserted = hash_get(node->table->hash, node, hash_alloc_intern);
-	assert(inserted == node);
+	rn_hash_node_add(&node->table->hash, node);
 
 	return node;
 }
@@ -98,9 +98,6 @@ static void route_table_free(struct route_table *rt)
 
 	if (rt == NULL)
 		return;
-
-	hash_clean(rt->hash, NULL);
-	hash_free(rt->hash);
 
 	node = rt->top;
 
@@ -123,6 +120,7 @@ static void route_table_free(struct route_table *rt)
 
 		tmp_node->table->count--;
 		tmp_node->lock = 0; /* to cause assert if unlocked after this */
+		rn_hash_node_del(&rt->hash, tmp_node);
 		route_node_free(rt, tmp_node);
 
 		if (node != NULL) {
@@ -137,6 +135,7 @@ static void route_table_free(struct route_table *rt)
 
 	assert(rt->count == 0);
 
+	rn_hash_node_fini(&rt->hash);
 	XFREE(MTYPE_ROUTE_TABLE, rt);
 	return;
 }
@@ -257,7 +256,7 @@ struct route_node *route_node_lookup(const struct route_table *table,
 	prefix_copy(&p, pu.p);
 	apply_mask(&p);
 
-	node = hash_get(table->hash, (void *)&p, NULL);
+	node = rn_hash_node_find(&table->hash, (void *)&p);
 	return (node && node->info) ? route_lock_node(node) : NULL;
 }
 
@@ -270,7 +269,7 @@ struct route_node *route_node_lookup_maynull(const struct route_table *table,
 	prefix_copy(&p, pu.p);
 	apply_mask(&p);
 
-	node = hash_get(table->hash, (void *)&p, NULL);
+	node = rn_hash_node_find(&table->hash, (void *)&p);
 	return node ? route_lock_node(node) : NULL;
 }
 
@@ -282,12 +281,11 @@ struct route_node *route_node_get(struct route_table *const table,
 	struct route_node *new;
 	struct route_node *node;
 	struct route_node *match;
-	struct route_node *inserted;
 	uint16_t prefixlen = p->prefixlen;
 	const uint8_t *prefix = &p->u.prefix;
 
 	apply_mask((struct prefix *)p);
-	node = hash_get(table->hash, (void *)p, NULL);
+	node = rn_hash_node_find(&table->hash, (void *)p);
 	if (node && node->info)
 		return route_lock_node(node);
 
@@ -314,8 +312,7 @@ struct route_node *route_node_get(struct route_table *const table,
 		new->p.family = p->family;
 		new->table = table;
 		set_link(new, node);
-		inserted = hash_get(node->table->hash, new, hash_alloc_intern);
-		assert(inserted == new);
+		rn_hash_node_add(&table->hash, new);
 
 		if (match)
 			set_link(match, new);
@@ -367,7 +364,7 @@ void route_node_delete(struct route_node *node)
 
 	node->table->count--;
 
-	hash_release(node->table->hash, node);
+	rn_hash_node_del(&node->table->hash, node);
 
 	/* WARNING: FRAGILE CODE!
 	 * route_node_free may have the side effect of free'ing the entire

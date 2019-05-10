@@ -1174,7 +1174,7 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
  */
 static int rib_can_delete_dest(rib_dest_t *dest)
 {
-	if (dest->routes) {
+	if (re_list_first(&dest->routes)) {
 		return 0;
 	}
 
@@ -1202,7 +1202,6 @@ static int rib_can_delete_dest(rib_dest_t *dest)
 void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 {
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
-	struct listnode *node, *nnode;
 	struct rnh *rnh;
 
 	/*
@@ -1234,7 +1233,7 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 		 * nht resolution and as such we need to call the
 		 * nexthop tracking evaluation code
 		 */
-		for (ALL_LIST_ELEMENTS(dest->nht, node, nnode, rnh)) {
+		for_each (rnh_list, &dest->nht, rnh) {
 			struct zebra_vrf *zvrf =
 				zebra_vrf_lookup_by_id(rnh->vrf_id);
 			struct prefix *p = &rnh->node->p;
@@ -1310,7 +1309,7 @@ int rib_gc_dest(struct route_node *rn)
 	zebra_rib_evaluate_rn_nexthops(rn, zebra_router_get_next_sequence());
 
 	dest->rnode = NULL;
-	list_delete(&dest->nht);
+	rnh_list_fini(&dest->nht);
 	XFREE(MTYPE_RIB_DEST, dest);
 	rn->info = NULL;
 
@@ -2355,7 +2354,7 @@ rib_dest_t *zebra_rib_create_dest(struct route_node *rn)
 	rib_dest_t *dest;
 
 	dest = XCALLOC(MTYPE_RIB_DEST, sizeof(rib_dest_t));
-	dest->nht = list_new();
+	rnh_list_init(&dest->nht);
 	route_lock_node(rn); /* rn route table reference */
 	rn->info = dest;
 	dest->rnode = rn;
@@ -2403,7 +2402,6 @@ rib_dest_t *zebra_rib_create_dest(struct route_node *rn)
 /* Add RE to head of the route node. */
 static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 {
-	struct route_entry *head;
 	rib_dest_t *dest;
 	afi_t afi;
 	const char *rmap_name;
@@ -2418,12 +2416,7 @@ static void rib_link(struct route_node *rn, struct route_entry *re, int process)
 		dest = zebra_rib_create_dest(rn);
 	}
 
-	head = dest->routes;
-	if (head) {
-		head->prev = re;
-	}
-	re->next = head;
-	dest->routes = re;
+	re_list_add_head(&dest->routes, re);
 
 	afi = (rn->p.family == AF_INET)
 		      ? AFI_IP
@@ -2473,14 +2466,7 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 
 	dest = rib_dest_from_rnode(rn);
 
-	if (re->next)
-		re->next->prev = re->prev;
-
-	if (re->prev)
-		re->prev->next = re->next;
-	else {
-		dest->routes = re->next;
-	}
+	re_list_del(&dest->routes, re);
 
 	if (dest->selected_fib == re)
 		dest->selected_fib = NULL;

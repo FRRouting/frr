@@ -275,7 +275,7 @@ macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
 #define DECLARE_SORTLIST_UNIQ(prefix, type, field, cmpfn)                      \
 	_DECLARE_SORTLIST(prefix, type, field, cmpfn, cmpfn)                   \
                                                                                \
-macro_inline type *prefix ## _find(struct prefix##_head *h, const type *item)  \
+macro_inline type *prefix ## _find(const struct prefix##_head *h, const type *item)  \
 {                                                                              \
 	struct ssort_item *sitem = h->sh.first;                                \
 	int cmpval = 0;                                                        \
@@ -383,7 +383,7 @@ macro_inline type *prefix ## _add(struct prefix##_head *h, type *item)         \
 	*np = &item->field.hi;                                                 \
 	return NULL;                                                           \
 }                                                                              \
-macro_inline type *prefix ## _find(struct prefix##_head *h, const type *item)  \
+macro_inline type *prefix ## _find(const struct prefix##_head *h, const type *item)  \
 {                                                                              \
 	if (!h->hh.tabshift)                                                   \
 		return NULL;                                                   \
@@ -576,7 +576,7 @@ macro_inline int prefix ## __cmp(const struct sskip_item *a,                   \
 	return cmpfn(container_of(a, type, field.si),                          \
 			container_of(b, type, field.si));                      \
 }                                                                              \
-macro_inline type *prefix ## _find(struct prefix##_head *h, const type *item)  \
+macro_inline type *prefix ## _find(const struct prefix##_head *h, const type *item)  \
 {                                                                              \
 	struct sskip_item *sitem = typesafe_skiplist_find(&h->sh,              \
 			&item->field.si, &prefix ## __cmp);                    \
