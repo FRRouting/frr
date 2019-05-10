@@ -405,7 +405,7 @@ static int pack_subtlvs(struct isis_subtlvs *subtlvs, struct stream *s)
 
 static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len,
 		       struct stream *stream, struct sbuf *log, void *dest,
-		       int indent);
+		       int indent, bool *unpacked_known_tlvs);
 
 /* Functions related to TLVs 1 Area Addresses */
 
@@ -796,7 +796,7 @@ static int unpack_item_extended_reach(uint16_t mtid, uint8_t len,
 		size_t subtlv_start = stream_get_getp(s);
 
 		if (unpack_tlvs(ISIS_CONTEXT_SUBTLV_NE_REACH, subtlv_len, s,
-				log, NULL, indent + 4)) {
+				log, NULL, indent + 4, NULL)) {
 			goto out;
 		}
 
@@ -1386,9 +1386,15 @@ static int unpack_item_extended_ip_reach(uint16_t mtid, uint8_t len,
 		}
 
 		rv->subtlvs = isis_alloc_subtlvs(ISIS_CONTEXT_SUBTLV_IP_REACH);
+		bool unpacked_known_tlvs = false;
+
 		if (unpack_tlvs(ISIS_CONTEXT_SUBTLV_IP_REACH, subtlv_len, s,
-				log, rv->subtlvs, indent + 4)) {
+				log, rv->subtlvs, indent + 4, &unpacked_known_tlvs)) {
 			goto out;
+		}
+		if (!unpacked_known_tlvs) {
+			isis_free_subtlvs(rv->subtlvs);
+			rv->subtlvs = NULL;
 		}
 	}
 
@@ -1865,9 +1871,15 @@ static int unpack_item_ipv6_reach(uint16_t mtid, uint8_t len, struct stream *s,
 		}
 
 		rv->subtlvs = isis_alloc_subtlvs(ISIS_CONTEXT_SUBTLV_IPV6_REACH);
+		bool unpacked_known_tlvs = false;
+
 		if (unpack_tlvs(ISIS_CONTEXT_SUBTLV_IPV6_REACH, subtlv_len, s,
-				log, rv->subtlvs, indent + 4)) {
+				log, rv->subtlvs, indent + 4, &unpacked_known_tlvs)) {
 			goto out;
+		}
+		if (!unpacked_known_tlvs) {
+			isis_free_subtlvs(rv->subtlvs);
+			rv->subtlvs = NULL;
 		}
 	}
 
@@ -2966,7 +2978,7 @@ static int unpack_tlv_unknown(enum isis_tlv_context context, uint8_t tlv_type,
 
 static int unpack_tlv(enum isis_tlv_context context, size_t avail_len,
 		      struct stream *stream, struct sbuf *log, void *dest,
-		      int indent)
+		      int indent, bool *unpacked_known_tlvs)
 {
 	uint8_t tlv_type, tlv_len;
 	const struct tlv_ops *ops;
@@ -2997,6 +3009,8 @@ static int unpack_tlv(enum isis_tlv_context context, size_t avail_len,
 
 	ops = tlv_table[context][tlv_type];
 	if (ops && ops->unpack) {
+		if (unpacked_known_tlvs)
+			*unpacked_known_tlvs = true;
 		return ops->unpack(context, tlv_type, tlv_len, stream, log,
 				   dest, indent + 2);
 	}
@@ -3007,7 +3021,7 @@ static int unpack_tlv(enum isis_tlv_context context, size_t avail_len,
 
 static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len,
 		       struct stream *stream, struct sbuf *log, void *dest,
-		       int indent)
+		       int indent, bool *unpacked_known_tlvs)
 {
 	int rv;
 	size_t tlv_start, tlv_pos;
@@ -3020,7 +3034,7 @@ static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len,
 
 	while (tlv_pos < avail_len) {
 		rv = unpack_tlv(context, avail_len - tlv_pos, stream, log, dest,
-				indent + 2);
+				indent + 2, unpacked_known_tlvs);
 		if (rv)
 			return rv;
 
@@ -3052,7 +3066,7 @@ int isis_unpack_tlvs(size_t avail_len, struct stream *stream,
 
 	result = isis_alloc_tlvs();
 	rv = unpack_tlvs(ISIS_CONTEXT_LSP, avail_len, stream, &logbuf, result,
-			 indent);
+			 indent, NULL);
 
 	*log = sbuf_buf(&logbuf);
 	*dest = result;
