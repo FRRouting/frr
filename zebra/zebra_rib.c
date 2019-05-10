@@ -3127,6 +3127,7 @@ void rib_sweep_table(struct route_table *table)
 
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
 		RNODE_FOREACH_RE_SAFE (rn, re, next) {
+
 			if (IS_ZEBRA_DEBUG_RIB)
 				route_entry_dump(&rn->p, NULL, re);
 
@@ -3134,6 +3135,14 @@ void rib_sweep_table(struct route_table *table)
 				continue;
 
 			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_SELFROUTE))
+				continue;
+
+			/*
+			 * If routes are older than startup_time then
+			 * we know we read them in from the kernel.
+			 * As such we can safely remove them.
+			 */
+			if (zrouter.startup_time < re->uptime)
 				continue;
 
 			/*
@@ -3165,7 +3174,7 @@ void rib_sweep_table(struct route_table *table)
 }
 
 /* Sweep all RIB tables.  */
-void rib_sweep_route(void)
+int rib_sweep_route(struct thread *t)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
@@ -3179,6 +3188,8 @@ void rib_sweep_route(void)
 	}
 
 	zebra_router_sweep_route();
+
+	return 0;
 }
 
 /* Remove specific by protocol routes from 'table'. */

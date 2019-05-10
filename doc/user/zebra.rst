@@ -27,6 +27,13 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
 
    When zebra starts up, don't delete old self inserted routes.
 
+.. option:: -K TIME, --graceful_restart TIME
+
+   If this option is specified, the graceful restart time is TIME seconds.
+   Zebra, when started, will read in routes.  Those routes that Zebra
+   identifies that it was the originator of will be swept in TIME seconds.
+   If no time is specified then we will sweep those routes immediately.
+
 .. option:: -r, --retain
 
    When program terminates, do not flush routes installed by *zebra* from the

@@ -400,7 +400,7 @@ extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p,
 extern void rib_update(vrf_id_t vrf_id, rib_update_event_t event);
 extern void rib_update_table(struct route_table *table,
 			     rib_update_event_t event);
-extern void rib_sweep_route(void);
+extern int rib_sweep_route(struct thread *t);
 extern void rib_sweep_table(struct route_table *table);
 extern void rib_close_table(struct route_table *table);
 extern void rib_init(void);

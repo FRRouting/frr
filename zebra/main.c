@@ -77,6 +77,8 @@ int allow_delete = 0;
 /* Don't delete kernel route. */
 int keep_kernel_mode = 0;
 
+int graceful_restart;
+
 bool v6_rr_semantics = false;
 
 #ifdef HAVE_NETLINK
@@ -95,6 +97,7 @@ struct option longopts[] = {
 	{"label_socket", no_argument, NULL, 'l'},
 	{"retain", no_argument, NULL, 'r'},
 	{"vrfdefaultname", required_argument, NULL, 'o'},
+	{"graceful_restart", required_argument, NULL, 'K'},
 #ifdef HAVE_NETLINK
 	{"vrfwnetns", no_argument, NULL, 'n'},
 	{"nl-bufsize", required_argument, NULL, 's'},
@@ -262,13 +265,14 @@ int main(int argc, char **argv)
 	char *netlink_fuzzing = NULL;
 #endif /* HANDLE_NETLINK_FUZZING */
 
+	graceful_restart = 0;
 	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
 	logicalrouter_configure_backend(LOGICALROUTER_BACKEND_NETNS);
 
 	frr_preinit(&zebra_di, argc, argv);
 
 	frr_opt_add(
-		"bakz:e:l:o:r"
+		"bakz:e:l:o:rK:"
 #ifdef HAVE_NETLINK
 		"s:n"
 #endif
@@ -280,24 +284,25 @@ int main(int argc, char **argv)
 #endif /* HANDLE_NETLINK_FUZZING */
 		,
 		longopts,
-		"  -b, --batch           Runs in batch mode\n"
-		"  -a, --allow_delete    Allow other processes to delete zebra routes\n"
-		"  -z, --socket          Set path of zebra socket\n"
-		"  -e, --ecmp            Specify ECMP to use.\n"
-		"  -l, --label_socket    Socket to external label manager\n"
-		"  -k, --keep_kernel     Don't delete old routes which were installed by zebra.\n"
-		"  -r, --retain          When program terminates, retain added route by zebra.\n"
-		"  -o, --vrfdefaultname  Set default VRF name.\n"
+		"  -b, --batch              Runs in batch mode\n"
+		"  -a, --allow_delete       Allow other processes to delete zebra routes\n"
+		"  -z, --socket             Set path of zebra socket\n"
+		"  -e, --ecmp               Specify ECMP to use.\n"
+		"  -l, --label_socket       Socket to external label manager\n"
+		"  -k, --keep_kernel        Don't delete old routes which were installed by zebra.\n"
+		"  -r, --retain             When program terminates, retain added route by zebra.\n"
+		"  -o, --vrfdefaultname     Set default VRF name.\n"
+		"  -K, --graceful_restart   Graceful restart at the kernel level, timer in seconds for expiration\n"
 #ifdef HAVE_NETLINK
-		"  -n, --vrfwnetns       Use NetNS as VRF backend\n"
-		"  -s, --nl-bufsize      Set netlink receive buffer size\n"
-		"      --v6-rr-semantics Use v6 RR semantics\n"
+		"  -n, --vrfwnetns          Use NetNS as VRF backend\n"
+		"  -s, --nl-bufsize         Set netlink receive buffer size\n"
+		"      --v6-rr-semantics    Use v6 RR semantics\n"
 #endif /* HAVE_NETLINK */
 #if defined(HANDLE_ZAPI_FUZZING)
-		"  -c <file>             Bypass normal startup and use this file for testing of zapi\n"
+		"  -c <file>                Bypass normal startup and use this file for testing of zapi\n"
 #endif /* HANDLE_ZAPI_FUZZING */
 #if defined(HANDLE_NETLINK_FUZZING)
-		"  -w <file>             Bypass normal startup and use this file for testing of netlink input\n"
+		"  -w <file>                Bypass normal startup and use this file for testing of netlink input\n"
 #endif /* HANDLE_NETLINK_FUZZING */
 	);
 
@@ -317,6 +322,10 @@ int main(int argc, char **argv)
 			allow_delete = 1;
 			break;
 		case 'k':
+			if (graceful_restart) {
+				zlog_err("Graceful Restart initiated, we cannot keep the existing kernel routes");
+				return 1;
+			}
 			keep_kernel_mode = 1;
 			break;
 		case 'e':
@@ -347,6 +356,13 @@ int main(int argc, char **argv)
 			break;
 		case 'r':
 			retain_mode = 1;
+			break;
+		case 'K':
+			if (keep_kernel_mode) {
+				zlog_err("Keep Kernel mode specified, graceful restart incompatible");
+				return 1;
+			}
+			graceful_restart = atoi(optarg);
 			break;
 #ifdef HAVE_NETLINK
 		case 's':
@@ -435,8 +451,10 @@ int main(int argc, char **argv)
 	*  will be equal to the current getpid(). To know about such routes,
 	* we have to have route_read() called before.
 	*/
+	zrouter.startup_time = monotime(NULL);
 	if (!keep_kernel_mode)
-		rib_sweep_route();
+		thread_add_timer(zrouter.master, rib_sweep_route,
+				 NULL, graceful_restart, NULL);
 
 	/* Needed for BSD routing socket. */
 	pid = getpid();
