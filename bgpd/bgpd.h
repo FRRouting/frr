@@ -24,6 +24,7 @@
 #include "qobj.h"
 #include <pthread.h>
 
+#include "hook.h"
 #include "frr_pthread.h"
 #include "lib/json.h"
 #include "vrf.h"
@@ -571,6 +572,11 @@ struct bgp {
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(bgp)
+
+DECLARE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp))
+DECLARE_HOOK(bgp_inst_config_write,
+		(struct bgp *bgp, struct vty *vty),
+		(bgp, vty))
 
 #define BGP_ROUTE_ADV_HOLD(bgp) (bgp->main_peers_update_hold)
 
