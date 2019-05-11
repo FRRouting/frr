@@ -97,6 +97,36 @@ void frrlua_newtable_prefix(lua_State *L, const struct prefix *prefix)
 	lua_setglobal(L, "prefix");
 }
 
+void frrlua_newtable_interface(lua_State *L, const struct interface *ifp)
+{
+	zlog_debug("frrlua: pushing interface table");
+
+	lua_newtable(L);
+	lua_pushstring(L, ifp->name);
+	lua_setfield(L, -2, "name");
+	lua_pushinteger(L, ifp->ifindex);
+	lua_setfield(L, -2, "ifindex");
+	lua_pushinteger(L, ifp->status);
+	lua_setfield(L, -2, "status");
+	lua_pushinteger(L, ifp->flags);
+	lua_setfield(L, -2, "flags");
+	lua_pushinteger(L, ifp->metric);
+	lua_setfield(L, -2, "metric");
+	lua_pushinteger(L, ifp->speed);
+	lua_setfield(L, -2, "speed");
+	lua_pushinteger(L, ifp->mtu);
+	lua_setfield(L, -2, "mtu");
+	lua_pushinteger(L, ifp->mtu6);
+	lua_setfield(L, -2, "mtu6");
+	lua_pushinteger(L, ifp->bandwidth);
+	lua_setfield(L, -2, "bandwidth");
+	lua_pushinteger(L, ifp->link_ifindex);
+	lua_setfield(L, -2, "link_ifindex");
+	lua_pushinteger(L, ifp->ll_type);
+	lua_setfield(L, -2, "linklayer_type");
+}
+
+
 /*
  * Experimental.
  *

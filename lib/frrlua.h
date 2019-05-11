@@ -73,6 +73,11 @@ lua_State *frrlua_initialize(const char *file);
 void frrlua_newtable_prefix(lua_State *L, const struct prefix *prefix);
 
 /*
+ * Pushes a new table containing relevant fields from an interface structure.
+ */
+void frrlua_newtable_interface(lua_State *L, const struct interface *ifp);
+
+/*
  * Runs a routemap rule or something
  */
 enum frrlua_rm_status frrlua_run_rm_rule(lua_State *L, const char *rule);
