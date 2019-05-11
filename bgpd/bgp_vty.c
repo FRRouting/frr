@@ -14596,7 +14596,7 @@ static int lcommunity_list_unset_vty(struct vty *vty, int argc,
 		vty_out(vty, "This config option is deprecated, and is scheduled for removal.\n");
 		vty_out(vty, "if you are using this please migrate to the below command.\n");
 		vty_out(vty, "'no bgp large-community-list <(1-99)|(100-500)|standard|expanded> <deny|permit> <LINE|AA:BB:CC>'\n");
-		zlog_warn("Deprecated option: 'no ip large-community-list <(1-99)|(100-500)|standard|expanded> <deny|permit> <LINE|AA:BB:CC>' being used");	
+		zlog_warn("Deprecated option: 'no ip large-community-list <(1-99)|(100-500)|standard|expanded> <deny|permit> <LINE|AA:BB:CC>' being used");
 	}
 	argv_find(argv, argc, "permit", &idx);
 	argv_find(argv, argc, "deny", &idx);
