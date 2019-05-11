@@ -23,10 +23,6 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    Runs in batch mode. *zebra* parses configuration file and terminates
    immediately.
 
-.. option:: -k, --keep_kernel
-
-   When zebra starts up, don't delete old self inserted routes.
-
 .. option:: -K TIME, --graceful_restart TIME
 
    If this option is specified, the graceful restart time is TIME seconds.

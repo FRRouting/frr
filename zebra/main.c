@@ -74,9 +74,6 @@ int retain_mode = 0;
 /* Allow non-quagga entities to delete quagga routes */
 int allow_delete = 0;
 
-/* Don't delete kernel route. */
-int keep_kernel_mode = 0;
-
 int graceful_restart;
 
 bool v6_rr_semantics = false;
@@ -272,7 +269,7 @@ int main(int argc, char **argv)
 	frr_preinit(&zebra_di, argc, argv);
 
 	frr_opt_add(
-		"bakz:e:l:o:rK:"
+		"baz:e:l:o:rK:"
 #ifdef HAVE_NETLINK
 		"s:n"
 #endif
@@ -289,7 +286,6 @@ int main(int argc, char **argv)
 		"  -z, --socket             Set path of zebra socket\n"
 		"  -e, --ecmp               Specify ECMP to use.\n"
 		"  -l, --label_socket       Socket to external label manager\n"
-		"  -k, --keep_kernel        Don't delete old routes which were installed by zebra.\n"
 		"  -r, --retain             When program terminates, retain added route by zebra.\n"
 		"  -o, --vrfdefaultname     Set default VRF name.\n"
 		"  -K, --graceful_restart   Graceful restart at the kernel level, timer in seconds for expiration\n"
@@ -321,13 +317,6 @@ int main(int argc, char **argv)
 		case 'a':
 			allow_delete = 1;
 			break;
-		case 'k':
-			if (graceful_restart) {
-				zlog_err("Graceful Restart initiated, we cannot keep the existing kernel routes");
-				return 1;
-			}
-			keep_kernel_mode = 1;
-			break;
 		case 'e':
 			zrouter.multipath_num = atoi(optarg);
 			if (zrouter.multipath_num > MULTIPATH_NUM
@@ -358,10 +347,6 @@ int main(int argc, char **argv)
 			retain_mode = 1;
 			break;
 		case 'K':
-			if (keep_kernel_mode) {
-				zlog_err("Keep Kernel mode specified, graceful restart incompatible");
-				return 1;
-			}
 			graceful_restart = atoi(optarg);
 			break;
 #ifdef HAVE_NETLINK
@@ -452,9 +437,8 @@ int main(int argc, char **argv)
 	* we have to have route_read() called before.
 	*/
 	zrouter.startup_time = monotime(NULL);
-	if (!keep_kernel_mode)
-		thread_add_timer(zrouter.master, rib_sweep_route,
-				 NULL, graceful_restart, NULL);
+	thread_add_timer(zrouter.master, rib_sweep_route,
+			 NULL, graceful_restart, NULL);
 
 	/* Needed for BSD routing socket. */
 	pid = getpid();
