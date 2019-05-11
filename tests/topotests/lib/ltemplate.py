@@ -83,22 +83,15 @@ class LTemplate():
 
         # For all registred routers, load the zebra configuration file
         for rname, router in router_list.iteritems():
-            print("Setting up %s" % rname)
-            config = os.path.join(self.testdir, '{}/zebra.conf'.format(rname))
-            if os.path.exists(config):
-                router.load_config(TopoRouter.RD_ZEBRA, config)
-            config = os.path.join(self.testdir, '{}/ospfd.conf'.format(rname))
-            if os.path.exists(config):
-                router.load_config(TopoRouter.RD_OSPF, config)
-            config = os.path.join(self.testdir, '{}/ldpd.conf'.format(rname))
-            if os.path.exists(config):
-                router.load_config(TopoRouter.RD_LDP, config)
-            config = os.path.join(self.testdir, '{}/bgpd.conf'.format(rname))
-            if os.path.exists(config):
-                router.load_config(TopoRouter.RD_BGP, config)
-            config = os.path.join(self.testdir, '{}/isisd.conf'.format(rname))
-            if os.path.exists(config):
-                router.load_config(TopoRouter.RD_ISIS, config)
+            logger.info("Setting up %s" % rname)
+            for rd_val in TopoRouter.RD:
+                config = os.path.join(self.testdir, '{}/{}.conf'.format(rname,TopoRouter.RD[rd_val]))
+                prog = os.path.join(tgen.net[rname].daemondir, TopoRouter.RD[rd_val])
+                if os.path.exists(config):
+                    if os.path.exists(prog):
+                        router.load_config(rd_val, config)
+                    else:
+                        logger.warning("{} not found, but have {}.conf file".format(prog, TopoRouter.RD[rd_val]))
 
         # After loading the configurations, this function loads configured daemons.
         logger.info('Starting routers')

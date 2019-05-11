@@ -540,6 +540,7 @@ class TopoRouter(TopoGear):
     RD_NHRP = 11
     RD_STATIC = 12
     RD_BFD = 13
+    RD_SHARP = 14
     RD = {
         RD_ZEBRA: 'zebra',
         RD_RIP: 'ripd',
@@ -554,6 +555,7 @@ class TopoRouter(TopoGear):
         RD_NHRP: 'nhrpd',
         RD_STATIC: 'staticd',
         RD_BFD: 'bfdd',
+        RD_SHARP: 'sharpd',
     }
 
     def __init__(self, tgen, cls, name, **params):
