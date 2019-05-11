@@ -375,41 +375,14 @@ int rfapiGetVncLifetime(struct attr *attr, uint32_t *lifetime)
 }
 
 /*
- * Extract the tunnel type from the extended community
- */
-int rfapiGetTunnelType(struct attr *attr, bgp_encap_types *type)
-{
-	*type = BGP_ENCAP_TYPE_MPLS; /* default to MPLS */
-	if (attr && attr->ecommunity) {
-		struct ecommunity *ecom = attr->ecommunity;
-		int i;
-
-		for (i = 0; i < (ecom->size * ECOMMUNITY_SIZE);
-		     i += ECOMMUNITY_SIZE) {
-			uint8_t *ep;
-
-			ep = ecom->val + i;
-			if (ep[0] == ECOMMUNITY_ENCODE_OPAQUE
-			    && ep[1] == ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP) {
-				*type = (ep[6] << 8) + ep[7];
-				return 0;
-			}
-		}
-	}
-
-	return ENOENT;
-}
-
-
-/*
  * Look for UN address in Encap attribute
  */
 int rfapiGetVncTunnelUnAddr(struct attr *attr, struct prefix *p)
 {
 	struct bgp_attr_encap_subtlv *pEncap;
-	bgp_encap_types tun_type;
+	bgp_encap_types tun_type = BGP_ENCAP_TYPE_MPLS;/*Default tunnel type*/
 
-	rfapiGetTunnelType(attr, &tun_type);
+	bgp_attr_extcom_tunnel_type(attr, &tun_type);
 	if (tun_type == BGP_ENCAP_TYPE_MPLS) {
 		if (!p)
 			return 0;
@@ -1350,7 +1323,7 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 	}
 
 	if (bpi->attr) {
-		bgp_encap_types tun_type;
+		bgp_encap_types tun_type = BGP_ENCAP_TYPE_MPLS; /*Default*/
 		new->prefix.cost = rfapiRfpCost(bpi->attr);
 
 		struct bgp_attr_encap_subtlv *pEncap;
@@ -1390,7 +1363,7 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 			}
 		}
 
-		rfapiGetTunnelType(bpi->attr, &tun_type);
+		bgp_attr_extcom_tunnel_type(bpi->attr, &tun_type);
 		if (tun_type == BGP_ENCAP_TYPE_MPLS) {
 			struct prefix p;
 			/* MPLS carries UN address in next hop */

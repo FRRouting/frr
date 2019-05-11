@@ -1020,7 +1020,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 	struct prefix pfx_vn;
 	uint8_t cost;
 	uint32_t lifetime;
-	bgp_encap_types tun_type;
+	bgp_encap_types tun_type = BGP_ENCAP_TYPE_MPLS;/*Default tunnel type*/
 
 	char buf_pfx[BUFSIZ];
 	char buf_ntop[BUFSIZ];
@@ -1055,7 +1055,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 				   BUFSIZ));
 	}
 
-	rfapiGetTunnelType(bpi->attr, &tun_type);
+	bgp_attr_extcom_tunnel_type(bpi->attr, &tun_type);
 	/*
 	 * VN addr
 	 */

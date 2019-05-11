@@ -23,6 +23,7 @@
 
 #include "mpls.h"
 #include "bgp_attr_evpn.h"
+#include "bgpd/bgp_encap_types.h"
 
 /* Simple bit mapping. */
 #define BITMAP_NBBY 8
@@ -316,6 +317,9 @@ extern struct bgp_attr_encap_subtlv *
 encap_tlv_dup(struct bgp_attr_encap_subtlv *orig);
 
 extern void bgp_attr_flush_encap(struct attr *attr);
+
+extern void bgp_attr_extcom_tunnel_type(struct attr *attr,
+					 bgp_encap_types *tunnel_type);
 
 /**
  * Set of functions to encode MP_REACH_NLRI and MP_UNREACH_NLRI attributes.
