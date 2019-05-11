@@ -1,27 +1,23 @@
 /*
- * This file defines the lua interface into
- * FRRouting.
+ * Copyright (C) 2016-2019 Cumulus Networks, Inc.
+ * Donald Sharp, Quentin Young
  *
- * Copyright (C) 2016 Cumulus Networks, Inc.
- * Donald Sharp
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
+ * any later version.
  *
- * This file is part of FRRouting (FRR).
- *
- * FRR is free software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the Free Software
- * Foundation; either version 2, or (at your option) any later version.
- *
- * FRR is distributed in the hope that it will be useful, but WITHOUT ANY
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
- * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
- * details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  *
  * You should have received a copy of the GNU General Public License along
- * with FRR; see the file COPYING.  If not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-#ifndef __LUA_H__
-#define __LUA_H__
+#ifndef __FRRLUA_H__
+#define __FRRLUA_H__
 
 #if defined(HAVE_LUA)
 
@@ -29,18 +25,16 @@
 #include "lualib.h"
 #include "lauxlib.h"
 
+#include "prefix.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /*
- * These functions are helper functions that
- * try to glom some of the lua_XXX functionality
- * into what we actually need, instead of having
- * to make multiple calls to set up what
- * we want
+ * Status enum for Lua routemap processing results
  */
-enum lua_rm_status {
+enum frrlua_rm_status {
 	/*
 	 * Script function run failure.  This will translate into a
 	 * deny
@@ -63,26 +57,45 @@ enum lua_rm_status {
 };
 
 /*
- * Open up the lua.scr file and parse
- * initial global values, if any.
+ * Creates a new Lua state, loads all libraries, and if a script is provided,
+ * runs it.
+ *
+ * Returns:
+ *    The new Lua state.
  */
-lua_State *lua_initialize(const char *file);
-
-void lua_setup_prefix_table(lua_State *L, const struct prefix *prefix);
-
-enum lua_rm_status lua_run_rm_rule(lua_State *L, const char *rule);
+lua_State *frrlua_initialize(const char *file);
 
 /*
- * Get particular string/integer information
- * from a table.  It is *assumed* that
- * the table has already been selected
+ * Pushes a new table containing relevant fields from a prefix structure.
+ *
+ * Additionally sets the global variable "prefix" to point at this table.
  */
-const char *get_string(lua_State *L, const char *key);
-int get_integer(lua_State *L, const char *key);
+void frrlua_newtable_prefix(lua_State *L, const struct prefix *prefix);
+
+/*
+ * Runs a routemap rule or something
+ */
+enum frrlua_rm_status frrlua_run_rm_rule(lua_State *L, const char *rule);
+
+/*
+ * Retrieve a string from table on the top of the stack.
+ *
+ * key
+ *    Key of string value in table
+ */
+const char *frrlua_table_get_string(lua_State *L, const char *key);
+
+/*
+ * Retrieve an integer from table on the top of the stack.
+ *
+ * key
+ *    Key of string value in table
+ */
+int frrlua_table_get_integer(lua_State *L, const char *key);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif
-#endif
+#endif /* HAVE_LUA */
+#endif /* __FRRLUA_H__ */
