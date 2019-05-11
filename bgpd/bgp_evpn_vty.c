@@ -1048,7 +1048,20 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 		rd_header = 1;
 		tbl_ver = table->version;
 
-		for (rm = bgp_table_top(table); rm; rm = bgp_route_next(rm))
+		for (rm = bgp_table_top(table); rm; rm = bgp_route_next(rm)) {
+			if (use_json) {
+				json_array = json_object_new_array();
+				json_prefix_info = json_object_new_object();
+
+				json_object_string_add(json_prefix_info,
+					"prefix", bgp_evpn_route2str(
+					(struct prefix_evpn *)&rm->p, buf,
+					BUFSIZ));
+
+				json_object_int_add(json_prefix_info,
+					"prefixLen", rm->p.prefixlen);
+			}
+
 			for (pi = bgp_node_get_bgp_path_info(rm); pi;
 			     pi = pi->next) {
 				total_count++;
@@ -1121,10 +1134,6 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 					if (use_json) {
 						json_nroute =
 						      json_object_new_object();
-						json_prefix_info =
-						       json_object_new_object();
-						json_array =
-							json_object_new_array();
 						if (type == RD_TYPE_AS
 						    || type == RD_TYPE_AS4)
 							sprintf(rd_str, "%u:%d",
@@ -1139,18 +1148,6 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 							json_nroute,
 							"rd",
 							rd_str);
-
-						json_object_string_add(
-							json_prefix_info,
-							"prefix",
-							bgp_evpn_route2str(
-							(struct prefix_evpn *)
-							&rm->p, buf, BUFSIZ));
-
-						json_object_int_add(
-							json_prefix_info,
-							"prefixLen",
-							rm->p.prefixlen);
 
 					} else {
 						vty_out(vty,
@@ -1174,6 +1171,7 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 					}
 					rd_header = 0;
 				}
+
 				if (option == SHOW_DISPLAY_TAGS)
 					route_vty_out_tag(vty, &rm->p, pi, 0,
 							  SAFI_EVPN,
@@ -1186,14 +1184,16 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 						      SAFI_EVPN, json_array);
 				output_count++;
 			}
-
-		if (use_json) {
-			json_object_object_add(json_prefix_info, "paths",
-				json_array);
-			json_object_object_add(json_nroute, buf,
-				json_prefix_info);
-			json_object_object_add(json, rd_str, json_nroute);
+			if (use_json) {
+				json_object_object_add(json_prefix_info,
+					"paths", json_array);
+				json_object_object_add(json_nroute, buf,
+					json_prefix_info);
+			}
 		}
+
+		if (use_json)
+			json_object_object_add(json, rd_str, json_nroute);
 	}
 
 	if (use_json) {
