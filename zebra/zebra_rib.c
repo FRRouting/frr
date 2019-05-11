@@ -3003,7 +3003,7 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	re->table = table_id;
 	re->vrf_id = vrf_id;
 	re->nexthop_num = 0;
-	re->uptime = time(NULL);
+	re->uptime = monotime(NULL);
 	re->tag = tag;
 
 	/* Add nexthop. */
