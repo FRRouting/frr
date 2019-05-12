@@ -151,6 +151,107 @@ macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
 }                                                                              \
 /* ... */
 
+/* don't use these structs directly */
+struct dlist_item {
+	struct dlist_item *next;
+	struct dlist_item *prev;
+};
+
+struct dlist_head {
+	struct dlist_item hitem;
+	size_t count;
+};
+
+static inline void typesafe_dlist_add(struct dlist_head *head,
+		struct dlist_item *prev, struct dlist_item *item)
+{
+	item->next = prev->next;
+	item->next->prev = item;
+	item->prev = prev;
+	prev->next = item;
+	head->count++;
+}
+
+/* double-linked list, for fast item deletion
+ */
+#define PREDECL_DLIST(prefix)                                                  \
+struct prefix ## _head { struct dlist_head dh; };                              \
+struct prefix ## _item { struct dlist_item di; };
+
+#define INIT_DLIST(var) { .dh = { \
+	.hitem = { &var.dh.hitem, &var.dh.hitem }, }, }
+
+#define DECLARE_DLIST(prefix, type, field)                                     \
+                                                                               \
+macro_inline void prefix ## _init(struct prefix##_head *h)                     \
+{                                                                              \
+	memset(h, 0, sizeof(*h));                                              \
+	h->dh.hitem.prev = &h->dh.hitem;                                       \
+	h->dh.hitem.next = &h->dh.hitem;                                       \
+}                                                                              \
+macro_inline void prefix ## _fini(struct prefix##_head *h)                     \
+{                                                                              \
+	memset(h, 0, sizeof(*h));                                              \
+}                                                                              \
+macro_inline void prefix ## _add_head(struct prefix##_head *h, type *item)     \
+{                                                                              \
+	typesafe_dlist_add(&h->dh, &h->dh.hitem, &item->field.di);             \
+}                                                                              \
+macro_inline void prefix ## _add_tail(struct prefix##_head *h, type *item)     \
+{                                                                              \
+	typesafe_dlist_add(&h->dh, h->dh.hitem.prev, &item->field.di);         \
+}                                                                              \
+macro_inline void prefix ## _add_after(struct prefix##_head *h,                \
+		type *after, type *item)                                       \
+{                                                                              \
+	struct dlist_item *prev;                                               \
+	prev = after ? &after->field.di : &h->dh.hitem;                        \
+	typesafe_dlist_add(&h->dh, prev, &item->field.di);                     \
+}                                                                              \
+macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
+{                                                                              \
+	struct dlist_item *ditem = &item->field.di;                            \
+	ditem->prev->next = ditem->next;                                       \
+	ditem->next->prev = ditem->prev;                                       \
+	h->dh.count--;                                                         \
+	ditem->prev = ditem->next = NULL;                                      \
+}                                                                              \
+macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
+{                                                                              \
+	struct dlist_item *ditem = h->dh.hitem.next;                           \
+	if (ditem == &h->dh.hitem)                                             \
+		return NULL;                                                   \
+	ditem->prev->next = ditem->next;                                       \
+	ditem->next->prev = ditem->prev;                                       \
+	h->dh.count--;                                                         \
+	return container_of(ditem, type, field.di);                            \
+}                                                                              \
+macro_pure type *prefix ## _first(struct prefix##_head *h)                     \
+{                                                                              \
+	struct dlist_item *ditem = h->dh.hitem.next;                           \
+	if (ditem == &h->dh.hitem)                                             \
+		return NULL;                                                   \
+	return container_of(ditem, type, field.di);                            \
+}                                                                              \
+macro_pure type *prefix ## _next(struct prefix##_head * h, type *item)         \
+{                                                                              \
+	struct dlist_item *ditem = &item->field.di;                            \
+	if (ditem->next == &h->dh.hitem)                                       \
+		return NULL;                                                   \
+	return container_of(ditem->next, type, field.di);                      \
+}                                                                              \
+macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
+{                                                                              \
+	if (!item)                                                             \
+		return NULL;                                                   \
+	return prefix ## _next(h, item);                                       \
+}                                                                              \
+macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
+{                                                                              \
+	return h->dh.count;                                                    \
+}                                                                              \
+/* ... */
+
 /* single-linked list, sorted.
  * can be used as priority queue with add / pop
  */

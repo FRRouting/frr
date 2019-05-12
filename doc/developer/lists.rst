@@ -19,6 +19,8 @@ For unsorted lists, the following implementations exist:
 
 - single-linked list with tail pointer (e.g. STAILQ in BSD)
 
+- double-linked list
+
 - atomic single-linked list with tail pointer
 
 
@@ -70,6 +72,7 @@ Available types:
 
    DECLARE_LIST
    DECLARE_ATOMLIST
+   DECLARE_DLIST
 
    DECLARE_SORTLIST_UNIQ
    DECLARE_SORTLIST_NONUNIQ
@@ -313,8 +316,8 @@ are several functions exposed to insert data:
 
 .. c:function:: DECLARE_XXX(Z, type, field)
 
-   :param listtype XXX: ``LIST`` or ``ATOMLIST`` to select a data structure
-      implementation.
+   :param listtype XXX: ``LIST``, ``DLIST`` or ``ATOMLIST`` to select a data
+      structure implementation.
    :param token Z: Gives the name prefix that is used for the functions
       created for this instantiation.  ``DECLARE_XXX(foo, ...)``
       gives ``struct foo_item``, ``foo_add_head()``, ``foo_count()``, etc.  Note
