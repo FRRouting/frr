@@ -52,8 +52,6 @@
 
 #include <float.h>
 #include <math.h>
-#include "floatio.h"
-#include "gdtoa.h"
 
 #define	DEFPREC		6
 
@@ -68,7 +66,7 @@ static CHAR	*__ultoa(u_long, CHAR *, int, int, const char *);
 struct io_state {
 	FILE *fp;
 	struct __suio uio;	/* output information: summary */
-	struct __siov iov[NIOV];/* ... and individual io vectors */
+	struct iovec iov[NIOV];/* ... and individual io vectors */
 };
 
 static inline void
@@ -86,16 +84,13 @@ io_init(struct io_state *iop, FILE *fp)
  * remain valid until io_flush() is called.
  */
 static inline int
-io_print(struct io_state *iop, const CHAR * __restrict ptr, int len, locale_t locale)
+io_print(struct io_state *iop, const CHAR * __restrict ptr, int len)
 {
 
 	iop->iov[iop->uio.uio_iovcnt].iov_base = (char *)ptr;
 	iop->iov[iop->uio.uio_iovcnt].iov_len = len;
 	iop->uio.uio_resid += len;
-	if (++iop->uio.uio_iovcnt >= NIOV)
-		return (__sprint(iop->fp, &iop->uio, locale));
-	else
-		return (0);
+	return (0);
 }
 
 /*
@@ -114,14 +109,13 @@ static const CHAR zeroes[PADSIZE] =
  * or the zeroes array.
  */
 static inline int
-io_pad(struct io_state *iop, int howmany, const CHAR * __restrict with,
-		locale_t locale)
+io_pad(struct io_state *iop, int howmany, const CHAR * __restrict with)
 {
 	int n;
 
 	while (howmany > 0) {
 		n = (howmany >= PADSIZE) ? PADSIZE : howmany;
-		if (io_print(iop, with, n, locale))
+		if (io_print(iop, with, n))
 			return (-1);
 		howmany -= n;
 	}
@@ -134,7 +128,7 @@ io_pad(struct io_state *iop, int howmany, const CHAR * __restrict with,
  */
 static inline int
 io_printandpad(struct io_state *iop, const CHAR *p, const CHAR *ep,
-	       int len, const CHAR * __restrict with, locale_t locale)
+	       int len, const CHAR * __restrict with)
 {
 	int p_len;
 
@@ -142,19 +136,12 @@ io_printandpad(struct io_state *iop, const CHAR *p, const CHAR *ep,
 	if (p_len > len)
 		p_len = len;
 	if (p_len > 0) {
-		if (io_print(iop, p, p_len, locale))
+		if (io_print(iop, p, p_len))
 			return (-1);
 	} else {
 		p_len = 0;
 	}
-	return (io_pad(iop, len - p_len, with, locale));
-}
-
-static inline int
-io_flush(struct io_state *iop, locale_t locale)
-{
-
-	return (__sprint(iop->fp, &iop->uio, locale));
+	return (io_pad(iop, len - p_len, with));
 }
 
 /*

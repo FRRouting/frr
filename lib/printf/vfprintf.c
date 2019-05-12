@@ -37,11 +37,7 @@
  * SUCH DAMAGE.
  */
 
-#if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)vfprintf.c	8.1 (Berkeley) 6/4/93";
-#endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
 
 /*
  * Actual printf innards.
@@ -49,163 +45,38 @@ __FBSDID("$FreeBSD$");
  * This code is large and complicated...
  */
 
-#include "namespace.h"
 #include <sys/types.h>
+#include <sys/uio.h>
 
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
-#include <locale.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
-#include <printf.h>
 
 #include <stdarg.h>
-#include "xlocale_private.h"
-#include "un-namespace.h"
 
-#include "libc_private.h"
-#include "local.h"
-#include "fvwrite.h"
+#define NO_FLOATING_POINT
+
+int __vfprintf(FILE *fp, const char *fmt0, va_list ap);
+
+struct __suio {
+	size_t uio_resid;
+
+	struct iovec *uio_iov;
+	size_t uio_iovcnt;
+};
+
 #include "printflocal.h"
 
-static int	__sprint(FILE *, struct __suio *, locale_t);
-static int	__sbprintf(FILE *, locale_t, const char *, va_list) __printflike(3, 0)
-	__noinline;
 static char	*__wcsconv(wchar_t *, int);
 
 #define	CHAR	char
 #include "printfcommon.h"
-
-struct grouping_state {
-	char *thousands_sep;	/* locale-specific thousands separator */
-	int thousep_len;	/* length of thousands_sep */
-	const char *grouping;	/* locale-specific numeric grouping rules */
-	int lead;		/* sig figs before decimal or group sep */
-	int nseps;		/* number of group separators with ' */
-	int nrepeats;		/* number of repeats of the last group */
-};
-
-/*
- * Initialize the thousands' grouping state in preparation to print a
- * number with ndigits digits. This routine returns the total number
- * of bytes that will be needed.
- */
-static int
-grouping_init(struct grouping_state *gs, int ndigits, locale_t loc)
-{
-	struct lconv *locale;
-
-	locale = localeconv_l(loc);
-	gs->grouping = locale->grouping;
-	gs->thousands_sep = locale->thousands_sep;
-	gs->thousep_len = strlen(gs->thousands_sep);
-
-	gs->nseps = gs->nrepeats = 0;
-	gs->lead = ndigits;
-	while (*gs->grouping != CHAR_MAX) {
-		if (gs->lead <= *gs->grouping)
-			break;
-		gs->lead -= *gs->grouping;
-		if (*(gs->grouping+1)) {
-			gs->nseps++;
-			gs->grouping++;
-		} else
-			gs->nrepeats++;
-	}
-	return ((gs->nseps + gs->nrepeats) * gs->thousep_len);
-}
-
-/*
- * Print a number with thousands' separators.
- */
-static int
-grouping_print(struct grouping_state *gs, struct io_state *iop,
-	       const CHAR *cp, const CHAR *ep, locale_t locale)
-{
-	const CHAR *cp0 = cp;
-
-	if (io_printandpad(iop, cp, ep, gs->lead, zeroes, locale))
-		return (-1);
-	cp += gs->lead;
-	while (gs->nseps > 0 || gs->nrepeats > 0) {
-		if (gs->nrepeats > 0)
-			gs->nrepeats--;
-		else {
-			gs->grouping--;
-			gs->nseps--;
-		}
-		if (io_print(iop, gs->thousands_sep, gs->thousep_len, locale))
-			return (-1);
-		if (io_printandpad(iop, cp, ep, *gs->grouping, zeroes, locale))
-			return (-1);
-		cp += *gs->grouping;
-	}
-	if (cp > ep)
-		cp = ep;
-	return (cp - cp0);
-}
-
-/*
- * Flush out all the vectors defined by the given uio,
- * then reset it so that it can be reused.
- */
-static int
-__sprint(FILE *fp, struct __suio *uio, locale_t locale)
-{
-	int err;
-
-	if (uio->uio_resid == 0) {
-		uio->uio_iovcnt = 0;
-		return (0);
-	}
-	err = __sfvwrite(fp, uio);
-	uio->uio_resid = 0;
-	uio->uio_iovcnt = 0;
-	return (err);
-}
-
-/*
- * Helper function for `fprintf to unbuffered unix file': creates a
- * temporary buffer.  We only work on write-only files; this avoids
- * worries about ungetc buffers and so forth.
- */
-static int
-__sbprintf(FILE *fp, locale_t locale, const char *fmt, va_list ap)
-{
-	int ret;
-	FILE fake = FAKE_FILE;
-	unsigned char buf[BUFSIZ];
-
-	/* XXX This is probably not needed. */
-	if (prepwrite(fp) != 0)
-		return (EOF);
-
-	/* copy the important variables */
-	fake._flags = fp->_flags & ~__SNBF;
-	fake._file = fp->_file;
-	fake._cookie = fp->_cookie;
-	fake._write = fp->_write;
-	fake._orientation = fp->_orientation;
-	fake._mbstate = fp->_mbstate;
-
-	/* set up the buffer */
-	fake._bf._base = fake._p = buf;
-	fake._bf._size = fake._w = sizeof(buf);
-	fake._lbfsize = 0;	/* not actually used, but Just In Case */
-
-	/* do the work, then copy any error status */
-	ret = __vfprintf(&fake, locale, fmt, ap);
-	if (ret >= 0 && __fflush(&fake))
-		ret = EOF;
-	if (fake._flags & __SERR)
-		fp->_flags |= __SERR;
-	return (ret);
-}
 
 /*
  * Convert a wide character string argument for the %ls format to a multibyte
@@ -267,32 +138,6 @@ __wcsconv(wchar_t *wcsarg, int prec)
 }
 
 /*
- * MT-safe version
- */
-int
-vfprintf_l(FILE * __restrict fp, locale_t locale, const char * __restrict fmt0,
-		va_list ap)
-{
-	int ret;
-	FIX_LOCALE(locale);
-
-	FLOCKFILE_CANCELSAFE(fp);
-	/* optimise fprintf(stderr) (and other unbuffered Unix files) */
-	if ((fp->_flags & (__SNBF|__SWR|__SRW)) == (__SNBF|__SWR) &&
-	    fp->_file >= 0)
-		ret = __sbprintf(fp, locale, fmt0, ap);
-	else
-		ret = __vfprintf(fp, locale, fmt0, ap);
-	FUNLOCKFILE_CANCELSAFE();
-	return (ret);
-}
-int
-vfprintf(FILE * __restrict fp, const char * __restrict fmt0, va_list ap)
-{
-	return vfprintf_l(fp, __get_locale(), fmt0, ap);
-}
-
-/*
  * The size of the buffer we use as scratch space for integer
  * conversions, among other things.  We need enough space to
  * write a uintmax_t in octal (plus one byte).
@@ -307,7 +152,7 @@ vfprintf(FILE * __restrict fp, const char * __restrict fmt0, va_list ap)
  * Non-MT-safe version
  */
 int
-__vfprintf(FILE *fp, locale_t locale, const char *fmt0, va_list ap)
+__vfprintf(FILE *fp, const char *fmt0, va_list ap)
 {
 	char *fmt;		/* format string */
 	int ch;			/* character from fmt */
@@ -319,7 +164,6 @@ __vfprintf(FILE *fp, locale_t locale, const char *fmt0, va_list ap)
 	int prec;		/* precision from format; <0 for N/A */
 	int saved_errno;
 	char sign;		/* sign prefix (' ', '+', '-', or \0) */
-	struct grouping_state gs; /* thousands' grouping info */
 
 #ifndef NO_FLOATING_POINT
 	/*
@@ -374,21 +218,18 @@ __vfprintf(FILE *fp, locale_t locale, const char *fmt0, va_list ap)
 
 	/* BEWARE, these `goto error' on error. */
 #define	PRINT(ptr, len) { \
-	if (io_print(&io, (ptr), (len), locale))	\
+	if (io_print(&io, (ptr), (len)))	\
 		goto error; \
 }
 #define	PAD(howmany, with) { \
-	if (io_pad(&io, (howmany), (with), locale)) \
+	if (io_pad(&io, (howmany), (with))) \
 		goto error; \
 }
 #define	PRINTANDPAD(p, ep, len, with) {	\
-	if (io_printandpad(&io, (p), (ep), (len), (with), locale)) \
+	if (io_printandpad(&io, (p), (ep), (len), (with))) \
 		goto error; \
 }
-#define	FLUSH() { \
-	if (io_flush(&io, locale)) \
-		goto error; \
-}
+#define	FLUSH() do { } while (0)
 
 	/*
 	 * Get the argument indexed by nextarg.   If the argument table is
@@ -453,17 +294,6 @@ __vfprintf(FILE *fp, locale_t locale, const char *fmt0, va_list ap)
 		val = GETARG (int); \
 	}
 
-	if (__use_xprintf == 0 && getenv("USE_XPRINTF"))
-		__use_xprintf = 1;
-	if (__use_xprintf > 0)
-		return (__xvprintf(fp, fmt0, ap));
-
-	/* sorry, fprintf(read_only_file, "") returns EOF, not 0 */
-	if (prepwrite(fp) != 0) {
-		errno = EBADF;
-		return (EOF);
-	}
-
 	savserr = fp->_flags & __SERR;
 	fp->_flags &= ~__SERR;
 
@@ -477,7 +307,7 @@ __vfprintf(FILE *fp, locale_t locale, const char *fmt0, va_list ap)
 	ret = 0;
 #ifndef NO_FLOATING_POINT
 	dtoaresult = NULL;
-	decimal_point = localeconv_l(locale)->decimal_point;
+	decimal_point = ".";
 	/* The overwhelmingly common case is decpt_len == 1. */
 	decpt_len = (decimal_point[1] == '\0' ? 1 : strlen(decimal_point));
 #endif
@@ -505,7 +335,6 @@ __vfprintf(FILE *fp, locale_t locale, const char *fmt0, va_list ap)
 		dprec = 0;
 		width = 0;
 		prec = -1;
-		gs.grouping = NULL;
 		sign = '\0';
 		ox[1] = '\0';
 
@@ -628,7 +457,6 @@ reswitch:	switch (ch) {
 				mbseqlen = wcrtomb(cp = buf,
 				    (wchar_t)GETARG(wint_t), &mbs);
 				if (mbseqlen == (size_t)-1) {
-					fp->_flags |= __SERR;
 					goto error;
 				}
 				size = (int)mbseqlen;
@@ -773,8 +601,6 @@ fp_common:
 				/* space for decimal pt and following digits */
 				if (prec || flags & ALT)
 					size += prec + decpt_len;
-				if ((flags & GROUPING) && expt > 0)
-					size += grouping_init(&gs, expt, locale);
 			}
 			break;
 #endif /* !NO_FLOATING_POINT */
@@ -844,7 +670,6 @@ fp_common:
 				else {
 					convbuf = __wcsconv(wcp, prec);
 					if (convbuf == NULL) {
-						fp->_flags |= __SERR;
 						goto error;
 					}
 					cp = convbuf;
@@ -915,8 +740,6 @@ number:			if ((dprec = prec) >= 0)
 			size = buf + BUF - cp;
 			if (size > BUF)	/* should never happen */
 				abort();
-			if ((flags & GROUPING) && size != 0)
-				size += grouping_init(&gs, size, locale);
 			break;
 		default:	/* "%?" prints ?, unless ? is NUL */
 			if (ch == '\0')
@@ -979,12 +802,7 @@ number:			if ((dprec = prec) >= 0)
 #endif
 			/* leading zeroes from decimal precision */
 			PAD(dprec - size, zeroes);
-			if (gs.grouping) {
-				if (grouping_print(&gs, &io, cp, buf+BUF, locale) < 0)
-					goto error;
-			} else {
-				PRINT(cp, size);
-			}
+			PRINT(cp, size);
 #ifndef NO_FLOATING_POINT
 		} else {	/* glue together f_p fragments */
 			if (!expchar) {	/* %[fF] or sufficiently short %[gG] */
@@ -996,17 +814,8 @@ number:			if ((dprec = prec) >= 0)
 					/* already handled initial 0's */
 					prec += expt;
 				} else {
-					if (gs.grouping) {
-						n = grouping_print(&gs, &io,
-						    cp, dtoaend, locale);
-						if (n < 0)
-							goto error;
-						cp += n;
-					} else {
-						PRINTANDPAD(cp, dtoaend,
-						    expt, zeroes);
-						cp += expt;
-					}
+					PRINTANDPAD(cp, dtoaend, expt, zeroes);
+					cp += expt;
 					if (prec || flags & ALT)
 						PRINT(decimal_point,decpt_len);
 				}
@@ -1042,10 +851,6 @@ error:
 #endif
 	if (convbuf != NULL)
 		free(convbuf);
-	if (__sferror(fp))
-		ret = EOF;
-	else
-		fp->_flags |= savserr;
 	if ((argtable != NULL) && (argtable != statargtable))
 		free (argtable);
 	return (ret);
