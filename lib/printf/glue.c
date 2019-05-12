@@ -20,8 +20,10 @@
 
 #include <sys/types.h>
 #include <string.h>
+#include <wchar.h>
 
 #include "printfrr.h"
+#include "printflocal.h"
 
 ssize_t bprintfrr(struct fbuf *out, const char *fmt, ...)
 {
@@ -151,4 +153,97 @@ char *asprintfrr(struct memtype *mt, const char *fmt, ...)
 	if (ret == buf)
 		ret = qstrdup(mt, ret);
 	return ret;
+}
+
+/* Q: WTF?
+ * A: since printf should be reasonably fast (think debugging logs), the idea
+ *    here is to keep things close by each other in a cacheline.  That's why
+ *    ext_quick just has the first 2 characters of an extension, and we do a
+ *    nice linear continuous sweep.  Only if we find something, we go do more
+ *    expensive things.
+ *
+ * Q: doesn't this need a mutex/lock?
+ * A: theoretically, yes, but that's quite expensive and I rather elide that
+ *    necessity by putting down some usage rules.  Just call this at startup
+ *    while singlethreaded and all is fine.  Ideally, just use constructors
+ *    (and make sure dlopen() doesn't mess things up...)
+ */
+#define MAXEXT 64
+
+struct ext_quick {
+	char fmt[2];
+};
+
+static uint8_t ext_offsets[26] __attribute__((aligned(32)));
+static struct ext_quick entries[MAXEXT] __attribute__((aligned(64)));
+static const struct printfrr_ext *exts[MAXEXT] __attribute__((aligned(64)));
+
+void printfrr_ext_reg(const struct printfrr_ext *ext)
+{
+	uint8_t o;
+	ptrdiff_t i;
+
+	if (!printfrr_ext_char(ext->match[0]))
+		return;
+
+	o = ext->match[0] - 'A';
+	for (i = ext_offsets[o];
+			i < MAXEXT && entries[i].fmt[0] &&
+			memcmp(entries[i].fmt, ext->match, 2) < 0;
+			i++)
+		;
+	if (i == MAXEXT)
+		return;
+	for (o++; o <= 'Z' - 'A'; o++)
+		ext_offsets[o]++;
+
+	memmove(entries + i + 1, entries + i,
+			(MAXEXT - i - 1) * sizeof(entries[0]));
+	memmove(exts + i + 1, exts + i,
+			(MAXEXT - i - 1) * sizeof(exts[0]));
+
+	memcpy(entries[i].fmt, ext->match, 2);
+	exts[i] = ext;
+}
+
+ssize_t printfrr_extp(char *buf, size_t sz, const char *fmt, int prec,
+		      const void *ptr)
+{
+	const struct printfrr_ext *ext;
+	size_t i;
+
+	for (i = ext_offsets[fmt[0] - 'A']; i < MAXEXT; i++) {
+		if (!entries[i].fmt[0] || entries[i].fmt[0] > fmt[0])
+			return 0;
+		if (entries[i].fmt[1] && entries[i].fmt[1] != fmt[1])
+			continue;
+		ext = exts[i];
+		if (!ext->print_ptr)
+			continue;
+		if (strncmp(ext->match, fmt, strlen(ext->match)))
+			continue;
+		return ext->print_ptr(buf, sz, fmt, prec, ptr);
+	}
+	return 0;
+}
+
+ssize_t printfrr_exti(char *buf, size_t sz, const char *fmt, int prec,
+		      uintmax_t num)
+{
+	const struct printfrr_ext *ext;
+	size_t i;
+
+	for (i = ext_offsets[fmt[0] - 'A']; i < MAXEXT; i++) {
+		if (!entries[i].fmt[0] || entries[i].fmt[0] > fmt[0])
+			return 0;
+		if (entries[i].fmt[1] && entries[i].fmt[1] != fmt[1])
+			continue;
+		ext = exts[i];
+		if (!ext->print_int)
+			continue;
+		if (strncmp(ext->match, fmt, strlen(ext->match)))
+			continue;
+		return ext->print_int(buf, sz, fmt, prec, num);
+	}
+	return 0;
 }

@@ -162,6 +162,7 @@ vbprintfrr(struct fbuf *cb, const char *fmt0, va_list ap)
 
 	u_long	ulval = 0;	/* integer arguments %[diouxX] */
 	uintmax_t ujval = 0;	/* %j, %ll, %q, %t, %z integers */
+	void *ptrval;		/* %p */
 	int base;		/* base for [diouxX] conversion */
 	int dprec;		/* a copy of prec if [diouxX], 0 otherwise */
 	int realsz;		/* field size expanded by dprec, sign, etc */
@@ -431,14 +432,29 @@ reswitch:	switch (ch) {
 			/*FALLTHROUGH*/
 		case 'd':
 		case 'i':
-			if (flags & INTMAX_SIZE) {
+			if (flags & INTMAX_SIZE)
 				ujval = SJARG();
+			else
+				ulval = SARG();
+
+			if (printfrr_ext_char(fmt[0])) {
+				n2 = printfrr_exti(buf, sizeof(buf), fmt, prec,
+						(flags & INTMAX_SIZE) ? ujval
+						: (uintmax_t)ulval);
+				if (n2 > 0) {
+					fmt += n2;
+					cp = buf;
+					size = strlen(cp);
+					sign = '\0';
+					break;
+				}
+			}
+			if (flags & INTMAX_SIZE) {
 				if ((intmax_t)ujval < 0) {
 					ujval = -ujval;
 					sign = '-';
 				}
 			} else {
-				ulval = SARG();
 				if ((long)ulval < 0) {
 					ulval = -ulval;
 					sign = '-';
@@ -528,7 +544,17 @@ reswitch:	switch (ch) {
 			 * defined manner.''
 			 *	-- ANSI X3J11
 			 */
-			ujval = (uintmax_t)(uintptr_t)GETARG(void *);
+			ptrval = GETARG(void *);
+			if (printfrr_ext_char(fmt[0]) &&
+					(n2 = printfrr_extp(buf, sizeof(buf),
+						fmt, prec, ptrval)) > 0) {
+				fmt += n2;
+				cp = buf;
+				size = strlen(cp);
+				sign = '\0';
+				break;
+			}
+			ujval = (uintmax_t)(uintptr_t)ptrval;
 			base = 16;
 			xdigs = xdigs_lower;
 			flags = flags | INTMAXT;

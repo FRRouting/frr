@@ -99,3 +99,7 @@ int	_frr_find_arguments(const char *, va_list, union arg **) DSO_LOCAL;
 #ifdef WCHAR_SUPPORT
 int	_frr_find_warguments(const wchar_t *, va_list, union arg **) DSO_LOCAL;
 #endif
+
+/* returns number of bytes consumed for extended specifier */
+ssize_t printfrr_extp(char *, size_t, const char *, int, const void *) DSO_LOCAL;
+ssize_t printfrr_exti(char *, size_t, const char *, int, uintmax_t) DSO_LOCAL;

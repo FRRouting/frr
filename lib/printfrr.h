@@ -19,6 +19,7 @@
 
 #include <stddef.h>
 #include <stdarg.h>
+#include <stdint.h>
 
 #include "compiler.h"
 #include "memory.h"
@@ -75,17 +76,74 @@ char  *asnprintfrr(struct memtype *mt, char *out, size_t sz,
 #undef at
 #undef atm
 
-struct printfrr_ext {
-	const char *match;
-	const char *opts;
+/* extension specs must start with a capital letter (this is a restriction
+ * for both performance's and human understanding's sake.)
+ *
+ * Note that the entire thing mostly works because a letter directly following
+ * a %p print specifier is extremely unlikely to occur (why would you want to
+ * print "0x12345678HELLO"?)  Normally, you'd expect spacing or punctuation
+ * after a placeholder.  That also means that neither of those works well for
+ * extension purposes, e.g. "%p{foo}" is reasonable to see actually used.
+ *
+ * TODO: would be nice to support a "%pF%dF" specifier that consumes 2
+ * arguments, e.g. to pass an integer + a list of known values...  can be
+ * done, but a bit tricky.
+ */
+#define printfrr_ext_char(ch) ((ch) >= 'A' && (ch) <= 'Z')
 
-	union {
-		ssize_t (*print_ptr)(struct fbuf *out, const char *fmt, void *);
-		ssize_t (*print_int)(struct fbuf *out, const char *fmt, int);
-	};
+struct printfrr_ext {
+	/* embedded string to minimize cache line pollution */
+	char match[8];
+
+	/* both can be given, if not the code continues searching
+	 * (you can do %pX and %dX in 2 different entries)
+	 *
+	 * return value: number of bytes consumed from the format string, so
+	 * you can consume extra flags (e.g. register for "%pX", consume
+	 * "%pXfoo" or "%pXbar" for flags.)  Convention is to make those flags
+	 * lowercase letters or numbers.
+	 *
+	 * bsz is a compile-time constant in printf;  it's gonna be relatively
+	 * small.  This isn't designed to print Shakespeare from a pointer.
+	 *
+	 * prec is the precision specifier (the 999 in "%.999p")  -1 means
+	 * none given (value in the format string cannot be negative)
+	 */
+	ssize_t (*print_ptr)(char *buf, size_t bsz, const char *fmt, int prec,
+			const void *);
+	ssize_t (*print_int)(char *buf, size_t bsz, const char *fmt, int prec,
+			uintmax_t);
 };
 
+/* no locking - must be called when single threaded (e.g. at startup.)
+ * this restriction hopefully won't be a huge bother considering normal usage
+ * scenarios...
+ */
 void printfrr_ext_reg(const struct printfrr_ext *);
-void printfrr_ext_unreg(const struct printfrr_ext *);
+
+#define printfrr_ext_autoreg_p(matchs, print_fn)                               \
+	static ssize_t print_fn(char *, size_t, const char *, int,             \
+				const void *);                                 \
+	static struct printfrr_ext _printext_##print_fn = {                    \
+		.match = matchs,                                               \
+		.print_ptr = print_fn,                                         \
+	};                                                                     \
+	static void _printreg_##print_fn(void) __attribute__((constructor));   \
+	static void _printreg_##print_fn(void) {                               \
+		printfrr_ext_reg(&_printext_##print_fn);                       \
+	}                                                                      \
+	/* end */
+
+#define printfrr_ext_autoreg_i(matchs, print_fn)                               \
+	static ssize_t print_fn(char *, size_t, const char *, int, uintmax_t); \
+	static struct printfrr_ext _printext_##print_fn = {                    \
+		.match = matchs,                                               \
+		.print_int = print_fn,                                         \
+	};                                                                     \
+	static void _printreg_##print_fn(void) __attribute__((constructor));   \
+	static void _printreg_##print_fn(void) {                               \
+		printfrr_ext_reg(&_printext_##print_fn);                       \
+	}                                                                      \
+	/* end */
 
 #endif
