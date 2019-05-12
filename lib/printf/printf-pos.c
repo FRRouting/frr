@@ -65,8 +65,8 @@ enum typeid {
 	T_UNUSED, TP_SHORT, T_INT, T_U_INT, TP_INT,
 	T_LONG, T_U_LONG, TP_LONG, T_LLONG, T_U_LLONG, TP_LLONG,
 	T_PTRDIFFT, TP_PTRDIFFT, T_SSIZET, T_SIZET, TP_SSIZET,
-	T_INTMAXT, T_UINTMAXT, TP_INTMAXT, TP_VOID, TP_CHAR, TP_SCHAR,
-	T_DOUBLE, T_LONG_DOUBLE, T_WINT, TP_WCHAR
+	T_INT64T, T_UINT64T, T_INTMAXT, T_UINTMAXT, TP_INTMAXT, TP_VOID,
+	TP_CHAR, TP_SCHAR, T_DOUBLE, T_LONG_DOUBLE, T_WINT, TP_WCHAR
 };
 
 /* An expandable array of types. */
@@ -145,7 +145,9 @@ addsarg(struct typetable *types, int flags)
 
 	if (_ensurespace(types))
 		return (-1);
-	if (flags & INTMAXT)
+	if (flags & LONGDBL)
+		types->table[types->nextarg++] = T_INT64T;
+	else if (flags & INTMAXT)
 		types->table[types->nextarg++] = T_INTMAXT;
 	else if (flags & SIZET)
 		types->table[types->nextarg++] = T_SSIZET;
@@ -166,7 +168,9 @@ adduarg(struct typetable *types, int flags)
 
 	if (_ensurespace(types))
 		return (-1);
-	if (flags & INTMAXT)
+	if (flags & LONGDBL)
+		types->table[types->nextarg++] = T_UINT64T;
+	else if (flags & INTMAXT)
 		types->table[types->nextarg++] = T_UINTMAXT;
 	else if (flags & SIZET)
 		types->table[types->nextarg++] = T_SIZET;
@@ -311,11 +315,9 @@ reswitch:	switch (ch) {
 				goto rflag;
 			}
 			goto reswitch;
-#ifndef NO_FLOATING_POINT
 		case 'L':
 			flags |= LONGDBL;
 			goto rflag;
-#endif
 		case 'h':
 			if (flags & SHORTINT) {
 				flags &= ~SHORTINT;
@@ -504,11 +506,9 @@ reswitch:	switch (ch) {
 				goto rflag;
 			}
 			goto reswitch;
-#ifndef NO_FLOATING_POINT
 		case 'L':
 			flags |= LONGDBL;
 			goto rflag;
-#endif
 		case 'h':
 			if (flags & SHORTINT) {
 				flags &= ~SHORTINT;
@@ -742,6 +742,12 @@ build_arg_table(struct typetable *types, va_list ap, union arg **argtable)
 			break;
 		    case TP_INTMAXT:
 			(*argtable) [n].pintmaxarg = va_arg (ap, intmax_t *);
+			break;
+		    case T_INT64T:
+			(*argtable) [n].intmaxarg = va_arg (ap, int64_t);
+			break;
+		    case T_UINT64T:
+			(*argtable) [n].uintmaxarg = va_arg (ap, uint64_t);
 			break;
 		    case T_DOUBLE:
 #ifndef NO_FLOATING_POINT

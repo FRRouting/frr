@@ -224,14 +224,16 @@ __vfprintf(FILE *fp, const char *fmt0, va_list ap)
 	    flags&SHORTINT ? (u_long)(u_short)GETARG(int) : \
 	    flags&CHARINT ? (u_long)(u_char)GETARG(int) : \
 	    (u_long)GETARG(u_int))
-#define	INTMAX_SIZE	(INTMAXT|SIZET|PTRDIFFT|LLONGINT)
+#define	INTMAX_SIZE	(INTMAXT|SIZET|PTRDIFFT|LLONGINT|LONGDBL)
 #define SJARG() \
-	(flags&INTMAXT ? GETARG(intmax_t) : \
+	(flags&LONGDBL ? GETARG(int64_t) : \
+	    flags&INTMAXT ? GETARG(intmax_t) : \
 	    flags&SIZET ? (intmax_t)GETARG(ssize_t) : \
 	    flags&PTRDIFFT ? (intmax_t)GETARG(ptrdiff_t) : \
 	    (intmax_t)GETARG(long long))
 #define	UJARG() \
-	(flags&INTMAXT ? GETARG(uintmax_t) : \
+	(flags&LONGDBL ? GETARG(uint64_t) : \
+	    flags&INTMAXT ? GETARG(uintmax_t) : \
 	    flags&SIZET ? (uintmax_t)GETARG(size_t) : \
 	    flags&PTRDIFFT ? (uintmax_t)GETARG(ptrdiff_t) : \
 	    (uintmax_t)GETARG(unsigned long long))
@@ -377,11 +379,9 @@ reswitch:	switch (ch) {
 			}
 			width = n;
 			goto reswitch;
-#ifndef NO_FLOATING_POINT
 		case 'L':
 			flags |= LONGDBL;
 			goto rflag;
-#endif
 		case 'h':
 			if (flags & SHORTINT) {
 				flags &= ~SHORTINT;
