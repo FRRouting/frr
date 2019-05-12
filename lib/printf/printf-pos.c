@@ -250,7 +250,7 @@ addwaster(struct typetable *types, wchar_t **fmtp)
  * Returns 0 on success. On failure, returns nonzero and sets errno.
  */ 
 int
-__find_arguments (const char *fmt0, va_list ap, union arg **argtable)
+_frr_find_arguments (const char *fmt0, va_list ap, union arg **argtable)
 {
 	char *fmt;		/* format string */
 	int ch;			/* character from fmt */
@@ -442,7 +442,7 @@ error:
 #ifdef WCHAR_SUPPORT
 /* wchar version of __find_arguments. */
 int
-__find_warguments (const wchar_t *fmt0, va_list ap, union arg **argtable)
+_frr_find_warguments (const wchar_t *fmt0, va_list ap, union arg **argtable)
 {
 	wchar_t *fmt;		/* format string */
 	wchar_t ch;		/* character from fmt */

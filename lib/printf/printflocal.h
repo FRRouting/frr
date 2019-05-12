@@ -34,6 +34,8 @@
  * $FreeBSD$
  */
 
+#include "compiler.h"
+
 /*
  * Flags used during conversion.
  */
@@ -92,7 +94,7 @@ union arg {
 };
 
 /* Handle positional parameters. */
-int	__find_arguments(const char *, va_list, union arg **);
+int	_frr_find_arguments(const char *, va_list, union arg **) DSO_LOCAL;
 #ifdef WCHAR_SUPPORT
-int	__find_warguments(const wchar_t *, va_list, union arg **);
+int	_frr_find_warguments(const wchar_t *, va_list, union arg **) DSO_LOCAL;
 #endif

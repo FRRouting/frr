@@ -253,7 +253,7 @@ __vfprintf(FILE *fp, const char *fmt0, va_list ap)
 		int hold = nextarg; \
 		if (argtable == NULL) { \
 			argtable = statargtable; \
-			if (__find_arguments (fmt0, orgap, &argtable)) { \
+			if (_frr_find_arguments (fmt0, orgap, &argtable)) { \
 				ret = EOF; \
 				goto error; \
 			} \
@@ -369,7 +369,7 @@ reswitch:	switch (ch) {
 				nextarg = n;
 				if (argtable == NULL) {
 					argtable = statargtable;
-					if (__find_arguments (fmt0, orgap,
+					if (_frr_find_arguments (fmt0, orgap,
 							      &argtable)) {
 						ret = EOF;
 						goto error;
