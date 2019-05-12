@@ -45,20 +45,6 @@
  */
 
 
-#ifndef NO_FLOATING_POINT
-
-#define	dtoa		__dtoa
-#define	freedtoa	__freedtoa
-
-#include <float.h>
-#include <math.h>
-
-#define	DEFPREC		6
-
-static int exponent(CHAR *, int, CHAR);
-
-#endif /* !NO_FLOATING_POINT */
-
 static CHAR	*__ujtoa(uintmax_t, CHAR *, int, int, const char *);
 static CHAR	*__ultoa(u_long, CHAR *, int, int, const char *);
 
@@ -254,43 +240,3 @@ __ujtoa(uintmax_t val, CHAR *endp, int base, int octzero, const char *xdigs)
 	}
 	return (cp);
 }
-
-#ifndef NO_FLOATING_POINT
-
-static int
-exponent(CHAR *p0, int exp, CHAR fmtch)
-{
-	CHAR *p, *t;
-	CHAR expbuf[MAXEXPDIG];
-
-	p = p0;
-	*p++ = fmtch;
-	if (exp < 0) {
-		exp = -exp;
-		*p++ = '-';
-	}
-	else
-		*p++ = '+';
-	t = expbuf + MAXEXPDIG;
-	if (exp > 9) {
-		do {
-			*--t = to_char(exp % 10);
-		} while ((exp /= 10) > 9);
-		*--t = to_char(exp);
-		for (; t < expbuf + MAXEXPDIG; *p++ = *t++);
-	}
-	else {
-		/*
-		 * Exponents for decimal floating point conversions
-		 * (%[eEgG]) must be at least two characters long,
-		 * whereas exponents for hexadecimal conversions can
-		 * be only one character long.
-		 */
-		if (fmtch == 'e' || fmtch == 'E')
-			*p++ = '0';
-		*p++ = to_char(exp);
-	}
-	return (p - p0);
-}
-
-#endif /* !NO_FLOATING_POINT */

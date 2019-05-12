@@ -143,7 +143,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
  * write a uintmax_t in octal (plus one byte).
  */
 #if UINTMAX_MAX <= UINT64_MAX
-#define	BUF	32
+#define	BUF	64
 #else
 #error "BUF must be large enough to format a uintmax_t"
 #endif
@@ -165,36 +165,6 @@ __vfprintf(FILE *fp, const char *fmt0, va_list ap)
 	int saved_errno;
 	char sign;		/* sign prefix (' ', '+', '-', or \0) */
 
-#ifndef NO_FLOATING_POINT
-	/*
-	 * We can decompose the printed representation of floating
-	 * point numbers into several parts, some of which may be empty:
-	 *
-	 * [+|-| ] [0x|0X] MMM . NNN [e|E|p|P] [+|-] ZZ
-	 *    A       B     ---C---      D       E   F
-	 *
-	 * A:	'sign' holds this value if present; '\0' otherwise
-	 * B:	ox[1] holds the 'x' or 'X'; '\0' if not hexadecimal
-	 * C:	cp points to the string MMMNNN.  Leading and trailing
-	 *	zeros are not in the string and must be added.
-	 * D:	expchar holds this character; '\0' if no exponent, e.g. %f
-	 * F:	at least two digits for decimal, at least one digit for hex
-	 */
-	char *decimal_point;	/* locale specific decimal point */
-	int decpt_len;		/* length of decimal_point */
-	int signflag;		/* true if float is negative */
-	union {			/* floating point arguments %[aAeEfFgG] */
-		double dbl;
-		long double ldbl;
-	} fparg;
-	int expt;		/* integer value of exponent */
-	char expchar;		/* exponent character: [eEpP\0] */
-	char *dtoaend;		/* pointer to end of converted digits */
-	int expsize;		/* character count for expstr */
-	int ndig;		/* actual number of digits returned by dtoa */
-	char expstr[MAXEXPDIG+2];	/* buffer for exponent string: e+ZZZ */
-	char *dtoaresult;	/* buffer allocated by dtoa */
-#endif
 	u_long	ulval;		/* integer arguments %[diouxX] */
 	uintmax_t ujval;	/* %j, %ll, %q, %t, %z integers */
 	int base;		/* base for [diouxX] conversion */
@@ -305,12 +275,6 @@ __vfprintf(FILE *fp, const char *fmt0, va_list ap)
 	va_copy(orgap, ap);
 	io_init(&io, fp);
 	ret = 0;
-#ifndef NO_FLOATING_POINT
-	dtoaresult = NULL;
-	decimal_point = ".";
-	/* The overwhelmingly common case is decpt_len == 1. */
-	decpt_len = (decimal_point[1] == '\0' ? 1 : strlen(decimal_point));
-#endif
 
 	/*
 	 * Scan the format for conversions (`%' character).
@@ -489,121 +453,39 @@ reswitch:	switch (ch) {
 #ifndef NO_FLOATING_POINT
 		case 'a':
 		case 'A':
-			if (ch == 'a') {
-				ox[1] = 'x';
-				xdigs = xdigs_lower;
-				expchar = 'p';
-			} else {
-				ox[1] = 'X';
-				xdigs = xdigs_upper;
-				expchar = 'P';
-			}
-			if (prec >= 0)
-				prec++;
-			if (dtoaresult != NULL)
-				freedtoa(dtoaresult);
-			if (flags & LONGDBL) {
-				fparg.ldbl = GETARG(long double);
-				dtoaresult = cp =
-				    __hldtoa(fparg.ldbl, xdigs, prec,
-				    &expt, &signflag, &dtoaend);
-			} else {
-				fparg.dbl = GETARG(double);
-				dtoaresult = cp =
-				    __hdtoa(fparg.dbl, xdigs, prec,
-				    &expt, &signflag, &dtoaend);
-			}
-			if (prec < 0)
-				prec = dtoaend - cp;
-			if (expt == INT_MAX)
-				ox[1] = '\0';
-			goto fp_common;
 		case 'e':
 		case 'E':
-			expchar = ch;
-			if (prec < 0)	/* account for digit before decpt */
-				prec = DEFPREC + 1;
-			else
-				prec++;
-			goto fp_begin;
 		case 'f':
 		case 'F':
-			expchar = '\0';
-			goto fp_begin;
 		case 'g':
 		case 'G':
-			expchar = ch - ('g' - 'e');
-			if (prec == 0)
-				prec = 1;
-fp_begin:
-			if (prec < 0)
-				prec = DEFPREC;
-			if (dtoaresult != NULL)
-				freedtoa(dtoaresult);
 			if (flags & LONGDBL) {
-				fparg.ldbl = GETARG(long double);
-				dtoaresult = cp =
-				    __ldtoa(&fparg.ldbl, expchar ? 2 : 3, prec,
-				    &expt, &signflag, &dtoaend);
+				long double arg = GETARG(long double);
+				char fmt[6] = "%.*L";
+				fmt[4] = ch;
+				fmt[5] = '\0';
+
+				snprintf(buf, sizeof(buf), fmt, prec, arg);
 			} else {
-				fparg.dbl = GETARG(double);
-				dtoaresult = cp =
-				    dtoa(fparg.dbl, expchar ? 2 : 3, prec,
-				    &expt, &signflag, &dtoaend);
-				if (expt == 9999)
-					expt = INT_MAX;
+				double arg = GETARG(double);
+				char fmt[5] = "%.*";
+				fmt[3] = ch;
+				fmt[4] = '\0';
+
+				snprintf(buf, sizeof(buf), fmt, prec, arg);
 			}
-fp_common:
-			if (signflag)
+			cp = buf;
+			/* for proper padding */
+			if (*cp == '-') {
+				cp++;
 				sign = '-';
-			if (expt == INT_MAX) {	/* inf or nan */
-				if (*cp == 'N') {
-					cp = (ch >= 'a') ? "nan" : "NAN";
-					sign = '\0';
-				} else
-					cp = (ch >= 'a') ? "inf" : "INF";
-				size = 3;
+			}
+			/* "inf" */
+			if (!is_digit(*cp) && *cp != '.')
 				flags &= ~ZEROPAD;
-				break;
-			}
-			flags |= FPT;
-			ndig = dtoaend - cp;
-			if (ch == 'g' || ch == 'G') {
-				if (expt > -4 && expt <= prec) {
-					/* Make %[gG] smell like %[fF] */
-					expchar = '\0';
-					if (flags & ALT)
-						prec -= expt;
-					else
-						prec = ndig - expt;
-					if (prec < 0)
-						prec = 0;
-				} else {
-					/*
-					 * Make %[gG] smell like %[eE], but
-					 * trim trailing zeroes if no # flag.
-					 */
-					if (!(flags & ALT))
-						prec = ndig;
-				}
-			}
-			if (expchar) {
-				expsize = exponent(expstr, expt - 1, expchar);
-				size = expsize + prec;
-				if (prec > 1 || flags & ALT)
-					size += decpt_len;
-			} else {
-				/* space for digits before decimal point */
-				if (expt > 0)
-					size = expt;
-				else	/* "0" */
-					size = 1;
-				/* space for decimal pt and following digits */
-				if (prec || flags & ALT)
-					size += prec + decpt_len;
-			}
+			size = strlen(buf);
 			break;
-#endif /* !NO_FLOATING_POINT */
+#endif
 		case 'm':
 			cp = strerror(saved_errno);
 			size = (prec >= 0) ? strnlen(cp, prec) : strlen(cp);
@@ -797,41 +679,9 @@ number:			if ((dprec = prec) >= 0)
 			PAD(width - realsz, zeroes);
 
 		/* the string or number proper */
-#ifndef NO_FLOATING_POINT
-		if ((flags & FPT) == 0) {
-#endif
-			/* leading zeroes from decimal precision */
-			PAD(dprec - size, zeroes);
-			PRINT(cp, size);
-#ifndef NO_FLOATING_POINT
-		} else {	/* glue together f_p fragments */
-			if (!expchar) {	/* %[fF] or sufficiently short %[gG] */
-				if (expt <= 0) {
-					PRINT(zeroes, 1);
-					if (prec || flags & ALT)
-						PRINT(decimal_point,decpt_len);
-					PAD(-expt, zeroes);
-					/* already handled initial 0's */
-					prec += expt;
-				} else {
-					PRINTANDPAD(cp, dtoaend, expt, zeroes);
-					cp += expt;
-					if (prec || flags & ALT)
-						PRINT(decimal_point,decpt_len);
-				}
-				PRINTANDPAD(cp, dtoaend, prec, zeroes);
-			} else {	/* %[eE] or sufficiently long %[gG] */
-				if (prec > 1 || flags & ALT) {
-					PRINT(cp++, 1);
-					PRINT(decimal_point, decpt_len);
-					PRINT(cp, ndig-1);
-					PAD(prec - ndig, zeroes);
-				} else	/* XeYYY */
-					PRINT(cp, 1);
-				PRINT(expstr, expsize);
-			}
-		}
-#endif
+		/* leading zeroes from decimal precision */
+		PAD(dprec - size, zeroes);
+		PRINT(cp, size);
 		/* left-adjusting padding (always blank) */
 		if (flags & LADJUST)
 			PAD(width - realsz, blanks);
@@ -845,10 +695,6 @@ done:
 	FLUSH();
 error:
 	va_end(orgap);
-#ifndef NO_FLOATING_POINT
-	if (dtoaresult != NULL)
-		freedtoa(dtoaresult);
-#endif
 	if (convbuf != NULL)
 		free(convbuf);
 	if ((argtable != NULL) && (argtable != statargtable))
