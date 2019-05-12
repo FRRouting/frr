@@ -110,7 +110,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
 			for (;;) {
 				clen = wcrtomb(buf, *p++, &mbs);
 				if (clen == 0 || clen == (size_t)-1 ||
-				    nbytes + clen > prec)
+				    nbytes + clen > (size_t)prec)
 					break;
 				nbytes += clen;
 			}
@@ -149,10 +149,10 @@ __wcsconv(wchar_t *wcsarg, int prec)
 ssize_t
 vbprintfrr(struct fbuf *cb, const char *fmt0, va_list ap)
 {
-	char *fmt;		/* format string */
+	const char *fmt;	/* format string */
 	int ch;			/* character from fmt */
 	int n, n2;		/* handy integer (short term usage) */
-	char *cp;		/* handy char pointer (short term usage) */
+	const char *cp;		/* handy char pointer (short term usage) */
 	int flags;		/* flags as above */
 	int ret;		/* return value accumulator */
 	int width;		/* width from format (%8d), or 0 */
@@ -160,8 +160,8 @@ vbprintfrr(struct fbuf *cb, const char *fmt0, va_list ap)
 	int saved_errno;
 	char sign;		/* sign prefix (' ', '+', '-', or \0) */
 
-	u_long	ulval;		/* integer arguments %[diouxX] */
-	uintmax_t ujval;	/* %j, %ll, %q, %t, %z integers */
+	u_long	ulval = 0;	/* integer arguments %[diouxX] */
+	uintmax_t ujval = 0;	/* %j, %ll, %q, %t, %z integers */
 	int base;		/* base for [diouxX] conversion */
 	int dprec;		/* a copy of prec if [diouxX], 0 otherwise */
 	int realsz;		/* field size expanded by dprec, sign, etc */
@@ -260,6 +260,7 @@ vbprintfrr(struct fbuf *cb, const char *fmt0, va_list ap)
 		val = GETARG (int); \
 	}
 
+	xdigs = xdigs_lower;
 	saved_errno = errno;
 	convbuf = NULL;
 	fmt = (char *)fmt0;
@@ -419,7 +420,8 @@ reswitch:	switch (ch) {
 			} else
 #endif /* WCHAR_SUPPORT */
 			{
-				*(cp = buf) = GETARG(int);
+				buf[0] = GETARG(int);
+				cp = buf;
 				size = 1;
 			}
 			sign = '\0';
@@ -608,12 +610,12 @@ number:			if ((dprec = prec) >= 0)
 			if (flags & INTMAX_SIZE) {
 				if (ujval != 0 || prec != 0 ||
 				    (flags & ALT && base == 8))
-					cp = __ujtoa(ujval, cp, base,
+					cp = __ujtoa(ujval, buf + BUF, base,
 					    flags & ALT, xdigs);
 			} else {
 				if (ulval != 0 || prec != 0 ||
 				    (flags & ALT && base == 8))
-					cp = __ultoa(ulval, cp, base,
+					cp = __ultoa(ulval, buf + BUF, base,
 					    flags & ALT, xdigs);
 			}
 			size = buf + BUF - cp;
@@ -624,8 +626,8 @@ number:			if ((dprec = prec) >= 0)
 			if (ch == '\0')
 				goto done;
 			/* pretend it was %c with argument ch */
+			buf[0] = ch;
 			cp = buf;
-			*cp = ch;
 			size = 1;
 			sign = '\0';
 			break;
