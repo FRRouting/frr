@@ -214,6 +214,7 @@ addaster(struct typetable *types, char **fmtp)
 	return (0);
 }
 
+#ifdef WCHAR_SUPPORT
 static inline int
 addwaster(struct typetable *types, wchar_t **fmtp)
 {
@@ -239,6 +240,7 @@ addwaster(struct typetable *types, wchar_t **fmtp)
 	}
 	return (0);
 }
+#endif /* WCHAR_SUPPORT */
 
 /*
  * Find all arguments when a positional parameter is encountered.  Returns a
@@ -437,6 +439,7 @@ error:
 	return (error || *argtable == NULL);
 }
 
+#ifdef WCHAR_SUPPORT
 /* wchar version of __find_arguments. */
 int
 __find_warguments (const wchar_t *fmt0, va_list ap, union arg **argtable)
@@ -627,6 +630,7 @@ error:
 	freetypes(&types);
 	return (error || *argtable == NULL);
 }
+#endif /* WCHAR_SUPPORT */
 
 /*
  * Increase the size of the type table. Returns 0 on success.

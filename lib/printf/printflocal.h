@@ -93,4 +93,6 @@ union arg {
 
 /* Handle positional parameters. */
 int	__find_arguments(const char *, va_list, union arg **);
+#ifdef WCHAR_SUPPORT
 int	__find_warguments(const wchar_t *, va_list, union arg **);
+#endif

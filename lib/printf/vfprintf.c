@@ -73,11 +73,10 @@ struct __suio {
 
 #include "printflocal.h"
 
-static char	*__wcsconv(wchar_t *, int);
-
 #define	CHAR	char
 #include "printfcommon.h"
 
+#ifdef WCHAR_SUPPORT
 /*
  * Convert a wide character string argument for the %ls format to a multibyte
  * string representation. If not -1, prec specifies the maximum number of
@@ -136,6 +135,7 @@ __wcsconv(wchar_t *wcsarg, int prec)
 	convbuf[nbytes] = '\0';
 	return (convbuf);
 }
+#endif /* WCHAR_SUPPORT */
 
 /*
  * The size of the buffer we use as scratch space for integer
@@ -412,6 +412,7 @@ reswitch:	switch (ch) {
 			flags |= LONGINT;
 			/*FALLTHROUGH*/
 		case 'c':
+#ifdef WCHAR_SUPPORT
 			if (flags & LONGINT) {
 				static const mbstate_t initial;
 				mbstate_t mbs;
@@ -424,7 +425,9 @@ reswitch:	switch (ch) {
 					goto error;
 				}
 				size = (int)mbseqlen;
-			} else {
+			} else
+#endif /* WCHAR_SUPPORT */
+			{
 				*(cp = buf) = GETARG(int);
 				size = 1;
 			}
@@ -542,6 +545,7 @@ reswitch:	switch (ch) {
 			flags |= LONGINT;
 			/*FALLTHROUGH*/
 		case 's':
+#ifdef WCHAR_SUPPORT
 			if (flags & LONGINT) {
 				wchar_t *wcp;
 
@@ -556,7 +560,9 @@ reswitch:	switch (ch) {
 					}
 					cp = convbuf;
 				}
-			} else if ((cp = GETARG(char *)) == NULL)
+			} else
+#endif
+			if ((cp = GETARG(char *)) == NULL)
 				cp = "(null)";
 			size = (prec >= 0) ? strnlen(cp, prec) : strlen(cp);
 			sign = '\0';
