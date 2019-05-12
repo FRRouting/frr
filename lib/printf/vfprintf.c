@@ -37,7 +37,13 @@
  * SUCH DAMAGE.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#ifdef HAVE_SYS_CDEFS_H
 #include <sys/cdefs.h>
+#endif
 
 /*
  * Actual printf innards.
@@ -59,17 +65,6 @@
 #include <wchar.h>
 
 #include <stdarg.h>
-
-#define NO_FLOATING_POINT
-
-int __vfprintf(FILE *fp, const char *fmt0, va_list ap);
-
-struct __suio {
-	size_t uio_resid;
-
-	struct iovec *uio_iov;
-	size_t uio_iovcnt;
-};
 
 #include "printflocal.h"
 
@@ -151,8 +146,8 @@ __wcsconv(wchar_t *wcsarg, int prec)
 /*
  * Non-MT-safe version
  */
-int
-__vfprintf(FILE *fp, const char *fmt0, va_list ap)
+ssize_t
+vbprintfrr(struct fbuf *cb, const char *fmt0, va_list ap)
 {
 	char *fmt;		/* format string */
 	int ch;			/* character from fmt */
@@ -181,7 +176,6 @@ __vfprintf(FILE *fp, const char *fmt0, va_list ap)
 	int nextarg;            /* 1-based argument index */
 	va_list orgap;          /* original argument pointer */
 	char *convbuf;		/* wide to multibyte conversion result */
-	int savserr;
 
 	static const char xdigs_lower[16] = "0123456789abcdef";
 	static const char xdigs_upper[16] = "0123456789ABCDEF";
@@ -266,16 +260,13 @@ __vfprintf(FILE *fp, const char *fmt0, va_list ap)
 		val = GETARG (int); \
 	}
 
-	savserr = fp->_flags & __SERR;
-	fp->_flags &= ~__SERR;
-
 	saved_errno = errno;
 	convbuf = NULL;
 	fmt = (char *)fmt0;
 	argtable = NULL;
 	nextarg = 1;
 	va_copy(orgap, ap);
-	io_init(&io, fp);
+	io_init(&io, cb);
 	ret = 0;
 
 	/*

@@ -35,6 +35,7 @@
  */
 
 #include "compiler.h"
+#include "printfrr.h"
 
 /*
  * Flags used during conversion.

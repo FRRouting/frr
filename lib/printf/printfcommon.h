@@ -50,19 +50,15 @@ static CHAR	*__ultoa(u_long, CHAR *, int, int, const char *);
 
 #define NIOV 8
 struct io_state {
-	FILE *fp;
-	struct __suio uio;	/* output information: summary */
-	struct iovec iov[NIOV];/* ... and individual io vectors */
+	struct fbuf *cb;
+	size_t avail;
 };
 
 static inline void
-io_init(struct io_state *iop, FILE *fp)
+io_init(struct io_state *iop, struct fbuf *cb)
 {
-
-	iop->uio.uio_iov = iop->iov;
-	iop->uio.uio_resid = 0;
-	iop->uio.uio_iovcnt = 0;
-	iop->fp = fp;
+	iop->cb = cb;
+	iop->avail = cb ? cb->len - (cb->pos - cb->buf) : 0;
 }
 
 /*
@@ -70,13 +66,19 @@ io_init(struct io_state *iop, FILE *fp)
  * remain valid until io_flush() is called.
  */
 static inline int
-io_print(struct io_state *iop, const CHAR * __restrict ptr, int len)
+io_print(struct io_state *iop, const CHAR * __restrict ptr, size_t len)
 {
+	size_t copylen = len;
 
-	iop->iov[iop->uio.uio_iovcnt].iov_base = (char *)ptr;
-	iop->iov[iop->uio.uio_iovcnt].iov_len = len;
-	iop->uio.uio_resid += len;
-	return (0);
+	if (!iop->cb)
+		return 0;
+	if (iop->avail < copylen)
+		copylen = iop->avail;
+
+	memcpy(iop->cb->pos, ptr, copylen);
+	iop->avail -= copylen;
+	iop->cb->pos += copylen;
+	return 0;
 }
 
 /*
