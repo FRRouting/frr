@@ -375,3 +375,35 @@ void typesafe_skiplist_del(struct sskip_head *head, struct sskip_item *item,
 	}
 	memset(item, 0, sizeof(*item));
 }
+
+struct sskip_item *typesafe_skiplist_pop(struct sskip_head *head)
+{
+	size_t level = SKIPLIST_MAXDEPTH;
+	struct sskip_item *prev = &head->hitem, *next, *item;
+
+	item = sl_level_get(prev, 0);
+	if (!item)
+		return NULL;
+
+	do {
+		level--;
+
+		next = sl_level_get(prev, level);
+		if (next != item)
+			continue;
+
+		sl_level_set(prev, level, sl_level_get(item, level));
+	} while (level);
+
+	head->count--;
+
+	if ((uintptr_t)item->next[SKIPLIST_OVERFLOW] & 1) {
+		uintptr_t ptrval = (uintptr_t)item->next[SKIPLIST_OVERFLOW];
+		ptrval &= UINTPTR_MAX - 3;
+		struct sskip_overflow *oflow = (struct sskip_overflow *)ptrval;
+		XFREE(MTYPE_SKIPLIST_OFLOW, oflow);
+	}
+	memset(item, 0, sizeof(*item));
+
+	return item;
+}

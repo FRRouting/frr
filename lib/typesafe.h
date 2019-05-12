@@ -538,11 +538,8 @@ macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
 }                                                                              \
 macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 {                                                                              \
-	struct sskip_item *sitem = h->sh.hitem.next[0];                        \
-	if (!sitem)                                                            \
-		return NULL;                                                   \
-	typesafe_skiplist_del(&h->sh, sitem, cmpfn_uq);                        \
-	return container_of(sitem, type, field.si);                            \
+	struct sskip_item *sitem = typesafe_skiplist_pop(&h->sh);              \
+	return container_of_null(sitem, type, field.si);                       \
 }                                                                              \
 macro_pure type *prefix ## _first(struct prefix##_head *h)                     \
 {                                                                              \
@@ -636,6 +633,7 @@ extern void typesafe_skiplist_del(struct sskip_head *head,
 		struct sskip_item *item, int (*cmpfn)(
 			const struct sskip_item *a,
 			const struct sskip_item *b));
+extern struct sskip_item *typesafe_skiplist_pop(struct sskip_head *head);
 
 /* this needs to stay at the end because both files include each other.
  * the resolved order is typesafe.h before typerb.h
