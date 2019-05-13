@@ -148,10 +148,9 @@ struct route_entry {
 	uint32_t dplane_sequence;
 };
 
-#define RIB_SYSTEM_ROUTE(R)                                                    \
-	((R)->type == ZEBRA_ROUTE_KERNEL || (R)->type == ZEBRA_ROUTE_CONNECT)
+#define RIB_SYSTEM_ROUTE(R) RSYSTEM_ROUTE((R)->type)
 
-#define RIB_KERNEL_ROUTE(R) ((R)->type == ZEBRA_ROUTE_KERNEL)
+#define RIB_KERNEL_ROUTE(R) RKERNEL_ROUTE((R)->type)
 
 /* meta-queue structure:
  * sub-queue 0: connected, kernel
