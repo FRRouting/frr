@@ -7504,10 +7504,9 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 		json_object_object_add(json_net, "appliedStatusSymbols",
 				       json_status);
 		char buf_cut[BUFSIZ];
-		json_object_object_add(
-			json_ar,
-			inet_ntop(p->family, &p->u.prefix, buf_cut, BUFSIZ),
-			json_net);
+
+		prefix2str(p, buf_cut, PREFIX_STRLEN);
+		json_object_object_add(json_ar, buf_cut, json_net);
 	} else
 		vty_out(vty, "\n");
 }
