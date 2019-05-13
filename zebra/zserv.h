@@ -207,6 +207,11 @@ struct zserv {
 	uint32_t local_es_evi_add_cnt;
 	uint32_t local_es_evi_del_cnt;
 	uint32_t error_cnt;
+	uint32_t pm_peer_add_cnt;
+	uint32_t pm_peer_upd8_cnt;
+	uint32_t pm_peer_del_cnt;
+	uint32_t pm_peer_replay_cnt;
+	uint32_t pm_client_reg_cnt;
 
 	time_t nh_reg_time;
 	time_t nh_dereg_time;

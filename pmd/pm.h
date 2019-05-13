@@ -73,6 +73,7 @@ struct pm_session {
 	void *oper_ctxt;
 
 	struct timeval last_time_change;
+	uint64_t refcount; /* number of pointers referencing this. */
 #define PM_ADM_DOWN 0
 #define PM_DOWN 1
 #define PM_INIT 2
@@ -92,6 +93,7 @@ extern void pm_init(void);
 extern void pm_shutdown(void);
 extern void pm_initialise(struct pm_session *pm, bool validate_only,
 			  char *ebuf, size_t size);
+extern void pm_set_sess_state(struct pm_session *pm, uint8_t ses_state);
 
 extern struct pm_session *pm_lookup_session(union sockunion *peer,
 					    const char *local,

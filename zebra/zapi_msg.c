@@ -60,6 +60,7 @@
 #include "zebra/connected.h"
 #include "zebra/zebra_opaque.h"
 #include "zebra/zebra_srte.h"
+#include "zebra/zebra_pm.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -3740,6 +3741,11 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_REDIRECT_INTERFACE] = zebra_redirect_interface,
 	[ZEBRA_NFLOG_REGISTER] = zebra_nflog_register,
 	[ZEBRA_NFLOG_UNREGISTER] = zebra_nflog_unregister,
+	[ZEBRA_PM_DEST_UPDATE] = zebra_pm_dst_register,
+	[ZEBRA_PM_DEST_REGISTER] = zebra_pm_dst_register,
+	[ZEBRA_PM_DEST_DEREGISTER] = zebra_pm_dst_deregister,
+	[ZEBRA_PM_DEST_REPLAY] = zebra_pm_dst_replay,
+	[ZEBRA_PM_CLIENT_REGISTER] = zebra_pm_client_register,
 };
 
 /*

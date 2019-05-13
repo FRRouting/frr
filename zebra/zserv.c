@@ -1078,6 +1078,8 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 		client->bfd_peer_upd8_cnt, client->bfd_peer_del_cnt);
 	vty_out(vty, "NHT v4      %-12u%-12u%-12u\n",
 		client->v4_nh_watch_add_cnt, 0, client->v4_nh_watch_rem_cnt);
+	vty_out(vty, "PM session  %-12u%-12u%-12u\n", client->pm_peer_add_cnt,
+		client->pm_peer_upd8_cnt, client->pm_peer_del_cnt);
 	vty_out(vty, "NHT v6      %-12u%-12u%-12u\n",
 		client->v6_nh_watch_add_cnt, 0, client->v6_nh_watch_rem_cnt);
 	vty_out(vty, "VxLAN SG    %-12u%-12u%-12u\n", client->vxlan_sg_add_cnt,
