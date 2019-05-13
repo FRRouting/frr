@@ -230,7 +230,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		time_t uptime;
 		struct tm *tm;
 
-		uptime = time(NULL);
+		uptime = monotime(NULL);
 		uptime -= re->uptime;
 		tm = gmtime(&uptime);
 
@@ -385,7 +385,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	struct tm *tm;
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
-	uptime = time(NULL);
+	uptime = monotime(NULL);
 	uptime -= re->uptime;
 	tm = gmtime(&uptime);
 

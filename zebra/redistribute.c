@@ -614,7 +614,7 @@ int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
 	newre->mtu = re->mtu;
 	newre->table = 0;
 	newre->nexthop_num = 0;
-	newre->uptime = time(NULL);
+	newre->uptime = monotime(NULL);
 	newre->instance = re->table;
 	route_entry_copy_nexthops(newre, re->ng.nexthop);
 
