@@ -121,6 +121,7 @@ static bool pm_check_retries(struct pm_echo *pme, uint8_t counter,
 void pm_echo_tmo(struct event *event)
 {
 	struct pm_echo *pme = EVENT_ARG(event);
+	struct pm_session *pm = (struct pm_session *)pme->back_ptr;
 
 	if (pme->echofd < 0)
 		return;
@@ -145,6 +146,8 @@ void pm_echo_tmo(struct event *event)
 	pme->retry.retry_count = 0;
 	pme->retry.retry_down_in_progress = false;
 	pme->retry.retry_up_in_progress = false;
+
+	pm_set_sess_state(pm, PM_DOWN);
 }
 
 void pm_echo_receive(struct event *event)
@@ -268,16 +271,20 @@ void pm_echo_receive(struct event *event)
 			zlog_info("echo packet to %pSU timed out",
 					&pme->peer);
 		}
-		if (pme->last_alarm != PM_ECHO_NHT_UNREACHABLE)
+		if (pme->last_alarm != PM_ECHO_NHT_UNREACHABLE) {
 			pme->last_alarm = PM_ECHO_TIMEOUT;
+			pm_set_sess_state(pm, PM_DOWN);
+		}
 		return;
 	}
 	if (pm_check_retries(pme, pme->retries_up, true))
 		return;
 
-	if (pme->last_alarm != PM_ECHO_OK)
+	if (pme->last_alarm != PM_ECHO_OK) {
 		zlog_info("echo packet to %pSU OK",
 				&pme->peer);
+		pm_set_sess_state(pm, PM_UP);
+	}
 	pme->last_alarm = PM_ECHO_OK;
 	pme->oper_receive = true;
 
@@ -679,6 +686,7 @@ int pm_echo(struct pm_session *pm, char *errormsg, int errormsg_len)
 
 	pme_ptr = XCALLOC(MTYPE_PM_ECHO, sizeof(struct pm_echo));
 	memcpy(pme_ptr, &pme, sizeof(pme));
+	pm_set_sess_state(pm, PM_INIT);
 	pme_ptr->back_ptr = pm;
 	pme_ptr->discriminator_id = pm_id_list_gen_id();
 	pme_ptr->icmp_sequence = 0;
@@ -730,6 +738,8 @@ void pm_echo_trigger_nht_unreachable(struct pm_session *pm)
 	if (pme->last_alarm == PM_ECHO_OK)
 		zlog_info("echo packet to %pSU unreachable",
 			  &pme->peer);
-	if (pme->last_alarm != PM_ECHO_TIMEOUT)
+	if (pme->last_alarm != PM_ECHO_TIMEOUT) {
 		pme->last_alarm = PM_ECHO_NHT_UNREACHABLE;
+		pm_set_sess_state(pm, PM_DOWN);
+	}
 }

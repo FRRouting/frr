@@ -30,6 +30,9 @@ extern void pm_zebra_init(void);
 
 extern void pm_zebra_nht_register(struct pm_session *pm,
 				  bool reg, struct vty *vty);
+extern void pm_zclient_register(vrf_id_t vrf_id);
+extern void pm_zclient_unregister(vrf_id_t vrf_id);
+extern int pm_zebra_notify(struct pm_session *pm);
 
 extern void pm_zclient_register(vrf_id_t vrf_id);
 extern void pm_zclient_unregister(vrf_id_t vrf_id);

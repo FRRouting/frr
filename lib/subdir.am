@@ -140,6 +140,7 @@ lib_libfrr_la_SOURCES = \
 	lib/routing_nb.c \
 	lib/routing_nb_config.c \
 	lib/tc.c \
+	lib/pm_lib.c \
 	# end
 
 nodist_lib_libfrr_la_SOURCES = \
@@ -336,6 +337,7 @@ pkginclude_HEADERS += \
 	lib/zlog_targets.h \
 	lib/pbr.h \
 	lib/tc.h \
+	lib/pm_lib.h \
 	lib/routing_nb.h \
 	\
 	lib/assert/assert.h \

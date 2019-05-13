@@ -238,6 +238,13 @@ typedef enum {
 	ZEBRA_TC_FILTER_ADD,
 	ZEBRA_TC_FILTER_DELETE,
 	ZEBRA_OPAQUE_NOTIFY,
+	ZEBRA_PM_DEST_REGISTER,
+	ZEBRA_PM_DEST_DEREGISTER,
+	ZEBRA_PM_DEST_UPDATE,
+	ZEBRA_PM_DEST_REPLAY,
+	ZEBRA_INTERFACE_PM_DEST_UPDATE,
+	ZEBRA_PM_CLIENT_REGISTER,
+	ZEBRA_PM_CLIENT_DEREGISTER,
 } zebra_message_types_t;
 /* Zebra message types. Please update the corresponding
  * command_types array with any changes!

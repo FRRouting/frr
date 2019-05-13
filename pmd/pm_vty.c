@@ -34,6 +34,7 @@
 #include "pmd/pm_memory.h"
 #include "pmd/pm_zebra.h"
 #include "pmd/pm_vty.h"
+#include "pmd/pm_memory.h"
 
 #include "pmd/pm.h"
 #include "pmd/pm_echo.h"
@@ -76,6 +77,9 @@ static void pm_session_write_config_walker(struct hash_bucket *b, void *data)
 {
 	struct vty *vty = data;
 	struct pm_session *pm = (struct pm_session *)b->data;
+
+	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_CONFIG))
+		return;
 
 	vty_out(vty, " session %pSU", &pm->key.peer);
 	if (sockunion_family(&pm->key.local) == AF_INET ||
@@ -155,6 +159,11 @@ DEFUN_NOSH(
 	pm = pm_lookup_session(&psa, local, ifname, vrfname, false,
 			       errormsg, sizeof(errormsg));
 	if (pm) {
+		if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_CONFIG)) {
+			if (pm->refcount)
+				vty_out(vty, "%% session peer is now configurable via pm daemon.\n");
+			PM_SET_FLAG(pm->flags, PM_SESS_FLAG_CONFIG);
+		}
 		VTY_PUSH_CONTEXT(PM_SESSION_NODE, pm);
 		return CMD_SUCCESS;
 	}

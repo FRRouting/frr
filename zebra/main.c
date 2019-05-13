@@ -51,6 +51,7 @@
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_srv6_vty.h"
 #include "zebra/zebra_tracker_nb.h"
+#include "zebra/zebra_pm.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -459,7 +460,7 @@ int main(int argc, char **argv)
 #ifdef ZEBRA_PTM_SUPPORT
 	zebra_ptm_init();
 #endif
-
+	zebra_pm_init();
 	zebra_mpls_init();
 	zebra_mpls_vty_init();
 	zebra_pw_vty_init();

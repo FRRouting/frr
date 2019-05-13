@@ -53,6 +53,7 @@
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_tracker.h"
+#include "zebra/zebra_pm.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RE_OPAQUE, "Route Opaque Data");
 
@@ -4026,6 +4027,11 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_TC_CLASS_DELETE] = zread_tc_class,
 	[ZEBRA_TC_FILTER_ADD] = zread_tc_filter,
 	[ZEBRA_TC_FILTER_DELETE] = zread_tc_filter,
+	[ZEBRA_PM_DEST_UPDATE] = zebra_pm_dst_register,
+	[ZEBRA_PM_DEST_REGISTER] = zebra_pm_dst_register,
+	[ZEBRA_PM_DEST_DEREGISTER] = zebra_pm_dst_deregister,
+	[ZEBRA_PM_DEST_REPLAY] = zebra_pm_dst_replay,
+	[ZEBRA_PM_CLIENT_REGISTER] = zebra_pm_client_register,
 };
 
 /*
