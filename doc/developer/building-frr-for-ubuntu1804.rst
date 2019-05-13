@@ -104,6 +104,10 @@ And load the kernel modules on the running system:
 
    sudo modprobe mpls-router mpls-iptunnel
 
+If the above command returns an error, you may need to install the appropriate
+or latest linux-modules-extra-<kernel-version>-generic package. For example
+``apt-get install linux-modules-extra-`uname -r`-generic``
+
 Enable MPLS Forwarding
 """"""""""""""""""""""
 
