@@ -66,6 +66,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_mlag.h"
 #include "zebra/connected.h"
+#include "zebra/zebra_pm.h"
 
 /* Encoding helpers -------------------------------------------------------- */
 
@@ -2872,7 +2873,12 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_MLAG_CLIENT_REGISTER] = zebra_mlag_client_register,
 	[ZEBRA_MLAG_CLIENT_UNREGISTER] = zebra_mlag_client_unregister,
 	[ZEBRA_MLAG_FORWARD_MSG] = zebra_mlag_forward_client_msg,
-	[ZEBRA_CLIENT_CAPABILITIES] = zread_client_capabilities
+	[ZEBRA_CLIENT_CAPABILITIES] = zread_client_capabilities,
+	[ZEBRA_PM_DEST_UPDATE] = zebra_pm_dst_register,
+	[ZEBRA_PM_DEST_REGISTER] = zebra_pm_dst_register,
+	[ZEBRA_PM_DEST_DEREGISTER] = zebra_pm_dst_deregister,
+	[ZEBRA_PM_DEST_REPLAY] = zebra_pm_dst_replay,
+	[ZEBRA_PM_CLIENT_REGISTER] = zebra_pm_client_register,
 };
 
 #if defined(HANDLE_ZAPI_FUZZING)

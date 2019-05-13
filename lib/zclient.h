@@ -200,7 +200,14 @@ typedef enum {
 	ZEBRA_MLAG_CLIENT_UNREGISTER,
 	ZEBRA_MLAG_FORWARD_MSG,
 	ZEBRA_ERROR,
-	ZEBRA_CLIENT_CAPABILITIES
+	ZEBRA_CLIENT_CAPABILITIES,
+	ZEBRA_PM_DEST_REGISTER,
+	ZEBRA_PM_DEST_DEREGISTER,
+	ZEBRA_PM_DEST_UPDATE,
+	ZEBRA_PM_DEST_REPLAY,
+	ZEBRA_INTERFACE_PM_DEST_UPDATE,
+	ZEBRA_PM_CLIENT_REGISTER,
+	ZEBRA_PM_CLIENT_DEREGISTER
 } zebra_message_types_t;
 
 enum zebra_error_types {
@@ -339,6 +346,10 @@ struct zclient {
 	int (*mlag_process_down)(void);
 	int (*mlag_handle_msg)(struct stream *msg, int len);
 	int (*handle_error)(enum zebra_error_types error);
+	int (*pm_dest_replay)(int command, struct zclient *zclient,
+			      uint16_t length, vrf_id_t vrf_id);
+	int (*interface_pm_dest_update)(int command, struct zclient *zclient,
+					uint16_t length, vrf_id_t vrf_id);
 };
 
 /* Zebra API message flag. */

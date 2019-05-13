@@ -956,6 +956,8 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 		client->v6_nh_watch_add_cnt, 0, client->v6_nh_watch_rem_cnt);
 	vty_out(vty, "VxLAN SG    %-12u%-12u%-12u\n", client->vxlan_sg_add_cnt,
 		0, client->vxlan_sg_del_cnt);
+	vty_out(vty, "PM session  %-12d%-12d%-12d\n", client->pm_peer_add_cnt,
+		client->pm_peer_upd8_cnt, client->pm_peer_del_cnt);
 	vty_out(vty, "Interface Up Notifications: %u\n", client->ifup_cnt);
 	vty_out(vty, "Interface Down Notifications: %u\n", client->ifdown_cnt);
 	vty_out(vty, "VNI add notifications: %u\n", client->vniadd_cnt);

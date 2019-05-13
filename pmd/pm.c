@@ -105,6 +105,36 @@ int pm_get_default_packet_size(struct pm_session *pm)
 	return PM_PACKET_SIZE_DEFAULT;
 }
 
+struct pm_search_ctx {
+	struct pm_session *pm_to_search;
+	struct pm_session *pm_found;
+};
+
+static int pm_lookup_unique_walker(struct hash_bucket *b, void *data)
+{
+	struct pm_search_ctx *psc = data;
+	struct pm_session *pm = b->data;
+
+	if (!sockunion_same(&pm->key.peer, &psc->pm_to_search->key.peer))
+		return HASHWALK_CONTINUE;
+	/* relax if session to search has no input local param
+	 * and session configured has local param
+	 */
+	if (!sockunion_same(&pm->key.local, &psc->pm_to_search->key.local) &&
+	    (sockunion_family(&psc->pm_to_search->key.local) == AF_INET ||
+	     sockunion_family(&psc->pm_to_search->key.local) == AF_INET6))
+		return HASHWALK_CONTINUE;
+	if (memcmp(pm->key.ifname, psc->pm_to_search->key.ifname,
+		   sizeof(pm->key.ifname)))
+		return HASHWALK_CONTINUE;
+	if (memcmp(pm->key.vrfname,
+		   psc->pm_to_search->key.vrfname,
+		   sizeof(pm->key.vrfname)))
+		return HASHWALK_CONTINUE;
+	psc->pm_found = pm;
+	return HASHWALK_ABORT;
+}
+
 struct pm_session *pm_lookup_session(union sockunion *peer,
 				     const char *local,
 				     const char *ifname,
@@ -115,6 +145,7 @@ struct pm_session *pm_lookup_session(union sockunion *peer,
 	union sockunion lsa, *lsap;
 	struct pm_session pm;
 	struct pm_session *pm_search;
+	struct pm_search_ctx psc;
 
 	if (local) {
 		str2sockunion(local, &lsa);
@@ -156,9 +187,14 @@ struct pm_session *pm_lookup_session(union sockunion *peer,
 		memcpy(&pm.key.ifname, ifname, strlen(ifname));
 	if (vrfname)
 		memcpy(&pm.key.vrfname, vrfname, strlen(vrfname));
-	pm_search = hash_lookup(pm_session_list, &pm);
-	if (pm_search || !create)
+
+	psc.pm_to_search = &pm;
+	psc.pm_found = NULL;
+	hash_walk(pm_session_list, pm_lookup_unique_walker, &psc);
+	pm_search = psc.pm_found;
+	if (!create || pm_search)
 		return pm_search;
+
 	/* create */
 	pm_search = hash_get(pm_session_list,
 			     &pm,
@@ -222,6 +258,7 @@ void pm_initialise(struct pm_session *pm, bool validate_only,
 		PM_SET_FLAG(pm->flags, PM_SESS_FLAG_CONFIG);
 		/* initialise - shutdown by default */
 		PM_SET_FLAG(pm->flags, PM_SESS_FLAG_SHUTDOWN);
+		pm_set_sess_state(pm, PM_ADM_DOWN);
 		pm->timeout = PM_TIMEOUT_DEFAULT;
 		pm->interval = PM_INTERVAL_DEFAULT;
 		pm->packet_size = pm_get_default_packet_size(pm);
@@ -669,4 +706,14 @@ void pm_vrf_init(void)
 void pm_vrf_terminate(void)
 {
 	vrf_terminate();
+}
+
+void pm_set_sess_state(struct pm_session *pm, uint8_t ses_state)
+{
+	if (pm->ses_state == ses_state)
+		return;
+	pm->ses_state = ses_state;
+	monotime(&pm->last_time_change);
+
+	pm_zebra_notify(pm);
 }

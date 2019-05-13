@@ -55,6 +55,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_nb.h"
+#include "zebra/zebra_pm.h"
 
 #if defined(HANDLE_NETLINK_FUZZING)
 #include "zebra/kernel_netlink.h"
@@ -422,7 +423,7 @@ int main(int argc, char **argv)
 #ifdef ZEBRA_PTM_SUPPORT
 	zebra_ptm_init();
 #endif
-
+	zebra_pm_init();
 	zebra_mpls_init();
 	zebra_mpls_vty_init();
 	zebra_pw_vty_init();

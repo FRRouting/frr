@@ -106,6 +106,7 @@ lib_libfrr_la_SOURCES = \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
 	lib/printf/glue.c \
+	lib/pm_lib.c \
 	# end
 
 nodist_lib_libfrr_la_SOURCES = \
@@ -262,6 +263,7 @@ pkginclude_HEADERS += \
 	lib/zlog.h \
 	lib/zlog_targets.h \
 	lib/pbr.h \
+	lib/pm_lib.h \
 	# end
 
 

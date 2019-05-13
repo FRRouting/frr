@@ -3341,6 +3341,17 @@ static int zclient_read(struct thread *thread)
 		break;
 	case ZEBRA_ERROR:
 		zclient_handle_error(command, zclient, length, vrf_id);
+		break;
+	case ZEBRA_PM_DEST_REPLAY:
+		if (zclient->pm_dest_replay)
+			(*zclient->pm_dest_replay)(command, zclient, length,
+						   vrf_id);
+		break;
+	case ZEBRA_INTERFACE_PM_DEST_UPDATE:
+		if (zclient->interface_pm_dest_update)
+			(*zclient->interface_pm_dest_update)(command, zclient,
+							      length, vrf_id);
+		break;
 	default:
 		break;
 	}

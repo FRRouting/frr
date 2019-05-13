@@ -107,6 +107,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_nb_state.c \
 	zebra/zebra_errors.c \
 	zebra/zebra_gr.c \
+	zebra/zebra_pm.c \
 	# end
 
 clippy_scan += \
@@ -165,6 +166,7 @@ noinst_HEADERS += \
 	zebra/zapi_msg.h \
 	zebra/zebra_nb.h \
 	zebra/zebra_errors.h \
+	zebra/zebra_pm.h \
 	# end
 
 zebra_zebra_irdp_la_SOURCES = \
