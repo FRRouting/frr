@@ -355,7 +355,14 @@ static void *zebra_nhg_alloc(void *arg)
 
 		ifp = if_lookup_by_index(nhe->nhg->nexthop->ifindex,
 					 nhe->vrf_id);
-		zebra_nhg_set_if(nhe, ifp);
+		if (ifp)
+			zebra_nhg_set_if(nhe, ifp);
+		else
+			flog_err(
+				EC_ZEBRA_IF_LOOKUP_FAILED,
+				"Zebra failed to lookup an interface with ifindex=%d in vrf=%u for NHE id=%u",
+				nhe->nhg->nexthop->ifindex, nhe->vrf_id,
+				nhe->id);
 	}
 
 	/* Add to id table as well */

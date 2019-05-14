@@ -310,6 +310,12 @@ static struct log_ref ferr_zebra_err[] = {
 		.suggestion =
 			"Check to see if the nexthop group on the route you tried to install is valid."
 	},
+	{
+		.code = EC_ZEBRA_IF_LOOKUP_FAILED,
+		.title = "Zebra interface lookup failed",
+		.description = "Zebra attempted to look up a interface for a particular vrf_id and interface index, but didn't find anything.",
+		.suggestion = "If you entered a command to trigger this error, make sure you entered the arguments correctly. Check your config file for any potential errors. If these look correct, seek help.",
+	},
 	/* Warnings */
 	{
 		.code = EC_ZEBRAING_LM_PROTO_MISMATCH,
