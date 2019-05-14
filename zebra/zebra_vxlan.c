@@ -7505,9 +7505,9 @@ int zebra_vxlan_check_del_local_mac(struct interface *ifp,
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
-			"Add/update remote MAC %s intf %s(%u) VNI %u - del local",
+			"Add/update remote MAC %s intf %s(%u) VNI %u flags 0x%x - del local",
 			prefix_mac2str(macaddr, buf, sizeof(buf)), ifp->name,
-			ifp->ifindex, vni);
+			ifp->ifindex, vni, mac->flags);
 
 	/* Remove MAC from BGP. */
 	zvni_mac_send_del_to_client(zvni->vni, macaddr);
@@ -7520,6 +7520,7 @@ int zebra_vxlan_check_del_local_mac(struct interface *ifp,
 		zvni_mac_del(zvni, mac);
 	} else {
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
+		UNSET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
 		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 	}
 
@@ -7603,11 +7604,6 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 		return -1;
 	}
 
-	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("DEL MAC %s intf %s(%u) VID %u -> VNI %u",
-			   prefix_mac2str(macaddr, buf, sizeof(buf)), ifp->name,
-			   ifp->ifindex, vid, zvni->vni);
-
 	/* If entry doesn't exist, nothing to do. */
 	mac = zvni_mac_lookup(zvni, macaddr);
 	if (!mac)
@@ -7616,6 +7612,11 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 	/* Is it a local entry? */
 	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
 		return 0;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("DEL MAC %s intf %s(%u) VID %u -> VNI %u flags 0x%x",
+			   prefix_mac2str(macaddr, buf, sizeof(buf)), ifp->name,
+			   ifp->ifindex, vid, zvni->vni, mac->flags);
 
 	/* Update all the neigh entries associated with this mac */
 	zvni_process_neigh_on_local_mac_del(zvni, mac);
@@ -7631,6 +7632,7 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 		zvni_mac_del(zvni, mac);
 	} else {
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
+		UNSET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
 		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 	}
 
