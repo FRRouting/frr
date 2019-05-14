@@ -1664,6 +1664,9 @@ static void zebra_nhg_uninstall_created(struct hash_bucket *bucket, void *arg)
  */
 void zebra_nhg_cleanup_tables(void)
 {
+	// TODO: These should only be uninstalled via route cleanup
+	// path?
+	return;
 	hash_iterate(zrouter.nhgs, zebra_nhg_uninstall_created, NULL);
 }
 
