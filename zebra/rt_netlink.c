@@ -763,6 +763,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 				XFREE(MTYPE_RE, re);
 		}
 	} else {
+		// TODO: Use nhe_id here as well
 		if (!tb[RTA_MULTIPATH]) {
 			struct nexthop nh;
 			size_t sz = (afi == AFI_IP) ? 4 : 16;
@@ -2251,7 +2252,7 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 	zlog_debug("Nexthop group type: %d",
 		   *((uint16_t *)RTA_DATA(tb[NHA_GROUP_TYPE])));
 
-	zebra_nhg_connected_head_init(nhg_depends);
+	nhg_connected_head_init(nhg_depends);
 
 	for (int i = 0; i < count; i++) {
 		/* We do not care about nexthop_grp.weight at
@@ -2261,7 +2262,7 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 		 */
 		depend = zebra_nhg_lookup_id(n_grp[i].id);
 		if (depend) {
-			zebra_nhg_connected_head_add(nhg_depends, depend);
+			nhg_connected_head_add(nhg_depends, depend);
 			/*
 			 * If this is a nexthop with its own group
 			 * dependencies, add them as well. Not sure its
@@ -2411,14 +2412,8 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* This is a change to a group we already have
 			 */
 
-			// TODO: Fix this for routes referencing it
-			/* Free what's already there */
-			zebra_nhg_free_members(nhe);
-
-			/* Update with new info */
-			nhe->nhg = nhg;
-			if (dep_count)
-				nhe->nhg_depends = nhg_depends;
+			zebra_nhg_set_invalid(nhe);
+			zebra_nhg_free_group_depends(&nhg, &nhg_depends);
 
 		} else {
 			/* This is a new nexthop group */
@@ -2435,6 +2430,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			}
 
 			nhe->is_kernel_nh = true;
+
 			if (id != nhe->id) {
 				/* Duplicate but with different ID from
 				 * the kernel */
@@ -2449,18 +2445,18 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
 					"Nexthop Group from kernel with ID (%d) is a duplicate, ignoring",
 					id);
-				zebra_nhg_connected_head_free(&nhg_depends);
+				nhg_connected_head_free(&nhg_depends);
+			} else {
+				/* Add the nhe to the interface's tree
+				 * of connected nhe's
+				 */
+				if (ifp)
+					zebra_nhg_set_if(nhe, ifp);
+
+				SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+				SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 			}
 		}
-		if (ifp) {
-			/* Add the nhe to the interface's list
-			 * of connected nhe's
-			 */
-			// TODO: Don't add dupes
-			nhe_connected_add(ifp, nhe);
-		}
-		SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
-		SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
 
 	} else if (h->nlmsg_type == RTM_DELNEXTHOP) {
 		if (!nhe) {
@@ -2471,9 +2467,10 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			return -1;
 		}
 
-		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+		zebra_nhg_set_invalid(nhe);
 
-		// TODO: Run some active check on all route_entry's?
+		// TODO: Probably won't need this if we expect
+		// upper level protocol to fix it.
 		if (nhe->refcnt) {
 			flog_err(
 				EC_ZEBRA_NHG_SYNC,

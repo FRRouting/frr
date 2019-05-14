@@ -96,30 +96,46 @@ struct nhg_connected {
 	struct nhg_hash_entry *nhe;
 };
 
-RB_PROTOTYPE(nhg_connected_head, nhg_connected, nhg_entry,
-	     zebra_nhg_connected_cmp);
+RB_PROTOTYPE(nhg_connected_head, nhg_connected, nhg_entry, nhg_connected_cmp);
 
 void zebra_nhg_init(void);
 void zebra_nhg_terminate(void);
 
-extern uint8_t zebra_nhg_depends_count(const struct nhg_hash_entry *nhe);
+extern void nhg_connected_free(struct nhg_connected *dep);
+extern struct nhg_connected *nhg_connected_new(struct nhg_hash_entry *nhe);
+
+/* nhg connected tree direct access functions */
+extern void nhg_connected_head_init(struct nhg_connected_head *head);
+extern unsigned int
+nhg_connected_head_count(const struct nhg_connected_head *head);
+extern void nhg_connected_head_free(struct nhg_connected_head *head);
+extern bool nhg_connected_head_is_empty(const struct nhg_connected_head *head);
+extern void nhg_connected_head_del(struct nhg_connected_head *head,
+				   struct nhg_hash_entry *nhe);
+extern void nhg_connected_head_add(struct nhg_connected_head *head,
+				   struct nhg_hash_entry *nhe);
+
+/**
+ * NHE abstracted tree functions.
+ * Use these where possible instead of the direct ones access ones.
+ */
+/* Depends */
+extern unsigned int zebra_nhg_depends_count(const struct nhg_hash_entry *nhe);
 extern bool zebra_nhg_depends_is_empty(const struct nhg_hash_entry *nhe);
-extern void zebra_nhg_connected_head_del(struct nhg_connected_head *head,
-					 struct nhg_hash_entry *nhe);
-extern void zebra_nhg_connected_head_add(struct nhg_connected_head *head,
-					 struct nhg_hash_entry *nhe);
-extern void zebra_nhg_dependents_del(struct nhg_hash_entry *from,
-				     struct nhg_hash_entry *dependent);
-extern void zebra_nhg_dependents_add(struct nhg_hash_entry *to,
-				     struct nhg_hash_entry *dependent);
 extern void zebra_nhg_depends_del(struct nhg_hash_entry *from,
 				  struct nhg_hash_entry *depend);
 extern void zebra_nhg_depends_add(struct nhg_hash_entry *to,
 				  struct nhg_hash_entry *depend);
-extern void zebra_nhg_connected_head_init(struct nhg_connected_head *head);
 extern void zebra_nhg_depends_init(struct nhg_hash_entry *nhe);
-extern void zebra_nhg_depends_copy(struct nhg_hash_entry *to,
-				   struct nhg_hash_entry *from);
+/* Dependents */
+extern unsigned int
+zebra_nhg_dependents_count(const struct nhg_hash_entry *nhe);
+extern bool zebra_nhg_dependents_is_empty(const struct nhg_hash_entry *nhe);
+extern void zebra_nhg_dependents_del(struct nhg_hash_entry *from,
+				     struct nhg_hash_entry *dependent);
+extern void zebra_nhg_dependents_add(struct nhg_hash_entry *to,
+				     struct nhg_hash_entry *dependent);
+extern void zebra_nhg_dependents_init(struct nhg_hash_entry *nhe);
 
 
 extern struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id);
@@ -140,7 +156,6 @@ extern struct nhg_hash_entry *zebra_nhg_find_nexthop(struct nexthop *nh,
 						     afi_t afi);
 
 
-void zebra_nhg_connected_head_free(struct nhg_connected_head *head);
 void zebra_nhg_free_group_depends(struct nexthop_group **nhg,
 				  struct nhg_connected_head *head);
 void zebra_nhg_free_members(struct nhg_hash_entry *nhe);
@@ -148,6 +163,8 @@ void zebra_nhg_free(void *arg);
 void zebra_nhg_release(struct nhg_hash_entry *nhe);
 void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe);
 void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe);
+void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe);
+void zebra_nhg_set_if(struct nhg_hash_entry *nhe, struct interface *ifp);
 
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re);
 
