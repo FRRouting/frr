@@ -30,6 +30,7 @@
 #include "command.h"
 #include "lib_errors.h"
 #include "lib/hook.h"
+#include "printfrr.h"
 
 #ifndef SUNOS_5
 #include <sys/un.h>
@@ -191,19 +192,13 @@ static void time_print(FILE *fp, struct timestamp_control *ctl)
 
 static void vzlog_file(struct zlog *zl, struct timestamp_control *tsctl,
 		       const char *proto_str, int record_priority, int priority,
-		       FILE *fp, const char *format, va_list args)
+		       FILE *fp, const char *msg)
 {
-	va_list ac;
-
 	time_print(fp, tsctl);
 	if (record_priority)
 		fprintf(fp, "%s: ", zlog_priority[priority]);
 
-	fprintf(fp, "%s", proto_str);
-	va_copy(ac, args);
-	vfprintf(fp, format, ac);
-	va_end(ac);
-	fprintf(fp, "\n");
+	fprintf(fp, "%s%s\n", proto_str, msg);
 	fflush(fp);
 }
 
@@ -217,33 +212,26 @@ void vzlog(int priority, const char *format, va_list args)
 	struct timestamp_control tsctl;
 	tsctl.already_rendered = 0;
 	struct zlog *zl = zlog_default;
+	char buf[256], *msg;
 
 	/* call external hook */
 	hook_call(zebra_ext_log, priority, format, args);
+
+	msg = vasnprintfrr(MTYPE_TMP, buf, sizeof(buf), format, args);
 
 	/* When zlog_default is also NULL, use stderr for logging. */
 	if (zl == NULL) {
 		tsctl.precision = 0;
 		time_print(stderr, &tsctl);
-		fprintf(stderr, "%s: ", "unknown");
-		vfprintf(stderr, format, args);
-		fprintf(stderr, "\n");
+		fprintf(stderr, "%s: %s\n", "unknown", msg);
 		fflush(stderr);
-
-		/* In this case we return at here. */
-		errno = original_errno;
-		pthread_mutex_unlock(&loglock);
-		return;
+		goto out;
 	}
 	tsctl.precision = zl->timestamp_precision;
 
 	/* Syslog output */
-	if (priority <= zl->maxlvl[ZLOG_DEST_SYSLOG]) {
-		va_list ac;
-		va_copy(ac, args);
-		vsyslog(priority | zlog_default->facility, format, ac);
-		va_end(ac);
-	}
+	if (priority <= zl->maxlvl[ZLOG_DEST_SYSLOG])
+		syslog(priority | zlog_default->facility, "%s", msg);
 
 	if (zl->instance)
 		sprintf(proto_str, "%s[%d]: ", zl->protoname, zl->instance);
@@ -253,7 +241,7 @@ void vzlog(int priority, const char *format, va_list args)
 	/* File output. */
 	if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
 		vzlog_file(zl, &tsctl, proto_str, zl->record_priority, priority,
-			   zl->fp, format, args);
+			   zl->fp, msg);
 
 	/* fixed-config logging to stderr while we're stating up & haven't
 	 * daemonized / reached mainloop yet
@@ -261,17 +249,19 @@ void vzlog(int priority, const char *format, va_list args)
 	 * note the "else" on stdout output -- we don't want to print the same
 	 * message to both stderr and stdout. */
 	if (zlog_startup_stderr && priority <= LOG_WARNING)
-		vzlog_file(zl, &tsctl, proto_str, 1, priority, stderr, format,
-			   args);
+		vzlog_file(zl, &tsctl, proto_str, 1, priority, stderr, msg);
 	else if (priority <= zl->maxlvl[ZLOG_DEST_STDOUT])
 		vzlog_file(zl, &tsctl, proto_str, zl->record_priority, priority,
-			   stdout, format, args);
+			   stdout, msg);
 
 	/* Terminal monitor. */
 	if (priority <= zl->maxlvl[ZLOG_DEST_MONITOR])
 		vty_log((zl->record_priority ? zlog_priority[priority] : NULL),
-			proto_str, format, &tsctl, args);
+			proto_str, msg, &tsctl);
 
+out:
+	if (msg != buf)
+		XFREE(MTYPE_TMP, msg);
 	errno = original_errno;
 	pthread_mutex_unlock(&loglock);
 }

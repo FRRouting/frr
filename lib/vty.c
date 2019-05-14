@@ -42,6 +42,7 @@
 #include "frrstr.h"
 #include "lib_errors.h"
 #include "northbound_cli.h"
+#include "printfrr.h"
 
 #include <arpa/telnet.h>
 #include <termios.h>
@@ -148,10 +149,9 @@ bool vty_set_include(struct vty *vty, const char *regexp)
 int vty_out(struct vty *vty, const char *format, ...)
 {
 	va_list args;
-	int len = 0;
-	int size = 1024;
+	ssize_t len;
 	char buf[1024];
-	char *p = NULL;
+	char *p = buf;
 	char *filtered;
 
 	if (vty->frame_pos) {
@@ -159,35 +159,11 @@ int vty_out(struct vty *vty, const char *format, ...)
 		vty_out(vty, "%s", vty->frame);
 	}
 
-	/* Try to write to initial buffer.  */
 	va_start(args, format);
-	len = vsnprintf(buf, sizeof(buf), format, args);
+	p = vasnprintfrr(MTYPE_VTY_OUT_BUF, buf, sizeof(buf), format, args);
 	va_end(args);
 
-	/* Initial buffer is not enough.  */
-	if (len < 0 || len >= size) {
-		while (1) {
-			if (len > -1)
-				size = len + 1;
-			else
-				size = size * 2;
-
-			p = XREALLOC(MTYPE_VTY_OUT_BUF, p, size);
-			if (!p)
-				return -1;
-
-			va_start(args, format);
-			len = vsnprintf(p, size, format, args);
-			va_end(args);
-
-			if (len > -1 && len < size)
-				break;
-		}
-	}
-
-	/* When initial buffer is enough to store all output.  */
-	if (!p)
-		p = buf;
+	len = strlen(p);
 
 	/* filter buffer */
 	if (vty->filter) {
@@ -274,8 +250,8 @@ done:
 }
 
 static int vty_log_out(struct vty *vty, const char *level,
-		       const char *proto_str, const char *format,
-		       struct timestamp_control *ctl, va_list va)
+		       const char *proto_str, const char *msg,
+		       struct timestamp_control *ctl)
 {
 	int ret;
 	int len;
@@ -300,7 +276,7 @@ static int vty_log_out(struct vty *vty, const char *level,
 	if ((ret < 0) || ((size_t)(len += ret) >= sizeof(buf)))
 		return -1;
 
-	if (((ret = vsnprintf(buf + len, sizeof(buf) - len, format, va)) < 0)
+	if (((ret = snprintf(buf + len, sizeof(buf) - len, "%s", msg)) < 0)
 	    || ((size_t)((len += ret) + 2) > sizeof(buf)))
 		return -1;
 
@@ -2552,8 +2528,8 @@ tmp_free_and_out:
 }
 
 /* Small utility function which output log to the VTY. */
-void vty_log(const char *level, const char *proto_str, const char *format,
-	     struct timestamp_control *ctl, va_list va)
+void vty_log(const char *level, const char *proto_str, const char *msg,
+	     struct timestamp_control *ctl)
 {
 	unsigned int i;
 	struct vty *vty;
@@ -2563,13 +2539,8 @@ void vty_log(const char *level, const char *proto_str, const char *format,
 
 	for (i = 0; i < vector_active(vtyvec); i++)
 		if ((vty = vector_slot(vtyvec, i)) != NULL)
-			if (vty->monitor) {
-				va_list ac;
-				va_copy(ac, va);
-				vty_log_out(vty, level, proto_str, format, ctl,
-					    ac);
-				va_end(ac);
-			}
+			if (vty->monitor)
+				vty_log_out(vty, level, proto_str, msg, ctl);
 }
 
 /* Async-signal-safe version of vty_log for fixed strings. */
