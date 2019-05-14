@@ -869,26 +869,6 @@ void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 	}
 }
 
-static bool zebra_nhg_is_valid(struct nhg_hash_entry *nhe)
-{
-	if (nhe->flags & NEXTHOP_GROUP_VALID)
-		return true;
-
-	return false;
-}
-
-bool zebra_nhg_id_is_valid(uint32_t id)
-{
-	struct nhg_hash_entry *nhe = NULL;
-	bool is_valid = false;
-
-	nhe = zebra_nhg_lookup_id(id);
-
-	if (nhe)
-		is_valid = zebra_nhg_is_valid(nhe);
-
-	return is_valid;
-}
 void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe)
 {
 	if (!zebra_nhg_depends_is_empty(nhe)

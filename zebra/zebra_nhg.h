@@ -223,7 +223,6 @@ void zebra_nhg_free(void *arg);
 void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe);
 void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe);
 
-extern bool zebra_nhg_id_is_valid(uint32_t id);
 void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe);
 void zebra_nhg_set_if(struct nhg_hash_entry *nhe, struct interface *ifp);
 
