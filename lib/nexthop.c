@@ -36,6 +36,34 @@
 DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop")
 DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label")
 
+static int nexthop_labels_cmp(const struct nexthop *nh1,
+			      const struct nexthop *nh2)
+{
+	const struct mpls_label_stack *nhl1 = NULL;
+	const struct mpls_label_stack *nhl2 = NULL;
+
+	nhl1 = nh1->nh_label;
+	nhl2 = nh2->nh_label;
+
+	/* No labels is a match */
+	if (!nhl1 && !nhl2)
+		return 0;
+
+	if (nhl1 && !nhl2)
+		return 1;
+
+	if (nhl2 && !nhl1)
+		return -1;
+
+	if (nhl1->num_labels > nhl2->num_labels)
+		return 1;
+
+	if (nhl1->num_labels < nhl2->num_labels)
+		return -1;
+
+	return memcmp(nhl1->label, nhl2->label, nhl1->num_labels);
+}
+
 int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 {
 	int ret;
