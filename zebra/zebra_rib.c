@@ -797,12 +797,6 @@ struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	return NULL;
 }
 
-#define RIB_SYSTEM_ROUTE(R)                                                    \
-	((R)->type == ZEBRA_ROUTE_KERNEL || (R)->type == ZEBRA_ROUTE_CONNECT)
-
-#define RIB_KERNEL_ROUTE(R)						\
-	((R)->type == ZEBRA_ROUTE_KERNEL)
-
 /* This function verifies reachability of one given nexthop, which can be
  * numbered or unnumbered, IPv4 or IPv6. The result is unconditionally stored
  * in nexthop->flags field. The nexthop->ifindex will be updated

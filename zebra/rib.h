@@ -148,6 +148,10 @@ struct route_entry {
 	uint32_t dplane_sequence;
 };
 
+#define RIB_SYSTEM_ROUTE(R) RSYSTEM_ROUTE((R)->type)
+
+#define RIB_KERNEL_ROUTE(R) RKERNEL_ROUTE((R)->type)
+
 /* meta-queue structure:
  * sub-queue 0: connected, kernel
  * sub-queue 1: static
