@@ -2772,13 +2772,10 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 			XFREE(MTYPE_RE, re);
 			return -1;
 		}
-
-		re->nhe_id = nhe->id;
 	}
 
 	/* Attach the re to the nhe's nexthop group */
-	zebra_nhg_increment_ref(nhe);
-	re->ng = nhe->nhg;
+	zebra_nhg_re_update_ref(re, nhe);
 
 	/* Make it sure prefixlen is applied to the prefix. */
 	apply_mask(p);

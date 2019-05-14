@@ -229,6 +229,9 @@ void zebra_nhg_set_if(struct nhg_hash_entry *nhe, struct interface *ifp);
 
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re);
 
+extern int zebra_nhg_re_update_ref(struct route_entry *re,
+				   struct nhg_hash_entry *nhe);
+
 extern uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp,
 				 struct nhg_hash_entry *nhe);
 

@@ -1493,17 +1493,7 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 
 		new_nhe = zebra_nhg_rib_find(0, &new_grp, re->vrf_id, rt_afi);
 
-		if (new_nhe && (re->nhe_id != new_nhe->id)) {
-			struct nhg_hash_entry *old_nhe =
-				zebra_nhg_lookup_id(re->nhe_id);
-
-			re->ng = new_nhe->nhg;
-			re->nhe_id = new_nhe->id;
-
-			zebra_nhg_increment_ref(new_nhe);
-			if (old_nhe)
-				zebra_nhg_decrement_ref(old_nhe);
-		}
+		zebra_nhg_re_update_ref(re, new_nhe);
 	}
 
 	if (curr_active) {
@@ -1530,6 +1520,27 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 	 */
 	nexthops_free(new_grp.nexthop);
 	return curr_active;
+}
+
+int zebra_nhg_re_update_ref(struct route_entry *re, struct nhg_hash_entry *new)
+{
+	struct nhg_hash_entry *old = NULL;
+
+	if (!new)
+		return -1;
+
+	if (re->nhe_id != new->id) {
+		old = zebra_nhg_lookup_id(re->nhe_id);
+
+		re->ng = new->nhg;
+		re->nhe_id = new->id;
+
+		zebra_nhg_increment_ref(new);
+		if (old)
+			zebra_nhg_decrement_ref(old);
+	}
+
+	return 0;
 }
 
 /* Convert a nhe into a group array */
