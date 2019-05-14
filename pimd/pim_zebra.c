@@ -780,7 +780,7 @@ void sched_rpf_cache_refresh(struct pim_instance *pim)
 static void pim_zebra_connected(struct zclient *zclient)
 {
 	/* Send the client registration */
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, router->vrf_id);
 
 	zclient_send_reg_requests(zclient, router->vrf_id);
 }

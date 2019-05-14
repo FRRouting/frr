@@ -1,0 +1,8 @@
+[
+  {
+    "remote-receive-interval": 1000,
+    "remote-transmit-interval": 500,
+    "peer": "192.168.0.2",
+    "status": "up"
+  }
+]

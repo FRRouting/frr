@@ -151,7 +151,7 @@ static int ospf6_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 		zlog_debug("Zebra: BFD Dest replay request");
 
 	/* Send the client registration */
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, vrf_id);
 
 	/* Replay the neighbor, if BFD is enabled on the interface*/
 	FOR_ALL_INTERFACES (vrf, ifp) {

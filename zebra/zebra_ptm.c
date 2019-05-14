@@ -1188,8 +1188,8 @@ static void pp_free_all(void);
 static void zebra_ptm_send_bfdd(struct stream *msg);
 static void zebra_ptm_send_clients(struct stream *msg);
 static int _zebra_ptm_bfd_client_deregister(struct zserv *zs);
-static void _zebra_ptm_reroute(struct zserv *zs, struct stream *msg,
-			       uint32_t command);
+static void _zebra_ptm_reroute(struct zserv *zs, struct zebra_vrf *zvrf,
+			       struct stream *msg, uint32_t command);
 
 
 /*
@@ -1392,8 +1392,8 @@ void zebra_ptm_finish(void)
 /*
  * Message handling.
  */
-static void _zebra_ptm_reroute(struct zserv *zs, struct stream *msg,
-			       uint32_t command)
+static void _zebra_ptm_reroute(struct zserv *zs, struct zebra_vrf *zvrf,
+			       struct stream *msg, uint32_t command)
 {
 	struct stream *msgc;
 	size_t zmsglen, zhdrlen;
@@ -1420,7 +1420,7 @@ static void _zebra_ptm_reroute(struct zserv *zs, struct stream *msg,
 	 * one callback at the `bfdd` side, however the real command
 	 * number will be included right after the zebra header.
 	 */
-	zclient_create_header(msgc, ZEBRA_BFD_DEST_REPLAY, 0);
+	zclient_create_header(msgc, ZEBRA_BFD_DEST_REPLAY, zvrf->vrf->vrf_id);
 	stream_putl(msgc, command);
 
 	/* Update the data pointers. */
@@ -1446,7 +1446,7 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 		zlog_debug("bfd_dst_register msg from client %s: length=%d",
 			   zebra_route_string(client->proto), hdr->length);
 
-	_zebra_ptm_reroute(client, msg, ZEBRA_BFD_DEST_REGISTER);
+	_zebra_ptm_reroute(client, zvrf, msg, ZEBRA_BFD_DEST_REGISTER);
 }
 
 void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS)
@@ -1455,7 +1455,7 @@ void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS)
 		zlog_debug("bfd_dst_deregister msg from client %s: length=%d",
 			   zebra_route_string(client->proto), hdr->length);
 
-	_zebra_ptm_reroute(client, msg, ZEBRA_BFD_DEST_DEREGISTER);
+	_zebra_ptm_reroute(client, zvrf, msg, ZEBRA_BFD_DEST_DEREGISTER);
 }
 
 void zebra_ptm_bfd_client_register(ZAPI_HANDLER_ARGS)
@@ -1464,7 +1464,7 @@ void zebra_ptm_bfd_client_register(ZAPI_HANDLER_ARGS)
 		zlog_debug("bfd_client_register msg from client %s: length=%d",
 			   zebra_route_string(client->proto), hdr->length);
 
-	_zebra_ptm_reroute(client, msg, ZEBRA_BFD_CLIENT_REGISTER);
+	_zebra_ptm_reroute(client, zvrf, msg, ZEBRA_BFD_CLIENT_REGISTER);
 }
 
 void zebra_ptm_bfd_dst_replay(ZAPI_HANDLER_ARGS)
@@ -1488,7 +1488,7 @@ void zebra_ptm_bfd_dst_replay(ZAPI_HANDLER_ARGS)
 	 * special treatment.
 	 */
 	if (client->proto != ZEBRA_ROUTE_BFD) {
-		_zebra_ptm_reroute(client, msg, ZEBRA_BFD_DEST_REPLAY);
+		_zebra_ptm_reroute(client, zvrf, msg, ZEBRA_BFD_DEST_REPLAY);
 		return;
 	}
 

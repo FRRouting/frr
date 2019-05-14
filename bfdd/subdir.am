@@ -14,11 +14,9 @@ bfdd_libbfd_a_SOURCES = \
 	bfdd/bfd.c \
 	bfdd/bfdd_vty.c \
 	bfdd/bfd_packet.c \
-	bfdd/bsd.c \
 	bfdd/config.c \
 	bfdd/control.c \
 	bfdd/event.c \
-	bfdd/linux.c \
 	bfdd/log.c \
 	bfdd/ptm_adapter.c \
 	# end

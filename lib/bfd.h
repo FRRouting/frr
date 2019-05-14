@@ -102,7 +102,8 @@ extern void bfd_show_info(struct vty *vty, struct bfd_info *bfd_info,
 			  int multihop, int extra_space, bool use_json,
 			  json_object *json_obj);
 
-extern void bfd_client_sendmsg(struct zclient *zclient, int command);
+extern void bfd_client_sendmsg(struct zclient *zclient, int command,
+			       vrf_id_t vrf_id);
 
 extern void bfd_gbl_init(void);
 
