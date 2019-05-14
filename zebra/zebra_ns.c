@@ -27,7 +27,6 @@
 #include "lib/prefix.h"
 #include "lib/memory.h"
 
-#include "rtadv.h"
 #include "zebra_ns.h"
 #include "zebra_vrf.h"
 #include "zebra_memory.h"
@@ -122,10 +121,6 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 
 	zns->ns_id = ns_id;
 
-#if defined(HAVE_RTADV)
-	rtadv_init(zns);
-#endif
-
 	kernel_init(zns);
 	interface_list(zns);
 	route_read(zns);
@@ -142,9 +137,6 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete)
 {
 	route_table_finish(zns->if_table);
-#if defined(HAVE_RTADV)
-	rtadv_terminate(zns);
-#endif
 
 	kernel_terminate(zns, complete);
 
