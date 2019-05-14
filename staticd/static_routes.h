@@ -155,6 +155,10 @@ struct static_nexthop {
 	struct route_node *rn;
 	/** Path connection status. */
 	bool path_down;
+
+	/* nexthop specific PM information */
+	bool pm;
+	struct pm_info *pm_info;
 };
 
 DECLARE_DLIST(static_nexthop_list, struct static_nexthop, list);
@@ -205,7 +209,7 @@ extern void static_cleanup_vrf_ids(struct vrf *vrf);
 extern struct static_nexthop *
 static_add_nexthop(struct static_path *pn, enum static_nh_type type,
 		   struct ipaddr *ipaddr, const char *ifname,
-		   const char *nh_vrf, uint32_t color);
+		   const char *nh_vrf, uint32_t color, bool pm);
 extern void static_install_nexthop(struct static_nexthop *nh);
 extern void static_uninstall_nexthop(struct static_nexthop *nh);
 

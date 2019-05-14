@@ -23,6 +23,7 @@
 #include "nexthop_group.h"
 #include "hash.h"
 #include "jhash.h"
+#include "pm_lib.h"
 
 #include "static_vrf.h"
 #include "static_routes.h"
@@ -30,6 +31,7 @@
 #include "static_nht.h"
 #include "static_vty.h"
 #include "static_debug.h"
+#include "static_pm.h"
 
 DEFINE_MTYPE_STATIC(STATIC, STATIC_NHT_DATA, "Static Nexthop tracking data");
 PREDECL_HASH(static_nht_hash);
@@ -175,6 +177,9 @@ static void zebra_connected(struct zclient *zclient)
 	vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	assert(vrf);
 	static_fixup_vrf_ids(vrf);
+
+	/* Send the client registration */
+	pm_client_sendmsg(zclient, ZEBRA_PM_CLIENT_REGISTER, VRF_DEFAULT);
 }
 
 /* API to check whether the configured nexthop address is
@@ -254,8 +259,11 @@ static void static_zebra_nexthop_update(struct vrf *vrf, struct prefix *matched,
 
 		oif_idx = static_zebra_get_ifindex(nhr);
 		static_nht_reset_start(matched, afi, nhr->safi, nhtd->nh_vrf_id);
-		if (oif_idx != nhtd->oif_idx)
+		if (oif_idx != nhtd->oif_idx) {
+			static_pm_update_interface(oif_idx, matched, nhtd->nh_vrf_id,
+						   nhtd->oif_idx);
 			nhtd->oif_idx = oif_idx;
+		}
 		static_nht_update(NULL, matched, nhr->nexthop_num, afi,
 				  nhr->safi, nhtd->nh_vrf_id);
 	} else
@@ -433,7 +441,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 		nhtd->registered = true;
 }
 
-extern void static_zebra_route_add(struct static_path *pn, bool install)
+extern bool static_zebra_route_add(struct static_path *pn, bool install)
 {
 	struct route_node *rn = pn->rn;
 	struct static_route_info *si = rn->info;
@@ -444,7 +452,7 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 	uint32_t nh_num = 0;
 
 	if (!si->svrf->vrf || si->svrf->vrf->vrf_id == VRF_UNKNOWN)
-		return;
+		return false;
 
 	p = src_pp = NULL;
 	srcdest_rnode_prefixes(rn, &p, &src_pp);
@@ -580,12 +588,15 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 	zclient_route_send(install ?
 			   ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
 			   zclient, &api);
+	return install;
 }
 
 static zclient_handler *const static_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
 	[ZEBRA_ROUTE_NOTIFY_OWNER] = route_notify_owner,
+	[ZEBRA_PM_DEST_REPLAY] = static_pm_dest_replay,
+	[ZEBRA_INTERFACE_PM_DEST_UPDATE] = static_pm_dest_update,
 };
 
 void static_zebra_init(void)

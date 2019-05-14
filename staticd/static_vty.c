@@ -60,6 +60,8 @@ struct static_route_args {
 	bool bfd_multi_hop;
 	const char *bfd_source;
 	const char *bfd_profile;
+
+	bool pm;
 };
 
 static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
@@ -111,6 +113,12 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	    !strcasecmp(args->interface_name, "Null0")) {
 		args->flag = "Null0";
 		args->interface_name = NULL;
+	}
+
+	if (!args->gateway && args->pm) {
+		if (vty)
+			vty_out(vty, "%% PM can not be set without gateway\n");
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	assert(!!str2prefix(args->prefix, &p));
@@ -304,6 +312,17 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 				nb_cli_enqueue_change(vty, ab_xpath,
 						      NB_OP_MODIFY,
 						      args->color);
+
+			strlcpy(ab_xpath, xpath_nexthop, sizeof(ab_xpath));
+			strlcat(ab_xpath, FRR_STATIC_ROUTE_NH_PM_XPATH,
+				sizeof(ab_xpath));
+
+			if (args->pm)
+				nb_cli_enqueue_change(vty, ab_xpath,
+						      NB_OP_MODIFY, "true");
+			else
+				nb_cli_enqueue_change(vty, ab_xpath,
+						      NB_OP_MODIFY, "false");
 		}
 		if (args->label) {
 			/* copy of label string (start) */
@@ -623,6 +642,7 @@ DEFPY_YANG(ip_route_address_interface,
 	  |onlink$onlink                               \
 	  |color (1-4294967295)                        \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
+	  |pm$pm                                       \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -648,7 +668,8 @@ DEFPY_YANG(ip_route_address_interface,
       BFD_INTEGRATION_SOURCE_STR
       BFD_INTEGRATION_SOURCEV4_STR
       BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR)
+      BFD_PROFILE_NAME_STR
+      "Enables Path Monitoring support\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -670,6 +691,7 @@ DEFPY_YANG(ip_route_address_interface,
 		.bfd_multi_hop = !!bfd_multi_hop,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
+		.pm = !!pm,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -690,6 +712,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 	  |onlink$onlink                               \
 	  |color (1-4294967295)                        \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
+	  |pm$pm                                       \
 	  }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -714,7 +737,8 @@ DEFPY_YANG(ip_route_address_interface_vrf,
       BFD_INTEGRATION_SOURCE_STR
       BFD_INTEGRATION_SOURCEV4_STR
       BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR)
+      BFD_PROFILE_NAME_STR
+      "Enables Path Monitoring support\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -736,6 +760,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 		.bfd_multi_hop = !!bfd_multi_hop,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
+		.pm = !!pm,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -755,6 +780,7 @@ DEFPY_YANG(ip_route,
 	  |nexthop-vrf NAME                            \
 	  |color (1-4294967295)                        \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
+	  |pm$pm                                       \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -779,7 +805,8 @@ DEFPY_YANG(ip_route,
       BFD_INTEGRATION_SOURCE_STR
       BFD_INTEGRATION_SOURCEV4_STR
       BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR)
+      BFD_PROFILE_NAME_STR
+      "Enables Path Monitoring support\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -800,6 +827,7 @@ DEFPY_YANG(ip_route,
 		.bfd_multi_hop = !!bfd_multi_hop,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
+		.pm = !!pm,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -818,6 +846,7 @@ DEFPY_YANG(ip_route_vrf,
 	  |nexthop-vrf NAME                            \
 	  |color (1-4294967295)                        \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
+	  |pm$pm                                       \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -841,7 +870,8 @@ DEFPY_YANG(ip_route_vrf,
       BFD_INTEGRATION_SOURCE_STR
       BFD_INTEGRATION_SOURCEV4_STR
       BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR)
+      BFD_PROFILE_NAME_STR
+      "Enables Path Monitoring support\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -862,6 +892,7 @@ DEFPY_YANG(ip_route_vrf,
 		.bfd_multi_hop = !!bfd_multi_hop,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
+		.pm = !!pm,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -974,6 +1005,7 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
 	    |onlink$onlink                                 \
 	    |color (1-4294967295)                          \
 	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+	    |pm$pm                                         \
 		|segments WORD 								   \
           }]",
 	   NO_STR IPV6_STR
@@ -994,7 +1026,9 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
 	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
 		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
 			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
-				   BFD_PROFILE_NAME_STR "Value of segs\n"
+				   BFD_PROFILE_NAME_STR
+	   "Enables Path Monitoring support\n"
+	   "Value of segs\n"
 	   "Segs (SIDs)\n")
 {
 	struct static_route_args args = {
@@ -1018,6 +1052,7 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
+		.pm = !!pm,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -1037,6 +1072,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 	    |onlink$onlink                                 \
 	    |color (1-4294967295)                          \
 	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+	    |pm$pm                                         \
 		|segments WORD 								   \
           }]",
 	   NO_STR IPV6_STR
@@ -1057,7 +1093,9 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
 		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
 			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
-				   BFD_PROFILE_NAME_STR "Value of segs\n"
+				   BFD_PROFILE_NAME_STR
+	   "Enables Path Monitoring support\n"
+	   "Value of segs\n"
 	   "Segs (SIDs)\n")
 {
 	struct static_route_args args = {
@@ -1081,6 +1119,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
+		.pm = !!pm,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -1098,6 +1137,7 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
             |nexthop-vrf NAME                              \
             |color (1-4294967295)                          \
 	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+	    |pm$pm                                         \
 			|segments WORD 								   \
           }]",
 	   NO_STR IPV6_STR
@@ -1116,7 +1156,9 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
 	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
 		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
 			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
-				   BFD_PROFILE_NAME_STR "Value of segs\n"
+				   BFD_PROFILE_NAME_STR
+	   "Enables Path Monitoring support\n"
+	   "Value of segs\n"
 	   "Segs (SIDs)\n")
 {
 	struct static_route_args args = {
@@ -1139,7 +1181,7 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
-
+		.pm = !!pm,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -1156,6 +1198,7 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
             |nexthop-vrf NAME                              \
 	    |color (1-4294967295)                          \
 	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+	    |pm$pm                                         \
 		|segments WORD 								   \
           }]",
 	   NO_STR IPV6_STR
@@ -1174,7 +1217,9 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
 		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
 			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
-				   BFD_PROFILE_NAME_STR "Value of segs\n"
+				   BFD_PROFILE_NAME_STR
+	   "Enables Path Monitoring support\n"
+	   "Value of segs\n"
 	   "Segs (SIDs)\n")
 {
 	struct static_route_args args = {
@@ -1197,6 +1242,7 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
+		.pm = !!pm,
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -1387,6 +1433,10 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 		if (onlink)
 			vty_out(vty, " onlink");
 	}
+
+	if (yang_dnode_exists(nexthop, "pm")
+			&& yang_dnode_get_bool(nexthop, "pm"))
+		vty_out(vty, " pm");
 
 	if (yang_dnode_exists(nexthop, "srte-color"))
 		vty_out(vty, " color %s",

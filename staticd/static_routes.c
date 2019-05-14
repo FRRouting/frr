@@ -12,6 +12,7 @@
 #include <lib/if.h>
 #include <lib/vty.h>
 #include <lib/vrf.h>
+#include <lib/pm_lib.h>
 #include <lib/memory.h>
 
 #include "printfrr.h"
@@ -20,6 +21,7 @@
 #include "static_routes.h"
 #include "static_zebra.h"
 #include "static_debug.h"
+#include "static_pm.h"
 
 DEFINE_MGROUP(STATIC, "staticd");
 
@@ -87,17 +89,33 @@ void zebra_stable_node_cleanup(struct route_table *table,
 /* Install static path into rib. */
 void static_install_path(struct static_path *pn)
 {
-	if (static_nexthop_list_count(&pn->nexthop_list))
-		static_zebra_route_add(pn, true);
+	struct static_nexthop *nh;
+	bool ret;
+
+	if (static_nexthop_list_count(&pn->nexthop_list)) {
+		ret = static_zebra_route_add(pn, true);
+
+		/* when route is installed, PM should be run too if needed */
+		if (ret) {
+			frr_each(static_nexthop_list, &pn->nexthop_list, nh)
+				static_pm_update_si(nh, true);
+		}
+	}
 }
 
 /* Uninstall static path from RIB. */
 static void static_uninstall_path(struct static_path *pn)
 {
+	bool ret;
+	struct static_nexthop *nh;
+
 	if (static_nexthop_list_count(&pn->nexthop_list))
-		static_zebra_route_add(pn, true);
+		ret = static_zebra_route_add(pn, true);
 	else
-		static_zebra_route_add(pn, false);
+		ret = static_zebra_route_add(pn, false);
+	frr_each(static_nexthop_list, &pn->nexthop_list, nh) {
+		static_pm_update_si(nh, ret);
+	}
 }
 
 struct route_node *static_add_route(afi_t afi, safi_t safi, struct prefix *p,
@@ -232,6 +250,7 @@ void static_del_path(struct static_path *pn)
 	static_path_list_del(&si->path_list, pn);
 
 	frr_each_safe(static_nexthop_list, &pn->nexthop_list, nh) {
+		static_next_hop_pm_destroy(nh);
 		static_delete_nexthop(nh);
 	}
 
@@ -243,7 +262,7 @@ void static_del_path(struct static_path *pn)
 struct static_nexthop *
 static_add_nexthop(struct static_path *pn, enum static_nh_type type,
 		   struct ipaddr *ipaddr, const char *ifname,
-		   const char *nh_vrfname, uint32_t color)
+		   const char *nh_vrfname, uint32_t color, bool pm)
 {
 	struct route_node *rn = pn->rn;
 	struct static_nexthop *nh;
@@ -275,6 +294,8 @@ static_add_nexthop(struct static_path *pn, enum static_nh_type type,
 		strlcpy(nh->ifname, ifname, sizeof(nh->ifname));
 	nh->ifindex = IFINDEX_INTERNAL;
 
+	if (pm)
+		static_next_hop_pm_update(nh);
 	switch (type) {
 	case STATIC_IPV4_GATEWAY:
 	case STATIC_IPV4_GATEWAY_IFNAME:
@@ -388,6 +409,9 @@ void static_delete_nexthop(struct static_nexthop *nh)
 	struct static_path *pn = nh->pn;
 	struct route_node *rn = pn->rn;
 
+	if (nh->pm_info)
+		static_next_hop_pm_destroy(nh);
+
 	static_nexthop_list_del(&(pn->nexthop_list), nh);
 	/* Remove BFD session/configuration if any. */
 	bfd_sess_free(&nh->bsp);
@@ -495,6 +519,9 @@ static void static_fixup_vrf(struct vrf *vrf, struct route_table *stable,
 					else
 						continue;
 				}
+
+				if (nh->pm)
+					static_next_hop_pm_update(nh);
 
 				static_install_nexthop(nh);
 			}

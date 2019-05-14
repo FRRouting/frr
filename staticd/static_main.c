@@ -26,6 +26,7 @@
 #include "static_zebra.h"
 #include "static_debug.h"
 #include "static_nb.h"
+#include "static_pm.h"
 
 #include "mgmt_be_client.h"
 
@@ -161,6 +162,8 @@ int main(int argc, char **argv, char **envp)
 	static_vrf_init();
 
 	static_zebra_init();
+
+	static_pm_init();
 	static_vty_init();
 
 	/* Initialize MGMT backend functionalities */
