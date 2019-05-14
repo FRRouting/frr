@@ -206,27 +206,12 @@ const char *nexthop_type_to_str(enum nexthop_types_t nh_type)
 /*
  * Check if the labels match for the 2 nexthops specified.
  */
-int nexthop_labels_match(const struct nexthop *nh1, const struct nexthop *nh2)
+bool nexthop_labels_match(const struct nexthop *nh1, const struct nexthop *nh2)
 {
-	const struct mpls_label_stack *nhl1, *nhl2;
+	if (nexthop_labels_cmp(nh1, nh2) != 0)
+		return false;
 
-	nhl1 = nh1->nh_label;
-	nhl2 = nh2->nh_label;
-
-	/* No labels is a match */
-	if (!nhl1 && !nhl2)
-		return 1;
-
-	if (!nhl1 || !nhl2)
-		return 0;
-
-	if (nhl1->num_labels != nhl2->num_labels)
-		return 0;
-
-	if (memcmp(nhl1->label, nhl2->label, nhl1->num_labels))
-		return 0;
-
-	return 1;
+	return true;
 }
 
 struct nexthop *nexthop_new(void)
