@@ -66,8 +66,9 @@ static int nexthop_labels_cmp(const struct nexthop *nh1,
 
 int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 {
-	int ret;
-	uint32_t n1, n2;
+	int ret = 0;
+	uint32_t n1 = 0;
+	uint32_2 n2 = 0;
 
 	if (next1->vrf_id < next2->vrf_id)
 		return -1;
@@ -81,7 +82,7 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 	if (next1->type > next2->type)
 		return 1;
 
-	switch(next1->type) {
+	switch (next1->type) {
 	case NEXTHOP_TYPE_IPV4:
 		n1 = ntohl(next1->gate.ipv4.s_addr);
 		n2 = ntohl(next2->gate.ipv4.s_addr);
@@ -118,6 +119,10 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 	}
 
 	ret = memcmp(&next1->src, &next2->src, sizeof(union g_addr));
+	if (ret)
+		return ret;
+
+	ret = nexthop_labels_cmp(next1, next2);
 	return ret;
 }
 
