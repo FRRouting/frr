@@ -56,7 +56,6 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_dplane.h"
-#include "zebra/zebra_nhg.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RIB_UPDATE_CTX, "Rib update context object");
 
@@ -79,34 +78,35 @@ static const struct {
 	uint8_t distance;
 	uint8_t meta_q_map;
 } route_info[ZEBRA_ROUTE_MAX] = {
-	[ZEBRA_ROUTE_SYSTEM] = {ZEBRA_ROUTE_SYSTEM, 0, 4},
-	[ZEBRA_ROUTE_KERNEL] = {ZEBRA_ROUTE_KERNEL, 0, 0},
-	[ZEBRA_ROUTE_CONNECT] = {ZEBRA_ROUTE_CONNECT, 0, 0},
-	[ZEBRA_ROUTE_STATIC] = {ZEBRA_ROUTE_STATIC, 1, 1},
-	[ZEBRA_ROUTE_RIP] = {ZEBRA_ROUTE_RIP, 120, 2},
-	[ZEBRA_ROUTE_RIPNG] = {ZEBRA_ROUTE_RIPNG, 120, 2},
-	[ZEBRA_ROUTE_OSPF] = {ZEBRA_ROUTE_OSPF, 110, 2},
-	[ZEBRA_ROUTE_OSPF6] = {ZEBRA_ROUTE_OSPF6, 110, 2},
-	[ZEBRA_ROUTE_ISIS] = {ZEBRA_ROUTE_ISIS, 115, 2},
-	[ZEBRA_ROUTE_BGP] = {ZEBRA_ROUTE_BGP, 20 /* IBGP is 200. */, 3},
-	[ZEBRA_ROUTE_PIM] = {ZEBRA_ROUTE_PIM, 255, 4},
-	[ZEBRA_ROUTE_EIGRP] = {ZEBRA_ROUTE_EIGRP, 90, 2},
-	[ZEBRA_ROUTE_NHRP] = {ZEBRA_ROUTE_NHRP, 10, 2},
-	[ZEBRA_ROUTE_HSLS] = {ZEBRA_ROUTE_HSLS, 255, 4},
-	[ZEBRA_ROUTE_OLSR] = {ZEBRA_ROUTE_OLSR, 255, 4},
-	[ZEBRA_ROUTE_TABLE] = {ZEBRA_ROUTE_TABLE, 150, 1},
-	[ZEBRA_ROUTE_LDP] = {ZEBRA_ROUTE_LDP, 150, 4},
-	[ZEBRA_ROUTE_VNC] = {ZEBRA_ROUTE_VNC, 20, 3},
-	[ZEBRA_ROUTE_VNC_DIRECT] = {ZEBRA_ROUTE_VNC_DIRECT, 20, 3},
-	[ZEBRA_ROUTE_VNC_DIRECT_RH] = {ZEBRA_ROUTE_VNC_DIRECT_RH, 20, 3},
-	[ZEBRA_ROUTE_BGP_DIRECT] = {ZEBRA_ROUTE_BGP_DIRECT, 20, 3},
-	[ZEBRA_ROUTE_BGP_DIRECT_EXT] = {ZEBRA_ROUTE_BGP_DIRECT_EXT, 20, 3},
-	[ZEBRA_ROUTE_BABEL] = {ZEBRA_ROUTE_BABEL, 100, 2},
-	[ZEBRA_ROUTE_SHARP] = {ZEBRA_ROUTE_SHARP, 150, 4},
-	[ZEBRA_ROUTE_PBR] = {ZEBRA_ROUTE_PBR, 200, 4},
-	[ZEBRA_ROUTE_BFD] = {ZEBRA_ROUTE_BFD, 255, 4},
-	[ZEBRA_ROUTE_OPENFABRIC] = {ZEBRA_ROUTE_OPENFABRIC, 115, 2},
-	[ZEBRA_ROUTE_VRRP] = {ZEBRA_ROUTE_VRRP, 255, 4}
+	[ZEBRA_ROUTE_NHG] = {ZEBRA_ROUTE_NHG, 255 /* Uneeded for nhg's */, 0},
+	[ZEBRA_ROUTE_SYSTEM] = {ZEBRA_ROUTE_SYSTEM, 0, 5},
+	[ZEBRA_ROUTE_KERNEL] = {ZEBRA_ROUTE_KERNEL, 0, 1},
+	[ZEBRA_ROUTE_CONNECT] = {ZEBRA_ROUTE_CONNECT, 0, 1},
+	[ZEBRA_ROUTE_STATIC] = {ZEBRA_ROUTE_STATIC, 1, 2},
+	[ZEBRA_ROUTE_RIP] = {ZEBRA_ROUTE_RIP, 120, 3},
+	[ZEBRA_ROUTE_RIPNG] = {ZEBRA_ROUTE_RIPNG, 120, 3},
+	[ZEBRA_ROUTE_OSPF] = {ZEBRA_ROUTE_OSPF, 110, 3},
+	[ZEBRA_ROUTE_OSPF6] = {ZEBRA_ROUTE_OSPF6, 110, 3},
+	[ZEBRA_ROUTE_ISIS] = {ZEBRA_ROUTE_ISIS, 115, 3},
+	[ZEBRA_ROUTE_BGP] = {ZEBRA_ROUTE_BGP, 20 /* IBGP is 200. */, 4},
+	[ZEBRA_ROUTE_PIM] = {ZEBRA_ROUTE_PIM, 255, 5},
+	[ZEBRA_ROUTE_EIGRP] = {ZEBRA_ROUTE_EIGRP, 90, 3},
+	[ZEBRA_ROUTE_NHRP] = {ZEBRA_ROUTE_NHRP, 10, 3},
+	[ZEBRA_ROUTE_HSLS] = {ZEBRA_ROUTE_HSLS, 255, 5},
+	[ZEBRA_ROUTE_OLSR] = {ZEBRA_ROUTE_OLSR, 255, 5},
+	[ZEBRA_ROUTE_TABLE] = {ZEBRA_ROUTE_TABLE, 150, 2},
+	[ZEBRA_ROUTE_LDP] = {ZEBRA_ROUTE_LDP, 150, 5},
+	[ZEBRA_ROUTE_VNC] = {ZEBRA_ROUTE_VNC, 20, 4},
+	[ZEBRA_ROUTE_VNC_DIRECT] = {ZEBRA_ROUTE_VNC_DIRECT, 20, 4},
+	[ZEBRA_ROUTE_VNC_DIRECT_RH] = {ZEBRA_ROUTE_VNC_DIRECT_RH, 20, 4},
+	[ZEBRA_ROUTE_BGP_DIRECT] = {ZEBRA_ROUTE_BGP_DIRECT, 20, 4},
+	[ZEBRA_ROUTE_BGP_DIRECT_EXT] = {ZEBRA_ROUTE_BGP_DIRECT_EXT, 20, 4},
+	[ZEBRA_ROUTE_BABEL] = {ZEBRA_ROUTE_BABEL, 100, 3},
+	[ZEBRA_ROUTE_SHARP] = {ZEBRA_ROUTE_SHARP, 150, 5},
+	[ZEBRA_ROUTE_PBR] = {ZEBRA_ROUTE_PBR, 200, 5},
+	[ZEBRA_ROUTE_BFD] = {ZEBRA_ROUTE_BFD, 255, 5},
+	[ZEBRA_ROUTE_OPENFABRIC] = {ZEBRA_ROUTE_OPENFABRIC, 115, 3},
+	[ZEBRA_ROUTE_VRRP] = {ZEBRA_ROUTE_VRRP, 255, 5}
 	/* Any new route type added to zebra, should be mirrored here */
 
 	/* no entry/default: 150 */
@@ -618,6 +618,16 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	rib_table_info_t *info = srcdest_rnode_table_info(rn);
 	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
 
+	// TODO: Might need to move this?
+	// It checks if the nhe is even valid
+	// before trying to uninstall it. If the
+	// nexthop is invalid/uninstalled, then
+	// this route is not in the kernel anymore
+	// most likely.
+	if (!zebra_nhg_id_is_valid(re->nhe_id))
+		return;
+
+
 	if (info->safi != SAFI_UNICAST) {
 		UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
 		for (ALL_NEXTHOPS_PTR(re->ng, nexthop))
@@ -1080,6 +1090,12 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 		return alternate;
 
 	return current;
+}
+
+/* Core function for processing nexthop group contexts's off metaq */
+static void rib_nhg_process(struct nhg_ctx *ctx)
+{
+	nhg_ctx_process(ctx);
 }
 
 /* Core function for processing routing information base. */
@@ -2058,19 +2074,28 @@ done:
 	dplane_ctx_fini(&ctx);
 }
 
-/* Take a list of route_node structs and return 1, if there was a record
- * picked from it and processed by rib_process(). Don't process more,
- * than one RN record; operate only in the specified sub-queue.
- */
-static unsigned int process_subq(struct list *subq, uint8_t qindex)
+static void process_subq_nhg(struct listnode *lnode)
 {
-	struct listnode *lnode = listhead(subq);
-	struct route_node *rnode;
-	rib_dest_t *dest;
-	struct zebra_vrf *zvrf = NULL;
+	struct nhg_ctx *ctx = NULL;
+	uint8_t qindex = route_info[ZEBRA_ROUTE_NHG].meta_q_map;
 
-	if (!lnode)
-		return 0;
+	ctx = listgetdata(lnode);
+
+	if (!ctx)
+		return;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("NHG Context id=%u dequeued from sub-queue %u",
+			   ctx->id, qindex);
+
+	rib_nhg_process(ctx);
+}
+
+static void process_subq_route(struct listnode *lnode, uint8_t qindex)
+{
+	struct route_node *rnode = NULL;
+	rib_dest_t *dest = NULL;
+	struct zebra_vrf *zvrf = NULL;
 
 	rnode = listgetdata(lnode);
 	dest = rib_dest_from_rnode(rnode);
@@ -2100,7 +2125,26 @@ static unsigned int process_subq(struct list *subq, uint8_t qindex)
     }
 #endif
 	route_unlock_node(rnode);
+}
+
+/* Take a list of route_node structs and return 1, if there was a record
+ * picked from it and processed by rib_process(). Don't process more,
+ * than one RN record; operate only in the specified sub-queue.
+ */
+static unsigned int process_subq(struct list *subq, uint8_t qindex)
+{
+	struct listnode *lnode = listhead(subq);
+
+	if (!lnode)
+		return 0;
+
+	if (qindex == route_info[ZEBRA_ROUTE_NHG].meta_q_map)
+		process_subq_nhg(lnode);
+	else
+		process_subq_route(lnode, qindex);
+
 	list_delete_node(subq, lnode);
+
 	return 1;
 }
 
@@ -2158,10 +2202,13 @@ static wq_item_status meta_queue_process(struct work_queue *dummy, void *data)
  * original metaqueue index value will win and we'll end up with
  * the route node enqueued once.
  */
-static void rib_meta_queue_add(struct meta_queue *mq, struct route_node *rn)
+static int rib_meta_queue_add(struct meta_queue *mq, void *data)
 {
+	struct route_node *rn = NULL;
 	struct route_entry *re = NULL, *curr_re = NULL;
 	uint8_t qindex = MQ_SIZE, curr_qindex = MQ_SIZE;
+
+	rn = (struct route_node *)data;
 
 	RNODE_FOREACH_RE (rn, curr_re) {
 		curr_qindex = route_info[curr_re->type].meta_q_map;
@@ -2173,7 +2220,7 @@ static void rib_meta_queue_add(struct meta_queue *mq, struct route_node *rn)
 	}
 
 	if (!re)
-		return;
+		return -1;
 
 	/* Invariant: at this point we always have rn->info set. */
 	if (CHECK_FLAG(rib_dest_from_rnode(rn)->flags,
@@ -2182,7 +2229,7 @@ static void rib_meta_queue_add(struct meta_queue *mq, struct route_node *rn)
 			rnode_debug(rn, re->vrf_id,
 				    "rn %p is already queued in sub-queue %u",
 				    (void *)rn, qindex);
-		return;
+		return -1;
 	}
 
 	SET_FLAG(rib_dest_from_rnode(rn)->flags, RIB_ROUTE_QUEUED(qindex));
@@ -2193,26 +2240,37 @@ static void rib_meta_queue_add(struct meta_queue *mq, struct route_node *rn)
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		rnode_debug(rn, re->vrf_id, "queued rn %p into sub-queue %u",
 			    (void *)rn, qindex);
+
+	return 0;
 }
 
-/* Add route_node to work queue and schedule processing */
-void rib_queue_add(struct route_node *rn)
+static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
 {
-	assert(rn);
+	struct nhg_ctx *ctx = NULL;
+	uint8_t qindex = route_info[ZEBRA_ROUTE_NHG].meta_q_map;
 
-	/* Pointless to queue a route_node with no RIB entries to add or remove
-	 */
-	if (!rnode_to_ribs(rn)) {
-		zlog_debug("%s: called for route_node (%p, %d) with no ribs",
-			   __func__, (void *)rn, rn->lock);
-		zlog_backtrace(LOG_DEBUG);
-		return;
-	}
+	ctx = (struct nhg_ctx *)data;
 
+	if (!ctx)
+		return -1;
+
+	listnode_add(mq->subq[qindex], ctx);
+	mq->size++;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("NHG Context id=%u queued into sub-queue %u",
+			   ctx->id, qindex);
+
+	return 0;
+}
+
+static int mq_add_handler(void *data,
+			  int (*mq_add_func)(struct meta_queue *mq, void *data))
+{
 	if (zrouter.ribq == NULL) {
 		flog_err(EC_ZEBRA_WQ_NONEXISTENT,
 			 "%s: work_queue does not exist!", __func__);
-		return;
+		return -1;
 	}
 
 	/*
@@ -2226,9 +2284,31 @@ void rib_queue_add(struct route_node *rn)
 	if (work_queue_empty(zrouter.ribq))
 		work_queue_add(zrouter.ribq, zrouter.mq);
 
-	rib_meta_queue_add(zrouter.mq, rn);
+	return mq_add_func(zrouter.mq, data);
+}
 
-	return;
+/* Add route_node to work queue and schedule processing */
+int rib_queue_add(struct route_node *rn)
+{
+	assert(rn);
+
+	/* Pointless to queue a route_node with no RIB entries to add or remove
+	 */
+	if (!rnode_to_ribs(rn)) {
+		zlog_debug("%s: called for route_node (%p, %d) with no ribs",
+			   __func__, (void *)rn, rn->lock);
+		zlog_backtrace(LOG_DEBUG);
+		return -1;
+	}
+
+	return mq_add_handler(rn, &rib_meta_queue_add);
+}
+
+int rib_queue_nhg_add(struct nhg_ctx *ctx)
+{
+	assert(ctx);
+
+	return mq_add_handler(ctx, &rib_meta_queue_nhg_add);
 }
 
 /* Create new meta queue.
@@ -2411,9 +2491,12 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 	if (dest->selected_fib == re)
 		dest->selected_fib = NULL;
 
-	nhe = zebra_nhg_lookup_id(re->nhe_id);
-	if (nhe)
-		zebra_nhg_decrement_ref(nhe);
+	if (re->nhe_id) {
+		nhe = zebra_nhg_lookup_id(re->nhe_id);
+		if (nhe)
+			zebra_nhg_decrement_ref(nhe);
+	} else if (re->ng)
+		nexthop_group_free_delete(&re->ng);
 
 	nexthops_free(re->fib_ng.nexthop);
 
@@ -2637,12 +2720,6 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	struct route_table *table;
 	struct route_node *rn;
 	struct route_entry *same = NULL;
-	struct nhg_hash_entry *nhe = NULL;
-	struct nhg_connected_head nhg_depends = {0};
-	/* Default to route afi */
-	afi_t nhg_afi = afi;
-	/* Default to route vrf id */
-	vrf_id_t nhg_vrf_id = re->vrf_id;
 	int ret = 0;
 
 	if (!re)
@@ -2663,48 +2740,6 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	apply_mask(p);
 	if (src_p)
 		apply_mask_ipv6(src_p);
-
-	/* If its a group, create a dependency list */
-	if (re->ng && re->ng->nexthop->next) {
-		struct nexthop *nh = NULL;
-		struct nexthop lookup = {0};
-		struct nhg_hash_entry *depend = NULL;
-
-		nhg_connected_head_init(&nhg_depends);
-
-		for (ALL_NEXTHOPS_PTR(re->ng, nh)) {
-			lookup = *nh;
-			/* Clear it, since its a group */
-			lookup.next = NULL;
-			/* Use the route afi here, since a single nh */
-			depend = zebra_nhg_find_nexthop(&lookup, afi);
-			nhg_connected_head_add(&nhg_depends, depend);
-		}
-
-		/* change the afi for group */
-		nhg_afi = AFI_UNSPEC;
-		nhg_vrf_id = 0;
-	}
-
-	// TODO: Add proto type here
-	nhe = zebra_nhg_find(re->ng, nhg_vrf_id, nhg_afi, re->nhe_id,
-			     &nhg_depends, false);
-
-	if (nhe) {
-		/* It should point to the nhe nexthop group now */
-		if (re->ng)
-			nexthop_group_free_delete(&re->ng);
-		re->ng = nhe->nhg;
-		re->nhe_id = nhe->id;
-		zebra_nhg_increment_ref(nhe);
-	} else {
-		flog_err(
-			EC_ZEBRA_TABLE_LOOKUP_FAILED,
-			"Zebra failed to find or create a nexthop hash entry for id=%u in a route entry",
-			re->nhe_id);
-		nhg_connected_head_free(&nhg_depends);
-	}
-
 
 	/* Set default distance by route type. */
 	if (re->distance == 0)
@@ -3006,12 +3041,14 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	re->tag = tag;
 	re->nhe_id = nhe_id;
 
-	re->ng = nexthop_group_new();
+	if (!nhe_id) {
+		re->ng = nexthop_group_new();
 
-	/* Add nexthop. */
-	nexthop = nexthop_new();
-	*nexthop = *nh;
-	route_entry_nexthop_add(re, nexthop);
+		/* Add nexthop. */
+		nexthop = nexthop_new();
+		*nexthop = *nh;
+		route_entry_nexthop_add(re, nexthop);
+	}
 
 	return rib_add_multipath(afi, safi, p, src_p, re);
 }

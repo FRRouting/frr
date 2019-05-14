@@ -441,7 +441,6 @@ extern void if_nhg_dependents_del(struct interface *ifp,
 				  struct nhg_hash_entry *nhe);
 extern unsigned int if_nhg_dependents_count(const struct interface *ifp);
 extern bool if_nhg_dependents_is_empty(const struct interface *ifp);
-extern void if_down_nhg_dependents(const struct interface *ifp);
 
 extern void vrf_add_update(struct vrf *vrfp);
 

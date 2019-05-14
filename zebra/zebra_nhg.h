@@ -34,7 +34,7 @@
  * It is designed to mimic the netlink nexthop_grp
  * struct in include/linux/nexthop.h
  */
-struct depend_info {
+struct nh_grp {
 	uint32_t id;
 	uint8_t weight;
 };
@@ -98,6 +98,47 @@ struct nhg_connected {
 
 RB_PROTOTYPE(nhg_connected_head, nhg_connected, nhg_entry, nhg_connected_cmp);
 
+
+enum nhg_ctx_op_e {
+	NHG_CTX_OP_NONE = 0,
+	NHG_CTX_OP_NEW,
+	NHG_CTX_OP_DEL,
+};
+
+enum nhg_ctx_result {
+	NHG_CTX_NONE = 0,
+	NHG_CTX_QUEUED,
+	NHG_CTX_SUCCESS,
+	NHG_CTX_FAILURE,
+};
+
+/*
+ * Context needed to queue nhg updates on the
+ * work queue.
+ */
+struct nhg_ctx {
+
+	/* Unique ID */
+	uint32_t id;
+
+	vrf_id_t vrf_id;
+	afi_t afi;
+	bool is_kernel_nh;
+
+	/* If its a group array, how many? */
+	uint8_t count;
+
+	/* Its either a single nexthop or an array of ID's */
+	union {
+		struct nexthop nh;
+		struct nh_grp grp[MULTIPATH_NUM];
+	} u;
+
+	enum nhg_ctx_op_e op;
+	enum nhg_ctx_result status;
+};
+
+
 void zebra_nhg_init(void);
 void zebra_nhg_terminate(void);
 
@@ -147,20 +188,31 @@ extern uint32_t zebra_nhg_id_key(const void *arg);
 extern bool zebra_nhg_hash_equal(const void *arg1, const void *arg2);
 extern bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2);
 
-extern struct nhg_hash_entry *
-zebra_nhg_find(struct nexthop_group *nhg, vrf_id_t vrf_id, afi_t afi,
-	       uint32_t id, struct nhg_connected_head *nhg_depends,
-	       bool is_kernel_nh);
+/*
+ * Process a context off of a queue.
+ * Specifically this should be from
+ * the rib meta queue.
+ */
+extern int nhg_ctx_process(struct nhg_ctx *ctx);
 
-extern struct nhg_hash_entry *zebra_nhg_find_nexthop(struct nexthop *nh,
-						     afi_t afi);
+/* Find via kernel nh creation */
+extern int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh,
+				 struct nh_grp *grp, uint8_t count,
+				 vrf_id_t vrf_id, afi_t afi);
+
+/* Find via route creation */
+extern struct nhg_hash_entry *zebra_nhg_rib_find(uint32_t id,
+						 struct nexthop_group *nhg,
+						 vrf_id_t rt_vrf_id,
+						 afi_t rt_afi);
 
 
 void zebra_nhg_free_members(struct nhg_hash_entry *nhe);
 void zebra_nhg_free(void *arg);
-void zebra_nhg_release(struct nhg_hash_entry *nhe);
 void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe);
 void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe);
+
+extern bool zebra_nhg_id_is_valid(uint32_t id);
 void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe);
 void zebra_nhg_set_if(struct nhg_hash_entry *nhe, struct interface *ifp);
 

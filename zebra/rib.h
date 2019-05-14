@@ -153,13 +153,14 @@ struct route_entry {
 #define RIB_KERNEL_ROUTE(R) RKERNEL_ROUTE((R)->type)
 
 /* meta-queue structure:
- * sub-queue 0: connected, kernel
- * sub-queue 1: static
- * sub-queue 2: RIP, RIPng, OSPF, OSPF6, IS-IS, EIGRP, NHRP
- * sub-queue 3: iBGP, eBGP
- * sub-queue 4: any other origin (if any)
+ * sub-queue 0: nexthop group objects
+ * sub-queue 1: connected, kernel
+ * sub-queue 2: static
+ * sub-queue 3: RIP, RIPng, OSPF, OSPF6, IS-IS, EIGRP, NHRP
+ * sub-queue 4: iBGP, eBGP
+ * sub-queue 5: any other origin (if any)
  */
-#define MQ_SIZE 5
+#define MQ_SIZE 6
 struct meta_queue {
 	struct list *subq[MQ_SIZE];
 	uint32_t size; /* sum of lengths of all subqueues */
@@ -209,7 +210,7 @@ DECLARE_LIST(re_list, struct route_entry, next);
 
 #define RIB_ROUTE_QUEUED(x)	(1 << (x))
 // If MQ_SIZE is modified this value needs to be updated.
-#define RIB_ROUTE_ANY_QUEUED    0x1F
+#define RIB_ROUTE_ANY_QUEUED 0x3F
 
 /*
  * The maximum qindex that can be used.
@@ -397,7 +398,13 @@ extern unsigned long rib_score_proto(uint8_t proto, unsigned short instance);
 extern unsigned long rib_score_proto_table(uint8_t proto,
 					   unsigned short instance,
 					   struct route_table *table);
-extern void rib_queue_add(struct route_node *rn);
+
+extern int rib_queue_add(struct route_node *rn);
+
+struct nhg_ctx; /* Forward declaration */
+
+extern int rib_queue_nhg_add(struct nhg_ctx *ctx);
+
 extern void meta_queue_free(struct meta_queue *mq);
 extern int zebra_rib_labeled_unicast(struct route_entry *re);
 extern struct route_table *rib_table_ipv6;

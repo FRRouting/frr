@@ -189,6 +189,20 @@ static int if_zebra_new_hook(struct interface *ifp)
 	return 0;
 }
 
+static void if_nhg_dependents_release(struct interface *ifp)
+{
+	if (!if_nhg_dependents_is_empty(ifp)) {
+		struct nhg_connected *rb_node_dep = NULL;
+		struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+		RB_FOREACH (rb_node_dep, nhg_connected_head,
+			    &zif->nhg_dependents) {
+			rb_node_dep->nhe->ifp = NULL;
+			zebra_nhg_set_invalid(rb_node_dep->nhe);
+		}
+	}
+}
+
 /* Called when interface is deleted. */
 static int if_zebra_delete_hook(struct interface *ifp)
 {
@@ -210,6 +224,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		list_delete(&rtadv->AdvDNSSLList);
 #endif /* HAVE_RTADV */
 
+		if_nhg_dependents_release(ifp);
 		zebra_if_nhg_dependents_free(zebra_if);
 
 		XFREE(MTYPE_TMP, zebra_if->desc);
@@ -983,7 +998,7 @@ bool if_nhg_dependents_is_empty(const struct interface *ifp)
 	return false;
 }
 
-void if_down_nhg_dependents(const struct interface *ifp)
+static void if_down_nhg_dependents(const struct interface *ifp)
 {
 	if (!if_nhg_dependents_is_empty(ifp)) {
 		struct nhg_connected *rb_node_dep = NULL;

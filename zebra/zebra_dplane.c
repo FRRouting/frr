@@ -76,8 +76,8 @@ struct dplane_nexthop_info {
 	bool is_kernel_nh;
 
 	struct nexthop_group ng;
-	struct depend_info depends_info[MULTIPATH_NUM];
-	uint8_t depends_count;
+	struct nh_grp nh_grp[MULTIPATH_NUM];
+	uint8_t nh_grp_count;
 };
 
 /*
@@ -1090,17 +1090,17 @@ dplane_ctx_get_nhe_ng(const struct zebra_dplane_ctx *ctx)
 	return &(ctx->u.rinfo.nhe.ng);
 }
 
-const struct depend_info *
-dplane_ctx_get_nhe_depends_info(const struct zebra_dplane_ctx *ctx)
+const struct nh_grp *
+dplane_ctx_get_nhe_nh_grp(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
-	return ctx->u.rinfo.nhe.depends_info;
+	return ctx->u.rinfo.nhe.nh_grp;
 }
 
-uint8_t dplane_ctx_get_nhe_depends_count(const struct zebra_dplane_ctx *ctx)
+uint8_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
-	return ctx->u.rinfo.nhe.depends_count;
+	return ctx->u.rinfo.nhe.nh_grp_count;
 }
 
 /* Accessors for LSP information */
@@ -1572,15 +1572,18 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 		struct nhg_connected *rb_node_dep = NULL;
 		uint8_t i = 0;
 
+		// TODO: This doesn't work with depends being recursive
+		// resolved nh's as well. Yea, good luck future stephen
+		// this one...
+
 		RB_FOREACH (rb_node_dep, nhg_connected_head,
 			    &nhe->nhg_depends) {
-			ctx->u.rinfo.nhe.depends_info[i].id =
-				rb_node_dep->nhe->id;
+			ctx->u.rinfo.nhe.nh_grp[i].id = rb_node_dep->nhe->id;
 			/* We aren't using weights for anything right now */
-			ctx->u.rinfo.nhe.depends_info[i].weight = 0;
+			ctx->u.rinfo.nhe.nh_grp[i].weight = 0;
 			i++;
 		}
-		ctx->u.rinfo.nhe.depends_count = i;
+		ctx->u.rinfo.nhe.nh_grp_count = i;
 	}
 
 	/* Extract ns info - can't use pointers to 'core'
