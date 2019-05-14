@@ -478,18 +478,19 @@ static void zebra_nhg_process_grp(struct nexthop_group *nhg,
 }
 
 
-static struct nhg_hash_entry *
-zebra_nhg_find(uint32_t id, struct nexthop_group *nhg,
-	       struct nhg_connected_head *nhg_depends, vrf_id_t vrf_id,
-	       afi_t afi, bool is_kernel_nh)
+static bool zebra_nhg_find(struct nhg_hash_entry **nhe, uint32_t id,
+			   struct nexthop_group *nhg,
+			   struct nhg_connected_head *nhg_depends,
+			   vrf_id_t vrf_id, afi_t afi, bool is_kernel_nh)
 {
 	/* id counter to keep in sync with kernel */
 	static uint32_t id_counter = 0;
 
 	struct nhg_hash_entry lookup = {};
-	struct nhg_hash_entry *nhe = NULL;
 
 	uint32_t old_id_counter = id_counter;
+
+	bool created = false;
 
 	if (id > id_counter) {
 		/* Increase our counter so we don't try to create
@@ -509,31 +510,33 @@ zebra_nhg_find(uint32_t id, struct nexthop_group *nhg,
 		lookup.nhg_depends = *nhg_depends;
 
 	if (id)
-		nhe = zebra_nhg_lookup_id(id);
+		(*nhe) = zebra_nhg_lookup_id(id);
 	else
-		nhe = hash_lookup(zrouter.nhgs, &lookup);
+		(*nhe) = hash_lookup(zrouter.nhgs, &lookup);
 
 	/* If it found an nhe in our tables, this new ID is unused */
-	if (nhe)
+	if (*nhe)
 		id_counter = old_id_counter;
 
-	if (!nhe)
-		nhe = hash_get(zrouter.nhgs, &lookup, zebra_nhg_alloc);
+	if (!(*nhe)) {
+		(*nhe) = hash_get(zrouter.nhgs, &lookup, zebra_nhg_alloc);
+		created = true;
+	}
 
-	return nhe;
+	return created;
 }
 
 /* Find/create a single nexthop */
-static struct nhg_hash_entry *zebra_nhg_find_nexthop(uint32_t id,
-						     struct nexthop *nh,
-						     afi_t afi,
-						     bool is_kernel_nh)
+static bool zebra_nhg_find_nexthop(struct nhg_hash_entry **nhe, uint32_t id,
+				   struct nexthop *nh, afi_t afi,
+				   bool is_kernel_nh)
 {
 	struct nexthop_group nhg = {};
 
 	_nexthop_group_add_sorted(&nhg, nh);
 
-	return zebra_nhg_find(id, &nhg, NULL, nh->vrf_id, afi, is_kernel_nh);
+	return zebra_nhg_find(nhe, id, &nhg, NULL, nh->vrf_id, afi,
+			      is_kernel_nh);
 }
 
 static struct nhg_ctx *nhg_ctx_new()
@@ -580,13 +583,15 @@ static int nhg_ctx_process_new(struct nhg_ctx *ctx)
 		nhg = nexthop_group_new();
 		zebra_nhg_process_grp(nhg, &nhg_depends, ctx->u.grp,
 				      ctx->count);
-		nhe = zebra_nhg_find(ctx->id, nhg, &nhg_depends, ctx->vrf_id,
-				     ctx->afi, true);
+		if (!zebra_nhg_find(&nhe, ctx->id, nhg, &nhg_depends,
+				    ctx->vrf_id, ctx->afi, true))
+			nhg_connected_head_free(&nhg_depends);
+
 		/* These got copied over in zebra_nhg_alloc() */
 		nexthop_group_free_delete(&nhg);
-	} else
-		nhe = zebra_nhg_find_nexthop(ctx->id, &ctx->u.nh, ctx->afi,
-					     ctx->is_kernel_nh);
+	} else if (!zebra_nhg_find_nexthop(&nhe, ctx->id, &ctx->u.nh, ctx->afi,
+					   ctx->is_kernel_nh))
+		nhg_connected_head_free(&nhg_depends);
 
 	if (nhe) {
 		if (ctx->id != nhe->id)
@@ -706,12 +711,15 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 static struct nhg_hash_entry *depends_find(struct nexthop *nh, afi_t afi)
 {
 	struct nexthop lookup = {0};
+	struct nhg_hash_entry *nhe = NULL;
 
 	lookup = *nh;
 	/* Clear it, in case its a group */
 	lookup.next = NULL;
 	lookup.prev = NULL;
-	return zebra_nhg_find_nexthop(0, &lookup, afi, false);
+	zebra_nhg_find_nexthop(&nhe, 0, &lookup, afi, false);
+
+	return nhe;
 }
 
 /* Rib-side, you get a nexthop group struct */
@@ -747,9 +755,21 @@ struct nhg_hash_entry *zebra_nhg_rib_find(uint32_t id,
 		/* change the afi/vrf_id since its a group */
 		nhg_afi = AFI_UNSPEC;
 		nhg_vrf_id = 0;
+	} else {
+		/*
+		 * If the vrf_id on the nexthop does not match
+		 * the route one, use it instead.
+		 */
+		vrf_id_t nh_vrf_id = nhg->nexthop->vrf_id;
+
+		if (nh_vrf_id && nh_vrf_id != rt_vrf_id)
+			nhg_vrf_id = nh_vrf_id;
 	}
 
-	nhe = zebra_nhg_find(id, nhg, &nhg_depends, nhg_vrf_id, nhg_afi, false);
+	if (!zebra_nhg_find(&nhe, id, nhg, &nhg_depends, nhg_vrf_id, nhg_afi,
+			    false))
+		nhg_connected_head_free(&nhg_depends);
+
 	return nhe;
 }
 
