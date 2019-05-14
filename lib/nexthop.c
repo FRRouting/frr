@@ -68,7 +68,7 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 {
 	int ret = 0;
 	uint32_t n1 = 0;
-	uint32_2 n2 = 0;
+	uint32_t n2 = 0;
 
 	if (next1->vrf_id < next2->vrf_id)
 		return -1;
@@ -255,45 +255,10 @@ bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2)
 	if (nh1 == nh2)
 		return true;
 
-	if (nh1->vrf_id != nh2->vrf_id)
+	if (nexthop_cmp(nh1, nh2) != 0)
 		return false;
 
-	if (nh1->type != nh2->type)
-		return false;
-
-	switch (nh1->type) {
-	case NEXTHOP_TYPE_IFINDEX:
-		if (nh1->ifindex != nh2->ifindex)
-			return false;
-		break;
-	case NEXTHOP_TYPE_IPV4:
-		if (nh1->gate.ipv4.s_addr != nh2->gate.ipv4.s_addr)
-			return false;
-		break;
-	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		if (nh1->gate.ipv4.s_addr != nh2->gate.ipv4.s_addr)
-			return false;
-		if (nh1->ifindex != nh2->ifindex)
-			return false;
-		break;
-	case NEXTHOP_TYPE_IPV6:
-		if (memcmp(&nh1->gate.ipv6, &nh2->gate.ipv6, 16))
-			return false;
-		break;
-	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		if (memcmp(&nh1->gate.ipv6, &nh2->gate.ipv6, 16))
-			return false;
-		if (nh1->ifindex != nh2->ifindex)
-			return false;
-		break;
-	case NEXTHOP_TYPE_BLACKHOLE:
-		if (nh1->bh_type != nh2->bh_type)
-			return false;
-		break;
-	}
-
-	/* Compare labels too (if present) */
-	return (!!nexthop_labels_match(nh1, nh2));
+	return true;
 }
 
 /* Update nexthop with label information. */
