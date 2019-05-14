@@ -1525,6 +1525,9 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 	zns = zvrf->zns;
 	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_ROUTE_UPDATE));
 
+	if (re->nhe_id && zns->supports_nh)
+		ctx->u.rinfo.nhe.id = re->nhe_id;
+
 	/* Trying out the sequence number idea, so we can try to detect
 	 * when a result is stale.
 	 */

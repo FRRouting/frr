@@ -1637,6 +1637,13 @@ static int netlink_route_multipath(int cmd, struct zebra_dplane_ctx *ctx)
 			  RTA_PAYLOAD(rta));
 	}
 
+	if (dplane_ctx_get_nhe_id(ctx)) {
+		/* Kernel supports nexthop objects */
+		addattr32(&req.n, sizeof(req), RTA_NH_ID,
+			  dplane_ctx_get_nhe_id(ctx));
+		goto skip;
+	}
+
 	/* Count overall nexthops so we can decide whether to use singlepath
 	 * or multipath case.
 	 */
