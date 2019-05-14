@@ -276,8 +276,15 @@ const struct nexthop_group *dplane_ctx_get_old_ng(
 	const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for nexthop information */
-const struct nhg_hash_entry *
-dplane_ctx_get_nhe(const struct zebra_dplane_ctx *ctx);
+uint32_t dplane_ctx_get_nhe_id(const struct zebra_dplane_ctx *ctx);
+afi_t dplane_ctx_get_nhe_afi(const struct zebra_dplane_ctx *ctx);
+vrf_id_t dplane_ctx_get_nhe_vrf_id(const struct zebra_dplane_ctx *ctx);
+bool dplane_ctx_get_nhe_is_kernel_nh(const struct zebra_dplane_ctx *ctx);
+const struct nexthop_group *
+dplane_ctx_get_nhe_ng(const struct zebra_dplane_ctx *ctx);
+const struct depend_info *
+dplane_ctx_get_nhe_depends_info(const struct zebra_dplane_ctx *ctx);
+uint8_t dplane_ctx_get_nhe_depends_count(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for LSP information */
 mpls_label_t dplane_ctx_get_in_label(const struct zebra_dplane_ctx *ctx);

@@ -1127,13 +1127,13 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 			vty_out(vty, "\tInterface Index: %d\n",
 				nhe->ifp->ifindex);
 
-		if (nhe->nhg_depends) {
-			struct listnode *dp_node = NULL;
-			struct nhg_depend *n_dp = NULL;
+		if (!zebra_nhg_depends_is_empty(nhe)) {
+			struct nhg_depend *rb_node_dep = NULL;
+
 			vty_out(vty, "\tDepends:");
-			for (ALL_LIST_ELEMENTS_RO(nhe->nhg_depends, dp_node,
-						  n_dp)) {
-				vty_out(vty, " (%u)", n_dp->nhe->id);
+			RB_FOREACH (rb_node_dep, nhg_depends_head,
+				    &nhe->nhg_depends) {
+				vty_out(vty, " (%u)", rb_node_dep->nhe->id);
 			}
 			vty_out(vty, "\n");
 		}

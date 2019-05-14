@@ -2638,7 +2638,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	struct route_node *rn;
 	struct route_entry *same = NULL;
 	struct nhg_hash_entry *nhe = NULL;
-	struct list *nhg_depends = NULL;
+	struct nhg_depends_head nhg_depends = {0};
 	/* Default to route afi */
 	afi_t nhg_afi = afi;
 	int ret = 0;
@@ -2651,7 +2651,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	/* Lookup table.  */
 	table = zebra_vrf_table_with_table_id(afi, safi, re->vrf_id, re->table);
 	if (!table) {
-		zebra_nhg_free_group_depends(re->ng, nhg_depends);
+		nexthop_group_free_delete(&re->ng);
 		XFREE(MTYPE_RE, re);
 		return 0;
 	}
@@ -2667,7 +2667,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		struct nexthop lookup = {0};
 		struct nhg_hash_entry *depend = NULL;
 
-		nhg_depends = nhg_depend_new_list();
+		zebra_nhg_depends_head_init(&nhg_depends);
 
 		for (ALL_NEXTHOPS_PTR(re->ng, nh)) {
 			lookup = *nh;
@@ -2675,20 +2675,21 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 			lookup.next = NULL;
 			/* Use the route afi here, since a single nh */
 			depend = zebra_nhg_find_nexthop(&lookup, afi);
-			nhg_depend_add(nhg_depends, depend);
+			zebra_nhg_depends_head_add(&nhg_depends, depend);
 		}
 
 		/* change the afi for group */
-		if (listcount(nhg_depends))
-			nhg_afi = AFI_UNSPEC;
+		nhg_afi = AFI_UNSPEC;
 	}
 
+	// TODO: Add proto type here
 	nhe = zebra_nhg_find(re->ng, re->vrf_id, nhg_afi, re->nhe_id,
-			     nhg_depends, false);
+			     &nhg_depends, false);
 
 	if (nhe) {
-		// TODO: Add interface pointer
-		zebra_nhg_free_group_depends(re->ng, nhg_depends);
+		/* It should point to the nhe nexthop group now */
+		if (re->ng)
+			nexthop_group_free_delete(&re->ng);
 		re->ng = nhe->nhg;
 		re->nhe_id = nhe->id;
 		zebra_nhg_increment_ref(nhe);
@@ -2697,6 +2698,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 			EC_ZEBRA_TABLE_LOOKUP_FAILED,
 			"Zebra failed to find or create a nexthop hash entry for id=%u in a route entry",
 			re->nhe_id);
+		zebra_nhg_depends_free(&nhg_depends);
 	}
 
 

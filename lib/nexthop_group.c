@@ -122,6 +122,13 @@ void nexthop_group_delete(struct nexthop_group **nhg)
 	XFREE(MTYPE_NEXTHOP_GROUP, *nhg);
 }
 
+void nexthop_group_free_delete(struct nexthop_group **nhg)
+{
+	if ((*nhg)->nexthop)
+		nexthops_free((*nhg)->nexthop);
+	nexthop_group_delete(nhg);
+}
+
 /* Add nexthop to the end of a nexthop list.  */
 void _nexthop_add(struct nexthop **target, struct nexthop *nexthop)
 {

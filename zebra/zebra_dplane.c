@@ -67,6 +67,20 @@ const uint32_t DPLANE_DEFAULT_NEW_WORK = 100;
 #endif	/* DPLANE_DEBUG */
 
 /*
+ * Nexthop information captured for nexthop/nexthop group updates
+ */
+struct dplane_nexthop_info {
+	uint32_t id;
+	afi_t afi;
+	vrf_id_t vrf_id;
+	bool is_kernel_nh;
+
+	struct nexthop_group ng;
+	struct depend_info depends_info[MULTIPATH_NUM];
+	uint8_t depends_count;
+};
+
+/*
  * Route information captured for route updates.
  */
 struct dplane_route_info {
@@ -95,8 +109,8 @@ struct dplane_route_info {
 	uint32_t zd_mtu;
 	uint32_t zd_nexthop_mtu;
 
-	/* Nexthop hash entry */
-	struct nhg_hash_entry zd_nhe;
+	/* Nexthop hash entry info */
+	struct dplane_nexthop_info nhe;
 
 	/* Nexthops */
 	struct nexthop_group zd_ng;
@@ -470,7 +484,12 @@ static void dplane_ctx_free(struct zebra_dplane_ctx **pctx)
 	case DPLANE_OP_NH_INSTALL:
 	case DPLANE_OP_NH_UPDATE:
 	case DPLANE_OP_NH_DELETE: {
-		zebra_nhg_free_members(&(*pctx)->u.rinfo.zd_nhe);
+		if ((*pctx)->u.rinfo.nhe.ng.nexthop) {
+			/* This deals with recursive nexthops too */
+			nexthops_free((*pctx)->u.rinfo.nhe.ng.nexthop);
+
+			(*pctx)->u.rinfo.nhe.ng.nexthop = NULL;
+		}
 		break;
 	}
 
@@ -1040,11 +1059,48 @@ const struct zebra_dplane_info *dplane_ctx_get_ns(
 }
 
 /* Accessors for nexthop information */
-const struct nhg_hash_entry *
-dplane_ctx_get_nhe(const struct zebra_dplane_ctx *ctx)
+uint32_t dplane_ctx_get_nhe_id(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
-	return &(ctx->u.rinfo.zd_nhe);
+	return ctx->u.rinfo.nhe.id;
+}
+
+afi_t dplane_ctx_get_nhe_afi(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.rinfo.nhe.afi;
+}
+
+vrf_id_t dplane_ctx_get_nhe_vrf_id(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.rinfo.nhe.vrf_id;
+}
+
+bool dplane_ctx_get_nhe_is_kernel_nh(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.rinfo.nhe.is_kernel_nh;
+}
+
+const struct nexthop_group *
+dplane_ctx_get_nhe_ng(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return &(ctx->u.rinfo.nhe.ng);
+}
+
+const struct depend_info *
+dplane_ctx_get_nhe_depends_info(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.rinfo.nhe.depends_info;
+}
+
+uint8_t dplane_ctx_get_nhe_depends_count(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.rinfo.nhe.depends_count;
 }
 
 /* Accessors for LSP information */
@@ -1505,21 +1561,26 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	/* Copy over nhe info */
-	ctx->u.rinfo.zd_nhe.id = nhe->id;
-	ctx->u.rinfo.zd_nhe.vrf_id = nhe->vrf_id;
-	ctx->u.rinfo.zd_nhe.afi = nhe->afi;
-	ctx->u.rinfo.zd_nhe.refcnt = nhe->refcnt;
-	ctx->u.rinfo.zd_nhe.is_kernel_nh = nhe->is_kernel_nh;
-	ctx->u.rinfo.zd_nhe.dplane_ref = nhe->dplane_ref;
-	ctx->u.rinfo.zd_nhe.ifp = nhe->ifp;
+	ctx->u.rinfo.nhe.id = nhe->id;
+	ctx->u.rinfo.nhe.afi = nhe->afi;
+	ctx->u.rinfo.nhe.vrf_id = nhe->vrf_id;
+	ctx->u.rinfo.nhe.is_kernel_nh = nhe->is_kernel_nh;
 
-	ctx->u.rinfo.zd_nhe.nhg = nexthop_group_new();
-	nexthop_group_copy(ctx->u.rinfo.zd_nhe.nhg, nhe->nhg);
+	nexthop_group_copy(&(ctx->u.rinfo.nhe.ng), nhe->nhg);
 
-	if (nhe->nhg_depends)
-		ctx->u.rinfo.zd_nhe.nhg_depends =
-			nhg_depend_dup_list(nhe->nhg_depends);
+	if (!zebra_nhg_depends_is_empty(nhe)) {
+		struct nhg_depend *rb_node_dep = NULL;
+		uint8_t i = 0;
 
+		RB_FOREACH (rb_node_dep, nhg_depends_head, &nhe->nhg_depends) {
+			ctx->u.rinfo.nhe.depends_info[i].id =
+				rb_node_dep->nhe->id;
+			/* We aren't using weights for anything right now */
+			ctx->u.rinfo.nhe.depends_info[i].weight = 0;
+			i++;
+		}
+		ctx->u.rinfo.nhe.depends_count = i;
+	}
 
 	/* Extract ns info - can't use pointers to 'core'
 	   structs */
@@ -3053,7 +3114,7 @@ kernel_dplane_nexthop_update(struct zebra_dplane_ctx *ctx)
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
 		zlog_debug("ID (%u) Dplane nexthop update ctx %p op %s",
-			   dplane_ctx_get_nhe(ctx)->id, ctx,
+			   dplane_ctx_get_nhe_id(ctx), ctx,
 			   dplane_op2str(dplane_ctx_get_op(ctx)));
 	}
 

@@ -39,110 +39,132 @@
 #include "zebra/zserv.h"
 #include "zebra/rt.h"
 #include "zebra_errors.h"
+#include "zebra_dplane.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, NHG, "Nexthop Group Entry");
-DEFINE_MTYPE_STATIC(ZEBRA, NHG_DEPENDS, "Nexthop Group Entry Depends");
+DEFINE_MTYPE_STATIC(ZEBRA, NHG_DEPEND, "Nexthop Group Dependency");
 
-/**
- * nhg_depend_add() - Add a new dependency to the nhg_hash_entry
- *
- * @nhg_depends:	List we are adding the dependency to
- * @depend:		Dependency we are adding
- *
- * Return:		Newly created nhg_depend
- */
-struct nhg_depend *nhg_depend_add(struct list *nhg_depends,
-				  struct nhg_hash_entry *depend)
+static int zebra_nhg_depend_cmp(const struct nhg_depend *dep1,
+				const struct nhg_depend *dep2);
+
+RB_GENERATE(nhg_depends_head, nhg_depend, depend, zebra_nhg_depend_cmp);
+
+static void nhg_depend_free(struct nhg_depend *dep)
 {
-	struct nhg_depend *nhg_dp = NULL;
-
-	nhg_dp = nhg_depend_new();
-	nhg_dp->nhe = depend;
-
-	listnode_add(nhg_depends, nhg_dp);
-	return nhg_dp;
+	XFREE(MTYPE_NHG_DEPEND, dep);
 }
 
-/**
- * nhg_depend_new() - Allocate a new nhg_depend struct
- *
- * Return:	Allocated nhg_depend struct
- */
-struct nhg_depend *nhg_depend_new(void)
+static struct nhg_depend *nhg_depend_new(struct nhg_hash_entry *nhe)
 {
-	return XCALLOC(MTYPE_NHG_DEPENDS, sizeof(struct nhg_depend));
+	struct nhg_depend *new = NULL;
+
+	new = XCALLOC(MTYPE_NHG_DEPEND, sizeof(struct nhg_depend));
+	new->nhe = nhe;
+
+	return new;
 }
 
-/**
- * nhg_depend_free() - Free the nhg_depend struct
- */
-void nhg_depend_free(struct nhg_depend *depend)
+static uint8_t zebra_nhg_depends_head_count(const struct nhg_depends_head *head)
 {
-	XFREE(MTYPE_NHG_DEPENDS, depend);
-}
+	struct nhg_depend *rb_node_dep = NULL;
+	uint8_t i = 0;
 
-/**
- * nhg_depend_new_list() - Allocate a new list for nhg_depends
- *
- * Return:	Allocated nhg_depend list
- */
-struct list *nhg_depend_new_list()
-{
-	struct list *nhg_depends = NULL;
-
-	nhg_depends = list_new();
-	nhg_depends->del = (void (*)(void *))nhg_depend_free;
-
-	return nhg_depends;
-}
-
-/**
- * nhg_depend_dup_list() - Duplicate the dependency linked list
- *
- * @from:	List to duplicate
- *
- * Return:	New list
- */
-struct list *nhg_depend_dup_list(struct list *from)
-{
-	struct list *to = NULL;
-	struct listnode *ln = NULL;
-	struct nhg_depend *n_dp = NULL;
-
-	to = nhg_depend_new_list();
-
-	for (ALL_LIST_ELEMENTS_RO(from, ln, n_dp)) {
-		nhg_depend_add(to, n_dp->nhe);
+	RB_FOREACH (rb_node_dep, nhg_depends_head, head) {
+		i++;
 	}
+	return i;
+}
 
-	return to;
+uint8_t zebra_nhg_depends_count(const struct nhg_hash_entry *nhe)
+{
+	return zebra_nhg_depends_head_count(&nhe->nhg_depends);
+}
+
+static bool zebra_nhg_depends_head_is_empty(const struct nhg_depends_head *head)
+{
+	return RB_EMPTY(nhg_depends_head, head);
 }
 
 /**
- * zebra_nhg_depends_lookup_id() - Lookup for an id in the nhg_depends
- * 				   linked list of another nhe
+ * zebra_nhg_depends_is_empty() - Are there any dependencies
  *
- * @nhe: 	Nexthop group hash entry with list to look in
- * @lookup:	ID to look for
+ * @nhe:	Nexthop group hash entry
  *
- * Return:	Nexthop group hash entry if found
+ * Return:	True if empty, False otherwise
  */
-static struct nhg_hash_entry *
-zebra_nhg_depends_lookup_id(const struct nhg_hash_entry *nhe, const uint32_t id)
+bool zebra_nhg_depends_is_empty(const struct nhg_hash_entry *nhe)
 {
-	struct listnode *ln = NULL;
-	struct nhg_depend *n_dp = NULL;
-	struct nhg_hash_entry *match = NULL;
-
-	for (ALL_LIST_ELEMENTS_RO(nhe->nhg_depends, ln, n_dp)) {
-		if (n_dp->nhe->id == id) {
-			match = n_dp->nhe;
-			break;
-		}
-	}
-
-	return match;
+	return zebra_nhg_depends_head_is_empty(&nhe->nhg_depends);
 }
+
+void zebra_nhg_depends_head_del(struct nhg_depends_head *head,
+			  struct nhg_hash_entry *depend)
+{
+	struct nhg_depend lookup = {};
+	struct nhg_depend *removed = NULL;
+
+	lookup.nhe = depend;
+
+	removed = RB_REMOVE(nhg_depends_head, head, &lookup);
+
+	nhg_depend_free(removed);
+}
+
+// TODO: Refactor this for use with dependents as well
+void zebra_nhg_depends_head_add(struct nhg_depends_head *head,
+			  struct nhg_hash_entry *depend)
+{
+	struct nhg_depend *new = NULL;
+
+	new = nhg_depend_new(depend);
+
+	RB_INSERT(nhg_depends_head, head, new);
+}
+
+/**
+ * zebra_nhg_depend_del() - Delete a dependency from the nhg_hash_entry
+ *
+ * @from:	Nexthop group hash entry we are deleting from
+ * @depend:	Dependency we are deleting
+ */
+void zebra_nhg_depends_del(struct nhg_hash_entry *from,
+			   struct nhg_hash_entry *depend)
+{
+	zebra_nhg_depends_head_del(&from->nhg_depends, depend);
+}
+
+/**
+ * zebra_nhg_depends_add() - Add a new dependency to the nhg_hash_entry
+ *
+ * @to:		Nexthop group hash entry we are adding to
+ * @depend:	Dependency we are adding
+ */
+void zebra_nhg_depends_add(struct nhg_hash_entry *to,
+			   struct nhg_hash_entry *depend)
+{
+	zebra_nhg_depends_head_add(&to->nhg_depends, depend);
+}
+
+/**
+ * zebra_nhg_depends_head_init() - Helper to init the RB tree head directly
+ *
+ * @head:	RB nhg_depends_head struct
+ */
+void zebra_nhg_depends_head_init(struct nhg_depends_head *head)
+{
+	RB_INIT(nhg_depends_head, head);
+}
+
+/**
+ * zebra_nhg_depends_init() - Initialize tree for nhg dependencies
+ *
+ * @nhe:	Nexthop group hash entry
+ */
+void zebra_nhg_depends_init(struct nhg_hash_entry *nhe)
+{
+	zebra_nhg_depends_head_init(&nhe->nhg_depends);
+}
+
 
 /**
  * zebra_nhg_depends_equal() - Are the dependencies of these nhe's equal
@@ -158,21 +180,20 @@ zebra_nhg_depends_lookup_id(const struct nhg_hash_entry *nhe, const uint32_t id)
 static bool zebra_nhg_depends_equal(const struct nhg_hash_entry *nhe1,
 				    const struct nhg_hash_entry *nhe2)
 {
-	struct listnode *ln = NULL;
-	struct nhg_depend *n_dp = NULL;
+	struct nhg_depend *rb_node_dep = NULL;
 
-	if (!nhe1->nhg_depends && !nhe2->nhg_depends)
+	if (zebra_nhg_depends_is_empty(nhe1)
+	    && zebra_nhg_depends_is_empty(nhe2))
 		return true;
 
-	if ((nhe1->nhg_depends && !nhe2->nhg_depends)
-	    || (nhe2->nhg_depends && !nhe1->nhg_depends))
+	if ((zebra_nhg_depends_is_empty(nhe1)
+	     && !zebra_nhg_depends_is_empty(nhe2))
+	    || (zebra_nhg_depends_is_empty(nhe2)
+		&& !zebra_nhg_depends_is_empty(nhe1)))
 		return false;
 
-	if (listcount(nhe1->nhg_depends) != listcount(nhe2->nhg_depends))
-		return false;
-
-	for (ALL_LIST_ELEMENTS_RO(nhe1->nhg_depends, ln, n_dp)) {
-		if (!zebra_nhg_depends_lookup_id(nhe2, n_dp->nhe->id))
+	RB_FOREACH (rb_node_dep, nhg_depends_head, &nhe1->nhg_depends) {
+		if (!RB_FIND(nhg_depends_head, &nhe2->nhg_depends, rb_node_dep))
 			return false;
 	}
 
@@ -188,7 +209,7 @@ static bool zebra_nhg_depends_equal(const struct nhg_hash_entry *nhe1,
  */
 struct nhg_hash_entry *zebra_nhg_lookup_id(uint32_t id)
 {
-	struct nhg_hash_entry lookup = {0};
+	struct nhg_hash_entry lookup = {};
 
 	lookup.id = id;
 	return hash_lookup(zrouter.nhgs_id, &lookup);
@@ -227,10 +248,7 @@ static void *zebra_nhg_alloc(void *arg)
 
 	nhe->id = copy->id;
 
-	nhe->nhg_depends = NULL;
-
-	if (copy->nhg_depends)
-		nhe->nhg_depends = nhg_depend_dup_list(copy->nhg_depends);
+	nhe->nhg_depends = copy->nhg_depends;
 
 	nhe->nhg = nexthop_group_new();
 	nexthop_group_copy(nhe->nhg, copy->nhg);
@@ -254,42 +272,6 @@ static void *zebra_nhg_alloc(void *arg)
 	return nhe;
 }
 
-static uint32_t zebra_nhg_hash_key_nexthop_group(struct nexthop_group *nhg)
-{
-	struct nexthop *nh;
-	uint32_t i;
-	uint32_t key = 0;
-
-	/*
-	 * We are not interested in hashing over any recursively
-	 * resolved nexthops
-	 */
-	for (nh = nhg->nexthop; nh; nh = nh->next) {
-		key = jhash_1word(nh->type, key);
-		key = jhash_2words(nh->vrf_id, nh->nh_label_type, key);
-		/* gate and blackhole are together in a union */
-		key = jhash(&nh->gate, sizeof(nh->gate), key);
-		key = jhash(&nh->src, sizeof(nh->src), key);
-		key = jhash(&nh->rmap_src, sizeof(nh->rmap_src), key);
-		if (nh->nh_label) {
-			for (i = 0; i < nh->nh_label->num_labels; i++)
-				key = jhash_1word(nh->nh_label->label[i], key);
-		}
-		switch (nh->type) {
-		case NEXTHOP_TYPE_IPV4_IFINDEX:
-		case NEXTHOP_TYPE_IPV6_IFINDEX:
-		case NEXTHOP_TYPE_IFINDEX:
-			key = jhash_1word(nh->ifindex, key);
-			break;
-		case NEXTHOP_TYPE_BLACKHOLE:
-		case NEXTHOP_TYPE_IPV4:
-		case NEXTHOP_TYPE_IPV6:
-			break;
-		}
-	}
-	return key;
-}
-
 uint32_t zebra_nhg_hash_key(const void *arg)
 {
 	const struct nhg_hash_entry *nhe = arg;
@@ -298,7 +280,7 @@ uint32_t zebra_nhg_hash_key(const void *arg)
 
 	key = jhash_2words(nhe->vrf_id, nhe->afi, key);
 
-	key = jhash_1word(zebra_nhg_hash_key_nexthop_group(nhe->nhg), key);
+	key = jhash_1word(nexthop_group_hash(nhe->nhg), key);
 
 	return key;
 }
@@ -336,6 +318,31 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
 }
 
 /**
+ * zebra_nhg_cmp() - Compare the ID's of two nhe's
+ *
+ * @nhe1:	Nexthop group hash entry #1
+ * @nhe2:	Nexthop group hash entry #2
+ *
+ * Return:
+ * 	- Negative: #1 < #2
+ * 	- Positive: #1 > #2
+ * 	- Zero:	    #1 = #2
+ *
+ * This is used in the nhg RB trees.
+ */
+static int zebra_nhg_cmp(const struct nhg_hash_entry *nhe1,
+			 const struct nhg_hash_entry *nhe2)
+{
+	return nhe1->id - nhe2->id;
+}
+
+static int zebra_nhg_depend_cmp(const struct nhg_depend *dep1,
+				const struct nhg_depend *dep2)
+{
+	return zebra_nhg_cmp(dep1->nhe, dep2->nhe);
+}
+
+/**
  * zebra_nhg_find() - Find the zebra nhg in our table, or create it
  *
  * @nhg:		Nexthop group we lookup with
@@ -344,7 +351,7 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
  * @id:			ID we lookup with, 0 means its from us and we
  * 			need to give it an ID, otherwise its from the
  * 			kernel as we use the ID it gave us.
- * @nhg_depends:	Nexthop dependencies
+ * @nhg_depends:	Nexthop dependency tree head
  * @is_kernel_nh:	Was the nexthop created by the kernel
  *
  * Return:		Hash entry found or created
@@ -368,7 +375,7 @@ bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2)
  */
 struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
 				      vrf_id_t vrf_id, afi_t afi, uint32_t id,
-				      struct list *nhg_depends,
+				      struct nhg_depends_head *nhg_depends,
 				      bool is_kernel_nh)
 {
 	/* lock for getiing and setting the id */
@@ -376,7 +383,7 @@ struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
 	/* id counter to keep in sync with kernel */
 	static uint32_t id_counter = 0;
 
-	struct nhg_hash_entry lookup = {0};
+	struct nhg_hash_entry lookup = {};
 	struct nhg_hash_entry *nhe = NULL;
 	uint32_t old_id_counter = 0;
 
@@ -399,7 +406,7 @@ struct nhg_hash_entry *zebra_nhg_find(struct nexthop_group *nhg,
 	lookup.vrf_id = vrf_id;
 	lookup.afi = afi;
 	lookup.nhg = nhg;
-	lookup.nhg_depends = nhg_depends;
+	lookup.nhg_depends = *nhg_depends;
 	lookup.is_kernel_nh = is_kernel_nh;
 
 	if (id)
@@ -442,23 +449,34 @@ struct nhg_hash_entry *zebra_nhg_find_nexthop(struct nexthop *nh, afi_t afi)
 	return nhe;
 }
 
+void zebra_nhg_depends_free(struct nhg_depends_head *head)
+{
+	struct nhg_depend *rb_node_dep = NULL;
+	struct nhg_depend *tmp = NULL;
+
+	if (!zebra_nhg_depends_head_is_empty(head)) {
+		RB_FOREACH_SAFE (rb_node_dep, nhg_depends_head, head, tmp) {
+			RB_REMOVE(nhg_depends_head, head, rb_node_dep);
+			nhg_depend_free(rb_node_dep);
+		}
+	}
+}
+
 /**
  * zebra_nhg_free_group_depends() - Helper function for freeing nexthop_group
  * 				    struct and depends
  *
- * @nhg:		Nexthop group
- * @nhg_depends:	Nexthop group hash entry dependency list
+ * @nhg:		Nexthop_group
+ * @nhg_depends:	Nexthop group dependency tree head
  */
-void zebra_nhg_free_group_depends(struct nexthop_group *nhg,
-				  struct list *nhg_depends)
+void zebra_nhg_free_group_depends(struct nexthop_group **nhg,
+				  struct nhg_depends_head *head)
 {
-	if (nhg_depends)
-		list_delete(&nhg_depends);
-	if (nhg) {
-		if (nhg->nexthop)
-			nexthops_free(nhg->nexthop);
-		nexthop_group_delete(&nhg);
-	}
+	if (head)
+		zebra_nhg_depends_free(head);
+
+	if (nhg)
+		nexthop_group_free_delete(nhg);
 }
 
 /**
@@ -470,7 +488,7 @@ void zebra_nhg_free_group_depends(struct nexthop_group *nhg,
  */
 void zebra_nhg_free_members(struct nhg_hash_entry *nhe)
 {
-	zebra_nhg_free_group_depends(nhe->nhg, nhe->nhg_depends);
+	zebra_nhg_free_group_depends(&nhe->nhg, &nhe->nhg_depends);
 }
 
 /**
@@ -525,12 +543,11 @@ static void zebra_nhg_uninstall_release(struct nhg_hash_entry *nhe)
  */
 void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 {
-	if (nhe->nhg_depends) {
-		struct listnode *ln = NULL;
-		struct nhg_depend *n_dp = NULL;
+	if (!zebra_nhg_depends_is_empty(nhe)) {
+		struct nhg_depend *rb_node_dep = NULL;
 
-		for (ALL_LIST_ELEMENTS_RO(nhe->nhg_depends, ln, n_dp)) {
-			zebra_nhg_decrement_ref(n_dp->nhe);
+		RB_FOREACH (rb_node_dep, nhg_depends_head, &nhe->nhg_depends) {
+			zebra_nhg_decrement_ref(rb_node_dep->nhe);
 		}
 	}
 
@@ -548,12 +565,11 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
  */
 void zebra_nhg_increment_ref(struct nhg_hash_entry *nhe)
 {
-	if (nhe->nhg_depends) {
-		struct listnode *ln = NULL;
-		struct nhg_depend *n_dp = NULL;
+	if (!zebra_nhg_depends_is_empty(nhe)) {
+		struct nhg_depend *rb_node_dep = NULL;
 
-		for (ALL_LIST_ELEMENTS_RO(nhe->nhg_depends, ln, n_dp)) {
-			zebra_nhg_increment_ref(n_dp->nhe);
+		RB_FOREACH (rb_node_dep, nhg_depends_head, &nhe->nhg_depends) {
+			zebra_nhg_increment_ref(rb_node_dep->nhe);
 		}
 	}
 
@@ -1177,7 +1193,7 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 	op = dplane_ctx_get_op(ctx);
 	status = dplane_ctx_get_status(ctx);
 
-	id = dplane_ctx_get_nhe(ctx)->id;
+	id = dplane_ctx_get_nhe_id(ctx);
 	nhe = zebra_nhg_lookup_id(id);
 
 	if (nhe) {

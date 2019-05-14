@@ -1888,26 +1888,24 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
  *
  * @n:			Netlink message header struct
  * @req_size:		Size allocated for this message
- * @nhg_depends:	List of entry dependencies
+ * @depends_info:	Array of depend_info structs
+ * @count:		How many depencies there are
  */
 static void _netlink_nexthop_build_group(struct nlmsghdr *n, size_t req_size,
-					 struct list *nhg_depends)
+					 const struct depend_info *depends_info,
+					 const uint8_t count)
 {
-	int count = listcount(nhg_depends);
-	int i = 0;
 	struct nexthop_grp grp[count];
-	struct listnode *dp_node = NULL;
-	struct nhg_depend *n_dp = NULL;
 
 	memset(grp, 0, sizeof(grp));
 
 	if (count) {
-		for (ALL_LIST_ELEMENTS_RO(nhg_depends, dp_node, n_dp)) {
-			grp[i++].id = n_dp->nhe->id;
+		for (int i = 0; i < count; i++) {
+			grp[i].id = depends_info[i].id;
+			grp[i].weight = depends_info[i].weight;
 		}
+		addattr_l(n, req_size, NHA_GROUP, grp, count * sizeof(*grp));
 	}
-
-	addattr_l(n, req_size, NHA_GROUP, grp, count * sizeof(*grp));
 }
 
 /**
@@ -1927,8 +1925,6 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 
 	memset(&req, 0, sizeof(req));
 
-	const struct nhg_hash_entry *nhe = dplane_ctx_get_nhe(ctx);
-
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct nhmsg));
 	req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
 	req.n.nlmsg_type = cmd;
@@ -1937,25 +1933,31 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 	req.nhm.nh_family = AF_UNSPEC;
 	// TODO: Scope?
 
-	if (!nhe->id) {
+	uint32_t id = dplane_ctx_get_nhe_id(ctx);
+
+	if (!id) {
 		flog_err(
 			EC_ZEBRA_NHG_FIB_UPDATE,
 			"Failed trying to update a nexthop group in the kernel that does not have an ID");
 		return -1;
 	}
 
-	addattr32(&req.n, sizeof(req), NHA_ID, nhe->id);
+	addattr32(&req.n, sizeof(req), NHA_ID, id);
 
 	if (cmd == RTM_NEWNEXTHOP) {
-		if (nhe->nhg_depends) {
-			_netlink_nexthop_build_group(&req.n, sizeof(req),
-						     nhe->nhg_depends);
-		} else {
-			const struct nexthop *nh = nhe->nhg->nexthop;
+		if (dplane_ctx_get_nhe_depends_count(ctx))
+			_netlink_nexthop_build_group(
+				&req.n, sizeof(req),
+				dplane_ctx_get_nhe_depends_info(ctx),
+				dplane_ctx_get_nhe_depends_count(ctx));
+		else {
+			const struct nexthop *nh =
+				dplane_ctx_get_nhe_ng(ctx)->nexthop;
+			afi_t afi = dplane_ctx_get_nhe_afi(ctx);
 
-			if (nhe->afi == AFI_IP)
+			if (afi == AFI_IP)
 				req.nhm.nh_family = AF_INET;
-			else if (nhe->afi == AFI_IP6)
+			else if (afi == AFI_IP6)
 				req.nhm.nh_family = AF_INET6;
 
 			switch (nh->type) {
@@ -1998,7 +2000,7 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
 		return -1;
 	}
 
-	_netlink_nexthop_debug(cmd, nhe->id);
+	_netlink_nexthop_debug(cmd, id);
 
 	return netlink_talk_info(netlink_talk_filter, &req.n,
 				 dplane_ctx_get_ns(ctx), 0);
@@ -2223,14 +2225,14 @@ static struct nexthop *netlink_nexthop_process_nh(struct rtattr **tb,
  * netlink_nexthop_process_group() - Iterate over nhmsg nexthop group
  *
  * @tb:			Netlink RTA data
- * @nhg_depends:	List of nexthops in the group (depends)
+ * @nhg_depends:	Tree head of nexthops in the group (depends)
  * @nhg:		Nexthop group struct
  *
  * Return:	Count of nexthops in the group
  */
 static int netlink_nexthop_process_group(struct rtattr **tb,
 					 struct nexthop_group *nhg,
-					 struct list **nhg_depends)
+					 struct nhg_depends_head *nhg_depends)
 {
 	int count = 0;
 	struct nexthop_grp *n_grp = NULL;
@@ -2249,7 +2251,7 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 	zlog_debug("Nexthop group type: %d",
 		   *((uint16_t *)RTA_DATA(tb[NHA_GROUP_TYPE])));
 
-	*nhg_depends = nhg_depend_new_list();
+	zebra_nhg_depends_head_init(nhg_depends);
 
 	for (int i = 0; i < count; i++) {
 		/* We do not care about nexthop_grp.weight at
@@ -2259,7 +2261,7 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 		 */
 		depend = zebra_nhg_lookup_id(n_grp[i].id);
 		if (depend) {
-			nhg_depend_add(*nhg_depends, depend);
+			zebra_nhg_depends_head_add(nhg_depends, depend);
 			/*
 			 * If this is a nexthop with its own group
 			 * dependencies, add them as well. Not sure its
@@ -2301,8 +2303,8 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	/* struct for nexthop group abstraction  */
 	struct nexthop_group *nhg = NULL;
 	struct nexthop *nh = NULL;
-	/* If its a group, array of nexthops */
-	struct list *nhg_depends = NULL;
+	/* If its a group, tree head of nexthops */
+	struct nhg_depends_head nhg_depends = {0};
 	/* Count of nexthops in group array */
 	int dep_count = 0;
 	/* struct that goes into our tables */
@@ -2396,11 +2398,16 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 		if (!nhg->nexthop) {
 			/* Nothing to lookup */
-			zebra_nhg_free_group_depends(nhg, nhg_depends);
+			zebra_nhg_free_group_depends(&nhg, &nhg_depends);
 			return -1;
 		}
 
 		if (nhe) {
+			// TODO: Apparently we don't want changes
+			// to already created one in our table.
+			// They should be immutable...
+			// Gotta figure that one out.
+
 			/* This is a change to a group we already have
 			 */
 
@@ -2415,9 +2422,9 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 		} else {
 			/* This is a new nexthop group */
-			nhe = zebra_nhg_find(nhg, vrf_id, afi, id, nhg_depends,
+			nhe = zebra_nhg_find(nhg, vrf_id, afi, id, &nhg_depends,
 					     true);
-			zebra_nhg_free_group_depends(nhg, nhg_depends);
+			nexthop_group_free_delete(&nhg);
 
 			if (!nhe) {
 				flog_err(
@@ -2476,7 +2483,6 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			zebra_nhg_release(nhe);
 		}
 	}
-
 
 	return 0;
 }
