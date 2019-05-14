@@ -1525,8 +1525,9 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 	zns = zvrf->zns;
 	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_ROUTE_UPDATE));
 
-	if (re->nhe_id && zns->supports_nh)
-		ctx->u.rinfo.nhe.id = re->nhe_id;
+	if (re->nhe_id && zns->supports_nh) {
+		ctx->u.rinfo.nhe.id = zebra_nhg_get_resolved_id(re->nhe_id);
+	}
 
 	/* Trying out the sequence number idea, so we can try to detect
 	 * when a result is stale.
@@ -1571,23 +1572,11 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 
 	nexthop_group_copy(&(ctx->u.rinfo.nhe.ng), nhe->nhg);
 
-	if (!zebra_nhg_depends_is_empty(nhe)) {
-		struct nhg_connected *rb_node_dep = NULL;
-		uint8_t i = 0;
-
-		// TODO: This doesn't work with depends being recursive
-		// resolved nh's as well. Yea, good luck future stephen
-		// this one...
-
-		RB_FOREACH (rb_node_dep, nhg_connected_head,
-			    &nhe->nhg_depends) {
-			ctx->u.rinfo.nhe.nh_grp[i].id = rb_node_dep->nhe->id;
-			/* We aren't using weights for anything right now */
-			ctx->u.rinfo.nhe.nh_grp[i].weight = 0;
-			i++;
-		}
-		ctx->u.rinfo.nhe.nh_grp_count = i;
-	}
+	/* If its a group, convert it to a grp array of ids */
+	if (!zebra_nhg_depends_is_empty(nhe)
+	    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
+		ctx->u.rinfo.nhe.nh_grp_count =
+			zebra_nhg_nhe2grp(ctx->u.rinfo.nhe.nh_grp, nhe);
 
 	/* Extract ns info - can't use pointers to 'core'
 	   structs */

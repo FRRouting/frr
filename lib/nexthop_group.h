@@ -123,7 +123,11 @@ extern void nexthop_group_write_nexthop(struct vty *vty, struct nexthop *nh);
 /* Return the number of nexthops in this nhg */
 extern uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg);
 extern uint8_t
+nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg);
+extern uint8_t
 nexthop_group_active_nexthop_num(const struct nexthop_group *nhg);
+extern uint8_t
+nexthop_group_active_nexthop_num_no_recurse(const struct nexthop_group *nhg);
 
 #ifdef __cplusplus
 }

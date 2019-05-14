@@ -81,12 +81,37 @@ uint8_t nexthop_group_nexthop_num(const struct nexthop_group *nhg)
 	return num;
 }
 
+uint8_t nexthop_group_nexthop_num_no_recurse(const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+	uint8_t num = 0;
+
+	for (nhop = nhg->nexthop; nhop; nhop = nhop->next)
+		num++;
+
+	return num;
+}
+
 uint8_t nexthop_group_active_nexthop_num(const struct nexthop_group *nhg)
 {
 	struct nexthop *nhop;
 	uint8_t num = 0;
 
 	for (ALL_NEXTHOPS_PTR(nhg, nhop)) {
+		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
+			num++;
+	}
+
+	return num;
+}
+
+uint8_t
+nexthop_group_active_nexthop_num_no_recurse(const struct nexthop_group *nhg)
+{
+	struct nexthop *nhop;
+	uint8_t num = 0;
+
+	for (nhop = nhg->nexthop; nhop; nhop = nhop->next) {
 		if (CHECK_FLAG(nhop->flags, NEXTHOP_FLAG_ACTIVE))
 			num++;
 	}
@@ -118,10 +143,11 @@ bool nexthop_group_equal(const struct nexthop_group *nhg1,
 	if (!nhg1 && !nhg2)
 		return false;
 
-	if (nexthop_group_nexthop_num(nhg1) != nexthop_group_nexthop_num(nhg2))
+	if (nexthop_group_nexthop_num_no_recurse(nhg1)
+	    != nexthop_group_nexthop_num_no_recurse(nhg2))
 		return false;
 
-	for (ALL_NEXTHOPS_PTR(nhg1, nh)) {
+	for (nh = nhg1->nexthop; nh; nh = nh->next) {
 		if (!nexthop_exists(nhg2, nh))
 			return false;
 	}

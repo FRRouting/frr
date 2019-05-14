@@ -88,6 +88,10 @@ struct nhg_hash_entry {
  * The NEXTHOP_GROUP_VALID flag should also be set by this point.
  */
 #define NEXTHOP_GROUP_QUEUED 0x4
+/*
+ * Is this a nexthop that is recursively resolved?
+ */
+#define NEXTHOP_GROUP_RECURSIVE 0x8
 };
 
 /* Abstraction for connected trees */
@@ -151,6 +155,8 @@ extern unsigned int
 nhg_connected_head_count(const struct nhg_connected_head *head);
 extern void nhg_connected_head_free(struct nhg_connected_head *head);
 extern bool nhg_connected_head_is_empty(const struct nhg_connected_head *head);
+extern struct nhg_connected *
+nhg_connected_head_root(const struct nhg_connected_head *head);
 extern void nhg_connected_head_del(struct nhg_connected_head *head,
 				   struct nhg_hash_entry *nhe);
 extern void nhg_connected_head_add(struct nhg_connected_head *head,
@@ -160,6 +166,11 @@ extern void nhg_connected_head_add(struct nhg_connected_head *head,
  * NHE abstracted tree functions.
  * Use these where possible instead of the direct ones access ones.
  */
+
+
+extern struct nhg_hash_entry *zebra_nhg_resolve(struct nhg_hash_entry *nhe);
+extern uint32_t zebra_nhg_get_resolved_id(uint32_t id);
+
 /* Depends */
 extern unsigned int zebra_nhg_depends_count(const struct nhg_hash_entry *nhe);
 extern bool zebra_nhg_depends_is_empty(const struct nhg_hash_entry *nhe);
@@ -217,6 +228,9 @@ void zebra_nhg_set_invalid(struct nhg_hash_entry *nhe);
 void zebra_nhg_set_if(struct nhg_hash_entry *nhe, struct interface *ifp);
 
 extern int nexthop_active_update(struct route_node *rn, struct route_entry *re);
+
+extern uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp,
+				 struct nhg_hash_entry *nhe);
 
 void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe);
 void zebra_nhg_uninstall_kernel(struct nhg_hash_entry *nhe);

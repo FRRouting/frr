@@ -101,6 +101,12 @@ bool nhg_connected_head_is_empty(const struct nhg_connected_head *head)
 	return RB_EMPTY(nhg_connected_head, head);
 }
 
+struct nhg_connected *
+nhg_connected_head_root(const struct nhg_connected_head *head)
+{
+	return RB_ROOT(nhg_connected_head, head);
+}
+
 void nhg_connected_head_del(struct nhg_connected_head *head,
 			    struct nhg_hash_entry *depend)
 {
@@ -126,6 +132,37 @@ void nhg_connected_head_add(struct nhg_connected_head *head,
 
 	if (new)
 		RB_INSERT(nhg_connected_head, head, new);
+}
+
+struct nhg_hash_entry *zebra_nhg_resolve(struct nhg_hash_entry *nhe)
+{
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE)
+	    && !zebra_nhg_depends_is_empty(nhe)) {
+		nhe = nhg_connected_head_root(&nhe->nhg_depends)->nhe;
+		return zebra_nhg_resolve(nhe);
+	}
+
+	return nhe;
+}
+
+uint32_t zebra_nhg_get_resolved_id(uint32_t id)
+{
+	struct nhg_hash_entry *nhe = NULL;
+
+	nhe = zebra_nhg_lookup_id(id);
+
+	if (!nhe) {
+		flog_err(
+			EC_ZEBRA_TABLE_LOOKUP_FAILED,
+			"Zebra failed to lookup a resolved nexthop hash entry id=%u",
+			id);
+		return id;
+	}
+
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
+		nhe = zebra_nhg_resolve(nhe);
+
+	return nhe->id;
 }
 
 unsigned int zebra_nhg_depends_count(const struct nhg_hash_entry *nhe)
@@ -352,6 +389,10 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 	const struct nhg_hash_entry *nhe1 = arg1;
 	const struct nhg_hash_entry *nhe2 = arg2;
 
+	/* No matter what if they equal IDs, assume equal */
+	if (nhe1->id && nhe2->id && (nhe1->id == nhe2->id))
+		return true;
+
 	if (nhe1->vrf_id != nhe2->vrf_id)
 		return false;
 
@@ -359,6 +400,10 @@ bool zebra_nhg_hash_equal(const void *arg1, const void *arg2)
 		return false;
 
 	if (!nexthop_group_equal(nhe1->nhg, nhe2->nhg))
+		return false;
+
+	if (nexthop_group_active_nexthop_num_no_recurse(nhe1->nhg)
+	    != nexthop_group_active_nexthop_num_no_recurse(nhe2->nhg))
 		return false;
 
 	return true;
@@ -651,32 +696,44 @@ int zebra_nhg_kernel_find(uint32_t id, struct nexthop *nh, struct nh_grp *grp,
 	return 0;
 }
 
+static struct nhg_hash_entry *depends_find(struct nexthop *nh, afi_t afi)
+{
+	struct nexthop lookup = {0};
+
+	lookup = *nh;
+	/* Clear it, in case its a group */
+	lookup.next = NULL;
+	lookup.prev = NULL;
+	return zebra_nhg_find_nexthop(0, &lookup, afi, false);
+}
+
 /* Rib-side, you get a nexthop group struct */
 struct nhg_hash_entry *zebra_nhg_rib_find(uint32_t id,
 					  struct nexthop_group *nhg,
 					  vrf_id_t rt_vrf_id, afi_t rt_afi)
 {
 	struct nhg_hash_entry *nhe = NULL;
+	struct nhg_hash_entry *depend = NULL;
 	struct nhg_connected_head nhg_depends = {};
+
 	// Defualt the nhe to the afi and vrf of the route
 	afi_t nhg_afi = rt_afi;
 	vrf_id_t nhg_vrf_id = rt_vrf_id;
 
-	/* If its a group, create a dependency list */
-	if (nhg && nhg->nexthop->next) {
-		struct nexthop *nh = NULL;
-		struct nexthop lookup = {0};
-		struct nhg_hash_entry *depend = NULL;
+	if (!nhg) {
+		flog_err(EC_ZEBRA_TABLE_LOOKUP_FAILED,
+			 "No nexthop passed to zebra_nhg_rib_find()");
+		return NULL;
+	}
 
+	if (nhg->nexthop->next) {
 		nhg_connected_head_init(&nhg_depends);
 
-		for (ALL_NEXTHOPS_PTR(nhg, nh)) {
-			lookup = *nh;
-			/* Clear it, since its a group */
-			lookup.next = NULL;
-			/* Use the route afi here, since a single nh */
-			depend = zebra_nhg_find_nexthop(0, &lookup, rt_afi,
-							false);
+		/* If its a group, create a dependency tree */
+		struct nexthop *nh = NULL;
+
+		for (nh = nhg->nexthop; nh; nh = nh->next) {
+			depend = depends_find(nh, rt_afi);
 			nhg_connected_head_add(&nhg_depends, depend);
 		}
 
@@ -686,7 +743,6 @@ struct nhg_hash_entry *zebra_nhg_rib_find(uint32_t id,
 	}
 
 	nhe = zebra_nhg_find(id, nhg, &nhg_depends, nhg_vrf_id, nhg_afi, false);
-
 	return nhe;
 }
 
@@ -755,9 +811,10 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 
 	if (!zebra_nhg_depends_is_empty(nhe)) {
 		struct nhg_connected *rb_node_dep = NULL;
+		struct nhg_connected *tmp = NULL;
 
-		RB_FOREACH (rb_node_dep, nhg_connected_head,
-			    &nhe->nhg_depends) {
+		RB_FOREACH_SAFE (rb_node_dep, nhg_connected_head,
+				 &nhe->nhg_depends, tmp) {
 			zebra_nhg_decrement_ref(rb_node_dep->nhe);
 		}
 	}
@@ -945,10 +1002,12 @@ static bool nexthop_valid_resolve(const struct nexthop *nexthop,
 /*
  * Given a nexthop we need to properly recursively resolve
  * the route.  As such, do a table lookup to find and match
- * if at all possible.  Set the nexthop->ifindex as appropriate
+ * if at all possible.  Set the nexthop->ifindex and resolved_id
+ * as appropriate
  */
 static int nexthop_active(afi_t afi, struct route_entry *re,
-			  struct nexthop *nexthop, struct route_node *top)
+			  struct nexthop *nexthop, struct route_node *top,
+			  uint32_t *resolved_id)
 {
 	struct prefix p;
 	struct route_table *table;
@@ -1121,8 +1180,10 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				nexthop_set_resolved(afi, newhop, nexthop);
 				resolved = 1;
 			}
-			if (resolved)
+			if (resolved) {
 				re->nexthop_mtu = match->mtu;
+				*resolved_id = match->nhe_id;
+			}
 			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug("\t%s: Recursion failed to find",
 					   __PRETTY_FUNCTION__);
@@ -1141,9 +1202,10 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 				nexthop_set_resolved(afi, newhop, nexthop);
 				resolved = 1;
 			}
-			if (resolved)
+			if (resolved) {
 				re->nexthop_mtu = match->mtu;
-
+				*resolved_id = match->nhe_id;
+			}
 			if (!resolved && IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
 					"\t%s: Static route unable to resolve",
@@ -1175,11 +1237,15 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
  * appropriately as well.  An existing route map can turn
  * (otherwise active) nexthop into inactive, but not vice versa.
  *
+ * If it finds a nexthop recursivedly, set the resolved_id
+ * to match that nexthop's nhg_hash_entry ID;
+ *
  * The return value is the final value of 'ACTIVE' flag.
  */
 static unsigned nexthop_active_check(struct route_node *rn,
 				     struct route_entry *re,
-				     struct nexthop *nexthop)
+				     struct nexthop *nexthop,
+				     uint32_t *resolved_id)
 {
 	struct interface *ifp;
 	route_map_result_t ret = RMAP_PERMITMATCH;
@@ -1207,14 +1273,14 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		family = AFI_IP;
-		if (nexthop_active(AFI_IP, re, nexthop, rn))
+		if (nexthop_active(AFI_IP, re, nexthop, rn, resolved_id))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		break;
 	case NEXTHOP_TYPE_IPV6:
 		family = AFI_IP6;
-		if (nexthop_active(AFI_IP6, re, nexthop, rn))
+		if (nexthop_active(AFI_IP6, re, nexthop, rn, resolved_id))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -1231,7 +1297,8 @@ static unsigned nexthop_active_check(struct route_node *rn,
 			else
 				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		} else {
-			if (nexthop_active(AFI_IP6, re, nexthop, rn))
+			if (nexthop_active(AFI_IP6, re, nexthop, rn,
+					   resolved_id))
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 			else
 				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -1305,41 +1372,24 @@ static unsigned nexthop_active_check(struct route_node *rn,
  */
 int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 {
+	struct nexthop_group new_grp = {};
 	struct nexthop *nexthop;
 	union g_addr prev_src;
 	unsigned int prev_active, new_active;
 	ifindex_t prev_index;
 	uint8_t curr_active = 0;
-	afi_t rt_afi = AFI_UNSPEC;
 
-	// TODO: Temporary until we get this function sorted out
-	// a little better.
-	//
-	if (re->nhe_id) {
-		struct nhg_hash_entry *nhe = NULL;
-
-		nhe = zebra_nhg_lookup_id(re->nhe_id);
-
-		if (nhe) {
-			if (!re->ng) {
-				/* This is its first time getting attached */
-				zebra_nhg_increment_ref(nhe);
-				re->ng = nhe->nhg;
-			}
-
-			if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
-				return 1;
-			}
-		} else
-			flog_err(
-				EC_ZEBRA_TABLE_LOOKUP_FAILED,
-				"Zebra failed to find the nexthop hash entry for id=%u in a route entry",
-				re->nhe_id);
-	}
+	afi_t rt_afi = family2afi(rn->p.family);
 
 	UNSET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 
-	for (nexthop = re->ng->nexthop; nexthop; nexthop = nexthop->next) {
+	/* Copy over the nexthops in current state */
+	nexthop_group_copy(&new_grp, re->ng);
+
+	for (nexthop = new_grp.nexthop; nexthop; nexthop = nexthop->next) {
+		struct nhg_hash_entry *nhe = NULL;
+		uint32_t resolved_id = 0;
+
 		/* No protocol daemon provides src and so we're skipping
 		 * tracking it */
 		prev_src = nexthop->rmap_src;
@@ -1351,16 +1401,70 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 		 * a multipath perpsective should not be a data plane
 		 * decision point.
 		 */
-		new_active = nexthop_active_check(rn, re, nexthop);
+		new_active =
+			nexthop_active_check(rn, re, nexthop, &resolved_id);
+
+		/*
+		 * Create the individual nexthop hash entries
+		 * for the nexthops in the group
+		 */
+
+		nhe = depends_find(nexthop, rt_afi);
+
+		if (nhe && resolved_id) {
+			struct nhg_hash_entry *old_resolved = NULL;
+			struct nhg_hash_entry *new_resolved = NULL;
+
+			/* If this was already resolved, get its resolved nhe */
+			if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
+				old_resolved = zebra_nhg_resolve(nhe);
+
+			/*
+			 * We are going to do what is done in nexthop_active
+			 * and clear whatever resolved nexthop may already be
+			 * there.
+			 */
+
+			zebra_nhg_depends_release(nhe);
+			nhg_connected_head_free(&nhe->nhg_depends);
+
+			new_resolved = zebra_nhg_lookup_id(resolved_id);
+
+			if (new_resolved) {
+				/* Add new resolved */
+				zebra_nhg_depends_add(nhe, new_resolved);
+				zebra_nhg_dependents_add(new_resolved, nhe);
+				/*
+				 * In case the new == old, we increment
+				 * first and then decrement
+				 */
+				zebra_nhg_increment_ref(new_resolved);
+				if (old_resolved)
+					zebra_nhg_decrement_ref(old_resolved);
+
+				SET_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE);
+			} else
+				flog_err(
+					EC_ZEBRA_TABLE_LOOKUP_FAILED,
+					"Zebra failed to lookup a resolved nexthop hash entry id=%u",
+					resolved_id);
+		}
+
 		if (new_active
-		    && nexthop_group_active_nexthop_num(re->ng)
+		    && nexthop_group_active_nexthop_num(&new_grp)
 			       >= zrouter.multipath_num) {
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 			new_active = 0;
 		}
 
-		if (new_active)
+		if (nhe && new_active) {
 			curr_active++;
+
+			SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
+			if (!nhe->is_kernel_nh
+			    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
+				zebra_nhg_install_kernel(nhe);
+		}
 
 		/* Don't allow src setting on IPv6 addr for now */
 		if (prev_active != new_active || prev_index != nexthop->ifindex
@@ -1376,41 +1480,81 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 			SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 	}
 
-	// TODO: Update this when we have this function
-	// figured out a little better.
-	//
-	struct nhg_hash_entry *new_nhe = NULL;
+	if (CHECK_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED)) {
+		struct nhg_hash_entry *new_nhe = NULL;
+		// TODO: Add proto type here
 
-	rt_afi = family2afi(rn->p.family);
-	// TODO: Add proto type here
+		new_nhe = zebra_nhg_rib_find(0, &new_grp, re->vrf_id, rt_afi);
 
-	// TODO: Maybe make this a UPDATE message?
-	// Right now we are just creating a new one
-	// and deleting the old.
-	new_nhe = zebra_nhg_rib_find(0, re->ng, re->vrf_id, rt_afi);
+		if (new_nhe && (re->nhe_id != new_nhe->id)) {
+			struct nhg_hash_entry *old_nhe =
+				zebra_nhg_lookup_id(re->nhe_id);
 
-	if (new_nhe && (re->nhe_id != new_nhe->id)) {
-		struct nhg_hash_entry *old_nhe =
-			zebra_nhg_lookup_id(re->nhe_id);
+			re->ng = new_nhe->nhg;
+			re->nhe_id = new_nhe->id;
 
-		/* It should point to the nhe nexthop group now */
-		if (re->ng)
-			nexthop_group_free_delete(&re->ng);
-		re->ng = new_nhe->nhg;
-		re->nhe_id = new_nhe->id;
-
-		zebra_nhg_increment_ref(new_nhe);
-		if (old_nhe)
-			zebra_nhg_decrement_ref(old_nhe);
-
-		if (curr_active) {
-			SET_FLAG(new_nhe->flags, NEXTHOP_GROUP_VALID);
-			if (!new_nhe->is_kernel_nh)
-				zebra_nhg_install_kernel(new_nhe);
+			zebra_nhg_increment_ref(new_nhe);
+			if (old_nhe)
+				zebra_nhg_decrement_ref(old_nhe);
 		}
 	}
 
+	if (curr_active) {
+		struct nhg_hash_entry *nhe = NULL;
+
+		nhe = zebra_nhg_lookup_id(re->nhe_id);
+
+		if (nhe) {
+			SET_FLAG(nhe->flags, NEXTHOP_GROUP_VALID);
+			if (!nhe->is_kernel_nh
+			    && !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_RECURSIVE))
+				zebra_nhg_install_kernel(nhe);
+		} else
+			flog_err(
+				EC_ZEBRA_TABLE_LOOKUP_FAILED,
+				"Active update on NHE id=%u that we do not have in our tables",
+				re->nhe_id);
+	}
+
+	/*
+	 * Do not need these nexthops anymore since they
+	 * were either copied over into an nhe or not
+	 * used at all.
+	 */
+	nexthops_free(new_grp.nexthop);
 	return curr_active;
+}
+
+/* Convert a nhe into a group array */
+uint8_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe)
+{
+	struct nhg_connected *rb_node_dep = NULL;
+	struct nhg_hash_entry *depend = NULL;
+	uint8_t i = 0;
+
+	RB_FOREACH (rb_node_dep, nhg_connected_head, &nhe->nhg_depends) {
+		depend = rb_node_dep->nhe;
+
+		/*
+		 * If its recursive, use its resolved nhe in the group
+		 */
+		if (CHECK_FLAG(depend->flags, NEXTHOP_GROUP_RECURSIVE)) {
+			depend = zebra_nhg_resolve(depend);
+			if (!depend) {
+				flog_err(
+					EC_ZEBRA_NHG_FIB_UPDATE,
+					"Failed to recursively resolve Nexthop Hash Entry id=%u in the group id=%u",
+					depend->id, nhe->id);
+				continue;
+			}
+		}
+
+		grp[i].id = depend->id;
+		/* We aren't using weights for anything right now */
+		grp[i].weight = 0;
+		i++;
+	}
+	return i;
 }
 
 /**

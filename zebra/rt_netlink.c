@@ -2025,7 +2025,8 @@ static int netlink_nexthop(int cmd, struct zebra_dplane_ctx *ctx)
  */
 enum zebra_dplane_result kernel_nexthop_update(struct zebra_dplane_ctx *ctx)
 {
-	int cmd, ret = 0;
+	int cmd = 0;
+	int ret = 0;
 
 	switch (dplane_ctx_get_op(ctx)) {
 	case DPLANE_OP_NH_DELETE:

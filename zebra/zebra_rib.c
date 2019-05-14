@@ -2717,6 +2717,7 @@ void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		      struct prefix_ipv6 *src_p, struct route_entry *re)
 {
+	struct nhg_hash_entry *nhe = NULL;
 	struct route_table *table;
 	struct route_node *rn;
 	struct route_entry *same = NULL;
@@ -2735,6 +2736,49 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		XFREE(MTYPE_RE, re);
 		return 0;
 	}
+
+	if (re->nhe_id) {
+		nhe = zebra_nhg_lookup_id(re->nhe_id);
+
+		if (!nhe) {
+			flog_err(
+				EC_ZEBRA_TABLE_LOOKUP_FAILED,
+				"Zebra failed to find the nexthop hash entry for id=%u in a route entry",
+				re->nhe_id);
+			XFREE(MTYPE_RE, re);
+			return -1;
+		}
+	} else {
+		nhe = zebra_nhg_rib_find(0, re->ng, re->vrf_id, afi);
+
+		/*
+		 * The nexthops got copied over into an nhe,
+		 * so free them now.
+		 */
+		nexthop_group_free_delete(&re->ng);
+
+		if (!nhe) {
+			char buf[PREFIX_STRLEN] = "";
+			char buf2[PREFIX_STRLEN] = "";
+
+			flog_err(
+				EC_ZEBRA_TABLE_LOOKUP_FAILED,
+				"Zebra failed to find or create a nexthop hash entry for %s%s%s",
+				prefix2str(p, buf, sizeof(buf)),
+				src_p ? " from " : "",
+				src_p ? prefix2str(src_p, buf2, sizeof(buf2))
+				      : "");
+
+			XFREE(MTYPE_RE, re);
+			return -1;
+		}
+
+		re->nhe_id = nhe->id;
+	}
+
+	/* Attach the re to the nhe's nexthop group */
+	zebra_nhg_increment_ref(nhe);
+	re->ng = nhe->nhg;
 
 	/* Make it sure prefixlen is applied to the prefix. */
 	apply_mask(p);
