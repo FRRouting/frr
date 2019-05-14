@@ -1306,13 +1306,12 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 		case DPLANE_OP_NONE:
 			break;
 		}
-		dplane_ctx_fini(&ctx);
-
-	} else {
+	} else
 		flog_err(
 			EC_ZEBRA_NHG_SYNC,
 			"%s operation preformed on Nexthop ID (%u) in the kernel, that we no longer have in our table",
 			dplane_op2str(op), id);
-	}
+
+	dplane_ctx_fini(&ctx);
 }
 
