@@ -122,7 +122,8 @@ void nhg_connected_head_add(struct nhg_connected_head *head,
 
 	new = nhg_connected_new(depend);
 
-	RB_INSERT(nhg_connected_head, head, new);
+	if (new)
+		RB_INSERT(nhg_connected_head, head, new);
 }
 
 unsigned int zebra_nhg_depends_count(const struct nhg_hash_entry *nhe)
