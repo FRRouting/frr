@@ -1256,14 +1256,38 @@ static int bgp_attr_as4_path(struct bgp_attr_parser_args *args,
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
+/*
+ * Check that the nexthop attribute is valid.
+ */
+bgp_attr_parse_ret_t
+bgp_attr_nexthop_valid(struct peer *peer, struct attr *attr)
+{
+	in_addr_t nexthop_h;
+
+	nexthop_h = ntohl(attr->nexthop.s_addr);
+	if ((IPV4_NET0(nexthop_h) || IPV4_NET127(nexthop_h)
+	     || IPV4_CLASS_DE(nexthop_h))
+	    && !BGP_DEBUG(allow_martians, ALLOW_MARTIANS)) {
+		char buf[INET_ADDRSTRLEN];
+
+		inet_ntop(AF_INET, &attr->nexthop.s_addr, buf,
+			  INET_ADDRSTRLEN);
+		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %s",
+			 buf);
+		bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
+				BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP);
+		return BGP_ATTR_PARSE_ERROR;
+	}
+
+	return BGP_ATTR_PARSE_PROCEED;
+}
+
 /* Nexthop attribute. */
 static bgp_attr_parse_ret_t bgp_attr_nexthop(struct bgp_attr_parser_args *args)
 {
 	struct peer *const peer = args->peer;
 	struct attr *const attr = args->attr;
 	const bgp_size_t length = args->length;
-
-	in_addr_t nexthop_h, nexthop_n;
 
 	/* Check nexthop attribute length. */
 	if (length != 4) {
@@ -1274,30 +1298,7 @@ static bgp_attr_parse_ret_t bgp_attr_nexthop(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
-	/* According to section 6.3 of RFC4271, syntactically incorrect NEXT_HOP
-	   attribute must result in a NOTIFICATION message (this is implemented
-	   below).
-	   At the same time, semantically incorrect NEXT_HOP is more likely to
-	   be just
-	   logged locally (this is implemented somewhere else). The UPDATE
-	   message
-	   gets ignored in any of these cases. */
-	nexthop_n = stream_get_ipv4(peer->curr);
-	nexthop_h = ntohl(nexthop_n);
-	if ((IPV4_NET0(nexthop_h) || IPV4_NET127(nexthop_h)
-	     || IPV4_CLASS_DE(nexthop_h))
-	    && !BGP_DEBUG(
-		       allow_martians,
-		       ALLOW_MARTIANS)) /* loopbacks may be used in testing */
-	{
-		char buf[INET_ADDRSTRLEN];
-		inet_ntop(AF_INET, &nexthop_n, buf, INET_ADDRSTRLEN);
-		flog_err(EC_BGP_ATTR_MARTIAN_NH, "Martian nexthop %s", buf);
-		return bgp_attr_malformed(
-			args, BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP, args->total);
-	}
-
-	attr->nexthop.s_addr = nexthop_n;
+	attr->nexthop.s_addr = stream_get_ipv4(peer->curr);
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 
 	return BGP_ATTR_PARSE_PROCEED;
@@ -2679,6 +2680,26 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 		if (as4_path)
 			aspath_unintern(&as4_path);
 		return BGP_ATTR_PARSE_ERROR;
+	}
+
+	/*
+	 * RFC4271: If the NEXT_HOP attribute field is syntactically incorrect,
+	 * then the Error Subcode MUST be set to Invalid NEXT_HOP Attribute.
+	 * This is implemented below and will result in a NOTIFICATION. If the
+	 * NEXT_HOP attribute is semantically incorrect, the error SHOULD be
+	 * logged, and the route SHOULD be ignored. In this case, a NOTIFICATION
+	 * message SHOULD NOT be sent. This is implemented elsewhere.
+	 *
+	 * RFC4760: An UPDATE message that carries no NLRI, other than the one
+	 * encoded in the MP_REACH_NLRI attribute, SHOULD NOT carry the NEXT_HOP
+	 * attribute. If such a message contains the NEXT_HOP attribute, the BGP
+	 * speaker that receives the message SHOULD ignore this attribute.
+	 */
+	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))
+	    && !CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_MP_REACH_NLRI))) {
+		if (bgp_attr_nexthop_valid(peer, attr) < 0) {
+			return BGP_ATTR_PARSE_ERROR;
+		}
 	}
 
 	/* Check all mandatory well-known attributes are present */
