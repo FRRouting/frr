@@ -6,7 +6,8 @@ if STATICD
 noinst_LIBRARIES += staticd/libstatic.a
 sbin_PROGRAMS += staticd/staticd
 dist_examples_DATA += staticd/staticd.conf.sample
-vtysh_scan += staticd/static_vty.c
+vtysh_scan += staticd/static_vty.c \
+	staticd/static_pm.c
 man8 += $(MANBUILD)/frr-staticd.8
 endif
 
@@ -18,6 +19,7 @@ staticd_libstatic_a_SOURCES = \
 	staticd/static_zebra.c \
 	staticd/static_vrf.c \
 	staticd/static_vty.c \
+	staticd/static_pm.c \
 	# end
 
 noinst_HEADERS += \
@@ -28,6 +30,7 @@ noinst_HEADERS += \
 	staticd/static_routes.h \
 	staticd/static_vty.h \
 	staticd/static_vrf.h \
+	staticd/static_pm.h \
 	# end
 
 clippy_scan += \

@@ -36,12 +36,14 @@
 #include "nexthop_group.h"
 #include "hash.h"
 #include "jhash.h"
+#include "pm_lib.h"
 
 #include "static_vrf.h"
 #include "static_routes.h"
 #include "static_zebra.h"
 #include "static_nht.h"
 #include "static_vty.h"
+#include "static_pm.h"
 
 bool debug;
 
@@ -148,6 +150,8 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 static void zebra_connected(struct zclient *zclient)
 {
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+	/* Send the client registration */
+	pm_client_sendmsg(zclient, ZEBRA_PM_CLIENT_REGISTER, VRF_DEFAULT);
 }
 
 struct static_nht_data {
@@ -208,6 +212,8 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 		nhtd->nh_num = nhr.nexthop_num;
 
 		static_nht_reset_start(&nhr.prefix, afi, nhtd->nh_vrf_id);
+		static_pm_update_connected(&nhr, &nhr.prefix,
+					   nhtd->nh_vrf_id);
 		static_nht_update(NULL, &nhr.prefix, nhr.nexthop_num, afi,
 				  nhtd->nh_vrf_id);
 	} else
@@ -339,7 +345,7 @@ void static_zebra_nht_register(struct route_node *rn,
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
 
-extern void static_zebra_route_add(struct route_node *rn,
+extern bool static_zebra_route_add(struct route_node *rn,
 				   struct static_route *si_changed,
 				   vrf_id_t vrf_id, safi_t safi, bool install)
 {
@@ -401,7 +407,7 @@ extern void static_zebra_route_add(struct route_node *rn,
 			api_nh->type = NEXTHOP_TYPE_IFINDEX;
 			break;
 		case STATIC_IPV4_GATEWAY:
-			if (!si->nh_valid)
+			if (!si->nh_valid || !si->nh_pm_valid)
 				continue;
 			api_nh->type = NEXTHOP_TYPE_IPV4;
 			api_nh->gate = si->addr;
@@ -414,7 +420,7 @@ extern void static_zebra_route_add(struct route_node *rn,
 			api_nh->gate = si->addr;
 			break;
 		case STATIC_IPV6_GATEWAY:
-			if (!si->nh_valid)
+			if (!si->nh_valid || !si->nh_pm_valid)
 				continue;
 			api_nh->type = NEXTHOP_TYPE_IPV6;
 			api_nh->gate = si->addr;
@@ -462,6 +468,7 @@ extern void static_zebra_route_add(struct route_node *rn,
 	zclient_route_send(install ?
 			   ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
 			   zclient, &api);
+	return install;
 }
 
 void static_zebra_init(void)

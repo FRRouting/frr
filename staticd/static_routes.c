@@ -25,26 +25,32 @@
 #include <lib/if.h>
 #include <lib/vty.h>
 #include <lib/vrf.h>
+#include <lib/pm_lib.h>
 #include <lib/memory.h>
 
 #include "static_vrf.h"
 #include "static_routes.h"
 #include "static_memory.h"
 #include "static_zebra.h"
+#include "static_pm.h"
 
 /* Install static route into rib. */
 static void static_install_route(struct route_node *rn,
 				 struct static_route *si_changed, safi_t safi)
 {
 	struct static_route *si;
+	int ret;
 
 	for (si = rn->info; si; si = si->next)
 		static_zebra_nht_register(rn, si, true);
 
 	si = rn->info;
-	if (si)
+	if (si) {
 		static_zebra_route_add(rn, si_changed, si->vrf_id, safi, true);
-
+		/* when route is installed, PM should be run too if needed */
+		if (ret)
+			static_pm_update_si(si, true);
+	}
 }
 
 /* Uninstall static route from RIB. */
@@ -52,11 +58,13 @@ static void static_uninstall_route(vrf_id_t vrf_id, safi_t safi,
 				   struct route_node *rn,
 				   struct static_route *si_changed)
 {
+	int ret;
 
 	if (rn->info)
-		static_zebra_route_add(rn, si_changed, vrf_id, safi, true);
+		ret = static_zebra_route_add(rn, si_changed, vrf_id, safi, true);
 	else
-		static_zebra_route_add(rn, si_changed, vrf_id, safi, false);
+		ret = static_zebra_route_add(rn, si_changed, vrf_id, safi, false);
+	static_pm_update_si(si_changed, ret);
 }
 
 int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
@@ -65,7 +73,7 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 		     route_tag_t tag, uint8_t distance, struct static_vrf *svrf,
 		     struct static_vrf *nh_svrf,
 		     struct static_nh_label *snh_label, uint32_t table_id,
-		     bool onlink)
+		     bool onlink, bool pm)
 {
 	struct route_node *rn;
 	struct static_route *si;
@@ -74,6 +82,7 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 	struct static_route *update = NULL;
 	struct route_table *stable = svrf->stable[afi][safi];
 	struct interface *ifp;
+	uint16_t pkt_size;
 
 	if (!stable)
 		return -1;
@@ -136,7 +145,13 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 	if (ifname)
 		strlcpy(si->ifname, ifname, sizeof(si->ifname));
 	si->ifindex = IFINDEX_INTERNAL;
+	si->pm = pm;
+	si->nh_pm_valid = true;
 
+	if (afi == AFI_IP6)
+		pkt_size = PM_DEF_IPV6_PACKET_SIZE;
+	else
+		pkt_size = PM_DEF_PACKET_SIZE;
 	switch (type) {
 	case STATIC_IPV4_GATEWAY:
 	case STATIC_IPV4_GATEWAY_IFNAME:
@@ -149,6 +164,10 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 	case STATIC_IFNAME:
 		break;
 	}
+
+	if (pm)
+		static_pm_param_set(si, PM_DEF_INTERVAL, PM_DEF_TIMEOUT,
+				    pkt_size, PM_DEF_TOS_VAL);
 
 	/* Save labels, if any. */
 	memcpy(&si->snh_label, snh_label, sizeof(struct static_nh_label));
@@ -261,6 +280,10 @@ int static_delete_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 		return 0;
 	}
 
+	if (si->pm_info) {
+		static_pm_param_unset(si);
+		si->pm_info = NULL;
+	}
 	static_zebra_nht_register(rn, si, false);
 
 	/* Unlink static route from linked list. */

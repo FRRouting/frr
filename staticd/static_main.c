@@ -31,12 +31,14 @@
 #include "vrf.h"
 #include "nexthop.h"
 #include "filter.h"
+#include "zclient.h"
 
 #include "static_vrf.h"
 #include "static_vty.h"
 #include "static_routes.h"
 #include "static_zebra.h"
 #include "static_debug.h"
+#include "static_pm.h"
 
 char backup_config_file[256];
 
@@ -149,6 +151,7 @@ int main(int argc, char **argv, char **envp)
 	static_vrf_init();
 
 	static_zebra_init();
+	static_pm_init();
 	static_vty_init();
 
 	snprintf(backup_config_file, sizeof(backup_config_file),

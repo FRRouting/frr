@@ -24,11 +24,13 @@
 #include "vrf.h"
 #include "nexthop.h"
 #include "srcdest_table.h"
+#include "zclient.h"
 
 #include "static_vrf.h"
 #include "static_routes.h"
 #include "static_zebra.h"
 #include "static_nht.h"
+#include "static_pm.h"
 
 static void static_nht_update_rn(struct route_node *rn,
 				 struct prefix *nhp, uint32_t nh_num,
@@ -36,6 +38,7 @@ static void static_nht_update_rn(struct route_node *rn,
 				 safi_t safi)
 {
 	struct static_route *si;
+	int ret;
 
 	for (si = rn->info; si; si = si->next) {
 		if (si->nh_vrf_id != nh_vrf_id)
@@ -55,8 +58,13 @@ static void static_nht_update_rn(struct route_node *rn,
 		    && memcmp(&nhp->u.prefix6, &si->addr.ipv6, 16) == 0)
 			si->nh_valid = !!nh_num;
 
-		if (si->state == STATIC_START)
-			static_zebra_route_add(rn, si, vrf->vrf_id, safi, true);
+		if (si->state == STATIC_START) {
+			ret = static_zebra_route_add(rn, si, vrf->vrf_id, safi, true);
+			if (ret)
+				static_pm_update_si(si, true);
+			else
+				static_pm_update_si(si, false);
+		}
 	}
 }
 
