@@ -983,7 +983,17 @@ bool if_nhg_dependents_is_empty(const struct interface *ifp)
 	return false;
 }
 
+void if_down_nhg_dependents(const struct interface *ifp)
 {
+	if (!if_nhg_dependents_is_empty(ifp)) {
+		struct nhg_connected *rb_node_dep = NULL;
+		struct zebra_if *zif = (struct zebra_if *)ifp->info;
+
+		RB_FOREACH (rb_node_dep, nhg_connected_head,
+			    &zif->nhg_dependents) {
+			zebra_nhg_set_invalid(rb_node_dep->nhe);
+		}
+	}
 }
 
 /* Interface is up. */
@@ -1048,6 +1058,8 @@ void if_down(struct interface *ifp)
 	zif = ifp->info;
 	zif->down_count++;
 	quagga_timestamp(2, zif->down_last, sizeof(zif->down_last));
+
+	if_down_nhg_dependents(ifp);
 
 	/* Handle interface down for specific types for EVPN. Non-VxLAN
 	 * interfaces
