@@ -2225,14 +2225,14 @@ static struct nexthop *netlink_nexthop_process_nh(struct rtattr **tb,
  * netlink_nexthop_process_group() - Iterate over nhmsg nexthop group
  *
  * @tb:			Netlink RTA data
- * @nhg_depends:	Tree head of nexthops in the group (depends)
+ * @nhg_depends:	Tree head of nexthops in the group
  * @nhg:		Nexthop group struct
  *
  * Return:	Count of nexthops in the group
  */
 static int netlink_nexthop_process_group(struct rtattr **tb,
 					 struct nexthop_group *nhg,
-					 struct nhg_depends_head *nhg_depends)
+					 struct nhg_connected_head *nhg_depends)
 {
 	int count = 0;
 	struct nexthop_grp *n_grp = NULL;
@@ -2251,7 +2251,7 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 	zlog_debug("Nexthop group type: %d",
 		   *((uint16_t *)RTA_DATA(tb[NHA_GROUP_TYPE])));
 
-	zebra_nhg_depends_head_init(nhg_depends);
+	zebra_nhg_connected_head_init(nhg_depends);
 
 	for (int i = 0; i < count; i++) {
 		/* We do not care about nexthop_grp.weight at
@@ -2261,7 +2261,7 @@ static int netlink_nexthop_process_group(struct rtattr **tb,
 		 */
 		depend = zebra_nhg_lookup_id(n_grp[i].id);
 		if (depend) {
-			zebra_nhg_depends_head_add(nhg_depends, depend);
+			zebra_nhg_connected_head_add(nhg_depends, depend);
 			/*
 			 * If this is a nexthop with its own group
 			 * dependencies, add them as well. Not sure its
@@ -2304,7 +2304,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	struct nexthop_group *nhg = NULL;
 	struct nexthop *nh = NULL;
 	/* If its a group, tree head of nexthops */
-	struct nhg_depends_head nhg_depends = {0};
+	struct nhg_connected_head nhg_depends = {0};
 	/* Count of nexthops in group array */
 	int dep_count = 0;
 	/* struct that goes into our tables */
@@ -2449,6 +2449,7 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					EC_ZEBRA_DUPLICATE_NHG_MESSAGE,
 					"Nexthop Group from kernel with ID (%d) is a duplicate, ignoring",
 					id);
+				zebra_nhg_connected_head_free(&nhg_depends);
 			}
 		}
 		if (ifp) {

@@ -1111,6 +1111,7 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 
 	for (ALL_LIST_ELEMENTS_RO(list, node, nhe)) {
 		struct nexthop *nhop;
+		struct nhg_connected *rb_node_dep = NULL;
 
 		if (afi && nhe->afi != afi)
 			continue;
@@ -1128,11 +1129,18 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 				nhe->ifp->ifindex);
 
 		if (!zebra_nhg_depends_is_empty(nhe)) {
-			struct nhg_depend *rb_node_dep = NULL;
 
 			vty_out(vty, "\tDepends:");
-			RB_FOREACH (rb_node_dep, nhg_depends_head,
+			RB_FOREACH (rb_node_dep, nhg_connected_head,
 				    &nhe->nhg_depends) {
+				vty_out(vty, " (%u)", rb_node_dep->nhe->id);
+			}
+			vty_out(vty, "\n");
+
+		} else {
+			vty_out(vty, "\tDependents:");
+			RB_FOREACH (rb_node_dep, nhg_connected_head,
+				    &nhe->nhg_dependents) {
 				vty_out(vty, " (%u)", rb_node_dep->nhe->id);
 			}
 			vty_out(vty, "\n");

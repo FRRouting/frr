@@ -1569,10 +1569,11 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 	nexthop_group_copy(&(ctx->u.rinfo.nhe.ng), nhe->nhg);
 
 	if (!zebra_nhg_depends_is_empty(nhe)) {
-		struct nhg_depend *rb_node_dep = NULL;
+		struct nhg_connected *rb_node_dep = NULL;
 		uint8_t i = 0;
 
-		RB_FOREACH (rb_node_dep, nhg_depends_head, &nhe->nhg_depends) {
+		RB_FOREACH (rb_node_dep, nhg_connected_head,
+			    &nhe->nhg_depends) {
 			ctx->u.rinfo.nhe.depends_info[i].id =
 				rb_node_dep->nhe->id;
 			/* We aren't using weights for anything right now */

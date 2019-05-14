@@ -69,7 +69,7 @@ struct nhg_hash_entry {
 	 * Using a rb tree here to make lookups
 	 * faster with ID's.
 	 */
-	RB_HEAD(nhg_depends_head, nhg_depend) nhg_depends;
+	RB_HEAD(nhg_connected_head, nhg_connected) nhg_depends, nhg_dependents;
 /*
  * Is this nexthop group valid, ie all nexthops are fully resolved.
  * What is fully resolved?  It's a nexthop that is either self contained
@@ -90,28 +90,33 @@ struct nhg_hash_entry {
 #define NEXTHOP_GROUP_QUEUED 0x4
 };
 
-/* Abstraction for dependency tree */
-struct nhg_depend {
-	RB_ENTRY(nhg_depend) depend;
+/* Abstraction for connected trees */
+struct nhg_connected {
+	RB_ENTRY(nhg_connected) nhg_entry;
 	struct nhg_hash_entry *nhe;
 };
 
-RB_PROTOTYPE(nhg_depends_head, nhg_depend, depend, zebra_nhg_depend_cmp);
+RB_PROTOTYPE(nhg_connected_head, nhg_connected, nhg_entry,
+	     zebra_nhg_connected_cmp);
 
 void zebra_nhg_init(void);
 void zebra_nhg_terminate(void);
 
 extern uint8_t zebra_nhg_depends_count(const struct nhg_hash_entry *nhe);
 extern bool zebra_nhg_depends_is_empty(const struct nhg_hash_entry *nhe);
-extern void zebra_nhg_depends_head_del(struct nhg_depends_head *head,
-				       struct nhg_hash_entry *depend);
-extern void zebra_nhg_depends_head_add(struct nhg_depends_head *head,
-				       struct nhg_hash_entry *depend);
+extern void zebra_nhg_connected_head_del(struct nhg_connected_head *head,
+					 struct nhg_hash_entry *nhe);
+extern void zebra_nhg_connected_head_add(struct nhg_connected_head *head,
+					 struct nhg_hash_entry *nhe);
+extern void zebra_nhg_dependents_del(struct nhg_hash_entry *from,
+				     struct nhg_hash_entry *dependent);
+extern void zebra_nhg_dependents_add(struct nhg_hash_entry *to,
+				     struct nhg_hash_entry *dependent);
 extern void zebra_nhg_depends_del(struct nhg_hash_entry *from,
 				  struct nhg_hash_entry *depend);
 extern void zebra_nhg_depends_add(struct nhg_hash_entry *to,
 				  struct nhg_hash_entry *depend);
-extern void zebra_nhg_depends_head_init(struct nhg_depends_head *head);
+extern void zebra_nhg_connected_head_init(struct nhg_connected_head *head);
 extern void zebra_nhg_depends_init(struct nhg_hash_entry *nhe);
 extern void zebra_nhg_depends_copy(struct nhg_hash_entry *to,
 				   struct nhg_hash_entry *from);
@@ -128,16 +133,16 @@ extern bool zebra_nhg_hash_id_equal(const void *arg1, const void *arg2);
 
 extern struct nhg_hash_entry *
 zebra_nhg_find(struct nexthop_group *nhg, vrf_id_t vrf_id, afi_t afi,
-	       uint32_t id, struct nhg_depends_head *nhg_depends,
+	       uint32_t id, struct nhg_connected_head *nhg_depends,
 	       bool is_kernel_nh);
 
 extern struct nhg_hash_entry *zebra_nhg_find_nexthop(struct nexthop *nh,
 						     afi_t afi);
 
 
-void zebra_nhg_depends_free(struct nhg_depends_head *head);
+void zebra_nhg_connected_head_free(struct nhg_connected_head *head);
 void zebra_nhg_free_group_depends(struct nexthop_group **nhg,
-				  struct nhg_depends_head *head);
+				  struct nhg_connected_head *head);
 void zebra_nhg_free_members(struct nhg_hash_entry *nhe);
 void zebra_nhg_free(void *arg);
 void zebra_nhg_release(struct nhg_hash_entry *nhe);
