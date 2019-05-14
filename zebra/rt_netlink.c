@@ -2313,15 +2313,16 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			nhe = zebra_nhg_find(&nhg, nh.vrf_id, id);
 			if (nhe) {
 				nhe->is_kernel_nh = true;
-				if (ifp) {
-					/* Add the nhe to the interface's list
-					 * of connected nhe's
-					 */
-					nhe_connected_add(ifp, nhe);
-				}
 			} else {
 				return -1;
 			}
+		}
+		if (ifp) {
+			/* Add the nhe to the interface's list
+			 * of connected nhe's
+			 */
+			// TODO: Don't add dupes
+			nhe_connected_add(ifp, nhe);
 		}
 		SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 

@@ -947,7 +947,6 @@ struct nhe_connected *nhe_connected_add(struct interface *ifp,
 	struct zebra_if *zif = (struct zebra_if *)ifp->info;
 
 	if_nhec = nhe_connected_new();
-	if_nhec->ifp = ifp;
 
 	/* Attach the nhe */
 	if_nhec->nhe = nhe;

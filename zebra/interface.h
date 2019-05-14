@@ -266,9 +266,6 @@ struct irdp_interface;
 
 /* Nexthop hash entry connected structure */
 struct nhe_connected {
-	/* Attached interface */
-	struct interface *ifp;
-
 	/* Connected nexthop hash entry */
 	struct nhg_hash_entry *nhe;
 };

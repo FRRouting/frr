@@ -1120,6 +1120,9 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 		vty_out(vty, "\tValid: %d, Installed %d\n",
 			nhe->flags & NEXTHOP_GROUP_VALID,
 			nhe->flags & NEXTHOP_GROUP_INSTALLED);
+		if (nhe->ifp)
+			vty_out(vty, "\tInterface Index: %d\n",
+				nhe->ifp->ifindex);
 		for (ALL_NEXTHOPS(nhe->nhg, nhop)) {
 			vty_out(vty, "\t");
 			nexthop_group_write_nexthop(vty, nhop);

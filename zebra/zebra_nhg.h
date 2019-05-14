@@ -35,6 +35,14 @@ struct nhg_hash_entry {
 
 	struct nexthop_group nhg;
 
+	/* If this is not a group, it
+	 * will be a single nexthop
+	 * and must have an interface
+	 * associated with it.
+	 * Otherwise, this will be null.
+	 */
+	struct interface *ifp;
+
 	uint32_t refcnt;
 	uint32_t dplane_ref;
 

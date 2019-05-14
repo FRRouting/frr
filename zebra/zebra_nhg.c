@@ -108,6 +108,7 @@ static void *zebra_nhg_alloc(void *arg)
 	nhe->refcnt = 0;
 	nhe->is_kernel_nh = false;
 	nhe->dplane_ref = zebra_router_get_next_sequence();
+	nhe->ifp = NULL;
 	nhe->nhg.nexthop = NULL;
 
 	nexthop_group_copy(&nhe->nhg, &copy->nhg);
