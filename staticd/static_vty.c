@@ -53,7 +53,8 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			     const char *table_str, bool onlink,
 			     const char *color_str, bool bfd, bool bfd_mhop,
 			     const char *bfd_profile, const char *route_group,
-			     const char *bfd_local_address, bool bfd_autohop)
+			     bool pm, const char *bfd_local_address,
+			     bool bfd_autohop)
 {
 	int ret;
 	struct prefix p, src;
@@ -83,6 +84,12 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 	ret = str2prefix(dest_str, &p);
 	if (ret <= 0) {
 		vty_out(vty, "%% Malformed address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (!gate_str && pm) {
+		if (vty)
+			vty_out(vty, "%% PM can not be set without gateway\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -286,6 +293,18 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			if (color_str)
 				nb_cli_enqueue_change(vty, ab_xpath,
 						      NB_OP_MODIFY, color_str);
+
+			strlcpy(ab_xpath, xpath_nexthop, sizeof(ab_xpath));
+			strlcat(ab_xpath, FRR_STATIC_ROUTE_NH_PM_XPATH,
+				sizeof(ab_xpath));
+
+			if (pm)
+				nb_cli_enqueue_change(vty, ab_xpath,
+						      NB_OP_MODIFY, "true");
+			else
+				nb_cli_enqueue_change(vty, ab_xpath,
+						      NB_OP_MODIFY, "false");
+
 		}
 		if (label_str) {
 			/* copy of label string (start) */
@@ -443,7 +462,8 @@ static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 				 dest_str, mask_str, src_str, gate_str, ifname,
 				 flag_str, tag_str, distance_str, label_str,
 				 table_str, false, NULL, bfd, bfd_mhop,
-				 bfd_profile, route_group, local_address, bfd_autohop);
+				 bfd_profile, route_group, false, local_address,
+				 bfd_autohop);
 }
 
 /* Write static route configuration. */
@@ -555,6 +575,8 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 				if (nh->onlink)
 					vty_out(vty, " onlink");
 
+				if (nh->pm)
+					vty_out(vty, " pm");
 				/*
 				 * SR-TE color
 				 */
@@ -706,7 +728,8 @@ DEFPY_YANG(ip_route_blackhole_vrf,
 	return static_route_leak(vty, vrfname, vrfname, AFI_IP, SAFI_UNICAST,
 				 no, prefix, mask_str, NULL, NULL, NULL, flag,
 				 tag_str, distance_str, label, table_str, false,
-				 NULL, false, false, NULL, route_group, NULL, false);
+				 NULL, false, false, NULL, route_group, false,
+				 NULL, false);
 }
 
 DEFPY_YANG(ip_route_address_interface, ip_route_address_interface_cmd,
@@ -725,6 +748,7 @@ DEFPY_YANG(ip_route_address_interface, ip_route_address_interface_cmd,
 	  |color (1-4294967295)                        \
           |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
+	  |pm$pm                                       \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -754,7 +778,8 @@ DEFPY_YANG(ip_route_address_interface, ip_route_address_interface_cmd,
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+      STATIC_ROUTE_GROUP_NAME_STR
+      "Enables Path Monitoring support\n")
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -776,7 +801,8 @@ DEFPY_YANG(ip_route_address_interface, ip_route_address_interface_cmd,
 				 prefix, mask_str, NULL, gate_str, ifname, flag,
 				 tag_str, distance_str, label, table_str,
 				 !!onlink, color_str, !!bfd, !!bfd_mhop,
-				 bfd_profile, route_group, src_str, !!bfdauto);
+				 bfd_profile, route_group, !!pm, src_str,
+				 !!bfdauto);
 }
 
 DEFPY_YANG(ip_route_address_interface_vrf,
@@ -795,7 +821,8 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 	  |color (1-4294967295)                        \
           |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
-	  }]",
+	  |pm$pm                                       \
+          }]",
       NO_STR IP_STR
       "Establish static routes\n"
       "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -823,7 +850,8 @@ DEFPY_YANG(ip_route_address_interface_vrf,
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+      STATIC_ROUTE_GROUP_NAME_STR
+      "Enables Path Monitoring support\n")
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -852,7 +880,8 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 				 prefix, mask_str, NULL, gate_str, ifname, flag,
 				 tag_str, distance_str, label, table_str,
 				 !!onlink, color_str, !!bfd, !!bfd_mhop,
-				 bfd_profile, route_group, src_str, !!bfdauto);
+				 bfd_profile, route_group, !!pm, src_str,
+				 !!bfdauto);
 }
 
 DEFPY_YANG(ip_route,
@@ -870,6 +899,7 @@ DEFPY_YANG(ip_route,
 	  |color (1-4294967295)                        \
           |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
+	  |pm$pm                                       \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -898,7 +928,8 @@ DEFPY_YANG(ip_route,
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+      STATIC_ROUTE_GROUP_NAME_STR
+      "Enables Path Monitoring support\n")
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -921,7 +952,7 @@ DEFPY_YANG(ip_route,
 				 prefix, mask_str, NULL, gate_str, ifname, flag,
 				 tag_str, distance_str, label, table_str, false,
 				 color_str, !!bfd, !!bfd_mhop, bfd_profile,
-				 route_group, src_str, !!bfdauto);
+				 route_group, !!pm, src_str, !!bfdauto);
 }
 
 DEFPY_YANG(ip_route_vrf,
@@ -938,6 +969,7 @@ DEFPY_YANG(ip_route_vrf,
 	  |color (1-4294967295)                        \
           |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
+	  |pm$pm                                       \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -965,7 +997,8 @@ DEFPY_YANG(ip_route_vrf,
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+      STATIC_ROUTE_GROUP_NAME_STR
+      "Enables Path Monitoring support\n")
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -995,7 +1028,7 @@ DEFPY_YANG(ip_route_vrf,
 				 prefix, mask_str, NULL, gate_str, ifname, flag,
 				 tag_str, distance_str, label, table_str, false,
 				 color_str, !!bfd, !!bfd_mhop, bfd_profile,
-				 route_group, src_str, !!bfdauto);
+				 route_group, !!pm, src_str, !!bfdauto);
 }
 
 DEFPY_YANG(ipv6_route_blackhole,
@@ -1083,8 +1116,8 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
 	return static_route_leak(
 		vty, vrfname, vrfname, AFI_IP6, SAFI_UNICAST, no, prefix_str,
 		NULL, from_str, NULL, NULL, flag, tag_str, distance_str, label,
-		table_str, false, NULL, false, false, NULL, route_group, NULL,
-		false);
+		table_str, false, NULL, false, false, NULL, route_group,
+		false, NULL, false);
 }
 
 DEFPY_YANG(ipv6_route_address_interface,
@@ -1103,6 +1136,7 @@ DEFPY_YANG(ipv6_route_address_interface,
 	    |color (1-4294967295)                          \
             |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
+	    |pm$pm                                         \
           }]",
       NO_STR
       IPV6_STR
@@ -1133,7 +1167,8 @@ DEFPY_YANG(ipv6_route_address_interface,
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+      STATIC_ROUTE_GROUP_NAME_STR
+      "Enables Path Monitoring support\n")
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -1156,7 +1191,8 @@ DEFPY_YANG(ipv6_route_address_interface,
 				 prefix_str, NULL, from_str, gate_str, ifname,
 				 flag, tag_str, distance_str, label, table_str,
 				 !!onlink, color_str, !!bfd, !!bfd_mhop,
-				 bfd_profile, route_group, src_str, !!bfdauto);
+				 bfd_profile, route_group, !!pm, src_str,
+				 !!bfdauto);
 }
 
 DEFPY_YANG(ipv6_route_address_interface_vrf,
@@ -1174,6 +1210,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 	    |color (1-4294967295)                          \
             |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
+	    |pm$pm                                         \
           }]",
       NO_STR
       IPV6_STR
@@ -1203,7 +1240,8 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+      STATIC_ROUTE_GROUP_NAME_STR
+      "Enables Path Monitoring support\n")
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -1232,7 +1270,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 		vty, vrfname, nh_vrf, AFI_IP6, SAFI_UNICAST, no, prefix_str,
 		NULL, from_str, gate_str, ifname, flag, tag_str, distance_str,
 		label, table_str, !!onlink, color_str, !!bfd, !!bfd_mhop,
-		bfd_profile, route_group, src_str, !!bfdauto);
+		bfd_profile, route_group, !!pm, src_str, !!bfdauto);
 }
 
 DEFPY_YANG(ipv6_route,
@@ -1249,6 +1287,7 @@ DEFPY_YANG(ipv6_route,
             |color (1-4294967295)                          \
             |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
+	    |pm$pm                                         \
           }]",
       NO_STR
       IPV6_STR
@@ -1278,7 +1317,8 @@ DEFPY_YANG(ipv6_route,
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+      STATIC_ROUTE_GROUP_NAME_STR
+      "Enables Path Monitoring support\n")
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -1300,7 +1340,8 @@ DEFPY_YANG(ipv6_route,
 				 prefix_str, NULL, from_str, gate_str, ifname,
 				 flag, tag_str, distance_str, label, table_str,
 				 false, color_str, !!bfd, !!bfd_mhop,
-				 bfd_profile, route_group, src_str, !!bfdauto);
+				 bfd_profile, route_group, !!pm, src_str,
+				 !!bfdauto);
 }
 
 DEFPY_YANG(ipv6_route_vrf,
@@ -1316,6 +1357,7 @@ DEFPY_YANG(ipv6_route_vrf,
 	    |color (1-4294967295)                          \
             |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
+	    |pm$pm                                         \
           }]",
       NO_STR
       IPV6_STR
@@ -1344,7 +1386,8 @@ DEFPY_YANG(ipv6_route_vrf,
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+      STATIC_ROUTE_GROUP_NAME_STR
+      "Enables Path Monitoring support\n")
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -1373,7 +1416,8 @@ DEFPY_YANG(ipv6_route_vrf,
 				 no, prefix_str, NULL, from_str, gate_str,
 				 ifname, flag, tag_str, distance_str, label,
 				 table_str, false, color_str, !!bfd, !!bfd_mhop,
-				 bfd_profile, route_group, src_str, !!bfdauto);
+				 bfd_profile, route_group, !!pm, src_str,
+				 !!bfdauto);
 }
 
 DEFPY_YANG(staticd_route_group_bfd, staticd_route_group_bfd_cmd,

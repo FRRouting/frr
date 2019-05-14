@@ -24,7 +24,7 @@ extern struct thread_master *master;
 extern void static_zebra_nht_register(struct route_node *rn,
 				      struct static_nexthop *nh, bool reg);
 
-extern void static_zebra_route_add(struct route_node *rn,
+extern bool static_zebra_route_add(struct route_node *rn,
 				   struct static_path *pn, safi_t safi,
 				   bool install);
 extern void static_zebra_init(void);

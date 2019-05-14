@@ -196,6 +196,13 @@ module frr-nexthop {
         "The nexthop SR-TE color";
     }
 
+    leaf pm {
+      type boolean;
+      default "false";
+      description
+        "Nexthop is monitored by PM.";
+    }
+
     uses rt-types:mpls-label-stack {
       description
         "Nexthop's MPLS label stack.";

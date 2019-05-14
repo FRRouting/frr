@@ -36,6 +36,7 @@
 #include "nexthop_group.h"
 #include "hash.h"
 #include "jhash.h"
+#include "pm_lib.h"
 
 #include "static_vrf.h"
 #include "static_routes.h"
@@ -43,6 +44,7 @@
 #include "static_nht.h"
 #include "static_vty.h"
 #include "static_debug.h"
+#include "static_pm.h"
 
 /* Zebra structure to hold current status. */
 struct zclient *zclient;
@@ -144,6 +146,8 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 static void zebra_connected(struct zclient *zclient)
 {
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+	/* Send the client registration */
+	pm_client_sendmsg(zclient, ZEBRA_PM_CLIENT_REGISTER, VRF_DEFAULT);
 }
 
 struct static_nht_data {
@@ -271,12 +275,16 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 			connected = true;
 
 		static_nht_reset_start(&nhr.prefix, afi, nhtd->nh_vrf_id);
+
 		if (oif_idx != nhtd->oif_idx) {
+			static_pm_update_interface(oif_idx, &nhr.prefix, nhtd->nh_vrf_id,
+						   nhtd->oif_idx);
 			nhtd->oif_idx = oif_idx;
 			nhtd->connected = connected;
 			static_bfd_source_update(nhtd->oif_idx, &nhr.prefix,
 						 nhtd->nh_vrf_id, connected);
 		}
+
 		static_nht_update(NULL, &nhr.prefix, nhr.nexthop_num, afi,
 				  nhtd->nh_vrf_id);
 	} else
@@ -460,7 +468,7 @@ int static_zebra_nh_update(struct route_node *rn, struct static_nexthop *nh)
 	return 0;
 }
 
-extern void static_zebra_route_add(struct route_node *rn,
+extern bool static_zebra_route_add(struct route_node *rn,
 				   struct static_path *pn, safi_t safi,
 				   bool install)
 {
@@ -587,6 +595,7 @@ extern void static_zebra_route_add(struct route_node *rn,
 	zclient_route_send(install ?
 			   ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
 			   zclient, &api);
+	return install;
 }
 
 void static_zebra_init(void)

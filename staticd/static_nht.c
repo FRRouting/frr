@@ -55,8 +55,9 @@ static void static_nht_update_path(struct route_node *rn,
 		    && memcmp(&nhp->u.prefix6, &nh->addr.ipv6, 16) == 0)
 			nh->nh_valid = !!nh_num;
 
-		if (nh->state == STATIC_START)
+		if (nh->state == STATIC_START) {
 			static_zebra_route_add(rn, pn, safi, true);
+		}
 	}
 }
 

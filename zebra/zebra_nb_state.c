@@ -831,6 +831,17 @@ lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_onlink_get_elem(
 
 /*
  * XPath:
+ * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/pm
+ */
+struct yang_data *
+lib_vrf_zebra_ribs_rib_route_route_entry_nexthop_group_nexthop_pm_get_elem(
+	struct nb_cb_get_elem_args *args)
+{
+	return yang_data_new_bool(args->xpath, false);
+}
+
+/*
+ * XPath:
  * /frr-vrf:lib/vrf/frr-zebra:zebra/ribs/rib/route/route-entry/nexthop-group/nexthop/srte-color
  */
 struct yang_data *

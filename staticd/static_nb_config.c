@@ -31,7 +31,7 @@
 #include "static_vrf.h"
 #include "static_routes.h"
 #include "static_nb.h"
-
+#include "static_pm.h"
 
 static int static_path_list_create(struct nb_cb_create_args *args)
 {
@@ -138,6 +138,7 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 	int nh_type;
 	const char *ifname;
 	const char *nh_vrf;
+	bool pm;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -177,6 +178,7 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 		nh_vrf = yang_dnode_get_string(args->dnode, "./vrf");
 		pn = nb_running_get_entry(args->dnode, NULL, true);
 		rn = nb_running_get_entry(rn_dnode, NULL, true);
+		pm = yang_dnode_get_bool(args->dnode, "./pm");
 
 		if (!static_add_nexthop_validate(nh_vrf, nh_type, &ipaddr))
 			flog_warn(
@@ -185,7 +187,7 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 				yang_dnode_get_string(args->dnode,
 						      "./gateway"));
 		nh = static_add_nexthop(rn, pn, info->safi, info->svrf, nh_type,
-					&ipaddr, ifname, nh_vrf, 0);
+					&ipaddr, ifname, nh_vrf, 0, pm);
 		nb_running_set_entry(args->dnode, nh);
 		break;
 	}
@@ -333,6 +335,37 @@ static int static_nexthop_onlink_modify(struct nb_cb_modify_args *args)
 	case NB_EV_APPLY:
 		nh = nb_running_get_entry(args->dnode, NULL, true);
 		nh->onlink = yang_dnode_get_bool(args->dnode, NULL);
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int static_nexthop_pm_modify(struct nb_cb_modify_args *args)
+{
+	struct static_nexthop *nh;
+	static_types nh_type;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		nh_type = yang_dnode_get_enum(args->dnode, "../nh-type");
+		if ((nh_type == STATIC_IFNAME) ||
+		    (nh_type == STATIC_BLACKHOLE)) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"nexthop type is not the ipv4 or ipv6 interface type");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		nh = nb_running_get_entry(args->dnode, NULL, true);
+		if (yang_dnode_get_bool(args->dnode, NULL))
+			static_next_hop_pm_update(nh);
+		else
+			static_next_hop_pm_destroy(nh);
 		break;
 	}
 
@@ -698,6 +731,16 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	struct nb_cb_modify_args *args)
 {
 	return static_nexthop_onlink_modify(args);
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/pm
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_pm_modify(
+	struct nb_cb_modify_args *args)
+{
+	return static_nexthop_pm_modify(args);
 }
 
 /*
@@ -1236,6 +1279,28 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 {
 	return static_nexthop_onlink_modify(args);
 }
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop/pm
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_pm_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		if (static_nexthop_pm_modify(args) != NB_OK)
+			return NB_ERR;
+
+		break;
+	}
+	return NB_OK;
+}
+
 
 /*
  * XPath:

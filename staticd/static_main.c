@@ -39,6 +39,7 @@
 #include "static_zebra.h"
 #include "static_debug.h"
 #include "static_nb.h"
+#include "static_pm.h"
 
 char backup_config_file[256];
 
@@ -159,6 +160,8 @@ int main(int argc, char **argv, char **envp)
 	static_vrf_init();
 
 	static_zebra_init();
+
+	static_pm_init();
 	static_vty_init();
 
 	hook_register(routing_conf_event,
