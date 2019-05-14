@@ -618,16 +618,6 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	rib_table_info_t *info = srcdest_rnode_table_info(rn);
 	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
 
-	// TODO: Might need to move this?
-	// It checks if the nhe is even valid
-	// before trying to uninstall it. If the
-	// nexthop is invalid/uninstalled, then
-	// this route is not in the kernel anymore
-	// most likely.
-	if (!zebra_nhg_id_is_valid(re->nhe_id))
-		return;
-
-
 	if (info->safi != SAFI_UNICAST) {
 		UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
 		for (ALL_NEXTHOPS_PTR(re->ng, nexthop))

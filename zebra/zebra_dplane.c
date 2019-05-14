@@ -1525,9 +1525,24 @@ static int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx,
 	zns = zvrf->zns;
 	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_ROUTE_UPDATE));
 
+#ifdef HAVE_NETLINK
 	if (re->nhe_id && zns->supports_nh) {
 		ctx->u.rinfo.nhe.id = zebra_nhg_get_resolved_id(re->nhe_id);
+
+		/*
+		 * It checks if the nhe is even installed
+		 * before trying to uninstall it. If the
+		 * nexthop is uninstalled and the kernel
+		 * is using nexthop objects, this route
+		 * has already been uninstalled.
+		 */
+		if (!CHECK_FLAG(zebra_nhg_lookup_id(ctx->u.rinfo.nhe.id)->flags,
+				NEXTHOP_GROUP_INSTALLED)) {
+			ret = ENOENT;
+			goto done;
+		}
 	}
+#endif /* HAVE_NETLINK */
 
 	/* Trying out the sequence number idea, so we can try to detect
 	 * when a result is stale.
@@ -1836,8 +1851,11 @@ dplane_route_update_internal(struct route_node *rn,
 	if (ret == AOK)
 		result = ZEBRA_DPLANE_REQUEST_QUEUED;
 	else {
-		atomic_fetch_add_explicit(&zdplane_info.dg_route_errors, 1,
-					  memory_order_relaxed);
+		if (ret == ENOENT)
+			result = ZEBRA_DPLANE_REQUEST_SUCCESS;
+		else
+			atomic_fetch_add_explicit(&zdplane_info.dg_route_errors,
+						  1, memory_order_relaxed);
 		if (ctx)
 			dplane_ctx_free(&ctx);
 	}
