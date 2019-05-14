@@ -92,13 +92,13 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 		break;
 	case NEXTHOP_TYPE_IPV6:
 		ret = memcmp(&next1->gate, &next2->gate, sizeof(union g_addr));
-		if (!ret)
+		if (ret)
 			return ret;
 		break;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		ret = memcmp(&next1->gate, &next2->gate, sizeof(union g_addr));
-		if (!ret)
+		if (ret)
 			return ret;
 		/* Intentional Fall-Through */
 	case NEXTHOP_TYPE_IFINDEX:
