@@ -1219,20 +1219,6 @@ static int bgp_input_modifier(struct peer *peer, struct prefix *p,
 		}
 	}
 
-	/* RFC 8212 to prevent route leaks.
-	 * This specification intends to improve this situation by requiring the
-	 * explicit configuration of both BGP Import and Export Policies for any
-	 * External BGP (EBGP) session such as customers, peers, or
-	 * confederation boundaries for all enabled address families. Through
-	 * codification of the aforementioned requirement, operators will
-	 * benefit from consistent behavior across different BGP
-	 * implementations.
-	 */
-	if (peer->bgp->ebgp_requires_policy
-	    == DEFAULT_EBGP_POLICY_ENABLED)
-		if (!bgp_inbound_policy_exists(peer, filter))
-			return RMAP_DENY;
-
 	/* Route map apply. */
 	if (rmap) {
 		memset(&rmap_path, 0, sizeof(struct bgp_path_info));
@@ -1781,6 +1767,10 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 		peer->rmap_type = 0;
 
 		if (ret == RMAP_DENYMATCH) {
+			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+				zlog_debug("%s [Update:SEND] %s is filtered by route-map",
+				peer->host, prefix2str(p, buf, sizeof(buf)));
+
 			bgp_attr_flush(attr);
 			return 0;
 		}
@@ -3048,6 +3038,22 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		reason = "filter;";
 		goto filtered;
 	}
+
+	/* RFC 8212 to prevent route leaks.
+	 * This specification intends to improve this situation by requiring the
+	 * explicit configuration of both BGP Import and Export Policies for any
+	 * External BGP (EBGP) session such as customers, peers, or
+	 * confederation boundaries for all enabled address families. Through
+	 * codification of the aforementioned requirement, operators will
+	 * benefit from consistent behavior across different BGP
+	 * implementations.
+	 */
+	if (peer->bgp->ebgp_requires_policy == DEFAULT_EBGP_POLICY_ENABLED)
+		if (!bgp_inbound_policy_exists(peer,
+					       &peer->filter[afi][safi])) {
+			reason = "inbound policy missing";
+			goto filtered;
+		}
 
 	bgp_attr_dup(&new_attr, attr);
 

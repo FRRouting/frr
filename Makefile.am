@@ -12,7 +12,9 @@ AM_CFLAGS = \
 	# end
 AM_CPPFLAGS = \
 	-I$(top_srcdir) -I$(top_srcdir)/include -I$(top_srcdir)/lib \
-	-I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib
+	-I$(top_builddir) -I$(top_builddir)/include -I$(top_builddir)/lib \
+	$(LUA_INCLUDE) \
+	# end
 AM_LDFLAGS = \
 	-export-dynamic \
 	$(AC_LDFLAGS) \
@@ -96,7 +98,6 @@ noinst_LIBRARIES =
 nodist_noinst_DATA =
 lib_LTLIBRARIES =
 module_LTLIBRARIES =
-libyang_plugins_LTLIBRARIES =
 pkginclude_HEADERS =
 nodist_pkginclude_HEADERS =
 dist_examples_DATA =
@@ -111,7 +112,6 @@ vtysh_scan =
 $(AUTOMAKE_DUMMY)install-moduleLTLIBRARIES: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-binPROGRAMS: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-sbinPROGRAMS: install-libLTLIBRARIES
-$(AUTOMAKE_DUMMY)install-libyang_pluginsLTLIBRARIES: install-libLTLIBRARIES
 
 include doc/subdir.am
 include doc/user/subdir.am
@@ -123,6 +123,7 @@ include zebra/subdir.am
 include watchfrr/subdir.am
 include qpb/subdir.am
 include fpm/subdir.am
+include grpc/subdir.am
 include tools/subdir.am
 include solaris/subdir.am
 
@@ -198,6 +199,7 @@ EXTRA_DIST += \
 	doc/user/Makefile \
 	eigrpd/Makefile \
 	fpm/Makefile \
+	grpc/Makefile \
 	isisd/Makefile \
 	ldpd/Makefile \
 	lib/Makefile \

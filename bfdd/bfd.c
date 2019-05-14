@@ -128,15 +128,8 @@ int bfd_session_enable(struct bfd_session *bs)
 	 * If the interface or VRF doesn't exist, then we must register
 	 * the session but delay its start.
 	 */
-	if (bs->key.ifname[0]) {
-		ifp = if_lookup_by_name_all_vrf(bs->key.ifname);
-		if (ifp == NULL) {
-			log_error(
-				"session-enable: specified interface doesn't exists.");
-			return 0;
-		}
-
-		vrf = vrf_lookup_by_id(ifp->vrf_id);
+	if (bs->key.vrfname[0]) {
+		vrf = vrf_lookup_by_name(bs->key.vrfname);
 		if (vrf == NULL) {
 			log_error(
 				"session-enable: specified VRF doesn't exists.");
@@ -144,12 +137,23 @@ int bfd_session_enable(struct bfd_session *bs)
 		}
 	}
 
-	if (bs->key.vrfname[0]) {
-		vrf = vrf_lookup_by_name(bs->key.vrfname);
-		if (vrf == NULL) {
+	if (bs->key.ifname[0]) {
+		if (vrf)
+			ifp = if_lookup_by_name(bs->key.ifname, vrf->vrf_id);
+		else
+			ifp = if_lookup_by_name_all_vrf(bs->key.ifname);
+		if (ifp == NULL) {
 			log_error(
-				"session-enable: specified VRF doesn't exists.");
+				  "session-enable: specified interface doesn't exists.");
 			return 0;
+		}
+		if (bs->key.ifname[0] && !vrf) {
+			vrf = vrf_lookup_by_id(ifp->vrf_id);
+			if (vrf == NULL) {
+				log_error(
+					  "session-enable: specified VRF doesn't exists.");
+				return 0;
+			}
 		}
 	}
 
@@ -164,7 +168,7 @@ int bfd_session_enable(struct bfd_session *bs)
 
 	/* Sanity check: don't leak open sockets. */
 	if (bs->sock != -1) {
-		zlog_debug("session-enable: previous socket open");
+		log_debug("session-enable: previous socket open");
 		close(bs->sock);
 		bs->sock = -1;
 	}
@@ -291,7 +295,7 @@ void ptm_bfd_echo_start(struct bfd_session *bfd)
 		ptm_bfd_echo_xmt_TO(bfd);
 }
 
-void ptm_bfd_ses_up(struct bfd_session *bfd)
+void ptm_bfd_sess_up(struct bfd_session *bfd)
 {
 	int old_state = bfd->ses_state;
 
@@ -315,7 +319,7 @@ void ptm_bfd_ses_up(struct bfd_session *bfd)
 	}
 }
 
-void ptm_bfd_ses_dn(struct bfd_session *bfd, uint8_t diag)
+void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag)
 {
 	int old_state = bfd->ses_state;
 
@@ -432,7 +436,7 @@ int bfd_recvtimer_cb(struct thread *t)
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
-		ptm_bfd_ses_dn(bs, BD_CONTROL_EXPIRED);
+		ptm_bfd_sess_dn(bs, BD_CONTROL_EXPIRED);
 		bfd_recvtimer_update(bs);
 		break;
 
@@ -455,7 +459,7 @@ int bfd_echo_recvtimer_cb(struct thread *t)
 	switch (bs->ses_state) {
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
-		ptm_bfd_ses_dn(bs, BD_ECHO_FAILED);
+		ptm_bfd_sess_dn(bs, BD_ECHO_FAILED);
 		break;
 	}
 
@@ -725,7 +729,7 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 	return bfd;
 }
 
-int ptm_bfd_ses_del(struct bfd_peer_cfg *bpc)
+int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc)
 {
 	struct bfd_session *bs;
 
@@ -805,7 +809,7 @@ static void bs_down_handler(struct bfd_session *bs, int nstate)
 		 * Remote peer told us his path is up, lets turn
 		 * activate the session.
 		 */
-		ptm_bfd_ses_up(bs);
+		ptm_bfd_sess_up(bs);
 		break;
 
 	default:
@@ -832,7 +836,7 @@ static void bs_init_handler(struct bfd_session *bs, int nstate)
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
 		/* We agreed on the settings and the path is up. */
-		ptm_bfd_ses_up(bs);
+		ptm_bfd_sess_up(bs);
 		break;
 
 	default:
@@ -847,7 +851,7 @@ static void bs_up_handler(struct bfd_session *bs, int nstate)
 	case PTM_BFD_ADM_DOWN:
 	case PTM_BFD_DOWN:
 		/* Peer lost or asked to shutdown connection. */
-		ptm_bfd_ses_dn(bs, BD_NEIGHBOR_DOWN);
+		ptm_bfd_sess_dn(bs, BD_NEIGHBOR_DOWN);
 		break;
 
 	case PTM_BFD_INIT:
@@ -1197,10 +1201,6 @@ int bs_observer_add(struct bfd_session *bs)
 	if (bso->bso_isinterface)
 		strlcpy(bso->bso_entryname, bs->key.ifname,
 			sizeof(bso->bso_entryname));
-	else
-		strlcpy(bso->bso_entryname, bs->key.vrfname,
-			sizeof(bso->bso_entryname));
-
 	/* Handle socket binding failures caused by missing local addresses. */
 	if (bs->sock == -1) {
 		bso->bso_isaddress = true;
@@ -1322,32 +1322,105 @@ struct bfd_session *bfd_id_lookup(uint32_t id)
 	return hash_lookup(bfd_id_hash, &bs);
 }
 
+struct bfd_key_walk_partial_lookup {
+	struct bfd_session *given;
+	struct bfd_session *result;
+};
+
+/* ignore some parameters */
+static int bfd_key_lookup_ignore_partial_walker(struct hash_bucket *b, void *data)
+{
+	struct bfd_key_walk_partial_lookup  *ctx =
+		(struct bfd_key_walk_partial_lookup *)data;
+	struct bfd_session *given = ctx->given;
+	struct bfd_session *parsed = b->data;
+
+	if (given->key.family != parsed->key.family)
+		return HASHWALK_CONTINUE;
+	if (given->key.mhop != parsed->key.mhop)
+		return HASHWALK_CONTINUE;
+	if (memcmp(&given->key.peer, &parsed->key.peer, sizeof(struct in6_addr)))
+		return HASHWALK_CONTINUE;
+	if (memcmp(given->key.vrfname, parsed->key.vrfname, MAXNAMELEN))
+		return HASHWALK_CONTINUE;
+	ctx->result = parsed;
+	/* ignore localaddr or interface */
+	return HASHWALK_ABORT;
+}
+
 struct bfd_session *bfd_key_lookup(struct bfd_key key)
 {
 	struct bfd_session bs, *bsp;
+	struct bfd_key_walk_partial_lookup ctx;
+	char peer_buf[INET6_ADDRSTRLEN];
 
 	bs.key = key;
 	bsp = hash_lookup(bfd_key_hash, &bs);
+	if (bsp)
+		return bsp;
 
+	inet_ntop(bs.key.family, &bs.key.peer, peer_buf,
+		  sizeof(peer_buf));
 	/* Handle cases where local-address is optional. */
-	if (bsp == NULL && bs.key.family == AF_INET) {
+	if (bs.key.family == AF_INET) {
 		memset(&bs.key.local, 0, sizeof(bs.key.local));
 		bsp = hash_lookup(bfd_key_hash, &bs);
-	}
+		if (bsp) {
+			char addr_buf[INET6_ADDRSTRLEN];
 
-	/* Handle cases where ifname is optional. */
-	bs.key = key;
-	if (bsp == NULL && bs.key.ifname[0]) {
-		memset(bs.key.ifname, 0, sizeof(bs.key.ifname));
-		bsp = hash_lookup(bfd_key_hash, &bs);
-
-		/* Handle cases where local-address and ifname are optional. */
-		if (bsp == NULL && bs.key.family == AF_INET) {
-			memset(&bs.key.local, 0, sizeof(bs.key.local));
-			bsp = hash_lookup(bfd_key_hash, &bs);
+			inet_ntop(bs.key.family, &key.local, addr_buf,
+				  sizeof(addr_buf));
+			log_debug(" peer %s found, but loc-addr %s ignored",
+				  peer_buf, addr_buf);
+			return bsp;
 		}
 	}
 
+	bs.key = key;
+	/* Handle cases where ifname is optional. */
+	if (bs.key.ifname[0]) {
+		memset(bs.key.ifname, 0, sizeof(bs.key.ifname));
+		bsp = hash_lookup(bfd_key_hash, &bs);
+		if (bsp) {
+			log_debug(" peer %s found, but ifp %s ignored",
+				  peer_buf, key.ifname);
+			return bsp;
+		}
+	}
+
+	/* Handle cases where local-address and ifname are optional. */
+	if (bs.key.family == AF_INET) {
+		memset(&bs.key.local, 0, sizeof(bs.key.local));
+		bsp = hash_lookup(bfd_key_hash, &bs);
+		if (bsp) {
+			char addr_buf[INET6_ADDRSTRLEN];
+
+			inet_ntop(bs.key.family, &bs.key.local, addr_buf,
+				  sizeof(addr_buf));
+			log_debug(" peer %s found, but ifp %s"
+				  " and loc-addr %s ignored",
+				  peer_buf, key.ifname,
+				  addr_buf);
+			return bsp;
+		}
+	}
+	bs.key = key;
+
+	/* Handle case where a context more complex ctx is present.
+	 * input has no iface nor local-address, but a context may
+	 * exist
+	 */
+	ctx.result = NULL;
+	ctx.given = &bs;
+	hash_walk(bfd_key_hash,
+		  &bfd_key_lookup_ignore_partial_walker,
+		  &ctx);
+	/* change key */
+	if (ctx.result) {
+		bsp = ctx.result;
+		log_debug(" peer %s found, but ifp"
+			  " and/or loc-addr params ignored");
+	}
 	return bsp;
 }
 
@@ -1442,4 +1515,126 @@ void bfd_shutdown(void)
 	/* Now free the hashes themselves. */
 	hash_free(bfd_id_hash);
 	hash_free(bfd_key_hash);
+}
+
+static int bfd_vrf_new(struct vrf *vrf)
+{
+	log_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
+	return 0;
+}
+
+static int bfd_vrf_delete(struct vrf *vrf)
+{
+	log_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
+	return 0;
+}
+
+static int bfd_vrf_enable(struct vrf *vrf)
+{
+	struct bfd_vrf_global *bvrf;
+
+	/* a different name */
+	if (!vrf->info) {
+		bvrf = XCALLOC(MTYPE_BFDD_VRF, sizeof(struct bfd_vrf_global));
+		bvrf->vrf = vrf;
+		vrf->info = (void *)bvrf;
+	} else
+		bvrf = vrf->info;
+	log_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
+
+	/* create sockets if needed */
+	if (!bvrf->bg_shop)
+		bvrf->bg_shop = bp_udp_shop(vrf->vrf_id);
+	if (!bvrf->bg_mhop)
+		bvrf->bg_mhop = bp_udp_mhop(vrf->vrf_id);
+	if (!bvrf->bg_shop6)
+		bvrf->bg_shop6 = bp_udp6_shop(vrf->vrf_id);
+	if (!bvrf->bg_mhop6)
+		bvrf->bg_mhop6 = bp_udp6_mhop(vrf->vrf_id);
+	if (!bvrf->bg_echo)
+		bvrf->bg_echo = bp_echo_socket(vrf->vrf_id);
+	if (!bvrf->bg_echov6)
+		bvrf->bg_echov6 = bp_echov6_socket(vrf->vrf_id);
+
+	/* Add descriptors to the event loop. */
+	if (!bvrf->bg_ev[0])
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
+				&bvrf->bg_ev[0]);
+	if (!bvrf->bg_ev[1])
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
+				&bvrf->bg_ev[1]);
+	if (!bvrf->bg_ev[2])
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
+				&bvrf->bg_ev[2]);
+	if (!bvrf->bg_ev[3])
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
+				&bvrf->bg_ev[3]);
+	if (!bvrf->bg_ev[4])
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
+				&bvrf->bg_ev[4]);
+	if (!bvrf->bg_ev[5])
+		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
+				&bvrf->bg_ev[5]);
+
+	if (vrf->vrf_id != VRF_DEFAULT) {
+		bfdd_zclient_register(vrf->vrf_id);
+		bfdd_sessions_enable_vrf(vrf);
+	}
+	return 0;
+}
+
+static int bfd_vrf_disable(struct vrf *vrf)
+{
+	struct bfd_vrf_global *bvrf;
+
+	if (!vrf->info)
+		return 0;
+	bvrf = vrf->info;
+
+	if (vrf->vrf_id != VRF_DEFAULT) {
+		bfdd_sessions_disable_vrf(vrf);
+		bfdd_zclient_unregister(vrf->vrf_id);
+	}
+
+	log_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
+	/* Close all descriptors. */
+	socket_close(&bvrf->bg_echo);
+	socket_close(&bvrf->bg_shop);
+	socket_close(&bvrf->bg_mhop);
+	socket_close(&bvrf->bg_shop6);
+	socket_close(&bvrf->bg_mhop6);
+
+	/* free context */
+	XFREE(MTYPE_BFDD_VRF, bvrf);
+	vrf->info = NULL;
+
+	return 0;
+}
+
+void bfd_vrf_init(void)
+{
+	vrf_init(bfd_vrf_new, bfd_vrf_enable, bfd_vrf_disable,
+		 bfd_vrf_delete, NULL);
+}
+
+void bfd_vrf_terminate(void)
+{
+	vrf_terminate();
+}
+
+struct bfd_vrf_global *bfd_vrf_look_by_session(struct bfd_session *bfd)
+{
+	struct vrf *vrf;
+
+	if (!vrf_is_backend_netns()) {
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		if (vrf)
+			return (struct bfd_vrf_global *)vrf->info;
+		return NULL;
+	}
+	if (!bfd)
+		return NULL;
+	if (!bfd->vrf)
+		return NULL;
+	return bfd->vrf->info;
 }

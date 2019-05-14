@@ -956,7 +956,7 @@ static void ospf6_asbr_routemap_update(const char *mapname)
 	}
 }
 
-static void ospf6_asbr_routemap_event(route_map_event_t event, const char *name)
+static void ospf6_asbr_routemap_event(const char *name)
 {
 	int type;
 

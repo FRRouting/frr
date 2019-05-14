@@ -230,7 +230,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		time_t uptime;
 		struct tm *tm;
 
-		uptime = time(NULL);
+		uptime = monotime(NULL);
 		uptime -= re->uptime;
 		tm = gmtime(&uptime);
 
@@ -385,7 +385,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	struct tm *tm;
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
-	uptime = time(NULL);
+	uptime = monotime(NULL);
 	uptime -= re->uptime;
 	tm = gmtime(&uptime);
 
@@ -2556,40 +2556,6 @@ static int config_write_protocol(struct vty *vty)
 	return 1;
 }
 
-#ifdef HAVE_NETLINK
-/* Display default rtm_table for all clients. */
-DEFUN (show_table,
-       show_table_cmd,
-       "show table",
-       SHOW_STR
-       "default routing table to use for all clients\n")
-{
-	vty_out(vty, "table %d\n", zrouter.rtm_table_default);
-	return CMD_SUCCESS;
-}
-
-DEFUN (config_table,
-       config_table_cmd,
-       "table TABLENO",
-       "Configure target kernel routing table\n"
-       "TABLE integer\n")
-{
-	zrouter.rtm_table_default = strtol(argv[1]->arg, (char **)0, 10);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_config_table,
-       no_config_table_cmd,
-       "no table [TABLENO]",
-       NO_STR
-       "Configure target kernel routing table\n"
-       "TABLE integer\n")
-{
-	zrouter.rtm_table_default = 0;
-	return CMD_SUCCESS;
-}
-#endif
-
 DEFUN (show_zebra,
        show_zebra_cmd,
        "show zebra",
@@ -2833,8 +2799,6 @@ DEFUN (zebra_show_routing_tables_summary,
 /* Table configuration write function. */
 static int config_write_table(struct vty *vty)
 {
-	if (zrouter.rtm_table_default)
-		vty_out(vty, "table %d\n", zrouter.rtm_table_default);
 	return 0;
 }
 
@@ -2937,12 +2901,6 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &ip_forwarding_cmd);
 	install_element(CONFIG_NODE, &no_ip_forwarding_cmd);
 	install_element(ENABLE_NODE, &show_zebra_cmd);
-
-#ifdef HAVE_NETLINK
-	install_element(VIEW_NODE, &show_table_cmd);
-	install_element(CONFIG_NODE, &config_table_cmd);
-	install_element(CONFIG_NODE, &no_config_table_cmd);
-#endif /* HAVE_NETLINK */
 
 	install_element(VIEW_NODE, &show_ipv6_forwarding_cmd);
 	install_element(CONFIG_NODE, &ipv6_forwarding_cmd);

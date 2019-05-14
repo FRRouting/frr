@@ -14596,7 +14596,7 @@ static int lcommunity_list_unset_vty(struct vty *vty, int argc,
 		vty_out(vty, "This config option is deprecated, and is scheduled for removal.\n");
 		vty_out(vty, "if you are using this please migrate to the below command.\n");
 		vty_out(vty, "'no bgp large-community-list <(1-99)|(100-500)|standard|expanded> <deny|permit> <LINE|AA:BB:CC>'\n");
-		zlog_warn("Deprecated option: 'no ip large-community-list <(1-99)|(100-500)|standard|expanded> <deny|permit> <LINE|AA:BB:CC>' being used");	
+		zlog_warn("Deprecated option: 'no ip large-community-list <(1-99)|(100-500)|standard|expanded> <deny|permit> <LINE|AA:BB:CC>' being used");
 	}
 	argv_find(argv, argc, "permit", &idx);
 	argv_find(argv, argc, "deny", &idx);
@@ -14951,14 +14951,16 @@ static void lcommunity_list_show(struct vty *vty, struct community_list *list)
 		if (entry == list->head) {
 			if (all_digit(list->name))
 				vty_out(vty, "Large community %s list %s\n",
-					entry->style == EXTCOMMUNITY_LIST_STANDARD
+					entry->style ==
+						LARGE_COMMUNITY_LIST_STANDARD
 						? "standard"
 						: "(expanded) access",
 					list->name);
 			else
 				vty_out(vty,
 					"Named large community %s list %s\n",
-					entry->style == EXTCOMMUNITY_LIST_STANDARD
+					entry->style ==
+						LARGE_COMMUNITY_LIST_STANDARD
 						? "standard"
 						: "expanded",
 					list->name);

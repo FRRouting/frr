@@ -119,6 +119,8 @@ The common setup pattern will look like this:
 
 .. code-block:: c
 
+   #include <typesafe.h>
+
    PREDECL_XXX(Z)
    struct item {
        int otherdata;
@@ -159,26 +161,26 @@ Common iteration macros
 
 The following iteration macros work across all data structures:
 
-.. c:function:: for_each(Z, head, item)
+.. c:function:: for_each(Z, &head, item)
 
    Equivalent to:
 
    .. code-block:: c
 
-      for (item = Z_first(head); item; item = Z_next(head, item))
+      for (item = Z_first(&head); item; item = Z_next(&head, item))
 
    Note that this will fail if the list is modified while being iterated
    over.
 
-.. c:function:: for_each_safe(Z, head, item)
+.. c:function:: for_each_safe(Z, &head, item)
 
    Same as the previous, but the next element is pre-loaded into a "hidden"
    variable (named ``Z_safe``.)  Equivalent to:
 
    .. code-block:: c
 
-      for (item = Z_first(head); item; item = next) {
-          next = Z_next_safe(head, item);
+      for (item = Z_first(&head); item; item = next) {
+          next = Z_next_safe(&head, item);
           ...
       }
 
@@ -189,7 +191,7 @@ The following iteration macros work across all data structures:
       tables is resized while iterating.  This will cause items to be
       skipped or iterated over twice.
 
-.. c:function:: for_each_from(Z, head, item, from)
+.. c:function:: for_each_from(Z, &head, item, from)
 
    Iterates over the list, starting at item ``from``.  This variant is "safe"
    as in the previous macro.  Equivalent to:
@@ -197,7 +199,7 @@ The following iteration macros work across all data structures:
    .. code-block:: c
 
       for (item = from; item; item = from) {
-          from = Z_next_safe(head, item);
+          from = Z_next_safe(&head, item);
           ...
       }
 

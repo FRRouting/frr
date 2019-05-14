@@ -433,7 +433,8 @@ void bfd_show_info(struct vty *vty, struct bfd_info *bfd_info, int multihop,
  * bfd_client_sendmsg - Format and send a client register
  *                    command to Zebra to be forwarded to BFD
  */
-void bfd_client_sendmsg(struct zclient *zclient, int command)
+void bfd_client_sendmsg(struct zclient *zclient, int command,
+			vrf_id_t vrf_id)
 {
 	struct stream *s;
 	int ret;
@@ -450,7 +451,7 @@ void bfd_client_sendmsg(struct zclient *zclient, int command)
 
 	s = zclient->obuf;
 	stream_reset(s);
-	zclient_create_header(s, command, VRF_DEFAULT);
+	zclient_create_header(s, command, vrf_id);
 
 	stream_putl(s, getpid());
 

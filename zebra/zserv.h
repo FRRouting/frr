@@ -83,9 +83,6 @@ struct zserv {
 	/* Threads for the main pthread */
 	struct thread *t_cleanup;
 
-	/* default routing table this client munges */
-	int rtm_table;
-
 	/* This client's redistribute flag. */
 	struct redist_proto mi_redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 	vrf_bitmap_t redist[AFI_MAX][ZEBRA_ROUTE_MAX];

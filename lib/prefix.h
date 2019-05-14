@@ -466,7 +466,7 @@ extern int is_zero_mac(struct ethaddr *mac);
 extern int prefix_str2mac(const char *str, struct ethaddr *mac);
 extern char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size);
 
-extern unsigned prefix_hash_key(void *pp);
+extern unsigned prefix_hash_key(const void *pp);
 
 extern int str_to_esi(const char *str, esi_t *esi);
 extern char *esi_to_str(const esi_t *esi, char *buf, int size);

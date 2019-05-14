@@ -113,8 +113,7 @@ void ripng_zebra_ipv6_delete(struct ripng *ripng, struct agg_node *rp)
 }
 
 /* Zebra route add and delete treatment. */
-static int ripng_zebra_read_route(int command, struct zclient *zclient,
-				  zebra_size_t length, vrf_id_t vrf_id)
+static int ripng_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct ripng *ripng;
 	struct zapi_route api;
@@ -138,7 +137,7 @@ static int ripng_zebra_read_route(int command, struct zclient *zclient,
 	nexthop = api.nexthops[0].gate.ipv6;
 	ifindex = api.nexthops[0].ifindex;
 
-	if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
+	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		ripng_redistribute_add(ripng, api.type,
 				       RIPNG_ROUTE_REDISTRIBUTE,
 				       (struct prefix_ipv6 *)&api.prefix,

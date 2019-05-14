@@ -6347,6 +6347,35 @@ sub process {
 			     "Please, only use 32 bit atomics.\n" . $herecurr);
 		}
 
+# check for use of strcpy()
+		if ($line =~ /\bstrcpy\s*\(.*\)/) {
+			ERROR("STRCPY",
+			      "strcpy() is error-prone; please use strlcpy()"  . $herecurr);
+		}
+
+# check for use of strncpy()
+		if ($line =~ /\bstrncpy\s*\(.*\)/) {
+			WARN("STRNCPY",
+			     "strncpy() is error-prone; please use strlcpy() if possible, or memcpy()"  . $herecurr);
+		}
+
+# check for use of strcat()
+		if ($line =~ /\bstrcat\s*\(.*\)/) {
+			ERROR("STRCAT",
+			      "strcat() is error-prone; please use strlcat() if possible"  . $herecurr);
+		}
+
+# check for use of strncat()
+		if ($line =~ /\bstrncat\s*\(.*\)/) {
+			WARN("STRNCAT",
+			     "strncat() is error-prone; please use strlcat() if possible"  . $herecurr);
+		}
+
+# check for use of bzero()
+		if ($line =~ /\bbzero\s*\(.*\)/) {
+			ERROR("BZERO",
+			      "bzero() is deprecated; use memset()"  . $herecurr);
+		}
 	}
 
 	# If we have no input at all, then there is nothing to report on

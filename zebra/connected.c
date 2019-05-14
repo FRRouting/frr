@@ -209,8 +209,16 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		.ifindex = ifp->ifindex,
 		.vrf_id = ifp->vrf_id,
 	};
+	struct zebra_vrf *zvrf;
 	uint32_t metric;
 
+	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	if (!zvrf) {
+		flog_err(EC_ZEBRA_VRF_NOT_FOUND,
+			 "%s: Received Up for interface but no associated zvrf: %d",
+			 __PRETTY_FUNCTION__, ifp->vrf_id);
+		return;
+	}
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		return;
 
@@ -246,11 +254,11 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 
 	metric = (ifc->metric < (uint32_t)METRIC_MAX) ?
 				ifc->metric : ifp->metric;
-	rib_add(afi, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0, &p,
-		NULL, &nh, RT_TABLE_MAIN, metric, 0, 0, 0);
+	rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
+		0, 0, &p, NULL, &nh, zvrf->table_id, metric, 0, 0, 0);
 
-	rib_add(afi, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0, &p,
-		NULL, &nh, RT_TABLE_MAIN, metric, 0, 0, 0);
+	rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
+		0, 0, &p, NULL, &nh, zvrf->table_id, metric, 0, 0, 0);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		char buf[PREFIX_STRLEN];
@@ -260,19 +268,19 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 			ifp->vrf_id, ifp->name,
 			prefix2str(&p, buf, sizeof(buf)));
 	}
-	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
+	rib_update(zvrf->vrf->vrf_id, RIB_UPDATE_IF_CHANGE);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
-	if (ifp->vrf_id == VRF_DEFAULT) {
+	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {
 		if (IS_ZEBRA_DEBUG_MPLS) {
 			char buf[PREFIX_STRLEN];
 
 			zlog_debug(
 				"%u: IF %s IP %s address add/up, scheduling MPLS processing",
-				ifp->vrf_id, ifp->name,
+				zvrf->vrf->vrf_id, ifp->name,
 				prefix2str(&p, buf, sizeof(buf)));
 		}
-		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id), &p);
+		mpls_mark_lsps_for_processing(zvrf, &p);
 	}
 }
 
@@ -377,6 +385,15 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		.ifindex = ifp->ifindex,
 		.vrf_id = ifp->vrf_id,
 	};
+	struct zebra_vrf *zvrf;
+
+	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	if (!zvrf) {
+		flog_err(EC_ZEBRA_VRF_NOT_FOUND,
+			 "%s: Received Up for interface but no associated zvrf: %d",
+			 __PRETTY_FUNCTION__, ifp->vrf_id);
+		return;
+	}
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		return;
@@ -410,34 +427,34 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	 * Same logic as for connected_up(): push the changes into the
 	 * head.
 	 */
-	rib_delete(afi, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
-		   &p, NULL, &nh, 0, 0, 0, false);
+	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
+		   0, 0, &p, NULL, &nh, zvrf->table_id, 0, 0, false);
 
-	rib_delete(afi, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
-		   &p, NULL, &nh, 0, 0, 0, false);
+	rib_delete(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT,
+		   0, 0, &p, NULL, &nh, zvrf->table_id, 0, 0, false);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		char buf[PREFIX_STRLEN];
 
 		zlog_debug(
 			"%u: IF %s IP %s address down, scheduling RIB processing",
-			ifp->vrf_id, ifp->name,
+			zvrf->vrf->vrf_id, ifp->name,
 			prefix2str(&p, buf, sizeof(buf)));
 	}
 
-	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
+	rib_update(zvrf->vrf->vrf_id, RIB_UPDATE_IF_CHANGE);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
-	if (ifp->vrf_id == VRF_DEFAULT) {
+	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {
 		if (IS_ZEBRA_DEBUG_MPLS) {
 			char buf[PREFIX_STRLEN];
 
 			zlog_debug(
 				"%u: IF %s IP %s address down, scheduling MPLS processing",
-				ifp->vrf_id, ifp->name,
+				zvrf->vrf->vrf_id, ifp->name,
 				prefix2str(&p, buf, sizeof(buf)));
 		}
-		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id), &p);
+		mpls_mark_lsps_for_processing(zvrf, &p);
 	}
 }
 

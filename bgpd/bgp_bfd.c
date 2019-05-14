@@ -96,13 +96,12 @@ int bgp_bfd_is_peer_multihop(struct peer *peer)
 static void bgp_bfd_peer_sendmsg(struct peer *peer, int command)
 {
 	struct bfd_info *bfd_info;
-	vrf_id_t vrf_id = VRF_DEFAULT;
 	int multihop;
+	vrf_id_t vrf_id;
 
 	bfd_info = (struct bfd_info *)peer->bfd_info;
 
-	if (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
-		vrf_id = peer->bgp->vrf_id;
+	vrf_id = peer->bgp->vrf_id;
 
 	if (command == ZEBRA_BFD_DEST_DEREGISTER) {
 		multihop =
@@ -234,8 +233,7 @@ static void bgp_bfd_update_type(struct peer *peer)
  * bgp_bfd_dest_replay - Replay all the peers that have BFD enabled
  *                       to zebra
  */
-static int bgp_bfd_dest_replay(int command, struct zclient *client,
-			       zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_bfd_dest_replay(ZAPI_CALLBACK_ARGS)
 {
 	struct listnode *mnode, *node, *nnode;
 	struct bgp *bgp;
@@ -245,7 +243,7 @@ static int bgp_bfd_dest_replay(int command, struct zclient *client,
 		zlog_debug("Zebra: BFD Dest replay request");
 
 	/* Send the client registration */
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, vrf_id);
 
 	/* Replay the peer, if BFD is enabled in BGP */
 
@@ -276,6 +274,11 @@ static void bgp_bfd_peer_status_update(struct peer *peer, int status)
 	bfd_info->status = status;
 	bfd_info->last_update = bgp_clock();
 
+	if (status != old_status) {
+		if (BGP_DEBUG(neighbor_events, NEIGHBOR_EVENTS))
+			zlog_debug("[%s]: BFD %s", peer->host,
+				   bfd_get_status_str(status));
+	}
 	if ((status == BFD_STATUS_DOWN) && (old_status == BFD_STATUS_UP)) {
 		peer->last_reset = PEER_DOWN_BFD_DOWN;
 		BGP_EVENT_ADD(peer, BGP_Stop);
@@ -294,8 +297,7 @@ static void bgp_bfd_peer_status_update(struct peer *peer, int status)
  *                       has changed and bring down the peer
  *                       connectivity if the BFD session went down.
  */
-static int bgp_bfd_dest_update(int command, struct zclient *zclient,
-			       zebra_size_t length, vrf_id_t vrf_id)
+static int bgp_bfd_dest_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	struct prefix dp;

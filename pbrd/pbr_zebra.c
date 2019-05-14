@@ -59,8 +59,7 @@ struct pbr_interface *pbr_if_new(struct interface *ifp)
 }
 
 /* Inteface addition message from zebra. */
-static int interface_add(int command, struct zclient *zclient,
-			       zebra_size_t length, vrf_id_t vrf_id)
+static int interface_add(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 
@@ -80,8 +79,7 @@ static int interface_add(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int interface_delete(int command, struct zclient *zclient,
-			    zebra_size_t length, vrf_id_t vrf_id)
+static int interface_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 	struct stream *s;
@@ -102,13 +100,12 @@ static int interface_delete(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int interface_address_add(int command, struct zclient *zclient,
-				 zebra_size_t length, vrf_id_t vrf_id)
+static int interface_address_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 	char buf[PREFIX_STRLEN];
 
-	c = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
+	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	DEBUGD(&pbr_dbg_zebra,
 	       "%s: %s added %s", __PRETTY_FUNCTION__,
@@ -118,13 +115,12 @@ static int interface_address_add(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int interface_address_delete(int command, struct zclient *zclient,
-				    zebra_size_t length, vrf_id_t vrf_id)
+static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
 	char buf[PREFIX_STRLEN];
 
-	c = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
+	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
 	if (!c)
 		return 0;
@@ -137,8 +133,7 @@ static int interface_address_delete(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int interface_state_up(int command, struct zclient *zclient,
-			      zebra_size_t length, vrf_id_t vrf_id)
+static int interface_state_up(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 
@@ -152,8 +147,7 @@ static int interface_state_up(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int interface_state_down(int command, struct zclient *zclient,
-				zebra_size_t length, vrf_id_t vrf_id)
+static int interface_state_down(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
 
@@ -167,8 +161,7 @@ static int interface_state_down(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int route_notify_owner(int command, struct zclient *zclient,
-			      zebra_size_t length, vrf_id_t vrf_id)
+static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix p;
 	enum zapi_route_notify_owner note;
@@ -213,8 +206,7 @@ static int route_notify_owner(int command, struct zclient *zclient,
 	return 0;
 }
 
-static int rule_notify_owner(int command, struct zclient *zclient,
-			     zebra_size_t length, vrf_id_t vrf_id)
+static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 {
 	uint32_t seqno, priority, unique;
 	enum zapi_rule_notify_owner note;
@@ -402,8 +394,7 @@ void route_delete(struct pbr_nexthop_group_cache *pnhgc, afi_t afi)
 	}
 }
 
-static int pbr_zebra_nexthop_update(int command, struct zclient *zclient,
-				    zebra_size_t length, vrf_id_t vrf_id)
+static int pbr_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route nhr;
 	char buf[PREFIX2STR_BUFFER];

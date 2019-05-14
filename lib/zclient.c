@@ -2371,9 +2371,7 @@ int zebra_send_pw(struct zclient *zclient, int command, struct zapi_pw *pw)
 /*
  * Receive PW status update from Zebra and send it to LDE process.
  */
-void zebra_read_pw_status_update(int command, struct zclient *zclient,
-				 zebra_size_t length, vrf_id_t vrf_id,
-				 struct zapi_pw_status *pw)
+void zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS, struct zapi_pw_status *pw)
 {
 	struct stream *s;
 
@@ -2386,8 +2384,7 @@ void zebra_read_pw_status_update(int command, struct zclient *zclient,
 	pw->status = stream_getl(s);
 }
 
-static void zclient_capability_decode(int command, struct zclient *zclient,
-				      zebra_size_t length, vrf_id_t vrf_id)
+static void zclient_capability_decode(ZAPI_CALLBACK_ARGS)
 {
 	struct zclient_capabilities cap;
 	struct stream *s = zclient->ibuf;

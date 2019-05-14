@@ -82,15 +82,11 @@ struct zebra_router {
 
 	struct hash *iptable_hash;
 
-#if defined(HAVE_RTADV)
-	struct rtadv rtadv;
-#endif /* HAVE_RTADV */
+	/* used if vrf backend is not network namespace */
+	int rtadv_sock;
 
 	/* A sequence number used for tracking routes */
 	_Atomic uint32_t sequence_num;
-
-	/* The default table used for this router */
-	uint32_t rtm_table_default;
 
 	/* rib work queue */
 #define ZEBRA_RIB_PROCESS_HOLD_TIME 10

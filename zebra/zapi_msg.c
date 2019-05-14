@@ -1388,7 +1388,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	re->type = api.type;
 	re->instance = api.instance;
 	re->flags = api.flags;
-	re->uptime = time(NULL);
+	re->uptime = monotime(NULL);
 	re->vrf_id = vrf_id;
 	if (api.tableid && vrf_id == VRF_DEFAULT)
 		re->table = api.tableid;

@@ -97,7 +97,7 @@ static void ospf_route_map_update(const char *name)
 	}
 }
 
-static void ospf_route_map_event(route_map_event_t event, const char *name)
+static void ospf_route_map_event(const char *name)
 {
 	struct ospf *ospf;
 	int type;

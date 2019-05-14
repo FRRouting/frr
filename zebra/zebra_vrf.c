@@ -29,6 +29,7 @@
 #include "vty.h"
 
 #include "zebra/zebra_router.h"
+#include "zebra/rtadv.h"
 #include "zebra/debug.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/rib.h"
@@ -114,6 +115,10 @@ static int zebra_vrf_enable(struct vrf *vrf)
 		zvrf->zns = zebra_ns_lookup((ns_id_t)vrf->vrf_id);
 	else
 		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
+#if defined(HAVE_RTADV)
+	rtadv_init(zvrf);
+#endif
+
 	/* Inform clients that the VRF is now active. This is an
 	 * add for the clients.
 	 */
@@ -155,6 +160,10 @@ static int zebra_vrf_disable(struct vrf *vrf)
 
 	/* Stop any VxLAN-EVPN processing. */
 	zebra_vxlan_vrf_disable(zvrf);
+
+#if defined(HAVE_RTADV)
+	rtadv_terminate(zvrf);
+#endif
 
 	/* Inform clients that the VRF is now inactive. This is a
 	 * delete for the clients.
@@ -326,15 +335,13 @@ struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 		return NULL;
 
 	if (vrf_id == VRF_DEFAULT) {
-		if (table_id == RT_TABLE_MAIN
-		    || table_id == zrouter.rtm_table_default)
+		if (table_id == RT_TABLE_MAIN)
 			table = zebra_vrf_table(afi, safi, vrf_id);
 		else
 			table = zebra_vrf_other_route_table(afi, table_id,
 							    vrf_id);
 	} else if (vrf_is_backend_netns()) {
-		if (table_id == RT_TABLE_MAIN
-		    || table_id == zrouter.rtm_table_default)
+		if (table_id == RT_TABLE_MAIN)
 			table = zebra_vrf_table(afi, safi, vrf_id);
 		else
 			table = zebra_vrf_other_route_table(afi, table_id,
@@ -357,7 +364,7 @@ void zebra_rtable_node_cleanup(struct route_table *table,
 	if (node->info) {
 		rib_dest_t *dest = node->info;
 
-		list_delete(&dest->nht);
+		rnh_list_fini(&dest->nht);
 		XFREE(MTYPE_RIB_DEST, node->info);
 	}
 }
@@ -452,10 +459,8 @@ struct route_table *zebra_vrf_other_route_table(afi_t afi, uint32_t table_id,
 	if (afi >= AFI_MAX)
 		return NULL;
 
-	if ((table_id != RT_TABLE_MAIN)
-	    && (table_id != zrouter.rtm_table_default)) {
-		if (zvrf->table_id == RT_TABLE_MAIN ||
-		    zvrf->table_id == zrouter.rtm_table_default) {
+	if (table_id != RT_TABLE_MAIN) {
+		if (zvrf->table_id == RT_TABLE_MAIN) {
 			/* this VRF use default table
 			 * so in all cases, it does not use specific table
 			 * so it is possible to configure tables in this VRF

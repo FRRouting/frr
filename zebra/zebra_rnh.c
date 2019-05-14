@@ -119,7 +119,7 @@ static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 	}
 
 	dest = rib_dest_from_rnode(rn);
-	listnode_delete(dest->nht, rnh);
+	rnh_list_del(&dest->nht, rnh);
 	route_unlock_node(rn);
 }
 
@@ -145,7 +145,7 @@ static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
 	}
 
 	dest = rib_dest_from_rnode(rn);
-	listnode_add(dest->nht, rnh);
+	rnh_list_add_tail(&dest->nht, rnh);
 	route_unlock_node(rn);
 }
 
@@ -251,7 +251,7 @@ void zebra_free_rnh(struct rnh *rnh)
 			route_unlock_node(rern);
 
 			dest = rib_dest_from_rnode(rern);
-			listnode_delete(dest->nht, rnh);
+			rnh_list_del(&dest->nht, rnh);
 		}
 	}
 	free_state(rnh->vrf_id, rnh->state, rnh->node);

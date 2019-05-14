@@ -1112,7 +1112,7 @@ DEFPY (rpki_cache,
 		vty_out(vty,
 			"ssh sockets are not supported. "
 			"Please recompile rtrlib and frr with ssh support. "
-			"If you want to use it");
+			"If you want to use it\n");
 #endif
 	} else { // use tcp connection
 		return_value = add_tcp_cache(cache, tcpport, preference);
@@ -1253,6 +1253,7 @@ DEFUN (show_rpki_cache_server,
 				cache->tr_config.tcp_config->host,
 				cache->tr_config.tcp_config->port);
 
+#if defined(FOUND_SSH)
 		} else if (cache->type == SSH) {
 			vty_out(vty,
 				"host: %s port: %d username: %s "
@@ -1264,6 +1265,7 @@ DEFUN (show_rpki_cache_server,
 					->server_hostkey_path,
 				cache->tr_config.ssh_config
 					->client_privkey_path);
+#endif
 		}
 	}
 
