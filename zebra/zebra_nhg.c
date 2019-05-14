@@ -146,9 +146,6 @@ void zebra_nhg_depends_del(struct nhg_hash_entry *from,
 			   struct nhg_hash_entry *depend)
 {
 	nhg_connected_head_del(&from->nhg_depends, depend);
-
-	/* Delete from the dependent tree */
-	zebra_nhg_dependents_del(depend, from);
 }
 
 /**
@@ -557,12 +554,17 @@ void zebra_nhg_free(void *arg)
  */
 void zebra_nhg_release(struct nhg_hash_entry *nhe)
 {
-	if (!nhe->refcnt) {
-		zlog_debug("Releasing nexthop group with ID (%u)", nhe->id);
-		hash_release(zrouter.nhgs, nhe);
-		hash_release(zrouter.nhgs_id, nhe);
-		zebra_nhg_free(nhe);
-	}
+	zlog_debug("Releasing nexthop group with ID (%u)", nhe->id);
+
+	/* Remove it from any lists it may be on */
+	zebra_nhg_depends_release(nhe);
+	zebra_nhg_dependents_release(nhe);
+	if (nhe->ifp)
+		if_nhg_dependents_del(nhe->ifp, nhe);
+
+	hash_release(zrouter.nhgs, nhe);
+	hash_release(zrouter.nhgs_id, nhe);
+	zebra_nhg_free(nhe);
 }
 
 /**
@@ -588,7 +590,7 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 
 	if (!nhe->is_kernel_nh && nhe->refcnt <= 0) {
 		zebra_nhg_uninstall_kernel(nhe);
-		// zebra_nhg_release(nhe);
+		zebra_nhg_release(nhe);
 	}
 }
 
