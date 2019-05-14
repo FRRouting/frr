@@ -496,15 +496,23 @@ void zebra_nhg_free(void *arg)
  */
 void zebra_nhg_release(struct nhg_hash_entry *nhe)
 {
-	if (nhe->refcnt)
-		flog_err(
-			EC_ZEBRA_NHG_SYNC,
-			"Releasing a nexthop group with ID (%u) that we are still using for a route",
-			nhe->id);
+	if (!nhe->refcnt) {
+		zlog_debug("Releasing nexthop group with ID (%u)", nhe->id);
+		hash_release(zrouter.nhgs, nhe);
+		hash_release(zrouter.nhgs_id, nhe);
+		zebra_nhg_free(nhe);
+	}
+}
 
-	hash_release(zrouter.nhgs, nhe);
-	hash_release(zrouter.nhgs_id, nhe);
-	zebra_nhg_free(nhe);
+/**
+ * zebra_nhg_uninstall_release() - Unistall and release a nhe
+ *
+ * @nhe:	Nexthop group hash entry
+ */
+static void zebra_nhg_uninstall_release(struct nhg_hash_entry *nhe)
+{
+	zebra_nhg_uninstall_kernel(nhe);
+	// zebra_nhg_release(nhe);
 }
 
 /**
@@ -529,7 +537,7 @@ void zebra_nhg_decrement_ref(struct nhg_hash_entry *nhe)
 	nhe->refcnt--;
 
 	if (!nhe->is_kernel_nh && nhe->refcnt <= 0) {
-		zebra_nhg_uninstall_kernel(nhe);
+		zebra_nhg_uninstall_release(nhe);
 	}
 }
 
@@ -1173,6 +1181,7 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 	nhe = zebra_nhg_lookup_id(id);
 
 	if (nhe) {
+		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
 		if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 			zlog_debug(
 				"Nexthop dplane ctx %p, op %s, nexthop ID (%u), result %s",
@@ -1183,7 +1192,6 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 		case DPLANE_OP_NH_DELETE:
 			if (status == ZEBRA_DPLANE_REQUEST_SUCCESS) {
 				UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
-				zebra_nhg_release(nhe);
 			} else {
 				flog_err(
 					EC_ZEBRA_DP_DELETE_FAIL,
@@ -1202,7 +1210,6 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 					nhe->id);
 				UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
 			}
-			UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED);
 			break;
 		case DPLANE_OP_ROUTE_INSTALL:
 		case DPLANE_OP_ROUTE_UPDATE:
