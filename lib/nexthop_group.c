@@ -186,19 +186,8 @@ void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 
 	for (nh1 = nh; nh1; nh1 = nh1->next) {
 		nexthop = nexthop_new();
-		nexthop->vrf_id = nh1->vrf_id;
-		nexthop->ifindex = nh1->ifindex;
-		nexthop->type = nh1->type;
-		nexthop->flags = nh1->flags;
-		memcpy(&nexthop->gate, &nh1->gate, sizeof(nh1->gate));
-		memcpy(&nexthop->src, &nh1->src, sizeof(nh1->src));
-		memcpy(&nexthop->rmap_src, &nh1->rmap_src,
-		       sizeof(nh1->rmap_src));
-		nexthop->rparent = rparent;
-		if (nh1->nh_label)
-			nexthop_add_labels(nexthop, nh1->nh_label_type,
-					   nh1->nh_label->num_labels,
-					   &nh1->nh_label->label[0]);
+		nexthop_copy(nexthop, nh1, rparent);
+
 		nexthop_add(tnh, nexthop);
 
 		if (CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_RECURSIVE))
