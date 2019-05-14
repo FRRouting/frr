@@ -40,9 +40,9 @@ struct bgp_self_mac {
 	struct list *ifp_list;
 };
 
-static unsigned int bgp_mac_hash_key_make(void *data)
+static unsigned int bgp_mac_hash_key_make(const void *data)
 {
-	struct bgp_self_mac *bsm = data;
+	const struct bgp_self_mac *bsm = data;
 
 	return jhash(&bsm->macaddr, ETH_ALEN, 0xa5a5dead);
 }

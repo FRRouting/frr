@@ -332,7 +332,7 @@ int argv_find(struct cmd_token **argv, int argc, const char *text, int *index)
 	return found;
 }
 
-static unsigned int cmd_hash_key(void *p)
+static unsigned int cmd_hash_key(const void *p)
 {
 	int size = sizeof(p);
 

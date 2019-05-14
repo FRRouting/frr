@@ -114,7 +114,7 @@ static void bgp_tip_hash_free(void *addr)
 	XFREE(MTYPE_TIP_ADDR, addr);
 }
 
-static unsigned int bgp_tip_hash_key_make(void *p)
+static unsigned int bgp_tip_hash_key_make(const void *p)
 {
 	const struct tip_addr *addr = p;
 
@@ -237,7 +237,7 @@ static void bgp_address_hash_free(void *data)
 	XFREE(MTYPE_BGP_ADDR, addr);
 }
 
-static unsigned int bgp_address_hash_key_make(void *p)
+static unsigned int bgp_address_hash_key_make(const void *p)
 {
 	const struct bgp_addr *addr = p;
 

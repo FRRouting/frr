@@ -964,9 +964,9 @@ static void *bgp_pbr_match_entry_alloc_intern(void *arg)
 	return new;
 }
 
-uint32_t bgp_pbr_match_hash_key(void *arg)
+uint32_t bgp_pbr_match_hash_key(const void *arg)
 {
-	struct bgp_pbr_match *pbm = (struct bgp_pbr_match *)arg;
+	const struct bgp_pbr_match *pbm = arg;
 	uint32_t key;
 
 	key = jhash_1word(pbm->vrf_id, 0x4312abde);
@@ -1019,9 +1019,9 @@ bool bgp_pbr_match_hash_equal(const void *arg1, const void *arg2)
 	return true;
 }
 
-uint32_t bgp_pbr_rule_hash_key(void *arg)
+uint32_t bgp_pbr_rule_hash_key(const void *arg)
 {
-	struct bgp_pbr_rule *pbr = (struct bgp_pbr_rule *)arg;
+	const struct bgp_pbr_rule *pbr = arg;
 	uint32_t key;
 
 	key = prefix_hash_key(&pbr->src);
@@ -1057,12 +1057,12 @@ bool bgp_pbr_rule_hash_equal(const void *arg1, const void *arg2)
 	return true;
 }
 
-uint32_t bgp_pbr_match_entry_hash_key(void *arg)
+uint32_t bgp_pbr_match_entry_hash_key(const void *arg)
 {
-	struct bgp_pbr_match_entry *pbme;
+	const struct bgp_pbr_match_entry *pbme;
 	uint32_t key;
 
-	pbme = (struct bgp_pbr_match_entry *)arg;
+	pbme = arg;
 	key = prefix_hash_key(&pbme->src);
 	key = jhash_1word(prefix_hash_key(&pbme->dst), key);
 	key = jhash(&pbme->dst_port_min, 2, key);
@@ -1111,12 +1111,12 @@ bool bgp_pbr_match_entry_hash_equal(const void *arg1, const void *arg2)
 	return true;
 }
 
-uint32_t bgp_pbr_action_hash_key(void *arg)
+uint32_t bgp_pbr_action_hash_key(const void *arg)
 {
-	struct bgp_pbr_action *pbra;
+	const struct bgp_pbr_action *pbra;
 	uint32_t key;
 
-	pbra = (struct bgp_pbr_action *)arg;
+	pbra = arg;
 	key = jhash_1word(pbra->table_id, 0x4312abde);
 	key = jhash_1word(pbra->fwmark, key);
 	return key;

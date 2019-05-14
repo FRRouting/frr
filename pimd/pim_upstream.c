@@ -1629,9 +1629,9 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 	}
 }
 
-unsigned int pim_upstream_hash_key(void *arg)
+unsigned int pim_upstream_hash_key(const void *arg)
 {
-	struct pim_upstream *up = (struct pim_upstream *)arg;
+	const struct pim_upstream *up = arg;
 
 	return jhash_2words(up->sg.src.s_addr, up->sg.grp.s_addr, 0);
 }

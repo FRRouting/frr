@@ -1425,9 +1425,9 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 		pim_jp_agg_single_upstream_send(&starup->rpf, starup, true);
 }
 
-unsigned int pim_ifchannel_hash_key(void *arg)
+unsigned int pim_ifchannel_hash_key(const void *arg)
 {
-	struct pim_ifchannel *ch = (struct pim_ifchannel *)arg;
+	const struct pim_ifchannel *ch = arg;
 
 	return jhash_2words(ch->sg.src.s_addr, ch->sg.grp.s_addr, 0);
 }

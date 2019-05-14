@@ -623,9 +623,9 @@ static void pim_vxlan_term_mr_del(struct pim_vxlan_sg *vxlan_sg)
 }
 
 /************************** vxlan SG cache management ************************/
-static unsigned int pim_vxlan_sg_hash_key_make(void *p)
+static unsigned int pim_vxlan_sg_hash_key_make(const void *p)
 {
-	struct pim_vxlan_sg *vxlan_sg = p;
+	const struct pim_vxlan_sg *vxlan_sg = p;
 
 	return (jhash_2words(vxlan_sg->sg.src.s_addr,
 				vxlan_sg->sg.grp.s_addr, 0));

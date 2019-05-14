@@ -140,7 +140,7 @@ int cluster_loop_check(struct cluster_list *cluster, struct in_addr originator)
 	return 0;
 }
 
-static unsigned int cluster_hash_key_make(void *p)
+static unsigned int cluster_hash_key_make(const void *p)
 {
 	const struct cluster_list *cluster = p;
 
@@ -348,7 +348,7 @@ static void encap_unintern(struct bgp_attr_encap_subtlv **encapp,
 	}
 }
 
-static unsigned int encap_hash_key_make(void *p)
+static unsigned int encap_hash_key_make(const void *p)
 {
 	const struct bgp_attr_encap_subtlv *encap = p;
 
@@ -433,7 +433,7 @@ void transit_unintern(struct transit *transit)
 	}
 }
 
-static unsigned int transit_hash_key_make(void *p)
+static unsigned int transit_hash_key_make(const void *p)
 {
 	const struct transit *transit = p;
 
@@ -484,7 +484,7 @@ unsigned long int attr_unknown_count(void)
 	return transit_hash->count;
 }
 
-unsigned int attrhash_key_make(void *p)
+unsigned int attrhash_key_make(const void *p)
 {
 	const struct attr *attr = (struct attr *)p;
 	uint32_t key = 0;

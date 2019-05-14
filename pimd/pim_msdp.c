@@ -680,9 +680,9 @@ void pim_msdp_up_del(struct pim_instance *pim, struct prefix_sg *sg)
 }
 
 /* sa hash and peer list helpers */
-static unsigned int pim_msdp_sa_hash_key_make(void *p)
+static unsigned int pim_msdp_sa_hash_key_make(const void *p)
 {
-	struct pim_msdp_sa *sa = p;
+	const struct pim_msdp_sa *sa = p;
 
 	return (jhash_2words(sa->sg.src.s_addr, sa->sg.grp.s_addr, 0));
 }
@@ -1215,9 +1215,9 @@ enum pim_msdp_err pim_msdp_peer_del(struct pim_instance *pim,
 }
 
 /* peer hash and peer list helpers */
-static unsigned int pim_msdp_peer_hash_key_make(void *p)
+static unsigned int pim_msdp_peer_hash_key_make(const void *p)
 {
-	struct pim_msdp_peer *mp = p;
+	const struct pim_msdp_peer *mp = p;
 	return (jhash_1word(mp->peer.s_addr, 0));
 }
 

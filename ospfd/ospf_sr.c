@@ -86,7 +86,7 @@ static inline void del_sid_nhlfe(struct sr_nhlfe nhlfe);
  */
 
 /* Hash function for Segment Routing entry */
-static unsigned int sr_hash(void *p)
+static unsigned int sr_hash(const void *p)
 {
 	const struct in_addr *rid = p;
 

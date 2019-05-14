@@ -63,7 +63,7 @@ static struct list *masters;
 static void thread_free(struct thread_master *master, struct thread *thread);
 
 /* CLI start ---------------------------------------------------------------- */
-static unsigned int cpu_record_hash_key(struct cpu_thread_history *a)
+static unsigned int cpu_record_hash_key(const struct cpu_thread_history *a)
 {
 	int size = sizeof(a->func);
 
@@ -433,7 +433,7 @@ struct thread_master *thread_master_create(const char *name)
 			    sizeof(struct thread *) * rv->fd_limit);
 
 	rv->cpu_record = hash_create_size(
-		8, (unsigned int (*)(void *))cpu_record_hash_key,
+		8, (unsigned int (*)(const void *))cpu_record_hash_key,
 		(bool (*)(const void *, const void *))cpu_record_hash_cmp,
 		"Thread Hash");
 

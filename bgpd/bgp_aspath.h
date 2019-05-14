@@ -102,7 +102,7 @@ extern const char *aspath_print(struct aspath *);
 extern void aspath_print_vty(struct vty *, const char *, struct aspath *,
 			     const char *);
 extern void aspath_print_all_vty(struct vty *);
-extern unsigned int aspath_key_make(void *);
+extern unsigned int aspath_key_make(const void *);
 extern unsigned int aspath_get_first_as(struct aspath *);
 extern unsigned int aspath_get_last_as(struct aspath *);
 extern int aspath_loop_check(struct aspath *, as_t);

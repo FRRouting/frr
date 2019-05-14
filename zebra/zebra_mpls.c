@@ -76,7 +76,7 @@ static zebra_fec_t *fec_add(struct route_table *table, struct prefix *p,
 			    uint32_t label_index);
 static int fec_del(zebra_fec_t *fec);
 
-static unsigned int label_hash(void *p);
+static unsigned int label_hash(const void *p);
 static bool label_cmp(const void *p1, const void *p2);
 static int nhlfe_nexthop_active_ipv4(zebra_nhlfe_t *nhlfe,
 				     struct nexthop *nexthop);
@@ -577,7 +577,7 @@ static int fec_del(zebra_fec_t *fec)
 /*
  * Hash function for label.
  */
-static unsigned int label_hash(void *p)
+static unsigned int label_hash(const void *p)
 {
 	const zebra_ile_t *ile = p;
 

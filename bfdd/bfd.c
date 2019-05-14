@@ -1271,16 +1271,16 @@ void bs_to_bpc(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
 static struct hash *bfd_id_hash;
 static struct hash *bfd_key_hash;
 
-static unsigned int bfd_id_hash_do(void *p);
-static unsigned int bfd_key_hash_do(void *p);
+static unsigned int bfd_id_hash_do(const void *p);
+static unsigned int bfd_key_hash_do(const void *p);
 
 static void _bfd_free(struct hash_bucket *hb,
 		      void *arg __attribute__((__unused__)));
 
 /* BFD hash for our discriminator. */
-static unsigned int bfd_id_hash_do(void *p)
+static unsigned int bfd_id_hash_do(const void *p)
 {
-	struct bfd_session *bs = p;
+	const struct bfd_session *bs = p;
 
 	return jhash_1word(bs->discrs.my_discr, 0);
 }
@@ -1293,9 +1293,9 @@ static bool bfd_id_hash_cmp(const void *n1, const void *n2)
 }
 
 /* BFD hash for single hop. */
-static unsigned int bfd_key_hash_do(void *p)
+static unsigned int bfd_key_hash_do(const void *p)
 {
-	struct bfd_session *bs = p;
+	const struct bfd_session *bs = p;
 
 	return jhash(&bs->key, sizeof(bs->key), 0);
 }

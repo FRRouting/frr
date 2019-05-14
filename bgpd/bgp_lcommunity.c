@@ -301,7 +301,7 @@ char *lcommunity_str(struct lcommunity *lcom, bool make_json)
 }
 
 /* Utility function to make hash key.  */
-unsigned int lcommunity_hash_make(void *arg)
+unsigned int lcommunity_hash_make(const void *arg)
 {
 	const struct lcommunity *lcom = arg;
 	int size = lcom_length(lcom);

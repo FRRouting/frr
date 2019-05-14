@@ -288,7 +288,7 @@ static void *updgrp_hash_alloc(void *p)
  *       16. Local-as should match, if configured.
  *      )
  */
-static unsigned int updgrp_hash_key_make(void *p)
+static unsigned int updgrp_hash_key_make(const void *p)
 {
 	const struct update_group *updgrp;
 	const struct peer *peer;
