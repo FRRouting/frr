@@ -173,6 +173,20 @@ void zebra_nhg_depends_init(struct nhg_hash_entry *nhe)
 	nhg_connected_head_init(&nhe->nhg_depends);
 }
 
+/* Release this nhe from anything that it depends on */
+static void zebra_nhg_depends_release(struct nhg_hash_entry *nhe)
+{
+	if (!zebra_nhg_depends_is_empty(nhe)) {
+		struct nhg_connected *rb_node_dep = NULL;
+		struct nhg_connected *tmp = NULL;
+
+		RB_FOREACH_SAFE (rb_node_dep, nhg_connected_head,
+				 &nhe->nhg_depends, tmp) {
+			zebra_nhg_dependents_del(rb_node_dep->nhe, nhe);
+		}
+	}
+}
+
 unsigned int zebra_nhg_dependents_count(const struct nhg_hash_entry *nhe)
 {
 	return nhg_connected_head_count(&nhe->nhg_dependents);
@@ -215,6 +229,20 @@ void zebra_nhg_dependents_add(struct nhg_hash_entry *to,
 void zebra_nhg_dependents_init(struct nhg_hash_entry *nhe)
 {
 	nhg_connected_head_init(&nhe->nhg_dependents);
+}
+
+/* Release this nhe from anything depending on it */
+static void zebra_nhg_dependents_release(struct nhg_hash_entry *nhe)
+{
+	if (!zebra_nhg_dependents_is_empty(nhe)) {
+		struct nhg_connected *rb_node_dep = NULL;
+		struct nhg_connected *tmp = NULL;
+
+		RB_FOREACH_SAFE (rb_node_dep, nhg_connected_head,
+				 &nhe->nhg_dependents, tmp) {
+			zebra_nhg_depends_del(rb_node_dep->nhe, nhe);
+		}
+	}
 }
 
 /**
