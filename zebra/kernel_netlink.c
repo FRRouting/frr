@@ -891,15 +891,20 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 							msg_type,
 							err->msg.nlmsg_seq,
 							err->msg.nlmsg_pid);
-				} else
-					flog_err(
-						EC_ZEBRA_UNEXPECTED_MESSAGE,
-						"%s error: %s, type=%s(%u), seq=%u, pid=%u",
-						nl->name,
-						safe_strerror(-errnum),
-						nl_msg_type_to_str(msg_type),
-						msg_type, err->msg.nlmsg_seq,
-						err->msg.nlmsg_pid);
+				} else {
+					if ((msg_type != RTM_GETNEXTHOP)
+					    || !startup)
+						flog_err(
+							EC_ZEBRA_UNEXPECTED_MESSAGE,
+							"%s error: %s, type=%s(%u), seq=%u, pid=%u",
+							nl->name,
+							safe_strerror(-errnum),
+							nl_msg_type_to_str(
+								msg_type),
+							msg_type,
+							err->msg.nlmsg_seq,
+							err->msg.nlmsg_pid);
+				}
 
 				return -1;
 			}
