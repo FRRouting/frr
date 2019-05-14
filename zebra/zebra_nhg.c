@@ -103,13 +103,16 @@ void nhg_connected_head_del(struct nhg_connected_head *head,
 			    struct nhg_hash_entry *depend)
 {
 	struct nhg_connected lookup = {};
-	struct nhg_connected *removed = NULL;
+	struct nhg_connected *remove = NULL;
 
 	lookup.nhe = depend;
 
-	removed = RB_REMOVE(nhg_connected_head, head, &lookup);
+	/* Lookup to find the element, then remove it */
+	remove = RB_FIND(nhg_connected_head, head, &lookup);
+	remove = RB_REMOVE(nhg_connected_head, head, remove);
 
-	nhg_connected_free(removed);
+	if (remove)
+		nhg_connected_free(remove);
 }
 
 void nhg_connected_head_add(struct nhg_connected_head *head,
