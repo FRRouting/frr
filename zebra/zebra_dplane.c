@@ -1574,8 +1574,7 @@ done:
 	else {
 		atomic_fetch_add_explicit(&zdplane_info.dg_lsp_errors, 1,
 					  memory_order_relaxed);
-		if (ctx)
-			dplane_ctx_free(&ctx);
+		dplane_ctx_free(&ctx);
 	}
 
 	return result;
@@ -1609,8 +1608,7 @@ done:
 	else {
 		atomic_fetch_add_explicit(&zdplane_info.dg_pw_errors, 1,
 					  memory_order_relaxed);
-		if (ctx)
-			dplane_ctx_free(&ctx);
+		dplane_ctx_free(&ctx);
 	}
 
 	return result;
@@ -1737,8 +1735,7 @@ static enum zebra_dplane_result intf_addr_update_internal(
 		/* Error counter */
 		atomic_fetch_add_explicit(&zdplane_info.dg_intf_addr_errors,
 					  1, memory_order_relaxed);
-		if (ctx)
-			dplane_ctx_free(&ctx);
+		dplane_ctx_free(&ctx);
 	}
 
 	return result;
