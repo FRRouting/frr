@@ -1593,8 +1593,6 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 		ctx->u.rinfo.nhe.nh_grp_count =
 			zebra_nhg_nhe2grp(ctx->u.rinfo.nhe.nh_grp, nhe);
 
-	/* Extract ns info - can't use pointers to 'core'
-	   structs */
 	zns = ((struct zebra_vrf *)vrf_info_lookup(nhe->vrf_id))->zns;
 
 	if (!zns->supports_nh) {
@@ -1602,8 +1600,10 @@ static int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx,
 		goto done;
 	}
 
-	// TODO: Might not need to mark this as an update, since
-	// it probably won't require two messages
+	/*
+	 * TODO: Might not need to mark this as an update, since
+	 * it probably won't require two messages
+	 */
 	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_NH_UPDATE));
 
 	ret = AOK;
@@ -1886,9 +1886,9 @@ dplane_nexthop_update_internal(struct nhg_hash_entry *nhe, enum dplane_op_e op)
 	}
 
 	ret = dplane_ctx_nexthop_init(ctx, op, nhe);
-	if (ret == AOK) {
+	if (ret == AOK)
 		ret = dplane_update_enqueue(ctx);
-	}
+
 done:
 	/* Update counter */
 	atomic_fetch_add_explicit(&zdplane_info.dg_nexthops_in, 1,
