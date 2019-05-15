@@ -323,9 +323,11 @@ int nhrp_interface_delete(int cmd, struct zclient *client, zebra_size_t length,
 		return 0;
 
 	debugf(NHRP_DEBUG_IF, "if-delete: %s", ifp->name);
-	if_set_index(ifp, ifp->ifindex);
+
 	nhrp_interface_update(ifp);
-	/* if_delete(ifp); */
+
+	if_set_index(ifp, IFINDEX_INTERNAL);
+
 	return 0;
 }
 

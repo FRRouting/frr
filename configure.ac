@@ -7,7 +7,7 @@
 ##
 AC_PREREQ(2.60)
 
-AC_INIT(frr, 6.0.2, [https://github.com/frrouting/frr/issues])
+AC_INIT(frr, 6.0.3, [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST(PACKAGE_URL)
 PACKAGE_FULLNAME="FRRouting"
@@ -1974,6 +1974,7 @@ AC_SUBST(CFG_SBIN)
 AC_SUBST(CFG_STATE)
 AC_SUBST(CFG_MODULE)
 AC_DEFINE_UNQUOTED(MODULE_PATH, "$CFG_MODULE", path to modules)
+AC_DEFINE_UNQUOTED(WATCHFRR_SH_PATH, "${CFG_SBIN%/}/watchfrr.sh", path to watchfrr.sh)
 
 dnl ------------------------------------
 dnl Enable RPKI and add librtr to libs

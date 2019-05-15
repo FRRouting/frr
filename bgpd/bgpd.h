@@ -97,6 +97,9 @@ enum bgp_af_index {
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
 
+#define FOREACH_SAFI(safi)                                            \
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+
 /* BGP master for system wide configurations and variables.  */
 struct bgp_master {
 	/* BGP instance list.  */
@@ -369,6 +372,9 @@ struct bgp {
 #define BGP_CONFIG_VRF_TO_VRF_IMPORT			(1 << 7)
 #define BGP_CONFIG_VRF_TO_VRF_EXPORT			(1 << 8)
 #define BGP_DEFAULT_NAME		"default"
+
+	/* BGP per AF peer count */
+	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
 
 	/* Route table for next-hop lookup cache. */
 	struct bgp_table *nexthop_cache_table[AFI_MAX];

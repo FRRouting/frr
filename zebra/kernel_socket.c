@@ -194,7 +194,9 @@ const struct message rtm_type_str[] = {{RTM_ADD, "RTM_ADD"},
 				       {RTM_LOSING, "RTM_LOSING"},
 				       {RTM_REDIRECT, "RTM_REDIRECT"},
 				       {RTM_MISS, "RTM_MISS"},
+#ifdef RTM_LOCK
 				       {RTM_LOCK, "RTM_LOCK"},
+#endif /* RTM_LOCK */
 #ifdef OLDADD
 				       {RTM_OLDADD, "RTM_OLDADD"},
 #endif /* RTM_OLDADD */
@@ -759,7 +761,8 @@ int ifam_read(struct ifa_msghdr *ifam)
 			connected_add_ipv4(ifp, flags, &addr.sin.sin_addr,
 					   ip_masklen(mask.sin.sin_addr),
 					   &brd.sin.sin_addr,
-					   (isalias ? ifname : NULL));
+					   (isalias ? ifname : NULL),
+					   METRIC_MAX);
 		else
 			connected_delete_ipv4(ifp, flags, &addr.sin.sin_addr,
 					      ip_masklen(mask.sin.sin_addr),
@@ -776,7 +779,8 @@ int ifam_read(struct ifa_msghdr *ifam)
 			connected_add_ipv6(ifp, flags, &addr.sin6.sin6_addr,
 					   NULL,
 					   ip6_masklen(mask.sin6.sin6_addr),
-					   (isalias ? ifname : NULL));
+					   (isalias ? ifname : NULL),
+					   METRIC_MAX);
 		else
 			connected_delete_ipv6(ifp, &addr.sin6.sin6_addr, NULL,
 					      ip6_masklen(mask.sin6.sin6_addr));

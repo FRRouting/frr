@@ -1199,14 +1199,17 @@ DEFUN (no_ospf_area_vlink,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	vl_data = ospf_vl_lookup(ospf, area, vl_config.vl_peer);
+	if (!vl_data) {
+		vty_out(vty, "Virtual link does not exist\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (argc <= 5) {
 		/* Basic VLink no command */
 		/* Thats all folks! - BUGS B. strikes again!!!*/
-		if ((vl_data = ospf_vl_lookup(ospf, area, vl_config.vl_peer)))
-			ospf_vl_delete(ospf, vl_data);
-
+		ospf_vl_delete(ospf, vl_data);
 		ospf_area_check_free(ospf, vl_config.area_id);
-
 		return CMD_SUCCESS;
 	}
 
@@ -3021,13 +3024,13 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 			if (ospf->stub_router_startup_time
 			    != OSPF_STUB_ROUTER_UNCONFIGURED)
 				json_object_int_add(
-					json_vrf, "postStartEnabledMsecs",
-					ospf->stub_router_startup_time / 1000);
+					json_vrf, "postStartEnabledSecs",
+					ospf->stub_router_startup_time);
 			if (ospf->stub_router_shutdown_time
 			    != OSPF_STUB_ROUTER_UNCONFIGURED)
 				json_object_int_add(
-					json_vrf, "preShutdownEnabledMsecs",
-					ospf->stub_router_shutdown_time / 1000);
+					json_vrf, "preShutdownEnabledSecs",
+					ospf->stub_router_shutdown_time);
 		} else {
 			vty_out(vty,
 				" Stub router advertisement is configured\n");
@@ -3486,8 +3489,8 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			json_object_int_add(json_interface_sub, "cost",
 					    oi->output_cost);
 			json_object_int_add(
-				json_interface_sub, "transmitDelayMsecs",
-				1000 / OSPF_IF_PARAM(oi, transmit_delay));
+				json_interface_sub, "transmitDelaySecs",
+				OSPF_IF_PARAM(oi, transmit_delay));
 			json_object_string_add(json_interface_sub, "state",
 					       lookup_msg(ospf_ism_state_msg,
 							  oi->state, NULL));
@@ -3591,20 +3594,20 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 			if (OSPF_IF_PARAM(oi, fast_hello) == 0)
 				json_object_int_add(
 					json_interface_sub, "timerMsecs",
-					1000 / OSPF_IF_PARAM(oi, v_hello));
+					OSPF_IF_PARAM(oi, v_hello) * 1000);
 			else
 				json_object_int_add(
 					json_interface_sub, "timerMsecs",
 					1000 / OSPF_IF_PARAM(oi, fast_hello));
 			json_object_int_add(json_interface_sub,
-					    "timerDeadMsecs",
-					    1000 / OSPF_IF_PARAM(oi, v_wait));
+					    "timerDeadSecs",
+					    OSPF_IF_PARAM(oi, v_wait));
 			json_object_int_add(json_interface_sub,
-					    "timerWaitMsecs",
-					    1000 / OSPF_IF_PARAM(oi, v_wait));
+					    "timerWaitSecs",
+					    OSPF_IF_PARAM(oi, v_wait));
 			json_object_int_add(
-				json_interface_sub, "timerRetransmit",
-				1000 / OSPF_IF_PARAM(oi, retransmit_interval));
+				json_interface_sub, "timerRetransmitSecs",
+				OSPF_IF_PARAM(oi, retransmit_interval));
 		} else {
 			vty_out(vty, "  Timer intervals configured,");
 			vty_out(vty, " Hello ");
@@ -5099,12 +5102,15 @@ DEFUN (show_ip_ospf_neighbor_id,
 	uint8_t uj = use_json(argc, argv);
 	struct listnode *node = NULL;
 	int ret = CMD_SUCCESS;
+	int idx_router_id = 0;
+
+	argv_find(argv, argc, "A.B.C.D", &idx_router_id);
 
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 		if (!ospf->oi_running)
 			continue;
-		ret = show_ip_ospf_neighbor_id_common(vty, ospf, 0, argv, uj,
-						      0);
+		ret = show_ip_ospf_neighbor_id_common(vty, ospf, idx_router_id,
+						      argv, uj, 0);
 	}
 
 	return ret;

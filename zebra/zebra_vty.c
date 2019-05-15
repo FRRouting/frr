@@ -374,6 +374,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	json_object *json_labels = NULL;
 	time_t uptime;
 	struct tm *tm;
+	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
 	uptime = time(NULL);
 	uptime -= re->uptime;
@@ -398,11 +399,13 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 			json_object_boolean_true_add(json_route, "selected");
 
-		if (re->type != ZEBRA_ROUTE_CONNECT) {
-			json_object_int_add(json_route, "distance",
-					    re->distance);
-			json_object_int_add(json_route, "metric", re->metric);
-		}
+		if (dest->selected_fib == re)
+			json_object_boolean_true_add(json_route,
+						     "destSelected");
+
+		json_object_int_add(json_route, "distance",
+				    re->distance);
+		json_object_int_add(json_route, "metric", re->metric);
 
 		if (re->tag)
 			json_object_int_add(json_route, "tag", re->tag);
@@ -611,7 +614,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				srcdest_rnode2str(rn, buf, sizeof buf));
 
 			/* Distance and metric display. */
-			if (re->type != ZEBRA_ROUTE_CONNECT)
+			if (((re->type == ZEBRA_ROUTE_CONNECT) &&
+			     (re->distance || re->metric)) ||
+			    (re->type != ZEBRA_ROUTE_CONNECT))
 				len += vty_out(vty, " [%u/%u]", re->distance,
 					       re->metric);
 		} else {
@@ -741,15 +746,14 @@ static void vty_show_ip_route_detail_json(struct vty *vty,
 	char buf[BUFSIZ];
 
 	json = json_object_new_object();
+	json_prefix = json_object_new_array();
 
 	RNODE_FOREACH_RE (rn, re) {
-		json_prefix = json_object_new_array();
 		vty_show_ip_route(vty, rn, re, json_prefix);
-		prefix2str(&rn->p, buf, sizeof buf);
-		json_object_object_add(json, buf, json_prefix);
-		json_prefix = NULL;
 	}
 
+	prefix2str(&rn->p, buf, sizeof(buf));
+	json_object_object_add(json, buf, json_prefix);
 	vty_out(vty, "%s\n", json_object_to_json_string_ext(
 					     json, JSON_C_TO_STRING_PRETTY));
 	json_object_free(json);

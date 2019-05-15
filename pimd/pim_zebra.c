@@ -152,6 +152,8 @@ static int pim_zebra_if_del(int command, struct zclient *zclient,
 	if (!if_is_operative(ifp))
 		pim_if_addr_del_all(ifp);
 
+	if_set_index(ifp, IFINDEX_INTERNAL);
+
 	return 0;
 }
 
