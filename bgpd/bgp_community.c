@@ -205,7 +205,6 @@ static void set_community_string(struct community *com, bool make_json)
 {
 	int i;
 	char *str;
-	char *pnt;
 	int len;
 	int first;
 	uint32_t comval;
@@ -297,7 +296,7 @@ static void set_community_string(struct community *com, bool make_json)
 	}
 
 	/* Allocate memory.  */
-	str = pnt = XMALLOC(MTYPE_COMMUNITY_STR, len);
+	str = XMALLOC(MTYPE_COMMUNITY_STR, len);
 	first = 1;
 
 	/* Fill in string.  */
@@ -321,7 +320,7 @@ static void set_community_string(struct community *com, bool make_json)
 			}
 			break;
 		case COMMUNITY_GSHUT:
-			strlcat(pnt, "graceful-shutdown", len);
+			strlcat(str, "graceful-shutdown", len);
 			if (make_json) {
 				json_string = json_object_new_string(
 					"gracefulShutdown");
@@ -330,7 +329,7 @@ static void set_community_string(struct community *com, bool make_json)
 			}
 			break;
 		case COMMUNITY_ACCEPT_OWN:
-			strlcat(pnt, "accept-own", len);
+			strlcat(str, "accept-own", len);
 			if (make_json) {
 				json_string = json_object_new_string(
 					"acceptown");
@@ -339,7 +338,7 @@ static void set_community_string(struct community *com, bool make_json)
 			}
 			break;
 		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v4:
-			strlcat(pnt, "route-filter-translated-v4", len);
+			strlcat(str, "route-filter-translated-v4", len);
 			if (make_json) {
 				json_string = json_object_new_string(
 					"routeFilterTranslatedV4");
@@ -348,7 +347,7 @@ static void set_community_string(struct community *com, bool make_json)
 			}
 			break;
 		case COMMUNITY_ROUTE_FILTER_v4:
-			strlcat(pnt, "route-filter-v4", len);
+			strlcat(str, "route-filter-v4", len);
 			if (make_json) {
 				json_string = json_object_new_string(
 					"routeFilterV4");
@@ -357,7 +356,7 @@ static void set_community_string(struct community *com, bool make_json)
 			}
 			break;
 		case COMMUNITY_ROUTE_FILTER_TRANSLATED_v6:
-			strlcat(pnt, "route-filter-translated-v6", len);
+			strlcat(str, "route-filter-translated-v6", len);
 			if (make_json) {
 				json_string = json_object_new_string(
 					"routeFilterTranslatedV6");
@@ -366,7 +365,7 @@ static void set_community_string(struct community *com, bool make_json)
 			}
 			break;
 		case COMMUNITY_ROUTE_FILTER_v6:
-			strlcat(pnt, "route-filter-v6", len);
+			strlcat(str, "route-filter-v6", len);
 			if (make_json) {
 				json_string = json_object_new_string(
 					"routeFilterV6");
@@ -375,7 +374,7 @@ static void set_community_string(struct community *com, bool make_json)
 			}
 			break;
 		case COMMUNITY_LLGR_STALE:
-			strlcat(pnt, "llgr-stale", len);
+			strlcat(str, "llgr-stale", len);
 			if (make_json) {
 				json_string = json_object_new_string(
 					"llgrStale");
@@ -384,7 +383,7 @@ static void set_community_string(struct community *com, bool make_json)
 			}
 			break;
 		case COMMUNITY_NO_LLGR:
-			strlcat(pnt, "no-llgr", len);
+			strlcat(str, "no-llgr", len);
 			if (make_json) {
 				json_string = json_object_new_string(
 					"noLlgr");
@@ -393,7 +392,7 @@ static void set_community_string(struct community *com, bool make_json)
 			}
 			break;
 		case COMMUNITY_ACCEPT_OWN_NEXTHOP:
-			strlcat(pnt, "accept-own-nexthop", len);
+			strlcat(str, "accept-own-nexthop", len);
 			if (make_json) {
 				json_string = json_object_new_string(
 					"acceptownnexthop");
@@ -402,7 +401,7 @@ static void set_community_string(struct community *com, bool make_json)
 			}
 			break;
 		case COMMUNITY_BLACKHOLE:
-			strlcat(pnt, "blackhole", len);
+			strlcat(str, "blackhole", len);
 			if (make_json) {
 				json_string = json_object_new_string(
 					"blackhole");
@@ -411,7 +410,7 @@ static void set_community_string(struct community *com, bool make_json)
 			}
 			break;
 		case COMMUNITY_NO_EXPORT:
-			strlcat(pnt, "no-export", len);
+			strlcat(str, "no-export", len);
 			if (make_json) {
 				json_string =
 					json_object_new_string("noExport");
@@ -420,7 +419,7 @@ static void set_community_string(struct community *com, bool make_json)
 			}
 			break;
 		case COMMUNITY_NO_ADVERTISE:
-			strlcat(pnt, "no-advertise", len);
+			strlcat(str, "no-advertise", len);
 			if (make_json) {
 				json_string =
 					json_object_new_string("noAdvertise");
@@ -429,7 +428,7 @@ static void set_community_string(struct community *com, bool make_json)
 			}
 			break;
 		case COMMUNITY_LOCAL_AS:
-			strlcat(pnt, "local-AS", len);
+			strlcat(str, "local-AS", len);
 			if (make_json) {
 				json_string = json_object_new_string("localAs");
 				json_object_array_add(json_community_list,
@@ -437,7 +436,7 @@ static void set_community_string(struct community *com, bool make_json)
 			}
 			break;
 		case COMMUNITY_NO_PEER:
-			strlcat(pnt, "no-peer", len);
+			strlcat(str, "no-peer", len);
 			if (make_json) {
 				json_string = json_object_new_string("noPeer");
 				json_object_array_add(json_community_list,
@@ -447,17 +446,17 @@ static void set_community_string(struct community *com, bool make_json)
 		default:
 			as = (comval >> 16) & 0xFFFF;
 			val = comval & 0xFFFF;
-			sprintf(pnt, "%u:%d", as, val);
+			char buf[32];
+			snprintf(buf, sizeof(buf), "%u:%d", as, val);
+			strlcat(str, buf, len);
 			if (make_json) {
-				json_string = json_object_new_string(pnt);
+				json_string = json_object_new_string(buf);
 				json_object_array_add(json_community_list,
 						      json_string);
 			}
-			pnt += strlen(pnt);
 			break;
 		}
 	}
-	*pnt = '\0';
 
 	if (make_json) {
 		json_object_string_add(com->json, "string", str);
