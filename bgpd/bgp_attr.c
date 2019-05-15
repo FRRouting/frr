@@ -2783,16 +2783,16 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
  * Extract the tunnel type from extended community
  */
 void bgp_attr_extcom_tunnel_type(struct attr *attr,
-					bgp_encap_types *tunnel_type)
+				 bgp_encap_types *tunnel_type)
 {
 	struct ecommunity *ecom;
 	int i;
 	if (!attr)
-		return false;
+		return;
 
 	ecom = attr->ecommunity;
 	if (!ecom || !ecom->size)
-		return false;
+		return;
 
 	for (i = 0; i < ecom->size; i++) {
 		uint8_t *pnt;
@@ -2805,10 +2805,10 @@ void bgp_attr_extcom_tunnel_type(struct attr *attr,
 		      sub_type == ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP))
 			continue;
 		*tunnel_type = ((pnt[6] << 8) | pnt[7]);
-		return true;
+		return;
 	}
 
-	return false;
+	return;
 }
 
 size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
