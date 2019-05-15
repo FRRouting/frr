@@ -51,7 +51,6 @@
 #include "bgp_encap_types.h"
 #include "bgp_vnc_types.h"
 #endif
-#include "bgp_encap_types.h"
 #include "bgp_evpn.h"
 #include "bgp_flowspec_private.h"
 #include "bgp_mac.h"
@@ -1957,6 +1956,10 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 
 	}
 
+	/* Get the tunnel type from encap extended community */
+	bgp_attr_extcom_tunnel_type(attr,
+		(bgp_encap_types *)&attr->encap_tunneltype);
+
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
@@ -2774,6 +2777,38 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 #endif
 
 	return BGP_ATTR_PARSE_PROCEED;
+}
+
+/*
+ * Extract the tunnel type from extended community
+ */
+void bgp_attr_extcom_tunnel_type(struct attr *attr,
+					bgp_encap_types *tunnel_type)
+{
+	struct ecommunity *ecom;
+	int i;
+	if (!attr)
+		return false;
+
+	ecom = attr->ecommunity;
+	if (!ecom || !ecom->size)
+		return false;
+
+	for (i = 0; i < ecom->size; i++) {
+		uint8_t *pnt;
+		uint8_t type, sub_type;
+
+		pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
+		type = pnt[0];
+		sub_type = pnt[1];
+		if (!(type == ECOMMUNITY_ENCODE_OPAQUE &&
+		      sub_type == ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP))
+			continue;
+		*tunnel_type = ((pnt[6] << 8) | pnt[7]);
+		return true;
+	}
+
+	return false;
 }
 
 size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
