@@ -67,7 +67,7 @@ static int zebra_route_match_add(struct vty *vty, const char *command,
 	int ret;
 	int retval = CMD_SUCCESS;
 
-	ret = route_map_add_match(index, command, arg);
+	ret = route_map_add_match(index, command, arg, type);
 	switch (ret) {
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% Zebra Can't find rule.\n");

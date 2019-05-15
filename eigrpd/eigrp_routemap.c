@@ -136,7 +136,7 @@ static int eigrp_route_match_add(struct vty *vty, struct route_map_index *index,
 				 const char *command, const char *arg)
 {
 	int ret;
-	ret = route_map_add_match(index, command, arg);
+	ret = route_map_add_match(index, command, arg, type);
 	switch (ret) {
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% Can't find rule.\n");
