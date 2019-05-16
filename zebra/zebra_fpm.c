@@ -50,6 +50,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, FPM_MAC_INFO, "FPM_MAC_INFO");
  * Interval at which we attempt to connect to the FPM.
  */
 #define ZFPM_CONNECT_RETRY_IVL   5
+#define FPM_MAX_MAC_MSG_LEN 512
 
 /*
  * Sizes of outgoing and incoming stream buffers for writing/reading
@@ -812,6 +813,14 @@ done:
 	return 0;
 }
 
+static bool zfpm_updates_pending(void)
+{
+	if (!(TAILQ_EMPTY(&zfpm_g->dest_q)) || !(TAILQ_EMPTY(&zfpm_g->mac_q)))
+		return true;
+
+	return false;
+}
+
 /*
  * zfpm_writes_pending
  *
@@ -828,9 +837,9 @@ static int zfpm_writes_pending(void)
 		return 1;
 
 	/*
-	 * Check if there are any prefixes on the outbound queue.
+	 * Check if there are any updates scheduled on the outbound queues.
 	 */
-	if (!TAILQ_EMPTY(&zfpm_g->dest_q))
+	if (zfpm_updates_pending())
 		return 1;
 
 	return 0;
@@ -895,12 +904,29 @@ struct route_entry *zfpm_route_for_update(rib_dest_t *dest)
 }
 
 /*
- * zfpm_build_updates
+ * Define an enum for return codes for queue processing functions
  *
- * Process the outgoing queue and write messages to the outbound
- * buffer.
+ * FPM_WRITE_STOP: This return code indicates that the write buffer is full.
+ * Stop processing all the queues and empty the buffer by writing its content
+ * to the socket.
+ *
+ * FPM_GOTO_NEXT_Q: This return code indicates that either this queue is
+ * empty or we have processed enough updates from this queue.
+ * So, move on to the next queue.
  */
-static void zfpm_build_updates(void)
+enum {
+	FPM_WRITE_STOP = 0,
+	FPM_GOTO_NEXT_Q = 1
+};
+
+#define FPM_QUEUE_PROCESS_LIMIT 10000
+
+/*
+ * zfpm_build_route_updates
+ *
+ * Process the dest_q queue and write FPM messages to the outbound buffer.
+ */
+static int zfpm_build_route_updates(void)
 {
 	struct stream *s;
 	rib_dest_t *dest;
@@ -911,25 +937,27 @@ static void zfpm_build_updates(void)
 	struct route_entry *re;
 	int is_add, write_msg;
 	fpm_msg_type_e msg_type;
+	uint16_t q_limit;
+
+	if (TAILQ_EMPTY(&zfpm_g->dest_q))
+		return FPM_GOTO_NEXT_Q;
 
 	s = zfpm_g->obuf;
+	q_limit = FPM_QUEUE_PROCESS_LIMIT;
 
-	assert(stream_empty(s));
-
-	do {
-
+	do  {
 		/*
 		 * Make sure there is enough space to write another message.
 		 */
 		if (STREAM_WRITEABLE(s) < FPM_MAX_MSG_LEN)
-			break;
+			return FPM_WRITE_STOP;
 
 		buf = STREAM_DATA(s) + stream_get_endp(s);
 		buf_end = buf + STREAM_WRITEABLE(s);
 
 		dest = TAILQ_FIRST(&zfpm_g->dest_q);
 		if (!dest)
-			break;
+			return FPM_GOTO_NEXT_Q;
 
 		assert(CHECK_FLAG(dest->flags, RIB_DEST_UPDATE_FPM));
 
@@ -989,7 +1017,128 @@ static void zfpm_build_updates(void)
 		if (rib_gc_dest(dest->rnode))
 			zfpm_g->stats.dests_del_after_update++;
 
+		q_limit--;
+		if (q_limit == 0) {
+			/*
+			 * We have processed enough updates in this queue.
+			 * Now yield for other queues.
+			 */
+			return FPM_GOTO_NEXT_Q;
+		}
 	} while (1);
+}
+
+/*
+ * zfpm_encode_mac
+ *
+ * Encode a message to FPM with information about the given MAC.
+ *
+ * Returns the number of bytes written to the buffer.
+ */
+static inline int zfpm_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
+				size_t in_buf_len, fpm_msg_type_e *msg_type)
+{
+	size_t len = 0;
+
+	*msg_type = FPM_MSG_TYPE_NONE;
+
+	switch (zfpm_g->message_format) {
+
+	case ZFPM_MSG_FORMAT_NONE:
+		break;
+	case ZFPM_MSG_FORMAT_NETLINK:
+		break;
+	case ZFPM_MSG_FORMAT_PROTOBUF:
+		break;
+	}
+	return len;
+}
+
+static int zfpm_build_mac_updates(void)
+{
+	struct stream *s;
+	struct fpm_mac_info_t *mac;
+	unsigned char *buf, *data, *buf_end;
+	fpm_msg_hdr_t *hdr;
+	size_t data_len, msg_len;
+	fpm_msg_type_e msg_type;
+	uint16_t q_limit;
+
+	if (TAILQ_EMPTY(&zfpm_g->mac_q))
+		return FPM_GOTO_NEXT_Q;
+
+	s = zfpm_g->obuf;
+	q_limit = FPM_QUEUE_PROCESS_LIMIT;
+
+	do  {
+		/* Make sure there is enough space to write another message. */
+		if (STREAM_WRITEABLE(s) < FPM_MAX_MAC_MSG_LEN)
+			return FPM_WRITE_STOP;
+
+		buf = STREAM_DATA(s) + stream_get_endp(s);
+		buf_end = buf + STREAM_WRITEABLE(s);
+
+		mac = TAILQ_FIRST(&zfpm_g->mac_q);
+		if (!mac)
+			return FPM_GOTO_NEXT_Q;
+
+		/* Check for no-op */
+		if (!CHECK_FLAG(mac->fpm_flags, ZEBRA_MAC_UPDATE_FPM)) {
+			zfpm_g->stats.nop_deletes_skipped++;
+			zfpm_mac_info_del(mac);
+			continue;
+		}
+
+		hdr = (fpm_msg_hdr_t *)buf;
+		hdr->version = FPM_PROTO_VERSION;
+
+		data = fpm_msg_data(hdr);
+		data_len = zfpm_encode_mac(mac, (char *)data, buf_end - data,
+						&msg_type);
+		/* assert(data_len); */
+
+		hdr->msg_type = msg_type;
+		msg_len = fpm_data_len_to_msg_len(data_len);
+		hdr->msg_len = htons(msg_len);
+		stream_forward_endp(s, msg_len);
+
+		/* Remove the MAC from the queue, and delete it. */
+		zfpm_mac_info_del(mac);
+
+		q_limit--;
+		if (q_limit == 0) {
+			/*
+			 * We have processed enough updates in this queue.
+			 * Now yield for other queues.
+			 */
+			return FPM_GOTO_NEXT_Q;
+		}
+	} while (1);
+}
+
+/*
+ * zfpm_build_updates
+ *
+ * Process the outgoing queues and write messages to the outbound
+ * buffer.
+ */
+static void zfpm_build_updates(void)
+{
+	struct stream *s;
+
+	s = zfpm_g->obuf;
+	assert(stream_empty(s));
+
+	do {
+		/*
+		 * Stop processing the queues if zfpm_g->obuf is full
+		 * or we do not have more updates to process
+		 */
+		if (zfpm_build_mac_updates() == FPM_WRITE_STOP)
+			break;
+		if (zfpm_build_route_updates() == FPM_WRITE_STOP)
+			break;
+	} while (zfpm_updates_pending());
 }
 
 /*
@@ -1476,13 +1625,6 @@ static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
 	TAILQ_INSERT_TAIL(&zfpm_g->mac_q, fpm_mac, fpm_mac_q_entries);
 
 	zfpm_g->stats.updates_triggered++;
-
-	/*
-	 * For now, since we do not have mac_q processing code which takes care
-	 * of delinkng and deleting fpm_mac, delete fpm_mac anyway.
-	 * Remove this delete when that code is added in the subsequent commit.
-	 */
-	zfpm_mac_info_del(fpm_mac);
 
 	/* If writes are already enabled, return. */
 	if (zfpm_g->t_write)
