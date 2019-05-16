@@ -1554,14 +1554,15 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes,
 
 DEFUN(show_ip_bgp_l2vpn_evpn_all_overlay,
       show_ip_bgp_l2vpn_evpn_all_overlay_cmd,
-      "show [ip] bgp l2vpn evpn all overlay",
+      "show [ip] bgp l2vpn evpn all overlay [json]",
       SHOW_STR
       IP_STR
       BGP_STR
       L2VPN_HELP_STR
       EVPN_HELP_STR
       "Display information about all EVPN NLRIs\n"
-      "Display BGP Overlay Information for prefixes\n")
+      "Display BGP Overlay Information for prefixes\n"
+      JSON_STR)
 {
 	return bgp_show_ethernet_vpn(vty, NULL, bgp_show_type_normal, NULL,
 				     SHOW_DISPLAY_OVERLAY,
