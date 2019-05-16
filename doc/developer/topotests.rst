@@ -189,13 +189,12 @@ If found, then this is added with context (calling test) to
 
 Compiling for GCC AddressSanitizer requires to use ``gcc`` as a linker as well
 (instead of ``ld``). Here is a suggest way to compile frr with AddressSanitizer
-for ``stable/3.0`` branch:
+for ``master`` branch:
 
 .. code:: shell
 
    git clone https://github.com/FRRouting/frr.git
    cd frr
-   git checkout stable/3.0
    ./bootstrap.sh
    export CC=gcc
    export CFLAGS="-O1 -g -fsanitize=address -fno-omit-frame-pointer"
@@ -208,7 +207,8 @@ for ``stable/3.0`` branch:
        --enable-exampledir=/usr/lib/frr/examples \
        --with-moduledir=/usr/lib/frr/modules \
        --enable-multipath=0 --enable-rtadv \
-       --enable-tcp-zebra --enable-fpm --enable-pimd
+       --enable-tcp-zebra --enable-fpm --enable-pimd \
+       --enable-sharpd
    make
    sudo make install
    # Create symlink for vtysh, so topotest finds it in /usr/lib/frr
