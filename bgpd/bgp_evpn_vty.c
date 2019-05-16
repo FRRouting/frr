@@ -681,7 +681,7 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
 				json_path = json_object_new_array();
 
 			if (detail)
-				route_vty_out_detail(vty, bgp, &rn->p, pi,
+				route_vty_out_detail(vty, bgp, rn, pi,
 						     AFI_L2VPN, SAFI_EVPN,
 						     json_path);
 			else
@@ -2089,7 +2089,7 @@ static void evpn_show_route_vni_multicast(struct vty *vty, struct bgp *bgp,
 		if (json)
 			json_path = json_object_new_array();
 
-		route_vty_out_detail(vty, bgp, &rn->p, pi, afi, safi,
+		route_vty_out_detail(vty, bgp, rn, pi, afi, safi,
 				     json_path);
 
 		if (json)
@@ -2159,7 +2159,7 @@ static void evpn_show_route_vni_macip(struct vty *vty, struct bgp *bgp,
 		if (json)
 			json_path = json_object_new_array();
 
-		route_vty_out_detail(vty, bgp, &rn->p, pi, afi, safi,
+		route_vty_out_detail(vty, bgp, rn, pi, afi, safi,
 				     json_path);
 
 		if (json)
@@ -2266,7 +2266,7 @@ static void evpn_show_route_rd_macip(struct vty *vty, struct bgp *bgp,
 		if (json)
 			json_path = json_object_new_array();
 
-		route_vty_out_detail(vty, bgp, &rn->p, pi, afi, safi,
+		route_vty_out_detail(vty, bgp, rn, pi, afi, safi,
 				     json_path);
 
 		if (json)
@@ -2371,7 +2371,7 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 			if (json)
 				json_path = json_object_new_array();
 
-			route_vty_out_detail(vty, bgp, &rn->p, pi, afi, safi,
+			route_vty_out_detail(vty, bgp, rn, pi, afi, safi,
 					     json_path);
 
 			if (json)
@@ -2521,7 +2521,7 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 
 				if (detail) {
 					route_vty_out_detail(
-						vty, bgp, &rn->p, pi, AFI_L2VPN,
+						vty, bgp, rn, pi, AFI_L2VPN,
 						SAFI_EVPN, json_path);
 				} else
 					route_vty_out(vty, &rn->p, pi, 0,

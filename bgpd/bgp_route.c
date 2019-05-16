@@ -7822,9 +7822,9 @@ static void route_vty_out_tx_ids(struct vty *vty,
 	}
 }
 
-void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
-			  struct bgp_path_info *path, afi_t afi, safi_t safi,
-			  json_object *json_paths)
+void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
+			  struct bgp_node *bn, struct bgp_path_info *path,
+			  afi_t afi, safi_t safi, json_object *json_paths)
 {
 	char buf[INET6_ADDRSTRLEN];
 	char buf1[BUFSIZ];
@@ -7864,7 +7864,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 	if (!json_paths && safi == SAFI_EVPN) {
 		char tag_buf[30];
 
-		bgp_evpn_route2str((struct prefix_evpn *)p, buf2, sizeof(buf2));
+		bgp_evpn_route2str((struct prefix_evpn *)&bn->p,
+				   buf2, sizeof(buf2));
 		vty_out(vty, "  Route %s", buf2);
 		tag_buf[0] = '\0';
 		if (path->extra && path->extra->num_labels) {
@@ -7979,8 +7980,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 
 		/* Line2 display Next-hop, Neighbor, Router-id */
 		/* Display the nexthop */
-		if ((p->family == AF_INET || p->family == AF_ETHERNET
-		     || p->family == AF_EVPN)
+		if ((bn->p.family == AF_INET || bn->p.family == AF_ETHERNET
+		     || bn->p.family == AF_EVPN)
 		    && (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 			|| safi == SAFI_EVPN
 			|| !BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
@@ -8062,7 +8063,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		if (path->peer == bgp->peer_self) {
 
 			if (safi == SAFI_EVPN
-			    || (p->family == AF_INET
+			    || (bn->p.family == AF_INET
 				&& !BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
 				if (json_paths)
 					json_object_string_add(
@@ -9429,7 +9430,7 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 						       BGP_PATH_MULTIPATH)
 					    || CHECK_FLAG(pi->flags,
 							  BGP_PATH_SELECTED))))
-					route_vty_out_detail(vty, bgp, &rm->p,
+					route_vty_out_detail(vty, bgp, rm,
 							     pi, AFI_IP, safi,
 							     json_paths);
 			}
@@ -9473,7 +9474,7 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 							       pi->flags,
 							       BGP_PATH_SELECTED))))
 						route_vty_out_detail(
-							vty, bgp, &rn->p, pi,
+							vty, bgp, rn, pi,
 							afi, safi, json_paths);
 				}
 			}
