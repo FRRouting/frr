@@ -82,6 +82,10 @@ struct zebra_router {
 
 	struct hash *iptable_hash;
 
+#if defined(HAVE_RTADV)
+	struct rtadv rtadv;
+#endif /* HAVE_RTADV */
+
 	/* A sequence number used for tracking routes */
 	_Atomic uint32_t sequence_num;
 
