@@ -1,9 +1,9 @@
-frr (7.0-1) UNRELEASED; urgency=medium
+frr (7.0.1-1) UNRELEASED; urgency=medium
 
-  * upstream 7.0 release
+  * upstream 7.0.1 release
   * now requires libyang as an additional dependency
 
- -- David Lamparter <equinox-debian@diac24.net>  Mon, 04 Mar 2019 21:24:14 +0100
+ -- David Lamparter <equinox-debian@diac24.net>  Fri, 17 May 2019 00:19:03 +0200
 
 frr (6.0.2-2) unstable; urgency=medium
 
