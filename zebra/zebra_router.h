@@ -109,6 +109,8 @@ struct zebra_router {
 	 * The EVPN instance, if any
 	 */
 	struct zebra_vrf *evpn_vrf;
+
+	uint32_t multipath_num;
 };
 
 extern struct zebra_router zrouter;

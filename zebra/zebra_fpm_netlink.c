@@ -32,6 +32,7 @@
 #include "prefix.h"
 
 #include "zebra/zserv.h"
+#include "zebra/zebra_router.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
@@ -251,7 +252,7 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 	ri->metric = &re->metric;
 
 	for (ALL_NEXTHOPS(re->ng, nexthop)) {
-		if (ri->num_nhs >= multipath_num)
+		if (ri->num_nhs >= zrouter.multipath_num)
 			break;
 
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))

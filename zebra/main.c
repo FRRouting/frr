@@ -119,8 +119,6 @@ struct zebra_privs_t zserv_privs = {
 	.cap_num_p = array_size(_caps_p),
 	.cap_num_i = 0};
 
-unsigned int multipath_num = MULTIPATH_NUM;
-
 /* SIGHUP handler. */
 static void sighup(void)
 {
@@ -322,9 +320,9 @@ int main(int argc, char **argv)
 			keep_kernel_mode = 1;
 			break;
 		case 'e':
-			multipath_num = atoi(optarg);
-			if (multipath_num > MULTIPATH_NUM
-			    || multipath_num <= 0) {
+			zrouter.multipath_num = atoi(optarg);
+			if (zrouter.multipath_num > MULTIPATH_NUM
+			    || zrouter.multipath_num <= 0) {
 				flog_err(
 					EC_ZEBRA_BAD_MULTIPATH_NUM,
 					"Multipath Number specified must be less than %d and greater than 0",
