@@ -5705,6 +5705,97 @@ DEFUN (show_ip_mroute_count_vrf_all,
 	return CMD_SUCCESS;
 }
 
+static void show_mroute_summary(struct pim_instance *pim, struct vty *vty)
+{
+	struct listnode *node;
+	struct channel_oil *c_oil;
+	struct static_route *s_route;
+	uint32_t starg_sw_mroute_cnt = 0;
+	uint32_t sg_sw_mroute_cnt = 0;
+	uint32_t starg_hw_mroute_cnt = 0;
+	uint32_t sg_hw_mroute_cnt = 0;
+
+	vty_out(vty, "Mroute Type    Installed/Total\n");
+
+	for (ALL_LIST_ELEMENTS_RO(pim->channel_oil_list, node, c_oil)) {
+		if (!c_oil->installed) {
+			if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
+				starg_sw_mroute_cnt++;
+			else
+				sg_sw_mroute_cnt++;
+		} else {
+			if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY)
+				starg_hw_mroute_cnt++;
+			else
+				sg_hw_mroute_cnt++;
+		}
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, s_route)) {
+		if (!s_route->c_oil.installed) {
+			if (s_route->c_oil.oil.mfcc_origin.s_addr == INADDR_ANY)
+				starg_sw_mroute_cnt++;
+			else
+				sg_sw_mroute_cnt++;
+		} else {
+			if (s_route->c_oil.oil.mfcc_origin.s_addr == INADDR_ANY)
+				starg_hw_mroute_cnt++;
+			else
+				sg_hw_mroute_cnt++;
+		}
+	}
+
+	vty_out(vty, "%-20s %d/%d\n", "(*, G)", starg_hw_mroute_cnt,
+		starg_sw_mroute_cnt + starg_hw_mroute_cnt);
+	vty_out(vty, "%-20s %d/%d\n", "(S, G)", sg_hw_mroute_cnt,
+		sg_sw_mroute_cnt + sg_hw_mroute_cnt);
+	vty_out(vty, "------\n");
+	vty_out(vty, "%-20s %d/%d\n", "Total",
+		(starg_hw_mroute_cnt + sg_hw_mroute_cnt),
+		(starg_sw_mroute_cnt +
+		 starg_hw_mroute_cnt +
+		 sg_sw_mroute_cnt +
+		 sg_hw_mroute_cnt));
+}
+
+DEFUN (show_ip_mroute_summary,
+       show_ip_mroute_summary_cmd,
+       "show ip mroute [vrf NAME] summary",
+       SHOW_STR
+       IP_STR
+       MROUTE_STR
+       VRF_CMD_HELP_STR
+       "Summary of all mroutes\n")
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	show_mroute_summary(vrf->info, vty);
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_mroute_summary_vrf_all,
+       show_ip_mroute_summary_vrf_all_cmd,
+       "show ip mroute vrf all summary",
+       SHOW_STR
+       IP_STR
+       MROUTE_STR
+       VRF_CMD_HELP_STR
+       "Summary of all mroutes\n")
+{
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		vty_out(vty, "VRF: %s\n", vrf->name);
+		show_mroute_summary(vrf->info, vty);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_rib,
        show_ip_rib_cmd,
        "show ip rib [vrf NAME] A.B.C.D",
@@ -10085,6 +10176,8 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_mroute_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_mroute_count_cmd);
 	install_element(VIEW_NODE, &show_ip_mroute_count_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ip_mroute_summary_cmd);
+	install_element(VIEW_NODE, &show_ip_mroute_summary_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_rib_cmd);
 	install_element(VIEW_NODE, &show_ip_ssmpingd_cmd);
 	install_element(VIEW_NODE, &show_debugging_pim_cmd);
