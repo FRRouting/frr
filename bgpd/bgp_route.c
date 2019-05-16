@@ -434,7 +434,8 @@ void bgp_path_info_path_with_addpath_rx_str(struct bgp_path_info *pi, char *buf)
 static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			     struct bgp_path_info *exist, int *paths_eq,
 			     struct bgp_maxpaths_cfg *mpath_cfg, int debug,
-			     char *pfx_buf, afi_t afi, safi_t safi)
+			     char *pfx_buf, afi_t afi, safi_t safi,
+			     enum bgp_path_selection_reason *reason)
 {
 	struct attr *newattr, *existattr;
 	bgp_peer_sort_t new_sort;
@@ -463,6 +464,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 
 	/* 0. Null check. */
 	if (new == NULL) {
+		*reason = bgp_path_selection_none;
 		if (debug)
 			zlog_debug("%s: new is NULL", pfx_buf);
 		return 0;
@@ -472,6 +474,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		bgp_path_info_path_with_addpath_rx_str(new, new_buf);
 
 	if (exist == NULL) {
+		*reason = bgp_path_selection_first;
 		if (debug)
 			zlog_debug("%s: %s is the initial bestpath", pfx_buf,
 				   new_buf);
@@ -514,6 +517,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			}
 
 			if (newattr->sticky && !existattr->sticky) {
+				*reason = bgp_path_selection_evpn_sticky_mac;
 				if (debug)
 					zlog_debug(
 						"%s: %s wins over %s due to sticky MAC flag",
@@ -522,6 +526,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			}
 
 			if (!newattr->sticky && existattr->sticky) {
+				*reason = bgp_path_selection_evpn_sticky_mac;
 				if (debug)
 					zlog_debug(
 						"%s: %s loses to %s due to sticky MAC flag",
@@ -534,6 +539,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		exist_mm_seq = mac_mobility_seqnum(existattr);
 
 		if (new_mm_seq > exist_mm_seq) {
+			*reason = bgp_path_selection_evpn_seq;
 			if (debug)
 				zlog_debug(
 					"%s: %s wins over %s due to MM seq %u > %u",
@@ -543,6 +549,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 
 		if (new_mm_seq < exist_mm_seq) {
+			*reason = bgp_path_selection_evpn_seq;
 			if (debug)
 				zlog_debug(
 					"%s: %s loses to %s due to MM seq %u < %u",
@@ -557,6 +564,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		 */
 		nh_cmp = bgp_path_info_nexthop_cmp(new, exist);
 		if (nh_cmp < 0) {
+			*reason = bgp_path_selection_evpn_lower_ip;
 			if (debug)
 				zlog_debug(
 					"%s: %s wins over %s due to same MM seq %u and lower IP %s",
@@ -565,6 +573,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			return 1;
 		}
 		if (nh_cmp > 0) {
+			*reason = bgp_path_selection_evpn_lower_ip;
 			if (debug)
 				zlog_debug(
 					"%s: %s loses to %s due to same MM seq %u and higher IP %s",
@@ -579,6 +588,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	exist_weight = existattr->weight;
 
 	if (new_weight > exist_weight) {
+		*reason = bgp_path_selection_weight;
 		if (debug)
 			zlog_debug("%s: %s wins over %s due to weight %d > %d",
 				   pfx_buf, new_buf, exist_buf, new_weight,
@@ -587,6 +597,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	if (new_weight < exist_weight) {
+		*reason = bgp_path_selection_weight;
 		if (debug)
 			zlog_debug("%s: %s loses to %s due to weight %d < %d",
 				   pfx_buf, new_buf, exist_buf, new_weight,
@@ -603,6 +614,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		exist_pref = existattr->local_pref;
 
 	if (new_pref > exist_pref) {
+		*reason = bgp_path_selection_local_pref;
 		if (debug)
 			zlog_debug(
 				"%s: %s wins over %s due to localpref %d > %d",
@@ -612,6 +624,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	if (new_pref < exist_pref) {
+		*reason = bgp_path_selection_local_pref;
 		if (debug)
 			zlog_debug(
 				"%s: %s loses to %s due to localpref %d < %d",
@@ -627,6 +640,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	 */
 	if (!(new->sub_type == BGP_ROUTE_NORMAL ||
 	      new->sub_type == BGP_ROUTE_IMPORTED)) {
+		*reason = bgp_path_selection_local_route;
 		if (debug)
 			zlog_debug(
 				"%s: %s wins over %s due to preferred BGP_ROUTE type",
@@ -636,6 +650,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 
 	if (!(exist->sub_type == BGP_ROUTE_NORMAL ||
 	      exist->sub_type == BGP_ROUTE_IMPORTED)) {
+		*reason = bgp_path_selection_local_route;
 		if (debug)
 			zlog_debug(
 				"%s: %s loses to %s due to preferred BGP_ROUTE type",
@@ -655,6 +670,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			aspath_hops += aspath_count_confeds(newattr->aspath);
 
 			if (aspath_hops < (exist_hops + exist_confeds)) {
+				*reason = bgp_path_selection_confed_as_path;
 				if (debug)
 					zlog_debug(
 						"%s: %s wins over %s due to aspath (with confeds) hopcount %d < %d",
@@ -665,6 +681,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			}
 
 			if (aspath_hops > (exist_hops + exist_confeds)) {
+				*reason = bgp_path_selection_confed_as_path;
 				if (debug)
 					zlog_debug(
 						"%s: %s loses to %s due to aspath (with confeds) hopcount %d > %d",
@@ -677,6 +694,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			int newhops = aspath_count_hops(newattr->aspath);
 
 			if (newhops < exist_hops) {
+				*reason = bgp_path_selection_as_path;
 				if (debug)
 					zlog_debug(
 						"%s: %s wins over %s due to aspath hopcount %d < %d",
@@ -686,6 +704,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 			}
 
 			if (newhops > exist_hops) {
+				*reason = bgp_path_selection_as_path;
 				if (debug)
 					zlog_debug(
 						"%s: %s loses to %s due to aspath hopcount %d > %d",
@@ -698,6 +717,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 
 	/* 5. Origin check. */
 	if (newattr->origin < existattr->origin) {
+		*reason = bgp_path_selection_origin;
 		if (debug)
 			zlog_debug("%s: %s wins over %s due to ORIGIN %s < %s",
 				   pfx_buf, new_buf, exist_buf,
@@ -707,6 +727,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	if (newattr->origin > existattr->origin) {
+		*reason = bgp_path_selection_origin;
 		if (debug)
 			zlog_debug("%s: %s loses to %s due to ORIGIN %s > %s",
 				   pfx_buf, new_buf, exist_buf,
@@ -732,6 +753,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		exist_med = bgp_med_value(exist->attr, bgp);
 
 		if (new_med < exist_med) {
+			*reason = bgp_path_selection_med;
 			if (debug)
 				zlog_debug(
 					"%s: %s wins over %s due to MED %d < %d",
@@ -741,6 +763,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 
 		if (new_med > exist_med) {
+			*reason = bgp_path_selection_med;
 			if (debug)
 				zlog_debug(
 					"%s: %s loses to %s due to MED %d > %d",
@@ -756,6 +779,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 
 	if (new_sort == BGP_PEER_EBGP
 	    && (exist_sort == BGP_PEER_IBGP || exist_sort == BGP_PEER_CONFED)) {
+		*reason = bgp_path_selection_peer;
 		if (debug)
 			zlog_debug(
 				"%s: %s wins over %s due to eBGP peer > iBGP peer",
@@ -765,6 +789,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 
 	if (exist_sort == BGP_PEER_EBGP
 	    && (new_sort == BGP_PEER_IBGP || new_sort == BGP_PEER_CONFED)) {
+		*reason = bgp_path_selection_peer;
 		if (debug)
 			zlog_debug(
 				"%s: %s loses to %s due to iBGP peer < eBGP peer",
@@ -834,6 +859,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)) {
 		if (new_sort == BGP_PEER_CONFED
 		    && exist_sort == BGP_PEER_IBGP) {
+			*reason = bgp_path_selection_confed;
 			if (debug)
 				zlog_debug(
 					"%s: %s wins over %s due to confed-external peer > confed-internal peer",
@@ -843,6 +869,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 
 		if (exist_sort == BGP_PEER_CONFED
 		    && new_sort == BGP_PEER_IBGP) {
+			*reason = bgp_path_selection_confed;
 			if (debug)
 				zlog_debug(
 					"%s: %s loses to %s due to confed-internal peer < confed-external peer",
@@ -918,6 +945,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 					"%s: %s loses to %s after IGP metric comparison",
 					pfx_buf, new_buf, exist_buf);
 		}
+		*reason = bgp_path_selection_igp_metric;
 		return ret;
 	}
 
@@ -928,6 +956,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	if (!bgp_flag_check(bgp, BGP_FLAG_COMPARE_ROUTER_ID)
 	    && new_sort == BGP_PEER_EBGP && exist_sort == BGP_PEER_EBGP) {
 		if (CHECK_FLAG(new->flags, BGP_PATH_SELECTED)) {
+			*reason = bgp_path_selection_older;
 			if (debug)
 				zlog_debug(
 					"%s: %s wins over %s due to oldest external",
@@ -936,6 +965,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		}
 
 		if (CHECK_FLAG(exist->flags, BGP_PATH_SELECTED)) {
+			*reason = bgp_path_selection_older;
 			if (debug)
 				zlog_debug(
 					"%s: %s loses to %s due to oldest external",
@@ -959,6 +989,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		exist_id.s_addr = exist->peer->remote_id.s_addr;
 
 	if (ntohl(new_id.s_addr) < ntohl(exist_id.s_addr)) {
+		*reason = bgp_path_selection_router_id;
 		if (debug)
 			zlog_debug(
 				"%s: %s wins over %s due to Router-ID comparison",
@@ -967,6 +998,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	if (ntohl(new_id.s_addr) > ntohl(exist_id.s_addr)) {
+		*reason = bgp_path_selection_router_id;
 		if (debug)
 			zlog_debug(
 				"%s: %s loses to %s due to Router-ID comparison",
@@ -979,6 +1011,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	exist_cluster = BGP_CLUSTER_LIST_LENGTH(exist->attr);
 
 	if (new_cluster < exist_cluster) {
+		*reason = bgp_path_selection_cluster_length;
 		if (debug)
 			zlog_debug(
 				"%s: %s wins over %s due to CLUSTER_LIST length %d < %d",
@@ -988,6 +1021,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	if (new_cluster > exist_cluster) {
+		*reason = bgp_path_selection_cluster_length;
 		if (debug)
 			zlog_debug(
 				"%s: %s loses to %s due to CLUSTER_LIST length %d > %d",
@@ -1001,6 +1035,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	 * valid peer information (as the connection may or may not be up).
 	 */
 	if (CHECK_FLAG(exist->flags, BGP_PATH_STALE)) {
+		*reason = bgp_path_selection_stale;
 		if (debug)
 			zlog_debug(
 				"%s: %s wins over %s due to latter path being STALE",
@@ -1009,6 +1044,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	if (CHECK_FLAG(new->flags, BGP_PATH_STALE)) {
+		*reason = bgp_path_selection_stale;
 		if (debug)
 			zlog_debug(
 				"%s: %s loses to %s due to former path being STALE",
@@ -1017,14 +1053,19 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	/* locally configured routes to advertise do not have su_remote */
-	if (new->peer->su_remote == NULL)
+	if (new->peer->su_remote == NULL) {
+		*reason = bgp_path_selection_local_configured;
 		return 0;
-	if (exist->peer->su_remote == NULL)
+	}
+	if (exist->peer->su_remote == NULL) {
+		*reason = bgp_path_selection_local_configured;
 		return 1;
+	}
 
 	ret = sockunion_cmp(new->peer->su_remote, exist->peer->su_remote);
 
 	if (ret == 1) {
+		*reason = bgp_path_selection_neighbor_ip;
 		if (debug)
 			zlog_debug(
 				"%s: %s loses to %s due to Neighor IP comparison",
@@ -1033,6 +1074,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	if (ret == -1) {
+		*reason = bgp_path_selection_neighbor_ip;
 		if (debug)
 			zlog_debug(
 				"%s: %s wins over %s due to Neighor IP comparison",
@@ -1040,6 +1082,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 1;
 	}
 
+	*reason = bgp_path_selection_default;
 	if (debug)
 		zlog_debug("%s: %s wins over %s due to nothing left to compare",
 			   pfx_buf, new_buf, exist_buf);
@@ -1053,12 +1096,13 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
  * This version is compatible with */
 int bgp_path_info_cmp_compatible(struct bgp *bgp, struct bgp_path_info *new,
 				 struct bgp_path_info *exist, char *pfx_buf,
-				 afi_t afi, safi_t safi)
+				 afi_t afi, safi_t safi,
+				 enum bgp_path_selection_reason *reason)
 {
 	int paths_eq;
 	int ret;
 	ret = bgp_path_info_cmp(bgp, new, exist, &paths_eq, NULL, 0, pfx_buf,
-				afi, safi);
+				afi, safi, reason);
 
 	if (paths_eq)
 		ret = 0;
@@ -1955,7 +1999,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 					if (bgp_path_info_cmp(
 						    bgp, pi2, new_select,
 						    &paths_eq, mpath_cfg, debug,
-						    pfx_buf, afi, safi)) {
+						    pfx_buf, afi, safi,
+						    &rn->reason)) {
 						bgp_path_info_unset_flag(
 							rn, new_select,
 							BGP_PATH_DMED_SELECTED);
@@ -2028,7 +2073,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 		bgp_path_info_unset_flag(rn, pi, BGP_PATH_DMED_CHECK);
 
 		if (bgp_path_info_cmp(bgp, pi, new_select, &paths_eq, mpath_cfg,
-				      debug, pfx_buf, afi, safi)) {
+				      debug, pfx_buf, afi, safi, &rn->reason)) {
 			new_select = pi;
 		}
 	}
@@ -2084,7 +2129,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 			}
 
 			bgp_path_info_cmp(bgp, pi, new_select, &paths_eq,
-					  mpath_cfg, debug, pfx_buf, afi, safi);
+					  mpath_cfg, debug, pfx_buf, afi, safi,
+					  &rn->reason);
 
 			if (paths_eq) {
 				if (debug)

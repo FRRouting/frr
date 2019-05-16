@@ -42,6 +42,31 @@ struct bgp_table {
 	uint64_t version;
 };
 
+enum bgp_path_selection_reason {
+	bgp_path_selection_none,
+	bgp_path_selection_first,
+	bgp_path_selection_evpn_sticky_mac,
+	bgp_path_selection_evpn_seq,
+	bgp_path_selection_evpn_lower_ip,
+	bgp_path_selection_weight,
+	bgp_path_selection_local_pref,
+	bgp_path_selection_local_route,
+	bgp_path_selection_confed_as_path,
+	bgp_path_selection_as_path,
+	bgp_path_selection_origin,
+	bgp_path_selection_med,
+	bgp_path_selection_peer,
+	bgp_path_selection_confed,
+	bgp_path_selection_igp_metric,
+	bgp_path_selection_older,
+	bgp_path_selection_router_id,
+	bgp_path_selection_cluster_length,
+	bgp_path_selection_stale,
+	bgp_path_selection_local_configured,
+	bgp_path_selection_neighbor_ip,
+	bgp_path_selection_default,
+};
+
 struct bgp_node {
 	/*
 	 * CAUTION
@@ -72,6 +97,8 @@ struct bgp_node {
 #define BGP_NODE_REGISTERED_FOR_LABEL   (1 << 3)
 
 	struct bgp_addpath_node_data tx_addpath;
+
+	enum bgp_path_selection_reason reason;
 };
 
 /*
