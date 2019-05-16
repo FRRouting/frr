@@ -50,7 +50,6 @@ DEFINE_MTYPE_STATIC(ZEBRA, FPM_MAC_INFO, "FPM_MAC_INFO");
  * Interval at which we attempt to connect to the FPM.
  */
 #define ZFPM_CONNECT_RETRY_IVL   5
-#define FPM_MAX_MAC_MSG_LEN 512
 
 /*
  * Sizes of outgoing and incoming stream buffers for writing/reading
@@ -69,6 +68,9 @@ DEFINE_MTYPE_STATIC(ZEBRA, FPM_MAC_INFO, "FPM_MAC_INFO");
  * Interval over which we collect statistics.
  */
 #define ZFPM_STATS_IVL_SECS        10
+#define FPM_MAX_MAC_MSG_LEN 512
+
+static void zfpm_iterate_rmac_table(struct hash_backet *backet, void *args);
 
 /*
  * Structure that holds state for iterating over all route_node
@@ -518,6 +520,9 @@ static int zfpm_conn_up_thread_cb(struct thread *thread)
 		zfpm_g->stats.t_conn_up_aborts++;
 		goto done;
 	}
+
+	/* Enqueue FPM updates for all the RMAC entries */
+	hash_iterate(zrouter.l3vni_table, zfpm_iterate_rmac_table, NULL);
 
 	while ((rnode = zfpm_rnodes_iter_next(iter))) {
 		dest = rib_dest_from_rnode(rnode);
@@ -1635,6 +1640,33 @@ static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
 }
 
 /*
+ * This function is called when the FPM connections is established.
+ * Iterate over all the RMAC entries for the given L3VNI
+ * and enqueue the RMAC for FPM processing.
+ */
+static void zfpm_trigger_rmac_update_wrapper(struct hash_backet *backet,
+					     void *args)
+{
+	zebra_mac_t *zrmac = (zebra_mac_t *)backet->data;
+	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)args;
+
+	zfpm_trigger_rmac_update(zrmac, zl3vni, false, "RMAC added");
+}
+
+/*
+ * This function is called when the FPM connections is established.
+ * This function iterates over all the L3VNIs to trigger
+ * FPM updates for RMACs currently available.
+ */
+static void zfpm_iterate_rmac_table(struct hash_backet *backet, void *args)
+{
+	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)backet->data;
+
+	hash_iterate(zl3vni->rmac_table, zfpm_trigger_rmac_update_wrapper,
+		     (void *)zl3vni);
+}
+
+/*
  * zfpm_stats_timer_cb
  */
 static int zfpm_stats_timer_cb(struct thread *t)
@@ -1951,8 +1983,8 @@ static int zfpm_init(struct thread_master *master)
 
 	/* Create hash table for fpm_mac_info_t enties */
 	zfpm_g->fpm_mac_info_table = hash_create(zfpm_mac_info_hash_keymake,
-						zfpm_mac_info_cmp,
-						"FPM MAC info hash table");
+						 zfpm_mac_info_cmp,
+						 "FPM MAC info hash table");
 
 	zfpm_g->sock = -1;
 	zfpm_g->state = ZFPM_STATE_IDLE;
