@@ -241,7 +241,7 @@ void ecommunity_unintern(struct ecommunity **ecom)
 }
 
 /* Utinity function to make hash key.  */
-unsigned int ecommunity_hash_make(void *arg)
+unsigned int ecommunity_hash_make(const void *arg)
 {
 	const struct ecommunity *ecom = arg;
 	int size = ecom->size * ECOMMUNITY_SIZE;

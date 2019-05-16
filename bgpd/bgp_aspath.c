@@ -2008,13 +2008,13 @@ struct aspath *aspath_str2aspath(const char *str)
 }
 
 /* Make hash value by raw aspath data. */
-unsigned int aspath_key_make(void *p)
+unsigned int aspath_key_make(const void *p)
 {
-	struct aspath *aspath = (struct aspath *)p;
+	const struct aspath *aspath = p;
 	unsigned int key = 0;
 
 	if (!aspath->str)
-		aspath_str_update(aspath, false);
+		aspath_str_update((struct aspath *)aspath, false);
 
 	key = jhash(aspath->str, aspath->str_len, 2334325);
 

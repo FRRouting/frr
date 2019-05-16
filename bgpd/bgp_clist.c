@@ -36,9 +36,9 @@
 #include "bgpd/bgp_regex.h"
 #include "bgpd/bgp_clist.h"
 
-static uint32_t bgp_clist_hash_key_community_list(void *data)
+static uint32_t bgp_clist_hash_key_community_list(const void *data)
 {
-	struct community_list *cl = data;
+	struct community_list *cl = (struct community_list *) data;
 
 	if (cl->name_hash)
 		return cl->name_hash;

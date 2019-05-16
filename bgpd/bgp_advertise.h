@@ -144,7 +144,7 @@ extern void bgp_adj_in_remove(struct bgp_node *, struct bgp_adj_in *);
 
 extern void bgp_sync_init(struct peer *);
 extern void bgp_sync_delete(struct peer *);
-extern unsigned int baa_hash_key(void *p);
+extern unsigned int baa_hash_key(const void *p);
 extern bool baa_hash_cmp(const void *p1, const void *p2);
 extern void bgp_advertise_add(struct bgp_advertise_attr *baa,
 			      struct bgp_advertise *adv);

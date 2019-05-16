@@ -91,9 +91,9 @@ static bool pim_oil_equal(const void *arg1, const void *arg2)
 	return false;
 }
 
-static unsigned int pim_oil_hash_key(void *arg)
+static unsigned int pim_oil_hash_key(const void *arg)
 {
-	struct channel_oil *oil = (struct channel_oil *)arg;
+	const struct channel_oil *oil = arg;
 
 	return jhash_2words(oil->oil.mfcc_mcastgrp.s_addr,
 			    oil->oil.mfcc_origin.s_addr, 0);

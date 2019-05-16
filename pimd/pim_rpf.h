@@ -56,7 +56,7 @@ enum pim_rpf_result { PIM_RPF_OK = 0, PIM_RPF_CHANGED, PIM_RPF_FAILURE };
 
 struct pim_upstream;
 
-unsigned int pim_rpf_hash_key(void *arg);
+unsigned int pim_rpf_hash_key(const void *arg);
 bool pim_rpf_equal(const void *arg1, const void *arg2);
 
 bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,

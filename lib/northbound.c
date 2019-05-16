@@ -1654,7 +1654,7 @@ static bool running_config_entry_cmp(const void *value1, const void *value2)
 	return strmatch(c1->xpath, c2->xpath);
 }
 
-static unsigned int running_config_entry_key_make(void *value)
+static unsigned int running_config_entry_key_make(const void *value)
 {
 	return string_hash_make(value);
 }

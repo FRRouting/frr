@@ -131,9 +131,9 @@ static bool peer_hash_cmp(const void *f, const void *s)
 	return p1->peer == p2->peer;
 }
 
-static unsigned int peer_hash_key(void *arg)
+static unsigned int peer_hash_key(const void *arg)
 {
-	struct pkat *pkat = arg;
+	const struct pkat *pkat = arg;
 	return (uintptr_t)pkat->peer;
 }
 

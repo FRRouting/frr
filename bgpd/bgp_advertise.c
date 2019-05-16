@@ -64,9 +64,9 @@ static void *baa_hash_alloc(void *p)
 	return baa;
 }
 
-unsigned int baa_hash_key(void *p)
+unsigned int baa_hash_key(const void *p)
 {
-	struct bgp_advertise_attr *baa = (struct bgp_advertise_attr *)p;
+	const struct bgp_advertise_attr *baa = p;
 
 	return attrhash_key_make(baa->attr);
 }

@@ -574,7 +574,7 @@ char *community_str(struct community *com, bool make_json)
 
 /* Make hash value of community attribute. This function is used by
    hash package.*/
-unsigned int community_hash_make(struct community *com)
+unsigned int community_hash_make(const struct community *com)
 {
 	uint32_t *pnt = (uint32_t *)com->val;
 
@@ -897,7 +897,7 @@ struct hash *community_hash(void)
 void community_init(void)
 {
 	comhash =
-		hash_create((unsigned int (*)(void *))community_hash_make,
+		hash_create((unsigned int (*)(const void *))community_hash_make,
 			    (bool (*)(const void *, const void *))community_cmp,
 			    "BGP Community Hash");
 }
@@ -957,7 +957,7 @@ void bgp_compute_aggregate_community(struct bgp_aggregate *aggregate,
 	 */
 	if (aggregate->community_hash == NULL)
 		aggregate->community_hash = hash_create(
-			(unsigned int (*)(void *))community_hash_make,
+			(unsigned int (*)(const void *))community_hash_make,
 			(bool (*)(const void *, const void *))community_cmp,
 			"BGP Aggregator community hash");
 

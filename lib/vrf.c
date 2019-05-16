@@ -362,9 +362,9 @@ struct vrf_bit_set {
 	bool set;
 };
 
-static unsigned int vrf_hash_bitmap_key(void *data)
+static unsigned int vrf_hash_bitmap_key(const void *data)
 {
-	struct vrf_bit_set *bit = data;
+	const struct vrf_bit_set *bit = data;
 
 	return bit->vrf_id;
 }

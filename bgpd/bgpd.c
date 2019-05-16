@@ -812,9 +812,9 @@ int peer_cmp(struct peer *p1, struct peer *p2)
 	return sockunion_cmp(&p1->su, &p2->su);
 }
 
-static unsigned int peer_hash_key_make(void *p)
+static unsigned int peer_hash_key_make(const void *p)
 {
-	struct peer *peer = p;
+	const struct peer *peer = p;
 	return sockunion_hash(&peer->su);
 }
 

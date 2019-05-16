@@ -623,7 +623,7 @@ struct route_map_list {
 static struct route_map_list route_map_master = {NULL, NULL, NULL, NULL, NULL};
 struct hash *route_map_master_hash = NULL;
 
-static unsigned int route_map_hash_key_make(void *p)
+static unsigned int route_map_hash_key_make(const void *p)
 {
 	const struct route_map *map = p;
 	return string_hash_make(map->name);
@@ -673,7 +673,7 @@ struct route_map_dep {
 /* Hashes maintaining dependency between various sublists used by route maps */
 struct hash *route_map_dep_hash[ROUTE_MAP_DEP_MAX];
 
-static unsigned int route_map_dep_hash_make_key(void *p);
+static unsigned int route_map_dep_hash_make_key(const void *p);
 static void route_map_clear_all_references(char *rmap_name);
 static void route_map_rule_delete(struct route_map_rule_list *,
 				  struct route_map_rule *);
@@ -1709,7 +1709,7 @@ static void *route_map_name_hash_alloc(void *p)
 	return ((void *)XSTRDUP(MTYPE_ROUTE_MAP_NAME, (const char *)p));
 }
 
-static unsigned int route_map_dep_hash_make_key(void *p)
+static unsigned int route_map_dep_hash_make_key(const void *p)
 {
 	return (string_hash_make((char *)p));
 }

@@ -28,9 +28,9 @@ struct child_sa {
 static struct hash *nhrp_vc_hash;
 static struct list_head childlist_head[512];
 
-static unsigned int nhrp_vc_key(void *peer_data)
+static unsigned int nhrp_vc_key(const void *peer_data)
 {
-	struct nhrp_vc *vc = peer_data;
+	const struct nhrp_vc *vc = peer_data;
 	return jhash_2words(sockunion_hash(&vc->local.nbma),
 			    sockunion_hash(&vc->remote.nbma), 0);
 }

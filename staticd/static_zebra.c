@@ -223,9 +223,9 @@ static void static_zebra_capabilities(struct zclient_capabilities *cap)
 	mpls_enabled = cap->mpls_enabled;
 }
 
-static unsigned int static_nht_hash_key(void *data)
+static unsigned int static_nht_hash_key(const void *data)
 {
-	struct static_nht_data *nhtd = data;
+	const struct static_nht_data *nhtd = data;
 	unsigned int key = 0;
 
 	key = prefix_hash_key(nhtd->nh);
