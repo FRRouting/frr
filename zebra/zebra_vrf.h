@@ -169,10 +169,6 @@ struct zebra_vrf {
 	uint64_t lsp_removals_queued;
 	uint64_t lsp_installs;
 	uint64_t lsp_removals;
-
-#if defined(HAVE_RTADV)
-	struct rtadv rtadv;
-#endif /* HAVE_RTADV */
 };
 #define PROTO_RM_NAME(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].name
 #define NHT_RM_NAME(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].name

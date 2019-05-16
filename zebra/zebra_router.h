@@ -82,8 +82,9 @@ struct zebra_router {
 
 	struct hash *iptable_hash;
 
-	/* used if vrf backend is not network namespace */
-	int rtadv_sock;
+#if defined(HAVE_RTADV)
+	struct rtadv rtadv;
+#endif /* HAVE_RTADV */
 
 	/* A sequence number used for tracking routes */
 	_Atomic uint32_t sequence_num;
