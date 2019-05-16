@@ -89,6 +89,7 @@ static void debug_printbpc(const char *func, unsigned int line,
 {
 	char addr[3][128];
 	char timers[3][128];
+	char cbit_str[10];
 
 	addr[0][0] = addr[1][0] = addr[2][0] = timers[0][0] = timers[1][0] =
 		timers[2][0] = 0;
@@ -117,9 +118,11 @@ static void debug_printbpc(const char *func, unsigned int line,
 		snprintf(timers[2], sizeof(timers[2]), " detect-multiplier:%d",
 			 bpc->bpc_detectmultiplier);
 
-	log_debug("%s:%d: %s %s%s%s%s%s%s", func, line,
+	sprintf(cbit_str, "CB %x", bpc->bpc_cbit);
+
+	log_debug("%s:%d: %s %s%s%s%s%s%s %s", func, line,
 		  bpc->bpc_mhop ? "multi-hop" : "single-hop", addr[0], addr[1],
-		  addr[2], timers[0], timers[1], timers[2]);
+		  addr[2], timers[0], timers[1], timers[2], cbit_str);
 }
 
 #define DEBUG_PRINTBPC(bpc) debug_printbpc(__FILE__, __LINE__, (bpc))
@@ -173,6 +176,7 @@ int ptm_bfd_notify(struct bfd_session *bs)
 	 *   - AF_INET6:
 	 *     - 16 bytes: ipv6
 	 *   - c: prefix length
+	 * - c: cbit
 	 *
 	 * Commands: ZEBRA_BFD_DEST_REPLAY
 	 *
@@ -218,6 +222,8 @@ int ptm_bfd_notify(struct bfd_session *bs)
 
 	/* BFD source prefix information. */
 	_ptm_msg_address(msg, bs->key.family, &bs->key.local);
+
+	stream_putc(msg, bs->remote_cbit);
 
 	/* Write packet size. */
 	stream_putw_at(msg, 0, stream_get_endp(msg));
@@ -293,6 +299,7 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 	 *       - 16 bytes: ipv6 address
 	 *     - c: ifname length
 	 *     - X bytes: interface name
+	 * - c: bfd_cbit
 	 *
 	 * q(64), l(32), w(16), c(8)
 	 */
@@ -370,6 +377,8 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 			return -1;
 		}
 	}
+
+	STREAM_GETC(msg, bpc->bpc_cbit);
 
 	/* Sanity check: peer and local address must match IP types. */
 	if (bpc->bpc_local.sa_sin.sin_family != 0

@@ -600,6 +600,17 @@ skip_echo:
 		bfd_recvtimer_update(bs);
 		bfd_xmttimer_update(bs, bs->xmt_TO);
 	}
+	if (bpc->bpc_cbit) {
+		if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CBIT))
+			return;
+
+		BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_CBIT);
+	} else {
+		if (!BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CBIT))
+			return;
+
+		BFD_UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CBIT);
+	}
 }
 
 static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)

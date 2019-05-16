@@ -129,6 +129,12 @@ struct bfd_echo_pkt {
 			flags |= (val & 0x3) << 6;                             \
 	}
 #define BFD_GETSTATE(flags) ((flags >> 6) & 0x3)
+#define BFD_SETCBIT(flags, val)                                                \
+	{                                                                      \
+		if ((val))                                                     \
+			flags |= val;                                          \
+	}
+#define BFD_GETCBIT(flags) (flags & BFD_FBIT)
 #define BFD_ECHO_VERSION 1
 #define BFD_ECHO_PKT_LEN sizeof(struct bfd_echo_pkt)
 
@@ -168,6 +174,7 @@ enum bfd_session_flags {
 						 */
 	BFD_SESS_FLAG_SHUTDOWN = 1 << 7,	/* disable BGP peer function */
 	BFD_SESS_FLAG_CONFIG = 1 << 8,	/* Session configured with bfd NB API */
+	BFD_SESS_FLAG_CBIT = 1 << 9,	/* CBIT is set */
 };
 
 #define BFD_SET_FLAG(field, flag) (field |= flag)
@@ -210,6 +217,7 @@ struct bfd_session {
 	uint8_t detect_mult;
 	uint8_t remote_detect_mult;
 	uint8_t mh_ttl;
+	uint8_t remote_cbit;
 
 	/* Timers */
 	struct bfd_timers timers;

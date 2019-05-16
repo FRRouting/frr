@@ -1115,8 +1115,6 @@ int bgp_stop(struct peer *peer)
 
 		/* Reset peer synctime */
 		peer->synctime = 0;
-
-		bgp_bfd_deregister_peer(peer);
 	}
 
 	/* stop keepalives */

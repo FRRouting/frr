@@ -88,6 +88,8 @@ struct bfd_peer_cfg {
 	bool bpc_createonly;
 	bool bpc_shutdown;
 
+	bool bpc_cbit;
+
 	/* Status information */
 	enum bfd_peer_status bpc_bps;
 	uint32_t bpc_id;

@@ -221,6 +221,10 @@ void ptm_bfd_snd(struct bfd_session *bfd, int fbit)
 	BFD_SETVER(cp.diag, BFD_VERSION);
 	cp.flags = 0;
 	BFD_SETSTATE(cp.flags, bfd->ses_state);
+
+	if (BFD_CHECK_FLAG(bfd->flags, BFD_SESS_FLAG_CBIT))
+		BFD_SETCBIT(cp.flags, BFD_CBIT);
+
 	BFD_SETDEMANDBIT(cp.flags, BFD_DEF_DEMAND);
 
 	/*
@@ -645,6 +649,11 @@ int bfd_recv_cb(struct thread *t)
 	bfd->remote_timers.required_min_echo =
 		ntohl(cp->timers.required_min_echo);
 	bfd->remote_detect_mult = cp->detect_mult;
+
+	if (BFD_GETCBIT(cp->flags))
+		bfd->remote_cbit = 1;
+	else
+		bfd->remote_cbit = 0;
 
 	/* State switch from section 6.2. */
 	bs_state_handler(bfd, BFD_GETSTATE(cp->flags));
