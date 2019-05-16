@@ -53,6 +53,7 @@
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_nhg.h"
+#include "zebra/interface.h"
 
 extern int allow_delete;
 
@@ -1102,16 +1103,69 @@ DEFUN (ip_nht_default_route,
 	return CMD_SUCCESS;
 }
 
+static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
+{
+	struct nexthop *nhop = NULL;
+	struct nhg_connected *rb_node_dep = NULL;
+
+	vty_out(vty, "ID: %u\n", nhe->id);
+	vty_out(vty, "\tRefCnt: %d\n", nhe->refcnt);
+	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
+		vty_out(vty, "\tValid");
+		if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED))
+			vty_out(vty, ", Installed");
+		vty_out(vty, "\n");
+	}
+	if (nhe->ifp)
+		vty_out(vty, "\tInterface Index: %d\n", nhe->ifp->ifindex);
+
+	if (!zebra_nhg_depends_is_empty(nhe)) {
+
+		vty_out(vty, "\tDepends:");
+		RB_FOREACH (rb_node_dep, nhg_connected_head,
+			    &nhe->nhg_depends) {
+			vty_out(vty, " (%u)", rb_node_dep->nhe->id);
+		}
+		vty_out(vty, "\n");
+	}
+	if (!zebra_nhg_dependents_is_empty(nhe)) {
+		vty_out(vty, "\tDependents:");
+		RB_FOREACH (rb_node_dep, nhg_connected_head,
+			    &nhe->nhg_dependents) {
+			vty_out(vty, " (%u)", rb_node_dep->nhe->id);
+		}
+		vty_out(vty, "\n");
+	}
+
+	for (ALL_NEXTHOPS_PTR(nhe->nhg, nhop)) {
+		vty_out(vty, "\t");
+		nexthop_group_write_nexthop(vty, nhop);
+	}
+}
+
+static int show_nexthop_group_id_cmd_helper(struct vty *vty, uint32_t id)
+{
+	struct nhg_hash_entry *nhe = NULL;
+
+	nhe = zebra_nhg_lookup_id(id);
+
+	if (nhe)
+		show_nexthop_group_out(vty, nhe);
+	else {
+		vty_out(vty, "Nexthop Group ID: %u does not exist\n", id);
+		return CMD_WARNING;
+	}
+	return CMD_SUCCESS;
+}
+
 static void show_nexthop_group_cmd_helper(struct vty *vty,
 					  struct zebra_vrf *zvrf, afi_t afi)
 {
 	struct list *list = hash_to_list(zrouter.nhgs);
-	struct nhg_hash_entry *nhe;
-	struct listnode *node;
+	struct nhg_hash_entry *nhe = NULL;
+	struct listnode *node = NULL;
 
 	for (ALL_LIST_ELEMENTS_RO(list, node, nhe)) {
-		struct nexthop *nhop;
-		struct nhg_connected *rb_node_dep = NULL;
 
 		if (afi && nhe->afi != afi)
 			continue;
@@ -1119,60 +1173,85 @@ static void show_nexthop_group_cmd_helper(struct vty *vty,
 		if (nhe->vrf_id != zvrf->vrf->vrf_id)
 			continue;
 
-		vty_out(vty, "Group: %u ID: %u\n", nhe->dplane_ref, nhe->id);
-		vty_out(vty, "\tRefCnt: %d\n", nhe->refcnt);
-		vty_out(vty, "\tValid: %d, Installed %d\n",
-			nhe->flags & NEXTHOP_GROUP_VALID,
-			nhe->flags & NEXTHOP_GROUP_INSTALLED);
-		if (nhe->ifp)
-			vty_out(vty, "\tInterface Index: %d\n",
-				nhe->ifp->ifindex);
-
-		if (!zebra_nhg_depends_is_empty(nhe)) {
-
-			vty_out(vty, "\tDepends:");
-			RB_FOREACH (rb_node_dep, nhg_connected_head,
-				    &nhe->nhg_depends) {
-				vty_out(vty, " (%u)", rb_node_dep->nhe->id);
-			}
-			vty_out(vty, "\n");
-
-		} else {
-			vty_out(vty, "\tDependents:");
-			RB_FOREACH (rb_node_dep, nhg_connected_head,
-				    &nhe->nhg_dependents) {
-				vty_out(vty, " (%u)", rb_node_dep->nhe->id);
-			}
-			vty_out(vty, "\n");
-		}
-
-		for (ALL_NEXTHOPS_PTR(nhe->nhg, nhop)) {
-			vty_out(vty, "\t");
-			nexthop_group_write_nexthop(vty, nhop);
-		}
+		show_nexthop_group_out(vty, nhe);
 	}
 
 	list_delete(&list);
 }
 
+static void if_nexthop_group_dump_vty(struct vty *vty, struct interface *ifp)
+{
+	struct zebra_if *zebra_if = NULL;
+	struct nhg_connected *rb_node_dep = NULL;
+
+	zebra_if = ifp->info;
+
+	if (!if_nhg_dependents_is_empty(ifp)) {
+		vty_out(vty, "Interface %s:\n", ifp->name);
+
+		RB_FOREACH (rb_node_dep, nhg_connected_head,
+			    &zebra_if->nhg_dependents) {
+			vty_out(vty, "   ");
+			show_nexthop_group_out(vty, rb_node_dep->nhe);
+		}
+	}
+}
+
+DEFPY (show_interface_nexthop_group,
+       show_interface_nexthop_group_cmd,
+       "show interface [IFNAME$if_name] nexthop-group",
+       SHOW_STR
+       "Interface status and configuration\n"
+       "Interface name\n"
+       "Show Nexthop Groups\n")
+{
+	struct vrf *vrf = NULL;
+	struct interface *ifp = NULL;
+	bool found = false;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (if_name) {
+			ifp = if_lookup_by_name(if_name, vrf->vrf_id);
+			if (ifp) {
+				if_nexthop_group_dump_vty(vty, ifp);
+				found = true;
+			}
+		} else {
+			FOR_ALL_INTERFACES (vrf, ifp)
+				if_nexthop_group_dump_vty(vty, ifp);
+			found = true;
+		}
+	}
+
+	if (!found) {
+		vty_out(vty, "%% Can't find interface %s\n", if_name);
+		return CMD_WARNING;
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (show_nexthop_group,
        show_nexthop_group_cmd,
-       "show nexthop-group [<ipv4$v4|ipv6$v6>] [vrf <NAME$vrf_name|all$vrf_all>]",
+       "show nexthop-group <(0-4294967295)$id|[<ip$v4|ipv6$v6>] [vrf <NAME$vrf_name|all$vrf_all>]>",
        SHOW_STR
+       "Show Nexthop Groups\n"
+       "Nexthop Group ID\n"
        IP_STR
        IP6_STR
-       "Show Nexthop Groups\n"
        VRF_FULL_CMD_HELP_STR)
 {
 
+	struct zebra_vrf *zvrf = NULL;
 	afi_t afi = 0;
+
+	if (id)
+		return show_nexthop_group_id_cmd_helper(vty, id);
 
 	if (v4)
 		afi = AFI_IP;
 	else if (v6)
 		afi = AFI_IP6;
-
-	struct zebra_vrf *zvrf;
 
 	if (vrf_all) {
 		struct vrf *vrf;
@@ -1198,7 +1277,7 @@ DEFPY (show_nexthop_group,
 
 	if (!zvrf) {
 		vty_out(vty, "VRF %s specified does not exist", vrf_name);
-		return CMD_SUCCESS;
+		return CMD_WARNING;
 	}
 
 	show_nexthop_group_cmd_helper(vty, zvrf, afi);
@@ -3139,6 +3218,7 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &no_zebra_packet_process_cmd);
 
 	install_element(VIEW_NODE, &show_nexthop_group_cmd);
+	install_element(VIEW_NODE, &show_interface_nexthop_group_cmd);
 
 	install_element(VIEW_NODE, &show_vrf_cmd);
 	install_element(VIEW_NODE, &show_vrf_vni_cmd);

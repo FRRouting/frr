@@ -1220,12 +1220,6 @@ static void nbr_connected_dump_vty(struct vty *vty,
 	vty_out(vty, "\n");
 }
 
-static void nhg_dependent_dump_vty(struct vty *vty,
-				   struct nhg_connected *connected)
-{
-	vty_out(vty, "  (%u)", connected->nhe->id);
-}
-
 static const char *zebra_ziftype_2str(zebra_iftype_t zif_type)
 {
 	switch (zif_type) {
@@ -1456,17 +1450,6 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		if (CHECK_FLAG(connected->conf, ZEBRA_IFC_REAL)
 		    && (connected->address->family == AF_INET6))
 			connected_dump_vty(vty, connected);
-	}
-
-	if (!if_nhg_dependents_is_empty(ifp)) {
-		struct nhg_connected *rb_node_dep = NULL;
-
-		vty_out(vty, "  Nexthop IDs connected:");
-		RB_FOREACH (rb_node_dep, nhg_connected_head,
-			    &zebra_if->nhg_dependents) {
-			nhg_dependent_dump_vty(vty, rb_node_dep);
-		}
-		vty_out(vty, "\n");
 	}
 
 	vty_out(vty, "  Interface Type %s\n",
