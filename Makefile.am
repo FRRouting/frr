@@ -96,7 +96,6 @@ noinst_LIBRARIES =
 nodist_noinst_DATA =
 lib_LTLIBRARIES =
 module_LTLIBRARIES =
-libyang_plugins_LTLIBRARIES =
 pkginclude_HEADERS =
 nodist_pkginclude_HEADERS =
 dist_examples_DATA =
@@ -111,7 +110,6 @@ vtysh_scan =
 $(AUTOMAKE_DUMMY)install-moduleLTLIBRARIES: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-binPROGRAMS: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-sbinPROGRAMS: install-libLTLIBRARIES
-$(AUTOMAKE_DUMMY)install-libyang_pluginsLTLIBRARIES: install-libLTLIBRARIES
 
 include doc/subdir.am
 include doc/user/subdir.am
@@ -175,9 +173,6 @@ EXTRA_DIST += \
 	python/clidef.py \
 	python/clippy/__init__.py \
 	\
-	redhat/frr.init \
-	redhat/frr.service \
-	redhat/daemons \
 	redhat/frr.logrotate \
 	redhat/frr.pam \
 	redhat/frr.spec \

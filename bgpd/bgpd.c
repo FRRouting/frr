@@ -706,6 +706,7 @@ struct peer_af *peer_af_create(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct peer_af *af;
 	int afid;
+	struct bgp *bgp;
 
 	if (!peer)
 		return NULL;
@@ -714,6 +715,7 @@ struct peer_af *peer_af_create(struct peer *peer, afi_t afi, safi_t safi)
 	if (afid >= BGP_AF_MAX)
 		return NULL;
 
+	bgp = peer->bgp;
 	assert(peer->peer_af_array[afid] == NULL);
 
 	/* Allocate new peer af */
@@ -724,6 +726,7 @@ struct peer_af *peer_af_create(struct peer *peer, afi_t afi, safi_t safi)
 	af->safi = safi;
 	af->afid = afid;
 	af->peer = peer;
+	bgp->af_peer_count[afi][safi]++;
 
 	return af;
 }
@@ -746,6 +749,7 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct peer_af *af;
 	int afid;
+	struct bgp *bgp;
 
 	if (!peer)
 		return -1;
@@ -758,6 +762,7 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 	if (!af)
 		return -1;
 
+	bgp = peer->bgp;
 	bgp_stop_announce_route_timer(af);
 
 	if (PAF_SUBGRP(af)) {
@@ -768,6 +773,9 @@ int peer_af_delete(struct peer *peer, afi_t afi, safi_t safi)
 	}
 
 	update_subgroup_remove_peer(af->subgroup, af);
+
+	if (bgp->af_peer_count[afi][safi])
+		bgp->af_peer_count[afi][safi]--;
 
 	peer->peer_af_array[afid] = NULL;
 	XFREE(MTYPE_BGP_PEER_AF, af);
@@ -3777,6 +3785,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_DISABLE_CONNECTED_CHECK, 0, peer_change_reset},
 	{PEER_FLAG_CAPABILITY_ENHE, 0, peer_change_reset},
 	{PEER_FLAG_ENFORCE_FIRST_AS, 0, peer_change_reset_in},
+	{PEER_FLAG_IFPEER_V6ONLY, 0, peer_change_reset},
 	{PEER_FLAG_ROUTEADV, 0, peer_change_none},
 	{PEER_FLAG_TIMER, 0, peer_change_none},
 	{PEER_FLAG_TIMER_CONNECT, 0, peer_change_none},
@@ -7023,14 +7032,17 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 
 	/* capability extended-nexthop */
 	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_ENHE)) {
-		if (CHECK_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE))
-			vty_out(vty,
-				" no neighbor %s capability extended-nexthop\n",
-				addr);
-		else
-			vty_out(vty,
-				" neighbor %s capability extended-nexthop\n",
-				addr);
+		if (!peer->conf_if) {
+			if (CHECK_FLAG(peer->flags_invert,
+				       PEER_FLAG_CAPABILITY_ENHE))
+				vty_out(vty,
+					" no neighbor %s capability extended-nexthop\n",
+					addr);
+			else
+				vty_out(vty,
+					" neighbor %s capability extended-nexthop\n",
+					addr);
+		}
 	}
 
 	/* dont-capability-negotiation */

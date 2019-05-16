@@ -2971,7 +2971,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 	if (!CHECK_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE)) {
 		SET_FLAG(peer->flags, PEER_FLAG_CAPABILITY_ENHE);
 		SET_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE);
-		UNSET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE);
+		SET_FLAG(peer->flags_override, PEER_FLAG_CAPABILITY_ENHE);
 	}
 
 	if (peer_group_name) {
@@ -3933,6 +3933,13 @@ ALIAS_HIDDEN(neighbor_nexthop_self_force,
 	     "Disable the next hop calculation for this neighbor\n"
 	     "Set the next hop to self for reflected routes\n")
 
+ALIAS_HIDDEN(neighbor_nexthop_self_force,
+	     neighbor_nexthop_self_all_hidden_cmd,
+	     "neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self all",
+	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	     "Disable the next hop calculation for this neighbor\n"
+	     "Set the next hop to self for reflected routes\n")
+
 DEFUN (no_neighbor_nexthop_self,
        no_neighbor_nexthop_self_cmd,
        "no neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self",
@@ -3970,6 +3977,13 @@ DEFUN (no_neighbor_nexthop_self_force,
 ALIAS_HIDDEN(no_neighbor_nexthop_self_force,
 	     no_neighbor_nexthop_self_force_hidden_cmd,
 	     "no neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self force",
+	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+	     "Disable the next hop calculation for this neighbor\n"
+	     "Set the next hop to self for reflected routes\n")
+
+ALIAS_HIDDEN(no_neighbor_nexthop_self_force,
+	     no_neighbor_nexthop_self_all_hidden_cmd,
+	     "no neighbor <A.B.C.D|X:X::X:X|WORD> next-hop-self all",
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Disable the next hop calculation for this neighbor\n"
 	     "Set the next hop to self for reflected routes\n")
@@ -7993,7 +8007,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					json, "ribMemory",
 					ents * sizeof(struct bgp_node));
 
-				ents = listcount(bgp->peer);
+				ents = bgp->af_peer_count[afi][safi];
 				json_object_int_add(json, "peerCount", ents);
 				json_object_int_add(json, "peerMemory",
 						    ents * sizeof(struct peer));
@@ -8033,7 +8047,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 								   bgp_node)));
 
 				/* Peer related usage */
-				ents = listcount(bgp->peer);
+				ents = bgp->af_peer_count[afi][safi];
 				vty_out(vty, "Peers %ld, using %s of memory\n",
 					ents,
 					mtype_memstr(
@@ -8484,7 +8498,7 @@ const char *afi_safi_json(afi_t afi, safi_t safi)
 }
 
 /* Show BGP peer's information. */
-enum show_type { show_all, show_peer };
+enum show_type { show_all, show_peer, show_ipv4_all, show_ipv6_all, show_ipv4_peer, show_ipv6_peer };
 
 static void bgp_show_peer_afi_orf_cap(struct vty *vty, struct peer *p,
 				      afi_t afi, safi_t safi,
@@ -10874,6 +10888,14 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 	struct peer *peer;
 	int find = 0;
 	bool nbr_output = false;
+	afi_t afi = AFI_MAX;
+	safi_t safi = SAFI_MAX;
+
+	if (type == show_ipv4_peer || type == show_ipv4_all) {
+		afi = AFI_IP;
+	} else if (type == show_ipv6_peer || type == show_ipv6_all) {
+		afi = AFI_IP6;
+	}
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
@@ -10902,17 +10924,54 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 				}
 			}
 			break;
+		case show_ipv4_peer:
+		case show_ipv6_peer:
+			FOREACH_SAFI (safi) {
+				if (peer->afc[afi][safi]) {
+					if (conf_if) {
+						if ((peer->conf_if
+						     && !strcmp(peer->conf_if, conf_if))
+						    || (peer->hostname
+							&& !strcmp(peer->hostname, conf_if))) {
+							find = 1;
+							bgp_show_peer(vty, peer, use_json,
+								      json);
+							break;
+						}
+					} else {
+						if (sockunion_same(&peer->su, su)) {
+							find = 1;
+							bgp_show_peer(vty, peer, use_json,
+								      json);
+							break;
+						}
+					}
+				}
+			}
+			break;
+		case show_ipv4_all:
+		case show_ipv6_all:
+			FOREACH_SAFI (safi) {
+				if (peer->afc[afi][safi]) {
+					bgp_show_peer(vty, peer, use_json, json);
+					nbr_output = true;
+					break;
+				}
+			}
+			break;
 		}
 	}
 
-	if (type == show_peer && !find) {
+	if ((type == show_peer || type == show_ipv4_peer ||
+	     type == show_ipv6_peer) && !find) {
 		if (use_json)
 			json_object_boolean_true_add(json, "bgpNoSuchNeighbor");
 		else
 			vty_out(vty, "%% No such neighbor in this view/vrf\n");
 	}
 
-	if (type != show_peer && !nbr_output && !use_json)
+	if (type != show_peer && type != show_ipv4_peer &&
+	    type != show_ipv6_peer && !nbr_output && !use_json)
 		vty_out(vty, "%% No BGP neighbors found\n");
 
 	if (use_json) {
@@ -10978,7 +11037,8 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 					: bgp->name);
 		}
 
-		if (type == show_peer) {
+		if (type == show_peer || type == show_ipv4_peer ||
+		    type == show_ipv6_peer) {
 			ret = str2sockunion(ip_str, &su);
 			if (ret < 0)
 				bgp_show_neighbor(vty, bgp, type, NULL, ip_str,
@@ -10987,9 +11047,10 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 				bgp_show_neighbor(vty, bgp, type, &su, NULL,
 						  use_json, json);
 		} else {
-			bgp_show_neighbor(vty, bgp, show_all, NULL, NULL,
+			bgp_show_neighbor(vty, bgp, type, NULL, NULL,
 					  use_json, json);
 		}
+		json_object_free(json);
 	}
 
 	if (use_json) {
@@ -11079,6 +11140,7 @@ DEFUN (show_ip_bgp_neighbors,
 	char *vrf = NULL;
 	char *sh_arg = NULL;
 	enum show_type sh_type;
+	afi_t afi = AFI_MAX;
 
 	bool uj = use_json(argc, argv);
 
@@ -11094,13 +11156,29 @@ DEFUN (show_ip_bgp_neighbors,
 		vrf = argv[idx + 1]->arg;
 
 	idx++;
+
+	if (argv_find(argv, argc, "ipv4", &idx)) {
+		sh_type = show_ipv4_all;
+		afi = AFI_IP;
+	} else if (argv_find(argv, argc, "ipv6", &idx)) {
+		sh_type = show_ipv6_all;
+		afi = AFI_IP6;
+	} else {
+		sh_type = show_all;
+	}
+
 	if (argv_find(argv, argc, "A.B.C.D", &idx)
 	    || argv_find(argv, argc, "X:X::X:X", &idx)
 	    || argv_find(argv, argc, "WORD", &idx)) {
 		sh_type = show_peer;
 		sh_arg = argv[idx]->arg;
-	} else
-		sh_type = show_all;
+	}
+
+	if (sh_type == show_peer && afi == AFI_IP) {
+		sh_type = show_ipv4_peer;
+	} else if (sh_type == show_peer && afi == AFI_IP6) {
+		sh_type = show_ipv6_peer;
+	}
 
 	return bgp_show_neighbor_vty(vty, vrf, sh_type, sh_arg, uj);
 }
@@ -13053,6 +13131,8 @@ void bgp_vty_init(void)
 	/* "neighbor next-hop-self force" commands. */
 	install_element(BGP_NODE, &neighbor_nexthop_self_force_hidden_cmd);
 	install_element(BGP_NODE, &no_neighbor_nexthop_self_force_hidden_cmd);
+	install_element(BGP_NODE, &neighbor_nexthop_self_all_hidden_cmd);
+	install_element(BGP_NODE, &no_neighbor_nexthop_self_all_hidden_cmd);
 	install_element(BGP_IPV4_NODE, &neighbor_nexthop_self_force_cmd);
 	install_element(BGP_IPV4_NODE, &no_neighbor_nexthop_self_force_cmd);
 	install_element(BGP_IPV4M_NODE, &neighbor_nexthop_self_force_cmd);

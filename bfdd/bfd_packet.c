@@ -88,6 +88,9 @@ int _ptm_bfd_send(struct bfd_session *bs, uint16_t *port, const void *data,
 					 ? htons(BFD_DEF_MHOP_DEST_PORT)
 					 : htons(BFD_DEFDESTPORT);
 
+		if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
+			sin6.sin6_scope_id = bs->ifindex;
+
 		sd = bs->sock;
 		sa = (struct sockaddr *)&sin6;
 		slen = sizeof(sin6);
@@ -146,6 +149,8 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 		sin6.sin6_len = sizeof(sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
+		if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
+			sin6.sin6_scope_id = bfd->ifindex;
 
 		sa = (struct sockaddr_any *)&sin6;
 		salen = sizeof(sin6);
@@ -359,7 +364,6 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 {
 	struct cmsghdr *cm;
 	struct in6_pktinfo *pi6 = NULL;
-	int ifindex = 0;
 	ssize_t mlen;
 	uint32_t ttlval;
 	struct sockaddr_in6 msgaddr6;
@@ -415,16 +419,9 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 				fetch_portname_from_ifindex(pi6->ipi6_ifindex,
 							    port, portlen);
-				ifindex = pi6->ipi6_ifindex;
 			}
 		}
 	}
-
-	/* Set scope ID for link local addresses. */
-	if (IN6_IS_ADDR_LINKLOCAL(&peer->sa_sin6.sin6_addr))
-		peer->sa_sin6.sin6_scope_id = ifindex;
-	if (IN6_IS_ADDR_LINKLOCAL(&local->sa_sin6.sin6_addr))
-		local->sa_sin6.sin6_scope_id = ifindex;
 
 	return mlen;
 }
@@ -1046,7 +1043,7 @@ int bp_peer_socket(struct bfd_peer_cfg *bpc)
 
 int bp_peer_socketv6(struct bfd_peer_cfg *bpc)
 {
-	int sd, pcount, ifindex;
+	int sd, pcount;
 	struct sockaddr_in6 sin6;
 	static int srcPort = BFD_SRCPORTINIT;
 
@@ -1075,10 +1072,10 @@ int bp_peer_socketv6(struct bfd_peer_cfg *bpc)
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 	sin6.sin6_len = sizeof(sin6);
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
-	sin6 = bpc->bpc_local.sa_sin6;
-	ifindex = ptm_bfd_fetch_ifindex(bpc->bpc_localif);
+	memcpy(&sin6.sin6_addr, &bpc->bpc_local.sa_sin6.sin6_addr,
+	       sizeof(sin6.sin6_addr));
 	if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr))
-		sin6.sin6_scope_id = ifindex;
+		sin6.sin6_scope_id = ptm_bfd_fetch_ifindex(bpc->bpc_localif);
 
 	if (bpc->bpc_has_localif) {
 		if (bp_bind_dev(sd, bpc->bpc_localif) != 0) {

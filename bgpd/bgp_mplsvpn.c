@@ -139,7 +139,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 
 			/* When packet overflow occurs return immediately. */
 			if (pnt + BGP_ADDPATH_ID_LEN > lim)
-				return -1;
+				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 
 			addpath_id = ntohl(*((uint32_t *)pnt));
 			pnt += BGP_ADDPATH_ID_LEN;
@@ -155,7 +155,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 				EC_BGP_UPDATE_RCV,
 				"%s [Error] Update packet error / VPN (prefix length %d less than VPN min length)",
 				peer->host, prefixlen);
-			return -1;
+			return BGP_NLRI_PARSE_ERROR_PREFIX_LENGTH;
 		}
 
 		/* sanity check against packet data */
@@ -164,7 +164,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 				EC_BGP_UPDATE_RCV,
 				"%s [Error] Update packet error / VPN (prefix length %d exceeds packet size %u)",
 				peer->host, prefixlen, (uint)(lim - pnt));
-			return -1;
+			return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 		}
 
 		/* sanity check against storage for the IP address portion */
@@ -175,7 +175,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 				peer->host,
 				prefixlen - VPN_PREFIXLEN_MIN_BYTES * 8,
 				sizeof(p.u));
-			return -1;
+			return BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
 		}
 
 		/* Sanity check against max bitlen of the address family */
@@ -186,7 +186,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 				peer->host,
 				prefixlen - VPN_PREFIXLEN_MIN_BYTES * 8,
 				p.family, prefix_blen(&p));
-			return -1;
+			return BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
 		}
 
 		/* Copy label to prefix. */
@@ -244,7 +244,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 			EC_BGP_UPDATE_RCV,
 			"%s [Error] Update packet error / VPN (%zu data remaining after parsing)",
 			peer->host, lim - pnt);
-		return -1;
+		return BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
 	}
 
 	return 0;
@@ -1088,8 +1088,6 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 	 */
 	uint8_t nhfamily = NEXTHOP_FAMILY(path_vpn->attr->mp_nexthop_len);
 
-	if (nhfamily != AF_UNSPEC)
-		static_attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 	memset(&nexthop_orig, 0, sizeof(nexthop_orig));
 	nexthop_orig.family = nhfamily;
 
@@ -1109,6 +1107,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 			static_attr.mp_nexthop_len =
 				path_vpn->attr->mp_nexthop_len;
 		}
+		static_attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 		break;
 	case AF_INET6:
 		/* save */

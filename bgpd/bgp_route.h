@@ -73,6 +73,24 @@ enum bgp_show_adj_route_type {
  */
 #define BGP_MAX_LABELS 2
 
+/* Error codes for handling NLRI */
+#define BGP_NLRI_PARSE_OK 0
+#define BGP_NLRI_PARSE_ERROR_PREFIX_OVERFLOW -1
+#define BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW -2
+#define BGP_NLRI_PARSE_ERROR_PREFIX_LENGTH -3
+#define BGP_NLRI_PARSE_ERROR_PACKET_LENGTH -4
+#define BGP_NLRI_PARSE_ERROR_LABEL_LENGTH -5
+#define BGP_NLRI_PARSE_ERROR_EVPN_MISSING_TYPE -6
+#define BGP_NLRI_PARSE_ERROR_EVPN_TYPE2_SIZE -7
+#define BGP_NLRI_PARSE_ERROR_EVPN_TYPE3_SIZE -8
+#define BGP_NLRI_PARSE_ERROR_EVPN_TYPE4_SIZE -9
+#define BGP_NLRI_PARSE_ERROR_EVPN_TYPE5_SIZE -10
+#define BGP_NLRI_PARSE_ERROR_FLOWSPEC_IPV6_NOT_SUPPORTED -11
+#define BGP_NLRI_PARSE_ERROR_FLOWSPEC_NLRI_SIZELIMIT -12
+#define BGP_NLRI_PARSE_ERROR_FLOWSPEC_BAD_FORMAT -13
+#define BGP_NLRI_PARSE_ERROR_ADDRESS_FAMILY -14
+#define BGP_NLRI_PARSE_ERROR -32
+
 /* Ancillary information to struct bgp_path_info,
  * used for uncommonly used data (aggregation, MPLS, etc.)
  * and lazily allocated to save memory.
@@ -277,7 +295,10 @@ struct bgp_static {
 
 #define BGP_ATTR_NEXTHOP_AFI_IP6(attr)                                         \
 	(!CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP))             \
-	 && ((attr)->mp_nexthop_len == 16 || (attr)->mp_nexthop_len == 32))
+	 && ((attr)->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL              \
+	     || (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL    \
+	     || (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL          \
+	     || (attr)->mp_nexthop_len == BGP_ATTR_NHLEN_VPNV6_GLOBAL_AND_LL))
 #define BGP_PATH_COUNTABLE(BI)                                                 \
 	(!CHECK_FLAG((BI)->flags, BGP_PATH_HISTORY)                            \
 	 && !CHECK_FLAG((BI)->flags, BGP_PATH_REMOVED))

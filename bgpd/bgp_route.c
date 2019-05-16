@@ -4266,7 +4266,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 
 			/* When packet overflow occurs return immediately. */
 			if (pnt + BGP_ADDPATH_ID_LEN > lim)
-				return -1;
+				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 
 			addpath_id = ntohl(*((uint32_t *)pnt));
 			pnt += BGP_ADDPATH_ID_LEN;
@@ -4284,7 +4284,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 				EC_BGP_UPDATE_RCV,
 				"%s [Error] Update packet error (wrong prefix length %d for afi %u)",
 				peer->host, p.prefixlen, packet->afi);
-			return -1;
+			return BGP_NLRI_PARSE_ERROR_PREFIX_LENGTH;
 		}
 
 		/* Packet size overflow check. */
@@ -4296,7 +4296,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 				EC_BGP_UPDATE_RCV,
 				"%s [Error] Update packet error (prefix length %d overflows packet)",
 				peer->host, p.prefixlen);
-			return -1;
+			return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
 		}
 
 		/* Defensive coding, double-check the psize fits in a struct
@@ -4306,7 +4306,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 				EC_BGP_UPDATE_RCV,
 				"%s [Error] Update packet error (prefix length %d too large for prefix storage %zu)",
 				peer->host, p.prefixlen, sizeof(p.u));
-			return -1;
+			return BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
 		}
 
 		/* Fetch prefix from NLRI packet. */
@@ -4371,10 +4371,14 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 					   BGP_ROUTE_NORMAL, NULL, NULL, 0,
 					   NULL);
 
-		/* Address family configuration mismatch or maximum-prefix count
-		   overflow. */
+		/* Do not send BGP notification twice when maximum-prefix count
+		 * overflow. */
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
+			return BGP_NLRI_PARSE_ERROR_PREFIX_OVERFLOW;
+
+		/* Address family configuration mismatch. */
 		if (ret < 0)
-			return -1;
+			return BGP_NLRI_PARSE_ERROR_ADDRESS_FAMILY;
 	}
 
 	/* Packet length consistency check. */
@@ -4383,10 +4387,10 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 			EC_BGP_UPDATE_RCV,
 			"%s [Error] Update packet error (prefix length mismatch with total length)",
 			peer->host);
-		return -1;
+		return BGP_NLRI_PARSE_ERROR_PACKET_LENGTH;
 	}
 
-	return 0;
+	return BGP_NLRI_PARSE_OK;
 }
 
 static struct bgp_static *bgp_static_new(void)
@@ -9703,6 +9707,12 @@ static int bgp_show_regexp(struct vty *vty, struct bgp *bgp, const char *regstr,
 	regex_t *regex;
 	int rc;
 
+	if (!config_bgp_aspath_validate(regstr)) {
+		vty_out(vty, "Invalid character in as-path access-list %s\n",
+			regstr);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	regex = bgp_regcomp(regstr);
 	if (!regex) {
 		vty_out(vty, "Can't compile regexp %s\n", regstr);
@@ -10485,7 +10495,11 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 		return;
 	}
 
-	table = bgp->rib[afi][safi];
+	/* labeled-unicast routes live in the unicast table */
+	if (safi == SAFI_LABELED_UNICAST)
+		table = bgp->rib[afi][SAFI_UNICAST];
+	else
+		table = bgp->rib[afi][safi];
 
 	output_count = filtered_count = 0;
 	subgrp = peer_subgroup(peer, afi, safi);
@@ -10738,10 +10752,6 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 
 	if (use_json)
 		json = json_object_new_object();
-
-	/* labeled-unicast routes live in the unicast table */
-	if (safi == SAFI_LABELED_UNICAST)
-		safi = SAFI_UNICAST;
 
 	if (!peer || !peer->afc[afi][safi]) {
 		if (use_json) {

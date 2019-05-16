@@ -99,6 +99,9 @@ enum bgp_af_index {
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
 
+#define FOREACH_SAFI(safi)                                            \
+	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+
 extern struct frr_pthread *bgp_pth_io;
 extern struct frr_pthread *bgp_pth_ka;
 
@@ -370,6 +373,9 @@ struct bgp {
 /* vrf-route leaking flags */
 #define BGP_CONFIG_VRF_TO_VRF_IMPORT			(1 << 7)
 #define BGP_CONFIG_VRF_TO_VRF_EXPORT			(1 << 8)
+
+	/* BGP per AF peer count */
+	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
 
 	/* Route table for next-hop lookup cache. */
 	struct bgp_table *nexthop_cache_table[AFI_MAX];

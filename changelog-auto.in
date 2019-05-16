@@ -4,7 +4,59 @@ frr (@VERSION@-0) UNRELEASED; urgency=medium
     remove and replace when creating releases!
     (tools/tarsource.sh will handle this)
 
- -- FRRouting-Dev <dev@lists.frrouting.org>  Thu, 25 Oct 2018 16:36:50 +0200
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Mon, 13 May 2019 12:00:00 +0200
+
+frr (7.0.1-0) testing; urgency=medium
+
+  * bgp:
+  *   Don't send Updates with BGP Max-Prefix Overflow
+  *   Make sure `next-hop-self all` backward compatible with force
+  *   Fix as-path validation in "show bgp regexp"
+  *   Fix interface-based peers to override peergroups
+  *   Fix removing private AS numbers if local-as is used
+  *   Fix show bgp labeled_unicast
+  *   Add command to lookup prefixes in rpki table
+  *   Fix peer count in "show bgp ipv6 summary"
+  *   Add missing ipv6 only peer flag action
+  *   Fix address family output in "show bgp [ipv4|ipv6] neighbors"
+  *   Add missing checks for vpnv6 nexthops
+  *   Fix nexthop for ipv6 vpn case
+  * rip: Fix removal of passive interfaces
+  * ospf:
+  *   Fix json timer output
+  *   Fix milliseconds in json output
+  * bfd:
+  *   Fix source port according RFC 5881, Sec 4
+  *   Fix IPv6 link-local peer removal
+  *   Fix interface clean up when deleting interface
+  * pim: Fix interface clean up when deleting interface
+  * nhrp: Fix interface clean up when deleting interface
+  * lib:
+  *   Workaround to get FRR building with libyang 0.x and 1.x
+  *   Fix in priv handling
+  *   Make priv elevation thread-safe
+  * zebra:
+  *   Pseudowire event recovery
+  *   Fix race condition in label manager
+  *   Fix system routes selection and next-hop tracking
+  *   Set connected route metric based on devaddr metric
+  *   Display metric for connected routes
+  *   Add selected fib details to json output
+  *   Always use replace if installing new route
+  * watchfrr: Silently ignore declare failures (for backward compatibility)
+  * RPM packages: Switch to new init script
+
+ -- Martin Winter <mwinter@opensourcerouting.org>  Fri, 10 May 2019 12:30:00 +0200
+
+frr (7.0-0) testing; urgency=medium
+
+  * Added libyang dependency: New work for northbound interface
+    based on libyang
+  * Fabricd: New Daemon based on
+    https://datatracker.ietf.org/doc/draft-white-openfabric/
+  * various bug fixes and other enhancements
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Wed,  8 May 2019 10:10:00 +0200
 
 frr (6.0-2) testing; urgency=medium
 
