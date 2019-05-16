@@ -3208,18 +3208,23 @@ unsigned long rib_score_proto(uint8_t proto, unsigned short instance)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
+	struct other_route_table *ort;
 	unsigned long cnt = 0;
 
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
-		if ((zvrf = vrf->info) != NULL)
-			cnt += rib_score_proto_table(
-				       proto, instance,
-				       zvrf->table[AFI_IP][SAFI_UNICAST])
-			       + rib_score_proto_table(
-					 proto, instance,
-					 zvrf->table[AFI_IP6][SAFI_UNICAST]);
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		zvrf = vrf->info;
+		if (!zvrf)
+			continue;
 
-	cnt += zebra_router_score_proto(proto, instance);
+		cnt += rib_score_proto_table(proto, instance,
+					     zvrf->table[AFI_IP][SAFI_UNICAST])
+		       + rib_score_proto_table(
+			       proto, instance,
+			       zvrf->table[AFI_IP6][SAFI_UNICAST]);
+
+		for_each(otable, &zvrf->other_tables, ort) cnt +=
+			rib_score_proto_table(proto, instance, ort->table);
+	}
 
 	return cnt;
 }
