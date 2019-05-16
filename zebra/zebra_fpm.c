@@ -30,15 +30,20 @@
 #include "network.h"
 #include "command.h"
 #include "version.h"
+#include "jhash.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/zebra_memory.h"
 
 #include "fpm/fpm.h"
 #include "zebra_fpm_private.h"
+#include "zebra/zebra_router.h"
+
+DEFINE_MTYPE_STATIC(ZEBRA, FPM_MAC_INFO, "FPM_MAC_INFO");
 
 /*
  * Interval at which we attempt to connect to the FPM.
@@ -177,6 +182,25 @@ typedef struct zfpm_glob_t_ {
 	 * List of rib_dest_t structures to be processed
 	 */
 	TAILQ_HEAD(zfpm_dest_q, rib_dest_t_) dest_q;
+
+	/*
+	 * List of fpm_mac_info structures to be processed
+	 */
+	TAILQ_HEAD(zfpm_mac_q, fpm_mac_info_t) mac_q;
+
+	/*
+	 * Hash table of fpm_mac_info_t entries
+	 *
+	 * While adding fpm_mac_info_t for a MAC to the mac_q,
+	 * it is possible that another fpm_mac_info_t node for the this MAC
+	 * is already present in the queue.
+	 * This is possible in the case of consecutive add->delete operations.
+	 * To avoid such duplicate insertions in the mac_q,
+	 * define a hash table for fpm_mac_info_t which can be looked up
+	 * to see if an fpm_mac_info_t node for a MAC is already present
+	 * in the mac_q.
+	 */
+	struct hash *fpm_mac_info_table;
 
 	/*
 	 * Stream socket to the FPM.
@@ -1277,6 +1301,75 @@ static int zfpm_trigger_update(struct route_node *rn, const char *reason)
 }
 
 /*
+ * Generate Key for FPM MAC info hash entry
+ * Key is generated using MAC address and VNI id which should be sufficient
+ * to provide uniqueness
+ */
+static unsigned int zfpm_mac_info_hash_keymake(const void *p)
+{
+	struct fpm_mac_info_t *fpm_mac = (struct fpm_mac_info_t *)p;
+	uint32_t mac_key;
+
+	mac_key = jhash(fpm_mac->macaddr.octet, ETH_ALEN, 0xa5a5a55a);
+
+	return jhash_2words(mac_key, fpm_mac->vni, 0);
+}
+
+/*
+ * Compare function for FPM MAC info hash lookup
+ */
+static bool zfpm_mac_info_cmp(const void *p1, const void *p2)
+{
+	const struct fpm_mac_info_t *fpm_mac1 = p1;
+	const struct fpm_mac_info_t *fpm_mac2 = p2;
+
+	if (memcmp(fpm_mac1->macaddr.octet, fpm_mac2->macaddr.octet, ETH_ALEN)
+			!= 0)
+		return false;
+	if (fpm_mac1->r_vtep_ip.s_addr != fpm_mac2->r_vtep_ip.s_addr)
+		return false;
+	if (fpm_mac1->vni != fpm_mac2->vni)
+		return false;
+
+	return true;
+}
+
+/*
+ * Lookup FPM MAC info hash entry.
+ */
+static struct fpm_mac_info_t *zfpm_mac_info_lookup(struct fpm_mac_info_t *key)
+{
+	return hash_lookup(zfpm_g->fpm_mac_info_table, key);
+}
+
+/*
+ * Callback to allocate fpm_mac_info_t structure.
+ */
+static void *zfpm_mac_info_alloc(void *p)
+{
+	const struct fpm_mac_info_t *key = p;
+	struct fpm_mac_info_t *fpm_mac;
+
+	fpm_mac = XCALLOC(MTYPE_FPM_MAC_INFO, sizeof(struct fpm_mac_info_t));
+
+	memcpy(&fpm_mac->macaddr, &key->macaddr, ETH_ALEN);
+	memcpy(&fpm_mac->r_vtep_ip, &key->r_vtep_ip, sizeof(struct in_addr));
+	fpm_mac->vni = key->vni;
+
+	return (void *)fpm_mac;
+}
+
+/*
+ * Delink and free fpm_mac_info_t.
+ */
+static void zfpm_mac_info_del(struct fpm_mac_info_t *fpm_mac)
+{
+	hash_release(zfpm_g->fpm_mac_info_table, fpm_mac);
+	TAILQ_REMOVE(&zfpm_g->mac_q, fpm_mac, fpm_mac_q_entries);
+	XFREE(MTYPE_FPM_MAC_INFO, fpm_mac);
+}
+
+/*
  * zfpm_stats_timer_cb
  */
 static int zfpm_stats_timer_cb(struct thread *t)
@@ -1589,6 +1682,13 @@ static int zfpm_init(struct thread_master *master)
 	memset(zfpm_g, 0, sizeof(*zfpm_g));
 	zfpm_g->master = master;
 	TAILQ_INIT(&zfpm_g->dest_q);
+	TAILQ_INIT(&zfpm_g->mac_q);
+
+	/* Create hash table for fpm_mac_info_t enties */
+	zfpm_g->fpm_mac_info_table = hash_create(zfpm_mac_info_hash_keymake,
+						zfpm_mac_info_cmp,
+						"FPM MAC info hash table");
+
 	zfpm_g->sock = -1;
 	zfpm_g->state = ZFPM_STATE_IDLE;
 
