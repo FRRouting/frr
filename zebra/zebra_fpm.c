@@ -42,6 +42,7 @@
 #include "fpm/fpm.h"
 #include "zebra_fpm_private.h"
 #include "zebra/zebra_router.h"
+#include "zebra_vxlan_private.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, FPM_MAC_INFO, "FPM_MAC_INFO");
 
@@ -283,6 +284,7 @@ static int zfpm_write_cb(struct thread *thread);
 static void zfpm_set_state(zfpm_state_t state, const char *reason);
 static void zfpm_start_connect_timer(const char *reason);
 static void zfpm_start_stats_timer(void);
+static void zfpm_mac_info_del(struct fpm_mac_info_t *fpm_mac);
 
 /*
  * zfpm_thread_should_yield
@@ -615,8 +617,16 @@ static int zfpm_conn_down_thread_cb(struct thread *thread)
 	struct route_node *rnode;
 	zfpm_rnodes_iter_t *iter;
 	rib_dest_t *dest;
+	struct fpm_mac_info_t *mac = NULL;
 
 	assert(zfpm_g->state == ZFPM_STATE_IDLE);
+
+	/*
+	 * Delink and free all fpm_mac_info_t nodes
+	 * in the mac_q and fpm_mac_info_hash
+	 */
+	while ((mac = TAILQ_FIRST(&zfpm_g->mac_q)) != NULL)
+		zfpm_mac_info_del(mac);
 
 	zfpm_g->t_conn_down = NULL;
 
@@ -1370,6 +1380,119 @@ static void zfpm_mac_info_del(struct fpm_mac_info_t *fpm_mac)
 }
 
 /*
+ * zfpm_trigger_rmac_update
+ *
+ * Zebra code invokes this function to indicate that we should
+ * send an update to FPM for given MAC entry.
+ *
+ * This function checks if we already have enqueued an update for this RMAC,
+ * If yes, update the same fpm_mac_info_t. Else, create and enqueue an update.
+ */
+static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
+					bool delete, const char *reason)
+{
+	char buf[ETHER_ADDR_STRLEN];
+	struct fpm_mac_info_t *fpm_mac, key;
+	struct interface *vxlan_if, *svi_if;
+
+	/*
+	 * Ignore if the connection is down. We will update the FPM about
+	 * all destinations once the connection comes up.
+	 */
+	if (!zfpm_conn_is_up())
+		return 0;
+
+	if (reason) {
+		zfpm_debug("triggering update to FPM - Reason: %s - %s",
+			reason,
+			prefix_mac2str(&rmac->macaddr, buf, sizeof(buf)));
+	}
+
+	vxlan_if = zl3vni_map_to_vxlan_if(zl3vni);
+	svi_if = zl3vni_map_to_svi_if(zl3vni);
+
+	memset(&key, 0, sizeof(struct fpm_mac_info_t));
+
+	memcpy(&key.macaddr, &rmac->macaddr, ETH_ALEN);
+	key.r_vtep_ip.s_addr = rmac->fwd_info.r_vtep_ip.s_addr;
+	key.vni = zl3vni->vni;
+
+	/* Check if this MAC is already present in the queue. */
+	fpm_mac = zfpm_mac_info_lookup(&key);
+
+	if (fpm_mac) {
+		if (!!CHECK_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM)
+			== delete) {
+			/*
+			 * MAC is already present in the queue
+			 * with the same op as this one. Do nothing
+			 */
+			zfpm_g->stats.redundant_triggers++;
+			return 0;
+		}
+
+		/*
+		 * A new op for an already existing fpm_mac_info_t node.
+		 * Update the existing node for the new op.
+		 */
+		if (!delete) {
+			/*
+			 * New op is "add". Previous op is "delete".
+			 * Update the fpm_mac_info_t for the new add.
+			 */
+			fpm_mac->zebra_flags = rmac->flags;
+
+			fpm_mac->vxlan_if = vxlan_if ? vxlan_if->ifindex : 0;
+			fpm_mac->svi_if = svi_if ? svi_if->ifindex : 0;
+
+			UNSET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM);
+			SET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_UPDATE_FPM);
+		} else {
+			/*
+			 * New op is "delete". Previous op is "add".
+			 * Thus, no-op. Unset ZEBRA_MAC_UPDATE_FPM flag.
+			 */
+			SET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM);
+			UNSET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_UPDATE_FPM);
+		}
+
+		return 0;
+	}
+
+	fpm_mac = hash_get(zfpm_g->fpm_mac_info_table, &key,
+			   zfpm_mac_info_alloc);
+	if (!fpm_mac)
+		return 0;
+
+	memcpy(&fpm_mac->zebra_flags, &rmac->flags, sizeof(uint32_t));
+
+	fpm_mac->vxlan_if = vxlan_if ? vxlan_if->ifindex : 0;
+	fpm_mac->svi_if = svi_if ? svi_if->ifindex : 0;
+
+	SET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_UPDATE_FPM);
+	if (delete)
+		SET_FLAG(fpm_mac->fpm_flags, ZEBRA_MAC_DELETE_FPM);
+
+	TAILQ_INSERT_TAIL(&zfpm_g->mac_q, fpm_mac, fpm_mac_q_entries);
+
+	zfpm_g->stats.updates_triggered++;
+
+	/*
+	 * For now, since we do not have mac_q processing code which takes care
+	 * of delinkng and deleting fpm_mac, delete fpm_mac anyway.
+	 * Remove this delete when that code is added in the subsequent commit.
+	 */
+	zfpm_mac_info_del(fpm_mac);
+
+	/* If writes are already enabled, return. */
+	if (zfpm_g->t_write)
+		return 0;
+
+	zfpm_write_on();
+	return 0;
+}
+
+/*
  * zfpm_stats_timer_cb
  */
 static int zfpm_stats_timer_cb(struct thread *t)
@@ -1731,6 +1854,7 @@ static int zfpm_init(struct thread_master *master)
 static int zebra_fpm_module_init(void)
 {
 	hook_register(rib_update, zfpm_trigger_update);
+	hook_register(zebra_rmac_update, zfpm_trigger_rmac_update);
 	hook_register(frr_late_init, zfpm_init);
 	return 0;
 }
