@@ -705,6 +705,9 @@ DEFPY (ip_protocol,
 {
 	int ret, rtype;
 
+	assert(proto);
+	assert(rmap);
+
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
 
 	if (!zvrf)
@@ -736,6 +739,8 @@ DEFPY (no_ip_protocol,
        "Route map name\n")
 {
 	int ret, rtype;
+
+	assert(proto);
 
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
 
@@ -781,6 +786,9 @@ DEFPY (ipv6_protocol,
 {
 	int ret, rtype;
 
+	assert(rmap);
+	assert(proto);
+
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
 
 	if (!zvrf)
@@ -812,6 +820,8 @@ DEFPY (no_ipv6_protocol,
        "Route map name\n")
 {
 	int ret, rtype;
+
+	assert(proto);
 
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
 
@@ -858,6 +868,9 @@ DEFPY (ip_protocol_nht_rmap,
 
 	int ret, rtype;
 
+	assert(proto);
+	assert(rmap);
+
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
 
 	if (!zvrf)
@@ -889,6 +902,8 @@ DEFPY (no_ip_protocol_nht_rmap,
        "Route map name\n")
 {
 	int ret, rtype;
+
+	assert(proto);
 
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
 
@@ -935,6 +950,9 @@ DEFPY (ipv6_protocol_nht_rmap,
 {
 	int ret, rtype;
 
+	assert(rmap);
+	assert(proto);
+
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
 
 	if (!zvrf)
@@ -966,6 +984,8 @@ DEFPY (no_ipv6_protocol_nht_rmap,
        "Route map name\n")
 {
 	int ret, rtype;
+
+	assert(proto);
 
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
 
