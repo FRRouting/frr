@@ -1844,13 +1844,28 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 			 * Note: 3rd party nexthop currently implemented for
 			 * IPv4 only.
 			 */
-			if (!bgp_subgrp_multiaccess_check_v4(piattr->nexthop,
-							     subgrp))
+			if ((p->family == AF_INET) &&
+				(!bgp_subgrp_multiaccess_check_v4(
+					piattr->nexthop,
+					subgrp)))
 				subgroup_announce_reset_nhop(
 					(peer_cap_enhe(peer, afi, safi)
 						 ? AF_INET6
 						 : p->family),
-					attr);
+						attr);
+
+			if ((p->family == AF_INET6) &&
+				(!bgp_subgrp_multiaccess_check_v6(
+					piattr->mp_nexthop_global,
+					subgrp)))
+				subgroup_announce_reset_nhop(
+					(peer_cap_enhe(peer, afi, safi)
+						? AF_INET6
+						: p->family),
+						attr);
+
+
+
 		} else if (CHECK_FLAG(pi->flags, BGP_PATH_ANNC_NH_SELF)) {
 			/*
 			 * This flag is used for leaked vpn-vrf routes
