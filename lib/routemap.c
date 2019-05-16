@@ -906,6 +906,8 @@ static const char *route_map_type_str(enum route_map_type type)
 		return "";
 		break;
 	}
+
+	return "";
 }
 
 static int route_map_empty(struct route_map *map)
@@ -1287,7 +1289,6 @@ int route_map_add_match(struct route_map_index *index, const char *match_name,
 	struct route_map_rule *next;
 	struct route_map_rule_cmd *cmd;
 	void *compile;
-	int replaced = 0;
 
 	/* First lookup rule for add match statement. */
 	cmd = route_map_lookup_match(match_name);
@@ -1317,7 +1318,6 @@ int route_map_add_match(struct route_map_index *index, const char *match_name,
 			}
 
 			route_map_rule_delete(&index->match_list, rule);
-			replaced = 1;
 		}
 	}
 
@@ -1379,7 +1379,6 @@ int route_map_add_set(struct route_map_index *index, const char *set_name,
 	struct route_map_rule *next;
 	struct route_map_rule_cmd *cmd;
 	void *compile;
-	int replaced = 0;
 
 	cmd = route_map_lookup_set(set_name);
 	if (cmd == NULL)
@@ -1398,10 +1397,8 @@ int route_map_add_set(struct route_map_index *index, const char *set_name,
 	   route_map_index. */
 	for (rule = index->set_list.head; rule; rule = next) {
 		next = rule->next;
-		if (rule->cmd == cmd) {
+		if (rule->cmd == cmd)
 			route_map_rule_delete(&index->set_list, rule);
-			replaced = 1;
-		}
 	}
 
 	/* Add new route map match rule. */
