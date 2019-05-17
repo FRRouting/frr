@@ -72,6 +72,7 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 {
 	/* Interface information. */
 	struct zebra_if *zif = ifp->info;
+
 	stream_put(s, ifp->name, INTERFACE_NAMSIZ);
 	stream_putl(s, ifp->ifindex);
 	stream_putc(s, ifp->status);
