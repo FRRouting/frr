@@ -334,3 +334,18 @@ struct listnode *listnode_add_force(struct list **list, void *val)
 		*list = list_new();
 	return listnode_add(*list, val);
 }
+
+void **list_to_array(struct list *list, void **arr, size_t arrlen)
+{
+	struct listnode *ln;
+	void *vp;
+	size_t idx = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(list, ln, vp)) {
+		arr[idx++] = vp;
+		if (idx == arrlen)
+			break;
+	}
+
+	return arr;
+}

@@ -334,6 +334,7 @@ man_pages = [
     ('frr', 'frr', 'a systemd interaction script', [], 1),
     ('bfdd', 'bfdd', fwfrr.format("a bfd"), [], 8),
     ('fabricd', 'fabricd', fwfrr.format("an OpenFabric "), [], 8),
+    ('vrrpd', 'vrrpd', fwfrr.format("a VRRP"), [], 8),
 ]
 
 # -- Options for Texinfo output -------------------------------------------

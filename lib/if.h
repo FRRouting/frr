@@ -225,6 +225,10 @@ struct interface {
 	   not work as expected.
 	 */
 	ifindex_t ifindex;
+	/*
+	 * ifindex of parent interface, if any
+	 */
+	ifindex_t link_ifindex;
 #define IFINDEX_INTERNAL	0
 
 	/* Zebra internal interface status */
@@ -482,6 +486,8 @@ extern struct connected *if_lookup_address(void *matchaddr, int family,
 					   vrf_id_t vrf_id);
 extern struct interface *if_lookup_prefix(struct prefix *prefix,
 					  vrf_id_t vrf_id);
+size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
+			   struct interface ***result, vrf_id_t vrf_id);
 
 /* These 3 functions are to be used when the ifname argument is terminated
    by a '\0' character: */
@@ -540,6 +546,7 @@ extern struct connected *connected_lookup_prefix_exact(struct interface *,
 extern struct nbr_connected *nbr_connected_new(void);
 extern void nbr_connected_free(struct nbr_connected *);
 struct nbr_connected *nbr_connected_check(struct interface *, struct prefix *);
+struct connected *connected_get_linklocal(struct interface *ifp);
 
 /* link parameters */
 struct if_link_params *if_link_params_get(struct interface *);

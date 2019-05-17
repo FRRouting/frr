@@ -257,6 +257,10 @@ void vtysh_config_parse_line(void *arg, const char *line)
 					      strlen(" exit-vrf"))
 					      == 0) {
 				config_add_line_uniq_end(config->line, line);
+			} else if (!strncmp(line, " vrrp", strlen(" vrrp"))
+				   || !strncmp(line, " no vrrp",
+					       strlen(" no vrrp"))) {
+				config_add_line(config->line, line);
 			} else if (config->index == RMAP_NODE
 				   || config->index == INTERFACE_NODE
 				   || config->index == LOGICALROUTER_NODE

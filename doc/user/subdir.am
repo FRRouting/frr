@@ -37,6 +37,7 @@ user_RSTFILES = \
 	doc/user/snmptrap.rst \
 	doc/user/static.rst \
 	doc/user/vnc.rst \
+	doc/user/vrrp.rst \
 	doc/user/vtysh.rst \
 	doc/user/zebra.rst \
 	doc/user/bfd.rst \

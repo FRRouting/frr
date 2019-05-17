@@ -47,6 +47,7 @@
 #include "zebra/irdp.h"
 #include "zebra/zebra_ptm.h"
 #include "zebra/rt_netlink.h"
+#include "zebra/if_netlink.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
@@ -1063,7 +1064,14 @@ void zebra_if_update_all_links(void)
 	}
 }
 
-
+void zebra_if_set_protodown(struct interface *ifp, bool down)
+{
+#ifdef HAVE_NETLINK
+	netlink_protodown(ifp, down);
+#else
+	zlog_warn("Protodown is not supported on this platform");
+#endif
+}
 
 /* Output prefix string to vty. */
 static int prefix_vty_out(struct vty *vty, struct prefix *p)

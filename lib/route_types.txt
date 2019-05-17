@@ -83,6 +83,7 @@ ZEBRA_ROUTE_SHARP,      sharp,     sharpd, 'D', 1, 1, 1,     "SHARP"
 ZEBRA_ROUTE_PBR,        pbr,       pbrd,   'F', 1, 1, 0,     "PBR"
 ZEBRA_ROUTE_BFD,        bfd,       bfdd,   '-', 0, 0, 0,     "BFD"
 ZEBRA_ROUTE_OPENFABRIC, openfabric, fabricd,  'f', 1, 1, 1, "OpenFabric"
+ZEBRA_ROUTE_VRRP,       vrrp,      vrrpd,  '-', 0, 0, 0,     "VRRP"
 ZEBRA_ROUTE_ALL,        wildcard,  none,   '-', 0, 0, 0,     "-"
 
 
@@ -110,4 +111,5 @@ ZEBRA_ROUTE_BABEL,  "Babel routing protocol (Babel)"
 ZEBRA_ROUTE_SHARP, "Super Happy Advanced Routing Protocol (sharpd)"
 ZEBRA_ROUTE_PBR, "Policy Based Routing (PBR)"
 ZEBRA_ROUTE_BFD, "Bidirectional Fowarding Detection (BFD)"
+ZEBRA_ROUTE_VRRP, "Virtual Router Redundancy Protocol (VRRP)"
 ZEBRA_ROUTE_OPENFABRIC, "OpenFabric Routing Protocol"

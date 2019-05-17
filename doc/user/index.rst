@@ -56,6 +56,7 @@ Protocols
    sharp
    static
    vnc
+   vrrp
 
 ########
 Appendix

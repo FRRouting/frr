@@ -76,6 +76,7 @@ typedef enum {
 	ZEBRA_INTERFACE_UP,
 	ZEBRA_INTERFACE_DOWN,
 	ZEBRA_INTERFACE_SET_MASTER,
+	ZEBRA_INTERFACE_SET_PROTODOWN,
 	ZEBRA_ROUTE_ADD,
 	ZEBRA_ROUTE_DELETE,
 	ZEBRA_ROUTE_NOTIFY_OWNER,
@@ -466,6 +467,9 @@ extern void zclient_send_interface_radv_req(struct zclient *zclient,
 					    vrf_id_t vrf_id,
 					    struct interface *ifp, int enable,
 					    int ra_interval);
+extern int zclient_send_interface_protodown(struct zclient *zclient,
+					    vrf_id_t vrf_id,
+					    struct interface *ifp, bool down);
 
 /* Send redistribute command to zebra daemon. Do not update zclient state. */
 extern int zebra_redistribute_send(int command, struct zclient *, afi_t,

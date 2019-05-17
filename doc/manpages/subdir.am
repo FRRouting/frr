@@ -30,6 +30,7 @@ man_RSTFILES = \
 	doc/manpages/zebra.rst \
 	doc/manpages/bfdd.rst \
 	doc/manpages/bfd-options.rst \
+	doc/manpages/vrrpd.rst \
 	# end
 
 EXTRA_DIST += $(man_RSTFILES)
