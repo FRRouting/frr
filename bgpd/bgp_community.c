@@ -296,7 +296,7 @@ static void set_community_string(struct community *com, bool make_json)
 	}
 
 	/* Allocate memory.  */
-	str = XMALLOC(MTYPE_COMMUNITY_STR, len);
+	str = XCALLOC(MTYPE_COMMUNITY_STR, len);
 	first = 1;
 
 	/* Fill in string.  */
