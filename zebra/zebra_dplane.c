@@ -811,6 +811,13 @@ route_tag_t dplane_ctx_get_tag(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rinfo.zd_tag;
 }
 
+void dplane_ctx_set_tag(struct zebra_dplane_ctx *ctx, route_tag_t tag)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rinfo.zd_tag = tag;
+}
+
 route_tag_t dplane_ctx_get_old_tag(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -823,6 +830,13 @@ uint16_t dplane_ctx_get_instance(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.rinfo.zd_instance;
+}
+
+void dplane_ctx_set_instance(struct zebra_dplane_ctx *ctx, uint16_t instance)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rinfo.zd_instance = instance;
 }
 
 uint16_t dplane_ctx_get_old_instance(const struct zebra_dplane_ctx *ctx)
@@ -865,6 +879,13 @@ uint8_t dplane_ctx_get_distance(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.rinfo.zd_distance;
+}
+
+void dplane_ctx_set_distance(struct zebra_dplane_ctx *ctx, uint8_t distance)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rinfo.zd_distance = distance;
 }
 
 uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx)

@@ -218,14 +218,17 @@ safi_t dplane_ctx_get_safi(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_table(struct zebra_dplane_ctx *ctx, uint32_t table);
 uint32_t dplane_ctx_get_table(const struct zebra_dplane_ctx *ctx);
 route_tag_t dplane_ctx_get_tag(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_tag(struct zebra_dplane_ctx *ctx, route_tag_t tag);
 route_tag_t dplane_ctx_get_old_tag(const struct zebra_dplane_ctx *ctx);
 uint16_t dplane_ctx_get_instance(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_instance(struct zebra_dplane_ctx *ctx, uint16_t instance);
 uint16_t dplane_ctx_get_old_instance(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_metric(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_metric(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_mtu(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_nh_mtu(const struct zebra_dplane_ctx *ctx);
 uint8_t dplane_ctx_get_distance(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_distance(struct zebra_dplane_ctx *ctx, uint8_t distance);
 uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx);
 
 void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh);
