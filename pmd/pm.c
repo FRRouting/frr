@@ -27,10 +27,13 @@
 #include <if.h>
 #include <prefix.h>
 #include <prefix.h>
+#include <log.h>
 
 #include "pmd/pm.h"
 #include "pmd/pm_echo.h"
 #include "pmd/pm_memory.h"
+#include "pmd/pm_zebra.h"
+
 /* definitions */
 
 struct hash *pm_session_list;
@@ -43,6 +46,9 @@ DEFINE_MTYPE(PMD, PM_SESSION, "PM sessions")
 DEFINE_MTYPE(PMD, PM_ECHO, "PM Echo contexts")
 DEFINE_MTYPE(PMD, PM_PACKET, "PM Packets")
 DEFINE_MTYPE(PMD, PM_RTT_STATS, "PM RTT stats")
+
+static int pm_sessions_change_ifp_walkcb(struct hash_bucket *bucket,
+					 void *arg);
 
 static unsigned int pm_id_list_hash_do(const void *p)
 {
@@ -448,6 +454,11 @@ void pm_nht_update(struct prefix *p, uint32_t nh_num, afi_t afi,
 	hash_walk(pm_session_list, pm_nht_update_walkcb, &pnc);
 }
 
+struct pm_session_vrf {
+	struct vrf *vrf;
+	bool enable;
+};
+
 struct pm_session_ifp {
 	struct interface *ifp;
 	bool enable;
@@ -488,6 +499,42 @@ static int pm_sessions_change_ifp_walkcb(struct hash_bucket *bucket, void *arg)
 		pm_zebra_nht_register(pm, true, NULL);
 
 	return HASHWALK_CONTINUE;
+}
+
+static int pm_sessions_change_vrf_walkcb(struct hash_bucket *backet, void *arg)
+{
+	struct pm_session_vrf *psv = (struct pm_session_vrf *)arg;
+	struct pm_session *pm = (struct pm_session *)backet->data;
+	struct vrf *vrf = psv->vrf;
+	bool enable = psv->enable;
+	struct vrf *vrf_ctx;
+	char errormsg[128];
+
+	if (pm->key.vrfname[0])
+		vrf_ctx = vrf_lookup_by_name(pm->key.vrfname);
+	else
+		vrf_ctx = vrf_lookup_by_id(VRF_DEFAULT);
+	if (!vrf)
+		return HASHWALK_CONTINUE;
+	if (vrf_ctx != vrf)
+		return HASHWALK_CONTINUE;
+	if (!enable) {
+		pm_echo_stop(pm, errormsg, sizeof(errormsg), true);
+		pm_zebra_nht_register(pm, false, NULL);
+	} else
+		pm_zebra_nht_register(pm, true, NULL);
+	return HASHWALK_CONTINUE;
+}
+
+/* enable or disable vrf triggers pm_echo status */
+static void pm_sessions_change_vrf(struct vrf *vrf, bool enable)
+{
+	struct pm_session_vrf psv;
+
+	psv.vrf = vrf;
+	psv.enable = enable;
+
+	hash_walk(pm_session_list, pm_sessions_change_vrf_walkcb, &psv);
 }
 
 void pm_sessions_change_interface(struct interface *ifp, bool enable)
@@ -573,4 +620,51 @@ void pm_get_gw(struct pm_session *pm, union sockunion *gw)
 		memcpy(gw, &pm->nh, sizeof(union sockunion));
 	else
 		pm_get_peer(pm, gw);
+}
+
+static int pm_vrf_new(struct vrf *vrf)
+{
+	zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
+	return 0;
+}
+
+static int pm_vrf_delete(struct vrf *vrf)
+{
+	zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
+	return 0;
+}
+
+static int pm_vrf_enable(struct vrf *vrf)
+{
+	zlog_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
+
+	if (!strmatch(vrf->name, VRF_DEFAULT_NAME)) {
+		pm_zclient_register(vrf->vrf_id);
+		pm_sessions_change_vrf(vrf, true);
+	}
+	return 0;
+}
+
+static int pm_vrf_disable(struct vrf *vrf)
+{
+	if (!strmatch(vrf->name, VRF_DEFAULT_NAME)) {
+		pm_sessions_change_vrf(vrf, false);
+		pm_zclient_unregister(vrf->vrf_id);
+	}
+
+	zlog_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
+
+	return 0;
+}
+
+void pm_vrf_init(void)
+{
+	vrf_init(pm_vrf_new, pm_vrf_enable, pm_vrf_disable,
+		 pm_vrf_delete, NULL);
+	vrf_cmd_init(NULL, NULL);
+}
+
+void pm_vrf_terminate(void)
+{
+	vrf_terminate();
 }

@@ -123,4 +123,7 @@ extern void pm_nht_update(struct prefix *p, uint32_t nh_num, afi_t afi,
 extern void pm_get_peer(struct pm_session *pm, union sockunion *peer);
 extern void pm_get_gw(struct pm_session *pm, union sockunion *gw);
 
+extern void pm_vrf_init(void);
+extern void pm_vrf_terminate(void);
+
 #endif

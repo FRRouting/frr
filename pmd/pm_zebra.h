@@ -22,6 +22,7 @@
 #define __PM_ZEBRA_H__
 
 #include "vty.h"
+#include "vrf.h"
 
 #include "pm.h"
 
@@ -29,5 +30,8 @@ extern void pm_zebra_init(void);
 
 extern void pm_zebra_nht_register(struct pm_session *pm,
 				  bool reg, struct vty *vty);
+
+extern void pm_zclient_register(vrf_id_t vrf_id);
+extern void pm_zclient_unregister(vrf_id_t vrf_id);
 
 #endif
