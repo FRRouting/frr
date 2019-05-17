@@ -3,7 +3,7 @@ VRRPD
 *****
 
 .. include:: defines.rst
-.. |DAEMON| replace:: vrrpd 
+.. |DAEMON| replace:: vrrpd
 
 SYNOPSIS
 ========
