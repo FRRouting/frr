@@ -102,9 +102,12 @@ static void pm_nht_hash_free(void *data)
 static int pm_interface_address_add(int command, struct zclient *zclient,
 				 zebra_size_t length, vrf_id_t vrf_id)
 {
+	struct connected *ifc;
 
-	zebra_interface_address_read(command, zclient->ibuf, vrf_id);
-
+	ifc = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
+	if (!ifc)
+		return 0;
+	pm_sessions_update();
 	return 0;
 }
 
@@ -130,6 +133,20 @@ static int pm_zebra_ifp_up(struct interface *ifp)
 static int pm_zebra_ifp_down(struct interface *ifp)
 {
 	return 0;
+}
+
+void pm_zclient_register(vrf_id_t vrf_id)
+{
+	if (!zclient || zclient->sock < 0)
+		return;
+	zclient_send_reg_requests(zclient, vrf_id);
+}
+
+void pm_zclient_unregister(vrf_id_t vrf_id)
+{
+	if (!zclient || zclient->sock < 0)
+		return;
+	zclient_send_dereg_requests(zclient, vrf_id);
 }
 
 static void zebra_connected(struct zclient *zclient)
@@ -165,11 +182,13 @@ extern struct zebra_privs_t pm_privs;
 
 static int pm_zebra_ifp_create(struct interface *ifp)
 {
+	pm_sessions_change_interface(ifp, true);
 	return 0;
 }
 
 static int pm_zebra_ifp_destroy(struct interface *ifp)
 {
+	pm_sessions_change_interface(ifp, false);
 	return 0;
 }
 
