@@ -159,8 +159,6 @@ int main(int argc, char **argv, char **envp)
 	master = frr_init();
 
 	nexthop_group_init(NULL, NULL, NULL, NULL);
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
-	vrf_cmd_init(NULL, NULL);
 
 	access_list_init();
 	route_map_init();
@@ -168,6 +166,8 @@ int main(int argc, char **argv, char **envp)
 	pm_zebra_init();
 
 	pm_init();
+
+	pm_vrf_init();
 	/* Get configuration file. */
 	pm_vty_init();
 

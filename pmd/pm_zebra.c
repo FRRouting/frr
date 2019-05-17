@@ -102,9 +102,12 @@ static void pm_nht_hash_free(void *data)
 static int interface_address_add(int command, struct zclient *zclient,
 				 zebra_size_t length, vrf_id_t vrf_id)
 {
+	struct connected *ifc;
 
-	zebra_interface_address_read(command, zclient->ibuf, vrf_id);
-
+	ifc = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
+	if (!ifc)
+		return 0;
+	pm_sessions_update();
 	return 0;
 }
 
@@ -129,6 +132,38 @@ static int pm_zebra_ifp_up(struct interface *ifp)
 
 static int pm_zebra_ifp_down(struct interface *ifp)
 {
+	return 0;
+}
+
+void pm_zclient_register(vrf_id_t vrf_id)
+{
+	if (!zclient || zclient->sock < 0)
+		return;
+	zclient_send_reg_requests(zclient, vrf_id);
+}
+
+void pm_zclient_unregister(vrf_id_t vrf_id)
+{
+	if (!zclient || zclient->sock < 0)
+		return;
+	zclient_send_dereg_requests(zclient, vrf_id);
+}
+
+static int pmd_interface_vrf_update(int command __attribute__((__unused__)),
+				     struct zclient *zclient,
+				     zebra_size_t length
+				     __attribute__((__unused__)),
+				     vrf_id_t vrfid)
+{
+	struct interface *ifp;
+	vrf_id_t nvrfid;
+
+	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrfid, &nvrfid);
+	if (ifp == NULL)
+		return 0;
+
+	if_update_to_new_vrf(ifp, nvrfid);
+
 	return 0;
 }
 
@@ -174,11 +209,13 @@ extern struct zebra_privs_t pm_privs;
 
 static int pm_zebra_ifp_create(struct interface *ifp)
 {
+	pm_sessions_change_interface(ifp, true);
 	return 0;
 }
 
 static int pm_zebra_ifp_destroy(struct interface *ifp)
 {
+	pm_sessions_change_interface(ifp, false);
 	return 0;
 }
 
@@ -268,6 +305,9 @@ void pm_zebra_init(void)
 	zclient->interface_address_add = interface_address_add;
 	zclient->interface_address_delete = interface_address_delete;
 	zclient->nexthop_update = pm_nexthop_update;
+
+	/* Learn about interface VRF. */
+	zclient->interface_vrf_update = pmd_interface_vrf_update;
 
 	pm_nht_hash = hash_create(pm_nht_hash_key,
 				  pm_nht_hash_cmp,
