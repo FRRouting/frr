@@ -1066,7 +1066,11 @@ void zebra_if_update_all_links(void)
 
 void zebra_if_set_protodown(struct interface *ifp, bool down)
 {
+#ifdef HAVE_NETLINK
 	netlink_protodown(ifp, down);
+#else
+	zlog_warn("Protodown is not supported on this platform");
+#endif
 }
 
 /* Output prefix string to vty. */
