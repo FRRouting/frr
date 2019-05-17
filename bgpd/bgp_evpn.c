@@ -83,9 +83,9 @@ static int evpn_vtep_ip_cmp(void *p1, void *p2)
 /*
  * Make hash key for ESI.
  */
-static unsigned int esi_hash_keymake(void *p)
+static unsigned int esi_hash_keymake(const void *p)
 {
-	struct evpnes *pes = p;
+	const struct evpnes *pes = p;
 	const void *pnt = (void *)pes->esi.val;
 
 	return jhash(pnt, ESI_BYTES, 0xa5a5a55a);
@@ -111,9 +111,9 @@ static bool esi_cmp(const void *p1, const void *p2)
 /*
  * Make vni hash key.
  */
-static unsigned int vni_hash_key_make(void *p)
+static unsigned int vni_hash_key_make(const void *p)
 {
-	struct bgpevpn *vpn = p;
+	const struct bgpevpn *vpn = p;
 	return (jhash_1word(vpn->vni, 0));
 }
 
@@ -143,10 +143,10 @@ static int vni_list_cmp(void *p1, void *p2)
 /*
  * Make vrf import route target hash key.
  */
-static unsigned int vrf_import_rt_hash_key_make(void *p)
+static unsigned int vrf_import_rt_hash_key_make(const void *p)
 {
-	struct vrf_irt_node *irt = p;
-	char *pnt = irt->rt.val;
+	const struct vrf_irt_node *irt = p;
+	const char *pnt = irt->rt.val;
 
 	return jhash(pnt, 8, 0x5abc1234);
 }
@@ -259,10 +259,10 @@ static int is_vrf_present_in_irt_vrfs(struct list *vrfs, struct bgp *bgp_vrf)
 /*
  * Make import route target hash key.
  */
-static unsigned int import_rt_hash_key_make(void *p)
+static unsigned int import_rt_hash_key_make(const void *p)
 {
-	struct irt_node *irt = p;
-	char *pnt = irt->rt.val;
+	const struct irt_node *irt = p;
+	const char *pnt = irt->rt.val;
 
 	return jhash(pnt, 8, 0xdeadbeef);
 }

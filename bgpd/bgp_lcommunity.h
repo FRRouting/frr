@@ -63,7 +63,7 @@ extern struct lcommunity *lcommunity_uniq_sort(struct lcommunity *);
 extern struct lcommunity *lcommunity_intern(struct lcommunity *);
 extern bool lcommunity_cmp(const void *arg1, const void *arg2);
 extern void lcommunity_unintern(struct lcommunity **);
-extern unsigned int lcommunity_hash_make(void *);
+extern unsigned int lcommunity_hash_make(const void *);
 extern struct hash *lcommunity_hash(void);
 extern struct lcommunity *lcommunity_str2com(const char *);
 extern int lcommunity_match(const struct lcommunity *,

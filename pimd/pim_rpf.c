@@ -426,9 +426,9 @@ int pim_rpf_is_same(struct pim_rpf *rpf1, struct pim_rpf *rpf2)
 	return 0;
 }
 
-unsigned int pim_rpf_hash_key(void *arg)
+unsigned int pim_rpf_hash_key(const void *arg)
 {
-	struct pim_nexthop_cache *r = (struct pim_nexthop_cache *)arg;
+	const struct pim_nexthop_cache *r = arg;
 
 	return jhash_1word(r->rpf.rpf_addr.u.prefix4.s_addr, 0);
 }

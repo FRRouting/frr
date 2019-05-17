@@ -35,8 +35,10 @@
 extern "C" {
 #endif
 
-#define RSYSTEM_ROUTE(type)						\
-	((type) == ZEBRA_ROUTE_KERNEL || (type) == ZEBRA_ROUTE_CONNECT)
+#define RKERNEL_ROUTE(type) ((type) == ZEBRA_ROUTE_KERNEL)
+
+#define RSYSTEM_ROUTE(type)                                                    \
+	((RKERNEL_ROUTE(type)) || (type) == ZEBRA_ROUTE_CONNECT)
 
 /*
  * Update or delete a route, LSP, or pseudowire from the kernel,

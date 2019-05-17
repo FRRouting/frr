@@ -812,9 +812,9 @@ int peer_cmp(struct peer *p1, struct peer *p2)
 	return sockunion_cmp(&p1->su, &p2->su);
 }
 
-static unsigned int peer_hash_key_make(void *p)
+static unsigned int peer_hash_key_make(const void *p)
 {
-	struct peer *peer = p;
+	const struct peer *peer = p;
 	return sockunion_hash(&peer->su);
 }
 
@@ -6188,8 +6188,15 @@ int peer_route_map_set(struct peer *peer, afi_t afi, safi_t safi, int direct,
 
 	/* Set configuration on peer. */
 	filter = &peer->filter[afi][safi];
-	if (filter->map[direct].name)
+	if (filter->map[direct].name) {
+		/* If the neighbor is configured with the same route-map
+		 * again then, ignore the duplicate configuration.
+		 */
+		if (strcmp(filter->map[direct].name, name) == 0)
+			return 0;
+
 		XFREE(MTYPE_BGP_FILTER_NAME, filter->map[direct].name);
+	}
 	route_map_counter_decrement(filter->map[direct].map);
 	filter->map[direct].name = XSTRDUP(MTYPE_BGP_FILTER_NAME, name);
 	filter->map[direct].map = route_map;

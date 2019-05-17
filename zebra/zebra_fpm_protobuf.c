@@ -34,6 +34,7 @@
 #include "qpb/linear_allocator.h"
 #include "fpm/fpm_pb.h"
 
+#include "zebra_router.h"
 #include "zebra_fpm_private.h"
 
 /*
@@ -173,7 +174,7 @@ static Fpm__AddRoute *create_add_route_message(qpb_allocator_t *allocator,
 	 */
 	num_nhs = 0;
 	for (ALL_NEXTHOPS(re->ng, nexthop)) {
-		if (num_nhs >= multipath_num)
+		if (num_nhs >= zrouter.multipath_num)
 			break;
 
 		if (num_nhs >= array_size(nexthops))

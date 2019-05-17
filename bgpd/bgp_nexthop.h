@@ -74,7 +74,6 @@ struct tip_addr {
 	int refcnt;
 };
 
-/* ipv6 connected address info structure */
 struct bgp_addrv6 {
 	struct in6_addr addrv6;
 	struct list *ifp_name_list;
@@ -84,7 +83,10 @@ extern void bgp_connected_add(struct bgp *bgp, struct connected *c);
 extern void bgp_connected_delete(struct bgp *bgp, struct connected *c);
 extern int bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
 					   struct update_subgroup *subgrp);
-extern int bgp_multiaccess_check_v4(struct in_addr, struct peer *);
+extern int bgp_subgrp_multiaccess_check_v6(struct in6_addr nexthop,
+					   struct update_subgroup *subgrp);
+extern int bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer);
+extern int bgp_multiaccess_check_v6(struct in6_addr nexthop, struct peer *peer);
 extern int bgp_config_write_scan_time(struct vty *);
 extern int bgp_nexthop_self(struct bgp *, struct in_addr);
 extern struct bgp_nexthop_cache *bnc_new(void);

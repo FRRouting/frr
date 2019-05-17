@@ -2441,7 +2441,7 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	bgp_zebra_instance_register(bgp);
 
 	/* Send the client registration */
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, bgp->vrf_id);
 
 	/* tell label pool that zebra is connected */
 	bgp_lp_event_zebra_up();

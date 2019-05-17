@@ -30,7 +30,9 @@
 #include "zebra_vxlan.h"
 #include "zebra_mlag.h"
 
-struct zebra_router zrouter;
+struct zebra_router zrouter = {
+	.multipath_num = MULTIPATH_NUM,
+};
 
 static inline int
 zebra_router_table_entry_compare(const struct zebra_router_table *e1,
@@ -115,19 +117,6 @@ struct route_table *zebra_router_get_table(struct zebra_vrf *zvrf,
 
 	RB_INSERT(zebra_router_table_head, &zrouter.tables, zrt);
 	return zrt->table;
-}
-
-unsigned long zebra_router_score_proto(uint8_t proto, unsigned short instance)
-{
-	struct zebra_router_table *zrt;
-	unsigned long cnt = 0;
-
-	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
-		if (zrt->ns_id != NS_DEFAULT)
-			continue;
-		cnt += rib_score_proto_table(proto, instance, zrt->table);
-	}
-	return cnt;
 }
 
 void zebra_router_show_table_summary(struct vty *vty)

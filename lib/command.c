@@ -332,7 +332,7 @@ int argv_find(struct cmd_token **argv, int argc, const char *text, int *index)
 	return found;
 }
 
-static unsigned int cmd_hash_key(void *p)
+static unsigned int cmd_hash_key(const void *p)
 {
 	int size = sizeof(p);
 
@@ -1386,7 +1386,7 @@ int config_from_file(struct vty *vty, FILE *fp, unsigned int *line_num)
 /* Configuration from terminal */
 DEFUN (config_terminal,
        config_terminal_cmd,
-       "configure terminal",
+       "configure [terminal]",
        "Configuration from vty interface\n"
        "Configuration terminal\n")
 {
@@ -1705,12 +1705,16 @@ static int vty_write_config(struct vty *vty)
 	vty_out(vty, "frr defaults %s\n", DFLT_NAME);
 	vty_out(vty, "!\n");
 
-	for (i = 0; i < vector_active(cmdvec); i++)
-		if ((node = vector_slot(cmdvec, i)) && node->func
-		    && (node->vtysh || vty->type != VTY_SHELL)) {
-			if ((*node->func)(vty))
-				vty_out(vty, "!\n");
-		}
+	pthread_rwlock_rdlock(&running_config->lock);
+	{
+		for (i = 0; i < vector_active(cmdvec); i++)
+			if ((node = vector_slot(cmdvec, i)) && node->func
+			    && (node->vtysh || vty->type != VTY_SHELL)) {
+				if ((*node->func)(vty))
+					vty_out(vty, "!\n");
+			}
+	}
+	pthread_rwlock_unlock(&running_config->lock);
 
 	if (vty->type == VTY_TERM) {
 		vty_out(vty, "end\n");

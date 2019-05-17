@@ -131,7 +131,7 @@ static struct distribute *distribute_get(struct distribute_ctx *ctx,
 	return ret;
 }
 
-static unsigned int distribute_hash_make(void *arg)
+static unsigned int distribute_hash_make(const void *arg)
 {
 	const struct distribute *dist = arg;
 

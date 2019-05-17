@@ -151,9 +151,9 @@ static void nhrp_peer_ifp_notify(struct notifier_block *n, unsigned long cmd)
 	nhrp_peer_unref(p);
 }
 
-static unsigned int nhrp_peer_key(void *peer_data)
+static unsigned int nhrp_peer_key(const void *peer_data)
 {
-	struct nhrp_peer *p = peer_data;
+	const struct nhrp_peer *p = peer_data;
 	return sockunion_hash(&p->vc->remote.nbma);
 }
 

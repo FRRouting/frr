@@ -26,7 +26,7 @@
 
 #if defined(HAVE_LUA)
 #include "prefix.h"
-#include "lua.h"
+#include "frrlua.h"
 #include "log.h"
 
 static int lua_zlog_debug(lua_State *L)

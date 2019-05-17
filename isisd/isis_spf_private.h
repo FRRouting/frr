@@ -79,9 +79,9 @@ struct isis_vertex_queue {
 };
 
 __attribute__((__unused__))
-static unsigned isis_vertex_queue_hash_key(void *vp)
+static unsigned isis_vertex_queue_hash_key(const void *vp)
 {
-	struct isis_vertex *vertex = vp;
+	const struct isis_vertex *vertex = vp;
 
 	if (VTYPE_IP(vertex->type)) {
 		uint32_t key;

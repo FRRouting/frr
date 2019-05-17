@@ -583,7 +583,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 			re->vrf_id = vrf_id;
 			re->table = table;
 			re->nexthop_num = 0;
-			re->uptime = time(NULL);
+			re->uptime = monotime(NULL);
 			re->tag = tag;
 
 			for (;;) {

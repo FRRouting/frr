@@ -37,7 +37,7 @@ static pthread_mutex_t _hashes_mtx = PTHREAD_MUTEX_INITIALIZER;
 static struct list *_hashes;
 
 struct hash *hash_create_size(unsigned int size,
-			      unsigned int (*hash_key)(void *),
+			      unsigned int (*hash_key)(const void *),
 			      bool (*hash_cmp)(const void *, const void *),
 			      const char *name)
 {
@@ -66,7 +66,7 @@ struct hash *hash_create_size(unsigned int size,
 	return hash;
 }
 
-struct hash *hash_create(unsigned int (*hash_key)(void *),
+struct hash *hash_create(unsigned int (*hash_key)(const void *),
 			 bool (*hash_cmp)(const void *, const void *),
 			 const char *name)
 {

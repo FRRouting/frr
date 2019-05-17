@@ -129,10 +129,10 @@ static void pbr_nh_delete_iterate(struct hash_bucket *b, void *p)
 	pbr_nh_delete((struct pbr_nexthop_cache **)&b->data);
 }
 
-static uint32_t pbr_nh_hash_key(void *arg)
+static uint32_t pbr_nh_hash_key(const void *arg)
 {
 	uint32_t key;
-	struct pbr_nexthop_cache *pbrnc = (struct pbr_nexthop_cache *)arg;
+	const struct pbr_nexthop_cache *pbrnc = arg;
 
 	key = nexthop_hash(pbrnc->nexthop);
 
@@ -789,10 +789,9 @@ void pbr_nht_nexthop_interface_update(struct interface *ifp)
 		     ifp);
 }
 
-static uint32_t pbr_nhg_hash_key(void *arg)
+static uint32_t pbr_nhg_hash_key(const void *arg)
 {
-	struct pbr_nexthop_group_cache *nhgc =
-		(struct pbr_nexthop_group_cache *)arg;
+	const struct pbr_nexthop_group_cache *nhgc = arg;
 
 	return jhash(&nhgc->name, strlen(nhgc->name), 0x52c34a96);
 }
@@ -940,7 +939,7 @@ void pbr_nht_init(void)
 	pbr_nhg_hash = hash_create_size(
 		16, pbr_nhg_hash_key, pbr_nhg_hash_equal, "PBR NHG Cache Hash");
 	pbr_nhrc_hash =
-		hash_create_size(16, (unsigned int (*)(void *))nexthop_hash,
+		hash_create_size(16, (unsigned int (*)(const void *))nexthop_hash,
 				 pbr_nhrc_hash_equal, "PBR NH Hash");
 
 	pbr_nhg_low_table = PBR_NHT_DEFAULT_LOW_TABLEID;

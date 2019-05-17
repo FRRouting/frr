@@ -80,7 +80,7 @@ static int wheel_timer_thread(struct thread *t)
 }
 
 struct timer_wheel *wheel_init(struct thread_master *master, int period,
-			       size_t slots, unsigned int (*slot_key)(void *),
+			       size_t slots, unsigned int (*slot_key)(const void *),
 			       void (*slot_run)(void *),
 			       const char *run_name)
 {

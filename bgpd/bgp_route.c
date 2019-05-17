@@ -1219,20 +1219,6 @@ static int bgp_input_modifier(struct peer *peer, struct prefix *p,
 		}
 	}
 
-	/* RFC 8212 to prevent route leaks.
-	 * This specification intends to improve this situation by requiring the
-	 * explicit configuration of both BGP Import and Export Policies for any
-	 * External BGP (EBGP) session such as customers, peers, or
-	 * confederation boundaries for all enabled address families. Through
-	 * codification of the aforementioned requirement, operators will
-	 * benefit from consistent behavior across different BGP
-	 * implementations.
-	 */
-	if (peer->bgp->ebgp_requires_policy
-	    == DEFAULT_EBGP_POLICY_ENABLED)
-		if (!bgp_inbound_policy_exists(peer, filter))
-			return RMAP_DENY;
-
 	/* Route map apply. */
 	if (rmap) {
 		memset(&rmap_path, 0, sizeof(struct bgp_path_info));
@@ -1781,6 +1767,10 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 		peer->rmap_type = 0;
 
 		if (ret == RMAP_DENYMATCH) {
+			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
+				zlog_debug("%s [Update:SEND] %s is filtered by route-map",
+				peer->host, prefix2str(p, buf, sizeof(buf)));
+
 			bgp_attr_flush(attr);
 			return 0;
 		}
@@ -1854,13 +1844,28 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 			 * Note: 3rd party nexthop currently implemented for
 			 * IPv4 only.
 			 */
-			if (!bgp_subgrp_multiaccess_check_v4(piattr->nexthop,
-							     subgrp))
+			if ((p->family == AF_INET) &&
+				(!bgp_subgrp_multiaccess_check_v4(
+					piattr->nexthop,
+					subgrp)))
 				subgroup_announce_reset_nhop(
 					(peer_cap_enhe(peer, afi, safi)
 						 ? AF_INET6
 						 : p->family),
-					attr);
+						attr);
+
+			if ((p->family == AF_INET6) &&
+				(!bgp_subgrp_multiaccess_check_v6(
+					piattr->mp_nexthop_global,
+					subgrp)))
+				subgroup_announce_reset_nhop(
+					(peer_cap_enhe(peer, afi, safi)
+						? AF_INET6
+						: p->family),
+						attr);
+
+
+
 		} else if (CHECK_FLAG(pi->flags, BGP_PATH_ANNC_NH_SELF)) {
 			/*
 			 * This flag is used for leaked vpn-vrf routes
@@ -3050,6 +3055,22 @@ int bgp_update(struct peer *peer, struct prefix *p, uint32_t addpath_id,
 		reason = "filter;";
 		goto filtered;
 	}
+
+	/* RFC 8212 to prevent route leaks.
+	 * This specification intends to improve this situation by requiring the
+	 * explicit configuration of both BGP Import and Export Policies for any
+	 * External BGP (EBGP) session such as customers, peers, or
+	 * confederation boundaries for all enabled address families. Through
+	 * codification of the aforementioned requirement, operators will
+	 * benefit from consistent behavior across different BGP
+	 * implementations.
+	 */
+	if (peer->bgp->ebgp_requires_policy == DEFAULT_EBGP_POLICY_ENABLED)
+		if (!bgp_inbound_policy_exists(peer,
+					       &peer->filter[afi][safi])) {
+			reason = "inbound policy missing";
+			goto filtered;
+		}
 
 	bgp_attr_dup(&new_attr, attr);
 
@@ -7521,21 +7542,26 @@ void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 			   json_object *json_paths)
 {
 	struct attr *attr;
-	char buf[BUFSIZ];
+	char buf[BUFSIZ] = {0};
 	json_object *json_path = NULL;
-
-	if (json_paths)
-		json_path = json_object_new_object();
+	json_object *json_nexthop = NULL;
+	json_object *json_overlay = NULL;
 
 	if (!path->extra)
 		return;
+
+	if (json_paths) {
+		json_path = json_object_new_object();
+		json_overlay = json_object_new_object();
+		json_nexthop = json_object_new_object();
+	}
 
 	/* short status lead text */
 	route_vty_short_status_out(vty, path, json_path);
 
 	/* print prefix and mask */
 	if (!display)
-		route_vty_out_route(p, vty, NULL);
+		route_vty_out_route(p, vty, json_path);
 	else
 		vty_out(vty, "%*s", 17, " ");
 
@@ -7547,35 +7573,69 @@ void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 
 		switch (af) {
 		case AF_INET:
-			vty_out(vty, "%-16s",
-				inet_ntop(af, &attr->mp_nexthop_global_in, buf,
-					  BUFSIZ));
+			inet_ntop(af, &attr->mp_nexthop_global_in, buf, BUFSIZ);
+			if (!json_path) {
+				vty_out(vty, "%-16s", buf);
+			} else {
+				json_object_string_add(json_nexthop, "ip", buf);
+
+				json_object_string_add(json_nexthop, "afi",
+					"ipv4");
+
+				json_object_object_add(json_path, "nexthop",
+					json_nexthop);
+			}
 			break;
 		case AF_INET6:
-			vty_out(vty, "%s(%s)",
-				inet_ntop(af, &attr->mp_nexthop_global, buf,
-					  BUFSIZ),
-				inet_ntop(af, &attr->mp_nexthop_local, buf1,
-					  BUFSIZ));
+			inet_ntop(af, &attr->mp_nexthop_global, buf, BUFSIZ);
+			inet_ntop(af, &attr->mp_nexthop_local, buf1, BUFSIZ);
+			if (!json_path) {
+				vty_out(vty, "%s(%s)", buf, buf1);
+			} else {
+				json_object_string_add(json_nexthop,
+					"ipv6Global", buf);
+
+				json_object_string_add(json_nexthop,
+					"ipv6LinkLocal", buf1);
+
+				json_object_string_add(json_nexthop, "afi",
+					"ipv6");
+
+				json_object_object_add(json_path, "nexthop",
+					json_nexthop);
+			}
 			break;
 		default:
-			vty_out(vty, "?");
+			if (!json_path) {
+				vty_out(vty, "?");
+			} else {
+				json_object_string_add(json_nexthop, "Error",
+					"Unsupported address-family");
+			}
 		}
 
 		char *str = esi2str(&(attr->evpn_overlay.eth_s_id));
 
-		vty_out(vty, "%s", str);
+		if (!json_path)
+			vty_out(vty, "%s", str);
+		else
+			json_object_string_add(json_overlay, "esi", str);
+		
 		XFREE(MTYPE_TMP, str);
 
 		if (is_evpn_prefix_ipaddr_v4((struct prefix_evpn *)p)) {
-			vty_out(vty, "/%s",
-				inet_ntoa(attr->evpn_overlay.gw_ip.ipv4));
+			inet_ntop(AF_INET, &(attr->evpn_overlay.gw_ip.ipv4),
+				buf, BUFSIZ);
 		} else if (is_evpn_prefix_ipaddr_v6((struct prefix_evpn *)p)) {
-			vty_out(vty, "/%s",
-				inet_ntop(AF_INET6,
-					  &(attr->evpn_overlay.gw_ip.ipv6), buf,
-					  BUFSIZ));
+			inet_ntop(AF_INET6, &(attr->evpn_overlay.gw_ip.ipv6),
+				buf, BUFSIZ);
 		}
+
+		if (!json_path)
+			vty_out(vty, "/%s", buf);
+		else
+			json_object_string_add(json_overlay, "gw", buf);
+
 		if (attr->ecommunity) {
 			char *mac = NULL;
 			struct ecommunity_val *routermac = ecommunity_lookup(
@@ -7584,13 +7644,25 @@ void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 			if (routermac)
 				mac = ecom_mac2str((char *)routermac->val);
 			if (mac) {
-				vty_out(vty, "/%s", (char *)mac);
+				if (!json_path) {
+					vty_out(vty, "/%s", (char *)mac);
+				} else {
+					json_object_string_add(json_overlay,
+						"rmac", mac);
+				}
 				XFREE(MTYPE_TMP, mac);
 			}
 		}
-		vty_out(vty, "\n");
-	}
 
+		if (!json_path) {
+			vty_out(vty, "\n");
+		} else {
+			json_object_object_add(json_path, "overlay",
+				json_overlay);
+
+			json_object_array_add(json_paths, json_path);
+		}
+	}
 }
 
 /* dampening route */

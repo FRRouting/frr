@@ -93,7 +93,7 @@ static void zvni_print_hash(struct hash_bucket *bucket, void *ctxt[]);
 static int zvni_macip_send_msg_to_client(vni_t vni, struct ethaddr *macaddr,
 					 struct ipaddr *ip, uint8_t flags,
 					 uint32_t seq, int state, uint16_t cmd);
-static unsigned int neigh_hash_keymake(void *p);
+static unsigned int neigh_hash_keymake(const void *p);
 static void *zvni_neigh_alloc(void *p);
 static zebra_neigh_t *zvni_neigh_add(zebra_vni_t *zvni, struct ipaddr *ip,
 				     struct ethaddr *mac);
@@ -149,7 +149,7 @@ static struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni);
 static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni);
 static void zebra_vxlan_process_l3vni_oper_down(zebra_l3vni_t *zl3vni);
 
-static unsigned int mac_hash_keymake(void *p);
+static unsigned int mac_hash_keymake(const void *p);
 static bool mac_cmp(const void *p1, const void *p2);
 static void *zvni_mac_alloc(void *p);
 static zebra_mac_t *zvni_mac_add(zebra_vni_t *zvni, struct ethaddr *macaddr);
@@ -168,7 +168,7 @@ static int zvni_mac_install(zebra_vni_t *zvni, zebra_mac_t *mac);
 static int zvni_mac_uninstall(zebra_vni_t *zvni, zebra_mac_t *mac);
 static void zvni_install_mac_hash(struct hash_bucket *bucket, void *ctxt);
 
-static unsigned int vni_hash_keymake(void *p);
+static unsigned int vni_hash_keymake(const void *p);
 static void *zvni_alloc(void *p);
 static zebra_vni_t *zvni_lookup(vni_t vni);
 static zebra_vni_t *zvni_add(vni_t vni);
@@ -213,7 +213,7 @@ static void zebra_vxlan_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 						bool do_dad,
 						bool *is_dup_detect,
 						bool is_local);
-static unsigned int zebra_vxlan_sg_hash_key_make(void *p);
+static unsigned int zebra_vxlan_sg_hash_key_make(const void *p);
 static bool zebra_vxlan_sg_hash_eq(const void *p1, const void *p2);
 static void zebra_vxlan_sg_do_deref(struct zebra_vrf *zvrf,
 		struct in_addr sip, struct in_addr mcast_grp);
@@ -2158,10 +2158,10 @@ static int zvni_macip_send_msg_to_client(vni_t vni, struct ethaddr *macaddr,
 /*
  * Make hash key for neighbors.
  */
-static unsigned int neigh_hash_keymake(void *p)
+static unsigned int neigh_hash_keymake(const void *p)
 {
-	zebra_neigh_t *n = p;
-	struct ipaddr *ip = &n->ip;
+	const zebra_neigh_t *n = p;
+	const struct ipaddr *ip = &n->ip;
 
 	if (IS_IPADDR_V4(ip))
 		return jhash_1word(ip->ipaddr_v4.s_addr, 0);
@@ -3296,9 +3296,9 @@ static int zvni_remote_neigh_update(zebra_vni_t *zvni,
 /*
  * Make hash key for MAC.
  */
-static unsigned int mac_hash_keymake(void *p)
+static unsigned int mac_hash_keymake(const void *p)
 {
-	zebra_mac_t *pmac = p;
+	const zebra_mac_t *pmac = p;
 	const void *pnt = (void *)pmac->macaddr.octet;
 
 	return jhash(pnt, ETH_ALEN, 0xa5a5a55a);
@@ -3815,7 +3815,7 @@ static void zvni_read_mac_neigh(zebra_vni_t *zvni, struct interface *ifp)
 /*
  * Hash function for VNI.
  */
-static unsigned int vni_hash_keymake(void *p)
+static unsigned int vni_hash_keymake(const void *p)
 {
 	const zebra_vni_t *zvni = p;
 
@@ -4688,7 +4688,7 @@ static int zl3vni_local_nh_del(zebra_l3vni_t *zl3vni, struct ipaddr *ip)
 /*
  * Hash function for L3 VNI.
  */
-static unsigned int l3vni_hash_keymake(void *p)
+static unsigned int l3vni_hash_keymake(const void *p)
 {
 	const zebra_l3vni_t *zl3vni = p;
 
@@ -7505,9 +7505,9 @@ int zebra_vxlan_check_del_local_mac(struct interface *ifp,
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
-			"Add/update remote MAC %s intf %s(%u) VNI %u - del local",
+			"Add/update remote MAC %s intf %s(%u) VNI %u flags 0x%x - del local",
 			prefix_mac2str(macaddr, buf, sizeof(buf)), ifp->name,
-			ifp->ifindex, vni);
+			ifp->ifindex, vni, mac->flags);
 
 	/* Remove MAC from BGP. */
 	zvni_mac_send_del_to_client(zvni->vni, macaddr);
@@ -7520,6 +7520,7 @@ int zebra_vxlan_check_del_local_mac(struct interface *ifp,
 		zvni_mac_del(zvni, mac);
 	} else {
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
+		UNSET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
 		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 	}
 
@@ -7603,11 +7604,6 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 		return -1;
 	}
 
-	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("DEL MAC %s intf %s(%u) VID %u -> VNI %u",
-			   prefix_mac2str(macaddr, buf, sizeof(buf)), ifp->name,
-			   ifp->ifindex, vid, zvni->vni);
-
 	/* If entry doesn't exist, nothing to do. */
 	mac = zvni_mac_lookup(zvni, macaddr);
 	if (!mac)
@@ -7616,6 +7612,11 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 	/* Is it a local entry? */
 	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
 		return 0;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("DEL MAC %s intf %s(%u) VID %u -> VNI %u flags 0x%x",
+			   prefix_mac2str(macaddr, buf, sizeof(buf)), ifp->name,
+			   ifp->ifindex, vid, zvni->vni, mac->flags);
 
 	/* Update all the neigh entries associated with this mac */
 	zvni_process_neigh_on_local_mac_del(zvni, mac);
@@ -7631,6 +7632,7 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 		zvni_mac_del(zvni, mac);
 	} else {
 		UNSET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
+		UNSET_FLAG(mac->flags, ZEBRA_MAC_STICKY);
 		SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 	}
 
@@ -9455,9 +9457,9 @@ static int zebra_vxlan_sg_send(struct prefix_sg *sg,
 	return zserv_send_message(client, s);
 }
 
-static unsigned int zebra_vxlan_sg_hash_key_make(void *p)
+static unsigned int zebra_vxlan_sg_hash_key_make(const void *p)
 {
-	zebra_vxlan_sg_t *vxlan_sg = p;
+	const zebra_vxlan_sg_t *vxlan_sg = p;
 
 	return (jhash_2words(vxlan_sg->sg.src.s_addr,
 				vxlan_sg->sg.grp.s_addr, 0));

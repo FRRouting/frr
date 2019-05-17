@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.60])
 
-AC_INIT([frr], [7.1-dev], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [7.2-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -126,12 +126,15 @@ dnl Check CC and friends
 dnl --------------------
 dnl note orig_cflags is also used further down
 orig_cflags="$CFLAGS"
+orig_cxxflags="$CXXFLAGS"
 AC_LANG([C])
 AC_PROG_CC
 AC_PROG_CPP
+AC_PROG_CXX
 AM_PROG_CC_C_O
 dnl remove autoconf default "-g -O2"
 CFLAGS="$orig_cflags"
+CXXFLAGS="$orig_cxxflags"
 AC_PROG_CC_C99
 dnl NB: see C11 below
 
@@ -219,9 +222,12 @@ elif test "x${enable_dev_build}" = "xyes"; then
       AC_C_FLAG([-O0])
    fi
    if test "x${enable_lua}" = "xyes"; then
-      AC_CHECK_LIB([lua], [lua_newstate],
-      [LIBS="$LIBS -llua"])
-      AC_DEFINE([HAVE_LUA], [1], [Lua enabled for development])
+      AX_PROG_LUA([5.3])
+      AX_LUA_HEADERS
+      AX_LUA_LIBS([
+         AC_DEFINE([HAVE_LUA], [1], [Have support for Lua interpreter])
+         LIBS="$LIBS $LUA_LIB"
+      ])
    fi
 else
    if test "x${enable_lua}" = "xyes"; then
@@ -447,6 +453,8 @@ AC_ARG_ENABLE([confd],
   AS_HELP_STRING([--enable-confd=ARG], [enable confd integration]))
 AC_ARG_ENABLE([sysrepo],
   AS_HELP_STRING([--enable-sysrepo], [enable sysrepo integration]))
+AC_ARG_ENABLE([grpc],
+  AS_HELP_STRING([--enable-grpc], [enable the gRPC northbound plugin]))
 AC_ARG_ENABLE([zeromq],
   AS_HELP_STRING([--enable-zeromq], [enable ZeroMQ handler (libfrrzmq)]))
 AC_ARG_WITH([libpam],
@@ -1690,24 +1698,6 @@ AC_CHECK_MEMBER([struct lyd_node.priv], [], [
 ], [[#include <libyang/libyang.h>]])
 CFLAGS="$ac_cflags_save"
 
-ac_libs_save="$LIBS"
-LIBS="$LIBS $LIBYANG_LIBS"
-AC_CHECK_FUNC([ly_register_types], [
-  libyang_ext_builtin=true
-  AC_DEFINE([LIBYANG_EXT_BUILTIN], [1], [have ly_register_types()])
-], [
-  libyang_ext_builtin=false
-  AC_MSG_WARN([===== old libyang (before 0.16.74) detected =====])
-  AC_MSG_WARN([The available version of libyang does not seem to support])
-  AC_MSG_WARN([built-in YANG extension modules.  This will cause "make check"])
-  AC_MSG_WARN([to fail and may create installation and version mismatch issues.])
-  AC_MSG_WARN([Support for the old mechanism will be removed at some point.])
-  AC_MSG_WARN([Please update libyang to version 0.16.74 or newer.])
-  AC_MSG_WARN([===== old libyang (before 0.16.74) detected =====])
-])
-AM_CONDITIONAL([LIBYANG_EXT_BUILTIN], [$libyang_ext_builtin])
-LIBS="$ac_libs_save"
-
 dnl ---------------
 dnl configuration rollbacks
 dnl ---------------
@@ -1751,6 +1741,25 @@ if test "$enable_sysrepo" = "yes"; then
   )
 fi
 AM_CONDITIONAL([SYSREPO], [test "x$enable_sysrepo" = "xyes"])
+
+dnl ---------------
+dnl gRPC
+dnl ---------------
+if test "$enable_grpc" = "yes"; then
+  PKG_CHECK_MODULES([GRPC], [grpc grpc++ protobuf], [
+    AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
+    if test "$PROTOC" = "/bin/false"; then
+      AC_MSG_FAILURE([grpc requested but protoc not found.])
+    fi
+
+    AC_DEFINE([HAVE_GRPC], [1], [Enable the gRPC northbound plugin])
+    GRPC=true
+  ], [
+    GRPC=false
+    AC_MSG_ERROR([grpc/grpc++ were not found on your system.])
+  ])
+fi
+AM_CONDITIONAL([GRPC], [test "x$enable_grpc" = "xyes"])
 
 dnl ---------------
 dnl math

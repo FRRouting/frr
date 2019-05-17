@@ -96,13 +96,12 @@ int bgp_bfd_is_peer_multihop(struct peer *peer)
 static void bgp_bfd_peer_sendmsg(struct peer *peer, int command)
 {
 	struct bfd_info *bfd_info;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-	int multihop;
+	int multihop, cbit = 0;
+	vrf_id_t vrf_id;
 
 	bfd_info = (struct bfd_info *)peer->bfd_info;
 
-	if (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
-		vrf_id = peer->bgp->vrf_id;
+	vrf_id = peer->bgp->vrf_id;
 
 	if (command == ZEBRA_BFD_DEST_DEREGISTER) {
 		multihop =
@@ -113,20 +112,30 @@ static void bgp_bfd_peer_sendmsg(struct peer *peer, int command)
 		if ((command == ZEBRA_BFD_DEST_REGISTER) && multihop)
 			SET_FLAG(bfd_info->flags, BFD_FLAG_BFD_TYPE_MULTIHOP);
 	}
+	/* while graceful restart with fwd path preserved
+	 * and bfd controlplane check not configured is not kept
+	 * keep bfd independent controlplane bit set to 1
+	 */
+	if (!bgp_flag_check(peer->bgp, BGP_FLAG_GRACEFUL_RESTART)
+	    && !bgp_flag_check(peer->bgp, BGP_FLAG_GR_PRESERVE_FWD)
+	    && !CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CHECK_CONTROLPLANE))
+		SET_FLAG(bfd_info->flags,  BFD_FLAG_BFD_CBIT_ON);
+
+	cbit = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
 
 	if (peer->su.sa.sa_family == AF_INET)
 		bfd_peer_sendmsg(
 			zclient, bfd_info, AF_INET, &peer->su.sin.sin_addr,
 			(peer->su_local) ? &peer->su_local->sin.sin_addr : NULL,
 			(peer->nexthop.ifp) ? peer->nexthop.ifp->name : NULL,
-			peer->ttl, multihop, command, 1, vrf_id);
+			peer->ttl, multihop, cbit, command, 1, vrf_id);
 	else if (peer->su.sa.sa_family == AF_INET6)
 		bfd_peer_sendmsg(
 			zclient, bfd_info, AF_INET6, &peer->su.sin6.sin6_addr,
 			(peer->su_local) ? &peer->su_local->sin6.sin6_addr
 					 : NULL,
 			(peer->nexthop.ifp) ? peer->nexthop.ifp->name : NULL,
-			peer->ttl, multihop, command, 1, vrf_id);
+			peer->ttl, multihop, cbit, command, 1, vrf_id);
 }
 
 /*
@@ -244,7 +253,7 @@ static int bgp_bfd_dest_replay(ZAPI_CALLBACK_ARGS)
 		zlog_debug("Zebra: BFD Dest replay request");
 
 	/* Send the client registration */
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, vrf_id);
 
 	/* Replay the peer, if BFD is enabled in BGP */
 
@@ -261,7 +270,8 @@ static int bgp_bfd_dest_replay(ZAPI_CALLBACK_ARGS)
  *                              down the peer if the BFD session went down from
  * *                              up.
  */
-static void bgp_bfd_peer_status_update(struct peer *peer, int status)
+static void bgp_bfd_peer_status_update(struct peer *peer, int status,
+				       int remote_cbit)
 {
 	struct bfd_info *bfd_info;
 	int old_status;
@@ -281,6 +291,14 @@ static void bgp_bfd_peer_status_update(struct peer *peer, int status)
 				   bfd_get_status_str(status));
 	}
 	if ((status == BFD_STATUS_DOWN) && (old_status == BFD_STATUS_UP)) {
+		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE) &&
+		    CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CHECK_CONTROLPLANE) &&
+		    !remote_cbit) {
+			zlog_info("%s BFD DOWN message ignored in the process"
+				  " of graceful restart when C bit is cleared",
+				  peer->host);
+			return;
+		}
 		peer->last_reset = PEER_DOWN_BFD_DOWN;
 		BGP_EVENT_ADD(peer, BGP_Stop);
 	}
@@ -304,23 +322,27 @@ static int bgp_bfd_dest_update(ZAPI_CALLBACK_ARGS)
 	struct prefix dp;
 	struct prefix sp;
 	int status;
+	int remote_cbit;
 
-	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &status, vrf_id);
+	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &status,
+				&remote_cbit, vrf_id);
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		char buf[2][PREFIX2STR_BUFFER];
 		prefix2str(&dp, buf[0], sizeof(buf[0]));
 		if (ifp) {
 			zlog_debug(
-				"Zebra: vrf %u interface %s bfd destination %s %s",
+				"Zebra: vrf %u interface %s bfd destination %s %s %s",
 				vrf_id, ifp->name, buf[0],
-				bfd_get_status_str(status));
+				bfd_get_status_str(status),
+				remote_cbit ? "(cbit on)" : "");
 		} else {
 			prefix2str(&sp, buf[1], sizeof(buf[1]));
 			zlog_debug(
-				"Zebra: vrf %u source %s bfd destination %s %s",
+				"Zebra: vrf %u source %s bfd destination %s %s %s",
 				vrf_id, buf[1], buf[0],
-				bfd_get_status_str(status));
+				bfd_get_status_str(status),
+				remote_cbit ? "(cbit on)" : "");
 		}
 	}
 
@@ -352,7 +374,8 @@ static int bgp_bfd_dest_update(ZAPI_CALLBACK_ARGS)
 
 				if (ifp && (ifp == peer->nexthop.ifp)) {
 					bgp_bfd_peer_status_update(peer,
-								   status);
+								   status,
+								   remote_cbit);
 				} else {
 					if (!peer->su_local)
 						continue;
@@ -382,7 +405,8 @@ static int bgp_bfd_dest_update(ZAPI_CALLBACK_ARGS)
 						continue;
 
 					bgp_bfd_peer_status_update(peer,
-								   status);
+								   status,
+								   remote_cbit);
 				}
 			}
 	}
@@ -535,6 +559,9 @@ void bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, char *addr)
 	if (!CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG)
 	    && (bfd_info->type == BFD_TYPE_NOT_CONFIGURED))
 		vty_out(vty, " neighbor %s bfd\n", addr);
+
+	if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CHECK_CONTROLPLANE))
+		vty_out(vty, " neighbor %s bfd check-control-plane-failure\n", addr);
 }
 
 /*
@@ -645,6 +672,73 @@ DEFUN_HIDDEN (neighbor_bfd_type,
 	return CMD_SUCCESS;
 }
 
+static int bgp_bfd_set_check_controlplane_failure_peer(struct vty *vty, struct peer *peer,
+						       const char *no)
+{
+	struct bfd_info *bfd_info;
+
+	if (!peer->bfd_info) {
+		if (no)
+			return CMD_SUCCESS;
+		vty_out(vty, "%% Specify bfd command first\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	bfd_info = (struct bfd_info *)peer->bfd_info;
+	if (!no) {
+		if (!CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CHECK_CONTROLPLANE)) {
+			SET_FLAG(bfd_info->flags,  BFD_FLAG_BFD_CHECK_CONTROLPLANE);
+			bgp_bfd_update_peer(peer);
+		}
+	} else {
+		if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CHECK_CONTROLPLANE)) {
+			UNSET_FLAG(bfd_info->flags,  BFD_FLAG_BFD_CHECK_CONTROLPLANE);
+			bgp_bfd_update_peer(peer);
+		}
+	}
+	return CMD_SUCCESS;
+}
+
+
+DEFUN (neighbor_bfd_check_controlplane_failure,
+       neighbor_bfd_check_controlplane_failure_cmd,
+       "[no] neighbor <A.B.C.D|X:X::X:X|WORD> bfd check-control-plane-failure",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "BFD support\n"
+       "Link dataplane status with BGP controlplane\n")
+{
+	const char *no = strmatch(argv[0]->text, "no") ? "no" : NULL;
+	int idx_peer = 0;
+	struct peer *peer;
+	struct peer_group *group;
+	struct listnode *node, *nnode;
+	int ret = CMD_SUCCESS;
+
+	if (no)
+		idx_peer = 2;
+	else
+		idx_peer = 1;
+	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+	if (!peer) {
+		vty_out(vty, "%% Specify remote-as or peer-group commands first\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (!peer->bfd_info) {
+		if (no)
+			return CMD_SUCCESS;
+		vty_out(vty, "%% Specify bfd command first\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		group = peer->group;
+		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer))
+			ret = bgp_bfd_set_check_controlplane_failure_peer(vty, peer, no);
+	} else
+		ret = bgp_bfd_set_check_controlplane_failure_peer(vty, peer, no);
+	return ret;
+ }
+
 DEFUN (no_neighbor_bfd,
        no_neighbor_bfd_cmd,
 #if HAVE_BFDD > 0
@@ -719,6 +813,7 @@ void bgp_bfd_init(void)
 	install_element(BGP_NODE, &neighbor_bfd_cmd);
 	install_element(BGP_NODE, &neighbor_bfd_param_cmd);
 	install_element(BGP_NODE, &neighbor_bfd_type_cmd);
+	install_element(BGP_NODE, &neighbor_bfd_check_controlplane_failure_cmd);
 	install_element(BGP_NODE, &no_neighbor_bfd_cmd);
 	install_element(BGP_NODE, &no_neighbor_bfd_type_cmd);
 }

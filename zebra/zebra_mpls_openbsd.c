@@ -27,6 +27,7 @@
 #include "zebra/zebra_mpls.h"
 #include "zebra/debug.h"
 #include "zebra/zebra_errors.h"
+#include "zebra/zebra_router.h"
 
 #include "privs.h"
 #include "prefix.h"
@@ -262,7 +263,7 @@ static int kernel_lsp_cmd(struct zebra_dplane_ctx *ctx)
 		if (!nexthop)
 			continue;
 
-		if (nexthop_num >= multipath_num)
+		if (nexthop_num >= zrouter.multipath_num)
 			break;
 
 		if (((action == RTM_ADD || action == RTM_CHANGE)

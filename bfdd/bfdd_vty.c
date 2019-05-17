@@ -64,7 +64,7 @@ static struct json_object *__display_peer_json(struct bfd_session *bs);
 static struct json_object *_peer_json_header(struct bfd_session *bs);
 static void _display_peer_json(struct vty *vty, struct bfd_session *bs);
 static void _display_peer(struct vty *vty, struct bfd_session *bs);
-static void _display_all_peers(struct vty *vty, bool use_json);
+static void _display_all_peers(struct vty *vty, char *vrfname, bool use_json);
 static void _display_peer_iter(struct hash_bucket *hb, void *arg);
 static void _display_peer_json_iter(struct hash_bucket *hb, void *arg);
 static void _display_peer_counter(struct vty *vty, struct bfd_session *bs);
@@ -72,7 +72,7 @@ static struct json_object *__display_peer_counters_json(struct bfd_session *bs);
 static void _display_peer_counters_json(struct vty *vty, struct bfd_session *bs);
 static void _display_peer_counter_iter(struct hash_bucket *hb, void *arg);
 static void _display_peer_counter_json_iter(struct hash_bucket *hb, void *arg);
-static void _display_peers_counter(struct vty *vty, bool use_json);
+static void _display_peers_counter(struct vty *vty, char *vrfname, bool use_json);
 static struct bfd_session *
 _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 		    const char *label, const char *peer_str,
@@ -90,7 +90,7 @@ DEFUN_NOSH(bfd_enter, bfd_enter_cmd, "bfd", "Configure BFD peers\n")
 
 DEFUN_NOSH(
 	bfd_peer_enter, bfd_peer_enter_cmd,
-	"peer <A.B.C.D|X:X::X:X> [{[multihop] local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
+	"peer <A.B.C.D|X:X::X:X> [{multihop|local-address <A.B.C.D|X:X::X:X>|interface IFNAME|vrf NAME}]",
 	PEER_STR PEER_IPV4_STR PEER_IPV6_STR
 	MHOP_STR
 	LOCAL_STR LOCAL_IPV4_STR LOCAL_IPV6_STR
@@ -125,15 +125,6 @@ DEFUN_NOSH(
 	idx = 0;
 	if (argv_find(argv, argc, "vrf", &idx))
 		vrfname = argv[idx + 1]->arg;
-
-	if (vrfname && ifname) {
-		vty_out(vty, "%% VRF is not mixable with interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (vrfname && !mhop) {
-		vty_out(vty, "%% VRF only applies with multihop.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	strtosa(peer, &psa);
 	if (local) {
@@ -360,7 +351,7 @@ DEFPY(bfd_no_peer, bfd_no_peer_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (ptm_bfd_ses_del(&bpc) != 0) {
+	if (ptm_bfd_sess_del(&bpc) != 0) {
 		vty_out(vty, "%% Failed to remove peer.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -549,18 +540,45 @@ static void _display_peer_json(struct vty *vty, struct bfd_session *bs)
 	json_object_free(jo);
 }
 
+struct bfd_vrf_tuple {
+	char *vrfname;
+	struct vty *vty;
+	struct json_object *jo;
+};
+
 static void _display_peer_iter(struct hash_bucket *hb, void *arg)
 {
-	struct vty *vty = arg;
+	struct bfd_vrf_tuple *bvt = (struct bfd_vrf_tuple *)arg;
+	struct vty *vty;
 	struct bfd_session *bs = hb->data;
 
+	if (!bvt)
+		return;
+	vty = bvt->vty;
+
+	if (bvt->vrfname) {
+		if (!bs->key.vrfname[0] ||
+		    !strmatch(bs->key.vrfname, bvt->vrfname))
+			return;
+	}
 	_display_peer(vty, bs);
 }
 
 static void _display_peer_json_iter(struct hash_bucket *hb, void *arg)
 {
-	struct json_object *jo = arg, *jon = NULL;
+	struct bfd_vrf_tuple *bvt = (struct bfd_vrf_tuple *)arg;
+	struct json_object *jo, *jon = NULL;
 	struct bfd_session *bs = hb->data;
+
+	if (!bvt)
+		return;
+	jo = bvt->jo;
+
+	if (bvt->vrfname) {
+		if (!bs->key.vrfname[0] ||
+		    !strmatch(bs->key.vrfname, bvt->vrfname))
+			return;
+	}
 
 	jon = __display_peer_json(bs);
 	if (jon == NULL) {
@@ -571,18 +589,24 @@ static void _display_peer_json_iter(struct hash_bucket *hb, void *arg)
 	json_object_array_add(jo, jon);
 }
 
-static void _display_all_peers(struct vty *vty, bool use_json)
+static void _display_all_peers(struct vty *vty, char *vrfname, bool use_json)
 {
 	struct json_object *jo;
+	struct bfd_vrf_tuple bvt;
+
+	memset(&bvt, 0, sizeof(bvt));
+	bvt.vrfname = vrfname;
 
 	if (!use_json) {
+		bvt.vty = vty;
 		vty_out(vty, "BFD Peers:\n");
-		bfd_id_iterate(_display_peer_iter, vty);
+		bfd_id_iterate(_display_peer_iter, &bvt);
 		return;
 	}
 
 	jo = json_object_new_array();
-	bfd_id_iterate(_display_peer_json_iter, jo);
+	bvt.jo = jo;
+	bfd_id_iterate(_display_peer_json_iter, &bvt);
 
 	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
 	json_object_free(jo);
@@ -634,16 +658,38 @@ static void _display_peer_counters_json(struct vty *vty, struct bfd_session *bs)
 
 static void _display_peer_counter_iter(struct hash_bucket *hb, void *arg)
 {
-	struct vty *vty = arg;
+	struct bfd_vrf_tuple *bvt = arg;
+	struct vty *vty;
 	struct bfd_session *bs = hb->data;
+
+	if (!bvt)
+		return;
+	vty = bvt->vty;
+
+	if (bvt->vrfname) {
+		if (!bs->key.vrfname[0] ||
+		    !strmatch(bs->key.vrfname, bvt->vrfname))
+			return;
+	}
 
 	_display_peer_counter(vty, bs);
 }
 
 static void _display_peer_counter_json_iter(struct hash_bucket *hb, void *arg)
 {
-	struct json_object *jo = arg, *jon = NULL;
+	struct json_object *jo, *jon = NULL;
 	struct bfd_session *bs = hb->data;
+	struct bfd_vrf_tuple *bvt = arg;
+
+	if (!bvt)
+		return;
+	jo  = bvt->jo;
+
+	if (bvt->vrfname) {
+		if (!bs->key.vrfname[0] ||
+		    !strmatch(bs->key.vrfname, bvt->vrfname))
+			return;
+	}
 
 	jon = __display_peer_counters_json(bs);
 	if (jon == NULL) {
@@ -654,17 +700,22 @@ static void _display_peer_counter_json_iter(struct hash_bucket *hb, void *arg)
 	json_object_array_add(jo, jon);
 }
 
-static void _display_peers_counter(struct vty *vty, bool use_json)
+static void _display_peers_counter(struct vty *vty, char *vrfname, bool use_json)
 {
 	struct json_object *jo;
+	struct bfd_vrf_tuple bvt;
 
+	memset(&bvt, 0, sizeof(struct bfd_vrf_tuple));
+	bvt.vrfname = vrfname;
 	if (!use_json) {
+		bvt.vty = vty;
 		vty_out(vty, "BFD Peers:\n");
-		bfd_id_iterate(_display_peer_counter_iter, vty);
+		bfd_id_iterate(_display_peer_counter_iter, &bvt);
 		return;
 	}
 
 	jo = json_object_new_array();
+	bvt.jo = jo;
 	bfd_id_iterate(_display_peer_counter_json_iter, jo);
 
 	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
@@ -734,24 +785,31 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 /*
  * Show commands.
  */
-DEFPY(bfd_show_peers, bfd_show_peers_cmd, "show bfd peers [json]",
+DEFPY(bfd_show_peers, bfd_show_peers_cmd, "show bfd [vrf <NAME>] peers [json]",
       SHOW_STR
       "Bidirection Forwarding Detection\n"
+       VRF_CMD_HELP_STR
       "BFD peers status\n" JSON_STR)
 {
-	_display_all_peers(vty, use_json(argc, argv));
+	char *vrf_name = NULL;
+	int idx_vrf = 0;
+
+	if (argv_find(argv, argc, "vrf", &idx_vrf))
+		vrf_name = argv[idx_vrf + 1]->arg;
+
+	_display_all_peers(vty, vrf_name, use_json(argc, argv));
 
 	return CMD_SUCCESS;
 }
 
 DEFPY(bfd_show_peer, bfd_show_peer_cmd,
-      "show bfd peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]> [json]",
+      "show bfd [vrf <NAME$vrfname>] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> [json]",
       SHOW_STR
       "Bidirection Forwarding Detection\n"
+      VRF_CMD_HELP_STR
       "BFD peers status\n"
       "Peer label\n" PEER_IPV4_STR PEER_IPV6_STR MHOP_STR LOCAL_STR
-	      LOCAL_IPV4_STR LOCAL_IPV6_STR INTERFACE_STR LOCAL_INTF_STR VRF_STR
-		      VRF_NAME_STR JSON_STR)
+	      LOCAL_IPV4_STR LOCAL_IPV6_STR INTERFACE_STR LOCAL_INTF_STR JSON_STR)
 {
 	struct bfd_session *bs;
 
@@ -772,9 +830,10 @@ DEFPY(bfd_show_peer, bfd_show_peer_cmd,
 }
 
 DEFPY(bfd_show_peer_counters, bfd_show_peer_counters_cmd,
-      "show bfd peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]> counters [json]",
+      "show bfd [vrf <NAME$vrfname>] peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname}]> counters [json]",
       SHOW_STR
       "Bidirection Forwarding Detection\n"
+      VRF_CMD_HELP_STR
       "BFD peers status\n"
       "Peer label\n"
       PEER_IPV4_STR
@@ -785,8 +844,6 @@ DEFPY(bfd_show_peer_counters, bfd_show_peer_counters_cmd,
       LOCAL_IPV6_STR
       INTERFACE_STR
       LOCAL_INTF_STR
-      VRF_STR
-      VRF_NAME_STR
       "Show BFD peer counters information\n"
       JSON_STR)
 {
@@ -807,14 +864,21 @@ DEFPY(bfd_show_peer_counters, bfd_show_peer_counters_cmd,
 }
 
 DEFPY(bfd_show_peers_counters, bfd_show_peers_counters_cmd,
-      "show bfd peers counters [json]",
+      "show bfd [vrf <NAME>] peers counters [json]",
       SHOW_STR
       "Bidirection Forwarding Detection\n"
+      VRF_CMD_HELP_STR
       "BFD peers status\n"
       "Show BFD peer counters information\n"
       JSON_STR)
 {
-	_display_peers_counter(vty, use_json(argc, argv));
+	char *vrf_name = NULL;
+	int idx_vrf = 0;
+
+	if (argv_find(argv, argc, "vrf", &idx_vrf))
+		vrf_name = argv[idx_vrf + 1]->arg;
+
+	_display_peers_counter(vty, vrf_name, use_json(argc, argv));
 
 	return CMD_SUCCESS;
 }

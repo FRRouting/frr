@@ -74,6 +74,7 @@ void ospf6_bfd_reg_dereg_nbr(struct ospf6_neighbor *on, int command)
 	struct interface *ifp = oi->interface;
 	struct bfd_info *bfd_info;
 	char src[64];
+	int cbit;
 
 	if (!oi->bfd_info || !on->bfd_info)
 		return;
@@ -85,9 +86,11 @@ void ospf6_bfd_reg_dereg_nbr(struct ospf6_neighbor *on, int command)
 			   bfd_get_command_dbg_str(command), src);
 	}
 
+	cbit = CHECK_FLAG(bfd_info->flags, BFD_FLAG_BFD_CBIT_ON);
+
 	bfd_peer_sendmsg(zclient, bfd_info, AF_INET6, &on->linklocal_addr,
-			 on->ospf6_if->linklocal_addr, ifp->name, 0, 0, command,
-			 0, VRF_DEFAULT);
+			 on->ospf6_if->linklocal_addr, ifp->name, 0, 0,
+			 cbit, command, 0, VRF_DEFAULT);
 
 	if (command == ZEBRA_BFD_DEST_DEREGISTER)
 		bfd_info_free((struct bfd_info **)&on->bfd_info);
@@ -151,7 +154,7 @@ static int ospf6_bfd_nbr_replay(ZAPI_CALLBACK_ARGS)
 		zlog_debug("Zebra: BFD Dest replay request");
 
 	/* Send the client registration */
-	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
+	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, vrf_id);
 
 	/* Replay the neighbor, if BFD is enabled on the interface*/
 	FOR_ALL_INTERFACES (vrf, ifp) {
@@ -195,7 +198,8 @@ static int ospf6_bfd_interface_dest_update(ZAPI_CALLBACK_ARGS)
 	struct bfd_info *bfd_info;
 	struct timeval tv;
 
-	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &status, vrf_id);
+	ifp = bfd_get_peer_info(zclient->ibuf, &dp, &sp, &status,
+				NULL, vrf_id);
 
 	if ((ifp == NULL) || (dp.family != AF_INET6))
 		return 0;

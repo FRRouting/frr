@@ -76,7 +76,7 @@ static zebra_fec_t *fec_add(struct route_table *table, struct prefix *p,
 			    uint32_t label_index);
 static int fec_del(zebra_fec_t *fec);
 
-static unsigned int label_hash(void *p);
+static unsigned int label_hash(const void *p);
 static bool label_cmp(const void *p1, const void *p2);
 static int nhlfe_nexthop_active_ipv4(zebra_nhlfe_t *nhlfe,
 				     struct nexthop *nexthop);
@@ -577,7 +577,7 @@ static int fec_del(zebra_fec_t *fec)
 /*
  * Hash function for label.
  */
-static unsigned int label_hash(void *p)
+static unsigned int label_hash(const void *p)
 {
 	const zebra_ile_t *ile = p;
 
@@ -2874,7 +2874,11 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 					ifp = if_lookup_by_index_per_ns(
 							zns,
 							nexthop->ifindex);
-					vty_out(vty, "%15s", ifp->name);
+					if (ifp)
+						vty_out(vty, "%15s", ifp->name);
+					else
+						vty_out(vty, "%15s", "Null");
+
 					break;
 				}
 				case NEXTHOP_TYPE_IPV4:
@@ -2999,11 +3003,30 @@ int zebra_mpls_write_label_block_config(struct vty *vty, struct zebra_vrf *zvrf)
 /*
  * Called when VRF becomes inactive, cleans up information but keeps
  * the table itself.
- * NOTE: Currently supported only for default VRF.
  */
 void zebra_mpls_cleanup_tables(struct zebra_vrf *zvrf)
 {
-	hash_iterate(zvrf->lsp_table, lsp_uninstall_from_kernel, NULL);
+	struct zebra_vrf *def_zvrf;
+	afi_t afi;
+
+	if (zvrf_id(zvrf) == VRF_DEFAULT)
+		hash_iterate(zvrf->lsp_table, lsp_uninstall_from_kernel, NULL);
+	else {
+		/*
+		 * For other vrfs, we try to remove associated LSPs; we locate
+		 * the LSPs in the default vrf.
+		 */
+		def_zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+
+		/* At shutdown, the default may be gone already */
+		if (def_zvrf == NULL)
+			return;
+
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			if (zvrf->label[afi] != MPLS_LABEL_NONE)
+				lsp_uninstall(def_zvrf, zvrf->label[afi]);
+		}
+	}
 }
 
 /*

@@ -48,6 +48,8 @@ struct bfd_gbl {
 #define BFD_FLAG_PARAM_CFG (1 << 0) /* parameters have been configured */
 #define BFD_FLAG_BFD_REG   (1 << 1) /* Peer registered with BFD */
 #define BFD_FLAG_BFD_TYPE_MULTIHOP (1 << 2) /* Peer registered with BFD as multihop */
+#define BFD_FLAG_BFD_CBIT_ON (1 << 3) /* Peer registered with CBIT set to on */
+#define BFD_FLAG_BFD_CHECK_CONTROLPLANE (1 << 4) /* BFD and controlplane daemon are linked */
 
 #define BFD_STATUS_UNKNOWN (1 << 0) /* BFD session status never received */
 #define BFD_STATUS_DOWN    (1 << 1) /* BFD session status is down */
@@ -83,13 +85,14 @@ extern void bfd_set_param(struct bfd_info **bfd_info, uint32_t min_rx,
 			  int *command);
 extern void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
 			     int family, void *dst_ip, void *src_ip,
-			     char *if_name, int ttl, int multihop, int command,
-			     int set_flag, vrf_id_t vrf_id);
+			     char *if_name, int ttl, int multihop, int cbit,
+			     int command, int set_flag, vrf_id_t vrf_id);
 
 extern const char *bfd_get_command_dbg_str(int command);
 
 extern struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 					   struct prefix *sp, int *status,
+					   int *remote_cbit,
 					   vrf_id_t vrf_id);
 
 const char *bfd_get_status_str(int status);
@@ -102,7 +105,8 @@ extern void bfd_show_info(struct vty *vty, struct bfd_info *bfd_info,
 			  int multihop, int extra_space, bool use_json,
 			  json_object *json_obj);
 
-extern void bfd_client_sendmsg(struct zclient *zclient, int command);
+extern void bfd_client_sendmsg(struct zclient *zclient, int command,
+			       vrf_id_t vrf_id);
 
 extern void bfd_gbl_init(void);
 

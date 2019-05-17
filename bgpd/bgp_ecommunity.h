@@ -22,6 +22,7 @@
 #define _QUAGGA_BGP_ECOMMUNITY_H
 
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgpd.h"
 
 /* High-order octet of the Extended Communities type field.  */
 #define ECOMMUNITY_ENCODE_AS                0x00
@@ -162,7 +163,7 @@ extern struct ecommunity *ecommunity_uniq_sort(struct ecommunity *);
 extern struct ecommunity *ecommunity_intern(struct ecommunity *);
 extern bool ecommunity_cmp(const void *arg1, const void *arg2);
 extern void ecommunity_unintern(struct ecommunity **);
-extern unsigned int ecommunity_hash_make(void *);
+extern unsigned int ecommunity_hash_make(const void *);
 extern struct ecommunity *ecommunity_str2com(const char *, int, int);
 extern char *ecommunity_ecom2str(struct ecommunity *, int, int);
 extern void ecommunity_strfree(char **s);

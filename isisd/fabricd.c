@@ -108,9 +108,9 @@ static void neighbor_lists_clear(struct fabricd *f)
 	hash_clean(f->neighbors_neighbors, neighbor_entry_del_void);
 }
 
-static unsigned neighbor_entry_hash_key(void *np)
+static unsigned neighbor_entry_hash_key(const void *np)
 {
-	struct neighbor_entry *n = np;
+	const struct neighbor_entry *n = np;
 
 	return jhash(n->id, sizeof(n->id), 0x55aa5a5a);
 }

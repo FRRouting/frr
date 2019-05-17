@@ -135,12 +135,12 @@ void zebra_pbr_rules_free(void *arg)
 	XFREE(MTYPE_TMP, rule);
 }
 
-uint32_t zebra_pbr_rules_hash_key(void *arg)
+uint32_t zebra_pbr_rules_hash_key(const void *arg)
 {
-	struct zebra_pbr_rule *rule;
+	const struct zebra_pbr_rule *rule;
 	uint32_t key;
 
-	rule = (struct zebra_pbr_rule *)arg;
+	rule = arg;
 	key = jhash_3words(rule->rule.seq, rule->rule.priority,
 			   rule->rule.action.table,
 			   prefix_hash_key(&rule->rule.filter.src_ip));
@@ -250,9 +250,9 @@ void zebra_pbr_ipset_free(void *arg)
 	XFREE(MTYPE_TMP, ipset);
 }
 
-uint32_t zebra_pbr_ipset_hash_key(void *arg)
+uint32_t zebra_pbr_ipset_hash_key(const void *arg)
 {
-	struct zebra_pbr_ipset *ipset = (struct zebra_pbr_ipset *)arg;
+	const struct zebra_pbr_ipset *ipset = arg;
 	uint32_t *pnt = (uint32_t *)&ipset->ipset_name;
 	uint32_t key = jhash_1word(ipset->vrf_id, 0x63ab42de);
 
@@ -290,12 +290,12 @@ void zebra_pbr_ipset_entry_free(void *arg)
 	XFREE(MTYPE_TMP, ipset);
 }
 
-uint32_t zebra_pbr_ipset_entry_hash_key(void *arg)
+uint32_t zebra_pbr_ipset_entry_hash_key(const void *arg)
 {
-	struct zebra_pbr_ipset_entry *ipset;
+	const struct zebra_pbr_ipset_entry *ipset;
 	uint32_t key;
 
-	ipset = (struct zebra_pbr_ipset_entry *)arg;
+	ipset = arg;
 	key = prefix_hash_key(&ipset->src);
 	key = jhash_1word(ipset->unique, key);
 	key = jhash_1word(prefix_hash_key(&ipset->dst), key);
@@ -359,9 +359,9 @@ void zebra_pbr_iptable_free(void *arg)
 	XFREE(MTYPE_TMP, iptable);
 }
 
-uint32_t zebra_pbr_iptable_hash_key(void *arg)
+uint32_t zebra_pbr_iptable_hash_key(const void *arg)
 {
-	struct zebra_pbr_iptable *iptable = (struct zebra_pbr_iptable *)arg;
+	const struct zebra_pbr_iptable *iptable = arg;
 	uint32_t *pnt = (uint32_t *)&(iptable->ipset_name);
 	uint32_t key;
 

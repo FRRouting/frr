@@ -48,6 +48,7 @@ DECLARE_MTYPE(BFDD_LABEL);
 DECLARE_MTYPE(BFDD_CONTROL);
 DECLARE_MTYPE(BFDD_SESSION_OBSERVER);
 DECLARE_MTYPE(BFDD_NOTIFICATION);
+DECLARE_MTYPE(BFDD_VRF);
 
 struct bfd_timers {
 	uint32_t desired_min_tx;
@@ -128,6 +129,12 @@ struct bfd_echo_pkt {
 			flags |= (val & 0x3) << 6;                             \
 	}
 #define BFD_GETSTATE(flags) ((flags >> 6) & 0x3)
+#define BFD_SETCBIT(flags, val)                                                \
+	{                                                                      \
+		if ((val))                                                     \
+			flags |= val;                                          \
+	}
+#define BFD_GETCBIT(flags) (flags & BFD_FBIT)
 #define BFD_ECHO_VERSION 1
 #define BFD_ECHO_PKT_LEN sizeof(struct bfd_echo_pkt)
 
@@ -167,6 +174,7 @@ enum bfd_session_flags {
 						 */
 	BFD_SESS_FLAG_SHUTDOWN = 1 << 7,	/* disable BGP peer function */
 	BFD_SESS_FLAG_CONFIG = 1 << 8,	/* Session configured with bfd NB API */
+	BFD_SESS_FLAG_CBIT = 1 << 9,	/* CBIT is set */
 };
 
 #define BFD_SET_FLAG(field, flag) (field |= flag)
@@ -209,6 +217,7 @@ struct bfd_session {
 	uint8_t detect_mult;
 	uint8_t remote_detect_mult;
 	uint8_t mh_ttl;
+	uint8_t remote_cbit;
 
 	/* Timers */
 	struct bfd_timers timers;
@@ -379,15 +388,19 @@ int control_accept(struct thread *t);
  *
  * Daemon specific code.
  */
-struct bfd_global {
+struct bfd_vrf_global {
 	int bg_shop;
 	int bg_mhop;
 	int bg_shop6;
 	int bg_mhop6;
 	int bg_echo;
 	int bg_echov6;
-	struct thread *bg_ev[6];
+	struct vrf *vrf;
 
+	struct thread *bg_ev[6];
+};
+
+struct bfd_global {
 	int bg_csock;
 	struct thread *bg_csockev;
 	struct bcslist bg_bcslist;
@@ -395,6 +408,8 @@ struct bfd_global {
 	struct pllist bg_pllist;
 
 	struct obslist bg_obslist;
+
+	struct zebra_privs_t bfdd_privs;
 };
 extern struct bfd_global bglobal;
 extern struct bfd_diag_str_list diag_list[];
@@ -459,14 +474,14 @@ int bp_set_tosv6(int sd, uint8_t value);
 int bp_set_tos(int sd, uint8_t value);
 int bp_bind_dev(int sd, const char *dev);
 
-int bp_udp_shop(void);
-int bp_udp_mhop(void);
-int bp_udp6_shop(void);
-int bp_udp6_mhop(void);
+int bp_udp_shop(vrf_id_t vrf_id);
+int bp_udp_mhop(vrf_id_t vrf_id);
+int bp_udp6_shop(vrf_id_t vrf_id);
+int bp_udp6_mhop(vrf_id_t vrf_id);
 int bp_peer_socket(const struct bfd_session *bs);
 int bp_peer_socketv6(const struct bfd_session *bs);
-int bp_echo_socket(void);
-int bp_echov6_socket(void);
+int bp_echo_socket(vrf_id_t vrf_id);
+int bp_echov6_socket(vrf_id_t vrf_id);
 
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit);
 void ptm_bfd_echo_snd(struct bfd_session *bfd);
@@ -505,9 +520,9 @@ void bfd_echo_xmttimer_assign(struct bfd_session *bs, bfd_ev_cb cb);
 int bfd_session_enable(struct bfd_session *bs);
 void bfd_session_disable(struct bfd_session *bs);
 struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc);
-int ptm_bfd_ses_del(struct bfd_peer_cfg *bpc);
-void ptm_bfd_ses_dn(struct bfd_session *bfd, uint8_t diag);
-void ptm_bfd_ses_up(struct bfd_session *bfd);
+int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc);
+void ptm_bfd_sess_dn(struct bfd_session *bfd, uint8_t diag);
+void ptm_bfd_sess_up(struct bfd_session *bfd);
 void ptm_bfd_echo_stop(struct bfd_session *bfd);
 void ptm_bfd_echo_start(struct bfd_session *bfd);
 void ptm_bfd_xmt_TO(struct bfd_session *bfd, int fbit);
@@ -539,6 +554,9 @@ void bs_to_bpc(struct bfd_session *bs, struct bfd_peer_cfg *bpc);
 /* BFD hash data structures interface */
 void bfd_initialize(void);
 void bfd_shutdown(void);
+void bfd_vrf_init(void);
+void bfd_vrf_terminate(void);
+struct bfd_vrf_global *bfd_vrf_look_by_session(struct bfd_session *bfd);
 struct bfd_session *bfd_id_lookup(uint32_t id);
 struct bfd_session *bfd_key_lookup(struct bfd_key key);
 
@@ -576,6 +594,10 @@ void bfdd_vty_init(void);
  */
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv);
 void bfdd_zclient_stop(void);
+void bfdd_zclient_unregister(vrf_id_t vrf_id);
+void bfdd_zclient_register(vrf_id_t vrf_id);
+void bfdd_sessions_enable_vrf(struct vrf *vrf);
+void bfdd_sessions_disable_vrf(struct vrf *vrf);
 
 int ptm_bfd_notify(struct bfd_session *bs);
 
