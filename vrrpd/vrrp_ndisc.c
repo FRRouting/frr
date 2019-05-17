@@ -139,7 +139,10 @@ static int vrrp_ndisc_una_build(struct interface *ifp, struct ipaddr *ip,
 	ph.dst = ip6h->ip6_dst;
 	ph.ulpl = htonl(len);
 	ph.next_hdr = IPPROTO_ICMPV6;
-	icmp6h->icmp6_cksum = in_cksum_with_ph6(&ph, (void *)icmp6h, len);
+
+	/* Suppress static analysis warnings about accessing icmp6 oob */
+	void *offset = icmp6h;
+	icmp6h->icmp6_cksum = in_cksum_with_ph6(&ph, offset, len);
 
 	return 0;
 }

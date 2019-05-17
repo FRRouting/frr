@@ -124,13 +124,21 @@ void vrrp_garp_send(struct vrrp_router *r, struct in_addr *v4)
 	if (ifp->flags & IFF_NOARP) {
 		zlog_warn(
 			VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
-			"Unable to send gratuitous ARP on %s; has IFF_NOARP\n",
+			"Unable to send gratuitous ARP on %s; has IFF_NOARP",
 			r->vr->vrid, family2str(r->family), ifp->name);
 		return;
 	}
 
 	/* Build garp */
 	garpbuf_len = vrrp_build_garp(garpbuf, ifp, v4);
+
+	if (garpbuf_len < 0) {
+		zlog_warn(
+			VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
+			"Unable to send gratuitous ARP on %s; MAC address unknown",
+			r->vr->vrid, family2str(r->family), ifp->name);
+		return;
+	};
 
 	/* Send garp */
 	inet_ntop(AF_INET, v4, astr, sizeof(astr));

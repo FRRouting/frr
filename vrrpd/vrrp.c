@@ -763,7 +763,7 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 
 	const char *group = r->family == AF_INET ? VRRP_MCASTV4_GROUP_STR
 						 : VRRP_MCASTV6_GROUP_STR;
-	str2sockunion(group, &dest);
+	(void)str2sockunion(group, &dest);
 
 	ssize_t sent = sendto(r->sock_tx, pkt, (size_t)pktsz, 0, &dest.sa,
 			      sockunion_sizeof(&dest));
@@ -969,7 +969,7 @@ static int vrrp_read(struct thread *thread)
 	uint8_t control[64];
 	struct ipaddr src = {};
 
-	struct msghdr m;
+	struct msghdr m = {};
 	struct iovec iov;
 
 	iov.iov_base = r->ibuf;
@@ -1384,7 +1384,6 @@ static void vrrp_change_state_backup(struct vrrp_router *r)
  */
 static void vrrp_change_state_initialize(struct vrrp_router *r)
 {
-	r->vr->advertisement_interval = r->vr->advertisement_interval;
 	r->master_adver_interval = 0;
 	vrrp_recalculate_timers(r);
 
