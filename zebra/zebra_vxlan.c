@@ -143,7 +143,6 @@ static zebra_l3vni_t *zl3vni_lookup(vni_t vni);
 static void *zl3vni_alloc(void *p);
 static zebra_l3vni_t *zl3vni_add(vni_t vni, vrf_id_t vrf_id);
 static int zl3vni_del(zebra_l3vni_t *zl3vni);
-static zebra_l3vni_t *zl3vni_from_vrf(vrf_id_t);
 static struct interface *zl3vni_map_to_svi_if(zebra_l3vni_t *zl3vni);
 static struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni);
 static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni);
@@ -4842,7 +4841,7 @@ static struct interface *zl3vni_map_to_svi_if(zebra_l3vni_t *zl3vni)
 	return zvni_map_to_svi(vxl->access_vlan, zif->brslave_info.br_if);
 }
 
-static zebra_l3vni_t *zl3vni_from_vrf(vrf_id_t vrf_id)
+zebra_l3vni_t *zl3vni_from_vrf(vrf_id_t vrf_id)
 {
 	struct zebra_vrf *zvrf = NULL;
 
