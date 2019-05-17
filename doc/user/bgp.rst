@@ -1862,10 +1862,11 @@ address-family:
 .. index:: label vpn export (0..1048575)|auto
 .. clicmd:: label vpn export (0..1048575)|auto
 
-   Enables an MPLS label to be attached to a route exported from the current unicast VRF to VPN. 
-   If label is specified as auto, the label value is automatically assigned from a pool maintained by the zebra daemon. 
-   If zebra is not running, or if this command is not configured, automatic label assignment will not complete, which 
-   will block corresponding route export.
+   Enables an MPLS label to be attached to a route exported from the current 
+   unicast VRF to VPN. If label is specified as auto, the label value is 
+   automatically assigned from a pool maintained by the zebra daemon. 
+   If zebra is not running, or if this command is not configured, automatic 
+   label assignment will not complete, which will block corresponding route export.
 
 .. index:: no label vpn export [(0..1048575)|auto]
 .. clicmd:: no label vpn export [(0..1048575)|auto]
