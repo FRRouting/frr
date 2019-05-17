@@ -580,4 +580,67 @@ int zfpm_netlink_encode_route(int cmd, rib_dest_t *dest, struct route_entry *re,
 	return netlink_route_info_encode(ri, in_buf, in_buf_len);
 }
 
+/*
+ * zfpm_netlink_encode_mac
+ *
+ * Create a netlink message corresponding to the given MAC.
+ *
+ * Returns the number of bytes written to the buffer. 0 or a negative
+ * value indicates an error.
+ */
+int zfpm_netlink_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
+			    size_t in_buf_len)
+{
+	char buf1[ETHER_ADDR_STRLEN];
+	size_t buf_offset;
+
+	struct {
+		struct nlmsghdr hdr;
+		struct ndmsg ndm;
+		char buf[0];
+	} *req;
+	req = (void *)in_buf;
+
+	buf_offset = ((char *)req->buf) - ((char *)req);
+	if (in_buf_len < buf_offset)
+		return 0;
+	memset(req, 0, buf_offset);
+
+	/* Construct nlmsg header */
+	req->hdr.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
+	req->hdr.nlmsg_type = CHECK_FLAG(mac->fpm_flags, ZEBRA_MAC_DELETE_FPM) ?
+				RTM_DELNEIGH : RTM_NEWNEIGH;
+	req->hdr.nlmsg_flags = NLM_F_REQUEST;
+	if (req->hdr.nlmsg_type == RTM_NEWNEIGH)
+		req->hdr.nlmsg_flags |= (NLM_F_CREATE | NLM_F_REPLACE);
+
+	/* Construct ndmsg */
+	req->ndm.ndm_family = AF_BRIDGE;
+	req->ndm.ndm_ifindex = mac->vxlan_if;
+
+	req->ndm.ndm_state = NUD_REACHABLE;
+	req->ndm.ndm_flags |= NTF_SELF | NTF_MASTER;
+	if (CHECK_FLAG(mac->zebra_flags,
+		(ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW)))
+		req->ndm.ndm_state |= NUD_NOARP;
+	else
+		req->ndm.ndm_flags |= NTF_EXT_LEARNED;
+
+	/* Add attributes */
+	addattr_l(&req->hdr, in_buf_len, NDA_LLADDR, &mac->macaddr, 6);
+	addattr_l(&req->hdr, in_buf_len, NDA_DST, &mac->r_vtep_ip, 4);
+	addattr32(&req->hdr, in_buf_len, NDA_MASTER, mac->svi_if);
+	addattr32(&req->hdr, in_buf_len, NDA_VNI, mac->vni);
+
+	assert(req->hdr.nlmsg_len < in_buf_len);
+
+	zfpm_debug("Tx %s family %s ifindex %u MAC %s DEST %s",
+		   nl_msg_type_to_str(req->hdr.nlmsg_type),
+		   nl_family_to_str(req->ndm.ndm_family), req->ndm.ndm_ifindex,
+		   prefix_mac2str(&mac->macaddr, buf1, sizeof(buf1)),
+		   inet_ntoa(mac->r_vtep_ip));
+
+	return req->hdr.nlmsg_len;
+}
+
 #endif /* HAVE_NETLINK */
