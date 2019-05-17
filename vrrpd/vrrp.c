@@ -2323,9 +2323,9 @@ int vrrp_config_write_global(struct vty *vty)
 	return writes;
 }
 
-static unsigned int vrrp_hash_key(void *arg)
+static unsigned int vrrp_hash_key(const void *arg)
 {
-	struct vrrp_vrouter *vr = arg;
+	const struct vrrp_vrouter *vr = arg;
 	char key[IFNAMSIZ + 64];
 
 	snprintf(key, sizeof(key), "%s@%" PRIu8, vr->ifp->name, vr->vrid);
