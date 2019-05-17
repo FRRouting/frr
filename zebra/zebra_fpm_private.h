@@ -92,6 +92,9 @@ extern int zfpm_netlink_encode_route(int cmd, rib_dest_t *dest,
 extern int zfpm_protobuf_encode_route(rib_dest_t *dest, struct route_entry *re,
 				      uint8_t *in_buf, size_t in_buf_len);
 
+extern int zfpm_netlink_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
+				   size_t in_buf_len);
+
 extern struct route_entry *zfpm_route_for_update(rib_dest_t *dest);
 
 #ifdef __cplusplus

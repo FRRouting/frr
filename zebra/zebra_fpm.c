@@ -1052,6 +1052,11 @@ static inline int zfpm_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
 	case ZFPM_MSG_FORMAT_NONE:
 		break;
 	case ZFPM_MSG_FORMAT_NETLINK:
+#ifdef HAVE_NETLINK
+		len = zfpm_netlink_encode_mac(mac, in_buf, in_buf_len);
+		assert(fpm_msg_align(len) == len);
+		*msg_type = FPM_MSG_TYPE_NETLINK;
+#endif /* HAVE_NETLINK */
 		break;
 	case ZFPM_MSG_FORMAT_PROTOBUF:
 		break;
@@ -1100,7 +1105,7 @@ static int zfpm_build_mac_updates(void)
 		data = fpm_msg_data(hdr);
 		data_len = zfpm_encode_mac(mac, (char *)data, buf_end - data,
 						&msg_type);
-		/* assert(data_len); */
+		assert(data_len);
 
 		hdr->msg_type = msg_type;
 		msg_len = fpm_data_len_to_msg_len(data_len);
