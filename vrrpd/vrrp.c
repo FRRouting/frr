@@ -308,7 +308,7 @@ void vrrp_check_start(struct vrrp_vrouter *vr)
 	/* Must not already be started */
 	start = r->fsm.state == VRRP_STATE_INITIALIZE;
 	/* Must not be v2 */
-	start = vr->version != 2;
+	start = start && vr->version != 2;
 	whynot = (!start && !whynot) ? "VRRPv2 does not support v6" : NULL;
 	/* Must have a parent interface */
 	start = start && (vr->ifp != NULL);
@@ -1128,6 +1128,7 @@ static int vrrp_socket(struct vrrp_router *r)
 		       r->vr->vrid, family2str(r->family));
 
 		/* Join Rx socket to VRRP IPv4 multicast group */
+		assert(listhead(r->vr->ifp->connected));
 		struct connected *c = listhead(r->vr->ifp->connected)->data;
 		struct in_addr v4 = c->address->u.prefix4;
 
@@ -1526,6 +1527,7 @@ static int vrrp_startup(struct vrrp_router *r)
 	thread_add_read(master, vrrp_read, r, r->sock_rx, &r->t_read);
 
 	/* Configure effective priority */
+	assert(listhead(r->addrs));
 	struct ipaddr *primary = (struct ipaddr *)listhead(r->addrs)->data;
 	char ipbuf[INET6_ADDRSTRLEN];
 
