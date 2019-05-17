@@ -770,6 +770,13 @@ void zebra_import_table_rm_update(const char *rmap)
 				continue;
 			table = zebra_vrf_table_with_table_id(afi, SAFI_UNICAST,
 							      i, VRF_DEFAULT);
+			if (!table) {
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+					zlog_debug("%s: Table id=%d not found",
+						   __func__, i);
+				continue;
+			}
+
 			for (rn = route_top(table); rn; rn = route_next(rn)) {
 				/* For each entry in the non-default
 				 * routing table,
