@@ -109,6 +109,7 @@ void frrstr_strvec_free(vector v);
  *    the replacement on 'str'. This must be freed by the caller.
  */
 char *frrstr_replace(const char *str, const char *find, const char *replace);
+
 /*
  * Prefix match for string.
  *
@@ -119,9 +120,23 @@ char *frrstr_replace(const char *str, const char *find, const char *replace);
  *    prefix to look for
  *
  * Returns:
- *   true str starts with prefix, false otherwise
+ *   true if str starts with prefix, false otherwise
  */
-bool begins_with(const char *str, const char *prefix);
+bool frrstr_startswith(const char *str, const char *prefix);
+
+/*
+ * Suffix match for string.
+ *
+ * str
+ *    string to check for suffix match
+ *
+ * suffix
+ *    suffix to look for
+ *
+ * Returns:
+ *   true if str ends with suffix, false otherwise
+ */
+bool frrstr_endswith(const char *str, const char *suffix);
 
 /*
  * Check the string only contains digit characters.

@@ -3347,7 +3347,7 @@ static void vtysh_update_all_instances(struct vtysh_client *head_client)
 	dir = opendir(vtydir);
 	if (dir) {
 		while ((file = readdir(dir)) != NULL) {
-			if (begins_with(file->d_name, "ospfd-")
+			if (frrstr_startswith(file->d_name, "ospfd-")
 			    && ends_with(file->d_name, ".vty")) {
 				if (n == MAXIMUM_INSTANCES) {
 					fprintf(stderr,
