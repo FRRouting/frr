@@ -6863,6 +6863,13 @@ static void route_vty_short_status_out(struct vty *vty,
 		vty_out(vty, " ");
 }
 
+static char *bgp_nexthop_fqdn(struct peer *peer)
+{
+	if (peer->hostname && bgp_flag_check(peer->bgp, BGP_FLAG_SHOW_HOSTNAME))
+		return peer->hostname;
+	return NULL;
+}
+
 /* called from terminal list command */
 void route_vty_out(struct vty *vty, struct prefix *p,
 		   struct bgp_path_info *path, int display, safi_t safi,
@@ -6879,6 +6886,7 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 	bool nexthop_othervrf = false;
 	vrf_id_t nexthop_vrfid = VRF_DEFAULT;
 	const char *nexthop_vrfname = VRF_DEFAULT_NAME;
+	char *nexthop_fqdn = bgp_nexthop_fqdn(path->peer);
 
 	if (json_paths)
 		json_path = json_object_new_object();
@@ -6974,42 +6982,58 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 		if (json_paths) {
 			json_nexthop_global = json_object_new_object();
 
-			json_object_string_add(json_nexthop_global, "afi",
-					       (af == AF_INET) ? "ip" : "ipv6");
-			json_object_string_add(json_nexthop_global,
-					       (af == AF_INET) ? "ip" : "ipv6",
-					       nexthop);
+			json_object_string_add(
+				json_nexthop_global, "afi",
+				nexthop_fqdn ? "fqdn"
+					     : (af == AF_INET) ? "ip" : "ipv6");
+			json_object_string_add(
+				json_nexthop_global,
+				nexthop_fqdn ? "fqdn"
+					     : (af == AF_INET) ? "ip" : "ipv6",
+				nexthop_fqdn ? nexthop_fqdn : nexthop);
 			json_object_boolean_true_add(json_nexthop_global,
 						     "used");
 		} else
-			vty_out(vty, "%s%s", nexthop, vrf_id_str);
+			vty_out(vty, "%s%s",
+				nexthop_fqdn ? nexthop_fqdn : nexthop,
+				vrf_id_str);
 	} else if (safi == SAFI_EVPN) {
 		if (json_paths) {
 			json_nexthop_global = json_object_new_object();
 
-			json_object_string_add(json_nexthop_global, "ip",
-					       inet_ntoa(attr->nexthop));
+			json_object_string_add(
+				json_nexthop_global,
+				nexthop_fqdn ? "fqdn" : "ip",
+				nexthop_fqdn ? nexthop_fqdn
+					     : inet_ntoa(attr->nexthop));
 			json_object_string_add(json_nexthop_global, "afi",
 					       "ipv4");
 			json_object_boolean_true_add(json_nexthop_global,
 						     "used");
 		} else
-			vty_out(vty, "%-16s%s", inet_ntoa(attr->nexthop),
+			vty_out(vty, "%-16s%s",
+				nexthop_fqdn ?: inet_ntoa(attr->nexthop),
 				vrf_id_str);
 	} else if (safi == SAFI_FLOWSPEC) {
 		if (attr->nexthop.s_addr != 0) {
 			if (json_paths) {
 				json_nexthop_global = json_object_new_object();
 				json_object_string_add(
-					       json_nexthop_global, "ip",
-					       inet_ntoa(attr->nexthop));
+					json_nexthop_global,
+					nexthop_fqdn ? "fqdn" : "ip",
+					nexthop_fqdn
+						? nexthop_fqdn
+						: inet_ntoa(attr->nexthop));
 				json_object_string_add(json_nexthop_global,
 						       "afi", "ipv4");
 				json_object_boolean_true_add(
 							json_nexthop_global,
 							     "used");
 			} else {
-				vty_out(vty, "%-16s", inet_ntoa(attr->nexthop));
+				vty_out(vty, "%-16s",
+					nexthop_fqdn
+						? nexthop_fqdn
+						: inet_ntoa(attr->nexthop));
 			}
 		}
 	} else if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
@@ -7018,12 +7042,19 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 
 			if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_EVPN))
 				json_object_string_add(
-					json_nexthop_global, "ip",
-					inet_ntoa(attr->mp_nexthop_global_in));
+					json_nexthop_global,
+					nexthop_fqdn ? "fqdn" : "ip",
+					nexthop_fqdn
+						? nexthop_fqdn
+						: inet_ntoa(
+							  attr->mp_nexthop_global_in));
 			else
 				json_object_string_add(
-					json_nexthop_global, "ip",
-					inet_ntoa(attr->nexthop));
+					json_nexthop_global,
+					nexthop_fqdn ? "fqdn" : "ip",
+					nexthop_fqdn
+						? nexthop_fqdn
+						: inet_ntoa(attr->nexthop));
 
 			json_object_string_add(json_nexthop_global, "afi",
 					       "ipv4");
@@ -7033,7 +7064,9 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 			char buf[BUFSIZ];
 
 			snprintf(buf, sizeof(buf), "%s%s",
-				inet_ntoa(attr->nexthop), vrf_id_str);
+				 nexthop_fqdn ? nexthop_fqdn
+					      : inet_ntoa(attr->nexthop),
+				 vrf_id_str);
 			vty_out(vty, "%-16s", buf);
 		}
 	}
@@ -7046,9 +7079,13 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 		if (json_paths) {
 			json_nexthop_global = json_object_new_object();
 			json_object_string_add(
-				json_nexthop_global, "ip",
-				inet_ntop(AF_INET6, &attr->mp_nexthop_global,
-					  buf, BUFSIZ));
+				json_nexthop_global,
+				nexthop_fqdn ? "fqdn" : "ip",
+				nexthop_fqdn
+					? nexthop_fqdn
+					: inet_ntop(AF_INET6,
+						    &attr->mp_nexthop_global,
+						    buf, BUFSIZ));
 			json_object_string_add(json_nexthop_global, "afi",
 					       "ipv6");
 			json_object_string_add(json_nexthop_global, "scope",
@@ -7060,10 +7097,14 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 			    || (path->peer->conf_if)) {
 				json_nexthop_ll = json_object_new_object();
 				json_object_string_add(
-					json_nexthop_ll, "ip",
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_local, buf,
-						  BUFSIZ));
+					json_nexthop_ll,
+					nexthop_fqdn ? "fqdn" : "ip",
+					nexthop_fqdn
+						? nexthop_fqdn
+						: inet_ntop(
+							  AF_INET6,
+							  &attr->mp_nexthop_local,
+							  buf, BUFSIZ));
 				json_object_string_add(json_nexthop_ll, "afi",
 						       "ipv6");
 				json_object_string_add(json_nexthop_ll, "scope",
@@ -7102,10 +7143,12 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 				} else {
 					len = vty_out(
 						vty, "%s%s",
-						inet_ntop(
-							AF_INET6,
-							&attr->mp_nexthop_local,
-							buf, BUFSIZ),
+						nexthop_fqdn
+							? nexthop_fqdn
+							: inet_ntop(
+								  AF_INET6,
+								  &attr->mp_nexthop_local,
+								  buf, BUFSIZ),
 						vrf_id_str);
 					len = 16 - len;
 
@@ -7117,10 +7160,13 @@ void route_vty_out(struct vty *vty, struct prefix *p,
 			} else {
 				len = vty_out(
 					vty, "%s%s",
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_global, buf,
-						  BUFSIZ),
-						  vrf_id_str);
+					nexthop_fqdn
+						? nexthop_fqdn
+						: inet_ntop(
+							  AF_INET6,
+							  &attr->mp_nexthop_global,
+							  buf, BUFSIZ),
+					vrf_id_str);
 				len = 16 - len;
 
 				if (len < 1)
@@ -7848,6 +7894,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 	bool nexthop_self =
 		CHECK_FLAG(path->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
 	int i;
+	char *nexthop_fqdn = bgp_nexthop_fqdn(path->peer);
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -7982,21 +8029,33 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 			    || safi == SAFI_EVPN) {
 				if (json_paths)
 					json_object_string_add(
-						json_nexthop_global, "ip",
-						inet_ntoa(
-							attr->mp_nexthop_global_in));
+						json_nexthop_global,
+						nexthop_fqdn ? "fqdn" : "ip",
+						nexthop_fqdn
+							? nexthop_fqdn
+							: inet_ntoa(
+								  attr->mp_nexthop_global_in));
 				else
 					vty_out(vty, "    %s",
-						inet_ntoa(
-							attr->mp_nexthop_global_in));
+						nexthop_fqdn
+							? nexthop_fqdn
+							: inet_ntoa(
+								  attr->mp_nexthop_global_in));
 			} else {
 				if (json_paths)
 					json_object_string_add(
-						json_nexthop_global, "ip",
-						inet_ntoa(attr->nexthop));
+						json_nexthop_global,
+						nexthop_fqdn ? "fqdn" : "ip",
+						nexthop_fqdn
+							? nexthop_fqdn
+							: inet_ntoa(
+								  attr->nexthop));
 				else
 					vty_out(vty, "    %s",
-						inet_ntoa(attr->nexthop));
+						nexthop_fqdn
+							? nexthop_fqdn
+							: inet_ntoa(
+								  attr->nexthop));
 			}
 
 			if (json_paths)
@@ -8005,19 +8064,28 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		} else {
 			if (json_paths) {
 				json_object_string_add(
-					json_nexthop_global, "ip",
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_global, buf,
-						  INET6_ADDRSTRLEN));
+					json_nexthop_global,
+					nexthop_fqdn ? "fqdn" : "ip",
+					nexthop_fqdn
+						? nexthop_fqdn
+						: inet_ntop(
+							  AF_INET6,
+							  &attr->mp_nexthop_global,
+							  buf,
+							  INET6_ADDRSTRLEN));
 				json_object_string_add(json_nexthop_global,
 						       "afi", "ipv6");
 				json_object_string_add(json_nexthop_global,
 						       "scope", "global");
 			} else {
 				vty_out(vty, "    %s",
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_global, buf,
-						  INET6_ADDRSTRLEN));
+					nexthop_fqdn
+						? nexthop_fqdn
+						: inet_ntop(
+							  AF_INET6,
+							  &attr->mp_nexthop_global,
+							  buf,
+							  INET6_ADDRSTRLEN));
 			}
 		}
 
@@ -8199,10 +8267,15 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 			if (json_paths) {
 				json_nexthop_ll = json_object_new_object();
 				json_object_string_add(
-					json_nexthop_ll, "ip",
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_local, buf,
-						  INET6_ADDRSTRLEN));
+					json_nexthop_ll,
+					nexthop_fqdn ? "fqdn" : "ip",
+					nexthop_fqdn
+						? nexthop_fqdn
+						: inet_ntop(
+							  AF_INET6,
+							  &attr->mp_nexthop_local,
+							  buf,
+							  INET6_ADDRSTRLEN));
 				json_object_string_add(json_nexthop_ll, "afi",
 						       "ipv6");
 				json_object_string_add(json_nexthop_ll, "scope",
