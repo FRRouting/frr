@@ -1043,10 +1043,12 @@ void igmp_source_forward_start(struct pim_instance *pim,
 				 * Protect IGMP against adding looped MFC
 				 * entries created by both source and receiver
 				 * attached to the same interface. See TODO
-				 * T22.
+				 * T22. Block only when the intf is non DR
+				 * DR must create upstream.
 				 */
-				if (input_iface_vif_index ==
-				    pim_oif->mroute_vif_index) {
+				if ((input_iface_vif_index ==
+				    pim_oif->mroute_vif_index) &&
+				    !(PIM_I_am_DR(pim_oif))) {
 					/* ignore request for looped MFC entry
 					 */
 					if (PIM_DEBUG_IGMP_TRACE) {
