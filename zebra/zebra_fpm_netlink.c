@@ -224,6 +224,7 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 				   rib_dest_t *dest, struct route_entry *re)
 {
 	struct nexthop *nexthop;
+	struct zebra_vrf *zvrf;
 
 	memset(ri, 0, sizeof(*ri));
 
@@ -231,7 +232,9 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 	ri->af = rib_dest_af(dest);
 
 	ri->nlmsg_type = cmd;
-	ri->rtm_table = zvrf_id(rib_dest_vrf(dest));
+	zvrf = rib_dest_vrf(dest);
+	if (zvrf)
+		ri->rtm_table = zvrf->table_id;
 	ri->rtm_protocol = RTPROT_UNSPEC;
 
 	/*
@@ -327,7 +330,21 @@ static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
 	req->n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
 	req->n.nlmsg_type = ri->nlmsg_type;
 	req->r.rtm_family = ri->af;
-	req->r.rtm_table = ri->rtm_table;
+
+	/*
+	 * rtm_table field is a uchar field which can accomodate table_id less
+	 * than 256.
+	 * To support table id greater than 255, if the table_id is greater than
+	 * 255, set rtm_table to RT_TABLE_UNSPEC and add RTA_TABLE attribute
+	 * with 32 bit value as the table_id.
+	 */
+	if (ri->rtm_table < 256)
+		req->r.rtm_table = ri->rtm_table;
+	else {
+		req->r.rtm_table = RT_TABLE_UNSPEC;
+		addattr32(&req->n, in_buf_len, RTA_TABLE, ri->rtm_table);
+	}
+
 	req->r.rtm_dst_len = ri->prefix->prefixlen;
 	req->r.rtm_protocol = ri->rtm_protocol;
 	req->r.rtm_scope = RT_SCOPE_UNIVERSE;
