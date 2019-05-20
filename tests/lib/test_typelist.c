@@ -25,6 +25,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
+#include <arpa/inet.h>
 
 #define WNO_ATOMLIST_UNSAFE_FIND
 
@@ -33,6 +34,7 @@
 #include "memory.h"
 #include "monotime.h"
 #include "jhash.h"
+#include "sha256.h"
 
 #include "tests/helpers/c/prng.h"
 
@@ -49,6 +51,21 @@
 #define PREDECL(type, ...)	_PREDECL(type, __VA_ARGS__)
 #define _DECLARE(type, ...)	DECLARE_##type(__VA_ARGS__)
 #define DECLARE(type, ...)	_DECLARE(type, __VA_ARGS__)
+
+#define _S_LIST			0
+#define _S_DLIST		0
+#define _S_SORTLIST_UNIQ	1
+#define _S_SORTLIST_NONUNIQ	1
+#define _S_HASH			1
+#define _S_SKIPLIST_UNIQ	1
+#define _S_SKIPLIST_NONUNIQ	1
+#define _S_RBTREE_UNIQ		1
+#define _S_RBTREE_NONUNIQ	1
+#define _S_ATOMSORT_UNIQ	1
+#define _S_ATOMSORT_NONUNIQ	1
+
+#define _IS_SORTED(type)	_S_##type
+#define IS_SORTED(type)		_IS_SORTED(type)
 
 #define _U_SORTLIST_UNIQ	1
 #define _U_SORTLIST_NONUNIQ	0
@@ -97,6 +114,12 @@ static void ts_end(void)
 	printf("%7"PRId64"us  total\n", us);
 }
 
+#define TYPE LIST
+#include "test_typelist.h"
+
+#define TYPE DLIST
+#include "test_typelist.h"
+
 #define TYPE SORTLIST_UNIQ
 #include "test_typelist.h"
 
@@ -134,6 +157,8 @@ int main(int argc, char **argv)
 {
 	srandom(1);
 
+	test_LIST();
+	test_DLIST();
 	test_SORTLIST_UNIQ();
 	test_SORTLIST_NONUNIQ();
 	test_HASH();
