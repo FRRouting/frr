@@ -1034,7 +1034,7 @@ static void do_thread_cancel(struct thread_master *master)
 		if (cr->eventobj) {
 			struct thread *t;
 
-			for_each_safe(thread_list, &master->event, t) {
+			frr_each_safe(thread_list, &master->event, t) {
 				if (t->arg != cr->eventobj)
 					continue;
 				thread_list_del(&master->event, t);
@@ -1043,7 +1043,7 @@ static void do_thread_cancel(struct thread_master *master)
 				thread_add_unuse(master, t);
 			}
 
-			for_each_safe(thread_list, &master->ready, t) {
+			frr_each_safe(thread_list, &master->ready, t) {
 				if (t->arg != cr->eventobj)
 					continue;
 				thread_list_del(&master->ready, t);

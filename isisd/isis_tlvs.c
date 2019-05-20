@@ -3552,7 +3552,7 @@ void isis_tlvs_add_csnp_entries(struct isis_tlvs *tlvs, uint8_t *start_id,
 	if (!first)
 		return;
 
-	for_each_from (lspdb, head, lsp, first) {
+	frr_each_from (lspdb, head, lsp, first) {
 		if (memcmp(lsp->hdr.lsp_id, stop_id, sizeof(lsp->hdr.lsp_id))
 			> 0 || tlvs->lsp_entries.count == num_lsps)
 			break;

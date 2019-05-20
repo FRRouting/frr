@@ -105,7 +105,7 @@ static void ts_hash(const char *text, const char *expect)
 	SHA256_Init(&ctx);
 	SHA256_Update(&ctx, &count, sizeof(count));
 
-	for_each (list, &head, item) {
+	frr_each (list, &head, item) {
 		struct {
 			uint32_t val_upper, val_lower, index;
 		} hashitem = {
@@ -177,7 +177,7 @@ static void concat(test_, TYPE)(void)
 
 	k = 0;
 	prev = NULL;
-	for_each(list, &head, item) {
+	frr_each(list, &head, item) {
 #if IS_HASH(REALTYPE) || IS_HEAP(REALTYPE)
 		/* hash table doesn't give sorting */
 		(void)prev;
@@ -303,7 +303,7 @@ static void concat(test_, TYPE)(void)
 	assert(l + list_count(&head) == k);
 	ts_hashx("del", "cb2e5d80f08a803ef7b56c15e981b681adcea214bebc2f55e12e0bfb242b07ca");
 
-	for_each_safe(list, &head, item) {
+	frr_each_safe(list, &head, item) {
 		assert(item->scratchpad != 0);
 
 		if (item->val & 1) {
@@ -313,7 +313,7 @@ static void concat(test_, TYPE)(void)
 		}
 	}
 	assert(l + list_count(&head) == k);
-	ts_hashx("for_each_safe+del", "e0beb71dd963a75af05b722b8e71b61b304587d860c8accdc4349067542b86bb");
+	ts_hashx("frr_each_safe+del", "e0beb71dd963a75af05b722b8e71b61b304587d860c8accdc4349067542b86bb");
 
 #else /* !IS_SORTED */
 	prng = prng_new(0);

@@ -2258,7 +2258,7 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 		if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
 			isis_tlvs_add_auth(tlvs, passwd);
 
-		for_each (lspdb, &circuit->area->lspdb[level - 1], lsp) {
+		frr_each (lspdb, &circuit->area->lspdb[level - 1], lsp) {
 			if (ISIS_CHECK_FLAG(lsp->SSNflags, circuit))
 				isis_tlvs_add_lsp_entry(tlvs, lsp);
 

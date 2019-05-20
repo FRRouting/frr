@@ -29,17 +29,17 @@ extern "C" {
 
 /* generic macros for all list-like types */
 
-#define for_each(prefix, head, item)                                           \
+#define frr_each(prefix, head, item)                                           \
 	for (item = prefix##_first(head); item;                                \
 			item = prefix##_next(head, item))
-#define for_each_safe(prefix, head, item)                                      \
+#define frr_each_safe(prefix, head, item)                                      \
 	for (typeof(prefix##_next_safe(head, NULL)) prefix##_safe =            \
 			prefix##_next_safe(head,                               \
 				(item = prefix##_first(head)));                \
 		item;                                                          \
 		item = prefix##_safe,                                          \
 			prefix##_safe = prefix##_next_safe(head, prefix##_safe))
-#define for_each_from(prefix, head, item, from)                                \
+#define frr_each_from(prefix, head, item, from)                                \
 	for (item = from, from = prefix##_next_safe(head, item);               \
 		item;                                                          \
 		item = from, from = prefix##_next_safe(head, from))
