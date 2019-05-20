@@ -120,7 +120,6 @@ static bool pm_check_retries(struct pm_echo *pme, uint8_t counter,
 int pm_echo_tmo(struct thread *thread)
 {
 	struct pm_echo *pme = THREAD_ARG(thread);
-	char buf[SU_ADDRSTRLEN];
 	struct pm_session *pm = (struct pm_session *)pme->back_ptr;
 
 	if (pme->echofd < 0)
@@ -133,17 +132,11 @@ int pm_echo_tmo(struct thread *thread)
 	pme->stats_rx_timeout++;
 	if (pm_check_retries(pme, pme->retries_down, false))
 		return 0;
-	if (pme->last_alarm != PM_ECHO_TIMEOUT &&
-	    pme->last_alarm != PM_ECHO_NHT_UNREACHABLE)
-		zlog_info("echo packet to %s timed out",
-			  sockunion2str(&pme->peer, buf, sizeof(buf)));
-	if (pme->last_alarm != PM_ECHO_NHT_UNREACHABLE)
-		pme->last_alarm = PM_ECHO_TIMEOUT;
 	/* reset pme retries context */
 	pme->retry.retry_count = 0;
 	pme->retry.retry_down_in_progress = false;
 	pme->retry.retry_up_in_progress = false;
-	pm_set_sess_state(pm, PM_DOWN);
+	pm_echo_trigger_down_event(pm);
 	return 0;
 }
 
@@ -302,15 +295,7 @@ int pm_echo_receive(struct thread *thread)
 			pme->stats_rx_timeout++;
 		if (pm_check_retries(pme, pme->retries_down, false))
 			return 0;
-		if (pme->last_alarm != PM_ECHO_TIMEOUT) {
-			zlog_info("echo packet to %s timed out",
-				  sockunion2str(&pme->peer,
-						buf, sizeof(buf)));
-		}
-		if (pme->last_alarm != PM_ECHO_NHT_UNREACHABLE) {
-			pme->last_alarm = PM_ECHO_TIMEOUT;
-			pm_set_sess_state(pm, PM_DOWN);
-		}
+		pm_echo_trigger_down_event(pm);
 		return 0;
 	}
 	if (pm_check_retries(pme, pme->retries_up, true))
@@ -690,6 +675,7 @@ int pm_echo_send(struct thread *thread)
 		zlog_err("PMD: error when sending ICMP echo to %s (%x)",
 			 buf, errno);
 		pme->last_errno = errno;
+		pm_echo_trigger_down_event(pm);
 	} else {
 		pme->last_errno = 0;
 		pme->stats_tx++;
@@ -790,7 +776,7 @@ void pm_echo_dump(struct vty *vty, struct pm_session *pm)
 }
 
 /* keep pme session on suspend */
-void pm_echo_trigger_nht_unreachable(struct pm_session *pm)
+void pm_echo_trigger_down_event(struct pm_session *pm)
 {
 	struct pm_echo *pme = pm->oper_ctxt;
 	char buf[SU_ADDRSTRLEN];
@@ -798,11 +784,17 @@ void pm_echo_trigger_nht_unreachable(struct pm_session *pm)
 	if (!pme)
 		return;
 
-	if (pme->last_alarm == PM_ECHO_OK)
-		zlog_info("echo packet to %s unreachable",
+	if ((pme->last_errno == ENETUNREACH ||
+	     pme->last_errno == ENETDOWN) &&
+	    pme->last_alarm != PM_ECHO_NHT_UNREACHABLE) {
+		zlog_info("echo packet to %s, network unreachable",
 			  sockunion2str(&pme->peer, buf, sizeof(buf)));
-	if (pme->last_alarm != PM_ECHO_TIMEOUT) {
 		pme->last_alarm = PM_ECHO_NHT_UNREACHABLE;
-		pm_set_sess_state(pm, PM_DOWN);
+	} else if (pme->last_alarm != PM_ECHO_TIMEOUT &&
+		   pme->last_alarm != PM_ECHO_NHT_UNREACHABLE) {
+		zlog_info("echo packet to %s timed out",
+			  sockunion2str(&pme->peer, buf, sizeof(buf)));
+		pme->last_alarm = PM_ECHO_TIMEOUT;
 	}
+	pm_set_sess_state(pm, PM_DOWN);
 }
