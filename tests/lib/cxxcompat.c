@@ -92,6 +92,8 @@
 #include "lib/table.h"
 #include "lib/termtable.h"
 #include "lib/thread.h"
+#include "lib/typesafe.h"
+#include "lib/typerb.h"
 #include "lib/vector.h"
 #include "lib/vlan.h"
 #include "lib/vrf.h"
