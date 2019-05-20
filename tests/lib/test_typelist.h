@@ -36,7 +36,11 @@
 #define list_del	concat(TYPE, _del)
 #define list_pop	concat(TYPE, _pop)
 
-PREDECL(TYPE, list)
+#ifndef REALTYPE
+#define REALTYPE TYPE
+#endif
+
+PREDECL(REALTYPE, list)
 struct item {
 	uint64_t val;
 	struct list_item itm;
@@ -45,18 +49,22 @@ struct item {
 
 static int list_cmp(const struct item *a, const struct item *b);
 
-#if IS_HASH(TYPE)
+#if IS_HASH(REALTYPE)
 static uint32_t list_hash(const struct item *a);
-DECLARE(TYPE, list, struct item, itm, list_cmp, list_hash)
+DECLARE(REALTYPE, list, struct item, itm, list_cmp, list_hash)
 
 static uint32_t list_hash(const struct item *a)
 {
+#ifdef SHITTY_HASH
 	/* crappy hash to get some hash collisions */
 	return a->val ^ (a->val << 29) ^ 0x55AA0000U;
+#else
+	return jhash_1word(a->val, 0xdeadbeef);
+#endif
 }
 
 #else
-DECLARE(TYPE, list, struct item, itm, list_cmp)
+DECLARE(REALTYPE, list, struct item, itm, list_cmp)
 #endif
 
 static int list_cmp(const struct item *a, const struct item *b)
@@ -70,7 +78,7 @@ static int list_cmp(const struct item *a, const struct item *b)
 
 #define NITEM 10000
 struct item itm[NITEM];
-static struct list_head head = concat(INIT_, TYPE)(head);
+static struct list_head head = concat(INIT_, REALTYPE)(head);
 
 static void concat(test_, TYPE)(void)
 {
@@ -109,7 +117,7 @@ static void concat(test_, TYPE)(void)
 	k = 0;
 	prev = NULL;
 	for_each(list, &head, item) {
-#if IS_HASH(TYPE)
+#if IS_HASH(REALTYPE)
 		/* hash table doesn't give sorting */
 		(void)prev;
 #else
@@ -121,7 +129,7 @@ static void concat(test_, TYPE)(void)
 	assert(list_count(&head) == k);
 	ts_ref("walk");
 
-#if IS_UNIQ(TYPE)
+#if IS_UNIQ(REALTYPE)
 	prng_free(prng);
 	prng = prng_new(0);
 
@@ -175,7 +183,7 @@ static void concat(test_, TYPE)(void)
 	}
 	ts_ref("add-dup+find_{lt,gteq}");
 #endif
-#if !IS_HASH(TYPE)
+#if !IS_HASH(REALTYPE)
 	prng_free(prng);
 	prng = prng_new(123456);
 
@@ -269,4 +277,5 @@ static void concat(test_, TYPE)(void)
 #undef list_del
 #undef list_pop
 
+#undef REALTYPE
 #undef TYPE

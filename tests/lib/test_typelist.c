@@ -32,6 +32,7 @@
 #include "atomlist.h"
 #include "memory.h"
 #include "monotime.h"
+#include "jhash.h"
 
 #include "tests/helpers/c/prng.h"
 
@@ -105,6 +106,12 @@ static void ts_end(void)
 #define TYPE HASH
 #include "test_typelist.h"
 
+#define TYPE HASH_collisions
+#define REALTYPE HASH
+#define SHITTY_HASH
+#include "test_typelist.h"
+#undef SHITTY_HASH
+
 #define TYPE SKIPLIST_UNIQ
 #include "test_typelist.h"
 
@@ -130,6 +137,7 @@ int main(int argc, char **argv)
 	test_SORTLIST_UNIQ();
 	test_SORTLIST_NONUNIQ();
 	test_HASH();
+	test_HASH_collisions();
 	test_SKIPLIST_UNIQ();
 	test_SKIPLIST_NONUNIQ();
 	test_RBTREE_UNIQ();
