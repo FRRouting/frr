@@ -56,6 +56,7 @@
 
 #define PEER_UPDGRP_AF_FLAGS                                                   \
 	(PEER_FLAG_SEND_COMMUNITY | PEER_FLAG_SEND_EXT_COMMUNITY               \
+	 | PEER_FLAG_SEND_LARGE_COMMUNITY                                      \
 	 | PEER_FLAG_DEFAULT_ORIGINATE | PEER_FLAG_REFLECTOR_CLIENT            \
 	 | PEER_FLAG_RSERVER_CLIENT | PEER_FLAG_NEXTHOP_SELF                   \
 	 | PEER_FLAG_NEXTHOP_UNCHANGED | PEER_FLAG_FORCE_NEXTHOP_SELF          \
