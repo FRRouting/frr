@@ -2232,6 +2232,8 @@ int peer_delete(struct peer *peer)
 
 	SET_FLAG(peer->flags, PEER_FLAG_DELETE);
 
+	bgp_bfd_deregister_peer(peer);
+
 	/* If this peer belongs to peer group, clear up the
 	   relationship.  */
 	if (peer->group) {
