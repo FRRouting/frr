@@ -460,7 +460,7 @@ static int pm_nht_update_walkcb(struct hash_bucket *bucket, void *arg)
 						buf, sizeof(buf)));
 			PM_UNSET_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID);
 			PM_UNSET_FLAG(pm->flags, PM_SESS_FLAG_RUN);
-			pm_echo_trigger_nht_unreachable(pm);
+			pm_echo_trigger_down_event(pm);
 			/* because nexthop failed, stop emitting */
 			pm_echo_stop(pm, errormsg, sizeof(errormsg), false);
 		} else {
