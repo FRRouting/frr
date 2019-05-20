@@ -295,6 +295,7 @@ int argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index,
  * afi  -> The parsed afi if it was included in the show command, returned here
  * safi -> The parsed safi if it was included in the show command, returned here
  * bgp  -> Pointer to the bgp data structure we need to fill in.
+ * use_json -> json is configured or not
  *
  * The function returns the correct location in the parse tree for the
  * last token found.
@@ -329,8 +330,17 @@ int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 		else {
 			*bgp = bgp_lookup_by_name(vrf_name);
 			if (!*bgp) {
-				if (use_json)
-					vty_out(vty, "{}\n");
+				if (use_json) {
+					json_object *json = NULL;
+					json = json_object_new_object();
+					json_object_string_add(
+					  json, "warning",
+					  "View/Vrf is unknown");
+					vty_out(vty, "%s\n",
+						json_object_to_json_string_ext(json,
+							JSON_C_TO_STRING_PRETTY));
+					json_object_free(json);
+				}
 				else
 					vty_out(vty, "View/Vrf %s is unknown\n",
 						vrf_name);
@@ -341,8 +351,17 @@ int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 	} else {
 		*bgp = bgp_get_default();
 		if (!*bgp) {
-			if (use_json)
-				vty_out(vty, "{}\n");
+			if (use_json) {
+				json_object *json = NULL;
+				json = json_object_new_object();
+				json_object_string_add(
+					json, "warning",
+					"Default BGP instance not found");
+				vty_out(vty, "%s\n",
+					json_object_to_json_string_ext(json,
+						JSON_C_TO_STRING_PRETTY));
+				json_object_free(json);
+			}
 			else
 				vty_out(vty,
 					"Default BGP instance not found\n");

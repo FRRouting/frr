@@ -15,8 +15,8 @@ OSPF6 router
 .. index:: router ospf6
 .. clicmd:: router ospf6
 
-.. index:: router-id A.B.C.D
-.. clicmd:: router-id A.B.C.D
+.. index:: ospf6 router-id A.B.C.D
+.. clicmd:: ospf6 router-id A.B.C.D
 
    Set router's Router-ID.
 

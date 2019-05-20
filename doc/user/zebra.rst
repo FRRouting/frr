@@ -685,6 +685,40 @@ replaces the information sent in the first message.
 If the connection to the FPM goes down for some reason, zebra sends
 the FPM a complete copy of the forwarding table(s) when it reconnects.
 
+.. _zebra-dplane:
+
+Dataplane Commands
+==================
+
+The zebra dataplane subsystem provides a framework for FIB
+programming. Zebra uses the dataplane to program the local kernel as
+it makes changes to objects such as IP routes, MPLS LSPs, and
+interface IP addresses. The dataplane runs in its own pthread, in
+order to off-load work from the main zebra pthread.
+
+
+.. index:: show zebra dplane [detailed]
+.. clicmd:: show zebra dplane [detailed]
+
+   Display statistics about the updates and events passing through the
+   dataplane subsystem.
+
+
+.. index:: show zebra dplane providers
+.. clicmd:: show zebra dplane providers
+
+   Display information about the running dataplane plugins that are
+   providing updates to a FIB. By default, the local kernel plugin is
+   present.
+
+
+.. index:: zebra dplane limit [NUMBER]
+.. clicmd:: zebra dplane limit [NUMBER]
+
+   Configure the limit on the number of pending updates that are
+   waiting to be processed by the dataplane pthread.
+
+
 zebra Terminal Mode Commands
 ============================
 

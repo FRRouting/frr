@@ -1308,6 +1308,16 @@ int route_map_add_match(struct route_map_index *index, const char *match_name,
 	for (rule = index->match_list.head; rule; rule = next) {
 		next = rule->next;
 		if (rule->cmd == cmd) {
+			/* If the configured route-map match rule is exactly
+			 * the same as the existing configuration then,
+			 * ignore the duplicate configuration.
+			 */
+			if (strcmp(match_arg, rule->rule_str) == 0) {
+				if (cmd->func_free)
+					(*cmd->func_free)(compile);
+				return RMAP_COMPILE_SUCCESS;
+			}
+
 			route_map_rule_delete(&index->match_list, rule);
 			replaced = 1;
 		}
@@ -1828,6 +1838,8 @@ static struct hash *route_map_get_dep_hash(route_map_event_t event)
 		break;
 	case RMAP_EVENT_CALL_ADDED:
 	case RMAP_EVENT_CALL_DELETED:
+	case RMAP_EVENT_MATCH_ADDED:
+	case RMAP_EVENT_MATCH_DELETED:
 		upd8_hash = route_map_dep_hash[ROUTE_MAP_DEP_RMAP];
 		break;
 	case RMAP_EVENT_FILTER_ADDED:
@@ -2802,6 +2814,13 @@ DEFUN (rmap_call,
 	const char *rmap = argv[idx_word]->arg;
 
 	assert(index);
+
+	/* If "call" is invoked with the same route-map name as
+	 * the one previously configured then, ignore the duplicate
+	 * configuration.
+	 */
+	if (index->nextrm && (strcmp(index->nextrm, rmap) == 0))
+		return CMD_SUCCESS;
 
 	if (index->nextrm) {
 		route_map_upd8_dependency(RMAP_EVENT_CALL_DELETED,
