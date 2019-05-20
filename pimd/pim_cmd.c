@@ -657,6 +657,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 	long oqpi_msec; /* Other Querier Present Interval */
 	long qri_msec;
 	time_t now;
+	int lmqc;
 
 	json_object *json = NULL;
 	json_object *json_row = NULL;
@@ -701,8 +702,8 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 				pim_ifp->igmp_query_max_response_time_dsec);
 
 			lmqt_msec = PIM_IGMP_LMQT_MSEC(
-				pim_ifp->igmp_query_max_response_time_dsec,
-				igmp->querier_robustness_variable);
+				pim_ifp->igmp_specific_query_max_response_time_dsec,
+				pim_ifp->igmp_last_member_query_count);
 
 			ohpi_msec =
 				PIM_IGMP_OHPI_DSEC(
@@ -718,6 +719,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 					pim_ifp->pim_sock_fd);
 			else
 				mloop = 0;
+			lmqc = pim_ifp->igmp_last_member_query_count;
 
 			if (uj) {
 				json_row = json_object_new_object();
@@ -742,6 +744,9 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 					json_row,
 					"timerGroupMembershipIntervalMsec",
 					gmi_msec);
+				json_object_int_add(json_row,
+						    "lastMemberQueryCount",
+						    lmqc);
 				json_object_int_add(json_row,
 						    "timerLastMemberQueryMsec",
 						    lmqt_msec);
@@ -808,6 +813,9 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 				vty_out(vty,
 					"Group Membership Interval      : %lis\n",
 					gmi_msec / 1000);
+				vty_out(vty,
+					"Last Member Query Count        : %d\n",
+					lmqc);
 				vty_out(vty,
 					"Last Member Query Time         : %lis\n",
 					lmqt_msec / 1000);
@@ -6455,6 +6463,106 @@ DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
 	return CMD_SUCCESS;
 }
 
+#define IGMP_LAST_MEMBER_QUERY_COUNT_MIN (1)
+#define IGMP_LAST_MEMBER_QUERY_COUNT_MAX (7)
+
+DEFUN (interface_ip_igmp_last_member_query_count,
+       interface_ip_igmp_last_member_query_count_cmd,
+       "ip igmp last-member-query-count (1-7)",
+       IP_STR
+       IFACE_IGMP_STR
+       IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR
+       "Last member query count\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp = ifp->info;
+	int last_member_query_count;
+	int ret;
+
+	if (!pim_ifp) {
+		ret = pim_cmd_igmp_start(vty, ifp);
+		if (ret != CMD_SUCCESS)
+			return ret;
+		pim_ifp = ifp->info;
+	}
+
+	last_member_query_count = atoi(argv[3]->arg);
+
+	pim_ifp->igmp_last_member_query_count = last_member_query_count;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (interface_no_ip_igmp_last_member_query_count,
+       interface_no_ip_igmp_last_member_query_count_cmd,
+       "no ip igmp last-member-query-count",
+       NO_STR
+       IP_STR
+       IFACE_IGMP_STR
+       IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR)
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (!pim_ifp)
+		return CMD_SUCCESS;
+
+	pim_ifp->igmp_last_member_query_count =
+		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
+
+	return CMD_SUCCESS;
+}
+
+#define IGMP_LAST_MEMBER_QUERY_INTERVAL_MIN (1)
+#define IGMP_LAST_MEMBER_QUERY_INTERVAL_MAX (255)
+
+DEFUN (interface_ip_igmp_last_member_query_interval,
+       interface_ip_igmp_last_member_query_interval_cmd,
+       "ip igmp last-member-query-interval (1-255)",
+       IP_STR
+       IFACE_IGMP_STR
+       IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR
+       "Last member query interval in deciseconds\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp = ifp->info;
+	int last_member_query_interval;
+	int ret;
+
+	if (!pim_ifp) {
+		ret = pim_cmd_igmp_start(vty, ifp);
+		if (ret != CMD_SUCCESS)
+			return ret;
+		pim_ifp = ifp->info;
+	}
+
+	last_member_query_interval = atoi(argv[3]->arg);
+	pim_ifp->igmp_specific_query_max_response_time_dsec
+		= last_member_query_interval;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (interface_no_ip_igmp_last_member_query_interval,
+       interface_no_ip_igmp_last_member_query_interval_cmd,
+       "no ip igmp last-member-query-interval",
+       NO_STR
+       IP_STR
+       IFACE_IGMP_STR
+       IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR)
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (!pim_ifp)
+		return CMD_SUCCESS;
+
+	pim_ifp->igmp_specific_query_max_response_time_dsec =
+		IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (interface_ip_pim_drprio,
        interface_ip_pim_drprio_cmd,
        "ip pim drpriority (1-4294967295)",
@@ -9296,6 +9404,14 @@ void pim_cmd_init(void)
 			&interface_ip_igmp_query_max_response_time_dsec_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ip_igmp_query_max_response_time_dsec_cmd);
+	install_element(INTERFACE_NODE,
+			&interface_ip_igmp_last_member_query_count_cmd);
+	install_element(INTERFACE_NODE,
+			&interface_no_ip_igmp_last_member_query_count_cmd);
+	install_element(INTERFACE_NODE,
+			&interface_ip_igmp_last_member_query_interval_cmd);
+	install_element(INTERFACE_NODE,
+			&interface_no_ip_igmp_last_member_query_interval_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_activeactive_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);

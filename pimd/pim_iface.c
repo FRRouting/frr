@@ -131,6 +131,8 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 		IGMP_QUERY_MAX_RESPONSE_TIME_DSEC;
 	pim_ifp->igmp_specific_query_max_response_time_dsec =
 		IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
+	pim_ifp->igmp_last_member_query_count =
+		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
 
 	/*
 	  RFC 3376: 8.3. Query Response Interval

@@ -218,6 +218,19 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    or IGMP report is received on this interface and the Group is denied by the
    prefix-list, PIM will ignore the join or report.
 
+.. index:: ip igmp last-member-query-count (1-7)
+.. clicmd:: ip igmp last-member-query-count (1-7)
+
+   Set the IGMP last member query count. The default value is 2. 'no' form of
+   this command is used to to configure back to the default value.
+
+.. index:: ip igmp last-member-query-interval (1-255)
+.. clicmd:: ip igmp last-member-query-interval (1-255)
+
+   Set the IGMP last member query interval in deciseconds. The default value is
+   10 deciseconds. 'no' form of this command is used to to configure back to the
+   default value.
+
 .. _pim-multicast-rib-insertion:
 
 PIM Multicast RIB insertion:
