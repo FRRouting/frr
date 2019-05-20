@@ -8005,6 +8005,7 @@ static const char *bgp_path_selection_reason2str(
 		return "Nothing left to compare";
 		break;
 	}
+	return "Invalid (internal error)";
 }
 
 void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
