@@ -1404,7 +1404,9 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 			PIM_IF_FLAG_UNSET_S_G_RPT(child->flags);
 			child->ifjoin_state = PIM_IFJOIN_NOINFO;
 
-			if (I_am_RP(pim, child->sg.grp)) {
+			if ((I_am_RP(pim, child->sg.grp)) &&
+			    (!pim_upstream_empty_inherited_olist(
+				child->upstream))) {
 				pim_channel_add_oif(
 					child->upstream->channel_oil,
 					ch->interface, PIM_OIF_FLAG_PROTO_STAR);
