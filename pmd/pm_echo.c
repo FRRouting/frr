@@ -135,19 +135,12 @@ void pm_echo_tmo(struct event *event)
 	if (pm_check_retries(pme, pme->retries_down, false))
 		return;
 
-	if (pme->last_alarm != PM_ECHO_TIMEOUT &&
-	    pme->last_alarm != PM_ECHO_NHT_UNREACHABLE)
-		zlog_info("echo packet to %pSU timed out",
-			  &pme->peer);
-	if (pme->last_alarm != PM_ECHO_NHT_UNREACHABLE)
-		pme->last_alarm = PM_ECHO_TIMEOUT;
-
 	/* reset pme retries context */
 	pme->retry.retry_count = 0;
 	pme->retry.retry_down_in_progress = false;
 	pme->retry.retry_up_in_progress = false;
 
-	pm_set_sess_state(pm, PM_DOWN);
+	pm_echo_trigger_down_event(pm);
 }
 
 void pm_echo_receive(struct event *event)
@@ -267,14 +260,7 @@ void pm_echo_receive(struct event *event)
 		if (pm_check_retries(pme, pme->retries_down, false))
 			return;
 
-		if (pme->last_alarm != PM_ECHO_TIMEOUT) {
-			zlog_info("echo packet to %pSU timed out",
-					&pme->peer);
-		}
-		if (pme->last_alarm != PM_ECHO_NHT_UNREACHABLE) {
-			pme->last_alarm = PM_ECHO_TIMEOUT;
-			pm_set_sess_state(pm, PM_DOWN);
-		}
+		pm_echo_trigger_down_event(pm);
 		return;
 	}
 	if (pm_check_retries(pme, pme->retries_up, true))
@@ -630,6 +616,7 @@ void pm_echo_send(struct event *event)
 		zlog_err("PMD: error when sending ICMP echo to %pSU (%x)",
 				&pme->peer, errno);
 		pme->last_errno = errno;
+		pm_echo_trigger_down_event(pm);
 	} else {
 		pme->last_errno = 0;
 		pme->stats_tx++;
@@ -728,18 +715,24 @@ void pm_echo_dump(struct vty *vty, struct pm_session *pm)
 }
 
 /* keep pme session on suspend */
-void pm_echo_trigger_nht_unreachable(struct pm_session *pm)
+void pm_echo_trigger_down_event(struct pm_session *pm)
 {
 	struct pm_echo *pme = pm->oper_ctxt;
 
 	if (!pme)
 		return;
 
-	if (pme->last_alarm == PM_ECHO_OK)
+	if ((pme->last_errno == ENETUNREACH ||
+	     pme->last_errno == ENETDOWN) &&
+	    pme->last_alarm != PM_ECHO_NHT_UNREACHABLE) {
 		zlog_info("echo packet to %pSU unreachable",
 			  &pme->peer);
-	if (pme->last_alarm != PM_ECHO_TIMEOUT) {
 		pme->last_alarm = PM_ECHO_NHT_UNREACHABLE;
-		pm_set_sess_state(pm, PM_DOWN);
+	} else if (pme->last_alarm != PM_ECHO_TIMEOUT &&
+		   pme->last_alarm != PM_ECHO_NHT_UNREACHABLE) {
+		zlog_info("echo packet to %pSU timed out",
+			  &pme->peer);
+		pme->last_alarm = PM_ECHO_TIMEOUT;
 	}
+	pm_set_sess_state(pm, PM_DOWN);
 }
