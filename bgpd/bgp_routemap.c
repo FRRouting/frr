@@ -3090,8 +3090,6 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 				       struct route_map *map, struct peer *peer,
 				       int afi, int safi, int route_update)
 {
-
-	int update;
 	struct bgp_filter *filter;
 
 	if (!peer || !rmap_name)
@@ -3102,52 +3100,16 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 	 * in is for non-route-server clients,
 	 * out is for all peers
 	 */
-	if (!CHECK_FLAG(peer->flags, PEER_FLAG_RSERVER_CLIENT)) {
-		if (filter->map[RMAP_IN].name
-		    && (strcmp(rmap_name, filter->map[RMAP_IN].name) == 0)) {
-			filter->map[RMAP_IN].map = map;
+	if (filter->map[RMAP_IN].name
+	    && (strcmp(rmap_name, filter->map[RMAP_IN].name) == 0)) {
+		filter->map[RMAP_IN].map = map;
 
-			if (route_update && peer->status == Established) {
-				if (CHECK_FLAG(peer->af_flags[afi][safi],
-					       PEER_FLAG_SOFT_RECONFIG)) {
-					if (bgp_debug_update(peer, NULL, NULL,
-							     1))
-						zlog_debug(
-							"Processing route_map %s update on "
-							"peer %s (inbound, soft-reconfig)",
-							rmap_name, peer->host);
-
-					bgp_soft_reconfig_in(peer, afi, safi);
-				} else if (
-					CHECK_FLAG(peer->cap,
-						   PEER_CAP_REFRESH_OLD_RCV)
-					|| CHECK_FLAG(
-						   peer->cap,
-						   PEER_CAP_REFRESH_NEW_RCV)) {
-
-					if (bgp_debug_update(peer, NULL, NULL,
-							     1))
-						zlog_debug(
-							"Processing route_map %s update on "
-							"peer %s (inbound, route-refresh)",
-							rmap_name, peer->host);
-					bgp_route_refresh_send(peer, afi, safi,
-							       0, 0, 0);
-				}
-			}
-		}
-	}
-
-	if (CHECK_FLAG(peer->flags, PEER_FLAG_RSERVER_CLIENT)) {
-		update = 0;
-
-		if (update && route_update && peer->status == Established) {
+		if (route_update && peer->status == Established) {
 			if (CHECK_FLAG(peer->af_flags[afi][safi],
 				       PEER_FLAG_SOFT_RECONFIG)) {
 				if (bgp_debug_update(peer, NULL, NULL, 1))
 					zlog_debug(
-						"Processing route_map %s update on "
-						"peer %s (import, soft-reconfig)",
+						"Processing route_map %s update on peer %s (inbound, soft-reconfig)",
 						rmap_name, peer->host);
 
 				bgp_soft_reconfig_in(peer, afi, safi);
@@ -3157,13 +3119,11 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 						 PEER_CAP_REFRESH_NEW_RCV)) {
 				if (bgp_debug_update(peer, NULL, NULL, 1))
 					zlog_debug(
-						"Processing route_map %s update on "
-						"peer %s (import, route-refresh)",
+						"Processing route_map %s update on peer %s (inbound, route-refresh)",
 						rmap_name, peer->host);
 				bgp_route_refresh_send(peer, afi, safi, 0, 0,
 						       0);
 			}
-			/* DD: Else, what else do we do ? Reset peer ? */
 		}
 	}
 
