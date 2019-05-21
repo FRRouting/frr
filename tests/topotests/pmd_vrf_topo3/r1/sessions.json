@@ -1,0 +1,57 @@
+[
+    {
+	"peer":"1000:1::2",
+	"local":"1000:1::1",
+	"vrf":"r1-cust1",
+	"id":0,
+	"diagnostic":"echo ok",
+	"status":"up",
+	"uptime":0,
+	"type":"icmp_echo",
+	"interval":500,
+	"timeout":500,
+	"tos_val":192,
+	"packet-size":100
+    },
+    {
+	"peer":"192.168.0.2",
+	"local":"192.168.0.1",
+	"vrf":"r1-cust1",
+	"id":0,
+	"diagnostic":"echo ok",
+	"status":"up",
+	"uptime":0,
+	"type":"icmp_echo",
+	"interval":500,
+	"timeout":500,
+	"tos_val":192,
+	"packet-size":100
+    },
+    {
+	"peer":"192.168.1.1",
+	"vrf":"r1-cust1",
+	"id":0,
+	"diagnostic":"echo ok",
+	"status":"up",
+	"uptime":0,
+	"type":"icmp_echo",
+	"interval":500,
+	"timeout":500,
+	"tos_val":192,
+	"packet-size":100
+    },
+    {
+	"peer":"1001:1::1",
+	"local":"1000:1::1",
+	"vrf":"r1-cust1",
+	"id":0,
+	"diagnostic":"echo ok",
+	"status":"up",
+	"uptime":0,
+	"type":"icmp_echo",
+	"interval":500,
+	"timeout":500,
+	"tos_val":192,
+	"packet-size":100
+    }
+]
