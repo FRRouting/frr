@@ -5,6 +5,8 @@ class TestTypelist(frrtest.TestMultiOut):
 
 TestTypelist.onesimple('LIST end')
 TestTypelist.onesimple('DLIST end')
+TestTypelist.onesimple('ATOMLIST end')
+TestTypelist.onesimple('HEAP end')
 TestTypelist.onesimple('SORTLIST_UNIQ end')
 TestTypelist.onesimple('SORTLIST_NONUNIQ end')
 TestTypelist.onesimple('HASH end')

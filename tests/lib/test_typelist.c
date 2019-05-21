@@ -52,46 +52,32 @@
 #define _DECLARE(type, ...)	DECLARE_##type(__VA_ARGS__)
 #define DECLARE(type, ...)	_DECLARE(type, __VA_ARGS__)
 
-#define _S_LIST			0
-#define _S_DLIST		0
-#define _S_SORTLIST_UNIQ	1
-#define _S_SORTLIST_NONUNIQ	1
-#define _S_HASH			1
-#define _S_SKIPLIST_UNIQ	1
-#define _S_SKIPLIST_NONUNIQ	1
-#define _S_RBTREE_UNIQ		1
-#define _S_RBTREE_NONUNIQ	1
-#define _S_ATOMSORT_UNIQ	1
-#define _S_ATOMSORT_NONUNIQ	1
+#define T_SORTED		(1 << 0)
+#define T_UNIQ			(1 << 1)
+#define T_HASH			(1 << 2)
+#define T_HEAP			(1 << 3)
+#define T_ATOMIC		(1 << 4)
 
-#define _IS_SORTED(type)	_S_##type
-#define IS_SORTED(type)		_IS_SORTED(type)
+#define _T_LIST			(0)
+#define _T_DLIST		(0)
+#define _T_ATOMLIST		(0                 | T_ATOMIC)
+#define _T_HEAP			(T_SORTED          | T_HEAP)
+#define _T_SORTLIST_UNIQ	(T_SORTED | T_UNIQ)
+#define _T_SORTLIST_NONUNIQ	(T_SORTED)
+#define _T_HASH			(T_SORTED | T_UNIQ | T_HASH)
+#define _T_SKIPLIST_UNIQ	(T_SORTED | T_UNIQ)
+#define _T_SKIPLIST_NONUNIQ	(T_SORTED)
+#define _T_RBTREE_UNIQ		(T_SORTED | T_UNIQ)
+#define _T_RBTREE_NONUNIQ	(T_SORTED)
+#define _T_ATOMSORT_UNIQ	(T_SORTED | T_UNIQ | T_ATOMIC)
+#define _T_ATOMSORT_NONUNIQ	(T_SORTED          | T_ATOMIC)
 
-#define _U_SORTLIST_UNIQ	1
-#define _U_SORTLIST_NONUNIQ	0
-#define _U_HASH			1
-#define _U_SKIPLIST_UNIQ	1
-#define _U_SKIPLIST_NONUNIQ	0
-#define _U_RBTREE_UNIQ		1
-#define _U_RBTREE_NONUNIQ	0
-#define _U_ATOMSORT_UNIQ	1
-#define _U_ATOMSORT_NONUNIQ	0
-
-#define _IS_UNIQ(type)		_U_##type
-#define IS_UNIQ(type)		_IS_UNIQ(type)
-
-#define _H_SORTLIST_UNIQ	0
-#define _H_SORTLIST_NONUNIQ	0
-#define _H_HASH			1
-#define _H_SKIPLIST_UNIQ	0
-#define _H_SKIPLIST_NONUNIQ	0
-#define _H_RBTREE_UNIQ		0
-#define _H_RBTREE_NONUNIQ	0
-#define _H_ATOMSORT_UNIQ	0
-#define _H_ATOMSORT_NONUNIQ	0
-
-#define _IS_HASH(type)		_H_##type
-#define IS_HASH(type)		_IS_HASH(type)
+#define _T_TYPE(type)		_T_##type
+#define IS_SORTED(type)		(_T_TYPE(type) & T_SORTED)
+#define IS_UNIQ(type)		(_T_TYPE(type) & T_UNIQ)
+#define IS_HASH(type)		(_T_TYPE(type) & T_HASH)
+#define IS_HEAP(type)		(_T_TYPE(type) & T_HEAP)
+#define IS_ATOMIC(type)		(_T_TYPE(type) & T_ATOMIC)
 
 static struct timeval ref, ref0;
 
@@ -118,6 +104,12 @@ static void ts_end(void)
 #include "test_typelist.h"
 
 #define TYPE DLIST
+#include "test_typelist.h"
+
+#define TYPE ATOMLIST
+#include "test_typelist.h"
+
+#define TYPE HEAP
 #include "test_typelist.h"
 
 #define TYPE SORTLIST_UNIQ
@@ -159,6 +151,8 @@ int main(int argc, char **argv)
 
 	test_LIST();
 	test_DLIST();
+	test_ATOMLIST();
+	test_HEAP();
 	test_SORTLIST_UNIQ();
 	test_SORTLIST_NONUNIQ();
 	test_HASH();

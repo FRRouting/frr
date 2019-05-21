@@ -131,7 +131,7 @@ static void ts_hash(const char *text, const char *expect)
 	monotime(&ref);
 }
 /* hashes will have different item ordering */
-#if IS_HASH(REALTYPE)
+#if IS_HASH(REALTYPE) || IS_HEAP(REALTYPE)
 #define ts_hashx(pos, csum) ts_hash(pos, NULL)
 #else
 #define ts_hashx(pos, csum) ts_hash(pos, csum)
@@ -165,8 +165,11 @@ static void concat(test_, TYPE)(void)
 			list_add(&head, &itm[j]);
 			itm[j].scratchpad = 1;
 			k++;
-		} else
+		}
+#if !IS_HEAP(REALTYPE)
+		else
 			assert(list_add(&head, &itm[j]) == &itm[j]);
+#endif
 	}
 	assert(list_count(&head) == k);
 	assert(list_first(&head) != NULL);
@@ -175,7 +178,7 @@ static void concat(test_, TYPE)(void)
 	k = 0;
 	prev = NULL;
 	for_each(list, &head, item) {
-#if IS_HASH(REALTYPE)
+#if IS_HASH(REALTYPE) || IS_HEAP(REALTYPE)
 		/* hash table doesn't give sorting */
 		(void)prev;
 #else
@@ -210,7 +213,22 @@ static void concat(test_, TYPE)(void)
 		}
 	}
 	ts_hashx("add-dup", "a538546a6e6ab0484e925940aa8dd02fd934408bbaed8cb66a0721841584d838");
-#else /* !IS_UNIQ(REALTYPE) */
+
+#elif IS_HEAP(REALTYPE)
+	/* heap - partially sorted. */
+	prev = NULL;
+	l = k / 2;
+	for (i = 0; i < l; i++) {
+		item = list_pop(&head);
+		if (prev)
+			assert(prev->val < item->val);
+		item->scratchpad = 0;
+		k--;
+		prev = item;
+	}
+	ts_hash("pop", NULL);
+
+#else /* !IS_UNIQ(REALTYPE) && !IS_HEAP(REALTYPE) */
 	for (i = 0; i < NITEM; i++) {
 		j = prng_rand(prng) % NITEM;
 		memset(&dummy, 0, sizeof(dummy));
@@ -241,7 +259,7 @@ static void concat(test_, TYPE)(void)
 	}
 	ts_hash("add-dup+find_{lt,gteq}", "a538546a6e6ab0484e925940aa8dd02fd934408bbaed8cb66a0721841584d838");
 #endif
-#if !IS_HASH(REALTYPE)
+#if !IS_HASH(REALTYPE) && !IS_HEAP(REALTYPE)
 	prng_free(prng);
 	prng = prng_new(123456);
 
@@ -418,6 +436,51 @@ static void concat(test_, TYPE)(void)
 			item->scratchpad = 1;
 			k++;
 
+			switch ((op >> 1) & 1) {
+			case 0:
+				list_add_head(&head, item);
+				break;
+			case 1:
+				list_add_tail(&head, item);
+				break;
+			default:
+				assert(0);
+			}
+		}
+	}
+	assert(list_count(&head) == k);
+	assert(list_first(&head) != NULL);
+	ts_hash("prng add/del", "4909f31d06bb006efca4dfeebddb8de071733ddf502f89b6d532155208bbc6df");
+
+#if !IS_ATOMIC(REALTYPE)
+	/* variant with add_after */
+
+	for (i = 0; i < NITEM * 3; i++) {
+		int op = prng_rand(prng);
+		j = prng_rand(prng) % NITEM;
+
+		if (op & 1) {
+			/* delete or pop */
+			if (op & 2) {
+				item = list_pop(&head);
+				if (!item)
+					continue;
+			} else {
+				item = &itm[j];
+				if (item->scratchpad == 0)
+					continue;
+				list_del(&head, item);
+			}
+			item->scratchpad = 0;
+			k--;
+		} else {
+			item = &itm[j];
+			if (item->scratchpad != 0)
+				continue;
+
+			item->scratchpad = 1;
+			k++;
+
 			switch ((op >> 1) & 3) {
 			case 0:
 				list_add_head(&head, item);
@@ -446,7 +509,8 @@ static void concat(test_, TYPE)(void)
 	}
 	assert(list_count(&head) == k);
 	assert(list_first(&head) != NULL);
-	ts_hash("prng add/del", "8c5dd192505c8cc8337f9b936f88e90dbc5854cb3fd7391c47189d131fa399fd");
+	ts_hash("prng add/after/del", "84c5fc83294eabebb9808ccbba32a303c4fca084db87ed1277d2bae1f8c5bee4");
+#endif
 
 	l = 0;
 #endif
