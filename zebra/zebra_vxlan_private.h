@@ -430,6 +430,8 @@ struct nh_walk_ctx {
 	struct json_object *json;
 };
 
+extern zebra_l3vni_t *zl3vni_from_vrf(vrf_id_t vrf_id);
+
 #ifdef __cplusplus
 }
 #endif
