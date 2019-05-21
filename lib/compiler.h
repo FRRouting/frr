@@ -76,6 +76,15 @@ extern "C" {
 #define _DEPRECATED(x) deprecated
 #endif
 
+/* pure = function does not modify memory & return value is the same if
+ * memory hasn't changed (=> allows compiler to optimize)
+ *
+ * Mostly autodetected by the compiler if function body is available (i.e.
+ * static inline functions in headers).  Since that implies it should only be
+ * used in headers for non-inline functions, the "extern" is included here.
+ */
+#define ext_pure	extern __attribute__((pure))
+
 /* for helper functions defined inside macros */
 #define macro_inline	static inline __attribute__((unused))
 #define macro_pure	static inline __attribute__((unused, pure))

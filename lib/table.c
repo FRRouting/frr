@@ -191,7 +191,7 @@ static void set_link(struct route_node *node, struct route_node *new)
 }
 
 /* Find matched prefix. */
-struct route_node *route_node_match(const struct route_table *table,
+struct route_node *route_node_match(struct route_table *table,
 				    union prefixconstptr pu)
 {
 	const struct prefix *p = pu.p;
@@ -221,7 +221,7 @@ struct route_node *route_node_match(const struct route_table *table,
 	return NULL;
 }
 
-struct route_node *route_node_match_ipv4(const struct route_table *table,
+struct route_node *route_node_match_ipv4(struct route_table *table,
 					 const struct in_addr *addr)
 {
 	struct prefix_ipv4 p;
@@ -234,7 +234,7 @@ struct route_node *route_node_match_ipv4(const struct route_table *table,
 	return route_node_match(table, (struct prefix *)&p);
 }
 
-struct route_node *route_node_match_ipv6(const struct route_table *table,
+struct route_node *route_node_match_ipv6(struct route_table *table,
 					 const struct in6_addr *addr)
 {
 	struct prefix_ipv6 p;
@@ -248,7 +248,7 @@ struct route_node *route_node_match_ipv6(const struct route_table *table,
 }
 
 /* Lookup same prefix node.  Return NULL when we can't find route. */
-struct route_node *route_node_lookup(const struct route_table *table,
+struct route_node *route_node_lookup(struct route_table *table,
 				     union prefixconstptr pu)
 {
 	struct route_node rn, *node;
@@ -260,7 +260,7 @@ struct route_node *route_node_lookup(const struct route_table *table,
 }
 
 /* Lookup same prefix node.  Return NULL when we can't find route. */
-struct route_node *route_node_lookup_maynull(const struct route_table *table,
+struct route_node *route_node_lookup_maynull(struct route_table *table,
 					     union prefixconstptr pu)
 {
 	struct route_node rn, *node;
@@ -272,7 +272,7 @@ struct route_node *route_node_lookup_maynull(const struct route_table *table,
 }
 
 /* Add node to routing table. */
-struct route_node *route_node_get(struct route_table *const table,
+struct route_node *route_node_get(struct route_table *table,
 				  union prefixconstptr pu)
 {
 	struct route_node search;
@@ -471,7 +471,7 @@ struct route_node *route_next_until(struct route_node *node,
 	return NULL;
 }
 
-unsigned long route_table_count(const struct route_table *table)
+unsigned long route_table_count(struct route_table *table)
 {
 	return table->count;
 }
@@ -606,7 +606,7 @@ static struct route_node *route_get_subtree_next(struct route_node *node)
  * @see route_table_get_next
  */
 static struct route_node *
-route_table_get_next_internal(const struct route_table *table,
+route_table_get_next_internal(struct route_table *table,
 			      const struct prefix *p)
 {
 	struct route_node *node, *tmp_node;
@@ -707,7 +707,7 @@ route_table_get_next_internal(const struct route_table *table,
  * Find the node that occurs after the given prefix in order of
  * iteration.
  */
-struct route_node *route_table_get_next(const struct route_table *table,
+struct route_node *route_table_get_next(struct route_table *table,
 					union prefixconstptr pu)
 {
 	const struct prefix *p = pu.p;
