@@ -151,6 +151,221 @@ macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
 }                                                                              \
 /* ... */
 
+/* don't use these structs directly */
+struct dlist_item {
+	struct dlist_item *next;
+	struct dlist_item *prev;
+};
+
+struct dlist_head {
+	struct dlist_item hitem;
+	size_t count;
+};
+
+static inline void typesafe_dlist_add(struct dlist_head *head,
+		struct dlist_item *prev, struct dlist_item *item)
+{
+	item->next = prev->next;
+	item->next->prev = item;
+	item->prev = prev;
+	prev->next = item;
+	head->count++;
+}
+
+/* double-linked list, for fast item deletion
+ */
+#define PREDECL_DLIST(prefix)                                                  \
+struct prefix ## _head { struct dlist_head dh; };                              \
+struct prefix ## _item { struct dlist_item di; };
+
+#define INIT_DLIST(var) { .dh = { \
+	.hitem = { &var.dh.hitem, &var.dh.hitem }, }, }
+
+#define DECLARE_DLIST(prefix, type, field)                                     \
+                                                                               \
+macro_inline void prefix ## _init(struct prefix##_head *h)                     \
+{                                                                              \
+	memset(h, 0, sizeof(*h));                                              \
+	h->dh.hitem.prev = &h->dh.hitem;                                       \
+	h->dh.hitem.next = &h->dh.hitem;                                       \
+}                                                                              \
+macro_inline void prefix ## _fini(struct prefix##_head *h)                     \
+{                                                                              \
+	memset(h, 0, sizeof(*h));                                              \
+}                                                                              \
+macro_inline void prefix ## _add_head(struct prefix##_head *h, type *item)     \
+{                                                                              \
+	typesafe_dlist_add(&h->dh, &h->dh.hitem, &item->field.di);             \
+}                                                                              \
+macro_inline void prefix ## _add_tail(struct prefix##_head *h, type *item)     \
+{                                                                              \
+	typesafe_dlist_add(&h->dh, h->dh.hitem.prev, &item->field.di);         \
+}                                                                              \
+macro_inline void prefix ## _add_after(struct prefix##_head *h,                \
+		type *after, type *item)                                       \
+{                                                                              \
+	struct dlist_item *prev;                                               \
+	prev = after ? &after->field.di : &h->dh.hitem;                        \
+	typesafe_dlist_add(&h->dh, prev, &item->field.di);                     \
+}                                                                              \
+macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
+{                                                                              \
+	struct dlist_item *ditem = &item->field.di;                            \
+	ditem->prev->next = ditem->next;                                       \
+	ditem->next->prev = ditem->prev;                                       \
+	h->dh.count--;                                                         \
+	ditem->prev = ditem->next = NULL;                                      \
+}                                                                              \
+macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
+{                                                                              \
+	struct dlist_item *ditem = h->dh.hitem.next;                           \
+	if (ditem == &h->dh.hitem)                                             \
+		return NULL;                                                   \
+	ditem->prev->next = ditem->next;                                       \
+	ditem->next->prev = ditem->prev;                                       \
+	h->dh.count--;                                                         \
+	return container_of(ditem, type, field.di);                            \
+}                                                                              \
+macro_pure type *prefix ## _first(struct prefix##_head *h)                     \
+{                                                                              \
+	struct dlist_item *ditem = h->dh.hitem.next;                           \
+	if (ditem == &h->dh.hitem)                                             \
+		return NULL;                                                   \
+	return container_of(ditem, type, field.di);                            \
+}                                                                              \
+macro_pure type *prefix ## _next(struct prefix##_head * h, type *item)         \
+{                                                                              \
+	struct dlist_item *ditem = &item->field.di;                            \
+	if (ditem->next == &h->dh.hitem)                                       \
+		return NULL;                                                   \
+	return container_of(ditem->next, type, field.di);                      \
+}                                                                              \
+macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
+{                                                                              \
+	if (!item)                                                             \
+		return NULL;                                                   \
+	return prefix ## _next(h, item);                                       \
+}                                                                              \
+macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
+{                                                                              \
+	return h->dh.count;                                                    \
+}                                                                              \
+/* ... */
+
+/* note: heap currently caps out at 4G items */
+
+#define HEAP_NARY 8U
+typedef uint32_t heap_index_i;
+
+struct heap_item {
+	uint32_t index;
+};
+
+struct heap_head {
+	struct heap_item **array;
+	uint32_t arraysz, count;
+};
+
+#define HEAP_RESIZE_TRESH_UP(h) \
+	(h->hh.count + 1 >= h->hh.arraysz)
+#define HEAP_RESIZE_TRESH_DN(h) \
+	(h->hh.count == 0 || \
+	 h->hh.arraysz - h->hh.count > (h->hh.count + 1024) / 2)
+
+#define PREDECL_HEAP(prefix)                                                   \
+struct prefix ## _head { struct heap_head hh; };                               \
+struct prefix ## _item { struct heap_item hi; };
+
+#define INIT_HEAP(var)		{ }
+
+#define DECLARE_HEAP(prefix, type, field, cmpfn)                               \
+                                                                               \
+macro_inline void prefix ## _init(struct prefix##_head *h)                     \
+{                                                                              \
+	memset(h, 0, sizeof(*h));                                              \
+}                                                                              \
+macro_inline void prefix ## _fini(struct prefix##_head *h)                     \
+{                                                                              \
+	assert(h->hh.count == 0);                                              \
+	memset(h, 0, sizeof(*h));                                              \
+}                                                                              \
+macro_inline int prefix ## __cmp(const struct heap_item *a,                    \
+		const struct heap_item *b)                                     \
+{                                                                              \
+	return cmpfn(container_of(a, type, field.hi),                          \
+			container_of(b, type, field.hi));                      \
+}                                                                              \
+macro_inline type *prefix ## _add(struct prefix##_head *h, type *item)         \
+{                                                                              \
+	if (HEAP_RESIZE_TRESH_UP(h))                                           \
+		typesafe_heap_resize(&h->hh, true);                            \
+	typesafe_heap_pullup(&h->hh, h->hh.count, &item->field.hi,             \
+			     prefix ## __cmp);                                 \
+	h->hh.count++;                                                         \
+	return NULL;                                                           \
+}                                                                              \
+macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
+{                                                                              \
+	struct heap_item *other;                                               \
+	uint32_t index = item->field.hi.index;                                 \
+	assert(h->hh.array[index] == &item->field.hi);                         \
+	h->hh.count--;                                                         \
+	other = h->hh.array[h->hh.count];                                      \
+	if (cmpfn(container_of(other, type, field.hi), item) < 0)              \
+		typesafe_heap_pullup(&h->hh, index, other, prefix ## __cmp);   \
+	else                                                                   \
+		typesafe_heap_pushdown(&h->hh, index, other, prefix ## __cmp); \
+	if (HEAP_RESIZE_TRESH_DN(h))                                           \
+		typesafe_heap_resize(&h->hh, false);                           \
+}                                                                              \
+macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
+{                                                                              \
+	struct heap_item *hitem, *other;                                       \
+	if (h->hh.count == 0)                                                  \
+		return NULL;                                                   \
+	hitem = h->hh.array[0];                                                \
+	h->hh.count--;                                                         \
+	other = h->hh.array[h->hh.count];                                      \
+	typesafe_heap_pushdown(&h->hh, 0, other, prefix ## __cmp);             \
+	if (HEAP_RESIZE_TRESH_DN(h))                                           \
+		typesafe_heap_resize(&h->hh, false);                           \
+	return container_of(hitem, type, field.hi);                            \
+}                                                                              \
+macro_pure type *prefix ## _first(struct prefix##_head *h)                     \
+{                                                                              \
+	if (h->hh.count == 0)                                                  \
+		return NULL;                                                   \
+	return container_of(h->hh.array[0], type, field.hi);                   \
+}                                                                              \
+macro_pure type *prefix ## _next(struct prefix##_head *h, type *item)          \
+{                                                                              \
+	uint32_t idx = item->field.hi.index + 1;                               \
+	if (idx >= h->hh.count)                                                \
+		return NULL;                                                   \
+	return container_of(h->hh.array[idx], type, field.hi);                 \
+}                                                                              \
+macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
+{                                                                              \
+	if (!item)                                                             \
+		return NULL;                                                   \
+	return prefix ## _next(h, item);                                       \
+}                                                                              \
+macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
+{                                                                              \
+	return h->hh.count;                                                    \
+}                                                                              \
+/* ... */
+
+extern void typesafe_heap_resize(struct heap_head *head, bool grow);
+extern void typesafe_heap_pushdown(struct heap_head *head, uint32_t index,
+		struct heap_item *item,
+		int (*cmpfn)(const struct heap_item *a,
+			     const struct heap_item *b));
+extern void typesafe_heap_pullup(struct heap_head *head, uint32_t index,
+		struct heap_item *item,
+		int (*cmpfn)(const struct heap_item *a,
+			     const struct heap_item *b));
+
 /* single-linked list, sorted.
  * can be used as priority queue with add / pop
  */
@@ -275,7 +490,7 @@ macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
 #define DECLARE_SORTLIST_UNIQ(prefix, type, field, cmpfn)                      \
 	_DECLARE_SORTLIST(prefix, type, field, cmpfn, cmpfn)                   \
                                                                                \
-macro_inline type *prefix ## _find(const struct prefix##_head *h, const type *item)  \
+macro_inline type *prefix ## _find(struct prefix##_head *h, const type *item)  \
 {                                                                              \
 	struct ssort_item *sitem = h->sh.first;                                \
 	int cmpval = 0;                                                        \
@@ -383,7 +598,7 @@ macro_inline type *prefix ## _add(struct prefix##_head *h, type *item)         \
 	*np = &item->field.hi;                                                 \
 	return NULL;                                                           \
 }                                                                              \
-macro_inline type *prefix ## _find(const struct prefix##_head *h, const type *item)  \
+macro_inline type *prefix ## _find(struct prefix##_head *h, const type *item)  \
 {                                                                              \
 	if (!h->hh.tabshift)                                                   \
 		return NULL;                                                   \
@@ -538,11 +753,8 @@ macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
 }                                                                              \
 macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 {                                                                              \
-	struct sskip_item *sitem = h->sh.hitem.next[0];                        \
-	if (!sitem)                                                            \
-		return NULL;                                                   \
-	typesafe_skiplist_del(&h->sh, sitem, cmpfn_uq);                        \
-	return container_of(sitem, type, field.si);                            \
+	struct sskip_item *sitem = typesafe_skiplist_pop(&h->sh);              \
+	return container_of_null(sitem, type, field.si);                       \
 }                                                                              \
 macro_pure type *prefix ## _first(struct prefix##_head *h)                     \
 {                                                                              \
@@ -576,7 +788,7 @@ macro_inline int prefix ## __cmp(const struct sskip_item *a,                   \
 	return cmpfn(container_of(a, type, field.si),                          \
 			container_of(b, type, field.si));                      \
 }                                                                              \
-macro_inline type *prefix ## _find(const struct prefix##_head *h, const type *item)  \
+macro_inline type *prefix ## _find(struct prefix##_head *h, const type *item)  \
 {                                                                              \
 	struct sskip_item *sitem = typesafe_skiplist_find(&h->sh,              \
 			&item->field.si, &prefix ## __cmp);                    \
@@ -636,6 +848,7 @@ extern void typesafe_skiplist_del(struct sskip_head *head,
 		struct sskip_item *item, int (*cmpfn)(
 			const struct sskip_item *a,
 			const struct sskip_item *b));
+extern struct sskip_item *typesafe_skiplist_pop(struct sskip_head *head);
 
 /* this needs to stay at the end because both files include each other.
  * the resolved order is typesafe.h before typerb.h

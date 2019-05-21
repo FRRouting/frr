@@ -152,6 +152,15 @@ macro_inline type *prefix ## _next_safe(struct prefix##_head *h, type *item)   \
 {	return item ? prefix##_next(h, item) : NULL; }                         \
 macro_inline size_t prefix ## _count(struct prefix##_head *h)                  \
 {	return atomic_load_explicit(&h->ah.count, memory_order_relaxed); }     \
+macro_inline void prefix ## _init(struct prefix##_head *h)                     \
+{                                                                              \
+	memset(h, 0, sizeof(*h));                                              \
+}                                                                              \
+macro_inline void prefix ## _fini(struct prefix##_head *h)                     \
+{                                                                              \
+	assert(prefix ## _count(h) == 0);                                      \
+	memset(h, 0, sizeof(*h));                                              \
+}                                                                              \
 /* ... */
 
 /* add_head:
