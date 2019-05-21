@@ -252,6 +252,120 @@ macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
 }                                                                              \
 /* ... */
 
+/* note: heap currently caps out at 4G items */
+
+#define HEAP_NARY 8U
+typedef uint32_t heap_index_i;
+
+struct heap_item {
+	uint32_t index;
+};
+
+struct heap_head {
+	struct heap_item **array;
+	uint32_t arraysz, count;
+};
+
+#define HEAP_RESIZE_TRESH_UP(h) \
+	(h->hh.count + 1 >= h->hh.arraysz)
+#define HEAP_RESIZE_TRESH_DN(h) \
+	(h->hh.count == 0 || \
+	 h->hh.arraysz - h->hh.count > (h->hh.count + 1024) / 2)
+
+#define PREDECL_HEAP(prefix)                                                   \
+struct prefix ## _head { struct heap_head hh; };                               \
+struct prefix ## _item { struct heap_item hi; };
+
+#define INIT_HEAP(var)		{ }
+
+#define DECLARE_HEAP(prefix, type, field, cmpfn)                               \
+                                                                               \
+macro_inline void prefix ## _init(struct prefix##_head *h)                     \
+{                                                                              \
+	memset(h, 0, sizeof(*h));                                              \
+}                                                                              \
+macro_inline void prefix ## _fini(struct prefix##_head *h)                     \
+{                                                                              \
+	assert(h->hh.count == 0);                                              \
+	memset(h, 0, sizeof(*h));                                              \
+}                                                                              \
+macro_inline int prefix ## __cmp(const struct heap_item *a,                    \
+		const struct heap_item *b)                                     \
+{                                                                              \
+	return cmpfn(container_of(a, type, field.hi),                          \
+			container_of(b, type, field.hi));                      \
+}                                                                              \
+macro_inline type *prefix ## _add(struct prefix##_head *h, type *item)         \
+{                                                                              \
+	if (HEAP_RESIZE_TRESH_UP(h))                                           \
+		typesafe_heap_resize(&h->hh, true);                            \
+	typesafe_heap_pullup(&h->hh, h->hh.count, &item->field.hi,             \
+			     prefix ## __cmp);                                 \
+	h->hh.count++;                                                         \
+	return NULL;                                                           \
+}                                                                              \
+macro_inline void prefix ## _del(struct prefix##_head *h, type *item)          \
+{                                                                              \
+	struct heap_item *other;                                               \
+	uint32_t index = item->field.hi.index;                                 \
+	assert(h->hh.array[index] == &item->field.hi);                         \
+	h->hh.count--;                                                         \
+	other = h->hh.array[h->hh.count];                                      \
+	if (cmpfn(container_of(other, type, field.hi), item) < 0)              \
+		typesafe_heap_pullup(&h->hh, index, other, prefix ## __cmp);   \
+	else                                                                   \
+		typesafe_heap_pushdown(&h->hh, index, other, prefix ## __cmp); \
+	if (HEAP_RESIZE_TRESH_DN(h))                                           \
+		typesafe_heap_resize(&h->hh, false);                           \
+}                                                                              \
+macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
+{                                                                              \
+	struct heap_item *hitem, *other;                                       \
+	if (h->hh.count == 0)                                                  \
+		return NULL;                                                   \
+	hitem = h->hh.array[0];                                                \
+	h->hh.count--;                                                         \
+	other = h->hh.array[h->hh.count];                                      \
+	typesafe_heap_pushdown(&h->hh, 0, other, prefix ## __cmp);             \
+	if (HEAP_RESIZE_TRESH_DN(h))                                           \
+		typesafe_heap_resize(&h->hh, false);                           \
+	return container_of(hitem, type, field.hi);                            \
+}                                                                              \
+macro_pure type *prefix ## _first(struct prefix##_head *h)                     \
+{                                                                              \
+	if (h->hh.count == 0)                                                  \
+		return NULL;                                                   \
+	return container_of(h->hh.array[0], type, field.hi);                   \
+}                                                                              \
+macro_pure type *prefix ## _next(struct prefix##_head *h, type *item)          \
+{                                                                              \
+	uint32_t idx = item->field.hi.index + 1;                               \
+	if (idx >= h->hh.count)                                                \
+		return NULL;                                                   \
+	return container_of(h->hh.array[idx], type, field.hi);                 \
+}                                                                              \
+macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
+{                                                                              \
+	if (!item)                                                             \
+		return NULL;                                                   \
+	return prefix ## _next(h, item);                                       \
+}                                                                              \
+macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
+{                                                                              \
+	return h->hh.count;                                                    \
+}                                                                              \
+/* ... */
+
+extern void typesafe_heap_resize(struct heap_head *head, bool grow);
+extern void typesafe_heap_pushdown(struct heap_head *head, uint32_t index,
+		struct heap_item *item,
+		int (*cmpfn)(const struct heap_item *a,
+			     const struct heap_item *b));
+extern void typesafe_heap_pullup(struct heap_head *head, uint32_t index,
+		struct heap_item *item,
+		int (*cmpfn)(const struct heap_item *a,
+			     const struct heap_item *b));
+
 /* single-linked list, sorted.
  * can be used as priority queue with add / pop
  */

@@ -13,7 +13,7 @@ FRR includes a set of list-like data structure implementations with abstracted
 common APIs.  The purpose of this is easily allow swapping out one
 data structure for another while also making the code easier to read and write.
 There is one API for unsorted lists and a similar but not identical API for
-sorted lists.
+sorted lists - and heaps use a middle ground of both.
 
 For unsorted lists, the following implementations exist:
 
@@ -22,6 +22,11 @@ For unsorted lists, the following implementations exist:
 - double-linked list
 
 - atomic single-linked list with tail pointer
+
+
+Being partially sorted, the oddball structure:
+
+- an 8-ary heap
 
 
 For sorted lists, these data structures are implemented:
@@ -40,6 +45,8 @@ Except for hash tables, each of the sorted data structures has a variant with
 unique and non-unique list items.  Hash tables always require unique items
 and mostly follow the "sorted" API but use the hash value as sorting
 key.  Also, iterating while modifying does not work with hash tables.
+Conversely, the heap always has non-unique items, but iterating while modifying
+doesn't work either.
 
 
 The following sorted structures are likely to be implemented at some point
@@ -63,6 +70,8 @@ Only the following pieces use dynamically allocated memory:
 - skiplists store up to 4 next pointers inline but will dynamically allocate
   memory to hold an item's 5th up to 16th next pointer (if they exist)
 
+- the heap uses a dynamically grown and shrunk array of items
+
 Cheat sheet
 -----------
 
@@ -73,6 +82,8 @@ Available types:
    DECLARE_LIST
    DECLARE_ATOMLIST
    DECLARE_DLIST
+
+   DECLARE_HEAP
 
    DECLARE_SORTLIST_UNIQ
    DECLARE_SORTLIST_NONUNIQ
@@ -87,25 +98,26 @@ Available types:
 
 Functions provided:
 
-+------------------------------------+------+------+---------+------------+
-| Function                           | LIST | HASH | \*_UNIQ | \*_NONUNIQ |
-+====================================+======+======+=========+============+
-| _init, _fini                       | yes  | yes  | yes     | yes        |
-+------------------------------------+------+------+---------+------------+
-| _first, _next, _next_safe          | yes  | yes  | yes     | yes        |
-+------------------------------------+------+------+---------+------------+
-| _add_head, _add_tail, _add_after   | yes  | --   | --      | --         |
-+------------------------------------+------+------+---------+------------+
-| _add                               | --   | yes  | yes     | yes        |
-+------------------------------------+------+------+---------+------------+
-| _del, _pop                         | yes  | yes  | yes     | yes        |
-+------------------------------------+------+------+---------+------------+
-| _find                              | --   | yes  | yes     | --         |
-+------------------------------------+------+------+---------+------------+
-| _find_lt, _find_gteq               | --   | --   | yes     | yes        |
-+------------------------------------+------+------+---------+------------+
-| use with for_each() macros         | yes  | yes  | yes     | yes        |
-+------------------------------------+------+------+---------+------------+
++------------------------------------+------+------+------+---------+------------+
+| Function                           | LIST | HEAP | HASH | \*_UNIQ | \*_NONUNIQ |
++====================================+======+======+======+=========+============+
+| _init, _fini                       | yes  | yes  | yes  | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
+| _first, _next, _next_safe          | yes  | yes  | yes  | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
+| _add_head, _add_tail, _add_after   | yes  | --   | --   | --      | --         |
++------------------------------------+------+------+------+---------+------------+
+| _add                               | --   | yes  | yes  | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
+| _del, _pop                         | yes  | yes  | yes  | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
+| _find                              | --   | --   | yes  | yes     | --         |
++------------------------------------+------+------+------+---------+------------+
+| _find_lt, _find_gteq               | --   | --   | --   | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
+| use with for_each() macros         | yes  | yes  | yes  | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
+
 
 
 Datastructure type setup
@@ -481,6 +493,21 @@ Hash tables also support :c:func:`Z_add()` and :c:func:`Z_find()` with
 the same semantics as noted above. :c:func:`Z_find_gteq()` and
 :c:func:`Z_find_lt()` are **not** provided for hash tables.
 
+
+API for heaps
+-------------
+
+Heaps provide the same API as the sorted data structures, except:
+
+* none of the find functions (:c:func:`Z_find()`, :c:func:`Z_find_gteq()`
+  or :c:func:`Z_find_lt()`) are available.
+* iterating over the heap yields the items in semi-random order, only the
+  first item is guaranteed to be in order and actually the "lowest" item
+  on the heap.  Being a heap, only the rebalancing performed on removing the
+  first item (either through :c:func:`Z_pop()` or :c:func:`Z_del()`) causes
+  the new lowest item to bubble up to the front.
+* all heap modifications are O(log n).  However, cacheline efficiency and
+  latency is likely quite a bit better than with other data structures.
 
 Atomic lists
 ------------
