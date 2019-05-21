@@ -22,6 +22,10 @@
 
 #include "typesafe.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct typed_rb_entry {
 	struct typed_rb_entry *rbt_parent;
 	struct typed_rb_entry *rbt_left;
@@ -178,5 +182,9 @@ macro_inline int prefix ## __cmp_uq(const struct typed_rb_entry *a,            \
                                                                                \
 _DECLARE_RBTREE(prefix, type, field, prefix ## __cmp, prefix ## __cmp_uq)      \
 /* ... */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FRR_TYPERB_H */

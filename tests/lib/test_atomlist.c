@@ -308,7 +308,7 @@ static void run_tr(struct testrun *tr)
 	if (tr->sorted) {
 		uint64_t prevval = 0;
 
-		for_each(asort, &shead, item) {
+		frr_each(asort, &shead, item) {
 			assert(item->val1 >= prevval);
 			prevval = item->val1;
 			c++;
@@ -316,7 +316,7 @@ static void run_tr(struct testrun *tr)
 		assert(c == asort_count(&shead));
 	} else {
 		prev = &dummy;
-		for_each(alist, &ahead, item) {
+		frr_each(alist, &ahead, item) {
 			assert(item != prev);
 			prev = item;
 			c++;
@@ -335,7 +335,7 @@ static void dump(const char *lbl)
 	size_t ctr = 0;
 
 	printf("dumping %s:\n", lbl);
-	for_each_safe(alist, &ahead, item) {
+	frr_each_safe(alist, &ahead, item) {
 		printf("%s %3zu %p %3"PRIu64" %3"PRIu64"\n", lbl, ctr++,
 				(void *)item, item->val1, item->val2);
 	}

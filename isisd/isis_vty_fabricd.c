@@ -176,7 +176,7 @@ DEFUN (show_lsp_flooding,
 			continue;
 		}
 
-		for_each (lspdb, head, lsp) {
+		frr_each (lspdb, head, lsp) {
 			lsp_print_flooding(vty, lsp);
 			vty_out(vty, "\n");
 		}

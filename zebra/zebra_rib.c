@@ -1229,7 +1229,7 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 		 * nht resolution and as such we need to call the
 		 * nexthop tracking evaluation code
 		 */
-		for_each (rnh_list, &dest->nht, rnh) {
+		frr_each (rnh_list, &dest->nht, rnh) {
 			struct zebra_vrf *zvrf =
 				zebra_vrf_lookup_by_id(rnh->vrf_id);
 			struct prefix *p = &rnh->node->p;
@@ -3223,7 +3223,7 @@ unsigned long rib_score_proto(uint8_t proto, unsigned short instance)
 			       proto, instance,
 			       zvrf->table[AFI_IP6][SAFI_UNICAST]);
 
-		for_each(otable, &zvrf->other_tables, ort) cnt +=
+		frr_each(otable, &zvrf->other_tables, ort) cnt +=
 			rib_score_proto_table(proto, instance, ort->table);
 	}
 
