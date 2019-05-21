@@ -1,0 +1,29 @@
+[
+    {
+	"peer":"1000:1::1",
+	"vrf":"r2-cust1",
+	"id":0,
+	"diagnostic":"echo ok",
+	"status":"up",
+	"uptime":0,
+	"type":"icmp_echo",
+	"interval":5000,
+	"timeout":5000,
+	"tos_val":192,
+	"packet-size":100
+    },
+    {
+	"peer":"192.168.0.1",
+	"local":"192.168.0.2",
+	"vrf":"r2-cust1",
+	"id":0,
+	"diagnostic":"echo ok",
+	"status":"up",
+	"uptime":0,
+	"type":"icmp_echo",
+	"interval":5000,
+	"timeout":5000,
+	"tos_val":192,
+	"packet-size":100
+    }
+]
