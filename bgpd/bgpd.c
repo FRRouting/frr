@@ -7557,12 +7557,6 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 	vty_endframe(vty, " exit-address-family\n");
 }
 
-/* clang-format off */
-#if CONFDATE > 20190517
-CPP_NOTICE("bgpd: remove 'bgp enforce-first-as' config migration from bgp_config_write")
-#endif
-/* clang-format on */
-
 int bgp_config_write(struct vty *vty)
 {
 	int write = 0;
@@ -7597,15 +7591,6 @@ int bgp_config_write(struct vty *vty)
 		/* skip all auto created vrf as they dont have user config */
 		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
 			continue;
-
-		/* Migrate deprecated 'bgp enforce-first-as'
-		 * config to 'neighbor * enforce-first-as' configs
-		 */
-		if (bgp_flag_check(bgp, BGP_FLAG_ENFORCE_FIRST_AS)) {
-			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))
-				peer_flag_set(peer, PEER_FLAG_ENFORCE_FIRST_AS);
-			bgp_flag_unset(bgp, BGP_FLAG_ENFORCE_FIRST_AS);
-		}
 
 		/* Router bgp ASN */
 		vty_out(vty, "router bgp %u", bgp->as);
