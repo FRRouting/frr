@@ -180,7 +180,7 @@ extern void listnode_move_to_tail(struct list *list, struct listnode *node);
  * data
  *    data to insert into list
  */
-extern void listnode_delete(struct list *list, void *data);
+extern void listnode_delete(struct list *list, const void *data);
 
 /*
  * Find the listnode corresponding to an element in a list.
@@ -194,7 +194,7 @@ extern void listnode_delete(struct list *list, void *data);
  * Returns:
  *    pointer to listnode storing the given data if found, NULL otherwise
  */
-extern struct listnode *listnode_lookup(struct list *list, void *data);
+extern struct listnode *listnode_lookup(struct list *list, const void *data);
 
 /*
  * Retrieve the element at the head of a list.
