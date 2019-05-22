@@ -1057,6 +1057,14 @@ class Router(Node):
             self.waitOutput()
             logger.debug("{}: {} zebra started".format(self, self.routertype))
             sleep(1, "{}: waiting for zebra to start".format(self.name))
+        if self.daemons['pmd'] == 1:
+            pmd_path = os.path.join(self.daemondir, 'pmd')
+            self.cmd('{0} > pmd.out 2> pmd.err &'.format(
+                 pmd_path, self.logdir, self.name
+            ))
+            self.waitOutput()
+            sleep(1, '{}: waiting for pmd to start'.format(self.name))
+            logger.debug('{}: {} pmd started'.format(self, self.routertype))
         # Start staticd next if required
         if self.daemons["staticd"] == 1:
             staticd_path = os.path.join(self.daemondir, "staticd")
@@ -1076,7 +1084,9 @@ class Router(Node):
         # Now start all the other daemons
         for daemon in self.daemons:
             # Skip disabled daemons and zebra
-            if self.daemons[daemon] == 0 or daemon == "zebra" or daemon == "staticd":
+            if self.daemons[daemon] == 0 or daemon == "zebra":
+                continue
+            if daemon == 'staticd' or daemon == 'pmd':
                 continue
             daemon_path = os.path.join(self.daemondir, daemon)
             self.cmd(
