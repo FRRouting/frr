@@ -36,8 +36,8 @@
 DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop")
 DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label")
 
-static int nexthop_labels_cmp(const struct nexthop *nh1,
-			      const struct nexthop *nh2)
+static int _nexthop_labels_cmp(const struct nexthop *nh1,
+			       const struct nexthop *nh2)
 {
 	const struct mpls_label_stack *nhl1 = NULL;
 	const struct mpls_label_stack *nhl2 = NULL;
@@ -64,9 +64,9 @@ static int nexthop_labels_cmp(const struct nexthop *nh1,
 	return memcmp(nhl1->label, nhl2->label, nhl1->num_labels);
 }
 
-static int nexthop_g_addr_cmp(enum nexthop_types_t type,
-			      const union g_addr *addr1,
-			      const union g_addr *addr2)
+static int _nexthop_g_addr_cmp(enum nexthop_types_t type,
+			       const union g_addr *addr1,
+			       const union g_addr *addr2)
 {
 	int ret = 0;
 
@@ -88,19 +88,20 @@ static int nexthop_g_addr_cmp(enum nexthop_types_t type,
 	return ret;
 }
 
-static int nexthop_gateway_cmp(const struct nexthop *nh1,
+static int _nexthop_gateway_cmp(const struct nexthop *nh1,
+				const struct nexthop *nh2)
+{
+	return _nexthop_g_addr_cmp(nh1->type, &nh1->gate, &nh2->gate);
+}
+
+static int _nexthop_source_cmp(const struct nexthop *nh1,
 			       const struct nexthop *nh2)
 {
-	return nexthop_g_addr_cmp(nh1->type, &nh1->gate, &nh2->gate);
+	return _nexthop_g_addr_cmp(nh1->type, &nh1->src, &nh2->src);
 }
 
-static int nexthop_source_cmp(const struct nexthop *nh1,
-			      const struct nexthop *nh2)
-{
-	return nexthop_g_addr_cmp(nh1->type, &nh1->src, &nh2->src);
-}
-
-int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
+static int _nexthop_cmp_no_labels(const struct nexthop *next1,
+				  const struct nexthop *next2)
 {
 	int ret = 0;
 
@@ -119,14 +120,14 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 	switch (next1->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV6:
-		ret = nexthop_gateway_cmp(next1, next2);
-		if (ret)
+		ret = _nexthop_gateway_cmp(next1, next2);
+		if (ret != 0)
 			return ret;
 		break;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		ret = nexthop_gateway_cmp(next1, next2);
-		if (ret)
+		ret = _nexthop_gateway_cmp(next1, next2);
+		if (ret != 0)
 			return ret;
 		/* Intentional Fall-Through */
 	case NEXTHOP_TYPE_IFINDEX:
@@ -145,11 +146,21 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 		break;
 	}
 
-	ret = nexthop_source_cmp(next1, next2);
-	if (ret)
+	ret = _nexthop_source_cmp(next1, next2);
+
+	return ret;
+}
+
+int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
+{
+	int ret = 0;
+
+	ret = _nexthop_cmp_no_labels(next1, next2);
+	if (ret != 0)
 		return ret;
 
-	ret = nexthop_labels_cmp(next1, next2);
+	ret = _nexthop_labels_cmp(next1, next2);
+
 	return ret;
 }
 
@@ -204,7 +215,7 @@ const char *nexthop_type_to_str(enum nexthop_types_t nh_type)
  */
 bool nexthop_labels_match(const struct nexthop *nh1, const struct nexthop *nh2)
 {
-	if (nexthop_labels_cmp(nh1, nh2) != 0)
+	if (_nexthop_labels_cmp(nh1, nh2) != 0)
 		return false;
 
 	return true;
@@ -247,6 +258,24 @@ bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2)
 		return true;
 
 	if (nexthop_cmp(nh1, nh2) != 0)
+		return false;
+
+	return true;
+}
+
+bool nexthop_same_no_labels(const struct nexthop *nh1,
+			    const struct nexthop *nh2)
+{
+	if (nh1 && !nh2)
+		return false;
+
+	if (!nh1 && nh2)
+		return false;
+
+	if (nh1 == nh2)
+		return true;
+
+	if (_nexthop_cmp_no_labels(nh1, nh2) != 0)
 		return false;
 
 	return true;
