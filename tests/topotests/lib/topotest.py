@@ -1617,6 +1617,12 @@ class Router(Node):
             while "bfdd" in daemons_list:
                 daemons_list.remove("bfdd")
 
+        if "pmd" in daemons_list:
+            start_daemon("pmd")
+            sleep(1, '{}: waiting for pmd to start'.format(self.name))
+            while "pmd" in daemons_list:
+                daemons_list.remove("pmd")
+
         # Start staticd next if required
         if "staticd" in daemons_list:
             start_daemon("staticd")
