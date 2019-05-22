@@ -41,10 +41,7 @@
 #include "ripd/rip_errors.h"
 
 /* ripd options. */
-#if CONFDATE > 20190521
-	CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")
-#endif
-static struct option longopts[] = {{"retain", no_argument, NULL, 'r'}, {0}};
+static struct option longopts[] = {{0}};
 
 /* ripd privileges */
 zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND, ZCAP_SYS_ADMIN};
@@ -129,10 +126,7 @@ FRR_DAEMON_INFO(ripd, RIP, .vty_port = RIP_VTY_PORT,
 		.privs = &ripd_privs, .yang_modules = ripd_yang_modules,
 		.n_yang_modules = array_size(ripd_yang_modules), )
 
-#if CONFDATE > 20190521
-CPP_NOTICE("-r / --retain has reached deprecation EOL, remove")
-#endif
-#define DEPRECATED_OPTIONS "r"
+#define DEPRECATED_OPTIONS ""
 
 /* Main routine of ripd. */
 int main(int argc, char **argv)
