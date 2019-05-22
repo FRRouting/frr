@@ -1604,6 +1604,12 @@ class Router(Node):
             while "zebra" in daemons_list:
                 daemons_list.remove("zebra")
 
+        if "bfdd" in daemons_list:
+            start_daemon("bfdd")
+            sleep(1, '{}: waiting for bfdd to start'.format(self.name))
+            while "bfdd" in daemons_list:
+                daemons_list.remove("bfdd")
+
         # Start staticd next if required
         if "staticd" in daemons_list:
             start_daemon("staticd")
