@@ -64,11 +64,45 @@ static int nexthop_labels_cmp(const struct nexthop *nh1,
 	return memcmp(nhl1->label, nhl2->label, nhl1->num_labels);
 }
 
+static int nexthop_g_addr_cmp(enum nexthop_types_t type,
+			      const union g_addr *addr1,
+			      const union g_addr *addr2)
+{
+	int ret = 0;
+
+	switch (type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		ret = IPV4_ADDR_CMP(&addr1->ipv4, &addr2->ipv4);
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		ret = IPV6_ADDR_CMP(&addr1->ipv6, &addr2->ipv6);
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+	case NEXTHOP_TYPE_BLACKHOLE:
+		/* No addr here */
+		break;
+	}
+
+	return ret;
+}
+
+static int nexthop_gateway_cmp(const struct nexthop *nh1,
+			       const struct nexthop *nh2)
+{
+	return nexthop_g_addr_cmp(nh1->type, &nh1->gate, &nh2->gate);
+}
+
+static int nexthop_source_cmp(const struct nexthop *nh1,
+			      const struct nexthop *nh2)
+{
+	return nexthop_g_addr_cmp(nh1->type, &nh1->src, &nh2->src);
+}
+
 int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 {
 	int ret = 0;
-	uint32_t n1 = 0;
-	uint32_t n2 = 0;
 
 	if (next1->vrf_id < next2->vrf_id)
 		return -1;
@@ -84,21 +118,14 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 
 	switch (next1->type) {
 	case NEXTHOP_TYPE_IPV4:
-		n1 = ntohl(next1->gate.ipv4.s_addr);
-		n2 = ntohl(next2->gate.ipv4.s_addr);
-		if (n1 < n2)
-			return -1;
-		if (n1 > n2)
-			return 1;
-		break;
 	case NEXTHOP_TYPE_IPV6:
-		ret = memcmp(&next1->gate, &next2->gate, sizeof(union g_addr));
+		ret = nexthop_gateway_cmp(next1, next2);
 		if (ret)
 			return ret;
 		break;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		ret = memcmp(&next1->gate, &next2->gate, sizeof(union g_addr));
+		ret = nexthop_gateway_cmp(next1, next2);
 		if (ret)
 			return ret;
 		/* Intentional Fall-Through */
@@ -118,7 +145,7 @@ int nexthop_cmp(const struct nexthop *next1, const struct nexthop *next2)
 		break;
 	}
 
-	ret = memcmp(&next1->src, &next2->src, sizeof(union g_addr));
+	ret = nexthop_source_cmp(next1, next2);
 	if (ret)
 		return ret;
 
