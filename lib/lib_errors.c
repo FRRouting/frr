@@ -357,6 +357,12 @@ static struct log_ref ferr_lib_err[] = {
 		.suggestion = "Gather log data and open an Issue.",
 	},
 	{
+		.code = EC_LIB_RESOLVER,
+		.title = "DNS Resolution",
+		.description = "An error was detected while attempting to resolve a hostname",
+		.suggestion = "Ensure that DNS is working properly and the hostname is configured in dns.  If you are still seeing this error, open an issue"
+	},
+	{
 		.code = END_FERR,
 	}
 };

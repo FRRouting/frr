@@ -17,17 +17,18 @@
 #include "vector.h"
 #include "thread.h"
 #include "lib_errors.h"
-
-#include "nhrpd.h"
-#include "nhrp_errors.h"
+#include "resolver.h"
+#include "command.h"
 
 struct resolver_state {
 	ares_channel channel;
+	struct thread_master *master;
 	struct thread *timeout;
 	vector read_threads, write_threads;
 };
 
 static struct resolver_state state;
+static bool resolver_debug;
 
 #define THREAD_RUNNING ((struct thread *)-1)
 
@@ -54,7 +55,8 @@ static int resolver_cb_socket_readable(struct thread *t)
 	ares_process_fd(r->channel, fd, ARES_SOCKET_BAD);
 	if (vector_lookup(r->read_threads, fd) == THREAD_RUNNING) {
 		t = NULL;
-		thread_add_read(master, resolver_cb_socket_readable, r, fd, &t);
+		thread_add_read(r->master, resolver_cb_socket_readable, r, fd,
+				&t);
 		vector_set_index(r->read_threads, fd, t);
 	}
 	resolver_update_timeouts(r);
@@ -71,7 +73,7 @@ static int resolver_cb_socket_writable(struct thread *t)
 	ares_process_fd(r->channel, ARES_SOCKET_BAD, fd);
 	if (vector_lookup(r->write_threads, fd) == THREAD_RUNNING) {
 		t = NULL;
-		thread_add_write(master, resolver_cb_socket_writable, r, fd,
+		thread_add_write(r->master, resolver_cb_socket_writable, r, fd,
 				 &t);
 		vector_set_index(r->write_threads, fd, t);
 	}
@@ -91,8 +93,8 @@ static void resolver_update_timeouts(struct resolver_state *r)
 	tv = ares_timeout(r->channel, NULL, &tvbuf);
 	if (tv) {
 		unsigned int timeoutms = tv->tv_sec * 1000 + tv->tv_usec / 1000;
-		thread_add_timer_msec(master, resolver_cb_timeout, r, timeoutms,
-				      &r->timeout);
+		thread_add_timer_msec(r->master, resolver_cb_timeout, r,
+				      timeoutms, &r->timeout);
 	}
 }
 
@@ -105,8 +107,8 @@ static void ares_socket_cb(void *data, ares_socket_t fd, int readable,
 	if (readable) {
 		t = vector_lookup_ensure(r->read_threads, fd);
 		if (!t) {
-			thread_add_read(master, resolver_cb_socket_readable, r,
-					fd, &t);
+			thread_add_read(r->master, resolver_cb_socket_readable,
+					r, fd, &t);
 			vector_set_index(r->read_threads, fd, t);
 		}
 	} else {
@@ -122,8 +124,8 @@ static void ares_socket_cb(void *data, ares_socket_t fd, int readable,
 	if (writable) {
 		t = vector_lookup_ensure(r->write_threads, fd);
 		if (!t) {
-			thread_add_read(master, resolver_cb_socket_writable, r,
-					fd, &t);
+			thread_add_read(r->master, resolver_cb_socket_writable,
+					r, fd, &t);
 			vector_set_index(r->write_threads, fd, t);
 		}
 	} else {
@@ -137,25 +139,6 @@ static void ares_socket_cb(void *data, ares_socket_t fd, int readable,
 	}
 }
 
-void resolver_init(void)
-{
-	struct ares_options ares_opts;
-
-	state.read_threads = vector_init(1);
-	state.write_threads = vector_init(1);
-
-	ares_opts = (struct ares_options){
-		.sock_state_cb = &ares_socket_cb,
-		.sock_state_cb_data = &state,
-		.timeout = 2,
-		.tries = 3,
-	};
-
-	ares_init_options(&state.channel, &ares_opts,
-			  ARES_OPT_SOCK_STATE_CB | ARES_OPT_TIMEOUT
-				  | ARES_OPT_TRIES);
-}
-
 
 static void ares_address_cb(void *arg, int status, int timeouts,
 			    struct hostent *he)
@@ -165,7 +148,9 @@ static void ares_address_cb(void *arg, int status, int timeouts,
 	size_t i;
 
 	if (status != ARES_SUCCESS) {
-		debugf(NHRP_DEBUG_COMMON, "[%p] Resolving failed", query);
+		if (resolver_debug)
+			zlog_debug("[%p] Resolving failed", query);
+
 		query->callback(query, -1, NULL);
 		query->callback = NULL;
 		return;
@@ -186,8 +171,9 @@ static void ares_address_cb(void *arg, int status, int timeouts,
 		}
 	}
 
-	debugf(NHRP_DEBUG_COMMON, "[%p] Resolved with %d results", query,
-	       (int)i);
+	if (resolver_debug)
+		zlog_debug("[%p] Resolved with %d results", query, (int)i);
+
 	query->callback(query, i, &addr[0]);
 	query->callback = NULL;
 }
@@ -199,15 +185,61 @@ void resolver_resolve(struct resolver_query *query, int af,
 {
 	if (query->callback != NULL) {
 		flog_err(
-			EC_NHRP_RESOLVER,
+			EC_LIB_RESOLVER,
 			"Trying to resolve '%s', but previous query was not finished yet",
 			hostname);
 		return;
 	}
 
-	debugf(NHRP_DEBUG_COMMON, "[%p] Resolving '%s'", query, hostname);
+	if (resolver_debug)
+		zlog_debug("[%p] Resolving '%s'", query, hostname);
 
 	query->callback = callback;
 	ares_gethostbyname(state.channel, hostname, af, ares_address_cb, query);
 	resolver_update_timeouts(&state);
+}
+
+DEFUN(debug_resolver,
+      debug_resolver_cmd,
+      "[no] debug resolver",
+      NO_STR
+      DEBUG_STR
+      "Debug DNS resolver actions\n")
+{
+	resolver_debug = (argc == 2);
+	return CMD_SUCCESS;
+}
+
+static struct cmd_node resolver_debug_node = {RESOLVER_DEBUG_NODE, "", 1};
+
+static int resolver_config_write_debug(struct vty *vty)
+{
+	if (resolver_debug)
+		vty_out(vty, "debug resolver\n");
+	return 1;
+}
+
+
+void resolver_init(struct thread_master *tm)
+{
+	struct ares_options ares_opts;
+
+	state.master = tm;
+	state.read_threads = vector_init(1);
+	state.write_threads = vector_init(1);
+
+	ares_opts = (struct ares_options){
+		.sock_state_cb = &ares_socket_cb,
+		.sock_state_cb_data = &state,
+		.timeout = 2,
+		.tries = 3,
+	};
+
+	ares_init_options(&state.channel, &ares_opts,
+			  ARES_OPT_SOCK_STATE_CB | ARES_OPT_TIMEOUT
+				  | ARES_OPT_TRIES);
+
+	install_node(&resolver_debug_node, resolver_config_write_debug);
+	install_element(CONFIG_NODE, &debug_resolver_cmd);
+	install_element(ENABLE_NODE, &debug_resolver_cmd);
 }

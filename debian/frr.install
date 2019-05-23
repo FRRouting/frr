@@ -2,6 +2,7 @@ etc/
 usr/bin/vtysh
 usr/bin/mtracebis
 usr/lib/*/frr/libfrr.*
+usr/lib/*/frr/libfrrcares.*
 usr/lib/*/frr/libfrrospfapiclient.*
 usr/lib/frr/*.sh
 usr/lib/frr/*d
