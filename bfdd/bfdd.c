@@ -93,10 +93,17 @@ static struct quagga_signal_t bfd_signals[] = {
 	},
 };
 
+static const struct frr_yang_module_info *bfdd_yang_modules[] = {
+	&frr_interface_info,
+	&frr_bfdd_info,
+};
+
 FRR_DAEMON_INFO(bfdd, BFD, .vty_port = 2617,
 		.proghelp = "Implementation of the BFD protocol.",
 		.signals = bfd_signals, .n_signals = array_size(bfd_signals),
-		.privs = &bglobal.bfdd_privs)
+		.privs = &bglobal.bfdd_privs,
+		.yang_modules = bfdd_yang_modules,
+		.n_yang_modules = array_size(bfdd_yang_modules))
 
 #define OPTION_CTLSOCK 1001
 static struct option longopts[] = {
