@@ -94,6 +94,7 @@ enum node_type {
 	NORTHBOUND_DEBUG_NODE,	 /* Northbound Debug node. */
 	DEBUG_VNC_NODE,		 /* Debug VNC node. */
 	RMAP_DEBUG_NODE,         /* Route-map debug node */
+	RESOLVER_DEBUG_NODE,	 /* Resolver debug node */
 	AAA_NODE,		 /* AAA node. */
 	KEYCHAIN_NODE,		 /* Key-chain node. */
 	KEYCHAIN_KEY_NODE,       /* Key-chain key node. */

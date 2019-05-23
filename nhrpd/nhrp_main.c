@@ -141,7 +141,7 @@ int main(int argc, char **argv)
 	nhrp_error_init();
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
 	nhrp_interface_init();
-	resolver_init();
+	resolver_init(master);
 
 	/* Run with elevated capabilities, as for all netlink activity
 	 * we need privileges anyway. */

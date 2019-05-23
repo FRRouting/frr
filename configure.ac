@@ -1560,7 +1560,7 @@ if test "${NHRPD}" != ""; then
     AC_MSG_ERROR([trying to build nhrpd, but libcares not found. install c-ares and its -dev headers.])
   ])
 fi
-
+AM_CONDITIONAL([CARES], [test "${NHRPD}" != ""])
 
 dnl ------------------
 dnl check Net-SNMP library

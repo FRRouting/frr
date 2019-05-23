@@ -84,6 +84,7 @@ enum lib_log_refs {
 	EC_LIB_GRPC_INIT,
 	EC_LIB_ID_CONSISTENCY,
 	EC_LIB_ID_EXHAUST,
+	EC_LIB_RESOLVER,
 };
 
 extern void lib_error_init(void);
