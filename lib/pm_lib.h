@@ -59,7 +59,7 @@ extern void pm_set_param(struct pm_info **pm_info, uint32_t interval,
 			 uint32_t timeout, uint16_t packet_size,
 			 uint8_t tos_val, int *command);
 extern void pm_peer_sendmsg(struct zclient *zclient, struct pm_info *pm_info,
-			    int family, void *dst_ip, void *src_ip,
+			    int family, void *dst_ip, void *src_ip, void *nh,
 			    char *if_name, int command,
 			    int set_flag, vrf_id_t vrf_id);
 
