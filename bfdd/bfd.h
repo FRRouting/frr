@@ -252,11 +252,7 @@ struct bfd_session {
 	struct bfd_timers remote_timers;
 
 	uint64_t refcount; /* number of pointers referencing this. */
-
-	/* VTY context data. */
-	QOBJ_FIELDS
 };
-DECLARE_QOBJ_TYPE(bfd_session)
 
 struct peer_label {
 	TAILQ_ENTRY(peer_label) pl_entry;
@@ -552,6 +548,9 @@ void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
 struct bfd_session *bfd_session_new(void);
 struct bfd_session *bs_registrate(struct bfd_session *bs);
 void bfd_session_free(struct bfd_session *bs);
+const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
+					   bool mhop);
+
 /* BFD hash data structures interface */
 void bfd_initialize(void);
 void bfd_shutdown(void);
@@ -591,6 +590,14 @@ void bfdd_vty_init(void);
 
 
 /*
+ * bfdd_cli.c
+ *
+ * BFD daemon CLI implementation.
+ */
+void bfdd_cli_init(void);
+
+
+/*
  * ptm_adapter.c
  */
 void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv);
@@ -601,5 +608,13 @@ void bfdd_sessions_enable_vrf(struct vrf *vrf);
 void bfdd_sessions_disable_vrf(struct vrf *vrf);
 
 int ptm_bfd_notify(struct bfd_session *bs);
+
+
+/*
+ * bfdd_northbound.c
+ *
+ * BFD northbound callbacks.
+ */
+extern const struct frr_yang_module_info frr_bfdd_info;
 
 #endif /* _BFD_H_ */

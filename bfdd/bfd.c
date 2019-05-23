@@ -34,7 +34,6 @@
 DEFINE_MTYPE_STATIC(BFDD, BFDD_CONFIG, "long-lived configuration memory")
 DEFINE_MTYPE_STATIC(BFDD, BFDD_SESSION_OBSERVER, "Session observer")
 DEFINE_MTYPE_STATIC(BFDD, BFDD_VRF, "BFD VRF")
-DEFINE_QOBJ_TYPE(bfd_session)
 
 /*
  * Prototypes
@@ -85,6 +84,8 @@ void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
 		strlcpy(key->ifname, ifname, sizeof(key->ifname));
 	if (vrfname && vrfname[0])
 		strlcpy(key->vrfname, vrfname, sizeof(key->vrfname));
+	else
+		strlcpy(key->vrfname, VRF_DEFAULT_NAME, sizeof(key->vrfname));
 }
 
 struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc)
@@ -390,17 +391,13 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 
 	/* Search for session without using discriminator. */
 	ifp = if_lookup_by_index(ifindex, vrfid);
-	if (vrfid == VRF_DEFAULT) {
-		/*
-		 * Don't use the default vrf, otherwise we won't find
-		 * sessions that doesn't specify it.
-		 */
-		vrf = NULL;
-	} else
+	if (vrfid != VRF_DEFAULT)
 		vrf = vrf_lookup_by_id(vrfid);
+	else
+		vrf = NULL;
 
 	gen_bfd_key(&key, peer, local, is_mhop, ifp ? ifp->name : NULL,
-		    vrf ? vrf->name : NULL);
+		    vrf ? vrf->name : VRF_DEFAULT_NAME);
 
 	/* XXX maybe remoteDiscr should be checked for remoteHeard cases. */
 	return bfd_key_lookup(key);
@@ -468,8 +465,6 @@ struct bfd_session *bfd_session_new(void)
 	struct bfd_session *bs;
 
 	bs = XCALLOC(MTYPE_BFDD_CONFIG, sizeof(*bs));
-
-	QOBJ_REG(bs, bfd_session);
 
 	bs->timers.desired_min_tx = BFD_DEFDESIREDMINTX;
 	bs->timers.required_min_rx = BFD_DEFREQUIREDMINRX;
@@ -644,7 +639,6 @@ void bfd_session_free(struct bfd_session *bs)
 
 	pl_free(bs->pl);
 
-	QOBJ_UNREG(bs);
 	XFREE(MTYPE_BFDD_CONFIG, bs);
 }
 
@@ -679,6 +673,9 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 
 	if (bpc->bpc_has_vrfname)
 		strlcpy(bfd->key.vrfname, bpc->bpc_vrfname,
+			sizeof(bfd->key.vrfname));
+	else
+		strlcpy(bfd->key.vrfname, VRF_DEFAULT_NAME,
 			sizeof(bfd->key.vrfname));
 
 	/* Copy remaining data. */
@@ -1292,6 +1289,7 @@ static unsigned int bfd_key_hash_do(const void *p);
 
 static void _bfd_free(struct hash_bucket *hb,
 		      void *arg __attribute__((__unused__)));
+int _bfd_session_next(struct hash_bucket *hb, void *arg);
 
 /* BFD hash for our discriminator. */
 static unsigned int bfd_id_hash_do(const void *p)
@@ -1531,6 +1529,62 @@ void bfd_shutdown(void)
 	/* Now free the hashes themselves. */
 	hash_free(bfd_id_hash);
 	hash_free(bfd_key_hash);
+}
+
+struct bfd_session_iterator {
+	int bsi_stop;
+	bool bsi_mhop;
+	const struct bfd_session *bsi_bs;
+};
+
+int _bfd_session_next(struct hash_bucket *hb, void *arg)
+{
+	struct bfd_session_iterator *bsi = arg;
+	struct bfd_session *bs = hb->data;
+
+	/* Previous entry signaled stop. */
+	if (bsi->bsi_stop == 1) {
+		/* Match the single/multi hop sessions. */
+		if (bs->key.mhop != bsi->bsi_mhop)
+			return HASHWALK_CONTINUE;
+
+		bsi->bsi_bs = bs;
+		return HASHWALK_ABORT;
+	}
+
+	/* We found the current item, stop in the next one. */
+	if (bsi->bsi_bs == hb->data) {
+		bsi->bsi_stop = 1;
+		/* Set entry to NULL to signal end of list. */
+		bsi->bsi_bs = NULL;
+	} else if (bsi->bsi_bs == NULL && bsi->bsi_mhop == bs->key.mhop) {
+		/* We want the first list item. */
+		bsi->bsi_stop = 1;
+		bsi->bsi_bs = hb->data;
+		return HASHWALK_ABORT;
+	}
+
+	return HASHWALK_CONTINUE;
+}
+
+/*
+ * bfd_session_next: uses the current session to find the next.
+ *
+ * `bs` might point to NULL to get the first item of the data structure.
+ */
+const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
+					   bool mhop)
+{
+	struct bfd_session_iterator bsi;
+
+	bsi.bsi_stop = 0;
+	bsi.bsi_bs = bs;
+	bsi.bsi_mhop = mhop;
+	hash_walk(bfd_key_hash, _bfd_session_next, &bsi);
+	if (bsi.bsi_stop == 0)
+		return NULL;
+
+	return bsi.bsi_bs;
 }
 
 /*
