@@ -139,12 +139,12 @@ static void static_pm_sendmsg(struct static_route *si, int command)
 
 	if (family == AF_INET)
 		pm_peer_sendmsg(zclient, pm_info, AF_INET, &si->addr.ipv4,
-				 src_ip, ifp ? ifp->name : NULL,
-				 command, 1, vrf_id);
+				src_ip, &si->addr.ipv4, ifp ? ifp->name : NULL,
+				command, 1, vrf_id);
 	else if (family == AF_INET6)
 		pm_peer_sendmsg(zclient, pm_info, AF_INET6, &si->addr.ipv6,
-				 src_ip, ifp ? ifp->name : NULL,
-				 command, 1, vrf_id);
+				src_ip, &si->addr.ipv6, ifp ? ifp->name : NULL,
+				command, 1, vrf_id);
 }
 
 static void static_pm_update_si_source(struct static_route *si,
@@ -456,11 +456,11 @@ int static_pm_param_set(struct static_route *si, uint32_t frequency,
 		if (!ifp || ifp->ifindex == IFINDEX_INTERNAL)
 			return 0;
 		pm_peer_sendmsg(zclient, pm_info, family,
-				 dst_ip, src_ip, ifp->name,
-				 command, 0, si->nh_vrf_id);
+				dst_ip, src_ip, dst_ip, ifp->name,
+				command, 0, si->nh_vrf_id);
 	} else {
 		pm_peer_sendmsg(zclient, pm_info, family,
-				dst_ip, src_ip, NULL,
+				dst_ip, src_ip, dst_ip, NULL,
 				command, 0, si->nh_vrf_id);
 	}
 	return 0;

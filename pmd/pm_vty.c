@@ -488,6 +488,11 @@ static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
 		pm->interval, pm->timeout);
 	vty_out(vty, "\tretries up-count %u down-count %u\n",
 		pm->retries_up, pm->retries_down);
+	if ((sockunion_family(&pm->nh) == AF_INET ||
+	     sockunion_family(&pm->nh) == AF_INET6) &&
+	    !sockunion_same(&pm->nh, &pm->key.peer))
+		vty_out(vty, "\tusing nexthop %s\n",
+			sockunion2str(&pm->nh, buf, sizeof(buf)));
 	vty_out(vty, "\tstatus: (0x%x)", pm->flags);
 	vty_out(vty, " session admin %s, run %s\n",
 		pm->flags & PM_SESS_FLAG_SHUTDOWN ? "down" : "up",

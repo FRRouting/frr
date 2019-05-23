@@ -109,7 +109,7 @@ void pm_set_param(struct pm_info **pm_info, uint32_t interval,
  *                    command to Zebra to be forwarded to PM
  */
 void pm_peer_sendmsg(struct zclient *zclient, struct pm_info *pm_info,
-		     int family, void *dst_ip, void *src_ip,
+		     int family, void *dst_ip, void *src_ip, void *nh,
 		     char *if_name, int command,
 		     int set_flag, vrf_id_t vrf_id)
 {
@@ -173,6 +173,15 @@ void pm_peer_sendmsg(struct zclient *zclient, struct pm_info *pm_info,
 		stream_put(s, if_name, len);
 	} else
 		stream_putc(s, 0);
+
+	if (nh) {
+		stream_putw(s, family);
+		if (family == AF_INET6)
+			stream_put(s, nh, 16);
+		else
+			stream_put_in_addr(s, (struct in_addr *)nh);
+	} else
+		stream_putw(s, 0);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 

@@ -113,6 +113,8 @@ struct pm_peer_cfg {
 	bool bpc_has_tos_val;
 	uint8_t bpc_tos_val;
 
+	union sockunion bpc_nexthop;
+
 	bool bpc_shutdown;
 
 	/* Status information */
@@ -534,6 +536,9 @@ static int _pm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 		bpc->bpc_localif[ifnamelen] = 0;
 	}
 
+	/* Register/update nh information. */
+	_pm_msg_read_address(msg, &bpc->bpc_nexthop);
+
 	if (vrf_id != VRF_DEFAULT) {
 		struct vrf *vrf;
 
@@ -560,6 +565,7 @@ static struct pm_session *pm_peer_auto(struct pm_peer_cfg *cfg,
 	const char *vrfname, *ifname;
 	char ebuf[128];
 	const char *bpc_local;
+	struct pm_session *pm;
 	char addr_buf[INET6_ADDRSTRLEN];
 
 	if (cfg->bpc_has_localif)
@@ -577,9 +583,14 @@ static struct pm_session *pm_peer_auto(struct pm_peer_cfg *cfg,
 		vrfname = cfg->bpc_vrfname;
 	else
 		vrfname = NULL;
-	return pm_lookup_session(&cfg->bpc_peer, bpc_local, ifname,
+	pm = pm_lookup_session(&cfg->bpc_peer, bpc_local, ifname,
 				 vrfname, create,
 				 ebuf, sizeof(ebuf));
+	if (pm && (cfg->bpc_nexthop.sa.sa_family == AF_INET ||
+		   cfg->bpc_nexthop.sa.sa_family == AF_INET6)) {
+		memcpy(&pm->nh, &cfg->bpc_nexthop, sizeof(union sockunion));
+	}
+	return pm;
 }
 
 static struct pm_session *pm_peer_sess_new(struct pm_peer_cfg *cfg)
@@ -1125,6 +1136,9 @@ int pm_zebra_notify(struct pm_session *pm)
 
 	/* BFD source prefix information. */
 	_pm_msg_address(msg, &pm->key.local);
+
+	/* PM nexthop prefix information. */
+	_pm_msg_address(msg, &pm->nh);
 
 	/* Write packet size. */
 	stream_putw_at(msg, 0, stream_get_endp(msg));
