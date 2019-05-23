@@ -29,6 +29,7 @@ Build-Depends: bison,
                python3-dev,
                python3-pytest <!nocheck>,
                python3-sphinx,
+	       liblua5.3-dev,
                texinfo (>= 4.7)
 Standards-Version: 4.5.0.3
 Homepage: https://www.frrouting.org/
