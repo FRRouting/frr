@@ -39,14 +39,8 @@ DEFINE_QOBJ_TYPE(bfd_session)
 /*
  * Prototypes
  */
-void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
-		 struct sockaddr_any *local, bool mhop, const char *ifname,
-		 const char *vrfname);
-
 static uint32_t ptm_bfd_gen_ID(void);
 static void ptm_bfd_echo_xmt_TO(struct bfd_session *bfd);
-static void bfd_session_free(struct bfd_session *bs);
-static struct bfd_session *bfd_session_new(void);
 static struct bfd_session *bfd_find_disc(struct sockaddr_any *sa,
 					 uint32_t ldisc);
 static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc);
@@ -469,7 +463,7 @@ int bfd_echo_recvtimer_cb(struct thread *t)
 	return 0;
 }
 
-static struct bfd_session *bfd_session_new(void)
+struct bfd_session *bfd_session_new(void)
 {
 	struct bfd_session *bs;
 
@@ -629,7 +623,7 @@ static int bfd_session_update(struct bfd_session *bs, struct bfd_peer_cfg *bpc)
 	return 0;
 }
 
-static void bfd_session_free(struct bfd_session *bs)
+void bfd_session_free(struct bfd_session *bs)
 {
 	struct bfd_session_observer *bso;
 
@@ -717,6 +711,17 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 
 	bfd->key.mhop = bpc->bpc_mhop;
 
+	if (bs_registrate(bfd) == NULL)
+		return NULL;
+
+	/* Apply other configurations. */
+	_bfd_session_update(bfd, bpc);
+
+	return bfd;
+}
+
+struct bfd_session *bs_registrate(struct bfd_session *bfd)
+{
 	/* Registrate session into data structures. */
 	bfd_key_insert(bfd);
 	bfd->discrs.my_discr = ptm_bfd_gen_ID();
@@ -732,9 +737,6 @@ struct bfd_session *ptm_bfd_sess_new(struct bfd_peer_cfg *bpc)
 	/* Add observer if we have moving parts. */
 	if (bfd->key.ifname[0] || bfd->key.vrfname[0] || bfd->sock == -1)
 		bs_observer_add(bfd);
-
-	/* Apply other configurations. */
-	_bfd_session_update(bfd, bpc);
 
 	log_info("session-new: %s", bs_to_string(bfd));
 
@@ -1531,6 +1533,9 @@ void bfd_shutdown(void)
 	hash_free(bfd_key_hash);
 }
 
+/*
+ * VRF related functions.
+ */
 static int bfd_vrf_new(struct vrf *vrf)
 {
 	log_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);

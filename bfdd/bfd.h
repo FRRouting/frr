@@ -546,6 +546,12 @@ void bs_observer_del(struct bfd_session_observer *bso);
 
 void bs_to_bpc(struct bfd_session *bs, struct bfd_peer_cfg *bpc);
 
+void gen_bfd_key(struct bfd_key *key, struct sockaddr_any *peer,
+		 struct sockaddr_any *local, bool mhop, const char *ifname,
+		 const char *vrfname);
+struct bfd_session *bfd_session_new(void);
+struct bfd_session *bs_registrate(struct bfd_session *bs);
+void bfd_session_free(struct bfd_session *bs);
 /* BFD hash data structures interface */
 void bfd_initialize(void);
 void bfd_shutdown(void);
