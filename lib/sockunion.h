@@ -93,7 +93,6 @@ extern int sockunion_bind(int sock, union sockunion *, unsigned short,
 extern int sockopt_ttl(int family, int sock, int ttl);
 extern int sockopt_minttl(int family, int sock, int minttl);
 extern int sockopt_cork(int sock, int onoff);
-extern int sockopt_mark_default(int sock, int mark, struct zebra_privs_t *);
 extern int sockunion_socket(const union sockunion *su);
 extern const char *inet_sutop(const union sockunion *su, char *str);
 extern enum connect_result sockunion_connect(int fd, const union sockunion *su,

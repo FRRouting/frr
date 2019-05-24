@@ -366,21 +366,6 @@ int sockopt_cork(int sock, int onoff)
 	return 0;
 }
 
-int sockopt_mark_default(int sock, int mark, struct zebra_privs_t *cap)
-{
-#ifdef SO_MARK
-	int ret;
-
-	frr_elevate_privs(cap) {
-		ret = setsockopt(sock, SOL_SOCKET, SO_MARK, &mark,
-				 sizeof(mark));
-	}
-	return ret;
-#else
-	return 0;
-#endif
-}
-
 int sockopt_minttl(int family, int sock, int minttl)
 {
 #ifdef IP_MINTTL

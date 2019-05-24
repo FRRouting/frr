@@ -122,12 +122,6 @@ static struct log_ref ferr_bgp_warn[] = {
 		.suggestion = "Please collect log files and open Issue",
 	},
 	{
-		.code = EC_BGP_NO_SOCKOPT_MARK,
-		.title = "Unable to set socket MARK option",
-		.description = "BGP attempted to set the SO_MARK option for a socket and was unable to do so",
-		.suggestion = "Please collect log files and open Issue",
-	},
-	{
 		.code = EC_BGP_EVPN_PMSI_PRESENT,
 		.title = "BGP Received a EVPN NLRI with PMSI included",
 		.description = "BGP has received a type-3 NLRI with PMSI information.  At this time FRR is not capable of properly handling this NLRI type",
