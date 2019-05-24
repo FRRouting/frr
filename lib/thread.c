@@ -281,7 +281,7 @@ DEFUN (show_thread_cpu,
        SHOW_STR
        "Thread information\n"
        "Thread CPU usage\n"
-       "Display filter (rwtexb)\n")
+       "Display filter (rwtex)\n")
 {
 	uint8_t filter = (uint8_t)-1U;
 	int idx = 0;
