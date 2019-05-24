@@ -23,7 +23,7 @@
 
 #include "lib/typesafe.h"
 
-PREDECL_LIST(bgp_adv_fifo)
+PREDECL_DLIST(bgp_adv_fifo)
 
 struct update_subgroup;
 
@@ -60,7 +60,7 @@ struct bgp_advertise {
 	struct bgp_path_info *pathi;
 };
 
-DECLARE_LIST(bgp_adv_fifo, struct bgp_advertise, fifo)
+DECLARE_DLIST(bgp_adv_fifo, struct bgp_advertise, fifo)
 
 /* BGP adjacency out.  */
 struct bgp_adj_out {
