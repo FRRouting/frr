@@ -312,7 +312,8 @@ static void show_thread_poll_helper(struct vty *vty, struct thread_master *m)
 
 	vty_out(vty, "\nShowing poll FD's for %s\n", name);
 	vty_out(vty, "----------------------%s\n", underline);
-	vty_out(vty, "Count: %u\n", (uint32_t)m->handler.pfdcount);
+	vty_out(vty, "Count: %u/%d\n", (uint32_t)m->handler.pfdcount,
+		m->fd_limit);
 	for (i = 0; i < m->handler.pfdcount; i++)
 		vty_out(vty, "\t%6d fd:%6d events:%2d revents:%2d\n", i,
 			m->handler.pfds[i].fd,
