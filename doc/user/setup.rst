@@ -73,7 +73,7 @@ Breaking this file down:
 
 ::
 
-  bgpd=yes
+   bgpd=yes
 
 To enable a particular daemon, simply change the corresponding 'no' to 'yes'.
 Subsequent service restarts should start the daemon.
