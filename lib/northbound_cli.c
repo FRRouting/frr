@@ -434,10 +434,29 @@ static int nb_cli_candidate_load_transaction(struct vty *vty,
 	return CMD_SUCCESS;
 }
 
+/*
+ * ly_iter_next_is_up: detects when iterating up on the yang model.
+ *
+ * This function detects whether next node in the iteration is upwards,
+ * then return the node otherwise return NULL.
+ */
+static struct lyd_node *ly_iter_next_up(struct lyd_node *elem)
+{
+	/* Are we going downwards? Is this still not a leaf? */
+	if (!(elem->schema->nodetype & (LYS_LEAF | LYS_LEAFLIST | LYS_ANYDATA)))
+		return NULL;
+
+	/* Are there still leaves in this branch? */
+	if (elem->next != NULL)
+		return NULL;
+
+	return elem->parent;
+}
+
 void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
 			    bool with_defaults)
 {
-	struct lyd_node *next, *child;
+	struct lyd_node *next, *child, *parent;
 
 	LY_TREE_DFS_BEGIN (root, next, child) {
 		struct nb_node *nb_node;
@@ -452,6 +471,19 @@ void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
 
 		(*nb_node->cbs.cli_show)(vty, child, with_defaults);
 	next:
+		/*
+		 * When transiting upwards in the yang model we should
+		 * give the previous container/list node a chance to
+		 * print its close vty output (e.g. "!" or "end-family"
+		 * etc...).
+		 */
+		parent = ly_iter_next_up(child);
+		if (parent != NULL) {
+			nb_node = parent->schema->priv;
+			if (nb_node->cbs.cli_show_end)
+				(*nb_node->cbs.cli_show_end)(vty, parent);
+		}
+
 		LY_TREE_DFS_END(root, next, child);
 	}
 }
