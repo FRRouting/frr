@@ -296,27 +296,6 @@ DEFPY(bfd_peer_echo, bfd_peer_echo_cmd, "[no] echo-mode",
 	return CMD_SUCCESS;
 }
 
-DEFPY(bfd_peer_label, bfd_peer_label_cmd, "label WORD$label",
-      "Register peer label\n"
-      "Register peer label identification\n")
-{
-	struct bfd_session *bs;
-
-	/* Validate label length. */
-	if (strlen(label) >= MAXNAMELEN) {
-		vty_out(vty, "%% Label name is too long\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	bs = VTY_GET_CONTEXT(bfd_session);
-	if (bfd_session_update_label(bs, label) == -1) {
-		vty_out(vty, "%% Failed to update peer label.\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
 DEFPY(bfd_no_peer, bfd_no_peer_cmd,
       "no peer <A.B.C.D|X:X::X:X>$peer [{multihop|local-address <A.B.C.D|X:X::X:X>$local|interface IFNAME$ifname|vrf NAME$vrfname}]",
       NO_STR
@@ -1103,5 +1082,4 @@ void bfdd_vty_init(void)
 	install_element(BFD_PEER_NODE, &bfd_peer_echointerval_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_shutdown_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_echo_cmd);
-	install_element(BFD_PEER_NODE, &bfd_peer_label_cmd);
 }
