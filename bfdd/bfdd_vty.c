@@ -23,6 +23,7 @@
 #include "lib/command.h"
 #include "lib/json.h"
 #include "lib/log.h"
+#include "lib/northbound_cli.h"
 #include "lib/vty.h"
 
 #include "bfd.h"
@@ -45,10 +46,6 @@
 /*
  * Prototypes
  */
-static int bfdd_write_config(struct vty *vty);
-static int bfdd_peer_write_config(struct vty *vty);
-static void _bfdd_peer_write_config(struct vty *vty, struct bfd_session *bs);
-static void _bfdd_peer_write_config_iter(struct hash_bucket *hb, void *arg);
 static int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 			      const struct sockaddr_any *peer,
 			      const struct sockaddr_any *local,
@@ -707,60 +704,6 @@ static int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 
 	return 0;
 }
-static int bfdd_write_config(struct vty *vty)
-{
-	vty_out(vty, "bfd\n");
-	vty_out(vty, "!\n");
-	return 0;
-}
-
-static void _bfdd_peer_write_config(struct vty *vty, struct bfd_session *bs)
-{
-	char addr_buf[INET6_ADDRSTRLEN];
-
-	vty_out(vty, " peer %s",
-		inet_ntop(bs->key.family, &bs->key.peer, addr_buf,
-			  sizeof(addr_buf)));
-
-	if (bs->key.mhop)
-		vty_out(vty, " multihop");
-
-	if (memcmp(&bs->key.local, &zero_addr, sizeof(bs->key.local)))
-		vty_out(vty, " local-address %s",
-			inet_ntop(bs->key.family, &bs->key.local, addr_buf,
-				  sizeof(addr_buf)));
-
-	if (bs->key.vrfname[0])
-		vty_out(vty, " vrf %s", bs->key.vrfname);
-	if (bs->key.ifname[0])
-		vty_out(vty, " interface %s", bs->key.ifname);
-	vty_out(vty, "\n");
-
-	if (bs->sock == -1)
-		vty_out(vty,
-			"  ! vrf, interface or local-address doesn't exist\n");
-
-	if (bs->detect_mult != BPC_DEF_DETECTMULTIPLIER)
-		vty_out(vty, "  detect-multiplier %d\n", bs->detect_mult);
-	if (bs->timers.required_min_rx != (BPC_DEF_RECEIVEINTERVAL * 1000))
-		vty_out(vty, "  receive-interval %" PRIu32 "\n",
-			bs->timers.required_min_rx / 1000);
-	if (bs->timers.desired_min_tx != (BPC_DEF_TRANSMITINTERVAL * 1000))
-		vty_out(vty, "  transmit-interval %" PRIu32 "\n",
-			bs->timers.desired_min_tx / 1000);
-	if (bs->timers.required_min_echo != (BPC_DEF_ECHOINTERVAL * 1000))
-		vty_out(vty, "  echo-interval %" PRIu32 "\n",
-			bs->timers.required_min_echo / 1000);
-	if (bs->pl)
-		vty_out(vty, "  label %s\n", bs->pl->pl_label);
-	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_ECHO))
-		vty_out(vty, "  echo-mode\n");
-
-	vty_out(vty, "  %sshutdown\n",
-		BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_SHUTDOWN) ? "" : "no ");
-
-	vty_out(vty, " !\n");
-}
 
 DEFUN_NOSH(show_debugging_bfd,
 	   show_debugging_bfd_cmd,
@@ -774,24 +717,6 @@ DEFUN_NOSH(show_debugging_bfd,
 	return CMD_SUCCESS;
 }
 
-static void _bfdd_peer_write_config_iter(struct hash_bucket *hb, void *arg)
-{
-	struct vty *vty = arg;
-	struct bfd_session *bs = hb->data;
-
-	if (!BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
-		return;
-
-	_bfdd_peer_write_config(vty, bs);
-}
-
-static int bfdd_peer_write_config(struct vty *vty)
-{
-	bfd_id_iterate(_bfdd_peer_write_config_iter, vty);
-
-	return 1;
-}
-
 struct cmd_node bfd_node = {
 	BFD_NODE,
 	"%s(config-bfd)# ",
@@ -803,6 +728,20 @@ struct cmd_node bfd_peer_node = {
 	"%s(config-bfd-peer)# ",
 	1,
 };
+
+static int bfdd_write_config(struct vty *vty)
+{
+	struct lyd_node *dnode;
+	int written = 0;
+
+	dnode = yang_dnode_get(running_config->dnode, "/frr-bfdd:bfdd");
+	if (dnode) {
+		nb_cli_show_dnode_cmds(vty, dnode, false);
+		written = 1;
+	}
+
+	return written;
+}
 
 void bfdd_vty_init(void)
 {
@@ -818,7 +757,7 @@ void bfdd_vty_init(void)
 	install_default(BFD_NODE);
 
 	/* Install BFD peer node. */
-	install_node(&bfd_peer_node, bfdd_peer_write_config);
+	install_node(&bfd_peer_node, NULL);
 	install_default(BFD_PEER_NODE);
 
 	bfdd_cli_init();

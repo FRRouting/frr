@@ -52,6 +52,19 @@
 /*
  * Functions.
  */
+void bfd_cli_show_header(struct vty *vty,
+			 struct lyd_node *dnode __attribute__((__unused__)),
+			 bool show_defaults __attribute__((__unused__)))
+{
+	vty_out(vty, "!\nbfd\n");
+}
+
+void bfd_cli_show_header_end(struct vty *vty,
+			     struct lyd_node *dnode __attribute__((__unused__)))
+{
+	vty_out(vty, "!\n");
+}
+
 DEFPY_NOSH(
 	bfd_peer_enter, bfd_peer_enter_cmd,
 	"peer <A.B.C.D|X:X::X:X> [{multihop$multihop|local-address <A.B.C.D|X:X::X:X>|interface IFNAME$ifname|vrf NAME}]",
@@ -151,6 +164,52 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+static void _bfd_cli_show_peer(struct vty *vty, struct lyd_node *dnode,
+			       bool show_defaults __attribute__((__unused__)),
+			       bool mhop)
+{
+	const char *vrf = yang_dnode_get_string(dnode, "./vrf");
+	const char *ifname = yang_dnode_get_string(dnode, "./interface");
+
+	vty_out(vty, " peer %s",
+		yang_dnode_get_string(dnode, "./dest-addr"));
+
+	if (mhop)
+		vty_out(vty, " multihop");
+
+	if (yang_dnode_exists(dnode, "./source-addr"))
+		vty_out(vty, " local-address %s",
+			yang_dnode_get_string(dnode, "./source-addr"));
+
+	if (strcmp(vrf, VRF_DEFAULT_NAME))
+		vty_out(vty, " vrf %s", vrf);
+
+	if (ifname[0])
+		vty_out(vty, " interface %s", ifname);
+
+	vty_out(vty, "\n");
+}
+
+void bfd_cli_show_single_hop_peer(struct vty *vty,
+				  struct lyd_node *dnode,
+				  bool show_defaults)
+{
+	_bfd_cli_show_peer(vty, dnode, show_defaults, false);
+}
+
+void bfd_cli_show_multi_hop_peer(struct vty *vty,
+				  struct lyd_node *dnode,
+				  bool show_defaults)
+{
+	_bfd_cli_show_peer(vty, dnode, show_defaults, true);
+}
+
+void bfd_cli_show_peer_end(struct vty *vty,
+			   struct lyd_node *dnode __attribute__((__unused__)))
+{
+	vty_out(vty, " !\n");
+}
+
 DEFPY(
 	bfd_peer_shutdown, bfd_peer_shutdown_cmd,
 	"[no] shutdown",
@@ -160,6 +219,16 @@ DEFPY(
 	nb_cli_enqueue_change(vty, "./administrative-down", NB_OP_MODIFY,
 			      no ? "false" : "true");
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void bfd_cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
+			   bool show_defaults)
+{
+	if (show_defaults)
+		vty_out(vty, "  shutdown\n");
+	else
+		vty_out(vty, "  %sshutdown\n",
+			yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
 }
 
 DEFPY(
@@ -173,6 +242,17 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void bfd_cli_show_mult(struct vty *vty, struct lyd_node *dnode,
+		       bool show_defaults)
+{
+	if (show_defaults)
+		vty_out(vty, "  detect-multiplier %d\n",
+			BFD_DEFDETECTMULT);
+	else
+		vty_out(vty, "  detect-multiplier %s\n",
+			yang_dnode_get_string(dnode, NULL));
+}
+
 DEFPY(
 	bfd_peer_rx, bfd_peer_rx_cmd,
 	"receive-interval (10-60000)$interval",
@@ -182,6 +262,17 @@ DEFPY(
 	nb_cli_enqueue_change(vty, "./required-receive-interval", NB_OP_MODIFY,
 			      interval_str);
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void bfd_cli_show_rx(struct vty *vty, struct lyd_node *dnode,
+		     bool show_defaults)
+{
+	if (show_defaults)
+		vty_out(vty, "  receive-interval %d\n",
+			BFD_DEFREQUIREDMINRX);
+	else
+		vty_out(vty, "  receive-interval %s\n",
+			yang_dnode_get_string(dnode, NULL));
 }
 
 DEFPY(
@@ -195,6 +286,17 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void bfd_cli_show_tx(struct vty *vty, struct lyd_node *dnode,
+		     bool show_defaults)
+{
+	if (show_defaults)
+		vty_out(vty, "  transmit-interval %d\n",
+			BFD_DEFDESIREDMINTX);
+	else
+		vty_out(vty, "  transmit-interval %s\n",
+			yang_dnode_get_string(dnode, NULL));
+}
+
 DEFPY(
 	bfd_peer_echo, bfd_peer_echo_cmd,
 	"[no] echo-mode",
@@ -206,6 +308,16 @@ DEFPY(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void bfd_cli_show_echo(struct vty *vty, struct lyd_node *dnode,
+			   bool show_defaults)
+{
+	if (show_defaults)
+		vty_out(vty, "  no echo-mode\n");
+	else
+		vty_out(vty, "  %secho-mode\n",
+			yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
+}
+
 DEFPY(
 	bfd_peer_echo_interval, bfd_peer_echo_interval_cmd,
 	"echo-interval (10-60000)$interval",
@@ -215,6 +327,17 @@ DEFPY(
 	nb_cli_enqueue_change(vty, "./desired-echo-transmission-interval",
 			      NB_OP_MODIFY, interval_str);
 	return nb_cli_apply_changes(vty, NULL);
+}
+
+void bfd_cli_show_echo_interval(struct vty *vty, struct lyd_node *dnode,
+				bool show_defaults)
+{
+	if (show_defaults)
+		vty_out(vty, "  echo-interval %d\n",
+			BFD_DEF_REQ_MIN_ECHO);
+	else
+		vty_out(vty, "  echo-interval %s\n",
+			yang_dnode_get_string(dnode, NULL));
 }
 
 void
