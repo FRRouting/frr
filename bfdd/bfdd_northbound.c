@@ -839,6 +839,8 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			.cbs.get_next = bfdd_bfd_sessions_single_hop_get_next,
 			.cbs.get_keys = bfdd_bfd_sessions_single_hop_get_keys,
 			.cbs.lookup_entry = bfdd_bfd_sessions_single_hop_lookup_entry,
+			.cbs.cli_show = bfd_cli_show_single_hop_peer,
+			.cbs.cli_show_end = bfd_cli_show_peer_end,
 		},
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/source-addr",
@@ -848,26 +850,32 @@ const struct frr_yang_module_info frr_bfdd_info = {
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/detection-multiplier",
 			.cbs.modify = bfdd_bfd_sessions_single_hop_detection_multiplier_modify,
+			.cbs.cli_show = bfd_cli_show_mult,
 		},
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/desired-transmission-interval",
 			.cbs.modify = bfdd_bfd_sessions_single_hop_desired_transmission_interval_modify,
+			.cbs.cli_show = bfd_cli_show_tx,
 		},
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/required-receive-interval",
 			.cbs.modify = bfdd_bfd_sessions_single_hop_required_receive_interval_modify,
+			.cbs.cli_show = bfd_cli_show_rx,
 		},
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/administrative-down",
 			.cbs.modify = bfdd_bfd_sessions_single_hop_administrative_down_modify,
+			.cbs.cli_show = bfd_cli_show_shutdown,
 		},
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/echo-mode",
 			.cbs.modify = bfdd_bfd_sessions_single_hop_echo_mode_modify,
+			.cbs.cli_show = bfd_cli_show_echo,
 		},
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/desired-echo-transmission-interval",
 			.cbs.modify = bfdd_bfd_sessions_single_hop_desired_echo_transmission_interval_modify,
+			.cbs.cli_show = bfd_cli_show_echo_interval,
 		},
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/single-hop/stats/local-discriminator",
@@ -956,22 +964,28 @@ const struct frr_yang_module_info frr_bfdd_info = {
 			.cbs.get_next = bfdd_bfd_sessions_multi_hop_get_next,
 			.cbs.get_keys = bfdd_bfd_sessions_multi_hop_get_keys,
 			.cbs.lookup_entry = bfdd_bfd_sessions_multi_hop_lookup_entry,
+			.cbs.cli_show = bfd_cli_show_multi_hop_peer,
+			.cbs.cli_show_end = bfd_cli_show_peer_end,
 		},
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/detection-multiplier",
 			.cbs.modify = bfdd_bfd_sessions_single_hop_detection_multiplier_modify,
+			.cbs.cli_show = bfd_cli_show_mult,
 		},
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/desired-transmission-interval",
 			.cbs.modify = bfdd_bfd_sessions_single_hop_desired_transmission_interval_modify,
+			.cbs.cli_show = bfd_cli_show_tx,
 		},
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/required-receive-interval",
 			.cbs.modify = bfdd_bfd_sessions_single_hop_required_receive_interval_modify,
+			.cbs.cli_show = bfd_cli_show_rx,
 		},
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/administrative-down",
 			.cbs.modify = bfdd_bfd_sessions_single_hop_administrative_down_modify,
+			.cbs.cli_show = bfd_cli_show_shutdown,
 		},
 		{
 			.xpath = "/frr-bfdd:bfdd/bfd/sessions/multi-hop/stats/local-discriminator",
