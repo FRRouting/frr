@@ -54,7 +54,10 @@ void debug_init(struct debug_callbacks *cb)
 	}
 
 	debug_cb_list_add_head(&cb_head, cb);
+}
 
+void debug_init_cli(void)
+{
 	install_element(ENABLE_NODE, &debug_all_cmd);
 	install_element(CONFIG_NODE, &debug_all_cmd);
 }

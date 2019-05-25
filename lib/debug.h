@@ -241,6 +241,12 @@ struct debug_callbacks {
  */
 void debug_init(struct debug_callbacks *cb);
 
+/*
+ * Turn on the cli to turn on/off debugs.
+ * Should only be called by libfrr
+ */
+void debug_init_cli(void);
+
 #ifdef __cplusplus
 }
 #endif

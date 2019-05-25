@@ -1722,8 +1722,8 @@ void nb_cli_init(struct thread_master *tm)
 	/* Initialize the shared candidate configuration. */
 	vty_shared_candidate_config = nb_config_new(NULL);
 
-	/* Install debug commands */
 	debug_init(&nb_dbg_cbs);
+
 	install_node(&nb_debug_node, nb_debug_config_write);
 	install_element(ENABLE_NODE, &debug_nb_cmd);
 	install_element(CONFIG_NODE, &debug_nb_cmd);
