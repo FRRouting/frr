@@ -112,7 +112,14 @@ struct zebra_router {
 	struct zebra_vrf *evpn_vrf;
 
 	uint32_t multipath_num;
+
+	/*
+	 * Time for when we sweep the rib from old routes
+	 */
+	time_t startup_time;
 };
+
+#define GRACEFUL_RESTART_TIME 60
 
 extern struct zebra_router zrouter;
 
