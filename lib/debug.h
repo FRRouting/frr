@@ -84,6 +84,7 @@ struct debug {
 	const char *desc;
 };
 
+PREDECL_LIST(debug_cb_list)
 /*
  * Callback set for debugging code.
  *
@@ -92,6 +93,11 @@ struct debug {
  *    mode set.
  */
 struct debug_callbacks {
+	/*
+	 * Linked list of Callbacks to call
+	 */
+	struct debug_cb_list_item item;
+
 	/*
 	 * flags
 	 *    flags to set on debug flag fields
@@ -233,7 +239,7 @@ struct debug_callbacks {
  *
  * MT-Safe
  */
-void debug_init(const struct debug_callbacks *cb);
+void debug_init(struct debug_callbacks *cb);
 
 #ifdef __cplusplus
 }
