@@ -588,8 +588,6 @@ static int bgp_update_source(struct peer *peer)
 	return ret;
 }
 
-#define DATAPLANE_MARK 254	/* main table ID */
-
 /* BGP try to connect to the peer.  */
 int bgp_connect(struct peer *peer)
 {
@@ -619,10 +617,6 @@ int bgp_connect(struct peer *peer)
 
 	sockopt_reuseaddr(peer->fd);
 	sockopt_reuseport(peer->fd);
-	if (sockopt_mark_default(peer->fd, DATAPLANE_MARK, &bgpd_privs) < 0)
-		flog_warn(EC_BGP_NO_SOCKOPT_MARK,
-			  "Unable to set mark on FD for peer %s, err=%s",
-			  peer->host, safe_strerror(errno));
 
 #ifdef IPTOS_PREC_INTERNETCONTROL
 	frr_elevate_privs(&bgpd_privs) {

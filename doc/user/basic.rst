@@ -414,6 +414,22 @@ Terminal Mode Commands
         (view)  show [ip] bgp l2vpn evpn all overlay
         ...
 
+.. _common-show-commands:
+
+.. index:: show thread cpu
+.. clicmd:: show thread cpu [r|w|t|e|x]
+
+   This command displays system run statistics for all the different event
+   types. If no options is specified all different run types are displayed
+   together.  Additionally you can ask to look at (r)ead, (w)rite, (t)imer,
+   (e)vent and e(x)ecute thread event types.
+
+.. index:: show thread poll
+.. clicmd:: show thread poll
+
+   This command displays FRR's poll data.  It allows a glimpse into how
+   we are setting each individual fd for the poll command at that point
+   in time.
 
 .. _common-invocation-options:
 
