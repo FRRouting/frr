@@ -115,7 +115,7 @@ Functions provided:
 +------------------------------------+------+------+------+---------+------------+
 | _find_lt, _find_gteq               | --   | --   | --   | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
-| use with for_each() macros         | yes  | yes  | yes  | yes     | yes        |
+| use with frr_each() macros         | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
 
 
@@ -176,7 +176,7 @@ Common iteration macros
 
 The following iteration macros work across all data structures:
 
-.. c:function:: for_each(Z, &head, item)
+.. c:function:: frr_each(Z, &head, item)
 
    Equivalent to:
 
@@ -187,7 +187,7 @@ The following iteration macros work across all data structures:
    Note that this will fail if the list is modified while being iterated
    over.
 
-.. c:function:: for_each_safe(Z, &head, item)
+.. c:function:: frr_each_safe(Z, &head, item)
 
    Same as the previous, but the next element is pre-loaded into a "hidden"
    variable (named ``Z_safe``.)  Equivalent to:
@@ -206,7 +206,7 @@ The following iteration macros work across all data structures:
       tables is resized while iterating.  This will cause items to be
       skipped or iterated over twice.
 
-.. c:function:: for_each_from(Z, &head, item, from)
+.. c:function:: frr_each_from(Z, &head, item, from)
 
    Iterates over the list, starting at item ``from``.  This variant is "safe"
    as in the previous macro.  Equivalent to:
@@ -363,7 +363,7 @@ are several functions exposed to insert data:
 
       itemtype *prev = NULL, *item;
 
-      for_each_safe(Z, head, item) {
+      frr_each_safe(Z, head, item) {
           if (something) {
               Z_add_after(head, prev, item);
               break;
@@ -585,7 +585,7 @@ Iteration:
    struct item *i;
 
    pthread_rwlock_rdlock(&itemhead_rwlock);
-   for_each(itemlist, &itemhead, i) {
+   frr_each(itemlist, &itemhead, i) {
      /* lock must remain held while iterating */
      ...
    }
@@ -602,7 +602,7 @@ Head removal (pop) and deallocation:
    pthread_rwlock_unlock(&itemhead_rwlock);
 
    /* i might still be visible for another thread doing an
-    * for_each() (but won't be returned by another pop()) */
+    * frr_each() (but won't be returned by another pop()) */
    ...
 
    pthread_rwlock_wrlock(&itemhead_rwlock);
