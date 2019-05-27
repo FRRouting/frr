@@ -737,28 +737,27 @@ static int rpki_validate_prefix(struct peer *peer, struct attr *attr,
 			 prefix->prefixlen, &result);
 
 	// Print Debug output
-	prefix_string =
-		inet_ntop(prefix->family, &prefix->u.prefix, buf, BUFSIZ);
+	prefix_string = prefix2str(prefix, buf, sizeof(buf));
 	switch (result) {
 	case BGP_PFXV_STATE_VALID:
 		RPKI_DEBUG(
-			"Validating Prefix %s/%hhu from asn %u    Result: VALID",
-			prefix_string, prefix->prefixlen, as_number);
+			"Validating Prefix %s from asn %u    Result: VALID",
+			prefix_string, as_number);
 		return RPKI_VALID;
 	case BGP_PFXV_STATE_NOT_FOUND:
 		RPKI_DEBUG(
-			"Validating Prefix %s/%hhu from asn %u    Result: NOT FOUND",
-			prefix_string, prefix->prefixlen, as_number);
+			"Validating Prefix %s from asn %u    Result: NOT FOUND",
+			prefix_string, as_number);
 		return RPKI_NOTFOUND;
 	case BGP_PFXV_STATE_INVALID:
 		RPKI_DEBUG(
-			"Validating Prefix %s/%hhu from asn %u    Result: INVALID",
-			prefix_string, prefix->prefixlen, as_number);
+			"Validating Prefix %s from asn %u    Result: INVALID",
+			prefix_string, as_number);
 		return RPKI_INVALID;
 	default:
 		RPKI_DEBUG(
-			"Validating Prefix %s/%hhu from asn %u    Result: CANNOT VALIDATE",
-			prefix_string, prefix->prefixlen, as_number);
+			"Validating Prefix %s from asn %u    Result: CANNOT VALIDATE",
+			prefix_string, as_number);
 		break;
 	}
 	return 0;
