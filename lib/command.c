@@ -1052,9 +1052,16 @@ static int cmd_execute_command_real(vector vline, enum filter_type filter,
 	if (matched_element->daemon)
 		ret = CMD_SUCCESS_DAEMON;
 	else {
-		/* Clear enqueued configuration changes. */
-		vty->num_cfg_changes = 0;
-		memset(&vty->cfg_changes, 0, sizeof(vty->cfg_changes));
+		if (vty->config) {
+			/* Clear array of enqueued configuration changes. */
+			vty->num_cfg_changes = 0;
+			memset(&vty->cfg_changes, 0, sizeof(vty->cfg_changes));
+
+			/* Regenerate candidate configuration. */
+			if (frr_get_cli_mode() == FRR_CLI_CLASSIC)
+				nb_config_replace(vty->candidate_config,
+						  running_config, true);
+		}
 
 		ret = matched_element->func(matched_element, vty, argc, argv);
 	}
