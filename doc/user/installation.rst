@@ -347,6 +347,27 @@ compile directory:
    ./configure --with-libyang-pluginsdir="`pwd`/yang/libyang_plugins/.libs" \
                --with-yangmodelsdir="`pwd`/yang"
 
+Python dependency, documentation and tests
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+FRR's documentation and basic unit tests heavily use code written in Python.
+Additionally, FRR ships Python extensions written in C which are used during
+its build process.
+
+To this extent, FRR needs the following:
+
+* an installation of CPython, preferably version 3.2 or newer (2.7 works but
+  is end of life and will stop working at some point.)
+* development files (mostly headers) for that version of CPython
+* an installation of `sphinx` for that version of CPython, to build the
+  documentation
+* an installation of `pytest` for that version of CPython, to run the unit
+  tests
+
+The `sphinx` and `pytest` dependencies can be avoided by not building
+documentation / not running ``make check``, but the CPython dependency is a
+hard dependency of the FRR build process (for the `clippy` tool.)
+
 .. _least-privilege-support:
 
 Least-Privilege Support

@@ -32,7 +32,7 @@ Tested on CentOS 6, CentOS 7 and Fedora 24.
 
       cd frr
       ./bootstrap.sh
-      ./configure --with-pkg-extra-version=-MyRPMVersion SPHINXBUILD=sphinx-build2.7
+      ./configure --with-pkg-extra-version=-MyRPMVersion
       make dist
 
    .. note::

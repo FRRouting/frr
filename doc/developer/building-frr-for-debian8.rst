@@ -16,7 +16,7 @@ Add packages:
 ::
 
    sudo apt-get install git autoconf automake libtool make \
-      libreadline-dev texinfo libjson-c-dev pkg-config bison flex python-pip \
+      libreadline-dev texinfo libjson-c-dev pkg-config bison flex python3-pip \
       libc-ares-dev python3-dev python3-sphinx build-essential libsystemd-dev \
       libsnmp-dev
 
@@ -24,7 +24,7 @@ Install newer pytest (>3.0) from pip
 
 ::
 
-    sudo pip install pytest
+    sudo pip3 install pytest
 
 .. include:: building-libyang.rst
 
