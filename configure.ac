@@ -183,15 +183,17 @@ AC_DEFUN([AC_LINK_IFELSE_FLAGS], [{
 	AC_LINK_IFELSE(
 		[$3],
 		[
-			AC_MSG_RESULT([yes])
 			CFLAGS="$ac_cflags_save"
 			LIBS="$ac_libs_save"
-			$5
+			m4_default([$5], [
+				AC_MSG_RESULT([yes])
+			])
 		], [
-			AC_MSG_RESULT([no])
 			CFLAGS="$ac_cflags_save"
 			LIBS="$ac_libs_save"
-			$4
+			m4_default([$4], [
+				AC_MSG_RESULT([no])
+			])
 		])
 	AC_LANG_POP([C])
 	}])
@@ -609,92 +611,30 @@ AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
 # Python for clippy
 #
 
-AC_DEFUN([FRR_PYTHON_CHECK_WORKING], [
-  AC_MSG_CHECKING([whether we found a working Python version])
-  AC_LINK_IFELSE_FLAGS([$PYTHON_CFLAGS], [$PYTHON_LIBS], [AC_LANG_PROGRAM([
-#include <Python.h>
-#if PY_VERSION_HEX < 0x02070000
-#error python too old
-#endif
-int main(void);
-],
-[
-{
-  Py_Initialize();
-  return 0;
-}
-])], [
-    # some python installs are missing the zlib dependency...
-    PYTHON_LIBS="${PYTHON_LIBS} -lz"
-    AC_LINK_IFELSE_FLAGS([$PYTHON_CFLAGS], [$PYTHON_LIBS], [AC_LANG_PROGRAM([
-#include <Python.h>
-#if PY_VERSION_HEX < 0x02070000
-#error python too old
-#endif
-int main(void);
-],
-[
-{
-  Py_Initialize();
-  return 0;
-}
-])], [
-      m4_if([$1], [], [
-        PYTHONCONFIG=""
-        unset PYTHON_LIBS
-        unset PYTHON_CFLAGS
-      ], [$1])
-    ])
-  ])
-])
-
 AS_IF([test "$host" = "$build"], [
-  PYTHONCONFIG=""
-
-  # ordering:
-  # 1.  try python3, but respect the user's preference on which minor ver
-  # 2.  try python, which might be py3 or py2 again on the user's preference
-  # 3.  try python2 (can really only be 2.7 but eh)
-  # 4.  try 3.6 > 3.5 > 3.4 > 3.3 > 3.2 > 2.7 through pkg-config (no user pref)
-  #
-  # (AX_PYTHON_DEVEL has no clue about py3 vs py2)
-  # (AX_PYTHON does not do what we need)
-
-  AC_CHECK_TOOLS([PYTHONCONFIG], [ \
-	python3-config \
-	python-config \
-	python2-config \
-	python3.6-config \
-	python3.5-config \
-	python3.4-config \
-	python3.3-config \
-	python3.2-config \
-	python2.7-config ])
-  if test -n "$PYTHONCONFIG"; then
-    PYTHON_CFLAGS="`\"${PYTHONCONFIG}\" --includes`"
-    PYTHON_LIBS="`\"${PYTHONCONFIG}\" --ldflags`"
-
-    FRR_PYTHON_CHECK_WORKING([])
-  fi
-
-  if test -z "$PYTHONCONFIG"; then
-    PKG_CHECK_MODULES([PYTHON], [python-3.6], [], [
-      PKG_CHECK_MODULES([PYTHON], [python-3.5], [], [
-        PKG_CHECK_MODULES([PYTHON], [python-3.4], [], [
-          PKG_CHECK_MODULES([PYTHON], [python-3.3], [], [
-            PKG_CHECK_MODULES([PYTHON], [python-3.2], [], [
-              PKG_CHECK_MODULES([PYTHON], [python-2.7], [], [
-                AC_MSG_FAILURE([could not find python-config or pkg-config python, please install Python development files from libpython-dev or similar])
-                ])])])])])])
-
-
-    FRR_PYTHON_CHECK_WORKING([
-      AC_MSG_FAILURE([could not find python-config or pkg-config python, please install Python development files from libpython-dev or similar])
-    ])
-  fi
+  FRR_PYTHON_DEV
+], [
+  FRR_PYTHON
 ])
-AC_SUBST([PYTHON_CFLAGS])
-AC_SUBST([PYTHON_LIBS])
+
+FRR_PYTHON_MODULES([pytest])
+
+if test "${enable_doc}" != "no"; then
+  FRR_PYTHON_MODULES([sphinx], , [
+    if test "${enable_doc}" = "yes"; then
+      AC_MSG_ERROR([Documentation was explicitly requested with --enable-doc but sphinx is not available for $PYTHON. Please disable docs or install sphinx.])
+    fi
+  ])
+fi
+AM_CONDITIONAL([DOC], [test "${enable_doc}" != "no" -a "$frr_py_mod_sphinx" != "false"])
+AM_CONDITIONAL([DOC_HTML], [test "${enable_doc_html}" = "yes"])
+
+FRR_PYTHON_MOD_EXEC([sphinx], [--version], [
+  PYSPHINX="-m sphinx"
+], [
+  PYSPHINX="-c 'import sys; from sphinx import main; sys.exit(main(sys.argv))'"
+])
+AC_SUBST([PYSPHINX])
 
 #
 # Logic for protobuf support.
@@ -1507,16 +1447,6 @@ FRR_INCLUDES
 #endif
 ])dnl
 
-dnl disable doc check
-AC_CHECK_PROGS([SPHINXBUILD], [sphinx-build sphinx-build3 sphinx-build2], [/bin/false])
-if test "$SPHINXBUILD" = "/bin/false"; then
-  if test "${enable_doc}" = "yes"; then
-    AC_MSG_ERROR([Documentation was explicitly requested with --enable-doc but sphinx-build is not available. Please disable docs or install sphinx.])
-  fi
-fi
-AM_CONDITIONAL([DOC], [test "${enable_doc}" != "no" -a "$SPHINXBUILD" != "/bin/false"])
-AM_CONDITIONAL([DOC_HTML], [test "${enable_doc_html}" = "yes"])
-
 dnl --------------------
 dnl Daemon disable check
 dnl --------------------
@@ -1666,6 +1596,7 @@ int main(void);
   return 0;
 }
 ])], [
+     AC_MSG_RESULT([no])
      AC_MSG_ERROR([--enable-snmp given but not usable])])
    case "${enable_snmp}" in
      yes)
@@ -2356,7 +2287,9 @@ zebra protobuf enabled  : ${enable_protobuf:-no}
 The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory."
 
-if test "${enable_doc}" != "no";then
-  AS_IF([test "$SPHINXBUILD" = /bin/false],
-     AC_MSG_WARN([sphinx-build is missing but required to build documentation]))
+if test "${enable_doc}" != "no" -a "$frr_py_mod_sphinx" = false; then
+  AC_MSG_WARN([sphinx is missing but required to build documentation])
+fi
+if test "$frr_py_mod_pytest" = false; then
+  AC_MSG_WARN([pytest is missing, unit tests cannot be performed])
 fi

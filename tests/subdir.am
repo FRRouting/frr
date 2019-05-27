@@ -2,8 +2,6 @@
 # tests
 #
 
-PYTHON ?= python
-
 if BGPD
 TESTS_BGPD = \
 	tests/bgpd/test_aspath \

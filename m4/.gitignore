@@ -4,6 +4,7 @@
 !ax_compare_version.m4
 !ax_prog_perl_modules.m4
 !ax_pthread.m4
+!ax_python.m4
 !ax_sys_weak_alias.m4
 !ax_sys_weak_alias.m4
 !pkg.m4
