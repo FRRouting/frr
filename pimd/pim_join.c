@@ -519,7 +519,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		group_size = pim_msg_get_jp_group_size(group->sources);
 		if (group_size > packet_left) {
 			pim_msg_build_header(pim_msg, packet_size,
-					     PIM_MSG_TYPE_JOIN_PRUNE);
+					     PIM_MSG_TYPE_JOIN_PRUNE, false);
 			if (pim_msg_send(pim_ifp->pim_sock_fd,
 					 pim_ifp->primary_address,
 					 qpim_all_pim_routers_addr, pim_msg,
@@ -576,7 +576,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		if (packet_left < sizeof(struct pim_jp_groups)
 		    || msg->num_groups == 255) {
 			pim_msg_build_header(pim_msg, packet_size,
-					     PIM_MSG_TYPE_JOIN_PRUNE);
+					     PIM_MSG_TYPE_JOIN_PRUNE, false);
 			if (pim_msg_send(pim_ifp->pim_sock_fd,
 					 pim_ifp->primary_address,
 					 qpim_all_pim_routers_addr, pim_msg,
@@ -596,7 +596,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 	if (!new_packet) {
 		// msg->num_groups = htons (msg->num_groups);
 		pim_msg_build_header(pim_msg, packet_size,
-				     PIM_MSG_TYPE_JOIN_PRUNE);
+				     PIM_MSG_TYPE_JOIN_PRUNE, false);
 		if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
 				 qpim_all_pim_routers_addr, pim_msg,
 				 packet_size,

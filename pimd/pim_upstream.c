@@ -237,7 +237,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 			zlog_debug("%s: Deregister upstream %s addr %s with Zebra NHT",
 				   __PRETTY_FUNCTION__, up->sg_str, buf);
 		}
-		pim_delete_tracked_nexthop(pim, &nht_p, up, NULL);
+		pim_delete_tracked_nexthop(pim, &nht_p, up, NULL, false);
 	}
 
 	XFREE(MTYPE_PIM_UPSTREAM, up);

@@ -39,6 +39,7 @@
 #include "pim_msdp.h"
 #include "pim_ssm.h"
 #include "pim_bfd.h"
+#include "pim_bsm.h"
 #include "pim_vxlan.h"
 
 int pim_debug_config_write(struct vty *vty)
@@ -117,6 +118,11 @@ int pim_debug_config_write(struct vty *vty)
 
 	if (PIM_DEBUG_ZEBRA) {
 		vty_out(vty, "debug pim zebra\n");
+		++writes;
+	}
+
+	if (PIM_DEBUG_BSM) {
+		vty_out(vty, "debug pim bsm\n");
 		++writes;
 	}
 
@@ -383,7 +389,10 @@ int pim_interface_config_write(struct vty *vty)
 
 				writes +=
 					pim_static_write_mroute(pim, vty, ifp);
+				pim_bsm_write_config(vty, ifp);
+				++writes;
 				pim_bfd_write_config(vty, ifp);
+				++writes;
 			}
 			vty_endframe(vty, "!\n");
 			++writes;

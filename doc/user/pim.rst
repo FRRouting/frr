@@ -166,6 +166,20 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
    Turns on BFD support for PIM for this interface.
 
+.. index:: ip pim bsm
+.. clicmd:: ip pim bsm
+
+   Tell pim that we would like to use this interface to process bootstrap
+   messages. This is enabled by default. 'no' form of this command is used to
+   restrict bsm messages on this interface.
+
+.. index:: ip pim unicast-bsm
+.. clicmd:: ip pim unicast-bsm
+
+   Tell pim that we would like to allow interface to process unicast bootstrap
+   messages. This is enabled by default. 'no' form of this command is used to
+   restrict processing of unicast bsm messages on this interface.
+
 .. index:: ip pim drpriority (1-4294967295)
 .. clicmd:: ip pim drpriority (1-4294967295)
 
@@ -407,6 +421,21 @@ cause great confusion.
 
    Display upstream information for S,G's and the RPF data associated with them.
 
+.. index:: show ip pim bsr
+.. clicmd:: show ip pim bsr
+
+   Display current bsr, its uptime and last received bsm age.
+
+.. index:: show ip pim bsrp-info
+.. clicmd:: show ip pim bsrp-info
+
+   Display group-to-rp mappings received from E-BSR.
+
+.. index:: show ip pim bsm-database
+.. clicmd:: show ip pim bsm-database
+
+   Display all fragments ofstored bootstrap message in user readable format.
+
 .. index:: show ip rpf
 .. clicmd:: show ip rpf
 
@@ -469,6 +498,11 @@ the config was written out.
 .. clicmd:: debug pim trace
 
    This traces pim code and how it is running.
+
+.. index:: debug pim bsm
+.. clicmd:: debug pim bsm
+
+   This turns on debugging for BSR message processing.
 
 .. index:: debug pim zebra
 .. clicmd:: debug pim zebra

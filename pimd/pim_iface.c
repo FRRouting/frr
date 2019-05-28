@@ -132,6 +132,10 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp->igmp_specific_query_max_response_time_dsec =
 		IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
 
+	/* BSM config on interface: TRUE by default */
+	pim_ifp->bsm_enable = true;
+	pim_ifp->ucast_bsm_accept = true;
+
 	/*
 	  RFC 3376: 8.3. Query Response Interval
 	  The number of seconds represented by the [Query Response Interval]

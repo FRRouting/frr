@@ -26,6 +26,7 @@
 #include "pim_str.h"
 #include "pim_msdp.h"
 #include "pim_assert.h"
+#include "pim_bsm.h"
 #include "pim_vxlan_instance.h"
 
 #if defined(HAVE_LINUX_MROUTE_H)
@@ -121,6 +122,11 @@ struct pim_instance {
 
 	bool ecmp_enable;
 	bool ecmp_rebalance_enable;
+	/* Bsm related */
+	struct bsm_scope global_scope;
+	uint64_t bsm_rcvd;
+	uint64_t bsm_sent;
+	uint64_t bsm_dropped;
 
 	/* If we need to rescan all our upstreams */
 	struct thread *rpf_cache_refresher;
