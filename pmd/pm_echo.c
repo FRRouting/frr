@@ -78,6 +78,45 @@ static void _pm_echo_remove(struct pm_echo *pme)
 	XFREE(MTYPE_PM_ECHO, pme);
 }
 
+static bool pm_check_retries(struct pm_echo *pme, uint8_t counter,
+			     bool retry_up)
+{
+	struct pm_session *pm = (struct pm_session *)pme->back_ptr;
+
+	/* if status is already down and check is for down
+	 * or if status is already up and check is for up
+	 * then do not increment
+	 */
+	if ((pm->ses_state == PM_UP && retry_up) ||
+	    (pm->ses_state == PM_DOWN && !retry_up))
+		return false;
+	/* if there is a switch, then reset counter */
+	if ((pme->retry.retry_up_in_progress && !retry_up) ||
+	    (pme->retry.retry_down_in_progress && retry_up)) {
+		pme->retry.retry_count = 0;
+		if (retry_up) {
+			pme->retry.retry_down_in_progress = false;
+			pme->retry.retry_up_in_progress = true;
+		} else {
+			pme->retry.retry_up_in_progress = false;
+			pme->retry.retry_down_in_progress = true;
+		}
+	}
+	if (pme->retry.retry_already_counted)
+		pme->retry.retry_already_counted = false;
+	else {
+		pme->retry.retry_already_counted = true;
+		pme->retry.retry_count++;
+	}
+	/* check down or up context */
+	if (pme->retry.retry_count < counter) {
+		THREAD_OFF(pme->t_echo_tmo);
+		return true;
+	}
+	/* else fall on timeout */
+	return false;
+}
+
 int pm_echo_tmo(struct thread *thread)
 {
 	struct pm_echo *pme = THREAD_ARG(thread);
@@ -85,17 +124,24 @@ int pm_echo_tmo(struct thread *thread)
 
 	if (pme->echofd < 0)
 		return 0;
+	/* else fall on timeout */
 	if (pme->oper_receive) {
 		zlog_info("PMD: packet already received. cancel tmo");
 		return 0;
 	}
 	pme->stats_rx_timeout++;
+	if (pm_check_retries(pme, pme->retries_down, false))
+		return 0;
 	if (pme->last_alarm != PM_ECHO_TIMEOUT &&
 	    pme->last_alarm != PM_ECHO_NHT_UNREACHABLE)
 		zlog_info("echo packet to %s timed out",
 			  sockunion2str(&pme->peer, buf, sizeof(buf)));
 	if (pme->last_alarm != PM_ECHO_NHT_UNREACHABLE)
 		pme->last_alarm = PM_ECHO_TIMEOUT;
+	/* reset pme retries context */
+	pme->retry.retry_count = 0;
+	pme->retry.retry_down_in_progress = false;
+	pme->retry.retry_up_in_progress = false;
 	return 0;
 }
 
@@ -252,6 +298,8 @@ int pm_echo_receive(struct thread *thread)
 	     (pme->last_rtt.tv_usec > 0))) {
 		if (!pme->oper_receive)
 			pme->stats_rx_timeout++;
+		if (pm_check_retries(pme, pme->retries_down, false))
+			return 0;
 		if (pme->last_alarm != PM_ECHO_TIMEOUT) {
 			zlog_info("echo packet to %s timed out",
 				  sockunion2str(&pme->peer,
@@ -261,11 +309,17 @@ int pm_echo_receive(struct thread *thread)
 			pme->last_alarm = PM_ECHO_TIMEOUT;
 		return 0;
 	}
+	if (pm_check_retries(pme, pme->retries_up, true))
+		return 0;
 	if (pme->last_alarm != PM_ECHO_OK)
 		zlog_info("echo packet to %s OK",
 			  sockunion2str(&pme->peer, buf, sizeof(buf)));
 	pme->last_alarm = PM_ECHO_OK;
 	pme->oper_receive = true;
+	/* reset pme retries contexts */
+	pme->retry.retry_count = 0;
+	pme->retry.retry_up_in_progress = false;
+	pme->retry.retry_down_in_progress = false;
 	THREAD_OFF(pme->t_echo_tmo);
 	return 0;
 }
@@ -635,6 +689,7 @@ int pm_echo_send(struct thread *thread)
 		pme->stats_tx++;
 	}
  label_end_tried_sending:
+	pme->retry.retry_already_counted = false;
 	if (ret >= 0) /* launch timeout if emission was successfull */
 		thread_add_timer_msec(master, pm_echo_tmo, pme, pme->timeout,
 				      &pme->t_echo_tmo);
@@ -695,6 +750,8 @@ int pm_echo(struct pm_session *pm, char *errormsg, int errormsg_len)
 	pme_ptr->interval = pm->interval;
 	pme_ptr->packet_size = pm->packet_size;
 	pme_ptr->peer = peer;
+	pme_ptr->retries_up = pm->retries_up;
+	pme_ptr->retries_down = pm->retries_down;
 	pme_ptr->rtt_stats = pm_rtt_allocate_ctx();
 	pme_ptr->gw = gw;
 	pme_ptr->oper_connect = false;
