@@ -139,12 +139,13 @@ void nexthop_del_labels(struct nexthop *);
 uint32_t nexthop_hash(const struct nexthop *nexthop);
 
 extern bool nexthop_same(const struct nexthop *nh1, const struct nexthop *nh2);
+extern bool nexthop_same_no_labels(const struct nexthop *nh1,
+				   const struct nexthop *nh2);
+extern int nexthop_cmp(const struct nexthop *nh1, const struct nexthop *nh2);
 
 extern const char *nexthop_type_to_str(enum nexthop_types_t nh_type);
-extern int nexthop_same_no_recurse(const struct nexthop *next1,
-				   const struct nexthop *next2);
-extern int nexthop_labels_match(const struct nexthop *nh1,
-				const struct nexthop *nh2);
+extern bool nexthop_labels_match(const struct nexthop *nh1,
+				 const struct nexthop *nh2);
 extern int nexthop_same_firsthop(struct nexthop *next1, struct nexthop *next2);
 
 extern const char *nexthop2str(const struct nexthop *nexthop,
