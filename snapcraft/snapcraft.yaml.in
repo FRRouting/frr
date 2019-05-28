@@ -308,6 +308,7 @@ parts:
            - libc-ares2
            - libatm1
            - libprotobuf-c1
+           - libdb5.3
         plugin: autotools
         source: ../frr-@PACKAGE_VERSION@.tar.gz
         configflags:
