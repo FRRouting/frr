@@ -272,7 +272,7 @@ int isis_area_destroy(const char *area_tag)
 	lsp_db_fini(&area->lspdb[1]);
 
 	/* invalidate and verify to delete all routes from zebra */
-	isis_area_invalidate_routes(area, ISIS_LEVEL1 & ISIS_LEVEL2);
+	isis_area_invalidate_routes(area, area->is_type);
 	isis_area_verify_routes(area);
 
 	spftree_area_del(area);
