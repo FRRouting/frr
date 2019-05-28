@@ -81,7 +81,7 @@ static void opt_extend(const struct optspec *os)
 	const struct option *lo;
 
 	strlcat(comb_optstr, os->optstr, sizeof(comb_optstr));
-	strlcat(comb_helpstr, os->helpstr, sizeof(comb_optstr));
+	strlcat(comb_helpstr, os->helpstr, sizeof(comb_helpstr));
 	for (lo = os->longopts; lo->name; lo++)
 		memcpy(comb_next_lo++, lo, sizeof(*lo));
 }
