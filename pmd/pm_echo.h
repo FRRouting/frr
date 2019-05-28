@@ -31,6 +31,13 @@ enum pm_echo_alarm {
 	PM_ECHO_NHT_UNREACHABLE = 3,
 };
 
+struct pm_echo_retry {
+	bool retry_up_in_progress;
+	bool retry_down_in_progress;
+	bool retry_already_counted;
+	int  retry_count;
+};
+
 struct pm_echo {
 	uint32_t discriminator_id;
 
@@ -57,11 +64,15 @@ struct pm_echo {
 	int timeout;
 	int interval;
 	int packet_size;
+	uint8_t retries_up;
+	uint8_t retries_down;
 
 	union sockunion peer;
 	union sockunion gw;
 
 	/* operational context */
+	struct pm_echo_retry retry;
+
 	bool oper_bind;
 	bool oper_connect;
 	bool oper_receive;

@@ -96,6 +96,10 @@ static void pm_session_write_config_walker(struct hash_bucket *b, void *data)
 		vty_out(vty, "  packet-size %u\n", pm->packet_size);
 	if (pm->timeout != PM_TIMEOUT_DEFAULT)
 		vty_out(vty, "  timeout %u\n", pm->timeout);
+	if (pm->retries_down != PM_PACKET_RETRIES_DOWN_DEFAULT
+	    || pm->retries_up != PM_PACKET_RETRIES_UP_DEFAULT)
+		vty_out(vty, "  retries up-count %u down-count %u\n",
+			pm->retries_up, pm->retries_down);
 	if (pm->flags & PM_SESS_FLAG_SHUTDOWN)
 		vty_out(vty, "  shutdown\n");
 	else
@@ -264,6 +268,32 @@ DEFPY(pm_packet_timeout, pm_packet_timeout_cmd, "[no] timeout [(1-65535)$tmo]",
 	return CMD_SUCCESS;
 }
 
+DEFPY(pm_packet_retries, pm_packet_retries_cmd,
+      "[no] retries [up-count (1-255)$retriesup] [down-count (1-255)$retriesdown]",
+      NO_STR
+      "Number of consecutive retries where response considered as lost\n"
+      "Number of consecutive retries up\n"
+      "Retries in number of responses\n"
+      "Number of consecutive retries down\n"
+      "Retries in number of responses\n")
+{
+	struct pm_session *pm;
+
+	pm = VTY_GET_CONTEXT(pm_session);
+
+	if (no) {
+		pm->retries_up = PM_PACKET_RETRIES_UP_DEFAULT;
+		pm->retries_down = PM_PACKET_RETRIES_DOWN_DEFAULT;
+	} else {
+		if (retriesup)
+			pm->retries_up = retriesup;
+		if (retriesdown)
+			pm->retries_down = retriesdown;
+		pm_try_run(vty, pm);
+	}
+	return CMD_SUCCESS;
+}
+
 DEFPY(pm_session_shutdown, pm_session_shutdown_cmd, "[no] shutdown",
       NO_STR "Disable PM session\n")
 {
@@ -378,6 +408,10 @@ static struct json_object *__display_session_json(struct pm_session *pm,
 			    pm->interval);
 	json_object_int_add(jo, "timeout",
 			    pm->timeout);
+	json_object_int_add(jo, "retries_up",
+			    pm->retries_up);
+	json_object_int_add(jo, "retries_down",
+			    pm->retries_down);
 	json_object_int_add(jo, "tos_val",
 			    pm->tos_val);
 	json_object_int_add(jo, "packet-size",
@@ -429,6 +463,8 @@ static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
 		pm->tos_val, pm->packet_size);
 	vty_out(vty, ", interval %u, timeout %u\n",
 		pm->interval, pm->timeout);
+	vty_out(vty, "\tretries up-count %u down-count %u\n",
+		pm->retries_up, pm->retries_down);
 	vty_out(vty, "\tstatus: (0x%x)", pm->flags);
 	vty_out(vty, " session admin %s, run %s\n",
 		pm->flags & PM_SESS_FLAG_SHUTDOWN ? "down" : "up",
@@ -561,6 +597,7 @@ void pm_vty_init(void)
 	install_element(PM_SESSION_NODE, &pm_session_shutdown_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_timeout_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_interval_cmd);
+	install_element(PM_SESSION_NODE, &pm_packet_retries_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_size_cmd);
 	install_element(PM_SESSION_NODE, &pm_packet_tos_cmd);
 }
