@@ -738,11 +738,7 @@ DEFUN (clear_isis_neighbor_arg,
  */
 void print_debug(struct vty *vty, int flags, int onoff)
 {
-	char onoffs[4];
-	if (onoff)
-		strcpy(onoffs, "on");
-	else
-		strcpy(onoffs, "off");
+	const char *onoffs = onoff ? "on" : "off";
 
 	if (flags & DEBUG_ADJ_PACKETS)
 		vty_out(vty,
