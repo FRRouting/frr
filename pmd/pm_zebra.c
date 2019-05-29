@@ -23,6 +23,7 @@
 #include "thread.h"
 #include "command.h"
 #include "log.h"
+#include "hook.h"
 #include "network.h"
 #include "prefix.h"
 #include "routemap.h"
@@ -42,6 +43,7 @@
 #include "pm_echo.h"
 #include "pm_memory.h"
 #include "pm_zebra.h"
+#include "pm_tracking.h"
 
 /* Zebra structure to hold current status. */
 struct zclient *zclient;
@@ -51,6 +53,14 @@ int pm_nht_not_used;
 
 /* For registering threads. */
 extern struct thread_master *master;
+
+DEFINE_HOOK(pm_tracking_update_param,
+	    (struct pm_session *pm),
+	    (pm));
+
+DEFINE_HOOK(pm_tracking_notify_filename,
+	    (struct pm_session *pm),
+	    (pm));
 
 DEFINE_MTYPE(PMD, PM_CONTROL, "PM Control contexts");
 DEFINE_MTYPE(PMD, PM_NOTIFICATION, "PM Notification contexts");
@@ -81,46 +91,6 @@ struct pm_client {
 TAILQ_HEAD(pcqueue, pm_client);
 
 static struct pcqueue pcqueue;
-
-/* Peer status */
-enum pm_peer_status {
-	BPS_SHUTDOWN = 0, /* == PM_ADM_DOWN, "adm-down" */
-	BPS_DOWN = 1,     /* == PM_DOWN, "down" */
-	BPS_INIT = 2,     /* == PM_INIT, "init" */
-	BPS_UP = 3,       /* == PM_UP, "up" */
-};
-
-struct pm_peer_cfg {
-	bool bpc_ipv4;
-	union sockunion bpc_peer;
-	union sockunion bpc_local;
-
-	bool bpc_has_localif;
-	char bpc_localif[MAXNAMELEN + 1];
-
-	bool bpc_has_vrfname;
-	char bpc_vrfname[MAXNAMELEN + 1];
-
-	bool bpc_has_interval;
-	uint32_t bpc_interval;
-
-	bool bpc_has_timeout;
-	uint32_t bpc_timeout;
-
-	bool bpc_has_packet_size;
-	uint16_t bpc_packet_size;
-
-	bool bpc_has_tos_val;
-	uint8_t bpc_tos_val;
-
-	union sockunion bpc_nexthop;
-
-	bool bpc_shutdown;
-
-	/* Status information */
-	enum pm_peer_status bpc_bps;
-	uint64_t bpc_lastevent;
-};
 
 static struct pm_client_notification *pcn_lookup(struct pm_client *pc,
 						 struct pm_session *pm);
@@ -574,9 +544,11 @@ static struct pm_session *pm_peer_auto(struct pm_peer_cfg *cfg,
 	pm = pm_lookup_session(&cfg->bpc_peer, bpc_local, ifname,
 				 vrfname, create,
 				 ebuf, sizeof(ebuf));
-	if (pm && (cfg->bpc_nexthop.sa.sa_family == AF_INET ||
-		   cfg->bpc_nexthop.sa.sa_family == AF_INET6)) {
-		memcpy(&pm->nh, &cfg->bpc_nexthop, sizeof(union sockunion));
+	if (pm) {
+		if (cfg->bpc_nexthop.sa.sa_family == AF_INET ||
+		    cfg->bpc_nexthop.sa.sa_family == AF_INET6)
+			memcpy(&pm->nh, &cfg->bpc_nexthop,
+			       sizeof(union sockunion));
 	}
 	return pm;
 }
@@ -675,6 +647,8 @@ static void pmd_dest_register(struct stream *msg, vrf_id_t vrf_id)
 			return;
 		}
 	}
+
+	hook_call(pm_tracking_update_param, pm);
 
 	/* Create client peer notification register. */
 	pcn = pcn_new(pc, pm);
@@ -1056,7 +1030,10 @@ int pm_zebra_notify(struct pm_session *pm)
 	struct interface *ifp;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	ifindex_t idx = IFINDEX_INTERNAL;
+	struct pm_session pm_to_fill;
 
+	memcpy(&pm_to_fill, pm, sizeof(struct pm_session));
+	hook_call(pm_tracking_notify_filename, &pm_to_fill);
 	/*
 	 * Message format:
 	 * - header: command, vrf
@@ -1103,7 +1080,7 @@ int pm_zebra_notify(struct pm_session *pm)
 	stream_putl(msg, idx);
 
 	/* PM destination prefix information. */
-	_pm_msg_address(msg, &pm->key.peer);
+	_pm_msg_address(msg, &pm_to_fill.key.peer);
 
 	/* PM status */
 	switch (pm->ses_state) {
@@ -1123,10 +1100,10 @@ int pm_zebra_notify(struct pm_session *pm)
 	}
 
 	/* BFD source prefix information. */
-	_pm_msg_address(msg, &pm->key.local);
+	_pm_msg_address(msg, &pm_to_fill.key.local);
 
 	/* PM nexthop prefix information. */
-	_pm_msg_address(msg, &pm->nh);
+	_pm_msg_address(msg, &pm_to_fill.nh);
 
 	/* Write packet size. */
 	stream_putw_at(msg, 0, stream_get_endp(msg));

@@ -24,6 +24,7 @@
 #include <hash.h>
 #include <memory.h>
 #include <vrf.h>
+#include <hook.h>
 #include <if.h>
 #include <prefix.h>
 #include <prefix.h>
@@ -33,6 +34,7 @@
 #include "pmd/pm_echo.h"
 #include "pmd/pm_memory.h"
 #include "pmd/pm_zebra.h"
+#include "pmd/pm_tracking.h"
 
 /* definitions */
 
@@ -46,6 +48,15 @@ DEFINE_MTYPE(PMD, PM_SESSION, "PM sessions");
 DEFINE_MTYPE(PMD, PM_ECHO, "PM Echo contexts");
 DEFINE_MTYPE(PMD, PM_PACKET, "PM Packets");
 DEFINE_MTYPE(PMD, PM_RTT_STATS, "PM RTT stats");
+
+DEFINE_HOOK(pm_tracking_new_session,
+	    (struct pm_session *pm), (pm));
+DEFINE_HOOK(pm_tracking_get_dest_address,
+	    (struct pm_session *pm,
+	     union sockunion *peer), (pm, peer));
+DEFINE_HOOK(pm_tracking_get_gateway_address,
+	    (struct pm_session *pm,
+	     union sockunion *gw), (pm, gw));
 
 static int pm_sessions_change_ifp_walkcb(struct hash_bucket *backet,
 					 void *arg);
@@ -198,6 +209,7 @@ struct pm_session *pm_lookup_session(union sockunion *peer,
 	pm_search = hash_get(pm_session_list,
 			     &pm,
 			     pm_session_alloc_intern);
+	hook_call(pm_tracking_new_session, pm_search);
 	return pm_search;
 }
 
@@ -642,22 +654,31 @@ void pm_sessions_update(void)
 
 void pm_get_peer(struct pm_session *pm, union sockunion *peer)
 {
+	int ret;
+
 	if (!peer || !pm)
 		return;
 	memset(peer, 0, sizeof(union sockunion));
-	memcpy(peer, &pm->key.peer, sizeof(union sockunion));
+	ret = hook_call(pm_tracking_get_dest_address, pm, peer);
+	if (!ret)
+		memcpy(peer, &pm->key.peer, sizeof(union sockunion));
 }
 
 void pm_get_gw(struct pm_session *pm, union sockunion *gw)
 {
+	int ret;
+
 	if (!gw || !pm)
 		return;
 	memset(gw, 0, sizeof(union sockunion));
-	if (sockunion_family(&pm->nh) == AF_INET ||
-	    sockunion_family(&pm->nh) == AF_INET6)
-		memcpy(gw, &pm->nh, sizeof(union sockunion));
-	else
-		pm_get_peer(pm, gw);
+	ret = hook_call(pm_tracking_get_gateway_address, pm, gw);
+	if (!ret) {
+		if (sockunion_family(&pm->nh) == AF_INET ||
+		    sockunion_family(&pm->nh) == AF_INET6)
+			memcpy(gw, &pm->nh, sizeof(union sockunion));
+		else
+			pm_get_peer(pm, gw);
+	}
 }
 
 static int pm_vrf_new(struct vrf *vrf)

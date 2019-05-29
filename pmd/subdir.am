@@ -6,8 +6,13 @@ noinst_LIBRARIES += pmd/libpm.a
 sbin_PROGRAMS += pmd/pmd
 dist_examples_DATA += pmd/pmd.conf.sample
 vtysh_scan += pmd/pm_vty.c
+vtysh_scan += pmd/pm_tracking.c
 vtysh_daemons += pmd
 man8 += $(MANBUILD)/frr-pmd.8
+
+if PM_TRACKING
+module_LTLIBRARIES += pmd/pm_tracking.la
+endif
 
 pmd_libpm_a_SOURCES = \
 	pmd/pm_zebra.c \
@@ -24,6 +29,12 @@ clippy_scan += \
 	pmd/pm_vty.c \
 	# end
 
+if PM_TRACKING
+clippy_scan += \
+	pmd/pm_tracking.c \
+	# end
+endif
+
 noinst_HEADERS += \
 	pmd/pm_vty.h \
 	pmd/pm_zebra.h \
@@ -36,3 +47,7 @@ noinst_HEADERS += \
 pmd_pmd_SOURCES = pmd/pm_main.c
 pmd_pmd_LDADD = pmd/libpm.a lib/libfrr.la $(LIBCAP)
 
+if PM_TRACKING
+pmd_pm_tracking_la_SOURCES = pmd/pm_tracking.c
+pmd_pm_tracking_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+endif

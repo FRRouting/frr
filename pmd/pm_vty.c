@@ -27,6 +27,7 @@
 #include <hash.h>
 #include "nexthop.h"
 #include "log.h"
+#include "hook.h"
 #include "vrf.h"
 #include "zclient.h"
 #include "nexthop_group.h"
@@ -38,6 +39,7 @@
 
 #include "pmd/pm.h"
 #include "pmd/pm_echo.h"
+#include "pmd/pm_tracking.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "pmd/pm_vty_clippy.c"
@@ -53,6 +55,18 @@
 #define LOCAL_INTF_STR "Configure local interface name to use\n"
 #define VRF_STR "Configure VRF\n"
 #define VRF_NAME_STR "Configure VRF name\n"
+
+DEFINE_HOOK(pm_tracking_write_config,
+	    (struct pm_session *pm, struct vty *vty),
+	    (pm, vty));
+
+DEFINE_HOOK(pm_tracking_release_session,
+	    (struct pm_session *pm), (pm));
+
+DEFINE_HOOK(pm_tracking_display,
+	    (struct pm_session *pm, struct vty *vty,
+	     struct json_object *jo),
+	    (pm, vty, jo));
 
 /*
  * Prototypes
@@ -107,6 +121,9 @@ static void pm_session_write_config_walker(struct hash_bucket *b, void *data)
 		vty_out(vty, "  shutdown\n");
 	else
 		vty_out(vty, "  no shutdown\n");
+
+	hook_call(pm_tracking_write_config, pm, vty);
+
 	vty_out(vty, " !\n");
 	return;
 }
@@ -220,6 +237,7 @@ DEFPY(
 	pm_echo_stop(pm, errormsg, sizeof(errormsg), false);
 	pm_zebra_nht_register(pm, false, vty);
 
+	hook_call(pm_tracking_release_session, pm);
 	hash_release(pm_session_list, pm);
 	XFREE(MTYPE_PM_SESSION, pm);
 	return CMD_SUCCESS;
@@ -443,6 +461,7 @@ static struct json_object *__display_session_json(struct pm_session *pm,
 			    pm->tos_val);
 	json_object_int_add(jo, "packet-size",
 			    pm->packet_size);
+	hook_call(pm_tracking_display, pm, NULL, jo);
 	return jo;
 }
 
@@ -492,11 +511,7 @@ static void pm_session_dump_config_walker(struct hash_bucket *b, void *data)
 		pm->interval, pm->timeout);
 	vty_out(vty, "\tretries up-count %u down-count %u\n",
 		pm->retries_up, pm->retries_down);
-	if ((sockunion_family(&pm->nh) == AF_INET ||
-	     sockunion_family(&pm->nh) == AF_INET6) &&
-	    !sockunion_same(&pm->nh, &pm->key.peer))
-		vty_out(vty, "\tusing nexthop %s\n",
-			sockunion2str(&pm->nh, buf, sizeof(buf)));
+	hook_call(pm_tracking_display, pm, vty, NULL);
 	vty_out(vty, "\tstatus: (0x%x)", pm->flags);
 	vty_out(vty, " session admin %s, run %s\n",
 		pm->flags & PM_SESS_FLAG_SHUTDOWN ? "down" : "up",

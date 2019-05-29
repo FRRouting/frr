@@ -86,6 +86,46 @@ struct pm_session {
 
 DECLARE_QOBJ_TYPE(pm_session);
 
+/* Peer status */
+enum pm_peer_status {
+	BPS_SHUTDOWN = 0, /* == PM_ADM_DOWN, "adm-down" */
+	BPS_DOWN = 1,     /* == PM_DOWN, "down" */
+	BPS_INIT = 2,     /* == PM_INIT, "init" */
+	BPS_UP = 3,       /* == PM_UP, "up" */
+};
+
+struct pm_peer_cfg {
+	bool bpc_ipv4;
+	union sockunion bpc_peer;
+	union sockunion bpc_local;
+
+	bool bpc_has_localif;
+	char bpc_localif[MAXNAMELEN + 1];
+
+	bool bpc_has_vrfname;
+	char bpc_vrfname[MAXNAMELEN + 1];
+
+	bool bpc_has_interval;
+	uint32_t bpc_interval;
+
+	bool bpc_has_timeout;
+	uint32_t bpc_timeout;
+
+	bool bpc_has_packet_size;
+	uint16_t bpc_packet_size;
+
+	bool bpc_has_tos_val;
+	uint8_t bpc_tos_val;
+
+	union sockunion bpc_nexthop;
+
+	bool bpc_shutdown;
+
+	/* Status information */
+	enum pm_peer_status bpc_bps;
+	uint64_t bpc_lastevent;
+};
+
 extern struct hash *pm_session_list;
 extern struct hash *pm_id_list;
 
