@@ -47,6 +47,8 @@
 struct zclient *zclient;
 static struct hash *pm_nht_hash;
 
+int pm_nht_not_used;
+
 /* For registering events. */
 extern struct event_loop *master;
 
@@ -829,6 +831,9 @@ static void pm_nexthop_update(struct vrf *vrf, struct prefix *matched,
 	struct pm_nht_data *nhtd, lookup;
 	afi_t afi = AFI_IP;
 
+	if (pm_nht_not_used)
+		return;
+
 	if (nhr->prefix.family == AF_INET6)
 		afi = AFI_IP6;
 
@@ -868,6 +873,27 @@ static zclient_handler *const pm_handlers[] = {
 	[ZEBRA_PM_DEST_REPLAY] = pmd_replay,
 };
 
+static void pm_zebra_fake_nht_register(struct pm_session *pm,
+				       bool reg, struct vty *vty)
+{
+	zlog_info("PMD: session to %pSU, NHT ignored",
+		  &pm->key.peer);
+
+	if (PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_REGISTERED) && reg)
+		return;
+	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_REGISTERED) && !reg)
+		return;
+	if (reg)
+		PM_SET_FLAG(pm->flags, PM_SESS_FLAG_NH_REGISTERED);
+	else
+		PM_UNSET_FLAG(pm->flags, PM_SESS_FLAG_NH_REGISTERED);
+
+	if (reg) {
+		PM_SET_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID);
+		pm_try_run(vty, pm);
+	}
+}
+
 void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 {
 	struct pm_nht_data *nhtd, lookup;
@@ -876,6 +902,10 @@ void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 	afi_t afi = AFI_IP;
 	struct vrf *vrf;
 
+	if (pm_nht_not_used) {
+		pm_zebra_fake_nht_register(pm, reg, vty);
+		return;
+	}
 	cmd = (reg) ?
 		ZEBRA_NEXTHOP_REGISTER : ZEBRA_NEXTHOP_UNREGISTER;
 
@@ -941,12 +971,19 @@ void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 			  __PRETTY_FUNCTION__);
 }
 
+void pm_zebra_nht(bool on)
+{
+	pm_nht_not_used = !on;
+}
+
 void pm_zebra_init(void)
 {
 	hook_register_prio(if_real, 0, pm_zebra_ifp_create);
 	hook_register_prio(if_up, 0, pm_zebra_ifp_up);
 	hook_register_prio(if_down, 0, pm_zebra_ifp_down);
 	hook_register_prio(if_unreal, 0, pm_zebra_ifp_destroy);
+
+	pm_nht_not_used = 0;
 
 	zclient = zclient_new(master, &zclient_options_default, pm_handlers,
 			      array_size(pm_handlers));
