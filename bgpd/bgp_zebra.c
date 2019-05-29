@@ -1435,15 +1435,29 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 		for (i = 0; i < api.nexthop_num; i++) {
 			api_nh = &api.nexthops[i];
 
-			if (api_nh->type == NEXTHOP_TYPE_IFINDEX)
+			switch (api_nh->type) {
+			case NEXTHOP_TYPE_IFINDEX:
 				nh_buf[0] = '\0';
-			else {
-				if (api_nh->type == NEXTHOP_TYPE_IPV4)
-					nh_family = AF_INET;
-				else
-					nh_family = AF_INET6;
+				break;
+			case NEXTHOP_TYPE_IPV4:
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+				nh_family = AF_INET;
 				inet_ntop(nh_family, &api_nh->gate, nh_buf,
 					  sizeof(nh_buf));
+				break;
+			case NEXTHOP_TYPE_IPV6:
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				nh_family = AF_INET6;
+				inet_ntop(nh_family, &api_nh->gate, nh_buf,
+					  sizeof(nh_buf));
+				break;
+			case NEXTHOP_TYPE_BLACKHOLE:
+				strlcpy(nh_buf, "blackhole", sizeof(nh_buf));
+				break;
+			default:
+				/* Note: add new nexthop case */
+				assert(0);
+				break;
 			}
 
 			label_buf[0] = '\0';
