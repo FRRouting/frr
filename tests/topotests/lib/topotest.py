@@ -1485,7 +1485,7 @@ class Router(Node):
             "snmptrapd": 0,
             "pmd": 0,
         }
-        self.daemons_options = {"zebra": ""}
+        self.daemons_options = {"zebra": "", "pmd": ""}
         self.reportCores = True
         self.version = None
 
