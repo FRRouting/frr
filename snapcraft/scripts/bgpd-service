@@ -10,7 +10,7 @@ fi
 if ! [ -e $SNAP_DATA/rpki.conf ]; then
     echo "-M rpki" > $SNAP_DATA/rpki.conf
 fi
-EXTRA_OPTIONS="`cat $SNAP_DATA/rpki.conf`"
+EXTRA_OPTIONS="`$SNAP/bin/cat $SNAP_DATA/rpki.conf`"
 exec $SNAP/sbin/bgpd \
     -f $SNAP_DATA/bgpd.conf \
     --pid_file $SNAP_DATA/bgpd.pid \
