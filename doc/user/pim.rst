@@ -322,6 +322,12 @@ cause great confusion.
    Display information about installed into the kernel S,G mroutes and in
    addition display data about packet flow for the mroutes.
 
+.. index:: show ip mroute summary
+.. clicmd:: show ip mroute summary
+
+   Display total number of S,G mroutes and number of S,G mroutes installed
+   into the kernel.
+
 .. index:: show ip pim assert
 .. clicmd:: show ip pim assert
 
