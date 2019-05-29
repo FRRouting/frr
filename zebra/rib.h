@@ -87,8 +87,11 @@ struct route_entry {
 	/* Link list. */
 	struct re_list_item next;
 
-	/* Nexthop structure */
+	/* Nexthop structure (from RIB) */
 	struct nexthop_group ng;
+
+	/* Nexthop group from FIB (optional) */
+	struct nexthop_group fib_ng;
 
 	/* Tag */
 	route_tag_t tag;
@@ -529,6 +532,16 @@ static inline void rib_tables_iter_cleanup(rib_tables_iter_t *iter)
 DECLARE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	     (rn, reason))
 
+/*
+ * Access active nexthop-group, either RIB or FIB version
+ */
+static inline struct nexthop_group *rib_active_nhg(struct route_entry *re)
+{
+	if (re->fib_ng.nexthop)
+		return &(re->fib_ng);
+	else
+		return &(re->ng);
+}
 
 extern void zebra_vty_init(void);
 

@@ -105,11 +105,13 @@ enum dplane_op_e {
 	DPLANE_OP_ROUTE_INSTALL,
 	DPLANE_OP_ROUTE_UPDATE,
 	DPLANE_OP_ROUTE_DELETE,
+	DPLANE_OP_ROUTE_NOTIFY,
 
 	/* LSP update */
 	DPLANE_OP_LSP_INSTALL,
 	DPLANE_OP_LSP_UPDATE,
 	DPLANE_OP_LSP_DELETE,
+	DPLANE_OP_LSP_NOTIFY,
 
 	/* Pseudowire update */
 	DPLANE_OP_PW_INSTALL,
@@ -138,6 +140,9 @@ void dplane_enable_sys_route_notifs(void);
  * are accessor apis that support enqueue and dequeue.
  */
 TAILQ_HEAD(dplane_ctx_q, zebra_dplane_ctx);
+
+/* Allocate a context object */
+struct zebra_dplane_ctx *dplane_ctx_alloc(void);
 
 /* Return a dataplane results context block after use; the caller's pointer will
  * be cleared.
@@ -169,9 +174,12 @@ void dplane_ctx_set_status(struct zebra_dplane_ctx *ctx,
 const char *dplane_res2str(enum zebra_dplane_result res);
 
 enum dplane_op_e dplane_ctx_get_op(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_op(struct zebra_dplane_ctx *ctx, enum dplane_op_e op);
 const char *dplane_op2str(enum dplane_op_e op);
 
 const struct prefix *dplane_ctx_get_dest(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_dest(struct zebra_dplane_ctx *ctx,
+			 const struct prefix *dest);
 
 /* Retrieve last/current provider id */
 uint32_t dplane_ctx_get_provider(const struct zebra_dplane_ctx *ctx);
@@ -186,17 +194,28 @@ bool dplane_ctx_is_skip_kernel(const struct zebra_dplane_ctx *ctx);
  * to mean "no src prefix"
  */
 const struct prefix *dplane_ctx_get_src(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_src(struct zebra_dplane_ctx *ctx, const struct prefix *src);
 
 bool dplane_ctx_is_update(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_seq(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_get_old_seq(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_vrf(struct zebra_dplane_ctx *ctx, vrf_id_t vrf);
 vrf_id_t dplane_ctx_get_vrf(const struct zebra_dplane_ctx *ctx);
 
+bool dplane_ctx_is_from_notif(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_notif_provider(struct zebra_dplane_ctx *ctx,
+				   uint32_t id);
+uint32_t dplane_ctx_get_notif_provider(const struct zebra_dplane_ctx *ctx);
+
 /* Accessors for route update information */
+void dplane_ctx_set_type(struct zebra_dplane_ctx *ctx, int type);
 int dplane_ctx_get_type(const struct zebra_dplane_ctx *ctx);
 int dplane_ctx_get_old_type(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_afi(struct zebra_dplane_ctx *ctx, afi_t afi);
 afi_t dplane_ctx_get_afi(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_safi(struct zebra_dplane_ctx *ctx, safi_t safi);
 safi_t dplane_ctx_get_safi(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_table(struct zebra_dplane_ctx *ctx, uint32_t table);
 uint32_t dplane_ctx_get_table(const struct zebra_dplane_ctx *ctx);
 route_tag_t dplane_ctx_get_tag(const struct zebra_dplane_ctx *ctx);
 route_tag_t dplane_ctx_get_old_tag(const struct zebra_dplane_ctx *ctx);
@@ -209,6 +228,7 @@ uint32_t dplane_ctx_get_nh_mtu(const struct zebra_dplane_ctx *ctx);
 uint8_t dplane_ctx_get_distance(const struct zebra_dplane_ctx *ctx);
 uint8_t dplane_ctx_get_old_distance(const struct zebra_dplane_ctx *ctx);
 
+void dplane_ctx_set_nexthops(struct zebra_dplane_ctx *ctx, struct nexthop *nh);
 const struct nexthop_group *dplane_ctx_get_ng(
 	const struct zebra_dplane_ctx *ctx);
 const struct nexthop_group *dplane_ctx_get_old_ng(
@@ -216,11 +236,26 @@ const struct nexthop_group *dplane_ctx_get_old_ng(
 
 /* Accessors for LSP information */
 mpls_label_t dplane_ctx_get_in_label(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_in_label(struct zebra_dplane_ctx *ctx,
+			     mpls_label_t label);
 uint8_t dplane_ctx_get_addr_family(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_addr_family(struct zebra_dplane_ctx *ctx,
+				uint8_t family);
 uint32_t dplane_ctx_get_lsp_flags(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_lsp_flags(struct zebra_dplane_ctx *ctx,
+			      uint32_t flags);
 const zebra_nhlfe_t *dplane_ctx_get_nhlfe(const struct zebra_dplane_ctx *ctx);
+zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
+				    enum lsp_types_t lsp_type,
+				    enum nexthop_types_t nh_type,
+				    union g_addr *gate,
+				    ifindex_t ifindex,
+				    mpls_label_t out_label);
+
 const zebra_nhlfe_t *dplane_ctx_get_best_nhlfe(
 	const struct zebra_dplane_ctx *ctx);
+const zebra_nhlfe_t *dplane_ctx_set_best_nhlfe(struct zebra_dplane_ctx *ctx,
+					       zebra_nhlfe_t *nhlfe);
 uint32_t dplane_ctx_get_lsp_num_ecmp(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for pseudowire information */
@@ -282,12 +317,24 @@ enum zebra_dplane_result dplane_sys_route_add(struct route_node *rn,
 enum zebra_dplane_result dplane_sys_route_del(struct route_node *rn,
 					      struct route_entry *re);
 
+/* Update from an async notification, to bring other fibs up-to-date */
+enum zebra_dplane_result dplane_route_notif_update(
+	struct route_node *rn,
+	struct route_entry *re,
+	enum dplane_op_e op,
+	struct zebra_dplane_ctx *ctx);
+
 /*
  * Enqueue LSP change operations for the dataplane.
  */
 enum zebra_dplane_result dplane_lsp_add(zebra_lsp_t *lsp);
 enum zebra_dplane_result dplane_lsp_update(zebra_lsp_t *lsp);
 enum zebra_dplane_result dplane_lsp_delete(zebra_lsp_t *lsp);
+
+/* Update or un-install resulting from an async notification */
+enum zebra_dplane_result dplane_lsp_notif_update(zebra_lsp_t *lsp,
+						 enum dplane_op_e op,
+						 struct zebra_dplane_ctx *ctx);
 
 /*
  * Enqueue pseudowire operations for the dataplane.
@@ -320,7 +367,6 @@ uint32_t dplane_get_in_queue_len(void);
  */
 int dplane_show_helper(struct vty *vty, bool detailed);
 int dplane_show_provs_helper(struct vty *vty, bool detailed);
-
 
 /*
  * Dataplane providers: modules that process or consume dataplane events.
@@ -363,7 +409,13 @@ enum dplane_provider_prio {
  * then checks the provider's outbound queue for completed work.
  */
 
-/* Providers offer an entry-point for shutdown and cleanup. This is called
+/*
+ * Providers can offer a 'start' callback; if present, the dataplane will
+ * call it when it is starting - when its pthread and event-scheduling
+ * thread_master are available.
+ */
+
+/* Providers can offer an entry-point for shutdown and cleanup. This is called
  * with 'early' during shutdown, to indicate that the dataplane subsystem
  * is allowing work to move through the providers and finish.
  * When called without 'early', the provider should release
@@ -372,6 +424,7 @@ enum dplane_provider_prio {
 int dplane_provider_register(const char *name,
 			     enum dplane_provider_prio prio,
 			     int flags,
+			     int (*start_fp)(struct zebra_dplane_provider *),
 			     int (*fp)(struct zebra_dplane_provider *),
 			     int (*fini_fp)(struct zebra_dplane_provider *,
 					    bool early),
@@ -409,9 +462,12 @@ struct zebra_dplane_ctx *dplane_provider_dequeue_in_ctx(
 int dplane_provider_dequeue_in_list(struct zebra_dplane_provider *prov,
 				    struct dplane_ctx_q *listp);
 
-/* Enqueue, maintain associated counter and locking */
+/* Enqueue completed work, maintain associated counter and locking */
 void dplane_provider_enqueue_out_ctx(struct zebra_dplane_provider *prov,
 				     struct zebra_dplane_ctx *ctx);
+
+/* Enqueue a context directly to zebra main. */
+void dplane_provider_enqueue_to_zebra(struct zebra_dplane_ctx *ctx);
 
 /*
  * Initialize the dataplane modules at zebra startup. This is currently called

@@ -1062,8 +1062,25 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	switch (ret) {
 	case ZEBRA_DPLANE_REQUEST_QUEUED:
 		SET_FLAG(re->status, ROUTE_ENTRY_QUEUED);
-		if (old)
+
+		if (old) {
 			SET_FLAG(old->status, ROUTE_ENTRY_QUEUED);
+
+			/* Free old FIB nexthop group */
+			if (old->fib_ng.nexthop) {
+				nexthops_free(old->fib_ng.nexthop);
+				old->fib_ng.nexthop = NULL;
+			}
+
+			if (!RIB_SYSTEM_ROUTE(old)) {
+				/* Clear old route's FIB flags */
+				for (ALL_NEXTHOPS(old->ng, nexthop)) {
+					UNSET_FLAG(nexthop->flags,
+						   NEXTHOP_FLAG_FIB);
+				}
+			}
+		}
+
 		if (zvrf)
 			zvrf->installs_queued++;
 		break;
@@ -1148,6 +1165,12 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 		rib_uninstall_kernel(rn, re);
 
 		dest->selected_fib = NULL;
+
+		/* Free FIB nexthop group, if present */
+		if (re->fib_ng.nexthop) {
+			nexthops_free(re->fib_ng.nexthop);
+			re->fib_ng.nexthop = NULL;
+		}
 
 		for (ALL_NEXTHOPS(re->ng, nexthop))
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
@@ -1841,21 +1864,239 @@ static void zebra_rib_fixup_system(struct route_node *rn)
 }
 
 /*
- * Route-update results processing after async dataplane update.
+ * Update a route from a dplane context. This consolidates common code
+ * that can be used in processing of results from FIB updates, and in
+ * async notification processing.
+ * The return is 'true' if the installed nexthops changed; 'false' otherwise.
  */
-static void rib_process_result(struct zebra_dplane_ctx *ctx)
+static bool rib_update_re_from_ctx(struct route_entry *re,
+				   struct route_node *rn,
+				   struct zebra_dplane_ctx *ctx)
+{
+	char dest_str[PREFIX_STRLEN] = "";
+	char nh_str[NEXTHOP_STRLEN];
+	struct nexthop *nexthop, *ctx_nexthop;
+	bool matched;
+	const struct nexthop_group *ctxnhg;
+	bool is_selected = false; /* Is 're' currently the selected re? */
+	bool changed_p = false; /* Change to nexthops? */
+	rib_dest_t *dest;
+
+	/* Note well: only capturing the prefix string if debug is enabled here;
+	 * unconditional log messages will have to generate the string.
+	 */
+	if (IS_ZEBRA_DEBUG_RIB)
+		prefix2str(&(rn->p), dest_str, sizeof(dest_str));
+
+	dest = rib_dest_from_rnode(rn);
+	if (dest)
+		is_selected = (re == dest->selected_fib);
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("update_from_ctx: %u:%s: %sSELECTED",
+			   re->vrf_id, dest_str, (is_selected ? "" : "NOT "));
+
+	/* Update zebra's nexthop FIB flag for each nexthop that was installed.
+	 * If the installed set differs from the set requested by the rib/owner,
+	 * we use the fib-specific nexthop-group to record the actual FIB
+	 * status.
+	 */
+
+	/*
+	 * First check the fib nexthop-group, if it's present. The comparison
+	 * here is quite strict: we require that the fib sets match exactly.
+	 */
+	matched = false;
+	do {
+		if (re->fib_ng.nexthop == NULL)
+			break;
+
+		matched = true;
+
+		/* First check the route's fib nexthops */
+		for (ALL_NEXTHOPS(re->fib_ng, nexthop)) {
+
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+				continue;
+
+			ctx_nexthop = NULL;
+			for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx),
+					      ctx_nexthop)) {
+				if (nexthop_same(ctx_nexthop, nexthop))
+					break;
+			}
+
+			if (ctx_nexthop == NULL) {
+				/* Nexthop not in the new installed set */
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+					nexthop2str(nexthop, nh_str,
+						    sizeof(nh_str));
+					zlog_debug("update_from_ctx: no match for fib nh %s",
+						   nh_str);
+				}
+
+				matched = false;
+				break;
+			}
+		}
+
+		if (!matched)
+			break;
+
+		/* Check the new installed set */
+		ctx_nexthop = NULL;
+		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), ctx_nexthop)) {
+
+			if (CHECK_FLAG(ctx_nexthop->flags,
+				       NEXTHOP_FLAG_RECURSIVE))
+				continue;
+
+			/* Compare with the current group's nexthops */
+			nexthop = NULL;
+			for (ALL_NEXTHOPS(re->fib_ng, nexthop)) {
+				if (nexthop_same(nexthop, ctx_nexthop))
+					break;
+			}
+
+			if (nexthop == NULL) {
+				/* Nexthop not in the old installed set */
+				if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+					nexthop2str(ctx_nexthop, nh_str,
+						    sizeof(nh_str));
+					zlog_debug("update_from_ctx: no fib match for notif nh %s",
+						   nh_str);
+				}
+				matched = false;
+				break;
+			}
+		}
+
+	} while (0);
+
+	/* If the new FIB set matches the existing FIB set, we're done. */
+	if (matched) {
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug("%u:%s update_from_ctx(): existing fib nhg, no change",
+				   re->vrf_id, dest_str);
+		goto done;
+
+	} else if (re->fib_ng.nexthop) {
+		/*
+		 * Free stale fib list and move on to check the rib nhg.
+		 */
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug("%u:%s update_from_ctx(): replacing fib nhg",
+				   re->vrf_id, dest_str);
+		nexthops_free(re->fib_ng.nexthop);
+		re->fib_ng.nexthop = NULL;
+
+		/* Note that the installed nexthops have changed */
+		changed_p = true;
+	} else {
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug("%u:%s update_from_ctx(): no fib nhg",
+				   re->vrf_id, dest_str);
+	}
+
+	/*
+	 * Compare with the rib nexthop group. The comparison here is different:
+	 * the RIB group may be a superset of the list installed in the FIB. We
+	 * walk the RIB group, looking for the 'installable' candidate
+	 * nexthops, and then check those against the set
+	 * that is actually installed.
+	 */
+	matched = true;
+	for (ALL_NEXTHOPS(re->ng, nexthop)) {
+
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+			continue;
+
+		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+			continue;
+
+		/* Check for a FIB nexthop corresponding to the RIB nexthop */
+		ctx_nexthop = NULL;
+		for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx), ctx_nexthop)) {
+			if (nexthop_same(ctx_nexthop, nexthop))
+				break;
+		}
+
+		/* If the FIB doesn't know about the nexthop,
+		 * it's not installed
+		 */
+		if (ctx_nexthop == NULL) {
+			if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+				nexthop2str(nexthop, nh_str, sizeof(nh_str));
+				zlog_debug("update_from_ctx: no notif match for rib nh %s",
+					   nh_str);
+			}
+			matched = false;
+
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+				changed_p = true;
+
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+			break;
+		}
+
+		if (CHECK_FLAG(ctx_nexthop->flags, NEXTHOP_FLAG_FIB)) {
+			if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+				changed_p = true;
+
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+		} else {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+				changed_p = true;
+
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+		}
+	}
+
+	/* If all nexthops were processed, we're done */
+	if (matched) {
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug("%u:%s update_from_ctx(): rib nhg matched, changed '%s'",
+				   re->vrf_id, dest_str,
+				   (changed_p ? "true" : "false"));
+		goto done;
+	}
+
+	/* FIB nexthop set differs from the RIB set:
+	 * create a fib-specific nexthop-group
+	 */
+	if (IS_ZEBRA_DEBUG_RIB)
+		zlog_debug("%u:%s update_from_ctx(): changed %s, adding new fib nhg",
+			   re->vrf_id, dest_str,
+			   (changed_p ? "true" : "false"));
+
+	ctxnhg = dplane_ctx_get_ng(ctx);
+
+	if (ctxnhg->nexthop)
+		copy_nexthops(&(re->fib_ng.nexthop), ctxnhg->nexthop, NULL);
+	else {
+		/* Bit of a special case when the fib has _no_ installed
+		 * nexthops.
+		 */
+		nexthop = nexthop_new();
+		nexthop->type = NEXTHOP_TYPE_IPV4;
+		nexthop_add(&(re->fib_ng.nexthop), nexthop);
+	}
+
+done:
+	return changed_p;
+}
+
+/*
+ * Helper to locate a zebra route-node from a dplane context. This is used
+ * when processing dplane results, e.g. Note well: the route-node is returned
+ * with a ref held - route_unlock_node() must be called eventually.
+ */
+static struct route_node *
+rib_find_rn_from_ctx(const struct zebra_dplane_ctx *ctx)
 {
 	struct route_table *table = NULL;
-	struct zebra_vrf *zvrf = NULL;
 	struct route_node *rn = NULL;
-	struct route_entry *re = NULL, *old_re = NULL, *rib;
-	bool is_update = false;
-	struct nexthop *nexthop, *ctx_nexthop;
-	char dest_str[PREFIX_STRLEN] = "";
-	enum dplane_op_e op;
-	enum zebra_dplane_result status;
 	const struct prefix *dest_pfx, *src_pfx;
-	uint32_t seq;
 
 	/* Locate rn and re(s) from ctx */
 
@@ -1865,7 +2106,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 					      dplane_ctx_get_table(ctx));
 	if (table == NULL) {
 		if (IS_ZEBRA_DEBUG_DPLANE) {
-			zlog_debug("Failed to process dplane results: no table for afi %d, safi %d, vrf %u",
+			zlog_debug("Failed to find route for ctx: no table for afi %d, safi %d, vrf %u",
 				   dplane_ctx_get_afi(ctx),
 				   dplane_ctx_get_safi(ctx),
 				   dplane_ctx_get_vrf(ctx));
@@ -1873,8 +2114,35 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		goto done;
 	}
 
-	zvrf = vrf_info_lookup(dplane_ctx_get_vrf(ctx));
+	dest_pfx = dplane_ctx_get_dest(ctx);
+	src_pfx = dplane_ctx_get_src(ctx);
 
+	rn = srcdest_rnode_get(table, dest_pfx,
+			       src_pfx ? (struct prefix_ipv6 *)src_pfx : NULL);
+
+done:
+	return rn;
+}
+
+
+
+/*
+ * Route-update results processing after async dataplane update.
+ */
+static void rib_process_result(struct zebra_dplane_ctx *ctx)
+{
+	struct zebra_vrf *zvrf = NULL;
+	struct route_node *rn = NULL;
+	struct route_entry *re = NULL, *old_re = NULL, *rib;
+	bool is_update = false;
+	char dest_str[PREFIX_STRLEN] = "";
+	enum dplane_op_e op;
+	enum zebra_dplane_result status;
+	const struct prefix *dest_pfx, *src_pfx;
+	uint32_t seq;
+	bool fib_changed = false;
+
+	zvrf = vrf_info_lookup(dplane_ctx_get_vrf(ctx));
 	dest_pfx = dplane_ctx_get_dest(ctx);
 
 	/* Note well: only capturing the prefix string if debug is enabled here;
@@ -1883,9 +2151,8 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		prefix2str(dest_pfx, dest_str, sizeof(dest_str));
 
-	src_pfx = dplane_ctx_get_src(ctx);
-	rn = srcdest_rnode_get(table, dplane_ctx_get_dest(ctx),
-			       src_pfx ? (struct prefix_ipv6 *)src_pfx : NULL);
+	/* Locate rn and re(s) from ctx */
+	rn = rib_find_rn_from_ctx(ctx);
 	if (rn == NULL) {
 		if (IS_ZEBRA_DEBUG_DPLANE) {
 			zlog_debug("Failed to process dplane results: no route for %u:%s",
@@ -1979,34 +2246,25 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 				UNSET_FLAG(old_re->status,
 					   ROUTE_ENTRY_INSTALLED);
 			}
-			/* Update zebra nexthop FIB flag for each
-			 * nexthop that was installed.
+
+			/* Update zebra route based on the results in
+			 * the context struct.
 			 */
-			for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx),
-					      ctx_nexthop)) {
+			if (re) {
+				fib_changed =
+					rib_update_re_from_ctx(re, rn, ctx);
 
-				if (!re)
-					continue;
-
-				for (ALL_NEXTHOPS(re->ng, nexthop)) {
-					if (nexthop_same(ctx_nexthop, nexthop))
-						break;
+				if (!fib_changed) {
+					if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+						zlog_debug("%u:%s no fib change for re",
+							   dplane_ctx_get_vrf(
+								   ctx),
+							   dest_str);
 				}
 
-				if (nexthop == NULL)
-					continue;
-
-				if (CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_RECURSIVE))
-					continue;
-
-				if (CHECK_FLAG(ctx_nexthop->flags,
-					       NEXTHOP_FLAG_FIB))
-					SET_FLAG(nexthop->flags,
-						 NEXTHOP_FLAG_FIB);
-				else
-					UNSET_FLAG(nexthop->flags,
-						   NEXTHOP_FLAG_FIB);
+				/* Redistribute */
+				redistribute_update(dest_pfx, src_pfx,
+						    re, NULL);
 			}
 
 			/*
@@ -2022,19 +2280,6 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 
 			if (zvrf)
 				zvrf->installs++;
-
-			/* Redistribute */
-			/*
-			 * TODO -- still calling the redist api using the
-			 * route_entries, and there's a corner-case here:
-			 * if there's no client for the 'new' route, a redist
-			 * deleting the 'old' route will be sent. But if the
-			 * 'old' context info was stale, 'old_re' will be
-			 * NULL here and that delete will not be sent.
-			 */
-			if (re)
-				redistribute_update(dest_pfx, src_pfx,
-						    re, old_re);
 
 			/* Notify route owner */
 			zsend_route_notify_owner_ctx(ctx, ZAPI_ROUTE_INSTALLED);
@@ -2110,6 +2355,179 @@ done:
 	dplane_ctx_fini(&ctx);
 }
 
+/*
+ * Handle notification from async dataplane: the dataplane has detected
+ * some change to a route, and notifies zebra so that the control plane
+ * can reflect that change.
+ */
+static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
+{
+	struct route_node *rn = NULL;
+	struct route_entry *re = NULL;
+	struct nexthop *nexthop;
+	char dest_str[PREFIX_STRLEN] = "";
+	const struct prefix *dest_pfx, *src_pfx;
+	rib_dest_t *dest;
+	bool fib_changed = false;
+	bool debug_p = IS_ZEBRA_DEBUG_DPLANE | IS_ZEBRA_DEBUG_RIB;
+	int start_count, end_count;
+	dest_pfx = dplane_ctx_get_dest(ctx);
+
+	/* Note well: only capturing the prefix string if debug is enabled here;
+	 * unconditional log messages will have to generate the string.
+	 */
+	if (debug_p)
+		prefix2str(dest_pfx, dest_str, sizeof(dest_str));
+
+	/* Locate rn and re(s) from ctx */
+	rn = rib_find_rn_from_ctx(ctx);
+	if (rn == NULL) {
+		if (debug_p) {
+			zlog_debug("Failed to process dplane notification: no routes for %u:%s",
+				   dplane_ctx_get_vrf(ctx), dest_str);
+		}
+		goto done;
+	}
+
+	dest = rib_dest_from_rnode(rn);
+	srcdest_rnode_prefixes(rn, &dest_pfx, &src_pfx);
+
+	if (debug_p)
+		zlog_debug("%u:%s Processing dplane notif ctx %p",
+			   dplane_ctx_get_vrf(ctx), dest_str, ctx);
+
+	/*
+	 * Take a pass through the routes, look for matches with the context
+	 * info.
+	 */
+	RNODE_FOREACH_RE(rn, re) {
+		if (rib_route_match_ctx(re, ctx, false /*!update*/))
+			break;
+	}
+
+	/* No match? Nothing we can do */
+	if (re == NULL) {
+		if (debug_p)
+			zlog_debug("%u:%s Unable to process dplane notification: no entry for type %s",
+				   dplane_ctx_get_vrf(ctx), dest_str,
+				   zebra_route_string(
+					   dplane_ctx_get_type(ctx)));
+
+		goto done;
+	}
+
+	/* Is this a notification that ... matters? We only really care about
+	 * the route that is currently selected for installation.
+	 */
+	if (re != dest->selected_fib) {
+		/* TODO -- don't skip processing entirely? We might like to
+		 * at least report on the event.
+		 */
+		if (debug_p)
+			zlog_debug("%u:%s dplane notif, but type %s not selected_fib",
+				   dplane_ctx_get_vrf(ctx), dest_str,
+				   zebra_route_string(
+					   dplane_ctx_get_type(ctx)));
+		goto done;
+	}
+
+	/* We'll want to determine whether the installation status of the
+	 * route has changed: we'll check the status before processing,
+	 * and then again if there's been a change.
+	 */
+	start_count = 0;
+	for (ALL_NEXTHOPS_PTR(rib_active_nhg(re), nexthop)) {
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+			start_count++;
+	}
+
+	/* Update zebra's nexthop FIB flags based on the context struct's
+	 * nexthops.
+	 */
+	fib_changed = rib_update_re_from_ctx(re, rn, ctx);
+
+	if (!fib_changed) {
+		if (debug_p)
+			zlog_debug("%u:%s No change from dplane notification",
+				   dplane_ctx_get_vrf(ctx), dest_str);
+
+		goto done;
+	}
+
+	/*
+	 * Perform follow-up work if the actual status of the prefix
+	 * changed.
+	 */
+
+	end_count = 0;
+	for (ALL_NEXTHOPS_PTR(rib_active_nhg(re), nexthop)) {
+		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
+			end_count++;
+	}
+
+	/* Various fib transitions: changed nexthops; from installed to
+	 * not-installed; or not-installed to installed.
+	 */
+	if (start_count > 0 && end_count > 0) {
+
+		/* Changed nexthops - update kernel/others */
+		dplane_route_notif_update(rn, re,
+					  DPLANE_OP_ROUTE_UPDATE, ctx);
+
+	} else if (start_count == 0 && end_count > 0) {
+		if (debug_p)
+			zlog_debug("%u:%s installed transition from dplane notification",
+				   dplane_ctx_get_vrf(ctx), dest_str);
+
+		/* We expect this to be the selected route, so we want
+		 * to tell others about this transistion.
+		 */
+		SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+
+		/* Changed nexthops - update kernel/others */
+		dplane_route_notif_update(rn, re, DPLANE_OP_ROUTE_INSTALL, ctx);
+
+		/* Redistribute, lsp, and nht update */
+		redistribute_update(dest_pfx, src_pfx, re, NULL);
+
+		zebra_rib_evaluate_rn_nexthops(
+			rn, zebra_router_get_next_sequence());
+
+		zebra_rib_evaluate_mpls(rn);
+
+	} else if (start_count > 0 && end_count == 0) {
+		if (debug_p)
+			zlog_debug("%u:%s un-installed transition from dplane notification",
+				   dplane_ctx_get_vrf(ctx), dest_str);
+
+		/* Transition from _something_ installed to _nothing_
+		 * installed.
+		 */
+		/* We expect this to be the selected route, so we want
+		 * to tell others about this transistion.
+		 */
+		UNSET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+
+		/* Changed nexthops - update kernel/others */
+		dplane_route_notif_update(rn, re, DPLANE_OP_ROUTE_DELETE, ctx);
+
+		/* Redistribute, lsp, and nht update */
+		redistribute_delete(dest_pfx, src_pfx, re);
+
+		zebra_rib_evaluate_rn_nexthops(
+			rn, zebra_router_get_next_sequence());
+
+		zebra_rib_evaluate_mpls(rn);
+	}
+
+done:
+	if (rn)
+		route_unlock_node(rn);
+
+	/* Return context to dataplane module */
+	dplane_ctx_fini(&ctx);
+}
+
 /* Take a list of route_node structs and return 1, if there was a record
  * picked from it and processed by rib_process(). Don't process more,
  * than one RN record; operate only in the specified sub-queue.
@@ -2133,6 +2551,7 @@ static unsigned int process_subq(struct list *subq, uint8_t qindex)
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		char buf[SRCDEST2STR_BUFFER];
+
 		srcdest_rnode2str(rnode, buf, sizeof(buf));
 		zlog_debug("%u:%s: rn %p dequeued from sub-queue %u",
 			   zvrf ? zvrf_id(zvrf) : 0, buf, rnode, qindex);
@@ -2468,6 +2887,8 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 		dest->selected_fib = NULL;
 
 	nexthops_free(re->ng.nexthop);
+	nexthops_free(re->fib_ng.nexthop);
+
 	XFREE(MTYPE_RE, re);
 }
 
@@ -3331,13 +3752,40 @@ static int rib_process_dplane_results(struct thread *thread)
 			case DPLANE_OP_ROUTE_INSTALL:
 			case DPLANE_OP_ROUTE_UPDATE:
 			case DPLANE_OP_ROUTE_DELETE:
-				rib_process_result(ctx);
+			{
+				/* Bit of special case for route updates
+				 * that were generated by async notifications:
+				 * we don't want to continue processing these
+				 * in the rib.
+				 */
+				if (dplane_ctx_get_notif_provider(ctx) == 0)
+					rib_process_result(ctx);
+				else
+					dplane_ctx_fini(&ctx);
+			}
+			break;
+
+			case DPLANE_OP_ROUTE_NOTIFY:
+				rib_process_dplane_notify(ctx);
 				break;
 
 			case DPLANE_OP_LSP_INSTALL:
 			case DPLANE_OP_LSP_UPDATE:
 			case DPLANE_OP_LSP_DELETE:
-				zebra_mpls_lsp_dplane_result(ctx);
+			{
+				/* Bit of special case for LSP updates
+				 * that were generated by async notifications:
+				 * we don't want to continue processing these.
+				 */
+				if (dplane_ctx_get_notif_provider(ctx) == 0)
+					zebra_mpls_lsp_dplane_result(ctx);
+				else
+					dplane_ctx_fini(&ctx);
+			}
+			break;
+
+			case DPLANE_OP_LSP_NOTIFY:
+				zebra_mpls_process_dplane_notify(ctx);
 				break;
 
 			case DPLANE_OP_PW_INSTALL:
