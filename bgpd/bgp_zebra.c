@@ -2960,6 +2960,9 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	api_nh = &api.nexthops[0];
 
+	api.distance = ZEBRA_EBGP_DISTANCE_DEFAULT;
+	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
+
 	/* redirect IP */
 	if (nh->gate.ipv4.s_addr) {
 		char buff[PREFIX_STRLEN];
