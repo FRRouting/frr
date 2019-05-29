@@ -168,7 +168,7 @@ DEFUN (show_lsp_flooding,
 			area->area_tag : "null");
 
 		if (lspid) {
-			struct isis_lsp *lsp = lsp_for_arg(head, lspid);
+			lsp = lsp_for_arg(head, lspid);
 
 			if (lsp)
 				lsp_print_flooding(vty, lsp);
