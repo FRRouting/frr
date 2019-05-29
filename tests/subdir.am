@@ -177,7 +177,7 @@ tests_isisd_test_isis_vertex_queue_SOURCES = tests/isisd/test_isis_vertex_queue.
 
 tests_lib_cxxcompat_CFLAGS = $(TESTS_CFLAGS) $(CXX_COMPAT_CFLAGS) $(WERROR)
 tests_lib_cxxcompat_CPPFLAGS = $(TESTS_CPPFLAGS)
-tests_lib_cxxcompat_SOURCES = tests/lib/cxxcompat.c
+tests_lib_cxxcompat_SOURCES = tests/lib/cxxcompat.cxx
 tests_lib_cxxcompat_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_cli_test_cli_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_cli_test_cli_CPPFLAGS = $(TESTS_CPPFLAGS)
