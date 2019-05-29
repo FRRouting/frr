@@ -113,6 +113,8 @@ static void pm_session_write_config_walker(struct hash_bucket *b, void *data)
 
 static int pm_session_walk_write_config(struct vty *vty)
 {
+	if (pm_nht_not_used)
+		vty_out(vty, " no nht\n");
 	hash_iterate(pm_session_list,
 		     pm_session_write_config_walker, (void *)vty);
 	return 1;
@@ -177,6 +179,19 @@ DEFUN_NOSH(
 	pm_initialise(pm, false, errormsg, sizeof(errormsg));
 	pm_zebra_nht_register(pm, true, vty);
 	VTY_PUSH_CONTEXT(PM_SESSION_NODE, pm);
+	return CMD_SUCCESS;
+}
+
+DEFPY(
+	pm_set_nht, pm_set_nht_cmd,
+	"[no$no] nht",
+	NO_STR
+	"Enable nexthop-tracking\n")
+{
+	if (no)
+		pm_zebra_nht(false);
+	else
+		pm_zebra_nht(true);
 	return CMD_SUCCESS;
 }
 
@@ -596,7 +611,7 @@ void pm_vty_init(void)
 	install_default(PM_NODE);
 	install_element(PM_NODE, &pm_peer_enter_cmd);
 	install_element(PM_NODE, &pm_remove_session_cmd);
-
+	install_element(PM_NODE, &pm_set_nht_cmd);
 
 	/* Install PM session node. */
 	install_node(&pm_session_node);

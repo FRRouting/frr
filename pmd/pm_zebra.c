@@ -47,6 +47,8 @@
 struct zclient *zclient;
 static struct hash *pm_nht_hash;
 
+int pm_nht_not_used;
+
 /* For registering threads. */
 extern struct thread_master *master;
 
@@ -905,6 +907,29 @@ static int pm_zebra_ifp_destroy(struct interface *ifp)
 	return 0;
 }
 
+static void pm_zebra_fake_nht_register(struct pm_session *pm,
+				       bool reg, struct vty *vty)
+{
+	char buf[SU_ADDRSTRLEN];
+
+	zlog_info("PMD: session to %s, NHT ignored",
+		  sockunion2str(&pm->key.peer, buf, sizeof(buf)));
+
+	if (PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_REGISTERED) && reg)
+		return;
+	if (!PM_CHECK_FLAG(pm->flags, PM_SESS_FLAG_NH_REGISTERED) && !reg)
+		return;
+	if (reg)
+		PM_SET_FLAG(pm->flags, PM_SESS_FLAG_NH_REGISTERED);
+	else
+		PM_UNSET_FLAG(pm->flags, PM_SESS_FLAG_NH_REGISTERED);
+
+	if (reg) {
+		PM_SET_FLAG(pm->flags, PM_SESS_FLAG_NH_VALID);
+		pm_try_run(vty, pm);
+	}
+}
+
 void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 {
 	struct pm_nht_data *nhtd, lookup;
@@ -913,6 +938,10 @@ void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 	afi_t afi = AFI_IP;
 	struct vrf *vrf;
 
+	if (pm_nht_not_used) {
+		pm_zebra_fake_nht_register(pm, reg, vty);
+		return;
+	}
 	cmd = (reg) ?
 		ZEBRA_NEXTHOP_REGISTER : ZEBRA_NEXTHOP_UNREGISTER;
 
@@ -978,11 +1007,27 @@ void pm_zebra_nht_register(struct pm_session *pm, bool reg, struct vty *vty)
 			  __PRETTY_FUNCTION__);
 }
 
+void pm_zebra_nht(bool on)
+{
+	if (pm_nht_not_used && !on)
+		return;
+	if (!pm_nht_not_used && on)
+		return;
+	if (on) {
+		pm_nht_not_used = 0;
+		zclient->nexthop_update = pm_nexthop_update;
+	} else {
+		pm_nht_not_used = 1;
+		zclient->nexthop_update = NULL;
+	}
+}
+
 void pm_zebra_init(void)
 {
 	if_zapi_callbacks(pm_zebra_ifp_create, pm_zebra_ifp_up,
 			  pm_zebra_ifp_down, pm_zebra_ifp_destroy);
 
+	pm_nht_not_used = 0;
 	zclient = zclient_new(master, &zclient_options_default);
 	assert(zclient != NULL);
 	zclient_init(zclient, ZEBRA_ROUTE_PM, 0, &pm_privs);
@@ -990,8 +1035,10 @@ void pm_zebra_init(void)
 	zclient->zebra_connected = zebra_connected;
 	zclient->interface_address_add = interface_address_add;
 	zclient->interface_address_delete = interface_address_delete;
-	zclient->nexthop_update = pm_nexthop_update;
-
+	if (pm_nht_not_used)
+		zclient->nexthop_update = NULL;
+	else
+		zclient->nexthop_update = pm_nexthop_update;
 	/* Learn about interface VRF. */
 	zclient->interface_vrf_update = pmd_interface_vrf_update;
 
