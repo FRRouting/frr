@@ -546,6 +546,9 @@ bfdd_bfd_sessions_single_hop_stats_remote_discriminator_get_elem(
 {
 	const struct bfd_session *bs = list_entry;
 
+	if (bs->discrs.remote_discr == 0)
+		return NULL;
+
 	return yang_data_new_uint32(xpath, bs->discrs.remote_discr);
 }
 
