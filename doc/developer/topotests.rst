@@ -145,30 +145,23 @@ the following env variable can be set::
 
    export TOPOTESTS_CHECK_STDERR=Yes
 
-(The value doesn't matter at this time. The check is if the env variable exists
-or not) There is no pass/fail on this reporting. The Output will be reported to
-the console::
-
-   export TOPOTESTS_CHECK_MEMLEAK="/home/mydir/memleak_"
-
-This will enable the check and output to console and the writing of the
-information to files with the given prefix (followed by testname), ie
-:file:`/home/mydir/memcheck_test_bgp_multiview_topo1.txt` in case of a memory
-leak.
+(The value doesn't matter at this time. The check is whether the env
+variable exists or not.) There is no pass/fail on this reporting; the
+Output will be reported to the console.
 
 Collect Memory Leak Information
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-FRR processes have the capabilities to report remaining memory allocations upon
-exit. To enable the reporting of the memory, define an environment variable
+FRR processes can report unfreed memory allocations upon exit. To
+enable the reporting of memory leaks, define an environment variable
 ``TOPOTESTS_CHECK_MEMLEAK`` with the file prefix, i.e.::
 
    export TOPOTESTS_CHECK_MEMLEAK="/home/mydir/memleak_"
 
-This will enable the check and output to console and the writing of the
-information to files with the given prefix (followed by testname), ie
-:file:`/home/mydir/memcheck_test_bgp_multiview_topo1.txt` in case of a memory
-leak.
+This will enable the check and output to console and the writing of
+the information to files with the given prefix (followed by testname),
+ie :file:`/home/mydir/memcheck_test_bgp_multiview_topo1.txt` in case
+of a memory leak.
 
 Running Topotests with AddressSanitizer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
