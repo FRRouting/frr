@@ -338,7 +338,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 				     struct nexthop *nexthop)
 {
 	struct interface *ifp;
-	route_map_result_t ret = RMAP_MATCH;
+	route_map_result_t ret = RMAP_PERMITMATCH;
 	int family;
 	char buf[SRCDEST2STR_BUFFER];
 	const struct prefix *p, *src_p;
