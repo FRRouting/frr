@@ -813,7 +813,7 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 
 			sprintf(temp, "%s(%d) ", ifp ? ifp->name : "Unknown",
 				oif[count]);
-			strcat(oif_list, temp);
+			strlcat(oif_list, temp, sizeof(oif_list));
 		}
 		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(vrf);
 		ifp = if_lookup_by_index(iif, vrf);

@@ -1693,8 +1693,9 @@ static char *snhlfe2str(zebra_snhlfe_t *snhlfe, char *buf, int size)
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		inet_ntop(AF_INET6, &snhlfe->gate.ipv6, buf, size);
 		if (snhlfe->ifindex)
-			strcat(buf,
-			       ifindex2ifname(snhlfe->ifindex, VRF_DEFAULT));
+			strlcat(buf,
+				ifindex2ifname(snhlfe->ifindex, VRF_DEFAULT),
+				size);
 		break;
 	default:
 		break;

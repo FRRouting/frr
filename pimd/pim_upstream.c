@@ -1399,23 +1399,24 @@ const char *pim_upstream_state2str(enum pim_upstream_state join_state)
 	return "Unknown";
 }
 
-const char *pim_reg_state2str(enum pim_reg_state reg_state, char *state_str)
+const char *pim_reg_state2str(enum pim_reg_state reg_state, char *state_str,
+			      size_t state_str_len)
 {
 	switch (reg_state) {
 	case PIM_REG_NOINFO:
-		strcpy(state_str, "RegNoInfo");
+		strlcpy(state_str, "RegNoInfo", state_str_len);
 		break;
 	case PIM_REG_JOIN:
-		strcpy(state_str, "RegJoined");
+		strlcpy(state_str, "RegJoined", state_str_len);
 		break;
 	case PIM_REG_JOIN_PENDING:
-		strcpy(state_str, "RegJoinPend");
+		strlcpy(state_str, "RegJoinPend", state_str_len);
 		break;
 	case PIM_REG_PRUNE:
-		strcpy(state_str, "RegPrune");
+		strlcpy(state_str, "RegPrune", state_str_len);
 		break;
 	default:
-		strcpy(state_str, "RegUnknown");
+		strlcpy(state_str, "RegUnknown", state_str_len);
 	}
 	return state_str;
 }
@@ -1432,7 +1433,7 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 		char state_str[PIM_REG_STATE_STR_LEN];
 		zlog_debug("%s: (S,G)=%s[%s] upstream register stop timer %s",
 			   __PRETTY_FUNCTION__, up->sg_str, pim->vrf->name,
-			   pim_reg_state2str(up->reg_state, state_str));
+			   pim_reg_state2str(up->reg_state, state_str, sizeof(state_str)));
 	}
 
 	switch (up->reg_state) {

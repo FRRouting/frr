@@ -129,7 +129,7 @@ _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn,
 		srcdest_rnode2str(rn, buf, sizeof(buf));
 
 		if (info->safi == SAFI_MULTICAST)
-			strcat(buf, " (MRIB)");
+			strlcat(buf, " (MRIB)", sizeof(buf));
 	} else {
 		snprintf(buf, sizeof(buf), "{(route_node *) NULL}");
 	}

@@ -2535,7 +2535,7 @@ DEFUN (show_ip_ospf_mpls_te_link,
 	struct interface *ifp = NULL;
 	struct listnode *node;
 	char *vrf_name = NULL;
-	bool all_vrf;
+	bool all_vrf = false;
 	int inst = 0;
 	int idx_vrf = 0;
 	struct ospf *ospf = NULL;

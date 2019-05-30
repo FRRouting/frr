@@ -1760,10 +1760,10 @@ static int file_write_config(struct vty *vty)
 		dirfd = open(".", O_DIRECTORY | O_RDONLY);
 	/* if dirfd is invalid, directory sync fails, but we're still OK */
 
-	config_file_sav = XMALLOC(
-		MTYPE_TMP, strlen(config_file) + strlen(CONF_BACKUP_EXT) + 1);
-	strcpy(config_file_sav, config_file);
-	strcat(config_file_sav, CONF_BACKUP_EXT);
+	size_t config_file_sav_sz = strlen(config_file) + strlen(CONF_BACKUP_EXT) + 1;
+	config_file_sav = XMALLOC(MTYPE_TMP, config_file_sav_sz);
+	strlcpy(config_file_sav, config_file, config_file_sav_sz);
+	strlcat(config_file_sav, CONF_BACKUP_EXT, config_file_sav_sz);
 
 
 	config_file_tmp = XMALLOC(MTYPE_TMP, strlen(config_file) + 8);

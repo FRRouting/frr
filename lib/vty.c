@@ -84,7 +84,7 @@ static char *vty_ipv6_accesslist_name = NULL;
 static vector Vvty_serv_thread;
 
 /* Current directory. */
-char *vty_cwd = NULL;
+char vty_cwd[MAXPATHLEN];
 
 /* Login password check. */
 static int no_password_check = 0;
@@ -998,7 +998,7 @@ static void vty_describe_fold(struct vty *vty, int cmd_width,
 		if (pos == 0)
 			break;
 
-		strncpy(buf, p, pos);
+		memcpy(buf, p, pos);
 		buf[pos] = '\0';
 		vty_out(vty, "  %-*s  %s\n", cmd_width, cmd, buf);
 
@@ -1659,7 +1659,7 @@ static struct vty *vty_create(int vty_sock, union sockunion *su)
 
 	/* configurable parameters not part of basic init */
 	vty->v_timeout = vty_timeout_val;
-	strcpy(vty->address, buf);
+	strlcpy(vty->address, buf, sizeof(vty->address));
 	if (no_password_check) {
 		if (host.advanced)
 			vty->node = ENABLE_NODE;
@@ -1795,7 +1795,7 @@ struct vty *vty_stdio(void (*atclose)(int isexit))
 	 */
 	vty->node = ENABLE_NODE;
 	vty->v_timeout = 0;
-	strcpy(vty->address, "console");
+	strlcpy(vty->address, "console", sizeof(vty->address));
 
 	vty_stdio_resume();
 	return vty;
@@ -2384,9 +2384,10 @@ static FILE *vty_use_backup_config(const char *fullpath)
 	int c;
 	char buffer[512];
 
-	fullpath_sav = malloc(strlen(fullpath) + strlen(CONF_BACKUP_EXT) + 1);
-	strcpy(fullpath_sav, fullpath);
-	strcat(fullpath_sav, CONF_BACKUP_EXT);
+	size_t fullpath_sav_sz = strlen(fullpath) + strlen(CONF_BACKUP_EXT) + 1;
+	fullpath_sav = malloc(fullpath_sav_sz);
+	strlcpy(fullpath_sav, fullpath, fullpath_sav_sz);
+	strlcat(fullpath_sav, CONF_BACKUP_EXT, fullpath_sav_sz);
 
 	sav = open(fullpath_sav, O_RDONLY);
 	if (sav < 0) {
@@ -3055,10 +3056,9 @@ void vty_reset(void)
 
 static void vty_save_cwd(void)
 {
-	char cwd[MAXPATHLEN];
 	char *c;
 
-	c = getcwd(cwd, MAXPATHLEN);
+	c = getcwd(vty_cwd, sizeof(vty_cwd));
 
 	if (!c) {
 		/*
@@ -3072,15 +3072,12 @@ static void vty_save_cwd(void)
 				     SYSCONFDIR, errno);
 			exit(-1);
 		}
-		if (getcwd(cwd, MAXPATHLEN) == NULL) {
+		if (getcwd(vty_cwd, sizeof(vty_cwd)) == NULL) {
 			flog_err_sys(EC_LIB_SYSTEM_CALL,
 				     "Failure to getcwd, errno: %d", errno);
 			exit(-1);
 		}
 	}
-
-	vty_cwd = XMALLOC(MTYPE_TMP, strlen(cwd) + 1);
-	strcpy(vty_cwd, cwd);
 }
 
 char *vty_get_cwd(void)
@@ -3146,7 +3143,7 @@ void vty_init(struct thread_master *master_thread)
 
 void vty_terminate(void)
 {
-	XFREE(MTYPE_TMP, vty_cwd);
+	memset(vty_cwd, 0x00, sizeof(vty_cwd));
 
 	if (vtyvec && Vvty_serv_thread) {
 		vty_reset();

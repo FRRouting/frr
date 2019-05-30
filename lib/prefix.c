@@ -1365,7 +1365,7 @@ void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
 	int save_errno = errno;
 
 	if (addr.s_addr == INADDR_ANY)
-		strcpy(buf, "*");
+		strlcpy(buf, "*", buf_size);
 	else {
 		if (!inet_ntop(AF_INET, &addr, buf, buf_size)) {
 			if (onfail)
