@@ -2650,14 +2650,8 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		apply_mask_ipv6(src_p);
 
 	/* Set default distance by route type. */
-	if (re->distance == 0) {
+	if (re->distance == 0)
 		re->distance = route_distance(re->type);
-
-		/* iBGP distance is 200. */
-		if (re->type == ZEBRA_ROUTE_BGP
-		    && CHECK_FLAG(re->flags, ZEBRA_FLAG_IBGP))
-			re->distance = 200;
-	}
 
 	/* Lookup route node.*/
 	rn = srcdest_rnode_get(table, p, src_p);
