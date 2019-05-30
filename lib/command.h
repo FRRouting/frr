@@ -37,6 +37,17 @@ extern "C" {
 DECLARE_MTYPE(HOST)
 DECLARE_MTYPE(COMPLETION)
 
+/*
+ * From RFC 1123 (Requirements for Internet Hosts), Section 2.1 on hostnames:
+ * One aspect of host name syntax is hereby changed: the restriction on
+ * the first character is relaxed to allow either a letter or a digit.
+ * Host software MUST support this more liberal syntax.
+ *
+ * Host software MUST handle host names of up to 63 characters and
+ * SHOULD handle host names of up to 255 characters.
+ */
+#define HOSTNAME_LEN   255
+
 /* Host configuration variable */
 struct host {
 	/* Host name of this router. */
