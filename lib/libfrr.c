@@ -179,7 +179,7 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 	memset(sa, 0, sizeof(*sa));
 
 	if (!path)
-		path = ZEBRA_SERV_PATH;
+		path = frr_zclientpath;
 
 	if (!strncmp(path, ZAPI_TCP_PATHNAME, strlen(ZAPI_TCP_PATHNAME))) {
 		/* note: this functionality is disabled at bottom */
@@ -319,8 +319,6 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	strlcpy(frr_protoname, di->logname, sizeof(frr_protoname));
 	strlcpy(frr_protonameinst, di->logname, sizeof(frr_protonameinst));
 
-	strlcpy(frr_zclientpath, ZEBRA_SERV_PATH, sizeof(frr_zclientpath));
-
 	di->cli_mode = FRR_CLI_CLASSIC;
 }
 
@@ -407,6 +405,9 @@ static int frr_opt(int opt)
 			break;
 		}
 		di->pathspace = optarg;
+
+		snprintf(frr_zclientpath, sizeof(frr_zclientpath),
+			 ZEBRA_SERV_PATH, "/", di->pathspace);
 		break;
 #ifdef HAVE_SQLITE3
 	case OPTION_DB_FILE:
@@ -511,6 +512,9 @@ int frr_getopt(int argc, char *const argv[], int *longindex)
 {
 	int opt;
 	int lidx;
+
+	snprintf(frr_zclientpath, sizeof(frr_zclientpath),
+		 ZEBRA_SERV_PATH, "", "");
 
 	comb_next_lo->name = NULL;
 
