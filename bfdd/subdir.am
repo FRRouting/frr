@@ -35,5 +35,9 @@ noinst_HEADERS += \
 	bfdd/bfd.h \
 	# end
 
+nodist_bfdd_bfdd_SOURCES = \
+	yang/frr-bfdd.yang.c \
+	# end
+
 bfdd_bfdd_SOURCES = bfdd/bfdd.c
 bfdd_bfdd_LDADD = bfdd/libbfd.a lib/libfrr.la
