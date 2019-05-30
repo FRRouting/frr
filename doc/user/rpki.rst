@@ -188,10 +188,6 @@ Validating BGP Updates
     Create a clause for a route map to match prefixes with the specified RPKI
     state.
 
-    **Note** that the matching of invalid prefixes requires that invalid
-    prefixes are considered for best path selection, i.e.,
-    ``bgp bestpath prefix-validate disallow-invalid`` is not enabled.
-
     In the following example, the router prefers valid routes over invalid
     prefixes because invalid routes have a lower local preference.
 
