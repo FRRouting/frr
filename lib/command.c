@@ -2803,9 +2803,10 @@ void cmd_init(int terminal)
 	/* Each node's basic commands. */
 	install_element(VIEW_NODE, &show_version_cmd);
 	install_element(ENABLE_NODE, &show_startup_config_cmd);
-	install_element(ENABLE_NODE, &debug_memstats_cmd);
 
 	if (terminal) {
+		install_element(ENABLE_NODE, &debug_memstats_cmd);
+
 		install_element(VIEW_NODE, &config_list_cmd);
 		install_element(VIEW_NODE, &config_exit_cmd);
 		install_element(VIEW_NODE, &config_quit_cmd);
@@ -2839,9 +2840,10 @@ void cmd_init(int terminal)
 	install_element(CONFIG_NODE, &domainname_cmd);
 	install_element(CONFIG_NODE, &no_domainname_cmd);
 	install_element(CONFIG_NODE, &frr_version_defaults_cmd);
-	install_element(CONFIG_NODE, &debug_memstats_cmd);
 
 	if (terminal > 0) {
+		install_element(CONFIG_NODE, &debug_memstats_cmd);
+
 		install_element(CONFIG_NODE, &password_cmd);
 		install_element(CONFIG_NODE, &no_password_cmd);
 		install_element(CONFIG_NODE, &enable_password_cmd);
