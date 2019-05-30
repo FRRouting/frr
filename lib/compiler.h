@@ -162,13 +162,37 @@ extern "C" {
 #ifdef container_of
 #undef container_of
 #endif
+
+#ifdef __cplusplus  /* C++ version */
+
+#define container_of(ptr, type, member)					\
+	({								\
+		typeof(((type *)0)->member) *__mptr = (ptr);		\
+		(type *)((char *)__mptr - offsetof(type, member));	\
+	})
+
+#define container_of_const_priv(ptr, type, member)			\
+	({								\
+		typeof(((const type *)0)->member) * __mptr = (ptr);	\
+		const_cast < type * > ((type *)((const char *)__mptr -      \
+						offsetof(type, member))); \
+	})
+
+/* For C++ version, must handle 'const' explicitly. */
+#define container_of_const(ptr, type, member)                                  \
+	({                                                                     \
+		typeof(ptr) _tmp = (ptr);                                      \
+		_tmp ? container_of_const_priv(_tmp, type, member) : NULL;     \
+	})
+
+#else	/* C version */
 #define container_of(ptr, type, member)                                        \
 	(__builtin_choose_expr(                                                \
 		__builtin_types_compatible_p(typeof(&((type *)0)->member),     \
 			typeof(ptr))                                           \
 		    ||  __builtin_types_compatible_p(void *, typeof(ptr)),     \
 		({                                                             \
-			typeof(((type *)0)->member) *__mptr = (void *)(ptr);   \
+			typeof(((type *)0)->member) * __mptr = (void *)(ptr);  \
 			(type *)((char *)__mptr - offsetof(type, member));     \
 		}),                                                            \
 		({                                                             \
@@ -177,6 +201,15 @@ extern "C" {
 					offsetof(type, member));               \
 		})                                                             \
 	))
+
+/* For C version, 'const' is handled by 'container_of' directly. */
+#define container_of_const(ptr, type, member)                                  \
+	({                                                                     \
+		typeof(ptr) _tmp = (ptr);                                      \
+		_tmp ? container_of(_tmp, type, member) : NULL;                \
+	})
+
+#endif	/* __cplusplus */
 
 #define container_of_null(ptr, type, member)                                   \
 	({                                                                     \

@@ -90,7 +90,7 @@ macro_inline type *prefix ## _find_gteq(struct prefix##_head *h,               \
 {                                                                              \
 	struct typed_rb_entry *re;                                             \
 	re = typed_rb_find_gteq(&h->rr, &item->field.re, cmpfn_nuq);           \
-	return container_of_null(re, type, field.re);                          \
+	return container_of_const(re, type, field.re);                         \
 }                                                                              \
 macro_inline type *prefix ## _find_lt(struct prefix##_head *h,                 \
 		const type *item)                                              \
@@ -143,8 +143,8 @@ macro_pure size_t prefix ## _count(struct prefix##_head *h)                    \
 macro_inline int prefix ## __cmp(const struct typed_rb_entry *a,               \
 		const struct typed_rb_entry *b)                                \
 {                                                                              \
-	return cmpfn(container_of(a, type, field.re),                          \
-			container_of(b, type, field.re));                      \
+	return cmpfn(container_of_const(a, type, field.re),                    \
+			container_of_const(b, type, field.re));                \
 }                                                                              \
 macro_inline type *prefix ## _find(struct prefix##_head *h, const type *item)  \
 {                                                                              \
