@@ -2202,7 +2202,7 @@ fi
 AC_MSG_RESULT([${frr_statedir}])
 AC_SUBST([frr_statedir])
 
-AC_DEFINE_UNQUOTED([LDPD_SOCKET], ["$frr_statedir/ldpd.sock"], [ldpd control socket])
+AC_DEFINE_UNQUOTED([LDPD_SOCKET], ["$frr_statedir%s%s/ldpd.sock"], [ldpd control socket])
 AC_DEFINE_UNQUOTED([ZEBRA_SERV_PATH], ["$frr_statedir%s%s/zserv.api"], [zebra api socket])
 AC_DEFINE_UNQUOTED([BFDD_CONTROL_SOCKET], ["$frr_statedir%s%s/bfdd.sock"], [bfdd control socket])
 AC_DEFINE_UNQUOTED([DAEMON_VTY_DIR], ["$frr_statedir"], [daemon vty directory])
