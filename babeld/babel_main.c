@@ -68,7 +68,7 @@ const unsigned char ones[16] =
     {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
      0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-static char state_file[512];
+static char state_file[1024];
 
 unsigned char protocol_group[16]; /* babel's link-local multicast address */
 int protocol_port;                /* babel's port */

@@ -46,7 +46,7 @@ DEFINE_KOOH(frr_early_fini, (), ())
 DEFINE_KOOH(frr_fini, (), ())
 
 const char frr_sysconfdir[] = SYSCONFDIR;
-const char frr_vtydir[] = DAEMON_VTY_DIR;
+char frr_vtydir[256];
 #ifdef HAVE_SQLITE3
 const char frr_dbdir[] = DAEMON_DB_DIR;
 #endif
@@ -57,7 +57,7 @@ char frr_protonameinst[256] = "NONE";
 
 char config_default[512];
 char frr_zclientpath[256];
-static char pidfile_default[512];
+static char pidfile_default[1024];
 #ifdef HAVE_SQLITE3
 static char dbfile_default[512];
 #endif
@@ -285,6 +285,11 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 
 static struct frr_daemon_info *di = NULL;
 
+void frr_init_vtydir(void)
+{
+	snprintf(frr_vtydir, sizeof(frr_vtydir), DAEMON_VTY_DIR, "", "");
+}
+
 void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 {
 	di = daemon;
@@ -307,10 +312,13 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	if (di->flags & FRR_DETACH_LATER)
 		nodetach_daemon = true;
 
+	frr_init_vtydir();
 	snprintf(config_default, sizeof(config_default), "%s/%s.conf",
 		 frr_sysconfdir, di->name);
 	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
 		 frr_vtydir, di->name);
+	snprintf(frr_zclientpath, sizeof(frr_zclientpath),
+		 ZEBRA_SERV_PATH, "", "");
 #ifdef HAVE_SQLITE3
 	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s.db",
 		 frr_dbdir, di->name);
@@ -398,6 +406,10 @@ static int frr_opt(int opt)
 			errors++;
 			break;
 		}
+		if (di->zpathspace)
+			fprintf(stderr,
+				"-N option overriden by -z for zebra named socket path\n");
+
 		if (strchr(optarg, '/') || strchr(optarg, '.')) {
 			fprintf(stderr,
 				"slashes or dots are not permitted in the --pathspace option.\n");
@@ -406,8 +418,13 @@ static int frr_opt(int opt)
 		}
 		di->pathspace = optarg;
 
-		snprintf(frr_zclientpath, sizeof(frr_zclientpath),
-			 ZEBRA_SERV_PATH, "/", di->pathspace);
+		if (!di->zpathspace)
+			snprintf(frr_zclientpath, sizeof(frr_zclientpath),
+				 ZEBRA_SERV_PATH, "/", di->pathspace);
+		snprintf(frr_vtydir, sizeof(frr_vtydir), DAEMON_VTY_DIR, "/",
+			 di->pathspace);
+		snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
+			 frr_vtydir, di->name);
 		break;
 #ifdef HAVE_SQLITE3
 	case OPTION_DB_FILE:
@@ -427,6 +444,10 @@ static int frr_opt(int opt)
 		di->terminal = 1;
 		break;
 	case 'z':
+		di->zpathspace = true;
+		if (di->pathspace)
+			fprintf(stderr,
+				"-z option overrides -N option for zebra named socket path\n");
 		if (di->flags & FRR_NO_ZCLIENT)
 			return 1;
 		strlcpy(frr_zclientpath, optarg, sizeof(frr_zclientpath));
@@ -513,9 +534,6 @@ int frr_getopt(int argc, char *const argv[], int *longindex)
 	int opt;
 	int lidx;
 
-	snprintf(frr_zclientpath, sizeof(frr_zclientpath),
-		 ZEBRA_SERV_PATH, "", "");
-
 	comb_next_lo->name = NULL;
 
 	do {
@@ -599,8 +617,8 @@ struct thread_master *frr_init(void)
 
 	snprintf(config_default, sizeof(config_default), "%s%s%s%s.conf",
 		 frr_sysconfdir, p_pathspace, di->name, p_instance);
-	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s%s%s.pid",
-		 frr_vtydir, p_pathspace, di->name, p_instance);
+	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s%s.pid",
+		 frr_vtydir, di->name, p_instance);
 #ifdef HAVE_SQLITE3
 	snprintf(dbfile_default, sizeof(dbfile_default), "%s/%s%s%s.db",
 		 frr_dbdir, p_pathspace, di->name, p_instance);
@@ -884,9 +902,7 @@ static void frr_vty_serv(void)
 		const char *dir;
 		char defvtydir[256];
 
-		snprintf(defvtydir, sizeof(defvtydir), "%s%s%s", frr_vtydir,
-			 di->pathspace ? "/" : "",
-			 di->pathspace ? di->pathspace : "");
+		snprintf(defvtydir, sizeof(defvtydir), "%s", frr_vtydir);
 
 		dir = di->vty_sock_path ? di->vty_sock_path : defvtydir;
 

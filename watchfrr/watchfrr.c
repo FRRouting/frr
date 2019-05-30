@@ -648,7 +648,7 @@ static void daemon_send_ready(int exitcode)
 {
 	FILE *fp;
 	static int sent = 0;
-	char started[512];
+	char started[1024];
 
 	if (sent)
 		return;
