@@ -648,6 +648,7 @@ static void daemon_send_ready(int exitcode)
 {
 	FILE *fp;
 	static int sent = 0;
+	char started[512];
 
 	if (sent)
 		return;
@@ -669,7 +670,9 @@ static void daemon_send_ready(int exitcode)
 
 	frr_detach();
 
-	fp = fopen(DAEMON_VTY_DIR "/watchfrr.started", "w");
+	snprintf(started, sizeof(started), "%s%s", frr_vtydir,
+		 "watchfrr.started");
+	fp = fopen(started, "w");
 	if (fp)
 		fclose(fp);
 #if defined HAVE_SYSTEMD

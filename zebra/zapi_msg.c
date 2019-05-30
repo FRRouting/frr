@@ -2526,7 +2526,7 @@ static void zserv_write_incoming(struct stream *orig, uint16_t command)
 	copy = stream_dup(orig);
 	stream_set_getp(copy, 0);
 
-	snprintf(fname, MAXPATHLEN, "%s/%u", DAEMON_VTY_DIR, command);
+	snprintf(fname, MAXPATHLEN, "%s/%u", frr_vtydir, command);
 
 	frr_elevate_privs(&zserv_privs) {
 		fd = open(fname, O_CREAT | O_WRONLY | O_EXCL, 0644);
