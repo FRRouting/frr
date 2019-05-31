@@ -61,7 +61,7 @@ static char pidfile_default[512];
 #ifdef HAVE_SQLITE3
 static char dbfile_default[512];
 #endif
-static char vtypath_default[256];
+static char vtypath_default[512];
 
 bool debug_memstats_at_exit = false;
 static bool nodetach_term, nodetach_daemon;
