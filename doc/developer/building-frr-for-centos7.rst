@@ -70,7 +70,8 @@ an example.)
         --disable-ldpd \
         --enable-fpm \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion
+        --with-pkg-extra-version=-MyOwnFRRVersion \
+	SPHINXBUILD=/usr/bin/sphinx-build
     make
     make check
     sudo make install
