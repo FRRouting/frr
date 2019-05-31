@@ -777,7 +777,7 @@ static void nb_log_callback(const enum nb_event event,
 	zlog_debug(
 		"northbound callback: event [%s] op [%s] xpath [%s] value [%s]",
 		nb_event_name(event), nb_operation_name(operation), xpath,
-		value);
+		value ? value : "(NULL)");
 }
 
 /*
