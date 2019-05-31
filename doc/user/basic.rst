@@ -479,6 +479,12 @@ These options apply to all |PACKAGE_NAME| daemons.
 
    Set the user and group to run as.
 
+.. option:: -N <namespace>
+
+   Set the namespace that the daemon will run in.  A "/<namespace>" will
+   be added to all files that use the statedir.  If you have "/var/run/frr"
+   as the default statedir then it will become "/var/run/frr/<namespace>".
+
 .. option:: -v, --version
 
    Print program version.

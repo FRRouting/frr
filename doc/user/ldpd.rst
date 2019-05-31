@@ -24,6 +24,12 @@ Running Ldpd
 The *ldpd* daemon can be invoked with any of the common
 options (:ref:`common-invocation-options`).
 
+..option:: --ctl_socket
+
+   This option allows you to override the path to the ldpd.sock file
+   used to control this daemon.  If specified this option overrides
+   the -N option path addition.
+
 The *zebra* daemon must be running before *ldpd* is invoked.
 
 Configuration of *ldpd* is done in its configuration file

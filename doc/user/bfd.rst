@@ -47,6 +47,9 @@ may also be specified (:ref:`common-invocation-options`).
 
       #define BFDD_CONTROL_SOCKET "|INSTALL_PREFIX_STATE|/bfdd.sock"
 
+   This option overrides the location addition that the -N option provides
+   to the bfdd.sock
+
 
 .. _bfd-commands:
 
