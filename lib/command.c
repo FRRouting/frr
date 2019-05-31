@@ -1962,7 +1962,15 @@ DEFUN (config_hostname,
 	struct cmd_token *word = argv[1];
 
 	if (!isalnum((int)word->arg[0])) {
-		vty_out(vty, "Please specify string starting with alphabet\n");
+		vty_out(vty,
+		    "Please specify string starting with alphabet or number\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* With reference to RFC 1123 Section 2.1 */
+	if (strlen(word->arg) > HOSTNAME_LEN) {
+		vty_out(vty, "Hostname length should be less than %d chars\n",
+			HOSTNAME_LEN);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 

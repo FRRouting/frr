@@ -521,10 +521,10 @@ int vtysh_read_config(const char *config_default_dir)
  */
 void vtysh_config_write(void)
 {
-	char line[81];
+	char line[512];
 
 	if (cmd_hostname_get()) {
-		sprintf(line, "hostname %s", cmd_hostname_get());
+		snprintf(line, sizeof(line), "hostname %s", cmd_hostname_get());
 		vtysh_config_parse_line(NULL, line);
 	}
 
