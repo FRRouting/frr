@@ -126,10 +126,9 @@ static void ospf_route_map_event(const char *name)
 
 /* `match ip netxthop ' */
 /* Match function return 1 if match is success else return zero. */
-static route_map_result_t route_match_ip_nexthop(void *rule,
-						 const struct prefix *prefix,
-						 route_map_object_t type,
-						 void *object)
+static enum route_map_match_result_t
+route_match_ip_nexthop(void *rule, const struct prefix *prefix,
+		       route_map_object_t type, void *object)
 {
 	struct access_list *alist;
 	struct external_info *ei = object;
@@ -171,7 +170,7 @@ struct route_map_rule_cmd route_match_ip_nexthop_cmd = {
 
 /* `match ip next-hop prefix-list PREFIX_LIST' */
 
-static route_map_result_t
+static enum route_map_match_result_t
 route_match_ip_next_hop_prefix_list(void *rule, const struct prefix *prefix,
 				    route_map_object_t type, void *object)
 {
@@ -213,10 +212,9 @@ struct route_map_rule_cmd route_match_ip_next_hop_prefix_list_cmd = {
 /* `match ip address IP_ACCESS_LIST' */
 /* Match function should return 1 if match is success else return
    zero. */
-static route_map_result_t route_match_ip_address(void *rule,
-						 const struct prefix *prefix,
-						 route_map_object_t type,
-						 void *object)
+static enum route_map_match_result_t
+route_match_ip_address(void *rule, const struct prefix *prefix,
+		       route_map_object_t type, void *object)
 {
 	struct access_list *alist;
 	/* struct prefix_ipv4 match; */
@@ -252,7 +250,7 @@ struct route_map_rule_cmd route_match_ip_address_cmd = {
 	route_match_ip_address_free};
 
 /* `match ip address prefix-list PREFIX_LIST' */
-static route_map_result_t
+static enum route_map_match_result_t
 route_match_ip_address_prefix_list(void *rule, const struct prefix *prefix,
 				   route_map_object_t type, void *object)
 {
@@ -288,10 +286,9 @@ struct route_map_rule_cmd route_match_ip_address_prefix_list_cmd = {
 /* `match interface IFNAME' */
 /* Match function should return 1 if match is success else return
    zero. */
-static route_map_result_t route_match_interface(void *rule,
-						const struct prefix *prefix,
-						route_map_object_t type,
-						void *object)
+static enum route_map_match_result_t
+route_match_interface(void *rule, const struct prefix *prefix,
+		      route_map_object_t type, void *object)
 {
 	struct interface *ifp;
 	struct external_info *ei;
@@ -327,9 +324,9 @@ struct route_map_rule_cmd route_match_interface_cmd = {
 	route_match_interface_free};
 
 /* Match function return 1 if match is success else return zero. */
-static route_map_result_t route_match_tag(void *rule,
-					  const struct prefix *prefix,
-					  route_map_object_t type, void *object)
+static enum route_map_match_result_t
+route_match_tag(void *rule, const struct prefix *prefix,
+		route_map_object_t type, void *object)
 {
 	route_tag_t *tag;
 	struct external_info *ei;
@@ -358,10 +355,9 @@ struct ospf_metric {
 
 /* `set metric METRIC' */
 /* Set metric to attribute. */
-static route_map_result_t route_set_metric(void *rule,
-					   const struct prefix *prefix,
-					   route_map_object_t type,
-					   void *object)
+static enum route_map_match_result_t
+route_set_metric(void *rule, const struct prefix *prefix,
+		 route_map_object_t type, void *object)
 {
 	struct ospf_metric *metric;
 	struct external_info *ei;
@@ -439,10 +435,9 @@ struct route_map_rule_cmd route_set_metric_cmd = {
 
 /* `set metric-type TYPE' */
 /* Set metric-type to attribute. */
-static route_map_result_t route_set_metric_type(void *rule,
-						const struct prefix *prefix,
-						route_map_object_t type,
-						void *object)
+static enum route_map_match_result_t
+route_set_metric_type(void *rule, const struct prefix *prefix,
+		      route_map_object_t type, void *object)
 {
 	uint32_t *metric_type;
 	struct external_info *ei;
@@ -489,8 +484,9 @@ struct route_map_rule_cmd route_set_metric_type_cmd = {
 	route_set_metric_type_free,
 };
 
-static route_map_result_t route_set_tag(void *rule, const struct prefix *prefix,
-					route_map_object_t type, void *object)
+static enum route_map_match_result_t
+route_set_tag(void *rule, const struct prefix *prefix, route_map_object_t type,
+	      void *object)
 {
 	route_tag_t *tag;
 	struct external_info *ei;
