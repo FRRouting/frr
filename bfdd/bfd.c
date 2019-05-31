@@ -1290,6 +1290,7 @@ static unsigned int bfd_key_hash_do(const void *p);
 static void _bfd_free(struct hash_bucket *hb,
 		      void *arg __attribute__((__unused__)));
 int _bfd_session_next(struct hash_bucket *hb, void *arg);
+void _bfd_session_remove_manual(struct hash_bucket *hb, void *arg);
 
 /* BFD hash for our discriminator. */
 static unsigned int bfd_id_hash_do(const void *p)
@@ -1585,6 +1586,35 @@ const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
 		return NULL;
 
 	return bsi.bsi_bs;
+}
+
+void _bfd_session_remove_manual(struct hash_bucket *hb,
+				void *arg __attribute__((__unused__)))
+{
+	struct bfd_session *bs = hb->data;
+
+	/* Delete only manually configured sessions. */
+	if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) == 0)
+		return;
+
+	bs->refcount--;
+	BFD_UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+
+	/* Don't delete sessions still in use. */
+	if (bs->refcount != 0)
+		return;
+
+	bfd_session_free(bs);
+}
+
+/*
+ * bfd_sessions_remove_manual: remove all manually configured sessions.
+ *
+ * NOTE: this function doesn't remove automatically created sessions.
+ */
+void bfd_sessions_remove_manual(void)
+{
+	hash_iterate(bfd_key_hash, _bfd_session_remove_manual, NULL);
 }
 
 /*

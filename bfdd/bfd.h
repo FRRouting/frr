@@ -550,6 +550,7 @@ struct bfd_session *bs_registrate(struct bfd_session *bs);
 void bfd_session_free(struct bfd_session *bs);
 const struct bfd_session *bfd_session_next(const struct bfd_session *bs,
 					   bool mhop);
+void bfd_sessions_remove_manual(void);
 
 /* BFD hash data structures interface */
 void bfd_initialize(void);
