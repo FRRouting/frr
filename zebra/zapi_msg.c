@@ -524,6 +524,8 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 	struct nexthop *nexthop;
 	int count = 0;
 	afi_t afi;
+	size_t stream_size =
+		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = re->vrf_id;
@@ -605,7 +607,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 	SET_FLAG(api.message, ZAPI_MESSAGE_MTU);
 	api.mtu = re->mtu;
 
-	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	struct stream *s = stream_new(stream_size);
 
 	/* Encode route and send. */
 	if (zapi_route_encode(cmd, s, &api) < 0) {
