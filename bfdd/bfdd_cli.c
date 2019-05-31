@@ -52,6 +52,16 @@
 /*
  * Functions.
  */
+DEFUN(
+	bfd_config_reset, bfd_config_reset_cmd,
+	"no bfd",
+	NO_STR
+	"Configure BFD peers\n")
+{
+	nb_cli_enqueue_change(vty, "/frr-bfdd:bfdd/bfd", NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void bfd_cli_show_header(struct vty *vty,
 			 struct lyd_node *dnode __attribute__((__unused__)),
 			 bool show_defaults __attribute__((__unused__)))
@@ -343,6 +353,8 @@ void bfd_cli_show_echo_interval(struct vty *vty, struct lyd_node *dnode,
 void
 bfdd_cli_init(void)
 {
+	install_element(CONFIG_NODE, &bfd_config_reset_cmd);
+
 	install_element(BFD_NODE, &bfd_peer_enter_cmd);
 	install_element(BFD_NODE, &bfd_no_peer_cmd);
 

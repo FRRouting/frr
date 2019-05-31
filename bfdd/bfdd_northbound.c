@@ -71,11 +71,27 @@ int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 	switch (event) {
 	case NB_EV_VALIDATE:
 		bfd_session_get_key(mhop, dnode, &bk);
-		if (bfd_key_lookup(bk))
+		bs = bfd_key_lookup(bk);
+
+		/* This session was already configured by CLI. */
+		if (bs != NULL && BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
 			return NB_ERR_VALIDATION;
 		break;
 
 	case NB_EV_PREPARE:
+		bfd_session_get_key(mhop, dnode, &bk);
+		bs = bfd_key_lookup(bk);
+
+		/* This session was already configured by another daemon. */
+		if (bs != NULL) {
+			/* Now it is configured also by CLI. */
+			BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+			bs->refcount++;
+
+			resource->ptr = bs;
+			break;
+		}
+
 		bs = bfd_session_new();
 		if (bs == NULL)
 			return NB_ERR_RESOURCE;
@@ -84,6 +100,7 @@ int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 		bfd_session_get_key(mhop, dnode, &bs->key);
 
 		/* Set configuration flags. */
+		bs->refcount = 1;
 		BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
 		if (mhop)
 			BFD_SET_FLAG(bs->flags, BFD_SESS_FLAG_MH);
@@ -95,14 +112,18 @@ int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 
 	case NB_EV_APPLY:
 		bs = resource->ptr;
-		if (bs_registrate(bs) == NULL)
+
+		/* Only attempt to registrate if freshly allocated. */
+		if (bs->discrs.my_discr == 0 && bs_registrate(bs) == NULL)
 			return NB_ERR_RESOURCE;
 
 		nb_running_set_entry(dnode, bs);
 		break;
 
 	case NB_EV_ABORT:
-		bfd_session_free(resource->ptr);
+		bs = resource->ptr;
+		if (bs->refcount <= 1)
+			bfd_session_free(resource->ptr);
 		break;
 	}
 
@@ -112,6 +133,7 @@ int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 int bfd_session_destroy(enum nb_event event, const struct lyd_node *dnode,
 			bool mhop)
 {
+	struct bfd_session *bs;
 	struct bfd_key bk;
 
 	switch (event) {
@@ -126,7 +148,18 @@ int bfd_session_destroy(enum nb_event event, const struct lyd_node *dnode,
 		break;
 
 	case NB_EV_APPLY:
-		bfd_session_free(nb_running_unset_entry(dnode));
+		bs = nb_running_unset_entry(dnode);
+		/* CLI is not using this session anymore. */
+		if (BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG) == 0)
+			break;
+
+		BFD_UNSET_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG);
+		bs->refcount--;
+		/* There are still daemons using it. */
+		if (bs->refcount > 0)
+			break;
+
+		bfd_session_free(bs);
 		break;
 
 	case NB_EV_ABORT:
@@ -152,7 +185,24 @@ static int bfdd_bfd_create(enum nb_event event,
 
 static int bfdd_bfd_destroy(enum nb_event event, const struct lyd_node *dnode)
 {
-	/* NOTHING */
+	switch (event) {
+	case NB_EV_VALIDATE:
+		/* NOTHING */
+		return NB_OK;
+
+	case NB_EV_PREPARE:
+		/* NOTHING */
+		return NB_OK;
+
+	case NB_EV_APPLY:
+		bfd_sessions_remove_manual();
+		break;
+
+	case NB_EV_ABORT:
+		/* NOTHING */
+		return NB_OK;
+	}
+
 	return NB_OK;
 }
 
