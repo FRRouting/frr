@@ -39,7 +39,7 @@
 #include "mlag.h"
 
 /* For input/output buffer to zebra. */
-#define ZEBRA_MAX_PACKET_SIZ          16384
+#define ZEBRA_MAX_PACKET_SIZ          16384U
 
 /* Zebra header size. */
 #define ZEBRA_HEADER_SIZE             10

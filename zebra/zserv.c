@@ -682,6 +682,8 @@ static int zserv_handle_client_fail(struct thread *thread)
 static struct zserv *zserv_client_create(int sock)
 {
 	struct zserv *client;
+	size_t stream_size =
+		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
 	int i;
 	afi_t afi;
 
@@ -691,8 +693,8 @@ static struct zserv *zserv_client_create(int sock)
 	client->sock = sock;
 	client->ibuf_fifo = stream_fifo_new();
 	client->obuf_fifo = stream_fifo_new();
-	client->ibuf_work = stream_new(ZEBRA_MAX_PACKET_SIZ);
-	client->obuf_work = stream_new(ZEBRA_MAX_PACKET_SIZ);
+	client->ibuf_work = stream_new(stream_size);
+	client->obuf_work = stream_new(stream_size);
 	pthread_mutex_init(&client->ibuf_mtx, NULL);
 	pthread_mutex_init(&client->obuf_mtx, NULL);
 	client->wb = buffer_new(0);
