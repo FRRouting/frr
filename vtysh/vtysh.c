@@ -2553,6 +2553,15 @@ DEFUNSH(VTYSH_ALL, vtysh_log_timestamp_precision,
 	return CMD_SUCCESS;
 }
 
+DEFUNSH(VTYSH_ALL, vtysh_debug_memstats,
+	vtysh_debug_memstats_cmd, "[no] debug memstats-at-exit",
+	NO_STR
+	"Debug\n"
+	"Print memory statistics at exit\n")
+{
+	return CMD_SUCCESS;
+}
+
 DEFUNSH(VTYSH_ALL, no_vtysh_log_timestamp_precision,
 	no_vtysh_log_timestamp_precision_cmd, "no log timestamp precision",
 	NO_STR
@@ -3849,6 +3858,8 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &vtysh_show_debugging_hashtable_cmd);
 	install_element(ENABLE_NODE, &vtysh_debug_all_cmd);
 	install_element(CONFIG_NODE, &vtysh_debug_all_cmd);
+	install_element(ENABLE_NODE, &vtysh_debug_memstats_cmd);
+	install_element(CONFIG_NODE, &vtysh_debug_memstats_cmd);
 
 	/* misc lib show commands */
 	install_element(VIEW_NODE, &vtysh_show_memory_cmd);
