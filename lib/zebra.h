@@ -510,6 +510,22 @@ typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX
 #define ROUTE_TAG_PRI PRIu32
 
+static inline const char *iana_afi2str(iana_afi_t afi)
+{
+	switch (afi) {
+	case IANA_AFI_RESERVED:
+		return "Reserved";
+	case IANA_AFI_IPV4:
+		return "IPv4";
+	case IANA_AFI_IPV6:
+		return "IPv6";
+	case IANA_AFI_L2VPN:
+		return "L2VPN";
+	}
+
+	return "Unknown";
+}
+
 static inline afi_t afi_iana2int(iana_afi_t afi)
 {
 	switch (afi) {
@@ -536,6 +552,30 @@ static inline iana_afi_t afi_int2iana(afi_t afi)
 	default:
 		return IANA_AFI_RESERVED;
 	}
+}
+
+static inline const char *iana_safi2str(iana_safi_t safi)
+{
+	switch (safi) {
+	case IANA_SAFI_RESERVED:
+		return "Reserved";
+	case IANA_SAFI_UNICAST:
+		return "Unicast";
+	case IANA_SAFI_MULTICAST:
+		return "Multicast";
+	case IANA_SAFI_LABELED_UNICAST:
+		return "Labeled Unicast";
+	case IANA_SAFI_ENCAP:
+		return "Encap";
+	case IANA_SAFI_EVPN:
+		return "EVPN";
+	case IANA_SAFI_MPLS_VPN:
+		return "MPLS VPN";
+	case IANA_SAFI_FLOWSPEC:
+		return "FlowSpec";
+	}
+
+	return "Unknown";
 }
 
 static inline safi_t safi_iana2int(iana_safi_t safi)
