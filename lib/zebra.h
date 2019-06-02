@@ -432,9 +432,6 @@ typedef enum {
 #define RESET_FLAG_ATOMIC(PV)                                                  \
 	((atomic_store_explicit(PV, 0, memory_order_seq_cst)))
 
-/* Zebra types. Used in Zserv message header. */
-typedef uint16_t zebra_size_t;
-
 /* VRF ID type. */
 typedef uint32_t vrf_id_t;
 
