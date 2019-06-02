@@ -434,7 +434,6 @@ typedef enum {
 
 /* Zebra types. Used in Zserv message header. */
 typedef uint16_t zebra_size_t;
-typedef uint16_t zebra_command_t;
 
 /* VRF ID type. */
 typedef uint32_t vrf_id_t;
