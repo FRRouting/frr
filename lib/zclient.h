@@ -38,6 +38,12 @@
 
 #include "mlag.h"
 
+/* Marker value used in new Zserv, in the byte location corresponding
+ * the command value in the old zserv header. To allow old and new
+ * Zserv headers to be distinguished from each other.
+ */
+#define ZEBRA_HEADER_MARKER              254
+
 /* For input/output buffer to zebra. */
 #define ZEBRA_MAX_PACKET_SIZ          16384U
 

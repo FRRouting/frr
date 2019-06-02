@@ -343,12 +343,6 @@ struct in_pktinfo {
 /* default zebra TCP port for zclient */
 #define ZEBRA_PORT			2600
 
-/* Marker value used in new Zserv, in the byte location corresponding
- * the command value in the old zserv header. To allow old and new
- * Zserv headers to be distinguished from each other.
- */
-#define ZEBRA_HEADER_MARKER              254
-
 /*
  * The compiler.h header is used for anyone using the CPP_NOTICE
  * since this is universally needed, let's add it to zebra.h
