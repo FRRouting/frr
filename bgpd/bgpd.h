@@ -28,6 +28,7 @@
 #include "lib/json.h"
 #include "vrf.h"
 #include "vty.h"
+#include "iana_afi.h"
 
 /* For union sockunion.  */
 #include "queue.h"
