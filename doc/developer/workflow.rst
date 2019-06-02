@@ -750,7 +750,8 @@ developer will use this convention to allow control of their debugs.
 
 Static Analysis and Sanitizers
 ------------------------------
-Clang/LLVM comes with a variety of tools that can be used to help find bugs in FRR.
+Clang/LLVM and GCC come with a variety of tools that can be used to help find
+bugs in FRR.
 
 clang-analyze
    This is a static analyzer that scans the source code looking for patterns
@@ -794,10 +795,30 @@ All of the above tools are available in the Clang/LLVM toolchain since 3.4.
 AddressSanitizer and ThreadSanitizer are available in recent versions of GCC,
 but are no longer actively maintained. MemorySanitizer is not available in GCC.
 
+.. note::
+
+   The different Sanitizers are mostly incompatible with each other.  Please
+   refer to GCC/LLVM documentation for details.
+
 Additionally, the FRR codebase is regularly scanned with Coverity.
 Unfortunately Coverity does not have the ability to handle scanning pull
 requests, but after code is merged it will send an email notifying project
 members with Coverity access of newly introduced defects.
+
+Executing non-installed dynamic binaries
+----------------------------------------
+
+Since FRR uses the GNU autotools build system, it inherits its shortcomings.
+To execute a binary directly from the build tree under a wrapper like
+`valgrind`, `gdb` or `strace`, use::
+
+   ./libtool --mode=execute valgrind [--valgrind-opts] zebra/zebra [--zebra-opts]
+
+While replacing valgrind/zebra as needed.  The `libtool` script is found in
+the root of the build directory after `./configure` has completed.  Its purpose
+is to correctly set up `LD_LIBRARY_PATH` so that libraries from the build tree
+are used.  (On some systems, `libtool` is also available from PATH, but this is
+not always the case.)
 
 CLI changes
 -----------
