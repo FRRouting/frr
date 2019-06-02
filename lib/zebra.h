@@ -360,44 +360,6 @@ struct in_pktinfo {
 
 #define strmatch(a,b) (!strcmp((a), (b)))
 
-/* Zebra message flags */
-
-/*
- * Cause Zebra to consider this routes nexthops recursively
- */
-#define ZEBRA_FLAG_ALLOW_RECURSION    0x01
-/*
- * This is a route that is read in on startup that was left around
- * from a previous run of FRR
- */
-#define ZEBRA_FLAG_SELFROUTE          0x02
-/*
- * This flag is used to tell Zebra that the BGP route being passed
- * down is a IBGP route
- */
-#define ZEBRA_FLAG_IBGP               0x04
-/*
- * This is a route that has been selected for FIB installation.
- * This flag is set in zebra and can be passed up to routing daemons
- */
-#define ZEBRA_FLAG_SELECTED           0x08
-/*
- * This is a route that we are telling Zebra that this route *must*
- * win and will be installed even over ZEBRA_FLAG_SELECTED
- */
-#define ZEBRA_FLAG_FIB_OVERRIDE       0x10
-/*
- * This flag tells Zebra that the route is a EVPN route and should
- * be treated specially
- */
-#define ZEBRA_FLAG_EVPN_ROUTE         0x20
-/*
- * This flag tells Zebra that it should treat the distance passed
- * down as an additional discriminator for route selection of the
- * route entry.  This mainly is used for backup static routes.
- */
-#define ZEBRA_FLAG_RR_USE_DISTANCE    0x40
-
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
 #endif
