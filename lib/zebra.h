@@ -358,25 +358,6 @@ struct in_pktinfo {
 /* Zebra route's types are defined in route_types.h */
 #include "route_types.h"
 
-/* Note: whenever a new route-type or zserv-command is added the
- * corresponding {command,route}_types[] table in lib/log.c MUST be
- * updated! */
-
-/* Map a route type to a string.  For example, ZEBRA_ROUTE_RIPNG -> "ripng". */
-extern const char *zebra_route_string(unsigned int route_type);
-/* Map a route type to a char.  For example, ZEBRA_ROUTE_RIPNG -> 'R'. */
-extern char zebra_route_char(unsigned int route_type);
-/* Map a zserv command type to the same string,
- * e.g. ZEBRA_INTERFACE_ADD -> "ZEBRA_INTERFACE_ADD" */
-/* Map a protocol name to its number. e.g. ZEBRA_ROUTE_BGP->9*/
-extern int proto_name2num(const char *s);
-/* Map redistribute X argument to protocol number.
- * unlike proto_name2num, this accepts shorthands and takes
- * an AFI value to restrict input */
-extern int proto_redistnum(int afi, const char *s);
-
-extern const char *zserv_command_string(unsigned int command);
-
 #define strmatch(a,b) (!strcmp((a), (b)))
 
 /* Zebra message flags */
