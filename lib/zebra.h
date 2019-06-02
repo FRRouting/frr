@@ -380,8 +380,6 @@ typedef enum {
 	IANA_AFI_IPV4 = 1,
 	IANA_AFI_IPV6 = 2,
 	IANA_AFI_L2VPN = 25,
-	IANA_AFI_IPMR = 128,
-	IANA_AFI_IP6MR = 129
 } iana_afi_t;
 
 typedef enum {
