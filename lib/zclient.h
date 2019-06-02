@@ -38,6 +38,9 @@
 
 #include "mlag.h"
 
+/* Zebra types. Used in Zserv message header. */
+typedef uint16_t zebra_size_t;
+
 /* Marker value used in new Zserv, in the byte location corresponding
  * the command value in the old zserv header. To allow old and new
  * Zserv headers to be distinguished from each other.
