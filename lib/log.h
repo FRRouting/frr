@@ -128,12 +128,8 @@ const char *lookup_msg(const struct message *mz, int kz, const char *nf);
 extern const char *safe_strerror(int errnum);
 
 /* To be called when a fatal signal is caught. */
-extern void zlog_signal(int signo, const char *action
-#ifdef SA_SIGINFO
-			,
-			siginfo_t *siginfo, void *program_counter
-#endif
-			);
+extern void zlog_signal(int signo, const char *action, void *siginfo,
+			void *program_counter);
 
 /* Log a backtrace. */
 extern void zlog_backtrace(int priority);

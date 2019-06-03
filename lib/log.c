@@ -295,47 +295,11 @@ int vzlog_test(int priority)
 	return ret;
 }
 
-static char *str_append(char *dst, int len, const char *src)
-{
-	while ((len-- > 0) && *src)
-		*dst++ = *src++;
-	return dst;
-}
-
-static char *num_append(char *s, int len, unsigned long x)
-{
-	char buf[30];
-	char *t;
-
-	if (!x)
-		return str_append(s, len, "0");
-	*(t = &buf[sizeof(buf) - 1]) = '\0';
-	while (x && (t > buf)) {
-		*--t = '0' + (x % 10);
-		x /= 10;
-	}
-	return str_append(s, len, t);
-}
-
-#if defined(SA_SIGINFO) \
-	|| defined(HAVE_PRINTSTACK) \
-	|| defined(HAVE_GLIBC_BACKTRACE)
-static char *hex_append(char *s, int len, unsigned long x)
-{
-	char buf[30];
-	char *t;
-
-	if (!x)
-		return str_append(s, len, "0");
-	*(t = &buf[sizeof(buf) - 1]) = '\0';
-	while (x && (t > buf)) {
-		unsigned int cc = (x % 16);
-		*--t = ((cc < 10) ? ('0' + cc) : ('a' + cc - 10));
-		x /= 16;
-	}
-	return str_append(s, len, t);
-}
-#endif
+/*
+ * crash handling
+ *
+ * NB: only AS-Safe (async-signal) functions can be used here!
+ */
 
 /* Needs to be enhanced to support Solaris. */
 static int syslog_connect(void)
@@ -344,7 +308,6 @@ static int syslog_connect(void)
 	return -1;
 #else
 	int fd;
-	char *s;
 	struct sockaddr_un addr;
 
 	if ((fd = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0)
@@ -355,10 +318,8 @@ static int syslog_connect(void)
 #else
 #define SYSLOG_SOCKET_PATH "/dev/log"
 #endif
-	s = str_append(addr.sun_path, sizeof(addr.sun_path),
-		       SYSLOG_SOCKET_PATH);
+	strlcpy(addr.sun_path, SYSLOG_SOCKET_PATH, sizeof(addr.sun_path));
 #undef SYSLOG_SOCKET_PATH
-	*s = '\0';
 	if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 		close(fd);
 		return -1;
@@ -371,168 +332,109 @@ static void syslog_sigsafe(int priority, const char *msg, size_t msglen)
 {
 	static int syslog_fd = -1;
 	char buf[sizeof("<1234567890>ripngd[1234567890]: ") + msglen + 50];
-	char *s;
+	struct fbuf fb = { .buf = buf, .pos = buf, .len = sizeof(buf) };
 
 	if ((syslog_fd < 0) && ((syslog_fd = syslog_connect()) < 0))
 		return;
 
-#define LOC s,buf+sizeof(buf)-s
-	s = buf;
-	s = str_append(LOC, "<");
-	s = num_append(LOC, priority);
-	s = str_append(LOC, ">");
 	/* forget about the timestamp, too difficult in a signal handler */
-	s = str_append(LOC, zlog_default->ident);
-	if (zlog_default->syslog_options & LOG_PID) {
-		s = str_append(LOC, "[");
-		s = num_append(LOC, getpid());
-		s = str_append(LOC, "]");
-	}
-	s = str_append(LOC, ": ");
-	s = str_append(LOC, msg);
-	write_wrapper(syslog_fd, buf, s - buf);
-#undef LOC
+	bprintfrr(&fb, "<%d>%s", priority, zlog_default->ident);
+	if (zlog_default->syslog_options & LOG_PID)
+		bprintfrr(&fb, "[%ld]", (long)getpid());
+	bprintfrr(&fb, ": %s", msg);
+	write_wrapper(syslog_fd, fb.buf, fb.pos - fb.buf);
 }
 
 static int open_crashlog(void)
 {
-#define CRASHLOG_PREFIX "/var/tmp/quagga."
-#define CRASHLOG_SUFFIX "crashlog"
-	if (zlog_default && zlog_default->ident) {
-		/* Avoid strlen since it is not async-signal-safe. */
-		const char *p;
-		size_t ilen;
+	char crashlog_buf[PATH_MAX];
+	const char *crashlog_default = "/var/tmp/frr.crashlog", *crashlog;
 
-		for (p = zlog_default->ident, ilen = 0; *p; p++)
-			ilen++;
-		{
-			char buf[sizeof(CRASHLOG_PREFIX) + ilen
-				 + sizeof(CRASHLOG_SUFFIX) + 3];
-			char *s = buf;
-#define LOC s,buf+sizeof(buf)-s
-			s = str_append(LOC, CRASHLOG_PREFIX);
-			s = str_append(LOC, zlog_default->ident);
-			s = str_append(LOC, ".");
-			s = str_append(LOC, CRASHLOG_SUFFIX);
-#undef LOC
-			*s = '\0';
-			return open(buf, O_WRONLY | O_CREAT | O_EXCL,
-				    LOGFILE_MASK);
-		}
+	if (!zlog_default || !zlog_default->ident)
+		crashlog = crashlog_default;
+	else {
+		snprintfrr(crashlog_buf, sizeof(crashlog_buf),
+			   "/var/tmp/frr.%s.crashlog", zlog_default->ident);
+		crashlog = crashlog_buf;
 	}
-	return open(CRASHLOG_PREFIX CRASHLOG_SUFFIX,
-		    O_WRONLY | O_CREAT | O_EXCL, LOGFILE_MASK);
-#undef CRASHLOG_SUFFIX
-#undef CRASHLOG_PREFIX
+	return open(crashlog, O_WRONLY | O_CREAT | O_EXCL, LOGFILE_MASK);
 }
-
-/* Note: the goal here is to use only async-signal-safe functions. */
-void zlog_signal(int signo, const char *action
-#ifdef SA_SIGINFO
-		 ,
-		 siginfo_t *siginfo, void *program_counter
-#endif
-		 )
-{
-	time_t now;
-	char buf[sizeof("DEFAULT: Received signal S at T (si_addr 0xP, PC 0xP); aborting...")
-		 + 100];
-	char *s = buf;
-	char *msgstart = buf;
-#define LOC s,buf+sizeof(buf)-s
-
-	time(&now);
-	if (zlog_default) {
-		s = str_append(LOC, zlog_default->protoname);
-		*s++ = ':';
-		*s++ = ' ';
-		msgstart = s;
-	}
-	s = str_append(LOC, "Received signal ");
-	s = num_append(LOC, signo);
-	s = str_append(LOC, " at ");
-	s = num_append(LOC, now);
-#ifdef SA_SIGINFO
-	s = str_append(LOC, " (si_addr 0x");
-	s = hex_append(LOC, (unsigned long)(siginfo->si_addr));
-	if (program_counter) {
-		s = str_append(LOC, ", PC 0x");
-		s = hex_append(LOC, (unsigned long)program_counter);
-	}
-	s = str_append(LOC, "); ");
-#else  /* SA_SIGINFO */
-	s = str_append(LOC, "; ");
-#endif /* SA_SIGINFO */
-	s = str_append(LOC, action);
-	if (s < buf + sizeof(buf))
-		*s++ = '\n';
 
 /* N.B. implicit priority is most severe */
 #define PRI LOG_CRIT
 
-#define DUMP(FD) write_wrapper(FD, buf, s-buf);
+static void crash_write(struct fbuf *fb, char *msgstart)
+{
+	if (fb->pos == fb->buf)
+		return;
+	if (!msgstart)
+		msgstart = fb->buf;
+
 	/* If no file logging configured, try to write to fallback log file. */
 	if ((logfile_fd >= 0) || ((logfile_fd = open_crashlog()) >= 0))
-		DUMP(logfile_fd)
+		write(logfile_fd, fb->buf, fb->pos - fb->buf);
 	if (!zlog_default)
-		DUMP(STDERR_FILENO)
+		write(STDERR_FILENO, fb->buf, fb->pos - fb->buf);
 	else {
 		if (PRI <= zlog_default->maxlvl[ZLOG_DEST_STDOUT])
-			DUMP(STDOUT_FILENO)
+			write(STDOUT_FILENO, fb->buf, fb->pos - fb->buf);
 		/* Remove trailing '\n' for monitor and syslog */
-		*--s = '\0';
+		fb->pos--;
 		if (PRI <= zlog_default->maxlvl[ZLOG_DEST_MONITOR])
-			vty_log_fixed(buf, s - buf);
+			vty_log_fixed(fb->buf, fb->pos - fb->buf);
 		if (PRI <= zlog_default->maxlvl[ZLOG_DEST_SYSLOG])
 			syslog_sigsafe(PRI | zlog_default->facility, msgstart,
-				       s - msgstart);
+				       fb->pos - msgstart);
 	}
-#undef DUMP
+}
 
-	zlog_backtrace_sigsafe(PRI,
+/* Note: the goal here is to use only async-signal-safe functions. */
+void zlog_signal(int signo, const char *action, void *siginfo_v,
+		 void *program_counter)
+{
 #ifdef SA_SIGINFO
-			       program_counter
-#else
-			       NULL
+	siginfo_t *siginfo = siginfo_v;
 #endif
-			       );
+	time_t now;
+	char buf[sizeof("DEFAULT: Received signal S at T (si_addr 0xP, PC 0xP); aborting...")
+		 + 100];
+	char *msgstart;
+	struct fbuf fb = { .buf = buf, .pos = buf, .len = sizeof(buf) };
 
-	s = buf;
+	time(&now);
+	if (zlog_default)
+		bprintfrr(&fb, "%s: ", zlog_default->protoname);
+
+	msgstart = fb.pos;
+
+	bprintfrr(&fb, "Received signal %d at %lld", signo, (long long)now);
+#ifdef SA_SIGINFO
+	if (program_counter)
+		bprintfrr(&fb, " (si_addr 0x%tx, PC 0x%tx)",
+			  (ptrdiff_t)siginfo->si_addr,
+			  (ptrdiff_t)program_counter);
+	else
+		bprintfrr(&fb, " (si_addr 0x%tx)",
+			  (ptrdiff_t)siginfo->si_addr);
+#endif /* SA_SIGINFO */
+	bprintfrr(&fb, "; %s\n", action);
+
+	crash_write(&fb, msgstart);
+
+	zlog_backtrace_sigsafe(PRI, program_counter);
+
+	fb.pos = buf;
+
 	struct thread *tc;
 	tc = pthread_getspecific(thread_current);
+
 	if (!tc)
-		s = str_append(LOC, "no thread information available\n");
-	else {
-		s = str_append(LOC, "in thread ");
-		s = str_append(LOC, tc->funcname);
-		s = str_append(LOC, " scheduled from ");
-		s = str_append(LOC, tc->schedfrom);
-		s = str_append(LOC, ":");
-		s = num_append(LOC, tc->schedfrom_line);
-		s = str_append(LOC, "\n");
-	}
+		bprintfrr(&fb, "no thread information available\n");
+	else
+		bprintfrr(&fb, "in thread %s scheduled from %s:%d\n",
+			  tc->funcname, tc->schedfrom, tc->schedfrom_line);
 
-#define DUMP(FD) write_wrapper(FD, buf, s-buf);
-	/* If no file logging configured, try to write to fallback log file. */
-	if (logfile_fd >= 0)
-		DUMP(logfile_fd)
-	if (!zlog_default)
-		DUMP(STDERR_FILENO)
-	else {
-		if (PRI <= zlog_default->maxlvl[ZLOG_DEST_STDOUT])
-			DUMP(STDOUT_FILENO)
-		/* Remove trailing '\n' for monitor and syslog */
-		*--s = '\0';
-		if (PRI <= zlog_default->maxlvl[ZLOG_DEST_MONITOR])
-			vty_log_fixed(buf, s - buf);
-		if (PRI <= zlog_default->maxlvl[ZLOG_DEST_SYSLOG])
-			syslog_sigsafe(PRI | zlog_default->facility, msgstart,
-				       s - msgstart);
-	}
-#undef DUMP
-
-#undef PRI
-#undef LOC
+	crash_write(&fb, NULL);
 }
 
 /* Log a backtrace using only async-signal-safe functions.
@@ -540,7 +442,8 @@ void zlog_signal(int signo, const char *action
 void zlog_backtrace_sigsafe(int priority, void *program_counter)
 {
 #ifdef HAVE_LIBUNWIND
-	char buf[100];
+	char buf[256];
+	struct fbuf fb = { .buf = buf, .len = sizeof(buf) };
 	unw_cursor_t cursor;
 	unw_context_t uc;
 	unw_word_t ip, off, sp;
@@ -554,28 +457,27 @@ void zlog_backtrace_sigsafe(int priority, void *program_counter)
 		unw_get_reg(&cursor, UNW_REG_IP, &ip);
 		unw_get_reg(&cursor, UNW_REG_SP, &sp);
 
+		if (!unw_get_proc_name(&cursor, buf, sizeof(buf), &off))
+			snprintfrr(name, sizeof(name), "%s+%#lx",
+				   buf, (long)off);
+
+		fb.pos = buf;
 		if (unw_is_signal_frame(&cursor))
-			dprintf(2, "    ---- signal ----\n");
-
-		if (!unw_get_proc_name(&cursor, buf, sizeof(buf), &off)) {
-			snprintf(name, sizeof(name), "%s+%#lx",
-				buf, (long)off);
-		}
-		dprintf(2, "%-30s %16lx %16lx", name, (long)ip, (long)sp);
-		if (dladdr((void *)ip, &dlinfo)) {
-			dprintf(2, " %s (mapped at %p)",
-				dlinfo.dli_fname, dlinfo.dli_fbase);
-		}
-		dprintf(2, "\n");
-
+			bprintfrr(&fb, "    ---- signal ----\n");
+		bprintfrr(&fb, "%-30s %16lx %16lx", name, (long)ip, (long)sp);
+		if (dladdr((void *)ip, &dlinfo))
+			bprintfrr(&fb, " %s (mapped at %p)",
+				  dlinfo.dli_fname, dlinfo.dli_fbase);
+		bprintfrr(&fb, "\n");
+		crash_write(&fb, NULL);
 	}
 #elif defined(HAVE_GLIBC_BACKTRACE) || defined(HAVE_PRINTSTACK)
 	static const char pclabel[] = "Program counter: ";
 	void *array[64];
 	int size;
-	char buf[100];
-	char *s, **bt = NULL;
-#define LOC s,buf+sizeof(buf)-s
+	char buf[128];
+	struct fbuf fb = { .buf = buf, .pos = buf, .len = sizeof(buf) };
+	char **bt = NULL;
 
 #ifdef HAVE_GLIBC_BACKTRACE
 	size = backtrace(array, array_size(array));
@@ -588,7 +490,7 @@ void zlog_backtrace_sigsafe(int priority, void *program_counter)
 			write_wrapper(FD, pclabel, sizeof(pclabel) - 1);       \
 			backtrace_symbols_fd(&program_counter, 1, FD);         \
 		}                                                              \
-		write_wrapper(FD, buf, s - buf);                               \
+		write_wrapper(FD, fb.buf, fb.pos - fb.buf);                    \
 		backtrace_symbols_fd(array, size, FD);                         \
 	}
 #elif defined(HAVE_PRINTSTACK)
@@ -598,15 +500,12 @@ void zlog_backtrace_sigsafe(int priority, void *program_counter)
 	{                                                                      \
 		if (program_counter)                                           \
 			write_wrapper((FD), pclabel, sizeof(pclabel) - 1);     \
-		write_wrapper((FD), buf, s - buf);                             \
+		write_wrapper((FD), fb.buf, fb.pos - fb.buf);                  \
 		printstack((FD));                                              \
 	}
 #endif /* HAVE_GLIBC_BACKTRACE, HAVE_PRINTSTACK */
 
-	s = buf;
-	s = str_append(LOC, "Backtrace for ");
-	s = num_append(LOC, size);
-	s = str_append(LOC, " stack frames:\n");
+	bprintfrr(&fb, "Backtrace for %d stack frames:\n", size);
 
 	if ((logfile_fd >= 0) || ((logfile_fd = open_crashlog()) >= 0))
 		DUMP(logfile_fd)
@@ -616,12 +515,12 @@ void zlog_backtrace_sigsafe(int priority, void *program_counter)
 		if (priority <= zlog_default->maxlvl[ZLOG_DEST_STDOUT])
 			DUMP(STDOUT_FILENO)
 		/* Remove trailing '\n' for monitor and syslog */
-		*--s = '\0';
+		fb.pos--;
 		if (priority <= zlog_default->maxlvl[ZLOG_DEST_MONITOR])
-			vty_log_fixed(buf, s - buf);
+			vty_log_fixed(fb.buf, fb.pos - fb.buf);
 		if (priority <= zlog_default->maxlvl[ZLOG_DEST_SYSLOG])
-			syslog_sigsafe(priority | zlog_default->facility, buf,
-				       s - buf);
+			syslog_sigsafe(priority | zlog_default->facility,
+				       fb.buf, fb.pos - fb.buf);
 		{
 			int i;
 #ifdef HAVE_GLIBC_BACKTRACE
@@ -629,34 +528,26 @@ void zlog_backtrace_sigsafe(int priority, void *program_counter)
 #endif
 			/* Just print the function addresses. */
 			for (i = 0; i < size; i++) {
-				s = buf;
+				fb.pos = buf;
 				if (bt)
-					s = str_append(LOC, bt[i]);
-				else {
-					s = str_append(LOC, "[bt ");
-					s = num_append(LOC, i);
-					s = str_append(LOC, "] 0x");
-					s = hex_append(
-						LOC, (unsigned long)(array[i]));
-				}
-				*s = '\0';
+					bprintfrr(&fb, "%s", bt[i]);
+				else
+					bprintfrr(&fb, "[bt %d] 0x%tx", i,
+						  (ptrdiff_t)(array[i]));
 				if (priority
 				    <= zlog_default->maxlvl[ZLOG_DEST_MONITOR])
-					vty_log_fixed(buf, s - buf);
+					vty_log_fixed(fb.buf, fb.pos - fb.buf);
 				if (priority
 				    <= zlog_default->maxlvl[ZLOG_DEST_SYSLOG])
-					syslog_sigsafe(
-						priority
-							| zlog_default
-								  ->facility,
-						buf, s - buf);
+					syslog_sigsafe(priority
+						| zlog_default->facility,
+						fb.buf, fb.pos - fb.buf);
 			}
 			if (bt)
 				free(bt);
 		}
 	}
 #undef DUMP
-#undef LOC
 #endif /* HAVE_STRACK_TRACE */
 }
 
