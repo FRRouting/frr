@@ -1333,6 +1333,13 @@ static route_map_event_t get_route_map_delete_event(route_map_event_t type)
 		 */
 		assert(0);
 	}
+
+	assert(0);
+	/*
+	 * Return to make c happy but if we get here something has gone
+	 * terribly terribly wrong, so yes this return makes no sense.
+	 */
+	return RMAP_EVENT_CALL_ADDED;
 }
 
 /* Add match statement to route map. */
