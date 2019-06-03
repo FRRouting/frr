@@ -440,7 +440,7 @@ static int nb_cli_candidate_load_transaction(struct vty *vty,
  * This function detects whether next node in the iteration is upwards,
  * then return the node otherwise return NULL.
  */
-static struct lyd_node *ly_iter_next_up(struct lyd_node *elem)
+static struct lyd_node *ly_iter_next_up(const struct lyd_node *elem)
 {
 	/* Are we going downwards? Is this still not a leaf? */
 	if (!(elem->schema->nodetype & (LYS_LEAF | LYS_LEAFLIST | LYS_ANYDATA)))
