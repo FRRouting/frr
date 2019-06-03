@@ -741,7 +741,7 @@ static void igmp_group_free(struct igmp_group *group)
 	XFREE(MTYPE_PIM_IGMP_GROUP, group);
 }
 
-static void igmp_group_delete(struct igmp_group *group)
+void igmp_group_delete(struct igmp_group *group)
 {
 	struct listnode *src_node;
 	struct listnode *src_nextnode;

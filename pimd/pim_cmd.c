@@ -3848,6 +3848,55 @@ static void mroute_del_all(struct pim_instance *pim)
 	}
 }
 
+static void clear_mroute(struct pim_instance *pim)
+{
+	struct pim_upstream *up;
+	struct interface *ifp;
+
+	/* scan interfaces */
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+		struct listnode *sock_node;
+		struct igmp_sock *igmp;
+		struct pim_ifchannel *ch;
+
+		if (!pim_ifp)
+			continue;
+
+		/* deleting all ifchannels */
+		while (!RB_EMPTY(pim_ifchannel_rb, &pim_ifp->ifchannel_rb)) {
+			ch = RB_ROOT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
+
+			pim_ifchannel_delete(ch);
+		}
+
+		/* clean up all igmp groups */
+		/* scan igmp sockets */
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node,
+					igmp)) {
+
+			struct igmp_group *grp;
+
+			if (igmp->igmp_group_list) {
+				while (igmp->igmp_group_list->count) {
+					grp = listnode_head(
+						igmp->igmp_group_list);
+					igmp_group_delete(grp);
+				}
+			}
+
+		}
+	}
+
+	/* clean up all upstreams*/
+	if (pim->upstream_list) {
+		while (pim->upstream_list->count) {
+			up = listnode_head(pim->upstream_list);
+			pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
+		}
+	}
+}
+
 DEFUN (clear_ip_mroute,
        clear_ip_mroute_cmd,
        "clear ip mroute [vrf NAME]",
@@ -3862,8 +3911,7 @@ DEFUN (clear_ip_mroute,
 	if (!vrf)
 		return CMD_WARNING;
 
-	mroute_del_all(vrf->info);
-	mroute_add_all(vrf->info);
+	clear_mroute(vrf->info);
 
 	return CMD_SUCCESS;
 }
