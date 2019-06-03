@@ -221,6 +221,14 @@ typedef unsigned char uint8_t;
 #define UINT32_MAX	(4294967295U)
 #endif
 
+#if defined(__GNUC__) && (__GNUC__ >= 3)
+#define likely(_x) __builtin_expect(!!(_x), 1)
+#define unlikely(_x) __builtin_expect(!!(_x), 0)
+#else
+#define likely(_x) !!(_x)
+#define unlikely(_x) !!(_x)
+#endif
+
 #ifdef HAVE_GLIBC_BACKTRACE
 #include <execinfo.h>
 #endif /* HAVE_GLIBC_BACKTRACE */
