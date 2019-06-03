@@ -3082,7 +3082,7 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 	json_object *json_row = NULL;
 
 	if (pim->global_scope.current_bsr.s_addr == INADDR_ANY)
-		strncpy(bsr_str, "0.0.0.0", sizeof(bsr_str));
+		strlcpy(bsr_str, "0.0.0.0", sizeof(bsr_str));
 
 	else
 		pim_inet4_dump("<bsr?>", pim->global_scope.current_bsr, bsr_str,
@@ -3650,7 +3650,7 @@ static void pim_show_bsr(struct pim_instance *pim,
 	vty_out(vty, "PIMv2 Bootstrap information\n");
 
 	if (pim->global_scope.current_bsr.s_addr == INADDR_ANY) {
-		strncpy(bsr_str, "0.0.0.0", sizeof(bsr_str));
+		strlcpy(bsr_str, "0.0.0.0", sizeof(bsr_str));
 		pim_time_uptime(uptime, sizeof(uptime),
 				pim->global_scope.current_bsr_first_ts);
 		pim_time_uptime(last_bsm_seen, sizeof(last_bsm_seen),
@@ -3669,16 +3669,16 @@ static void pim_show_bsr(struct pim_instance *pim,
 
 	switch (pim->global_scope.state) {
 	case NO_INFO:
-		strncpy(bsr_state, "NO_INFO", sizeof(bsr_state));
+		strlcpy(bsr_state, "NO_INFO", sizeof(bsr_state));
 		break;
 	case ACCEPT_ANY:
-		strncpy(bsr_state, "ACCEPT_ANY", sizeof(bsr_state));
+		strlcpy(bsr_state, "ACCEPT_ANY", sizeof(bsr_state));
 		break;
 	case ACCEPT_PREFERRED:
-		strncpy(bsr_state, "ACCEPT_PREFERRED", sizeof(bsr_state));
+		strlcpy(bsr_state, "ACCEPT_PREFERRED", sizeof(bsr_state));
 		break;
 	default:
-		strncpy(bsr_state, "", sizeof(bsr_state));
+		strlcpy(bsr_state, "", sizeof(bsr_state));
 	}
 
 	if (uj) {
