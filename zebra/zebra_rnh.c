@@ -400,7 +400,7 @@ static int zebra_rnh_apply_nht_rmap(afi_t afi, struct zebra_vrf *zvrf,
 {
 	int at_least_one = 0;
 	struct nexthop *nexthop;
-	route_map_result_t ret;
+	int ret;
 
 	if (prn && re) {
 		for (nexthop = re->ng.nexthop; nexthop;

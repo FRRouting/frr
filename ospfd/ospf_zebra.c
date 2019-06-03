@@ -943,7 +943,7 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 	/* apply route-map if needed */
 	red = ospf_redist_lookup(ospf, type, instance);
 	if (red && ROUTEMAP_NAME(red)) {
-		route_map_result_t ret;
+		int ret;
 
 		ret = route_map_apply(ROUTEMAP(red), (struct prefix *)p,
 				      RMAP_OSPF, ei);
