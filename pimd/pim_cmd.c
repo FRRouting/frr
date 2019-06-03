@@ -3806,48 +3806,6 @@ DEFUN (clear_ip_pim_statistics,
 	return CMD_SUCCESS;
 }
 
-static void mroute_add_all(struct pim_instance *pim)
-{
-	struct listnode *node;
-	struct channel_oil *c_oil;
-
-	for (ALL_LIST_ELEMENTS_RO(pim->channel_oil_list, node, c_oil)) {
-		if (pim_mroute_add(c_oil, __PRETTY_FUNCTION__)) {
-			/* just log warning */
-			char source_str[INET_ADDRSTRLEN];
-			char group_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin,
-				       source_str, sizeof(source_str));
-			pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp,
-				       group_str, sizeof(group_str));
-			zlog_warn("%s %s: (S,G)=(%s,%s) failure writing MFC",
-				  __FILE__, __PRETTY_FUNCTION__, source_str,
-				  group_str);
-		}
-	}
-}
-
-static void mroute_del_all(struct pim_instance *pim)
-{
-	struct listnode *node;
-	struct channel_oil *c_oil;
-
-	for (ALL_LIST_ELEMENTS_RO(pim->channel_oil_list, node, c_oil)) {
-		if (pim_mroute_del(c_oil, __PRETTY_FUNCTION__)) {
-			/* just log warning */
-			char source_str[INET_ADDRSTRLEN];
-			char group_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin,
-				       source_str, sizeof(source_str));
-			pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp,
-				       group_str, sizeof(group_str));
-			zlog_warn("%s %s: (S,G)=(%s,%s) failure clearing MFC",
-				  __FILE__, __PRETTY_FUNCTION__, source_str,
-				  group_str);
-		}
-	}
-}
-
 static void clear_mroute(struct pim_instance *pim)
 {
 	struct pim_upstream *up;
