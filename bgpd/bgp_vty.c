@@ -896,44 +896,6 @@ DEFUN_HIDDEN (no_bgp_local_mac,
 	return CMD_SUCCESS;
 }
 
-#if (CONFDATE > 20190601)
-CPP_NOTICE("bgpd: time to remove deprecated cli bgp config-type cisco")
-CPP_NOTICE("This includes BGP_OPT_CISCO_CONFIG")
-#endif
-DEFUN_HIDDEN (bgp_config_type,
-	      bgp_config_type_cmd,
-	      "bgp config-type <cisco|zebra>",
-	      BGP_STR
-	      "Configuration type\n"
-	      "cisco\n"
-	      "zebra\n")
-{
-	int idx = 0;
-	if (argv_find(argv, argc, "cisco", &idx)) {
-		vty_out(vty, "This config option is deprecated, and is scheduled for removal.\n");
-		vty_out(vty, "if you are using this please let the developers know!\n");
-		zlog_info("Deprecated option: `bgp config-type cisco` being used");
-		bgp_option_set(BGP_OPT_CONFIG_CISCO);
-	} else
-		bgp_option_unset(BGP_OPT_CONFIG_CISCO);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (no_bgp_config_type,
-	      no_bgp_config_type_cmd,
-	      "no bgp config-type [<cisco|zebra>]",
-	      NO_STR
-	      BGP_STR
-	      "Display configuration type\n"
-	      "cisco\n"
-	      "zebra\n")
-{
-	bgp_option_unset(BGP_OPT_CONFIG_CISCO);
-	return CMD_SUCCESS;
-}
-
-
 DEFUN (no_synchronization,
        no_synchronization_cmd,
        "no synchronization",
@@ -12850,10 +12812,6 @@ void bgp_vty_init(void)
 	install_default(BGP_FLOWSPECV6_NODE);
 	install_default(BGP_EVPN_NODE);
 	install_default(BGP_EVPN_VNI_NODE);
-
-	/* "bgp config-type" commands. */
-	install_element(CONFIG_NODE, &bgp_config_type_cmd);
-	install_element(CONFIG_NODE, &no_bgp_config_type_cmd);
 
 	/* "bgp local-mac" hidden commands. */
 	install_element(CONFIG_NODE, &bgp_local_mac_cmd);
