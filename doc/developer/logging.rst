@@ -6,6 +6,114 @@ to log, what level to log it at, and when to log it.  Here is a list of
 recommendations for these decisions.
 
 
+printfrr()
+----------
+
+``printfrr()`` is FRR's modified version of ``printf()``, designed to make
+life easier when printing nontrivial datastructures.  The following variants
+are available:
+
+.. c:function:: ssize_t snprintfrr(char *buf, size_t len, const char *fmt, ...)
+.. c:function:: ssize_t vsnprintfrr(char *buf, size_t len, const char *fmt, va_list)
+
+   These correspond to ``snprintf``/``vsnprintf``.  If you pass NULL for buf
+   or 0 for len, no output is written but the return value is still calculated.
+
+   The return value is always the full length of the output, unconstrained by
+   `len`.  It does **not** include the terminating ``\0`` character.  A
+   malformed format string can result in a ``-1`` return value.
+
+.. c:function:: ssize_t csnprintfrr(char *buf, size_t len, const char *fmt, ...)
+.. c:function:: ssize_t vcsnprintfrr(char *buf, size_t len, const char *fmt, va_list)
+
+   Same as above, but the ``c`` stands for "continue" or "concatenate".  The
+   output is appended to the string instead of overwriting it.
+
+.. c:function:: char *asprintfrr(struct memtype *mt, const char *fmt, ...)
+.. c:function:: char *vasprintfrr(struct memtype *mt, const char *fmt, va_list)
+
+   These functions allocate a dynamic buffer (using MTYPE `mt`) and print to
+   that.  If the format string is malformed, they return a copy of the format
+   string, so the return value is always non-NULL and always dynamically
+   allocated with `mt`.
+
+.. c:function:: char *asnprintfrr(struct memtype *mt, char *buf, size_t len, const char *fmt, ...)
+.. c:function:: char *vasnprintfrr(struct memtype *mt, char *buf, size_t len, const char *fmt, va_list)
+
+   This variant tries to use the static buffer provided, but falls back to
+   dynamic allocation if it is insufficient.
+
+   The return value can be either `buf` or a newly allocated string using
+   `mt`.  You MUST free it like this::
+
+      char *ret = asnprintfrr(MTYPE_FOO, buf, sizeof(buf), ...);
+      if (ret != buf)
+         XFREE(MTYPE_FOO, ret);
+
+Extensions
+^^^^^^^^^^
+
+``printfrr()`` format strings can be extended with suffixes after `%p` or
+`%d`.  The following extended format specifiers are available:
+
++-----------+--------------------------+----------------------------------------------+
+| Specifier | Argument                 | Output                                       |
++===========+==========================+==============================================+
+| ``%Lu``   | ``uint64_t``             | ``12345``                                    |
++-----------+--------------------------+----------------------------------------------+
+| ``%Ld``   | ``int64_t``              | ``-12345``                                   |
++-----------+--------------------------+----------------------------------------------+
+| ``%pI4``  | ``struct in_addr *``     | ``1.2.3.4``                                  |
+|           |                          |                                              |
+|           | ``in_addr_t *``          |                                              |
++-----------+--------------------------+----------------------------------------------+
+| ``%pI6``  | ``struct in6_addr *``    | ``fe80::1234``                               |
++-----------+--------------------------+----------------------------------------------+
+| ``%pFX``  | ``struct prefix *``      | ``fe80::1234/64``                            |
++-----------+--------------------------+----------------------------------------------+
+| ``%pSG4`` | ``struct prefix_sg *``   | ``(*,1.2.3.4)``                              |
++-----------+--------------------------+----------------------------------------------+
+| ``%pRN``  | ``struct route_node *``  | ``192.168.1.0/24`` (dst-only node)           |
+|           |                          |                                              |
+|           |                          | ``2001:db8::/32 from fe80::/64`` (SADR node) |
++-----------+--------------------------+----------------------------------------------+
+| ``%pNHv`` | ``struct nexthop *``     | ``1.2.3.4, via eth0``                        |
++-----------+--------------------------+----------------------------------------------+
+| ``%pNHs`` | ``struct nexthop *``     | ``1.2.3.4 if 15``                            |
++-----------+--------------------------+----------------------------------------------+
+
+Printf features like field lengths can be used normally with these extensions,
+e.g. ``%-15pI4`` works correctly.
+
+The extension specifier after ``%p`` or ``%d`` is always an uppercase letter;
+by means of established pattern uppercase letters and numbers form the type
+identifier which may be followed by lowercase flags.
+
+You can grep the FRR source for ``printfrr_ext_autoreg`` to see all extended
+printers and what exactly they do.  More printers are likely to be added as
+needed/useful, so the list above may become outdated.
+
+``%Ld`` is not an "extension" for printfrr; it's wired directly into the main
+printf logic.
+
+.. note::
+
+   The ``zlog_*``/``flog_*`` and ``vty_out`` functions all use printfrr
+   internally, so these extensions are available there.  However, they are
+   **not** available when calling ``snprintf`` directly.  You need to call
+   ``snprintfrr`` instead.
+
+AS-Safety
+^^^^^^^^^
+
+``printfrr()`` are AS-Safe under the following conditions:
+
+* the ``[v]as[n]printfrr`` variants are not AS-Safe (allocating memory)
+* floating point specifiers are not AS-Safe (system printf is used for these)
+* the positional ``%1$d`` syntax should not be used (8 arguments are supported
+  while AS-Safe)
+* extensions are only AS-Safe if their printer is AS-Safe
+
 Errors and warnings
 -------------------
 
