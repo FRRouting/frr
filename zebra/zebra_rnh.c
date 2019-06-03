@@ -1132,7 +1132,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 static void print_nh(struct nexthop *nexthop, struct vty *vty)
 {
 	char buf[BUFSIZ];
-	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct zebra_ns *zns = zebra_ns_lookup(nexthop->vrf_id);
 
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
