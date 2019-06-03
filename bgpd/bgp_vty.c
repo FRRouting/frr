@@ -815,41 +815,6 @@ static void bgp_clear_star_soft_out(struct vty *vty, const char *name)
 #include "bgpd/bgp_vty_clippy.c"
 #endif
 
-/* BGP global configuration.  */
-#if (CONFDATE > 20190601)
-CPP_NOTICE("bgpd: time to remove deprecated bgp multiple-instance")
-CPP_NOTICE("This includes BGP_OPT_MULTIPLE_INSTANCE")
-#endif
-DEFUN_HIDDEN (bgp_multiple_instance_func,
-	      bgp_multiple_instance_cmd,
-	      "bgp multiple-instance",
-	      BGP_STR
-	      "Enable bgp multiple instance\n")
-{
-	bgp_option_set(BGP_OPT_MULTIPLE_INSTANCE);
-	return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (no_bgp_multiple_instance,
-       no_bgp_multiple_instance_cmd,
-       "no bgp multiple-instance",
-       NO_STR
-       BGP_STR
-       "BGP multiple instance\n")
-{
-	int ret;
-
-	vty_out(vty, "This config option is deprecated, and is scheduled for removal.\n");
-	vty_out(vty, "if you are using this please let the developers know\n");
-	zlog_info("Deprecated option: `bgp multiple-instance` being used");
-	ret = bgp_option_unset(BGP_OPT_MULTIPLE_INSTANCE);
-	if (ret < 0) {
-		vty_out(vty, "%% There are more than two BGP instances\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	return CMD_SUCCESS;
-}
-
 DEFUN_HIDDEN (bgp_local_mac,
               bgp_local_mac_cmd,
               "bgp local-mac vni " CMD_VNI_RANGE " mac WORD seq (0-4294967295)",
@@ -12895,10 +12860,6 @@ void bgp_vty_init(void)
 	install_default(BGP_FLOWSPECV6_NODE);
 	install_default(BGP_EVPN_NODE);
 	install_default(BGP_EVPN_VNI_NODE);
-
-	/* "bgp multiple-instance" commands. */
-	install_element(CONFIG_NODE, &bgp_multiple_instance_cmd);
-	install_element(CONFIG_NODE, &no_bgp_multiple_instance_cmd);
 
 	/* "bgp config-type" commands. */
 	install_element(CONFIG_NODE, &bgp_config_type_cmd);
