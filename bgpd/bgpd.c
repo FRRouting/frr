@@ -171,7 +171,6 @@ int bgp_option_set(int flag)
 {
 	switch (flag) {
 	case BGP_OPT_NO_FIB:
-	case BGP_OPT_CONFIG_CISCO:
 	case BGP_OPT_NO_LISTEN:
 	case BGP_OPT_NO_ZEBRA:
 		SET_FLAG(bm->options, flag);
@@ -188,7 +187,6 @@ int bgp_option_unset(int flag)
 	/* Fall through.  */
 	case BGP_OPT_NO_ZEBRA:
 	case BGP_OPT_NO_FIB:
-	case BGP_OPT_CONFIG_CISCO:
 		UNSET_FLAG(bm->options, flag);
 		break;
 	default:
@@ -1201,21 +1199,18 @@ struct peer *peer_new(struct bgp *bgp)
 
 	/* Set default flags. */
 	FOREACH_AFI_SAFI (afi, safi) {
-		if (!bgp_option_check(BGP_OPT_CONFIG_CISCO)) {
-			SET_FLAG(peer->af_flags[afi][safi],
-				 PEER_FLAG_SEND_COMMUNITY);
-			SET_FLAG(peer->af_flags[afi][safi],
-				 PEER_FLAG_SEND_EXT_COMMUNITY);
-			SET_FLAG(peer->af_flags[afi][safi],
-				 PEER_FLAG_SEND_LARGE_COMMUNITY);
+		SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY);
+		SET_FLAG(peer->af_flags[afi][safi],
+			 PEER_FLAG_SEND_EXT_COMMUNITY);
+		SET_FLAG(peer->af_flags[afi][safi],
+			 PEER_FLAG_SEND_LARGE_COMMUNITY);
 
-			SET_FLAG(peer->af_flags_invert[afi][safi],
-				 PEER_FLAG_SEND_COMMUNITY);
-			SET_FLAG(peer->af_flags_invert[afi][safi],
-				 PEER_FLAG_SEND_EXT_COMMUNITY);
-			SET_FLAG(peer->af_flags_invert[afi][safi],
-				 PEER_FLAG_SEND_LARGE_COMMUNITY);
-		}
+		SET_FLAG(peer->af_flags_invert[afi][safi],
+			 PEER_FLAG_SEND_COMMUNITY);
+		SET_FLAG(peer->af_flags_invert[afi][safi],
+			 PEER_FLAG_SEND_EXT_COMMUNITY);
+		SET_FLAG(peer->af_flags_invert[afi][safi],
+			 PEER_FLAG_SEND_LARGE_COMMUNITY);
 		peer->addpath_type[afi][safi] = BGP_ADDPATH_NONE;
 	}
 
@@ -7296,45 +7291,19 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	flag_slcomm = peergroup_af_flag_check(peer, afi, safi,
 					      PEER_FLAG_SEND_LARGE_COMMUNITY);
 
-	if (!bgp_option_check(BGP_OPT_CONFIG_CISCO)) {
-		if (flag_scomm && flag_secomm && flag_slcomm) {
-			vty_out(vty, "  no neighbor %s send-community all\n",
-				addr);
-		} else {
-			if (flag_scomm)
-				vty_out(vty,
-					"  no neighbor %s send-community\n",
-					addr);
-			if (flag_secomm)
-				vty_out(vty,
-					"  no neighbor %s send-community extended\n",
-					addr);
-
-			if (flag_slcomm)
-				vty_out(vty,
-					"  no neighbor %s send-community large\n",
-					addr);
-		}
+	if (flag_scomm && flag_secomm && flag_slcomm) {
+		vty_out(vty, "  no neighbor %s send-community all\n", addr);
 	} else {
-		if (flag_scomm && flag_secomm && flag_slcomm) {
-			vty_out(vty, "  neighbor %s send-community all\n",
+		if (flag_scomm)
+			vty_out(vty, "  no neighbor %s send-community\n", addr);
+		if (flag_secomm)
+			vty_out(vty,
+				"  no neighbor %s send-community extended\n",
 				addr);
-		} else if (flag_scomm && flag_secomm) {
-			vty_out(vty, "  neighbor %s send-community both\n",
+
+		if (flag_slcomm)
+			vty_out(vty, "  no neighbor %s send-community large\n",
 				addr);
-		} else {
-			if (flag_scomm)
-				vty_out(vty, "  neighbor %s send-community\n",
-					addr);
-			if (flag_secomm)
-				vty_out(vty,
-					"  neighbor %s send-community extended\n",
-					addr);
-			if (flag_slcomm)
-				vty_out(vty,
-					"  neighbor %s send-community large\n",
-					addr);
-		}
 	}
 
 	/* Default information */
@@ -7545,12 +7514,6 @@ int bgp_config_write(struct vty *vty)
 	struct listnode *node, *nnode;
 	struct listnode *mnode, *mnnode;
 
-	/* BGP Config type. */
-	if (bgp_option_check(BGP_OPT_CONFIG_CISCO)) {
-		vty_out(vty, "bgp config-type cisco\n");
-		write++;
-	}
-
 	if (bm->rmap_update_timer != RMAP_DEFAULT_UPDATE_TIMER)
 		vty_out(vty, "bgp route-map delay-timer %u\n",
 			bm->rmap_update_timer);
@@ -7573,10 +7536,6 @@ int bgp_config_write(struct vty *vty)
 				(bgp->inst_type  == BGP_INSTANCE_TYPE_VIEW)
 				? "view" : "vrf", bgp->name);
 		vty_out(vty, "\n");
-
-		/* No Synchronization */
-		if (bgp_option_check(BGP_OPT_CONFIG_CISCO))
-			vty_out(vty, " no synchronization\n");
 
 		/* BGP fast-external-failover. */
 		if (CHECK_FLAG(bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER))
@@ -7790,10 +7749,6 @@ int bgp_config_write(struct vty *vty)
 		 */
 		if (bgp->autoshutdown)
 			vty_out(vty, " bgp default shutdown\n");
-
-		/* No auto-summary */
-		if (bgp_option_check(BGP_OPT_CONFIG_CISCO))
-			vty_out(vty, " no auto-summary\n");
 
 		/* IPv4 unicast configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_UNICAST);

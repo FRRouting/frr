@@ -12380,30 +12380,9 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 		p = &rn->p;
 
-		/* "network" configuration display.  */
-		if (bgp_option_check(BGP_OPT_CONFIG_CISCO) && afi == AFI_IP) {
-			uint32_t destination;
-			struct in_addr netmask;
-
-			destination = ntohl(p->u.prefix4.s_addr);
-			masklen2ip(p->prefixlen, &netmask);
-			vty_out(vty, "  network %s",
-				inet_ntop(p->family, &p->u.prefix, buf,
-					  SU_ADDRSTRLEN));
-
-			if ((IN_CLASSC(destination) && p->prefixlen == 24)
-			    || (IN_CLASSB(destination) && p->prefixlen == 16)
-			    || (IN_CLASSA(destination) && p->prefixlen == 8)
-			    || p->u.prefix4.s_addr == 0) {
-				/* Natural mask is not display. */
-			} else
-				vty_out(vty, " mask %s", inet_ntoa(netmask));
-		} else {
-			vty_out(vty, "  network %s/%d",
-				inet_ntop(p->family, &p->u.prefix, buf,
-					  SU_ADDRSTRLEN),
-				p->prefixlen);
-		}
+		vty_out(vty, "  network %s/%d",
+			inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
+			p->prefixlen);
 
 		if (bgp_static->label_index != BGP_INVALID_LABEL_INDEX)
 			vty_out(vty, " label-index %u",
@@ -12427,20 +12406,9 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 		p = &rn->p;
 
-		if (bgp_option_check(BGP_OPT_CONFIG_CISCO) && afi == AFI_IP) {
-			struct in_addr netmask;
-
-			masklen2ip(p->prefixlen, &netmask);
-			vty_out(vty, "  aggregate-address %s %s",
-				inet_ntop(p->family, &p->u.prefix, buf,
-					  SU_ADDRSTRLEN),
-				inet_ntoa(netmask));
-		} else {
-			vty_out(vty, "  aggregate-address %s/%d",
-				inet_ntop(p->family, &p->u.prefix, buf,
-					  SU_ADDRSTRLEN),
-				p->prefixlen);
-		}
+		vty_out(vty, "  aggregate-address %s/%d",
+			inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
+			p->prefixlen);
 
 		if (bgp_aggregate->as_set)
 			vty_out(vty, " as-set");
