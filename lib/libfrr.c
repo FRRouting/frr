@@ -94,6 +94,7 @@ static void opt_extend(const struct optspec *os)
 #define OPTION_LOGLEVEL  1004
 #define OPTION_TCLI      1005
 #define OPTION_DB_FILE   1006
+#define OPTION_LOGGING   1007
 
 static const struct option lo_always[] = {
 	{"help", no_argument, NULL, 'h'},
@@ -105,6 +106,7 @@ static const struct option lo_always[] = {
 	{"log", required_argument, NULL, OPTION_LOG},
 	{"log-level", required_argument, NULL, OPTION_LOGLEVEL},
 	{"tcli", no_argument, NULL, OPTION_TCLI},
+	{"command-log-always", no_argument, NULL, OPTION_LOGGING},
 	{NULL}};
 static const struct optspec os_always = {
 	"hvdM:",
@@ -496,6 +498,9 @@ static int frr_opt(int opt)
 	case OPTION_LOGLEVEL:
 		di->early_loglevel = optarg;
 		break;
+	case OPTION_LOGGING:
+		di->log_always = true;
+		break;
 	default:
 		return 1;
 	}
@@ -648,7 +653,7 @@ struct thread_master *frr_init(void)
 	else
 		cmd_init(1);
 
-	vty_init(master);
+	vty_init(master, di->log_always);
 	memory_init();
 
 	log_ref_init();

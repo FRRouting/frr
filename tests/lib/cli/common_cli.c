@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 	cmd_hostname_set("test");
 	cmd_domainname_set("test.domain");
 
-	vty_init(master);
+	vty_init(master, false);
 	memory_init();
 	yang_init();
 	nb_init(master, NULL, 0);
