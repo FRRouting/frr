@@ -17,6 +17,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#define test__cplusplus
+
 #include "lib/zebra.h"
 
 #include "lib/agg_table.h"
@@ -106,6 +108,17 @@
 #include "lib/yang_wrappers.h"
 #include "lib/zassert.h"
 #include "lib/zclient.h"
+
+PREDECL_RBTREE_UNIQ(footree)
+struct foo {
+	int dummy;
+	struct footree_item item;
+};
+static int foocmp(const struct foo *a, const struct foo *b)
+{
+	return memcmp(&a->dummy, &b->dummy, sizeof(a->dummy));
+}
+DECLARE_RBTREE_UNIQ(footree, struct foo, item, foocmp)
 
 int main(int argc, char **argv)
 {
