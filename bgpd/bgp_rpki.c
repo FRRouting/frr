@@ -1407,7 +1407,8 @@ DEFUN (match_rpki,
 	VTY_DECLVAR_CONTEXT(route_map_index, index);
 	int ret;
 
-	ret = route_map_add_match(index, "rpki", argv[2]->arg);
+	ret = route_map_add_match(index, "rpki", argv[2]->arg,
+				  RMAP_EVENT_MATCH_ADDED);
 	if (ret) {
 		switch (ret) {
 		case RMAP_RULE_MISSING:

@@ -2999,7 +2999,7 @@ static int bgp_route_match_add(struct vty *vty, const char *command,
 	int retval = CMD_SUCCESS;
 	int ret;
 
-	ret = route_map_add_match(index, command, arg);
+	ret = route_map_add_match(index, command, arg, type);
 	switch (ret) {
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "%% BGP Can't find rule.\n");
