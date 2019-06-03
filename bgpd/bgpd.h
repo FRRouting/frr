@@ -134,7 +134,6 @@ struct bgp_master {
 	/* Various BGP global configuration.  */
 	uint8_t options;
 #define BGP_OPT_NO_FIB                   (1 << 0)
-#define BGP_OPT_MULTIPLE_INSTANCE        (1 << 1)
 #define BGP_OPT_CONFIG_CISCO             (1 << 2)
 #define BGP_OPT_NO_LISTEN                (1 << 3)
 #define BGP_OPT_NO_ZEBRA                 (1 << 4)

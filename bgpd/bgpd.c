@@ -171,7 +171,6 @@ int bgp_option_set(int flag)
 {
 	switch (flag) {
 	case BGP_OPT_NO_FIB:
-	case BGP_OPT_MULTIPLE_INSTANCE:
 	case BGP_OPT_CONFIG_CISCO:
 	case BGP_OPT_NO_LISTEN:
 	case BGP_OPT_NO_ZEBRA:
@@ -186,9 +185,6 @@ int bgp_option_set(int flag)
 int bgp_option_unset(int flag)
 {
 	switch (flag) {
-	case BGP_OPT_MULTIPLE_INSTANCE:
-		if (listcount(bm->bgp) > 1)
-			return BGP_ERR_MULTIPLE_INSTANCE_USED;
 	/* Fall through.  */
 	case BGP_OPT_NO_ZEBRA:
 	case BGP_OPT_NO_FIB:
@@ -3174,40 +3170,21 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	struct vrf *vrf = NULL;
 
 	/* Multiple instance check. */
-	if (bgp_option_check(BGP_OPT_MULTIPLE_INSTANCE)) {
-		if (name)
-			bgp = bgp_lookup_by_name(name);
-		else
-			bgp = bgp_get_default();
-
-		/* Already exists. */
-		if (bgp) {
-			if (bgp->as != *as) {
-				*as = bgp->as;
-				return BGP_ERR_INSTANCE_MISMATCH;
-			}
-			if (bgp->inst_type != inst_type)
-				return BGP_ERR_INSTANCE_MISMATCH;
-			*bgp_val = bgp;
-			return 0;
-		}
-	} else {
-		/* BGP instance name can not be specified for single instance.
-		 */
-		if (name)
-			return BGP_ERR_MULTIPLE_INSTANCE_NOT_SET;
-
-		/* Get default BGP structure if exists. */
+	if (name)
+		bgp = bgp_lookup_by_name(name);
+	else
 		bgp = bgp_get_default();
 
-		if (bgp) {
-			if (bgp->as != *as) {
-				*as = bgp->as;
-				return BGP_ERR_AS_MISMATCH;
-			}
-			*bgp_val = bgp;
-			return 0;
+	/* Already exists. */
+	if (bgp) {
+		if (bgp->as != *as) {
+			*as = bgp->as;
+			return BGP_ERR_INSTANCE_MISMATCH;
 		}
+		if (bgp->inst_type != inst_type)
+			return BGP_ERR_INSTANCE_MISMATCH;
+		*bgp_val = bgp;
+		return 0;
 	}
 
 	bgp = bgp_create(as, name, inst_type);
@@ -7568,12 +7545,6 @@ int bgp_config_write(struct vty *vty)
 	struct listnode *node, *nnode;
 	struct listnode *mnode, *mnnode;
 
-	/* BGP Multiple instance. */
-	if (!bgp_option_check(BGP_OPT_MULTIPLE_INSTANCE)) {
-		vty_out(vty, "no bgp multiple-instance\n");
-		write++;
-	}
-
 	/* BGP Config type. */
 	if (bgp_option_check(BGP_OPT_CONFIG_CISCO)) {
 		vty_out(vty, "bgp config-type cisco\n");
@@ -7597,15 +7568,10 @@ int bgp_config_write(struct vty *vty)
 		/* Router bgp ASN */
 		vty_out(vty, "router bgp %u", bgp->as);
 
-		if (bgp_option_check(BGP_OPT_MULTIPLE_INSTANCE)) {
-			if (bgp->name)
-				vty_out(vty, " %s %s",
-					(bgp->inst_type
-					 == BGP_INSTANCE_TYPE_VIEW)
-						? "view"
-						: "vrf",
-					bgp->name);
-		}
+		if (bgp->name)
+			vty_out(vty, " %s %s",
+				(bgp->inst_type  == BGP_INSTANCE_TYPE_VIEW)
+				? "view" : "vrf", bgp->name);
 		vty_out(vty, "\n");
 
 		/* No Synchronization */
@@ -7903,9 +7869,6 @@ void bgp_master_init(struct thread_master *master)
 	 */
 	bf_init(bm->rd_idspace, UINT16_MAX);
 	bf_assign_zero_index(bm->rd_idspace);
-
-	/* Enable multiple instances by default. */
-	bgp_option_set(BGP_OPT_MULTIPLE_INSTANCE);
 
 	/* mpls label dynamic allocation pool */
 	bgp_lp_init(bm->master, &bm->labelpool);

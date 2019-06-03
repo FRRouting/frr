@@ -7446,11 +7446,6 @@ DEFUN (show_bgp_views,
 	struct listnode *node;
 	struct bgp *bgp;
 
-	if (!bgp_option_check(BGP_OPT_MULTIPLE_INSTANCE)) {
-		vty_out(vty, "BGP Multiple Instance is not enabled\n");
-		return CMD_WARNING;
-	}
-
 	vty_out(vty, "Defined BGP views:\n");
 	for (ALL_LIST_ELEMENTS_RO(inst, node, bgp)) {
 		/* Skip VRFs. */
@@ -7480,11 +7475,6 @@ DEFUN (show_bgp_vrfs,
 	json_object *json = NULL;
 	json_object *json_vrfs = NULL;
 	int count = 0;
-
-	if (!bgp_option_check(BGP_OPT_MULTIPLE_INSTANCE)) {
-		vty_out(vty, "BGP Multiple Instance is not enabled\n");
-		return CMD_WARNING;
-	}
 
 	if (uj) {
 		json = json_object_new_object();
