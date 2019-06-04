@@ -1531,14 +1531,14 @@ int route_map_delete_set(struct route_map_index *index, const char *set_name,
    (note, this includes the description for the "NEXT"
    and "GOTO" frobs now
 
-	   |   Match   |   No Match   | No op
-	   |-----------|--------------|-------
-    permit |   action  |     cont     | cont.
-	   |           | default:deny | default:permit
-    -------------------+-----------------------
-	   |   deny    |     cont     | cont.
-    deny   |           | default:deny | default:permit
-	   |-----------|--------------|--------
+	      Match   |   No Match
+		      |
+    permit    action  |     cont
+		      |
+    ------------------+---------------
+		      |
+    deny      deny    |     cont
+		      |
 
    action)
       -Apply Set statements, accept route
@@ -1572,12 +1572,12 @@ int route_map_delete_set(struct route_map_index *index, const char *set_name,
    We need to make sure our route-map processing matches the above
 */
 
-static enum route_map_match_result_t
+static route_map_result_t
 route_map_apply_match(struct route_map_rule_list *match_list,
 		      const struct prefix *prefix, route_map_object_t type,
 		      void *object)
 {
-	enum route_map_match_result_t ret = RMAP_NOMATCH;
+	route_map_result_t ret = RMAP_NOMATCH;
 	struct route_map_rule *match;
 
 
@@ -1609,8 +1609,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 				   route_map_object_t type, void *object)
 {
 	static int recursion = 0;
-	enum route_map_match_result_t match_ret = RMAP_NOMATCH;
-	route_map_result_t ret = 0;
+	int ret = 0;
 	struct route_map_index *index;
 	struct route_map_rule *set;
 
@@ -1630,33 +1629,24 @@ route_map_result_t route_map_apply(struct route_map *map,
 	for (index = map->head; index; index = index->next) {
 		/* Apply this index. */
 		index->applied++;
-		match_ret = route_map_apply_match(&index->match_list, prefix,
-						  type, object);
+		ret = route_map_apply_match(&index->match_list, prefix, type,
+					    object);
 
 		/* Now we apply the matrix from above */
-		if (match_ret == RMAP_NOMATCH || match_ret == RMAP_NOOP)
+		if (ret == RMAP_NOMATCH)
 			/* 'cont' from matrix - continue to next route-map
 			 * sequence */
 			continue;
-		else if (match_ret == RMAP_MATCH) {
+		else if (ret == RMAP_MATCH) {
 			if (index->type == RMAP_PERMIT)
 			/* 'action' */
 			{
-				/* Match succeeded, rmap is of type permit */
-				ret = RMAP_PERMITMATCH;
-
 				/* permit+match must execute sets */
 				for (set = index->set_list.head; set;
 				     set = set->next)
-					/*
-					 * We dont care abt the return value
-					 * for set cmd.  Almost always,
-					 * RMAP_OKAY is returned. Rarely
-					 * do we see RMAP_ERROR
-					 */
-					match_ret = (*set->cmd->func_apply)(
-						     set->value, prefix, type,
-						     object);
+					ret = (*set->cmd->func_apply)(
+						set->value, prefix, type,
+						object);
 
 				/* Call another route-map if available */
 				if (index->nextrm) {
@@ -1707,10 +1697,6 @@ route_map_result_t route_map_apply(struct route_map *map,
 			}
 		}
 	}
-
-	if (match_ret == RMAP_NOOP)
-		return RMAP_PERMITMATCH;
-
 	/* Finally route-map does not match at all. */
 	return RMAP_DENYMATCH;
 }

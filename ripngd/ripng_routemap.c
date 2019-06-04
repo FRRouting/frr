@@ -38,9 +38,10 @@ struct rip_metric_modifier {
 
 /* `match metric METRIC' */
 /* Match function return 1 if match is success else return zero. */
-static enum route_map_match_result_t
-route_match_metric(void *rule, const struct prefix *prefix,
-		   route_map_object_t type, void *object)
+static route_map_result_t route_match_metric(void *rule,
+					     const struct prefix *prefix,
+					     route_map_object_t type,
+					     void *object)
 {
 	uint32_t *metric;
 	struct ripng_info *rinfo;
@@ -85,9 +86,10 @@ static struct route_map_rule_cmd route_match_metric_cmd = {
 
 /* `match interface IFNAME' */
 /* Match function return 1 if match is success else return zero. */
-static enum route_map_match_result_t
-route_match_interface(void *rule, const struct prefix *prefix,
-		      route_map_object_t type, void *object)
+static route_map_result_t route_match_interface(void *rule,
+						const struct prefix *prefix,
+						route_map_object_t type,
+						void *object)
 {
 	struct ripng_info *rinfo;
 	struct interface *ifp;
@@ -127,10 +129,9 @@ static struct route_map_rule_cmd route_match_interface_cmd = {
 
 /* `match tag TAG' */
 /* Match function return 1 if match is success else return zero. */
-static enum route_map_match_result_t route_match_tag(void *rule,
-						const struct prefix *prefix,
-						route_map_object_t type,
-						void *object)
+static route_map_result_t route_match_tag(void *rule,
+					  const struct prefix *prefix,
+					  route_map_object_t type, void *object)
 {
 	route_tag_t *tag;
 	struct ripng_info *rinfo;
@@ -158,9 +159,10 @@ static struct route_map_rule_cmd route_match_tag_cmd = {
 /* `set metric METRIC' */
 
 /* Set metric to attribute. */
-static enum route_map_match_result_t
-route_set_metric(void *rule, const struct prefix *prefix,
-		 route_map_object_t type, void *object)
+static route_map_result_t route_set_metric(void *rule,
+					   const struct prefix *prefix,
+					   route_map_object_t type,
+					   void *object)
 {
 	if (type == RMAP_RIPNG) {
 		struct rip_metric_modifier *mod;
@@ -254,9 +256,10 @@ static struct route_map_rule_cmd route_set_metric_cmd = {
 /* `set ipv6 next-hop local IP_ADDRESS' */
 
 /* Set nexthop to object.  ojbect must be pointer to struct attr. */
-static enum route_map_match_result_t
-route_set_ipv6_nexthop_local(void *rule, const struct prefix *p,
-			     route_map_object_t type, void *object)
+static route_map_result_t route_set_ipv6_nexthop_local(void *rule,
+						       const struct prefix *p,
+						       route_map_object_t type,
+						       void *object)
 {
 	struct in6_addr *address;
 	struct ripng_info *rinfo;
@@ -307,9 +310,9 @@ static struct route_map_rule_cmd route_set_ipv6_nexthop_local_cmd = {
 /* `set tag TAG' */
 
 /* Set tag to object.  ojbect must be pointer to struct attr. */
-static enum route_map_match_result_t
-route_set_tag(void *rule, const struct prefix *prefix, route_map_object_t type,
-	      void *object)
+static route_map_result_t route_set_tag(void *rule,
+					const struct prefix *prefix,
+					route_map_object_t type, void *object)
 {
 	route_tag_t *tag;
 	struct ripng_info *rinfo;

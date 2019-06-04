@@ -4411,7 +4411,7 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 
 				/* apply the route-map */
 				if (bgp_vrf->adv_cmd_rmap[afi][safi].map) {
-					route_map_result_t ret;
+					int ret = 0;
 
 					ret = route_map_apply(
 						bgp_vrf->adv_cmd_rmap[afi][safi]

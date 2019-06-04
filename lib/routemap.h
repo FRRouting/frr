@@ -34,36 +34,15 @@ DECLARE_MTYPE(ROUTE_MAP_NAME)
 DECLARE_MTYPE(ROUTE_MAP_RULE)
 DECLARE_MTYPE(ROUTE_MAP_COMPILED)
 
-/*
- * Route-map match or set result "Eg: match evpn vni xx"
- * route-map match cmd always returns match/nomatch/noop
- *    match--> found a match
- *    nomatch--> didnt find a match
- *    noop--> invalid
- * route-map set retuns okay/error
- *    okay --> set was successful
- *    error --> set was not successful
- */
-enum route_map_match_result_t {
-	/*
-	 * route-map match cmd results
-	 */
-	RMAP_MATCH,
-	RMAP_NOMATCH,
-	RMAP_NOOP,
-	/*
-	 * route-map set cmd results
-	 */
-	RMAP_OKAY,
-	RMAP_ERROR
-};
-
 /* Route map's type. */
 enum route_map_type { RMAP_PERMIT, RMAP_DENY, RMAP_ANY };
 
 typedef enum {
+	RMAP_MATCH,
 	RMAP_DENYMATCH,
-	RMAP_PERMITMATCH
+	RMAP_NOMATCH,
+	RMAP_ERROR,
+	RMAP_OKAY
 } route_map_result_t;
 
 typedef enum {
@@ -112,10 +91,10 @@ struct route_map_rule_cmd {
 	const char *str;
 
 	/* Function for value set or match. */
-	enum route_map_match_result_t (*func_apply)(void *rule,
-						    const struct prefix *prefix,
-						    route_map_object_t type,
-						    void *object);
+	route_map_result_t (*func_apply)(void *rule,
+					 const struct prefix *prefix,
+					 route_map_object_t type,
+					 void *object);
 
 	/* Compile argument and return result as void *. */
 	void *(*func_compile)(const char *);
