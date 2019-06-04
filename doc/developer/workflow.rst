@@ -73,14 +73,20 @@ Releases
 FRR employs a ``<MAJOR>.<MINOR>.<BUGFIX>`` versioning scheme.
 
 ``MAJOR``
-   Significant new features or multiple minor features. The addition of a new
-   routing protocol or daemon would fall under this class.
+   Significant new features or multiple minor features. This should mostly
+   cover any kind of disruptive change that is visible or "risky" to operators.
+   New features or protocols do not necessarily trigger this. (This was changed
+   for FRR 7.x after feedback from users that the pace of major version number
+   increments was too high.)
 
 ``MINOR``
-   Small features, e.g. options for automatic BGP shutdown.
+   General incremental development releases, excluding "major" changes
+   mentioned above.  Not necessarily fully backwards compatible, as smaller
+   (but still visible) changes or deprecated feature removals may still happen.
+   However, there shouldn't be any huge "surprises" between minor releases.
 
 ``BUGFIX``
-   Fixes for actual bugs and/or security issues.
+   Fixes for actual bugs and/or security issues.  Fully compatible.
 
 We will pull a new development branch for the next release every 4 months.  The
 current schedule is Feb/June/October 1. The decision for a ``MAJOR/MINOR``
