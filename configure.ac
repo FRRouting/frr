@@ -53,10 +53,30 @@ elif test "$host" != "$build"; then
   AC_MSG_NOTICE([... use HOST_CPPFLAGS / HOST_CFLAGS / HOST_LDFLAGS if neccessary])
   AC_MSG_NOTICE([...])
 
-  ( CPPFLAGS="$HOST_CPPFLAGS"; \
-    CFLAGS="$HOST_CFLAGS"; \
-    LDFLAGS="$HOST_LDFLAGS"; \
-    cd hosttools; "${abssrc}/configure" "--host=$build" "--build=$build" "--enable-clippy-only" "--disable-nhrpd" "--disable-vtysh"; ) || exit 1
+  (
+    for var in $ac_precious_vars; do
+      dnl special cases
+      case "$var" in
+      YACC|YFLAGS) continue;;
+      PYTHON*)     retain=true;;
+      *)           retain=false;
+      esac
+
+      eval "hostvar=\"\${HOST_$var}\""
+      eval "targetvar=\"\${$var}\""
+      if test -n "$hostvar"; then
+        eval "$var='$hostvar'"
+        _AS_ECHO_LOG([host $var='$hostvar'])
+      elif $retain; then
+        _AS_ECHO_LOG([host retain $var='$targetvar'])
+      else
+        eval "unset $var"
+        _AS_ECHO_LOG([host unset $var])
+      fi
+    done
+    cd hosttools
+    "${abssrc}/configure" "--host=$build" "--build=$build" "--enable-clippy-only" "--disable-nhrpd" "--disable-vtysh"
+  ) || exit 1
 
   AC_MSG_NOTICE([...])
   AC_MSG_NOTICE([... cross-compilation: finished self-configuring for build platform tools])
