@@ -85,8 +85,6 @@ int main(int argc, char **argv)
 	if (PyRun_AnyFile(fp, pyfile)) {
 		if (PyErr_Occurred())
 			PyErr_Print();
-		else
-			printf("unknown python failure (?)\n");
 		return 1;
 	}
 	Py_Finalize();

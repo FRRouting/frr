@@ -183,11 +183,25 @@ argblock = Template('''
 		}''')
 
 def process_file(fn, ofd, dumpfd, all_defun):
+    errors = 0
     filedata = clippy.parse(fn)
 
     for entry in filedata['data']:
         if entry['type'].startswith('DEFPY') or (all_defun and entry['type'].startswith('DEFUN')):
+            if len(entry['args'][0]) != 1:
+                sys.stderr.write('%s:%d: DEFPY function name not parseable (%r)\n' % (fn, entry['lineno'], entry['args'][0]))
+                errors += 1
+                continue
+
             cmddef = entry['args'][2]
+            for i in cmddef:
+                if not (i.startswith('"') and i.endswith('"')):
+                    sys.stderr.write('%s:%d: DEFPY command string not parseable (%r)\n' % (fn, entry['lineno'], cmddef))
+                    errors += 1
+                    cmddef = None
+                    break
+            if cmddef is None:
+                continue
             cmddef = ''.join([i[1:-1] for i in cmddef])
 
             graph = clippy.Graph(cmddef)
@@ -251,6 +265,8 @@ def process_file(fn, ofd, dumpfd, all_defun):
             params['nonempty'] = len(argblocks)
             ofd.write(templ.substitute(params))
 
+    return errors
+
 if __name__ == '__main__':
     import argparse
 
@@ -274,7 +290,9 @@ if __name__ == '__main__':
         if args.show:
             dumpfd = sys.stderr
 
-    process_file(args.cfile, ofd, dumpfd, args.all_defun)
+    errors = process_file(args.cfile, ofd, dumpfd, args.all_defun)
+    if errors != 0:
+        sys.exit(1)
 
     if args.o is not None:
         clippy.wrdiff(args.o, ofd, [args.cfile, os.path.realpath(__file__), sys.executable])
