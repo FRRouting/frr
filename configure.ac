@@ -1857,7 +1857,7 @@ AC_MSG_CHECKING([version of bison])
 frr_ac_bison_version="$(eval $YACC -V | grep bison | head -n 1)"
 frr_ac_bison_version="${frr_ac_bison_version##* }"
 frr_ac_bison_missing="false"
-case "x${frr_ac_bison_version}" in
+case "x${frr_ac_bison_version}x" in
   x2.7*)
     BISON_OPENBRACE='"'
     BISON_CLOSEBRACE='"'
@@ -1874,11 +1874,17 @@ case "x${frr_ac_bison_version}" in
     AC_MSG_WARN([could not determine bison version.  Please install GNU bison 2.7.x or newer.])
     frr_ac_bison_missing="true"
     ;;
-  *)
+  x3.[012][^0-9]*)
     BISON_OPENBRACE='{'
     BISON_CLOSEBRACE='}'
     BISON_VERBOSE='-Dparse.error=verbose'
-    AC_MSG_RESULT([$frr_ac_bison_version - 3.0 or newer])
+    AC_MSG_RESULT([$frr_ac_bison_version - 3.0 to 3.2])
+    ;;
+  *)
+    BISON_OPENBRACE='{'
+    BISON_CLOSEBRACE='}'
+    BISON_VERBOSE='-Dparse.error=verbose -Wno-yacc'
+    AC_MSG_RESULT([$frr_ac_bison_version - 3.3 or newer])
     ;;
 esac
 AC_SUBST([BISON_OPENBRACE])
