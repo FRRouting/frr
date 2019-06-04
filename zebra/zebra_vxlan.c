@@ -839,9 +839,9 @@ static void zvni_print_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 			return;
 
 		if (json_vni == NULL) {
-			vty_out(vty, "%*s %-6s %-8s %-17s\n",
+			vty_out(vty, "%*s %-6s %-8s %-17s                       %u/%u\n",
 				-wctx->addr_width, buf2, "local",
-				state_str, buf1);
+				state_str, buf1, n->loc_seq, n->rem_seq);
 		} else {
 			json_object_string_add(json_row, "type", "local");
 			json_object_string_add(json_row, "state", state_str);
@@ -875,9 +875,9 @@ static void zvni_print_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 					"%*s %-6s %-8s %-17s %-21s\n",
 					-wctx->addr_width, "Neighbor", "Type",
 					"State", "MAC", "Remote VTEP");
-			vty_out(vty, "%*s %-6s %-8s %-17s %-21s\n",
+			vty_out(vty, "%*s %-6s %-8s %-17s %-21s %u/%u\n",
 				-wctx->addr_width, buf2, "remote", state_str,
-				buf1, inet_ntoa(n->r_vtep_ip));
+				buf1, inet_ntoa(n->r_vtep_ip), n->loc_seq, n->rem_seq);
 		} else {
 			json_object_string_add(json_row, "type", "remote");
 			json_object_string_add(json_row, "state", state_str);
@@ -987,9 +987,9 @@ static void zvni_print_neigh_hash_all_vni(struct hash_bucket *bucket,
 	hash_iterate(zvni->neigh_table, zvni_find_neigh_addr_width, &wctx);
 
 	if (json == NULL) {
-		vty_out(vty, "%*s %-6s %-8s %-17s %-21s\n",
+		vty_out(vty, "%*s %-6s %-8s %-17s %-21s %s\n",
 			-wctx.addr_width, "IP", "Type",
-			"State", "MAC", "Remote VTEP");
+			"State", "MAC", "Remote VTEP", "Seq #'s");
 	}
 	if (print_dup)
 		hash_iterate(zvni->neigh_table, zvni_print_dad_neigh_hash,
