@@ -138,12 +138,11 @@ CXXFLAGS="$orig_cxxflags"
 AC_PROG_CC_C99
 dnl NB: see C11 below
 
-AC_PROG_EGREP
 PKG_PROG_PKG_CONFIG
 
-dnl autoconf 2.59 appears not to support AC_PROG_SED
-dnl AC_PROG_SED
-AC_CHECK_PROG([SED],[sed],[sed],[/bin/false])
+dnl it's 2019, sed is sed.
+SED=sed
+AC_SUBST([SED])
 
 dnl try and enable CFLAGS that are useful for FRR
 dnl - specifically, options to control warnings
@@ -330,7 +329,6 @@ dnl Check programs
 dnl --------------
 AC_PROG_INSTALL
 AC_PROG_LN_S
-AC_PROG_MAKE_SET
 AC_CHECK_TOOL([AR], [ar])
 
 dnl -------
@@ -785,25 +783,11 @@ if test -n "$frr_cv_interp"; then
   AC_DEFINE_UNQUOTED([INTERP], ["$frr_cv_interp"], [.interp value])
 fi
 
-dnl ------------------------------------
-dnl Check C keywords and standard  types
-dnl ------------------------------------
-AC_C_CONST
-AC_C_INLINE
-AC_C_VOLATILE
-AC_HEADER_STDC
-dnl AC_TYPE_PID_T
-AC_TYPE_UID_T
-AC_TYPE_MODE_T
-AC_TYPE_SIZE_T
-AC_STRUCT_TM
-
 dnl -------------------------
 dnl Check other header files.
 dnl -------------------------
 AC_CHECK_HEADERS([stropts.h sys/ksym.h \
-	linux/version.h asm/types.h \
-	sys/cdefs.h])
+	linux/version.h asm/types.h])
 
 ac_stdatomic_ok=false
 AC_DEFINE([FRR_AUTOCONF_ATOMIC], [1], [did autoconf checks for atomic funcs])
@@ -990,7 +974,7 @@ FRR_INCLUDES
 AC_CHECK_HEADERS([netinet/in_var.h \
 	net/if_dl.h net/netopt.h \
 	inet/nd.h netinet/ip_icmp.h \
-	sys/sysctl.h sys/sockio.h kvm.h sys/conf.h],
+	sys/sysctl.h sys/sockio.h sys/conf.h],
 	[], [], [FRR_INCLUDES])
 
 AC_CHECK_HEADERS([ucontext.h], [], [],
@@ -1227,37 +1211,16 @@ dnl -------------------------------
 AC_WORDS_BIGENDIAN
 
 dnl -------------------------------
-dnl check the size in byte of the C
-dnl -------------------------------
-dnl AC_CHECK_SIZEOF(char)
-dnl AC_CHECK_SIZEOF(int)
-dnl AC_CHECK_SIZEOF(short)
-dnl AC_CHECK_SIZEOF(long)
-
-dnl ----------------------------
-dnl check existance of functions
-dnl ----------------------------
-AC_FUNC_FNMATCH
-AC_FUNC_FORK
-AC_FUNC_MKTIME
-AC_FUNC_STAT
-
-dnl -------------------------------
 dnl bgpd needs pow() and hence libm
 dnl -------------------------------
 TMPLIBS="$LIBS"
-AC_CHECK_HEADER([math.h],
-  [AC_CHECK_LIB([m], [pow],
-    [LIBM="-lm"
-     LIBS="$LIBS $LIBM"
-     AC_CHECK_FUNCS(pow,[],[LIBM=""])
-    ])
-])
-if test x"$LIBM" = x ; then
+LIBS=""
+AC_SEARCH_LIBS([pow], [m], [
+  LIBM="$LIBS"
+], [
   AC_MSG_WARN([Unable to find working pow function - bgpd may not link])
-fi
+])
 LIBS="$TMPLIBS"
-
 AC_SUBST([LIBM])
 
 AC_CHECK_FUNCS([ppoll], [
@@ -1696,11 +1659,6 @@ fi
 AM_CONDITIONAL([GRPC], [test "x$enable_grpc" = "xyes"])
 
 dnl ---------------
-dnl math
-dnl ---------------
-AC_SEARCH_LIBS([sqrt], [m])
-
-dnl ---------------
 dnl dlopen & dlinfo
 dnl ---------------
 AC_SEARCH_LIBS([dlopen], [dl dld], [], [
@@ -1759,7 +1717,7 @@ AC_CHECK_TYPES([
 	struct vifctl, struct mfcctl, struct sioc_sg_req,
 	vifi_t, struct sioc_vif_req, struct igmpmsg,
 	struct ifaliasreq, struct if6_aliasreq, struct in6_aliasreq,
-	struct nd_opt_adv_interval, struct rt_addrinfo,
+	struct nd_opt_adv_interval,
 	struct nd_opt_homeagent_info, struct nd_opt_adv_interval,
 	struct nd_opt_rdnss, struct nd_opt_dnssl],
 	[], [], FRR_INCLUDES)
@@ -2198,17 +2156,6 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include "rtrlib/rtrlib.h"]],
 	AC_DEFINE([FOUND_SSH], [1], [found_ssh])],
 	AC_MSG_RESULT([no])
 )
-
-dnl ---------------------------
-dnl Check htonl works correctly
-dnl ---------------------------
-AC_MSG_CHECKING([for working htonl])
-AC_CACHE_VAL(ac_cv_htonl_works,
- [AC_LINK_IFELSE([AC_LANG_PROGRAM([FRR_INCLUDES],[htonl (0);])],
- 		[ac_cv_htonl_works=yes], [ac_cv_htonl_works=no])
- ]
-)
-AC_MSG_RESULT([$ac_cv_htonl_works])
 
 AC_CONFIG_FILES([Makefile],[sed -e 's/^#AUTODERP# //' -i Makefile])
 
