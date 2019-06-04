@@ -368,6 +368,19 @@ Documentation should be written in reStructuredText. Sphinx extensions may be
 utilized but pure ReST is preferred where possible. See
 :ref:`documentation`.
 
+Use of C++
+----------
+
+While C++ is not accepted for core components of FRR, extensions, modules or
+other distinct components may want to use C++ and include FRR header files.
+There is no requirement on contributors to work to retain C++ compatibility,
+but fixes for C++ compatibility are welcome.
+
+This implies that the burden of work to keep C++ compatibility is placed with
+the people who need it, and they may provide it at their leisure to the extent
+it is useful to them.  So, if only a subset of header files, or even parts of
+a header file are made available to C++, this is perfectly fine.
+
 Code Reviews
 ============
 
