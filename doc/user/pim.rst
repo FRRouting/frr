@@ -547,6 +547,13 @@ Clear commands reset various variables.
 
    Reset multicast routes.
 
+.. index:: clear ip mroute [vrf NAME] count
+.. clicmd:: clear ip mroute [vrf NAME] count
+
+   When this command is issued, reset the counts of data shown for
+   packet count, byte count and wrong interface to 0 and start count
+   up from this spot.
+
 .. index:: clear ip pim interfaces
 .. clicmd:: clear ip pim interfaces
 

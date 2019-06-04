@@ -5616,11 +5616,54 @@ DEFUN (show_ip_mroute_vrf_all,
 	return CMD_SUCCESS;
 }
 
+DEFUN (clear_ip_mroute_count,
+       clear_ip_mroute_count_cmd,
+       "clear ip mroute [vrf NAME] count",
+       CLEAR_STR
+       IP_STR
+       MROUTE_STR
+       VRF_CMD_HELP_STR
+       "Route and packet count data\n")
+{
+	int idx = 2;
+	struct listnode *node;
+	struct channel_oil *c_oil;
+	struct static_route *sr;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+	struct pim_instance *pim;
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	pim = vrf->info;
+	for (ALL_LIST_ELEMENTS_RO(pim->channel_oil_list, node, c_oil)) {
+		if (!c_oil->installed)
+			continue;
+
+		pim_mroute_update_counters(c_oil);
+		c_oil->cc.origpktcnt = c_oil->cc.pktcnt;
+		c_oil->cc.origbytecnt = c_oil->cc.bytecnt;
+		c_oil->cc.origwrong_if = c_oil->cc.wrong_if;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sr)) {
+		if (!sr->c_oil.installed)
+			continue;
+
+		pim_mroute_update_counters(&sr->c_oil);
+
+		sr->c_oil.cc.origpktcnt = sr->c_oil.cc.pktcnt;
+		sr->c_oil.cc.origbytecnt = sr->c_oil.cc.bytecnt;
+		sr->c_oil.cc.origwrong_if = sr->c_oil.cc.wrong_if;
+	}
+	return CMD_SUCCESS;
+}
+
 static void show_mroute_count(struct pim_instance *pim, struct vty *vty)
 {
 	struct listnode *node;
 	struct channel_oil *c_oil;
-	struct static_route *s_route;
+	struct static_route *sr;
 
 	vty_out(vty, "\n");
 
@@ -5644,28 +5687,30 @@ static void show_mroute_count(struct pim_instance *pim, struct vty *vty)
 
 		vty_out(vty, "%-15s %-15s %-8llu %-7ld %-10ld %-7ld\n",
 			source_str, group_str, c_oil->cc.lastused / 100,
-			c_oil->cc.pktcnt, c_oil->cc.bytecnt,
-			c_oil->cc.wrong_if);
+			c_oil->cc.pktcnt - c_oil->cc.origpktcnt,
+			c_oil->cc.bytecnt - c_oil->cc.origbytecnt,
+			c_oil->cc.wrong_if - c_oil->cc.origwrong_if);
 	}
 
-	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, s_route)) {
+	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sr)) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
 
-		if (!s_route->c_oil.installed)
+		if (!sr->c_oil.installed)
 			continue;
 
-		pim_mroute_update_counters(&s_route->c_oil);
+		pim_mroute_update_counters(&sr->c_oil);
 
-		pim_inet4_dump("<group?>", s_route->c_oil.oil.mfcc_mcastgrp,
+		pim_inet4_dump("<group?>", sr->c_oil.oil.mfcc_mcastgrp,
 			       group_str, sizeof(group_str));
-		pim_inet4_dump("<source?>", s_route->c_oil.oil.mfcc_origin,
+		pim_inet4_dump("<source?>", sr->c_oil.oil.mfcc_origin,
 			       source_str, sizeof(source_str));
 
 		vty_out(vty, "%-15s %-15s %-8llu %-7ld %-10ld %-7ld\n",
-			source_str, group_str, s_route->c_oil.cc.lastused,
-			s_route->c_oil.cc.pktcnt, s_route->c_oil.cc.bytecnt,
-			s_route->c_oil.cc.wrong_if);
+			source_str, group_str, sr->c_oil.cc.lastused,
+			sr->c_oil.cc.pktcnt - sr->c_oil.cc.origpktcnt,
+			sr->c_oil.cc.bytecnt - sr->c_oil.cc.origbytecnt,
+			sr->c_oil.cc.wrong_if - sr->c_oil.cc.origwrong_if);
 	}
 }
 
@@ -10309,6 +10354,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_bsm_db_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_statistics_cmd);
 
+	install_element(ENABLE_NODE, &clear_ip_mroute_count_cmd);
 	install_element(ENABLE_NODE, &clear_ip_interfaces_cmd);
 	install_element(ENABLE_NODE, &clear_ip_igmp_interfaces_cmd);
 	install_element(ENABLE_NODE, &clear_ip_mroute_cmd);
