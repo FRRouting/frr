@@ -8717,9 +8717,6 @@ DEFUN (no_ip_pim_ucast_bsm,
 
 #if HAVE_BFDD > 0
 DEFUN_HIDDEN(
-#else
-DEFUN(
-#endif /* HAVE_BFDD */
        ip_pim_bfd_param,
        ip_pim_bfd_param_cmd,
        "ip pim bfd (2-255) (50-60000) (50-60000)",
@@ -8729,6 +8726,18 @@ DEFUN(
        "Detect Multiplier\n"
        "Required min receive interval\n"
        "Desired min transmit interval\n")
+#else
+DEFUN(
+       ip_pim_bfd_param,
+       ip_pim_bfd_param_cmd,
+       "ip pim bfd (2-255) (50-60000) (50-60000)",
+       IP_STR
+       PIM_STR
+       "Enables BFD support\n"
+       "Detect Multiplier\n"
+       "Required min receive interval\n"
+       "Desired min transmit interval\n")
+#endif /* HAVE_BFDD */
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_number = 3;
