@@ -9542,12 +9542,14 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "Paths: (%d available", count);
 		if (best) {
 			vty_out(vty, ", best #%d", best);
-			if (safi == SAFI_UNICAST)
-				vty_out(vty, ", table %s",
-					(bgp->inst_type
-					 == BGP_INSTANCE_TYPE_DEFAULT)
-						? VRF_DEFAULT_NAME
-						: bgp->name);
+			if (safi == SAFI_UNICAST) {
+				if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+					vty_out(vty, ", table %s",
+						VRF_DEFAULT_NAME);
+				else
+					vty_out(vty, ", vrf %s",
+						bgp->name);
+			}
 		} else
 			vty_out(vty, ", no best path");
 
