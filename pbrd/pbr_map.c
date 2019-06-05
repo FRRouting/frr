@@ -352,7 +352,7 @@ pbr_map_sequence_check_nexthops_valid(struct pbr_map_sequence *pbrms)
 
 static void pbr_map_sequence_check_src_dst_valid(struct pbr_map_sequence *pbrms)
 {
-	if (!pbrms->src && !pbrms->dst)
+	if (!pbrms->src && !pbrms->dst && !pbrms->fwmark)
 		pbrms->reason |= PBR_MAP_INVALID_SRCDST;
 }
 
