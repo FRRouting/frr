@@ -160,7 +160,8 @@ static void bg_init(void)
 
 int main(int argc, char *argv[])
 {
-	const char *ctl_path = BFDD_CONTROL_SOCKET;
+	char ctl_path[512];
+	bool ctlsockused = false;
 	int opt;
 
 	/* Initialize system sockets. */
@@ -170,6 +171,8 @@ int main(int argc, char *argv[])
 	frr_opt_add("", longopts,
 		    "      --bfdctl       Specify bfdd control socket\n");
 
+	snprintf(ctl_path, sizeof(ctl_path), BFDD_CONTROL_SOCKET,
+		 "", "");
 	while (true) {
 		opt = frr_getopt(argc, argv, NULL);
 		if (opt == EOF)
@@ -177,7 +180,8 @@ int main(int argc, char *argv[])
 
 		switch (opt) {
 		case OPTION_CTLSOCK:
-			ctl_path = optarg;
+			strlcpy(ctl_path, optarg, sizeof(ctl_path));
+			ctlsockused = true;
 			break;
 
 		default:
@@ -185,6 +189,10 @@ int main(int argc, char *argv[])
 			break;
 		}
 	}
+
+	if (bfdd_di.pathspace && !ctlsockused)
+		snprintf(ctl_path, sizeof(ctl_path), BFDD_CONTROL_SOCKET,
+			 "/", bfdd_di.pathspace);
 
 #if 0 /* TODO add support for JSON configuration files. */
 	parse_config(conf);

@@ -340,8 +340,7 @@ static void netlink_write_incoming(const char *buf, const unsigned int size,
 	char fname[MAXPATHLEN];
 	FILE *f;
 
-	snprintf(fname, MAXPATHLEN, "%s/%s_%u", DAEMON_VTY_DIR, "netlink",
-		 counter);
+	snprintf(fname, MAXPATHLEN, "%s/%s_%u", frr_vtydir, "netlink", counter);
 	frr_elevate_privs(&zserv_privs) {
 		f = fopen(fname, "w");
 	}

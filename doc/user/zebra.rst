@@ -58,6 +58,12 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
 
    .. seealso:: :ref:`zebra-vrf`
 
+.. option:: -z <path_to_socket>, --socket <path_to_socket>
+
+   If this option is supplied on the cli, the path to the zebra
+   control socket(zapi), is used.  This option overrides a -N <namespace>
+   option if handed to it on the cli.
+
 .. option:: --v6-rr-semantics
 
    The linux kernel is receiving the ability to use the same route

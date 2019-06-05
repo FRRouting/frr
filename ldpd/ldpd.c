@@ -116,7 +116,7 @@ struct zebra_privs_t ldpd_privs =
 };
 
 /* CTL Socket path */
-char ctl_sock_path[MAXPATHLEN] = LDPD_SOCKET;
+char ctl_sock_path[MAXPATHLEN];
 
 /* LDPd options. */
 #define OPTION_CTLSOCK 1001
@@ -219,6 +219,10 @@ main(int argc, char *argv[])
 	int			 pipe_parent2lde[2], pipe_parent2lde_sync[2];
 	char			*ctl_sock_name;
 	struct thread           *thread = NULL;
+	bool                    ctl_sock_used = false;
+
+	snprintf(ctl_sock_path, sizeof(ctl_sock_path), LDPD_SOCKET,
+		 "", "");
 
 	ldpd_process = PROC_MAIN;
 	log_procname = log_procnames[ldpd_process];
@@ -244,6 +248,7 @@ main(int argc, char *argv[])
 		case 0:
 			break;
 		case OPTION_CTLSOCK:
+			ctl_sock_used = true;
 			ctl_sock_name = strrchr(LDPD_SOCKET, '/');
 			if (ctl_sock_name)
 				/* skip '/' */
@@ -276,6 +281,10 @@ main(int argc, char *argv[])
 			break;
 		}
 	}
+
+	if (ldpd_di.pathspace && !ctl_sock_used)
+		snprintf(ctl_sock_path, sizeof(ctl_sock_path), LDPD_SOCKET,
+			 "/", ldpd_di.pathspace);
 
 	strlcpy(init.user, ldpd_privs.user, sizeof(init.user));
 	strlcpy(init.group, ldpd_privs.group, sizeof(init.group));
