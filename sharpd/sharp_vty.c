@@ -157,7 +157,7 @@ DEFPY (install_routes_data_dump,
 
 DEFPY (install_routes,
        install_routes_cmd,
-       "sharp install routes [vrf NAME$name] <A.B.C.D$start4|X:X::X:X$start6> <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|nexthop-group NAME$nexthop_group> (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt]",
+       "sharp install routes [vrf NAME$name] <A.B.C.D$start4|X:X::X:X$start6> <nexthop <A.B.C.D$nexthop4|X:X::X:X$nexthop6>|nexthop-group NHGNAME$nexthop_group> (1-1000000)$routes [instance (0-255)$instance] [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
