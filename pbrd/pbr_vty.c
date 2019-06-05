@@ -172,7 +172,7 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 }
 
 DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
-	"[no] set nexthop-group NAME$name",
+	"[no] set nexthop-group NHGNAME$name",
 	NO_STR
 	"Set for the PBR-MAP\n"
 	"nexthop-group to use\n"
