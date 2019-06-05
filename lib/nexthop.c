@@ -32,6 +32,7 @@
 #include "nexthop.h"
 #include "mpls.h"
 #include "jhash.h"
+#include "printfrr.h"
 
 DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop")
 DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label")
@@ -422,4 +423,88 @@ uint32_t nexthop_hash(const struct nexthop *nexthop)
 		break;
 	}
 	return key;
+}
+
+/*
+ * nexthop printing variants:
+ *	%pNHvv
+ *		via 1.2.3.4
+ *		via 1.2.3.4, eth0
+ *		is directly connected, eth0
+ *		unreachable (blackhole)
+ *	%pNHv
+ *		1.2.3.4
+ *		1.2.3.4, via eth0
+ *		directly connected, eth0
+ *		unreachable (blackhole)
+ *	%pNHs
+ *		nexthop2str()
+ */
+printfrr_ext_autoreg_p("NH", printfrr_nh)
+static ssize_t printfrr_nh(char *buf, size_t bsz, const char *fmt,
+			   int prec, const void *ptr)
+{
+	const struct nexthop *nexthop = ptr;
+	struct fbuf fb = { .buf = buf, .pos = buf, .len = bsz - 1 };
+	bool do_ifi = false;
+	const char *s, *v_is = "", *v_via = "", *v_viaif = "via ";
+	ssize_t ret = 3;
+
+	switch (fmt[2]) {
+	case 'v':
+		if (fmt[3] == 'v') {
+			v_is = "is ";
+			v_via = "via ";
+			v_viaif = "";
+			ret++;
+		}
+
+		switch (nexthop->type) {
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			bprintfrr(&fb, "%s%pI4", v_via, &nexthop->gate.ipv4);
+			do_ifi = true;
+			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			bprintfrr(&fb, "%s%pI6", v_via, &nexthop->gate.ipv6);
+			do_ifi = true;
+			break;
+		case NEXTHOP_TYPE_IFINDEX:
+			bprintfrr(&fb, "%sdirectly connected, %s", v_is,
+				ifindex2ifname(nexthop->ifindex,
+					       nexthop->vrf_id));
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			switch (nexthop->bh_type) {
+			case BLACKHOLE_REJECT:
+				s = " (ICMP unreachable)";
+				break;
+			case BLACKHOLE_ADMINPROHIB:
+				s = " (ICMP admin-prohibited)";
+				break;
+			case BLACKHOLE_NULL:
+				s = " (blackhole)";
+				break;
+			default:
+				s = "";
+				break;
+			}
+			bprintfrr(&fb, "unreachable%s", s);
+			break;
+		default:
+			break;
+		}
+		if (do_ifi && nexthop->ifindex)
+			bprintfrr(&fb, ", %s%s", v_viaif, ifindex2ifname(
+					nexthop->ifindex,
+					nexthop->vrf_id));
+
+		*fb.pos = '\0';
+		return ret;
+	case 's':
+		nexthop2str(nexthop, buf, bsz);
+		return 3;
+	}
+	return 0;
 }

@@ -94,6 +94,9 @@ lib_libfrr_la_SOURCES = \
 	lib/yang_wrappers.c \
 	lib/zclient.c \
 	lib/logicalrouter.c \
+	lib/printf/printf-pos.c \
+	lib/printf/vfprintf.c \
+	lib/printf/glue.c \
 	# end
 
 nodist_lib_libfrr_la_SOURCES = \
@@ -192,6 +195,7 @@ pkginclude_HEADERS += \
 	lib/plist.h \
 	lib/pqueue.h \
 	lib/prefix.h \
+	lib/printfrr.h \
 	lib/privs.h \
 	lib/ptm_lib.h \
 	lib/pw.h \
@@ -244,6 +248,8 @@ noinst_HEADERS += \
 	lib/clippy.h \
 	lib/log_int.h \
 	lib/plist_int.h \
+	lib/printf/printfcommon.h \
+	lib/printf/printflocal.h \
 	#end
 
 # General note about module and module helper library (libfrrsnmp, libfrrzmq)

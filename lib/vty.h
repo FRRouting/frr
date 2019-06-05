@@ -313,8 +313,8 @@ extern void vty_time_print(struct vty *, int);
 extern void vty_serv_sock(const char *, unsigned short, const char *);
 extern void vty_close(struct vty *);
 extern char *vty_get_cwd(void);
-extern void vty_log(const char *level, const char *proto, const char *fmt,
-		    struct timestamp_control *, va_list);
+extern void vty_log(const char *level, const char *proto, const char *msg,
+		    struct timestamp_control *);
 extern int vty_config_enter(struct vty *vty, bool private_config,
 			    bool exclusive);
 extern void vty_config_exit(struct vty *);

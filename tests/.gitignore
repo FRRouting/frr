@@ -30,6 +30,7 @@
 /lib/test_idalloc
 /lib/test_memory
 /lib/test_nexthop_iter
+/lib/test_printfrr
 /lib/test_privs
 /lib/test_ringbuf
 /lib/test_segv

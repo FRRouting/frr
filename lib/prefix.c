@@ -28,6 +28,7 @@
 #include "log.h"
 #include "jhash.h"
 #include "lib_errors.h"
+#include "printfrr.h"
 
 DEFINE_MTYPE_STATIC(LIB, PREFIX, "Prefix")
 DEFINE_MTYPE_STATIC(LIB, PREFIX_FLOWSPEC, "Prefix Flowspec")
@@ -1625,4 +1626,49 @@ char *esi_to_str(const esi_t *esi, char *buf, int size)
 		 esi->val[6], esi->val[7], esi->val[8],
 		 esi->val[9]);
 	return ptr;
+}
+
+printfrr_ext_autoreg_p("I4", printfrr_i4)
+static ssize_t printfrr_i4(char *buf, size_t bsz, const char *fmt,
+			   int prec, const void *ptr)
+{
+	inet_ntop(AF_INET, ptr, buf, bsz);
+	return 2;
+}
+
+printfrr_ext_autoreg_p("I6", printfrr_i6)
+static ssize_t printfrr_i6(char *buf, size_t bsz, const char *fmt,
+			   int prec, const void *ptr)
+{
+	inet_ntop(AF_INET6, ptr, buf, bsz);
+	return 2;
+}
+
+printfrr_ext_autoreg_p("FX", printfrr_pfx)
+static ssize_t printfrr_pfx(char *buf, size_t bsz, const char *fmt,
+			    int prec, const void *ptr)
+{
+	prefix2str(ptr, buf, bsz);
+	return 2;
+}
+
+printfrr_ext_autoreg_p("SG4", printfrr_psg)
+static ssize_t printfrr_psg(char *buf, size_t bsz, const char *fmt,
+			    int prec, const void *ptr)
+{
+	const struct prefix_sg *sg = ptr;
+	struct fbuf fb = { .buf = buf, .pos = buf, .len = bsz - 1 };
+
+	if (sg->src.s_addr == INADDR_ANY)
+		bprintfrr(&fb, "(*,");
+	else
+		bprintfrr(&fb, "(%pI4,", &sg->src);
+
+	if (sg->grp.s_addr == INADDR_ANY)
+		bprintfrr(&fb, "*)");
+	else
+		bprintfrr(&fb, "%pI4)", &sg->grp);
+
+	fb.pos[0] = '\0';
+	return 3;
 }

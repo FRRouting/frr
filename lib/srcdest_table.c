@@ -28,6 +28,7 @@
 #include "memory.h"
 #include "prefix.h"
 #include "table.h"
+#include "printfrr.h"
 
 DEFINE_MTYPE_STATIC(LIB, ROUTE_SRC_NODE, "Route source node")
 
@@ -264,7 +265,8 @@ struct route_node *srcdest_rnode_lookup(struct route_table *table,
 	return srn;
 }
 
-void srcdest_rnode_prefixes(struct route_node *rn, const struct prefix **p,
+void srcdest_rnode_prefixes(const struct route_node *rn,
+			    const struct prefix **p,
 			    const struct prefix **src_p)
 {
 	if (rnode_is_srcnode(rn)) {
@@ -296,10 +298,22 @@ const char *srcdest2str(const struct prefix *dst_p,
 	return str;
 }
 
-const char *srcdest_rnode2str(struct route_node *rn, char *str, int size)
+const char *srcdest_rnode2str(const struct route_node *rn, char *str, int size)
 {
 	const struct prefix *dst_p, *src_p;
 
 	srcdest_rnode_prefixes(rn, &dst_p, &src_p);
 	return srcdest2str(dst_p, (const struct prefix_ipv6 *)src_p, str, size);
+}
+
+printfrr_ext_autoreg_p("RN", printfrr_rn)
+static ssize_t printfrr_rn(char *buf, size_t bsz, const char *fmt,
+			   int prec, const void *ptr)
+{
+	const struct route_node *rn = ptr;
+	const struct prefix *dst_p, *src_p;
+
+	srcdest_rnode_prefixes(rn, &dst_p, &src_p);
+	srcdest2str(dst_p, (const struct prefix_ipv6 *)src_p, buf, bsz);
+	return 2;
 }

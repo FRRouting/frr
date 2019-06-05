@@ -209,12 +209,14 @@ exit_handler(int signo
 #endif
 	     )
 {
-	zlog_signal(signo, "exiting..."
-#ifdef SA_SIGINFO
-		    ,
-		    siginfo, program_counter(context)
+#ifndef SA_SIGINFO
+	void *siginfo = NULL;
+	void *pc = NULL;
+#else
+	void *pc = program_counter(context);
 #endif
-			    );
+
+	zlog_signal(signo, "exiting...", siginfo, pc);
 	_exit(128 + signo);
 }
 
@@ -226,6 +228,13 @@ core_handler(int signo
 #endif
 	     )
 {
+#ifndef SA_SIGINFO
+	void *siginfo = NULL;
+	void *pc = NULL;
+#else
+	void *pc = program_counter(context);
+#endif
+
 	/* make sure we don't hang in here.  default for SIGALRM is terminate.
 	 * - if we're in backtrace for more than a second, abort. */
 	struct sigaction sa_default = {.sa_handler = SIG_DFL};
@@ -238,12 +247,8 @@ core_handler(int signo
 
 	alarm(1);
 
-	zlog_signal(signo, "aborting..."
-#ifdef SA_SIGINFO
-		    ,
-		    siginfo, program_counter(context)
-#endif
-			    );
+	zlog_signal(signo, "aborting...", siginfo, pc);
+
 	/* dump memory stats on core */
 	log_memstats(stderr, "core_handler");
 	abort();
