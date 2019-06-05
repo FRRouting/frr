@@ -1418,31 +1418,43 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 {
 	const struct prefix *p = pu.p;
 	char buf[PREFIX2STR_BUFFER];
+	unsigned char *a;
+	size_t l;
 
 	switch (p->family) {
 	case AF_INET:
-	case AF_INET6:
-		snprintf(str, size, "%s/%d", inet_ntop(p->family, &p->u.prefix,
-						       buf, PREFIX2STR_BUFFER),
-			 p->prefixlen);
+		a = (unsigned char *)&p->u.prefix4;
+		l = strlcpy(buf, num_str[a[0]], sizeof(buf));
+		buf[l++] = '.';
+		l += strlcpy(&buf[l], num_str[a[1]], sizeof(buf) - l);
+		buf[l++] = '.';
+		l += strlcpy(&buf[l], num_str[a[2]], sizeof(buf) - l);
+		buf[l++] = '.';
+		l += strlcpy(&buf[l], num_str[a[3]], sizeof(buf) - l);
+		buf[l++] = '/';
+		strlcpy(&buf[l], num_str[p->prefixlen], sizeof(buf) - l);
+		strlcpy(str, buf, size);
 		break;
-
+	case AF_INET6:
+		inet_ntop_fast(p->family, &p->u.prefix, buf, sizeof(buf));
+		l = strlen(buf);
+		buf[l++] = '/';
+		strlcpy(&buf[l], num_str[p->prefixlen], sizeof(buf) - l);
+		strlcpy(str, buf, size);
+		break;
 	case AF_ETHERNET:
 		snprintf(str, size, "%s/%d",
 			 prefix_mac2str(&p->u.prefix_eth, buf, sizeof(buf)),
 			 p->prefixlen);
 		break;
-
 	case AF_EVPN:
 		prefixevpn2str((const struct prefix_evpn *)p, str, size);
 		break;
-
 	case AF_FLOWSPEC:
-		sprintf(str, "FS prefix");
+		strlcpy(str, "FS prefix", size);
 		break;
-
 	default:
-		sprintf(str, "UNK prefix");
+		strlcpy(str, "UNK prefix", size);
 		break;
 	}
 
