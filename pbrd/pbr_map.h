@@ -87,6 +87,7 @@ struct pbr_map_sequence {
 	 */
 	struct prefix *src;
 	struct prefix *dst;
+	unsigned int fwmark;
 
 	/*
 	 * Family of the src/dst.  Needed when deleting since we clear them

@@ -171,6 +171,28 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(pbr_map_match_fwmark, pbr_map_match_fwmark_cmd,
+	"[no] match fwmark (1-4294967295)$fwmark",
+	NO_STR
+	"Match the rest of the command\n"
+	"Choose the fwmark value to use\n"
+	"fwmark\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no) {
+		if (pbrms->fwmark == fwmark)
+			return CMD_SUCCESS;
+		pbrms->fwmark = fwmark;
+	} else {
+		pbrms->fwmark = 0;
+	}
+
+	pbr_map_check(pbrms);
+
+	return CMD_SUCCESS;
+ }
+
 DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
 	"[no] set nexthop-group NAME$name",
 	NO_STR
@@ -452,6 +474,8 @@ DEFPY (show_pbr_map,
 				vty_out(vty, "\tDST Match: %s\n",
 					prefix2str(pbrms->dst, buf,
 						   sizeof(buf)));
+			if (pbrms->fwmark)
+				vty_out(vty, "\tFWMARK Match: %u\n", pbrms->fwmark);
 
 			if (pbrms->nhgrp_name) {
 				vty_out(vty,
@@ -631,6 +655,9 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 		vty_out(vty, " match dst-ip %s\n",
 			prefix2str(pbrms->dst, buff, sizeof(buff)));
 
+	if (pbrms->fwmark)
+		vty_out(vty, " match fwmark %u\n", pbrms->fwmark);
+
 	if (pbrms->nhgrp_name)
 		vty_out(vty, " set nexthop-group %s\n", pbrms->nhgrp_name);
 
@@ -684,6 +711,7 @@ void pbr_vty_init(void)
 	install_element(INTERFACE_NODE, &pbr_policy_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_src_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_dst_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_match_fwmark_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_group_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_cmd);
 	install_element(VIEW_NODE, &show_pbr_cmd);
