@@ -382,6 +382,12 @@ static inline void ipv4_addr_copy(struct in_addr *dst,
 #endif /* SUNOS_5 */
 #endif /*s6_addr32*/
 
+/*
+ * Replacement for inet_ntop. Performs ~75% faster than glibc's implementation
+ * for AF_INET, and ~30% faster for AF_INET6. Semantics are exactly the same.
+ */
+const char *inet_ntop_fast(int af, const void *src, char *dst, socklen_t size);
+
 /* Prototypes. */
 extern int str2family(const char *);
 extern int afi2family(afi_t);
