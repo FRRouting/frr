@@ -20,6 +20,8 @@
 
 #include <zebra.h>
 
+#include "filter.h"
+
 #include "bfd.h"
 #include "lib/version.h"
 
@@ -205,6 +207,8 @@ int main(int argc, char *argv[])
 
 	/* Initialize BFD data structures. */
 	bfd_initialize();
+
+	access_list_init();
 
 	/* Initialize zebra connection. */
 	bfdd_zclient_init(&bfdd_privs);
