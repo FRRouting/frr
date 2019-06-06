@@ -1,0 +1,44 @@
+{
+  "2001:db8:1::/64": [
+    {
+      "prefix": "2001:db8:1::/64",
+      "protocol": "bgp",
+      "vrfId":3,
+      "distance": 20,
+      "metric": 0,
+      "internalStatus": 2,
+      "internalFlags": 0,
+      "nexthops": [
+        {
+          "flags": 1,
+          "afi": "ipv6",
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0",
+          "active": true
+        }
+      ]
+    },
+    {
+      "prefix": "2001:db8:1::/64",
+      "protocol": "connected",
+      "vrfId":3,
+      "selected": true,
+      "destSelected": true,
+      "distance": 0,
+      "metric": 0,
+      "installed": true,
+      "internalStatus": 32,
+      "internalFlags": 8,
+      "nexthops": [
+        {
+          "flags": 3,
+          "fib": true,
+          "directlyConnected": true,
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0",
+          "active": true
+        }
+      ]
+    }
+  ]
+}
