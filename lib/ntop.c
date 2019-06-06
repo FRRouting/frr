@@ -165,8 +165,10 @@ inet4:
 	return dst;
 }
 
+#ifndef INET_NTOP_NO_OVERRIDE
 /* we want to override libc inet_ntop, but make sure it shows up in backtraces
  * as frr_inet_ntop (to avoid confusion while debugging)
  */
 const char *inet_ntop(int af, const void *src, char *dst, socklen_t size)
 	__attribute__((alias ("frr_inet_ntop"))) DSO_SELF;
+#endif
