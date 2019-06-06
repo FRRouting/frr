@@ -1060,6 +1060,9 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 
 				json_object_int_add(json_prefix_info,
 					"prefixLen", rm->p.prefixlen);
+
+				if (rd_header)
+					json_nroute = json_object_new_object();
 			}
 
 			for (pi = bgp_node_get_bgp_path_info(rm); pi;
@@ -1132,8 +1135,6 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 					else if (type == RD_TYPE_IP)
 						decode_rd_ip(pnt + 2, &rd_ip);
 					if (use_json) {
-						json_nroute =
-						      json_object_new_object();
 						if (type == RD_TYPE_AS
 						    || type == RD_TYPE_AS4)
 							sprintf(rd_str, "%u:%d",
@@ -1184,6 +1185,7 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 						      SAFI_EVPN, json_array);
 				output_count++;
 			}
+			rd_header = 0;
 			if (use_json) {
 				json_object_object_add(json_prefix_info,
 					"paths", json_array);
