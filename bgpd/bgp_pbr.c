@@ -698,6 +698,7 @@ int bgp_pbr_build_and_validate_entry(struct prefix *p,
 	int valid_prefix = 0;
 	afi_t afi = AFI_IP;
 	struct bgp_pbr_entry_action *api_action_redirect_ip = NULL;
+	bool discard_action_found = false;
 
 	/* extract match from flowspec entries */
 	ret = bgp_flowspec_match_rules_fill((uint8_t *)p->u.prefix_flowspec.ptr,
@@ -805,9 +806,21 @@ int bgp_pbr_build_and_validate_entry(struct prefix *p,
 								 api_action);
 				if (ret != 0)
 					continue;
+				if ((api_action->action == ACTION_TRAFFICRATE) &&
+				    api->actions[i].u.r.rate == 0)
+					discard_action_found = true;
 			}
 			api->action_num++;
 		}
+	}
+	/* if ECOMMUNITY_TRAFFIC_RATE = 0 as action
+	 * then reduce the API action list to that action
+	 */
+	if (api->action_num > 1 && discard_action_found) {
+		api->action_num = 1;
+		memset(&api->actions[0], 0,
+		       sizeof(struct bgp_pbr_entry_action));
+		api->actions[0].action = ACTION_TRAFFICRATE;
 	}
 
 	/* validate if incoming matc/action is compatible
