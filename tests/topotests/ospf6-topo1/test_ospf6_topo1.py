@@ -154,16 +154,12 @@ def setup_module(mod):
     tgen = Topogen(NetworkTopo, mod.__name__)
     tgen.start_topology()
 
-    print("\n\n** %s: Setup Topology" % mod.__name__)
-    print("******************************************\n")
+    logger.info("** %s: Setup Topology" % mod.__name__)
+    logger.info("******************************************")
 
     # For debugging after starting net, but before starting FRR,
     # uncomment the next line
     # tgen.mininet_cli()
-
-    ospf_config = 'ospf6d.conf'
-    if tgen.gears['r1'].has_version('<', '4.0'):
-        ospf_config = 'ospf6d.conf-pre-v4'
 
     router_list = tgen.routers()
     for rname, router in router_list.iteritems():
@@ -173,7 +169,7 @@ def setup_module(mod):
         )
         router.load_config(
             TopoRouter.RD_OSPF6,
-            os.path.join(CWD, '{}/{}'.format(rname, ospf_config))
+            os.path.join(CWD, '{}/ospf6d.conf'.format(rname))
         )
 
     # Initialize all routers.
@@ -201,8 +197,7 @@ def test_ospf6_converged():
     #tgen.mininet_cli()
 
     # Wait for OSPF6 to converge  (All Neighbors in either Full or TwoWay State)
-    print("\n\n** Verify OSPF6 daemons' convergence")
-    print("******************************************\n")
+    logger.info("Waiting for OSPF6 convergence")
 
     # Set up for regex
     pat1 = re.compile('^[0-9]')
@@ -210,7 +205,7 @@ def test_ospf6_converged():
 
     timeout = 60
     while timeout > 0:
-        print("Timeout in %s: " % timeout),
+        logger.info("Timeout in %s: " % timeout),
         sys.stdout.flush()
 
         # Look for any node not yet converged
@@ -230,12 +225,12 @@ def test_ospf6_converged():
                         break
 
             if isConverged == False:
-                print('Waiting for {}'.format(router))
+                logger.info('Waiting for {}'.format(router))
                 sys.stdout.flush()
                 break
 
         if isConverged:
-            print('Done\n')
+            logger.info('Done')
             break
         else:
             sleep(5)
@@ -246,12 +241,7 @@ def test_ospf6_converged():
         ospfStatus = rnode.vtysh_cmd('show ipv6 ospf neigh')
         assert False, "OSPFv6 did not converge:\n{}".format(ospfStatus)
 
-    print("OSPFv3 converged.")
-
-    if timeout < 60:
-        # Only wait if we actually went through a convergence
-        print("\nwaiting 15s for routes to populate")
-        sleep(15)
+    logger.info("OSPFv3 converged.")
 
     # For debugging, uncomment the next line
     # tgen.mininet_cli()
@@ -266,7 +256,9 @@ def compare_show_ipv6(rname, expected):
     result with the expected output.
     """
     tgen = get_topogen()
-    current = tgen.gears[rname].vtysh_cmd('show ipv6 route')
+
+    # Use the vtysh output, with some masking to make comparison easy
+    current = topotest.ip6_route_zebra(tgen.gears[rname])
 
     # Use just the 'O'spf lines of the output
     linearr = []
@@ -275,14 +267,6 @@ def compare_show_ipv6(rname, expected):
             linearr.append(line)
 
     current = '\n'.join(linearr)
-
-    # Remove the link addresses
-    current = re.sub(r'fe80::[^ ]+', 'fe80::xxxx:xxxx:xxxx:xxxx', current)
-    expected = re.sub(r'fe80::[^ ]+', 'fe80::xxxx:xxxx:xxxx:xxxx', expected)
-
-    # Remove the time
-    current = re.sub(r', \d+:\d{2}:\d{2}', '', current)
-    expected = re.sub(r'\d+:\d{2}:\d{2}', '', expected)
 
     return topotest.difflines(topotest.normalize_text(current),
                               topotest.normalize_text(expected),
@@ -322,8 +306,8 @@ def test_linux_ipv6_kernel_routingTable():
         pytest.skip('skipped because of router(s) failure')
 
     # Verify Linux Kernel Routing Table
-    print("\n\n** Verifying Linux IPv6 Kernel Routing Table")
-    print("******************************************\n")
+    logger.info("Verifying Linux IPv6 Kernel Routing Table")
+
     failures = 0
 
     # Get a list of all current link-local addresses first as they change for
@@ -332,7 +316,8 @@ def test_linux_ipv6_kernel_routingTable():
     for i in range(1, 5):
         linklocals += tgen.net['r{}'.format(i)].get_ipv6_linklocal()
 
-    # Now compare the routing tables (after substituting link-local addresses)        
+    # Now compare the routing tables (after substituting link-local addresses)
+
     for i in range(1, 5):
         refTableFile = os.path.join(CWD, 'r{}/ip_6_address.ref'.format(i))
         if os.path.isfile(refTableFile):
@@ -365,9 +350,9 @@ def test_linux_ipv6_kernel_routingTable():
             actual = '\n'.join(filtered_lines).splitlines(1)
 
             # Print Actual table
-            # print("Router r%s table" % i)
+            # logger.info("Router r%s table" % i)
             # for line in actual:
-            #     print(line.rstrip())
+            #     logger.info(line.rstrip())
 
             # Generate Diff
             diff = topotest.get_textdiff(actual, expected,
@@ -379,7 +364,7 @@ def test_linux_ipv6_kernel_routingTable():
                 sys.stderr.write('r%s failed Linux IPv6 Kernel Routing Table Check:\n%s\n' % (i, diff))
                 failures += 1
             else:
-                print("r%s ok" % i)
+                logger.info("r%s ok" % i)
 
             assert failures == 0, "Linux Kernel IPv6 Routing Table verification failed for router r%s:\n%s" % (i, diff)
 
@@ -392,29 +377,29 @@ def test_shutdown_check_stderr():
         pytest.skip('skipped because of router(s) failure')
 
     if os.environ.get('TOPOTESTS_CHECK_STDERR') is None:
-        print("SKIPPED final check on StdErr output: Disabled (TOPOTESTS_CHECK_STDERR undefined)\n")
+        logger.info("SKIPPED final check on StdErr output: Disabled (TOPOTESTS_CHECK_STDERR undefined)\n")
         pytest.skip('Skipping test for Stderr output')
 
     net = tgen.net
 
-    print("\n\n** Verifying unexpected STDERR output from daemons")
-    print("******************************************\n")
+    logger.info("\n\n** Verifying unexpected STDERR output from daemons")
+    logger.info("******************************************")
 
     for i in range(1, 5):
         net['r%s' % i].stopRouter()
         log = net['r%s' % i].getStdErr('ospf6d')
         if log:
-            print("\nRouter r%s OSPF6d StdErr Log:\n%s" % (i, log))
+            logger.info("\nRouter r%s OSPF6d StdErr Log:\n%s" % (i, log))
         log = net['r%s' % i].getStdErr('zebra')
         if log:
-            print("\nRouter r%s Zebra StdErr Log:\n%s" % (i, log))
+            logger.info("\nRouter r%s Zebra StdErr Log:\n%s" % (i, log))
 
 
 def test_shutdown_check_memleak():
     "Run the memory leak test and report results."
 
     if os.environ.get('TOPOTESTS_CHECK_MEMLEAK') is None:
-        print("SKIPPED final check on Memory leaks: Disabled (TOPOTESTS_CHECK_MEMLEAK undefined)\n")
+        logger.info("SKIPPED final check on Memory leaks: Disabled (TOPOTESTS_CHECK_MEMLEAK undefined)")
         pytest.skip('Skipping test for memory leaks')
 
     tgen = get_topogen()
@@ -430,7 +415,9 @@ def test_shutdown_check_memleak():
 
 if __name__ == '__main__':
 
-    # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
+    # To suppress tracebacks, either use the following pytest call or
+    # add "--tb=no" to cli
     # retval = pytest.main(["-s", "--tb=no"])
+
     retval = pytest.main(["-s"])
     sys.exit(retval)
