@@ -429,6 +429,33 @@ def ip4_route_zebra(node, vrf_name=None):
         lines = lines[1:]
     return '\n'.join(lines)
 
+def ip6_route_zebra(node, vrf_name=None):
+    """
+    Retrieves the output of 'show ipv6 route [vrf vrf_name]', then
+    canonicalizes it by eliding link-locals.
+    """
+
+    if vrf_name == None:
+        tmp = node.vtysh_cmd('show ipv6 route')
+    else:
+        tmp = node.vtysh_cmd('show ipv6 route vrf {0}'.format(vrf_name))
+
+    # Mask out timestamp
+    output = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", tmp)
+
+    # Mask out the link-local addresses
+    output = re.sub(r'fe80::[^ ]+,', 'fe80::XXXX:XXXX:XXXX:XXXX,', output)
+
+    lines = output.splitlines()
+    header_found = False
+    while lines and (not lines[0].strip() or not header_found):
+        if '> - selected route' in lines[0]:
+            header_found = True
+        lines = lines[1:]
+
+    return '\n'.join(lines)
+
+
 def proto_name_to_number(protocol):
     return {
         'bgp':    '186',
