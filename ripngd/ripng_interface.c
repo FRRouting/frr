@@ -184,7 +184,8 @@ static int ripng_if_down(struct interface *ifp)
 			zlog_debug("turn off %s", ifp->name);
 
 		/* Leave from multicast group. */
-		ripng_multicast_leave(ifp, ripng->sock);
+		if (ripng)
+			ripng_multicast_leave(ifp, ripng->sock);
 
 		ri->running = 0;
 	}

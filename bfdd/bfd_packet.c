@@ -435,15 +435,17 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 
 				*ifindex = pi6->ipi6_ifindex;
+
+				/* Set scope ID for link local addresses. */
+				if (IN6_IS_ADDR_LINKLOCAL(
+					    &peer->sa_sin6.sin6_addr))
+					peer->sa_sin6.sin6_scope_id = *ifindex;
+				if (IN6_IS_ADDR_LINKLOCAL(
+					    &local->sa_sin6.sin6_addr))
+					local->sa_sin6.sin6_scope_id = *ifindex;
 			}
 		}
 	}
-
-	/* Set scope ID for link local addresses. */
-	if (IN6_IS_ADDR_LINKLOCAL(&peer->sa_sin6.sin6_addr))
-		peer->sa_sin6.sin6_scope_id = *ifindex;
-	if (IN6_IS_ADDR_LINKLOCAL(&local->sa_sin6.sin6_addr))
-		local->sa_sin6.sin6_scope_id = *ifindex;
 
 	return mlen;
 }

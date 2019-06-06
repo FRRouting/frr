@@ -294,6 +294,10 @@ static struct bgp_path_info_mpath *
 bgp_path_info_mpath_get(struct bgp_path_info *path)
 {
 	struct bgp_path_info_mpath *mpath;
+
+	if (!path)
+		return NULL;
+
 	if (!path->mpath) {
 		mpath = bgp_path_info_mpath_new();
 		if (!mpath)
@@ -523,6 +527,7 @@ void bgp_path_info_mpath_update(struct bgp_node *rn,
 			list_delete_node(mp_list, mp_node);
 			bgp_path_info_mpath_dequeue(cur_mpath);
 			if ((mpath_count < maxpaths)
+			    && prev_mpath
 			    && bgp_path_info_nexthop_cmp(prev_mpath,
 							 cur_mpath)) {
 				bgp_path_info_mpath_enqueue(prev_mpath,

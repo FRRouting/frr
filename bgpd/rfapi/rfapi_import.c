@@ -1143,6 +1143,9 @@ static int rfapiVpnBiSamePtUn(struct bgp_path_info *bpi1,
 		break;
 	}
 
+	memset(&pfx_un1, 0, sizeof(pfx_un1));
+	memset(&pfx_un2, 0, sizeof(pfx_un2));
+
 	/*
 	 * UN address comparisons
 	 */
@@ -1184,7 +1187,7 @@ static int rfapiVpnBiSamePtUn(struct bgp_path_info *bpi1,
 		}
 	}
 
-	if (!pfx_un1.family || !pfx_un2.family)
+	if (pfx_un1.family == 0 || pfx_un2.family == 0)
 		return 0;
 
 	if (pfx_un1.family != pfx_un2.family)
