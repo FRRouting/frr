@@ -977,6 +977,7 @@ uint32_t bgp_pbr_match_hash_key(const void *arg)
 	key = jhash(&pbm->tcp_mask_flags, 2, key);
 	key = jhash(&pbm->dscp_value, 1, key);
 	key = jhash(&pbm->fragment, 1, key);
+	key = jhash(&pbm->protocol, 1, key);
 	return jhash_1word(pbm->type, key);
 }
 
@@ -1015,6 +1016,9 @@ bool bgp_pbr_match_hash_equal(const void *arg1, const void *arg2)
 		return false;
 
 	if (r1->fragment != r2->fragment)
+		return false;
+
+	if (r1->protocol != r2->protocol)
 		return false;
 	return true;
 }
@@ -2161,6 +2165,10 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 		if (bpf->fragment->mask)
 			temp.flags |= MATCH_FRAGMENT_INVERSE_SET;
 		temp.fragment = bpf->fragment->val;
+	}
+	if (bpf->protocol) {
+		temp.protocol = bpf->protocol;
+		temp.flags |= MATCH_PROTOCOL_SET;
 	}
 	temp.action = bpa;
 	bpm = hash_get(bgp->pbr_match_hash, &temp,
