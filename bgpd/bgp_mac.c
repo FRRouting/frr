@@ -138,7 +138,6 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 {
 	struct bgp_node *prn, *rn;
 	struct bgp_path_info *pi;
-	uint32_t count = 0;
 
 	for (prn = bgp_table_top(table); prn; prn = bgp_route_next(prn)) {
 		struct bgp_table *sub = prn->info;
@@ -162,7 +161,6 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			else
 				rn_affected = false;
 
-			count++;
 			for (pi = rn->info; pi; pi = pi->next) {
 				if (pi->peer == peer)
 					break;
