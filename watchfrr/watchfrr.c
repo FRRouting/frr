@@ -1021,10 +1021,11 @@ void watchfrr_status(struct vty *vty)
 		else if (dmn->state == DAEMON_DOWN &&
 			time_elapsed(&delay, &dmn->restart.time)->tv_sec
 				< dmn->restart.interval)
-			vty_out(vty, "      restarting in %ld seconds"
-				" (%lds backoff interval)\n",
-				dmn->restart.interval - delay.tv_sec,
-				dmn->restart.interval);
+			vty_out(vty, "      restarting in %jd seconds"
+				" (%jds backoff interval)\n",
+				(intmax_t)dmn->restart.interval
+					- (intmax_t)delay.tv_sec,
+				(intmax_t)dmn->restart.interval);
 	}
 }
 

@@ -145,12 +145,12 @@ DEFPY (install_routes_data_dump,
 	struct timeval r;
 
 	timersub(&sg.r.t_end, &sg.r.t_start, &r);
-	vty_out(vty, "Prefix: %s Total: %u %u %u Time: %ld.%ld\n",
+	vty_out(vty, "Prefix: %s Total: %u %u %u Time: %jd.%ld\n",
 		prefix2str(&sg.r.orig_prefix, buf, sizeof(buf)),
 		sg.r.total_routes,
 		sg.r.installed_routes,
 		sg.r.removed_routes,
-		r.tv_sec, (long int)r.tv_usec);
+		(intmax_t)r.tv_sec, (long)r.tv_usec);
 
 	return CMD_SUCCESS;
 }
