@@ -506,6 +506,9 @@ int nexthop_active_update(struct route_node *rn, struct route_entry *re)
 		}
 	}
 
+	if (CHECK_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED))
+		SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
+
 	return re->nexthop_active_num;
 }
 
