@@ -1187,6 +1187,15 @@ static int netlink_iptable_update_unit_2(char *buf, char *ptr,
 					iptable->filter_bm &
 					MATCH_DSCP_INVERSE_SET ? "!" : "",
 					iptable->dscp_value);
+	if (iptable->filter_bm & (MATCH_PROTOCOL_SET)) {
+		if (!iptable->tcp_flags || iptable->protocol != IPPROTO_TCP)
+			len_written += snprintf(complement_len + len_written,
+						sizeof(complement_len) - len_written,
+						"-p %s ",
+						lookup_msg(ip_proto_str,
+							   iptable->protocol,
+							   "NA:"));
+	}
 	if (iptable->pkt_len_min || iptable->pkt_len_max) {
 		len_written += snprintf(complement_len + len_written,
 					sizeof(complement_len) - len_written,
