@@ -3271,13 +3271,18 @@ void isis_tlvs_add_ipv6_addresses(struct isis_tlvs *tlvs,
 {
 	struct listnode *node;
 	struct prefix_ipv6 *ip_addr;
+	unsigned int addr_count = 0;
 
 	for (ALL_LIST_ELEMENTS_RO(addresses, node, ip_addr)) {
+		if (addr_count >= 15)
+			break;
+
 		struct isis_ipv6_address *a =
 			XCALLOC(MTYPE_ISIS_TLV, sizeof(*a));
 
 		a->addr = ip_addr->prefix;
 		append_item(&tlvs->ipv6_address, (struct isis_item *)a);
+		addr_count++;
 	}
 }
 
