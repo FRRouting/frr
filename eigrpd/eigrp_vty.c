@@ -370,7 +370,7 @@ DEFUN (eigrp_metric_weights,
 
 DEFUN (no_eigrp_metric_weights,
        no_eigrp_metric_weights_cmd,
-       "no metric weights <0-255> <0-255> <0-255> <0-255> <0-255>",
+       "no metric weights (0-255) (0-255) (0-255) (0-255) (0-255)",
        NO_STR
        "Modify metrics and parameters for advertisement\n"
        "Modify metric coefficients\n"
@@ -1209,7 +1209,7 @@ DEFUN (eigrp_maximum_paths,
 
 DEFUN (no_eigrp_maximum_paths,
        no_eigrp_maximum_paths_cmd,
-       "no maximum-paths <1-32>",
+       "no maximum-paths (1-32)",
        NO_STR
        "Forward packets over multiple paths\n"
        "Number of paths\n")

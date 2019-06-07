@@ -764,7 +764,7 @@ static struct route_map_rule_cmd route_set_tag_cmd = {
 
 DEFUN (match_metric,
        match_metric_cmd,
-       "match metric <0-4294967295>",
+       "match metric (0-4294967295)",
        MATCH_STR
        "Match metric of route\n"
        "Metric value\n")
@@ -787,7 +787,7 @@ DEFUN (no_match_metric,
 }
 
 ALIAS(no_match_metric, no_match_metric_val_cmd,
-      "no match metric <0-4294967295>", NO_STR MATCH_STR
+      "no match metric (0-4294967295)", NO_STR MATCH_STR
       "Match metric of route\n"
       "Metric value\n")
 
@@ -822,7 +822,7 @@ ALIAS(no_match_interface, no_match_interface_val_cmd, "no match interface WORD",
 
 DEFUN (match_ip_next_hop,
        match_ip_next_hop_cmd,
-       "match ip next-hop (<1-199>|<1300-2699>|WORD)",
+       "match ip next-hop ((1-199)|(1300-2699)|WORD)",
        MATCH_STR
        IP_STR
        "Match next-hop address of route\n"
@@ -850,7 +850,7 @@ DEFUN (no_match_ip_next_hop,
 }
 
 ALIAS(no_match_ip_next_hop, no_match_ip_next_hop_val_cmd,
-      "no match ip next-hop (<1-199>|<1300-2699>|WORD)", NO_STR MATCH_STR IP_STR
+      "no match ip next-hop ((1-199)|(1300-2699)|WORD)", NO_STR MATCH_STR IP_STR
       "Match next-hop address of route\n"
       "IP access-list number\n"
       "IP access-list number (expanded range)\n"
@@ -895,7 +895,7 @@ ALIAS(no_match_ip_next_hop_prefix_list,
 
 DEFUN (match_ip_address,
        match_ip_address_cmd,
-       "match ip address (<1-199>|<1300-2699>|WORD)",
+       "match ip address ((1-199)|(1300-2699)|WORD)",
        MATCH_STR
        IP_STR
        "Match address of route\n"
@@ -922,7 +922,7 @@ DEFUN (no_match_ip_address,
 }
 
 ALIAS(no_match_ip_address, no_match_ip_address_val_cmd,
-      "no match ip address (<1-199>|<1300-2699>|WORD)", NO_STR MATCH_STR IP_STR
+      "no match ip address ((1-199)|(1300-2699)|WORD)", NO_STR MATCH_STR IP_STR
       "Match address of route\n"
       "IP access-list number\n"
       "IP access-list number (expanded range)\n"
@@ -966,7 +966,7 @@ ALIAS(no_match_ip_address_prefix_list, no_match_ip_address_prefix_list_val_cmd,
 
 DEFUN (match_tag,
        match_tag_cmd,
-       "match tag <0-65535>",
+       "match tag (0-65535)",
        MATCH_STR
        "Match tag of route\n"
        "Metric value\n")
@@ -987,7 +987,7 @@ DEFUN (no_match_tag,
 	return eigrp_route_match_delete(vty, vty->index, "tag", argv[0]);
 }
 
-ALIAS(no_match_tag, no_match_tag_val_cmd, "no match tag <0-65535>",
+ALIAS(no_match_tag, no_match_tag_val_cmd, "no match tag (0-65535)",
       NO_STR MATCH_STR
       "Match tag of route\n"
       "Metric value\n")
@@ -996,7 +996,7 @@ ALIAS(no_match_tag, no_match_tag_val_cmd, "no match tag <0-65535>",
 
 DEFUN (set_metric,
        set_metric_cmd,
-       "set metric <0-4294967295>",
+       "set metric (0-4294967295)",
        SET_STR
        "Metric value for destination routing protocol\n"
        "Metric value\n")
@@ -1022,7 +1022,7 @@ DEFUN (no_set_metric,
 }
 
 ALIAS(no_set_metric, no_set_metric_val_cmd,
-      "no set metric (<0-4294967295>|<+/-metric>)", NO_STR SET_STR
+      "no set metric ((0-4294967295)|<+/-metric>)", NO_STR SET_STR
       "Metric value for destination routing protocol\n"
       "Metric value\n"
       "Add or subtract metric\n")
@@ -1069,7 +1069,7 @@ ALIAS(no_set_ip_nexthop, no_set_ip_nexthop_val_cmd,
 
 DEFUN (set_tag,
        set_tag_cmd,
-       "set tag <0-65535>",
+       "set tag (0-65535)",
        SET_STR
        "Tag value for routing protocol\n"
        "Tag value\n")
@@ -1090,7 +1090,7 @@ DEFUN (no_set_tag,
 	return eigrp_route_set_delete(vty, vty->index, "tag", argv[0]);
 }
 
-ALIAS(no_set_tag, no_set_tag_val_cmd, "no set tag <0-65535>", NO_STR SET_STR
+ALIAS(no_set_tag, no_set_tag_val_cmd, "no set tag (0-65535)", NO_STR SET_STR
       "Tag value for routing protocol\n"
       "Tag value\n")
 
