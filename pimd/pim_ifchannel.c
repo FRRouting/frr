@@ -133,7 +133,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	if (ch->upstream->channel_oil) {
 		uint32_t mask = PIM_OIF_FLAG_PROTO_PIM;
 		if (ch->upstream->flags & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
-			mask = PIM_OIF_FLAG_PROTO_IGMP;
+			mask |= PIM_OIF_FLAG_PROTO_IGMP;
 
 		/*
 		 * A S,G RPT channel can have an empty oil, we also
@@ -142,13 +142,15 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 		 * being inherited.  So let's figure out what
 		 * needs to be done here
 		 */
-		if (pim_upstream_evaluate_join_desired_interface(
-			    ch->upstream, ch, ch->parent))
+		if ((ch->sg.src.s_addr != INADDR_ANY) &&
+				pim_upstream_evaluate_join_desired_interface(
+					ch->upstream, ch, ch->parent))
 			pim_channel_add_oif(ch->upstream->channel_oil,
-					    ch->interface, mask);
-		else
-			pim_channel_del_oif(ch->upstream->channel_oil,
-					    ch->interface, mask);
+					ch->interface,
+					PIM_OIF_FLAG_PROTO_STAR);
+
+		pim_channel_del_oif(ch->upstream->channel_oil,
+					ch->interface, mask);
 		/*
 		 * Do we have any S,G's that are inheriting?
 		 * Nuke from on high too.
