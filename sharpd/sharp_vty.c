@@ -150,7 +150,7 @@ DEFPY (install_routes_data_dump,
 		sg.r.total_routes,
 		sg.r.installed_routes,
 		sg.r.removed_routes,
-		r.tv_sec, r.tv_usec);
+		r.tv_sec, (long int)r.tv_usec);
 
 	return CMD_SUCCESS;
 }

@@ -1536,7 +1536,7 @@ static void pim_show_interface_traffic(struct pim_instance *pim,
 			json_object_object_add(json, ifp->name, json_row);
 		} else {
 			vty_out(vty,
-				"%-16s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7lu/%-7lu \n",
+				"%-16s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7" PRIu64 "/%-7" PRIu64 "\n",
 				ifp->name, pim_ifp->pim_ifstat_hello_recv,
 				pim_ifp->pim_ifstat_hello_sent,
 				pim_ifp->pim_ifstat_join_recv,
@@ -1629,7 +1629,7 @@ static void pim_show_interface_traffic_single(struct pim_instance *pim,
 			json_object_object_add(json, ifp->name, json_row);
 		} else {
 			vty_out(vty,
-				"%-16s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7lu/%-7lu \n",
+				"%-16s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7" PRIu64 "/%-7" PRIu64 "\n",
 				ifp->name, pim_ifp->pim_ifstat_hello_recv,
 				pim_ifp->pim_ifstat_hello_sent,
 				pim_ifp->pim_ifstat_join_recv,
@@ -3238,9 +3238,11 @@ static void pim_show_statistics(struct pim_instance *pim, struct vty *vty,
 	} else {
 		vty_out(vty, "BSM Statistics :\n");
 		vty_out(vty, "----------------\n");
-		vty_out(vty, "Number of Received BSMs : %ld\n", pim->bsm_rcvd);
-		vty_out(vty, "Number of Forwared BSMs : %ld\n", pim->bsm_sent);
-		vty_out(vty, "Number of Dropped BSMs  : %ld\n",
+		vty_out(vty, "Number of Received BSMs : %" PRIu64 "\n",
+			pim->bsm_rcvd);
+		vty_out(vty, "Number of Forwared BSMs : %" PRIu64 "\n",
+			pim->bsm_sent);
+		vty_out(vty, "Number of Dropped BSMs  : %" PRIu64 "\n",
 			pim->bsm_dropped);
 	}
 
