@@ -44,12 +44,6 @@
 # defines for configure
 %define     rundir  %{_localstatedir}/run/%{name}
 
-# define for sphinx-build binary
-%if 0%{?rhel} && 0%{?rhel} < 7
-    %define sphinx sphinx-build2.7
-%else
-    %define sphinx sphinx-build
-%endif
 ############################################################################
 
 #### Version String tweak
@@ -360,7 +354,7 @@ developing OSPF-API and frr applications.
 %else
     --disable-bfdd \
 %endif
-    SPHINXBUILD=%{sphinx}
+    # end
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 

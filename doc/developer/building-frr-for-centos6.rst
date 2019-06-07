@@ -163,10 +163,9 @@ an example.)
         --disable-ldpd \
         --enable-fpm \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion \
-        SPHINXBUILD=sphinx-build2.7
+        --with-pkg-extra-version=-MyOwnFRRVersion
     make
-    make check PYTHON=/usr/bin/python2.7
+    make check
     sudo make install
 
 Create empty FRR configuration files
