@@ -38,7 +38,7 @@
 #include "pbrd/pbr_vty_clippy.c"
 #endif
 
-DEFUN_NOSH(pbr_map, pbr_map_cmd, "pbr-map WORD seq (1-700)",
+DEFUN_NOSH(pbr_map, pbr_map_cmd, "pbr-map PBRMAP seq (1-700)",
 	   "Create pbr-map or enter pbr-map command mode\n"
 	   "The name of the PBR MAP\n"
 	   "Sequence to insert in existing pbr-map entry\n"
@@ -54,7 +54,7 @@ DEFUN_NOSH(pbr_map, pbr_map_cmd, "pbr-map WORD seq (1-700)",
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH(no_pbr_map, no_pbr_map_cmd, "no pbr-map WORD [seq (1-700)]",
+DEFUN_NOSH(no_pbr_map, no_pbr_map_cmd, "no pbr-map PBRMAP [seq (1-700)]",
 	   NO_STR
 	   "Delete pbr-map\n"
 	   "The name of the PBR MAP\n"
@@ -172,7 +172,7 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 }
 
 DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
-	"[no] set nexthop-group NAME$name",
+	"[no] set nexthop-group NHGNAME$name",
 	NO_STR
 	"Set for the PBR-MAP\n"
 	"nexthop-group to use\n"
@@ -348,7 +348,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 
 DEFPY (pbr_policy,
 	pbr_policy_cmd,
-	"[no] pbr-policy NAME$mapname",
+	"[no] pbr-policy PBRMAP$mapname",
 	NO_STR
 	"Policy to use\n"
 	"Name of the pbr-map to apply\n")
@@ -661,8 +661,27 @@ static int pbr_vty_map_config_write(struct vty *vty)
 	return 1;
 }
 
+static void pbr_map_completer(vector comps, struct cmd_token *token)
+{
+	struct pbr_map *pbrm;
+
+	RB_FOREACH (pbrm, pbr_map_entry_head, &pbr_maps)
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, pbrm->name));
+}
+
+static const struct cmd_variable_handler pbr_map_name[] = {
+	{
+		.tokenname = "PBRMAP", .completions = pbr_map_completer,
+	},
+	{
+		.completions = NULL
+	}
+};
+
 void pbr_vty_init(void)
 {
+	cmd_variable_handler_register(pbr_map_name);
+
 	install_node(&interface_node,
 		     pbr_interface_config_write);
 	if_cmd_init();
