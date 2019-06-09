@@ -6930,7 +6930,7 @@ static void route_vty_short_status_out(struct vty *vty,
 		vty_out(vty, " ");
 }
 
-static char *bgp_nexthop_fqdn(struct peer *peer)
+char *bgp_nexthop_fqdn(struct peer *peer)
 {
 	if (peer->hostname && bgp_flag_check(peer->bgp, BGP_FLAG_SHOW_HOSTNAME))
 		return peer->hostname;

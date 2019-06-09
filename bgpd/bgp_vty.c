@@ -12751,6 +12751,13 @@ static void bgp_ac_neighbor(vector comps, struct cmd_token *token)
 				continue;
 
 			vector_set(comps, XSTRDUP(MTYPE_COMPLETION, name));
+
+			if (bgp_nexthop_fqdn(peer)
+			    && strncmp(token->varname, "neighbors",
+				       strlen("neighbors"))
+				       == 0)
+				vector_set(comps, XSTRDUP(MTYPE_COMPLETION,
+							  peer->hostname));
 		}
 	}
 }
