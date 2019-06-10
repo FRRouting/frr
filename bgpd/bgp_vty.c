@@ -217,6 +217,10 @@ int argv_find_and_parse_afi(struct cmd_token **argv, int argc, int *index,
 		ret = 1;
 		if (afi)
 			*afi = AFI_IP6;
+	} else if (argv_find(argv, argc, "l2vpn", index)) {
+		ret = 1;
+		if (afi)
+			*afi = AFI_L2VPN;
 	}
 	return ret;
 }
@@ -260,6 +264,10 @@ int argv_find_and_parse_safi(struct cmd_token **argv, int argc, int *index,
 		ret = 1;
 		if (safi)
 			*safi = SAFI_MPLS_VPN;
+	} else if (argv_find(argv, argc, "evpn", index)) {
+		ret = 1;
+		if (safi)
+			*safi = SAFI_EVPN;
 	} else if (argv_find(argv, argc, "flowspec", index)) {
 		ret = 1;
 		if (safi)
