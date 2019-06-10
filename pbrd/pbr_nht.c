@@ -66,6 +66,8 @@ static void *pbr_nhrc_hash_alloc(void *p)
 {
 	struct nhrc *nhrc = XCALLOC(MTYPE_PBR_NHG, sizeof(struct nhrc));
 	nhrc->nexthop = *(struct nexthop *)p;
+	nhrc->nexthop.next = NULL;
+	nhrc->nexthop.prev = NULL;
 	return nhrc;
 }
 
