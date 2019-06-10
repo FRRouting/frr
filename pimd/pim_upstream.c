@@ -749,7 +749,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		up->channel_oil = pim_channel_oil_add(pim, &up->sg, MAXVIFS);
 
 	} else {
-		rpf_result = pim_rpf_update(pim, up, NULL, 1);
+		rpf_result = pim_rpf_update(pim, up, NULL);
 		if (rpf_result == PIM_RPF_FAILURE) {
 			if (PIM_DEBUG_TRACE)
 				zlog_debug(
@@ -1625,7 +1625,7 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 				zlog_debug(
 					"%s: Upstream %s without a path to send join, checking",
 					__PRETTY_FUNCTION__, up->sg_str);
-			pim_rpf_update(pim, up, NULL, 1);
+			pim_rpf_update(pim, up, NULL);
 		}
 	}
 }
