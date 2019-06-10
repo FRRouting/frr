@@ -714,10 +714,30 @@ static void pbr_nht_individual_nexthop_update_lookup(struct hash_bucket *b,
 		pnhi->valid += 1;
 }
 
+static void pbr_nexthop_group_cache_iterate_to_group(struct hash_bucket *b,
+						     void *data)
+{
+	struct pbr_nexthop_cache *pnhc = b->data;
+	struct nexthop_group *nhg = data;
+	struct nexthop *nh = NULL;
+
+	copy_nexthops(&nh, pnhc->nexthop, NULL);
+
+	nexthop_add(&nhg->nexthop, nh);
+}
+
+static void
+pbr_nexthop_group_cache_to_nexthop_group(struct nexthop_group *nhg,
+					 struct pbr_nexthop_group_cache *pnhgc)
+{
+	hash_iterate(pnhgc->nhh, pbr_nexthop_group_cache_iterate_to_group, nhg);
+}
+
 static void pbr_nht_nexthop_update_lookup(struct hash_bucket *b, void *data)
 {
 	struct pbr_nexthop_group_cache *pnhgc = b->data;
 	struct pbr_nht_individual pnhi;
+	struct nexthop_group nhg = {};
 	bool old_valid;
 
 	old_valid = pnhgc->valid;
@@ -731,6 +751,13 @@ static void pbr_nht_nexthop_update_lookup(struct hash_bucket *b, void *data)
 	 * If any of the specified nexthops are valid we are valid
 	 */
 	pnhgc->valid = !!pnhi.valid;
+
+	if (pnhgc->valid) {
+		pbr_nexthop_group_cache_to_nexthop_group(&nhg, pnhgc);
+		pbr_nht_install_nexthop_group(pnhgc, nhg);
+		/* Don't need copied nexthops anymore */
+		nexthops_free(nhg.nexthop);
+	}
 
 	if (old_valid != pnhgc->valid)
 		pbr_map_check_nh_group_change(pnhgc->name);

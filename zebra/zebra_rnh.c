@@ -592,54 +592,6 @@ static void zebra_rnh_notify_protocol_clients(struct zebra_vrf *zvrf, afi_t afi,
 		zebra_rnh_clear_nexthop_rnh_filters(re);
 }
 
-static void zebra_rnh_process_pbr_tables(afi_t afi, struct route_node *nrn,
-					 struct rnh *rnh,
-					 struct route_node *prn,
-					 struct route_entry *re)
-{
-	struct zebra_router_table *zrt;
-	struct route_entry *o_re;
-	struct route_node *o_rn;
-	struct listnode *node;
-	struct zserv *client;
-
-	/*
-	 * We are only concerned about nexthops that change for
-	 * anyone using PBR
-	 */
-	for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client)) {
-		if (client->proto == ZEBRA_ROUTE_PBR)
-			break;
-	}
-
-	if (!client)
-		return;
-
-	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
-		if (afi != zrt->afi)
-			continue;
-
-		for (o_rn = route_top(zrt->table); o_rn;
-		     o_rn = srcdest_route_next(o_rn)) {
-			RNODE_FOREACH_RE (o_rn, o_re) {
-				if (o_re->type == ZEBRA_ROUTE_PBR)
-					break;
-
-			}
-
-			/*
-			 * If we have a PBR route and a nexthop changes
-			 * just rethink it.  Yes this is a hammer, but
-			 * a small one
-			 */
-			if (o_re) {
-				SET_FLAG(o_re->status, ROUTE_ENTRY_CHANGED);
-				rib_queue_add(o_rn);
-			}
-		}
-	}
-}
-
 /*
  * Utility to determine whether a candidate nexthop is useable. We make this
  * check in a couple of places, so this is a single home for the logic we
@@ -833,8 +785,6 @@ static void zebra_rnh_eval_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 		/* Notify registered protocol clients. */
 		zebra_rnh_notify_protocol_clients(zvrf, afi, nrn, rnh, prn,
 						  rnh->state);
-
-		zebra_rnh_process_pbr_tables(afi, nrn, rnh, prn, rnh->state);
 
 		/* Process pseudowires attached to this nexthop */
 		zebra_rnh_process_pseudowires(zvrf->vrf->vrf_id, rnh);
