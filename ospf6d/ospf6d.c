@@ -94,6 +94,7 @@ static int config_write_ospf6_debug(struct vty *vty)
 	config_write_ospf6_debug_asbr(vty);
 	config_write_ospf6_debug_abr(vty);
 	config_write_ospf6_debug_flood(vty);
+	config_write_ospf6_debug_event(vty);
 
 	return 0;
 }
@@ -1366,6 +1367,13 @@ DEFUN(show_ipv6_ospf6_linkstate_detail, show_ipv6_ospf6_linkstate_detail_cmd,
 	}
 
 	return CMD_SUCCESS;
+}
+
+int config_write_ospf6_debug_event(struct vty *vty)
+{
+	if (IS_OSPF6_DEBUG_EVENT)
+		vty_out(vty, "debug ospf6 event\n");
+	return 0;
 }
 
 static void ospf6_plist_add(struct prefix_list *plist)
