@@ -899,7 +899,8 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 	time_t connect_time, last_read_time, last_write_time;
 	uint32_t last_read_cmd, last_write_cmd;
 
-	vty_out(vty, "Client: %s", zebra_route_string(client->proto));
+	vty_out(vty, "Client: %s Pid: %u", zebra_route_string(client->proto),
+		client->client_pid);
 	if (client->instance)
 		vty_out(vty, " Instance: %d", client->instance);
 	vty_out(vty, "\n");

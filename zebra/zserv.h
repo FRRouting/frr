@@ -60,6 +60,9 @@ struct zserv {
 	/* Client file descriptor. */
 	int sock;
 
+	/* Client pid */
+	uint32_t client_pid;
+
 	/* Input/output buffer to the client. */
 	pthread_mutex_t ibuf_mtx;
 	struct stream_fifo *ibuf_fifo;

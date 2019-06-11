@@ -1719,13 +1719,14 @@ static void zread_hello(ZAPI_HANDLER_ARGS)
 	STREAM_GETC(msg, notify);
 	if (notify)
 		client->notify_owner = true;
+	STREAM_GETL(msg, client->client_pid);
 
 	/* accept only dynamic routing protocols */
 	if ((proto < ZEBRA_ROUTE_MAX) && (proto > ZEBRA_ROUTE_CONNECT)) {
 		zlog_notice(
-			"client %d says hello and bids fair to announce only %s routes vrf=%u",
-			client->sock, zebra_route_string(proto),
-			zvrf->vrf->vrf_id);
+			"client %d [%u] says hello and bids fair to announce only %s routes vrf=%u",
+			client->sock, client->client_pid,
+			zebra_route_string(proto), zvrf->vrf->vrf_id);
 		if (instance)
 			zlog_notice("client protocol instance %d", instance);
 

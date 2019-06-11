@@ -374,6 +374,9 @@ static int zebra_hello_send(struct zclient *zclient)
 		else
 			stream_putc(s, 0);
 
+		/* Include the client's pid */
+		stream_putl(s, (uint32_t)getpid());
+
 		stream_putw_at(s, 0, stream_get_endp(s));
 		return zclient_send_message(zclient);
 	}
