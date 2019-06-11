@@ -38,6 +38,11 @@ import time
 
 from lib.topolog import logger
 
+if sys.version_info[0] > 2:
+    import configparser
+else:
+    import ConfigParser as configparser
+
 from mininet.topo import Topo
 from mininet.net import Mininet
 from mininet.node import Node, OVSSwitch, Host
@@ -624,6 +629,20 @@ class Router(Node):
         super(Router, self).__init__(name, **params)
         self.logdir = params.get('logdir')
 
+        # Backward compatibility:
+        #   Load configuration defaults like topogen.
+        self.config_defaults = configparser.ConfigParser({
+            'verbosity': 'info',
+            'frrdir': '/usr/lib/frr',
+            'quaggadir': '/usr/lib/quagga',
+            'routertype': 'frr',
+            'memleak_path': None,
+        })
+        self.config_defaults.read(
+            os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                         '../pytest.ini')
+        )
+
         # If this topology is using old API and doesn't have logdir
         # specified, then attempt to generate an unique logdir.
         if self.logdir is None:
@@ -652,7 +671,7 @@ class Router(Node):
         "Configure FRR binaries"
         self.daemondir = params.get('frrdir')
         if self.daemondir is None:
-            self.daemondir = '/usr/lib/frr'
+            self.daemondir = self.config_defaults.get('topogen', 'frrdir')
 
         zebra_path = os.path.join(self.daemondir, 'zebra')
         if not os.path.isfile(zebra_path):
@@ -662,7 +681,7 @@ class Router(Node):
         "Configure Quagga binaries"
         self.daemondir = params.get('quaggadir')
         if self.daemondir is None:
-            self.daemondir = '/usr/lib/quagga'
+            self.daemondir = self.config_defaults.get('topogen', 'quaggadir')
 
         zebra_path = os.path.join(self.daemondir, 'zebra')
         if not os.path.isfile(zebra_path):
@@ -676,7 +695,10 @@ class Router(Node):
         # User did not specify the daemons directory, try to autodetect it.
         self.daemondir = params.get('daemondir')
         if self.daemondir is None:
-            self.routertype = params.get('routertype', 'frr')
+            self.routertype = params.get('routertype',
+                                         self.config_defaults.get(
+                                             'topogen',
+                                             'routertype'))
             if self.routertype == 'quagga':
                 self._config_quagga(**params)
             else:
@@ -688,7 +710,7 @@ class Router(Node):
                 raise Exception('No zebra binary found in {}'.format(zpath))
             # Allow user to specify routertype when the path was specified.
             if params.get('routertype') is not None:
-                self.routertype = self.params.get('routertype')
+                self.routertype = params.get('routertype')
 
         self.cmd('ulimit -c unlimited')
         # Set ownership of config files
