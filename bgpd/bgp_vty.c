@@ -1081,6 +1081,9 @@ DEFUN (no_router_bgp,
 		}
 	}
 
+	if (bgp_vpn_leak_unimport(bgp, vty))
+		return CMD_WARNING_CONFIG_FAILED;
+
 	bgp_delete(bgp);
 
 	return CMD_SUCCESS;
