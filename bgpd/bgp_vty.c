@@ -2648,7 +2648,7 @@ static struct peer_group *listen_range_exists(struct bgp *bgp,
 
 DEFUN (bgp_listen_range,
        bgp_listen_range_cmd,
-       "bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group WORD",
+       "bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME",
        "BGP specific commands\n"
        "Configure BGP dynamic neighbors listen range\n"
        "Configure BGP dynamic neighbors listen range\n"
@@ -2666,7 +2666,7 @@ DEFUN (bgp_listen_range,
 	argv_find(argv, argc, "A.B.C.D/M", &idx);
 	argv_find(argv, argc, "X:X::X:X/M", &idx);
 	char *prefix = argv[idx]->arg;
-	argv_find(argv, argc, "WORD", &idx);
+	argv_find(argv, argc, "PGNAME", &idx);
 	char *peergroup = argv[idx]->arg;
 
 	/* Convert IP prefix string to struct prefix. */
@@ -2718,7 +2718,7 @@ DEFUN (bgp_listen_range,
 
 DEFUN (no_bgp_listen_range,
        no_bgp_listen_range_cmd,
-       "no bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group WORD",
+       "no bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME",
        NO_STR
        "BGP specific commands\n"
        "Unconfigure BGP dynamic neighbors listen range\n"
@@ -3018,7 +3018,7 @@ static int peer_conf_interface_get(struct vty *vty, const char *conf_if,
 
 DEFUN (neighbor_interface_config,
        neighbor_interface_config_cmd,
-       "neighbor WORD interface [peer-group WORD]",
+       "neighbor WORD interface [peer-group PGNAME]",
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Enable BGP on interface\n"
@@ -3039,7 +3039,7 @@ DEFUN (neighbor_interface_config,
 
 DEFUN (neighbor_interface_config_v6only,
        neighbor_interface_config_v6only_cmd,
-       "neighbor WORD interface v6only [peer-group WORD]",
+       "neighbor WORD interface v6only [peer-group PGNAME]",
        NEIGHBOR_STR
        "Interface name or neighbor tag\n"
        "Enable BGP on interface\n"
@@ -3184,7 +3184,7 @@ DEFUN (no_neighbor,
 
 DEFUN (no_neighbor_interface_config,
        no_neighbor_interface_config_cmd,
-       "no neighbor WORD interface [v6only] [peer-group WORD] [remote-as <(1-4294967295)|internal|external>]",
+       "no neighbor WORD interface [v6only] [peer-group PGNAME] [remote-as <(1-4294967295)|internal|external>]",
        NO_STR
        NEIGHBOR_STR
        "Interface name\n"
@@ -3499,7 +3499,7 @@ ALIAS_HIDDEN(no_neighbor_activate, no_neighbor_activate_hidden_cmd,
 
 DEFUN (neighbor_set_peer_group,
        neighbor_set_peer_group_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> peer-group WORD",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> peer-group PGNAME",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Member of the peer-group\n"
@@ -3557,14 +3557,14 @@ DEFUN (neighbor_set_peer_group,
 }
 
 ALIAS_HIDDEN(neighbor_set_peer_group, neighbor_set_peer_group_hidden_cmd,
-	     "neighbor <A.B.C.D|X:X::X:X|WORD> peer-group WORD",
+	     "neighbor <A.B.C.D|X:X::X:X|WORD> peer-group PGNAME",
 	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Member of the peer-group\n"
 	     "Peer-group name\n")
 
 DEFUN (no_neighbor_set_peer_group,
        no_neighbor_set_peer_group_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> peer-group WORD",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> peer-group PGNAME",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -3594,7 +3594,7 @@ DEFUN (no_neighbor_set_peer_group,
 }
 
 ALIAS_HIDDEN(no_neighbor_set_peer_group, no_neighbor_set_peer_group_hidden_cmd,
-	     "no neighbor <A.B.C.D|X:X::X:X|WORD> peer-group WORD",
+	     "no neighbor <A.B.C.D|X:X::X:X|WORD> peer-group PGNAME",
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Member of the peer-group\n"
 	     "Peer-group name\n")
@@ -7287,7 +7287,7 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|l2vpn> [<unicast|multicast|vpn|labeled-unicast|flowspec|evpn>]] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<soft [<in|out>]|in [prefix-filter]|out>]",
+       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|l2vpn> [<unicast|multicast|vpn|labeled-unicast|flowspec|evpn>]] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group PGNAME> [<soft [<in|out>]|in [prefix-filter]|out>]",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7340,7 +7340,7 @@ DEFUN (clear_ip_bgp_all,
 	if (argv_find_and_parse_afi(argv, argc, &idx, &afi))
 		argv_find_and_parse_safi(argv, argc, &idx, &safi);
 
-	/* <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> */
+	/* <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group PGNAME> */
 	if (argv_find(argv, argc, "*", &idx)) {
 		clr_sort = clear_all;
 	} else if (argv_find(argv, argc, "A.B.C.D", &idx)) {
@@ -7353,7 +7353,7 @@ DEFUN (clear_ip_bgp_all,
 		clr_sort = clear_group;
 		idx++;
 		clr_arg = argv[idx]->arg;
-	} else if (argv_find(argv, argc, "WORD", &idx)) {
+	} else if (argv_find(argv, argc, "PGNAME", &idx)) {
 		clr_sort = clear_peer;
 		clr_arg = argv[idx]->arg;
 	} else if (argv_find(argv, argc, "(1-4294967295)", &idx)) {
