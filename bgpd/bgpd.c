@@ -234,8 +234,11 @@ static int bgp_config_check(struct bgp *bgp, int config)
 	return CHECK_FLAG(bgp->config, config);
 }
 
-/* Set BGP router identifier. */
-static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id)
+/* Set BGP router identifier; distinguish between explicit config and other
+ * cases.
+ */
+static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id,
+			     bool is_config)
 {
 	struct peer *peer;
 	struct listnode *node, *nnode;
@@ -247,7 +250,7 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id)
 	if (is_evpn_enabled())
 		bgp_evpn_handle_router_id_update(bgp, TRUE);
 
-	vpn_handle_router_id_update(bgp, TRUE);
+	vpn_handle_router_id_update(bgp, TRUE, is_config);
 
 	IPV4_ADDR_COPY(&bgp->router_id, id);
 
@@ -266,7 +269,7 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id)
 	if (is_evpn_enabled())
 		bgp_evpn_handle_router_id_update(bgp, FALSE);
 
-	vpn_handle_router_id_update(bgp, FALSE);
+	vpn_handle_router_id_update(bgp, FALSE, is_config);
 
 	return 0;
 }
@@ -300,7 +303,7 @@ void bgp_router_id_zebra_bump(vrf_id_t vrf_id, const struct prefix *router_id)
 					if (BGP_DEBUG(zebra, ZEBRA))
 						zlog_debug("RID change : vrf %u, RTR ID %s",
 					bgp->vrf_id, inet_ntoa(*addr));
-					bgp_router_id_set(bgp, addr);
+					bgp_router_id_set(bgp, addr, FALSE);
 				}
 			}
 		}
@@ -320,7 +323,7 @@ void bgp_router_id_zebra_bump(vrf_id_t vrf_id, const struct prefix *router_id)
 					if (BGP_DEBUG(zebra, ZEBRA))
 						zlog_debug("RID change : vrf %u, RTR ID %s",
 					bgp->vrf_id, inet_ntoa(*addr));
-					bgp_router_id_set(bgp, addr);
+					bgp_router_id_set(bgp, addr, FALSE);
 				}
 			}
 
@@ -331,7 +334,8 @@ void bgp_router_id_zebra_bump(vrf_id_t vrf_id, const struct prefix *router_id)
 int bgp_router_id_static_set(struct bgp *bgp, struct in_addr id)
 {
 	bgp->router_id_static = id;
-	bgp_router_id_set(bgp, id.s_addr ? &id : &bgp->router_id_zebra);
+	bgp_router_id_set(bgp, id.s_addr ? &id : &bgp->router_id_zebra,
+			  TRUE /* is config */);
 	return 0;
 }
 
@@ -3185,7 +3189,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	bgp = bgp_create(as, name, inst_type);
 	if (bgp_option_check(BGP_OPT_NO_ZEBRA) && name)
 		bgp->vrf_id = vrf_generate_id();
-	bgp_router_id_set(bgp, &bgp->router_id_zebra);
+	bgp_router_id_set(bgp, &bgp->router_id_zebra, TRUE);
 	bgp_address_init(bgp);
 	bgp_tip_hash_init(bgp);
 	bgp_scan_init(bgp);
