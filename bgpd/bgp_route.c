@@ -5787,6 +5787,13 @@ static void bgp_aggregate_route(struct bgp *bgp, struct prefix *p,
 	unsigned long match = 0;
 	uint8_t atomic_aggregate = 0;
 
+	/* If the bgp instance is being deleted or self peer is deleted
+	 * then do not create aggregate route
+	 */
+	if (bgp_flag_check(bgp, BGP_FLAG_DELETE_IN_PROGRESS) ||
+	   (bgp->peer_self == NULL))
+		return;
+
 	/* ORIGIN attribute: If at least one route among routes that are
 	   aggregated has ORIGIN with the value INCOMPLETE, then the
 	   aggregated route must have the ORIGIN attribute with the value
