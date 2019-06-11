@@ -447,7 +447,7 @@ ldpd_shutdown(void)
 			if (errno == EINTR)
 				continue;
 			/* No more processes were found. */
-			if (errno != ECHILD)
+			if (errno == ECHILD)
 				break;
 
 			/* Unhandled errno condition. */
