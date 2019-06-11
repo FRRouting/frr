@@ -2598,3 +2598,75 @@ int bgp_vpn_leak_unimport(struct bgp *from_bgp, struct vty *vty)
 	}
 	return 0;
 }
+
+/* When a router bgp is configured, there could be a bgp vrf
+ * instance importing routes from this newly configured
+ * bgp vrf instance. Export routes from configured
+ * bgp vrf to VPN.
+ * VRF Y has import from bgp vrf x,
+ * when a bgp vrf x instance is created, export its routes
+ * to VRF Y instance.
+ */
+void bgp_vpn_leak_export(struct bgp *from_bgp)
+{
+	afi_t afi;
+	const char *export_name;
+	char *vname;
+	struct listnode *node, *next;
+	struct ecommunity *ecom;
+	vpn_policy_direction_t idir, edir;
+	safi_t safi = SAFI_UNICAST;
+	struct bgp *to_bgp;
+	int debug;
+
+	debug = (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF) |
+		     BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF));
+
+	idir = BGP_VPN_POLICY_DIR_FROMVPN;
+	edir = BGP_VPN_POLICY_DIR_TOVPN;
+
+	export_name = (from_bgp->name ? XSTRDUP(MTYPE_TMP, from_bgp->name)
+			       : XSTRDUP(MTYPE_TMP, VRF_DEFAULT_NAME));
+
+	for (afi = 0; afi < AFI_MAX; ++afi) {
+		/* vrf leak is for IPv4 and IPv6 Unicast only */
+		if (afi != AFI_IP && afi != AFI_IP6)
+			continue;
+
+		for (ALL_LIST_ELEMENTS_RO(bm->bgp, next, to_bgp)) {
+			if (from_bgp == to_bgp)
+				continue;
+
+			/* bgp instance has import list, check to see if newly
+			 * configured bgp instance is the list.
+			 */
+			struct vpn_policy *to_vpolicy;
+
+			to_vpolicy = &(to_bgp->vpn_policy[afi]);
+			for (ALL_LIST_ELEMENTS_RO(to_vpolicy->import_vrf,
+						  node, vname)) {
+				if (strcmp(vname, export_name) != 0)
+					continue;
+
+				if (debug)
+					zlog_debug("%s: found from_bgp %s in to_bgp %s import list, import routes.",
+					   __func__,
+					   export_name, to_bgp->name_pretty);
+
+				ecom = from_bgp->vpn_policy[afi].rtlist[edir];
+				/* remove import rt, it will be readded
+				 * as part of import from vrf.
+				 */
+				if (ecom)
+					ecommunity_del_val(
+						to_vpolicy->rtlist[idir],
+						(struct ecommunity_val *)
+							ecom->val);
+				vrf_import_from_vrf(to_bgp, from_bgp,
+						    afi, safi);
+				break;
+
+			}
+		}
+	}
+}
