@@ -826,8 +826,8 @@ Defining Peers
    peers ASN is the same as mine as specified under the :clicmd:`router bgp ASN`
    command the connection will be denied.
 
-.. index:: [no] bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group WORD
-.. clicmd:: [no] bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group WORD
+.. index:: [no] bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME
+.. clicmd:: [no] bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME
 
    Accept connections from any peers in the specified prefix. Configuration
    from the specified peer-group is used to configure these peers.
@@ -1050,8 +1050,8 @@ and will share updates.
 
    This command defines a new peer group.
 
-.. index:: neighbor PEER peer-group WORD
-.. clicmd:: neighbor PEER peer-group WORD
+.. index:: neighbor PEER peer-group PGNAME
+.. clicmd:: neighbor PEER peer-group PGNAME
 
    This command bind specific peer to peer group WORD.
 
