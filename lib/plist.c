@@ -1009,7 +1009,7 @@ static int vty_prefix_list_uninstall(struct vty *vty, afi_t afi,
 
 		if (pentry == NULL) {
 			vty_out(vty,
-				"%% Can't find prefix-list %s with sequence number %lu\n",
+				"%% Can't find prefix-list %s with sequence number %" PRIu64 "\n",
 				name, seqnum);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
