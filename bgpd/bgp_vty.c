@@ -7463,11 +7463,14 @@ DEFUN (show_bgp_vrfs,
 			continue;
 
 		count++;
-		if (!uj && count == 1)
+		if (!uj && count == 1) {
 			vty_out(vty,
-				"%4s  %-5s  %-16s  %9s  %10s  %-37s %-10s %-15s\n",
+				"%4s  %-5s  %-16s  %9s  %10s  %-37s\n",
 				"Type", "Id", "routerId", "#PeersVfg",
-				"#PeersEstb", "Name", "L3-VNI", "Rmac");
+				"#PeersEstb", "Name");
+			vty_out(vty, "%11s  %-16s  %-21s  %-6s\n", " ",
+				"L3-VNI", "RouterMAC", "Interface");
+		}
 
 		peers_cfg = peers_estb = 0;
 		if (uj)
@@ -7508,16 +7511,24 @@ DEFUN (show_bgp_vrfs,
 			json_object_string_add(
 				json_vrf, "rmac",
 				prefix_mac2str(&bgp->rmac, buf, sizeof(buf)));
+			json_object_string_add(json_vrf, "interface",
+				ifindex2ifname(bgp->l3vni_svi_ifindex,
+					       bgp->vrf_id));
 			json_object_object_add(json_vrfs, name, json_vrf);
-		} else
+		} else {
 			vty_out(vty,
-				"%4s  %-5d  %-16s  %9u  %10u  %-37s %-10u %-15s\n",
+				"%4s  %-5d  %-16s  %-9u  %-10u  %-37s\n",
 				type,
 				bgp->vrf_id == VRF_UNKNOWN ? -1
 							   : (int)bgp->vrf_id,
 				inet_ntoa(bgp->router_id), peers_cfg,
-				peers_estb, name, bgp->l3vni,
-				prefix_mac2str(&bgp->rmac, buf, sizeof(buf)));
+				peers_estb, name);
+			vty_out(vty,"%11s  %-16u  %-21s  %-20s\n", " ",
+				bgp->l3vni,
+				prefix_mac2str(&bgp->rmac, buf, sizeof(buf)),
+				ifindex2ifname(bgp->l3vni_svi_ifindex,
+					       bgp->vrf_id));
+		}
 	}
 
 	if (uj) {
