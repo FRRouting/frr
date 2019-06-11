@@ -133,13 +133,12 @@ int bfd_session_enable(struct bfd_session *bs)
 				"session-enable: specified VRF doesn't exists.");
 			return 0;
 		}
-	}
-
+	} else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (!vrf)
+		return 0;
 	if (bs->key.ifname[0]) {
-		if (vrf)
-			ifp = if_lookup_by_name(bs->key.ifname, vrf->vrf_id);
-		else
-			ifp = if_lookup_by_name_all_vrf(bs->key.ifname);
+		ifp = if_lookup_by_name(bs->key.ifname, vrf->vrf_id);
 		if (ifp == NULL) {
 			log_error(
 				  "session-enable: specified interface doesn't exists.");
