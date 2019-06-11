@@ -201,7 +201,27 @@ def get_always_args(token, always_args, args = [], stack = []):
     for nexttkn in token.next():
         get_always_args(nexttkn, always_args, args, stack)
 
-def process_file(fn, ofd, dumpfd, all_defun):
+class Macros(dict):
+    def load(self, filename):
+        filedata = clippy.parse(filename)
+        for entry in filedata['data']:
+            if entry['type'] != 'PREPROC':
+                continue
+            ppdir = entry['line'].lstrip().split(None, 1)
+            if ppdir[0] != 'define' or len(ppdir) != 2:
+                continue
+            ppdef = ppdir[1].split(None, 1)
+            name = ppdef[0]
+            if '(' in name:
+                continue
+            val = ppdef[1] if len(ppdef) == 2 else ''
+
+            val = val.strip(' \t\n\\')
+            if name in self:
+                sys.stderr.write('warning: macro %s redefined!\n' % (name))
+            self[name] = val
+
+def process_file(fn, ofd, dumpfd, all_defun, macros):
     errors = 0
     filedata = clippy.parse(fn)
 
@@ -213,15 +233,21 @@ def process_file(fn, ofd, dumpfd, all_defun):
                 continue
 
             cmddef = entry['args'][2]
+            cmddefx = []
             for i in cmddef:
-                if not (i.startswith('"') and i.endswith('"')):
-                    sys.stderr.write('%s:%d: DEFPY command string not parseable (%r)\n' % (fn, entry['lineno'], cmddef))
-                    errors += 1
-                    cmddef = None
-                    break
-            if cmddef is None:
+                while i in macros:
+                    i = macros[i]
+                if i.startswith('"') and i.endswith('"'):
+                    cmddefx.append(i[1:-1])
+                    continue
+
+                sys.stderr.write('%s:%d: DEFPY command string not parseable (%r)\n' % (fn, entry['lineno'], cmddef))
+                errors += 1
+                cmddefx = None
+                break
+            if cmddefx is None:
                 continue
-            cmddef = ''.join([i[1:-1] for i in cmddef])
+            cmddef = ''.join([i for i in cmddefx])
 
             graph = clippy.Graph(cmddef)
             args = OrderedDict()
@@ -320,7 +346,13 @@ if __name__ == '__main__':
         if args.show:
             dumpfd = sys.stderr
 
-    errors = process_file(args.cfile, ofd, dumpfd, args.all_defun)
+    macros = Macros()
+    macros.load('lib/route_types.h')
+    macros.load('lib/command.h')
+    # sigh :(
+    macros['PROTO_REDIST_STR'] = 'FRR_REDIST_STR_ISISD'
+
+    errors = process_file(args.cfile, ofd, dumpfd, args.all_defun, macros)
     if errors != 0:
         sys.exit(1)
 

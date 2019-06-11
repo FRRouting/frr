@@ -2172,7 +2172,7 @@ DEFPY (show_evpn_mac_vni_all_dad,
 
 DEFPY (show_evpn_mac_vni_dad,
        show_evpn_mac_vni_dad_cmd,
-       "show evpn mac vni " CMD_VNI_RANGE " duplicate" "[json]",
+       "show evpn mac vni " CMD_VNI_RANGE " duplicate [json]",
        SHOW_STR
        "EVPN\n"
        "MAC addresses\n"
@@ -2182,10 +2182,8 @@ DEFPY (show_evpn_mac_vni_dad,
        JSON_STR)
 {
 	struct zebra_vrf *zvrf;
-	vni_t vni;
 	bool uj = use_json(argc, argv);
 
-	vni = strtoul(argv[4]->arg, NULL, 10);
 	zvrf = zebra_vrf_get_evpn();
 
 	zebra_vxlan_print_macs_vni_dad(vty, zvrf, vni, uj);
@@ -2195,7 +2193,7 @@ DEFPY (show_evpn_mac_vni_dad,
 
 DEFPY (show_evpn_neigh_vni_dad,
        show_evpn_neigh_vni_dad_cmd,
-       "show evpn arp-cache vni " CMD_VNI_RANGE "duplicate" "[json]",
+       "show evpn arp-cache vni " CMD_VNI_RANGE "duplicate [json]",
        SHOW_STR
        "EVPN\n"
        "ARP and ND cache\n"
@@ -2205,10 +2203,8 @@ DEFPY (show_evpn_neigh_vni_dad,
        JSON_STR)
 {
 	struct zebra_vrf *zvrf;
-	vni_t vni;
 	bool uj = use_json(argc, argv);
 
-	vni = strtoul(argv[4]->arg, NULL, 10);
 	zvrf = zebra_vrf_get_evpn();
 	zebra_vxlan_print_neigh_vni_dad(vty, zvrf, vni, uj);
 	return CMD_SUCCESS;
@@ -2387,7 +2383,7 @@ DEFUN (show_pbr_iptable,
 
 DEFPY (clear_evpn_dup_addr,
        clear_evpn_dup_addr_cmd,
-       "clear evpn dup-addr vni <all$vni_all |" CMD_VNI_RANGE"$vni_val [mac M:A:C$mac_val | ip <A.B.C.D|X:X::X:X>]>",
+       "clear evpn dup-addr vni <all$vni_all |" CMD_VNI_RANGE"$vni [mac M:A:C$mac_val | ip <A.B.C.D|X:X::X:X>]>",
        CLEAR_STR
        "EVPN\n"
        "Duplicate address \n"
@@ -2401,15 +2397,12 @@ DEFPY (clear_evpn_dup_addr,
        "IPv6 address\n")
 {
 	struct zebra_vrf *zvrf;
-	vni_t vni = 0;
 	struct ipaddr host_ip = {.ipa_type = IPADDR_NONE };
 	struct ethaddr mac_addr;
 	int ret = CMD_SUCCESS;
 
 	zvrf = zebra_vrf_get_evpn();
-	if (vni_val) {
-		vni = strtoul(vni_val, NULL, 10);
-
+	if (vni_str) {
 		if (mac_val) {
 			prefix_str2mac(mac_val, &mac_addr);
 			ret = zebra_vxlan_clear_dup_detect_vni_mac(vty, zvrf,
