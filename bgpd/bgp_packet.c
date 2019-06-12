@@ -1048,7 +1048,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	uint16_t holdtime;
 	uint16_t send_holdtime;
 	as_t remote_as;
-	as_t as4 = 0;
+	as_t as4 = 0, as4_be;
 	struct in_addr remote_id;
 	int mp_capability;
 	uint8_t notify_data_remote_as[2];
@@ -1091,8 +1091,10 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 		 * that we do not know which peer is connecting to us now.
 		 */
 		as4 = peek_for_as4_capability(peer, optlen);
-		memcpy(notify_data_remote_as4, &as4, 4);
 	}
+
+	as4_be = htonl(as4);
+	memcpy(notify_data_remote_as4, &as4_be, 4);
 
 	/* Just in case we have a silly peer who sends AS4 capability set to 0
 	 */
