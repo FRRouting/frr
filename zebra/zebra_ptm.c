@@ -463,7 +463,7 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 	char bfdst_str[32];
 	char dest_str[64];
 	char src_str[64];
-	char vrf_str[64];
+	char vrf_str[VRF_NAMSIZ + 1];
 	struct prefix dest_prefix;
 	struct prefix src_prefix;
 	vrf_id_t vrf_id;
@@ -589,6 +589,8 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
 	char port_str[128];
 	char cbl_str[32];
 	char cmd_status_str[32];
+	char vrf_str[VRF_NAMSIZ + 1];
+	struct vrf *vrf = NULL;
 
 	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_CMD_STATUS_STR,
 				cmd_status_str);
@@ -598,6 +600,17 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
 		return 0;
 	}
 
+	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDVRF_STR, vrf_str);
+
+	if (vrf_str[0] == '\0')
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	else
+		vrf = vrf_lookup_by_name(vrf_str);
+	if (!vrf) {
+		zlog_debug("%s: Could not obtain appropriate VRF",
+			   __func__);
+		return -1;
+	}
 	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_PORT_STR, port_str);
 
 	if (port_str[0] == '\0') {
@@ -607,7 +620,7 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
 	}
 
 	if (strcmp(ZEBRA_PTM_INVALID_PORT_NAME, port_str)) {
-		ifp = if_lookup_by_name_all_vrf(port_str);
+		ifp = if_lookup_by_name(port_str, vrf->vrf_id);
 
 		if (!ifp) {
 			flog_warn(EC_ZEBRA_UNKNOWN_INTERFACE,
