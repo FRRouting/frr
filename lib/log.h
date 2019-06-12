@@ -81,20 +81,13 @@ extern void openzlog(const char *progname, const char *protoname,
 /* Close zlog function. */
 extern void closezlog(void);
 
-/* GCC have printf type attribute check.  */
-#ifdef __GNUC__
-#define PRINTF_ATTRIBUTE(a,b) __attribute__ ((__format__ (__printf__, a, b)))
-#else
-#define PRINTF_ATTRIBUTE(a,b)
-#endif /* __GNUC__ */
-
 /* Handy zlog functions. */
-extern void zlog_err(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_warn(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_info(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_notice(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_debug(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog(int priority, const char *format, ...) PRINTF_ATTRIBUTE(2, 3);
+extern void zlog_err(const char *format, ...) PRINTFRR(1, 2);
+extern void zlog_warn(const char *format, ...) PRINTFRR(1, 2);
+extern void zlog_info(const char *format, ...) PRINTFRR(1, 2);
+extern void zlog_notice(const char *format, ...) PRINTFRR(1, 2);
+extern void zlog_debug(const char *format, ...) PRINTFRR(1, 2);
+extern void zlog(int priority, const char *format, ...) PRINTFRR(2, 3);
 
 /* For logs which have error codes associated with them */
 #define flog_err(ferr_id, format, ...)                                        \
