@@ -386,8 +386,112 @@ void label_manager_init(char *lm_zserv_path)
 	hook_register(zserv_client_close, release_daemon_label_chunks);
 }
 
+/* alloc and fill a label chunk */
+static struct label_manager_chunk *
+create_label_chunk(uint8_t proto, unsigned short instance, uint8_t keep,
+		   uint32_t start, uint32_t end)
+{
+	/* alloc chunk, fill it and return it */
+	struct label_manager_chunk *lmc =
+		XCALLOC(MTYPE_LM_CHUNK, sizeof(struct label_manager_chunk));
+
+	lmc->start = start;
+	lmc->end = end;
+	lmc->proto = proto;
+	lmc->instance = instance;
+	lmc->keep = keep;
+
+	return lmc;
+}
+
+/* attempt to get a specific label chunk */
+struct label_manager_chunk *
+assign_specific_label_chunk(uint8_t proto, unsigned short instance,
+			    uint8_t keep, uint32_t size, uint32_t base)
+{
+	struct label_manager_chunk *lmc;
+	struct listnode *node, *next = NULL;
+	struct listnode *first_node = NULL;
+	struct listnode *last_node = NULL;
+	struct listnode *insert_node = NULL;
+
+	/* precompute last label from base and size */
+	uint32_t end = base + size - 1;
+
+	/* sanities */
+	if ((base < MPLS_LABEL_UNRESERVED_MIN)
+	    || (end > MPLS_LABEL_UNRESERVED_MAX)) {
+		zlog_err("Invalid LM request arguments: base: %u, size: %u",
+			 base, size);
+		return NULL;
+	}
+
+	/* Scan the existing chunks to see if the requested range of labels
+	 * falls inside any of such chunks */
+	for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, lmc)) {
+
+		/* skip chunks for labels < base */
+		if (base > lmc->end)
+			continue;
+
+		/* requested range is not covered by any existing, free chunk.
+		 * Therefore, need to insert a chunk */
+		if ((end < lmc->start) && !first_node) {
+			insert_node = node;
+			break;
+		}
+
+		if (!first_node)
+			first_node = node;
+
+		/* if chunk is used, cannot honor request */
+		if (lmc->proto != NO_PROTO)
+			return NULL;
+
+		if (end < lmc->end) {
+			last_node = node;
+			break;
+		}
+	}
+
+	/* insert chunk between existing chunks */
+	if (insert_node) {
+		lmc = create_label_chunk(proto, instance, keep, base, end);
+		listnode_add_before(lbl_mgr.lc_list, insert_node, lmc);
+		return lmc;
+	}
+
+	if (first_node) {
+		/* get node past the last one, if there */
+		if (last_node)
+			last_node = listnextnode(last_node);
+
+		/* delete node coming after the above chunk whose labels are
+		 * included in the previous one */
+		for (node = first_node; node && (node != last_node);
+		     node = next) {
+			next = listnextnode(node);
+			list_delete_node(lbl_mgr.lc_list, node);
+		}
+
+		lmc = create_label_chunk(proto, instance, keep, base, end);
+		if (last_node)
+			listnode_add_before(lbl_mgr.lc_list, last_node, lmc);
+		else
+			listnode_add(lbl_mgr.lc_list, lmc);
+
+		return lmc;
+	} else {
+		/* create a new chunk past all the existing ones and link at
+		 * tail */
+		lmc = create_label_chunk(proto, instance, keep, base, end);
+		listnode_add(lbl_mgr.lc_list, lmc);
+		return lmc;
+	}
+}
+
 /**
- * Core function, assigns label cunks
+ * Core function, assigns label chunks
  *
  * It first searches through the list to check if there's one available
  * (previously released). Otherwise it creates and assigns a new one
@@ -395,15 +499,26 @@ void label_manager_init(char *lm_zserv_path)
  * @param proto Daemon protocol of client, to identify the owner
  * @param instance Instance, to identify the owner
  * @param keep If set, avoid garbage collection
- * @para size Size of the label chunk
- * @return Pointer to the assigned label chunk
+ * @param size Size of the label chunk
+ * @param base Desired starting label of the chunk; if MPLS_LABEL_BASE_ANY it does not apply
+ * @return Pointer to the assigned label chunk, or NULL if the request could not be satisfied
  */
 struct label_manager_chunk *assign_label_chunk(uint8_t proto,
 					       unsigned short instance,
-					       uint8_t keep, uint32_t size)
+					       uint8_t keep, uint32_t size,
+					       uint32_t base)
 {
 	struct label_manager_chunk *lmc;
 	struct listnode *node;
+	uint32_t prev_end = 0;
+
+	/* handle chunks request with a specific base label */
+	if (base != MPLS_LABEL_BASE_ANY)
+		return assign_specific_label_chunk(proto, instance, keep, size,
+						   base);
+
+	/* appease scan-build, who gets confused by the use of macros */
+	assert(lbl_mgr.lc_list);
 
 	/* first check if there's one available */
 	for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, lmc)) {
@@ -414,35 +529,44 @@ struct label_manager_chunk *assign_label_chunk(uint8_t proto,
 			lmc->keep = keep;
 			return lmc;
 		}
+		/* check if we hadve a "hole" behind us that we can squeeze into
+		 */
+		if ((lmc->start > prev_end)
+		    && (lmc->start - prev_end >= size)) {
+			lmc = create_label_chunk(proto, instance, keep,
+						 prev_end + 1, prev_end + size);
+			listnode_add_before(lbl_mgr.lc_list, node, lmc);
+			return lmc;
+		}
+		prev_end = lmc->end;
 	}
 	/* otherwise create a new one */
-	lmc = XCALLOC(MTYPE_LM_CHUNK, sizeof(struct label_manager_chunk));
+	uint32_t start_free;
 
 	if (list_isempty(lbl_mgr.lc_list))
-		lmc->start = MPLS_LABEL_UNRESERVED_MIN;
+		start_free = MPLS_LABEL_UNRESERVED_MIN;
 	else
-		lmc->start = ((struct label_manager_chunk *)listgetdata(
+		start_free = ((struct label_manager_chunk *)listgetdata(
 				      listtail(lbl_mgr.lc_list)))
 				     ->end
 			     + 1;
-	if (lmc->start > MPLS_LABEL_UNRESERVED_MAX - size + 1) {
+
+	if (start_free > MPLS_LABEL_UNRESERVED_MAX - size + 1) {
 		flog_err(EC_ZEBRA_LM_EXHAUSTED_LABELS,
-			 "Reached max labels. Start: %u, size: %u", lmc->start,
+			 "Reached max labels. Start: %u, size: %u", start_free,
 			 size);
-		XFREE(MTYPE_LM_CHUNK, lmc);
 		return NULL;
 	}
-	lmc->end = lmc->start + size - 1;
-	lmc->proto = proto;
-	lmc->instance = instance;
-	lmc->keep = keep;
-	listnode_add(lbl_mgr.lc_list, lmc);
 
+	/* create chunk and link at tail */
+	lmc = create_label_chunk(proto, instance, keep, start_free,
+				 start_free + size - 1);
+	listnode_add(lbl_mgr.lc_list, lmc);
 	return lmc;
 }
 
 /**
- * Core function, release no longer used label cunks
+ * Core function, release no longer used label chunks
  *
  * @param proto Daemon protocol of client, to identify the owner
  * @param instance Instance, to identify the owner

@@ -1995,10 +1995,11 @@ int lm_label_manager_connect(struct zclient *zclient, int async)
  * @param zclient Zclient used to connect to label manager (zebra)
  * @param keep Avoid garbage collection
  * @param chunk_size Amount of labels requested
+ * @param base Base for the label chunk. if MPLS_LABEL_BASE_ANY we do not care
  * @result 0 on success, -1 otherwise
  */
 int zclient_send_get_label_chunk(struct zclient *zclient, uint8_t keep,
-				 uint32_t chunk_size)
+				 uint32_t chunk_size, uint32_t base)
 {
 	struct stream *s;
 
@@ -2018,6 +2019,7 @@ int zclient_send_get_label_chunk(struct zclient *zclient, uint8_t keep,
 	stream_putw(s, zclient->instance);
 	stream_putc(s, keep);
 	stream_putl(s, chunk_size);
+	stream_putl(s, base);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -2038,7 +2040,7 @@ int zclient_send_get_label_chunk(struct zclient *zclient, uint8_t keep,
  * @param end To write last assigned chunk label to
  * @result 0 on success, -1 otherwise
  */
-int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
+int lm_get_label_chunk(struct zclient *zclient, uint8_t keep, uint32_t base,
 		       uint32_t chunk_size, uint32_t *start, uint32_t *end)
 {
 	int ret;
@@ -2063,6 +2065,8 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
 	stream_putc(s, keep);
 	/* chunk size */
 	stream_putl(s, chunk_size);
+	/* requested chunk base */
+	stream_putl(s, base);
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 

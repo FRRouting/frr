@@ -1927,7 +1927,7 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 {
 	struct stream *s;
 	uint8_t keep;
-	uint32_t size;
+	uint32_t size, base;
 	struct label_manager_chunk *lmc;
 	uint8_t proto;
 	unsigned short instance;
@@ -1940,8 +1940,9 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 	STREAM_GETW(s, instance);
 	STREAM_GETC(s, keep);
 	STREAM_GETL(s, size);
+	STREAM_GETL(s, base);
 
-	lmc = assign_label_chunk(proto, instance, keep, size);
+	lmc = assign_label_chunk(proto, instance, keep, size, base);
 	if (!lmc)
 		flog_err(
 			EC_ZEBRA_LM_CANNOT_ASSIGN_CHUNK,

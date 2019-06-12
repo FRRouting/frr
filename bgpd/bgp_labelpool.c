@@ -29,6 +29,7 @@
 #include "skiplist.h"
 #include "workqueue.h"
 #include "zclient.h"
+#include "mpls.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_labelpool.h"
@@ -391,7 +392,8 @@ void bgp_lp_get(
 	if (lp_fifo_count(&lp->requests) > lp->pending_count) {
 		if (!zclient || zclient->sock < 0)
 			return;
-		if (!zclient_send_get_label_chunk(zclient, 0, LP_CHUNK_SIZE))
+		if (!zclient_send_get_label_chunk(zclient, 0, LP_CHUNK_SIZE,
+						  MPLS_LABEL_BASE_ANY))
 			lp->pending_count += LP_CHUNK_SIZE;
 	}
 }
@@ -552,7 +554,8 @@ void bgp_lp_event_zebra_up(void)
 		return;
 	}
 
-	zclient_send_get_label_chunk(zclient, 0, labels_needed);
+	zclient_send_get_label_chunk(zclient, 0, labels_needed,
+				     MPLS_LABEL_BASE_ANY);
 	lp->pending_count = labels_needed;
 
 	/*
