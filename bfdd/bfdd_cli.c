@@ -269,20 +269,27 @@ DEFPY(
 	"Configure peer receive interval\n"
 	"Configure peer receive interval value in milliseconds\n")
 {
+	char value[32];
+
+	snprintf(value, sizeof(value), "%ld", interval * 1000);
 	nb_cli_enqueue_change(vty, "./required-receive-interval", NB_OP_MODIFY,
-			      interval_str);
+			      value);
+
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 void bfd_cli_show_rx(struct vty *vty, struct lyd_node *dnode,
 		     bool show_defaults)
 {
+	uint32_t value;
+
 	if (show_defaults)
 		vty_out(vty, "  receive-interval %d\n",
 			BFD_DEFREQUIREDMINRX);
-	else
-		vty_out(vty, "  receive-interval %s\n",
-			yang_dnode_get_string(dnode, NULL));
+	else {
+		value = yang_dnode_get_uint32(dnode, NULL);
+		vty_out(vty, "  receive-interval %" PRIu32 "\n", value / 1000);
+	}
 }
 
 DEFPY(
@@ -291,20 +298,27 @@ DEFPY(
 	"Configure peer transmit interval\n"
 	"Configure peer transmit interval value in milliseconds\n")
 {
+	char value[32];
+
+	snprintf(value, sizeof(value), "%ld", interval * 1000);
 	nb_cli_enqueue_change(vty, "./desired-transmission-interval",
-			      NB_OP_MODIFY, interval_str);
+			      NB_OP_MODIFY, value);
+
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 void bfd_cli_show_tx(struct vty *vty, struct lyd_node *dnode,
 		     bool show_defaults)
 {
+	uint32_t value;
+
 	if (show_defaults)
 		vty_out(vty, "  transmit-interval %d\n",
 			BFD_DEFDESIREDMINTX);
-	else
-		vty_out(vty, "  transmit-interval %s\n",
-			yang_dnode_get_string(dnode, NULL));
+	else {
+		value = yang_dnode_get_uint32(dnode, NULL);
+		vty_out(vty, "  transmit-interval %" PRIu32 "\n", value / 1000);
+	}
 }
 
 DEFPY(
@@ -334,20 +348,27 @@ DEFPY(
 	"Configure peer echo interval\n"
 	"Configure peer echo interval value in milliseconds\n")
 {
+	char value[32];
+
+	snprintf(value, sizeof(value), "%ld", interval * 1000);
 	nb_cli_enqueue_change(vty, "./desired-echo-transmission-interval",
-			      NB_OP_MODIFY, interval_str);
+			      NB_OP_MODIFY, value);
+
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 void bfd_cli_show_echo_interval(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults)
 {
+	uint32_t value;
+
 	if (show_defaults)
 		vty_out(vty, "  echo-interval %d\n",
 			BFD_DEF_REQ_MIN_ECHO);
-	else
-		vty_out(vty, "  echo-interval %s\n",
-			yang_dnode_get_string(dnode, NULL));
+	else {
+		value = yang_dnode_get_uint32(dnode, NULL);
+		vty_out(vty, "  echo-interval %" PRIu32 "\n", value / 1000);
+	}
 }
 
 void

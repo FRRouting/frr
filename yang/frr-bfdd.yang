@@ -128,15 +128,15 @@ module frr-bfdd {
 
     leaf desired-transmission-interval {
       type uint32;
-      units milliseconds;
-      default 300;
+      units microseconds;
+      default 300000;
       description "Minimum desired control packet transmission interval";
     }
 
     leaf required-receive-interval {
       type uint32;
-      units milliseconds;
-      default 300;
+      units microseconds;
+      default 300000;
       description "Minimum required control packet receive interval";
     }
 
@@ -158,8 +158,8 @@ module frr-bfdd {
 
     leaf desired-echo-transmission-interval {
       type uint32;
-      units milliseconds;
-      default 50;
+      units microseconds;
+      default 50000;
       description "Minimum desired control packet transmission interval";
     }
   }
@@ -217,13 +217,13 @@ module frr-bfdd {
     leaf negotiated-transmission-interval {
       description "Negotiated transmit interval";
       type uint32;
-      units milliseconds;
+      units microseconds;
     }
 
     leaf negotiated-receive-interval {
       description "Negotiated receive interval";
       type uint32;
-      units milliseconds;
+      units microseconds;
     }
 
     leaf detection-mode {
@@ -287,7 +287,7 @@ module frr-bfdd {
      */
     leaf negotiated-echo-transmission-interval {
       type uint32;
-      units milliseconds;
+      units microseconds;
       description "Negotiated echo transmit interval";
     }
 
