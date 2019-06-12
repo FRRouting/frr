@@ -72,7 +72,8 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
 void label_manager_init(char *lm_zserv_path);
 struct label_manager_chunk *assign_label_chunk(uint8_t proto,
 					       unsigned short instance,
-					       uint8_t keep, uint32_t size);
+					       uint8_t keep, uint32_t size,
+					       uint32_t base);
 int release_label_chunk(uint8_t proto, unsigned short instance, uint32_t start,
 			uint32_t end);
 int release_daemon_label_chunks(struct zserv *client);

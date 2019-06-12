@@ -80,7 +80,8 @@ static int zebra_send_get_label_chunk()
 
 	printf("Ask for label chunk \n");
 
-	ret = lm_get_label_chunk(zclient, KEEP, CHUNK_SIZE, &start, &end);
+	ret = lm_get_label_chunk(zclient, KEEP, MPLS_LABEL_BASE_ANY, CHUNK_SIZE,
+				 &start, &end);
 	if (ret != 0) {
 		fprintf(stderr, "Error %d requesting label chunk %s\n", ret,
 			strerror(errno));

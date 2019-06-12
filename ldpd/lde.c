@@ -1660,7 +1660,8 @@ lde_get_label_chunk(void)
 	uint32_t	 start, end;
 
 	debug_labels("getting label chunk (size %u)", CHUNK_SIZE);
-	ret = lm_get_label_chunk(zclient_sync, 0, CHUNK_SIZE, &start, &end);
+	ret = lm_get_label_chunk(zclient_sync, 0, MPLS_LABEL_BASE_ANY,
+				 CHUNK_SIZE, &start, &end);
 	if (ret < 0) {
 		log_warnx("Error getting label chunk!");
 		return -1;

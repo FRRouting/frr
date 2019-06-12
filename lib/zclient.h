@@ -609,15 +609,13 @@ extern struct interface *zebra_interface_link_params_read(struct stream *s,
 							  vrf_id_t vrf_id);
 extern size_t zebra_interface_link_params_write(struct stream *,
 						struct interface *);
-extern int zclient_send_get_label_chunk(
-	struct zclient	*zclient,
-	uint8_t		keep,
-	uint32_t	chunk_size);
+extern int zclient_send_get_label_chunk(struct zclient *zclient, uint8_t keep,
+					uint32_t chunk_size, uint32_t base);
 
 extern int lm_label_manager_connect(struct zclient *zclient, int async);
 extern int lm_get_label_chunk(struct zclient *zclient, uint8_t keep,
-			      uint32_t chunk_size, uint32_t *start,
-			      uint32_t *end);
+			      uint32_t base, uint32_t chunk_size,
+			      uint32_t *start, uint32_t *end);
 extern int lm_release_label_chunk(struct zclient *zclient, uint32_t start,
 				  uint32_t end);
 extern int tm_table_manager_connect(struct zclient *zclient);
