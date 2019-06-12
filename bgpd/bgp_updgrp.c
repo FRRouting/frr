@@ -885,6 +885,9 @@ static void update_subgroup_add_peer(struct update_subgroup *subgrp,
 	bpacket_add_peer(pkt, paf);
 
 	bpacket_queue_sanity_check(SUBGRP_PKTQ(subgrp));
+	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
+		zlog_debug("peer %s added to subgroup s%" PRIu64,
+				paf->peer->host, subgrp->id);
 }
 
 /*
@@ -910,6 +913,10 @@ static void update_subgroup_remove_peer_internal(struct update_subgroup *subgrp,
 	paf->subgroup = NULL;
 	subgrp->peer_count--;
 
+	if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
+		zlog_debug("peer %s deleted from subgroup s%"
+			   PRIu64 "peer cnt %d",
+			   paf->peer->host, subgrp->id, subgrp->peer_count);
 	SUBGRP_INCR_STAT(subgrp, prune_events);
 }
 
@@ -1826,9 +1833,9 @@ void peer_af_announce_route(struct peer_af *paf, int combine)
 	 */
 	if (!combine || !all_pending) {
 		update_subgroup_split_peer(paf, NULL);
-		if (!paf->subgroup)
-			return;
+		subgrp = paf->subgroup;
 
+		assert(subgrp && subgrp->update_group);
 		if (bgp_debug_update(paf->peer, NULL, subgrp->update_group, 0))
 			zlog_debug("u%" PRIu64 ":s%" PRIu64
 				   " %s announcing routes",
