@@ -19,6 +19,11 @@
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
  * MA 02110-1301 USA
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "if.h"
 #include "pimd.h"
 #include "pim_iface.h"

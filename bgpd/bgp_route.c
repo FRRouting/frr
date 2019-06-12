@@ -22,6 +22,7 @@
 #include <zebra.h>
 #include <math.h>
 
+#include "printfrr.h"
 #include "prefix.h"
 #include "linklist.h"
 #include "memory.h"
