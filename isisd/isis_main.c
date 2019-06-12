@@ -53,7 +53,6 @@
 #include "isisd/isis_zebra.h"
 #include "isisd/isis_te.h"
 #include "isisd/isis_errors.h"
-#include "isisd/isis_vty_common.h"
 #include "isisd/isis_bfd.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_mt.h"
@@ -230,7 +229,9 @@ int main(int argc, char **argv, char **envp)
 	prefix_list_init();
 	isis_init();
 	isis_circuit_init();
-	isis_vty_init();
+#ifdef FABRICD
+	isis_vty_daemon_init();
+#endif /* FABRICD */
 #ifndef FABRICD
 	isis_cli_init();
 #endif /* ifdef FABRICD */
