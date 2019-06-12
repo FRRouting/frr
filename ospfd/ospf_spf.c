@@ -879,6 +879,9 @@ static void ospf_spf_next(struct vertex *v, struct ospf *ospf,
 					  "Invalid LSA link type %d", type);
 				continue;
 			}
+
+			/* step (d) below */
+			distance = v->distance + ntohs(l->m[0].metric);
 		} else {
 			/* In case of V is Network-LSA. */
 			r = (struct in_addr *)p;
@@ -892,6 +895,9 @@ static void ospf_spf_next(struct vertex *v, struct ospf *ospf,
 					zlog_debug("found Router LSA %s",
 						   inet_ntoa(w_lsa->data->id));
 			}
+
+			/* step (d) below */
+			distance = v->distance;
 		}
 
 		/* (b cont.) If the LSA does not exist, or its LS age is equal
@@ -929,11 +935,7 @@ static void ospf_spf_next(struct vertex *v, struct ospf *ospf,
 		   vertex V and the advertised cost of the link between vertices
 		   V and W.  If D is: */
 
-		/* calculate link cost D. */
-		if (v->lsa->type == OSPF_ROUTER_LSA)
-			distance = v->distance + ntohs(l->m[0].metric);
-		else /* v is not a Router-LSA */
-			distance = v->distance;
+		/* calculate link cost D -- moved above */
 
 		/* Is there already vertex W in candidate list? */
 		if (w_lsa->stat == LSA_SPF_NOT_EXPLORED) {
