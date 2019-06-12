@@ -105,8 +105,8 @@ void vty_frame(struct vty *vty, const char *format, ...)
 	va_list args;
 
 	va_start(args, format);
-	vsnprintf(vty->frame + vty->frame_pos,
-		  sizeof(vty->frame) - vty->frame_pos, format, args);
+	vsnprintfrr(vty->frame + vty->frame_pos,
+		    sizeof(vty->frame) - vty->frame_pos, format, args);
 	vty->frame_pos = strlen(vty->frame);
 	va_end(args);
 }
