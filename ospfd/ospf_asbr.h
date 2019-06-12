@@ -49,6 +49,8 @@ struct external_info {
 	struct route_map_set_values route_map_set;
 #define ROUTEMAP_METRIC(E)      (E)->route_map_set.metric
 #define ROUTEMAP_METRIC_TYPE(E) (E)->route_map_set.metric_type
+
+	vrf_id_t vrf_id;
 };
 
 #define OSPF_ASBR_CHECK_DELAY 30

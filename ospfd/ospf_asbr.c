@@ -148,6 +148,7 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 	new = ospf_external_info_new(type, instance);
 	new->p = p;
 	new->ifindex = ifindex;
+	new->vrf_id = ospf->vrf_id;
 	new->nexthop = nexthop;
 	new->tag = tag;
 
