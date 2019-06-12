@@ -103,12 +103,12 @@ static int ripd_instance_destroy(enum nb_event event,
 static const void *ripd_instance_get_next(const void *parent_list_entry,
 					  const void *list_entry)
 {
-	const struct rip *rip = list_entry;
+	struct rip *rip = (struct rip *)list_entry;
 
 	if (list_entry == NULL)
 		rip = RB_MIN(rip_instance_head, &rip_instances);
 	else
-		rip = RB_NEXT(rip_instance_head, (struct rip *)rip);
+		rip = RB_NEXT(rip_instance_head, rip);
 
 	return rip;
 }

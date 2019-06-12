@@ -105,12 +105,12 @@ static int ripngd_instance_destroy(enum nb_event event,
 static const void *ripngd_instance_get_next(const void *parent_list_entry,
 					    const void *list_entry)
 {
-	const struct ripng *ripng = list_entry;
+	struct ripng *ripng = (struct ripng *)list_entry;
 
 	if (list_entry == NULL)
 		ripng = RB_MIN(ripng_instance_head, &ripng_instances);
 	else
-		ripng = RB_NEXT(ripng_instance_head, (struct ripng *)ripng);
+		ripng = RB_NEXT(ripng_instance_head, ripng);
 
 	return ripng;
 }
