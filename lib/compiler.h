@@ -218,6 +218,68 @@ extern "C" {
 
 #define array_size(ar) (sizeof(ar) / sizeof(ar[0]))
 
+/* sigh. this is so ugly, it overflows and wraps to being nice again.
+ *
+ * printfrr() supports "%Ld" for <int64_t>, whatever that is typedef'd to.
+ * However, gcc & clang think that "%Ld" is <long long>, which doesn't quite
+ * match up since int64_t is <long> on a lot of 64-bit systems.
+ *
+ * If we have _FRR_ATTRIBUTE_PRINTFRR, we loaded a compiler plugin that
+ * replaces the whole format checking bits with a custom version that
+ * understands "%Ld" (along with "%pI4" and co.), so we don't need to do
+ * anything.
+ *
+ * If we don't have that attribute...  we still want -Wformat to work.  So,
+ * this is the "f*ck it" approach and we just redefine int64_t to always be
+ * <long long>.  This should work until such a time that <long long> is
+ * something else (e.g. 128-bit integer)...  let's just guard against that
+ * with the _Static_assert below and work with the world we have right now,
+ * where <long long> is always 64-bit.
+ */
+
+/* these need to be included before any of the following, so we can
+ * "overwrite" things.
+ */
+#include <stdint.h>
+#include <inttypes.h>
+
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#define PRINTFRR(a, b) __attribute__((printfrr(a, b)))
+
+#else /* !_FRR_ATTRIBUTE_PRINTFRR */
+#define PRINTFRR(a, b) __attribute__((format(printf, a, b)))
+
+/* these should be typedefs, but might also be #define */
+#ifdef uint64_t
+#undef uint64_t
+#endif
+#ifdef int64_t
+#undef int64_t
+#endif
+
+/* can't overwrite the typedef, but we can replace int64_t with _int64_t */
+typedef unsigned long long _uint64_t;
+#define uint64_t _uint64_t
+typedef signed long long _int64_t;
+#define int64_t _int64_t
+
+/* if this breaks, 128-bit machines may have entered reality (or <long long>
+ * is something weird)
+ */
+#if __STDC_VERSION__ >= 201112L
+_Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
+	       "nobody expects the spanish intquisition");
+#endif
+
+/* since we redefined int64_t, we also need to redefine PRI*64 */
+#undef PRIu64
+#undef PRId64
+#undef PRIx64
+#define PRIu64 "llu"
+#define PRId64 "lld"
+#define PRIx64 "llx"
+#endif /* !_FRR_ATTRIBUTE_PRINTFRR */
+
 #ifdef __cplusplus
 }
 #endif

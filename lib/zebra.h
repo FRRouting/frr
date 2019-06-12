@@ -244,13 +244,6 @@ size_t strlcpy(char *__restrict dest,
 	       const char *__restrict src, size_t destsize);
 #endif
 
-/* GCC have printf type attribute check.  */
-#ifdef __GNUC__
-#define PRINTF_ATTRIBUTE(a,b) __attribute__ ((__format__ (__printf__, a, b)))
-#else
-#define PRINTF_ATTRIBUTE(a,b)
-#endif /* __GNUC__ */
-
 /*
  * RFC 3542 defines several macros for using struct cmsghdr.
  * Here, we define those that are not present
