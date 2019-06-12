@@ -1466,6 +1466,9 @@ route_match_interface(void *rule, const struct prefix *prefix,
 {
 	struct interface *ifp;
 	struct bgp_path_info *path;
+	struct bgp_node *rn;
+	struct bgp_table *table;
+	struct bgp *bgp;
 
 	if (type == RMAP_BGP) {
 		path = object;
@@ -1473,7 +1476,21 @@ route_match_interface(void *rule, const struct prefix *prefix,
 		if (!path || !path->attr)
 			return RMAP_NOMATCH;
 
-		ifp = if_lookup_by_name_all_vrf((char *)rule);
+		/* get vrf_id of current bgp instance
+		 * in cast imported vrf leak entry, get bgp_orig
+		 */
+		if (path->extra && path->extra->bgp_orig)
+			bgp = path->extra->bgp_orig;
+		else {
+			rn = path->net;
+			if (!rn || !bgp_node_table(rn))
+				return RMAP_NOMATCH;
+			table = bgp_node_table(rn);
+			if (!table->bgp)
+				return RMAP_NOMATCH;
+			bgp = table->bgp;
+		}
+		ifp = if_lookup_by_name((char *)rule, bgp->vrf_id);
 
 		if (ifp == NULL || ifp->ifindex != path->attr->nh_ifindex)
 			return RMAP_NOMATCH;
