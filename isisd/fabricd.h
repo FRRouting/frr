@@ -53,4 +53,6 @@ void fabricd_update_lsp_no_flood(struct isis_lsp *lsp,
 void fabricd_configure_triggered_csnp(struct isis_area *area, int delay,
 				      bool always_send_csnp);
 void fabricd_init(void);
+void isis_vty_daemon_init(void);
+
 #endif
