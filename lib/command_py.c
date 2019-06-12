@@ -321,6 +321,7 @@ static struct PyModuleDef pymoddef_clippy = {
 	} while (0)
 #endif
 
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
 PyMODINIT_FUNC command_py_init(void)
 {
 	PyObject *pymod;
