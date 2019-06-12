@@ -756,6 +756,12 @@ module frr-isisd {
           "IS-type of this circuit.";
       }
 
+      leaf bfd-monitoring {
+        type boolean;
+        default false;
+        description "Monitor IS-IS peers on this circuit.";
+      }
+
       container csnp-interval {
         description
           "Complete Sequence Number PDU (CSNP) generation interval.";
