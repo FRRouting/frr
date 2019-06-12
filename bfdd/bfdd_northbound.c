@@ -327,7 +327,7 @@ static int bfdd_bfd_sessions_single_hop_desired_transmission_interval_modify(
 
 	switch (event) {
 	case NB_EV_VALIDATE:
-		if (tx_interval < 10 || tx_interval > 60000)
+		if (tx_interval < 10000 || tx_interval > 60000000)
 			return NB_ERR_VALIDATION;
 		break;
 
@@ -337,8 +337,6 @@ static int bfdd_bfd_sessions_single_hop_desired_transmission_interval_modify(
 
 	case NB_EV_APPLY:
 		bs = nb_running_get_entry(dnode, NULL, true);
-
-		tx_interval *= 1000;
 		if (tx_interval == bs->timers.desired_min_tx)
 			return NB_OK;
 
@@ -366,7 +364,7 @@ static int bfdd_bfd_sessions_single_hop_required_receive_interval_modify(
 
 	switch (event) {
 	case NB_EV_VALIDATE:
-		if (rx_interval < 10 || rx_interval > 60000)
+		if (rx_interval < 10000 || rx_interval > 60000000)
 			return NB_ERR_VALIDATION;
 		break;
 
@@ -376,8 +374,6 @@ static int bfdd_bfd_sessions_single_hop_required_receive_interval_modify(
 
 	case NB_EV_APPLY:
 		bs = nb_running_get_entry(dnode, NULL, true);
-
-		rx_interval *= 1000;
 		if (rx_interval == bs->timers.required_min_rx)
 			return NB_OK;
 
@@ -513,7 +509,7 @@ bfdd_bfd_sessions_single_hop_desired_echo_transmission_interval_modify(
 
 	switch (event) {
 	case NB_EV_VALIDATE:
-		if (echo_interval < 10 || echo_interval > 60000)
+		if (echo_interval < 10000 || echo_interval > 60000000)
 			return NB_ERR_VALIDATION;
 		break;
 
@@ -523,8 +519,6 @@ bfdd_bfd_sessions_single_hop_desired_echo_transmission_interval_modify(
 
 	case NB_EV_APPLY:
 		bs = nb_running_get_entry(dnode, NULL, true);
-
-		echo_interval *= 1000;
 		if (echo_interval == bs->timers.required_min_echo)
 			return NB_OK;
 
@@ -648,8 +642,7 @@ bfdd_bfd_sessions_single_hop_stats_negotiated_transmission_interval_get_elem(
 {
 	const struct bfd_session *bs = list_entry;
 
-	return yang_data_new_uint32(xpath,
-				    bs->remote_timers.desired_min_tx / 1000);
+	return yang_data_new_uint32(xpath, bs->remote_timers.desired_min_tx);
 }
 
 /*
@@ -662,8 +655,7 @@ bfdd_bfd_sessions_single_hop_stats_negotiated_receive_interval_get_elem(
 {
 	const struct bfd_session *bs = list_entry;
 
-	return yang_data_new_uint32(xpath,
-				    bs->remote_timers.required_min_rx / 1000);
+	return yang_data_new_uint32(xpath, bs->remote_timers.required_min_rx);
 }
 
 /*
@@ -785,8 +777,7 @@ bfdd_bfd_sessions_single_hop_stats_negotiated_echo_transmission_interval_get_ele
 {
 	const struct bfd_session *bs = list_entry;
 
-	return yang_data_new_uint32(xpath,
-				    bs->remote_timers.required_min_echo / 1000);
+	return yang_data_new_uint32(xpath, bs->remote_timers.required_min_echo);
 }
 
 /*
