@@ -618,12 +618,17 @@ session_read(struct thread *thread)
 			len -= msg_size;
 		}
 		free(buf);
+		buf = NULL;
 		if (len != 0) {
 			session_shutdown(nbr, S_BAD_PDU_LEN, 0, 0);
 			return (0);
 		}
 	}
 
+	/* shouldn't happen, session_get_pdu should be > 0 if buf was
+	 * allocated - but let's get rid of the SA warning.
+	 */
+	free(buf);
 	return (0);
 }
 
