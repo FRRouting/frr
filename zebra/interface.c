@@ -1517,7 +1517,6 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 #endif /* HAVE_PROC_NET_DEV */
 
 #ifdef HAVE_NET_RT_IFLIST
-#if defined(__bsdi__) || defined(__NetBSD__)
 	/* Statistics print out using sysctl (). */
 	vty_out(vty,
 		"    input packets %llu, bytes %llu, dropped %llu,"
@@ -1542,25 +1541,6 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 
 	vty_out(vty, "    collisions %llu\n",
 		(unsigned long long)ifp->stats.ifi_collisions);
-#else
-	/* Statistics print out using sysctl (). */
-	vty_out(vty,
-		"    input packets %lu, bytes %lu, dropped %lu,"
-		" multicast packets %lu\n",
-		ifp->stats.ifi_ipackets, ifp->stats.ifi_ibytes,
-		ifp->stats.ifi_iqdrops, ifp->stats.ifi_imcasts);
-
-	vty_out(vty, "    input errors %lu\n", ifp->stats.ifi_ierrors);
-
-	vty_out(vty,
-		"    output packets %lu, bytes %lu, multicast packets %lu\n",
-		ifp->stats.ifi_opackets, ifp->stats.ifi_obytes,
-		ifp->stats.ifi_omcasts);
-
-	vty_out(vty, "    output errors %lu\n", ifp->stats.ifi_oerrors);
-
-	vty_out(vty, "    collisions %lu\n", ifp->stats.ifi_collisions);
-#endif /* __bsdi__ || __NetBSD__ */
 #endif /* HAVE_NET_RT_IFLIST */
 }
 
