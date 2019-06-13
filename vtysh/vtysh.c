@@ -140,6 +140,21 @@ struct vtysh_client vtysh_client[] = {
 	{.fd = -1, .name = "vrrpd", .flag = VTYSH_VRRPD, .next = NULL},
 };
 
+/* Searches for client by name, returns index */
+static int vtysh_client_lookup(const char *name)
+{
+	int idx = -1;
+
+	for (unsigned int i = 0; i < array_size(vtysh_client); i++) {
+		if (strmatch(vtysh_client[i].name, name)) {
+			idx = i;
+			break;
+		}
+	}
+
+	return idx;
+}
+
 enum vtysh_write_integrated vtysh_write_integrated =
 	WRITE_INTEGRATED_UNSPECIFIED;
 
@@ -392,6 +407,23 @@ static int vtysh_client_execute(struct vtysh_client *head_client,
 				const char *line)
 {
 	return vtysh_client_run_all(head_client, line, 0, NULL, NULL);
+}
+
+/* Execute by name */
+static int vtysh_client_execute_name(const char *name, const char *line)
+{
+	int ret = CMD_SUCCESS;
+	int idx_client = -1;
+
+	idx_client = vtysh_client_lookup(name);
+	if (idx_client != -1)
+		ret = vtysh_client_execute(&vtysh_client[idx_client], line);
+	else {
+		vty_out(vty, "Client not found\n");
+		ret = CMD_WARNING;
+	}
+
+	return ret;
 }
 
 /*
