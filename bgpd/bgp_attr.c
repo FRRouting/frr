@@ -1664,8 +1664,9 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		 */
 		if (bgp_debug_update(peer, NULL, NULL, 0))
 			zlog_debug(
-				"%s: MP_REACH received AFI %u or SAFI %u is unrecognized",
-				peer->host, pkt_afi, pkt_safi);
+				"%s: MP_REACH received AFI %s or SAFI %s is unrecognized",
+				peer->host, iana_afi2str(pkt_afi),
+				iana_safi2str(pkt_safi));
 		return BGP_ATTR_PARSE_ERROR;
 	}
 
@@ -1849,8 +1850,9 @@ int bgp_mp_unreach_parse(struct bgp_attr_parser_args *args,
 		 */
 		if (bgp_debug_update(peer, NULL, NULL, 0))
 			zlog_debug(
-				"%s: MP_UNREACH received AFI %u or SAFI %u is unrecognized",
-				peer->host, pkt_afi, pkt_safi);
+				"%s: MP_UNREACH received AFI %s or SAFI %s is unrecognized",
+				peer->host, iana_afi2str(pkt_afi),
+				iana_safi2str(pkt_safi));
 		return BGP_ATTR_PARSE_ERROR;
 	}
 
