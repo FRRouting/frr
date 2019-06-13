@@ -3,7 +3,7 @@
 #
 lib_LTLIBRARIES += lib/libfrr.la
 lib_libfrr_la_LDFLAGS = -version-info 0:0:0 -Xlinker -e_libfrr_version
-lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB)
+lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(LIBM)
 
 lib_libfrr_la_SOURCES = \
 	lib/agg_table.c \
@@ -340,8 +340,10 @@ noinst_PROGRAMS += \
 if BUILD_CLIPPY
 noinst_PROGRAMS += lib/clippy
 else
-$(HOSTTOOLS)lib/clippy:
-	@$(MAKE) -C $(top_builddir)/$(HOSTTOOLS) lib/route_types.h lib/clippy
+if HOSTTOOLS_CLIPPY
+$(CLIPPY):
+	@$(MAKE) -C $(top_builddir)/hosttools lib/route_types.h lib/clippy
+endif
 endif
 
 lib_grammar_sandbox_SOURCES = \
@@ -372,13 +374,11 @@ am__v_CLIPPY_ = $(am__v_CLIPPY_$(AM_DEFAULT_VERBOSITY))
 am__v_CLIPPY_0 = @echo "  CLIPPY  " $@;
 am__v_CLIPPY_1 =
 
-CLIPPY_DEPS = $(HOSTTOOLS)lib/clippy $(top_srcdir)/python/clidef.py
+CLIPPY_DEPS = $(CLIPPY) $(top_srcdir)/python/clidef.py
 
 SUFFIXES = _clippy.c .proto .pb-c.c .pb-c.h .pb.h .pb.cc .grpc.pb.cc
 .c_clippy.c:
-	@{ test -x $(top_builddir)/$(HOSTTOOLS)lib/clippy || \
-		$(MAKE) -C $(top_builddir)/$(HOSTTOOLS) lib/clippy; }
-	$(AM_V_CLIPPY) $(top_builddir)/$(HOSTTOOLS)lib/clippy $(top_srcdir)/python/clidef.py -o $@ $<
+	$(AM_V_CLIPPY) $(CLIPPY) $(top_srcdir)/python/clidef.py -o $@ $<
 
 ## automake's "ylwrap" is a great piece of GNU software... not.
 .l.c:
