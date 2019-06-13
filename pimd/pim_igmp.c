@@ -1180,3 +1180,42 @@ void igmp_send_query(int igmp_version, struct igmp_group *group, int fd,
 				   group_addr, query_max_response_time_dsec);
 	}
 }
+
+void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+	struct listnode *sock_node = NULL;
+	struct igmp_sock *igmp = NULL;
+	struct in_addr dst_addr;
+	struct in_addr group_addr;
+	int query_buf_size;
+
+	if (!igmp_ver)
+		igmp_ver = 2;
+
+	if (igmp_ver == 3)
+		query_buf_size = PIM_IGMP_BUFSIZE_WRITE;
+	else
+		query_buf_size = IGMP_V12_MSG_SIZE;
+
+	dst_addr.s_addr = htonl(INADDR_ALLHOSTS_GROUP);
+	group_addr.s_addr = PIM_NET_INADDR_ANY;
+
+	if (PIM_DEBUG_IGMP_TRACE)
+		zlog_debug("Issuing general query on request on %s",
+				ifp->name);
+
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
+
+		char query_buf[query_buf_size];
+
+		igmp_send_query(igmp_ver, 0 /* igmp_group */, igmp->fd,
+				igmp->interface->name, query_buf,
+				sizeof(query_buf), 0 /* num_sources */,
+				dst_addr, group_addr,
+				pim_ifp->igmp_query_max_response_time_dsec,
+				1 /* s_flag: always set for general queries */,
+				igmp->querier_robustness_variable,
+				igmp->querier_query_interval);
+	}
+}
