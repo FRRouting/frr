@@ -7360,6 +7360,32 @@ DEFUN (interface_no_ip_pim_drprio,
 	return CMD_SUCCESS;
 }
 
+DEFPY_HIDDEN (interface_ip_igmp_query_generate,
+       interface_ip_igmp_query_generate_cmd,
+       "ip igmp generate-query-once [version (2-3)]",
+       IP_STR
+       IFACE_IGMP_STR
+       "Generate igmp general query once\n"
+       "IGMP version\n"
+       "IGMP version number\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int igmp_version = 2;
+
+	if (!ifp->info) {
+		vty_out(vty, "IGMP/PIM is not enabled on the interface %s\n",
+			ifp->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (argc > 3)
+		igmp_version = atoi(argv[4]->arg);
+
+	igmp_send_query_on_intf(ifp, igmp_version);
+
+	return CMD_SUCCESS;
+}
+
 static int pim_cmd_interface_add(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
@@ -10289,6 +10315,7 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_hello_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_boundary_oil_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_igmp_query_generate_cmd);
 
 	// Static mroutes NEB
 	install_element(INTERFACE_NODE, &interface_ip_mroute_cmd);

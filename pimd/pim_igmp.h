@@ -198,4 +198,6 @@ void igmp_send_query(int igmp_version, struct igmp_group *group, int fd,
 		     uint8_t querier_robustness_variable,
 		     uint16_t querier_query_interval);
 void igmp_group_delete(struct igmp_group *group);
+
+void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver);
 #endif /* PIM_IGMP_H */
