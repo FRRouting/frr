@@ -1293,11 +1293,7 @@ ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 		return ferr_ok();
 	}
 
-	ij = igmp_join_new(ifp, group_addr, source_addr);
-	if (!ij) {
-		return ferr_cfg_invalid(
-			"Failure to create new join data structure, see log file for more information");
-	}
+	(void)igmp_join_new(ifp, group_addr, source_addr);
 
 	if (PIM_DEBUG_IGMP_EVENTS) {
 		char group_str[INET_ADDRSTRLEN];

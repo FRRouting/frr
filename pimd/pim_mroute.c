@@ -212,14 +212,6 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 
 	up = pim_upstream_find_or_add(&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR,
 				      __PRETTY_FUNCTION__);
-	if (!up) {
-		if (PIM_DEBUG_MROUTE) {
-			zlog_debug(
-				"%s: Failure to add upstream information for %s",
-				__PRETTY_FUNCTION__, pim_str_sg_dump(&sg));
-		}
-		return 0;
-	}
 
 	/*
 	 * I moved this debug till after the actual add because
