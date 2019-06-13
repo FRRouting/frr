@@ -31,6 +31,7 @@
 #include "command.h"
 #include "version.h"
 #include "memory_vty.h"
+#include "log_vty.h"
 #include "zclient.h"
 #include "log_int.h"
 #include "module.h"
@@ -677,6 +678,7 @@ struct thread_master *frr_init(void)
 
 	vty_init(master, di->log_always);
 	memory_init();
+	log_filter_cmd_init();
 
 	log_ref_init();
 	lib_error_init();
