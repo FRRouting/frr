@@ -756,6 +756,7 @@ struct thread *funcname_thread_add_read_write(int dir, struct thread_master *m,
 					      debugargdef)
 {
 	struct thread *thread = NULL;
+	struct thread **thread_array;
 
 	assert(fd >= 0 && fd < m->fd_limit);
 	pthread_mutex_lock(&m->mtx);
@@ -770,11 +771,25 @@ struct thread *funcname_thread_add_read_write(int dir, struct thread_master *m,
 		/* default to a new pollfd */
 		nfds_t queuepos = m->handler.pfdcount;
 
+		if (dir == THREAD_READ)
+			thread_array = m->read;
+		else
+			thread_array = m->write;
+
 		/* if we already have a pollfd for our file descriptor, find and
 		 * use it */
 		for (nfds_t i = 0; i < m->handler.pfdcount; i++)
 			if (m->handler.pfds[i].fd == fd) {
 				queuepos = i;
+
+#ifdef DEV_BUILD
+				/*
+				 * What happens if we have a thread already
+				 * created for this event?
+				 */
+				if (thread_array[fd])
+					assert(!"Thread already scheduled for file descriptor");
+#endif
 				break;
 			}
 
@@ -794,10 +809,7 @@ struct thread *funcname_thread_add_read_write(int dir, struct thread_master *m,
 			pthread_mutex_lock(&thread->mtx);
 			{
 				thread->u.fd = fd;
-				if (dir == THREAD_READ)
-					m->read[thread->u.fd] = thread;
-				else
-					m->write[thread->u.fd] = thread;
+				thread_array[thread->u.fd] = thread;
 			}
 			pthread_mutex_unlock(&thread->mtx);
 
