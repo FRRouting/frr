@@ -1238,12 +1238,31 @@ static struct thread *thread_run(struct thread_master *m, struct thread *thread,
 }
 
 static int thread_process_io_helper(struct thread_master *m,
-				    struct thread *thread, short state, int pos)
+				    struct thread *thread, short state,
+				    short actual_state, int pos)
 {
 	struct thread **thread_array;
 
-	if (!thread)
+	/*
+	 * poll() clears the .events field, but the pollfd array we
+	 * pass to poll() is a copy of the one used to schedule threads.
+	 * We need to synchronize state between the two here by applying
+	 * the same changes poll() made on the copy of the "real" pollfd
+	 * array.
+	 *
+	 * This cleans up a possible infinite loop where we refuse
+	 * to respond to a poll event but poll is insistent that
+	 * we should.
+	 */
+	m->handler.pfds[pos].events &= ~(state);
+
+	if (!thread) {
+		if ((actual_state & (POLLHUP|POLLIN)) != POLLHUP)
+			flog_err(EC_LIB_NO_THREAD,
+				 "Attempting to process an I/O event but for fd: %d(%d) no thread to handle this!\n",
+				 m->handler.pfds[pos].fd, actual_state);
 		return 0;
+	}
 
 	if (thread->type == THREAD_READ)
 		thread_array = m->read;
@@ -1253,9 +1272,7 @@ static int thread_process_io_helper(struct thread_master *m,
 	thread_array[thread->u.fd] = NULL;
 	thread_list_add_tail(&m->ready, thread);
 	thread->type = THREAD_READY;
-	/* if another pthread scheduled this file descriptor for the event we're
-	 * responding to, no problem; we're getting to it now */
-	thread->master->handler.pfds[pos].events &= ~(state);
+
 	return 1;
 }
 
@@ -1291,12 +1308,13 @@ static void thread_process_io(struct thread_master *m, unsigned int num)
 		 * there's no need to update it. Similarily, barring deletion,
 		 * the fd
 		 * should still be a valid index into the master's pfds. */
-		if (pfds[i].revents & (POLLIN | POLLHUP))
+		if (pfds[i].revents & (POLLIN | POLLHUP)) {
 			thread_process_io_helper(m, m->read[pfds[i].fd], POLLIN,
-						 i);
+						 pfds[i].revents, i);
+		}
 		if (pfds[i].revents & POLLOUT)
 			thread_process_io_helper(m, m->write[pfds[i].fd],
-						 POLLOUT, i);
+						 POLLOUT, pfds[i].revents, i);
 
 		/* if one of our file descriptors is garbage, remove the same
 		 * from

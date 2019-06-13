@@ -51,6 +51,12 @@ static struct log_ref ferr_lib_warn[] = {
 		.suggestion = "Gather log data and open an Issue",
 	},
 	{
+		.code = EC_LIB_NO_THREAD,
+		.title = "The Event subsystem has detected an internal FD problem",
+		.description = "The Event subsystem has detected a file descriptor read/write event without an associated handling function.  This is a bug, please collect log data and open an issue.",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
 		.code = EC_LIB_RMAP_RECURSION_LIMIT,
 		.title = "Reached the Route-Map Recursion Limit",
 		.description = "The Route-Map subsystem has detected a route-map depth of RMAP_RECURSION_LIMIT and has stopped processing",
