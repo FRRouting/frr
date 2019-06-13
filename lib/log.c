@@ -68,9 +68,11 @@ const char *zlog_priority[] = {
 static char zlog_filters[ZLOG_FILTERS_MAX][ZLOG_FILTER_LENGTH_MAX + 1];
 static uint8_t zlog_filter_count;
 
+/*
+ * look for a match on the filter in the current filters, loglock must be held
+ */
 static int zlog_filter_lookup(const char *lookup)
 {
-	/* look for a match on the filter in the current filters */
 	for (int i = 0; i < zlog_filter_count; i++) {
 		if (strncmp(lookup, zlog_filters[i], sizeof(zlog_filters[0]))
 		    == 0)
@@ -275,17 +277,32 @@ size_t quagga_timestamp(int timestamp_precision, char *buf, size_t buflen)
 	return 0;
 }
 
-/* Utility routine for current time printing. */
-static void time_print(FILE *fp, struct timestamp_control *ctl)
+static inline void timestamp_control_render(struct timestamp_control *ctl)
 {
 	if (!ctl->already_rendered) {
 		ctl->len = quagga_timestamp(ctl->precision, ctl->buf,
 					    sizeof(ctl->buf));
 		ctl->already_rendered = 1;
 	}
+}
+
+/* Utility routine for current time printing. */
+static void time_print(FILE *fp, struct timestamp_control *ctl)
+{
+	timestamp_control_render(ctl);
 	fprintf(fp, "%s ", ctl->buf);
 }
 
+static int time_print_buf(char *buf, int len, int max_size,
+			  struct timestamp_control *ctl)
+{
+	timestamp_control_render(ctl);
+
+	if (ctl->len + 1 >= (unsigned long)max_size)
+		return -1;
+
+	return snprintf(buf + len, max_size - len, "%s ", ctl->buf);
+}
 
 static void vzlog_file(struct zlog *zl, struct timestamp_control *tsctl,
 		       const char *proto_str, int record_priority, int priority,
@@ -299,41 +316,90 @@ static void vzlog_file(struct zlog *zl, struct timestamp_control *tsctl,
 	fflush(fp);
 }
 
+/* Search a buf for the filter strings, loglock must be held */
+static int search_buf(const char *buf)
+{
+	char *found = NULL;
+
+	for (int i = 0; i < zlog_filter_count; i++) {
+		found = strstr(buf, zlog_filters[i]);
+		if (found != NULL)
+			return 0;
+	}
+
+	return -1;
+}
+
+/* Filter out a log */
+static int vzlog_filter(struct zlog *zl, struct timestamp_control *tsctl,
+			const char *proto_str, int priority, const char *msg)
+{
+	int len = 0;
+	int ret = 0;
+	char buf[1024] = "";
+
+	ret = time_print_buf(buf, len, sizeof(buf), tsctl);
+
+	len += ret;
+	if ((ret < 0) || ((size_t)len >= sizeof(buf)))
+		return search_buf(buf);
+
+	if (zl && zl->record_priority)
+		snprintf(buf + len, sizeof(buf) - len, "%s: %s: %s",
+			 zlog_priority[priority], proto_str, msg);
+	else
+		snprintf(buf + len, sizeof(buf) - len, "%s: %s", proto_str,
+			 msg);
+
+	return search_buf(buf);
+}
+
 /* va_list version of zlog. */
 void vzlog(int priority, const char *format, va_list args)
 {
 	pthread_mutex_lock(&loglock);
 
-	char proto_str[32];
+	char proto_str[32] = "";
 	int original_errno = errno;
-	struct timestamp_control tsctl;
+	struct timestamp_control tsctl = {};
 	tsctl.already_rendered = 0;
 	struct zlog *zl = zlog_default;
 	char buf[256], *msg;
 
-	/* call external hook */
-	hook_call(zebra_ext_log, priority, format, args);
+	if (zl == NULL) {
+		tsctl.precision = 0;
+	} else {
+		tsctl.precision = zl->timestamp_precision;
+		if (zl->instance)
+			sprintf(proto_str, "%s[%d]: ", zl->protoname,
+				zl->instance);
+		else
+			sprintf(proto_str, "%s: ", zl->protoname);
+	}
 
 	msg = vasnprintfrr(MTYPE_TMP, buf, sizeof(buf), format, args);
 
+	/* If it doesn't match on a filter, do nothing with the debug log */
+	if ((priority == LOG_DEBUG) && zlog_filter_count
+	    && vzlog_filter(zl, &tsctl, proto_str, priority, msg)) {
+		pthread_mutex_unlock(&loglock);
+		goto out;
+	}
+
+	/* call external hook */
+	hook_call(zebra_ext_log, priority, format, args);
+
 	/* When zlog_default is also NULL, use stderr for logging. */
 	if (zl == NULL) {
-		tsctl.precision = 0;
 		time_print(stderr, &tsctl);
 		fprintf(stderr, "%s: %s\n", "unknown", msg);
 		fflush(stderr);
 		goto out;
 	}
-	tsctl.precision = zl->timestamp_precision;
 
 	/* Syslog output */
 	if (priority <= zl->maxlvl[ZLOG_DEST_SYSLOG])
 		syslog(priority | zlog_default->facility, "%s", msg);
-
-	if (zl->instance)
-		sprintf(proto_str, "%s[%d]: ", zl->protoname, zl->instance);
-	else
-		sprintf(proto_str, "%s: ", zl->protoname);
 
 	/* File output. */
 	if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
