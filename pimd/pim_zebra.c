@@ -976,16 +976,6 @@ void igmp_source_forward_start(struct pim_instance *pim,
 			/*Create a dummy channel oil */
 			source->source_channel_oil = pim_channel_oil_add(
 				pim, &sg, MAXVIFS, __PRETTY_FUNCTION__);
-
-			if (!source->source_channel_oil) {
-				if (PIM_DEBUG_IGMP_TRACE) {
-					zlog_debug(
-					"%s %s: could not create OIL for channel (S,G)=%s",
-					__FILE__, __PRETTY_FUNCTION__,
-					pim_str_sg_dump(&sg));
-				}
-				return;
-			}
 		}
 
 		else {
@@ -1250,19 +1240,10 @@ void pim_forward_start(struct pim_ifchannel *ch)
 				pim, &up->sg, MAXVIFS, __PRETTY_FUNCTION__);
 		}
 
-		else {
+		else
 			up->channel_oil = pim_channel_oil_add(
 				pim, &up->sg, input_iface_vif_index,
 				__PRETTY_FUNCTION__);
-			if (!up->channel_oil) {
-				if (PIM_DEBUG_PIM_TRACE)
-					zlog_debug(
-					    "%s %s: could not create OIL for channel (S,G)=%s",
-					    __FILE__, __PRETTY_FUNCTION__,
-					    up->sg_str);
-				return;
-			}
-		}
 
 		if (PIM_DEBUG_TRACE) {
 			struct interface *in_intf = pim_if_find_by_vif_index(
@@ -1277,14 +1258,6 @@ void pim_forward_start(struct pim_ifchannel *ch)
 		up->channel_oil =
 			pim_channel_oil_add(pim, &up->sg, input_iface_vif_index,
 					    __PRETTY_FUNCTION__);
-		if (!up->channel_oil) {
-			if (PIM_DEBUG_PIM_TRACE)
-				zlog_debug(
-					"%s %s: could not create OIL for channel (S,G)=%s",
-					__FILE__, __PRETTY_FUNCTION__,
-					up->sg_str);
-			return;
-		}
 	}
 
 	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)

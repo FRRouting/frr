@@ -152,14 +152,6 @@ static struct bsgrp_node *pim_bsm_new_bsgrp_node(struct route_table *rt,
 	}
 	bsgrp = XCALLOC(MTYPE_PIM_BSGRP_NODE, sizeof(struct bsgrp_node));
 
-	if (!bsgrp) {
-		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: bsgrp alloc failed",
-				   __PRETTY_FUNCTION__);
-		route_unlock_node(rn);
-		return NULL;
-	}
-
 	rn->info = bsgrp;
 	bsgrp->bsrp_list = pim_alloc_bsrp_list();
 	bsgrp->partial_bsrp_list = pim_alloc_bsrp_list();
@@ -730,12 +722,6 @@ static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
 
 	pak_start = XCALLOC(MTYPE_PIM_BSM_PKT_VAR_MEM, pim_mtu);
 
-	if (!pak_start) {
-		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: malloc failed", __PRETTY_FUNCTION__);
-		return false;
-	}
-
 	pkt = pak_start;
 
 	/* Fill PIM header later before sending packet to calc checksum */
@@ -1056,13 +1042,6 @@ static bool pim_install_bsm_grp_rp(struct pim_instance *pim,
 
 	/*memory allocation for bsm_rpinfo */
 	bsm_rpinfo = XCALLOC(MTYPE_PIM_BSRP_NODE, sizeof(*bsm_rpinfo));
-
-	if (!bsm_rpinfo) {
-		if (PIM_DEBUG_BSM)
-			zlog_debug("%s, Memory allocation failed.\r\n",
-				   __PRETTY_FUNCTION__);
-		return false;
-	}
 
 	bsm_rpinfo->rp_prio = rp->rp_pri;
 	bsm_rpinfo->rp_holdtime = rp->rp_holdtime;
@@ -1387,18 +1366,8 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 	if (!no_fwd) {
 		pim_bsm_fwd_whole_sz(pim_ifp->pim, buf, buf_size, sz);
 		bsminfo = XCALLOC(MTYPE_PIM_BSM_INFO, sizeof(struct bsm_info));
-		if (!bsminfo) {
-			zlog_warn("%s: bsminfo alloc failed",
-				  __PRETTY_FUNCTION__);
-			return 0;
-		}
 
 		bsminfo->bsm = XCALLOC(MTYPE_PIM_BSM_PKT_VAR_MEM, buf_size);
-		if (!bsminfo->bsm) {
-			zlog_warn("%s: bsm alloc failed", __PRETTY_FUNCTION__);
-			XFREE(MTYPE_PIM_BSM_INFO, bsminfo);
-			return 0;
-		}
 
 		bsminfo->size = buf_size;
 		memcpy(bsminfo->bsm, buf, buf_size);

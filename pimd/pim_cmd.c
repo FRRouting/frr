@@ -6653,13 +6653,7 @@ static int pim_cmd_igmp_start(struct vty *vty, struct interface *ifp)
 	pim_ifp = ifp->info;
 
 	if (!pim_ifp) {
-		pim_ifp = pim_if_new(ifp, true, false, false,
-			false /*vxlan_term*/);
-		if (!pim_ifp) {
-			vty_out(vty, "Could not enable IGMP on interface %s\n",
-				ifp->name);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
+		(void)pim_if_new(ifp, true, false, false, false);
 		need_startup = 1;
 	} else {
 		if (!PIM_IF_TEST_IGMP(pim_ifp->options)) {
@@ -7390,15 +7384,10 @@ static int pim_cmd_interface_add(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
-	if (!pim_ifp) {
-		pim_ifp = pim_if_new(ifp, false, true, false,
-			false /*vxlan_term*/);
-		if (!pim_ifp) {
-			return 0;
-		}
-	} else {
+	if (!pim_ifp)
+		(void)pim_if_new(ifp, false, true, false, false);
+	else
 		PIM_IF_DO_PIM(pim_ifp->options);
-	}
 
 	pim_if_addr_add_all(ifp);
 	pim_if_membership_refresh(ifp);

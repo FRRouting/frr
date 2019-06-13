@@ -795,8 +795,6 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 
 	ch = pim_ifchannel_add(ifp, sg, source_flags,
 			       PIM_UPSTREAM_FLAG_MASK_SRC_PIM);
-	if (!ch)
-		return;
 
 	/*
 	  RFC 4601: 4.6.1.  (S,G) Assert Message State Machine
@@ -957,8 +955,6 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 
 	ch = pim_ifchannel_add(ifp, sg, source_flags,
 			       PIM_UPSTREAM_FLAG_MASK_SRC_PIM);
-	if (!ch)
-		return;
 
 	pim_ifp = ifp->info;
 
@@ -1086,13 +1082,6 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 	}
 
 	ch = pim_ifchannel_add(ifp, sg, 0, PIM_UPSTREAM_FLAG_MASK_SRC_IGMP);
-	if (!ch) {
-		if (PIM_DEBUG_EVENTS)
-			zlog_debug("%s:%s Unable to add ifchannel",
-				   __PRETTY_FUNCTION__,
-				   pim_str_sg_dump(sg));
-		return 0;
-	}
 
 	ifmembership_set(ch, PIM_IFMEMBERSHIP_INCLUDE);
 
