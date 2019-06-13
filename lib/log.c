@@ -65,6 +65,103 @@ const char *zlog_priority[] = {
 	"notifications", "informational", "debugging", NULL,
 };
 
+static char zlog_filters[ZLOG_FILTERS_MAX][ZLOG_FILTER_LENGTH_MAX + 1];
+static uint8_t zlog_filter_count;
+
+static int zlog_filter_lookup(const char *lookup)
+{
+	/* look for a match on the filter in the current filters */
+	for (int i = 0; i < zlog_filter_count; i++) {
+		if (strncmp(lookup, zlog_filters[i], sizeof(zlog_filters[0]))
+		    == 0)
+			return i;
+	}
+	return -1;
+}
+
+void zlog_filter_clear(void)
+{
+	pthread_mutex_lock(&loglock);
+	zlog_filter_count = 0;
+	pthread_mutex_unlock(&loglock);
+}
+
+int zlog_filter_add(const char *filter)
+{
+	pthread_mutex_lock(&loglock);
+
+	if (zlog_filter_count >= ZLOG_FILTERS_MAX) {
+		pthread_mutex_unlock(&loglock);
+		return 1;
+	}
+
+	if (zlog_filter_lookup(filter) != -1) {
+		/* Filter already present */
+		pthread_mutex_unlock(&loglock);
+		return -1;
+	}
+
+	strlcpy(zlog_filters[zlog_filter_count], filter,
+		sizeof(zlog_filters[0]));
+
+	if (zlog_filters[zlog_filter_count] == NULL
+	    || zlog_filters[zlog_filter_count][0] == '\0') {
+		pthread_mutex_unlock(&loglock);
+		return -1;
+	}
+
+	zlog_filter_count++;
+
+	pthread_mutex_unlock(&loglock);
+	return 0;
+}
+
+int zlog_filter_del(const char *filter)
+{
+	pthread_mutex_lock(&loglock);
+
+	int found_idx = zlog_filter_lookup(filter);
+
+	if (found_idx == -1) {
+		/* Didn't find the filter to delete */
+		pthread_mutex_unlock(&loglock);
+		return -1;
+	}
+
+	/* Remove and adjust the filter array */
+	for (int i = found_idx; i < zlog_filter_count - 1; i++)
+		strlcpy(zlog_filters[i], zlog_filters[i + 1],
+			sizeof(zlog_filters[0]));
+
+	zlog_filter_count--;
+
+	pthread_mutex_unlock(&loglock);
+	return 0;
+}
+
+/* Dump all filters to buffer, delimited by new line */
+int zlog_filter_dump(char *buf, size_t max_size)
+{
+	pthread_mutex_lock(&loglock);
+
+	int ret = 0;
+	int len = 0;
+
+	for (int i = 0; i < zlog_filter_count; i++) {
+		ret = snprintf(buf + len, max_size - len, "\t%s\n",
+			       zlog_filters[i]);
+		len += ret;
+		if ((ret < 0) || ((size_t)len >= max_size)) {
+			pthread_mutex_unlock(&loglock);
+			return -1;
+		}
+	}
+
+	pthread_mutex_unlock(&loglock);
+
+	return len;
+}
+
 /*
  * write_wrapper
  *

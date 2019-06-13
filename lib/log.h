@@ -115,6 +115,15 @@ extern int zlog_reset_file(void);
 /* Rotate log. */
 extern int zlog_rotate(void);
 
+#define ZLOG_FILTERS_MAX 100      /* Max # of filters at once */
+#define ZLOG_FILTER_LENGTH_MAX 80 /* 80 character filter limit */
+
+/* Add/Del/Dump log filters */
+extern void zlog_filter_clear(void);
+extern int zlog_filter_add(const char *filter);
+extern int zlog_filter_del(const char *filter);
+extern int zlog_filter_dump(char *buf, size_t max_size);
+
 const char *lookup_msg(const struct message *mz, int kz, const char *nf);
 
 /* Safe version of strerror -- never returns NULL. */
