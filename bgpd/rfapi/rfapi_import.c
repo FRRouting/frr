@@ -2402,6 +2402,18 @@ static int rfapiWithdrawTimerVPN(struct thread *t)
 	struct rfapi_monitor_vpn *moved;
 	afi_t afi;
 
+	if (bgp == NULL) {
+		vnc_zlog_debug_verbose(
+                   "%s: NULL BGP pointer, assume shutdown race condition!!!",
+                   __func__);
+		return 0;
+	}
+	if (bgp_flag_check(bgp, BGP_FLAG_DELETE_IN_PROGRESS)) {
+		vnc_zlog_debug_verbose(
+                   "%s: BGP delete in progress, assume shutdown race condition!!!",
+                   __func__);
+		return 0;
+	}
 	assert(wcb->node);
 	assert(bpi);
 	assert(wcb->import_table);

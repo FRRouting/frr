@@ -2311,6 +2311,17 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 	char pfx_buf[PREFIX2STR_BUFFER];
 	int debug = 0;
 
+	if (bgp_flag_check(bgp, BGP_FLAG_DELETE_IN_PROGRESS)) {
+		if (rn)
+			debug = bgp_debug_bestpath(&rn->p);
+		if (debug) {
+			prefix2str(&rn->p, pfx_buf, sizeof(pfx_buf));
+			zlog_debug(
+			     "%s: bgp delete in progress, ignoring event, p=%s",
+			     __func__, pfx_buf);
+		}
+		return;
+	}
 	/* Is it end of initial update? (after startup) */
 	if (!rn) {
 		quagga_timestamp(3, bgp->update_delay_zebra_resume_time,
