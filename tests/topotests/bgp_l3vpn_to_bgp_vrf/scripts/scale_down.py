@@ -6,7 +6,7 @@ if ret != False and found != None:
     luCommand('ce3', 'vtysh -c "show bgp sum"',
 	      '.', 'pass', 'See %s sharp routes' % num)
     if num > 0:
-        wait = num/500
+        wait = 2*num/500
         luCommand('ce1', 'vtysh -c "sharp remove routes 10.0.0.0 {}"'.format(num),'.','none','Removing {} routes'.format(num))
         luCommand('ce2', 'vtysh -c "sharp remove routes 10.0.0.0 {}"'.format(num),'.','none','Removing {} routes'.format(num))
         rtrs = ['ce1', 'ce2', 'ce3']
