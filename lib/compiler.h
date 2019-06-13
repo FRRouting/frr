@@ -173,6 +173,11 @@ extern "C" {
 #endif
 #endif
 
+#ifdef container_of
+#undef container_of
+#endif
+
+#if !(defined(__cplusplus) || defined(test__cplusplus))
 /* this variant of container_of() retains 'const' on pointers without needing
  * to be told to do so.  The following will all work without warning:
  *
@@ -191,9 +196,6 @@ extern "C" {
  * struct cont *x       = container_of(cp, const struct cont, member);
  * struct cont *x       = container_of(p,  const struct cont, member);
  */
-#ifdef container_of
-#undef container_of
-#endif
 #define container_of(ptr, type, member)                                        \
 	(__builtin_choose_expr(                                                \
 		__builtin_types_compatible_p(typeof(&((type *)0)->member),     \
@@ -209,6 +211,15 @@ extern "C" {
 					offsetof(type, member));               \
 		})                                                             \
 	))
+#else
+/* current C++ compilers don't have the builtins used above; so this version
+ * of the macro doesn't do the const check. */
+#define container_of(ptr, type, member)                                        \
+		({                                                             \
+			const typeof(((type *)0)->member) *__mptr = (ptr);     \
+			(type *)((char *)__mptr - offsetof(type, member));     \
+		})
+#endif
 
 #define container_of_null(ptr, type, member)                                   \
 	({                                                                     \
