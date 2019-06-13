@@ -34,6 +34,7 @@
 #include "routemap.h"
 #include "stream.h"
 #include "nexthop.h"
+#include "termtable.h"
 #include "lib/json.h"
 
 #include "zebra/rib.h"
@@ -3047,7 +3048,6 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 	json_object *json = NULL;
 	zebra_lsp_t *lsp = NULL;
 	zebra_nhlfe_t *nhlfe = NULL;
-	struct nexthop *nexthop = NULL;
 	struct listnode *node = NULL;
 	struct list *lsp_list = hash_get_sorted_list(zvrf->lsp_table, lsp_cmp);
 
@@ -3063,15 +3063,23 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
-		vty_out(vty, " Inbound                            Outbound\n");
-		vty_out(vty, "   Label     Type          Nexthop     Label\n");
-		vty_out(vty, "--------  -------  ---------------  --------\n");
+		struct ttable *tt;
+
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(tt, "Inbound Label|Type|Nexthop|Outbound Label");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+		ttable_rowseps(tt, 0, BOTTOM, true, '-');
 
 		for (ALL_LIST_ELEMENTS_RO(lsp_list, node, lsp)) {
 			for (nhlfe = lsp->nhlfe_list; nhlfe;
 			     nhlfe = nhlfe->next) {
-				vty_out(vty, "%8d  %7s  ", lsp->ile.in_label,
-					nhlfe_type2str(nhlfe->type));
+				struct nexthop *nexthop;
+				const char *out_label_str;
+				char nh_buf[NEXTHOP_STRLEN];
+
 				nexthop = nhlfe->nexthop;
 
 				switch (nexthop->type) {
@@ -3081,45 +3089,47 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 
 					zns = zebra_ns_lookup(NS_DEFAULT);
 					ifp = if_lookup_by_index_per_ns(
-							zns,
-							nexthop->ifindex);
-					if (ifp)
-						vty_out(vty, "%15s", ifp->name);
-					else
-						vty_out(vty, "%15s", "Null");
-
+						zns, nexthop->ifindex);
+					snprintf(nh_buf, sizeof(nh_buf), "%s",
+						 ifp ? ifp->name : "Null");
 					break;
 				}
 				case NEXTHOP_TYPE_IPV4:
 				case NEXTHOP_TYPE_IPV4_IFINDEX:
-					vty_out(vty, "%15s",
-						inet_ntoa(nexthop->gate.ipv4));
+					inet_ntop(AF_INET, &nexthop->gate.ipv4,
+						  nh_buf, sizeof(nh_buf));
 					break;
 				case NEXTHOP_TYPE_IPV6:
 				case NEXTHOP_TYPE_IPV6_IFINDEX:
-					vty_out(vty, "%15s",
-						inet_ntop(AF_INET6,
-							  &nexthop->gate.ipv6,
-							  buf, BUFSIZ));
+					inet_ntop(AF_INET6, &nexthop->gate.ipv6,
+						  nh_buf, sizeof(nh_buf));
 					break;
 				default:
 					break;
 				}
 
 				if (nexthop->type != NEXTHOP_TYPE_IFINDEX)
-					vty_out(vty, "  %8s\n",
-						mpls_label2str(
-							nexthop->nh_label
-								->num_labels,
-							&nexthop->nh_label
-								 ->label[0],
-							buf, BUFSIZ, 1));
+					out_label_str = mpls_label2str(
+						nexthop->nh_label->num_labels,
+						&nexthop->nh_label->label[0],
+						buf, BUFSIZ, 1);
 				else
-					vty_out(vty, "\n");
+					out_label_str = "-";
+
+				ttable_add_row(tt, "%u|%s|%s|%s",
+					       lsp->ile.in_label,
+					       nhlfe_type2str(nhlfe->type),
+					       nh_buf, out_label_str);
 			}
 		}
 
-		vty_out(vty, "\n");
+		/* Dump the generated table. */
+		if (tt->nrows > 1) {
+			char *table = ttable_dump(tt, "\n");
+			vty_out(vty, "%s\n", table);
+			XFREE(MTYPE_TMP, table);
+		}
+		ttable_del(tt);
 	}
 
 	list_delete(&lsp_list);
