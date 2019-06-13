@@ -1329,13 +1329,29 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 {
 	const struct prefix *p = pu.p;
 	char buf[PREFIX2STR_BUFFER];
+	int byte, tmp, a, b;
+	bool z = false;
+	size_t l;
 
 	switch (p->family) {
 	case AF_INET:
 	case AF_INET6:
-		snprintf(str, size, "%s/%d", inet_ntop(p->family, &p->u.prefix,
-						       buf, PREFIX2STR_BUFFER),
-			 p->prefixlen);
+		inet_ntop(p->family, &p->u.prefix, buf, sizeof(buf));
+		l = strlen(buf);
+		buf[l++] = '/';
+		byte = p->prefixlen;
+		if ((tmp = p->prefixlen - 100) >= 0) {
+			buf[l++] = '1';
+			z = true;
+			byte = tmp;
+		}
+		b = byte % 10;
+		a = byte / 10;
+		if (a || z)
+			buf[l++] = '0' + a;
+		buf[l++] = '0' + b;
+		buf[l] = '\0';
+		strlcpy(str, buf, size);
 		break;
 
 	case AF_ETHERNET:
@@ -1349,11 +1365,11 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 		break;
 
 	case AF_FLOWSPEC:
-		sprintf(str, "FS prefix");
+		strlcpy(str, "FS prefix", size);
 		break;
 
 	default:
-		sprintf(str, "UNK prefix");
+		strlcpy(str, "UNK prefix", size);
 		break;
 	}
 
