@@ -78,7 +78,7 @@ const char *sbuf_buf(struct sbuf *buf);
 void sbuf_free(struct sbuf *buf);
 #include "lib/log.h"
 void sbuf_push(struct sbuf *buf, int indent, const char *format, ...)
-	PRINTF_ATTRIBUTE(3, 4);
+	PRINTFRR(3, 4);
 
 #ifdef __cplusplus
 }
