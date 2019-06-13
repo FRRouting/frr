@@ -2307,17 +2307,9 @@ DEFUN (vtysh_show_work_queues_daemon,
        DAEMONS_STR)
 {
 	int idx_protocol = 2;
-	unsigned int i;
-	int ret = CMD_SUCCESS;
 
-	for (i = 0; i < array_size(vtysh_client); i++) {
-		if (strmatch(vtysh_client[i].name, argv[idx_protocol]->text))
-			break;
-	}
-
-	ret = vtysh_client_execute(&vtysh_client[i], "show work-queues\n");
-
-	return ret;
+	return vtysh_client_execute_name(argv[idx_protocol]->text,
+					 "show work-queues\n");
 }
 
 DEFUNSH(VTYSH_ZEBRA, vtysh_link_params, vtysh_link_params_cmd, "link-params",
