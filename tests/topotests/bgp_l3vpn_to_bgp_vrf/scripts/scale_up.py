@@ -10,7 +10,7 @@ if c > 0:
     d = r - c * 256 - 1 
 else:
     d = r
-wait = num/1000
+wait = 2*num/1000
 mem = {}
 rtrs = ['ce1', 'ce2', 'ce3', 'r1', 'r2', 'r3', 'r4']
 for rtr in rtrs:
