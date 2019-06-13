@@ -189,6 +189,22 @@ Basic Config Commands
    is used to start the daemon then this command is turned on by default
    and cannot be turned off and the [no] form of the command is dissallowed.
 
+.. index::
+   single: no log-filter WORD [DAEMON]
+   single: log-filter WORD [DAEMON]
+
+.. clicmd:: [no] log-filter WORD [DAEMON]
+
+   This command forces logs to be filtered on a specific string. A log message
+   will only be printed if it matches on one of the filters in the log-filter
+   table. Can be daemon independent.
+
+.. index:: log-filter clear [DAEMON]
+.. clicmd:: log-filter clear [DAEMON]
+
+   This command clears all current filters in the log-filter table. Can be
+   daemon independent.
+
 .. index:: service password-encryption
 .. clicmd:: service password-encryption
 
@@ -320,6 +336,11 @@ Terminal Mode Commands
 
    Shows the current configuration of the logging system. This includes the
    status of all logging destinations.
+
+.. index:: show log-filter
+.. clicmd:: show log-filter
+
+   Shows the current log filters applied to each daemon.
 
 .. index:: show memory
 .. clicmd:: show memory
