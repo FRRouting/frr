@@ -307,6 +307,7 @@ static void show_thread_poll_helper(struct vty *vty, struct thread_master *m)
 {
 	const char *name = m->name ? m->name : "main";
 	char underline[strlen(name) + 1];
+	struct thread *thread;
 	uint32_t i;
 
 	memset(underline, '-', sizeof(underline));
@@ -316,11 +317,31 @@ static void show_thread_poll_helper(struct vty *vty, struct thread_master *m)
 	vty_out(vty, "----------------------%s\n", underline);
 	vty_out(vty, "Count: %u/%d\n", (uint32_t)m->handler.pfdcount,
 		m->fd_limit);
-	for (i = 0; i < m->handler.pfdcount; i++)
-		vty_out(vty, "\t%6d fd:%6d events:%2d revents:%2d\n", i,
-			m->handler.pfds[i].fd,
-			m->handler.pfds[i].events,
+	for (i = 0; i < m->handler.pfdcount; i++) {
+		vty_out(vty, "\t%6d fd:%6d events:%2d revents:%2d\t\t", i,
+			m->handler.pfds[i].fd, m->handler.pfds[i].events,
 			m->handler.pfds[i].revents);
+
+		if (m->handler.pfds[i].events & POLLIN) {
+			thread = m->read[m->handler.pfds[i].fd];
+
+			if (!thread)
+				vty_out(vty, "ERROR ");
+			else
+				vty_out(vty, "%s ", thread->funcname);
+		} else
+			vty_out(vty, " ");
+
+		if (m->handler.pfds[i].events & POLLOUT) {
+			thread = m->write[m->handler.pfds[i].fd];
+
+			if (!thread)
+				vty_out(vty, "ERROR\n");
+			else
+				vty_out(vty, "%s\n", thread->funcname);
+		} else
+			vty_out(vty, "\n");
+	}
 }
 
 DEFUN (show_thread_poll,
