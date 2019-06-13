@@ -3287,6 +3287,9 @@ int bgp_delete(struct bgp *bgp)
 	THREAD_OFF(bgp->t_update_delay);
 	THREAD_OFF(bgp->t_establish_wait);
 
+	/* Set flag indicating bgp instance delete in progress */
+	bgp_flag_set(bgp, BGP_FLAG_DELETE_IN_PROGRESS);
+
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
 			zlog_debug("Deleting Default VRF");
