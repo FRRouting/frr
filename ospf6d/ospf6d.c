@@ -49,6 +49,8 @@
 
 DEFINE_MGROUP(OSPF6D, "ospf6d");
 
+static int config_write_ospf6_debug_event(struct vty *vty);
+
 struct route_node *route_prev(struct route_node *node)
 {
 	struct route_node *end;
@@ -1369,7 +1371,7 @@ DEFUN(show_ipv6_ospf6_linkstate_detail, show_ipv6_ospf6_linkstate_detail_cmd,
 	return CMD_SUCCESS;
 }
 
-int config_write_ospf6_debug_event(struct vty *vty)
+static int config_write_ospf6_debug_event(struct vty *vty)
 {
 	if (IS_OSPF6_DEBUG_EVENT)
 		vty_out(vty, "debug ospf6 event\n");
