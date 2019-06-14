@@ -143,7 +143,7 @@ number when starting the daemon, these entries may not be needed.
 
 You may need to make changes to the config files in |INSTALL_PREFIX_ETC|.
 
-systemd
+Systemd
 -------
 Although not installed when installing from source, FRR provides a service file
 for use with ``systemd``. It is located in :file:`tools/frr.service` in the Git
@@ -154,3 +154,70 @@ location. A good place is usually ``/etc/systemd/system/``.
 After issuing a ``systemctl daemon-reload``, you should be able to start the
 FRR service via ``systemctl start frr``. If this fails, or no daemons are
 started. check the ``journalctl`` logs for an indication of what went wrong.
+
+Operations
+----------
+
+This section covers a few common operational tasks and how to perform them.
+
+Restarting
+^^^^^^^^^^
+
+Restarting kills all running FRR daemons and starts them again. Any unsaved
+configuration will be lost.
+
+.. code-block:: console
+
+   service frr restart
+
+.. note::
+
+   Alternatively, you can invoke the init script directly::
+
+      /etc/init.d/frr restart
+
+   Or, if using systemd::
+
+      systemctl restart frr
+
+Reloading
+^^^^^^^^^
+
+Reloading applies the differential between on-disk configuration and the
+current effective configuration of running FRR processes. This includes
+starting daemons that were previously stopped and any changes made to
+individual or unified daemon configuration files.
+
+.. code-block:: console
+
+   service frr reload
+
+.. note::
+
+   Alternatively, you can invoke the init script directly::
+
+      /etc/init.d/frr reload
+
+   Or, if using systemd::
+
+      systemctl reload frr
+
+Starting a new daemon
+^^^^^^^^^^^^^^^^^^^^^
+
+Suppose *bgpd* and *zebra* are running, and you wish to start *pimd*. In
+``/etc/frr/daemons`` make the following change:
+
+.. code-block:: diff
+
+   - pimd=no
+   + pimd=yes
+
+Then perform a reload.
+
+Currently there is no way to stop or restart an individual daemon. This is
+because FRR's monitoring program cannot currently distinguish between a crashed
+/ killed daemon versus one that has been intentionally stopped or restarted.
+The closest that can be achieved is to remove all configuration for the daemon,
+and set its line in ``/etc/frr/daemons`` to ``=no``. Once this is done, the
+daemon will be stopped the next time FRR is restarted.
