@@ -1630,6 +1630,16 @@ static int bfd_vrf_delete(struct vrf *vrf)
 	return 0;
 }
 
+static int bfd_vrf_update(struct vrf *vrf)
+{
+	if (!vrf_is_enabled(vrf))
+		return 0;
+	log_debug("VRF update: %s(%u)", vrf->name, vrf->vrf_id);
+	/* a different name is given; update bfd list */
+	bfdd_sessions_enable_vrf(vrf);
+	return 0;
+}
+
 static int bfd_vrf_enable(struct vrf *vrf)
 {
 	struct bfd_vrf_global *bvrf;
@@ -1717,7 +1727,7 @@ static int bfd_vrf_disable(struct vrf *vrf)
 void bfd_vrf_init(void)
 {
 	vrf_init(bfd_vrf_new, bfd_vrf_enable, bfd_vrf_disable,
-		 bfd_vrf_delete, NULL);
+		 bfd_vrf_delete, bfd_vrf_update);
 }
 
 void bfd_vrf_terminate(void)
