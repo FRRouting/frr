@@ -201,6 +201,10 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 		 * Let's blackhole those packets for the moment
 		 * As that they will be coming up to the cpu
 		 * and causing us to consider them.
+		 *
+		 * This *will* create a dangling channel_oil
+		 * that I see no way to get rid of.  Just noting
+		 * this for future reference.
 		 */
 		c_oil = pim_channel_oil_add(pim_ifp->pim, &sg,
 					    pim_ifp->mroute_vif_index,
