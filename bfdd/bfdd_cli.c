@@ -224,7 +224,7 @@ DEFPY(
 	bfd_peer_shutdown, bfd_peer_shutdown_cmd,
 	"[no] shutdown",
 	NO_STR
-	"Disable BFD peer")
+	"Disable BFD peer\n")
 {
 	nb_cli_enqueue_change(vty, "./administrative-down", NB_OP_MODIFY,
 			      no ? "false" : "true");
