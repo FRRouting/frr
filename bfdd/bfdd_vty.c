@@ -678,12 +678,6 @@ static int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 
 	/* Handle interface specification configuration. */
 	if (ifname) {
-		if (bpc->bpc_mhop) {
-			snprintf(ebuf, ebuflen,
-				 "multihop doesn't accept interface names");
-			return -1;
-		}
-
 		bpc->bpc_has_localif = true;
 		if (strlcpy(bpc->bpc_localif, ifname, sizeof(bpc->bpc_localif))
 		    > sizeof(bpc->bpc_localif)) {
