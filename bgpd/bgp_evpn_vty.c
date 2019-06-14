@@ -2480,6 +2480,8 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 					bgp_evpn_show_route_header(vty, bgp,
 								   tbl_ver,
 								   json);
+					vty_out(vty, "%19s Extended Community\n"
+							, " ");
 					header = 0;
 				}
 
