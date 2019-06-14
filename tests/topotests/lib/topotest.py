@@ -959,7 +959,7 @@ class Router(Node):
 
         global fatal_error
 
-        daemonsRunning = self.cmd('vtysh -c "show log" | grep "Logging configuration for"')
+        daemonsRunning = self.cmd('vtysh -c "show logging" | grep "Logging configuration for"')
         # Look for AddressSanitizer Errors in vtysh output and append to /tmp/AddressSanitzer.txt if found
         if checkAddressSanitizerError(daemonsRunning, self.name, "vtysh"):
             return "%s: vtysh killed by AddressSanitizer" % (self.name)

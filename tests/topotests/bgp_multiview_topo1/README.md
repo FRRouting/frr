@@ -94,7 +94,7 @@ Simplified `R1` config:
 
 Test is executed by running 
 
-	vtysh -c "show log" | grep "Logging configuration for"
+	vtysh -c "show logging" | grep "Logging configuration for"
 	
 on router `R1`. This should return the logging information for all daemons registered
 to Zebra and the list of running daemons is compared to the daemons started for this
