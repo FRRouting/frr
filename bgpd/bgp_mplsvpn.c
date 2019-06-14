@@ -1488,7 +1488,8 @@ static void vpn_policy_routemap_update(struct bgp *bgp, const char *rmap_name)
 /* This API is used during router-id change, reflect VPNs
  * auto RD and RT values and readvertise routes to VPN table.
  */
-void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw)
+void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw,
+				 bool is_config)
 {
 	afi_t afi;
 	int debug;
@@ -1536,6 +1537,20 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw)
 
 			}
 		} else {
+			/*
+			 * Router-id changes that are not explicit config
+			 * changes should not replace configured RD/RT.
+			 */
+			if (!is_config) {
+				if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
+					       BGP_VPN_POLICY_TOVPN_RD_SET)) {
+					if (debug)
+						zlog_debug("%s: auto router-id change skipped",
+							   __func__);
+					goto postchange;
+				}
+			}
+
 			/* New router-id derive auto RD and RT and export
 			 * to VPN
 			 */
@@ -1565,6 +1580,8 @@ void vpn_handle_router_id_update(struct bgp *bgp, bool withdraw)
 						= ecommunity_dup(ecom);
 
 			}
+
+postchange:
 			/* Update routes to VPN */
 			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN,
 					    afi, bgp_get_default(),
