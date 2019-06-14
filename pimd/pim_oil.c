@@ -38,18 +38,22 @@
 char *pim_channel_oil_dump(struct channel_oil *c_oil, char *buf, size_t size)
 {
 	char *out;
+	struct interface *ifp;
 	struct prefix_sg sg;
 	int i;
 
 	sg.src = c_oil->oil.mfcc_origin;
 	sg.grp = c_oil->oil.mfcc_mcastgrp;
-	snprintf(buf, size, "%s IIF: %d, OIFS: ", pim_str_sg_dump(&sg),
-		 c_oil->oil.mfcc_parent);
+	ifp = pim_if_find_by_vif_index(c_oil->pim, c_oil->oil.mfcc_parent);
+	snprintf(buf, size, "%s IIF: %s, OIFS: ", pim_str_sg_dump(&sg),
+		 ifp ? ifp->name : "(?)");
 
 	out = buf + strlen(buf);
 	for (i = 0; i < MAXVIFS; i++) {
 		if (c_oil->oil.mfcc_ttls[i] != 0) {
-			snprintf(out, buf + size - out, "%d ", i);
+			ifp = pim_if_find_by_vif_index(c_oil->pim, i);
+			snprintf(out, buf + size - out, "%s ",
+				 ifp ? ifp->name : "(?)");
 			out += strlen(out);
 		}
 	}
