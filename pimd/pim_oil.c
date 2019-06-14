@@ -148,7 +148,7 @@ struct channel_oil *pim_find_channel_oil(struct pim_instance *pim,
 
 struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 					struct prefix_sg *sg,
-					int input_vif_index)
+					int input_vif_index, const char *name)
 {
 	struct channel_oil *c_oil;
 	struct interface *ifp;
@@ -157,18 +157,23 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 	if (c_oil) {
 		if (c_oil->oil.mfcc_parent != input_vif_index) {
 			c_oil->oil_inherited_rescan = 1;
-			if (PIM_DEBUG_MROUTE)
+			if (PIM_DEBUG_MROUTE_DETAIL)
 				zlog_debug(
-					"%s: Existing channel oil %s points to %d, modifying to point at %d",
-					__PRETTY_FUNCTION__,
-					pim_str_sg_dump(sg),
+					"%s: Existing channel oil %pSG4 points to %d, modifying to point at %d",
+					__PRETTY_FUNCTION__, sg,
 					c_oil->oil.mfcc_parent,
 					input_vif_index);
 		}
 		c_oil->oil.mfcc_parent = input_vif_index;
 		++c_oil->oil_ref_count;
-		c_oil->up = pim_upstream_find(
-			pim, sg); // channel might be present prior to upstream
+		/* channel might be present prior to upstream */
+		c_oil->up = pim_upstream_find(pim, sg);
+
+		if (PIM_DEBUG_MROUTE)
+			zlog_debug(
+				"%s(%s): Existing oil for %pSG4 Ref Count: %d (Post Increment)",
+				__PRETTY_FUNCTION__, name, sg,
+				c_oil->oil_ref_count);
 		return c_oil;
 	}
 
@@ -177,9 +182,8 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 		if (!ifp) {
 			/* warning only */
 			zlog_warn(
-				"%s: (S,G)=%s could not find input interface for input_vif_index=%d",
-				__PRETTY_FUNCTION__, pim_str_sg_dump(sg),
-				input_vif_index);
+				"%s:%s (S,G)=%pSG4 could not find input interface for input_vif_index=%d",
+				__PRETTY_FUNCTION__, name, sg, input_vif_index);
 		}
 	}
 
@@ -197,11 +201,23 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 
 	listnode_add_sort(pim->channel_oil_list, c_oil);
 
+	if (PIM_DEBUG_MROUTE)
+		zlog_debug(
+			"%s(%s): New oil for %pSG4 vif_index: %d Ref Count: 1 (Post Increment)",
+			__PRETTY_FUNCTION__, name, sg, input_vif_index);
 	return c_oil;
 }
 
-void pim_channel_oil_del(struct channel_oil *c_oil)
+void pim_channel_oil_del(struct channel_oil *c_oil, const char *name)
 {
+	if (PIM_DEBUG_MROUTE) {
+		struct prefix_sg sg = {.src = c_oil->oil.mfcc_mcastgrp,
+				       .grp = c_oil->oil.mfcc_origin};
+
+		zlog_debug(
+			"%s(%s): Del oil for %pSG4, Ref Count: %d (Predecrement)",
+			__PRETTY_FUNCTION__, name, &sg, c_oil->oil_ref_count);
+	}
 	--c_oil->oil_ref_count;
 
 	if (c_oil->oil_ref_count < 1) {
