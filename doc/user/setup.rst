@@ -134,6 +134,7 @@ add the following entries to :file:`/etc/services`.
    eigprd        2613/tcp                 # EIGRPd vty
    bfdd          2617/tcp                 # bfdd vty
    fabricd       2618/tcp                 # fabricd vty
+   vrrpd         2619/tcp                 # vrrpd vty
 
 
 If you use a FreeBSD newer than 2.2.8, the above entries are already added to
