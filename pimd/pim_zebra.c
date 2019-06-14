@@ -974,8 +974,8 @@ void igmp_source_forward_start(struct pim_instance *pim,
 		if (!pim_rp_set_upstream_addr(pim, &vif_source,
 					      source->source_addr, sg.grp)) {
 			/*Create a dummy channel oil */
-			source->source_channel_oil =
-			    pim_channel_oil_add(pim, &sg, MAXVIFS);
+			source->source_channel_oil = pim_channel_oil_add(
+				pim, &sg, MAXVIFS, __PRETTY_FUNCTION__);
 
 			if (!source->source_channel_oil) {
 				if (PIM_DEBUG_IGMP_TRACE) {
@@ -1035,7 +1035,9 @@ void igmp_source_forward_start(struct pim_instance *pim,
 					    source_str);
 				}
 				source->source_channel_oil =
-				    pim_channel_oil_add(pim, &sg, MAXVIFS);
+					pim_channel_oil_add(
+						pim, &sg, MAXVIFS,
+						__PRETTY_FUNCTION__);
 			}
 
 			else {
@@ -1065,8 +1067,9 @@ void igmp_source_forward_start(struct pim_instance *pim,
 				}
 
 				source->source_channel_oil =
-				    pim_channel_oil_add(pim, &sg,
-					input_iface_vif_index);
+					pim_channel_oil_add(
+						pim, &sg, input_iface_vif_index,
+						__PRETTY_FUNCTION__);
 				if (!source->source_channel_oil) {
 					if (PIM_DEBUG_IGMP_TRACE) {
 						zlog_debug(
@@ -1241,13 +1244,14 @@ void pim_forward_start(struct pim_ifchannel *ch)
 					__FILE__, __PRETTY_FUNCTION__,
 					source_str);
 			}
-			up->channel_oil = pim_channel_oil_add(pim, &up->sg,
-								MAXVIFS);
+			up->channel_oil = pim_channel_oil_add(
+				pim, &up->sg, MAXVIFS, __PRETTY_FUNCTION__);
 		}
 
 		else {
-			up->channel_oil = pim_channel_oil_add(pim, &up->sg,
-							input_iface_vif_index);
+			up->channel_oil = pim_channel_oil_add(
+				pim, &up->sg, input_iface_vif_index,
+				__PRETTY_FUNCTION__);
 			if (!up->channel_oil) {
 				if (PIM_DEBUG_PIM_TRACE)
 					zlog_debug(
@@ -1268,8 +1272,9 @@ void pim_forward_start(struct pim_ifchannel *ch)
 				input_iface_vif_index, up->sg_str);
 		}
 
-		up->channel_oil = pim_channel_oil_add(pim, &up->sg,
-						      input_iface_vif_index);
+		up->channel_oil =
+			pim_channel_oil_add(pim, &up->sg, input_iface_vif_index,
+					    __PRETTY_FUNCTION__);
 		if (!up->channel_oil) {
 			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug(
