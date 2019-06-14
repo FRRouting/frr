@@ -353,12 +353,16 @@ void bfd_cli_show_minimum_ttl(struct vty *vty, struct lyd_node *dnode,
 
 DEFPY_YANG(
 	bfd_peer_mult, bfd_peer_mult_cmd,
-	"detect-multiplier (2-255)$multiplier",
+	"[no] detect-multiplier [(2-255)$multiplier]",
+	NO_STR
 	"Configure peer detection multiplier\n"
 	"Configure peer detection multiplier value\n")
 {
+	char def_multiplier_str[10];
+
+	snprintf(def_multiplier_str, sizeof(def_multiplier_str), "%u", BFD_DEFDETECTMULT);
 	nb_cli_enqueue_change(vty, "./detection-multiplier", NB_OP_MODIFY,
-			      multiplier_str);
+			      multiplier_str ? multiplier_str : def_multiplier_str);
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -371,13 +375,17 @@ void bfd_cli_show_mult(struct vty *vty, struct lyd_node *dnode,
 
 DEFPY_YANG(
 	bfd_peer_rx, bfd_peer_rx_cmd,
-	"receive-interval (10-60000)$interval",
+	"[no] receive-interval [(10-60000)$interval]",
+	NO_STR
 	"Configure peer receive interval\n"
 	"Configure peer receive interval value in milliseconds\n")
 {
 	char value[32];
 
-	snprintf(value, sizeof(value), "%ld", interval * 1000);
+	if (interval_str)
+		snprintf(value, sizeof(value), "%ld", (long unsigned int)interval * 1000);
+	else
+		snprintf(value, sizeof(value), "%ld", (long unsigned int)BFD_DEFREQUIREDMINRX);
 	nb_cli_enqueue_change(vty, "./required-receive-interval", NB_OP_MODIFY,
 			      value);
 
@@ -394,13 +402,17 @@ void bfd_cli_show_rx(struct vty *vty, struct lyd_node *dnode,
 
 DEFPY_YANG(
 	bfd_peer_tx, bfd_peer_tx_cmd,
-	"transmit-interval (10-60000)$interval",
+	"[no] transmit-interval [(10-60000)$interval]",
+	NO_STR
 	"Configure peer transmit interval\n"
 	"Configure peer transmit interval value in milliseconds\n")
 {
 	char value[32];
 
-	snprintf(value, sizeof(value), "%ld", interval * 1000);
+	if (interval_str)
+		snprintf(value, sizeof(value), "%ld", (long unsigned int)interval * 1000);
+	else
+		snprintf(value, sizeof(value), "%ld", (long unsigned int)BFD_DEFDESIREDMINTX);
 	nb_cli_enqueue_change(vty, "./desired-transmission-interval",
 			      NB_OP_MODIFY, value);
 
@@ -444,7 +456,8 @@ void bfd_cli_show_echo(struct vty *vty, struct lyd_node *dnode,
 
 DEFPY_YANG(
 	bfd_peer_echo_interval, bfd_peer_echo_interval_cmd,
-	"echo-interval (10-60000)$interval",
+	"[no] echo-interval [(10-60000)$interval]",
+	NO_STR
 	"Configure peer echo intervals\n"
 	"Configure peer echo rx/tx intervals value in milliseconds\n")
 {
@@ -456,6 +469,10 @@ DEFPY_YANG(
 	}
 
 	snprintf(value, sizeof(value), "%ld", interval * 1000);
+	if (interval_str)
+		snprintf(value, sizeof(value), "%ld", (long unsigned int)interval * 1000);
+	else
+		snprintf(value, sizeof(value), "%ld", (long unsigned int)BFD_DEF_REQ_MIN_ECHO_RX);
 	nb_cli_enqueue_change(vty, "./desired-echo-transmission-interval",
 			      NB_OP_MODIFY, value);
 	nb_cli_enqueue_change(vty, "./required-echo-receive-interval",
