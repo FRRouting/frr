@@ -409,7 +409,6 @@ struct TLV_IPv4_Internal_type {
 
 	uint8_t prefix_length;
 
-	unsigned char destination_part[4];
 	struct in_addr destination;
 } __attribute__((packed));
 
