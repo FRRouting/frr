@@ -65,6 +65,7 @@
 #include "eigrpd/eigrp_snmp.h"
 #include "eigrpd/eigrp_filter.h"
 #include "eigrpd/eigrp_errors.h"
+#include "eigrpd/eigrp_vrf.h"
 //#include "eigrpd/eigrp_routemap.h"
 
 /* eigprd privileges */
@@ -182,6 +183,7 @@ int main(int argc, char **argv, char **envp)
 	master = eigrp_om->master;
 
 	eigrp_error_init();
+	eigrp_vrf_init();
 	vrf_init(NULL, NULL, NULL, NULL, NULL);
 
 	/*EIGRPd init*/
