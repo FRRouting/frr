@@ -65,17 +65,15 @@
 void eigrp_distribute_update(struct distribute_ctx *ctx,
 			     struct distribute *dist)
 {
+	struct eigrp *e = eigrp_lookup(ctx->vrf->vrf_id);
 	struct interface *ifp;
 	struct eigrp_interface *ei = NULL;
 	struct access_list *alist;
 	struct prefix_list *plist;
 	// struct route_map *routemap;
-	struct eigrp *e;
 
 	/* if no interface address is present, set list to eigrp process struct
 	 */
-	e = eigrp_lookup(VRF_DEFAULT);
-	assert(e != NULL);
 
 	/* Check if distribute-list was set for process or interface */
 	if (!dist->ifname) {
@@ -302,11 +300,13 @@ void eigrp_distribute_update_interface(struct interface *ifp)
  */
 void eigrp_distribute_update_all(struct prefix_list *notused)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
 	struct interface *ifp;
 
-	FOR_ALL_INTERFACES (vrf, ifp)
-		eigrp_distribute_update_interface(ifp);
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		FOR_ALL_INTERFACES (vrf, ifp)
+			eigrp_distribute_update_interface(ifp);
+	}
 }
 
 /*
