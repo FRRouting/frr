@@ -154,6 +154,7 @@ void eigrp_nexthop_entry_add(struct eigrp_prefix_entry *node,
 			     struct eigrp_nexthop_entry *entry)
 {
 	struct list *l = list_new();
+	struct eigrp *eigrp = eigrp_lookup(VRF_DEFAULT);
 
 	listnode_add(l, entry);
 
@@ -161,7 +162,8 @@ void eigrp_nexthop_entry_add(struct eigrp_prefix_entry *node,
 		listnode_add_sort(node->entries, entry);
 		entry->prefix = node;
 
-		eigrp_zebra_route_add(node->destination, l, node->fdistance);
+		eigrp_zebra_route_add(eigrp, node->destination,
+				      l, node->fdistance);
 	}
 
 	list_delete(&l);
@@ -195,7 +197,7 @@ void eigrp_prefix_entry_delete(struct route_table *table,
 		eigrp_nexthop_entry_delete(pe, ne);
 	list_delete(&pe->entries);
 	list_delete(&pe->rij);
-	eigrp_zebra_route_delete(pe->destination);
+	eigrp_zebra_route_delete(eigrp, pe->destination);
 	prefix_free(pe->destination);
 
 	rn->info = NULL;
@@ -210,9 +212,11 @@ void eigrp_prefix_entry_delete(struct route_table *table,
 void eigrp_nexthop_entry_delete(struct eigrp_prefix_entry *node,
 				struct eigrp_nexthop_entry *entry)
 {
+	struct eigrp *eigrp = eigrp_lookup(VRF_DEFAULT);
+
 	if (listnode_lookup(node->entries, entry) != NULL) {
 		listnode_delete(node->entries, entry);
-		eigrp_zebra_route_delete(node->destination);
+		eigrp_zebra_route_delete(eigrp, node->destination);
 		XFREE(MTYPE_EIGRP_NEXTHOP_ENTRY, entry);
 	}
 }
@@ -477,14 +481,14 @@ void eigrp_update_routing_table(struct eigrp_prefix_entry *prefix)
 	successors = eigrp_topology_get_successor_max(prefix, eigrp->max_paths);
 
 	if (successors) {
-		eigrp_zebra_route_add(prefix->destination, successors,
+		eigrp_zebra_route_add(eigrp, prefix->destination, successors,
 				      prefix->fdistance);
 		for (ALL_LIST_ELEMENTS_RO(successors, node, entry))
 			entry->flags |= EIGRP_NEXTHOP_ENTRY_INTABLE_FLAG;
 
 		list_delete(&successors);
 	} else {
-		eigrp_zebra_route_delete(prefix->destination);
+		eigrp_zebra_route_delete(eigrp, prefix->destination);
 		for (ALL_LIST_ELEMENTS_RO(prefix->entries, node, entry))
 			entry->flags &= ~EIGRP_NEXTHOP_ENTRY_INTABLE_FLAG;
 	}
