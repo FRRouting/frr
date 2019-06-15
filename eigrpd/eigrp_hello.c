@@ -485,20 +485,14 @@ static uint16_t eigrp_tidlist_encode(struct stream *s)
  * Part of conditional receive process
  *
  */
-static uint16_t eigrp_sequence_encode(struct stream *s)
+static uint16_t eigrp_sequence_encode(struct eigrp *eigrp, struct stream *s)
 {
 	uint16_t length = EIGRP_TLV_SEQ_BASE_LEN;
-	struct eigrp *eigrp;
 	struct eigrp_interface *ei;
 	struct listnode *node, *node2, *nnode2;
 	struct eigrp_neighbor *nbr;
 	size_t backup_end, size_end;
 	int found;
-
-	eigrp = eigrp_lookup(VRF_DEFAULT);
-	if (eigrp == NULL) {
-		return 0;
-	}
 
 	// add in the parameters TLV
 	backup_end = stream_get_endp(s);
@@ -542,15 +536,10 @@ static uint16_t eigrp_sequence_encode(struct stream *s)
  * Part of conditional receive process
  *
  */
-static uint16_t eigrp_next_sequence_encode(struct stream *s)
+static uint16_t eigrp_next_sequence_encode(struct eigrp *eigrp,
+					   struct stream *s)
 {
 	uint16_t length = EIGRP_NEXT_SEQUENCE_TLV_SIZE;
-	struct eigrp *eigrp;
-
-	eigrp = eigrp_lookup(VRF_DEFAULT);
-	if (eigrp == NULL) {
-		return 0;
-	}
 
 	// add in the parameters TLV
 	stream_putw(s, EIGRP_TLV_NEXT_MCAST_SEQ);
@@ -660,8 +649,8 @@ static struct eigrp_packet *eigrp_hello_encode(struct eigrp_interface *ei,
 		length += eigrp_sw_version_encode(ep->s);
 
 		if (flags & EIGRP_HELLO_ADD_SEQUENCE) {
-			length += eigrp_sequence_encode(ep->s);
-			length += eigrp_next_sequence_encode(ep->s);
+			length += eigrp_sequence_encode(ei->eigrp, ep->s);
+			length += eigrp_next_sequence_encode(ei->eigrp, ep->s);
 		}
 
 		// add in the TID list if doing multi-topology
