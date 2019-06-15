@@ -53,7 +53,7 @@ static int eigrp_network_match_iface(const struct prefix *connected_prefix,
 static void eigrp_network_run_interface(struct eigrp *, struct prefix *,
 					struct interface *);
 
-int eigrp_sock_init(void)
+int eigrp_sock_init(struct vrf *vrf)
 {
 	int eigrp_sock;
 	int ret;
@@ -62,7 +62,9 @@ int eigrp_sock_init(void)
 #endif
 
 	frr_elevate_privs(&eigrpd_privs) {
-		eigrp_sock = socket(AF_INET, SOCK_RAW, IPPROTO_EIGRPIGP);
+		eigrp_sock = vrf_socket(
+			AF_INET, SOCK_RAW, IPPROTO_EIGRPIGP, vrf->vrf_id,
+			vrf->vrf_id != VRF_DEFAULT ? vrf->name : NULL);
 		if (eigrp_sock < 0) {
 			zlog_err("eigrp_read_sock_init: socket: %s",
 				 safe_strerror(errno));

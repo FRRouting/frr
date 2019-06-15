@@ -87,7 +87,7 @@ struct eigrp {
 	struct list *eiflist;		  /* eigrp interfaces */
 	uint8_t passive_interface_default; /* passive-interface default */
 
-	unsigned int fd;
+	int fd;
 	unsigned int maxsndbuflen;
 
 	uint32_t sequence_number; /*Global EIGRP sequence number*/
