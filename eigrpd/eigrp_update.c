@@ -366,11 +366,11 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 				eigrp_prefix_entry_add(eigrp->topology_table,
 						       pe);
-				eigrp_nexthop_entry_add(pe, ne);
+				eigrp_nexthop_entry_add(eigrp, pe, ne);
 				pe->distance = pe->fdistance = pe->rdistance =
 					ne->distance;
 				pe->reported_metric = ne->total_metric;
-				eigrp_topology_update_node_flags(pe);
+				eigrp_topology_update_node_flags(eigrp, pe);
 
 				pe->req_action |= EIGRP_FSM_NEED_UPDATE;
 				listnode_add(
