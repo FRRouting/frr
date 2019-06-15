@@ -285,13 +285,16 @@ void eigrp_if_update(struct interface *ifp)
 {
 	struct listnode *node, *nnode;
 	struct route_node *rn;
-	struct eigrp *eigrp;
+	struct eigrp *eigrp  = eigrp_lookup(ifp->vrf_id);
 
 	/*
 	 * In the event there are multiple eigrp autonymnous systems running,
 	 * we need to check eac one and add the interface as approperate
 	 */
 	for (ALL_LIST_ELEMENTS(eigrp_om->eigrp, node, nnode, eigrp)) {
+		if (ifp->vrf_id != eigrp->vrf_id)
+			continue;
+
 		/* EIGRP must be on and Router-ID must be configured. */
 		if (eigrp->router_id.s_addr == 0)
 			continue;
