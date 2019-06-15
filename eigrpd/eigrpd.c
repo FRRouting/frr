@@ -137,7 +137,6 @@ void eigrp_master_init(void)
 static struct eigrp *eigrp_new(const char *AS, vrf_id_t vrf_id)
 {
 	struct eigrp *eigrp = XCALLOC(MTYPE_EIGRP_TOP, sizeof(struct eigrp));
-	int eigrp_socket;
 
 	/* init information relevant to peers */
 	eigrp->vrf_id = vrf_id;
@@ -160,14 +159,15 @@ static struct eigrp *eigrp_new(const char *AS, vrf_id_t vrf_id)
 	eigrp->passive_interface_default = EIGRP_IF_ACTIVE;
 	eigrp->networks = eigrp_topology_new();
 
-	if ((eigrp_socket = eigrp_sock_init()) < 0) {
+	eigrp->fd = eigrp_sock_init(vrf_lookup_by_id(vrf_id));
+
+	if (eigrp->fd < 0) {
 		flog_err_sys(
 			EC_LIB_SOCKET,
 			"eigrp_new: fatal error: eigrp_sock_init was unable to open a socket");
 		exit(1);
 	}
 
-	eigrp->fd = eigrp_socket;
 	eigrp->maxsndbuflen = getsockopt_so_sendbuf(eigrp->fd);
 
 	eigrp->ibuf = stream_new(EIGRP_PACKET_MAX_LEN + 1);

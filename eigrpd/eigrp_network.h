@@ -30,7 +30,7 @@
 
 /* Prototypes */
 
-extern int eigrp_sock_init(void);
+extern int eigrp_sock_init(struct vrf *vrf);
 extern int eigrp_if_ipmulticast(struct eigrp *, struct prefix *, unsigned int);
 extern int eigrp_network_set(struct eigrp *eigrp, struct prefix *p);
 extern int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p);
