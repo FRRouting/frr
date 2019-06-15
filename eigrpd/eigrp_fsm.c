@@ -445,7 +445,7 @@ int eigrp_fsm_event_nq_fcn(struct eigrp_fsm_action_message *msg)
 	prefix->rdistance = prefix->distance = prefix->fdistance = ne->distance;
 	prefix->reported_metric = ne->total_metric;
 
-	if (eigrp_nbr_count_get()) {
+	if (eigrp_nbr_count_get(eigrp)) {
 		prefix->req_action |= EIGRP_FSM_NEED_QUERY;
 		listnode_add(eigrp->topology_changes_internalIPV4, prefix);
 	} else {
@@ -471,7 +471,7 @@ int eigrp_fsm_event_q_fcn(struct eigrp_fsm_action_message *msg)
 	prefix->state = EIGRP_FSM_STATE_ACTIVE_3;
 	prefix->rdistance = prefix->distance = prefix->fdistance = ne->distance;
 	prefix->reported_metric = ne->total_metric;
-	if (eigrp_nbr_count_get()) {
+	if (eigrp_nbr_count_get(eigrp)) {
 		prefix->req_action |= EIGRP_FSM_NEED_QUERY;
 		listnode_add(eigrp->topology_changes_internalIPV4, prefix);
 	} else {
@@ -612,7 +612,7 @@ int eigrp_fsm_event_lr_fcn(struct eigrp_fsm_action_message *msg)
 	prefix->rdistance = prefix->distance = best_successor->distance;
 	prefix->reported_metric = best_successor->total_metric;
 
-	if (eigrp_nbr_count_get()) {
+	if (eigrp_nbr_count_get(eigrp)) {
 		prefix->req_action |= EIGRP_FSM_NEED_QUERY;
 		listnode_add(eigrp->topology_changes_internalIPV4, prefix);
 	} else {
