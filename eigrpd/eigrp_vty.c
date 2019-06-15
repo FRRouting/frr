@@ -96,7 +96,7 @@ DEFPY (show_ip_eigrp_topology_all,
 	struct eigrp_prefix_entry *tn;
 	struct route_node *rn;
 
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(VRF_DEFAULT);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
@@ -132,7 +132,7 @@ DEFPY (show_ip_eigrp_topology,
 	struct route_node *rn;
 	struct prefix cmp;
 
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(VRF_DEFAULT);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
@@ -184,7 +184,7 @@ DEFUN (show_ip_eigrp_interfaces,
 	bool detail = false;
 	const char *ifname = NULL;
 
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(VRF_DEFAULT);
 	if (eigrp == NULL) {
 		vty_out(vty, "EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
@@ -228,7 +228,7 @@ DEFUN (show_ip_eigrp_neighbors,
 	int idx = 0;
 	const char *ifname = NULL;
 
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(VRF_DEFAULT);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
@@ -271,7 +271,7 @@ DEFUN (clear_ip_eigrp_neighbors,
 	struct eigrp_neighbor *nbr;
 
 	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(VRF_DEFAULT);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
@@ -327,7 +327,7 @@ DEFUN (clear_ip_eigrp_neighbors_int,
 	int idx = 0;
 
 	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(VRF_DEFAULT);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
@@ -390,7 +390,7 @@ DEFUN (clear_ip_eigrp_neighbors_IP,
 	}
 
 	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(VRF_DEFAULT);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
@@ -426,7 +426,7 @@ DEFUN (clear_ip_eigrp_neighbors_soft,
 	struct eigrp *eigrp;
 
 	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(VRF_DEFAULT);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
@@ -455,7 +455,7 @@ DEFUN (clear_ip_eigrp_neighbors_int_soft,
 	struct eigrp_interface *ei;
 
 	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(VRF_DEFAULT);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;
@@ -496,7 +496,7 @@ DEFUN (clear_ip_eigrp_neighbors_IP_soft,
 	}
 
 	/* Check if eigrp process is enabled */
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(VRF_DEFAULT);
 	if (eigrp == NULL) {
 		vty_out(vty, " EIGRP Routing Process not enabled\n");
 		return CMD_SUCCESS;

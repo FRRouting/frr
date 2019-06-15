@@ -74,7 +74,7 @@ void eigrp_distribute_update(struct distribute_ctx *ctx,
 
 	/* if no interface address is present, set list to eigrp process struct
 	 */
-	e = eigrp_lookup();
+	e = eigrp_lookup(VRF_DEFAULT);
 	assert(e != NULL);
 
 	/* Check if distribute-list was set for process or interface */
@@ -288,7 +288,7 @@ void eigrp_distribute_update_interface(struct interface *ifp)
 	struct distribute *dist;
 	struct eigrp *eigrp;
 
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(ifp->vrf_id);
 	if (!eigrp)
 		return;
 	dist = distribute_lookup(eigrp->distribute_ctx, ifp->name);

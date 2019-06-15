@@ -79,7 +79,7 @@ static int eigrp_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 
 	router_id_zebra = router_id.u.prefix4;
 
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(vrf_id);
 
 	if (eigrp != NULL)
 		eigrp_router_id_update(eigrp);
@@ -137,7 +137,7 @@ static int eigrp_zebra_read_route(ZAPI_CALLBACK_ARGS)
 	if (IPV4_NET127(ntohl(api.prefix.u.prefix4.s_addr)))
 		return 0;
 
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(vrf_id);
 	if (eigrp == NULL)
 		return 0;
 
