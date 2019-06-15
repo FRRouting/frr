@@ -1577,10 +1577,11 @@ DEFUNSH(VTYSH_OSPFD, router_ospf, router_ospf_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_EIGRPD, router_eigrp, router_eigrp_cmd, "router eigrp (1-65535)",
+DEFUNSH(VTYSH_EIGRPD, router_eigrp, router_eigrp_cmd, "router eigrp (1-65535) [vrf NAME]",
 	"Enable a routing process\n"
 	"Start EIGRP configuration\n"
-	"AS number to use\n")
+	"AS number to use\n"
+	VRF_CMD_HELP_STR)
 {
 	vty->node = EIGRP_NODE;
 	return CMD_SUCCESS;

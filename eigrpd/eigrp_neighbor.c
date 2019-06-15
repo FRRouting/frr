@@ -302,7 +302,7 @@ int eigrp_nbr_count_get(void)
 	struct eigrp_interface *iface;
 	struct listnode *node, *node2, *nnode2;
 	struct eigrp_neighbor *nbr;
-	struct eigrp *eigrp = eigrp_lookup();
+	struct eigrp *eigrp = eigrp_lookup(VRF_DEFAULT);
 	uint32_t counter;
 
 	if (eigrp == NULL) {

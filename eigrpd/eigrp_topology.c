@@ -173,7 +173,7 @@ void eigrp_nexthop_entry_add(struct eigrp_prefix_entry *node,
 void eigrp_prefix_entry_delete(struct route_table *table,
 			       struct eigrp_prefix_entry *pe)
 {
-	struct eigrp *eigrp = eigrp_lookup();
+	struct eigrp *eigrp = eigrp_lookup(VRF_DEFAULT);
 	struct eigrp_nexthop_entry *ne;
 	struct listnode *node, *nnode;
 	struct route_node *rn;
@@ -434,7 +434,7 @@ void eigrp_topology_update_node_flags(struct eigrp_prefix_entry *dest)
 {
 	struct listnode *node;
 	struct eigrp_nexthop_entry *entry;
-	struct eigrp *eigrp = eigrp_lookup();
+	struct eigrp *eigrp = eigrp_lookup(VRF_DEFAULT);
 
 	assert(eigrp);
 
@@ -466,7 +466,7 @@ void eigrp_topology_update_node_flags(struct eigrp_prefix_entry *dest)
 
 void eigrp_update_routing_table(struct eigrp_prefix_entry *prefix)
 {
-	struct eigrp *eigrp = eigrp_lookup();
+	struct eigrp *eigrp = eigrp_lookup(VRF_DEFAULT);
 	struct list *successors;
 	struct listnode *node;
 	struct eigrp_nexthop_entry *entry;

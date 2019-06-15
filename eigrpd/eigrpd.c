@@ -134,14 +134,14 @@ void eigrp_master_init(void)
 }
 
 /* Allocate new eigrp structure. */
-static struct eigrp *eigrp_new(const char *AS, vrf_id_t vrf_id)
+static struct eigrp *eigrp_new(uint16_t as, vrf_id_t vrf_id)
 {
 	struct eigrp *eigrp = XCALLOC(MTYPE_EIGRP_TOP, sizeof(struct eigrp));
 
 	/* init information relevant to peers */
 	eigrp->vrf_id = vrf_id;
 	eigrp->vrid = 0;
-	eigrp->AS = atoi(AS);
+	eigrp->AS = as;
 	eigrp->router_id.s_addr = 0;
 	eigrp->router_id_static.s_addr = 0;
 	eigrp->sequence_number = 1;
@@ -215,13 +215,13 @@ static struct eigrp *eigrp_new(const char *AS, vrf_id_t vrf_id)
 	return eigrp;
 }
 
-struct eigrp *eigrp_get(const char *AS, vrf_id_t vrf_id)
+struct eigrp *eigrp_get(uint16_t as, vrf_id_t vrf_id)
 {
 	struct eigrp *eigrp;
 
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(vrf_id);
 	if (eigrp == NULL) {
-		eigrp = eigrp_new(AS, vrf_id);
+		eigrp = eigrp_new(as, vrf_id);
 		listnode_add(eigrp_om->eigrp, eigrp);
 	}
 
@@ -298,10 +298,14 @@ void eigrp_finish_final(struct eigrp *eigrp)
 }
 
 /*Look for existing eigrp process*/
-struct eigrp *eigrp_lookup(void)
+struct eigrp *eigrp_lookup(vrf_id_t vrf_id)
 {
-	if (listcount(eigrp_om->eigrp) == 0)
-		return NULL;
+	struct eigrp *eigrp;
+	struct listnode *node, *nnode;
 
-	return listgetdata(listhead(eigrp_om->eigrp));
+	for (ALL_LIST_ELEMENTS(eigrp_om->eigrp, node, nnode, eigrp))
+		if (eigrp->vrf_id == vrf_id)
+			return eigrp;
+
+	return NULL;
 }

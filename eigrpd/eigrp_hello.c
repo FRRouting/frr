@@ -495,7 +495,7 @@ static uint16_t eigrp_sequence_encode(struct stream *s)
 	size_t backup_end, size_end;
 	int found;
 
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(VRF_DEFAULT);
 	if (eigrp == NULL) {
 		return 0;
 	}
@@ -547,7 +547,7 @@ static uint16_t eigrp_next_sequence_encode(struct stream *s)
 	uint16_t length = EIGRP_NEXT_SEQUENCE_TLV_SIZE;
 	struct eigrp *eigrp;
 
-	eigrp = eigrp_lookup();
+	eigrp = eigrp_lookup(VRF_DEFAULT);
 	if (eigrp == NULL) {
 		return 0;
 	}
