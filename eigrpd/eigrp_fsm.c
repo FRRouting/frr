@@ -486,7 +486,7 @@ int eigrp_fsm_event_q_fcn(struct eigrp_fsm_action_message *msg)
 
 int eigrp_fsm_event_keep_state(struct eigrp_fsm_action_message *msg)
 {
-	struct eigrp *eigrp;
+	struct eigrp *eigrp = msg->eigrp;
 	struct eigrp_prefix_entry *prefix = msg->prefix;
 	struct eigrp_nexthop_entry *ne = listnode_head(prefix->entries);
 
@@ -499,8 +499,6 @@ int eigrp_fsm_event_keep_state(struct eigrp_fsm_action_message *msg)
 			if (msg->packet_type == EIGRP_OPC_QUERY)
 				eigrp_send_reply(msg->adv_router, prefix);
 			prefix->req_action |= EIGRP_FSM_NEED_UPDATE;
-			eigrp = eigrp_lookup(VRF_DEFAULT);
-			assert(eigrp);
 			listnode_add(eigrp->topology_changes_internalIPV4,
 				     prefix);
 		}
