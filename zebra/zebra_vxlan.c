@@ -1386,7 +1386,9 @@ static void zvni_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 				vty_out(vty, " %-5u", vid);
 			else
 				json_object_int_add(json_mac, "vlan", vid);
-		}
+		} else /* No vid? fill out the space */
+			vty_out(vty, " %-5s", "");
+		vty_out(vty, " %u/%u", mac->loc_seq, mac->rem_seq);
 		if (json_mac_hdr == NULL) {
 			vty_out(vty, "\n");
 		} else {
@@ -1418,11 +1420,13 @@ static void zvni_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 			if ((wctx->flags & SHOW_REMOTE_MAC_FROM_VTEP) &&
 			    (wctx->count == 0)) {
 				vty_out(vty, "\nVNI %u\n\n", wctx->zvni->vni);
-				vty_out(vty, "%-17s %-6s %-21s %-5s\n", "MAC",
-					"Type", "Intf/Remote VTEP", "VLAN");
+				vty_out(vty, "%-17s %-6s %-21s %-5s %s\n",
+					"MAC", "Type", "Intf/Remote VTEP",
+					"VLAN", "Seq #'s");
 			}
-			vty_out(vty, "%-17s %-6s %-21s\n", buf1, "remote",
-				inet_ntoa(mac->fwd_info.r_vtep_ip));
+			vty_out(vty, "%-17s %-6s %-21s %-5s %u/%u\n", buf1,
+				"remote", inet_ntoa(mac->fwd_info.r_vtep_ip),
+				"", mac->loc_seq, mac->rem_seq);
 		} else {
 			json_object_string_add(json_mac, "type", "remote");
 			json_object_string_add(json_mac, "remoteVtep",
@@ -1536,8 +1540,8 @@ static void zvni_print_mac_hash_all_vni(struct hash_bucket *bucket, void *ctxt)
 		if (json == NULL) {
 			vty_out(vty, "\nVNI %u #MACs (local and remote) %u\n\n",
 				zvni->vni, num_macs);
-			vty_out(vty, "%-17s %-6s %-21s %-5s\n", "MAC", "Type",
-				"Intf/Remote VTEP", "VLAN");
+			vty_out(vty, "%-17s %-6s %-21s %-5s %s\n", "MAC",
+				"Type", "Intf/Remote VTEP", "VLAN", "Seq #'s");
 		} else
 			json_object_int_add(json_vni, "numMacs", num_macs);
 	}
