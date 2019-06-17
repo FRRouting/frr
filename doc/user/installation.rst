@@ -465,7 +465,8 @@ Additional kernel modules are also needed to support MPLS forwarding.
       mpls_router
       mpls_iptunnel
 
-   The following is an example to enable MPLS forwarding in the kernel:
+   The following is an example to enable MPLS forwarding in the
+   kernel, typically by editing :file:`/etc/sysctl.conf`:
 
    .. code-block:: shell
 
