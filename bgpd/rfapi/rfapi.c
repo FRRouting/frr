@@ -2929,7 +2929,7 @@ DEFUN (debug_rfapi_open,
 {
 	struct rfapi_ip_addr vn;
 	struct rfapi_ip_addr un;
-	uint32_t lifetime;
+	uint32_t lifetime = 0;
 	int rc;
 	rfapi_handle handle;
 

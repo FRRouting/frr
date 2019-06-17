@@ -407,14 +407,19 @@ AC_SUBST([ARFLAGS])
 AC_SUBST([AR_FLAGS])
 
 AC_MSG_CHECKING([whether $RANLIB supports D option])
-if $RANLIB -D conftest.a >/dev/null 2>/dev/null; then
-  AC_MSG_RESULT([yes])
-  RANLIB="$RANLIB -D"
+if $RANLIB -D conftest.a >conftest.err 2>&1; then
+  if grep -q -- '-D' conftest.err; then
+    AC_MSG_RESULT([no])
+  else
+    AC_MSG_RESULT([yes])
+    RANLIB="$RANLIB -D"
+  fi
 else
   AC_MSG_RESULT([no])
 fi
 AC_SUBST([RANLIB])
 
+test -f conftest.err && rm conftest.err
 test -f conftest.a && rm conftest.a
 
 dnl ----------------------

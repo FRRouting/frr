@@ -22,6 +22,7 @@
 #include <zebra.h>
 #include <math.h>
 
+#include "printfrr.h"
 #include "prefix.h"
 #include "linklist.h"
 #include "memory.h"
@@ -7577,8 +7578,6 @@ void route_vty_out_tag(struct vty *vty, struct prefix *p,
 			       && BGP_ATTR_NEXTHOP_AFI_IP6(attr))
 			   || (BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
 			char buf_a[512];
-			char buf_b[512];
-			char buf_c[BUFSIZ];
 			if (attr->mp_nexthop_len
 			    == BGP_ATTR_NHLEN_IPV6_GLOBAL) {
 				if (json)
@@ -7596,27 +7595,15 @@ void route_vty_out_tag(struct vty *vty, struct prefix *p,
 							buf_a, sizeof(buf_a)));
 			} else if (attr->mp_nexthop_len
 				   == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
-				if (json) {
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_global,
-						  buf_a, sizeof(buf_a));
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_local,
-						  buf_b, sizeof(buf_b));
-					sprintf(buf_c, "%s(%s)", buf_a, buf_b);
+				snprintfrr(buf_a, sizeof(buf_a), "%pI6(%pI6)",
+					   &attr->mp_nexthop_global,
+					   &attr->mp_nexthop_local);
+				if (json)
 					json_object_string_add(
 						json_out,
-						"mpNexthopGlobalLocal", buf_c);
-				} else
-					vty_out(vty, "%s(%s)",
-						inet_ntop(
-							AF_INET6,
-							&attr->mp_nexthop_global,
-							buf_a, sizeof(buf_a)),
-						inet_ntop(
-							AF_INET6,
-							&attr->mp_nexthop_local,
-							buf_b, sizeof(buf_b)));
+						"mpNexthopGlobalLocal", buf_a);
+				else
+					vty_out(vty, "%s", buf_a);
 			}
 		}
 	}

@@ -1422,15 +1422,19 @@ const struct frr_yang_module_info frr_interface_info = {
 	.nodes = {
 		{
 			.xpath = "/frr-interface:lib/interface",
-			.cbs.create = lib_interface_create,
-			.cbs.destroy = lib_interface_destroy,
-			.cbs.cli_show = cli_show_interface,
+			.cbs = {
+				.create = lib_interface_create,
+				.destroy = lib_interface_destroy,
+				.cli_show = cli_show_interface,
+			},
 		},
 		{
 			.xpath = "/frr-interface:lib/interface/description",
-			.cbs.modify = lib_interface_description_modify,
-			.cbs.destroy = lib_interface_description_destroy,
-			.cbs.cli_show = cli_show_interface_desc,
+			.cbs = {
+				.modify = lib_interface_description_modify,
+				.destroy = lib_interface_description_destroy,
+				.cli_show = cli_show_interface_desc,
+			},
 		},
 		{
 			.xpath = NULL,
