@@ -594,14 +594,14 @@ int zfpm_netlink_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
 	char buf1[ETHER_ADDR_STRLEN];
 	size_t buf_offset;
 
-	struct {
+	struct macmsg {
 		struct nlmsghdr hdr;
 		struct ndmsg ndm;
 		char buf[0];
 	} *req;
 	req = (void *)in_buf;
 
-	buf_offset = ((char *)req->buf) - ((char *)req);
+	buf_offset = offsetof(struct macmsg, buf);
 	if (in_buf_len < buf_offset)
 		return 0;
 	memset(req, 0, buf_offset);
