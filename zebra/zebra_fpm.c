@@ -1030,7 +1030,7 @@ static int zfpm_build_route_updates(void)
 			 */
 			return FPM_GOTO_NEXT_Q;
 		}
-	} while (1);
+	} while (true);
 }
 
 /*
@@ -1623,8 +1623,7 @@ static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
 	if (!fpm_mac)
 		return 0;
 
-	memcpy(&fpm_mac->zebra_flags, &rmac->flags, sizeof(uint32_t));
-
+	fpm_mac->zebra_flags = rmac->flags;
 	fpm_mac->vxlan_if = vxlan_if ? vxlan_if->ifindex : 0;
 	fpm_mac->svi_if = svi_if ? svi_if->ifindex : 0;
 
