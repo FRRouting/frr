@@ -34,6 +34,7 @@ struct pm_echo {
 	uint32_t discriminator_id;
 
 	int echofd;
+	int echofd_rx_ipv6;
 	uint8_t *tx_buf;
 	uint8_t *rx_buf;
 	uint32_t icmp_sequence;
