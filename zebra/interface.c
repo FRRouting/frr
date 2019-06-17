@@ -1593,12 +1593,13 @@ DEFPY(show_interface, show_interface_cmd,
 
 
 /* Show all interfaces to vty. */
-DEFUN (show_interface_vrf_all,
+DEFPY (show_interface_vrf_all,
        show_interface_vrf_all_cmd,
-       "show interface vrf all",
+       "show interface vrf all [brief$brief]",
        SHOW_STR
        "Interface status and configuration\n"
-       VRF_ALL_CMD_HELP_STR)
+       VRF_ALL_CMD_HELP_STR
+       "Interface status and configuration summary\n")
 {
 	struct vrf *vrf;
 	struct interface *ifp;
@@ -1606,9 +1607,14 @@ DEFUN (show_interface_vrf_all,
 	interface_update_stats();
 
 	/* All interface print. */
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		FOR_ALL_INTERFACES (vrf, ifp)
-			if_dump_vty(vty, ifp);
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (brief) {
+			ifs_dump_brief_vty(vty, vrf);
+		} else {
+			FOR_ALL_INTERFACES (vrf, ifp)
+				if_dump_vty(vty, ifp);
+		}
+	}
 
 	return CMD_SUCCESS;
 }
