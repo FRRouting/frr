@@ -23,6 +23,7 @@
 #if defined(HANDLE_NETLINK_FUZZING)
 #include <stdio.h>
 #include <string.h>
+#include "libfrr.h"
 #endif /* HANDLE_NETLINK_FUZZING */
 
 #ifdef HAVE_NETLINK

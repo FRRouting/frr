@@ -1067,10 +1067,8 @@ DEFUN (show_zebra_client_summary,
 void zserv_read_file(char *input)
 {
 	int fd;
-	struct thread t;
 
 	fd = open(input, O_RDONLY | O_NONBLOCK);
-	t.u.fd = fd;
 
 	zserv_client_create(fd);
 }
