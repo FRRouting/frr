@@ -459,6 +459,9 @@ struct bgp {
 	uint32_t restart_time;
 	uint32_t stalepath_time;
 
+	/* BGP refresh */
+	uint32_t refresh_stalepath_time;
+
 	/* Maximum-paths configuration */
 	struct bgp_maxpaths_cfg {
 		uint16_t maxpaths_ebgp;
@@ -834,6 +837,8 @@ struct peer {
 #define PEER_CAP_ENHE_RCV                   (1 << 14) /* Extended nexthop received */
 #define PEER_CAP_HOSTNAME_ADV               (1 << 15) /* hostname advertised */
 #define PEER_CAP_HOSTNAME_RCV               (1 << 16) /* hostname received */
+#define PEER_CAP_ENHANCED_RR_ADV            (1 << 17) /* enhanced rr advertised */
+#define PEER_CAP_ENHANCED_RR_RCV            (1 << 18) /* enhanced rr received */
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];
@@ -996,6 +1001,7 @@ struct peer {
 #define PEER_STATUS_GROUP             (1 << 4) /* peer-group conf */
 #define PEER_STATUS_NSF_MODE          (1 << 5) /* NSF aware peer */
 #define PEER_STATUS_NSF_WAIT          (1 << 6) /* wait comeback peer */
+#define PEER_STATUS_ENHANCED_REFRESH  (1 << 7) /* enhanced route refresh */
 
 	/* Peer status af flags (reset in bgp_stop) */
 	uint16_t af_sflags[AFI_MAX][SAFI_MAX];
@@ -1005,6 +1011,7 @@ struct peer {
 #define PEER_STATUS_PREFIX_LIMIT      (1 << 3) /* exceed prefix-limit */
 #define PEER_STATUS_EOR_SEND          (1 << 4) /* end-of-rib send to peer */
 #define PEER_STATUS_EOR_RECEIVED      (1 << 5) /* end-of-rib received from peer */
+#define PEER_STATUS_EORR_READY_TO_SEND (1 << 6) /* end of rr flag for sender */
 
 	/* Configured timer values. */
 	_Atomic uint32_t holdtime;
@@ -1035,6 +1042,7 @@ struct peer {
 	struct thread *t_gr_stale;
 	struct thread *t_generate_updgrp_packets;
 	struct thread *t_process_packet;
+	struct thread *t_refresh_stalepath;
 
 	/* Thread flags. */
 	_Atomic uint32_t thread_flags;
@@ -1384,6 +1392,10 @@ struct bgp_nlri {
 #define BGP_NOTIFY_CAPABILITY_INVALID_LENGTH     2
 #define BGP_NOTIFY_CAPABILITY_MALFORMED_CODE     3
 
+/* BGP route refresh optional subtypes. */
+#define BGP_ROUTE_REFRESH_BORR                   1
+#define BGP_ROUTE_REFRESH_EORR                   2
+
 /* BGP finite state machine status.  */
 #define Idle                                     1
 #define Connect                                  2
@@ -1434,6 +1446,9 @@ struct bgp_nlri {
 /* BGP graceful restart  */
 #define BGP_DEFAULT_RESTART_TIME               120
 #define BGP_DEFAULT_STALEPATH_TIME             360
+
+/* BGP refresh stale-path */
+#define BGP_DEFAULT_REFRESH_STALEPATH_TIME     0
 
 /* BGP uptime string length.  */
 #define BGP_UPTIME_LEN 25

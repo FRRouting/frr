@@ -2962,6 +2962,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
 	bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 	bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
+	bgp->refresh_stalepath_time = BGP_DEFAULT_REFRESH_STALEPATH_TIME;
 	bgp->dynamic_neighbors_limit = BGP_DYNAMIC_NEIGHBORS_LIMIT_DEFAULT;
 	bgp->dynamic_neighbors_count = 0;
 	bgp->ebgp_requires_policy = DEFAULT_EBGP_POLICY_DISABLED;
@@ -3815,9 +3816,9 @@ void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 				BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 	} else if (type == peer_change_reset_in) {
 		if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV)
-		    || CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
-			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0);
-		else {
+		    || CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV)) {
+			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0, 0);
+		} else {
 			if ((peer->doppelganger)
 			    && (peer->doppelganger->status != Deleted)
 			    && (!CHECK_FLAG(peer->doppelganger->flags,
@@ -4807,7 +4808,7 @@ static void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 			bgp_soft_reconfig_in(peer, afi, safi);
 		else if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV)
 			 || CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
-			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0);
+			bgp_route_refresh_send(peer, afi, safi, 0, 0, 0, 0);
 	}
 }
 
@@ -6785,19 +6786,19 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 					       PEER_STATUS_ORF_PREFIX_SEND))
 					bgp_route_refresh_send(
 						peer, afi, safi, prefix_type,
-						REFRESH_DEFER, 1);
+						REFRESH_DEFER, 1, 0);
 				bgp_route_refresh_send(peer, afi, safi,
 						       prefix_type,
-						       REFRESH_IMMEDIATE, 0);
+						       REFRESH_IMMEDIATE, 0, 0);
 			} else {
 				if (CHECK_FLAG(peer->af_sflags[afi][safi],
 					       PEER_STATUS_ORF_PREFIX_SEND))
 					bgp_route_refresh_send(
 						peer, afi, safi, prefix_type,
-						REFRESH_IMMEDIATE, 1);
+						REFRESH_IMMEDIATE, 1, 0);
 				else
 					bgp_route_refresh_send(peer, afi, safi,
-							       0, 0, 0);
+							       0, 0, 0, 0);
 			}
 			return 0;
 		}
@@ -6816,7 +6817,7 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 			   message to the peer. */
 			if (CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_OLD_RCV)
 			    || CHECK_FLAG(peer->cap, PEER_CAP_REFRESH_NEW_RCV))
-				bgp_route_refresh_send(peer, afi, safi, 0, 0,
+				bgp_route_refresh_send(peer, afi, safi, 0, 0, 0,
 						       0);
 			else
 				return BGP_ERR_SOFT_RECONFIG_UNCONFIGURED;
@@ -7695,6 +7696,12 @@ int bgp_config_write(struct vty *vty)
 		if (bgp_flag_check(bgp, BGP_FLAG_GR_PRESERVE_FWD))
 			vty_out(vty,
 				" bgp graceful-restart preserve-fw-state\n");
+
+		/* BGP refresh stalepath-time */
+		if (bgp->refresh_stalepath_time
+		    != BGP_DEFAULT_REFRESH_STALEPATH_TIME)
+			vty_out(vty, " bgp refresh stalepath-time %u\n",
+				bgp->refresh_stalepath_time);
 
 		/* BGP bestpath method. */
 		if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_IGNORE))

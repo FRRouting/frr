@@ -4007,13 +4007,14 @@ static wq_item_status bgp_clear_route_node(struct work_queue *wq, void *data)
 		if (pi->peer != peer)
 			continue;
 
-		/* graceful restart STALE flag set. */
-		if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)
-		    && peer->nsf[afi][safi]
+		/* graceful restart or enhanced route refresh STALE flag set. */
+		if (((CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT)
+		      && peer->nsf[afi][safi])
+		     || CHECK_FLAG(peer->sflags, PEER_STATUS_ENHANCED_REFRESH))
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_STALE)
-		    && !CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE))
+		    && !CHECK_FLAG(pi->flags, BGP_PATH_UNUSEABLE)) {
 			bgp_path_info_set_flag(rn, pi, BGP_PATH_STALE);
-		else {
+		} else {
 			/* If this is an EVPN route, process for
 			 * un-import. */
 			if (safi == SAFI_EVPN)
@@ -4293,6 +4294,72 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 				if (!CHECK_FLAG(pi->flags, BGP_PATH_STALE))
 					break;
 				bgp_rib_remove(rn, pi, peer, afi, safi);
+				break;
+			}
+	}
+}
+
+void bgp_set_stale_route(struct peer *peer, afi_t afi, safi_t safi)
+{
+	struct bgp_node *rn;
+	struct bgp_path_info *pi;
+	struct bgp_table *table;
+
+	if (safi == SAFI_MPLS_VPN) {
+		for (rn = bgp_table_top(peer->bgp->rib[afi][safi]); rn;
+		     rn = bgp_route_next(rn)) {
+			struct bgp_node *rm;
+
+			/* look for neighbor in tables */
+			table = bgp_node_get_bgp_table_info(rn);
+			if (!table)
+				continue;
+
+			for (rm = bgp_table_top(table); rm;
+			     rm = bgp_route_next(rm))
+				for (pi = bgp_node_get_bgp_path_info(rm); pi;
+				     pi = pi->next) {
+					if (pi->peer != peer)
+						continue;
+
+					/* enhanced route refresh STALE flag
+					 * set.
+					 */
+					if ((CHECK_FLAG(
+						    peer->sflags,
+						    PEER_STATUS_ENHANCED_REFRESH))
+					    && !CHECK_FLAG(pi->flags,
+							   BGP_PATH_STALE)
+					    && !CHECK_FLAG(
+						       pi->flags,
+						       BGP_PATH_UNUSEABLE)) {
+						bgp_path_info_set_flag(
+							rn, pi, BGP_PATH_STALE);
+					}
+
+					break;
+				}
+		}
+	} else {
+		for (rn = bgp_table_top(peer->bgp->rib[afi][safi]); rn;
+		     rn = bgp_route_next(rn))
+			for (pi = bgp_node_get_bgp_path_info(rn); pi;
+			     pi = pi->next) {
+				if (pi->peer != peer)
+					continue;
+
+				/* enhanced route refresh STALE flag
+				 * set.
+				 */
+				if ((CHECK_FLAG(peer->sflags,
+						PEER_STATUS_ENHANCED_REFRESH))
+				    && !CHECK_FLAG(pi->flags, BGP_PATH_STALE)
+				    && !CHECK_FLAG(pi->flags,
+						   BGP_PATH_UNUSEABLE)) {
+					bgp_path_info_set_flag(rn, pi,
+							       BGP_PATH_STALE);
+				}
+
 				break;
 			}
 	}

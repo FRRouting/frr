@@ -3211,7 +3211,7 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 						"Processing route_map %s update on peer %s (inbound, route-refresh)",
 						rmap_name, peer->host);
 				bgp_route_refresh_send(peer, afi, safi, 0, 0,
-						       0);
+						       0, 0);
 			}
 		}
 	}

@@ -2125,6 +2125,35 @@ DEFUN (no_bgp_graceful_restart_preserve_fw,
 	return CMD_SUCCESS;
 }
 
+DEFUN(bgp_refresh_stalepath_time, bgp_refresh_stalepath_time_cmd,
+      "bgp refresh stalepath-time (1-4095)",
+      "BGP specific commands\n"
+      "Route Refresh capability parameters\n"
+      "Set the time to wait to delete stale routes after the timer expires\n"
+      "Delay value (seconds)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	int idx_number = 3;
+	uint32_t refresh_stalepath_time;
+
+	refresh_stalepath_time = strtoul(argv[idx_number]->arg, NULL, 10);
+	bgp->refresh_stalepath_time = refresh_stalepath_time;
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_bgp_refresh_stalepath_time, no_bgp_refresh_stalepath_time_cmd,
+      "no bgp refresh stalepath-time [(1-4095)]",
+      NO_STR
+      "BGP specific commands\n"
+      "Route Refresh capability parameters\n"
+      "Set the time to wait to delete stale routes after the timer expires\n"
+      "Delay value (seconds)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	bgp->refresh_stalepath_time = BGP_DEFAULT_REFRESH_STALEPATH_TIME;
+	return CMD_SUCCESS;
+}
+
 /* "bgp graceful-shutdown" configuration */
 DEFUN (bgp_graceful_shutdown,
        bgp_graceful_shutdown_cmd,
@@ -10417,6 +10446,28 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					vty_out(vty, "\n");
 				}
 
+				/* Enhanced Route Refresh */
+				if (CHECK_FLAG(p->cap, PEER_CAP_ENHANCED_RR_ADV)
+				    || CHECK_FLAG(p->cap,
+						  PEER_CAP_ENHANCED_RR_RCV)) {
+					vty_out(vty,
+						"    Enhanced Route refresh:");
+					if (CHECK_FLAG(
+						    p->cap,
+						    PEER_CAP_ENHANCED_RR_ADV))
+						vty_out(vty, " advertised");
+					if (CHECK_FLAG(
+						    p->cap,
+						    PEER_CAP_ENHANCED_RR_RCV))
+						vty_out(vty, " %sreceived",
+							CHECK_FLAG(
+								p->cap,
+								PEER_CAP_REFRESH_ADV)
+								? "and "
+								: "");
+					vty_out(vty, "\n");
+				}
+
 				/* Multiprotocol Extensions */
 				FOREACH_AFI_SAFI (afi, safi)
 					if (p->afc_adv[afi][safi]
@@ -13138,6 +13189,10 @@ void bgp_vty_init(void)
 	/* "bgp graceful-shutdown" commands */
 	install_element(BGP_NODE, &bgp_graceful_shutdown_cmd);
 	install_element(BGP_NODE, &no_bgp_graceful_shutdown_cmd);
+
+	/* bgp refresh commands */
+	install_element(BGP_NODE, &bgp_refresh_stalepath_time_cmd);
+	install_element(BGP_NODE, &no_bgp_refresh_stalepath_time_cmd);
 
 	/* "bgp fast-external-failover" commands */
 	install_element(BGP_NODE, &bgp_fast_external_failover_cmd);
