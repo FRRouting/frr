@@ -1555,41 +1555,41 @@ static int bfd_vrf_enable(struct vrf *vrf)
 	} else
 		bvrf = vrf->info;
 	log_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
+	if (vrf->vrf_id == VRF_DEFAULT ||
+	    vrf_get_backend() == VRF_BACKEND_NETNS) {
+		if (!bvrf->bg_shop)
+			bvrf->bg_shop = bp_udp_shop(vrf->vrf_id);
+		if (!bvrf->bg_mhop)
+			bvrf->bg_mhop = bp_udp_mhop(vrf->vrf_id);
+		if (!bvrf->bg_shop6)
+			bvrf->bg_shop6 = bp_udp6_shop(vrf->vrf_id);
+		if (!bvrf->bg_mhop6)
+			bvrf->bg_mhop6 = bp_udp6_mhop(vrf->vrf_id);
+		if (!bvrf->bg_echo)
+			bvrf->bg_echo = bp_echo_socket(vrf->vrf_id);
+		if (!bvrf->bg_echov6)
+			bvrf->bg_echov6 = bp_echov6_socket(vrf->vrf_id);
 
-	/* create sockets if needed */
-	if (!bvrf->bg_shop)
-		bvrf->bg_shop = bp_udp_shop(vrf->vrf_id);
-	if (!bvrf->bg_mhop)
-		bvrf->bg_mhop = bp_udp_mhop(vrf->vrf_id);
-	if (!bvrf->bg_shop6)
-		bvrf->bg_shop6 = bp_udp6_shop(vrf->vrf_id);
-	if (!bvrf->bg_mhop6)
-		bvrf->bg_mhop6 = bp_udp6_mhop(vrf->vrf_id);
-	if (!bvrf->bg_echo)
-		bvrf->bg_echo = bp_echo_socket(vrf->vrf_id);
-	if (!bvrf->bg_echov6)
-		bvrf->bg_echov6 = bp_echov6_socket(vrf->vrf_id);
-
-	/* Add descriptors to the event loop. */
-	if (!bvrf->bg_ev[0])
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
-				&bvrf->bg_ev[0]);
-	if (!bvrf->bg_ev[1])
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
-				&bvrf->bg_ev[1]);
-	if (!bvrf->bg_ev[2])
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
-				&bvrf->bg_ev[2]);
-	if (!bvrf->bg_ev[3])
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
-				&bvrf->bg_ev[3]);
-	if (!bvrf->bg_ev[4])
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
-				&bvrf->bg_ev[4]);
-	if (!bvrf->bg_ev[5])
-		thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
-				&bvrf->bg_ev[5]);
-
+		/* Add descriptors to the event loop. */
+		if (!bvrf->bg_ev[0])
+			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop,
+					&bvrf->bg_ev[0]);
+		if (!bvrf->bg_ev[1])
+			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop,
+					&bvrf->bg_ev[1]);
+		if (!bvrf->bg_ev[2])
+			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_shop6,
+					&bvrf->bg_ev[2]);
+		if (!bvrf->bg_ev[3])
+			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_mhop6,
+					&bvrf->bg_ev[3]);
+		if (!bvrf->bg_ev[4])
+			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echo,
+					&bvrf->bg_ev[4]);
+		if (!bvrf->bg_ev[5])
+			thread_add_read(master, bfd_recv_cb, bvrf, bvrf->bg_echov6,
+					&bvrf->bg_ev[5]);
+	}
 	if (vrf->vrf_id != VRF_DEFAULT) {
 		bfdd_zclient_register(vrf->vrf_id);
 		bfdd_sessions_enable_vrf(vrf);
