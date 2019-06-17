@@ -26,11 +26,36 @@
 
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <netinet/ip6.h>
 #include <netinet/ip_icmp.h>
 
 #include "pmd/pm.h"
 #include "pmd/pm_memory.h"
 #include "pmd/pm_echo.h"
+
+
+/* IPv6 local definition.
+ * pseudo header and ipv6 header have same size
+ */
+struct ipv6header {
+	unsigned char priority:4, version:4;
+	unsigned char flow[3];
+	unsigned short int length;
+	unsigned char nexthdr;
+	unsigned char hoplimit;
+	unsigned int saddr[4];
+	unsigned int daddr[4];
+};
+
+struct ipv6pseudoheader {
+	unsigned int saddr[4];
+	unsigned int daddr[4];
+	unsigned int upper_layer_packet_length;
+	unsigned char useless_1;
+	unsigned char useless_2;
+	unsigned char useless_3;
+	unsigned char proto;
+};
 
 struct thread *t_dummy;
 
@@ -77,15 +102,19 @@ int pm_echo_receive(struct thread *thread)
 	struct pm_session *pm = pme->back_ptr;
 	struct sockaddr from;
 	struct icmphdr *icmp;
+	struct icmp6_hdr *icmp6;
 	socklen_t fromlen = sizeof(from);
 	int hlen, ret = 0;
 	struct iphdr *ip;
 	char buf[INET6_ADDRSTRLEN];
 
-	if (sockunion_family(&pme->peer) == AF_INET
-	     && pme->echofd < 0)
+	if ((sockunion_family(&pme->peer) == AF_INET
+	     && pme->echofd < 0) ||
+	    (sockunion_family(&pme->peer) == AF_INET6
+	     && pme->echofd_rx_ipv6 < 0)) {
 		/* context flushed; prevent from read */
 		fd = -1;
+	}
 	if (fd >= 0)
 		thread_add_read(master, pm_echo_receive, pme,
 				fd, &pme->t_echo_receive);
@@ -179,6 +208,36 @@ int pm_echo_receive(struct thread *thread)
 			}
 			return 0;
 		}
+	} else {
+		icmp6 = (struct icmp6_hdr *)(pme->rx_buf);
+		if (icmp6->icmp6_type != ICMP6_ECHO_REPLY) {
+			if (pm_debug_echo) {
+				inet_ntop(AF_INET, &pme->peer.sin.sin_addr,
+					  buf, sizeof(buf));
+				zlog_err("PMD: ICMP from %s ECHO REPLY expected (type %u)",
+					 buf, icmp->type);
+			}
+			return 0;
+		}
+		if (icmp6->icmp6_id != (pme->discriminator_id & 0xffff)) {
+			if (pm_debug_echo) {
+				zlog_err("PMD: received ID %u whereas local ID is %u, discard",
+					 icmp6->icmp6_id,
+					 pme->discriminator_id & 0xffff);
+			}
+			return 0;
+		}
+		if (icmp6->icmp6_seq != (pme->icmp_sequence - 1)) {
+			if (pm_debug_echo) {
+				inet_ntop(AF_INET, &pme->peer.sin.sin_addr,
+					  buf, sizeof(buf));
+				zlog_err("PMD: ICMP from %s rx seq %u, expected %u",
+					 buf,
+					 icmp6->icmp6_seq,
+					 pme->icmp_sequence - 1);
+			}
+			return 0;
+		}
 	}
 	pme->stats_rx++;
 	pme->last_rtt.tv_sec = pme->end.tv_sec - pme->start.tv_sec;
@@ -239,7 +298,8 @@ char *pm_echo_get_alarm_str(struct pm_session *pm, char *buf, size_t len)
 }
 
 static union g_addr *pm_echo_choose_src_ip_interface(struct interface *ifp,
-						     int family)
+					     int family,
+					     bool link_local)
 {
 	struct connected *ifc;
 	struct listnode *node;
@@ -256,6 +316,16 @@ static union g_addr *pm_echo_choose_src_ip_interface(struct interface *ifp,
 			src_ip = (union g_addr *)&ifc->address->u.prefix4;
 			break;
 		}
+		if (IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6)
+		    && link_local) {
+			src_ip = (union g_addr *)&ifc->address->u.prefix6;
+			break;
+		}
+		if (!IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6)
+		    && !link_local) {
+			src_ip = (union g_addr *)&ifc->address->u.prefix6;
+			break;
+		}
 	}
 	return src_ip;
 }
@@ -264,11 +334,16 @@ static union g_addr *pm_echo_choose_src_ip(struct pm_session *pm)
 {
 	struct vrf *vrf;
 	struct interface *ifp = NULL;
+	bool ipv6_link_local = false;
 	union g_addr *src_ip = NULL;
 
 	/* choose first configured one */
 	if (sockunion_family(&pm->key.local) == AF_INET) {
 		src_ip = (union g_addr *)&pm->key.local.sin.sin_addr;
+		return src_ip;
+	}
+	if (sockunion_family(&pm->key.local) == AF_INET6) {
+		src_ip = (union g_addr *)&pm->key.local.sin6.sin6_addr;
 		return src_ip;
 	}
 	/* otherwise pick up in vrf, either in configured interface
@@ -285,15 +360,20 @@ static union g_addr *pm_echo_choose_src_ip(struct pm_session *pm)
 	if (!ifp) {
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			src_ip = pm_echo_choose_src_ip_interface(ifp,
-					 sockunion_family(&pm->key.peer));
+					 sockunion_family(&pm->key.peer),
+					 ipv6_link_local);
 			/* stop at first address found */
 			if (src_ip)
 				return src_ip;
 		}
 		return NULL;
 	}
+	if ((sockunion_family(&pm->key.peer) == AF_INET6) &&
+	    IN6_IS_ADDR_LINKLOCAL(&pm->key.peer.sin6))
+		ipv6_link_local = true;
 	return pm_echo_choose_src_ip_interface(ifp,
-			       sockunion_family(&pm->key.peer));
+				       sockunion_family(&pm->key.peer),
+				       ipv6_link_local);
 }
 
 /* close if necessary previous socket
@@ -320,10 +400,15 @@ static int pm_echo_reset_socket(struct pm_echo *pme)
 	if (sockunion_family(&pm->key.peer) == AF_INET) {
 		family = AF_INET;
 		ip_proto = IPPROTO_ICMP; /* ICMP */
+	} else {
+		family = AF_INET6;
+		ip_proto = IPPROTO_RAW; /* _ICMP6 */
 	}
 
 	if (pme->echofd > 0)
 		close(pme->echofd);
+	if (pme->echofd_rx_ipv6 > 0)
+		close(pme->echofd_rx_ipv6);
 
 	frr_with_privs(&pm_privs) {
 		pme->echofd = vrf_socket(family, SOCK_RAW,
@@ -334,8 +419,31 @@ static int pm_echo_reset_socket(struct pm_echo *pme)
 		zlog_err("PMD: pm_echo, failed to allocate socket");
 		return -1;
 	}
+	/* create extra socket for reception */
+	if (family == AF_INET6) {
+		frr_with_privs(&pm_privs) {
+			pme->echofd_rx_ipv6 = vrf_socket(family,
+							 SOCK_RAW,
+							 IPPROTO_ICMPV6,
+							 vrf->vrf_id,
+							 bind_interface);
+		}
+		if (pme->echofd_rx_ipv6 == -1) {
+			zlog_err("PMD: pm_echo, failed to allocate socket (%u)",
+				 errno);
+			close(pme->echofd);
+			return -1;
+		}
+	}
 	if (family == AF_INET)
 		ret = setsockopt(pme->echofd, IPPROTO_IP, IP_HDRINCL,
+				 &use_iphdr, sizeof(use_iphdr));
+	else
+		/* section 1 of RFC 3542, IP_HDRINCL is not guaranteed
+		 * this piece of code works on Linux, but not on other
+		 * systems
+		 */
+		ret = setsockopt(pme->echofd, IPPROTO_IPV6, IP_HDRINCL,
 				 &use_iphdr, sizeof(use_iphdr));
 	if (ret < 0) {
 		char buf[SU_ADDRSTRLEN];
@@ -352,10 +460,14 @@ int pm_echo_send(struct thread *thread)
 	struct pm_echo *pme = THREAD_ARG(thread);
 	struct pm_session *pm = pme->back_ptr;
 	struct iphdr *iph;
+	struct ipv6header *ip6h;
 	struct icmphdr *icmp;
+	struct icmp6_hdr *icmp6;
+	struct ipv6pseudoheader *p_ip6h;
 	int ret = 0;
 	size_t siz;
 	union g_addr *src_ip = NULL;
+	int family;
 
 	if (pme->echofd < 0)
 		return 0;
@@ -365,8 +477,10 @@ int pm_echo_send(struct thread *thread)
 	else
 		memset(pme->tx_buf, 0, pme->packet_size);
 
-	if (sockunion_family(&pme->peer) != AF_INET)
-		return 0;
+	if (sockunion_family(&pme->peer) == AF_INET)
+		family = AF_INET;
+	else
+		family = AF_INET6;
 	if (pme->oper_bind == false ||
 	    pme->oper_connect == false) {
 		ret = pm_echo_reset_socket(pme);
@@ -375,7 +489,15 @@ int pm_echo_send(struct thread *thread)
 	}
 
 	if (pme->oper_bind == false) {
-		if (sockunion_family(&pm->key.local) == AF_INET)
+		if (sockunion_family(&pm->key.local) == AF_INET6) {
+			ret = bind(pme->echofd,
+				   (struct sockaddr *)&pm->key.local.sa,
+				   sizeof(struct sockaddr_in6));
+			if (ret > 0)
+				ret = bind(pme->echofd_rx_ipv6,
+					   (struct sockaddr *)&pm->key.local.sa,
+					   sizeof(struct sockaddr_in6));
+		} else if (sockunion_family(&pm->key.local) == AF_INET)
 			ret = bind(pme->echofd,
 				   (struct sockaddr *)&pm->key.local.sa,
 				   sizeof(struct sockaddr_in));
@@ -393,6 +515,7 @@ int pm_echo_send(struct thread *thread)
 	}
 
 	if (pme->oper_connect == false) {
+		/* XXX issues when using connect() with RAW ICMPV6 socket */
 		if (sockunion_family(&pme->gw) == AF_INET)
 			ret = connect(pme->echofd,
 				      (struct sockaddr *)&pme->peer,
@@ -439,13 +562,61 @@ int pm_echo_send(struct thread *thread)
 		icmp->checksum = 0;
 		icmp->checksum = in_cksum((void *)icmp,
 					  pme->packet_size - sizeof(struct iphdr));
+	} else {
+		/* calculation of icmp6 checksum is done with pseudo header
+		 * as part of https://tools.ietf.org/html/rfc2460#section-8.1
+		 */
+		p_ip6h = (struct ipv6pseudoheader *)(pme->tx_buf);
+		icmp6 = (struct icmp6_hdr *)(pme->tx_buf + sizeof(struct ipv6pseudoheader));
+		memcpy(&p_ip6h->daddr, &pme->peer.sin6.sin6_addr,
+		       sizeof(struct in6_addr));
+		src_ip = pm_echo_choose_src_ip(pm);
+		if (!src_ip) {
+			char buf[SU_ADDRSTRLEN];
+
+			sockunion2str(&pme->peer, buf, sizeof(buf));
+			zlog_warn("cancel sending ICMP echo to %s without src IP",
+				  buf);
+			goto label_end_tried_sending;
+		} else
+			memcpy(&p_ip6h->saddr, &src_ip->ipv6.s6_addr,
+			       sizeof(struct in6_addr));
+		p_ip6h->upper_layer_packet_length = htonl(pme->packet_size
+					  - sizeof(struct ipv6header));
+		p_ip6h->proto = IPPROTO_ICMPV6;
+
+		icmp6->icmp6_type = ICMP6_ECHO_REQUEST;
+		icmp6->icmp6_code = 0;
+		icmp6->icmp6_id = pme->discriminator_id & 0xffff;
+		icmp6->icmp6_seq = pme->icmp_sequence++;
+		icmp6->icmp6_cksum = 0;
+		icmp6->icmp6_cksum = in_cksum((void *)p_ip6h, pme->packet_size);
+		memset(pme->tx_buf, 0, sizeof(struct ipv6header));
+		ip6h = (struct ipv6header *)pme->tx_buf;
+		icmp6 = (struct icmp6_hdr *)(pme->tx_buf
+					     + sizeof(struct ipv6header));
+		ip6h->version = 6;
+		ip6h->priority = 0;
+		ip6h->flow[0] = htons(pm->tos_val);
+		ip6h->flow[1] = 0;
+		ip6h->flow[2] = 0;
+		ip6h->length = htons(pme->packet_size
+				     - sizeof(struct ipv6header));
+		ip6h->nexthdr = IPPROTO_ICMPV6;
+		ip6h->hoplimit = 255;
+		memcpy(&ip6h->daddr, &pme->peer.sin6.sin6_addr,
+		       sizeof(struct in6_addr));
+		memcpy(&ip6h->saddr, &src_ip->ipv6.s6_addr,
+		       sizeof(struct in6_addr));
+		siz = sizeof(struct sockaddr_in6);
 	}
 
 	pme->oper_receive = false;
 	pme->oper_timeout = false;
 
 	thread_add_read(master, pm_echo_receive, pme,
-			pme->echofd,
+			family == AF_INET6 ?
+			pme->echofd_rx_ipv6 : pme->echofd,
 			&pme->t_echo_receive);
 
 	monotime(&pme->start);
@@ -486,6 +657,10 @@ void pm_echo_stop(struct pm_session *pm, char *errormsg,
 	THREAD_OFF(pme->t_echo_receive);
 	close(pme->echofd);
 	pme->echofd = -1;
+	if (pme->echofd_rx_ipv6 > 0) {
+		close(pme->echofd_rx_ipv6);
+		pme->echofd_rx_ipv6 = -1;
+	}
 	pme->back_ptr = NULL;
 	pm->oper_ctxt = NULL;
 	snprintf(errormsg, errormsg_len,
