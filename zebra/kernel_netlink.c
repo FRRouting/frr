@@ -128,8 +128,18 @@ static const struct message family_str[] = {{AF_INET, "ipv4"},
 					    {RTNL_FAMILY_IP6MR, "ipv6MR"},
 					    {0}};
 
-static const struct message rttype_str[] = {{RTN_UNICAST, "unicast"},
+static const struct message rttype_str[] = {{RTN_UNSPEC, "none"},
+					    {RTN_UNICAST, "unicast"},
+					    {RTN_LOCAL, "local"},
+					    {RTN_BROADCAST, "broadcast"},
+					    {RTN_ANYCAST, "anycast"},
 					    {RTN_MULTICAST, "multicast"},
+					    {RTN_BLACKHOLE, "blackhole"},
+					    {RTN_UNREACHABLE, "unreachable"},
+					    {RTN_PROHIBIT, "prohibited"},
+					    {RTN_THROW, "throw"},
+					    {RTN_NAT, "nat"},
+					    {RTN_XRESOLVE, "resolver"},
 					    {0}};
 
 extern struct thread_master *master;

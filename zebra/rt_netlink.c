@@ -330,6 +330,10 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		bh_type = BLACKHOLE_ADMINPROHIB;
 		break;
 	default:
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Route rtm_type: %s(%d) intentionally ignoring",
+				   nl_rttype_to_str(rtm->rtm_type),
+				   rtm->rtm_type);
 		return 0;
 	}
 
