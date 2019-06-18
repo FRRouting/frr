@@ -55,8 +55,6 @@ Simplified `R1` config:
 	 ip address 172.16.1.254/24
 	 no link-detect
 	!
-	bgp multiple-instance
-	!
 	router bgp 100 view 1
 	 bgp router-id 172.30.1.1
 	 network 172.20.0.0/28 route-map local1
