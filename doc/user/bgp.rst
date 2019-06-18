@@ -267,29 +267,6 @@ An example configuration with multiple autonomous systems might look like this:
     neighbor 10.0.0.6 remote-as 70
    ...
 
-In the past this feature done differently and the following commands were
-required to enable the functionality. They are now deprecated.
-
-.. deprecated:: 5.0
-   This command is deprecated and may be safely removed from the config.
-
-.. index:: bgp multiple-instance
-.. clicmd:: bgp multiple-instance
-
-   Enable BGP multiple instance feature. Because this is now the default
-   configuration this command will not be displayed in the running
-   configuration.
-
-.. deprecated:: 5.0
-   This command is deprecated and may be safely removed from the config.
-
-.. index:: no bgp multiple-instance
-.. clicmd:: no bgp multiple-instance
-
-   In previous versions of FRR, this command disabled the BGP multiple instance
-   feature. This functionality is automatically turned on when BGP multiple
-   instances or views exist so this command no longer does anything.
-
 .. seealso:: :ref:`bgp-vrf-route-leaking`
 .. seealso:: :ref:`zebra-vrf`
 
@@ -2363,7 +2340,6 @@ different filter for a peer.
 
 .. code-block:: frr
 
-   bgp multiple-instance
    !
    router bgp 1 view 1
     neighbor 10.0.0.1 remote-as 2
