@@ -744,9 +744,10 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 		if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
 			char buf[PREFIX_STRLEN];
 
-			zlog_debug("%s: %s Being examined for Nexthop Tracking",
+			zlog_debug("%s: %s Being examined for Nexthop Tracking Count: %zd",
 				   __PRETTY_FUNCTION__,
-				   srcdest_rnode2str(rn, buf, sizeof(buf)));
+				   srcdest_rnode2str(rn, buf, sizeof(buf)),
+				   dest ? rnh_list_count(&dest->nht) : 0);
 		}
 		if (!dest) {
 			rn = rn->parent;
@@ -769,11 +770,12 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 				char buf1[PREFIX_STRLEN];
 				char buf2[PREFIX_STRLEN];
 
-				zlog_debug("%u:%s has Nexthop(%s) depending on it, evaluating %u:%u",
+				zlog_debug("%u:%s has Nexthop(%s) Type: %s depending on it, evaluating %u:%u",
 					   zvrf->vrf->vrf_id,
 					   srcdest_rnode2str(rn, buf1,
 						      sizeof(buf1)),
 					   prefix2str(p, buf2, sizeof(buf2)),
+					   rnh_type2str(rnh->type),
 					   seq, rnh->seqno);
 			}
 
