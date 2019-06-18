@@ -282,8 +282,10 @@ void bgp_mac_add_mac_entry(struct interface *ifp)
 		 * If old mac address is the same as the new,
 		 * then there is nothing to do here
 		 */
-		if (old_bsm == bsm)
+		if (old_bsm == bsm) {
+			XFREE(MTYPE_BSM_STRING, ifname);
 			return;
+		}
 
 		if (old_bsm)
 			bgp_mac_remove_ifp_internal(old_bsm, ifp->name);
