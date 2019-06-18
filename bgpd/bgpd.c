@@ -1359,7 +1359,7 @@ static int bgp_peer_conf_if_to_su_update_v4(struct peer *peer,
 	 */
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 		if (ifc->address && (ifc->address->family == AF_INET)) {
-			PREFIX_COPY_IPV4(&p, CONNECTED_PREFIX(ifc));
+			PREFIX_COPY(&p, CONNECTED_PREFIX(ifc));
 			if (p.prefixlen == 30) {
 				peer->su.sa.sa_family = AF_INET;
 				addr = ntohl(p.u.prefix4.s_addr);

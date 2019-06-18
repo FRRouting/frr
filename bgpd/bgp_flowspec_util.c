@@ -194,7 +194,7 @@ int bgp_flowspec_ip_address(enum bgp_flowspec_util_nlri_t type,
 			   BGP_FLOWSPEC_STRING_DISPLAY_MAX);
 		break;
 	case BGP_FLOWSPEC_CONVERT_TO_NON_OPAQUE:
-		PREFIX_COPY_IPV4(prefix, &prefix_local)
+		PREFIX_COPY(prefix, &prefix_local)
 		break;
 	case BGP_FLOWSPEC_VALIDATE_ONLY:
 	default:
