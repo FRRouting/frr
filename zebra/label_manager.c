@@ -75,6 +75,10 @@ static int relay_response_back(void)
 	unsigned short instance;
 	struct zserv *zserv;
 
+	/* sanity */
+	if (!zclient || zclient->sock < 0)
+		return -1;
+
 	/* input buffer with msg from label manager */
 	src = zclient->ibuf;
 
@@ -83,10 +87,11 @@ static int relay_response_back(void)
 	/* parse header */
 	ret = zclient_read_header(src, zclient->sock, &size, &marker, &version,
 				  &vrf_id, &resp_cmd);
-	if (ret < 0 && errno != EAGAIN) {
-		flog_err(EC_ZEBRA_LM_RESPONSE,
-			 "Error reading Label Manager response: %s",
-			 strerror(errno));
+	if (ret < 0) {
+		if (errno != EAGAIN)
+			flog_err(EC_ZEBRA_LM_RESPONSE,
+				 "Error reading Label Manager response: %s",
+				 strerror(errno));
 		return -1;
 	}
 
