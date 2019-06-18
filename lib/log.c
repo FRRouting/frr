@@ -121,6 +121,7 @@ int zlog_filter_del(const char *filter)
 	pthread_mutex_lock(&loglock);
 
 	int found_idx = zlog_filter_lookup(filter);
+	int last_idx = zlog_filter_count - 1;
 
 	if (found_idx == -1) {
 		/* Didn't find the filter to delete */
@@ -128,10 +129,9 @@ int zlog_filter_del(const char *filter)
 		return -1;
 	}
 
-	/* Remove and adjust the filter array */
-	for (int i = found_idx; i < zlog_filter_count - 1; i++)
-		strlcpy(zlog_filters[i], zlog_filters[i + 1],
-			sizeof(zlog_filters[0]));
+	/* Adjust the filter array */
+	memmove(zlog_filters[found_idx], zlog_filters[found_idx + 1],
+		(last_idx - found_idx) * sizeof(zlog_filters[0]));
 
 	zlog_filter_count--;
 
