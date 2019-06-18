@@ -979,10 +979,6 @@ DEFUN_NOSH (router_bgp,
 
 		ret = bgp_get(&bgp, &as, name, inst_type);
 		switch (ret) {
-		case BGP_ERR_MULTIPLE_INSTANCE_NOT_SET:
-			vty_out(vty,
-				"Please specify 'bgp multiple-instance' first\n");
-			return CMD_WARNING_CONFIG_FAILED;
 		case BGP_ERR_AS_MISMATCH:
 			vty_out(vty, "BGP is already running; AS is %u\n", as);
 			return CMD_WARNING_CONFIG_FAILED;

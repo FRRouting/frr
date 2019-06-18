@@ -3183,7 +3183,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 		if (bgp->inst_type != inst_type)
 			return BGP_ERR_INSTANCE_MISMATCH;
 		*bgp_val = bgp;
-		return 0;
+		return BGP_SUCCESS;
 	}
 
 	bgp = bgp_create(as, name, inst_type);
@@ -3217,7 +3217,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 		bgp_zebra_instance_register(bgp);
 	}
 
-	return 0;
+	return BGP_SUCCESS;
 }
 
 /*
