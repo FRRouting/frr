@@ -4,7 +4,13 @@ frr (@VERSION@-0) UNRELEASED; urgency=medium
     remove and replace when creating releases!
     (tools/tarsource.sh will handle this)
 
- -- FRRouting-Dev <dev@lists.frrouting.org>  Thu, 25 Oct 2018 16:36:50 +0200
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Tue, 18 Jun 2019 06:08:13 +0200
+
+frr (7.1-0) testing; urgency=medium
+
+  * upstream 7.1 release
+
+ -- David Lamparter <equinox-debian@diac24.net>  Tue, 18 Jun 2019 06:08:13 +0200
 
 frr (6.0-2) testing; urgency=medium
 
