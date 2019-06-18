@@ -735,6 +735,37 @@ the Linux format of `ipset` and `iptables`. However, even if the tools used are 
 based on `Netfilter`, it will still be possible to use a strict to return json format
 output similar to `ipset` and `iptables`.
 
+The script PM_TRACKING Module
+-----------------------------
+
+If PM tracking is enabled during compile-time and installed as part of the
+package, the ``pm_tracking`` module can be loaded for the *Pmd* daemon. This
+provides some additional vty commands that permit customize the PM sessions.
+Following commands are available under PM session configuration mode:
+
+.. index:: [no] notify FILENAME
+.. clicmd:: [no] notify FILENAME
+
+   It will be possible to a notify a file in the filesystem that
+   the PM session just went up or down, by writing accordingly 0 or 1.
+
+.. index:: [no] alternate <A.B.C.D|A:B::C:D>
+.. clicmd:: [no] alternate <A.B.C.D|A:B::C:D>
+
+   This also permits to substitute the targeted remote IP by using an
+   alternate IP address. This is very useful when one wants to monitor
+   a server IP and conditionate the reachability with a static route
+   with an other defined nexthop.
+
+.. index:: [no] gateway <A.B.C.D|A:B::C:D>
+.. clicmd:: [no] gateway <A.B.C.D|A:B::C:D>
+
+   It may be also necessary to define a gateway to use when one wants
+   to send packet to. Actually, because the system may not have the
+   routing information to send packet to, it may be desirable to drive
+   the PM session by explicitly sending the packet to a defined gateway
+   IP.
+
 .. _virtual-terminal-interfaces:
 
 Virtual Terminal Interfaces
