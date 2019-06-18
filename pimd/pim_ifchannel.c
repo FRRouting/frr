@@ -613,6 +613,10 @@ static int on_ifjoin_expiry_timer(struct thread *t)
 
 	ch = THREAD_ARG(t);
 
+	if (PIM_DEBUG_TRACE)
+		zlog_debug("%s: ifchannel %s expiry timer", __PRETTY_FUNCTION__,
+			   ch->sg_str);
+
 	ifjoin_to_noinfo(ch, true);
 	/* ch may have been deleted */
 
