@@ -1453,12 +1453,10 @@ enum bgp_clear_type {
 #define BGP_ERR_INVALID_AS                       -3
 #define BGP_ERR_INVALID_BGP                      -4
 #define BGP_ERR_PEER_GROUP_MEMBER                -5
-#define BGP_ERR_MULTIPLE_INSTANCE_USED           -6
 #define BGP_ERR_PEER_GROUP_NO_REMOTE_AS          -7
 #define BGP_ERR_PEER_GROUP_CANT_CHANGE           -8
 #define BGP_ERR_PEER_GROUP_MISMATCH              -9
 #define BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT  -10
-#define BGP_ERR_MULTIPLE_INSTANCE_NOT_SET       -11
 #define BGP_ERR_AS_MISMATCH                     -12
 #define BGP_ERR_PEER_FLAG_CONFLICT              -13
 #define BGP_ERR_PEER_GROUP_SHUTDOWN             -14
