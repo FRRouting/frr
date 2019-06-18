@@ -29,6 +29,7 @@
 #include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_packet.h"
+#include "bgpd/bgp_rd.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_evpn_private.h"
 
@@ -168,6 +169,23 @@ static void bgp_process_mac_rescan_table(struct bgp *bgp, struct peer *peer,
 			prd.family = AF_UNSPEC;
 			prd.prefixlen = 64;
 			memcpy(&prd.val, &prn->p.u.val, 8);
+
+			if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
+				if (bgp_debug_update(peer, &rn->p, NULL, 1)) {
+					char pfx_buf[BGP_PRD_PATH_STRLEN];
+
+					bgp_debug_rdpfxpath2str(
+						AFI_L2VPN, SAFI_EVPN, &prd,
+						&rn->p, label_pnt, num_labels,
+						pi->addpath_rx_id ? 1 : 0,
+						pi->addpath_rx_id, pfx_buf,
+						sizeof(pfx_buf));
+					zlog_debug(
+						   "%s skip update of %s marked as removed",
+						   peer->host, pfx_buf);
+				}
+				continue;
+			}
 
 			memcpy(&evpn, &pi->attr->evpn_overlay, sizeof(evpn));
 			int32_t ret = bgp_update(peer, &rn->p,
