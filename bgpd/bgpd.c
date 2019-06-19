@@ -6887,7 +6887,7 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		}
 
 		/* For swpX peers we displayed the peer-group
-		 * via 'neighbor swpX interface peer-group WORD' */
+		 * via 'neighbor swpX interface peer-group PGNAME' */
 		if (!if_pg_printed)
 			vty_out(vty, " neighbor %s peer-group %s\n", addr,
 				peer->group->name);
