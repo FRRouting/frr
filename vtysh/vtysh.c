@@ -2672,14 +2672,14 @@ DEFUN (vtysh_log_filter,
 	idx = 1;
 	found = argv_find(argv, argc, "WORD", &idx);
 	if (found != 1) {
-		vty_out(vty, "No filter string given\n");
+		vty_out(vty, "%% No filter string given\n");
 		return CMD_WARNING;
 	}
 	filter = argv[idx]->arg;
 
 	if (strnlen(filter, ZLOG_FILTER_LENGTH_MAX + 1)
 	    > ZLOG_FILTER_LENGTH_MAX) {
-		vty_out(vty, "Filter is too long\n");
+		vty_out(vty, "%% Filter is too long\n");
 		return CMD_WARNING;
 	}
 
@@ -2687,7 +2687,7 @@ DEFUN (vtysh_log_filter,
 		       filter);
 
 	if ((len < 0) || (size_t)(total_len + len) > sizeof(line)) {
-		vty_out(vty, "Error buffering filter to daemons\n");
+		vty_out(vty, "%% Error buffering filter to daemons\n");
 		return CMD_ERR_INCOMPLETE;
 	}
 

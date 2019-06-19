@@ -28,7 +28,6 @@
 #include "lib/log_vty_clippy.c"
 #endif
 
-/* Log filter */
 DEFPY (log_filter,
        log_filter_cmd,
        "[no] log-filter WORD$filter",
@@ -44,15 +43,15 @@ DEFPY (log_filter,
 		ret = zlog_filter_add(filter);
 
 	if (ret == 1) {
-		vty_out(vty, "\tfilter table full\n");
+		vty_out(vty, "%% filter table full\n");
 		return CMD_WARNING;
 	} else if (ret != 0) {
-		vty_out(vty, "\tfailed to %s log filter\n",
+		vty_out(vty, "%% failed to %s log filter\n",
 			(no ? "remove" : "apply"));
 		return CMD_WARNING;
 	}
 
-	vty_out(vty, "\t%s\n", filter);
+	vty_out(vty, " %s\n", filter);
 	return CMD_SUCCESS;
 }
 
@@ -64,7 +63,6 @@ DEFPY (log_filter_clear,
        FILTER_LOG_STR)
 {
 	zlog_filter_clear();
-	vty_out(vty, "\tcleared all filters\n");
 	return CMD_SUCCESS;
 }
 
@@ -81,7 +79,7 @@ DEFPY (show_log_filter,
 	len = zlog_filter_dump(log_filters, sizeof(log_filters));
 
 	if (len == -1) {
-		vty_out(vty, "\tfailed to get filters\n");
+		vty_out(vty, "%% failed to get filters\n");
 		return CMD_WARNING;
 	}
 
