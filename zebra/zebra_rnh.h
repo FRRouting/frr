@@ -43,6 +43,18 @@ static inline int rnh_resolve_via_default(int family)
 		return 0;
 }
 
+static inline const char *rnh_type2str(rnh_type_t type)
+{
+	switch (type) {
+	case RNH_NEXTHOP_TYPE:
+		return "Nexthop";
+	case RNH_IMPORT_CHECK_TYPE:
+		return "Import";
+	}
+
+	return "ERROR";
+}
+
 extern struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid,
 				 rnh_type_t type, bool *exists);
 extern struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid,
