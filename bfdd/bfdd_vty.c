@@ -685,6 +685,9 @@ static int bfd_configure_peer(struct bfd_peer_cfg *bpc, bool mhop,
 			snprintf(ebuf, ebuflen, "vrf name too long");
 			return -1;
 		}
+	} else {
+		bpc->bpc_has_vrfname = true;
+		strlcpy(bpc->bpc_vrfname, VRF_DEFAULT_NAME, sizeof(bpc->bpc_vrfname));
 	}
 
 	return 0;
