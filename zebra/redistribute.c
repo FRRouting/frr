@@ -574,7 +574,7 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	struct route_entry *newre;
 	struct route_entry *same;
 	struct prefix p;
-	route_map_result_t ret = RMAP_MATCH;
+	route_map_result_t ret = RMAP_PERMITMATCH;
 	afi_t afi;
 
 	afi = family2afi(rn->p.family);
@@ -583,7 +583,7 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 			afi, re->type, re->instance, &rn->p, re->ng.nexthop,
 			zvrf->vrf->vrf_id, re->tag, rmap_name);
 
-	if (ret != RMAP_MATCH) {
+	if (ret != RMAP_PERMITMATCH) {
 		UNSET_FLAG(re->flags, ZEBRA_FLAG_SELECTED);
 		zebra_del_import_table_entry(zvrf, rn, re);
 		return 0;

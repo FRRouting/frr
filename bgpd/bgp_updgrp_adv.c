@@ -716,7 +716,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	struct bgp_node *rn;
 	struct bgp_path_info *ri;
 	struct peer *peer;
-	int ret = RMAP_DENYMATCH;
+	route_map_result_t ret = RMAP_DENYMATCH;
 	afi_t afi;
 	safi_t safi;
 
