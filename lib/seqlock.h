@@ -82,6 +82,8 @@ extern void seqlock_init(struct seqlock *sqlo);
 
 /* while (sqlo <= val) - wait until seqlock->pos > val, or seqlock unheld */
 extern void seqlock_wait(struct seqlock *sqlo, seqlock_val_t val);
+extern bool seqlock_timedwait(struct seqlock *sqlo, seqlock_val_t val,
+			      const struct timespec *abs_monotime_limit);
 extern bool seqlock_check(struct seqlock *sqlo, seqlock_val_t val);
 
 static inline bool seqlock_held(struct seqlock *sqlo)
