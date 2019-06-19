@@ -1465,7 +1465,7 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_path_info *pi,
 	struct bgp *bgp;
 	struct attr *piattr;
 	char buf[PREFIX_STRLEN];
-	int ret;
+	route_map_result_t ret;
 	int transparent;
 	int reflect;
 	afi_t afi;
@@ -2544,12 +2544,12 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 
 			/* apply the route-map */
 			if (bgp->adv_cmd_rmap[afi][safi].map) {
-				int ret = 0;
+				route_map_result_t ret;
 
 				ret = route_map_apply(
 					bgp->adv_cmd_rmap[afi][safi].map,
 					&rn->p, RMAP_BGP, new_select);
-				if (ret == RMAP_MATCH)
+				if (ret == RMAP_PERMITMATCH)
 					bgp_evpn_advertise_type5_route(
 						bgp, &rn->p, new_select->attr,
 						afi, safi);
@@ -4593,7 +4593,7 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 	struct bgp_path_info rmap_path;
 	struct attr attr;
 	struct attr *attr_new;
-	int ret;
+	route_map_result_t ret;
 #if ENABLE_BGP_VNC
 	int vnc_implicit_withdraw = 0;
 #endif
@@ -4941,7 +4941,7 @@ static void bgp_static_update_safi(struct bgp *bgp, struct prefix *p,
 	if (bgp_static->rmap.name) {
 		struct attr attr_tmp = attr;
 		struct bgp_path_info rmap_path;
-		int ret;
+		route_map_result_t ret;
 
 		rmap_path.peer = bgp->peer_self;
 		rmap_path.attr = &attr_tmp;
@@ -6620,7 +6620,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 	struct attr attr;
 	struct attr *new_attr;
 	afi_t afi;
-	int ret;
+	route_map_result_t ret;
 	struct bgp_redist *red;
 
 	/* Make default attribute. */
@@ -9139,7 +9139,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				struct route_map *rmap = output_arg;
 				struct bgp_path_info path;
 				struct attr dummy_attr;
-				int ret;
+				route_map_result_t ret;
 
 				bgp_attr_dup(&dummy_attr, pi->attr);
 
