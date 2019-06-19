@@ -761,7 +761,7 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 		 * nht resolution and as such we need to call the
 		 * nexthop tracking evaluation code
 		 */
-		frr_each (rnh_list, &dest->nht, rnh) {
+		frr_each_safe(rnh_list, &dest->nht, rnh) {
 			struct zebra_vrf *zvrf =
 				zebra_vrf_lookup_by_id(rnh->vrf_id);
 			struct prefix *p = &rnh->node->p;
