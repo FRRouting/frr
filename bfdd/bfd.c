@@ -1751,3 +1751,14 @@ struct bfd_vrf_global *bfd_vrf_look_by_session(struct bfd_session *bfd)
 		return NULL;
 	return bfd->vrf->info;
 }
+
+void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf)
+{
+	if (!vrf || !bs)
+		return;
+	/* update key */
+	hash_release(bfd_key_hash, bs);
+	memset(bs->key.vrfname, 0, sizeof(bs->key.vrfname));
+	strlcpy(bs->key.vrfname, vrf->name, sizeof(bs->key.vrfname));
+	hash_get(bfd_key_hash, bs, hash_alloc_intern);
+}
