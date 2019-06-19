@@ -750,6 +750,7 @@ enum prefix_list_type prefix_list_apply_which_prefix(
 	if (pbest == NULL)
 		return PREFIX_DENY;
 
+	pbest->hitcnt++;
 	return pbest->type;
 }
 
