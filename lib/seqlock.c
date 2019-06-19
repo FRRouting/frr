@@ -103,16 +103,23 @@ void seqlock_wait(struct seqlock *sqlo, seqlock_val_t val)
 	seqlock_assert_valid(val);
 
 	wait_prep(sqlo);
-	while (1) {
-		cur = atomic_load_explicit(&sqlo->pos, memory_order_acquire);
-		if (!(cur & 1))
-			break;
-		cal = cur - val - 1;
+	cur = atomic_load_explicit(&sqlo->pos, memory_order_relaxed);
+
+	while (cur & SEQLOCK_HELD) {
+		cal = SEQLOCK_VAL(cur) - val - 1;
 		assert(cal < 0x40000000 || cal > 0xc0000000);
 		if (cal < 0x80000000)
 			break;
 
-		wait_once(sqlo, cur);
+		if ((cur & SEQLOCK_WAITERS)
+		    || atomic_compare_exchange_weak_explicit(
+				&sqlo->pos, &cur, cur | SEQLOCK_WAITERS,
+				memory_order_relaxed, memory_order_relaxed)) {
+			wait_once(sqlo, cur | SEQLOCK_WAITERS);
+			cur = atomic_load_explicit(&sqlo->pos,
+				memory_order_relaxed);
+		}
+		/* else: we failed to swap in cur because it just changed */
 	}
 	wait_done(sqlo);
 }
@@ -123,26 +130,32 @@ bool seqlock_check(struct seqlock *sqlo, seqlock_val_t val)
 
 	seqlock_assert_valid(val);
 
-	cur = atomic_load_explicit(&sqlo->pos, memory_order_acquire);
-	if (!(cur & 1))
+	cur = atomic_load_explicit(&sqlo->pos, memory_order_relaxed);
+	if (!(cur & SEQLOCK_HELD))
 		return 1;
-	cur -= val;
+	cur = SEQLOCK_VAL(cur) - val - 1;
 	assert(cur < 0x40000000 || cur > 0xc0000000);
 	return cur < 0x80000000;
 }
 
 void seqlock_acquire_val(struct seqlock *sqlo, seqlock_val_t val)
 {
+	seqlock_val_t prev;
+
 	seqlock_assert_valid(val);
 
-	atomic_store_explicit(&sqlo->pos, val, memory_order_release);
-	wait_poke(sqlo);
+	prev = atomic_exchange_explicit(&sqlo->pos, val, memory_order_relaxed);
+	if (prev & SEQLOCK_WAITERS)
+		wait_poke(sqlo);
 }
 
 void seqlock_release(struct seqlock *sqlo)
 {
-	atomic_store_explicit(&sqlo->pos, 0, memory_order_release);
-	wait_poke(sqlo);
+	seqlock_val_t prev;
+
+	prev = atomic_exchange_explicit(&sqlo->pos, 0, memory_order_relaxed);
+	if (prev & SEQLOCK_WAITERS)
+		wait_poke(sqlo);
 }
 
 void seqlock_init(struct seqlock *sqlo)
@@ -154,14 +167,23 @@ void seqlock_init(struct seqlock *sqlo)
 
 seqlock_val_t seqlock_cur(struct seqlock *sqlo)
 {
-	return atomic_load_explicit(&sqlo->pos, memory_order_acquire);
+	return SEQLOCK_VAL(atomic_load_explicit(&sqlo->pos,
+						memory_order_relaxed));
 }
 
 seqlock_val_t seqlock_bump(struct seqlock *sqlo)
 {
-	seqlock_val_t val;
+	seqlock_val_t val, cur;
 
-	val = atomic_fetch_add_explicit(&sqlo->pos, 2, memory_order_release);
-	wait_poke(sqlo);
+	cur = atomic_load_explicit(&sqlo->pos, memory_order_relaxed);
+	seqlock_assert_valid(cur);
+
+	do {
+		val = SEQLOCK_VAL(cur) + SEQLOCK_INCR;
+	} while (!atomic_compare_exchange_weak_explicit(&sqlo->pos, &cur, val,
+			memory_order_relaxed, memory_order_relaxed));
+
+	if (cur & SEQLOCK_WAITERS)
+		wait_poke(sqlo);
 	return val;
 }
