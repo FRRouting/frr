@@ -54,12 +54,18 @@
  */
 
 /* use sequentially increasing "ticket numbers".  lowest bit will always
- * be 1 to have a 'cleared' indication (i.e., counts 1,3,5,7,etc. )
+ * be 1 to have a 'cleared' indication (i.e., counts 1,5,9,13,etc. )
+ * 2nd lowest bit is used to indicate we have waiters.
  */
 typedef _Atomic uint32_t	seqlock_ctr_t;
 typedef uint32_t		seqlock_val_t;
-#define seqlock_assert_valid(val) assert(val & 1)
+#define seqlock_assert_valid(val) assert((val) & SEQLOCK_HELD)
 
+#define SEQLOCK_HELD		(1U << 0)
+#define SEQLOCK_WAITERS		(1U << 1)
+#define SEQLOCK_VAL(n)		((n) & ~SEQLOCK_WAITERS)
+#define SEQLOCK_STARTVAL	1U
+#define SEQLOCK_INCR		4U
 
 struct seqlock {
 /* always used */
