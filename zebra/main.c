@@ -55,6 +55,7 @@
 #include "zebra/zebra_netns_notify.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_pbr.h"
+#include "zebra/zebra_vxlan.h"
 
 #if defined(HANDLE_NETLINK_FUZZING)
 #include "zebra/kernel_netlink.h"
@@ -454,6 +455,9 @@ int main(int argc, char **argv)
 
 	/* RNH init */
 	zebra_rnh_init();
+
+	/* Config handler Init */
+	zebra_evpn_init();
 
 	/* Error init */
 	zebra_error_init();
