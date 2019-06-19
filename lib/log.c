@@ -155,7 +155,7 @@ int zlog_filter_dump(char *buf, size_t max_size)
 	int len = 0;
 
 	for (int i = 0; i < zlog_filter_count; i++) {
-		ret = snprintf(buf + len, max_size - len, "\t%s\n",
+		ret = snprintf(buf + len, max_size - len, " %s\n",
 			       zlog_filters[i]);
 		len += ret;
 		if ((ret < 0) || ((size_t)len >= max_size)) {
