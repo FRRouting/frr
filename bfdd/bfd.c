@@ -391,10 +391,8 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 
 	/* Search for session without using discriminator. */
 	ifp = if_lookup_by_index(ifindex, vrfid);
-	if (vrfid != VRF_DEFAULT)
-		vrf = vrf_lookup_by_id(vrfid);
-	else
-		vrf = NULL;
+
+	vrf = vrf_lookup_by_id(vrfid);
 
 	gen_bfd_key(&key, peer, local, is_mhop, ifp ? ifp->name : NULL,
 		    vrf ? vrf->name : VRF_DEFAULT_NAME);
