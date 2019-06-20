@@ -2348,7 +2348,8 @@ static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
  * 5549 support, re-install them.
  */
 static void netlink_handle_5549(struct ndmsg *ndm, struct zebra_if *zif,
-				struct interface *ifp, struct ipaddr *ip)
+				struct interface *ifp, struct ipaddr *ip,
+				bool handle_failed)
 {
 	if (ndm->ndm_family != AF_INET)
 		return;
@@ -2358,6 +2359,12 @@ static void netlink_handle_5549(struct ndmsg *ndm, struct zebra_if *zif,
 
 	if (ipv4_ll.s_addr != ip->ip._v4_addr.s_addr)
 		return;
+
+	if (handle_failed && ndm->ndm_state & NUD_FAILED) {
+		zlog_info("Neighbor Entry for %s has entered a failed state, not reinstalling",
+			  ifp->name);
+		return;
+	}
 
 	if_nbr_ipv6ll_to_ipv4ll_neigh_update(ifp, &zif->v6_2_v4_ll_addr6, true);
 }
@@ -2409,7 +2416,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 
 	/* if kernel deletes our rfc5549 neighbor entry, re-install it */
 	if (h->nlmsg_type == RTM_DELNEIGH && (ndm->ndm_state & NUD_PERMANENT)) {
-		netlink_handle_5549(ndm, zif, ifp, &ip);
+		netlink_handle_5549(ndm, zif, ifp, &ip, false);
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"\tNeighbor Entry Received is a 5549 entry, finished");
@@ -2417,13 +2424,8 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	}
 
 	/* if kernel marks our rfc5549 neighbor entry invalid, re-install it */
-	if (h->nlmsg_type == RTM_NEWNEIGH && !(ndm->ndm_state & NUD_VALID)) {
-		if (!(ndm->ndm_state & NUD_FAILED))
-			netlink_handle_5549(ndm, zif, ifp, &ip);
-		else
-			zlog_info("Neighbor Entry for %s has entered a failed state, not reinstalling",
-				ifp->name);
-	}
+	if (h->nlmsg_type == RTM_NEWNEIGH && !(ndm->ndm_state & NUD_VALID))
+		netlink_handle_5549(ndm, zif, ifp, &ip, true);
 
 	/* The neighbor is present on an SVI. From this, we locate the
 	 * underlying
