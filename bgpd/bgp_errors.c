@@ -427,12 +427,6 @@ static struct log_ref ferr_bgp_err[] = {
 		.suggestion = "Most likely a bug. If the problem persists, report the problem for troubleshooting"
 	},
 	{
-		.code = EC_BGP_MULTI_INSTANCE,
-		.title = "BGP config multi-instance issue",
-		.description = "BGP configuration attempting multiple instances without enabling the feature",
-		.suggestion = "Correct the configuration so that bgp multiple-instance is enabled if desired"
-	},
-	{
 		.code = EC_BGP_EVPN_AS_MISMATCH,
 		.title = "BGP AS configuration issue",
 		.description = "BGP configuration attempted for a different AS than currently configured",

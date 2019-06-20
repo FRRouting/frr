@@ -5533,10 +5533,6 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni, vrf_id_t vrf_id, struct ethaddr *rmac,
 			      vrf_id == VRF_DEFAULT ? BGP_INSTANCE_TYPE_DEFAULT
 						    : BGP_INSTANCE_TYPE_VRF);
 		switch (ret) {
-		case BGP_ERR_MULTIPLE_INSTANCE_NOT_SET:
-			flog_err(EC_BGP_MULTI_INSTANCE,
-				 "'bgp multiple-instance' not present\n");
-			return -1;
 		case BGP_ERR_AS_MISMATCH:
 			flog_err(EC_BGP_EVPN_AS_MISMATCH,
 				 "BGP is already running; AS is %u\n", as);
