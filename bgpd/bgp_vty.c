@@ -4896,14 +4896,15 @@ static int peer_default_originate_set_vty(struct vty *vty, const char *peer_str,
 {
 	int ret;
 	struct peer *peer;
-	struct route_map *route_map;
+	struct route_map *route_map = NULL;
 
 	peer = peer_and_group_lookup_vty(vty, peer_str);
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	if (set) {
-		route_map = route_map_lookup_warn_noexist(vty, rmap);
+		if (rmap)
+			route_map = route_map_lookup_warn_noexist(vty, rmap);
 		ret = peer_default_originate_set(peer, afi, safi,
 						 rmap, route_map);
 	} else
