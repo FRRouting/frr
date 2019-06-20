@@ -542,8 +542,16 @@ static struct pm_session *pm_peer_auto(struct pm_peer_cfg *cfg,
 	else
 		vrfname = NULL;
 	pm = pm_lookup_session(&cfg->bpc_peer, bpc_local, ifname,
-				 vrfname, create,
-				 ebuf, sizeof(ebuf));
+			       vrfname, false,
+			       ebuf, sizeof(ebuf));
+	if (!pm)/* search without ifname */
+		pm = pm_lookup_session(&cfg->bpc_peer, bpc_local, NULL,
+				       vrfname, false,
+				       ebuf, sizeof(ebuf));
+	/* create */
+	if (create && !pm)
+		pm = pm_create_session(&cfg->bpc_peer, bpc_local, ifname,
+				       vrfname);
 	if (pm) {
 		if (cfg->bpc_nexthop.sa.sa_family == AF_INET ||
 		    cfg->bpc_nexthop.sa.sa_family == AF_INET6)

@@ -145,6 +145,38 @@ static int pm_lookup_unique_walker(struct hash_bucket *b, void *data)
 	return HASHWALK_ABORT;
 }
 
+struct pm_session *pm_create_session(union sockunion *peer,
+				     const char *local,
+				     const char *ifname,
+				     const char *vrfname)
+{
+	struct pm_session pm, *pm_created;
+	union sockunion lsa, *lsap;
+
+	if (local) {
+		str2sockunion(local, &lsa);
+		lsap = &lsa;
+	} else
+		lsap = NULL;
+
+	/* forge key */
+	memset(&pm, 0, sizeof(struct pm_session));
+	memcpy(&pm.key.peer, peer, sizeof(union sockunion));
+	if (lsap)
+		memcpy(&pm.key.local, lsap, sizeof(union sockunion));
+	if (ifname)
+		memcpy(&pm.key.ifname, ifname, strlen(ifname));
+	if (vrfname)
+		memcpy(&pm.key.vrfname, vrfname, strlen(vrfname));
+
+	/* create */
+	pm_created = hash_get(pm_session_list,
+			     &pm,
+			     pm_session_alloc_intern);
+	hook_call(pm_tracking_new_session, pm_created);
+	return pm_created;
+}
+
 struct pm_session *pm_lookup_session(union sockunion *peer,
 				     const char *local,
 				     const char *ifname,
@@ -206,11 +238,7 @@ struct pm_session *pm_lookup_session(union sockunion *peer,
 		return pm_search;
 
 	/* create */
-	pm_search = hash_get(pm_session_list,
-			     &pm,
-			     pm_session_alloc_intern);
-	hook_call(pm_tracking_new_session, pm_search);
-	return pm_search;
+	return pm_create_session(peer, local, ifname, vrfname);
 }
 
 static bool pm_check_local_address_ifp(union sockunion *loc,

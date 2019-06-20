@@ -141,7 +141,10 @@ extern struct pm_session *pm_lookup_session(union sockunion *peer,
 					    const char *vrfname,
 					    bool create,
 					    char *ebuf, size_t ebuflen);
-
+extern struct pm_session *pm_create_session(union sockunion *peer,
+					    const char *local,
+					    const char *ifname,
+					    const char *vrfname);
 extern uint32_t pm_id_list_gen_id(void);
 struct pm_echo;
 extern bool pm_id_list_insert(struct pm_echo *pm);
