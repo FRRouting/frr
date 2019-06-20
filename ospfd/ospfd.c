@@ -2158,7 +2158,7 @@ static int ospf_vrf_disable(struct vrf *vrf)
 void ospf_vrf_init(void)
 {
 	vrf_init(ospf_vrf_new, ospf_vrf_enable, ospf_vrf_disable,
-		 ospf_vrf_delete, NULL);
+		 ospf_vrf_delete, ospf_vrf_enable);
 }
 
 void ospf_vrf_terminate(void)
