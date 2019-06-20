@@ -153,6 +153,7 @@ struct route_map_index {
 
 	/* Keep track how many times we've try to apply */
 	uint64_t applied;
+	uint64_t applied_clear;
 
 	QOBJ_FIELDS
 };
@@ -177,6 +178,7 @@ struct route_map {
 
 	/* How many times have we applied this route-map */
 	uint64_t applied;
+	uint64_t applied_clear;
 
 	/* Counter to track active usage of this route-map */
 	uint16_t use_count;
