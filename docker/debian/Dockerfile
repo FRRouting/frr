@@ -9,6 +9,5 @@ RUN curl -s https://deb.frrouting.org/frr/keys.asc | apt-key add -
 RUN echo deb https://deb.frrouting.org/frr $(lsb_release -s -c) frr-stable | tee -a /etc/apt/sources.list.d/frr.list
 RUN apt-get update
 RUN apt-get install -y frr frr-pythontools
-ADD daemons /etc/frr/daemons
 ADD docker-start /usr/sbin/docker-start
 ENTRYPOINT ["/usr/sbin/docker-start"]
