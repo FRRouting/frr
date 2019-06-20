@@ -3133,8 +3133,15 @@ static int route_map_config_write(struct vty *vty)
 	struct route_map_rule *rule;
 	int first = 1;
 	int write = 0;
+	struct listnode *ln;
+	struct list *maplist = list_new();
 
 	for (map = route_map_master.head; map; map = map->next)
+		listnode_add(maplist, map);
+
+	list_sort(maplist, sort_route_map);
+
+	for (ALL_LIST_ELEMENTS_RO(maplist, ln, map))
 		for (index = map->head; index; index = index->next) {
 			if (!first)
 				vty_out(vty, "!\n");
@@ -3167,6 +3174,8 @@ static int route_map_config_write(struct vty *vty)
 
 			write++;
 		}
+
+	list_delete(&maplist);
 	return write;
 }
 
