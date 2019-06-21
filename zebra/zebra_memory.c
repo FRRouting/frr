@@ -26,11 +26,5 @@
 #include "zebra_memory.h"
 
 DEFINE_MGROUP(ZEBRA, "zebra")
-DEFINE_MTYPE(ZEBRA, RTADV_PREFIX, "Router Advertisement Prefix")
-DEFINE_MTYPE(ZEBRA, ZEBRA_VRF, "ZEBRA VRF")
 DEFINE_MTYPE(ZEBRA, RE, "Route Entry")
-DEFINE_MTYPE(ZEBRA, RIB_QUEUE, "RIB process work queue")
-DEFINE_MTYPE(ZEBRA, STATIC_ROUTE, "Static route")
 DEFINE_MTYPE(ZEBRA, RIB_DEST, "RIB destination")
-DEFINE_MTYPE(ZEBRA, RIB_TABLE_INFO, "RIB table info")
-DEFINE_MTYPE(ZEBRA, RNH, "Nexthop tracking object")

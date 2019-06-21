@@ -32,6 +32,8 @@
 #include "zebra_nhg.h"
 #include "debug.h"
 
+DEFINE_MTYPE_STATIC(ZEBRA, RIB_TABLE_INFO, "RIB table info")
+
 struct zebra_router zrouter = {
 	.multipath_num = MULTIPATH_NUM,
 	.ipv4_multicast_mode = MCAST_NO_CONFIG,
