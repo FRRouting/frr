@@ -1774,13 +1774,15 @@ Two types of large community lists are supported, namely `standard` and
 Large Communities in Route Map
 """"""""""""""""""""""""""""""
 
-.. index:: match large-community LINE
-.. clicmd:: match large-community LINE
+.. index:: match large-community LINE [exact-match]
+.. clicmd:: match large-community LINE [exact-match]
 
    Where `line` can be a simple string to match, or a regular expression. It
    is very important to note that this match occurs on the entire
    large-community string as a whole, where each large-community is ordered
-   from lowest to highest.
+   from lowest to highest. When `exact-match` keyword is specified, match
+   happen only when BGP updates have completely same large communities value
+   specified in the large community list.
 
 .. index:: set large-community LARGE-COMMUNITY
 .. clicmd:: set large-community LARGE-COMMUNITY
@@ -2273,7 +2275,48 @@ attribute.
    match the specified community list. When `exact-match` is specified, it
    displays only routes that have an exact match.
 
+.. _bgp-display-routes-by-lcommunity:
+
+Displaying Routes by Large Community Attribute
+----------------------------------------------
+
+The following commands allow displaying routes based on their 
+large community attribute.
+
+.. index:: show [ip] bgp <ipv4|ipv6> large-community
+.. clicmd:: show [ip] bgp <ipv4|ipv6> large-community
+
+.. index:: show [ip] bgp <ipv4|ipv6> large-community LARGE-COMMUNITY
+.. clicmd:: show [ip] bgp <ipv4|ipv6> large-community LARGE-COMMUNITY
+
+.. index:: show [ip] bgp <ipv4|ipv6> large-community LARGE-COMMUNITY exact-match
+.. clicmd:: show [ip] bgp <ipv4|ipv6> large-community LARGE-COMMUNITY exact-match
+
+.. index:: show [ip] bgp <ipv4|ipv6> large-community LARGE-COMMUNITY json
+.. clicmd:: show [ip] bgp <ipv4|ipv6> large-community LARGE-COMMUNITY json
+
+   These commands display BGP routes which have the large community attribute.
+   attribute. When ``LARGE-COMMUNITY`` is specified, BGP routes that match that
+   large community are displayed. When `exact-match` is specified, it display 
+   only routes that have an exact match. When `json` is specified, it display 
+   routes in json format.
+
+.. index:: show [ip] bgp <ipv4|ipv6> large-community-list WORD
+.. clicmd:: show [ip] bgp <ipv4|ipv6> large-community-list WORD
+
+.. index:: show [ip] bgp <ipv4|ipv6> large-community-list WORD exact-match
+.. clicmd:: show [ip] bgp <ipv4|ipv6> large-community-list WORD exact-match
+
+.. index:: show [ip] bgp <ipv4|ipv6> large-community-list WORD json
+.. clicmd:: show [ip] bgp <ipv4|ipv6> large-community-list WORD json
+
+   These commands display BGP routes for the address family specified that
+   match the specified large community list. When `exact-match` is specified, 
+   it displays only routes that have an exact match. When `json` is specified, 
+   it display routes in json format.
+
 .. _bgp-display-routes-by-as-path:
+
 
 Displaying Routes by AS Path
 ----------------------------
