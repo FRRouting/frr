@@ -34,12 +34,14 @@
 #include "vrrp.h"
 #include "vrrp_arp.h"
 #include "vrrp_debug.h"
-#include "vrrp_memory.h"
 #include "vrrp_ndisc.h"
 #include "vrrp_packet.h"
 #include "vrrp_zebra.h"
 
 #define VRRP_LOGPFX "[CORE] "
+
+DEFINE_MTYPE_STATIC(VRRPD, VRRP_IP, "VRRP IP address")
+DEFINE_MTYPE_STATIC(VRRPD, VRRP_RTR, "VRRP Router")
 
 /* statics */
 struct hash *vrrp_vrouters_hash;
@@ -768,7 +770,7 @@ static void vrrp_send_advertisement(struct vrrp_router *r)
 	ssize_t sent = sendto(r->sock_tx, pkt, (size_t)pktsz, 0, &dest.sa,
 			      sockunion_sizeof(&dest));
 
-	XFREE(MTYPE_VRRP_PKT, pkt);
+	vrrp_pkt_free(pkt);
 
 	if (sent < 0) {
 		zlog_warn(VRRP_LOGPFX VRRP_LOGPFX_VRID VRRP_LOGPFX_FAM
