@@ -33,6 +33,8 @@
 
 #include "ripngd/ripngd.h"
 
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_OFFSET_LIST, "RIPng offset lst")
+
 #define OFFSET_LIST_IN_NAME(O)  ((O)->direct[RIPNG_OFFSET_LIST_IN].alist_name)
 #define OFFSET_LIST_IN_METRIC(O)  ((O)->direct[RIPNG_OFFSET_LIST_IN].metric)
 
