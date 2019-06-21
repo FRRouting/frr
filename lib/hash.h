@@ -28,9 +28,6 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(HASH)
-DECLARE_MTYPE(HASH_BACKET)
-
 /* Default hash table size.  */
 #define HASH_INITIAL_SIZE 256
 /* Expansion threshold */

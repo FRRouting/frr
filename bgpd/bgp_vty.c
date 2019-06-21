@@ -7722,14 +7722,6 @@ DEFUN (show_bgp_memory,
 				     count * sizeof(struct peer_group)));
 
 	/* Other */
-	if ((count = mtype_stats_alloc(MTYPE_HASH)))
-		vty_out(vty, "%ld hash tables, using %s of memory\n", count,
-			mtype_memstr(memstrbuf, sizeof(memstrbuf),
-				     count * sizeof(struct hash)));
-	if ((count = mtype_stats_alloc(MTYPE_HASH_BACKET)))
-		vty_out(vty, "%ld hash buckets, using %s of memory\n", count,
-			mtype_memstr(memstrbuf, sizeof(memstrbuf),
-				     count * sizeof(struct hash_bucket)));
 	if ((count = mtype_stats_alloc(MTYPE_BGP_REGEXP)))
 		vty_out(vty, "%ld compiled regexes, using %s of memory\n",
 			count, mtype_memstr(memstrbuf, sizeof(memstrbuf),

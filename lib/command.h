@@ -34,7 +34,6 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(HOST)
 DECLARE_MTYPE(COMPLETION)
 
 /*

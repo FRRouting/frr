@@ -29,9 +29,6 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(FRR_PTHREAD);
-DECLARE_MTYPE(PTHREAD_PRIM);
-
 #define OS_THREAD_NAMELEN 16
 
 struct frr_pthread;
