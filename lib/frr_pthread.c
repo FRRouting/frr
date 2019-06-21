@@ -28,8 +28,8 @@
 #include "memory.h"
 #include "linklist.h"
 
-DEFINE_MTYPE(LIB, FRR_PTHREAD, "FRR POSIX Thread");
-DEFINE_MTYPE(LIB, PTHREAD_PRIM, "POSIX synchronization primitives");
+DEFINE_MTYPE_STATIC(LIB, FRR_PTHREAD, "FRR POSIX Thread")
+DEFINE_MTYPE_STATIC(LIB, PTHREAD_PRIM, "POSIX sync primitives")
 
 /* default frr_pthread start/stop routine prototypes */
 static void *fpt_run(void *arg);

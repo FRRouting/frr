@@ -29,8 +29,8 @@
 #include "command.h"
 #include "libfrr.h"
 
-DEFINE_MTYPE(LIB, HASH, "Hash")
-DEFINE_MTYPE(LIB, HASH_BACKET, "Hash Bucket")
+DEFINE_MTYPE_STATIC(LIB, HASH, "Hash")
+DEFINE_MTYPE_STATIC(LIB, HASH_BACKET, "Hash Bucket")
 DEFINE_MTYPE_STATIC(LIB, HASH_INDEX, "Hash Index")
 
 static pthread_mutex_t _hashes_mtx = PTHREAD_MUTEX_INITIALIZER;

@@ -14,7 +14,6 @@ vrrpd_libvrrp_a_SOURCES = \
 	vrrpd/vrrp.c \
 	vrrpd/vrrp_arp.c \
 	vrrpd/vrrp_debug.c \
-	vrrpd/vrrp_memory.c \
 	vrrpd/vrrp_ndisc.c \
 	vrrpd/vrrp_packet.c \
 	vrrpd/vrrp_vty.c \
@@ -25,7 +24,6 @@ noinst_HEADERS += \
 	vrrpd/vrrp.h \
 	vrrpd/vrrp_arp.h \
 	vrrpd/vrrp_debug.h \
-	vrrpd/vrrp_memory.h \
 	vrrpd/vrrp_ndisc.h \
 	vrrpd/vrrp_packet.h \
 	vrrpd/vrrp_vty.h \

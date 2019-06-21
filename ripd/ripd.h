@@ -24,7 +24,7 @@
 #include "hook.h"
 #include "nexthop.h"
 #include "distribute.h"
-#include "rip_memory.h"
+#include "memory.h"
 
 /* RIP version number. */
 #define RIPv1                            1
@@ -96,6 +96,8 @@
 /* YANG paths */
 #define RIP_INSTANCE	"/frr-ripd:ripd/instance"
 #define RIP_IFACE	"/frr-interface:lib/interface/frr-ripd:rip"
+
+DECLARE_MGROUP(RIPD)
 
 /* RIP structure. */
 struct rip {

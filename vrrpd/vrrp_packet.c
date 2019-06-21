@@ -28,8 +28,9 @@
 
 #include "vrrp.h"
 #include "vrrp_debug.h"
-#include "vrrp_memory.h"
 #include "vrrp_packet.h"
+
+DEFINE_MTYPE_STATIC(VRRPD, VRRP_PKT, "VRRP packet")
 
 /* clang-format off */
 const char *vrrp_packet_names[16] = {
@@ -149,6 +150,11 @@ ssize_t vrrp_pkt_adver_build(struct vrrp_pkt **pkt, struct ipaddr *src,
 	(*pkt)->hdr.chksum = vrrp_pkt_checksum(*pkt, pktsize, src);
 
 	return pktsize;
+}
+
+void vrrp_pkt_free(struct vrrp_pkt *pkt)
+{
+	XFREE(MTYPE_VRRP_PKT, pkt);
 }
 
 size_t vrrp_pkt_adver_dump(char *buf, size_t buflen, struct vrrp_pkt *pkt)

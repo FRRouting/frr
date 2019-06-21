@@ -48,7 +48,7 @@
 #include "lib_errors.h"
 #include "northbound_cli.h"
 
-DEFINE_MTYPE(LIB, HOST, "Host config")
+DEFINE_MTYPE_STATIC(LIB, HOST, "Host config")
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item")
 
 #define item(x)                                                                \

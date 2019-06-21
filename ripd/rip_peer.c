@@ -29,6 +29,8 @@
 
 #include "ripd/ripd.h"
 
+DEFINE_MTYPE_STATIC(RIPD, RIP_PEER, "RIP peer")
+
 static struct rip_peer *rip_peer_new(void)
 {
 	return XCALLOC(MTYPE_RIP_PEER, sizeof(struct rip_peer));

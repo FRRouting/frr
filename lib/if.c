@@ -39,7 +39,7 @@
 #include "lib/if_clippy.c"
 #endif
 
-DEFINE_MTYPE(LIB, IF, "Interface")
+DEFINE_MTYPE_STATIC(LIB, IF, "Interface")
 DEFINE_MTYPE_STATIC(LIB, CONNECTED, "Connected")
 DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED, "Neighbor Connected")
 DEFINE_MTYPE(LIB, CONNECTED_LABEL, "Connected interface label")

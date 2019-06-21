@@ -49,6 +49,8 @@
 #define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP 
 #endif
 
+DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_IF, "ripng interface")
+
 /* Static utility function. */
 static void ripng_enable_apply(struct interface *);
 static void ripng_passive_interface_apply(struct interface *);
@@ -913,7 +915,7 @@ static struct ripng_interface *ri_new(void)
 {
 	struct ripng_interface *ri;
 
-	ri = XCALLOC(MTYPE_IF, sizeof(struct ripng_interface));
+	ri = XCALLOC(MTYPE_RIPNG_IF, sizeof(struct ripng_interface));
 
 	/* Set default split-horizon behavior.  If the interface is Frame
 	   Relay or SMDS is enabled, the default value for split-horizon is
@@ -950,7 +952,7 @@ static int ripng_if_new_hook(struct interface *ifp)
 /* Called when interface structure deleted. */
 static int ripng_if_delete_hook(struct interface *ifp)
 {
-	XFREE(MTYPE_IF, ifp->info);
+	XFREE(MTYPE_RIPNG_IF, ifp->info);
 	ifp->info = NULL;
 	return 0;
 }

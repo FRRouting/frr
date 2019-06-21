@@ -39,8 +39,9 @@ THE SOFTWARE.
 #include "neighbour.h"
 #include "route.h"
 #include "xroute.h"
-#include "babel_memory.h"
 #include "babel_errors.h"
+
+DEFINE_MTYPE_STATIC(BABELD, BABEL_IF, "Babel Interface")
 
 #define IS_ENABLE(ifp) (babel_enable_if_lookup(ifp->name) >= 0)
 
