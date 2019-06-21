@@ -20,7 +20,10 @@
 #ifndef _QUAGGA_RIP_INTERFACE_H
 #define _QUAGGA_RIP_INTERFACE_H
 
+#include "memory.h"
 #include "zclient.h"
+
+DECLARE_MTYPE(RIP_INTERFACE_STRING)
 
 extern int rip_interface_down(int, struct zclient *, zebra_size_t, vrf_id_t);
 extern int rip_interface_up(int, struct zclient *, zebra_size_t, vrf_id_t);
