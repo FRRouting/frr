@@ -561,9 +561,7 @@ static void crash_write(struct fbuf *fb, char *msgstart)
 void zlog_signal(int signo, const char *action, void *siginfo_v,
 		 void *program_counter)
 {
-#ifdef SA_SIGINFO
 	siginfo_t *siginfo = siginfo_v;
-#endif
 	time_t now;
 	char buf[sizeof("DEFAULT: Received signal S at T (si_addr 0xP, PC 0xP); aborting...")
 		 + 100];
@@ -577,7 +575,6 @@ void zlog_signal(int signo, const char *action, void *siginfo_v,
 	msgstart = fb.pos;
 
 	bprintfrr(&fb, "Received signal %d at %lld", signo, (long long)now);
-#ifdef SA_SIGINFO
 	if (program_counter)
 		bprintfrr(&fb, " (si_addr 0x%tx, PC 0x%tx)",
 			  (ptrdiff_t)siginfo->si_addr,
@@ -585,7 +582,6 @@ void zlog_signal(int signo, const char *action, void *siginfo_v,
 	else
 		bprintfrr(&fb, " (si_addr 0x%tx)",
 			  (ptrdiff_t)siginfo->si_addr);
-#endif /* SA_SIGINFO */
 	bprintfrr(&fb, "; %s\n", action);
 
 	crash_write(&fb, msgstart);
