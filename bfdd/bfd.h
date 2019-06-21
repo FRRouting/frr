@@ -41,14 +41,9 @@
 #define BFDD_JSON_CONV_OPTIONS (0)
 #endif
 
-DECLARE_MGROUP(BFDD);
-DECLARE_MTYPE(BFDD_TMP);
-DECLARE_MTYPE(BFDD_CONFIG);
-DECLARE_MTYPE(BFDD_LABEL);
-DECLARE_MTYPE(BFDD_CONTROL);
-DECLARE_MTYPE(BFDD_SESSION_OBSERVER);
-DECLARE_MTYPE(BFDD_NOTIFICATION);
-DECLARE_MTYPE(BFDD_VRF);
+DECLARE_MGROUP(BFDD)
+DECLARE_MTYPE(BFDD_CONTROL)
+DECLARE_MTYPE(BFDD_NOTIFICATION)
 
 struct bfd_timers {
 	uint32_t desired_min_tx;
@@ -259,9 +254,9 @@ struct bfd_session {
 	uint64_t refcount; /* number of pointers referencing this. */
 
 	/* VTY context data. */
-	QOBJ_FIELDS;
+	QOBJ_FIELDS
 };
-DECLARE_QOBJ_TYPE(bfd_session);
+DECLARE_QOBJ_TYPE(bfd_session)
 
 struct peer_label {
 	TAILQ_ENTRY(peer_label) pl_entry;
