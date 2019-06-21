@@ -27,8 +27,8 @@
 
 #include <libyang/user_types.h>
 
-DEFINE_MTYPE(LIB, YANG_MODULE, "YANG module")
-DEFINE_MTYPE(LIB, YANG_DATA, "YANG data structure")
+DEFINE_MTYPE_STATIC(LIB, YANG_MODULE, "YANG module")
+DEFINE_MTYPE_STATIC(LIB, YANG_DATA, "YANG data structure")
 
 /* libyang container. */
 struct ly_ctx *ly_native_ctx;

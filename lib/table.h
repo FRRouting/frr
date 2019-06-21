@@ -31,7 +31,6 @@
 extern "C" {
 #endif
 
-DECLARE_MTYPE(ROUTE_TABLE)
 DECLARE_MTYPE(ROUTE_NODE)
 
 /*
