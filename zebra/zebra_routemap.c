@@ -1234,6 +1234,40 @@ static struct route_map_rule_cmd route_match_ipv6_address_prefix_list_cmd = {
 	route_match_address_prefix_list_compile,
 	route_match_address_prefix_list_free};
 
+/* `match ipv6 next-hop type <TYPE>' */
+
+static route_map_result_t
+route_match_ipv6_next_hop_type(void *rule, const struct prefix *prefix,
+			       route_map_object_t type, void *object)
+{
+	struct nh_rmap_obj *nh_data;
+
+	if (type == RMAP_ZEBRA && prefix->family == AF_INET6) {
+		nh_data = (struct nh_rmap_obj *)object;
+		if (!nh_data)
+			return RMAP_DENYMATCH;
+
+		if (nh_data->nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+			return RMAP_MATCH;
+	}
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_ipv6_next_hop_type_compile(const char *arg)
+{
+	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+static void route_match_ipv6_next_hop_type_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+struct route_map_rule_cmd route_match_ipv6_next_hop_type_cmd = {
+	"ipv6 next-hop type", route_match_ipv6_next_hop_type,
+	route_match_ipv6_next_hop_type_compile,
+	route_match_ipv6_next_hop_type_free};
+
 /* `match ip address prefix-len PREFIXLEN' */
 
 static route_map_result_t
@@ -1324,6 +1358,40 @@ static struct route_map_rule_cmd route_match_ip_nexthop_prefix_len_cmd = {
 	route_match_address_prefix_len_compile, /* reuse */
 	route_match_address_prefix_len_free     /* reuse */
 };
+
+/* `match ip next-hop type <blackhole>' */
+
+static route_map_result_t
+route_match_ip_next_hop_type(void *rule, const struct prefix *prefix,
+			     route_map_object_t type, void *object)
+{
+	struct nh_rmap_obj *nh_data;
+
+	if (type == RMAP_ZEBRA && prefix->family == AF_INET) {
+		nh_data = (struct nh_rmap_obj *)object;
+		if (!nh_data)
+			return RMAP_DENYMATCH;
+
+		if (nh_data->nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+			return RMAP_MATCH;
+	}
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_ip_next_hop_type_compile(const char *arg)
+{
+	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+static void route_match_ip_next_hop_type_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static struct route_map_rule_cmd route_match_ip_next_hop_type_cmd = {
+	"ip next-hop type", route_match_ip_next_hop_type,
+	route_match_ip_next_hop_type_compile,
+	route_match_ip_next_hop_type_free};
 
 /* `match source-protocol PROTOCOL' */
 
@@ -1908,6 +1976,9 @@ void zebra_route_map_init(void)
 	route_map_match_ip_next_hop_prefix_list_hook(generic_match_add);
 	route_map_no_match_ip_next_hop_prefix_list_hook(generic_match_delete);
 
+	route_map_match_ip_next_hop_type_hook(generic_match_add);
+	route_map_no_match_ip_next_hop_type_hook(generic_match_delete);
+
 	route_map_match_tag_hook(generic_match_add);
 	route_map_no_match_tag_hook(generic_match_delete);
 
@@ -1916,6 +1987,9 @@ void zebra_route_map_init(void)
 
 	route_map_match_ipv6_address_prefix_list_hook(generic_match_add);
 	route_map_no_match_ipv6_address_prefix_list_hook(generic_match_delete);
+
+	route_map_match_ipv6_next_hop_type_hook(generic_match_add);
+	route_map_no_match_ipv6_next_hop_type_hook(generic_match_delete);
 
 	route_map_install_match(&route_match_tag_cmd);
 	route_map_install_match(&route_match_interface_cmd);
@@ -1928,6 +2002,8 @@ void zebra_route_map_init(void)
 	route_map_install_match(&route_match_ip_address_prefix_len_cmd);
 	route_map_install_match(&route_match_ipv6_address_prefix_len_cmd);
 	route_map_install_match(&route_match_ip_nexthop_prefix_len_cmd);
+	route_map_install_match(&route_match_ip_next_hop_type_cmd);
+	route_map_install_match(&route_match_ipv6_next_hop_type_cmd);
 	route_map_install_match(&route_match_source_protocol_cmd);
 	route_map_install_match(&route_match_source_instance_cmd);
 
