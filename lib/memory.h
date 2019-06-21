@@ -144,10 +144,11 @@ struct memgroup {
 	__asm__(".equiv MTYPE_" #name ", _mt_" #name "\n\t"                    \
 		".global MTYPE_" #name "\n");                                  \
 	/* end */
+/* and this one's borked on clang, it drops static on aliases :/, so... asm */
 #define DEFINE_MTYPE_STATIC(group, name, desc)                                 \
 	DEFINE_MTYPE_ATTR(group, name, static, desc)                           \
-	static struct memtype MTYPE_##name[1]                                  \
-		__attribute__((alias("_mt_" #name)));                          \
+	extern struct memtype MTYPE_##name[1];                                 \
+	__asm__(".equiv MTYPE_" #name ", _mt_" #name "\n");                    \
 	/* end */
 
 DECLARE_MGROUP(LIB)
