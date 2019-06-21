@@ -2417,8 +2417,13 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	}
 
 	/* if kernel marks our rfc5549 neighbor entry invalid, re-install it */
-	if (h->nlmsg_type == RTM_NEWNEIGH && !(ndm->ndm_state & NUD_VALID))
-		netlink_handle_5549(ndm, zif, ifp, &ip);
+	if (h->nlmsg_type == RTM_NEWNEIGH && !(ndm->ndm_state & NUD_VALID)) {
+		if (!(ndm->ndm_state & NUD_FAILED))
+			netlink_handle_5549(ndm, zif, ifp, &ip);
+		else
+			zlog_info("Neighbor Entry for %s has entered a failed state, not reinstalling",
+				ifp->name);
+	}
 
 	/* The neighbor is present on an SVI. From this, we locate the
 	 * underlying
