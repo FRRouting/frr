@@ -364,10 +364,12 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	  IGMP must be protected against adding looped MFC entries created
 	  by both source and receiver attached to the same interface. See
 	  TODO T22.
+	  We shall allow igmp to create upstream when it is DR for the intf.
+	  Assume RP reachable via non DR.
 	*/
-	if (channel_oil->up &&
-			PIM_UPSTREAM_FLAG_TEST_ALLOW_IIF_IN_OIL(
-				channel_oil->up->flags)) {
+	if ((channel_oil->up &&
+	    PIM_UPSTREAM_FLAG_TEST_ALLOW_IIF_IN_OIL(channel_oil->up->flags)) ||
+	    ((proto_mask == PIM_OIF_FLAG_PROTO_IGMP) && PIM_I_am_DR(pim_ifp))) {
 		allow_iif_in_oil = true;
 	}
 
