@@ -29,14 +29,9 @@
 /*
  * FRR related code.
  */
-DEFINE_MGROUP(BFDD, "Bidirectional Forwarding Detection Daemon");
-DEFINE_MTYPE(BFDD, BFDD_TMP, "short-lived temporary memory");
-DEFINE_MTYPE(BFDD, BFDD_CONFIG, "long-lived configuration memory");
-DEFINE_MTYPE(BFDD, BFDD_LABEL, "long-lived label memory");
-DEFINE_MTYPE(BFDD, BFDD_CONTROL, "long-lived control socket memory");
-DEFINE_MTYPE(BFDD, BFDD_SESSION_OBSERVER, "Session observer");
-DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data");
-DEFINE_MTYPE(BFDD, BFDD_VRF, "BFD VRF");
+DEFINE_MGROUP(BFDD, "Bidirectional Forwarding Detection Daemon")
+DEFINE_MTYPE(BFDD, BFDD_CONTROL, "long-lived control socket memory")
+DEFINE_MTYPE(BFDD, BFDD_NOTIFICATION, "short-lived control notification data")
 
 /* Master of threads. */
 struct thread_master *master;
