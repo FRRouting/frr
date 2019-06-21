@@ -36,8 +36,8 @@
 #include "zebra/debug.h"
 
 /* Memory type for context blocks */
-DEFINE_MTYPE(ZEBRA, DP_CTX, "Zebra DPlane Ctx")
-DEFINE_MTYPE(ZEBRA, DP_PROV, "Zebra DPlane Provider")
+DEFINE_MTYPE_STATIC(ZEBRA, DP_CTX, "Zebra DPlane Ctx")
+DEFINE_MTYPE_STATIC(ZEBRA, DP_PROV, "Zebra DPlane Provider")
 
 #ifndef AOK
 #  define AOK 0

@@ -50,6 +50,8 @@ extern struct zebra_privs_t zserv_privs;
 
 #if defined(HAVE_RTADV)
 
+DEFINE_MTYPE_STATIC(ZEBRA, RTADV_PREFIX, "Router Advertisement Prefix")
+
 #ifdef OPEN_BSD
 #include <netinet/icmp6.h>
 #endif
