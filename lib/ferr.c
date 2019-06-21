@@ -33,6 +33,7 @@
 #include "command.h"
 #include "json.h"
 #include "linklist.h"
+#include "frr_pthread.h"
 
 DEFINE_MTYPE_STATIC(LIB, ERRINFO, "error information")
 
@@ -83,14 +84,12 @@ void log_ref_add(struct log_ref *ref)
 {
 	uint32_t i = 0;
 
-	pthread_mutex_lock(&refs_mtx);
-	{
+	frr_with_mutex(&refs_mtx) {
 		while (ref[i].code != END_FERR) {
 			hash_get(refs, &ref[i], hash_alloc_intern);
 			i++;
 		}
 	}
-	pthread_mutex_unlock(&refs_mtx);
 }
 
 struct log_ref *log_ref_get(uint32_t code)
@@ -99,11 +98,9 @@ struct log_ref *log_ref_get(uint32_t code)
 	struct log_ref *ref;
 
 	holder.code = code;
-	pthread_mutex_lock(&refs_mtx);
-	{
+	frr_with_mutex(&refs_mtx) {
 		ref = hash_lookup(refs, &holder);
 	}
-	pthread_mutex_unlock(&refs_mtx);
 
 	return ref;
 }
@@ -118,11 +115,9 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 	if (json)
 		top = json_object_new_object();
 
-	pthread_mutex_lock(&refs_mtx);
-	{
+	frr_with_mutex(&refs_mtx) {
 		errlist = code ? list_new() : hash_to_list(refs);
 	}
-	pthread_mutex_unlock(&refs_mtx);
 
 	if (code) {
 		ref = log_ref_get(code);
@@ -189,23 +184,19 @@ DEFUN_NOSH(show_error_code,
 
 void log_ref_init(void)
 {
-	pthread_mutex_lock(&refs_mtx);
-	{
+	frr_with_mutex(&refs_mtx) {
 		refs = hash_create(ferr_hash_key, ferr_hash_cmp,
 				   "Error Reference Texts");
 	}
-	pthread_mutex_unlock(&refs_mtx);
 }
 
 void log_ref_fini(void)
 {
-	pthread_mutex_lock(&refs_mtx);
-	{
+	frr_with_mutex(&refs_mtx) {
 		hash_clean(refs, NULL);
 		hash_free(refs);
 		refs = NULL;
 	}
-	pthread_mutex_unlock(&refs_mtx);
 }
 
 void log_ref_vty_init(void)

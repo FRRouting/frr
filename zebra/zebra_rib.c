@@ -37,6 +37,7 @@
 #include "vrf.h"
 #include "workqueue.h"
 #include "nexthop_group_private.h"
+#include "frr_pthread.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/connected.h"
@@ -3204,12 +3205,10 @@ static int rib_process_dplane_results(struct thread *thread)
 		TAILQ_INIT(&ctxlist);
 
 		/* Take lock controlling queue of results */
-		pthread_mutex_lock(&dplane_mutex);
-		{
+		frr_with_mutex(&dplane_mutex) {
 			/* Dequeue list of context structs */
 			dplane_ctx_list_append(&ctxlist, &rib_dplane_q);
 		}
-		pthread_mutex_unlock(&dplane_mutex);
 
 		/* Dequeue context block */
 		ctx = dplane_ctx_dequeue(&ctxlist);
@@ -3300,12 +3299,10 @@ static int rib_process_dplane_results(struct thread *thread)
 static int rib_dplane_results(struct dplane_ctx_q *ctxlist)
 {
 	/* Take lock controlling queue of results */
-	pthread_mutex_lock(&dplane_mutex);
-	{
+	frr_with_mutex(&dplane_mutex) {
 		/* Enqueue context blocks */
 		dplane_ctx_list_append(&rib_dplane_q, ctxlist);
 	}
-	pthread_mutex_unlock(&dplane_mutex);
 
 	/* Ensure event is signalled to zebra main pthread */
 	thread_add_event(zrouter.master, rib_process_dplane_results, NULL, 0,
