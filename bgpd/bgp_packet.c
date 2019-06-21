@@ -124,9 +124,9 @@ int bgp_packet_set_size(struct stream *s)
  */
 static void bgp_packet_add(struct peer *peer, struct stream *s)
 {
-	pthread_mutex_lock(&peer->io_mtx);
-	stream_fifo_push(peer->obuf, s);
-	pthread_mutex_unlock(&peer->io_mtx);
+	frr_with_mutex(&peer->io_mtx) {
+		stream_fifo_push(peer->obuf, s);
+	}
 }
 
 static struct stream *bgp_update_packet_eor(struct peer *peer, afi_t afi,
@@ -665,7 +665,7 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 	struct stream *s;
 
 	/* Lock I/O mutex to prevent other threads from pushing packets */
-	pthread_mutex_lock(&peer->io_mtx);
+	frr_mutex_lock_autounlock(&peer->io_mtx);
 	/* ============================================== */
 
 	/* Allocate new stream. */
@@ -756,9 +756,6 @@ void bgp_notify_send_with_data(struct peer *peer, uint8_t code,
 	stream_fifo_push(peer->obuf, s);
 
 	bgp_write_notify(peer);
-
-	/* ============================================== */
-	pthread_mutex_unlock(&peer->io_mtx);
 }
 
 /*
@@ -2237,11 +2234,9 @@ int bgp_process_packet(struct thread *thread)
 		bgp_size_t size;
 		char notify_data_length[2];
 
-		pthread_mutex_lock(&peer->io_mtx);
-		{
+		frr_with_mutex(&peer->io_mtx) {
 			peer->curr = stream_fifo_pop(peer->ibuf);
 		}
-		pthread_mutex_unlock(&peer->io_mtx);
 
 		if (peer->curr == NULL) // no packets to process, hmm...
 			return 0;
@@ -2360,15 +2355,13 @@ int bgp_process_packet(struct thread *thread)
 
 	if (fsm_update_result != FSM_PEER_TRANSFERRED
 	    && fsm_update_result != FSM_PEER_STOPPED) {
-		pthread_mutex_lock(&peer->io_mtx);
-		{
+		frr_with_mutex(&peer->io_mtx) {
 			// more work to do, come back later
 			if (peer->ibuf->count > 0)
 				thread_add_timer_msec(
 					bm->master, bgp_process_packet, peer, 0,
 					&peer->t_process_packet);
 		}
-		pthread_mutex_unlock(&peer->io_mtx);
 	}
 
 	return 0;

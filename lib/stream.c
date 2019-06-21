@@ -28,6 +28,7 @@
 #include "network.h"
 #include "prefix.h"
 #include "log.h"
+#include "frr_pthread.h"
 #include "lib_errors.h"
 
 DEFINE_MTYPE_STATIC(LIB, STREAM, "Stream")
@@ -1136,11 +1137,9 @@ void stream_fifo_push(struct stream_fifo *fifo, struct stream *s)
 
 void stream_fifo_push_safe(struct stream_fifo *fifo, struct stream *s)
 {
-	pthread_mutex_lock(&fifo->mtx);
-	{
+	frr_with_mutex(&fifo->mtx) {
 		stream_fifo_push(fifo, s);
 	}
-	pthread_mutex_unlock(&fifo->mtx);
 }
 
 /* Delete first stream from fifo. */
@@ -1170,11 +1169,9 @@ struct stream *stream_fifo_pop_safe(struct stream_fifo *fifo)
 {
 	struct stream *ret;
 
-	pthread_mutex_lock(&fifo->mtx);
-	{
+	frr_with_mutex(&fifo->mtx) {
 		ret = stream_fifo_pop(fifo);
 	}
-	pthread_mutex_unlock(&fifo->mtx);
 
 	return ret;
 }
@@ -1188,11 +1185,9 @@ struct stream *stream_fifo_head_safe(struct stream_fifo *fifo)
 {
 	struct stream *ret;
 
-	pthread_mutex_lock(&fifo->mtx);
-	{
+	frr_with_mutex(&fifo->mtx) {
 		ret = stream_fifo_head(fifo);
 	}
-	pthread_mutex_unlock(&fifo->mtx);
 
 	return ret;
 }
@@ -1212,11 +1207,9 @@ void stream_fifo_clean(struct stream_fifo *fifo)
 
 void stream_fifo_clean_safe(struct stream_fifo *fifo)
 {
-	pthread_mutex_lock(&fifo->mtx);
-	{
+	frr_with_mutex(&fifo->mtx) {
 		stream_fifo_clean(fifo);
 	}
-	pthread_mutex_unlock(&fifo->mtx);
 }
 
 size_t stream_fifo_count_safe(struct stream_fifo *fifo)
