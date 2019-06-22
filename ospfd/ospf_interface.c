@@ -349,8 +349,8 @@ void ospf_if_free(struct ospf_interface *oi)
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf interface %s vrf %s id %u deleted",
 			   __PRETTY_FUNCTION__, oi->ifp->name,
-			   ospf_vrf_id_to_name(oi->ifp->vrf_id),
-			   oi->ifp->vrf_id);
+			   vrf_to_name(oi->ifp->vrf),
+			   vrf_to_id(oi->ifp->vrf));
 
 	ospf_delete_from_if(oi->ifp, oi);
 
@@ -838,6 +838,7 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	struct in_addr area_id;
 	struct connected *co;
 	struct prefix_ipv4 *p;
+	struct vrf *vrf;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("ospf_vl_new(): Start");
@@ -855,7 +856,8 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 			ospf->vrf_id);
 
 	snprintf(ifname, sizeof(ifname), "VLINK%u", vlink_count);
-	vi = if_create(ifname, ospf->vrf_id);
+	vrf = vrf_lookup_by_id(ospf->vrf_id);
+	vi = if_create(ifname, vrf);
 	/*
 	 * if_create sets ZEBRA_INTERFACE_LINKDETECTION
 	 * virtual links don't need this.

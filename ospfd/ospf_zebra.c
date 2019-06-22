@@ -110,8 +110,8 @@ static int ospf_interface_add(ZAPI_CALLBACK_ARGS)
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug(
 			"Zebra: interface add %s vrf %s[%u] index %d flags %llx metric %d mtu %d speed %u",
-			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
-			ifp->vrf_id, ifp->ifindex,
+			ifp->name, vrf_to_name(ifp->vrf),
+			vrf_to_id(ifp->vrf), ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu,
 			ifp->speed);
 
@@ -152,8 +152,8 @@ static int ospf_interface_delete(ZAPI_CALLBACK_ARGS)
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug(
 			"Zebra: interface delete %s vrf %s[%u] index %d flags %llx metric %d mtu %d",
-			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
-			ifp->vrf_id, ifp->ifindex,
+			ifp->name, vrf_to_name(ifp->vrf),
+			vrf_to_id(ifp->vrf), ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
 
 	hook_call(ospf_if_delete, ifp);
@@ -175,7 +175,8 @@ static struct interface *zebra_interface_if_lookup(struct stream *s,
 	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* And look it up. */
-	return if_lookup_by_name(ifname_tmp, vrf_id);
+	return if_lookup_by_name(ifname_tmp,
+				 vrf_lookup_by_id(vrf_id));
 }
 
 static int ospf_interface_state_up(ZAPI_CALLBACK_ARGS)
@@ -365,7 +366,7 @@ static int ospf_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 			ospf_vrf_id_to_name(new_vrf_id), new_vrf_id);
 
 	/*if_update(ifp, ifp->name, strlen(ifp->name), new_vrf_id);*/
-	if_update_to_new_vrf(ifp, new_vrf_id);
+	if_update_to_new_vrf(ifp, vrf_lookup_by_id(new_vrf_id));
 
 	return 0;
 }

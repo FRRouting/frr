@@ -59,6 +59,7 @@ static int interface_list_ioctl(int af)
 	int n;
 	size_t needed, lastneeded = 0;
 	char *buf = NULL;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
 	frr_elevate_privs(&zserv_privs) {
 		sock = socket(af, SOCK_DGRAM, 0);
@@ -156,7 +157,7 @@ calculate_lifc_len:
 		       && (*(lifreq->lifr_name + normallen) != ':'))
 			normallen++;
 
-		ifp = if_get_by_name(lifreq->lifr_name, VRF_DEFAULT);
+		ifp = if_get_by_name(lifreq->lifr_name, vrf);
 
 		if (lifreq->lifr_addr.ss_family == AF_INET)
 			ifp->flags |= IFF_IPV4;

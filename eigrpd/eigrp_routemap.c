@@ -62,7 +62,7 @@ void eigrp_if_rmap_update(struct if_rmap *if_rmap)
 	struct route_map *rmap;
 	struct eigrp *e;
 
-	ifp = if_lookup_by_name(if_rmap->ifname);
+	ifp = if_lookup_by_name(if_rmap->ifname, vrf_lookup_by_id(VRF_DEFAULT));
 	if (ifp == NULL)
 		return;
 

@@ -187,7 +187,7 @@ int static_add_route(afi_t afi, safi_t safi, uint8_t type, struct prefix *p,
 	else {
 		struct interface *ifp;
 
-		ifp = if_lookup_by_name(ifname, nh_svrf->vrf->vrf_id);
+		ifp = if_lookup_by_name(ifname, nh_svrf->vrf);
 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL) {
 			si->ifindex = ifp->ifindex;
 			static_install_route(rn, si, safi);
@@ -331,8 +331,7 @@ static void static_fixup_vrf(struct static_vrf *svrf,
 			si->nh_vrf_id = svrf->vrf->vrf_id;
 			si->nh_registered = false;
 			if (si->ifindex) {
-				ifp = if_lookup_by_name(si->ifname,
-							si->nh_vrf_id);
+				ifp = if_lookup_by_name(si->ifname, svrf->vrf);
 				if (ifp)
 					si->ifindex = ifp->ifindex;
 				else
@@ -367,7 +366,8 @@ static void static_enable_vrf(struct static_vrf *svrf,
 			si->vrf_id = vrf->vrf_id;
 			if (si->ifindex) {
 				ifp = if_lookup_by_name(si->ifname,
-							si->nh_vrf_id);
+							vrf_lookup_by_id(
+							 si->nh_vrf_id));
 				if (ifp)
 					si->ifindex = ifp->ifindex;
 				else
@@ -516,7 +516,7 @@ static void static_fixup_intf_nh(struct route_table *stable,
 
 	for (rn = route_top(stable); rn; rn = route_next(rn)) {
 		for (si = rn->info; si; si = si->next) {
-			if (si->nh_vrf_id != ifp->vrf_id)
+			if (si->nh_vrf_id != vrf_to_id(ifp->vrf))
 				continue;
 
 			if (si->ifindex != ifp->ifindex)
@@ -542,7 +542,7 @@ void static_install_intf_nh(struct interface *ifp)
 		struct static_vrf *svrf = vrf->info;
 
 		/* Not needed if same vrf since happens naturally */
-		if (vrf->vrf_id == ifp->vrf_id)
+		if (vrf == ifp->vrf)
 			continue;
 
 		/* Install any static routes configured for this interface. */

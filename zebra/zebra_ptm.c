@@ -522,7 +522,7 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 	}
 
 	if (!strcmp(ZEBRA_PTM_INVALID_VRF, vrf_str) && ifp) {
-		vrf_id = ifp->vrf_id;
+		vrf_id = vrf_to_id(ifp->vrf);
 	} else {
 		vrf_id = vrf_name_to_id(vrf_str);
 	}

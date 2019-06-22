@@ -572,7 +572,10 @@ static void bfdd_sessions_enable_interface(struct interface *ifp)
 {
 	struct bfd_session_observer *bso;
 	struct bfd_session *bs;
-	struct vrf *vrf;
+	struct vrf *vrf = ifp->vrf;
+
+	if (!vrf)
+		return;
 
 	TAILQ_FOREACH(bso, &bglobal.bg_obslist, bso_entry) {
 		bs = bso->bso_bs;
@@ -580,9 +583,6 @@ static void bfdd_sessions_enable_interface(struct interface *ifp)
 			continue;
 		/* Interface name mismatch. */
 		if (strcmp(ifp->name, bs->key.ifname))
-			continue;
-		vrf = vrf_lookup_by_id(ifp->vrf_id);
-		if (!vrf)
 			continue;
 		if (bs->key.vrfname[0] &&
 		    strcmp(vrf->name, bs->key.vrfname))
@@ -698,13 +698,14 @@ static int bfdd_interface_update(ZAPI_CALLBACK_ARGS)
 static int bfdd_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
+	struct vrf *nvrf;
 	vrf_id_t nvrfid;
 
 	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id, &nvrfid);
 	if (ifp == NULL)
 		return 0;
-
-	if_update_to_new_vrf(ifp, nvrfid);
+	nvrf = vrf_lookup_by_id(nvrfid);
+	if_update_to_new_vrf(ifp, nvrf);
 
 	return 0;
 }

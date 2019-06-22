@@ -176,6 +176,24 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 			   name, vrf_id, vrf->vrf_id);
 		return NULL;
 	}
+	/* look for duplicates. case is followine one:
+	 * - a vrf is configured per name -> vrfA
+	 * - netlink discovery creates a vrf with vrf_id ->vrfB
+	 * - then, netlink discovers vrf, and associated vrf_id and name
+	 * -> so vrfA and vrfB must be merged
+	 */
+	if (vrf && vrf_id != VRF_UNKNOWN
+	    && vrf->vrf_id == VRF_UNKNOWN) {
+		struct vrf *vrf2 = vrf_lookup_by_id(vrf_id);
+		struct interface *ifp;
+
+		if (vrf2 && !vrf2->name && vrf2 != vrf) {
+			/* move vrf2 context to vrf */
+			FOR_ALL_INTERFACES (vrf2, ifp)
+				if_update_to_new_vrf(ifp, vrf);
+			vrf_delete(vrf2);
+		}
+	}
 	/* Try to find VRF both by ID and name */
 	if (!vrf && vrf_id != VRF_UNKNOWN)
 		vrf = vrf_lookup_by_id(vrf_id);
@@ -905,14 +923,15 @@ int vrf_bind(vrf_id_t vrf_id, int fd, const char *name)
 {
 	int ret = 0;
 	struct interface *ifp;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
-	if (fd < 0 || name == NULL)
+	if (fd < 0 || name == NULL || !vrf)
 		return fd;
 	/* the device should exist
 	 * otherwise we should return
 	 * case ifname = vrf in netns mode => return
 	 */
-	ifp = if_lookup_by_name(name, vrf_id);
+	ifp = if_lookup_by_name(name, vrf);
 	if (!ifp)
 		return fd;
 #ifdef SO_BINDTODEVICE
@@ -998,4 +1017,14 @@ vrf_id_t vrf_generate_id(void)
 	static int vrf_id_local;
 
 	return ++vrf_id_local;
+}
+
+vrf_id_t vrf_to_id(struct vrf *vrf)
+{
+	return vrf ? vrf->vrf_id : VRF_UNKNOWN;
+}
+
+const char *vrf_to_name(struct vrf *vrf)
+{
+	return vrf ? vrf->name : "NIL";
 }

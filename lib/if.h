@@ -33,6 +33,8 @@ extern "C" {
 
 DECLARE_MTYPE(CONNECTED_LABEL)
 
+struct vrf;
+
 /* Interface link-layer type, if known. Derived from:
  *
  * net/if_arp.h on various platforms - Linux especially.
@@ -291,7 +293,7 @@ struct interface {
 #endif /* HAVE_NET_RT_IFLIST */
 
 	struct route_node *node;
-	vrf_id_t vrf_id;
+	struct vrf *vrf;
 
 	QOBJ_FIELDS
 };
@@ -302,33 +304,37 @@ RB_HEAD(if_index_head, interface);
 RB_PROTOTYPE(if_index_head, interface, index_entry, if_cmp_func)
 DECLARE_QOBJ_TYPE(interface)
 
-#define IFNAME_RB_INSERT(vrf, ifp)                                             \
-	if (RB_INSERT(if_name_head, &vrf->ifaces_by_name, (ifp)))              \
+#define IFNAME_RB_INSERT(_vrf, _ifp)                                           \
+	if (RB_INSERT(if_name_head, &(_vrf)->ifaces_by_name, (_ifp)))	       \
 		flog_err(EC_LIB_INTERFACE,                                     \
 			 "%s(%s): corruption detected -- interface with this " \
 			 "name exists already in VRF %u!",                     \
-			 __func__, (ifp)->name, (ifp)->vrf_id);
+			 __func__, (_ifp)->name, (_ifp)->vrf ?                 \
+			 (_ifp)->vrf->vrf_id : VRF_UNKNOWN);
 
-#define IFNAME_RB_REMOVE(vrf, ifp)                                             \
-	if (RB_REMOVE(if_name_head, &vrf->ifaces_by_name, (ifp)) == NULL)      \
+#define IFNAME_RB_REMOVE(_vrf, _ifp)                                           \
+	if (RB_REMOVE(if_name_head, &(_vrf)->ifaces_by_name, (_ifp)) == NULL)  \
 		flog_err(EC_LIB_INTERFACE,                                     \
 			 "%s(%s): corruption detected -- interface with this " \
 			 "name doesn't exist in VRF %u!",                      \
-			 __func__, (ifp)->name, (ifp)->vrf_id);
+			 __func__, (_ifp)->name, (_ifp)->vrf ?                 \
+			 (_ifp)->vrf->vrf_id : VRF_UNKNOWN);
 
-#define IFINDEX_RB_INSERT(vrf, ifp)                                            \
-	if (RB_INSERT(if_index_head, &vrf->ifaces_by_index, (ifp)))            \
+#define IFINDEX_RB_INSERT(_vrf, _ifp)                                          \
+	if (RB_INSERT(if_index_head, &(_vrf)->ifaces_by_index, (_ifp)))        \
 		flog_err(EC_LIB_INTERFACE,                                     \
 			 "%s(%u): corruption detected -- interface with this " \
 			 "ifindex exists already in VRF %u!",                  \
-			 __func__, (ifp)->ifindex, (ifp)->vrf_id);
+			 __func__, (_ifp)->ifindex, (_ifp)->vrf ?              \
+			 (_ifp)->vrf->vrf_id : VRF_UNKNOWN);
 
-#define IFINDEX_RB_REMOVE(vrf, ifp)                                            \
-	if (RB_REMOVE(if_index_head, &vrf->ifaces_by_index, (ifp)) == NULL)    \
+#define IFINDEX_RB_REMOVE(_vrf, _ifp)                                          \
+	if (RB_REMOVE(if_index_head, &(_vrf)->ifaces_by_index, (_ifp)) == NULL)\
 		flog_err(EC_LIB_INTERFACE,                                     \
 			 "%s(%u): corruption detected -- interface with this " \
 			 "ifindex doesn't exist in VRF %u!",                   \
-			 __func__, (ifp)->ifindex, (ifp)->vrf_id);
+			 __func__, (_ifp)->ifindex, (_ifp)->vrf ?              \
+			 (_ifp)->vrf->vrf_id : VRF_UNKNOWN);
 
 #define FOR_ALL_INTERFACES(vrf, ifp)                                           \
 	if (vrf)                                                               \
@@ -476,8 +482,8 @@ extern int if_cmp_name_func(const char *p1, const char *p2);
  * This is useful for vrf route-leaking.  So more than anything
  * else think before you use VRF_UNKNOWN
  */
-extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
-extern struct interface *if_create(const char *name, vrf_id_t vrf_id);
+extern void if_update_to_new_vrf(struct interface *, struct vrf *vrf);
+extern struct interface *if_create(const char *name, struct vrf *vrf);
 extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
 extern struct interface *if_lookup_exact_address(void *matchaddr, int family,
 						 vrf_id_t vrf_id);
@@ -491,8 +497,8 @@ size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 /* These 3 functions are to be used when the ifname argument is terminated
    by a '\0' character: */
 extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
-extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
-extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id);
+extern struct interface *if_lookup_by_name(const char *ifname, struct vrf *vrf);
+extern struct interface *if_get_by_name(const char *ifname, struct vrf *vrf);
 extern void if_set_index(struct interface *ifp, ifindex_t ifindex);
 
 /* Delete the interface, but do not free the structure, and leave it in the

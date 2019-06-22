@@ -549,7 +549,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 						zebra_ns_lookup(ns_id),
 						index);
 				if (ifp)
-					nh_vrf_id = ifp->vrf_id;
+					nh_vrf_id = vrf_to_id(ifp->vrf);
 			}
 			nh.vrf_id = nh_vrf_id;
 
@@ -609,7 +609,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 							zebra_ns_lookup(ns_id),
 							index);
 					if (ifp)
-						nh_vrf_id = ifp->vrf_id;
+						nh_vrf_id = vrf_to_id(ifp->vrf);
 					else {
 						flog_warn(
 							EC_ZEBRA_UNKNOWN_INTERFACE,
@@ -1893,7 +1893,7 @@ static int netlink_vxlan_flood_list_update(struct interface *ifp,
 		char buf[256];
 	} req;
 	uint8_t dst_mac[6] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	struct zebra_vrf *zvrf = zvrf_info_lookup(ifp->vrf);
 
 	zns = zvrf->zns;
 	memset(&req, 0, sizeof(req));
@@ -2291,7 +2291,7 @@ static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
 	int vid_present = 0;
 	char vid_buf[20];
 	char dst_buf[30];
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	struct zebra_vrf *zvrf = zvrf_info_lookup(ifp->vrf);
 
 	zns = zvrf->zns;
 	zif = ifp->info;
@@ -2640,7 +2640,7 @@ int netlink_neigh_read_specific_ip(struct ipaddr *ip,
 {
 	int ret = 0;
 	struct zebra_ns *zns;
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(vlan_if->vrf_id);
+	struct zebra_vrf *zvrf = zvrf_info_lookup(vlan_if->vrf);
 	char buf[INET6_ADDRSTRLEN];
 	struct zebra_dplane_info dp_info;
 
@@ -2653,7 +2653,7 @@ int netlink_neigh_read_specific_ip(struct ipaddr *ip,
 			   __PRETTY_FUNCTION__, vlan_if->name,
 			   vlan_if->ifindex,
 			   ipaddr2str(ip, buf, sizeof(buf)),
-			   vlan_if->vrf_id);
+			   vrf_to_id(vlan_if->vrf));
 
 	ret = netlink_request_specific_neigh_in_vlan(zns, RTM_GETNEIGH, ip,
 					    vlan_if->ifindex);
@@ -2718,7 +2718,7 @@ static int netlink_neigh_update2(struct interface *ifp, struct ipaddr *ip,
 	struct zebra_ns *zns;
 	char buf[INET6_ADDRSTRLEN];
 	char buf2[ETHER_ADDR_STRLEN];
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	struct zebra_vrf *zvrf =  zvrf_info_lookup(ifp->vrf);
 
 	zns = zvrf->zns;
 	memset(&req, 0, sizeof(req));

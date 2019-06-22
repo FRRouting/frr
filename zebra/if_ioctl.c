@@ -54,6 +54,7 @@ static int interface_list_ioctl(void)
 	struct interface *ifp;
 	int n;
 	int lastlen;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
 	/* Normally SIOCGIFCONF works with AF_INET socket. */
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -110,7 +111,7 @@ static int interface_list_ioctl(void)
 		unsigned int size;
 
 		ifreq = (struct ifreq *)((caddr_t)ifconf.ifc_req + n);
-		ifp = if_get_by_name(ifreq->ifr_name, VRF_DEFAULT);
+		ifp = if_get_by_name(ifreq->ifr_name, vrf);
 		if_add_update(ifp);
 		size = ifreq->ifr_addr.sa_len;
 		if (size < sizeof(ifreq->ifr_addr))
@@ -120,7 +121,7 @@ static int interface_list_ioctl(void)
 	}
 #else
 	for (n = 0; n < ifconf.ifc_len; n += sizeof(struct ifreq)) {
-		ifp = if_get_by_name(ifreq->ifr_name, VRF_DEFAULT);
+		ifp = if_get_by_name(ifreq->ifr_name, vrf);
 		if_add_update(ifp);
 		ifreq++;
 	}
@@ -151,7 +152,8 @@ static int if_get_hwaddr(struct interface *ifp)
 	ifreq.ifr_addr.sa_family = AF_INET;
 
 	/* Fetch Hardware address if available. */
-	ret = vrf_if_ioctl(SIOCGIFHWADDR, (caddr_t)&ifreq, ifp->vrf_id);
+	ret = vrf_if_ioctl(SIOCGIFHWADDR, (caddr_t)&ifreq,
+			   vrf_to_id(ifp->vrf));
 	if (ret < 0)
 		ifp->hw_addr_len = 0;
 	else {
@@ -195,7 +197,8 @@ static int if_getaddrs(void)
 			continue;
 		}
 
-		ifp = if_lookup_by_name(ifap->ifa_name, VRF_DEFAULT);
+		ifp = if_lookup_by_name(ifap->ifa_name,
+					vrf_lookup_by_id(VRF_DEFAULT));
 		if (ifp == NULL) {
 			flog_err(EC_LIB_INTERFACE,
 				 "if_getaddrs(): Can't lookup interface %s\n",
