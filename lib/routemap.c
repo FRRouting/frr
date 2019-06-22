@@ -111,14 +111,14 @@ struct route_map_match_set_hooks {
 						const char *arg,
 						route_map_event_t type);
 
-	/* match ip next hop type */
+	/* match ip next-hop type */
 	int (*match_ip_next_hop_type)(struct vty *vty,
 					     struct route_map_index *index,
 					     const char *command,
 					     const char *arg,
 					     route_map_event_t type);
 
-	/* no match ip next hop type */
+	/* no match ip next-hop type */
 	int (*no_match_ip_next_hop_type)(struct vty *vty,
 						struct route_map_index *index,
 						const char *command,
@@ -159,7 +159,7 @@ struct route_map_match_set_hooks {
 					      const char *arg,
 					      route_map_event_t type);
 
-	/* no match ipv6next-hop type */
+	/* no match ipv6 next-hop type */
 	int (*no_match_ipv6_next_hop_type)(struct vty *vty,
 					   struct route_map_index *index,
 					   const char *command, const char *arg,
@@ -302,7 +302,7 @@ void route_map_no_match_ip_next_hop_prefix_list_hook(int (*func)(
 	rmap_match_set_hook.no_match_ip_next_hop_prefix_list = func;
 }
 
-/* match ip next hop type */
+/* match ip next-hop type */
 void route_map_match_ip_next_hop_type_hook(int (*func)(
 	struct vty *vty, struct route_map_index *index, const char *command,
 	const char *arg, route_map_event_t type))
@@ -310,7 +310,7 @@ void route_map_match_ip_next_hop_type_hook(int (*func)(
 	rmap_match_set_hook.match_ip_next_hop_type = func;
 }
 
-/* no match ip next hop type */
+/* no match ip next-hop type */
 void route_map_no_match_ip_next_hop_type_hook(int (*func)(
 	struct vty *vty, struct route_map_index *index, const char *command,
 	const char *arg, route_map_event_t type))
@@ -2224,7 +2224,7 @@ DEFUN (no_match_ipv6_address_prefix_list,
 DEFUN(match_ipv6_next_hop_type, match_ipv6_next_hop_type_cmd,
       "match ipv6 next-hop type <blackhole>",
       MATCH_STR IPV6_STR
-      "Match address of route\n"
+      "Match next-hop address of route\n"
       "Match entries by type\n"
       "Blackhole\n")
 {
