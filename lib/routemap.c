@@ -2224,7 +2224,7 @@ DEFUN (no_match_ipv6_address_prefix_list,
 DEFUN(match_ipv6_next_hop_type, match_ipv6_next_hop_type_cmd,
       "match ipv6 next-hop type <blackhole>",
       MATCH_STR IPV6_STR
-      "Match address of route\n"
+      "Match next-hop address of route\n"
       "Match entries by type\n"
       "Blackhole\n")
 {
