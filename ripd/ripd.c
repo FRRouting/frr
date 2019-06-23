@@ -3305,7 +3305,7 @@ static void rip_distribute_update(struct distribute_ctx *ctx,
 	if (!ctx->vrf || !dist->ifname)
 		return;
 
-	ifp = if_lookup_by_name(dist->ifname, ctx->vrf);
+	ifp = if_lookup_by_name(dist->ifname, ctx->vrf->vrf_id);
 	if (ifp == NULL)
 		return;
 
@@ -3424,7 +3424,7 @@ static void rip_if_rmap_update(struct if_rmap_ctx *ctx,
 	if (ctx->name)
 		vrf = vrf_lookup_by_name(ctx->name);
 	if (vrf)
-		ifp = if_lookup_by_name(if_rmap->ifname, vrf);
+		ifp = if_lookup_by_name(if_rmap->ifname, vrf->vrf_id);
 	if (ifp == NULL)
 		return;
 
@@ -3456,8 +3456,6 @@ void rip_if_rmap_update_interface(struct interface *ifp)
 	struct if_rmap_ctx *ctx;
 
 	if (!rip)
-		return;
-	if (ifp->vrf && ifp->vrf->vrf_id == VRF_UNKNOWN)
 		return;
 	ctx = rip->if_rmap_ctx;
 	if (!ctx)

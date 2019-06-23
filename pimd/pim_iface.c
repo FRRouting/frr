@@ -120,7 +120,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp = XCALLOC(MTYPE_PIM_INTERFACE, sizeof(*pim_ifp));
 
 	pim_ifp->options = 0;
-	pim_ifp->pim = pim_get_pim_instance(vrf_to_id(ifp->vrf));
+	pim_ifp->pim = pim_get_pim_instance(ifp->vrf_id);
 	pim_ifp->mroute_vif_index = -1;
 
 	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
@@ -781,7 +781,7 @@ void pim_if_addr_del_all(struct interface *ifp)
 	struct connected *ifc;
 	struct listnode *node;
 	struct listnode *nextnode;
-	struct vrf *vrf = ifp->vrf;
+	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 	struct pim_instance *pim;
 
 	if (!vrf)
@@ -853,7 +853,7 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	int v4_addrs = 0;
 	int v6_addrs = 0;
 	struct pim_interface *pim_ifp = ifp->info;
-	struct vrf *vrf = ifp->vrf;
+	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 
 	if (!vrf)
 		return addr;
@@ -894,10 +894,10 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	if (!v4_addrs && v6_addrs && !if_is_loopback(ifp)) {
 		struct interface *lo_ifp;
 		// DBS - Come back and check here
-		if (!ifp->vrf || ifp->vrf->vrf_id == VRF_DEFAULT)
-			lo_ifp = if_lookup_by_name("lo", vrf);
+		if (ifp->vrf_id == VRF_DEFAULT)
+			lo_ifp = if_lookup_by_name("lo", vrf->vrf_id);
 		else
-			lo_ifp = if_lookup_by_name(vrf->name, vrf);
+			lo_ifp = if_lookup_by_name(vrf->name, vrf->vrf_id);
 
 		if (lo_ifp)
 			return pim_find_primary_addr(lo_ifp);
@@ -1480,7 +1480,7 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 			snprintf(pimreg_name, sizeof(pimreg_name), "pimreg%u",
 				 pim->vrf->data.l.table_id);
 
-		pim->regiface = if_create(pimreg_name, pim->vrf);
+		pim->regiface = if_create(pimreg_name, pim->vrf_id);
 		pim->regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
 
 		pim_if_new(pim->regiface, false, false, true,

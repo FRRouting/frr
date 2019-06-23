@@ -122,7 +122,7 @@ void router_id_add_address(struct connected *ifc)
 	struct prefix before;
 	struct prefix after;
 	struct zserv *client;
-	struct zebra_vrf *zvrf = vrf_info_get(vrf_to_id(ifc->ifp->vrf));
+	struct zebra_vrf *zvrf = vrf_info_get(ifc->ifp->vrf_id);
 
 	if (router_id_bad_address(ifc))
 		return;
@@ -154,7 +154,7 @@ void router_id_del_address(struct connected *ifc)
 	struct prefix before;
 	struct listnode *node;
 	struct zserv *client;
-	struct zebra_vrf *zvrf = vrf_info_get(vrf_to_id(ifc->ifp->vrf));
+	struct zebra_vrf *zvrf = vrf_info_get(ifc->ifp->vrf_id);
 
 	if (router_id_bad_address(ifc))
 		return;

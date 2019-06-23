@@ -503,7 +503,7 @@ static int bgp_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 		}
 	}
 
-	if_update_to_new_vrf(ifp, vrf_lookup_by_id(new_vrf_id));
+	if_update_to_new_vrf(ifp, new_vrf_id);
 
 	bgp = bgp_lookup_by_vrf_id(new_vrf_id);
 	if (!bgp)
@@ -787,7 +787,7 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 		nexthop->v4 = local->sin.sin_addr;
 		if (peer->update_if)
 			ifp = if_lookup_by_name(peer->update_if,
-						vrf_lookup_by_id(peer->bgp->vrf_id));
+						peer->bgp->vrf_id);
 		else
 			ifp = if_lookup_by_ipv4_exact(&local->sin.sin_addr,
 						      peer->bgp->vrf_id);
@@ -799,11 +799,10 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 				ifp = if_lookup_by_name(peer->conf_if
 								? peer->conf_if
 								: peer->ifname,
-							vrf_lookup_by_id(
-								 peer->bgp->vrf_id));
+							peer->bgp->vrf_id);
 		} else if (peer->update_if)
 			ifp = if_lookup_by_name(peer->update_if,
-					vrf_lookup_by_id(peer->bgp->vrf_id));
+						peer->bgp->vrf_id);
 		else
 			ifp = if_lookup_by_ipv6_exact(&local->sin6.sin6_addr,
 						      local->sin6.sin6_scope_id,
@@ -2884,8 +2883,7 @@ static void bgp_encode_pbr_interface_list(struct bgp *bgp, struct stream *s)
 	head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
 
 	RB_FOREACH (pbr_if, bgp_pbr_interface_head, head) {
-		ifp = if_lookup_by_name(pbr_if->name,
-					vrf_lookup_by_id(bgp->vrf_id));
+		ifp = if_lookup_by_name(pbr_if->name, bgp->vrf_id);
 		if (ifp)
 			stream_putl(s, ifp->ifindex);
 	}
@@ -2903,8 +2901,7 @@ static int bgp_pbr_get_ifnumber(struct bgp *bgp)
 	head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
 
 	RB_FOREACH (pbr_if, bgp_pbr_interface_head, head) {
-		if (if_lookup_by_name(pbr_if->name,
-				      vrf_lookup_by_id(bgp->vrf_id)))
+		if (if_lookup_by_name(pbr_if->name, bgp->vrf_id))
 			cnt++;
 	}
 	return cnt;

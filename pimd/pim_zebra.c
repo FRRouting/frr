@@ -211,12 +211,11 @@ static int pim_zebra_if_state_up(ZAPI_CALLBACK_ARGS)
 	 */
 	if (sscanf(ifp->name, "pimreg%" SCNu32, &table_id) == 1) {
 		struct vrf *vrf;
-
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((table_id == vrf->data.l.table_id)
-			    && (ifp->vrf != vrf)) {
+			    && (ifp->vrf_id != vrf->vrf_id)) {
 				struct interface *master = if_lookup_by_name(
-							     vrf->name, vrf);
+					vrf->name, vrf->vrf_id);
 
 				if (!master) {
 					zlog_debug(
@@ -291,7 +290,7 @@ static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 			   __PRETTY_FUNCTION__,
 			   ifp->name, vrf_id, new_vrf_id);
 
-	if_update_to_new_vrf(ifp, vrf_lookup_by_id(new_vrf_id));
+	if_update_to_new_vrf(ifp, new_vrf_id);
 
 	return 0;
 }

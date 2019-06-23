@@ -387,7 +387,7 @@ static int get_iflink_speed(struct interface *interface)
 	/* use ioctl to get IP address of an interface */
 	frr_elevate_privs(&zserv_privs) {
 		sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP,
-				vrf_to_id(interface->vrf),
+				interface->vrf_id,
 				NULL);
 		if (sd < 0) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
@@ -396,7 +396,7 @@ static int get_iflink_speed(struct interface *interface)
 			return 0;
 		}
 	/* Get the current link state for the interface */
-		rc = vrf_ioctl(vrf_to_id(interface->vrf), sd, SIOCETHTOOL,
+		rc = vrf_ioctl(interface->vrf_id, sd, SIOCETHTOOL,
 			       (char *)&ifdata);
 	}
 	if (rc < 0) {
@@ -598,7 +598,6 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
 	ifindex_t bond_ifindex = IFINDEX_INTERNAL;
 	struct zebra_if *zif;
-	struct vrf *vrf;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
@@ -665,8 +664,6 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		    && !vrf_is_backend_netns()) {
 			zif_slave_type = ZEBRA_IF_SLAVE_VRF;
 			vrf_id = *(uint32_t *)RTA_DATA(tb[IFLA_MASTER]);
-			/* vrf can be needed before vrf netlink discovery */
-			vrf_get(vrf_id, NULL);
 		} else if (slave_kind && (strcmp(slave_kind, "bridge") == 0)) {
 			zif_slave_type = ZEBRA_IF_SLAVE_BRIDGE;
 			bridge_ifindex =
@@ -679,13 +676,13 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	}
 	if (vrf_is_backend_netns())
 		vrf_id = (vrf_id_t)ns_id;
-	vrf = vrf_lookup_by_id(vrf_id);
+
 	/* If linking to another interface, note it. */
 	if (tb[IFLA_LINK])
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
 	/* Add interface. */
-	ifp = if_get_by_name(name, vrf);
+	ifp = if_get_by_name(name, vrf_id);
 	set_ifindex(ifp, ifi->ifi_index, zns);
 	ifp->flags = ifi->ifi_flags & 0x0000fffff;
 	ifp->mtu6 = ifp->mtu = *(uint32_t *)RTA_DATA(tb[IFLA_MTU]);
@@ -1112,7 +1109,6 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
 	uint8_t old_hw_addr[INTERFACE_HWADDR_MAX];
 	struct zebra_if *zif;
-	struct vrf *vrf;
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
@@ -1213,9 +1209,6 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		}
 		if (vrf_is_backend_netns())
 			vrf_id = (vrf_id_t)ns_id;
-
-		vrf = vrf_lookup_by_id(vrf_id);
-
 		if (ifp == NULL
 		    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 			/* Add interface notification from kernel */
@@ -1229,11 +1222,11 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 			if (ifp == NULL) {
 				/* unknown interface */
-				ifp = if_get_by_name(name, vrf);
+				ifp = if_get_by_name(name, vrf_id);
 			} else {
 				/* pre-configured interface, learnt now */
-				if (ifp->vrf != vrf)
-					if_update_to_new_vrf(ifp, vrf);
+				if (ifp->vrf_id != vrf_id)
+					if_update_to_new_vrf(ifp, vrf_id);
 			}
 
 			/* Update interface information. */
@@ -1272,16 +1265,16 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 							       bridge_ifindex);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex);
-		} else if (ifp->vrf != vrf) {
+		} else if (ifp->vrf_id != vrf_id) {
 			/* VRF change for an interface. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
 					"RTM_NEWLINK vrf-change for %s(%u) "
 					"vrf_id %u -> %u flags 0x%x",
-					name, ifp->ifindex, vrf_to_id(ifp->vrf),
-					vrf_id, ifi->ifi_flags);
+					name, ifp->ifindex, ifp->vrf_id, vrf_id,
+					ifi->ifi_flags);
 
-			if_handle_vrf_change(ifp, vrf->vrf_id);
+			if_handle_vrf_change(ifp, vrf_id);
 		} else {
 			bool was_bridge_slave, was_bond_slave;
 

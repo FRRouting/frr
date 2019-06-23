@@ -654,10 +654,9 @@ DEFUN (ospf6_interface_area,
 	struct ospf6_interface *oi;
 	struct interface *ifp;
 	uint32_t area_id;
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
 	/* find/create ospf6 interface */
-	ifp = if_get_by_name(argv[idx_ifname]->arg, vrf);
+	ifp = if_get_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);
@@ -715,8 +714,7 @@ DEFUN (no_ospf6_interface_area,
 	struct interface *ifp;
 	uint32_t area_id;
 
-	ifp = if_lookup_by_name(argv[idx_ifname]->arg,
-				vrf_lookup_by_id(VRF_DEFAULT));
+	ifp = if_lookup_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
 	if (ifp == NULL) {
 		vty_out(vty, "No such interface %s\n", argv[idx_ifname]->arg);
 		return CMD_SUCCESS;

@@ -452,11 +452,6 @@ struct ospf *ospf_lookup_by_vrf_id(vrf_id_t vrf_id)
 	vrf = vrf_lookup_by_id(vrf_id);
 	if (!vrf)
 		return NULL;
-	return ospf_lookup_by_vrf(vrf);
-}
-
-struct ospf *ospf_lookup_by_vrf(struct vrf *vrf)
-{
 	return (vrf->info) ? (struct ospf *)vrf->info : NULL;
 }
 
@@ -1352,8 +1347,8 @@ void ospf_if_update(struct ospf *ospf, struct interface *ifp)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
-			"%s: interface %s ifp->vrf->vrf_id %u ospf vrf %s vrf_id %u router_id %s",
-			__PRETTY_FUNCTION__, ifp->name, vrf_to_id(ifp->vrf),
+			"%s: interface %s ifp->vrf_id %u ospf vrf %s vrf_id %u router_id %s",
+			__PRETTY_FUNCTION__, ifp->name, ifp->vrf_id,
 			ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id,
 			inet_ntoa(ospf->router_id));
 

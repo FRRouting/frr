@@ -1461,18 +1461,12 @@ struct interface *zebra_interface_add_read(struct stream *s, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 	char ifname_tmp[INTERFACE_NAMSIZ];
-	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
 	/* Read interface name. */
 	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* Lookup/create interface by name. */
-	ifp = if_get_by_name(ifname_tmp, vrf);
-
-	/* update vrf_id of interface */
-	if (ifp->vrf->vrf_id == VRF_UNKNOWN &&
-	    vrf->vrf_id != VRF_UNKNOWN)
-		ifp->vrf = vrf;
+	ifp = if_get_by_name(ifname_tmp, vrf_id);
 
 	zebra_interface_if_set_value(s, ifp);
 
@@ -1495,8 +1489,7 @@ struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* Lookup this by interface index. */
-	ifp = if_lookup_by_name(ifname_tmp,
-				vrf_lookup_by_id(vrf_id));
+	ifp = if_lookup_by_name(ifname_tmp, vrf_id);
 	if (ifp == NULL) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "INTERFACE_STATE: Cannot find IF %s in VRF %d",
@@ -1556,8 +1549,7 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 
 	ifindex = stream_getl(s);
 
-	struct interface *ifp = if_lookup_by_index(ifindex,
-						   vrf_id);
+	struct interface *ifp = if_lookup_by_index(ifindex, vrf_id);
 
 	if (ifp == NULL) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
@@ -1853,8 +1845,7 @@ struct interface *zebra_interface_vrf_update_read(struct stream *s,
 	stream_get(ifname, s, INTERFACE_NAMSIZ);
 
 	/* Lookup interface. */
-	ifp = if_lookup_by_name(ifname,
-				vrf_lookup_by_id(vrf_id));
+	ifp = if_lookup_by_name(ifname, vrf_id);
 	if (ifp == NULL) {
 		flog_err(EC_LIB_ZAPI_ENCODE,
 			 "INTERFACE_VRF_UPDATE: Cannot find IF %s in VRF %d",
@@ -2849,12 +2840,11 @@ void zclient_interface_set_master(struct zclient *client,
 	s = client->obuf;
 	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_INTERFACE_SET_MASTER,
-			      vrf_to_id(master->vrf));
+	zclient_create_header(s, ZEBRA_INTERFACE_SET_MASTER, master->vrf_id);
 
-	stream_putl(s, vrf_to_id(master->vrf));
+	stream_putl(s, master->vrf_id);
 	stream_putl(s, master->ifindex);
-	stream_putl(s, vrf_to_id(slave->vrf));
+	stream_putl(s, slave->vrf_id);
 	stream_putl(s, slave->ifindex);
 
 	stream_putw_at(s, 0, stream_get_endp(s));

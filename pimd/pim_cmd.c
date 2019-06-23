@@ -7655,7 +7655,7 @@ DEFUN (interface_ip_mroute,
 	pim = pim_ifp->pim;
 
 	oifname = argv[idx_interface]->arg;
-	oif = if_lookup_by_name(oifname, pim->vrf);
+	oif = if_lookup_by_name(oifname, pim->vrf_id);
 	if (!oif) {
 		vty_out(vty, "No such interface name %s\n", oifname);
 		return CMD_WARNING;
@@ -7706,7 +7706,7 @@ DEFUN (interface_ip_mroute_source,
 	pim = pim_ifp->pim;
 
 	oifname = argv[idx_interface]->arg;
-	oif = if_lookup_by_name(oifname, pim->vrf);
+	oif = if_lookup_by_name(oifname, pim->vrf_id);
 	if (!oif) {
 		vty_out(vty, "No such interface name %s\n", oifname);
 		return CMD_WARNING;
@@ -7761,7 +7761,7 @@ DEFUN (interface_no_ip_mroute,
 	pim = pim_ifp->pim;
 
 	oifname = argv[idx_interface]->arg;
-	oif = if_lookup_by_name(oifname, pim->vrf);
+	oif = if_lookup_by_name(oifname, pim->vrf_id);
 	if (!oif) {
 		vty_out(vty, "No such interface name %s\n", oifname);
 		return CMD_WARNING;
@@ -7813,7 +7813,7 @@ DEFUN (interface_no_ip_mroute_source,
 	pim = pim_ifp->pim;
 
 	oifname = argv[idx_interface]->arg;
-	oif = if_lookup_by_name(oifname, pim->vrf);
+	oif = if_lookup_by_name(oifname, pim->vrf_id);
 	if (!oif) {
 		vty_out(vty, "No such interface name %s\n", oifname);
 		return CMD_WARNING;
@@ -10136,7 +10136,7 @@ DEFUN_HIDDEN (ip_pim_mlag,
 
 	idx = 3;
 	peerlink = argv[idx]->arg;
-	ifp = if_lookup_by_name(peerlink, vrf_lookup_by_id(VRF_DEFAULT));
+	ifp = if_lookup_by_name(peerlink, VRF_DEFAULT);
 	if (!ifp) {
 		vty_out(vty, "No such interface name %s\n", peerlink);
 		return CMD_WARNING;
