@@ -2358,7 +2358,7 @@ static void zvni_process_neigh_on_local_mac_change(zebra_vni_t *zvni,
 	struct zebra_vrf *zvrf = NULL;
 	char buf[ETHER_ADDR_STRLEN];
 
-	zvrf = zvrf_info_lookup(zvni->vxlan_if->vrf);
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("Processing neighbors on local MAC %s %s, VNI %u",
@@ -2617,7 +2617,7 @@ struct interface *zebra_get_vrr_intf_for_svi(struct interface *ifp)
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif = NULL;
 
-	zvrf = zvrf_info_lookup(ifp->vrf);
+	zvrf = vrf_info_lookup(ifp->vrf_id);
 	assert(zvrf);
 
 	FOR_ALL_INTERFACES (zvrf->vrf, tmp_if) {
@@ -2721,10 +2721,10 @@ static int zvni_advertise_subnet(zebra_vni_t *zvni, struct interface *ifp,
 
 		apply_mask(&p);
 		if (advertise)
-			ip_prefix_send_to_client(vrf_to_id(ifp->vrf), &p,
+			ip_prefix_send_to_client(ifp->vrf_id, &p,
 						 ZEBRA_IP_PREFIX_ROUTE_ADD);
 		else
-			ip_prefix_send_to_client(vrf_to_id(ifp->vrf), &p,
+			ip_prefix_send_to_client(ifp->vrf_id, &p,
 						 ZEBRA_IP_PREFIX_ROUTE_DEL);
 	}
 	return 0;
@@ -2843,7 +2843,7 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
 			"%u:SVI %s(%u) VNI %u, sending GW MAC %s IP %s del to BGP",
-			vrf_to_id(ifp->vrf), ifp->name, ifp->ifindex, zvni->vni,
+			ifp->vrf_id, ifp->name, ifp->ifindex, zvni->vni,
 			prefix_mac2str(&(n->emac), buf1, sizeof(buf1)),
 			ipaddr2str(ip, buf2, sizeof(buf2)));
 
@@ -3030,11 +3030,11 @@ static int zvni_local_neigh_update(zebra_vni_t *zvni,
 		}
 	}
 
-	zvrf = zvrf_info_lookup(zvni->vxlan_if->vrf);
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
 	if (!zvrf) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("\tUnable to find vrf for: %s",
-				   zvni->vxlan_if->vrf->name);
+			zlog_debug("\tUnable to find vrf for: %d",
+				   zvni->vxlan_if->vrf_id);
 		return -1;
 	}
 
@@ -4091,9 +4091,8 @@ static void zvni_build_hash_table(void)
 			vlan_if = zvni_map_to_svi(vxl->access_vlan,
 						  zif->brslave_info.br_if);
 			if (vlan_if) {
-				zvni->vrf_id = vrf_to_id(vlan_if->vrf);
-				zl3vni = zl3vni_from_vrf(
-						vrf_to_id(vlan_if->vrf));
+				zvni->vrf_id = vlan_if->vrf_id;
+				zl3vni = zl3vni_from_vrf(vlan_if->vrf_id);
 				if (zl3vni)
 					listnode_add_sort(zl3vni->l2vnis, zvni);
 			}
@@ -5258,7 +5257,7 @@ static void process_remote_macip_add(vni_t vni,
 		return;
 	}
 
-	zvrf = zvrf_info_lookup(zvni->vxlan_if->vrf);
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
 	if (!zvrf)
 		return;
 
@@ -5586,7 +5585,7 @@ static void process_remote_macip_del(vni_t vni,
 	if (!mac && !n)
 		return;
 
-	zvrf = zvrf_info_lookup(zvni->vxlan_if->vrf);
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
 
 	/* Ignore the delete if this mac is a gateway mac-ip */
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)
@@ -7273,7 +7272,7 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 		return 0;
 	}
 
-	zvrf = zvrf_info_lookup(zvni->vxlan_if->vrf);
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
 	if (!zvrf) {
 		zlog_debug("%s: VNI %u vrf lookup failed.",
 				   __PRETTY_FUNCTION__, zvni->vni);
@@ -7696,11 +7695,11 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 		return -1;
 	}
 
-	zvrf = zvrf_info_lookup(zvni->vxlan_if->vrf);
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
 	if (!zvrf) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("\tNo Vrf found for vrf_id: %s",
-				   zvni->vxlan_if->vrf->name);
+			zlog_debug("\tNo Vrf found for vrf_id: %d",
+				   zvni->vxlan_if->vrf_id);
 		return -1;
 	}
 
@@ -8232,10 +8231,10 @@ int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if)
 			zlog_debug(
 				"SVI %s(%u) VNI %u VRF %s is UP, installing neighbors",
 				ifp->name, ifp->ifindex, zvni->vni,
-				vrf_to_name(ifp->vrf));
+				vrf_id_to_name(ifp->vrf_id));
 
 		/* update the vrf information for l2-vni and inform bgp */
-		zvni->vrf_id = vrf_to_id(ifp->vrf);
+		zvni->vrf_id = ifp->vrf_id;
 		zvni_send_add_to_client(zvni);
 
 		/* Install any remote neighbors for this VNI. */
@@ -8361,8 +8360,8 @@ int zebra_vxlan_if_up(struct interface *ifp)
 		vlan_if = zvni_map_to_svi(vxl->access_vlan,
 					  zif->brslave_info.br_if);
 		if (vlan_if) {
-			zvni->vrf_id = vrf_to_id(vlan_if->vrf);
-			zl3vni = zl3vni_from_vrf(vrf_to_id(vlan_if->vrf));
+			zvni->vrf_id = vlan_if->vrf_id;
+			zl3vni = zl3vni_from_vrf(vlan_if->vrf_id);
 			if (zl3vni)
 				listnode_add_sort(zl3vni->l2vnis, zvni);
 		}
@@ -8690,8 +8689,8 @@ int zebra_vxlan_if_add(struct interface *ifp)
 		vlan_if = zvni_map_to_svi(vxl->access_vlan,
 					  zif->brslave_info.br_if);
 		if (vlan_if) {
-			zvni->vrf_id = vrf_to_id(vlan_if->vrf);
-			zl3vni = zl3vni_from_vrf(vrf_to_id(vlan_if->vrf));
+			zvni->vrf_id = vlan_if->vrf_id;
+			zl3vni = zl3vni_from_vrf(vlan_if->vrf_id);
 			if (zl3vni)
 				listnode_add_sort(zl3vni->l2vnis, zvni);
 		}
@@ -8708,7 +8707,7 @@ int zebra_vxlan_if_add(struct interface *ifp)
 			zlog_debug(
 				"Add L2-VNI %u VRF %s intf %s(%u) VLAN %u local IP %s mcast_grp %s master %u",
 				vni,
-				vlan_if ? vrf_to_name(vlan_if->vrf)
+				vlan_if ? vrf_id_to_name(vlan_if->vrf_id)
 					: VRF_DEFAULT_NAME,
 				ifp->name, ifp->ifindex, vxl->access_vlan,
 				addr_buf1, addr_buf2,

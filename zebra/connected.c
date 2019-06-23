@@ -207,16 +207,16 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
-		.vrf_id = vrf_to_id(ifp->vrf),
+		.vrf_id = ifp->vrf_id,
 	};
 	struct zebra_vrf *zvrf;
 	uint32_t metric;
 
-	zvrf = zebra_vrf_lookup_by_id(ifp->vrf->vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 	if (!zvrf) {
 		flog_err(EC_ZEBRA_VRF_NOT_FOUND,
 			 "%s: Received Up for interface but no associated zvrf: %d",
-			 __PRETTY_FUNCTION__, ifp->vrf->vrf_id);
+			 __PRETTY_FUNCTION__, ifp->vrf_id);
 		return;
 	}
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
@@ -265,7 +265,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 
 		zlog_debug(
 			"%u: IF %s address %s add/up, scheduling RIB processing",
-			vrf_to_id(ifp->vrf), ifp->name,
+			ifp->vrf_id, ifp->name,
 			prefix2str(&p, buf, sizeof(buf)));
 	}
 	rib_update(zvrf->vrf->vrf_id, RIB_UPDATE_IF_CHANGE);
@@ -383,15 +383,15 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
-		.vrf_id = vrf_to_id(ifp->vrf),
+		.vrf_id = ifp->vrf_id,
 	};
 	struct zebra_vrf *zvrf;
 
-	zvrf = zebra_vrf_lookup_by_id(ifp->vrf->vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 	if (!zvrf) {
 		flog_err(EC_ZEBRA_VRF_NOT_FOUND,
 			 "%s: Received Up for interface but no associated zvrf: %d",
-			 __PRETTY_FUNCTION__, ifp->vrf->vrf_id);
+			 __PRETTY_FUNCTION__, ifp->vrf_id);
 		return;
 	}
 
@@ -473,22 +473,22 @@ static void connected_delete_helper(struct connected *ifc, struct prefix *p)
 
 		zlog_debug(
 			"%u: IF %s IP %s address del, scheduling RIB processing",
-			vrf_to_id(ifp->vrf), ifp->name,
+			ifp->vrf_id, ifp->name,
 			prefix2str(p, buf, sizeof(buf)));
 	}
-	rib_update(vrf_to_id(ifp->vrf), RIB_UPDATE_IF_CHANGE);
+	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
-	if (vrf_to_id(ifp->vrf) == VRF_DEFAULT) {
+	if (ifp->vrf_id == VRF_DEFAULT) {
 		if (IS_ZEBRA_DEBUG_MPLS) {
 			char buf[PREFIX_STRLEN];
 
 			zlog_debug(
 				"%u: IF %s IP %s address delete, scheduling MPLS processing",
-				vrf_to_id(ifp->vrf), ifp->name,
+				ifp->vrf_id, ifp->name,
 				prefix2str(p, buf, sizeof(buf)));
 		}
-		mpls_mark_lsps_for_processing(zvrf_info_lookup(ifp->vrf), p);
+		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id), p);
 	}
 }
 

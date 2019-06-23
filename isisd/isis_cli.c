@@ -97,7 +97,8 @@ DEFPY(no_router_isis, no_router_isis_cmd, "no router isis WORD$tag",
 			/* add callbacks to delete each of the circuits listed
 			 */
 			const char *vrf_name =
-				circuit->interface->vrf->name;
+				vrf_lookup_by_id(circuit->interface->vrf_id)
+					->name;
 			snprintf(
 				temp_xpath, XPATH_MAXLEN,
 				"/frr-interface:lib/interface[name='%s'][vrf='%s']/frr-isisd:isis",
