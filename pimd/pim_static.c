@@ -92,7 +92,7 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 		return -4;
 	}
 #endif
-	if (iif->vrf != oif->vrf) {
+	if (iif->vrf_id != oif->vrf_id) {
 		return -3;
 	}
 

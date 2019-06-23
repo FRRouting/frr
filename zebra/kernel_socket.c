@@ -435,7 +435,6 @@ static void rtm_flag_dump(int flag)
 static int ifan_read(struct if_announcemsghdr *ifan)
 {
 	struct interface *ifp;
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
 	ifp = if_lookup_by_index(ifan->ifan_index, VRF_DEFAULT);
 
@@ -451,7 +450,7 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 				__func__, ifan->ifan_index, ifan->ifan_name);
 
 		/* Create Interface */
-		ifp = if_get_by_name(ifan->ifan_name, vrf);
+		ifp = if_get_by_name(ifan->ifan_name, VRF_DEFAULT);
 		if_set_index(ifp, ifan->ifan_index);
 
 		if_get_metric(ifp);
@@ -530,7 +529,6 @@ int ifm_read(struct if_msghdr *ifm)
 	int maskbit;
 	caddr_t cp;
 	char fbuf[64];
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
 	/* terminate ifname at head (for strnlen) and tail (for safety) */
 	ifname[IFNAMSIZ - 1] = '\0';
@@ -616,7 +614,7 @@ int ifm_read(struct if_msghdr *ifm)
 	 * be filled in.
 	 */
 	if ((ifp == NULL) && ifnlen)
-		ifp = if_lookup_by_name(ifname, vrf);
+		ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
 
 	/*
 	 * If ifp still does not exist or has an invalid index
@@ -645,7 +643,7 @@ int ifm_read(struct if_msghdr *ifm)
 		if (ifp == NULL) {
 			/* Interface that zebra was not previously aware of, so
 			 * create. */
-			ifp = if_create(ifname, vrf);
+			ifp = if_create(ifname, VRF_DEFAULT);
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug("%s: creating ifp for ifindex %d",
 					   __func__, ifm->ifm_index);
