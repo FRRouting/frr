@@ -20,6 +20,8 @@
  * 02110-1301 USA.
  */
 
+#include <zebra.h>
+
 #include "lib/log.h"
 #include "lib/northbound.h"
 
