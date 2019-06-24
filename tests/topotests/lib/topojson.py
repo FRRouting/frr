@@ -18,15 +18,20 @@
 # OF THIS SOFTWARE.
 #
 
-
+from collections import OrderedDict
 from json import dumps as json_dumps
 import ipaddr
+import pytest
 
 # Import topogen and topotest helpers
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from lib.common_config import (number_to_row, number_to_column)
+from lib.common_config import (
+    number_to_row, number_to_column,
+    load_config_to_router,
+    create_interfaces_cfg
+)
 
 
 def build_topo_from_json(tgen, topo):
@@ -149,3 +154,31 @@ def build_topo_from_json(tgen, topo):
             logger.debug("Generated link data for router: %s\n%s", curRouter,
                          json_dumps(topo["routers"][curRouter]["links"],
                                     indent=4, sort_keys=True)
+
+def build_config_from_json(tgen, topo, save_bkup=True):
+    """
+    Reads initial configuraiton from JSON for each router, builds
+    configuration and loads its to router.
+
+    * `tgen`: Topogen object
+    * `topo`: json file data
+    """
+
+    func_dict = OrderedDict([
+        ("links", create_interfaces_cfg),
+    ])
+
+    data = topo["routers"]
+    for func_type in func_dict.keys():
+        logger.info('Building configuration for {}'.format(func_type))
+
+        func_dict.get(func_type)(tgen, data, build=True)
+
+    for router in sorted(topo['routers'].keys()):
+        logger.info('Configuring router {}...'.format(router))
+
+        result = load_config_to_router(tgen, router, save_bkup)
+        if not result:
+            logger.info("Failed while configuring {}".format(router))
+            pytest.exit(1)
+
