@@ -192,6 +192,7 @@ pkginclude_HEADERS += \
 	lib/network.h \
 	lib/nexthop.h \
 	lib/nexthop_group.h \
+	lib/nexthop_group_private.h \
 	lib/northbound.h \
 	lib/northbound_cli.h \
 	lib/northbound_db.h \
