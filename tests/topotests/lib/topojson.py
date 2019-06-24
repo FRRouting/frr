@@ -33,6 +33,7 @@ from lib.common_config import (
     create_interfaces_cfg,
     create_static_routes,
     create_prefix_lists,
+    create_route_maps,
 )
 
 from lib.bgp import create_router_bgp
@@ -172,6 +173,7 @@ def build_config_from_json(tgen, topo, save_bkup=True):
         ("links", create_interfaces_cfg),
         ("static_routes", create_static_routes),
         ("prefix_lists", create_prefix_lists),
+        ("route_maps", create_route_maps),
         ("bgp", create_router_bgp)
     ])
 
