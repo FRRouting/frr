@@ -112,6 +112,7 @@ def create_common_configuration(tgen, router, data, config_type=None,
     config_map = OrderedDict({
         "general_config": "! FRR General Config\n",
         "interface_config": "! Interfaces Config\n",
+        "static_route": "! Static Route Config\n",
         "bgp": "! BGP Config\n"
     })
 
@@ -485,3 +486,103 @@ def create_interfaces_cfg(tgen, topo, build=False):
 
     return result
 
+
+def create_static_routes(tgen, input_dict, build=False):
+    """
+    Create static routes for given router as defined in input_dict
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `input_dict` : Input dict data, required when configuring from testcase
+    * `build` : Only for initial setup phase this is set as True.
+
+    Usage
+    -----
+    input_dict should be in the format below:
+    # static_routes: list of all routes
+    # network: network address
+    # no_of_ip: number of next-hop address that will be configured
+    # admin_distance: admin distance for route/routes.
+    # next_hop: starting next-hop address
+    # tag: tag id for static routes
+    # delete: True if config to be removed. Default False.
+
+    Example:
+    "routers": {
+        "r1": {
+            "static_routes": [
+                {
+                    "network": "100.0.20.1/32",
+                    "no_of_ip": 9,
+                    "admin_distance": 100,
+                    "next_hop": "10.0.0.1",
+                    "tag": 4001
+                    "delete": true
+                }
+            ]
+        }
+    }
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+    result = False
+    logger.debug("Entering lib API: create_static_routes()")
+    try:
+        for router in input_dict.keys():
+            if "static_routes" not in input_dict[router]:
+                errormsg = "static_routes not present in input_dict"
+                logger.info(errormsg)
+                continue
+
+            static_routes_list = []
+
+            static_routes = input_dict[router]["static_routes"]
+            for static_route in static_routes:
+                del_action = static_route.setdefault("delete", False)
+                # No of IPs
+                no_of_ip = static_route.setdefault("no_of_ip", 1)
+                admin_distance = static_route.setdefault("admin_distance",
+                                                         None)
+                tag = static_route.setdefault("tag", None)
+                if "next_hop" not in static_route or \
+                        "network" not in static_route:
+                    errormsg = "'next_hop' or 'network' missing in" \
+                               " input_dict"
+                    return errormsg
+
+                next_hop = static_route["next_hop"]
+                network = static_route["network"]
+                ip_list = generate_ips([network], no_of_ip)
+                for ip in ip_list:
+                    addr_type = validate_ip_address(ip)
+                    if addr_type == "ipv4":
+                        cmd = "ip route {} {}".format(ip, next_hop)
+                    else:
+                        cmd = "ipv6 route {} {}".format(ip, next_hop)
+
+                    if tag:
+                        cmd = "{} {}".format(cmd, str(tag))
+                    if admin_distance:
+                        cmd = "{} {}".format(cmd, admin_distance)
+
+                    if del_action:
+                        cmd = "no {}".format(cmd)
+
+                    static_routes_list.append(cmd)
+
+            result = create_common_configuration(tgen, router,
+                                                 static_routes_list,
+                                                 "static_route",
+                                                 build=build)
+
+    except InvalidCLIError:
+        # Traceback
+        errormsg = traceback.format_exc()
+        logger.error(errormsg)
+        return errormsg
+
+    logger.debug("Exiting lib API: create_static_routes()")
+    return result

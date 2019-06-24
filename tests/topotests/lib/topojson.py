@@ -30,7 +30,8 @@ from lib.topolog import logger
 from lib.common_config import (
     number_to_row, number_to_column,
     load_config_to_router,
-    create_interfaces_cfg
+    create_interfaces_cfg,
+    create_static_routes
 )
 
 from lib.bgp import create_router_bgp
@@ -168,6 +169,7 @@ def build_config_from_json(tgen, topo, save_bkup=True):
 
     func_dict = OrderedDict([
         ("links", create_interfaces_cfg),
+        ("static_routes", create_static_routes),
         ("bgp", create_router_bgp)
     ])
 
