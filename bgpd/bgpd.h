@@ -47,6 +47,9 @@
 /* Default interval for IPv6 RAs when triggered by BGP unnumbered neighbor. */
 #define BGP_UNNUM_DEFAULT_RA_INTERVAL 10
 
+/* Default interval for eBGP multihop TTL. */
+#define BGP_DEFAULT_TTL 1
+
 struct update_subgroup;
 struct bpacket;
 struct bgp_pbr_config;

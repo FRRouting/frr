@@ -2431,8 +2431,13 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_LOCAL_AS))
 		peer->change_local_as = conf->change_local_as;
 
-	/* TTL */
-	peer->ttl = conf->ttl;
+	/* TTL ... Retain the Peer's TTL if it is not configured in the peer group.  It'll be over-ridden later. */
+	if ((conf->ttl == BGP_DEFAULT_TTL) && (peer->ttl != BGP_DEFAULT_TTL)) {
+		/* Do Nothing */
+ 	}
+	else {
+ 		peer->ttl = conf->ttl;
+	}
 
 	/* GTSM hops */
 	peer->gtsm_hops = conf->gtsm_hops;
