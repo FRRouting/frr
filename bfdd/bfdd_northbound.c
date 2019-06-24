@@ -72,12 +72,6 @@ int bfd_session_create(enum nb_event event, const struct lyd_node *dnode,
 
 	switch (event) {
 	case NB_EV_VALIDATE:
-		bfd_session_get_key(mhop, dnode, &bk);
-		bs = bfd_key_lookup(bk);
-
-		/* This session was already configured by CLI. */
-		if (bs != NULL && BFD_CHECK_FLAG(bs->flags, BFD_SESS_FLAG_CONFIG))
-			return NB_ERR_VALIDATION;
 		break;
 
 	case NB_EV_PREPARE:
@@ -142,7 +136,7 @@ int bfd_session_destroy(enum nb_event event, const struct lyd_node *dnode,
 	case NB_EV_VALIDATE:
 		bfd_session_get_key(mhop, dnode, &bk);
 		if (bfd_key_lookup(bk) == NULL)
-			return NB_ERR_VALIDATION;
+			return NB_ERR_INCONSISTENCY;
 		break;
 
 	case NB_EV_PREPARE:
@@ -296,8 +290,6 @@ static int bfdd_bfd_sessions_single_hop_detection_multiplier_modify(
 
 	switch (event) {
 	case NB_EV_VALIDATE:
-		if (detection_multiplier == 1)
-			return NB_ERR_VALIDATION;
 		break;
 
 	case NB_EV_PREPARE:
