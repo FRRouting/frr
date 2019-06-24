@@ -23,6 +23,8 @@ from datetime import datetime
 import os
 import ConfigParser
 import traceback
+import socket
+import ipaddr
 
 from lib.topolog import logger, logger_config
 from lib.topogen import TopoRouter
@@ -73,6 +75,9 @@ if config.has_option("topogen", "show_router_config"):
     show_router_config = config.get("topogen", "show_router_config")
 else:
     show_router_config = False
+
+# env variable for setting what address type to test
+ADDRESS_TYPES = os.environ.get("ADDRESS_TYPES")
 
 
 class InvalidCLIError(Exception):
@@ -269,6 +274,111 @@ def number_to_column(routerName):
     z23 = column 26 etc
     """
     return ord(routerName[0]) - 97
+
+
+#############################################
+# Common APIs, will be used by all protocols
+#############################################
+
+def validate_ip_address(ip_address):
+    """
+    Validates the type of ip address
+
+    Parameters
+    ----------
+    * `ip_address`: IPv4/IPv6 address
+
+    Returns
+    -------
+    Type of address as string
+    """
+
+    if "/" in ip_address:
+        ip_address = ip_address.split("/")[0]
+
+    v4 = True
+    v6 = True
+    try:
+        socket.inet_aton(ip_address)
+    except socket.error as error:
+        logger.debug("Not a valid IPv4 address")
+        v4 = False
+    else:
+        return "ipv4"
+
+    try:
+        socket.inet_pton(socket.AF_INET6, ip_address)
+    except socket.error as error:
+        logger.debug("Not a valid IPv6 address")
+        v6 = False
+    else:
+        return "ipv6"
+
+    if not v4 and not v6:
+        raise Exception("InvalidIpAddr", "%s is neither valid IPv4 or IPv6"
+                                         " address" % ip_address)
+
+
+def check_address_types(addr_type):
+    """
+    Checks environment variable set and compares with the current address type
+    """
+    global ADDRESS_TYPES
+    if ADDRESS_TYPES is None:
+        ADDRESS_TYPES = "dual"
+
+    if ADDRESS_TYPES == "dual":
+        ADDRESS_TYPES = ["ipv4", "ipv6"]
+    elif ADDRESS_TYPES == "ipv4":
+        ADDRESS_TYPES = ["ipv4"]
+    elif ADDRESS_TYPES == "ipv6":
+        ADDRESS_TYPES = ["ipv6"]
+
+    if addr_type not in ADDRESS_TYPES:
+        logger.error("{} not in supported/configured address types {}".
+                     format(addr_type, ADDRESS_TYPES))
+        return False
+
+    return ADDRESS_TYPES
+
+
+def generate_ips(network, no_of_ips):
+    """
+    Returns list of IPs.
+    based on start_ip and no_of_ips
+
+    * `network`  : from here the ip will start generating, start_ip will be
+                    first ip
+    * `no_of_ips` : these many IPs will be generated
+
+    Limitation: It will generate IPs only for ip_mask 32
+
+    """
+    ipaddress_list = []
+    if type(network) is not list:
+        network = [network]
+
+    for start_ipaddr in network:
+        if "/" in start_ipaddr:
+            start_ip = start_ipaddr.split("/")[0]
+            mask = int(start_ipaddr.split("/")[1])
+
+        addr_type = validate_ip_address(start_ip)
+        if addr_type == "ipv4":
+            start_ip = ipaddr.IPv4Address(unicode(start_ip))
+            step = 2 ** (32 - mask)
+        if addr_type == "ipv6":
+            start_ip = ipaddr.IPv6Address(unicode(start_ip))
+            step = 2 ** (128 - mask)
+
+        next_ip = start_ip
+        count = 0
+        while count < no_of_ips:
+            ipaddress_list.append("{}/{}".format(next_ip, mask))
+            next_ip += step
+            count += 1
+
+    return ipaddress_list
 
 
 #############################################
