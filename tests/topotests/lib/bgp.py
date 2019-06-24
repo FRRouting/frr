@@ -31,7 +31,8 @@ from lib.common_config import (create_common_configuration,
                                InvalidCLIError,
                                load_config_to_router,
                                check_address_types,
-                               generate_ips)
+                               generate_ips,
+                               find_interface_with_greater_ip)
 
 BGP_CONVERGENCE_TIMEOUT = 10
 
@@ -525,4 +526,171 @@ def __create_bgp_unicast_address_family(topo, input_dict, router, addr_type):
                         config_data.append(cmd)
 
     return config_data
+
+
+#############################################
+# Verification APIs
+#############################################
+def verify_router_id(tgen, topo, input_dict):
+    """
+    Running command "show ip bgp json" for DUT and reading router-id
+    from input_dict and verifying with command output.
+    1. Statically modfified router-id should take place
+    2. When static router-id is deleted highest loopback should
+       become router-id
+    3. When loopback intf is down then highest physcial intf
+       should become router-id
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `topo`: input json file data
+    * `input_dict`: input dictionary, have details of Device Under Test, for
+                    which user wants to test the data
+    Usage
+    -----
+    # Verify if router-id for r1 is 12.12.12.12
+    input_dict = {
+        "r1":{
+            "router_id": "12.12.12.12"
+        }
+    # Verify that router-id for r1 is highest interface ip
+    input_dict = {
+        "routers": ["r1"]
+    }
+    result = verify_router_id(tgen, topo, input_dict)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.info("Entering lib API: verify_router_id()")
+    for router in input_dict.keys():
+        if router not in tgen.routers():
+            continue
+
+        rnode = tgen.routers()[router]
+
+        del_router_id = input_dict[router]["bgp"].setdefault(
+            "del_router_id", False)
+
+        logger.info("Checking router %s router-id", router)
+        show_bgp_json = rnode.vtysh_cmd("show ip bgp json",
+                                        isjson=True)
+        router_id_out = show_bgp_json["routerId"]
+        router_id_out = ipaddr.IPv4Address(unicode(router_id_out))
+
+        # Once router-id is deleted, highest interface ip should become
+        # router-id
+        if del_router_id:
+            router_id = find_interface_with_greater_ip(topo, router)
+        else:
+            router_id = input_dict[router]["bgp"]["router_id"]
+        router_id = ipaddr.IPv4Address(unicode(router_id))
+
+        if router_id == router_id_out:
+            logger.info("Found expected router-id %s for router %s",
+                        router_id, router)
+        else:
+            errormsg = "Router-id for router:{} mismatch, expected:" \
+                       " {} but found:{}".format(router, router_id,
+                                                 router_id_out)
+            return errormsg
+
+    logger.info("Exiting lib API: verify_router_id()")
+    return True
+
+
+def verify_bgp_convergence(tgen, topo):
+    """
+    API will verify if BGP is converged with in the given time frame.
+    Running "show bgp summary json" command and verify bgp neighbor
+    state is established,
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `topo`: input json file data
+    * `addr_type`: ip_type, ipv4/ipv6
+
+    Usage
+    -----
+    # To veriry is BGP is converged for all the routers used in
+    topology
+    results = verify_bgp_convergence(tgen, topo, "ipv4")
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.info("Entering lib API: verify_bgp_confergence()")
+    for router, rnode in tgen.routers().iteritems():
+        logger.info("Verifying BGP Convergence on router %s:", router)
+
+        for retry in range(1, 11):
+            show_bgp_json = rnode.vtysh_cmd("show bgp summary json",
+                                            isjson=True)
+            # Verifying output dictionary show_bgp_json is empty or not
+            if not bool(show_bgp_json):
+                errormsg = "BGP is not running"
+                return errormsg
+
+            # To find neighbor ip type
+            total_peer = 0
+
+            bgp_addr_type = topo["routers"][router]["bgp"]["address_family"]
+            for addr_type in bgp_addr_type.keys():
+                if not check_address_types(addr_type):
+                    continue
+
+                bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
+
+                for bgp_neighbor in bgp_neighbors:
+                    total_peer += len(bgp_neighbors[bgp_neighbor]["dest_link"])
+
+            for addr_type in bgp_addr_type.keys():
+                bgp_neighbors = bgp_addr_type[addr_type]["unicast"]["neighbor"]
+
+                no_of_peer = 0
+                for bgp_neighbor, peer_data in bgp_neighbors.iteritems():
+                    for dest_link in peer_data["dest_link"].keys():
+                        data = topo["routers"][bgp_neighbor]["links"]
+                        if dest_link in data:
+                            neighbor_ip = \
+                                data[dest_link][addr_type].split("/")[0]
+                            if addr_type == "ipv4":
+                                ipv4_data = show_bgp_json["ipv4Unicast"][
+                                    "peers"]
+                                nh_state = ipv4_data[neighbor_ip]["state"]
+                            else:
+                                ipv6_data = show_bgp_json["ipv6Unicast"][
+                                    "peers"]
+                                nh_state = ipv6_data[neighbor_ip]["state"]
+
+                            if nh_state == "Established":
+                                no_of_peer += 1
+            if no_of_peer == total_peer:
+                logger.info("BGP is Converged for router %s", router)
+                break
+            else:
+                logger.warning("BGP is not yet Converged for router %s",
+                               router)
+                sleeptime = 2 * retry
+                if sleeptime <= BGP_CONVERGENCE_TIMEOUT:
+                    # Waiting for BGP to converge
+                    logger.info("Waiting for %s sec for BGP to converge on"
+                                " router %s...", sleeptime, router)
+                    sleep(sleeptime)
+                else:
+                    show_bgp_summary = rnode.vtysh_cmd("show bgp summary")
+                    errormsg = "TIMEOUT!! BGP is not converged in {} " \
+                               "seconds  for router {} \n {}".format(
+                                   BGP_CONVERGENCE_TIMEOUT, router,
+                                   show_bgp_summary)
+                    return errormsg
+
+    logger.info("Exiting API: verify_bgp_confergence()")
+    return True
 

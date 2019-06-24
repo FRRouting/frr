@@ -33,6 +33,7 @@ from lib.common_config import (
     create_interfaces_cfg
 )
 
+from lib.bgp import create_router_bgp
 
 def build_topo_from_json(tgen, topo):
     """
@@ -153,7 +154,8 @@ def build_topo_from_json(tgen, topo):
 
             logger.debug("Generated link data for router: %s\n%s", curRouter,
                          json_dumps(topo["routers"][curRouter]["links"],
-                                    indent=4, sort_keys=True)
+                                    indent=4, sort_keys=True))
+
 
 def build_config_from_json(tgen, topo, save_bkup=True):
     """
@@ -166,6 +168,7 @@ def build_config_from_json(tgen, topo, save_bkup=True):
 
     func_dict = OrderedDict([
         ("links", create_interfaces_cfg),
+        ("bgp", create_router_bgp)
     ])
 
     data = topo["routers"]
