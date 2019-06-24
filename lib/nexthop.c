@@ -442,6 +442,15 @@ void nexthop_copy(struct nexthop *copy, const struct nexthop *nexthop,
 				   &nexthop->nh_label->label[0]);
 }
 
+struct nexthop *nexthop_dup(const struct nexthop *nexthop,
+			    struct nexthop *rparent)
+{
+	struct nexthop *new = nexthop_new();
+
+	nexthop_copy(new, nexthop, rparent);
+	return new;
+}
+
 /*
  * nexthop printing variants:
  *	%pNHvv
