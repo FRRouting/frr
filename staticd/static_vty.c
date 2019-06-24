@@ -425,24 +425,18 @@ static int static_route_leak(
 	if (table_str)
 		table_id = atol(table_str);
 
-	/* Null0 static route.  */
-	if (ifname != NULL) {
-		if (strncasecmp(ifname, "Null0", strlen(ifname)) == 0
-		    || strncasecmp(ifname, "reject", strlen(ifname)) == 0
-		    || strncasecmp(ifname, "blackhole", strlen(ifname)) == 0) {
-			if (vty)
-				vty_out(vty,
-					"%% Nexthop interface cannot be Null0, reject or blackhole\n");
-			else
-				zlog_warn(
-					"%s: Nexthop interface cannot be Null0, reject or blackhole for %s",
-					__PRETTY_FUNCTION__, dest_str);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-
 	/* Route flags */
 	if (flag_str) {
+		if (strncmp(flag_str, "NULL0", strlen(flag_str)) == 0 ||
+		    strncmp(flag_str, "null0", strlen(flag_str)) == 0) {
+			if (vty)
+				vty_out(vty,
+					"%%Specifying %s is deprecated and will be removed in a future release, please use Null0",
+					flag_str);
+			zlog_info("Specifying %s is deprecated as part of a static route command, please use Null0",
+				  flag_str);
+		}
+
 		switch (flag_str[0]) {
 		case 'r':
 			bh_type = STATIC_BLACKHOLE_REJECT;
@@ -451,6 +445,7 @@ static int static_route_leak(
 			bh_type = STATIC_BLACKHOLE_DROP;
 			break;
 		case 'N':
+		case 'n':
 			bh_type = STATIC_BLACKHOLE_NULL;
 			break;
 		default:
@@ -735,12 +730,16 @@ DEFPY (ip_mroute_dist,
 			    distance_str, NULL, NULL, NULL);
 }
 
+#define NULL_HELP_STR  "Null Interface\n"				\
+	"Null Interface(to allow for various spellings)\n"		\
+	"Null Interface(to allow for various spellings)\n"
+
 /* Static route configuration.  */
 DEFPY(ip_route_blackhole,
       ip_route_blackhole_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask>                        \
-	<reject|blackhole>$flag                                               \
+	<reject|blackhole|Null0|null0|NULL0>$flag                             \
 	[{                                                                    \
 	  tag (1-4294967295)                                                  \
 	  |(1-255)$distance                                                   \
@@ -755,6 +754,7 @@ DEFPY(ip_route_blackhole,
       "IP destination prefix mask\n"
       "Emit an ICMP unreachable when matched\n"
       "Silently discard pkts when matched\n"
+      NULL_HELP_STR
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
@@ -778,7 +778,7 @@ DEFPY(ip_route_blackhole_vrf,
       ip_route_blackhole_vrf_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask>                        \
-	<reject|blackhole>$flag                                               \
+	<reject|blackhole|Null0|null0|NULL0>$flag                             \
 	[{                                                                    \
 	  tag (1-4294967295)                                                  \
 	  |(1-255)$distance                                                   \
@@ -792,6 +792,7 @@ DEFPY(ip_route_blackhole_vrf,
       "IP destination prefix mask\n"
       "Emit an ICMP unreachable when matched\n"
       "Silently discard pkts when matched\n"
+      NULL_HELP_STR
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
@@ -825,7 +826,7 @@ DEFPY(ip_route_address_interface,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
 	A.B.C.D$gate                                   \
-	<INTERFACE|Null0>$ifname                       \
+	<INTERFACE>$ifname                             \
 	[{                                             \
 	  tag (1-4294967295)                           \
 	  |(1-255)$distance                            \
@@ -842,7 +843,6 @@ DEFPY(ip_route_address_interface,
       "IP destination prefix mask\n"
       "IP gateway address\n"
       "IP gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
@@ -855,12 +855,6 @@ DEFPY(ip_route_address_interface,
 {
 	struct static_vrf *svrf;
 	struct static_vrf *nh_svrf;
-	const char *flag = NULL;
-
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
 
 	svrf = static_vty_get_unknown_vrf(vty, vrf);
 	if (!svrf) {
@@ -885,7 +879,7 @@ DEFPY(ip_route_address_interface,
 	}
 
 	return static_route_leak(vty, svrf, nh_svrf, AFI_IP, SAFI_UNICAST, no,
-				 prefix, mask_str, NULL, gate_str, ifname, flag,
+				 prefix, mask_str, NULL, gate_str, ifname, NULL,
 				 tag_str, distance_str, label, table_str,
 				 !!onlink);
 }
@@ -895,7 +889,7 @@ DEFPY(ip_route_address_interface_vrf,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
 	A.B.C.D$gate                                   \
-	<INTERFACE|Null0>$ifname                       \
+	<INTERFACE>$ifname                             \
 	[{                                             \
 	  tag (1-4294967295)                           \
 	  |(1-255)$distance                            \
@@ -911,7 +905,6 @@ DEFPY(ip_route_address_interface_vrf,
       "IP destination prefix mask\n"
       "IP gateway address\n"
       "IP gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
@@ -922,7 +915,6 @@ DEFPY(ip_route_address_interface_vrf,
       "Treat the nexthop as directly attached to the interface")
 {
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
-	const char *flag = NULL;
 	struct static_vrf *svrf = vrf->info;
 	struct static_vrf *nh_svrf;
 
@@ -930,11 +922,6 @@ DEFPY(ip_route_address_interface_vrf,
 		vty_out(vty,
 			"%% table param only available when running on netns-based vrfs\n");
 		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
 	}
 
 	if (nexthop_vrf)
@@ -948,7 +935,7 @@ DEFPY(ip_route_address_interface_vrf,
 	}
 
 	return static_route_leak(vty, svrf, nh_svrf, AFI_IP, SAFI_UNICAST, no,
-				 prefix, mask_str, NULL, gate_str, ifname, flag,
+				 prefix, mask_str, NULL, gate_str, ifname, NULL,
 				 tag_str, distance_str, label, table_str,
 				 !!onlink);
 }
@@ -957,7 +944,7 @@ DEFPY(ip_route,
       ip_route_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
-	<A.B.C.D$gate|<INTERFACE|Null0>$ifname>        \
+	<A.B.C.D$gate|<INTERFACE>$ifname>              \
 	[{                                             \
 	  tag (1-4294967295)                           \
 	  |(1-255)$distance                            \
@@ -973,7 +960,6 @@ DEFPY(ip_route,
       "IP destination prefix mask\n"
       "IP gateway address\n"
       "IP gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
@@ -985,17 +971,11 @@ DEFPY(ip_route,
 {
 	struct static_vrf *svrf;
 	struct static_vrf *nh_svrf;
-	const char *flag = NULL;
 
 	if (table_str && vrf && !vrf_is_backend_netns()) {
 		vty_out(vty,
 			"%% table param only available when running on netns-based vrfs\n");
 		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
 	}
 
 	svrf = static_vty_get_unknown_vrf(vty, vrf);
@@ -1016,7 +996,7 @@ DEFPY(ip_route,
 
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP, SAFI_UNICAST, no, prefix, mask_str,
-		NULL, gate_str, ifname, flag, tag_str, distance_str, label,
+		NULL, gate_str, ifname, NULL, tag_str, distance_str, label,
 		table_str, false);
 }
 
@@ -1024,7 +1004,7 @@ DEFPY(ip_route_vrf,
       ip_route_vrf_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
-	<A.B.C.D$gate|<INTERFACE|Null0>$ifname>        \
+	<A.B.C.D$gate|<INTERFACE>$ifname>              \
 	[{                                             \
 	  tag (1-4294967295)                           \
 	  |(1-255)$distance                            \
@@ -1039,7 +1019,6 @@ DEFPY(ip_route_vrf,
       "IP destination prefix mask\n"
       "IP gateway address\n"
       "IP gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
@@ -1051,17 +1030,11 @@ DEFPY(ip_route_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	struct static_vrf *svrf = vrf->info;
 	struct static_vrf *nh_svrf;
-	const char *flag = NULL;
 
 	if (table_str && !vrf_is_backend_netns()) {
 		vty_out(vty,
 			"%% table param only available when running on netns-based vrfs\n");
 		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
 	}
 
 	if (nexthop_vrf)
@@ -1076,14 +1049,14 @@ DEFPY(ip_route_vrf,
 
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP, SAFI_UNICAST, no, prefix, mask_str,
-		NULL, gate_str, ifname, flag, tag_str, distance_str, label,
+		NULL, gate_str, ifname, NULL, tag_str, distance_str, label,
 		table_str, false);
 }
 
 DEFPY(ipv6_route_blackhole,
       ipv6_route_blackhole_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
-          <reject|blackhole>$flag                          \
+          <reject|blackhole|Null0|null0|NULL0>$flag        \
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
@@ -1099,6 +1072,7 @@ DEFPY(ipv6_route_blackhole,
       "IPv6 source prefix\n"
       "Emit an ICMP unreachable when matched\n"
       "Silently discard pkts when matched\n"
+      NULL_HELP_STR
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this prefix\n"
@@ -1121,7 +1095,7 @@ DEFPY(ipv6_route_blackhole,
 DEFPY(ipv6_route_blackhole_vrf,
       ipv6_route_blackhole_vrf_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
-          <reject|blackhole>$flag                          \
+          <reject|blackhole|Null0|null0|NULL0>$flag        \
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
@@ -1136,6 +1110,7 @@ DEFPY(ipv6_route_blackhole_vrf,
       "IPv6 source prefix\n"
       "Emit an ICMP unreachable when matched\n"
       "Silently discard pkts when matched\n"
+      NULL_HELP_STR
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this prefix\n"
@@ -1168,7 +1143,7 @@ DEFPY(ipv6_route_address_interface,
       ipv6_route_address_interface_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           X:X::X:X$gate                                    \
-          <INTERFACE|Null0>$ifname                         \
+          <INTERFACE>$ifname                               \
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
@@ -1186,7 +1161,6 @@ DEFPY(ipv6_route_address_interface,
       "IPv6 source prefix\n"
       "IPv6 gateway address\n"
       "IPv6 gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this prefix\n"
@@ -1199,7 +1173,6 @@ DEFPY(ipv6_route_address_interface,
 {
 	struct static_vrf *svrf;
 	struct static_vrf *nh_svrf;
-	const char *flag = NULL;
 
 	if (table_str && vrf && !vrf_is_backend_netns()) {
 		vty_out(vty,
@@ -1223,14 +1196,9 @@ DEFPY(ipv6_route_address_interface,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
-
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
-		from_str, gate_str, ifname, flag, tag_str, distance_str, label,
+		from_str, gate_str, ifname, NULL, tag_str, distance_str, label,
 		table_str, !!onlink);
 }
 
@@ -1238,7 +1206,7 @@ DEFPY(ipv6_route_address_interface_vrf,
       ipv6_route_address_interface_vrf_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           X:X::X:X$gate                                    \
-          <INTERFACE|Null0>$ifname                         \
+          <INTERFACE>$ifname                               \
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
@@ -1255,7 +1223,6 @@ DEFPY(ipv6_route_address_interface_vrf,
       "IPv6 source prefix\n"
       "IPv6 gateway address\n"
       "IPv6 gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this prefix\n"
@@ -1268,7 +1235,6 @@ DEFPY(ipv6_route_address_interface_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	struct static_vrf *svrf = vrf->info;
 	struct static_vrf *nh_svrf;
-	const char *flag = NULL;
 
 	if (table_str && !vrf_is_backend_netns()) {
 		vty_out(vty,
@@ -1286,21 +1252,16 @@ DEFPY(ipv6_route_address_interface_vrf,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
-
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
-		from_str, gate_str, ifname, flag, tag_str, distance_str, label,
+		from_str, gate_str, ifname, NULL, tag_str, distance_str, label,
 		table_str, !!onlink);
 }
 
 DEFPY(ipv6_route,
       ipv6_route_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
-          <X:X::X:X$gate|<INTERFACE|Null0>$ifname>         \
+          <X:X::X:X$gate|<INTERFACE>$ifname>               \
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
@@ -1317,7 +1278,6 @@ DEFPY(ipv6_route,
       "IPv6 source prefix\n"
       "IPv6 gateway address\n"
       "IPv6 gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this prefix\n"
@@ -1329,7 +1289,6 @@ DEFPY(ipv6_route,
 {
 	struct static_vrf *svrf;
 	struct static_vrf *nh_svrf;
-	const char *flag = NULL;
 
 	if (table_str && vrf && !vrf_is_backend_netns()) {
 		vty_out(vty,
@@ -1353,21 +1312,16 @@ DEFPY(ipv6_route,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
-	}
-
 	return static_route_leak(
 		vty, svrf, nh_svrf, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
-		from_str, gate_str, ifname, flag, tag_str, distance_str, label,
+		from_str, gate_str, ifname, NULL, tag_str, distance_str, label,
 		table_str, false);
 }
 
 DEFPY(ipv6_route_vrf,
       ipv6_route_vrf_cmd,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
-          <X:X::X:X$gate|<INTERFACE|Null0>$ifname>                 \
+          <X:X::X:X$gate|<INTERFACE>$ifname>               \
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
@@ -1383,7 +1337,6 @@ DEFPY(ipv6_route_vrf,
       "IPv6 source prefix\n"
       "IPv6 gateway address\n"
       "IPv6 gateway interface name\n"
-      "Null interface\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this prefix\n"
@@ -1411,11 +1364,6 @@ DEFPY(ipv6_route_vrf,
 	if (!nh_svrf) {
 		vty_out(vty, "%% nexthop vrf %s is not defined\n", nexthop_vrf);
 		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
-		flag = "Null0";
-		ifname = NULL;
 	}
 
 	return static_route_leak(
