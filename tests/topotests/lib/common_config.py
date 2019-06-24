@@ -113,6 +113,7 @@ def create_common_configuration(tgen, router, data, config_type=None,
         "general_config": "! FRR General Config\n",
         "interface_config": "! Interfaces Config\n",
         "static_route": "! Static Route Config\n",
+        "prefix_list": "! Prefix List Config\n",
         "bgp": "! BGP Config\n"
     })
 
@@ -586,3 +587,118 @@ def create_static_routes(tgen, input_dict, build=False):
 
     logger.debug("Exiting lib API: create_static_routes()")
     return result
+
+
+def create_prefix_lists(tgen, input_dict, build=False):
+    """
+    Create ip prefix lists as per the config provided in input
+    JSON or input_dict
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `input_dict` : Input dict data, required when configuring from testcase
+    * `build` : Only for initial setup phase this is set as True.
+
+    Usage
+    -----
+    # pf_lists_1: name of prefix-list, user defined
+    # seqid: prefix-list seqid, auto-generated if not given by user
+    # network: criteria for applying prefix-list
+    # action: permit/deny
+    # le: less than or equal number of bits
+    # ge: greater than or equal number of bits
+
+    Example
+    -------
+    input_dict = {
+        "r1": {
+            "prefix_lists":{
+                "ipv4": {
+                    "pf_list_1": [
+                        {
+                            "seqid": 10,
+                            "network": "any",
+                            "action": "permit",
+                            "le": "32",
+                            "ge": "30",
+                            "delete": True
+                        }
+                    ]
+                }
+            }
+        }
+    }
+
+    Returns
+    -------
+    errormsg or True
+    """
+
+    logger.debug("Entering lib API: create_prefix_lists()")
+    result = False
+    try:
+        for router in input_dict.keys():
+            if "prefix_lists" not in input_dict[router]:
+                errormsg = "prefix_lists not present in input_dict"
+                logger.info(errormsg)
+                continue
+
+            config_data = []
+            prefix_lists = input_dict[router]["prefix_lists"]
+            for addr_type, prefix_data in prefix_lists.iteritems():
+                if not check_address_types(addr_type):
+                    continue
+
+                for prefix_name, prefix_list in prefix_data.iteritems():
+                    for prefix_dict in prefix_list:
+                        if "action" not in prefix_dict or \
+                                "network" not in prefix_dict:
+                            errormsg = "'action' or network' missing in" \
+                                       " input_dict"
+                            return errormsg
+
+                        network_addr = prefix_dict["network"]
+                        action = prefix_dict["action"]
+                        le = prefix_dict.setdefault("le", None)
+                        ge = prefix_dict.setdefault("ge", None)
+                        seqid = prefix_dict.setdefault("seqid", None)
+                        del_action = prefix_dict.setdefault("delete", False)
+                        if seqid is None:
+                            seqid = get_seq_id("prefix_lists", router,
+                                               prefix_name)
+                        else:
+                            set_seq_id("prefix_lists", router, seqid,
+                                       prefix_name)
+
+                        if addr_type == "ipv4":
+                            protocol = "ip"
+                        else:
+                            protocol = "ipv6"
+
+                        cmd = "{} prefix-list {} seq {} {} {}".format(
+                            protocol, prefix_name, seqid, action, network_addr
+                        )
+                        if le:
+                            cmd = "{} le {}".format(cmd, le)
+                        if ge:
+                            cmd = "{} ge {}".format(cmd, ge)
+
+                        if del_action:
+                            cmd = "no {}".format(cmd)
+
+                        config_data.append(cmd)
+            result = create_common_configuration(tgen, router,
+                                                 config_data,
+                                                 "prefix_list",
+                                                 build=build)
+
+    except InvalidCLIError:
+        # Traceback
+        errormsg = traceback.format_exc()
+        logger.error(errormsg)
+        return errormsg
+
+    logger.debug("Exiting lib API: create_prefix_lists()")
+    return result
+
