@@ -111,7 +111,8 @@ def create_common_configuration(tgen, router, data, config_type=None,
 
     config_map = OrderedDict({
         "general_config": "! FRR General Config\n",
-        "interface_config": "! Interfaces Config\n"
+        "interface_config": "! Interfaces Config\n",
+        "bgp": "! BGP Config\n"
     })
 
     if build:
@@ -379,6 +380,55 @@ def generate_ips(network, no_of_ips):
             count += 1
 
     return ipaddress_list
+
+
+def find_interface_with_greater_ip(topo, router, loopback=True,
+                                   interface=True):
+    """
+    Returns highest interface ip for ipv4/ipv6. If loopback is there then
+    it will return highest IP from loopback IPs otherwise from physical
+    interface IPs.
+
+    * `topo`  : json file data
+    * `router` : router for which hightest interface should be calculated
+    """
+
+    link_data = topo["routers"][router]["links"]
+    lo_list = []
+    interfaces_list = []
+    lo_exists = False
+    for destRouterLink, data in sorted(link_data.iteritems()):
+        if loopback:
+            if "type" in data and data["type"] == "loopback":
+                lo_exists = True
+                ip_address = topo["routers"][router]["links"][
+                    destRouterLink]["ipv4"].split("/")[0]
+                lo_list.append(ip_address)
+        if interface:
+            ip_address = topo["routers"][router]["links"][
+                destRouterLink]["ipv4"].split("/")[0]
+            interfaces_list.append(ip_address)
+
+    if lo_exists:
+        return sorted(lo_list)[-1]
+
+    return sorted(interfaces_list)[-1]
+
+
+def write_test_header(tc_name):
+    """ Display message at beginning of test case"""
+    count = 20
+    logger.info("*"*(len(tc_name)+count))
+    logger.info("START -> Testcase : %s", tc_name)
+    logger.info("*"*(len(tc_name)+count))
+
+
+def write_test_footer(tc_name):
+    """ Display message at end of test case"""
+    count = 21
+    logger.info("="*(len(tc_name)+count))
+    logger.info("PASSED -> Testcase : %s", tc_name)
+    logger.info("="*(len(tc_name)+count))
 
 
 #############################################
