@@ -185,9 +185,7 @@ void copy_nexthops(struct nexthop **tnh, const struct nexthop *nh,
 	const struct nexthop *nh1;
 
 	for (nh1 = nh; nh1; nh1 = nh1->next) {
-		nexthop = nexthop_new();
-		nexthop_copy(nexthop, nh1, rparent);
-
+		nexthop = nexthop_dup(nh1, rparent);
 		nexthop_add(tnh, nexthop);
 
 		if (CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_RECURSIVE))
