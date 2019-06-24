@@ -23,6 +23,7 @@
 #include <zebra.h>
 
 #include "lib/nexthop.h"
+#include "lib/nexthop_group_private.h"
 #include "lib/routemap.h"
 
 #include "zebra/connected.h"
@@ -100,7 +101,7 @@ static void nexthop_set_resolved(afi_t afi, const struct nexthop *newhop,
 				   &newhop->nh_label->label[0]);
 
 	resolved_hop->rparent = nexthop;
-	nexthop_add(&nexthop->resolved, resolved_hop);
+	_nexthop_add(&nexthop->resolved, resolved_hop);
 }
 
 /*

@@ -36,6 +36,7 @@
 #include "thread.h"
 #include "vrf.h"
 #include "workqueue.h"
+#include "nexthop_group_private.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/connected.h"
@@ -192,7 +193,7 @@ int zebra_check_addr(const struct prefix *p)
 /* Add nexthop to the end of a rib node's nexthop list */
 void route_entry_nexthop_add(struct route_entry *re, struct nexthop *nexthop)
 {
-	nexthop_add(&re->ng.nexthop, nexthop);
+	_nexthop_add(&re->ng.nexthop, nexthop);
 	re->nexthop_num++;
 }
 
@@ -1589,7 +1590,7 @@ static bool rib_update_re_from_ctx(struct route_entry *re,
 		 */
 		nexthop = nexthop_new();
 		nexthop->type = NEXTHOP_TYPE_IPV4;
-		nexthop_add(&(re->fib_ng.nexthop), nexthop);
+		_nexthop_add(&(re->fib_ng.nexthop), nexthop);
 	}
 
 done:

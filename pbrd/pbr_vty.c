@@ -25,6 +25,7 @@
 #include "vrf.h"
 #include "nexthop.h"
 #include "nexthop_group.h"
+#include "nexthop_group_private.h"
 #include "log.h"
 #include "debug.h"
 #include "pbr.h"
@@ -329,7 +330,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 		nh = nexthop_new();
 
 		memcpy(nh, &nhop, sizeof(nhop));
-		nexthop_add(&pbrms->nhg->nexthop, nh);
+		_nexthop_add(&pbrms->nhg->nexthop, nh);
 
 		pbr_nht_add_individual_nexthop(pbrms);
 		pbr_map_check(pbrms);
