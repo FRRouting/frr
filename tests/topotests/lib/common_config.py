@@ -80,6 +80,56 @@ else:
 ADDRESS_TYPES = os.environ.get("ADDRESS_TYPES")
 
 
+# Saves sequence id numbers
+SEQ_ID = {
+    "prefix_lists": {},
+    "route_maps": {}
+}
+
+
+def get_seq_id(obj_type, router, obj_name):
+    """
+    Generates and saves sequence number in interval of 10
+
+    Parameters
+    ----------
+    * `obj_type`: prefix_lists or route_maps
+    * `router`: router name
+    *` obj_name`: name of the prefix-list or route-map
+
+    Returns
+    --------
+    Sequence number generated
+    """
+
+    router_data = SEQ_ID[obj_type].setdefault(router, {})
+    obj_data = router_data.setdefault(obj_name, {})
+    seq_id = obj_data.setdefault("seq_id", 0)
+
+    seq_id = int(seq_id) + 10
+    obj_data["seq_id"] = seq_id
+
+    return seq_id
+
+
+def set_seq_id(obj_type, router, id, obj_name):
+    """
+    Saves sequence number if not auto-generated and given by user
+
+    Parameters
+    ----------
+    * `obj_type`: prefix_lists or route_maps
+    * `router`: router name
+    *` obj_name`: name of the prefix-list or route-map
+    """
+    router_data = SEQ_ID[obj_type].setdefault(router, {})
+    obj_data = router_data.setdefault(obj_name, {})
+    seq_id = obj_data.setdefault("seq_id", 0)
+
+    seq_id = int(seq_id) + int(id)
+    obj_data["seq_id"] = seq_id
+
+
 class InvalidCLIError(Exception):
     """Raise when the CLI command is wrong"""
     pass
@@ -114,6 +164,7 @@ def create_common_configuration(tgen, router, data, config_type=None,
         "interface_config": "! Interfaces Config\n",
         "static_route": "! Static Route Config\n",
         "prefix_list": "! Prefix List Config\n",
+        "route_maps": "! Route Maps Config\n",
         "bgp": "! BGP Config\n"
     })
 
@@ -691,6 +742,265 @@ def create_prefix_lists(tgen, input_dict, build=False):
             result = create_common_configuration(tgen, router,
                                                  config_data,
                                                  "prefix_list",
+                                                 build=build)
+
+    except InvalidCLIError:
+        # Traceback
+        errormsg = traceback.format_exc()
+        logger.error(errormsg)
+        return errormsg
+
+    logger.debug("Exiting lib API: create_prefix_lists()")
+    return result
+
+
+def create_route_maps(tgen, input_dict, build=False):
+    """
+    Create route-map on the devices as per the arguments passed
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `input_dict` : Input dict data, required when configuring from testcase
+    * `build` : Only for initial setup phase this is set as True.
+
+    Usage
+    -----
+    # route_maps: key, value pair for route-map name and its attribute
+    # rmap_match_prefix_list_1: user given name for route-map
+    # action: PERMIT/DENY
+    # match: key,value pair for match criteria. prefix_list, community-list,
+             large-community-list or tag. Only one option at a time.
+    # prefix_list: name of prefix list
+    # large-community-list: name of large community list
+    # community-ist: name of community list
+    # tag: tag id for static routes
+    # set: key, value pair for modifying route attributes
+    # localpref: preference value for the network
+    # med: metric value advertised for AS
+    # aspath: set AS path value
+    # weight: weight for the route
+    # community: standard community value to be attached
+    # large_community: large community value to be attached
+    # community_additive: if set to "additive", adds community/large-community
+                          value to the existing values of the network prefix
+
+    Example:
+    --------
+    input_dict = {
+        "r1": {
+            "route_maps": {
+                "rmap_match_prefix_list_1": [
+                    {
+                        "action": "PERMIT",
+                        "match": {
+                            "ipv4": {
+                                "prefix_list": "pf_list_1"
+                            }
+                            "ipv6": {
+                                "prefix_list": "pf_list_1"
+                            }
+
+                            "large-community-list": "{
+                                "id": "community_1",
+                                "exact_match": True
+                            }
+                            "community": {
+                                "id": "community_2",
+                                "exact_match": True
+                            }
+                            "tag": "tag_id"
+                        },
+                        "set": {
+                            "localpref": 150,
+                            "med": 30,
+                            "aspath": {
+                                "num": 20000,
+                                "action": "prepend",
+                            },
+                            "weight": 500,
+                            "community": {
+                                "num": "1:2 2:3",
+                                "action": additive
+                            }
+                            "large_community": {
+                                "num": "1:2:3 4:5;6",
+                                "action": additive
+                            },
+                        }
+                    }
+                ]
+            }
+        }
+    }
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    result = False
+    logger.debug("Entering lib API: create_route_maps()")
+
+    try:
+        for router in input_dict.keys():
+            if "route_maps" not in input_dict[router]:
+                errormsg = "route_maps not present in input_dict"
+                logger.info(errormsg)
+                continue
+            rmap_data = []
+            for rmap_name, rmap_value in \
+                    input_dict[router]["route_maps"].iteritems():
+
+                for rmap_dict in rmap_value:
+                    del_action = rmap_dict.setdefault("delete", False)
+
+                    if del_action:
+                        rmap_data.append("no route-map {}".format(rmap_name))
+                        continue
+
+                    if "action" not in rmap_dict:
+                        errormsg = "action not present in input_dict"
+                        logger.error(errormsg)
+                        return False
+
+                    rmap_action = rmap_dict.setdefault("action", "deny")
+
+                    seq_id = rmap_dict.setdefault("seq_id", None)
+                    if seq_id is None:
+                        seq_id = get_seq_id("route_maps", router, rmap_name)
+                    else:
+                        set_seq_id("route_maps", router, seq_id, rmap_name)
+
+                    rmap_data.append("route-map {} {} {}".format(
+                        rmap_name, rmap_action, seq_id
+                    ))
+
+                    # Verifying if SET criteria is defined
+                    if "set" in rmap_dict:
+                        set_data = rmap_dict["set"]
+
+                        local_preference = set_data.setdefault("localpref",
+                                                               None)
+                        metric = set_data.setdefault("med", None)
+                        as_path = set_data.setdefault("aspath", {})
+                        weight = set_data.setdefault("weight", None)
+                        community = set_data.setdefault("community", {})
+                        large_community = set_data.setdefault(
+                            "large_community", {})
+                        set_action = set_data.setdefault("set_action", None)
+
+                        # Local Preference
+                        if local_preference:
+                            rmap_data.append("set local-preference {}".
+                                             format(local_preference))
+
+                        # Metric
+                        if metric:
+                            rmap_data.append("set metric {} \n".format(metric))
+
+                        # AS Path Prepend
+                        if as_path:
+                            as_num = as_path.setdefault("as_num", None)
+                            as_action = as_path.setdefault("as_action", None)
+                            if as_action and as_num:
+                                rmap_data.append("set as-path {} {}".
+                                                 format(as_action, as_num))
+
+                        # Community
+                        if community:
+                            num = community.setdefault("num", None)
+                            comm_action = community.setdefault("action", None)
+                            if num:
+                                cmd = "set community {}".format(num)
+                                if comm_action:
+                                    cmd = "{} {}".format(cmd, comm_action)
+                                rmap_data.append(cmd)
+                            else:
+                                logger.error("In community, AS Num not"
+                                             " provided")
+                                return False
+
+                        if large_community:
+                            num = large_community.setdefault("num", None)
+                            comm_action = large_community.setdefault("action",
+                                                                     None)
+                            if num:
+                                cmd = "set large-community {}".format(num)
+                                if comm_action:
+                                    cmd = "{} {}".format(cmd, comm_action)
+
+                                rmap_data.append(cmd)
+                            else:
+                                logger.errror("In large_community, AS Num not"
+                                              " provided")
+                                return False
+
+                        # Weight
+                        if weight:
+                            rmap_data.append("set weight {} \n".format(
+                                weight))
+
+                    # Adding MATCH and SET sequence to RMAP if defined
+                    if "match" in rmap_dict:
+                        match_data = rmap_dict["match"]
+                        ipv4_data = match_data.setdefault("ipv4", {})
+                        ipv6_data = match_data.setdefault("ipv6", {})
+                        community = match_data.setdefault("community-list",
+                                                          {})
+                        large_community = match_data.setdefault(
+                            "large-community-list", {}
+                        )
+                        tag = match_data.setdefault("tag", None)
+
+                        if ipv4_data:
+                            prefix_name = ipv4_data.setdefault("prefix_lists",
+                                                               None)
+                            if prefix_name:
+                                rmap_data.append("match ip address prefix-list"
+                                                 " {}".format(prefix_name))
+                        if ipv6_data:
+                            prefix_name = ipv6_data.setdefault("prefix_lists",
+                                                               None)
+                            if prefix_name:
+                                rmap_data.append("match ipv6 address "
+                                                 "prefix-list {}".
+                                                 format(prefix_name))
+                        if tag:
+                            rmap_data.append("match tag {}".format(tag))
+
+                        if community:
+                            if "id" not in community:
+                                logger.error("'id' is mandatory for "
+                                             "community-list in match"
+                                             " criteria")
+                                return False
+                            cmd = "match community {}".format(community["id"])
+                            exact_match = community.setdefault("exact_match",
+                                                               False)
+                            if exact_match:
+                                cmd = "{} exact-match".format(cmd)
+
+                            rmap_data.append(cmd)
+
+                        if large_community:
+                            if "id" not in large_community:
+                                logger.error("'num' is mandatory for "
+                                             "large-community-list in match "
+                                             "criteria")
+                                return False
+                            cmd = "match large-community {}".format(
+                                large_community["id"])
+                            exact_match = large_community.setdefault(
+                                "exact_match", False)
+                            if exact_match:
+                                cmd = "{} exact-match".format(cmd)
+
+                            rmap_data.append(cmd)
+
+            result = create_common_configuration(tgen, router,
+                                                 rmap_data,
+                                                 "route_maps",
                                                  build=build)
 
     except InvalidCLIError:
