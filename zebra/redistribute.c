@@ -612,7 +612,7 @@ int zebra_add_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	newre->flags = re->flags;
 	newre->metric = re->metric;
 	newre->mtu = re->mtu;
-	newre->table = 0;
+	newre->table = zvrf->table_id;
 	newre->nexthop_num = 0;
 	newre->uptime = monotime(NULL);
 	newre->instance = re->table;
@@ -633,8 +633,8 @@ int zebra_del_import_table_entry(struct zebra_vrf *zvrf, struct route_node *rn,
 	prefix_copy(&p, &rn->p);
 
 	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_TABLE,
-		   re->table, re->flags, &p, NULL, re->ng.nexthop, 0,
-		   re->metric, re->distance, false);
+		   re->table, re->flags, &p, NULL, re->ng.nexthop,
+		   zvrf->table_id, re->metric, re->distance, false);
 
 	return 0;
 }
