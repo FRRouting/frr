@@ -654,7 +654,7 @@ int zebra_import_table(afi_t afi, uint32_t table_id, uint32_t distance,
 		return (-1);
 
 	table = zebra_vrf_table_with_table_id(afi, SAFI_UNICAST,
-					      table_id, VRF_DEFAULT);
+					      VRF_DEFAULT, table_id);
 	if (table == NULL) {
 		return 0;
 	} else if (IS_ZEBRA_DEBUG_RIB) {
@@ -769,7 +769,7 @@ void zebra_import_table_rm_update(const char *rmap)
 			if ((!rmap_name) || (strcmp(rmap_name, rmap) != 0))
 				continue;
 			table = zebra_vrf_table_with_table_id(afi, SAFI_UNICAST,
-							      i, VRF_DEFAULT);
+							      VRF_DEFAULT, i);
 			if (!table) {
 				if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 					zlog_debug("%s: Table id=%d not found",
