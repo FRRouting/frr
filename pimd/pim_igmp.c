@@ -305,6 +305,13 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 		return -1;
 	}
 
+	if (!pim_if_connected_to_source(ifp, from)) {
+		if (PIM_DEBUG_IGMP_PACKETS)
+			zlog_debug("Recv IGMP query on interface: %s from a non-connected source: %s",
+				   ifp->name, from_str);
+		return 0;
+	}
+
 	/* Collecting IGMP Rx stats */
 	switch (query_version) {
 	case 1:
