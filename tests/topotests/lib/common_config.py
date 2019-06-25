@@ -513,7 +513,10 @@ def generate_ips(network, no_of_ips):
         count = 0
         while count < no_of_ips:
             ipaddress_list.append("{}/{}".format(next_ip, mask))
-            next_ip += step
+            if addr_type == "ipv6":
+                next_ip = ipaddr.IPv6Address(int(next_ip) + step)
+            else:
+                next_ip += step
             count += 1
 
     return ipaddress_list
