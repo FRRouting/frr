@@ -12298,7 +12298,7 @@ ALIAS_HIDDEN(
 
 DEFUN (no_bgp_redistribute_ipv4_ospf,
        no_bgp_redistribute_ipv4_ospf_cmd,
-       "no redistribute <ospf|table> (1-65535) [metric (0-4294967295)] [route-map WORD]",
+       "no redistribute <ospf|table> (1-65535) [{metric (0-4294967295)|route-map WORD}]",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Open Shortest Path First (OSPFv2)\n"
@@ -12326,7 +12326,7 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
 
 ALIAS_HIDDEN(
 	no_bgp_redistribute_ipv4_ospf, no_bgp_redistribute_ipv4_ospf_hidden_cmd,
-	"no redistribute <ospf|table> (1-65535) [metric (0-4294967295)] [route-map WORD]",
+	"no redistribute <ospf|table> (1-65535) [{metric (0-4294967295)|route-map WORD}]",
 	NO_STR
 	"Redistribute information from another routing protocol\n"
 	"Open Shortest Path First (OSPFv2)\n"
@@ -12339,7 +12339,7 @@ ALIAS_HIDDEN(
 
 DEFUN (no_bgp_redistribute_ipv4,
        no_bgp_redistribute_ipv4_cmd,
-       "no redistribute " FRR_IP_REDIST_STR_BGPD " [metric (0-4294967295)] [route-map WORD]",
+       "no redistribute " FRR_IP_REDIST_STR_BGPD " [{metric (0-4294967295)|route-map WORD}]",
        NO_STR
        "Redistribute information from another routing protocol\n"
        FRR_IP_REDIST_HELP_STR_BGPD
@@ -12363,7 +12363,7 @@ DEFUN (no_bgp_redistribute_ipv4,
 ALIAS_HIDDEN(
 	no_bgp_redistribute_ipv4, no_bgp_redistribute_ipv4_hidden_cmd,
 	"no redistribute " FRR_IP_REDIST_STR_BGPD
-	" [metric (0-4294967295)] [route-map WORD]",
+	" [{metric (0-4294967295)|route-map WORD}]",
 	NO_STR
 	"Redistribute information from another routing protocol\n" FRR_IP_REDIST_HELP_STR_BGPD
 	"Metric for redistributed routes\n"
@@ -12522,7 +12522,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 
 DEFUN (no_bgp_redistribute_ipv6,
        no_bgp_redistribute_ipv6_cmd,
-       "no redistribute " FRR_IP6_REDIST_STR_BGPD " [metric (0-4294967295)] [route-map WORD]",
+       "no redistribute " FRR_IP6_REDIST_STR_BGPD " [{metric (0-4294967295)|route-map WORD}]",
        NO_STR
        "Redistribute information from another routing protocol\n"
        FRR_IP6_REDIST_HELP_STR_BGPD
