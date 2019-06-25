@@ -2444,6 +2444,7 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 	bool is_srcdst = src_p && src_p->prefixlen;
 	char straddr[PREFIX_STRLEN];
 	char srcaddr[PREFIX_STRLEN];
+	char nhname[PREFIX_STRLEN];
 	struct nexthop *nexthop;
 
 	zlog_debug("%s: dumping RE entry %p for %s%s%s vrf %u", func,
@@ -2453,12 +2454,12 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 			     : "",
 		   re->vrf_id);
 	zlog_debug("%s: uptime == %lu, type == %u, instance == %d, table == %d",
-		   func, (unsigned long)re->uptime, re->type, re->instance,
+		   straddr, (unsigned long)re->uptime, re->type, re->instance,
 		   re->table);
 	zlog_debug(
 		"%s: metric == %u, mtu == %u, distance == %u, flags == %u, status == %u",
-		func, re->metric, re->mtu, re->distance, re->flags, re->status);
-	zlog_debug("%s: nexthop_num == %u, nexthop_active_num == %u", func,
+		straddr, re->metric, re->mtu, re->distance, re->flags, re->status);
+	zlog_debug("%s: nexthop_num == %u, nexthop_active_num == %u", straddr,
 		   re->nexthop_num, re->nexthop_active_num);
 
 	for (ALL_NEXTHOPS(re->ng, nexthop)) {
@@ -2467,27 +2468,27 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_BLACKHOLE:
-			sprintf(straddr, "Blackhole");
+			sprintf(nhname, "Blackhole");
 			break;
 		case NEXTHOP_TYPE_IFINDEX:
 			ifp = if_lookup_by_index(nexthop->ifindex,
 						 nexthop->vrf_id);
-			sprintf(straddr, "%s", ifp ? ifp->name : "Unknown");
+			sprintf(nhname, "%s", ifp ? ifp->name : "Unknown");
 			break;
 		case NEXTHOP_TYPE_IPV4:
 			/* fallthrough */
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
-			inet_ntop(AF_INET, &nexthop->gate, straddr,
+			inet_ntop(AF_INET, &nexthop->gate, nhname,
 				  INET6_ADDRSTRLEN);
 			break;
 		case NEXTHOP_TYPE_IPV6:
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
-			inet_ntop(AF_INET6, &nexthop->gate, straddr,
+			inet_ntop(AF_INET6, &nexthop->gate, nhname,
 				  INET6_ADDRSTRLEN);
 			break;
 		}
 		zlog_debug("%s: %s %s[%u] vrf %s(%u) with flags %s%s%s%s%s%s",
-			   func, (nexthop->rparent ? "  NH" : "NH"), straddr,
+			   straddr, (nexthop->rparent ? "  NH" : "NH"), nhname,
 			   nexthop->ifindex, vrf ? vrf->name : "Unknown",
 			   nexthop->vrf_id,
 			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)
@@ -2509,7 +2510,7 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 				    ? "DUPLICATE "
 				    : ""));
 	}
-	zlog_debug("%s: dump complete", func);
+	zlog_debug("%s: dump complete", straddr);
 }
 
 /* This is an exported helper to rtm_read() to dump the strange
