@@ -2435,7 +2435,7 @@ static int zebra_ip_config(struct vty *vty)
 {
 	int write = 0;
 
-	write += zebra_import_table_config(vty);
+	write += zebra_import_table_config(vty, VRF_DEFAULT);
 
 	return write;
 }
@@ -2482,7 +2482,8 @@ DEFUN (ip_zebra_import_table_distance,
 		return CMD_WARNING;
 	}
 
-	ret = zebra_import_table(AFI_IP, table_id, distance, rmap, 1);
+	ret = zebra_import_table(AFI_IP, VRF_DEFAULT, table_id,
+				 distance, rmap, 1);
 	if (rmap)
 		XFREE(MTYPE_ROUTE_MAP_NAME, rmap);
 
@@ -2573,10 +2574,10 @@ DEFUN (no_ip_zebra_import_table,
 		return CMD_WARNING;
 	}
 
-	if (!is_zebra_import_table_enabled(AFI_IP, table_id))
+	if (!is_zebra_import_table_enabled(AFI_IP, VRF_DEFAULT, table_id))
 		return CMD_SUCCESS;
 
-	return (zebra_import_table(AFI_IP, table_id, 0, NULL, 0));
+	return (zebra_import_table(AFI_IP, VRF_DEFAULT, table_id, 0, NULL, 0));
 }
 
 static int config_write_protocol(struct vty *vty)
