@@ -199,6 +199,13 @@ Basic Config Commands
    will only be printed if it matches on one of the filters in the log-filter
    table. Can be daemon independent.
 
+   .. note::
+
+      Log filters help when you need to turn on debugs that cause significant
+      load on the system (enabling certain debugs can bring FRR to a halt).
+      Log filters prevent this but you should still expect a small performance
+      hit due to filtering each of all those logs.
+
 .. index:: log-filter clear [DAEMON]
 .. clicmd:: log-filter clear [DAEMON]
 
