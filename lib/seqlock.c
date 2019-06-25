@@ -36,8 +36,14 @@
 
 #include "seqlock.h"
 
+/****************************************
+ * OS specific synchronization wrappers *
+ ****************************************/
+
+/*
+ * Linux: sys_futex()
+ */
 #ifdef HAVE_SYNC_LINUX_FUTEX
-/* Linux-specific - sys_futex() */
 #include <sys/syscall.h>
 #include <linux/futex.h>
 
@@ -55,8 +61,10 @@ static long sys_futex(void *addr1, int op, int val1,
 #define wait_poke(sqlo)		\
 	sys_futex((int *)&sqlo->pos, FUTEX_WAKE, INT_MAX, NULL, NULL, 0)
 
+/*
+ * OpenBSD: sys_futex(), almost the same as on Linux
+ */
 #elif defined(HAVE_SYNC_OPENBSD_FUTEX)
-/* OpenBSD variant of the above. */
 #include <sys/syscall.h>
 #include <sys/futex.h>
 
@@ -69,8 +77,10 @@ static long sys_futex(void *addr1, int op, int val1,
 #define wait_poke(sqlo)		\
 	futex((int *)&sqlo->pos, FUTEX_WAKE, INT_MAX, NULL, NULL, 0)
 
+/*
+ * FreeBSD: _umtx_op()
+ */
 #elif defined(HAVE_SYNC_UMTX_OP)
-/* FreeBSD-specific: umtx_op() */
 #include <sys/umtx.h>
 
 #define wait_once(sqlo, val)	\
@@ -89,9 +99,10 @@ static int wait_time(struct seqlock *sqlo, uint32_t val,
 #define wait_poke(sqlo)		\
 	_umtx_op((void *)&sqlo->pos, UMTX_OP_WAKE, INT_MAX, NULL, NULL)
 
-#else
-/* generic version.  used on *BSD, Solaris and OSX.
+/*
+ * generic version.  used on NetBSD, Solaris and OSX.  really shitty.
  */
+#else
 
 #define TIME_ABS_REALTIME	1
 
@@ -151,6 +162,9 @@ void seqlock_wait(struct seqlock *sqlo, seqlock_val_t val)
 bool seqlock_timedwait(struct seqlock *sqlo, seqlock_val_t val,
 		       const struct timespec *abs_monotime_limit)
 {
+/*
+ * ABS_REALTIME - used on NetBSD, Solaris and OSX
+ */
 #if TIME_ABS_REALTIME
 #define time_arg1 &abs_rt
 #define time_arg2 NULL
@@ -170,6 +184,9 @@ bool seqlock_timedwait(struct seqlock *sqlo, seqlock_val_t val,
 	}
 	abs_rt.tv_sec += abs_monotime_limit->tv_sec - curmono.tv_sec;
 
+/*
+ * RELATIVE - used on OpenBSD (might get a patch to get absolute monotime)
+ */
 #elif TIME_RELATIVE
 	struct timespec reltime;
 
@@ -183,6 +200,9 @@ bool seqlock_timedwait(struct seqlock *sqlo, seqlock_val_t val,
 		reltime.tv_sec--;                                              \
 		reltime.tv_nsec += 1000000000;                                 \
 	}
+/*
+ * FreeBSD & Linux: absolute time re. CLOCK_MONOTONIC
+ */
 #else
 #define time_arg1 abs_monotime_limit
 #define time_arg2 NULL
