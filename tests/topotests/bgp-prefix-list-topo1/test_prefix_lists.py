@@ -60,7 +60,7 @@ from lib.topogen import Topogen, get_topogen
 
 # Import topoJson from lib, to create topology and initial configuration
 from lib.common_config import (
-    start_topology, stop_topology, write_test_header,
+    start_topology, write_test_header,
     write_test_footer, reset_config_on_routers,
     verify_rib, create_static_routes,
     create_prefix_lists, verify_prefix_lists
@@ -151,7 +151,7 @@ def teardown_module(mod):
     tgen = get_topogen()
 
     # Stop toplogy and Remove tmp files
-    stop_topology(tgen)
+    tgen.stop_topology()
 
     logger.info("Testsuite end time: {}".
                 format(time.asctime(time.localtime(time.time()))))
