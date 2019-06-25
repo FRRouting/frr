@@ -144,6 +144,7 @@ int main(int argc, char **argv, char **envp)
 
 	master = frr_init();
 
+	access_list_init();
 	vrrp_debug_init();
 	vrrp_zebra_init();
 	vrrp_vty_init();
