@@ -30,6 +30,13 @@ Test steps
 - Bring up topology
 - Verify for bgp to converge
 - Modify/Delete and verify router-id
+- Modify and verify bgp timers
+- Create and verify static routes
+- Modify and verify admin distance for existing static routes
+- Test advertise network using network command
+- Verify clear bgp
+- Test bgp convergence with loopback interface
+- Test advertise network using network command
 """
 
 import os

@@ -1346,3 +1346,57 @@ def verify_admin_distance_for_static_routes(tgen, input_dict):
 
     logger.info("Exiting lib API: verify_admin_distance_for_static_routes()")
     return True
+
+
+def verify_prefix_lists(tgen, input_dict):
+    """
+    Running "show ip prefix-list" command and verifying given prefix-list
+    is present in router.
+
+    Parameters
+    ----------
+    * `tgen` : topogen object
+    * `input_dict`: data to verify prefix lists
+
+    Usage
+    -----
+    # To verify pf_list_1 is present in router r1
+    input_dict = {
+        "r1": {
+            "prefix_lists": ["pf_list_1"]
+        }}
+    result = verify_prefix_lists("ipv4", input_dict, tgen)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.info("Entering lib API: verify_prefix_lists()")
+
+    for router in input_dict.keys():
+        if router not in tgen.routers():
+            continue
+
+        rnode = tgen.routers()[router]
+
+        # Show ip prefix list
+        show_prefix_list = rnode.vtysh_cmd("show ip prefix-list")
+
+        # Verify Prefix list is deleted
+        prefix_lists_addr = input_dict[router]["prefix_lists"]
+        for addr_type in prefix_lists_addr:
+            if not check_address_types(addr_type):
+                continue
+
+            for prefix_list in prefix_lists_addr[addr_type].keys():
+                if prefix_list in show_prefix_list:
+                    errormsg = ("Prefix list {} is not deleted from router"
+                                " {}".format(prefix_list, router))
+                    return errormsg
+
+                logger.info("Prefix list %s is/are deleted successfully"
+                            " from router %s", prefix_list, router)
+
+    logger.info("Exiting lib API: verify_prefix_lissts()")
+    return True
