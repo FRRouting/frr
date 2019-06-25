@@ -46,6 +46,7 @@
 %code requires {
   #include "config.h"
 
+  #include <stdbool.h>
   #include <stdlib.h>
   #include <string.h>
   #include <ctype.h>
@@ -139,6 +140,8 @@
 
   static void
   cleanup (struct parser_ctx *ctx);
+
+  static void loopcheck(struct parser_ctx *ctx, struct subgraph *sg);
 
   #define scanner ctx->scanner
 }
@@ -335,6 +338,7 @@ selector: '{' selector_seq_seq '}' varname_token
    * just use [{a|b}] if neccessary, that will work perfectly fine, and reason
    * #1 is good enough to keep it this way. */
 
+  loopcheck(ctx, &$$);
   cmd_token_varname_set ($2.end->data, $4);
   XFREE (MTYPE_LEX, $4);
 };
@@ -395,6 +399,38 @@ cmd_graph_parse (struct graph *graph, struct cmd_element *cmd)
 }
 
 /* parser helper functions */
+
+static bool loopcheck_inner(struct graph_node *start, struct graph_node *node,
+			    struct graph_node *end, size_t depth)
+{
+	size_t i;
+	bool ret;
+
+	/* safety check */
+	if (depth++ == 64)
+		return true;
+
+	for (i = 0; i < vector_active(node->to); i++) {
+		struct graph_node *next = vector_slot(node->to, i);
+		struct cmd_token *tok = next->data;
+
+		if (next == end || next == start)
+			return true;
+		if (tok->type < SPECIAL_TKN)
+			continue;
+		ret = loopcheck_inner(start, next, end, depth);
+		if (ret)
+			return true;
+	}
+	return false;
+}
+
+static void loopcheck(struct parser_ctx *ctx, struct subgraph *sg)
+{
+	if (loopcheck_inner(sg->start, sg->start, sg->end, 0))
+		zlog_err("FATAL: '%s': {} contains an empty path! Use [{...}]",
+			 ctx->el->string);
+}
 
 void
 yyerror (CMD_YYLTYPE *loc, struct parser_ctx *ctx, char const *msg)
