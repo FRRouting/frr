@@ -1387,10 +1387,13 @@ static void zvni_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 				vty_out(vty, " %-5u", vid);
 			else
 				json_object_int_add(json_mac, "vlan", vid);
-		} else /* No vid? fill out the space */
-			vty_out(vty, " %-5s", "");
-		vty_out(vty, " %u/%u", mac->loc_seq, mac->rem_seq);
-		if (json_mac_hdr == NULL) {
+		} else  {/* No vid? fill out the space */
+			if (!json_mac_hdr)
+				vty_out(vty, " %-5s", "");
+		}
+
+		if (!json_mac_hdr) {
+			vty_out(vty, " %u/%u", mac->loc_seq, mac->rem_seq);
 			vty_out(vty, "\n");
 		} else {
 			json_object_int_add(json_mac, "localSequence",
