@@ -883,14 +883,6 @@ def clear_bgp_and_verify(tgen, topo, router):
     peer_uptime_before_clear_bgp = {}
     # Verifying BGP convergence before bgp clear command
     for retry in range(1, 11):
-        show_bgp_json = rnode.vtysh_cmd("show bgp summary json",
-                                        isjson=True)
-        logger.info(show_bgp_json)
-        # Verifying output dictionary show_bgp_json is empty or not
-        if not bool(show_bgp_json):
-            errormsg = "BGP is not running"
-            return errormsg
-
         sleeptime = 2 * retry
         if sleeptime <= BGP_CONVERGENCE_TIMEOUT:
             # Waiting for BGP to converge
@@ -900,6 +892,14 @@ def clear_bgp_and_verify(tgen, topo, router):
         else:
             errormsg = "TIMEOUT!! BGP is not converged in {} seconds for" \
                        " router {}".format(BGP_CONVERGENCE_TIMEOUT, router)
+            return errormsg
+
+        show_bgp_json = rnode.vtysh_cmd("show bgp summary json",
+                                        isjson=True)
+        logger.info(show_bgp_json)
+        # Verifying output dictionary show_bgp_json is empty or not
+        if not bool(show_bgp_json):
+            errormsg = "BGP is not running"
             return errormsg
 
         # To find neighbor ip type
@@ -964,13 +964,6 @@ def clear_bgp_and_verify(tgen, topo, router):
     peer_uptime_after_clear_bgp = {}
     # Verifying BGP convergence after bgp clear command
     for retry in range(1, 11):
-        show_bgp_json = rnode.vtysh_cmd("show bgp summary json",
-                                        isjson=True)
-        # Verifying output dictionary show_bgp_json is empty or not
-        if not bool(show_bgp_json):
-            errormsg = "BGP is not running"
-            return errormsg
-
         sleeptime = 2 * retry
         if sleeptime <= BGP_CONVERGENCE_TIMEOUT:
             # Waiting for BGP to converge
@@ -980,6 +973,13 @@ def clear_bgp_and_verify(tgen, topo, router):
         else:
             errormsg = "TIMEOUT!! BGP is not converged in {} seconds for" \
                        " router {}".format(BGP_CONVERGENCE_TIMEOUT, router)
+            return errormsg
+
+        show_bgp_json = rnode.vtysh_cmd("show bgp summary json",
+                                        isjson=True)
+        # Verifying output dictionary show_bgp_json is empty or not
+        if not bool(show_bgp_json):
+            errormsg = "BGP is not running"
             return errormsg
 
         # To find neighbor ip type

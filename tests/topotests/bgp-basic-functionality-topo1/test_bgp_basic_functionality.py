@@ -53,7 +53,8 @@ from mininet.topo import Topo
 
 from lib.common_config import (
     start_topology, stop_topology, write_test_header,
-    write_test_footer, reset_config_on_routers
+    write_test_footer, reset_config_on_routers, create_static_routes,
+    verify_rib, verify_admin_distance_for_static_routes
 )
 from lib.topolog import logger
 from lib.bgp import (
@@ -305,6 +306,277 @@ def test_bgp_timers_functionality(request):
 
     # Verifying bgp timers functionality
     result = verify_bgp_timers_and_functionality(tgen, topo, input_dict)
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+
+
+def test_static_routes(request):
+    """ Test to create and verify static routes. """
+
+    tgen = get_topogen()
+    if BGP_CONVERGENCE is not True:
+        pytest.skip('skipped because of BGP Convergence failure')
+
+    # test case name
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    # Api call to create static routes
+    input_dict = {
+        "r1": {
+            "static_routes": [{
+                "network": "10.0.20.1/32",
+                "no_of_ip": 9,
+                "admin_distance": 100,
+                "next_hop": "10.0.0.2"
+            }]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+
+    # Api call to redistribute static routes
+    input_dict_1 = {
+        "r1": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "redistribute": [
+                                {"redist_type": "static"},
+                                {"redist_type": "connected"}
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    result = create_router_bgp(tgen, topo, input_dict_1)
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+
+    # Verifying RIB routes
+    dut = 'r3'
+    protocol = 'bgp'
+    next_hop = '10.0.0.2'
+    result = verify_rib(tgen, 'ipv4', dut, input_dict, next_hop=next_hop,
+                        protocol=protocol)
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_admin_distance_for_existing_static_routes(request):
+    """ Test to modify and verify admin distance for existing static routes."""
+
+    tgen = get_topogen()
+    if BGP_CONVERGENCE is not True:
+        pytest.skip('skipped because of BGP Convergence failure')
+
+    # test case name
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    input_dict = {
+        "r1": {
+            "static_routes": [{
+                "network": "10.0.20.1/32",
+                "admin_distance": 10,
+                "next_hop": "10.0.0.2"
+            }]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+
+    # Verifying admin distance  once modified
+    result = verify_admin_distance_for_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_advertise_network_using_network_command(request):
+    """ Test advertise networks using network command."""
+
+    tgen = get_topogen()
+    if BGP_CONVERGENCE is not True:
+        pytest.skip('skipped because of BGP Convergence failure')
+
+    # test case name
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    # Api call to advertise networks
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "advertise_networks": [
+                                {
+                                    "network": "20.0.0.0/32",
+                                    "no_of_network": 10
+                                },
+                                {
+                                    "network": "30.0.0.0/32",
+                                    "no_of_network": 10
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    result = create_router_bgp(tgen, topo, input_dict)
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+
+    # Verifying RIB routes
+    dut = 'r2'
+    protocol = "bgp"
+    result = verify_rib(tgen, 'ipv4', dut, input_dict, protocol=protocol)
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_clear_bgp_and_verify(request):
+    """
+    Created few static routes and verified all routes are learned via BGP
+    cleared BGP and verified all routes are intact
+    """
+
+    tgen = get_topogen()
+    if BGP_CONVERGENCE is not True:
+        pytest.skip('skipped because of BGP Convergence failure')
+
+    # test case name
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    # clear ip bgp
+    result = clear_bgp_and_verify(tgen, topo, 'r1')
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_bgp_with_loopback_interface(request):
+    """
+    Test BGP with loopback interface
+
+    Adding keys:value pair  "dest_link": "lo" and "source_link": "lo"
+    peer dict of input json file for all router's creating config using
+    loopback interface. Once BGP neighboship is up then verifying BGP
+    convergence
+    """
+
+    tgen = get_topogen()
+    if BGP_CONVERGENCE is not True:
+        pytest.skip('skipped because of BGP Convergence failure')
+
+    # test case name
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    for routerN in sorted(topo['routers'].keys()):
+        for bgp_neighbor in \
+                topo['routers'][routerN]['bgp']['address_family']['ipv4'][
+                'unicast']['neighbor'].keys():
+
+            # Adding ['source_link'] = 'lo' key:value pair
+            topo['routers'][routerN]['bgp']['address_family']['ipv4'][
+                'unicast']['neighbor'][bgp_neighbor]["dest_link"] = {
+                    'lo': {
+                        "source_link": "lo",
+                    }
+                }
+
+    # Creating configuration from JSON
+    build_config_from_json(tgen, topo)
+
+    input_dict = {
+        "r1": {
+            "static_routes": [{
+                    "network": "1.0.2.17/32",
+                    "next_hop": "10.0.0.2"
+                },
+                {
+                    "network": "1.0.3.17/32",
+                    "next_hop": "10.0.0.6"
+                }
+            ]
+        },
+        "r2": {
+            "static_routes": [{
+                    "network": "1.0.1.17/32",
+                    "next_hop": "10.0.0.1"
+                },
+                {
+                    "network": "1.0.3.17/32",
+                    "next_hop": "10.0.0.10"
+                }
+            ]
+        },
+        "r3": {
+            "static_routes": [{
+                    "network": "1.0.1.17/32",
+                    "next_hop": "10.0.0.5"
+                },
+                {
+                    "network": "1.0.2.17/32",
+                    "next_hop": "10.0.0.9"
+                },
+                {
+                    "network": "1.0.4.17/32",
+                    "next_hop": "10.0.0.14"
+                }
+            ]
+        },
+        "r4": {
+            "static_routes": [{
+                "network": "1.0.3.17/32",
+                "next_hop": "10.0.0.13"
+            }]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+
+    # Api call verify whether BGP is converged
+    result = verify_bgp_convergence(tgen, topo)
     assert result is True, "Testcase {} :Failed \n Error: {}". \
         format(tc_name, result)
 
