@@ -340,24 +340,25 @@ def start_topology(tgen):
     router_list = tgen.routers()
     TMPDIR = os.path.join(LOGDIR, tgen.modname)
 
-    # Deleting temporary created dir if exists
-    if os.path.exists("{}".format(TMPDIR)):
-        os.system("rm -rf {}".format(TMPDIR))
-
-    # Create testsuite named temporary dir to save
-    # tmp files
-    os.mkdir("{}".format(TMPDIR))
-
     for rname, router in router_list.iteritems():
         try:
             os.chdir(TMPDIR)
 
             # Creating rouer named dir and empty zebra.conf bgpd.conf files
             # inside the current directory
-            os.mkdir("{}".format(rname))
-            os.system("chmod -R go+rw {}".format(rname))
-            os.chdir("{}/{}".format(TMPDIR, rname))
-            os.system("touch zebra.conf bgpd.conf")
+
+            if os.path.isdir('{}'.format(rname)):
+                os.system("rm -rf {}".format(rname))
+                os.mkdir('{}'.format(rname))
+                os.system('chmod -R go+rw {}'.format(rname))
+                os.chdir('{}/{}'.format(TMPDIR, rname))
+                os.system('touch zebra.conf bgpd.conf')
+            else:
+                os.mkdir('{}'.format(rname))
+                os.system('chmod -R go+rw {}'.format(rname))
+                os.chdir('{}/{}'.format(TMPDIR, rname))
+                os.system('touch zebra.conf bgpd.conf')
+
 
         except IOError as (errno, strerror):
             logger.error("I/O error({0}): {1}".format(errno, strerror))
@@ -365,35 +366,19 @@ def start_topology(tgen):
         # Loading empty zebra.conf file to router, to start the zebra deamon
         router.load_config(
             TopoRouter.RD_ZEBRA,
-            "{}/{}/zebra.conf".format(TMPDIR, rname)
-            # os.path.join(TMPDIR, "{}/zebra.conf".format(rname))
+            '{}/{}/zebra.conf'.format(TMPDIR, rname)
+            # os.path.join(tmpdir, '{}/zebra.conf'.format(rname))
         )
         # Loading empty bgpd.conf file to router, to start the bgp deamon
         router.load_config(
             TopoRouter.RD_BGP,
-            "{}/{}/bgpd.conf".format(TMPDIR, rname)
-            # os.path.join(TMPDIR, "{}/bgpd.conf".format(rname))
+            '{}/{}/bgpd.conf'.format(TMPDIR, rname)
+            # os.path.join(tmpdir, '{}/bgpd.conf'.format(rname))
         )
 
-    # Starting routers
+        # Starting routers
     logger.info("Starting all routers once topology is created")
     tgen.start_router()
-
-
-def stop_topology(tgen):
-    """
-    It will stop topology and remove temporary dirs and files.
-    * `tgen`  : topogen object
-    """
-
-    # This function tears down the whole topology.
-    tgen.stop_topology()
-
-    # Removing tmp dirs and files, once the topology is deleted
-    try:
-        os.system("rm -rf {}".format(TMPDIR))
-    except IOError as (errno, strerror):
-        logger.error("I/O error({0}): {1}".format(errno, strerror))
 
 
 def number_to_row(routerName):

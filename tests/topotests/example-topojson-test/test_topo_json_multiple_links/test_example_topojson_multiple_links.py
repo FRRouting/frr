@@ -44,7 +44,7 @@ from mininet.topo import Topo
 
 # Import topoJson from lib, to create topology and initial configuration
 from lib.common_config import (
-    start_topology, stop_topology, write_test_header,
+    start_topology, write_test_header,
     write_test_footer, verify_rib
 )
 from lib.topolog import logger
@@ -137,7 +137,7 @@ def teardown_module(mod):
     tgen = get_topogen()
 
     # Stop toplogy and Remove tmp files
-    stop_topology(tgen)
+    tgen.stop_topology()
 
 
 def test_bgp_convergence(request):

@@ -59,7 +59,7 @@ from lib.topogen import Topogen, get_topogen
 from mininet.topo import Topo
 
 from lib.common_config import (
-    start_topology, stop_topology, write_test_header,
+    start_topology, write_test_header,
     write_test_footer, reset_config_on_routers, create_static_routes,
     verify_rib, verify_admin_distance_for_static_routes
 )
@@ -135,7 +135,7 @@ def teardown_module():
     tgen = get_topogen()
 
     # Stop toplogy and Remove tmp files
-    stop_topology(tgen)
+    tgen.stop_topology()
 
     logger.info("Testsuite end time: {}".
                 format(time.asctime(time.localtime(time.time()))))
