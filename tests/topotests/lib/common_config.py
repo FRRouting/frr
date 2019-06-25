@@ -20,6 +20,7 @@
 
 from collections import OrderedDict
 from datetime import datetime
+import StringIO
 import os
 import ConfigParser
 import traceback
@@ -191,6 +192,88 @@ def create_common_configuration(tgen, router, data, config_type=None,
     if not build:
         load_config_to_router(tgen, router)
 
+    return True
+
+
+def reset_config_on_routers(tgen, routerName=None):
+    """
+    Resets configuration on routers to the snapshot created using input JSON
+    file. It replaces existing router configuration with FRRCFG_BKUP_FILE
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `routerName` : router config is to be reset
+    """
+
+    logger.debug("Entering API: reset_config_on_routers")
+
+    router_list = tgen.routers()
+    for rname, router in router_list.iteritems():
+        if routerName and routerName != rname:
+            continue
+
+        cfg = router.run("vtysh -c 'show running'")
+        fname = "{}/{}/frr.sav".format(TMPDIR, rname)
+        dname = "{}/{}/delta.conf".format(TMPDIR, rname)
+        f = open(fname, "w")
+        for line in cfg.split("\n"):
+            line = line.strip()
+
+            if (line == "Building configuration..." or
+                    line == "Current configuration:" or
+                    not line):
+                continue
+            f.write(line)
+            f.write("\n")
+
+        f.close()
+
+        command = "/usr/lib/frr/frr-reload.py  --input {}/{}/frr.sav" \
+                  " --test {}/{}/frr_json_initial.conf > {}". \
+            format(TMPDIR, rname, TMPDIR, rname, dname)
+        result = os.system(command)
+
+        # Assert if command fail
+        if result > 0:
+            errormsg = ("Command:{} is failed due to non-zero exit"
+                        " code".format(command))
+            return errormsg
+
+        f = open(dname, "r")
+        delta = StringIO.StringIO()
+        delta.write("configure terminal\n")
+        t_delta = f.read()
+        for line in t_delta.split("\n"):
+            line = line.strip()
+            if (line == "Lines To Delete" or
+                    line == "===============" or
+                    line == "Lines To Add" or
+                    line == "============" or
+                    not line):
+                continue
+            delta.write(line)
+            delta.write("\n")
+
+        delta.write("end\n")
+        output = router.vtysh_multicmd(delta.getvalue(),
+                                       pretty_output=False)
+        logger.info("New configuration for router {}:".format(rname))
+        delta.close()
+        delta = StringIO.StringIO()
+        cfg = router.run("vtysh -c 'show running'")
+        for line in cfg.split("\n"):
+            line = line.strip()
+            delta.write(line)
+            delta.write("\n")
+
+        # Router current configuration to log file or console if
+        # "show_router_config" is defined in "pytest.ini"
+        if show_router_config:
+            logger.info(delta.getvalue())
+        delta.close()
+
+    logger.debug("Exting API: reset_config_on_routers")
     return True
 
 
