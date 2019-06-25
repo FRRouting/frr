@@ -72,15 +72,6 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 		    const char *local_str, const char *ifname,
 		    const char *vrfname);
 
-/*
- * Commands definition.
- */
-DEFUN_NOSH(bfd_enter, bfd_enter_cmd, "bfd", "Configure BFD peers\n")
-{
-	vty->node = BFD_NODE;
-	return CMD_SUCCESS;
-}
-
 
 /*
  * Show commands helper functions
@@ -743,7 +734,6 @@ void bfdd_vty_init(void)
 	install_element(ENABLE_NODE, &bfd_show_peer_counters_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peers_cmd);
 	install_element(ENABLE_NODE, &bfd_show_peer_cmd);
-	install_element(CONFIG_NODE, &bfd_enter_cmd);
 	install_element(ENABLE_NODE, &show_debugging_bfd_cmd);
 
 	/* Install BFD node and commands. */

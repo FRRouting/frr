@@ -54,6 +54,21 @@
 /*
  * Functions.
  */
+DEFPY_NOSH(
+	bfd_enter, bfd_enter_cmd,
+	"bfd",
+	"Configure BFD peers\n")
+{
+	int ret;
+
+	nb_cli_enqueue_change(vty, "/frr-bfdd:bfdd/bfd", NB_OP_CREATE, NULL);
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		VTY_PUSH_XPATH(BFD_NODE, "/frr-bfdd:bfdd/bfd");
+
+	return ret;
+}
+
 DEFUN(
 	bfd_config_reset, bfd_config_reset_cmd,
 	"no bfd",
@@ -120,7 +135,7 @@ DEFPY_NOSH(
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 
-	/* Apply settings immediatly. */
+	/* Apply settings immediately. */
 	ret = nb_cli_apply_changes(vty, NULL);
 	if (ret == CMD_SUCCESS)
 		VTY_PUSH_XPATH(BFD_PEER_NODE, xpath);
@@ -376,6 +391,7 @@ void bfd_cli_show_echo_interval(struct vty *vty, struct lyd_node *dnode,
 void
 bfdd_cli_init(void)
 {
+	install_element(CONFIG_NODE, &bfd_enter_cmd);
 	install_element(CONFIG_NODE, &bfd_config_reset_cmd);
 
 	install_element(BFD_NODE, &bfd_peer_enter_cmd);
