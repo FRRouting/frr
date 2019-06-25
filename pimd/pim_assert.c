@@ -148,12 +148,6 @@ static int dispatch_assert(struct interface *ifp, struct in_addr source_addr,
 	sg.src = source_addr;
 	sg.grp = group_addr;
 	ch = pim_ifchannel_add(ifp, &sg, 0, 0);
-	if (!ch) {
-		zlog_warn(
-			"%s: (S,G)=%s failure creating channel on interface %s",
-			__PRETTY_FUNCTION__, pim_str_sg_dump(&sg), ifp->name);
-		return -1;
-	}
 
 	switch (ch->ifassert_state) {
 	case PIM_IFASSERT_NOINFO:

@@ -124,9 +124,6 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 			 * back if it fails.
 			 */
 			original_s_route = static_route_alloc();
-			if (!original_s_route) {
-				return -5;
-			}
 			memcpy(original_s_route, s_route,
 			       sizeof(struct static_route));
 
