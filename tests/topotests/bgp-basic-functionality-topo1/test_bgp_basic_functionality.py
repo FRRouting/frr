@@ -53,11 +53,13 @@ from mininet.topo import Topo
 
 from lib.common_config import (
     start_topology, stop_topology, write_test_header,
-    write_test_footer
+    write_test_footer, reset_config_on_routers
 )
 from lib.topolog import logger
 from lib.bgp import (
-    verify_bgp_convergence, create_router_bgp, verify_router_id
+    verify_bgp_convergence, create_router_bgp, verify_router_id,
+    modify_as_number, verify_as_numbers, clear_bgp_and_verify,
+    verify_bgp_timers_and_functionality
 )
 from lib.topojson import build_topo_from_json, build_config_from_json
 
@@ -203,6 +205,106 @@ def test_modify_and_delete_router_id(request):
     # Once router-id is deleted, highest interface ip should become
     # router-id
     result = verify_router_id(tgen, topo, input_dict)
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_bgp_config_with_4byte_as_number(request):
+    """
+    Configure BGP with 4 byte ASN and verify it works fine
+    """
+
+    tgen = get_topogen()
+    if BGP_CONVERGENCE is not True:
+        pytest.skip('skipped because of BGP Convergence failure')
+
+    # test case name
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "local_as": 131079
+            }
+        },
+        "r2": {
+            "bgp": {
+                "local_as": 131079
+            }
+        },
+        "r3": {
+            "bgp": {
+                "local_as": 131079
+            }
+        },
+        "r4": {
+            "bgp": {
+                "local_as": 131080
+            }
+        }
+    }
+    result = modify_as_number(tgen, topo, input_dict)
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+
+    result = verify_as_numbers(tgen, topo, input_dict)
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_bgp_timers_functionality(request):
+    """
+    Test to modify bgp timers and verify timers functionality.
+    """
+
+    tgen = get_topogen()
+    if BGP_CONVERGENCE is not True:
+        pytest.skip('skipped because of BGP Convergence failure')
+
+    # test case name
+    tc_name = request.node.name
+    write_test_header(tc_name)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    # Api call to modfiy BGP timerse
+    input_dict = {
+        "r1": {
+            "bgp": {
+                "address_family": {
+                    "ipv4": {
+                        "unicast": {
+                            "neighbor": {
+                                "r2": {
+                                    "dest_link":{
+                                        "r1": {
+                                            "keepalivetimer": 60,
+                                            "holddowntimer": 180,
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    result = create_router_bgp(tgen, topo, deepcopy(input_dict))
+    assert result is True, "Testcase {} :Failed \n Error: {}". \
+        format(tc_name, result)
+
+    # Api call to clear bgp, so timer modification would take place
+    clear_bgp_and_verify(tgen, topo, 'r1')
+
+    # Verifying bgp timers functionality
+    result = verify_bgp_timers_and_functionality(tgen, topo, input_dict)
     assert result is True, "Testcase {} :Failed \n Error: {}". \
         format(tc_name, result)
 
