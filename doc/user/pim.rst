@@ -151,6 +151,12 @@ Certain signals have special meanings to *pimd*.
    urib-only
       Lookup in the Unicast Rib only.
 
+.. index:: ip igmp generate-query-once [version (2-3)]
+.. clicmd:: ip igmp generate-query-once [version (2-3)]
+
+   Generate IGMP query (v2/v3) on user requirement. This will not depend on
+   the existing IGMP general query timer.If no version is provided in the cli,
+   it will be considered as default v2 query.This is a hidden command.
 
 .. _pim-interface-configuration:
 
