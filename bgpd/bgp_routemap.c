@@ -4015,17 +4015,14 @@ DEFUN (set_community_delete,
        "Delete matching communities\n")
 {
 	int idx_comm_list = 2;
-	char *str;
+	char *args;
 
-	str = XCALLOC(MTYPE_TMP,
-		      strlen(argv[idx_comm_list]->arg) + strlen(" delete") + 1);
-	strcpy(str, argv[idx_comm_list]->arg);
-	strcpy(str + strlen(argv[idx_comm_list]->arg), " delete");
-
+	args = argv_concat(argv, argc, idx_comm_list);
 	generic_set_add(vty, VTY_GET_CONTEXT(route_map_index), "comm-list",
-			str);
+			args);
 
-	XFREE(MTYPE_TMP, str);
+	XFREE(MTYPE_TMP, args);
+
 	return CMD_SUCCESS;
 }
 
@@ -4107,16 +4104,15 @@ DEFUN (set_lcommunity_delete,
        "Large Community-list name\n"
        "Delete matching large communities\n")
 {
-	char *str;
+	int idx_lcomm_list = 2;
+	char *args;
 
-	str = XCALLOC(MTYPE_TMP, strlen(argv[2]->arg) + strlen(" delete") + 1);
-	strcpy(str, argv[2]->arg);
-	strcpy(str + strlen(argv[2]->arg), " delete");
-
+	args = argv_concat(argv, argc, idx_lcomm_list);
 	generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			"large-comm-list", str);
+			"large-comm-list", args);
 
-	XFREE(MTYPE_TMP, str);
+	XFREE(MTYPE_TMP, args);
+
 	return CMD_SUCCESS;
 }
 
