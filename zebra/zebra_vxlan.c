@@ -875,10 +875,10 @@ static void zvni_print_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 		if (json_vni == NULL) {
 			if ((wctx->flags & SHOW_REMOTE_NEIGH_FROM_VTEP) &&
 			    (wctx->count == 0))
-				vty_out(vty,
-					"%*s %-6s %-8s %-17s %-21s\n",
+				vty_out(vty, "%*s %-6s %-8s %-17s %-21s %s\n",
 					-wctx->addr_width, "Neighbor", "Type",
-					"State", "MAC", "Remote VTEP");
+					"State", "MAC", "Remote VTEP",
+					"Seq #'s");
 			vty_out(vty, "%*s %-6s %-8s %-17s %-21s %u/%u\n",
 				-wctx->addr_width, buf2, "remote", state_str,
 				buf1, inet_ntoa(n->r_vtep_ip), n->loc_seq, n->rem_seq);
@@ -1391,9 +1391,10 @@ static void zvni_print_mac_hash(struct hash_bucket *bucket, void *ctxt)
 			else
 				json_object_int_add(json_mac, "vlan", vid);
 		} else /* No vid? fill out the space */
-			vty_out(vty, " %-5s", "");
-		vty_out(vty, " %u/%u", mac->loc_seq, mac->rem_seq);
+			if (json_mac_hdr == NULL)
+				vty_out(vty, " %-5s", "");
 		if (json_mac_hdr == NULL) {
+			vty_out(vty, " %u/%u", mac->loc_seq, mac->rem_seq);
 			vty_out(vty, "\n");
 		} else {
 			json_object_int_add(json_mac, "localSequence",
@@ -6150,9 +6151,8 @@ void zebra_vxlan_print_neigh_vni(struct vty *vty, struct zebra_vrf *zvrf,
 		vty_out(vty,
 			"Number of ARPs (local and remote) known for this VNI: %u\n",
 			num_neigh);
-		vty_out(vty, "%*s %-6s %-8s %-17s %-21s\n",
-			-wctx.addr_width, "IP", "Type",
-			"State", "MAC", "Remote VTEP");
+		vty_out(vty, "%*s %-6s %-8s %-17s %-21s %s\n", -wctx.addr_width,
+			"IP", "Type", "State", "MAC", "Remote VTEP", "Seq #'s");
 	} else
 		json_object_int_add(json, "numArpNd", num_neigh);
 
@@ -6414,8 +6414,8 @@ void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
 		vty_out(vty,
 			"Number of MACs (local and remote) known for this VNI: %u\n",
 			num_macs);
-		vty_out(vty, "%-17s %-6s %-21s %-5s\n", "MAC", "Type",
-			"Intf/Remote VTEP", "VLAN");
+		vty_out(vty, "%-17s %-6s %-21s %-5s %s\n", "MAC", "Type",
+			"Intf/Remote VTEP", "VLAN", "Seq #'s");
 	} else
 		json_object_int_add(json, "numMacs", num_macs);
 
