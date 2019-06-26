@@ -11,14 +11,17 @@ if c > 0:
 else:
     d = r
 wait = 2*num/1000
-mem = {}
+mem_z = {}
+mem_b = {}
 rtrs = ['ce1', 'ce2', 'ce3', 'r1', 'r2', 'r3', 'r4']
 for rtr in rtrs:
-    mem[rtr] = {'value': 0, 'units': 'unknown'}
-    ret = luCommand(rtr, 'vtysh -c "show memory"', 'bgpd: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*)', 'none', 'collect bgpd memory stats')
+    mem_z[rtr] = {'value': 0, 'units': 'unknown'}
+    mem_b[rtr] = {'value': 0, 'units': 'unknown'}
+    ret = luCommand(rtr, 'vtysh -c "show memory"', 'zebra: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*) .*bgpd: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*)', 'none', 'collect bgpd memory stats')
     found = luLast()
     if ret != False and found != None:
-        mem[rtr] = {'value': int(found.group(1)), 'units': found.group(2)}
+        mem_z[rtr] = {'value': int(found.group(1)), 'units': found.group(2)}
+        mem_b[rtr] = {'value': int(found.group(3)), 'units': found.group(4)}
 
 luCommand('ce1', 'vtysh -c "sharp data nexthop"', 'sharpd is not running', 'none','check if sharpd running')
 doSharp = True
@@ -54,13 +57,20 @@ if doSharp == True:
         luCommand(rtr, 'ip route show vrf {}-cust1 | grep -c \\^10\\.'.format(rtr), str(num), 'wait','See {} linux routes'.format(num), wait)
     rtrs = ['ce1', 'ce2', 'ce3', 'r1', 'r2', 'r3', 'r4']
     for rtr in rtrs:
-        ret = luCommand(rtr, 'vtysh -c "show memory"', 'bgpd: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*)', 'none', 'collect bgpd memory stats')
+        ret = luCommand(rtr, 'vtysh -c "show memory"', 'zebra: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*) .*bgpd: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*)', 'none', 'collect bgpd memory stats')
         found = luLast()
         if ret != False and found != None:
-            val = int(found.group(1))
-            if mem[rtr]['units'] != found.group(2):
-                val *= 1000
-            delta = val - int(mem[rtr]['value'])
-            ave = float(delta)/float(num)
-            luCommand(rtr, 'vtysh -c "show thread cpu"', '.', 'pass', 'BGPd heap: {0} {1} --> {2} {3} ({4} {1}/route)'.format(mem[rtr]['value'], mem[rtr]['units'], found.group(1), found.group(2), round(ave,4)))
+            val_z = int(found.group(1))
+            if mem_z[rtr]['units'] != found.group(2):
+                val_z *= 1000
+            delta_z = val_z - int(mem_z[rtr]['value'])
+            ave_z = float(delta_z)/float(num)
+
+            val_b = int(found.group(3))
+            if mem_b[rtr]['units'] != found.group(4):
+                val_b *= 1000
+            delta_b = val_b - int(mem_b[rtr]['value'])
+            ave_b = float(delta_b)/float(num)
+            luCommand(rtr, 'vtysh -c "show thread cpu"', '.', 'pass', 'BGPd heap: {0} {1} --> {2} {3} ({4} {1}/vpn route)'.format(mem_b[rtr]['value'], mem_b[rtr]['units'], found.group(3), found.group(4), round(ave_b,4)))
+            luCommand(rtr, 'vtysh -c "show thread cpu"', '.', 'pass', 'Zebra heap: {0} {1} --> {2} {3} ({4} {1}/vpn route)'.format(mem_z[rtr]['value'], mem_z[rtr]['units'], found.group(1), found.group(2), round(ave_z,4)))
 #done
