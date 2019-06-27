@@ -2107,6 +2107,15 @@ int lm_get_label_chunk(struct zclient *zclient, uint8_t keep, uint32_t base,
 			 "Wrong instId (%u) in get chunk response Should be %u",
 			 instance, zclient->instance);
 
+	/* if we requested a specific chunk and it could not be allocated, the
+	 * response message will end here
+	 */
+	if (!STREAM_READABLE(s)) {
+		zlog_info("Unable to assign Label Chunk to %s instance %u",
+			  zebra_route_string(proto), instance);
+		return -1;
+	}
+
 	/* keep */
 	response_keep = stream_getc(s);
 	/* start and end labels */
