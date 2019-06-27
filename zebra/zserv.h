@@ -98,7 +98,6 @@ struct zserv {
 	/* client's protocol */
 	uint8_t proto;
 	uint16_t instance;
-	uint8_t is_synchronous;
 
 	/* Statistics */
 	uint32_t redist_v4_add_cnt;
