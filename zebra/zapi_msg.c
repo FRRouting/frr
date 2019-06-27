@@ -929,19 +929,20 @@ int zsend_pw_update(struct zserv *client, struct zebra_pw *pw)
 
 /* Send response to a get label chunk request to client */
 static int zsend_assign_label_chunk_response(struct zserv *client,
-					     vrf_id_t vrf_id,
+					     vrf_id_t vrf_id, uint8_t proto,
+					     uint16_t instance,
 					     struct label_manager_chunk *lmc)
 {
 	int ret;
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, ZEBRA_GET_LABEL_CHUNK, vrf_id);
+	/* proto */
+	stream_putc(s, proto);
+	/* instance */
+	stream_putw(s, instance);
 
 	if (lmc) {
-		/* proto */
-		stream_putc(s, lmc->proto);
-		/* instance */
-		stream_putw(s, lmc->instance);
 		/* keep */
 		stream_putc(s, lmc->keep);
 		/* start and end labels */
@@ -1953,7 +1954,7 @@ static void zread_get_label_chunk(struct zserv *client, struct stream *msg,
 			   lmc->start, lmc->end,
 			   zebra_route_string(proto), instance);
 	/* send response back */
-	zsend_assign_label_chunk_response(client, vrf_id, lmc);
+	zsend_assign_label_chunk_response(client, vrf_id, proto, instance, lmc);
 
 stream_failure:
 	return;
