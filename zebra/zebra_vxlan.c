@@ -9774,22 +9774,35 @@ static void zvni_evpn_cfg_cleanup(struct hash_bucket *bucket, void *ctxt)
 	zvni->advertise_svi_macip = 0;
 	zvni->advertise_subnet = 0;
 
-	zvni_neigh_del_all(zvni, 0, 0,
+	zvni_neigh_del_all(zvni, 1, 0,
 			   DEL_REMOTE_NEIGH | DEL_REMOTE_NEIGH_FROM_VTEP);
-	zvni_mac_del_all(zvni, 0, 0,
+	zvni_mac_del_all(zvni, 1, 0,
 			 DEL_REMOTE_MAC | DEL_REMOTE_MAC_FROM_VTEP);
-	zvni_vtep_del_all(zvni, 0);
+	zvni_vtep_del_all(zvni, 1);
 }
 
 /* Cleanup EVPN configuration of a specific VRF */
 static void zebra_evpn_vrf_cfg_cleanup(struct zebra_vrf *zvrf)
 {
+	zebra_l3vni_t *zl3vni = NULL;
+
 	zvrf->advertise_all_vni = 0;
 	zvrf->advertise_gw_macip = 0;
 	zvrf->advertise_svi_macip = 0;
 	zvrf->vxlan_flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
 
 	hash_iterate(zvrf->vni_table, zvni_evpn_cfg_cleanup, NULL);
+
+	if (zvrf->l3vni)
+		zl3vni = zl3vni_lookup(zvrf->l3vni);
+	if (zl3vni) {
+		/* delete and uninstall all rmacs */
+		hash_iterate(zl3vni->rmac_table, zl3vni_del_rmac_hash_entry,
+			     zl3vni);
+		/* delete and uninstall all next-hops */
+		hash_iterate(zl3vni->nh_table, zl3vni_del_nh_hash_entry,
+			     zl3vni);
+	}
 }
 
 /* Cleanup BGP EVPN configuration upon client disconnect */
