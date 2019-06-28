@@ -303,6 +303,13 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 		return -1;
 	}
 
+	if (!pim_if_connected_to_source(ifp, from)) {
+		if (PIM_DEBUG_IGMP_PACKETS)
+			zlog_debug("Recv IGMP query on interface: %s from a non-connected source: %s",
+				   ifp->name, from_str);
+		return 0;
+	}
+
 	/*
 	 * RFC 3376 defines some guidelines on operating in backwards
 	 * compatibility with older versions of IGMP but there are some gaps in
