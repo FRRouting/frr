@@ -228,7 +228,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 
 	if ((up->sg.src.s_addr == INADDR_ANY && I_am_RP(pim, up->sg.grp)) ||
 	    PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
-		neigh_needed = FALSE;
+		neigh_needed = false;
 	pim_find_or_track_nexthop(pim, &nht_p, up, NULL, false, NULL);
 	if (!pim_ecmp_nexthop_lookup(pim, &rpf->source_nexthop, &src, &grp,
 				     neigh_needed))

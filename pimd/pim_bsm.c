@@ -865,8 +865,8 @@ static void pim_bsm_fwd_whole_sz(struct pim_instance *pim, uint8_t *buf,
 	struct pim_interface *pim_ifp;
 	struct in_addr dst_addr;
 	uint32_t pim_mtu;
-	bool no_fwd = FALSE;
-	bool ret = FALSE;
+	bool no_fwd = false;
+	bool ret = false;
 
 	/* For now only global scope zone is supported, so send on all
 	 * pim interfaces in the vrf
@@ -891,7 +891,7 @@ static void pim_bsm_fwd_whole_sz(struct pim_instance *pim, uint8_t *buf,
 			if (!pim_bsm_send_intf(buf, len, ifp, dst_addr)) {
 				if (PIM_DEBUG_BSM)
 					zlog_debug(
-						"%s: pim_bsm_send_intf returned FALSE",
+						"%s: pim_bsm_send_intf returned false",
 						__PRETTY_FUNCTION__);
 			}
 		}
@@ -1216,7 +1216,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 	struct pim_instance *pim;
 	char bsr_str[INET_ADDRSTRLEN];
 	uint16_t frag_tag;
-	bool empty_bsm = FALSE;
+	bool empty_bsm = false;
 
 	/* BSM Packet acceptance validation */
 	pim_ifp = ifp->info;

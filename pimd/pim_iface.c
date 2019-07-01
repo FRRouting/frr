@@ -134,7 +134,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp->igmp_last_member_query_count =
 		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
 
-	/* BSM config on interface: TRUE by default */
+	/* BSM config on interface: true by default */
 	pim_ifp->bsm_enable = true;
 	pim_ifp->ucast_bsm_accept = true;
 

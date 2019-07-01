@@ -829,7 +829,7 @@ void update_subgroup_inherit_info(struct update_subgroup *to,
  *
  * Delete a subgroup if it is ready to be deleted.
  *
- * Returns TRUE if the subgroup was deleted.
+ * Returns true if the subgroup was deleted.
  */
 static int update_subgroup_check_delete(struct update_subgroup *subgrp)
 {
@@ -979,7 +979,7 @@ static struct update_subgroup *update_subgroup_find(struct update_group *updgrp,
 /*
  * update_subgroup_ready_for_merge
  *
- * Returns TRUE if this subgroup is in a state that allows it to be
+ * Returns true if this subgroup is in a state that allows it to be
  * merged into another subgroup.
  */
 static int update_subgroup_ready_for_merge(struct update_subgroup *subgrp)
@@ -1012,7 +1012,7 @@ static int update_subgroup_ready_for_merge(struct update_subgroup *subgrp)
 /*
  * update_subgrp_can_merge_into
  *
- * Returns TRUE if the first subgroup can merge into the second
+ * Returns true if the first subgroup can merge into the second
  * subgroup.
  */
 static int update_subgroup_can_merge_into(struct update_subgroup *subgrp,
@@ -1092,7 +1092,7 @@ static void update_subgroup_merge(struct update_subgroup *subgrp,
  *
  * Merge this subgroup into another subgroup if possible.
  *
- * Returns TRUE if the subgroup has been merged. The subgroup pointer
+ * Returns true if the subgroup has been merged. The subgroup pointer
  * should not be accessed in this case.
  */
 int update_subgroup_check_merge(struct update_subgroup *subgrp,
@@ -1141,7 +1141,7 @@ static int update_subgroup_merge_check_thread_cb(struct thread *thread)
  * @param force If true, the merge check will be triggered even if the
  *              subgroup doesn't currently look ready for a merge.
  *
- * Returns TRUE if a merge check will be performed shortly.
+ * Returns true if a merge check will be performed shortly.
  */
 int update_subgroup_trigger_merge_check(struct update_subgroup *subgrp,
 					int force)
@@ -1788,7 +1788,7 @@ int update_group_refresh_default_originate_route_map(struct thread *thread)
  *
  * Refreshes routes out to a peer_af immediately.
  *
- * If the combine parameter is TRUE, then this function will try to
+ * If the combine parameter is true, then this function will try to
  * gather other peers in the subgroup for which a route announcement
  * is pending and efficently announce routes to all of them.
  *
